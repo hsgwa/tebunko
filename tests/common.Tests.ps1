@@ -20,28 +20,242 @@ Describe "toSafeFileName" {
     }
 }
 
-Describe "replaceNewLineToSpace" {
-    It "ダブルクォート内の改行を取り除く" {
-        replaceNewLineToSpace "`"a`r`nb`"`tc`r`n" | Should Be "`"ab`"`tc`r`n"
+Describe "encodeIndexPlace / decodeIndexPlace" {
+    It "ファイル名に使えない文字・_・% を %XX にし、元に戻せる" {
+        $place = 'a<b>c\d*e:f?g|h/i"j_k%l'
+        $encoded = encodeIndexPlace $place
+        $encoded | Should Be 'a%3Cb%3Ec%5Cd%2Ae%3Af%3Fg%7Ch%2Fi%22j%5Fk%25l'
+        decodeIndexPlace $encoded | Should BeExactly $place
+    }
+
+    It "制御文字も %XX にする" {
+        encodeIndexPlace "a`tb" | Should Be 'a%09b'
+        decodeIndexPlace 'a%09b' | Should Be "a`tb"
+    }
+
+    It "半角の記号と全角の記号は別の名前になる（衝突しない）" {
+        encodeIndexPlace '衝突"' | Should Not Be (encodeIndexPlace '衝突”')
+    }
+
+    It "使える文字（全角記号・空白・&'#() 等）はそのまま返す" {
+        # PowerShell は ” を " と同じに扱うため、' で囲む
+        encodeIndexPlace 'シート1 (2)&''#＜” 全角　' | Should Be 'シート1 (2)&''#＜” 全角　'
+    }
+
+    It "符号化で作らない %XX はそのまま返す（以前の版のシート名 100% 等）" {
+        decodeIndexPlace '100%' | Should Be '100%'
+        decodeIndexPlace '%41%2a' | Should Be '%41%2a'
+    }
+}
+
+Describe "toIndexFileName" {
+    It "<場所>.tsv にし、場所は符号化する（元のファイル名はフォルダ名にするため入れない）" {
+        toIndexFileName "記号<>_1" | Should Be "記号%3C%3E%5F1.tsv"
+    }
+
+    It "場所が長くても255文字を超えなければ返す" {
+        (toIndexFileName ("あ" * 251)).Length | Should Be 255
+    }
+
+    It "255文字を超えると、文字数の分かるメッセージで例外にする" {
+        { toIndexFileName ("あ" * 252) } | Should Throw "256 文字。上限 255 文字"
+    }
+}
+
+Describe "splitIndexTsvPath" {
+    It "今の形式（<ファイル名.xlsx>\<場所>.tsv）をファイル名・場所・フォルダに分ける" {
+        foreach ($case in @(
+            @("A.xlsx", "old.xlsx_1"),
+            @("A.xlsx_old.xlsx", "1"),
+            @("コピー.xls_old.xlsx", "Sheet1"),
+            @("終わりが_.xlsx", "_"),
+            @("100%.xlsx", "100%"),
+            @("ア_イ_ウ.xlsx", "シ_ー_ト"),
+            @("[確定]報告書.xlsx", "衝突`""),
+            @("資料.pptx", "スライド003_ノート"),
+            @("報告書.docx", "ヘッダー・フッター")
+        )) {
+            $parts = splitIndexTsvPath "営業\2024\$($case[0])\$(toIndexFileName $case[1])"
+            $parts.Book | Should BeExactly $case[0]
+            $parts.Place | Should BeExactly $case[1]
+            $parts.RelDir | Should Be "営業\2024"
+        }
+    }
+
+    It "インデックスフォルダの直下のファイルは、フォルダが空になる" {
+        $parts = splitIndexTsvPath "A.xlsx\Sheet1.tsv"
+        $parts.Book | Should Be "A.xlsx"
+        $parts.Place | Should Be "Sheet1"
+        $parts.RelDir | Should Be ""
+    }
+
+    It "以前の形式（<ファイル名.xlsx>_<場所>.tsv）も分けられる" {
+        $parts = splitIndexTsvPath "営業\コピー.xls_old.xlsx_Sheet1.tsv"
+        $parts.Book | Should Be "コピー.xls_old.xlsx"
+        $parts.Place | Should Be "Sheet1"
+        $parts.RelDir | Should Be "営業"
+
+        # さらに以前の形式（場所に _ をそのまま入れていた版）
+        $parts = splitIndexTsvPath "売上.xls_2024_上期.tsv"
+        $parts.Book | Should Be "売上.xls"
+        $parts.Place | Should Be "2024_上期"
+        $parts.RelDir | Should Be ""
+    }
+
+    It "Officeファイル以外の名前のフォルダにあるTSVは、ファイル名をそのまま返す" {
+        $parts = splitIndexTsvPath "メモ\other.tsv"
+        $parts.Book | Should Be "other.tsv"
+        $parts.Place | Should Be ""
+        $parts.RelDir | Should Be "メモ"
+    }
+}
+
+Describe "toLongPath / fromLongPath" {
+    It "ドライブのパスに \\?\ を付け、外すと元に戻る" {
+        toLongPath "C:\data\a.xlsx" | Should Be "\\?\C:\data\a.xlsx"
+        fromLongPath "\\?\C:\data\a.xlsx" | Should Be "C:\data\a.xlsx"
+    }
+
+    It "ネットワークのパスは \\?\UNC\ にし、外すと元に戻る" {
+        toLongPath "\\server\share\a.xlsx" | Should Be "\\?\UNC\server\share\a.xlsx"
+        fromLongPath "\\?\UNC\server\share\a.xlsx" | Should Be "\\server\share\a.xlsx"
+    }
+
+    It "付いていればそのまま、付いていなければ外してもそのまま" {
+        toLongPath "\\?\C:\a" | Should Be "\\?\C:\a"
+        fromLongPath "C:\a" | Should Be "C:\a"
+    }
+
+    It "/ は \ にする" {
+        toLongPath "C:/data/a.xlsx" | Should Be "\\?\C:\data\a.xlsx"
+    }
+}
+
+Describe "copyFileShared" {
+    It "ほかのアプリが書き込み用に開いているファイルもコピーでき、コピー中もほかのアプリの書き込みを妨げない" {
+        $source = "$TestDrive\共有 [1]\元.xlsx"
+        [void][System.IO.Directory]::CreateDirectory((Split-Path $source -Parent))
+        [System.IO.File]::WriteAllText($source, "abc", [System.Text.Encoding]::ASCII)
+
+        # 利用者が編集中（書き込みあり・ほかの読み取りだけ許可）の状態
+        $editing = New-Object System.IO.FileStream($source, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::Read)
+        try {
+            copyFileShared $source "$TestDrive\コピー.xlsx"
+        } finally {
+            $editing.Dispose()
+        }
+        [System.IO.File]::ReadAllText("$TestDrive\コピー.xlsx") | Should Be "abc"
+    }
+
+    It "読み取り専用のファイルも、通常の属性のコピーを作り、既にあれば上書きする" {
+        $source = "$TestDrive\読み取り専用.docx"
+        $dest = "$TestDrive\上書き.docx"
+        [System.IO.File]::WriteAllText($source, "new", [System.Text.Encoding]::ASCII)
+        [System.IO.File]::SetAttributes($source, [System.IO.FileAttributes]::ReadOnly)
+        [System.IO.File]::WriteAllText($dest, "old-content", [System.Text.Encoding]::ASCII)
+        try {
+            copyFileShared $source $dest
+            [System.IO.File]::ReadAllText($dest) | Should Be "new"
+            ([System.IO.File]::GetAttributes($dest) -band [System.IO.FileAttributes]::ReadOnly) | Should Be 0
+        } finally {
+            [System.IO.File]::SetAttributes($source, [System.IO.FileAttributes]::Normal)
+        }
+    }
+
+    It "長いパス（260文字超）のファイルもコピーできる" {
+        $dir = "$TestDrive\copyLong\" + ("a" * 100) + "\" + ("b" * 100)
+        [void][System.IO.Directory]::CreateDirectory((toLongPath $dir))
+        $source = "$dir\book.xlsx"
+        [System.IO.File]::WriteAllText((toLongPath $source), "long", [System.Text.Encoding]::ASCII)
+        try {
+            copyFileShared $source "$TestDrive\long_copy.xlsx"
+            [System.IO.File]::ReadAllText("$TestDrive\long_copy.xlsx") | Should Be "long"
+        } finally {
+            Remove-Item -LiteralPath (toLongPath "$TestDrive\copyLong") -Recurse -Force
+        }
+    }
+}
+
+Describe "長いパス（260文字超）" {
+    # フォルダのパスが約248文字、ファイルのパスが260文字を超えると、\\?\ を付けないと扱えない
+    $deepRel = ("a" * 100) + "\" + ("b" * 100)
+
+    It "prettyTsv で長いパスに保存できる" {
+        $dir = "$TestDrive\prettyLong\$deepRel"
+        [void][System.IO.Directory]::CreateDirectory((toLongPath $dir))
+        $in = "$TestDrive\long_sheet.tmp"
+        [System.IO.File]::WriteAllText($in, "x`r`n", [System.Text.Encoding]::Unicode)
+        try {
+            $out = "$dir\book.xlsx_Sheet1.tsv"
+            $out.Length | Should BeGreaterThan 260
+            prettyTsv $in $out | Should Be $true
+            [System.IO.File]::ReadAllText((toLongPath $out)) | Should Be "x`r`n"
+        } finally {
+            Remove-Item -LiteralPath (toLongPath "$TestDrive\prettyLong") -Recurse -Force
+        }
+    }
+
+    It "getIndexTsvFiles・searchIndex で長いパスのTSVも列挙・検索でき、相対パスは \\?\ の無い形になる" {
+        $root = "$TestDrive\indexLong"
+        $dir = "$root\$deepRel"
+        [void][System.IO.Directory]::CreateDirectory((toLongPath $dir))
+        [System.IO.File]::WriteAllText((toLongPath "$dir\book.xlsx_Sheet1.tsv"), "hello`r`n", $utf8Bom)
+        [System.IO.File]::WriteAllText("$root\short.xlsx_Sheet1.tsv", "hello`r`n", $utf8Bom)
+        try {
+            $index = getIndexTsvFiles @($root)
+            $index.Folders[0].Count | Should Be 2
+            $rel = @($index.Files.Values | ForEach-Object { $_.RelPath } | Sort-Object)
+            $rel | Should Be @("$deepRel\book.xlsx_Sheet1.tsv", "short.xlsx_Sheet1.tsv")
+
+            $hits = @((searchIndex "hello" $index.Files).Hits)
+            $hits.Count | Should Be 2
+            @($hits | Where-Object { $_.RelDir -eq $deepRel }).Count | Should Be 1
+
+            (getIndexSummary @($root)).Count | Should Be 2
+            testIndexExists @($root) | Should Be $true
+        } finally {
+            Remove-Item -LiteralPath (toLongPath $root) -Recurse -Force
+        }
+    }
+}
+
+Describe "replaceCellNewLine" {
+    It "ダブルクォート内の改行（LF・CR・CRLF）をセル内改行の文字に置き換える" {
+        replaceCellNewLine "`"a`nb`rc`r`nd`"`te`r`n" | Should Be "`"a${cellNewLine}b${cellNewLine}c${cellNewLine}d`"`te`r`n"
     }
 
     It "ダブルクォート外の改行は残す" {
-        replaceNewLineToSpace "a`r`nb" | Should Be "a`r`nb"
+        replaceCellNewLine "a`r`nb" | Should Be "a`r`nb"
     }
 }
 
 Describe "formatTsv" {
-    It "空行と行末の空白を取り除く" {
-        $lines = @((formatTsv "a`tb`t`t`r`n`t`r`nc  `r`n") -split "\r?\n" | Where-Object { $_ -ne "" })
-        $lines.Count | Should Be 2
+    It "行末の空セルと末尾の空行を取り除き、途中の空行は残す" {
+        $lines = (formatTsv "a`tb`t`t`r`n`t`r`nc  `r`n`t`r`n") -split "`r`n"
+        $lines.Count | Should Be 3
         $lines[0] | Should Be "a`tb"
-        $lines[1] | Should Be "c"
+        $lines[1] | Should Be ""
+        $lines[2] | Should Be "c  "
     }
 
     It "セル内改行を含む行を1行にまとめる" {
-        $lines = @((formatTsv "`"x`r`ny`"`tz`r`n") -split "\r?\n" | Where-Object { $_ -ne "" })
-        $lines.Count | Should Be 1
-        $lines[0] | Should Be "`"xy`"`tz"
+        $lines = (formatTsv "`"x`r`ny`"`tz`r`nw`r`n") -split "`r`n"
+        $lines.Count | Should Be 2
+        $lines[0] | Should Be "`"x${cellNewLine}y`"`tz"
+        $lines[1] | Should Be "w"
+    }
+
+    It "出力範囲の左上の位置に合わせて、先頭に空行・空セルを補う（D5 → 5行目の4列目）" {
+        $lines = (formatTsv "a`t`tb`r`n`r`nc`r`n" 5 4) -split "`r`n"
+        $lines.Count | Should Be 7
+        $lines[0..3] -join "|" | Should Be "|||"
+        $lines[4] | Should Be "`t`t`ta`t`tb"
+        $lines[5] | Should Be ""
+        $lines[6] | Should Be "`t`t`tc"
+    }
+
+    It "空白だけなら空文字を返す" {
+        formatTsv "`t `t`r`n`r`n" 3 2 | Should Be ""
     }
 }
 
@@ -54,7 +268,16 @@ Describe "prettyTsv" {
         prettyTsv $in $out | Should Be $true
         $bytes = [System.IO.File]::ReadAllBytes($out)
         $bytes[0..2] -join "," | Should Be "239,187,191"
-        [System.IO.File]::ReadAllText($out) | Should Be "`"ab`"`tc`r`n"
+        [System.IO.File]::ReadAllText($out) | Should Be "`"a${cellNewLine}b`"`tc`r`n"
+    }
+
+    It "出力範囲の左上の位置を指定できる" {
+        $in = "$TestDrive\sheet2.tmp"
+        $out = "$TestDrive\book.xlsx_B2.tsv"
+        [System.IO.File]::WriteAllText($in, "x`r`n", [System.Text.Encoding]::Unicode)
+
+        prettyTsv $in $out 2 2 | Should Be $true
+        [System.IO.File]::ReadAllText($out) | Should Be "`r`n`tx`r`n"
     }
 
     It "内容が空なら保存せず `$false を返す" {
@@ -82,6 +305,139 @@ Describe "readListFile / writeListFile" {
     }
 }
 
+Describe "readStatusFile / writeStatusFile / addStatusRow" {
+    It "書き込んだ変換対象フォルダと行をそのまま読み込める（[ ] や先頭の空白を含むパス）" {
+        $path = "$TestDrive\status[1].tsv"
+        $rows = @(
+            (newStatusRow "a\[確定]見積.xlsx" "2025/01/10 12:34:56" "10420" $stateDone "3" "2026/09/19 10:00:00"),
+            (newStatusRow " b.xls" "2025/02/01 08:00:00" "0" $stateNew)
+        )
+        $folders = @(
+            [pscustomobject]@{ Path = "C:\data [1]"; Name = "data [1]" },
+            [pscustomobject]@{ Path = "D:\"; Name = "D" }
+        )
+        writeStatusFile $folders $rows $path
+
+        $status = readStatusFile $path
+        $status.Folders.Count | Should Be 2
+        $status.Folders[0].Path | Should Be "C:\data [1]"
+        $status.Folders[0].Name | Should Be "data [1]"
+        $status.Folders[1].Path | Should Be "D:\"
+        $status.Folders[1].Name | Should Be "D"
+        $status.Rows.Count | Should Be 2
+        $row = $status.Rows["a\[確定]見積.xlsx"]
+        $row.更新日時 | Should Be "2025/01/10 12:34:56"
+        $row.サイズ | Should Be "10420"
+        $row.状態 | Should Be $stateDone
+        $row.TSV数 | Should Be "3"
+        $status.Rows[" b.xls"].状態 | Should Be $stateNew
+    }
+
+    It "先頭に変換対象フォルダ（パス・インデックス名）、次に見出しのTSVになる" {
+        $path = "$TestDrive\status_lines.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
+        $lines = [System.IO.File]::ReadAllLines($path)
+        $lines[0] | Should Be "変換対象フォルダ`tC:\data`tdata"
+        $lines[1] | Should Be "相対パス`t更新日時`tサイズ`t状態`tTSV数`t変換日時`tエラー"
+        $lines[2] | Should Be "a.xlsx`t2025/01/10 12:34:56`t1`t未変換`t`t`t"
+    }
+
+    It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
+        $path = "$TestDrive\status_append.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
+        addStatusRow (newStatusRow "dir\a.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 10:00:00" "パスワードが違います") $path
+
+        $status = readStatusFile $path
+        $status.Rows.Count | Should Be 1
+        $status.Rows["DIR\A.XLSX"].状態 | Should Be $stateFailed
+        $status.Rows["DIR\A.XLSX"].エラー | Should Be "パスワードが違います"
+    }
+
+    It "エラーメッセージのタブ・改行はスペースにして1行に収める" {
+        $path = "$TestDrive\status_error.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "" "" $stateFailed "" "" "1行目`r`n2行目`tタブ") $path
+        (readStatusFile $path).Rows["a.xlsx"].エラー | Should Be "1行目 2行目 タブ"
+    }
+
+    It "列数の合わない行（書き込み途中で中断した行）は無視する" {
+        $path = "$TestDrive\status_broken.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1") $path
+        [System.IO.File]::AppendAllText($path, "a.xlsx`t2025/01/10", $utf8Bom)
+
+        $status = readStatusFile $path
+        $status.Rows["a.xlsx"].状態 | Should Be $stateDone
+    }
+
+    It "書き直すと既存のファイルを置き換え、一時ファイルは残らない" {
+        $path = "$TestDrive\status_replace.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\old"; Name = "old" }) @(newStatusRow "old\a.xlsx") $path
+        writeStatusFile @([pscustomobject]@{ Path = "C:\new"; Name = "new" }) @(newStatusRow "new\b.xlsx") $path
+
+        $status = readStatusFile $path
+        @($status.Folders | ForEach-Object { $_.Path }) | Should Be @("C:\new")
+        @($status.Rows.Keys) | Should Be @("new\b.xlsx")
+        Test-Path -LiteralPath "${path}.tmp" | Should Be $false
+    }
+
+    It "以前の形式（変換対象フォルダが1つでインデックス名なし）も読める" {
+        $path = "$TestDrive\status_legacy.tsv"
+        [System.IO.File]::WriteAllLines($path, [string[]]@(
+            "変換対象フォルダ`tC:\old",
+            "相対パス`t更新日時`tサイズ`t状態`tTSV数`t変換日時`tエラー",
+            "a.xlsx`t2025/01/10 12:34:56`t1`t済`t1`t`t"
+        ), $utf8Bom)
+
+        $status = readStatusFile $path
+        $status.Folders[0].Path | Should Be "C:\old"
+        $status.Folders[0].Name | Should Be ""
+        $status.Rows["a.xlsx"].状態 | Should Be $stateDone
+    }
+
+    It "ファイルが無ければ空の一覧を返す" {
+        $status = readStatusFile "$TestDrive\none_status.tsv"
+        $status.Folders.Count | Should Be 0
+        $status.Rows.Count | Should Be 0
+    }
+}
+
+Describe "readConvertingFile / writeConvertingFile / removeConvertingFile" {
+    It "書き込んだ相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
+        $path = "$TestDrive\converting[1].txt"
+        writeConvertingFile "フォルダ1\a [確定]\見積.xlsx" 2 $path
+
+        $converting = readConvertingFile $path
+        $converting.RelPath | Should Be "フォルダ1\a [確定]\見積.xlsx"
+        $converting.Count | Should Be 2
+    }
+
+    It "削除すると記録なし（`$null）になる" {
+        $path = "$TestDrive\converting_remove.txt"
+        writeConvertingFile "a.xlsx" 1 $path
+        removeConvertingFile $path
+
+        Test-Path -LiteralPath $path | Should Be $false
+        readConvertingFile $path | Should Be $null
+    }
+
+    It "ファイルが無くても削除でエラーにならない" {
+        { removeConvertingFile "$TestDrive\none_converting.txt" } | Should Not Throw
+    }
+
+    It "壊れた記録（回数が数値でない・相対パスが無い・空）は `$null を返す" {
+        $path = "$TestDrive\converting_broken.txt"
+        foreach ($content in @("x`ta.xlsx", "0`ta.xlsx", "1`t", "a.xlsx", "")) {
+            [System.IO.File]::WriteAllText($path, $content, $utf8Bom)
+            readConvertingFile $path | Should Be $null
+        }
+    }
+}
+
+Describe "formatFileTime" {
+    It "秒までの日時にする" {
+        formatFileTime (New-Object DateTime 2025, 1, 2, 3, 4, 5, 678) | Should Be "2025/01/02 03:04:05"
+    }
+}
+
 Describe "splitIndexFileName" {
     It "ブック名とシート名に分解する" {
         $name = splitIndexFileName "book.xlsx_Sheet1.tsv"
@@ -89,14 +445,50 @@ Describe "splitIndexFileName" {
         $name.sheet | Should Be "Sheet1"
     }
 
-    It "シート名に _ を含んでも分解できる" {
+    It "場所の %XX を元に戻す" {
+        $name = splitIndexFileName "売上.xls_2024%5F上期%22.tsv"
+        $name.book | Should Be "売上.xls"
+        $name.sheet | Should Be '2024_上期"'
+    }
+
+    It "ファイル名に .xls_ 等を含んでも、最後の _ で分解する" {
+        $name = splitIndexFileName "コピー.xls_old.xlsx_Sheet1.tsv"
+        $name.book | Should Be "コピー.xls_old.xlsx"
+        $name.sheet | Should Be "Sheet1"
+    }
+
+    It "以前の版のTSV（シート名の _ を符号化していない）も分解できる" {
         $name = splitIndexFileName "売上.xls_2024_上期.tsv"
         $name.book | Should Be "売上.xls"
         $name.sheet | Should Be "2024_上期"
+
+        $name = splitIndexFileName "ア_イ_ウ.xlsx_シ_ト＜＞.tsv"
+        $name.book | Should Be "ア_イ_ウ.xlsx"
+        $name.sheet | Should Be "シ_ト＜＞"
+    }
+
+    It "拡張子が大文字でも分解できる" {
+        $name = splitIndexFileName "大文字.XLSX_Sheet1.tsv"
+        $name.book | Should Be "大文字.XLSX"
+        $name.sheet | Should Be "Sheet1"
     }
 
     It "xlsm も扱える" {
         (splitIndexFileName "macro.xlsm_A.tsv").book | Should Be "macro.xlsm"
+    }
+
+    It "Word・PowerPointのファイル名と場所に分解する" {
+        $name = splitIndexFileName "報告書.docx_ページ001.tsv"
+        $name.book | Should Be "報告書.docx"
+        $name.sheet | Should Be "ページ001"
+
+        $name = splitIndexFileName "旧.doc_ヘッダー・フッター.tsv"
+        $name.book | Should Be "旧.doc"
+        $name.sheet | Should Be "ヘッダー・フッター"
+
+        $name = splitIndexFileName "提案.pptx_スライド003%5Fノート.tsv"
+        $name.book | Should Be "提案.pptx"
+        $name.sheet | Should Be "スライド003_ノート"
     }
 
     It "形式外のファイル名はそのままブック名として返す" {
@@ -107,65 +499,731 @@ Describe "splitIndexFileName" {
 }
 
 Describe "toResultLine" {
-    It "ブック名・シート名・該当行をタブ区切りにする" {
-        toResultLine "book.xlsx_Sheet1.tsv" "時刻`t12:34:56" | Should Be "book.xlsx`tSheet1`t時刻`t12:34:56"
+    It "ブック名・シート名・行番号・該当行をタブ区切りにする" {
+        toResultLine "book.xlsx" "Sheet1" 12 "時刻`t12:34:56" | Should Be "book.xlsx`tSheet1`t12`t時刻`t12:34:56"
+    }
+
+    It "Excelのセル内改行を改行に戻す" {
+        toResultLine "book.xlsx" "Sheet1" 3 "a`t`"1行目${cellNewLine}2行目`"`tb" | Should Be "book.xlsx`tSheet1`t3`ta`t`"1行目`n2行目`"`tb"
+    }
+
+    It "シート名のタブ・改行はスペースにする（列・行が分かれないようにする）" {
+        toResultLine "book.xlsx" "タブ`tあり" 1 "x" | Should Be "book.xlsx`tタブ あり`t1`tx"
+        toResultLine "book.xlsx" "改行`nあり" 2 "y" | Should Be "book.xlsx`t改行 あり`t2`ty"
+    }
+
+    It 'Word・PowerPointの行は、" で始まるセルだけを " で囲む' {
+        toResultLine "doc.docx" "ページ001" 1 "`"引用`"と言った" | Should Be "doc.docx`tページ001`t1`t`"`"`"引用`"`"と言った`""
+        toResultLine "doc.docx" "ページ001" 2 "彼は`"引用`"と言った" | Should Be "doc.docx`tページ001`t2`t彼は`"引用`"と言った"
+        toResultLine "doc.docx" "ページ001" 3 "表`t`"見出し`"`tx" | Should Be "doc.docx`tページ001`t3`t表`t`"`"`"見出し`"`"`"`tx"
     }
 }
 
-Describe "readConfigLines" {
-    It "ファイルが無ければ空ファイルを作成して例外を投げる" {
-        $path = "$TestDrive\new\設定.txt"
-        { readConfigLines $path } | Should Throw "作成しました"
-        Test-Path $path | Should Be $true
+Describe "countTsvFields" {
+    It "タブ区切りのセル数を返す" {
+        countTsvFields "a`t`tb" | Should Be 3
+        countTsvFields "" | Should Be 1
     }
 
-    It "空行を除き前後の空白を取り除いて返す" {
-        $path = "$TestDrive\words.txt"
-        Set-Content $path -Value @("  検索1 ", "", "検索2", "   ") -Encoding UTF8
-        $lines = readConfigLines $path
-        $lines.Count | Should Be 2
-        $lines[0] | Should Be "検索1"
-        $lines[1] | Should Be "検索2"
-    }
-}
-
-Describe "getTargetFolder" {
-    It "1行ならその値を返す" {
-        $path = "$TestDrive\target1.txt"
-        Set-Content $path -Value @("C:\データ\Excel", "") -Encoding UTF8
-        getTargetFolder $path | Should Be "C:\データ\Excel"
+    It "先頭のセルが空でも数え落とさない" {
+        countTsvFields "`tb`tc" | Should Be 3
+        countTsvFields "`t`"b`tc`"" | Should Be 2
+        countTsvFields "`t" | Should Be 2
     }
 
-    It "2行以上なら例外を投げる" {
-        $path = "$TestDrive\target2.txt"
-        Set-Content $path -Value @("C:\a", "C:\b") -Encoding UTF8
-        { getTargetFolder $path } | Should Throw "１行だけ"
+    It '" で始まるセル内のタブ・改行は区切りとしない' {
+        countTsvFields "a`t`"左`t右`"`t`"`"`"x`"`"`"" | Should Be 3
+        countTsvFields "`"1行目`n2行目`"`tb" | Should Be 2
     }
 
-    It "空なら例外を投げる" {
-        $path = "$TestDrive\target0.txt"
-        Set-Content $path -Value @("") -Encoding UTF8
-        { getTargetFolder $path } | Should Throw "１行だけ"
+    It '" で始まらないセルの " は囲みとしない' {
+        countTsvFields "a`"b`tc`"d" | Should Be 2
     }
 }
 
-Describe "getIndexFolders" {
-    It "設定ファイルが無ければ work\index を返す" {
-        getIndexFolders "$TestDrive\none.txt" | Should Be $indexDir
+Describe "toColumnName" {
+    It "列番号を列名に変換する" {
+        toColumnName 1 | Should Be "A"
+        toColumnName 26 | Should Be "Z"
+        toColumnName 27 | Should Be "AA"
+        toColumnName 702 | Should Be "ZZ"
+        toColumnName 703 | Should Be "AAA"
+        toColumnName 16384 | Should Be "XFD"
+    }
+}
+
+Describe "toResultHeader" {
+    It "ファイル名・場所・行と、列名を並べる" {
+        toResultHeader 3 | Should Be "ファイル名`t場所`t行`tA`tB`tC"
+        toResultHeader 0 | Should Be "ファイル名`t場所`t行"
+    }
+}
+
+Describe "readSettings / writeSettings" {
+    It "ファイルが無ければ既定値を返し、ファイルを作らない" {
+        $path = "$TestDrive\空\setting.config"
+        $settings = readSettings $path
+        @($settings.targetFolders).Count | Should Be 0
+        @($settings.indexFolders).Count | Should Be 0
+        @($settings.indexSources).Count | Should Be 0
+        $settings.useRegex | Should Be $false
+        $settings.openMode | Should Be "normal"
+        Test-Path -LiteralPath $path | Should Be $false
     }
 
-    It "設定ファイルが空なら work\index を返す" {
-        $path = "$TestDrive\index_empty.txt"
-        Set-Content $path -Value @("") -Encoding UTF8
+    It "開き方（openMode）を保存・読み込みできる" {
+        $path = "$TestDrive\開き方\setting.config"
+        foreach ($mode in ${openModes}) {
+            writeOpenMode $mode $path
+            readOpenMode $path | Should Be $mode
+        }
+    }
+
+    It "開き方が無い・知らない値なら「通常」とする" {
+        $path = "$TestDrive\開き方2\setting.config"
+        readOpenMode $path | Should Be ${openModeNormal}        # ファイルが無い
+        updateSettings "openMode" "知らない値" $path
+        readOpenMode $path | Should Be ${openModeNormal}
+    }
+
+    It "保存した設定をそのまま読み込める（1件だけの一覧も配列のまま）" {
+        $path = "$TestDrive\往復 [1]\setting.config"
+        $settings = newSettings
+        $settings.targetFolders = @([pscustomobject]@{ path = "C:\a [1]"; enabled = $true })
+        $settings.indexFolders = @("D:\index<1>")
+        $settings.useRegex = $true
+        writeSettings $settings $path
+        $read = readSettings $path
+        @($read.targetFolders).Count | Should Be 1
+        $read.targetFolders[0].path | Should Be "C:\a [1]"
+        $read.indexFolders[0] | Should Be "D:\index<1>"
+        $read.useRegex | Should Be $true
+        # 1つの項目だけを変えると、ほかの項目は保つ
+        updateSettings "useRegex" $false $path
+        $read = readSettings $path
+        $read.useRegex | Should Be $false
+        $read.indexFolders[0] | Should Be "D:\index<1>"
+    }
+
+    It "記載の無い項目は既定値、空のファイルは既定値" {
+        $path = "$TestDrive\一部.json"
+        [System.IO.File]::WriteAllText($path, '{ "useRegex": true }', ${utf8Bom})
+        $settings = readSettings $path
+        $settings.useRegex | Should Be $true
+        @($settings.targetFolders).Count | Should Be 0
+        [System.IO.File]::WriteAllText($path, "", ${utf8Bom})
+        (readSettings $path).useRegex | Should Be $false
+    }
+
+    It "JSON として読めなければ例外を投げる" {
+        $path = "$TestDrive\壊れ.json"
+        [System.IO.File]::WriteAllText($path, "{ targetFolders: ", ${utf8Bom})
+        { readSettings $path } | Should Throw "読み込めません"
+    }
+
+    It "設定ファイルが無く config フォルダに以前の設定ファイル（*.txt）があれば、移して保存する" {
+        $dir = "$TestDrive\以前"
+        writeListFile "$dir\config\変換対象フォルダパス.txt" @("C:\データ\Excel\", "", "# D:\old\報告書")
+        writeListFile "$dir\config\検索対象インデックスパス.txt" @(" D:\index1 ", "D:\index2")
+        writeListFile "$dir\config\検索オプション.txt" @("正規表現=オン")
+        $settings = readSettings "$dir\setting.config"
+        Test-Path -LiteralPath "$dir\setting.config" | Should Be $true
+        $folders = @(getTargetFolders "$dir\setting.config")
+        $folders.Count | Should Be 2
+        $folders[0].Path | Should Be "C:\データ\Excel"
+        $folders[0].Enabled | Should Be $true
+        $folders[1].Path | Should Be "D:\old\報告書"
+        $folders[1].Enabled | Should Be $false
+        @(getIndexFolders "$dir\setting.config") -join "," | Should Be "D:\index1,D:\index2"
+        (readSearchOption "$dir\setting.config").UseRegex | Should Be $true
+        # 移した後は以前の設定ファイルを使わない
+        writeListFile "$dir\config\検索オプション.txt" @("正規表現=オフ")
+        (readSearchOption "$dir\setting.config").UseRegex | Should Be $true
+    }
+}
+
+Describe "getTargetFolders / writeTargetFolders" {
+    It "記載順に返し、enabled が false はチェックなし、記載が無ければチェックあり" {
+        $path = "$TestDrive\targets.json"
+        [System.IO.File]::WriteAllText($path, @'
+{ "targetFolders": [
+    { "path": "C:\\データ\\Excel", "enabled": true },
+    { "path": "D:\\old\\報告書", "enabled": false },
+    { "path": "\"F:\\引用符付き\\\"" },
+    { "path": "  " }
+] }
+'@, ${utf8Bom})
+        $folders = @(getTargetFolders $path)
+        $folders.Count | Should Be 3
+        $folders[0].Path | Should Be "C:\データ\Excel"
+        $folders[0].Enabled | Should Be $true
+        $folders[1].Path | Should Be "D:\old\報告書"
+        $folders[1].Enabled | Should Be $false
+        $folders[2].Path | Should Be "F:\引用符付き"
+        $folders[2].Enabled | Should Be $true
+    }
+
+    It "同じフォルダ（大文字・小文字、末尾の \ の違い）は最初のものだけ使う" {
+        $path = "$TestDrive\targets_dup.json"
+        writeTargetFolders @(
+            [pscustomobject]@{ Path = "C:\Data"; Enabled = $true },
+            [pscustomobject]@{ Path = "c:\data\"; Enabled = $false }
+        ) $path
+        $folders = @(getTargetFolders $path)
+        $folders.Count | Should Be 1
+        $folders[0].Enabled | Should Be $true
+    }
+
+    It "設定が無ければ空の配列を返す" {
+        @(getTargetFolders "$TestDrive\none_targets.json").Count | Should Be 0
+    }
+
+    It "保存した一覧をそのまま読み込め、ほかの設定は保つ" {
+        $path = "$TestDrive\targets_write.json"
+        writeSearchOption @{ UseRegex = $true } $path
+        writeTargetFolders @(
+            [pscustomobject]@{ Path = "C:\a [1]"; Enabled = $true },
+            [pscustomobject]@{ Path = "D:\b"; Enabled = $false }
+        ) $path
+        $folders = @(getTargetFolders $path)
+        $folders.Count | Should Be 2
+        $folders[0].Path | Should Be "C:\a [1]"
+        $folders[1].Path | Should Be "D:\b"
+        $folders[1].Enabled | Should Be $false
+        (readSearchOption $path).UseRegex | Should Be $true
+        writeTargetFolders @() $path
+        @(getTargetFolders $path).Count | Should Be 0
+    }
+}
+
+Describe "normalizeFolderPath" {
+    It "前後の空白・引用符と末尾の \ を取り除き、ドライブ直下は \ を残す" {
+        normalizeFolderPath '  "C:\data\"  ' | Should Be "C:\data"
+        normalizeFolderPath "D:\" | Should Be "D:\"
+        normalizeFolderPath "D:" | Should Be "D:\"
+        normalizeFolderPath "\\server\share\" | Should Be "\\server\share"
+    }
+
+    It "/ を \ にそろえ、長いパス用の \\?\ ・ \\?\UNC\ を外す" {
+        normalizeFolderPath "C:/data/見積" | Should Be "C:\data\見積"
+        normalizeFolderPath "//server/share/見積" | Should Be "\\server\share\見積"
+        normalizeFolderPath "\\?\C:\data\見積" | Should Be "C:\data\見積"
+        normalizeFolderPath "\\?\UNC\server\share\見積" | Should Be "\\server\share\見積"
+    }
+
+    It "重なった \ ・ . ・ .. を解決する" {
+        normalizeFolderPath "C:\data\\見積" | Should Be "C:\data\見積"
+        normalizeFolderPath "C:\data\.\見積" | Should Be "C:\data\見積"
+        normalizeFolderPath "C:\data\売上\..\見積" | Should Be "C:\data\見積"
+        normalizeFolderPath "\\server\share\売上\..\見積" | Should Be "\\server\share\見積"
+    }
+
+    It "環境変数を展開する" {
+        $env:WIN_GREP_TEST_FOLDER = "C:\data\見積"
+        try {
+            normalizeFolderPath "%WIN_GREP_TEST_FOLDER%" | Should Be "C:\data\見積"
+            normalizeFolderPath "%WIN_GREP_TEST_FOLDER%\2024" | Should Be "C:\data\見積\2024"
+        } finally {
+            Remove-Item Env:\WIN_GREP_TEST_FOLDER
+        }
+    }
+
+    It "相対パスは win_grep のフォルダからとみなす" {
+        normalizeFolderPath "work\index" | Should Be "${rootDir}\work\index"
+        normalizeFolderPath ".\work\index" | Should Be "${rootDir}\work\index"
+    }
+
+    It "パスとして解釈できない場合は書かれたとおりに扱う" {
+        normalizeFolderPath "C:\data*" | Should Be "C:\data*"
+        normalizeFolderPath "\\server" | Should Be "\\server"
+        # \ ひとつで始まるパスは、書き間違えた UNC パスのことが多いため、今のドライブのパスに直さない
+        normalizeFolderPath "\server\share" | Should Be "\server\share"
+    }
+}
+
+Describe "getPathUnderFolder" {
+    It "フォルダからの相対パスを返す（フォルダ自身は空。末尾の \ ・大文字と小文字は区別しない）" {
+        getPathUnderFolder "C:\data\見積\2024\a.xlsx" "C:\data\見積" | Should Be "2024\a.xlsx"
+        getPathUnderFolder "c:\DATA\見積\" "C:\data\見積" | Should Be ""
+        getPathUnderFolder "D:\a.xlsx" "D:\" | Should Be "a.xlsx"
+        getPathUnderFolder "\\server\share\a.xlsx" "\\server\share" | Should Be "a.xlsx"
+    }
+
+    It "フォルダの下でなければ `$null（フォルダ名の途中では一致しない）" {
+        ($null -eq (getPathUnderFolder "C:\data\見積2\a.xlsx" "C:\data\見積")) | Should Be $true
+        ($null -eq (getPathUnderFolder "D:\a.xlsx" "C:\data")) | Should Be $true
+        ($null -eq (getPathUnderFolder "C:\data" "")) | Should Be $true
+    }
+}
+
+Describe "parseDosDeviceTarget" {
+    It "subst のドライブは割り当て元のフォルダ" {
+        parseDosDeviceTarget "\??\C:\data\見積" | Should Be "C:\data\見積"
+    }
+
+    It "ネットワークドライブは UNC パス" {
+        parseDosDeviceTarget "\Device\LanmanRedirector\;Z:0000000000012345\server\share" | Should Be "\\server\share"
+        parseDosDeviceTarget "\Device\Mup\;Z:0000000000012345\server\share" | Should Be "\\server\share"
+    }
+
+    It "実際のディスクは別名なし（空）" {
+        parseDosDeviceTarget "\Device\HarddiskVolume3" | Should Be ""
+        parseDosDeviceTarget "\Device\CdRom0" | Should Be ""
+    }
+}
+
+Describe "getFolderPathAliases / testSameFolder" {
+    # ドライブの割り当ては PC によって違うため、テストでは割り当てを差し替える
+    $drives = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $drives["Z:"] = "\\server\share"
+    $drives["X:"] = "C:\data"
+
+    It "ネットワークドライブと UNC パスを行き来する" {
+        @(getFolderPathAliases "Z:\見積" $drives) | Should Be @("Z:\見積", "\\server\share\見積")
+        @(getFolderPathAliases "\\server\share\見積" $drives) | Should Be @("\\server\share\見積", "Z:\見積")
+    }
+
+    It "subst のドライブと割り当て元のフォルダを行き来する" {
+        @(getFolderPathAliases "X:\見積" $drives) | Should Be @("X:\見積", "C:\data\見積")
+        @(getFolderPathAliases "C:\data\見積" $drives) | Should Be @("C:\data\見積", "X:\見積")
+    }
+
+    It "ドライブ直下・共有直下" {
+        @(getFolderPathAliases "Z:\" $drives) | Should Be @("Z:\", "\\server\share")
+        @(getFolderPathAliases "\\server\share" $drives) | Should Be @("\\server\share", "Z:\")
+    }
+
+    It "割り当ての無いパスは自身だけ" {
+        @(getFolderPathAliases "D:\見積" $drives) | Should Be @("D:\見積")
+    }
+
+    It "書き方が違っても同じフォルダと分かる" {
+        testSameFolder "Z:\見積" "\\server\share\見積" $drives | Should Be $true
+        testSameFolder "\\server\share\見積\" "Z:\見積" $drives | Should Be $true
+        testSameFolder "X:\見積" "C:\data\見積" $drives | Should Be $true
+        testSameFolder "C:\data\見積" "X:\見積" $drives | Should Be $true
+        testSameFolder "Z:\見積" "Z:\売上" $drives | Should Be $false
+        testSameFolder "C:\見積" "\\server\share\見積" $drives | Should Be $false
+    }
+
+    It "この PC のドライブの割り当てを使っても例外にならない" {
+        @(getFolderPathAliases "${rootDir}\work")[0] | Should Be "${rootDir}\work"
+        testSameFolder "${rootDir}\work" "${rootDir}\work\" | Should Be $true
+    }
+}
+
+Describe "newIndexName / assignIndexNames" {
+    It "フォルダ名（ドライブ直下はドライブ名、UNC は共有名）を使い、重複すれば (2) を付ける" {
+        $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        newIndexName "C:\data\見積" $used | Should Be "見積"
+        newIndexName "D:\" $used | Should Be "D"
+        newIndexName "\\server\share" $used | Should Be "share"
+        [void]$used.Add("見積")
+        [void]$used.Add("見積(2)")
+        newIndexName "E:\見積" $used | Should Be "見積(3)"
+    }
+
+    It "設定に名前があればそれを使い、フォルダの場所が変わっても同じ名前のままにする" {
+        $targets = @(
+            [pscustomobject]@{ Name = "見積"; Path = "\server\新しい場所\見積書"; Enabled = $true },
+            [pscustomobject]@{ Name = ""; Path = "F:\売上"; Enabled = $true }
+        )
+        # 前回は別の場所だったが、名前が同じなので同じインデックスとして扱う
+        $previous = @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" })
+        $folders = @(assignIndexNames $targets $previous)
+        $folders.Count | Should Be 2
+        $folders[0].Name | Should Be "見積"
+        $folders[0].Path | Should Be "\server\新しい場所\見積書"
+        $folders[1].Name | Should Be "売上"
+    }
+
+    It "名前が無ければ、前回の変換一覧の同じフォルダの名前を使い、無ければフォルダ名から作る" {
+        $targets = @(
+            [pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $false },
+            [pscustomobject]@{ Name = ""; Path = "E:\new\見積"; Enabled = $true },
+            [pscustomobject]@{ Name = ""; Path = "F:\売上"; Enabled = $true }
+        )
+        $previous = @(
+            [pscustomobject]@{ Path = "c:\data\見積"; Name = "見積" },
+            [pscustomobject]@{ Path = "G:\削除した\報告"; Name = "報告" }
+        )
+        $folders = @(assignIndexNames $targets $previous)
+        $folders[0].Name | Should Be "見積"
+        $folders[0].Enabled | Should Be $false
+        # 前回の名前（削除したフォルダの名前を含む）と重複しない名前を付ける
+        $folders[1].Name | Should Be "見積(2)"
+        $folders[2].Name | Should Be "売上"
+    }
+
+    It "設定にある名前は、ほかのフォルダの名前には使わない" {
+        $targets = @(
+            [pscustomobject]@{ Name = ""; Path = "E:\新\見積"; Enabled = $true },
+            [pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true }
+        )
+        $folders = @(assignIndexNames $targets @())
+        $folders[0].Name | Should Be "見積(2)"
+        $folders[1].Name | Should Be "見積"
+    }
+}
+
+Describe "splitIndexRelPath" {
+    It "先頭のインデックス名と残りに分ける（残りの \ や 2 はそのまま）" {
+        $parts = splitIndexRelPath "excel\2024\見積\A社2.xlsx"
+        $parts.Name | Should Be "excel"
+        $parts.Rest | Should Be "2024\見積\A社2.xlsx"
+        $parts = splitIndexRelPath "excel"
+        $parts.Name | Should Be "excel"
+        $parts.Rest | Should Be ""
+    }
+}
+
+Describe "describeConvertError" {
+    function newComError([string]$message, [string]$code) {
+        return New-Object System.Runtime.InteropServices.COMException($message, [Convert]::ToInt32($code, 16))
+    }
+
+    It "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す" {
+        $expected = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは変換できません）"
+        describeConvertError (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") | Should Be $expected
+        describeConvertError (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") | Should Be $expected
+        describeConvertError (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") | Should Be $expected
+    }
+
+    It "メソッド呼び出しの例外は中の例外のメッセージを使う" {
+        $inner = newComError "Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。" "800A03EC"
+        $outer = New-Object System.Management.Automation.MethodInvocationException('"7" 個の引数を指定して "Open" を呼び出し中に例外が発生しました', $inner)
+        describeConvertError $outer | Should Be "ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。）"
+    }
+
+    It "スクリプト自身が throw したメッセージはそのまま返す" {
+        $exception = $null
+        try { throw "ファイルが壊れているか、PowerPointのファイルではありません。" } catch { $exception = $_.Exception }
+        describeConvertError $exception | Should Be "ファイルが壊れているか、PowerPointのファイルではありません。"
+    }
+
+    It "使用中・アクセス権なし・ファイルなしは原因を付けて元のメッセージを詳細にする" {
+        $locked = New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16))
+        describeConvertError $locked | Should Be "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再変換してください）（詳細: 別のプロセスで使用されているため、アクセスできません。）"
+        describeConvertError (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。")) | Should Match "^ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）$"
+        describeConvertError (New-Object System.IO.FileNotFoundException("見つかりません。")) | Should Match "^ファイルが見つかりません（"
+    }
+
+    It "Officeアプリの異常終了・応答なし・起動失敗は HRESULT で判断する" {
+        describeConvertError (newComError "RPC サーバーを利用できません。" "800706BA") | Should Match "^Officeアプリが異常終了したか、内部でエラーが発生しました（.*（詳細: RPC サーバーを利用できません。）$"
+        describeConvertError (newComError "呼び出し先が呼び出しを拒否しました。" "80010001") | Should Match "^Officeアプリが応答しませんでした"
+        describeConvertError (newComError "クラスが登録されていません" "80040154") | Should Match "^Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした"
+    }
+
+    It "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする" {
+        $inner = New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown.")
+        $outer = New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました', $inner)
+        describeConvertError $outer | Should Match "^シート・文書が大きすぎて変換できません（メモリが不足しました）（詳細: "
+    }
+
+    It "原因が分からないものは元のメッセージ（改行は詰める）、メッセージが無ければエラーコードを返す" {
+        describeConvertError (newComError "予期しない`r`nエラーです。" "800A03EC") | Should Be "予期しない エラーです。"
+        describeConvertError (New-Object System.Exception(" ")) | Should Match "^エラーコード 0x[0-9A-F]{8}$"
+    }
+}
+
+Describe "getConversionState" {
+    It "失敗したファイルの行を、変換日時の新しい順で FailedRows に返す" {
+        $path = "$TestDrive\status_state.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
+            (newStatusRow "data\済.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/19 10:00:00"),
+            (newStatusRow "data\古い失敗.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/18 09:00:00" "原因A"),
+            (newStatusRow "data\新しい失敗.docx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 11:00:00" "原因B"),
+            (newStatusRow "data\未変換.pptx" "2025/01/10 12:34:56" "1" $stateNew)
+        ) $path
+
+        $state = getConversionState -path $path
+        $state.Done | Should Be 1
+        $state.Pending | Should Be 1
+        $state.Failed | Should Be 2
+        $state.FailedRows.Count | Should Be 2
+        $state.FailedRows[0].相対パス | Should Be "data\新しい失敗.docx"
+        $state.FailedRows[0].エラー | Should Be "原因B"
+        $state.FailedRows[1].相対パス | Should Be "data\古い失敗.xlsx"
+    }
+
+    It "変換一覧が無ければ FailedRows は空" {
+        $state = getConversionState -path "$TestDrive\none.tsv"
+        $state.Exists | Should Be $false
+        @($state.FailedRows).Count | Should Be 0
+    }
+}
+
+Describe "getIndexNameMap / resolveSourcePath" {
+    It "インデックス名から変換対象フォルダを引き、元のファイルのパスを返す" {
+        $path = "$TestDrive\status_map.tsv"
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" },
+            [pscustomobject]@{ Path = "D:\"; Name = "D" }
+        ) @() $path
+        $map = getIndexNameMap $path
+        $map["見積"] | Should Be "C:\data\見積"
+
+        $root = "C:\win_grep\work\index"
+        $maps = @{ $root = $map; "C:\win_grep\work" = $map }
+        $hit = [pscustomobject]@{ Root = $root; RelDir = "見積\2024"; Book = "A社.xlsx" }
+        resolveSourcePath $hit $maps | Should Be "C:\data\見積\2024\A社.xlsx"
+        $hit = [pscustomobject]@{ Root = $root; RelDir = "見積\2024\見積\2"; Book = "A社.xlsx" }
+        resolveSourcePath $hit $maps | Should Be "C:\data\見積\2024\見積\2\A社.xlsx"
+        $hit = [pscustomobject]@{ Root = $root; RelDir = "d"; Book = "直下.xlsx" }
+        resolveSourcePath $hit $maps | Should Be "D:\直下.xlsx"
+        $hit = [pscustomobject]@{ Root = "$TestDrive\none_index"; RelDir = "不明\x"; Book = "a.xlsx" }
+        resolveSourcePath $hit @{} | Should Be $null
+    }
+
+    It "設定のインデックス名の場所を、元のフォルダ.txt・変換一覧より優先する" {
+        # 「名前」と「今の置き場所」を設定で分けて持つため、フォルダを移したら設定の場所だけを見る
+        $dir = "$TestDrive\優先\index"
+        $settings = "$TestDrive\優先\setting.config"
+        $status = "$TestDrive\優先\status.tsv"
+        writeSourceFolderFile @([pscustomobject]@{ Path = "C:\作った時の場所\見積"; Name = "見積" }) $dir
+        writeStatusFile @([pscustomobject]@{ Path = "C:\変換一覧の場所\見積"; Name = "見積" }) @() $status
+        writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "\server\今の場所\見積"; Enabled = $true }) $settings
+
+        $map = getSourceFolderMap $dir $status $settings
+        $map["見積"] | Should Be "\server\今の場所\見積"
+
+        # 変換しないインデックス（indexSources）も同じように優先する
+        setIndexSourceFolder "営業" "E:\今の営業" $settings
+        (getSourceFolderMap $dir $status $settings)["営業"] | Should Be "E:\今の営業"
+    }
+
+    It "既定のインデックスは 元のフォルダ.txt と変換一覧の両方を使い、変換一覧を優先する" {
+        [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
+        $status = "$TestDrive\status_default.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\新\見積"; Name = "見積" }) @() $status
+        $infoFile = Join-Path $indexDir ${sourceFolderFileName}
+        $backup = if (Test-Path -LiteralPath $infoFile) { [System.IO.File]::ReadAllBytes($infoFile) } else { $null }
+        try {
+            writeSourceFolderFile @(
+                [pscustomobject]@{ Path = "C:\旧\見積"; Name = "見積" },
+                [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
+            ) $indexDir
+            $map = getSourceFolderMap (Resolve-Path -LiteralPath $indexDir).ProviderPath $status "$TestDrive\設定なし.config" 
+            $map["見積"] | Should Be "C:\新\見積"
+            $map["営業"] | Should Be "C:\data\営業"
+        } finally {
+            if ($null -eq $backup) { Remove-Item -LiteralPath $infoFile -Force } else { [System.IO.File]::WriteAllBytes($infoFile, $backup) }
+        }
+    }
+}
+
+Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" {
+    It "インデックス名と変換対象フォルダの対応を書き出して読み込む（説明の行は無視する）" {
+        $dir = "$TestDrive\copied[1]\index"
+        writeSourceFolderFile @(
+            [pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" },
+            [pscustomobject]@{ Path = "D:\"; Name = "D" }
+        ) $dir
+        $map = readSourceFolderFile $dir
+        $map.Count | Should Be 2
+        $map["見積"] | Should Be "C:\data\見積"
+        $map["d"] | Should Be "D:\"
+        (readSourceFolderFile "$TestDrive\none_dir").Count | Should Be 0
+    }
+
+    It "別の場所にコピーしたインデックスでも、元のフォルダ.txt から元の場所が分かる" {
+        $dir = "$TestDrive\別PC\index"
+        writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
+        $hit = [pscustomobject]@{ Root = $dir; RelDir = "見積\2024"; Book = "A社.xlsx" }
+        $location = getSourceLocation $hit
+        $location.Known | Should Be $true
+        $location.Folder | Should Be "C:\data\見積"
+        $location.Rest | Should Be "2024"
+        resolveSourcePath $hit @{} | Should Be "C:\data\見積\2024\A社.xlsx"
+    }
+
+    It "インデックス名のフォルダを検索対象にした場合は、親フォルダの 元のフォルダ.txt を使う" {
+        $dir = "$TestDrive\別PC2\index"
+        writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
+        $hit = [pscustomobject]@{ Root = "$dir\見積"; RelDir = "2024"; Book = "A社.xlsx" }
+        resolveSourcePath $hit @{} | Should Be "C:\data\見積\2024\A社.xlsx"
+        $hit = [pscustomobject]@{ Root = "$dir\見積"; RelDir = ""; Book = "直下.xlsx" }
+        resolveSourcePath $hit @{} | Should Be "C:\data\見積\直下.xlsx"
+    }
+
+    It "元の場所が分からなければ Known = false・Folder = 空とし、インデックス名と相対フォルダを返す" {
+        $hit = [pscustomobject]@{ Root = "$TestDrive\記録なし\index\"; RelDir = "営業\2024"; Book = "a.xlsx" }
+        $location = getSourceLocation $hit
+        $location.Known | Should Be $false
+        $location.Name | Should Be "営業"
+        $location.Folder | Should Be ""
+        $location.Rest | Should Be "2024"
+        resolveSourcePath $hit @{} | Should Be $null
+    }
+
+    It "読んだ対応はキャッシュに入れ、次からはファイルを読まない" {
+        $dir = "$TestDrive\cache\index"
+        writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
+        $maps = @{}
+        $hit = [pscustomobject]@{ Root = $dir; RelDir = "見積"; Book = "a.xlsx" }
+        resolveSourcePath $hit $maps | Should Be "C:\data\見積\a.xlsx"
+        Remove-Item -LiteralPath (Join-Path $dir ${sourceFolderFileName})
+        resolveSourcePath $hit $maps | Should Be "C:\data\見積\a.xlsx"
+    }
+}
+
+Describe "joinSourcePath" {
+    It "フォルダ・相対フォルダ・ファイル名をつなぐ" {
+        joinSourcePath "C:\data\" "2024\見積" "a.xlsx" | Should Be "C:\data\2024\見積\a.xlsx"
+        joinSourcePath "D:\" "" "a.xlsx" | Should Be "D:\a.xlsx"
+        joinSourcePath "C:\data" "2024" | Should Be "C:\data\2024"
+    }
+}
+
+Describe "getFolderLeafName" {
+    It "フォルダ名を返す（ドライブ直下はドライブ名、UNC は共有名、末尾の \ は無視）" {
+        getFolderLeafName "C:\data\見積\" | Should Be "見積"
+        getFolderLeafName "D:\" | Should Be "D"
+        getFolderLeafName "\server\share" | Should Be "share"
+    }
+}
+
+Describe "indexSources / setIndexSourceFolder" {
+    It "インデックス名に対する元のフォルダを記録し、読み込める" {
+        $path = "$TestDrive\sources[1].config"
+        setIndexSourceFolder "営業" "\server\営業\" $path
+        setIndexSourceFolder "見積" "E:\見積" $path
+        $sources = @(readIndexSources $path)
+        $sources.Count | Should Be 2
+        $sources[0].Name | Should Be "営業"
+        $sources[0].Path | Should Be "\server\営業"
+        $sources[1].Path | Should Be "E:\見積"
+
+        # 同じ名前をもう一度記録すると、場所を書き換える（1 つの名前につき 1 か所）
+        setIndexSourceFolder "営業" "D:\新しい営業" $path
+        $sources = @(readIndexSources $path)
+        $sources.Count | Should Be 2
+        @($sources | Where-Object { $_.Name -eq "営業" })[0].Path | Should Be "D:\新しい営業"
+    }
+
+    It "変換対象フォルダにある名前なら、そのフォルダの場所を書き換える" {
+        $path = "$TestDrive\sources_target.config"
+        writeTargetFolders @(
+            [pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true },
+            [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $false }
+        ) $path
+        setIndexSourceFolder "見積" "\server\移動先\見積" $path
+
+        $folders = @(getTargetFolders $path)
+        $folders[0].Name | Should Be "見積"
+        $folders[0].Path | Should Be "\server\移動先\見積"
+        $folders[0].Enabled | Should Be $true
+        $folders[1].Path | Should Be "C:\data\営業"
+        # 変換対象フォルダを書き換えたので、indexSources には入れない
+        @(readIndexSources $path).Count | Should Be 0
+    }
+
+    It "名前・フォルダが空なら何もしない" {
+        $path = "$TestDrive\sources_empty.config"
+        setIndexSourceFolder "" "C:\a" $path
+        setIndexSourceFolder "営業" "  " $path
+        @(readIndexSources $path).Count | Should Be 0
+    }
+}
+
+Describe "findMovedSource" {
+    $moved = "$TestDrive\移動先\見積 [新]"
+    [System.IO.Directory]::CreateDirectory("$moved\2024\A社") | Out-Null
+    [System.IO.File]::WriteAllText("$moved\2024\A社\見積.xlsx", "")
+
+    It "インデックスの元のフォルダに当たるフォルダを選んだ場合は、そのフォルダを Root にする" {
+        $found = findMovedSource $moved "2024\A社" "見積.xlsx"
+        $found.Path | Should Be "$moved\2024\A社\見積.xlsx"
+        $found.Root | Should Be $moved
+    }
+
+    It "ファイルのあるフォルダを選んだ場合は、相対フォルダの分だけ上を Root にする" {
+        $found = findMovedSource "$moved\2024\A社\" "2024\A社" "見積.xlsx"
+        $found.Path | Should Be "$moved\2024\A社\見積.xlsx"
+        $found.Root | Should Be $moved
+    }
+
+    It "途中のフォルダを選んだ場合も Root は同じになる" {
+        (findMovedSource "$moved\2024" "2024\A社" "見積.xlsx").Root | Should Be $moved
+    }
+
+    It "相対フォルダが無ければ、選んだフォルダが Root になる" {
+        [System.IO.File]::WriteAllText("$moved\直下.xlsx", "")
+        $found = findMovedSource $moved "" "直下.xlsx"
+        $found.Path | Should Be "$moved\直下.xlsx"
+        $found.Root | Should Be $moved
+    }
+
+    It "見つからなければ `$null" {
+        findMovedSource "$TestDrive\移動先" "2024\B社" "見積.xlsx" | Should Be $null
+    }
+}
+
+Describe "getIndexFolders / readIndexFolders / writeIndexFolders" {
+    It "設定が無ければ work\index を返す" {
+        getIndexFolders "$TestDrive\none_index.json" | Should Be $indexDir
+        @(readIndexFolders "$TestDrive\none_index.json").Count | Should Be 0
+    }
+
+    It "設定が空なら work\index を返す" {
+        $path = "$TestDrive\index_empty.json"
+        writeIndexFolders @(" ", "") $path
+        @(readIndexFolders $path).Count | Should Be 0
         getIndexFolders $path | Should Be $indexDir
     }
 
-    It "設定ファイルの各行を返す" {
-        $path = "$TestDrive\index.txt"
-        Set-Content $path -Value @("D:\index1", "D:\index2") -Encoding UTF8
-        $folders = getIndexFolders $path
+    It "保存したフォルダを返す（1件でも配列）" {
+        $path = "$TestDrive\index.json"
+        writeIndexFolders @(" D:\index1 ", "D:\index2") $path
+        $folders = @(getIndexFolders $path)
         $folders.Count | Should Be 2
+        $folders[0] | Should Be "D:\index1"
         $folders[1] | Should Be "D:\index2"
+        writeIndexFolders @("D:\index3") $path
+        @(getIndexFolders $path).Count | Should Be 1
+    }
+}
+
+Describe "readSearchExcludes / writeSearchExcludes" {
+    It "設定が無ければ空（すべて検索する）" {
+        @(readSearchExcludes "$TestDrive\none_excludes.json").Count | Should Be 0
+    }
+
+    It "チェックを外したフォルダを保存し、ほかの設定は変えない" {
+        $path = "$TestDrive\excludes.json"
+        writeIndexFolders @("D:\index1") $path
+        writeSearchExcludes @(
+            [pscustomobject]@{ Path = "D:\index1\見積\2024\"; Subfolders = $true },
+            [pscustomobject]@{ Path = "D:\index1\見積"; Subfolders = $false },
+            [pscustomobject]@{ Path = ""; Subfolders = $true }) $path
+        $excludes = @(readSearchExcludes $path)
+        $excludes.Count | Should Be 2
+        $excludes[0].Path | Should Be "D:\index1\見積\2024"
+        $excludes[0].Subfolders | Should Be $true
+        $excludes[1].Subfolders | Should Be $false
+        @(readIndexFolders $path) | Should Be "D:\index1"
+    }
+
+    It "空で保存すると空になる" {
+        $path = "$TestDrive\excludes_empty.json"
+        writeSearchExcludes @([pscustomobject]@{ Path = "D:\a"; Subfolders = $true }) $path
+        writeSearchExcludes @() $path
+        @(readSearchExcludes $path).Count | Should Be 0
+    }
+}
+
+Describe "getIndexNameMap（見出し行まで読む）" {
+    It "変換対象フォルダの行だけを読み、見出し行の後は読まない" {
+        $path = "$TestDrive\name_map.tsv"
+        writeListFile $path @(
+            "${statusFolderKey}`tC:\data\見積`t見積",
+            "${statusFolderKey}`tC:\old",
+            ($statusColumns -join "`t"),
+            "${statusFolderKey}`tC:\x`tx")
+        $map = getIndexNameMap $path
+        $map.Count | Should Be 1
+        $map["見積"] | Should Be "C:\data\見積"
+        (getIndexNameMap "$TestDrive\none_status.tsv").Count | Should Be 0
     }
 }
 
@@ -174,6 +1232,7 @@ Describe "パス定義" {
         $rootDir | Should Be (Resolve-Path "$here\..").Path
         $indexDir | Should Be "$rootDir\work\index"
         $resultFile | Should Be "$rootDir\output\検索結果.txt"
+        $settingsFile | Should Be "$rootDir\setting.config"
     }
 }
 
