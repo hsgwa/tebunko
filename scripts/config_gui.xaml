@@ -1,0 +1,566 @@
+﻿<!-- 画面の定義。config_gui.ps1 が読み込み、x:Name でコントロールを取得する（イベントは ps1 側で設定する） -->
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="win_grep" Width="960" Height="700" MinWidth="760" MinHeight="580"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        Background="#F3F4F6" UseLayoutRounding="True">
+
+  <Window.TaskbarItemInfo>
+    <TaskbarItemInfo />
+  </Window.TaskbarItemInfo>
+
+  <Window.Resources>
+    <Style TargetType="Button">
+      <Setter Property="MinWidth" Value="84" />
+      <Setter Property="Padding" Value="12,4" />
+    </Style>
+    <!-- 既定のボタンはマウスを載せると背景が水色になり、白い文字が読めなくなるため、主ボタン・危険ボタンは独自のテンプレートにする -->
+    <ControlTemplate x:Key="FlatButtonTemplate" TargetType="Button">
+      <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="3" Padding="{TemplateBinding Padding}">
+        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter TargetName="Bd" Property="Opacity" Value="0.75" />
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+        </Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Template" Value="{StaticResource FlatButtonTemplate}" />
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#1D4ED8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="Danger" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Template" Value="{StaticResource FlatButtonTemplate}" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#DC2626" />
+      <Setter Property="BorderBrush" Value="#DC2626" />
+    </Style>
+    <Style x:Key="Link" TargetType="Button">
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Foreground" Value="#2563EB" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <TextBlock TextDecorations="Underline" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Padding" Value="4,3" />
+      <Setter Property="BorderBrush" Value="#9CA3AF" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="Hint" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="#6B7280" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="Heading" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#1F2937" />
+    </Style>
+    <Style TargetType="DataGrid">
+      <Setter Property="AutoGenerateColumns" Value="False" />
+      <Setter Property="IsReadOnly" Value="True" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#E5E7EB" />
+      <Setter Property="BorderBrush" Value="#9CA3AF" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="RowHeaderWidth" Value="0" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="SelectionMode" Value="Extended" />
+      <Setter Property="CanUserReorderColumns" Value="False" />
+      <Setter Property="EnableRowVirtualization" Value="True" />
+      <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+      <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+    </Style>
+    <Style TargetType="DataGridColumnHeader">
+      <Setter Property="Background" Value="#F3F4F6" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="BorderBrush" Value="#D1D5DB" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
+    </Style>
+    <Style TargetType="DataGridCell">
+      <Setter Property="Padding" Value="6,3" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="DataGridCell">
+            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter VerticalAlignment="Center" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="#DBEAFE" />
+          <Setter Property="Foreground" Value="#1F2937" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="RightCell" TargetType="TextBlock">
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+  </Window.Resources>
+
+  <DockPanel Margin="14,10,14,12">
+
+    <!-- 下部：ステータス表示と［閉じる］ -->
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+      <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="閉じる" />
+      <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+    </DockPanel>
+
+    <TabControl x:Name="Tabs" Padding="14,10" Background="White">
+
+      <!-- ================= 1 インデックス作成 ================= -->
+      <TabItem x:Name="IndexTab">
+        <TabItem.Header>
+          <TextBlock x:Name="IndexTabHeader" Text="1 インデックス作成" Padding="10,3" />
+        </TabItem.Header>
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Button x:Name="ConvertButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="変換を開始" MinWidth="170" Height="34" />
+            <TextBlock x:Name="ConvertHint" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,12,0"
+                       Text="変換中も検索できます。途中でやめるときは［中止］を押してください（次回、続きから再開できます）。" />
+          </DockPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" x:Name="ConvertProgressPanel" Visibility="Collapsed" Margin="0,10,0,0">
+            <DockPanel>
+              <Button x:Name="ConvertStopButton" DockPanel.Dock="Right" Content="中止" Margin="12,0,0,0" />
+              <Button x:Name="ConvertLogButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="ログを開く" FontSize="12" VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed" />
+              <TextBlock x:Name="ConvertProgressEta" DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+              <TextBlock x:Name="ConvertProgressText" FontWeight="SemiBold" VerticalAlignment="Center" />
+            </DockPanel>
+            <ProgressBar x:Name="ConvertProgress" Height="10" Margin="0,6,0,0" Maximum="1" />
+            <TextBlock x:Name="ConvertProgressDetail" Style="{StaticResource Hint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          </StackPanel>
+
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" MinHeight="90" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Style="{StaticResource Heading}" Text="変換対象フォルダ（チェックを付けたフォルダを変換します）" />
+
+            <DockPanel Grid.Row="1" Margin="0,6,0,6">
+              <Button x:Name="BrowseFolderButton" DockPanel.Dock="Right" Content="参照…" Margin="6,0,0,0" />
+              <Button x:Name="AddFolderButton" DockPanel.Dock="Right" Content="追加" Margin="6,0,0,0" />
+              <Grid>
+                <TextBox x:Name="NewFolderBox" AllowDrop="True" />
+                <TextBlock x:Name="NewFolderPlaceholder" IsHitTestVisible="False" Margin="8,0" VerticalAlignment="Center" Foreground="#9CA3AF"
+                           Text="フォルダのパスを入力・貼り付けして Enter（フォルダのドラッグ＆ドロップでも追加できます）" />
+              </Grid>
+            </DockPanel>
+
+            <DockPanel Grid.Row="2">
+              <StackPanel DockPanel.Dock="Right" Margin="6,0,0,0">
+                <Button x:Name="ChangeFolderPathButton" Content="場所を変更…" ToolTip="フォルダを移した場合に、このフォルダの場所だけを変えます（インデックスは作り直しません）" />
+                <Button x:Name="RemoveFolderButton" Content="削除" Margin="0,6,0,0" />
+              </StackPanel>
+              <Grid>
+                <ListBox x:Name="TargetList" AllowDrop="True" BorderBrush="#9CA3AF" HorizontalContentAlignment="Stretch">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <DockPanel Margin="0,2">
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" />
+                        <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock DockPanel.Dock="Left" Text="{Binding IndexLabel}" Foreground="#6B7280" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"
+                                   ToolTip="インデックス名（work\index の下のフォルダ名）。フォルダの場所を変えても、この名前のインデックスをそのまま使います" />
+                        <TextBlock Text="{Binding Path}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="TargetPlaceholder" IsHitTestVisible="False" Margin="10,8" Foreground="#9CA3AF" TextWrapping="Wrap"
+                           Text="変換する Office ファイルのあるフォルダを追加してください。" />
+              </Grid>
+            </DockPanel>
+
+            <TextBlock Grid.Row="3" Style="{StaticResource Heading}" Text="インデックスの状態" Margin="0,14,0,4" />
+            <StackPanel Grid.Row="4">
+              <TextBlock x:Name="IndexSummaryText" Text="確認中…" />
+              <TextBlock x:Name="ConversionStateText" Margin="0,4,0,0" Foreground="#B45309" FontSize="12" TextWrapping="Wrap" />
+              <StackPanel x:Name="FailedPanel" Visibility="Collapsed" Margin="0,6,0,0">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Bottom" Text="ダブルクリックでファイルの場所を開きます" />
+                  <TextBlock x:Name="FailedHeading" Foreground="#B91C1C" FontSize="12" FontWeight="SemiBold" />
+                </DockPanel>
+                <DataGrid x:Name="FailedGrid" MaxHeight="130" Margin="0,4,0,0" SelectionMode="Single" CanUserSortColumns="False">
+                  <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="ファイル" Width="280">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding RelPath}" TextTrimming="CharacterEllipsis" ToolTip="{Binding RelPath}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="失敗の原因" Width="*">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Reason}" TextWrapping="Wrap" ToolTip="{Binding Reason}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="日時" Binding="{Binding ConvertedText}" Width="80" />
+                  </DataGrid.Columns>
+                </DataGrid>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+
+      <!-- ================= 2 検索 ================= -->
+      <TabItem x:Name="SearchTab">
+        <TabItem.Header>
+          <TextBlock Text="2 検索" Padding="10,3" />
+        </TabItem.Header>
+        <!-- 左：検索対象インデックスのツリー（チェックしたフォルダだけを検索する）、右：検索ワードと結果 -->
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230" MinWidth="150" />
+            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="*" MinWidth="420" />
+          </Grid.ColumnDefinitions>
+
+          <DockPanel Grid.Column="0">
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+              <Button x:Name="ChangeIndexButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="場所の設定…" FontSize="12" VerticalAlignment="Center"
+                      ToolTip="検索するインデックスのフォルダ（既定は work\index）を設定します。別の場所・PC からコピーしたインデックスも追加できます" />
+              <TextBlock Style="{StaticResource Heading}" Text="検索対象" VerticalAlignment="Center" Height="32" Padding="0,7,0,0" />
+            </DockPanel>
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
+              <Button x:Name="CheckAllIndexButton" Content="すべて選択" MinWidth="0" />
+              <Button x:Name="UncheckAllIndexButton" Content="すべて解除" MinWidth="0" Margin="6,0,0,0" />
+            </StackPanel>
+            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,6,0,0" Text="チェックしたフォルダだけを検索します。▷ で下のフォルダを表示します。" />
+            <TreeView x:Name="IndexTree" BorderBrush="#9CA3AF">
+              <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                  <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                </Style>
+              </TreeView.ItemContainerStyle>
+              <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                  <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTip}" Margin="0,1">
+                    <CheckBox x:Name="Check" IsChecked="{Binding IsChecked, Mode=TwoWay}" Focusable="False" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <TextBlock x:Name="Label" Text="{Binding Name}" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <HierarchicalDataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding Exists}" Value="False">
+                      <Setter TargetName="Label" Property="Foreground" Value="#B45309" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsFiles}" Value="True">
+                      <Setter TargetName="Label" Property="Foreground" Value="#6B7280" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                      <Setter TargetName="Check" Property="Visibility" Value="Collapsed" />
+                      <Setter TargetName="Label" Property="Foreground" Value="#9CA3AF" />
+                    </DataTrigger>
+                  </HierarchicalDataTemplate.Triggers>
+                </HierarchicalDataTemplate>
+              </TreeView.ItemTemplate>
+            </TreeView>
+          </DockPanel>
+          <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Background="Transparent" />
+
+        <Grid Grid.Column="2">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <!-- 検索ワード -->
+          <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Column="0" Style="{StaticResource Heading}" Text="検索ワード" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <DockPanel Grid.Column="1">
+              <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" MinWidth="110" Height="32" Margin="8,0,0,0" />
+              <ComboBox x:Name="WordBox" IsEditable="True" IsTextSearchEnabled="False" Height="32" VerticalContentAlignment="Center" FontSize="14" />
+            </DockPanel>
+            <!-- 検索条件（サクラエディタの Grep の条件にならう） -->
+            <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,6,0,0">
+              <CheckBox x:Name="CaseCheck" DockPanel.Dock="Left" Content="大文字と小文字を区別" VerticalAlignment="Center" Margin="0,0,14,0"
+                        ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
+              <CheckBox x:Name="RegexCheck" DockPanel.Dock="Left" Content="正規表現を使う" VerticalAlignment="Center" Margin="0,0,14,0" />
+              <TextBlock DockPanel.Dock="Left" Text="対象ファイル" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <Grid MaxWidth="320" HorizontalAlignment="Stretch"
+                    ToolTip="元のファイル名で検索するファイルを絞ります。; で区切り、! で始まるものは除外します。* は任意の文字列（* が無ければ部分一致）。空ならすべて&#10;例: *.xlsx;見積;!*old*">
+                <TextBox x:Name="FileFilterBox" />
+                <TextBlock x:Name="FileFilterPlaceholder" IsHitTestVisible="False" Margin="8,0" VerticalAlignment="Center" Foreground="#9CA3AF" Text="すべて（例: *.xlsx;見積;!*old*）" />
+              </Grid>
+            </DockPanel>
+          </Grid>
+          <StackPanel Grid.Row="1" Margin="0,4,0,0">
+            <TextBlock x:Name="WordNotice" Foreground="#B45309" FontSize="12" Visibility="Collapsed" />
+            <DockPanel>
+              <Button x:Name="GoIndexTabButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="インデックスを作成する" FontSize="12" Margin="12,0,0,0" Visibility="Collapsed" />
+              <TextBlock x:Name="SearchTargetText" Style="{StaticResource Hint}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+            </DockPanel>
+          </StackPanel>
+
+          <!-- 件数・進捗・絞り込み -->
+          <DockPanel Grid.Row="2" Margin="0,12,0,6">
+            <Grid DockPanel.Dock="Right" Width="240">
+              <TextBox x:Name="FilterBox" />
+              <TextBlock x:Name="FilterPlaceholder" IsHitTestVisible="False" Margin="8,0" VerticalAlignment="Center" Foreground="#9CA3AF" Text="結果の中から探す" />
+            </Grid>
+            <TextBlock DockPanel.Dock="Right" Text="絞り込み" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="180" Height="8" Margin="0,0,16,0" Maximum="1" Visibility="Collapsed" />
+            <TextBlock x:Name="SummaryText" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+
+          <!-- 結果の表 -->
+          <DataGrid Grid.Row="3" x:Name="ResultGrid">
+            <DataGrid.Columns>
+              <DataGridTextColumn x:Name="IndexColumn" Header="インデックス" Binding="{Binding IndexName}" Width="100" Visibility="Collapsed" />
+              <DataGridTextColumn Header="フォルダ" Binding="{Binding RelDir}" Width="150" />
+              <DataGridTextColumn Header="ファイル名" Binding="{Binding Book}" Width="170" />
+              <DataGridTextColumn Header="場所" Binding="{Binding Location}" Width="110" />
+              <DataGridTextColumn Header="行" Binding="{Binding LineNumber}" Width="50" ElementStyle="{StaticResource RightCell}" />
+              <DataGridTextColumn Header="セル" Binding="{Binding CellText}" Width="80" />
+              <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="DisplayLine">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <ItemsControl ItemsSource="{Binding Segments}" ToolTip="{Binding DisplayLine}" ClipToBounds="True">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock x:Name="Seg" Text="{Binding Text}" />
+                          <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsHit}" Value="True">
+                              <Setter TargetName="Seg" Property="Background" Value="#FDE68A" />
+                              <Setter TargetName="Seg" Property="FontWeight" Value="Bold" />
+                              <Setter TargetName="Seg" Property="Foreground" Value="#1F2937" />
+                            </DataTrigger>
+                          </DataTemplate.Triggers>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+            <DataGrid.ContextMenu>
+              <ContextMenu>
+                <MenuItem x:Name="MenuOpen" Header="元のファイルを開く（編集する）" />
+                <MenuItem x:Name="MenuOpenReadOnly" Header="読み取り専用で開く" />
+                <MenuItem x:Name="MenuOpenNew" Header="新規で開く" />
+                <MenuItem x:Name="MenuOpenFolder" Header="フォルダを開く" />
+                <Separator />
+                <MenuItem x:Name="MenuCopy" Header="選択行をコピー" InputGestureText="Ctrl+C" />
+                <MenuItem x:Name="MenuCopyPath" Header="ファイルのパスをコピー" />
+              </ContextMenu>
+            </DataGrid.ContextMenu>
+          </DataGrid>
+
+          <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は config_gui.ps1 の NumberWidth と合わせる） -->
+          <DockPanel Grid.Row="4" x:Name="DetailPanel" Margin="0,8,0,0" Visibility="Collapsed">
+            <DockPanel DockPanel.Dock="Top">
+              <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Content="フォルダを開く" Margin="6,0,0,0" />
+              <Button x:Name="OpenButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Excel で開く" MinWidth="120" Height="28" />
+              <!-- 開き方（ダブルクリック・Enter・［開く］の動作。右クリックメニューでは、その時だけ別の開き方も選べる） -->
+              <ComboBox x:Name="OpenModeCombo" DockPanel.Dock="Right" VerticalAlignment="Center" Height="26" MinWidth="200" Margin="0,0,10,0">
+                <ComboBoxItem Tag="normal" Content="通常（編集する）"
+                              ToolTip="元のファイルをそのまま開きます。編集して上書き保存できます。" />
+                <ComboBoxItem Tag="readOnly" Content="読み取り専用"
+                              ToolTip="元のファイルを読み取り専用で開きます。誤って上書き保存することがありません（編集するときは名前を付けて保存します）。" />
+                <ComboBoxItem Tag="new" Content="新規（元のファイルを占有しない）"
+                              ToolTip="元のファイルを基にした新しい（無題の）ブック・文書として開きます。元のファイルを占有しないため、ほかの人が編集中でも開け、ほかの人の編集も妨げません。保存するときは名前を付けて保存します。" />
+              </ComboBox>
+              <TextBlock DockPanel.Dock="Right" Text="開き方" Style="{StaticResource Heading}" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <TextBlock x:Name="DetailTitle" FontWeight="SemiBold" Foreground="#1F2937" VerticalAlignment="Center" Margin="0,0,10,0"
+                         TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+            </DockPanel>
+            <Border BorderBrush="#9CA3AF" BorderThickness="1,1,0,0" Background="White" Margin="0,6,0,0">
+              <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                            Focusable="True">
+                <ScrollViewer.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" InputGestureText="Ctrl+C" />
+                    <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
+                  </ContextMenu>
+                </ScrollViewer.ContextMenu>
+                <StackPanel TextElement.FontSize="12">
+
+                  <!-- 列見出し（右端をドラッグすると、その列の幅が変わる。幅は PreviewColumn を各行のセルと共有する） -->
+                  <StackPanel Orientation="Horizontal">
+                    <!-- 行番号の列の分（幅 44 は config_gui.ps1 の NumberWidth と合わせる） -->
+                    <Border Width="44" Background="#F3F4F6" BorderBrush="#D1D5DB" BorderThickness="0,0,1,1" />
+                    <ItemsControl x:Name="PreviewHeader">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Width="{Binding Width}" Background="#F3F4F6" BorderBrush="#D1D5DB" BorderThickness="0,0,1,1">
+                          <Grid>
+                            <TextBlock Text="{Binding Label}" Padding="6,2" TextAlignment="Center" Foreground="#6B7280"
+                                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                            <Thumb HorizontalAlignment="Right" Width="6" Cursor="SizeWE"
+                                   ToolTip="ドラッグすると列の幅を変えられます">
+                              <Thumb.Template>
+                                <ControlTemplate TargetType="Thumb">
+                                  <Border Background="Transparent" />
+                                </ControlTemplate>
+                              </Thumb.Template>
+                            </Thumb>
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <ItemsControl x:Name="PreviewRows">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel x:Name="RowPanel" Orientation="Horizontal">
+                          <Border Width="44" Background="#F3F4F6" BorderBrush="#D1D5DB" BorderThickness="0,0,1,1">
+                            <TextBlock x:Name="Num" Text="{Binding Number}" Padding="4,2,6,2" TextAlignment="Right" Foreground="#6B7280" />
+                          </Border>
+                          <ItemsControl ItemsSource="{Binding Cells}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <!-- セル内改行のあるセルは折り返して複数行で表示する（高さの上限まで。全文はツールチップ） -->
+                                <Border x:Name="CellBorder" Width="{Binding Column.Width}" BorderBrush="#E5E7EB" BorderThickness="0,0,1,1">
+                                  <TextBlock x:Name="CellText" Text="{Binding Text}" ToolTip="{Binding ToolTip}" Padding="6,2"
+                                             TextTrimming="CharacterEllipsis" TextWrapping="Wrap" MaxHeight="58" />
+                                </Border>
+                                <DataTemplate.Triggers>
+                                  <!-- コピーのために選んだセル（一致したセルは黄色のまま、枠だけを青にする） -->
+                                  <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                    <Setter TargetName="CellBorder" Property="Background" Value="#BFDBFE" />
+                                    <Setter TargetName="CellBorder" Property="BorderBrush" Value="#1D4ED8" />
+                                    <Setter TargetName="CellBorder" Property="BorderThickness" Value="1" />
+                                  </DataTrigger>
+                                  <DataTrigger Binding="{Binding IsHit}" Value="True">
+                                    <Setter TargetName="CellBorder" Property="Background" Value="#FDE68A" />
+                                    <Setter TargetName="CellText" Property="FontWeight" Value="Bold" />
+                                    <Setter TargetName="CellText" Property="Foreground" Value="#1F2937" />
+                                  </DataTrigger>
+                                  <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                      <Condition Binding="{Binding IsHit}" Value="True" />
+                                      <Condition Binding="{Binding IsSelected}" Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter TargetName="CellBorder" Property="BorderBrush" Value="#1D4ED8" />
+                                    <Setter TargetName="CellBorder" Property="BorderThickness" Value="1" />
+                                  </MultiDataTrigger>
+                                </DataTemplate.Triggers>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+                        <DataTemplate.Triggers>
+                          <!-- 選択行は行全体を薄い青にし、行番号を太字にする -->
+                          <DataTrigger Binding="{Binding IsHitRow}" Value="True">
+                            <Setter TargetName="RowPanel" Property="Background" Value="#DBEAFE" />
+                            <Setter TargetName="Num" Property="FontWeight" Value="Bold" />
+                            <Setter TargetName="Num" Property="Foreground" Value="#1D4ED8" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+            </Border>
+          </DockPanel>
+
+          <DockPanel Grid.Row="5" Margin="0,8,0,0">
+            <Button x:Name="ExportButton" DockPanel.Dock="Right" Content="結果をファイルに出力" />
+            <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center"
+                       Text="行を選ぶと前後の行を表示　プレビューのセルをクリック → Ctrl+C でその値をコピー（Shift＋クリック・ドラッグで複数）　ダブルクリック・Enter：元のファイルを開く" />
+          </DockPanel>
+        </Grid>
+        </Grid>
+      </TabItem>
+
+      <!-- ================= 9 Office 強制終了 ================= -->
+      <TabItem x:Name="KillTab">
+        <TabItem.Header>
+          <TextBlock x:Name="KillTabHeader" Text="9 Office 強制終了" Padding="10,3" />
+        </TabItem.Header>
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="変換を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。" Margin="0,0,0,8" />
+          <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button x:Name="KillAllButton" Style="{StaticResource Danger}" Content="すべて終了" Height="34" />
+              <Button x:Name="KillSelectedButton" Content="選択したプロセスを終了" Height="34" Margin="8,0,0,0" />
+              <Button x:Name="KillBackgroundButton" Style="{StaticResource Primary}" Content="バックグラウンドのみ終了" Height="34" Margin="8,0,0,0" />
+            </StackPanel>
+          </DockPanel>
+          <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,10,0,0"
+                     Text="バックグラウンド：画面にウィンドウが無いプロセス（変換で起動したものなど）。&#x0a;画面に表示中のプロセスを終了すると、保存していない内容は失われます。" />
+          <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <Button x:Name="RefreshProcessButton" DockPanel.Dock="Right" Content="更新" />
+            <TextBlock x:Name="ProcessSummaryText" VerticalAlignment="Center" />
+          </DockPanel>
+          <DataGrid x:Name="ProcessGrid" CanUserSortColumns="False" FontSize="13">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="種類" Binding="{Binding AppName}" Width="110" />
+              <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="80" />
+              <DataGridTemplateColumn Header="状態" Width="170">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBlock x:Name="State" Text="{Binding StateText}" />
+                    <DataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding Background}" Value="True">
+                        <Setter TargetName="State" Property="Foreground" Value="#B45309" />
+                      </DataTrigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="起動時刻" Binding="{Binding StartText}" Width="100" />
+              <DataGridTextColumn Header="メモリ" Binding="{Binding MemoryText}" Width="100" ElementStyle="{StaticResource RightCell}" />
+              <DataGridTextColumn Header="ウィンドウ" Binding="{Binding TitleText}" Width="*" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

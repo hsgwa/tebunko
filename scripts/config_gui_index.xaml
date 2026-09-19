@@ -1,0 +1,32 @@
+﻿<!-- 検索対象インデックスの設定ダイアログ（config\検索対象インデックスパス.txt）。config_gui.ps1 が読み込む -->
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="検索対象インデックス" Width="600" Height="380" MinWidth="480" MinHeight="300"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        Background="White" UseLayoutRounding="True">
+  <Window.Resources>
+    <Style TargetType="Button">
+      <Setter Property="MinWidth" Value="84" />
+      <Setter Property="Padding" Value="10,4" />
+    </Style>
+  </Window.Resources>
+  <DockPanel Margin="14">
+    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="#6B7280" FontSize="12" Margin="0,0,0,8"
+               Text="検索する TSV インデックスのフォルダを指定します。指定しない場合は work\index を検索します。" />
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button x:Name="OkButton" Content="OK" IsDefault="True" />
+      <Button x:Name="CancelButton" Content="キャンセル" IsCancel="True" Margin="8,0,0,0" />
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0">
+      <Button x:Name="AddButton" Content="追加…" Margin="0,0,0,6" />
+      <Button x:Name="RemoveButton" Content="削除" Margin="0,0,0,6" />
+      <Button x:Name="UpButton" Content="↑ 上へ" Margin="0,0,0,6" />
+      <Button x:Name="DownButton" Content="↓ 下へ" />
+    </StackPanel>
+    <Grid>
+      <ListBox x:Name="FolderList" AllowDrop="True" BorderBrush="#9CA3AF" />
+      <TextBlock x:Name="Placeholder" IsHitTestVisible="False" Margin="8,6" Foreground="#9CA3AF" Text="（未指定：work\index を検索します）" />
+    </Grid>
+  </DockPanel>
+</Window>
