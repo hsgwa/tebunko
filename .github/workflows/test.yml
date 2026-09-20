@@ -1,0 +1,36 @@
+# テストの自動実行（GitHub Actions）
+#
+# Windows PowerShell 5.1 と Pester 3.4 は windows ランナーに最初から入っている。
+# ランナーに Office は入っていないため、Office が要るテスト（タグ Office）は tests\run.ps1 が既定で外す。
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: テスト（Unit・Io・Meta）
+        shell: powershell
+        run: .\tests\run.ps1 -Ci
+
+      - name: 静的解析（PSScriptAnalyzer）
+        shell: powershell
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+          # TypeNotFound は、継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの。
+          # 読み込む順で解決できることは tests\meta\structure.Tests.ps1 の「型の読み込み」で確かめている
+          $found = @(Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error | Where-Object { $_.RuleName -ne "TypeNotFound" })
+          $found | Format-Table -AutoSize | Out-String | Write-Host
+          if ($found) { exit 1 }
+
+      - name: テスト結果の保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: work/test/
