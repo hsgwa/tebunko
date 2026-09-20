@@ -1,5 +1,5 @@
-<!-- エクスプローラー風のフォルダ選択ダイアログ（［参照…］・元のファイルの場所の指定）。config_gui.ps1 が読み込む。
-     色・文字・コントロールの形は scripts/theme.xaml にまとめてある。 -->
+﻿<!-- エクスプローラー風のフォルダ選択ダイアログ（［参照…］・元のファイルの場所の指定）。config_gui.ps1 が読み込む。
+     色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="フォルダの選択" Width="900" Height="600" MinWidth="640" MinHeight="440"

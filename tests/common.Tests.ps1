@@ -1961,7 +1961,9 @@ Describe "スクリプトの構文" {
         It "$($script.Name) に構文エラーが無い" {
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$errors) | Out-Null
-            $errors.Count | Should Be 0
+            # 継承元の型が別ファイルにある場合、1 ファイルだけを読むと型が見つからない（TypeNotFound）。
+            # 読み込む順で解決できることは、下の「型の読み込み」で実際に読み込んで確かめる
+            @($errors | Where-Object { $_.ErrorId -ne "TypeNotFound" }).Count | Should Be 0
         }
     }
 }
@@ -1978,12 +1980,29 @@ Describe "画面定義（XAML）" {
     }
 
     It "フォルダ選択の画面に、config_gui.ps1 が使う x:Name がすべてある" {
-        [xml]$xaml = Get-Content "$here\..\scripts\config_gui_folder_select.xaml" -Raw -Encoding UTF8
+        [xml]$xaml = Get-Content "$here\..\scripts\shared\xaml\dialog_folder_select.xaml" -Raw -Encoding UTF8
         $names = @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
         foreach ($name in @(
                 "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox",
                 "FolderTree", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
             $names -contains $name | Should Be $true
         }
+    }
+}
+
+Describe "型の読み込み" {
+    # 画面で使う型は shared と win_grep に分かれている。gui.ps1 と同じ順で読み込めば、
+    # 継承（NotifyBase を継承する型）が解決できることを確かめる
+    It "shared と win_grep の型を順に読み込める" {
+        $probe = Join-Path $TestDrive "probe.ps1"
+        $scripts = (Resolve-Path "$here\..\scripts").Path
+        Set-Content -LiteralPath $probe -Encoding UTF8 -Value @(
+            'Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase'
+            ". `"$scripts\shared\ui\types.ps1`""
+            ". `"$scripts\win_grep\ui\types_grep.ps1`""
+            '([HitRow], [IndexNode], [FolderNode], [ConfirmFact], [PreviewTable]).Count'
+        )
+        $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1
+        ($output -join "") | Should Be "5"
     }
 }

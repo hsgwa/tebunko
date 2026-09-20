@@ -1,5 +1,5 @@
-<!-- 確認ダイアログ。「押すと何が起きるか」を見出し・結果・ボタンの文言で見せる。config_gui.ps1 の showConfirm が読み込む。
-     色・文字・コントロールの形は scripts/theme.xaml にまとめてある。 -->
+﻿<!-- 確認ダイアログ。「押すと何が起きるか」を見出し・結果・ボタンの文言で見せる。config_gui.ps1 の showConfirm が読み込む。
+     色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="win_grep" Width="560" SizeToContent="Height" MaxHeight="620"

@@ -1,5 +1,5 @@
-<!-- 画面の定義。config_gui.ps1 が読み込み、x:Name でコントロールを取得する（イベントは ps1 側で設定する）。
-     色・文字・コントロールの形は scripts/theme.xaml にまとめてある（loadWindow が読み込む）。 -->
+﻿<!-- 画面の定義。config_gui.ps1 が読み込み、x:Name でコントロールを取得する（イベントは ps1 側で設定する）。
+     色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある（loadWindow が読み込む）。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="win_grep" Width="1000" Height="720" MinWidth="760" MinHeight="580"
@@ -15,7 +15,7 @@
   <Window.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="theme.xaml" />
+        <ResourceDictionary Source="../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Window.Resources>
