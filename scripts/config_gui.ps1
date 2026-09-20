@@ -1307,18 +1307,19 @@ function updateFolderEntryList {
     # 絞り込み（名前の部分一致）を一覧に反映する
     $d = $script:folderSelect
     $filter = $d.Ctrl.FilterBox.Text.Trim()
-    $rows = if ($filter -eq "") {
-        $d.All
-    } else {
-        @($d.All | Where-Object { $_.Name.IndexOf($filter, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0 })
+    # if の結果をそのまま受けると、1 件のときに配列が展開されて ItemsSource に渡せないため、
+    # 代入は @() で配列のまま扱う
+    $rows = @($d.All)
+    if ($filter -ne "") {
+        $rows = @($rows | Where-Object { $_.Name.IndexOf($filter, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0 })
     }
-    $d.Ctrl.EntryList.ItemsSource = $rows
+    $d.Ctrl.EntryList.ItemsSource = @($rows)
     $d.Ctrl.EntryPlaceholder.Text = if ($filter -ne "") {
         "「${filter}」を名前に含むフォルダ・ファイルはありません。"
     } else {
         "このフォルダの中にはフォルダもファイルもありません。このフォルダでよければ［選択］を押してください。"
     }
-    $d.Ctrl.EntryPlaceholder.Visibility = if (@($rows).Count -eq 0) { "Visible" } else { "Collapsed" }
+    $d.Ctrl.EntryPlaceholder.Visibility = if ($rows.Count -eq 0) { "Visible" } else { "Collapsed" }
 }
 
 function onFolderEntrySelected {
