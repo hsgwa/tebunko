@@ -1,7 +1,7 @@
 ﻿# 画面（WPF）
 #
 # ［1 インデックス管理］［2 検索］［9 プロセス停止］の3タブ。画面の定義は config_gui.xaml。
-# 変換は office_to_tsv.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う（処理は win_grep\lib.ps1 の各部品と共通）。
+# 変換は win_grep\convert.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う（処理は win_grep\lib.ps1 の各部品と共通）。
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
@@ -2400,8 +2400,8 @@ function getConversionProgress {
 }
 
 function findRunningConversion {
-    # このツールの変換（office_to_tsv.ps1）が実行中なら、そのプロセスを返す（画面を閉じて開き直した場合など）
-    $script = "${PSScriptRoot}\office_to_tsv.ps1"
+    # このツールの変換（win_grep\convert.ps1）が実行中なら、そのプロセスを返す（画面を閉じて開き直した場合など）
+    $script = "${PSScriptRoot}\win_grep\convert.ps1"
     foreach ($process in @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue)) {
         if ($process.CommandLine -and $process.CommandLine.IndexOf($script, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
             try {
@@ -2595,7 +2595,7 @@ function startConversion {
     saveTargets
     # 何件変換するかは、元のファイルの更新日時とサイズを見ないと分からない。
     # -ConfirmTargets を付けると、変換側は数え終えたところで止まって確認（変換開始要求）を待つ
-    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${PSScriptRoot}\office_to_tsv.ps1`" -ConfirmTargets"
+    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${PSScriptRoot}\win_grep\convert.ps1`" -ConfirmTargets"
     $script:convertStart = Get-Date
     $script:convertRate = $null
     $script:convertConfirmed = $false

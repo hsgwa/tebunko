@@ -2,7 +2,7 @@
 # Word・PowerPointは使わず、最小限の .docx / .pptx（ZIP）をテスト内で作成して検証する
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . "$here\..\scripts\win_grep\lib.ps1"
-. "$here\..\scripts\office_reader.ps1"
+. "$here\..\scripts\shared\office\office_reader.ps1"
 
 function newZip {
     # ZIP内のパス → 内容 の辞書からZIPファイルを作成する
