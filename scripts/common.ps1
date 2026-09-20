@@ -1586,9 +1586,18 @@ function getSearchIndexes {
     $indexes = New-Object System.Collections.Generic.List[object]
     foreach ($sub in @(Get-ChildItem -LiteralPath (toLongPath $root) -Directory -ErrorAction SilentlyContinue)) {
         $name = $sub.Name
+        $path = (fromLongPath $sub.FullName)
+        if (!$sources.ContainsKey($name)) {
+            # 変換一覧にも設定にも無いインデックス（別の場所・PC からコピーしたものなど）は、
+            # そのフォルダの中の 元のフォルダ.txt から元のフォルダを読む
+            $own = readSourceFolderFile $path
+            if ($own.ContainsKey($name)) {
+                $sources[$name] = $own[$name]
+            }
+        }
         $indexes.Add([pscustomobject]@{
             Name       = $name
-            Path       = (fromLongPath $sub.FullName)
+            Path       = $path
             SourcePath = $(if ($sources.ContainsKey($name)) { $sources[$name] } else { "" })
             Order      = $(if ($order.ContainsKey($name)) { $order[$name] } else { [int]::MaxValue })
         })
@@ -2536,10 +2545,10 @@ function splitTsvCells {
 }
 
 function writeSourceFolderFile {
-    # インデックスのフォルダに、インデックス名と変換対象フォルダの対応（元のフォルダ.txt）を書き出す。
-    # 1行目は説明、2行目以降は "インデックス名<TAB>変換対象フォルダ"。
-    # インデックスのフォルダ全体（全インデックス分）と、各インデックスのフォルダ（そのインデックス1件分）の両方に置く。
-    # 後者があるため、<インデックス名> のフォルダだけを別の PC・場所へコピーしても元のファイルの場所が分かる
+    # 各インデックスのフォルダに、インデックス名と変換対象フォルダの対応（元のフォルダ.txt）を書き出す。
+    # 1行目は説明、2行目は "インデックス名<TAB>変換対象フォルダ"。
+    # インデックス1件につき1ファイルのため、<インデックス名> のフォルダだけを別の PC・場所へコピーしても
+    # 元のファイルの場所が分かる（work\index ごとコピーした場合は readSourceFolderFile が各フォルダを読む）
     param (
         [object[]]$folders,  # assignIndexNames の結果（@{ Path; Name }）
         [string]$dir = ${indexDir}
@@ -2547,7 +2556,18 @@ function writeSourceFolderFile {
 
     $header = "# 検索結果から元のファイルを開くときに使う、インデックス名と変換対象フォルダの対応です（変換のたびに作り直します）"
     $items = @($folders | Where-Object { $_ -and $_.Name })
-    writeListFile (Join-Path $dir ${sourceFolderFileName}) (@($header) + @($items | ForEach-Object { "$($_.Name)`t$($_.Path)" }))
+
+    # 以前の版は、インデックスのフォルダ直下にも全インデックス分の 元のフォルダ.txt を書いていた。
+    # そこにしか記録の無いインデックス（変換対象フォルダから外したものなど）の分を各フォルダへ移してから、直下のファイルを消す
+    $rootPath = Join-Path $dir ${sourceFolderFileName}
+    $names = @($items | ForEach-Object { $_.Name })
+    foreach ($line in @(readListFile $rootPath)) {
+        $fields = $line.Split("`t")
+        if ($fields.Count -eq 2 -and $fields[0] -ne "" -and $fields[1] -ne "" -and $names -notcontains $fields[0]) {
+            $items += [pscustomobject]@{ Name = $fields[0]; Path = $fields[1] }
+            $names += $fields[0]
+        }
+    }
 
     foreach ($folder in $items) {
         # インデックスのフォルダがまだ無い（1件も変換していない）場合は作らない
@@ -2556,11 +2576,17 @@ function writeSourceFolderFile {
             writeListFile (Join-Path $indexPath ${sourceFolderFileName}) @($header, "$($folder.Name)`t$($folder.Path)")
         }
     }
+
+    if (Test-Path -LiteralPath $rootPath) {
+        Remove-Item -LiteralPath $rootPath -Force
+    }
 }
 
 function readSourceFolderFile {
-    # インデックスのフォルダの 元のフォルダ.txt を読み、インデックス名 → 変換対象フォルダ を返す（大文字・小文字を区別しない）。
-    # ファイルが無ければ空
+    # インデックスのフォルダ（dir）直下の 元のフォルダ.txt を読み、インデックス名 → 変換対象フォルダ を返す
+    # （大文字・小文字を区別しない）。ファイルが無ければ空。
+    # ファイルは各インデックスのフォルダ（work\index\<インデックス名>）に置くため、dir にはそのフォルダを渡す。
+    # dir の下を探し回らないのは、インデックスのフォルダの下が元のファイル1つにつき1フォルダ（数万個）になるため
     param (
         [string]$dir
     )
@@ -2578,7 +2604,7 @@ function readSourceFolderFile {
 function getSourceFolderMap {
     # インデックスのフォルダ（dir）の インデックス名 → 元のフォルダ（今そのフォルダが置かれている場所）を返す。
     # 次の順に読み、後のもので上書きする（後のものが優先）:
-    #   1. dir の 元のフォルダ.txt … インデックスを作ったときの場所。インデックスをコピーしても付いてくる
+    #   1. dir 直下の 元のフォルダ.txt … インデックスを作ったときの場所。インデックスをコピーしても付いてくる
     #   2. 既定のインデックス（work\index）なら変換一覧の記録
     #   3. 設定のインデックス名に対する場所（targetFolders・indexSources）… 利用者が指定した「今の場所」のため最も優先する
     param (
@@ -2640,9 +2666,13 @@ function getSourceLocation {
         # インデックスのフォルダの中の記録（<インデックス名> のフォルダだけを別の場所へコピーした場合）
         $candidates.Add(@{ Dir = (Join-Path $root $parts.Name); Name = $parts.Name; Rest = $parts.Rest })
     }
+    # 検索対象にインデックス名のフォルダ（…\index\<インデックス名>）を直接指定した場合。
+    # そのフォルダ自身の記録を先に見て、無ければ親フォルダの記録を見る
+    $leaf = Split-Path $root -Leaf
+    $candidates.Add(@{ Dir = $root; Name = $leaf; Rest = $relDir })
     $parent = Split-Path $root -Parent
     if ($parent) {
-        $candidates.Add(@{ Dir = $parent; Name = (Split-Path $root -Leaf); Rest = $relDir })
+        $candidates.Add(@{ Dir = $parent; Name = $leaf; Rest = $relDir })
     }
 
     foreach ($candidate in $candidates) {
