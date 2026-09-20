@@ -86,7 +86,7 @@ flowchart LR
     subgraph work["work/（自動生成）"]
         idx[("index/<br>TSV インデックス")]
         status["変換一覧.tsv<br>（更新日時・状態）"]
-        ctl["変換中止要求・変換エラー.txt<br>変換ログ.txt"]
+        ctl["変換予定.tsv・変換開始要求<br>変換中止要求・変換エラー.txt<br>変換ログ.txt"]
         out["検索結果.txt<br>（［結果をファイルに出力］）"]
     end
 
@@ -96,7 +96,7 @@ flowchart LR
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]
 
     user --> bat --> gui
-    gui -- "起動（-RetryFailed）" --> conv
+    gui -- "起動（-ConfirmTargets）" --> conv
     gui -. "dot-source" .-> common
     conv -. "dot-source" .-> common
     conv -. "dot-source" .-> reader
@@ -128,10 +128,10 @@ sequenceDiagram
 
     U->>G: ［1 インデックス管理］の［新規作成…］でインデックスを作成
     U->>G: ［変換を開始］
-    opt 前回失敗したファイルがある
-        G->>U: 失敗分も再変換するか確認
-    end
-    G->>CV: ウィンドウ無しで起動（必要なら -RetryFailed）
+    G->>CV: ウィンドウ無しで起動（-ConfirmTargets）
+    CV->>CV: 変換対象を数える（更新日時・サイズを前回と比べる）
+    G->>U: インデックスごとの変換対象の件数を確認（更新が無ければ「更新不要」）
+    U->>G: ［変換を開始］（前回失敗分も再変換するかを選べる）／［キャンセル］
     CV->>W: シート・ページ・スライドごとの TSV を作成（変換済み・更新なしはスキップ）
     G->>U: 進み具合・失敗したファイルを表示（［中止］で止められる）
     U->>G: ［2 検索］でワードを入力

@@ -490,6 +490,16 @@ class FailRow {
     [string]$SourcePath
 }
 
+# 変換の確認ダイアログに出すインデックス1件（変換予定.tsv の1行）
+class PlanRow {
+    [string]$Name
+    [string]$Path
+    [string]$TargetText   # 変換対象の件数（"12 件" / "更新不要" / "変換しません"）
+    [object]$TargetBrush
+    [string]$DetailText   # 内訳（新規 N 件 / 更新あり N 件 …）
+    [string]$TotalText    # 見つかった Office ファイルの数
+}
+
 # ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
 # ［変換］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
@@ -761,7 +771,7 @@ $window = loadWindow "$PSScriptRoot\config_gui.xaml"
 $ui = @{}
 foreach ($name in @(
         "Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "CloseButton",
-        "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RebuildIndexButton", "RemoveIndexButton",
+        "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
         "IndexSummaryText", "ConversionStateText", "ConvertButton", "ConvertHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
         "ConvertProgressPanel", "ConvertProgressText", "ConvertProgressEta", "ConvertProgress", "ConvertProgressDetail", "ConvertStopButton", "ConvertLogButton",
@@ -785,6 +795,8 @@ function toBrush {
 ${okBrush}   = toBrush "#2E8B57"
 ${warnBrush} = toBrush "#B45309"
 ${ngBrush}   = toBrush "#DC2626"
+${infoBrush} = toBrush "#1D4ED8"
+${grayBrush} = toBrush "#6B7280"
 
 # ---- 共通の部品 ----
 
@@ -1337,58 +1349,13 @@ function editIndex {
     setStatus ("インデックスを変更しました（" + ($changes -join " / ") + "）")
 }
 
-function rebuildIndex {
-    # ［作り直す…］。変換した TSV と変換一覧の記録を消してから変換を始め、インデックスを一から作り直す。
-    # 差分変換（更新日時とサイズで判定する）では変換し直さない場合に使う:
-    #   ・更新日時・サイズが変わらないまま中身が変わった（同じ秒に同じ大きさで保存した・更新日時を保つツールで書き換えた）
-    #   ・TSV の中身が壊れた（0 バイトのTSVは変換側が見つけて作り直すが、中身の書き換えまでは分からない）
-    $item = $ui.IndexGrid.SelectedItem
-    if ($null -eq $item -or !(testIndexOperable "作り直し")) {
-        return
-    }
-    if (!$item.Name) {
-        setStatus "このインデックスはまだ変換していません。［変換を開始］で作成してください"
-        return
-    }
-    if (!(Test-Path -LiteralPath $item.Path -PathType Container)) {
-        # 消してから変換できないと、インデックスが無いだけの状態になる
-        showMessage ("元のフォルダが見つからないため、インデックス [$($item.Name)] を作り直せません。`n`n" +
-            "元のフォルダ：$($item.Path)`n`nフォルダを使えるようにするか、［編集…］で場所を変えてください。") "OK" "Warning" | Out-Null
-        return
-    }
-
-    $answer = showMessage ("インデックス [$($item.Name)] を作り直します。`n`n元のフォルダ：$($item.Path)`n`n" +
-        "変換した TSV（work\index\$($item.Name)）を削除し、フォルダの中の Office ファイルをすべて変換し直します（件数によっては時間がかかります）。`n" +
-        "ふだんは、更新されたファイルだけを変換する［変換を開始］で足ります。元のファイルの更新日時が変わらないまま中身が変わった場合などに使ってください。`n" +
-        "［変換］のチェックが外れている場合は付けます。`n`n作り直しますか？") "YesNo" "Question" "No"
-    if ($answer -ne "Yes") {
-        return
-    }
-
-    $item.SetEnabled($true)  # チェックが外れていると変換されず、インデックスが無いだけになる
-    saveTargets
-    updateIndexSourceFile
-    updateIndexListView
-    # TSV の削除は数万フォルダで数十秒かかることがあるため、別スレッドで行う（画面は固まらない）
-    startIndexRemoveJob $item.Name "作り直し" {
-        startConversion
-        $name = $script:indexJobName
-        if (isConverting) {
-            setStatus "インデックス [${name}] を作り直します（変換を開始しました）"
-        } else {
-            # 変換を始めるときの確認（失敗分の再変換）でキャンセルした場合。TSV は削除済みのため、次の変換で作り直す
-            setStatus "インデックス [${name}] の TSV を削除しました。［変換を開始］を押すと作り直します"
-        }
-    }
-}
-
 function startIndexRemoveJob {
     # インデックス（work\index\<名前>）と変換一覧の記録の削除を別スレッドで行う。
     # 数万フォルダの削除は数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため。
     # 終わるまでインデックスの操作・変換の開始はできないようにし、何をしているかをステータスに出す
     param (
         [string]$name,
-        [string]$operation,   # "削除" / "作り直し"（表示に使う）
+        [string]$operation,   # "削除"（表示に使う）
         [scriptblock]$onDone  # 削除が終わった後に画面のスレッドで行うこと（$script:indexJobName で名前を参照できる）
     )
 
@@ -1465,11 +1432,11 @@ function updateConvertButton {
         $ui.ConvertButton.IsEnabled = $ready
     }
 
-    $hint = "変換中も検索できます。途中でやめるときは［中止］を押してください（次回、続きから再開できます）。"
+    $hint = "押すと、まず変換対象の件数を確認できます。変換中も検索できます（途中でやめるときは［中止］）。"
     if (!$ready -and !(isConverting)) {
         $hint = "インデックスを作成して、チェックを付けてください。"
     } elseif ($state -and $state.Failed -gt 0 -and !(isConverting)) {
-        $hint = "前回失敗したファイルがあります。変換を始めるときに、再変換するかを選べます。" + $hint
+        $hint = "前回失敗したファイルがあります。確認のときに、再変換するかを選べます。" + $hint
     }
     $ui.ConvertHint.Text = $hint
 
@@ -1479,7 +1446,6 @@ function updateConvertButton {
     $editable = !(isConverting) -and !$script:indexBusy
     $ui.NewIndexButton.IsEnabled = $editable
     $ui.EditIndexButton.IsEnabled = $selected -and $editable
-    $ui.RebuildIndexButton.IsEnabled = $selected -and $editable
     $ui.RemoveIndexButton.IsEnabled = $selected -and $editable
 }
 
@@ -1637,13 +1603,14 @@ function getConversionProgress {
         [datetime]$since
     )
 
-    $progress = @{ Scanned = $false; Processed = 0; Failed = 0; Remaining = 0; Current = ""; Detail = ""; Finishing = $false }
+    $progress = @{ Scanned = $false; Processed = 0; Failed = 0; Remaining = 0; Current = ""; Detail = ""; Finishing = $false; Confirming = $false }
     $current = readConvertProgress
     if ($null -eq $current) {
         return $progress
     }
 
     $progress.Scanned = ($current.Phase -ne ${convertPhaseScan})
+    $progress.Confirming = ($current.Phase -eq ${convertPhaseConfirm})
     $progress.Finishing = ($current.Phase -eq ${convertPhaseFinish})
     $progress.Processed = $current.Processed
     $progress.Remaining = $current.Remaining
@@ -1681,6 +1648,162 @@ function showConversionPanel {
     $taskbar.ProgressState = "Indeterminate"
 }
 
+function buildPlanRows {
+    # 変換予定（変換予定.tsv の行）を、確認のダイアログの一覧に出す形にする
+    param (
+        $plan  # readConvertPlan の結果
+    )
+
+    $rows = New-Object System.Collections.Generic.List[PlanRow]
+    foreach ($item in @($plan)) {
+        $row = [PlanRow]::new()
+        $row.Name = $item.インデックス名
+        $row.Path = $item.元のフォルダ
+        if ($item.区分 -eq ${planKindUnchecked}) {
+            $row.TargetText = "変換しません"
+            $row.TargetBrush = ${grayBrush}
+            $row.DetailText = "［変換］のチェックが外れています（インデックスはそのまま残します）"
+            $row.TotalText = "－"
+        } elseif ($item.区分 -eq ${planKindMissing}) {
+            $row.TargetText = "変換できません"
+            $row.TargetBrush = ${ngBrush}
+            $row.DetailText = "元のフォルダが見つかりません（［編集…］で場所を変えられます）"
+            $row.TotalText = "－"
+        } else {
+            $row.TotalText = "{0:#,0} 件" -f $item.ファイル数
+            # 0 件の内訳は出さない（ふだんは「新規」「更新あり」だけになる）
+            $parts = New-Object System.Collections.Generic.List[string]
+            foreach ($pair in @(
+                    @("新規", $item.新規),
+                    @("更新あり", $item.更新あり),
+                    @("前回未完了", $item.前回未完了),
+                    @("変換結果が無い・壊れている", $item.変換結果なし),
+                    @("前回失敗", $item.前回失敗))) {
+                if ($pair[1] -gt 0) {
+                    $parts.Add("$($pair[0]) $('{0:#,0}' -f $pair[1]) 件")
+                }
+            }
+            if ($item.変換対象 -gt 0) {
+                $row.TargetText = "{0:#,0} 件" -f $item.変換対象
+                $row.TargetBrush = ${infoBrush}
+            } else {
+                $row.TargetText = "更新不要"
+                $row.TargetBrush = ${okBrush}
+            }
+            $row.DetailText = if ($parts.Count -gt 0) { $parts -join " / " } else { "すべて変換済みです" }
+        }
+        $rows.Add($row)
+    }
+    return , $rows.ToArray()
+}
+
+function updateConvertConfirmTotal {
+    # 「失敗分も再変換する」のチェックに合わせて、合計と主ボタンの文言を変える
+    $d = $script:confirmDialog
+    $total = $d.Targets
+    if ($d.Ctrl.RetryCheck.IsChecked) {
+        $total += $d.Failed
+    }
+    if ($total -gt 0) {
+        $d.Ctrl.TotalText.Text = "合計 {0:#,0} 件を変換します。" -f $total
+        $d.Ctrl.StartButton.Content = "変換を開始"
+    } else {
+        $d.Ctrl.TotalText.Text = "更新が必要なファイルはありません（すべて変換済みです）。"
+        $d.Ctrl.StartButton.Content = "閉じる"
+    }
+}
+
+function showConvertConfirmDialog {
+    # 変換の確認。変換側が数えた結果（インデックスごとの変換対象の件数）を出して、変換するかどうかを選んでもらう。
+    #   変換する → @{ RetryFailed } ／ 取りやめ → $null
+    param (
+        $plan  # readConvertPlan の結果
+    )
+
+    $targets = 0
+    $failed = 0
+    foreach ($item in @($plan)) {
+        if ($item.区分 -eq ${planKindConvert}) {
+            $targets += $item.変換対象
+            $failed += $item.前回失敗
+        }
+    }
+
+    $dialog = loadWindow "$PSScriptRoot\config_gui_convert_confirm.xaml"
+    $dialog.Owner = $window
+    $ctrl = @{}
+    foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "TotalText", "NoteText", "IntroText", "PlanGrid")) {
+        $ctrl[$name] = $dialog.FindName($name)
+    }
+    $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Targets = $targets; Failed = $failed; Answer = $null }
+
+    $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan
+    $ctrl.IntroText.Text = "元のファイルの更新日時とサイズを、前回変換したときの記録と比べました。" +
+        "［変換を開始］を押すと、変換対象のファイルだけを変換します。"
+    if ($failed -gt 0) {
+        $ctrl.RetryCheck.Visibility = "Visible"
+        $ctrl.RetryCheck.Content = "前回変換に失敗し、その後更新されていないファイル {0:#,0} 件も再変換する（パスワード付きなど）" -f $failed
+    }
+    if ($targets -eq 0 -and $failed -eq 0) {
+        # 変換するものが無いときは、閉じるだけ（［キャンセル］との違いが無い）
+        $ctrl.CancelButton.Visibility = "Collapsed"
+        $ctrl.NoteText.Visibility = "Visible"
+        $ctrl.NoteText.Text = "更新日時が変わらないまま中身が変わったファイルは、変換対象になりません。" +
+            "そのインデックスを一から作り直すときは、［削除］してから作成し直してください。"
+    }
+    updateConvertConfirmTotal
+
+    $ctrl.RetryCheck.Add_Click({ safe { updateConvertConfirmTotal } })
+    $ctrl.StartButton.Add_Click({
+        safe {
+            $d = $script:confirmDialog
+            $d.Answer = @{ RetryFailed = [bool]$d.Ctrl.RetryCheck.IsChecked }
+            $d.Window.DialogResult = $true
+        }
+    })
+    $null = $dialog.ShowDialog()
+
+    $answer = $script:confirmDialog.Answer
+    if ($null -eq $answer -and $targets -eq 0 -and $failed -eq 0) {
+        # 変換するものが無いときは、どう閉じても同じ（変換側はそのまま終わる）
+        $answer = @{ RetryFailed = $false }
+    }
+    $script:confirmDialog = $null
+    return $answer
+}
+
+function confirmConversionTargets {
+    # 変換側が数え終えて確認を待っている間に、確認のダイアログを1回だけ開いて返事を返す。
+    # ダイアログを開いている間も進み具合のタイマーは動くため、開く前に「開いた」ことにしておく
+    if ($script:convertConfirmed) {
+        return
+    }
+    $plan = readConvertPlan
+    if ($null -eq $plan) {
+        return  # 書き込みの途中・まだ読めない。次の機会に読む
+    }
+    $script:convertConfirmed = $true
+
+    $ui.ConvertProgress.IsIndeterminate = $true
+    $ui.ConvertProgressText.Text = "変換する内容を確認してください"
+    $ui.ConvertProgressDetail.Text = "変換対象の一覧を表示しています。"
+    $answer = showConvertConfirmDialog $plan
+    if ($null -eq $answer) {
+        # 取りやめ。変換側は変換中止要求を見て、何も変換せずに終わる
+        $script:convertCanceledAtConfirm = $true
+        $ui.ConvertStopButton.IsEnabled = $false
+        $ui.ConvertProgressText.Text = "変換を取りやめています…"
+        $ui.ConvertProgressDetail.Text = ""
+        [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
+        setStatus "変換を取りやめました"
+        return
+    }
+    writeConvertStartRequest $answer.RetryFailed
+    $script:convertRate = $null  # 残り時間の目安は、確認を待っていた時間を含めずに計る
+    $ui.ConvertProgressText.Text = "変換を始めています…"
+    setStatus "変換を開始しました"
+}
+
 function startConversion {
     if (isConverting) {
         return
@@ -1692,32 +1815,21 @@ function startConversion {
         return
     }
 
-    # 前回失敗し、その後更新されていないファイルを再変換するか聞く
-    $retryFailed = $false
-    $state = $script:conversionState
-    if ($state -and $state.Failed -gt 0) {
-        $answer = showMessage ("前回変換に失敗し、その後更新されていないファイルが $($state.Failed) 件あります（パスワード付きなど）。`n`n" +
-            "これらも再変換しますか？`n（「いいえ」の場合はスキップして、新しいファイル・更新されたファイルだけを変換します）") "YesNoCancel" "Question" "No"
-        if ($answer -eq "Cancel") {
-            return
-        }
-        $retryFailed = $answer -eq "Yes"
-    }
-
     saveTargets
-    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${PSScriptRoot}\office_to_tsv.ps1`""
-    if ($retryFailed) {
-        $arguments += " -RetryFailed"
-    }
+    # 何件変換するかは、元のファイルの更新日時とサイズを見ないと分からない。
+    # -ConfirmTargets を付けると、変換側は数え終えたところで止まって確認（変換開始要求）を待つ
+    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${PSScriptRoot}\office_to_tsv.ps1`" -ConfirmTargets"
     $script:convertStart = Get-Date
     $script:convertRate = $null
+    $script:convertConfirmed = $false
+    $script:convertCanceledAtConfirm = $false
     $script:convertProcess = Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -WorkingDirectory ${rootDir} -WindowStyle Hidden -PassThru
     # PowerShell 5.1 では、起動直後にハンドルを取っておかないと終了コードを取得できないことがある
     $null = $script:convertProcess.Handle
     $script:convertAdopted = $false
 
     showConversionPanel
-    setStatus "変換を開始しました"
+    setStatus "変換対象を確認しています…"
     updateConvertButton
     updateKillBadge
     $script:convertTimer.Start()
@@ -1736,6 +1848,8 @@ function adoptConversion {
     }
     $script:convertStart = $process.StartTime
     $script:convertRate = $null
+    $script:convertConfirmed = $false
+    $script:convertCanceledAtConfirm = $false
     $script:convertAdopted = $true
     showConversionPanel
     updateConvertButton
@@ -1779,6 +1893,13 @@ function updateConversionProgress {
             $ui.ConvertProgressDetail.Text = [string]$progress.Detail
         }
         $taskbar.ProgressState = "Indeterminate"
+        return
+    }
+    if ($progress.Confirming) {
+        # 数え終えて、画面で変換するかどうかを選ぶのを待っている（変換側は返事があるまで止まっている）。
+        # 表示は confirmConversionTargets がダイアログを開く直前に 1 回だけ変える（取りやめの表示を上書きしないため）
+        $taskbar.ProgressState = "Paused"
+        confirmConversionTargets
         return
     }
     if ($progress.Finishing) {
@@ -1868,6 +1989,11 @@ function finishConversion {
         $ui.ConvertProgressDetail.Text = $message
         setStatus "変換できませんでした：$message"
         showMessage "変換できませんでした。`n`n$message" "OK" "Error" | Out-Null
+    } elseif ($exitCode -eq 2 -and $script:convertCanceledAtConfirm) {
+        # 確認のダイアログで取りやめた（1件も変換していない）
+        $ui.ConvertProgressText.Text = "変換を取りやめました"
+        $ui.ConvertProgressDetail.Text = "変換したファイルはありません。［変換を開始］を押すと、もう一度確認できます。"
+        setStatus $ui.ConvertProgressText.Text
     } elseif ($exitCode -eq 2) {
         $ui.ConvertProgressText.Text = if ($counts) { "変換を中止しました（$counts）" } else { "変換を中止しました" }
         $ui.ConvertProgressDetail.Text = "次回は続きから再開できます。"
@@ -1898,7 +2024,6 @@ $script:convertTimer = newTimer 1000 { safe { updateConversionProgress } }
 
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })
-$ui.RebuildIndexButton.Add_Click({ safe { rebuildIndex } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.IndexGrid.Add_SelectionChanged({ safe { updateIndexListView } })
 $ui.IndexGrid.Add_MouseDoubleClick({ safe { editIndex } })

@@ -136,7 +136,7 @@
           <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <Button x:Name="ConvertButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="変換を開始" MinWidth="170" Height="34" />
             <TextBlock x:Name="ConvertHint" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,12,0"
-                       Text="変換中も検索できます。途中でやめるときは［中止］を押してください（次回、続きから再開できます）。" />
+                       Text="押すと、まず変換対象の件数を確認できます。変換中も検索できます（途中でやめるときは［中止］）。" />
           </DockPanel>
 
           <StackPanel DockPanel.Dock="Bottom" x:Name="ConvertProgressPanel" Visibility="Collapsed" Margin="0,10,0,0">
@@ -164,10 +164,9 @@
               <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0" Width="150">
                 <Button x:Name="NewIndexButton" Content="新規作成…" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを作ります" />
                 <Button x:Name="EditIndexButton" Content="編集…" Margin="0,6,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスは作り直しません）" />
-                <Button x:Name="RebuildIndexButton" Content="作り直す…" Margin="0,6,0,0" ToolTip="選んだインデックスの TSV を削除して、フォルダの中のファイルをすべて変換し直します（更新日時が変わらないまま中身が変わった場合などに使います）" />
                 <Button x:Name="RemoveIndexButton" Style="{StaticResource Danger}" Content="削除" Margin="0,6,0,0" ToolTip="選んだインデックスを、変換した TSV ごと削除します" />
                 <TextBlock Style="{StaticResource Hint}" Margin="0,12,0,0"
-                           Text="一覧にフォルダをドラッグ＆ドロップしても作成できます。変換中は作成・編集・作り直し・削除はできません。" />
+                           Text="一覧にフォルダをドラッグ＆ドロップしても作成できます。変換中は作成・編集・削除はできません。" />
               </StackPanel>
               <Grid>
                 <DataGrid x:Name="IndexGrid" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">

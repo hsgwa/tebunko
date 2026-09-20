@@ -43,11 +43,25 @@ ${convertLogFile}   = "${workDir}\変換ログ.txt"    # 変換処理の表示�
 # 変換の進み具合（変換が1行だけ書き、画面が読む）。
 # 画面が変換一覧（数万行になる）を毎秒読み直すと、その間ずっと画面が固まるため、進み具合はこの1行から読む
 ${convertProgressFile} = "${workDir}\変換進捗.txt"
+# 変換対象を数え終えたときに変換側が書く、インデックスごとの件数（画面が読んで確認のダイアログに出す）
+${convertPlanFile} = "${workDir}\変換予定.tsv"
+# 画面が作成すると、変換処理は確認待ちから先へ進む（中身で、前回失敗したファイルも再変換するかを伝える）
+${convertStartRequestFile} = "${workDir}\変換開始要求"
 
 # 変換の進み具合の段階（変換進捗.txt の1列目）
-${convertPhaseScan}   = "準備"    # 変換対象のファイルを探している（件数はまだ分からない）
-${convertPhaseRun}    = "変換"    # 1ファイルずつ変換している
-${convertPhaseFinish} = "仕上げ"  # 後片付け（Officeアプリの終了・変換一覧の書き直し）
+${convertPhaseScan}    = "準備"    # 変換対象のファイルを探している（件数はまだ分からない）
+${convertPhaseConfirm} = "確認"    # 変換対象を数え終え、画面で変換するかどうかを選ぶのを待っている
+${convertPhaseRun}     = "変換"    # 1ファイルずつ変換している
+${convertPhaseFinish}  = "仕上げ"  # 後片付け（Officeアプリの終了・変換一覧の書き直し）
+
+# 変換予定（変換予定.tsv）の列と、インデックスごとの区分
+${convertPlanColumns} = @("インデックス名", "元のフォルダ", "区分", "ファイル数", "変換対象", "新規", "更新あり", "前回未完了", "変換結果なし", "前回失敗")
+${planKindConvert}   = "変換"          # チェックが付いていて元のフォルダも見つかった（数えた結果を出す）
+${planKindUnchecked} = "チェックなし"  # ［変換］のチェックが外れているため数えていない
+${planKindMissing}   = "フォルダなし"  # 元のフォルダが見つからないため数えていない
+
+# 変換開始要求の中身（前回失敗したファイルも再変換するかどうか）
+${retryFailedMark} = "失敗分も再変換"
 
 # 変換一覧の列と状態
 ${statusColumns}   = @("相対パス", "更新日時", "サイズ", "状態", "TSV数", "変換日時", "エラー")
@@ -502,6 +516,157 @@ function readConvertProgress {
 function removeConvertProgress {
     param (
         [string]$path = ${convertProgressFile}
+    )
+
+    if (Test-Path -LiteralPath $path) {
+        Remove-Item -LiteralPath $path -Force
+    }
+}
+
+function newConvertPlanRow {
+    # 変換予定（インデックス1件分）の行を作る
+    param (
+        [string]$name,
+        [string]$path,
+        [string]$kind = ${planKindConvert},
+        [int]$total = 0,    # 見つかった Office ファイルの数
+        [int]$targets = 0,  # 今回変換するファイルの数（新規＋更新あり＋前回未完了＋変換結果なし）
+        [int]$new = 0,
+        [int]$updated = 0,
+        [int]$pending = 0,
+        [int]$lost = 0,     # 変換結果（TSV）が無くなった・壊れているため変換し直す
+        [int]$failed = 0    # 前回失敗し、その後更新されていない（再変換するかは画面で選ぶ）
+    )
+
+    return [pscustomobject]@{
+        インデックス名 = $name
+        元のフォルダ   = $path
+        区分           = $kind
+        ファイル数     = $total
+        変換対象       = $targets
+        新規           = $new
+        更新あり       = $updated
+        前回未完了     = $pending
+        変換結果なし   = $lost
+        前回失敗       = $failed
+    }
+}
+
+function writeConvertPlan {
+    # 変換予定を書き出す（インデックス1件1行）。画面は数える前から読むため、
+    # 途中の状態を読ませないよう一時ファイルに書いてから置き換える
+    param (
+        [object[]]$rows,
+        [string]$path = ${convertPlanFile}
+    )
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add((${convertPlanColumns} -join "`t"))
+    foreach ($row in @($rows | Where-Object { $_ })) {
+        $values = foreach ($column in ${convertPlanColumns}) { ([string]$row.$column) -replace "[\t\r\n]+", " " }
+        $lines.Add([string]::Join("`t", @($values)))
+    }
+    writeTextLinesAtomic $path $lines
+}
+
+function readConvertPlan {
+    # 変換予定を読む。ファイルが無い・列が合わない場合は $null（画面は次の機会に読み直す）。
+    # 件数の列は数値にして返す
+    param (
+        [string]$path = ${convertPlanFile}
+    )
+
+    if (!(Test-Path -LiteralPath $path)) {
+        return $null
+    }
+    # 変換側が置き換えている最中でも読めるよう、共有を許して開く
+    $text = ""
+    try {
+        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+        $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
+        try {
+            $text = $reader.ReadToEnd()
+        } finally {
+            $reader.Dispose()
+        }
+    } catch {
+        return $null  # 置き換えと重なった等。次の機会に読む
+    }
+
+    $lines = @($text -split "\r?\n")
+    if ($lines.Count -eq 0 -or $lines[0] -ne (${convertPlanColumns} -join "`t")) {
+        return $null
+    }
+    $rows = New-Object System.Collections.Generic.List[object]
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $fields = $lines[$i].Split("`t")
+        if ($fields.Count -ne ${convertPlanColumns}.Count) {
+            continue  # 空行・書き込みの途中
+        }
+        $row = [ordered]@{}
+        for ($c = 0; $c -lt ${convertPlanColumns}.Count; $c++) {
+            $column = ${convertPlanColumns}[$c]
+            $value = $fields[$c]
+            if ($c -ge 3) {
+                # 件数の列。数値にできない場合は 0 とする
+                $number = 0
+                [void][int]::TryParse($value, [ref]$number)
+                $value = $number
+            }
+            $row[$column] = $value
+        }
+        $rows.Add([pscustomobject]$row)
+    }
+    return , @($rows.ToArray())
+}
+
+function removeConvertPlan {
+    param (
+        [string]$path = ${convertPlanFile}
+    )
+
+    if (Test-Path -LiteralPath $path) {
+        Remove-Item -LiteralPath $path -Force
+    }
+}
+
+function writeConvertStartRequest {
+    # 画面が「変換する」を選んだことを変換側に伝える（前回失敗したファイルも再変換するかも伝える）。
+    # 変換側が読んでいる途中の内容を見ないよう、一時ファイルに書いてから置き換える
+    param (
+        [bool]$retryFailed = $false,
+        [string]$path = ${convertStartRequestFile}
+    )
+
+    $lines = @()
+    if ($retryFailed) {
+        $lines = @(${retryFailedMark})
+    }
+    writeTextLinesAtomic $path $lines
+}
+
+function readConvertStartRequest {
+    # 画面からの「変換する」の返事を読む。まだ無ければ $null
+    param (
+        [string]$path = ${convertStartRequestFile}
+    )
+
+    if (!(Test-Path -LiteralPath $path)) {
+        return $null
+    }
+    $lines = @()
+    try {
+        $lines = @(readListFile $path)
+    } catch {
+        return $null  # 置き換えと重なった等。次の機会に読む
+    }
+    return @{ RetryFailed = (@($lines | Where-Object { $_.Trim() -eq ${retryFailedMark} }).Count -gt 0) }
+}
+
+function removeConvertStartRequest {
+    param (
+        [string]$path = ${convertStartRequestFile}
     )
 
     if (Test-Path -LiteralPath $path) {

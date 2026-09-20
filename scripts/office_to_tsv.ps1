@@ -16,13 +16,16 @@
 # ・変換に失敗したファイルは一覧の状態を「失敗」とし、更新されない限り次回以降はスキップする（-RetryFailed で再変換する）
 #
 # 画面（config_gui.ps1）からウィンドウ無しで起動する。入力は求めない。
-#   -RetryFailed : 前回失敗し、その後更新されていないファイルも再変換する
-#   中止        : 画面が work\変換中止要求 を作成すると、ファイルの切れ目で中止する（次回は未処理のファイルから再開する）
-#   終了コード  : 0 = 完了（ファイルごとの失敗は変換一覧に記録）/ 1 = 続けられないエラー（work\変換エラー.txt）/ 2 = 中止
+#   -RetryFailed    : 前回失敗し、その後更新されていないファイルも再変換する
+#   -ConfirmTargets : 変換対象を数えた後、いったん止まって画面の返事を待つ（画面から起動したときに使う）。
+#                     インデックスごとの件数を work\変換予定.tsv に書き、画面が work\変換開始要求 を作成したら変換を始める
+#   中止            : 画面が work\変換中止要求 を作成すると、ファイルの切れ目で中止する（次回は未処理のファイルから再開する）
+#   終了コード      : 0 = 完了（ファイルごとの失敗は変換一覧に記録）/ 1 = 続けられないエラー（work\変換エラー.txt）/ 2 = 中止（確認で取りやめた場合を含む）
 #   表示内容は work\変換ログ.txt に記録する
 
 param (
-    [switch]$RetryFailed
+    [switch]$RetryFailed,
+    [switch]$ConfirmTargets
 )
 
 . "$PSScriptRoot\common.ps1"
@@ -45,7 +48,7 @@ trap {
 
 # 前回の実行で残った中止要求・エラーは使わない。表示内容はログに記録する
 [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
-foreach ($oldFile in @(${stopRequestFile}, ${convertErrorFile})) {
+foreach ($oldFile in @(${stopRequestFile}, ${convertErrorFile}, ${convertPlanFile}, ${convertStartRequestFile})) {
     if (Test-Path -LiteralPath $oldFile) {
         Remove-Item -LiteralPath $oldFile -Force
     }
@@ -71,6 +74,7 @@ $targetExtensions = @(
 )
 $restartInterval = 50  # Officeアプリを再起動する間隔（ファイル数）。メモリ肥大化対策
 $fileTimeoutMinutes = 10  # 1ファイルの変換の制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
+$approvalTimeoutMinutes = 60  # -ConfirmTargets で画面の返事を待つ制限時間（分）。画面が落ちた場合に待ち続けないよう打ち切る
 $interruptLimit = 2       # 変換中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
 $excelMaxPath = 218       # Excelで開けるパスの長さの目安（古い版の上限）。作業フォルダのコピーのパスがこれ以上なら短い名前にする
 $excelExtraCells = 1000000  # 使用範囲がデータの範囲よりこのセル数以上広いシートは、データの範囲だけを一時シートにコピーしてから書き出す
@@ -133,7 +137,9 @@ function findOfficeFiles {
 }
 
 function createTargetList {
-    # 変換対象フォルダを1つ検索して変換一覧の行を作り直し、@{ Rows（全ファイル）; Targets（変換する）; Failed（前回失敗し、更新の無い） } を返す。
+    # 変換対象フォルダを1つ検索して変換一覧の行を作り直し、次を返す。
+    #   Rows   : 全ファイルの行 / Targets: 変換する行 / Failed: 前回失敗し、更新の無い行
+    #   Plan   : 画面の確認に出す件数（newConvertPlanRow。変換予定.tsv の1行）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで変換済み（済）のファイルは変換しない
     # ・変換済みでも、インデックス（TSV）が無くなっていれば変換し直す（利用者が work\index を直接削除した場合など）
@@ -235,7 +241,48 @@ function createTargetList {
         Write-Host "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" -ForegroundColor Yellow
     }
 
-    return @{ Rows = $rows; Targets = $targets; Failed = $failed }
+    $plan = newConvertPlanRow $folder.Name $folder.Path ${planKindConvert} $scan.Files.Count $targets.Count `
+        $count.New $count.Updated $count.Pending $count.Lost $failed.Count
+    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Plan = $plan }
+}
+
+function waitForConvertApproval {
+    # 変換対象の件数を画面に渡し（変換予定.tsv）、［変換を開始］（変換開始要求）か［キャンセル］（変換中止要求）の返事を待つ。
+    #   変換する → @{ RetryFailed } / 取りやめ → $null
+    # 画面を閉じた・落ちた場合に待ち続けないよう、$approvalTimeoutMinutes で打ち切って取りやめる
+    param (
+        $plan,               # newConvertPlanRow の配列（インデックスごと）
+        [int]$targetCount,   # 変換対象の合計（画面の進み具合に出す）
+        [int]$failedCount    # 前回失敗の合計（画面で再変換するかを選ぶ）
+    )
+
+    removeConvertStartRequest
+    writeConvertPlan $plan
+    writeConvertProgress ${convertPhaseConfirm} 0 $targetCount $failedCount "変換する内容を画面で確認しています…"
+    Write-Host ""
+    Write-Host "変換対象を画面に表示しました。［変換を開始］が押されるまで待ちます。（${approvalTimeoutMinutes} 分待っても返事が無ければ取りやめます）"
+
+    $limit = (Get-Date).AddMinutes($approvalTimeoutMinutes)
+    while ($true) {
+        if (Test-Path -LiteralPath ${stopRequestFile}) {
+            # 画面で［キャンセル］［中止］を押した
+            Remove-Item -LiteralPath ${stopRequestFile} -Force
+            removeConvertPlan
+            return $null
+        }
+        $answer = readConvertStartRequest
+        if ($answer) {
+            removeConvertStartRequest
+            removeConvertPlan
+            return $answer
+        }
+        if ((Get-Date) -gt $limit) {
+            Write-Host "画面からの返事が ${approvalTimeoutMinutes} 分ありませんでした。変換を取りやめます。" -ForegroundColor Yellow
+            removeConvertPlan
+            return $null
+        }
+        Start-Sleep -Milliseconds 300
+    }
 }
 
 # ----------------------------------------------------------------------------
@@ -920,11 +967,14 @@ if ($null -eq $indexCounts) {
 $rows = New-Object System.Collections.Generic.List[object]
 $targets = New-Object System.Collections.Generic.List[object]
 $failed = New-Object System.Collections.Generic.List[object]
+$plan = New-Object System.Collections.Generic.List[object]   # 画面の確認に出す、インデックスごとの件数
 foreach ($folder in $folders) {
     if (-not $folder.Enabled) {
         Write-Host "  [$($folder.Name)] $($folder.Path) … チェックなしのため変換しません（インデックスはそのまま残します）"
+        $plan.Add((newConvertPlanRow $folder.Name $folder.Path ${planKindUnchecked}))
     } elseif (!(Test-Path -LiteralPath $folder.Path -PathType Container)) {
         Write-Host "  [$($folder.Name)] $($folder.Path) … フォルダが見つからないため変換しません" -ForegroundColor Yellow
+        $plan.Add((newConvertPlanRow $folder.Name $folder.Path ${planKindMissing}))
     } else {
         Write-Host "  [$($folder.Name)] $($folder.Path)"
         # 大きいフォルダ・ネットワーク越しでは時間がかかるため、どのフォルダを見ているかを画面に伝える
@@ -933,6 +983,7 @@ foreach ($folder in $folders) {
         $rows.AddRange($list.Rows)
         $targets.AddRange($list.Targets)
         $failed.AddRange($list.Failed)
+        $plan.Add($list.Plan)
         continue
     }
 
@@ -945,9 +996,45 @@ foreach ($folder in $folders) {
     }
 }
 
+# 画面から起動した場合は、数えた件数を画面に出して、変換するかどうかの返事を待つ。
+# 「更新不要」かどうかも、この件数を見て画面が知らせる（変換対象が 0 件でも、前回失敗の再変換を選べる）
+$retryTargets = [bool]$RetryFailed
+if ($ConfirmTargets) {
+    $answer = waitForConvertApproval $plan.ToArray() $targets.Count $failed.Count
+    if ($null -eq $answer) {
+        # 取りやめ。1件も変換していないため、変換対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
+        # 「未変換」で記録すると、次回［変換を開始］が［続きから再開］になり、中断したように見えるため。
+        # 変換一覧自体は書き直す（以前の形式からの移行・無くなったファイルの削除を反映する必要があるため）
+        $targetPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($row in $targets) {
+            [void]$targetPaths.Add($row.相対パス)
+        }
+        $keep = New-Object System.Collections.Generic.List[object]
+        foreach ($row in $rows) {
+            if (!$targetPaths.Contains($row.相対パス)) {
+                $keep.Add($row)
+                continue
+            }
+            $old = $null
+            if ($previous.TryGetValue($row.相対パス, [ref]$old)) {
+                $keep.Add($old)
+            }
+        }
+        Write-Host ""
+        Write-Host "画面で取りやめたため、変換しません。（変換一覧は前回のままです）" -ForegroundColor Yellow
+        writeStatusFile $folders $keep
+        writeSourceFolderFile $folders
+        writeConvertProgress ${convertPhaseFinish} 0 0 0 "変換を取りやめました"
+        removeTmpDir
+        try { Stop-Transcript | Out-Null } catch {}
+        exit 2
+    }
+    $retryTargets = $answer.RetryFailed
+}
+
 if ($failed.Count -gt 0) {
     Write-Host ""
-    if ($RetryFailed) {
+    if ($retryTargets) {
         Write-Host "前回変換に失敗し、その後更新されていないファイル $($failed.Count) 件も再変換します。"
         $targets.AddRange($failed)
     } else {
