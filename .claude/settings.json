@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(sample*/**)",
+      "Read(**/.env)",
+      "Read(**/*.pem)",
+      "Read(**/id_rsa*)"
+    ],
+    "ask": [
+      "Read(work/index/**)"
+    ]
+  }
+}

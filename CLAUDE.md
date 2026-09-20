@@ -17,6 +17,17 @@ git branch -d worktree-<名前>
 
 未コミットの変更が残っている worktree は削除しない。コミットするか破棄するかを利用者に確認してから削除する。
 
+## 除外設定（読ませない・検索させない）
+
+Claude Code に `.claudeignore` は無い。除外は次の 2 か所で行う。
+
+- **`.gitignore`** … ファイル検索（Glob・Grep）はここを見る。リポジトリに入れないものと、検索でも見せたくないものをここに書く。
+  - `work/`（生成されるインデックス・ログ）、`sample*/`（手元の動作確認用データ）、`.claude/worktrees/`（作業用ツリー。別ツリーの同じコードが検索に二重に出るのを防ぐ）、`setting.config`（利用者ごとの設定）
+- **`.claude/settings.json` の `permissions`** … ファイルを開くこと自体を止める。`Read(<パターン>)` は gitignore と同じ書き方で、`deny` は読み書きとも不可、`ask` は読む前に確認する。
+  - `deny`: `sample*/`（大きいバイナリ）、`.env` / `*.pem` / `id_rsa*`（秘密情報の保険）
+  - `ask`: `work/index/`（生成された大量の TSV。調べるときだけ読む）
+  - 個人だけの設定は `.claude/settings.local.json`（git 管理外）に書く。
+
 ## ドキュメントの図
 
 `docs/` 配下の設計書などに図を描くときは、以下のどちらかを使う。罫線文字や記号による AA（アスキーアート）の図は使わない。
