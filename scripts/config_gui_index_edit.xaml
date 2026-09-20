@@ -45,10 +45,10 @@
       <TextBlock x:Name="FolderHint" Style="{StaticResource Hint}"
                  Text="パスの入力・貼り付け・フォルダのドラッグ＆ドロップで指定できます。" />
 
-      <TextBlock Style="{StaticResource Label}" Text="インデックス名（work\index の下のフォルダ名）" />
+      <TextBlock Style="{StaticResource Label}" Text="インデックス名" />
       <TextBox x:Name="NameBox" />
       <TextBlock x:Name="NameHint" Style="{StaticResource Hint}"
-                 Text="検索対象の一覧や検索結果に表示されます。\ / : * ? &quot; &lt; &gt; | は使えません。" />
+                 Text="検索対象の一覧と検索結果に、この名前が出ます。\ / : * ? &quot; &lt; &gt; | は使えません。" />
 
       <TextBlock x:Name="NoticeText" Style="{StaticResource Hint}" Foreground="#B45309" Margin="0,12,0,0" Visibility="Collapsed" />
       <TextBlock x:Name="ErrorText" Style="{StaticResource Hint}" Foreground="#B91C1C" Margin="0,10,0,0" Visibility="Collapsed" />
