@@ -730,6 +730,67 @@ class IndexNode : NotifyBase {
     }
 }
 
+# ---- フォルダ選択ダイアログ（エクスプローラー風）で使う型 ----
+
+# 左のツリーの1項目。データだけを持ち、中身の読み込みは loadFolderNode（common.ps1 の getFolderEntries を呼ぶ）で行う。
+# 展開（IsExpanded）・選択（IsSelected）は TreeViewItem と TwoWay バインドし、
+# 展開したときの読み込みは TreeView の Expanded イベントで駆動する（PS class はセッターにロジックを書けないため）
+class FolderNode : NotifyBase {
+    [string]$Name
+    [string]$Path                 # 開くフォルダ。見出し（「よく使う場所」「PC」）は ""
+    [string]$ToolTip
+    [bool]$IsHeader               # 見出し（フォルダではないので、選んでも移動しない）
+    [bool]$IsPlaceholder          # 「読み込み中…」（▷ を出すためだけの子）
+    [bool]$Loaded                 # 子を読み込み済みか
+    [FolderNode]$Parent
+    [System.Collections.ObjectModel.ObservableCollection[FolderNode]]$Children
+
+    [bool]$IsExpanded
+    [bool]$IsSelected
+
+    FolderNode([FolderNode]$parent, [string]$name, [string]$path) {
+        $this.Parent = $parent
+        $this.Name = $name
+        $this.Path = $path
+        $this.ToolTip = $path
+        $this.Children = New-Object System.Collections.ObjectModel.ObservableCollection[FolderNode]
+    }
+
+    [void] SetExpanded([bool]$value) {
+        if ($this.IsExpanded -eq $value) { return }
+        $this.IsExpanded = $value
+        $this.Raise("IsExpanded")
+    }
+
+    [void] SetSelected([bool]$value) {
+        if ($this.IsSelected -eq $value) { return }
+        $this.IsSelected = $value
+        $this.Raise("IsSelected")
+    }
+
+    [void] AddPlaceholder() {
+        $node = [FolderNode]::new($this, "読み込み中…", "")
+        $node.IsPlaceholder = $true
+        $this.Children.Add($node)
+    }
+
+    # スクリーンリーダー・自動化ツールにはフォルダ名で見えるようにする（既定では型名になる）
+    [string] ToString() { return $this.Name }
+}
+
+# 右の一覧の1行。フォルダは選べ、ファイルは「目的のフォルダかどうか」を確かめるために出すだけ（選べない）
+class FolderEntry {
+    [string]$Name
+    [string]$Path
+    [bool]$IsFolder
+    [bool]$IsOffice
+    [string]$Kind
+    [string]$UpdatedText
+
+    # スクリーンリーダー・自動化ツールには名前で見えるようにする（既定では型名になる）
+    [string] ToString() { return $this.Name }
+}
+
 # ---- アイコン ----
 
 ${iconFile} = "$PSScriptRoot\win_grep.ico"  # タイトルバーとタスクバーに出すアイコン
@@ -836,25 +897,526 @@ function newTimer {
 }
 
 function selectFolder {
-    # フォルダ選択ダイアログ（.NET 標準のツリー形式）。キャンセルなら $null。
-    # パスの貼り付けは入力欄側で受ける（前後の空白・"・末尾 \ は normalizeFolderPath で処理）。
-    # ※以前は COM の IFileOpenDialog（エクスプローラー形式）を主に使っていたが、実行時コンパイル（csc.exe）を無くすため WinForms に統一した。
+    # エクスプローラー風のフォルダ選択ダイアログ（config_gui_folder_select.xaml）を開き、選んだフォルダを返す（キャンセルなら $null）。
+    #   ・左：よく使う場所（デスクトップ・ドキュメント・ダウンロード）と PC のドライブのツリー
+    #   ・右：今のフォルダの中身（フォルダと、そのフォルダにあるファイル。Office ファイルは色を変える）
+    #   ・上：アドレスバー（パスの入力・貼り付けで移動）と［←］［→］［↑］
+    #   ・下：選ぶフォルダのパス（一覧でフォルダを選ぶ・ドラッグ＆ドロップでも入る）
+    # ※Windows 標準のフォルダ選択（WinForms の FolderBrowserDialog）はツリーだけでファイルが見えず、
+    #   目的のフォルダにたどり着きにくいため、画面として作る。
+    #   エクスプローラー形式の COM ダイアログ（IFileOpenDialog）は実行時コンパイル（csc.exe）が要るため使わない（12.2）
     param (
         [string]$description,
         [string]$initialPath,
         [System.Windows.Window]$owner = $window
     )
 
-    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dialog.Description = $description
-    $dialog.ShowNewFolderButton = $false
-    if ($initialPath -and (Test-Path -LiteralPath $initialPath -PathType Container)) {
-        $dialog.SelectedPath = $initialPath
+    $dialog = loadWindow "$PSScriptRoot\config_gui_folder_select.xaml"
+    if ($owner) {
+        $dialog.Owner = $owner
     }
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        return $dialog.SelectedPath
+    $ctrl = @{}
+    foreach ($name in @(
+            "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox", "RefreshButton",
+            "FolderTree", "FilterBox", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
+        $ctrl[$name] = $dialog.FindName($name)
+    }
+    $script:folderSelect = @{
+        Window  = $dialog
+        Ctrl    = $ctrl
+        Current = ""                                                     # 今開いているフォルダ
+        History = (New-Object System.Collections.Generic.List[string])   # ［←］［→］でたどる履歴
+        Index   = -1                                                     # 履歴の今の位置
+        All     = @()                                                    # 今のフォルダの中身（絞り込み前）
+        Roots   = (New-Object 'System.Collections.ObjectModel.ObservableCollection[object]')
+        Syncing = $false                                                 # ツリーの選択を合わせている間（移動を起こさない）
+    }
+    $ctrl.DescriptionText.Text = $description
+    $ctrl.FolderTree.ItemsSource = $script:folderSelect.Roots
+    loadFolderTreeRoots
+
+    # ---- 操作 ----
+    $ctrl.BackButton.Add_Click({ safe { moveFolderHistory -1 } })
+    $ctrl.ForwardButton.Add_Click({ safe { moveFolderHistory 1 } })
+    $ctrl.UpButton.Add_Click({ safe { goParentFolder } })
+    $ctrl.RefreshButton.Add_Click({ safe { reloadFolder } })
+    $ctrl.AddressBox.Add_PreviewKeyDown({
+        param ($sender, $e)
+        if ($e.Key -eq "Return") {
+            # Enter は［選択］（既定のボタン）ではなく、入力したパスへの移動にする
+            safe { goFolder $script:folderSelect.Ctrl.AddressBox.Text | Out-Null }
+            $e.Handled = $true
+        }
+    })
+    $ctrl.FilterBox.Add_TextChanged({ safe { updateFolderEntryList } })
+    $ctrl.FilterBox.Add_PreviewKeyDown({
+        param ($sender, $e)
+        if ($e.Key -eq "Return") {
+            # 絞り込んだ最初のフォルダへ移る（Enter で［選択］が押されて、今のフォルダに決まってしまわないようにする）
+            safe { focusFirstFolderEntry }
+            $e.Handled = $true
+        }
+    })
+    $ctrl.EntryList.Add_SelectionChanged({ safe { onFolderEntrySelected } })
+    $ctrl.EntryList.Add_MouseDoubleClick({ safe { openSelectedFolderEntry } })
+    $ctrl.EntryList.Add_PreviewKeyDown({
+        param ($sender, $e)
+        if ($e.Key -eq "Return") {
+            safe { openSelectedFolderEntry }
+            $e.Handled = $true
+        } elseif ($e.Key -eq "Back") {
+            safe { goParentFolder }
+            $e.Handled = $true
+        }
+    })
+    $ctrl.FolderTree.Add_SelectedItemChanged({
+        safe {
+            $d = $script:folderSelect
+            $node = $d.Ctrl.FolderTree.SelectedItem
+            if ($d.Syncing -or $null -eq $node -or $node.Path -eq "") {
+                return
+            }
+            if (-not (testSamePath $node.Path $d.Current)) {
+                goFolder $node.Path | Out-Null
+            }
+        }
+    })
+    # 展開したときに、そのフォルダのサブフォルダを読み込む（読み込みはイベントで駆動する。12 章）
+    $ctrl.FolderTree.AddHandler([System.Windows.Controls.TreeViewItem]::ExpandedEvent, [System.Windows.RoutedEventHandler] {
+        param ($s, $e)
+        safe {
+            $node = $e.OriginalSource.DataContext
+            if ($node -is [FolderNode]) {
+                loadFolderNode $node
+            }
+        }
+    })
+    # 選んだ項目が画面の外にあるとき（アドレスバーからの移動など）に見えるようにする
+    $ctrl.FolderTree.AddHandler([System.Windows.Controls.TreeViewItem]::SelectedEvent, [System.Windows.RoutedEventHandler] {
+        param ($s, $e)
+        if ($e.OriginalSource -is [System.Windows.Controls.TreeViewItem]) {
+            $e.OriginalSource.BringIntoView()
+        }
+    })
+    $ctrl.FolderBox.Add_PreviewDragOver({ onFolderDragOver @args })
+    $ctrl.FolderBox.Add_PreviewDrop({
+        param ($sender, $e)
+        safe {
+            $folders = @(getDroppedFolders $e)
+            if ($folders.Count -gt 0) {
+                goFolder $folders[0] | Out-Null
+            }
+        }
+        $e.Handled = $true
+    })
+    $ctrl.OkButton.Add_Click({
+        safe {
+            $d = $script:folderSelect
+            $path = normalizeFolderPath $d.Ctrl.FolderBox.Text
+            if ($path -eq "") {
+                setFolderSelectError "フォルダを選んでください。"
+                return
+            }
+            if (-not (Test-Path -LiteralPath (toLongPath $path) -PathType Container)) {
+                setFolderSelectError "「${path}」は見つかりません。一覧から選ぶか、パスを確かめてください。"
+                return
+            }
+            $d.Window.DialogResult = $true
+        }
+    })
+    $dialog.Add_PreviewKeyDown({
+        param ($sender, $e)
+        # Alt+← / Alt+→ / Alt+↑ / BackSpace / F5（エクスプローラーと同じ操作）
+        $key = if ($e.Key -eq "System") { $e.SystemKey } else { $e.Key }
+        $alt = (($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Alt) -ne 0)
+        if ($key -eq "F5") {
+            safe { reloadFolder }
+            $e.Handled = $true
+        } elseif ($alt -and $key -eq "Left") {
+            safe { moveFolderHistory -1 }
+            $e.Handled = $true
+        } elseif ($alt -and $key -eq "Right") {
+            safe { moveFolderHistory 1 }
+            $e.Handled = $true
+        } elseif ($alt -and $key -eq "Up") {
+            safe { goParentFolder }
+            $e.Handled = $true
+        }
+    })
+
+    # ---- 最初に開くフォルダ ----
+    $start = normalizeFolderPath $initialPath
+    if ($start -ne "" -and -not (Test-Path -LiteralPath (toLongPath $start) -PathType Container)) {
+        # 指定のフォルダが無ければ、その上の、今もあるフォルダを開く
+        $start = getExistingFolder $start
+    }
+    $opened = $false
+    foreach ($candidate in @($start) + @(getQuickFolders | ForEach-Object { $_.Path }) + @(getComputerFolders | ForEach-Object { $_.Path })) {
+        if ($candidate -eq "") {
+            continue
+        }
+        if (goFolder $candidate) {
+            $opened = $true
+            break
+        }
+    }
+    if (-not $opened) {
+        setFolderSelectError "開けるフォルダが見つかりません。上の欄にフォルダのパスを入力してください。"
+        updateFolderSelectButtons
+    }
+    $ctrl.EntryList.Focus() | Out-Null
+
+    $result = $null
+    if ($dialog.ShowDialog()) {
+        $result = normalizeFolderPath $ctrl.FolderBox.Text
+    }
+    $script:folderSelect = $null
+    return $result
+}
+
+function testSamePath {
+    # フォルダ選択ダイアログの中で、2つのパスが同じ書き方かを見る（末尾の \ ・大文字と小文字の違いは無視する）
+    param (
+        [string]$a,
+        [string]$b
+    )
+
+    return [string]::Equals(([string]$a).TrimEnd("\"), ([string]$b).TrimEnd("\"), [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function setFolderSelectError {
+    # フォルダ選択ダイアログの下に出す、直してほしい内容（空なら消す）
+    param (
+        [string]$message
+    )
+
+    $ctrl = $script:folderSelect.Ctrl
+    $ctrl.ErrorText.Text = $message
+    $ctrl.ErrorText.Visibility = if ($message -eq "") { "Collapsed" } else { "Visible" }
+}
+
+function loadFolderTreeRoots {
+    # ツリーの一番上（「よく使う場所」「PC」）を作る。どちらも最初から開いておく
+    $d = $script:folderSelect
+    $d.Roots.Clear()
+
+    $quick = [FolderNode]::new($null, "よく使う場所", "")
+    $quick.IsHeader = $true
+    $quick.Loaded = $true
+    foreach ($place in @(getQuickFolders)) {
+        addFolderTreeChild $quick $place.Name $place.Path | Out-Null
+    }
+    if ($quick.Children.Count -gt 0) {
+        $quick.SetExpanded($true)
+        $d.Roots.Add($quick)
+    }
+
+    $computer = [FolderNode]::new($null, "PC", "")
+    $computer.IsHeader = $true
+    $computer.Loaded = $true
+    foreach ($drive in @(getComputerFolders)) {
+        addFolderTreeChild $computer $drive.Name $drive.Path | Out-Null
+    }
+    $computer.SetExpanded($true)
+    $d.Roots.Add($computer)
+}
+
+function addFolderTreeChild {
+    # ツリーに子（フォルダ）を1つ足す。サブフォルダがあれば ▷ を出すための仮の子を入れておく
+    param (
+        [FolderNode]$parent,
+        [string]$name,
+        [string]$path
+    )
+
+    $node = [FolderNode]::new($parent, $name, $path)
+    if (testHasSubFolders $path) {
+        $node.AddPlaceholder()
+    }
+    $parent.Children.Add($node)
+    return $node
+}
+
+function loadFolderNode {
+    # ツリーのノードのサブフォルダを読み込む（1回だけ）
+    param (
+        [FolderNode]$node
+    )
+
+    if ($null -eq $node -or $node.Loaded -or $node.IsPlaceholder -or $node.Path -eq "") {
+        return
+    }
+    $node.Loaded = $true
+    $node.Children.Clear()
+    foreach ($entry in @((getFolderEntries $node.Path -foldersOnly).Entries)) {
+        addFolderTreeChild $node $entry.Name $entry.Path | Out-Null
+    }
+}
+
+function findFolderNode {
+    # ツリーから path のノードを探す（途中のフォルダは読み込んで展開する）。見つからなければ $null
+    param (
+        [FolderNode]$node,
+        [string]$path
+    )
+
+    if ($node.IsPlaceholder -or $node.Path -eq "") {
+        return $null
+    }
+    if (testSamePath $node.Path $path) {
+        return $node
+    }
+    if (-not ([string]$path).StartsWith($node.Path.TrimEnd("\") + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $null
+    }
+    loadFolderNode $node
+    $node.SetExpanded($true)
+    foreach ($child in $node.Children) {
+        $found = findFolderNode $child $path
+        if ($null -ne $found) {
+            return $found
+        }
     }
     return $null
+}
+
+function revealFolderTree {
+    # 開いているフォルダをツリーでも選んだ状態にする（ツリーの選択が移動を起こさないよう Syncing を立てる）
+    param (
+        [string]$path
+    )
+
+    $d = $script:folderSelect
+    $d.Syncing = $true
+    try {
+        $selected = $d.Ctrl.FolderTree.SelectedItem
+        if ($null -ne $selected -and (testSamePath $selected.Path $path)) {
+            return
+        }
+        foreach ($root in $d.Roots) {
+            foreach ($child in $root.Children) {
+                $found = findFolderNode $child $path
+                if ($null -ne $found) {
+                    if ($null -ne $selected) {
+                        $selected.SetSelected($false)
+                    }
+                    $found.SetSelected($true)
+                    return
+                }
+            }
+        }
+        # ツリーに無いフォルダ（ネットワークのパスなど）を開いたときは、ツリーの選択を外す
+        if ($null -ne $selected) {
+            $selected.SetSelected($false)
+        }
+    } finally {
+        $d.Syncing = $false
+    }
+}
+
+function goFolder {
+    # フォルダを開く（一覧・アドレスバー・ツリーをそのフォルダに合わせる）。開けたかを返す
+    param (
+        [string]$path,
+        [bool]$addHistory = $true
+    )
+
+    $d = $script:folderSelect
+    $path = normalizeFolderPath $path
+    if ($path -eq "") {
+        setFolderSelectError "フォルダのパスを入力してください。"
+        return $false
+    }
+    $entries = getFolderEntries $path
+    if ($entries.Error -ne "") {
+        setFolderSelectError "「${path}」を開けません。$($entries.Error)"
+        return $false
+    }
+
+    setFolderSelectError ""
+    $d.Current = $path
+    if ($addHistory) {
+        pushFolderHistory $path
+    }
+    $d.Ctrl.AddressBox.Text = $path
+    $d.Ctrl.FolderBox.Text = $path
+    $d.All = @($entries.Entries | ForEach-Object { newFolderEntry $_ })
+    if ($d.Ctrl.FilterBox.Text -ne "") {
+        $d.Ctrl.FilterBox.Text = ""   # フォルダを移ったら絞り込みは外す（TextChanged で一覧を作り直す）
+    } else {
+        updateFolderEntryList
+    }
+    $d.Ctrl.StatusText.Text = describeFolderEntries $entries
+    revealFolderTree $path
+    updateFolderSelectButtons
+    return $true
+}
+
+function describeFolderEntries {
+    # 一覧の下に出す件数（目的のフォルダかどうかの目安にする）
+    param (
+        $entries
+    )
+
+    $text = "フォルダー {0:#,0} 個 ・ Office ファイル {1:#,0} 個" -f $entries.FolderCount, $entries.OfficeCount
+    if ($entries.Truncated) {
+        $text += "（中身が多いため、先頭だけを表示しています）"
+    }
+    return $text
+}
+
+function newFolderEntry {
+    # 一覧の1行を作る（common.ps1 の getFolderEntries が返した中身から）
+    param (
+        $entry
+    )
+
+    $row = [FolderEntry]::new()
+    $row.Name = $entry.Name
+    $row.Path = $entry.Path
+    $row.IsFolder = $entry.IsFolder
+    $row.IsOffice = $entry.IsOffice
+    $row.Kind = getFolderEntryKind $entry
+    $row.UpdatedText = if ($null -ne $entry.Updated) { $entry.Updated.ToString("yyyy/MM/dd H:mm") } else { "" }
+    return $row
+}
+
+function getFolderEntryKind {
+    # 一覧の「種類」列に出す名前
+    param (
+        $entry
+    )
+
+    if ($entry.IsFolder) {
+        return "フォルダー"
+    }
+    if (-not $entry.IsOffice) {
+        return "ファイル"
+    }
+    $ext = [System.IO.Path]::GetExtension($entry.Name).ToLowerInvariant()
+    if ($ext.StartsWith(".xls")) {
+        return "Excel ブック"
+    }
+    if ($ext.StartsWith(".doc")) {
+        return "Word 文書"
+    }
+    return "PowerPoint プレゼンテーション"
+}
+
+function updateFolderEntryList {
+    # 絞り込み（名前の部分一致）を一覧に反映する
+    $d = $script:folderSelect
+    $filter = $d.Ctrl.FilterBox.Text.Trim()
+    $rows = if ($filter -eq "") {
+        $d.All
+    } else {
+        @($d.All | Where-Object { $_.Name.IndexOf($filter, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0 })
+    }
+    $d.Ctrl.EntryList.ItemsSource = $rows
+    $d.Ctrl.EntryPlaceholder.Text = if ($filter -ne "") {
+        "「${filter}」を名前に含むフォルダ・ファイルはありません。"
+    } else {
+        "このフォルダの中にはフォルダもファイルもありません。このフォルダでよければ［選択］を押してください。"
+    }
+    $d.Ctrl.EntryPlaceholder.Visibility = if (@($rows).Count -eq 0) { "Visible" } else { "Collapsed" }
+}
+
+function onFolderEntrySelected {
+    # 一覧でフォルダを選んだら、下の欄をそのフォルダにする（選んでいなければ今のフォルダ）
+    $d = $script:folderSelect
+    $row = $d.Ctrl.EntryList.SelectedItem
+    $path = if ($null -ne $row -and $row.IsFolder) { $row.Path } else { $d.Current }
+    if ($path -ne "" -and -not (testSamePath $d.Ctrl.FolderBox.Text $path)) {
+        $d.Ctrl.FolderBox.Text = $path
+        setFolderSelectError ""
+    }
+}
+
+function openSelectedFolderEntry {
+    # 一覧で選んでいるフォルダを開く（ダブルクリック・Enter）
+    $row = $script:folderSelect.Ctrl.EntryList.SelectedItem
+    if ($null -ne $row -and $row.IsFolder) {
+        goFolder $row.Path | Out-Null
+    }
+}
+
+function focusFirstFolderEntry {
+    # 絞り込んだ一覧の最初のフォルダを選び、一覧へ移る
+    $d = $script:folderSelect
+    $row = @($d.Ctrl.EntryList.ItemsSource | Where-Object { $_.IsFolder } | Select-Object -First 1)[0]
+    if ($null -eq $row) {
+        return
+    }
+    $d.Ctrl.EntryList.SelectedItem = $row
+    $d.Ctrl.EntryList.ScrollIntoView($row)
+    $d.Ctrl.EntryList.Focus() | Out-Null
+}
+
+function goParentFolder {
+    # 1つ上のフォルダへ
+    $parent = getParentFolderPath $script:folderSelect.Current
+    if ($parent -ne "") {
+        goFolder $parent | Out-Null
+    }
+}
+
+function reloadFolder {
+    # 今のフォルダを読み直す（ツリーの下も読み込み直す）
+    $d = $script:folderSelect
+    if ($d.Current -eq "") {
+        return
+    }
+    $node = $d.Ctrl.FolderTree.SelectedItem
+    if ($node -is [FolderNode] -and $node.Loaded) {
+        $node.Loaded = $false
+        $node.Children.Clear()
+        loadFolderNode $node
+    }
+    goFolder $d.Current $false | Out-Null
+}
+
+function pushFolderHistory {
+    # ［←］［→］でたどる履歴に足す（今の位置より先は捨てる）
+    param (
+        [string]$path
+    )
+
+    $d = $script:folderSelect
+    if ($d.Index -ge 0 -and (testSamePath $d.History[$d.Index] $path)) {
+        return
+    }
+    while ($d.History.Count -gt ($d.Index + 1)) {
+        $d.History.RemoveAt($d.History.Count - 1)
+    }
+    $d.History.Add($path)
+    $d.Index = $d.History.Count - 1
+}
+
+function moveFolderHistory {
+    # 履歴を1つ戻る・進む
+    param (
+        [int]$step
+    )
+
+    $d = $script:folderSelect
+    $next = $d.Index + $step
+    if ($next -lt 0 -or $next -ge $d.History.Count) {
+        return
+    }
+    $before = $d.Index
+    $d.Index = $next
+    if (-not (goFolder $d.History[$next] $false)) {
+        $d.Index = $before   # 消えたフォルダなどで開けなければ、位置は戻す
+    }
+    updateFolderSelectButtons
+}
+
+function updateFolderSelectButtons {
+    # ［←］［→］［↑］の使える・使えないを合わせる
+    $d = $script:folderSelect
+    $d.Ctrl.BackButton.IsEnabled = ($d.Index -gt 0)
+    $d.Ctrl.ForwardButton.IsEnabled = ($d.Index -ge 0 -and $d.Index -lt ($d.History.Count - 1))
+    $d.Ctrl.UpButton.IsEnabled = ((getParentFolderPath $d.Current) -ne "")
 }
 
 function getDroppedFolders {
@@ -1040,7 +1602,9 @@ function getUsedIndexNames {
             [void]$used.Add($item.Name)
         }
     }
-    return $used
+    # , を付けて、集合そのものを返す（付けないと PowerShell が中身を展開し、
+    # 空なら $null・1 個なら文字列になって Contains の意味が変わる）
+    return ,$used
 }
 
 function loadTargets {

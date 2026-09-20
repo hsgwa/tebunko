@@ -64,11 +64,7 @@ if (!$convertMutex.Acquired) {
 # （変換一覧は数万行になるため、画面が毎秒読み直すと、その間ずっと画面が固まる）
 writeConvertProgress ${convertPhaseScan} 0 0 0 "変換の準備をしています…"
 
-$targetExtensions = @(
-    ".xlsx", ".xlsm", ".xls", ".xlsb",
-    ".docx", ".docm", ".doc",
-    ".pptx", ".pptm", ".ppt"
-)
+$targetExtensions = ${officeExtensions}  # 変換対象の拡張子（common.ps1。画面のフォルダ選択でも同じ一覧を使う）
 $restartInterval = 50  # Officeアプリを再起動する間隔（ファイル数）。メモリ肥大化対策
 $fileTimeoutMinutes = 10  # 1ファイルの変換の制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
 $interruptLimit = 2       # 変換中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
