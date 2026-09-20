@@ -768,7 +768,7 @@ foreach ($name in @(
         "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder", "WordNotice", "SearchTargetText", "GoIndexTabButton",
         "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
         "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ResultGrid", "IndexColumn",
-        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton", "PreviewScroll", "PreviewHeader", "PreviewRows", "PreviewNote", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton",
+        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton", "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote", "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton",
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton", "KillAllButton", "KillSelectedButton", "KillBackgroundButton")) {
     $ui[$name] = $window.FindName($name)
 }
@@ -2092,7 +2092,7 @@ function startSearch {
     $script:filterText = ""
     $script:hitView.Filter = $null
     $script:hitRows.Clear()
-    $ui.DetailPanel.Visibility = "Collapsed"
+    clearDetail
     # 検索対象ツリーでチェックしたフォルダだけを検索する（結果の相対パスは、インデックスのフォルダからのまま）
     $folders = @(getSearchTargets)
     if ($folders.Count -eq 0) {
@@ -2301,12 +2301,30 @@ function getSelectedRows {
     return , @($rows.ToArray() | Sort-Object { $ui.ResultGrid.Items.IndexOf($_) })
 }
 
+function clearDetail {
+    # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す
+    $ui.PreviewHeader.ItemsSource = $null
+    $ui.PreviewRows.ItemsSource = $null
+    $script:previewTable = $null
+    $ui.DetailTitle.Text = ""
+    $ui.DetailTitle.ToolTip = $null
+    $ui.PreviewNote.Visibility = "Collapsed"
+    $ui.PreviewHeaderScroll.Visibility = "Collapsed"
+    $ui.PreviewPlaceholder.Visibility = "Visible"
+    $ui.OpenButton.IsEnabled = $false
+    $ui.OpenFolderButton.IsEnabled = $false
+}
+
 function showDetail {
     $row = $ui.ResultGrid.SelectedItem
     if ($null -eq $row) {
-        $ui.DetailPanel.Visibility = "Collapsed"
+        clearDetail
         return
     }
+    $ui.PreviewPlaceholder.Visibility = "Collapsed"
+    $ui.PreviewHeaderScroll.Visibility = "Visible"
+    $ui.OpenButton.IsEnabled = $true
+    $ui.OpenFolderButton.IsEnabled = $true
     $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
@@ -2331,7 +2349,6 @@ function showDetail {
     $ui.PreviewHeader.ItemsSource = $table.Columns
     $ui.PreviewRows.ItemsSource = $table.Rows
     $script:previewTable = $table
-    $ui.DetailPanel.Visibility = "Visible"
 
     # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）
     $ui.PreviewScroll.UpdateLayout()
@@ -2969,6 +2986,10 @@ $ui.OpenModeCombo.Add_SelectionChanged({
 $ui.MenuOpenFolder.Add_Click({ safe { openSourceFolder } })
 $ui.OpenButton.Add_Click({ safe { openSource } })
 $ui.OpenFolderButton.Add_Click({ safe { openSourceFolder } })
+# 列見出しは行とは別のスクロールに置いている（縦に隠れないようにするため）ので、横位置を行に合わせる
+$ui.PreviewScroll.Add_ScrollChanged({
+    $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
+})
 # プレビューのセルをクリックすると、その値をコピーできるように選ぶ（Shift＋クリック・ドラッグで範囲、Ctrl+C でコピー）
 $script:previewTable = $null
 $ui.PreviewRows.Add_PreviewMouseLeftButtonDown({
