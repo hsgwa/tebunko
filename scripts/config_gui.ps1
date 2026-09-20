@@ -490,6 +490,14 @@ class FailRow {
     [string]$SourcePath
 }
 
+# 確認ダイアログ（showConfirm）に並べる「実行するとこうなります」の 1 行
+class ConfirmFact {
+    [string]$Mark          # ✓ 残る・✗ 消える・→ 続けて起きること
+    [object]$MarkBrush
+    [string]$Title         # 何がどうなるか（利用者から見える言葉で書く）
+    [string]$Detail = ""   # 具体的な場所・件数など（空なら行ごと出さない）
+}
+
 # ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
 # ［変換］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
@@ -785,6 +793,7 @@ function toBrush {
 ${okBrush}   = toBrush "#2E8B57"
 ${warnBrush} = toBrush "#B45309"
 ${ngBrush}   = toBrush "#DC2626"
+${infoBrush} = toBrush "#2563EB"
 
 # ---- 共通の部品 ----
 
@@ -807,6 +816,113 @@ function showMessage {
     )
 
     return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
+}
+
+# 確認ダイアログに並べる「実行するとこうなります」の 1 行を作る
+function factKept { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "✓"; MarkBrush = ${okBrush};   Title = $title; Detail = $detail } }
+function factGone { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "✗"; MarkBrush = ${ngBrush};   Title = $title; Detail = $detail } }
+function factNext { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "→"; MarkBrush = ${infoBrush}; Title = $title; Detail = $detail } }
+
+function newChoiceContent {
+    # 選択肢ボタンの中身。1 行目に動作、2 行目にその結果を置く
+    param (
+        [string]$text,
+        [string]$detail
+    )
+
+    $panel = New-Object System.Windows.Controls.StackPanel
+    $title = New-Object System.Windows.Controls.TextBlock
+    $title.Text = $text
+    $title.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $title.TextWrapping = "Wrap"
+    $panel.Children.Add($title) | Out-Null
+    if ($detail -ne "") {
+        $line = New-Object System.Windows.Controls.TextBlock
+        $line.Text = $detail
+        $line.FontSize = 12
+        $line.Foreground = toBrush "#6B7280"
+        $line.TextWrapping = "Wrap"
+        $line.Margin = New-Object System.Windows.Thickness -ArgumentList 0, 3, 0, 0
+        $panel.Children.Add($line) | Out-Null
+    }
+    return $panel
+}
+
+function showConfirm {
+    # 確認ダイアログ。「見出し（何をするか）」「こうなります（何が消えて何が残るか）」「選択肢のボタン」で、
+    # 文章を読まなくても押す前に結果が分かるようにする。選んだ Value を返す（キャンセル・閉じるは $null）。
+    #   choices: @{ Text = "削除する"; Detail = "ボタンの下に出す補足"; Value = "delete"; Danger = $true; Careful = $true } の配列
+    #            1 つなら［実行］＋［キャンセル］、2 つ以上なら選択肢ボタンを縦に並べる
+    #            Danger は赤いボタン、Careful は色はそのままでキャンセルを既定にする
+    #   facts:   factGone / factKept / factNext で作った行
+    #   hint:    読まなくても操作できる補足（別のやり方の案内など）
+    param (
+        [string]$heading,
+        [object[]]$choices,
+        [object[]]$facts = @(),
+        [string]$hint = "",
+        [string]$cancelText = "キャンセル",
+        [System.Windows.Window]$owner = $window
+    )
+
+    $dialog = loadWindow "$PSScriptRoot\config_gui_confirm.xaml"
+    $dialog.Owner = $owner
+    $ctrl = @{}
+    foreach ($name in @("HeadingText", "FactsPanel", "FactsList", "ChoicePanel", "HintText", "ButtonPanel")) {
+        $ctrl[$name] = $dialog.FindName($name)
+    }
+    $chosen = @{ Value = $null }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
+
+    $ctrl.HeadingText.Text = $heading
+    if ($facts.Count -gt 0) {
+        $ctrl.FactsList.ItemsSource = $facts
+        $ctrl.FactsPanel.Visibility = "Visible"
+    }
+    if ($hint -ne "") {
+        $ctrl.HintText.Text = $hint
+        $ctrl.HintText.Visibility = "Visible"
+    }
+
+    $onChoice = {
+        param ($sender, $e)
+        $chosen.Value = $sender.Tag
+        $dialog.DialogResult = $true
+    }.GetNewClosure()
+    $focusTarget = $null
+    $cautious = $false
+    foreach ($choice in $choices) {
+        $button = New-Object System.Windows.Controls.Button
+        $button.Tag = $choice.Value
+        $button.Add_Click($onChoice)
+        if ($choices.Count -eq 1) {
+            $cautious = [bool]$choice.Danger -or [bool]$choice.Careful
+            $button.Style = $dialog.FindResource($(if ($choice.Danger) { "Danger" } else { "Primary" }))
+            $button.Content = $choice.Text
+            $button.IsDefault = !$cautious
+            $ctrl.ButtonPanel.Children.Add($button) | Out-Null
+        } else {
+            $button.Style = $dialog.FindResource("Choice")
+            $button.Content = newChoiceContent $choice.Text $choice.Detail
+            $ctrl.ChoicePanel.Children.Add($button) | Out-Null
+        }
+        if ($null -eq $focusTarget) {
+            $focusTarget = $button
+        }
+    }
+
+    $cancel = New-Object System.Windows.Controls.Button
+    $cancel.Content = $cancelText
+    $cancel.IsCancel = $true
+    $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null
+    if ($cautious -or $choices.Count -gt 1) {
+        # 消す操作・選択肢が複数の操作は、うっかり Enter で進まないようキャンセルを既定にする
+        $cancel.IsDefault = $true
+        $focusTarget = $cancel
+    }
+
+    $dialog.Add_ContentRendered({ $focusTarget.Focus() | Out-Null }.GetNewClosure())
+    $null = $dialog.ShowDialog()
+    return $chosen.Value
 }
 
 function safe {
@@ -1153,16 +1269,16 @@ function showIndexEditDialog {
 
     if ($null -eq $item) {
         $dialog.Title = "インデックスの新規作成"
-        $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）のあるフォルダを 1 つ指定すると、そのフォルダのインデックスを作ります。" +
-            "一覧に加えるだけで、中身の変換は［変換を開始］を押してから始まります。"
+        $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）の入っているフォルダを 1 つ選んでください。" +
+            "ここでは一覧に加えるだけです。中のファイルを読むのは［変換を開始］を押してからです。"
     } else {
         $dialog.Title = "インデックスの編集"
-        $ctrl.IntroText.Text = "インデックスの名前と、元のフォルダの場所を変えられます。"
+        $ctrl.IntroText.Text = "名前と、元のフォルダの場所を変えられます。"
         $ctrl.FolderBox.Text = $item.Path
         $ctrl.NameBox.Text = $item.Name
         $ctrl.NoticeText.Visibility = "Visible"
-        $ctrl.NoticeText.Text = "変換済みのインデックスは作り直しません（名前を変えるときは work\index のフォルダごと名前を変えます）。" +
-            "フォルダを別のドライブ・共有フォルダへ移した場合は、ここで場所を変えてください。次の変換では、更新されたファイルだけを変換します。"
+        $ctrl.NoticeText.Text = "変えるのは名前と場所だけです。変換したデータはそのまま使います（作り直しません）。" +
+            "フォルダを別のドライブや共有フォルダへ移したときは、ここで新しい場所を指定してください。"
     }
 
     $ctrl.FolderBox.Add_TextChanged({
@@ -1352,16 +1468,25 @@ function rebuildIndex {
     }
     if (!(Test-Path -LiteralPath $item.Path -PathType Container)) {
         # 消してから変換できないと、インデックスが無いだけの状態になる
-        showMessage ("元のフォルダが見つからないため、インデックス [$($item.Name)] を作り直せません。`n`n" +
-            "元のフォルダ：$($item.Path)`n`nフォルダを使えるようにするか、［編集…］で場所を変えてください。") "OK" "Warning" | Out-Null
+        showMessage ("元のフォルダが見つからないので、「$($item.Name)」は作り直せません。`n`n" +
+            "$($item.Path)`n`nフォルダをつないでから、もう一度お試しください。場所が変わったときは［編集…］で直せます。") "OK" "Warning" | Out-Null
         return
     }
 
-    $answer = showMessage ("インデックス [$($item.Name)] を作り直します。`n`n元のフォルダ：$($item.Path)`n`n" +
-        "変換した TSV（work\index\$($item.Name)）を削除し、フォルダの中の Office ファイルをすべて変換し直します（件数によっては時間がかかります）。`n" +
-        "ふだんは、更新されたファイルだけを変換する［変換を開始］で足ります。元のファイルの更新日時が変わらないまま中身が変わった場合などに使ってください。`n" +
-        "［変換］のチェックが外れている場合は付けます。`n`n作り直しますか？") "YesNo" "Question" "No"
-    if ($answer -ne "Yes") {
+    $facts = @(
+        (factGone "いまの検索用のデータをいったん消します"),
+        (factNext "フォルダの中のファイルを、はじめからぜんぶ変換し直します" "$($item.Path)（ファイルの数によっては時間がかかります）"),
+        (factKept "元のフォルダと、その中のファイルはそのままです")
+    )
+    if (!$item.Enabled) {
+        $facts += factNext "［変換］のチェックを付けます" "チェックが外れたままだと作り直せないため"
+    }
+    $answer = showConfirm `
+        -heading "インデックス「$($item.Name)」を作り直しますか？" `
+        -facts $facts `
+        -hint "ふだんの更新は［変換を開始］だけで足ります。直したはずの内容が検索に出てこないときに使ってください。" `
+        -choices @(@{ Text = "作り直す"; Value = "rebuild"; Careful = $true })
+    if ($answer -ne "rebuild") {
         return
     }
 
@@ -1426,10 +1551,15 @@ function deleteIndex {
         return
     }
 
-    $answer = showMessage ("インデックス [$($item.Name)] を削除します。`n`n元のフォルダ：$($item.Path)`n`n" +
-        "変換した TSV（work\index\$($item.Name)）と変換一覧の記録を削除します。元のフォルダと Office ファイルは削除しません。`n" +
-        "一時的に変換しないだけなら、削除せずに［変換］のチェックを外してください。`n`n削除しますか？") "YesNo" "Question" "No"
-    if ($answer -ne "Yes") {
+    $answer = showConfirm `
+        -heading "インデックス「$($item.Name)」を一覧から削除しますか？" `
+        -facts @(
+            (factGone "win_grep が作った検索用のデータが消えます" "このフォルダは検索できなくなります（もう一度［変換を開始］すれば作り直せます）"),
+            (factKept "元のフォルダと、その中のファイルはそのままです" $item.Path)
+        ) `
+        -hint "しばらく検索しないだけなら、削除せずに［変換］のチェックを外してください。検索用のデータは残ったままです。" `
+        -choices @(@{ Text = "削除する"; Value = "delete"; Danger = $true })
+    if ($answer -ne "delete") {
         return
     }
 
@@ -1465,11 +1595,16 @@ function updateConvertButton {
         $ui.ConvertButton.IsEnabled = $ready
     }
 
-    $hint = "変換中も検索できます。途中でやめるときは［中止］を押してください（次回、続きから再開できます）。"
+    # ボタンの下の一言。押す前は「押すと何が起きるか」、変換中は「やめるとどうなるか」を書く
+    $hint = if (isConverting) {
+        "変換中も検索できます。やめるときは［中止］を押してください（次に［変換を開始］を押すと続きから再開します）。"
+    } else {
+        "チェックを付けたインデックスの、新しいファイル・変わったファイルだけを変換します。"
+    }
     if (!$ready -and !(isConverting)) {
-        $hint = "インデックスを作成して、チェックを付けてください。"
+        $hint = "まずインデックスを作って、［変換］にチェックを付けてください。"
     } elseif ($state -and $state.Failed -gt 0 -and !(isConverting)) {
-        $hint = "前回失敗したファイルがあります。変換を始めるときに、再変換するかを選べます。" + $hint
+        $hint = "前回うまく変換できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
     }
     $ui.ConvertHint.Text = $hint
 
@@ -1696,12 +1831,17 @@ function startConversion {
     $retryFailed = $false
     $state = $script:conversionState
     if ($state -and $state.Failed -gt 0) {
-        $answer = showMessage ("前回変換に失敗し、その後更新されていないファイルが $($state.Failed) 件あります（パスワード付きなど）。`n`n" +
-            "これらも再変換しますか？`n（「いいえ」の場合はスキップして、新しいファイル・更新されたファイルだけを変換します）") "YesNoCancel" "Question" "No"
-        if ($answer -eq "Cancel") {
+        $answer = showConfirm `
+            -heading "前回うまく変換できなかったファイルが $($state.Failed) 件あります" `
+            -choices @(
+                @{ Text = "とばして変換を始める"; Detail = "新しいファイル・更新されたファイルだけを変換します"; Value = "skip" },
+                @{ Text = "$($state.Failed) 件もためしてから変換を始める"; Detail = "パスワード付きなど、原因が直っていなければまた失敗します"; Value = "retry" }
+            ) `
+            -cancelText "変換を始めない"
+        if ($null -eq $answer) {
             return
         }
-        $retryFailed = $answer -eq "Yes"
+        $retryFailed = $answer -eq "retry"
     }
 
     saveTargets
@@ -1746,8 +1886,14 @@ function stopConversion {
     if (!(isConverting)) {
         return
     }
-    $answer = showMessage "変換を中止しますか？`n変換中のファイルが終わったところで止まります。次回は続きから再開できます。" "YesNo" "Question" "No"
-    if ($answer -ne "Yes") {
+    $answer = showConfirm `
+        -heading "変換を中止しますか？" `
+        -facts @(
+            (factNext "いま変換しているファイルが終わったところで止まります"),
+            (factKept "ここまで変換した分はそのまま残ります" "次に［変換を開始］を押すと、続きから再開します")
+        ) `
+        -choices @(@{ Text = "中止する"; Value = "stop"; Careful = $true })
+    if ($answer -ne "stop") {
         return
     }
     [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
@@ -2448,21 +2594,23 @@ function findSourceFile {
             }
             return $candidate
         }
-        $message = "元のファイルが見つかりません。`n${path}`n`n" +
-                   "インデックスを別の PC に持ってきた場合や、フォルダを移した場合は、今の場所のフォルダを選ぶと開けます。"
+        $missing = factGone "記録されていた場所にありません" $path
         $description = "「$($location.Folder)」に当たるフォルダ（または $($row.Book) のあるフォルダ）を選んでください"
         $initial = getExistingFolder $path
     } else {
         $path = "$($row.Root)\$($row.RelDir)\$($row.Book)"
-        $message = "元のファイルの場所が分かりません（インデックス [$($location.Name)] の元のフォルダが記録されていません）。`n${relPath}`n`n" +
-                   "元のファイルのあるフォルダを選ぶと開けます。"
+        $missing = factGone "このファイルが今どこにあるか、記録がありません" $relPath
         $description = "$($row.Book) のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
         $initial = ""
     }
-    $message += "`n（選んだフォルダはインデックス [$($location.Name)] の元のフォルダとして記録し、同じインデックスのほかのファイルも開けるようにします）`n`nフォルダを選びますか？"
+    $facts = @(
+        $missing,
+        (factNext "今ある場所のフォルダを選べば開けます" "選んだ場所はインデックス「$($location.Name)」に覚えさせるので、同じインデックスのほかのファイルも次から開けます")
+    )
 
     while ($true) {
-        if ((showMessage $message "YesNo" "Question" "Yes") -ne "Yes") {
+        if ((showConfirm -heading "$($row.Book) が見つかりません" -facts $facts `
+                -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus "元のファイルが見つかりません：${path}"
             return $null
         }
@@ -2483,7 +2631,10 @@ function findSourceFile {
             }
             return $found.Path
         }
-        $message = "選んだフォルダの中に、元のファイルが見つかりませんでした。`n選んだフォルダ：${picked}`n探したファイル：${relPath}`n`n別のフォルダを選びますか？"
+        $facts = @(
+            (factGone "選んだフォルダの中にありませんでした" "選んだフォルダ：${picked}`n探したファイル：${relPath}"),
+            (factNext "別のフォルダを選んで、もう一度探せます")
+        )
         $initial = $picked
     }
 }
@@ -3119,17 +3270,25 @@ function killProcesses {
         }) -join "・"
     }
     $visibleTargets = @($targets | Where-Object { !$_.Background })
-    $message = if ($visibleTargets.Count -gt 0) {
-        "画面に表示中の $(& $describe $visibleTargets) を含む $($targets.Count) 件を、保存せずに終了します。`n保存していない内容は失われます。よろしいですか？"
+    if ($visibleTargets.Count -gt 0) {
+        $heading = "開いたままの Office を $($targets.Count) 件、強制的に終了しますか？"
+        $facts = @(
+            (factGone "保存していない内容は失われます" "画面に出ているもの：$(& $describe $visibleTargets)"),
+            (factKept "ファイル自体は消えません" "保存し忘れがないか、先に画面で確かめてください")
+        )
     } else {
-        "バックグラウンドの $(& $describe $targets) を終了します。よろしいですか？"
+        $heading = "バックグラウンドの Office を $($targets.Count) 件終了しますか？"
+        $facts = @(
+            (factKept "画面に出ているファイルはありません" (& $describe $targets)),
+            (factNext "残ったまま動いていたものを片付けます" "次の変換で作り直されます")
+        )
     }
-    $default = if ($visibleTargets.Count -gt 0) { "No" } else { "Yes" }
     if (isConverting) {
-        $message = "変換中です。バックグラウンドのプロセスを終了すると、変換中のファイルは失敗扱いになります。`n`n" + $message
-        $default = "No"
+        $facts += factGone "いま変換中のファイルは失敗あつかいになります" "変換が終わってから終了するのが安全です"
     }
-    if ((showMessage $message "YesNo" "Warning" $default) -ne "Yes") {
+    $answer = showConfirm -heading $heading -facts $facts `
+        -choices @(@{ Text = "終了する"; Value = "stop"; Danger = ($visibleTargets.Count -gt 0 -or (isConverting)) })
+    if ($answer -ne "stop") {
         return
     }
 
@@ -3234,13 +3393,18 @@ $window.Add_Closing({
     param ($sender, $e)
     # 変換はウィンドウを出さずに動いているため、閉じる前にどうするか聞く
     if (isConverting) {
-        $answer = showMessage ("変換中です。`n`n［はい］変換を中止してから閉じる（変換中のファイルが終わったところで止まります）`n" +
-            "［いいえ］変換を続けたまま閉じる（もう一度開くと進み具合を表示します）`n［キャンセル］閉じない") "YesNoCancel" "Question" "Cancel"
-        if ($answer -eq "Cancel") {
+        $answer = showConfirm `
+            -heading "まだ変換の途中です。どうしますか？" `
+            -choices @(
+                @{ Text = "変換を続けたまま閉じる"; Detail = "変換は裏で続きます。もう一度開くと進み具合が出ます"; Value = "keep" },
+                @{ Text = "変換を止めてから閉じる"; Detail = "いま変換しているファイルが終わったところで止まります（次に開いたとき続きから再開できます）"; Value = "stop" }
+            ) `
+            -cancelText "閉じない"
+        if ($null -eq $answer) {
             $e.Cancel = $true
             return
         }
-        if ($answer -eq "Yes") {
+        if ($answer -eq "stop") {
             [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
         }
     }
