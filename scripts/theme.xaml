@@ -886,9 +886,16 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ToolTip">
-          <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}"
-                  TextBlock.TextWrapping="Wrap" TextBlock.Foreground="White">
-            <ContentPresenter />
+          <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+            <!-- 長い説明を折り返す。TextWrapping は添付プロパティではないので、
+                 中身（文字列）を出すテンプレートの側で指定する -->
+            <ContentPresenter>
+              <ContentPresenter.ContentTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="White" />
+                </DataTemplate>
+              </ContentPresenter.ContentTemplate>
+            </ContentPresenter>
           </Border>
         </ControlTemplate>
       </Setter.Value>

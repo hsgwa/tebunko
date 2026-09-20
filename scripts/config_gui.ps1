@@ -3776,7 +3776,7 @@ function saveSearchExcludes {
     foreach ($node in $script:indexRoots) {
         $node.AddExcludes($excludes)
     }
-    $roots = @($script:indexRoots | Where-Object { $_.Exists } | ForEach-Object { $_.FullPath.TrimEnd("\") })
+    $roots = @($script:indexRoots | Where-Object { $_.Exists } | ForEach-Object { $_.FullPath().TrimEnd("\") })
     $kept = @(readSearchExcludes | Where-Object {
         $path = $_.Path
         @($roots | Where-Object { $path -eq $_ -or $path.StartsWith("$_\", [System.StringComparison]::OrdinalIgnoreCase) }).Count -eq 0
