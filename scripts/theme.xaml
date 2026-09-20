@@ -1,0 +1,904 @@
+<!-- 画面の見た目の定義（色・文字・コントロールの形）。config_gui.ps1 の loadWindow が各画面に読み込む。
+
+     文字の設計:
+       大きさ  16 / 14 / 13 / 12 / 11。ダイアログの見出し 16、主役の値 14、本文 13、補助 12、細目 11。
+       太さ    Normal と SemiBold の 2 段だけ。SemiBold は見出し・主ボタン・その画面の主役の値に限る。
+       濃さ    Ink.Strong（見出し・主キー）＞ Ink.Body（本文）＞ Ink.Muted（補助）＞ Ink.Faint（入力前の案内）。
+               すべてを黒にすると重要度が伝わらないため、本文は真っ黒にしない。
+
+     Windows 既定のコントロールは立体的で古いため、Button・TextBox・CheckBox・TabItem・DataGrid・
+     TreeViewItem・ScrollBar・ComboBox・MenuItem は独自のテンプレートにする。
+     既定テンプレートを置き換えると既定のフォーカス表示も消えるため、キーボードで操作する箇所には
+     必ずフォーカスの枠（Accent.Ring）を出す。
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ============ 色のトークン（色を変えるのはここだけ） ============ -->
+  <SolidColorBrush x:Key="Bg.Window"     Color="#F6F7F9" />
+  <SolidColorBrush x:Key="Bg.Surface"    Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Bg.Subtle"     Color="#FAFBFC" />
+  <SolidColorBrush x:Key="Bg.Hover"      Color="#F3F5F7" />
+  <SolidColorBrush x:Key="Bg.Pressed"    Color="#E8EBEF" />
+  <SolidColorBrush x:Key="Border.Soft"   Color="#E9ECF0" />
+  <SolidColorBrush x:Key="Border.Normal" Color="#D7DBE0" />
+
+  <SolidColorBrush x:Key="Ink.Strong"    Color="#1F2937" />
+  <SolidColorBrush x:Key="Ink.Body"      Color="#414B5A" />
+  <SolidColorBrush x:Key="Ink.Muted"     Color="#78828F" />
+  <SolidColorBrush x:Key="Ink.Faint"     Color="#A3ABB5" />
+
+  <SolidColorBrush x:Key="Accent"        Color="#2563EB" />
+  <SolidColorBrush x:Key="Accent.Hover"  Color="#1D4ED8" />
+  <SolidColorBrush x:Key="Accent.Soft"   Color="#EFF4FF" />
+  <SolidColorBrush x:Key="Accent.Ring"   Color="#BFD3FE" />
+  <SolidColorBrush x:Key="Danger.Text"   Color="#C2410C" />
+  <SolidColorBrush x:Key="Danger.Line"   Color="#E9B8A3" />
+  <SolidColorBrush x:Key="Danger.Soft"   Color="#FEF4EF" />
+  <SolidColorBrush x:Key="Warn"          Color="#A16207" />
+  <SolidColorBrush x:Key="Ok"            Color="#15803D" />
+  <SolidColorBrush x:Key="Hit"           Color="#FDE68A" />
+  <SolidColorBrush x:Key="Select.Soft"   Color="#DBEAFE" />
+
+  <CornerRadius x:Key="Radius.Control">6</CornerRadius>
+  <CornerRadius x:Key="Radius.Card">10</CornerRadius>
+
+  <!-- ============ 文字 ============ -->
+  <!-- 既定＝本文。真っ黒にせず、見出しとの差を残す -->
+  <Style TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+  </Style>
+
+  <!-- 区画の見出し -->
+  <Style x:Key="Heading" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+
+  <!-- ダイアログの見出し（これから何をするか） -->
+  <Style x:Key="DialogHeading" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- 入力欄の見出し -->
+  <Style x:Key="Label" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- その画面の主役の値（件数など）。画面に 1 つだけ -->
+  <Style x:Key="Focal" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+
+  <!-- 補助（説明文・ラベル） -->
+  <Style x:Key="Meta" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <!-- 旧名。既存の画面が Hint を参照しているため残す -->
+  <Style x:Key="Hint" TargetType="TextBlock" BasedOn="{StaticResource Meta}" />
+
+  <!-- 細目（常時は読まない情報） -->
+  <Style x:Key="Micro" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- 注意・エラー。色で区別し、太さは上げない -->
+  <Style x:Key="WarnText" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Warn}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style x:Key="ErrorText" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Danger.Text}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- 入力前の案内（入力欄に重ねる） -->
+  <Style x:Key="Placeholder" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="10,0" />
+  </Style>
+
+  <!-- 表のセル。主キーの列だけ濃くし、目で追う列を 1 本に絞る -->
+  <Style x:Key="Cell" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style x:Key="Cell.Key" TargetType="TextBlock" BasedOn="{StaticResource Cell}">
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+  <Style x:Key="Cell.Meta" TargetType="TextBlock" BasedOn="{StaticResource Cell}">
+    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+  </Style>
+  <Style x:Key="Cell.Number" TargetType="TextBlock" BasedOn="{StaticResource Cell}">
+    <Setter Property="TextAlignment" Value="Right" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+  </Style>
+  <!-- 旧名。既存の画面が RightCell を参照しているため残す -->
+  <Style x:Key="RightCell" TargetType="TextBlock" BasedOn="{StaticResource Cell.Number}" />
+
+  <!-- ============ カード（区切りは影ではなく枠と背景の差で出す） ============ -->
+  <Style x:Key="Card" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Card}" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+
+  <!-- ============ ボタン ============ -->
+  <ControlTemplate x:Key="ButtonTemplate" TargetType="Button">
+    <Border x:Name="Ring" CornerRadius="7" Padding="1" Background="Transparent">
+      <Border x:Name="Bd"
+              Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding BorderBrush}"
+              BorderThickness="1"
+              CornerRadius="{StaticResource Radius.Control}"
+              Padding="{TemplateBinding Padding}"
+              SnapsToDevicePixels="True">
+        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+    </Border>
+    <ControlTemplate.Triggers>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter TargetName="Bd" Property="Opacity" Value="0.82" />
+      </Trigger>
+      <Trigger Property="IsKeyboardFocused" Value="True">
+        <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+      </Trigger>
+      <Trigger Property="IsEnabled" Value="False">
+        <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+      </Trigger>
+    </ControlTemplate.Triggers>
+  </ControlTemplate>
+
+  <!-- 普通のボタンは太字にしない（太字が散ると、押す先が 1 つに見えなくなる） -->
+  <Style x:Key="Button.Base" TargetType="Button">
+    <Setter Property="Template" Value="{StaticResource ButtonTemplate}" />
+    <Setter Property="MinWidth" Value="88" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource Bg.Hover}" />
+        <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+      </Trigger>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter Property="Background" Value="{StaticResource Bg.Pressed}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style TargetType="Button" BasedOn="{StaticResource Button.Base}" />
+
+  <!-- 主ボタンだけ塗り＋太字。画面に 1 つ -->
+  <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Background" Value="{StaticResource Accent}" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource Accent.Hover}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Accent.Hover}" />
+        <Setter Property="Foreground" Value="White" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- 消す操作。赤は文字と枠だけに使い、面で塗らない -->
+  <Style x:Key="Danger" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+    <Setter Property="Foreground" Value="{StaticResource Danger.Text}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Danger.Line}" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource Danger.Soft}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Danger.Text}" />
+        <Setter Property="Foreground" Value="{StaticResource Danger.Text}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- 文字だけのボタン -->
+  <Style x:Key="Link" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Ring" CornerRadius="5" Padding="2,1" Background="Transparent">
+            <TextBlock x:Name="T" Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                       FontSize="{TemplateBinding FontSize}"
+                       Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="T" Property="TextDecorations" Value="Underline" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- 選択肢のボタン。1 行目に動作、2 行目にその結果 -->
+  <Style x:Key="Choice" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Padding" Value="14,11" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+              <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+              <Setter TargetName="Bd" Property="Padding" Value="13,10" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ダイアログの下部に並ぶボタン（間隔を空ける） -->
+  <Style x:Key="DialogButton" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+    <Setter Property="MinWidth" Value="104" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+
+  <!-- アドレスバーの ← → ↑ -->
+  <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+    <Setter Property="MinWidth" Value="32" />
+    <Setter Property="Width" Value="32" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+
+  <!-- ============ 入力欄 ============ -->
+  <Style x:Key="TextBox.Base" TargetType="TextBox">
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+    <Setter Property="CaretBrush" Value="{StaticResource Ink.Strong}" />
+    <Setter Property="SelectionBrush" Value="{StaticResource Select.Soft}" />
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="Ring" CornerRadius="7" Padding="1" Background="Transparent">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
+                    CornerRadius="{StaticResource Radius.Control}">
+              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                            VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" />
+            </Border>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Ink.Faint}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+              <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="TextBox" BasedOn="{StaticResource TextBox.Base}" />
+
+  <!-- ============ チェックボックス ============ -->
+  <Style TargetType="CheckBox">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <StackPanel Orientation="Horizontal" Background="Transparent">
+            <Border x:Name="Ring" CornerRadius="6" Padding="1" Background="Transparent" VerticalAlignment="Center">
+              <Border x:Name="Box" Width="16" Height="16" CornerRadius="4"
+                      Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Normal}" BorderThickness="1">
+                <Grid>
+                  <Path x:Name="Check" Visibility="Collapsed" Stretch="Uniform" Margin="3"
+                        Stroke="White" StrokeThickness="2" StrokeEndLineCap="Round" StrokeStartLineCap="Round"
+                        Data="M 0,4 L 3.2,7.2 L 9,1" />
+                  <Rectangle x:Name="Mid" Visibility="Collapsed" Width="8" Height="2" RadiusX="1" RadiusY="1" Fill="White"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+            </Border>
+            <ContentPresenter x:Name="Label" Margin="7,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}" />
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+              <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="{x:Null}">
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}" />
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+              <Setter TargetName="Mid" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+              <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ============ スクロールバー（細身・角丸・トラック透明） ============ -->
+  <Style x:Key="ScrollThumb" TargetType="Thumb">
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Border x:Name="T" Background="#CBD0D6" CornerRadius="4" Margin="3" />
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="T" Property="Background" Value="#A3ABB5" />
+            </Trigger>
+            <Trigger Property="IsDragging" Value="True">
+              <Setter TargetName="T" Property="Background" Value="#78828F" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="ScrollHidden" TargetType="RepeatButton">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="ScrollBar">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ScrollBar">
+          <Grid Background="Transparent">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+              <Track.DecreaseRepeatButton>
+                <RepeatButton Style="{StaticResource ScrollHidden}" Command="ScrollBar.PageUpCommand" />
+              </Track.DecreaseRepeatButton>
+              <Track.Thumb>
+                <Thumb Style="{StaticResource ScrollThumb}" />
+              </Track.Thumb>
+              <Track.IncreaseRepeatButton>
+                <RepeatButton Style="{StaticResource ScrollHidden}" Command="ScrollBar.PageDownCommand" />
+              </Track.IncreaseRepeatButton>
+            </Track>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="Orientation" Value="Horizontal">
+        <Setter Property="Width" Value="Auto" />
+        <Setter Property="Height" Value="12" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="ScrollBar">
+              <Grid Background="Transparent">
+                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                  <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource ScrollHidden}" Command="ScrollBar.PageLeftCommand" />
+                  </Track.DecreaseRepeatButton>
+                  <Track.Thumb>
+                    <Thumb Style="{StaticResource ScrollThumb}" />
+                  </Track.Thumb>
+                  <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource ScrollHidden}" Command="ScrollBar.PageRightCommand" />
+                  </Track.IncreaseRepeatButton>
+                </Track>
+              </Grid>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- ============ タブ（立体をやめ、選択タブは下線で示す） ============ -->
+  <Style TargetType="TabItem">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabItem">
+          <Grid Background="Transparent" Margin="0,0,4,0">
+            <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                    CornerRadius="8,8,0,0" Padding="15,8">
+              <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+            </Border>
+            <Border x:Name="Line" Height="2" VerticalAlignment="Bottom" Margin="8,0" CornerRadius="1" Background="Transparent" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+              <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Line" Property="Background" Value="{StaticResource Accent}" />
+              <Setter TargetName="Bd" Property="Background" Value="Transparent" />
+              <Setter Property="Foreground" Value="{StaticResource Accent}" />
+              <Setter Property="FontWeight" Value="SemiBold" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent.Ring}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="TabControl">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabControl">
+          <DockPanel>
+            <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
+              <TabPanel IsItemsHost="True" Panel.ZIndex="1" Margin="0,0,0,-1" />
+            </Border>
+            <ContentPresenter ContentSource="SelectedContent" Margin="0,14,0,0" />
+          </DockPanel>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ============ 表 ============ -->
+  <Style TargetType="DataGrid">
+    <Setter Property="AutoGenerateColumns" Value="False" />
+    <Setter Property="IsReadOnly" Value="True" />
+    <Setter Property="HeadersVisibility" Value="Column" />
+    <Setter Property="GridLinesVisibility" Value="None" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="RowHeaderWidth" Value="0" />
+    <Setter Property="RowHeight" Value="30" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="SelectionMode" Value="Extended" />
+    <Setter Property="CanUserReorderColumns" Value="False" />
+    <Setter Property="EnableRowVirtualization" Value="True" />
+    <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+    <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+  </Style>
+  <!-- 列見出しは「読むもの」ではなく「位置を示す札」。小さく・薄く・太らせない -->
+  <Style TargetType="DataGridColumnHeader">
+    <Setter Property="Background" Value="{StaticResource Bg.Subtle}" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Padding" Value="10,7" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DataGridColumnHeader">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="DataGridRow">
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource Bg.Hover}" />
+      </Trigger>
+      <Trigger Property="IsSelected" Value="True">
+        <Setter Property="Background" Value="{StaticResource Accent.Soft}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style TargetType="DataGridCell">
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DataGridCell">
+          <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ============ 一覧（フォルダ選択の右側） ============ -->
+  <Style TargetType="ListView">
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+  </Style>
+  <Style TargetType="ListViewItem">
+    <Setter Property="Padding" Value="6,5" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListViewItem">
+          <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                  CornerRadius="5" Padding="{TemplateBinding Padding}" Margin="2,1">
+            <GridViewRowPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent.Ring}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.75" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="GridViewColumnHeader">
+    <Setter Property="Background" Value="{StaticResource Bg.Subtle}" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Padding" Value="10,7" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GridViewColumnHeader">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{StaticResource Border.Soft}"
+                  BorderThickness="0,0,0,1" Padding="{TemplateBinding Padding}">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ============ ツリー（▷ をシェブロンに） ============ -->
+  <Style x:Key="TreeChevron" TargetType="ToggleButton">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border Background="Transparent" Width="18" Height="18">
+            <Path x:Name="Arrow" Data="M 0,0 L 4,4 L 0,8" Stroke="{StaticResource Ink.Faint}" StrokeThickness="1.6"
+                  StrokeEndLineCap="Round" StrokeStartLineCap="Round"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.4,0.5" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Arrow" Property="RenderTransform">
+                <Setter.Value>
+                  <RotateTransform Angle="90" />
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource Ink.Strong}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="TreeViewItem.Base" TargetType="TreeViewItem">
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TreeViewItem">
+          <StackPanel>
+            <Border x:Name="Bd" CornerRadius="6" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="2,1">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="18" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ToggleButton x:Name="Expander" Grid.Column="0" Style="{StaticResource TreeChevron}"
+                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                              ClickMode="Press" />
+                <ContentPresenter x:Name="PART_Header" Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <ItemsPresenter x:Name="ItemsHost" Margin="16,0,0,0" />
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsExpanded" Value="False">
+              <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
+            </Trigger>
+            <Trigger Property="HasItems" Value="False">
+              <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent.Ring}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="TreeViewItem" BasedOn="{StaticResource TreeViewItem.Base}" />
+  <Style TargetType="TreeView">
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="6" />
+    <!-- 長い名前があっても横スクロールにしない（横にずれると左端の名前が隠れて読めなくなる）。
+         入りきらない名前は … で省く -->
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+  </Style>
+
+  <!-- ============ 選択肢（開き方） ============ -->
+  <Style TargetType="ComboBoxItem">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBoxItem">
+          <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Margin="3,1" Padding="{TemplateBinding Padding}">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
+              <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="ComboBox">
+    <Setter Property="Height" Value="30" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Border x:Name="Ring" CornerRadius="7" Padding="1" Background="Transparent">
+            <Grid>
+              <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
+                            IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Bd" Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Normal}"
+                            BorderThickness="1" CornerRadius="{StaticResource Radius.Control}">
+                      <Path x:Name="Arrow" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"
+                            Data="M 0,0 L 4,4 L 8,0" Stroke="{StaticResource Ink.Muted}" StrokeThickness="1.6"
+                            StrokeEndLineCap="Round" StrokeStartLineCap="Round" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+                        <Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource Ink.Strong}" />
+                      </Trigger>
+                      <Trigger Property="IsChecked" Value="True">
+                        <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                Margin="10,0,26,0" VerticalAlignment="Center" IsHitTestVisible="False" />
+              <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom"
+                     IsOpen="{TemplateBinding IsDropDownOpen}" Focusable="False" PopupAnimation="Fade">
+                <Border Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Normal}"
+                        BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Margin="0,2,0,0"
+                        MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                  <ScrollViewer>
+                    <ItemsPresenter />
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.5" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ============ 右クリックメニュー ============ -->
+  <Style TargetType="ContextMenu">
+    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContextMenu">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{StaticResource Border.Normal}"
+                  BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Padding="4">
+            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="MenuItem">
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="MenuItem">
+          <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Padding="10,6">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Right" Margin="24,0,0,0" VerticalAlignment="Center"
+                         FontSize="11" Foreground="{StaticResource Ink.Faint}"
+                         Text="{TemplateBinding InputGestureText}" />
+              <ContentPresenter ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True" />
+            </DockPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
+              <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="Separator">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Separator">
+          <Border Height="1" Background="{StaticResource Border.Soft}" Margin="8,4" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ============ 進捗バー（光沢のチャンクをやめる） ============ -->
+  <Style TargetType="ProgressBar">
+    <Setter Property="Height" Value="6" />
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+    <Setter Property="Background" Value="{StaticResource Bg.Pressed}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ProgressBar">
+          <Border Background="{TemplateBinding Background}" CornerRadius="3" ClipToBounds="True">
+            <Grid>
+              <Rectangle x:Name="PART_Track" />
+              <Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}" CornerRadius="3" />
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style TargetType="GridSplitter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style TargetType="ToolTip">
+    <Setter Property="Background" Value="#1F2937" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="9,6" />
+    <Setter Property="MaxWidth" Value="420" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToolTip">
+          <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+            <!-- 長い説明を折り返す。TextWrapping は添付プロパティではないので、
+                 中身（文字列）を出すテンプレートの側で指定する -->
+            <ContentPresenter>
+              <ContentPresenter.ContentTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="White" />
+                </DataTemplate>
+              </ContentPresenter.ContentTemplate>
+            </ContentPresenter>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>

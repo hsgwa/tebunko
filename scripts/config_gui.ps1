@@ -27,6 +27,10 @@ ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選�
 ${commonPath}  = "$PSScriptRoot\common.ps1"
 
 trap {
+    # 記録できる状態（common.ps1 の読み込み後）なら、内容をファイルにも残す
+    if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
+        writeErrorLog "起動・実行中" $_
+    }
     [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($_.Exception.Message)", ${appTitle}, "OK", "Error") | Out-Null
     exit 1
 }
@@ -818,13 +822,40 @@ ${iconFile} = "$PSScriptRoot\win_grep.ico"  # タイトルバーとタスクバ�
 # ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、
 #   実行時コンパイル（csc.exe）を無くすため廃止した（アイコン自体は Window.Icon で出るため残る）。
 
+${themeFile} = "$PSScriptRoot\theme.xaml"  # 画面の見た目（色・文字・コントロールの形）の共通定義
+${theme} = $null                           # 読み込んだ theme.xaml（コードから色を引くときに使う）
+
+# 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
+function loadTheme {
+    if ($null -eq ${script:theme}) {
+        ${script:theme} = loadXaml ${themeFile}
+    }
+    return ${script:theme}
+}
+
+# XAML を読み込む。BaseUri にそのファイルの場所を渡し、XAML 内の相対パス
+# （theme.xaml の MergedDictionaries）を解決できるようにする。
+function loadXaml {
+    param (
+        [string]$path
+    )
+
+    $context = New-Object System.Windows.Markup.ParserContext
+    $context.BaseUri = New-Object Uri $path
+    $stream = [System.IO.File]::OpenRead($path)
+    try {
+        return [System.Windows.Markup.XamlReader]::Load($stream, $context)
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 function loadWindow {
     param (
         [string]$path
     )
 
-    [xml]$xaml = [System.IO.File]::ReadAllText($path)
-    $loaded = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+    $loaded = loadXaml $path
 
     # アイコンは XAML に書かず、ここで読み込む（XamlReader.Load は XAML 内の相対パスを解決できないため）。
     # ファイルを掴んだままにしないよう OnLoad で読み切る。アイコンが無くても画面は開けるようにする。
@@ -855,19 +886,20 @@ foreach ($name in @(
 }
 $taskbar = $window.TaskbarItemInfo
 
-function toBrush {
+# 表のセルなど、コードから色を付ける箇所。色は theme.xaml のトークンから取り、画面と食い違わないようにする
+function themeBrush {
     param (
-        [string]$hex
+        [string]$key
     )
 
-    return New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
+    return (loadTheme)[$key]
 }
 
-${okBrush}   = toBrush "#2E8B57"
-${warnBrush} = toBrush "#B45309"
-${ngBrush}   = toBrush "#DC2626"
-${infoBrush} = toBrush "#2563EB"
-${grayBrush} = toBrush "#6B7280"
+${okBrush}   = themeBrush "Ok"
+${warnBrush} = themeBrush "Warn"
+${ngBrush}   = themeBrush "Danger.Text"
+${infoBrush} = themeBrush "Accent"
+${grayBrush} = themeBrush "Ink.Muted"
 
 # ---- 共通の部品 ----
 
@@ -880,6 +912,32 @@ function setStatus {
     $ui.StatusText.ToolTip = $text
 }
 
+# 予期しないエラーを work\画面エラー.txt に残す。画面に出したメッセージだけでは、
+# どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）
+function writeErrorLog {
+    param (
+        [string]$context,
+        [System.Management.Automation.ErrorRecord]$record
+    )
+
+    try {
+        if (-not (Test-Path -LiteralPath ${workDir})) {
+            New-Item -ItemType Directory -Force -Path ${workDir} | Out-Null
+        }
+        $text = @(
+            "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ${context} ===="
+            "$($record.Exception.GetType().FullName): $($record.Exception.Message)"
+            "$($record.InvocationInfo.PositionMessage)"
+            "$($record.ScriptStackTrace)"
+            if ($record.Exception.InnerException) { "内側: $($record.Exception.InnerException)" }
+            ""
+        ) -join "`r`n"
+        [System.IO.File]::AppendAllText(${guiErrorLogFile}, $text, (New-Object System.Text.UTF8Encoding($true)))
+    } catch {
+        # 記録できなくても、画面の動作は止めない
+    }
+}
+
 function showMessage {
     param (
         [string]$message,
@@ -889,7 +947,17 @@ function showMessage {
         [System.Windows.Window]$owner = $window  # ダイアログを開いているときは、そのダイアログを親にする
     )
 
-    return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
+    # 親を指定した表示に失敗しても、知らせること自体は止めない。
+    # （親のウィンドウが閉じかけている・別のスレッドから呼ばれた等で失敗することがある。
+    #   ここで例外が出ると、元のエラーが「Show の呼び出しに失敗」という別のエラーに化けて分からなくなる）
+    if ($null -ne $owner) {
+        try {
+            return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
+        } catch {
+            writeErrorLog "メッセージを親付きで表示できませんでした" $_
+        }
+    }
+    return [System.Windows.MessageBox]::Show($message, ${appTitle}, $buttons, $icon, $default)
 }
 
 # 確認ダイアログに並べる「実行するとこうなります」の 1 行を作る
@@ -914,7 +982,7 @@ function newChoiceContent {
         $line = New-Object System.Windows.Controls.TextBlock
         $line.Text = $detail
         $line.FontSize = 12
-        $line.Foreground = toBrush "#6B7280"
+        $line.Foreground = ${grayBrush}
         $line.TextWrapping = "Wrap"
         $line.Margin = New-Object System.Windows.Thickness -ArgumentList 0, 3, 0, 0
         $panel.Children.Add($line) | Out-Null
@@ -1008,8 +1076,9 @@ function safe {
     try {
         & $block
     } catch {
+        writeErrorLog "画面の操作中" $_
         setStatus "エラーが発生しました：$($_.Exception.Message)"
-        showMessage "エラーが発生しました。`n$($_.Exception.Message)" "OK" "Error" | Out-Null
+        showMessage "エラーが発生しました。`n$($_.Exception.Message)`n`n詳しい内容は $(Split-Path -Leaf ${guiErrorLogFile}) に残しています。" "OK" "Error" | Out-Null
     }
 }
 
@@ -3707,7 +3776,7 @@ function saveSearchExcludes {
     foreach ($node in $script:indexRoots) {
         $node.AddExcludes($excludes)
     }
-    $roots = @($script:indexRoots | Where-Object { $_.Exists } | ForEach-Object { $_.FullPath.TrimEnd("\") })
+    $roots = @($script:indexRoots | Where-Object { $_.Exists } | ForEach-Object { $_.FullPath().TrimEnd("\") })
     $kept = @(readSearchExcludes | Where-Object {
         $path = $_.Path
         @($roots | Where-Object { $path -eq $_ -or $path.StartsWith("$_\", [System.StringComparison]::OrdinalIgnoreCase) }).Count -eq 0
