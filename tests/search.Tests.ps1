@@ -1,7 +1,7 @@
-﻿# 検索・Officeプロセスなど、画面（config_gui.ps1）が使う common.ps1 の関数のテスト
+﻿# 検索・Officeプロセスなど、画面（config_gui.ps1）が使う win_grep\lib.ps1 の関数のテスト
 # Pester 3.4 以降で実行: Invoke-Pester .\tests
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-. "$here\..\scripts\common.ps1"
+. "$here\..\scripts\win_grep\lib.ps1"
 
 function newTsv {
     param (

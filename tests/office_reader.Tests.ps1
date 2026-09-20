@@ -1,7 +1,7 @@
 ﻿# Pester 3.4 以降で実行: Invoke-Pester .\tests
 # Word・PowerPointは使わず、最小限の .docx / .pptx（ZIP）をテスト内で作成して検証する
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-. "$here\..\scripts\common.ps1"
+. "$here\..\scripts\win_grep\lib.ps1"
 . "$here\..\scripts\office_reader.ps1"
 
 function newZip {

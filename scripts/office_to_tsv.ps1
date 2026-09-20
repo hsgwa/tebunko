@@ -28,7 +28,7 @@ param (
     [switch]$ConfirmTargets
 )
 
-. "$PSScriptRoot\common.ps1"
+. "$PSScriptRoot\win_grep\lib.ps1"
 . "$PSScriptRoot\office_reader.ps1"
 
 $ErrorActionPreference = "Stop"
@@ -69,7 +69,7 @@ if (!$convertMutex.Acquired) {
 # （変換一覧は数万行になるため、画面が毎秒読み直すと、その間ずっと画面が固まる）
 writeConvertProgress ${convertPhaseScan} 0 0 0 "変換の準備をしています…"
 
-$targetExtensions = ${officeExtensions}  # 変換対象の拡張子（common.ps1。画面のフォルダ選択でも同じ一覧を使う）
+$targetExtensions = ${officeExtensions}  # 変換対象の拡張子（shared\office\office_files.ps1。画面のフォルダ選択でも同じ一覧を使う）
 $restartInterval = 50  # Officeアプリを再起動する間隔（ファイル数）。メモリ肥大化対策
 $fileTimeoutMinutes = 10  # 1ファイルの変換の制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
 $approvalTimeoutMinutes = 60  # -ConfirmTargets で画面の返事を待つ制限時間（分）。画面が落ちた場合に待ち続けないよう打ち切る

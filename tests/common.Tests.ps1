@@ -1,6 +1,6 @@
 ﻿# Pester 3.4 以降で実行: Invoke-Pester .\tests
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-. "$here\..\scripts\common.ps1"
+. "$here\..\scripts\win_grep\lib.ps1"
 
 Describe "toSafeFileName" {
     It "ファイル名に使えない文字を全角に変換する" {
@@ -1947,15 +1947,15 @@ Describe "実行時コンパイル（csc.exe）を使わない" {
     # 画面・共通・変換の各スクリプトが Add-Type -TypeDefinition（実行時コンパイル）を使わないこと。
     # 画面で使う型は PowerShell class に移した（csc.exe の親子関係・一時 DLL を出さないため）
     It "scripts に Add-Type -TypeDefinition が無い" {
-        foreach ($name in "config_gui.ps1", "common.ps1", "office_to_tsv.ps1", "office_reader.ps1") {
-            $source = Get-Content "$here\..\scripts\$name" -Raw -Encoding UTF8
+        foreach ($file in (Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1")) {
+            $source = Get-Content $file.FullName -Raw -Encoding UTF8
             ($source -match "Add-Type\s+-TypeDefinition") | Should Be $false
         }
     }
 }
 
 Describe "スクリプトの構文" {
-    Get-ChildItem "$here\..\scripts\*.ps1" | ForEach-Object {
+    Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1" | ForEach-Object {
         $script = $_
 
         It "$($script.Name) に構文エラーが無い" {
@@ -1969,7 +1969,7 @@ Describe "スクリプトの構文" {
 Describe "画面定義（XAML）" {
     $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
 
-    Get-ChildItem "$here\..\scripts\*.xaml" | ForEach-Object {
+    Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.xaml" | ForEach-Object {
         $file = $_
 
         It "$($file.Name) が XML として読める" {

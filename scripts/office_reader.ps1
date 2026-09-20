@@ -1,6 +1,6 @@
 ﻿# Word（.docx / .docm）・PowerPoint（.pptx / .pptm）のファイルからテキストを読み出す。
 # ファイルはZIP（Office Open XML）として直接読むため、Word・PowerPointは使わない。
-# office_to_tsv.ps1・テストから dot-source して使う。common.ps1 を先に読み込んでおくこと。
+# office_to_tsv.ps1・テストから dot-source して使う。win_grep\lib.ps1（共通の部品）を先に読み込んでおくこと。
 #
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
 #   Word      : ページ001, ページ002, ..., ヘッダー・フッター, 脚注

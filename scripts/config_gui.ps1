@@ -1,19 +1,19 @@
 ﻿# 画面（WPF）
 #
 # ［1 インデックス管理］［2 検索］［9 プロセス停止］の3タブ。画面の定義は config_gui.xaml。
-# 変換は office_to_tsv.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う（処理は common.ps1 と共通）。
+# 変換は office_to_tsv.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う（処理は win_grep\lib.ps1 の各部品と共通）。
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
 # zip 展開で付く Mark-of-the-Web（外部由来の印）を、このフォルダから消す。印が残っていると
-# RemoteSigned で common.ps1 などの読み込みがブロックされるため。通常は win_grep.bat が起動前に消すが、
+# RemoteSigned でスクリプトの読み込みがブロックされるため。通常は win_grep.bat が起動前に消すが、
 # ショートカットから直接起動したときや、あとでファイルを差し替えたときのために、ここでも消しておく。
 # （この config_gui.ps1 自身が印付きだと、この行に来る前にブロックされる。その場合は win_grep.bat から起動する）
 try {
     Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
 } catch { }
 
-. "$PSScriptRoot\common.ps1"
+. "$PSScriptRoot\win_grep\lib.ps1"
 
 $ErrorActionPreference = "Stop"
 
@@ -24,10 +24,10 @@ ${searchLimit} = 10000
 ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
 ${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
 ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
-${commonPath}  = "$PSScriptRoot\common.ps1"
+${libPath}  = "$PSScriptRoot\win_grep\lib.ps1"
 
 trap {
-    # 記録できる状態（common.ps1 の読み込み後）なら、内容をファイルにも残す
+    # 記録できる状態（win_grep\lib.ps1 の読み込み後）なら、内容をファイルにも残す
     if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
         writeErrorLog "起動・実行中" $_
     }
@@ -211,7 +211,7 @@ class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（common.ps1 の cellNewLine）
+    static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
     static [int] $MaxDisplay = 600
     static [double] $NumberWidth = 44
@@ -536,14 +536,14 @@ class FolderItem : NotifyBase {
     }
 }
 
-# 検索対象の1件（common.ps1 の getIndexTsvFiles に渡す）
+# 検索対象の1件（win_grep\search\search_run.ps1 の getIndexTsvFiles に渡す）
 class SearchTarget {
     [string]$Root
     [string]$RelPath
     [bool]$Recurse
 }
 
-# 検索対象から外したフォルダ（common.ps1 の readSearchExcludes / writeSearchExcludes と同じ項目）
+# 検索対象から外したフォルダ（win_grep\core\settings_grep.ps1 の readSearchExcludes / writeSearchExcludes と同じ項目）
 class SearchExclude {
     [string]$Path
     [bool]$Subfolders
@@ -756,7 +756,7 @@ class IndexNode : NotifyBase {
 
 # ---- フォルダ選択ダイアログ（エクスプローラー風）で使う型 ----
 
-# 左のツリーの1項目。データだけを持ち、中身の読み込みは loadFolderNode（common.ps1 の getFolderEntries を呼ぶ）で行う。
+# 左のツリーの1項目。データだけを持ち、中身の読み込みは loadFolderNode（shared\core\folder.ps1 の getFolderEntries を呼ぶ）で行う。
 # 展開（IsExpanded）・選択（IsSelected）は TreeViewItem と TwoWay バインドし、
 # 展開したときの読み込みは TreeView の Expanded イベントで駆動する（PS class はセッターにロジックを書けないため）
 class FolderNode : NotifyBase {
@@ -1492,7 +1492,7 @@ function describeFolderEntries {
 }
 
 function newFolderEntry {
-    # 一覧の1行を作る（common.ps1 の getFolderEntries が返した中身から）
+    # 一覧の1行を作る（shared\core\folder.ps1 の getFolderEntries が返した中身から）
     param (
         $entry
     )
@@ -2133,10 +2133,10 @@ function startIndexRemoveJob {
     updateConvertButton
     setStatus "インデックス [${name}] の TSV を削除しています…（件数によっては少し時間がかかります）"
     startJob {
-        param ($commonPath, $name)
-        . $commonPath
+        param ($libPath, $name)
+        . $libPath
         removeIndex $name
-    } @(${commonPath}, $name) {
+    } @(${libPath}, $name) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateConvertButton
@@ -2236,10 +2236,10 @@ function refreshConversionState {
     $script:stateRunning = $true
     $script:stateAgain = $false
     startJob {
-        param ($commonPath)
-        . $commonPath
+        param ($libPath)
+        . $libPath
         getConversionState
-    } @(${commonPath}) {
+    } @(${libPath}) {
         param ($output, $errorText)
         $script:stateRunning = $false
         # 変換側が書き込んでいる瞬間などは、次の機会に読み直す
@@ -2354,10 +2354,10 @@ function refreshIndexSummary {
     $script:summaryAgain = $false
     $folders = @(${indexDir})
     startJob {
-        param ($commonPath, $folders)
-        . $commonPath
+        param ($libPath, $folders)
+        . $libPath
         getIndexSummary $folders
-    } @(${commonPath}, $folders) {
+    } @(${libPath}, $folders) {
         param ($output, $errorText)
         $script:summaryRunning = $false
         if ($output -and $output.Count -gt 0) {
@@ -2870,9 +2870,9 @@ $script:filterText = ""
 
 # 別スレッドで実行する検索（結果は $shared.Queue に少しずつ入れる）
 ${searchScript} = {
-    param ($commonPath, $word, $simpleMatch, $folders, $limit, $shared)
+    param ($libPath, $word, $simpleMatch, $folders, $limit, $shared)
     try {
-        . $commonPath
+        . $libPath
         # TSV が多いと数え上げだけで数秒かかるため、途中の件数を画面に伝える（止まって見えないように）
         $index = getIndexTsvFiles $folders { param ($count) $shared.Scanned = $count }
         $shared.Folders = $index.Folders
@@ -3017,7 +3017,7 @@ function startSearch {
     })
     $ps = [powershell]::Create()
     [void]$ps.AddScript(${searchScript}.ToString())
-    foreach ($argument in @(${commonPath}, $word, $simpleMatch, $folders, ${searchLimit}, $shared)) {
+    foreach ($argument in @(${libPath}, $word, $simpleMatch, $folders, ${searchLimit}, $shared)) {
         [void]$ps.AddArgument($argument)
     }
     $script:search = @{
