@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Drawing
 
 # XAML を読み込んで Window を返す
 function loadWindow([string]$path) {
@@ -53,21 +53,35 @@ function waitIdle($w) {
   $w.Dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 }
 
-# Window の中身を PNG にする
+# Window を PNG にする。
+# RenderTargetBitmap ではなく実画面を撮る。RenderTargetBitmap は ClearType が効かず、
+# 文字が実機より太く見えてしまうため。
 function savePng($w, [string]$file) {
   waitIdle $w
-  $width  = [int][Math]::Ceiling($w.ActualWidth)
-  $height = [int][Math]::Ceiling($w.ActualHeight)
-  $rtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap($width, $height, 96, 96, [System.Windows.Media.PixelFormats]::Pbgra32)
-  $rtb.Render($w)
-  $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
-  $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($rtb)) | Out-Null
-  $stream = [System.IO.File]::Create($file)
-  try { $encoder.Save($stream) } finally { $stream.Dispose() }
+  $w.Activate() | Out-Null
+  waitIdle $w
+  Start-Sleep -Milliseconds 600
+
+  # DIP を画面のピクセルに直す（高 DPI 環境で位置と大きさがずれないように）
+  $source = [System.Windows.PresentationSource]::FromVisual($w)
+  $matrix = $source.CompositionTarget.TransformToDevice
+  $x  = [int]($w.Left * $matrix.M11)
+  $y  = [int]($w.Top  * $matrix.M22)
+  $cw = [int]($w.ActualWidth  * $matrix.M11)
+  $ch = [int]($w.ActualHeight * $matrix.M22)
+
+  $bmp = New-Object System.Drawing.Bitmap($cw, $ch)
+  $g = [System.Drawing.Graphics]::FromImage($bmp)
+  $g.CopyFromScreen($x, $y, 0, 0, (New-Object System.Drawing.Size($cw, $ch)))
+  $g.Dispose()
+  $bmp.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
   Write-Host "saved: $file"
 }
 
 # 新デザイン
+# Topmost は Show の前に立てる（後から立てても他のウィンドウの下に隠れたままになる）
+$window.Topmost = $true
 $window.Show()
 $tabs = $window.FindName('Tabs')
 $tabs.SelectedIndex = 1
@@ -80,6 +94,7 @@ $window.Close()
 $current = loadWindow (Join-Path $PSScriptRoot 'config_gui.xaml')
 $current.Width = 1000
 $current.Height = 720
+$current.Topmost = $true
 $current.Show()
 $currentTabs = $current.FindName('Tabs')
 $currentTabs.SelectedIndex = 1

@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="win_grep（モダン案）" Width="1000" Height="720" MinWidth="760" MinHeight="580"
         WindowStartupLocation="CenterScreen"
-        FontFamily="BIZ UDPGothic, Yu Gothic UI, Meiryo UI" FontSize="13"
-        TextOptions.TextFormattingMode="Ideal"
+        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
         Background="#F6F7F9" UseLayoutRounding="True" SnapsToDevicePixels="True">
 
   <Window.Resources>
