@@ -933,13 +933,18 @@ Describe "newIndexName / assignIndexNames" {
         newIndexName "E:\見積" $used | Should Be "見積(3)"
     }
 
-    It "使用済みの名前が無い・1 個だけでも正しく判定する" {
-        # PowerShell は集合を返すと中身を展開するため、呼び出し側では
-        # 空なら $null、1 個なら文字列で渡ることがある（インデックスが 0・1 件のときの新規作成）
-        newIndexName "C:\data\見積" $null | Should Be "見積"
+    It '使用中の名前が $null・配列・空でも落ちずに名前を作る' {
+        # インデックスが 1 つも無いとき、呼び出し側から $null が渡ることがある（画面の新規作成ダイアログ）
+        newIndexName "C:\data\sample" $null | Should Be "sample"
+        newIndexName "C:\data\見積" | Should Be "見積"
         newIndexName "C:\data\見積" @() | Should Be "見積"
+        newIndexName "C:\data\見積" @("見積") | Should Be "見積(2)"
+        # インデックスが 1 件のときは、集合が展開されて文字列 1 個で渡ることがある
         newIndexName "C:\data\見積" "見積" | Should Be "見積(2)"
         newIndexName "C:\data\見" "見積" | Should Be "見"
+        # 前方一致・大文字小文字違いで取り違えない
+        newIndexName "C:\data\見積" @("見積書") | Should Be "見積"
+        newIndexName "C:\data\sample" @("SAMPLE") | Should Be "sample(2)"
     }
 
     It "設定に名前があればそれを使い、フォルダの場所が変わっても同じ名前のままにする" {
@@ -1708,6 +1713,94 @@ Describe "writeConvertProgress / readConvertProgress / removeConvertProgress" {
         removeConvertProgress $path
         Test-Path -LiteralPath $path | Should Be $false
         { removeConvertProgress $path } | Should Not Throw
+    }
+}
+
+Describe "writeConvertPlan / readConvertPlan / removeConvertPlan" {
+    It "インデックスごとの件数を往復できる（件数は数値で返る）" {
+        $path = "$TestDrive\予定1.tsv"
+        $rows = @(
+            (newConvertPlanRow "営業" "C:\data\営業" ${planKindConvert} 1234 12 5 7 0 0 3),
+            (newConvertPlanRow "技術" "\\server\share\技術" ${planKindConvert} 20 0 0 0 0 0 0))
+        writeConvertPlan $rows $path
+        $plan = readConvertPlan $path
+        $plan.Count | Should Be 2
+        $plan[0].インデックス名 | Should Be "営業"
+        $plan[0].元のフォルダ | Should Be "C:\data\営業"
+        $plan[0].区分 | Should Be ${planKindConvert}
+        ($plan[0].ファイル数 + 1) | Should Be 1235   # 文字列ではなく数値で返る
+        $plan[0].変換対象 | Should Be 12
+        $plan[0].新規 | Should Be 5
+        $plan[0].更新あり | Should Be 7
+        $plan[0].前回失敗 | Should Be 3
+        $plan[1].変換対象 | Should Be 0
+    }
+
+    It "チェックなし・フォルダなしの区分も往復できる（件数は 0）" {
+        $path = "$TestDrive\予定2.tsv"
+        writeConvertPlan @(
+            (newConvertPlanRow "外した" "D:\過去" ${planKindUnchecked}),
+            (newConvertPlanRow "無い" "E:\USB" ${planKindMissing})) $path
+        $plan = readConvertPlan $path
+        $plan[0].区分 | Should Be ${planKindUnchecked}
+        $plan[0].ファイル数 | Should Be 0
+        $plan[1].区分 | Should Be ${planKindMissing}
+    }
+
+    It "インデックスが1件も無くても読める（空の配列）" {
+        $path = "$TestDrive\予定3.tsv"
+        writeConvertPlan @() $path
+        (readConvertPlan $path).Count | Should Be 0
+    }
+
+    It "ファイルが無い・列が合わなければ null（画面は次の機会に読み直す）" {
+        readConvertPlan "$TestDrive\予定なし.tsv" | Should BeNullOrEmpty
+        $path = "$TestDrive\予定4.tsv"
+        writeListFile $path @("べつの見出し")
+        readConvertPlan $path | Should BeNullOrEmpty
+    }
+
+    It "画面が読んでいる間も書ける（共有して開く）" {
+        $path = "$TestDrive\予定5.tsv"
+        writeConvertPlan @((newConvertPlanRow "営業" "C:\data" ${planKindConvert} 1 1 1 0 0 0 0)) $path
+        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+        try {
+            { writeConvertPlan @((newConvertPlanRow "営業" "C:\data" ${planKindConvert} 2 2 2 0 0 0 0)) $path } | Should Not Throw
+        } finally {
+            $stream.Dispose()
+        }
+        (readConvertPlan $path)[0].変換対象 | Should Be 2
+    }
+
+    It "削除できる（無ければ何もしない）" {
+        $path = "$TestDrive\予定6.tsv"
+        writeConvertPlan @() $path
+        removeConvertPlan $path
+        Test-Path -LiteralPath $path | Should Be $false
+        { removeConvertPlan $path } | Should Not Throw
+    }
+}
+
+Describe "writeConvertStartRequest / readConvertStartRequest / removeConvertStartRequest" {
+    It "前回失敗したファイルも再変換するかを伝えられる" {
+        $path = "$TestDrive\開始要求1"
+        writeConvertStartRequest $true $path
+        (readConvertStartRequest $path).RetryFailed | Should Be $true
+        writeConvertStartRequest $false $path
+        (readConvertStartRequest $path).RetryFailed | Should Be $false
+    }
+
+    It "まだ返事が無ければ null（変換側は待ち続ける）" {
+        readConvertStartRequest "$TestDrive\開始要求なし" | Should BeNullOrEmpty
+    }
+
+    It "削除できる（無ければ何もしない）" {
+        $path = "$TestDrive\開始要求2"
+        writeConvertStartRequest $false $path
+        removeConvertStartRequest $path
+        Test-Path -LiteralPath $path | Should Be $false
+        { removeConvertStartRequest $path } | Should Not Throw
     }
 }
 

@@ -119,9 +119,8 @@
 
   <DockPanel Margin="14,10,14,12">
 
-    <!-- 下部：ステータス表示と［閉じる］ -->
+    <!-- 下部：ステータス表示（直前の操作の結果） -->
     <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-      <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="閉じる" />
       <TextBlock x:Name="StatusText" Style="{StaticResource Hint}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
     </DockPanel>
 
@@ -136,7 +135,7 @@
           <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <Button x:Name="ConvertButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="変換を開始" MinWidth="170" Height="34" />
             <TextBlock x:Name="ConvertHint" Style="{StaticResource Hint}" VerticalAlignment="Center" Margin="0,0,12,0"
-                       Text="変換中も検索できます。途中でやめるときは［中止］を押してください（次回、続きから再開できます）。" />
+                       Text="押すと、何件変換するかを確認してから、新しいファイル・変わったファイルだけを変換します。" />
           </DockPanel>
 
           <StackPanel DockPanel.Dock="Bottom" x:Name="ConvertProgressPanel" Visibility="Collapsed" Margin="0,10,0,0">
@@ -163,11 +162,10 @@
             <DockPanel Grid.Row="1" Margin="0,6,0,0">
               <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0" Width="150">
                 <Button x:Name="NewIndexButton" Content="新規作成…" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを作ります" />
-                <Button x:Name="EditIndexButton" Content="編集…" Margin="0,6,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスは作り直しません）" />
-                <Button x:Name="RebuildIndexButton" Content="作り直す…" Margin="0,6,0,0" ToolTip="選んだインデックスの TSV を削除して、フォルダの中のファイルをすべて変換し直します（更新日時が変わらないまま中身が変わった場合などに使います）" />
-                <Button x:Name="RemoveIndexButton" Style="{StaticResource Danger}" Content="削除" Margin="0,6,0,0" ToolTip="選んだインデックスを、変換した TSV ごと削除します" />
+                <Button x:Name="EditIndexButton" Content="編集…" Margin="0,6,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（変換したデータはそのまま使います）" />
+                <Button x:Name="RemoveIndexButton" Style="{StaticResource Danger}" Content="削除" Margin="0,6,0,0" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
                 <TextBlock Style="{StaticResource Hint}" Margin="0,12,0,0"
-                           Text="一覧にフォルダをドラッグ＆ドロップしても作成できます。変換中は作成・編集・作り直し・削除はできません。" />
+                           Text="一覧にフォルダをドラッグ＆ドロップしても作成できます。" />
               </StackPanel>
               <Grid>
                 <DataGrid x:Name="IndexGrid" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
@@ -318,8 +316,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <!-- 結果の表とプレビューの高さは、間の GridSplitter のドラッグで変わる（3 行目が結果の表、5 行目がプレビュー） -->
+            <RowDefinition Height="*" MinHeight="60" />
             <RowDefinition Height="Auto" />
+            <!-- 下限は、列見出し＋1 行（一致した行）が見える高さ -->
+            <RowDefinition x:Name="DetailRow" Height="200" MinHeight="100" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
@@ -418,11 +419,36 @@
             </DataGrid.ContextMenu>
           </DataGrid>
 
-          <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は config_gui.ps1 の NumberWidth と合わせる） -->
-          <DockPanel Grid.Row="4" x:Name="DetailPanel" Margin="0,8,0,0" Visibility="Collapsed">
+          <!-- 結果の表とプレビューの境目。上下にドラッグするとプレビューの高さが変わる -->
+          <GridSplitter Grid.Row="4" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                        ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" Cursor="SizeNS"
+                        ToolTip="上下にドラッグすると、プレビューの高さを変えられます">
+            <GridSplitter.Template>
+              <ControlTemplate TargetType="GridSplitter">
+                <!-- 当たり判定は 11px 分とり、見た目は境目の細い線と、つまめることが分かる真ん中のグリップにする -->
+                <Border Background="Transparent">
+                  <Grid>
+                    <Border Height="1" Background="#E5E7EB" VerticalAlignment="Center" />
+                    <Border x:Name="Grip" Width="48" Height="5" CornerRadius="3" Background="#C7CCD4"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Grip" Property="Background" Value="#6B7280" />
+                  </Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </GridSplitter.Template>
+          </GridSplitter>
+
+          <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は config_gui.ps1 の NumberWidth と合わせる）。
+               行を選んでいなくても枠は出したままにする（高さが変わらず、次に選んだときもその場に出る） -->
+          <DockPanel Grid.Row="5" x:Name="DetailPanel" Margin="0,3,0,0">
             <DockPanel DockPanel.Dock="Top">
-              <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Content="フォルダを開く" Margin="6,0,0,0" />
-              <Button x:Name="OpenButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Excel で開く" MinWidth="120" Height="28" />
+              <!-- 行を選ぶまでは押せない（プレビューの枠は行を選んでいなくても出したままにするため） -->
+              <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Content="フォルダを開く" Margin="6,0,0,0" IsEnabled="False" />
+              <Button x:Name="OpenButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Excel で開く" MinWidth="120" Height="28" IsEnabled="False" />
               <!-- 開き方（ダブルクリック・Enter・［開く］の動作。右クリックメニューでは、その時だけ別の開き方も選べる） -->
               <ComboBox x:Name="OpenModeCombo" DockPanel.Dock="Right" VerticalAlignment="Center" Height="26" MinWidth="200" Margin="0,0,10,0">
                 <ComboBoxItem Tag="normal" Content="通常（編集する）"
@@ -436,15 +462,13 @@
               <TextBlock x:Name="DetailTitle" FontWeight="SemiBold" Foreground="#1F2937" VerticalAlignment="Center" Margin="0,0,10,0"
                          TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
             </DockPanel>
-            <Border BorderBrush="#9CA3AF" BorderThickness="1,1,0,0" Background="White" Margin="0,6,0,0">
-              <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
-                            Focusable="True">
-                <ScrollViewer.ContextMenu>
-                  <ContextMenu>
-                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" InputGestureText="Ctrl+C" />
-                    <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
-                  </ContextMenu>
-                </ScrollViewer.ContextMenu>
+            <!-- 枠は四方に引く（高さを変えられるため、下・右にも枠が無いと切れて見える） -->
+            <Border BorderBrush="#9CA3AF" BorderThickness="1" Background="White" Margin="0,6,0,0">
+              <Grid>
+              <DockPanel>
+              <!-- 列見出しは、枠を低くしても隠れないよう、行とは別のスクロールに置く（横位置は config_gui.ps1 で PreviewScroll に合わせる） -->
+              <ScrollViewer x:Name="PreviewHeaderScroll" DockPanel.Dock="Top" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                            Focusable="False" Visibility="Collapsed">
                 <StackPanel TextElement.FontSize="12">
 
                   <!-- 列見出し（右端をドラッグすると、その列の幅が変わる。幅は PreviewColumn を各行のセルと共有する） -->
@@ -477,6 +501,19 @@
                     </ItemsControl.ItemTemplate>
                     </ItemsControl>
                   </StackPanel>
+                </StackPanel>
+              </ScrollViewer>
+
+              <!-- 枠の高さはドラッグで変わるため、行が入りきらないときは縦にもスクロールできるようにする -->
+              <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                            Focusable="True">
+                <ScrollViewer.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" InputGestureText="Ctrl+C" />
+                    <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
+                  </ContextMenu>
+                </ScrollViewer.ContextMenu>
+                <StackPanel TextElement.FontSize="12">
 
                   <ItemsControl x:Name="PreviewRows">
                     <ItemsControl.ItemTemplate>
@@ -536,10 +573,15 @@
                   </ItemsControl>
                 </StackPanel>
               </ScrollViewer>
+              </DockPanel>
+              <!-- 行を選んでいないときの案内（プレビューの枠は出したままにする） -->
+              <TextBlock x:Name="PreviewPlaceholder" IsHitTestVisible="False" Margin="10,8" Foreground="#9CA3AF" TextWrapping="Wrap"
+                         Text="結果の表で行を選ぶと、ここにその前後の行を表示します。" />
+              </Grid>
             </Border>
           </DockPanel>
 
-          <DockPanel Grid.Row="5" Margin="0,8,0,0">
+          <DockPanel Grid.Row="6" Margin="0,8,0,0">
             <Button x:Name="ExportButton" DockPanel.Dock="Right" Content="結果をファイルに出力" />
             <!-- 横に長い行で、表示した列の範囲を知らせる（ふだんは隠す） -->
             <TextBlock x:Name="PreviewNote" DockPanel.Dock="Right" Margin="8,0" VerticalAlignment="Center"
@@ -575,18 +617,6 @@
             <DataGrid.Columns>
               <DataGridTextColumn Header="種類" Binding="{Binding AppName}" Width="110" />
               <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="80" />
-              <DataGridTemplateColumn Header="状態" Width="170">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock x:Name="State" Text="{Binding StateText}" />
-                    <DataTemplate.Triggers>
-                      <DataTrigger Binding="{Binding Background}" Value="True">
-                        <Setter TargetName="State" Property="Foreground" Value="#B45309" />
-                      </DataTrigger>
-                    </DataTemplate.Triggers>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
               <DataGridTextColumn Header="起動時刻" Binding="{Binding StartText}" Width="100" />
               <DataGridTextColumn Header="メモリ" Binding="{Binding MemoryText}" Width="100" ElementStyle="{StaticResource RightCell}" />
               <DataGridTextColumn Header="ウィンドウ" Binding="{Binding TitleText}" Width="*" />

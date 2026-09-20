@@ -1,0 +1,111 @@
+﻿<!-- 確認ダイアログ。「押すと何が起きるか」を見出し・結果・ボタンの文言で見せる。config_gui.ps1 の showConfirm が読み込む -->
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="win_grep" Width="560" SizeToContent="Height" MaxHeight="620"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        Background="White" UseLayoutRounding="True">
+  <Window.Resources>
+    <Style TargetType="Button">
+      <Setter Property="MinWidth" Value="104" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="Margin" Value="8,0,0,0" />
+    </Style>
+    <!-- 既定のボタンはマウスを載せると背景が水色になり、白い文字が読めなくなるため、主ボタンは独自のテンプレートにする -->
+    <ControlTemplate x:Key="FlatButtonTemplate" TargetType="Button">
+      <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="3" Padding="{TemplateBinding Padding}">
+        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+        </Trigger>
+        <Trigger Property="IsPressed" Value="True">
+          <Setter TargetName="Bd" Property="Opacity" Value="0.75" />
+        </Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Template" Value="{StaticResource FlatButtonTemplate}" />
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#1D4ED8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="Danger" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Template" Value="{StaticResource FlatButtonTemplate}" />
+      <Setter Property="Background" Value="#DC2626" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#B91C1C" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <!-- 選択肢のボタン。1 行目に動作、2 行目にその結果を書く（押す前に何が起きるか分かるようにする） -->
+    <ControlTemplate x:Key="ChoiceTemplate" TargetType="Button">
+      <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+      </Border>
+      <ControlTemplate.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter TargetName="Bd" Property="Background" Value="#EFF6FF" />
+          <Setter TargetName="Bd" Property="BorderBrush" Value="#2563EB" />
+        </Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True">
+          <Setter TargetName="Bd" Property="BorderBrush" Value="#2563EB" />
+        </Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style x:Key="Choice" TargetType="Button">
+      <Setter Property="Template" Value="{StaticResource ChoiceTemplate}" />
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#D1D5DB" />
+      <Setter Property="Padding" Value="14,10" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style x:Key="Hint" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="#6B7280" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </Window.Resources>
+
+  <DockPanel Margin="20,18,20,16">
+    <!-- 下部：選択肢が 1 つのときは［実行］＋［キャンセル］、2 つ以上のときは［キャンセル］だけを置く -->
+    <StackPanel x:Name="ButtonPanel" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0" />
+
+    <StackPanel>
+      <!-- 見出し：これから何をするか（1 行で読み切れる長さにする） -->
+      <TextBlock x:Name="HeadingText" FontSize="16" FontWeight="SemiBold" Foreground="#1F2937" TextWrapping="Wrap" />
+
+      <!-- 結果：実行すると何が消えて何が残るか -->
+      <Border x:Name="FactsPanel" Visibility="Collapsed" Margin="0,14,0,0"
+              Background="#F9FAFB" BorderBrush="#E5E7EB" BorderThickness="1" Padding="14,8">
+        <ItemsControl x:Name="FactsList">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <DockPanel Margin="0,5">
+                <TextBlock DockPanel.Dock="Left" Width="22" VerticalAlignment="Top" FontWeight="Bold"
+                           Text="{Binding Mark}" Foreground="{Binding MarkBrush}" />
+                <StackPanel>
+                  <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                  <TextBlock x:Name="FactDetail" Text="{Binding Detail}" Foreground="#6B7280" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+              </DockPanel>
+              <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Detail}" Value="">
+                  <Setter TargetName="FactDetail" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+              </DataTemplate.Triggers>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+
+      <!-- 選択肢が 2 つ以上のときのボタン（config_gui.ps1 が組み立てる） -->
+      <StackPanel x:Name="ChoicePanel" Margin="0,14,0,0" />
+
+      <!-- 補足：読まなくても操作できる内容だけを書く -->
+      <TextBlock x:Name="HintText" Style="{StaticResource Hint}" Visibility="Collapsed" Margin="0,14,0,0" />
+    </StackPanel>
+  </DockPanel>
+</Window>
