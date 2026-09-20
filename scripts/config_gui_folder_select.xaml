@@ -48,10 +48,8 @@
               ToolTip="次のフォルダへ進む（Alt+→）" />
       <Button x:Name="UpButton" DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="↑"
               ToolTip="1つ上のフォルダへ（Alt+↑・BackSpace）" Margin="0,0,8,0" />
-      <Button x:Name="RefreshButton" DockPanel.Dock="Right" Content="更新" MinWidth="60" Margin="6,0,0,0"
-              ToolTip="今のフォルダを読み直す（F5）" />
       <TextBox x:Name="AddressBox" Height="28"
-               ToolTip="フォルダのパスを入力・貼り付けして Enter で移動します（\\server\share も指定できます）" />
+               ToolTip="フォルダのパスを入力・貼り付けして Enter で移動します（\\server\share も指定できます）。F5 で読み直します" />
     </DockPanel>
 
     <!-- 選んだフォルダと決定 -->
@@ -118,12 +116,6 @@
       <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Background="Transparent" />
 
       <DockPanel Grid.Column="2">
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-          <TextBlock DockPanel.Dock="Left" Style="{StaticResource Hint}" Text="絞り込み" VerticalAlignment="Center" Margin="0,0,6,0" />
-          <TextBox x:Name="FilterBox" Height="26"
-                   ToolTip="名前の一部を入れると、この一覧を絞り込みます（フォルダ・ファイルの両方）" />
-        </DockPanel>
-
         <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="2,6,0,0" />
 
         <Grid>

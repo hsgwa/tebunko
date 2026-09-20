@@ -917,8 +917,8 @@ function selectFolder {
     }
     $ctrl = @{}
     foreach ($name in @(
-            "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox", "RefreshButton",
-            "FolderTree", "FilterBox", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
+            "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox",
+            "FolderTree", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $script:folderSelect = @{
@@ -939,21 +939,11 @@ function selectFolder {
     $ctrl.BackButton.Add_Click({ safe { moveFolderHistory -1 } })
     $ctrl.ForwardButton.Add_Click({ safe { moveFolderHistory 1 } })
     $ctrl.UpButton.Add_Click({ safe { goParentFolder } })
-    $ctrl.RefreshButton.Add_Click({ safe { reloadFolder } })
     $ctrl.AddressBox.Add_PreviewKeyDown({
         param ($sender, $e)
         if ($e.Key -eq "Return") {
             # Enter は［選択］（既定のボタン）ではなく、入力したパスへの移動にする
             safe { goFolder $script:folderSelect.Ctrl.AddressBox.Text | Out-Null }
-            $e.Handled = $true
-        }
-    })
-    $ctrl.FilterBox.Add_TextChanged({ safe { updateFolderEntryList } })
-    $ctrl.FilterBox.Add_PreviewKeyDown({
-        param ($sender, $e)
-        if ($e.Key -eq "Return") {
-            # 絞り込んだ最初のフォルダへ移る（Enter で［選択］が押されて、今のフォルダに決まってしまわないようにする）
-            safe { focusFirstFolderEntry }
             $e.Handled = $true
         }
     })
@@ -963,9 +953,6 @@ function selectFolder {
         param ($sender, $e)
         if ($e.Key -eq "Return") {
             safe { openSelectedFolderEntry }
-            $e.Handled = $true
-        } elseif ($e.Key -eq "Back") {
-            safe { goParentFolder }
             $e.Handled = $true
         }
     })
@@ -1024,12 +1011,17 @@ function selectFolder {
             $d.Window.DialogResult = $true
         }
     })
+    # キーボード操作はエクスプローラーに合わせる
+    #   Alt+← / Alt+→：戻る・進む、Alt+↑ / BackSpace：1 つ上へ、F5 / Ctrl+R：読み直す、
+    #   F4 / Alt+D / Ctrl+L：アドレスバーへ、Esc：キャンセル（IsCancel）
     $dialog.Add_PreviewKeyDown({
         param ($sender, $e)
-        # Alt+← / Alt+→ / Alt+↑ / BackSpace / F5（エクスプローラーと同じ操作）
         $key = if ($e.Key -eq "System") { $e.SystemKey } else { $e.Key }
-        $alt = (($e.KeyboardDevice.Modifiers -band [System.Windows.Input.ModifierKeys]::Alt) -ne 0)
-        if ($key -eq "F5") {
+        $modifiers = $e.KeyboardDevice.Modifiers
+        $alt = (($modifiers -band [System.Windows.Input.ModifierKeys]::Alt) -ne 0)
+        $ctrl = (($modifiers -band [System.Windows.Input.ModifierKeys]::Control) -ne 0)
+        $inTextBox = ($e.OriginalSource -is [System.Windows.Controls.TextBox])
+        if ($key -eq "F5" -or ($ctrl -and $key -eq "R")) {
             safe { reloadFolder }
             $e.Handled = $true
         } elseif ($alt -and $key -eq "Left") {
@@ -1038,8 +1030,23 @@ function selectFolder {
         } elseif ($alt -and $key -eq "Right") {
             safe { moveFolderHistory 1 }
             $e.Handled = $true
-        } elseif ($alt -and $key -eq "Up") {
+        } elseif (($alt -and $key -eq "Up") -or ($key -eq "Back" -and -not $inTextBox)) {
+            # BackSpace は入力欄では文字を消すため、入力欄以外のときだけ 1 つ上へ
             safe { goParentFolder }
+            $e.Handled = $true
+        } elseif ($key -eq "F4" -or ($alt -and $key -eq "D") -or ($ctrl -and $key -eq "L")) {
+            safe { focusAddressBox }
+            $e.Handled = $true
+        }
+    })
+    # マウスの戻る・進むボタン（サイドボタン）でも履歴をたどる
+    $dialog.Add_PreviewMouseDown({
+        param ($sender, $e)
+        if ($e.ChangedButton -eq [System.Windows.Input.MouseButton]::XButton1) {
+            safe { moveFolderHistory -1 }
+            $e.Handled = $true
+        } elseif ($e.ChangedButton -eq [System.Windows.Input.MouseButton]::XButton2) {
+            safe { moveFolderHistory 1 }
             $e.Handled = $true
         }
     })
@@ -1154,7 +1161,8 @@ function loadFolderNode {
 }
 
 function findFolderNode {
-    # ツリーから path のノードを探す（途中のフォルダは読み込んで展開する）。見つからなければ $null
+    # ツリーから path のノードを探す。**まだ開いていないフォルダは開かない**（エクスプローラーと同じく、
+    # 移動しただけで左のツリーが勝手に展開されないようにする）。見つからなければ $null
     param (
         [FolderNode]$node,
         [string]$path
@@ -1166,11 +1174,12 @@ function findFolderNode {
     if (testSamePath $node.Path $path) {
         return $node
     }
+    if (-not $node.Loaded) {
+        return $null
+    }
     if (-not ([string]$path).StartsWith($node.Path.TrimEnd("\") + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
         return $null
     }
-    loadFolderNode $node
-    $node.SetExpanded($true)
     foreach ($child in $node.Children) {
         $found = findFolderNode $child $path
         if ($null -ne $found) {
@@ -1180,8 +1189,27 @@ function findFolderNode {
     return $null
 }
 
+function findFolderNodeInTree {
+    # ツリー全体（読み込んである範囲）から path のノードを探す
+    param (
+        [string]$path
+    )
+
+    foreach ($root in $script:folderSelect.Roots) {
+        foreach ($child in $root.Children) {
+            $found = findFolderNode $child $path
+            if ($null -ne $found) {
+                return $found
+            }
+        }
+    }
+    return $null
+}
+
 function revealFolderTree {
-    # 開いているフォルダをツリーでも選んだ状態にする（ツリーの選択が移動を起こさないよう Syncing を立てる）
+    # 開いているフォルダをツリーでも選んだ状態にする（ツリーの選択が移動を起こさないよう Syncing を立てる）。
+    # ツリーは、すでに開いてあるところと、その 1 つ下までを追随させる（右で下りると 1 段ずつ開く）。
+    # 深いパスを貼り付けたときに途中のフォルダをすべて開くことはしない
     param (
         [string]$path
     )
@@ -1193,22 +1221,26 @@ function revealFolderTree {
         if ($null -ne $selected -and (testSamePath $selected.Path $path)) {
             return
         }
-        foreach ($root in $d.Roots) {
-            foreach ($child in $root.Children) {
-                $found = findFolderNode $child $path
-                if ($null -ne $found) {
-                    if ($null -ne $selected) {
-                        $selected.SetSelected($false)
-                    }
-                    $found.SetSelected($true)
-                    return
+        $found = findFolderNodeInTree $path
+        if ($null -eq $found) {
+            # 1 つ上のフォルダがツリーにあれば、そこだけ開いて中を出す
+            $parentPath = getParentFolderPath $path
+            if ($parentPath -ne "") {
+                $parent = findFolderNodeInTree $parentPath
+                if ($null -ne $parent) {
+                    loadFolderNode $parent
+                    $parent.SetExpanded($true)
+                    $found = findFolderNodeInTree $path
                 }
             }
         }
-        # ツリーに無いフォルダ（ネットワークのパスなど）を開いたときは、ツリーの選択を外す
         if ($null -ne $selected) {
             $selected.SetSelected($false)
         }
+        if ($null -ne $found) {
+            $found.SetSelected($true)
+        }
+        # ツリーに無いフォルダ（開いていない深いパス・ネットワークのパスなど）は、ツリーの選択を外すだけにする
     } finally {
         $d.Syncing = $false
     }
@@ -1241,11 +1273,7 @@ function goFolder {
     $d.Ctrl.AddressBox.Text = $path
     $d.Ctrl.FolderBox.Text = $path
     $d.All = @($entries.Entries | ForEach-Object { newFolderEntry $_ })
-    if ($d.Ctrl.FilterBox.Text -ne "") {
-        $d.Ctrl.FilterBox.Text = ""   # フォルダを移ったら絞り込みは外す（TextChanged で一覧を作り直す）
-    } else {
-        updateFolderEntryList
-    }
+    updateFolderEntryList
     $d.Ctrl.StatusText.Text = describeFolderEntries $entries
     revealFolderTree $path
     updateFolderSelectButtons
@@ -1304,21 +1332,12 @@ function getFolderEntryKind {
 }
 
 function updateFolderEntryList {
-    # 絞り込み（名前の部分一致）を一覧に反映する
+    # 今のフォルダの中身を一覧に出す。
+    # ItemsSource には必ず配列を渡す（1 件のときに配列が展開されると渡せないため @() で包む）
     $d = $script:folderSelect
-    $filter = $d.Ctrl.FilterBox.Text.Trim()
-    # if の結果をそのまま受けると、1 件のときに配列が展開されて ItemsSource に渡せないため、
-    # 代入は @() で配列のまま扱う
     $rows = @($d.All)
-    if ($filter -ne "") {
-        $rows = @($rows | Where-Object { $_.Name.IndexOf($filter, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0 })
-    }
-    $d.Ctrl.EntryList.ItemsSource = @($rows)
-    $d.Ctrl.EntryPlaceholder.Text = if ($filter -ne "") {
-        "「${filter}」を名前に含むフォルダ・ファイルはありません。"
-    } else {
-        "このフォルダの中にはフォルダもファイルもありません。このフォルダでよければ［選択］を押してください。"
-    }
+    $d.Ctrl.EntryList.ItemsSource = $rows
+    $d.Ctrl.EntryPlaceholder.Text = "このフォルダの中にはフォルダもファイルもありません。このフォルダでよければ［選択］を押してください。"
     $d.Ctrl.EntryPlaceholder.Visibility = if ($rows.Count -eq 0) { "Visible" } else { "Collapsed" }
 }
 
@@ -1341,16 +1360,11 @@ function openSelectedFolderEntry {
     }
 }
 
-function focusFirstFolderEntry {
-    # 絞り込んだ一覧の最初のフォルダを選び、一覧へ移る
-    $d = $script:folderSelect
-    $row = @($d.Ctrl.EntryList.ItemsSource | Where-Object { $_.IsFolder } | Select-Object -First 1)[0]
-    if ($null -eq $row) {
-        return
-    }
-    $d.Ctrl.EntryList.SelectedItem = $row
-    $d.Ctrl.EntryList.ScrollIntoView($row)
-    $d.Ctrl.EntryList.Focus() | Out-Null
+function focusAddressBox {
+    # アドレスバーへ移り、今のパスを選んだ状態にする（F4 / Alt+D / Ctrl+L）
+    $address = $script:folderSelect.Ctrl.AddressBox
+    $address.Focus() | Out-Null
+    $address.SelectAll()
 }
 
 function goParentFolder {

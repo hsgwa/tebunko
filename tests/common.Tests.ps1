@@ -1862,8 +1862,8 @@ Describe "画面定義（XAML）" {
         [xml]$xaml = Get-Content "$here\..\scripts\config_gui_folder_select.xaml" -Raw -Encoding UTF8
         $names = @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
         foreach ($name in @(
-                "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox", "RefreshButton",
-                "FolderTree", "FilterBox", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
+                "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox",
+                "FolderTree", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
             $names -contains $name | Should Be $true
         }
     }
