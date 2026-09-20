@@ -476,7 +476,6 @@ class ProcRow {
     [int]$Id
     [string]$AppName
     [bool]$Background
-    [string]$StateText
     [string]$StartText
     [string]$MemoryText
     [string]$TitleText
@@ -3066,7 +3065,6 @@ function refreshProcesses {
         $row.Id = $process.Id
         $row.AppName = $process.AppName
         $row.Background = $process.Background
-        $row.StateText = if ($process.Background) { "⚠ バックグラウンド" } else { "画面に表示中" }
         $row.StartText = formatTime $process.StartTime
         $row.MemoryText = "$($process.MemoryMB.ToString('N0')) MB"
         $row.TitleText = if ($process.Title) { $process.Title } else { "（なし）" }

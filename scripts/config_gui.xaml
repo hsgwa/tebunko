@@ -575,18 +575,6 @@
             <DataGrid.Columns>
               <DataGridTextColumn Header="種類" Binding="{Binding AppName}" Width="110" />
               <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="80" />
-              <DataGridTemplateColumn Header="状態" Width="170">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock x:Name="State" Text="{Binding StateText}" />
-                    <DataTemplate.Triggers>
-                      <DataTrigger Binding="{Binding Background}" Value="True">
-                        <Setter TargetName="State" Property="Foreground" Value="#B45309" />
-                      </DataTrigger>
-                    </DataTemplate.Triggers>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
               <DataGridTextColumn Header="起動時刻" Binding="{Binding StartText}" Width="100" />
               <DataGridTextColumn Header="メモリ" Binding="{Binding MemoryText}" Width="100" ElementStyle="{StaticResource RightCell}" />
               <DataGridTextColumn Header="ウィンドウ" Binding="{Binding TitleText}" Width="*" />
