@@ -6,7 +6,16 @@
 
 ## 作業場所
 
-本リポジトリ配下では git worktree（EnterWorktree 等）を使わず、作業ツリーを直接編集する。
+本リポジトリ配下での作業は git worktree（EnterWorktree 等）で隔離したツリー上で行い、作業ツリーを直接編集しない。
+
+作業内容をメインブランチへマージしたら、その worktree は削除する。マージ済みで不要になった worktree を残さない。
+
+```
+git worktree remove .claude/worktrees/<名前>
+git branch -d worktree-<名前>
+```
+
+未コミットの変更が残っている worktree は削除しない。コミットするか破棄するかを利用者に確認してから削除する。
 
 ## ドキュメントの図
 
