@@ -825,6 +825,17 @@ Describe "newIndexName / assignIndexNames" {
         newIndexName "E:\見積" $used | Should Be "見積(3)"
     }
 
+    It '使用中の名前が $null・配列・空でも落ちずに名前を作る' {
+        # インデックスが 1 つも無いとき、呼び出し側から $null が渡ることがある（画面の新規作成ダイアログ）
+        newIndexName "C:\data\sample" $null | Should Be "sample"
+        newIndexName "C:\data\見積" | Should Be "見積"
+        newIndexName "C:\data\見積" @() | Should Be "見積"
+        newIndexName "C:\data\見積" @("見積") | Should Be "見積(2)"
+        # 前方一致・大文字小文字違いで取り違えない
+        newIndexName "C:\data\見積" @("見積書") | Should Be "見積"
+        newIndexName "C:\data\sample" @("SAMPLE") | Should Be "sample(2)"
+    }
+
     It "設定に名前があればそれを使い、フォルダの場所が変わっても同じ名前のままにする" {
         $targets = @(
             [pscustomobject]@{ Name = "見積"; Path = "\server\新しい場所\見積書"; Enabled = $true },

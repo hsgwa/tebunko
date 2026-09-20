@@ -1040,7 +1040,9 @@ function getUsedIndexNames {
             [void]$used.Add($item.Name)
         }
     }
-    return $used
+    # HashSet をそのまま return すると PowerShell が中身を展開してしまい（0 件なら $null、1 件なら文字列）、
+    # 受け取った側の .Contains が落ちる・部分一致になる。, を付けて集合のまま返す
+    return , $used
 }
 
 function loadTargets {
@@ -1243,7 +1245,9 @@ function checkIndexEditInput {
                 "同じファイルが二重に変換されるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
         }
     }
-    return (testIndexName ($d.Ctrl.NameBox.Text.Trim()) @(getUsedIndexNames $d.Item))
+    # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
+    $usedNames = getUsedIndexNames $d.Item
+    return (testIndexName ($d.Ctrl.NameBox.Text.Trim()) @($usedNames))
 }
 
 function addIndexItem {
