@@ -20,7 +20,6 @@ try {
 $ErrorActionPreference = "Stop"
 
 ${appTitle}    = "win_grep"
-${appId}       = "win_grep"  # 多重起動の防止に使う ID（ツールごとに分ける）
 ${searchLimit} = 10000
 # 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
 ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う

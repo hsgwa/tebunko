@@ -81,6 +81,7 @@ function showConfirm {
     )
 
     $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
+    $dialog.Title = ${appTitle}
     $dialog.Owner = $owner
     $ctrl = @{}
     foreach ($name in @("HeadingText", "FactsPanel", "FactsList", "ChoicePanel", "HintText", "ButtonPanel")) {

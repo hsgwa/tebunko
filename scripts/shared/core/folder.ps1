@@ -6,7 +6,7 @@ function normalizeFolderPath {
     #   ・環境変数（%USERPROFILE% など）を展開する
     #   ・/ を \ にそろえ、長いパス用の \\?\ ・ \\?\UNC\ を外す（ファイル操作に渡す直前に toLongPath で付け直す）
     #   ・重なった \ ・ . ・ .. を解決する
-    #   ・相対パスは win_grep のフォルダ（$rootDir）からとみなして絶対パスにする
+    #   ・相対パスはツールのフォルダ（$rootDir）からとみなして絶対パスにする
     #   ・末尾の \ を取り除く（ドライブ直下は "D:\" のまま。UNC の共有直下は "\\server\share"）
     # パスとして解釈できない場合（* ? を含む・共有名の無い \\server など）は、書かれたとおりに扱う
     param (
@@ -31,7 +31,7 @@ function normalizeFolderPath {
     }
     try {
         if (![System.IO.Path]::IsPathRooted($path)) {
-            # 相対パスは win_grep のフォルダからとみなす
+            # 相対パスはツールのフォルダからとみなす
             $path = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine(${rootDir}, $path)).TrimEnd("\")
         } elseif ($path -match "^[A-Za-z]:\\" -or $path.StartsWith("\\")) {
             $path = [System.IO.Path]::GetFullPath($path).TrimEnd("\")

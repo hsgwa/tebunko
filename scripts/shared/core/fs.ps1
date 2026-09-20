@@ -175,6 +175,6 @@ function newAppMutex {
         $md5.Dispose()
     }
     $createdNew = $false
-    $mutex = New-Object System.Threading.Mutex($true, "Local\win_grep_${name}_${key}", [ref]$createdNew)
+    $mutex = New-Object System.Threading.Mutex($true, "Local\${appId}_${name}_${key}", [ref]$createdNew)
     return @{ Mutex = $mutex; Acquired = $createdNew }
 }

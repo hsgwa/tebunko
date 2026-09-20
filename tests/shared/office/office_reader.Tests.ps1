@@ -1,8 +1,7 @@
 ﻿# Pester 3.4 以降で実行: Invoke-Pester .\tests
 # Word・PowerPointは使わず、最小限の .docx / .pptx（ZIP）をテスト内で作成して検証する
-$here = Split-Path -Parent $MyInvocation.MyCommand.Path
-. "$here\..\scripts\win_grep\lib.ps1"
-. "$here\..\scripts\shared\office\office_reader.ps1"
+. "$PSScriptRoot\..\..\helpers\load.ps1"
+. "${scriptsDir}\shared\office\office_reader.ps1"
 
 function newZip {
     # ZIP内のパス → 内容 の辞書からZIPファイルを作成する
@@ -38,7 +37,7 @@ function pShape([string]$text, [string]$placeholder = "") {
     return "<p:sp><p:nvSpPr><p:cNvPr id=`"2`" name=`"s`"/><p:cNvSpPr/><p:nvPr>${ph}</p:nvPr></p:nvSpPr><p:txBody><a:bodyPr/><a:p><a:r><a:t>${text}</a:t></a:r></a:p></p:txBody></p:sp>"
 }
 
-Describe "isZipFile" {
+Describe "isZipFile" -Tag Io {
     It "ZIPなら `$true" {
         $path = "$TestDrive\zip.docx"
         newZip $path @{ "a.txt" = "a" }
@@ -58,7 +57,7 @@ Describe "isZipFile" {
     }
 }
 
-Describe "isCompoundFile" {
+Describe "isCompoundFile" -Tag Io {
     It "複合ドキュメント形式（旧形式・パスワード付き）なら `$true" {
         $path = "$TestDrive\cfb.ppt"
         [System.IO.File]::WriteAllBytes($path, [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, 0x00))
@@ -80,7 +79,7 @@ Describe "isCompoundFile" {
     }
 }
 
-Describe "resolveZipPath" {
+Describe "resolveZipPath" -Tag Io {
     It "相対パスを解決する" {
         resolveZipPath "ppt/slides" "../notesSlides/notesSlide1.xml" | Should Be "ppt/notesSlides/notesSlide1.xml"
         resolveZipPath "ppt" "slides/slide1.xml" | Should Be "ppt/slides/slide1.xml"
@@ -91,7 +90,7 @@ Describe "resolveZipPath" {
     }
 }
 
-Describe "readDocxUnits" {
+Describe "readDocxUnits" -Tag Io {
     $body = @(
         (wPara "見出し"),
         # タブはスペースに、変更履歴の削除・フィールドコードは読まない
@@ -145,7 +144,7 @@ Describe "readDocxUnits" {
     }
 }
 
-Describe "readDocxUnits（保存時のページ区切りが無い文書）" {
+Describe "readDocxUnits（保存時のページ区切りが無い文書）" -Tag Io {
     $body = @(
         '<w:p><w:r><w:t>A</w:t></w:r><w:r><w:br w:type="page"/></w:r></w:p>',
         (wPara "B"),
@@ -168,7 +167,7 @@ Describe "readDocxUnits（保存時のページ区切りが無い文書）" {
     }
 }
 
-Describe "readPptxUnits" {
+Describe "readPptxUnits" -Tag Io {
     $slideRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"
     $notesRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"
 
@@ -205,7 +204,7 @@ Describe "readPptxUnits" {
     }
 }
 
-Describe "writeUnits" {
+Describe "writeUnits" -Tag Io {
     It "場所ごとにTSVを出力し、空の場所は出力しない" {
         $outDir = "$TestDrive\out[1]"
         [System.IO.Directory]::CreateDirectory($outDir) | Out-Null

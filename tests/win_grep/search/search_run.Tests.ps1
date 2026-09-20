@@ -1,29 +1,35 @@
-﻿# 検索・Officeプロセスなど、画面（config_gui.ps1）が使う win_grep\lib.ps1 の関数のテスト
-# Pester 3.4 以降で実行: Invoke-Pester .\tests
-$here = Split-Path -Parent $MyInvocation.MyCommand.Path
-. "$here\..\scripts\win_grep\lib.ps1"
+﻿# インデックスの検索（win_grep\search\search_run.ps1）のテスト
+. "$PSScriptRoot\..\..\helpers\load.ps1"
 
-function newTsv {
-    param (
-        [string]$path,
-        [string[]]$lines
-    )
-
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
-    [System.IO.File]::WriteAllText($path, (($lines -join "`r`n") + "`r`n"), ${utf8Bom})
-}
-
-Describe "isValidRegex" {
-    It "正しい正規表現は true" {
-        isValidRegex "見積.*確定" | Should Be $true
+Describe "toResultLine" -Tag Io {
+    It "ブック名・シート名・行番号・該当行をタブ区切りにする" {
+        toResultLine "book.xlsx" "Sheet1" 12 "時刻`t12:34:56" | Should Be "book.xlsx`tSheet1`t12`t時刻`t12:34:56"
     }
 
-    It "不正な正規表現は false" {
-        isValidRegex "(" | Should Be $false
+    It "Excelのセル内改行を改行に戻す" {
+        toResultLine "book.xlsx" "Sheet1" 3 "a`t`"1行目${cellNewLine}2行目`"`tb" | Should Be "book.xlsx`tSheet1`t3`ta`t`"1行目`n2行目`"`tb"
+    }
+
+    It "シート名のタブ・改行はスペースにする（列・行が分かれないようにする）" {
+        toResultLine "book.xlsx" "タブ`tあり" 1 "x" | Should Be "book.xlsx`tタブ あり`t1`tx"
+        toResultLine "book.xlsx" "改行`nあり" 2 "y" | Should Be "book.xlsx`t改行 あり`t2`ty"
+    }
+
+    It 'Word・PowerPointの行は、" で始まるセルだけを " で囲む' {
+        toResultLine "doc.docx" "ページ001" 1 "`"引用`"と言った" | Should Be "doc.docx`tページ001`t1`t`"`"`"引用`"`"と言った`""
+        toResultLine "doc.docx" "ページ001" 2 "彼は`"引用`"と言った" | Should Be "doc.docx`tページ001`t2`t彼は`"引用`"と言った"
+        toResultLine "doc.docx" "ページ001" 3 "表`t`"見出し`"`tx" | Should Be "doc.docx`tページ001`t3`t表`t`"`"`"見出し`"`"`"`tx"
     }
 }
 
-Describe "getIndexTsvFiles / testIndexExists / getIndexSummary" {
+Describe "toResultHeader" -Tag Io {
+    It "ファイル名・場所・行と、列名を並べる" {
+        toResultHeader 3 | Should Be "ファイル名`t場所`t行`tA`tB`tC"
+        toResultHeader 0 | Should Be "ファイル名`t場所`t行"
+    }
+}
+
+Describe "getIndexTsvFiles / testIndexExists / getIndexSummary" -Tag Io {
     $index = Join-Path $TestDrive "index[1]"
     $other = Join-Path $TestDrive "other"
     newTsv "$index\b.xlsx_S.tsv" @("b")
@@ -103,7 +109,7 @@ Describe "getIndexTsvFiles / testIndexExists / getIndexSummary" {
     }
 }
 
-Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" {
+Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" -Tag Io {
     $index = Join-Path $TestDrive "search_dir"
     # ファイル名のフォルダの中に、場所を名前にしたTSVを置く
     newTsv "$index\営業\A社.xlsx\$(toIndexFileName "見積_2024")" @("りんご`t100")
@@ -138,7 +144,7 @@ Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" {
     }
 }
 
-Describe "searchIndex" {
+Describe "searchIndex" -Tag Io {
     $index = Join-Path $TestDrive "search"
     newTsv "$index\A社.xlsx_Sheet1.tsv" @("見積先：`t(株)山田商事", "", "株式会社`t1.5", "ABC`t105")
     newTsv "$index\sub\文書.docx_ページ001.tsv" @("りんご (株) abc")
@@ -224,48 +230,7 @@ Describe "searchIndex" {
     }
 }
 
-Describe "newSearchRegex" {
-    It "文字どおりなら記号をそのまま探し、既定は大文字と小文字を区別しない" {
-        $regex = (newSearchRegex "C++ (株)").Regex
-        $regex.IsMatch("c++ (株)") | Should Be $true
-        $regex.IsMatch("C (株)") | Should Be $false
-    }
-
-    It "正規表現として不正なワードは文字どおりにする" {
-        $result = newSearchRegex "(" $false
-        $result.SimpleMatch | Should Be $true
-        $result.Regex.IsMatch("a(b") | Should Be $true
-    }
-
-    It "大文字と小文字を区別できる" {
-        (newSearchRegex "ID" $true $true).Regex.IsMatch("社員id") | Should Be $false
-        (newSearchRegex "ID" $true $true).Regex.IsMatch("社員ID") | Should Be $true
-    }
-}
-
-Describe "newFileFilter" {
-    It "; で区切ったワイルドカードで含め、! で始まるもので除く" {
-        $filter = newFileFilter "*.xlsx；見積 ; !*old*"
-        $filter.Include.IsMatch("A社.XLSX") | Should Be $true
-        $filter.Include.IsMatch("2024見積書.docx") | Should Be $true
-        $filter.Include.IsMatch("報告書.docx") | Should Be $false
-        $filter.Exclude.IsMatch("A社_old.xlsx") | Should Be $true
-    }
-
-    It "空なら条件なし" {
-        $filter = newFileFilter "  "
-        $filter.Include | Should Be $null
-        $filter.Exclude | Should Be $null
-    }
-
-    It "? は任意の1文字、ほかの記号は文字どおり" {
-        $filter = newFileFilter "v?.[確定].xlsx"
-        $filter.Include.IsMatch("v1.[確定].xlsx") | Should Be $true
-        $filter.Include.IsMatch("v1x[確定].xlsx") | Should Be $false
-    }
-}
-
-Describe "toSearchResultLines / writeSearchResult" {
+Describe "toSearchResultLines / writeSearchResult" -Tag Io {
     $index = Join-Path $TestDrive "result"
     newTsv "$index\x\A社.xlsx_Sheet1.tsv" @("a`t`"りんご${cellNewLine}みかん`"`tc")
     newTsv "$index\文書.docx_ページ001.tsv" @("`"引用`"で始まる りんご")
@@ -292,154 +257,5 @@ Describe "toSearchResultLines / writeSearchResult" {
         $writer = New-Object System.IO.StringWriter
         writeSearchResult $writer "無い" @()
         $writer.ToString() | Should Be "【検索文字列　無い】 0 件`r`nファイル名`t場所`t行`r`n`r`n"
-    }
-}
-
-Describe "splitTsvCells" {
-    It 'ダブルクォートで囲まれたセルはタブを含んでも1セルとし、囲みを外して "" を " に戻す' {
-        $cells = splitTsvCells "a`t`"b`tc`"`t`"d`"`"e`"`t"
-        $cells.Count | Should Be 4
-        $cells[0] | Should Be "a"
-        $cells[1] | Should Be "b`tc"
-        $cells[2] | Should Be "d`"e"
-        $cells[3] | Should Be ""
-    }
-
-    It "1セルでも配列で返す" {
-        (splitTsvCells "a").Count | Should Be 1
-    }
-
-    It "先頭のセルが空でも次のセルを落とさない" {
-        $cells = splitTsvCells "`tりんご`t`"x`ty`""
-        $cells.Count | Should Be 3
-        $cells[0] | Should Be ""
-        $cells[1] | Should Be "りんご"
-        $cells[2] | Should Be "x`ty"
-    }
-}
-
-Describe "readTsvContext" {
-    $sep = [string][char]0x2028
-    $path = Join-Path $TestDrive "context[1]\book.xlsx_Sheet1.tsv"
-    newTsv $path @("r1", "r2", "r3${sep}改行", "r4", "`"r5`ta`"`tb", "r6", "r7", "r8", "r9", "r10")
-
-    It "指定した行と前後の行を、行番号付きで返す（セル内改行の文字では行を分けない）" {
-        $rows = @(readTsvContext $path 5 3 3)
-        $rows.Count | Should Be 7
-        $rows[0].LineNumber | Should Be 2
-        $rows[1].Line | Should Be "r3${sep}改行"
-        $rows[3].LineNumber | Should Be 5
-        $rows[3].Line | Should Be "`"r5`ta`"`tb"
-        $rows[6].LineNumber | Should Be 8
-    }
-
-    It "先頭の行では前の行を 1 行目までにする" {
-        $rows = @(readTsvContext $path 2 3 1)
-        ($rows | ForEach-Object { $_.LineNumber }) -join "," | Should Be "1,2,3"
-    }
-
-    It "末尾の行では後の行をファイルの最後までにする" {
-        $rows = @(readTsvContext $path 9 1 3)
-        ($rows | ForEach-Object { $_.LineNumber }) -join "," | Should Be "8,9,10"
-    }
-
-    It "1行だけでも配列で返す" {
-        $rows = @(readTsvContext $path 1 0 0)
-        $rows.Count | Should Be 1
-        $rows[0].Line | Should Be "r1"
-    }
-
-    It "ファイルが無ければ空" {
-        @(readTsvContext (Join-Path $TestDrive "missing.tsv") 1).Count | Should Be 0
-    }
-
-    It "CRLF・LF・CR のどれで区切られていても、検索と同じ行番号になる" {
-        $mixedDir = Join-Path $TestDrive "context_mixed"
-        [void][System.IO.Directory]::CreateDirectory($mixedDir)
-        $mixed = Join-Path $mixedDir "book.xlsx_Sheet1.tsv"
-        [System.IO.File]::WriteAllText($mixed, "a1`r`nb2`nc3`rd4`r`n", $utf8Bom)
-        $rows = @(readTsvContext $mixed 3 2 1)
-        ($rows | ForEach-Object { "$($_.LineNumber):$($_.Line)" }) -join "," | Should Be "1:a1,2:b2,3:c3,4:d4"
-
-        # 検索（TsvSearcher）の行番号と一致すること
-        $hits = @((searchIndex "c3" (getIndexTsvFiles @($mixedDir)).Files).Hits)
-        $hits.Count | Should Be 1
-        $hits[0].LineNumber | Should Be 3
-    }
-
-    It "BOM が無いファイルも読める。ファイルが書き換わったら読み直す（行の位置を覚えているため）" {
-        $changing = Join-Path $TestDrive "context_changing.tsv"
-        [System.IO.File]::WriteAllText($changing, "x1`r`nx2`r`nx3`r`n", (New-Object System.Text.UTF8Encoding($false)))
-        (@(readTsvContext $changing 2 1 1) | ForEach-Object { $_.Line }) -join "," | Should Be "x1,x2,x3"
-
-        Start-Sleep -Milliseconds 20
-        [System.IO.File]::WriteAllText($changing, "y1`r`ny2`r`ny3`r`ny4`r`n", (New-Object System.Text.UTF8Encoding($false)))
-        (@(readTsvContext $changing 4 1 1) | ForEach-Object { $_.Line }) -join "," | Should Be "y3,y4"
-    }
-
-    It "最後の行に改行が無いファイルも読める" {
-        $noEol = Join-Path $TestDrive "context_noeol.tsv"
-        [System.IO.File]::WriteAllText($noEol, "p1`r`np2", $utf8Bom)
-        $rows = @(readTsvContext $noEol 2 1 3)
-        ($rows | ForEach-Object { "$($_.LineNumber):$($_.Line)" }) -join "," | Should Be "1:p1,2:p2"
-    }
-}
-
-Describe "readSearchOption / writeSearchOption" {
-    $path = Join-Path $TestDrive "setting.config"
-
-    It "ファイルが無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて" {
-        $option = readSearchOption $path
-        $option.UseRegex | Should Be $false
-        $option.CaseSensitive | Should Be $false
-        $option.FileFilter | Should Be ""
-    }
-
-    It "保存した値を読み込む" {
-        writeSearchOption @{ UseRegex = $true } $path
-        (readSearchOption $path).UseRegex | Should Be $true
-        writeSearchOption @{ UseRegex = $false } $path
-        (readSearchOption $path).UseRegex | Should Be $false
-    }
-
-    It "指定した項目だけを変え、ほかの項目は保つ" {
-        writeSearchOption @{ UseRegex = $true; CaseSensitive = $true; FileFilter = "*.xlsx;!*old*" } $path
-        writeSearchOption @{ CaseSensitive = $false } $path
-        $option = readSearchOption $path
-        $option.UseRegex | Should Be $true
-        $option.CaseSensitive | Should Be $false
-        $option.FileFilter | Should Be "*.xlsx;!*old*"
-    }
-}
-
-Describe "getOfficeProcesses / stopOfficeProcesses" {
-    It "ウィンドウを持たないプロセスをバックグラウンドとし、表示名を付ける" {
-        Mock Get-Process {
-            @(
-                [pscustomobject]@{ Id = 1; ProcessName = "EXCEL"; MainWindowHandle = [IntPtr]::Zero; StartTime = [datetime]"2030-01-01"; WorkingSet64 = 10MB; MainWindowTitle = "" }
-                [pscustomobject]@{ Id = 2; ProcessName = "WINWORD"; MainWindowHandle = [IntPtr]100; StartTime = [datetime]"2030-01-01"; WorkingSet64 = 20MB; MainWindowTitle = "文書 - Word" }
-            )
-        }
-        $processes = @(getOfficeProcesses)
-        $processes.Count | Should Be 2
-        $processes[0].AppName | Should Be "Excel"
-        $processes[0].Background | Should Be $true
-        $processes[1].AppName | Should Be "Word"
-        $processes[1].Background | Should Be $false
-        $processes[1].MemoryMB | Should Be 20
-    }
-
-    It "プロセスが無ければ空配列" {
-        Mock Get-Process { }
-        @(getOfficeProcesses).Count | Should Be 0
-    }
-
-    It "終了できなかったプロセスは理由を返す" {
-        Mock Stop-Process { if ($Id -eq 2) { throw "アクセスが拒否されました" } }
-        $results = @(stopOfficeProcesses @(1, 2))
-        $results.Count | Should Be 2
-        $results[0].Stopped | Should Be $true
-        $results[1].Stopped | Should Be $false
-        $results[1].Message | Should Be "アクセスが拒否されました"
     }
 }
