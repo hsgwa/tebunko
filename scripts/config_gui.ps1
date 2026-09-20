@@ -818,13 +818,40 @@ ${iconFile} = "$PSScriptRoot\win_grep.ico"  # タイトルバーとタスクバ�
 # ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、
 #   実行時コンパイル（csc.exe）を無くすため廃止した（アイコン自体は Window.Icon で出るため残る）。
 
+${themeFile} = "$PSScriptRoot\theme.xaml"  # 画面の見た目（色・文字・コントロールの形）の共通定義
+${theme} = $null                           # 読み込んだ theme.xaml（コードから色を引くときに使う）
+
+# 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
+function loadTheme {
+    if ($null -eq ${script:theme}) {
+        ${script:theme} = loadXaml ${themeFile}
+    }
+    return ${script:theme}
+}
+
+# XAML を読み込む。BaseUri にそのファイルの場所を渡し、XAML 内の相対パス
+# （theme.xaml の MergedDictionaries）を解決できるようにする。
+function loadXaml {
+    param (
+        [string]$path
+    )
+
+    $context = New-Object System.Windows.Markup.ParserContext
+    $context.BaseUri = New-Object Uri $path
+    $stream = [System.IO.File]::OpenRead($path)
+    try {
+        return [System.Windows.Markup.XamlReader]::Load($stream, $context)
+    } finally {
+        $stream.Dispose()
+    }
+}
+
 function loadWindow {
     param (
         [string]$path
     )
 
-    [xml]$xaml = [System.IO.File]::ReadAllText($path)
-    $loaded = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+    $loaded = loadXaml $path
 
     # アイコンは XAML に書かず、ここで読み込む（XamlReader.Load は XAML 内の相対パスを解決できないため）。
     # ファイルを掴んだままにしないよう OnLoad で読み切る。アイコンが無くても画面は開けるようにする。
@@ -855,19 +882,20 @@ foreach ($name in @(
 }
 $taskbar = $window.TaskbarItemInfo
 
-function toBrush {
+# 表のセルなど、コードから色を付ける箇所。色は theme.xaml のトークンから取り、画面と食い違わないようにする
+function themeBrush {
     param (
-        [string]$hex
+        [string]$key
     )
 
-    return New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
+    return (loadTheme)[$key]
 }
 
-${okBrush}   = toBrush "#2E8B57"
-${warnBrush} = toBrush "#B45309"
-${ngBrush}   = toBrush "#DC2626"
-${infoBrush} = toBrush "#2563EB"
-${grayBrush} = toBrush "#6B7280"
+${okBrush}   = themeBrush "Ok"
+${warnBrush} = themeBrush "Warn"
+${ngBrush}   = themeBrush "Danger.Text"
+${infoBrush} = themeBrush "Accent"
+${grayBrush} = themeBrush "Ink.Muted"
 
 # ---- 共通の部品 ----
 
@@ -914,7 +942,7 @@ function newChoiceContent {
         $line = New-Object System.Windows.Controls.TextBlock
         $line.Text = $detail
         $line.FontSize = 12
-        $line.Foreground = toBrush "#6B7280"
+        $line.Foreground = ${grayBrush}
         $line.TextWrapping = "Wrap"
         $line.Margin = New-Object System.Windows.Thickness -ArgumentList 0, 3, 0, 0
         $panel.Children.Add($line) | Out-Null
