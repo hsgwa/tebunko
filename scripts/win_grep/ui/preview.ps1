@@ -42,16 +42,12 @@ function clearDetail {
 }
 
 function getPreviewContextLines {
-    # プレビューの高さに収まる行数から、選択行の前後に読む行数を決める（前後同数。余りの 1 行は後ろに付ける）。
-    # 低くすれば選択行だけ、高くすればその分だけ前後の行が見える
+    # プレビューの高さを測り、選択行の前後に読む行数を決める（決め方は preview_view.ps1）
     $height = $ui.PreviewScroll.ViewportHeight
     if ($height -le 0) {
         $height = $ui.PreviewScroll.ActualHeight - ${previewScrollBarSize}
     }
-    $rows = [math]::Floor($height / ${previewRowHeight})
-    $rows = [math]::Min([math]::Max($rows, 1), ${maxPreviewRows})
-    $before = [math]::Floor(($rows - 1) / 2)
-    return , @([int]$before, [int]($rows - 1 - $before))
+    return (getPreviewRowCounts $height ${previewRowHeight} ${maxPreviewRows})
 }
 
 function showDetail {
@@ -138,19 +134,6 @@ function copyPreviewSelection {
     } else {
         setStatus "${count} 個のセルをコピーしました（Excel に貼り付けると、元の位置に並びます）"
     }
-}
-
-function toStatusText {
-    # ステータスに出す短い文字列（改行・タブはスペースにし、長ければ末尾を省略）
-    param (
-        [string]$text
-    )
-
-    $text = ($text -replace "[`r`n`t]+", " ")
-    if ($text.Length -gt 40) {
-        return $text.Substring(0, 40) + "…"
-    }
-    return $text
 }
 
 $ui.ResultGrid.Add_SelectionChanged({

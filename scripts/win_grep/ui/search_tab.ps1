@@ -71,26 +71,10 @@ function setSearchOptionToUi {
     $ui.FileFilterBox.Text = [string]$option.FileFilter
 }
 
-function describeSearchOption {
-    # 既定から変えた検索条件を「大文字と小文字を区別・対象ファイル：*.xlsx」のように返す（無ければ空）
-    param (
-        [hashtable]$option
-    )
-
-    $items = @()
-    if ($option.CaseSensitive) {
-        $items += "大文字と小文字を区別"
-    }
-    if ($option.FileFilter) {
-        $items += "対象ファイル：$($option.FileFilter)"
-    }
-    return ($items -join "・")
-}
-
 function updateWordNotice {
-    $word = getWordText
-    if ($ui.RegexCheck.IsChecked -and $word -ne "" -and !(isValidRegex $word)) {
-        $ui.WordNotice.Text = "正規表現として不正なため、文字どおり検索します。"
+    $notice = getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
+    if ($notice -ne "") {
+        $ui.WordNotice.Text = $notice
         $ui.WordNotice.Visibility = "Visible"
     } else {
         $ui.WordNotice.Visibility = "Collapsed"
@@ -99,14 +83,11 @@ function updateWordNotice {
 }
 
 function updateSearchButton {
-    if ($script:search) {
-        $ui.SearchButton.Content = "中止"
-        $ui.SearchButton.IsEnabled = !$script:search.Shared.Stop
-        return
-    }
-    $ui.SearchButton.Content = "検索"
     $noIndex = $script:indexSummary -and $script:indexSummary["Count"] -eq 0
-    $ui.SearchButton.IsEnabled = (getWordText) -ne "" -and !$noIndex -and @(getSearchTargets).Count -gt 0
+    $state = newSearchButtonState ([bool]$script:search) ([bool]($script:search -and $script:search.Shared.Stop)) `
+        (getWordText) (!$noIndex) @(getSearchTargets).Count
+    $ui.SearchButton.Content = $state.Content
+    $ui.SearchButton.IsEnabled = $state.Enabled
 }
 
 function updateSearchTarget {
@@ -302,7 +283,6 @@ function finishSearch {
 $script:searchTimer = newTimer 100 { safe { pumpSearch } }
 
 # ---- 絞り込み・選択行の詳細 ----
-
 
 function applyFilter {
     $script:filterText = $ui.FilterBox.Text.Trim()

@@ -1,8 +1,6 @@
 ﻿# ［1 インデックス管理］タブのうち、変換の開始・中止と進み具合の表示。
 
-
 # ---- 変換の起動と進み具合 ----
-
 
 function getConversionProgress {
     # 変換の進み具合を返す（変換側が書く 変換進捗.txt の1行を読む）。
@@ -57,70 +55,34 @@ function showConversionPanel {
 }
 
 function buildPlanRows {
-    # 変換予定（変換予定.tsv の行）を、確認のダイアログの一覧に出す形にする
+    # 変換予定を確認のダイアログの一覧に変える（文言は convert_view.ps1 が決め、ここで色を付ける）
     param (
         $plan  # readConvertPlan の結果
     )
 
+    $tones = @{ info = ${infoBrush}; ok = ${okBrush}; warn = ${warnBrush}; ng = ${ngBrush}; gray = ${grayBrush} }
     $rows = New-Object System.Collections.Generic.List[PlanRow]
-    foreach ($item in @($plan)) {
+    # , で包んだ戻り値は、そのまま foreach に渡すと空のときも 1 回まわるため、変数に受けてから回す
+    $views = newPlanViewRows $plan
+    foreach ($view in $views) {
         $row = [PlanRow]::new()
-        $row.Name = $item.インデックス名
-        $row.Path = $item.元のフォルダ
-        if ($item.区分 -eq ${planKindUnchecked}) {
-            $row.TargetText = "変換しません"
-            $row.TargetBrush = ${grayBrush}
-            $row.DetailText = "［変換］のチェックが外れています（インデックスはそのまま残します）"
-            $row.TotalText = "－"
-        } elseif ($item.区分 -eq ${planKindMissing}) {
-            $row.TargetText = "変換できません"
-            $row.TargetBrush = ${ngBrush}
-            $row.DetailText = "元のフォルダが見つかりません（［編集…］で場所を変えられます）"
-            $row.TotalText = "－"
-        } else {
-            $row.TotalText = "{0:#,0} 件" -f $item.ファイル数
-            # 0 件の内訳は出さない（ふだんは「新規」「更新あり」だけになる）
-            $parts = New-Object System.Collections.Generic.List[string]
-            foreach ($pair in @(
-                    @("新規", $item.新規),
-                    @("更新あり", $item.更新あり),
-                    @("前回未完了", $item.前回未完了),
-                    @("変換結果が無い・壊れている", $item.変換結果なし),
-                    @("前回失敗", $item.前回失敗))) {
-                if ($pair[1] -gt 0) {
-                    $parts.Add("$($pair[0]) $('{0:#,0}' -f $pair[1]) 件")
-                }
-            }
-            if ($item.変換対象 -gt 0) {
-                $row.TargetText = "{0:#,0} 件" -f $item.変換対象
-                $row.TargetBrush = ${infoBrush}
-            } else {
-                $row.TargetText = "更新不要"
-                $row.TargetBrush = ${okBrush}
-            }
-            $row.DetailText = if ($parts.Count -gt 0) { $parts -join " / " } else { "すべて変換済みです" }
-        }
+        $row.Name = $view.Name
+        $row.Path = $view.Path
+        $row.TargetText = $view.TargetText
+        $row.TargetBrush = $tones[$view.Tone]
+        $row.DetailText = $view.DetailText
+        $row.TotalText = $view.TotalText
         $rows.Add($row)
     }
     return , $rows.ToArray()
 }
-
 function updateConvertConfirmTotal {
     # 「失敗分も再変換する」のチェックに合わせて、合計と主ボタンの文言を変える
     $d = $script:confirmDialog
-    $total = $d.Targets
-    if ($d.Ctrl.RetryCheck.IsChecked) {
-        $total += $d.Failed
-    }
-    if ($total -gt 0) {
-        $d.Ctrl.TotalText.Text = "合計 {0:#,0} 件を変換します。" -f $total
-        $d.Ctrl.StartButton.Content = "変換を開始"
-    } else {
-        $d.Ctrl.TotalText.Text = "更新が必要なファイルはありません（すべて変換済みです）。"
-        $d.Ctrl.StartButton.Content = "閉じる"
-    }
+    $view = getConvertConfirmText $d.Targets $d.Failed ([bool]$d.Ctrl.RetryCheck.IsChecked)
+    $d.Ctrl.TotalText.Text = $view.Text
+    $d.Ctrl.StartButton.Content = $view.Button
 }
-
 function showConvertConfirmDialog {
     # 変換の確認。変換側が数えた結果（インデックスごとの変換対象の件数）を出して、変換するかどうかを選んでもらう。
     #   変換する → @{ RetryFailed } ／ 取りやめ → $null
