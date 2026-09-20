@@ -967,7 +967,7 @@ function newIndexName {
     # フォルダ名（ドライブ直下はドライブ名）を使い、usedNames と重複すれば「名前(2)」「名前(3)」…とする
     param (
         [string]$folderPath,
-        $usedNames  # HashSet[string]（大文字・小文字を区別しない）
+        $usedNames = $null  # HashSet[string]・配列・$null のいずれでもよい
     )
 
     $base = toSafeFileName (getFolderLeafName $folderPath)
@@ -975,8 +975,16 @@ function newIndexName {
         $base = "フォルダ"
     }
 
+    # 呼び出し側から $null や文字列の配列で渡されても落ちないよう、ここで集合に直す（大文字・小文字は区別しない）
+    $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($usedName in @($usedNames)) {
+        if ($usedName) {
+            [void]$used.Add([string]$usedName)
+        }
+    }
+
     $name = $base
-    for ($i = 2; $usedNames.Contains($name); $i++) {
+    for ($i = 2; $used.Contains($name); $i++) {
         $name = "${base}(${i})"
     }
     return $name

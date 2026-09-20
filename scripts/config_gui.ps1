@@ -20,7 +20,10 @@ $ErrorActionPreference = "Stop"
 ${appTitle}    = "win_grep"
 ${appId}       = "win_grep"  # タスクバーのボタン・ショートカットを結び付ける ID（AppUserModelID）
 ${searchLimit} = 10000
-${previewLines} = 3  # 選択行のプレビューに出す前後の行数
+# 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
+${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
+${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
+${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
 ${commonPath}  = "$PSScriptRoot\common.ps1"
 
 trap {
@@ -476,7 +479,6 @@ class ProcRow {
     [int]$Id
     [string]$AppName
     [bool]$Background
-    [string]$StateText
     [string]$StartText
     [string]$MemoryText
     [string]$TitleText
@@ -488,6 +490,14 @@ class FailRow {
     [string]$Reason
     [string]$ConvertedText
     [string]$SourcePath
+}
+
+# 確認ダイアログ（showConfirm）に並べる「実行するとこうなります」の 1 行
+class ConfirmFact {
+    [string]$Mark          # ✓ 残る・✗ 消える・→ 続けて起きること
+    [object]$MarkBrush
+    [string]$Title         # 何がどうなるか（利用者から見える言葉で書く）
+    [string]$Detail = ""   # 具体的な場所・件数など（空なら行ごと出さない）
 }
 
 # 変換の確認ダイアログに出すインデックス1件（変換予定.tsv の1行）
@@ -770,7 +780,7 @@ function loadWindow {
 $window = loadWindow "$PSScriptRoot\config_gui.xaml"
 $ui = @{}
 foreach ($name in @(
-        "Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "CloseButton",
+        "Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText",
         "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
         "IndexSummaryText", "ConversionStateText", "ConvertButton", "ConvertHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
@@ -778,7 +788,7 @@ foreach ($name in @(
         "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder", "WordNotice", "SearchTargetText", "GoIndexTabButton",
         "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
         "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ResultGrid", "IndexColumn",
-        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton", "PreviewScroll", "PreviewHeader", "PreviewRows", "PreviewNote", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton",
+        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton", "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote", "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton",
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton", "KillAllButton", "KillSelectedButton", "KillBackgroundButton")) {
     $ui[$name] = $window.FindName($name)
 }
@@ -795,7 +805,7 @@ function toBrush {
 ${okBrush}   = toBrush "#2E8B57"
 ${warnBrush} = toBrush "#B45309"
 ${ngBrush}   = toBrush "#DC2626"
-${infoBrush} = toBrush "#1D4ED8"
+${infoBrush} = toBrush "#2563EB"
 ${grayBrush} = toBrush "#6B7280"
 
 # ---- 共通の部品 ----
@@ -819,6 +829,113 @@ function showMessage {
     )
 
     return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
+}
+
+# 確認ダイアログに並べる「実行するとこうなります」の 1 行を作る
+function factKept { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "✓"; MarkBrush = ${okBrush};   Title = $title; Detail = $detail } }
+function factGone { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "✗"; MarkBrush = ${ngBrush};   Title = $title; Detail = $detail } }
+function factNext { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "→"; MarkBrush = ${infoBrush}; Title = $title; Detail = $detail } }
+
+function newChoiceContent {
+    # 選択肢ボタンの中身。1 行目に動作、2 行目にその結果を置く
+    param (
+        [string]$text,
+        [string]$detail
+    )
+
+    $panel = New-Object System.Windows.Controls.StackPanel
+    $title = New-Object System.Windows.Controls.TextBlock
+    $title.Text = $text
+    $title.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $title.TextWrapping = "Wrap"
+    $panel.Children.Add($title) | Out-Null
+    if ($detail -ne "") {
+        $line = New-Object System.Windows.Controls.TextBlock
+        $line.Text = $detail
+        $line.FontSize = 12
+        $line.Foreground = toBrush "#6B7280"
+        $line.TextWrapping = "Wrap"
+        $line.Margin = New-Object System.Windows.Thickness -ArgumentList 0, 3, 0, 0
+        $panel.Children.Add($line) | Out-Null
+    }
+    return $panel
+}
+
+function showConfirm {
+    # 確認ダイアログ。「見出し（何をするか）」「こうなります（何が消えて何が残るか）」「選択肢のボタン」で、
+    # 文章を読まなくても押す前に結果が分かるようにする。選んだ Value を返す（キャンセル・閉じるは $null）。
+    #   choices: @{ Text = "削除する"; Detail = "ボタンの下に出す補足"; Value = "delete"; Danger = $true; Careful = $true } の配列
+    #            1 つなら［実行］＋［キャンセル］、2 つ以上なら選択肢ボタンを縦に並べる
+    #            Danger は赤いボタン、Careful は色はそのままでキャンセルを既定にする
+    #   facts:   factGone / factKept / factNext で作った行
+    #   hint:    読まなくても操作できる補足（別のやり方の案内など）
+    param (
+        [string]$heading,
+        [object[]]$choices,
+        [object[]]$facts = @(),
+        [string]$hint = "",
+        [string]$cancelText = "キャンセル",
+        [System.Windows.Window]$owner = $window
+    )
+
+    $dialog = loadWindow "$PSScriptRoot\config_gui_confirm.xaml"
+    $dialog.Owner = $owner
+    $ctrl = @{}
+    foreach ($name in @("HeadingText", "FactsPanel", "FactsList", "ChoicePanel", "HintText", "ButtonPanel")) {
+        $ctrl[$name] = $dialog.FindName($name)
+    }
+    $chosen = @{ Value = $null }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
+
+    $ctrl.HeadingText.Text = $heading
+    if ($facts.Count -gt 0) {
+        $ctrl.FactsList.ItemsSource = $facts
+        $ctrl.FactsPanel.Visibility = "Visible"
+    }
+    if ($hint -ne "") {
+        $ctrl.HintText.Text = $hint
+        $ctrl.HintText.Visibility = "Visible"
+    }
+
+    $onChoice = {
+        param ($sender, $e)
+        $chosen.Value = $sender.Tag
+        $dialog.DialogResult = $true
+    }.GetNewClosure()
+    $focusTarget = $null
+    $cautious = $false
+    foreach ($choice in $choices) {
+        $button = New-Object System.Windows.Controls.Button
+        $button.Tag = $choice.Value
+        $button.Add_Click($onChoice)
+        if ($choices.Count -eq 1) {
+            $cautious = [bool]$choice.Danger -or [bool]$choice.Careful
+            $button.Style = $dialog.FindResource($(if ($choice.Danger) { "Danger" } else { "Primary" }))
+            $button.Content = $choice.Text
+            $button.IsDefault = !$cautious
+            $ctrl.ButtonPanel.Children.Add($button) | Out-Null
+        } else {
+            $button.Style = $dialog.FindResource("Choice")
+            $button.Content = newChoiceContent $choice.Text $choice.Detail
+            $ctrl.ChoicePanel.Children.Add($button) | Out-Null
+        }
+        if ($null -eq $focusTarget) {
+            $focusTarget = $button
+        }
+    }
+
+    $cancel = New-Object System.Windows.Controls.Button
+    $cancel.Content = $cancelText
+    $cancel.IsCancel = $true
+    $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null
+    if ($cautious -or $choices.Count -gt 1) {
+        # 消す操作・選択肢が複数の操作は、うっかり Enter で進まないようキャンセルを既定にする
+        $cancel.IsDefault = $true
+        $focusTarget = $cancel
+    }
+
+    $dialog.Add_ContentRendered({ $focusTarget.Focus() | Out-Null }.GetNewClosure())
+    $null = $dialog.ShowDialog()
+    return $chosen.Value
 }
 
 function safe {
@@ -1052,7 +1169,9 @@ function getUsedIndexNames {
             [void]$used.Add($item.Name)
         }
     }
-    return $used
+    # HashSet をそのまま return すると PowerShell が中身を展開してしまい（0 件なら $null、1 件なら文字列）、
+    # 受け取った側の .Contains が落ちる・部分一致になる。, を付けて集合のまま返す
+    return , $used
 }
 
 function loadTargets {
@@ -1165,16 +1284,16 @@ function showIndexEditDialog {
 
     if ($null -eq $item) {
         $dialog.Title = "インデックスの新規作成"
-        $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）のあるフォルダを 1 つ指定すると、そのフォルダのインデックスを作ります。" +
-            "一覧に加えるだけで、中身の変換は［変換を開始］を押してから始まります。"
+        $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）の入っているフォルダを 1 つ選んでください。" +
+            "ここでは一覧に加えるだけです。中のファイルを読むのは［変換を開始］を押してからです。"
     } else {
         $dialog.Title = "インデックスの編集"
-        $ctrl.IntroText.Text = "インデックスの名前と、元のフォルダの場所を変えられます。"
+        $ctrl.IntroText.Text = "名前と、元のフォルダの場所を変えられます。"
         $ctrl.FolderBox.Text = $item.Path
         $ctrl.NameBox.Text = $item.Name
         $ctrl.NoticeText.Visibility = "Visible"
-        $ctrl.NoticeText.Text = "変換済みのインデックスは作り直しません（名前を変えるときは work\index のフォルダごと名前を変えます）。" +
-            "フォルダを別のドライブ・共有フォルダへ移した場合は、ここで場所を変えてください。次の変換では、更新されたファイルだけを変換します。"
+        $ctrl.NoticeText.Text = "変えるのは名前と場所だけです。変換したデータはそのまま使います（作り直しません）。" +
+            "フォルダを別のドライブや共有フォルダへ移したときは、ここで新しい場所を指定してください。"
     }
 
     $ctrl.FolderBox.Add_TextChanged({
@@ -1255,7 +1374,9 @@ function checkIndexEditInput {
                 "同じファイルが二重に変換されるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
         }
     }
-    return (testIndexName ($d.Ctrl.NameBox.Text.Trim()) @(getUsedIndexNames $d.Item))
+    # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
+    $usedNames = getUsedIndexNames $d.Item
+    return (testIndexName ($d.Ctrl.NameBox.Text.Trim()) @($usedNames))
 }
 
 function addIndexItem {
@@ -1393,10 +1514,15 @@ function deleteIndex {
         return
     }
 
-    $answer = showMessage ("インデックス [$($item.Name)] を削除します。`n`n元のフォルダ：$($item.Path)`n`n" +
-        "変換した TSV（work\index\$($item.Name)）と変換一覧の記録を削除します。元のフォルダと Office ファイルは削除しません。`n" +
-        "一時的に変換しないだけなら、削除せずに［変換］のチェックを外してください。`n`n削除しますか？") "YesNo" "Question" "No"
-    if ($answer -ne "Yes") {
+    $answer = showConfirm `
+        -heading "インデックス「$($item.Name)」を一覧から削除しますか？" `
+        -facts @(
+            (factGone "win_grep が作った検索用のデータが消えます" "このフォルダは検索できなくなります（もう一度［変換を開始］すれば作り直せます）"),
+            (factKept "元のフォルダと、その中のファイルはそのままです" $item.Path)
+        ) `
+        -hint "しばらく検索しないだけなら、削除せずに［変換］のチェックを外してください。検索用のデータは残ったままです。" `
+        -choices @(@{ Text = "削除する"; Value = "delete"; Danger = $true })
+    if ($answer -ne "delete") {
         return
     }
 
@@ -1432,11 +1558,16 @@ function updateConvertButton {
         $ui.ConvertButton.IsEnabled = $ready
     }
 
-    $hint = "押すと、まず変換対象の件数を確認できます。変換中も検索できます（途中でやめるときは［中止］）。"
+    # ボタンの下の一言。押す前は「押すと何が起きるか」、変換中は「やめるとどうなるか」を書く
+    $hint = if (isConverting) {
+        "変換中も検索できます。やめるときは［中止］を押してください（次に［変換を開始］を押すと続きから再開します）。"
+    } else {
+        "押すと、何件変換するかを確認してから、新しいファイル・変わったファイルだけを変換します。"
+    }
     if (!$ready -and !(isConverting)) {
-        $hint = "インデックスを作成して、チェックを付けてください。"
+        $hint = "まずインデックスを作って、［変換］にチェックを付けてください。"
     } elseif ($state -and $state.Failed -gt 0 -and !(isConverting)) {
-        $hint = "前回失敗したファイルがあります。確認のときに、再変換するかを選べます。" + $hint
+        $hint = "前回うまく変換できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
     }
     $ui.ConvertHint.Text = $hint
 
@@ -1860,8 +1991,14 @@ function stopConversion {
     if (!(isConverting)) {
         return
     }
-    $answer = showMessage "変換を中止しますか？`n変換中のファイルが終わったところで止まります。次回は続きから再開できます。" "YesNo" "Question" "No"
-    if ($answer -ne "Yes") {
+    $answer = showConfirm `
+        -heading "変換を中止しますか？" `
+        -facts @(
+            (factNext "いま変換しているファイルが終わったところで止まります"),
+            (factKept "ここまで変換した分はそのまま残ります" "次に［変換を開始］を押すと、続きから再開します")
+        ) `
+        -choices @(@{ Text = "中止する"; Value = "stop"; Careful = $true })
+    if ($answer -ne "stop") {
         return
     }
     [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
@@ -2217,7 +2354,7 @@ function startSearch {
     $script:filterText = ""
     $script:hitView.Filter = $null
     $script:hitRows.Clear()
-    $ui.DetailPanel.Visibility = "Collapsed"
+    clearDetail
     # 検索対象ツリーでチェックしたフォルダだけを検索する（結果の相対パスは、インデックスのフォルダからのまま）
     $folders = @(getSearchTargets)
     if ($folders.Count -eq 0) {
@@ -2402,11 +2539,14 @@ $script:filterTimer = newTimer 300 {
     safe { applyFilter }
 }
 
-# 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）
+# 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）。
+# プレビューの高さを変えたときも、入る行数に合わせて読み直すためにこのタイマーを使う
 $script:detailTimer = newTimer 120 {
     $script:detailTimer.Stop()
     safe { showDetail }
 }
+# 高さを変えただけのときは、横スクロールの位置をそのままにする（ドラッグのたびに左へ戻らないように）
+$script:detailKeepScroll = $false
 
 function getViewRows {
     # 表示中（絞り込み・並べ替え後）の行
@@ -2426,18 +2566,50 @@ function getSelectedRows {
     return , @($rows.ToArray() | Sort-Object { $ui.ResultGrid.Items.IndexOf($_) })
 }
 
+function clearDetail {
+    # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す
+    $ui.PreviewHeader.ItemsSource = $null
+    $ui.PreviewRows.ItemsSource = $null
+    $script:previewTable = $null
+    $ui.DetailTitle.Text = ""
+    $ui.DetailTitle.ToolTip = $null
+    $ui.PreviewNote.Visibility = "Collapsed"
+    $ui.PreviewHeaderScroll.Visibility = "Collapsed"
+    $ui.PreviewPlaceholder.Visibility = "Visible"
+    $ui.OpenButton.IsEnabled = $false
+    $ui.OpenFolderButton.IsEnabled = $false
+}
+
+function getPreviewContextLines {
+    # プレビューの高さに収まる行数から、選択行の前後に読む行数を決める（前後同数。余りの 1 行は後ろに付ける）。
+    # 低くすれば選択行だけ、高くすればその分だけ前後の行が見える
+    $height = $ui.PreviewScroll.ViewportHeight
+    if ($height -le 0) {
+        $height = $ui.PreviewScroll.ActualHeight - ${previewScrollBarSize}
+    }
+    $rows = [math]::Floor($height / ${previewRowHeight})
+    $rows = [math]::Min([math]::Max($rows, 1), ${maxPreviewRows})
+    $before = [math]::Floor(($rows - 1) / 2)
+    return , @([int]$before, [int]($rows - 1 - $before))
+}
+
 function showDetail {
     $row = $ui.ResultGrid.SelectedItem
     if ($null -eq $row) {
-        $ui.DetailPanel.Visibility = "Collapsed"
+        clearDetail
         return
     }
+    $ui.PreviewPlaceholder.Visibility = "Collapsed"
+    $ui.PreviewHeaderScroll.Visibility = "Visible"
+    $ui.OpenButton.IsEnabled = $true
+    $ui.OpenFolderButton.IsEnabled = $true
     $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
-    # 前後の行をインデックスのTSVから読む（読めなければ選択行だけを出す）
-    $context = @(readTsvContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.LineNumber ${previewLines} ${previewLines})
+    # 前後の行をインデックスのTSVから読む（読めなければ選択行だけを出す）。行数はプレビューの高さに合わせる
+    $lines = getPreviewContextLines
+    $context = @(readTsvContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.LineNumber $lines[0] $lines[1])
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
     $title = "${path} ・ $($row.Location) ・ ${place}"
@@ -2456,10 +2628,14 @@ function showDetail {
     $ui.PreviewHeader.ItemsSource = $table.Columns
     $ui.PreviewRows.ItemsSource = $table.Rows
     $script:previewTable = $table
-    $ui.DetailPanel.Visibility = "Visible"
 
-    # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）
+    # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）。
+    # 高さを変えただけのときは、見ていた横の位置をそのままにする
     $ui.PreviewScroll.UpdateLayout()
+    if ($script:detailKeepScroll) {
+        $script:detailKeepScroll = $false
+        return
+    }
     $offset = 0
     if ($table.HitOffset + $table.HitWidth -gt $ui.PreviewScroll.ViewportWidth) {
         $offset = [math]::Max(0, $table.HitOffset - 120)
@@ -2573,21 +2749,23 @@ function findSourceFile {
             }
             return $candidate
         }
-        $message = "元のファイルが見つかりません。`n${path}`n`n" +
-                   "インデックスを別の PC に持ってきた場合や、フォルダを移した場合は、今の場所のフォルダを選ぶと開けます。"
+        $missing = factGone "記録されていた場所にありません" $path
         $description = "「$($location.Folder)」に当たるフォルダ（または $($row.Book) のあるフォルダ）を選んでください"
         $initial = getExistingFolder $path
     } else {
         $path = "$($row.Root)\$($row.RelDir)\$($row.Book)"
-        $message = "元のファイルの場所が分かりません（インデックス [$($location.Name)] の元のフォルダが記録されていません）。`n${relPath}`n`n" +
-                   "元のファイルのあるフォルダを選ぶと開けます。"
+        $missing = factGone "このファイルが今どこにあるか、記録がありません" $relPath
         $description = "$($row.Book) のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
         $initial = ""
     }
-    $message += "`n（選んだフォルダはインデックス [$($location.Name)] の元のフォルダとして記録し、同じインデックスのほかのファイルも開けるようにします）`n`nフォルダを選びますか？"
+    $facts = @(
+        $missing,
+        (factNext "今ある場所のフォルダを選べば開けます" "選んだ場所はインデックス「$($location.Name)」に覚えさせるので、同じインデックスのほかのファイルも次から開けます")
+    )
 
     while ($true) {
-        if ((showMessage $message "YesNo" "Question" "Yes") -ne "Yes") {
+        if ((showConfirm -heading "$($row.Book) が見つかりません" -facts $facts `
+                -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus "元のファイルが見つかりません：${path}"
             return $null
         }
@@ -2608,7 +2786,10 @@ function findSourceFile {
             }
             return $found.Path
         }
-        $message = "選んだフォルダの中に、元のファイルが見つかりませんでした。`n選んだフォルダ：${picked}`n探したファイル：${relPath}`n`n別のフォルダを選びますか？"
+        $facts = @(
+            (factGone "選んだフォルダの中にありませんでした" "選んだフォルダ：${picked}`n探したファイル：${relPath}"),
+            (factNext "別のフォルダを選んで、もう一度探せます")
+        )
         $initial = $picked
     }
 }
@@ -3052,6 +3233,8 @@ $ui.FilterBox.Add_TextChanged({
     $script:filterTimer.Start()
 })
 $ui.ResultGrid.Add_SelectionChanged({
+    # 別の行を選んだときは、一致したセルが見える位置まで横にスクロールし直す
+    $script:detailKeepScroll = $false
     $script:detailTimer.Stop()
     $script:detailTimer.Start()
 })
@@ -3094,6 +3277,20 @@ $ui.OpenModeCombo.Add_SelectionChanged({
 $ui.MenuOpenFolder.Add_Click({ safe { openSourceFolder } })
 $ui.OpenButton.Add_Click({ safe { openSource } })
 $ui.OpenFolderButton.Add_Click({ safe { openSourceFolder } })
+# 列見出しは行とは別のスクロールに置いている（縦に隠れないようにするため）ので、横位置を行に合わせる
+$ui.PreviewScroll.Add_ScrollChanged({
+    $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
+})
+# プレビューの高さを変えたら（GridSplitter のドラッグ）、入る行数に合わせて前後の行を読み直す。
+# ドラッグ中は何度も起きるので、ほかと同じタイマーでまとめて 1 回だけ読む
+$ui.PreviewScroll.Add_SizeChanged({
+    param ($sender, $e)
+    if ($e.HeightChanged -and $ui.ResultGrid.SelectedItem) {
+        $script:detailKeepScroll = $true
+        $script:detailTimer.Stop()
+        $script:detailTimer.Start()
+    }
+})
 # プレビューのセルをクリックすると、その値をコピーできるように選ぶ（Shift＋クリック・ドラッグで範囲、Ctrl+C でコピー）
 $script:previewTable = $null
 $ui.PreviewRows.Add_PreviewMouseLeftButtonDown({
@@ -3187,7 +3384,6 @@ function refreshProcesses {
         $row.Id = $process.Id
         $row.AppName = $process.AppName
         $row.Background = $process.Background
-        $row.StateText = if ($process.Background) { "⚠ バックグラウンド" } else { "画面に表示中" }
         $row.StartText = formatTime $process.StartTime
         $row.MemoryText = "$($process.MemoryMB.ToString('N0')) MB"
         $row.TitleText = if ($process.Title) { $process.Title } else { "（なし）" }
@@ -3244,17 +3440,25 @@ function killProcesses {
         }) -join "・"
     }
     $visibleTargets = @($targets | Where-Object { !$_.Background })
-    $message = if ($visibleTargets.Count -gt 0) {
-        "画面に表示中の $(& $describe $visibleTargets) を含む $($targets.Count) 件を、保存せずに終了します。`n保存していない内容は失われます。よろしいですか？"
+    if ($visibleTargets.Count -gt 0) {
+        $heading = "開いたままの Office を $($targets.Count) 件、強制的に終了しますか？"
+        $facts = @(
+            (factGone "保存していない内容は失われます" "画面に出ているもの：$(& $describe $visibleTargets)"),
+            (factKept "ファイル自体は消えません" "保存し忘れがないか、先に画面で確かめてください")
+        )
     } else {
-        "バックグラウンドの $(& $describe $targets) を終了します。よろしいですか？"
+        $heading = "バックグラウンドの Office を $($targets.Count) 件終了しますか？"
+        $facts = @(
+            (factKept "画面に出ているファイルはありません" (& $describe $targets)),
+            (factNext "残ったまま動いていたものを片付けます" "次の変換で作り直されます")
+        )
     }
-    $default = if ($visibleTargets.Count -gt 0) { "No" } else { "Yes" }
     if (isConverting) {
-        $message = "変換中です。バックグラウンドのプロセスを終了すると、変換中のファイルは失敗扱いになります。`n`n" + $message
-        $default = "No"
+        $facts += factGone "いま変換中のファイルは失敗あつかいになります" "変換が終わってから終了するのが安全です"
     }
-    if ((showMessage $message "YesNo" "Warning" $default) -ne "Yes") {
+    $answer = showConfirm -heading $heading -facts $facts `
+        -choices @(@{ Text = "終了する"; Value = "stop"; Danger = ($visibleTargets.Count -gt 0 -or (isConverting)) })
+    if ($answer -ne "stop") {
         return
     }
 
@@ -3282,8 +3486,6 @@ $ui.KillAllButton.Add_Click({ safe { refreshProcesses; killProcesses $script:pro
 # ============================================================================
 # ウィンドウ全体
 # ============================================================================
-
-$ui.CloseButton.Add_Click({ $window.Close() })
 
 $ui.Tabs.Add_SelectionChanged({
     param ($sender, $e)
@@ -3359,13 +3561,18 @@ $window.Add_Closing({
     param ($sender, $e)
     # 変換はウィンドウを出さずに動いているため、閉じる前にどうするか聞く
     if (isConverting) {
-        $answer = showMessage ("変換中です。`n`n［はい］変換を中止してから閉じる（変換中のファイルが終わったところで止まります）`n" +
-            "［いいえ］変換を続けたまま閉じる（もう一度開くと進み具合を表示します）`n［キャンセル］閉じない") "YesNoCancel" "Question" "Cancel"
-        if ($answer -eq "Cancel") {
+        $answer = showConfirm `
+            -heading "まだ変換の途中です。どうしますか？" `
+            -choices @(
+                @{ Text = "変換を続けたまま閉じる"; Detail = "変換は裏で続きます。もう一度開くと進み具合が出ます"; Value = "keep" },
+                @{ Text = "変換を止めてから閉じる"; Detail = "いま変換しているファイルが終わったところで止まります（次に開いたとき続きから再開できます）"; Value = "stop" }
+            ) `
+            -cancelText "閉じない"
+        if ($null -eq $answer) {
             $e.Cancel = $true
             return
         }
-        if ($answer -eq "Yes") {
+        if ($answer -eq "stop") {
             [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
         }
     }
