@@ -189,6 +189,35 @@ Describe "変換対象のファイルを書き換えないこと（docs/04_安�
     }
 }
 
+Describe "サードパーティの静的解析（docs/04_安全性.md 5.1）" {
+    # PSScriptAnalyzer（Microsoft 提供）で検査する。未導入の環境では飛ばす:
+    #   Install-Module PSScriptAnalyzer -Scope CurrentUser
+    $hasAnalyzer = (@(Get-Module -ListAvailable PSScriptAnalyzer).Count -gt 0)
+    if ($hasAnalyzer) {
+        Import-Module PSScriptAnalyzer -ErrorAction SilentlyContinue
+    }
+    $securitySettings = Join-Path $here "PSScriptAnalyzer.security.psd1"
+
+    It "安全性にかかわるルールの指摘が 0 件" -Skip:(-not $hasAnalyzer) {
+        $found = @(Invoke-ScriptAnalyzer -Path $scriptDir -Recurse -Settings $securitySettings)
+        (@($found | ForEach-Object { "$($_.RuleName) $($_.ScriptName):$($_.Line)" }) -join ", ") | Should Be ""
+    }
+
+    It "Error 重大度の指摘が 0 件（全ルール）" -Skip:(-not $hasAnalyzer) {
+        $found = @(Invoke-ScriptAnalyzer -Path $scriptDir -Recurse -Severity Error)
+        (@($found | ForEach-Object { "$($_.RuleName) $($_.ScriptName):$($_.Line)" }) -join ", ") | Should Be ""
+    }
+
+    It "安全性のルール設定に、検査すべきルールが含まれている" {
+        # 設定ファイルからルールを消して指摘 0 件にする、という抜け道を防ぐ
+        $settings = Import-LocalizedData -BaseDirectory $here -FileName "PSScriptAnalyzer.security.psd1"
+        @($settings.IncludeRules).Count | Should Be 14
+        ($settings.IncludeRules -contains "PSAvoidUsingInvokeExpression") | Should Be $true
+        ($settings.IncludeRules -contains "PSAvoidUsingPlainTextForPassword") | Should Be $true
+        ($settings.IncludeRules -contains "PSAvoidUsingConvertToSecureStringWithPlainText") | Should Be $true
+    }
+}
+
 Describe "書き込み先が限られていること（docs/04_安全性.md 3.1）" {
     $common = @($code | Where-Object { $_.File -eq "common.ps1" })
 
