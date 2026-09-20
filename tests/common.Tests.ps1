@@ -814,6 +814,114 @@ Describe "getFolderPathAliases / testSameFolder" {
     }
 }
 
+Describe "testOfficeFile" {
+    It "Excel・Word・PowerPoint のファイルを見分ける（大文字・小文字は区別しない）" {
+        testOfficeFile "見積.xlsx" | Should Be $true
+        testOfficeFile "報告.DOCM" | Should Be $true
+        testOfficeFile "資料.ppt" | Should Be $true
+    }
+
+    It "Office 以外のファイル・拡張子の無い名前は false" {
+        testOfficeFile "メモ.txt" | Should Be $false
+        testOfficeFile "データ" | Should Be $false
+        testOfficeFile "" | Should Be $false
+    }
+}
+
+Describe "getParentFolderPath" {
+    It "1つ上のフォルダを返す" {
+        getParentFolderPath "C:\data\見積\2025" | Should Be "C:\data\見積"
+        getParentFolderPath "C:\data" | Should Be "C:\"
+        getParentFolderPath "\\server\share\見積\2025" | Should Be "\\server\share\見積"
+        getParentFolderPath "\\server\share\見積" | Should Be "\\server\share"
+    }
+
+    It "これ以上たどれないフォルダ（ドライブ直下・共有フォルダ直下）は空文字列" {
+        getParentFolderPath "C:\" | Should Be ""
+        getParentFolderPath "C:" | Should Be ""
+        getParentFolderPath "\\server\share" | Should Be ""
+        getParentFolderPath "\\server" | Should Be ""
+        getParentFolderPath "" | Should Be ""
+    }
+}
+
+Describe "joinFolderPath" {
+    It "ドライブ直下・共有フォルダ直下でも \ が重ならない" {
+        joinFolderPath "C:\" "data" | Should Be "C:\data"
+        joinFolderPath "C:\data" "見積" | Should Be "C:\data\見積"
+        joinFolderPath "\\server\share" "見積" | Should Be "\\server\share\見積"
+    }
+}
+
+Describe "getFolderEntries / testHasSubFolders" {
+    $root = "$TestDrive\folderEntries"
+    New-Item -ItemType Directory -Path "$root\B社" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$root\A社" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$root\A社\2025" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$root\_隠しフォルダ" -Force | Out-Null
+    (Get-Item "$root\_隠しフォルダ").Attributes = "Directory, Hidden"
+    Set-Content "$root\見積.xlsx" "x" -Encoding UTF8
+    Set-Content "$root\メモ.txt" "x" -Encoding UTF8
+    Set-Content "$root\隠し.txt" "x" -Encoding UTF8
+    (Get-Item "$root\隠し.txt").Attributes = "Hidden"
+
+    It "フォルダを先に、それぞれ名前順で返す" {
+        $result = getFolderEntries $root
+        # 名前順は Windows の並び（カタカナが漢字より先）
+        @($result.Entries | ForEach-Object { $_.Name }) -join "," | Should Be "A社,B社,メモ.txt,見積.xlsx"
+    }
+
+    It "フォルダ数と Office ファイル数を返す" {
+        $result = getFolderEntries $root
+        $result.FolderCount | Should Be 2
+        $result.OfficeCount | Should Be 1
+        $result.Truncated | Should Be $false
+        $result.Error | Should Be ""
+    }
+
+    It "隠し・システムのフォルダとファイルは返さない（エクスプローラーの既定と同じ）" {
+        $names = @((getFolderEntries $root).Entries | ForEach-Object { $_.Name })
+        $names -contains "_隠しフォルダ" | Should Be $false
+        $names -contains "隠し.txt" | Should Be $false
+    }
+
+    It "パスと種別を返す" {
+        $entry = @((getFolderEntries $root).Entries | Where-Object { $_.Name -eq "見積.xlsx" })[0]
+        $entry.Path | Should Be "$root\見積.xlsx"
+        $entry.IsFolder | Should Be $false
+        $entry.IsOffice | Should Be $true
+        $entry.Updated | Should Not BeNullOrEmpty
+    }
+
+    It "foldersOnly はフォルダだけを返す（ツリーの読み込み用）" {
+        $result = getFolderEntries $root -foldersOnly
+        @($result.Entries | ForEach-Object { $_.Name }) -join "," | Should Be "A社,B社"
+        $result.OfficeCount | Should Be 0
+    }
+
+    It "件数が多いときは打ち切り、Truncated を立てる" {
+        $result = getFolderEntries $root 2
+        @($result.Entries).Count | Should Be 2
+        $result.Truncated | Should Be $true
+    }
+
+    It "開けないフォルダは Error に理由を入れる（一覧は空）" {
+        $result = getFolderEntries "$root\ありません"
+        @($result.Entries).Count | Should Be 0
+        $result.Error | Should Match "見つかりません"
+    }
+
+    It "フォルダを指定しなければ Error を返す" {
+        (getFolderEntries "").Error | Should Match "指定してください"
+    }
+
+    It "サブフォルダがあるかを返す（ツリーの ▷ の判定）" {
+        testHasSubFolders $root | Should Be $true
+        testHasSubFolders "$root\B社" | Should Be $false
+        testHasSubFolders "$root\ありません" | Should Be $false
+    }
+}
+
 Describe "newIndexName / assignIndexNames" {
     It "フォルダ名（ドライブ直下はドライブ名、UNC は共有名）を使い、重複すれば (2) を付ける" {
         $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -831,6 +939,9 @@ Describe "newIndexName / assignIndexNames" {
         newIndexName "C:\data\見積" | Should Be "見積"
         newIndexName "C:\data\見積" @() | Should Be "見積"
         newIndexName "C:\data\見積" @("見積") | Should Be "見積(2)"
+        # インデックスが 1 件のときは、集合が展開されて文字列 1 個で渡ることがある
+        newIndexName "C:\data\見積" "見積" | Should Be "見積(2)"
+        newIndexName "C:\data\見" "見積" | Should Be "見"
         # 前方一致・大文字小文字違いで取り違えない
         newIndexName "C:\data\見積" @("見積書") | Should Be "見積"
         newIndexName "C:\data\sample" @("SAMPLE") | Should Be "sample(2)"
@@ -1825,6 +1936,28 @@ Describe "スクリプトの構文" {
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$errors) | Out-Null
             $errors.Count | Should Be 0
+        }
+    }
+}
+
+Describe "画面定義（XAML）" {
+    $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
+
+    Get-ChildItem "$here\..\scripts\*.xaml" | ForEach-Object {
+        $file = $_
+
+        It "$($file.Name) が XML として読める" {
+            { [xml](Get-Content $file.FullName -Raw -Encoding UTF8) } | Should Not Throw
+        }
+    }
+
+    It "フォルダ選択の画面に、config_gui.ps1 が使う x:Name がすべてある" {
+        [xml]$xaml = Get-Content "$here\..\scripts\config_gui_folder_select.xaml" -Raw -Encoding UTF8
+        $names = @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
+        foreach ($name in @(
+                "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox",
+                "FolderTree", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
+            $names -contains $name | Should Be $true
         }
     }
 }
