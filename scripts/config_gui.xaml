@@ -216,7 +216,7 @@
                     <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                       <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTip}" Margin="0,1">
                         <CheckBox x:Name="Check" IsChecked="{Binding IsChecked, Mode=OneWay}" IsThreeState="True" Focusable="False" VerticalAlignment="Center" Margin="0,0,4,0" />
-                        <TextBlock x:Name="Label" Text="{Binding Name}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="Label" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                       </StackPanel>
                       <HierarchicalDataTemplate.Triggers>
                         <DataTrigger Binding="{Binding Exists}" Value="False">

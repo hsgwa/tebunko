@@ -27,6 +27,10 @@ ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選�
 ${commonPath}  = "$PSScriptRoot\common.ps1"
 
 trap {
+    # 記録できる状態（common.ps1 の読み込み後）なら、内容をファイルにも残す
+    if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
+        writeErrorLog "起動・実行中" $_
+    }
     [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($_.Exception.Message)", ${appTitle}, "OK", "Error") | Out-Null
     exit 1
 }
@@ -908,6 +912,32 @@ function setStatus {
     $ui.StatusText.ToolTip = $text
 }
 
+# 予期しないエラーを work\画面エラー.txt に残す。画面に出したメッセージだけでは、
+# どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）
+function writeErrorLog {
+    param (
+        [string]$context,
+        [System.Management.Automation.ErrorRecord]$record
+    )
+
+    try {
+        if (-not (Test-Path -LiteralPath ${workDir})) {
+            New-Item -ItemType Directory -Force -Path ${workDir} | Out-Null
+        }
+        $text = @(
+            "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ${context} ===="
+            "$($record.Exception.GetType().FullName): $($record.Exception.Message)"
+            "$($record.InvocationInfo.PositionMessage)"
+            "$($record.ScriptStackTrace)"
+            if ($record.Exception.InnerException) { "内側: $($record.Exception.InnerException)" }
+            ""
+        ) -join "`r`n"
+        [System.IO.File]::AppendAllText(${guiErrorLogFile}, $text, (New-Object System.Text.UTF8Encoding($true)))
+    } catch {
+        # 記録できなくても、画面の動作は止めない
+    }
+}
+
 function showMessage {
     param (
         [string]$message,
@@ -917,7 +947,17 @@ function showMessage {
         [System.Windows.Window]$owner = $window  # ダイアログを開いているときは、そのダイアログを親にする
     )
 
-    return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
+    # 親を指定した表示に失敗しても、知らせること自体は止めない。
+    # （親のウィンドウが閉じかけている・別のスレッドから呼ばれた等で失敗することがある。
+    #   ここで例外が出ると、元のエラーが「Show の呼び出しに失敗」という別のエラーに化けて分からなくなる）
+    if ($null -ne $owner) {
+        try {
+            return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
+        } catch {
+            writeErrorLog "メッセージを親付きで表示できませんでした" $_
+        }
+    }
+    return [System.Windows.MessageBox]::Show($message, ${appTitle}, $buttons, $icon, $default)
 }
 
 # 確認ダイアログに並べる「実行するとこうなります」の 1 行を作る
@@ -1036,8 +1076,9 @@ function safe {
     try {
         & $block
     } catch {
+        writeErrorLog "画面の操作中" $_
         setStatus "エラーが発生しました：$($_.Exception.Message)"
-        showMessage "エラーが発生しました。`n$($_.Exception.Message)" "OK" "Error" | Out-Null
+        showMessage "エラーが発生しました。`n$($_.Exception.Message)`n`n詳しい内容は $(Split-Path -Leaf ${guiErrorLogFile}) に残しています。" "OK" "Error" | Out-Null
     }
 }
 

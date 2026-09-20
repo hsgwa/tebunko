@@ -40,6 +40,7 @@ ${resultFile} = "${workDir}\検索結果.txt"
 ${stopRequestFile}  = "${workDir}\変換中止要求"    # 画面が作成すると、変換処理はファイルの切れ目で中止する
 ${convertErrorFile} = "${workDir}\変換エラー.txt"  # 変換処理を続けられないエラーのメッセージ（正常終了時は削除）
 ${convertLogFile}   = "${workDir}\変換ログ.txt"    # 変換処理の表示内容の記録（実行ごとに上書き）
+${guiErrorLogFile}  = "${workDir}\画面エラー.txt"  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
 # 変換の進み具合（変換が1行だけ書き、画面が読む）。
 # 画面が変換一覧（数万行になる）を毎秒読み直すと、その間ずっと画面が固まるため、進み具合はこの1行から読む
 ${convertProgressFile} = "${workDir}\変換進捗.txt"

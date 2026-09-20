@@ -711,6 +711,9 @@
     <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="6" />
+    <!-- 長い名前があっても横スクロールにしない（横にずれると左端の名前が隠れて読めなくなる）。
+         入りきらない名前は … で省く -->
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
   </Style>
 
   <!-- ============ 選択肢（開き方） ============ -->
