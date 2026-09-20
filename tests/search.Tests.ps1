@@ -32,6 +32,18 @@ Describe "getIndexTsvFiles / testIndexExists / getIndexSummary" {
     (Get-Item -LiteralPath "$other\c.docx_ページ001.tsv").LastWriteTime = [datetime]"2030-01-02 03:04:05"
     $missing = Join-Path $TestDrive "missing"
 
+    It "数え上げの途中の件数を知らせる（画面が「確認中… N 件」を出すため）" {
+        $many = Join-Path $TestDrive "many"
+        for ($i = 0; $i -lt 5; $i++) {
+            newTsv "$many\book$i.xlsx\S.tsv" @("x")
+        }
+        $counts = New-Object System.Collections.Generic.List[int]
+        # 既定は 2000 件ごとのため、ここでは呼ばれないことを確かめる（件数の通知が検索を遅くしない）
+        $result = getIndexTsvFiles @($many) { param ($count) $counts.Add($count) }
+        $result.Files.Count | Should Be 5
+        $counts.Count | Should Be 0
+    }
+
     It "フォルダごとの件数と、インデックスフォルダからの相対パスを返す" {
         $result = getIndexTsvFiles @($index, $missing, $other)
         $result.Folders.Count | Should Be 3
@@ -340,26 +352,36 @@ Describe "readTsvContext" {
     It "ファイルが無ければ空" {
         @(readTsvContext (Join-Path $TestDrive "missing.tsv") 1).Count | Should Be 0
     }
-}
 
-Describe "readSearchHistory / addSearchHistory" {
-    $path = Join-Path $TestDrive "履歴.txt"
+    It "CRLF・LF・CR のどれで区切られていても、検索と同じ行番号になる" {
+        $mixedDir = Join-Path $TestDrive "context_mixed"
+        [void][System.IO.Directory]::CreateDirectory($mixedDir)
+        $mixed = Join-Path $mixedDir "book.xlsx_Sheet1.tsv"
+        [System.IO.File]::WriteAllText($mixed, "a1`r`nb2`nc3`rd4`r`n", $utf8Bom)
+        $rows = @(readTsvContext $mixed 3 2 1)
+        ($rows | ForEach-Object { "$($_.LineNumber):$($_.Line)" }) -join "," | Should Be "1:a1,2:b2,3:c3,4:d4"
 
-    It "新しい順に保存し、同じワードは先頭に移す" {
-        [void](addSearchHistory "a" $path)
-        [void](addSearchHistory "b" $path)
-        $items = @(addSearchHistory " a " $path)
-        $items -join "," | Should Be "a,b"
-        @(readSearchHistory $path) -join "," | Should Be "a,b"
+        # 検索（TsvSearcher）の行番号と一致すること
+        $hits = @((searchIndex "c3" (getIndexTsvFiles @($mixedDir)).Files).Hits)
+        $hits.Count | Should Be 1
+        $hits[0].LineNumber | Should Be 3
     }
 
-    It "最大件数を超えた古いワードは消す" {
-        [void](addSearchHistory "c" $path 2)
-        @(readSearchHistory $path) -join "," | Should Be "c,a"
+    It "BOM が無いファイルも読める。ファイルが書き換わったら読み直す（行の位置を覚えているため）" {
+        $changing = Join-Path $TestDrive "context_changing.tsv"
+        [System.IO.File]::WriteAllText($changing, "x1`r`nx2`r`nx3`r`n", (New-Object System.Text.UTF8Encoding($false)))
+        (@(readTsvContext $changing 2 1 1) | ForEach-Object { $_.Line }) -join "," | Should Be "x1,x2,x3"
+
+        Start-Sleep -Milliseconds 20
+        [System.IO.File]::WriteAllText($changing, "y1`r`ny2`r`ny3`r`ny4`r`n", (New-Object System.Text.UTF8Encoding($false)))
+        (@(readTsvContext $changing 4 1 1) | ForEach-Object { $_.Line }) -join "," | Should Be "y3,y4"
     }
 
-    It "空のワードは保存しない" {
-        @(addSearchHistory "  " $path) -join "," | Should Be "c,a"
+    It "最後の行に改行が無いファイルも読める" {
+        $noEol = Join-Path $TestDrive "context_noeol.tsv"
+        [System.IO.File]::WriteAllText($noEol, "p1`r`np2", $utf8Bom)
+        $rows = @(readTsvContext $noEol 2 1 3)
+        ($rows | ForEach-Object { "$($_.LineNumber):$($_.Line)" }) -join "," | Should Be "1:p1,2:p2"
     }
 }
 

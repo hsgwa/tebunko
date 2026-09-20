@@ -127,10 +127,10 @@
 
     <TabControl x:Name="Tabs" Padding="14,10" Background="White">
 
-      <!-- ================= 1 インデックス作成 ================= -->
+      <!-- ================= 1 インデックス管理 ================= -->
       <TabItem x:Name="IndexTab">
         <TabItem.Header>
-          <TextBlock x:Name="IndexTabHeader" Text="1 インデックス作成" Padding="10,3" />
+          <TextBlock x:Name="IndexTabHeader" Text="1 インデックス管理" Padding="10,3" />
         </TabItem.Header>
         <DockPanel>
           <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
@@ -153,50 +153,77 @@
           <Grid>
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="*" MinHeight="90" />
+              <RowDefinition Height="*" MinHeight="120" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Style="{StaticResource Heading}" Text="変換対象フォルダ（チェックを付けたフォルダを変換します）" />
+            <TextBlock Grid.Row="0" Style="{StaticResource Heading}" Text="インデックス一覧（チェックを付けたインデックスを変換します）" />
 
-            <DockPanel Grid.Row="1" Margin="0,6,0,6">
-              <Button x:Name="BrowseFolderButton" DockPanel.Dock="Right" Content="参照…" Margin="6,0,0,0" />
-              <Button x:Name="AddFolderButton" DockPanel.Dock="Right" Content="追加" Margin="6,0,0,0" />
-              <Grid>
-                <TextBox x:Name="NewFolderBox" AllowDrop="True" />
-                <TextBlock x:Name="NewFolderPlaceholder" IsHitTestVisible="False" Margin="8,0" VerticalAlignment="Center" Foreground="#9CA3AF"
-                           Text="フォルダのパスを入力・貼り付けして Enter（フォルダのドラッグ＆ドロップでも追加できます）" />
-              </Grid>
-            </DockPanel>
-
-            <DockPanel Grid.Row="2">
-              <StackPanel DockPanel.Dock="Right" Margin="6,0,0,0">
-                <Button x:Name="ChangeFolderPathButton" Content="場所を変更…" ToolTip="フォルダを移した場合に、このフォルダの場所だけを変えます（インデックスは作り直しません）" />
-                <Button x:Name="RemoveFolderButton" Content="削除" Margin="0,6,0,0" />
+            <DockPanel Grid.Row="1" Margin="0,6,0,0">
+              <StackPanel DockPanel.Dock="Right" Margin="8,0,0,0" Width="150">
+                <Button x:Name="NewIndexButton" Content="新規作成…" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを作ります" />
+                <Button x:Name="EditIndexButton" Content="編集…" Margin="0,6,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスは作り直しません）" />
+                <Button x:Name="RebuildIndexButton" Content="作り直す…" Margin="0,6,0,0" ToolTip="選んだインデックスの TSV を削除して、フォルダの中のファイルをすべて変換し直します（更新日時が変わらないまま中身が変わった場合などに使います）" />
+                <Button x:Name="RemoveIndexButton" Style="{StaticResource Danger}" Content="削除" Margin="0,6,0,0" ToolTip="選んだインデックスを、変換した TSV ごと削除します" />
+                <TextBlock Style="{StaticResource Hint}" Margin="0,12,0,0"
+                           Text="一覧にフォルダをドラッグ＆ドロップしても作成できます。変換中は作成・編集・作り直し・削除はできません。" />
               </StackPanel>
               <Grid>
-                <ListBox x:Name="TargetList" AllowDrop="True" BorderBrush="#9CA3AF" HorizontalContentAlignment="Stretch">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate>
-                      <DockPanel Margin="0,2">
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center" />
-                        <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock DockPanel.Dock="Left" Text="{Binding IndexLabel}" Foreground="#6B7280" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"
-                                   ToolTip="インデックス名（work\index の下のフォルダ名）。フォルダの場所を変えても、この名前のインデックスをそのまま使います" />
-                        <TextBlock Text="{Binding Path}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
-                      </DockPanel>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
-                <TextBlock x:Name="TargetPlaceholder" IsHitTestVisible="False" Margin="10,8" Foreground="#9CA3AF" TextWrapping="Wrap"
-                           Text="変換する Office ファイルのあるフォルダを追加してください。" />
+                <DataGrid x:Name="IndexGrid" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
+                  <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="変換" Width="46">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" HorizontalAlignment="Center"
+                                    ToolTip="チェックを付けたインデックスだけを変換します（外してもインデックスは残ります）" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="インデックス名" Width="140">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="元のフォルダ" Width="*">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="フォルダの状態" Width="150">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="ファイル" Width="76">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Style="{StaticResource RightCell}" Text="{Binding FileCountText}" ToolTip="{Binding FileCountToolTip}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="最終変換" Width="96">
+                      <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding LastConvertedText}" />
+                        </DataTemplate>
+                      </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                  </DataGrid.Columns>
+                </DataGrid>
+                <TextBlock x:Name="IndexGridPlaceholder" IsHitTestVisible="False" Margin="10,34" Foreground="#9CA3AF" TextWrapping="Wrap"
+                           Text="インデックスがありません。［新規作成…］で、Office ファイルのあるフォルダを指定してください。" />
               </Grid>
             </DockPanel>
 
-            <TextBlock Grid.Row="3" Style="{StaticResource Heading}" Text="インデックスの状態" Margin="0,14,0,4" />
-            <StackPanel Grid.Row="4">
+            <TextBlock Grid.Row="2" Style="{StaticResource Heading}" Text="インデックスの状態（すべてのインデックスの合計）" Margin="0,14,0,4" />
+            <StackPanel Grid.Row="3">
               <TextBlock x:Name="IndexSummaryText" Text="確認中…" />
               <TextBlock x:Name="ConversionStateText" Margin="0,4,0,0" Foreground="#B45309" FontSize="12" TextWrapping="Wrap" />
               <StackPanel x:Name="FailedPanel" Visibility="Collapsed" Margin="0,6,0,0">
@@ -244,15 +271,15 @@
 
           <DockPanel Grid.Column="0">
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-              <Button x:Name="ChangeIndexButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="場所の設定…" FontSize="12" VerticalAlignment="Center"
-                      ToolTip="検索するインデックスのフォルダ（既定は work\index）を設定します。別の場所・PC からコピーしたインデックスも追加できます" />
-              <TextBlock Style="{StaticResource Heading}" Text="検索対象" VerticalAlignment="Center" Height="32" Padding="0,7,0,0" />
+              <TextBlock Style="{StaticResource Heading}" Text="検索対象" VerticalAlignment="Center" Height="32" Padding="0,7,0,0"
+                         ToolTip="［1 インデックス管理］で作ったインデックスの一覧です" />
             </DockPanel>
             <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
               <Button x:Name="CheckAllIndexButton" Content="すべて選択" MinWidth="0" />
               <Button x:Name="UncheckAllIndexButton" Content="すべて解除" MinWidth="0" Margin="6,0,0,0" />
             </StackPanel>
-            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,6,0,0" Text="チェックしたフォルダだけを検索します。▷ で下のフォルダを表示します。" />
+            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Margin="0,6,0,0" Text="チェックしたインデックス・フォルダだけを検索します。▷ で下のフォルダを表示します。" />
+            <Grid>
             <TreeView x:Name="IndexTree" BorderBrush="#9CA3AF">
               <TreeView.ItemContainerStyle>
                 <Style TargetType="TreeViewItem">
@@ -262,7 +289,7 @@
               <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                   <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTip}" Margin="0,1">
-                    <CheckBox x:Name="Check" IsChecked="{Binding IsChecked, Mode=TwoWay}" Focusable="False" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <CheckBox x:Name="Check" IsChecked="{Binding IsChecked, Mode=OneWay}" IsThreeState="True" Focusable="False" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <TextBlock x:Name="Label" Text="{Binding Name}" VerticalAlignment="Center" />
                   </StackPanel>
                   <HierarchicalDataTemplate.Triggers>
@@ -280,6 +307,9 @@
                 </HierarchicalDataTemplate>
               </TreeView.ItemTemplate>
             </TreeView>
+            <TextBlock x:Name="IndexTreePlaceholder" IsHitTestVisible="False" Margin="10,8" Foreground="#9CA3AF" TextWrapping="Wrap" Visibility="Collapsed"
+                       Text="インデックスがありません。［1 インデックス管理］でインデックスを作成してください。" />
+            </Grid>
           </DockPanel>
           <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Background="Transparent" />
 
@@ -306,7 +336,7 @@
             <TextBlock Grid.Column="0" Style="{StaticResource Heading}" Text="検索ワード" VerticalAlignment="Center" Margin="0,0,10,0" />
             <DockPanel Grid.Column="1">
               <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" MinWidth="110" Height="32" Margin="8,0,0,0" />
-              <ComboBox x:Name="WordBox" IsEditable="True" IsTextSearchEnabled="False" Height="32" VerticalContentAlignment="Center" FontSize="14" />
+              <TextBox x:Name="WordBox" Height="32" VerticalContentAlignment="Center" FontSize="14" />
             </DockPanel>
             <!-- 検索条件（サクラエディタの Grep の条件にならう） -->
             <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,6,0,0">
@@ -348,8 +378,8 @@
               <DataGridTextColumn Header="ファイル名" Binding="{Binding Book}" Width="170" />
               <DataGridTextColumn Header="場所" Binding="{Binding Location}" Width="110" />
               <DataGridTextColumn Header="行" Binding="{Binding LineNumber}" Width="50" ElementStyle="{StaticResource RightCell}" />
-              <DataGridTextColumn Header="セル" Binding="{Binding CellText}" Width="80" />
-              <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="DisplayLine">
+              <DataGridTextColumn Header="セル" Binding="{Binding CellText}" Width="80" CanUserSort="False" />
+              <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="Line">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <ItemsControl ItemsSource="{Binding Segments}" ToolTip="{Binding DisplayLine}" ClipToBounds="True">
@@ -465,7 +495,7 @@
                               <DataTemplate>
                                 <!-- セル内改行のあるセルは折り返して複数行で表示する（高さの上限まで。全文はツールチップ） -->
                                 <Border x:Name="CellBorder" Width="{Binding Column.Width}" BorderBrush="#E5E7EB" BorderThickness="0,0,1,1">
-                                  <TextBlock x:Name="CellText" Text="{Binding Text}" ToolTip="{Binding ToolTip}" Padding="6,2"
+                                  <TextBlock x:Name="CellText" Text="{Binding Display}" ToolTip="{Binding ToolTip}" Padding="6,2"
                                              TextTrimming="CharacterEllipsis" TextWrapping="Wrap" MaxHeight="58" />
                                 </Border>
                                 <DataTemplate.Triggers>
@@ -511,17 +541,20 @@
 
           <DockPanel Grid.Row="5" Margin="0,8,0,0">
             <Button x:Name="ExportButton" DockPanel.Dock="Right" Content="結果をファイルに出力" />
-            <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center"
+            <!-- 横に長い行で、表示した列の範囲を知らせる（ふだんは隠す） -->
+            <TextBlock x:Name="PreviewNote" DockPanel.Dock="Right" Margin="8,0" VerticalAlignment="Center"
+                       Foreground="#B45309" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
+            <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                        Text="行を選ぶと前後の行を表示　プレビューのセルをクリック → Ctrl+C でその値をコピー（Shift＋クリック・ドラッグで複数）　ダブルクリック・Enter：元のファイルを開く" />
           </DockPanel>
         </Grid>
         </Grid>
       </TabItem>
 
-      <!-- ================= 9 Office 強制終了 ================= -->
+      <!-- ================= 9 プロセス停止 ================= -->
       <TabItem x:Name="KillTab">
         <TabItem.Header>
-          <TextBlock x:Name="KillTabHeader" Text="9 Office 強制終了" Padding="10,3" />
+          <TextBlock x:Name="KillTabHeader" Text="9 プロセス停止" Padding="10,3" />
         </TabItem.Header>
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Text="変換を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。" Margin="0,0,0,8" />

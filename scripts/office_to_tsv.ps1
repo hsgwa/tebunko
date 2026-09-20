@@ -52,6 +52,18 @@ foreach ($oldFile in @(${stopRequestFile}, ${convertErrorFile})) {
 }
 try { Start-Transcript -LiteralPath ${convertLogFile} -Force | Out-Null } catch {}
 
+# 同じ work（同じ配置フォルダ）に対して変換を2つ動かすと、変換一覧・インデックスが食い違うため1つだけ動かす。
+# 画面は実行中の変換を見つけて進み具合を表示するため、ここに来るのは画面を使わずに起動した場合。
+# ミューテックスはプロセスが終われば解放されるため、強制終了されても残らない
+$convertMutex = newAppMutex "convert"
+if (!$convertMutex.Acquired) {
+    throw "ほかの変換が実行中です。変換が終わってから実行してください。"
+}
+
+# 進み具合は1行のファイル（変換進捗.txt）に書く。画面はこれを読んで表示する
+# （変換一覧は数万行になるため、画面が毎秒読み直すと、その間ずっと画面が固まる）
+writeConvertProgress ${convertPhaseScan} 0 0 0 "変換の準備をしています…"
+
 $targetExtensions = @(
     ".xlsx", ".xlsm", ".xls", ".xlsb",
     ".docx", ".docm", ".doc",
@@ -93,14 +105,13 @@ function getIndexFiles {
 }
 
 function removeBookDir {
-    # そのファイルの変換結果のフォルダを削除する（元のファイルが無くなったとき・変換し直すとき）
+    # そのファイルの変換結果のフォルダを削除する（元のファイルが無くなったとき・変換し直すとき）。
+    # ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
     param (
         [string]$bookDir
     )
 
-    if (Test-Path -LiteralPath (toLongPath $bookDir) -PathType Container) {
-        Remove-Item -LiteralPath (toLongPath $bookDir) -Recurse -Force
-    }
+    removeDirectoryRetry $bookDir
 }
 
 function findOfficeFiles {
@@ -125,11 +136,13 @@ function createTargetList {
     # 変換対象フォルダを1つ検索して変換一覧の行を作り直し、@{ Rows（全ファイル）; Targets（変換する）; Failed（前回失敗し、更新の無い） } を返す。
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで変換済み（済）のファイルは変換しない
+    # ・変換済みでも、インデックス（TSV）が無くなっていれば変換し直す（利用者が work\index を直接削除した場合など）
     # ・一覧に無いファイル（初回など）は、変換結果（TSV）が元ファイルより新しければ変換済みとする
     # ・元ファイルが無くなったファイルは、変換結果を削除して一覧から除く（アクセスできないフォルダがあった場合は除かない）
     param (
         $folder,   # @{ Path; Name }
-        $previous  # readStatusFile の Rows（相対パス → 行）
+        $previous, # readStatusFile の Rows（相対パス → 行）
+        $counts    # getIndexTsvCounts の結果（インデックスの実体。$null なら確認しない）
     )
 
     $prefix = "$($folder.Name)\"
@@ -138,7 +151,7 @@ function createTargetList {
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
     $found = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    $count = @{ Done = 0; New = 0; Updated = 0; Pending = 0 }
+    $count = @{ Done = 0; New = 0; Updated = 0; Pending = 0; Lost = 0 }
 
     foreach ($file in $scan.Files) {
         $relative = getPathUnderFolder (fromLongPath $file.FullName) $scan.Root
@@ -153,7 +166,12 @@ function createTargetList {
         $old = $null
         [void]$previous.TryGetValue($relPath, [ref]$old)
 
-        if ($old -and $old.更新日時 -eq $updated -and $old.サイズ -eq $size -and $old.状態 -ne ${stateNew}) {
+        $sameFile = ($old -and $old.更新日時 -eq $updated -and $old.サイズ -eq $size -and $old.状態 -ne ${stateNew})
+        # 変換済みでも、インデックス（TSV）が無くなっていれば変換し直す。
+        # 一覧だけを見ると「済」のままになり、検索しても出てこない状態が続くため
+        $lostIndex = ($sameFile -and $old.状態 -eq ${stateDone} -and -not (testIndexComplete $old $relPath $counts))
+
+        if ($sameFile -and -not $lostIndex) {
             # 更新なし。失敗したファイルを再変換するかは呼び出し元で決める
             $row = $old
             if ($row.状態 -eq ${stateFailed}) {
@@ -173,7 +191,9 @@ function createTargetList {
             } else {
                 $row = newStatusRow $relPath $updated $size ${stateNew}
                 $targets.Add($row)
-                if ($null -eq $old) {
+                if ($lostIndex) {
+                    $count.Lost++
+                } elseif ($null -eq $old) {
                     $count.New++
                 } elseif ($old.状態 -eq ${stateNew}) {
                     $count.Pending++
@@ -198,8 +218,16 @@ function createTargetList {
         $removed++
     }
 
-    Write-Host ("  [{0}] Officeファイル {1} 件（変換済み {2} 件 / 新規 {3} 件 / 更新あり {4} 件 / 前回未完了 {5} 件 / 前回失敗 {6} 件）" -f
-        $folder.Name, $scan.Files.Count, $count.Done, $count.New, $count.Updated, $count.Pending, $failed.Count)
+    $detail = "変換済み {0} 件 / 新規 {1} 件 / 更新あり {2} 件 / 前回未完了 {3} 件 / 前回失敗 {4} 件" -f
+        $count.Done, $count.New, $count.Updated, $count.Pending, $failed.Count
+    if ($count.Lost -gt 0) {
+        # インデックスを直接削除された場合など。ふだんは 0 件のため、あるときだけ表示する
+        $detail += " / 変換結果が無い・壊れている $($count.Lost) 件"
+    }
+    Write-Host ("  [{0}] Officeファイル {1} 件（{2}）" -f $folder.Name, $scan.Files.Count, $detail)
+    if ($count.Lost -gt 0) {
+        Write-Host "    変換結果（TSV）が無くなった・壊れている $($count.Lost) 件は変換し直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" -ForegroundColor Yellow
+    }
     if ($removed -gt 0) {
         Write-Host "    元ファイルが無くなった ${removed} 件の変換結果（TSV）を削除しました。"
     }
@@ -679,19 +707,14 @@ function convertFile {
 }
 
 function publishTsv {
-    # 作業フォルダのTSVを、そのファイルの変換結果のフォルダへ移動する
+    # 作業フォルダのTSVを、そのファイルの変換結果のフォルダへ移動する。
+    # 途中で強制終了されても一部のシートだけのインデックスが残らないよう、
+    # 出力用のフォルダ（work\変換出力\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
     param (
         [string]$bookDir
     )
 
-    # 以前の変換結果はフォルダごと削除する（シートの削除・名前変更に追従するため）。
-    # 出力先は長いパス（260文字超）になることがあるため \\?\ 付きで操作する
-    removeBookDir $bookDir
-    [System.IO.Directory]::CreateDirectory((toLongPath $bookDir)) | Out-Null
-
-    foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $tmpDir) -Filter "*.tsv" -File)) {
-        [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $bookDir $file.Name)))
-    }
+    publishIndexFiles $tmpDir $bookDir (Join-Path ${publishDir} ([System.IO.Path]::GetFileName($bookDir)))
 }
 
 function clearTmpDir {
@@ -699,19 +722,30 @@ function clearTmpDir {
 }
 
 function removeTmpDir {
-    # 作業フォルダ（%TEMP%\win_grep\<PID>）を削除する。終了時に呼ぶ
-    try {
-        if (Test-Path -LiteralPath $tmpDir) {
-            Remove-Item -LiteralPath (toLongPath $tmpDir) -Recurse -Force
+    # 作業フォルダ（%TEMP%\win_grep\<PID>）と出力用のフォルダ（work\変換出力\<PID>）を削除する。終了時に呼ぶ
+    foreach ($dir in @(${tmpDir}, ${publishDir})) {
+        try {
+            removeDirectoryRetry $dir
+        } catch {
+            Write-Host "    作業フォルダを削除できませんでした: ${dir}" -ForegroundColor Yellow
         }
-    } catch {
-        Write-Host "    作業フォルダを削除できませんでした: ${tmpDir}" -ForegroundColor Yellow
     }
 }
 
 function removeStaleTmpDirs {
-    # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ（%TEMP%\win_grep\<PID>）を削除する
-    $parent = Split-Path $tmpDir -Parent
+    # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
+    # （%TEMP%\win_grep\<PID>・work\変換出力\<PID>）を削除する
+    foreach ($parent in @((Split-Path ${tmpDir} -Parent), (Split-Path ${publishDir} -Parent))) {
+        removeStaleProcessDirs $parent
+    }
+}
+
+function removeStaleProcessDirs {
+    # プロセスIDの名前のフォルダのうち、そのプロセスが既に終わっているものを削除する
+    param (
+        [string]$parent
+    )
+
     if (!(Test-Path -LiteralPath $parent)) {
         return
     }
@@ -848,6 +882,7 @@ if (@($targetFolders | Where-Object { $_.Enabled }).Count -eq 0) {
 [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
 removeStaleTmpDirs
 [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
+[System.IO.Directory]::CreateDirectory(${publishDir}) | Out-Null
 
 # 以前の版の途中状態ファイル（変換一覧.tsv に置き換えた）は使わないため削除する
 foreach ($name in @("変換対象一覧.txt", "変換失敗一覧.txt")) {
@@ -875,6 +910,13 @@ if (@($targetFolders | Where-Object { -not $_.Name }).Count -gt 0) {
 Write-Host "出力先フォルダ: ${indexDir}"
 Write-Host ""
 Write-Host "変換対象のファイルを検索しています..."
+# 変換一覧の「済」に対してインデックス（TSV）が残っているかを調べるため、今あるTSVの数を数えておく
+# （利用者が work\index を直接削除した場合に、「済」のまま検索できなくなるのを防ぐ）
+writeConvertProgress ${convertPhaseScan} 0 0 0 "変換済みのインデックスを確認しています…"
+$indexCounts = getIndexTsvCounts
+if ($null -eq $indexCounts) {
+    Write-Host "  インデックスのフォルダを調べられないため、変換結果が残っているかの確認は行いません。" -ForegroundColor Yellow
+}
 $rows = New-Object System.Collections.Generic.List[object]
 $targets = New-Object System.Collections.Generic.List[object]
 $failed = New-Object System.Collections.Generic.List[object]
@@ -885,7 +927,9 @@ foreach ($folder in $folders) {
         Write-Host "  [$($folder.Name)] $($folder.Path) … フォルダが見つからないため変換しません" -ForegroundColor Yellow
     } else {
         Write-Host "  [$($folder.Name)] $($folder.Path)"
-        $list = createTargetList $folder $previous
+        # 大きいフォルダ・ネットワーク越しでは時間がかかるため、どのフォルダを見ているかを画面に伝える
+        writeConvertProgress ${convertPhaseScan} 0 0 0 "[$($folder.Name)] のOfficeファイルを探しています… $($folder.Path)"
+        $list = createTargetList $folder $previous $indexCounts
         $rows.AddRange($list.Rows)
         $targets.AddRange($list.Targets)
         $failed.AddRange($list.Failed)
@@ -936,6 +980,7 @@ if ($interrupted) {
         Write-Host "前回、変換中に強制終了したファイルは最後に変換します: $($row.相対パス)" -ForegroundColor Yellow
     }
 }
+writeConvertProgress ${convertPhaseScan} 0 $targets.Count 0 "変換一覧を書き出しています…"
 writeStatusFile $folders $rows
 # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名と変換対象フォルダの対応を置く
 writeSourceFolderFile $folders
@@ -949,6 +994,7 @@ foreach ($folder in $folders) {
 if ($targets.Count -eq 0) {
     Write-Host ""
     Write-Host "変換が必要なファイルはありません。（一覧: $(Split-Path $statusFile -Leaf)）" -ForegroundColor Green
+    writeConvertProgress ${convertPhaseFinish} 0 0 0 "変換が必要なファイルはありませんでした"
     removeTmpDir
     try { Stop-Transcript | Out-Null } catch {}
     exit 0
@@ -961,6 +1007,10 @@ $total = $targets.Count
 $successCount = 0
 $stopped = $false
 $failures = New-Object System.Collections.Generic.List[object]  # 今回失敗したファイル: @{ RelPath; Message }
+# 変換の直前に元のファイルが無くなっていたファイルの相対パス。変換一覧から除く
+$droppedRows = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+$folderLost = ""  # 変換中に見えなくなった変換対象フォルダ（見つかったら中止する）
+$remaining = 0
 
 try {
     startWatchdog
@@ -970,14 +1020,37 @@ try {
         if (Test-Path -LiteralPath ${stopRequestFile}) {
             Remove-Item -LiteralPath ${stopRequestFile} -Force
             $stopped = $true
+            $remaining = $total - $i
             Write-Host ""
-            Write-Host "中止の要求を受けたため、変換を中止します。（残り $($total - $i) 件は次回変換します）" -ForegroundColor Yellow
+            Write-Host "中止の要求を受けたため、変換を中止します。（残り ${remaining} 件は次回変換します）" -ForegroundColor Yellow
             break
         }
 
         $row = $targets[$i]
         $relPath = $row.相対パス
+        $parts = splitIndexRelPath $relPath
+        $sourceFolder = $folderByName[$parts.Name]
+        $sourcePath = Join-Path $sourceFolder $parts.Rest
         Write-Host ("[{0}/{1}] {2}" -f ($i + 1), $total, $relPath)
+        # 画面はこの1行から進み具合を作る（変換一覧は読まない）
+        writeConvertProgress ${convertPhaseRun} $i ($total - $i) $failures.Count $relPath
+
+        # 変換対象を調べてから変換するまでの間に、元のファイルが移動・削除されることがある。
+        # 「失敗」として記録すると、再変換を選ぶまで残ってしまうため、無くなったファイルは一覧・インデックスから除く
+        if (![System.IO.File]::Exists((toLongPath $sourcePath))) {
+            if (!(Test-Path -LiteralPath $sourceFolder -PathType Container)) {
+                # 変換対象フォルダごと見えなくなった（ネットワークの切断・USBメモリの取り外し等）。
+                # 残りのファイルをすべて失敗にしないよう、「未変換」のまま中止する（次回、続きから変換できる）。
+                # finally（Officeアプリの終了・変換一覧の書き直し）を通すため、例外にせず抜ける
+                $folderLost = $sourceFolder
+                $remaining = $total - $i
+                break
+            }
+            Write-Host "    元のファイルが無くなったため、変換せずに一覧から除きます。（移動・削除・名前変更された）" -ForegroundColor Yellow
+            removeBookDir (getBookDir $relPath)
+            [void]$droppedRows.Add($relPath)
+            continue
+        }
 
         # 強制終了したときに、どのファイルの変換中に止まったか次回分かるよう記録する
         $startCount = 1
@@ -988,11 +1061,10 @@ try {
 
         try {
             clearTmpDir
-            $parts = splitIndexRelPath $relPath
             $script:watchdog.TimedOut = $false
             $script:watchdog.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
             try {
-                $tsvCount = convertFile (Join-Path $folderByName[$parts.Name] $parts.Rest)
+                $tsvCount = convertFile $sourcePath
             } finally {
                 $script:watchdog.Deadline = [datetime]::MaxValue
             }
@@ -1028,12 +1100,34 @@ try {
         }
     }
 } finally {
-    # 中止・続けられないエラーの場合もここは実行される
+    # 中止・続けられないエラーの場合もここは実行される。
+    # 後片付けも数十秒かかることがあるため、何をしているかを画面に伝える（進み具合の数はそのまま残す）
+    # 画面は「成功 = 処理済み - 失敗」と出すため、変換しなかった（元ファイルが無くなった）分は数に入れない
+    $processed = $successCount + $failures.Count
+    writeConvertProgress ${convertPhaseFinish} $processed 0 $failures.Count "Officeアプリを終了しています…"
     stopWatchdog
     stopAllApps
     removeTmpDir
     removeConvertingFile
-    writeStatusFile $folders $rows
+    writeConvertProgress ${convertPhaseFinish} $processed 0 $failures.Count "変換一覧を書き直しています…"
+    # 変換の直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
+    writeStatusFile $folders @($rows | Where-Object { $_ -and !$droppedRows.Contains([string]$_.相対パス) })
+    # 初めて変換したインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
+    # （work\index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
+    writeSourceFolderFile $folders
+    # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す
+    writeConvertProgress ${convertPhaseFinish} $processed $remaining $failures.Count ""
+}
+
+if ($folderLost) {
+    # 変換対象フォルダが見えなくなった場合は、続けられないエラーとして画面に知らせる（残りは未変換のまま）
+    $message = "変換対象フォルダが見つからなくなったため、変換を中止しました: ${folderLost}" +
+        "（残り ${remaining} 件は未変換のまま残しました。フォルダを使えるようにしてから、もう一度変換してください）"
+    Write-Host ""
+    Write-Host $message -ForegroundColor Red
+    [System.IO.File]::WriteAllText(${convertErrorFile}, $message, ${utf8Bom})
+    try { Stop-Transcript | Out-Null } catch {}
+    exit 1
 }
 
 Write-Host ""
@@ -1041,6 +1135,9 @@ if ($stopped) {
     Write-Host "TSV変換を中止しました。（成功: ${successCount} 件 / 失敗: $($failures.Count) 件）" -ForegroundColor Yellow
 } else {
     Write-Host "TSV変換が完了しました。（成功: ${successCount} 件 / 失敗: $($failures.Count) 件）" -ForegroundColor Green
+}
+if ($droppedRows.Count -gt 0) {
+    Write-Host "変換の直前に元のファイルが無くなった $($droppedRows.Count) 件は、変換せずに一覧から除きました。" -ForegroundColor Yellow
 }
 Write-Host "各ファイルの状態・更新日時は $(Split-Path $statusFile -Leaf) で確認できます。"
 if ($failures.Count -gt 0) {

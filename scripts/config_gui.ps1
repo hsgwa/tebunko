@@ -1,15 +1,24 @@
 ﻿# 画面（WPF）
 #
-# ［1 インデックス作成］［2 検索］［9 Office 強制終了］の3タブ。画面の定義は config_gui.xaml。
-# 変換は office_to_tsv.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・強制終了は画面内で行う（処理は common.ps1 と共通）。
+# ［1 インデックス管理］［2 検索］［9 プロセス停止］の3タブ。画面の定義は config_gui.xaml。
+# 変換は office_to_tsv.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う（処理は common.ps1 と共通）。
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
+
+# zip 展開で付く Mark-of-the-Web（外部由来の印）を、このフォルダから消す。印が残っていると
+# RemoteSigned で common.ps1 などの読み込みがブロックされるため。通常は win_grep.bat が起動前に消すが、
+# ショートカットから直接起動したときや、あとでファイルを差し替えたときのために、ここでも消しておく。
+# （この config_gui.ps1 自身が印付きだと、この行に来る前にブロックされる。その場合は win_grep.bat から起動する）
+try {
+    Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+} catch { }
 
 . "$PSScriptRoot\common.ps1"
 
 $ErrorActionPreference = "Stop"
 
 ${appTitle}    = "win_grep"
+${appId}       = "win_grep"  # タスクバーのボタン・ショートカットを結び付ける ID（AppUserModelID）
 ${searchLimit} = 10000
 ${previewLines} = 3  # 選択行のプレビューに出す前後の行数
 ${commonPath}  = "$PSScriptRoot\common.ps1"
@@ -20,986 +29,713 @@ trap {
 }
 
 # ---- 多重起動の防止（ツールの配置フォルダごと） ----
+#
+# すでに開いているときは、その画面のウィンドウを前面に出して終わる（もう一度起動するのは、
+# たいてい「開いたつもりのウィンドウが他のウィンドウの裏にある」ときのため）。
+# 知らせるのは名前付きイベントで行う。ここは C# の型をコンパイルする前のため、.NET の機能だけを使う。
 
 $md5 = New-Object System.Security.Cryptography.MD5CryptoServiceProvider
-$mutexName = "Local\win_grep_gui_" + [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(${rootDir}.ToLowerInvariant()))).Replace("-", "")
+$instanceKey = [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(${rootDir}.ToLowerInvariant()))).Replace("-", "")
+$mutexName = "Local\win_grep_gui_" + $instanceKey
+$activateName = "Local\win_grep_gui_activate_" + $instanceKey
 $createdNew = $false
 $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
 if (!$createdNew) {
+    $running = $null
+    if ([System.Threading.EventWaitHandle]::TryOpenExisting($activateName, [ref]$running)) {
+        [void]$running.Set()
+        $running.Close()
+        exit
+    }
+    # 以前の版の画面が開いている等で知らせられないときだけ、メッセージを出す
     [System.Windows.MessageBox]::Show("すでに開いています。", ${appTitle}, "OK", "Information") | Out-Null
     exit
 }
-
-# ---- 画面で使う型（件数が多くても軽く動くよう C# で定義する） ----
-
-if (!("WinGrep.HitRow" -as [type])) {
-    Add-Type -TypeDefinition @'
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Text.RegularExpressions;
-
-namespace WinGrep
-{
-    public class Segment
-    {
-        public string Text { get; set; }
-        public bool IsHit { get; set; }
-    }
-
-    // 選択行のプレビューの列。見出しの行と各行のセルが同じものを参照するため、
-    // 幅を変えると（見出しをドラッグしたとき）列全体の幅が変わる
-    public class PreviewColumn : INotifyPropertyChanged
-    {
-        private double width;
-
-        public string Label { get; set; }
-        public double Width
-        {
-            get { return width; }
-            set
-            {
-                double newWidth = Math.Max(MinWidth, value);
-                if (width == newWidth) return;
-                width = newWidth;
-                PropertyChangedEventHandler handler = PropertyChanged;
-                if (handler != null) handler(this, new PropertyChangedEventArgs("Width"));
-            }
-        }
-
-        public const double MinWidth = 24;  // ドラッグで狭くできる下限
-
-        public event PropertyChangedEventHandler PropertyChanged;
-    }
-
-    // 選択行のプレビューのセル1つ（IsSelected はコピーのために選んだ範囲）
-    public class PreviewCell : INotifyPropertyChanged
-    {
-        private bool selected;
-
-        public string Text { get; set; }
-        public string ToolTip { get; set; }
-        public PreviewColumn Column { get; set; }
-        public bool IsHit { get; set; }
-        public int RowIndex { get; set; }
-        public int ColumnIndex { get; set; }
-        public bool IsSelected
-        {
-            get { return selected; }
-            set
-            {
-                if (selected == value) return;
-                selected = value;
-                PropertyChangedEventHandler handler = PropertyChanged;
-                if (handler != null) handler(this, new PropertyChangedEventArgs("IsSelected"));
-            }
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-    }
-
-    // 選択行のプレビューの1行
-    public class PreviewRow
-    {
-        public string Number { get; set; }
-        public bool IsHitRow { get; set; }
-        public List<PreviewCell> Cells { get; set; }
-    }
-
-    // 選択行のプレビュー。HitOffset・HitWidth は選択行で最初に一致したセルの左端と幅（横スクロール用）。
-    // セルをクリックして選んだ範囲（コピー用）も持つ
-    public class PreviewTable
-    {
-        public List<PreviewColumn> Columns { get; set; }
-        public List<PreviewRow> Rows { get; set; }
-        public double HitOffset { get; set; }
-        public double HitWidth { get; set; }
-
-        int anchorRow = -1;
-        int anchorColumn = -1;
-        int focusRow = -1;
-        int focusColumn = -1;
-
-        public bool HasSelection { get { return anchorRow >= 0; } }
-
-        // セルを選ぶ。extend が真なら、選び始めたセルからの四角い範囲にする（Shift＋クリック・ドラッグ）
-        public void Select(PreviewCell cell, bool extend)
-        {
-            if (cell == null) return;
-            if (!extend || anchorRow < 0)
-            {
-                anchorRow = cell.RowIndex;
-                anchorColumn = cell.ColumnIndex;
-            }
-            focusRow = cell.RowIndex;
-            focusColumn = cell.ColumnIndex;
-            ApplySelection();
-        }
-
-        // 1行すべてを選ぶ
-        public void SelectRow(PreviewCell cell)
-        {
-            if (cell == null || Columns.Count == 0) return;
-            anchorRow = focusRow = cell.RowIndex;
-            anchorColumn = 0;
-            focusColumn = Columns.Count - 1;
-            ApplySelection();
-        }
-
-        public void ClearSelection()
-        {
-            anchorRow = anchorColumn = focusRow = focusColumn = -1;
-            ApplySelection();
-        }
-
-        void ApplySelection()
-        {
-            int rowFrom = Math.Min(anchorRow, focusRow), rowTo = Math.Max(anchorRow, focusRow);
-            int columnFrom = Math.Min(anchorColumn, focusColumn), columnTo = Math.Max(anchorColumn, focusColumn);
-            foreach (PreviewRow row in Rows)
-            {
-                foreach (PreviewCell cell in row.Cells)
-                {
-                    cell.IsSelected = anchorRow >= 0 &&
-                                      cell.RowIndex >= rowFrom && cell.RowIndex <= rowTo &&
-                                      cell.ColumnIndex >= columnFrom && cell.ColumnIndex <= columnTo;
-                }
-            }
-        }
-
-        // 選んだ範囲の文字列。1 セルならその値のまま、複数ならタブ区切り（Excel に貼り付けたときに
-        // 元の位置に並ぶよう、改行・タブ・" を含むセルは " で囲む）
-        public string GetSelectionText()
-        {
-            if (anchorRow < 0) return "";
-            int rowFrom = Math.Min(anchorRow, focusRow), rowTo = Math.Max(anchorRow, focusRow);
-            int columnFrom = Math.Min(anchorColumn, focusColumn), columnTo = Math.Max(anchorColumn, focusColumn);
-            if (rowFrom == rowTo && columnFrom == columnTo)
-            {
-                return CellText(rowFrom, columnFrom);
-            }
-
-            StringBuilder text = new StringBuilder();
-            for (int r = rowFrom; r <= rowTo; r++)
-            {
-                if (r > rowFrom) text.Append("\r\n");
-                for (int c = columnFrom; c <= columnTo; c++)
-                {
-                    if (c > columnFrom) text.Append('\t');
-                    text.Append(QuoteForExcel(CellText(r, c)));
-                }
-            }
-            return text.ToString();
-        }
-
-        // 選んだセルの数（状況表示用）
-        public int SelectedCount
-        {
-            get
-            {
-                if (anchorRow < 0) return 0;
-                return (Math.Abs(anchorRow - focusRow) + 1) * (Math.Abs(anchorColumn - focusColumn) + 1);
-            }
-        }
-
-        string CellText(int rowIndex, int columnIndex)
-        {
-            if (rowIndex < 0 || rowIndex >= Rows.Count) return "";
-            List<PreviewCell> cells = Rows[rowIndex].Cells;
-            return columnIndex >= 0 && columnIndex < cells.Count ? cells[columnIndex].Text : "";
-        }
-
-        static string QuoteForExcel(string text)
-        {
-            if (text.IndexOf('\n') < 0 && text.IndexOf('\t') < 0 && text.IndexOf('"') < 0) return text;
-            return "\"" + text.Replace("\"", "\"\"") + "\"";
-        }
-    }
-
-    // 検索結果の1行（common.ps1 の WinGrep.TsvSearchHit と同じ項目を持ち、toSearchResultLines 等にそのまま渡せる）
-    public class HitRow
-    {
-        public string IndexName { get; set; }
-        public string Root { get; set; }
-        public string RelPath { get; set; }
-        public string RelDir { get; set; }
-        public string FileName { get; set; }
-        public string Book { get; set; }
-        public string Location { get; set; }
-        public int LineNumber { get; set; }
-        public string Line { get; set; }
-        public string DisplayLine { get; set; }
-        public List<Segment> Segments { get; set; }
-        public bool IsExcel { get; set; }
-        public string MatchCell { get; set; }  // 最初に一致した Excel のセル（例: B5）。Excel 以外・見つからなければ空
-        public string CellText { get; set; }   // 結果の表の「セル」列（例: B5 / B5 ほか 2）
-
-        private string word;
-        private Regex pattern;
-        private string filterText;
-
-        // 行の先頭にタブを足してから使い、どのセルも「タブ＋中身」で取る（^ を使うと、先頭の空のセルの後のタブを読み飛ばす）
-        static readonly Regex CellRegex = new Regex("\\t(?:\"(?:[^\"]|\"\")*\"[^\\t]*|[^\\t]*)");
-        static readonly Regex QuoteRegex = new Regex("^\"((?:[^\"]|\"\")*)\"(.*)$", RegexOptions.Singleline);
-        static readonly Regex ExcelRegex = new Regex("\\.xls[a-z]?$", RegexOptions.IgnoreCase);
-        const char CellNewLine = (char)0x2028;  // インデックスのTSVでセル内改行の代わりに使う文字（common.ps1 の cellNewLine）
-        const int LeadLength = 40;
-        const int MaxDisplay = 600;
-
-        public static HitRow Create(string indexName, string root, string relPath, string relDir, string fileName,
-                                    string book, string location, int lineNumber, string line, string word, Regex pattern)
-        {
-            HitRow row = new HitRow();
-            row.IndexName = indexName;
-            row.Root = root;
-            row.RelPath = relPath;
-            row.RelDir = relDir ?? "";
-            row.FileName = fileName;
-            row.Book = book;
-            row.Location = location;
-            row.LineNumber = lineNumber;
-            row.Line = line ?? "";
-            row.word = word;
-            row.pattern = pattern;
-            row.IsExcel = ExcelRegex.IsMatch(book ?? "");
-            row.DisplayLine = ToDisplay(row.Line);
-            row.Segments = row.BuildSegments();
-            row.SetMatchCell();
-            row.filterText = row.RelDir + "\t" + book + "\t" + location + "\t" + lineNumber + "\t" + row.CellText + "\t" + row.DisplayLine;
-            return row;
-        }
-
-        // 一致したセルを数え、MatchCell・CellText を決める
-        void SetMatchCell()
-        {
-            MatchCell = "";
-            CellText = "";
-            if (!IsExcel) return;
-            List<string> cells = SplitCells(Line, true);
-            int count = 0;
-            for (int i = 0; i < cells.Count; i++)
-            {
-                if (FindMatches(cells[i], word, pattern).Count == 0) continue;
-                if (count == 0) MatchCell = ColumnName(i + 1) + LineNumber;
-                count++;
-            }
-            CellText = count > 1 ? MatchCell + " ほか " + (count - 1) : MatchCell;
-        }
-
-        // 絞り込み（全列の部分一致。大文字・小文字を区別しない）
-        public bool Contains(string text)
-        {
-            return filterText.IndexOf(text, StringComparison.CurrentCultureIgnoreCase) >= 0;
-        }
-
-        // セルの区切り（タブ）とセル内改行を見やすい記号にする
-        public static string ToDisplay(string text)
-        {
-            return (text ?? "").Replace("\t", " │ ").Replace(CellNewLine, '↵');
-        }
-
-        public static List<int[]> FindMatches(string text, string word, Regex pattern)
-        {
-            List<int[]> list = new List<int[]>();
-            if (string.IsNullOrEmpty(text)) return list;
-            if (pattern != null)
-            {
-                foreach (Match m in pattern.Matches(text))
-                {
-                    if (m.Length > 0) list.Add(new int[] { m.Index, m.Length });
-                }
-            }
-            else if (!string.IsNullOrEmpty(word))
-            {
-                int i = 0;
-                while (i < text.Length && (i = text.IndexOf(word, i, StringComparison.CurrentCultureIgnoreCase)) >= 0)
-                {
-                    list.Add(new int[] { i, word.Length });
-                    i += Math.Max(1, word.Length);
-                }
-            }
-            return list;
-        }
-
-        // 一致箇所で区切る。最初の一致が見えるよう、その前が長ければ末尾だけを残す
-        List<Segment> BuildSegments()
-        {
-            List<Segment> segments = new List<Segment>();
-            int pos = 0;
-            int shown = 0;
-            foreach (int[] m in FindMatches(Line, word, pattern))
-            {
-                if (m[0] < pos) continue;
-                if (m[0] + m[1] > Line.Length) break;
-                string before = Line.Substring(pos, m[0] - pos);
-                if (segments.Count == 0 && before.Length > LeadLength)
-                {
-                    before = "…" + before.Substring(before.Length - LeadLength);
-                }
-                if (before.Length > 0) segments.Add(new Segment { Text = ToDisplay(before), IsHit = false });
-                segments.Add(new Segment { Text = ToDisplay(Line.Substring(m[0], m[1])), IsHit = true });
-                shown += before.Length + m[1];
-                pos = m[0] + m[1];
-                if (shown > MaxDisplay) break;
-            }
-            if (pos < Line.Length)
-            {
-                string rest = Line.Substring(pos);
-                if (rest.Length > MaxDisplay) rest = rest.Substring(0, MaxDisplay) + "…";
-                segments.Add(new Segment { Text = ToDisplay(rest), IsHit = false });
-            }
-            return segments;
-        }
-
-        // TSVの1行をセルに分ける。Excel は " で囲まれたセルを1セルとして囲みを外す。Word・PowerPoint はタブで分けるだけ
-        public static List<string> SplitCells(string line, bool isExcel)
-        {
-            List<string> cells = new List<string>();
-            if (!isExcel)
-            {
-                cells.AddRange((line ?? "").Split('\t'));
-                return cells;
-            }
-            foreach (Match m in CellRegex.Matches("\t" + (line ?? "")))
-            {
-                string cell = m.Value.Substring(1);
-                Match q = QuoteRegex.Match(cell);
-                if (q.Success) cell = q.Groups[1].Value.Replace("\"\"", "\"") + q.Groups[2].Value;
-                cells.Add(cell);
-            }
-            return cells;
-        }
-
-        const double NumberWidth = 44;     // プレビューの行番号の列の幅（config_gui.xaml と合わせる）
-        const double MinCellWidth = 48;
-        const double MaxCellWidth = 260;
-        const double MaxParagraphWidth = 640;
-
-        // 選択行のプレビュー（前後の行をセルに分けた、シートのような表）を作る。
-        // numbers・lines は TSV の行番号と行（common.ps1 の readTsvContext）。読めなかった場合は選択行だけにする
-        public PreviewTable BuildPreview(int[] numbers, string[] lines)
-        {
-            if (numbers == null || lines == null || numbers.Length == 0 || numbers.Length != lines.Length)
-            {
-                numbers = new int[] { LineNumber };
-                lines = new string[] { Line };
-            }
-
-            List<List<string>> rowCells = new List<List<string>>();
-            int columnCount = 0;
-            foreach (string line in lines)
-            {
-                List<string> cells = SplitCells(line, IsExcel);
-                rowCells.Add(cells);
-                columnCount = Math.Max(columnCount, cells.Count);
-            }
-
-            // 列の幅は、見出しと各行のセルの文字数（セル内改行のある行は最も長い行）から決める。
-            // Word・PowerPoint は段落が1列になるため広くする。ここで決めるのは初めの幅で、見出しのドラッグで変えられる
-            double maxWidth = IsExcel ? MaxCellWidth : MaxParagraphWidth;
-            PreviewTable table = new PreviewTable
-            {
-                Columns = new List<PreviewColumn>(), Rows = new List<PreviewRow>(), HitOffset = -1, HitWidth = 0
-            };
-            for (int c = 0; c < columnCount; c++)
-            {
-                double width = TextWidth(ColumnLabel(c + 1));
-                foreach (List<string> cells in rowCells)
-                {
-                    if (c < cells.Count) width = Math.Max(width, CellWidth(cells[c]));
-                }
-                table.Columns.Add(new PreviewColumn
-                {
-                    Label = ColumnLabel(c + 1),
-                    Width = Math.Min(maxWidth, Math.Max(MinCellWidth, width))
-                });
-            }
-
-            for (int r = 0; r < rowCells.Count; r++)
-            {
-                bool isHitRow = numbers[r] == LineNumber;
-                PreviewRow row = new PreviewRow { Number = numbers[r].ToString(), IsHitRow = isHitRow, Cells = new List<PreviewCell>() };
-                double left = NumberWidth;
-                for (int c = 0; c < columnCount; c++)
-                {
-                    string cell = c < rowCells[r].Count ? rowCells[r][c] : "";
-                    bool isHit = FindMatches(cell, word, pattern).Count > 0;
-                    // セル内改行は改行のまま表示する（折り返して複数行で見えるようにする）
-                    string text = cell.Replace(CellNewLine, '\n');
-                    row.Cells.Add(new PreviewCell
-                    {
-                        Text = text,
-                        ToolTip = text.Length > 0 ? text : null,
-                        Column = table.Columns[c],
-                        IsHit = isHit,
-                        RowIndex = r,
-                        ColumnIndex = c
-                    });
-                    if (isHitRow && isHit && table.HitOffset < 0)
-                    {
-                        table.HitOffset = left;
-                        table.HitWidth = table.Columns[c].Width;
-                    }
-                    left += table.Columns[c].Width;
-                }
-                table.Rows.Add(row);
-            }
-            if (table.HitOffset < 0) table.HitOffset = 0;
-            return table;
-        }
-
-        // セルの幅の目安。セル内改行を含むセルは、最も長い行に合わせる
-        static double CellWidth(string cell)
-        {
-            double width = 0;
-            foreach (string line in (cell ?? "").Split(CellNewLine, '\n'))
-            {
-                width = Math.Max(width, TextWidth(line));
-            }
-            return width;
-        }
-
-        // 列見出し。Excel は A, B, C…、Word・PowerPoint はタブで分けた順の 1, 2, 3…
-        string ColumnLabel(int number)
-        {
-            return IsExcel ? ColumnName(number) : number.ToString();
-        }
-
-        // 12px の文字で表示したときの幅の目安（半角 7px、全角 12px、左右の余白 14px）
-        static double TextWidth(string text)
-        {
-            double width = 14;
-            foreach (char ch in text ?? "")
-            {
-                width += ch < 0x0100 || (ch >= 0xFF61 && ch <= 0xFF9F) ? 7 : 12;
-            }
-            return width;
-        }
-
-        public static string ColumnName(int number)
-        {
-            string name = "";
-            while (number > 0)
-            {
-                number--;
-                name = (char)('A' + number % 26) + name;
-                number /= 26;
-            }
-            return name;
-        }
-    }
-
-    // ［9 Office 強制終了］の1行
-    public class ProcRow
-    {
-        public int Id { get; set; }
-        public string AppName { get; set; }
-        public bool Background { get; set; }
-        public string StateText { get; set; }
-        public string StartText { get; set; }
-        public string MemoryText { get; set; }
-        public string TitleText { get; set; }
-    }
-
-    // ［1 インデックス作成］の変換に失敗したファイル1件
-    public class FailRow
-    {
-        public string RelPath { get; set; }
-        public string Reason { get; set; }
-        public string ConvertedText { get; set; }
-        public string SourcePath { get; set; }
-    }
-
-    // ［1 インデックス作成］の変換対象フォルダ1件（チェックの変更を通知する）
-    public class FolderItem : INotifyPropertyChanged
-    {
-        private bool enabled;
-        private string statusText;
-        private object statusBrush;
-        private string path;
-
-        // インデックス名（work\index 直下のフォルダ名）。フォルダの置き場所（Path）とは分けて持つ
-        private string name;
-        public string Name
-        {
-            get { return name; }
-            set { if (name != value) { name = value; OnChanged("Name"); OnChanged("IndexLabel"); } }
-        }
-        // 一覧に出すインデックス名（まだ決まっていなければ空）
-        public string IndexLabel
-        {
-            get { return string.IsNullOrEmpty(name) ? "" : "[" + name + "]"; }
-        }
-        public string Path
-        {
-            get { return path; }
-            set { if (path != value) { path = value; OnChanged("Path"); } }
-        }
-        public bool Enabled
-        {
-            get { return enabled; }
-            set { if (enabled != value) { enabled = value; OnChanged("Enabled"); } }
-        }
-        public string StatusText
-        {
-            get { return statusText; }
-            set { statusText = value; OnChanged("StatusText"); }
-        }
-        public object StatusBrush
-        {
-            get { return statusBrush; }
-            set { statusBrush = value; OnChanged("StatusBrush"); }
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        void OnChanged(string name)
-        {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null) handler(this, new PropertyChangedEventArgs(name));
-        }
-    }
-
-    public static class Native
-    {
-        [DllImport("user32.dll")]
-        public static extern bool SetForegroundWindow(IntPtr hWnd);
-    }
-
-    // エクスプローラー形式のフォルダ選択（Windows 標準の IFileOpenDialog をフォルダ選択モードで使う）。
-    // アドレスバーや「フォルダー」欄にパスを貼り付けて選べる。.NET の FolderBrowserDialog（ツリー形式）ではパスを入力できないため
-    public static class FolderPicker
-    {
-        const uint FOS_NOCHANGEDIR = 0x8;
-        const uint FOS_PICKFOLDERS = 0x20;
-        const uint FOS_FORCEFILESYSTEM = 0x40;
-        const uint FOS_PATHMUSTEXIST = 0x800;
-        const uint SIGDN_FILESYSPATH = 0x80058000;
-        const int ERROR_CANCELLED = unchecked((int)0x800704C7);
-
-        [ComImport, Guid("DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7")]
-        class FileOpenDialogCoClass { }
-
-        [ComImport, Guid("42f85136-db7e-439c-85f1-e4075d135fc8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        interface IFileOpenDialog
-        {
-            [PreserveSig] int Show(IntPtr parent);
-            void SetFileTypes(uint cFileTypes, IntPtr rgFilterSpec);
-            void SetFileTypeIndex(uint iFileType);
-            void GetFileTypeIndex(out uint piFileType);
-            void Advise(IntPtr pfde, out uint pdwCookie);
-            void Unadvise(uint dwCookie);
-            void SetOptions(uint fos);
-            void GetOptions(out uint pfos);
-            void SetDefaultFolder(IShellItem psi);
-            void SetFolder(IShellItem psi);
-            void GetFolder(out IShellItem ppsi);
-            void GetCurrentSelection(out IShellItem ppsi);
-            void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string pszName);
-            void GetFileName([MarshalAs(UnmanagedType.LPWStr)] out string pszName);
-            void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string pszTitle);
-            void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string pszText);
-            void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string pszLabel);
-            void GetResult(out IShellItem ppsi);
-            void AddPlace(IShellItem psi, int fdap);
-            void SetDefaultExtension([MarshalAs(UnmanagedType.LPWStr)] string pszDefaultExtension);
-            void Close(int hr);
-            void SetClientGuid(ref Guid guid);
-            void ClearClientData();
-            void SetFilter(IntPtr pFilter);
-            void GetResults(out IntPtr ppenum);
-            void GetSelectedItems(out IntPtr ppsai);
-        }
-
-        [ComImport, Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        interface IShellItem
-        {
-            void BindToHandler(IntPtr pbc, ref Guid bhid, ref Guid riid, out IntPtr ppv);
-            void GetParent(out IShellItem ppsi);
-            void GetDisplayName(uint sigdnName, out IntPtr ppszName);
-            void GetAttributes(uint sfgaoMask, out uint psfgaoAttribs);
-            void Compare(IShellItem psi, uint hint, out int piOrder);
-        }
-
-        [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
-        static extern void SHCreateItemFromParsingName(string pszPath, IntPtr pbc, [In] ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out IShellItem ppv);
-
-        // 選んだフォルダのパスを返す。キャンセルなら null
-        public static string Show(IntPtr owner, string title, string initialFolder)
-        {
-            IFileOpenDialog dialog = (IFileOpenDialog)new FileOpenDialogCoClass();
-            try
-            {
-                uint options;
-                dialog.GetOptions(out options);
-                dialog.SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST | FOS_NOCHANGEDIR);
-                if (!string.IsNullOrEmpty(title)) dialog.SetTitle(title);
-                if (!string.IsNullOrEmpty(initialFolder) && System.IO.Directory.Exists(initialFolder))
-                {
-                    Guid shellItemId = typeof(IShellItem).GUID;
-                    IShellItem folder;
-                    SHCreateItemFromParsingName(initialFolder, IntPtr.Zero, ref shellItemId, out folder);
-                    dialog.SetFolder(folder);
-                }
-
-                int hr = dialog.Show(owner);
-                if (hr == ERROR_CANCELLED) return null;
-                if (hr != 0) Marshal.ThrowExceptionForHR(hr);
-
-                IShellItem result;
-                dialog.GetResult(out result);
-                IntPtr namePtr;
-                result.GetDisplayName(SIGDN_FILESYSPATH, out namePtr);
-                try
-                {
-                    return Marshal.PtrToStringUni(namePtr);
-                }
-                finally
-                {
-                    Marshal.FreeCoTaskMem(namePtr);
-                }
-            }
-            finally
-            {
-                Marshal.ReleaseComObject(dialog);
-            }
-        }
-    }
-
-    // 検索対象の1件（common.ps1 の getIndexTsvFiles に渡す）
-    public class SearchTarget
-    {
-        public string Root { get; set; }     // 検索対象インデックスのフォルダ
-        public string RelPath { get; set; }  // Root の中のフォルダ（空は Root 自身）
-        public bool Recurse { get; set; }    // false はフォルダ直下のファイルだけ
-    }
-
-    // 検索対象から外したフォルダ（common.ps1 の readSearchExcludes / writeSearchExcludes と同じ項目）
-    public class SearchExclude
-    {
-        public string Path { get; set; }
-        public bool Subfolders { get; set; }  // false はフォルダ直下のファイルだけを外す
-    }
-
-    // 検索対象インデックスのツリーの1項目。フォルダ、またはフォルダ直下のファイルのまとまり（IsFiles。
-    // サブフォルダとファイルの両方があるフォルダだけに付け、サブフォルダの一部だけを選んだときに直下のファイルを含めるかを表す）。
-    // チェックは true / false / null（一部）の3状態で、子のあるフォルダの状態は子の状態から決まる。
-    // 子のフォルダは展開したときに読み込む（読み込むまでは、下のフォルダもすべて同じ状態とみなす）
-    public class IndexNode : INotifyPropertyChanged
-    {
-        public string Name { get; private set; }
-        public string Root { get; private set; }     // 検索対象インデックスのフォルダ（フルパス）
-        public string RelPath { get; private set; }  // Root からの相対パス（Root 自身と、Root 直下のファイルは空）
-        public bool IsFiles { get; private set; }
-        public bool IsPlaceholder { get; private set; }  // 展開するまで置いておく仮の子
-        public bool Exists { get; private set; }
-        public string SourcePath { get; private set; }   // 元のフォルダ（分からなければ null）
-        public string ToolTip { get; private set; }
-        public IndexNode Parent { get; private set; }
-        public System.Collections.ObjectModel.ObservableCollection<IndexNode> Children { get; private set; }
-
-        IDictionary<string, string> sourceFolders;  // ルートだけ持つ: インデックス名 → 変換対象フォルダ
-        bool? isChecked = true;
-        bool isExpanded;
-        bool loaded;
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        void OnChanged(string name)
-        {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null) handler(this, new PropertyChangedEventArgs(name));
-        }
-
-        IndexNode(IndexNode parent, string name, string root, string relPath, bool isFiles)
-        {
-            Parent = parent;
-            Name = name;
-            Root = root;
-            RelPath = relPath;
-            IsFiles = isFiles;
-            Exists = true;
-            Children = new System.Collections.ObjectModel.ObservableCollection<IndexNode>();
-            if (parent != null) isChecked = parent.isChecked != false;
-        }
-
-        // 検索対象インデックスのフォルダ（ツリーの一番上）を作る。sourceFolders は 元のフォルダ.txt・変換一覧の記録
-        public static IndexNode CreateRoot(string root, string name, string sourcePath, IDictionary<string, string> sourceFolders)
-        {
-            IndexNode node = new IndexNode(null, name, root, "", false);
-            node.sourceFolders = sourceFolders;
-            node.SourcePath = sourcePath;
-            node.Exists = System.IO.Directory.Exists(LongPath(root));
-            node.ToolTip = node.Exists ? root : root + "（フォルダが見つかりません。検索時はスキップします）";
-            if (sourcePath != null) node.ToolTip += "\n元のフォルダ：" + sourcePath;
-            if (node.Exists && HasSubfolders(root)) node.Children.Add(NewPlaceholder(node));
-            return node;
-        }
-
-        public string FullPath
-        {
-            get { return RelPath == "" ? Root : Root.TrimEnd('\\') + "\\" + RelPath; }
-        }
-
-        public bool? IsChecked
-        {
-            get { return isChecked; }
-            set { SetChecked(value != false); }
-        }
-
-        public bool IsExpanded
-        {
-            get { return isExpanded; }
-            set
-            {
-                if (value) LoadChildren();
-                if (isExpanded == value) return;
-                isExpanded = value;
-                OnChanged("IsExpanded");
-            }
-        }
-
-        // チェックを付ける・外す（下のフォルダも同じにし、上のフォルダの状態を決め直す）
-        public void SetChecked(bool value)
-        {
-            SetTree(value);
-            if (Parent != null) Parent.UpdateFromChildren();
-        }
-
-        public void Toggle()
-        {
-            SetChecked(isChecked != true);
-        }
-
-        void SetTree(bool value)
-        {
-            SetState(value);
-            foreach (IndexNode child in Children)
-            {
-                if (!child.IsPlaceholder) child.SetTree(value);
-            }
-        }
-
-        void SetState(bool? value)
-        {
-            if (isChecked == value) return;
-            isChecked = value;
-            OnChanged("IsChecked");
-        }
-
-        void UpdateFromChildren()
-        {
-            bool any = false;
-            bool? state = null;
-            foreach (IndexNode child in Children)
-            {
-                if (child.IsPlaceholder) continue;
-                if (!any)
-                {
-                    state = child.isChecked;
-                    any = true;
-                }
-                else if (state != child.isChecked)
-                {
-                    state = null;
-                    break;
-                }
-            }
-            if (!any) return;
-            SetState(state);
-            if (Parent != null) Parent.UpdateFromChildren();
-        }
-
-        // 子のフォルダを読み込む（1回だけ）。子は今の状態（チェックあり・なし）を引き継ぐ
-        public void LoadChildren()
-        {
-            if (loaded || IsFiles || IsPlaceholder) return;
-            loaded = true;
-            Children.Clear();
-            if (!Exists) return;
-
-            string dir = FullPath;
-            List<string> names = new List<string>();
-            try
-            {
-                foreach (string sub in System.IO.Directory.EnumerateDirectories(LongPath(dir)))
-                {
-                    string name = System.IO.Path.GetFileName(sub);
-                    // 元のファイル名のフォルダはツリーに出さない（中のTSVは、このフォルダ直下のファイルとして扱う）
-                    if (IsBookDir(name)) continue;
-                    names.Add(name);
-                }
-            }
-            catch (Exception)
-            {
-            }
-            names.Sort(StringComparer.CurrentCultureIgnoreCase);
-
-            if (names.Count > 0 && HasFiles(dir))
-            {
-                IndexNode files = new IndexNode(this, "（このフォルダ直下のファイル）", Root, RelPath, true);
-                files.ToolTip = "サブフォルダを除く、" + (SourcePath ?? dir) + " の直下のファイル";
-                Children.Add(files);
-            }
-            foreach (string name in names)
-            {
-                IndexNode child = new IndexNode(this, name, Root, RelPath == "" ? name : RelPath + "\\" + name, false);
-                if (Parent == null && sourceFolders != null && sourceFolders.ContainsKey(name))
-                {
-                    child.SourcePath = sourceFolders[name];
-                }
-                else if (SourcePath != null)
-                {
-                    child.SourcePath = SourcePath.TrimEnd('\\') + "\\" + name;
-                }
-                child.ToolTip = child.SourcePath != null ? "元のフォルダ：" + child.SourcePath : child.FullPath;
-                if (HasSubfolders(child.FullPath)) child.Children.Add(NewPlaceholder(child));
-                Children.Add(child);
-            }
-        }
-
-        // path（フルパス）のフォルダの項目を返す（途中のフォルダは読み込む）。無ければ null
-        public IndexNode Find(string path)
-        {
-            if (IsFiles || IsPlaceholder) return null;
-            string full = FullPath.TrimEnd('\\');
-            path = path.TrimEnd('\\');
-            if (string.Equals(path, full, StringComparison.OrdinalIgnoreCase)) return this;
-            if (!path.StartsWith(full + "\\", StringComparison.OrdinalIgnoreCase)) return null;
-            LoadChildren();
-            foreach (IndexNode child in Children)
-            {
-                IndexNode found = child.Find(path);
-                if (found != null) return found;
-            }
-            return null;
-        }
-
-        // 保存したチェックなしのフォルダを戻す（subfolders が false ならフォルダ直下のファイルだけ）
-        public void ApplyExclude(string path, bool subfolders)
-        {
-            IndexNode node = Find(path);
-            if (node == null) return;
-            if (!subfolders)
-            {
-                node.LoadChildren();
-                foreach (IndexNode child in node.Children)
-                {
-                    if (child.IsFiles)
-                    {
-                        child.SetChecked(false);
-                        return;
-                    }
-                }
-                // サブフォルダだけになっていれば直下のファイルは無い。フォルダだけになっていればフォルダごと外す
-                if (node.Children.Count > 0) return;
-            }
-            node.SetChecked(false);
-        }
-
-        // 検索する範囲（チェックありの一番上のフォルダ・直下のファイル）を targets に加える
-        public void AddTargets(List<SearchTarget> targets)
-        {
-            if (IsPlaceholder || isChecked == false) return;
-            if (isChecked == true)
-            {
-                targets.Add(new SearchTarget { Root = Root, RelPath = RelPath, Recurse = !IsFiles });
-                return;
-            }
-            foreach (IndexNode child in Children) child.AddTargets(targets);
-        }
-
-        // 保存する、チェックなしの一番上のフォルダ・直下のファイルを excludes に加える
-        public void AddExcludes(List<SearchExclude> excludes)
-        {
-            if (IsPlaceholder || isChecked == true) return;
-            if (isChecked == false)
-            {
-                excludes.Add(new SearchExclude { Path = FullPath, Subfolders = !IsFiles });
-                return;
-            }
-            foreach (IndexNode child in Children) child.AddExcludes(excludes);
-        }
-
-        // 展開しているフォルダのパスを paths に加える（読み込み直した後に展開の状態を戻すため）
-        public void AddExpanded(List<string> paths)
-        {
-            if (IsFiles || IsPlaceholder) return;
-            if (isExpanded) paths.Add(FullPath);
-            foreach (IndexNode child in Children) child.AddExpanded(paths);
-        }
-
-        static IndexNode NewPlaceholder(IndexNode parent)
-        {
-            IndexNode node = new IndexNode(parent, "読み込み中…", parent.Root, parent.RelPath, false);
-            node.IsPlaceholder = true;
-            return node;
-        }
-
-        // 260文字を超えるパスも扱えるよう \\?\ を付ける（common.ps1 の toLongPath と同じ）
-        static string LongPath(string path)
-        {
-            if (path.StartsWith("\\\\?\\")) return path;
-            if (path.EndsWith(":")) path += "\\";
-            if (path.StartsWith("\\\\")) return "\\\\?\\UNC\\" + path.Substring(2);
-            return "\\\\?\\" + path;
-        }
-
-        // インデックスの「元のファイル名のフォルダ」（<ファイル名.xlsx>\<場所>.tsv のフォルダ）かどうか。
-        // 元のファイルはツリーに出さず、そのTSVは親フォルダ直下のファイルとして扱う
-        public static bool IsBookDir(string name)
-        {
-            string ext = System.IO.Path.GetExtension(name).ToLowerInvariant();
-            if (ext.Length < 4 || ext.Length > 5) return false;
-            return ext.StartsWith(".xls") || ext.StartsWith(".doc") || ext.StartsWith(".ppt");
-        }
-
-        static bool HasSubfolders(string dir)
-        {
-            try
-            {
-                foreach (string sub in System.IO.Directory.EnumerateDirectories(LongPath(dir)))
-                {
-                    if (!IsBookDir(System.IO.Path.GetFileName(sub))) return true;
-                }
-                return false;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        static bool HasFiles(string dir)
-        {
-            try
-            {
-                using (IEnumerator<string> e = System.IO.Directory.EnumerateFiles(LongPath(dir), "*.tsv").GetEnumerator())
-                {
-                    if (e.MoveNext()) return true;
-                }
-                // 今の形式では、TSVは元のファイル名のフォルダの中にある
-                foreach (string sub in System.IO.Directory.EnumerateDirectories(LongPath(dir)))
-                {
-                    if (!IsBookDir(System.IO.Path.GetFileName(sub))) continue;
-                    using (IEnumerator<string> e = System.IO.Directory.EnumerateFiles(sub, "*.tsv").GetEnumerator())
-                    {
-                        if (e.MoveNext()) return true;
-                    }
-                }
-                return false;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-    }
-}
-'@
+$activateEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threading.EventResetMode]::AutoReset, $activateName)
+
+# ---- 画面で使う型（PowerShell class。実行時コンパイル（csc.exe）を出さないため C# から移した） ----
+# INotifyPropertyChanged は NotifyBase を継承して実装する（PS class はプロパティのセッターに
+# ロジックを書けないため、値を変える側が Set*/Raise を呼ぶ）。HitRow は件数が多いので生成時は生データだけ持ち、
+# 表示用（強調セグメント・セル解析）は画面に見えた行だけ Prepare() で作る（LoadingRow から呼ぶ）。
+
+class NotifyBase : System.ComponentModel.INotifyPropertyChanged {
+    hidden [System.ComponentModel.PropertyChangedEventHandler] $handler
+    [void] add_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]$h) { $this.handler = [Delegate]::Combine($this.handler, $h) }
+    [void] remove_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]$h) { $this.handler = [Delegate]::Remove($this.handler, $h) }
+    [void] Raise([string]$name) { if ($this.handler) { $this.handler.Invoke($this, (New-Object System.ComponentModel.PropertyChangedEventArgs $name)) } }
 }
 
-# ---- 画面の読み込み ----
+class Segment {
+    [string]$Text
+    [bool]$IsHit
+}
+
+# 選択行のプレビューの列。見出しと各行のセルが同じものを参照し、幅を変えると列全体に反映する。
+# セルは Width に OneWay バインド。幅の変更は SetWidth（見出しのドラッグから呼ぶ）で行う
+class PreviewColumn : NotifyBase {
+    static [double] $MinWidth = 24   # ドラッグで狭くできる下限
+    [string]$Label
+    [double]$Width
+    [void] SetWidth([double]$value) {
+        $newWidth = [Math]::Max([PreviewColumn]::MinWidth, $value)
+        if ($this.Width -eq $newWidth) { return }
+        $this.Width = $newWidth
+        $this.Raise("Width")
+    }
+}
+
+# 選択行のプレビューのセル1つ（IsSelected はコピーのために選んだ範囲）
+class PreviewCell : NotifyBase {
+    [string]$Text        # セルの値そのまま（コピーに使う）
+    [string]$Display     # 画面に出す文字列（長すぎるセルは切り詰める）
+    [string]$ToolTip
+    [PreviewColumn]$Column
+    [bool]$IsHit
+    [int]$RowIndex
+    [int]$ColumnIndex
+    [bool]$IsSelected
+    [void] SetSelected([bool]$value) {
+        if ($this.IsSelected -eq $value) { return }
+        $this.IsSelected = $value
+        $this.Raise("IsSelected")
+    }
+}
+
+# 選択行のプレビューの1行
+class PreviewRow {
+    [string]$Number
+    [bool]$IsHitRow
+    [System.Collections.Generic.List[PreviewCell]]$Cells
+}
+
+# 選択行のプレビュー。HitOffset・HitWidth は選択行で最初に一致したセルの左端と幅（横スクロール用）
+class PreviewTable {
+    [System.Collections.Generic.List[PreviewColumn]]$Columns
+    [System.Collections.Generic.List[PreviewRow]]$Rows
+    [double]$HitOffset
+    [double]$HitWidth
+    [int]$TotalColumns
+    [int]$ShownColumns
+    [string]$RangeLabel
+
+    hidden [int]$anchorRow = -1
+    hidden [int]$anchorColumn = -1
+    hidden [int]$focusRow = -1
+    hidden [int]$focusColumn = -1
+
+    [bool] HasSelection() { return $this.anchorRow -ge 0 }
+
+    [void] Select([PreviewCell]$cell, [bool]$extend) {
+        if ($null -eq $cell) { return }
+        if (-not $extend -or $this.anchorRow -lt 0) {
+            $this.anchorRow = $cell.RowIndex
+            $this.anchorColumn = $cell.ColumnIndex
+        }
+        $this.focusRow = $cell.RowIndex
+        $this.focusColumn = $cell.ColumnIndex
+        $this.ApplySelection()
+    }
+
+    [void] SelectRow([PreviewCell]$cell) {
+        if ($null -eq $cell -or $this.Columns.Count -eq 0) { return }
+        $this.anchorRow = $cell.RowIndex
+        $this.focusRow = $cell.RowIndex
+        $this.anchorColumn = 0
+        $this.focusColumn = $this.Columns.Count - 1
+        $this.ApplySelection()
+    }
+
+    [void] ClearSelection() {
+        $this.anchorRow = -1; $this.anchorColumn = -1; $this.focusRow = -1; $this.focusColumn = -1
+        $this.ApplySelection()
+    }
+
+    hidden [void] ApplySelection() {
+        $rowFrom = [Math]::Min($this.anchorRow, $this.focusRow); $rowTo = [Math]::Max($this.anchorRow, $this.focusRow)
+        $columnFrom = [Math]::Min($this.anchorColumn, $this.focusColumn); $columnTo = [Math]::Max($this.anchorColumn, $this.focusColumn)
+        foreach ($row in $this.Rows) {
+            foreach ($cell in $row.Cells) {
+                $cell.SetSelected($this.anchorRow -ge 0 -and
+                    $cell.RowIndex -ge $rowFrom -and $cell.RowIndex -le $rowTo -and
+                    $cell.ColumnIndex -ge $columnFrom -and $cell.ColumnIndex -le $columnTo)
+            }
+        }
+    }
+
+    [string] GetSelectionText() {
+        if ($this.anchorRow -lt 0) { return "" }
+        $rowFrom = [Math]::Min($this.anchorRow, $this.focusRow); $rowTo = [Math]::Max($this.anchorRow, $this.focusRow)
+        $columnFrom = [Math]::Min($this.anchorColumn, $this.focusColumn); $columnTo = [Math]::Max($this.anchorColumn, $this.focusColumn)
+        if ($rowFrom -eq $rowTo -and $columnFrom -eq $columnTo) {
+            return $this.CellText($rowFrom, $columnFrom)
+        }
+        $text = New-Object System.Text.StringBuilder
+        for ($r = $rowFrom; $r -le $rowTo; $r++) {
+            if ($r -gt $rowFrom) { [void]$text.Append("`r`n") }
+            for ($c = $columnFrom; $c -le $columnTo; $c++) {
+                if ($c -gt $columnFrom) { [void]$text.Append("`t") }
+                [void]$text.Append([PreviewTable]::QuoteForExcel($this.CellText($r, $c)))
+            }
+        }
+        return $text.ToString()
+    }
+
+    [int] SelectedCount() {
+        if ($this.anchorRow -lt 0) { return 0 }
+        return ([Math]::Abs($this.anchorRow - $this.focusRow) + 1) * ([Math]::Abs($this.anchorColumn - $this.focusColumn) + 1)
+    }
+
+    hidden [string] CellText([int]$rowIndex, [int]$columnIndex) {
+        if ($rowIndex -lt 0 -or $rowIndex -ge $this.Rows.Count) { return "" }
+        $cells = $this.Rows[$rowIndex].Cells
+        if ($columnIndex -ge 0 -and $columnIndex -lt $cells.Count) { return $cells[$columnIndex].Text }
+        return ""
+    }
+
+    static [string] QuoteForExcel([string]$text) {
+        if ($text.IndexOf("`n") -lt 0 -and $text.IndexOf("`t") -lt 0 -and $text.IndexOf('"') -lt 0) { return $text }
+        return '"' + $text.Replace('"', '""') + '"'
+    }
+}
+
+# 検索結果の1行。生成時は生データのみ。表示用（DisplayLine・Segments・CellText）は Prepare() で作る（可視行だけ）。
+# 表示用の各項目は Prepare() 後に PropertyChanged を出す（LoadingRow より前にバインドされても更新されるように）
+class HitRow : NotifyBase {
+    static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
+    static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（common.ps1 の cellNewLine）
+    static [int] $LeadLength = 40
+    static [int] $MaxDisplay = 600
+    static [double] $NumberWidth = 44
+    static [double] $MinCellWidth = 48
+    static [double] $MaxCellWidth = 260
+    static [double] $MaxParagraphWidth = 640
+    static [int] $MaxPreviewColumns = 200
+    static [int] $MaxCellChars = 300
+    static [int] $MaxToolTipChars = 1000
+    static [int] $MaxWidthChars = 100
+
+    [string]$IndexName
+    [string]$Root
+    [string]$RelPath
+    [string]$RelDir
+    [string]$FileName
+    [string]$Book
+    [string]$Location
+    [int]$LineNumber
+    [string]$Line
+    [bool]$IsExcel
+    [string]$MatchCell
+    [string]$CellText
+    [string]$DisplayLine
+    [System.Collections.Generic.List[Segment]]$Segments
+    [bool]$Prepared
+
+    hidden [string]$word
+    hidden [regex]$pattern
+
+    # 生成（検索ヒットごと。生データの代入のみ＝軽い）
+    static [HitRow] Create([string]$indexName, [string]$root, [string]$relPath, [string]$relDir, [string]$fileName,
+                           [string]$book, [string]$location, [int]$lineNumber, [string]$line, [string]$word, [regex]$pattern) {
+        $row = [HitRow]::new()
+        $row.IndexName = $indexName
+        $row.Root = $root
+        $row.RelPath = $relPath
+        $row.RelDir = $(if ($null -eq $relDir) { "" } else { $relDir })
+        $row.FileName = $fileName
+        $row.Book = $book
+        $row.Location = $location
+        $row.LineNumber = $lineNumber
+        $row.Line = $(if ($null -eq $line) { "" } else { $line })
+        $row.word = $word
+        $row.pattern = $pattern
+        $row.IsExcel = [HitRow]::ExcelRegex.IsMatch($(if ($null -eq $book) { "" } else { $book }))
+        return $row
+    }
+
+    # 表示用（強調セグメント・DisplayLine・セル列）を作る。可視行になったときに1回だけ呼ぶ（LoadingRow）
+    [void] Prepare() {
+        if ($this.Prepared) { return }
+        $this.Prepared = $true
+        $this.DisplayLine = [HitRow]::ToDisplay($this.Line)
+        $this.Segments = $this.BuildSegments()
+        $this.SetMatchCell()
+        $this.Raise("DisplayLine"); $this.Raise("Segments"); $this.Raise("CellText"); $this.Raise("MatchCell")
+    }
+
+    hidden [void] SetMatchCell() {
+        $this.MatchCell = ""
+        $this.CellText = ""
+        if (-not $this.IsExcel) { return }
+        $cells = [HitRow]::SplitCells($this.Line, $true)
+        $count = 0
+        for ($i = 0; $i -lt $cells.Count; $i++) {
+            if ([HitRow]::FindMatches($cells[$i], $this.word, $this.pattern).Count -eq 0) { continue }
+            if ($count -eq 0) { $this.MatchCell = [HitRow]::ColumnName($i + 1) + $this.LineNumber }
+            $count++
+        }
+        $this.CellText = $(if ($count -gt 1) { $this.MatchCell + " ほか " + ($count - 1) } else { $this.MatchCell })
+    }
+
+    # 絞り込み。生データ（相対フォルダ・元ファイル名・場所・行番号・生の行）での部分一致（大文字小文字を区別しない）。
+    # ※以前は表示用（セル番地・タブ表示）も対象にしていたが、遅延生成のため生データのみを対象にした。
+    [bool] Contains([string]$text) {
+        $ci = [System.StringComparison]::CurrentCultureIgnoreCase
+        if ($this.RelDir.IndexOf($text, $ci) -ge 0) { return $true }
+        if (("" + $this.Book).IndexOf($text, $ci) -ge 0) { return $true }
+        if (("" + $this.Location).IndexOf($text, $ci) -ge 0) { return $true }
+        if ($this.LineNumber.ToString().IndexOf($text, $ci) -ge 0) { return $true }
+        if ($this.Line.IndexOf($text, $ci) -ge 0) { return $true }
+        return $false
+    }
+
+    static [string] ToDisplay([string]$text) {
+        if ($null -eq $text) { return "" }
+        return $text.Replace("`t", " │ ").Replace([HitRow]::CellNewLine, [char]0x21b5)
+    }
+
+    static [System.Collections.Generic.List[int[]]] FindMatches([string]$text, [string]$word, [regex]$pattern) {
+        $list = New-Object System.Collections.Generic.List[int[]]
+        if ([string]::IsNullOrEmpty($text)) { return $list }
+        if ($null -ne $pattern) {
+            foreach ($m in $pattern.Matches($text)) { if ($m.Length -gt 0) { $list.Add(@($m.Index, $m.Length)) } }
+        } elseif (-not [string]::IsNullOrEmpty($word)) {
+            $i = 0
+            while ($i -lt $text.Length) {
+                $i = $text.IndexOf($word, $i, [System.StringComparison]::CurrentCultureIgnoreCase)
+                if ($i -lt 0) { break }
+                $list.Add(@($i, $word.Length)); $i += [Math]::Max(1, $word.Length)
+            }
+        }
+        return $list
+    }
+
+    hidden [System.Collections.Generic.List[Segment]] BuildSegments() {
+        $segs = New-Object System.Collections.Generic.List[Segment]
+        $pos = 0; $shown = 0
+        foreach ($m in [HitRow]::FindMatches($this.Line, $this.word, $this.pattern)) {
+            if ($m[0] -lt $pos) { continue }
+            if ($m[0] + $m[1] -gt $this.Line.Length) { break }
+            $before = $this.Line.Substring($pos, $m[0] - $pos)
+            if ($segs.Count -eq 0 -and $before.Length -gt [HitRow]::LeadLength) {
+                $before = [char]0x2026 + $before.Substring($before.Length - [HitRow]::LeadLength)
+            }
+            if ($before.Length -gt 0) { $segs.Add([Segment]@{ Text = [HitRow]::ToDisplay($before); IsHit = $false }) }
+            $segs.Add([Segment]@{ Text = [HitRow]::ToDisplay($this.Line.Substring($m[0], $m[1])); IsHit = $true })
+            $shown += $before.Length + $m[1]
+            $pos = $m[0] + $m[1]
+            if ($shown -gt [HitRow]::MaxDisplay) { break }
+        }
+        if ($pos -lt $this.Line.Length) {
+            $rest = $this.Line.Substring($pos)
+            if ($rest.Length -gt [HitRow]::MaxDisplay) { $rest = $rest.Substring(0, [HitRow]::MaxDisplay) + [char]0x2026 }
+            $segs.Add([Segment]@{ Text = [HitRow]::ToDisplay($rest); IsHit = $false })
+        }
+        return $segs
+    }
+
+    static [System.Collections.Generic.List[string]] SplitCells([string]$line, [bool]$isExcel) {
+        $cells = New-Object System.Collections.Generic.List[string]
+        $src = $(if ($null -eq $line) { "" } else { $line })
+        if (-not $isExcel) { $cells.AddRange($src.Split([char]9)); return $cells }
+        foreach ($m in [HitRow]::CellRegex.Matches("`t" + $src)) {
+            $cell = $m.Value.Substring(1)
+            $q = [HitRow]::QuoteRegex.Match($cell)
+            if ($q.Success) { $cell = $q.Groups[1].Value.Replace('""', '"') + $q.Groups[2].Value }
+            $cells.Add($cell)
+        }
+        return $cells
+    }
+
+    # 選択行のプレビュー（前後の行をセルに分けた表）を作る。numbers・lines は readTsvContext の結果
+    [PreviewTable] BuildPreview([int[]]$numbers, [string[]]$lines) {
+        if ($null -eq $numbers -or $null -eq $lines -or $numbers.Length -eq 0 -or $numbers.Length -ne $lines.Length) {
+            $numbers = @($this.LineNumber)
+            $lines = @($this.Line)
+        }
+        $rowCells = New-Object 'System.Collections.Generic.List[System.Collections.Generic.List[string]]'
+        $columnCount = 0
+        foreach ($ln in $lines) {
+            $cells = [HitRow]::SplitCells($ln, $this.IsExcel)
+            $rowCells.Add($cells)
+            $columnCount = [Math]::Max($columnCount, $cells.Count)
+        }
+
+        $hitColumn = -1
+        for ($r = 0; $r -lt $rowCells.Count -and $hitColumn -lt 0; $r++) {
+            if ($numbers[$r] -ne $this.LineNumber) { continue }
+            for ($c = 0; $c -lt $rowCells[$r].Count; $c++) {
+                if ([HitRow]::FindMatches($rowCells[$r][$c], $this.word, $this.pattern).Count -gt 0) { $hitColumn = $c; break }
+            }
+        }
+        $firstColumn = 0
+        $shownColumns = $columnCount
+        if ($columnCount -gt [HitRow]::MaxPreviewColumns) {
+            $shownColumns = [HitRow]::MaxPreviewColumns
+            if ($hitColumn -ge 0) {
+                $firstColumn = [Math]::Max(0, [Math]::Min($hitColumn - [int]([HitRow]::MaxPreviewColumns / 2), $columnCount - [HitRow]::MaxPreviewColumns))
+            }
+        }
+
+        $maxWidth = $(if ($this.IsExcel) { [HitRow]::MaxCellWidth } else { [HitRow]::MaxParagraphWidth })
+        $table = [PreviewTable]::new()
+        $table.Columns = New-Object System.Collections.Generic.List[PreviewColumn]
+        $table.Rows = New-Object System.Collections.Generic.List[PreviewRow]
+        $table.HitOffset = -1
+        $table.HitWidth = 0
+        $table.TotalColumns = $columnCount
+        $table.ShownColumns = $shownColumns
+        $table.RangeLabel = $(if ($shownColumns -gt 0) { $this.ColumnLabel($firstColumn + 1) + "〜" + $this.ColumnLabel($firstColumn + $shownColumns) } else { "" })
+        for ($i = 0; $i -lt $shownColumns; $i++) {
+            $c = $firstColumn + $i
+            $width = [HitRow]::TextWidth($this.ColumnLabel($c + 1))
+            foreach ($cells in $rowCells) {
+                if ($c -lt $cells.Count) { $width = [Math]::Max($width, [HitRow]::CellWidth($cells[$c])) }
+            }
+            $col = [PreviewColumn]::new()
+            $col.Label = $this.ColumnLabel($c + 1)
+            $col.Width = [Math]::Min($maxWidth, [Math]::Max([HitRow]::MinCellWidth, $width))
+            $table.Columns.Add($col)
+        }
+
+        for ($r = 0; $r -lt $rowCells.Count; $r++) {
+            $isHitRow = $numbers[$r] -eq $this.LineNumber
+            $row = [PreviewRow]::new()
+            $row.Number = $numbers[$r].ToString()
+            $row.IsHitRow = $isHitRow
+            $row.Cells = New-Object System.Collections.Generic.List[PreviewCell]
+            $left = [HitRow]::NumberWidth
+            for ($i = 0; $i -lt $shownColumns; $i++) {
+                $c = $firstColumn + $i
+                $cell = $(if ($c -lt $rowCells[$r].Count) { $rowCells[$r][$c] } else { "" })
+                $isHit = [HitRow]::FindMatches($cell, $this.word, $this.pattern).Count -gt 0
+                $text = $cell.Replace([HitRow]::CellNewLine, "`n")
+                $pc = [PreviewCell]::new()
+                $pc.Text = $text
+                $pc.Display = [HitRow]::Shorten($text, [HitRow]::MaxCellChars)
+                $pc.ToolTip = $(if ($text.Length -gt 0) { [HitRow]::Shorten($text, [HitRow]::MaxToolTipChars) } else { $null })
+                $pc.Column = $table.Columns[$i]
+                $pc.IsHit = $isHit
+                $pc.RowIndex = $r
+                $pc.ColumnIndex = $i
+                $row.Cells.Add($pc)
+                if ($isHitRow -and $isHit -and $table.HitOffset -lt 0) {
+                    $table.HitOffset = $left
+                    $table.HitWidth = $table.Columns[$i].Width
+                }
+                $left += $table.Columns[$i].Width
+            }
+            $table.Rows.Add($row)
+        }
+        if ($table.HitOffset -lt 0) { $table.HitOffset = 0 }
+        return $table
+    }
+
+    static [double] CellWidth([string]$cell) {
+        $width = 0.0
+        foreach ($line in $(if ($null -eq $cell) { "" } else { $cell }).Split(@([HitRow]::CellNewLine, "`n"))) {
+            $seg = $(if ($line.Length -gt [HitRow]::MaxWidthChars) { $line.Substring(0, [HitRow]::MaxWidthChars) } else { $line })
+            $width = [Math]::Max($width, [HitRow]::TextWidth($seg))
+            if ($width -ge [HitRow]::MaxParagraphWidth) { break }
+        }
+        return $width
+    }
+
+    static [string] Shorten([string]$text, [int]$max) {
+        if ($null -eq $text -or $text.Length -le $max) { return $text }
+        return $text.Substring(0, $max) + [char]0x2026
+    }
+
+    hidden [string] ColumnLabel([int]$number) {
+        return $(if ($this.IsExcel) { [HitRow]::ColumnName($number) } else { $number.ToString() })
+    }
+
+    static [double] TextWidth([string]$text) {
+        $width = 14.0
+        foreach ($ch in $(if ($null -eq $text) { "" } else { $text }).ToCharArray()) {
+            $code = [int]$ch
+            $width += $(if ($code -lt 0x0100 -or ($code -ge 0xFF61 -and $code -le 0xFF9F)) { 7 } else { 12 })
+        }
+        return $width
+    }
+
+    static [string] ColumnName([int]$number) {
+        $name = ""
+        while ($number -gt 0) {
+            $number--
+            $name = [char]([int][char]'A' + $number % 26) + $name
+            $number = [int]($number / 26)
+        }
+        return $name
+    }
+}
+
+# ［9 プロセス停止］の1行
+class ProcRow {
+    [int]$Id
+    [string]$AppName
+    [bool]$Background
+    [string]$StateText
+    [string]$StartText
+    [string]$MemoryText
+    [string]$TitleText
+}
+
+# ［1 インデックス管理］の変換に失敗したファイル1件
+class FailRow {
+    [string]$RelPath
+    [string]$Reason
+    [string]$ConvertedText
+    [string]$SourcePath
+}
+
+# ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
+# ［変換］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
+class FolderItem : NotifyBase {
+    [string]$Name          # インデックス名（work\index 直下のフォルダ名）
+    [string]$Path
+    [bool]$Enabled
+    [string]$StatusText
+    [object]$StatusBrush
+    [string]$FileCountText
+    [string]$FileCountToolTip
+    [string]$LastConvertedText
+
+    [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
+    [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }
+    [void] SetPath([string]$value) { if ($this.Path -ne $value) { $this.Path = $value; $this.Raise("Path") } }
+    [void] SetStatus([string]$text, [object]$brush) { $this.StatusText = $text; $this.StatusBrush = $brush; $this.Raise("StatusText"); $this.Raise("StatusBrush") }
+    [void] SetStats([string]$countText, [string]$toolTip, [string]$lastConverted) {
+        $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastConvertedText = $lastConverted
+        $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastConvertedText")
+    }
+}
+
+# 検索対象の1件（common.ps1 の getIndexTsvFiles に渡す）
+class SearchTarget {
+    [string]$Root
+    [string]$RelPath
+    [bool]$Recurse
+}
+
+# 検索対象から外したフォルダ（common.ps1 の readSearchExcludes / writeSearchExcludes と同じ項目）
+class SearchExclude {
+    [string]$Path
+    [bool]$Subfolders
+}
+
+# 検索対象インデックスのツリーの1項目。3状態チェック（true/false/null）は子・親の状態から決まる。
+# チェックはツリーのチェックボックスの Click で Toggle() を呼んで変える（TwoWay バインドはしない）
+class IndexNode : NotifyBase {
+    [string]$Name
+    [string]$Root
+    [string]$RelPath
+    [bool]$IsFiles
+    [bool]$IsPlaceholder
+    [bool]$Exists
+    [string]$SourcePath
+    [string]$ToolTip
+    [IndexNode]$Parent
+    [System.Collections.ObjectModel.ObservableCollection[IndexNode]]$Children
+
+    [Nullable[bool]]$IsChecked = $true   # チェックボックスは OneWay バインド。変更は Toggle/SetChecked で行う
+    [bool]$IsExpanded                    # TreeViewItem.IsExpanded は OneWay。展開は Expanded イベント/SetExpanded で読み込む
+    hidden [bool]$loaded
+
+    IndexNode([IndexNode]$parent, [string]$name, [string]$root, [string]$relPath, [bool]$isFiles) {
+        $this.Parent = $parent
+        $this.Name = $name
+        $this.Root = $root
+        $this.RelPath = $relPath
+        $this.IsFiles = $isFiles
+        $this.Exists = $true
+        $this.Children = New-Object System.Collections.ObjectModel.ObservableCollection[IndexNode]
+        if ($null -ne $parent) { $this.IsChecked = ($parent.IsChecked -ne $false) }
+    }
+
+    static [IndexNode] CreateRoot([string]$root, [string]$name, [string]$relPath, [string]$sourcePath) {
+        $node = [IndexNode]::new($null, $name, $root, $relPath, $false)
+        $node.SourcePath = $sourcePath
+        $dir = $node.FullPath()
+        $node.Exists = [System.IO.Directory]::Exists([IndexNode]::LongPath($dir))
+        $node.ToolTip = $(if ($null -ne $sourcePath) { "元のフォルダ：" + $sourcePath + "`nインデックス：" + $dir } else { $dir })
+        if (-not $node.Exists) { $node.ToolTip += "`n（フォルダが見つかりません。検索時はスキップします）" }
+        if ($node.Exists -and [IndexNode]::HasSubfolders($dir)) { $node.Children.Add([IndexNode]::NewPlaceholder($node)) }
+        return $node
+    }
+
+    [string] FullPath() {
+        return $(if ($this.RelPath -eq "") { $this.Root } else { $this.Root.TrimEnd('\') + "\" + $this.RelPath })
+    }
+
+    # 展開する（プログラムから・Expanded イベントから）。子を1回だけ読み込む
+    [void] SetExpanded([bool]$value) {
+        if ($value) { $this.LoadChildren() }
+        if ($this.IsExpanded -eq $value) { return }
+        $this.IsExpanded = $value
+        $this.Raise("IsExpanded")
+    }
+
+    [void] SetChecked([bool]$value) {
+        $this.SetTree($value)
+        if ($null -ne $this.Parent) { $this.Parent.UpdateFromChildren() }
+    }
+
+    [void] Toggle() { $this.SetChecked($this.IsChecked -ne $true) }
+
+    hidden [void] SetTree([bool]$value) {
+        $this.SetState($value)
+        foreach ($child in $this.Children) { if (-not $child.IsPlaceholder) { $child.SetTree($value) } }
+    }
+
+    hidden [void] SetState([Nullable[bool]]$value) {
+        if ($this.IsChecked -eq $value) { return }
+        $this.IsChecked = $value
+        $this.Raise("IsChecked")
+    }
+
+    hidden [void] UpdateFromChildren() {
+        $any = $false
+        [Nullable[bool]]$state = $null
+        foreach ($child in $this.Children) {
+            if ($child.IsPlaceholder) { continue }
+            if (-not $any) { $state = $child.IsChecked; $any = $true }
+            elseif ($state -ne $child.IsChecked) { $state = $null; break }
+        }
+        if (-not $any) { return }
+        $this.SetState($state)
+        if ($null -ne $this.Parent) { $this.Parent.UpdateFromChildren() }
+    }
+
+    [void] LoadChildren() {
+        if ($this.loaded -or $this.IsFiles -or $this.IsPlaceholder) { return }
+        $this.loaded = $true
+        $this.Children.Clear()
+        if (-not $this.Exists) { return }
+        $dir = $this.FullPath()
+        $names = New-Object System.Collections.Generic.List[string]
+        try {
+            foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
+                $n = [System.IO.Path]::GetFileName($sub)
+                if ([IndexNode]::IsBookDir($n)) { continue }
+                $names.Add($n)
+            }
+        } catch {
+        }
+        $names.Sort([System.StringComparer]::CurrentCultureIgnoreCase)
+        if ($names.Count -gt 0 -and [IndexNode]::HasFiles($dir)) {
+            $files = [IndexNode]::new($this, "（このフォルダ直下のファイル）", $this.Root, $this.RelPath, $true)
+            $files.ToolTip = "サブフォルダを除く、" + $(if ($null -ne $this.SourcePath) { $this.SourcePath } else { $dir }) + " の直下のファイル"
+            $this.Children.Add($files)
+        }
+        foreach ($n in $names) {
+            $childRel = $(if ($this.RelPath -eq "") { $n } else { $this.RelPath + "\" + $n })
+            $child = [IndexNode]::new($this, $n, $this.Root, $childRel, $false)
+            if ($null -ne $this.SourcePath) { $child.SourcePath = $this.SourcePath.TrimEnd('\') + "\" + $n }
+            $child.ToolTip = $(if ($null -ne $child.SourcePath) { "元のフォルダ：" + $child.SourcePath } else { $child.FullPath() })
+            if ([IndexNode]::HasSubfolders($child.FullPath())) { $child.Children.Add([IndexNode]::NewPlaceholder($child)) }
+            $this.Children.Add($child)
+        }
+    }
+
+    [IndexNode] Find([string]$path) {
+        if ($this.IsFiles -or $this.IsPlaceholder) { return $null }
+        $full = $this.FullPath().TrimEnd('\')
+        $path = $path.TrimEnd('\')
+        if ([string]::Equals($path, $full, [System.StringComparison]::OrdinalIgnoreCase)) { return $this }
+        if (-not $path.StartsWith($full + "\", [System.StringComparison]::OrdinalIgnoreCase)) { return $null }
+        $this.LoadChildren()
+        foreach ($child in $this.Children) {
+            $found = $child.Find($path)
+            if ($null -ne $found) { return $found }
+        }
+        return $null
+    }
+
+    [void] ApplyExclude([string]$path, [bool]$subfolders) {
+        $node = $this.Find($path)
+        if ($null -eq $node) { return }
+        if (-not $subfolders) {
+            $node.LoadChildren()
+            foreach ($child in $node.Children) {
+                if ($child.IsFiles) { $child.SetChecked($false); return }
+            }
+            if ($node.Children.Count -gt 0) { return }
+        }
+        $node.SetChecked($false)
+    }
+
+    [void] AddTargets([System.Collections.Generic.List[SearchTarget]]$targets) {
+        if ($this.IsPlaceholder -or $this.IsChecked -eq $false) { return }
+        if ($this.IsChecked -eq $true) {
+            $targets.Add([SearchTarget]@{ Root = $this.Root; RelPath = $this.RelPath; Recurse = (-not $this.IsFiles) })
+            return
+        }
+        foreach ($child in $this.Children) { $child.AddTargets($targets) }
+    }
+
+    [void] AddExcludes([System.Collections.Generic.List[SearchExclude]]$excludes) {
+        if ($this.IsPlaceholder -or $this.IsChecked -eq $true) { return }
+        if ($this.IsChecked -eq $false) {
+            $excludes.Add([SearchExclude]@{ Path = $this.FullPath(); Subfolders = (-not $this.IsFiles) })
+            return
+        }
+        foreach ($child in $this.Children) { $child.AddExcludes($excludes) }
+    }
+
+    [void] AddExpanded([System.Collections.Generic.List[string]]$paths) {
+        if ($this.IsFiles -or $this.IsPlaceholder) { return }
+        if ($this.IsExpanded) { $paths.Add($this.FullPath()) }
+        foreach ($child in $this.Children) { $child.AddExpanded($paths) }
+    }
+
+    static [IndexNode] NewPlaceholder([IndexNode]$parent) {
+        $node = [IndexNode]::new($parent, "読み込み中…", $parent.Root, $parent.RelPath, $false)
+        $node.IsPlaceholder = $true
+        return $node
+    }
+
+    static [string] LongPath([string]$path) {
+        if ($path.StartsWith("\\?\")) { return $path }
+        if ($path.EndsWith(":")) { $path += "\" }
+        if ($path.StartsWith("\\")) { return "\\?\UNC\" + $path.Substring(2) }
+        return "\\?\" + $path
+    }
+
+    static [bool] IsBookDir([string]$name) {
+        $ext = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
+        if ($ext.Length -lt 4 -or $ext.Length -gt 5) { return $false }
+        return $ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt")
+    }
+
+    static [bool] HasSubfolders([string]$dir) {
+        try {
+            foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
+                if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($sub))) { return $true }
+            }
+            return $false
+        } catch { return $false }
+    }
+
+    static [bool] HasFiles([string]$dir) {
+        try {
+            foreach ($f in [System.IO.Directory]::EnumerateFiles([IndexNode]::LongPath($dir), "*.tsv")) { return $true }
+            foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
+                if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($sub))) { continue }
+                foreach ($f in [System.IO.Directory]::EnumerateFiles($sub, "*.tsv")) { return $true }
+            }
+            return $false
+        } catch { return $false }
+    }
+}
+
+# ---- アイコン ----
+
+${iconFile} = "$PSScriptRoot\win_grep.ico"  # タイトルバーとタスクバーに出すアイコン
+# アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。
+# ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、
+#   実行時コンパイル（csc.exe）を無くすため廃止した（アイコン自体は Window.Icon で出るため残る）。
 
 function loadWindow {
     param (
@@ -1007,22 +743,32 @@ function loadWindow {
     )
 
     [xml]$xaml = [System.IO.File]::ReadAllText($path)
-    return [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+    $loaded = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xaml))
+
+    # アイコンは XAML に書かず、ここで読み込む（XamlReader.Load は XAML 内の相対パスを解決できないため）。
+    # ファイルを掴んだままにしないよう OnLoad で読み切る。アイコンが無くても画面は開けるようにする。
+    if (Test-Path ${iconFile}) {
+        $loaded.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create(
+            (New-Object Uri ${iconFile}),
+            [System.Windows.Media.Imaging.BitmapCreateOptions]::None,
+            [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad)
+    }
+
+    return $loaded
 }
 
 $window = loadWindow "$PSScriptRoot\config_gui.xaml"
 $ui = @{}
 foreach ($name in @(
         "Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "CloseButton",
-        "NewFolderBox", "NewFolderPlaceholder", "AddFolderButton", "BrowseFolderButton", "TargetList", "TargetPlaceholder", "RemoveFolderButton",
-        "ChangeFolderPathButton",
+        "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RebuildIndexButton", "RemoveIndexButton",
         "IndexSummaryText", "ConversionStateText", "ConvertButton", "ConvertHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
         "ConvertProgressPanel", "ConvertProgressText", "ConvertProgressEta", "ConvertProgress", "ConvertProgressDetail", "ConvertStopButton", "ConvertLogButton",
-        "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder", "WordNotice", "SearchTargetText", "ChangeIndexButton", "GoIndexTabButton",
-        "IndexTree", "CheckAllIndexButton", "UncheckAllIndexButton",
+        "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder", "WordNotice", "SearchTargetText", "GoIndexTabButton",
+        "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
         "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ResultGrid", "IndexColumn",
-        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton", "PreviewScroll", "PreviewHeader", "PreviewRows", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton",
+        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton", "PreviewScroll", "PreviewHeader", "PreviewRows", "PreviewNote", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton",
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton", "KillAllButton", "KillSelectedButton", "KillBackgroundButton")) {
     $ui[$name] = $window.FindName($name)
 }
@@ -1090,19 +836,14 @@ function newTimer {
 }
 
 function selectFolder {
-    # フォルダ選択ダイアログ。アドレスバー・「フォルダー」欄にパスを貼り付けて選べるエクスプローラー形式を使い、
-    # 使えない環境では .NET 標準のツリー形式にする。キャンセルなら $null
+    # フォルダ選択ダイアログ（.NET 標準のツリー形式）。キャンセルなら $null。
+    # パスの貼り付けは入力欄側で受ける（前後の空白・"・末尾 \ は normalizeFolderPath で処理）。
+    # ※以前は COM の IFileOpenDialog（エクスプローラー形式）を主に使っていたが、実行時コンパイル（csc.exe）を無くすため WinForms に統一した。
     param (
         [string]$description,
         [string]$initialPath,
         [System.Windows.Window]$owner = $window
     )
-
-    try {
-        $handle = (New-Object System.Windows.Interop.WindowInteropHelper($owner)).Handle
-        return [WinGrep.FolderPicker]::Show($handle, $description, $initialPath)
-    } catch {
-    }
 
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
     $dialog.Description = $description
@@ -1226,13 +967,26 @@ $script:jobTimer = newTimer 200 {
 }
 
 # ============================================================================
-# ［1 インデックス作成］
+# ［1 インデックス管理］（インデックスの作成・編集・削除と、変換の実行）
 # ============================================================================
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
-$ui.TargetList.ItemsSource = $script:targetItems
+$ui.IndexGrid.ItemsSource = $script:targetItems
 $script:loadingTargets = $false
-$script:savedTargets = $null  # 最後に読み込み・保存した変換対象フォルダ（getTargetsKey）。ほかでの変更の検出に使う
+# ［変換］チェックのクリックで保存する（TwoWay バインドで Enabled は更新済み。PS class のプレーンな
+# プロパティは PropertyChanged を出さないため、購読ではなくここで保存する）
+$ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler] {
+    param ($s, $e)
+    safe {
+        $cb = $e.OriginalSource
+        if ($cb -is [System.Windows.Controls.CheckBox] -and $cb.DataContext -is [FolderItem] -and !$script:loadingTargets) {
+            saveTargets
+            updateConvertButton
+        }
+    }
+})
+$script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
+$script:editDialog = $null    # 新規作成・編集のダイアログ（開いている間だけ）
 $script:convertProcess = $null
 $script:convertStart = $null
 $script:convertFailed = 0  # 変換中に一覧へ反映済みの失敗件数
@@ -1249,11 +1003,9 @@ function updateFolderItemStatus {
     )
 
     if (Test-Path -LiteralPath $item.Path -PathType Container) {
-        $item.StatusText = "✓ フォルダがあります"
-        $item.StatusBrush = ${okBrush}
+        $item.SetStatus("✓ フォルダがあります", ${okBrush})
     } else {
-        $item.StatusText = "✗ フォルダが見つかりません"
-        $item.StatusBrush = ${ngBrush}
+        $item.SetStatus("✗ フォルダが見つかりません", ${ngBrush})
     }
 }
 
@@ -1264,21 +1016,31 @@ function newFolderItem {
         [string]$name = ""
     )
 
-    $item = New-Object WinGrep.FolderItem
+    $item = New-Object FolderItem
     $item.Name = $name
     $item.Path = $path
     $item.Enabled = $enabled
+    $item.FileCountText = "－"
+    $item.LastConvertedText = ""
     updateFolderItemStatus $item
-    $item.Add_PropertyChanged({
-        param ($sender, $e)
-        if ($e.PropertyName -eq "Enabled" -and !$script:loadingTargets) {
-            safe {
-                saveTargets
-                updateConvertButton
-            }
-        }
-    })
+    # ［変換］チェックの保存は、一覧のチェックボックスの Click（IndexGrid.AddHandler）で行う。
+    # PS class のプレーンなプロパティは TwoWay セットで PropertyChanged を出さないため、購読では拾えない。
     return $item
+}
+
+function getUsedIndexNames {
+    # 一覧のインデックス名の集合（大文字・小文字を区別しない）。except に渡した行の名前は含めない
+    param (
+        $except = $null
+    )
+
+    $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in $script:targetItems) {
+        if ($item -ne $except -and $item.Name) {
+            [void]$used.Add($item.Name)
+        }
+    }
+    return $used
 }
 
 function loadTargets {
@@ -1286,110 +1048,399 @@ function loadTargets {
     try {
         $script:targetItems.Clear()
         $folders = @(getTargetFolders)
+        # 名前の決まっていないインデックス（以前の版の設定から移した直後など）には、ここで名前を割り当てて確定する。
+        # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（変換側と同じ assignIndexNames を使う）
+        if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
+            $folders = @(assignIndexNames $folders (readStatusFile).Folders)
+            writeTargetFolders $folders
+        }
         foreach ($folder in $folders) {
             $script:targetItems.Add((newFolderItem $folder.Path $folder.Enabled $folder.Name))
         }
-        $script:savedTargets = getTargetsKey $folders
+        $script:savedTargets = getTargetsKey @(getTargetFolders)
     } finally {
         $script:loadingTargets = $false
     }
-    updateTargetView
+    updateIndexListView
 }
 
 function saveTargets {
     writeTargetFolders @($script:targetItems | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $_.Enabled } })
     $script:savedTargets = getTargetsKey @(getTargetFolders)
-    setStatus "変換対象フォルダを保存しました（$(Get-Date -Format 'H:mm')）"
+    setStatus "インデックス一覧を保存しました（$(Get-Date -Format 'H:mm')）"
 }
 
-function changeTargetFolderPath {
-    # 選んだ変換対象フォルダの「場所」だけを変える（インデックス名はそのまま）。
-    # フォルダを別のドライブ・共有フォルダへ移したときに、インデックスを作り直さずに済ませるための操作
-    $item = $ui.TargetList.SelectedItem
-    if ($null -eq $item) {
+function updateIndexSourceFile {
+    # インデックスのフォルダの 元のフォルダ.txt を今の一覧に合わせて書き直す。
+    # 次の変換を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無ければ何もしない）
+    if (!(Test-Path -LiteralPath ${indexDir} -PathType Container)) {
         return
     }
+    writeSourceFolderFile @($script:targetItems | Where-Object { $_.Name } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path } })
+}
 
-    $initial = if (Test-Path -LiteralPath $item.Path -PathType Container) { $item.Path } else { getExistingFolder $item.Path }
-    $picked = selectFolder "「$($item.Path)」を移した先のフォルダを選んでください" $initial
-    if (!$picked) {
-        return
-    }
-    $picked = normalizeFolderPath $picked
-    if ($picked -eq $item.Path) {
-        return
-    }
-    foreach ($other in $script:targetItems) {
-        if ($other -ne $item -and $other.Path -eq $picked) {
-            showMessage "「${picked}」は既に変換対象フォルダにあります。" "OK" "Warning" | Out-Null
-            return
-        }
-    }
-
-    $indexName = if ($item.Name) { "インデックス [$($item.Name)]" } else { "このフォルダのインデックス" }
-    $message = "変換対象フォルダの場所を変えます。`n`n変更前：$($item.Path)`n変更後：${picked}`n`n" +
-               "${indexName} はそのまま使います（作り直しません）。次の変換では、更新されたファイルだけを変換します。`n`n変更しますか？"
-    if ((showMessage $message "YesNo" "Question" "Yes") -ne "Yes") {
-        return
-    }
-
-    $item.Path = $picked
-    updateFolderItemStatus $item
-    saveTargets
+function refreshIndexViews {
+    # インデックスを作成・編集・削除した後、検索タブ（検索対象のツリー・件数）も読み直す
     $script:sourceFolderMaps = @{}
+    $script:indexSummary = $null
+    loadIndexTree
+    refreshIndexSummary
     refreshConversionState
-    setStatus "変換対象フォルダの場所を変えました（${picked}）"
 }
 
-function updateTargetView {
-    $ui.TargetPlaceholder.Visibility = if ($script:targetItems.Count -eq 0) { "Visible" } else { "Collapsed" }
-    $ui.RemoveFolderButton.IsEnabled = $null -ne $ui.TargetList.SelectedItem
-    $ui.ChangeFolderPathButton.IsEnabled = $null -ne $ui.TargetList.SelectedItem
+function applyIndexStats {
+    # 変換一覧の集計（getIndexStats）を一覧の各行のファイル数・最終変換に反映する
+    param (
+        $stats
+    )
+
+    foreach ($item in $script:targetItems) {
+        $stat = $null
+        if ($item.Name -and $null -ne $stats -and $stats.ContainsKey($item.Name)) {
+            $stat = $stats[$item.Name]
+        }
+        if ($null -eq $stat) {
+            $item.SetStats("－", "まだ変換していません", "")
+            continue
+        }
+        $converted = [datetime]::MinValue
+        $lastText = if ($stat.LastConverted -and [datetime]::TryParseExact($stat.LastConverted, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted)) {
+            formatTime $converted
+        } else {
+            ""
+        }
+        $item.SetStats(("{0:#,0}" -f $stat.Total), ("済 {0:#,0} 件 ・ 未変換 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
+    }
+}
+
+function updateIndexListView {
+    $ui.IndexGridPlaceholder.Visibility = if ($script:targetItems.Count -eq 0) { "Visible" } else { "Collapsed" }
     updateConvertButton
 }
 
-function addTargetFolder {
+function testIndexOperable {
+    # 変換中はインデックスの作成・編集・削除をしない（インデックスのフォルダ・変換一覧を変換側が使っているため）
+    param (
+        [string]$operation
+    )
+
+    if (isConverting) {
+        showMessage "変換中はインデックスを${operation}できません。変換が終わるまでお待ちください（［中止］で止められます）。" "OK" "Warning" | Out-Null
+        return $false
+    }
+    if ($script:indexBusy) {
+        # 前のインデックスの TSV を削除している最中（別スレッド）
+        showMessage "前のインデックスの削除が終わるまでお待ちください。" "OK" "Warning" | Out-Null
+        return $false
+    }
+    return $true
+}
+
+function showIndexEditDialog {
+    # インデックスの新規作成・編集のダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）。
+    #   item: 編集するインデックス（$null なら新規作成）
+    param (
+        $item = $null
+    )
+
+    $dialog = loadWindow "$PSScriptRoot\config_gui_index_edit.xaml"
+    $dialog.Owner = $window
+    $ctrl = @{}
+    foreach ($name in @("OkButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
+        $ctrl[$name] = $dialog.FindName($name)
+    }
+    $script:editDialog = @{ Window = $dialog; Ctrl = $ctrl; Item = $item; Suggested = "" }
+
+    if ($null -eq $item) {
+        $dialog.Title = "インデックスの新規作成"
+        $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）のあるフォルダを 1 つ指定すると、そのフォルダのインデックスを作ります。" +
+            "一覧に加えるだけで、中身の変換は［変換を開始］を押してから始まります。"
+    } else {
+        $dialog.Title = "インデックスの編集"
+        $ctrl.IntroText.Text = "インデックスの名前と、元のフォルダの場所を変えられます。"
+        $ctrl.FolderBox.Text = $item.Path
+        $ctrl.NameBox.Text = $item.Name
+        $ctrl.NoticeText.Visibility = "Visible"
+        $ctrl.NoticeText.Text = "変換済みのインデックスは作り直しません（名前を変えるときは work\index のフォルダごと名前を変えます）。" +
+            "フォルダを別のドライブ・共有フォルダへ移した場合は、ここで場所を変えてください。次の変換では、更新されたファイルだけを変換します。"
+    }
+
+    $ctrl.FolderBox.Add_TextChanged({
+        safe {
+            # 新規作成のときは、フォルダ名からインデックス名を自動で入れる（利用者が名前を変えた後は触らない）
+            $d = $script:editDialog
+            if ($null -ne $d.Item -or ($d.Ctrl.NameBox.Text -ne "" -and $d.Ctrl.NameBox.Text -ne $d.Suggested)) {
+                return
+            }
+            $path = normalizeFolderPath $d.Ctrl.FolderBox.Text
+            $d.Suggested = if ($path -eq "") { "" } else { newIndexName $path (getUsedIndexNames) }
+            $d.Ctrl.NameBox.Text = $d.Suggested
+        }
+    })
+    $ctrl.BrowseButton.Add_Click({
+        safe {
+            $d = $script:editDialog
+            $initial = normalizeFolderPath $d.Ctrl.FolderBox.Text
+            $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" $initial $d.Window
+            if ($path) {
+                $d.Ctrl.FolderBox.Text = $path
+            }
+        }
+    })
+    $ctrl.FolderBox.Add_PreviewDragOver({ onFolderDragOver @args })
+    $ctrl.FolderBox.Add_PreviewDrop({
+        param ($sender, $e)
+        safe {
+            $folders = @(getDroppedFolders $e)
+            if ($folders.Count -gt 0) {
+                $script:editDialog.Ctrl.FolderBox.Text = $folders[0]
+            }
+        }
+        $e.Handled = $true
+    })
+    $ctrl.OkButton.Add_Click({
+        safe {
+            $d = $script:editDialog
+            $message = checkIndexEditInput
+            if ($message -ne "") {
+                $d.Ctrl.ErrorText.Text = $message
+                $d.Ctrl.ErrorText.Visibility = "Visible"
+                return
+            }
+            $d.Window.DialogResult = $true
+        }
+    })
+
+    $result = $null
+    if ($dialog.ShowDialog()) {
+        $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim() }
+    }
+    $script:editDialog = $null
+    return $result
+}
+
+function checkIndexEditInput {
+    # 新規作成・編集のダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）
+    $d = $script:editDialog
+    $path = normalizeFolderPath $d.Ctrl.FolderBox.Text
+    if ($path -eq "") {
+        return "元のフォルダを指定してください。"
+    }
+    foreach ($other in $script:targetItems) {
+        if ($other -eq $d.Item) {
+            continue
+        }
+        if (testSameFolder $other.Path $path) {
+            return "「${path}」のインデックス [$($other.Name)] が既にあります。"
+        }
+        # 入れ子のフォルダは、同じファイルが2つのインデックスに入り、変換も検索結果も二重になるため登録しない
+        if (testFolderUnder $path $other.Path) {
+            return "「${path}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。" +
+                "同じファイルが二重に変換されるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
+        }
+        if (testFolderUnder $other.Path $path) {
+            return "「${path}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。" +
+                "同じファイルが二重に変換されるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
+        }
+    }
+    return (testIndexName ($d.Ctrl.NameBox.Text.Trim()) @(getUsedIndexNames $d.Item))
+}
+
+function addIndexItem {
+    # インデックスを一覧に加えて保存する
+    param (
+        [string]$path,
+        [string]$name
+    )
+
+    $item = newFolderItem $path $true $name
+    $script:targetItems.Add($item)
+    $ui.IndexGrid.SelectedItem = $item
+    $ui.IndexGrid.ScrollIntoView($item)
+    saveTargets
+    updateIndexSourceFile
+    updateIndexListView
+    refreshConversionState
+    if (Test-Path -LiteralPath $path -PathType Container) {
+        setStatus "インデックス [${name}] を作成しました。［変換を開始］を押すと中身を変換します"
+    } else {
+        setStatus "インデックス [${name}] を作成しましたが、フォルダが見つかりません：${path}"
+    }
+}
+
+function newIndex {
+    # ［新規作成…］。フォルダとインデックス名を決めて一覧に加える（変換はしない）
+    if (!(testIndexOperable "作成")) {
+        return
+    }
+    $result = showIndexEditDialog $null
+    if ($null -eq $result) {
+        return
+    }
+    addIndexItem $result.Path $result.Name
+}
+
+function addIndexForFolder {
+    # 一覧へのドラッグ＆ドロップでインデックスを作る（名前はフォルダ名から自動で決める）
     param (
         [string]$path
     )
 
+    if (!(testIndexOperable "作成")) {
+        return
+    }
     $path = normalizeFolderPath $path
     if ($path -eq "") {
         return
     }
     foreach ($item in $script:targetItems) {
-        # 書き方が違うだけで同じフォルダ（ネットワークドライブと UNC パスなど）も、すでに登録されているとみなす
+        # 書き方が違うだけで同じフォルダ（ネットワークドライブと UNC パスなど）も、すでにあるとみなす
         if (testSameFolder $item.Path $path) {
-            $ui.TargetList.SelectedItem = $item
-            setStatus "すでに登録されています：$($item.Path)"
+            $ui.IndexGrid.SelectedItem = $item
+            setStatus "「$($item.Path)」のインデックス [$($item.Name)] は既にあります"
             return
         }
     }
-
-    $item = newFolderItem $path $true
-    $script:targetItems.Add($item)
-    $ui.TargetList.SelectedItem = $item
-    saveTargets
-    if (!(Test-Path -LiteralPath $path -PathType Container)) {
-        setStatus "追加しましたが、フォルダが見つかりません：${path}"
-    }
-    updateTargetView
+    addIndexItem $path (newIndexName $path (getUsedIndexNames))
 }
 
-function removeTargetFolder {
-    $item = $ui.TargetList.SelectedItem
-    if ($null -eq $item) {
+function editIndex {
+    # ［編集…］。インデックス名と元のフォルダの場所を変える。インデックスは作り直さない
+    $item = $ui.IndexGrid.SelectedItem
+    if ($null -eq $item -or !(testIndexOperable "編集")) {
         return
     }
-    $answer = showMessage ("「$($item.Path)」を変換対象から削除します。`n" +
-        "このフォルダのインデックス（検索用に変換したデータ）も、次に変換したときに削除されます。`n" +
-        "一時的に変換しないだけなら、削除せずにチェックを外してください。`n`n削除しますか？") "YesNo" "Question" "No"
+    $result = showIndexEditDialog $item
+    if ($null -eq $result) {
+        return
+    }
+
+    $changes = New-Object System.Collections.Generic.List[string]
+    if ($result.Name -ne $item.Name) {
+        # インデックスのフォルダ（work\index\<名前>）と変換一覧の記録も名前を変える（中身は作り直さない）
+        renameIndex $item.Name $result.Name
+        $changes.Add("名前 [$($item.Name)] → [$($result.Name)]")
+        $item.SetName($result.Name)
+    }
+    if ($result.Path -ne $item.Path) {
+        $changes.Add("場所 $($item.Path) → $($result.Path)")
+        $item.SetPath($result.Path)
+        updateFolderItemStatus $item
+    }
+    if ($changes.Count -eq 0) {
+        return
+    }
+
+    saveTargets
+    updateIndexSourceFile
+    refreshIndexViews
+    setStatus ("インデックスを変更しました（" + ($changes -join " / ") + "）")
+}
+
+function rebuildIndex {
+    # ［作り直す…］。変換した TSV と変換一覧の記録を消してから変換を始め、インデックスを一から作り直す。
+    # 差分変換（更新日時とサイズで判定する）では変換し直さない場合に使う:
+    #   ・更新日時・サイズが変わらないまま中身が変わった（同じ秒に同じ大きさで保存した・更新日時を保つツールで書き換えた）
+    #   ・TSV の中身が壊れた（0 バイトのTSVは変換側が見つけて作り直すが、中身の書き換えまでは分からない）
+    $item = $ui.IndexGrid.SelectedItem
+    if ($null -eq $item -or !(testIndexOperable "作り直し")) {
+        return
+    }
+    if (!$item.Name) {
+        setStatus "このインデックスはまだ変換していません。［変換を開始］で作成してください"
+        return
+    }
+    if (!(Test-Path -LiteralPath $item.Path -PathType Container)) {
+        # 消してから変換できないと、インデックスが無いだけの状態になる
+        showMessage ("元のフォルダが見つからないため、インデックス [$($item.Name)] を作り直せません。`n`n" +
+            "元のフォルダ：$($item.Path)`n`nフォルダを使えるようにするか、［編集…］で場所を変えてください。") "OK" "Warning" | Out-Null
+        return
+    }
+
+    $answer = showMessage ("インデックス [$($item.Name)] を作り直します。`n`n元のフォルダ：$($item.Path)`n`n" +
+        "変換した TSV（work\index\$($item.Name)）を削除し、フォルダの中の Office ファイルをすべて変換し直します（件数によっては時間がかかります）。`n" +
+        "ふだんは、更新されたファイルだけを変換する［変換を開始］で足ります。元のファイルの更新日時が変わらないまま中身が変わった場合などに使ってください。`n" +
+        "［変換］のチェックが外れている場合は付けます。`n`n作り直しますか？") "YesNo" "Question" "No"
     if ($answer -ne "Yes") {
         return
     }
+
+    $item.SetEnabled($true)  # チェックが外れていると変換されず、インデックスが無いだけになる
+    saveTargets
+    updateIndexSourceFile
+    updateIndexListView
+    # TSV の削除は数万フォルダで数十秒かかることがあるため、別スレッドで行う（画面は固まらない）
+    startIndexRemoveJob $item.Name "作り直し" {
+        startConversion
+        $name = $script:indexJobName
+        if (isConverting) {
+            setStatus "インデックス [${name}] を作り直します（変換を開始しました）"
+        } else {
+            # 変換を始めるときの確認（失敗分の再変換）でキャンセルした場合。TSV は削除済みのため、次の変換で作り直す
+            setStatus "インデックス [${name}] の TSV を削除しました。［変換を開始］を押すと作り直します"
+        }
+    }
+}
+
+function startIndexRemoveJob {
+    # インデックス（work\index\<名前>）と変換一覧の記録の削除を別スレッドで行う。
+    # 数万フォルダの削除は数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため。
+    # 終わるまでインデックスの操作・変換の開始はできないようにし、何をしているかをステータスに出す
+    param (
+        [string]$name,
+        [string]$operation,   # "削除" / "作り直し"（表示に使う）
+        [scriptblock]$onDone  # 削除が終わった後に画面のスレッドで行うこと（$script:indexJobName で名前を参照できる）
+    )
+
+    $script:indexBusy = $true
+    $script:indexJobName = $name
+    $script:indexJobOnDone = $onDone
+    $script:indexJobOperation = $operation
+    updateConvertButton
+    setStatus "インデックス [${name}] の TSV を削除しています…（件数によっては少し時間がかかります）"
+    startJob {
+        param ($commonPath, $name)
+        . $commonPath
+        removeIndex $name
+    } @(${commonPath}, $name) {
+        param ($output, $errorText)
+        $script:indexBusy = $false
+        updateConvertButton
+        $name = $script:indexJobName
+        if ($errorText) {
+            setStatus "インデックス [${name}] の $($script:indexJobOperation)に失敗しました：${errorText}"
+            refreshIndexViews
+            return
+        }
+        refreshIndexViews
+        if ($script:indexJobOnDone) {
+            & $script:indexJobOnDone
+        }
+    }
+}
+
+function deleteIndex {
+    # ［削除］。一覧から削除し、変換した TSV（work\index\<名前>）と変換一覧の記録も削除する
+    $item = $ui.IndexGrid.SelectedItem
+    if ($null -eq $item -or !(testIndexOperable "削除")) {
+        return
+    }
+
+    $answer = showMessage ("インデックス [$($item.Name)] を削除します。`n`n元のフォルダ：$($item.Path)`n`n" +
+        "変換した TSV（work\index\$($item.Name)）と変換一覧の記録を削除します。元のフォルダと Office ファイルは削除しません。`n" +
+        "一時的に変換しないだけなら、削除せずに［変換］のチェックを外してください。`n`n削除しますか？") "YesNo" "Question" "No"
+    if ($answer -ne "Yes") {
+        return
+    }
+
+    # 一覧からはすぐ消し、TSV の削除（時間がかかることがある）は別スレッドで行う
     $script:targetItems.Remove($item)
     saveTargets
-    updateTargetView
+    updateIndexSourceFile
+    updateIndexListView
+    startIndexRemoveJob $item.Name "削除" {
+        setStatus "インデックス [$($script:indexJobName)] を削除しました"
+    }
 }
 
 function updateConvertButton {
@@ -1402,6 +1453,10 @@ function updateConvertButton {
     }
 
     $state = $script:conversionState
+    if ($script:indexBusy) {
+        # インデックスの削除中（別スレッド）は、変換もインデックスの操作も始めない
+        $ready = $false
+    }
     if (isConverting) {
         $ui.ConvertButton.Content = "変換中…"
         $ui.ConvertButton.IsEnabled = $false
@@ -1412,25 +1467,60 @@ function updateConvertButton {
 
     $hint = "変換中も検索できます。途中でやめるときは［中止］を押してください（次回、続きから再開できます）。"
     if (!$ready -and !(isConverting)) {
-        $hint = "変換するフォルダを追加して、チェックを付けてください。"
+        $hint = "インデックスを作成して、チェックを付けてください。"
     } elseif ($state -and $state.Failed -gt 0 -and !(isConverting)) {
         $hint = "前回失敗したファイルがあります。変換を始めるときに、再変換するかを選べます。" + $hint
     }
     $ui.ConvertHint.Text = $hint
+
+    # インデックスの作成・編集・削除は、選んでいるかどうかと変換中かどうかで切り替える
+    # （変換中はインデックスのフォルダ・変換一覧を変換側が使っているため触らない）
+    $selected = $null -ne $ui.IndexGrid.SelectedItem
+    $editable = !(isConverting) -and !$script:indexBusy
+    $ui.NewIndexButton.IsEnabled = $editable
+    $ui.EditIndexButton.IsEnabled = $selected -and $editable
+    $ui.RebuildIndexButton.IsEnabled = $selected -and $editable
+    $ui.RemoveIndexButton.IsEnabled = $selected -and $editable
 }
 
 function refreshConversionState {
-    try {
-        $state = getConversionState
-    } catch {
-        # 変換側が書き込んでいる瞬間などは次の機会に読み直す
+    # 変換一覧の集計は、ファイルが数万行になると数秒〜十数秒かかる。
+    # 画面のスレッドで行うと、起動時・タブの切り替え時に画面が固まる（応答なしになる）ため別スレッドで数える
+    if ($script:stateRunning) {
+        $script:stateAgain = $true
         return
     }
+    $script:stateRunning = $true
+    $script:stateAgain = $false
+    startJob {
+        param ($commonPath)
+        . $commonPath
+        getConversionState
+    } @(${commonPath}) {
+        param ($output, $errorText)
+        $script:stateRunning = $false
+        # 変換側が書き込んでいる瞬間などは、次の機会に読み直す
+        if ($output -and $output.Count -gt 0 -and $output[0]) {
+            applyConversionState $output[0]
+        }
+        if ($script:stateAgain) {
+            refreshConversionState
+        }
+    }
+}
+
+function applyConversionState {
+    # 集計（別スレッド）の結果を画面に反映する
+    param (
+        $state  # getConversionState の結果
+    )
+
     $script:conversionState = $state
 
     # 失敗したファイルは下の一覧に原因とともに表示する
     $ui.ConversionStateText.Text = if ($state.Pending -gt 0 -and !(isConverting)) { "⏸ 前回の変換が中断しています（残り $($state.Pending) 件）" } else { "" }
-    $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 インデックス作成" } else { "1 インデックス作成" }
+    $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 インデックス管理" } else { "1 インデックス管理" }
+    applyIndexStats $state.IndexStats
     updateFailedList $state
     updateIndexSummaryText
     updateConvertButton
@@ -1451,7 +1541,7 @@ function updateFailedList {
 
     $rows = New-Object System.Collections.ArrayList
     foreach ($status in $state.FailedRows) {
-        $row = New-Object WinGrep.FailRow
+        $row = New-Object FailRow
         $row.RelPath = $status.相対パス
         $row.Reason = if ($status.エラー) { $status.エラー } else { "（原因は記録されていません）" }
         $converted = [datetime]::MinValue
@@ -1519,7 +1609,7 @@ function refreshIndexSummary {
     }
     $script:summaryRunning = $true
     $script:summaryAgain = $false
-    $folders = @(getIndexFolders)
+    $folders = @(${indexDir})
     startJob {
         param ($commonPath, $folders)
         . $commonPath
@@ -1541,40 +1631,26 @@ function refreshIndexSummary {
 # ---- 変換の起動と進み具合 ----
 
 function getConversionProgress {
-    # 変換一覧から、since 以降に起動した変換の進み具合を返す
+    # 変換の進み具合を返す（変換側が書く 変換進捗.txt の1行を読む）。
+    # 変換一覧（数万行）を読み直すと1回に数秒かかり、毎秒読むと画面が固まるため、この1行だけを読む
     param (
         [datetime]$since
     )
 
-    $progress = @{ Scanned = $false; Processed = 0; Failed = 0; Remaining = 0; Current = "" }
-    if (!(Test-Path -LiteralPath ${statusFile})) {
-        return $progress
-    }
-    $sinceSecond = $since.AddTicks(-($since.Ticks % [timespan]::TicksPerSecond))
-    # 変換対象の検索が終わると、変換一覧が書き直される
-    $progress.Scanned = (Get-Item -LiteralPath ${statusFile}).LastWriteTime -ge $sinceSecond
-    if (!$progress.Scanned) {
+    $progress = @{ Scanned = $false; Processed = 0; Failed = 0; Remaining = 0; Current = ""; Detail = ""; Finishing = $false }
+    $current = readConvertProgress
+    if ($null -eq $current) {
         return $progress
     }
 
-    $status = readStatusFile
-    foreach ($row in $status.Rows.Values) {
-        if ($row.状態 -eq ${stateNew}) {
-            $progress.Remaining++
-            continue
-        }
-        $converted = [datetime]::MinValue
-        if ($row.変換日時 -and [datetime]::TryParseExact($row.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted) -and $converted -ge $sinceSecond) {
-            $progress.Processed++
-            if ($row.状態 -eq ${stateFailed}) {
-                $progress.Failed++
-            }
-        }
-    }
-
-    $converting = (readTextShared ${convertingFile}).Split([char[]]"`r`n", [System.StringSplitOptions]::RemoveEmptyEntries)
-    if ($converting.Count -gt 0 -and $converting[0].Contains("`t")) {
-        $progress.Current = $converting[0].Split("`t", 2)[1]
+    $progress.Scanned = ($current.Phase -ne ${convertPhaseScan})
+    $progress.Finishing = ($current.Phase -eq ${convertPhaseFinish})
+    $progress.Processed = $current.Processed
+    $progress.Remaining = $current.Remaining
+    $progress.Failed = $current.Failed
+    $progress.Detail = $current.Detail
+    if ($progress.Scanned) {
+        $progress.Current = $current.Detail  # 変換中のファイルの相対パス
     }
     return $progress
 }
@@ -1629,7 +1705,7 @@ function startConversion {
     }
 
     saveTargets
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"${PSScriptRoot}\office_to_tsv.ps1`""
+    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${PSScriptRoot}\office_to_tsv.ps1`""
     if ($retryFailed) {
         $arguments += " -RetryFailed"
     }
@@ -1695,8 +1771,21 @@ function updateConversionProgress {
 
     $total = $progress.Processed + $progress.Remaining
     if (!$progress.Scanned) {
+        # 変換対象を探している間（大きいフォルダ・ネットワーク越しでは数分かかることがある）。
+        # 何を見ているかが分かるよう、変換側が書いた内容をそのまま出す
         $ui.ConvertProgress.IsIndeterminate = $true
         $ui.ConvertProgressText.Text = "変換対象のファイルを確認しています…"
+        if (!$stopping) {
+            $ui.ConvertProgressDetail.Text = [string]$progress.Detail
+        }
+        $taskbar.ProgressState = "Indeterminate"
+        return
+    }
+    if ($progress.Finishing) {
+        # 後片付け（Officeアプリの終了・変換一覧の書き直し）。止まって見えないよう、何をしているかを出す
+        $ui.ConvertProgress.IsIndeterminate = $true
+        $ui.ConvertProgressText.Text = "変換を終えています…"
+        $ui.ConvertProgressDetail.Text = [string]$progress.Detail
         $taskbar.ProgressState = "Indeterminate"
         return
     }
@@ -1742,6 +1831,8 @@ function updateConversionProgress {
 function finishConversion {
     $script:convertTimer.Stop()
     $taskbar.ProgressState = "None"
+    # 変換完了の通知。以前はタスクバーのボタンを光らせていたが（FlashWindowEx）、P/Invoke は
+    # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は進捗表示・ステータスで分かる。
     $exitCode = $null
     try {
         $script:convertProcess.WaitForExit()
@@ -1805,62 +1896,28 @@ $script:convertTimer = newTimer 1000 { safe { updateConversionProgress } }
 
 # ---- イベント ----
 
-$ui.NewFolderBox.Add_TextChanged({
-    $ui.NewFolderPlaceholder.Visibility = if ($ui.NewFolderBox.Text -eq "") { "Visible" } else { "Collapsed" }
-})
-$ui.NewFolderBox.Add_KeyDown({
-    param ($sender, $e)
-    if ($e.Key -eq "Return") {
-        safe {
-            addTargetFolder $ui.NewFolderBox.Text
-            $ui.NewFolderBox.Text = ""
-        }
-        $e.Handled = $true
-    }
-})
-$ui.AddFolderButton.Add_Click({
-    safe {
-        if ($ui.NewFolderBox.Text.Trim() -eq "") {
-            $path = selectFolder "変換する Office ファイルのあるフォルダを選んでください" ""
-            if ($path) {
-                addTargetFolder $path
-            }
-        } else {
-            addTargetFolder $ui.NewFolderBox.Text
-            $ui.NewFolderBox.Text = ""
-        }
-    }
-})
-$ui.BrowseFolderButton.Add_Click({
-    safe {
-        $initial = if ($ui.TargetList.SelectedItem) { $ui.TargetList.SelectedItem.Path } else { "" }
-        $path = selectFolder "変換する Office ファイルのあるフォルダを選んでください" $initial
-        if ($path) {
-            addTargetFolder $path
-        }
-    }
-})
-foreach ($control in @($ui.NewFolderBox, $ui.TargetList)) {
-    $control.Add_PreviewDragOver({ onFolderDragOver @args })
-    $control.Add_PreviewDrop({
-        param ($sender, $e)
-        safe {
-            foreach ($folder in (getDroppedFolders $e)) {
-                addTargetFolder $folder
-            }
-        }
-        $e.Handled = $true
-    })
-}
-$ui.TargetList.Add_SelectionChanged({ updateTargetView })
-$ui.TargetList.Add_KeyDown({
+$ui.NewIndexButton.Add_Click({ safe { newIndex } })
+$ui.EditIndexButton.Add_Click({ safe { editIndex } })
+$ui.RebuildIndexButton.Add_Click({ safe { rebuildIndex } })
+$ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
+$ui.IndexGrid.Add_SelectionChanged({ safe { updateIndexListView } })
+$ui.IndexGrid.Add_MouseDoubleClick({ safe { editIndex } })
+$ui.IndexGrid.Add_KeyDown({
     param ($sender, $e)
     if ($e.Key -eq "Delete") {
-        safe { removeTargetFolder }
+        safe { deleteIndex }
     }
 })
-$ui.RemoveFolderButton.Add_Click({ safe { removeTargetFolder } })
-$ui.ChangeFolderPathButton.Add_Click({ safe { changeTargetFolderPath } })
+$ui.IndexGrid.Add_PreviewDragOver({ onFolderDragOver @args })
+$ui.IndexGrid.Add_PreviewDrop({
+    param ($sender, $e)
+    safe {
+        foreach ($folder in (getDroppedFolders $e)) {
+            addIndexForFolder $folder
+        }
+    }
+    $e.Handled = $true
+})
 $ui.FailedGrid.Add_MouseDoubleClick({
     param ($sender, $e)
     # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）
@@ -1892,6 +1949,12 @@ $ui.ConvertLogButton.Add_Click({
 $script:hitRows = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.ResultGrid.ItemsSource = $script:hitRows
 $script:hitView = [System.Windows.Data.CollectionViewSource]::GetDefaultView($script:hitRows)
+# 表示用（強調セグメント・DisplayLine・セル列）は、行が画面に出るときだけ作る（件数が多くても軽い）。
+# HitRow.Prepare は1回だけ実行し、作った値は PropertyChanged で反映する
+$ui.ResultGrid.Add_LoadingRow({
+    param ($s, $e)
+    if ($e.Row.Item -is [HitRow]) { $e.Row.Item.Prepare() }
+})
 $script:search = $null
 $script:lastSearch = $null
 $script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名と変換対象フォルダの対応（getSourceLocation のキャッシュ）
@@ -1902,7 +1965,8 @@ ${searchScript} = {
     param ($commonPath, $word, $simpleMatch, $folders, $limit, $shared)
     try {
         . $commonPath
-        $index = getIndexTsvFiles $folders
+        # TSV が多いと数え上げだけで数秒かかるため、途中の件数を画面に伝える（止まって見えないように）
+        $index = getIndexTsvFiles $folders { param ($count) $shared.Scanned = $count }
         $shared.Folders = $index.Folders
         $shared.Total = $index.Files.Count
         $shared.IndexTotal = $index.Files.Count
@@ -1986,29 +2050,13 @@ function updateSearchButton {
     $ui.SearchButton.IsEnabled = (getWordText) -ne "" -and !$noIndex -and @(getSearchTargets).Count -gt 0
 }
 
-function toDisplayFolder {
-    param (
-        [string]$folder
-    )
-
-    try {
-        $full = (Resolve-Path -LiteralPath $folder -ErrorAction Stop).ProviderPath.TrimEnd("\")
-        if ($full -eq ${indexDir}.TrimEnd("\")) {
-            return "work\index"
-        }
-    } catch {
-    }
-    return $folder
-}
-
 function updateSearchTarget {
     $targets = @(getSearchTargets)
     $summary = $script:indexSummary
     if ($summary -and $summary["Count"] -eq 0) {
-        $names = @(getIndexFolders | ForEach-Object { toDisplayFolder $_ }) -join "、"
-        $ui.SearchTargetText.Text = "検索対象：${names}（TSV がありません。先にインデックスを作成してください）"
+        $ui.SearchTargetText.Text = "検索対象：なし（インデックスがありません。先に［1 インデックス管理］で作成してください）"
     } elseif ($targets.Count -eq 0) {
-        $ui.SearchTargetText.Text = "検索対象：なし（左の一覧で、検索するフォルダにチェックを付けてください）"
+        $ui.SearchTargetText.Text = "検索対象：なし（左の一覧で、検索するインデックス・フォルダにチェックを付けてください）"
     } elseif (!(isAllIndexChecked)) {
         $ui.SearchTargetText.Text = "検索対象：$(describeSearchTargets $targets)"
     } elseif ($null -eq $summary) {
@@ -2019,12 +2067,6 @@ function updateSearchTarget {
     $ui.SearchTargetText.ToolTip = $ui.SearchTargetText.Text
     $ui.GoIndexTabButton.Visibility = if ($summary -and $summary["Count"] -eq 0) { "Visible" } else { "Collapsed" }
     updateSearchButton
-}
-
-function loadHistory {
-    $text = $ui.WordBox.Text
-    $ui.WordBox.ItemsSource = [string[]]@(readSearchHistory)
-    $ui.WordBox.Text = $text
 }
 
 function startSearch {
@@ -2057,11 +2099,11 @@ function startSearch {
         setStatus "検索するフォルダに、左の「検索対象」でチェックを付けてください。"
         return
     }
-    $ui.IndexColumn.Visibility = if (@($folders | ForEach-Object { $_.Root } | Sort-Object -Unique).Count -gt 1) { "Visible" } else { "Collapsed" }
+    $ui.IndexColumn.Visibility = if (@($folders | ForEach-Object { (splitIndexRelPath ([string]$_.RelPath)).Name } | Sort-Object -Unique).Count -gt 1) { "Visible" } else { "Collapsed" }
 
     $shared = [hashtable]::Synchronized(@{
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
-        Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Folders = $null
+        Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Folders = $null; Scanned = 0
         Truncated = $false; Cancelled = $false; Error = $null
         CaseSensitive = $option.CaseSensitive; FileFilter = $option.FileFilter
     })
@@ -2103,7 +2145,8 @@ function pumpSearch {
     $hit = $null
     $added = 0
     while ($added -lt 3000 -and $shared.Queue.TryDequeue([ref]$hit)) {
-        $script:hitRows.Add([WinGrep.HitRow]::Create((Split-Path $hit.Root -Leaf), $hit.Root, $hit.RelPath, $hit.RelDir, $hit.FileName,
+        # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名
+        $script:hitRows.Add([HitRow]::Create((splitIndexRelPath ([string]$hit.RelDir)).Name, $hit.Root, $hit.RelPath, $hit.RelDir, $hit.FileName,
                 $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern))
         $added++
     }
@@ -2118,7 +2161,13 @@ function pumpSearch {
             $ui.SummaryText.Text = "検索中… $($shared.Done.ToString('N0')) / $($shared.Total.ToString('N0')) ファイル（$($script:hitRows.Count.ToString('N0')) 件）"
         }
     } elseif ($shared.Total -lt 0 -and !$shared.Stop) {
-        $ui.SummaryText.Text = "検索対象のファイルを確認しています…"
+        # 数え上げの途中。件数が増えていくのが見えれば、止まっていないことが分かる
+        $scanned = [int]$shared.Scanned
+        $ui.SummaryText.Text = if ($scanned -gt 0) {
+            "検索対象のファイルを確認しています…（$($scanned.ToString('N0')) 件）"
+        } else {
+            "検索対象のファイルを確認しています…"
+        }
     }
 
     if ($shared.Finished -and $shared.Queue.IsEmpty) {
@@ -2176,7 +2225,8 @@ function finishSearch {
         $status = "検索しました（$($s.Word)：$($count.ToString('N0')) 件　条件：$(describeSearchOption $s.Option)）"
     }
     if ($shared.Truncated) {
-        $status = "$(${searchLimit}.ToString('N0')) 件を超えたため打ち切りました。ワードを絞り込んでください。"
+        # パスの順に検索して打ち切るため、この先のファイルのヒットは結果に出ない。そのことが分かる文面にする
+        $status = "$(${searchLimit}.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・対象ファイル・検索対象で絞り込んでください。"
     } elseif ($shared.Cancelled) {
         $status = "中止しました（$($count.ToString('N0')) 件まで表示）"
     }
@@ -2188,9 +2238,6 @@ function finishSearch {
         $status += "　変換中のため、作成途中のインデックスを検索しています。"
     }
     setStatus $status
-
-    [void](addSearchHistory $s.Word)
-    loadHistory
 }
 
 $script:searchTimer = newTimer 100 { safe { pumpSearch } }
@@ -2230,6 +2277,12 @@ $script:filterTimer = newTimer 300 {
     safe { applyFilter }
 }
 
+# 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）
+$script:detailTimer = newTimer 120 {
+    $script:detailTimer.Stop()
+    safe { showDetail }
+}
+
 function getViewRows {
     # 表示中（絞り込み・並べ替え後）の行
     $rows = New-Object System.Collections.ArrayList
@@ -2256,14 +2309,25 @@ function showDetail {
     }
     $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
-    $title = "${path} ・ $($row.Location) ・ ${place}"
-    $ui.DetailTitle.Text = $title
-    $ui.DetailTitle.ToolTip = $title
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
     # 前後の行をインデックスのTSVから読む（読めなければ選択行だけを出す）
     $context = @(readTsvContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.LineNumber ${previewLines} ${previewLines})
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
+
+    $title = "${path} ・ $($row.Location) ・ ${place}"
+    $ui.DetailTitle.Text = $title
+    $ui.DetailTitle.ToolTip = $title
+
+    # 横に長い行は一部の列だけを表示するため、その範囲を知らせる
+    if ($table.TotalColumns -gt $table.ShownColumns) {
+        $note = "表示は $($table.RangeLabel) の $($table.ShownColumns.ToString('N0')) 列（全 $($table.TotalColumns.ToString('N0')) 列）"
+        $ui.PreviewNote.Text = $note
+        $ui.PreviewNote.ToolTip = "$note　一致したセルを中心に表示しています。ほかの列は元のファイルで確認してください。"
+        $ui.PreviewNote.Visibility = "Visible"
+    } else {
+        $ui.PreviewNote.Visibility = "Collapsed"
+    }
     $ui.PreviewHeader.ItemsSource = $table.Columns
     $ui.PreviewRows.ItemsSource = $table.Rows
     $script:previewTable = $table
@@ -2286,7 +2350,7 @@ function getPreviewCell {
 
     $element = $source
     while ($element) {
-        if ($element -is [System.Windows.FrameworkElement] -and $element.DataContext -is [WinGrep.PreviewCell]) {
+        if ($element -is [System.Windows.FrameworkElement] -and $element.DataContext -is [PreviewCell]) {
             return $element.DataContext
         }
         $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
@@ -2296,7 +2360,7 @@ function getPreviewCell {
 
 function copyPreviewSelection {
     # プレビューで選んだセルの値をクリップボードに入れる（1 セルならその値のまま、複数ならタブ区切り）
-    if ($null -eq $script:previewTable -or !$script:previewTable.HasSelection) {
+    if ($null -eq $script:previewTable -or !$script:previewTable.HasSelection()) {
         setStatus "プレビューでコピーするセルをクリックしてください（Shift＋クリック・ドラッグで複数選べます）。"
         return
     }
@@ -2306,7 +2370,7 @@ function copyPreviewSelection {
     } else {
         [System.Windows.Clipboard]::SetText($text)
     }
-    $count = $script:previewTable.SelectedCount
+    $count = $script:previewTable.SelectedCount()
     if ($count -le 1) {
         setStatus "セルの値をコピーしました：$(toStatusText $text)"
     } else {
@@ -2528,7 +2592,9 @@ function openInExcel {
         # 最小化されていれば元に戻す（xlMinimized → xlNormal）
         $excel.WindowState = -4143
     }
-    [void][WinGrep.Native]::SetForegroundWindow([IntPtr][int]$excel.Hwnd)
+    # Excel は Visible にして前面に出す（P/Invoke の SetForegroundWindow は実行時コンパイル（csc.exe）を無くすため廃止）
+    $excel.Visible = $true
+    try { $excel.ActiveWindow.Activate() } catch { }
 }
 
 function getOpenMode {
@@ -2658,7 +2724,7 @@ function exportResults {
     }
     $rows = getViewRows
     try {
-        [System.IO.Directory]::CreateDirectory(${outputDir}) | Out-Null
+        [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
         $writer = New-Object System.IO.StreamWriter(${resultFile}, $false, ${utf8Bom})
         try {
             writeSearchResult $writer $script:lastSearch.Word $rows
@@ -2683,34 +2749,24 @@ $script:indexRoots = New-Object 'System.Collections.ObjectModel.ObservableCollec
 $ui.IndexTree.ItemsSource = $script:indexRoots
 
 function loadIndexTree {
-    # 検索対象インデックスのフォルダをツリーに読み込み、保存したチェックなしのフォルダと、読み込み前の展開の状態を戻す
-    # （初めて読み込むときは、インデックスのフォルダを展開してインデックスの一覧を見せる）
+    # インデックスの一覧（getSearchIndexes）をツリーに読み込む。一番上の項目がインデックス 1 件で、
+    # ［1 インデックス管理］で作ったインデックスがすべて並ぶ。
+    # 保存したチェックなしのフォルダと、読み込み前の展開の状態は戻す
     $expanded = New-Object 'System.Collections.Generic.List[string]'
     foreach ($node in $script:indexRoots) {
         $node.AddExpanded($expanded)
     }
-    $first = $script:indexRoots.Count -eq 0
 
     $script:indexRoots.Clear()
-    foreach ($folder in @(getIndexFolders)) {
-        $root = $folder
-        $sourcePath = $null
-        $map = $null
-        if (Test-Path -LiteralPath $folder -PathType Container) {
-            $root = (Resolve-Path -LiteralPath $folder).ProviderPath.TrimEnd("\")
-            $map = getSourceFolderMap $root
-            # インデックス名のフォルダ（…\index\<インデックス名>）を直接指定した場合は、親フォルダの記録から元のフォルダを引く
-            $parent = Split-Path $root -Parent
-            if ($parent) {
-                $parentMap = getSourceFolderMap $parent
-                $leaf = Split-Path $root -Leaf
-                if ($parentMap.ContainsKey($leaf)) {
-                    $sourcePath = $parentMap[$leaf]
-                }
-            }
-        }
-        $script:indexRoots.Add([WinGrep.IndexNode]::CreateRoot($root, (toDisplayFolder $folder), $sourcePath, $map))
+    $root = ${indexDir}
+    if (Test-Path -LiteralPath $root -PathType Container) {
+        $root = (Resolve-Path -LiteralPath $root).ProviderPath.TrimEnd("\")
     }
+    foreach ($index in @(getSearchIndexes)) {
+        $sourcePath = if ($index.SourcePath) { $index.SourcePath } else { $null }
+        $script:indexRoots.Add([IndexNode]::CreateRoot($root, $index.Name, $index.Name, $sourcePath))
+    }
+    $ui.IndexTreePlaceholder.Visibility = if ($script:indexRoots.Count -eq 0) { "Visible" } else { "Collapsed" }
 
     foreach ($exclude in @(readSearchExcludes)) {
         foreach ($node in $script:indexRoots) {
@@ -2718,14 +2774,10 @@ function loadIndexTree {
         }
     }
     foreach ($node in $script:indexRoots) {
-        if ($first) {
-            $node.IsExpanded = $true
-            continue
-        }
         foreach ($path in $expanded) {
             $found = $node.Find($path)
             if ($found) {
-                $found.IsExpanded = $true
+                $found.SetExpanded($true)
             }
         }
     }
@@ -2733,8 +2785,8 @@ function loadIndexTree {
 }
 
 function getSearchTargets {
-    # 検索対象ツリーでチェックしたフォルダ（WinGrep.SearchTarget の配列。getIndexTsvFiles に渡す）
-    $targets = New-Object 'System.Collections.Generic.List[WinGrep.SearchTarget]'
+    # 検索対象ツリーでチェックしたフォルダ（SearchTarget の配列。getIndexTsvFiles に渡す）
+    $targets = New-Object 'System.Collections.Generic.List[SearchTarget]'
     foreach ($node in $script:indexRoots) {
         $node.AddTargets($targets)
     }
@@ -2746,15 +2798,15 @@ function isAllIndexChecked {
 }
 
 function describeSearchTargets {
-    # 検索対象の表示（先頭の 3 件まで）。インデックスのフォルダが複数あるときは、フォルダの表示名を先頭に付ける
+    # 検索対象の表示（先頭の 3 件まで）。インデックスのフォルダ（work\index）からの相対パスは
+    # 「インデックス名\その下のフォルダ」のため、そのまま表示に使う
     param (
         [object[]]$targets
     )
 
     $names = @($targets | ForEach-Object {
         $target = $_
-        $root = @($script:indexRoots | Where-Object { $_.Root -eq $target.Root })[0]
-        $name = if (!$target.RelPath) { $root.Name } elseif ($script:indexRoots.Count -gt 1) { "$($root.Name)\$($target.RelPath)" } else { $target.RelPath }
+        $name = ([string]$target.RelPath).Trim("\")
         if (!$target.Recurse) {
             $name += "（直下のファイル）"
         }
@@ -2768,7 +2820,7 @@ function describeSearchTargets {
 
 function saveSearchExcludes {
     # チェックなしのフォルダを設定に保存する。見つからないインデックスのフォルダ（ネットワークのドライブが切れているなど）の記録は残す
-    $excludes = New-Object 'System.Collections.Generic.List[WinGrep.SearchExclude]'
+    $excludes = New-Object 'System.Collections.Generic.List[SearchExclude]'
     foreach ($node in $script:indexRoots) {
         $node.AddExcludes($excludes)
     }
@@ -2796,134 +2848,9 @@ function setAllIndexChecked {
     onIndexTreeChecked
 }
 
-# ---- 検索対象インデックスの設定ダイアログ ----
-
-$script:indexDialog = $null
-
-function newIndexListItem {
-    param (
-        [string]$path
-    )
-
-    $item = New-Object System.Windows.Controls.ListBoxItem
-    $item.Content = $path
-    if (!(Test-Path -LiteralPath $path -PathType Container)) {
-        $item.Foreground = ${warnBrush}
-        $item.ToolTip = "フォルダが見つかりません（検索時はスキップされます）"
-    }
-    return $item
-}
-
-function updateIndexDialogView {
-    $d = $script:indexDialog
-    $d.Placeholder.Visibility = if ($d.List.Items.Count -eq 0) { "Visible" } else { "Collapsed" }
-}
-
-function addIndexDialogFolder {
-    param (
-        [string]$path
-    )
-
-    $list = $script:indexDialog.List
-    $path = normalizeFolderPath $path
-    if ($path -eq "") {
-        return
-    }
-    foreach ($existing in $list.Items) {
-        # 書き方が違うだけで同じフォルダ（ネットワークドライブと UNC パスなど）も、すでにあるとみなす
-        if (testSameFolder ([string]$existing.Content) $path) {
-            $list.SelectedItem = $existing
-            return
-        }
-    }
-    $list.SelectedIndex = $list.Items.Add((newIndexListItem $path))
-    updateIndexDialogView
-}
-
-function removeIndexDialogFolder {
-    $list = $script:indexDialog.List
-    if ($list.SelectedIndex -lt 0) {
-        return
-    }
-    $path = [string]$list.SelectedItem.Content
-    $answer = showMessage ("「${path}」を検索対象インデックスの一覧から削除します。`n" +
-        "フォルダとその中の TSV は削除しません（検索の対象から外れるだけです）。`n`n削除しますか？") "YesNo" "Question" "No" $script:indexDialog.Window
-    if ($answer -ne "Yes") {
-        return
-    }
-    $list.Items.RemoveAt($list.SelectedIndex)
-    updateIndexDialogView
-}
-
-function moveIndexDialogFolder {
-    param (
-        [int]$offset
-    )
-
-    $list = $script:indexDialog.List
-    $from = $list.SelectedIndex
-    $to = $from + $offset
-    if ($from -lt 0 -or $to -lt 0 -or $to -ge $list.Items.Count) {
-        return
-    }
-    $item = $list.Items[$from]
-    $list.Items.RemoveAt($from)
-    $list.Items.Insert($to, $item)
-    $list.SelectedIndex = $to
-}
-
-function showIndexDialog {
-    $dialog = loadWindow "$PSScriptRoot\config_gui_index.xaml"
-    $dialog.Owner = $window
-    $script:indexDialog = @{ Window = $dialog; List = $dialog.FindName("FolderList"); Placeholder = $dialog.FindName("Placeholder") }
-    $list = $script:indexDialog.List
-
-    foreach ($path in @(readIndexFolders)) {
-        [void]$list.Items.Add((newIndexListItem $path))
-    }
-    updateIndexDialogView
-
-    $dialog.FindName("AddButton").Add_Click({
-        safe {
-            $path = selectFolder "検索する TSV インデックスのフォルダを選んでください" ${indexDir} $script:indexDialog.Window
-            if ($path) {
-                addIndexDialogFolder $path
-            }
-        }
-    })
-    $dialog.FindName("RemoveButton").Add_Click({ safe { removeIndexDialogFolder } })
-    $dialog.FindName("UpButton").Add_Click({ safe { moveIndexDialogFolder -1 } })
-    $dialog.FindName("DownButton").Add_Click({ safe { moveIndexDialogFolder 1 } })
-    $dialog.FindName("OkButton").Add_Click({ $script:indexDialog.Window.DialogResult = $true })
-    $list.Add_PreviewDragOver({ onFolderDragOver @args })
-    $list.Add_PreviewDrop({
-        param ($sender, $e)
-        safe {
-            foreach ($folder in (getDroppedFolders $e)) {
-                addIndexDialogFolder $folder
-            }
-        }
-        $e.Handled = $true
-    })
-    $list.Add_KeyDown({
-        param ($sender, $e)
-        if ($e.Key -eq "Delete") {
-            safe { removeIndexDialogFolder }
-        }
-    })
-
-    if ($dialog.ShowDialog()) {
-        writeIndexFolders @($list.Items | ForEach-Object { [string]$_.Content })
-        $script:indexSummary = $null
-        loadIndexTree
-        refreshIndexSummary
-        setStatus "検索対象インデックスを保存しました"
-    }
-    $script:indexDialog = $null
-}
 # ---- イベント ----
 
-$ui.WordBox.AddHandler([System.Windows.Controls.Primitives.TextBoxBase]::TextChangedEvent, [System.Windows.Controls.TextChangedEventHandler] { safe { updateWordNotice } })
+$ui.WordBox.Add_TextChanged({ safe { updateWordNotice } })
 $ui.WordBox.Add_PreviewKeyDown({
     param ($sender, $e)
     if ($e.Key -eq "Return") {
@@ -2959,9 +2886,26 @@ $ui.FileFilterBox.Add_KeyDown({
         $e.Handled = $true
     }
 })
-$ui.ChangeIndexButton.Add_Click({ safe { showIndexDialog } })
-# ツリーのチェックボックスのクリック（チェックの状態は IndexNode.IsChecked に反映済み）
-$ui.IndexTree.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler] { safe { onIndexTreeChecked } })
+# ツリーのチェックボックスのクリック。チェックは OneWay バインドのため、クリックされたノードの Toggle() で
+# 3状態（子・親への伝播）を反映してから保存する（PS class はセッターにロジックを書けないため、ここで行う）
+$ui.IndexTree.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler] {
+    param ($s, $e)
+    safe {
+        $cb = $e.OriginalSource
+        if ($cb -is [System.Windows.Controls.CheckBox] -and $cb.DataContext -is [IndexNode]) {
+            $cb.DataContext.Toggle()
+            onIndexTreeChecked
+        }
+    }
+})
+# フォルダを展開したときに子を読み込む（IsExpanded は OneWay/プレーンなので、ここで LoadChildren する）
+$ui.IndexTree.AddHandler([System.Windows.Controls.TreeViewItem]::ExpandedEvent, [System.Windows.RoutedEventHandler] {
+    param ($s, $e)
+    safe {
+        $node = $e.OriginalSource.DataContext
+        if ($node -is [IndexNode]) { $node.LoadChildren() }
+    }
+})
 $ui.IndexTree.Add_PreviewKeyDown({
     param ($sender, $e)
     # スペースで選択中のフォルダのチェックを切り替える
@@ -2982,7 +2926,10 @@ $ui.FilterBox.Add_TextChanged({
     $script:filterTimer.Stop()
     $script:filterTimer.Start()
 })
-$ui.ResultGrid.Add_SelectionChanged({ safe { showDetail } })
+$ui.ResultGrid.Add_SelectionChanged({
+    $script:detailTimer.Stop()
+    $script:detailTimer.Start()
+})
 $ui.ResultGrid.Add_MouseDoubleClick({
     param ($sender, $e)
     # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）
@@ -3067,7 +3014,7 @@ $ui.PreviewScroll.Add_PreviewKeyDown({
 $ui.MenuPreviewCopy.Add_Click({ safe { copyPreviewSelection } })
 $ui.MenuPreviewCopyRow.Add_Click({
     safe {
-        if ($script:previewTable -and $script:previewTable.HasSelection) {
+        if ($script:previewTable -and $script:previewTable.HasSelection()) {
             # 選んでいるセルのある行をすべて選んでからコピーする
             $selected = $null
             foreach ($row in $script:previewTable.Rows) {
@@ -3090,8 +3037,8 @@ $ui.PreviewHeader.AddHandler(
         param ($sender, $e)
         safe {
             $column = $e.OriginalSource.DataContext
-            if ($column -is [WinGrep.PreviewColumn]) {
-                $column.Width = $column.Width + $e.HorizontalChange
+            if ($column -is [PreviewColumn]) {
+                $column.SetWidth($column.Width + $e.HorizontalChange)
             }
         }
     })
@@ -3100,7 +3047,7 @@ $ui.MenuCopyPath.Add_Click({ safe { copySourcePath } })
 $ui.ExportButton.Add_Click({ safe { exportResults } })
 
 # ============================================================================
-# ［9 Office 強制終了］
+# ［9 プロセス停止］
 # ============================================================================
 
 $script:processes = @()
@@ -3111,7 +3058,7 @@ function refreshProcesses {
 
     $rows = New-Object System.Collections.ArrayList
     foreach ($process in $script:processes) {
-        $row = New-Object WinGrep.ProcRow
+        $row = New-Object ProcRow
         $row.Id = $process.Id
         $row.AppName = $process.AppName
         $row.Background = $process.Background
@@ -3151,7 +3098,7 @@ function updateKillBadge {
         $background = @(getOfficeProcesses | Where-Object { $_.Background }).Count
     }
     # 変換中はバックグラウンドの Excel 等があって当然なので、印を付けない
-    $ui.KillTabHeader.Text = if ($background -gt 0 -and !(isConverting)) { "⚠ 9 Office 強制終了" } else { "9 Office 強制終了" }
+    $ui.KillTabHeader.Text = if ($background -gt 0 -and !(isConverting)) { "⚠ 9 プロセス停止" } else { "9 プロセス停止" }
 }
 
 function killProcesses {
@@ -3237,7 +3184,7 @@ $window.Add_Activated({
         # 変換対象フォルダがほかの画面で変更されていれば読み直す
         if ((getTargetsKey @(getTargetFolders)) -ne $script:savedTargets) {
             loadTargets
-            setStatus "変換対象フォルダがほかで変更されたため、読み直しました"
+            setStatus "インデックス一覧がほかで変更されたため、読み直しました"
         }
         foreach ($item in $script:targetItems) {
             updateFolderItemStatus $item
@@ -3260,10 +3207,7 @@ $window.Add_PreviewKeyDown({
     if ($e.Key -eq "F" -and $modifiers -eq "Control") {
         $ui.Tabs.SelectedItem = $ui.SearchTab
         $ui.WordBox.Focus() | Out-Null
-        $textBox = $ui.WordBox.Template.FindName("PART_EditableTextBox", $ui.WordBox)
-        if ($textBox) {
-            $textBox.SelectAll()
-        }
+        $ui.WordBox.SelectAll()
         $e.Handled = $true
     } elseif ($e.Key -eq "F" -and $modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift)) {
         $ui.Tabs.SelectedItem = $ui.SearchTab
@@ -3319,7 +3263,6 @@ loadTargets
 setSearchOptionToUi (readSearchOption)
 setOpenMode (readOpenMode)
 updateOpenMenu
-loadHistory
 refreshConversionState
 loadIndexTree
 updateWordNotice
@@ -3332,10 +3275,29 @@ if ($runningConversion) {
     adoptConversion $runningConversion
 }
 
-# 起動時のタブ：変換中・中断中、またはインデックスが無ければ［1 インデックス作成］、それ以外は［2 検索］
+# 起動時のタブ：変換中・中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
 $openIndexTab = $runningConversion -or ($script:conversionState -and $script:conversionState.Pending -gt 0) -or !(testIndexExists)
 $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
 setStatus ""
+
+# 多重起動したとき（2つ目のプロセスが $activateEvent を合図）に、この画面を前面へ出す。
+# 画面のスレッドで一定間隔にイベントを確認する（P/Invoke を使わず、WPF の Activate で前面化する）。
+# ※以前は C# の SingleInstance（AttachThreadInput 等の P/Invoke）で行っていたが、
+#   実行時コンパイル（csc.exe）を無くすため、DispatcherTimer＋Window.Activate に置き換えた。
+$activateTimer = New-Object System.Windows.Threading.DispatcherTimer
+$activateTimer.Interval = [TimeSpan]::FromMilliseconds(300)
+$activateTimer.Add_Tick({
+    if ($activateEvent.WaitOne(0)) {
+        if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
+            $window.WindowState = [System.Windows.WindowState]::Normal
+        }
+        [void]$window.Activate()
+        # ほかのプロセスが前面のときは Activate が無視されることがあるため、最前面を一瞬立ててから戻す
+        $window.Topmost = $true
+        $window.Topmost = $false
+    }
+})
+$activateTimer.Start()
 
 try {
     [void]$window.ShowDialog()
@@ -3343,6 +3305,8 @@ try {
     if ($script:search) {
         $script:search.PS.Stop()
     }
+    $activateTimer.Stop()
+    $activateEvent.Close()
     $mutex.ReleaseMutex()
     $mutex.Dispose()
 }

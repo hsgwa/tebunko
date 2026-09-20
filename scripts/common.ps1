@@ -7,7 +7,10 @@ ${indexDir}  = "${workDir}\index"
 # Excelは [ ] を含むパスに保存できないため TEMP を使う。
 # 変換を同時に複数実行しても互いのTSVを削除・移動しないよう、プロセスごとに分ける
 ${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "win_grep\${PID}"
-${outputDir} = "${rootDir}\output"
+# 変換したTSVをインデックスに入れる直前に集めるフォルダ（publishIndexFiles）。
+# フォルダごと入れ替えるため、インデックスと同じドライブ（work の中）に置く。
+# 検索対象に入らないよう work\index の外にする
+${publishDir} = "${workDir}\変換出力\${PID}"
 
 ${utf8Bom} = New-Object System.Text.UTF8Encoding($true)
 
@@ -20,7 +23,6 @@ ${settingsFile} = "${rootDir}\setting.config"
 # 以前の設定ファイル（設定ファイルと同じフォルダの config\*.txt）。設定ファイルが無いときだけ読み込んで移す
 ${legacyConfigDirName}        = "config"
 ${legacyTargetFolderFileName} = "変換対象フォルダパス.txt"
-${legacyIndexPathFileName}    = "検索対象インデックスパス.txt"
 ${legacySourceReplaceFileName} = "元のフォルダの置き換え.txt"
 ${legacySearchOptionFileName} = "検索オプション.txt"
 
@@ -32,12 +34,20 @@ ${sourceFolderFileName} = "元のフォルダ.txt"
 # 変換一覧・出力（自動生成）
 ${statusFile} = "${workDir}\変換一覧.tsv"
 ${convertingFile} = "${workDir}\変換中.txt"  # 変換中のファイル。強制終了で残っていれば、そのファイルの変換中に止まった
-${resultFile} = "${outputDir}\検索結果.txt"
+${resultFile} = "${workDir}\検索結果.txt"
 
 # 画面（config_gui.ps1）と変換処理（office_to_tsv.ps1）の受け渡し
 ${stopRequestFile}  = "${workDir}\変換中止要求"    # 画面が作成すると、変換処理はファイルの切れ目で中止する
 ${convertErrorFile} = "${workDir}\変換エラー.txt"  # 変換処理を続けられないエラーのメッセージ（正常終了時は削除）
 ${convertLogFile}   = "${workDir}\変換ログ.txt"    # 変換処理の表示内容の記録（実行ごとに上書き）
+# 変換の進み具合（変換が1行だけ書き、画面が読む）。
+# 画面が変換一覧（数万行になる）を毎秒読み直すと、その間ずっと画面が固まるため、進み具合はこの1行から読む
+${convertProgressFile} = "${workDir}\変換進捗.txt"
+
+# 変換の進み具合の段階（変換進捗.txt の1列目）
+${convertPhaseScan}   = "準備"    # 変換対象のファイルを探している（件数はまだ分からない）
+${convertPhaseRun}    = "変換"    # 1ファイルずつ変換している
+${convertPhaseFinish} = "仕上げ"  # 後片付け（Officeアプリの終了・変換一覧の書き直し）
 
 # 変換一覧の列と状態
 ${statusColumns}   = @("相対パス", "更新日時", "サイズ", "状態", "TSV数", "変換日時", "エラー")
@@ -57,7 +67,6 @@ function newSettings {
     return [ordered]@{
         targetFolders      = @()      # 変換対象フォルダ: @{ name（インデックス名）; path（今フォルダが置かれている場所）; enabled }（記載順。enabled が false は登録のみで変換しない）
         indexSources       = @()      # 変換しないインデックスの元のフォルダ: @{ name; path }（別のPC・場所で作ったインデックスを検索するとき）
-        indexFolders       = @()      # 検索対象インデックスのフォルダ（空なら work\index）
         searchExcludes     = @()      # 画面の検索対象ツリーでチェックを外したフォルダ: @{ path（フルパス）; subfolders（false はフォルダ直下のファイルだけ） }
         useRegex           = $false   # 検索ワードを正規表現として扱う
         caseSensitive      = $false   # 英字の大文字と小文字を区別する
@@ -146,11 +155,6 @@ function readLegacySettings {
             [pscustomobject]@{ name = ""; path = (normalizeFolderPath $_.TrimStart("#")); enabled = -not $_.StartsWith("#") }
         } | Where-Object { $_.path -ne "" })
     }
-    $file = Join-Path $dir ${legacyIndexPathFileName}
-    if (Test-Path -LiteralPath $file) {
-        $found = $true
-        $settings.indexFolders = @(readListFile $file | ForEach-Object { $_.Trim() })
-    }
     $file = Join-Path $dir ${legacySearchOptionFileName}
     if (Test-Path -LiteralPath $file) {
         $found = $true
@@ -217,13 +221,25 @@ function newStatusRow {
     }
 }
 
+# 1行1件を保つため、タブ・改行はスペースにする（この文字を含む値だけ置き換える）
+${statusLineBreaks} = [char[]]@("`t", "`r", "`n")
+
 function toStatusLine {
-    # 変換一覧の1行を文字列にする。エラーメッセージ等のタブ・改行は、1行1件を保つためスペースにする
+    # 変換一覧の1行を文字列にする（1件ずつの追記用。addStatusRow）。
+    # エラーメッセージ等のタブ・改行は、1行1件を保つためスペースにする。
+    # 数万行をまとめて書き出す writeStatusFile では、同じ整形をその場に展開している（関数の呼び出しだけで
+    # 5万行あたり数秒かかるため）。整形を変えるときは両方を直す（テストで同じ結果になることを確かめている）
     param (
         $row
     )
 
-    return (@(${statusColumns} | ForEach-Object { [string]$row.$_ -replace "[\t\r\n]+", " " }) -join "`t")
+    $errorText = [string]$row.エラー
+    if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
+        $errorText = $errorText -replace "[\t\r\n]+", " "
+    }
+    return [string]::Join("`t", @(
+        [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
+        [string]$row.TSV数, [string]$row.変換日時, $errorText))
 }
 
 function describeConvertError {
@@ -321,7 +337,16 @@ function readStatusFile {
         if ($line -eq $header -or $fields.Count -ne ${statusColumns}.Count -or $fields[0] -eq "") {
             continue
         }
-        $rows[$fields[0]] = newStatusRow @fields
+        # 数万行を読むため、1行ごとの関数呼び出し（newStatusRow）は使わずにその場で作る（列は $statusColumns と同じ）
+        $rows[$fields[0]] = [pscustomobject]@{
+            相対パス = $fields[0]
+            更新日時 = $fields[1]
+            サイズ   = $fields[2]
+            状態     = $fields[3]
+            TSV数    = $fields[4]
+            変換日時 = $fields[5]
+            エラー   = $fields[6]
+        }
     }
     return $result
 }
@@ -340,19 +365,22 @@ function writeStatusFile {
         $lines.Add("${statusFolderKey}`t$($folder.Path)`t$($folder.Name)")
     }
     $lines.Add((${statusColumns} -join "`t"))
-    foreach ($row in @($rows | Where-Object { $null -ne $_ })) {
-        $lines.Add((toStatusLine $row))
+    # 数万行を書き出すため、1行ごとの関数呼び出し（toStatusLine）・パイプライン（Where-Object）は使わない
+    # （5万行で約 10 秒 → 約 0.2 秒。この間は変換の進み具合が止まって見えるため速くする）
+    foreach ($row in $rows) {
+        if ($null -eq $row) {
+            continue
+        }
+        $errorText = [string]$row.エラー
+        if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
+            $errorText = $errorText -replace "[\t\r\n]+", " "
+        }
+        $lines.Add([string]::Join("`t", @(
+            [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
+            [string]$row.TSV数, [string]$row.変換日時, $errorText)))
     }
 
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
-    $tmpPath = "${path}.tmp"
-    [System.IO.File]::WriteAllLines($tmpPath, $lines, ${utf8Bom})
-    if (Test-Path -LiteralPath $path) {
-        # $null は空文字列として渡されて例外になるため、[NullString]::Value（バックアップを作らない）を渡す
-        [System.IO.File]::Replace($tmpPath, $path, [NullString]::Value)
-    } else {
-        [System.IO.File]::Move($tmpPath, $path)
-    }
+    writeTextLinesAtomic $path $lines
 }
 
 function addStatusRow {
@@ -398,6 +426,82 @@ function writeConvertingFile {
 function removeConvertingFile {
     param (
         [string]$path = ${convertingFile}
+    )
+
+    if (Test-Path -LiteralPath $path) {
+        Remove-Item -LiteralPath $path -Force
+    }
+}
+
+function writeConvertProgress {
+    # 変換の進み具合を1行で書く（画面が読む）。書き込みは1ファイルにつき1回で、変換の速さに影響しない大きさにする。
+    #   "<段階><TAB><処理済み><TAB><残り><TAB><失敗><TAB><いま行っていること>"
+    # 画面が読んでいる最中でも書けるよう、共有を許して開く
+    param (
+        [string]$phase,
+        [int]$processed = 0,
+        [int]$remaining = 0,
+        [int]$failed = 0,
+        [string]$detail = "",
+        [string]$path = ${convertProgressFile}
+    )
+
+    $line = "{0}`t{1}`t{2}`t{3}`t{4}" -f $phase, $processed, $remaining, $failed, ($detail -replace "[\t\r\n]+", " ")
+    try {
+        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+        try {
+            $bytes = ${utf8Bom}.GetPreamble() + ${utf8Bom}.GetBytes($line)
+            $stream.Write($bytes, 0, $bytes.Length)
+        } finally {
+            $stream.Dispose()
+        }
+    } catch {
+        # 進み具合の表示のためだけのファイルのため、書けなくても変換は続ける
+    }
+}
+
+function readConvertProgress {
+    # 変換の進み具合を読む（無い・壊れていれば $null）。画面が毎秒呼ぶため、1行だけ読む
+    param (
+        [string]$path = ${convertProgressFile}
+    )
+
+    if (!(Test-Path -LiteralPath $path)) {
+        return $null
+    }
+    # 変換側が書いている最中でも読めるよう、共有を許して開く
+    $text = ""
+    try {
+        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+        $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
+        try {
+            $text = $reader.ReadToEnd()
+        } finally {
+            $reader.Dispose()
+        }
+    } catch {
+        return $null  # 書き込みと重なった等。次の機会に読む
+    }
+
+    $fields = (($text -split "\r?\n")[0]).Split("`t")
+    if ($fields.Count -lt 5) {
+        return $null  # 書き込みの途中
+    }
+    $numbers = @(0, 0, 0)
+    for ($i = 0; $i -lt 3; $i++) {
+        $value = 0
+        if (-not [int]::TryParse($fields[$i + 1], [ref]$value)) {
+            return $null
+        }
+        $numbers[$i] = $value
+    }
+    return @{ Phase = $fields[0]; Processed = $numbers[0]; Remaining = $numbers[1]; Failed = $numbers[2]; Detail = $fields[4] }
+}
+
+function removeConvertProgress {
+    param (
+        [string]$path = ${convertProgressFile}
     )
 
     if (Test-Path -LiteralPath $path) {
@@ -475,77 +579,24 @@ function getPathUnderFolder {
     return $null
 }
 
-# ドライブ文字の割り当て先を調べる Win32 API（QueryDosDevice）。
-# net use・WMI と違い、subst で割り当てたドライブも分かり、切断中のネットワークドライブでも割り当てが分かる
-${dosDeviceSource} = @'
-using System;
-using System.Text;
-using System.Runtime.InteropServices;
-
-namespace WinGrep
-{
-    public static class DosDevice
-    {
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        static extern uint QueryDosDeviceW(string lpDeviceName, StringBuilder lpTargetPath, uint ucchMax);
-
-        // ドライブ文字（"Z:"）の割り当て先（デバイス名）を返す。割り当てが無ければ null
-        public static string Query(string drive)
-        {
-            StringBuilder buffer = new StringBuilder(1024);
-            if (QueryDosDeviceW(drive, buffer, (uint)buffer.Capacity) == 0) return null;
-            return buffer.ToString();
-        }
-    }
-}
-'@
-
-function parseDosDeviceTarget {
-    # QueryDosDevice の結果を通常のパスにする。ネットワークドライブ・subst 以外（実際のディスク）は ""
-    #   subst               : "\??\C:\data"                                              → "C:\data"
-    #   ネットワークドライブ: "\Device\LanmanRedirector\;Z:0000000000012345\server\share" → "\\server\share"
-    #                         "\Device\Mup\;Z:0000000000012345\server\share"              → "\\server\share"
-    param (
-        [string]$target
-    )
-
-    if ($target.StartsWith("\??\")) {
-        return $target.Substring(4)
-    }
-    $i = $target.IndexOf("\;")
-    if ($i -lt 0) {
-        return ""
-    }
-    # "\;" の後は "<ドライブ文字>:<16進数>\server\share"
-    $rest = $target.Substring($i + 2)
-    $j = $rest.IndexOf("\")
-    if ($j -lt 0) {
-        return ""
-    }
-    return "\\" + $rest.Substring($j + 1)
-}
+# ドライブ文字の割り当て先（ネットワークドライブ）は CIM で調べる（getDriveTargets 参照）。
+# ※以前は Win32 API（QueryDosDevice）で subst も解決していたが、実行時コンパイル（csc.exe）を無くすため CIM に変更した。
 
 ${driveTargets} = $null
 
 function getDriveTargets {
-    # ドライブ文字（"Z:"）→ 割り当て先（ネットワークドライブは "\\server\share"、subst は割り当て元のフォルダ）を返す。
-    # 同じプロセスでは1回だけ調べる（変換・検索の途中で割り当てが変わることは想定しない）
+    # ドライブ文字（"Z:"）→ 割り当て先（ネットワークドライブは "\\server\share"）を返す。
+    # 同じプロセスでは1回だけ調べる（変換・検索の途中で割り当てが変わることは想定しない）。
+    # subst で割り当てたドライブは解決しない（CIM で取れないため。実運用ではネットワークドライブが主）。
     if ($null -ne ${script:driveTargets}) {
         return ${script:driveTargets}
     }
     $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
     try {
-        if (!("WinGrep.DosDevice" -as [type])) {
-            Add-Type -TypeDefinition ${dosDeviceSource}
-        }
-        foreach ($letter in [char[]]"ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-            $target = [WinGrep.DosDevice]::Query("${letter}:")
-            if (!$target) {
-                continue
-            }
-            $folder = (parseDosDeviceTarget $target).TrimEnd("\")
-            if ($folder -ne "") {
-                $map["${letter}:"] = $folder
+        # DriveType=4 はネットワークドライブ。DeviceID="Z:"、ProviderName="\\server\share"
+        foreach ($d in @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=4" -ErrorAction SilentlyContinue)) {
+            if ($d.ProviderName) {
+                $map[$d.DeviceID] = $d.ProviderName.TrimEnd("\")
             }
         }
     } catch {
@@ -603,6 +654,26 @@ function testSameFolder {
     $target = $b.TrimEnd("\")
     foreach ($alias in @(getFolderPathAliases $a $drives)) {
         if ($alias.TrimEnd("\").Equals($target, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function testFolderUnder {
+    # path が folder 自身か folder の下のフォルダかを返す（testSameFolder と同じく、書き方の違い・ドライブの割り当てをたどる）。
+    # 変換対象フォルダが入れ子になると、同じファイルが2つのインデックスに入り、検索結果にも二重に出るため、その確認に使う
+    param (
+        [string]$path,
+        [string]$folder,
+        $drives = (getDriveTargets)  # ドライブ文字 → 割り当て先（テストで差し替える）
+    )
+
+    if ($path -eq "" -or $folder -eq "") {
+        return $false
+    }
+    foreach ($alias in @(getFolderPathAliases $path $drives)) {
+        if ($null -ne (getPathUnderFolder $alias $folder)) {
             return $true
         }
     }
@@ -832,36 +903,277 @@ function getIndexNameMap {
     return , $map
 }
 
-function readIndexFolders {
-    # 設定した検索対象インデックスのフォルダ一覧を返す（設定が無ければ空）
+function readStatusLines {
+    # 変換一覧を1行ずつ読む（変換中でも読めるよう共有を許して開く）。ファイルが無ければ空
     param (
-        [string]$path = ${settingsFile}
+        [string]$path = ${statusFile}
     )
 
-    return @((readSettings $path).indexFolders | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne "" })
-}
-
-function writeIndexFolders {
-    # 検索対象インデックスのフォルダ一覧を保存する（空なら work\index を使う）
-    param (
-        [string[]]$folders,
-        [string]$path = ${settingsFile}
-    )
-
-    updateSettings "indexFolders" ([object[]]@($folders | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne "" })) $path
-}
-
-function getIndexFolders {
-    # 検索対象インデックスのフォルダ一覧を返す。設定が無い・空なら work\index を使う。
-    param (
-        [string]$path = ${settingsFile}
-    )
-
-    $folders = @(readIndexFolders $path)
-    if ($folders.Count -gt 0) {
-        return $folders
+    if (!(Test-Path -LiteralPath $path)) {
+        return @()
     }
-    return @(${indexDir})
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
+    try {
+        $text = $reader.ReadToEnd()
+    } finally {
+        $reader.Dispose()
+    }
+    return @($text -split "\r?\n" | Where-Object { $_ -ne "" })
+}
+
+function writeTextLinesAtomic {
+    # 途中で中断してもファイルが壊れないよう、一時ファイルに書いてから置き換える
+    param (
+        [string]$path,
+        [object[]]$lines
+    )
+
+    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
+    $tmpPath = "${path}.tmp"
+    [System.IO.File]::WriteAllLines($tmpPath, [string[]]@($lines), ${utf8Bom})
+    if (Test-Path -LiteralPath $path) {
+        # $null は空文字列として渡されて例外になるため、[NullString]::Value（バックアップを作らない）を渡す
+        [System.IO.File]::Replace($tmpPath, $path, [NullString]::Value)
+    } else {
+        [System.IO.File]::Move($tmpPath, $path)
+    }
+}
+
+# Windows で使えないファイル名（インデックス名に使えるかの判定に使う）
+${reservedFileNames} = @("CON", "PRN", "AUX", "NUL") +
+    @(1..9 | ForEach-Object { "COM$_" }) + @(1..9 | ForEach-Object { "LPT$_" })
+
+function testIndexName {
+    # インデックス名（work\index 直下のフォルダ名）として使えるかを調べ、使えない理由を返す（使えれば空文字列）。
+    #   usedNames: ほかのインデックスが使っている名前（大文字・小文字を区別しない）
+    param (
+        [string]$name,
+        [object[]]$usedNames = @()
+    )
+
+    $name = [string]$name
+    if ($name -eq "") {
+        return "インデックス名を入力してください。"
+    }
+    if ($name -ne $name.Trim()) {
+        return "インデックス名の前後に空白は使えません。"
+    }
+    if ($name.Length -gt ${maxFileNameLength}) {
+        return "インデックス名が長すぎます（${maxFileNameLength} 文字まで）。"
+    }
+    if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
+        return "インデックス名に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
+    }
+    if ($name.EndsWith(".")) {
+        return "インデックス名の最後に . は使えません。"
+    }
+    if (${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
+        return "「${name}」は Windows で使えない名前です。"
+    }
+    foreach ($used in @($usedNames)) {
+        if ([string]::Equals([string]$used, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return "「${name}」は、ほかのインデックスが使っています。別の名前を付けてください。"
+        }
+    }
+    return ""
+}
+
+function getIndexStats {
+    # 変換一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
+    #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastConverted（"yyyy/MM/dd HH:mm:ss"。無ければ空） }
+    # rows は readStatusFile の Rows（相対パス → 行）。変換一覧を読み直さずに済むよう、読み込み済みの行を受け取る
+    param (
+        $rows
+    )
+
+    $stats = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    if ($null -eq $rows) {
+        return , $stats
+    }
+    foreach ($entry in $rows.GetEnumerator()) {
+        $name = (splitIndexRelPath $entry.Key).Name
+        if ($name -eq "") {
+            continue
+        }
+        if (!$stats.ContainsKey($name)) {
+            $stats[$name] = @{ Total = 0; Done = 0; Pending = 0; Failed = 0; LastConverted = "" }
+        }
+        $stat = $stats[$name]
+        $stat.Total++
+        $state = [string]$entry.Value.状態
+        if ($state -eq ${stateDone}) {
+            $stat.Done++
+        } elseif ($state -eq ${stateNew}) {
+            $stat.Pending++
+        } elseif ($state -eq ${stateFailed}) {
+            $stat.Failed++
+        }
+        # 変換日時は "yyyy/MM/dd HH:mm:ss" のため、文字列のまま比べて新しい方を残せる
+        $converted = [string]$entry.Value.変換日時
+        if ($converted -gt $stat.LastConverted) {
+            $stat.LastConverted = $converted
+        }
+    }
+    return , $stats
+}
+
+function renameStatusIndexName {
+    # 変換一覧に記録したインデックス名を書き換える（変換対象フォルダの行と、各行の相対パスの先頭）。
+    # 行の順序と内容をそのまま保つため、行ごとに書き換えて置き換える
+    param (
+        [string]$oldName,
+        [string]$newName,
+        [string]$path = ${statusFile}
+    )
+
+    $lines = @(readStatusLines $path)
+    if ($lines.Count -eq 0) {
+        return
+    }
+
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $lines) {
+        $fields = $line.Split("`t")
+        if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and [string]::Equals($fields[2], $oldName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $fields[2] = $newName
+            $result.Add($fields -join "`t")
+            continue
+        }
+        if ($fields.Count -eq ${statusColumns}.Count -and $fields[0] -ne "") {
+            $split = splitIndexRelPath $fields[0]
+            if ($split.Rest -ne "" -and [string]::Equals($split.Name, $oldName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $fields[0] = "${newName}\$($split.Rest)"
+                $result.Add($fields -join "`t")
+                continue
+            }
+        }
+        $result.Add($line)
+    }
+    writeTextLinesAtomic $path $result
+}
+
+function removeStatusIndexName {
+    # 変換一覧から、あるインデックスの記録（変換対象フォルダの行と、そのインデックスの各行）を取り除く
+    param (
+        [string]$name,
+        [string]$path = ${statusFile}
+    )
+
+    $lines = @(readStatusLines $path)
+    if ($lines.Count -eq 0) {
+        return
+    }
+
+    $result = New-Object System.Collections.Generic.List[string]
+    foreach ($line in $lines) {
+        $fields = $line.Split("`t")
+        if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and [string]::Equals($fields[2], $name, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+        if ($fields.Count -eq ${statusColumns}.Count -and $fields[0] -ne "") {
+            $split = splitIndexRelPath $fields[0]
+            if ($split.Rest -ne "" -and [string]::Equals($split.Name, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
+                continue
+            }
+        }
+        $result.Add($line)
+    }
+    writeTextLinesAtomic $path $result
+}
+
+function renameIndex {
+    # インデックス名を変える（画面の［編集…］）。インデックスのフォルダ（work\index\<名前>）を改名し、
+    # 変換一覧の記録も書き換えるため、名前を変えてもインデックスは作り直さない。
+    # 変換中は呼ばない（画面は変換中この操作を無効にする）
+    param (
+        [string]$oldName,
+        [string]$newName,
+        [string]$dir = ${indexDir},
+        [string]$statusPath = ${statusFile}
+    )
+
+    if ($oldName -eq "" -or $newName -eq "" -or $oldName -eq $newName) {
+        return
+    }
+
+    $from = Join-Path $dir $oldName
+    $to   = Join-Path $dir $newName
+    if (Test-Path -LiteralPath $from -PathType Container) {
+        if ([string]::Equals($oldName, $newName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            # 大文字・小文字だけを変える場合は、そのままでは改名できないため一時名を経由する
+            $tmp = Join-Path $dir "${oldName}_rename_${PID}"
+            [System.IO.Directory]::Move((toLongPath $from), (toLongPath $tmp))
+            [System.IO.Directory]::Move((toLongPath $tmp), (toLongPath $to))
+        } else {
+            if (Test-Path -LiteralPath $to) {
+                throw "「${newName}」のフォルダが既にあるため、名前を変えられません: ${to}"
+            }
+            [System.IO.Directory]::Move((toLongPath $from), (toLongPath $to))
+        }
+    }
+    renameStatusIndexName $oldName $newName $statusPath
+}
+
+function removeIndex {
+    # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（work\index\<名前>）と、変換一覧の記録を削除する。
+    # 変換中は呼ばない（画面は変換中この操作を無効にする）
+    param (
+        [string]$name,
+        [string]$dir = ${indexDir},
+        [string]$statusPath = ${statusFile}
+    )
+
+    if ($name -eq "") {
+        return
+    }
+    $target = Join-Path $dir $name
+    if (Test-Path -LiteralPath $target -PathType Container) {
+        # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
+        Remove-Item -LiteralPath (toLongPath $target) -Recurse -Force
+    }
+    removeStatusIndexName $name $statusPath
+}
+
+function getSearchIndexes {
+    # インデックスの一覧（work\index 直下のフォルダ 1 つがインデックス 1 つ）を
+    # @{ Name（インデックス名）; Path（インデックスのフォルダのフルパス）; SourcePath（元のフォルダ。分からなければ ""） } の配列で返す。
+    # 並びは［1 インデックス管理］の一覧（targetFolders）と同じにし、その一覧に無いもの
+    # （別の場所・PC から work\index にコピーしたインデックスなど）は名前順で後ろに付ける
+    param (
+        [string]$dir = ${indexDir},
+        [string]$statusPath = ${statusFile},
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    if (!(Test-Path -LiteralPath $dir -PathType Container)) {
+        return @()
+    }
+    $root = (Resolve-Path -LiteralPath $dir).ProviderPath.TrimEnd("\")
+    $sources = getSourceFolderMap $root $statusPath $settingsPath
+
+    # ［1 インデックス管理］の一覧の順番（インデックス名 → 何番目か）
+    $order = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($folder in @(getTargetFolders $settingsPath | Where-Object { $_.Name })) {
+        if (!$order.ContainsKey($folder.Name)) {
+            $order[$folder.Name] = $order.Count
+        }
+    }
+
+    $indexes = New-Object System.Collections.Generic.List[object]
+    foreach ($sub in @(Get-ChildItem -LiteralPath (toLongPath $root) -Directory -ErrorAction SilentlyContinue)) {
+        $name = $sub.Name
+        $indexes.Add([pscustomobject]@{
+            Name       = $name
+            Path       = (fromLongPath $sub.FullName)
+            SourcePath = $(if ($sources.ContainsKey($name)) { $sources[$name] } else { "" })
+            Order      = $(if ($order.ContainsKey($name)) { $order[$name] } else { [int]::MaxValue })
+        })
+    }
+    return @($indexes | Sort-Object Order, Name | ForEach-Object {
+        [pscustomobject]@{ Name = $_.Name; Path = $_.Path; SourcePath = $_.SourcePath }
+    })
 }
 
 function readSearchExcludes {
@@ -1113,6 +1425,165 @@ function splitIndexTsvPath {
     return @{ Book = $name.book; Place = $name.sheet; RelDir = $dir }
 }
 
+# 変換結果のフォルダが壊れている（0 バイトのTSVがある）ことを表す件数。testIndexComplete は変換し直す
+${indexBrokenCount} = -1
+
+function getIndexTsvCounts {
+    # インデックスのフォルダの中のフォルダごとのTSVの数を返す（変換一覧の「済」と、インデックスの実体が合っているかの確認に使う）:
+    #   インデックスのフォルダからの相対パス（大文字・小文字を区別しない）→ そのフォルダの直下のTSVの数
+    # 元のファイル1つにつき1フォルダ（<ファイル名.xlsx>\<場所>.tsv）のため、キーは変換一覧の相対パスと同じになる。
+    # 0 バイトのTSVがあるフォルダは ${indexBrokenCount}（-1）にする。
+    # 空のシート・ページは保存しない（prettyTsv / writeUnits）ため、0 バイトのTSVは書き込みの途中で
+    # 電源が落ちた場合などに限られ、そのままでは検索しても中身が出てこない。
+    # 列挙できないとき（アクセス権が無い等）は $null を返す（呼び出し元は確認しない）
+    param (
+        [string]$dir = ${indexDir}
+    )
+
+    $counts = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $root = toLongPath ([string]$dir).TrimEnd("\")
+    if (!$root -or ![System.IO.Directory]::Exists($root)) {
+        return , $counts
+    }
+
+    # 1ファイルずつ調べると件数の分だけ時間がかかるため、フォルダ・TSVをそれぞれ1回ずつ列挙して数える
+    # （大きさは列挙のときに分かるため、1件ずつ調べる必要は無い）
+    $prefix = $root.Length + 1
+    try {
+        # 内容が空のファイル（TSV 0 件）はフォルダだけが残るため、フォルダも 0 件として数える
+        foreach ($sub in [System.IO.Directory]::EnumerateDirectories($root, "*", [System.IO.SearchOption]::AllDirectories)) {
+            $counts[$sub.Substring($prefix)] = 0
+        }
+        foreach ($file in (New-Object System.IO.DirectoryInfo($root)).EnumerateFiles("*.tsv", [System.IO.SearchOption]::AllDirectories)) {
+            $parent = [System.IO.Path]::GetDirectoryName($file.FullName)
+            if ($parent.Length -lt $prefix) {
+                continue  # インデックスのフォルダの直下のTSV（以前の形式）は、どのファイルのものか分からないため数えない
+            }
+            $key = $parent.Substring($prefix)
+            $count = 0
+            if (!$counts.TryGetValue($key, [ref]$count)) {
+                $count = 0
+            }
+            if ($file.Length -eq 0 -or $count -eq ${indexBrokenCount}) {
+                $counts[$key] = ${indexBrokenCount}
+            } else {
+                $counts[$key] = $count + 1
+            }
+        }
+    } catch {
+        return $null
+    }
+    return , $counts
+}
+
+function testIndexComplete {
+    # 変換一覧の行（状態が「済」）に対して、インデックスの実体（TSV）がそろっているかを返す。
+    # 利用者が work\index のフォルダ・TSVを直接削除した場合に、「済」のまま検索できなくなるのを防ぐ
+    #   row    : 変換一覧の行（TSV数 を使う）
+    #   relPath: 変換一覧の相対パス（= インデックスのフォルダからの相対パス）
+    #   counts : getIndexTsvCounts の結果（$null なら確認せず、そろっているものとして扱う）
+    param (
+        $row,
+        [string]$relPath,
+        $counts
+    )
+
+    if ($null -eq $counts -or $null -eq $row) {
+        return $true
+    }
+    $expected = 0
+    if (-not [int]::TryParse([string]$row.TSV数, [ref]$expected)) {
+        return $true  # TSVの数を記録していない行（以前の形式）は確認できない
+    }
+    $actual = 0
+    if (-not $counts.TryGetValue($relPath, [ref]$actual)) {
+        return $false  # フォルダごと無い
+    }
+    if ($actual -eq ${indexBrokenCount}) {
+        return $false  # 0 バイトのTSVがある（書き込みの途中で電源が落ちた場合など）
+    }
+    # 余分なTSVがあっても（利用者が置いた等）変換し直さない。足りない場合だけ作り直す
+    return ($actual -ge $expected)
+}
+
+function removeDirectoryRetry {
+    # フォルダを中身ごと削除する。ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
+    param (
+        [string]$path,
+        [int]$tries = 3,
+        [int]$waitMilliseconds = 200
+    )
+
+    # 中に長いパス（260文字超）のファイルがあっても削除できるよう \\?\ 付きで削除する
+    $longPath = toLongPath $path
+    for ($i = 1; $true; $i++) {
+        if (![System.IO.Directory]::Exists($longPath)) {
+            return
+        }
+        try {
+            Remove-Item -LiteralPath $longPath -Recurse -Force
+            return
+        } catch {
+            if ($i -ge $tries) {
+                throw
+            }
+            Start-Sleep -Milliseconds $waitMilliseconds
+        }
+    }
+}
+
+function publishIndexFiles {
+    # 変換して作ったTSV（fromDir の直下）を、その元のファイルのインデックスのフォルダ（bookDir）に入れる。
+    # 作りかけのインデックスを残さないよう、いったん stagingDir に集めてから bookDir ごと入れ替える。
+    # 途中で強制終了されても、bookDir は「前回のまま」か「今回の分がそろった状態」のどちらかになる
+    # （1件ずつ bookDir へ移すと、途中で止まったときに一部のシートだけのインデックスが残り、検索で気付けない）。
+    # 以前の変換結果はフォルダごと置き換える（シートの削除・名前変更に追従するため）
+    param (
+        [string]$fromDir,
+        [string]$bookDir,
+        [string]$stagingDir
+    )
+
+    removeDirectoryRetry $stagingDir
+    [System.IO.Directory]::CreateDirectory((toLongPath $stagingDir)) | Out-Null
+    foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $fromDir) -Filter "*.tsv" -File)) {
+        [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $stagingDir $file.Name)))
+    }
+
+    removeDirectoryRetry $bookDir
+    [System.IO.Directory]::CreateDirectory((toLongPath ([System.IO.Path]::GetDirectoryName($bookDir)))) | Out-Null
+    try {
+        [System.IO.Directory]::Move((toLongPath $stagingDir), (toLongPath $bookDir))
+    } catch [System.IO.IOException] {
+        # work を別のドライブへのリンクにしている場合など、フォルダごとは移せないときは1件ずつ移す
+        [System.IO.Directory]::CreateDirectory((toLongPath $bookDir)) | Out-Null
+        foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $stagingDir) -Filter "*.tsv" -File)) {
+            [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $bookDir $file.Name)))
+        }
+        removeDirectoryRetry $stagingDir
+    }
+}
+
+function newAppMutex {
+    # 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックスを作り、@{ Mutex; Acquired } を返す。
+    # Acquired が $false なら、ほかで実行中。プロセスが終われば解放されるため、強制終了されても残らない
+    #   name: 処理の種類（"gui" = 画面、"convert" = 変換）
+    param (
+        [string]$name,
+        [string]$dir = ${rootDir}
+    )
+
+    $md5 = New-Object System.Security.Cryptography.MD5CryptoServiceProvider
+    try {
+        $key = [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(([string]$dir).ToLowerInvariant()))).Replace("-", "")
+    } finally {
+        $md5.Dispose()
+    }
+    $createdNew = $false
+    $mutex = New-Object System.Threading.Mutex($true, "Local\win_grep_${name}_${key}", [ref]$createdNew)
+    return @{ Mutex = $mutex; Acquired = $createdNew }
+}
+
 function toResultLine {
     # 検索結果1件を "ファイル名<TAB>場所<TAB>行番号<TAB>該当行" に整形する。
     # Excelに貼り付けたとき、該当行の各セルが元の列の順（4列目 = A列）に並ぶようにする
@@ -1182,10 +1653,6 @@ function toResultHeader {
 # ----------------------------------------------------------------------------
 # 検索・Officeプロセス・画面（config_gui.ps1）で共有する処理
 # ----------------------------------------------------------------------------
-
-# 画面の履歴（画面が作成する）
-${historyFile}      = "${workDir}\検索履歴.txt"
-${historyMax}       = 20
 
 # 強制終了の対象: プロセス名 → 表示名
 ${officeProcessNames} = [ordered]@{ EXCEL = "Excel"; WINWORD = "Word"; POWERPNT = "PowerPoint" }
@@ -1271,135 +1738,79 @@ function newFileFilter {
 }
 
 # 検索処理の本体（TSVを読んで照合し、結果を作る）。Select-String と PowerShell で1件ずつ結果を作ると、
-# 件数が多いとき（数万件）に数十秒かかるため C# にする。初めて検索するときにコンパイルする（initTsvSearcher）
-${tsvSearcherSource} = @'
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using System.Text.RegularExpressions;
+# 検索処理。以前は C# にして Add-Type でコンパイルしていたが、実行時コンパイル（csc.exe）を無くすため
+# .NET を直接呼ぶ PowerShell 関数にした。数万件でも [StreamReader]＋[regex] のタイトループで実用的な速度
+# （実測: 50 万行で約 0.6 秒）。ヒットは PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）で返す。
 
-namespace WinGrep
-{
-    // 検索結果1件（TSVの1行）
-    public class TsvSearchHit
-    {
-        public string Root { get; set; }
-        public string RelPath { get; set; }
-        public string RelDir { get; set; }
-        public string FileName { get; set; }
-        public string Book { get; set; }
-        public string Location { get; set; }
-        public int LineNumber { get; set; }
-        public string Line { get; set; }
+function newTsvFiles {
+    # 検索対象のTSVを、元のファイル名（Book）・場所（Location）付きに整える。
+    # include に一致しない・exclude に一致する Book は除く（$null は条件なし）。パスの分解は splitIndexTsvPath に合わせる。
+    param (
+        [string[]]$paths,
+        [string[]]$roots,
+        [string[]]$relPaths,
+        [regex]$include = $null,
+        [regex]$exclude = $null
+    )
+
+    $files = New-Object System.Collections.Generic.List[psobject]
+    for ($i = 0; $i -lt $paths.Length; $i++) {
+        $relPath = $relPaths[$i]
+        $parts = splitIndexTsvPath $relPath
+        $book = [string]$parts.Book
+        if ($include -and !$include.IsMatch($book)) { continue }
+        if ($exclude -and $exclude.IsMatch($book)) { continue }
+        $files.Add([pscustomobject]@{
+            Path     = $paths[$i]
+            Root     = $roots[$i]
+            RelPath  = $relPath
+            RelDir   = [string]$parts.RelDir
+            FileName = [System.IO.Path]::GetFileName($relPath)
+            Book     = $book
+            Location = [string]$parts.Place
+        })
     }
-
-    // 検索対象のTSV1件
-    public class TsvSearchFile
-    {
-        public string Path;      // 読み込むパス（\\?\ 付き）
-        public string Root;
-        public string RelPath;
-        public string RelDir;
-        public string FileName;
-        public string Book;
-        public string Location;
-    }
-
-    public static class TsvSearcher
-    {
-        // TSVのファイル名の場所を元に戻す（decodeIndexPlace と同じ。encodeIndexPlace が作る "%XX" だけを戻す）
-        static readonly Regex placeEscape = new Regex("%(?:[01][0-9A-F]|2[25AF]|3[ACEF]|5[CF]|7C)");
-
-        public static string DecodePlace(string place)
-        {
-            if (place.IndexOf('%') < 0) return place;
-            return placeEscape.Replace(place, m => ((char)Convert.ToInt32(m.Value.Substring(1), 16)).ToString());
-        }
-
-        // 検索対象のTSVを作る。元のファイル名（Book）が include に一致しない・exclude に一致するものは除く（null は条件なし）。
-        // 今の形式は <相対フォルダ>\<ファイル名.xlsx>\<場所>.tsv、以前の形式は <相対フォルダ>\<ファイル名.xlsx>_<場所>.tsv
-        // （場所は _ を符号化してあるため、ファイル名に _ があれば以前の形式。splitIndexTsvPath と同じ規則）
-        public static List<TsvSearchFile> NewFiles(string[] paths, string[] roots, string[] relPaths, Regex fileNamePattern, Regex bookDirPattern, Regex include, Regex exclude)
-        {
-            List<TsvSearchFile> files = new List<TsvSearchFile>();
-            for (int i = 0; i < paths.Length; i++)
-            {
-                TsvSearchFile f = new TsvSearchFile();
-                f.Path = paths[i];
-                f.Root = roots[i];
-                f.RelPath = relPaths[i];
-                f.RelDir = System.IO.Path.GetDirectoryName(relPaths[i]) ?? "";
-                f.FileName = System.IO.Path.GetFileName(relPaths[i]);
-                string bookDir = System.IO.Path.GetFileName(f.RelDir);
-                if (f.FileName.IndexOf('_') < 0 && bookDir.Length > 0 && bookDirPattern.IsMatch(bookDir))
-                {
-                    f.Book = bookDir;
-                    f.Location = DecodePlace(System.IO.Path.GetFileNameWithoutExtension(f.FileName));
-                    f.RelDir = System.IO.Path.GetDirectoryName(f.RelDir) ?? "";
-                }
-                else
-                {
-                    Match m = fileNamePattern.Match(f.FileName);
-                    f.Book = m.Success ? m.Groups["book"].Value : f.FileName;
-                    f.Location = m.Success ? DecodePlace(m.Groups["sheet"].Value) : "";
-                }
-                if (include != null && !include.IsMatch(f.Book)) continue;
-                if (exclude != null && exclude.IsMatch(f.Book)) continue;
-                files.Add(f);
-            }
-            return files;
-        }
-
-        // files の start から count 件を読み、regex に一致する行を返す（1行に複数一致しても1件）。
-        // max 以上なら、max を超えた（max+1 件目が見つかった）時点で止める（負なら上限なし）。
-        // 読めないTSV（変換中に削除された等）は飛ばす
-        public static List<TsvSearchHit> Search(List<TsvSearchFile> files, int start, int count, Regex regex, int max)
-        {
-            List<TsvSearchHit> hits = new List<TsvSearchHit>();
-            int end = Math.Min(files.Count, start + count);
-            for (int i = start; i < end; i++)
-            {
-                TsvSearchFile f = files[i];
-                try
-                {
-                    using (FileStream fs = new FileStream(f.Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-                    using (StreamReader reader = new StreamReader(fs, Encoding.UTF8, true))
-                    {
-                        string line;
-                        int number = 0;
-                        while ((line = reader.ReadLine()) != null)
-                        {
-                            number++;
-                            if (!regex.IsMatch(line)) continue;
-                            TsvSearchHit h = new TsvSearchHit();
-                            h.Root = f.Root;
-                            h.RelPath = f.RelPath;
-                            h.RelDir = f.RelDir;
-                            h.FileName = f.FileName;
-                            h.Book = f.Book;
-                            h.Location = f.Location;
-                            h.LineNumber = number;
-                            h.Line = line;
-                            hits.Add(h);
-                            if (max >= 0 && hits.Count > max) return hits;
-                        }
-                    }
-                }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-            return hits;
-        }
-    }
+    return , $files
 }
-'@
 
-function initTsvSearcher {
-    # 検索処理の C# をコンパイルする（同じプロセスでは1回だけ。画面の検索スレッドとも共有される）
-    if (!("WinGrep.TsvSearcher" -as [type])) {
-        Add-Type -TypeDefinition ${tsvSearcherSource}
+function searchTsvFiles {
+    # files の start から count 件を読み、regex に一致する行を PSCustomObject で返す（1行に複数一致しても1件）。
+    # max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。読めないTSV（変換中に削除された等）は飛ばす。
+    # 変換中のTSVも読めるよう共有モードは ReadWrite|Delete にする。正規表現の照合が時間切れ（RegexMatchTimeoutException）なら
+    # 例外はそのまま呼び出し元（searchIndex）へ伝わる。
+    param (
+        $files,
+        [int]$start,
+        [int]$count,
+        [regex]$regex,
+        [int]$max
+    )
+
+    $hits = New-Object System.Collections.Generic.List[psobject]
+    $end = [Math]::Min($files.Count, $start + $count)
+    for ($i = $start; $i -lt $end; $i++) {
+        $f = $files[$i]
+        $reader = $null
+        try {
+            $stream = New-Object System.IO.FileStream($f.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
+            $number = 0
+            while ($null -ne ($line = $reader.ReadLine())) {
+                $number++
+                if (!$regex.IsMatch($line)) { continue }
+                $hits.Add([pscustomobject]@{
+                    Root = $f.Root; RelPath = $f.RelPath; RelDir = $f.RelDir; FileName = $f.FileName
+                    Book = $f.Book; Location = $f.Location; LineNumber = $number; Line = $line
+                })
+                if ($max -ge 0 -and $hits.Count -gt $max) { return , $hits }
+            }
+        } catch [System.IO.IOException] {
+        } catch [System.UnauthorizedAccessException] {
+        } finally {
+            if ($reader) { $reader.Dispose() }
+        }
     }
+    return , $hits
 }
 
 function getIndexTsvFiles {
@@ -1409,12 +1820,16 @@ function getIndexTsvFiles {
     #            （画面の検索対象ツリーで一部のフォルダだけを選んだとき。結果の相対パスは Root から求める）
     #   Folders: フォルダごとの @{ Path（指定どおり。RelPath があれば Root\RelPath）; Root（フルパス）; Exists; Count }
     #   Files  : TSVのフルパス → @{ Root; RelPath（インデックスフォルダからの相対パス） }。パス順。入れ子のフォルダでも重複しない
+    #   onProgress: 数えた件数を知らせる { param($count) }（TSVが多いと数秒かかるため、画面が「確認中… N 件」を出せるようにする）
     param (
-        [object[]]$folders = @(getIndexFolders)
+        [object[]]$folders = @(${indexDir}),
+        [scriptblock]$onProgress = $null
     )
 
     $folderInfo = New-Object System.Collections.Generic.List[object]
     $files = @{}
+    $scanned = 0
+    $notifyEvery = 2000
     foreach ($target in $folders) {
         if ($target -is [string]) {
             $target = @{ Root = $target; RelPath = ""; Recurse = $true }
@@ -1432,22 +1847,37 @@ function getIndexTsvFiles {
             continue
         }
 
-        # 長いパス（フォルダが約248文字超）の中も列挙できるよう \\?\ 付きで列挙し、キーは \\?\ の無い通常のパスにする
-        $found = @(Get-ChildItem -LiteralPath (toLongPath $fullDir) -Filter "*.tsv" -File -Recurse:([bool]$target.Recurse))
+        # 長いパス（フォルダが約248文字超）の中も列挙できるよう \\?\ 付きで列挙し、キーは \\?\ の無い通常のパスにする。
+        # 件数が多いと検索を始めるまでの待ち時間になるため、1件ずつオブジェクトを作る Get-ChildItem ではなく
+        # .NET の列挙（文字列）を使い、相対パスも関数呼び出し無しで切り出す（TSV 2 万件で約 6 秒 → 約 2 秒）
+        $longDir = toLongPath $fullDir
+        $found = New-Object System.Collections.Generic.List[string]
+        $option = if ([bool]$target.Recurse) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
+        foreach ($path in [System.IO.Directory]::EnumerateFiles($longDir, "*.tsv", $option)) {
+            $found.Add($path)
+        }
         if (!$target.Recurse) {
             # 「フォルダ直下のファイル」には、元のファイル名のフォルダ（<ファイル名.xlsx>\<場所>.tsv）の中のTSVも含める
-            $found += @(Get-ChildItem -LiteralPath (toLongPath $fullDir) -Directory |
-                Where-Object { $_.Name -match ${indexBookDirPattern} } |
-                ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Filter "*.tsv" -File })
-        }
-        $folderInfo.Add(@{ Path = $dir; Root = $root; Exists = $true; Count = $found.Count })
-        foreach ($file in $found) {
-            $fullName = fromLongPath $file.FullName
-            $relative = getPathUnderFolder $fullName $root
-            if ($null -eq $relative) {
-                $relative = $file.Name  # 通常は起こらない（$root の下を列挙している）
+            foreach ($sub in [System.IO.Directory]::EnumerateDirectories($longDir)) {
+                if ([System.IO.Path]::GetFileName($sub) -notmatch ${indexBookDirPattern}) {
+                    continue
+                }
+                foreach ($path in [System.IO.Directory]::EnumerateFiles($sub, "*.tsv", [System.IO.SearchOption]::TopDirectoryOnly)) {
+                    $found.Add($path)
+                }
             }
+        }
+
+        $folderInfo.Add(@{ Path = $dir; Root = $root; Exists = $true; Count = $found.Count })
+        $rootLength = $root.Length + 1
+        foreach ($path in $found) {
+            $fullName = fromLongPath $path
+            $relative = if ($fullName.Length -gt $rootLength) { $fullName.Substring($rootLength) } else { [System.IO.Path]::GetFileName($fullName) }
             $files[$fullName] = @{ Root = $root; RelPath = $relative }
+            $scanned++
+            if ($onProgress -and ($scanned % $notifyEvery) -eq 0) {
+                & $onProgress $scanned
+            }
         }
     }
 
@@ -1461,7 +1891,7 @@ function getIndexTsvFiles {
 function testIndexExists {
     # 検索対象インデックスにTSVが1件でもあるか（最初の1件が見つかった時点で打ち切る）
     param (
-        [string[]]$folders = @(getIndexFolders)
+        [string[]]$folders = @(${indexDir})
     )
 
     foreach ($dir in $folders) {
@@ -1486,7 +1916,7 @@ function testIndexExists {
 function getIndexSummary {
     # 検索対象インデックスのTSVの件数と最新の更新日時を返す: @{ Count; LastWrite（無ければ $null）; Missing（存在しないフォルダ） }
     param (
-        [string[]]$folders = @(getIndexFolders)
+        [string[]]$folders = @(${indexDir})
     )
 
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -1519,7 +1949,7 @@ function searchIndex {
     #   caseSensitive: 英字の大文字・小文字を区別する（newSearchRegex）
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないTSVは検索しない
     # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（対象ファイルで絞った後のTSVの数）; Truncated; Cancelled } を返す。
-    # Hits の各要素は WinGrep.TsvSearchHit（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）
+    # Hits の各要素は PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
         [string]$word,
         $tsvFiles,
@@ -1532,7 +1962,6 @@ function searchIndex {
         [string]$fileFilter = ""
     )
 
-    initTsvSearcher
     $search = newSearchRegex $word $simpleMatch $caseSensitive
     $filter = newFileFilter $fileFilter
 
@@ -1549,11 +1978,9 @@ function searchIndex {
         $relPaths[$i] = $info.RelPath
         $i++
     }
-    $fileNameRegex = New-Object System.Text.RegularExpressions.Regex(${indexFileNamePattern}, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    $bookDirRegex = New-Object System.Text.RegularExpressions.Regex(${indexBookDirPattern}, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    $files = [WinGrep.TsvSearcher]::NewFiles($paths, $roots, $relPaths, $fileNameRegex, $bookDirRegex, $filter.Include, $filter.Exclude)
+    $files = newTsvFiles $paths $roots $relPaths $filter.Include $filter.Exclude
 
-    $hits = New-Object System.Collections.Generic.List[WinGrep.TsvSearchHit]
+    $hits = New-Object System.Collections.Generic.List[psobject]
     $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $files.Count; Truncated = $false; Cancelled = $false }
 
     for ($i = 0; $i -lt $files.Count; $i += $chunkSize) {
@@ -1565,7 +1992,7 @@ function searchIndex {
         # 上限があれば、残りの件数を超えた時点で止める（残りちょうどで終われば打ち切りにしない）
         $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
         try {
-            $newHits = [WinGrep.TsvSearcher]::Search($files, $i, $chunkSize, $search.Regex, $max)
+            $newHits = searchTsvFiles $files $i $chunkSize $search.Regex $max
         } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
             throw "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
         } catch {
@@ -1631,8 +2058,10 @@ function writeSearchResult {
 
 function readTsvContext {
     # インデックスのTSVの lineNumber 行目と、その前後 before 行・after 行を @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー）。
-    # 行の数え方は Select-String と同じ（Excel のTSVでは行番号 = シートの行番号）。必要な行まで読んだら止める。
-    # ファイルが無い・読めない場合は空
+    # 行の数え方は検索（searchTsvFiles）と同じ（どちらも StreamReader.ReadLine で数えるため一致する。Excel のTSVでは行番号 = シートの行番号）。
+    # ファイルが無い・読めない場合は空。変換中のTSVも読めるよう共有モードは ReadWrite|Delete。
+    # ※以前は C#（TsvContextReader）で行の位置を覚えて速くしていたが、実行時コンパイル（csc.exe）を無くすため PowerShell で読む
+    #   （プレビューは選択行の前後だけで、TSV は元のファイル1つ分＝通常は数千行までのため、先頭から目的行までの読み込みで十分）。
     param (
         [string]$path,
         [int]$lineNumber,
@@ -1640,31 +2069,30 @@ function readTsvContext {
         [int]$after = 3
     )
 
-    $rows = New-Object System.Collections.Generic.List[object]
-    $first = [math]::Max(1, $lineNumber - $before)
+    $rows = New-Object System.Collections.Generic.List[psobject]
+    $first = [Math]::Max(1, $lineNumber - $before)
     $last = $lineNumber + $after
+    if ($last -lt $first) { return @() }
+
     $reader = $null
     try {
-        $reader = New-Object System.IO.StreamReader((toLongPath $path), [System.Text.Encoding]::UTF8)
+        $stream = New-Object System.IO.FileStream((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
         $number = 0
-        while ($number -lt $last) {
-            $line = $reader.ReadLine()
-            if ($null -eq $line) {
-                break
-            }
+        while ($null -ne ($line = $reader.ReadLine())) {
             $number++
-            if ($number -ge $first) {
-                $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $line })
-            }
+            if ($number -lt $first) { continue }
+            if ($number -gt $last) { break }
+            $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $line })
         }
-    } catch {
+    } catch [System.IO.IOException] {
+        $rows.Clear()
+    } catch [System.UnauthorizedAccessException] {
         $rows.Clear()
     } finally {
-        if ($reader) {
-            $reader.Dispose()
-        }
+        if ($reader) { $reader.Dispose() }
     }
-    # 呼び出し側で @() にして使う（, を付けて返すと @() で1要素に包まれる）
+    # 呼び出し側で @() にして使う
     return $rows.ToArray()
 }
 
@@ -1687,15 +2115,25 @@ function splitTsvCells {
 
 function writeSourceFolderFile {
     # インデックスのフォルダに、インデックス名と変換対象フォルダの対応（元のフォルダ.txt）を書き出す。
-    # 1行目は説明、2行目以降は "インデックス名<TAB>変換対象フォルダ"
+    # 1行目は説明、2行目以降は "インデックス名<TAB>変換対象フォルダ"。
+    # インデックスのフォルダ全体（全インデックス分）と、各インデックスのフォルダ（そのインデックス1件分）の両方に置く。
+    # 後者があるため、<インデックス名> のフォルダだけを別の PC・場所へコピーしても元のファイルの場所が分かる
     param (
         [object[]]$folders,  # assignIndexNames の結果（@{ Path; Name }）
         [string]$dir = ${indexDir}
     )
 
-    $lines = @("# 検索結果から元のファイルを開くときに使う、インデックス名と変換対象フォルダの対応です（変換のたびに作り直します）")
-    $lines += @($folders | Where-Object { $_ -and $_.Name } | ForEach-Object { "$($_.Name)`t$($_.Path)" })
-    writeListFile (Join-Path $dir ${sourceFolderFileName}) $lines
+    $header = "# 検索結果から元のファイルを開くときに使う、インデックス名と変換対象フォルダの対応です（変換のたびに作り直します）"
+    $items = @($folders | Where-Object { $_ -and $_.Name })
+    writeListFile (Join-Path $dir ${sourceFolderFileName}) (@($header) + @($items | ForEach-Object { "$($_.Name)`t$($_.Path)" }))
+
+    foreach ($folder in $items) {
+        # インデックスのフォルダがまだ無い（1件も変換していない）場合は作らない
+        $indexPath = Join-Path $dir $folder.Name
+        if (Test-Path -LiteralPath (toLongPath $indexPath) -PathType Container) {
+            writeListFile (Join-Path $indexPath ${sourceFolderFileName}) @($header, "$($folder.Name)`t$($folder.Path)")
+        }
+    }
 }
 
 function readSourceFolderFile {
@@ -1777,6 +2215,8 @@ function getSourceLocation {
     if ($relDir) {
         $parts = splitIndexRelPath $relDir
         $candidates.Add(@{ Dir = $root; Name = $parts.Name; Rest = $parts.Rest })
+        # インデックスのフォルダの中の記録（<インデックス名> のフォルダだけを別の場所へコピーした場合）
+        $candidates.Add(@{ Dir = (Join-Path $root $parts.Name); Name = $parts.Name; Rest = $parts.Rest })
     }
     $parent = Split-Path $root -Parent
     if ($parent) {
@@ -1844,32 +2284,6 @@ function resolveSourcePath {
     return (joinSourcePath $location.Folder $location.Rest $hit.Book)
 }
 
-function readSearchHistory {
-    # 検索履歴（新しい順）
-    param (
-        [string]$path = ${historyFile}
-    )
-
-    return @(readListFile $path)
-}
-
-function addSearchHistory {
-    # 検索履歴の先頭にワードを加えて保存し、履歴を返す。同じワードは先頭に移す
-    param (
-        [string]$word,
-        [string]$path = ${historyFile},
-        [int]$max = ${historyMax}
-    )
-
-    $word = $word.Trim()
-    if ($word -eq "") {
-        return @(readSearchHistory $path)
-    }
-    $items = @(@($word) + @(readSearchHistory $path | Where-Object { $_ -cne $word }) | Select-Object -First $max)
-    writeListFile $path $items
-    return $items
-}
-
 ${searchOptionKeys} = [ordered]@{ UseRegex = "useRegex"; CaseSensitive = "caseSensitive"; FileFilter = "fileFilter" }
 
 function readSearchOption {
@@ -1928,13 +2342,13 @@ function writeOpenMode {
 function getConversionState {
     # 変換一覧から変換の状態を返す:
     #   @{ Exists; Folders（変換対象フォルダ @{ Path; Name } の配列）; Total; Pending（未変換）; Failed; Done; ConvertedSince（since 以降に変換した件数）; Updated（変換一覧の更新日時）;
-    #      FailedRows（失敗したファイルの行。変換日時の新しい順） }
+    #      FailedRows（失敗したファイルの行。変換日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats） }
     param (
         [datetime]$since = [datetime]::MaxValue,
         [string]$path = ${statusFile}
     )
 
-    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; ConvertedSince = 0; Updated = $null; FailedRows = @() }
+    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; ConvertedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null) }
     if (!(Test-Path -LiteralPath $path)) {
         return $state
     }
@@ -1944,7 +2358,10 @@ function getConversionState {
     $status = readStatusFile $path
     $state.Folders = $status.Folders.ToArray()
     $state.Total = $status.Rows.Count
-    $sinceSecond = if ($since -eq [datetime]::MaxValue) { $since } else { $since.AddTicks(-($since.Ticks % [timespan]::TicksPerSecond)) }
+    $state.IndexStats = getIndexStats $status.Rows
+    # since を指定しないとき（画面の集計）は、行ごとの日時の解析（数万行では数秒かかる）を省く
+    $countSince = ($since -ne [datetime]::MaxValue)
+    $sinceSecond = if ($countSince) { $since.AddTicks(-($since.Ticks % [timespan]::TicksPerSecond)) } else { $since }
     $failedRows = New-Object System.Collections.Generic.List[object]
     foreach ($row in $status.Rows.Values) {
         if ($row.状態 -eq ${stateNew}) {
@@ -1957,7 +2374,7 @@ function getConversionState {
         }
 
         $converted = [datetime]::MinValue
-        if ($row.変換日時 -and [datetime]::TryParseExact($row.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted) -and $converted -ge $sinceSecond) {
+        if ($countSince -and $row.変換日時 -and [datetime]::TryParseExact($row.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted) -and $converted -ge $sinceSecond) {
             $state.ConvertedSince++
         }
     }
