@@ -1,8 +1,8 @@
-# win_grep 設計書（インデックス）
+﻿# win_grep 設計書（インデックス）
 
 本設計書は `scripts/*.ps1` および起動用 `win_grep.bat` の実装から仕様を書き起こしたものである。記載内容は**現行実装の挙動**を正とする。
 
-本ツールは画面（`win_grep.bat`）から使う。変換・検索・Office の強制終了はすべて画面から行い、コンソールでの操作（`.bat` の実行・設定ファイルの手編集・キー入力）は前提としない。
+本ツールは画面（`win_grep.bat`）から使う。変換・検索・プロセス停止はすべて画面から行い、コンソールでの操作（`.bat` の実行・設定ファイルの手編集・キー入力）は前提としない。
 
 本書（インデックス）には全体構成と、複数のツールにまたがる共通事項をまとめる。ツールごとの仕様は下表の各設計書を参照。
 
@@ -25,17 +25,17 @@
 | └ [01_変換_7_出力TSVと既知の問題.md](01_変換_7_出力TSVと既知の問題.md) | | | 6.1・6.2・6.4 出力 TSV の仕様、7.1 注意点・既知の問題（共通） |
 | └ [01_変換_8_エラーメッセージ一覧.md](01_変換_8_エラーメッセージ一覧.md) | | | 4.8 エラーメッセージ一覧（続けられないエラー・ファイルごとの失敗・警告） |
 | [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `common.ps1` | TSV インデックスの検索処理と検索結果ファイルの形式 |
-| [03_画面.md](03_画面.md) | `win_grep.bat` | `config_gui.ps1` / `config_gui.xaml` / `config_gui_index.xaml` | インデックス作成・検索（結果を画面に表示）・Office 強制終了を行う画面（GUI） |
-| └ [03_画面_1_インデックス作成タブ.md](03_画面_1_インデックス作成タブ.md) | | | 3. ［1 インデックス作成］タブ |
+| [03_画面.md](03_画面.md) | `win_grep.bat` | `config_gui.ps1` / `config_gui.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
+| └ [03_画面_1_インデックス管理タブ.md](03_画面_1_インデックス管理タブ.md) | | | 3. ［1 インデックス管理］タブ |
 | └ [03_画面_2_検索タブ.md](03_画面_2_検索タブ.md) | | | 4. ［2 検索］タブ |
 | └ [03_画面_2_検索タブ_1_元のファイルを開く.md](03_画面_2_検索タブ_1_元のファイルを開く.md) | | | 4.5 元のファイルを開く |
-| └ [03_画面_3_Office強制終了タブ.md](03_画面_3_Office強制終了タブ.md) | | | 5. ［9 Office 強制終了］タブ |
+| └ [03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md) | | | 5. ［9 プロセス停止］タブ |
 | └ [03_画面_4_状態と操作の流れ.md](03_画面_4_状態と操作の流れ.md) | | | 6. 状態の判定と表示、7. 操作の流れ |
-| └ [03_画面_5_共通仕様.md](03_画面_5_共通仕様.md) | | | 8. 設定ファイル・履歴、9. キーボード操作、10. 表示、11. メッセージ一覧 |
+| └ [03_画面_5_共通仕様.md](03_画面_5_共通仕様.md) | | | 8. 設定ファイル、9. キーボード操作、10. 表示、11. メッセージ一覧 |
 | └ [03_画面_6_実装とテスト.md](03_画面_6_実装とテスト.md) | | | 12. 実装構成、13. 既存スクリプトへの影響と段階、14. 未決事項、15. 既知の制約 |
 | └ [03_画面_6_実装とテスト_1_テスト.md](03_画面_6_実装とテスト_1_テスト.md) | | | 16. テスト |
 
-Office プロセスの強制終了は画面の［9 Office 強制終了］タブ（[03_画面_3_Office強制終了タブ.md](03_画面_3_Office強制終了タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。変換処理 `office_to_tsv.ps1` は画面から起動される処理として残している。
+Office プロセスの強制終了は画面の［9 プロセス停止］タブ（[03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。変換処理 `office_to_tsv.ps1` は画面から起動される処理として残している。
 
 長い設計書は章単位で複数のファイルに分けている（└ の行）。章・節の番号は、同じ番号の設計書の中で通し番号とし、分割前と同じ番号のまま使っている。
 
@@ -62,7 +62,7 @@ Office プロセスの強制終了は画面の［9 Office 強制終了］タブ�
 1. **インデックス作成**（[01_変換.md](01_変換.md)）
    各ファイルを「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に変換して `work/index/` に蓄積する。Excel は COM で操作して変換し、Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（旧形式のみ Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、変換済みで更新の無いファイルをスキップする（差分変換）。
 2. **検索**（[02_検索.md](02_検索.md)）
-   インデックスの TSV を検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を画面の表に表示する。必要なときは `output/検索結果.txt` に出力する。
+   インデックスの TSV を検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を画面の表に表示する。必要なときは `work/検索結果.txt` に出力する。
 
 どちらも画面（[03_画面.md](03_画面.md)）から行う。変換は画面がウィンドウ無しで起動し、進み具合を画面に表示する。画面には、変換を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
 
@@ -75,7 +75,7 @@ flowchart LR
     bat["win_grep.bat"]
 
     subgraph scripts["scripts/"]
-        gui["config_gui.ps1<br>画面（検索・Office 強制終了を含む）"]
+        gui["config_gui.ps1<br>画面（検索・プロセス停止を含む）"]
         conv["office_to_tsv.ps1<br>変換処理（ウィンドウ無し）"]
         reader["office_reader.ps1<br>Word・PowerPoint の読み取り"]
         common["common.ps1<br>パス定義・共通関数"]
@@ -87,13 +87,13 @@ flowchart LR
         idx[("index/<br>TSV インデックス")]
         status["変換一覧.tsv<br>（更新日時・状態）"]
         ctl["変換中止要求・変換エラー.txt<br>変換ログ.txt"]
+        out["検索結果.txt<br>（［結果をファイルに出力］）"]
     end
 
     tmp[("%TEMP%\win_grep\#lt;PID#gt;<br>変換作業領域")]
     src[("変換対象フォルダ<br>Excel・Word・PowerPoint ファイル群")]
     excel["Microsoft Excel<br>（COM）"]
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]
-    out["output/検索結果.txt"]
 
     user --> bat --> gui
     gui -- "起動（-RetryFailed）" --> conv
@@ -126,7 +126,7 @@ sequenceDiagram
     participant CV as 変換処理（office_to_tsv.ps1）
     participant W as work/index/
 
-    U->>G: ［1 インデックス作成］で変換対象フォルダを追加
+    U->>G: ［1 インデックス管理］の［新規作成…］でインデックスを作成
     U->>G: ［変換を開始］
     opt 前回失敗したファイルがある
         G->>U: 失敗分も再変換するか確認
@@ -149,7 +149,7 @@ sequenceDiagram
 | 実行環境 | Windows PowerShell 5.1（`powershell.exe`） |
 | 必須ソフトウェア | Microsoft Excel（`Excel.Application` COM オブジェクトを使用。Excel ファイルの変換に必要） |
 | 任意のソフトウェア | Microsoft Word・PowerPoint（旧形式 `.doc` `.ppt`、パスワード付き、拡張子と中身が異なる Word・PowerPoint ファイルの変換にのみ使用。新形式の `.docx` `.pptx` 等は無くても変換できる） |
-| 起動方法 | `win_grep.bat` をダブルクリック。`powershell -NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File scripts\config_gui.ps1` で画面を開くため、実行ポリシーの設定変更は不要。変換処理も画面が同じ方法（`-WindowStyle Hidden`）で起動する |
+| 起動方法 | `win_grep.bat` をダブルクリック。`-ExecutionPolicy RemoteSigned` で画面を開く（`Bypass` は使わない）。zip 展開で付く Mark-of-the-Web は、`win_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。変換処理も画面が同じ方法（`-WindowStyle Hidden`）で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
 | スクリプトの文字コード | `scripts/*.ps1`・`tests/*.ps1` は **UTF-8（BOM 付き）**、改行 CRLF。PowerShell 5.1 は BOM なしファイルをシステム既定コードページ（CP932）で読むため、BOM を外すと日本語リテラルが化ける |
 | テスト | Pester 3.4（Windows PowerShell 5.1 標準）。`Invoke-Pester .\tests` |
 
