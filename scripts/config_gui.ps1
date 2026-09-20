@@ -20,7 +20,10 @@ $ErrorActionPreference = "Stop"
 ${appTitle}    = "win_grep"
 ${appId}       = "win_grep"  # タスクバーのボタン・ショートカットを結び付ける ID（AppUserModelID）
 ${searchLimit} = 10000
-${previewLines} = 3  # 選択行のプレビューに出す前後の行数
+# 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
+${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
+${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
+${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
 ${commonPath}  = "$PSScriptRoot\common.ps1"
 
 trap {
@@ -2277,11 +2280,14 @@ $script:filterTimer = newTimer 300 {
     safe { applyFilter }
 }
 
-# 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）
+# 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）。
+# プレビューの高さを変えたときも、入る行数に合わせて読み直すためにこのタイマーを使う
 $script:detailTimer = newTimer 120 {
     $script:detailTimer.Stop()
     safe { showDetail }
 }
+# 高さを変えただけのときは、横スクロールの位置をそのままにする（ドラッグのたびに左へ戻らないように）
+$script:detailKeepScroll = $false
 
 function getViewRows {
     # 表示中（絞り込み・並べ替え後）の行
@@ -2315,6 +2321,19 @@ function clearDetail {
     $ui.OpenFolderButton.IsEnabled = $false
 }
 
+function getPreviewContextLines {
+    # プレビューの高さに収まる行数から、選択行の前後に読む行数を決める（前後同数。余りの 1 行は後ろに付ける）。
+    # 低くすれば選択行だけ、高くすればその分だけ前後の行が見える
+    $height = $ui.PreviewScroll.ViewportHeight
+    if ($height -le 0) {
+        $height = $ui.PreviewScroll.ActualHeight - ${previewScrollBarSize}
+    }
+    $rows = [math]::Floor($height / ${previewRowHeight})
+    $rows = [math]::Min([math]::Max($rows, 1), ${maxPreviewRows})
+    $before = [math]::Floor(($rows - 1) / 2)
+    return , @([int]$before, [int]($rows - 1 - $before))
+}
+
 function showDetail {
     $row = $ui.ResultGrid.SelectedItem
     if ($null -eq $row) {
@@ -2329,8 +2348,9 @@ function showDetail {
     $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
-    # 前後の行をインデックスのTSVから読む（読めなければ選択行だけを出す）
-    $context = @(readTsvContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.LineNumber ${previewLines} ${previewLines})
+    # 前後の行をインデックスのTSVから読む（読めなければ選択行だけを出す）。行数はプレビューの高さに合わせる
+    $lines = getPreviewContextLines
+    $context = @(readTsvContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.LineNumber $lines[0] $lines[1])
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
     $title = "${path} ・ $($row.Location) ・ ${place}"
@@ -2350,8 +2370,13 @@ function showDetail {
     $ui.PreviewRows.ItemsSource = $table.Rows
     $script:previewTable = $table
 
-    # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）
+    # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）。
+    # 高さを変えただけのときは、見ていた横の位置をそのままにする
     $ui.PreviewScroll.UpdateLayout()
+    if ($script:detailKeepScroll) {
+        $script:detailKeepScroll = $false
+        return
+    }
     $offset = 0
     if ($table.HitOffset + $table.HitWidth -gt $ui.PreviewScroll.ViewportWidth) {
         $offset = [math]::Max(0, $table.HitOffset - 120)
@@ -2944,6 +2969,8 @@ $ui.FilterBox.Add_TextChanged({
     $script:filterTimer.Start()
 })
 $ui.ResultGrid.Add_SelectionChanged({
+    # 別の行を選んだときは、一致したセルが見える位置まで横にスクロールし直す
+    $script:detailKeepScroll = $false
     $script:detailTimer.Stop()
     $script:detailTimer.Start()
 })
@@ -2989,6 +3016,16 @@ $ui.OpenFolderButton.Add_Click({ safe { openSourceFolder } })
 # 列見出しは行とは別のスクロールに置いている（縦に隠れないようにするため）ので、横位置を行に合わせる
 $ui.PreviewScroll.Add_ScrollChanged({
     $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
+})
+# プレビューの高さを変えたら（GridSplitter のドラッグ）、入る行数に合わせて前後の行を読み直す。
+# ドラッグ中は何度も起きるので、ほかと同じタイマーでまとめて 1 回だけ読む
+$ui.PreviewScroll.Add_SizeChanged({
+    param ($sender, $e)
+    if ($e.HeightChanged -and $ui.ResultGrid.SelectedItem) {
+        $script:detailKeepScroll = $true
+        $script:detailTimer.Stop()
+        $script:detailTimer.Start()
+    }
 })
 # プレビューのセルをクリックすると、その値をコピーできるように選ぶ（Shift＋クリック・ドラッグで範囲、Ctrl+C でコピー）
 $script:previewTable = $null

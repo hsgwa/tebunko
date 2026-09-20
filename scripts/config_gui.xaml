@@ -321,7 +321,8 @@
             <!-- 結果の表とプレビューの高さは、間の GridSplitter のドラッグで変わる（3 行目が結果の表、5 行目がプレビュー） -->
             <RowDefinition Height="*" MinHeight="60" />
             <RowDefinition Height="Auto" />
-            <RowDefinition x:Name="DetailRow" Height="200" MinHeight="120" />
+            <!-- 下限は、列見出し＋1 行（一致した行）が見える高さ -->
+            <RowDefinition x:Name="DetailRow" Height="200" MinHeight="100" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
@@ -463,7 +464,8 @@
               <TextBlock x:Name="DetailTitle" FontWeight="SemiBold" Foreground="#1F2937" VerticalAlignment="Center" Margin="0,0,10,0"
                          TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
             </DockPanel>
-            <Border BorderBrush="#9CA3AF" BorderThickness="1,1,0,0" Background="White" Margin="0,6,0,0">
+            <!-- 枠は四方に引く（高さを変えられるため、下・右にも枠が無いと切れて見える） -->
+            <Border BorderBrush="#9CA3AF" BorderThickness="1" Background="White" Margin="0,6,0,0">
               <Grid>
               <DockPanel>
               <!-- 列見出しは、枠を低くしても隠れないよう、行とは別のスクロールに置く（横位置は config_gui.ps1 で PreviewScroll に合わせる） -->
