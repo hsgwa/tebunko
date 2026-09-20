@@ -759,7 +759,7 @@ function loadWindow {
 $window = loadWindow "$PSScriptRoot\config_gui.xaml"
 $ui = @{}
 foreach ($name in @(
-        "Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "CloseButton",
+        "Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText",
         "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RebuildIndexButton", "RemoveIndexButton",
         "IndexSummaryText", "ConversionStateText", "ConvertButton", "ConvertHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
@@ -3159,8 +3159,6 @@ $ui.KillAllButton.Add_Click({ safe { refreshProcesses; killProcesses $script:pro
 # ============================================================================
 # ウィンドウ全体
 # ============================================================================
-
-$ui.CloseButton.Add_Click({ $window.Close() })
 
 $ui.Tabs.Add_SelectionChanged({
     param ($sender, $e)
