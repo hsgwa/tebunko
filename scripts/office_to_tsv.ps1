@@ -53,6 +53,8 @@ foreach ($oldFile in @(${stopRequestFile}, ${convertErrorFile}, ${convertPlanFil
         Remove-Item -LiteralPath $oldFile -Force
     }
 }
+# 前回の進み具合も消す。残っていると、画面が起動直後に前回の最後の1行（「仕上げ」など）を読んでしまう
+removeConvertProgress
 try { Start-Transcript -LiteralPath ${convertLogFile} -Force | Out-Null } catch {}
 
 # 同じ work（同じ配置フォルダ）に対して変換を2つ動かすと、変換一覧・インデックスが食い違うため1つだけ動かす。

@@ -1270,6 +1270,7 @@ Describe "getIndexNameMap / resolveSourcePath" {
         $dir = "$TestDrive\優先\index"
         $settings = "$TestDrive\優先\setting.config"
         $status = "$TestDrive\優先\status.tsv"
+        [void](New-Item -ItemType Directory -Path "$dir\見積" -Force)
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\作った時の場所\見積"; Name = "見積" }) $dir
         writeStatusFile @([pscustomobject]@{ Path = "C:\変換一覧の場所\見積"; Name = "見積" }) @() $status
         writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "\server\今の場所\見積"; Enabled = $true }) $settings
@@ -1282,42 +1283,34 @@ Describe "getIndexNameMap / resolveSourcePath" {
         (getSourceFolderMap $dir $status $settings)["営業"] | Should Be "E:\今の営業"
     }
 
-    It "既定のインデックスは 元のフォルダ.txt と変換一覧の両方を使い、変換一覧を優先する" {
+    It "既定のインデックスは変換一覧の記録を使う" {
         [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
         $status = "$TestDrive\status_default.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\新\見積"; Name = "見積" }) @() $status
-        $infoFile = Join-Path $indexDir ${sourceFolderFileName}
-        $backup = if (Test-Path -LiteralPath $infoFile) { [System.IO.File]::ReadAllBytes($infoFile) } else { $null }
-        try {
-            writeSourceFolderFile @(
-                [pscustomobject]@{ Path = "C:\旧\見積"; Name = "見積" },
-                [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
-            ) $indexDir
-            $map = getSourceFolderMap (Resolve-Path -LiteralPath $indexDir).ProviderPath $status "$TestDrive\設定なし.config" 
-            $map["見積"] | Should Be "C:\新\見積"
-            $map["営業"] | Should Be "C:\data\営業"
-        } finally {
-            if ($null -eq $backup) { Remove-Item -LiteralPath $infoFile -Force } else { [System.IO.File]::WriteAllBytes($infoFile, $backup) }
-        }
+        $map = getSourceFolderMap (Resolve-Path -LiteralPath $indexDir).ProviderPath $status "$TestDrive\設定なし.config"
+        $map["見積"] | Should Be "C:\新\見積"
     }
 }
 
 Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" {
-    It "インデックス名と変換対象フォルダの対応を書き出して読み込む（説明の行は無視する）" {
+    It "インデックス名と変換対象フォルダの対応を、各インデックスのフォルダに書き出して読み込む（説明の行は無視する）" {
         $dir = "$TestDrive\copied[1]\index"
+        [void][System.IO.Directory]::CreateDirectory("$dir\見積")
+        [void][System.IO.Directory]::CreateDirectory("$dir\D")
         writeSourceFolderFile @(
             [pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" },
             [pscustomobject]@{ Path = "D:\"; Name = "D" }
         ) $dir
-        $map = readSourceFolderFile $dir
-        $map.Count | Should Be 2
-        $map["見積"] | Should Be "C:\data\見積"
-        $map["d"] | Should Be "D:\"
+        # インデックスのフォルダ直下（全インデックス分）には書かない
+        Test-Path -LiteralPath (Join-Path $dir ${sourceFolderFileName}) | Should Be $false
+        (readSourceFolderFile "$dir\見積")["見積"] | Should Be "C:\data\見積"
+        (readSourceFolderFile "$dir\D")["d"] | Should Be "D:\"
         (readSourceFolderFile "$TestDrive\none_dir").Count | Should Be 0
     }
 
     It "別の場所にコピーしたインデックスでも、元のフォルダ.txt から元の場所が分かる" {
         $dir = "$TestDrive\別PC\index"
+        [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
         $hit = [pscustomobject]@{ Root = $dir; RelDir = "見積\2024"; Book = "A社.xlsx" }
         $location = getSourceLocation $hit
@@ -1327,7 +1320,7 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" {
         resolveSourcePath $hit @{} | Should Be "C:\data\見積\2024\A社.xlsx"
     }
 
-    It "インデックスのフォルダの中にも 元のフォルダ.txt を書き、そのフォルダだけをコピーしても元の場所が分かる" {
+    It "インデックスのフォルダの中に 元のフォルダ.txt を書き、そのフォルダだけをコピーしても元の場所が分かる" {
         $dir = "$TestDrive\作った PC\index"
         [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         [void][System.IO.Directory]::CreateDirectory("$dir\営業")
@@ -1350,11 +1343,30 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" {
         $dir = "$TestDrive\未変換\index"
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
         Test-Path -LiteralPath "$dir\見積" | Should Be $false
-        (readSourceFolderFile $dir)["見積"] | Should Be "C:\data\見積"
+        (readSourceFolderFile $dir).Count | Should Be 0
     }
 
-    It "インデックス名のフォルダを検索対象にした場合は、親フォルダの 元のフォルダ.txt を使う" {
+    It "以前の版が書いた、インデックスのフォルダ直下の 元のフォルダ.txt は各フォルダへ移して消す" {
+        $dir = "$TestDrive\移行\index"
+        [void][System.IO.Directory]::CreateDirectory("$dir\見積")
+        [void][System.IO.Directory]::CreateDirectory("$dir\やめた")
+        # 以前の版と同じ形式（全インデックス分を直下に 1 ファイル）
+        writeListFile (Join-Path $dir ${sourceFolderFileName}) @(
+            "# 説明",
+            "見積`tC:\旧\見積",
+            "やめた`tC:\data\やめた")
+
+        # 変換対象フォルダから外したインデックス（やめた）の記録も残す
+        writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
+
+        Test-Path -LiteralPath (Join-Path $dir ${sourceFolderFileName}) | Should Be $false
+        (readSourceFolderFile "$dir\見積")["見積"] | Should Be "C:\data\見積"
+        (readSourceFolderFile "$dir\やめた")["やめた"] | Should Be "C:\data\やめた"
+    }
+
+    It "インデックス名のフォルダを検索対象にした場合は、そのフォルダの 元のフォルダ.txt を使う" {
         $dir = "$TestDrive\別PC2\index"
+        [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
         $hit = [pscustomobject]@{ Root = "$dir\見積"; RelDir = "2024"; Book = "A社.xlsx" }
         resolveSourcePath $hit @{} | Should Be "C:\data\見積\2024\A社.xlsx"
@@ -1374,11 +1386,12 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" {
 
     It "読んだ対応はキャッシュに入れ、次からはファイルを読まない" {
         $dir = "$TestDrive\cache\index"
+        [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
         $maps = @{}
         $hit = [pscustomobject]@{ Root = $dir; RelDir = "見積"; Book = "a.xlsx" }
         resolveSourcePath $hit $maps | Should Be "C:\data\見積\a.xlsx"
-        Remove-Item -LiteralPath (Join-Path $dir ${sourceFolderFileName})
+        Remove-Item -LiteralPath (Join-Path "$dir\見積" ${sourceFolderFileName})
         resolveSourcePath $hit $maps | Should Be "C:\data\見積\a.xlsx"
     }
 }
@@ -1512,6 +1525,19 @@ Describe "getSearchIndexes" {
         @($indexes | ForEach-Object { $_.Name }) -join "," | Should Be "見積,あとから,報告書"
         # 元のフォルダが分からないものは空
         $indexes[1].SourcePath | Should Be ""
+    }
+
+    It "一覧にも変換一覧にも無いインデックスは、そのフォルダの 元のフォルダ.txt から元のフォルダを読む" {
+        $dir = "$TestDrive\コピー2\index"
+        $settings = "$TestDrive\コピー2\setting.config"
+        [void](New-Item -ItemType Directory -Path "$dir\営業" -Force)
+        # ほかの PC で作ったインデックスをフォルダごとコピーした状態
+        writeSourceFolderFile @([pscustomobject]@{ Path = "\\server\営業"; Name = "営業" }) $dir
+
+        $indexes = @(getSearchIndexes $dir "$TestDrive\変換一覧なし.tsv" $settings)
+        $indexes.Count | Should Be 1
+        $indexes[0].Name | Should Be "営業"
+        $indexes[0].SourcePath | Should Be "\\server\営業"
     }
 }
 
