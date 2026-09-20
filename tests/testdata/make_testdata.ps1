@@ -1168,12 +1168,6 @@ try {
     writeText "$ConfigDir\変換対象フォルダパス_存在しない.txt" "C:\存在しないフォルダ\excel`r`n$OutDir\2024`r`n"
     writeText "$ConfigDir\変換対象フォルダパス_サブフォルダ.txt" "$OutDir\2024`r`n"
 
-    $rootDir = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-    # 変換対象フォルダ excel のインデックスは work\index\excel\ にできる
-    writeText "$ConfigDir\検索対象インデックスパス_複数.txt" "$rootDir\work\index\excel\2024`r`n$rootDir\work\index\excel\2025`r`n"
-    writeText "$ConfigDir\検索対象インデックスパス_存在しないフォルダを含む.txt" "$rootDir\work\index\excel\2024`r`nC:\存在しないフォルダ\index`r`n"
-    writeText "$ConfigDir\検索対象インデックスパス_空.txt" ""
-
     writeText "$ConfigDir\検索ワード.txt" ((@(
         "TC01",
         "山田",
@@ -1214,6 +1208,7 @@ try {
         "TC26",
         "TC27",
         "TC28",
+        "TC29",
         "該当なしの文字列XYZ"
     ) -join "`r`n") + "`r`n")
     writeText "$ConfigDir\検索ワード_前後空白と空行.txt" "`r`n  山田  `r`n`r`n`t佐藤`t`r`n`r`n"
