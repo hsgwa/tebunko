@@ -16,6 +16,10 @@ param (
 
 $ErrorActionPreference = "Stop"
 
+# テストは Pester 3.4 の書き方。Pester 5 も入っている環境（GitHub Actions のランナーなど）では 5 が読み込まれて
+# 全部失敗するため、3 系を明示して読み込む
+Import-Module Pester -MaximumVersion 3.99.99
+
 $testsDir = $PSScriptRoot
 $rootDir  = Split-Path $testsDir -Parent
 $outDir   = "$rootDir\work\test"
