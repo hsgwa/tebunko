@@ -153,44 +153,26 @@ function readXmlLines {
         [string[]]$onlyPlaceholders = $null
     )
 
+    # 要素・テキストごとに呼ぶため、PowerShell で遅い書き方（スクリプトブロックの呼び出し・switch・型名の解決・
+    # PSCustomObject の作成）を避けている（段落 3,000 の文書で約 2 秒かかっていた）。出力は以前と同じ
     $lines = New-Object System.Collections.Generic.List[object]
-    $frames = New-Object System.Collections.Generic.List[object]  # 開いている段落（p）・表の行（tr）・セル（tc）
+    # 開いている段落（p）・表の行（tr）・セル（tc）。種類ごとに積み、最も内側は末尾（XmlReader は開始と終了の対応を保証する）
+    $pFrames = New-Object System.Collections.Generic.List[hashtable]
+    $trFrames = New-Object System.Collections.Generic.List[hashtable]
+    $tcFrames = New-Object System.Collections.Generic.List[hashtable]
     $page = 1
     $breakPending = $false  # 手動の改ページ等の後、まだ本文が出ていない
     $inText = $false
     $inSectPr = $false
     $skipShapeText = $false
 
-    # 指定した種類の、最も内側のフレームを返す
-    $findFrame = {
-        param ($kind)
-        for ($i = $frames.Count - 1; $i -ge 0; $i--) {
-            if ($frames[$i].Kind -eq $kind) {
-                return $frames[$i]
-            }
-        }
-        return $null
-    }
-
-    # テキストを親のセルに追加する。セルの中でなければ1行として出力する
-    $emit = {
-        param ($text, $textPage, $separator)
-        if ($text -eq "") {
-            return
-        }
-        $cell = & $findFrame "tc"
-        if ($null -ne $cell) {
-            if ($cell.Text.Length -gt 0) {
-                [void]$cell.Text.Append($separator)
-            }
-            [void]$cell.Text.Append($text)
-            if ($null -eq $cell.Page) {
-                $cell.Page = $textPage
-            }
-        } else {
-            $lines.Add([pscustomobject]@{ Page = $textPage; Text = $text })
-        }
-    }
+    $elementType = [System.Xml.XmlNodeType]::Element
+    $endElementType = [System.Xml.XmlNodeType]::EndElement
+    $textType = [System.Xml.XmlNodeType]::Text
+    $significantWhitespaceType = [System.Xml.XmlNodeType]::SignificantWhitespace
+    $whitespaceType = [System.Xml.XmlNodeType]::Whitespace
+    $cdataType = [System.Xml.XmlNodeType]::CDATA
+    $onlyMode = ($null -ne $onlyPlaceholders)
 
     $settings = New-Object System.Xml.XmlReaderSettings
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
@@ -200,7 +182,7 @@ function readXmlLines {
         while ($hasNode) {
             $nodeType = $reader.NodeType
 
-            if ($nodeType -eq [System.Xml.XmlNodeType]::Element) {
+            if ($nodeType -eq $elementType) {
                 $name = $reader.LocalName
                 $uri = $reader.NamespaceURI
                 $isEmpty = $reader.IsEmptyElement
@@ -213,8 +195,10 @@ function readXmlLines {
                     $skip = $true  # 変更履歴の移動元（移動先と重複する）
                 } elseif ($uri -eq ${nsPresent} -and $name -eq "txBody" -and $skipShapeText) {
                     $skip = $true
-                } elseif ($uri -eq ${nsPresent} -and $name -eq "graphicFrame" -and $null -ne $onlyPlaceholders) {
+                } elseif ($uri -eq ${nsPresent} -and $name -eq "graphicFrame" -and $onlyMode) {
                     $skip = $true  # 表など（プレースホルダーではない）
+                } elseif ($uri -eq $ns -and $name -eq "rPr" -and -not $isEmpty) {
+                    $skip = $true  # 文字の書式（テキストを含まない。1 文字ごとに付くことも多く、読むだけで時間がかかる）
                 }
                 if ($skip) {
                     $reader.Skip()
@@ -223,133 +207,133 @@ function readXmlLines {
                 }
 
                 if ($uri -eq $ns) {
-                    switch ($name) {
-                        "p" {
-                            if (-not $isEmpty) {
-                                $frames.Add([pscustomobject]@{ Kind = "p"; Text = (New-Object System.Text.StringBuilder); Page = $null; BreakAfter = $false })
-                            }
+                    if ($name -eq "p") {
+                        if (-not $isEmpty) {
+                            $pFrames.Add(@{ Text = (New-Object System.Text.StringBuilder); Page = $null; BreakAfter = $false })
                         }
-                        "tr" {
-                            if (-not $isEmpty) {
-                                $frames.Add([pscustomobject]@{ Kind = "tr"; Cells = (New-Object System.Collections.Generic.List[string]); Page = $null })
-                            }
+                    } elseif ($name -eq "tr") {
+                        if (-not $isEmpty) {
+                            $trFrames.Add(@{ Cells = (New-Object System.Collections.Generic.List[string]); Page = $null })
                         }
-                        "tc" {
-                            if ($isEmpty) {
-                                $row = & $findFrame "tr"
-                                if ($null -ne $row) { $row.Cells.Add("") }
+                    } elseif ($name -eq "tc") {
+                        if ($isEmpty) {
+                            if ($trFrames.Count -gt 0) { $trFrames[$trFrames.Count - 1].Cells.Add("") }
+                        } else {
+                            $tcFrames.Add(@{ Text = (New-Object System.Text.StringBuilder); Page = $null })
+                        }
+                    } elseif ($name -eq "t") {
+                        $inText = -not $isEmpty
+                    } elseif ($name -eq "tab" -or $name -eq "cr" -or $name -eq "noBreakHyphen") {
+                        if ($pFrames.Count -gt 0) {
+                            [void]$pFrames[$pFrames.Count - 1].Text.Append($(if ($name -eq "noBreakHyphen") { "-" } else { " " }))
+                        }
+                    } elseif ($name -eq "br") {
+                        $breakType = $reader.GetAttribute("type", $ns)
+                        if ($breakType -ne "page" -and $breakType -ne "column") {
+                            if ($pFrames.Count -gt 0) {
+                                [void]$pFrames[$pFrames.Count - 1].Text.Append(" ")
+                            }
+                        } elseif ($pageMode -ne "none" -and $breakType -eq "page") {
+                            $page++
+                            $breakPending = $true
+                        }
+                    } elseif ($name -eq "lastRenderedPageBreak") {
+                        if ($pageMode -eq "rendered") {
+                            if ($breakPending) {
+                                $breakPending = $false
                             } else {
-                                $frames.Add([pscustomobject]@{ Kind = "tc"; Text = (New-Object System.Text.StringBuilder); Page = $null })
-                            }
-                        }
-                        "t" {
-                            $inText = -not $isEmpty
-                        }
-                        { $_ -in @("tab", "cr", "noBreakHyphen") -or ($_ -eq "br" -and $reader.GetAttribute("type", $ns) -notin @("page", "column")) } {
-                            $p = & $findFrame "p"
-                            if ($null -ne $p) {
-                                [void]$p.Text.Append($(if ($name -eq "noBreakHyphen") { "-" } else { " " }))
-                            }
-                        }
-                        "br" {
-                            if ($pageMode -ne "none" -and $reader.GetAttribute("type", $ns) -eq "page") {
                                 $page++
-                                $breakPending = $true
                             }
                         }
-                        "lastRenderedPageBreak" {
-                            if ($pageMode -eq "rendered") {
-                                if ($breakPending) {
-                                    $breakPending = $false
-                                } else {
-                                    $page++
-                                }
-                            }
+                    } elseif ($name -eq "pageBreakBefore") {
+                        if ($pageMode -ne "none" -and $reader.GetAttribute("val", $ns) -notin @("0", "false", "off")) {
+                            $page++
+                            $breakPending = $true
                         }
-                        "pageBreakBefore" {
-                            if ($pageMode -ne "none" -and $reader.GetAttribute("val", $ns) -notin @("0", "false", "off")) {
-                                $page++
-                                $breakPending = $true
-                            }
+                    } elseif ($name -eq "sectPr") {
+                        # 段落内のセクション区切り: 既定（次のページから開始）なら、段落の後で改ページ
+                        if ($pageMode -ne "none" -and $pFrames.Count -gt 0) {
+                            $inSectPr = -not $isEmpty
+                            $pFrames[$pFrames.Count - 1].BreakAfter = $true
                         }
-                        "sectPr" {
-                            # 段落内のセクション区切り: 既定（次のページから開始）なら、段落の後で改ページ
-                            $p = & $findFrame "p"
-                            if ($pageMode -ne "none" -and $null -ne $p) {
-                                $inSectPr = -not $isEmpty
-                                $p.BreakAfter = $true
-                            }
-                        }
-                        "type" {
-                            if ($inSectPr -and $reader.GetAttribute("val", $ns) -eq "continuous") {
-                                $p = & $findFrame "p"
-                                if ($null -ne $p) { $p.BreakAfter = $false }
-                            }
+                    } elseif ($name -eq "type") {
+                        if ($inSectPr -and $reader.GetAttribute("val", $ns) -eq "continuous") {
+                            if ($pFrames.Count -gt 0) { $pFrames[$pFrames.Count - 1].BreakAfter = $false }
                         }
                     }
                 } elseif ($uri -eq ${nsPresent}) {
                     if ($name -eq "sp") {
-                        $skipShapeText = ($null -ne $onlyPlaceholders)
+                        $skipShapeText = $onlyMode
                     } elseif ($name -eq "ph") {
-                        if ($null -ne $onlyPlaceholders) {
+                        if ($onlyMode) {
                             $skipShapeText = ($reader.GetAttribute("type") -notin $onlyPlaceholders)
                         } else {
                             $skipShapeText = ($reader.GetAttribute("type") -in ${skipPlaceholderTypes})
                         }
                     }
                 }
-            } elseif ($nodeType -eq [System.Xml.XmlNodeType]::EndElement) {
-                $name = $reader.LocalName
+            } elseif ($nodeType -eq $endElementType) {
                 if ($reader.NamespaceURI -eq $ns) {
-                    switch ($name) {
-                        "t" {
-                            $inText = $false
+                    $name = $reader.LocalName
+                    # 段落・表の行が終わったら、テキストを親のセルに追加する。セルの中でなければ1行として出力する
+                    $text = $null
+                    if ($name -eq "t") {
+                        $inText = $false
+                    } elseif ($name -eq "sectPr") {
+                        $inSectPr = $false
+                    } elseif ($name -eq "p") {
+                        $p = $pFrames[$pFrames.Count - 1]
+                        $pFrames.RemoveAt($pFrames.Count - 1)
+                        $text = $p.Text.ToString().Trim()
+                        $textPage = $p.Page
+                        $separator = " "
+                        if ($p.BreakAfter) {
+                            $page++
+                            $breakPending = $true
                         }
-                        "sectPr" {
-                            $inSectPr = $false
-                        }
-                        "p" {
-                            $p = $frames[$frames.Count - 1]
-                            $frames.RemoveAt($frames.Count - 1)
-                            & $emit $p.Text.ToString().Trim() $p.Page " "
-                            if ($p.BreakAfter) {
-                                $page++
-                                $breakPending = $true
+                    } elseif ($name -eq "tc") {
+                        $cell = $tcFrames[$tcFrames.Count - 1]
+                        $tcFrames.RemoveAt($tcFrames.Count - 1)
+                        if ($trFrames.Count -gt 0) {
+                            $row = $trFrames[$trFrames.Count - 1]
+                            $row.Cells.Add($cell.Text.ToString())
+                            if ($null -eq $row.Page) {
+                                $row.Page = $cell.Page
                             }
                         }
-                        "tc" {
-                            $cell = $frames[$frames.Count - 1]
-                            $frames.RemoveAt($frames.Count - 1)
-                            $row = & $findFrame "tr"
-                            if ($null -ne $row) {
-                                $row.Cells.Add($cell.Text.ToString())
-                                if ($null -eq $row.Page) {
-                                    $row.Page = $cell.Page
-                                }
+                    } elseif ($name -eq "tr") {
+                        $row = $trFrames[$trFrames.Count - 1]
+                        $trFrames.RemoveAt($trFrames.Count - 1)
+                        # 入れ子の表の行は、外側のセルの中ではスペース区切りにする
+                        $text = ($row.Cells -join $(if ($tcFrames.Count -gt 0) { " " } else { "`t" })).TrimEnd()
+                        $textPage = $(if ($null -ne $row.Page) { $row.Page } else { $page })
+                        $separator = " "
+                    }
+                    if ($text) {
+                        if ($tcFrames.Count -gt 0) {
+                            $cell = $tcFrames[$tcFrames.Count - 1]
+                            if ($cell.Text.Length -gt 0) {
+                                [void]$cell.Text.Append($separator)
                             }
-                        }
-                        "tr" {
-                            $row = $frames[$frames.Count - 1]
-                            $frames.RemoveAt($frames.Count - 1)
-                            # 入れ子の表の行は、外側のセルの中ではスペース区切りにする
-                            $separator = $(if ($null -ne (& $findFrame "tc")) { " " } else { "`t" })
-                            $text = ($row.Cells -join $separator).TrimEnd()
-                            $rowPage = $(if ($null -ne $row.Page) { $row.Page } else { $page })
-                            & $emit $text $rowPage " "
+                            [void]$cell.Text.Append($text)
+                            if ($null -eq $cell.Page) {
+                                $cell.Page = $textPage
+                            }
+                        } else {
+                            $lines.Add([pscustomobject]@{ Page = $textPage; Text = $text })
                         }
                     }
                 }
-            } elseif ($inText -and ($nodeType -eq [System.Xml.XmlNodeType]::Text -or
-                                    $nodeType -eq [System.Xml.XmlNodeType]::SignificantWhitespace -or
-                                    $nodeType -eq [System.Xml.XmlNodeType]::Whitespace -or
-                                    $nodeType -eq [System.Xml.XmlNodeType]::CDATA)) {
-                $p = & $findFrame "p"
-                if ($null -ne $p) {
+            } elseif ($inText -and ($nodeType -eq $textType -or $nodeType -eq $significantWhitespaceType -or
+                                    $nodeType -eq $whitespaceType -or $nodeType -eq $cdataType)) {
+                if ($pFrames.Count -gt 0) {
+                    $p = $pFrames[$pFrames.Count - 1]
                     if ($null -eq $p.Page) {
                         $p.Page = $page
                     }
-                    [void]$p.Text.Append(($reader.Value -replace "[\t\r\n]", " "))
-                    if ($reader.Value.Trim() -ne "") {
+                    $value = $reader.Value
+                    [void]$p.Text.Append($value.Replace("`t", " ").Replace("`r", " ").Replace("`n", " "))
+                    if ($value.Trim() -ne "") {
                         $breakPending = $false
                     }
                 }
@@ -396,8 +380,19 @@ function readDocxUnits {
 
         # Wordで保存されたファイルには、保存時点のページ区切りが記録されている。無ければ手動の改ページで数える
         $pageMode = $(if ($body.Contains("lastRenderedPageBreak")) { "rendered" } else { "explicit" })
+        # 本文は行数が多いため、1行ずつ addUnitLines を呼ばずにページのユニットへ入れる（結果は addUnitLines と同じ）
+        $lastPage = $null
+        $pageLines = $null
         foreach ($line in (readXmlLines $body ${nsWord} $pageMode)) {
-            addUnitLines $units ("ページ{0:D3}" -f $line.Page) @($line.Text)
+            if ($null -eq $pageLines -or $line.Page -ne $lastPage) {
+                $unitName = "ページ{0:D3}" -f $line.Page
+                if (-not $units.Contains($unitName)) {
+                    $units[$unitName] = New-Object System.Collections.Generic.List[string]
+                }
+                $pageLines = $units[$unitName]
+                $lastPage = $line.Page
+            }
+            $pageLines.Add($line.Text)
         }
 
         # ヘッダー・フッター（セクションごとに同じ内容が並ぶため、重複は除く）

@@ -44,11 +44,22 @@ function writeTextLinesAtomic {
     [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
     $tmpPath = "${path}.tmp"
     [System.IO.File]::WriteAllLines($tmpPath, [string[]]@($lines), ${utf8Bom})
-    if (Test-Path -LiteralPath $path) {
-        # $null は空文字列として渡されて例外になるため、[NullString]::Value（バックアップを作らない）を渡す
-        [System.IO.File]::Replace($tmpPath, $path, [NullString]::Value)
-    } else {
-        [System.IO.File]::Move($tmpPath, $path)
+    # 書いた直後のファイルは、ウイルス対策ソフト等が一時的に掴んでいて置き換えられないことがあるため、少し待って数回試す
+    for ($i = 1; $true; $i++) {
+        try {
+            if (Test-Path -LiteralPath $path) {
+                # $null は空文字列として渡されて例外になるため、[NullString]::Value（バックアップを作らない）を渡す
+                [System.IO.File]::Replace($tmpPath, $path, [NullString]::Value)
+            } else {
+                [System.IO.File]::Move($tmpPath, $path)
+            }
+            return
+        } catch {
+            if ($i -ge 5) {
+                throw
+            }
+            Start-Sleep -Milliseconds 200
+        }
     }
 }
 

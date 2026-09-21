@@ -226,6 +226,123 @@ Describe "searchIndex" -Tag Io {
     }
 }
 
+Describe "searchTsvFiles（全文への照合と 1 行ずつの照合の結果が同じ）" -Tag Io {
+    # 改行の種類（CRLF・LF・CR）、末尾の改行の有無、空行、空のファイル、BOM の無いファイルを混ぜる
+    $dir = Join-Path $TestDrive "modes"
+    [void][System.IO.Directory]::CreateDirectory("$dir\a.xlsx")
+    [void][System.IO.Directory]::CreateDirectory("$dir\b.docx")
+    [void][System.IO.Directory]::CreateDirectory("$dir\c.pptx")
+    [void][System.IO.Directory]::CreateDirectory("$dir\d.xlsx")
+    [System.IO.File]::WriteAllText("$dir\a.xlsx\S.tsv", "見積`t(株)山田商事`r`n`r`nabc 見積`r`n確定`tABC`r`n", ${utf8Bom})
+    [System.IO.File]::WriteAllText("$dir\b.docx\ページ001.tsv", "りんご`nみかん abc`n`n見積 確定`nabc", ${utf8Bom})
+    [System.IO.File]::WriteAllText("$dir\c.pptx\スライド001.tsv", "abc`rりんご`r`r見積`r", (New-Object System.Text.UTF8Encoding $false))
+    [System.IO.File]::WriteAllText("$dir\d.xlsx\空.tsv", "", ${utf8Bom})
+    $files = (getIndexTsvFiles @($dir)).Files
+    $targets = newTsvFiles $files
+
+    # searchTsvFiles は List を 1 つのまま返すため、1 件ずつ "相対パス:行番号:行" にする
+    function formatHits {
+        param ($hits)
+        $list = New-Object System.Collections.Generic.List[string]
+        foreach ($hit in $hits) {
+            $list.Add("$($hit.RelPath):$($hit.LineNumber):$($hit.Line)")
+        }
+        return ($list -join "|")
+    }
+
+    $cases = @(
+        @("abc", $true), @("見積", $true), @("(株)", $true), @("存在しない", $true), @("`t", $true),
+        @("^abc", $false), @("abc$", $false), @("^$", $false), @("x*", $false), @("見積.*確定", $false),
+        @("見積\s確定", $false), @("\s", $false), @("[^a]", $false), @("abc(?=\s)", $false),
+        @("abc(?!\s)", $false), @("\Aabc", $false), @("abc\z", $false), @("(?i)ABC", $false)
+    )
+    foreach ($case in $cases) {
+        It "「$($case[0])」（文字どおり=$($case[1])）" {
+            $search = newSearchRegex $case[0] $case[1]
+            $expected = formatHits (searchTsvFiles $targets 0 $targets.Count $search.Regex -1)
+            formatHits (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex $search.ScanMode) | Should Be $expected
+            if ($search.ScanMode -ne "scan") {
+                # 全文だけで行を切り出す場合と、全文で絞ってから 1 行ずつ照合する場合も同じ
+                formatHits (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex "filter") | Should Be $expected
+            }
+        }
+    }
+
+    It "行番号は 1 行ずつ読んだときと同じ（CR だけの改行・空行も数える）" {
+        $search = newSearchRegex "見積" $true
+        formatHits (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex $search.ScanMode) |
+            Should Be "a.xlsx\S.tsv:1:見積`t(株)山田商事|a.xlsx\S.tsv:3:abc 見積|b.docx\ページ001.tsv:4:見積 確定|c.pptx\スライド001.tsv:4:見積"
+    }
+
+    It "上限を超えたら打ち切る（全文から行を切り出す場合も）" {
+        $search = newSearchRegex "abc" $true
+        (searchTsvFiles $targets 0 $targets.Count $search.Regex 1 $search.TextRegex $search.ScanMode).Count | Should Be 2
+    }
+
+    It "読んだ内容を使い回しても結果は同じ（1 行ずつ照合する正規表現も）" {
+        $cache = newTsvTextCache
+        foreach ($case in @(@("見積", $true), @("abc(?!\s)", $false))) {
+            $search = newSearchRegex $case[0] $case[1]
+            $expected = formatHits (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex $search.ScanMode)
+            formatHits (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex $search.ScanMode $cache) | Should Be $expected
+            formatHits (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex $search.ScanMode $cache) | Should Be $expected
+        }
+        $cache.Texts.Count | Should Be 4
+    }
+}
+
+Describe "searchIndex（並列検索・読んだ内容の使い回し）" -Tag Io {
+    $dir = Join-Path $TestDrive "parallel"
+    for ($i = 0; $i -lt 30; $i++) {
+        newTsv ("$dir\sub{0}\book{1:D2}.xlsx\S.tsv" -f ($i % 3), $i) @("見積 $i", "x", "見積 確定 $i")
+    }
+    $files = (getIndexTsvFiles @($dir)).Files
+
+    # 1 件ずつ "ファイル名:行番号" にする
+    function formatBookLines {
+        param ($hits)
+        return (@($hits | ForEach-Object { "$($_.Book):$($_.LineNumber)" }) -join ",")
+    }
+
+    It "並列に検索しても、TSV の順に同じ結果を返す" {
+        $expected = formatBookLines (searchIndex "見積" $files $true 0 1 -workerCount 1).Hits
+        $result = searchIndex "見積" $files $true 0 1 -workerCount 3
+        formatBookLines $result.Hits | Should Be $expected
+        $result.Hits.Count | Should Be 60
+    }
+
+    It "並列でも上限で打ち切り、進み具合を TSV の順に知らせる" {
+        $script:done = New-Object System.Collections.Generic.List[int]
+        $result = searchIndex "見積" $files $true 5 2 { param($done, $total, $newHits) $script:done.Add($done) } -workerCount 3
+        $result.Truncated | Should Be $true
+        formatBookLines $result.Hits | Should Be "book00.xlsx:1,book00.xlsx:3,book03.xlsx:1,book03.xlsx:3,book06.xlsx:1"
+        ($script:done -join ",") | Should Be ((@($script:done | Sort-Object)) -join ",")
+    }
+
+    It "並列でも中止できる" {
+        $script:calls = 0
+        $result = searchIndex "見積" $files $true 0 1 { param($done, $total, $newHits) $script:calls++ } { $script:calls -ge 2 } -workerCount 3
+        $result.Cancelled | Should Be $true
+        $script:calls | Should Be 2
+    }
+
+    It "内容を使い回し、更新された TSV は読み直す" {
+        $cache = newTsvTextCache
+        (searchIndex "更新後" $files $true -cache $cache).Hits.Count | Should Be 0
+        $path = @($files.Keys)[0]
+        [System.IO.File]::WriteAllText($path, "更新後の内容`r`n", ${utf8Bom})
+        (Get-Item -LiteralPath $path).LastWriteTime = (Get-Date).AddMinutes(1)
+        $updated = (getIndexTsvFiles @($dir)).Files
+        (searchIndex "更新後" $updated $true -cache $cache).Hits.Count | Should Be 1
+    }
+
+    It "上限を超える内容は残さない" {
+        $cache = newTsvTextCache 20
+        [void](searchIndex "見積" $files $true -cache $cache)
+        $cache.Chars[0] | Should BeLessThan 21
+    }
+}
+
 Describe "toSearchResultLines / writeSearchResult" -Tag Io {
     $index = Join-Path $TestDrive "result"
     newTsv "$index\x\A社.xlsx_Sheet1.tsv" @("a`t`"りんご${cellNewLine}みかん`"`tc")

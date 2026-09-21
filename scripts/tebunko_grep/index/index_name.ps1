@@ -142,6 +142,10 @@ function decodeIndexPlace {
         [string]$place
     )
 
+    # 符号化した文字が無ければそのまま返す（検索のたびに全TSVの名前を分解するため、置換の呼び出しを省く）
+    if ($place.IndexOf("%") -lt 0) {
+        return $place
+    }
     return [regex]::Replace($place, '%(?:[01][0-9A-F]|2[25AF]|3[ACEF]|5[CF]|7C)', { param($m) [string][char][Convert]::ToInt32($m.Value.Substring(1), 16) })
 }
 

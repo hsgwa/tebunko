@@ -73,7 +73,7 @@ if (!$convertMutex.Acquired) {
 # （変換一覧は数万行になるため、画面が毎秒読み直すと、その間ずっと画面が固まる）
 writeConvertProgress ${convertPhaseScan} 0 0 0 "変換の準備をしています…"
 
-$restartInterval = 50  # Officeアプリを再起動する間隔（ファイル数）。メモリ肥大化対策
+$restartInterval = 100  # Officeアプリを再起動する間隔（ファイル数）。メモリ肥大化対策（再起動 1 回で起動し直す約 2 秒かかるため、間隔を詰めすぎない）
 $fileTimeoutMinutes = 10  # 1ファイルの変換の制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
 $approvalTimeoutMinutes = 60  # -ConfirmTargets で画面の返事を待つ制限時間（分）。画面が落ちた場合に待ち続けないよう打ち切る
 $interruptLimit = 2       # 変換中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする

@@ -40,16 +40,80 @@ function isConverting {
     return ($null -ne $script:convertProcess) -and !$script:convertProcess.HasExited
 }
 
+$script:folderCheckRunning = $false
+$script:folderCheckAgain = $false
+
 function updateFolderItemStatus {
+    # フォルダの有無を調べ直す（別スレッド。refreshFolderStatus）。調べ終えるまでは前の表示のまま（初回は「確認中」）
     param (
         $item
     )
 
-    if (Test-Path -LiteralPath $item.Path -PathType Container) {
-        $item.SetStatus("✓ フォルダがあります", ${okBrush})
-    } else {
-        $item.SetStatus("✗ フォルダが見つかりません", ${ngBrush})
+    if (!$item.StatusChecked) {
+        $item.SetStatus("… フォルダを確認しています", ${grayBrush})
     }
+    refreshFolderStatus
+}
+
+function refreshFolderStatus {
+    # 一覧のすべてのフォルダの有無を別スレッドで調べ、表示と［変換を開始］の可否に反映する。
+    # 届かないネットワークのフォルダ（VPN の切断・サーバーの停止）では Test-Path が十数秒戻らないため、
+    # 画面のスレッドで調べると起動時・画面を前に出すたびに「応答なし」になる（実測 約 17 秒）。
+    # 調べている間に呼ばれたら、終わってからもう一度だけ調べる
+    if ($script:folderCheckRunning) {
+        $script:folderCheckAgain = $true
+        return
+    }
+    $paths = @($script:targetItems | ForEach-Object { [string]$_.Path } | Where-Object { $_ } | Select-Object -Unique)
+    if ($paths.Count -eq 0) {
+        return
+    }
+    $script:folderCheckRunning = $true
+    $script:folderCheckAgain = $false
+    startJob {
+        param ($paths)
+        $result = @{}
+        foreach ($path in $paths) {
+            # 届かないネットワークのフォルダでは Test-Path が例外（ネットワーク パスが見つかりません）になるため、無いものとする
+            $found = $false
+            try {
+                $found = [bool](Test-Path -LiteralPath $path -PathType Container -ErrorAction Stop)
+            } catch {
+            }
+            $result[$path] = $found
+        }
+        $result
+    } @(, [string[]]$paths) {
+        param ($output, $errorText)
+        $script:folderCheckRunning = $false
+        if ($output -and $output.Count -gt 0) {
+            applyFolderStatus $output[0]
+        }
+        if ($script:folderCheckAgain) {
+            refreshFolderStatus
+        }
+    }
+}
+
+function applyFolderStatus {
+    # refreshFolderStatus の結果（パス → 有無）を一覧に反映する（調べている間にパスが変わった行はそのまま）
+    param (
+        $exists
+    )
+
+    foreach ($item in $script:targetItems) {
+        if (!$exists.ContainsKey([string]$item.Path)) {
+            continue
+        }
+        $item.StatusChecked = $true
+        $item.FolderExists = [bool]$exists[[string]$item.Path]
+        if ($item.FolderExists) {
+            $item.SetStatus("✓ フォルダがあります", ${okBrush})
+        } else {
+            $item.SetStatus("✗ フォルダが見つかりません", ${ngBrush})
+        }
+    }
+    updateConvertButton
 }
 
 function newFolderItem {
@@ -65,7 +129,8 @@ function newFolderItem {
     $item.Enabled = $enabled
     $item.FileCountText = "－"
     $item.LastConvertedText = ""
-    updateFolderItemStatus $item
+    # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
+    $item.SetStatus("… フォルダを確認しています", ${grayBrush})
     # ［変換］チェックの保存は、一覧のチェックボックスの Click（IndexGrid.AddHandler）で行う。
     # PS class のプレーンなプロパティは TwoWay セットで PropertyChanged を出さないため、購読では拾えない。
     return $item
@@ -90,6 +155,7 @@ function loadTargets {
         $script:loadingTargets = $false
     }
     updateIndexListView
+    refreshFolderStatus
 }
 
 function saveTargets {
@@ -262,6 +328,7 @@ function addIndexItem {
 
     $item = newFolderItem $path $true $name
     $script:targetItems.Add($item)
+    refreshFolderStatus
     $ui.IndexGrid.SelectedItem = $item
     $ui.IndexGrid.ScrollIntoView($item)
     saveTargets
@@ -332,6 +399,7 @@ function editIndex {
     if ($result.Path -ne $item.Path) {
         $changes.Add("場所 $($item.Path) → $($result.Path)")
         $item.SetPath($result.Path)
+        $item.StatusChecked = $false
         updateFolderItemStatus $item
     }
     if ($changes.Count -eq 0) {
@@ -413,7 +481,8 @@ function deleteIndex {
 function updateConvertButton {
     $ready = $false
     foreach ($item in $script:targetItems) {
-        if ($item.Enabled -and (Test-Path -LiteralPath $item.Path -PathType Container)) {
+        # フォルダの有無は refreshFolderStatus が別スレッドで調べた結果を使う（調べ終えるまではあるものとする）
+        if ($item.Enabled -and (!$item.StatusChecked -or $item.FolderExists)) {
             $ready = $true
             break
         }

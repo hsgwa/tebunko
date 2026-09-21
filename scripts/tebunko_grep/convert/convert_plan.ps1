@@ -81,8 +81,16 @@ function createTargetList {
     $found = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $count = @{ Done = 0; New = 0; Updated = 0; Pending = 0; Lost = 0 }
 
+    # 列挙したファイルの FullName は、\\?\ 付きの Root で始まる。ファイルが多いと1件ずつの関数呼び出しだけで
+    # 時間がかかるため、その場合は先頭を切り落として相対パスにする（それ以外は getPathUnderFolder で求める）
+    $longRoot = (toLongPath $scan.Root).TrimEnd("\") + "\"
     foreach ($file in $scan.Files) {
-        $relative = getPathUnderFolder (fromLongPath $file.FullName) $scan.Root
+        $fullName = $file.FullName
+        if ($fullName.Length -gt $longRoot.Length -and $fullName.StartsWith($longRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $relative = $fullName.Substring($longRoot.Length)
+        } else {
+            $relative = getPathUnderFolder (fromLongPath $fullName) $scan.Root
+        }
         if ($null -eq $relative -or $relative -eq "") {
             $relative = $file.Name  # 通常は起こらない（$scan.Root の下を列挙している）
         }
@@ -112,11 +120,18 @@ function createTargetList {
             }
         } else {
             $latest = $null
-            if ($null -eq $old) {
-                $latest = getIndexFiles (getBookDir $relPath) | Sort-Object LastWriteTime | Select-Object -Last 1
+            $indexFiles = @()
+            # 変換結果のフォルダが無いことが counts で分かっていれば、ディスクを調べない（初回は全ファイルが一覧に無いため）
+            if ($null -eq $old -and ($null -eq $counts -or $counts.ContainsKey($relPath))) {
+                $indexFiles = getIndexFiles (getBookDir $relPath)
+                foreach ($indexFile in $indexFiles) {
+                    if ($null -eq $latest -or $indexFile.LastWriteTime -ge $latest.LastWriteTime) {
+                        $latest = $indexFile
+                    }
+                }
             }
             if ($latest -and $latest.LastWriteTime -ge $file.LastWriteTime) {
-                $tsvCount = @(getIndexFiles (getBookDir $relPath)).Count
+                $tsvCount = $indexFiles.Count
                 $row = newStatusRow $relPath $updated $size ${stateDone} $tsvCount (formatFileTime $latest.LastWriteTime)
                 $count.Done++
             } else {

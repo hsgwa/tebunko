@@ -17,10 +17,12 @@ $script:search = $null
 $script:lastSearch = $null
 $script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名と変換対象フォルダの対応（getSourceLocation のキャッシュ）
 $script:filterText = ""
+# 検索で読んだ TSV の内容（画面を閉じるまで残し、次の検索では更新の無い TSV をファイルから読まない）
+$script:tsvCache = newTsvTextCache
 
 # 別スレッドで実行する検索（結果は $shared.Queue に少しずつ入れる）
 ${searchScript} = {
-    param ($libPath, $word, $simpleMatch, $folders, $limit, $shared)
+    param ($libPath, $word, $simpleMatch, $folders, $limit, $shared, $cache)
     try {
         . $libPath
         # TSV が多いと数え上げだけで数秒かかるため、途中の件数を画面に伝える（止まって見えないように）
@@ -29,14 +31,14 @@ ${searchScript} = {
         $shared.Total = $index.Files.Count
         $shared.IndexTotal = $index.Files.Count
         # 検索条件（大文字・小文字の区別・対象ファイル）は startSearch が $shared に入れる
-        $result = searchIndex $word $index.Files $simpleMatch $limit 50 -caseSensitive $shared.CaseSensitive -fileFilter $shared.FileFilter {
+        $result = searchIndex $word $index.Files $simpleMatch $limit 50 -caseSensitive $shared.CaseSensitive -fileFilter $shared.FileFilter -cache $cache -onProgress {
             param ($done, $total, $newHits)
             foreach ($hit in $newHits) {
                 $shared.Queue.Enqueue($hit)
             }
             $shared.Total = $total
             $shared.Done = $done
-        } { $shared.Stop }
+        } -shouldStop { $shared.Stop }
         $shared.Total = $result.Total
         $shared.Truncated = $result.Truncated
         $shared.Cancelled = $result.Cancelled
@@ -149,7 +151,7 @@ function startSearch {
     })
     $ps = [powershell]::Create()
     [void]$ps.AddScript(${searchScript}.ToString())
-    foreach ($argument in @(${libPath}, $word, $simpleMatch, $folders, ${searchLimit}, $shared)) {
+    foreach ($argument in @(${libPath}, $word, $simpleMatch, $folders, ${searchLimit}, $shared, $script:tsvCache)) {
         [void]$ps.AddArgument($argument)
     }
     $script:search = @{
@@ -183,12 +185,15 @@ function pumpSearch {
     }
     $shared = $s.Shared
     $hit = $null
-    $added = 0
-    while ($added -lt 3000 -and $shared.Queue.TryDequeue([ref]$hit)) {
-        # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名
-        $script:hitRows.Add([HitRow]::Create((splitIndexRelPath ([string]$hit.RelDir)).Name, $hit.Root, $hit.RelPath, $hit.RelDir, $hit.FileName,
+    # 1 回に移す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が 0.5 秒以上止まる）
+    $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$hit)) {
+        # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ。1 件ごとの関数呼び出しを省く）
+        $relDir = [string]$hit.RelDir
+        $cut = $relDir.IndexOf("\")
+        $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
+        $script:hitRows.Add([HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
                 $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern))
-        $added++
     }
 
     if ($shared.Total -gt 0) {
@@ -280,6 +285,8 @@ function finishSearch {
     setStatus $status
 }
 
+# 検索結果を表に移す 1 回あたりの時間（ミリ秒）。タイマーの間隔（100 ミリ秒）より短くし、その間も画面が操作できるようにする
+${searchPumpMilliseconds} = 60
 $script:searchTimer = newTimer 100 { safe { pumpSearch } }
 
 # ---- 絞り込み・選択行の詳細 ----
