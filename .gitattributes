@@ -1,0 +1,2 @@
+# git のフックは git for Windows の sh が読むため、core.autocrlf に関係なく LF で取り出す
+tools/hooks/* text eol=lf

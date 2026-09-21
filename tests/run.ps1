@@ -3,7 +3,9 @@
 #   .\tests\run.ps1              既定（Unit・Io・Meta。Office と Slow は除く）
 #   .\tests\run.ps1 -Tag Unit    速い確認だけ
 #   .\tests\run.ps1 -All         Office・Slow も含めて全部（Office が必要）
-#   .\tests\run.ps1 -Ci          結果の XML とカバレッジを出し、失敗数を終了コードにする
+#   .\tests\run.ps1 -Ci          結果の XML とカバレッジを出し、カバレッジの下限も確かめる
+#
+# いずれも失敗したテストの数を終了コードにする（pre-commit フック・CI が見る）
 param (
     [string[]]$Tag,
     [string[]]$ExcludeTag,
@@ -44,6 +46,15 @@ if ($Ci) {
 
 $result = Invoke-Pester @arguments
 
+# -Quiet のときは何も表示されないため、失敗したテストだけを出す
+if ($Quiet -and $result.FailedCount -gt 0) {
+    Write-Host "失敗したテスト（$($result.FailedCount) 件）:" -ForegroundColor Red
+    foreach ($test in @($result.TestResult | Where-Object { $_.Result -eq "Failed" })) {
+        Write-Host "  $(@($test.Describe, $test.Context, $test.Name | Where-Object { $_ }) -join ' / ')"
+        Write-Host "    $($test.FailureMessage)"
+    }
+}
+
 if ($Ci) {
     $covered = 0
     $total = 0
@@ -66,3 +77,4 @@ if ($Ci) {
     }
     exit $result.FailedCount
 }
+exit $result.FailedCount

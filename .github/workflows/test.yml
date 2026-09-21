@@ -2,17 +2,35 @@
 #
 # Windows PowerShell 5.1 と Pester 3.4 は windows ランナーに最初から入っている。
 # ランナーに Office は入っていないため、Office が要るテスト（タグ Office）は tests\run.ps1 が既定で外す。
+# release.yml からも呼ばれる（workflow_call）。タグの push では release.yml の中で実行するため、ここでは動かさない。
 name: test
 
 on:
   push:
+    branches: ["**"]
   pull_request:
+  workflow_call:
+
+# 同じブランチに続けて push したときは、古い実行を取り消す
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # コミットの作者を全履歴で調べるため
+          fetch-depth: 0
+
+      - name: 個人情報・文字コードの検査
+        shell: powershell
+        run: .\tools\check_commit.ps1
 
       - name: テスト（Unit・Io・Meta）
         shell: powershell
