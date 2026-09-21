@@ -80,25 +80,6 @@ PowerShell スクリプトだけで動きます。ネットワーク通信、動
 - 部品表: [sbom.cdx.json](sbom.cdx.json)（第三者の部品は 0 件）
 - 脆弱性の報告: [SECURITY.md](SECURITY.md)
 
-## 開発
-
-```powershell
-.\tests\run.ps1              # Unit・Io・Meta（Pester 3.4）
-.\tests\run.ps1 -All         # Office・Slow も含めて全部（Office が必要）
-.\tests\run.ps1 -Tag Meta    # 構成・安全性の主張の検査
-```
-
-```
-tebunko_grep.bat   # 起動用
-scripts/           # PowerShell 本体（shared/ = 共通、tebunko_grep/ = ツール固有）
-tests/             # Pester テスト
-tools/             # 配布用のカタログ・ハッシュ一覧を作る
-docs/              # 設計書
-work/              # インデックス・ログ（自動生成。git 管理外）
-```
-
-スクリプトは BOM 付き UTF-8・CRLF で保存します。設計は [docs/00_index.md](docs/00_index.md) を参照してください。
-
 ## ライセンス
 
 [MIT](LICENSE)
