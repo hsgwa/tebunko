@@ -1,4 +1,4 @@
-# ユーザーごとの設定
+﻿# ユーザーごとの設定
 setting.config
 
 # 自動生成（インデックス・途中状態・検索結果）
@@ -12,3 +12,6 @@ sample*/
 
 # 開発ツールの個人設定（共有する設定 .claude/settings.json は追跡する）
 .claude/settings.local.json
+
+# 手元のメモ（やり残しの TODO）
+/TODO.md
