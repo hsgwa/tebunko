@@ -1684,6 +1684,10 @@
 <td>画面の「対象ファイル」（<code>setting.config</code> の <code>fileFilter</code>）を指定すると、<strong>元のファイル名</strong>（5.3 の Book。今の形式では TSV のあるフォルダ名）が一致する TSV だけを検索する（4.2）。空ならすべて</td>
 </tr>
 <tr>
+<td>図形・コメント</td>
+<td>既定は検索する。画面の［図形も検索］［コメントも検索］（<code>setting.config</code> の <code>includeShapes</code> / <code>includeComments</code>）をオフにすると、場所が <code>&lt;シート名&gt;[図形]</code> / <code>&lt;シート名&gt;[コメント]</code> の TSV を検索しない（<code>newPlaceExclude</code>。TSV を読む前に除くため、検索は遅くならない）</td>
+</tr>
+<tr>
 <td>長いパス</td>
 <td>列挙（<code>Get-ChildItem</code>）と検索（.NET の <code>StreamReader</code>）には <code>\\?\</code> を付けたパスを渡す（<code>toLongPath</code>）。付けないと、約 248 文字を超えるフォルダの中を列挙できず、260 文字を超える TSV を読めない。結果の相対パスは <code>\\?\</code> の無い形で扱う（<a href="../01_%E5%A4%89%E6%8F%9B_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#長いパス260-文字超の扱い">01_変換.md 6.1 節</a>）</td>
 </tr>

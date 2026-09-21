@@ -1533,7 +1533,7 @@
 </tr>
 <tr>
 <td><code>searchIndex</code></td>
-<td>ワード, Files, 文字どおりか, 上限, 何ファイルずつか, 進捗コールバック, 中止の判定, 大文字と小文字を区別するか, 対象ファイル, 並列のスレッド数, 読んだ内容の使い回し（画面が 1 つ持つ <code>newTsvTextCache</code>）</td>
+<td>ワード, Files, 文字どおりか, 上限, 何ファイルずつか, 進捗コールバック, 中止の判定, 大文字と小文字を区別するか, 対象ファイル, 並列のスレッド数, 読んだ内容の使い回し（画面が 1 つ持つ <code>newTsvTextCache</code>）, 図形・コメントも検索するか</td>
 <td><code>@{ Hits; SimpleMatch; Total; Truncated; Cancelled }</code></td>
 <td>4.1 の検索（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイルで絞った後の TSV の数</td>
 <td>画面</td>
@@ -1625,8 +1625,8 @@
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 <td>– / 変える項目の hashtable</td>
-<td><code>@{ UseRegex; CaseSensitive; FileFilter }</code></td>
-<td><code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code>（8 章）</td>
+<td><code>@{ UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments }</code></td>
+<td><code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>（8 章）</td>
 <td>画面</td>
 </tr>
 <tr>

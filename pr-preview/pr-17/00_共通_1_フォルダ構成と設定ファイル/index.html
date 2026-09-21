@@ -1767,6 +1767,8 @@
 <span class="w">    </span><span class="nt">"useRegex"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"caseSensitive"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"fileFilter"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"includeShapes"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"includeComments"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"openMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -1821,6 +1823,20 @@
 <td>文字列</td>
 <td>空</td>
 <td>「対象ファイル」の指定（例: <code>*.xlsx;見積;!*old*</code>）。空ならすべて（同上）</td>
+<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
+</tr>
+<tr>
+<td><code>includeShapes</code></td>
+<td>true / false</td>
+<td>true</td>
+<td>［図形も検索］の状態。オフなら Excel の図形の場所（<code>&lt;シート名&gt;[図形]</code>）を検索しない（同上）</td>
+<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
+</tr>
+<tr>
+<td><code>includeComments</code></td>
+<td>true / false</td>
+<td>true</td>
+<td>［コメントも検索］の状態。オフなら Excel のコメントの場所（<code>&lt;シート名&gt;[コメント]</code>）を検索しない（同上）</td>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 </tr>
 <tr>

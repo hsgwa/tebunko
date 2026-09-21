@@ -1588,9 +1588,9 @@
 </tr>
 <tr>
 <td><code>searchIndex</code></td>
-<td>word, tsvFiles, simpleMatch, limit, chunkSize, onProgress, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動）, cache（<code>newTsvTextCache</code>）</td>
+<td>word, tsvFiles, simpleMatch, limit, chunkSize, onProgress, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled}</code></td>
-<td>TSV を検索する（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイルで絞った後の TSV の数。chunkSize 件ずつ検索して進捗を知らせ、上限・中止に対応する。TSV が多ければ複数スレッドで並行して検索する（結果の順は変わらない）。読めない TSV は飛ばす</td>
+<td>TSV を検索する（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイル・図形とコメントの指定で絞った後の TSV の数。chunkSize 件ずつ検索して進捗を知らせ、上限・中止に対応する。TSV が多ければ複数スレッドで並行して検索する（結果の順は変わらない）。読めない TSV は飛ばす</td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
 <td>検索・画面</td>
 </tr>
@@ -1707,9 +1707,9 @@
 </tr>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
-<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter}</code> のうち変える項目）, path</td>
-<td><code>@{UseRegex; CaseSensitive; FileFilter}</code> / –</td>
-<td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code>。無ければオフ・空）。保存は option にある項目だけを変える</td>
+<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
+<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
+<td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える</td>
 <td>–</td>
 <td>画面</td>
 </tr>
