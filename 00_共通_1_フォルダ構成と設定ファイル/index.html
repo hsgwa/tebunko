@@ -1499,7 +1499,7 @@
 <tr>
 <td><code>scripts/tebunko_grep/tebunko_grep.ico</code></td>
 <td>画像</td>
-<td>画面のアイコン（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#10-表示アクセシビリティ">03_画面_5_共通仕様.md 10 章</a>）</td>
+<td>画面のアイコン（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#10-表示アクセシビリティ">03_画面_5_共通仕様.md 10 章</a>）。元データは <code>docs/images/logo.svg</code>（リポジトリの管理者が作成）で、<code>tools/new_icon.ps1</code> で作る。手で編集しない</td>
 </tr>
 <tr>
 <td><code>tests/</code></td>
@@ -1520,6 +1520,11 @@
 <td><code>tools/check_commit.ps1</code></td>
 <td>開発用</td>
 <td>公開してはいけない内容（利用者名を含むパス・メールアドレス・Office ファイルの作成者名など）と <code>.ps1</code>・<code>.xaml</code> の文字コードを検査する。pre-commit フックと CI が使う（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
+</tr>
+<tr>
+<td><code>tools/new_icon.ps1</code></td>
+<td>開発用</td>
+<td>画面のアイコン（<code>tebunko_grep.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
 </tr>
 <tr>
 <td><code>tools/hooks/pre-commit</code>・<code>tools/install_hooks.ps1</code></td>
