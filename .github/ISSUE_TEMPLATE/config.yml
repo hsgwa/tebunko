@@ -1,0 +1,10 @@
+# Issue の作成画面に、テンプレート以外の窓口を並べる。
+# 安全性の問題を公開の Issue に書かれないよう、白紙の Issue は作れないようにする
+blank_issues_enabled: false
+contact_links:
+  - name: 安全性に関わる問題（非公開で報告）
+    url: https://github.com/hsgwa/tebunko/security/advisories/new
+    about: 意図しないファイルの書き換え・想定外の通信・情報の漏れなどは、公開の Issue ではなくこちらから報告してください。
+  - name: 使い方・困ったとき
+    url: https://github.com/hsgwa/tebunko/blob/main/SUPPORT.md
+    about: よくある原因の調べ方と、ログ・設計書の場所
