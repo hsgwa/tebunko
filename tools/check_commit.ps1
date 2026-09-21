@@ -10,6 +10,7 @@
 #     （Office ファイルは ZIP を展開して中の XML も調べる。旧形式・PDF はバイト列をそのまま調べる）
 #   - 手元で実行したときは、Windows のユーザー名そのもの
 #   - .ps1・.xaml が BOM 付き UTF-8・CRLF であること
+#   - ファイル名・フォルダ名が UTF-8 で 255 バイト以下であること（Linux で取り出せないと OpenSSF Scorecard などが動かない）
 #   - コミットの作者・コミッターのメールアドレスが GitHub の noreply であること
 #
 # ファイルの中身は作業ツリーではなく git に記録される内容（インデックス。-Staged のときはステージした分だけ）を読む
@@ -204,6 +205,19 @@ function findEncodingProblems([string]$path, [byte[]]$bytes) {
     return $problems
 }
 
+# Linux のファイル名の上限は 1 つの名前につき 255 バイト。日本語は UTF-8 で 1 字 3 バイトのため、85 字を超えると取り出せない
+# （Windows の上限は 255 字のため、Windows だけで作ると気付かない）
+function findNameProblems([string]$path) {
+    $problems = @()
+    foreach ($name in $path.Split("/")) {
+        $length = $utf8.GetByteCount($name)
+        if ($length -gt 255) {
+            $problems += "名前が UTF-8 で $length バイトあり、Linux の上限（255 バイト）を超える: $name"
+        }
+    }
+    return $problems
+}
+
 $problems = New-Object System.Collections.Generic.List[string]
 
 $targets = @(getTargets)
@@ -222,6 +236,7 @@ foreach ($target in $targets) {
         $items += @(findInBytes $bytes)
     }
     $items += @(findEncodingProblems $target.Path $bytes)
+    $items += @(findNameProblems $target.Path)
     foreach ($item in ($items | Select-Object -Unique)) {
         $problems.Add("$($target.Path): $item")
     }
