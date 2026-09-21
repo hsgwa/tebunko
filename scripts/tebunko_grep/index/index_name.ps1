@@ -188,21 +188,28 @@ function splitIndexFileName {
 }
 
 
-# Excel の図形・コメントの場所 "<シート名>[図形]" "<シート名>[コメント]"（office_reader.ps1 の readXlsxObjectUnits）。
-# シート名には [ ] を使えないため、実在のシートと重ならない。画面の HitRow（types_grep.ps1）にも同じ形がある
-${objectPlacePattern} = '^(?<sheet>.*)\[(?:図形|コメント)\]$'
+# 図形・コメントなど、本文（セル・段落）以外の文字の場所は "<元の場所>[<種類>]" とする。
+# 元の場所は、Excel ではシート名（例: "売上[図形]"。office_reader.ps1 の readXlsxObjectUnits）。
+# Word・PowerPoint に広げるときも同じ形にする（例: "ページ003[コメント]" "スライド002[図形]"）。
+# Excel のシート名には [ ] を使えず、Word・PowerPoint の場所（ページNNN・スライドNNN 等）にも付かないため、ふつうの場所と重ならない。
+# 種類ごとに、検索に含めるかを画面で選べる（search_query.ps1 の newPlaceExclude）。
+# 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types_grep.ps1 の HitRow.ObjectPlaceRegex）をそろえる
+${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt など（SmartArt・グラフもここに入れる予定）
+${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
+${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment})\]$"
 
 
-function getPlaceSheetName {
-    # Excel の場所（シート名、または図形・コメントの場所）から、シート名を返す
+function splitObjectPlace {
+    # 場所を @{ Base（元の場所）; Kind（種類。ふつうの場所は空） } に分ける。
+    #   例: "売上[図形]" → @{ Base = "売上"; Kind = "図形" } / "ページ001" → @{ Base = "ページ001"; Kind = "" }
     param (
         [string]$place
     )
 
     if ($place -match ${objectPlacePattern}) {
-        return $Matches.sheet
+        return @{ Base = $Matches.base; Kind = $Matches.kind }
     }
-    return $place
+    return @{ Base = $place; Kind = "" }
 }
 
 

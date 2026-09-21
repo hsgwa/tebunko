@@ -148,7 +148,8 @@ class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    # Excel の図形・コメントの場所（index_name.ps1 の objectPlacePattern と同じ形）。1 行は "<セル番地><TAB><文字>"
+    # 図形・コメントの場所 "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern と同じ形。クラスからはスクリプトの変数が見えないため、ここにも書く）。
+    # Excel の 1 行は "<セル番地><TAB><文字>"
     static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント)\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
@@ -198,7 +199,7 @@ class HitRow : NotifyBase {
         $row.word = $word
         $row.pattern = $pattern
         $row.IsExcel = [HitRow]::ExcelRegex.IsMatch($(if ($null -eq $book) { "" } else { $book }))
-        $row.IsObjectPlace = $row.IsExcel -and [HitRow]::ObjectPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
+        $row.IsObjectPlace = [HitRow]::ObjectPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
         return $row
     }
 
@@ -218,7 +219,7 @@ class HitRow : NotifyBase {
         if (-not $this.IsExcel) { return }
         $cells = [HitRow]::SplitCells($this.Line, $true)
         if ($this.IsObjectPlace) {
-            # 図形・コメントの行は、先頭のセルが図形の左上・コメントのセルの番地
+            # Excel の図形・コメントの行は、先頭のセルが図形の左上・コメントのセルの番地
             $hit = $false
             foreach ($cell in $cells) { if ([HitRow]::HasMatch($cell, $this.word, $this.pattern)) { $hit = $true; break } }
             if ($hit -and $cells.Count -gt 0) { $this.MatchCell = $cells[0] }
@@ -419,7 +420,7 @@ class HitRow : NotifyBase {
     }
 
     hidden [string] ColumnLabel([int]$number) {
-        if ($this.IsObjectPlace) {
+        if ($this.IsExcel -and $this.IsObjectPlace) {
             return $(switch ($number) { 1 { "セル" } 2 { "文字" } default { $number.ToString() } })
         }
         return $(if ($this.IsExcel) { [HitRow]::ColumnName($number) } else { $number.ToString() })

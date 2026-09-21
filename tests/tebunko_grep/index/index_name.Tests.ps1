@@ -29,12 +29,31 @@ Describe "encodeIndexPlace / decodeIndexPlace" -Tag Unit {
     }
 }
 
-Describe "getPlaceSheetName" -Tag Unit {
-    It "図形・コメントの場所からシート名を返し、シート名はそのまま返す" {
-        getPlaceSheetName "売上[図形]" | Should Be "売上"
-        getPlaceSheetName "売上 (2)[コメント]" | Should Be "売上 (2)"
-        getPlaceSheetName "売上" | Should Be "売上"
-        getPlaceSheetName "ページ001" | Should Be "ページ001"
+Describe "splitObjectPlace" -Tag Unit {
+    It "図形・コメントの場所を、元の場所と種類に分ける（Excel のシート・Word のページ・PowerPoint のスライド）" {
+        $shape = splitObjectPlace "売上[図形]"
+        $shape.Base | Should Be "売上"
+        $shape.Kind | Should Be "図形"
+        (splitObjectPlace "売上 (2)[コメント]").Base | Should Be "売上 (2)"
+        (splitObjectPlace "ページ003[コメント]").Kind | Should Be "コメント"
+        (splitObjectPlace "スライド002[図形]").Base | Should Be "スライド002"
+    }
+
+    It "ふつうの場所・知らない種類はそのまま（種類は空）" {
+        $plain = splitObjectPlace "ページ001"
+        $plain.Base | Should Be "ページ001"
+        $plain.Kind | Should Be ""
+        (splitObjectPlace "売上[メモ]").Kind | Should Be ""
+    }
+
+    It "種類の名前が、書き出す側（office_reader.ps1）と画面（HitRow）でも同じ" {
+        # 画面のクラスはスクリプトの変数を使えず、shared はツールの変数を使えないため、同じ名前を別々に書いている
+        $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
+        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko_grep\ui\types_grep.ps1")
+        foreach ($kind in @(${placeKindShape}, ${placeKindComment})) {
+            $reader.Contains("[$kind]") | Should Be $true
+        }
+        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment})\]") | Should Be $true
     }
 }
 

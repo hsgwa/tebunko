@@ -126,15 +126,15 @@ function newSearchRegex {
 
 function newPlaceExclude {
     # 検索から外す場所（図形・コメント）の正規表現を返す。どちらも検索するなら $null。
-    # 場所の名前は "<シート名>[図形]" "<シート名>[コメント]"（index_name.ps1 の objectPlacePattern）
+    # 場所の名前は "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern）。Excel・Word・PowerPoint で共通
     param (
         [bool]$includeShapes = $true,
         [bool]$includeComments = $true
     )
 
     $kinds = @()
-    if (!$includeShapes) { $kinds += "図形" }
-    if (!$includeComments) { $kinds += "コメント" }
+    if (!$includeShapes) { $kinds += [regex]::Escape(${placeKindShape}) }
+    if (!$includeComments) { $kinds += [regex]::Escape(${placeKindComment}) }
     if ($kinds.Count -eq 0) {
         return $null
     }
