@@ -45,12 +45,6 @@
     
     
       
-        
-        
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-      
     
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -1896,27 +1890,78 @@
 <h3 id="51-出力フォーマットwork検索結果txt">5.1 出力フォーマット（<code>work/検索結果.txt</code>）<a class="headerlink" href="#51-出力フォーマットwork検索結果txt" title="Permanent link">&para;</a></h3>
 <p>画面の［結果をファイルに出力］で、表示中の結果（絞り込み後）を書き出す。UTF-8（BOM 付き）、改行は CRLF。</p>
 <div class="highlight"><pre><span></span><code>【検索文字列　&lt;ワード&gt;】 &lt;件数&gt; 件
-ファイル名&lt;TAB&gt;場所&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B&lt;TAB&gt;…（該当行の最大セル数分の列名）
-&lt;相対フォルダ\&gt;&lt;ファイル名&gt;&lt;TAB&gt;&lt;場所&gt;&lt;TAB&gt;&lt;行番号&gt;&lt;TAB&gt;&lt;該当行&gt;
+ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B&lt;TAB&gt;…（該当行の最大セル数分の列名）
+&lt;相対フォルダ\&gt;&lt;ファイル名&gt;&lt;TAB&gt;&lt;場所&gt;&lt;TAB&gt;&lt;種別&gt;&lt;TAB&gt;&lt;行番号&gt;&lt;TAB&gt;&lt;該当行&gt;
 ...
 </code></pre></div>
 <ul>
 <li><code>【検索文字列　…】</code> の空白は全角スペース。ブロックの後に空行を 1 行出力する。</li>
 <li>ファイル名は、インデックスフォルダからの相対フォルダ（= 変換対象フォルダからの相対フォルダ）付き。直下のファイルはフォルダ部分なし。</li>
-<li><strong>場所</strong> はシート名・ページ・スライド（ヒットの <code>Location</code>。5.3）。Excel の図形・コメントは <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code> で、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../01_%E5%A4%89%E6%8F%9B_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_変換_1_Excel.md</a> 6.7）。シート名にタブ・改行が入っている場合（Excel は付けられる）は、列・行が分かれないようスペースにする。</li>
+<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（TSV の名前。5.3）を画面と同じ表示にしたもの（<code>describePlace</code>）。TSV の名前は変えない。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>TSV の名前（<code>Location</code>）</th>
+<th>場所</th>
+<th>種別</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>売上</code>（Excel のシート）</td>
+<td><code>[シート] 売上</code></td>
+<td>セル</td>
+</tr>
+<tr>
+<td><code>売上[図形]</code></td>
+<td><code>[シート] 売上</code></td>
+<td>テキスト</td>
+</tr>
+<tr>
+<td><code>売上[コメント]</code></td>
+<td><code>[シート] 売上</code></td>
+<td>コメント</td>
+</tr>
+<tr>
+<td><code>ページ003</code>（Word）</td>
+<td><code>[ページ] 3（目安）</code></td>
+<td>本文</td>
+</tr>
+<tr>
+<td><code>ヘッダー・フッター</code> <code>脚注</code></td>
+<td><code>[ヘッダー・フッター]</code> <code>[脚注]</code></td>
+<td>本文</td>
+</tr>
+<tr>
+<td><code>スライド002（非表示）</code>（PowerPoint）</td>
+<td><code>[スライド] 2（非表示）</code></td>
+<td>本文</td>
+</tr>
+<tr>
+<td><code>スライド002_ノート</code></td>
+<td><code>[スライド] 2</code></td>
+<td>ノート</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Word のページは、Word が保存したときのページ区切りから数えた目安のため「（目安）」を付ける（<a href="../01_%E5%A4%89%E6%8F%9B_2_Word/">01_変換_2_Word.md</a> 7.2）。</li>
+<li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../01_%E5%A4%89%E6%8F%9B_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_変換_1_Excel.md</a> 6.7）。</li>
+<li>シート名にタブ・改行が入っている場合（Excel は付けられる）は、列・行が分かれないようスペースにする。</li>
 <li><strong>行番号</strong> は TSV の行番号（<code>searchIndex</code> の <code>LineNumber</code>）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。</li>
-<li><strong>該当行</strong> は、結果をすべて選択して Excel に貼り付けたとき、4 列目以降に元の列の順（4 列目 = A 列）でセルが並ぶように出力する。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。</li>
+<li><strong>該当行</strong> は、結果をすべて選択して Excel に貼り付けたとき、5 列目以降に元の列の順（5 列目 = A 列）でセルが並ぶように出力する。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。</li>
 <li>Excel: TSV の行をそのまま出力し、セル内改行（U+2028）だけを LF に戻す。改行を含むセルは Excel の出力時点で <code>"</code> で囲まれているため、貼り付けても 1 セル内の改行となり、右隣のセル・後続の行はずれない。このため結果ファイルをテキストエディタで開くと、改行を含むセルは複数行に見える。</li>
 <li>Word・PowerPoint: 行（段落、または表の 1 行をタブ区切りにしたもの）は <code>"</code> で囲まれていない。Excel は <code>"</code> で始まるセルを囲みの <code>"</code> と解釈して後続がずれるため、<code>"</code> で始まるセルだけを <code>"</code> で囲み、中の <code>"</code> を <code>""</code> にする。途中に <code>"</code> を含むセルはそのままで、貼り付けても文字どおりになる。</li>
-<li>見出しの列名の数は、ヒット行を Excel に貼り付けたときの最大セル数（<code>countTsvFields</code>。<code>"</code> で始まるセルは閉じる <code>"</code> までを 1 セルとする）。ヒットが 0 件のときは <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;行</code> と件数の見出し 2 行のみとなる。</li>
+<li>見出しの列名の数は、ヒット行を Excel に貼り付けたときの最大セル数（<code>countTsvFields</code>。<code>"</code> で始まるセルは閉じる <code>"</code> までを 1 セルとする）。ヒットが 0 件のときは <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行</code> と件数の見出し 2 行のみとなる。</li>
 <li>画面の［コピー］も同じ形式（<code>toSearchResultLines</code>）でクリップボードに入れる。</li>
 </ul>
 <p>出力例（<code>⏎</code> はセル内改行の LF）:</p>
 <div class="highlight"><pre><span></span><code>【検索文字列　りんご】 3 件
-ファイル名   場所  行   A   B   C   D
-sub dir\old.xls Sheet1  3   古い形式 りんご
-見積[確定].xlsx 一覧  12      りんご 100 "青森産⏎ふじ"
-報告書.docx    ページ002  5   """りんご""の出荷"
+ファイル名   場所  種別  行   A   B   C   D
+sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
+見積[確定].xlsx [シート] 一覧    セル  12      りんご 100 "青森産⏎ふじ"
+報告書.docx    [ページ] 2（目安） 本文  5   """りんご""の出荷"
 </code></pre></div>
 <h3 id="52-1-行の組み立て">5.2 1 行の組み立て<a class="headerlink" href="#52-1-行の組み立て" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart LR
@@ -2102,7 +2147,7 @@ sub dir\old.xls Sheet1  3   古い形式 りんご
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      Copyright (c) tebunko contributors / MIT License
+      Copyright (c) 2026 hsgwa / MIT License
     </div>
   
   
@@ -2130,6 +2175,8 @@ sub dir\old.xls Sheet1  3   古い形式 りんご
     
     
       <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
       
     
   </body>
