@@ -1,6 +1,7 @@
 ﻿# tebunko
 
-[![test](https://github.com/hsgwa/tebunko/actions/workflows/test.yml/badge.svg)](https://github.com/hsgwa/tebunko/actions/workflows/test.yml)
+[![test](https://github.com/hsgwa/tebunko/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/hsgwa/tebunko/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/hsgwa/tebunko/branch/main/graph/badge.svg)](https://codecov.io/gh/hsgwa/tebunko)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Excel・Word・PowerPoint のファイルを、中身の文字でまとめて検索する Windows 用ツールです。
