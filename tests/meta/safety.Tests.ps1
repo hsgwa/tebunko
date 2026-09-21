@@ -4,7 +4,7 @@
 $here = (Resolve-Path "$PSScriptRoot\..").Path
 $rootDir = (Resolve-Path "$here\..").Path
 $scriptsDir = "$rootDir\scripts"
-$launcher = "$rootDir\win_grep.bat"
+$launcher = "$rootDir\windox_grep.bat"
 
 function getCodeLines {
     # 検査対象のコード行を @{ File; Line; Text } で返す。
@@ -193,7 +193,7 @@ Describe "書き込み先が限られていること（docs/04_安全性.md 3.1�
         $paths = @($code | Where-Object { $_.File -eq "paths.ps1" -or $_.File -eq "paths_grep.ps1" -or $_.File -eq "settings_grep.ps1" })
         (findPattern $paths '\$\{workDir\}\s*=\s*"\$\{rootDir\}\\work"') | Should Not Be ""
         (findPattern $paths '\$\{indexDir\}\s*=\s*"\$\{workDir\}\\index"') | Should Not Be ""
-        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"win_grep\\\$\{PID\}"') | Should Not Be ""
+        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"windox_grep\\\$\{PID\}"') | Should Not Be ""
         (findPattern $paths '\$\{publishDir\}\s*=\s*"\$\{workDir\}\\') | Should Not Be ""
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{rootDir\}\\setting\.config"') | Should Not Be ""
     }
@@ -204,7 +204,7 @@ Describe "書き込み先が限られていること（docs/04_安全性.md 3.1�
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
-        # %TEMP%\win_grep\<PID> に原本のコピーが残り続けないこと（docs/04_安全性.md 4.4）
+        # %TEMP%\windox_grep\<PID> に原本のコピーが残り続けないこと（docs/04_安全性.md 4.4）
         (findPattern $code 'function removeStaleTmpDirs') | Should Not Be ""
         (findPattern $code '^removeStaleTmpDirs') | Should Not Be ""
     }
@@ -285,9 +285,9 @@ Describe "第三者が検証するための資料がそろっていること（d
         $sbom.metadata.component.licenses[0].license.id | Should Be "MIT"
         # 構成物は本ツール自身のファイルだけ。パッケージマネージャー由来の部品（purl を持つ）は無い
         (@($sbom.components).Count -gt 0) | Should Be $true
-        @($sbom.components | Where-Object { $_.group -ne "win_grep" }).Count | Should Be 0
+        @($sbom.components | Where-Object { $_.group -ne "windox" }).Count | Should Be 0
         @($sbom.components | Where-Object { $_.purl }).Count | Should Be 0
         # 前提ソフトウェア（同梱しないもの）は metadata.properties に記載する
-        @($sbom.metadata.properties | Where-Object { $_.name -eq "win_grep:prerequisite" }).Count -gt 0 | Should Be $true
+        @($sbom.metadata.properties | Where-Object { $_.name -eq "windox:prerequisite" }).Count -gt 0 | Should Be $true
     }
 }

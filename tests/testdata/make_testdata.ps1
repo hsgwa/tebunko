@@ -1,4 +1,4 @@
-﻿# win_grep の動作確認用テストデータ（Excel・Word・PowerPoint のファイル群と設定ファイル例）を生成する。
+﻿# windox_grep の動作確認用テストデータ（Excel・Word・PowerPoint のファイル群と設定ファイル例）を生成する。
 # Excel・Word・PowerPoint（COM）が必要。出力フォルダは削除して作り直す。
 # PowerPoint は起動中のインスタンスに接続してしまうため、PowerPoint を終了してから実行すること。
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata.ps1
@@ -14,7 +14,7 @@ param (
 $ErrorActionPreference = "Stop"
 
 # Excel は [ ] を含むパスや長いパスに保存できないため、TEMP に保存してから移動する
-$stageDir = Join-Path ([System.IO.Path]::GetTempPath()) "win_grep_testdata"
+$stageDir = Join-Path ([System.IO.Path]::GetTempPath()) "windox_grep_testdata"
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 $missing = [Type]::Missing
 

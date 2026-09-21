@@ -1,0 +1,299 @@
+﻿# 画面（WPF）
+#
+# ［1 インデックス管理］［2 検索］［9 プロセス停止］の3タブ。画面の定義は xaml\windox_grep.xaml。
+# 変換は convert.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う。
+#
+# このファイルは起動口。画面の中身は ui\ 配下と ..\shared\ui\ 配下に分けてある（下の読み込みの順に意味がある）。
+
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
+
+# zip 展開で付く Mark-of-the-Web（外部由来の印）を、scripts 配下から消す。印が残っていると
+# RemoteSigned でスクリプトの読み込みがブロックされるため。通常は windox_grep.bat が起動前に消すが、
+# ショートカットから直接起動したときや、あとでファイルを差し替えたときのために、ここでも消しておく。
+# （この gui.ps1 自身が印付きだと、この行に来る前にブロックされる。その場合は windox_grep.bat から起動する）
+try {
+    Get-ChildItem -LiteralPath (Split-Path $PSScriptRoot -Parent) -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+} catch { }
+
+. "$PSScriptRoot\lib.ps1"
+
+$ErrorActionPreference = "Stop"
+
+${appTitle}    = "windox_grep"
+${searchLimit} = 10000
+# 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
+${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
+${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
+${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
+${libPath}  = "$PSScriptRoot\lib.ps1"  # 別スレッドで読み込む（startJob に渡す）
+
+# 画面定義（XAML）とアイコンの置き場所
+${xamlDir}       = "$PSScriptRoot\xaml"
+${sharedXamlDir} = "$PSScriptRoot\..\shared\xaml"
+${iconFile}      = "$PSScriptRoot\windox_grep.ico"  # タイトルバーとタスクバーに出すアイコン
+# アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。
+# ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、
+#   実行時コンパイル（csc.exe）を無くすため廃止した（アイコン自体は Window.Icon で出るため残る）。
+${themeFile} = "${sharedXamlDir}\theme.xaml"  # 画面の見た目（色・文字・コントロールの形）の共通定義
+${theme} = $null                              # 読み込んだ theme.xaml（コードから色を引くときに使う）
+
+trap {
+    # 記録できる状態（lib.ps1 の読み込み後）なら、内容をファイルにも残す
+    if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
+        writeErrorLog "起動・実行中" $_
+    }
+    [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($_.Exception.Message)", ${appTitle}, "OK", "Error") | Out-Null
+    exit 1
+}
+
+# ---- 多重起動の防止（ツールの配置フォルダごと） ----
+#
+# すでに開いているときは、その画面のウィンドウを前面に出して終わる（もう一度起動するのは、
+# たいてい「開いたつもりのウィンドウが他のウィンドウの裏にある」ときのため）。
+# 知らせるのは名前付きイベントで行う。ここは C# の型をコンパイルする前のため、.NET の機能だけを使う。
+
+$md5 = New-Object System.Security.Cryptography.MD5CryptoServiceProvider
+$instanceKey = [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(${rootDir}.ToLowerInvariant()))).Replace("-", "")
+$mutexName = "Local\${appId}_gui_" + $instanceKey
+$activateName = "Local\${appId}_gui_activate_" + $instanceKey
+$createdNew = $false
+$mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
+if (!$createdNew) {
+    $running = $null
+    if ([System.Threading.EventWaitHandle]::TryOpenExisting($activateName, [ref]$running)) {
+        [void]$running.Set()
+        $running.Close()
+        exit
+    }
+    # 以前の版の画面が開いている等で知らせられないときだけ、メッセージを出す
+    [System.Windows.MessageBox]::Show("すでに開いています。", ${appTitle}, "OK", "Information") | Out-Null
+    exit
+}
+$activateEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threading.EventResetMode]::AutoReset, $activateName)
+
+# ---- 画面で使う型と、画面の土台 ----
+# 型は継承元（shared）を先に読み込む。app_host は XAML の読み込みに使うため、ウィンドウを作る前に読み込む
+. "$PSScriptRoot\..\shared\ui\types.ps1"
+. "$PSScriptRoot\ui\types_grep.ps1"
+. "$PSScriptRoot\..\shared\ui\app_host.ps1"
+
+# ---- ウィンドウと、画面の部品の対応 ----
+
+$window = loadWindow "${xamlDir}\windox_grep.xaml"
+
+# タブの中身はタブごとのファイルに分けてある。読み込んでタブに入れ、x:Name の対応表（$ui）を作る。
+# 別ファイルから読み込んだ中身は、そのファイルごとに名前を持つため、$window.FindName では見つからない。
+# タブごとに FindName する（名前の一覧もタブごとに分けておく）
+$tabs = @(
+    @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
+        "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
+        "IndexSummaryText", "ConversionStateText", "ConvertButton", "ConvertHint",
+        "FailedPanel", "FailedHeading", "FailedGrid",
+        "ConvertProgressPanel", "ConvertProgressText", "ConvertProgressEta", "ConvertProgress",
+        "ConvertProgressDetail", "ConvertStopButton", "ConvertLogButton") }
+    @{ Tab = "SearchTab"; File = "tab_search.xaml"; Names = @(
+        "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder",
+        "WordNotice", "SearchTargetText", "GoIndexTabButton",
+        "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
+        "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ResultGrid", "IndexColumn",
+        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath",
+        "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
+        "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
+        "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
+    @{ Tab = "KillTab"; File = "tab_kill.xaml"; Names = @(
+        "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
+        "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
+)
+
+$ui = @{}
+foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+    $ui[$name] = $window.FindName($name)
+}
+foreach ($tab in $tabs) {
+    $content = loadXaml "${xamlDir}\$($tab.File)"
+    $ui[$tab.Tab].Content = $content
+    foreach ($name in $tab.Names) {
+        $ui[$name] = $content.FindName($name)
+    }
+}
+$taskbar = $window.TaskbarItemInfo
+
+${okBrush}   = themeBrush "Ok"
+${warnBrush} = themeBrush "Warn"
+${ngBrush}   = themeBrush "Danger.Text"
+${infoBrush} = themeBrush "Accent"
+${grayBrush} = themeBrush "Ink.Muted"
+
+# ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
+. "$PSScriptRoot\..\shared\ui\shell.ps1"
+. "$PSScriptRoot\..\shared\ui\folder_dialog.ps1"
+. "$PSScriptRoot\ui\index_view.ps1"
+. "$PSScriptRoot\ui\convert_view.ps1"
+. "$PSScriptRoot\ui\search_view.ps1"
+. "$PSScriptRoot\ui\preview_view.ps1"
+. "$PSScriptRoot\ui\index_tab.ps1"
+. "$PSScriptRoot\ui\convert_tab.ps1"
+. "$PSScriptRoot\ui\search_tab.ps1"
+. "$PSScriptRoot\ui\preview.ps1"
+. "$PSScriptRoot\ui\open_source.ps1"
+. "$PSScriptRoot\ui\index_tree.ps1"
+. "$PSScriptRoot\ui\process_tab.ps1"
+# ============================================================================
+# ウィンドウ全体
+# ============================================================================
+
+$ui.Tabs.Add_SelectionChanged({
+    param ($sender, $e)
+    # 中の表・一覧の選択変更も伝わってくるため、タブの切り替えだけを扱う
+    if ($e.OriginalSource -ne $ui.Tabs) {
+        return
+    }
+    safe {
+        if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
+            refreshProcesses
+            $script:processTimer.Start()
+        } else {
+            $script:processTimer.Stop()
+        }
+        if ($ui.Tabs.SelectedItem -eq $ui.IndexTab) {
+            refreshConversionState
+        }
+    }
+})
+
+$window.Add_Activated({
+    safe {
+        # 変換対象フォルダがほかの画面で変更されていれば読み直す
+        if ((getTargetsKey @(getTargetFolders)) -ne $script:savedTargets) {
+            loadTargets
+            setStatus "インデックス一覧がほかで変更されたため、読み直しました"
+        }
+        foreach ($item in $script:targetItems) {
+            updateFolderItemStatus $item
+        }
+        if (!(isConverting)) {
+            refreshConversionState
+        }
+        updateSearchTarget
+        if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
+            refreshProcesses
+        } else {
+            updateKillBadge
+        }
+    }
+})
+
+$window.Add_PreviewKeyDown({
+    param ($sender, $e)
+    $modifiers = [System.Windows.Input.Keyboard]::Modifiers
+    if ($e.Key -eq "F" -and $modifiers -eq "Control") {
+        $ui.Tabs.SelectedItem = $ui.SearchTab
+        $ui.WordBox.Focus() | Out-Null
+        $ui.WordBox.SelectAll()
+        $e.Handled = $true
+    } elseif ($e.Key -eq "F" -and $modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift)) {
+        $ui.Tabs.SelectedItem = $ui.SearchTab
+        $ui.FilterBox.Focus() | Out-Null
+        $e.Handled = $true
+    } elseif ($e.Key -eq "F5") {
+        safe {
+            if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
+                refreshProcesses
+            } else {
+                refreshConversionState
+                refreshIndexSummary
+                loadIndexTree
+            }
+        }
+        $e.Handled = $true
+    } elseif ($e.Key -eq "Escape" -and $script:search) {
+        cancelSearch
+        $e.Handled = $true
+    }
+})
+
+$window.Add_Closing({
+    param ($sender, $e)
+    # 変換はウィンドウを出さずに動いているため、閉じる前にどうするか聞く
+    if (isConverting) {
+        $answer = showConfirm `
+            -heading "まだ変換の途中です。どうしますか？" `
+            -choices @(
+                @{ Text = "変換を続けたまま閉じる"; Detail = "変換は裏で続きます。もう一度開くと進み具合が出ます"; Value = "keep" },
+                @{ Text = "変換を止めてから閉じる"; Detail = "いま変換しているファイルが終わったところで止まります（次に開いたとき続きから再開できます）"; Value = "stop" }
+            ) `
+            -cancelText "閉じない"
+        if ($null -eq $answer) {
+            $e.Cancel = $true
+            return
+        }
+        if ($answer -eq "stop") {
+            [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
+        }
+    }
+    if ($script:search) {
+        $script:search.Shared.Stop = $true
+    }
+})
+
+$window.Add_Loaded({
+    safe {
+        if ($ui.Tabs.SelectedItem -eq $ui.SearchTab) {
+            $ui.WordBox.Focus() | Out-Null
+        }
+    }
+})
+
+# ---- 起動 ----
+
+loadTargets
+setSearchOptionToUi (readSearchOption)
+setOpenMode (readOpenMode)
+updateOpenMenu
+refreshConversionState
+loadIndexTree
+updateWordNotice
+updateKillBadge
+refreshIndexSummary
+
+# 前回の画面で起動した変換が続いていれば、進み具合を表示する
+$runningConversion = findRunningConversion
+if ($runningConversion) {
+    adoptConversion $runningConversion
+}
+
+# 起動時のタブ：変換中・中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
+$openIndexTab = $runningConversion -or ($script:conversionState -and $script:conversionState.Pending -gt 0) -or !(testIndexExists)
+$ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
+setStatus ""
+
+# 多重起動したとき（2つ目のプロセスが $activateEvent を合図）に、この画面を前面へ出す。
+# 画面のスレッドで一定間隔にイベントを確認する（P/Invoke を使わず、WPF の Activate で前面化する）。
+# ※以前は C# の SingleInstance（AttachThreadInput 等の P/Invoke）で行っていたが、
+#   実行時コンパイル（csc.exe）を無くすため、DispatcherTimer＋Window.Activate に置き換えた。
+$activateTimer = New-Object System.Windows.Threading.DispatcherTimer
+$activateTimer.Interval = [TimeSpan]::FromMilliseconds(300)
+$activateTimer.Add_Tick({
+    if ($activateEvent.WaitOne(0)) {
+        if ($window.WindowState -eq [System.Windows.WindowState]::Minimized) {
+            $window.WindowState = [System.Windows.WindowState]::Normal
+        }
+        [void]$window.Activate()
+        # ほかのプロセスが前面のときは Activate が無視されることがあるため、最前面を一瞬立ててから戻す
+        $window.Topmost = $true
+        $window.Topmost = $false
+    }
+})
+$activateTimer.Start()
+
+try {
+    [void]$window.ShowDialog()
+} finally {
+    if ($script:search) {
+        $script:search.PS.Stop()
+    }
+    $activateTimer.Stop()
+    $activateEvent.Close()
+    $mutex.ReleaseMutex()
+    $mutex.Dispose()
+}
