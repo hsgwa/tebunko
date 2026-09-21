@@ -1,0 +1,118 @@
+﻿{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "win_grep",
+      "group": "win_grep",
+      "name": "win_grep",
+      "description": "Office ファイルを場所ごとに TSV へ変換してインデックス化し、文字列を一括検索する Windows PowerShell ツール",
+      "scope": "required"
+    },
+    "properties": [
+      {
+        "name": "win_grep:thirdPartyComponents",
+        "value": "0"
+      },
+      {
+        "name": "win_grep:prerequisite",
+        "value": "Windows PowerShell 5.1（OS 同梱。追加インストール不要）"
+      },
+      {
+        "name": "win_grep:prerequisite",
+        "value": "Microsoft Excel（Excel ファイルの変換に必要。COM で操作する）"
+      },
+      {
+        "name": "win_grep:prerequisite",
+        "value": "Microsoft Word / PowerPoint（旧形式 .doc / .ppt の変換にのみ使用。任意）"
+      },
+      {
+        "name": "win_grep:prerequisite",
+        "value": ".NET Framework の標準アセンブリ（PresentationFramework・System.IO.Compression 等。OS 同梱）"
+      },
+      {
+        "name": "win_grep:note",
+        "value": "配布物に実行可能バイナリ（.exe / .dll）・第三者ライブラリ・パッケージマネージャー（NuGet・npm・PyPI）由来の部品を含まない。したがって第三者部品に由来する既知脆弱性（CVE）とライセンス義務が発生しない。"
+      },
+      {
+        "name": "win_grep:note",
+        "value": "前提ソフトウェア（Windows・Office）の脆弱性は本ツールの管理外であり、導入先の更新管理に従う。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "file",
+      "bom-ref": "win_grep.bat",
+      "group": "win_grep",
+      "name": "win_grep.bat",
+      "description": "起動用バッチ。Mark-of-the-Web を解除し、RemoteSigned で画面を開く"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/win_grep/gui.ps1",
+      "group": "win_grep",
+      "name": "scripts/win_grep/gui.ps1",
+      "description": "画面（WPF）の起動口"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/win_grep/convert.ps1",
+      "group": "win_grep",
+      "name": "scripts/win_grep/convert.ps1",
+      "description": "変換処理（インデックス作成）の起動口"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/win_grep/lib.ps1",
+      "group": "win_grep",
+      "name": "scripts/win_grep/lib.ps1",
+      "description": "このツール固有の部品（core・index・convert・search）の読み込み口"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/shared/shared.ps1",
+      "group": "win_grep",
+      "name": "scripts/shared/shared.ps1",
+      "description": "共通基盤（core・office）の読み込み口"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/shared/office/office_reader.ps1",
+      "group": "win_grep",
+      "name": "scripts/shared/office/office_reader.ps1",
+      "description": "Word・PowerPoint（ZIP 内の XML）の読み取り"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/xaml",
+      "group": "win_grep",
+      "name": "scripts/**/xaml/*.xaml",
+      "description": "画面定義（WPF の XAML）"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/win_grep/win_grep.ico",
+      "group": "win_grep",
+      "name": "scripts/win_grep/win_grep.ico",
+      "description": "画面のアイコン（同梱する唯一のバイナリ）"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "win_grep",
+      "dependsOn": [
+        "win_grep.bat",
+        "scripts/win_grep/gui.ps1",
+        "scripts/win_grep/convert.ps1",
+        "scripts/win_grep/lib.ps1",
+        "scripts/shared/shared.ps1",
+        "scripts/shared/office/office_reader.ps1",
+        "scripts/xaml",
+        "scripts/win_grep/win_grep.ico"
+      ]
+    }
+  ]
+}

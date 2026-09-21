@@ -24,7 +24,10 @@ win_grep/
 │   ├─ shared/office/office_reader.ps1  # Word・PowerPoint の読み取り
 │   ├─ win_grep/lib.ps1         # パス定義・共通関数
 │   └─ win_grep.ico       # 画面のアイコン（タイトルバー・タスクバー）
-├─ tests/                 # Pester テスト
+├─ tests/                 # Pester テスト（.\tests\run.ps1）
+├─ tools/                 # 配布用のカタログ・ハッシュ一覧を作る（new_release_files.ps1）
+├─ sbom.cdx.json          # 部品表（CycloneDX。第三者の部品は 0 件）
+├─ SECURITY.md            # 安全性の説明と脆弱性の連絡先
 └─ work/                  # 自動生成（git 管理外）。消せば最初からやり直し
     ├─ index/             # 変換済み TSV（インデックスのフォルダごと別の PC へコピーして検索できる）
     ├─ 変換一覧.tsv       # 各ファイルの更新日時・状態（Excel で開ける）
@@ -193,11 +196,17 @@ win_grep/
 
 根拠と確認手順は [docs/04_安全性.md](docs/04_安全性.md) にまとめています。第三者のツールによる検査では、PSScriptAnalyzer（Microsoft の静的解析）の安全性にかかわるルールが指摘 0 件、Microsoft Defender のスキャンが検出 0 件です。
 
+部品表は [sbom.cdx.json](sbom.cdx.json)（第三者の部品は 0 件）、脆弱性の連絡先は [SECURITY.md](SECURITY.md) にあります。
+
 主張は次のコマンドで機械的に検査できます（PSScriptAnalyzer を導入していれば静的解析も含めて検査します）。
 
 ```powershell
-Invoke-Pester .\tests\safety.Tests.ps1
+.\tests\run.ps1 -Tag Meta
 ```
+
+**ただし、インデックス（`work/index/`）は元の文書の本文を平文で保持し、元のファイルのアクセス権を引き継ぎません。** ツールを置いたフォルダのアクセス権は、変換対象フォルダと同等以上に制限してください（[docs/04_安全性.md](docs/04_安全性.md) の 4.3）。
+
+配布物が改ざんされていないことを確認できるよう、配布前に `.\tools\new_release_files.ps1` でカタログ（`win_grep.cat`）とハッシュ一覧（`SHA256SUMS.txt`）を作り、zip に同梱できます。受け取った側は `Test-FileCatalog` で検証できます（証明書は不要）。
 
 ## テスト
 

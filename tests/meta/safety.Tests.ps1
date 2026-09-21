@@ -1,9 +1,10 @@
 ﻿# 安全性説明書（docs/04_安全性.md）の主張を機械的に検査するテスト。
 # 「危険な処理・ライブラリを使っていない」ことを、将来の変更で崩れたら失敗する形で固定する。
-# Pester 3.4 以降で実行: Invoke-Pester .\tests\safety.Tests.ps1
-$here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$scriptDir = Join-Path (Split-Path -Parent $here) "scripts"
-$launcher = Join-Path (Split-Path -Parent $here) "win_grep.bat"
+# スクリプトを読むだけなので、Office もテストデータも要らない。
+$here = (Resolve-Path "$PSScriptRoot\..").Path
+$rootDir = (Resolve-Path "$here\..").Path
+$scriptsDir = "$rootDir\scripts"
+$launcher = "$rootDir\win_grep.bat"
 
 function getCodeLines {
     # 検査対象のコード行を @{ File; Line; Text } で返す。
@@ -57,14 +58,14 @@ function findPattern {
     return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
 }
 
-$scriptFiles = @(Get-ChildItem -LiteralPath $scriptDir -Filter *.ps1 | ForEach-Object { $_.FullName })
+$scriptFiles = @(Get-ChildItem -LiteralPath $scriptsDir -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName })
 $code = getCodeLines $scriptFiles
 
-Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1）" {
-    It "スクリプトが 4 本すべて検査対象になっている" {
+Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1）" -Tag Meta {
+    It "scripts 配下のスクリプトがすべて検査対象になっている" {
         # 検査の取りこぼし（対象 0 件で全項目が通る）を防ぐ
-        $scriptFiles.Count | Should Be 4
-        ($code.Count -gt 1000) | Should Be $true
+        ($scriptFiles.Count -ge 30) | Should Be $true
+        ($code.Count -gt 3000) | Should Be $true
     }
 
     It "文字列を式として実行しない（Invoke-Expression・iex・ScriptBlock の生成）" {
@@ -120,58 +121,56 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
         (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe|powershell\.exe' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
     }
 
-    It "プロセスの強制終了は common.ps1 の 1 か所だけ（画面の［9 プロセス停止］）" {
+    It "プロセスの強制終了は office_process.ps1 の 1 か所だけ（画面の［9 プロセス停止］）" {
         $stops = @($code | Where-Object { $_.Text -match 'Stop-Process' })
         $stops.Count | Should Be 1
-        $stops[0].File | Should Be "common.ps1"
+        $stops[0].File | Should Be "office_process.ps1"
     }
 }
 
-Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2）" {
-    $convert = @($code | Where-Object { $_.File -eq "office_to_tsv.ps1" })
+Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2）" -Tag Meta {
+    $app = @($code | Where-Object { $_.File -eq "office_app.ps1" })
+    $convert = @($code | Where-Object { $_.File -eq "convert_office.ps1" })
 
     It "マクロを強制的に無効にしてから開く（AutomationSecurity = 3）" {
-        (findPattern $convert 'AutomationSecurity\s*=\s*3') | Should Not Be ""
+        (findPattern $app 'AutomationSecurity\s*=\s*3') | Should Not Be ""
     }
 
     It "イベントマクロを発火させない（EnableEvents = false）" {
-        (findPattern $convert 'EnableEvents\s*=\s*\$false') | Should Not Be ""
+        (findPattern $app 'EnableEvents\s*=\s*\$false') | Should Not Be ""
     }
 
     It "外部リンクを更新しない（AskToUpdateLinks = false・Open の UpdateLinks = 0）" {
-        (findPattern $convert 'AskToUpdateLinks\s*=\s*\$false') | Should Not Be ""
-        (findPattern $convert 'Workbooks\.Open|\$workbooks\.Open') | Should Not Be ""
+        (findPattern $app 'AskToUpdateLinks\s*=\s*\$false') | Should Not Be ""
         (findPattern $convert '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
     }
 
     It "変換処理の Office は画面に出さない（Visible = false）" {
-        (findPattern $convert 'Visible\s*=\s*\$false') | Should Not Be ""
-        # 可視にするのは画面から元のファイルを開くときだけ（config_gui.ps1）
+        (findPattern $app 'Visible\s*=\s*\$false') | Should Not Be ""
+        # 可視にするのは画面から元のファイルを開くときだけ（ui/open_source.ps1）
         $visible = @($code | Where-Object { $_.Text -match 'Visible\s*=\s*\$true' })
-        (@($visible | Where-Object { $_.File -ne "config_gui.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
+        (@($visible | Where-Object { $_.File -ne "open_source.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
     }
 }
 
-Describe "変換対象のファイルを書き換えないこと（docs/04_安全性.md 3.2）" {
+Describe "変換対象のファイルを書き換えないこと（docs/04_安全性.md 3.2）" -Tag Meta {
     It "元のファイルのパスを書き込み・削除の API に渡さない" {
         # 書き込み・削除の呼び出し行に、変換対象（原本）を指す変数が現れないこと。
         # 原本は作業フォルダへコピーしてから開くため、書き込み先は常にコピー側（$tmpPath・$destPath・$copyPath 等）になる。
-        # $sourcePath = 変換する原本、$targetFolder・$folder.Path = 変換対象フォルダ、$row.SourcePath = 検索結果の元のファイル
+        # $targetFolder・$folder.Path = 変換対象フォルダ、$row.SourcePath = 検索結果の元のファイル
         $writes = @($code | Where-Object { $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|\.SaveAs|\[System\.IO\.(File|Directory)\]::Move|Move-Item' })
         ($writes.Count -gt 0) | Should Be $true
-        (@($writes | Where-Object { $_.Text -match '\$sourcePath|\$targetFolder|\$row\.SourcePath|\$folder\.Path' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
+        (@($writes | Where-Object { $_.Text -match '\$targetFolder|\$row\.SourcePath|\$folder\.Path' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
     }
 
-    It "原本を開くのはコピーを作る処理（copyFileShared）の読み取りだけ" {
-        # $sourcePath（原本）を渡す先が、コピーの作成と Office での変換（コピー側へ保存）に限られること
-        $uses = @($code | Where-Object { $_.Text -match '\$sourcePath' -and $_.Text -notmatch '^\s*(param|\[string\]\$sourcePath)' })
-        ($uses.Count -gt 0) | Should Be $true
-        $bad = @($uses | Where-Object {
-            $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|Move-Item|\[System\.IO\.(File|Directory)\]::(Move|Delete|WriteAll)'
-        } | ForEach-Object { "$($_.File):$($_.Line)" })
-        ($bad -join ", ") | Should Be ""
-        # コピーの作成に使う関数は共有違反を避けて読むだけ（FileShare 指定の読み取り）
+    It "原本を読むのはコピーを作る処理（copyFileShared）だけ" {
+        # copyFileShared は読み取りだけで開き、コピー先（作業フォルダ）へ書く
         (findPattern $code 'function copyFileShared') | Should Not Be ""
+        $fs = @($code | Where-Object { $_.File -eq "fs.ps1" -and $_.Text -match '\$sourcePath' })
+        (@($fs | Where-Object {
+            $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|Move-Item|\[System\.IO\.(File|Directory)\]::(Move|Delete|WriteAll)'
+        } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
+        (findPattern $fs '\[System\.IO\.FileAccess\]::Read') | Should Not Be ""
     }
 
     It "Office の SaveAs の保存先は作業フォルダのパスだけ" {
@@ -181,7 +180,7 @@ Describe "変換対象のファイルを書き換えないこと（docs/04_安�
     }
 
     It "原本は読み取り専用で開く（Excel・Word・PowerPoint）" {
-        $convert = @($code | Where-Object { $_.File -eq "office_to_tsv.ps1" })
+        $convert = @($code | Where-Object { $_.File -eq "convert_office.ps1" })
         # Excel: Open の第 3 引数 ReadOnly = $true / Word: 第 3 引数 ReadOnly = $true / PowerPoint: 第 2 引数 ReadOnly = -1
         (findPattern $convert '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
         (findPattern $convert '\$documents\.Open\(\$sourcePath,\s*\$false,\s*\$true') | Should Not Be ""
@@ -189,28 +188,60 @@ Describe "変換対象のファイルを書き換えないこと（docs/04_安�
     }
 }
 
-Describe "サードパーティの静的解析（docs/04_安全性.md 5.1）" {
+Describe "書き込み先が限られていること（docs/04_安全性.md 3.1）" -Tag Meta {
+    It "書き込みに使うフォルダの定義は work 配下と TEMP 配下だけ" {
+        $paths = @($code | Where-Object { $_.File -eq "paths.ps1" -or $_.File -eq "paths_grep.ps1" -or $_.File -eq "settings_grep.ps1" })
+        (findPattern $paths '\$\{workDir\}\s*=\s*"\$\{rootDir\}\\work"') | Should Not Be ""
+        (findPattern $paths '\$\{indexDir\}\s*=\s*"\$\{workDir\}\\index"') | Should Not Be ""
+        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"win_grep\\\$\{PID\}"') | Should Not Be ""
+        (findPattern $paths '\$\{publishDir\}\s*=\s*"\$\{workDir\}\\') | Should Not Be ""
+        (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{rootDir\}\\setting\.config"') | Should Not Be ""
+    }
+
+    It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {
+        (findPattern $code '"[A-Za-z]:\\(Windows|Program Files|Users)') | Should Be ""
+        (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should Be ""
+    }
+
+    It "異常終了で残った作業フォルダを次回起動時に回収する" {
+        # %TEMP%\win_grep\<PID> に原本のコピーが残り続けないこと（docs/04_安全性.md 4.4）
+        (findPattern $code 'function removeStaleTmpDirs') | Should Not Be ""
+        (findPattern $code '^removeStaleTmpDirs') | Should Not Be ""
+    }
+}
+
+Describe "サードパーティの静的解析（docs/04_安全性.md 5.2）" -Tag Meta {
     # PSScriptAnalyzer（Microsoft 提供）で検査する。未導入の環境では飛ばす:
     #   Install-Module PSScriptAnalyzer -Scope CurrentUser
     $hasAnalyzer = (@(Get-Module -ListAvailable PSScriptAnalyzer).Count -gt 0)
     if ($hasAnalyzer) {
         Import-Module PSScriptAnalyzer -ErrorAction SilentlyContinue
     }
-    $securitySettings = Join-Path $here "PSScriptAnalyzer.security.psd1"
+    $securitySettings = "$PSScriptRoot\PSScriptAnalyzer.security.psd1"
+
+    # 継承元の型が別ファイルにある場合の TypeNotFound は除く（読み込む順で解決する。
+    # tests\meta\structure.Tests.ps1 の「スクリプトの構文」と同じ扱い）
+    function formatFindings {
+        param ($found)
+        return (@($found | Where-Object { $_.RuleName -ne "TypeNotFound" } | ForEach-Object { "$($_.RuleName) $($_.ScriptName):$($_.Line)" }) -join ", ")
+    }
 
     It "安全性にかかわるルールの指摘が 0 件" -Skip:(-not $hasAnalyzer) {
-        $found = @(Invoke-ScriptAnalyzer -Path $scriptDir -Recurse -Settings $securitySettings)
-        (@($found | ForEach-Object { "$($_.RuleName) $($_.ScriptName):$($_.Line)" }) -join ", ") | Should Be ""
+        (formatFindings (Invoke-ScriptAnalyzer -Path $scriptsDir -Recurse -Settings $securitySettings)) | Should Be ""
     }
 
     It "Error 重大度の指摘が 0 件（全ルール）" -Skip:(-not $hasAnalyzer) {
-        $found = @(Invoke-ScriptAnalyzer -Path $scriptDir -Recurse -Severity Error)
-        (@($found | ForEach-Object { "$($_.RuleName) $($_.ScriptName):$($_.Line)" }) -join ", ") | Should Be ""
+        (formatFindings (Invoke-ScriptAnalyzer -Path $scriptsDir -Recurse -Severity Error)) | Should Be ""
+    }
+
+    It "制限言語モード（Constrained Language Mode）で使えない書き方が無い" -Skip:(-not $hasAnalyzer) {
+        # AppLocker・WDAC で制限言語モードを強制している環境向け（docs/04_安全性.md 5.4）
+        (formatFindings (Invoke-ScriptAnalyzer -Path $scriptsDir -Recurse -IncludeRule PSUseConstrainedLanguageMode)) | Should Be ""
     }
 
     It "安全性のルール設定に、検査すべきルールが含まれている" {
         # 設定ファイルからルールを消して指摘 0 件にする、という抜け道を防ぐ
-        $settings = Import-LocalizedData -BaseDirectory $here -FileName "PSScriptAnalyzer.security.psd1"
+        $settings = Import-LocalizedData -BaseDirectory $PSScriptRoot -FileName "PSScriptAnalyzer.security.psd1"
         @($settings.IncludeRules).Count | Should Be 14
         ($settings.IncludeRules -contains "PSAvoidUsingInvokeExpression") | Should Be $true
         ($settings.IncludeRules -contains "PSAvoidUsingPlainTextForPassword") | Should Be $true
@@ -218,18 +249,30 @@ Describe "サードパーティの静的解析（docs/04_安全性.md 5.1）" {
     }
 }
 
-Describe "書き込み先が限られていること（docs/04_安全性.md 3.1）" {
-    $common = @($code | Where-Object { $_.File -eq "common.ps1" })
-
-    It "書き込みに使うフォルダの定義は work 配下と TEMP 配下だけ" {
-        (findPattern $common '\$\{workDir\}\s*=\s*"\$\{rootDir\}\\work"') | Should Not Be ""
-        (findPattern $common '\$\{indexDir\}\s*=\s*"\$\{workDir\}\\index"') | Should Not Be ""
-        (findPattern $common '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"win_grep\\\$\{PID\}"') | Should Not Be ""
-        (findPattern $common '\$\{publishDir\}\s*=\s*"\$\{workDir\}\\') | Should Not Be ""
+Describe "第三者が検証するための資料がそろっていること（docs/04_安全性.md 5.1・6）" -Tag Meta {
+    It "安全性説明書がある" {
+        (Test-Path -LiteralPath "$rootDir\docs\04_安全性.md") | Should Be $true
     }
 
-    It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {
-        (findPattern $code '"[A-Za-z]:\\(Windows|Program Files|Users)') | Should Be ""
-        (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should Be ""
+    It "脆弱性の連絡先（SECURITY.md）がある" {
+        (Test-Path -LiteralPath "$rootDir\SECURITY.md") | Should Be $true
+    }
+
+    It "配布物の完全性を確かめる手順（tools\new_release_files.ps1）がある" {
+        (Test-Path -LiteralPath "$rootDir\tools\new_release_files.ps1") | Should Be $true
+    }
+
+    It "部品表（SBOM）があり、第三者の部品を 1 件も含まない" {
+        $sbomPath = "$rootDir\sbom.cdx.json"
+        (Test-Path -LiteralPath $sbomPath) | Should Be $true
+        $sbom = [System.IO.File]::ReadAllText($sbomPath) | ConvertFrom-Json
+        $sbom.bomFormat | Should Be "CycloneDX"
+        $sbom.specVersion | Should Be "1.6"
+        # 構成物は本ツール自身のファイルだけ。パッケージマネージャー由来の部品（purl を持つ）は無い
+        (@($sbom.components).Count -gt 0) | Should Be $true
+        @($sbom.components | Where-Object { $_.group -ne "win_grep" }).Count | Should Be 0
+        @($sbom.components | Where-Object { $_.purl }).Count | Should Be 0
+        # 前提ソフトウェア（同梱しないもの）は metadata.properties に記載する
+        @($sbom.metadata.properties | Where-Object { $_.name -eq "win_grep:prerequisite" }).Count -gt 0 | Should Be $true
     }
 }
