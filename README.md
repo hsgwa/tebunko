@@ -27,7 +27,7 @@ tebunko_grep/
 │   ├─ tebunko_grep/lib.ps1         # パス定義・共通関数
 │   └─ tebunko_grep.ico       # 画面のアイコン（タイトルバー・タスクバー）
 ├─ tests/                 # Pester テスト（.\tests\run.ps1）
-├─ tools/                 # 配布用のカタログ・ハッシュ一覧を作る（new_release_files.ps1）
+├─ tools/                 # 配布物・カタログ・ハッシュ一覧を作る、コミット前の検査（開発用）
 ├─ sbom.cdx.json          # 部品表（CycloneDX。第三者の部品は 0 件）
 ├─ SECURITY.md            # 安全性の説明と脆弱性の連絡先
 ├─ LICENSE                # ライセンス（MIT）
@@ -210,6 +210,7 @@ tebunko_grep/
 **ただし、インデックス（`work/index/`）は元の文書の本文を平文で保持し、元のファイルのアクセス権を引き継ぎません。** ツールを置いたフォルダのアクセス権は、変換対象フォルダと同等以上に制限してください（[docs/04_安全性.md](docs/04_安全性.md) の 4.3）。
 
 配布物が改ざんされていないことを確認できるよう、配布前に `.\tools\new_release_files.ps1` でカタログ（`tebunko.cat`）とハッシュ一覧（`SHA256SUMS.txt`）を作り、zip に同梱できます。受け取った側は `Test-FileCatalog` で検証できます（証明書は不要）。
+GitHub の Releases で配る zip には、この 2 つを同梱しています（`v` で始まるタグを push すると、テストを通したうえで `.github/workflows/release.yml` が作ります）。
 
 ## ライセンス
 

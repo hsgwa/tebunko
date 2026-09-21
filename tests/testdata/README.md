@@ -17,13 +17,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata
 - `-WithRisky` を付けると、フォルダのループ（自分の親を指すジャンクション）と 260 文字を超えるパスも作る。変換が終わらなくなる・エラーになる可能性があるため既定では作らない。
 - 隠し属性・読み取り専用属性・空フォルダは git では再現されない（clone したままだと TC15 のロックファイル、TC16-13、TC17-6・7、空フォルダが下表と異なる）。下表どおりに確認するときは生成し直す。
 - 設定例のパスは生成した環境の絶対パスになっている。別の場所で使うときも生成し直す。
-- **生成し直すと、実行した人の情報が Office ファイルに埋め込まれる。** リポジトリは公開しているため、コミットする前に必ず取り除く。埋め込まれる場所は次のとおり。
-  - `docProps\core.xml` の `dc:creator` `cp:lastModifiedBy`（ODF は `meta.xml` の `meta:initial-creator`）… Office の利用者名
-  - `xl\workbook.xml` の `x15ac:absPath`、`xl\workbook.bin`（`.xlsb`）… 保存時の絶対パス（`%TEMP%` 配下のため Windows のユーザー名を含む）
-  - `word\comments.xml` `word\people.xml` `word\document.xml`（変更履歴）`ppt\authors.xml` `xl\comments1.xml`、`xl\pivotCache\pivotCacheDefinition1.xml` … コメント・変更履歴の作成者名、頭文字、Microsoft アカウント ID
-  - `xl\externalLinks\_rels\externalLink1.xml.rels` … 外部リンク先の絶対パス
-  - 旧形式（`.doc` `.xls` `.ppt`）の SummaryInformation、`.pdf` の `/Author` と XMP … Office の利用者名
-  - リポジトリに入っているファイルは、これらをすべて `test` に置き換えてある。
+- **生成し直すと、実行した人の情報が Office ファイルに埋め込まれる。** リポジトリは公開しているため、コミットする前に必ず取り除く。
+  - `make_testdata.ps1` は最後に `scrub_personal.ps1` を呼んで取り除く。名前は Windows のユーザー名・プロファイルのフォルダ名・Office のユーザー名（レジストリ）から集める。Microsoft アカウントの表示名などそれ以外の名前が入る場合は、`scrub_personal.ps1 -Names "<名前>"` で追加して実行し直す。
+  - 取り残しは、コミット時に pre-commit フック（`tools/check_commit.ps1`）が止める。CI も同じ検査をする。
+  - 置き換え方: ZIP（OOXML・ODF）は中の XML を書き換え、書き換えないエントリは元の圧縮データのまま残す。旧形式・PDF・`.xlsb` の `xl/workbook.bin` はレコード長とオフセットが崩れるため、バイト長を変えずに `test_` のように `_` で埋める。
+  - 埋め込まれる場所は次のとおり。
+    - `docProps\core.xml` の `dc:creator` `cp:lastModifiedBy`（ODF は `meta.xml` の `meta:initial-creator`）… Office の利用者名
+    - `xl\workbook.xml` の `x15ac:absPath`、`xl\workbook.bin`（`.xlsb`）… 保存時の絶対パス（`%TEMP%` 配下のため Windows のユーザー名を含む）
+    - `word\comments.xml` `word\people.xml` `word\document.xml`（変更履歴）`ppt\authors.xml` `xl\comments1.xml`、`xl\pivotCache\pivotCacheDefinition1.xml` … コメント・変更履歴の作成者名、頭文字、Microsoft アカウント ID
+    - `xl\externalLinks\_rels\externalLink1.xml.rels` … 外部リンク先の絶対パス
+    - 旧形式（`.doc` `.xls` `.ppt`）の SummaryInformation、`.pdf` の `/Author` と XMP … Office の利用者名
+    - リポジトリに入っているファイルは、これらをすべて `test` に置き換えてある。
 
 ## 使い方
 
