@@ -271,7 +271,7 @@ Describe "第三者が検証するための資料がそろっていること（d
         ($license -match "Copyright \(c\) \d{4} \S+") | Should Be $true
         ($license -like "*Permission is hereby granted, free of charge*") | Should Be $true
         ($license -like "*WITHOUT WARRANTY OF ANY KIND*") | Should Be $true
-        # 実名を含めない（CLAUDE.md「個人情報を書かない」）。著作権者はアカウント名で表記する
+        # 実名を含めない（AGENTS.md「個人情報を書かない」）。著作権者はアカウント名で表記する
         ($license -like "*hsgwa*") | Should Be $true
     }
 

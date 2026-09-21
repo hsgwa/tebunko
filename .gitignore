@@ -7,7 +7,7 @@ work/
 # 手元の動作確認用データ（大きいファイルを含むため、リポジトリには入れない）
 sample*/
 
-# 作業用の git worktree（CLAUDE.md「作業場所」。マージしたら削除する）
+# 作業用の git worktree（AGENTS.md「作業場所」。マージしたら削除する）
 .claude/worktrees/
 
 # 開発ツールの個人設定（共有する設定 .claude/settings.json は追跡する）
