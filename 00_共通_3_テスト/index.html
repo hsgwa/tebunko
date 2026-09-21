@@ -45,12 +45,6 @@
     
     
       
-        
-        
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-      
     
     
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
@@ -1970,6 +1964,7 @@ git push origin v1.0.0
 <li>アンカーは GitHub と同じ形（日本語を残し、記号を除き、英字を小文字にする）で作る（<code>mkdocs.yml</code> の <code>toc.slugify</code>）。<code>docs/</code> の中のリンクは GitHub で読めるように書けば、サイトでもそのまま飛べる</li>
 <li>GitHub で読むときとの違いは <code>tools/mkdocs/hooks.py</code> で埋める。<code>00_index.md</code> をサイトの先頭ページにし、<code>docs/</code> の外（<code>../SECURITY.md</code> など）へのリンクは GitHub 上のファイルへのリンクに書き換える</li>
 <li>使うパッケージは <code>tools/mkdocs/requirements.txt</code> に版とハッシュで固定し、<code>pip install --require-hashes</code> で入れる。更新は Dependabot が PR を出す。サイトを作るときだけに使い、配布物には含めない</li>
+<li>サイトを見る人のブラウザーが第三者のサーバーへ通信しないようにする。フォントは Google Fonts を使わず OS のもので表示する（<code>theme.font: false</code>）。Mermaid は Material テーマが既定では unpkg から読み込むため、<code>extra_javascript</code> で版を固定して先に読み込ませ、<code>privacy</code> プラグインがビルドのときに取り込んでサイトに同梱する（取り込んだファイルは <code>work/cache/privacy/</code> に置く）。Mermaid の版は、Material テーマが読み込む版（<code>mermaid@11</code>）に合わせる</li>
 <li>手元で見るときは次のとおり（生成物は <code>work/site/</code>）</li>
 </ul>
 <div class="highlight"><pre><span></span><code>pip install --require-hashes -r tools/mkdocs/requirements.txt
@@ -2121,7 +2116,7 @@ mkdocs serve
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      Copyright (c) tebunko contributors / MIT License
+      Copyright (c) 2026 hsgwa / MIT License
     </div>
   
   
@@ -2149,6 +2144,8 @@ mkdocs serve
     
     
       <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
       
     
   </body>
