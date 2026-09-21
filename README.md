@@ -19,10 +19,10 @@ win_grep/
 ├─ win_grep.bat             # 画面を開く（インデックス作成・検索・プロセス停止）
 ├─ setting.config         # 画面が保存する設定（自動作成。git 管理外）
 ├─ scripts/               # PowerShell 本体
-│   ├─ config_gui.ps1     # 画面（config_gui.xaml が画面の定義）
-│   ├─ office_to_tsv.ps1  # 変換処理（画面がウィンドウ無しで起動する）
-│   ├─ office_reader.ps1  # Word・PowerPoint の読み取り
-│   ├─ common.ps1         # パス定義・共通関数
+│   ├─ win_grep/gui.ps1     # 画面（win_grep/xaml/win_grep.xaml が画面の定義）
+│   ├─ win_grep/convert.ps1  # 変換処理（画面がウィンドウ無しで起動する）
+│   ├─ shared/office/office_reader.ps1  # Word・PowerPoint の読み取り
+│   ├─ win_grep/lib.ps1         # パス定義・共通関数
 │   └─ win_grep.ico       # 画面のアイコン（タイトルバー・タスクバー）
 ├─ tests/                 # Pester テスト
 └─ work/                  # 自動生成（git 管理外）。消せば最初からやり直し

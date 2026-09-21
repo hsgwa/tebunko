@@ -12,10 +12,10 @@
 |---|---|---|---|
 | [00_index.md](00_index.md)（本書） | – | – | ドキュメント構成、1. 概要・全体構成、2. 動作環境 |
 | └ [00_共通_1_フォルダ構成と設定ファイル.md](00_共通_1_フォルダ構成と設定ファイル.md) | – | – | 3. フォルダ・ファイル構成、4. 設定ファイル（`setting.config`） |
-| └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `common.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
-| └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `common.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
+| └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `win_grep/lib.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
+| └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `win_grep/lib.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
 | └ [00_共通_3_テスト.md](00_共通_3_テスト.md) | – | – | 6. テスト（単体テスト・結合テスト） |
-| [01_変換.md](01_変換.md) | 画面の［変換を開始］（ウィンドウ無しで起動） | `office_to_tsv.ps1` / `office_reader.ps1` | Office（Excel・Word・PowerPoint）→ TSV 変換（インデックス作成） |
+| [01_変換.md](01_変換.md) | 画面の［変換を開始］（ウィンドウ無しで起動） | `win_grep/convert.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）→ TSV 変換（インデックス作成） |
 | └ [01_変換_1_Excel.md](01_変換_1_Excel.md) | | | 4.3 Excel の変換処理、6.3 TSV 整形仕様 |
 | └ [01_変換_2_Word.md](01_変換_2_Word.md) | | | 4.5 Word の旧形式の変換、6.5 テキスト読み取りと TSV の場所、7.2 注意点・既知の問題 |
 | └ [01_変換_3_PowerPoint.md](01_変換_3_PowerPoint.md) | | | 4.6 PowerPoint の旧形式の変換、6.6 テキスト読み取りと TSV の場所、7.3 注意点・既知の問題 |
@@ -24,8 +24,8 @@
 | └ [01_変換_6_共通処理とアプリ管理.md](01_変換_6_共通処理とアプリ管理.md) | | | 4.4 Word・PowerPoint の変換処理、4.7 失敗の原因、5. Office アプリの管理 |
 | └ [01_変換_7_出力TSVと既知の問題.md](01_変換_7_出力TSVと既知の問題.md) | | | 6.1・6.2・6.4 出力 TSV の仕様、7.1 注意点・既知の問題（共通） |
 | └ [01_変換_8_エラーメッセージ一覧.md](01_変換_8_エラーメッセージ一覧.md) | | | 4.8 エラーメッセージ一覧（続けられないエラー・ファイルごとの失敗・警告） |
-| [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `common.ps1` | TSV インデックスの検索処理と検索結果ファイルの形式 |
-| [03_画面.md](03_画面.md) | `win_grep.bat` | `config_gui.ps1` / `config_gui.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
+| [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `win_grep/lib.ps1` | TSV インデックスの検索処理と検索結果ファイルの形式 |
+| [03_画面.md](03_画面.md) | `win_grep.bat` | `win_grep/gui.ps1` / `win_grep/xaml/win_grep.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
 | └ [03_画面_1_インデックス管理タブ.md](03_画面_1_インデックス管理タブ.md) | | | 3. ［1 インデックス管理］タブ |
 | └ [03_画面_2_検索タブ.md](03_画面_2_検索タブ.md) | | | 4. ［2 検索］タブ |
 | └ [03_画面_2_検索タブ_1_元のファイルを開く.md](03_画面_2_検索タブ_1_元のファイルを開く.md) | | | 4.5 元のファイルを開く |
@@ -35,7 +35,7 @@
 | └ [03_画面_6_実装とテスト.md](03_画面_6_実装とテスト.md) | | | 12. 実装構成、13. 既存スクリプトへの影響と段階、14. 未決事項、15. 既知の制約 |
 | └ [03_画面_6_実装とテスト_1_テスト.md](03_画面_6_実装とテスト_1_テスト.md) | | | 16. テスト |
 
-Office プロセスの強制終了は画面の［9 プロセス停止］タブ（[03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。変換処理 `office_to_tsv.ps1` は画面から起動される処理として残している。
+Office プロセスの強制終了は画面の［9 プロセス停止］タブ（[03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。変換処理 `win_grep/convert.ps1` は画面から起動される処理として残している。
 
 長い設計書は章単位で複数のファイルに分けている（└ の行）。章・節の番号は、同じ番号の設計書の中で通し番号とし、分割前と同じ番号のまま使っている。
 
@@ -75,10 +75,16 @@ flowchart LR
     bat["win_grep.bat"]
 
     subgraph scripts["scripts/"]
-        gui["config_gui.ps1<br>画面（検索・プロセス停止を含む）"]
-        conv["office_to_tsv.ps1<br>変換処理（ウィンドウ無し）"]
-        reader["office_reader.ps1<br>Word・PowerPoint の読み取り"]
-        common["common.ps1<br>パス定義・共通関数"]
+        subgraph tool["win_grep/（このツール固有）"]
+            gui["gui.ps1<br>画面の起動口<br>（ui/ 配下を読み込む）"]
+            conv["convert.ps1<br>変換の起動口<br>（convert/ 配下を読み込む）"]
+            common["lib.ps1<br>画面以外の部品の読み込み口<br>（core/・index/・convert/・search/）"]
+        end
+        subgraph sh["shared/（どのツールからも使う）"]
+            shared["shared.ps1<br>共通基盤の読み込み口<br>（core/・office/）"]
+            reader["office/office_reader.ps1<br>Word・PowerPoint の読み取り"]
+            app["office/office_app.ps1<br>Officeアプリの起動・終了"]
+        end
     end
 
     c1["setting.config<br>画面が保存する設定<br>（変換対象フォルダ・検索対象インデックスなど）"]
@@ -99,13 +105,15 @@ flowchart LR
     gui -- "起動（-ConfirmTargets）" --> conv
     gui -. "dot-source" .-> common
     conv -. "dot-source" .-> common
+    common -. "dot-source" .-> shared
     conv -. "dot-source" .-> reader
+    conv -. "dot-source" .-> app
 
     gui <--> c1
     c1 --> conv
     src --> excel & office & reader
-    conv <--> excel
-    conv <--> office
+    app <--> excel
+    app <--> office
     conv --> reader
     conv <--> status
     gui <--> status & ctl
@@ -117,13 +125,29 @@ flowchart LR
     gui -- "強制終了" --> excel & office
 ```
 
-### 1.4 処理の流れ（利用者視点）
+### 1.4 ソースの分け方
+
+ソースは**文脈**（どの機能か）と**層**（何をするか）で分ける。今後ツール（`win_diff` など）を増やしても、共通部分を作り直さずに済むようにするため。
+
+| 分け方 | 内容 |
+|---|---|
+| 文脈（上位） | `scripts/shared/`（どのツールからも使う）と `scripts/win_grep/`（このツール固有）。その下はドメイン（`core`・`office`・`index`・`convert`・`search`・`ui`） |
+| 層（下位） | 判断層（入力は素の値、出力は素の値）・状態層（ファイル・COM を読み書き）・画面層（`$ui` を触る） |
+
+決まりごとは 3 つ。いずれも `tests/meta/` で機械的に確かめる（[6.3](00_共通_3_テスト.md#63-テストの構成と実行)）。
+
+1. `shared/` はツールを知らない（依存は一方向）。ツール同士も互いを読み込まない。
+2. 判断層は画面に触らない。触らないからテストが書ける。
+3. 足したファイルは、必ずどこかの読み込み口から読み込む。
+
+詳細は [5 章](00_共通_2_共通モジュール.md#5-共通モジュール)。
+### 1.5 処理の流れ（利用者視点）
 
 ```mermaid
 sequenceDiagram
     actor U as 利用者
     participant G as 画面（win_grep.bat）
-    participant CV as 変換処理（office_to_tsv.ps1）
+    participant CV as 変換処理（win_grep/convert.ps1）
     participant W as work/index/
 
     U->>G: ［1 インデックス管理］の［新規作成…］でインデックスを作成

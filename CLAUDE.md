@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 ## 言語
 
@@ -39,3 +39,16 @@ Claude Code に `.claudeignore` は無い。除外は次の 2 か所で行う。
   - draw.io で再編集できるよう、「図のコピーを含める」を有効にして書き出す。
 
 入出力の書式例・メッセージ例・ファイル名規則などの**図ではないテキスト**は、従来どおりコードブロックで書いてよい。
+
+## ソースの分け方
+
+`scripts/` は **文脈**（`shared/` = どのツールからも使う、`win_grep/` = このツール固有）と **層**（判断層・状態層・画面層）で分ける。詳細は [docs/00_index.md 1.4](docs/00_index.md) と [docs/00_共通_2_共通モジュール.md 5.0](docs/00_共通_2_共通モジュール.md)。
+
+守ること（`tests/meta/` が機械的に確かめる）:
+
+- `shared/` はツールを知らない。ツール同士も互いを読み込まない。
+- 判断層（`*_view.ps1`・`index_name.ps1`・`search_query.ps1`・`text.ps1`）は `$ui` / `$window` / WPF の型に触らない。画面に出す文言や可否の判定はここに置き、テストを書く。
+- 足したファイルは、必ず読み込み口（`shared/shared.ps1`・`win_grep/lib.ps1`・`gui.ps1`・`convert.ps1`）から読み込む。
+- スクリプト・XAML は BOM 付き UTF-8・CRLF で保存する。
+
+テストは `.\tests\run.ps1`（タグ `Unit` / `Io` / `Meta` / `Office` / `Slow`）。コミット前に通す。

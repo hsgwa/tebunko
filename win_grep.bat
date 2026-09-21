@@ -5,4 +5,4 @@ rem    RemoteSigned does not block the scripts. Inline -Command is not affected 
 rem    the execution policy, so this runs even when the mark is present.
 rem 2) Start the GUI under RemoteSigned.
 powershell -NoProfile -Command "Get-ChildItem -LiteralPath '%~dp0' -Recurse -File | Unblock-File" 1>nul 2>nul
-start "" powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File "%~dp0scripts\config_gui.ps1"
+start "" powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File "%~dp0scripts\win_grep\gui.ps1"
