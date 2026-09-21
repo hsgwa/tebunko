@@ -247,6 +247,46 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         @($log | Where-Object { $_ -eq "AddSheet" }).Count | Should Be 0
     }
 
+    It "新形式（ZIP）のブックは、図形・コメントの文字を別の場所の TSV にする" {
+        $zipSource = Join-Path $TestDrive "図形あり.xlsx"
+        $xNs = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $relNs = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"'
+        $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        $entries = [ordered]@{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/comments`" Target=`"../comments1.xml`"/></Relationships>"
+            "xl/comments1.xml" = "<comments $xNs><commentList><comment ref=`"B2`"><text><t>税抜</t></text></comment></commentList></comments>"
+        }
+        $stream = [System.IO.File]::Create($zipSource)
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+        foreach ($name in $entries.Keys) {
+            $writer = New-Object System.IO.StreamWriter($zip.CreateEntry($name).Open(), (New-Object System.Text.UTF8Encoding($false)))
+            $writer.Write($entries[$name])
+            $writer.Dispose()
+        }
+        $zip.Dispose()
+        $stream.Dispose()
+
+        $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+
+        convertWorkbook $zipSource | Should Be 2
+        listTmp | Should Be @("売上.tsv", "売上[コメント].tsv")
+        readTsv "売上[コメント].tsv" | Should Be "B2`t税抜`r`n"
+    }
+
+    It "図形・コメントを読めなくても、セルの値は変換する" {
+        $broken = Join-Path $TestDrive "壊れたZIP.xlsx"
+        [System.IO.File]::WriteAllBytes($broken, [byte[]](0x50, 0x4B, 0x03, 0x04, 0x00))
+        $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+
+        convertWorkbook $broken | Should Be 1
+        listTmp | Should Be @("売上.tsv")
+    }
+
     It "開けない（パスワード付きなど）ときは例外を返す" {
         $workbooks = newFake @{} @{ Open = { throw "パスワードが正しくありません。" } }
         $excel = newFake @{ Workbooks = $workbooks } @{}

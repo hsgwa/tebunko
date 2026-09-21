@@ -1,11 +1,12 @@
-﻿# Word（.docx / .docm）・PowerPoint（.pptx / .pptm）のファイルからテキストを読み出す。
-# ファイルはZIP（Office Open XML）として直接読むため、Word・PowerPointは使わない。
+﻿# Word（.docx / .docm）・PowerPoint（.pptx / .pptm）のファイルと、Excel（.xlsx / .xlsm）の図形・コメントからテキストを読み出す。
+# ファイルはZIP（Office Open XML）として直接読むため、Word・PowerPoint・Excelは使わない。
 # 変換処理・テストから dot-source して使う。共通の部品（shared.ps1）を先に読み込んでおくこと。
 #
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
 #   Word      : ページ001, ページ002, ..., ヘッダー・フッター, 脚注
 #   PowerPoint: スライド001, スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
-# 1行は段落1つ、または表の1行（セルをタブ区切り）。
+#   Excel     : <シート名>[図形], <シート名>[コメント]（セルの値は変換処理が Excel で読む）
+# 1行は段落1つ、または表の1行（セルをタブ区切り）。Excel は図形・コメント1つ（"<セル番地><TAB><文字>"）。
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -481,6 +482,199 @@ function readPptxUnits {
 
         if ($footers.Count -gt 0) {
             addUnitLines $units "ヘッダー・フッター" $footers.ToArray()
+        }
+    } finally {
+        $zip.Dispose()
+    }
+    return $units
+}
+
+function toObjectCellText {
+    # 図形・コメントの文字を、Excel のテキスト保存と同じ形の 1 セルにする。
+    # 改行はセル内改行（$cellNewLine）にし、改行・" ・タブを含むときは " で囲む（中の " は "" にする）
+    param (
+        [string[]]$lines
+    )
+
+    $text = ($lines -join "`n").Trim()
+    if ($text.IndexOfAny([char[]]@('"', "`t", "`r", "`n")) -lt 0) {
+        return $text
+    }
+    $text = ($text -replace "\r\n|\r|\n", ${cellNewLine}).Replace('"', '""')
+    return "`"$text`""
+}
+
+function readXlsxShapeRows {
+    # 図形（xl/drawings/drawingN.xml）ごとの文字を @{ Row; Column; Text } の配列で返す。
+    # 行・列は図形の左上のセル（1 から数える）。グループ化した図形は、まとめて 1 つの図形とする
+    param (
+        [string]$xml
+    )
+
+    $nsSheetDrawing = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml($xml)
+    $rows = New-Object System.Collections.Generic.List[object]
+    foreach ($anchor in @($doc.DocumentElement.SelectNodes("//*")) | Where-Object {
+            $_.NamespaceURI -eq $nsSheetDrawing -and $_.LocalName -in @("twoCellAnchor", "oneCellAnchor", "absoluteAnchor") }) {
+        # 互換用の代替表示（mc:Fallback）の中は、mc:Choice と同じ図形なので読まない
+        $inFallback = $false
+        for ($node = $anchor.ParentNode; $null -ne $node; $node = $node.ParentNode) {
+            if ($node.NamespaceURI -eq ${nsCompat} -and $node.LocalName -eq "Fallback") {
+                $inFallback = $true
+                break
+            }
+        }
+        if ($inFallback) {
+            continue
+        }
+
+        $lines = @(readXmlLines $anchor.OuterXml ${nsDrawing} | ForEach-Object { $_.Text })
+        if ($lines.Count -eq 0) {
+            continue
+        }
+        # 位置をセルで持たない図形（absoluteAnchor）は A1 とする
+        $row = 1
+        $column = 1
+        $from = $anchor.GetElementsByTagName("from", $nsSheetDrawing)
+        if ($from.Count -gt 0) {
+            $row = 1 + [int]$from[0].GetElementsByTagName("row", $nsSheetDrawing)[0].InnerText
+            $column = 1 + [int]$from[0].GetElementsByTagName("col", $nsSheetDrawing)[0].InnerText
+        }
+        $rows.Add(@{ Row = $row; Column = $column; Text = (toObjectCellText $lines) })
+    }
+    return $rows.ToArray()
+}
+
+function readXlsxCommentRows {
+    # コメント（メモ。xl/commentsN.xml）とスレッド形式のコメント（xl/threadedComments/*.xml）の文字を、
+    # セル番地 → 文字の辞書で返す。スレッド形式のコメントがあるセルは、その文字（返信を含む）を使う
+    # （同じセルのメモには、古い版の Excel 向けの案内文とコメントが入っているため）
+    param (
+        [string]$commentsXml,
+        [string[]]$threadedXmls
+    )
+
+    $nsSheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    $nsThreaded = "http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments"
+    $result = [ordered]@{}
+
+    foreach ($xml in @($threadedXmls | Where-Object { $_ })) {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.LoadXml($xml)
+        foreach ($comment in $doc.GetElementsByTagName("threadedComment", $nsThreaded)) {
+            $ref = $comment.GetAttribute("ref")
+            $text = @($comment.GetElementsByTagName("text", $nsThreaded) | ForEach-Object { $_.InnerText }) -join "`n"
+            if (-not $ref -or $text.Trim() -eq "") {
+                continue
+            }
+            if ($result.Contains($ref)) {
+                $result[$ref] += "`n" + $text
+            } else {
+                $result[$ref] = $text
+            }
+        }
+    }
+
+    if ($commentsXml) {
+        $doc = New-Object System.Xml.XmlDocument
+        $doc.LoadXml($commentsXml)
+        foreach ($comment in $doc.GetElementsByTagName("comment", $nsSheet)) {
+            $ref = $comment.GetAttribute("ref")
+            if (-not $ref -or $result.Contains($ref)) {
+                continue
+            }
+            # ふりがな（rPh）は読まない
+            $text = @($comment.GetElementsByTagName("t", $nsSheet) | Where-Object { $_.ParentNode.LocalName -ne "rPh" } |
+                ForEach-Object { $_.InnerText }) -join ""
+            if ($text.Trim() -ne "") {
+                $result[$ref] = $text
+            }
+        }
+    }
+    return $result
+}
+
+function getCellPosition {
+    # セル番地（例: "AB12"）を @(行, 列) にする。読めなければ @(0, 0)
+    param (
+        [string]$ref
+    )
+
+    $m = [regex]::Match($ref, '^\$?([A-Za-z]+)\$?(\d+)$')
+    if (-not $m.Success) {
+        return @(0, 0)
+    }
+    $column = 0
+    foreach ($ch in $m.Groups[1].Value.ToUpperInvariant().ToCharArray()) {
+        $column = $column * 26 + ([int]$ch - [int][char]"A" + 1)
+    }
+    return @([int]$m.Groups[2].Value, $column)
+}
+
+function readXlsxObjectUnits {
+    # Excel（.xlsx / .xlsm）の表示シートにある図形（テキストボックス・グループ・WordArt を含む）とコメントの文字を、
+    # "<シート名>[図形]" "<シート名>[コメント]" の場所ごとに返す（シート名には [ ] を使えないため、実在のシートと重ならない）。
+    # 1 行は "<セル番地><TAB><文字>"。セル番地は図形の左上・コメントのセルで、シートの上の行から順に並べる。
+    # セルの値は Excel のテキスト保存で読むため、ここでは読まない。
+    # ZIP の中身が Excel のブック（xl/workbook.xml）でなければ（.xlsb など）、何も返さない
+    param (
+        [string]$path
+    )
+
+    $units = New-Object System.Collections.Specialized.OrderedDictionary
+    $nsSheet = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    $zip = [System.IO.Compression.ZipFile]::OpenRead((toLongPath $path))
+    try {
+        $workbookXml = readZipEntry $zip "xl/workbook.xml"
+        if ($null -eq $workbookXml) {
+            return $units
+        }
+        $workbook = New-Object System.Xml.XmlDocument
+        $workbook.LoadXml($workbookXml)
+        $workbookRels = readRelationships $zip "xl/workbook.xml"
+
+        foreach ($sheet in $workbook.GetElementsByTagName("sheet", $nsSheet)) {
+            # 非表示（hidden）・完全に非表示（veryHidden）のシートは、セルと同じく読まない
+            if ($sheet.GetAttribute("state") -in @("hidden", "veryHidden")) {
+                continue
+            }
+            $rel = $workbookRels[$sheet.GetAttribute("id", ${nsRel})]
+            if ($null -eq $rel -or $rel.Type -notlike "*/worksheet") {
+                continue  # グラフシートなど
+            }
+            $sheetName = $sheet.GetAttribute("name")
+
+            $shapes = New-Object System.Collections.Generic.List[object]
+            $commentsXml = $null
+            $threadedXmls = New-Object System.Collections.Generic.List[string]
+            foreach ($sheetRel in (readRelationships $zip $rel.Target).Values) {
+                $xml = readZipEntry $zip $sheetRel.Target
+                if ($null -eq $xml) {
+                    continue
+                }
+                if ($sheetRel.Type -like "*/drawing") {
+                    $shapes.AddRange([object[]]@(readXlsxShapeRows $xml))
+                } elseif ($sheetRel.Type -like "*/comments") {
+                    $commentsXml = $xml
+                } elseif ($sheetRel.Type -like "*/threadedComment") {
+                    $threadedXmls.Add($xml)
+                }
+            }
+
+            # 上の行から順に（同じ行は左から）並べる。並べ替えは安定（同じ位置は XML の順）
+            $lines = @($shapes | Sort-Object { $_.Row }, { $_.Column } |
+                ForEach-Object { "$(toColumnName $_.Column)$($_.Row)`t$($_.Text)" })
+            if ($lines.Count -gt 0) {
+                addUnitLines $units "${sheetName}[図形]" $lines
+            }
+
+            $comments = readXlsxCommentRows $commentsXml $threadedXmls.ToArray()
+            $lines = @($comments.Keys | Sort-Object { (getCellPosition $_)[0] }, { (getCellPosition $_)[1] } |
+                ForEach-Object { "$($_.Replace('$', ''))`t$(toObjectCellText @($comments[$_] -split "\r\n|\r|\n"))" })
+            if ($lines.Count -gt 0) {
+                addUnitLines $units "${sheetName}[コメント]" $lines
+            }
         }
     } finally {
         $zip.Dispose()

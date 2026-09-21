@@ -188,6 +188,24 @@ function splitIndexFileName {
 }
 
 
+# Excel の図形・コメントの場所 "<シート名>[図形]" "<シート名>[コメント]"（office_reader.ps1 の readXlsxObjectUnits）。
+# シート名には [ ] を使えないため、実在のシートと重ならない。画面の HitRow（types_grep.ps1）にも同じ形がある
+${objectPlacePattern} = '^(?<sheet>.*)\[(?:図形|コメント)\]$'
+
+
+function getPlaceSheetName {
+    # Excel の場所（シート名、または図形・コメントの場所）から、シート名を返す
+    param (
+        [string]$place
+    )
+
+    if ($place -match ${objectPlacePattern}) {
+        return $Matches.sheet
+    }
+    return $place
+}
+
+
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Officeファイルの拡張子で終わる）
 ${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$"
 

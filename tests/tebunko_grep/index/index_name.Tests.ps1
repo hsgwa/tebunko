@@ -29,6 +29,15 @@ Describe "encodeIndexPlace / decodeIndexPlace" -Tag Unit {
     }
 }
 
+Describe "getPlaceSheetName" -Tag Unit {
+    It "図形・コメントの場所からシート名を返し、シート名はそのまま返す" {
+        getPlaceSheetName "売上[図形]" | Should Be "売上"
+        getPlaceSheetName "売上 (2)[コメント]" | Should Be "売上 (2)"
+        getPlaceSheetName "売上" | Should Be "売上"
+        getPlaceSheetName "ページ001" | Should Be "ページ001"
+    }
+}
+
 Describe "toIndexFileName" -Tag Unit {
     It "<場所>.tsv にし、場所は符号化する（元のファイル名はフォルダ名にするため入れない）" {
         toIndexFileName "記号<>_1" | Should Be "記号%3C%3E%5F1.tsv"

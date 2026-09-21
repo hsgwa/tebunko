@@ -278,7 +278,8 @@ function openSource {
         setStatus "Excel で開いています：${path}"
         $window.Cursor = [System.Windows.Input.Cursors]::Wait
         try {
-            openInExcel $path $row.Location $row.MatchCell $mode
+            # 図形・コメントの場所（"<シート名>[図形]" 等）は、そのシートの図形の左上・コメントのセルを選ぶ
+            openInExcel $path (getPlaceSheetName $row.Location) $row.MatchCell $mode
             setStatus "${how}：${path}"
         } catch {
             # Excel を操作できない場合（ダイアログを表示中など）は、ファイルを開くだけにする

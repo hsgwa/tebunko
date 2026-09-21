@@ -222,3 +222,96 @@ Describe "writeUnits" -Tag Io {
         Test-Path -LiteralPath "$outDir\スライド001%5Fノート.tsv" | Should Be $true
     }
 }
+
+$xNs = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+$xdrNs = 'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"'
+$officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+function xAnchor([int]$col, [int]$row, [string]$shapes) {
+    # 左上が (col, row)（0 から数える）の図形の位置
+    return "<xdr:twoCellAnchor><xdr:from><xdr:col>$col</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>$row</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>" +
+        "<xdr:to><xdr:col>$($col + 2)</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>$($row + 2)</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>" +
+        "${shapes}<xdr:clientData/></xdr:twoCellAnchor>"
+}
+
+function xSp([string[]]$paragraphs) {
+    $body = ($paragraphs | ForEach-Object { "<a:p><a:r><a:t>$_</a:t></a:r></a:p>" }) -join ""
+    return "<xdr:sp><xdr:nvSpPr><xdr:cNvPr id=`"2`" name=`"s`"/><xdr:cNvSpPr txBox=`"1`"/></xdr:nvSpPr><xdr:spPr/><xdr:txBody><a:bodyPr/>${body}</xdr:txBody></xdr:sp>"
+}
+
+Describe "readXlsxObjectUnits" -Tag Io {
+    $path = "$TestDrive\objects.xlsx"
+    $group = xAnchor 0 9 ("<xdr:grpSp><xdr:nvGrpSpPr><xdr:cNvPr id=`"9`" name=`"g`"/><xdr:cNvGrpSpPr/></xdr:nvGrpSpPr><xdr:grpSpPr/>" +
+        (xSp @("グループ1")) + (xSp @("グループ2")) + "</xdr:grpSp>")
+    $alternate = "<mc:AlternateContent><mc:Choice Requires=`"a14`">$(xAnchor 0 20 (xSp @('代替表示あり')))</mc:Choice>" +
+        "<mc:Fallback>$(xAnchor 0 20 (xSp @('代替表示あり')))</mc:Fallback></mc:AlternateContent>"
+    $chart = xAnchor 3 30 "<xdr:graphicFrame macro=`"`"><xdr:nvGraphicFramePr><xdr:cNvPr id=`"3`" name=`"c`"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/><a:graphic><a:graphicData uri=`"x`"/></a:graphic></xdr:graphicFrame>"
+    newZip $path @{
+        "xl/workbook.xml" = "<workbook $xNs><sheets>" +
+            "<sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/>" +
+            "<sheet name=`"隠し`" sheetId=`"2`" state=`"hidden`" r:id=`"rId2`"/>" +
+            "<sheet name=`"グラフ`" sheetId=`"3`" r:id=`"rId3`"/>" +
+            "<sheet name=`"空`" sheetId=`"4`" r:id=`"rId4`"/>" +
+            "</sheets></workbook>"
+        "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
+            "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
+            "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/>" +
+            "<Relationship Id=`"rId3`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet1.xml`"/>" +
+            "<Relationship Id=`"rId4`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet3.xml`"/>" +
+            "</Relationships>"
+        "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
+        "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs>" +
+            "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/>" +
+            "<Relationship Id=`"rId2`" Type=`"$officeRel/comments`" Target=`"../comments1.xml`"/>" +
+            "<Relationship Id=`"rId3`" Type=`"http://schemas.microsoft.com/office/2017/10/relationships/threadedComment`" Target=`"../threadedComments/threadedComment1.xml`"/>" +
+            "<Relationship Id=`"rId4`" Type=`"$officeRel/hyperlink`" Target=`"https://example.com/`" TargetMode=`"External`"/>" +
+            "</Relationships>"
+        # 下の図形を先に書いておき、上の行からの順に並べ直されることを確かめる
+        "xl/drawings/drawing1.xml" = "<xdr:wsDr $xdrNs>$(xAnchor 1 4 (xSp @('下の図形')))$(xAnchor 5 1 (xSp @('1段落目', '2段落目')))" +
+            "$(xAnchor 2 1 (xSp @('引用&quot;あり')))$group$alternate$chart</xdr:wsDr>"
+        "xl/comments1.xml" = "<comments $xNs><authors><author>test</author></authors><commentList>" +
+            "<comment ref=`"B3`" authorId=`"0`"><text><r><t>test:</t></r><r><t xml:space=`"preserve`">`n価格は税抜</t></r><rPh sb=`"0`" eb=`"1`"><t>ふりがな</t></rPh></text></comment>" +
+            "<comment ref=`"A2`" authorId=`"0`"><text><t>メモ</t></text></comment>" +
+            "<comment ref=`"C1`" authorId=`"0`"><text><t>[スレッド化されたコメント] 古い版向けの案内文</t></text></comment>" +
+            "</commentList></comments>"
+        "xl/threadedComments/threadedComment1.xml" = "<ThreadedComments xmlns=`"http://schemas.microsoft.com/office/spreadsheetml/2018/threadedcomments`">" +
+            "<threadedComment ref=`"C1`" id=`"{1}`"><text>確認してください</text></threadedComment>" +
+            "<threadedComment ref=`"C1`" id=`"{2}`" parentId=`"{1}`"><text>確認しました</text></threadedComment>" +
+            "</ThreadedComments>"
+        "xl/worksheets/sheet2.xml" = "<worksheet $xNs/>"
+        "xl/worksheets/_rels/sheet2.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing2.xml`"/></Relationships>"
+        "xl/drawings/drawing2.xml" = "<xdr:wsDr $xdrNs>$(xAnchor 0 0 (xSp @('非表示シートの図形')))</xdr:wsDr>"
+        "xl/worksheets/sheet3.xml" = "<worksheet $xNs/>"
+    }
+    $units = readXlsxObjectUnits $path
+    $ls = [char]0x2028
+
+    It "表示シートの図形・コメントだけを、シートごとの場所にする（非表示シート・グラフシート・何も無いシートは出さない）" {
+        @($units.Keys) -join "|" | Should Be "売上[図形]|売上[コメント]"
+    }
+
+    It "図形は左上のセル番地と文字を並べ、上の行から（同じ行は左から）の順にする。文字の無い図形（グラフなど）は出さない" {
+        $lines = @($units["売上[図形]"])
+        $lines[0] | Should Be "C2`t`"引用`"`"あり`""
+        $lines[1] | Should Be "F2`t`"1段落目${ls}2段落目`""
+        $lines[2] | Should Be "B5`t下の図形"
+        $lines.Count | Should Be 5
+    }
+
+    It "グループ化した図形はまとめて 1 つにし、互換用の代替表示（mc:Fallback）は読まない" {
+        $lines = @($units["売上[図形]"])
+        $lines[3] | Should Be "A10`t`"グループ1${ls}グループ2`""
+        $lines[4] | Should Be "A21`t代替表示あり"
+    }
+
+    It "コメントはセルの順に並べ、ふりがなは読まない。スレッド形式のコメントがあるセルは、その文字（返信を含む）を使う" {
+        @($units["売上[コメント]"]) -join "|" |
+            Should Be "C1`t`"確認してください${ls}確認しました`"|A2`tメモ|B3`t`"test:${ls}価格は税抜`""
+    }
+
+    It "Excel のブックでない ZIP（.xlsb など）は何も返さない" {
+        $xlsb = "$TestDrive\binary.xlsb"
+        newZip $xlsb @{ "xl/workbook.bin" = "binary" }
+        (readXlsxObjectUnits $xlsb).Count | Should Be 0
+    }
+}

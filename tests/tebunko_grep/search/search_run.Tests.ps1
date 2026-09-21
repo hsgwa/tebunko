@@ -142,6 +142,15 @@ Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" -Tag Io
         $hit = @((searchIndex "りんご" $files $true 0 100 $null $null $false "A社.xlsx_old.xlsx").Hits)[0]
         (toSearchResultLines @($hit)).Lines[0] | Should Be "A社.xlsx_old.xlsx`tSheet1`t1`tりんご`t200"
     }
+
+    It "Excel の図形・コメントの場所（名前に [ ] を含む）も検索でき、セル内改行を戻して出力する" {
+        $objectIndex = Join-Path $TestDrive "search_object"
+        newTsv "$objectIndex\[確定]見積.xlsx\$(toIndexFileName "見積[図形]")" @("F2`t`"納期は$([char]0x2028)別途`"")
+        $hit = @((searchIndex "納期" (getIndexTsvFiles @($objectIndex)).Files $true).Hits)[0]
+        $hit.Book | Should Be "[確定]見積.xlsx"
+        $hit.Location | Should Be "見積[図形]"
+        (toSearchResultLines @($hit)).Lines[0] | Should Be "[確定]見積.xlsx`t見積[図形]`t1`tF2`t`"納期は`n別途`""
+    }
 }
 
 Describe "searchIndex" -Tag Io {
