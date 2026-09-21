@@ -74,3 +74,46 @@ Describe "型の読み込み" -Tag Meta {
         ($output -join "") | Should Be "5"
     }
 }
+
+Describe "画面の部品の名前" -Tag Meta {
+    # gui.ps1 が FindName で取る名前が、XAML に実在すること。
+    # タブの中身を別ファイルに分けているため、名前を足したり動かしたりすると気づきにくい
+    $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
+    $gui = [System.IO.File]::ReadAllText("$here\..\scripts\win_grep\gui.ps1")
+
+    function getXamlNames {
+        param ([string]$path)
+        [xml]$xaml = Get-Content $path -Raw -Encoding UTF8
+        return @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
+    }
+
+    It "ウィンドウの枠の名前がある" {
+        $names = getXamlNames "$here\..\scripts\win_grep\xaml\win_grep.xaml"
+        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+            $names -contains $name | Should Be $true
+        }
+    }
+
+    foreach ($tab in @(
+            @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
+            @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
+            @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' })) {
+        $file = $tab.File
+        $marker = $tab.Marker
+
+        It "$file に、gui.ps1 が使う名前がすべてある" {
+            # gui.ps1 の $tabs から、そのタブの名前の一覧を取り出す
+            $start = $gui.IndexOf($marker)
+            $start | Should Not Be -1
+            $listStart = $gui.IndexOf("Names = @(", $start)
+            $listEnd = $gui.IndexOf(") }", $listStart)
+            $list = $gui.Substring($listStart, $listEnd - $listStart)
+            $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
+            $wanted.Count -gt 0 | Should Be $true
+
+            $names = getXamlNames "$here\..\scripts\win_grep\xaml\$file"
+            $missing = @($wanted | Where-Object { $names -notcontains $_ })
+            ($missing -join ", ") | Should Be ""
+        }
+    }
+}

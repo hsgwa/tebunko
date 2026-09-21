@@ -80,19 +80,41 @@ $activateEvent = New-Object System.Threading.EventWaitHandle($false, [System.Thr
 # ---- ウィンドウと、画面の部品の対応 ----
 
 $window = loadWindow "${xamlDir}\win_grep.xaml"
-$ui = @{}
-foreach ($name in @(
-        "Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText",
+
+# タブの中身はタブごとのファイルに分けてある。読み込んでタブに入れ、x:Name の対応表（$ui）を作る。
+# 別ファイルから読み込んだ中身は、そのファイルごとに名前を持つため、$window.FindName では見つからない。
+# タブごとに FindName する（名前の一覧もタブごとに分けておく）
+$tabs = @(
+    @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
         "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
         "IndexSummaryText", "ConversionStateText", "ConvertButton", "ConvertHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
-        "ConvertProgressPanel", "ConvertProgressText", "ConvertProgressEta", "ConvertProgress", "ConvertProgressDetail", "ConvertStopButton", "ConvertLogButton",
-        "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder", "WordNotice", "SearchTargetText", "GoIndexTabButton",
+        "ConvertProgressPanel", "ConvertProgressText", "ConvertProgressEta", "ConvertProgress",
+        "ConvertProgressDetail", "ConvertStopButton", "ConvertLogButton") }
+    @{ Tab = "SearchTab"; File = "tab_search.xaml"; Names = @(
+        "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder",
+        "WordNotice", "SearchTargetText", "GoIndexTabButton",
         "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
         "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ResultGrid", "IndexColumn",
-        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton", "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote", "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton",
-        "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton", "KillAllButton", "KillSelectedButton", "KillBackgroundButton")) {
+        "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath",
+        "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
+        "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
+        "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
+    @{ Tab = "KillTab"; File = "tab_kill.xaml"; Names = @(
+        "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
+        "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
+)
+
+$ui = @{}
+foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
     $ui[$name] = $window.FindName($name)
+}
+foreach ($tab in $tabs) {
+    $content = loadXaml "${xamlDir}\$($tab.File)"
+    $ui[$tab.Tab].Content = $content
+    foreach ($name in $tab.Names) {
+        $ui[$name] = $content.FindName($name)
+    }
 }
 $taskbar = $window.TaskbarItemInfo
 
