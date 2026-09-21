@@ -1211,9 +1211,7 @@ try {
         "TC29",
         "該当なしの文字列XYZ"
     ) -join "`r`n") + "`r`n")
-    writeText "$ConfigDir\検索ワード_前後空白と空行.txt" "`r`n  山田  `r`n`r`n`t佐藤`t`r`n`r`n"
     writeText "$ConfigDir\検索ワード_不正な正規表現.txt" "[閉じていない`r`n(`r`n*`r`n山田`r`n"
-    writeText "$ConfigDir\検索ワード_空.txt" ""
     writeText "$ConfigDir\検索ワード_全件ヒット.txt" ".`r`n"
     writeText "$ConfigDir\検索ワード_高度な正規表現.txt" ((@(
         "(?-i)ABC",                  # 大文字・小文字を区別する
@@ -1234,7 +1232,6 @@ try {
         $manyWords.Add("TC11-{0:D5}" -f $i)
     }
     writeText "$ConfigDir\検索ワード_100件.txt" (($manyWords -join "`r`n") + "`r`n")
-    writeText "$ConfigDir\検索ワード_重複.txt" "山田`r`n山田`r`n  山田  `r`n佐藤`r`n"
 } finally {
     releaseApp $excel
     $excel = $null

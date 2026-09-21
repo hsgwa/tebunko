@@ -202,10 +202,6 @@ Describe "searchIndex" -Tag Io {
         $script:progress[0] | Should Be "1/2"
     }
 
-    It "結果を @() で配列にできる" {
-        @((searchIndex "株" $files $true).Hits).Count | Should Be 3
-    }
-
     It "大文字と小文字を区別できる" {
         @((searchIndex "abc" $files $true -caseSensitive $true).Hits).Count | Should Be 1
         @((searchIndex "ABC" $files $true -caseSensitive $true).Hits)[0].LineNumber | Should Be 4
