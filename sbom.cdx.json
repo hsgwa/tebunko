@@ -104,7 +104,7 @@
       "bom-ref": "scripts/tebunko_grep/tebunko_grep.ico",
       "group": "tebunko",
       "name": "scripts/tebunko_grep/tebunko_grep.ico",
-      "description": "画面のアイコン（同梱する唯一のバイナリ）。元データは docs/images/logo.svg（リポジトリの管理者が作成）で、tools/new_icon.ps1 で作る。第三者の素材を含まない"
+      "description": "画面のアイコン（同梱する唯一のバイナリ）。元データは docs/images/logo.svg（リポジトリの管理者が作成）で、tools/new_icon.ps1 で作る"
     }
   ],
   "dependencies": [
