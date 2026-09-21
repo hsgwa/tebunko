@@ -1,0 +1,17 @@
+# Codecov の設定（CI の .github/workflows/test.yml が work/test/coverage.xml を送る）
+#
+# カバレッジの下限は tests/coverage.baseline で CI が確かめるため、Codecov の判定（commit status）は参考表示だけにして PR を止めない。
+# Codecov の数字は行単位で、tests/run.ps1 -Ci が表示するコマンド単位の数字とは少し違う。
+coverage:
+  precision: 1
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "diff, files"
+  require_changes: false

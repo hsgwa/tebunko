@@ -1,5 +1,8 @@
 ﻿# tebunko
 
+[![test](https://github.com/hsgwa/tebunko/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/hsgwa/tebunko/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/hsgwa/tebunko/branch/main/graph/badge.svg)](https://codecov.io/gh/hsgwa/tebunko)
+
 **tebunko**（手文庫）は、手元に置いて日常的に引く文書の箱です。Windows で Office ファイルを扱う道具箱で、いま入っているツールは検索の `tebunko_grep`、将来 `tebunko_diff`（比較）を加える予定です。
 
 Office ファイルを「場所」ごとに TSV へ変換してインデックス化し、文字列を一括検索するツールです。

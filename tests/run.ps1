@@ -3,7 +3,7 @@
 #   .\tests\run.ps1              既定（Unit・Io・Meta。Office と Slow は除く）
 #   .\tests\run.ps1 -Tag Unit    速い確認だけ
 #   .\tests\run.ps1 -All         Office・Slow も含めて全部（Office が必要）
-#   .\tests\run.ps1 -Ci          結果の XML とカバレッジを出し、カバレッジの下限も確かめる
+#   .\tests\run.ps1 -Ci          結果の XML とカバレッジ（Cobertura XML）を出し、カバレッジの下限も確かめる
 #
 # いずれも失敗したテストの数を終了コードにする（pre-commit フック・CI が見る）
 param (
@@ -59,7 +59,103 @@ if ($Quiet -and $result.FailedCount -gt 0) {
     }
 }
 
+# Pester 3.4 のカバレッジ（コマンド単位）を、行単位の Cobertura XML にして書き出す（Codecov に送るため）。
+# Pester 3.4 はカバレッジをファイルに出せないため、HitCommands / MissedCommands から組み立てる。
+# 1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。
+# ファイル名はリポジトリからの相対パス（/ 区切り）にする。絶対パスには利用者名が入るため書かない
+function writeCobertura($coverage, [string]$path) {
+    $invariant = [System.Globalization.CultureInfo]::InvariantCulture
+    $rootPrefix = $rootDir.TrimEnd('\') + '\'
+    $files = @{}
+    foreach ($item in @(@($coverage.HitCommands | ForEach-Object { @{ Command = $_; Hit = 1 } }) +
+                        @($coverage.MissedCommands | ForEach-Object { @{ Command = $_; Hit = 0 } }))) {
+        $file = [string]$item.Command.File
+        if ($file.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { $file = $file.Substring($rootPrefix.Length) }
+        $file = $file.Replace('\', '/')
+        if (!$files.ContainsKey($file)) { $files[$file] = @{} }
+        $line = [int]$item.Command.Line
+        $lines = $files[$file]
+        $lines[$line] = [Math]::Max([int]$lines[$line], $item.Hit)
+    }
+    $rate = { param($covered, $valid) if ($valid -gt 0) { ($covered / $valid).ToString("0.####", $invariant) } else { "0" } }
+
+    $allValid = 0
+    $allCovered = 0
+    foreach ($lines in $files.Values) {
+        $allValid += $lines.Count
+        $allCovered += @($lines.Values | Where-Object { $_ -gt 0 }).Count
+    }
+
+    $settings = New-Object System.Xml.XmlWriterSettings
+    $settings.Indent = $true
+    $settings.Encoding = New-Object System.Text.UTF8Encoding $false
+    $writer = [System.Xml.XmlWriter]::Create($path, $settings)
+    try {
+        $writer.WriteStartDocument()
+        $writer.WriteStartElement("coverage")
+        $writer.WriteAttributeString("line-rate", (& $rate $allCovered $allValid))
+        $writer.WriteAttributeString("branch-rate", "0")
+        $writer.WriteAttributeString("lines-covered", [string]$allCovered)
+        $writer.WriteAttributeString("lines-valid", [string]$allValid)
+        $writer.WriteAttributeString("branches-covered", "0")
+        $writer.WriteAttributeString("branches-valid", "0")
+        $writer.WriteAttributeString("complexity", "0")
+        $writer.WriteAttributeString("version", "0")
+        $writer.WriteAttributeString("timestamp", [string][DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+        $writer.WriteStartElement("sources")
+        $writer.WriteElementString("source", ".")
+        $writer.WriteEndElement()
+        $writer.WriteStartElement("packages")
+        # フォルダを 1 つのパッケージにする
+        foreach ($group in @($files.Keys | Sort-Object | Group-Object { $i = $_.LastIndexOf('/'); if ($i -lt 0) { "." } else { $_.Substring(0, $i) } })) {
+            $packageValid = 0
+            $packageCovered = 0
+            foreach ($file in $group.Group) {
+                $packageValid += $files[$file].Count
+                $packageCovered += @($files[$file].Values | Where-Object { $_ -gt 0 }).Count
+            }
+            $writer.WriteStartElement("package")
+            $writer.WriteAttributeString("name", $group.Name)
+            $writer.WriteAttributeString("line-rate", (& $rate $packageCovered $packageValid))
+            $writer.WriteAttributeString("branch-rate", "0")
+            $writer.WriteAttributeString("complexity", "0")
+            $writer.WriteStartElement("classes")
+            foreach ($file in $group.Group) {
+                $lines = $files[$file]
+                $writer.WriteStartElement("class")
+                $writer.WriteAttributeString("name", $file.Substring($file.LastIndexOf('/') + 1))
+                $writer.WriteAttributeString("filename", $file)
+                $writer.WriteAttributeString("line-rate", (& $rate @($lines.Values | Where-Object { $_ -gt 0 }).Count $lines.Count))
+                $writer.WriteAttributeString("branch-rate", "0")
+                $writer.WriteAttributeString("complexity", "0")
+                $writer.WriteStartElement("methods")
+                $writer.WriteEndElement()
+                $writer.WriteStartElement("lines")
+                foreach ($line in @($lines.Keys | Sort-Object)) {
+                    $writer.WriteStartElement("line")
+                    $writer.WriteAttributeString("number", [string]$line)
+                    $writer.WriteAttributeString("hits", [string]$lines[$line])
+                    $writer.WriteAttributeString("branch", "false")
+                    $writer.WriteEndElement()
+                }
+                $writer.WriteEndElement()
+                $writer.WriteEndElement()
+            }
+            $writer.WriteEndElement()
+            $writer.WriteEndElement()
+        }
+        $writer.WriteEndElement()
+        $writer.WriteEndElement()
+        $writer.WriteEndDocument()
+    } finally {
+        $writer.Close()
+    }
+}
+
 if ($Ci) {
+    if ($result.CodeCoverage) {
+        writeCobertura $result.CodeCoverage "$outDir\coverage.xml"
+    }
     $covered = 0
     $total = 0
     if ($result.CodeCoverage) {

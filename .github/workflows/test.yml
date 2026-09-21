@@ -45,6 +45,19 @@ jobs:
         shell: powershell
         run: .\tests\run.ps1 -Ci
 
+      # 送るのは work\test\coverage.xml（リポジトリからの相対パスと行ごとの実行回数）だけ。
+      # トークンはリポジトリの Secrets の CODECOV_TOKEN。fork からの PR ではトークンが無くても送れる。
+      # 送れなくても CI は失敗にしない（下限の確認は tests\run.ps1 -Ci が行う）。
+      # タグの push（release.yml から呼ばれたとき）では送らない
+      - name: カバレッジを Codecov に送る
+        if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && hashFiles('work/test/coverage.xml') != '' }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: work/test/coverage.xml
+          disable_search: true
+          fail_ci_if_error: false
+
       - name: 静的解析（PSScriptAnalyzer）
         shell: powershell
         run: |
