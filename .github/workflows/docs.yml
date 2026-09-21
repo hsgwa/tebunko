@@ -1,0 +1,129 @@
+# 設計書のサイト（MkDocs）を作り、GitHub Pages に公開する（GitHub Actions）
+#
+# GitHub Pages は gh-pages ブランチの内容をそのまま公開する（Pages の設定で、ソースを gh-pages ブランチの / にする）。
+#   - main が更新されたら、サイトを gh-pages の直下に置く（https://hsgwa.github.io/tebunko/）
+#   - docs/ か MkDocs の設定を変えた PR では、サイトを gh-pages の pr-preview/pr-<PR の番号>/ に置き、
+#     プレビューの URL を PR にコメントする。PR を閉じたら（マージを含む）プレビューを消す
+# どちらも mkdocs build --strict で作る。リンク先のファイルや見出し（アンカー）が無いと失敗する。
+#
+# サイトを作るジョブ（build）は PR のコード（tools/mkdocs/hooks.py）を動かすため、読み取りの権限だけで動かす。
+# gh-pages への書き込みと PR へのコメントは、作ったサイトを受け取るだけのジョブ（publish）で行う。
+# fork からの PR には書き込みの権限が無いため、プレビューは作らない（ビルドの確認だけを行う）。
+# 使うパッケージは tools/mkdocs/requirements.txt でハッシュごと固定する（Scorecard の Pinned-Dependencies）。
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "tools/mkdocs/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "tools/mkdocs/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # 閉じた PR ではプレビューを消すだけなので、サイトを作らない
+    if: ${{ github.event.action != 'closed' }}
+    runs-on: ubuntu-latest
+    # 同じブランチに続けて push したときは、古い実行を取り消す
+    concurrency:
+      group: docs-build-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # サイトに要る所だけを取る（直下の mkdocs.yml は cone モードで必ず入る）。
+          # tests/testdata には名前が 255 バイトを超えるファイルがあり、Linux では取り出せない
+          sparse-checkout: |
+            docs
+            tools/mkdocs
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: MkDocs の用意
+        run: pip install --require-hashes -r tools/mkdocs/requirements.txt
+
+      - name: サイトを作る
+        run: |
+          mkdocs build --strict
+          # GitHub Pages に Jekyll で加工させない（そのまま公開させる）
+          touch work/site/.nojekyll
+
+      - name: サイトの保存
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: site
+          path: work/site
+          include-hidden-files: true
+          retention-days: 1
+
+  publish:
+    needs: build
+    # main の更新と、このリポジトリのブランチからの PR だけ。閉じた PR では build を飛ばしても動かす
+    if: >-
+      ${{ !cancelled()
+      && (needs.build.result == 'success' || github.event.action == 'closed')
+      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      # gh-pages ブランチへの書き込み
+      contents: write
+      # プレビューの URL を PR にコメントする
+      pull-requests: write
+    # gh-pages への書き込みは 1 つずつ行い、途中で取り消さない
+    concurrency:
+      group: docs-gh-pages
+      cancel-in-progress: false
+    steps:
+      # 公開の action は、コミットが 1 つ以上ある git の作業場所を要る（gh-pages はそこから作業ツリーを作って push する）。
+      # リポジトリの中身は使わないため、取り出さずに空のコミットだけを作る。
+      # （sparse-checkout で取り出すと blob を持たない部分的な clone になり、action の git の操作が invalid object で失敗する）
+      - name: git の作業場所を作る
+        run: |
+          git init -q .
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -q --allow-empty -m "作業場所"
+
+      - name: サイトの受け取り
+        if: ${{ github.event.action != 'closed' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: site
+          path: work/site
+
+      - name: 公開（main）
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
+        with:
+          folder: work/site
+          branch: gh-pages
+          # PR のプレビューは消さない
+          clean-exclude: pr-preview/
+          commit-message: "サイトを更新 ${{ github.sha }}"
+
+      - name: プレビュー（PR）
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1.8.1
+        with:
+          source-dir: work/site
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          action: ${{ github.event.action == 'closed' && 'remove' || 'deploy' }}
+          # 既定では QR コードを作るためにプレビューの URL を外部のサービスへ送るため、使わない
+          qr-code: "false"
+          deploy-commit-message: "PR #${{ github.event.number }} のプレビューを更新"
+          remove-commit-message: "PR #${{ github.event.number }} のプレビューを削除"

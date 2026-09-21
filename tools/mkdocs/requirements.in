@@ -1,0 +1,7 @@
+# MkDocs でサイトを作るのに使うパッケージ（mkdocs.yml）。
+# ここを変えたら、次で requirements.txt（ハッシュ付きで版を固定したもの）を作り直す。
+#   pip install pip-tools
+#   pip-compile --generate-hashes --strip-extras tools/mkdocs/requirements.in
+# MkDocs 2.0 は Material テーマ・プラグインと互換がないため 1 系にとどめる
+mkdocs>=1.6,<2
+mkdocs-material==9.7.7

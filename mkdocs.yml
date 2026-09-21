@@ -1,0 +1,108 @@
+# 設計書（docs/）を MkDocs で HTML のサイトにする設定。
+#
+#   pip install --require-hashes -r tools/mkdocs/requirements.txt
+#   mkdocs serve             手元で見る（http://127.0.0.1:8000/）
+#   mkdocs build --strict    work/site/ に書き出す（CI と同じ。リンク切れ・アンカー切れで失敗する）
+#
+# docs/ の Markdown は GitHub でもそのまま読めるように書いたものを変えずに使う。
+# GitHub との違いは tools/mkdocs/hooks.py で埋める（先頭ページ・docs/ の外へのリンク）。
+# 公開は .github/workflows/docs.yml が main の更新ごとに GitHub Pages へ行う。
+site_name: tebunko 設計書
+site_url: https://hsgwa.github.io/tebunko/
+site_description: Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の設計書
+repo_url: https://github.com/hsgwa/tebunko
+repo_name: hsgwa/tebunko
+edit_uri: edit/main/docs/
+copyright: Copyright (c) tebunko contributors / MIT License
+
+docs_dir: docs
+# 生成物は work/ に置く（.gitignore 済み）
+site_dir: work/site
+
+hooks:
+  - tools/mkdocs/hooks.py
+
+theme:
+  name: material
+  language: ja
+  logo: images/logo.svg
+  favicon: images/logo.svg
+  features:
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: ダークモードにする
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: ライトモードにする
+
+plugins:
+  - search:
+      lang: ja
+
+markdown_extensions:
+  - tables
+  - attr_list
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
+      # 見出しのアンカーを GitHub と同じ形にする（日本語を残し、記号を除き、英字を小文字にする）。
+      # docs/ の中のリンクは GitHub の形のアンカーで書いている
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  # ```mermaid のブロックを図として描く
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+# 並びと階層は docs/00_index.md の「ドキュメント構成」に合わせる
+nav:
+  - 概要: 00_index.md
+  - 共通:
+      - フォルダ構成と設定ファイル: 00_共通_1_フォルダ構成と設定ファイル.md
+      - 共通モジュール: 00_共通_2_共通モジュール.md
+      - TSV・検索・画面の関数: 00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md
+      - テスト: 00_共通_3_テスト.md
+  - 変換:
+      - 01_変換.md
+      - Excel: 01_変換_1_Excel.md
+      - Word: 01_変換_2_Word.md
+      - PowerPoint: 01_変換_3_PowerPoint.md
+      - メインフローと変換一覧: 01_変換_4_メインフローと変換一覧.md
+      - 変換対象の決定: 01_変換_5_変換対象の決定.md
+      - 共通処理とアプリ管理: 01_変換_6_共通処理とアプリ管理.md
+      - 出力 TSV と既知の問題: 01_変換_7_出力TSVと既知の問題.md
+      - エラーメッセージ一覧: 01_変換_8_エラーメッセージ一覧.md
+  - 検索: 02_検索.md
+  - 画面:
+      - 03_画面.md
+      - インデックス管理タブ: 03_画面_1_インデックス管理タブ.md
+      - 検索タブ: 03_画面_2_検索タブ.md
+      - 元のファイルを開く: 03_画面_2_検索タブ_1_元のファイルを開く.md
+      - プロセス停止タブ: 03_画面_3_プロセス停止タブ.md
+      - 状態と操作の流れ: 03_画面_4_状態と操作の流れ.md
+      - 共通仕様: 03_画面_5_共通仕様.md
+      - 実装とテスト: 03_画面_6_実装とテスト.md
+      - 画面のテスト: 03_画面_6_実装とテスト_1_テスト.md
+  - 安全性: 04_安全性.md
