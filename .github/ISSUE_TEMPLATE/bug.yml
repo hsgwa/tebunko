@@ -1,0 +1,39 @@
+name: 不具合
+description: 思ったとおりに動かないことを報告する
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        画面の写しやログを貼るときは、利用者名を含むパス（`C:\Users\<利用者名>\...`）や社名・顧客名を消してから貼ってください。
+  - type: textarea
+    id: what
+    attributes:
+      label: 起きたこと
+      description: 何をしたら、何が起きたか
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待したこと
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現の手順
+      placeholder: |
+        1. フォルダー C:\共有\営業部 のインデックスを作る
+        2. 「見積」で検索する
+        3. ...
+  - type: input
+    id: version
+    attributes:
+      label: 版
+      description: 配布 zip の版（例: v1.2.0）か、コミットの番号
+  - type: input
+    id: env
+    attributes:
+      label: 環境
+      description: Windows の版、Office の有無と版
