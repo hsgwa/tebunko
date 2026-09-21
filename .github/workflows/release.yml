@@ -46,8 +46,10 @@ jobs:
         with:
           subject-path: work/release/tebunko_grep-${{ github.ref_name }}.zip
 
+      # pwsh（PowerShell 7）で動かす。ランナーは run の内容を BOM なしの UTF-8 のファイルにして実行するが、
+      # Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため、説明に書く日本語が化ける
       - name: GitHub Release に公開
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
