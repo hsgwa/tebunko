@@ -18,10 +18,10 @@ function getSourcedFiles {
 }
 
 Describe "依存の向き" -Tag Meta {
-    # shared はどのツールからも使う部品。ツール（windox_grep・windox_diff）を知っていてはいけない
+    # shared はどのツールからも使う部品。ツール（tebunko_grep・tebunko_diff）を知っていてはいけない
     It "shared 配下にツールの名前が出てこない" {
         $found = @(Get-ChildItem "${scriptsDir}\shared" -Recurse -Include *.ps1, *.xaml |
-            Select-String -Pattern "windox_grep|windox_diff" |
+            Select-String -Pattern "tebunko_grep|tebunko_diff" |
             ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
         ($found -join ", ") | Should Be ""
     }
@@ -45,7 +45,7 @@ Describe "依存の向き" -Tag Meta {
 Describe "読み込み漏れ" -Tag Meta {
     # 起動口からたどれないファイルは、足したのに読み込み忘れている
     It "すべての .ps1 が起動口からたどれる" {
-        $entries = @("${scriptsDir}\windox_grep\gui.ps1", "${scriptsDir}\windox_grep\convert.ps1")
+        $entries = @("${scriptsDir}\tebunko_grep\gui.ps1", "${scriptsDir}\tebunko_grep\convert.ps1")
         $seen = New-Object 'System.Collections.Generic.HashSet[string]'
         $queue = New-Object System.Collections.Queue
         foreach ($entry in $entries) {
@@ -68,9 +68,9 @@ Describe "判断層" -Tag Meta {
     It "判断層のファイルに画面への依存が無い" {
         $files = @(
             "${scriptsDir}\shared\core\text.ps1"
-            "${scriptsDir}\windox_grep\index\index_name.ps1"
-            "${scriptsDir}\windox_grep\search\search_query.ps1"
-            "${scriptsDir}\windox_grep\convert\convert_decide.ps1"
+            "${scriptsDir}\tebunko_grep\index\index_name.ps1"
+            "${scriptsDir}\tebunko_grep\search\search_query.ps1"
+            "${scriptsDir}\tebunko_grep\convert\convert_decide.ps1"
         ) + @(Get-ChildItem "${scriptsDir}" -Recurse -Filter "*_view.ps1" | ForEach-Object { $_.FullName })
         foreach ($file in $files) {
             $text = [System.IO.File]::ReadAllText($file)
