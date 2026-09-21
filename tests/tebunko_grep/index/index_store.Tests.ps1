@@ -1,8 +1,8 @@
-﻿# インデックスの作成・集計・改名・削除（tebunko_grep\index\index_store.ps1）のテスト
+﻿# インデックスの追加・集計・改名・削除（tebunko_grep\index\index_store.ps1）のテスト
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "getIndexStats" -Tag Io {
-    It "インデックス名ごとに件数と最終変換日時を集計する" {
+    It "インデックス名ごとに件数と最終取り込み日時を集計する" {
         $path = "$TestDrive\stats.tsv"
         writeStatusFile @(
             [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
@@ -39,9 +39,9 @@ Describe "getIndexStats" -Tag Io {
 }
 
 Describe "renameIndex" -Tag Io {
-    It "インデックスのフォルダと変換一覧の記録の名前を変え、中身はそのまま残す" {
+    It "インデックスのフォルダと取り込み一覧の記録の名前を変え、中身はそのまま残す" {
         $dir = "$TestDrive\rename\index"
-        $path = "$TestDrive\rename\変換一覧.tsv"
+        $path = "$TestDrive\rename\取り込み一覧.tsv"
         New-Item -ItemType Directory -Path "$dir\営業\a.xlsx" -Force | Out-Null
         Set-Content -LiteralPath "$dir\営業\a.xlsx\Sheet1.tsv" -Value "本文" -Encoding UTF8
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
@@ -68,9 +68,9 @@ Describe "renameIndex" -Tag Io {
         $status.Rows.ContainsKey("技術\d.pptx") | Should Be $true
     }
 
-    It "インデックスのフォルダがまだ無くても、変換一覧の記録は変える" {
+    It "インデックスのフォルダがまだ無くても、取り込み一覧の記録は変える" {
         $dir = "$TestDrive\rename2\index"
-        $path = "$TestDrive\rename2\変換一覧.tsv"
+        $path = "$TestDrive\rename2\取り込み一覧.tsv"
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
@@ -83,7 +83,7 @@ Describe "renameIndex" -Tag Io {
 
     It "同じ名前のフォルダが既にあれば例外にする" {
         $dir = "$TestDrive\rename3\index"
-        $path = "$TestDrive\rename3\変換一覧.tsv"
+        $path = "$TestDrive\rename3\取り込み一覧.tsv"
         New-Item -ItemType Directory -Path "$dir\営業" -Force | Out-Null
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
 
@@ -92,9 +92,9 @@ Describe "renameIndex" -Tag Io {
 }
 
 Describe "removeIndex" -Tag Io {
-    It "インデックスのフォルダと変換一覧の記録を削除し、ほかのインデックスは残す" {
+    It "インデックスのフォルダと取り込み一覧の記録を削除し、ほかのインデックスは残す" {
         $dir = "$TestDrive\remove\index"
-        $path = "$TestDrive\remove\変換一覧.tsv"
+        $path = "$TestDrive\remove\取り込み一覧.tsv"
         New-Item -ItemType Directory -Path "$dir\営業\a.xlsx" -Force | Out-Null
         Set-Content -LiteralPath "$dir\営業\a.xlsx\Sheet1.tsv" -Value "本文" -Encoding UTF8
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
@@ -119,7 +119,7 @@ Describe "removeIndex" -Tag Io {
     }
 
     It "名前が空なら何もしない" {
-        $path = "$TestDrive\remove2\変換一覧.tsv"
+        $path = "$TestDrive\remove2\取り込み一覧.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
@@ -145,7 +145,7 @@ Describe "getSearchIndexes" -Tag Io {
             [pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true },
             [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true }) $settings
 
-        $indexes = @(getSearchIndexes $dir "$TestDrive\変換一覧なし.tsv" $settings)
+        $indexes = @(getSearchIndexes $dir "$TestDrive\取り込み一覧なし.tsv" $settings)
         $indexes.Count | Should Be 2
         # ［1 インデックス作成］の一覧と同じ並び
         $indexes[0].Name | Should Be "見積"
@@ -163,20 +163,20 @@ Describe "getSearchIndexes" -Tag Io {
         }
         writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true }) $settings
 
-        $indexes = @(getSearchIndexes $dir "$TestDrive\変換一覧なし.tsv" $settings)
+        $indexes = @(getSearchIndexes $dir "$TestDrive\取り込み一覧なし.tsv" $settings)
         @($indexes | ForEach-Object { $_.Name }) -join "," | Should Be "見積,あとから,報告書"
         # 元のフォルダが分からないものは空
         $indexes[1].SourcePath | Should Be ""
     }
 
-    It "一覧にも変換一覧にも無いインデックスは、そのフォルダの 元のフォルダ.txt から元のフォルダを読む" {
+    It "一覧にも取り込み一覧にも無いインデックスは、そのフォルダの 元のフォルダ.txt から元のフォルダを読む" {
         $dir = "$TestDrive\コピー2\index"
         $settings = "$TestDrive\コピー2\setting.config"
         [void](New-Item -ItemType Directory -Path "$dir\営業" -Force)
         # ほかの PC で作ったインデックスをフォルダごとコピーした状態
         writeSourceFolderFile @([pscustomobject]@{ Path = "\\server\営業"; Name = "営業" }) $dir
 
-        $indexes = @(getSearchIndexes $dir "$TestDrive\変換一覧なし.tsv" $settings)
+        $indexes = @(getSearchIndexes $dir "$TestDrive\取り込み一覧なし.tsv" $settings)
         $indexes.Count | Should Be 1
         $indexes[0].Name | Should Be "営業"
         $indexes[0].SourcePath | Should Be "\\server\営業"
@@ -184,7 +184,7 @@ Describe "getSearchIndexes" -Tag Io {
 }
 
 Describe "getIndexNameMap（見出し行まで読む）" -Tag Io {
-    It "変換対象フォルダの行だけを読み、見出し行の後は読まない" {
+    It "クロール対象フォルダの行だけを読み、見出し行の後は読まない" {
         $path = "$TestDrive\name_map.tsv"
         writeListFile $path @(
             "${statusFolderKey}`tC:\data\見積`t見積",
@@ -322,7 +322,7 @@ Describe "publishIndexFiles" -Tag Io {
         Test-Path -LiteralPath "$TestDrive\pub1\出力\A社.xlsx" | Should Be $false
     }
 
-    It "以前の変換結果は残さず入れ替える（シートの削除・名前変更に追従する）" {
+    It "以前のインデックスは残さず入れ替える（シートの削除・名前変更に追従する）" {
         $from = "$TestDrive\pub2\tmp"
         [System.IO.Directory]::CreateDirectory($from) | Out-Null
         $bookDir = "$TestDrive\pub2\index\営業\A社.xlsx"

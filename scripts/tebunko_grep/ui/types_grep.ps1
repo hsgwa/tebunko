@@ -440,7 +440,7 @@ class ProcRow {
     [string]$TitleText
 }
 
-# ［1 インデックス管理］の変換に失敗したファイル1件
+# ［1 インデックス管理］の取り込みに失敗したファイル1件
 class FailRow {
     [string]$RelPath
     [string]$Reason
@@ -448,18 +448,18 @@ class FailRow {
     [string]$SourcePath
 }
 
-# 変換の確認ダイアログに出すインデックス1件（変換予定.tsv の1行）
+# インデックス作成の確認ダイアログに出すインデックス1件（取り込み予定.tsv の1行）
 class PlanRow {
     [string]$Name
     [string]$Path
-    [string]$TargetText   # 変換対象の件数（"12 件" / "更新不要" / "変換しません"）
+    [string]$TargetText   # 取り込み対象の件数（"12 件" / "更新不要" / "取り込みません"）
     [object]$TargetBrush
     [string]$DetailText   # 内訳（新規 N 件 / 更新あり N 件 …）
     [string]$TotalText    # 見つかった Office ファイルの数
 }
 
 # ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
-# ［変換］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
+# ［作成］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）
     [string]$Path

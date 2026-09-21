@@ -1,6 +1,6 @@
 ﻿# Word（.docx / .docm）・PowerPoint（.pptx / .pptm）のファイルからテキストを読み出す。
 # ファイルはZIP（Office Open XML）として直接読むため、Word・PowerPointは使わない。
-# 変換処理・テストから dot-source して使う。共通の部品（shared.ps1）を先に読み込んでおくこと。
+# インデクサ・テストから dot-source して使う。共通の部品（shared.ps1）を先に読み込んでおくこと。
 #
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
 #   Word      : ページ001, ページ002, ..., ヘッダー・フッター, 脚注
@@ -490,7 +490,7 @@ function readPptxUnits {
 
 function writeUnits {
     # ユニットごとに "<場所>.tsv" を出力し、出力したファイル数を返す（空のユニットは出力しない）。
-    # 元のファイル名は、出力先のフォルダ名（変換処理が作業フォルダから移すときのフォルダ）になる
+    # 元のファイル名は、出力先のフォルダ名（インデクサが作業フォルダから移すときのフォルダ）になる
     param (
         [System.Collections.Specialized.OrderedDictionary]$units,
         [string]$outDir

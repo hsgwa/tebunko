@@ -15,7 +15,7 @@ $ui.ResultGrid.Add_LoadingRow({
 })
 $script:search = $null
 $script:lastSearch = $null
-$script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名と変換対象フォルダの対応（getSourceLocation のキャッシュ）
+$script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名とクロール対象フォルダの対応（getSourceLocation のキャッシュ）
 $script:filterText = ""
 # 検索で読んだ TSV の内容（画面を閉じるまで残し、次の検索では更新の無い TSV をファイルから読まない）
 $script:tsvCache = newTsvTextCache
@@ -104,7 +104,7 @@ function updateSearchTarget {
     } elseif ($null -eq $summary) {
         $ui.SearchTargetText.Text = "検索対象：すべて（確認中…）"
     } else {
-        $ui.SearchTargetText.Text = "検索対象：すべて（TSV $($summary['Count'].ToString('N0')) 件 ・ 最終変換 $(formatTime $summary['LastWrite'])）"
+        $ui.SearchTargetText.Text = "検索対象：すべて（TSV $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])）"
     }
     $ui.SearchTargetText.ToolTip = $ui.SearchTargetText.Text
     $ui.GoIndexTabButton.Visibility = if ($summary -and $summary["Count"] -eq 0) { "Visible" } else { "Collapsed" }
@@ -280,7 +280,7 @@ function finishSearch {
         $status += "　見つからない検索対象フォルダ：$($missing -join '、')"
     }
     if (isIndexing) {
-        $status += "　変換中のため、作成途中のインデックスを検索しています。"
+        $status += "　インデックス作成中のため、作成途中のインデックスを検索しています。"
     }
     setStatus $status
 }

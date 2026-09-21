@@ -1,7 +1,7 @@
-﻿# 変換の状態を表すファイル（変換一覧・変換中・進捗・予定・開始要求）の読み書き。
+﻿# インデックス作成の状態を表すファイル（取り込み一覧・取り込み中・進捗・予定・開始要求）の読み書き。
 
 function newStatusRow {
-    # 変換一覧の1行（1ファイル）を作る
+    # 取り込み一覧の1行（1ファイル）を作る
     param (
         [string]$relPath,
         [string]$updated = "",
@@ -18,7 +18,7 @@ function newStatusRow {
         サイズ   = $size
         状態     = $state
         TSV数    = $tsvCount
-        変換日時 = $ingested
+        取り込み日時 = $ingested
         エラー   = $errorMessage
     }
 }
@@ -29,7 +29,7 @@ ${statusLineBreaks} = [char[]]@("`t", "`r", "`n")
 
 
 function toStatusLine {
-    # 変換一覧の1行を文字列にする（1件ずつの追記用。addStatusRow）。
+    # 取り込み一覧の1行を文字列にする（1件ずつの追記用。addStatusRow）。
     # エラーメッセージ等のタブ・改行は、1行1件を保つためスペースにする。
     # 数万行をまとめて書き出す writeStatusFile では、同じ整形をその場に展開している（関数の呼び出しだけで
     # 5万行あたり数秒かかるため）。整形を変えるときは両方を直す（テストで同じ結果になることを確かめている）
@@ -43,11 +43,11 @@ function toStatusLine {
     }
     return [string]::Join("`t", @(
         [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
-        [string]$row.TSV数, [string]$row.変換日時, $errorText))
+        [string]$row.TSV数, [string]$row.取り込み日時, $errorText))
 }
 
 function describeIngestError {
-    # 変換で発生した例外から、変換一覧のエラー列・画面に表示する失敗の理由を返す。
+    # 取り込みで発生した例外から、取り込み一覧のエラー列・画面に表示する失敗の理由を返す。
     # Officeアプリのメッセージは分かりにくい（パスワード付きでも「入力したパスワードが間違っています」等）ため、
     # よくある原因は「原因（詳細: 元のメッセージ）」の形に言い換える
     param (
@@ -69,22 +69,22 @@ function describeIngestError {
 
     if ($message -match "パスワード|password") {
         # 元のメッセージ（パスワードが間違っています等）は、パスワードを入力していない利用者には誤解を招くため付けない
-        return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは変換できません）"
+        return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
     }
 
     $cause = $null
     if ($base -is [System.IO.FileNotFoundException] -or $base -is [System.IO.DirectoryNotFoundException]) {
-        $cause = "ファイルが見つかりません（変換中に移動・削除・名前変更された可能性があります）"
+        $cause = "ファイルが見つかりません（取り込み中に移動・削除・名前変更された可能性があります）"
     } elseif ($base -is [System.UnauthorizedAccessException] -or $code -eq "80070005") {
         $cause = "ファイルを読むアクセス権がありません"
     } elseif ($base -is [System.IO.PathTooLongException]) {
         $cause = "パスが長すぎるため読めません"
     } elseif ($base -is [System.OutOfMemoryException]) {
         # 巨大なシート（テキストにして約 1GB 超）は、整形（prettyTsv）で一度に読み込めずメモリ不足になる
-        $cause = "シート・文書が大きすぎて変換できません（メモリが不足しました）"
+        $cause = "シート・文書が大きすぎて取り込めません（メモリが不足しました）"
     } elseif (@("80070020", "80070021") -contains $code) {
         # 共有違反・ロック違反
-        $cause = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再変換してください）"
+        $cause = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）"
     } elseif (@("80040154", "80080005", "800401F3") -contains $code) {
         # クラス未登録・サーバーの起動失敗・ProgID 不正
         $cause = "Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした（インストール・ライセンス認証の状態を確認してください）"
@@ -106,10 +106,10 @@ function describeIngestError {
 }
 
 function readStatusFile {
-    # 変換一覧を読み込み、@{ Folders; Rows } を返す。ファイルが無ければ空。
-    #   Folders: 変換対象フォルダ @{ Path; Name（インデックス名） } の配列。以前の形式（インデックス名なし）は Name が空
+    # 取り込み一覧を読み込み、@{ Folders; Rows } を返す。ファイルが無ければ空。
+    #   Folders: クロール対象フォルダ @{ Path; Name（インデックス名） } の配列。以前の形式（インデックス名なし）は Name が空
     #   Rows   : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
-    # 変換中は1件ごとに行を追記するため、同じ相対パスの行は後の行を優先する。列数の合わない行（書き込み途中で中断した行など）は無視する
+    # インデックス作成中は1件ごとに行を追記するため、同じ相対パスの行は後の行を優先する。列数の合わない行（書き込み途中で中断した行など）は無視する
     param (
         [string]$path = ${statusFile}
     )
@@ -121,7 +121,7 @@ function readStatusFile {
         return $result
     }
 
-    # 変換中に画面などから読んでも、変換側の追記・置き換えを妨げないよう共有を許して開く
+    # インデックス作成中に画面などから読んでも、インデクサの追記・置き換えを妨げないよう共有を許して開く
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
     $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
     $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
@@ -148,7 +148,7 @@ function readStatusFile {
             サイズ   = $fields[2]
             状態     = $fields[3]
             TSV数    = $fields[4]
-            変換日時 = $fields[5]
+            取り込み日時 = $fields[5]
             エラー   = $fields[6]
         }
     }
@@ -156,8 +156,8 @@ function readStatusFile {
 }
 
 function writeStatusFile {
-    # 変換一覧を書き出す（1ファイル1行）。途中で中断しても壊れないよう、一時ファイルに書いてから置き換える
-    #   folders: 変換対象フォルダ @{ Path; Name } の配列。"変換対象フォルダ<TAB>パス<TAB>インデックス名" の行にする
+    # 取り込み一覧を書き出す（1ファイル1行）。途中で中断しても壊れないよう、一時ファイルに書いてから置き換える
+    #   folders: クロール対象フォルダ @{ Path; Name } の配列。"クロール対象フォルダ<TAB>パス<TAB>インデックス名" の行にする
     param (
         [object[]]$folders,
         [object[]]$rows,
@@ -170,7 +170,7 @@ function writeStatusFile {
     }
     $lines.Add((${statusColumns} -join "`t"))
     # 数万行を書き出すため、1行ごとの関数呼び出し（toStatusLine）・パイプライン（Where-Object）は使わない
-    # （5万行で約 10 秒 → 約 0.2 秒。この間は変換の進み具合が止まって見えるため速くする）
+    # （5万行で約 10 秒 → 約 0.2 秒。この間はインデックス作成の進み具合が止まって見えるため速くする）
     foreach ($row in $rows) {
         if ($null -eq $row) {
             continue
@@ -181,14 +181,14 @@ function writeStatusFile {
         }
         $lines.Add([string]::Join("`t", @(
             [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
-            [string]$row.TSV数, [string]$row.変換日時, $errorText)))
+            [string]$row.TSV数, [string]$row.取り込み日時, $errorText)))
     }
 
     writeTextLinesAtomic $path $lines
 }
 
 function addStatusRow {
-    # 変換一覧の末尾に1行追記する（readStatusFile では後の行が優先される）
+    # 取り込み一覧の末尾に1行追記する（readStatusFile では後の行が優先される）
     param (
         $row,
         [string]$path = ${statusFile}
@@ -198,7 +198,7 @@ function addStatusRow {
 }
 
 function readIngestingFile {
-    # 変換中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて変換を始めて終わらなかった回数 } を返す。
+    # 取り込み中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて取り込みを始めて終わらなかった回数 } を返す。
     # 記録が無い・壊れている場合は $null
     param (
         [string]$path = ${ingestingFile}
@@ -217,7 +217,7 @@ function readIngestingFile {
 }
 
 function writeIngestingFile {
-    # 変換を始めるファイルを "回数<TAB>相対パス" で記録する。変換が終われば removeIngestingFile で消す
+    # 取り込みを始めるファイルを "回数<TAB>相対パス" で記録する。取り込みが終われば removeIngestingFile で消す
     param (
         [string]$relPath,
         [int]$count,
@@ -238,7 +238,7 @@ function removeIngestingFile {
 }
 
 function writeIndexingProgress {
-    # 変換の進み具合を1行で書く（画面が読む）。書き込みは1ファイルにつき1回で、変換の速さに影響しない大きさにする。
+    # インデックス作成の進み具合を1行で書く（画面が読む）。書き込みは1ファイルにつき1回で、インデックス作成の速さに影響しない大きさにする。
     #   "<段階><TAB><処理済み><TAB><残り><TAB><失敗><TAB><いま行っていること>"
     # 画面が読んでいる最中でも書けるよう、共有を許して開く
     param (
@@ -260,12 +260,12 @@ function writeIndexingProgress {
             $stream.Dispose()
         }
     } catch {
-        # 進み具合の表示のためだけのファイルのため、書けなくても変換は続ける
+        # 進み具合の表示のためだけのファイルのため、書けなくてもインデックス作成は続ける
     }
 }
 
 function readIndexingProgress {
-    # 変換の進み具合を読む（無い・壊れていれば $null）。画面が毎秒呼ぶため、1行だけ読む
+    # インデックス作成の進み具合を読む（無い・壊れていれば $null）。画面が毎秒呼ぶため、1行だけ読む
     param (
         [string]$path = ${indexingProgressFile}
     )
@@ -273,7 +273,7 @@ function readIndexingProgress {
     if (!(Test-Path -LiteralPath $path)) {
         return $null
     }
-    # 変換側が書いている最中でも読めるよう、共有を許して開く
+    # インデクサが書いている最中でも読めるよう、共有を許して開く
     $text = ""
     try {
         $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
@@ -314,18 +314,18 @@ function removeIndexingProgress {
 }
 
 function newIngestPlanRow {
-    # 変換予定（インデックス1件分）の行を作る
+    # 取り込み予定（インデックス1件分）の行を作る
     param (
         [string]$name,
         [string]$path,
         [string]$kind = ${planKindIngest},
         [int]$total = 0,    # 見つかった Office ファイルの数
-        [int]$targets = 0,  # 今回変換するファイルの数（新規＋更新あり＋前回未完了＋変換結果なし）
+        [int]$targets = 0,  # 今回取り込むファイルの数（新規＋更新あり＋前回未完了＋インデックスなし）
         [int]$new = 0,
         [int]$updated = 0,
         [int]$pending = 0,
-        [int]$lost = 0,     # 変換結果（TSV）が無くなった・壊れているため変換し直す
-        [int]$failed = 0    # 前回失敗し、その後更新されていない（再変換するかは画面で選ぶ）
+        [int]$lost = 0,     # インデックス（TSV）が無くなった・壊れているため取り込み直す
+        [int]$failed = 0    # 前回失敗し、その後更新されていない（再取り込みするかは画面で選ぶ）
     )
 
     return [pscustomobject]@{
@@ -333,17 +333,17 @@ function newIngestPlanRow {
         元のフォルダ   = $path
         区分           = $kind
         ファイル数     = $total
-        変換対象       = $targets
+        取り込み対象       = $targets
         新規           = $new
         更新あり       = $updated
         前回未完了     = $pending
-        変換結果なし   = $lost
+        インデックスなし   = $lost
         前回失敗       = $failed
     }
 }
 
 function writeIngestPlan {
-    # 変換予定を書き出す（インデックス1件1行）。画面は数える前から読むため、
+    # 取り込み予定を書き出す（インデックス1件1行）。画面は数える前から読むため、
     # 途中の状態を読ませないよう一時ファイルに書いてから置き換える
     param (
         [object[]]$rows,
@@ -360,7 +360,7 @@ function writeIngestPlan {
 }
 
 function readIngestPlan {
-    # 変換予定を読む。ファイルが無い・列が合わない場合は $null（画面は次の機会に読み直す）。
+    # 取り込み予定を読む。ファイルが無い・列が合わない場合は $null（画面は次の機会に読み直す）。
     # 件数の列は数値にして返す
     param (
         [string]$path = ${ingestPlanFile}
@@ -369,7 +369,7 @@ function readIngestPlan {
     if (!(Test-Path -LiteralPath $path)) {
         return $null
     }
-    # 変換側が置き換えている最中でも読めるよう、共有を許して開く
+    # インデクサが置き換えている最中でも読めるよう、共有を許して開く
     $text = ""
     try {
         $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
@@ -422,8 +422,8 @@ function removeIngestPlan {
 }
 
 function writeIndexingStartRequest {
-    # 画面が「変換する」を選んだことを変換側に伝える（前回失敗したファイルも再変換するかも伝える）。
-    # 変換側が読んでいる途中の内容を見ないよう、一時ファイルに書いてから置き換える
+    # 画面が「取り込む」を選んだことをインデクサに伝える（前回失敗したファイルも再取り込みするかも伝える）。
+    # インデクサが読んでいる途中の内容を見ないよう、一時ファイルに書いてから置き換える
     param (
         [bool]$retryFailed = $false,
         [string]$path = ${indexingStartRequestFile}
@@ -437,7 +437,7 @@ function writeIndexingStartRequest {
 }
 
 function readIndexingStartRequest {
-    # 画面からの「変換する」の返事を読む。まだ無ければ $null
+    # 画面からの「取り込む」の返事を読む。まだ無ければ $null
     param (
         [string]$path = ${indexingStartRequestFile}
     )
@@ -465,7 +465,7 @@ function removeIndexingStartRequest {
 }
 
 function readStatusLines {
-    # 変換一覧を1行ずつ読む（変換中でも読めるよう共有を許して開く）。ファイルが無ければ空
+    # 取り込み一覧を1行ずつ読む（インデックス作成中でも読めるよう共有を許して開く）。ファイルが無ければ空
     param (
         [string]$path = ${statusFile}
     )
@@ -485,7 +485,7 @@ function readStatusLines {
 }
 
 function renameStatusIndexName {
-    # 変換一覧に記録したインデックス名を書き換える（変換対象フォルダの行と、各行の相対パスの先頭）。
+    # 取り込み一覧に記録したインデックス名を書き換える（クロール対象フォルダの行と、各行の相対パスの先頭）。
     # 行の順序と内容をそのまま保つため、行ごとに書き換えて置き換える
     param (
         [string]$oldName,
@@ -520,7 +520,7 @@ function renameStatusIndexName {
 }
 
 function removeStatusIndexName {
-    # 変換一覧から、あるインデックスの記録（変換対象フォルダの行と、そのインデックスの各行）を取り除く
+    # 取り込み一覧から、あるインデックスの記録（クロール対象フォルダの行と、そのインデックスの各行）を取り除く
     param (
         [string]$name,
         [string]$path = ${statusFile}
@@ -549,9 +549,9 @@ function removeStatusIndexName {
 }
 
 function getIndexingState {
-    # 変換一覧から変換の状態を返す:
-    #   @{ Exists; Folders（変換対象フォルダ @{ Path; Name } の配列）; Total; Pending（未変換）; Failed; Done; IngestedSince（since 以降に変換した件数）; Updated（変換一覧の更新日時）;
-    #      FailedRows（失敗したファイルの行。変換日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats） }
+    # 取り込み一覧からインデックス作成の状態を返す:
+    #   @{ Exists; Folders（クロール対象フォルダ @{ Path; Name } の配列）; Total; Pending（未取り込み）; Failed; Done; IngestedSince（since 以降に取り込んだ件数）; Updated（取り込み一覧の更新日時）;
+    #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats） }
     param (
         [datetime]$since = [datetime]::MaxValue,
         [string]$path = ${statusFile}
@@ -583,11 +583,11 @@ function getIndexingState {
         }
 
         $ingested = [datetime]::MinValue
-        if ($countSince -and $row.変換日時 -and [datetime]::TryParseExact($row.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested) -and $ingested -ge $sinceSecond) {
+        if ($countSince -and $row.取り込み日時 -and [datetime]::TryParseExact($row.取り込み日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested) -and $ingested -ge $sinceSecond) {
             $state.IngestedSince++
         }
     }
-    # 変換日時は "yyyy/MM/dd HH:mm:ss" のため、文字列の順で新しい順に並ぶ
-    $state.FailedRows = @($failedRows | Sort-Object -Property @{ Expression = { [string]$_.変換日時 }; Descending = $true }, @{ Expression = { $_.相対パス } })
+    # 取り込み日時は "yyyy/MM/dd HH:mm:ss" のため、文字列の順で新しい順に並ぶ
+    $state.FailedRows = @($failedRows | Sort-Object -Property @{ Expression = { [string]$_.取り込み日時 }; Descending = $true }, @{ Expression = { $_.相対パス } })
     return $state
 }

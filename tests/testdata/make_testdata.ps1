@@ -526,7 +526,7 @@ try {
         simpleBook "Excel\大文字拡張子旧形式.XLS" "TC06" 56
     }
 
-    runCase "TC07 変換対象外の拡張子" {
+    runCase "TC07 取り込み対象外の拡張子" {
         simpleBook "対象外\対象外.xltx" "TC07" 54
         simpleBook "対象外\対象外.csv" "TC07" 6
         writeText "対象外\対象外.txt" "TC07`tテキストファイル"
@@ -623,7 +623,7 @@ try {
             setCell $ws "D$row" "$($cases[$i][0])右隣"
         }
         $ws.Range("C2").WrapText = $true
-        # 空白だけの行（変換時に削除される）、完全な空行
+        # 空白だけの行（取り込み時に削除される）、完全な空行
         $row = $cases.Count + 3
         setRows $ws "A$row" @(, @(" ", "　", "`t"))
         $row += 3
@@ -847,7 +847,7 @@ try {
     }
 
     runCase "TC15 異常系" {
-        # 読み取りパスワード付き（開けないので変換失敗になる想定）
+        # 読み取りパスワード付き（開けないので取り込み失敗になる想定）
         $wb = newBook @("秘密")
         setRows $wb.Worksheets.Item(1) "A1" @(, @("TC15-1", "読み取りパスワード付き"))
         saveBook $wb "Excel\異常系\読み取りパスワード付き.xlsx" 51 "openpw"

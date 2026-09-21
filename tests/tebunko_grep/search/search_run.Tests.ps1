@@ -214,7 +214,7 @@ Describe "searchIndex" -Tag Io {
         @((searchIndex "株" $files $true -fileFilter "!*.docx").Hits).Count | Should Be 2
     }
 
-    It "検索の途中で読めなくなったTSV（変換中に削除された等）は飛ばす" {
+    It "検索の途中で読めなくなったTSV（インデックス作成中に削除された等）は飛ばす" {
         $dir = Join-Path $TestDrive "deleted"
         newTsv "$dir\a.xlsx_S.tsv" @("株")
         newTsv "$dir\b.xlsx_S.tsv" @("株")

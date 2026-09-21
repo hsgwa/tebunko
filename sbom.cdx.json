@@ -8,7 +8,7 @@
       "bom-ref": "tebunko",
       "group": "tebunko",
       "name": "tebunko",
-      "description": "Office ファイルを場所ごとに TSV へ変換してインデックス化し、文字列を一括検索する Windows PowerShell ツール",
+      "description": "Office ファイルを場所ごとに TSV へ書き出してインデックスを作り、文字列を一括検索する Windows PowerShell ツール",
       "scope": "required",
       "licenses": [
         {
@@ -29,11 +29,11 @@
       },
       {
         "name": "tebunko:prerequisite",
-        "value": "Microsoft Excel（Excel ファイルの変換に必要。COM で操作する）"
+        "value": "Microsoft Excel（Excel ファイルの取り込みに必要。COM で操作する）"
       },
       {
         "name": "tebunko:prerequisite",
-        "value": "Microsoft Word / PowerPoint（旧形式 .doc / .ppt の変換にのみ使用。任意）"
+        "value": "Microsoft Word / PowerPoint（旧形式 .doc / .ppt の取り込みにのみ使用。任意）"
       },
       {
         "name": "tebunko:prerequisite",

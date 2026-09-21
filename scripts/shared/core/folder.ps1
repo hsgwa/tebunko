@@ -79,7 +79,7 @@ ${driveTargets} = $null
 
 function getDriveTargets {
     # ドライブ文字（"Z:"）→ 割り当て先（ネットワークドライブは "\\server\share"）を返す。
-    # 同じプロセスでは1回だけ調べる（変換・検索の途中で割り当てが変わることは想定しない）。
+    # 同じプロセスでは1回だけ調べる（インデックス作成・検索の途中で割り当てが変わることは想定しない）。
     # subst で割り当てたドライブは解決しない（CIM で取れないため。実運用ではネットワークドライブが主）。
     if ($null -ne ${script:driveTargets}) {
         return ${script:driveTargets}
@@ -162,7 +162,7 @@ function testSameFolder {
 
 function testFolderUnder {
     # path が folder 自身か folder の下のフォルダかを返す（testSameFolder と同じく、書き方の違い・ドライブの割り当てをたどる）。
-    # 変換対象フォルダが入れ子になると、同じファイルが2つのインデックスに入り、検索結果にも二重に出るため、その確認に使う
+    # クロール対象フォルダが入れ子になると、同じファイルが2つのインデックスに入り、検索結果にも二重に出るため、その確認に使う
     param (
         [string]$path,
         [string]$folder,

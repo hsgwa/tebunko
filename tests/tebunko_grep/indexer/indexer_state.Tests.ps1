@@ -1,4 +1,4 @@
-﻿# 変換の状態ファイル（tebunko_grep\indexer\indexer_state.ps1）のテスト
+﻿# インデックス作成の状態ファイル（tebunko_grep\indexer\indexer_state.ps1）のテスト
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
@@ -12,7 +12,7 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         $written | Should Be "営業\見積.xlsx`t2025/01/10 12:34:56`t10420`t${stateFailed}`t`t2026/09/20 10:00:00`tエラー の 説明"
     }
 
-    It "書き込んだ変換対象フォルダと行をそのまま読み込める（[ ] や先頭の空白を含むパス）" {
+    It "書き込んだクロール対象フォルダと行をそのまま読み込める（[ ] や先頭の空白を含むパス）" {
         $path = "$TestDrive\status[1].tsv"
         $rows = @(
             (newStatusRow "a\[確定]見積.xlsx" "2025/01/10 12:34:56" "10420" $stateDone "3" "2026/09/19 10:00:00"),
@@ -39,13 +39,13 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         $status.Rows[" b.xls"].状態 | Should Be $stateNew
     }
 
-    It "先頭に変換対象フォルダ（パス・インデックス名）、次に見出しのTSVになる" {
+    It "先頭にクロール対象フォルダ（パス・インデックス名）、次に見出しのTSVになる" {
         $path = "$TestDrive\status_lines.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
         $lines = [System.IO.File]::ReadAllLines($path)
-        $lines[0] | Should Be "変換対象フォルダ`tC:\data`tdata"
-        $lines[1] | Should Be "相対パス`t更新日時`tサイズ`t状態`tTSV数`t変換日時`tエラー"
-        $lines[2] | Should Be "a.xlsx`t2025/01/10 12:34:56`t1`t未変換`t`t`t"
+        $lines[0] | Should Be "クロール対象フォルダ`tC:\data`tdata"
+        $lines[1] | Should Be "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー"
+        $lines[2] | Should Be "a.xlsx`t2025/01/10 12:34:56`t1`t未取り込み`t`t`t"
     }
 
     It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
@@ -85,11 +85,11 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         Test-Path -LiteralPath "${path}.tmp" | Should Be $false
     }
 
-    It "以前の形式（変換対象フォルダが1つでインデックス名なし）も読める" {
+    It "以前の形式（クロール対象フォルダが1つでインデックス名なし）も読める" {
         $path = "$TestDrive\status_legacy.tsv"
         [System.IO.File]::WriteAllLines($path, [string[]]@(
-            "変換対象フォルダ`tC:\old",
-            "相対パス`t更新日時`tサイズ`t状態`tTSV数`t変換日時`tエラー",
+            "クロール対象フォルダ`tC:\old",
+            "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー",
             "a.xlsx`t2025/01/10 12:34:56`t1`t済`t1`t`t"
         ), $utf8Bom)
 
@@ -144,7 +144,7 @@ Describe "describeIngestError" -Tag Io {
     }
 
     It "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す" {
-        $expected = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは変換できません）"
+        $expected = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
         describeIngestError (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") | Should Be $expected
         describeIngestError (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") | Should Be $expected
         describeIngestError (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") | Should Be $expected
@@ -164,7 +164,7 @@ Describe "describeIngestError" -Tag Io {
 
     It "使用中・アクセス権なし・ファイルなしは原因を付けて元のメッセージを詳細にする" {
         $locked = New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16))
-        describeIngestError $locked | Should Be "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再変換してください）（詳細: 別のプロセスで使用されているため、アクセスできません。）"
+        describeIngestError $locked | Should Be "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: 別のプロセスで使用されているため、アクセスできません。）"
         describeIngestError (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。")) | Should Match "^ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）$"
         describeIngestError (New-Object System.IO.FileNotFoundException("見つかりません。")) | Should Match "^ファイルが見つかりません（"
     }
@@ -178,7 +178,7 @@ Describe "describeIngestError" -Tag Io {
     It "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする" {
         $inner = New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown.")
         $outer = New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました', $inner)
-        describeIngestError $outer | Should Match "^シート・文書が大きすぎて変換できません（メモリが不足しました）（詳細: "
+        describeIngestError $outer | Should Match "^シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: "
     }
 
     It "原因が分からないものは元のメッセージ（改行は詰める）、メッセージが無ければエラーコードを返す" {
@@ -188,13 +188,13 @@ Describe "describeIngestError" -Tag Io {
 }
 
 Describe "getIndexingState" -Tag Io {
-    It "失敗したファイルの行を、変換日時の新しい順で FailedRows に返す" {
+    It "失敗したファイルの行を、取り込み日時の新しい順で FailedRows に返す" {
         $path = "$TestDrive\status_state.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
             (newStatusRow "data\済.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/19 10:00:00"),
             (newStatusRow "data\古い失敗.xlsx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/18 09:00:00" "原因A"),
             (newStatusRow "data\新しい失敗.docx" "2025/01/10 12:34:56" "1" $stateFailed "" "2026/09/19 11:00:00" "原因B"),
-            (newStatusRow "data\未変換.pptx" "2025/01/10 12:34:56" "1" $stateNew)
+            (newStatusRow "data\未取り込み.pptx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
 
         $state = getIndexingState -path $path
@@ -207,7 +207,7 @@ Describe "getIndexingState" -Tag Io {
         $state.FailedRows[1].相対パス | Should Be "data\古い失敗.xlsx"
     }
 
-    It "変換一覧が無ければ FailedRows は空" {
+    It "取り込み一覧が無ければ FailedRows は空" {
         $state = getIndexingState -path "$TestDrive\none.tsv"
         $state.Exists | Should Be $false
         @($state.FailedRows).Count | Should Be 0
@@ -235,9 +235,9 @@ Describe "writeIndexingProgress / readIndexingProgress / removeIndexingProgress"
     It "ファイルが無い・壊れていれば null" {
         readIndexingProgress "$TestDrive\進捗なし.txt" | Should BeNullOrEmpty
         $path = "$TestDrive\進捗3.txt"
-        writeListFile $path @("変換`tあ`tい`tう`tえ")   # 件数が数値でない
+        writeListFile $path @("見積`tあ`tい`tう`tえ")   # 件数が数値でない
         readIndexingProgress $path | Should BeNullOrEmpty
-        writeListFile $path @("変換`t1`t2")              # 列が足りない（書き込みの途中）
+        writeListFile $path @("見積`t1`t2")              # 列が足りない（書き込みの途中）
         readIndexingProgress $path | Should BeNullOrEmpty
     }
 
@@ -276,11 +276,11 @@ Describe "writeIngestPlan / readIngestPlan / removeIngestPlan" -Tag Io {
         $plan[0].元のフォルダ | Should Be "C:\data\営業"
         $plan[0].区分 | Should Be ${planKindIngest}
         ($plan[0].ファイル数 + 1) | Should Be 1235   # 文字列ではなく数値で返る
-        $plan[0].変換対象 | Should Be 12
+        $plan[0].取り込み対象 | Should Be 12
         $plan[0].新規 | Should Be 5
         $plan[0].更新あり | Should Be 7
         $plan[0].前回失敗 | Should Be 3
-        $plan[1].変換対象 | Should Be 0
+        $plan[1].取り込み対象 | Should Be 0
     }
 
     It "チェックなし・フォルダなしの区分も往復できる（件数は 0）" {
@@ -317,7 +317,7 @@ Describe "writeIngestPlan / readIngestPlan / removeIngestPlan" -Tag Io {
         } finally {
             $stream.Dispose()
         }
-        (readIngestPlan $path)[0].変換対象 | Should Be 2
+        (readIngestPlan $path)[0].取り込み対象 | Should Be 2
     }
 
     It "削除できる（無ければ何もしない）" {
@@ -330,7 +330,7 @@ Describe "writeIngestPlan / readIngestPlan / removeIngestPlan" -Tag Io {
 }
 
 Describe "writeIndexingStartRequest / readIndexingStartRequest / removeIndexingStartRequest" -Tag Io {
-    It "前回失敗したファイルも再変換するかを伝えられる" {
+    It "前回失敗したファイルも再取り込みするかを伝えられる" {
         $path = "$TestDrive\開始要求1"
         writeIndexingStartRequest $true $path
         (readIndexingStartRequest $path).RetryFailed | Should Be $true
@@ -338,7 +338,7 @@ Describe "writeIndexingStartRequest / readIndexingStartRequest / removeIndexingS
         (readIndexingStartRequest $path).RetryFailed | Should Be $false
     }
 
-    It "まだ返事が無ければ null（変換側は待ち続ける）" {
+    It "まだ返事が無ければ null（インデクサは待ち続ける）" {
         readIndexingStartRequest "$TestDrive\開始要求なし" | Should BeNullOrEmpty
     }
 

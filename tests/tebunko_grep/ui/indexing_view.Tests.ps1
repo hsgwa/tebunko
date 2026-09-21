@@ -1,4 +1,4 @@
-﻿# 変換の確認に出す文言（tebunko_grep\ui\indexing_view.ps1）のテスト。
+﻿# インデックス作成の確認に出す文言（tebunko_grep\ui\indexing_view.ps1）のテスト。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 . "${scriptsDir}\tebunko_grep\ui\indexing_view.ps1"
 
@@ -6,13 +6,13 @@ function newPlanItem {
     param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0)
     return [pscustomobject]@{
         インデックス名 = "売上"; 元のフォルダ = "C:\data\売上"; 区分 = $kind
-        ファイル数 = $files; 変換対象 = $targets; 新規 = $new; 更新あり = $updated
-        前回未完了 = 0; 変換結果なし = 0; 前回失敗 = $failed
+        ファイル数 = $files; 取り込み対象 = $targets; 新規 = $new; 更新あり = $updated
+        前回未完了 = 0; インデックスなし = 0; 前回失敗 = $failed
     }
 }
 
 Describe "newPlanViewRows" -Tag Unit {
-    It "変換するものがあれば件数と内訳を出す" {
+    It "取り込むものがあれば件数と内訳を出す" {
         $row = (newPlanViewRows (newPlanItem ${planKindIngest} 120 12 10 2))[0]
         $row.TotalText | Should Be "120 件"
         $row.TargetText | Should Be "12 件"
@@ -20,23 +20,23 @@ Describe "newPlanViewRows" -Tag Unit {
         $row.DetailText | Should Be "新規 10 件 / 更新あり 2 件"
     }
 
-    It "変換対象が無ければ「更新不要」" {
+    It "取り込み対象が無ければ「更新不要」" {
         $row = (newPlanViewRows (newPlanItem ${planKindIngest} 120 0))[0]
         $row.TargetText | Should Be "更新不要"
         $row.Tone | Should Be "ok"
-        $row.DetailText | Should Be "すべて変換済みです"
+        $row.DetailText | Should Be "すべて取り込み済みです"
     }
 
     It "チェックが外れていれば数えない" {
         $row = (newPlanViewRows (newPlanItem ${planKindUnchecked}))[0]
-        $row.TargetText | Should Be "変換しません"
+        $row.TargetText | Should Be "取り込みません"
         $row.Tone | Should Be "gray"
         $row.TotalText | Should Be "－"
     }
 
-    It "元のフォルダが無ければ変換できないと出す" {
+    It "元のフォルダが無ければ取り込めないと出す" {
         $row = (newPlanViewRows (newPlanItem ${planKindMissing}))[0]
-        $row.TargetText | Should Be "変換できません"
+        $row.TargetText | Should Be "取り込めません"
         $row.Tone | Should Be "ng"
     }
 
@@ -53,25 +53,25 @@ Describe "newPlanViewRows" -Tag Unit {
 }
 
 Describe "getIndexingConfirmText" -Tag Unit {
-    It "変換対象があれば件数と［変換を開始］" {
+    It "取り込み対象があれば件数と［インデックス作成を開始］" {
         $view = getIndexingConfirmText 12 3 $false
         $view.Total | Should Be 12
-        $view.Text | Should Be "合計 12 件を変換します。"
-        $view.Button | Should Be "変換を開始"
+        $view.Text | Should Be "合計 12 件を取り込みます。"
+        $view.Button | Should Be "インデックス作成を開始"
     }
 
-    It "失敗分も再変換するなら足す" {
+    It "失敗分も再取り込みするなら足す" {
         (getIndexingConfirmText 12 3 $true).Total | Should Be 15
     }
 
     It "0 件なら［閉じる］にする" {
         $view = getIndexingConfirmText 0 0 $false
-        $view.Text | Should Be "更新が必要なファイルはありません（すべて変換済みです）。"
+        $view.Text | Should Be "更新が必要なファイルはありません（すべて取り込み済みです）。"
         $view.Button | Should Be "閉じる"
     }
 
-    It "失敗分だけがあるときは、再変換のチェックで開始に変わる" {
+    It "失敗分だけがあるときは、再取り込みのチェックで開始に変わる" {
         (getIndexingConfirmText 0 5 $false).Button | Should Be "閉じる"
-        (getIndexingConfirmText 0 5 $true).Button | Should Be "変換を開始"
+        (getIndexingConfirmText 0 5 $true).Button | Should Be "インデックス作成を開始"
     }
 }

@@ -90,7 +90,7 @@ function toColumnName {
 function readTsvContext {
     # インデックスのTSVの lineNumber 行目と、その前後 before 行・after 行を @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー）。
     # 行の数え方は検索（searchTsvFiles）と同じ（どちらも StreamReader.ReadLine で数えるため一致する。Excel のTSVでは行番号 = シートの行番号）。
-    # ファイルが無い・読めない場合は空。変換中のTSVも読めるよう共有モードは ReadWrite|Delete。
+    # ファイルが無い・読めない場合は空。インデックス作成中のTSVも読めるよう共有モードは ReadWrite|Delete。
     # ※以前は C#（TsvContextReader）で行の位置を覚えて速くしていたが、実行時コンパイル（csc.exe）を無くすため PowerShell で読む
     #   （プレビューは選択行の前後だけで、TSV は元のファイル1つ分＝通常は数千行までのため、先頭から目的行までの読み込みで十分）。
     param (

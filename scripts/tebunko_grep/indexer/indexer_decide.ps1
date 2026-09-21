@@ -1,20 +1,20 @@
-﻿# 1 ファイルを変換し直すかどうかの判断（差分変換の要）。
+﻿# 1 ファイルを取り込み直すかどうかの判断（差分取り込みの要）。
 # ファイルにも画面にも触らないため、そのままテストできる（tests\tebunko_grep\indexer\indexer_decide.Tests.ps1）。
 
 function getIngestDecision {
-    # 前回の変換一覧の行と、いまのファイルの更新日時・サイズから、変換するかどうかと、その理由を返す。
-    #   Convert: 変換するか / Reason: done（変換済み）・failed（前回失敗。再変換するかは呼び出し元が決める）・
-    #            new（一覧に無い）・updated（更新された）・pending（前回未完了）・lost（変換結果が無い・壊れている）
+    # 前回の取り込み一覧の行と、いまのファイルの更新日時・サイズから、取り込むかどうかと、その理由を返す。
+    #   Ingest: 取り込むか / Reason: done（取り込み済み）・failed（前回失敗。再取り込みするかは呼び出し元が決める）・
+    #            new（一覧に無い）・updated（更新された）・pending（前回未完了）・lost（インデックスが無い・壊れている）
     param (
-        $old,                 # 前回の変換一覧の行（無ければ $null）
+        $old,                 # 前回の取り込み一覧の行（無ければ $null）
         [string]$updated,     # いまのファイルの更新日時（formatFileTime）
         [string]$size,        # いまのファイルのサイズ（文字列）
-        [bool]$indexComplete  # 変換結果（TSV）がそろっているか（状態が「済」のときだけ意味がある）
+        [bool]$indexComplete  # インデックス（TSV）がそろっているか（状態が「済」のときだけ意味がある）
     )
 
-    # 前回と更新日時・サイズが同じで、前回「未変換」で終わっていなければ、同じファイルとみなす
+    # 前回と更新日時・サイズが同じで、前回「未取り込み」で終わっていなければ、同じファイルとみなす
     $sameFile = ($old -and $old.更新日時 -eq $updated -and $old.サイズ -eq $size -and $old.状態 -ne ${stateNew})
-    # 変換済みでも、インデックス（TSV）が無くなっていれば変換し直す。
+    # 取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す。
     # 一覧だけを見ると「済」のままになり、検索しても出てこない状態が続くため
     $lostIndex = ($sameFile -and $old.状態 -eq ${stateDone} -and -not $indexComplete)
 

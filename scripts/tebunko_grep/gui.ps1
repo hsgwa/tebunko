@@ -1,7 +1,7 @@
 ﻿# 画面（WPF）
 #
 # ［1 インデックス管理］［2 検索］［9 プロセス停止］の3タブ。画面の定義は xaml\tebunko_grep.xaml。
-# 変換は indexer.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う。
+# インデックス作成は indexer.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う。
 #
 # このファイルは起動口。画面の中身は ui\ 配下と ..\shared\ui\ 配下に分けてある（下の読み込みの順に意味がある）。
 
@@ -26,7 +26,7 @@ ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。�
 ${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
 ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
 ${libPath}  = "$PSScriptRoot\lib.ps1"  # 別スレッドで読み込む（startJob に渡す）
-# 変換処理（ウィンドウを出さずに別プロセスで起動する。indexing_tab.ps1）。
+# インデクサ（ウィンドウを出さずに別プロセスで起動する。indexing_tab.ps1）。
 # ui\ 配下のファイルの中で $PSScriptRoot を使うと ui\ を指してしまうため、パスはここで決める
 ${indexerScriptPath} = "$PSScriptRoot\indexer.ps1"
 
@@ -166,7 +166,7 @@ $ui.Tabs.Add_SelectionChanged({
 
 $window.Add_Activated({
     safe {
-        # 変換対象フォルダがほかの画面で変更されていれば読み直す
+        # クロール対象フォルダがほかの画面で変更されていれば読み直す
         if ((getTargetsKey @(getTargetFolders)) -ne $script:savedTargets) {
             loadTargets
             setStatus "インデックス一覧がほかで変更されたため、読み直しました"
@@ -216,13 +216,13 @@ $window.Add_PreviewKeyDown({
 
 $window.Add_Closing({
     param ($sender, $e)
-    # 変換はウィンドウを出さずに動いているため、閉じる前にどうするか聞く
+    # インデックス作成はウィンドウを出さずに動いているため、閉じる前にどうするか聞く
     if (isIndexing) {
         $answer = showConfirm `
-            -heading "まだ変換の途中です。どうしますか？" `
+            -heading "まだインデックス作成の途中です。どうしますか？" `
             -choices @(
-                @{ Text = "変換を続けたまま閉じる"; Detail = "変換は裏で続きます。もう一度開くと進み具合が出ます"; Value = "keep" },
-                @{ Text = "変換を止めてから閉じる"; Detail = "いま変換しているファイルが終わったところで止まります（次に開いたとき続きから再開できます）"; Value = "stop" }
+                @{ Text = "インデックス作成を続けたまま閉じる"; Detail = "インデックス作成は裏で続きます。もう一度開くと進み具合が出ます"; Value = "keep" },
+                @{ Text = "インデックス作成を止めてから閉じる"; Detail = "いま取り込んでいるファイルが終わったところで止まります（次に開いたとき続きから再開できます）"; Value = "stop" }
             ) `
             -cancelText "閉じない"
         if ($null -eq $answer) {
@@ -258,13 +258,13 @@ updateWordNotice
 updateKillBadge
 refreshIndexSummary
 
-# 前回の画面で起動した変換が続いていれば、進み具合を表示する
+# 前回の画面で起動したインデックス作成が続いていれば、進み具合を表示する
 $runningIndexing = findRunningIndexer
 if ($runningIndexing) {
     adoptIndexing $runningIndexing
 }
 
-# 起動時のタブ：変換中・中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
+# 起動時のタブ：インデックス作成中・中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
 $openIndexTab = $runningIndexing -or ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
 $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
 setStatus ""

@@ -106,7 +106,7 @@ ${searchCacheMaxChars} = 64000000
 function newTsvTextCache {
     # 検索で読んだ TSV の内容を、次の検索で使い回すための入れ物を作る（画面が 1 つ持ち、検索のたびに searchIndex に渡す）。
     # TSV を 1 つずつ開いて読む時間が検索時間の大半のため（TSV 1 万件で約 1 秒）、2 回目以降の検索ではファイルを開かない。
-    # 更新日時・サイズが列挙したときと違う TSV（変換し直した等）は読み直す。並列検索の各スレッドから使うため、中身は ConcurrentDictionary。
+    # 更新日時・サイズが列挙したときと違う TSV（取り込み直した等）は読み直す。並列検索の各スレッドから使うため、中身は ConcurrentDictionary。
     #   Texts: TSV の \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容) / Chars: 残している文字数 / MaxChars: 上限
     param (
         [long]$maxChars = ${searchCacheMaxChars}
@@ -121,8 +121,8 @@ function newTsvTextCache {
 
 function searchTsvFiles {
     # files の start から count 件を読み、regex に一致する行を PSCustomObject で返す（1行に複数一致しても1件）。
-    # max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。読めないTSV（変換中に削除された等）は飛ばす。
-    # 変換中のTSVも読めるよう共有モードは ReadWrite|Delete にする。正規表現の照合が時間切れ（RegexMatchTimeoutException）なら
+    # max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。読めないTSV（インデックス作成中に削除された等）は飛ばす。
+    # インデックス作成中のTSVも読めるよう共有モードは ReadWrite|Delete にする。正規表現の照合が時間切れ（RegexMatchTimeoutException）なら
     # 例外はそのまま呼び出し元（searchIndex）へ伝わる。
     #
     # 1 行ずつ PowerShell で照合すると、行数に比例して遅い（1 行あたり十数マイクロ秒）。textRegex・scanMode（newSearchRegex）を
@@ -614,7 +614,7 @@ function toSearchResultLines {
     $lines = New-Object System.Collections.Generic.List[string]
     $columnCount = 0
     foreach ($hit in $hits) {
-        # ファイル名の前に、変換対象フォルダからの相対フォルダを付ける
+        # ファイル名の前に、クロール対象フォルダからの相対フォルダを付ける
         $line = toResultLine $hit.Book $hit.Location $hit.LineNumber $hit.Line
         if ($hit.RelDir) {
             $line = "$($hit.RelDir)\${line}"

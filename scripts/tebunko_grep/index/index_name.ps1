@@ -1,7 +1,7 @@
 ﻿# インデックス名と TSV のファイル名の決め方（判断層。ファイルに触らない）。
 
 function newIndexName {
-    # 変換対象フォルダのインデックス名（work\index 直下のフォルダ名）を作る。
+    # クロール対象フォルダのインデックス名（work\index 直下のフォルダ名）を作る。
     # フォルダ名（ドライブ直下はドライブ名）を使い、usedNames と重複すれば「名前(2)」「名前(3)」…とする
     param (
         [string]$folderPath,
@@ -29,10 +29,10 @@ function newIndexName {
 }
 
 function assignIndexNames {
-    # 変換対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Name } の配列を返す。
+    # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Name } の配列を返す。
     # インデックス名は設定に持つ（getTargetFolders の Name）。フォルダの置き場所（Path）を書き換えても名前は変わらないため、
     # フォルダを移しても同じインデックスとして扱える（インデックスを作り直さない）。
-    # 名前が無い場合（新しく追加したフォルダ・以前の版の設定）は、前回の変換一覧の同じパスの名前を使い、
+    # 名前が無い場合（新しく追加したフォルダ・以前の版の設定）は、前回の取り込み一覧の同じパスの名前を使い、
     # それも無ければフォルダ名から重複しない名前を作る
     param (
         [object[]]$targetFolders,
@@ -70,7 +70,7 @@ function assignIndexNames {
 }
 
 function splitIndexRelPath {
-    # work\index からの相対パスを、先頭のインデックス名と残り（変換対象フォルダからの相対パス）に分ける: @{ Name; Rest }
+    # work\index からの相対パスを、先頭のインデックス名と残り（クロール対象フォルダからの相対パス）に分ける: @{ Name; Rest }
     # （String.Split([char], 2) は .NET Framework では Split(params char[]) になり、2 も区切り文字とみなされるため使わない）
     param (
         [string]$relPath
@@ -159,7 +159,7 @@ function toIndexFileName {
 
     $name = "{0}.tsv" -f (encodeIndexPlace $place)
     if ($name.Length -gt ${maxFileNameLength}) {
-        throw "変換結果のファイル名が長すぎるため保存できません（$($name.Length) 文字。上限 ${maxFileNameLength} 文字）: ${name}"
+        throw "インデックスのファイル名が長すぎるため保存できません（$($name.Length) 文字。上限 ${maxFileNameLength} 文字）: ${name}"
     }
     return $name
 }

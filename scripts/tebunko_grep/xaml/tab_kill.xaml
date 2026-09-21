@@ -13,7 +13,7 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
           <TextBlock Style="{StaticResource Heading}" Text="残っている Office のプロセス" />
           <TextBlock Style="{StaticResource Meta}" Margin="0,6,0,0"
-                     Text="変換を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。" />
+                     Text="インデックス作成を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。" />
         </StackPanel>
   
         <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
@@ -24,7 +24,7 @@
           </StackPanel>
         </DockPanel>
         <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Micro}" Margin="2,12,0,0"
-                   Text="バックグラウンド：画面にウィンドウが無いプロセス（変換で起動したものなど）。&#x0a;画面に表示中のプロセスを終了すると、保存していない内容は失われます。" />
+                   Text="バックグラウンド：画面にウィンドウが無いプロセス（取り込みで起動したものなど）。&#x0a;画面に表示中のプロセスを終了すると、保存していない内容は失われます。" />
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
           <Button x:Name="RefreshProcessButton" DockPanel.Dock="Right" Content="更新" />
           <TextBlock x:Name="ProcessSummaryText" Style="{StaticResource Focal}" VerticalAlignment="Center" />

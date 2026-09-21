@@ -9,7 +9,7 @@ ${officeProcessNames} = [ordered]@{ EXCEL = "Excel"; WINWORD = "Word"; POWERPNT 
 
 function getOfficeProcesses {
     # 実行中の Excel・Word・PowerPoint を返す。
-    # ウィンドウを持たない（MainWindowHandle が 0）プロセスは、変換処理などでバックグラウンド起動されたものとする
+    # ウィンドウを持たない（MainWindowHandle が 0）プロセスは、インデクサなどでバックグラウンド起動されたものとする
     $result = New-Object System.Collections.Generic.List[object]
     foreach ($process in @(Get-Process -Name @(${officeProcessNames}.Keys) -ErrorAction SilentlyContinue)) {
         $startTime = $null

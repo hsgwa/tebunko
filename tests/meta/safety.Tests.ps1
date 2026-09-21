@@ -145,7 +145,7 @@ Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2
         (findPattern $extract '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
     }
 
-    It "変換処理の Office は画面に出さない（Visible = false）" {
+    It "インデクサの Office は画面に出さない（Visible = false）" {
         (findPattern $app 'Visible\s*=\s*\$false') | Should Not Be ""
         # 可視にするのは画面から元のファイルを開くときだけ（ui/open_source.ps1）
         $visible = @($code | Where-Object { $_.Text -match 'Visible\s*=\s*\$true' })
@@ -153,11 +153,11 @@ Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2
     }
 }
 
-Describe "変換対象のファイルを書き換えないこと（docs/04_安全性.md 3.2）" -Tag Meta {
+Describe "取り込み対象のファイルを書き換えないこと（docs/04_安全性.md 3.2）" -Tag Meta {
     It "元のファイルのパスを書き込み・削除の API に渡さない" {
-        # 書き込み・削除の呼び出し行に、変換対象（原本）を指す変数が現れないこと。
+        # 書き込み・削除の呼び出し行に、取り込み対象（原本）を指す変数が現れないこと。
         # 原本は作業フォルダへコピーしてから開くため、書き込み先は常にコピー側（$tmpPath・$destPath・$copyPath 等）になる。
-        # $targetFolder・$folder.Path = 変換対象フォルダ、$row.SourcePath = 検索結果の元のファイル
+        # $targetFolder・$folder.Path = クロール対象フォルダ、$row.SourcePath = 検索結果の元のファイル
         $writes = @($code | Where-Object { $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|\.SaveAs|\[System\.IO\.(File|Directory)\]::Move|Move-Item' })
         ($writes.Count -gt 0) | Should Be $true
         (@($writes | Where-Object { $_.Text -match '\$targetFolder|\$row\.SourcePath|\$folder\.Path' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""

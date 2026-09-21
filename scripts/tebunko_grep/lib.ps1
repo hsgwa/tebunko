@@ -1,5 +1,5 @@
 ﻿# tebunko_grep の画面以外の部品の読み込み口。
-# 画面（gui）・変換処理・テスト・画面が起こす別スレッドから dot-source して使う。読み込む順に意味がある。
+# 画面（gui）・インデクサ・テスト・画面が起こす別スレッドから dot-source して使う。読み込む順に意味がある。
 . "$PSScriptRoot\..\shared\shared.ps1"
 . "$PSScriptRoot\core\paths_grep.ps1"
 . "$PSScriptRoot\core\settings_grep.ps1"

@@ -1,8 +1,8 @@
 ﻿# インデックス（work\index 配下）の作成・集計・改名・削除。
 
 function getIndexNameMap {
-    # 変換一覧に記録したインデックス名 → 変換対象フォルダのパス（大文字・小文字を区別しない）。
-    # 変換対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る（変換一覧が大きくても時間がかからないように）
+    # 取り込み一覧に記録したインデックス名 → クロール対象フォルダのパス（大文字・小文字を区別しない）。
+    # クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る（取り込み一覧が大きくても時間がかからないように）
     param (
         [string]$path = ${statusFile}
     )
@@ -32,9 +32,9 @@ function getIndexNameMap {
 }
 
 function getIndexStats {
-    # 変換一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
+    # 取り込み一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
     #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastIngested（"yyyy/MM/dd HH:mm:ss"。無ければ空） }
-    # rows は readStatusFile の Rows（相対パス → 行）。変換一覧を読み直さずに済むよう、読み込み済みの行を受け取る
+    # rows は readStatusFile の Rows（相対パス → 行）。取り込み一覧を読み直さずに済むよう、読み込み済みの行を受け取る
     param (
         $rows
     )
@@ -61,8 +61,8 @@ function getIndexStats {
         } elseif ($state -eq ${stateFailed}) {
             $stat.Failed++
         }
-        # 変換日時は "yyyy/MM/dd HH:mm:ss" のため、文字列のまま比べて新しい方を残せる
-        $ingested = [string]$entry.Value.変換日時
+        # 取り込み日時は "yyyy/MM/dd HH:mm:ss" のため、文字列のまま比べて新しい方を残せる
+        $ingested = [string]$entry.Value.取り込み日時
         if ($ingested -gt $stat.LastIngested) {
             $stat.LastIngested = $ingested
         }
@@ -72,8 +72,8 @@ function getIndexStats {
 
 function renameIndex {
     # インデックス名を変える（画面の［編集…］）。インデックスのフォルダ（work\index\<名前>）を改名し、
-    # 変換一覧の記録も書き換えるため、名前を変えてもインデックスは作り直さない。
-    # 変換中は呼ばない（画面は変換中この操作を無効にする）
+    # 取り込み一覧の記録も書き換えるため、名前を変えてもインデックスは作り直さない。
+    # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）
     param (
         [string]$oldName,
         [string]$newName,
@@ -104,8 +104,8 @@ function renameIndex {
 }
 
 function removeIndex {
-    # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（work\index\<名前>）と、変換一覧の記録を削除する。
-    # 変換中は呼ばない（画面は変換中この操作を無効にする）
+    # インデックスを削除する（画面の［削除］）。インデックスのフォルダ（work\index\<名前>）と、取り込み一覧の記録を削除する。
+    # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）
     param (
         [string]$name,
         [string]$dir = ${indexDir},
@@ -153,7 +153,7 @@ function getSearchIndexes {
         $name = $sub.Name
         $path = (fromLongPath $sub.FullName)
         if (!$sources.ContainsKey($name)) {
-            # 変換一覧にも設定にも無いインデックス（別の場所・PC からコピーしたものなど）は、
+            # 取り込み一覧にも設定にも無いインデックス（別の場所・PC からコピーしたものなど）は、
             # そのフォルダの中の 元のフォルダ.txt から元のフォルダを読む
             $own = readSourceFolderFile $path
             if ($own.ContainsKey($name)) {
@@ -173,14 +173,14 @@ function getSearchIndexes {
 }
 
 
-# 変換結果のフォルダが壊れている（0 バイトのTSVがある）ことを表す件数。testIndexComplete は変換し直す
+# インデックスのフォルダが壊れている（0 バイトのTSVがある）ことを表す件数。testIndexComplete は取り込み直す
 ${indexBrokenCount} = -1
 
 
 function getIndexTsvCounts {
-    # インデックスのフォルダの中のフォルダごとのTSVの数を返す（変換一覧の「済」と、インデックスの実体が合っているかの確認に使う）:
+    # インデックスのフォルダの中のフォルダごとのTSVの数を返す（取り込み一覧の「済」と、インデックスの実体が合っているかの確認に使う）:
     #   インデックスのフォルダからの相対パス（大文字・小文字を区別しない）→ そのフォルダの直下のTSVの数
-    # 元のファイル1つにつき1フォルダ（<ファイル名.xlsx>\<場所>.tsv）のため、キーは変換一覧の相対パスと同じになる。
+    # 元のファイル1つにつき1フォルダ（<ファイル名.xlsx>\<場所>.tsv）のため、キーは取り込み一覧の相対パスと同じになる。
     # 0 バイトのTSVがあるフォルダは ${indexBrokenCount}（-1）にする。
     # 空のシート・ページは保存しない（prettyTsv / writeUnits）ため、0 バイトのTSVは書き込みの途中で
     # 電源が落ちた場合などに限られ、そのままでは検索しても中身が出てこない。
@@ -226,10 +226,10 @@ function getIndexTsvCounts {
 }
 
 function testIndexComplete {
-    # 変換一覧の行（状態が「済」）に対して、インデックスの実体（TSV）がそろっているかを返す。
+    # 取り込み一覧の行（状態が「済」）に対して、インデックスの実体（TSV）がそろっているかを返す。
     # 利用者が work\index のフォルダ・TSVを直接削除した場合に、「済」のまま検索できなくなるのを防ぐ
-    #   row    : 変換一覧の行（TSV数 を使う）
-    #   relPath: 変換一覧の相対パス（= インデックスのフォルダからの相対パス）
+    #   row    : 取り込み一覧の行（TSV数 を使う）
+    #   relPath: 取り込み一覧の相対パス（= インデックスのフォルダからの相対パス）
     #   counts : getIndexTsvCounts の結果（$null なら確認せず、そろっているものとして扱う）
     param (
         $row,
@@ -251,16 +251,16 @@ function testIndexComplete {
     if ($actual -eq ${indexBrokenCount}) {
         return $false  # 0 バイトのTSVがある（書き込みの途中で電源が落ちた場合など）
     }
-    # 余分なTSVがあっても（利用者が置いた等）変換し直さない。足りない場合だけ作り直す
+    # 余分なTSVがあっても（利用者が置いた等）取り込み直さない。足りない場合だけ作り直す
     return ($actual -ge $expected)
 }
 
 function publishIndexFiles {
-    # 変換して作ったTSV（fromDir の直下）を、その元のファイルのインデックスのフォルダ（bookDir）に入れる。
+    # 取り込んで作ったTSV（fromDir の直下）を、その元のファイルのインデックスのフォルダ（bookDir）に入れる。
     # 作りかけのインデックスを残さないよう、いったん stagingDir に集めてから bookDir ごと入れ替える。
     # 途中で強制終了されても、bookDir は「前回のまま」か「今回の分がそろった状態」のどちらかになる
     # （1件ずつ bookDir へ移すと、途中で止まったときに一部のシートだけのインデックスが残り、検索で気付けない）。
-    # 以前の変換結果はフォルダごと置き換える（シートの削除・名前変更に追従するため）
+    # 以前のインデックスはフォルダごと置き換える（シートの削除・名前変更に追従するため）
     param (
         [string]$fromDir,
         [string]$bookDir,

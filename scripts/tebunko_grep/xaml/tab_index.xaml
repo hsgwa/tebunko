@@ -8,13 +8,13 @@
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </DockPanel.Resources>
-  <!-- 下部：変換の開始と進捗 -->
+  <!-- 下部：インデックス作成の開始と進捗 -->
   <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,14,0,0" Padding="16,13">
     <StackPanel>
       <DockPanel>
-        <Button x:Name="IndexingButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="変換を開始" MinWidth="150" Height="34" />
+        <Button x:Name="IndexingButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="インデックス作成を開始" MinWidth="150" Height="34" />
         <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,14,0"
-                   Text="押すと、何件変換するかを確認してから、新しいファイル・変わったファイルだけを変換します。" />
+                   Text="押すと、何件取り込むかを確認してから、新しいファイル・変わったファイルだけを取り込みます。" />
       </DockPanel>
 
       <StackPanel x:Name="IndexingProgressPanel" Visibility="Collapsed" Margin="0,14,0,0">
@@ -23,7 +23,7 @@
           <Button x:Name="IndexingLogButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="ログを開く"
                   VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed" />
           <TextBlock x:Name="IndexingProgressEta" DockPanel.Dock="Right" Style="{StaticResource Meta}" VerticalAlignment="Center" />
-          <!-- 変換中は、この件数がこの画面の主役 -->
+          <!-- インデックス作成中は、この件数がこの画面の主役 -->
           <TextBlock x:Name="IndexingProgressText" Style="{StaticResource Focal}" VerticalAlignment="Center" />
         </DockPanel>
         <ProgressBar x:Name="IndexingProgress" Margin="0,9,0,0" Maximum="1" />
@@ -46,13 +46,13 @@
       <StackPanel Grid.Row="0" Orientation="Horizontal">
         <TextBlock Style="{StaticResource Heading}" Text="インデックス一覧" />
         <TextBlock Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="10,0,0,0"
-                   Text="チェックを付けたインデックスを変換します" />
+                   Text="チェックを付けたインデックスを取り込みます" />
       </StackPanel>
 
       <DockPanel Grid.Row="1" Margin="0,10,0,0">
         <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Width="150">
-          <Button x:Name="NewIndexButton" Content="新規作成…" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを作ります" />
-          <Button x:Name="EditIndexButton" Content="編集…" Margin="0,8,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（変換したデータはそのまま使います）" />
+          <Button x:Name="NewIndexButton" Content="追加…" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
+          <Button x:Name="EditIndexButton" Content="編集…" Margin="0,8,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスはそのまま使います）" />
           <Button x:Name="RemoveIndexButton" Style="{StaticResource Danger}" Content="削除" Margin="0,8,0,0" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
           <TextBlock Style="{StaticResource Micro}" Margin="2,14,0,0"
                      Text="一覧にフォルダをドラッグ＆ドロップしても作成できます。" />
@@ -60,11 +60,11 @@
         <Grid>
           <DataGrid x:Name="IndexGrid" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
             <DataGrid.Columns>
-              <DataGridTemplateColumn Header="変換" Width="52">
+              <DataGridTemplateColumn Header="作成" Width="52">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" HorizontalAlignment="Center"
-                              ToolTip="チェックを付けたインデックスだけを変換します（外してもインデックスは残ります）" />
+                              ToolTip="チェックを付けたインデックスだけを取り込みます（外してもインデックスは残ります）" />
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
@@ -97,7 +97,7 @@
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="最終変換" Width="100">
+              <DataGridTemplateColumn Header="最終取り込み" Width="100">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding LastIngestedText}" />
@@ -108,7 +108,7 @@
           </DataGrid>
           <TextBlock x:Name="IndexGridPlaceholder" Style="{StaticResource Placeholder}" Margin="12,40"
                      VerticalAlignment="Top" TextWrapping="Wrap"
-                     Text="インデックスがありません。［新規作成…］で、Office ファイルのあるフォルダを指定してください。" />
+                     Text="インデックスがありません。［追加…］で、Office ファイルのあるフォルダを指定してください。" />
         </Grid>
       </DockPanel>
 
