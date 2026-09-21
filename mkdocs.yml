@@ -13,7 +13,7 @@ site_description: Office ファイルを中身の文字で一括検索する Win
 repo_url: https://github.com/hsgwa/tebunko
 repo_name: hsgwa/tebunko
 edit_uri: edit/main/docs/
-copyright: Copyright (c) tebunko contributors / MIT License
+copyright: Copyright (c) 2026 hsgwa / MIT License
 
 docs_dir: docs
 # 生成物は work/ に置く（.gitignore 済み）
@@ -27,6 +27,8 @@ theme:
   language: ja
   logo: images/logo.svg
   favicon: images/logo.svg
+  # Google Fonts を使わず、閲覧者の OS のフォントで表示する（既定の Roboto は日本語を含まないため見た目もほぼ変わらない）
+  font: false
   features:
     - navigation.indexes
     - navigation.top
@@ -48,6 +50,17 @@ theme:
 plugins:
   - search:
       lang: ja
+  # 外部のサーバー（unpkg など）から読み込むものを、ビルドのときに取り込んで自前で配信する。
+  # 閲覧者のブラウザーが第三者のサーバーへ通信しないようにする（本ツールは通信をしないことを前提にしている）
+  - privacy:
+      # 取り込んだファイルの置き場所（work/ は git の管理外）
+      cache_dir: work/cache/privacy
+
+# Material テーマは Mermaid を unpkg から読み込む。先にここで読み込ませると、テーマは読み込みを省く。
+# 外部の URL は privacy プラグインがビルドのときに取り込むため、閲覧者は unpkg へ通信しない。
+# 版は Material テーマが読み込む版（mermaid@11）に合わせて固定する
+extra_javascript:
+  - https://unpkg.com/mermaid@11.17.2/dist/mermaid.min.js
 
 markdown_extensions:
   - tables
