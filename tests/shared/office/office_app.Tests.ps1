@@ -91,15 +91,25 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         $app.AutomationSecurity | Should Be 3
     }
 
-    It "自分で起動したアプリは Quit し、5 秒で終わらなければプロセスを強制終了する" {
+    It "自分で起動したアプリは Quit し、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）で終わらなければプロセスを強制終了する" {
+        # Excel は変換中に取り出した COM オブジェクトが残って Quit では終わらないため、待ち時間を短くしてある（office_app.ps1 の $appInfo）
         $fake = newFakeApp
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @(100) @(100, 200)
         [void](getApp "Excel")
 
         stopApp "Excel"
-        $log -join "|" | Should Be "Quit|WaitForExit:5000|Kill:200"
+        $log -join "|" | Should Be "Quit|WaitForExit:1000|Kill:200"
         @($script:watchdog.Pids).Count | Should Be 0
+
+        $log.Clear()
+        $fakeWord = newFakeApp
+        Mock New-Object { $fakeWord } -ParameterFilter { $ComObject -eq "Word.Application" }
+        setProcesses @(100) @(100, 300)
+        [void](getApp "Word")
+
+        stopApp "Word"
+        $log -join "|" | Should Be "Quit|WaitForExit:5000|Kill:300"
     }
 
     It "起動中の利用者のアプリに接続した場合は、終了させない" {
