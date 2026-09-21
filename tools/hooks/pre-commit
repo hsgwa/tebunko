@@ -1,0 +1,18 @@
+#!/bin/sh
+# コミット前の検査（git for Windows の sh が実行する。有効にするのは tools/install_hooks.ps1）。
+#
+#   1. tools/check_commit.ps1 -Staged … ステージした内容に個人情報が無いこと、.ps1・.xaml の文字コード、作者のメールアドレス
+#   2. tests/run.ps1 -Tag Unit,Meta   … 速いテスト（Io を含む既定のテストと静的解析は CI で行う）
+#
+# どうしても飛ばすときは git commit --no-verify（CI で同じ検査が走る）。
+# このファイルは sh が読むため LF で保存する（.gitattributes で固定している）。
+
+root=$(git rev-parse --show-toplevel) || exit 1
+run="powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File"
+
+$run "$root/tools/check_commit.ps1" -Staged || exit 1
+
+if ! $run "$root/tests/run.ps1" -Tag Unit,Meta -Quiet; then
+    echo "テストが失敗したため、コミットを中止しました。" >&2
+    exit 1
+fi

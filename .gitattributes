@@ -1,0 +1,8 @@
+# スクリプト・画面定義・バッチは CRLF で取り出す（PowerShell 5.1・cmd の前提。tests\meta\encoding.Tests.ps1 が確かめる）。
+# core.autocrlf の設定に左右されないよう、ここで固定する（GitHub Actions のランナーでも同じになる）
+*.ps1 text eol=crlf
+*.xaml text eol=crlf
+*.bat text eol=crlf
+
+# git のフックは git for Windows の sh が読むため、LF で取り出す
+tools/hooks/* text eol=lf

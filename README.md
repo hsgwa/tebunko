@@ -33,7 +33,7 @@ Excel・Word・PowerPoint のファイルを、中身の文字でまとめて検
 
 ## インストール
 
-1. リポジトリを zip でダウンロードし、好きな場所に展開します（PC の中でも共有フォルダでもかまいません）。
+1. [Releases](https://github.com/hsgwa/tebunko/releases) から `tebunko_grep-<バージョン>.zip` をダウンロードし、好きな場所に展開します（PC の中でも共有フォルダでもかまいません）。
 2. `tebunko_grep.bat` をダブルクリックします。
 
 初回だけ「セキュリティの警告」が出ます。［実行］を押してください。2 回目からは出ません。警告を出したくない場合は、事前に `tebunko_grep.bat` のプロパティで［ブロックの解除］にチェックを入れます。
@@ -79,6 +79,7 @@ PowerShell スクリプトだけで動きます。ネットワーク通信、動
 - 根拠と確認手順: [docs/04_安全性.md](docs/04_安全性.md)
 - 部品表: [sbom.cdx.json](sbom.cdx.json)（第三者の部品は 0 件）
 - 脆弱性の報告: [SECURITY.md](SECURITY.md)
+- 改ざんの確認: Releases の zip にはカタログ（`tebunko.cat`）とハッシュ一覧（`SHA256SUMS.txt`）が入っています。`Test-FileCatalog` で確かめられます（証明書は不要）。
 
 ## ライセンス
 
