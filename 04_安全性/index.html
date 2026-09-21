@@ -2252,6 +2252,10 @@
 </tbody>
 </table>
 <p><code>tools\new_release_files.ps1</code> は、カタログに加えて目視・比較しやすい <code>SHA256SUMS.txt</code> も出力する。配布 zip にこの 2 つを同梱する運用にすれば、審査側は受け取った配布物そのものを検証できる。</p>
+<p>GitHub Release の配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名も付ける（<code>.github/workflows/release.yml</code>。GitHub の Artifact Attestations）。署名は Sigstore の証明書で行い、コードサイニング証明書は要らない。受け取った側は <a href="https://cli.github.com/">GitHub CLI</a> で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。</p>
+<div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko_grep-v1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
+</code></pre></div>
+<p>署名の bundle（<code>tebunko_grep-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko_grep-v1.0.0.zip.sigstore.json</code> を付ける。</p>
 <h3 id="52-静的解析-psscriptanalyzermicrosoft">5.2 静的解析: PSScriptAnalyzer（Microsoft）<a class="headerlink" href="#52-静的解析-psscriptanalyzermicrosoft" title="Permanent link">&para;</a></h3>
 <p>PowerShell スクリプトの静的解析ツール。Microsoft が公開しているルールで、コードインジェクション・平文パスワードなどを検出する。</p>
 <div class="highlight"><pre><span></span><code><span class="nb">Install-Module</span> <span class="n">PSScriptAnalyzer</span> <span class="n">-Scope</span> <span class="n">CurrentUser</span>        <span class="c"># 未導入の場合</span>
