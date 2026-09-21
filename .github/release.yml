@@ -1,0 +1,14 @@
+# GitHub Release のリリースノート（gh release create --generate-notes）を、PR のラベルで分類する。
+# 配布物を作るワークフローは workflows/release.yml で、このファイルとは別のもの
+changelog:
+  categories:
+    - title: 機能
+      labels: [enhancement]
+    - title: 不具合の修正
+      labels: [bug]
+    - title: 文書
+      labels: [documentation]
+    - title: 依存の更新
+      labels: [dependencies]
+    - title: その他
+      labels: ["*"]

@@ -1,0 +1,12 @@
+# GitHub Actions の更新を Dependabot が PR で出す（CLAUDE.md「GitHub の運用」）。
+# PowerShell のモジュール（Pester・PSScriptAnalyzer）は Dependabot の対象外のため、test.yml で版を決めて入れる
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "GitHub Actions:"

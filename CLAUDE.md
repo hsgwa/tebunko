@@ -8,14 +8,60 @@
 
 本リポジトリ配下での作業は git worktree（EnterWorktree 等）で隔離したツリー上で行い、作業ツリーを直接編集しない。
 
-作業内容をメインブランチへマージしたら、その worktree は削除する。マージ済みで不要になった worktree を残さない。
+ブランチ（worktree）を作るときは、先に GitHub の main を取得し、その最新から作る。手元の `master` や古いブランチを起点にしない。
 
 ```
+git fetch origin
+git worktree add -b worktree-<名前> .claude/worktrees/<名前> origin/main
+```
+
+一つのセッションを続けて別の機能に取りかかるときは、今の worktree で続けるか、別の worktree を新しく作るかを利用者に確認してから始める。別の worktree にする場合も、上と同じく最新の `origin/main` から作る。
+
+作業内容をメインブランチへマージしたら、その worktree は削除する。マージ済みで不要になった worktree を残さない。
+
+squash merge では手元のコミットが main に入らないため、`git branch -d` はブランチを消せない。PR がマージ済み（`MERGED`）であることを確かめてから `-D` で消す。
+
+```
+gh pr view worktree-<名前> --json state --jq .state
 git worktree remove .claude/worktrees/<名前>
-git branch -d worktree-<名前>
+git branch -D worktree-<名前>
 ```
 
 未コミットの変更が残っている worktree は削除しない。コミットするか破棄するかを利用者に確認してから削除する。
+
+## GitHub の運用
+
+変更は **Issue → ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。
+
+- **Issue から始める。** 機能追加・不具合修正は、先に Issue を立てる（テンプレートは `.github/ISSUE_TEMPLATE/`）。誤字直しのような小さな変更は Issue なしで PR を出してよい。
+- **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護で禁止し、CI（`test.yml` の `test`）が通らないとマージできない。
+- **1 つの PR には 1 つの機能だけを入れる。** 関係のない修正は別の PR にする。
+- **PR 本文は `.github/pull_request_template.md` に沿って書き、`Closes #<番号>` で Issue とつなぐ。** マージすると Issue が自動で閉じる。
+- **PR にはラベルを 1 つ付ける**（`enhancement` / `bug` / `documentation` / `dependencies`）。リリースノートはこのラベルで分類される（`.github/release.yml`）。
+- **PR を出す前に最新の main を取り込む。** 取り込みは merge で行い、push 済みのブランチを rebase して force push しない。
+
+  ```
+  git fetch origin
+  git merge origin/main
+  ```
+
+- **マージは squash merge で行う**（GitHub の設定で squash だけを許している）。PR 1 つが main のコミット 1 つになり、**PR のタイトルがそのコミットのタイトルになる。** タイトルは、コミットメッセージと同じく変更の内容が分かる日本語の 1 行にする。
+- マージしたブランチは GitHub が自動で消す。手元の worktree とブランチは上の「作業場所」の手順で消す。
+- **GitHub Actions の更新は Dependabot が PR を出す**（`.github/dependabot.yml`）。CI が通れば、内容を見てマージする。
+
+### リリース
+
+`v<メジャー>.<マイナー>.<パッチ>`（SemVer）のタグを main のコミットに付けて push する。上げる桁は次で決める。
+
+- **メジャー** … 設定ファイル（`setting.config`）やインデックスの形式が変わり、前の版のものがそのまま使えなくなるとき。
+- **マイナー** … 前の版と互換のまま機能を足したとき。
+- **パッチ** … 不具合の修正だけのとき。
+
+```
+git fetch origin
+git tag v1.2.0 origin/main
+git push origin v1.2.0
+```
 
 ## 除外設定（読ませない・検索させない）
 
