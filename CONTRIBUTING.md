@@ -71,7 +71,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 
 - 設計書は `docs/` にあります。動きを変えたら、該当する設計書も同じ Pull Request で直してください。
 - 図は Mermaid か draw.io（`.drawio.png`）で描きます。罫線文字のアスキーアートは使いません。
-- 設計書は [Web サイト](https://hsgwa.github.io/tebunko/)（MkDocs）にもなります。設計書を足したときは `mkdocs.yml` の `nav` にも足してください。手元での確かめ方は [docs/00_共通_3_テスト.md](docs/00_共通_3_テスト.md) の「CI」にあります。
+- 設計書は [Web サイト](https://hsgwa.github.io/tebunko/)（MkDocs）にもなります。設計書を足したときは `mkdocs.yml` の `nav` にも足してください。設計書を変えた Pull Request には、サイトのプレビューの URL が自動でコメントされます。手元での確かめ方は [docs/00_共通_3_テスト.md](docs/00_共通_3_テスト.md) の「CI」にあります。
 
 ## リリース
 
