@@ -1,2 +1,2 @@
-﻿C:\存在しないフォルダ\excel
-C:\Users\test\Documents\win_grep\tests\testdata\excel\2024
+﻿C:\存在しないフォルダ\office
+C:\Users\test\Documents\win_grep\tests\testdata\office\Excel\2024

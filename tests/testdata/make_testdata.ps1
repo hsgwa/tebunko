@@ -4,7 +4,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata.ps1
 # ケースの一覧と期待結果は同じフォルダの README.md を参照。
 param (
-    [string]$OutDir = "$PSScriptRoot\excel",
+    [string]$OutDir = "$PSScriptRoot\office",
     [string]$ConfigDir = "$PSScriptRoot\設定例",
     [int]$BigRows = 20000,
     [int]$ManyFiles = 200,
@@ -470,7 +470,7 @@ try {
             @("2024上期", "営業利益", 7500000, "TC01-上期")
         )
 
-        saveBook $wb "基本.xlsx"
+        saveBook $wb "Excel\基本.xlsx"
     }
 
     runCase "TC02 設計書の例（サブフォルダ）" {
@@ -488,7 +488,7 @@ try {
             @("", "合計", "", "", "=SUM(E2:E4)")
         )
         $wb.Worksheets.Item(2).Range("D2:E5").NumberFormat = "#,##0"
-        saveBook $wb "2024\見積\A社.xlsx"
+        saveBook $wb "Excel\2024\見積\A社.xlsx"
     }
 
     runCase "TC03 別フォルダの同名ブック" {
@@ -502,7 +502,7 @@ try {
             @("No", "品名", "数量", "単価", "金額"),
             @(1, "ノートPC", 12, 160000, "=C2*D2")
         )
-        saveBook $wb "2025\見積\A社.xlsx"
+        saveBook $wb "Excel\2025\見積\A社.xlsx"
     }
 
     runCase "TC04 旧形式 .xls" {
@@ -513,17 +513,17 @@ try {
             @("TC04", "日本語　全角スペース入り")
         )
         setRows $wb.Worksheets.Item(2) "A1" @(, @("TC04", "2枚目のシート"))
-        saveBook $wb "旧形式.xls" 56
+        saveBook $wb "Excel\旧形式.xls" 56
     }
 
     runCase "TC05 マクロ有効ブック .xlsm・バイナリブック .xlsb" {
-        simpleBook "マクロ有効.xlsm" "TC05" 52 "マクロシート"
-        simpleBook "バイナリ.xlsb" "TC05" 50 "バイナリシート"
+        simpleBook "Excel\マクロ有効.xlsm" "TC05" 52 "マクロシート"
+        simpleBook "Excel\バイナリ.xlsb" "TC05" 50 "バイナリシート"
     }
 
     runCase "TC06 大文字の拡張子" {
-        simpleBook "大文字拡張子.XLSX" "TC06"
-        simpleBook "大文字拡張子旧形式.XLS" "TC06" 56
+        simpleBook "Excel\大文字拡張子.XLSX" "TC06"
+        simpleBook "Excel\大文字拡張子旧形式.XLS" "TC06" 56
     }
 
     runCase "TC07 変換対象外の拡張子" {
@@ -556,7 +556,7 @@ try {
         $wb.Worksheets.Item("非表示").Visible = $xlSheetHidden
         $wb.Worksheets.Item("超非表示").Visible = $xlSheetVeryHidden
         $wb.Worksheets.Item(1).Activate()
-        saveBook $wb "シート表示状態.xlsx"
+        saveBook $wb "Excel\シート表示状態.xlsx"
     }
 
     runCase "TC09 シート名の記号" {
@@ -581,7 +581,7 @@ try {
         for ($i = 1; $i -le $names.Count; $i++) {
             setRows $wb.Worksheets.Item($i) "A1" @(, @("TC09-$('{0:D2}' -f $i)", "シート名: $($names[$i - 1])"))
         }
-        saveBook $wb "シート名記号.xlsx"
+        saveBook $wb "Excel\シート名記号.xlsx"
     }
 
     runCase "TC10 セルの内容" {
@@ -747,7 +747,7 @@ try {
             Write-Host "  （プリンタが無いためヘッダーは設定できませんでした）" -ForegroundColor Yellow
         }
 
-        saveBook $wb "セル内容.xlsx"
+        saveBook $wb "Excel\セル内容.xlsx"
     }
 
     runCase "TC11 大量データ" {
@@ -778,7 +778,7 @@ try {
         $wide[0, ($wideCols - 1)] = "TC11 横長最終列"
         $wb.Worksheets.Item(2).Range("A1").Resize(1, $wideCols).Value2 = $wide
 
-        saveBook $wb "大量データ.xlsx"
+        saveBook $wb "Excel\大量データ.xlsx"
     }
 
     runCase "TC29 使用範囲が膨らんだシート" {
@@ -808,12 +808,12 @@ try {
 
         setRows $wb.Worksheets.Item(3) "A1" @(, @("TC29-05", "普通のシート"))
         $wb.Worksheets.Item(1).Activate()
-        saveBook $wb "使用範囲肥大.xlsx"
+        saveBook $wb "Excel\使用範囲肥大.xlsx"
     }
 
     runCase "TC12 空のブック" {
         $wb = newBook @("空")
-        saveBook $wb "空ブック.xlsx"
+        saveBook $wb "Excel\空ブック.xlsx"
     }
 
     runCase "TC13 シートが多いブック" {
@@ -825,7 +825,7 @@ try {
         for ($i = 1; $i -le 60; $i++) {
             setRows $wb.Worksheets.Item($i) "A1" @(, @("TC13", "シート $($names[$i - 1])"))
         }
-        saveBook $wb "多数シート.xlsx"
+        saveBook $wb "Excel\多数シート.xlsx"
     }
 
     runCase "TC14 保護" {
@@ -833,42 +833,42 @@ try {
         setRows $wb.Worksheets.Item(1) "A1" @(, @("TC14-1", "保護されたシートのデータ"))
         setRows $wb.Worksheets.Item(2) "A1" @(, @("TC14-1", "通常シートのデータ"))
         $wb.Worksheets.Item(1).Protect("sheetpw")
-        saveBook $wb "保護\シート保護.xlsx"
+        saveBook $wb "Excel\保護\シート保護.xlsx"
 
         $wb = newBook @("構成保護1", "構成保護2")
         setRows $wb.Worksheets.Item(1) "A1" @(, @("TC14-2", "ブックの構成が保護されたシート1"))
         setRows $wb.Worksheets.Item(2) "A1" @(, @("TC14-2", "ブックの構成が保護されたシート2"))
         $wb.Protect("bookpw", $true, $false)
-        saveBook $wb "保護\ブック構成保護.xlsx"
+        saveBook $wb "Excel\保護\ブック構成保護.xlsx"
 
         $wb = newBook @("書込保護")
         setRows $wb.Worksheets.Item(1) "A1" @(, @("TC14-3", "書き込みパスワード付き"))
-        saveBook $wb "保護\書き込みパスワード付き.xlsx" 51 "" "writepw"
+        saveBook $wb "Excel\保護\書き込みパスワード付き.xlsx" 51 "" "writepw"
     }
 
     runCase "TC15 異常系" {
         # 読み取りパスワード付き（開けないので変換失敗になる想定）
         $wb = newBook @("秘密")
         setRows $wb.Worksheets.Item(1) "A1" @(, @("TC15-1", "読み取りパスワード付き"))
-        saveBook $wb "異常系\読み取りパスワード付き.xlsx" 51 "openpw"
+        saveBook $wb "Excel\異常系\読み取りパスワード付き.xlsx" 51 "openpw"
 
-        writeText "異常系\壊れたファイル.xlsx" "TC15-2 これは Excel ファイルではありません"
-        writeText "異常系\空ファイル.xlsx" "" (New-Object System.Text.UTF8Encoding($false))
+        writeText "Excel\異常系\壊れたファイル.xlsx" "TC15-2 これは Excel ファイルではありません"
+        writeText "Excel\異常系\空ファイル.xlsx" "" (New-Object System.Text.UTF8Encoding($false))
 
-        writeLockFile "異常系\~`$ロックファイル.xlsx"
-        writeLockFile "異常系\~`$ロックファイル_隠し属性なし.xlsx" $false
+        writeLockFile "Excel\異常系\~`$ロックファイル.xlsx"
+        writeLockFile "Excel\異常系\~`$ロックファイル_隠し属性なし.xlsx" $false
 
         # 拡張子と中身の形式が違うもの
         $wb = newBook @("偽装")
         setRows $wb.Worksheets.Item(1) "A1" @(, @("TC15-3", "中身は xls 形式"))
-        saveBook $wb "異常系\中身はxls.xlsx" 56
+        saveBook $wb "Excel\異常系\中身はxls.xlsx" 56
 
         $wb = newBook @("偽装")
         setRows $wb.Worksheets.Item(1) "A1" @(, @("TC15-4", "中身は xlsx 形式"))
-        saveBook $wb "異常系\中身はxlsx.xls" 51
+        saveBook $wb "Excel\異常系\中身はxlsx.xls" 51
 
-        writeText "異常系\中身はCSV.xls" "ID,内容`r`nTC15-5,中身は CSV`r`n" ([System.Text.Encoding]::GetEncoding(932))
-        writeText "異常系\中身はHTML.xls" @"
+        writeText "Excel\異常系\中身はCSV.xls" "ID,内容`r`nTC15-5,中身は CSV`r`n" ([System.Text.Encoding]::GetEncoding(932))
+        writeText "Excel\異常系\中身はHTML.xls" @"
 <html><head><meta charset="utf-8"></head><body>
 <table><tr><td>ID</td><td>内容</td></tr><tr><td>TC15-6</td><td>中身は HTML の表</td></tr></table>
 </body></html>
@@ -917,7 +917,7 @@ try {
         simpleBook "ファイル名\ガ_合成済み.xlsx" "TC26-01"
         copyOut "ファイル名\ガ_合成済み.xlsx" ("ファイル名\カ" + [char]0x3099 + "_結合文字.xlsx")
         # 拡張子が無いファイル（中身は xlsx）
-        copyOut "基本.xlsx" "ファイル名\拡張子なし"
+        copyOut "Excel\基本.xlsx" "ファイル名\拡張子なし"
         # システム属性・アーカイブ属性
         simpleBook "ファイル名\システム属性.xlsx" "TC26-02"
         [System.IO.File]::SetAttributes((Join-Path $OutDir "ファイル名\システム属性.xlsx"), "System")
@@ -946,23 +946,23 @@ try {
                 $deep = Join-Path $deep $name
             }
             [System.IO.Directory]::CreateDirectory("\\?\$deep") | Out-Null
-            [System.IO.File]::Copy((Join-Path $OutDir "基本.xlsx"), "\\?\$deep\長いパスの先.xlsx", $true)
+            [System.IO.File]::Copy((Join-Path $OutDir "Excel\基本.xlsx"), "\\?\$deep\長いパスの先.xlsx", $true)
             Write-Host "  フォルダ\長いパス\…（260 文字を超えるパス）"
         }
     }
 
     runCase "TC18 同名で拡張子違い" {
-        simpleBook "同名ブック\同名.xlsx" "TC18-xlsx"
-        simpleBook "同名ブック\同名.xls" "TC18-xls" 56
-        simpleBook "同名ブック\同名.xlsm" "TC18-xlsm" 52
+        simpleBook "Excel\同名ブック\同名.xlsx" "TC18-xlsx"
+        simpleBook "Excel\同名ブック\同名.xls" "TC18-xls" 56
+        simpleBook "Excel\同名ブック\同名.xlsm" "TC18-xlsm" 52
     }
 
     runCase "TC19 外部リンク" {
         $wb = newBook @("リンク")
         $ws = $wb.Worksheets.Item(1)
         setRows $ws "A1" @(, @("TC19", "外部ブックの値→"))
-        $ws.Range("C1").Formula = "='$OutDir\[基本.xlsx]Sheet1'!`$B`$2"
-        saveBook $wb "外部リンク.xlsx"
+        $ws.Range("C1").Formula = "='$OutDir\Excel\[基本.xlsx]Sheet1'!`$B`$2"
+        saveBook $wb "Excel\外部リンク.xlsx"
     }
 
     runCase "TC22 同名で種類違い（Excel）" {
@@ -1011,7 +1011,7 @@ try {
         setCell $ws "D2" $long
         setRows $ws "A3" @(, @("TC23-22", "長い数式の結果", ""))
         $ws.Range("D3").Formula = '=REPT("繰り返し",200)&"TC23-22末尾"'
-        saveBook $wb "特殊文字.xlsx"
+        saveBook $wb "Excel\特殊文字.xlsx"
     }
 
     runCase "TC24 Excel の機能" {
@@ -1105,7 +1105,7 @@ try {
             Write-Host "  （ピボットテーブルを作れませんでした: $($_.Exception.Message)）" -ForegroundColor Yellow
         }
 
-        saveBook $wb "機能.xlsx"
+        saveBook $wb "Excel\機能.xlsx"
     }
 
     runCase "TC25 日付の境界・1904 年形式" {
@@ -1136,7 +1136,7 @@ try {
         setRows $ws "A9" @(, @("TC25-08", "負の時刻（##### 表示）", ""))
         $ws.Range("C9").Formula = "=TIME(0,0,1)-TIME(1,0,0)"
         $ws.Range("C9").NumberFormat = "hh:mm:ss"
-        saveBook $wb "日付.xlsx"
+        saveBook $wb "Excel\日付.xlsx"
 
         # 1904 年から数える日付形式のブック（同じシリアル値でも 4 年ずれる）
         $wb = newBook @("1904")
@@ -1147,7 +1147,7 @@ try {
             @("TC25-09", "1904年形式のシリアル値 45383", "")
         )
         setCell $ws "C2" 45383 "yyyy/mm/dd"
-        saveBook $wb "日付1904.xlsx"
+        saveBook $wb "Excel\日付1904.xlsx"
     }
 
     # 設定ファイルの例（config\ にコピーして使う）
@@ -1157,16 +1157,16 @@ try {
     writeText "$ConfigDir\変換対象フォルダパス_前後空白と空行.txt" "`r`n   $OutDir   `r`n`r`n"
     writeText "$ConfigDir\変換対象フォルダパス_BOMなし.txt" $OutDir $noBom
     writeText "$ConfigDir\変換対象フォルダパス_ShiftJIS.txt" "$OutDir\ファイル名" $sjis  # 日本語部分が文字化けする
-    writeText "$ConfigDir\変換対象フォルダパス_複数.txt" "$OutDir\2024`r`n$OutDir\2025`r`n"
+    writeText "$ConfigDir\変換対象フォルダパス_複数.txt" "$OutDir\Excel\2024`r`n$OutDir\Excel\2025`r`n"
     # 末尾のフォルダ名が同じ（インデックス名が「見積」と「見積(2)」になる）
-    writeText "$ConfigDir\変換対象フォルダパス_同名フォルダ.txt" "$OutDir\2024\見積`r`n$OutDir\2025\見積`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_チェックなし.txt" "$OutDir\2024`r`n# $OutDir\2025`r`n"
+    writeText "$ConfigDir\変換対象フォルダパス_同名フォルダ.txt" "$OutDir\Excel\2024\見積`r`n$OutDir\Excel\2025\見積`r`n"
+    writeText "$ConfigDir\変換対象フォルダパス_チェックなし.txt" "$OutDir\Excel\2024`r`n# $OutDir\Excel\2025`r`n"
     writeText "$ConfigDir\変換対象フォルダパス_すべてチェックなし.txt" "# $OutDir`r`n"
     # 同じフォルダを " で囲んだもの・末尾に \ を付けたもので重ねて書く（最初の行だけ使われる）
-    writeText "$ConfigDir\変換対象フォルダパス_重複.txt" "$OutDir\2024`r`n`"$OutDir\2024\`"`r`n$OutDir\2024\`r`n"
+    writeText "$ConfigDir\変換対象フォルダパス_重複.txt" "$OutDir\Excel\2024`r`n`"$OutDir\Excel\2024\`"`r`n$OutDir\Excel\2024\`r`n"
     writeText "$ConfigDir\変換対象フォルダパス_空.txt" "`r`n  `r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_存在しない.txt" "C:\存在しないフォルダ\excel`r`n$OutDir\2024`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_サブフォルダ.txt" "$OutDir\2024`r`n"
+    writeText "$ConfigDir\変換対象フォルダパス_存在しない.txt" "C:\存在しないフォルダ\office`r`n$OutDir\Excel\2024`r`n"
+    writeText "$ConfigDir\変換対象フォルダパス_サブフォルダ.txt" "$OutDir\Excel\2024`r`n"
 
     writeText "$ConfigDir\検索ワード.txt" ((@(
         "TC01",
