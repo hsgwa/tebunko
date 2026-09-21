@@ -1,0 +1,45 @@
+# 配布物の公開（GitHub Actions）
+#
+# v で始まるタグを push すると、テストを通したうえで配布 zip を作り、GitHub Release に載せる。
+#
+#   git tag v1.0.0
+#   git push origin v1.0.0
+#
+# zip には改ざんの確認用のカタログ（tebunko.cat）とハッシュ一覧（SHA256SUMS.txt）を同梱する（docs\04_安全性.md 5.1）。
+# zip 自体の SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  release:
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      # Release を作るため
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 配布物を作る
+        shell: powershell
+        run: .\tools\new_release_package.ps1 -Version $env:GITHUB_REF_NAME
+
+      - name: GitHub Release に公開
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = "work\release\tebunko_grep-$env:GITHUB_REF_NAME.zip"
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+          $notes = "配布 zip の SHA256: ``$hash``"
+          gh release create $env:GITHUB_REF_NAME $zip "work\release\check\SHA256SUMS.txt" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
