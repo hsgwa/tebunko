@@ -168,9 +168,8 @@ $window.Add_Activated({
             loadTargets
             setStatus "インデックス一覧がほかで変更されたため、読み直しました"
         }
-        foreach ($item in $script:targetItems) {
-            updateFolderItemStatus $item
-        }
+        # フォルダの有無は別スレッドで調べる（届かないネットワークのフォルダで画面が固まらないように）
+        refreshFolderStatus
         if (!(isConverting)) {
             refreshConversionState
         }

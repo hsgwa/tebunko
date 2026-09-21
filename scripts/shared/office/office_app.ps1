@@ -8,10 +8,14 @@
 # 起動中のアプリ: 名前 → @{ Com; Pid; Shared }
 $script:apps = @{}
 
+# ExitWait: Quit の後、終わるのを待つ時間（ミリ秒）。過ぎたら強制終了する（stopApp）。
+#   Excel は変換で取り出したCOMオブジェクトが解放されきらないため、変換処理が動いている間は Quit しても終わらず、
+#   待ちの上限まで待ってから強制終了していた（実測: 毎回 5 秒待って強制終了）。待つだけ無駄なため短くする。
+#   GC で解放を促して自分で終わらせる方法は、変換処理の終了が COM の解放待ちで約 60 秒止まることがあった（実測 25 回中 1〜2 回）ため採らない
 $appInfo = @{
-    Excel      = @{ ProgId = "Excel.Application";      Process = "EXCEL" }
-    Word       = @{ ProgId = "Word.Application";       Process = "WINWORD" }
-    PowerPoint = @{ ProgId = "PowerPoint.Application"; Process = "POWERPNT" }
+    Excel      = @{ ProgId = "Excel.Application";      Process = "EXCEL";    ExitWait = 1000 }
+    Word       = @{ ProgId = "Word.Application";       Process = "WINWORD";  ExitWait = 5000 }
+    PowerPoint = @{ ProgId = "PowerPoint.Application"; Process = "POWERPNT"; ExitWait = 5000 }
 }
 
 function getApp {
@@ -91,7 +95,7 @@ function stopApp {
     # 終了しなかったアプリはプロセスIDを指定して強制終了する
     if (-not $inUse -and $app.Pid) {
         $process = Get-Process -Id $app.Pid -ErrorAction SilentlyContinue
-        if ($process -and -not $process.WaitForExit(5000)) {
+        if ($process -and -not $process.WaitForExit($appInfo[$name].ExitWait)) {
             # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
             try { $process.Kill() } catch {}
         }

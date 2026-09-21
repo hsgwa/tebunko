@@ -29,6 +29,13 @@ function copyDataRangeToTempSheet {
         releaseComObject $usedRange
     }
 
+    # 使用範囲そのものが縮める基準より狭ければ、データの範囲を探すまでもない（ほとんどのシート）。
+    # 大きいシートでは Find に時間がかかるため、シートごとに呼ばないようにする
+    $usedCells = [double]($usedLastRow - $firstRow + 1) * ($usedLastColumn - $firstColumn + 1)
+    if ($usedCells -lt $excelExtraCells) {
+        return $null
+    }
+
     # 値・数式のある最後の行・列を探す（書式だけのセルには当たらない）。
     # 引数: What, After, LookIn（-4123 = xlFormulas）, LookAt, SearchOrder（1 = xlByRows / 2 = xlByColumns）, SearchDirection（2 = xlPrevious）
     $topLeft = $worksheet.Range("A1")
@@ -49,7 +56,6 @@ function copyDataRangeToTempSheet {
     }
 
     # セル数は int を超えるため double で数える（シート全体は約 172 億セル）
-    $usedCells = [double]($usedLastRow - $firstRow + 1) * ($usedLastColumn - $firstColumn + 1)
     $dataCells = [double]($dataLastRow - $firstRow + 1) * ($dataLastColumn - $firstColumn + 1)
     if (($usedCells - $dataCells) -lt $excelExtraCells) {
         return $null

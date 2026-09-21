@@ -141,10 +141,17 @@ function testSameFolder {
     param (
         [string]$a,
         [string]$b,
-        $drives = (getDriveTargets)  # ドライブ文字 → 割り当て先（テストで差し替える）
+        $drives = $null  # ドライブ文字 → 割り当て先（テストで差し替える。$null は getDriveTargets）
     )
 
     $target = $b.TrimEnd("\")
+    # 書き方どおりに同じなら、ドライブの割り当て（CIM。初回は 0.2 秒以上、切断されたネットワークドライブがあるとさらにかかる）を調べない
+    if ($a.TrimEnd("\").Equals($target, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+    if ($null -eq $drives) {
+        $drives = getDriveTargets
+    }
     foreach ($alias in @(getFolderPathAliases $a $drives)) {
         if ($alias.TrimEnd("\").Equals($target, [System.StringComparison]::OrdinalIgnoreCase)) {
             return $true
@@ -159,11 +166,18 @@ function testFolderUnder {
     param (
         [string]$path,
         [string]$folder,
-        $drives = (getDriveTargets)  # ドライブ文字 → 割り当て先（テストで差し替える）
+        $drives = $null  # ドライブ文字 → 割り当て先（テストで差し替える。$null は getDriveTargets）
     )
 
     if ($path -eq "" -or $folder -eq "") {
         return $false
+    }
+    # 書き方どおりに下にあれば、ドライブの割り当て（CIM）を調べない
+    if ($null -ne (getPathUnderFolder $path $folder)) {
+        return $true
+    }
+    if ($null -eq $drives) {
+        $drives = getDriveTargets
     }
     foreach ($alias in @(getFolderPathAliases $path $drives)) {
         if ($null -ne (getPathUnderFolder $alias $folder)) {

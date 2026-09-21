@@ -4,6 +4,14 @@
 class Segment {
     [string]$Text
     [bool]$IsHit
+
+    Segment() {}
+
+    # 表示する行ごとに作るため、ハッシュテーブルからの変換（[Segment]@{ … }）より速いコンストラクタで作る
+    Segment([string]$text, [bool]$isHit) {
+        $this.Text = $text
+        $this.IsHit = $isHit
+    }
 }
 
 # 選択行のプレビューの列。見出しと各行のセルが同じものを参照し、幅を変えると列全体に反映する。
@@ -105,7 +113,7 @@ class PreviewTable {
         if ($rowFrom -eq $rowTo -and $columnFrom -eq $columnTo) {
             return $this.CellText($rowFrom, $columnFrom)
         }
-        $text = New-Object System.Text.StringBuilder
+        $text = [System.Text.StringBuilder]::new()
         for ($r = $rowFrom; $r -le $rowTo; $r++) {
             if ($r -gt $rowFrom) { [void]$text.Append("`r`n") }
             for ($c = $columnFrom; $c -le $columnTo; $c++) {
@@ -207,7 +215,7 @@ class HitRow : NotifyBase {
         $cells = [HitRow]::SplitCells($this.Line, $true)
         $count = 0
         for ($i = 0; $i -lt $cells.Count; $i++) {
-            if ([HitRow]::FindMatches($cells[$i], $this.word, $this.pattern).Count -eq 0) { continue }
+            if (-not [HitRow]::HasMatch($cells[$i], $this.word, $this.pattern)) { continue }
             if ($count -eq 0) { $this.MatchCell = [HitRow]::ColumnName($i + 1) + $this.LineNumber }
             $count++
         }
@@ -231,8 +239,23 @@ class HitRow : NotifyBase {
         return $text.Replace("`t", " │ ").Replace([HitRow]::CellNewLine, [char]0x21b5)
     }
 
+    # FindMatches が 1 件以上返すか（一致の一覧を作らずに調べる。表示する行ごとにセルの数だけ呼ぶため）
+    static [bool] HasMatch([string]$text, [string]$word, [regex]$pattern) {
+        if ([string]::IsNullOrEmpty($text)) { return $false }
+        if ($null -ne $pattern) {
+            $m = $pattern.Match($text)
+            while ($m.Success) {
+                if ($m.Length -gt 0) { return $true }
+                $m = $m.NextMatch()
+            }
+            return $false
+        }
+        if ([string]::IsNullOrEmpty($word)) { return $false }
+        return $text.IndexOf($word, [System.StringComparison]::CurrentCultureIgnoreCase) -ge 0
+    }
+
     static [System.Collections.Generic.List[int[]]] FindMatches([string]$text, [string]$word, [regex]$pattern) {
-        $list = New-Object System.Collections.Generic.List[int[]]
+        $list = [System.Collections.Generic.List[int[]]]::new()
         if ([string]::IsNullOrEmpty($text)) { return $list }
         if ($null -ne $pattern) {
             foreach ($m in $pattern.Matches($text)) { if ($m.Length -gt 0) { $list.Add(@($m.Index, $m.Length)) } }
@@ -248,7 +271,7 @@ class HitRow : NotifyBase {
     }
 
     hidden [System.Collections.Generic.List[Segment]] BuildSegments() {
-        $segs = New-Object System.Collections.Generic.List[Segment]
+        $segs = [System.Collections.Generic.List[Segment]]::new()
         $pos = 0; $shown = 0
         foreach ($m in [HitRow]::FindMatches($this.Line, $this.word, $this.pattern)) {
             if ($m[0] -lt $pos) { continue }
@@ -257,8 +280,8 @@ class HitRow : NotifyBase {
             if ($segs.Count -eq 0 -and $before.Length -gt [HitRow]::LeadLength) {
                 $before = [char]0x2026 + $before.Substring($before.Length - [HitRow]::LeadLength)
             }
-            if ($before.Length -gt 0) { $segs.Add([Segment]@{ Text = [HitRow]::ToDisplay($before); IsHit = $false }) }
-            $segs.Add([Segment]@{ Text = [HitRow]::ToDisplay($this.Line.Substring($m[0], $m[1])); IsHit = $true })
+            if ($before.Length -gt 0) { $segs.Add([Segment]::new([HitRow]::ToDisplay($before), $false)) }
+            $segs.Add([Segment]::new([HitRow]::ToDisplay($this.Line.Substring($m[0], $m[1])), $true))
             $shown += $before.Length + $m[1]
             $pos = $m[0] + $m[1]
             if ($shown -gt [HitRow]::MaxDisplay) { break }
@@ -266,13 +289,13 @@ class HitRow : NotifyBase {
         if ($pos -lt $this.Line.Length) {
             $rest = $this.Line.Substring($pos)
             if ($rest.Length -gt [HitRow]::MaxDisplay) { $rest = $rest.Substring(0, [HitRow]::MaxDisplay) + [char]0x2026 }
-            $segs.Add([Segment]@{ Text = [HitRow]::ToDisplay($rest); IsHit = $false })
+            $segs.Add([Segment]::new([HitRow]::ToDisplay($rest), $false))
         }
         return $segs
     }
 
     static [System.Collections.Generic.List[string]] SplitCells([string]$line, [bool]$isExcel) {
-        $cells = New-Object System.Collections.Generic.List[string]
+        $cells = [System.Collections.Generic.List[string]]::new()
         $src = $(if ($null -eq $line) { "" } else { $line })
         if (-not $isExcel) { $cells.AddRange($src.Split([char]9)); return $cells }
         foreach ($m in [HitRow]::CellRegex.Matches("`t" + $src)) {
@@ -290,7 +313,7 @@ class HitRow : NotifyBase {
             $numbers = @($this.LineNumber)
             $lines = @($this.Line)
         }
-        $rowCells = New-Object 'System.Collections.Generic.List[System.Collections.Generic.List[string]]'
+        $rowCells = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
         $columnCount = 0
         foreach ($ln in $lines) {
             $cells = [HitRow]::SplitCells($ln, $this.IsExcel)
@@ -302,7 +325,7 @@ class HitRow : NotifyBase {
         for ($r = 0; $r -lt $rowCells.Count -and $hitColumn -lt 0; $r++) {
             if ($numbers[$r] -ne $this.LineNumber) { continue }
             for ($c = 0; $c -lt $rowCells[$r].Count; $c++) {
-                if ([HitRow]::FindMatches($rowCells[$r][$c], $this.word, $this.pattern).Count -gt 0) { $hitColumn = $c; break }
+                if ([HitRow]::HasMatch($rowCells[$r][$c], $this.word, $this.pattern)) { $hitColumn = $c; break }
             }
         }
         $firstColumn = 0
@@ -316,8 +339,8 @@ class HitRow : NotifyBase {
 
         $maxWidth = $(if ($this.IsExcel) { [HitRow]::MaxCellWidth } else { [HitRow]::MaxParagraphWidth })
         $table = [PreviewTable]::new()
-        $table.Columns = New-Object System.Collections.Generic.List[PreviewColumn]
-        $table.Rows = New-Object System.Collections.Generic.List[PreviewRow]
+        $table.Columns = [System.Collections.Generic.List[PreviewColumn]]::new()
+        $table.Rows = [System.Collections.Generic.List[PreviewRow]]::new()
         $table.HitOffset = -1
         $table.HitWidth = 0
         $table.TotalColumns = $columnCount
@@ -340,12 +363,12 @@ class HitRow : NotifyBase {
             $row = [PreviewRow]::new()
             $row.Number = $numbers[$r].ToString()
             $row.IsHitRow = $isHitRow
-            $row.Cells = New-Object System.Collections.Generic.List[PreviewCell]
+            $row.Cells = [System.Collections.Generic.List[PreviewCell]]::new()
             $left = [HitRow]::NumberWidth
             for ($i = 0; $i -lt $shownColumns; $i++) {
                 $c = $firstColumn + $i
                 $cell = $(if ($c -lt $rowCells[$r].Count) { $rowCells[$r][$c] } else { "" })
-                $isHit = [HitRow]::FindMatches($cell, $this.word, $this.pattern).Count -gt 0
+                $isHit = [HitRow]::HasMatch($cell, $this.word, $this.pattern)
                 $text = $cell.Replace([HitRow]::CellNewLine, "`n")
                 $pc = [PreviewCell]::new()
                 $pc.Text = $text
@@ -446,6 +469,8 @@ class FolderItem : NotifyBase {
     [string]$FileCountText
     [string]$FileCountToolTip
     [string]$LastConvertedText
+    [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
+    [bool]$FolderExists    # 調べた結果、フォルダがあったか
 
     [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
     [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }

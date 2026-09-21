@@ -110,6 +110,14 @@ Describe "getFolderPathAliases / testSameFolder" -Tag Io {
         testFolderUnder "" "C:\data" $drives | Should Be $false
         testFolderUnder "C:\data" "" $drives | Should Be $false
     }
+
+    It "書き方どおりに同じ・下にあるなら、ドライブの割り当て（CIM）を調べない" {
+        # 画面の起動時に毎回呼ばれるため、切断されたネットワークドライブがあっても待たされないようにする
+        Mock getDriveTargets { throw "ドライブの割り当てを調べた" }
+        testSameFolder "C:\data\見積" "c:\DATA\見積\" | Should Be $true
+        testFolderUnder "C:\data\見積\2024" "C:\data\見積" | Should Be $true
+        Assert-MockCalled getDriveTargets -Times 0
+    }
 }
 
 Describe "getParentFolderPath" -Tag Io {

@@ -50,32 +50,73 @@ function toResultHeader {
 function newTsvFiles {
     # 検索対象のTSVを、元のファイル名（Book）・場所（Location）付きに整える。
     # include に一致しない・exclude に一致する Book は除く（$null は条件なし）。パスの分解は splitIndexTsvPath に合わせる。
+    #   tsvFiles: getIndexTsvFiles の Files（TSVのフルパス → @{ Root; RelPath; LongPath; Ticks; Size }。LongPath 以降は無くてもよい）
     param (
-        [string[]]$paths,
-        [string[]]$roots,
-        [string[]]$relPaths,
+        $tsvFiles,
         [regex]$include = $null,
         [regex]$exclude = $null
     )
 
-    $files = New-Object System.Collections.Generic.List[psobject]
-    for ($i = 0; $i -lt $paths.Length; $i++) {
-        $relPath = $relPaths[$i]
-        $parts = splitIndexTsvPath $relPath
-        $book = [string]$parts.Book
+    $files = New-Object System.Collections.Generic.List[hashtable]
+    # -match と同じく大文字と小文字を区別しない
+    $bookDirPattern = [regex]::new(${indexBookDirPattern}, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    foreach ($path in $tsvFiles.Keys) {
+        $info = $tsvFiles[$path]
+        $relPath = [string]$info.RelPath
+        $fileName = [System.IO.Path]::GetFileName($relPath)
+        $dir = [System.IO.Path]::GetDirectoryName($relPath)
+        $bookDir = if ($dir) { [System.IO.Path]::GetFileName($dir) } else { "" }
+        if ($fileName.IndexOfAny([char[]]"_%") -lt 0 -and $bookDirPattern.IsMatch($bookDir)) {
+            # 今の形式で、場所に符号化した文字が無いもの（ほとんどのTSV）。splitIndexTsvPath と同じ結果を、関数を呼ばずに作る
+            # （TSV が数万件あると、関数呼び出しだけで検索を始めるまでに数秒かかるため）
+            $book = $bookDir
+            $place = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
+            $relDir = [string][System.IO.Path]::GetDirectoryName($dir)
+        } else {
+            $parts = splitIndexTsvPath $relPath
+            $book = [string]$parts.Book
+            $place = [string]$parts.Place
+            $relDir = [string]$parts.RelDir
+        }
         if ($include -and !$include.IsMatch($book)) { continue }
         if ($exclude -and $exclude.IsMatch($book)) { continue }
-        $files.Add([pscustomobject]@{
-            Path     = $paths[$i]
-            Root     = $roots[$i]
+        # PSCustomObject より作るのが速いハッシュテーブルにする（TSV の数だけ作るため）
+        $files.Add(@{
+            # 260文字を超えるパスのTSVも読めるよう \\?\ 付きで読む（getIndexTsvFiles が列挙したパスがあればそれを使う）
+            Path     = if ($info.LongPath) { $info.LongPath } else { toLongPath $path }
+            Root     = $info.Root
             RelPath  = $relPath
-            RelDir   = [string]$parts.RelDir
-            FileName = [System.IO.Path]::GetFileName($relPath)
+            RelDir   = $relDir
+            FileName = $fileName
             Book     = $book
-            Location = [string]$parts.Place
+            Location = $place
+            Ticks    = $info.Ticks
+            Size     = $info.Size
         })
     }
     return , $files
+}
+
+# 全文を読んで照合する TSV の大きさの上限（バイト）。これより大きい TSV は、メモリを使いすぎないよう 1 行ずつ読む
+${searchWholeFileMax} = 64MB
+
+# 検索で読んだ TSV の内容を残しておく量の上限（文字数。1 文字 2 バイトのため約 128MB）
+${searchCacheMaxChars} = 64000000
+
+function newTsvTextCache {
+    # 検索で読んだ TSV の内容を、次の検索で使い回すための入れ物を作る（画面が 1 つ持ち、検索のたびに searchIndex に渡す）。
+    # TSV を 1 つずつ開いて読む時間が検索時間の大半のため（TSV 1 万件で約 1 秒）、2 回目以降の検索ではファイルを開かない。
+    # 更新日時・サイズが列挙したときと違う TSV（変換し直した等）は読み直す。並列検索の各スレッドから使うため、中身は ConcurrentDictionary。
+    #   Texts: TSV の \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容) / Chars: 残している文字数 / MaxChars: 上限
+    param (
+        [long]$maxChars = ${searchCacheMaxChars}
+    )
+
+    return @{
+        Texts    = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+        Chars    = [long[]]::new(1)
+        MaxChars = $maxChars
+    }
 }
 
 function searchTsvFiles {
@@ -83,22 +124,122 @@ function searchTsvFiles {
     # max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。読めないTSV（変換中に削除された等）は飛ばす。
     # 変換中のTSVも読めるよう共有モードは ReadWrite|Delete にする。正規表現の照合が時間切れ（RegexMatchTimeoutException）なら
     # 例外はそのまま呼び出し元（searchIndex）へ伝わる。
+    #
+    # 1 行ずつ PowerShell で照合すると、行数に比例して遅い（1 行あたり十数マイクロ秒）。textRegex・scanMode（newSearchRegex）を
+    # 渡すと、TSV を丸ごと読んで全文に 1 回照合し（.NET の中で走る）、1 行ずつの照合を減らす。
+    #   lines : 全文での一致の位置から行を切り出す（1 行ずつの照合はしない）
+    #   filter: 全文で一致しない TSV は飛ばし、一致した TSV だけ 1 行ずつ照合する
+    #   scan  : 1 行ずつ照合する
+    # 全文の改行は LF にそろえる（StreamReader.ReadLine と同じく CRLF・LF・CR を行の区切りとし、行の中身・行番号は変わらない）。
+    # 全文への照合が時間切れになった TSV は、1 行ずつ照合し直す（行ごとの時間切れの扱いは従来どおり）。
+    # cache（newTsvTextCache）を渡すと、読んだ内容を残し、次の検索では更新日時・サイズが同じ TSV をファイルから読まない
     param (
         $files,
         [int]$start,
         [int]$count,
         [regex]$regex,
-        [int]$max
+        [int]$max,
+        [regex]$textRegex = $null,
+        [string]$scanMode = "scan",
+        $cache = $null
     )
 
-    $hits = New-Object System.Collections.Generic.List[psobject]
+    # 並列検索の別スレッド（searchIndex）でも動くよう、コマンドレット（New-Object 等）は使わない
+    $hits = [System.Collections.Generic.List[psobject]]::new()
     $end = [Math]::Min($files.Count, $start + $count)
+    $lf = [char]10
+    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
+    $rawCheck = ($null -ne $textRegex -and $textRegex.ToString().IndexOfAny([char[]]"^$") -lt 0)
     for ($i = $start; $i -lt $end; $i++) {
         $f = $files[$i]
         $reader = $null
         try {
-            $stream = New-Object System.IO.FileStream($f.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
-            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
+            $mode = if ($null -eq $textRegex) { "scan" } else { $scanMode }
+            # 前の検索で読んだ内容があり、更新日時・サイズが列挙したときと同じなら、ファイルを開かずに使う
+            $text = $null
+            $cacheable = ($null -ne $cache -and $null -ne $f.Ticks -and $f.Size -le ${searchWholeFileMax})
+            if ($cacheable) {
+                $entry = $null
+                if ($cache.Texts.TryGetValue($f.Path, [ref]$entry) -and $entry[0] -eq $f.Ticks -and $entry[1] -eq $f.Size) {
+                    $text = $entry[2]
+                }
+            }
+            if ($null -eq $text) {
+                $stream = [System.IO.FileStream]::new($f.Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+                $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8, $true)
+                if ($stream.Length -gt ${searchWholeFileMax}) {
+                    $mode = "scan"
+                } elseif ($mode -ne "scan" -or $cacheable) {
+                    $text = $reader.ReadToEnd()
+                    $reader.Dispose()
+                    $reader = $null
+                    if ($cacheable) {
+                        # 上限を超える分は残さない（前の内容は、新しい内容に置き換えられなければ消す）
+                        [System.Threading.Monitor]::Enter($cache)
+                        try {
+                            $old = $null
+                            if ($cache.Texts.TryRemove($f.Path, [ref]$old)) {
+                                $cache.Chars[0] -= $old[2].Length
+                            }
+                            if ($cache.Chars[0] + $text.Length -le $cache.MaxChars) {
+                                $cache.Texts[$f.Path] = [object[]]@($f.Ticks, $f.Size, $text)
+                                $cache.Chars[0] += $text.Length
+                            }
+                        } finally {
+                            [System.Threading.Monitor]::Exit($cache)
+                        }
+                    }
+                }
+            }
+            if ($null -ne $text -and $mode -ne "scan") {
+                $before = $hits.Count
+                try {
+                    # ^ $ を含まなければ、改行をそろえる前の全文で一致しない TSV は、そろえても一致しない
+                    # （ヒットしない TSV の文字列のコピーを省く。^ $ は CR だけの改行・CRLF で位置が変わるため、そろえてから照合する）
+                    $rawChecked = $false
+                    if ($rawCheck) {
+                        if (!$textRegex.IsMatch($text)) { continue }
+                        $rawChecked = $true
+                    }
+                    $text = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+                    if ($mode -eq "filter") {
+                        if (!$rawChecked -and !$textRegex.IsMatch($text)) { continue }
+                    } else {
+                        $length = $text.Length
+                        # 末尾の改行の後ろは行ではない（ReadLine は空の行を返さない）
+                        $tailIsLine = $length -gt 0 -and $text[$length - 1] -ne $lf
+                        $number = 1
+                        $pos = 0  # 行 number の先頭
+                        $m = $textRegex.Match($text)
+                        while ($m.Success) {
+                            $index = $m.Index
+                            if ($index -ge $length -and !$tailIsLine) { break }
+                            $lineStart = if ($index -eq 0) { 0 } else { $text.LastIndexOf($lf, $index - 1) + 1 }
+                            $lineEnd = $text.IndexOf($lf, $index)
+                            if ($lineEnd -lt 0) { $lineEnd = $length }
+                            if ($lineStart -gt $pos) {
+                                $skipped = $text.Substring($pos, $lineStart - $pos)
+                                $number += $skipped.Length - $skipped.Replace("`n", "").Length
+                                $pos = $lineStart
+                            }
+                            $hits.Add([pscustomobject]@{
+                                Root = $f.Root; RelPath = $f.RelPath; RelDir = $f.RelDir; FileName = $f.FileName
+                                Book = $f.Book; Location = $f.Location; LineNumber = $number; Line = $text.Substring($lineStart, $lineEnd - $lineStart)
+                            })
+                            if ($max -ge 0 -and $hits.Count -gt $max) { return , $hits }
+                            if ($lineEnd -ge $length) { break }
+                            # 1 行に複数一致しても 1 件にするため、次の行の先頭から探す
+                            $m = $textRegex.Match($text, $lineEnd + 1)
+                        }
+                        continue
+                    }
+                } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                    if ($hits.Count -gt $before) { $hits.RemoveRange($before, $hits.Count - $before) }
+                }
+            }
+            if ($null -ne $text) {
+                $reader = [System.IO.StringReader]::new($text)
+            }
             $number = 0
             while ($null -ne ($line = $reader.ReadLine())) {
                 $number++
@@ -118,13 +259,59 @@ function searchTsvFiles {
     return , $hits
 }
 
+function findTsvFilesParallel {
+    # フォルダ以下（再帰）の *.tsv を FileInfo で返す（順不同。呼び出し元で並べる）。
+    # FileInfo の更新日時・サイズは走査のときに得られる（1 件ずつ問い合わせない）。検索の読み込み結果の再利用に使う。
+    # フォルダの走査は、ファイルの数が多いとそれだけで検索前の待ち時間になるため（TSV 1 万件で約 0.6 秒）、
+    # 直下のフォルダごとに別スレッドで並行して走査する。直下のフォルダが少なければ 1 スレッドで走査する
+    param (
+        [string]$longDir
+    )
+
+    $found = New-Object System.Collections.Generic.List[System.IO.FileInfo]
+    $top = [System.IO.DirectoryInfo]::new($longDir)
+    $subDirs = [System.IO.Directory]::GetDirectories($longDir)
+    $workers = [Math]::Min([Math]::Min([Environment]::ProcessorCount, 4), $subDirs.Length)
+    if ($workers -lt 2) {
+        $found.AddRange($top.GetFiles("*.tsv", [System.IO.SearchOption]::AllDirectories))
+        return , $found
+    }
+
+    $found.AddRange($top.GetFiles("*.tsv", [System.IO.SearchOption]::TopDirectoryOnly))
+    $pool = [runspacefactory]::CreateRunspacePool(1, $workers, [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2(), $Host)
+    $jobs = New-Object System.Collections.Generic.List[hashtable]
+    try {
+        $pool.Open()
+        foreach ($sub in $subDirs) {
+            $ps = [powershell]::Create()
+            $ps.RunspacePool = $pool
+            # 出力に配列をそのまま出すと 1 件ずつに分かれるため、ハッシュテーブルに入れて返す
+            [void]$ps.AddScript({
+                param ($dir)
+                @{ Files = [System.IO.DirectoryInfo]::new($dir).GetFiles("*.tsv", [System.IO.SearchOption]::AllDirectories) }
+            }).AddArgument($sub)
+            $jobs.Add(@{ PowerShell = $ps; Handle = $ps.BeginInvoke() })
+        }
+        foreach ($job in $jobs) {
+            $output = $job.PowerShell.EndInvoke($job.Handle)
+            $found.AddRange([System.IO.FileInfo[]]$output[0].Files)
+        }
+    } finally {
+        foreach ($job in $jobs) {
+            $job.PowerShell.Dispose()
+        }
+        $pool.Dispose()
+    }
+    return , $found
+}
+
 function getIndexTsvFiles {
     # 検索対象インデックスのTSVを列挙し、@{ Folders; Files } を返す。
     #   folders: 検索対象インデックスのフォルダ（文字列。フォルダ以下すべて）、または
     #            @{ Root（インデックスのフォルダ）; RelPath（その中のフォルダ。空は Root 自身）; Recurse（$false は直下のファイルだけ） }
     #            （画面の検索対象ツリーで一部のフォルダだけを選んだとき。結果の相対パスは Root から求める）
     #   Folders: フォルダごとの @{ Path（指定どおり。RelPath があれば Root\RelPath）; Root（フルパス）; Exists; Count }
-    #   Files  : TSVのフルパス → @{ Root; RelPath（インデックスフォルダからの相対パス） }。パス順。入れ子のフォルダでも重複しない
+    #   Files  : TSVのフルパス → @{ Root; RelPath（インデックスフォルダからの相対パス）; LongPath（\\?\ 付きのパス）; Ticks; Size（更新日時・サイズ） }。パス順。入れ子のフォルダでも重複しない
     #   onProgress: 数えた件数を知らせる { param($count) }（TSVが多いと数秒かかるため、画面が「確認中… N 件」を出せるようにする）
     param (
         [object[]]$folders = @(${indexDir}),
@@ -156,29 +343,32 @@ function getIndexTsvFiles {
         # 件数が多いと検索を始めるまでの待ち時間になるため、1件ずつオブジェクトを作る Get-ChildItem ではなく
         # .NET の列挙（文字列）を使い、相対パスも関数呼び出し無しで切り出す（TSV 2 万件で約 6 秒 → 約 2 秒）
         $longDir = toLongPath $fullDir
-        $found = New-Object System.Collections.Generic.List[string]
-        $option = if ([bool]$target.Recurse) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
-        foreach ($path in [System.IO.Directory]::EnumerateFiles($longDir, "*.tsv", $option)) {
-            $found.Add($path)
-        }
-        if (!$target.Recurse) {
+        if ([bool]$target.Recurse) {
+            $found = findTsvFilesParallel $longDir
+        } else {
+            $found = New-Object System.Collections.Generic.List[System.IO.FileInfo]
+            $found.AddRange([System.IO.DirectoryInfo]::new($longDir).GetFiles("*.tsv", [System.IO.SearchOption]::TopDirectoryOnly))
             # 「フォルダ直下のファイル」には、元のファイル名のフォルダ（<ファイル名.xlsx>\<場所>.tsv）の中のTSVも含める
             foreach ($sub in [System.IO.Directory]::EnumerateDirectories($longDir)) {
                 if ([System.IO.Path]::GetFileName($sub) -notmatch ${indexBookDirPattern}) {
                     continue
                 }
-                foreach ($path in [System.IO.Directory]::EnumerateFiles($sub, "*.tsv", [System.IO.SearchOption]::TopDirectoryOnly)) {
-                    $found.Add($path)
-                }
+                $found.AddRange([System.IO.DirectoryInfo]::new($sub).GetFiles("*.tsv", [System.IO.SearchOption]::TopDirectoryOnly))
             }
         }
 
         $folderInfo.Add(@{ Path = $dir; Root = $root; Exists = $true; Count = $found.Count })
         $rootLength = $root.Length + 1
-        foreach ($path in $found) {
-            $fullName = fromLongPath $path
+        # 列挙したパスはどれも longDir で始まるため、\\?\ を外した形は先頭を差し替えて作る（1件ずつ fromLongPath を呼ばない）
+        $plainDir = fromLongPath $longDir
+        $longDirLength = $longDir.Length
+        foreach ($file in $found) {
+            $path = $file.FullName
+            $fullName = $plainDir + $path.Substring($longDirLength)
             $relative = if ($fullName.Length -gt $rootLength) { $fullName.Substring($rootLength) } else { [System.IO.Path]::GetFileName($fullName) }
-            $files[$fullName] = @{ Root = $root; RelPath = $relative }
+            # LongPath: 検索で開くときのパス（searchIndex が1件ずつ toLongPath しなくて済むよう、列挙したパスを持たせる）
+            # Ticks・Size: 更新日時（UTC）とサイズ。検索で読み込んだ内容を再利用してよいかの判定に使う（searchTsvFiles）
+            $files[$fullName] = @{ Root = $root; RelPath = $relative; LongPath = $path; Ticks = $file.LastWriteTimeUtc.Ticks; Size = $file.Length }
             $scanned++
             if ($onProgress -and ($scanned % $notifyEvery) -eq 0) {
                 & $onProgress $scanned
@@ -186,8 +376,11 @@ function getIndexTsvFiles {
         }
     }
 
+    # Sort-Object と同じ順（現在のカルチャ・大文字と小文字を区別しない）。Sort-Object は件数が多いと遅いため .NET で並べる
+    $keys = [string[]]@($files.Keys)
+    [System.Array]::Sort($keys, [System.StringComparer]::CurrentCultureIgnoreCase)
     $sorted = [ordered]@{}
-    foreach ($path in @($files.Keys | Sort-Object)) {
+    foreach ($path in $keys) {
         $sorted[$path] = $files[$path]
     }
     return @{ Folders = $folderInfo.ToArray(); Files = $sorted }
@@ -231,7 +424,15 @@ function getIndexSummary {
             $summary.Missing += $dir
             continue
         }
-        foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath (Resolve-Path -LiteralPath $dir).ProviderPath) -Filter "*.tsv" -File -Recurse -ErrorAction SilentlyContinue)) {
+        $longDir = toLongPath (Resolve-Path -LiteralPath $dir).ProviderPath
+        # TSV が多いと Get-ChildItem では数秒かかるため、検索と同じ .NET の列挙で数える。
+        # アクセスできないフォルダがあると .NET の列挙は途中で止まるため、そのときは Get-ChildItem で数える（読めるものだけ）
+        try {
+            $found = findTsvFilesParallel $longDir
+        } catch {
+            $found = @(Get-ChildItem -LiteralPath $longDir -Filter "*.tsv" -File -Recurse -ErrorAction SilentlyContinue)
+        }
+        foreach ($file in $found) {
             if (!$seen.Add($file.FullName)) {
                 continue
             }
@@ -253,6 +454,8 @@ function searchIndex {
     #   shouldStop   : $true を返すと中止する
     #   caseSensitive: 英字の大文字・小文字を区別する（newSearchRegex）
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないTSVは検索しない
+    #   workerCount  : 並列に検索するスレッドの数（0 は TSV の数と CPU のコア数から決める）
+    #   cache        : 読んだ TSV の内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
     # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（対象ファイルで絞った後のTSVの数）; Truncated; Cancelled } を返す。
     # Hits の各要素は PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
@@ -264,62 +467,140 @@ function searchIndex {
         [scriptblock]$onProgress = $null,
         [scriptblock]$shouldStop = $null,
         [bool]$caseSensitive = $false,
-        [string]$fileFilter = ""
+        [string]$fileFilter = "",
+        [int]$workerCount = 0,
+        $cache = $null
     )
 
     $search = newSearchRegex $word $simpleMatch $caseSensitive
     $filter = newFileFilter $fileFilter
 
-    $count = $tsvFiles.Count
-    $paths = New-Object string[] $count
-    $roots = New-Object string[] $count
-    $relPaths = New-Object string[] $count
-    $i = 0
-    foreach ($path in $tsvFiles.Keys) {
-        $info = $tsvFiles[$path]
-        # 260文字を超えるパスのTSVも読めるよう \\?\ 付きで読む
-        $paths[$i] = toLongPath $path
-        $roots[$i] = $info.Root
-        $relPaths[$i] = $info.RelPath
-        $i++
-    }
-    $files = newTsvFiles $paths $roots $relPaths $filter.Include $filter.Exclude
+    $files = newTsvFiles $tsvFiles $filter.Include $filter.Exclude
 
     $hits = New-Object System.Collections.Generic.List[psobject]
     $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $files.Count; Truncated = $false; Cancelled = $false }
+    $timeoutMessage = "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
 
-    for ($i = 0; $i -lt $files.Count; $i += $chunkSize) {
-        if ($shouldStop -and (& $shouldStop)) {
-            $result.Cancelled = $true
-            break
+    # TSV が多ければ、chunkSize 件ずつを別スレッドで並行して検索する（TSV の読み込み・照合は CPU を使うため、コア数に応じて速くなる）。
+    # 結果は TSV の順に取り込み、上限・中止・進み具合の扱いは 1 スレッドのときと同じにする。
+    # 少ないときは、スレッドを用意する時間の方が長いため 1 スレッドで検索する
+    $workers = if ($workerCount -gt 0) { $workerCount } else { [Math]::Min([Environment]::ProcessorCount, ${searchWorkerMax}) }
+    if ($workerCount -le 0 -and $files.Count -lt [Math]::Max($chunkSize * 2, ${searchParallelMin})) {
+        $workers = 1
+    }
+    $pool = $null
+    $pending = New-Object System.Collections.Generic.Queue[hashtable]
+    try {
+        if ($workers -gt 1) {
+            $pool = newSearchWorkerPool $workers
         }
-
-        # 上限があれば、残りの件数を超えた時点で止める（残りちょうどで終われば打ち切りにしない）
-        $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
-        try {
-            $newHits = searchTsvFiles $files $i $chunkSize $search.Regex $max
-        } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
-            throw "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
-        } catch {
-            if ($_.Exception.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) {
-                throw "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
+        $next = 0
+        while ($next -lt $files.Count -or $pending.Count -gt 0) {
+            if ($shouldStop -and (& $shouldStop)) {
+                $result.Cancelled = $true
+                break
             }
-            throw
-        }
-        if ($max -ge 0 -and $newHits.Count -gt $max) {
-            $newHits.RemoveRange($max, $newHits.Count - $max)
-            $result.Truncated = $true
-        }
-        $hits.AddRange($newHits)
 
-        if ($onProgress) {
-            & $onProgress ([math]::Min($i + $chunkSize, $files.Count)) $files.Count $newHits
+            # 上限があれば、残りの件数を超えた時点で止める（残りちょうどで終われば打ち切りにしない）
+            if ($pool) {
+                # 先の TSV の分から順に、スレッド数の 2 倍まで検索を始めておく（先に始めた分ほど上限が緩いが、取り込むときに切る）
+                while ($pending.Count -lt $workers * 2 -and $next -lt $files.Count) {
+                    $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
+                    $ps = [powershell]::Create()
+                    $ps.RunspacePool = $pool
+                    [void]$ps.AddScript(${searchWorkerScript}).AddArgument($files).AddArgument($next).AddArgument($chunkSize).AddArgument($search.Regex).AddArgument($max).AddArgument($search.TextRegex).AddArgument($search.ScanMode).AddArgument($cache)
+                    $pending.Enqueue(@{ PowerShell = $ps; Handle = $ps.BeginInvoke(); Start = $next })
+                    $next += $chunkSize
+                }
+                $job = $pending.Dequeue()
+                try {
+                    $output = $job.PowerShell.EndInvoke($job.Handle)
+                } finally {
+                    $job.PowerShell.Dispose()
+                }
+                $answer = $output[0]
+                if ($answer.Timeout) {
+                    throw $timeoutMessage
+                }
+                $newHits = $answer.Hits
+                $start = $job.Start
+            } else {
+                $start = $next
+                $next += $chunkSize
+                $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
+                try {
+                    $newHits = searchTsvFiles $files $start $chunkSize $search.Regex $max $search.TextRegex $search.ScanMode $cache
+                } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                    throw $timeoutMessage
+                } catch {
+                    if ($_.Exception.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) {
+                        throw $timeoutMessage
+                    }
+                    throw
+                }
+            }
+
+            $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
+            if ($max -ge 0 -and $newHits.Count -gt $max) {
+                $newHits.RemoveRange($max, $newHits.Count - $max)
+                $result.Truncated = $true
+            }
+            $hits.AddRange($newHits)
+
+            if ($onProgress) {
+                & $onProgress ([math]::Min($start + $chunkSize, $files.Count)) $files.Count $newHits
+            }
+            if ($result.Truncated) {
+                break
+            }
         }
-        if ($result.Truncated) {
-            break
+    } finally {
+        # 打ち切り・中止・例外で残った検索は止める
+        foreach ($job in $pending) {
+            try { $job.PowerShell.Stop() } catch {}
+            $job.PowerShell.Dispose()
+        }
+        if ($pool) {
+            $pool.Dispose()
         }
     }
     return $result
+}
+
+# 並列検索のスレッド数の上限と、並列にする TSV の数の下限
+${searchWorkerMax} = 8
+${searchParallelMin} = 400
+
+# 並列検索の各スレッドで動かすスクリプト（searchTsvFiles を呼ぶ）。@{ Hits; Timeout（照合が時間切れ） } を返す
+${searchWorkerScript} = {
+    param ($files, $start, $count, $regex, $max, $textRegex, $scanMode, $cache)
+    # 出力に List をそのまま出すと 1 件ずつに分かれるため、ハッシュテーブルに入れて返す
+    try {
+        $hits = searchTsvFiles $files $start $count $regex $max $textRegex $scanMode $cache
+        @{ Hits = $hits; Timeout = $false }
+    } catch {
+        if ($_.Exception -is [System.Text.RegularExpressions.RegexMatchTimeoutException] -or
+            $_.Exception.InnerException -is [System.Text.RegularExpressions.RegexMatchTimeoutException]) {
+            @{ Hits = $null; Timeout = $true }
+        } else {
+            throw
+        }
+    }
+}
+
+function newSearchWorkerPool {
+    # 並列検索のスレッド（RunspacePool）を用意する。各スレッドには searchTsvFiles だけを読み込む
+    # （lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）
+    param (
+        [int]$workers
+    )
+
+    $state = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+    $state.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new("searchTsvFiles", ${function:searchTsvFiles}.ToString()))
+    $state.Variables.Add([System.Management.Automation.Runspaces.SessionStateVariableEntry]::new("searchWholeFileMax", ${searchWholeFileMax}, ""))
+    $pool = [runspacefactory]::CreateRunspacePool(1, $workers, $state, $Host)
+    $pool.Open()
+    return $pool
 }
 
 function toSearchResultLines {
