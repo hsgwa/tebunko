@@ -15,7 +15,7 @@
 [![Windows](https://img.shields.io/badge/Windows-PowerShell%205.1-0078D4?logo=windows)](#動作環境)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[**ダウンロード**](https://github.com/hsgwa/tebunko/releases/latest) ・ [使い方](#使い方) ・ [安全性](#安全性) ・ [ドキュメント](docs/00_index.md) ・ [サポート](SUPPORT.md)
+[**ダウンロード**](https://github.com/hsgwa/tebunko/releases/latest) ・ [使い方](#使い方) ・ [安全性](#安全性) ・ [ドキュメント](https://hsgwa.github.io/tebunko/) ・ [サポート](SUPPORT.md)
 
 <img src="docs/images/screenshot_search.png" alt="tebunko_grep の検索画面。「(株)山田商事」で検索し、Excel・Word・PowerPoint の一致した箇所が一覧に出ている" width="880">
 
@@ -89,7 +89,7 @@
 - **Excel の数値** は表示されている形で検索します。表示形式が「標準」の 12 桁以上の数値は、指数表記（`4.90123E+12`）になるため元の番号では見つかりません。
 - インデックスは変換した時点の内容です。元のファイルの変更は、次の変換で反映されます。
 
-詳細は [docs/](docs/00_index.md) にあります。
+詳細は [docs/](docs/00_index.md) にあります。同じ内容を [Web サイト](https://hsgwa.github.io/tebunko/) でも読めます。
 
 ## 安全性
 

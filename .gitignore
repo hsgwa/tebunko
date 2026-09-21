@@ -15,3 +15,6 @@ sample*/
 
 # 手元のメモ（やり残しの TODO）
 /TODO.md
+
+# MkDocs のフック（tools/mkdocs/hooks.py）を読み込んだときに Python が作るキャッシュ
+__pycache__/
