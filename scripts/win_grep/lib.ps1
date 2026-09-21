@@ -6,6 +6,7 @@
 . "$PSScriptRoot\index\index_name.ps1"
 . "$PSScriptRoot\index\index_store.ps1"
 . "$PSScriptRoot\convert\convert_state.ps1"
+. "$PSScriptRoot\convert\convert_decide.ps1"
 . "$PSScriptRoot\search\search_query.ps1"
 . "$PSScriptRoot\search\search_run.ps1"
 . "$PSScriptRoot\search\source_map.ps1"

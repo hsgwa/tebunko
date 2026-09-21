@@ -94,15 +94,18 @@ function createTargetList {
         $old = $null
         [void]$previous.TryGetValue($relPath, [ref]$old)
 
-        $sameFile = ($old -and $old.更新日時 -eq $updated -and $old.サイズ -eq $size -and $old.状態 -ne ${stateNew})
-        # 変換済みでも、インデックス（TSV）が無くなっていれば変換し直す。
-        # 一覧だけを見ると「済」のままになり、検索しても出てこない状態が続くため
-        $lostIndex = ($sameFile -and $old.状態 -eq ${stateDone} -and -not (testIndexComplete $old $relPath $counts))
+        # 変換するかどうかの判断は convert_decide.ps1（テストしやすいように分けてある）
+        # 変換結果（TSV）の有無は、前回と同じファイルで「済」のときだけ調べる（変換し直すものには要らない）
+        $indexComplete = $true
+        if ($old -and $old.状態 -eq ${stateDone} -and $old.更新日時 -eq $updated -and $old.サイズ -eq $size) {
+            $indexComplete = [bool](testIndexComplete $old $relPath $counts)
+        }
+        $decision = getConvertDecision $old $updated $size $indexComplete
 
-        if ($sameFile -and -not $lostIndex) {
+        if (-not $decision.Convert) {
             # 更新なし。失敗したファイルを再変換するかは呼び出し元で決める
             $row = $old
-            if ($row.状態 -eq ${stateFailed}) {
+            if ($decision.Reason -eq "failed") {
                 $failed.Add($row)
             } else {
                 $count.Done++
@@ -119,14 +122,11 @@ function createTargetList {
             } else {
                 $row = newStatusRow $relPath $updated $size ${stateNew}
                 $targets.Add($row)
-                if ($lostIndex) {
-                    $count.Lost++
-                } elseif ($null -eq $old) {
-                    $count.New++
-                } elseif ($old.状態 -eq ${stateNew}) {
-                    $count.Pending++
-                } else {
-                    $count.Updated++
+                switch ($decision.Reason) {
+                    "lost"    { $count.Lost++ }
+                    "new"     { $count.New++ }
+                    "pending" { $count.Pending++ }
+                    default   { $count.Updated++ }
                 }
             }
         }
