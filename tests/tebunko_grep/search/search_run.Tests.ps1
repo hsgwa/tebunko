@@ -149,7 +149,7 @@ Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" -Tag Io
         $hit = @((searchIndex "納期" (getIndexTsvFiles @($objectIndex)).Files $true).Hits)[0]
         $hit.Book | Should Be "[確定]見積.xlsx"
         $hit.Location | Should Be "見積[図形]"
-        (toSearchResultLines @($hit)).Lines[0] | Should Be "[確定]見積.xlsx`t[シート] 見積`tテキスト`t1`tF2`t`"納期は`n別途`""
+        (toSearchResultLines @($hit)).Lines[0] | Should Be "[確定]見積.xlsx`t[シート] 見積`t図形`t1`tF2`t`"納期は`n別途`""
     }
 
     It "図形・コメントを検索しない指定では、その場所の TSV を検索しない（件数にも入れない）" {

@@ -63,9 +63,9 @@ Describe "describePlace" -Tag Unit {
         return "$($d.Place)|$($d.Kind)"
     }
 
-    It "Excel はシート名と、セル・テキスト（図形）・コメントの種別にする" {
+    It "Excel はシート名と、セル・図形・コメントの種別にする（検索条件のチェックと同じ言葉）" {
         described "見積.xlsx" "売上" | Should Be "[シート] 売上|セル"
-        described "見積.xlsx" "売上[図形]" | Should Be "[シート] 売上|テキスト"
+        described "見積.xlsx" "売上[図形]" | Should Be "[シート] 売上|図形"
         described "見積.xlsx" "売上[コメント]" | Should Be "[シート] 売上|コメント"
         # シート名が「ページ001」でも、Excel ならシートとして出す
         described "旧.XLS" "ページ001" | Should Be "[シート] ページ001|セル"
@@ -84,7 +84,7 @@ Describe "describePlace" -Tag Unit {
         described "提案.pptx" "スライド001" | Should Be "[スライド] 1|本文"
         described "提案.pptx" "スライド002（非表示）" | Should Be "[スライド] 2（非表示）|本文"
         described "提案.pptx" "スライド002_ノート" | Should Be "[スライド] 2|ノート"
-        described "提案.pptx" "スライド002[図形]" | Should Be "[スライド] 2|テキスト"
+        described "提案.pptx" "スライド002[図形]" | Should Be "[スライド] 2|図形"
     }
 
     It "場所が空（以前の形式で分けられなかった TSV）なら空" {

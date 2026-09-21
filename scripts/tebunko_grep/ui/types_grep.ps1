@@ -171,7 +171,7 @@ class HitRow : NotifyBase {
     [string]$Book
     [string]$Location
     [string]$PlaceText    # 画面の「場所」（describePlace。例: [シート] 売上）。生成した側が入れる
-    [string]$Kind         # 画面の「種別」（セル・テキスト・コメント・本文・ノート）
+    [string]$Kind         # 画面の「種別」（セル・図形・コメント・本文・ノート）
     [int]$LineNumber
     [string]$Line
     [bool]$IsExcel
