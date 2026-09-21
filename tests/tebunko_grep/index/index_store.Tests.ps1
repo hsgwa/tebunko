@@ -19,22 +19,22 @@ Describe "getIndexStats" -Tag Io {
         $stats["営業"].Done | Should Be 1
         $stats["営業"].Failed | Should Be 1
         $stats["営業"].Pending | Should Be 1
-        $stats["営業"].LastConverted | Should Be "2026/09/19 11:00:00"
+        $stats["営業"].LastIngested | Should Be "2026/09/19 11:00:00"
         $stats["技術"].Total | Should Be 1
-        $stats["技術"].LastConverted | Should Be "2026/09/17 09:00:00"
+        $stats["技術"].LastIngested | Should Be "2026/09/17 09:00:00"
     }
 
     It "行が無ければ空を返す" {
         (getIndexStats $null).Count | Should Be 0
     }
 
-    It "getConversionState からも集計を取れる" {
+    It "getIndexingState からも集計を取れる" {
         $path = "$TestDrive\stats_state.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
         ) $path
 
-        (getConversionState -path $path).IndexStats["営業"].Total | Should Be 1
+        (getIndexingState -path $path).IndexStats["営業"].Total | Should Be 1
     }
 }
 

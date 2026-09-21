@@ -12,22 +12,22 @@
   <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,14,0,0" Padding="16,13">
     <StackPanel>
       <DockPanel>
-        <Button x:Name="ConvertButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="変換を開始" MinWidth="150" Height="34" />
-        <TextBlock x:Name="ConvertHint" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,14,0"
+        <Button x:Name="IndexingButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="変換を開始" MinWidth="150" Height="34" />
+        <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,14,0"
                    Text="押すと、何件変換するかを確認してから、新しいファイル・変わったファイルだけを変換します。" />
       </DockPanel>
 
-      <StackPanel x:Name="ConvertProgressPanel" Visibility="Collapsed" Margin="0,14,0,0">
+      <StackPanel x:Name="IndexingProgressPanel" Visibility="Collapsed" Margin="0,14,0,0">
         <DockPanel>
-          <Button x:Name="ConvertStopButton" DockPanel.Dock="Right" Content="中止" MinWidth="72" Margin="12,0,0,0" />
-          <Button x:Name="ConvertLogButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="ログを開く"
+          <Button x:Name="IndexingStopButton" DockPanel.Dock="Right" Content="中止" MinWidth="72" Margin="12,0,0,0" />
+          <Button x:Name="IndexingLogButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="ログを開く"
                   VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed" />
-          <TextBlock x:Name="ConvertProgressEta" DockPanel.Dock="Right" Style="{StaticResource Meta}" VerticalAlignment="Center" />
+          <TextBlock x:Name="IndexingProgressEta" DockPanel.Dock="Right" Style="{StaticResource Meta}" VerticalAlignment="Center" />
           <!-- 変換中は、この件数がこの画面の主役 -->
-          <TextBlock x:Name="ConvertProgressText" Style="{StaticResource Focal}" VerticalAlignment="Center" />
+          <TextBlock x:Name="IndexingProgressText" Style="{StaticResource Focal}" VerticalAlignment="Center" />
         </DockPanel>
-        <ProgressBar x:Name="ConvertProgress" Margin="0,9,0,0" Maximum="1" />
-        <TextBlock x:Name="ConvertProgressDetail" Style="{StaticResource Micro}" Margin="0,7,0,0"
+        <ProgressBar x:Name="IndexingProgress" Margin="0,9,0,0" Maximum="1" />
+        <TextBlock x:Name="IndexingProgressDetail" Style="{StaticResource Micro}" Margin="0,7,0,0"
                    TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
       </StackPanel>
     </StackPanel>
@@ -100,7 +100,7 @@
               <DataGridTemplateColumn Header="最終変換" Width="100">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding LastConvertedText}" />
+                    <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding LastIngestedText}" />
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
@@ -119,7 +119,7 @@
       </StackPanel>
       <StackPanel Grid.Row="3">
         <TextBlock x:Name="IndexSummaryText" Text="確認中…" />
-        <TextBlock x:Name="ConversionStateText" Style="{StaticResource WarnText}" Margin="0,6,0,0" />
+        <TextBlock x:Name="IndexingStateText" Style="{StaticResource WarnText}" Margin="0,6,0,0" />
         <StackPanel x:Name="FailedPanel" Visibility="Collapsed" Margin="0,8,0,0">
           <DockPanel>
             <TextBlock DockPanel.Dock="Right" Style="{StaticResource Micro}" VerticalAlignment="Bottom"
@@ -143,7 +143,7 @@
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTextColumn Header="日時" Binding="{Binding ConvertedText}" Width="80"
+              <DataGridTextColumn Header="日時" Binding="{Binding IngestedText}" Width="80"
                                   ElementStyle="{StaticResource Cell.Meta}" />
             </DataGrid.Columns>
           </DataGrid>

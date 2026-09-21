@@ -24,20 +24,20 @@ $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickE
         $cb = $e.OriginalSource
         if ($cb -is [System.Windows.Controls.CheckBox] -and $cb.DataContext -is [FolderItem] -and !$script:loadingTargets) {
             saveTargets
-            updateConvertButton
+            updateIndexingButton
         }
     }
 })
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
 $script:editDialog = $null    # 新規作成・編集のダイアログ（開いている間だけ）
-$script:convertProcess = $null
-$script:convertStart = $null
-$script:convertFailed = 0  # 変換中に一覧へ反映済みの失敗件数
-$script:conversionState = $null
+$script:indexingProcess = $null
+$script:indexingStart = $null
+$script:ingestFailed = 0  # 変換中に一覧へ反映済みの失敗件数
+$script:indexingState = $null
 $script:indexSummary = $null
 
-function isConverting {
-    return ($null -ne $script:convertProcess) -and !$script:convertProcess.HasExited
+function isIndexing {
+    return ($null -ne $script:indexingProcess) -and !$script:indexingProcess.HasExited
 }
 
 $script:folderCheckRunning = $false
@@ -113,7 +113,7 @@ function applyFolderStatus {
             $item.SetStatus("✗ フォルダが見つかりません", ${ngBrush})
         }
     }
-    updateConvertButton
+    updateIndexingButton
 }
 
 function newFolderItem {
@@ -128,7 +128,7 @@ function newFolderItem {
     $item.Path = $path
     $item.Enabled = $enabled
     $item.FileCountText = "－"
-    $item.LastConvertedText = ""
+    $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
     $item.SetStatus("… フォルダを確認しています", ${grayBrush})
     # ［変換］チェックの保存は、一覧のチェックボックスの Click（IndexGrid.AddHandler）で行う。
@@ -179,7 +179,7 @@ function refreshIndexViews {
     $script:indexSummary = $null
     loadIndexTree
     refreshIndexSummary
-    refreshConversionState
+    refreshIndexingState
 }
 
 function applyIndexStats {
@@ -197,9 +197,9 @@ function applyIndexStats {
             $item.SetStats("－", "まだ変換していません", "")
             continue
         }
-        $converted = [datetime]::MinValue
-        $lastText = if ($stat.LastConverted -and [datetime]::TryParseExact($stat.LastConverted, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted)) {
-            formatTime $converted
+        $ingested = [datetime]::MinValue
+        $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
+            formatTime $ingested
         } else {
             ""
         }
@@ -209,7 +209,7 @@ function applyIndexStats {
 
 function updateIndexListView {
     $ui.IndexGridPlaceholder.Visibility = if ($script:targetItems.Count -eq 0) { "Visible" } else { "Collapsed" }
-    updateConvertButton
+    updateIndexingButton
 }
 
 function testIndexOperable {
@@ -218,7 +218,7 @@ function testIndexOperable {
         [string]$operation
     )
 
-    if (isConverting) {
+    if (isIndexing) {
         showMessage "変換中はインデックスを${operation}できません。変換が終わるまでお待ちください（［中止］で止められます）。" "OK" "Warning" | Out-Null
         return $false
     }
@@ -334,7 +334,7 @@ function addIndexItem {
     saveTargets
     updateIndexSourceFile
     updateIndexListView
-    refreshConversionState
+    refreshIndexingState
     if (Test-Path -LiteralPath $path -PathType Container) {
         setStatus "インデックス [${name}] を作成しました。［変換を開始］を押すと中身を変換します"
     } else {
@@ -426,7 +426,7 @@ function startIndexRemoveJob {
     $script:indexJobName = $name
     $script:indexJobOnDone = $onDone
     $script:indexJobOperation = $operation
-    updateConvertButton
+    updateIndexingButton
     setStatus "インデックス [${name}] の TSV を削除しています…（件数によっては少し時間がかかります）"
     startJob {
         param ($libPath, $name)
@@ -435,7 +435,7 @@ function startIndexRemoveJob {
     } @(${libPath}, $name) {
         param ($output, $errorText)
         $script:indexBusy = $false
-        updateConvertButton
+        updateIndexingButton
         $name = $script:indexJobName
         if ($errorText) {
             setStatus "インデックス [${name}] の $($script:indexJobOperation)に失敗しました：${errorText}"
@@ -478,7 +478,7 @@ function deleteIndex {
     }
 }
 
-function updateConvertButton {
+function updateIndexingButton {
     $ready = $false
     foreach ($item in $script:targetItems) {
         # フォルダの有無は refreshFolderStatus が別スレッドで調べた結果を使う（調べ終えるまではあるものとする）
@@ -488,42 +488,42 @@ function updateConvertButton {
         }
     }
 
-    $state = $script:conversionState
+    $state = $script:indexingState
     if ($script:indexBusy) {
         # インデックスの削除中（別スレッド）は、変換もインデックスの操作も始めない
         $ready = $false
     }
-    if (isConverting) {
-        $ui.ConvertButton.Content = "変換中…"
-        $ui.ConvertButton.IsEnabled = $false
+    if (isIndexing) {
+        $ui.IndexingButton.Content = "変換中…"
+        $ui.IndexingButton.IsEnabled = $false
     } else {
-        $ui.ConvertButton.Content = if ($state -and $state.Pending -gt 0) { "続きから再開（残り $($state.Pending) 件）" } else { "変換を開始" }
-        $ui.ConvertButton.IsEnabled = $ready
+        $ui.IndexingButton.Content = if ($state -and $state.Pending -gt 0) { "続きから再開（残り $($state.Pending) 件）" } else { "変換を開始" }
+        $ui.IndexingButton.IsEnabled = $ready
     }
 
     # ボタンの下の一言。押す前は「押すと何が起きるか」、変換中は「やめるとどうなるか」を書く
-    $hint = if (isConverting) {
+    $hint = if (isIndexing) {
         "変換中も検索できます。やめるときは［中止］を押してください（次に［変換を開始］を押すと続きから再開します）。"
     } else {
         "押すと、何件変換するかを確認してから、新しいファイル・変わったファイルだけを変換します。"
     }
-    if (!$ready -and !(isConverting)) {
+    if (!$ready -and !(isIndexing)) {
         $hint = "まずインデックスを作って、［変換］にチェックを付けてください。"
-    } elseif ($state -and $state.Failed -gt 0 -and !(isConverting)) {
+    } elseif ($state -and $state.Failed -gt 0 -and !(isIndexing)) {
         $hint = "前回うまく変換できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
     }
-    $ui.ConvertHint.Text = $hint
+    $ui.IndexingHint.Text = $hint
 
     # インデックスの作成・編集・削除は、選んでいるかどうかと変換中かどうかで切り替える
     # （変換中はインデックスのフォルダ・変換一覧を変換側が使っているため触らない）
     $selected = $null -ne $ui.IndexGrid.SelectedItem
-    $editable = !(isConverting) -and !$script:indexBusy
+    $editable = !(isIndexing) -and !$script:indexBusy
     $ui.NewIndexButton.IsEnabled = $editable
     $ui.EditIndexButton.IsEnabled = $selected -and $editable
     $ui.RemoveIndexButton.IsEnabled = $selected -and $editable
 }
 
-function refreshConversionState {
+function refreshIndexingState {
     # 変換一覧の集計は、ファイルが数万行になると数秒〜十数秒かかる。
     # 画面のスレッドで行うと、起動時・タブの切り替え時に画面が固まる（応答なしになる）ため別スレッドで数える
     if ($script:stateRunning) {
@@ -535,41 +535,41 @@ function refreshConversionState {
     startJob {
         param ($libPath)
         . $libPath
-        getConversionState
+        getIndexingState
     } @(${libPath}) {
         param ($output, $errorText)
         $script:stateRunning = $false
         # 変換側が書き込んでいる瞬間などは、次の機会に読み直す
         if ($output -and $output.Count -gt 0 -and $output[0]) {
-            applyConversionState $output[0]
+            applyIndexingState $output[0]
         }
         if ($script:stateAgain) {
-            refreshConversionState
+            refreshIndexingState
         }
     }
 }
 
-function applyConversionState {
+function applyIndexingState {
     # 集計（別スレッド）の結果を画面に反映する
     param (
-        $state  # getConversionState の結果
+        $state  # getIndexingState の結果
     )
 
-    $script:conversionState = $state
+    $script:indexingState = $state
 
     # 失敗したファイルは下の一覧に原因とともに表示する
-    $ui.ConversionStateText.Text = if ($state.Pending -gt 0 -and !(isConverting)) { "⏸ 前回の変換が中断しています（残り $($state.Pending) 件）" } else { "" }
+    $ui.IndexingStateText.Text = if ($state.Pending -gt 0 -and !(isIndexing)) { "⏸ 前回の変換が中断しています（残り $($state.Pending) 件）" } else { "" }
     $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 インデックス管理" } else { "1 インデックス管理" }
     applyIndexStats $state.IndexStats
     updateFailedList $state
     updateIndexSummaryText
-    updateConvertButton
+    updateIndexingButton
 }
 
 function updateFailedList {
     # 変換に失敗したファイルと原因（変換一覧のエラー列）を一覧に表示する
     param (
-        $state  # getConversionState の結果
+        $state  # getIndexingState の結果
     )
 
     $folderPaths = @{}  # インデックス名 → 変換対象フォルダ（大文字・小文字を区別しない）
@@ -584,9 +584,9 @@ function updateFailedList {
         $row = New-Object FailRow
         $row.RelPath = $status.相対パス
         $row.Reason = if ($status.エラー) { $status.エラー } else { "（原因は記録されていません）" }
-        $converted = [datetime]::MinValue
-        if ([datetime]::TryParseExact([string]$status.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted)) {
-            $row.ConvertedText = formatTime $converted
+        $ingested = [datetime]::MinValue
+        if ([datetime]::TryParseExact([string]$status.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
+            $row.IngestedText = formatTime $ingested
         }
         $parts = splitIndexRelPath $status.相対パス
         if ($folderPaths.ContainsKey($parts.Name)) {
@@ -634,7 +634,7 @@ function updateIndexSummaryText {
         return
     }
     $text = "TSV $($summary['Count'].ToString('N0')) 件 ・ 最終変換 $(formatTime $summary['LastWrite'])"
-    $state = $script:conversionState
+    $state = $script:indexingState
     if ($state -and $state.Done -gt 0) {
         $text = "変換済み $($state.Done.ToString('N0')) ファイル（$text）"
     }

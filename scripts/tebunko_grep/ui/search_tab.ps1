@@ -232,7 +232,7 @@ function finishSearch {
 
     $shared = $s.Shared
     $ui.SearchProgress.Visibility = "Collapsed"
-    $taskbar.ProgressState = if (isConverting) { $taskbar.ProgressState } else { "None" }
+    $taskbar.ProgressState = if (isIndexing) { $taskbar.ProgressState } else { "None" }
     $script:lastSearch = $s
     $seconds = ((Get-Date) - $s.Start).TotalSeconds
     updateSearchButton
@@ -279,7 +279,7 @@ function finishSearch {
     if ($missing.Count -gt 0) {
         $status += "　見つからない検索対象フォルダ：$($missing -join '、')"
     }
-    if (isConverting) {
+    if (isIndexing) {
         $status += "　変換中のため、作成途中のインデックスを検索しています。"
     }
     setStatus $status

@@ -5,15 +5,15 @@ Word・PowerPoint で共通の処理は [01_変換_6_共通処理とアプリ管
 
 ---
 
-## 4.5 Word の旧形式の変換（`convertWithWord`）
+## 4.5 Word の旧形式の変換（`extractWithWord`）
 
 4.4 節で ZIP ではないと判定したファイル（`.doc`、パスワード付き、拡張子と中身が異なるもの）を、Word で `.docx` に変換する。
 
 | 項目 | 仕様 |
 |---|---|
-| 開き方 | `Documents.Open(パス, ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False, パスワード類="dummy", ..., Visible=False)` |
+| 開き方 | `Documents.Open(パス, ConfirmIndexings=False, ReadOnly=True, AddToRecentFiles=False, パスワード類="dummy", ..., Visible=False)` |
 | パスワード付きファイル | ダミーのパスワードにより、ダイアログを出さずに「パスワードが正しくありません」の例外 |
-| 保存 | `Repaginate()` でページ割りを確定させてから `SaveAs2(converted.docx, 12 = wdFormatXMLDocument)` |
+| 保存 | `Repaginate()` でページ割りを確定させてから `SaveAs2(ingested.docx, 12 = wdFormatXMLDocument)` |
 | アプリの設定 | `Visible = False`、`DisplayAlerts = 0`（wdAlertsNone）、`AutomationSecurity = 3` |
 
 - `Repaginate()` を呼ぶのは、保存時に記録されるページ区切り（6.5 のページの目安）を確定させるため。呼ばない場合、同じ内容の文書でも変換のたびにページ区切りの位置が変わることがあった（◎）。

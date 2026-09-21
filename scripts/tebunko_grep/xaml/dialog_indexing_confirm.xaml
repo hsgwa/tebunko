@@ -1,4 +1,4 @@
-﻿<!-- 変換の確認ダイアログ（［変換を開始］を押した後、変換対象を数え終えたときに開く）。config_gui.ps1 が読み込む。
+﻿<!-- 変換の確認ダイアログ（［変換を開始］を押した後、変換対象を数え終えたときに開く）。gui.ps1 が読み込む。
      色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

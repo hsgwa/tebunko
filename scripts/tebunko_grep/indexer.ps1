@@ -15,7 +15,7 @@
 # ・変換中に強制終了した場合、次回はそのファイルを最後に回す（続けて強制終了したら失敗とする）
 # ・変換に失敗したファイルは一覧の状態を「失敗」とし、更新されない限り次回以降はスキップする（-RetryFailed で再変換する）
 #
-# 画面（config_gui.ps1）からウィンドウ無しで起動する。入力は求めない。
+# 画面（gui.ps1）からウィンドウ無しで起動する。入力は求めない。
 #   -RetryFailed    : 前回失敗し、その後更新されていないファイルも再変換する
 #   -ConfirmTargets : 変換対象を数えた後、いったん止まって画面の返事を待つ（画面から起動したときに使う）。
 #                     インデックスごとの件数を work\変換予定.tsv に書き、画面が work\変換開始要求 を作成したら変換を始める
@@ -31,9 +31,9 @@ param (
 . "$PSScriptRoot\lib.ps1"
 . "$PSScriptRoot\..\shared\office\office_reader.ps1"
 . "$PSScriptRoot\..\shared\office\office_app.ps1"
-. "$PSScriptRoot\convert\convert_plan.ps1"
-. "$PSScriptRoot\convert\convert_office.ps1"
-. "$PSScriptRoot\convert\index_migrate.ps1"
+. "$PSScriptRoot\indexer\indexer_plan.ps1"
+. "$PSScriptRoot\indexer\extract_office.ps1"
+. "$PSScriptRoot\indexer\index_migrate.ps1"
 
 $ErrorActionPreference = "Stop"
 
@@ -44,7 +44,7 @@ trap {
     Write-Host $message -ForegroundColor Red
     try {
         [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
-        [System.IO.File]::WriteAllText(${convertErrorFile}, $message, ${utf8Bom})
+        [System.IO.File]::WriteAllText(${indexingErrorFile}, $message, ${utf8Bom})
     } catch {}
     try { Stop-Transcript | Out-Null } catch {}
     exit 1
@@ -52,26 +52,26 @@ trap {
 
 # 前回の実行で残った中止要求・エラーは使わない。表示内容はログに記録する
 [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
-foreach ($oldFile in @(${stopRequestFile}, ${convertErrorFile}, ${convertPlanFile}, ${convertStartRequestFile})) {
+foreach ($oldFile in @(${stopRequestFile}, ${indexingErrorFile}, ${ingestPlanFile}, ${indexingStartRequestFile})) {
     if (Test-Path -LiteralPath $oldFile) {
         Remove-Item -LiteralPath $oldFile -Force
     }
 }
 # 前回の進み具合も消す。残っていると、画面が起動直後に前回の最後の1行（「仕上げ」など）を読んでしまう
-removeConvertProgress
-try { Start-Transcript -LiteralPath ${convertLogFile} -Force | Out-Null } catch {}
+removeIndexingProgress
+try { Start-Transcript -LiteralPath ${indexingLogFile} -Force | Out-Null } catch {}
 
 # 同じ work（同じ配置フォルダ）に対して変換を2つ動かすと、変換一覧・インデックスが食い違うため1つだけ動かす。
 # 画面は実行中の変換を見つけて進み具合を表示するため、ここに来るのは画面を使わずに起動した場合。
 # ミューテックスはプロセスが終われば解放されるため、強制終了されても残らない
-$convertMutex = newAppMutex "convert"
-if (!$convertMutex.Acquired) {
+$indexerMutex = newAppMutex "indexer"
+if (!$indexerMutex.Acquired) {
     throw "ほかの変換が実行中です。変換が終わってから実行してください。"
 }
 
 # 進み具合は1行のファイル（変換進捗.txt）に書く。画面はこれを読んで表示する
 # （変換一覧は数万行になるため、画面が毎秒読み直すと、その間ずっと画面が固まる）
-writeConvertProgress ${convertPhaseScan} 0 0 0 "変換の準備をしています…"
+writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "変換の準備をしています…"
 
 $restartInterval = 100  # Officeアプリを再起動する間隔（ファイル数）。メモリ肥大化対策（再起動 1 回で起動し直す約 2 秒かかるため、間隔を詰めすぎない）
 $fileTimeoutMinutes = 10  # 1ファイルの変換の制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
@@ -124,7 +124,7 @@ Write-Host ""
 Write-Host "変換対象のファイルを検索しています..."
 # 変換一覧の「済」に対してインデックス（TSV）が残っているかを調べるため、今あるTSVの数を数えておく
 # （利用者が work\index を直接削除した場合に、「済」のまま検索できなくなるのを防ぐ）
-writeConvertProgress ${convertPhaseScan} 0 0 0 "変換済みのインデックスを確認しています…"
+writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "変換済みのインデックスを確認しています…"
 $indexCounts = getIndexTsvCounts
 if ($null -eq $indexCounts) {
     Write-Host "  インデックスのフォルダを調べられないため、変換結果が残っているかの確認は行いません。" -ForegroundColor Yellow
@@ -136,14 +136,14 @@ $plan = New-Object System.Collections.Generic.List[object]   # 画面の確認�
 foreach ($folder in $folders) {
     if (-not $folder.Enabled) {
         Write-Host "  [$($folder.Name)] $($folder.Path) … チェックなしのため変換しません（インデックスはそのまま残します）"
-        $plan.Add((newConvertPlanRow $folder.Name $folder.Path ${planKindUnchecked}))
+        $plan.Add((newIngestPlanRow $folder.Name $folder.Path ${planKindUnchecked}))
     } elseif (!(Test-Path -LiteralPath $folder.Path -PathType Container)) {
         Write-Host "  [$($folder.Name)] $($folder.Path) … フォルダが見つからないため変換しません" -ForegroundColor Yellow
-        $plan.Add((newConvertPlanRow $folder.Name $folder.Path ${planKindMissing}))
+        $plan.Add((newIngestPlanRow $folder.Name $folder.Path ${planKindMissing}))
     } else {
         Write-Host "  [$($folder.Name)] $($folder.Path)"
         # 大きいフォルダ・ネットワーク越しでは時間がかかるため、どのフォルダを見ているかを画面に伝える
-        writeConvertProgress ${convertPhaseScan} 0 0 0 "[$($folder.Name)] のOfficeファイルを探しています… $($folder.Path)"
+        writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "[$($folder.Name)] のOfficeファイルを探しています… $($folder.Path)"
         $list = createTargetList $folder $previous $indexCounts
         $rows.AddRange($list.Rows)
         $targets.AddRange($list.Targets)
@@ -165,7 +165,7 @@ foreach ($folder in $folders) {
 # 「更新不要」かどうかも、この件数を見て画面が知らせる（変換対象が 0 件でも、前回失敗の再変換を選べる）
 $retryTargets = [bool]$RetryFailed
 if ($ConfirmTargets) {
-    $answer = waitForConvertApproval $plan.ToArray() $targets.Count $failed.Count
+    $answer = waitForIndexingApproval $plan.ToArray() $targets.Count $failed.Count
     if ($null -eq $answer) {
         # 取りやめ。1件も変換していないため、変換対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
         # 「未変換」で記録すると、次回［変換を開始］が［続きから再開］になり、中断したように見えるため。
@@ -189,7 +189,7 @@ if ($ConfirmTargets) {
         Write-Host "画面で取りやめたため、変換しません。（変換一覧は前回のままです）" -ForegroundColor Yellow
         writeStatusFile $folders $keep
         writeSourceFolderFile $folders
-        writeConvertProgress ${convertPhaseFinish} 0 0 0 "変換を取りやめました"
+        writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "変換を取りやめました"
         removeTmpDir
         try { Stop-Transcript | Out-Null } catch {}
         exit 2
@@ -209,12 +209,12 @@ if ($failed.Count -gt 0) {
 
 # 前回、変換中に強制終了した（ウィンドウを閉じた・PCが停止した等）ファイルは、同じファイルで止まり続けないよう最後に回す。
 # 続けて $interruptLimit 回強制終了したファイルは、応答しなくなるファイルとみなして失敗とする
-$interrupted = readConvertingFile
+$interrupted = readIngestingFile
 if ($interrupted) {
     $row = @($targets | Where-Object { $_.相対パス -eq $interrupted.RelPath }) | Select-Object -First 1
     if (!$row) {
         $interrupted = $null
-        removeConvertingFile
+        removeIngestingFile
     } elseif ($interrupted.Count -ge $interruptLimit) {
         [void]$targets.Remove($row)
         $row.状態 = ${stateFailed}
@@ -224,7 +224,7 @@ if ($interrupted) {
         Write-Host ""
         Write-Host "変換中に $($interrupted.Count) 回続けて強制終了したファイルは、失敗としてスキップします: $($row.相対パス)" -ForegroundColor Yellow
         $interrupted = $null
-        removeConvertingFile
+        removeIngestingFile
     } else {
         [void]$targets.Remove($row)
         $targets.Add($row)
@@ -232,7 +232,7 @@ if ($interrupted) {
         Write-Host "前回、変換中に強制終了したファイルは最後に変換します: $($row.相対パス)" -ForegroundColor Yellow
     }
 }
-writeConvertProgress ${convertPhaseScan} 0 $targets.Count 0 "変換一覧を書き出しています…"
+writeIndexingProgress ${indexingPhaseCrawl} 0 $targets.Count 0 "変換一覧を書き出しています…"
 writeStatusFile $folders $rows
 # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名と変換対象フォルダの対応を置く
 writeSourceFolderFile $folders
@@ -246,7 +246,7 @@ foreach ($folder in $folders) {
 if ($targets.Count -eq 0) {
     Write-Host ""
     Write-Host "変換が必要なファイルはありません。（一覧: $(Split-Path $statusFile -Leaf)）" -ForegroundColor Green
-    writeConvertProgress ${convertPhaseFinish} 0 0 0 "変換が必要なファイルはありませんでした"
+    writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "変換が必要なファイルはありませんでした"
     removeTmpDir
     try { Stop-Transcript | Out-Null } catch {}
     exit 0
@@ -285,7 +285,7 @@ try {
         $sourcePath = Join-Path $sourceFolder $parts.Rest
         Write-Host ("[{0}/{1}] {2}" -f ($i + 1), $total, $relPath)
         # 画面はこの1行から進み具合を作る（変換一覧は読まない）
-        writeConvertProgress ${convertPhaseRun} $i ($total - $i) $failures.Count $relPath
+        writeIndexingProgress ${indexingPhaseIngest} $i ($total - $i) $failures.Count $relPath
 
         # 変換対象を調べてから変換するまでの間に、元のファイルが移動・削除されることがある。
         # 「失敗」として記録すると、再変換を選ぶまで残ってしまうため、無くなったファイルは一覧・インデックスから除く
@@ -309,14 +309,14 @@ try {
         if ($interrupted -and $interrupted.RelPath -eq $relPath) {
             $startCount = $interrupted.Count + 1
         }
-        writeConvertingFile $relPath $startCount
+        writeIngestingFile $relPath $startCount
 
         try {
             clearTmpDir
             $script:watchdog.TimedOut = $false
             $script:watchdog.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
             try {
-                $tsvCount = convertFile $sourcePath
+                $tsvCount = ingestFile $sourcePath
             } finally {
                 $script:watchdog.Deadline = [datetime]::MaxValue
             }
@@ -327,7 +327,7 @@ try {
             $row.エラー = ""
             $successCount++
         } catch {
-            $message = describeConvertError $_.Exception
+            $message = describeIngestError $_.Exception
             if ($script:watchdog.TimedOut) {
                 $message = "${fileTimeoutMinutes} 分以内に変換が終わらなかったため中止しました（Officeアプリを強制終了しました）"
             }
@@ -344,7 +344,7 @@ try {
         # 中断しても結果が残るよう、1件ごとに変換一覧へ追記する（最後に1ファイル1行にまとめ直す）
         $row.変換日時 = formatFileTime (Get-Date)
         addStatusRow $row
-        removeConvertingFile
+        removeIngestingFile
 
         if ($script:watchdog.TimedOut -or (($i + 1) % $restartInterval) -eq 0) {
             # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
@@ -356,19 +356,19 @@ try {
     # 後片付けも数十秒かかることがあるため、何をしているかを画面に伝える（進み具合の数はそのまま残す）
     # 画面は「成功 = 処理済み - 失敗」と出すため、変換しなかった（元ファイルが無くなった）分は数に入れない
     $processed = $successCount + $failures.Count
-    writeConvertProgress ${convertPhaseFinish} $processed 0 $failures.Count "Officeアプリを終了しています…"
+    writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "Officeアプリを終了しています…"
     stopWatchdog
     stopAllApps
     removeTmpDir
-    removeConvertingFile
-    writeConvertProgress ${convertPhaseFinish} $processed 0 $failures.Count "変換一覧を書き直しています…"
+    removeIngestingFile
+    writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "変換一覧を書き直しています…"
     # 変換の直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
     writeStatusFile $folders @($rows | Where-Object { $_ -and !$droppedRows.Contains([string]$_.相対パス) })
     # 初めて変換したインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
     # （work\index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
     writeSourceFolderFile $folders
     # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す
-    writeConvertProgress ${convertPhaseFinish} $processed $remaining $failures.Count ""
+    writeIndexingProgress ${indexingPhaseFinish} $processed $remaining $failures.Count ""
 }
 
 if ($folderLost) {
@@ -377,7 +377,7 @@ if ($folderLost) {
         "（残り ${remaining} 件は未変換のまま残しました。フォルダを使えるようにしてから、もう一度変換してください）"
     Write-Host ""
     Write-Host $message -ForegroundColor Red
-    [System.IO.File]::WriteAllText(${convertErrorFile}, $message, ${utf8Bom})
+    [System.IO.File]::WriteAllText(${indexingErrorFile}, $message, ${utf8Bom})
     try { Stop-Transcript | Out-Null } catch {}
     exit 1
 }

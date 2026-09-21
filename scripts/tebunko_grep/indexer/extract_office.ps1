@@ -83,7 +83,7 @@ function copyDataRangeToTempSheet {
     }
 }
 
-function convertWorkbook {
+function extractWorkbook {
     # Excelファイルをシートごとに作業フォルダへTSV出力し、出力したシート数を返す
     param (
         [string]$sourcePath
@@ -172,7 +172,7 @@ function convertWorkbook {
     return $count
 }
 
-function convertWithWord {
+function extractWithWord {
     # Wordで開き、.docx 形式で保存する（旧形式 .doc 等を読めるようにするため）
     param (
         [string]$sourcePath,
@@ -180,7 +180,7 @@ function convertWithWord {
     )
 
     # 読み取り専用で開く。パスワード付きのファイルは、ダイアログを出さずにエラーとするためダミーのパスワードを渡す
-    #   引数: FileName, ConfirmConversions, ReadOnly, AddToRecentFiles, PasswordDocument, PasswordTemplate,
+    #   引数: FileName, ConfirmIndexings, ReadOnly, AddToRecentFiles, PasswordDocument, PasswordTemplate,
     #         Revert, WritePasswordDocument, WritePasswordTemplate, Format, Encoding, Visible
     $documents = (getApp "Word").Documents
     try {
@@ -199,7 +199,7 @@ function convertWithWord {
     }
 }
 
-function convertWithPowerPoint {
+function extractWithPowerPoint {
     # PowerPointで開き、.pptx 形式で保存する（旧形式 .ppt 等を読めるようにするため）
     param (
         [string]$sourcePath,
@@ -223,7 +223,7 @@ function convertWithPowerPoint {
     }
 }
 
-function convertDocument {
+function extractDocument {
     # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す
     param (
         [string]$sourcePath
@@ -251,10 +251,10 @@ function convertDocument {
             # コピーに旧形式の拡張子を付け直してから開く
             if ($isWord) {
                 $legacyPath = Join-Path $tmpDir "source.doc"
-                $readPath = Join-Path $tmpDir "converted.docx"
+                $readPath = Join-Path $tmpDir "ingested.docx"
             } else {
                 $legacyPath = Join-Path $tmpDir "source.ppt"
-                $readPath = Join-Path $tmpDir "converted.pptx"
+                $readPath = Join-Path $tmpDir "ingested.pptx"
             }
             if ($legacyPath -ne $copyPath) {
                 [System.IO.File]::Move($copyPath, $legacyPath)
@@ -263,9 +263,9 @@ function convertDocument {
             $workFiles = @($copyPath, $readPath)
 
             if ($isWord) {
-                convertWithWord $copyPath $readPath
+                extractWithWord $copyPath $readPath
             } else {
-                convertWithPowerPoint $copyPath $readPath
+                extractWithPowerPoint $copyPath $readPath
             }
         }
 
@@ -285,14 +285,14 @@ function convertDocument {
     return (writeUnits $units $tmpDir)
 }
 
-function convertFile {
+function ingestFile {
     # 1ファイルを変換し、作成したTSVの数を返す
     param (
         [string]$sourcePath
     )
 
     if ((getAppName $sourcePath) -eq "Excel") {
-        return (convertWorkbook $sourcePath)
+        return (extractWorkbook $sourcePath)
     }
-    return (convertDocument $sourcePath)
+    return (extractDocument $sourcePath)
 }

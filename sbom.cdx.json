@@ -66,17 +66,17 @@
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/convert.ps1",
+      "bom-ref": "scripts/tebunko_grep/indexer.ps1",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/convert.ps1",
-      "description": "変換処理（インデックス作成）の起動口"
+      "name": "scripts/tebunko_grep/indexer.ps1",
+      "description": "インデクサ（インデックス作成）の起動口"
     },
     {
       "type": "file",
       "bom-ref": "scripts/tebunko_grep/lib.ps1",
       "group": "tebunko",
       "name": "scripts/tebunko_grep/lib.ps1",
-      "description": "このツール固有の部品（core・index・convert・search）の読み込み口"
+      "description": "このツール固有の部品（core・index・indexer・search）の読み込み口"
     },
     {
       "type": "file",
@@ -113,7 +113,7 @@
       "dependsOn": [
         "tebunko_grep.bat",
         "scripts/tebunko_grep/gui.ps1",
-        "scripts/tebunko_grep/convert.ps1",
+        "scripts/tebunko_grep/indexer.ps1",
         "scripts/tebunko_grep/lib.ps1",
         "scripts/shared/shared.ps1",
         "scripts/shared/office/office_reader.ps1",

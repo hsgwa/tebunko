@@ -1,7 +1,7 @@
 ﻿# 1 ファイルを変換し直すかどうかの判断（差分変換の要）。
-# ファイルにも画面にも触らないため、そのままテストできる（tests\tebunko_grep\convert\convert_decide.Tests.ps1）。
+# ファイルにも画面にも触らないため、そのままテストできる（tests\tebunko_grep\indexer\indexer_decide.Tests.ps1）。
 
-function getConvertDecision {
+function getIngestDecision {
     # 前回の変換一覧の行と、いまのファイルの更新日時・サイズから、変換するかどうかと、その理由を返す。
     #   Convert: 変換するか / Reason: done（変換済み）・failed（前回失敗。再変換するかは呼び出し元が決める）・
     #            new（一覧に無い）・updated（更新された）・pending（前回未完了）・lost（変換結果が無い・壊れている）
@@ -20,18 +20,18 @@ function getConvertDecision {
 
     if ($sameFile -and -not $lostIndex) {
         if ($old.状態 -eq ${stateFailed}) {
-            return @{ Convert = $false; Reason = "failed" }
+            return @{ Ingest = $false; Reason = "failed" }
         }
-        return @{ Convert = $false; Reason = "done" }
+        return @{ Ingest = $false; Reason = "done" }
     }
     if ($lostIndex) {
-        return @{ Convert = $true; Reason = "lost" }
+        return @{ Ingest = $true; Reason = "lost" }
     }
     if ($null -eq $old) {
-        return @{ Convert = $true; Reason = "new" }
+        return @{ Ingest = $true; Reason = "new" }
     }
     if ($old.状態 -eq ${stateNew}) {
-        return @{ Convert = $true; Reason = "pending" }
+        return @{ Ingest = $true; Reason = "pending" }
     }
-    return @{ Convert = $true; Reason = "updated" }
+    return @{ Ingest = $true; Reason = "updated" }
 }

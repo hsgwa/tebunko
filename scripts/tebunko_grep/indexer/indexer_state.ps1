@@ -8,7 +8,7 @@ function newStatusRow {
         [string]$size = "",
         [string]$state = ${stateNew},
         [string]$tsvCount = "",
-        [string]$converted = "",
+        [string]$ingested = "",
         [string]$errorMessage = ""
     )
 
@@ -18,7 +18,7 @@ function newStatusRow {
         サイズ   = $size
         状態     = $state
         TSV数    = $tsvCount
-        変換日時 = $converted
+        変換日時 = $ingested
         エラー   = $errorMessage
     }
 }
@@ -46,7 +46,7 @@ function toStatusLine {
         [string]$row.TSV数, [string]$row.変換日時, $errorText))
 }
 
-function describeConvertError {
+function describeIngestError {
     # 変換で発生した例外から、変換一覧のエラー列・画面に表示する失敗の理由を返す。
     # Officeアプリのメッセージは分かりにくい（パスワード付きでも「入力したパスワードが間違っています」等）ため、
     # よくある原因は「原因（詳細: 元のメッセージ）」の形に言い換える
@@ -197,11 +197,11 @@ function addStatusRow {
     [System.IO.File]::AppendAllText($path, "$(toStatusLine $row)`r`n", ${utf8Bom})
 }
 
-function readConvertingFile {
+function readIngestingFile {
     # 変換中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて変換を始めて終わらなかった回数 } を返す。
     # 記録が無い・壊れている場合は $null
     param (
-        [string]$path = ${convertingFile}
+        [string]$path = ${ingestingFile}
     )
 
     $lines = @(readListFile $path)
@@ -216,20 +216,20 @@ function readConvertingFile {
     return @{ RelPath = $fields[1]; Count = $count }
 }
 
-function writeConvertingFile {
-    # 変換を始めるファイルを "回数<TAB>相対パス" で記録する。変換が終われば removeConvertingFile で消す
+function writeIngestingFile {
+    # 変換を始めるファイルを "回数<TAB>相対パス" で記録する。変換が終われば removeIngestingFile で消す
     param (
         [string]$relPath,
         [int]$count,
-        [string]$path = ${convertingFile}
+        [string]$path = ${ingestingFile}
     )
 
     writeListFile $path @("${count}`t${relPath}")
 }
 
-function removeConvertingFile {
+function removeIngestingFile {
     param (
-        [string]$path = ${convertingFile}
+        [string]$path = ${ingestingFile}
     )
 
     if (Test-Path -LiteralPath $path) {
@@ -237,7 +237,7 @@ function removeConvertingFile {
     }
 }
 
-function writeConvertProgress {
+function writeIndexingProgress {
     # 変換の進み具合を1行で書く（画面が読む）。書き込みは1ファイルにつき1回で、変換の速さに影響しない大きさにする。
     #   "<段階><TAB><処理済み><TAB><残り><TAB><失敗><TAB><いま行っていること>"
     # 画面が読んでいる最中でも書けるよう、共有を許して開く
@@ -247,7 +247,7 @@ function writeConvertProgress {
         [int]$remaining = 0,
         [int]$failed = 0,
         [string]$detail = "",
-        [string]$path = ${convertProgressFile}
+        [string]$path = ${indexingProgressFile}
     )
 
     $line = "{0}`t{1}`t{2}`t{3}`t{4}" -f $phase, $processed, $remaining, $failed, ($detail -replace "[\t\r\n]+", " ")
@@ -264,10 +264,10 @@ function writeConvertProgress {
     }
 }
 
-function readConvertProgress {
+function readIndexingProgress {
     # 変換の進み具合を読む（無い・壊れていれば $null）。画面が毎秒呼ぶため、1行だけ読む
     param (
-        [string]$path = ${convertProgressFile}
+        [string]$path = ${indexingProgressFile}
     )
 
     if (!(Test-Path -LiteralPath $path)) {
@@ -303,9 +303,9 @@ function readConvertProgress {
     return @{ Phase = $fields[0]; Processed = $numbers[0]; Remaining = $numbers[1]; Failed = $numbers[2]; Detail = $fields[4] }
 }
 
-function removeConvertProgress {
+function removeIndexingProgress {
     param (
-        [string]$path = ${convertProgressFile}
+        [string]$path = ${indexingProgressFile}
     )
 
     if (Test-Path -LiteralPath $path) {
@@ -313,12 +313,12 @@ function removeConvertProgress {
     }
 }
 
-function newConvertPlanRow {
+function newIngestPlanRow {
     # 変換予定（インデックス1件分）の行を作る
     param (
         [string]$name,
         [string]$path,
-        [string]$kind = ${planKindConvert},
+        [string]$kind = ${planKindIngest},
         [int]$total = 0,    # 見つかった Office ファイルの数
         [int]$targets = 0,  # 今回変換するファイルの数（新規＋更新あり＋前回未完了＋変換結果なし）
         [int]$new = 0,
@@ -342,28 +342,28 @@ function newConvertPlanRow {
     }
 }
 
-function writeConvertPlan {
+function writeIngestPlan {
     # 変換予定を書き出す（インデックス1件1行）。画面は数える前から読むため、
     # 途中の状態を読ませないよう一時ファイルに書いてから置き換える
     param (
         [object[]]$rows,
-        [string]$path = ${convertPlanFile}
+        [string]$path = ${ingestPlanFile}
     )
 
     $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add((${convertPlanColumns} -join "`t"))
+    $lines.Add((${ingestPlanColumns} -join "`t"))
     foreach ($row in @($rows | Where-Object { $_ })) {
-        $values = foreach ($column in ${convertPlanColumns}) { ([string]$row.$column) -replace "[\t\r\n]+", " " }
+        $values = foreach ($column in ${ingestPlanColumns}) { ([string]$row.$column) -replace "[\t\r\n]+", " " }
         $lines.Add([string]::Join("`t", @($values)))
     }
     writeTextLinesAtomic $path $lines
 }
 
-function readConvertPlan {
+function readIngestPlan {
     # 変換予定を読む。ファイルが無い・列が合わない場合は $null（画面は次の機会に読み直す）。
     # 件数の列は数値にして返す
     param (
-        [string]$path = ${convertPlanFile}
+        [string]$path = ${ingestPlanFile}
     )
 
     if (!(Test-Path -LiteralPath $path)) {
@@ -385,18 +385,18 @@ function readConvertPlan {
     }
 
     $lines = @($text -split "\r?\n")
-    if ($lines.Count -eq 0 -or $lines[0] -ne (${convertPlanColumns} -join "`t")) {
+    if ($lines.Count -eq 0 -or $lines[0] -ne (${ingestPlanColumns} -join "`t")) {
         return $null
     }
     $rows = New-Object System.Collections.Generic.List[object]
     for ($i = 1; $i -lt $lines.Count; $i++) {
         $fields = $lines[$i].Split("`t")
-        if ($fields.Count -ne ${convertPlanColumns}.Count) {
+        if ($fields.Count -ne ${ingestPlanColumns}.Count) {
             continue  # 空行・書き込みの途中
         }
         $row = [ordered]@{}
-        for ($c = 0; $c -lt ${convertPlanColumns}.Count; $c++) {
-            $column = ${convertPlanColumns}[$c]
+        for ($c = 0; $c -lt ${ingestPlanColumns}.Count; $c++) {
+            $column = ${ingestPlanColumns}[$c]
             $value = $fields[$c]
             if ($c -ge 3) {
                 # 件数の列。数値にできない場合は 0 とする
@@ -411,9 +411,9 @@ function readConvertPlan {
     return , @($rows.ToArray())
 }
 
-function removeConvertPlan {
+function removeIngestPlan {
     param (
-        [string]$path = ${convertPlanFile}
+        [string]$path = ${ingestPlanFile}
     )
 
     if (Test-Path -LiteralPath $path) {
@@ -421,12 +421,12 @@ function removeConvertPlan {
     }
 }
 
-function writeConvertStartRequest {
+function writeIndexingStartRequest {
     # 画面が「変換する」を選んだことを変換側に伝える（前回失敗したファイルも再変換するかも伝える）。
     # 変換側が読んでいる途中の内容を見ないよう、一時ファイルに書いてから置き換える
     param (
         [bool]$retryFailed = $false,
-        [string]$path = ${convertStartRequestFile}
+        [string]$path = ${indexingStartRequestFile}
     )
 
     $lines = @()
@@ -436,10 +436,10 @@ function writeConvertStartRequest {
     writeTextLinesAtomic $path $lines
 }
 
-function readConvertStartRequest {
+function readIndexingStartRequest {
     # 画面からの「変換する」の返事を読む。まだ無ければ $null
     param (
-        [string]$path = ${convertStartRequestFile}
+        [string]$path = ${indexingStartRequestFile}
     )
 
     if (!(Test-Path -LiteralPath $path)) {
@@ -454,9 +454,9 @@ function readConvertStartRequest {
     return @{ RetryFailed = (@($lines | Where-Object { $_.Trim() -eq ${retryFailedMark} }).Count -gt 0) }
 }
 
-function removeConvertStartRequest {
+function removeIndexingStartRequest {
     param (
-        [string]$path = ${convertStartRequestFile}
+        [string]$path = ${indexingStartRequestFile}
     )
 
     if (Test-Path -LiteralPath $path) {
@@ -548,16 +548,16 @@ function removeStatusIndexName {
     writeTextLinesAtomic $path $result
 }
 
-function getConversionState {
+function getIndexingState {
     # 変換一覧から変換の状態を返す:
-    #   @{ Exists; Folders（変換対象フォルダ @{ Path; Name } の配列）; Total; Pending（未変換）; Failed; Done; ConvertedSince（since 以降に変換した件数）; Updated（変換一覧の更新日時）;
+    #   @{ Exists; Folders（変換対象フォルダ @{ Path; Name } の配列）; Total; Pending（未変換）; Failed; Done; IngestedSince（since 以降に変換した件数）; Updated（変換一覧の更新日時）;
     #      FailedRows（失敗したファイルの行。変換日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats） }
     param (
         [datetime]$since = [datetime]::MaxValue,
         [string]$path = ${statusFile}
     )
 
-    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; ConvertedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null) }
+    $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null) }
     if (!(Test-Path -LiteralPath $path)) {
         return $state
     }
@@ -582,9 +582,9 @@ function getConversionState {
             $state.Done++
         }
 
-        $converted = [datetime]::MinValue
-        if ($countSince -and $row.変換日時 -and [datetime]::TryParseExact($row.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted) -and $converted -ge $sinceSecond) {
-            $state.ConvertedSince++
+        $ingested = [datetime]::MinValue
+        if ($countSince -and $row.変換日時 -and [datetime]::TryParseExact($row.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested) -and $ingested -ge $sinceSecond) {
+            $state.IngestedSince++
         }
     }
     # 変換日時は "yyyy/MM/dd HH:mm:ss" のため、文字列の順で新しい順に並ぶ

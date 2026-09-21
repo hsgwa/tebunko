@@ -15,7 +15,7 @@
 | └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `tebunko_grep/lib.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
 | └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `tebunko_grep/lib.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
 | └ [00_共通_3_テスト.md](00_共通_3_テスト.md) | – | – | 6. テスト（単体テスト・結合テスト） |
-| [01_変換.md](01_変換.md) | 画面の［変換を開始］（ウィンドウ無しで起動） | `tebunko_grep/convert.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）→ TSV 変換（インデックス作成） |
+| [01_変換.md](01_変換.md) | 画面の［変換を開始］（ウィンドウ無しで起動） | `tebunko_grep/indexer.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）→ TSV 変換（インデックス作成） |
 | └ [01_変換_1_Excel.md](01_変換_1_Excel.md) | | | 4.3 Excel の変換処理、6.3 TSV 整形仕様 |
 | └ [01_変換_2_Word.md](01_変換_2_Word.md) | | | 4.5 Word の旧形式の変換、6.5 テキスト読み取りと TSV の場所、7.2 注意点・既知の問題 |
 | └ [01_変換_3_PowerPoint.md](01_変換_3_PowerPoint.md) | | | 4.6 PowerPoint の旧形式の変換、6.6 テキスト読み取りと TSV の場所、7.3 注意点・既知の問題 |
@@ -36,7 +36,7 @@
 | └ [03_画面_6_実装とテスト_1_テスト.md](03_画面_6_実装とテスト_1_テスト.md) | | | 16. テスト |
 | [04_安全性.md](04_安全性.md) | – | – | 導入審査向けの安全性説明（危険な処理・ライブラリを使っていないことの根拠と確認手順、書き込み範囲、開示事項、第三者のツールによる検査結果、供給網とライセンス） |
 
-Office プロセスの強制終了は画面の［9 プロセス停止］タブ（[03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。変換処理 `tebunko_grep/convert.ps1` は画面から起動される処理として残している。
+Office プロセスの強制終了は画面の［9 プロセス停止］タブ（[03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。変換処理 `tebunko_grep/indexer.ps1` は画面から起動される処理として残している。
 
 長い設計書は章単位で複数のファイルに分けている（└ の行）。章・節の番号は、同じ番号の設計書の中で通し番号とし、分割前と同じ番号のまま使っている。
 
@@ -148,7 +148,7 @@ flowchart LR
 sequenceDiagram
     actor U as 利用者
     participant G as 画面（tebunko_grep.bat）
-    participant CV as 変換処理（tebunko_grep/convert.ps1）
+    participant CV as 変換処理（tebunko_grep/indexer.ps1）
     participant W as work/index/
 
     U->>G: ［1 インデックス管理］の［新規作成…］でインデックスを作成

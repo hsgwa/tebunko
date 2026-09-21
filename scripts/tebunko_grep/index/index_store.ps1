@@ -33,7 +33,7 @@ function getIndexNameMap {
 
 function getIndexStats {
     # 変換一覧の行をインデックス名ごとに集計する（画面のインデックス一覧に出す件数・最終更新）:
-    #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastConverted（"yyyy/MM/dd HH:mm:ss"。無ければ空） }
+    #   インデックス名（大文字・小文字を区別しない）→ @{ Total; Done; Pending; Failed; LastIngested（"yyyy/MM/dd HH:mm:ss"。無ければ空） }
     # rows は readStatusFile の Rows（相対パス → 行）。変換一覧を読み直さずに済むよう、読み込み済みの行を受け取る
     param (
         $rows
@@ -49,7 +49,7 @@ function getIndexStats {
             continue
         }
         if (!$stats.ContainsKey($name)) {
-            $stats[$name] = @{ Total = 0; Done = 0; Pending = 0; Failed = 0; LastConverted = "" }
+            $stats[$name] = @{ Total = 0; Done = 0; Pending = 0; Failed = 0; LastIngested = "" }
         }
         $stat = $stats[$name]
         $stat.Total++
@@ -62,9 +62,9 @@ function getIndexStats {
             $stat.Failed++
         }
         # 変換日時は "yyyy/MM/dd HH:mm:ss" のため、文字列のまま比べて新しい方を残せる
-        $converted = [string]$entry.Value.変換日時
-        if ($converted -gt $stat.LastConverted) {
-            $stat.LastConverted = $converted
+        $ingested = [string]$entry.Value.変換日時
+        if ($ingested -gt $stat.LastIngested) {
+            $stat.LastIngested = $ingested
         }
     }
     return , $stats

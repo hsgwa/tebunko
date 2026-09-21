@@ -444,7 +444,7 @@ class ProcRow {
 class FailRow {
     [string]$RelPath
     [string]$Reason
-    [string]$ConvertedText
+    [string]$IngestedText
     [string]$SourcePath
 }
 
@@ -468,7 +468,7 @@ class FolderItem : NotifyBase {
     [object]$StatusBrush
     [string]$FileCountText
     [string]$FileCountToolTip
-    [string]$LastConvertedText
+    [string]$LastIngestedText
     [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
     [bool]$FolderExists    # 調べた結果、フォルダがあったか
 
@@ -476,9 +476,9 @@ class FolderItem : NotifyBase {
     [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }
     [void] SetPath([string]$value) { if ($this.Path -ne $value) { $this.Path = $value; $this.Raise("Path") } }
     [void] SetStatus([string]$text, [object]$brush) { $this.StatusText = $text; $this.StatusBrush = $brush; $this.Raise("StatusText"); $this.Raise("StatusBrush") }
-    [void] SetStats([string]$countText, [string]$toolTip, [string]$lastConverted) {
-        $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastConvertedText = $lastConverted
-        $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastConvertedText")
+    [void] SetStats([string]$countText, [string]$toolTip, [string]$lastIngested) {
+        $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
+        $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
     }
 }
 

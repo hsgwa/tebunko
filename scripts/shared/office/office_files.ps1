@@ -1,7 +1,7 @@
 ﻿# 変換対象にする Office ファイルの判定。
 
 # 変換対象にする Office ファイルの拡張子（小文字）。
-# 変換処理（office_to_tsv.ps1）の対象の判定と、フォルダ選択の一覧（Office ファイルかどうかの色分け）で使う
+# 変換処理（indexer.ps1）の対象の判定と、フォルダ選択の一覧（Office ファイルかどうかの色分け）で使う
 ${officeExtensions} = @(
     ".xlsx", ".xlsm", ".xls", ".xlsb",
     ".docx", ".docm", ".doc",

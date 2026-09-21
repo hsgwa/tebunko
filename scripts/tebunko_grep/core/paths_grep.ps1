@@ -20,31 +20,31 @@ ${sourceFolderFileName} = "元のフォルダ.txt"
 
 # 変換一覧・出力（自動生成）
 ${statusFile} = "${workDir}\変換一覧.tsv"
-${convertingFile} = "${workDir}\変換中.txt"  # 変換中のファイル。強制終了で残っていれば、そのファイルの変換中に止まった
+${ingestingFile} = "${workDir}\変換中.txt"  # 変換中のファイル。強制終了で残っていれば、そのファイルの変換中に止まった
 ${resultFile} = "${workDir}\検索結果.txt"
 
-# 画面（config_gui.ps1）と変換処理（office_to_tsv.ps1）の受け渡し
+# 画面（gui.ps1）と変換処理（indexer.ps1）の受け渡し
 ${stopRequestFile}  = "${workDir}\変換中止要求"    # 画面が作成すると、変換処理はファイルの切れ目で中止する
-${convertErrorFile} = "${workDir}\変換エラー.txt"  # 変換処理を続けられないエラーのメッセージ（正常終了時は削除）
-${convertLogFile}   = "${workDir}\変換ログ.txt"    # 変換処理の表示内容の記録（実行ごとに上書き）
+${indexingErrorFile} = "${workDir}\変換エラー.txt"  # 変換処理を続けられないエラーのメッセージ（正常終了時は削除）
+${indexingLogFile}   = "${workDir}\変換ログ.txt"    # 変換処理の表示内容の記録（実行ごとに上書き）
 ${guiErrorLogFile}  = "${workDir}\画面エラー.txt"  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
 # 変換の進み具合（変換が1行だけ書き、画面が読む）。
 # 画面が変換一覧（数万行になる）を毎秒読み直すと、その間ずっと画面が固まるため、進み具合はこの1行から読む
-${convertProgressFile} = "${workDir}\変換進捗.txt"
+${indexingProgressFile} = "${workDir}\変換進捗.txt"
 # 変換対象を数え終えたときに変換側が書く、インデックスごとの件数（画面が読んで確認のダイアログに出す）
-${convertPlanFile} = "${workDir}\変換予定.tsv"
+${ingestPlanFile} = "${workDir}\変換予定.tsv"
 # 画面が作成すると、変換処理は確認待ちから先へ進む（中身で、前回失敗したファイルも再変換するかを伝える）
-${convertStartRequestFile} = "${workDir}\変換開始要求"
+${indexingStartRequestFile} = "${workDir}\変換開始要求"
 
 # 変換の進み具合の段階（変換進捗.txt の1列目）
-${convertPhaseScan}    = "準備"    # 変換対象のファイルを探している（件数はまだ分からない）
-${convertPhaseConfirm} = "確認"    # 変換対象を数え終え、画面で変換するかどうかを選ぶのを待っている
-${convertPhaseRun}     = "変換"    # 1ファイルずつ変換している
-${convertPhaseFinish}  = "仕上げ"  # 後片付け（Officeアプリの終了・変換一覧の書き直し）
+${indexingPhaseCrawl}    = "準備"    # 変換対象のファイルを探している（件数はまだ分からない）
+${indexingPhaseConfirm} = "確認"    # 変換対象を数え終え、画面で変換するかどうかを選ぶのを待っている
+${indexingPhaseIngest}     = "変換"    # 1ファイルずつ変換している
+${indexingPhaseFinish}  = "仕上げ"  # 後片付け（Officeアプリの終了・変換一覧の書き直し）
 
 # 変換予定（変換予定.tsv）の列と、インデックスごとの区分
-${convertPlanColumns} = @("インデックス名", "元のフォルダ", "区分", "ファイル数", "変換対象", "新規", "更新あり", "前回未完了", "変換結果なし", "前回失敗")
-${planKindConvert}   = "変換"          # チェックが付いていて元のフォルダも見つかった（数えた結果を出す）
+${ingestPlanColumns} = @("インデックス名", "元のフォルダ", "区分", "ファイル数", "変換対象", "新規", "更新あり", "前回未完了", "変換結果なし", "前回失敗")
+${planKindIngest}   = "変換"          # チェックが付いていて元のフォルダも見つかった（数えた結果を出す）
 ${planKindUnchecked} = "チェックなし"  # ［変換］のチェックが外れているため数えていない
 ${planKindMissing}   = "フォルダなし"  # 元のフォルダが見つからないため数えていない
 

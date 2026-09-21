@@ -173,7 +173,7 @@ function removeDirectoryRetry {
 function newAppMutex {
     # 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックスを作り、@{ Mutex; Acquired } を返す。
     # Acquired が $false なら、ほかで実行中。プロセスが終われば解放されるため、強制終了されても残らない
-    #   name: 処理の種類（"gui" = 画面、"convert" = 変換）
+    #   name: 処理の種類（"gui" = 画面、"indexer" = インデックス作成）
     param (
         [string]$name,
         [string]$dir = ${rootDir}

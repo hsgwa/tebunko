@@ -1,4 +1,4 @@
-﻿# 変換の状態ファイル（tebunko_grep\convert\convert_state.ps1）のテスト
+﻿# 変換の状態ファイル（tebunko_grep\indexer\indexer_state.ps1）のテスト
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
@@ -106,88 +106,88 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
     }
 }
 
-Describe "readConvertingFile / writeConvertingFile / removeConvertingFile" -Tag Io {
+Describe "readIngestingFile / writeIngestingFile / removeIngestingFile" -Tag Io {
     It "書き込んだ相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
-        $path = "$TestDrive\converting[1].txt"
-        writeConvertingFile "フォルダ1\a [確定]\見積.xlsx" 2 $path
+        $path = "$TestDrive\ingesting[1].txt"
+        writeIngestingFile "フォルダ1\a [確定]\見積.xlsx" 2 $path
 
-        $converting = readConvertingFile $path
-        $converting.RelPath | Should Be "フォルダ1\a [確定]\見積.xlsx"
-        $converting.Count | Should Be 2
+        $ingesting = readIngestingFile $path
+        $ingesting.RelPath | Should Be "フォルダ1\a [確定]\見積.xlsx"
+        $ingesting.Count | Should Be 2
     }
 
     It "削除すると記録なし（`$null）になる" {
-        $path = "$TestDrive\converting_remove.txt"
-        writeConvertingFile "a.xlsx" 1 $path
-        removeConvertingFile $path
+        $path = "$TestDrive\ingesting_remove.txt"
+        writeIngestingFile "a.xlsx" 1 $path
+        removeIngestingFile $path
 
         Test-Path -LiteralPath $path | Should Be $false
-        readConvertingFile $path | Should Be $null
+        readIngestingFile $path | Should Be $null
     }
 
     It "ファイルが無くても削除でエラーにならない" {
-        { removeConvertingFile "$TestDrive\none_converting.txt" } | Should Not Throw
+        { removeIngestingFile "$TestDrive\none_ingesting.txt" } | Should Not Throw
     }
 
     It "壊れた記録（回数が数値でない・相対パスが無い・空）は `$null を返す" {
-        $path = "$TestDrive\converting_broken.txt"
+        $path = "$TestDrive\ingesting_broken.txt"
         foreach ($content in @("x`ta.xlsx", "0`ta.xlsx", "1`t", "a.xlsx", "")) {
             [System.IO.File]::WriteAllText($path, $content, $utf8Bom)
-            readConvertingFile $path | Should Be $null
+            readIngestingFile $path | Should Be $null
         }
     }
 }
 
-Describe "describeConvertError" -Tag Io {
+Describe "describeIngestError" -Tag Io {
     function newComError([string]$message, [string]$code) {
         return New-Object System.Runtime.InteropServices.COMException($message, [Convert]::ToInt32($code, 16))
     }
 
     It "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す" {
         $expected = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは変換できません）"
-        describeConvertError (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") | Should Be $expected
-        describeConvertError (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") | Should Be $expected
-        describeConvertError (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") | Should Be $expected
+        describeIngestError (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") | Should Be $expected
+        describeIngestError (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") | Should Be $expected
+        describeIngestError (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") | Should Be $expected
     }
 
     It "メソッド呼び出しの例外は中の例外のメッセージを使う" {
         $inner = newComError "Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。" "800A03EC"
         $outer = New-Object System.Management.Automation.MethodInvocationException('"7" 個の引数を指定して "Open" を呼び出し中に例外が発生しました', $inner)
-        describeConvertError $outer | Should Be "ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。）"
+        describeIngestError $outer | Should Be "ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。）"
     }
 
     It "スクリプト自身が throw したメッセージはそのまま返す" {
         $exception = $null
         try { throw "ファイルが壊れているか、PowerPointのファイルではありません。" } catch { $exception = $_.Exception }
-        describeConvertError $exception | Should Be "ファイルが壊れているか、PowerPointのファイルではありません。"
+        describeIngestError $exception | Should Be "ファイルが壊れているか、PowerPointのファイルではありません。"
     }
 
     It "使用中・アクセス権なし・ファイルなしは原因を付けて元のメッセージを詳細にする" {
         $locked = New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16))
-        describeConvertError $locked | Should Be "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再変換してください）（詳細: 別のプロセスで使用されているため、アクセスできません。）"
-        describeConvertError (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。")) | Should Match "^ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）$"
-        describeConvertError (New-Object System.IO.FileNotFoundException("見つかりません。")) | Should Match "^ファイルが見つかりません（"
+        describeIngestError $locked | Should Be "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再変換してください）（詳細: 別のプロセスで使用されているため、アクセスできません。）"
+        describeIngestError (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。")) | Should Match "^ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）$"
+        describeIngestError (New-Object System.IO.FileNotFoundException("見つかりません。")) | Should Match "^ファイルが見つかりません（"
     }
 
     It "Officeアプリの異常終了・応答なし・起動失敗は HRESULT で判断する" {
-        describeConvertError (newComError "RPC サーバーを利用できません。" "800706BA") | Should Match "^Officeアプリが異常終了したか、内部でエラーが発生しました（.*（詳細: RPC サーバーを利用できません。）$"
-        describeConvertError (newComError "呼び出し先が呼び出しを拒否しました。" "80010001") | Should Match "^Officeアプリが応答しませんでした"
-        describeConvertError (newComError "クラスが登録されていません" "80040154") | Should Match "^Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした"
+        describeIngestError (newComError "RPC サーバーを利用できません。" "800706BA") | Should Match "^Officeアプリが異常終了したか、内部でエラーが発生しました（.*（詳細: RPC サーバーを利用できません。）$"
+        describeIngestError (newComError "呼び出し先が呼び出しを拒否しました。" "80010001") | Should Match "^Officeアプリが応答しませんでした"
+        describeIngestError (newComError "クラスが登録されていません" "80040154") | Should Match "^Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした"
     }
 
     It "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする" {
         $inner = New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown.")
         $outer = New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました', $inner)
-        describeConvertError $outer | Should Match "^シート・文書が大きすぎて変換できません（メモリが不足しました）（詳細: "
+        describeIngestError $outer | Should Match "^シート・文書が大きすぎて変換できません（メモリが不足しました）（詳細: "
     }
 
     It "原因が分からないものは元のメッセージ（改行は詰める）、メッセージが無ければエラーコードを返す" {
-        describeConvertError (newComError "予期しない`r`nエラーです。" "800A03EC") | Should Be "予期しない エラーです。"
-        describeConvertError (New-Object System.Exception(" ")) | Should Match "^エラーコード 0x[0-9A-F]{8}$"
+        describeIngestError (newComError "予期しない`r`nエラーです。" "800A03EC") | Should Be "予期しない エラーです。"
+        describeIngestError (New-Object System.Exception(" ")) | Should Match "^エラーコード 0x[0-9A-F]{8}$"
     }
 }
 
-Describe "getConversionState" -Tag Io {
+Describe "getIndexingState" -Tag Io {
     It "失敗したファイルの行を、変換日時の新しい順で FailedRows に返す" {
         $path = "$TestDrive\status_state.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
@@ -197,7 +197,7 @@ Describe "getConversionState" -Tag Io {
             (newStatusRow "data\未変換.pptx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
 
-        $state = getConversionState -path $path
+        $state = getIndexingState -path $path
         $state.Done | Should Be 1
         $state.Pending | Should Be 1
         $state.Failed | Should Be 2
@@ -208,18 +208,18 @@ Describe "getConversionState" -Tag Io {
     }
 
     It "変換一覧が無ければ FailedRows は空" {
-        $state = getConversionState -path "$TestDrive\none.tsv"
+        $state = getIndexingState -path "$TestDrive\none.tsv"
         $state.Exists | Should Be $false
         @($state.FailedRows).Count | Should Be 0
     }
 }
 
-Describe "writeConvertProgress / readConvertProgress / removeConvertProgress" -Tag Io {
+Describe "writeIndexingProgress / readIndexingProgress / removeIndexingProgress" -Tag Io {
     It "段階・件数・内容を往復できる" {
         $path = "$TestDrive\進捗1.txt"
-        writeConvertProgress ${convertPhaseRun} 12 34 5 "営業\見積.xlsx" $path
-        $progress = readConvertProgress $path
-        $progress.Phase | Should Be ${convertPhaseRun}
+        writeIndexingProgress ${indexingPhaseIngest} 12 34 5 "営業\見積.xlsx" $path
+        $progress = readIndexingProgress $path
+        $progress.Phase | Should Be ${indexingPhaseIngest}
         $progress.Processed | Should Be 12
         $progress.Remaining | Should Be 34
         $progress.Failed | Should Be 5
@@ -228,53 +228,53 @@ Describe "writeConvertProgress / readConvertProgress / removeConvertProgress" -T
 
     It "タブ・改行はスペースにする（1行に保つ）" {
         $path = "$TestDrive\進捗2.txt"
-        writeConvertProgress ${convertPhaseScan} 0 0 0 "あ`tい`r`nう" $path
-        (readConvertProgress $path).Detail | Should Be "あ い う"
+        writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "あ`tい`r`nう" $path
+        (readIndexingProgress $path).Detail | Should Be "あ い う"
     }
 
     It "ファイルが無い・壊れていれば null" {
-        readConvertProgress "$TestDrive\進捗なし.txt" | Should BeNullOrEmpty
+        readIndexingProgress "$TestDrive\進捗なし.txt" | Should BeNullOrEmpty
         $path = "$TestDrive\進捗3.txt"
         writeListFile $path @("変換`tあ`tい`tう`tえ")   # 件数が数値でない
-        readConvertProgress $path | Should BeNullOrEmpty
+        readIndexingProgress $path | Should BeNullOrEmpty
         writeListFile $path @("変換`t1`t2")              # 列が足りない（書き込みの途中）
-        readConvertProgress $path | Should BeNullOrEmpty
+        readIndexingProgress $path | Should BeNullOrEmpty
     }
 
     It "画面が読んでいる間も書ける（共有して開く）" {
         $path = "$TestDrive\進捗4.txt"
-        writeConvertProgress ${convertPhaseRun} 1 2 0 "はじめ" $path
+        writeIndexingProgress ${indexingPhaseIngest} 1 2 0 "はじめ" $path
         $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
         $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
         try {
-            { writeConvertProgress ${convertPhaseRun} 2 1 0 "つぎ" $path } | Should Not Throw
+            { writeIndexingProgress ${indexingPhaseIngest} 2 1 0 "つぎ" $path } | Should Not Throw
         } finally {
             $stream.Dispose()
         }
-        (readConvertProgress $path).Detail | Should Be "つぎ"
+        (readIndexingProgress $path).Detail | Should Be "つぎ"
     }
 
     It "削除できる（無ければ何もしない）" {
         $path = "$TestDrive\進捗5.txt"
-        writeConvertProgress ${convertPhaseFinish} 0 0 0 "" $path
-        removeConvertProgress $path
+        writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "" $path
+        removeIndexingProgress $path
         Test-Path -LiteralPath $path | Should Be $false
-        { removeConvertProgress $path } | Should Not Throw
+        { removeIndexingProgress $path } | Should Not Throw
     }
 }
 
-Describe "writeConvertPlan / readConvertPlan / removeConvertPlan" -Tag Io {
+Describe "writeIngestPlan / readIngestPlan / removeIngestPlan" -Tag Io {
     It "インデックスごとの件数を往復できる（件数は数値で返る）" {
         $path = "$TestDrive\予定1.tsv"
         $rows = @(
-            (newConvertPlanRow "営業" "C:\data\営業" ${planKindConvert} 1234 12 5 7 0 0 3),
-            (newConvertPlanRow "技術" "\\server\share\技術" ${planKindConvert} 20 0 0 0 0 0 0))
-        writeConvertPlan $rows $path
-        $plan = readConvertPlan $path
+            (newIngestPlanRow "営業" "C:\data\営業" ${planKindIngest} 1234 12 5 7 0 0 3),
+            (newIngestPlanRow "技術" "\\server\share\技術" ${planKindIngest} 20 0 0 0 0 0 0))
+        writeIngestPlan $rows $path
+        $plan = readIngestPlan $path
         $plan.Count | Should Be 2
         $plan[0].インデックス名 | Should Be "営業"
         $plan[0].元のフォルダ | Should Be "C:\data\営業"
-        $plan[0].区分 | Should Be ${planKindConvert}
+        $plan[0].区分 | Should Be ${planKindIngest}
         ($plan[0].ファイル数 + 1) | Should Be 1235   # 文字列ではなく数値で返る
         $plan[0].変換対象 | Should Be 12
         $plan[0].新規 | Should Be 5
@@ -285,10 +285,10 @@ Describe "writeConvertPlan / readConvertPlan / removeConvertPlan" -Tag Io {
 
     It "チェックなし・フォルダなしの区分も往復できる（件数は 0）" {
         $path = "$TestDrive\予定2.tsv"
-        writeConvertPlan @(
-            (newConvertPlanRow "外した" "D:\過去" ${planKindUnchecked}),
-            (newConvertPlanRow "無い" "E:\USB" ${planKindMissing})) $path
-        $plan = readConvertPlan $path
+        writeIngestPlan @(
+            (newIngestPlanRow "外した" "D:\過去" ${planKindUnchecked}),
+            (newIngestPlanRow "無い" "E:\USB" ${planKindMissing})) $path
+        $plan = readIngestPlan $path
         $plan[0].区分 | Should Be ${planKindUnchecked}
         $plan[0].ファイル数 | Should Be 0
         $plan[1].区分 | Should Be ${planKindMissing}
@@ -296,57 +296,57 @@ Describe "writeConvertPlan / readConvertPlan / removeConvertPlan" -Tag Io {
 
     It "インデックスが1件も無くても読める（空の配列）" {
         $path = "$TestDrive\予定3.tsv"
-        writeConvertPlan @() $path
-        (readConvertPlan $path).Count | Should Be 0
+        writeIngestPlan @() $path
+        (readIngestPlan $path).Count | Should Be 0
     }
 
     It "ファイルが無い・列が合わなければ null（画面は次の機会に読み直す）" {
-        readConvertPlan "$TestDrive\予定なし.tsv" | Should BeNullOrEmpty
+        readIngestPlan "$TestDrive\予定なし.tsv" | Should BeNullOrEmpty
         $path = "$TestDrive\予定4.tsv"
         writeListFile $path @("べつの見出し")
-        readConvertPlan $path | Should BeNullOrEmpty
+        readIngestPlan $path | Should BeNullOrEmpty
     }
 
     It "画面が読んでいる間も書ける（共有して開く）" {
         $path = "$TestDrive\予定5.tsv"
-        writeConvertPlan @((newConvertPlanRow "営業" "C:\data" ${planKindConvert} 1 1 1 0 0 0 0)) $path
+        writeIngestPlan @((newIngestPlanRow "営業" "C:\data" ${planKindIngest} 1 1 1 0 0 0 0)) $path
         $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
         $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
         try {
-            { writeConvertPlan @((newConvertPlanRow "営業" "C:\data" ${planKindConvert} 2 2 2 0 0 0 0)) $path } | Should Not Throw
+            { writeIngestPlan @((newIngestPlanRow "営業" "C:\data" ${planKindIngest} 2 2 2 0 0 0 0)) $path } | Should Not Throw
         } finally {
             $stream.Dispose()
         }
-        (readConvertPlan $path)[0].変換対象 | Should Be 2
+        (readIngestPlan $path)[0].変換対象 | Should Be 2
     }
 
     It "削除できる（無ければ何もしない）" {
         $path = "$TestDrive\予定6.tsv"
-        writeConvertPlan @() $path
-        removeConvertPlan $path
+        writeIngestPlan @() $path
+        removeIngestPlan $path
         Test-Path -LiteralPath $path | Should Be $false
-        { removeConvertPlan $path } | Should Not Throw
+        { removeIngestPlan $path } | Should Not Throw
     }
 }
 
-Describe "writeConvertStartRequest / readConvertStartRequest / removeConvertStartRequest" -Tag Io {
+Describe "writeIndexingStartRequest / readIndexingStartRequest / removeIndexingStartRequest" -Tag Io {
     It "前回失敗したファイルも再変換するかを伝えられる" {
         $path = "$TestDrive\開始要求1"
-        writeConvertStartRequest $true $path
-        (readConvertStartRequest $path).RetryFailed | Should Be $true
-        writeConvertStartRequest $false $path
-        (readConvertStartRequest $path).RetryFailed | Should Be $false
+        writeIndexingStartRequest $true $path
+        (readIndexingStartRequest $path).RetryFailed | Should Be $true
+        writeIndexingStartRequest $false $path
+        (readIndexingStartRequest $path).RetryFailed | Should Be $false
     }
 
     It "まだ返事が無ければ null（変換側は待ち続ける）" {
-        readConvertStartRequest "$TestDrive\開始要求なし" | Should BeNullOrEmpty
+        readIndexingStartRequest "$TestDrive\開始要求なし" | Should BeNullOrEmpty
     }
 
     It "削除できる（無ければ何もしない）" {
         $path = "$TestDrive\開始要求2"
-        writeConvertStartRequest $false $path
-        removeConvertStartRequest $path
+        writeIndexingStartRequest $false $path
+        removeIndexingStartRequest $path
         Test-Path -LiteralPath $path | Should Be $false
-        { removeConvertStartRequest $path } | Should Not Throw
+        { removeIndexingStartRequest $path } | Should Not Throw
     }
 }

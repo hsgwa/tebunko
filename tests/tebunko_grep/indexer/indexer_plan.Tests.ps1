@@ -1,6 +1,6 @@
-﻿# 変換対象の決定（tebunko_grep\convert\convert_plan.ps1 の createTargetList）のテスト。
+﻿# 変換対象の決定（tebunko_grep\indexer\indexer_plan.ps1 の createTargetList）のテスト。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
-. "${scriptsDir}\tebunko_grep\convert\convert_plan.ps1"
+. "${scriptsDir}\tebunko_grep\indexer\indexer_plan.ps1"
 
 function newPrevious {
     param ($rows = @())

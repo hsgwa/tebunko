@@ -61,7 +61,7 @@ function findOfficeFiles {
 function createTargetList {
     # 変換対象フォルダを1つ検索して変換一覧の行を作り直し、次を返す。
     #   Rows   : 全ファイルの行 / Targets: 変換する行 / Failed: 前回失敗し、更新の無い行
-    #   Plan   : 画面の確認に出す件数（newConvertPlanRow。変換予定.tsv の1行）
+    #   Plan   : 画面の確認に出す件数（newIngestPlanRow。変換予定.tsv の1行）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで変換済み（済）のファイルは変換しない
     # ・変換済みでも、インデックス（TSV）が無くなっていれば変換し直す（利用者が work\index を直接削除した場合など）
@@ -102,15 +102,15 @@ function createTargetList {
         $old = $null
         [void]$previous.TryGetValue($relPath, [ref]$old)
 
-        # 変換するかどうかの判断は convert_decide.ps1（テストしやすいように分けてある）
+        # 変換するかどうかの判断は indexer_decide.ps1（テストしやすいように分けてある）
         # 変換結果（TSV）の有無は、前回と同じファイルで「済」のときだけ調べる（変換し直すものには要らない）
         $indexComplete = $true
         if ($old -and $old.状態 -eq ${stateDone} -and $old.更新日時 -eq $updated -and $old.サイズ -eq $size) {
             $indexComplete = [bool](testIndexComplete $old $relPath $counts)
         }
-        $decision = getConvertDecision $old $updated $size $indexComplete
+        $decision = getIngestDecision $old $updated $size $indexComplete
 
-        if (-not $decision.Convert) {
+        if (-not $decision.Ingest) {
             # 更新なし。失敗したファイルを再変換するかは呼び出し元で決める
             $row = $old
             if ($decision.Reason -eq "failed") {
@@ -178,24 +178,24 @@ function createTargetList {
         Write-Host "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" -ForegroundColor Yellow
     }
 
-    $plan = newConvertPlanRow $folder.Name $folder.Path ${planKindConvert} $scan.Files.Count $targets.Count `
+    $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count
     return @{ Rows = $rows; Targets = $targets; Failed = $failed; Plan = $plan }
 }
 
-function waitForConvertApproval {
+function waitForIndexingApproval {
     # 変換対象の件数を画面に渡し（変換予定.tsv）、［変換を開始］（変換開始要求）か［キャンセル］（変換中止要求）の返事を待つ。
     #   変換する → @{ RetryFailed } / 取りやめ → $null
     # 画面を閉じた・落ちた場合に待ち続けないよう、$approvalTimeoutMinutes で打ち切って取りやめる
     param (
-        $plan,               # newConvertPlanRow の配列（インデックスごと）
+        $plan,               # newIngestPlanRow の配列（インデックスごと）
         [int]$targetCount,   # 変換対象の合計（画面の進み具合に出す）
         [int]$failedCount    # 前回失敗の合計（画面で再変換するかを選ぶ）
     )
 
-    removeConvertStartRequest
-    writeConvertPlan $plan
-    writeConvertProgress ${convertPhaseConfirm} 0 $targetCount $failedCount "変換する内容を画面で確認しています…"
+    removeIndexingStartRequest
+    writeIngestPlan $plan
+    writeIndexingProgress ${indexingPhaseConfirm} 0 $targetCount $failedCount "変換する内容を画面で確認しています…"
     Write-Host ""
     Write-Host "変換対象を画面に表示しました。［変換を開始］が押されるまで待ちます。（${approvalTimeoutMinutes} 分待っても返事が無ければ取りやめます）"
 
@@ -204,18 +204,18 @@ function waitForConvertApproval {
         if (Test-Path -LiteralPath ${stopRequestFile}) {
             # 画面で［キャンセル］［中止］を押した
             Remove-Item -LiteralPath ${stopRequestFile} -Force
-            removeConvertPlan
+            removeIngestPlan
             return $null
         }
-        $answer = readConvertStartRequest
+        $answer = readIndexingStartRequest
         if ($answer) {
-            removeConvertStartRequest
-            removeConvertPlan
+            removeIndexingStartRequest
+            removeIngestPlan
             return $answer
         }
         if ((Get-Date) -gt $limit) {
             Write-Host "画面からの返事が ${approvalTimeoutMinutes} 分ありませんでした。変換を取りやめます。" -ForegroundColor Yellow
-            removeConvertPlan
+            removeIngestPlan
             return $null
         }
         Start-Sleep -Milliseconds 300

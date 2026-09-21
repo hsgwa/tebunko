@@ -1,13 +1,13 @@
 ﻿# 変換の確認ダイアログ・進み具合に出す文言の決定。
-# 画面に触らないため、そのままテストできる（tests\tebunko_grep\ui\convert_view.Tests.ps1）。
+# 画面に触らないため、そのままテストできる（tests\tebunko_grep\ui\indexing_view.Tests.ps1）。
 #
-# 色は「意味」（Tone）で返し、実際の色は画面側（convert_tab.ps1）で対応表から引く。
+# 色は「意味」（Tone）で返し、実際の色は画面側（indexing_tab.ps1）で対応表から引く。
 #   info = これから変換する / ok = 変換の必要なし / warn = 注意 / ng = 変換できない / gray = 対象外
 
 function newPlanViewRows {
     # 変換予定（変換予定.tsv の行）を、確認のダイアログに出す形にする
     param (
-        $plan  # readConvertPlan の結果
+        $plan  # readIngestPlan の結果
     )
 
     $rows = New-Object System.Collections.Generic.List[object]
@@ -53,7 +53,7 @@ function newPlanViewRows {
     return , $rows.ToArray()
 }
 
-function getConvertConfirmText {
+function getIndexingConfirmText {
     # 「失敗分も再変換する」のチェックに合わせた、合計の文言と主ボタンの文言
     param (
         [int]$targets,      # 変換対象の件数

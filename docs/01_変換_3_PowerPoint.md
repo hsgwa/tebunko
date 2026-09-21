@@ -5,7 +5,7 @@ Word・PowerPoint で共通の処理は [01_変換_6_共通処理とアプリ管
 
 ---
 
-## 4.6 PowerPoint の旧形式の変換（`convertWithPowerPoint`）
+## 4.6 PowerPoint の旧形式の変換（`extractWithPowerPoint`）
 
 4.4 節で ZIP ではないと判定したファイル（`.ppt`、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で `.pptx` に変換する。
 
@@ -14,7 +14,7 @@ Word・PowerPoint で共通の処理は [01_変換_6_共通処理とアプリ管
 | 開く前の確認 | ファイルの先頭が複合ドキュメント形式（旧形式・パスワード付きの Office ファイル。`D0 CF 11 E0 A1 B1 1A E1`、`isCompoundFile`）でなければ、PowerPoint で開かずに失敗とする（`ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。`）。PowerPoint はテキストなどのファイルもアウトラインとして開いてしまい、文字化けした内容になるため（◎ テストデータの `PowerPoint\異常系\壊れたファイル.pptx`）。Word はテキスト・HTML・RTF も正しく読めるため、この確認はしない |
 | 開き方 | `Presentations.Open("パス::dummy::", ReadOnly=True, Untitled=False, WithWindow=False)` |
 | パスワード付きファイル | ファイル名末尾の `::<パスワード>::` により、ダイアログを出さずに例外 |
-| 保存 | `SaveAs(converted.pptx, 24 = ppSaveAsOpenXMLPresentation)` |
+| 保存 | `SaveAs(ingested.pptx, 24 = ppSaveAsOpenXMLPresentation)` |
 | アプリの設定 | `DisplayAlerts = 1`（ppAlertsNone）、`AutomationSecurity = 3`。PowerPoint はウィンドウを隠せないため、ファイルをウィンドウ無しで開く |
 
 ---

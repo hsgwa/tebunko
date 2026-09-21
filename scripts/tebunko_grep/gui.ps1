@@ -1,7 +1,7 @@
 ﻿# 画面（WPF）
 #
 # ［1 インデックス管理］［2 検索］［9 プロセス停止］の3タブ。画面の定義は xaml\tebunko_grep.xaml。
-# 変換は convert.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う。
+# 変換は indexer.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う。
 #
 # このファイルは起動口。画面の中身は ui\ 配下と ..\shared\ui\ 配下に分けてある（下の読み込みの順に意味がある）。
 
@@ -26,9 +26,9 @@ ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。�
 ${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
 ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
 ${libPath}  = "$PSScriptRoot\lib.ps1"  # 別スレッドで読み込む（startJob に渡す）
-# 変換処理（ウィンドウを出さずに別プロセスで起動する。convert_tab.ps1）。
+# 変換処理（ウィンドウを出さずに別プロセスで起動する。indexing_tab.ps1）。
 # ui\ 配下のファイルの中で $PSScriptRoot を使うと ui\ を指してしまうため、パスはここで決める
-${convertScriptPath} = "$PSScriptRoot\convert.ps1"
+${indexerScriptPath} = "$PSScriptRoot\indexer.ps1"
 
 # 画面定義（XAML）とアイコンの置き場所
 ${xamlDir}       = "$PSScriptRoot\xaml"
@@ -90,10 +90,10 @@ $window = loadWindow "${xamlDir}\tebunko_grep.xaml"
 $tabs = @(
     @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
         "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
-        "IndexSummaryText", "ConversionStateText", "ConvertButton", "ConvertHint",
+        "IndexSummaryText", "IndexingStateText", "IndexingButton", "IndexingHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
-        "ConvertProgressPanel", "ConvertProgressText", "ConvertProgressEta", "ConvertProgress",
-        "ConvertProgressDetail", "ConvertStopButton", "ConvertLogButton") }
+        "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
+        "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
     @{ Tab = "SearchTab"; File = "tab_search.xaml"; Names = @(
         "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder",
         "WordNotice", "SearchTargetText", "GoIndexTabButton",
@@ -131,11 +131,11 @@ ${grayBrush} = themeBrush "Ink.Muted"
 . "$PSScriptRoot\..\shared\ui\shell.ps1"
 . "$PSScriptRoot\..\shared\ui\folder_dialog.ps1"
 . "$PSScriptRoot\ui\index_view.ps1"
-. "$PSScriptRoot\ui\convert_view.ps1"
+. "$PSScriptRoot\ui\indexing_view.ps1"
 . "$PSScriptRoot\ui\search_view.ps1"
 . "$PSScriptRoot\ui\preview_view.ps1"
 . "$PSScriptRoot\ui\index_tab.ps1"
-. "$PSScriptRoot\ui\convert_tab.ps1"
+. "$PSScriptRoot\ui\indexing_tab.ps1"
 . "$PSScriptRoot\ui\search_tab.ps1"
 . "$PSScriptRoot\ui\preview.ps1"
 . "$PSScriptRoot\ui\open_source.ps1"
@@ -159,7 +159,7 @@ $ui.Tabs.Add_SelectionChanged({
             $script:processTimer.Stop()
         }
         if ($ui.Tabs.SelectedItem -eq $ui.IndexTab) {
-            refreshConversionState
+            refreshIndexingState
         }
     }
 })
@@ -173,8 +173,8 @@ $window.Add_Activated({
         }
         # フォルダの有無は別スレッドで調べる（届かないネットワークのフォルダで画面が固まらないように）
         refreshFolderStatus
-        if (!(isConverting)) {
-            refreshConversionState
+        if (!(isIndexing)) {
+            refreshIndexingState
         }
         updateSearchTarget
         if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
@@ -202,7 +202,7 @@ $window.Add_PreviewKeyDown({
             if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
                 refreshProcesses
             } else {
-                refreshConversionState
+                refreshIndexingState
                 refreshIndexSummary
                 loadIndexTree
             }
@@ -217,7 +217,7 @@ $window.Add_PreviewKeyDown({
 $window.Add_Closing({
     param ($sender, $e)
     # 変換はウィンドウを出さずに動いているため、閉じる前にどうするか聞く
-    if (isConverting) {
+    if (isIndexing) {
         $answer = showConfirm `
             -heading "まだ変換の途中です。どうしますか？" `
             -choices @(
@@ -252,20 +252,20 @@ loadTargets
 setSearchOptionToUi (readSearchOption)
 setOpenMode (readOpenMode)
 updateOpenMenu
-refreshConversionState
+refreshIndexingState
 loadIndexTree
 updateWordNotice
 updateKillBadge
 refreshIndexSummary
 
 # 前回の画面で起動した変換が続いていれば、進み具合を表示する
-$runningConversion = findRunningConversion
-if ($runningConversion) {
-    adoptConversion $runningConversion
+$runningIndexing = findRunningIndexer
+if ($runningIndexing) {
+    adoptIndexing $runningIndexing
 }
 
 # 起動時のタブ：変換中・中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
-$openIndexTab = $runningConversion -or ($script:conversionState -and $script:conversionState.Pending -gt 0) -or !(testIndexExists)
+$openIndexTab = $runningIndexing -or ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
 $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
 setStatus ""
 
