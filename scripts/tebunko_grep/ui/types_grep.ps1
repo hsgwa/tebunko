@@ -207,8 +207,9 @@ class HitRow : NotifyBase {
     [void] Prepare() {
         if ($this.Prepared) { return }
         $this.Prepared = $true
-        $this.DisplayLine = [HitRow]::ToDisplay($this.Line)
-        $this.Segments = $this.BuildSegments()
+        $text = $this.ShownText()
+        $this.DisplayLine = [HitRow]::ToDisplay($text)
+        $this.Segments = $this.BuildSegments($text)
         $this.SetMatchCell()
         $this.Raise("DisplayLine"); $this.Raise("Segments"); $this.Raise("CellText"); $this.Raise("MatchCell")
     }
@@ -283,24 +284,33 @@ class HitRow : NotifyBase {
         return $list
     }
 
-    hidden [System.Collections.Generic.List[Segment]] BuildSegments() {
+    # 「該当行」列に出す文字。Excel の図形・コメントの行は、先頭のセル番地を「セル」列に出すため除き、
+    # 囲みの " を外した文字にする（"納期は<改行>別途" → 納期は<改行>別途）。ほかは TSV の行のまま
+    hidden [string] ShownText() {
+        if (-not ($this.IsExcel -and $this.IsObjectPlace)) { return $this.Line }
+        $cells = [HitRow]::SplitCells($this.Line, $true)
+        if ($cells.Count -lt 2) { return $this.Line }
+        return ($cells.GetRange(1, $cells.Count - 1) -join "`t")
+    }
+
+    hidden [System.Collections.Generic.List[Segment]] BuildSegments([string]$line) {
         $segs = [System.Collections.Generic.List[Segment]]::new()
         $pos = 0; $shown = 0
-        foreach ($m in [HitRow]::FindMatches($this.Line, $this.word, $this.pattern)) {
+        foreach ($m in [HitRow]::FindMatches($line, $this.word, $this.pattern)) {
             if ($m[0] -lt $pos) { continue }
-            if ($m[0] + $m[1] -gt $this.Line.Length) { break }
-            $before = $this.Line.Substring($pos, $m[0] - $pos)
+            if ($m[0] + $m[1] -gt $line.Length) { break }
+            $before = $line.Substring($pos, $m[0] - $pos)
             if ($segs.Count -eq 0 -and $before.Length -gt [HitRow]::LeadLength) {
                 $before = [char]0x2026 + $before.Substring($before.Length - [HitRow]::LeadLength)
             }
             if ($before.Length -gt 0) { $segs.Add([Segment]::new([HitRow]::ToDisplay($before), $false)) }
-            $segs.Add([Segment]::new([HitRow]::ToDisplay($this.Line.Substring($m[0], $m[1])), $true))
+            $segs.Add([Segment]::new([HitRow]::ToDisplay($line.Substring($m[0], $m[1])), $true))
             $shown += $before.Length + $m[1]
             $pos = $m[0] + $m[1]
             if ($shown -gt [HitRow]::MaxDisplay) { break }
         }
-        if ($pos -lt $this.Line.Length) {
-            $rest = $this.Line.Substring($pos)
+        if ($pos -lt $line.Length) {
+            $rest = $line.Substring($pos)
             if ($rest.Length -gt [HitRow]::MaxDisplay) { $rest = $rest.Substring(0, [HitRow]::MaxDisplay) + [char]0x2026 }
             $segs.Add([Segment]::new([HitRow]::ToDisplay($rest), $false))
         }
