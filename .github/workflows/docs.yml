@@ -90,11 +90,13 @@ jobs:
       group: docs-gh-pages
       cancel-in-progress: false
     steps:
-      # 公開の action が git の作業場所を要るため。中身は使わないので最小限だけを取る
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: .github
+      # 公開の action は、コミットが 1 つ以上ある git の作業場所を要る（gh-pages はそこから作業ツリーを作って push する）。
+      # リポジトリの中身は使わないため、取り出さずに空のコミットだけを作る。
+      # （sparse-checkout で取り出すと blob を持たない部分的な clone になり、action の git の操作が invalid object で失敗する）
+      - name: git の作業場所を作る
+        run: |
+          git init -q .
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -q --allow-empty -m "作業場所"
 
       - name: サイトの受け取り
         if: ${{ github.event.action != 'closed' }}
