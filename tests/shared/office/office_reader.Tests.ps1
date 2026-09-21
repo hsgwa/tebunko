@@ -309,6 +309,19 @@ Describe "readXlsxObjectUnits" -Tag Io {
             Should Be "C1`t`"確認してください${ls}確認しました`"|A2`tメモ|B3`t`"test:${ls}価格は税抜`""
     }
 
+    It "同じセルに左上がある図形が多数あっても、XML の順（作った順）を保つ" {
+        $same = "$TestDrive\same_cell.xlsx"
+        $anchors = (1..30 | ForEach-Object { xAnchor 1 1 (xSp @("図形$_")) }) -join ""
+        newZip $same @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"S`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/></Relationships>"
+            "xl/drawings/drawing1.xml" = "<xdr:wsDr $xdrNs>$anchors</xdr:wsDr>"
+        }
+        @((readXlsxObjectUnits $same)["S[図形]"]) -join "|" | Should Be ((1..30 | ForEach-Object { "B2`t図形$_" }) -join "|")
+    }
+
     It "Excel のブックでない ZIP（.xlsb など）は何も返さない" {
         $xlsb = "$TestDrive\binary.xlsb"
         newZip $xlsb @{ "xl/workbook.bin" = "binary" }

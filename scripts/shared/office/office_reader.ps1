@@ -662,8 +662,12 @@ function readXlsxObjectUnits {
                 }
             }
 
-            # 上の行から順に（同じ行は左から）並べる。並べ替えは安定（同じ位置は XML の順）
-            $lines = @($shapes | Sort-Object { $_.Row }, { $_.Column } |
+            # 上の行から順に（同じ行は左から、同じセルは XML の順に）並べる。
+            # Sort-Object は同じキーの順を保たない（変換のたびに順が変わる）ため、XML の順もキーにする
+            for ($i = 0; $i -lt $shapes.Count; $i++) {
+                $shapes[$i].Order = $i
+            }
+            $lines = @($shapes | Sort-Object { $_.Row }, { $_.Column }, { $_.Order } |
                 ForEach-Object { "$(toColumnName $_.Column)$($_.Row)`t$($_.Text)" })
             if ($lines.Count -gt 0) {
                 addUnitLines $units "${sheetName}[図形]" $lines
