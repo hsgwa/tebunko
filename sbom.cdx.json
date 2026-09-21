@@ -9,7 +9,14 @@
       "group": "win_grep",
       "name": "win_grep",
       "description": "Office ファイルを場所ごとに TSV へ変換してインデックス化し、文字列を一括検索する Windows PowerShell ツール",
-      "scope": "required"
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
     },
     "properties": [
       {

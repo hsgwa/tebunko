@@ -262,12 +262,27 @@ Describe "第三者が検証するための資料がそろっていること（d
         (Test-Path -LiteralPath "$rootDir\tools\new_release_files.ps1") | Should Be $true
     }
 
+    It "ライセンス（LICENSE）があり、MIT の条文と著作権表示を含む" {
+        $licensePath = "$rootDir\LICENSE"
+        (Test-Path -LiteralPath $licensePath) | Should Be $true
+        $license = [System.IO.File]::ReadAllText($licensePath)
+        # 表題・著作権表示・許諾条項・無保証条項がそろっていること（MIT の全文）
+        ($license -like "MIT License*") | Should Be $true
+        ($license -match "Copyright \(c\) \d{4} \S+") | Should Be $true
+        ($license -like "*Permission is hereby granted, free of charge*") | Should Be $true
+        ($license -like "*WITHOUT WARRANTY OF ANY KIND*") | Should Be $true
+        # 実名を含めない（CLAUDE.md「個人情報を書かない」）。著作権者はアカウント名で表記する
+        ($license -like "*hsgwa*") | Should Be $true
+    }
+
     It "部品表（SBOM）があり、第三者の部品を 1 件も含まない" {
         $sbomPath = "$rootDir\sbom.cdx.json"
         (Test-Path -LiteralPath $sbomPath) | Should Be $true
         $sbom = [System.IO.File]::ReadAllText($sbomPath) | ConvertFrom-Json
         $sbom.bomFormat | Should Be "CycloneDX"
         $sbom.specVersion | Should Be "1.6"
+        # 本ツール自身のライセンスは SPDX の識別子で記載する（LICENSE と一致させる）
+        $sbom.metadata.component.licenses[0].license.id | Should Be "MIT"
         # 構成物は本ツール自身のファイルだけ。パッケージマネージャー由来の部品（purl を持つ）は無い
         (@($sbom.components).Count -gt 0) | Should Be $true
         @($sbom.components | Where-Object { $_.group -ne "win_grep" }).Count | Should Be 0

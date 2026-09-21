@@ -53,7 +53,7 @@ foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -R
     $relative = $file.FullName.Substring($rootDir.Length + 1)
     $lines.Add("$((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash)  $relative")
 }
-foreach ($name in @("win_grep.bat", "sbom.cdx.json")) {
+foreach ($name in @("win_grep.bat", "sbom.cdx.json", "LICENSE")) {
     $path = Join-Path $rootDir $name
     if (Test-Path -LiteralPath $path) {
         $lines.Add("$((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash)  $name")
