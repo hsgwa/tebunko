@@ -119,3 +119,7 @@
 ## ライセンス
 
 [MIT](LICENSE)
+
+## 商標
+
+Microsoft、Excel、Word、PowerPoint、Windows、PowerShell は、米国 Microsoft Corporation の米国およびその他の国における登録商標または商標です。tebunko は Microsoft Corporation とは関係のない個人のプロジェクトであり、Microsoft Corporation が承認・支援したものではありません。
