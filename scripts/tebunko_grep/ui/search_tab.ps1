@@ -163,6 +163,7 @@ function startSearch {
     $script:search = @{
         PS = $ps; Handle = $ps.BeginInvoke(); Shared = $shared
         Word = $word; Pattern = $pattern; SimpleMatch = $simpleMatch; UseRegex = $useRegex; Option = $option; Start = Get-Date
+        Places = @{}  # 場所の表示（describePlace）の覚え
     }
 
     $ui.SearchProgress.Visibility = "Visible"
@@ -198,8 +199,18 @@ function pumpSearch {
         $relDir = [string]$hit.RelDir
         $cut = $relDir.IndexOf("\")
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
-        $script:hitRows.Add([HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
-                $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern))
+        $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
+                $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern)
+        # 場所・種別の表示は、同じ種類のファイル・場所なら同じなので、検索ごとに覚えておく（1 件ずつの関数呼び出しを省く）
+        $placeKey = "$([int]$row.IsExcel)|$($hit.Location)"
+        $described = $s.Places[$placeKey]
+        if ($null -eq $described) {
+            $described = describePlace $hit.Book $hit.Location
+            $s.Places[$placeKey] = $described
+        }
+        $row.PlaceText = $described.Place
+        $row.Kind = $described.Kind
+        $script:hitRows.Add($row)
     }
 
     if ($shared.Total -gt 0) {

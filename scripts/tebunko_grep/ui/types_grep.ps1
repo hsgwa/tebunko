@@ -170,6 +170,8 @@ class HitRow : NotifyBase {
     [string]$FileName
     [string]$Book
     [string]$Location
+    [string]$PlaceText    # 画面の「場所」（describePlace。例: [シート] 売上）。生成した側が入れる
+    [string]$Kind         # 画面の「種別」（セル・テキスト・コメント・本文・ノート）
     [int]$LineNumber
     [string]$Line
     [bool]$IsExcel
@@ -243,6 +245,8 @@ class HitRow : NotifyBase {
         if ($this.RelDir.IndexOf($text, $ci) -ge 0) { return $true }
         if (("" + $this.Book).IndexOf($text, $ci) -ge 0) { return $true }
         if (("" + $this.Location).IndexOf($text, $ci) -ge 0) { return $true }
+        if (("" + $this.PlaceText).IndexOf($text, $ci) -ge 0) { return $true }
+        if (("" + $this.Kind).IndexOf($text, $ci) -ge 0) { return $true }
         if ($this.LineNumber.ToString().IndexOf($text, $ci) -ge 0) { return $true }
         if ($this.Line.IndexOf($text, $ci) -ge 0) { return $true }
         return $false

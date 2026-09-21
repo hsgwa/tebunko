@@ -213,6 +213,45 @@ function splitObjectPlace {
 }
 
 
+function describePlace {
+    # 画面の「場所」「種別」と検索結果ファイルに出す文字を @{ Place; Kind } で返す（TSV の名前は変えず、表示だけを変える）。
+    #   Excel      : "売上" → [シート] 売上・セル / "売上[図形]" → [シート] 売上・テキスト / "売上[コメント]" → [シート] 売上・コメント
+    #   Word       : "ページ003" → [ページ] 3（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → [脚注]・本文
+    #   PowerPoint : "スライド002（非表示）" → [スライド] 2（非表示）・本文 / "スライド002_ノート" → [スライド] 2・ノート
+    param (
+        [string]$book,
+        [string]$place
+    )
+
+    $split = splitObjectPlace $place
+    $base = $split.Base
+    $kind = ""
+    if ($split.Kind -eq ${placeKindShape}) {
+        $kind = "テキスト"
+    } elseif ($split.Kind -eq ${placeKindComment}) {
+        $kind = "コメント"
+    }
+
+    if ($book -match '\.xls[a-z]?$') {
+        return @{ Place = "[シート] $base"; Kind = $(if ($kind) { $kind } else { "セル" }) }
+    }
+    if ($base -eq "") {
+        return @{ Place = ""; Kind = $(if ($kind) { $kind } else { "本文" }) }
+    }
+    if ($base -match '^ページ(\d+)$') {
+        return @{ Place = "[ページ] $([int]$Matches[1])（目安）"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+    }
+    if ($base -match '^スライド(\d+)_ノート$') {
+        return @{ Place = "[スライド] $([int]$Matches[1])"; Kind = $(if ($kind) { $kind } else { "ノート" }) }
+    }
+    if ($base -match '^スライド(\d+)(（非表示）)?$') {
+        return @{ Place = "[スライド] $([int]$Matches[1])$($Matches[2])"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+    }
+    # ヘッダー・フッター・脚注など、番号の無い場所
+    return @{ Place = "[$base]"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+}
+
+
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Officeファイルの拡張子で終わる）
 ${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$"
 

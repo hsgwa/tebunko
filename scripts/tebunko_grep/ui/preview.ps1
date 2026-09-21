@@ -69,7 +69,7 @@ function showDetail {
     $context = @(readTsvContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.LineNumber $lines[0] $lines[1])
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
-    $title = "${path} ・ $($row.Location) ・ ${place}"
+    $title = "${path} ・ $($row.PlaceText) ・ $($row.Kind) ・ ${place}"
     $ui.DetailTitle.Text = $title
     $ui.DetailTitle.ToolTip = $title
 

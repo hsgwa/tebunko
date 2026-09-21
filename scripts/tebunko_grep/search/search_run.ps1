@@ -1,8 +1,8 @@
 ﻿# インデックスの TSV を検索し、結果を組み立てる。
 
 function toResultLine {
-    # 検索結果1件を "ファイル名<TAB>場所<TAB>行番号<TAB>該当行" に整形する。
-    # Excelに貼り付けたとき、該当行の各セルが元の列の順（4列目 = A列）に並ぶようにする
+    # 検索結果1件を "ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行" に整形する。場所・種別は画面と同じ表示（describePlace）。
+    # Excelに貼り付けたとき、該当行の各セルが元の列の順（5列目 = A列）に並ぶようにする
     param (
         [string]$book,
         [string]$location,
@@ -22,18 +22,19 @@ function toResultLine {
     }
     # 場所（シート名）にタブ・改行が入っていると、列・行が分かれてしまうためスペースにする
     # （Excelのシート名はタブ・改行を含められる）
-    $place = [regex]::Replace($location, '[\x00-\x1F]', " ")
-    return "${book}`t${place}`t${lineNumber}`t${line}"
+    $described = describePlace $book $location
+    $place = [regex]::Replace($described.Place, '[\x00-\x1F]', " ")
+    return "${book}`t${place}`t$($described.Kind)`t${lineNumber}`t${line}"
 }
 
 function toResultHeader {
-    # 検索結果の見出し行 "ファイル名<TAB>場所<TAB>行<TAB>A<TAB>B…" を返す（列名は columnCount 列分）
+    # 検索結果の見出し行 "ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…" を返す（列名は columnCount 列分）
     param (
         [int]$columnCount
     )
 
     $names = New-Object System.Collections.Generic.List[string]
-    $names.AddRange([string[]]@("ファイル名", "場所", "行"))
+    $names.AddRange([string[]]@("ファイル名", "場所", "種別", "行"))
     for ($i = 1; $i -le $columnCount; $i++) {
         $names.Add((toColumnName $i))
     }
@@ -626,7 +627,7 @@ function toSearchResultLines {
             $line = "$($hit.RelDir)\${line}"
         }
         $lines.Add($line)
-        $columnCount = [math]::Max($columnCount, (countTsvFields $line) - 3)  # ファイル名・場所・行番号の3列を除く
+        $columnCount = [math]::Max($columnCount, (countTsvFields $line) - 4)  # ファイル名・場所・種別・行番号の4列を除く
     }
     return @{ Header = (toResultHeader $columnCount); Lines = $lines }
 }

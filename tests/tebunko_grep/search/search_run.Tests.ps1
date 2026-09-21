@@ -2,30 +2,30 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "toResultLine" -Tag Io {
-    It "ブック名・シート名・行番号・該当行をタブ区切りにする" {
-        toResultLine "book.xlsx" "Sheet1" 12 "時刻`t12:34:56" | Should Be "book.xlsx`tSheet1`t12`t時刻`t12:34:56"
+    It "ブック名・場所・種別・行番号・該当行をタブ区切りにする（場所・種別は画面と同じ表示）" {
+        toResultLine "book.xlsx" "Sheet1" 12 "時刻`t12:34:56" | Should Be "book.xlsx`t[シート] Sheet1`tセル`t12`t時刻`t12:34:56"
     }
 
     It "Excelのセル内改行を改行に戻す" {
-        toResultLine "book.xlsx" "Sheet1" 3 "a`t`"1行目${cellNewLine}2行目`"`tb" | Should Be "book.xlsx`tSheet1`t3`ta`t`"1行目`n2行目`"`tb"
+        toResultLine "book.xlsx" "Sheet1" 3 "a`t`"1行目${cellNewLine}2行目`"`tb" | Should Be "book.xlsx`t[シート] Sheet1`tセル`t3`ta`t`"1行目`n2行目`"`tb"
     }
 
     It "シート名のタブ・改行はスペースにする（列・行が分かれないようにする）" {
-        toResultLine "book.xlsx" "タブ`tあり" 1 "x" | Should Be "book.xlsx`tタブ あり`t1`tx"
-        toResultLine "book.xlsx" "改行`nあり" 2 "y" | Should Be "book.xlsx`t改行 あり`t2`ty"
+        toResultLine "book.xlsx" "タブ`tあり" 1 "x" | Should Be "book.xlsx`t[シート] タブ あり`tセル`t1`tx"
+        toResultLine "book.xlsx" "改行`nあり" 2 "y" | Should Be "book.xlsx`t[シート] 改行 あり`tセル`t2`ty"
     }
 
     It 'Word・PowerPointの行は、" で始まるセルだけを " で囲む' {
-        toResultLine "doc.docx" "ページ001" 1 "`"引用`"と言った" | Should Be "doc.docx`tページ001`t1`t`"`"`"引用`"`"と言った`""
-        toResultLine "doc.docx" "ページ001" 2 "彼は`"引用`"と言った" | Should Be "doc.docx`tページ001`t2`t彼は`"引用`"と言った"
-        toResultLine "doc.docx" "ページ001" 3 "表`t`"見出し`"`tx" | Should Be "doc.docx`tページ001`t3`t表`t`"`"`"見出し`"`"`"`tx"
+        toResultLine "doc.docx" "ページ001" 1 "`"引用`"と言った" | Should Be "doc.docx`t[ページ] 1（目安）`t本文`t1`t`"`"`"引用`"`"と言った`""
+        toResultLine "doc.docx" "ページ001" 2 "彼は`"引用`"と言った" | Should Be "doc.docx`t[ページ] 1（目安）`t本文`t2`t彼は`"引用`"と言った"
+        toResultLine "doc.docx" "ページ001" 3 "表`t`"見出し`"`tx" | Should Be "doc.docx`t[ページ] 1（目安）`t本文`t3`t表`t`"`"`"見出し`"`"`"`tx"
     }
 }
 
 Describe "toResultHeader" -Tag Io {
-    It "ファイル名・場所・行と、列名を並べる" {
-        toResultHeader 3 | Should Be "ファイル名`t場所`t行`tA`tB`tC"
-        toResultHeader 0 | Should Be "ファイル名`t場所`t行"
+    It "ファイル名・場所・種別・行と、列名を並べる" {
+        toResultHeader 3 | Should Be "ファイル名`t場所`t種別`t行`tA`tB`tC"
+        toResultHeader 0 | Should Be "ファイル名`t場所`t種別`t行"
     }
 }
 
@@ -140,7 +140,7 @@ Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" -Tag Io
 
     It "検索結果の行は、フォルダ名のファイル名と場所で組み立てる" {
         $hit = @((searchIndex "りんご" $files $true 0 100 $null $null $false "A社.xlsx_old.xlsx").Hits)[0]
-        (toSearchResultLines @($hit)).Lines[0] | Should Be "A社.xlsx_old.xlsx`tSheet1`t1`tりんご`t200"
+        (toSearchResultLines @($hit)).Lines[0] | Should Be "A社.xlsx_old.xlsx`t[シート] Sheet1`tセル`t1`tりんご`t200"
     }
 
     It "Excel の図形・コメントの場所（名前に [ ] を含む）も検索でき、セル内改行を戻して出力する" {
@@ -149,7 +149,7 @@ Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" -Tag Io
         $hit = @((searchIndex "納期" (getIndexTsvFiles @($objectIndex)).Files $true).Hits)[0]
         $hit.Book | Should Be "[確定]見積.xlsx"
         $hit.Location | Should Be "見積[図形]"
-        (toSearchResultLines @($hit)).Lines[0] | Should Be "[確定]見積.xlsx`t見積[図形]`t1`tF2`t`"納期は`n別途`""
+        (toSearchResultLines @($hit)).Lines[0] | Should Be "[確定]見積.xlsx`t[シート] 見積`tテキスト`t1`tF2`t`"納期は`n別途`""
     }
 
     It "図形・コメントを検索しない指定では、その場所の TSV を検索しない（件数にも入れない）" {
@@ -377,9 +377,9 @@ Describe "toSearchResultLines / writeSearchResult" -Tag Io {
 
     It "相対フォルダ付きのファイル名・場所・行番号・該当行にし、見出しに最大セル数分の列名を付ける" {
         $result = toSearchResultLines $hits
-        $result.Header | Should Be "ファイル名`t場所`t行`tA`tB`tC"
-        $result.Lines[0] | Should Be "x\A社.xlsx`tSheet1`t1`ta`t`"りんご`nみかん`"`tc"
-        $result.Lines[1] | Should Be "文書.docx`tページ001`t1`t`"`"`"引用`"`"で始まる りんご`""
+        $result.Header | Should Be "ファイル名`t場所`t種別`t行`tA`tB`tC"
+        $result.Lines[0] | Should Be "x\A社.xlsx`t[シート] Sheet1`tセル`t1`ta`t`"りんご`nみかん`"`tc"
+        $result.Lines[1] | Should Be "文書.docx`t[ページ] 1（目安）`t本文`t1`t`"`"`"引用`"`"で始まる りんご`""
     }
 
     It "検索結果ファイルの形式（02_検索.md）で書き出す" {
@@ -387,13 +387,13 @@ Describe "toSearchResultLines / writeSearchResult" -Tag Io {
         writeSearchResult $writer "りんご" $hits
         $lines = $writer.ToString() -split "`r`n"
         $lines[0] | Should Be "【検索文字列　りんご】 2 件"
-        $lines[1] | Should Be "ファイル名`t場所`t行`tA`tB`tC"
+        $lines[1] | Should Be "ファイル名`t場所`t種別`t行`tA`tB`tC"
         $lines[4] | Should Be ""
     }
 
     It "0 件なら見出しの2行と空行だけ書き出す" {
         $writer = New-Object System.IO.StringWriter
         writeSearchResult $writer "無い" @()
-        $writer.ToString() | Should Be "【検索文字列　無い】 0 件`r`nファイル名`t場所`t行`r`n`r`n"
+        $writer.ToString() | Should Be "【検索文字列　無い】 0 件`r`nファイル名`t場所`t種別`t行`r`n`r`n"
     }
 }

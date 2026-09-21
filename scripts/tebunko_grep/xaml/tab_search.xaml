@@ -129,7 +129,9 @@
                             ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTextColumn Header="フォルダ" Binding="{Binding RelDir}" Width="150" ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTextColumn Header="ファイル名" Binding="{Binding Book}" Width="170" ElementStyle="{StaticResource Cell.Key}" />
-        <DataGridTextColumn Header="場所" Binding="{Binding Location}" Width="110" ElementStyle="{StaticResource Cell.Meta}" />
+        <!-- 場所は表示用の文字（[シート] 売上 など）。並べ替えは元の名前（ページ003 など、桁をそろえてある）で行う -->
+        <DataGridTextColumn Header="場所" Binding="{Binding PlaceText}" SortMemberPath="Location" Width="130" ElementStyle="{StaticResource Cell.Meta}" />
+        <DataGridTextColumn Header="種別" Binding="{Binding Kind}" Width="64" ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTextColumn Header="行" Binding="{Binding LineNumber}" Width="50" ElementStyle="{StaticResource Cell.Number}" />
         <DataGridTextColumn Header="セル" Binding="{Binding CellText}" Width="80" CanUserSort="False" ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="Line">
