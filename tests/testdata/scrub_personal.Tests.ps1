@@ -50,7 +50,7 @@ $jpName = "山田 太郎"
 $accountId = "8f3a2b1c9d0e7f6a"
 
 function runScrub([string[]]$names) {
-    & $scrub -Path $dir -Names $names -NoAutoNames | Out-Null
+    & $scrub -Path $dir -Names $names -NoAutoNames *> $null
 }
 
 Describe "scrub_personal.ps1" -Tag Io {

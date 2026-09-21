@@ -1,4 +1,4 @@
-# テストの自動実行（GitHub Actions）
+﻿# テストの自動実行（GitHub Actions）
 #
 # Windows PowerShell 5.1 は windows ランナーに最初から入っている。ランナーには Pester 5 も入っているが、テストは 3.4 の書き方のため
 # 3 系を使う（無ければ入れる。tests\run.ps1 が 3 系を明示して読み込む）。
