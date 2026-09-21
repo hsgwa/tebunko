@@ -54,6 +54,23 @@ Describe "getRegexScanMode" -Tag Unit {
     }
 }
 
+Describe "newPlaceExclude" -Tag Unit {
+    It "どちらも検索するなら `$null" {
+        newPlaceExclude $true $true | Should Be $null
+    }
+
+    It "外す種類の場所（名前の末尾）だけに一致する" {
+        $shapes = newPlaceExclude $false $true
+        $shapes.IsMatch("売上[図形]") | Should Be $true
+        $shapes.IsMatch("売上[コメント]") | Should Be $false
+        $shapes.IsMatch("売上") | Should Be $false
+        $both = newPlaceExclude $false $false
+        $both.IsMatch("売上[図形]") | Should Be $true
+        $both.IsMatch("売上[コメント]") | Should Be $true
+        $both.IsMatch("ページ001") | Should Be $false
+    }
+}
+
 Describe "newFileFilter" -Tag Unit {
     It "; で区切ったワイルドカードで含め、! で始まるもので除く" {
         $filter = newFileFilter "*.xlsx；見積 ; !*old*"

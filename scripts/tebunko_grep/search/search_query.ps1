@@ -124,6 +124,23 @@ function newSearchRegex {
     }
 }
 
+function newPlaceExclude {
+    # 検索から外す場所（図形・コメント）の正規表現を返す。どちらも検索するなら $null。
+    # 場所の名前は "<シート名>[図形]" "<シート名>[コメント]"（index_name.ps1 の objectPlacePattern）
+    param (
+        [bool]$includeShapes = $true,
+        [bool]$includeComments = $true
+    )
+
+    $kinds = @()
+    if (!$includeShapes) { $kinds += "図形" }
+    if (!$includeComments) { $kinds += "コメント" }
+    if ($kinds.Count -eq 0) {
+        return $null
+    }
+    return [regex]::new("\[(?:$($kinds -join '|'))\]$")
+}
+
 function newFileFilter {
     # 対象ファイルの指定（例: "*.xlsx;見積*;!*old*"）を、元のファイル名に対する正規表現 @{ Include; Exclude } にする（無い側は $null）。
     #   ; で区切る（全角の ； も可）。! で始まるものは除外。* は任意の文字列、? は任意の1文字。大文字・小文字を区別しない

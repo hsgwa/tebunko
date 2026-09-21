@@ -18,6 +18,12 @@ Describe "describeSearchOption" -Tag Unit {
     It "両方あれば中黒でつなぐ" {
         describeSearchOption @{ CaseSensitive = $true; FileFilter = "*.xlsx" } | Should Be "大文字と小文字を区別・対象ファイル：*.xlsx"
     }
+
+    It "図形・コメントを外したときだけ出す" {
+        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true } | Should Be ""
+        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $false; IncludeComments = $false } | Should Be "図形を除く・コメントを除く"
+        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeComments = $false } | Should Be "コメントを除く"
+    }
 }
 
 Describe "getWordNotice" -Tag Unit {

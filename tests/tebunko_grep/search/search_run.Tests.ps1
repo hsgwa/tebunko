@@ -151,6 +151,22 @@ Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" -Tag Io
         $hit.Location | Should Be "見積[図形]"
         (toSearchResultLines @($hit)).Lines[0] | Should Be "[確定]見積.xlsx`t見積[図形]`t1`tF2`t`"納期は`n別途`""
     }
+
+    It "図形・コメントを検索しない指定では、その場所の TSV を検索しない（件数にも入れない）" {
+        $mixedIndex = Join-Path $TestDrive "search_object_option"
+        newTsv "$mixedIndex\見積.xlsx\$(toIndexFileName "見積")" @("納期`t5日")
+        newTsv "$mixedIndex\見積.xlsx\$(toIndexFileName "見積[図形]")" @("F2`t納期は別途")
+        newTsv "$mixedIndex\見積.xlsx\$(toIndexFileName "見積[コメント]")" @("C2`t納期を確認")
+        $mixedFiles = (getIndexTsvFiles @($mixedIndex)).Files
+
+        $all = searchIndex "納期" $mixedFiles $true
+        $all.Hits.Count | Should Be 3
+        $noShapes = searchIndex "納期" $mixedFiles $true -includeShapes $false
+        @($noShapes.Hits | ForEach-Object { $_.Location } | Sort-Object) -join "|" | Should Be "見積|見積[コメント]"
+        $noShapes.Total | Should Be 2
+        $cellsOnly = searchIndex "納期" $mixedFiles $true -includeShapes $false -includeComments $false
+        @($cellsOnly.Hits | ForEach-Object { $_.Location }) -join "|" | Should Be "見積"
+    }
 }
 
 Describe "searchIndex" -Tag Io {

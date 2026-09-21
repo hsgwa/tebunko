@@ -50,11 +50,13 @@ function toResultHeader {
 function newTsvFiles {
     # 検索対象のTSVを、元のファイル名（Book）・場所（Location）付きに整える。
     # include に一致しない・exclude に一致する Book は除く（$null は条件なし）。パスの分解は splitIndexTsvPath に合わせる。
+    # excludePlace に一致する場所（図形・コメント。newPlaceExclude）も除く。
     #   tsvFiles: getIndexTsvFiles の Files（TSVのフルパス → @{ Root; RelPath; LongPath; Ticks; Size }。LongPath 以降は無くてもよい）
     param (
         $tsvFiles,
         [regex]$include = $null,
-        [regex]$exclude = $null
+        [regex]$exclude = $null,
+        [regex]$excludePlace = $null
     )
 
     $files = New-Object System.Collections.Generic.List[hashtable]
@@ -80,6 +82,7 @@ function newTsvFiles {
         }
         if ($include -and !$include.IsMatch($book)) { continue }
         if ($exclude -and $exclude.IsMatch($book)) { continue }
+        if ($excludePlace -and $excludePlace.IsMatch($place)) { continue }
         # PSCustomObject より作るのが速いハッシュテーブルにする（TSV の数だけ作るため）
         $files.Add(@{
             # 260文字を超えるパスのTSVも読めるよう \\?\ 付きで読む（getIndexTsvFiles が列挙したパスがあればそれを使う）
@@ -456,6 +459,7 @@ function searchIndex {
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないTSVは検索しない
     #   workerCount  : 並列に検索するスレッドの数（0 は TSV の数と CPU のコア数から決める）
     #   cache        : 読んだ TSV の内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
+    #   includeShapes / includeComments: 図形・コメントの場所（"<シート名>[図形]" 等）の TSV も検索する（newPlaceExclude）
     # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（対象ファイルで絞った後のTSVの数）; Truncated; Cancelled } を返す。
     # Hits の各要素は PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
@@ -469,13 +473,15 @@ function searchIndex {
         [bool]$caseSensitive = $false,
         [string]$fileFilter = "",
         [int]$workerCount = 0,
-        $cache = $null
+        $cache = $null,
+        [bool]$includeShapes = $true,
+        [bool]$includeComments = $true
     )
 
     $search = newSearchRegex $word $simpleMatch $caseSensitive
     $filter = newFileFilter $fileFilter
 
-    $files = newTsvFiles $tsvFiles $filter.Include $filter.Exclude
+    $files = newTsvFiles $tsvFiles $filter.Include $filter.Exclude (newPlaceExclude $includeShapes $includeComments)
 
     $hits = New-Object System.Collections.Generic.List[psobject]
     $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $files.Count; Truncated = $false; Cancelled = $false }

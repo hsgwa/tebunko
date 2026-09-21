@@ -87,6 +87,10 @@
           <CheckBox x:Name="CaseCheck" DockPanel.Dock="Left" Content="大文字と小文字を区別" VerticalAlignment="Center" Margin="0,0,18,0"
                     ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
           <CheckBox x:Name="RegexCheck" DockPanel.Dock="Left" Content="正規表現を使う" VerticalAlignment="Center" Margin="0,0,18,0" />
+          <CheckBox x:Name="ShapeCheck" DockPanel.Dock="Left" Content="図形も検索" VerticalAlignment="Center" Margin="0,0,18,0"
+                    ToolTip="オンにすると、Excel の図形・テキストボックスの文字も検索します（場所は「シート名[図形]」）" />
+          <CheckBox x:Name="CommentCheck" DockPanel.Dock="Left" Content="コメントも検索" VerticalAlignment="Center" Margin="0,0,18,0"
+                    ToolTip="オンにすると、Excel のコメント（メモ）も検索します（場所は「シート名[コメント]」）" />
           <TextBlock DockPanel.Dock="Left" Text="対象ファイル" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,8,0" />
           <Grid MaxWidth="320" HorizontalAlignment="Stretch"
                 ToolTip="元のファイル名で検索するファイルを絞ります。; で区切り、! で始まるものは除外します。* は任意の文字列（* が無ければ部分一致）。空ならすべて&#10;例: *.xlsx;見積;!*old*">
