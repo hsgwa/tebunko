@@ -1760,6 +1760,10 @@ if (Test-Path -LiteralPath $stageDir) {
     Remove-Item -LiteralPath $stageDir -Recurse -Force
 }
 
+# 実行した人の名前・保存先の絶対パス・アカウント ID が埋め込まれるため取り除く（リポジトリは公開している）
+Write-Host ""
+& "$PSScriptRoot\scrub_personal.ps1" -Path $OutDir, $ConfigDir
+
 Write-Host ""
 if ($failed.Count -gt 0) {
     Write-Host "作成に失敗したケース: $($failed -join ', ')" -ForegroundColor Red
