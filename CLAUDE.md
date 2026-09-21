@@ -19,9 +19,12 @@ git worktree add -b worktree-<名前> .claude/worktrees/<名前> origin/main
 
 作業内容をメインブランチへマージしたら、その worktree は削除する。マージ済みで不要になった worktree を残さない。
 
+squash merge では手元のコミットが main に入らないため、`git branch -d` はブランチを消せない。PR がマージ済み（`MERGED`）であることを確かめてから `-D` で消す。
+
 ```
+gh pr view worktree-<名前> --json state --jq .state
 git worktree remove .claude/worktrees/<名前>
-git branch -d worktree-<名前>
+git branch -D worktree-<名前>
 ```
 
 未コミットの変更が残っている worktree は削除しない。コミットするか破棄するかを利用者に確認してから削除する。
@@ -42,7 +45,8 @@ git branch -d worktree-<名前>
   git merge origin/main
   ```
 
-- **マージは merge commit で行う**（squash・rebase は使わない）。マージしたブランチは GitHub が自動で消す。手元の worktree とブランチは上の「作業場所」の手順で消す。
+- **マージは squash merge で行う**（GitHub の設定で squash だけを許している）。PR 1 つが main のコミット 1 つになり、**PR のタイトルがそのコミットのタイトルになる。** タイトルは、コミットメッセージと同じく変更の内容が分かる日本語の 1 行にする。
+- マージしたブランチは GitHub が自動で消す。手元の worktree とブランチは上の「作業場所」の手順で消す。
 - **GitHub Actions の更新は Dependabot が PR を出す**（`.github/dependabot.yml`）。CI が通れば、内容を見てマージする。
 
 ### リリース
