@@ -30,7 +30,7 @@ function getConversionProgress {
 
 function findRunningConversion {
     # このツールの変換（tebunko_grep\convert.ps1）が実行中なら、そのプロセスを返す（画面を閉じて開き直した場合など）
-    $script = "${PSScriptRoot}\tebunko_grep\convert.ps1"
+    $script = ${convertScriptPath}
     foreach ($process in @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue)) {
         if ($process.CommandLine -and $process.CommandLine.IndexOf($script, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
             try {
@@ -188,7 +188,7 @@ function startConversion {
     saveTargets
     # 何件変換するかは、元のファイルの更新日時とサイズを見ないと分からない。
     # -ConfirmTargets を付けると、変換側は数え終えたところで止まって確認（変換開始要求）を待つ
-    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${PSScriptRoot}\tebunko_grep\convert.ps1`" -ConfirmTargets"
+    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${convertScriptPath}`" -ConfirmTargets"
     $script:convertStart = Get-Date
     $script:convertRate = $null
     $script:convertConfirmed = $false

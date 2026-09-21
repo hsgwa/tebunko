@@ -26,6 +26,9 @@ ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。�
 ${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
 ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
 ${libPath}  = "$PSScriptRoot\lib.ps1"  # 別スレッドで読み込む（startJob に渡す）
+# 変換処理（ウィンドウを出さずに別プロセスで起動する。convert_tab.ps1）。
+# ui\ 配下のファイルの中で $PSScriptRoot を使うと ui\ を指してしまうため、パスはここで決める
+${convertScriptPath} = "$PSScriptRoot\convert.ps1"
 
 # 画面定義（XAML）とアイコンの置き場所
 ${xamlDir}       = "$PSScriptRoot\xaml"
