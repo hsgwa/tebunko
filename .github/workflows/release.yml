@@ -7,6 +7,8 @@
 #
 # zip には改ざんの確認用のカタログ（tebunko.cat）とハッシュ一覧（SHA256SUMS.txt）を同梱する（docs\04_安全性.md 5.1）。
 # zip 自体の SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
+# zip のビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
+# 署名の bundle（tebunko_grep-<タグ>.zip.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。
 name: release
 
 on:
@@ -26,20 +28,34 @@ jobs:
     permissions:
       # Release を作るため
       contents: write
+      # 来歴の署名（Sigstore の証明書を OIDC のトークンで受け取る）と、GitHub への登録のため
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - name: 配布物を作る
         shell: powershell
         run: .\tools\new_release_package.ps1 -Version $env:GITHUB_REF_NAME
 
+      - name: 配布物の来歴に署名する
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: work/release/tebunko_grep-${{ github.ref_name }}.zip
+
       - name: GitHub Release に公開
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
         run: |
           $zip = "work\release\tebunko_grep-$env:GITHUB_REF_NAME.zip"
+          $bundle = "$zip.sigstore.json"
+          Copy-Item -LiteralPath $env:BUNDLE_PATH -Destination $bundle
           $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
-          $notes = "配布 zip の SHA256: ``$hash``"
-          gh release create $env:GITHUB_REF_NAME $zip "work\release\check\SHA256SUMS.txt" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
+          $notes = "配布 zip の SHA256: ``$hash```n`n来歴の確認: ``gh attestation verify tebunko_grep-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``"
+          gh release create $env:GITHUB_REF_NAME $zip $bundle "work\release\check\SHA256SUMS.txt" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

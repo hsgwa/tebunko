@@ -7,6 +7,10 @@ work/
 # 手元の動作確認用データ（大きいファイルを含むため、リポジトリには入れない）
 sample*/
 
+# テストデータ TC16-12（144 字の名前）。UTF-8 で 255 バイトを超え、Linux では取り出せないため入れない
+# （tests/testdata/README.md「生成」。make_testdata.ps1 が手元で作る）
+tests/testdata/office/ファイル名/とても長い名前のファイル*
+
 # 作業用の git worktree（AGENTS.md「作業場所」。マージしたら削除する）
 .claude/worktrees/
 

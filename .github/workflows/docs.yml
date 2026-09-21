@@ -45,8 +45,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # サイトに要る所だけを取る（直下の mkdocs.yml は cone モードで必ず入る）。
-          # tests/testdata には名前が 255 バイトを超えるファイルがあり、Linux では取り出せない
+          # サイトに要る所だけを取る（直下の mkdocs.yml は cone モードで必ず入る）
           sparse-checkout: |
             docs
             tools/mkdocs
