@@ -148,6 +148,9 @@ class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    # 図形・コメントの場所 "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern と同じ形。クラスからはスクリプトの変数が見えないため、ここにも書く）。
+    # Excel の 1 行は "<セル番地><TAB><文字>"
+    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント)\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
     static [int] $MaxDisplay = 600
@@ -167,9 +170,12 @@ class HitRow : NotifyBase {
     [string]$FileName
     [string]$Book
     [string]$Location
+    [string]$PlaceText    # 画面の「場所」（describePlace。例: [シート] 売上）。生成した側が入れる
+    [string]$Kind         # 画面の「種別」（セル・図形・コメント・本文・ノート）
     [int]$LineNumber
     [string]$Line
     [bool]$IsExcel
+    [bool]$IsObjectPlace
     [string]$MatchCell
     [string]$CellText
     [string]$DisplayLine
@@ -195,6 +201,7 @@ class HitRow : NotifyBase {
         $row.word = $word
         $row.pattern = $pattern
         $row.IsExcel = [HitRow]::ExcelRegex.IsMatch($(if ($null -eq $book) { "" } else { $book }))
+        $row.IsObjectPlace = [HitRow]::ObjectPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
         return $row
     }
 
@@ -202,8 +209,9 @@ class HitRow : NotifyBase {
     [void] Prepare() {
         if ($this.Prepared) { return }
         $this.Prepared = $true
-        $this.DisplayLine = [HitRow]::ToDisplay($this.Line)
-        $this.Segments = $this.BuildSegments()
+        $text = $this.ShownText()
+        $this.DisplayLine = [HitRow]::ToDisplay($text)
+        $this.Segments = $this.BuildSegments($text)
         $this.SetMatchCell()
         $this.Raise("DisplayLine"); $this.Raise("Segments"); $this.Raise("CellText"); $this.Raise("MatchCell")
     }
@@ -213,6 +221,14 @@ class HitRow : NotifyBase {
         $this.CellText = ""
         if (-not $this.IsExcel) { return }
         $cells = [HitRow]::SplitCells($this.Line, $true)
+        if ($this.IsObjectPlace) {
+            # Excel の図形・コメントの行は、先頭のセルが図形の左上・コメントのセルの番地
+            $hit = $false
+            foreach ($cell in $cells) { if ([HitRow]::HasMatch($cell, $this.word, $this.pattern)) { $hit = $true; break } }
+            if ($hit -and $cells.Count -gt 0) { $this.MatchCell = $cells[0] }
+            $this.CellText = $this.MatchCell
+            return
+        }
         $count = 0
         for ($i = 0; $i -lt $cells.Count; $i++) {
             if (-not [HitRow]::HasMatch($cells[$i], $this.word, $this.pattern)) { continue }
@@ -229,6 +245,8 @@ class HitRow : NotifyBase {
         if ($this.RelDir.IndexOf($text, $ci) -ge 0) { return $true }
         if (("" + $this.Book).IndexOf($text, $ci) -ge 0) { return $true }
         if (("" + $this.Location).IndexOf($text, $ci) -ge 0) { return $true }
+        if (("" + $this.PlaceText).IndexOf($text, $ci) -ge 0) { return $true }
+        if (("" + $this.Kind).IndexOf($text, $ci) -ge 0) { return $true }
         if ($this.LineNumber.ToString().IndexOf($text, $ci) -ge 0) { return $true }
         if ($this.Line.IndexOf($text, $ci) -ge 0) { return $true }
         return $false
@@ -270,24 +288,33 @@ class HitRow : NotifyBase {
         return $list
     }
 
-    hidden [System.Collections.Generic.List[Segment]] BuildSegments() {
+    # 「該当行」列に出す文字。Excel の図形・コメントの行は、先頭のセル番地を「セル」列に出すため除き、
+    # 囲みの " を外した文字にする（"納期は<改行>別途" → 納期は<改行>別途）。ほかは TSV の行のまま
+    hidden [string] ShownText() {
+        if (-not ($this.IsExcel -and $this.IsObjectPlace)) { return $this.Line }
+        $cells = [HitRow]::SplitCells($this.Line, $true)
+        if ($cells.Count -lt 2) { return $this.Line }
+        return ($cells.GetRange(1, $cells.Count - 1) -join "`t")
+    }
+
+    hidden [System.Collections.Generic.List[Segment]] BuildSegments([string]$line) {
         $segs = [System.Collections.Generic.List[Segment]]::new()
         $pos = 0; $shown = 0
-        foreach ($m in [HitRow]::FindMatches($this.Line, $this.word, $this.pattern)) {
+        foreach ($m in [HitRow]::FindMatches($line, $this.word, $this.pattern)) {
             if ($m[0] -lt $pos) { continue }
-            if ($m[0] + $m[1] -gt $this.Line.Length) { break }
-            $before = $this.Line.Substring($pos, $m[0] - $pos)
+            if ($m[0] + $m[1] -gt $line.Length) { break }
+            $before = $line.Substring($pos, $m[0] - $pos)
             if ($segs.Count -eq 0 -and $before.Length -gt [HitRow]::LeadLength) {
                 $before = [char]0x2026 + $before.Substring($before.Length - [HitRow]::LeadLength)
             }
             if ($before.Length -gt 0) { $segs.Add([Segment]::new([HitRow]::ToDisplay($before), $false)) }
-            $segs.Add([Segment]::new([HitRow]::ToDisplay($this.Line.Substring($m[0], $m[1])), $true))
+            $segs.Add([Segment]::new([HitRow]::ToDisplay($line.Substring($m[0], $m[1])), $true))
             $shown += $before.Length + $m[1]
             $pos = $m[0] + $m[1]
             if ($shown -gt [HitRow]::MaxDisplay) { break }
         }
-        if ($pos -lt $this.Line.Length) {
-            $rest = $this.Line.Substring($pos)
+        if ($pos -lt $line.Length) {
+            $rest = $line.Substring($pos)
             if ($rest.Length -gt [HitRow]::MaxDisplay) { $rest = $rest.Substring(0, [HitRow]::MaxDisplay) + [char]0x2026 }
             $segs.Add([Segment]::new([HitRow]::ToDisplay($rest), $false))
         }
@@ -407,6 +434,9 @@ class HitRow : NotifyBase {
     }
 
     hidden [string] ColumnLabel([int]$number) {
+        if ($this.IsExcel -and $this.IsObjectPlace) {
+            return $(switch ($number) { 1 { "セル" } 2 { "文字" } default { $number.ToString() } })
+        }
         return $(if ($this.IsExcel) { [HitRow]::ColumnName($number) } else { $number.ToString() })
     }
 

@@ -38,11 +38,18 @@ Describe "createTargetList" -Tag Io {
     }
 
     It "取り込み済みで更新が無ければ取り込まない" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
+        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated "" "2"))
         $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
         $result.Targets.Count | Should Be 0
         $result.Plan.取り込み対象 | Should Be 0
         $result.Rows.Count | Should Be 1
+    }
+
+    It "前の抽出版で取り込んだファイルは、更新が無くても取り込み直す（更新ありに数える）" {
+        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
+        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
+        $result.Targets.Count | Should Be 1
+        $result.Plan.更新あり | Should Be 1
     }
 
     It "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）" {

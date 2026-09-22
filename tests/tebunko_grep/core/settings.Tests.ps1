@@ -214,6 +214,17 @@ Describe "readSearchOption / writeSearchOption" -Tag Io {
         $option.UseRegex | Should Be $false
         $option.CaseSensitive | Should Be $false
         $option.FileFilter | Should Be ""
+        # 図形・コメントも検索する
+        $option.IncludeShapes | Should Be $true
+        $option.IncludeComments | Should Be $true
+    }
+
+    It "図形・コメントを検索するかを保存・読み込みできる" {
+        $optionPath = Join-Path $TestDrive "setting_object.config"
+        writeSearchOption @{ IncludeShapes = $false } $optionPath
+        $option = readSearchOption $optionPath
+        $option.IncludeShapes | Should Be $false
+        $option.IncludeComments | Should Be $true
     }
 
     It "保存した値を読み込む" {

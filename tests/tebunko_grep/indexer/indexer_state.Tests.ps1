@@ -9,7 +9,10 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         writeStatusFile @() @($row) $path
         $written = @(readStatusLines $path)[-1]
         $written | Should Be (toStatusLine $row)
-        $written | Should Be "営業\見積.xlsx`t2025/01/10 12:34:56`t10420`t${stateFailed}`t`t2026/09/20 10:00:00`tエラー の 説明"
+        $written | Should Be "営業\見積.xlsx`t2025/01/10 12:34:56`t10420`t${stateFailed}`t`t2026/09/20 10:00:00`tエラー の 説明`t"
+        $done = newStatusRow "営業\見積.xlsx" "2025/01/10 12:34:56" "10420" $stateDone "3" "2026/09/20 10:00:00" "" "2"
+        writeStatusFile @() @($done) $path
+        @(readStatusLines $path)[-1] | Should Be (toStatusLine $done)
     }
 
     It "書き込んだクロール対象フォルダと行をそのまま読み込める（[ ] や先頭の空白を含むパス）" {
@@ -44,8 +47,33 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
         $lines = [System.IO.File]::ReadAllLines($path)
         $lines[0] | Should Be "クロール対象フォルダ`tC:\data`tdata"
-        $lines[1] | Should Be "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー"
-        $lines[2] | Should Be "a.xlsx`t2025/01/10 12:34:56`t1`t未取り込み`t`t`t"
+        $lines[1] | Should Be "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー`t抽出版"
+        $lines[2] | Should Be "a.xlsx`t2025/01/10 12:34:56`t1`t未取り込み`t`t`t`t"
+    }
+
+    It "抽出版を書き込んで読み込める" {
+        $path = "$TestDrive\status_version.tsv"
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "2" "" "" "2") $path
+        addStatusRow (newStatusRow "b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
+        $status = readStatusFile $path
+        $status.Rows["a.xlsx"].抽出版 | Should Be "2"
+        $status.Rows["b.xlsx"].抽出版 | Should Be "2"
+    }
+
+    It "以前の形式（抽出版の列が無い）の行は抽出版を空として読む。今の形式で列が足りない行は無視する" {
+        $path = "$TestDrive\status_no_version.tsv"
+        [System.IO.File]::WriteAllLines($path, [string[]]@(
+            "クロール対象フォルダ`tC:\data`tdata",
+            "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー",
+            "a.xlsx`t2025/01/10 12:34:56`t1`t済`t1`t`t"
+        ), $utf8Bom)
+        $status = readStatusFile $path
+        $status.Rows["a.xlsx"].状態 | Should Be $stateDone
+        $status.Rows["a.xlsx"].抽出版 | Should Be ""
+
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
+        [System.IO.File]::AppendAllText($path, "a.xlsx`t2025/01/10 12:34:56`t1`t失敗`t`t`tエラー`r`n", $utf8Bom)  # 7 列（書き込みの途中）
+        (readStatusFile $path).Rows["a.xlsx"].状態 | Should Be $stateDone
     }
 
     It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {

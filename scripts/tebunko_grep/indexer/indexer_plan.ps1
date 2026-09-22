@@ -141,7 +141,7 @@ function createTargetList {
                     "lost"    { $count.Lost++ }
                     "new"     { $count.New++ }
                     "pending" { $count.Pending++ }
-                    default   { $count.Updated++ }
+                    default   { $count.Updated++ }  # updated と outdated（前の抽出版で取り込んだ。画面では更新ありと同じに扱う）
                 }
             }
         }

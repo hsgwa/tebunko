@@ -1,8 +1,8 @@
 ﻿# インデックスの TSV を検索し、結果を組み立てる。
 
 function toResultLine {
-    # 検索結果1件を "ファイル名<TAB>場所<TAB>行番号<TAB>該当行" に整形する。
-    # Excelに貼り付けたとき、該当行の各セルが元の列の順（4列目 = A列）に並ぶようにする
+    # 検索結果1件を "ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行" に整形する。場所・種別は画面と同じ表示（describePlace）。
+    # Excelに貼り付けたとき、該当行の各セルが元の列の順（5列目 = A列）に並ぶようにする
     param (
         [string]$book,
         [string]$location,
@@ -22,18 +22,19 @@ function toResultLine {
     }
     # 場所（シート名）にタブ・改行が入っていると、列・行が分かれてしまうためスペースにする
     # （Excelのシート名はタブ・改行を含められる）
-    $place = [regex]::Replace($location, '[\x00-\x1F]', " ")
-    return "${book}`t${place}`t${lineNumber}`t${line}"
+    $described = describePlace $book $location
+    $place = [regex]::Replace($described.Place, '[\x00-\x1F]', " ")
+    return "${book}`t${place}`t$($described.Kind)`t${lineNumber}`t${line}"
 }
 
 function toResultHeader {
-    # 検索結果の見出し行 "ファイル名<TAB>場所<TAB>行<TAB>A<TAB>B…" を返す（列名は columnCount 列分）
+    # 検索結果の見出し行 "ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…" を返す（列名は columnCount 列分）
     param (
         [int]$columnCount
     )
 
     $names = New-Object System.Collections.Generic.List[string]
-    $names.AddRange([string[]]@("ファイル名", "場所", "行"))
+    $names.AddRange([string[]]@("ファイル名", "場所", "種別", "行"))
     for ($i = 1; $i -le $columnCount; $i++) {
         $names.Add((toColumnName $i))
     }
@@ -50,11 +51,13 @@ function toResultHeader {
 function newTsvFiles {
     # 検索対象のTSVを、元のファイル名（Book）・場所（Location）付きに整える。
     # include に一致しない・exclude に一致する Book は除く（$null は条件なし）。パスの分解は splitIndexTsvPath に合わせる。
+    # excludePlace に一致する場所（図形・コメント。newPlaceExclude）も除く。
     #   tsvFiles: getIndexTsvFiles の Files（TSVのフルパス → @{ Root; RelPath; LongPath; Ticks; Size }。LongPath 以降は無くてもよい）
     param (
         $tsvFiles,
         [regex]$include = $null,
-        [regex]$exclude = $null
+        [regex]$exclude = $null,
+        [regex]$excludePlace = $null
     )
 
     $files = New-Object System.Collections.Generic.List[hashtable]
@@ -80,6 +83,7 @@ function newTsvFiles {
         }
         if ($include -and !$include.IsMatch($book)) { continue }
         if ($exclude -and $exclude.IsMatch($book)) { continue }
+        if ($excludePlace -and $excludePlace.IsMatch($place)) { continue }
         # PSCustomObject より作るのが速いハッシュテーブルにする（TSV の数だけ作るため）
         $files.Add(@{
             # 260文字を超えるパスのTSVも読めるよう \\?\ 付きで読む（getIndexTsvFiles が列挙したパスがあればそれを使う）
@@ -456,6 +460,7 @@ function searchIndex {
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないTSVは検索しない
     #   workerCount  : 並列に検索するスレッドの数（0 は TSV の数と CPU のコア数から決める）
     #   cache        : 読んだ TSV の内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
+    #   includeShapes / includeComments: 図形・コメントの場所（"<シート名>[図形]" 等）の TSV も検索する（newPlaceExclude）
     # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（対象ファイルで絞った後のTSVの数）; Truncated; Cancelled } を返す。
     # Hits の各要素は PSCustomObject（Root; RelPath; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
@@ -469,13 +474,15 @@ function searchIndex {
         [bool]$caseSensitive = $false,
         [string]$fileFilter = "",
         [int]$workerCount = 0,
-        $cache = $null
+        $cache = $null,
+        [bool]$includeShapes = $true,
+        [bool]$includeComments = $true
     )
 
     $search = newSearchRegex $word $simpleMatch $caseSensitive
     $filter = newFileFilter $fileFilter
 
-    $files = newTsvFiles $tsvFiles $filter.Include $filter.Exclude
+    $files = newTsvFiles $tsvFiles $filter.Include $filter.Exclude (newPlaceExclude $includeShapes $includeComments)
 
     $hits = New-Object System.Collections.Generic.List[psobject]
     $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $files.Count; Truncated = $false; Cancelled = $false }
@@ -620,7 +627,7 @@ function toSearchResultLines {
             $line = "$($hit.RelDir)\${line}"
         }
         $lines.Add($line)
-        $columnCount = [math]::Max($columnCount, (countTsvFields $line) - 3)  # ファイル名・場所・行番号の3列を除く
+        $columnCount = [math]::Max($columnCount, (countTsvFields $line) - 4)  # ファイル名・場所・種別・行番号の4列を除く
     }
     return @{ Header = (toResultHeader $columnCount); Lines = $lines }
 }

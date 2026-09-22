@@ -14,6 +14,13 @@ function describeSearchOption {
     if ($option.FileFilter) {
         $items += "対象ファイル：$($option.FileFilter)"
     }
+    # 既定はどちらも検索する（項目が無い古い形の条件も、検索するものとみなす）
+    if ($option.ContainsKey("IncludeShapes") -and -not $option.IncludeShapes) {
+        $items += "図形を除く"
+    }
+    if ($option.ContainsKey("IncludeComments") -and -not $option.IncludeComments) {
+        $items += "コメントを除く"
+    }
     return ($items -join "・")
 }
 

@@ -188,6 +188,66 @@ function splitIndexFileName {
 }
 
 
+# 図形・コメントなど、本文（セル・段落）以外の文字の場所は "<元の場所>[<種類>]" とする。
+# 元の場所は、Excel ではシート名（例: "売上[図形]"。office_reader.ps1 の readXlsxObjectUnits）。
+# Word・PowerPoint に広げるときも同じ形にする（例: "ページ003[コメント]" "スライド002[図形]"）。
+# Excel のシート名には [ ] を使えず、Word・PowerPoint の場所（ページNNN・スライドNNN 等）にも付かないため、ふつうの場所と重ならない。
+# 種類ごとに、検索に含めるかを画面で選べる（search_query.ps1 の newPlaceExclude）。
+# 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types_grep.ps1 の HitRow.ObjectPlaceRegex）をそろえる
+${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt など（SmartArt・グラフもここに入れる予定）
+${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
+${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment})\]$"
+
+
+function splitObjectPlace {
+    # 場所を @{ Base（元の場所）; Kind（種類。ふつうの場所は空） } に分ける。
+    #   例: "売上[図形]" → @{ Base = "売上"; Kind = "図形" } / "ページ001" → @{ Base = "ページ001"; Kind = "" }
+    param (
+        [string]$place
+    )
+
+    if ($place -match ${objectPlacePattern}) {
+        return @{ Base = $Matches.base; Kind = $Matches.kind }
+    }
+    return @{ Base = $place; Kind = "" }
+}
+
+
+function describePlace {
+    # 画面の「場所」「種別」と検索結果ファイルに出す文字を @{ Place; Kind } で返す（TSV の名前は変えず、表示だけを変える）。
+    #   Excel      : "売上" → [シート] 売上・セル / "売上[図形]" → [シート] 売上・図形 / "売上[コメント]" → [シート] 売上・コメント
+    #   Word       : "ページ003" → [ページ] 3（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → [脚注]・本文
+    #   PowerPoint : "スライド002（非表示）" → [スライド] 2（非表示）・本文 / "スライド002_ノート" → [スライド] 2・ノート
+    # 種別は、図形・コメントなら場所の種類の名前そのまま（検索条件の［図形も検索］［コメントも検索］と同じ言葉）
+    param (
+        [string]$book,
+        [string]$place
+    )
+
+    $split = splitObjectPlace $place
+    $base = $split.Base
+    $kind = $split.Kind
+
+    if ($book -match '\.xls[a-z]?$') {
+        return @{ Place = "[シート] $base"; Kind = $(if ($kind) { $kind } else { "セル" }) }
+    }
+    if ($base -eq "") {
+        return @{ Place = ""; Kind = $(if ($kind) { $kind } else { "本文" }) }
+    }
+    if ($base -match '^ページ(\d+)$') {
+        return @{ Place = "[ページ] $([int]$Matches[1])（目安）"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+    }
+    if ($base -match '^スライド(\d+)_ノート$') {
+        return @{ Place = "[スライド] $([int]$Matches[1])"; Kind = $(if ($kind) { $kind } else { "ノート" }) }
+    }
+    if ($base -match '^スライド(\d+)(（非表示）)?$') {
+        return @{ Place = "[スライド] $([int]$Matches[1])$($Matches[2])"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+    }
+    # ヘッダー・フッター・脚注など、番号の無い場所
+    return @{ Place = "[$base]"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+}
+
+
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Officeファイルの拡張子で終わる）
 ${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$"
 

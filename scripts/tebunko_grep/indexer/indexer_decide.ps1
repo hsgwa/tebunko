@@ -1,10 +1,39 @@
 ﻿# 1 ファイルを取り込み直すかどうかの判断（差分取り込みの要）。
 # ファイルにも画面にも触らないため、そのままテストできる（tests\tebunko_grep\indexer\indexer_decide.Tests.ps1）。
 
+# 読み取る内容（抽出版）。読み取る場所を増やしたら、その形式の版を上げる。
+# 前の版で取り込んだファイルは、更新が無くても取り込み直す（取り込み一覧の「抽出版」。空は 1）
+#   2: Excel（.xlsx / .xlsm）の図形・コメントを読む
+${extractVersions} = @{ ".xlsx" = 2; ".xlsm" = 2 }
+
+function getExtractVersion {
+    # ファイルの形式（拡張子）の今の抽出版を返す
+    param (
+        [string]$path
+    )
+
+    $version = ${extractVersions}[[System.IO.Path]::GetExtension($path).ToLowerInvariant()]
+    return $(if ($null -eq $version) { 1 } else { $version })
+}
+
+function testExtractOutdated {
+    # 取り込み一覧の行が、今の抽出版より前の版で取り込んだものか
+    param (
+        $row
+    )
+
+    $version = 1
+    if ($row.抽出版) {
+        [void][int]::TryParse([string]$row.抽出版, [ref]$version)
+    }
+    return ($version -lt (getExtractVersion $row.相対パス))
+}
+
 function getIngestDecision {
     # 前回の取り込み一覧の行と、いまのファイルの更新日時・サイズから、取り込むかどうかと、その理由を返す。
     #   Ingest: 取り込むか / Reason: done（取り込み済み）・failed（前回失敗。再取り込みするかは呼び出し元が決める）・
-    #            new（一覧に無い）・updated（更新された）・pending（前回未完了）・lost（インデックスが無い・壊れている）
+    #            new（一覧に無い）・updated（更新された）・pending（前回未完了）・lost（インデックスが無い・壊れている）・
+    #            outdated（前の抽出版で取り込んだ）
     param (
         $old,                 # 前回の取り込み一覧の行（無ければ $null）
         [string]$updated,     # いまのファイルの更新日時（formatFileTime）
@@ -21,6 +50,9 @@ function getIngestDecision {
     if ($sameFile -and -not $lostIndex) {
         if ($old.状態 -eq ${stateFailed}) {
             return @{ Ingest = $false; Reason = "failed" }
+        }
+        if (testExtractOutdated $old) {
+            return @{ Ingest = $true; Reason = "outdated" }
         }
         return @{ Ingest = $false; Reason = "done" }
     }
