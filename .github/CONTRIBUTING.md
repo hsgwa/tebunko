@@ -16,7 +16,7 @@ Changes go in this order: **issue → branch → pull request → main**.
 1. **Open an issue.** Use the "不具合" (bug) template for bugs and the "機能の要望" (feature request) template for new or changed features. Write the title in the form described in "Commit and pull request titles" below (the templates start the title with `fix: ` or `feat: `). A small change such as a typo fix can go straight to a pull request without an issue.
 2. **Create a working branch from main.**
 3. **Make the change and run the tests** (see "Tests" below).
-4. **Open a pull request.** Before you open it, bring in the latest main with a merge (a branch that does not include the latest main cannot be merged; do not rebase and force-push a branch that you have already pushed). Fill in the pull request template and link the issue with `Closes #<issue number>`. Add one label (`enhancement` / `bug` / `documentation` / `dependencies`). If the change breaks compatibility with the previous version, also add `breaking` and describe how to migrate.
+4. **Open a pull request.** Before you open it, bring in the latest main with a merge (a branch that does not include the latest main cannot be merged; do not rebase and force-push a branch that you have already pushed). Fill in the pull request template and link the issue with `Closes #<issue number>`. If the change breaks compatibility with the previous version, describe how to migrate. The maintainer adds the labels.
 5. **When CI passes and the review is done, the pull request is squash merged.** The pull request title becomes the title of the commit on main, so write it as one line that says what the change does, in the form described in "Commit and pull request titles".
 
 Put only one change in each pull request. Send unrelated fixes as separate pull requests.
@@ -34,22 +34,22 @@ feat!: change the index format
 ```
 
 - The scope (such as `(gui)`) is optional. If you write one, make it a single word with no spaces.
-- Add `!` to a change after which the settings file or the index of the previous version can no longer be used as is. Also add the `breaking` label to the pull request (see "Releases" below for which part of the version goes up).
+- Add `!` to a change after which the settings file or the index of the previous version can no longer be used as is. Describe how to migrate in the pull request.
 - After the type, write one colon and one space.
 
-| Type | Use for | Pull request label |
-|---|---|---|
-| `feat` | Adding or changing a feature | `enhancement` |
-| `fix` | Fixing a bug | `bug` |
-| `docs` | Changes to documents only | `documentation` |
-| `refactor` | Rewriting without changing behavior | The closest one |
-| `perf` | Making it faster | `enhancement` |
-| `test` | Adding or fixing tests only | The closest one |
-| `style` | Formatting only (spaces, line breaks) | The closest one |
-| `build` | How the release is built, dependency updates | `dependencies` (for dependency updates) |
-| `ci` | CI, git hooks, development tools | The closest one |
-| `chore` | Anything that fits none of the above | The closest one |
-| `revert` | Reverting an earlier change | The same as the change being reverted |
+| Type | Use for |
+|---|---|
+| `feat` | Adding or changing a feature |
+| `fix` | Fixing a bug |
+| `docs` | Changes to documents only |
+| `refactor` | Rewriting without changing behavior |
+| `perf` | Making it faster |
+| `test` | Adding or fixing tests only |
+| `style` | Formatting only (spaces, line breaks) |
+| `build` | How the release is built, dependency updates |
+| `ci` | CI, git hooks, development tools |
+| `chore` | Anything that fits none of the above |
+| `revert` | Reverting an earlier change |
 
 The form is checked automatically. The `commit-msg` hook checks commits (see "Setting up" below), and CI checks pull request titles; a pull request with a title in the wrong form cannot be merged. If an issue title is in the wrong form, a comment explaining how to fix it is added automatically. Messages that git creates on its own (`Merge ...`, `Revert "..."`, `fixup! ...`) are not checked.
 
@@ -122,17 +122,7 @@ This repository is public. **Anything that has ever been in the history is as go
 
 ## Releases
 
-When the maintainer pushes a `v<major>.<minor>.<patch>` (SemVer) tag on main, the tests run and the release zip is published on GitHub Releases.
-
-The version is 0.x for now. Which part goes up is decided by the labels of the pull requests merged since the previous version.
-
-- **Minor (0.3.1 → 0.4.0)** … when a `breaking` change is included (the format of the settings file `setting.config` or of the index changes, and the files of the previous version can no longer be used as is)
-- **Patch (0.3.1 → 0.3.2)** … when there are only new features (`enhancement`) or bug fixes (`bug`)
-- No release when there are only documents (`documentation`) or dependency updates (`dependencies`)
-
-From 1.0.0 on, `breaking` raises the major version, `enhancement` the minor version and `bug` the patch version.
-
-The release notes are created on GitHub Releases automatically and are grouped by the labels of the pull requests: breaking changes, features, bug fixes, documents and dependency updates (`.github/release.yml`).
+The maintainer makes the releases. The changes in each version are listed on [GitHub Releases](https://github.com/hsgwa/tebunko/releases).
 
 ## License
 
