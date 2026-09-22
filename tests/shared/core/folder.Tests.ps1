@@ -289,6 +289,49 @@ Describe "getComputerFolders" -Tag Io {
     }
 }
 
+Describe "getComputerFolders / getDriveTargets（ドライブを差し替えて）" -Tag Unit {
+    # この PC にネットワークドライブ・ラベルの無いドライブがあるかは環境によるため、ドライブを渡して確かめる
+    function newDrive([string]$name, [string]$type, [string]$label, [bool]$ready = $true) {
+        return (New-Object PSObject -Property @{ Name = $name; DriveType = $type; VolumeLabel = $label; IsReady = $ready })
+    }
+
+    It "ラベルが無いドライブは種類の名前にし、ネットワークドライブは割り当て先を出す" {
+        $drives = @{ "Z:" = "\\server\share" }
+        $found = @(
+            (newDrive "C:\" "Fixed" "Windows"),
+            (newDrive "D:\" "Fixed" ""),
+            (newDrive "E:\" "Removable" ""),
+            (newDrive "F:\" "CDRom" ""),
+            (newDrive "Y:\" "Network" ""),
+            (newDrive "Z:\" "Network" "共有"),
+            (newDrive "G:\" "Fixed" "" $false)  # 準備できていないドライブは出さない
+        )
+        $items = @(getComputerFolders $drives $found)
+        @($items | ForEach-Object { "$($_.Name)|$($_.Path)" }) -join "," | Should Be (@(
+                "Windows (C:)|C:\", "ローカルディスク (D:)|D:\", "リムーバブルディスク (E:)|E:\",
+                "DVD ドライブ (F:)|F:\", "ネットワークドライブ (Y:)|Y:\", "\\server\share (Z:)|Z:\"
+            ) -join ",")
+    }
+
+    It "ドライブを調べられなければ、ドライブを出さない" {
+        @(getComputerFolders @{} @()).Count | Should Be 0
+    }
+
+    It "getDriveTargets は、割り当て先のあるネットワークドライブだけを返す" {
+        $disks = @(
+            (New-Object PSObject -Property @{ DeviceID = "Z:"; ProviderName = "\\server\share\" }),
+            (New-Object PSObject -Property @{ DeviceID = "Y:"; ProviderName = "" })
+        )
+        $map = getDriveTargets $disks
+        $map["Z:"] | Should Be "\\server\share"
+        $map["z:"] | Should Be "\\server\share"  # 大文字・小文字を区別しない
+        $map.ContainsKey("Y:") | Should Be $false
+        $map.Count | Should Be 1
+        # 渡して調べた結果は覚えない（次に調べるときはこの PC のドライブを見る）
+        (getDriveTargets @()).Count | Should Be 0
+    }
+}
+
 Describe "normalizeFolderPath（制限言語モードの書き方）" -Tag Io {
     # 制限言語モードでは GetFullPath の代わりに resolveFullPathText を使う。同じ入力に同じ結果を返すこと
     $inputs = @(

@@ -165,14 +165,24 @@ function getDriveTargets {
     # ドライブ文字（"Z:"）→ 割り当て先（ネットワークドライブは "\\server\share"）を返す。
     # 同じプロセスでは1回だけ調べる（インデックス作成・検索の途中で割り当てが変わることは想定しない）。
     # subst で割り当てたドライブは解決しない（CIM で取れないため。実運用ではネットワークドライブが主）。
-    if ($null -ne ${script:driveTargets}) {
+    param (
+        # 調べたネットワークドライブ（テストで差し替える。ネットワークドライブの無い PC でも同じ道筋を確かめられるようにする）
+        $disks = $null
+    )
+
+    # 渡されたものを調べるときは、覚えている結果を使わず、覚えもしない（テスト用）
+    $asked = ($null -eq $disks)
+    if ($asked -and $null -ne ${script:driveTargets}) {
         return ${script:driveTargets}
     }
     # ハッシュテーブルは大文字・小文字を区別しない（"z:" でも引ける）
     $map = @{}
     try {
-        # DriveType=4 はネットワークドライブ。DeviceID="Z:"、ProviderName="\\server\share"
-        foreach ($d in @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=4" -ErrorAction SilentlyContinue)) {
+        if ($asked) {
+            # DriveType=4 はネットワークドライブ。DeviceID="Z:"、ProviderName="\\server\share"
+            $disks = @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=4" -ErrorAction SilentlyContinue)
+        }
+        foreach ($d in @($disks)) {
             if ($d.ProviderName) {
                 $map[$d.DeviceID] = $d.ProviderName.TrimEnd("\")
             }
@@ -180,7 +190,9 @@ function getDriveTargets {
     } catch {
         # 調べられない環境では別名なしとする（パスを書かれたとおりに使う）
     }
-    ${script:driveTargets} = $map
+    if ($asked) {
+        ${script:driveTargets} = $map
+    }
     return $map
 }
 
@@ -462,13 +474,15 @@ function getComputerFolders {
     #   @{ Name = "Windows (C:)"; Path = "C:\" } の配列
     # ネットワークドライブは割り当て先（\\server\share）を名前に出す
     param (
-        $drives = (getDriveTargets)  # ドライブ文字 → 割り当て先（テストで差し替える）
+        $drives = (getDriveTargets),  # ドライブ文字 → 割り当て先（テストで差し替える）
+        $found = $null                # この PC のドライブ（テストで差し替える。$null なら調べる）
     )
 
     $items = New-Object System.Collections.Generic.List[object]
-    $found = @()
     try {
-        $found = [System.IO.DriveInfo]::GetDrives()
+        if ($null -eq $found) {
+            $found = [System.IO.DriveInfo]::GetDrives()
+        }
     } catch {
         # ドライブを調べられない環境では、ツリーにドライブを出さない（アドレスバーからは開ける）
         return $items.ToArray()
