@@ -5,6 +5,7 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 . "${scriptsDir}\shared\ui\types.ps1"
 . "${scriptsDir}\tebunko_grep\ui\types_grep.ps1"
+. "${scriptsDir}\shared\ui\open_file.ps1"
 
 function newFakeControl {
     # イベントの登録（Add_<イベント>）を Handlers に記録するだけの偽のコントロール

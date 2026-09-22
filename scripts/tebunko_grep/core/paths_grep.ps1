@@ -58,9 +58,3 @@ ${statusFolderKey} = "クロール対象フォルダ"
 ${stateNew}    = "未取り込み"
 ${stateDone}   = "済"
 ${stateFailed} = "失敗"
-
-# 検索結果から元のファイルを開くときの開き方（設定 openMode の値）
-${openModeNormal}   = "normal"    # そのまま開く（編集する）
-${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上書きしない）
-${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
-${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})

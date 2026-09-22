@@ -37,3 +37,9 @@ function findOfficeFiles {
 
     return @{ Root = $root; Files = $files; HasError = (@($scanErrors).Count -gt 0) }
 }
+
+# 元のファイルを開くときの開き方（検索の設定 openMode の値。比較から開くときも同じ値を使う）
+${openModeNormal}   = "normal"    # そのまま開く（編集する）
+${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上書きしない）
+${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
+${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})

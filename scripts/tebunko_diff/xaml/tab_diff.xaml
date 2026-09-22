@@ -1,0 +1,12 @@
+﻿<!-- ［2 比較］タブの中身。tebunko.xaml の DiffTab に入れる（scripts\tebunko\gui.ps1） -->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <TextBlock x:Name="DiffRoot" Text="準備中" />
+</Grid>

@@ -560,7 +560,9 @@ function applyIndexingState {
 
     # 失敗したファイルは下の一覧に原因とともに表示する
     $ui.IndexingStateText.Text = if ($state.Pending -gt 0 -and !(isIndexing)) { "⏸ 前回のインデックス作成が中断しています（残り $($state.Pending) 件）" } else { "" }
-    $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 インデックス管理" } else { "1 インデックス管理" }
+    # 取り込みに失敗したファイルがあれば、2 段目の見出しと 1 段目の［1 検索］の両方に印を付ける
+    $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ インデックス管理" } else { "インデックス管理" }
+    $ui.SearchPageHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 検索" } else { "1 検索" }
     applyIndexStats $state.IndexStats
     updateFailedList $state
     updateIndexSummaryText

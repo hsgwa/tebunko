@@ -27,9 +27,11 @@ Describe "依存の向き" -Tag Meta {
     }
 
     It "ツール同士は互いを読み込まない" {
-        $tools = @(Get-ChildItem "${scriptsDir}" -Directory | Where-Object { $_.Name -ne "shared" })
+        # scripts\tebunko は、ツールを 1 つのウィンドウに組み立てるだけの場所。両方のツールを読み込んでよい。
+        # ツールの側からは、ほかのツールも tebunko も読み込まない
+        $tools = @(Get-ChildItem "${scriptsDir}" -Directory | Where-Object { $_.Name -ne "shared" -and $_.Name -ne "tebunko" })
         foreach ($tool in $tools) {
-            $others = @($tools | Where-Object { $_.Name -ne $tool.Name } | ForEach-Object { $_.Name })
+            $others = @(@($tools | Where-Object { $_.Name -ne $tool.Name } | ForEach-Object { $_.Name }) + "tebunko")
             if ($others.Count -eq 0) { continue }
             foreach ($file in (Get-ChildItem $tool.FullName -Recurse -Filter "*.ps1")) {
                 foreach ($sourced in (getSourcedFiles $file.FullName)) {
@@ -45,7 +47,7 @@ Describe "依存の向き" -Tag Meta {
 Describe "読み込み漏れ" -Tag Meta {
     # 起動口からたどれないファイルは、足したのに読み込み忘れている
     It "すべての .ps1 が起動口からたどれる" {
-        $entries = @("${scriptsDir}\tebunko_grep\gui.ps1", "${scriptsDir}\tebunko_grep\indexer.ps1")
+        $entries = @("${scriptsDir}\tebunko\gui.ps1", "${scriptsDir}\tebunko_grep\indexer.ps1", "${scriptsDir}\tebunko_diff\differ.ps1")
         $seen = New-Object 'System.Collections.Generic.HashSet[string]'
         $queue = New-Object System.Collections.Queue
         foreach ($entry in $entries) {

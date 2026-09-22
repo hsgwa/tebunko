@@ -34,10 +34,14 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
         ($found -join ", ") | Should Be ""
     }
 
-    It "gui.ps1 が指すインデクサのファイルがある" {
-        $line =@(Select-String -Path "$here\..\scripts\tebunko_grep\gui.ps1" -Pattern '^\$\{indexerScriptPath\}\s*=\s*"\$PSScriptRoot\\(.+)"')
+    It "画面が指すインデクサのファイルがある" {
+        # 起動口（scripts\tebunko\gui.ps1）が ${grepDir} を決め、grep_page.ps1 がインデクサのパスを組み立てる
+        $dir = @(Select-String -Path "$here\..\scripts\tebunko\gui.ps1" -Pattern '^\$\{grepDir\}\s*=\s*"\$PSScriptRoot\\(.+)"')
+        $dir.Count | Should Be 1
+        $line = @(Select-String -Path "$here\..\scripts\tebunko_grep\ui\grep_page.ps1" -Pattern '^\$\{indexerScriptPath\}\s*=\s*"\$\{grepDir\}\\(.+)"')
         $line.Count | Should Be 1
-        Test-Path -LiteralPath "$here\..\scripts\tebunko_grep\$($line[0].Matches[0].Groups[1].Value)" | Should Be $true
+        $grepDir = Join-Path "$here\..\scripts\tebunko" $dir[0].Matches[0].Groups[1].Value
+        Test-Path -LiteralPath (Join-Path $grepDir $line[0].Matches[0].Groups[1].Value) | Should Be $true
     }
 }
 
@@ -80,13 +84,14 @@ Describe "画面定義（XAML）" -Tag Meta {
 Describe "型の読み込み" -Tag Meta {
     # 画面で使う型は shared と tebunko_grep に分かれている。gui.ps1 と同じ順で読み込めば、
     # 継承（NotifyBase を継承する型）が解決できることを確かめる
-    It "shared と tebunko_grep の型を順に読み込める" {
+    It "shared・tebunko_grep・tebunko_diff の型を順に読み込める" {
         $probe = Join-Path $TestDrive "probe.ps1"
         $scripts = (Resolve-Path "$here\..\scripts").Path
         Set-Content -LiteralPath $probe -Encoding UTF8 -Value @(
             'Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase'
             ". `"$scripts\shared\ui\types.ps1`""
             ". `"$scripts\tebunko_grep\ui\types_grep.ps1`""
+            ". `"$scripts\tebunko_diff\ui\types_diff.ps1`""
             '([HitRow], [IndexNode], [FolderNode], [ConfirmFact], [PreviewTable]).Count'
         )
         $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1
@@ -98,7 +103,7 @@ Describe "画面の部品の名前" -Tag Meta {
     # gui.ps1 が FindName で取る名前が、XAML に実在すること。
     # タブの中身を別ファイルに分けているため、名前を足したり動かしたりすると気づきにくい
     $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
-    $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko_grep\gui.ps1")
+    $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\gui.ps1")
 
     function getXamlNames {
         param ([string]$path)
@@ -107,8 +112,9 @@ Describe "画面の部品の名前" -Tag Meta {
     }
 
     It "ウィンドウの枠の名前がある" {
-        $names = getXamlNames "$here\..\scripts\tebunko_grep\xaml\tebunko_grep.xaml"
-        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+        $names = getXamlNames "$here\..\scripts\tebunko\xaml\tebunko.xaml"
+        foreach ($name in @("Tabs", "SearchPage", "SearchPageHeader", "SearchTabs", "IndexTab", "SearchTab", "DiffTab", "KillTab",
+                "IndexTabHeader", "KillTabHeader", "StatusText")) {
             $names -contains $name | Should Be $true
         }
     }
@@ -116,6 +122,7 @@ Describe "画面の部品の名前" -Tag Meta {
     foreach ($tab in @(
             @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
             @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
+            @{ File = "tab_diff.xaml"; Marker = 'Tab = "DiffTab"'; Dir = "tebunko_diff" }
             @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"'; Dir = "shared" })) {
         $file = $tab.File
         $marker = $tab.Marker

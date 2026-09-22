@@ -358,7 +358,7 @@ $ui.FileFilterBox.Add_KeyDown({
     }
 })
 
-$ui.GoIndexTabButton.Add_Click({ $ui.Tabs.SelectedItem = $ui.IndexTab })
+$ui.GoIndexTabButton.Add_Click({ selectGrepTab $ui.IndexTab })
 $ui.FilterBox.Add_TextChanged({
     $ui.FilterPlaceholder.Visibility = if ($ui.FilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
     $script:filterTimer.Stop()

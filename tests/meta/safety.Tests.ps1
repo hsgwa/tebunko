@@ -4,7 +4,7 @@
 $here = (Resolve-Path "$PSScriptRoot\..").Path
 $rootDir = (Resolve-Path "$here\..").Path
 $scriptsDir = "$rootDir\scripts"
-$launcher = "$rootDir\tebunko_grep.bat"
+$launchers = @("$rootDir\tebunko.bat", "$rootDir\tebunko_grep.bat")
 
 function getCodeLines {
     # 検査対象のコード行を @{ File; Line; Text } で返す。
@@ -103,9 +103,11 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
         (findPattern $code 'Set-ExecutionPolicy') | Should Be ""
         (findPattern $code 'ExecutionPolicy\s+Bypass') | Should Be ""
         # 起動用 .bat も同じ（RemoteSigned で起動する）
-        $bat = [System.IO.File]::ReadAllText($launcher)
-        ($bat -match 'Bypass') | Should Be $false
-        ($bat -match 'ExecutionPolicy RemoteSigned') | Should Be $true
+        foreach ($launcher in $launchers) {
+            $bat = [System.IO.File]::ReadAllText($launcher)
+            ($bat -match 'Bypass') | Should Be $false
+            ($bat -match 'ExecutionPolicy RemoteSigned') | Should Be $true
+        }
     }
 
     It "資格情報を入力要求・保存しない" {
@@ -147,9 +149,9 @@ Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2
 
     It "インデクサの Office は画面に出さない（Visible = false）" {
         (findPattern $app 'Visible\s*=\s*\$false') | Should Not Be ""
-        # 可視にするのは画面から元のファイルを開くときだけ（ui/open_source.ps1）
+        # 可視にするのは画面から元のファイルを開くときだけ（shared/ui/open_file.ps1）
         $visible = @($code | Where-Object { $_.Text -match 'Visible\s*=\s*\$true' })
-        (@($visible | Where-Object { $_.File -ne "open_source.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
+        (@($visible | Where-Object { $_.File -ne "open_file.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
     }
 }
 
