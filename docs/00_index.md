@@ -14,9 +14,9 @@
 | └ [00_共通_1_フォルダ構成と設定ファイル.md](00_共通_1_フォルダ構成と設定ファイル.md) | – | – | 3. フォルダ・ファイル構成、4. 設定ファイル（`setting.config`） |
 | └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `tebunko_grep/lib.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
 | └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `tebunko_grep/lib.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
-| └ [00_共通_3_テスト.md](00_共通_3_テスト.md) | – | – | 6. テスト（単体テスト・結合テスト） |
+| └ [00_共通_3_テスト.md](00_共通_3_テスト.md) | – | – | 6. テスト（品質の関門の一覧・単体テスト・結合テスト・カバレッジ・コミット前の検査・CI） |
 | [01_インデックス作成.md](01_インデックス作成.md) | 画面の［インデックス作成を開始］（ウィンドウ無しで起動） | `tebunko_grep/indexer.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成 |
-| └ [01_インデックス作成_1_Excel.md](01_インデックス作成_1_Excel.md) | | | 4.3 Excel の抽出、6.3 TSV 整形仕様 |
+| └ [01_インデックス作成_1_Excel.md](01_インデックス作成_1_Excel.md) | | | 4.3 Excel の抽出、6.3 TSV 整形仕様、6.7 Excel の図形・コメントの読み取り |
 | └ [01_インデックス作成_2_Word.md](01_インデックス作成_2_Word.md) | | | 4.5 Word の旧形式の変換、6.5 テキスト読み取りと TSV の場所、7.2 注意点・既知の問題 |
 | └ [01_インデックス作成_3_PowerPoint.md](01_インデックス作成_3_PowerPoint.md) | | | 4.6 PowerPoint の旧形式の変換、6.6 テキスト読み取りと TSV の場所、7.3 注意点・既知の問題 |
 | └ [01_インデックス作成_4_メインフローと取り込み一覧.md](01_インデックス作成_4_メインフローと取り込み一覧.md) | | | 4.1 メインフロー、4.2 取り込み一覧・強制終了からの再開 |
@@ -24,7 +24,7 @@
 | └ [01_インデックス作成_6_共通処理とアプリ管理.md](01_インデックス作成_6_共通処理とアプリ管理.md) | | | 4.4 Word・PowerPoint の抽出、4.7 失敗の原因、5. Office アプリの管理 |
 | └ [01_インデックス作成_7_出力TSVと既知の問題.md](01_インデックス作成_7_出力TSVと既知の問題.md) | | | 6.1・6.2・6.4 出力 TSV の仕様、7.1 注意点・既知の問題（共通） |
 | └ [01_インデックス作成_8_エラーメッセージ一覧.md](01_インデックス作成_8_エラーメッセージ一覧.md) | | | 4.8 エラーメッセージ一覧（続けられないエラー・ファイルごとの失敗・警告） |
-| [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `tebunko_grep/lib.ps1` | TSV インデックスの検索処理と検索結果ファイルの形式 |
+| [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `tebunko_grep/search/search_query.ps1` / `tebunko_grep/search/search_run.ps1` | TSV インデックスの検索処理と検索結果ファイルの形式 |
 | [03_画面.md](03_画面.md) | `tebunko_grep.bat` | `tebunko_grep/gui.ps1` / `tebunko_grep/xaml/tebunko_grep.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
 | └ [03_画面_1_インデックス管理タブ.md](03_画面_1_インデックス管理タブ.md) | | | 3. ［1 インデックス管理］タブ |
 | └ [03_画面_2_検索タブ.md](03_画面_2_検索タブ.md) | | | 4. ［2 検索］タブ |
@@ -36,9 +36,7 @@
 | └ [03_画面_6_実装とテスト_1_テスト.md](03_画面_6_実装とテスト_1_テスト.md) | | | 16. テスト |
 | [04_安全性.md](04_安全性.md) | – | – | 導入審査向けの安全性説明（危険な処理・ライブラリを使っていないことの根拠と確認手順、書き込み範囲、開示事項、第三者のツールによる検査結果、供給網とライセンス） |
 
-Office プロセスの強制終了は画面の［9 プロセス停止］タブ（[03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。インデクサ `tebunko_grep/indexer.ps1` は画面から起動される処理として残している。
-
-長い設計書は章単位で複数のファイルに分けている（└ の行）。章・節の番号は、同じ番号の設計書の中で通し番号とし、分割前と同じ番号のまま使っている。
+長い設計書は章単位で複数のファイルに分けている（└ の行）。章・節の番号は、同じ番号の設計書の中で通し番号とする。
 
 図は Mermaid で記述している（GitHub / VS Code の Markdown プレビュー等で描画される）。画面レイアウトなど Mermaid で表しにくい図は、draw.io で再編集できる PNG（`images/*.drawio.png`）として置いている。
 
@@ -61,9 +59,9 @@ Office プロセスの強制終了は画面の［9 プロセス停止］タブ�
 2 段階方式を採る。
 
 1. **インデックス作成**（[01_インデックス作成.md](01_インデックス作成.md)）
-   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出して `work/index/` に蓄積する。Excel は COM で操作してテキストを抽出し、Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（旧形式のみ Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
+   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出して `work/index/` に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
 2. **検索**（[02_検索.md](02_検索.md)）
-   インデックスの TSV を検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を画面の表に表示する。必要なときは `work/検索結果.txt` に出力する。
+   インデックスの TSV を検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは `work/検索結果.txt` に出力する。
 
 どちらも画面（[03_画面.md](03_画面.md)）から行う。インデックス作成は画面がウィンドウ無しで起動し、進み具合を画面に表示する。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
 
@@ -97,7 +95,7 @@ flowchart LR
         end
         subgraph sh["shared/（どのツールからも使う）"]
             shared["shared.ps1<br>共通基盤の読み込み口<br>（core/・office/）"]
-            reader["office/office_reader.ps1<br>Word・PowerPoint の読み取り"]
+            reader["office/office_reader.ps1<br>Word・PowerPoint と<br>Excel の図形・コメントの読み取り"]
             app["office/office_app.ps1<br>Officeアプリの起動・終了"]
         end
     end
@@ -175,7 +173,7 @@ sequenceDiagram
     G->>U: 進み具合・失敗したファイルを表示（［中止］で止められる）
     U->>G: ［2 検索］でワードを入力
     G->>W: TSV を検索
-    G->>U: 結果を表に表示（ダブルクリックで元のファイルを開く）
+    G->>U: 結果をファイルごとの見出しにまとめて表示（見出しを開くと該当行。行のダブルクリックで元のファイルを開く）
 ```
 
 ---
@@ -188,8 +186,8 @@ sequenceDiagram
 | 実行環境 | Windows PowerShell 5.1（`powershell.exe`） |
 | 必須ソフトウェア | Microsoft Excel（`Excel.Application` COM オブジェクトを使用。Excel ファイルの取り込みに必要） |
 | 任意のソフトウェア | Microsoft Word・PowerPoint（旧形式 `.doc` `.ppt`、パスワード付き、拡張子と中身が異なる Word・PowerPoint ファイルの取り込みにのみ使用。新形式の `.docx` `.pptx` 等は無くても取り込める） |
-| 起動方法 | `tebunko_grep.bat` をダブルクリック。`-ExecutionPolicy RemoteSigned` で画面を開く（`Bypass` は使わない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサも画面が同じ方法（`-WindowStyle Hidden`）で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
+| 起動方法 | `tebunko_grep.bat` をダブルクリック。`conhost.exe` を通して `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で画面を開く（`Bypass` は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が `Start-Process` で同じ実行ポリシー・`-WindowStyle Hidden` で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
 | スクリプトの文字コード | `scripts/*.ps1`・`tests/*.ps1` は **UTF-8（BOM 付き）**、改行 CRLF。PowerShell 5.1 は BOM なしファイルをシステム既定コードページ（CP932）で読むため、BOM を外すと日本語リテラルが化ける |
-| テスト | Pester 3.4（Windows PowerShell 5.1 標準）。`Invoke-Pester .\tests` |
+| テスト | Pester 3.4（Windows PowerShell 5.1 標準）。`.\tests\run.ps1`（詳細は [6.3](00_共通_3_テスト.md#63-テストの構成と実行)） |
 
 ---

@@ -13,7 +13,7 @@ tebunko への不具合の報告・要望・修正の提案を歓迎します。
 1. **Issue を立てる。** 不具合は「不具合」、機能の追加・変更は「機能の要望」のテンプレートを使います。タイトルは下の「コミットと Pull Request のタイトル」の形にします（テンプレートが `fix: ` `feat: ` を最初から入れます）。誤字の修正のような小さな変更は、Issue なしで Pull Request を出してかまいません。
 2. **main から作業用のブランチを作る。**
 3. **変更し、テストを通す**（下の「テスト」）。
-4. **Pull Request を出す。** 本文はテンプレートに沿って書き、`Closes #<Issue の番号>` で Issue とつなぎます。ラベルを 1 つ付けます（`enhancement` / `bug` / `documentation` / `dependencies`）。前の版と互換が無くなる変更には `breaking` も付け、移行の手順を書きます。
+4. **Pull Request を出す。** 出す前に最新の main を merge で取り込みます（main を取り込んでいないブランチはマージできません。push 済みのブランチを rebase して force push しないでください）。本文はテンプレートに沿って書き、`Closes #<Issue の番号>` で Issue とつなぎます。ラベルを 1 つ付けます（`enhancement` / `bug` / `documentation` / `dependencies`）。前の版と互換が無くなる変更には `breaking` も付け、移行の手順を書きます。
 5. **CI が通り、レビューが済んだら squash merge します。** Pull Request のタイトルが main のコミットのタイトルになるので、下の「コミットと Pull Request のタイトル」の形で、変更の内容が分かる 1 行にしてください。
 
 1 つの Pull Request には 1 つの変更だけを入れます。関係のない修正は別の Pull Request にしてください。
@@ -84,11 +84,15 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 .\tests\run.ps1 -Tag Office     # Excel・Word・PowerPoint が要るテスト
 ```
 
-画面を変えたときは、`tebunko_grep.bat` で実際に起動して確かめてください。テストの分け方と CI の中身は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) にあります。
+- **機能を足したり動きを変えたりしたら、同じ Pull Request でテストを書いてください。** 画面に出す文言や可否の判定（判断層）は特に厚くします。
+- **カバレッジは下げません。** CI（`.\tests\run.ps1 -Ci`）は、カバレッジが `tests/coverage.baseline` の値を下回ると失敗します。下回ったらテストを足して戻し、上がったら同じ Pull Request で下限を上げてください。画面層は計測の対象外です。
+- 画面を変えたときは、`tebunko_grep.bat` で実際に起動して確かめてください。
+
+テストの分け方と CI の中身は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) にあります。
 
 ## コードの決まり
 
-`tests/meta/` のテストが機械的に確かめます。
+`tests/meta/` のテストと、CI の静的解析（PSScriptAnalyzer。重大度 Error の指摘が 0 件であること）が機械的に確かめます。
 
 - **スクリプト・XAML は BOM 付き UTF-8・CRLF** で保存します（Windows PowerShell 5.1 の前提）。
 - **`scripts/shared/` は個々のツールを知らない**ようにします。ツール同士も互いを読み込みません。
@@ -125,7 +129,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 
 1.0.0 以降は、`breaking` でメジャー、`enhancement` でマイナー、`bug` でパッチを上げます。
 
-リリースノートは Pull Request のラベルで分類されます。
+リリースノートは GitHub Release に自動で作られ、Pull Request のラベルで「互換が無くなる変更」「機能」「不具合の修正」「文書」「依存の更新」に分類されます（`.github/release.yml`）。
 
 ## ライセンス
 
