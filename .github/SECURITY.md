@@ -1,54 +1,56 @@
-﻿# セキュリティ
+# Security
 
-tebunko の安全性に関する情報と、問題を見つけたときの連絡方法をまとめます。
+English | [日本語](SECURITY.ja.md)
 
-## 安全性の説明
+This page collects information about the safety of tebunko and explains how to contact us when you find a problem.
 
-本ツールが何をするか・何をしないか、危険な処理やライブラリを使っていない根拠、第三者のツールによる検査結果は [docs/04_安全性.md](../docs/04_安全性.md) にあります。導入を審査する方は、まずこの文書を参照してください。
+## How the tool stays safe
 
-主張は次のコマンドで機械的に検査できます（検査内容は `tests/meta/safety.Tests.ps1`）。
+What the tool does and does not do, why it does not use dangerous operations or libraries, and the results of checks by third-party tools are described in [docs/04_安全性.md](../docs/04_安全性.md) (Japanese). If you are reviewing the tool before introducing it, read this document first.
+
+The claims can be checked automatically with the following command (the checks are in `tests/meta/safety.Tests.ps1`).
 
 ```powershell
 .\tests\run.ps1 -Tag Meta
 ```
 
-## 脆弱性・不審な挙動の連絡
+## Reporting a vulnerability or suspicious behavior
 
-安全性に関わる問題（意図しないファイルの書き換え・削除、想定外の通信、情報の漏れなど）を見つけた場合は、**公開の Issue に書かずに**、GitHub の非公開の報告の窓口から連絡してください。
+If you find a security problem (unintended changes to or deletion of files, unexpected network access, leaks of information and so on), **do not write it in a public issue**. Contact us through GitHub's private vulnerability reporting instead.
 
-**[非公開で報告する](https://github.com/hsgwa/tebunko/security/advisories/new)**（リポジトリの Security タブ →［Report a vulnerability］）
+**[Report privately](https://github.com/hsgwa/tebunko/security/advisories/new)** (the Security tab of the repository → [Report a vulnerability])
 
-報告の内容は、管理者と報告者だけが見られます。修正を公開するときに、報告者の名前を載せるかどうかは報告者の希望に従います。
+Only the maintainer and the reporter can see the report. When the fix is published, the reporter's name is credited or not as the reporter wishes. Reports in English or Japanese are welcome.
 
-連絡に含めていただきたい内容:
+Please include:
 
-- 起きたこと（どのファイル・どの操作で、何が起きたか）
-- 再現の手順（クロール対象フォルダの条件、ファイルの種類など）
-- 使用環境（Windows のバージョン、Windows PowerShell のバージョン、Office のバージョン）
-- 該当する記録（`work\インデックス作成ログ.txt`、`work\インデックス作成エラー.txt`。機密情報が含まれる場合は該当部分を伏せてください）
+- What happened (which file, which operation, and what went wrong)
+- Steps to reproduce (conditions of the crawled folder, types of files and so on)
+- Your environment (Windows version, Windows PowerShell version, Office version)
+- Related logs (`work\インデックス作成ログ.txt` and `work\インデックス作成エラー.txt`; hide any confidential information in them)
 
-再現に必要な Office ファイルそのものは、**機密情報を含む可能性があるため送らないでください**。同じ現象を起こす最小のファイルを作れる場合のみ添付してください。
+**Do not send the Office files themselves, because they may contain confidential information.** Attach a file only if you can make a minimal file that causes the same problem.
 
-## 修正を提供する版
+## Supported versions
 
-安全性の修正は、最新のマイナー版（`v<メジャー>.<マイナー>.x` の最新）に対して行い、パッチ版として公開します。古い版には提供しません。[Releases](https://github.com/hsgwa/tebunko/releases/latest) の最新版を使ってください。
+Security fixes are made for the latest minor version (the latest `v<major>.<minor>.x`) and published as a patch version. Older versions do not get fixes. Use the latest version from [Releases](https://github.com/hsgwa/tebunko/releases/latest).
 
-| 版 | 安全性の修正 |
+| Version | Security fixes |
 |---|---|
-| 最新のマイナー版 | 提供する |
-| それより前の版 | 提供しない |
+| Latest minor version | Yes |
+| Older versions | No |
 
-## 対応の方針
+## How reports are handled
 
-- 受け取った連絡には、7 日以内に受け取ったことを返します。
-- 内容を確認して再現を試みます。
-- 修正する場合は、原因と影響範囲を [docs/04_安全性.md](../docs/04_安全性.md) と該当の設計書に反映し、再発を防ぐテストを `tests/` に追加します。
-- 修正の配布は、`tools\new_release_files.ps1` で作るカタログとハッシュ一覧を添えて行います。受け取った側が配布物の完全性を確認できます。
+- We acknowledge a report within 7 days.
+- We check the report and try to reproduce the problem.
+- If we fix it, we describe the cause and the impact in [docs/04_安全性.md](../docs/04_安全性.md) (Japanese) and the related design documents, and add tests to `tests/` to prevent it from happening again.
+- The fix is released with the catalog and hash list made by `tools\new_release_files.ps1`, and the provenance of the zip is signed with Sigstore. Anyone who receives it can check that the release has not been altered (see the "安全性" (safety) section of the [README](../README.md#安全性), Japanese).
 
-## 利用者側でお願いしたいこと
+## What we ask of users
 
-本ツールは、**インデックス（`work\index\` の TSV）に元の文書の本文を平文で保持**します。元のファイルのアクセス権は引き継がれません。次の点に注意してください（詳細は [docs/04_安全性.md](../docs/04_安全性.md) の 4.3）。
+The tool **keeps the text of the original documents in plain text in the index (the TSV files in `work\index\`)**. The access rights of the original files are not carried over. Please note the following (details in section 4.3 of [docs/04_安全性.md](../docs/04_安全性.md), Japanese).
 
-- ツールを置いたフォルダのアクセス権を、クロール対象フォルダと同等以上に制限する。
-- 権限の異なる利用者が読める共有フォルダに、インデックスをそのまま置かない。
-- インデックスを別の PC へコピーする場合は、持ち出しの扱いになることを踏まえて運用ルールに従う。
+- Restrict access to the folder where the tool is placed to at least the same level as the crawled folders.
+- Do not put the index as is in a shared folder that users with different access rights can read.
+- If you copy the index to another PC, treat it as taking the data out, and follow your organization's rules.
