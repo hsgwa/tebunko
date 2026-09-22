@@ -4,11 +4,13 @@
 # 3 系を使う（無ければ入れる。tests\run.ps1 が 3 系を明示して読み込む）。
 # ランナーに Office は入っていないため、Office が要るテスト（タグ Office）は tests\run.ps1 が既定で外す。
 # release.yml からも呼ばれる（workflow_call）。タグの push では release.yml の中で実行するため、ここでは動かさない。
+# 作業ブランチは PR（pull_request）で確かめる。push でも動かすと、PR のブランチでは同じテストが 2 回走るため、push は main だけにする。
+# main への push では、Codecov の比較元になる main のカバレッジを送る。
 name: test
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_call:
 
@@ -65,8 +67,14 @@ jobs:
 
       - name: 静的解析（PSScriptAnalyzer）
         shell: powershell
+        # 版を固定する。新しい版でルールが増えると、コードを変えていなくても CI が落ちるため。
+        # PowerShell のモジュールは Dependabot の対象外なので、上げるときはこの版を書き換え、指摘が 0 件のままか PR で確かめる。
+        # ランナーに別の版が入っていることがあるため、読み込むときも版を指定する
+        env:
+          PSSA_VERSION: 1.25.0
         run: |
-          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
           # TypeNotFound は、継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの。
           # 読み込む順で解決できることは tests\meta\structure.Tests.ps1 の「型の読み込み」で確かめている
           $found = @(Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error | Where-Object { $_.RuleName -ne "TypeNotFound" })
