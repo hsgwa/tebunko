@@ -45,7 +45,7 @@ Describe "依存の向き" -Tag Meta {
 Describe "読み込み漏れ" -Tag Meta {
     # 起動口からたどれないファイルは、足したのに読み込み忘れている
     It "すべての .ps1 が起動口からたどれる" {
-        $entries = @("${scriptsDir}\tebunko_grep\gui.ps1", "${scriptsDir}\tebunko_grep\convert.ps1")
+        $entries = @("${scriptsDir}\tebunko_grep\gui.ps1", "${scriptsDir}\tebunko_grep\indexer.ps1")
         $seen = New-Object 'System.Collections.Generic.HashSet[string]'
         $queue = New-Object System.Collections.Queue
         foreach ($entry in $entries) {
@@ -70,7 +70,7 @@ Describe "判断層" -Tag Meta {
             "${scriptsDir}\shared\core\text.ps1"
             "${scriptsDir}\tebunko_grep\index\index_name.ps1"
             "${scriptsDir}\tebunko_grep\search\search_query.ps1"
-            "${scriptsDir}\tebunko_grep\convert\convert_decide.ps1"
+            "${scriptsDir}\tebunko_grep\indexer\indexer_decide.ps1"
         ) + @(Get-ChildItem "${scriptsDir}" -Recurse -Filter "*_view.ps1" | ForEach-Object { $_.FullName })
         foreach ($file in $files) {
             $text = [System.IO.File]::ReadAllText($file)

@@ -5,14 +5,14 @@ Describe "パス定義" -Tag Meta {
     It "リポジトリ直下を基準にする" {
         $rootDir | Should Be (Resolve-Path "$here\..").Path
         $indexDir | Should Be "$rootDir\work\index"
-        $publishDir | Should Be "$rootDir\work\変換出力\$PID"
+        $publishDir | Should Be "$rootDir\work\取り込み出力\$PID"
         $resultFile | Should Be "$rootDir\work\検索結果.txt"
         $settingsFile | Should Be "$rootDir\setting.config"
     }
 }
 
 Describe "実行時コンパイル（csc.exe）を使わない" -Tag Meta {
-    # 画面・共通・変換の各スクリプトが Add-Type -TypeDefinition（実行時コンパイル）を使わないこと。
+    # 画面・共通・インデックス作成の各スクリプトが Add-Type -TypeDefinition（実行時コンパイル）を使わないこと。
     # 画面で使う型は PowerShell class に移した（csc.exe の親子関係・一時 DLL を出さないため）
     It "scripts に Add-Type -TypeDefinition が無い" {
         foreach ($file in (Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1")) {
@@ -24,8 +24,8 @@ Describe "実行時コンパイル（csc.exe）を使わない" -Tag Meta {
 
 Describe "画面の部品でのパスの組み立て" -Tag Meta {
     # ui\ 配下のファイルは gui.ps1 から dot-source する部品。中で $PSScriptRoot を使うと ui\ を指すため、
-    # "${PSScriptRoot}\tebunko_grep\convert.ps1" のように起動口からの相対パスを書くと存在しないパスになる
-    # （［変換を開始］で変換処理が起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
+    # "${PSScriptRoot}\tebunko_grep\indexer.ps1" のように起動口からの相対パスを書くと存在しないパスになる
+    # （［インデックス作成を開始］でインデクサが起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
     It "ui 配下のスクリプトで `$PSScriptRoot を使っていない" {
         $found = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1" |
             Where-Object { $_.DirectoryName -match '\\ui$' } |
@@ -34,8 +34,8 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
         ($found -join ", ") | Should Be ""
     }
 
-    It "gui.ps1 が指す変換処理のファイルがある" {
-        $line =@(Select-String -Path "$here\..\scripts\tebunko_grep\gui.ps1" -Pattern '^\$\{convertScriptPath\}\s*=\s*"\$PSScriptRoot\\(.+)"')
+    It "gui.ps1 が指すインデクサのファイルがある" {
+        $line =@(Select-String -Path "$here\..\scripts\tebunko_grep\gui.ps1" -Pattern '^\$\{indexerScriptPath\}\s*=\s*"\$PSScriptRoot\\(.+)"')
         $line.Count | Should Be 1
         Test-Path -LiteralPath "$here\..\scripts\tebunko_grep\$($line[0].Matches[0].Groups[1].Value)" | Should Be $true
     }
@@ -66,7 +66,7 @@ Describe "画面定義（XAML）" -Tag Meta {
         }
     }
 
-    It "フォルダ選択の画面に、config_gui.ps1 が使う x:Name がすべてある" {
+    It "フォルダ選択の画面に、gui.ps1 が使う x:Name がすべてある" {
         [xml]$xaml = Get-Content "$here\..\scripts\shared\xaml\dialog_folder_select.xaml" -Raw -Encoding UTF8
         $names = @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
         foreach ($name in @(

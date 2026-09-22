@@ -92,7 +92,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     }
 
     It "自分で起動したアプリは Quit し、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）で終わらなければプロセスを強制終了する" {
-        # Excel は変換中に取り出した COM オブジェクトが残って Quit では終わらないため、待ち時間を短くしてある（office_app.ps1 の $appInfo）
+        # Excel は抽出中に取り出した COM オブジェクトが残って Quit では終わらないため、待ち時間を短くしてある（office_app.ps1 の $appInfo）
         $fake = newFakeApp
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @(100) @(100, 200)
@@ -124,7 +124,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         @($log).Count | Should Be 0
     }
 
-    It "変換中に利用者が同じ Word で文書を開いた場合は、終了させない" {
+    It "インデックス作成中に利用者が同じ Word で文書を開いた場合は、終了させない" {
         $fake = newFakeApp -openDocuments 1
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
         setProcesses @() @(600)
@@ -141,7 +141,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 }
 
 Describe "getAppName" -Tag Unit {
-    It "拡張子から変換に使うアプリを決める（大文字でも同じ）" {
+    It "拡張子から抽出に使うアプリを決める（大文字でも同じ）" {
         getAppName "a.xlsx" | Should Be "Excel"
         getAppName "a.XLSB" | Should Be "Excel"
         getAppName "a.xls" | Should Be "Excel"

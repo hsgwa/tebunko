@@ -2,7 +2,7 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "getIndexNameMap / resolveSourcePath" -Tag Io {
-    It "インデックス名から変換対象フォルダを引き、元のファイルのパスを返す" {
+    It "インデックス名からクロール対象フォルダを引き、元のファイルのパスを返す" {
         $path = "$TestDrive\status_map.tsv"
         writeStatusFile @(
             [pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" },
@@ -23,25 +23,25 @@ Describe "getIndexNameMap / resolveSourcePath" -Tag Io {
         resolveSourcePath $hit @{} | Should Be $null
     }
 
-    It "設定のインデックス名の場所を、元のフォルダ.txt・変換一覧より優先する" {
+    It "設定のインデックス名の場所を、元のフォルダ.txt・取り込み一覧より優先する" {
         # 「名前」と「今の置き場所」を設定で分けて持つため、フォルダを移したら設定の場所だけを見る
         $dir = "$TestDrive\優先\index"
         $settings = "$TestDrive\優先\setting.config"
         $status = "$TestDrive\優先\status.tsv"
         [void](New-Item -ItemType Directory -Path "$dir\見積" -Force)
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\作った時の場所\見積"; Name = "見積" }) $dir
-        writeStatusFile @([pscustomobject]@{ Path = "C:\変換一覧の場所\見積"; Name = "見積" }) @() $status
+        writeStatusFile @([pscustomobject]@{ Path = "C:\取り込み一覧の場所\見積"; Name = "見積" }) @() $status
         writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "\server\今の場所\見積"; Enabled = $true }) $settings
 
         $map = getSourceFolderMap $dir $status $settings
         $map["見積"] | Should Be "\server\今の場所\見積"
 
-        # 変換しないインデックス（indexSources）も同じように優先する
+        # 取り込まないインデックス（indexSources）も同じように優先する
         setIndexSourceFolder "営業" "E:\今の営業" $settings
         (getSourceFolderMap $dir $status $settings)["営業"] | Should Be "E:\今の営業"
     }
 
-    It "既定のインデックスは変換一覧の記録を使う" {
+    It "既定のインデックスは取り込み一覧の記録を使う" {
         [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
         $status = "$TestDrive\status_default.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\新\見積"; Name = "見積" }) @() $status
@@ -51,7 +51,7 @@ Describe "getIndexNameMap / resolveSourcePath" -Tag Io {
 }
 
 Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag Io {
-    It "インデックス名と変換対象フォルダの対応を、各インデックスのフォルダに書き出して読み込む（説明の行は無視する）" {
+    It "インデックス名とクロール対象フォルダの対応を、各インデックスのフォルダに書き出して読み込む（説明の行は無視する）" {
         $dir = "$TestDrive\copied[1]\index"
         [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         [void][System.IO.Directory]::CreateDirectory("$dir\D")
@@ -98,7 +98,7 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
     }
 
     It "インデックスのフォルダがまだ無ければ、その中には書かない" {
-        $dir = "$TestDrive\未変換\index"
+        $dir = "$TestDrive\未取り込み\index"
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
         Test-Path -LiteralPath "$dir\見積" | Should Be $false
         (readSourceFolderFile $dir).Count | Should Be 0
@@ -114,7 +114,7 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
             "見積`tC:\旧\見積",
             "やめた`tC:\data\やめた")
 
-        # 変換対象フォルダから外したインデックス（やめた）の記録も残す
+        # クロール対象フォルダから外したインデックス（やめた）の記録も残す
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
 
         Test-Path -LiteralPath (Join-Path $dir ${sourceFolderFileName}) | Should Be $false

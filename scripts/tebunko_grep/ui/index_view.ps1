@@ -20,7 +20,7 @@ function getUsedIndexNames {
 }
 
 function testIndexEditInput {
-    # 新規作成・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
+    # 追加・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (
         [string]$path,   # 入力された元のフォルダ
         [string]$name,   # 入力されたインデックス名
@@ -39,14 +39,14 @@ function testIndexEditInput {
         if (testSameFolder $other.Path $folder) {
             return "「${folder}」のインデックス [$($other.Name)] が既にあります。"
         }
-        # 入れ子のフォルダは、同じファイルが2つのインデックスに入り、変換も検索結果も二重になるため登録しない
+        # 入れ子のフォルダは、同じファイルが2つのインデックスに入り、取り込みも検索結果も二重になるため登録しない
         if (testFolderUnder $folder $other.Path) {
             return "「${folder}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。" +
-                "同じファイルが二重に変換されるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
+                "同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
         }
         if (testFolderUnder $other.Path $folder) {
             return "「${folder}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。" +
-                "同じファイルが二重に変換されるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
+                "同じファイルが二重に取り込まれるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
         }
     }
     # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする

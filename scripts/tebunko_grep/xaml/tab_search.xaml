@@ -196,7 +196,7 @@
       </GridSplitter.Template>
     </GridSplitter>
 
-    <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は config_gui.ps1 の NumberWidth と合わせる）。
+    <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は gui.ps1 の NumberWidth と合わせる）。
          行を選んでいなくても枠は出したままにする（高さが変わらず、次に選んだときもその場に出る） -->
     <DockPanel Grid.Row="5" x:Name="DetailPanel" Margin="0,3,0,0">
       <DockPanel DockPanel.Dock="Top">
@@ -221,14 +221,14 @@
               Background="{StaticResource Bg.Surface}" Margin="0,8,0,0" ClipToBounds="True">
         <Grid>
           <DockPanel>
-            <!-- 列見出しは、枠を低くしても隠れないよう、行とは別のスクロールに置く（横位置は config_gui.ps1 で PreviewScroll に合わせる） -->
+            <!-- 列見出しは、枠を低くしても隠れないよう、行とは別のスクロールに置く（横位置は gui.ps1 で PreviewScroll に合わせる） -->
             <ScrollViewer x:Name="PreviewHeaderScroll" DockPanel.Dock="Top" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
                           Focusable="False" Visibility="Collapsed">
               <StackPanel TextElement.FontSize="12">
 
                 <!-- 列見出し（右端をドラッグすると、その列の幅が変わる。幅は PreviewColumn を各行のセルと共有する） -->
                 <StackPanel Orientation="Horizontal">
-                  <!-- 行番号の列の分（幅 44 は config_gui.ps1 の NumberWidth と合わせる） -->
+                  <!-- 行番号の列の分（幅 44 は gui.ps1 の NumberWidth と合わせる） -->
                   <Border Width="44" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1" />
                   <ItemsControl x:Name="PreviewHeader">
                     <ItemsControl.ItemsPanel>

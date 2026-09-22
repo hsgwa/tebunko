@@ -1,10 +1,10 @@
-﻿# 1ファイルを TSV に変換する（Excel のセルは COM、Excel の図形・コメントと Word・PowerPoint はファイルを直接読む）。
+﻿# 1ファイルから文字を抽出して TSV に書き出す（Excel のセルは COM、Excel の図形・コメントと Word・PowerPoint はファイルを直接読む）。
 
 $excelMaxPath = 218       # Excelで開けるパスの長さの目安（古い版の上限）。作業フォルダのコピーのパスがこれ以上なら短い名前にする
 $excelExtraCells = 1000000  # 使用範囲がデータの範囲よりこのセル数以上広いシートは、データの範囲だけを一時シートにコピーしてから書き出す
 
 # ----------------------------------------------------------------------------
-# 変換
+# 抽出
 # ----------------------------------------------------------------------------
 
 function copyDataRangeToTempSheet {
@@ -83,7 +83,7 @@ function copyDataRangeToTempSheet {
     }
 }
 
-function convertWorkbook {
+function extractWorkbook {
     # Excelファイルをシートごとに作業フォルダへTSV出力し、出力したシート数を返す
     param (
         [string]$sourcePath
@@ -95,7 +95,7 @@ function convertWorkbook {
     # （Excelで開いている間、元のファイルを利用者が上書き保存・移動できなくなるのを防ぐ。長いパスのファイルも開ける）。
     # ファイル名を参照する数式（CELL("filename") 等）の表示値が変わらないよう、コピーは元と同じファイル名にする。
     # 作業フォルダ＋ファイル名が長すぎてExcelで開けない場合だけ、短い名前にする。
-    # コピーはブックを閉じた後に削除する（開けずに例外になった場合は、次のファイルの変換前・終了時に作業フォルダごと空にする）
+    # コピーはブックを閉じた後に削除する（開けずに例外になった場合は、次のファイルの取り込み前・終了時に作業フォルダごと空にする）
     $copyPath = Join-Path $tmpDir $bookName
     if ($copyPath.Length -ge $excelMaxPath) {
         $copyPath = Join-Path $tmpDir ("source" + [System.IO.Path]::GetExtension($sourcePath))
@@ -105,7 +105,7 @@ function convertWorkbook {
 
     # 図形・コメントの文字は、テキスト保存には出ないため、新形式（ZIP）のブックを直接読む（Excel より速い）。
     # 旧形式（.xls）・パスワード付きのブックは ZIP ではないため読まない。
-    # 読めなくてもセルの値は変換できるため、変換ログに記録して続ける
+    # 読めなくてもセルの値は取り込めるため、インデックス作成ログに記録して続ける
     $objectUnits = $null
     if (isZipFile $copyPath) {
         try {
@@ -187,7 +187,7 @@ function convertWorkbook {
     return $count
 }
 
-function convertWithWord {
+function extractWithWord {
     # Wordで開き、.docx 形式で保存する（旧形式 .doc 等を読めるようにするため）
     param (
         [string]$sourcePath,
@@ -214,7 +214,7 @@ function convertWithWord {
     }
 }
 
-function convertWithPowerPoint {
+function extractWithPowerPoint {
     # PowerPointで開き、.pptx 形式で保存する（旧形式 .ppt 等を読めるようにするため）
     param (
         [string]$sourcePath,
@@ -238,7 +238,7 @@ function convertWithPowerPoint {
     }
 }
 
-function convertDocument {
+function extractDocument {
     # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す
     param (
         [string]$sourcePath
@@ -256,7 +256,7 @@ function convertDocument {
         copyFileShared $sourcePath $copyPath
         if (!(isZipFile $copyPath)) {
             # PowerPointは、プレゼンテーションではないファイル（中身がテキスト等）もアウトラインとして開き、
-            # 文字化けした内容になるため、旧形式（複合ドキュメント形式）でなければ変換しない。
+            # 文字化けした内容になるため、旧形式（複合ドキュメント形式）でなければ取り込まない。
             # Wordはテキスト・HTML・RTFも正しく読めるため、そのまま Word で開く
             if (!$isWord -and !(isCompoundFile $copyPath)) {
                 throw "ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。"
@@ -278,9 +278,9 @@ function convertDocument {
             $workFiles = @($copyPath, $readPath)
 
             if ($isWord) {
-                convertWithWord $copyPath $readPath
+                extractWithWord $copyPath $readPath
             } else {
-                convertWithPowerPoint $copyPath $readPath
+                extractWithPowerPoint $copyPath $readPath
             }
         }
 
@@ -300,14 +300,14 @@ function convertDocument {
     return (writeUnits $units $tmpDir)
 }
 
-function convertFile {
-    # 1ファイルを変換し、作成したTSVの数を返す
+function ingestFile {
+    # 1ファイルを取り込み、作成したTSVの数を返す
     param (
         [string]$sourcePath
     )
 
     if ((getAppName $sourcePath) -eq "Excel") {
-        return (convertWorkbook $sourcePath)
+        return (extractWorkbook $sourcePath)
     }
-    return (convertDocument $sourcePath)
+    return (extractDocument $sourcePath)
 }

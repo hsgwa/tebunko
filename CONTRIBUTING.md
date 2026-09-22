@@ -24,7 +24,7 @@ tebunko への不具合の報告・要望・修正の提案を歓迎します。
 
 - Windows と Windows PowerShell 5.1（Windows に最初から入っています）
 - Pester 3.4（テストの実行に使います。Windows に最初から入っている版です）
-- Microsoft Excel・Word・PowerPoint（変換を実際に試すとき。自動テストには不要です）
+- Microsoft Excel・Word・PowerPoint（インデックス作成を実際に試すとき。自動テストには不要です）
 
 clone したら、コミット前の検査を有効にします（1 回だけ）。
 
@@ -53,7 +53,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 - **スクリプト・XAML は BOM 付き UTF-8・CRLF** で保存します（Windows PowerShell 5.1 の前提）。
 - **`scripts/shared/` は個々のツールを知らない**ようにします。ツール同士も互いを読み込みません。
 - **判断層**（`*_view.ps1`・`index_name.ps1`・`search_query.ps1`・`text.ps1`）は画面（WPF）に触れません。画面に出す文言や可否の判定はここに置き、テストを書きます。
-- 足したファイルは、読み込み口（`shared/shared.ps1`・`tebunko_grep/lib.ps1`・`gui.ps1`・`convert.ps1`）から読み込みます。
+- 足したファイルは、読み込み口（`shared/shared.ps1`・`tebunko_grep/lib.ps1`・`gui.ps1`・`indexer.ps1`）から読み込みます。
 - **ネットワーク通信・動的なコード実行・レジストリの変更・第三者のライブラリは使いません。** 利用者が導入を審査するときの前提です（[docs/04_安全性.md](docs/04_安全性.md)）。
 
 ソースの構成は [docs/00_index.md](docs/00_index.md) にあります。

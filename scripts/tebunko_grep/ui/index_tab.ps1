@@ -1,7 +1,7 @@
-﻿# ［1 インデックス管理］タブ（インデックスの一覧・新規作成・編集・削除）。
+﻿# ［1 インデックス管理］タブ（インデックスの一覧・追加・編集・削除）。
 
 function getTargetsKey {
-    # 変換対象フォルダの一覧（@{ Path; Enabled } の配列）を比べるための文字列
+    # クロール対象フォルダの一覧（@{ Path; Enabled } の配列）を比べるための文字列
     param (
         [object[]]$folders
     )
@@ -10,13 +10,13 @@ function getTargetsKey {
 }
 
 # ============================================================================
-# ［1 インデックス管理］（インデックスの作成・編集・削除と、変換の実行）
+# ［1 インデックス管理］（インデックスの追加・編集・削除と、インデックス作成の実行）
 # ============================================================================
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.IndexGrid.ItemsSource = $script:targetItems
 $script:loadingTargets = $false
-# ［変換］チェックのクリックで保存する（TwoWay バインドで Enabled は更新済み。PS class のプレーンな
+# ［作成］チェックのクリックで保存する（TwoWay バインドで Enabled は更新済み。PS class のプレーンな
 # プロパティは PropertyChanged を出さないため、購読ではなくここで保存する）
 $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler] {
     param ($s, $e)
@@ -24,20 +24,20 @@ $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickE
         $cb = $e.OriginalSource
         if ($cb -is [System.Windows.Controls.CheckBox] -and $cb.DataContext -is [FolderItem] -and !$script:loadingTargets) {
             saveTargets
-            updateConvertButton
+            updateIndexingButton
         }
     }
 })
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
-$script:editDialog = $null    # 新規作成・編集のダイアログ（開いている間だけ）
-$script:convertProcess = $null
-$script:convertStart = $null
-$script:convertFailed = 0  # 変換中に一覧へ反映済みの失敗件数
-$script:conversionState = $null
+$script:editDialog = $null    # 追加・編集のダイアログ（開いている間だけ）
+$script:indexingProcess = $null
+$script:indexingStart = $null
+$script:ingestFailed = 0  # インデックス作成中に一覧へ反映済みの失敗件数
+$script:indexingState = $null
 $script:indexSummary = $null
 
-function isConverting {
-    return ($null -ne $script:convertProcess) -and !$script:convertProcess.HasExited
+function isIndexing {
+    return ($null -ne $script:indexingProcess) -and !$script:indexingProcess.HasExited
 }
 
 $script:folderCheckRunning = $false
@@ -56,7 +56,7 @@ function updateFolderItemStatus {
 }
 
 function refreshFolderStatus {
-    # 一覧のすべてのフォルダの有無を別スレッドで調べ、表示と［変換を開始］の可否に反映する。
+    # 一覧のすべてのフォルダの有無を別スレッドで調べ、表示と［インデックス作成を開始］の可否に反映する。
     # 届かないネットワークのフォルダ（VPN の切断・サーバーの停止）では Test-Path が十数秒戻らないため、
     # 画面のスレッドで調べると起動時・画面を前に出すたびに「応答なし」になる（実測 約 17 秒）。
     # 調べている間に呼ばれたら、終わってからもう一度だけ調べる
@@ -113,7 +113,7 @@ function applyFolderStatus {
             $item.SetStatus("✗ フォルダが見つかりません", ${ngBrush})
         }
     }
-    updateConvertButton
+    updateIndexingButton
 }
 
 function newFolderItem {
@@ -128,10 +128,10 @@ function newFolderItem {
     $item.Path = $path
     $item.Enabled = $enabled
     $item.FileCountText = "－"
-    $item.LastConvertedText = ""
+    $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
     $item.SetStatus("… フォルダを確認しています", ${grayBrush})
-    # ［変換］チェックの保存は、一覧のチェックボックスの Click（IndexGrid.AddHandler）で行う。
+    # ［作成］チェックの保存は、一覧のチェックボックスの Click（IndexGrid.AddHandler）で行う。
     # PS class のプレーンなプロパティは TwoWay セットで PropertyChanged を出さないため、購読では拾えない。
     return $item
 }
@@ -142,7 +142,7 @@ function loadTargets {
         $script:targetItems.Clear()
         $folders = @(getTargetFolders)
         # 名前の決まっていないインデックス（以前の版の設定から移した直後など）には、ここで名前を割り当てて確定する。
-        # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（変換側と同じ assignIndexNames を使う）
+        # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）
         if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
             $folders = @(assignIndexNames $folders (readStatusFile).Folders)
             writeTargetFolders $folders
@@ -166,7 +166,7 @@ function saveTargets {
 
 function updateIndexSourceFile {
     # インデックスのフォルダの 元のフォルダ.txt を今の一覧に合わせて書き直す。
-    # 次の変換を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無ければ何もしない）
+    # 次のインデックス作成を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無ければ何もしない）
     if (!(Test-Path -LiteralPath ${indexDir} -PathType Container)) {
         return
     }
@@ -174,16 +174,16 @@ function updateIndexSourceFile {
 }
 
 function refreshIndexViews {
-    # インデックスを作成・編集・削除した後、検索タブ（検索対象のツリー・件数）も読み直す
+    # インデックスを追加・編集・削除した後、検索タブ（検索対象のツリー・件数）も読み直す
     $script:sourceFolderMaps = @{}
     $script:indexSummary = $null
     loadIndexTree
     refreshIndexSummary
-    refreshConversionState
+    refreshIndexingState
 }
 
 function applyIndexStats {
-    # 変換一覧の集計（getIndexStats）を一覧の各行のファイル数・最終変換に反映する
+    # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終取り込みに反映する
     param (
         $stats
     )
@@ -194,32 +194,32 @@ function applyIndexStats {
             $stat = $stats[$item.Name]
         }
         if ($null -eq $stat) {
-            $item.SetStats("－", "まだ変換していません", "")
+            $item.SetStats("－", "まだ取り込んでいません", "")
             continue
         }
-        $converted = [datetime]::MinValue
-        $lastText = if ($stat.LastConverted -and [datetime]::TryParseExact($stat.LastConverted, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted)) {
-            formatTime $converted
+        $ingested = [datetime]::MinValue
+        $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
+            formatTime $ingested
         } else {
             ""
         }
-        $item.SetStats(("{0:#,0}" -f $stat.Total), ("済 {0:#,0} 件 ・ 未変換 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
+        $item.SetStats(("{0:#,0}" -f $stat.Total), ("済 {0:#,0} 件 ・ 未取り込み {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
     }
 }
 
 function updateIndexListView {
     $ui.IndexGridPlaceholder.Visibility = if ($script:targetItems.Count -eq 0) { "Visible" } else { "Collapsed" }
-    updateConvertButton
+    updateIndexingButton
 }
 
 function testIndexOperable {
-    # 変換中はインデックスの作成・編集・削除をしない（インデックスのフォルダ・変換一覧を変換側が使っているため）
+    # インデックス作成中はインデックスの追加・編集・削除をしない（インデックスのフォルダ・取り込み一覧をインデクサが使っているため）
     param (
         [string]$operation
     )
 
-    if (isConverting) {
-        showMessage "変換中はインデックスを${operation}できません。変換が終わるまでお待ちください（［中止］で止められます）。" "OK" "Warning" | Out-Null
+    if (isIndexing) {
+        showMessage "インデックス作成中はインデックスを${operation}できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" "OK" "Warning" | Out-Null
         return $false
     }
     if ($script:indexBusy) {
@@ -231,8 +231,8 @@ function testIndexOperable {
 }
 
 function showIndexEditDialog {
-    # インデックスの新規作成・編集のダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）。
-    #   item: 編集するインデックス（$null なら新規作成）
+    # インデックスの追加・編集のダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）。
+    #   item: 編集するインデックス（$null なら追加）
     param (
         $item = $null
     )
@@ -246,22 +246,22 @@ function showIndexEditDialog {
     $script:editDialog = @{ Window = $dialog; Ctrl = $ctrl; Item = $item; Suggested = "" }
 
     if ($null -eq $item) {
-        $dialog.Title = "インデックスの新規作成"
+        $dialog.Title = "インデックスの追加"
         $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）の入っているフォルダを 1 つ選んでください。" +
-            "ここでは一覧に加えるだけです。中のファイルを読むのは［変換を開始］を押してからです。"
+            "ここでは一覧に加えるだけです。中のファイルを読むのは［インデックス作成を開始］を押してからです。"
     } else {
         $dialog.Title = "インデックスの編集"
         $ctrl.IntroText.Text = "名前と、元のフォルダの場所を変えられます。"
         $ctrl.FolderBox.Text = $item.Path
         $ctrl.NameBox.Text = $item.Name
         $ctrl.NoticeText.Visibility = "Visible"
-        $ctrl.NoticeText.Text = "変えるのは名前と場所だけです。変換したデータはそのまま使います（作り直しません）。" +
+        $ctrl.NoticeText.Text = "変えるのは名前と場所だけです。インデックスはそのまま使います（作り直しません）。" +
             "フォルダを別のドライブや共有フォルダへ移したときは、ここで新しい場所を指定してください。"
     }
 
     $ctrl.FolderBox.Add_TextChanged({
         safe {
-            # 新規作成のときは、フォルダ名からインデックス名を自動で入れる（利用者が名前を変えた後は触らない）
+            # 追加のときは、フォルダ名からインデックス名を自動で入れる（利用者が名前を変えた後は触らない）
             $d = $script:editDialog
             if ($null -ne $d.Item -or ($d.Ctrl.NameBox.Text -ne "" -and $d.Ctrl.NameBox.Text -ne $d.Suggested)) {
                 return
@@ -314,7 +314,7 @@ function showIndexEditDialog {
 }
 
 function checkIndexEditInput {
-    # 新規作成・編集のダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）
+    # 追加・編集のダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     $d = $script:editDialog
     return (testIndexEditInput $d.Ctrl.FolderBox.Text $d.Ctrl.NameBox.Text $script:targetItems $d.Item)
 }
@@ -334,17 +334,17 @@ function addIndexItem {
     saveTargets
     updateIndexSourceFile
     updateIndexListView
-    refreshConversionState
+    refreshIndexingState
     if (Test-Path -LiteralPath $path -PathType Container) {
-        setStatus "インデックス [${name}] を作成しました。［変換を開始］を押すと中身を変換します"
+        setStatus "インデックス [${name}] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます"
     } else {
-        setStatus "インデックス [${name}] を作成しましたが、フォルダが見つかりません：${path}"
+        setStatus "インデックス [${name}] を追加しましたが、フォルダが見つかりません：${path}"
     }
 }
 
 function newIndex {
-    # ［新規作成…］。フォルダとインデックス名を決めて一覧に加える（変換はしない）
-    if (!(testIndexOperable "作成")) {
+    # ［追加…］。フォルダとインデックス名を決めて一覧に加える（インデックス作成はしない）
+    if (!(testIndexOperable "追加")) {
         return
     }
     $result = showIndexEditDialog $null
@@ -355,12 +355,12 @@ function newIndex {
 }
 
 function addIndexForFolder {
-    # 一覧へのドラッグ＆ドロップでインデックスを作る（名前はフォルダ名から自動で決める）
+    # 一覧へのドラッグ＆ドロップでインデックスを追加する（名前はフォルダ名から自動で決める）
     param (
         [string]$path
     )
 
-    if (!(testIndexOperable "作成")) {
+    if (!(testIndexOperable "追加")) {
         return
     }
     $path = normalizeFolderPath $path
@@ -391,7 +391,7 @@ function editIndex {
 
     $changes = New-Object System.Collections.Generic.List[string]
     if ($result.Name -ne $item.Name) {
-        # インデックスのフォルダ（work\index\<名前>）と変換一覧の記録も名前を変える（中身は作り直さない）
+        # インデックスのフォルダ（work\index\<名前>）と取り込み一覧の記録も名前を変える（中身は作り直さない）
         renameIndex $item.Name $result.Name
         $changes.Add("名前 [$($item.Name)] → [$($result.Name)]")
         $item.SetName($result.Name)
@@ -413,9 +413,9 @@ function editIndex {
 }
 
 function startIndexRemoveJob {
-    # インデックス（work\index\<名前>）と変換一覧の記録の削除を別スレッドで行う。
+    # インデックス（work\index\<名前>）と取り込み一覧の記録の削除を別スレッドで行う。
     # 数万フォルダの削除は数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため。
-    # 終わるまでインデックスの操作・変換の開始はできないようにし、何をしているかをステータスに出す
+    # 終わるまでインデックスの操作・インデックス作成の開始はできないようにし、何をしているかをステータスに出す
     param (
         [string]$name,
         [string]$operation,   # "削除"（表示に使う）
@@ -426,7 +426,7 @@ function startIndexRemoveJob {
     $script:indexJobName = $name
     $script:indexJobOnDone = $onDone
     $script:indexJobOperation = $operation
-    updateConvertButton
+    updateIndexingButton
     setStatus "インデックス [${name}] の TSV を削除しています…（件数によっては少し時間がかかります）"
     startJob {
         param ($libPath, $name)
@@ -435,7 +435,7 @@ function startIndexRemoveJob {
     } @(${libPath}, $name) {
         param ($output, $errorText)
         $script:indexBusy = $false
-        updateConvertButton
+        updateIndexingButton
         $name = $script:indexJobName
         if ($errorText) {
             setStatus "インデックス [${name}] の $($script:indexJobOperation)に失敗しました：${errorText}"
@@ -450,7 +450,7 @@ function startIndexRemoveJob {
 }
 
 function deleteIndex {
-    # ［削除］。一覧から削除し、変換した TSV（work\index\<名前>）と変換一覧の記録も削除する
+    # ［削除］。一覧から削除し、取り込んだ TSV（work\index\<名前>）と取り込み一覧の記録も削除する
     $item = $ui.IndexGrid.SelectedItem
     if ($null -eq $item -or !(testIndexOperable "削除")) {
         return
@@ -459,10 +459,10 @@ function deleteIndex {
     $answer = showConfirm `
         -heading "インデックス「$($item.Name)」を一覧から削除しますか？" `
         -facts @(
-            (factGone "tebunko_grep が作った検索用のデータが消えます" "このフォルダは検索できなくなります（もう一度［変換を開始］すれば作り直せます）"),
+            (factGone "tebunko_grep が作ったインデックスが消えます" "このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）"),
             (factKept "元のフォルダと、その中のファイルはそのままです" $item.Path)
         ) `
-        -hint "しばらく検索しないだけなら、削除せずに［変換］のチェックを外してください。検索用のデータは残ったままです。" `
+        -hint "しばらく検索しないだけなら、削除せずに［作成］のチェックを外してください。インデックスは残ったままです。" `
         -choices @(@{ Text = "削除する"; Value = "delete"; Danger = $true })
     if ($answer -ne "delete") {
         return
@@ -478,7 +478,7 @@ function deleteIndex {
     }
 }
 
-function updateConvertButton {
+function updateIndexingButton {
     $ready = $false
     foreach ($item in $script:targetItems) {
         # フォルダの有無は refreshFolderStatus が別スレッドで調べた結果を使う（調べ終えるまではあるものとする）
@@ -488,43 +488,43 @@ function updateConvertButton {
         }
     }
 
-    $state = $script:conversionState
+    $state = $script:indexingState
     if ($script:indexBusy) {
-        # インデックスの削除中（別スレッド）は、変換もインデックスの操作も始めない
+        # インデックスの削除中（別スレッド）は、インデックス作成もインデックスの操作も始めない
         $ready = $false
     }
-    if (isConverting) {
-        $ui.ConvertButton.Content = "変換中…"
-        $ui.ConvertButton.IsEnabled = $false
+    if (isIndexing) {
+        $ui.IndexingButton.Content = "インデックス作成中…"
+        $ui.IndexingButton.IsEnabled = $false
     } else {
-        $ui.ConvertButton.Content = if ($state -and $state.Pending -gt 0) { "続きから再開（残り $($state.Pending) 件）" } else { "変換を開始" }
-        $ui.ConvertButton.IsEnabled = $ready
+        $ui.IndexingButton.Content = if ($state -and $state.Pending -gt 0) { "続きから再開（残り $($state.Pending) 件）" } else { "インデックス作成を開始" }
+        $ui.IndexingButton.IsEnabled = $ready
     }
 
-    # ボタンの下の一言。押す前は「押すと何が起きるか」、変換中は「やめるとどうなるか」を書く
-    $hint = if (isConverting) {
-        "変換中も検索できます。やめるときは［中止］を押してください（次に［変換を開始］を押すと続きから再開します）。"
+    # ボタンの下の一言。押す前は「押すと何が起きるか」、インデックス作成中は「やめるとどうなるか」を書く
+    $hint = if (isIndexing) {
+        "インデックス作成中も検索できます。やめるときは［中止］を押してください（次に［インデックス作成を開始］を押すと続きから再開します）。"
     } else {
-        "押すと、何件変換するかを確認してから、新しいファイル・変わったファイルだけを変換します。"
+        "押すと、何件取り込むかを確認してから、新しいファイル・変わったファイルだけを取り込みます。"
     }
-    if (!$ready -and !(isConverting)) {
-        $hint = "まずインデックスを作って、［変換］にチェックを付けてください。"
-    } elseif ($state -and $state.Failed -gt 0 -and !(isConverting)) {
-        $hint = "前回うまく変換できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
+    if (!$ready -and !(isIndexing)) {
+        $hint = "まずインデックスを追加して、［作成］にチェックを付けてください。"
+    } elseif ($state -and $state.Failed -gt 0 -and !(isIndexing)) {
+        $hint = "前回うまく取り込めなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
     }
-    $ui.ConvertHint.Text = $hint
+    $ui.IndexingHint.Text = $hint
 
-    # インデックスの作成・編集・削除は、選んでいるかどうかと変換中かどうかで切り替える
-    # （変換中はインデックスのフォルダ・変換一覧を変換側が使っているため触らない）
+    # インデックスの追加・編集・削除は、選んでいるかどうかとインデックス作成中かどうかで切り替える
+    # （インデックス作成中はインデックスのフォルダ・取り込み一覧をインデクサが使っているため触らない）
     $selected = $null -ne $ui.IndexGrid.SelectedItem
-    $editable = !(isConverting) -and !$script:indexBusy
+    $editable = !(isIndexing) -and !$script:indexBusy
     $ui.NewIndexButton.IsEnabled = $editable
     $ui.EditIndexButton.IsEnabled = $selected -and $editable
     $ui.RemoveIndexButton.IsEnabled = $selected -and $editable
 }
 
-function refreshConversionState {
-    # 変換一覧の集計は、ファイルが数万行になると数秒〜十数秒かかる。
+function refreshIndexingState {
+    # 取り込み一覧の集計は、ファイルが数万行になると数秒〜十数秒かかる。
     # 画面のスレッドで行うと、起動時・タブの切り替え時に画面が固まる（応答なしになる）ため別スレッドで数える
     if ($script:stateRunning) {
         $script:stateAgain = $true
@@ -535,44 +535,44 @@ function refreshConversionState {
     startJob {
         param ($libPath)
         . $libPath
-        getConversionState
+        getIndexingState
     } @(${libPath}) {
         param ($output, $errorText)
         $script:stateRunning = $false
-        # 変換側が書き込んでいる瞬間などは、次の機会に読み直す
+        # インデクサが書き込んでいる瞬間などは、次の機会に読み直す
         if ($output -and $output.Count -gt 0 -and $output[0]) {
-            applyConversionState $output[0]
+            applyIndexingState $output[0]
         }
         if ($script:stateAgain) {
-            refreshConversionState
+            refreshIndexingState
         }
     }
 }
 
-function applyConversionState {
+function applyIndexingState {
     # 集計（別スレッド）の結果を画面に反映する
     param (
-        $state  # getConversionState の結果
+        $state  # getIndexingState の結果
     )
 
-    $script:conversionState = $state
+    $script:indexingState = $state
 
     # 失敗したファイルは下の一覧に原因とともに表示する
-    $ui.ConversionStateText.Text = if ($state.Pending -gt 0 -and !(isConverting)) { "⏸ 前回の変換が中断しています（残り $($state.Pending) 件）" } else { "" }
+    $ui.IndexingStateText.Text = if ($state.Pending -gt 0 -and !(isIndexing)) { "⏸ 前回のインデックス作成が中断しています（残り $($state.Pending) 件）" } else { "" }
     $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 インデックス管理" } else { "1 インデックス管理" }
     applyIndexStats $state.IndexStats
     updateFailedList $state
     updateIndexSummaryText
-    updateConvertButton
+    updateIndexingButton
 }
 
 function updateFailedList {
-    # 変換に失敗したファイルと原因（変換一覧のエラー列）を一覧に表示する
+    # 取り込みに失敗したファイルと原因（取り込み一覧のエラー列）を一覧に表示する
     param (
-        $state  # getConversionState の結果
+        $state  # getIndexingState の結果
     )
 
-    $folderPaths = @{}  # インデックス名 → 変換対象フォルダ（大文字・小文字を区別しない）
+    $folderPaths = @{}  # インデックス名 → クロール対象フォルダ（大文字・小文字を区別しない）
     foreach ($folder in $state.Folders) {
         if ($folder.Name) {
             $folderPaths[$folder.Name] = $folder.Path
@@ -584,9 +584,9 @@ function updateFailedList {
         $row = New-Object FailRow
         $row.RelPath = $status.相対パス
         $row.Reason = if ($status.エラー) { $status.エラー } else { "（原因は記録されていません）" }
-        $converted = [datetime]::MinValue
-        if ([datetime]::TryParseExact([string]$status.変換日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$converted)) {
-            $row.ConvertedText = formatTime $converted
+        $ingested = [datetime]::MinValue
+        if ([datetime]::TryParseExact([string]$status.取り込み日時, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
+            $row.IngestedText = formatTime $ingested
         }
         $parts = splitIndexRelPath $status.相対パス
         if ($folderPaths.ContainsKey($parts.Name)) {
@@ -596,7 +596,7 @@ function updateFailedList {
     }
 
     $ui.FailedGrid.ItemsSource = $rows
-    $ui.FailedHeading.Text = "⚠ 変換に失敗したファイル $($rows.Count) 件"
+    $ui.FailedHeading.Text = "⚠ 取り込みに失敗したファイル $($rows.Count) 件"
     $ui.FailedPanel.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
 }
 
@@ -607,7 +607,7 @@ function openFailedFileFolder {
         return
     }
     if (!$row.SourcePath) {
-        setStatus "元のファイルの場所が分かりません（変換一覧に変換対象フォルダの記録がありません）：$($row.RelPath)"
+        setStatus "元のファイルの場所が分かりません（取り込み一覧にクロール対象フォルダの記録がありません）：$($row.RelPath)"
         return
     }
     if (Test-Path -LiteralPath $row.SourcePath -PathType Leaf) {
@@ -633,10 +633,10 @@ function updateIndexSummaryText {
         $ui.IndexSummaryText.Text = "まだインデックスがありません。"
         return
     }
-    $text = "TSV $($summary['Count'].ToString('N0')) 件 ・ 最終変換 $(formatTime $summary['LastWrite'])"
-    $state = $script:conversionState
+    $text = "TSV $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])"
+    $state = $script:indexingState
     if ($state -and $state.Done -gt 0) {
-        $text = "変換済み $($state.Done.ToString('N0')) ファイル（$text）"
+        $text = "取り込み済み $($state.Done.ToString('N0')) ファイル（$text）"
     }
     $ui.IndexSummaryText.Text = $text
 }

@@ -194,7 +194,7 @@ function formatTime {
 }
 
 function readTextShared {
-    # 変換側が書き込み中でも妨げないよう、共有を許して読む
+    # インデクサが書き込み中でも妨げないよう、共有を許して読む
     param (
         [string]$path
     )

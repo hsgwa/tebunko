@@ -4,17 +4,28 @@
 #   .\tests\run.ps1 -Tag Unit    速い確認だけ
 #   .\tests\run.ps1 -All         Office・Slow も含めて全部（Office が必要）
 #   .\tests\run.ps1 -Ci          結果の XML とカバレッジ（Cobertura XML）を出し、カバレッジの下限も確かめる
+#   .\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 #
-# いずれも失敗したテストの数を終了コードにする（pre-commit フック・CI が見る）
+# いずれも失敗したテストの数を終了コードにする（pre-commit フック・CI が見る）。
+# 1 件も実行しなかったときも失敗にする（タグの打ち間違いや、タグの渡し方の誤りで何も確かめずに通るのを防ぐ）
 param (
     [string[]]$Tag,
     [string[]]$ExcludeTag,
+    [string[]]$Path,  # 実行するテストのフォルダ・ファイル（既定は tests 全体）
     [switch]$All,    # Office・Slow も実行する（Excel・Word・PowerPoint が必要）
     [switch]$Ci,     # 結果の XML とカバレッジを出し、失敗数で終了する
     [switch]$Quiet
 )
 
 $ErrorActionPreference = "Stop"
+
+# powershell.exe -File で呼ぶと、-Tag Unit,Meta は配列にならず "Unit,Meta" という 1 つの文字列で渡る
+# （pre-commit フックがこの呼び方）。どちらの呼び方でも同じになるよう、カンマで分ける
+function splitTags([string[]]$tags) {
+    @($tags | ForEach-Object { $_ -split "," } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+$Tag = splitTags $Tag
+$ExcludeTag = splitTags $ExcludeTag
 
 # テストは Pester 3.4 の書き方。Pester 5 も入っている環境（GitHub Actions のランナーなど）では 5 が読み込まれて
 # 全部失敗するため、3 系を明示して読み込む
@@ -31,7 +42,7 @@ if (!$PSBoundParameters.ContainsKey("ExcludeTag")) {
 }
 
 $arguments = @{
-    Script     = $testsDir
+    Script     = if ($Path) { $Path } else { $testsDir }
     PassThru   = $true
     ExcludeTag = $ExcludeTag
 }
@@ -49,6 +60,11 @@ if ($Ci) {
 }
 
 $result = Invoke-Pester @arguments
+
+if ($result.TotalCount -eq 0) {
+    Write-Host "実行したテストが 0 件でした（-Tag $($Tag -join ',') / -ExcludeTag $($ExcludeTag -join ',')）。タグの指定を確かめてください。" -ForegroundColor Red
+    exit 1
+}
 
 # -Quiet のときは何も表示されないため、失敗したテストだけを出す
 if ($Quiet -and $result.FailedCount -gt 0) {

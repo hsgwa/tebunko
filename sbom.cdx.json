@@ -8,7 +8,7 @@
       "bom-ref": "tebunko",
       "group": "tebunko",
       "name": "tebunko",
-      "description": "Office ファイルを場所ごとに TSV へ変換してインデックス化し、文字列を一括検索する Windows PowerShell ツール",
+      "description": "Office ファイルを場所ごとに TSV へ書き出してインデックスを作り、文字列を一括検索する Windows PowerShell ツール",
       "scope": "required",
       "licenses": [
         {
@@ -29,11 +29,11 @@
       },
       {
         "name": "tebunko:prerequisite",
-        "value": "Microsoft Excel（Excel ファイルの変換に必要。COM で操作する）"
+        "value": "Microsoft Excel（Excel ファイルの取り込みに必要。COM で操作する）"
       },
       {
         "name": "tebunko:prerequisite",
-        "value": "Microsoft Word / PowerPoint（旧形式 .doc / .ppt の変換にのみ使用。任意）"
+        "value": "Microsoft Word / PowerPoint（旧形式 .doc / .ppt の取り込みにのみ使用。任意）"
       },
       {
         "name": "tebunko:prerequisite",
@@ -66,17 +66,17 @@
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/convert.ps1",
+      "bom-ref": "scripts/tebunko_grep/indexer.ps1",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/convert.ps1",
-      "description": "変換処理（インデックス作成）の起動口"
+      "name": "scripts/tebunko_grep/indexer.ps1",
+      "description": "インデクサ（インデックス作成）の起動口"
     },
     {
       "type": "file",
       "bom-ref": "scripts/tebunko_grep/lib.ps1",
       "group": "tebunko",
       "name": "scripts/tebunko_grep/lib.ps1",
-      "description": "このツール固有の部品（core・index・convert・search）の読み込み口"
+      "description": "このツール固有の部品（core・index・indexer・search）の読み込み口"
     },
     {
       "type": "file",
@@ -113,7 +113,7 @@
       "dependsOn": [
         "tebunko_grep.bat",
         "scripts/tebunko_grep/gui.ps1",
-        "scripts/tebunko_grep/convert.ps1",
+        "scripts/tebunko_grep/indexer.ps1",
         "scripts/tebunko_grep/lib.ps1",
         "scripts/shared/shared.ps1",
         "scripts/shared/office/office_reader.ps1",

@@ -1,4 +1,4 @@
-﻿<!-- 確認ダイアログ。「押すと何が起きるか」を見出し・結果・ボタンの文言で見せる。config_gui.ps1 の showConfirm が読み込む。
+﻿<!-- 確認ダイアログ。「押すと何が起きるか」を見出し・結果・ボタンの文言で見せる。gui.ps1 の showConfirm が読み込む。
      色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -12,7 +12,7 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
-      <!-- 下部のボタンは config_gui.ps1 が並べるため、間隔はここで付ける -->
+      <!-- 下部のボタンは gui.ps1 が並べるため、間隔はここで付ける -->
       <Style TargetType="Button" BasedOn="{StaticResource Button.Base}">
         <Setter Property="MinWidth" Value="104" />
         <Setter Property="Height" Value="32" />
@@ -53,7 +53,7 @@
         </ItemsControl>
       </Border>
 
-      <!-- 選択肢が 2 つ以上のときのボタン（config_gui.ps1 が組み立てる） -->
+      <!-- 選択肢が 2 つ以上のときのボタン（gui.ps1 が組み立てる） -->
       <StackPanel x:Name="ChoicePanel" Margin="0,14,0,0" />
 
       <!-- 補足：読まなくても操作できる内容だけを書く -->

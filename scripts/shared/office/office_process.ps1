@@ -1,7 +1,7 @@
 ﻿# 実行中の Excel・Word・PowerPoint の一覧と強制終了。
 
 # ----------------------------------------------------------------------------
-# 検索・Officeプロセス・画面（config_gui.ps1）で共有する処理
+# 検索・Officeプロセス・画面（gui.ps1）で共有する処理
 # ----------------------------------------------------------------------------
 
 # 強制終了の対象: プロセス名 → 表示名
@@ -9,7 +9,7 @@ ${officeProcessNames} = [ordered]@{ EXCEL = "Excel"; WINWORD = "Word"; POWERPNT 
 
 function getOfficeProcesses {
     # 実行中の Excel・Word・PowerPoint を返す。
-    # ウィンドウを持たない（MainWindowHandle が 0）プロセスは、変換処理などでバックグラウンド起動されたものとする
+    # ウィンドウを持たない（MainWindowHandle が 0）プロセスは、インデクサなどでバックグラウンド起動されたものとする
     $result = New-Object System.Collections.Generic.List[object]
     foreach ($process in @(Get-Process -Name @(${officeProcessNames}.Keys) -ErrorAction SilentlyContinue)) {
         $startTime = $null

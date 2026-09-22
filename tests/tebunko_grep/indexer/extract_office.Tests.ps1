@@ -1,10 +1,10 @@
-﻿# 1 ファイルの変換（tebunko_grep\convert\convert_office.ps1）のテスト。
+﻿# 1 ファイルの抽出（tebunko_grep\indexer\extract_office.ps1）のテスト。
 # Excel・Word・PowerPoint は使わない。COM の入口の getApp を Mock して、同じ呼び方ができる偽のオブジェクトを返す。
 # 偽のオブジェクトは、呼ばれたメソッドと引数を $log に記録し、保存（SaveAs）では本物と同じ形式のファイルを書く。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 . "${scriptsDir}\shared\office\office_reader.ps1"
 . "${scriptsDir}\shared\office\office_app.ps1"
-. "${scriptsDir}\tebunko_grep\convert\convert_office.ps1"
+. "${scriptsDir}\tebunko_grep\indexer\extract_office.ps1"
 
 # Worksheets は、foreach で列挙でき、引数なしの Add() で一時シートを足せる。
 # クラスのメソッドからはテストの変数・関数が見えないため、必要なものはプロパティに持たせる
@@ -172,7 +172,7 @@ function listTmp {
     return @(Get-ChildItem -LiteralPath $tmpDir -File | ForEach-Object { $_.Name } | Sort-Object)
 }
 
-Describe "convertWorkbook（偽の Excel）" -Tag Io {
+Describe "extractWorkbook（偽の Excel）" -Tag Io {
     $tmpDir = Join-Path $TestDrive "tmp"
     $source = Join-Path $TestDrive "見積[1].xlsx"
     [System.IO.File]::WriteAllText($source, "元のファイル")
@@ -194,7 +194,7 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         )
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        convertWorkbook $source | Should Be 1
+        extractWorkbook $source | Should Be 1
         listTmp | Should Be @("売上.tsv")
         readTsv "売上.tsv" | Should Be "品名`t金額`r`nりんご`t100`r`n"
         @($log | Where-Object { $_ -like "SaveAs:*" }) -join "|" | Should Be "SaveAs:売上:42|SaveAs:空:42"
@@ -204,7 +204,7 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         $excel = newExcel @((newSheet "Sheet1" -1 "a`r`n"))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        [void](convertWorkbook $source)
+        [void](extractWorkbook $source)
         # 元と同じファイル名のコピーを開く（CELL("filename") の表示値を変えないため）
         $log[0] | Should Be "Open:見積[1].xlsx:ReadOnly=True:Password=dummy"
         $log[-1] | Should Be "Close:False"
@@ -216,7 +216,7 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         $excel = newExcel @((newSheet "D5から" -1 "a`tb`r`nc`td`r`n" @(2, 3, 2, 2) @(3, 4)))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        [void](convertWorkbook $source)
+        [void](extractWorkbook $source)
         readTsv "D5から.tsv" | Should Be "`r`n`t`ta`tb`r`n`t`tc`td`r`n"
     }
 
@@ -225,7 +225,7 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         $excel = newExcel @((newSheet "肥大" -1 "元のシート`r`n" @(1, 1, 1048576, 2) @(3, 2)))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        convertWorkbook $source | Should Be 1
+        extractWorkbook $source | Should Be 1
         ($log | Where-Object { $_ -notlike "Open:*" -and $_ -notlike "Close:*" }) -join "|" |
             Should Be "AddSheet|Copy:肥大|Activate:一時|SaveAs:一時:42|Delete:一時"
         readTsv "肥大.tsv" | Should Be "`t`tデータ`r`n"
@@ -235,7 +235,7 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         $excel = newExcel @((newSheet "肥大" -1 "元のシート`r`n" @(1, 1, 1048576, 2) @(3, 2))) -protectedStructure
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        convertWorkbook $source | Should Be 1
+        extractWorkbook $source | Should Be 1
         readTsv "肥大.tsv" | Should Be "元のシート`r`n"
     }
 
@@ -243,7 +243,7 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         $excel = newExcel @((newSheet "普通" -1 "a`r`n" @(1, 1, 100, 10) @(90, 10)))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        [void](convertWorkbook $source)
+        [void](extractWorkbook $source)
         @($log | Where-Object { $_ -eq "AddSheet" }).Count | Should Be 0
     }
 
@@ -272,18 +272,18 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        convertWorkbook $zipSource | Should Be 2
+        extractWorkbook $zipSource | Should Be 2
         listTmp | Should Be @("売上.tsv", "売上[コメント].tsv")
         readTsv "売上[コメント].tsv" | Should Be "B2`t税抜`r`n"
     }
 
-    It "図形・コメントを読めなくても、セルの値は変換する" {
+    It "図形・コメントを読めなくても、セルの値は取り込む" {
         $broken = Join-Path $TestDrive "壊れたZIP.xlsx"
         [System.IO.File]::WriteAllBytes($broken, [byte[]](0x50, 0x4B, 0x03, 0x04, 0x00))
         $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        convertWorkbook $broken | Should Be 1
+        extractWorkbook $broken | Should Be 1
         listTmp | Should Be @("売上.tsv")
     }
 
@@ -292,11 +292,11 @@ Describe "convertWorkbook（偽の Excel）" -Tag Io {
         $excel = newFake @{ Workbooks = $workbooks } @{}
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        { convertWorkbook $source } | Should Throw "パスワードが正しくありません。"
+        { extractWorkbook $source } | Should Throw "パスワードが正しくありません。"
     }
 }
 
-Describe "convertDocument（偽の Word・PowerPoint）" -Tag Io {
+Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
     $tmpDir = Join-Path $TestDrive "tmp"
 
     BeforeEach {
@@ -312,7 +312,7 @@ Describe "convertDocument（偽の Word・PowerPoint）" -Tag Io {
         writeMinimalDocx $source "新形式の本文"
         Mock getApp { throw "Word を起動してはいけない" }
 
-        convertDocument $source | Should Be 1
+        extractDocument $source | Should Be 1
         (readTsv "ページ001.tsv").Trim() | Should Be "新形式の本文"
         Assert-MockCalled getApp -Times 0 -Exactly -Scope It
     }
@@ -323,10 +323,10 @@ Describe "convertDocument（偽の Word・PowerPoint）" -Tag Io {
         $word = newWord "旧形式の本文"
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
 
-        convertDocument $source | Should Be 1
+        extractDocument $source | Should Be 1
         (readTsv "ページ001.tsv").Trim() | Should Be "旧形式の本文"
         $log -join "|" | Should Be "Open:source.doc:ReadOnly=True:Password=dummy:Visible=False|Repaginate|SaveAs2:converted.docx:12|Close:0"
-        # 作業ファイル（コピーと変換結果）は消す
+        # 作業ファイル（コピーと TSV）は消す
         listTmp | Should Be @("ページ001.tsv")
     }
 
@@ -336,7 +336,7 @@ Describe "convertDocument（偽の Word・PowerPoint）" -Tag Io {
         $word = newWord "中身は旧形式"
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
 
-        convertDocument $source | Should Be 1
+        extractDocument $source | Should Be 1
         $log[0] | Should BeLike "Open:source.doc:*"
     }
 
@@ -346,7 +346,7 @@ Describe "convertDocument（偽の Word・PowerPoint）" -Tag Io {
         $ppt = newPowerPoint "旧形式のスライド"
         Mock getApp { $ppt } -ParameterFilter { $name -eq "PowerPoint" }
 
-        convertDocument $source | Should Be 1
+        extractDocument $source | Should Be 1
         (readTsv "スライド001.tsv").Trim() | Should Be "旧形式のスライド"
         # ファイル名の後ろの ::dummy:: で、パスワード付きのファイルはダイアログを出さずにエラーになる
         $log -join "|" | Should Be "Open:source.ppt::dummy:::-1,0,0|SaveAs:converted.pptx:24|Close"
@@ -358,7 +358,7 @@ Describe "convertDocument（偽の Word・PowerPoint）" -Tag Io {
         [System.IO.File]::WriteAllText($source, "中身はテキスト")
         Mock getApp { throw "PowerPoint を起動してはいけない" }
 
-        { convertDocument $source } | Should Throw "PowerPointのファイルではありません"
+        { extractDocument $source } | Should Throw "PowerPointのファイルではありません"
         Assert-MockCalled getApp -Times 0 -Exactly -Scope It
         (listTmp).Count | Should Be 0
     }
@@ -370,20 +370,20 @@ Describe "convertDocument（偽の Word・PowerPoint）" -Tag Io {
         $word.Documents.Doc | Add-Member -MemberType ScriptMethod -Name SaveAs2 -Value { throw "保存できません。" } -Force
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
 
-        { convertDocument $source } | Should Throw "保存できません。"
+        { extractDocument $source } | Should Throw "保存できません。"
         $log[-1] | Should Be "Close:0"
         (listTmp).Count | Should Be 0
     }
 }
 
-Describe "convertFile" -Tag Io {
-    Mock convertWorkbook { "Excel" }
-    Mock convertDocument { "Word・PowerPoint" }
+Describe "ingestFile" -Tag Io {
+    Mock extractWorkbook { "Excel" }
+    Mock extractDocument { "Word・PowerPoint" }
 
     It "拡張子で Excel とそれ以外に振り分ける" {
-        convertFile "a.xlsx" | Should Be "Excel"
-        convertFile "a.XLS" | Should Be "Excel"
-        convertFile "a.docx" | Should Be "Word・PowerPoint"
-        convertFile "a.ppt" | Should Be "Word・PowerPoint"
+        ingestFile "a.xlsx" | Should Be "Excel"
+        ingestFile "a.XLS" | Should Be "Excel"
+        ingestFile "a.docx" | Should Be "Word・PowerPoint"
+        ingestFile "a.ppt" | Should Be "Word・PowerPoint"
     }
 }
