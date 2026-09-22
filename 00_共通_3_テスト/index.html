@@ -1938,6 +1938,7 @@
 <li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは自動的に外れる。COM を使うインデックス作成の確認は手元で <code>-All</code> を使う（6.2）</li>
 <li>あわせて PSScriptAnalyzer の <code>Error</code> を 0 件に保つ（継承元が別ファイルのための <code>TypeNotFound</code> は除く）。PSScriptAnalyzer の版は <code>test.yml</code> で固定する（新しい版でルールが増えて、コードを変えずに CI が落ちるのを防ぐ。Dependabot の対象外のため、上げるときは版を書き換えた PR で指摘が 0 件のままか確かめる）。安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）はタグ <code>Meta</code> のため既定で実行され、PSScriptAnalyzer が入っていない環境では静的解析の項目だけを飛ばす</li>
 <li>テストの前に <code>tools/check_commit.ps1</code> で、追跡している全ファイルと全コミットの作者を検査する（下の「公開してはいけない内容の検査」）。作者を全履歴で調べるため <code>fetch-depth: 0</code> で取得する</li>
+<li>PR では、PR のコミットに作者の <code>Signed-off-by</code> があるかを <code>tools/check_signoff.ps1 -Range HEAD^1..HEAD^2</code> で確かめる。pull_request では PR をマージした形のコミットを取り出すため、1 つ目の親が main、2 つ目の親が PR の先頭になる。その間だけを調べるので、main から取り込んだコミットと、決まりを作る前の履歴（<code>Signed-off-by</code> が無い）は調べない。マージコミットと bot（作者が <code>...[bot]@users.noreply.github.com</code>）のコミットも調べない</li>
 <li>同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
 <li>テストのあと、<code>work\test\coverage.xml</code> を <a href="https://codecov.io/gh/hsgwa/tebunko">Codecov</a> に送る（<code>codecov/codecov-action</code>。版はコミットのハッシュで固定する）。README のバッジ、PR へのコメント（ファイルごとの増減）、行ごとの表示は Codecov が出す</li>
 <li>送るのは相対パスと行ごとの実行回数だけで、ソースは送らない（Codecov はソースを GitHub から読む）</li>
@@ -2008,6 +2009,7 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 </tbody>
 </table>
 <p>あわせて <code>tools/hooks/commit-msg</code> が、コミットメッセージの 1 行目が Conventional Commits の形（<code>feat: ...</code> など。AGENTS.md「GitHub の運用」）かを <code>tools/check_commit_message.ps1 -Path &lt;メッセージのファイル&gt;</code> で確かめる。<code>#</code> で始まる行と空行は飛ばし、git が自動で作るメッセージ（<code>Merge ...</code> <code>Revert "..."</code> <code>fixup! ...</code>）は調べない。</p>
+<p>続けて <code>tools/check_signoff.ps1 -Path &lt;メッセージのファイル&gt;</code> が、作者（<code>git var GIT_AUTHOR_IDENT</code>）のメールアドレスの <code>Signed-off-by:</code> 行があるかを確かめる（<code>git commit -s</code> で付く。大文字・小文字は区別しない）。<code>#</code> で始まる行と、<code>git commit -v</code> の切り取り線より後ろ（差分）は数えない。マージコミット（1 行目が <code>Merge</code>）と bot の作者は調べない。</p>
 <p>どうしても飛ばすときは <code>git commit --no-verify</code>。CI で同じ検査が走る（コミットメッセージは、squash merge で main のコミットになる PR のタイトルを CI が確かめる）。フックは git for Windows の sh が読むため LF で保存する（<code>.gitattributes</code> で固定）。</p>
 <h4 id="公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査（<code>tools/check_commit.ps1</code>）<a class="headerlink" href="#公開してはいけない内容の検査toolscheck_commitps1" title="Permanent link">&para;</a></h4>
 <p>リポジトリは公開しているため、履歴に一度でも入れたら公開されたのと同じになる（AGENTS.md「個人情報を書かない」）。これを機械的に止める。</p>
