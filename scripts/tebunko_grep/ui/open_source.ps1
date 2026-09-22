@@ -149,7 +149,7 @@ function openInExcel {
     $excel = $null
     try {
         $excel = [System.Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application")
-        # 変換処理がバックグラウンドで使っている Excel は使わない
+        # インデクサがバックグラウンドで使っている Excel は使わない
         if (!$excel.Visible) {
             $excel = $null
         }

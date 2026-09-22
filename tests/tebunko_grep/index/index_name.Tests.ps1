@@ -226,7 +226,7 @@ Describe "newIndexName / assignIndexNames" -Tag Unit {
     }
 
     It '使用中の名前が $null・配列・空でも落ちずに名前を作る' {
-        # インデックスが 1 つも無いとき、呼び出し側から $null が渡ることがある（画面の新規作成ダイアログ）
+        # インデックスが 1 つも無いとき、呼び出し側から $null が渡ることがある（画面の追加ダイアログ）
         newIndexName "C:\data\sample" $null | Should Be "sample"
         newIndexName "C:\data\見積" | Should Be "見積"
         newIndexName "C:\data\見積" @() | Should Be "見積"
@@ -253,7 +253,7 @@ Describe "newIndexName / assignIndexNames" -Tag Unit {
         $folders[1].Name | Should Be "売上"
     }
 
-    It "名前が無ければ、前回の変換一覧の同じフォルダの名前を使い、無ければフォルダ名から作る" {
+    It "名前が無ければ、前回の取り込み一覧の同じフォルダの名前を使い、無ければフォルダ名から作る" {
         $targets = @(
             [pscustomobject]@{ Name = ""; Path = "C:\data\見積"; Enabled = $false },
             [pscustomobject]@{ Name = ""; Path = "E:\new\見積"; Enabled = $true },

@@ -182,14 +182,14 @@ Describe "newAppMutex" -Tag Io {
 
     It "処理の種類・フォルダが違えば同時に取得できる" {
         $gui = newAppMutex "gui" "$TestDrive\tool"
-        $convert = newAppMutex "convert" "$TestDrive\tool"
-        $other = newAppMutex "convert" "$TestDrive\tool2"
+        $indexer = newAppMutex "indexer" "$TestDrive\tool"
+        $other = newAppMutex "indexer" "$TestDrive\tool2"
         try {
             $gui.Acquired | Should Be $true
-            $convert.Acquired | Should Be $true
+            $indexer.Acquired | Should Be $true
             $other.Acquired | Should Be $true
         } finally {
-            foreach ($m in @($gui, $convert, $other)) {
+            foreach ($m in @($gui, $indexer, $other)) {
                 $m.Mutex.ReleaseMutex()
                 $m.Mutex.Dispose()
             }

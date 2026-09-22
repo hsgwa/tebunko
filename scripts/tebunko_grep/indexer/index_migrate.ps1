@@ -1,9 +1,9 @@
-﻿# 変換結果のインデックスへの取り込みと、作業フォルダ・以前の形式の後始末。
+﻿# TSV のインデックスへの取り込みと、作業フォルダ・以前の形式の後始末。
 
 function publishTsv {
-    # 作業フォルダのTSVを、そのファイルの変換結果のフォルダへ移動する。
+    # 作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移動する。
     # 途中で強制終了されても一部のシートだけのインデックスが残らないよう、
-    # 出力用のフォルダ（work\変換出力\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
+    # 出力用のフォルダ（work\取り込み出力\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
     param (
         [string]$bookDir
     )
@@ -16,7 +16,7 @@ function clearTmpDir {
 }
 
 function removeTmpDir {
-    # 作業フォルダ（%TEMP%\tebunko_grep\<PID>）と出力用のフォルダ（work\変換出力\<PID>）を削除する。終了時に呼ぶ
+    # 作業フォルダ（%TEMP%\tebunko_grep\<PID>）と出力用のフォルダ（work\取り込み出力\<PID>）を削除する。終了時に呼ぶ
     foreach ($dir in @(${tmpDir}, ${publishDir})) {
         try {
             removeDirectoryRetry $dir
@@ -28,7 +28,7 @@ function removeTmpDir {
 
 function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
-    # （%TEMP%\tebunko_grep\<PID>・work\変換出力\<PID>）を削除する
+    # （%TEMP%\tebunko_grep\<PID>・work\取り込み出力\<PID>）を削除する
     foreach ($parent in @((Split-Path ${tmpDir} -Parent), (Split-Path ${publishDir} -Parent))) {
         removeStaleProcessDirs $parent
     }
@@ -45,7 +45,7 @@ function removeStaleProcessDirs {
     }
     foreach ($dir in @(Get-ChildItem -LiteralPath $parent -Directory | Where-Object { $_.Name -match "^\d{1,9}$" -and [int]$_.Name -ne $PID })) {
         if (Get-Process -Id ([int]$dir.Name) -ErrorAction SilentlyContinue) {
-            continue  # 実行中の変換（またはPIDを再利用した別のプロセス）のものは残す
+            continue  # 実行中のインデックス作成（またはPIDを再利用した別のプロセス）のものは残す
         }
         try {
             Remove-Item -LiteralPath (toLongPath $dir.FullName) -Recurse -Force
@@ -56,8 +56,8 @@ function removeStaleProcessDirs {
 }
 
 function moveLegacyIndex {
-    # 以前の形式（work\index 直下に変換対象フォルダ1つ分のインデックスがある）を、そのフォルダのインデックス名の下へ移す。
-    # 前回の変換一覧の行（相対パス → 行）を、移した後の相対パス（"インデックス名\…"）で返す
+    # 以前の形式（work\index 直下にクロール対象フォルダ1つ分のインデックスがある）を、そのフォルダのインデックス名の下へ移す。
+    # 前回の取り込み一覧の行（相対パス → 行）を、移した後の相対パス（"インデックス名\…"）で返す
     param (
         [object[]]$folders,  # assignIndexNames の結果
         $status,             # readStatusFile の結果
@@ -69,8 +69,8 @@ function moveLegacyIndex {
     if ($legacyFolder) {
         $legacyPath = normalizeFolderPath $legacyFolder.Path
     } elseif (-not $statusExists) {
-        # 変換一覧が無い（変換一覧を使う前の版）: work\index 直下が各フォルダのインデックス名のフォルダだけでなければ、
-        # 以前の形式で、変換対象フォルダの1件目のフォルダのインデックスとみなす
+        # 取り込み一覧が無い（取り込み一覧を使う前の版）: work\index 直下が各フォルダのインデックス名のフォルダだけでなければ、
+        # 以前の形式で、クロール対象フォルダの1件目のフォルダのインデックスとみなす
         $names = @($folders | ForEach-Object { $_.Name })
         $others = @(Get-ChildItem -LiteralPath $indexDir -Force | Where-Object {
             ($_.PSIsContainer -and $names -notcontains $_.Name) -or (-not $_.PSIsContainer -and $_.Name -ne ${sourceFolderFileName})
@@ -86,7 +86,7 @@ function moveLegacyIndex {
     $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
     $folder = @($folders | Where-Object { $_.Path -eq $legacyPath }) | Select-Object -First 1
     if (!$folder) {
-        Write-Host "work\index 直下に、変換対象から外したフォルダ（${legacyPath}）の以前の形式のインデックスがあります。不要なら削除してください。" -ForegroundColor Yellow
+        Write-Host "work\index 直下に、クロール対象から外したフォルダ（${legacyPath}）の以前の形式のインデックスがあります。不要なら削除してください。" -ForegroundColor Yellow
         return , $rows
     }
 
@@ -105,7 +105,7 @@ function moveLegacyIndex {
 }
 
 function removeDroppedFolders {
-    # 変換対象フォルダから削除されたフォルダのインデックス（work\index\<インデックス名>）を削除する。
+    # クロール対象フォルダから削除されたフォルダのインデックス（work\index\<インデックス名>）を削除する。
     # チェックを外しただけのフォルダは削除しない
     param (
         [object[]]$folders,          # assignIndexNames の結果
@@ -120,13 +120,13 @@ function removeDroppedFolders {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
             Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
         }
-        Write-Host "変換対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
+        Write-Host "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
     }
 }
 
 function migrateFlatIndex {
     # 以前の形式のTSV（<ファイル名>_<場所>.tsv）を、今の形式（<ファイル名>\<場所>.tsv）へ移す。
-    # 変換はし直さず、名前を変えるだけ（更新日時もそのまま）。
+    # 取り込み直さず、名前を変えるだけ（更新日時もそのまま）。
     # 今の形式のTSVの名前は場所だけ（_ は符号化されている）のため、_ を含む名前が以前の形式
     $moved = 0
     $failed = 0
@@ -154,9 +154,9 @@ function migrateFlatIndex {
     }
 
     if ($moved -gt 0) {
-        Write-Host "以前の形式のTSV ${moved} 件を、元のファイル名のフォルダへ移しました。（変換し直しません）"
+        Write-Host "以前の形式のTSV ${moved} 件を、元のファイル名のフォルダへ移しました。（取り込み直しません）"
     }
     if ($failed -gt 0) {
-        Write-Host "以前の形式のTSV ${failed} 件は移せませんでした。該当のファイルは次の変換で作り直します。" -ForegroundColor Yellow
+        Write-Host "以前の形式のTSV ${failed} 件は移せませんでした。該当のファイルは次のインデックス作成で作り直します。" -ForegroundColor Yellow
     }
 }

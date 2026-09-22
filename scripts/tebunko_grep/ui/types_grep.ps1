@@ -527,26 +527,26 @@ class ProcRow {
     [string]$TitleText
 }
 
-# ［1 インデックス管理］の変換に失敗したファイル1件
+# ［1 インデックス管理］の取り込みに失敗したファイル1件
 class FailRow {
     [string]$RelPath
     [string]$Reason
-    [string]$ConvertedText
+    [string]$IngestedText
     [string]$SourcePath
 }
 
-# 変換の確認ダイアログに出すインデックス1件（変換予定.tsv の1行）
+# インデックス作成の確認ダイアログに出すインデックス1件（取り込み予定.tsv の1行）
 class PlanRow {
     [string]$Name
     [string]$Path
-    [string]$TargetText   # 変換対象の件数（"12 件" / "更新不要" / "変換しません"）
+    [string]$TargetText   # 取り込み対象の件数（"12 件" / "更新不要" / "取り込みません"）
     [object]$TargetBrush
     [string]$DetailText   # 内訳（新規 N 件 / 更新あり N 件 …）
     [string]$TotalText    # 見つかった Office ファイルの数
 }
 
 # ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
-# ［変換］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
+# ［作成］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）
     [string]$Path
@@ -555,7 +555,7 @@ class FolderItem : NotifyBase {
     [object]$StatusBrush
     [string]$FileCountText
     [string]$FileCountToolTip
-    [string]$LastConvertedText
+    [string]$LastIngestedText
     [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
     [bool]$FolderExists    # 調べた結果、フォルダがあったか
 
@@ -563,9 +563,9 @@ class FolderItem : NotifyBase {
     [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }
     [void] SetPath([string]$value) { if ($this.Path -ne $value) { $this.Path = $value; $this.Raise("Path") } }
     [void] SetStatus([string]$text, [object]$brush) { $this.StatusText = $text; $this.StatusBrush = $brush; $this.Raise("StatusText"); $this.Raise("StatusBrush") }
-    [void] SetStats([string]$countText, [string]$toolTip, [string]$lastConverted) {
-        $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastConvertedText = $lastConverted
-        $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastConvertedText")
+    [void] SetStats([string]$countText, [string]$toolTip, [string]$lastIngested) {
+        $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
+        $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
     }
 }
 

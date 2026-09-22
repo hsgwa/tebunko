@@ -9,9 +9,9 @@
 $script:apps = @{}
 
 # ExitWait: Quit の後、終わるのを待つ時間（ミリ秒）。過ぎたら強制終了する（stopApp）。
-#   Excel は変換で取り出したCOMオブジェクトが解放されきらないため、変換処理が動いている間は Quit しても終わらず、
+#   Excel は抽出で取り出したCOMオブジェクトが解放されきらないため、インデクサが動いている間は Quit しても終わらず、
 #   待ちの上限まで待ってから強制終了していた（実測: 毎回 5 秒待って強制終了）。待つだけ無駄なため短くする。
-#   GC で解放を促して自分で終わらせる方法は、変換処理の終了が COM の解放待ちで約 60 秒止まることがあった（実測 25 回中 1〜2 回）ため採らない
+#   GC で解放を促して自分で終わらせる方法は、インデクサの終了が COM の解放待ちで約 60 秒止まることがあった（実測 25 回中 1〜2 回）ため採らない
 $appInfo = @{
     Excel      = @{ ProgId = "Excel.Application";      Process = "EXCEL";    ExitWait = 1000 }
     Word       = @{ ProgId = "Word.Application";       Process = "WINWORD";  ExitWait = 5000 }
@@ -75,7 +75,7 @@ function stopApp {
     $script:apps.Remove($name)
     updateWatchedPids
 
-    # 変換中に利用者が同じアプリでファイルを開いた場合は、終了させない
+    # インデックス作成中に利用者が同じアプリでファイルを開いた場合は、終了させない
     $inUse = $app.Shared
     if (-not $inUse) {
         try {
@@ -114,7 +114,7 @@ function stopAllApps {
 }
 
 function getAppName {
-    # 拡張子から、変換に使うアプリの名前を返す
+    # 拡張子から、抽出に使うアプリの名前を返す
     param (
         [string]$path
     )
@@ -137,9 +137,9 @@ function releaseComObject($object) {
 # 1ファイルの制限時間の監視
 # ----------------------------------------------------------------------------
 
-# 変換中のCOM呼び出しは応答が無いと戻らず、Ctrl+C も効かないため、別スレッドで制限時間を監視する。
+# 取り込み中のCOM呼び出しは応答が無いと戻らず、Ctrl+C も効かないため、別スレッドで制限時間を監視する。
 # 制限時間を過ぎたら、自分で起動したOfficeアプリを強制終了する（COM呼び出しが例外で戻り、そのファイルは失敗になる）。
-#   Deadline: 変換中のファイルの制限時刻（変換中でなければ MaxValue）
+#   Deadline: 取り込み中のファイルの制限時刻（取り込み中でなければ MaxValue）
 #   Pids    : 強制終了してよいプロセスID（自分で起動したOfficeアプリ）
 #   TimedOut: 制限時間を過ぎて強制終了した
 $script:watchdog = [hashtable]::Synchronized(@{ Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false })

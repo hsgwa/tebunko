@@ -50,8 +50,8 @@ function updateKillBadge {
     if ($null -eq $background) {
         $background = @(getOfficeProcesses | Where-Object { $_.Background }).Count
     }
-    # 変換中はバックグラウンドの Excel 等があって当然なので、印を付けない
-    $ui.KillTabHeader.Text = if ($background -gt 0 -and !(isConverting)) { "⚠ 9 プロセス停止" } else { "9 プロセス停止" }
+    # インデックス作成中はバックグラウンドの Excel 等があって当然なので、印を付けない
+    $ui.KillTabHeader.Text = if ($background -gt 0 -and !(isIndexing)) { "⚠ 9 プロセス停止" } else { "9 プロセス停止" }
 }
 
 function killProcesses {
@@ -82,14 +82,14 @@ function killProcesses {
         $heading = "バックグラウンドの Office を $($targets.Count) 件終了しますか？"
         $facts = @(
             (factKept "画面に出ているファイルはありません" (& $describe $targets)),
-            (factNext "残ったまま動いていたものを片付けます" "次の変換で作り直されます")
+            (factNext "残ったまま動いていたものを片付けます" "次のインデックス作成で作り直されます")
         )
     }
-    if (isConverting) {
-        $facts += factGone "いま変換中のファイルは失敗あつかいになります" "変換が終わってから終了するのが安全です"
+    if (isIndexing) {
+        $facts += factGone "いま取り込み中のファイルは失敗あつかいになります" "インデックス作成が終わってから終了するのが安全です"
     }
     $answer = showConfirm -heading $heading -facts $facts `
-        -choices @(@{ Text = "終了する"; Value = "stop"; Danger = ($visibleTargets.Count -gt 0 -or (isConverting)) })
+        -choices @(@{ Text = "終了する"; Value = "stop"; Danger = ($visibleTargets.Count -gt 0 -or (isIndexing)) })
     if ($answer -ne "stop") {
         return
     }
