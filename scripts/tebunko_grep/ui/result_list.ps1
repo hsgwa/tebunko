@@ -295,10 +295,14 @@ $ui.ResultGrid.Add_Sorting({
     safe { sortResults $e.Column }
 })
 
-# 見出しの行をクリックすると閉じる・開く（Shift・Ctrl を押しながらのクリックは、複数を選ぶための操作なので切り替えない）
-$ui.ResultGrid.Add_MouseLeftButtonUp({
+# 見出しの行をクリックすると閉じる・開く（Shift・Ctrl を押しながらのクリックは、複数を選ぶための操作なので切り替えない）。
+# MouseLeftButtonUp は押された要素にしか届かない（外側の DataGrid では受け取れない）ため、外側から順に届く
+# PreviewMouseUp で受ける。行を選ぶ処理が済んでから表の中身を入れ替えるよう、開閉は画面の処理のあとに行う
+$ui.ResultGrid.AddHandler([System.Windows.UIElement]::PreviewMouseUpEvent, [System.Windows.Input.MouseButtonEventHandler] {
     param ($sender, $e)
-    if ([System.Windows.Input.Keyboard]::Modifiers -ne "None") {
+    # 修飾キーは列挙型の値で比べる（文字列 "None" と比べると、押していなくても真になる）
+    if ($e.ChangedButton -ne [System.Windows.Input.MouseButton]::Left -or
+            [System.Windows.Input.Keyboard]::Modifiers -ne [System.Windows.Input.ModifierKeys]::None) {
         return
     }
     $element = $e.OriginalSource
@@ -306,9 +310,12 @@ $ui.ResultGrid.Add_MouseLeftButtonUp({
         $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
     }
     if ($element -and $element.Item -is [FileGroup]) {
-        safe { toggleFileGroup $element.Item }
+        $script:clickedGroup = $element.Item
+        [void]$ui.ResultGrid.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Input, [Action]{
+            safe { toggleFileGroup $script:clickedGroup }
+        })
     }
-})
+}, $true)
 
 $ui.ExpandAllButton.Add_Click({ safe { setAllFileGroupsExpanded $true } })
 $ui.CollapseAllButton.Add_Click({ safe { setAllFileGroupsExpanded $false } })
