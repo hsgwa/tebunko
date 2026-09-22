@@ -1930,7 +1930,7 @@
 下限は <code>tests/coverage.baseline</code> に置き、下回ると <code>-Ci</code> が失敗する。上がったら基準を上げる。</p>
 <p><code>-Ci</code> はカバレッジを Cobertura 形式の XML（<code>work\test\coverage.xml</code>）にも書き出す。Pester 3.4 はカバレッジをファイルに出せないため、<code>tests/run.ps1</code> が結果（コマンド単位）から行単位に組み立てる。1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。そのため、行単位の値はコマンド単位の値と少し違う。ファイル名はリポジトリからの相対パスで書き、利用者名を含む絶対パスは入れない。</p>
 <h4 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h4>
-<p><code>.github/workflows/test.yml</code> で、push と pull request のたびに windows ランナーで実行する。</p>
+<p><code>.github/workflows/test.yml</code> で、pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
 <ul>
 <li>Windows PowerShell 5.1 はランナーに最初から入っている（<code>shell: powershell</code> を明示する。<code>pwsh</code>（PowerShell 7）では COM と文字コードの扱いが変わる）</li>
 <li>ランナーには Pester 5 も入っており、そのままでは <code>Invoke-Pester</code> が 5 を読み込んで全テストが失敗する（5 はテストの書き方が違う）。<code>tests/run.ps1</code> は <code>Import-Module Pester -MaximumVersion 3.99.99</code> で 3 系を明示し、CI は 3 系が無ければ 3.4.0 を入れる</li>
