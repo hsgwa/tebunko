@@ -17,6 +17,10 @@
 
 Issue に画面の写しやログを貼るときは、利用者名を含むパス（`C:\Users\<利用者名>\...`）や社名・顧客名を消してから貼ってください。Office ファイルそのものは、機密情報を含むおそれがあるため添付しないでください。
 
+Issue・Pull Request・脆弱性の報告は、日本語でも英語でも受け付けます。返答は日本語か英語で行います。
+
+Bug reports, feature requests, pull requests and vulnerability reports in English are welcome.
+
 ## サポートの範囲
 
 tebunko は個人が開発・保守しているオープンソースソフトウェアです。回答や修正は可能な範囲で行いますが、期限の約束はできません。最新の版で直っていることがあるので、まず [Releases](https://github.com/hsgwa/tebunko/releases/latest) の最新版で試してください。
