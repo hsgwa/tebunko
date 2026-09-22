@@ -1942,8 +1942,8 @@
 <li>テストのあと、<code>work\test\coverage.xml</code> を <a href="https://codecov.io/gh/hsgwa/tebunko">Codecov</a> に送る（<code>codecov/codecov-action</code>。版はコミットのハッシュで固定する）。README のバッジ、PR へのコメント（ファイルごとの増減）、行ごとの表示は Codecov が出す</li>
 <li>送るのは相対パスと行ごとの実行回数だけで、ソースは送らない（Codecov はソースを GitHub から読む）</li>
 <li>トークンはリポジトリの Secrets の <code>CODECOV_TOKEN</code> に置く。fork からの PR ではトークンが無くても送れる</li>
-<li>送れなくても CI は失敗にしない。Codecov の判定（<code>codecov.yml</code>）も参考表示だけにする。下限の確認は <code>tests/coverage.baseline</code> が受け持つ</li>
-<li><code>codecov.yml</code> には ASCII の文字だけを書き、コメントも書かない。Windows で動く Codecov の CLI がこのファイルを cp1252 として読み、日本語があると <code>UnicodeDecodeError</code> で止まるため。<code>tests/meta/encoding.Tests.ps1</code> が確かめる</li>
+<li>送れなくても CI は失敗にしない。Codecov の判定（<code>.github/codecov.yml</code>）も参考表示だけにする。下限の確認は <code>tests/coverage.baseline</code> が受け持つ</li>
+<li><code>.github/codecov.yml</code> には ASCII の文字だけを書き、コメントも書かない。Windows で動く Codecov の CLI がこのファイルを cp1252 として読み、日本語があると <code>UnicodeDecodeError</code> で止まるため。<code>tests/meta/encoding.Tests.ps1</code> が確かめる</li>
 <li>タグの push（<code>release.yml</code> から呼ばれたとき）では送らない</li>
 </ul>
 <p>ほかに、サプライチェーンの安全性のために次のワークフローを置く。どちらも main へのマージは止めない。</p>
