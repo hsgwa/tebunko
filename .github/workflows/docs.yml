@@ -21,7 +21,6 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "mkdocs.yml"
       - "tools/mkdocs/**"
       - ".github/workflows/docs.yml"
   # 必須チェックのため、paths で絞らない（上の説明）
@@ -51,7 +50,7 @@ jobs:
         run: |
           # 一覧をいったん変数に受ける（grep -q が途中で読むのをやめると、pipefail で gh の失敗に見えるため）
           files=$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
-          if grep -qE '^(docs/|mkdocs\.yml$|tools/mkdocs/|\.github/workflows/docs\.yml$)' <<< "$files"; then
+          if grep -qE '^(docs/|tools/mkdocs/|\.github/workflows/docs\.yml$)' <<< "$files"; then
             echo "docs=true" >> "$GITHUB_OUTPUT"
           else
             echo "docs=false" >> "$GITHUB_OUTPUT"
@@ -71,7 +70,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # サイトに要る所だけを取る（直下の mkdocs.yml は cone モードで必ず入る）
+          # サイトに要る所だけを取る（設定は tools/mkdocs/mkdocs.yml）
           sparse-checkout: |
             docs
             tools/mkdocs
@@ -85,7 +84,7 @@ jobs:
 
       - name: サイトを作る
         run: |
-          mkdocs build --strict
+          mkdocs build --strict -f tools/mkdocs/mkdocs.yml
           # GitHub Pages に Jekyll で加工させない（そのまま公開させる）
           touch work/site/.nojekyll
 

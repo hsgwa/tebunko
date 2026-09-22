@@ -254,8 +254,8 @@ Describe "第三者が検証するための資料がそろっていること（d
         (Test-Path -LiteralPath "$rootDir\docs\04_安全性.md") | Should Be $true
     }
 
-    It "脆弱性の連絡先（SECURITY.md）がある" {
-        (Test-Path -LiteralPath "$rootDir\SECURITY.md") | Should Be $true
+    It "脆弱性の連絡先（.github\SECURITY.md）がある" {
+        (Test-Path -LiteralPath "$rootDir\.github\SECURITY.md") | Should Be $true
     }
 
     It "配布物の完全性を確かめる手順（tools\new_release_files.ps1）がある" {
