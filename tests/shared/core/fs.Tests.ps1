@@ -233,6 +233,21 @@ Describe "writeTextLinesAtomic" -Tag Io {
     }
 }
 
+Describe "getFolderKey" -Tag Unit {
+    It "SHA-256 の 16 進 64 文字を返す" {
+        # "c:\tool" の SHA-256（小文字にしてから UTF-8 で計算する）
+        getFolderKey "C:\Tool" | Should Be "DA4B936E296325CC586C02ADB4518ABB2C4021761A7AFCE2D670263F384C89F5"
+    }
+
+    It "大文字と小文字だけが違うフォルダは同じ鍵になる" {
+        getFolderKey "C:\Tool" | Should Be (getFolderKey "c:\tool")
+    }
+
+    It "フォルダが違えば鍵も違う" {
+        (getFolderKey "C:\Tool") -eq (getFolderKey "C:\Tool2") | Should Be $false
+    }
+}
+
 Describe "newAppMutex" -Tag Io {
     It "同じ処理・同じフォルダでは2つ目を取得できない" {
         $first = newAppMutex "test" "$TestDrive\tool"
