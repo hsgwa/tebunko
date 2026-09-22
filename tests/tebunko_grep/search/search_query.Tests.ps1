@@ -52,6 +52,31 @@ Describe "getRegexScanMode" -Tag Unit {
     It "文字どおりのワードの改行は lines にしない" {
         getRegexScanMode ([regex]::Escape("a`nb")) | Should Be "filter"
     }
+
+    It "改行・タブの文字をそのまま含む正規表現は filter" {
+        getRegexScanMode "a`tb" | Should Be "filter"
+        getRegexScanMode "[`n]" | Should Be "filter"
+    }
+
+    It "末尾が \ だけで終わる（書きかけの）正規表現は scan（安全側）" {
+        getRegexScanMode "abc\" | Should Be "scan"
+    }
+
+    It "アトミックグループ・' で囲む名前付きグループ・改行に一致しない \S は lines" {
+        foreach ($pattern in @("(?>ab+)c", "(?'n'a)\k'n'", "\S+", "[\]\-]")) {
+            getRegexScanMode $pattern | Should Be "lines"
+        }
+    }
+
+    It "コメント・インラインのオプションは scan" {
+        foreach ($pattern in @("a(?#コメント)b", "(?m)^a", "(?x) a b")) {
+            getRegexScanMode $pattern | Should Be "scan"
+        }
+    }
+
+    It "空の正規表現は lines（どの行にも一致する）" {
+        getRegexScanMode "" | Should Be "lines"
+    }
 }
 
 Describe "newPlaceExclude" -Tag Unit {
@@ -90,5 +115,29 @@ Describe "newFileFilter" -Tag Unit {
         $filter = newFileFilter "v?.[確定].xlsx"
         $filter.Include.IsMatch("v1.[確定].xlsx") | Should Be $true
         $filter.Include.IsMatch("v1x[確定].xlsx") | Should Be $false
+    }
+
+    It "除外だけなら Include は `$null（除外に当たらないものはすべて対象）" {
+        $filter = newFileFilter "！*old*"
+        $filter.Include | Should Be $null
+        $filter.Exclude.IsMatch("A社_OLD.xlsx") | Should Be $true
+    }
+
+    It "! や ; だけ・空の項目は無視する" {
+        $filter = newFileFilter "!;;； ; ! "
+        $filter.Include | Should Be $null
+        $filter.Exclude | Should Be $null
+    }
+
+    It "ワイルドカードは名前全体に一致させる（*.xlsx は .xlsx.bak に当たらない）" {
+        $filter = newFileFilter "*.xlsx"
+        $filter.Include.IsMatch("a.xlsx") | Should Be $true
+        $filter.Include.IsMatch("a.xlsx.bak") | Should Be $false
+    }
+
+    It "正規表現の記号（( ) + ^ $ など）を含む名前も文字どおりに部分一致させる" {
+        $filter = newFileFilter "(1)+`$^"
+        $filter.Include.IsMatch("見積(1)+`$^版.xlsx") | Should Be $true
+        $filter.Include.IsMatch("見積1.xlsx") | Should Be $false
     }
 }

@@ -390,7 +390,8 @@ function editIndex {
     }
 
     $changes = New-Object System.Collections.Generic.List[string]
-    if ($result.Name -ne $item.Name) {
+    # 大文字・小文字だけの変更も改名する（-ne は大文字・小文字を区別しないため -cne で比べる）
+    if ($result.Name -cne $item.Name) {
         # インデックスのフォルダ（work\index\<名前>）と取り込み一覧の記録も名前を変える（中身は作り直さない）
         renameIndex $item.Name $result.Name
         $changes.Add("名前 [$($item.Name)] → [$($result.Name)]")

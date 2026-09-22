@@ -44,6 +44,9 @@ function showDetail {
     $ui.PreviewHeaderScroll.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $true
     $ui.OpenFolderButton.IsEnabled = $true
+    # 閉じている見出しを選んだときの先頭の行は、まだ画面に出ていない（LoadingRow で Prepare されていない）ため、
+    # セル番地（MatchCell）が空のままになる。ここで作っておく（作り済みなら何もしない）
+    $row.Prepare()
     $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
