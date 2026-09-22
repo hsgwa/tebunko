@@ -1939,7 +1939,7 @@
 </tr>
 <tr>
 <td>書き込み先</td>
-<td><code>work/</code> 配下（既定はツールのフォルダ。利用者が画面で選んだフォルダにも置ける）、<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> 配下、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先のみ</td>
+<td><code>work/</code> 配下（既定はツールのフォルダ。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）、<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> 配下、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先のみ</td>
 <td><code>safety.Tests.ps1</code></td>
 <td><a href="#31-書き込み削除する場所">3.1</a></td>
 </tr>
@@ -1957,7 +1957,7 @@
 </tr>
 <tr>
 <td>規模（監査の目安）</td>
-<td><code>scripts/</code> 配下 44 ファイル・10,164 行（空行を除く）・341 関数。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
+<td><code>scripts/</code> 配下 44 ファイル・10,235 行（空行を除く）・343 関数。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
 <td>–</td>
 <td><a href="#57-同梱の機械検査と品質の指標">5.7</a></td>
 </tr>
@@ -2157,7 +2157,7 @@
 <tr>
 <td><code>tebunko_grep/gui.ps1:309</code></td>
 <td><code>powershell.exe</code></td>
-<td>本ツール自身の画面 <code>tebunko_grep/gui.ps1</code> を開き直す（［8 設定］でインデックスの置き場所を変えたときだけ。<code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
+<td>本ツール自身の画面 <code>tebunko_grep/gui.ps1</code> を開き直す（［8 設定］でワークスペースを変えたときだけ。<code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
 </tr>
 </tbody>
 </table>
@@ -2176,7 +2176,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>work/</code> 配下（既定はツールを置いたフォルダの直下。利用者が画面で選んだフォルダにも置ける）</td>
+<td><code>work/</code> 配下（既定はツールを置いたフォルダの直下。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）</td>
 <td>TSV インデックス（<code>work/index/</code>）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果</td>
 <td><code>shared/core/data_dir.ps1:41</code>、<code>tebunko_grep/core/paths_grep.ps1:12</code>・<code>13</code>・<code>18</code>・<code>26</code>〜<code>41</code></td>
 </tr>
@@ -2675,7 +2675,7 @@
 </tr>
 <tr>
 <td>規模</td>
-<td><code>scripts/</code> 配下 44 ファイル・10,164 行（空行を除く）・341 関数</td>
+<td><code>scripts/</code> 配下 44 ファイル・10,235 行（空行を除く）・343 関数</td>
 </tr>
 <tr>
 <td>第三者依存</td>
@@ -2683,7 +2683,7 @@
 </tr>
 </tbody>
 </table>
-<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 10,164 行で閉じる。</p>
+<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 10,235 行で閉じる。</p>
 <hr />
 <h2 id="6-供給網サプライチェーンとライセンス">6. 供給網（サプライチェーン）とライセンス<a class="headerlink" href="#6-供給網サプライチェーンとライセンス" title="Permanent link">&para;</a></h2>
 <p>第三者の部品を 1 つも使わないため、実行時の供給網に関する論点は次のように閉じる。部品表は <a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>（CycloneDX 1.6 形式）にある。</p>

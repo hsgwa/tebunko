@@ -2050,13 +2050,13 @@
 </tr>
 <tr>
 <td><code>$workDir</code></td>
-<td><code>setting.config</code> の <code>workFolder</code>（4.1）。空なら既定の <code>$dataDir\work</code></td>
+<td><code>setting.config</code> の <code>workspaceFolder</code>（4.1）。空なら既定の <code>$dataDir\work</code></td>
 <td><code>scripts/tebunko_grep/core/paths_grep.ps1</code>（<code>getWorkDir</code>）</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>画面の［8 設定］で置き場所を表示し、［変更…］で変えられる（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。</li>
+<li><code>$workDir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。</li>
 <li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
 <li>置き場所を変えても、今の <code>work/</code> の中身は移さない。移すときは利用者がエクスプローラーで移してから、移した先を選ぶ。</li>
 <li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workDir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
@@ -2081,7 +2081,7 @@
 <span class="w">    </span><span class="nt">"includeShapes"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"includeComments"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"openMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">"workFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<span class="w">    </span><span class="nt">"workspaceFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
 <span class="p">}</span>
 </code></pre></div>
 <table>
@@ -2159,11 +2159,11 @@
 <td><code>readOpenMode</code> / <code>writeOpenMode</code></td>
 </tr>
 <tr>
-<td><code>workFolder</code></td>
+<td><code>workspaceFolder</code></td>
 <td>文字列</td>
 <td>空</td>
 <td><code>work</code>（インデックス・取り込み一覧・ログ）を置くフォルダ（3.3）。空なら設定ファイルと同じフォルダの <code>work</code>。既定の場所を選んだときも空で保存する（ツールのフォルダを移しても既定のまま付いてくる）。手で書いた相対パスは設定ファイルのフォルダから、<code>%変数%</code> は展開して読む</td>
-<td><code>getWorkDir</code> / <code>writeWorkFolder</code></td>
+<td><code>getWorkDir</code> / <code>writeWorkspaceFolder</code></td>
 </tr>
 </tbody>
 </table>
