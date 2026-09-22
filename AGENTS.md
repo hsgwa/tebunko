@@ -34,7 +34,7 @@ git branch -D worktree-<名前>
 変更は **Issue → ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。
 
 - **Issue から始める。** 機能追加・不具合修正は、先に Issue を立てる（テンプレートは `.github/ISSUE_TEMPLATE/`）。誤字直しのような小さな変更は Issue なしで PR を出してよい。
-- **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護で禁止し、CI（`test.yml` の `test`）が通らないとマージできない。
+- **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護（ruleset）で禁止し、必須チェック（`test.yml` の `test`・`docs.yml` の `docs`・`codeql.yml` の `analyze`）が通らないとマージできない。PR のブランチが最新の main を取り込んでいないときもマージできない。
 - **1 つの PR には 1 つの機能だけを入れる。** 関係のない修正は別の PR にする。
 - **PR 本文は `.github/pull_request_template.md` に沿って書き、`Closes #<番号>` で Issue とつなぐ。** マージすると Issue が自動で閉じる。
 - **PR にはラベルを 1 つ付ける**（`enhancement` / `bug` / `documentation` / `dependencies`）。リリースノートはこのラベルで分類される（`.github/release.yml`）。
