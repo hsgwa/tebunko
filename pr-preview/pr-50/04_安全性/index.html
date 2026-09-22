@@ -1824,7 +1824,7 @@
 <h1 id="tebunko_grep-安全性説明書">tebunko_grep 安全性説明書<a class="headerlink" href="#tebunko_grep-安全性説明書" title="Permanent link">&para;</a></h1>
 <p>本書は、本ツールの導入を審査する担当者（情報システム部門・セキュリティ部門など）に向けて、<strong>本ツールが何をするか・何をしないか</strong>と、<strong>その根拠をどう自分の手で確認できるか</strong>を示すものである。</p>
 <p>本書の主張はすべて <code>scripts/</code> 配下の実装に基づく。各項目には<strong>確認コマンド</strong>を併記しているため、審査する側が本書を信用せずに、自分で同じ結果を再現できる。機械での検査は <code>tests/meta/safety.Tests.ps1</code> にまとめてあり、<code>.\tests\run.ps1 -Tag Meta</code> で一括実行できる。</p>
-<p>関連文書: 全体構成と動作環境は <a href="../">00_index.md</a>、フォルダ構成は <a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/">00_共通_1_フォルダ構成と設定ファイル.md</a>、プロセス停止機能は <a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3_プロセス停止タブ.md</a>、脆弱性の連絡先は <a href="https://github.com/hsgwa/tebunko/blob/main/SECURITY.md">SECURITY.md</a> を参照。</p>
+<p>関連文書: 全体構成と動作環境は <a href="../">00_index.md</a>、フォルダ構成は <a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/">00_共通_1_フォルダ構成と設定ファイル.md</a>、プロセス停止機能は <a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3_プロセス停止タブ.md</a>、脆弱性の連絡先は <a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.md">SECURITY.md</a> を参照。</p>
 <hr />
 <h2 id="1-要約">1. 要約<a class="headerlink" href="#1-要約" title="Permanent link">&para;</a></h2>
 <table>
@@ -2509,7 +2509,7 @@
 <li>原本のパスを書き込み・削除の API に渡さないこと、<code>SaveAs</code> の保存先が作業フォルダだけであること、原本を読むのは <code>copyFileShared</code> の読み取りだけであること</li>
 <li>書き込み先が <code>work</code> 配下と <code>%TEMP%</code> 配下に限られること、異常終了で残った作業フォルダを次回起動時に回収すること（4.4）</li>
 <li>PSScriptAnalyzer の安全性ルール・<code>Error</code> 重大度・制限言語モードの指摘が 0 件であること（未導入の環境では自動的に飛ばす）</li>
-<li>本書・<a href="https://github.com/hsgwa/tebunko/blob/main/SECURITY.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM が第三者の部品を含まないこと、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
+<li>本書・<a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM が第三者の部品を含まないこと、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
 </ul>
 <p>テストとコードの指標（安全性の間接的な根拠）:</p>
 <table>
@@ -2580,7 +2580,7 @@
 </tr>
 <tr>
 <td>脆弱性の連絡</td>
-<td><a href="https://github.com/hsgwa/tebunko/blob/main/SECURITY.md">SECURITY.md</a> に窓口と対応方針を記載</td>
+<td><a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.md">SECURITY.md</a> に窓口と対応方針を記載</td>
 </tr>
 </tbody>
 </table>
