@@ -3,7 +3,7 @@
 tebunko への不具合の報告・要望・修正の提案を歓迎します。このページは、変更を提案するときの手順と決まりをまとめたものです。
 
 - 使い方の質問は [SUPPORT.md](SUPPORT.md) を見てください。
-- 安全性に関わる問題は、Issue ではなく [SECURITY.md](../SECURITY.md) の手順で非公開で連絡してください。
+- 安全性に関わる問題は、Issue ではなく [SECURITY.md](SECURITY.md) の手順で非公開で連絡してください。
 - 参加する人は [行動規範](CODE_OF_CONDUCT.md) に従ってください。
 
 ## 変更の流れ
@@ -71,7 +71,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 
 - 設計書は `docs/` にあります。動きを変えたら、該当する設計書も同じ Pull Request で直してください。
 - 図は Mermaid か draw.io（`.drawio.png`）で描きます。罫線文字のアスキーアートは使いません。
-- 設計書は [Web サイト](https://hsgwa.github.io/tebunko/)（MkDocs）にもなります。設計書を足したときは `mkdocs.yml` の `nav` にも足してください。設計書を変えた Pull Request には、サイトのプレビューの URL が自動でコメントされます。手元での確かめ方は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) の「CI」にあります。
+- 設計書は [Web サイト](https://hsgwa.github.io/tebunko/)（MkDocs）にもなります。設計書を足したときは `tools/mkdocs/mkdocs.yml` の `nav` にも足してください。設計書を変えた Pull Request には、サイトのプレビューの URL が自動でコメントされます。手元での確かめ方は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) の「CI」にあります。
 
 ## リリース
 
