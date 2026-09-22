@@ -4,5 +4,7 @@
 . "$PSScriptRoot\core\fs.ps1"
 . "$PSScriptRoot\core\text.ps1"
 . "$PSScriptRoot\core\folder.ps1"
+. "$PSScriptRoot\core\settings.ps1"
 . "$PSScriptRoot\office\office_files.ps1"
+. "$PSScriptRoot\office\place_name.ps1"
 . "$PSScriptRoot\office\office_process.ps1"

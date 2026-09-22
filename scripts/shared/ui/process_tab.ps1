@@ -1,10 +1,29 @@
-﻿# ［9 プロセス停止］タブ（実行中の Office の一覧と強制終了）。
+﻿# ［9 プロセス停止］タブ（実行中の Office の一覧と強制終了）。どのツールからも使う。
+# $ui（ProcessGrid など tab_kill.xaml の名前と KillTabHeader）を作った後に読み込む。
+# ツールが裏で Office を使っている間（インデックス作成・比較の抽出）は registerBusyCheck で知らせてもらい、
+# 印を付けない・終了の前に注意を出す
 
 # ============================================================================
 # ［9 プロセス停止］
 # ============================================================================
 
 $script:processes = @()
+$script:busyChecks = New-Object System.Collections.ArrayList
+
+function registerBusyCheck {
+    # 裏で Office を使っているかを返す scriptblock（check）と、そのときの作業の名前（label。例: インデックス作成）を登録する
+    param (
+        [scriptblock]$check,
+        [string]$label
+    )
+
+    [void]$script:busyChecks.Add(@{ Check = $check; Label = $label })
+}
+
+function getBusyLabels {
+    # 今、裏で Office を使っている作業の名前の一覧
+    return @($script:busyChecks | Where-Object { & $_.Check } | ForEach-Object { $_.Label })
+}
 
 function refreshProcesses {
     $selectedIds = @($ui.ProcessGrid.SelectedItems | ForEach-Object { $_.Id })
@@ -50,8 +69,8 @@ function updateKillBadge {
     if ($null -eq $background) {
         $background = @(getOfficeProcesses | Where-Object { $_.Background }).Count
     }
-    # インデックス作成中はバックグラウンドの Excel 等があって当然なので、印を付けない
-    $ui.KillTabHeader.Text = if ($background -gt 0 -and !(isIndexing)) { "⚠ 9 プロセス停止" } else { "9 プロセス停止" }
+    # インデックス作成中・比較中はバックグラウンドの Excel 等があって当然なので、印を付けない
+    $ui.KillTabHeader.Text = if ($background -gt 0 -and @(getBusyLabels).Count -eq 0) { "⚠ 9 プロセス停止" } else { "9 プロセス停止" }
 }
 
 function killProcesses {
@@ -82,14 +101,15 @@ function killProcesses {
         $heading = "バックグラウンドの Office を $($targets.Count) 件終了しますか？"
         $facts = @(
             (factKept "画面に出ているファイルはありません" (& $describe $targets)),
-            (factNext "残ったまま動いていたものを片付けます" "次のインデックス作成で作り直されます")
+            (factNext "残ったまま動いていたものを片付けます" "途中だったものは、次に取り込む・比べるときに作り直されます")
         )
     }
-    if (isIndexing) {
-        $facts += factGone "いま取り込み中のファイルは失敗あつかいになります" "インデックス作成が終わってから終了するのが安全です"
+    $busy = @(getBusyLabels)
+    foreach ($label in $busy) {
+        $facts += factGone "いま${label}で読み取り中のファイルは失敗あつかいになります" "${label}が終わってから終了するのが安全です"
     }
     $answer = showConfirm -heading $heading -facts $facts `
-        -choices @(@{ Text = "終了する"; Value = "stop"; Danger = ($visibleTargets.Count -gt 0 -or (isIndexing)) })
+        -choices @(@{ Text = "終了する"; Value = "stop"; Danger = ($visibleTargets.Count -gt 0 -or $busy.Count -gt 0) })
     if ($answer -ne "stop") {
         return
     }

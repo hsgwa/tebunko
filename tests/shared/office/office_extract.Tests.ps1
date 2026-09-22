@@ -1,10 +1,10 @@
-﻿# 1 ファイルの抽出（tebunko_grep\indexer\extract_office.ps1）のテスト。
+﻿# 1 ファイルの抽出（shared\office\office_extract.ps1）のテスト。
 # Excel・Word・PowerPoint は使わない。COM の入口の getApp を Mock して、同じ呼び方ができる偽のオブジェクトを返す。
 # 偽のオブジェクトは、呼ばれたメソッドと引数を $log に記録し、保存（SaveAs）では本物と同じ形式のファイルを書く。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 . "${scriptsDir}\shared\office\office_reader.ps1"
 . "${scriptsDir}\shared\office\office_app.ps1"
-. "${scriptsDir}\tebunko_grep\indexer\extract_office.ps1"
+. "${scriptsDir}\shared\office\office_extract.ps1"
 
 # Worksheets は、foreach で列挙でき、引数なしの Add() で一時シートを足せる。
 # クラスのメソッドからはテストの変数・関数が見えないため、必要なものはプロパティに持たせる
@@ -430,14 +430,14 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
     }
 }
 
-Describe "ingestFile" -Tag Io {
+Describe "extractOfficeFile" -Tag Io {
     Mock extractWorkbook { "Excel" }
     Mock extractDocument { "Word・PowerPoint" }
 
     It "拡張子で Excel とそれ以外に振り分ける" {
-        ingestFile "a.xlsx" | Should Be "Excel"
-        ingestFile "a.XLS" | Should Be "Excel"
-        ingestFile "a.docx" | Should Be "Word・PowerPoint"
-        ingestFile "a.ppt" | Should Be "Word・PowerPoint"
+        extractOfficeFile "a.xlsx" | Should Be "Excel"
+        extractOfficeFile "a.XLS" | Should Be "Excel"
+        extractOfficeFile "a.docx" | Should Be "Word・PowerPoint"
+        extractOfficeFile "a.ppt" | Should Be "Word・PowerPoint"
     }
 }

@@ -32,7 +32,7 @@ param (
 . "$PSScriptRoot\..\shared\office\office_reader.ps1"
 . "$PSScriptRoot\..\shared\office\office_app.ps1"
 . "$PSScriptRoot\indexer\indexer_plan.ps1"
-. "$PSScriptRoot\indexer\extract_office.ps1"
+. "$PSScriptRoot\..\shared\office\office_extract.ps1"
 . "$PSScriptRoot\indexer\index_migrate.ps1"
 
 $ErrorActionPreference = "Stop"
@@ -318,7 +318,7 @@ try {
             $script:watchdog.TimedOut = $false
             $script:watchdog.Deadline = (Get-Date).AddMinutes($fileTimeoutMinutes)
             try {
-                $tsvCount = ingestFile $sourcePath
+                $tsvCount = extractOfficeFile $sourcePath
             } finally {
                 $script:watchdog.Deadline = [datetime]::MaxValue
             }

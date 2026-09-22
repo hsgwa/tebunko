@@ -350,7 +350,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @(@{ name = "監査"; path = $source; enabled = $true })
         # 取り込みの直前に、見張り（startWatchdog）が制限時間を過ぎたと判断した状態にする
-        $timeout = @{ Script = $indexerPath; Pattern = '^\s+\$tsvCount = ingestFile'; Action = { $watchdog.TimedOut = $true } }
+        $timeout = @{ Script = $indexerPath; Pattern = '^\s+\$tsvCount = extractOfficeFile'; Action = { $watchdog.TimedOut = $true } }
 
         invokeIndexer $root @{} @($timeout) | Should Be 0
         $status = readTestStatus $root

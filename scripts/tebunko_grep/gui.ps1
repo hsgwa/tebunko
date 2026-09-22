@@ -103,7 +103,7 @@ $tabs = @(
         "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
         "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
         "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
-    @{ Tab = "KillTab"; File = "tab_kill.xaml"; Names = @(
+    @{ Tab = "KillTab"; File = "tab_kill.xaml"; Dir = ${sharedXamlDir}; Names = @(
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
         "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
 )
@@ -113,7 +113,8 @@ foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader"
     $ui[$name] = $window.FindName($name)
 }
 foreach ($tab in $tabs) {
-    $content = loadXaml "${xamlDir}\$($tab.File)"
+    $dir = if ($tab.Dir) { $tab.Dir } else { ${xamlDir} }
+    $content = loadXaml "$dir\$($tab.File)"
     $ui[$tab.Tab].Content = $content
     foreach ($name in $tab.Names) {
         $ui[$name] = $content.FindName($name)
@@ -141,7 +142,8 @@ ${grayBrush} = themeBrush "Ink.Muted"
 . "$PSScriptRoot\ui\preview.ps1"
 . "$PSScriptRoot\ui\open_source.ps1"
 . "$PSScriptRoot\ui\index_tree.ps1"
-. "$PSScriptRoot\ui\process_tab.ps1"
+. "$PSScriptRoot\..\shared\ui\process_tab.ps1"
+registerBusyCheck { isIndexing } "インデックス作成"
 # ============================================================================
 # ウィンドウ全体
 # ============================================================================

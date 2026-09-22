@@ -79,3 +79,13 @@ class FolderEntry {
     # スクリーンリーダー・自動化ツールには名前で見えるようにする（既定では型名になる）
     [string] ToString() { return $this.Name }
 }
+
+# ［9 プロセス停止］の1行
+class ProcRow {
+    [int]$Id
+    [string]$AppName
+    [bool]$Background
+    [string]$StartText
+    [string]$MemoryText
+    [string]$TitleText
+}

@@ -1,7 +1,5 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
-$targetExtensions = ${officeExtensions}  # 取り込み対象の拡張子（shared\office\office_files.ps1。画面のフォルダ選択でも同じ一覧を使う）
-
 # ----------------------------------------------------------------------------
 # 取り込み対象
 # ----------------------------------------------------------------------------
@@ -38,24 +36,6 @@ function removeBookDir {
     )
 
     removeDirectoryRetry $bookDir
-}
-
-function findOfficeFiles {
-    # クロール対象フォルダ配下のOfficeファイルを検索し、@{ Root; Files; HasError（アクセスできないフォルダがあった） } を返す。
-    # Root は実際に列挙したフォルダ（\\?\ の付かない通常のパス）。相対パスはこの Root から求める
-    # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）
-    param (
-        [string]$targetFolder
-    )
-
-    # \\?\ を付けないと、パスが約248文字を超えるフォルダの中を検索できない（アクセスできないフォルダ扱いになる）。
-    # 見つかったファイルの FullName は \\?\ 付きになる（fromLongPath で戻す）
-    $scanErrors = $null
-    $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
-    $files = @(Get-ChildItem -LiteralPath (toLongPath $root) -Recurse -File -ErrorAction SilentlyContinue -ErrorVariable scanErrors |
-        Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
-
-    return @{ Root = $root; Files = $files; HasError = (@($scanErrors).Count -gt 0) }
 }
 
 function createTargetList {

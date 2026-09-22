@@ -116,9 +116,10 @@ Describe "画面の部品の名前" -Tag Meta {
     foreach ($tab in @(
             @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
             @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
-            @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' })) {
+            @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"'; Dir = "shared" })) {
         $file = $tab.File
         $marker = $tab.Marker
+        $toolDir = if ($tab.Dir) { $tab.Dir } else { "tebunko_grep" }
 
         It "$file に、gui.ps1 が使う名前がすべてある" {
             # gui.ps1 の $tabs から、そのタブの名前の一覧を取り出す
@@ -130,7 +131,7 @@ Describe "画面の部品の名前" -Tag Meta {
             $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
             $wanted.Count -gt 0 | Should Be $true
 
-            $names = getXamlNames "$here\..\scripts\tebunko_grep\xaml\$file"
+            $names = getXamlNames "$here\..\scripts\$toolDir\xaml\$file"
             $missing = @($wanted | Where-Object { $names -notcontains $_ })
             ($missing -join ", ") | Should Be ""
         }

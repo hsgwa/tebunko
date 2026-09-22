@@ -522,16 +522,6 @@ class HitRow : NotifyBase {
     }
 }
 
-# ［9 プロセス停止］の1行
-class ProcRow {
-    [int]$Id
-    [string]$AppName
-    [bool]$Background
-    [string]$StartText
-    [string]$MemoryText
-    [string]$TitleText
-}
-
 # ［1 インデックス管理］の取り込みに失敗したファイル1件
 class FailRow {
     [string]$RelPath

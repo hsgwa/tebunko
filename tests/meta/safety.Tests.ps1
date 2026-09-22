@@ -130,7 +130,7 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
 
 Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2）" -Tag Meta {
     $app = @($code | Where-Object { $_.File -eq "office_app.ps1" })
-    $extract = @($code | Where-Object { $_.File -eq "extract_office.ps1" })
+    $extract = @($code | Where-Object { $_.File -eq "office_extract.ps1" })
 
     It "マクロを強制的に無効にしてから開く（AutomationSecurity = 3）" {
         (findPattern $app 'AutomationSecurity\s*=\s*3') | Should Not Be ""
@@ -180,7 +180,7 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/04
     }
 
     It "原本は読み取り専用で開く（Excel・Word・PowerPoint）" {
-        $extract = @($code | Where-Object { $_.File -eq "extract_office.ps1" })
+        $extract = @($code | Where-Object { $_.File -eq "office_extract.ps1" })
         # Excel: Open の第 3 引数 ReadOnly = $true / Word: 第 3 引数 ReadOnly = $true / PowerPoint: 第 2 引数 ReadOnly = -1
         (findPattern $extract '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
         (findPattern $extract '\$documents\.Open\(\$sourcePath,\s*\$false,\s*\$true') | Should Not Be ""
@@ -190,7 +190,7 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/04
 
 Describe "書き込み先が限られていること（docs/04_安全性.md 3.1）" -Tag Meta {
     It "書き込みに使うフォルダの定義は work 配下と TEMP 配下だけ" {
-        $paths = @($code | Where-Object { $_.File -eq "paths.ps1" -or $_.File -eq "paths_grep.ps1" -or $_.File -eq "settings_grep.ps1" })
+        $paths = @($code | Where-Object { $_.File -eq "paths.ps1" -or $_.File -eq "paths_grep.ps1" -or $_.File -eq "settings.ps1" })
         (findPattern $paths '\$\{workDir\}\s*=\s*"\$\{rootDir\}\\work"') | Should Not Be ""
         (findPattern $paths '\$\{indexDir\}\s*=\s*"\$\{workDir\}\\index"') | Should Not Be ""
         (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko_grep\\\$\{PID\}"') | Should Not Be ""

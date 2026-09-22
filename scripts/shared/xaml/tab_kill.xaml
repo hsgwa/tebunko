@@ -1,10 +1,10 @@
-﻿<!-- ［9 プロセス停止］タブの中身。tebunko_grep.xaml の KillTab に入れる（gui.ps1） -->
+﻿<!-- ［9 プロセス停止］タブの中身（どのツールからも使う）。ウィンドウの KillTab に入れる -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Grid.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="../../shared/xaml/theme.xaml" />
+        <ResourceDictionary Source="theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Grid.Resources>
@@ -13,7 +13,7 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
           <TextBlock Style="{StaticResource Heading}" Text="残っている Office のプロセス" />
           <TextBlock Style="{StaticResource Meta}" Margin="0,6,0,0"
-                     Text="インデックス作成を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。" />
+                     Text="取り込み・比較を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。" />
         </StackPanel>
   
         <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">

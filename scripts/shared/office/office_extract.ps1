@@ -1,4 +1,6 @@
 ﻿# 1ファイルから文字を抽出して TSV に書き出す（Excel のセルは COM、Excel の図形・コメントと Word・PowerPoint はファイルを直接読む）。
+# どのツールからも使う（インデクサの取り込み・比較の抽出）。書き出す先は、使う側が決める作業フォルダ ${tmpDir}。
+# 使う側は office_reader.ps1・office_app.ps1 も読み込んでおくこと
 
 $excelMaxPath = 218       # Excelで開けるパスの長さの目安（古い版の上限）。作業フォルダのコピーのパスがこれ以上なら短い名前にする
 $excelExtraCells = 1000000  # 使用範囲がデータの範囲よりこのセル数以上広いシートは、データの範囲だけを一時シートにコピーしてから書き出す
@@ -300,8 +302,8 @@ function extractDocument {
     return (writeUnits $units $tmpDir)
 }
 
-function ingestFile {
-    # 1ファイルを取り込み、作成したTSVの数を返す
+function extractOfficeFile {
+    # 1ファイルから場所ごとのTSVを作業フォルダ（$tmpDir）に書き出し、作成したTSVの数を返す
     param (
         [string]$sourcePath
     )
