@@ -1373,10 +1373,19 @@ Word・PowerPoint で共通の処理は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%
 <td><code>脚注</code></td>
 <td><code>word/footnotes.xml</code>・<code>word/endnotes.xml</code>（区切り線は文字が無いため出力されない）</td>
 </tr>
+<tr>
+<td><code>ページNNN[図形]</code></td>
+<td>本文のテキストボックス・図形内の文字（<code>w:txbxContent</code>）、SmartArt（<code>dgm:relIds</code> の <code>r:dm</code> が指す <code>word/diagrams/dataN.xml</code>）、グラフ（<code>c:chart</code> の <code>r:id</code> が指す <code>word/charts/chartN.xml</code> のタイトル・軸ラベル・系列名・項目名。数値は読まない）。図形 1 つを 1 行にし、段落はスペースでつなぐ。ページは図形を置いた段落のページ</td>
+</tr>
+<tr>
+<td><code>ページNNN[コメント]</code></td>
+<td><code>word/comments.xml</code> のコメント（返信も 1 件ずつ）。ページは本文の <code>w:commentReference</code> の位置。本文に参照の無いコメント（ヘッダー・脚注に付けたもの等）は <code>文書[コメント]</code> にまとめる。作成者名は読まない</td>
+</tr>
 </tbody>
 </table>
 <ul>
-<li>コメントは読まない。</li>
+<li>図形・コメントの場所の決まりは 6.1 節の「図形・コメントの場所」。SmartArt は描画用の <code>diagrams/drawingN.xml</code> に同じ文字があるが、重複するため読まない。</li>
+<li>ヘッダー・フッター・脚注の中のテキストボックスは、今までどおりその場所の行にする。</li>
 <li><strong>ページ番号は目安</strong>。ファイルにはページの情報が無いため、以下で数える。</li>
 <li>Word が保存時に記録したページ区切り（<code>w:lastRenderedPageBreak</code>）。本文にこれが 1 つも無い（Word 以外で作られた）文書では使わない。</li>
 <li>手動の改ページ（<code>w:br w:type="page"</code>）・段落前で改ページ（<code>w:pageBreakBefore</code>）・セクション区切り（種類が「連続」以外）。これらの直後、本文が出る前にある <code>w:lastRenderedPageBreak</code> は同じ区切りなので数えない（Word は手動の改ページの後に <code>w:lastRenderedPageBreak</code> を記録する場合としない場合がある ◎）。</li>
@@ -1436,7 +1445,7 @@ Word・PowerPoint で共通の処理は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%
 </tr>
 <tr>
 <td>3</td>
-<td>コメント、SmartArt・グラフ内の文字、埋め込みオブジェクト（Excel の表など）は検索対象にならない</td>
+<td>埋め込みオブジェクト（Excel の表など）、グラフの数値、変更履歴で削除した文字は検索対象にならない。コメント・SmartArt・グラフの文字は <code>[コメント]</code> <code>[図形]</code> の場所で検索できる</td>
 <td>○</td>
 </tr>
 <tr>

@@ -1559,35 +1559,38 @@
 <thead>
 <tr>
 <th>種類</th>
-<th>入れるもの</th>
-<th>Excel（今）</th>
-<th>Word（予定）</th>
-<th>PowerPoint（予定）</th>
+<th>Excel</th>
+<th>Word</th>
+<th>PowerPoint</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>図形</code></td>
-<td>図形・テキストボックス・WordArt（SmartArt・グラフも入れる予定）</td>
-<td><code>売上[図形]</code></td>
-<td><code>ページ003[図形]</code></td>
-<td><code>スライド002[図形]</code></td>
+<td>図形・テキストボックス・WordArt（<code>売上[図形]</code>）</td>
+<td>本文のテキストボックス・図形内の文字、SmartArt、グラフ（<code>ページ003[図形]</code>）</td>
+<td>SmartArt、グラフ（<code>スライド002[図形]</code>）。テキストボックス・図形の文字はスライドの本文</td>
 </tr>
 <tr>
 <td><code>コメント</code></td>
-<td>コメント（メモ・スレッド形式・返信）</td>
-<td><code>売上[コメント]</code></td>
-<td><code>ページ003[コメント]</code></td>
-<td><code>スライド002[コメント]</code></td>
+<td>メモ・スレッド形式のコメントと返信（<code>売上[コメント]</code>）</td>
+<td>コメントと返信（<code>ページ003[コメント]</code>。本文に参照の無いものは <code>文書[コメント]</code>）</td>
+<td>旧形式・新形式のコメントと返信（<code>スライド002[コメント]</code>）</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。</li>
+<li>PowerPoint のテキストボックス・図形を本文のままにするのは、スライドの文字はほとんどが図形（プレースホルダーを含む）で、分けると本文が空になるため。</li>
+<li>Word のテキストボックスは、Excel とそろえて図形にする（以前の版は本文に含めていた）。［図形も検索］をオフにすると検索されない。</li>
+<li>
+<p>Excel の SmartArt・グラフ、埋め込みオブジェクト、スライドマスター・レイアウトは読まない。</p>
+</li>
+<li>
+<p><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。</p>
+</li>
 <li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types_grep.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
-<li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「セル」と、開くときに選ぶセルに使う）。Word・PowerPoint では、図形・コメント 1 つを 1 行（文字だけ）にする予定。元の場所（ページ・スライド）は場所の名前で分かる。</li>
-<li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5</a>）。</li>
-<li><strong>Word・PowerPoint に広げるときに決めること</strong>: Word のテキストボックス・図形内の文字は、今はページの本文に含めている（6.4 節）。<code>[図形]</code> に移すかどうか（移すと［図形も検索］をオフにしたときに検索されなくなる）。</li>
+<li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「セル」と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。</li>
+<li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5</a>）。今は <code>.xlsx</code> <code>.xlsm</code> と Word・PowerPoint のすべての形式が 2。</li>
 </ul>
 <h4 id="インデックスへの入れ替えpublishtsv--publishindexfiles">インデックスへの入れ替え（<code>publishTsv</code> / <code>publishIndexFiles</code>）<a class="headerlink" href="#インデックスへの入れ替えpublishtsv--publishindexfiles" title="Permanent link">&para;</a></h4>
 <p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code>）にできた TSV をインデックスへ入れる。このとき、TSV をいったん <code>work/取り込み出力/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。</p>
@@ -1740,7 +1743,11 @@
 </tr>
 <tr>
 <td>テキストボックス</td>
-<td>中の段落をそれぞれ 1 行とする（Word ではアンカーの段落の前に出力される）</td>
+<td>Word の本文（<code>$objects</code> を渡したとき）: 本文の行には入れず、段落をスペースでつないで図形 1 つとして集める（6.5 節の <code>ページNNN[図形]</code>）。ヘッダー・フッター・脚注: 中の段落をそれぞれ 1 行とする（アンカーの段落の前に出力される）</td>
+</tr>
+<tr>
+<td>SmartArt・グラフ・コメントの参照</td>
+<td><code>$objects</code> を渡したとき、<code>dgm:relIds</code> の <code>r:dm</code>・<code>c:chart</code> の <code>r:id</code>・<code>w:commentReference</code> の <code>w:id</code> をページ付きで集める（中身は呼び出し元がリレーションシップの先から読む）</td>
 </tr>
 <tr>
 <td>互換用の代替表示（<code>mc:Fallback</code>）</td>
