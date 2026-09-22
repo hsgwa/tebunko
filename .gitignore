@@ -11,7 +11,7 @@ sample*/
 # （tests/testdata/README.md「生成」。make_testdata.ps1 が手元で作る）
 tests/testdata/office/ファイル名/とても長い名前のファイル*
 
-# 作業用の git worktree（.github/MAINTAINING.md「作業場所」。マージしたら削除する）
+# 作業用の git worktree（マージしたら削除する）
 .claude/worktrees/
 
 # 開発ツールの個人設定（共有する設定 .claude/settings.json は追跡する）
@@ -22,3 +22,6 @@ tests/testdata/office/ファイル名/とても長い名前のファイル*
 
 # MkDocs のフック（tools/mkdocs/hooks.py）を読み込んだときに Python が作るキャッシュ
 __pycache__/
+
+# 個人だけの Claude Code の指示（リポジトリに入れない）
+CLAUDE.local.md

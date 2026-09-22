@@ -6,15 +6,14 @@
 
 ## GitHub の運用
 
-変更は **ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。外部からの貢献の始め方（Issue の立て方）は [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) にある。
+変更は **ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。貢献の始め方（Issue の立て方・開発の準備）は [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) にある。
 
-**メンテナのエージェントは、あわせて [.github/MAINTAINING.md](.github/MAINTAINING.md) に従う。** 作業場所（worktree）・作業の管理（GitHub Projects）・マージ・リリースの決まりはそこにある。
+**ラベル付け・マージ・リリースはメンテナが行う。** エージェントはこれらを試みない。
 
 - **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護（ruleset）で禁止し、必須チェック（`test.yml` の `test`・`title.yml` の `pr-title`・`docs.yml` の `docs`・`codeql.yml` の `analyze`）が通らないとマージできない。PR のブランチが最新の main を取り込んでいないときもマージできない。
 - **1 つの PR には 1 つの目的だけを入れる。** 目的と関係のない修正は別の PR にする。
 - **PR 本文は `.github/pull_request_template.md` に沿って書く。** Issue があれば `Closes #<番号>` でつなぐ（マージすると Issue が自動で閉じる）。無ければ目的を PR 本文に書く。
-- **PR にはラベルを 1 つ付ける**（`enhancement` / `bug` / `documentation` / `dependencies`）。リリースノートはこのラベルで分類される（`.github/release.yml`）。
-- **前の版と互換が無くなる PR には、さらに `breaking` を付け、タイトルの型に `!` を付ける**（下の Conventional Commits）。設定ファイル（`setting.config`）・インデックスの形式、起動の仕方、配布物のファイル構成が変わり、前の版のものがそのまま使えなくなるときがこれに当たる。PR 本文に移行の手順を書く。
+- **前の版と互換が無くなる PR は、タイトルの型に `!` を付ける**（下の Conventional Commits）。設定ファイル（`setting.config`）・インデックスの形式、起動の仕方、配布物のファイル構成が変わり、前の版のものがそのまま使えなくなるときがこれに当たる。PR 本文に移行の手順を書く。
 - **PR を出す前に最新の main を取り込む。** 取り込みは merge で行い、push 済みのブランチを rebase して force push しない。
 
   ```
@@ -23,28 +22,26 @@
   ```
 
 - **マージは squash merge で行う**（GitHub の設定で squash だけを許している）。PR 1 つが main のコミット 1 つになり、**PR のタイトルがそのコミットのタイトルになる。** タイトルは、コミットメッセージと同じく変更の内容が分かる日本語の 1 行にする。
-- **コミットメッセージの 1 行目・PR のタイトル・Issue のタイトルは Conventional Commits の形 `<型>(<範囲>)!: <説明>` にする。** 型は英語、説明は日本語で書く（例 `feat: Excel の図形の文字を検索できるようにする`）。範囲と `!`（前の版と互換が無くなる変更。PR には `breaking` ラベルも付ける。上げる桁は [MAINTAINING.md](.github/MAINTAINING.md) の「リリース」）は省略できる。
+- **コミットメッセージの 1 行目・PR のタイトル・Issue のタイトルは Conventional Commits の形 `<型>(<範囲>)!: <説明>` にする。** 型は英語、説明は日本語で書く（例 `feat: Excel の図形の文字を検索できるようにする`）。範囲と `!`（前の版と互換が無くなる変更）は省略できる。
 
-  | 型 | 使うとき | PR のラベル |
-  |---|---|---|
-  | `feat` | 機能の追加・変更 | `enhancement` |
-  | `fix` | 不具合の修正 | `bug` |
-  | `docs` | 文書だけの変更 | `documentation` |
-  | `refactor` | 動きを変えない書き直し | 内容に近いもの |
-  | `perf` | 速さの改善 | `enhancement` |
-  | `test` | テストだけの追加・修正 | 内容に近いもの |
-  | `style` | 書式だけの変更（空白・改行など） | 内容に近いもの |
-  | `build` | 配布物の作り方・依存の更新 | `dependencies`（依存の更新のとき） |
-  | `ci` | CI・git のフック・開発用の道具 | 内容に近いもの |
-  | `chore` | 上のどれにも当たらないもの | 内容に近いもの |
-  | `revert` | 前の変更の取り消し | 取り消す変更と同じもの |
+  | 型 | 使うとき |
+  |---|---|
+  | `feat` | 機能の追加・変更 |
+  | `fix` | 不具合の修正 |
+  | `docs` | 文書だけの変更 |
+  | `refactor` | 動きを変えない書き直し |
+  | `perf` | 速さの改善 |
+  | `test` | テストだけの追加・修正 |
+  | `style` | 書式だけの変更（空白・改行など） |
+  | `build` | 配布物の作り方・依存の更新 |
+  | `ci` | CI・git のフック・開発用の道具 |
+  | `chore` | 上のどれにも当たらないもの |
+  | `revert` | 前の変更の取り消し |
 
   機械的に確かめる: コミットは `commit-msg` フック、PR のタイトルは CI（`.github/workflows/title.yml` の `pr-title`。失敗するとマージできない）、Issue のタイトルは同じワークフローが形の違うものに直し方をコメントする。判定は `tools/check_commit_message.ps1` にまとめてある。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べない。
 - **コミットには `git commit -s` で `Signed-off-by: <名前> <メールアドレス>` を付ける。** [DCO](https://developercertificate.org/)（その変更を出す権利があること）に同意したことを表す。メールアドレスはコミットの作者のもの（下の「個人情報を書かない」の noreply）と同じにする。
 
   機械的に確かめる: コミットは `commit-msg` フック、PR のコミットは CI（`test.yml` の `test`。失敗するとマージできない）。判定は `tools/check_signoff.ps1`。マージコミットと bot（Dependabot など）のコミットは調べない。決まりを作る前（#53 より前）のコミットには付いていないが、書き換えない。付け忘れたまま PR のブランチに push したときに限り、`git rebase --signoff origin/main` で付け直して `git push --force-with-lease` してよい。
-- マージしたブランチは GitHub が自動で消す。
-- **GitHub Actions の更新は Dependabot が PR を出す**（`.github/dependabot.yml`）。
 
 ## 除外設定（読ませない・検索させない）
 
