@@ -55,7 +55,7 @@
           <Button x:Name="EditIndexButton" Content="編集…" Margin="0,8,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスはそのまま使います）" />
           <Button x:Name="RemoveIndexButton" Style="{StaticResource Danger}" Content="削除" Margin="0,8,0,0" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
           <TextBlock Style="{StaticResource Micro}" Margin="2,14,0,0"
-                     Text="一覧にフォルダをドラッグ＆ドロップしても作成できます。" />
+                     Text="一覧にフォルダをドラッグ＆ドロップしても追加できます。" />
         </StackPanel>
         <Grid>
           <DataGrid x:Name="IndexGrid" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">

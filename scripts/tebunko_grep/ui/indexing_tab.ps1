@@ -119,7 +119,7 @@ function showIndexingConfirmDialog {
         $ctrl.CancelButton.Visibility = "Collapsed"
         $ctrl.NoteText.Visibility = "Visible"
         $ctrl.NoteText.Text = "更新日時が変わらないまま中身が変わったファイルは、取り込み対象になりません。" +
-            "そのインデックスを一から作り直すときは、［削除］してから作成し直してください。"
+            "そのインデックスを一から作り直すときは、［削除］してから追加し直してください。"
     }
     updateIndexingConfirmTotal
 

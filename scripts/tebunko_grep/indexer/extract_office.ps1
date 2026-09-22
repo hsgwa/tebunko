@@ -180,7 +180,7 @@ function extractWithWord {
     )
 
     # 読み取り専用で開く。パスワード付きのファイルは、ダイアログを出さずにエラーとするためダミーのパスワードを渡す
-    #   引数: FileName, ConfirmIndexings, ReadOnly, AddToRecentFiles, PasswordDocument, PasswordTemplate,
+    #   引数: FileName, ConfirmConversions, ReadOnly, AddToRecentFiles, PasswordDocument, PasswordTemplate,
     #         Revert, WritePasswordDocument, WritePasswordTemplate, Format, Encoding, Visible
     $documents = (getApp "Word").Documents
     try {
@@ -251,10 +251,10 @@ function extractDocument {
             # コピーに旧形式の拡張子を付け直してから開く
             if ($isWord) {
                 $legacyPath = Join-Path $tmpDir "source.doc"
-                $readPath = Join-Path $tmpDir "ingested.docx"
+                $readPath = Join-Path $tmpDir "converted.docx"
             } else {
                 $legacyPath = Join-Path $tmpDir "source.ppt"
-                $readPath = Join-Path $tmpDir "ingested.pptx"
+                $readPath = Join-Path $tmpDir "converted.pptx"
             }
             if ($legacyPath -ne $copyPath) {
                 [System.IO.File]::Move($copyPath, $legacyPath)

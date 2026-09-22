@@ -338,13 +338,13 @@ function addIndexItem {
     if (Test-Path -LiteralPath $path -PathType Container) {
         setStatus "インデックス [${name}] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます"
     } else {
-        setStatus "インデックス [${name}] を作成しましたが、フォルダが見つかりません：${path}"
+        setStatus "インデックス [${name}] を追加しましたが、フォルダが見つかりません：${path}"
     }
 }
 
 function newIndex {
     # ［追加…］。フォルダとインデックス名を決めて一覧に加える（インデックス作成はしない）
-    if (!(testIndexOperable "作成")) {
+    if (!(testIndexOperable "追加")) {
         return
     }
     $result = showIndexEditDialog $null
@@ -360,7 +360,7 @@ function addIndexForFolder {
         [string]$path
     )
 
-    if (!(testIndexOperable "作成")) {
+    if (!(testIndexOperable "追加")) {
         return
     }
     $path = normalizeFolderPath $path

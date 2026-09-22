@@ -285,7 +285,7 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
 
         extractDocument $source | Should Be 1
         (readTsv "ページ001.tsv").Trim() | Should Be "旧形式の本文"
-        $log -join "|" | Should Be "Open:source.doc:ReadOnly=True:Password=dummy:Visible=False|Repaginate|SaveAs2:ingested.docx:12|Close:0"
+        $log -join "|" | Should Be "Open:source.doc:ReadOnly=True:Password=dummy:Visible=False|Repaginate|SaveAs2:converted.docx:12|Close:0"
         # 作業ファイル（コピーと TSV）は消す
         listTmp | Should Be @("ページ001.tsv")
     }
@@ -309,7 +309,7 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         extractDocument $source | Should Be 1
         (readTsv "スライド001.tsv").Trim() | Should Be "旧形式のスライド"
         # ファイル名の後ろの ::dummy:: で、パスワード付きのファイルはダイアログを出さずにエラーになる
-        $log -join "|" | Should Be "Open:source.ppt::dummy:::-1,0,0|SaveAs:ingested.pptx:24|Close"
+        $log -join "|" | Should Be "Open:source.ppt::dummy:::-1,0,0|SaveAs:converted.pptx:24|Close"
         listTmp | Should Be @("スライド001.tsv")
     }
 
