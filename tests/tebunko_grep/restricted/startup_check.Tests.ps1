@@ -24,6 +24,26 @@ Describe "testFolderWritable" -Tag Io {
     }
 }
 
+Describe "testExcelInstalled" -Tag Io {
+    # Excel の入っている PC でも入っていない PC でも同じ道筋を通るよう、探す場所を差し替えて確かめる
+    It "Office の置き場所に EXCEL.EXE があれば true（クイック実行版・MSI 版のどちらも）" {
+        foreach ($rel in @("Microsoft Office\root\Office16", "Microsoft Office\Office16")) {
+            $root = Join-Path $TestDrive ($rel -replace '[\\ ]', "_")
+            $dir = Join-Path $root $rel
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $dir "EXCEL.EXE") -Value ""
+            testExcelInstalled @($root) | Should Be $true
+            # 2 つ目の場所にあっても見つける
+            testExcelInstalled @((Join-Path $TestDrive "無い"), $root) | Should Be $true
+        }
+    }
+
+    It "どこにも無ければ false（空の場所は飛ばす）" {
+        testExcelInstalled @((Join-Path $TestDrive "無い"), "", $null) | Should Be $false
+        testExcelInstalled @() | Should Be $false
+    }
+}
+
 Describe "getStartupFacts" -Tag Io {
     It "テストを動かしている PowerShell（FullLanguage）の事実を集める" {
         $dir = Join-Path $TestDrive "work"
