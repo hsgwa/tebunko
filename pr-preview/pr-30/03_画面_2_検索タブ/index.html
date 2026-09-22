@@ -1869,10 +1869,11 @@
 </tbody>
 </table>
 <ul>
-<li>表（<code>ResultGrid</code>）には、見出し（<code>FileGroup</code>）と、開いているファイルの行（<code>HitRow</code>）だけを入れる（<code>result_list.ps1</code>）。ヒットした行は見出しの <code>Rows</code>（絞り込みに合うものは <code>ShownRows</code>）に持つ。見出しの行は、行の形（<code>DataGridRow</code> の <code>Template</code>）を <code>tab_search.xaml</code> の <code>FileHeaderRow</code> に替えて、列をまたいだ 1 行にする。</li>
-<li>検索中は、ヒットを見出しの <code>Rows</code> に足すだけにし、1 回の取り込み（<code>pumpSearch</code>）の最後に、新しいファイルの見出しと、開いているファイルの増えた行をまとめて表に入れる（<code>flushResults</code>）。開閉・絞り込み・並べ替えで多くの行を出し入れするときは、1 件ずつではなく表の中身をまとめて入れ替える（<code>rebuildResults</code>）。</li>
+<li>表（<code>ResultGrid</code>）には、見出し（<code>FileGroup</code>）と、開いているファイルの行（<code>HitRow</code>）だけを入れる（<code>result_list.ps1</code>）。見出しの行は、行の形（<code>DataGridRow</code> の <code>Template</code>）を <code>tab_search.xaml</code> の <code>FileHeaderRow</code> に替えて、列をまたいだ 1 行にする。</li>
+<li><strong>行は必要になるまで作らない（遅延表示）。</strong> 検索中は、ヒットを見出しの <code>Hits</code> に生のまま足すだけにし、1 回の取り込み（<code>pumpSearch</code>）の最後に、新しいファイルの見出しをまとめて表に入れる（<code>flushResults</code>）。表の行（<code>HitRow</code>。場所の表示・強調の元になる）は、ファイルを開いたとき・見出しを選んだとき・絞り込み・並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（<code>ensureRows</code>）。見出しの件数は、絞り込んでいなければヒットの数（行を作らずに分かる）、絞り込み中は合う行の数にする。一致箇所の強調などは、今までどおり画面に出た行だけで作る（<code>HitRow.Prepare</code>）。</li>
+<li>開閉・絞り込み・並べ替えで多くの行を出し入れするときは、1 件ずつではなく表の中身をまとめて入れ替える（<code>rebuildResults</code>）。</li>
 <li>WPF の DataGrid のグループ化（<code>GroupStyle</code>）は使わない。グループ化は 1 件ごとに振り分けるため遅く（実測: 10,000 件・504 ファイルで、行ごとの一覧 約 3 秒 → グループ化 約 8〜9 秒。最初に閉じておいても速くならない）、列の幅が決まらない不具合もあったため。</li>
-<li>実測（10,000 件・504 ファイル）: 検索の間に画面側で使う時間は合計 約 1.2〜1.8 秒（検索の別スレッドと並行）、［すべて展開］は約 0.07 秒。</li>
+<li>実測（10,000 件・504 ファイル。検索スレッドが結果を出し終えたあと、画面が取り込み終えるまでの待ちが検索時間の大半を占める）: 検索にかかる時間は、行を検索中に作っていたとき 約 4.0 秒（うち待ち 約 2.4 秒）→ 行を後で作る今の作りで 約 2.6〜2.9 秒（うち待ち 約 1.1〜1.3 秒）。代わりに［すべて展開］は、そのとき 10,000 行を作るため 約 1.1〜1.5 秒かかる（1 ファイルを開くときは、そのファイルの分だけ）。</li>
 <li>判断（アプリの種類 <code>getAppKind</code>・場所の要約 <code>describeFileLocations</code>・表に並べる項目 <code>getResultItems</code>・絞り込み <code>selectShownRows</code>・並べ替え <code>sortFileGroups</code>）は判断層の <code>search_view.ps1</code> に置き、テストする。</li>
 </ul>
 
