@@ -142,6 +142,15 @@ expect '[IO.Path]::GetTempPath()' NG { [IO.Path]::GetTempPath() }
 expect 'New-Object System.Text.UTF8Encoding' NG { $null = New-Object System.Text.UTF8Encoding $false; 'created' }
 expect '[pscustomobject] への変換' NG { $null = [pscustomobject]@{ a = 1 }; 'created' }
 
+# --- tebunko_grep の制限モード ---
+expect 'start.ps1 が制限モードで起動する旨を出す（終了コード 11）' ok {
+    $start = Join-Path $Root 'scripts\tebunko_grep\start.ps1'
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $start -CheckOnly 2>&1
+    $code = $LASTEXITCODE
+    if ($code -ne 11) { throw "exit=$code " + (@($output) -join ' ') }
+    "exit=$code"
+}
+
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- 結果 ---

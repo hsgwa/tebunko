@@ -186,7 +186,7 @@ sequenceDiagram
 | 実行環境 | Windows PowerShell 5.1（`powershell.exe`） |
 | 必須ソフトウェア | Microsoft Excel（`Excel.Application` COM オブジェクトを使用。Excel ファイルの取り込みに必要） |
 | 任意のソフトウェア | Microsoft Word・PowerPoint（旧形式 `.doc` `.ppt`、パスワード付き、拡張子と中身が異なる Word・PowerPoint ファイルの取り込みにのみ使用。新形式の `.docx` `.pptx` 等は無くても取り込める） |
-| 起動方法 | `tebunko_grep.bat` をダブルクリック。`conhost.exe` を通して `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で画面を開く（`Bypass` は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が `Start-Process` で同じ実行ポリシー・`-WindowStyle Hidden` で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
+| 起動方法 | `tebunko_grep.bat` をダブルクリック。`start.ps1` でいつもの画面を開けるかを確かめ（AppLocker・WDAC で PowerShell が制限言語モードの PC では、理由を出して制限モードで起動する）、`conhost.exe` を通して `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で画面を開く（`Bypass` は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が `Start-Process` で同じ実行ポリシー・`-WindowStyle Hidden` で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
 | スクリプトの文字コード | `scripts/*.ps1`・`tests/*.ps1` は **UTF-8（BOM 付き）**、改行 CRLF。PowerShell 5.1 は BOM なしファイルをシステム既定コードページ（CP932）で読むため、BOM を外すと日本語リテラルが化ける |
 | テスト | Pester 3.4（Windows PowerShell 5.1 標準）。`.\tests\run.ps1`（詳細は [6.3](00_共通_3_テスト.md#63-テストの構成と実行)） |
 
