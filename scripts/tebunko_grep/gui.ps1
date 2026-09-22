@@ -98,7 +98,7 @@ $tabs = @(
         "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "FileFilterBox", "FileFilterPlaceholder",
         "WordNotice", "SearchTargetText", "GoIndexTabButton",
         "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
-        "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ResultGrid", "IndexColumn",
+        "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ResultGrid", "IndexColumn",
         "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath",
         "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
         "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
@@ -136,6 +136,7 @@ ${grayBrush} = themeBrush "Ink.Muted"
 . "$PSScriptRoot\ui\preview_view.ps1"
 . "$PSScriptRoot\ui\index_tab.ps1"
 . "$PSScriptRoot\ui\indexing_tab.ps1"
+. "$PSScriptRoot\ui\result_list.ps1"
 . "$PSScriptRoot\ui\search_tab.ps1"
 . "$PSScriptRoot\ui\preview.ps1"
 . "$PSScriptRoot\ui\open_source.ps1"

@@ -52,3 +52,123 @@ function newSearchButtonState {
     }
     return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0) }
 }
+
+# ---- ファイルごとにまとめた表示 ----
+
+function getAppKind {
+    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint。どれでもなければ空）を返す
+    param (
+        [string]$book
+    )
+
+    $extension = [System.IO.Path]::GetExtension($book).ToLowerInvariant()
+    if ($extension -match '^\.xls') {
+        return "Excel"
+    }
+    if ($extension -match '^\.doc') {
+        return "Word"
+    }
+    if ($extension -match '^\.ppt') {
+        return "PowerPoint"
+    }
+    return ""
+}
+
+function describeFileLocations {
+    # ファイルの中でヒットした場所（見つかった順・重複なし）を、見出しの右端に出す文字列にする。
+    # 1 か所ならその場所、2 か所以上なら「[シート] 4月 ほか 2 か所」（場所の表記は describePlace）
+    param (
+        [string[]]$labels
+    )
+
+    # 検索中にファイル・場所が増えるたびに呼ぶため、パイプライン（Where-Object）を使わない（1 回 1 ms を超えて検索が遅くなる）
+    $first = ""
+    $count = 0
+    foreach ($label in $labels) {
+        if ($label) {
+            if ($count -eq 0) {
+                $first = $label
+            }
+            $count++
+        }
+    }
+    if ($count -le 1) {
+        return $first
+    }
+    return "$first ほか $($count - 1) か所"
+}
+
+# ---- 結果の表に並べる項目（見出しと行） ----
+# group は FileGroup（types_grep.ps1）と同じ項目（Rows・ShownRows・ShownCount・IsExpanded・Order）を持つもの、
+# row は HitRow と同じ項目（Order・Contains(文字列)）を持つもの。
+
+function selectShownRows {
+    # 行のうち、絞り込み（空ならすべて）に合うものを、元の順のまま返す
+    param (
+        $rows,
+        [string]$filterText
+    )
+
+    $shown = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($row in $rows) {
+        if ($filterText -eq "" -or $row.Contains($filterText)) {
+            $shown.Add($row)
+        }
+    }
+    return , $shown
+}
+
+function getResultItems {
+    # 結果の表に並べる項目。ファイルごとに見出しを 1 つ置き、開いているファイルだけ、その下に行を並べる。
+    # 絞り込みで行が 1 つも残らないファイル（ShownCount が 0）は、見出しも出さない。開いているファイルの行は作ってあること
+    param (
+        $groups
+    )
+
+    $items = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($group in $groups) {
+        if ($group.ShownCount -eq 0) {
+            continue
+        }
+        $items.Add($group)
+        if ($group.IsExpanded) {
+            $items.AddRange($group.ShownRows)
+        }
+    }
+    return , $items
+}
+
+function getShownHitRows {
+    # 絞り込みに合う行を、表の順（閉じているファイルの行も含む）に並べて返す（結果の出力に使う。行はすべて作ってあること）
+    param (
+        $groups
+    )
+
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    foreach ($group in $groups) {
+        $rows.AddRange($group.ShownRows)
+    }
+    return , $rows
+}
+
+function sortFileGroups {
+    # 列見出しのクリックでの並べ替え。各ファイルの中の行を property の順に並べ替え、
+    # ファイルの順は、並べ替えた後の先頭の行の順にする。同じ値のときは見つかった順（Order）
+    param (
+        $groups,
+        [string]$property,
+        [bool]$descending
+    )
+
+    $byValue = @{ Expression = { $_.$property }; Descending = $descending }
+    $byOrder = @{ Expression = { $_.Order }; Descending = $false }
+    foreach ($group in $groups) {
+        $sorted = @($group.Rows | Sort-Object $byValue, $byOrder)
+        $group.Rows.Clear()
+        $group.Rows.AddRange([object[]]$sorted)
+    }
+    $byFirst = @{ Expression = { if ($_.Rows.Count -gt 0) { $_.Rows[0].$property } }; Descending = $descending }
+    $sortedGroups = New-Object 'System.Collections.Generic.List[object]'
+    $sortedGroups.AddRange([object[]]@($groups | Sort-Object $byFirst, $byOrder))
+    return , $sortedGroups
+}

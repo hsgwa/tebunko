@@ -256,7 +256,7 @@ function openSource {
         [string]$mode = (getOpenMode)
     )
 
-    $row = $ui.ResultGrid.SelectedItem
+    $row = getCurrentHitRow
     if ($null -eq $row) {
         return
     }
@@ -299,7 +299,7 @@ function openSource {
 }
 
 function openSourceFolder {
-    $row = $ui.ResultGrid.SelectedItem
+    $row = getCurrentHitRow
     if ($null -eq $row) {
         return
     }
@@ -322,7 +322,7 @@ function copySelectedRows {
 }
 
 function copySourcePath {
-    $row = $ui.ResultGrid.SelectedItem
+    $row = getCurrentHitRow
     if ($null -eq $row) {
         return
     }
@@ -353,7 +353,7 @@ function exportResults {
         return
     }
     Invoke-Item -LiteralPath ${resultFile}
-    if ($rows.Count -lt $script:hitRows.Count) {
+    if ($rows.Count -lt $script:hitCount) {
         setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を検索結果.txt に出力しました"
     } else {
         setStatus "検索結果.txt に出力しました（$($rows.Count.ToString('N0')) 件）"
@@ -370,14 +370,22 @@ $ui.ResultGrid.Add_MouseDoubleClick({
         }
         $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
     }
-    if ($element) {
+    # 見出しの行は、クリックで閉じる・開く（result_list.ps1）ので、ダブルクリックでは開かない
+    if ($element -and !($element.Item -is [FileGroup])) {
         safe { openSource }
     }
 })
 $ui.ResultGrid.Add_PreviewKeyDown({
     param ($sender, $e)
     if ($e.Key -eq "Return") {
-        safe { openSource }
+        # 見出しの行では閉じる・開く。行では元のファイルを開く
+        safe {
+            if ($ui.ResultGrid.SelectedItem -is [FileGroup]) {
+                toggleFileGroup $ui.ResultGrid.SelectedItem
+            } else {
+                openSource
+            }
+        }
         $e.Handled = $true
     } elseif ($e.Key -eq "C" -and [System.Windows.Input.Keyboard]::Modifiers -eq "Control") {
         safe { copySelectedRows }

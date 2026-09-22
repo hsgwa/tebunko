@@ -117,13 +117,77 @@
         <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="12" Text="結果の中から探す" />
       </Grid>
       <TextBlock DockPanel.Dock="Right" Text="絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <!-- 検索した直後は、ファイルごとの見出しだけを出す（ヒットした行は閉じておく）。ここで全部を開く・閉じる -->
+      <Button x:Name="CollapseAllButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="すべて折りたたむ" VerticalAlignment="Center" Margin="0,0,18,0"
+              ToolTip="すべてのファイルを閉じて、ファイルの見出しだけを表示します" />
+      <Button x:Name="ExpandAllButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="すべて展開" VerticalAlignment="Center" Margin="0,0,12,0"
+              ToolTip="すべてのファイルを開いて、ヒットした行を表示します（ヒットが多いと時間がかかります）" />
       <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="180" Margin="0,0,16,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
       <!-- 検索結果の件数は、この画面の主役 -->
       <TextBlock x:Name="SummaryText" Style="{StaticResource Focal}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
     </DockPanel>
 
-    <!-- 結果の表 -->
+    <!-- 結果の表。ファイルごとの見出しの行（FileGroup）と、開いているファイルの行（HitRow）を並べる（result_list.ps1）。
+         見出しの行は、行の形（Template）を FileHeaderRow に替えて、列をまたいだ 1 行にする -->
     <DataGrid Grid.Row="3" x:Name="ResultGrid">
+      <DataGrid.Resources>
+        <ControlTemplate x:Key="FileHeaderRow" TargetType="DataGridRow">
+          <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所と件数（件数は絞り込み後の行の数） -->
+          <Border x:Name="HeaderBg" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}"
+                  BorderThickness="0,0,0,1" Padding="8,0,12,0" MinHeight="30" Cursor="Hand" ToolTip="{Binding FullPath}">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Right" Text="{Binding ShownCount, StringFormat={}{0:N0} 件}" Style="{StaticResource Meta}"
+                         VerticalAlignment="Center" MinWidth="48" TextAlignment="Right" Margin="12,0,0,0" />
+              <TextBlock DockPanel.Dock="Right" Text="{Binding LocationText}" Style="{StaticResource Meta}"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" />
+              <TextBlock x:Name="Arrow" DockPanel.Dock="Left" Text="▸" Foreground="{StaticResource Ink.Muted}" Width="14"
+                         VerticalAlignment="Center" />
+              <!-- アプリのアイコン（Excel・Word・PowerPoint の色と頭文字） -->
+              <Border x:Name="Badge" DockPanel.Dock="Left" Width="18" Height="18" CornerRadius="3" Margin="0,0,8,0"
+                      Background="{StaticResource Ink.Muted}" VerticalAlignment="Center">
+                <TextBlock x:Name="BadgeText" Text="?" Foreground="White" FontSize="11" FontWeight="Bold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <TextBlock DockPanel.Dock="Left" Text="{Binding Book}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding RelDir}" Style="{StaticResource Meta}" VerticalAlignment="Center"
+                         Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Bg.Hover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Accent.Soft}" />
+            </Trigger>
+            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+              <Setter TargetName="Arrow" Property="Text" Value="▾" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding AppKind}" Value="Excel">
+              <Setter TargetName="Badge" Property="Background" Value="#217346" />
+              <Setter TargetName="BadgeText" Property="Text" Value="X" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding AppKind}" Value="Word">
+              <Setter TargetName="Badge" Property="Background" Value="#2B579A" />
+              <Setter TargetName="BadgeText" Property="Text" Value="W" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding AppKind}" Value="PowerPoint">
+              <Setter TargetName="Badge" Property="Background" Value="#C43E1C" />
+              <Setter TargetName="BadgeText" Property="Text" Value="P" />
+            </DataTrigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </DataGrid.Resources>
+      <DataGrid.RowStyle>
+        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding IsFileHeader}" Value="True">
+              <Setter Property="Template" Value="{StaticResource FileHeaderRow}" />
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </DataGrid.RowStyle>
       <DataGrid.Columns>
         <DataGridTextColumn x:Name="IndexColumn" Header="インデックス" Binding="{Binding IndexName}" Width="100" Visibility="Collapsed"
                             ElementStyle="{StaticResource Cell.Meta}" />

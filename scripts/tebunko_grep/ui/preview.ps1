@@ -9,23 +9,7 @@ $script:detailTimer = newTimer 120 {
 # 高さを変えただけのときは、横スクロールの位置をそのままにする（ドラッグのたびに左へ戻らないように）
 $script:detailKeepScroll = $false
 
-function getViewRows {
-    # 表示中（絞り込み・並べ替え後）の行
-    $rows = New-Object System.Collections.ArrayList
-    foreach ($row in $script:hitView) {
-        [void]$rows.Add($row)
-    }
-    return , $rows.ToArray()
-}
-
-function getSelectedRows {
-    # 選択行を表示の順に並べて返す
-    $rows = New-Object System.Collections.ArrayList
-    foreach ($row in $ui.ResultGrid.SelectedItems) {
-        [void]$rows.Add($row)
-    }
-    return , @($rows.ToArray() | Sort-Object { $ui.ResultGrid.Items.IndexOf($_) })
-}
+# 表示中の行（getViewRows）・選んでいる行（getSelectedRows）・選んでいる行 1 つ（getCurrentHitRow）は result_list.ps1
 
 function clearDetail {
     # 行を選んでいないときのプレビュー。枠（と高さ）はそのままにし、中身を空にして案内を出す
@@ -51,7 +35,7 @@ function getPreviewContextLines {
 }
 
 function showDetail {
-    $row = $ui.ResultGrid.SelectedItem
+    $row = getCurrentHitRow
     if ($null -eq $row) {
         clearDetail
         return

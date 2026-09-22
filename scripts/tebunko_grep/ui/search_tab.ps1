@@ -4,15 +4,7 @@
 # ［2 検索］
 # ============================================================================
 
-$script:hitRows = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
-$ui.ResultGrid.ItemsSource = $script:hitRows
-$script:hitView = [System.Windows.Data.CollectionViewSource]::GetDefaultView($script:hitRows)
-# 表示用（強調セグメント・DisplayLine・セル列）は、行が画面に出るときだけ作る（件数が多くても軽い）。
-# HitRow.Prepare は1回だけ実行し、作った値は PropertyChanged で反映する
-$ui.ResultGrid.Add_LoadingRow({
-    param ($s, $e)
-    if ($e.Row.Item -is [HitRow]) { $e.Row.Item.Prepare() }
-})
+# 結果（ヒットした行・ファイルごとの見出し）と表の中身は result_list.ps1
 $script:search = $null
 $script:lastSearch = $null
 $script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名とクロール対象フォルダの対応（getSourceLocation のキャッシュ）
@@ -137,8 +129,7 @@ function startSearch {
 
     $ui.FilterBox.Text = ""
     $script:filterText = ""
-    $script:hitView.Filter = $null
-    $script:hitRows.Clear()
+    clearResults $word $pattern
     clearDetail
     # 検索対象ツリーでチェックしたフォルダだけを検索する（結果の相対パスは、インデックスのフォルダからのまま）
     $folders = @(getSearchTargets)
@@ -163,7 +154,6 @@ function startSearch {
     $script:search = @{
         PS = $ps; Handle = $ps.BeginInvoke(); Shared = $shared
         Word = $word; Pattern = $pattern; SimpleMatch = $simpleMatch; UseRegex = $useRegex; Option = $option; Start = Get-Date
-        Places = @{}  # 場所の表示（describePlace）の覚え
     }
 
     $ui.SearchProgress.Visibility = "Visible"
@@ -195,23 +185,22 @@ function pumpSearch {
     # 1 回に移す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が 0.5 秒以上止まる）
     $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
     while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$hit)) {
-        # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ。1 件ごとの関数呼び出しを省く）
+        # ヒットは元のファイルの見出しに生のまま貯めるだけにする。表の行（HitRow）は開いたときなどに作り（ensureRows）、
+        # 表への反映は、この 1 回の最後に flushResults でまとめて行う。ヒットごとに通る処理なので、
+        # 関数は初めてのファイル・場所のときだけ呼ぶ（呼ぶと、そのぶん結果を表に移すのが遅くなる）
         $relDir = [string]$hit.RelDir
-        $cut = $relDir.IndexOf("\")
-        $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
-        $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
-                $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern)
-        # 場所・種別の表示は、同じ種類のファイル・場所なら同じなので、検索ごとに覚えておく（1 件ずつの関数呼び出しを省く）
-        $placeKey = "$([int]$row.IsExcel)|$($hit.Location)"
-        $described = $s.Places[$placeKey]
-        if ($null -eq $described) {
-            $described = describePlace $hit.Book $hit.Location
-            $s.Places[$placeKey] = $described
+        $fileKey = "$($hit.Root)\$relDir\$($hit.Book)"
+        $group = $null
+        if (!$script:fileGroups.TryGetValue($fileKey, [ref]$group)) {
+            $group = newFileGroup $fileKey $relDir $hit.Book
         }
-        $row.PlaceText = $described.Place
-        $row.Kind = $described.Kind
-        $script:hitRows.Add($row)
-    }
+        $group.Hits.Add($hit)
+        if ($group.AddLocation($hit.Location)) {
+            addFileGroupLocation $group $hit.Book $hit.Location
+        }
+        [void]$script:dirtyGroups.Add($group)
+        $script:hitCount++
+    }    flushResults
 
     if ($shared.Total -gt 0) {
         $ratio = $shared.Done / $shared.Total
@@ -220,7 +209,7 @@ function pumpSearch {
         $taskbar.ProgressState = "Normal"
         $taskbar.ProgressValue = $ratio
         if (!$shared.Stop) {
-            $ui.SummaryText.Text = "検索中… $($shared.Done.ToString('N0')) / $($shared.Total.ToString('N0')) ファイル（$($script:hitRows.Count.ToString('N0')) 件）"
+            $ui.SummaryText.Text = "検索中… $($shared.Done.ToString('N0')) / $($shared.Total.ToString('N0')) ファイル（$($script:hitCount.ToString('N0')) 件）"
         }
     } elseif ($shared.Total -lt 0 -and !$shared.Stop) {
         # 数え上げの途中。件数が増えていくのが見えれば、止まっていないことが分かる
@@ -253,6 +242,7 @@ function finishSearch {
     $script:lastSearch = $s
     $seconds = ((Get-Date) - $s.Start).TotalSeconds
     updateSearchButton
+    finishResults
 
     if ($shared.Error) {
         $ui.SummaryText.Text = "検索できませんでした"
@@ -260,11 +250,8 @@ function finishSearch {
         return
     }
 
-    $count = $script:hitRows.Count
-    $files = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($row in $script:hitRows) {
-        [void]$files.Add("$($row.Root)\$($row.RelDir)\$($row.Book)")
-    }
+    $count = $script:hitCount
+    $files = $script:fileGroups
 
     if ($shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "対象ファイル（$($s.Option.FileFilter)）に一致するファイルがありません。"
@@ -310,30 +297,19 @@ $script:searchTimer = newTimer 100 { safe { pumpSearch } }
 
 function applyFilter {
     $script:filterText = $ui.FilterBox.Text.Trim()
-    if ($script:filterText -eq "") {
-        $script:hitView.Filter = $null
-    } else {
-        $script:hitView.Filter = [Predicate[object]] { param ($row) $row.Contains($script:filterText) }
-    }
-    if ($script:lastSearch -and !$script:search -and $script:hitRows.Count -gt 0) {
-        $shown = 0
-        foreach ($row in $script:hitView) {
-            $shown++
-        }
+    applyResultFilter $script:filterText
+    if ($script:lastSearch -and !$script:search -and $script:hitCount -gt 0) {
+        $shown = getShownHitCount
         if ($script:filterText -eq "") {
             finishSummaryText
         } else {
-            $ui.SummaryText.Text = "$($script:hitRows.Count.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
+            $ui.SummaryText.Text = "$($script:hitCount.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
         }
     }
 }
 
 function finishSummaryText {
-    $files = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($row in $script:hitRows) {
-        [void]$files.Add("$($row.Root)\$($row.RelDir)\$($row.Book)")
-    }
-    $ui.SummaryText.Text = "$($script:hitRows.Count.ToString('N0')) 件（$($files.Count.ToString('N0')) ファイル）"
+    $ui.SummaryText.Text = "$($script:hitCount.ToString('N0')) 件（$($script:fileGroups.Count.ToString('N0')) ファイル）"
 }
 
 $script:filterTimer = newTimer 300 {
