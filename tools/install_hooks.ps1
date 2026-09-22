@@ -25,7 +25,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "core.hooksPath を設定できませんでした。"
 }
 Write-Host "フックを有効にしました（core.hooksPath = tools/hooks）。"
-Write-Host "コミットのたびに、個人情報・文字コードの検査と速いテスト（Unit・Meta）、コミットメッセージの形（feat: ... など）の検査が走ります。"
+Write-Host "コミットのたびに、個人情報・文字コードの検査と速いテスト（Unit・Meta）、コミットメッセージの形（feat: ... など）と Signed-off-by の検査が走ります。"
+Write-Host "コミットは git commit -s（Signed-off-by を付ける）で作ってください。"
 
 $mail = git -C $rootDir config user.email
 if ($mail -notmatch '@users\.noreply\.github\.com$') {
