@@ -6,5 +6,5 @@ contact_links:
     url: https://github.com/hsgwa/tebunko/security/advisories/new
     about: 意図しないファイルの書き換え・想定外の通信・情報の漏れなどは、公開の Issue ではなくこちらから報告してください。
   - name: 使い方・困ったとき
-    url: https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.md
+    url: https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md
     about: よくある原因の調べ方と、ログ・設計書の場所

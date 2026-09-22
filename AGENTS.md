@@ -4,9 +4,11 @@
 
 利用者への返答・報告は日本語で書く（コードのコメント・ドキュメント・コミットメッセージも日本語）。
 
+ただし `.github/` の CONTRIBUTING・SECURITY・SUPPORT・CODE_OF_CONDUCT は、英語版（`<名前>.md`）を正とし、日本語版（`<名前>.ja.md`）を並べて置く。GitHub が案内に使うのは英語版の名前のファイルのため。内容を変えるときは、両方を同じ PR で直す。日本語の文書（README・`docs/` など）からは日本語版へリンクする。README は内容をよく変えるため日本語だけにする。
+
 ## GitHub の運用
 
-変更は **ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。貢献の始め方（Issue の立て方・開発の準備）は [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) にある。
+変更は **ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。貢献の始め方（Issue の立て方・開発の準備）は [.github/CONTRIBUTING.ja.md](.github/CONTRIBUTING.ja.md) にある。
 
 **ラベル付け・マージ・リリースはメンテナが行う。** エージェントはこれらを試みない。
 
