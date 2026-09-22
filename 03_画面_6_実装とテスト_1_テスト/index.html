@@ -1332,75 +1332,123 @@
 <hr />
 <h2 id="16-テスト">16. テスト<a class="headerlink" href="#16-テスト" title="Permanent link">&para;</a></h2>
 <h3 id="161-単体テストpester">16.1 単体テスト（Pester）<a class="headerlink" href="#161-単体テストpester" title="Permanent link">&para;</a></h3>
-<p><code>tests/tebunko_grep/search/</code> で、12 章の <code>tebunko_grep/lib.ps1</code> の関数のうち検索・Office プロセス・画面用のものを確認する（<code>getTargetFolders</code> などは <code>tests/</code>）。切り出し時（<code>grep.ps1</code> の削除前）に、<code>grep.ps1</code> が切り出しの前後で同じテストデータ・検索ワード（文字どおり・正規表現・不正な正規表現・0 件、複数インデックス・存在しないフォルダ）の結果ファイルとコンソール出力がバイト単位で同じことを確認した。</p>
+<p>画面が使う関数と画面の部品を Pester 3.4 で確かめる（実行方法・タグ・カバレッジは <a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">00_共通_3_テスト.md</a>）。画面の部品（<code>ui/*.ps1</code>）のテストは、WPF のコントロール（<code>$ui.ResultGrid</code> など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。</p>
+<p><strong>画面が使う <code>tebunko_grep/lib.ps1</code> の関数</strong>（12 章）</p>
 <table>
 <thead>
 <tr>
 <th>対象</th>
+<th>テスト</th>
 <th>主な確認内容</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>searchIndex</code></td>
-<td>文字どおり・正規表現・不正な正規表現、大文字・小文字（区別しない・区別する）、対象ファイル（含める・<code>!</code> で除く）、検索中に削除された TSV を飛ばす、複数フォルダ・入れ子の重複、上限での打ち切り、<code>[</code> <code>]</code> を含むパス</td>
-</tr>
-<tr>
-<td><code>newSearchRegex</code></td>
-<td>文字どおりの記号、不正な正規表現、大文字と小文字の区別</td>
-</tr>
-<tr>
-<td><code>newFileFilter</code></td>
-<td><code>;</code> / <code>；</code> の区切り、<code>!</code> の除外、部分一致、<code>?</code>、ほかの記号は文字どおり、空なら条件なし</td>
-</tr>
-<tr>
-<td><code>writeSearchResult</code></td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> の結果ファイルの形式になること</td>
-</tr>
-<tr>
-<td><code>splitTsvCells</code></td>
-<td><code>"</code> で囲まれたセル内のタブ、空のセル、先頭のセルが空の行</td>
-</tr>
-<tr>
-<td><code>readTsvContext</code></td>
-<td>前後の行と行番号、セル内改行の文字では行を分けない、ファイルの先頭・末尾、1 行だけでも配列、ファイルが無ければ空、CRLF・LF・CR の混在（検索と同じ行番号）、BOM の有無、最後の行に改行が無いファイル、TSV が書き換わったら読み直す</td>
-</tr>
-<tr>
-<td><code>searchIndex</code> の結果</td>
-<td><code>@()</code> で配列にできること、中止・進捗の通知</td>
+<td><code>tests/tebunko_grep/search/search_run.Tests.ps1</code></td>
+<td>文字どおり・正規表現・不正な正規表現、大文字・小文字（区別しない・区別する）、対象ファイル（含める・<code>!</code> で除く）、検索中に削除された TSV を飛ばす、複数フォルダ・入れ子の重複、上限での打ち切り、<code>[</code> <code>]</code> を含むパス、正規表現の照合の時間切れ、並列検索と読んだ内容の使い回し、結果を <code>@()</code> で配列にできること、中止・進捗の通知</td>
 </tr>
 <tr>
 <td><code>getIndexTsvFiles</code> / <code>testIndexExists</code> / <code>getIndexSummary</code></td>
+<td>同上</td>
 <td>TSV の列挙・件数・最新の更新日時、存在しないフォルダ、入れ子のフォルダの重複、インデックスの中のフォルダだけの指定（相対パスはインデックスのフォルダから）、直下のファイルだけの指定、存在しない中のフォルダ、数え上げの途中の件数の通知（2000 件ごと。少数では呼ばれない）</td>
 </tr>
 <tr>
-<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
-<td>ファイルが無ければオフ・空、保存した値の読み込み、指定した項目だけを変える</td>
+<td><code>toSearchResultLines</code> / <code>writeSearchResult</code></td>
+<td>同上</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> の結果ファイルの形式になること</td>
+</tr>
+<tr>
+<td><code>isValidRegex</code> / <code>newSearchRegex</code> / <code>newFileFilter</code></td>
+<td><code>tests/tebunko_grep/search/search_query.Tests.ps1</code></td>
+<td>文字どおりの記号、不正な正規表現、大文字と小文字の区別。対象ファイルは <code>;</code> / <code>；</code> の区切り、<code>!</code> の除外、部分一致、<code>?</code>、ほかの記号は文字どおり、空なら条件なし</td>
+</tr>
+<tr>
+<td><code>getSourceLocation</code> / <code>resolveSourcePath</code> / <code>findMovedSource</code></td>
+<td><code>tests/tebunko_grep/search/source_map.Tests.ps1</code></td>
+<td>元のファイルのインデックス名・場所・パスの特定、選んだフォルダからの探索（4.5.1・4.5.2）</td>
+</tr>
+<tr>
+<td><code>splitTsvCells</code> / <code>readTsvContext</code></td>
+<td><code>tests/shared/core/text.Tests.ps1</code></td>
+<td><code>"</code> で囲まれたセル内のタブ、空のセル、先頭のセルが空の行。前後の行と行番号、セル内改行の文字では行を分けない、ファイルの先頭・末尾、1 行だけでも配列、ファイルが無ければ空、CRLF・LF・CR の混在（検索と同じ行番号）、BOM の有無、最後の行に改行が無いファイル、TSV が書き換わったら読み直す</td>
+</tr>
+<tr>
+<td><code>getFolderEntries</code> / <code>testHasSubFolders</code> / <code>getParentFolderPath</code> / <code>joinFolderPath</code> / <code>getQuickFolders</code> / <code>getComputerFolders</code></td>
+<td><code>tests/shared/core/folder.Tests.ps1</code></td>
+<td>フォルダ選択の一覧（フォルダが先・それぞれ名前順、フォルダ数と Office ファイル数、パスと種別・更新日時）、隠し・システムを出さないこと、<code>-foldersOnly</code>、上限での打ち切り、開けないフォルダ・空の指定の理由、サブフォルダの有無（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）。1 つ上のフォルダ（ドライブ直下・共有フォルダ直下より上へは行かない）、<code>\</code> が重ならない連結</td>
+</tr>
+<tr>
+<td><code>testOfficeFile</code></td>
+<td><code>tests/shared/office/office_files.Tests.ps1</code></td>
+<td>Office ファイルの判定（大文字・小文字を区別しない）</td>
 </tr>
 <tr>
 <td><code>getOfficeProcesses</code> / <code>stopOfficeProcesses</code></td>
+<td><code>tests/shared/office/office_process.Tests.ps1</code></td>
 <td>バックグラウンドの判定、終了の成功・失敗（<code>Get-Process</code> / <code>Stop-Process</code> をモックする）</td>
 </tr>
 <tr>
-<td><code>getFolderEntries</code> / <code>testHasSubFolders</code></td>
-<td>フォルダ選択の一覧（フォルダが先・それぞれ名前順、フォルダ数と Office ファイル数、パスと種別・更新日時）、隠し・システムを出さないこと、<code>-foldersOnly</code>、上限での打ち切り、開けないフォルダ・空の指定の理由、サブフォルダの有無（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）</td>
-</tr>
-<tr>
-<td><code>getParentFolderPath</code> / <code>joinFolderPath</code> / <code>testOfficeFile</code></td>
-<td>1 つ上のフォルダ（ドライブ直下・共有フォルダ直下より上へは行かない）、<code>\</code> が重ならない連結、Office ファイルの判定（大文字・小文字を区別しない）</td>
+<td><code>readSearchOption</code> / <code>writeSearchOption</code> ほか設定の読み書き</td>
+<td><code>tests/tebunko_grep/core/settings.Tests.ps1</code></td>
+<td>ファイルが無ければオフ・空、保存した値の読み込み、指定した項目だけを変える</td>
 </tr>
 <tr>
 <td><code>newIndexName</code></td>
+<td><code>tests/tebunko_grep/index/index_name.Tests.ps1</code></td>
 <td>使用済みの名前が無い・1 個だけの場合も正しく判定すること（PowerShell は集合を返すと中身を展開するため、<code>$null</code>・文字列で渡ることがある）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>画面の型・判断層・部品</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>テスト</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>画面の型（12.2）</td>
+<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko_grep/ui/types_grep.Tests.ps1</code></td>
+<td><code>NotifyBase</code> の変更通知、<code>FolderNode</code>・<code>FolderEntry</code>・<code>ConfirmFact</code>。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
+</tr>
+<tr>
+<td>判断層</td>
+<td><code>tests/tebunko_grep/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code></td>
+<td>画面に出す文言と可否の判定（インデックス名の入力チェック、インデックス作成の確認の文言、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス）</td>
+</tr>
+<tr>
+<td>結果の表</td>
+<td><code>tests/tebunko_grep/ui/result_list.Tests.ps1</code></td>
+<td>ファイルごとの見出しの作成と開閉（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/#49-ファイルごとにまとめた表示">4.9</a>）、行の作成、絞り込み、並べ替え、検索の終了時の表示、選択行の取得、イベント</td>
+</tr>
+<tr>
+<td>選択行のプレビュー</td>
+<td><code>tests/tebunko_grep/ui/preview.Tests.ps1</code></td>
+<td>表示・消去、高さに収まる行数、セルの特定とコピー、イベント</td>
+</tr>
+<tr>
+<td>元のファイルを開く</td>
+<td><code>tests/tebunko_grep/ui/open_source.Tests.ps1</code></td>
+<td>パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、行・パスのコピー、ファイル出力、画面の操作</td>
+</tr>
+<tr>
+<td>検索対象のツリー</td>
+<td><code>tests/tebunko_grep/ui/index_tree.Tests.ps1</code></td>
+<td>ツリーの読み込み、検索範囲の説明、除外の保存、すべてのチェック、イベント</td>
 </tr>
 <tr>
 <td>画面定義（XAML）</td>
-<td><code>scripts/*.xaml</code> が XML として読めること、フォルダ選択の画面に <code>tebunko_grep/gui.ps1</code> が使う <code>x:Name</code> がすべてあること</td>
+<td><code>tests/meta/structure.Tests.ps1</code></td>
+<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブ・フォルダ選択の画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko_grep の型を順に読み込めること</td>
 </tr>
 </tbody>
 </table>
 <h3 id="162-画面の確認">16.2 画面の確認<a class="headerlink" href="#162-画面の確認" title="Permanent link">&para;</a></h3>
-<p>確認欄：◎ = テスト用のコピー（一時フォルダ）で画面を自動操作して確認済み、空欄 = 未確認（手動で確認する）。</p>
+<p>確認欄：◎ = テスト用のコピー（一時フォルダ）で画面を動かして確認済み、空欄・「要手動」 = 未確認（手動で確認する）。</p>
 <table>
 <thead>
 <tr>
@@ -1421,9 +1469,14 @@
 <td>一覧・判定は◎</td>
 </tr>
 <tr>
+<td>インデックス一覧の［作成］チェックの切替が保存されること（Click で配線）</td>
+<td>3 章</td>
+<td>要手動</td>
+</tr>
+<tr>
 <td>フォルダ選択ダイアログ（ツリー・一覧の表示、アドレスバーでの移動、［選択］で元のフォルダに入ること）</td>
 <td>3.2.1</td>
-<td>◎（UI オートメーションで［追加…］→［参照…］→アドレスバーに入力→［選択］まで操作し、表示内容とインデックス編集への反映を確認）。［←］［→］［↑］・マウスのサイドボタン・ダブルクリックでの移動・キーボードのショートカット・ドラッグ＆ドロップは未確認（手動で確認する）</td>
+<td>◎（UI オートメーションで［追加…］→［参照…］→アドレスバーに入力→［選択］まで操作し、表示内容とインデックス編集への反映を確認）。［←］［→］［↑］・マウスのサイドボタン・ダブルクリックでの移動・キーボードのショートカット・ドラッグ＆ドロップは要手動</td>
 </tr>
 <tr>
 <td>状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止</td>
@@ -1453,17 +1506,27 @@
 <tr>
 <td>一致箇所の強調、並べ替え、絞り込み</td>
 <td>4.3、4.4</td>
-<td>Stage 3 で PS class・遅延描画に作り替えたため要手動再確認。並べ替えは軽いフィールド（該当行→<code>Line</code>、セルは非ソート）。<strong>絞り込みはセル番地（例 <code>B5</code>）とタブ表示記号 <code>│</code> には当たらなくなった</strong>（生データ基準）</td>
+<td>要手動。並べ替えは軽いフィールド（該当行→<code>Line</code>、セルは並べ替えない）。絞り込みは生データで照合するため、セル番地（例 <code>B5</code>）とタブ表示記号 <code>│</code> には当たらない</td>
 </tr>
 <tr>
 <td>「セル」列（<code>B6</code> / <code>A3 ほか 2</code>、Word は空欄）、選択行のプレビュー（前後の行・一致したセルの強調・先頭のセルが空の行・セル内改行のあるセルの折り返し）、列見出しのドラッグによる列幅の変更（下限 24px）、セルを選んでの値のコピー、［Excel で開く］［フォルダを開く］の表示</td>
 <td>4.3、4.8</td>
-<td>◎（テスト用の TSV を画面に入れて描画を確認。列幅は見出しの <code>Thumb</code> に <code>DragDelta</code> を起こして確認。コピーは、画面のセル（<code>Border</code>）から <code>getPreviewCell</code> でセルを特定し、1 セル・範囲・行のコピー結果とクリップボードの内容を確認。合成したマウスイベントは配送されないため、クリック操作そのものは手動で確認する）</td>
+<td>◎（テスト用の TSV を画面に入れて描画を確認。列幅は見出しの <code>Thumb</code> に <code>DragDelta</code> を起こして確認。コピーは、画面のセル（<code>Border</code>）から <code>getPreviewCell</code> でセルを特定し、1 セル・範囲・行のコピー結果とクリップボードの内容を確認。合成したマウスイベントは配送されないため、クリック操作そのものは要手動）</td>
+</tr>
+<tr>
+<td>検索結果の遅延描画：スクロールしても一致箇所の強調・「セル」列が出る／大量ヒット（数千〜1万件）で固まらない（<code>HitRow.Prepare</code>＋<code>LoadingRow</code>）</td>
+<td>12.2、4.3</td>
+<td>クラスの動きは◎（16.1）。スクロール時の描画・体感速度は要手動</td>
+</tr>
+<tr>
+<td>検索対象ツリーの 3 状態チェック（親子伝播）・展開時の子読み込み</td>
+<td>4.8</td>
+<td>3 状態・検索範囲と除外の組み立ては◎（16.1）。クリック操作・展開は要手動</td>
 </tr>
 <tr>
 <td>Excel の該当シート・セルが選択された状態で開くこと、Word・PowerPoint が開くこと、ファイルが無い場合（フォルダを選ぶ確認・フォルダ選択）</td>
 <td>4.5</td>
-<td>元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（<code>C3</code>）が選択されることは◎（<code>openInExcel</code> にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は未確認</td>
+<td>元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（<code>C3</code>）が選択されることは◎（<code>openInExcel</code> にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動</td>
 </tr>
 <tr>
 <td>コピーした行を Excel に貼ったときの列の位置、結果ファイルの形式</td>
@@ -1476,44 +1539,34 @@
 <td>一覧・ボタンの有効／無効のみ◎</td>
 </tr>
 <tr>
-<td>アイコンがタイトルバー・タスクバーに出ること（<code>SetAppId</code> 廃止でボタンは PowerShell と同じグループになるが、アイコンは tebunko_grep）</td>
+<td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko_grep）</td>
 <td>10 章</td>
-<td>要手動（Stage 3 でアイコン分離を廃止したため再確認）</td>
-</tr>
-<tr>
-<td>多重起動したときに、2 つ目が終了して既存のウィンドウが前面に出ること</td>
-<td>2.1、16.1</td>
-<td>最小化からの復帰は◎（テスト用コピーで確認）。別アプリが前面のときのフォーカス奪取は OS 制限で不確実（要手動）</td>
-</tr>
-<tr>
-<td>zip 展開直後（Mark-of-the-Web 付き）から <code>tebunko_grep.bat</code> で起動でき、印が消えること（<code>Bypass</code> なし・<code>RemoteSigned</code>）</td>
-<td>10.1</td>
-<td>◎（テスト用のコピー全ファイルに MOTW を付け、<code>RemoteSigned</code> でブロックされること→<code>tebunko_grep.bat</code> 実行で <code>scripts</code> 配下の MOTW 0 件→<code>RemoteSigned</code> で GUI 起動（ウィンドウ表題 <code>tebunko_grep</code>）を確認）</td>
-</tr>
-<tr>
-<td>実行時コンパイル（csc.exe）を出さないこと</td>
-<td>12.2</td>
-<td>◎（全スクリプトに <code>Add-Type -TypeDefinition</code> が無いこと・起動〜検索で <code>csc.exe</code> 0 回／一時 DLL 0 個を実起動で確認）</td>
-</tr>
-<tr>
-<td>検索結果の遅延描画：スクロールしても一致箇所の強調・「セル」列が出る／大量ヒット（数千〜1万件）で固まらない（<code>HitRow.Prepare</code>＋<code>LoadingRow</code>）</td>
-<td>12.2、4.3</td>
-<td>クラス論理は◎（スモークテスト）。スクロール時の描画・体感速度は要手動</td>
-</tr>
-<tr>
-<td>検索対象ツリーの3状態チェック（親子伝播）・展開時の子読み込み（PS class・OneWay＋Click/Expanded イベント）</td>
-<td>4.8</td>
-<td>3状態・AddTargets/AddExcludes の論理は◎（スモークテスト）。クリック操作・展開は要手動</td>
-</tr>
-<tr>
-<td>インデックス一覧の［作成］チェックの切替が保存されること（Click 配線）</td>
-<td>3 章</td>
-<td>要手動（TwoWay→Click 配線に変更したため）</td>
+<td>要手動</td>
 </tr>
 <tr>
 <td>表示倍率 100 %・150 % での見た目</td>
 <td>10 章</td>
 <td></td>
+</tr>
+<tr>
+<td>多重起動したときに、2 つ目が終了して既存のウィンドウが前面に出ること</td>
+<td>2.1、12.1</td>
+<td>最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動）</td>
+</tr>
+<tr>
+<td>zip 展開直後（Mark-of-the-Web 付き）から <code>tebunko_grep.bat</code> で起動でき、印が消えること（<code>Bypass</code> なし・<code>RemoteSigned</code>）</td>
+<td>10.1</td>
+<td>◎（テスト用のコピー全ファイルに MOTW を付け、<code>RemoteSigned</code> でブロックされること→<code>tebunko_grep.bat</code> 実行で <code>scripts</code> 配下の MOTW 0 件→<code>RemoteSigned</code> で画面が開く（ウィンドウ表題 <code>tebunko_grep</code>）ことを確認）</td>
+</tr>
+<tr>
+<td><code>tebunko_grep.bat</code> で起動したとき、PowerShell の窓が残らないこと（既定のターミナルが Windows Terminal でも）</td>
+<td>10.1</td>
+<td>◎（エクスプローラーから起動し、Windows Terminal のタブが増えず、画面の親が <code>conhost.exe</code> であることを確認）</td>
+</tr>
+<tr>
+<td>実行時コンパイル（csc.exe）を出さないこと</td>
+<td>12.2</td>
+<td>◎（全スクリプトに <code>Add-Type -TypeDefinition</code> が無いこと（<code>tests/meta/structure.Tests.ps1</code>）・起動〜検索で <code>csc.exe</code> 0 回／一時 DLL 0 個を実起動で確認）</td>
 </tr>
 <tr>
 <td><code>[</code> <code>]</code> を含むツールの配置フォルダからの起動</td>

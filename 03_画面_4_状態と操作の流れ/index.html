@@ -1475,27 +1475,28 @@
 <p>本書は <a href="../03_%E7%94%BB%E9%9D%A2/">03_画面.md</a> の一部である。章・節の番号は 03_画面.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../03_%E7%94%BB%E9%9D%A2/#ファイル構成">03_画面.md</a> の表のとおり。</p>
 <hr />
 <h2 id="6-状態の判定と表示">6. 状態の判定と表示<a class="headerlink" href="#6-状態の判定と表示" title="Permanent link">&para;</a></h2>
+<p>画面がインデックスとインデックス作成の状態をどう判定して見せるか（6 章）と、検索・インデックス作成・プロセス停止・終了の操作の流れ（7 章）をまとめる。</p>
 <h3 id="61-インデックスとインデックス作成の状態">6.1 インデックスとインデックス作成の状態<a class="headerlink" href="#61-インデックスとインデックス作成の状態" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
 <th>状態</th>
 <th>判定方法</th>
-<th>［1 インデックス管理］No.6 の表示</th>
+<th>［1 インデックス管理］の表示</th>
 <th>起動時のタブ</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>未作成</td>
-<td>検索対象インデックスに TSV が無い</td>
-<td><code>まだインデックスがありません。</code></td>
+<td><code>work/index</code> に TSV が無い</td>
+<td>No.5 に <code>まだインデックスがありません。</code></td>
 <td>1</td>
 </tr>
 <tr>
 <td>中断中</td>
 <td><code>work/取り込み一覧.tsv</code> に状態が <code>未取り込み</code> の行がある</td>
-<td><code>⏸ 前回のインデックス作成が中断しています（残り N 件）</code></td>
+<td>No.5 の次の行に <code>⏸ 前回のインデックス作成が中断しています（残り N 件）</code>、No.6 のボタンは［続きから再開（残り N 件）］</td>
 <td>1</td>
 </tr>
 <tr>
@@ -1506,21 +1507,21 @@
 </tr>
 <tr>
 <td>インデックス作成中</td>
-<td>この画面から起動したインデックス作成（<code>tebunko_grep/indexer.ps1</code>）のプロセス、または起動時・開始時に見つけた実行中のインデックス作成のプロセスが動いている（3.1）</td>
-<td><code>インデックス作成中…</code></td>
+<td>この画面から起動したインデックス作成（<code>tebunko_grep/indexer.ps1</code>）のプロセス、または起動時・開始時に見つけた実行中のインデックス作成のプロセスが動いている（3.3）</td>
+<td>No.6 のボタンが <code>インデックス作成中…</code>（無効）。進み具合（3.6）</td>
 <td>1</td>
 </tr>
 <tr>
 <td>通常</td>
 <td>上のいずれでもない</td>
-<td><code>取り込み済み N ファイル（TSV M 件 ・ 最終取り込み M/d H:mm）</code> のみ</td>
+<td>No.5 に <code>取り込み済み N ファイル（TSV M 件 ・ 最終取り込み M/d H:mm）</code> のみ</td>
 <td>2</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>「最終取り込み」は、インデックス配下の TSV の最新の更新日時とする。</li>
-<li>「インデックス作成中」は、画面の起動時と［インデックス作成を開始］を押したときに、このツールの <code>scripts\tebunko_grep\indexer.ps1</code> を実行中の <code>powershell.exe</code> を探して判定する（3.1）。見つかれば、そのプロセスの進み具合を表示し、二重に起動しない。</li>
+<li>「インデックス作成中」は、画面の起動時と［インデックス作成を開始］を押したときに、このツールの <code>scripts\tebunko_grep\indexer.ps1</code> を実行中の <code>powershell.exe</code> を探して判定する（3.3）。見つかれば、そのプロセスの進み具合を表示し、二重に起動しない。</li>
 </ul>
 <h3 id="62-インデックス作成の状態遷移画面から見た状態">6.2 インデックス作成の状態遷移（画面から見た状態）<a class="headerlink" href="#62-インデックス作成の状態遷移画面から見た状態" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -1556,17 +1557,17 @@
     participant I as 検索対象インデックス
 
     U-&gt;&gt;G: ワードを入力して Enter
-    G-&gt;&gt;G: 入力チェック（ワードが空でない・TSV 1 件以上）
+    G-&gt;&gt;G: 入力チェック（ワードが空でない・TSV 1 件以上・検索対象にチェックあり）
     G-&gt;&gt;S: 検索開始（ワード・検索条件・検索対象フォルダ）
     G-&gt;&gt;G: ［検索］→［中止］、結果の表をクリア
-    loop 100 ファイルごと
+    loop 50 ファイルごと
         S-&gt;&gt;I: .NET（StreamReader＋[regex]）で読み込み・照合
         S--&gt;&gt;G: 結果と進捗
-        G-&gt;&gt;G: 表に追加、「検索中… N / M ファイル」
+        G-&gt;&gt;G: ファイルの見出しを表に追加、「検索中… N / M ファイル（K 件）」
     end
     S--&gt;&gt;G: 完了
     G-&gt;&gt;G: 「N 件（M ファイル） ・ X 秒」、［中止］→［検索］
-    U-&gt;&gt;G: 結果をダブルクリック
+    U-&gt;&gt;G: 見出しをクリックして行を開き、行をダブルクリック
     G-&gt;&gt;G: 元のファイルの該当箇所を開く（4.5）</code></pre>
 <h3 id="72-インデックス作成">7.2 インデックス作成<a class="headerlink" href="#72-インデックス作成" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>sequenceDiagram
@@ -1577,7 +1578,7 @@
     participant W as work/
     participant P as tebunko_grep/indexer.ps1（ウィンドウなし）
 
-    U-&gt;&gt;G: ［インデックス作成を開始］など（3.1）
+    U-&gt;&gt;G: ［インデックス作成を開始］など（3.3）
     G-&gt;&gt;G: 実行中のインデックス作成を探す（あればその進み具合を表示して終わり）
     G-&gt;&gt;C: インデックス一覧を保存
     G-&gt;&gt;P: 起動（-WindowStyle Hidden -ConfirmTargets）
@@ -1599,7 +1600,7 @@
         G-&gt;&gt;G: 進み具合を表示（3.6）
     end
     opt ［中止］
-        U-&gt;&gt;G: ［中止］→［はい］
+        U-&gt;&gt;G: ［中止］→［中止する］
         G-&gt;&gt;W: インデックス作成中止要求 を作る
         P-&gt;&gt;W: 取り込み中のファイルが終わったら止まる
     end
@@ -1618,7 +1619,7 @@
     G-&gt;&gt;G: 表を表示
     U-&gt;&gt;G: ［バックグラウンドのみ終了］など
     G-&gt;&gt;U: 確認（5.2）
-    U-&gt;&gt;G: はい
+    U-&gt;&gt;G: ［終了する］
     G-&gt;&gt;O: Stop-Process -Force
     G-&gt;&gt;O: 一覧を取り直す
     G-&gt;&gt;G: 「N 個のプロセスを終了しました。」</code></pre>

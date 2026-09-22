@@ -418,6 +418,67 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="3.1 フォルダ構成">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#利用者が使うもの" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        利用者が使うもの
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#スクリプトscripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        スクリプト（scripts/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ドキュメント配布物に同梱するもの" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ドキュメント・配布物に同梱するもの
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#開発用配布しない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        開発用（配布しない）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#自動生成work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        自動生成（work/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1339,6 +1400,67 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="3.1 フォルダ構成">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#利用者が使うもの" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        利用者が使うもの
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#スクリプトscripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        スクリプト（scripts/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ドキュメント配布物に同梱するもの" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ドキュメント・配布物に同梱するもの
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#開発用配布しない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        開発用（配布しない）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#自動生成work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        自動生成（work/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1429,9 +1551,17 @@
 
 <h1 id="tebunko_grep-設計書フォルダファイル構成と設定ファイル">tebunko_grep 設計書（フォルダ・ファイル構成と設定ファイル）<a class="headerlink" href="#tebunko_grep-設計書フォルダファイル構成と設定ファイル" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../">00_index.md</a> の一部である。章・節の番号は 00_index.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../#ドキュメント構成">00_index.md</a> の表のとおり。</p>
+<p>本書で分かること:</p>
+<ul>
+<li><strong>3 章</strong> リポジトリ（配布物）のどこに何があるか、ツールが実行中にどのファイルを作り、読み書きするか</li>
+<li><strong>4 章</strong> 設定ファイル <code>setting.config</code> の形式・既定値・読み書きの決まり</li>
+</ul>
 <hr />
 <h2 id="3-フォルダファイル構成">3. フォルダ・ファイル構成<a class="headerlink" href="#3-フォルダファイル構成" title="Permanent link">&para;</a></h2>
 <h3 id="31-フォルダ構成">3.1 フォルダ構成<a class="headerlink" href="#31-フォルダ構成" title="Permanent link">&para;</a></h3>
+<p>すべてのパスは <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<strong>カレントディレクトリには依存しない。</strong>
+ファイル操作は <code>-LiteralPath</code> または .NET の <code>System.IO</code> を使い、<code>[</code> <code>]</code> を含むファイル名・フォルダ名を扱える。</p>
+<h4 id="利用者が使うもの">利用者が使うもの<a class="headerlink" href="#利用者が使うもの" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
 <tr>
@@ -1444,7 +1574,7 @@
 <tr>
 <td><code>tebunko_grep.bat</code></td>
 <td>起動用バッチ</td>
-<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ</td>
+<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>scripts</code> の中のファイルから Mark-of-the-Web を外し（<code>Unblock-File</code>。<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.2）、<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で起動して <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
 </tr>
 <tr>
 <td><code>setting.config</code></td>
@@ -1452,14 +1582,47 @@
 <td>画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。4 章）</td>
 </tr>
 <tr>
+<td><code>work/</code></td>
+<td>自動生成</td>
+<td>インデックス・状態ファイル・ログ（3.2）。git 管理外。削除すると全件取り込み直しになる</td>
+</tr>
+</tbody>
+</table>
+<h4 id="スクリプトscripts">スクリプト（<code>scripts/</code>）<a class="headerlink" href="#スクリプトscripts" title="Permanent link">&para;</a></h4>
+<p>ソースは<strong>文脈</strong>（<code>shared/</code> = どのツールからも使う、<code>tebunko_grep/</code> = このツール固有）と<strong>層</strong>で分ける。フォルダごとの中身と読み込み口は <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">5 章</a>。</p>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>種別</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
 <td><code>scripts/shared/</code></td>
 <td>スクリプト</td>
-<td>どのツールからも使う部品（<a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">5 章</a>）</td>
+<td>どのツールからも使う部品（<code>core/</code>・<code>office/</code>・<code>ui/</code>・<code>xaml/</code>）</td>
+</tr>
+<tr>
+<td><code>scripts/shared/shared.ps1</code></td>
+<td>スクリプト</td>
+<td>共通基盤の読み込み口</td>
+</tr>
+<tr>
+<td><code>scripts/shared/office/office_reader.ps1</code></td>
+<td>スクリプト</td>
+<td>Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメントの文字を取り出す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_インデックス作成_7</a> の 6.4、Word は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/">01_インデックス作成_2_Word.md</a>、PowerPoint は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/">01_インデックス作成_3_PowerPoint.md</a>）</td>
+</tr>
+<tr>
+<td><code>scripts/shared/xaml/</code></td>
+<td>画面定義</td>
+<td>共通の画面定義（<code>theme.xaml</code>・確認ダイアログ・フォルダ選択）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/</code></td>
 <td>スクリプト</td>
-<td>tebunko_grep 固有の処理と画面（同上）</td>
+<td>tebunko_grep 固有の処理と画面（<code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code>・<code>ui/</code>・<code>xaml/</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/gui.ps1</code></td>
@@ -1474,82 +1637,34 @@
 <tr>
 <td><code>scripts/tebunko_grep/lib.ps1</code></td>
 <td>スクリプト</td>
-<td>画面以外の部品の読み込み口（<a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">5 章</a>）</td>
-</tr>
-<tr>
-<td><code>scripts/shared/shared.ps1</code></td>
-<td>スクリプト</td>
-<td>共通基盤の読み込み口（同上）</td>
-</tr>
-<tr>
-<td><code>scripts/shared/office/office_reader.ps1</code></td>
-<td>スクリプト</td>
-<td>Word・PowerPoint のテキスト読み取り（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の 6.4、Word は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/">01_インデックス作成_2_Word.md</a> の 6.5、PowerPoint は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/">01_インデックス作成_3_PowerPoint.md</a> の 6.6）</td>
-</tr>
-<tr>
-<td><code>scripts/shared/xaml/</code></td>
-<td>画面定義</td>
-<td>共通の画面定義（<code>theme.xaml</code>・確認ダイアログ・フォルダ選択）</td>
+<td>画面以外の部品の読み込み口</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/xaml/</code></td>
 <td>画面定義</td>
-<td>tebunko_grep の画面定義（<code>tebunko_grep.xaml</code> ほか）</td>
+<td>tebunko_grep の画面定義（<code>tebunko_grep.xaml</code>・タブ・ダイアログ）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/tebunko_grep.ico</code></td>
 <td>画像</td>
 <td>画面のアイコン（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#10-表示アクセシビリティ">03_画面_5_共通仕様.md 10 章</a>）。元データは <code>docs/images/logo.svg</code>（リポジトリの管理者が作成）で、<code>tools/new_icon.ps1</code> で作る。手で編集しない</td>
 </tr>
+</tbody>
+</table>
+<h4 id="ドキュメント配布物に同梱するもの">ドキュメント・配布物に同梱するもの<a class="headerlink" href="#ドキュメント配布物に同梱するもの" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
 <tr>
-<td><code>tests/</code></td>
-<td>テスト</td>
-<td>Pester テスト（<code>scripts/</code> と同じ構成。<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#6-テスト">6 章</a>）</td>
+<th>パス</th>
+<th>種別</th>
+<th>説明</th>
 </tr>
+</thead>
+<tbody>
 <tr>
-<td><code>tools/new_release_files.ps1</code></td>
-<td>配布用</td>
-<td>配布物のカタログ（<code>tebunko_grep.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を <code>work/release/</code> に作る。受け取った側が改ざんの有無を確認できる（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）</td>
-</tr>
-<tr>
-<td><code>tools/new_release_package.ps1</code></td>
-<td>配布用</td>
-<td>配布する zip（<code>tebunko_grep-&lt;バージョン&gt;.zip</code>。本体・LICENSE・README・SECURITY・SBOM・カタログ・ハッシュ一覧）を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
-</tr>
-<tr>
-<td><code>tools/check_commit.ps1</code></td>
-<td>開発用</td>
-<td>公開してはいけない内容（利用者名を含むパス・メールアドレス・Office ファイルの作成者名など）と <code>.ps1</code>・<code>.xaml</code> の文字コードを検査する。pre-commit フックと CI が使う（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
-</tr>
-<tr>
-<td><code>tools/new_icon.ps1</code></td>
-<td>開発用</td>
-<td>画面のアイコン（<code>tebunko_grep.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
-</tr>
-<tr>
-<td><code>tools/hooks/pre-commit</code>・<code>tools/install_hooks.ps1</code></td>
-<td>開発用</td>
-<td>コミット前の検査。clone 後に <code>install_hooks.ps1</code> を 1 回実行して有効にする（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
-</tr>
-<tr>
-<td><code>.github/workflows/</code></td>
-<td>開発用</td>
-<td>CI（<code>test.yml</code>）と配布物の公開（<code>release.yml</code>）</td>
-</tr>
-<tr>
-<td><code>.github/codecov.yml</code></td>
-<td>開発用</td>
-<td>Codecov の設定。ASCII の文字だけで書く（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
-</tr>
-<tr>
-<td><code>.github/CONTRIBUTING.md</code>・<code>.github/SUPPORT.md</code>・<code>.github/CODE_OF_CONDUCT.md</code></td>
+<td><code>README.md</code>・<code>LICENSE</code></td>
 <td>ドキュメント</td>
-<td>開発に参加する手順・使い方の質問の窓口・行動規範。GitHub は <code>.github/</code> に置いたものも認識する</td>
-</tr>
-<tr>
-<td><code>sbom.cdx.json</code></td>
-<td>配布用</td>
-<td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 6 章）</td>
+<td>使い方の入口とライセンス。配布 zip に同梱する</td>
 </tr>
 <tr>
 <td><code>.github/SECURITY.md</code></td>
@@ -1557,92 +1672,204 @@
 <td>安全性の説明の入口と、脆弱性の連絡先・対応方針。配布 zip では直下に置く</td>
 </tr>
 <tr>
+<td><code>sbom.cdx.json</code></td>
+<td>配布用</td>
+<td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 6 章）</td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>ドキュメント</td>
+<td>設計書（本書を含む）。<code>docs/images/</code> に図・画面の画像・ロゴ（<code>logo.svg</code>）を置く。配布 zip には入れない</td>
+</tr>
+<tr>
+<td><code>.github/CONTRIBUTING.md</code>・<code>.github/SUPPORT.md</code>・<code>.github/CODE_OF_CONDUCT.md</code></td>
+<td>ドキュメント</td>
+<td>開発に参加する手順・使い方の質問の窓口・行動規範。GitHub は <code>.github/</code> に置いたものも認識する</td>
+</tr>
+</tbody>
+</table>
+<h4 id="開発用配布しない">開発用（配布しない）<a class="headerlink" href="#開発用配布しない" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>種別</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/</code></td>
+<td>テスト</td>
+<td>Pester テスト（<code>scripts/</code> と同じ構成。<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#6-テスト">6 章</a>）</td>
+</tr>
+<tr>
+<td><code>tools/check_commit.ps1</code></td>
+<td>開発用</td>
+<td>公開してはいけない内容（利用者名を含むパス・メールアドレス・Office ファイルの作成者名など）・<code>.ps1</code> と <code>.xaml</code> の文字コード・長すぎるファイル名を検査する。pre-commit フックと CI が使う（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
+</tr>
+<tr>
+<td><code>tools/check_commit_message.ps1</code></td>
+<td>開発用</td>
+<td>コミットメッセージの 1 行目・PR と Issue のタイトルが Conventional Commits の形かを確かめる。commit-msg フックと CI（<code>title.yml</code>）が使う</td>
+</tr>
+<tr>
+<td><code>tools/check_signoff.ps1</code></td>
+<td>開発用</td>
+<td>コミットに作者の <code>Signed-off-by</code> があるかを確かめる。commit-msg フックと CI（<code>test.yml</code>）が使う</td>
+</tr>
+<tr>
+<td><code>tools/check_markdown_links.ps1</code></td>
+<td>開発用</td>
+<td>git で管理している <code>.md</code> の相対リンクの先（ファイル・見出し）があるかを確かめる。<code>tests/meta/links.Tests.ps1</code> が使う（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#63-テストの構成と実行">00_共通_3_テスト.md 6.3</a>）</td>
+</tr>
+<tr>
+<td><code>tools/hooks/pre-commit</code>・<code>tools/hooks/commit-msg</code>・<code>tools/install_hooks.ps1</code></td>
+<td>開発用</td>
+<td>コミット時の検査。clone 後に <code>install_hooks.ps1</code> を 1 回実行して有効にする（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
+</tr>
+<tr>
+<td><code>tools/new_release_files.ps1</code></td>
+<td>配布用</td>
+<td>配布物のカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を作る（既定の出力先は <code>work/release/</code>）。受け取った側が改ざんの有無を確認できる（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）</td>
+</tr>
+<tr>
+<td><code>tools/new_release_package.ps1</code></td>
+<td>配布用</td>
+<td>配布する zip（<code>tebunko_grep-&lt;バージョン&gt;.zip</code>。本体・LICENSE・README・SECURITY・SBOM・カタログ・ハッシュ一覧）を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
+</tr>
+<tr>
+<td><code>tools/new_icon.ps1</code></td>
+<td>開発用</td>
+<td>画面のアイコン（<code>tebunko_grep.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
+</tr>
+<tr>
+<td><code>tools/make_social_preview.ps1</code></td>
+<td>開発用</td>
+<td>GitHub の social preview 用の画像（<code>docs/images/social_preview.png</code>）を作る。登録はリポジトリの設定から手で行う</td>
+</tr>
+<tr>
 <td><code>tools/mkdocs/</code></td>
 <td>開発用</td>
 <td>設計書の Web サイトを作る設定（<code>mkdocs.yml</code>）・フック（<code>hooks.py</code>）・使うパッケージ（<code>requirements.txt</code>）（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
 </tr>
 <tr>
-<td><code>.claude/CLAUDE.md</code></td>
+<td><code>.github/workflows/</code></td>
 <td>開発用</td>
-<td>Claude Code 向けの入口。本文は直下の <code>AGENTS.md</code> を読み込む</td>
+<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
 </tr>
 <tr>
-<td><code>docs/</code></td>
-<td>ドキュメント</td>
-<td>設計書</td>
+<td><code>.github/codecov.yml</code></td>
+<td>開発用</td>
+<td>Codecov の設定。ASCII の文字だけで書く（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
 </tr>
 <tr>
-<td><code>work/</code></td>
-<td>自動生成</td>
-<td>git 管理外。削除すると全件再取り込みになる</td>
+<td><code>.github/dependabot.yml</code>・<code>.github/release.yml</code></td>
+<td>開発用</td>
+<td>依存（GitHub Actions・MkDocs のパッケージ）の更新 PR の設定と、リリースノートを PR のラベルで分ける設定</td>
 </tr>
+<tr>
+<td><code>.github/ISSUE_TEMPLATE/</code>・<code>.github/pull_request_template.md</code>・<code>.github/title_comment.md</code></td>
+<td>開発用</td>
+<td>Issue・PR のテンプレートと、形の違う Issue のタイトルに付けるコメント</td>
+</tr>
+<tr>
+<td><code>.gitattributes</code></td>
+<td>開発用</td>
+<td><code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF、<code>tools/hooks/*</code> を LF に固定する</td>
+</tr>
+<tr>
+<td><code>AGENTS.md</code>・<code>.claude/CLAUDE.md</code></td>
+<td>開発用</td>
+<td>コーディングエージェント向けの決まり。<code>CLAUDE.md</code> は <code>AGENTS.md</code> を読み込む</td>
+</tr>
+</tbody>
+</table>
+<h4 id="自動生成work">自動生成（<code>work/</code>）<a class="headerlink" href="#自動生成work" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>work/index/</code></td>
-<td>自動生成</td>
 <td>取り込み済み TSV。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下は元のファイル 1 つにつき 1 フォルダ（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）</td>
 </tr>
 <tr>
 <td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
-<td>自動生成</td>
 <td>インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。<code>work/index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける</td>
 </tr>
 <tr>
 <td><code>work/取り込み一覧.tsv</code></td>
-<td>自動生成</td>
 <td>取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗）</td>
 </tr>
 <tr>
 <td><code>work/取り込み中.txt</code></td>
-<td>自動生成</td>
 <td>取り込み中のファイル。取り込み中に強制終了したときだけ残る</td>
 </tr>
 <tr>
 <td><code>work/インデックス作成進捗.txt</code></td>
-<td>自動生成</td>
 <td>インデックス作成の進み具合（1 行）。画面が 1 秒ごとに読んで表示する。インデックス作成の開始時に前回の分を消す</td>
 </tr>
 <tr>
 <td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
-<td>自動生成</td>
-<td>1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ。集め終わってからフォルダごと入れ替えるため、途中で強制終了しても作りかけのインデックスが残らない（インデックス作成の終了時に削除する）</td>
+<td>1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ（インデックス作成の終了時に削除する）</td>
 </tr>
 <tr>
 <td><code>work/取り込み予定.tsv</code></td>
-<td>自動生成</td>
 <td>取り込み対象を数えた結果（インデックスごとの件数）。画面が確認のダイアログに出す。返事を受け取ると削除する</td>
 </tr>
 <tr>
 <td><code>work/インデックス作成開始要求</code></td>
-<td>自動生成</td>
 <td>確認のダイアログで［インデックス作成を開始］を押すと作成する。インデクサが見つけて削除し、インデックス作成を始める</td>
 </tr>
 <tr>
 <td><code>work/インデックス作成中止要求</code></td>
-<td>自動生成</td>
 <td>画面の［中止］・確認のダイアログの［キャンセル］で作成する。インデクサがファイルの切れ目で見つけて削除し、中止する</td>
 </tr>
 <tr>
 <td><code>work/インデックス作成エラー.txt</code></td>
-<td>自動生成</td>
 <td>インデックス作成を続けられないエラーのメッセージ。画面が表示する（正常に終わったときは無い）</td>
 </tr>
 <tr>
 <td><code>work/インデックス作成ログ.txt</code></td>
-<td>自動生成</td>
 <td>インデクサの表示内容の記録（実行ごとに上書き）</td>
 </tr>
 <tr>
+<td><code>work/画面エラー.txt</code></td>
+<td>画面で起きた予期しないエラーの記録（追記）</td>
+</tr>
+<tr>
 <td><code>work/検索結果.txt</code></td>
-<td>自動生成</td>
 <td>画面の［結果をファイルに出力］で書き出す検索結果</td>
+</tr>
+<tr>
+<td><code>work/test/</code>・<code>work/release/</code>・<code>work/site/</code>・<code>work/cache/</code></td>
+<td>開発用の出力（テスト結果とカバレッジ・配布物・設計書のサイト・サイトを作るときのキャッシュ）</td>
 </tr>
 </tbody>
 </table>
-<p>取り込みの作業領域は <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> に置く（Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、ツールの配置場所に依存させない）。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。
-できた TSV をインデックスに入れるときは、<code>work/取り込み出力/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。フォルダごと移すには同じドライブである必要があるため、作業領域（<code>%TEMP%</code>）とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
-<p>すべてのパスは <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<strong>カレントディレクトリには依存しない。</strong>
-ファイル操作は <code>-LiteralPath</code> または .NET の <code>System.IO</code> を使い、<code>[</code> <code>]</code> を含むファイル名・フォルダ名を扱える。</p>
+<p>取り込みの作業領域は <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> に置く。Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、ツールの配置場所に依存させない。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。</p>
+<p>できた TSV をインデックスに入れるときは、<code>work/取り込み出力/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域（<code>%TEMP%</code>）とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
 <h3 id="32-入出力ファイル一覧">3.2 入出力ファイル一覧<a class="headerlink" href="#32-入出力ファイル一覧" title="Permanent link">&para;</a></h3>
+<p>画面（<code>gui.ps1</code>）とインデクサ（<code>indexer.ps1</code>）は別のプロセスで動き、<code>work/</code> のファイルで状態を受け渡す。</p>
+<pre class="mermaid"><code>flowchart LR
+    CFG[("setting.config")]
+    GUI["画面&lt;br&gt;gui.ps1"]
+    IDX["インデクサ&lt;br&gt;indexer.ps1"]
+    ST[("取り込み一覧.tsv&lt;br&gt;取り込み中.txt")]
+    IX[("work/index/")]
+    GUI -- 読み書き --&gt; CFG
+    IDX -- クロール対象フォルダを読む --&gt; CFG
+    IDX -- 進捗・取り込み予定・エラー --&gt; GUI
+    GUI -- 開始要求・中止要求 --&gt; IDX
+    IDX -- 読み書き --&gt; ST
+    IDX -- TSV を書く --&gt; IX
+    GUI -- 検索・一覧 --&gt; IX
+    GUI -- 集計を読む --&gt; ST</code></pre>
 <table>
 <thead>
 <tr>
@@ -1661,15 +1888,15 @@
 <td>画面</td>
 <td>画面・インデックス作成</td>
 <td>UTF-8（BOM なし）、JSON</td>
-<td>クロール対象フォルダ・検索対象インデックス・検索対象のツリーでチェックを外したフォルダ・元のフォルダの置き換え・正規表現の使用（4 章）。PC ごとの設定</td>
+<td>クロール対象フォルダ・検索対象のツリーでチェックを外したフォルダ・元のフォルダ・検索条件・開き方（4 章）。PC ごとの設定</td>
 </tr>
 <tr>
 <td><code>work/取り込み一覧.tsv</code></td>
 <td>インデックス作成の状態</td>
 <td>インデックス作成</td>
-<td>インデックス作成</td>
+<td>インデックス作成・画面</td>
 <td>UTF-8（BOM 付き）、タブ区切り</td>
-<td>1 行目にクロール対象フォルダ、以降 1 ファイル 1 行で相対パス・更新日時・サイズ・状態・TSV 数・取り込み日時・エラー（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成.md 4.2 節</a>）</td>
+<td>先頭にクロール対象フォルダの行、以降 1 ファイル 1 行で相対パス・更新日時・サイズ・状態・TSV 数・取り込み日時・エラー・抽出版（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4 の 4.2 節</a>）</td>
 </tr>
 <tr>
 <td><code>work/取り込み中.txt</code></td>
@@ -1677,7 +1904,7 @@
 <td>インデックス作成</td>
 <td>インデックス作成</td>
 <td>UTF-8（BOM 付き）</td>
-<td>取り込み中のファイルの <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> の 1 行。そのファイルの取り込みが終われば削除する。残っていれば、そのファイルの取り込み中に強制終了した（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#強制終了時間切れからの再開">01_インデックス作成.md 4.2 節</a>）</td>
+<td>取り込み中のファイルの <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> の 1 行。そのファイルの取り込みが終われば削除する。残っていれば、そのファイルの取り込み中に強制終了した（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#強制終了時間切れからの再開">01_インデックス作成_4 の 4.2 節</a>）</td>
 </tr>
 <tr>
 <td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
@@ -1701,7 +1928,7 @@
 <td>インデックス作成</td>
 <td>画面</td>
 <td>UTF-8（BOM 付き）、タブ区切り</td>
-<td>インデックス作成の進み具合の 1 行 <code>&lt;段階（クロール/確認/取り込み/仕上げ）&gt;&lt;TAB&gt;&lt;処理済み&gt;&lt;TAB&gt;&lt;残り&gt;&lt;TAB&gt;&lt;失敗&gt;&lt;TAB&gt;&lt;いま行っていること&gt;</code>（<code>writeIndexingProgress</code> / <code>readIndexingProgress</code>）。画面は 1 秒ごとにこの 1 行だけを読む（取り込み一覧は数万行になり、毎秒読み直すと画面が固まるため。<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1</a>）</td>
+<td>インデックス作成の進み具合の 1 行 <code>&lt;段階（クロール/確認/取り込み/仕上げ）&gt;&lt;TAB&gt;&lt;処理済み&gt;&lt;TAB&gt;&lt;残り&gt;&lt;TAB&gt;&lt;失敗&gt;&lt;TAB&gt;&lt;いま行っていること&gt;</code>（<code>writeIndexingProgress</code> / <code>readIndexingProgress</code>）。画面は 1 秒ごとにこの 1 行だけを読む（取り込み一覧は数万行になり、毎秒読み直すと画面が固まるため。<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#36-インデックス作成の進み具合">03_画面_1</a>）</td>
 </tr>
 <tr>
 <td><code>work/取り込み予定.tsv</code></td>
@@ -1725,7 +1952,7 @@
 <td>画面</td>
 <td>インデックス作成</td>
 <td>–（内容は使わない）</td>
-<td>インデックス作成の中止・確認の取りやめの要求（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成.md 4.1 節</a>）</td>
+<td>インデックス作成の中止・確認の取りやめの要求（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4 の 4.1 節</a>）</td>
 </tr>
 <tr>
 <td><code>work/インデックス作成エラー.txt</code></td>
@@ -1744,12 +1971,20 @@
 <td>インデクサの表示内容</td>
 </tr>
 <tr>
+<td><code>work/画面エラー.txt</code></td>
+<td>記録</td>
+<td>画面</td>
+<td>利用者</td>
+<td>UTF-8（BOM 付き）</td>
+<td>画面で起きた予期しないエラーの内容（<code>writeErrorLog</code>。追記）</td>
+</tr>
+<tr>
 <td><code>work/index/</code></td>
 <td>インデックス</td>
 <td>インデックス作成</td>
 <td>検索</td>
 <td>UTF-8（BOM 付き）、CRLF</td>
-<td>シート・ページ・スライドごとの TSV</td>
+<td>シート・ページ・スライドごとの TSV と、図形・コメントの TSV（<code>&lt;元の場所&gt;[図形]</code>・<code>&lt;元の場所&gt;[コメント]</code>）</td>
 </tr>
 <tr>
 <td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
@@ -1757,7 +1992,7 @@
 <td>インデックス作成</td>
 <td>画面</td>
 <td>UTF-8（BOM 付き）、タブ区切り</td>
-<td>1 行目は説明、2 行目は <code>&lt;インデックス名&gt;&lt;TAB&gt;&lt;元のフォルダ&gt;</code>（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#クロール対象フォルダとインデックス名">01_インデックス作成.md 4.2 節</a>）。<code>.tsv</code> にすると検索対象になるため <code>.txt</code></td>
+<td>1 行目は説明、2 行目は <code>&lt;インデックス名&gt;&lt;TAB&gt;&lt;元のフォルダ&gt;</code>（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#クロール対象フォルダとインデックス名">01_インデックス作成_5</a>）。<code>.tsv</code> にすると検索対象になるため <code>.txt</code></td>
 </tr>
 <tr>
 <td><code>work/検索結果.txt</code></td>
@@ -1769,10 +2004,10 @@
 </tr>
 </tbody>
 </table>
-<p>設定は <code>setting.config</code> の 1 ファイルにまとめ、画面が読み書きする（利用者が直接編集する前提にしない）。各設定の意味は、使用する処理の設計書に記載する（クロール対象フォルダ → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>、検索対象インデックス → <a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>、画面での扱い → <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#8-設定ファイルの読み書き">03_画面_5_共通仕様.md 8 章</a>）。以前のコンソール用の <code>config/検索ワード.txt</code> は使わない（残っていても無視する）。</p>
+<p>各設定の意味は、使用する処理の設計書に記載する（クロール対象フォルダ → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>、検索対象インデックス → <a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>、画面での扱い → <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#8-設定ファイルの読み書き">03_画面_5_共通仕様.md 8 章</a>）。</p>
 <hr />
 <h2 id="4-設定ファイル-settingconfigreadsettings">4. 設定ファイル <code>setting.config</code>（<code>readSettings</code>）<a class="headerlink" href="#4-設定ファイル-settingconfigreadsettings" title="Permanent link">&para;</a></h2>
-<p>画面から使うアプリのため、設定は画面が読み書きする 1 つのファイル（ツール直下の <code>setting.config</code>。内容は JSON）にまとめる。利用者が手で編集する前提にはしない（以前の <code>config/*.txt</code> は、利用者がメモ帳で編集するコンソール用の形式だった）。インデクサ（別プロセス）は、画面が保存したクロール対象フォルダをこのファイルから読む。</p>
+<p>設定は、ツール直下の <code>setting.config</code>（内容は JSON）の 1 ファイルにまとめ、画面が読み書きする。利用者が手で編集する前提にはしない。インデクサ（別プロセス）は、画面が保存したクロール対象フォルダをこのファイルから読む。読み書きの関数は <code>scripts/tebunko_grep/core/settings_grep.ps1</code> にある。</p>
 <h3 id="41-形式">4.1 形式<a class="headerlink" href="#41-形式" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="w">    </span><span class="nt">"targetFolders"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -1877,15 +2112,16 @@
     E --&gt; G["記載のあるキーだけ既定値を上書きして返す"]
     B -- いいえ --&gt; H{"同じフォルダの config/ に以前の設定ファイル（*.txt）がある？"}
     H -- いいえ --&gt; D
-    H -- はい --&gt; I["以前の設定ファイルを読み込み、setting.config に保存して返す（移行）"]</code></pre>
+    H -- はい --&gt; I["以前の設定ファイルを読み込み、setting.config に保存して返す（4.3）"]</code></pre>
 <ul>
 <li>ファイルが無くても作成しない（既定値で動く）。ファイルを作るのは画面が設定を保存したときと、以前の設定ファイルから移したときだけ。</li>
-<li>記載の無いキー・未知のキーは無視する（キーが増えても以前の設定ファイルをそのまま読める）。</li>
+<li>記載の無いキー・未知のキー・値が <code>null</code> のキーは無視する（キーが増えても古い設定ファイルをそのまま読める）。</li>
+<li>真偽値のキーは、手で <code>"false"</code> のような文字列に書き換えても <code>true</code> / <code>false</code> として読む（<code>toSettingBool</code>）。読めない値は既定値にする。</li>
 <li>保存（<code>updateSettings</code>）は、保存のたびにファイルを読み直し、変えたキーだけを書き換える。ほかのキーは、ほかの画面・処理が保存した内容を保つ。UTF-8（BOM なし）。</li>
 <li>JSON として解釈できないときは例外にする。インデクサでは、例外は <code>trap</code> で <code>work/インデックス作成エラー.txt</code> に書き出され、画面が表示する（終了コード 1）。</li>
 </ul>
 <h3 id="43-以前の設定ファイルからの移行">4.3 以前の設定ファイルからの移行<a class="headerlink" href="#43-以前の設定ファイルからの移行" title="Permanent link">&para;</a></h3>
-<p><code>setting.config</code> が無く、同じフォルダの <code>config/</code> に以前の設定ファイルがあれば、最初に読むときに内容を <code>setting.config</code> へ移す（<code>readLegacySettings</code>）。以前のファイルは削除しないが、移した後は読まない（<code>config/</code> フォルダは不要になるため、移した後は削除してよい）。</p>
+<p><code>setting.config</code> が無く、同じフォルダの <code>config/</code> に以前の版の設定ファイルがあれば、最初に読むときに内容を <code>setting.config</code> へ移す（<code>readLegacySettings</code>）。以前のファイルは削除しないが、移した後は読まない（<code>config/</code> フォルダは移した後に削除してよい）。</p>
 <table>
 <thead>
 <tr>
@@ -1907,8 +2143,7 @@
 </tr>
 </tbody>
 </table>
-<p>いずれも空行・前後の空白は無視する。<code>変換対象フォルダパス.txt</code> にはインデックス名が無いため、<code>name</code> は空にする（インデックス作成時に割り当てて保存する）。</p>
-<p>以前の版の <code>sourceReplacements</code>（元のフォルダの置き換え。<code>{from, to}</code> の配列）は使わない（記載があっても無視する）。フォルダを移したことは、置き換えの一覧ではなく <code>targetFolders</code> の <code>path</code>・<code>indexSources</code> の <code>path</code> を書き換えて表す。</p>
+<p>いずれも空行・前後の空白は無視する。<code>変換対象フォルダパス.txt</code> にはインデックス名が無いため、<code>name</code> は空にする（インデックス作成時に割り当てて保存する）。<code>config/</code> のほかのファイルは読まない。</p>
 
 
 

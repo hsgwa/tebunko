@@ -1651,11 +1651,23 @@
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>
-<td><code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+<td>終了時に <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> または <code>work/取り込み出力/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
 </tr>
 <tr>
 <td><code>work\index 直下に、クロール対象から外したフォルダ（&lt;パス&gt;）の以前の形式のインデックスがあります。不要なら削除してください。</code></td>
 <td>以前の版のインデックスが残っているが、そのフォルダがクロール対象に無い</td>
+</tr>
+<tr>
+<td><code>以前の形式のTSV &lt;N&gt; 件は移せませんでした。該当のファイルは次のインデックス作成で作り直します。</code></td>
+<td>以前の形式の TSV 名（<code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code>）を今の形式へ移せなかった（<code>migrateFlatIndex</code>。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#以前の形式フラットからの移行migrateflatindex">01_インデックス作成_7</a>）</td>
+</tr>
+<tr>
+<td><code>画面からの返事が 60 分ありませんでした。インデックス作成を取りやめます。</code></td>
+<td><code>-ConfirmTargets</code> で取り込み対象を画面に出した後、60 分待っても返事が無かった（画面を閉じた・落ちた等）。1 件も取り込まずに終了コード <code>2</code> で終わる</td>
+</tr>
+<tr>
+<td><code>画面で取りやめたため、取り込みません。（取り込み一覧は前回のままです）</code></td>
+<td>確認で［キャンセル］が押された、または上の返事の待ち時間を過ぎた（終了コード <code>2</code>）</td>
 </tr>
 </tbody>
 </table>

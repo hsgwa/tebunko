@@ -1318,6 +1318,7 @@
 <h1 id="インデックス作成インデクサ設計書--word">インデックス作成（インデクサ）設計書 ― Word<a class="headerlink" href="#インデックス作成インデクサ設計書--word" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の一部である。章・節の番号は 01_インデックス作成.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#ファイル構成">01_インデックス作成.md</a> の表のとおり。
 Word・PowerPoint で共通の処理は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/">01_インデックス作成_6_共通処理とアプリ管理.md</a> の 4.4 節（抽出処理）・5.1 節（起動・終了）と <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_インデックス作成_7_出力TSVと既知の問題.md</a> の 6.4 節（テキスト読み取り）を参照。</p>
+<p>Word 文書の旧形式（<code>.doc</code> 等）の変換（4.5）、本文のページ・ヘッダー/フッター・脚注・図形・コメントごとの読み取り（6.5）、Word に固有の注意点（7.2）を扱う。</p>
 <hr />
 <h2 id="45-word-の旧形式の変換extractwithword">4.5 Word の旧形式の変換（<code>extractWithWord</code>）<a class="headerlink" href="#45-word-の旧形式の変換extractwithword" title="Permanent link">&para;</a></h2>
 <p>4.4 節で ZIP ではないと判定したファイル（<code>.doc</code>、パスワード付き、拡張子と中身が異なるもの）を、Word で <code>.docx</code> に変換する。</p>
@@ -1348,7 +1349,7 @@ Word・PowerPoint で共通の処理は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%
 </tbody>
 </table>
 <ul>
-<li><code>Repaginate()</code> を呼ぶのは、保存時に記録されるページ区切り（6.5 のページの目安）を確定させるため。呼ばない場合、同じ内容の文書でも変換のたびにページ区切りの位置が変わることがあった（◎）。</li>
+<li><code>Repaginate()</code> を呼ぶのは、保存時に記録されるページ区切り（6.5 のページの目安）を確定させるため。呼ばないと、同じ内容の文書でも変換のたびにページ区切りの位置が変わることがある（◎）。</li>
 </ul>
 <hr />
 <h2 id="65-word-のテキスト読み取りと-tsv-の場所readdocxunits">6.5 Word のテキスト読み取りと TSV の場所（<code>readDocxUnits</code>）<a class="headerlink" href="#65-word-のテキスト読み取りと-tsv-の場所readdocxunits" title="Permanent link">&para;</a></h2>
@@ -1385,7 +1386,7 @@ Word・PowerPoint で共通の処理は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%
 </table>
 <ul>
 <li>図形・コメントの場所の決まりは 6.1 節の「図形・コメントの場所」。SmartArt は描画用の <code>diagrams/drawingN.xml</code> に同じ文字があるが、重複するため読まない。</li>
-<li>ヘッダー・フッター・脚注の中のテキストボックスは、今までどおりその場所の行にする。</li>
+<li>ヘッダー・フッター・脚注の中のテキストボックスは、<code>[図形]</code> に分けずにその場所の行にする。</li>
 <li><strong>ページ番号は目安</strong>。ファイルにはページの情報が無いため、以下で数える。</li>
 <li>Word が保存時に記録したページ区切り（<code>w:lastRenderedPageBreak</code>）。本文にこれが 1 つも無い（Word 以外で作られた）文書では使わない。</li>
 <li>手動の改ページ（<code>w:br w:type="page"</code>）・段落前で改ページ（<code>w:pageBreakBefore</code>）・セクション区切り（種類が「連続」以外）。これらの直後、本文が出る前にある <code>w:lastRenderedPageBreak</code> は同じ区切りなので数えない（Word は手動の改ページの後に <code>w:lastRenderedPageBreak</code> を記録する場合としない場合がある ◎）。</li>

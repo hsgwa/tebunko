@@ -1385,6 +1385,12 @@
 
 <h1 id="tebunko_grep-設計書共通モジュール">tebunko_grep 設計書（共通モジュール）<a class="headerlink" href="#tebunko_grep-設計書共通モジュール" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../">00_index.md</a> の一部である。章・節の番号は 00_index.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../#ドキュメント構成">00_index.md</a> の表のとおり。</p>
+<p>本書で分かること:</p>
+<ul>
+<li><strong>5.0</strong> <code>scripts/</code> のフォルダの分け方（文脈と層）と、読み込み口</li>
+<li><strong>5.1</strong> パスと定数の定義</li>
+<li><strong>5.2</strong> 関数一覧（本書は 5.2.1。5.2.2・5.2.3 は <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/">続き</a>）</li>
+</ul>
 <hr />
 <h2 id="5-共通モジュール">5. 共通モジュール<a class="headerlink" href="#5-共通モジュール" title="Permanent link">&para;</a></h2>
 <p>処理は<strong>文脈</strong>（どの機能のものか）と<strong>層</strong>（何をするものか）で分けて置く。</p>
@@ -1403,7 +1409,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/office/</code></td>
-<td>Office ファイルの判定（<code>office_files.ps1</code>）・プロセスの一覧と強制終了（<code>office_process.ps1</code>）・Word / PowerPoint の読み取り（<code>office_reader.ps1</code>）・Office アプリの起動と終了（<code>office_app.ps1</code>）</td>
+<td>Office ファイルの判定（<code>office_files.ps1</code>）・プロセスの一覧と強制終了（<code>office_process.ps1</code>）・Office ファイルを ZIP として読む処理（<code>office_reader.ps1</code>）・Office アプリ（COM）の起動と終了（<code>office_app.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/</code></td>
@@ -1415,11 +1421,11 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/index/</code></td>
-<td>インデックス名の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）</td>
+<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/indexer/</code></td>
-<td>取り込み対象の決定（<code>indexer_plan.ps1</code>）・インデックス作成の状態ファイル（<code>indexer_state.ps1</code>）・1 ファイルの取り込みと抽出（<code>extract_office.ps1</code>）・後始末（<code>index_migrate.ps1</code>）</td>
+<td>インデックス作成の状態ファイル（<code>indexer_state.ps1</code>）・取り込み直すかの判断（<code>indexer_decide.ps1</code>）・取り込み対象の決定（<code>indexer_plan.ps1</code>）・1 ファイルの取り込みと抽出（<code>extract_office.ps1</code>）・後始末と移行（<code>index_migrate.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/search/</code></td>
@@ -1443,23 +1449,31 @@
 <tbody>
 <tr>
 <td>判断層（入力は素の値、出力は素の値）</td>
-<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>search_query.ps1</code>・<code>*_view.ps1</code></td>
-<td>できる（タグ <code>Unit</code>）</td>
+<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>search_query.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code></td>
+<td>する（主にタグ <code>Unit</code>）</td>
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
 <td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>search_run.ps1</code></td>
-<td>できる（タグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
+<td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>
 <td>画面層（<code>$ui</code> を触る）</td>
-<td><code>gui.ps1</code>・<code>*_tab.ps1</code>・<code>shell.ps1</code></td>
-<td>しない（手で確かめる）</td>
+<td><code>gui.ps1</code>・<code>*_tab.ps1</code>・<code>shell.ps1</code>・<code>app_host.ps1</code>・<code>folder_dialog.ps1</code>、<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code></td>
+<td><code>gui.ps1</code>・<code>*_tab.ps1</code>・<code>shell.ps1</code>・<code>app_host.ps1</code>・<code>*_dialog.ps1</code> は手で確かめる（カバレッジの対象外）。ほかは <code>$ui</code> を偽物にしてテストする</td>
 </tr>
 </tbody>
 </table>
-<p>依存の向きは一方向にする。<strong><code>shared/</code> はツール（<code>tebunko_grep/</code>）を知らない。</strong> ツール同士も互いを読み込まない。この決まりは <code>tests/meta/layers.Tests.ps1</code> で機械的に確かめる。</p>
-<p>読み込み口は次の 2 つ。ファイルを足したら、どちらかから読み込む（読み込み漏れもメタテストで検出する）。</p>
+<p>依存の向きは一方向にする。<strong><code>shared/</code> はツール（<code>tebunko_grep/</code>）を知らない。</strong> ツール同士も互いを読み込まない。判断層は <code>$ui</code>・<code>$window</code>・WPF の型に触らない。これらの決まりは <code>tests/meta/layers.Tests.ps1</code> で機械的に確かめる。</p>
+<pre class="mermaid"><code>flowchart TD
+    GUI["tebunko_grep/gui.ps1&lt;br&gt;（画面の起動口）"] --&gt; LIB
+    IDX["tebunko_grep/indexer.ps1&lt;br&gt;（インデックス作成の起動口）"] --&gt; LIB
+    GUI --&gt; UI["shared/ui/*・tebunko_grep/ui/*"]
+    IDX --&gt; IXO["shared/office/office_reader.ps1・office_app.ps1&lt;br&gt;tebunko_grep/indexer/indexer_plan.ps1・extract_office.ps1・index_migrate.ps1"]
+    LIB["tebunko_grep/lib.ps1"] --&gt; SH["shared/shared.ps1"]
+    LIB --&gt; TG["tebunko_grep の core/・index/・search/&lt;br&gt;indexer/indexer_state.ps1・indexer_decide.ps1"]
+    SH --&gt; SC["shared/core/*・office/office_files.ps1・office_process.ps1"]</code></pre>
+<p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。</p>
 <table>
 <thead>
 <tr>
@@ -1471,123 +1485,193 @@
 <tbody>
 <tr>
 <td><code>scripts/shared/shared.ps1</code></td>
-<td>共通基盤（<code>core/</code>・<code>office/</code> のうち COM を使わないもの）</td>
+<td>共通基盤（<code>core/</code> のすべてと、<code>office/</code> のうち <code>office_files.ps1</code>・<code>office_process.ps1</code>）</td>
 <td><code>tebunko_grep/lib.ps1</code></td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/lib.ps1</code></td>
-<td>上記＋ tebunko_grep の <code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code></td>
+<td>上記＋ tebunko_grep の <code>core/</code>・<code>index/</code>・<code>search/</code> と、<code>indexer/</code> のうち <code>indexer_state.ps1</code>・<code>indexer_decide.ps1</code></td>
 <td>画面・インデクサ・テスト・画面が起こす別スレッド</td>
 </tr>
 </tbody>
 </table>
-<p>画面の部品（<code>shared/ui/</code>・<code>tebunko_grep/ui/</code>）と COM を使うもの（<code>office_app.ps1</code>・<code>office_reader.ps1</code>）は、必要な起動口（<code>gui.ps1</code>・<code>indexer.ps1</code>）が読み込む。</p>
+<p>画面の部品（<code>shared/ui/</code>・<code>tebunko_grep/ui/</code>）は <code>gui.ps1</code> が、インデックス作成だけで使うもの（<code>office_reader.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>）は <code>indexer.ps1</code> が読み込む。</p>
 <p>各スクリプト・テストからは dot-source（<code>. "$PSScriptRoot\lib.ps1"</code>）して使う。</p>
 <h3 id="51-パス定義">5.1 パス定義<a class="headerlink" href="#51-パス定義" title="Permanent link">&para;</a></h3>
-<p>パス定義は、どのツールからも使うもの（<code>shared/core/paths.ps1</code>）と tebunko_grep 固有のもの（<code>tebunko_grep/core/paths_grep.ps1</code>）に分かれる。</p>
+<p>パスと定数は、どのツールからも使うもの（<code>shared/</code>）と tebunko_grep 固有のもの（<code>tebunko_grep/core/paths_grep.ps1</code>・<code>settings_grep.ps1</code>）に分かれる。</p>
 <table>
 <thead>
 <tr>
 <th>変数</th>
 <th>値</th>
+<th>定義</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>$rootDir</code></td>
-<td>リポジトリ直下（<code>shared/core/paths.ps1</code>）</td>
+<td>リポジトリ直下</td>
+<td><code>shared/core/paths.ps1</code></td>
 </tr>
 <tr>
 <td><code>$workDir</code></td>
 <td><code>$rootDir\work</code></td>
-</tr>
-<tr>
-<td><code>$indexDir</code></td>
-<td><code>$workDir\index</code></td>
-</tr>
-<tr>
-<td><code>$tmpDir</code></td>
-<td><code>%TEMP%\tebunko_grep\&lt;PID&gt;</code>（プロセスごと）</td>
-</tr>
-<tr>
-<td><code>$settingsFile</code></td>
-<td><code>$rootDir\setting.config</code>（画面が保存する設定。内容は JSON。<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a>）</td>
-</tr>
-<tr>
-<td><code>$legacyConfigDirName</code> / <code>$legacyTargetFolderFileName</code> ほか</td>
-<td>以前の設定ファイルのフォルダ名 <code>config</code> と、ファイル名 <code>変換対象フォルダパス.txt</code>・<code>元のフォルダの置き換え.txt</code>・<code>検索オプション.txt</code>（<code>setting.config</code> が無いとき、同じフォルダの <code>config\</code> から移すときだけ読む）</td>
-</tr>
-<tr>
-<td><code>$statusFile</code></td>
-<td><code>$workDir\取り込み一覧.tsv</code></td>
-</tr>
-<tr>
-<td><code>$ingestingFile</code></td>
-<td><code>$workDir\取り込み中.txt</code></td>
-</tr>
-<tr>
-<td><code>$resultFile</code></td>
-<td><code>$workDir\検索結果.txt</code></td>
-</tr>
-<tr>
-<td><code>$stopRequestFile</code></td>
-<td><code>$workDir\インデックス作成中止要求</code>（画面が作成すると、インデクサはファイルの切れ目で中止する。確認の取りやめにも使う）</td>
-</tr>
-<tr>
-<td><code>$ingestPlanFile</code></td>
-<td><code>$workDir\取り込み予定.tsv</code>（取り込み対象を数えた結果。画面が確認のダイアログに出す）</td>
-</tr>
-<tr>
-<td><code>$indexingStartRequestFile</code></td>
-<td><code>$workDir\インデックス作成開始要求</code>（画面が作成すると、インデクサは確認待ちから先へ進む）</td>
-</tr>
-<tr>
-<td><code>$indexingErrorFile</code></td>
-<td><code>$workDir\インデックス作成エラー.txt</code>（インデックス作成を続けられないエラーのメッセージ。正常終了時は無い）</td>
-</tr>
-<tr>
-<td><code>$indexingLogFile</code></td>
-<td><code>$workDir\インデックス作成ログ.txt</code>（インデクサの表示内容の記録。実行ごとに上書き）</td>
+<td>同上</td>
 </tr>
 <tr>
 <td><code>$utf8Bom</code></td>
 <td>BOM 付き UTF-8 の <code>System.Text.Encoding</code></td>
+<td>同上</td>
 </tr>
 <tr>
 <td><code>$cellNewLine</code></td>
 <td>インデックス TSV でセル内改行の代わりに使う文字（U+2028 LINE SEPARATOR）</td>
+<td><code>shared/core/text.ps1</code></td>
 </tr>
 <tr>
-<td><code>$statusColumns</code></td>
-<td>取り込み一覧の列名（<code>相対パス</code> <code>更新日時</code> <code>サイズ</code> <code>状態</code> <code>TSV数</code> <code>取り込み日時</code> <code>エラー</code>）</td>
+<td><code>$maxFileNameLength</code></td>
+<td>ファイル名 1 つの長さの上限（255）</td>
+<td><code>shared/core/fs.ps1</code></td>
 </tr>
 <tr>
-<td><code>$statusFolderKey</code></td>
-<td>取り込み一覧の先頭のクロール対象フォルダの行の見出し（<code>クロール対象フォルダ</code>）</td>
-</tr>
-<tr>
-<td><code>$stateNew</code> / <code>$stateDone</code> / <code>$stateFailed</code></td>
-<td>取り込み一覧の状態（<code>未取り込み</code> / <code>済</code> / <code>失敗</code>）</td>
-</tr>
-<tr>
-<td><code>$indexingPhaseCrawl</code> / <code>$indexingPhaseConfirm</code> / <code>$indexingPhaseIngest</code> / <code>$indexingPhaseFinish</code></td>
-<td>インデックス作成の進み具合の段階（<code>クロール</code> / <code>確認</code> / <code>取り込み</code> / <code>仕上げ</code>）</td>
-</tr>
-<tr>
-<td><code>$ingestPlanColumns</code></td>
-<td>取り込み予定の列名（<code>インデックス名</code> <code>元のフォルダ</code> <code>区分</code> <code>ファイル数</code> <code>取り込み対象</code> <code>新規</code> <code>更新あり</code> <code>前回未完了</code> <code>インデックスなし</code> <code>前回失敗</code>）</td>
-</tr>
-<tr>
-<td><code>$planKindIngest</code> / <code>$planKindUnchecked</code> / <code>$planKindMissing</code></td>
-<td>取り込み予定の区分（<code>取り込み</code> / <code>チェックなし</code> / <code>フォルダなし</code>）</td>
-</tr>
-<tr>
-<td><code>$retryFailedMark</code></td>
-<td>インデックス作成開始要求の中身（<code>失敗分も再取り込み</code>。前回失敗したファイルも取り込むときだけ書く）</td>
+<td><code>$officeExtensions</code></td>
+<td>取り込み対象の拡張子（<code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>）</td>
+<td><code>shared/office/office_files.ps1</code></td>
 </tr>
 <tr>
 <td><code>$officeProcessNames</code></td>
 <td>強制終了の対象のプロセス名 → 表示名（<code>EXCEL</code> → <code>Excel</code>、<code>WINWORD</code> → <code>Word</code>、<code>POWERPNT</code> → <code>PowerPoint</code>）</td>
+<td><code>shared/office/office_process.ps1</code></td>
+</tr>
+<tr>
+<td><code>$appId</code></td>
+<td>ツールの ID（<code>tebunko_grep</code>。ミューテックスの名前に使う）</td>
+<td><code>tebunko_grep/core/paths_grep.ps1</code></td>
+</tr>
+<tr>
+<td><code>$indexDir</code></td>
+<td><code>$workDir\index</code></td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$tmpDir</code></td>
+<td><code>%TEMP%\tebunko_grep\&lt;PID&gt;</code>（プロセスごと）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$publishDir</code></td>
+<td><code>$workDir\取り込み出力\&lt;PID&gt;</code>（TSV をインデックスに入れる直前に集めるフォルダ）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$sourceFolderFileName</code></td>
+<td>各インデックスのフォルダに置く対応表のファイル名（<code>元のフォルダ.txt</code>）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$statusFile</code></td>
+<td><code>$workDir\取り込み一覧.tsv</code></td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$ingestingFile</code></td>
+<td><code>$workDir\取り込み中.txt</code></td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$resultFile</code></td>
+<td><code>$workDir\検索結果.txt</code></td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$stopRequestFile</code></td>
+<td><code>$workDir\インデックス作成中止要求</code>（画面が作成すると、インデクサはファイルの切れ目で中止する。確認の取りやめにも使う）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$indexingErrorFile</code></td>
+<td><code>$workDir\インデックス作成エラー.txt</code>（インデックス作成を続けられないエラーのメッセージ。正常終了時は無い）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$indexingLogFile</code></td>
+<td><code>$workDir\インデックス作成ログ.txt</code>（インデクサの表示内容の記録。実行ごとに上書き）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$guiErrorLogFile</code></td>
+<td><code>$workDir\画面エラー.txt</code>（画面で起きた予期しないエラーの記録。追記）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$indexingProgressFile</code></td>
+<td><code>$workDir\インデックス作成進捗.txt</code>（インデクサが 1 行だけ書き、画面が読む）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$ingestPlanFile</code></td>
+<td><code>$workDir\取り込み予定.tsv</code>（取り込み対象を数えた結果。画面が確認のダイアログに出す）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$indexingStartRequestFile</code></td>
+<td><code>$workDir\インデックス作成開始要求</code>（画面が作成すると、インデクサは確認待ちから先へ進む）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$indexingPhaseCrawl</code> / <code>$indexingPhaseConfirm</code> / <code>$indexingPhaseIngest</code> / <code>$indexingPhaseFinish</code></td>
+<td>インデックス作成の進み具合の段階（<code>クロール</code> / <code>確認</code> / <code>取り込み</code> / <code>仕上げ</code>）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$ingestPlanColumns</code></td>
+<td>取り込み予定の列名（<code>インデックス名</code> <code>元のフォルダ</code> <code>区分</code> <code>ファイル数</code> <code>取り込み対象</code> <code>新規</code> <code>更新あり</code> <code>前回未完了</code> <code>インデックスなし</code> <code>前回失敗</code>）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$planKindIngest</code> / <code>$planKindUnchecked</code> / <code>$planKindMissing</code></td>
+<td>取り込み予定の区分（<code>取り込み</code> / <code>チェックなし</code> / <code>フォルダなし</code>）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$retryFailedMark</code></td>
+<td>インデックス作成開始要求の中身（<code>失敗分も再取り込み</code>。前回失敗したファイルも取り込むときだけ書く）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$statusColumns</code></td>
+<td>取り込み一覧の列名（<code>相対パス</code> <code>更新日時</code> <code>サイズ</code> <code>状態</code> <code>TSV数</code> <code>取り込み日時</code> <code>エラー</code> <code>抽出版</code>）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$legacyStatusColumnCount</code></td>
+<td>抽出版の列が無い以前の形式の取り込み一覧の列数（7）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$statusFolderKey</code></td>
+<td>取り込み一覧の先頭のクロール対象フォルダの行の見出し（<code>クロール対象フォルダ</code>）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$stateNew</code> / <code>$stateDone</code> / <code>$stateFailed</code></td>
+<td>取り込み一覧の状態（<code>未取り込み</code> / <code>済</code> / <code>失敗</code>）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$openModeNormal</code> / <code>$openModeReadOnly</code> / <code>$openModeNew</code>・<code>$openModes</code></td>
+<td>元のファイルの開き方（設定 <code>openMode</code> の値 <code>normal</code> / <code>readOnly</code> / <code>new</code>）と、その一覧</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$settingsFile</code></td>
+<td><code>$rootDir\setting.config</code>（画面が保存する設定。内容は JSON。<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a>）</td>
+<td><code>tebunko_grep/core/settings_grep.ps1</code></td>
+</tr>
+<tr>
+<td><code>$legacyConfigDirName</code> / <code>$legacyTargetFolderFileName</code> / <code>$legacySearchOptionFileName</code></td>
+<td>以前の版の設定ファイルのフォルダ名 <code>config</code> と、ファイル名 <code>変換対象フォルダパス.txt</code>・<code>検索オプション.txt</code>（<code>setting.config</code> が無いとき、同じフォルダの <code>config\</code> から移すときだけ読む。<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#43-以前の設定ファイルからの移行">4.3</a>）</td>
+<td>同上</td>
 </tr>
 </tbody>
 </table>
@@ -1619,7 +1703,50 @@
 </tr>
 </tbody>
 </table>
+<p><code>lib.ps1</code> から読み込まれない部品の関数は、それぞれの設計書に記載する。</p>
+<table>
+<thead>
+<tr>
+<th>ファイル</th>
+<th>主な関数</th>
+<th>記載先</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>shared/office/office_reader.ps1</code></td>
+<td><code>isZipFile</code> / <code>isCompoundFile</code> / <code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code> / <code>writeUnits</code></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_インデックス作成_7</a> の 6.4、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">01_インデックス作成_1_Excel.md</a>、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/">01_インデックス作成_2_Word.md</a>、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/">01_インデックス作成_3_PowerPoint.md</a></td>
+</tr>
+<tr>
+<td><code>shared/office/office_app.ps1</code></td>
+<td><code>getApp</code> / <code>stopApp</code> / <code>stopAllApps</code> / <code>startWatchdog</code> / <code>stopWatchdog</code></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/#5-office-アプリexcelwordpowerpointの管理">01_インデックス作成_6</a></td>
+</tr>
+<tr>
+<td><code>tebunko_grep/indexer/indexer_plan.ps1</code></td>
+<td><code>findOfficeFiles</code> / <code>createTargetList</code> / <code>waitForIndexingApproval</code></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a>、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a></td>
+</tr>
+<tr>
+<td><code>tebunko_grep/indexer/extract_office.ps1</code></td>
+<td><code>ingestFile</code> / <code>extractWorkbook</code> / <code>extractDocument</code></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">01_インデックス作成_1_Excel.md</a>、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/#44-wordpowerpoint-の抽出処理extractdocument">01_インデックス作成_6</a></td>
+</tr>
+<tr>
+<td><code>tebunko_grep/indexer/index_migrate.ps1</code></td>
+<td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>moveLegacyIndex</code> / <code>removeDroppedFolders</code> / <code>migrateFlatIndex</code></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5</a>、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a></td>
+</tr>
+<tr>
+<td><code>shared/ui/*</code>・<code>tebunko_grep/ui/*</code></td>
+<td>画面の部品（<code>showConfirm</code>・<code>selectFolder</code>・<code>getFolderEntries</code> など）</td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#12-実装構成">03_画面_6_実装とテスト.md</a></td>
+</tr>
+</tbody>
+</table>
 <h4 id="521-設定ファイル取り込み一覧クロール対象フォルダインデックス名">5.2.1 設定ファイル・取り込み一覧・クロール対象フォルダ・インデックス名<a class="headerlink" href="#521-設定ファイル取り込み一覧クロール対象フォルダインデックス名" title="Permanent link">&para;</a></h4>
+<p><strong>設定ファイル（<code>tebunko_grep/core/settings_grep.ps1</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1636,7 +1763,7 @@
 <td><code>newSettings</code></td>
 <td>–</td>
 <td>ordered hashtable</td>
-<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileFilter</code> <code>includeShapes</code> <code>includeComments</code> など）</td>
+<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileFilter</code> <code>includeShapes</code> <code>includeComments</code> <code>openMode</code>）</td>
 <td><a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a></td>
 <td>readSettings</td>
 </tr>
@@ -1647,6 +1774,14 @@
 <td>設定を読む。記載の無いキーは既定値。ファイルが無ければ以前の設定ファイルから移して保存する（それも無ければ既定値。ファイルは作らない）。JSON として読めなければ例外</td>
 <td>同上</td>
 <td>設定の各関数</td>
+</tr>
+<tr>
+<td><code>toSettingBool</code></td>
+<td>value, default</td>
+<td>bool</td>
+<td>設定ファイルの真偽値を読む。文字列の <code>"true"</code> / <code>"false"</code> も読み、読めなければ default</td>
+<td>同上</td>
+<td>readSettings, readSearchExcludes</td>
 </tr>
 <tr>
 <td><code>writeSettings</code></td>
@@ -1673,12 +1808,83 @@
 <td>readSettings</td>
 </tr>
 <tr>
+<td><code>getTargetFolders</code></td>
+<td>path（既定 <code>$settingsFile</code>）</td>
+<td><code>@{Name; Path; Enabled}</code> の配列</td>
+<td>クロール対象フォルダ（<code>targetFolders</code>。記載順）。Name はインデックス名、Path は今の置き場所（分けて持つ）。<code>enabled</code> が <code>false</code> はチェックなし（Enabled = <code>$false</code>）。同じフォルダ・同じ名前は最初のものだけ（書き方が違うだけで同じフォルダも <code>testSameFolder</code> で同一とみなす。重複した名前は空にして割り当て直す）</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#3-クロール対象フォルダgettargetfolders">01_インデックス作成.md</a></td>
+<td>インデックス作成・画面</td>
+</tr>
+<tr>
+<td><code>writeTargetFolders</code></td>
+<td>folders（<code>@{Name; Path; Enabled}</code> の配列）, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>クロール対象フォルダを <code>targetFolders</code> に保存（名前も保存する）</td>
+<td>同上</td>
+<td>インデックス作成・画面</td>
+</tr>
+<tr>
+<td><code>readIndexSources</code> / <code>writeIndexSources</code></td>
+<td>path（既定 <code>$settingsFile</code>） / sources, path</td>
+<td><code>@{Name; Path}</code> の配列 / –</td>
+<td>インデックス作成の対象にしないインデックスの元のフォルダ（<code>indexSources</code>）を読み書きする</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a></td>
+<td>getSourceFolderMap, 画面</td>
+</tr>
+<tr>
+<td><code>setIndexSourceFolder</code></td>
+<td>name, folder, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>インデックス名に対する元のフォルダを記録する。クロール対象フォルダにある名前ならそのフォルダの Path を書き換え、無ければ <code>indexSources</code> に記録する</td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#452-元のファイルが見つからないとき元のフォルダを設定する">03_画面_2_検索タブ_1 4.5.2</a></td>
+<td>画面</td>
+</tr>
+<tr>
+<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
+<td>path（既定 <code>$settingsFile</code>） / excludes, path</td>
+<td><code>@{Path; Subfolders}</code> の配列 / –</td>
+<td>画面の検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）を読み書きする。無ければ空（すべて検索）</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#3-インデックスの一覧getsearchindexes">02_検索.md</a></td>
+<td>画面（検索対象のツリー）</td>
+</tr>
+<tr>
+<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
+<td>path / option, path</td>
+<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
+<td>画面の検索条件。5.2.3 を参照</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/#523-元のファイルの特定画面">続き</a></td>
+<td>画面</td>
+</tr>
+<tr>
+<td><code>readOpenMode</code> / <code>writeOpenMode</code></td>
+<td>path（既定 <code>$settingsFile</code>） / mode, path</td>
+<td>string / –</td>
+<td>元のファイルの開き方（<code>openMode</code>）を読み書きする。無い・知らない値なら <code>normal</code></td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#45-元のファイルを開く">03_画面_2_検索タブ_1 4.5</a></td>
+<td>画面</td>
+</tr>
+</tbody>
+</table>
+<p><strong>ファイルとフォルダ（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>shared/office/office_files.ps1</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
 <td><code>readListFile</code></td>
 <td>path</td>
 <td>string[]</td>
-<td>行ファイルの空行以外の行（Trim しない）。無ければ空配列</td>
+<td>行ファイルの空行以外の行（Trim しない）。無ければ空配列。読めなければ例外（空の一覧と取り違えない）</td>
 <td>–</td>
-<td>–</td>
+<td>取り込み中のファイル・元のフォルダ.txt など</td>
 </tr>
 <tr>
 <td><code>writeListFile</code></td>
@@ -1686,38 +1892,165 @@
 <td>–</td>
 <td>行ファイルを UTF-8（BOM 付き）で保存</td>
 <td>–</td>
-<td>取り込み中のファイルなど</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>writeTextLinesAtomic</code></td>
+<td>path, lines</td>
+<td>–</td>
+<td>一時ファイルに書いてから置き換える（置き換えられなければ少し待って 5 回まで試す）</td>
+<td>–</td>
+<td>writeStatusFile, renameStatusIndexName など</td>
 </tr>
 <tr>
 <td><code>formatFileTime</code></td>
 <td>time</td>
 <td>string</td>
 <td>取り込み一覧に記録する日時（<code>yyyy/MM/dd HH:mm:ss</code>）。更新の有無はこの文字列で比べる</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成.md</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
 <td>インデックス作成</td>
 </tr>
 <tr>
+<td><code>copyFileShared</code></td>
+<td>sourcePath, destPath</td>
+<td>–</td>
+<td>元のファイルを読み取りだけで開いてコピーする（ほかのアプリの読み書き・削除を妨げない）。インデックス作成は、このコピーを開く</td>
+<td><a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/#32-取り込み対象のファイルは書き換えない">04_安全性.md</a></td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>getFolderKey</code></td>
+<td>dir</td>
+<td>string（16 進 64 文字）</td>
+<td>フォルダのパスを小文字にした SHA-256。名前付きミューテックス・イベントの名前に使う。FIPS モードの Windows でも動くよう、FIPS 準拠の実装（<code>SHA256CryptoServiceProvider</code>）を使う</td>
+<td>–</td>
+<td>newAppMutex, 画面（多重起動の防止）</td>
+</tr>
+<tr>
+<td><code>newAppMutex</code></td>
+<td>name（<code>gui</code> / <code>indexer</code>）, dir（既定 <code>$rootDir</code>）</td>
+<td><code>@{Mutex; Acquired}</code></td>
+<td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_grep_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a></td>
+<td>インデックス作成（起動時）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
+</tr>
+<tr>
+<td><code>testOfficeFile</code></td>
+<td>name</td>
+<td>bool</td>
+<td>取り込み対象の Office ファイルか（拡張子が <code>$officeExtensions</code> のどれか。大文字・小文字を区別しない）。インデクサは同じ <code>$officeExtensions</code> で取り込み対象を探す</td>
+<td>–</td>
+<td>フォルダ選択（getFolderEntries）</td>
+</tr>
+<tr>
+<td><code>normalizeFolderPath</code></td>
+<td>path</td>
+<td>string</td>
+<td>フォルダパスを 1 つの書き方にそろえる（前後の空白・<code>"</code> の除去、環境変数の展開、<code>/</code> → <code>\</code>、<code>\\?\</code> の除去、重なった <code>\</code> ・ <code>.</code> ・ <code>..</code> の解決、相対パスは <code>$rootDir</code> から、末尾の <code>\</code> の除去。ドライブ直下は <code>D:\</code> のまま）。解釈できない場合は書かれたとおり</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#3-クロール対象フォルダgettargetfolders">01_インデックス作成.md</a></td>
+<td>getTargetFolders, 画面</td>
+</tr>
+<tr>
+<td><code>getPathUnderFolder</code></td>
+<td>path, folder</td>
+<td>string / <code>$null</code></td>
+<td>path が folder 自身か下なら folder からの相対パス（folder 自身は空）、下でなければ <code>$null</code>（大文字・小文字と末尾の <code>\</code> を無視）。パスの文字数で切り出さないために使う</td>
+<td>同上</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td><code>getDriveTargets</code></td>
+<td>–</td>
+<td>Dictionary（<code>Z:</code> → 割り当て先）</td>
+<td>ネットワークドライブの割り当てを CIM（<code>Win32_LogicalDisk</code> の DriveType=4）で調べる（同じプロセスで 1 回だけ。<code>subst</code> は解決しない）</td>
+<td>同上</td>
+<td>getFolderPathAliases</td>
+</tr>
+<tr>
+<td><code>getFolderPathAliases</code></td>
+<td>path, drives（既定 <code>getDriveTargets</code>）</td>
+<td>string[]</td>
+<td>同じ場所を指す別の書き方を path 自身を先頭にして返す（<code>Z:\見積</code> ⇔ <code>\\server\share\見積</code>）</td>
+<td>同上</td>
+<td>testSameFolder, 画面</td>
+</tr>
+<tr>
+<td><code>testSameFolder</code></td>
+<td>a, b, drives（既定 <code>getDriveTargets</code>）</td>
+<td>bool</td>
+<td>2 つのパスが同じフォルダを指すか（書き方の違い・ドライブの割り当てをたどる）</td>
+<td>同上</td>
+<td>getTargetFolders, getSourceFolderMap, 画面</td>
+</tr>
+<tr>
+<td><code>testFolderUnder</code></td>
+<td>path, folder, drives（既定 <code>getDriveTargets</code>）</td>
+<td>bool</td>
+<td>path が folder 自身か folder の下のフォルダか（<code>testSameFolder</code> と同じく書き方の違いをたどる）。クロール対象フォルダが入れ子にならないかの確認に使う</td>
+<td>同上</td>
+<td>画面（インデックスの追加・編集）</td>
+</tr>
+<tr>
+<td><code>getFolderLeafName</code></td>
+<td>folderPath</td>
+<td>string</td>
+<td>フォルダ名（ドライブ直下はドライブ名、UNC は共有名）</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
+<td>newIndexName</td>
+</tr>
+<tr>
+<td><code>joinFolderPath</code> / <code>getParentFolderPath</code> / <code>getFolderEntries</code> / <code>testHasSubFolders</code> / <code>getQuickFolders</code> / <code>getComputerFolders</code></td>
+<td>–</td>
+<td>–</td>
+<td>フォルダ選択ダイアログの一覧・ツリー・移動に使う部品</td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">03_画面_1 3.2.1</a></td>
+<td>画面（フォルダ選択）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>取り込み一覧と状態ファイル（<code>tebunko_grep/indexer/indexer_state.ps1</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
 <td><code>newStatusRow</code></td>
-<td>相対パス, 更新日時, サイズ, 状態, TSV数, 取り込み日時, エラー（2 番目以降は省略可）</td>
+<td>相対パス, 更新日時, サイズ, 状態, TSV数, 取り込み日時, エラー, 抽出版（2 番目以降は省略可）</td>
 <td>行オブジェクト</td>
 <td>取り込み一覧の 1 行を作る</td>
-<td>同上</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
 <td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>toStatusLine</code></td>
+<td>row</td>
+<td>string</td>
+<td>取り込み一覧の 1 行を文字列にする（エラーのタブ・改行はスペース）。<code>writeStatusFile</code> は速さのため同じ整形をその場に展開しているため、変えるときは両方を直す（テストで同じ結果になることを確かめている）</td>
+<td>同上</td>
+<td>addStatusRow</td>
 </tr>
 <tr>
 <td><code>describeIngestError</code></td>
 <td>exception</td>
 <td>string</td>
 <td>取り込みの例外から、取り込み一覧のエラー列・画面に表示する失敗の原因を作る</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/#47-失敗の原因describeingesterror">01_インデックス作成.md</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/#47-失敗の原因describeingesterror">01_インデックス作成_6</a></td>
 <td>インデックス作成</td>
 </tr>
 <tr>
 <td><code>readStatusFile</code></td>
 <td>path（既定 <code>$statusFile</code>）</td>
 <td><code>@{Folders; Rows}</code></td>
-<td>取り込み一覧を読む。Folders はクロール対象フォルダ <code>@{Path; Name}</code>（Name = インデックス名。以前の形式は空）、Rows は相対パス（<code>インデックス名\フォルダからの相対パス</code>。大文字・小文字を区別しない）→ 行。同じ相対パスは後の行を優先し、列数の合わない行は無視。インデックス作成中に読んでも書き込みを妨げない共有モードで開く。無ければ空</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成.md</a></td>
+<td>取り込み一覧を読む。Folders はクロール対象フォルダ <code>@{Path; Name}</code>（Name = インデックス名。以前の形式は空）、Rows は相対パス（<code>インデックス名\フォルダからの相対パス</code>。大文字・小文字を区別しない）→ 行。同じ相対パスは後の行を優先し、列数の合わない行は無視。抽出版の列が無い以前の形式は見出しの列数で見分けて読む。インデックス作成中に読んでも書き込みを妨げない共有モードで開く。無ければ空</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
 <td>インデックス作成・画面</td>
 </tr>
 <tr>
@@ -1737,11 +2070,27 @@
 <td>インデックス作成</td>
 </tr>
 <tr>
+<td><code>readStatusLines</code></td>
+<td>path（既定 <code>$statusFile</code>）</td>
+<td>行の配列</td>
+<td>取り込み一覧を共有を許して 1 行ずつ読む</td>
+<td>–</td>
+<td>renameStatusIndexName, removeStatusIndexName</td>
+</tr>
+<tr>
+<td><code>renameStatusIndexName</code> / <code>removeStatusIndexName</code></td>
+<td>oldName, newName, path / name, path</td>
+<td>–</td>
+<td>取り込み一覧のインデックス名を書き換える / その記録を取り除く。行の順序と内容はそのまま保つ（<code>readStatusLines</code> で読み、<code>writeTextLinesAtomic</code> で置き換える）</td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#32-追加編集のダイアログ">03_画面_1</a></td>
+<td>renameIndex, removeIndex</td>
+</tr>
+<tr>
 <td><code>readIngestingFile</code></td>
 <td>path（既定 <code>$ingestingFile</code>）</td>
 <td><code>@{RelPath; Count}</code> / <code>$null</code></td>
 <td>取り込み中のファイルの記録（相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無い・壊れていれば <code>$null</code></td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#強制終了時間切れからの再開">01_インデックス作成.md</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#強制終了時間切れからの再開">01_インデックス作成_4</a></td>
 <td>インデックス作成</td>
 </tr>
 <tr>
@@ -1764,7 +2113,7 @@
 <td><code>writeIndexingProgress</code></td>
 <td>phase, processed, remaining, failed, detail, path（既定 <code>$indexingProgressFile</code>）</td>
 <td>–</td>
-<td>インデックス作成の進み具合を 1 行（<code>&lt;段階&gt;&lt;TAB&gt;&lt;処理済み&gt;&lt;TAB&gt;&lt;残り&gt;&lt;TAB&gt;&lt;失敗&gt;&lt;TAB&gt;&lt;いま行っていること&gt;</code>）で書く。段階は <code>$indexingPhaseCrawl</code>（クロール）/ <code>$indexingPhaseConfirm</code>（確認）/ <code>$indexingPhaseIngest</code>（取り込み）/ <code>$indexingPhaseFinish</code>（仕上げ）。画面が読んでいる間も書けるよう共有して開き、書けなくてもインデックス作成は続ける</td>
+<td>インデックス作成の進み具合を 1 行（<code>&lt;段階&gt;&lt;TAB&gt;&lt;処理済み&gt;&lt;TAB&gt;&lt;残り&gt;&lt;TAB&gt;&lt;失敗&gt;&lt;TAB&gt;&lt;いま行っていること&gt;</code>）で書く。画面が読んでいる間も書けるよう共有して開き、書けなくてもインデックス作成は続ける</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a></td>
 <td>インデックス作成（1 ファイルにつき 1 回）</td>
 </tr>
@@ -1773,7 +2122,7 @@
 <td>path（既定 <code>$indexingProgressFile</code>）</td>
 <td><code>@{Phase; Processed; Remaining; Failed; Detail}</code> / <code>$null</code></td>
 <td>インデックス作成の進み具合を読む（無い・書き込みの途中なら <code>$null</code>）。画面が 1 秒ごとに呼ぶため 1 行だけ読む（数万行の取り込み一覧を読み直さない）</td>
-<td><a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1</a></td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#36-インデックス作成の進み具合">03_画面_1</a></td>
 <td>画面</td>
 </tr>
 <tr>
@@ -1841,91 +2190,73 @@
 <td>インデックス作成</td>
 </tr>
 <tr>
-<td><code>normalizeFolderPath</code></td>
-<td>path</td>
-<td>string</td>
-<td>フォルダパスを 1 つの書き方にそろえる（前後の空白・<code>"</code> の除去、環境変数の展開、<code>/</code> → <code>\</code>、<code>\\?\</code> の除去、重なった <code>\</code> ・ <code>.</code> ・ <code>..</code> の解決、相対パスは <code>$rootDir</code> から、末尾の <code>\</code> の除去。ドライブ直下は <code>D:\</code> のまま）。解釈できない場合は書かれたとおり</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#3-クロール対象フォルダgettargetfolders">01_インデックス作成.md</a></td>
-<td>getTargetFolders, 画面</td>
-</tr>
-<tr>
-<td><code>getPathUnderFolder</code></td>
-<td>path, folder</td>
-<td>string / <code>$null</code></td>
-<td>path が folder 自身か下なら folder からの相対パス（folder 自身は空）、下でなければ <code>$null</code>（大文字・小文字と末尾の <code>\</code> を無視）。パスの文字数で切り出さないために使う</td>
-<td>同上</td>
-<td>インデックス作成・検索</td>
-</tr>
-<tr>
-<td><code>getDriveTargets</code></td>
-<td>–</td>
-<td>Dictionary（<code>Z:</code> → 割り当て先）</td>
-<td>ネットワークドライブの割り当てを CIM（<code>Win32_LogicalDisk</code> の DriveType=4）で調べる（同じプロセスで 1 回だけ。<code>subst</code> は解決しない）</td>
-<td>同上</td>
-<td>getFolderPathAliases</td>
-</tr>
-<tr>
-<td><code>getFolderPathAliases</code></td>
-<td>path, drives（既定 <code>getDriveTargets</code>）</td>
-<td>string[]</td>
-<td>同じ場所を指す別の書き方を path 自身を先頭にして返す（<code>Z:\見積</code> ⇔ <code>\\server\share\見積</code>）</td>
-<td>同上</td>
-<td>testSameFolder, 画面</td>
-</tr>
-<tr>
-<td><code>testSameFolder</code></td>
-<td>a, b, drives（既定 <code>getDriveTargets</code>）</td>
-<td>bool</td>
-<td>2 つのパスが同じフォルダを指すか（書き方の違い・ドライブの割り当てをたどる）</td>
-<td>同上</td>
-<td>getTargetFolders, getSourceFolderMap, 画面</td>
-</tr>
-<tr>
-<td><code>testFolderUnder</code></td>
-<td>path, folder, drives（既定 <code>getDriveTargets</code>）</td>
-<td>bool</td>
-<td>path が folder 自身か folder の下のフォルダか（<code>testSameFolder</code> と同じく書き方の違いをたどる）。クロール対象フォルダが入れ子にならないかの確認に使う</td>
-<td>同上</td>
-<td>画面（インデックスの追加・編集）</td>
-</tr>
-<tr>
-<td><code>getTargetFolders</code></td>
-<td>path（既定 <code>$settingsFile</code>）</td>
-<td><code>@{Name; Path; Enabled}</code> の配列</td>
-<td>クロール対象フォルダ（<code>targetFolders</code>。記載順）。Name はインデックス名、Path は今の置き場所（分けて持つ）。<code>enabled</code> が <code>false</code> はチェックなし（Enabled = <code>$false</code>）。同じフォルダ・同じ名前は最初のものだけ（書き方が違うだけで同じフォルダも <code>testSameFolder</code> で同一とみなす）</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#3-クロール対象フォルダgettargetfolders">01_インデックス作成.md</a></td>
-<td>インデックス作成・画面</td>
-</tr>
-<tr>
-<td><code>writeTargetFolders</code></td>
-<td>folders（<code>@{Name; Path; Enabled}</code> の配列）, path（既定 <code>$settingsFile</code>）</td>
-<td>–</td>
-<td>クロール対象フォルダを <code>targetFolders</code> に保存（名前も保存する）</td>
-<td>同上</td>
-<td>インデックス作成・画面</td>
-</tr>
-<tr>
-<td><code>readIndexSources</code> / <code>writeIndexSources</code></td>
-<td>path（既定 <code>$settingsFile</code>） / sources, path</td>
-<td><code>@{Name; Path}</code> の配列 / –</td>
-<td>インデックス作成の対象にしないインデックスの元のフォルダ（<code>indexSources</code>）を読み書きする</td>
-<td><a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">00_共通_1 4 章</a></td>
-<td>getSourceFolderMap, 画面</td>
-</tr>
-<tr>
-<td><code>setIndexSourceFolder</code></td>
-<td>name, folder, path（既定 <code>$settingsFile</code>）</td>
-<td>–</td>
-<td>インデックス名に対する元のフォルダを記録する。クロール対象フォルダにある名前ならそのフォルダの Path を書き換え、無ければ <code>indexSources</code> に記録する</td>
-<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#452-元のファイルが見つからないとき元のフォルダを設定する">03_画面_2_検索タブ_1 4.5.2</a></td>
+<td><code>getIndexingState</code></td>
+<td>since, path</td>
+<td>5.2.3 を参照</td>
+<td>取り込み一覧の状態ごとの件数など</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/#523-元のファイルの特定画面">続き</a></td>
 <td>画面</td>
 </tr>
+</tbody>
+</table>
+<p><strong>取り込み直すかの判断（<code>tebunko_grep/indexer/indexer_decide.ps1</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getExtractVersion</code></td>
+<td>path</td>
+<td>int</td>
+<td>ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。図形・コメントなどを読むようになった形式は 2、ほかは 1）</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a></td>
+<td>testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列）</td>
+</tr>
+<tr>
+<td><code>testExtractOutdated</code></td>
+<td>row</td>
+<td>bool</td>
+<td>取り込み一覧の行が、今の抽出版より前の版で取り込んだものか（抽出版の列が空なら 1）</td>
+<td>同上</td>
+<td>getIngestDecision</td>
+</tr>
+<tr>
+<td><code>getIngestDecision</code></td>
+<td>old（前回の行 / <code>$null</code>）, updated, size, indexComplete</td>
+<td><code>@{Ingest; Reason}</code></td>
+<td>取り込むかどうかと理由（<code>done</code> / <code>failed</code> / <code>new</code> / <code>updated</code> / <code>pending</code> / <code>lost</code> / <code>outdated</code>）。更新日時・サイズが同じでも、TSV が欠けていれば <code>lost</code>、前の抽出版なら <code>outdated</code> で取り込み直す</td>
+<td>同上</td>
+<td>createTargetList</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックス名とインデックスの管理（<code>tebunko_grep/index/index_name.ps1</code>・<code>index_store.ps1</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>newIndexName</code></td>
-<td>folderPath, usedNames（HashSet）</td>
+<td>folderPath, usedNames（HashSet・配列・文字列・<code>$null</code>）</td>
 <td>string</td>
 <td>インデックス名（フォルダ名・ドライブ名・共有名。重複すれば <code>名前(2)</code>…）</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成.md</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
 <td>assignIndexNames</td>
 </tr>
 <tr>
@@ -1937,19 +2268,11 @@
 <td>インデックス作成</td>
 </tr>
 <tr>
-<td><code>getFolderLeafName</code></td>
-<td>folderPath</td>
-<td>string</td>
-<td>フォルダ名（ドライブ直下はドライブ名、UNC は共有名）</td>
-<td>同上</td>
-<td>newIndexName</td>
-</tr>
-<tr>
 <td><code>splitIndexRelPath</code></td>
 <td>relPath</td>
 <td><code>@{Name; Rest}</code></td>
 <td><code>work\index</code> からの相対パスを、先頭のインデックス名と残りに分ける</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成.md</a></td>
+<td>同上</td>
 <td>インデックス作成, resolveSourcePath</td>
 </tr>
 <tr>
@@ -1959,6 +2282,14 @@
 <td>インデックス名として使えるか調べ、使えない理由を返す（空・前後の空白・255 文字超・使えない文字・末尾の <code>.</code>・Windows の予約語・ほかと重複）</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#32-追加編集のダイアログ">03_画面_1</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>getIndexNameMap</code></td>
+<td>path（既定 <code>$statusFile</code>）</td>
+<td>Dictionary（インデックス名 → フォルダパス）</td>
+<td>取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る</td>
+<td>同上</td>
+<td>resolveSourcePath, 画面</td>
 </tr>
 <tr>
 <td><code>getIndexStats</code></td>
@@ -1985,46 +2316,6 @@
 <td>画面（［削除］）</td>
 </tr>
 <tr>
-<td><code>renameStatusIndexName</code> / <code>removeStatusIndexName</code></td>
-<td>oldName, newName / name, path</td>
-<td>–</td>
-<td>取り込み一覧のインデックス名を書き換える / その記録を取り除く。行の順序と内容はそのまま保つ（<code>readStatusLines</code> で読み、<code>writeTextLinesAtomic</code> で置き換える）</td>
-<td>同上</td>
-<td>renameIndex, removeIndex</td>
-</tr>
-<tr>
-<td><code>readStatusLines</code> / <code>writeTextLinesAtomic</code></td>
-<td>path / path, lines</td>
-<td>行の配列 / –</td>
-<td>取り込み一覧を共有を許して1行ずつ読む / 一時ファイルに書いてから置き換える（<code>writeStatusFile</code> も使う）</td>
-<td>–</td>
-<td>上記</td>
-</tr>
-<tr>
-<td><code>getFolderKey</code></td>
-<td>dir</td>
-<td>string（16 進 64 文字）</td>
-<td>フォルダのパスを小文字にした SHA-256。名前付きミューテックス・イベントの名前に使う。FIPS モードの Windows でも動くよう、FIPS 準拠の実装（<code>SHA256CryptoServiceProvider</code>）を使う</td>
-<td>–</td>
-<td>newAppMutex, 画面（多重起動の防止）</td>
-</tr>
-<tr>
-<td><code>newAppMutex</code></td>
-<td>name（<code>gui</code> / <code>indexer</code>）, dir（既定 <code>$rootDir</code>）</td>
-<td><code>@{Mutex; Acquired}</code></td>
-<td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_grep_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a></td>
-<td>インデックス作成（起動時）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
-</tr>
-<tr>
-<td><code>getIndexNameMap</code></td>
-<td>path（既定 <code>$statusFile</code>）</td>
-<td>Dictionary（インデックス名 → フォルダパス）</td>
-<td>取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る</td>
-<td>同上</td>
-<td>resolveSourcePath, 画面</td>
-</tr>
-<tr>
 <td><code>getSearchIndexes</code></td>
 <td>dir（既定 <code>$indexDir</code>）, statusPath, settingsPath</td>
 <td><code>@{Name; Path; SourcePath}</code> の配列</td>
@@ -2032,16 +2323,9 @@
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/#3-インデックスの一覧getsearchindexes">02_検索.md</a></td>
 <td>画面（検索対象のツリー）</td>
 </tr>
-<tr>
-<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
-<td>path（既定 ``） / excludes, path</td>
-<td><code>@{Path; Subfolders}</code> の配列 / –</td>
-<td>画面の検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）を読み書きする。無ければ空（すべて検索）</td>
-<td>同上</td>
-<td>画面（検索対象のツリー）</td>
-</tr>
 </tbody>
 </table>
+<p>TSV の名前・配置・検索にかかわる関数（<code>index_name.ps1</code> の <code>encodeIndexPlace</code> など、<code>index_store.ps1</code> の <code>getIndexTsvCounts</code> / <code>publishIndexFiles</code> など）は 5.2.2 に記載する。</p>
 <blockquote>
 <p><strong>5.2.2 TSV の作成・検索</strong> → <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/#522-tsv-の作成検索">00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md</a></p>
 <p><strong>5.2.3 元のファイルの特定・画面</strong> → <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/#523-元のファイルの特定画面">00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md</a></p>
@@ -2058,6 +2342,7 @@
         RCL["readSettings"]
         RSF["readStatusFile / writeStatusFile / addStatusRow"]
         GTF["getTargetFolders / assignIndexNames"]
+        GID["getIngestDecision"]
         GIF["getSearchIndexes"]
         TSF["toIndexFileName / encodeIndexPlace"]
         RNL["replaceCellNewLine"]
@@ -2072,11 +2357,12 @@
 
     OT --&gt; GTF --&gt; RCL
     OT --&gt; RSF
+    OT --&gt; GID
     OT --&gt; TSF
     OT --&gt; PT --&gt; FT --&gt; RNL
     GR --&gt; ITF["getIndexTsvFiles"] --&gt; GIF --&gt; RCL
     GR --&gt; SI["searchIndex"]
-    SI --&gt; NSR["newSearchRegex / newFileFilter"]
+    SI --&gt; NSR["newSearchRegex / newFileFilter / newPlaceExclude"]
     SI --&gt; STF["newTsvFiles / searchTsvFiles&lt;br&gt;（.NET の StreamReader＋regex）"]
     GR --&gt; WSR["writeSearchResult"] --&gt; TSR["toSearchResultLines"]
     TSR --&gt; TRL --&gt; SIF
@@ -2096,13 +2382,12 @@
         SFM --&gt; RSFF["readSourceFolderFile"]
         SFM --&gt; TGT["getTargetFolders / readIndexSources"]
         RPL["findMovedSource / setIndexSourceFolder"]
-        OPT["readSearchOption / writeSearchOption"]
+        OPT["readSearchOption / writeSearchOption / readOpenMode"]
         GOP["getOfficeProcesses"]
         SOP["stopOfficeProcesses"]
     end
 
     G --&gt; TF &amp; CS &amp; SUM &amp; SI &amp; RSP &amp; OPT &amp; GOP &amp; SOP</code></pre>
-<p>Word・PowerPoint の読み取り関数（<code>isZipFile</code> / <code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXmlLines</code> / <code>writeUnits</code> 等）は <code>scripts/shared/office/office_reader.ps1</code> にあり、<code>tebunko_grep/indexer.ps1</code> とテストから dot-source する（仕様は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の 4.4・6.4、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/">01_インデックス作成_2_Word.md</a>、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/">01_インデックス作成_3_PowerPoint.md</a>）。</p>
 
 
 

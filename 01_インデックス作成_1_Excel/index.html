@@ -1317,6 +1317,7 @@
 
 <h1 id="インデックス作成インデクサ設計書--excel">インデックス作成（インデクサ）設計書 ― Excel<a class="headerlink" href="#インデックス作成インデクサ設計書--excel" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の一部である。章・節の番号は 01_インデックス作成.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#ファイル構成">01_インデックス作成.md</a> の表のとおり。</p>
+<p>Excel ブックから、セルの表示値（Excel の COM で書き出す）と図形・コメントの文字（ファイルを直接読む）を抽出して TSV にする処理（4.3・6.7）と、Excel が書き出したテキストの整形仕様（6.3）を扱う。</p>
 <hr />
 <h2 id="43-excel-の抽出処理extractworkbook">4.3 Excel の抽出処理（<code>extractWorkbook</code>）<a class="headerlink" href="#43-excel-の抽出処理extractworkbook" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
@@ -1350,9 +1351,8 @@
         S-&gt;&gt;T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
     S-&gt;&gt;T: 図形・コメント → #lt;シート名#gt;[図形].tsv・#lt;シート名#gt;[コメント].tsv
-    S-&gt;&gt;I: 出力先の同じブックの旧 TSV を削除
-    S-&gt;&gt;I: 作業領域の *.tsv を移動
-    S-&gt;&gt;L: 当該ファイルの行（状態 = 済、TSV数）を追記
+    S-&gt;&gt;I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、&lt;br&gt;インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv。6.1 節）
+    S-&gt;&gt;L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
         S-&gt;&gt;L: 当該ファイルの行（状態 = 失敗、エラー）を追記
         S-&gt;&gt;X: Excel を終了（次のファイルで起動し直す）
@@ -1362,22 +1362,21 @@
 <ul>
 <li>Excel は <code>Visible</code> / <code>DisplayAlerts</code> / <code>EnableEvents</code> / <code>ScreenUpdating</code> / <code>AskToUpdateLinks</code> を無効にし、<code>AutomationSecurity = 3</code>（マクロ無効）で起動する。</li>
 <li>パスワード付きブックはダミーのパスワードを渡して開くため、ダイアログを出さずに例外となり、取り込み一覧に「失敗」と記録される。</li>
-<li><strong>元のファイルを占有しない</strong>: 元のブックは開かず、常に作業領域へコピーしてからコピーを開く。Excel で開いている間（大きなブックでは数分）、元のファイルを利用者が上書き保存・移動・削除できなくなるのを防ぐため。コピーは <code>copyFileShared</code>（<code>tebunko_grep/lib.ps1</code>）で行い、元のファイルを読み取りだけ・共有モード <code>ReadWrite | Delete</code> で開く。<code>File.Copy</code> と違い、コピー中もほかのアプリ・利用者の書き込みを妨げず、利用者が編集中（書き込みで開いている）のファイルもコピーできる。コピーは通常の属性（読み取り専用を付けない）で作り、ブックを閉じた後に削除する。</li>
+<li><strong>元のファイルを占有しない</strong>: 元のブックは開かず、常に作業領域へコピーしてからコピーを開く。Excel で開いている間（大きなブックでは数分）、元のファイルを利用者が上書き保存・移動・削除できなくなるのを防ぐため。コピーは <code>copyFileShared</code>（<code>scripts/shared/core/fs.ps1</code>）で行い、元のファイルを読み取りだけ・共有モード <code>ReadWrite | Delete</code> で開く。<code>File.Copy</code> と違い、コピー中もほかのアプリ・利用者の書き込みを妨げず、利用者が編集中（書き込みで開いている）のファイルもコピーできる。コピーは通常の属性（読み取り専用を付けない）で作り、ブックを閉じた後に削除する。</li>
 <li>コピーのファイル名は、ファイル名を参照する数式（<code>CELL("filename")</code> 等）の表示値が変わらないよう元のブック名と同じにする。Excel は長いパスのファイルを開けない（Microsoft 365 で約 256 文字以上、古い版は 218 文字以上。<code>\\?\</code> 付きのパスも不可。いずれも実測では「Workbooks クラスの Open プロパティを取得できません」）ため、作業領域＋ブック名が <code>$excelMaxPath</code>（218）文字以上になるときだけ <code>source.&lt;拡張子&gt;</code> とする。元のパスが長いファイルも、コピーは短いパスになるため開ける。TSV のファイル名は元のブック名で作る。</li>
 <li>取り込み中に元のファイルが更新された場合も、抽出はコピー時点の内容で行う。取り込み一覧の更新日時はクロール時点の値を記録するため、次回の取り込みで更新ありとして取り込み直す。</li>
 <li>対象は <code>Worksheets</code>（グラフシートは含まない）のうち <code>Visible = -1</code>（<code>xlSheetVisible</code>）のシート。<code>0</code>（非表示）と <code>2</code>（完全に非表示）は除外する。</li>
 <li>Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、いったん <code>sheet&lt;シート番号&gt;.tmp</code> で保存し、<code>prettyTsv</code> で最終的なファイル名に書き出す。保存したファイルはブックを閉じるまで Excel がロックするため、整形はブックを閉じた後に行う。</li>
 <li>Excel のテキスト保存は、セルの値そのものではなく <strong>画面に表示されている形（表示値）</strong> を出力する。文字列のセルは入力した文字がそのまま出る（1 セルの上限 32,767 文字まで欠けない。セル内改行・<code>"</code> を含むセルも保持される）が、<strong>数値のセルは表示形式に従った文字になる</strong>。列幅が狭く <code>####</code> と表示されるセルは、<code>####</code> ではなく値が出る。</li>
-<li>表示形式が「標準」の数値は 11 文字までで表され、12 桁以上の数値は指数表記になる（<code>4901234567894</code> → <code>4.90123E+12</code>、<code>123456789.123</code> → <code>123456789.1</code>）。JAN コード・伝票番号などを数値として入力したセルは、<strong>その番号では検索できない</strong>（<a href="../02_%E6%A4%9C%E7%B4%A2/#41-検索仕様">02_検索.md 4.1 節</a>、7.1 節 No.13）。</li>
+<li>表示形式が「標準」の数値は 11 文字までで表され、12 桁以上の数値は指数表記になる（<code>4901234567894</code> → <code>4.90123E+12</code>、<code>123456789.123</code> → <code>123456789.1</code>）。JAN コード・伝票番号などを数値として入力したセルは、<strong>その番号では検索できない</strong>（<a href="../02_%E6%A4%9C%E7%B4%A2/#41-検索仕様">02_検索.md 4.1 節</a>、7.1 節 No.19）。</li>
 <li>「0」「#,##0」などの表示形式を設定したセルや、文字列として入力したセルは、見たとおりの文字で出る（<code>#,##0</code> なら桁区切り付きで <code>1,234,568</code>）。</li>
 <li><strong>使用範囲が膨らんだシートは、データの範囲だけを一時シートへコピーしてから書き出す</strong>（<code>copyDataRangeToTempSheet</code>）。最終行（1,048,576 行目）や右端（XFD 列）のセルに書式だけが残っていると使用範囲がシート全体になり、Excel のテキスト保存が空セルのタブだけを延々と書き出す（実測: 10 分で 6GB を書き出し、終わらない → 制限時間で「失敗」）。</li>
-<li>値・数式のある最後の行・列を <code>Cells.Find("*", A1, xlFormulas, , xlByRows/xlByColumns, xlPrevious)</code> で調べ、使用範囲がそれより <code>$excelExtraCells</code>（100 万）セル以上広いときだけ縮める（普通のシートは今までどおり、そのまま書き出す）。</li>
+<li>値・数式のある最後の行・列を <code>Cells.Find("*", A1, xlFormulas, , xlByRows/xlByColumns, xlPrevious)</code> で調べ、使用範囲がそれより <code>$excelExtraCells</code>（100 万）セル以上広いときだけ縮める（普通のシートはそのまま書き出す）。</li>
 <li><strong>元のシートの行・列は削除しない</strong>。削除すると、その範囲だけを参照する数式が <code>#REF!</code> になり、ほかのシートの表示値まで変わるため。同じブックに一時シートを追加し、<strong>同じ位置（行・列）に</strong>コピーするので、数式の参照先はずれない（実測: <code>=COUNTA(A200:A300)</code> は <code>0</code> のまま、別シート参照・表示形式も保たれる）。</li>
 <li>ブックの構成が保護されているなど、一時シートを作れない場合は元のシートをそのまま書き出し、<code>&lt;シート名&gt; の使用範囲を縮められませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_8_%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%A1%E3%83%83%E3%82%BB%E3%83%BC%E3%82%B8%E4%B8%80%E8%A6%A7/">01_インデックス作成_8_エラーメッセージ一覧.md</a> 4.8.3）。</li>
 <li>一時シートは書き出した直後に削除する（次のシートの <code>Index</code> がずれないようにするため。ブックは保存せずに閉じる）。</li>
-<li>実測: データ 50 行 × 4 列＋右端と最終行に書式のあるシートが、6GB・終わらない → <strong>2.2KB・1 秒未満</strong>で取り込めるようになった。</li>
 <li>Excel のテキスト保存は A1 からではなく <strong>使用範囲（<code>UsedRange</code>）の左上のセルから</strong> 出力する（例: 使用範囲が C3 から始まるシートは、1 行目の 1 列目が C3 になる）。TSV の行・列をシートの行・列と一致させるため、保存前に <code>UsedRange.Row</code> / <code>UsedRange.Column</code> を控えて <code>prettyTsv</code> に渡す（6.3 節）。</li>
-<li>出力先の旧 TSV を削除してから移動するため、シートの削除・名前変更がインデックスに反映される（Word・PowerPoint も同じ）。</li>
+<li>インデックスはファイルごとのフォルダを丸ごと入れ替えるため、シートの削除・名前変更がインデックスに反映される（Word・PowerPoint も同じ）。</li>
 <li>テキスト保存はセルの値しか出さないため、<strong>図形・コメントの文字は、コピーを ZIP として直接読む</strong>（6.7 節）。Excel で開く前に読む。旧形式（<code>.xls</code>）・パスワード付き・<code>.xlsb</code> は読まない（セルの値だけになる）。読み取りに失敗しても（ZIP が壊れている等）セルの値は取り込み、<code>図形・コメントを読み取れませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する。</li>
 </ul>
 <hr />
@@ -1425,7 +1424,7 @@
 </tbody>
 </table>
 <ul>
-<li><strong>場所の名前</strong>: シート名には <code>[</code> <code>]</code> を使えないため、<code>売上[図形]</code> は実在のシートと必ず区別できる（<code>売上（図形）</code> のような名前だと、同じ名前のシートとぶつかる）。</li>
+<li><strong>場所の名前</strong>: シート名には <code>[</code> <code>]</code> を使えないため、<code>売上[図形]</code> は実在のシートと必ず区別できる（6.1 節「図形・コメントの場所」）。</li>
 <li><strong>文字の形</strong>: 段落・改行はセル内改行（U+2028）にし、改行・<code>"</code>・タブを含むときは <code>"</code> で囲む（中の <code>"</code> は <code>""</code>）。Excel のテキスト保存のセルと同じ形なので、検索結果の出力・画面のセルの分け方はセルと同じ処理で扱える。</li>
 <li><strong>並び順</strong>: 上の行から（同じ行は左から）。図形は左上のセル、コメントはそのセルの位置で並べる。</li>
 <li><strong>セル番地</strong>: 検索結果の「セル」に出し、元のファイルを開くときにそのセルを選ぶ（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/">03_画面_2_検索タブ_1_元のファイルを開く.md</a> 4.5）。位置をセルで持たない図形（<code>absoluteAnchor</code>）は <code>A1</code> とする。</li>
@@ -1440,9 +1439,6 @@
 work/index/営業/見積.xlsx/見積[図形].tsv      … F2&lt;TAB&gt;納期は別途ご相談
 work/index/営業/見積.xlsx/見積[コメント].tsv  … C2&lt;TAB&gt;"test:&lt;U+2028&gt;税抜の金額"
 </code></pre></div>
-<ul>
-<li>読み取る内容を増やしたため、前の版で取り込んだブックは、更新が無くても次のインデックス作成で取り込み直す（取り込み一覧の「抽出版」。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/">01_インデックス作成_4_メインフローと取り込み一覧.md</a> 4.2）。</li>
-</ul>
 
 
 

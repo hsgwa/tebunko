@@ -454,15 +454,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#5-共通モジュール-scriptstebunko_greplibps1続き" class="md-nav__link">
+  <a href="#5-共通モジュール続き" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. 共通モジュール scripts/tebunko_grep/lib.ps1（続き）
+        5. 共通モジュール（続き）
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5. 共通モジュール scripts/tebunko_grep/lib.ps1（続き）">
+    <nav class="md-nav" aria-label="5. 共通モジュール（続き）">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1286,15 +1286,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#5-共通モジュール-scriptstebunko_greplibps1続き" class="md-nav__link">
+  <a href="#5-共通モジュール続き" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. 共通モジュール scripts/tebunko_grep/lib.ps1（続き）
+        5. 共通モジュール（続き）
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5. 共通モジュール scripts/tebunko_grep/lib.ps1（続き）">
+    <nav class="md-nav" aria-label="5. 共通モジュール（続き）">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1363,11 +1363,17 @@
 
 <h1 id="tebunko_grep-設計書共通モジュール--tsv検索画面の関数">tebunko_grep 設計書（共通モジュール ― TSV・検索・画面の関数）<a class="headerlink" href="#tebunko_grep-設計書共通モジュール--tsv検索画面の関数" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../">00_index.md</a> の一部である。章・節の番号は 00_index.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../#ドキュメント構成">00_index.md</a> の表のとおり。</p>
+<p>本書は <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">00_共通_2_共通モジュール.md</a> の関数一覧の続きで、<code>tebunko_grep/lib.ps1</code> から使える関数のうち次のものを載せる。</p>
+<ul>
+<li><strong>5.2.2</strong> インデックスの TSV の名前・作成・配置と、検索（<code>shared/core/fs.ps1</code>・<code>text.ps1</code>、<code>tebunko_grep/index/</code>・<code>search/</code>）</li>
+<li><strong>5.2.3</strong> 検索結果から元のファイルを特定する処理と、画面が使う集計・設定・Office プロセスの関数</li>
+</ul>
 <hr />
-<h2 id="5-共通モジュール-scriptstebunko_greplibps1続き">5. 共通モジュール <code>scripts/tebunko_grep/lib.ps1</code>（続き）<a class="headerlink" href="#5-共通モジュール-scriptstebunko_greplibps1続き" title="Permanent link">&para;</a></h2>
+<h2 id="5-共通モジュール続き">5. 共通モジュール（続き）<a class="headerlink" href="#5-共通モジュール続き" title="Permanent link">&para;</a></h2>
 <h3 id="52-関数一覧続き">5.2 関数一覧（続き）<a class="headerlink" href="#52-関数一覧続き" title="Permanent link">&para;</a></h3>
 <p>5.2.1 設定ファイル・取り込み一覧・クロール対象フォルダ・インデックス名は <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#521-設定ファイル取り込み一覧クロール対象フォルダインデックス名">00_共通_2_共通モジュール.md</a> を参照。</p>
 <h4 id="522-tsv-の作成検索">5.2.2 TSV の作成・検索<a class="headerlink" href="#522-tsv-の作成検索" title="Permanent link">&para;</a></h4>
+<p><strong>TSV の名前と場所（<code>shared/core/fs.ps1</code>・<code>tebunko_grep/index/index_name.ps1</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1386,14 +1392,14 @@
 <td>string</td>
 <td>ファイル名禁止文字を全角に置換</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a></td>
-<td>インデックス名（newIndexName）、以前の版のインデックスのシート名の照合（画面）</td>
+<td>インデックス名（newIndexName・getTargetFolders）、以前の版のインデックスのシート名の照合（画面）</td>
 </tr>
 <tr>
 <td><code>encodeIndexPlace</code></td>
 <td>place</td>
 <td>string</td>
 <td>TSV のファイル名に入れる場所を符号化する（ファイル名禁止文字・制御文字・<code>_</code>・<code>%</code> を <code>%XX</code> に）</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#62-場所の符号化encodeindexplace--decodeindexplace">01_インデックス作成.md 6.2 節</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#62-場所の符号化encodeindexplace--decodeindexplace">01_インデックス作成_7 6.2 節</a></td>
 <td>toIndexFileName</td>
 </tr>
 <tr>
@@ -1402,22 +1408,54 @@
 <td>string</td>
 <td><code>encodeIndexPlace</code> の <code>%XX</code> を元に戻す（それ以外の <code>%</code> はそのまま）</td>
 <td>同上</td>
-<td>splitIndexFileName（検索処理でも同じ）</td>
+<td>splitIndexFileName</td>
 </tr>
 <tr>
 <td><code>toIndexFileName</code></td>
 <td>place</td>
 <td>string</td>
 <td>インデックスの TSV のファイル名 <code>&lt;場所&gt;.tsv</code>（場所は <code>encodeIndexPlace</code>）。元のファイル名はフォルダ名にするため入れない。<code>$maxFileNameLength</code>（255）文字を超えれば例外</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成.md 6.1 節</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7 6.1 節</a></td>
 <td>インデックス作成（Excel・Word・PowerPoint）</td>
+</tr>
+<tr>
+<td><code>splitIndexTsvPath</code></td>
+<td>relPath</td>
+<td><code>@{Book; Place; RelDir}</code></td>
+<td>インデックスフォルダからの TSV の相対パスを、元のファイル名・場所・元のファイルのあるフォルダに分ける。今の形式（<code>&lt;ファイル名.xlsx&gt;\&lt;場所&gt;.tsv</code>）と以前の形式（フラット）の両方を扱う</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#53-ファイル名場所の分解splitindextsvpath">02_検索.md 5.3 節</a></td>
+<td>画面・検索処理（<code>newTsvFiles</code> は同じ規則をその場で展開する）</td>
+</tr>
+<tr>
+<td><code>splitIndexFileName</code></td>
+<td>fileName</td>
+<td><code>@{book; sheet}</code></td>
+<td>以前の形式（フラット）のインデックスファイル名を元のファイル名・場所に分解し、場所を <code>decodeIndexPlace</code> で元に戻す（正規表現は <code>$indexFileNamePattern</code>）</td>
+<td>同上</td>
+<td>splitIndexTsvPath、インデックス作成（migrateFlatIndex）</td>
+</tr>
+<tr>
+<td><code>splitObjectPlace</code></td>
+<td>place</td>
+<td><code>@{Base; Kind}</code></td>
+<td>図形・コメントの場所（<code>&lt;元の場所&gt;[図形]</code> 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1「図形・コメントの場所」</td>
+<td>元のファイルを開く</td>
+</tr>
+<tr>
+<td><code>describePlace</code></td>
+<td>book, place</td>
+<td><code>@{Place; Kind}</code></td>
+<td>画面の「場所」「種別」と検索結果ファイルに出す文字（<code>[シート] 売上</code>・図形、<code>[ページ] 3（目安）</code>・本文 など）</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#51-出力フォーマットwork検索結果txt">02_検索.md</a> 5.1</td>
+<td>画面・<code>toResultLine</code></td>
 </tr>
 <tr>
 <td><code>toLongPath</code></td>
 <td>path</td>
 <td>string</td>
 <td>ファイル操作に渡すパスの先頭に <code>\\?\</code>（ネットワークのパスは <code>\\?\UNC\</code>）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#長いパス260-文字超の扱い">01_インデックス作成.md 6.1 節</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#長いパス260-文字超の扱い">01_インデックス作成_7 6.1 節</a></td>
 <td>インデックス作成・検索</td>
 </tr>
 <tr>
@@ -1428,6 +1466,29 @@
 <td>同上</td>
 <td>インデックス作成・検索</td>
 </tr>
+<tr>
+<td><code>removeDirectoryRetry</code></td>
+<td>path, tries（既定 3）, waitMilliseconds（既定 200）</td>
+<td>–</td>
+<td>フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す</td>
+<td>–</td>
+<td>インデックス作成（インデックス・作業フォルダの削除）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>TSV の整形（<code>shared/core/text.ps1</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>replaceCellNewLine</code></td>
 <td>inputString</td>
@@ -1441,7 +1502,7 @@
 <td>content, firstRow（既定 1）, firstColumn（既定 1）</td>
 <td>string</td>
 <td>TSV 整形。N 行目・k 列目をシートの N 行目・k 列目にそろえる</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">01_インデックス作成_1_Excel.md</a></td>
+<td>同上</td>
 <td>prettyTsv</td>
 </tr>
 <tr>
@@ -1449,44 +1510,59 @@
 <td>入力パス, 出力パス, firstRow（既定 1）, firstColumn（既定 1）</td>
 <td>bool</td>
 <td>入力（UTF-16）を読み、<code>formatTsv</code> して UTF-8（BOM 付き）で保存。内容が空なら保存せず <code>$false</code></td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">01_インデックス作成_1_Excel.md</a></td>
+<td>同上</td>
 <td>インデックス作成</td>
 </tr>
 <tr>
-<td><code>splitIndexTsvPath</code></td>
-<td>relPath</td>
-<td><code>@{Book; Place; RelDir}</code></td>
-<td>インデックスフォルダからの TSV の相対パスを、元のファイル名・場所・元のファイルのあるフォルダに分ける。今の形式（<code>&lt;ファイル名.xlsx&gt;\&lt;場所&gt;.tsv</code>）と以前の形式（フラット）の両方を扱う</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/#53-ファイル名場所の分解splitindextsvpath">02_検索.md 5.3 節</a></td>
-<td>画面・検索処理（<code>newTsvFiles</code>）も同じ規則</td>
+<td><code>countTsvFields</code></td>
+<td>line</td>
+<td>int</td>
+<td>Excel に貼り付けたときのセル数（<code>"</code> で始まるセルは閉じる <code>"</code> までを 1 セルとする。先頭のセルが空でも数え落とさない）</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#52-1-行の組み立て">02_検索.md</a></td>
+<td>検索</td>
 </tr>
 <tr>
-<td><code>splitObjectPlace</code></td>
-<td>place</td>
-<td><code>@{Base; Kind}</code></td>
-<td>図形・コメントの場所（<code>&lt;元の場所&gt;[図形]</code> 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_インデックス作成_7</a> 6.1「図形・コメントの場所」</td>
-<td>元のファイルを開く</td>
-</tr>
-<tr>
-<td><code>describePlace</code></td>
-<td>book, place</td>
-<td><code>@{Place; Kind}</code></td>
-<td>画面の「場所」「種別」と検索結果ファイルに出す文字（<code>[シート] 売上</code>・図形、<code>[ページ] 3（目安）</code>・本文 など）</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 5.1</td>
-<td>画面・<code>toResultLine</code></td>
-</tr>
-<tr>
-<td><code>splitIndexFileName</code></td>
-<td>fileName</td>
-<td><code>@{book; sheet}</code></td>
-<td>以前の形式（フラット）のインデックスファイル名を元のファイル名・場所に分解し、場所を <code>decodeIndexPlace</code> で元に戻す（正規表現は <code>$indexFileNamePattern</code>）</td>
+<td><code>toColumnName</code></td>
+<td>number</td>
+<td>string</td>
+<td>列番号を列名に変換（1 → <code>A</code>、27 → <code>AA</code>）</td>
 <td>同上</td>
-<td>splitIndexTsvPath、インデックス作成（migrateFlatIndex）</td>
+<td>toResultHeader</td>
 </tr>
+<tr>
+<td><code>splitTsvCells</code></td>
+<td>line</td>
+<td>string[]</td>
+<td>TSV の 1 行をセルに分ける（<code>"</code> で囲まれたセルは 1 セルとし、囲みを外す。<code>countTsvFields</code> と同じ区切り方。画面のプレビューは同じ区切り方を型 <code>HitRow</code>（<code>types_grep.ps1</code>）の中に持つ）</td>
+<td>–</td>
+<td>テストだけ</td>
+</tr>
+<tr>
+<td><code>readTsvContext</code></td>
+<td>path, lineNumber, before（既定 3）, after（既定 3）</td>
+<td><code>@{LineNumber; Line}</code> の配列</td>
+<td>TSV の lineNumber 行目と前後の行を返す（行の数え方は <code>searchIndex</code> と同じ）。<code>StreamReader</code> で先頭から目的の行まで読む（TSV は元のファイル 1 つ分で、通常は数千行までのため十分速い）。読めなければ空</td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> 4.7</td>
+<td>画面</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックスへの配置（<code>tebunko_grep/index/index_store.ps1</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>getIndexTsvCounts</code></td>
-<td>dir（既定 <code>work\index</code>）</td>
+<td>dir（既定 <code>$indexDir</code>）</td>
 <td>相対パス → TSV 数の辞書 / <code>$null</code></td>
 <td>インデックスの中のフォルダごとの TSV の数を数える（フォルダ・TSV をそれぞれ 1 回ずつ列挙する。TSV の無いフォルダは 0 件）。キーは取り込み一覧の相対パスと同じ。列挙できなければ <code>$null</code></td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a></td>
@@ -1505,49 +1581,31 @@
 <td>fromDir, bookDir, stagingDir</td>
 <td>–</td>
 <td>書き出した TSV を stagingDir に集めてから、<code>bookDir</code> をフォルダごと入れ替える（作りかけのインデックスを残さない）。別ドライブでフォルダごと移せない場合は 1 件ずつ移す</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成.md 6.1 節</a></td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#インデックスへの入れ替えpublishtsv--publishindexfiles">01_インデックス作成_7 6.1 節</a></td>
 <td>インデックス作成（publishTsv）</td>
 </tr>
+</tbody>
+</table>
+<p><strong>検索（<code>tebunko_grep/search/search_query.ps1</code>・<code>search_run.ps1</code>）</strong></p>
+<pre class="mermaid"><code>flowchart LR
+    A["getIndexTsvFiles&lt;br&gt;TSV を列挙"] --&gt; B["searchIndex"]
+    B --&gt; C["newSearchRegex / newFileFilter / newPlaceExclude&lt;br&gt;条件を正規表現に"]
+    B --&gt; D["newTsvFiles&lt;br&gt;対象ファイル・図形とコメントで絞る"]
+    D --&gt; E["searchTsvFiles&lt;br&gt;読み込みと照合（件数が多ければ並列）"]
+    E --&gt; F["Hits"]
+    F --&gt; G["toSearchResultLines / writeSearchResult&lt;br&gt;検索結果ファイル"]</code></pre>
+<table>
+<thead>
 <tr>
-<td><code>removeDirectoryRetry</code></td>
-<td>path, tries（既定 3）, waitMilliseconds（既定 200）</td>
-<td>–</td>
-<td>フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す</td>
-<td>–</td>
-<td>インデックス作成（インデックス・作業フォルダの削除）</td>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
 </tr>
-<tr>
-<td><code>toResultLine</code></td>
-<td>book, location, lineNumber, line</td>
-<td>string</td>
-<td><code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行番号&lt;TAB&gt;該当行</code> を返す（場所・種別は <code>describePlace</code> の表示）。Excel はセル内改行を LF に戻し、Word・PowerPoint は <code>"</code> で始まるセルを <code>"</code> で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
-<td>検索</td>
-</tr>
-<tr>
-<td><code>countTsvFields</code></td>
-<td>line</td>
-<td>int</td>
-<td>Excel に貼り付けたときのセル数（<code>"</code> で始まるセルは閉じる <code>"</code> までを 1 セルとする。先頭のセルが空でも数え落とさない）</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
-<td>検索</td>
-</tr>
-<tr>
-<td><code>toColumnName</code></td>
-<td>number</td>
-<td>string</td>
-<td>列番号を列名に変換（1 → <code>A</code>、27 → <code>AA</code>）</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
-<td>toResultHeader</td>
-</tr>
-<tr>
-<td><code>toResultHeader</code></td>
-<td>columnCount</td>
-<td>string</td>
-<td>見出し行 <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B…</code> を返す</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
-<td>検索</td>
-</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>isValidRegex</code></td>
 <td>pattern</td>
@@ -1557,12 +1615,52 @@
 <td>検索・画面</td>
 </tr>
 <tr>
+<td><code>newSearchRegex</code></td>
+<td>word, simpleMatch, caseSensitive</td>
+<td><code>@{Regex; SimpleMatch; TextRegex; ScanMode}</code></td>
+<td>検索条件から照合用の正規表現を作る（文字どおりならエスケープ、大文字と小文字を区別しないなら IgnoreCase、正規表現として不正なら文字どおりにする）。1 行の照合は 5 秒で時間切れ。TextRegex は TSV の全文にかける正規表現（Multiline）、ScanMode はそれを全文にかけてよいか（<code>getRegexScanMode</code>）</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#42-検索条件サクラエディタの-grep-にならう">02_検索.md 4.2</a></td>
+<td>検索・画面（一致箇所の強調）</td>
+</tr>
+<tr>
+<td><code>getRegexScanMode</code></td>
+<td>pattern</td>
+<td>string（<code>lines</code> / <code>filter</code> / <code>scan</code>）</td>
+<td>正規表現を TSV の全文にかけて、1 行ずつの照合と同じ結果になるかを判定する。<code>lines</code> は全文での一致の位置から行が分かる、<code>filter</code> は全文で一致しない TSV を読み飛ばせる、<code>scan</code> は 1 行ずつ照合する。分からない書き方は安全側（<code>filter</code> か <code>scan</code>）に倒す</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#43-検索の実装速度">02_検索.md 4.3</a></td>
+<td>newSearchRegex</td>
+</tr>
+<tr>
+<td><code>newFileFilter</code></td>
+<td>filter</td>
+<td><code>@{Include; Exclude}</code></td>
+<td>対象ファイルの指定（<code>*.xlsx;見積;!*old*</code>）を、元のファイル名に対する正規表現にする（無い側は <code>$null</code>）</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#42-検索条件サクラエディタの-grep-にならう">02_検索.md 4.2</a></td>
+<td><code>searchIndex</code></td>
+</tr>
+<tr>
+<td><code>newPlaceExclude</code></td>
+<td>includeShapes, includeComments</td>
+<td>regex / <code>$null</code></td>
+<td>検索から外す図形・コメントの場所（名前の末尾 <code>[図形]</code> <code>[コメント]</code>）の正規表現。どちらも検索するなら <code>$null</code></td>
+<td>同上</td>
+<td><code>searchIndex</code></td>
+</tr>
+<tr>
 <td><code>getIndexTsvFiles</code></td>
-<td>folders（既定 <code>work\index</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（2000 件ごとに <code>{ param($count) }</code> を呼ぶ）</td>
+<td>folders（既定 <code>$indexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（2000 件ごとに <code>{ param($count) }</code> を呼ぶ）</td>
 <td><code>@{Folders; Files}</code></td>
-<td>検索対象の TSV を列挙する。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、Files は TSV のフルパス → <code>@{Root; RelPath}</code>（パス順・重複なし）。検索を始めるまでの待ち時間になるため、<code>Get-ChildItem</code> ではなく .NET の列挙を使い、相対パスも切り出しで求める（TSV 2 万件で約 6 秒 → 約 2 秒）</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
+<td>検索対象の TSV を列挙する。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、Files は TSV のフルパス → <code>@{Root; RelPath; LongPath; Ticks; Size}</code>（パス順・重複なし。LongPath は <code>\\?\</code> 付きのパス、Ticks・Size は読んだ内容を使い回してよいかの判定に使う）。検索を始めるまでの待ち時間になるため、<code>Get-ChildItem</code> ではなく .NET の列挙を使い、相対パスも切り出しで求める</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#43-検索の実装速度">02_検索.md 4.3</a></td>
 <td>検索・画面</td>
+</tr>
+<tr>
+<td><code>findTsvFilesParallel</code></td>
+<td>longDir</td>
+<td>FileInfo の一覧</td>
+<td>フォルダ以下の <code>*.tsv</code> を、直下のフォルダごとに別スレッドで並行して列挙する（直下のフォルダが少なければ 1 スレッド）</td>
+<td>同上</td>
+<td>getIndexTsvFiles, getIndexSummary</td>
 </tr>
 <tr>
 <td><code>testIndexExists</code></td>
@@ -1581,35 +1679,27 @@
 <td>画面</td>
 </tr>
 <tr>
-<td><code>newSearchRegex</code></td>
-<td>word, simpleMatch, caseSensitive</td>
-<td><code>@{Regex; SimpleMatch}</code></td>
-<td>検索条件から照合用の正規表現を作る（文字どおりならエスケープ、大文字と小文字を区別しないなら IgnoreCase、正規表現として不正なら文字どおりにする）。simpleMatch が偽でも、正規表現として不正なら文字どおりにする。1 行の照合は 5 秒で時間切れ</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/#42-検索条件サクラエディタの-grep-にならう">02_検索.md 4.2</a></td>
-<td>検索・画面（一致箇所の強調）</td>
-</tr>
-<tr>
-<td><code>newFileFilter</code></td>
-<td>filter</td>
-<td><code>@{Include; Exclude}</code></td>
-<td>対象ファイルの指定（<code>*.xlsx;見積;!*old*</code>）を、元のファイル名に対する正規表現にする（無い側は <code>$null</code>）</td>
+<td><code>newTsvFiles</code></td>
+<td>tsvFiles（getIndexTsvFiles の Files）, include, exclude, excludePlace</td>
+<td>検索対象の一覧</td>
+<td>TSV ごとに元のファイル名（Book）・場所（Location）・相対フォルダ（RelDir）を付け、対象ファイルの指定と図形・コメントの指定で絞る。TSV の数だけ呼ぶと遅いため、<code>splitIndexTsvPath</code> と同じ規則をその場で展開する</td>
 <td>同上</td>
-<td><code>searchIndex</code></td>
+<td>searchIndex</td>
 </tr>
 <tr>
-<td><code>newPlaceExclude</code></td>
-<td>includeShapes, includeComments</td>
-<td>regex / <code>$null</code></td>
-<td>検索から外す図形・コメントの場所（名前の末尾 <code>[図形]</code> <code>[コメント]</code>）の正規表現。どちらも検索するなら <code>$null</code></td>
+<td><code>searchTsvFiles</code></td>
+<td>files, start, count, regex, max, textRegex, scanMode, cache</td>
+<td>ヒットの一覧</td>
+<td>files の start から count 件を読み、regex に一致する行を返す（1 行に複数一致しても 1 件）。<code>ScanMode</code> に応じて全文に 1 回照合し、1 行ずつの照合を減らす。インデックス作成中の TSV も読めるよう共有して開き、読めない TSV は飛ばす</td>
 <td>同上</td>
-<td><code>searchIndex</code></td>
+<td>searchIndex（並列検索のスレッドでも動く）</td>
 </tr>
 <tr>
 <td><code>searchIndex</code></td>
-<td>word, tsvFiles, simpleMatch, limit, chunkSize, onProgress, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）</td>
+<td>word, tsvFiles, simpleMatch, limit, chunkSize, onProgress（<code>{ param($done, $total, $newHits) }</code>）, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled}</code></td>
-<td>TSV を検索する（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイル・図形とコメントの指定で絞った後の TSV の数。chunkSize 件ずつ検索して進捗を知らせ、上限・中止に対応する。TSV が多ければ複数スレッドで並行して検索する（結果の順は変わらない）。読めない TSV は飛ばす</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
+<td>TSV を検索する（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイル・図形とコメントの指定で絞った後の TSV の数。chunkSize 件ずつ検索して進捗を知らせ、上限・中止に対応する。TSV が多ければ複数スレッド（最大 8）で並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#4-検索処理">02_検索.md</a></td>
 <td>検索・画面</td>
 </tr>
 <tr>
@@ -1617,15 +1707,31 @@
 <td>maxChars（既定 6,400 万文字）</td>
 <td><code>@{Texts; Chars; MaxChars}</code></td>
 <td>検索で読んだ TSV の内容を次の検索で使い回す入れ物。更新日時・サイズが変わった TSV は読み直す</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#43-検索の実装速度">02_検索.md 4.3</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>toResultLine</code></td>
+<td>book, location, lineNumber, line</td>
+<td>string</td>
+<td><code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行番号&lt;TAB&gt;該当行</code> を返す（場所・種別は <code>describePlace</code> の表示）。Excel はセル内改行を LF に戻し、Word・PowerPoint は <code>"</code> で始まるセルを <code>"</code> で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#52-1-行の組み立て">02_検索.md 5.2</a></td>
+<td>検索</td>
+</tr>
+<tr>
+<td><code>toResultHeader</code></td>
+<td>columnCount</td>
+<td>string</td>
+<td>見出し行 <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B…</code> を返す</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/#51-出力フォーマットwork検索結果txt">02_検索.md 5.1</a></td>
+<td>検索</td>
 </tr>
 <tr>
 <td><code>toSearchResultLines</code></td>
 <td>hits</td>
 <td><code>@{Header; Lines}</code></td>
 <td>検索結果ファイルの見出し行と各行（相対フォルダ付き <code>toResultLine</code>、最大セル数の <code>toResultHeader</code>）</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
+<td>同上</td>
 <td>検索・画面</td>
 </tr>
 <tr>
@@ -1633,28 +1739,13 @@
 <td>writer, word, hits</td>
 <td>–</td>
 <td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を書き出す</td>
-<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
+<td>同上</td>
 <td>検索・画面</td>
-</tr>
-<tr>
-<td><code>splitTsvCells</code></td>
-<td>line</td>
-<td>string[]</td>
-<td>TSV の 1 行をセルに分ける（<code>"</code> で囲まれたセルは 1 セルとし、囲みを外す）</td>
-<td>–</td>
-<td>–</td>
-</tr>
-<tr>
-<td><code>readTsvContext</code></td>
-<td>path, lineNumber, before（既定 3）, after（既定 3）</td>
-<td><code>@{LineNumber; Line}</code> の配列</td>
-<td>TSV の lineNumber 行目と前後の行を返す（行の数え方は <code>searchIndex</code> と同じ）。読み込みは PowerShell（<code>StreamReader</code>）で先頭から目的の行まで読む。読めなければ空</td>
-<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> 4.7</td>
-<td>画面</td>
 </tr>
 </tbody>
 </table>
 <h4 id="523-元のファイルの特定画面">5.2.3 元のファイルの特定・画面<a class="headerlink" href="#523-元のファイルの特定画面" title="Permanent link">&para;</a></h4>
+<p><strong>元のファイルの特定（<code>tebunko_grep/search/source_map.ps1</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1671,8 +1762,8 @@
 <td><code>writeSourceFolderFile</code></td>
 <td>folders（<code>@{Path; Name}</code> の配列）, dir（既定 <code>$indexDir</code>）</td>
 <td>–</td>
-<td>各インデックスのフォルダ（<code>dir\&lt;インデックス名&gt;</code>）に <code>元のフォルダ.txt</code>（<code>インデックス名&lt;TAB&gt;クロール対象フォルダ</code>）を書き出す。以前の版が <code>dir</code> 直下に書いた全インデックス分のファイルは、各フォルダへ移してから消す</td>
-<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成.md</a></td>
+<td>各インデックスのフォルダ（<code>dir\&lt;インデックス名&gt;</code>）に <code>元のフォルダ.txt</code>（<code>インデックス名&lt;TAB&gt;クロール対象フォルダ</code>）を書き出す。以前の版が <code>dir</code> 直下に書いた全インデックス分のファイルがあれば、各フォルダへ移してから消す</td>
+<td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
 <td>インデックス作成</td>
 </tr>
 <tr>
@@ -1688,7 +1779,7 @@
 <td>dir, statusPath（既定 <code>$statusFile</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>Dictionary（インデックス名 → 元のフォルダ）</td>
 <td>インデックス名に対する元のフォルダ。<code>dir</code> 直下の <code>元のフォルダ.txt</code> → （既定のインデックスなら）取り込み一覧 → <strong>設定（<code>targetFolders</code> / <code>indexSources</code>）</strong> の順に上書きするため、設定の「今の置き場所」が最も優先される</td>
-<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#451-元のフォルダの特定インデックスを別の-pc場所で使う場合">03_画面_2_検索タブ.md</a></td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#451-元のフォルダの特定インデックスを別の-pc場所で使う場合">03_画面_2_検索タブ_1</a></td>
 <td>getSourceLocation</td>
 </tr>
 <tr>
@@ -1720,22 +1811,37 @@
 <td>hit, maps</td>
 <td>string / <code>$null</code></td>
 <td>検索結果の元のファイルのパス（ファイルがあるかは確かめない）。元のフォルダが分からなければ <code>$null</code></td>
-<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a></td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#451-元のフォルダの特定インデックスを別の-pc場所で使う場合">03_画面_2_検索タブ_1</a></td>
 <td>画面</td>
 </tr>
+</tbody>
+</table>
+<p><strong>画面が使う集計・設定・Office プロセス</strong></p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 <td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
 <td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
 <td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える</td>
-<td>–</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a></td>
 <td>画面</td>
 </tr>
 <tr>
 <td><code>getIndexingState</code></td>
 <td>since, path</td>
 <td><code>@{Exists; Folders; Total; Pending; Failed; Done; IngestedSince; Updated; FailedRows; IndexStats}</code></td>
-<td>取り込み一覧の状態ごとの件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順）、インデックス名ごとの集計（IndexStats。<code>getIndexStats</code>。取り込み一覧を読み直さずに済むよう同じ読み込みから作る）</td>
+<td>取り込み一覧の状態ごとの件数、since 以降に取り込んだ件数、失敗したファイルの行（FailedRows。取り込み日時の新しい順）、インデックス名ごとの集計（IndexStats。<code>getIndexStats</code>。取り込み一覧を読み直さずに済むよう同じ読み込みから作る）</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_4_%E7%8A%B6%E6%85%8B%E3%81%A8%E6%93%8D%E4%BD%9C%E3%81%AE%E6%B5%81%E3%82%8C/">03_画面_4_状態と操作の流れ.md</a></td>
 <td>画面</td>
 </tr>
@@ -1752,7 +1858,7 @@
 <td>ids</td>
 <td><code>@{Id; Stopped; Message}</code> の配列</td>
 <td><code>Stop-Process -Force</code> で終了し、成否と理由を返す</td>
-<td><a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3_プロセス停止タブ.md</a></td>
+<td>同上</td>
 <td>画面</td>
 </tr>
 </tbody>

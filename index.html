@@ -1476,7 +1476,7 @@
 <td>└ <a href="00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">00_共通_3_テスト.md</a></td>
 <td>–</td>
 <td>–</td>
-<td>6. テスト（単体テスト・結合テスト）</td>
+<td>6. テスト（品質の関門の一覧・単体テスト・結合テスト・カバレッジ・コミット前の検査・CI）</td>
 </tr>
 <tr>
 <td><a href="01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a></td>
@@ -1488,7 +1488,7 @@
 <td>└ <a href="01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">01_インデックス作成_1_Excel.md</a></td>
 <td></td>
 <td></td>
-<td>4.3 Excel の抽出、6.3 TSV 整形仕様</td>
+<td>4.3 Excel の抽出、6.3 TSV 整形仕様、6.7 Excel の図形・コメントの読み取り</td>
 </tr>
 <tr>
 <td>└ <a href="01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/">01_インデックス作成_2_Word.md</a></td>
@@ -1535,7 +1535,7 @@
 <tr>
 <td><a href="02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
 <td>画面の［2 検索］タブ</td>
-<td><code>tebunko_grep/lib.ps1</code></td>
+<td><code>tebunko_grep/search/search_query.ps1</code> / <code>tebunko_grep/search/search_run.ps1</code></td>
 <td>TSV インデックスの検索処理と検索結果ファイルの形式</td>
 </tr>
 <tr>
@@ -1600,8 +1600,7 @@
 </tr>
 </tbody>
 </table>
-<p>Office プロセスの強制終了は画面の［9 プロセス停止］タブ（<a href="03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3_プロセス停止タブ.md</a>）で行う。以前のコンソール用のツール（<code>1_変換.bat</code>、<code>2_検索.bat</code> / <code>grep.ps1</code>、<code>9_Office強制終了.bat</code> / <code>kill_process.ps1</code>、<code>config/検索ワード.txt</code>）は廃止した。インデクサ <code>tebunko_grep/indexer.ps1</code> は画面から起動される処理として残している。</p>
-<p>長い設計書は章単位で複数のファイルに分けている（└ の行）。章・節の番号は、同じ番号の設計書の中で通し番号とし、分割前と同じ番号のまま使っている。</p>
+<p>長い設計書は章単位で複数のファイルに分けている（└ の行）。章・節の番号は、同じ番号の設計書の中で通し番号とする。</p>
 <p>図は Mermaid で記述している（GitHub / VS Code の Markdown プレビュー等で描画される）。画面レイアウトなど Mermaid で表しにくい図は、draw.io で再編集できる PNG（<code>images/*.drawio.png</code>）として置いている。</p>
 <hr />
 <h2 id="1-概要">1. 概要<a class="headerlink" href="#1-概要" title="Permanent link">&para;</a></h2>
@@ -1633,9 +1632,9 @@
 <p>2 段階方式を採る。</p>
 <ol>
 <li><strong>インデックス作成</strong>（<a href="01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>）
-   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出して <code>work/index/</code> に蓄積する。Excel は COM で操作してテキストを抽出し、Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（旧形式のみ Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
+   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出して <code>work/index/</code> に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
 <li><strong>検索</strong>（<a href="02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>）
-   インデックスの TSV を検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を画面の表に表示する。必要なときは <code>work/検索結果.txt</code> に出力する。</li>
+   インデックスの TSV を検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは <code>work/検索結果.txt</code> に出力する。</li>
 </ol>
 <p>どちらも画面（<a href="03_%E7%94%BB%E9%9D%A2/">03_画面.md</a>）から行う。インデックス作成は画面がウィンドウ無しで起動し、進み具合を画面に表示する。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。</p>
 <p>用語は検索エンジンにならい、画面・設計書・コードで次のようにそろえる。</p>
@@ -1700,7 +1699,7 @@
         end
         subgraph sh["shared/（どのツールからも使う）"]
             shared["shared.ps1&lt;br&gt;共通基盤の読み込み口&lt;br&gt;（core/・office/）"]
-            reader["office/office_reader.ps1&lt;br&gt;Word・PowerPoint の読み取り"]
+            reader["office/office_reader.ps1&lt;br&gt;Word・PowerPoint と&lt;br&gt;Excel の図形・コメントの読み取り"]
             app["office/office_app.ps1&lt;br&gt;Officeアプリの起動・終了"]
         end
     end
@@ -1785,7 +1784,7 @@
     G-&gt;&gt;U: 進み具合・失敗したファイルを表示（［中止］で止められる）
     U-&gt;&gt;G: ［2 検索］でワードを入力
     G-&gt;&gt;W: TSV を検索
-    G-&gt;&gt;U: 結果を表に表示（ダブルクリックで元のファイルを開く）</code></pre>
+    G-&gt;&gt;U: 結果をファイルごとの見出しにまとめて表示（見出しを開くと該当行。行のダブルクリックで元のファイルを開く）</code></pre>
 <hr />
 <h2 id="2-動作環境前提条件">2. 動作環境・前提条件<a class="headerlink" href="#2-動作環境前提条件" title="Permanent link">&para;</a></h2>
 <table>
@@ -1814,7 +1813,7 @@
 </tr>
 <tr>
 <td>起動方法</td>
-<td><code>tebunko_grep.bat</code> をダブルクリック。<code>-ExecutionPolicy RemoteSigned</code> で画面を開く（<code>Bypass</code> は使わない）。zip 展開で付く Mark-of-the-Web は、<code>tebunko_grep.bat</code> が起動前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。インデクサも画面が同じ方法（<code>-WindowStyle Hidden</code>）で起動する。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
+<td><code>tebunko_grep.bat</code> をダブルクリック。<code>conhost.exe</code> を通して <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で画面を開く（<code>Bypass</code> は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、<code>tebunko_grep.bat</code> が起動前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が <code>Start-Process</code> で同じ実行ポリシー・<code>-WindowStyle Hidden</code> で起動する。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
 </tr>
 <tr>
 <td>スクリプトの文字コード</td>
@@ -1822,7 +1821,7 @@
 </tr>
 <tr>
 <td>テスト</td>
-<td>Pester 3.4（Windows PowerShell 5.1 標準）。<code>Invoke-Pester .\tests</code></td>
+<td>Pester 3.4（Windows PowerShell 5.1 標準）。<code>.\tests\run.ps1</code>（詳細は <a href="00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#63-テストの構成と実行">6.3</a>）</td>
 </tr>
 </tbody>
 </table>
