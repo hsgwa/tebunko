@@ -53,8 +53,16 @@ jobs:
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\clm_poc\probe.ps1 -Root "%GITHUB_WORKSPACE%" -Label "after ${{ matrix.control }} ${{ matrix.os }} (repository)"
 
       # 許可したフォルダに置いたスクリプトが FullLanguage になるか（管理者が「ツールのフォルダを許可」したときにあたる）
+      # Windows Server 2025 では、許可したフォルダのスクリプトを -File で起動すると
+      # 「異なる言語モードで定義されたものは dot-source できない」で止まった。-Command の & で起動したときと比べる
       - name: 当てた後（許可したフォルダから -File で起動）
+        continue-on-error: true
         shell: cmd
         run: |
           xcopy /e /i /q "%GITHUB_WORKSPACE%\tools\clm_poc" "C:\Program Files\clm_probe\tools\clm_poc" >nul
-          powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Program Files\clm_probe\tools\clm_poc\probe.ps1" -Root "%GITHUB_WORKSPACE%" -Label "after ${{ matrix.control }} ${{ matrix.os }} (allowed folder)"
+          powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Program Files\clm_probe\tools\clm_poc\probe.ps1" -Root "%GITHUB_WORKSPACE%" -Label "after ${{ matrix.control }} ${{ matrix.os }} (allowed folder, -File)"
+
+      - name: 当てた後（許可したフォルダから -Command の & で起動）
+        continue-on-error: true
+        shell: cmd
+        run: powershell -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Program Files\clm_probe\tools\clm_poc\probe.ps1' -Root '%GITHUB_WORKSPACE%' -Label 'after ${{ matrix.control }} ${{ matrix.os }} (allowed folder, -Command)'"
