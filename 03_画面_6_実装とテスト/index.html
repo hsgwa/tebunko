@@ -1407,7 +1407,7 @@
 <tbody>
 <tr>
 <td><code>tebunko_grep.bat</code></td>
-<td>①フォルダの Mark-of-the-Web を消す（<code>powershell -NoProfile -Command "Get-ChildItem -LiteralPath '%~dp0scripts' -Recurse -File \| Unblock-File"</code>）②<code>start "" powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File "%~dp0scripts\tebunko_grep\gui.ps1"</code>。ASCII・CRLF で書く（cmd はコードページ・改行に敏感なため。説明コメントは英語）。詳細は <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
+<td>①フォルダの Mark-of-the-Web を消す（<code>powershell -NoProfile -Command "Get-ChildItem -LiteralPath '%~dp0scripts' -Recurse -File \| Unblock-File"</code>）②<code>start "" conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File "%~dp0scripts\tebunko_grep\gui.ps1"</code>。<code>conhost.exe</code> を通すのは、既定のターミナルが Windows Terminal でも窓を隠すため。ASCII・CRLF で書く（cmd はコードページ・改行に敏感なため。説明コメントは英語）。詳細は <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/xaml/tebunko_grep.xaml</code></td>
