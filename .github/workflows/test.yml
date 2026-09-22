@@ -67,8 +67,14 @@ jobs:
 
       - name: 静的解析（PSScriptAnalyzer）
         shell: powershell
+        # 版を固定する。新しい版でルールが増えると、コードを変えていなくても CI が落ちるため。
+        # PowerShell のモジュールは Dependabot の対象外なので、上げるときはこの版を書き換え、指摘が 0 件のままか PR で確かめる。
+        # ランナーに別の版が入っていることがあるため、読み込むときも版を指定する
+        env:
+          PSSA_VERSION: 1.25.0
         run: |
-          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
           # TypeNotFound は、継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの。
           # 読み込む順で解決できることは tests\meta\structure.Tests.ps1 の「型の読み込み」で確かめている
           $found = @(Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error | Where-Object { $_.RuleName -ne "TypeNotFound" })
