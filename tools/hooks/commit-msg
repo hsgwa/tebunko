@@ -1,0 +1,11 @@
+#!/bin/sh
+# コミットメッセージの検査（git for Windows の sh が実行する。有効にするのは tools/install_hooks.ps1）。
+#
+#   tools/check_commit_message.ps1 -Path <メッセージのファイル> … 1 行目が Conventional Commits の形（feat: ... など）であること
+#
+# どうしても飛ばすときは git commit --no-verify（squash merge では PR のタイトルが main のコミットになり、それは CI が調べる）。
+# このファイルは sh が読むため LF で保存する（.gitattributes で固定している）。
+
+root=$(git rev-parse --show-toplevel) || exit 1
+
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "$root/tools/check_commit_message.ps1" -Path "$1" || exit 1

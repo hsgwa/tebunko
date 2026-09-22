@@ -17,14 +17,12 @@ on:
     branches: [main]
     paths:
       - "docs/**"
-      - "mkdocs.yml"
       - "tools/mkdocs/**"
       - ".github/workflows/docs.yml"
   pull_request:
     types: [opened, reopened, synchronize, closed]
     paths:
       - "docs/**"
-      - "mkdocs.yml"
       - "tools/mkdocs/**"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
@@ -45,7 +43,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # サイトに要る所だけを取る（直下の mkdocs.yml は cone モードで必ず入る）
+          # サイトに要る所だけを取る（設定は tools/mkdocs/mkdocs.yml）
           sparse-checkout: |
             docs
             tools/mkdocs
@@ -59,7 +57,7 @@ jobs:
 
       - name: サイトを作る
         run: |
-          mkdocs build --strict
+          mkdocs build --strict -f tools/mkdocs/mkdocs.yml
           # GitHub Pages に Jekyll で加工させない（そのまま公開させる）
           touch work/site/.nojekyll
 

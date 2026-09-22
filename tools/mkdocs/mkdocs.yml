@@ -1,11 +1,14 @@
 # 設計書（docs/）を MkDocs で HTML のサイトにする設定。
 #
-#   pip install --require-hashes -r tools/mkdocs/requirements.txt
-#   mkdocs serve             手元で見る（http://127.0.0.1:8000/）
-#   mkdocs build --strict    work/site/ に書き出す（CI と同じ。リンク切れ・アンカー切れで失敗する）
+# リポジトリの直下で実行する（privacy プラグインの cache_dir は実行した場所から数えるため）。
 #
+#   pip install --require-hashes -r tools/mkdocs/requirements.txt
+#   mkdocs serve -f tools/mkdocs/mkdocs.yml             手元で見る（http://127.0.0.1:8000/）
+#   mkdocs build --strict -f tools/mkdocs/mkdocs.yml    work/site/ に書き出す（CI と同じ。リンク切れ・アンカー切れで失敗する）
+#
+# docs_dir・site_dir・hooks のパスは、このファイルのある場所から数える。
 # docs/ の Markdown は GitHub でもそのまま読めるように書いたものを変えずに使う。
-# GitHub との違いは tools/mkdocs/hooks.py で埋める（先頭ページ・docs/ の外へのリンク）。
+# GitHub との違いは hooks.py で埋める（先頭ページ・docs/ の外へのリンク）。
 # 公開は .github/workflows/docs.yml が main の更新ごとに GitHub Pages へ行う。
 site_name: tebunko 設計書
 site_url: https://hsgwa.github.io/tebunko/
@@ -15,12 +18,12 @@ repo_name: hsgwa/tebunko
 edit_uri: edit/main/docs/
 copyright: Copyright (c) 2026 hsgwa / MIT License
 
-docs_dir: docs
+docs_dir: ../../docs
 # 生成物は work/ に置く（.gitignore 済み）
-site_dir: work/site
+site_dir: ../../work/site
 
 hooks:
-  - tools/mkdocs/hooks.py
+  - hooks.py
 
 theme:
   name: material

@@ -34,7 +34,7 @@ git branch -D worktree-<名前>
 変更は **Issue → ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。
 
 - **Issue から始める。** 機能追加・不具合修正は、先に Issue を立てる（テンプレートは `.github/ISSUE_TEMPLATE/`）。誤字直しのような小さな変更は Issue なしで PR を出してよい。
-- **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護で禁止し、CI（`test.yml` の `test`）が通らないとマージできない。
+- **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護で禁止し、CI（`test.yml` の `test` と `title.yml` の `pr-title`）が通らないとマージできない。
 - **1 つの PR には 1 つの機能だけを入れる。** 関係のない修正は別の PR にする。
 - **PR 本文は `.github/pull_request_template.md` に沿って書き、`Closes #<番号>` で Issue とつなぐ。** マージすると Issue が自動で閉じる。
 - **PR にはラベルを 1 つ付ける**（`enhancement` / `bug` / `documentation` / `dependencies`）。リリースノートはこのラベルで分類される（`.github/release.yml`）。
@@ -46,6 +46,23 @@ git branch -D worktree-<名前>
   ```
 
 - **マージは squash merge で行う**（GitHub の設定で squash だけを許している）。PR 1 つが main のコミット 1 つになり、**PR のタイトルがそのコミットのタイトルになる。** タイトルは、コミットメッセージと同じく変更の内容が分かる日本語の 1 行にする。
+- **コミットメッセージの 1 行目・PR のタイトル・Issue のタイトルは Conventional Commits の形 `<型>(<範囲>)!: <説明>` にする。** 型は英語、説明は日本語で書く（例 `feat: Excel の図形の文字を検索できるようにする`）。範囲と `!`（前の版と互換が無くなる変更。リリースではメジャーを上げる）は省略できる。
+
+  | 型 | 使うとき | PR のラベル |
+  |---|---|---|
+  | `feat` | 機能の追加・変更 | `enhancement` |
+  | `fix` | 不具合の修正 | `bug` |
+  | `docs` | 文書だけの変更 | `documentation` |
+  | `refactor` | 動きを変えない書き直し | 内容に近いもの |
+  | `perf` | 速さの改善 | `enhancement` |
+  | `test` | テストだけの追加・修正 | 内容に近いもの |
+  | `style` | 書式だけの変更（空白・改行など） | 内容に近いもの |
+  | `build` | 配布物の作り方・依存の更新 | `dependencies`（依存の更新のとき） |
+  | `ci` | CI・git のフック・開発用の道具 | 内容に近いもの |
+  | `chore` | 上のどれにも当たらないもの | 内容に近いもの |
+  | `revert` | 前の変更の取り消し | 取り消す変更と同じもの |
+
+  機械的に確かめる: コミットは `commit-msg` フック、PR のタイトルは CI（`.github/workflows/title.yml` の `pr-title`。失敗するとマージできない）、Issue のタイトルは同じワークフローが形の違うものに直し方をコメントする。判定は `tools/check_commit_message.ps1` にまとめてある。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べない。
 - マージしたブランチは GitHub が自動で消す。手元の worktree とブランチは上の「作業場所」の手順で消す。
 - **GitHub Actions の更新は Dependabot が PR を出す**（`.github/dependabot.yml`）。CI が通れば、内容を見てマージする。
 
@@ -102,7 +119,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 入出力の書式例・メッセージ例・ファイル名規則などの**図ではないテキスト**は、従来どおりコードブロックで書いてよい。
 
-`docs/` は MkDocs で Web サイトにして GitHub Pages に公開する（`mkdocs.yml`・`.github/workflows/docs.yml`）。設計書を足したら `mkdocs.yml` の `nav` にも足す。リンク先のファイルや見出しが無いと CI（`docs`）が失敗するので、見出しを変えたらリンクも直す。
+`docs/` は MkDocs で Web サイトにして GitHub Pages に公開する（`tools/mkdocs/mkdocs.yml`・`.github/workflows/docs.yml`）。設計書を足したら `tools/mkdocs/mkdocs.yml` の `nav` にも足す。リンク先のファイルや見出しが無いと CI（`docs`）が失敗するので、見出しを変えたらリンクも直す。
 
 ## ソースの分け方
 
@@ -117,12 +134,25 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 テストは `.\tests\run.ps1`（タグ `Unit` / `Io` / `Meta` / `Office` / `Slow`）。コミット前に通す。
 
+## テストカバレッジの方針
+
+全体の目標値は決めない。**下げないこと**と、**テストが効く層を厚くすること**を守る。数値の見方と CI での扱いは [docs/00_共通_3_テスト.md](docs/00_共通_3_テスト.md) の 6.3「タグと実行」と「CI」にある。
+
+- **下限は `tests/coverage.baseline`。** `.\tests\run.ps1 -Ci` がこれを下回ると失敗し、CI の必須チェック `test` が通らないためマージできない。
+  - 下回ったら、テストを足して戻す。下限の値を下げて通さない。
+  - カバレッジが上がったら、同じ PR で下限を実測の値（小数点以下 1 桁）まで上げる。
+- **判断層は 95% 以上を保つ。** 画面に出す文言や可否の判定を足したら、同じ PR でテストを書く。
+- **状態層・I/O もテストを書く。** 特にインデックスや設定ファイルの読み書き・形式の移行のように、壊れると利用者のデータが使えなくなる処理は、層にかかわらずテストを書く。
+- **画面層は計測の対象外にする。** 対象外のファイルは `tests/run.ps1` の `CodeCoverage` の条件で外す。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。
+- **数字を上げるためだけのテストは書かない。** 実行するだけで結果を確かめないテストや、実装の細部に依存して壊れやすいテストは足さない。
+
 ## コミット前の検査と CI
 
 clone したら `.\tools\install_hooks.ps1` を 1 回実行する（`core.hooksPath` を `tools/hooks` にする）。以後コミットのたびに次が動く。
 
 - `tools/check_commit.ps1 -Staged` … 上の「個人情報を書かない」と文字コードの決まりを、ステージした内容で機械的に確かめる。
 - `tests/run.ps1 -Tag Unit,Meta -Quiet` … 速いテスト。
+- `tools/check_commit_message.ps1`（`commit-msg` フック）… コミットメッセージの 1 行目が上の「GitHub の運用」の形であること。
 
 CI（`.github/workflows/test.yml`）は全ファイル・全履歴の検査、既定のテスト、PSScriptAnalyzer を行い、カバレッジを Codecov に送る。`v` で始まるタグを push すると `release.yml` が配布 zip を作って GitHub Release に載せる。詳細は [docs/00_共通_3_テスト.md](docs/00_共通_3_テスト.md) の「CI」。
 
