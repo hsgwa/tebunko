@@ -37,7 +37,10 @@ foreach ($p in $allow) {
     $rules += New-CIPolicyRule -FilePathRule $p
 }
 $merged = Join-Path $dir 'policy.xml'
-Merge-CIPolicy -PolicyPaths $base -OutputFilePath $merged -Rules $rules | Out-Null
+# Windows Server 2025 では例のポリシーを直接読めない（アクセス拒否）ため、先に写す
+$copy = Join-Path $dir 'base.xml'
+Copy-Item -LiteralPath $base -Destination $copy
+Merge-CIPolicy -PolicyPaths $copy -OutputFilePath $merged -Rules $rules | Out-Null
 
 # 3 = 監査のみ（外して強制にする）、11 = スクリプトの制限を無効（外す）、
 # 18 = パスの規則で、利用者が書き込めるフォルダを拒む確認をしない（実行環境のフォルダを許可するため）
