@@ -1334,6 +1334,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko_grep.bat）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remotesigned-で起動する理由" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RemoteSigned で起動する理由
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1656,6 +1673,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko_grep.bat）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remotesigned-で起動する理由" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RemoteSigned で起動する理由
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1889,7 +1923,7 @@
 </tr>
 <tr>
 <td>規模（監査の目安）</td>
-<td><code>scripts/</code> 配下 40 ファイル・8,318 行・279 関数。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
+<td><code>scripts/</code> 配下 41 ファイル・9,928 行（空行を除く）・327 関数。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
 </tr>
 </tbody>
 </table>
@@ -1898,7 +1932,7 @@
 <hr />
 <h2 id="2-危険とされる処理の検査結果">2. 危険とされる処理の検査結果<a class="headerlink" href="#2-危険とされる処理の検査結果" title="Permanent link">&para;</a></h2>
 <h3 id="21-検査項目と結果">2.1 検査項目と結果<a class="headerlink" href="#21-検査項目と結果" title="Permanent link">&para;</a></h3>
-<p>検査対象は <code>scripts/</code> 配下のすべての <code>.ps1</code>（40 ファイル）である。「該当 0 件」は、下表の確認コマンドが 1 件も出力しないことを意味する。</p>
+<p>検査対象は <code>scripts/</code> 配下のすべての <code>.ps1</code>（41 ファイル）である。「該当 0 件」は、下表の確認コマンドが 1 件も出力しないことを意味する。</p>
 <table>
 <thead>
 <tr>
@@ -2165,9 +2199,39 @@
 <ul>
 <li><strong>理由</strong>: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー <code>RemoteSigned</code> では未署名スクリプトが実行できないため。</li>
 <li><strong>範囲</strong>: <code>%~dp0scripts</code>（<code>tebunko_grep.bat</code> があるフォルダの <code>scripts</code>）配下のみ。実行するスクリプトはすべてここにある。インデックス（<code>work</code>）・文書（<code>docs</code>）には触らない。システム全体やユーザーのドキュメントには影響しない。</li>
-<li><strong>実行ポリシー</strong>: <code>Bypass</code> は使わず <code>RemoteSigned</code> で起動する。恒久的な設定変更（<code>Set-ExecutionPolicy</code>）も行わない。</li>
+<li><strong>実行ポリシー</strong>: <code>Bypass</code> は使わず <code>RemoteSigned</code> で起動する。恒久的な設定変更（<code>Set-ExecutionPolicy</code>）も行わない。理由は次の「<code>RemoteSigned</code> で起動する理由」を参照。</li>
 <li><strong>恒久的な解消策</strong>: 配布物のカタログ（5.1）にコードサイニング証明書で署名すれば、この <code>Unblock-File</code> は不要になり、<code>AllSigned</code> でも動作する。</li>
 </ul>
+<h4 id="remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由<a class="headerlink" href="#remotesigned-で起動する理由" title="Permanent link">&para;</a></h4>
+<p>Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの既定が <code>Restricted</code> で、<code>.ps1</code> を 1 つも実行できない。本ツールはスクリプトでできているため、何らかの実行ポリシーを指定しないと起動できない。そこで、<code>tebunko_grep.bat</code> と画面（インデクサの起動）は、<code>powershell.exe</code> の <code>-ExecutionPolicy RemoteSigned</code> で<strong>そのプロセスだけ</strong>の実行ポリシーを指定する。</p>
+<ul>
+<li><strong>設定を変えない</strong>: <code>-ExecutionPolicy</code> の指定は、起動したプロセスとその子プロセスだけに効く。PC や利用者の実行ポリシーは書き換えず（<code>Set-ExecutionPolicy</code> を使わない）、管理者権限も要らない。本ツールを終えると元のとおりである。</li>
+<li><strong><code>RemoteSigned</code> を選ぶ理由</strong>: 署名の無い手元のスクリプトを実行できる実行ポリシーのうち、いちばん厳しいため。手元のスクリプトは実行し、インターネットから来た（Mark-of-the-Web が付いた）スクリプトは署名が無ければ止める。本ツールのスクリプトは、上の <code>Unblock-File</code> で自分のフォルダの <code>scripts</code> 配下だけ印を消して実行する。それ以外のダウンロードしたスクリプトは、本ツールのプロセスの中でも今までどおり止まる。</li>
+<li><strong>組織が実行ポリシーを決めている場合</strong>: グループポリシーで実行ポリシーを決めている PC（<code>Get-ExecutionPolicy -List</code> の <code>MachinePolicy</code> か <code>UserPolicy</code> に値がある）では、そちらが優先され、<code>-ExecutionPolicy</code> の指定は効かない。グループポリシーが <code>AllSigned</code> なら、本ツールは署名するまで起動できない。これは組織の設定を守るための Windows の仕様であり、本ツールから回避はしない。</li>
+</ul>
+<p>ほかの実行ポリシーを使わない理由は次のとおり。</p>
+<table>
+<thead>
+<tr>
+<th>実行ポリシー</th>
+<th>使わない理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Bypass</code></td>
+<td>何も止めず、警告も出さない。未署名のスクリプトを <code>Bypass</code> とウィンドウを隠す指定（<code>-WindowStyle Hidden</code>）で動かす形は、マルウェアがよく使う形と同じで、EDR やウイルス対策ソフトに怪しまれやすい</td>
+</tr>
+<tr>
+<td><code>Unrestricted</code></td>
+<td>インターネットから来た未署名のスクリプトも、確認を出したうえで実行できてしまう。確認はウィンドウを隠した起動では見えず、処理が止まる</td>
+</tr>
+<tr>
+<td><code>AllSigned</code></td>
+<td>すべてのスクリプトに署名が要る。本ツールはまだ署名していない（署名すれば <code>AllSigned</code> でも動く。上の「恒久的な解消策」）</td>
+</tr>
+</tbody>
+</table>
 <h3 id="43-インデックスが元文書の本文を保持する情報の集約">4.3 インデックスが元文書の本文を保持する（情報の集約）<a class="headerlink" href="#43-インデックスが元文書の本文を保持する情報の集約" title="Permanent link">&para;</a></h3>
 <p>本ツールは全文検索のために、<strong>元の文書の本文を平文の TSV としてインデックス（<code>work\index\</code>）に保持する</strong>。これはツールの目的そのものであり、避けられない。審査では次の点が論点になる。</p>
 <table>
@@ -2277,15 +2341,15 @@
 <tbody>
 <tr>
 <td>安全性にかかわる 14 ルール（<code>tests/meta/PSScriptAnalyzer.security.psd1</code>）</td>
-<td><strong>指摘 0 件</strong></td>
+<td><strong>指摘 0 件</strong>（ルールにかかわらず出る <code>TypeNotFound</code> を除く。下の注を参照）</td>
 </tr>
 <tr>
 <td>全ルールのうち <code>Error</code> 重大度</td>
-<td><strong>指摘 0 件</strong>（<code>TypeNotFound</code> を除く。下の注を参照）</td>
+<td><strong>指摘 0 件</strong></td>
 </tr>
 <tr>
 <td>全ルール</td>
-<td>239 件（<code>Warning</code> 208 件 / <code>Information</code> 31 件。内訳は下表）</td>
+<td>262 件（<code>Warning</code> 219 件 / <code>Information</code> 43 件。内訳は下表）</td>
 </tr>
 </tbody>
 </table>
@@ -2324,7 +2388,7 @@
 </tr>
 </tbody>
 </table>
-<p>全ルールで出る 239 件の内訳は次のとおりで、<strong>すべて書き方（可読性・保守性）のルール</strong>である。安全性の判断には関わらない。</p>
+<p>全ルールで出る 262 件の内訳は次のとおりで、<strong>すべて書き方（可読性・保守性）のルール</strong>である。安全性の判断には関わらない。</p>
 <table>
 <thead>
 <tr>
@@ -2335,37 +2399,37 @@
 </thead>
 <tbody>
 <tr>
-<td>58</td>
+<td>59</td>
 <td><code>PSAvoidUsingWriteHost</code></td>
 <td><code>Write-Host</code> で画面・ログへ出力している。インデクサの進み具合と失敗の原因を利用者に見せるための出力であり、パイプラインへ返す値ではない</td>
 </tr>
 <tr>
-<td>49</td>
+<td>51</td>
 <td><code>PSUseDeclaredVarsMoreThanAssignments</code></td>
 <td><code>-ErrorVariable</code> で受け取る変数、<code>${...}</code> 記法で別ファイルから参照する変数など、別の構文で使う変数</td>
 </tr>
 <tr>
-<td>42</td>
+<td>46</td>
 <td><code>PSReviewUnusedParameter</code></td>
 <td>画面のイベントハンドラーの引数（<code>sender</code>・<code>e</code>）など、WPF の呼び出し規約で受け取るだけの引数</td>
 </tr>
 <tr>
-<td>34</td>
-<td><code>PSAvoidUsingEmptyCatchBlock</code></td>
-<td>権限の無いプロセスの起動時刻が取れない場合など、失敗しても処理を続けるべき箇所。理由は各 <code>catch</code> にコメントで記載している</td>
-</tr>
-<tr>
-<td>26</td>
+<td>37</td>
 <td><code>PSAvoidUsingPositionalParameters</code></td>
 <td>COM の呼び出し（<code>Workbooks.Open</code> 等）は引数の順序が API 側で決まっており、名前付きにできない</td>
 </tr>
 <tr>
-<td>25</td>
+<td>36</td>
+<td><code>PSAvoidUsingEmptyCatchBlock</code></td>
+<td>失敗しても処理を続けるべき箇所。権限の無いプロセスの起動時刻が取れない場合や、終わるときの後始末（<code>Stop-Transcript</code>・COM の <code>Quit</code> など）が失敗した場合</td>
+</tr>
+<tr>
+<td>27</td>
 <td><code>PSAvoidAssignmentToAutomaticVariable</code></td>
 <td>WPF のイベントハンドラーの引数名 <code>sender</code> に対する指摘。PowerShell の自動変数と同名だが、ハンドラー内の引数であり影響しない</td>
 </tr>
 <tr>
-<td>5</td>
+<td>6</td>
 <td><code>TypeNotFound</code></td>
 <td><code>tebunko_grep/ui/types_grep.ps1</code> が、<code>shared/ui/types.ps1</code> の型（<code>NotifyBase</code>）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（<code>tests/meta/structure.Tests.ps1</code> の「型の読み込み」で実際に読み込んで確認している）</td>
 </tr>
@@ -2528,7 +2592,7 @@
 <tbody>
 <tr>
 <td>テスト件数</td>
-<td>459 件（失敗 0 件。うち安全性・構成の検査（タグ <code>Meta</code>）が 97 件）</td>
+<td>1,011 件（失敗 0 件。うち安全性・構成の検査（タグ <code>Meta</code>）が 104 件）</td>
 </tr>
 <tr>
 <td>コードカバレッジ</td>
@@ -2536,7 +2600,7 @@
 </tr>
 <tr>
 <td>規模</td>
-<td><code>scripts/</code> 配下 40 ファイル・8,318 行・279 関数</td>
+<td><code>scripts/</code> 配下 41 ファイル・9,928 行（空行を除く）・327 関数</td>
 </tr>
 <tr>
 <td>第三者依存</td>
@@ -2544,7 +2608,7 @@
 </tr>
 </tbody>
 </table>
-<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 8,318 行で閉じる。</p>
+<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 9,928 行で閉じる。</p>
 <hr />
 <h2 id="6-供給網サプライチェーンとライセンス">6. 供給網（サプライチェーン）とライセンス<a class="headerlink" href="#6-供給網サプライチェーンとライセンス" title="Permanent link">&para;</a></h2>
 <p>第三者の部品を 1 つも使わないため、供給網に関する論点は次のように閉じる。部品表は <a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>（CycloneDX 1.6 形式）にある。</p>
