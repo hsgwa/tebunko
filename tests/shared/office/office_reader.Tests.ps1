@@ -119,7 +119,7 @@ Describe "readDocxUnits" -Tag Io {
     $units = readDocxUnits $path
 
     It "ページ・ヘッダー/フッター・脚注の順に分ける" {
-        @($units.Keys) -join "|" | Should Be "ページ001|ページ002|ページ003|ページ004|ヘッダー・フッター|脚注"
+        @($units.Keys) -join "|" | Should Be "ページ001|ページ002|ページ003|ページ004|ページ002[図形]|ヘッダー・フッター|脚注"
     }
 
     It "手動の改ページは、直後の保存時のページ区切りの有無にかかわらず1ページとして数える" {
@@ -131,8 +131,9 @@ Describe "readDocxUnits" -Tag Io {
         @($units["ページ001"]) -join "|" | Should Be "見出し|本文  りんご|品名`t価格|複数 段落"
     }
 
-    It "保存時のページ区切りで次のページにし、テキストボックスは1回だけ読む" {
-        @($units["ページ002"]) -join "|" | Should Be "2ページ目|テキストボックス"
+    It "保存時のページ区切りで次のページにし、テキストボックスは本文から分けて、そのページの図形として1回だけ読む" {
+        @($units["ページ002"]) -join "|" | Should Be "2ページ目"
+        @($units["ページ002[図形]"]) -join "|" | Should Be "テキストボックス"
     }
 
     It "ヘッダー・フッターの重複を除く" {
@@ -326,5 +327,111 @@ Describe "readXlsxObjectUnits" -Tag Io {
         $xlsb = "$TestDrive\binary.xlsb"
         newZip $xlsb @{ "xl/workbook.bin" = "binary" }
         (readXlsxObjectUnits $xlsb).Count | Should Be 0
+    }
+}
+
+# Word・PowerPoint の図形（テキストボックス・SmartArt・グラフ）とコメント
+$dgmNs = 'xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+$cNs = 'xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+$docRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+function wTextBox([string[]]$paragraphs) {
+    # 段落の中のテキストボックス（互換用の代替表示付き。代替表示は読まない）
+    $body = ($paragraphs | ForEach-Object { wPara $_ }) -join ""
+    return "<w:p><w:r><mc:AlternateContent><mc:Choice Requires=`"wps`"><w:drawing><w:txbxContent>$body</w:txbxContent></w:drawing></mc:Choice>" +
+        "<mc:Fallback><w:pict><w:txbxContent>$body</w:txbxContent></w:pict></mc:Fallback></mc:AlternateContent></w:r></w:p>"
+}
+
+function smartArt([string]$relId) {
+    return "<a:graphic xmlns:a=`"http://schemas.openxmlformats.org/drawingml/2006/main`"><a:graphicData><dgm:relIds $dgmNs r:dm=`"$relId`" r:lo=`"x`" r:qs=`"x`" r:cs=`"x`"/></a:graphicData></a:graphic>"
+}
+
+function chartRef([string]$relId) {
+    return "<a:graphic xmlns:a=`"http://schemas.openxmlformats.org/drawingml/2006/main`"><a:graphicData><c:chart $cNs r:id=`"$relId`"/></a:graphicData></a:graphic>"
+}
+
+$diagramXml = "<dgm:dataModel $dgmNs xmlns:a=`"http://schemas.openxmlformats.org/drawingml/2006/main`"><dgm:ptLst>" +
+    "<dgm:pt modelId=`"1`" type=`"doc`"><dgm:t><a:bodyPr/><a:p><a:endParaRPr/></a:p></dgm:t></dgm:pt>" +
+    "<dgm:pt modelId=`"2`"><dgm:t><a:bodyPr/><a:p><a:r><a:t>企画</a:t></a:r></a:p></dgm:t></dgm:pt>" +
+    "<dgm:pt modelId=`"3`"><dgm:t><a:bodyPr/><a:p><a:r><a:t>設計</a:t></a:r></a:p></dgm:t></dgm:pt>" +
+    "</dgm:ptLst></dgm:dataModel>"
+$chartXml = "<c:chartSpace $cNs><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>月別売上</a:t></a:r></a:p></c:rich></c:tx></c:title>" +
+    "<c:plotArea><c:barChart><c:ser><c:tx><c:strRef><c:f>S!B1</c:f><c:strCache><c:ptCount val=`"1`"/><c:pt idx=`"0`"><c:v>東京支店</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
+    "<c:cat><c:strRef><c:f>S!A2:A3</c:f><c:strCache><c:pt idx=`"0`"><c:v>4月</c:v></c:pt><c:pt idx=`"1`"><c:v>5月</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
+    "<c:val><c:numRef><c:f>S!B2:B3</c:f><c:numCache><c:pt idx=`"0`"><c:v>1200</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>" +
+    "<c:ser><c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>大阪支店</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
+    "<c:cat><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>4月</c:v></c:pt></c:strCache></c:strRef></c:cat></c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+
+Describe "readDocxUnits（図形・コメント）" -Tag Io {
+    $path = "$TestDrive\objects.docx"
+    $table = "<w:tbl><w:tr><w:tc>$(wPara '表のセル')$(wTextBox @('セルの中の箱'))</w:tc><w:tc>$(wPara '右のセル')</w:tc></w:tr></w:tbl>"
+    $boxTable = "<w:p><w:r><w:drawing><w:txbxContent><w:tbl><w:tr><w:tc>$(wPara '箱の表A')</w:tc><w:tc>$(wPara '箱の表B')</w:tc></w:tr></w:tbl></w:txbxContent></w:drawing></w:r></w:p>"
+    $body = (wPara "1ページ目の本文") + (wTextBox @("箱の1段落目", "箱の2段落目")) + $table + $boxTable +
+        "<w:p><w:r><w:t>コメントを付けた段落</w:t></w:r><w:r><w:commentReference w:id=`"0`"/></w:r><w:r><w:commentReference w:id=`"1`"/></w:r></w:p>" +
+        "<w:p><w:r><w:br w:type=`"page`"/></w:r></w:p>" +
+        "<w:p><w:r><w:drawing>$(smartArt 'rId10')</w:drawing></w:r></w:p>" +
+        "<w:p><w:r><w:drawing>$(chartRef 'rId11')</w:drawing></w:r><w:r><w:commentReference w:id=`"2`"/></w:r></w:p>"
+    newZip $path @{
+        "word/document.xml" = "<w:document $wNs><w:body>$body</w:body></w:document>"
+        "word/_rels/document.xml.rels" = "<Relationships $relNs>" +
+            "<Relationship Id=`"rId10`" Type=`"$docRel/diagramData`" Target=`"diagrams/data1.xml`"/>" +
+            "<Relationship Id=`"rId11`" Type=`"$docRel/chart`" Target=`"charts/chart1.xml`"/></Relationships>"
+        "word/diagrams/data1.xml" = $diagramXml
+        "word/charts/chart1.xml" = $chartXml
+        "word/comments.xml" = "<w:comments $wNs>" +
+            "<w:comment w:id=`"0`" w:author=`"test`"><w:p><w:r><w:t>確認してください</w:t></w:r></w:p><w:p><w:r><w:t>2段落目</w:t></w:r></w:p></w:comment>" +
+            "<w:comment w:id=`"1`" w:author=`"test`"><w:p><w:r><w:t>返信です</w:t></w:r></w:p></w:comment>" +
+            "<w:comment w:id=`"2`" w:author=`"test`"><w:p><w:r><w:t>グラフの数字を確認</w:t></w:r></w:p></w:comment>" +
+            "<w:comment w:id=`"3`" w:author=`"test`"><w:p><w:r><w:t>参照の無いコメント</w:t></w:r></w:p></w:comment></w:comments>"
+    }
+    $units = readDocxUnits $path
+
+    It "テキストボックスの文字は本文から分け、段落をスペースでつないで図形 1 つにする（代替表示は読まない）" {
+        @($units["ページ001"]) -join "|" | Should Be "1ページ目の本文|表のセル`t右のセル|コメントを付けた段落"
+        @($units["ページ001[図形]"]) -join "|" | Should Be "箱の1段落目 箱の2段落目|セルの中の箱|箱の表A`t箱の表B"
+    }
+
+    It "SmartArt・グラフの文字は、そのページの図形にする（グラフはタイトル・系列名・項目名。数値と重複は読まない）" {
+        @($units["ページ002[図形]"]) -join "|" | Should Be "企画 設計|月別売上 東京支店 4月 5月 大阪支店"
+    }
+
+    It "コメントは付けた所のページに、返信も 1 件ずつ入れる。本文に参照の無いコメントは「文書」にまとめる" {
+        @($units["ページ001[コメント]"]) -join "|" | Should Be "確認してください 2段落目|返信です"
+        @($units["ページ002[コメント]"]) -join "|" | Should Be "グラフの数字を確認"
+        @($units["文書[コメント]"]) -join "|" | Should Be "参照の無いコメント"
+    }
+}
+
+Describe "readPptxUnits（図形・コメント）" -Tag Io {
+    $path = "$TestDrive\objects.pptx"
+    $slideRel = "$docRel/slide"
+    $frame = { param($graphic) "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=`"9`" name=`"f`"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr><p:xfrm/>$graphic</p:graphicFrame>" }
+    newZip $path @{
+        "ppt/presentation.xml" = "<p:presentation $pNs><p:sldIdLst><p:sldId id=`"256`" r:id=`"rId2`"/><p:sldId id=`"257`" r:id=`"rId3`"/></p:sldIdLst></p:presentation>"
+        "ppt/_rels/presentation.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId2`" Type=`"$slideRel`" Target=`"slides/slide1.xml`"/><Relationship Id=`"rId3`" Type=`"$slideRel`" Target=`"slides/slide2.xml`"/></Relationships>"
+        "ppt/slides/slide1.xml" = "<p:sld $pNs><p:cSld><p:spTree>$(pShape 'スライドの本文')$(& $frame (smartArt 'rId5'))$(& $frame (chartRef 'rId6'))</p:spTree></p:cSld></p:sld>"
+        "ppt/slides/_rels/slide1.xml.rels" = "<Relationships $relNs>" +
+            "<Relationship Id=`"rId5`" Type=`"$docRel/diagramData`" Target=`"../diagrams/data1.xml`"/>" +
+            "<Relationship Id=`"rId6`" Type=`"$docRel/chart`" Target=`"../charts/chart1.xml`"/>" +
+            "<Relationship Id=`"rId7`" Type=`"$docRel/comments`" Target=`"../comments/comment1.xml`"/></Relationships>"
+        "ppt/diagrams/data1.xml" = $diagramXml
+        "ppt/charts/chart1.xml" = $chartXml
+        "ppt/comments/comment1.xml" = "<p:cmLst $pNs><p:cm authorId=`"0`" idx=`"1`"><p:pos x=`"0`" y=`"0`"/><p:text>旧形式のコメント</p:text></p:cm></p:cmLst>"
+        "ppt/slides/slide2.xml" = "<p:sld $pNs show=`"0`"><p:cSld><p:spTree>$(pShape '非表示の本文')</p:spTree></p:cSld></p:sld>"
+        "ppt/slides/_rels/slide2.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"http://schemas.microsoft.com/office/2018/10/relationships/comments`" Target=`"../comments/modernComment_1.xml`"/></Relationships>"
+        "ppt/comments/modernComment_1.xml" = "<p188:cmLst xmlns:a=`"http://schemas.openxmlformats.org/drawingml/2006/main`" xmlns:p188=`"http://schemas.microsoft.com/office/powerpoint/2018/8/main`">" +
+            "<p188:cm id=`"{1}`" authorId=`"{9}`"><p188:replyLst><p188:reply id=`"{2}`" authorId=`"{9}`"><p188:txBody><a:bodyPr/><a:p><a:r><a:t>返信です</a:t></a:r></a:p></p188:txBody></p188:reply></p188:replyLst>" +
+            "<p188:txBody><a:bodyPr/><a:p><a:r><a:t>新形式の</a:t></a:r></a:p><a:p><a:r><a:t>コメント</a:t></a:r></a:p></p188:txBody></p188:cm></p188:cmLst>"
+    }
+    $units = readPptxUnits $path
+
+    It "テキストボックス・図形はスライドの本文のまま、SmartArt・グラフの文字はスライドの図形にする" {
+        @($units["スライド001"]) -join "|" | Should Be "スライドの本文"
+        @($units["スライド001[図形]"]) -join "|" | Should Be "企画 設計|月別売上 東京支店 4月 5月 大阪支店"
+    }
+
+    It "旧形式・新形式のコメントを読み、コメントの後に返信を 1 件ずつ入れる（非表示のスライドは場所の名前に付く）" {
+        @($units["スライド001[コメント]"]) -join "|" | Should Be "旧形式のコメント"
+        @($units["スライド002（非表示）[コメント]"]) -join "|" | Should Be "新形式の コメント|返信です"
     }
 }

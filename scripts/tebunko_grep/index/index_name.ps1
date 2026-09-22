@@ -190,11 +190,11 @@ function splitIndexFileName {
 
 # 図形・コメントなど、本文（セル・段落）以外の文字の場所は "<元の場所>[<種類>]" とする。
 # 元の場所は、Excel ではシート名（例: "売上[図形]"。office_reader.ps1 の readXlsxObjectUnits）。
-# Word・PowerPoint に広げるときも同じ形にする（例: "ページ003[コメント]" "スライド002[図形]"）。
+# Word はページ、PowerPoint はスライドを元の場所にする（例: "ページ003[コメント]" "スライド002[図形]"）。
 # Excel のシート名には [ ] を使えず、Word・PowerPoint の場所（ページNNN・スライドNNN 等）にも付かないため、ふつうの場所と重ならない。
 # 種類ごとに、検索に含めるかを画面で選べる（search_query.ps1 の newPlaceExclude）。
 # 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types_grep.ps1 の HitRow.ObjectPlaceRegex）をそろえる
-${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt など（SmartArt・グラフもここに入れる予定）
+${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
 ${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment})\]$"
 

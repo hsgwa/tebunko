@@ -76,7 +76,7 @@ Describe "describePlace" -Tag Unit {
         described "報告.docx" "ページ120" | Should Be "[ページ] 120（目安）|本文"
         described "報告.docx" "ヘッダー・フッター" | Should Be "[ヘッダー・フッター]|本文"
         described "報告.docx" "脚注" | Should Be "[脚注]|本文"
-        # Word のコメント（予定）も同じ決まりで出せる
+        # Word のコメント・図形も同じ決まりで出す
         described "報告.docx" "ページ003[コメント]" | Should Be "[ページ] 3（目安）|コメント"
     }
 
