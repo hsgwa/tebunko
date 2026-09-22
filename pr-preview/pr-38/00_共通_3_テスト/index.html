@@ -1948,8 +1948,8 @@
 </ul>
 <p><code>.github/workflows/title.yml</code> は、PR と Issue のタイトルを <code>tools/check_commit_message.ps1 -Title</code> で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。</p>
 <ul>
-<li>PR（ジョブ <code>pr</code>）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす</li>
-<li>Issue（ジョブ <code>issue</code>）… 作成は止められないため、形が違えば <code>.github/title_comment.md</code> の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）</li>
+<li>PR（ジョブ <code>pr-title</code>）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす</li>
+<li>Issue（ジョブ <code>issue-title</code>）… 作成は止められないため、形が違えば <code>.github/title_comment.md</code> の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）</li>
 <li>タイトルは誰でも書ける信頼できない入力のため、式で <code>run</code> に埋め込まず環境変数で渡す</li>
 <li>起動の速い ubuntu のランナーで <code>pwsh</code>（PowerShell 7）を使う。そのため <code>tools/check_commit_message.ps1</code> は 5.1 と 7 の両方で動くように書く</li>
 <li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
