@@ -1,4 +1,6 @@
 # GitHub Actions と MkDocs のパッケージの更新を Dependabot が PR で出す（AGENTS.md「GitHub の運用」）。
+# PR のタイトル（squash merge で main のコミットになる）は Conventional Commits の形にする（title.yml が確かめる）。
+# prefix と include: scope で「ci(deps): bump ...」「build(deps): bump ...」になる。
 # PowerShell のモジュール（Pester・PSScriptAnalyzer）は Dependabot の対象外のため、test.yml で版を決めて入れる
 version: 2
 updates:
@@ -9,7 +11,8 @@ updates:
     labels:
       - dependencies
     commit-message:
-      prefix: "GitHub Actions:"
+      prefix: "ci"
+      include: scope
 
   # 設計書のサイトを作るパッケージ（tools/mkdocs/requirements.txt。docs.yml が使う）
   - package-ecosystem: pip
@@ -19,4 +22,5 @@ updates:
     labels:
       - dependencies
     commit-message:
-      prefix: "MkDocs:"
+      prefix: "build"
+      include: scope
