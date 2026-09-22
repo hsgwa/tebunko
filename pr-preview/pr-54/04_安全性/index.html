@@ -2526,7 +2526,7 @@
 </tr>
 <tr>
 <td>コードカバレッジ</td>
-<td>58.5%（2,380/4,067 コマンド）。対象は判断層・状態層のみ（画面層は自動テストの対象外）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code> で 58.0% に固定し、下回ると CI が失敗する</td>
+<td>96.5%（4,922/5,100 コマンド）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code> で 96.5% に固定し、下回ると CI が失敗する</td>
 </tr>
 <tr>
 <td>規模</td>
