@@ -2,6 +2,9 @@
 # 配布物を作るワークフローは workflows/release.yml で、このファイルとは別のもの
 changelog:
   categories:
+    # 互換が無くなる変更。ほかのラベルと併せて付けるので、最初に置いて先に振り分ける
+    - title: 互換が無くなる変更
+      labels: [breaking]
     - title: 機能
       labels: [enhancement]
     - title: 不具合の修正
