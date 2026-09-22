@@ -41,8 +41,8 @@ Describe "getRestrictedStartupLines" -Tag Unit {
         ($lines -join "`n") | Should Be (@(
                 "制限モードで起動します。"
                 "  理由: この PC では PowerShell が制限言語モード（ConstrainedLanguage）で動いています。"
-                "  使えない機能: 画面（ウィンドウ）と、Excel・.xls/.doc/.ppt・パスワード付きのファイルの取り込み"
-                "  インデックスの作成: Word・PowerPoint（.docx .docm .pptx .pptm）だけ取り込めます。ほかはいつもの画面が使える PC で取り込んでください。"
+                "  使えない機能: 画面（ウィンドウ）と、旧形式（.xls .doc .ppt）・パスワード付きのファイルの取り込み"
+                "  インデックスの作成: 新形式（.docx .docm .pptx .pptm .xlsx .xlsm）だけ取り込めます。ほかはいつもの画面が使える PC で取り込んでください。"
                 "  いつもの画面を使うには: 管理者にツールのフォルダの実行許可を依頼してください。"
             ) -join "`n")
     }

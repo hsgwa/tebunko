@@ -32,8 +32,8 @@ function getRestrictedStartupLines {
     } else {
         $lines += "  理由: 画面の部品（WPF）を読み込めませんでした（$($facts.WpfError)）。"
     }
-    $lines += "  使えない機能: 画面（ウィンドウ）と、Excel・.xls/.doc/.ppt・パスワード付きのファイルの取り込み"
-    $lines += "  インデックスの作成: Word・PowerPoint（.docx .docm .pptx .pptm）だけ取り込めます。ほかはいつもの画面が使える PC で取り込んでください。"
+    $lines += "  使えない機能: 画面（ウィンドウ）と、旧形式（.xls .doc .ppt）・パスワード付きのファイルの取り込み"
+    $lines += "  インデックスの作成: 新形式（.docx .docm .pptx .pptm .xlsx .xlsm）だけ取り込めます。ほかはいつもの画面が使える PC で取り込んでください。"
     if (!$facts.HasExcel) {
         $lines += "  検索結果: Excel が見つからないため、この画面に一覧で出します。"
     }
