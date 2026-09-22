@@ -6,42 +6,16 @@
 
 ただし `.github/` の CONTRIBUTING・SECURITY・SUPPORT・CODE_OF_CONDUCT は、英語版（`<名前>.md`）を正とし、日本語版（`<名前>.ja.md`）を並べて置く。GitHub が案内に使うのは英語版の名前のファイルのため。内容を変えるときは、両方を同じ PR で直す。日本語の文書（README・`docs/` など）からは日本語版へリンクする。README は内容をよく変えるため日本語だけにする。
 
-## 作業場所
-
-本リポジトリ配下での作業は git worktree（EnterWorktree 等）で隔離したツリー上で行い、作業ツリーを直接編集しない。
-
-ブランチ（worktree）を作るときは、先に GitHub の main を取得し、その最新から作る。手元の `master` や古いブランチを起点にしない。
-
-```
-git fetch origin
-git worktree add -b worktree-<名前> .claude/worktrees/<名前> origin/main
-```
-
-一つのセッションを続けて別の機能に取りかかるときは、今の worktree で続けるか、別の worktree を新しく作るかを利用者に確認してから始める。別の worktree にする場合も、上と同じく最新の `origin/main` から作る。
-
-作業内容をメインブランチへマージしたら、その worktree は削除する。マージ済みで不要になった worktree を残さない。
-
-squash merge では手元のコミットが main に入らないため、`git branch -d` はブランチを消せない。PR がマージ済み（`MERGED`）であることを確かめてから `-D` で消す。
-
-```
-gh pr view worktree-<名前> --json state --jq .state
-git worktree remove .claude/worktrees/<名前>
-git branch -D worktree-<名前>
-```
-
-未コミットの変更が残っている worktree は削除しない。コミットするか破棄するかを利用者に確認してから削除する。
-
 ## GitHub の運用
 
-変更は **Issue → ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。
+変更は **ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。貢献の始め方（Issue の立て方・開発の準備）は [.github/CONTRIBUTING.ja.md](.github/CONTRIBUTING.ja.md) にある。
 
-- **Issue から始める。** 機能追加・不具合修正は、先に Issue を立てる（テンプレートは `.github/ISSUE_TEMPLATE/`）。誤字直しのような小さな変更は Issue なしで PR を出してよい。
-- **Issue は目的ごとに 1 つにする。** 作業を PR ごとに細かく分けて Issue を並べない。作業の内訳は Issue 本文のチェックリストに書き、途中の PR は `Refs #<番号>`、最後の PR で `Closes #<番号>` とする。1 つの目的に Issue を複数立てたほうがよいと考えたときは、分け方を利用者に示し、了承を得てから立てる。
+**ラベル付け・マージ・リリースはメンテナが行う。** エージェントはこれらを試みない。
+
 - **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護（ruleset）で禁止し、必須チェック（`test.yml` の `test`・`title.yml` の `pr-title`・`docs.yml` の `docs`・`codeql.yml` の `analyze`）が通らないとマージできない。PR のブランチが最新の main を取り込んでいないときもマージできない。
-- **1 つの PR には 1 つの機能だけを入れる。** 関係のない修正は別の PR にする。
-- **PR 本文は `.github/pull_request_template.md` に沿って書き、`Closes #<番号>` で Issue とつなぐ。** マージすると Issue が自動で閉じる。
-- **PR にはラベルを 1 つ付ける**（`enhancement` / `bug` / `documentation` / `dependencies`）。リリースノートはこのラベルで分類される（`.github/release.yml`）。
-- **前の版と互換が無くなる PR には、さらに `breaking` を付け、タイトルの型に `!` を付ける**（下の Conventional Commits）。設定ファイル（`setting.config`）・インデックスの形式、起動の仕方、配布物のファイル構成が変わり、前の版のものがそのまま使えなくなるときがこれに当たる。PR 本文に移行の手順を書く。
+- **1 つの PR には 1 つの目的だけを入れる。** 目的と関係のない修正は別の PR にする。
+- **PR 本文は `.github/pull_request_template.md` に沿って書く。** Issue があれば `Closes #<番号>` でつなぐ（マージすると Issue が自動で閉じる）。無ければ目的を PR 本文に書く。
+- **前の版と互換が無くなる PR は、タイトルの型に `!` を付ける**（下の Conventional Commits）。設定ファイル（`setting.config`）・インデックスの形式、起動の仕方、配布物のファイル構成が変わり、前の版のものがそのまま使えなくなるときがこれに当たる。PR 本文に移行の手順を書く。
 - **PR を出す前に最新の main を取り込む。** 取り込みは merge で行い、push 済みのブランチを rebase して force push しない。
 
   ```
@@ -50,93 +24,26 @@ git branch -D worktree-<名前>
   ```
 
 - **マージは squash merge で行う**（GitHub の設定で squash だけを許している）。PR 1 つが main のコミット 1 つになり、**PR のタイトルがそのコミットのタイトルになる。** タイトルは、コミットメッセージと同じく変更の内容が分かる日本語の 1 行にする。
-- **コミットメッセージの 1 行目・PR のタイトル・Issue のタイトルは Conventional Commits の形 `<型>(<範囲>)!: <説明>` にする。** 型は英語、説明は日本語で書く（例 `feat: Excel の図形の文字を検索できるようにする`）。範囲と `!`（前の版と互換が無くなる変更。PR には `breaking` ラベルも付ける。上げる桁は下の「リリース」）は省略できる。
+- **コミットメッセージの 1 行目・PR のタイトル・Issue のタイトルは Conventional Commits の形 `<型>(<範囲>)!: <説明>` にする。** 型は英語、説明は日本語で書く（例 `feat: Excel の図形の文字を検索できるようにする`）。範囲と `!`（前の版と互換が無くなる変更）は省略できる。
 
-  | 型 | 使うとき | PR のラベル |
-  |---|---|---|
-  | `feat` | 機能の追加・変更 | `enhancement` |
-  | `fix` | 不具合の修正 | `bug` |
-  | `docs` | 文書だけの変更 | `documentation` |
-  | `refactor` | 動きを変えない書き直し | 内容に近いもの |
-  | `perf` | 速さの改善 | `enhancement` |
-  | `test` | テストだけの追加・修正 | 内容に近いもの |
-  | `style` | 書式だけの変更（空白・改行など） | 内容に近いもの |
-  | `build` | 配布物の作り方・依存の更新 | `dependencies`（依存の更新のとき） |
-  | `ci` | CI・git のフック・開発用の道具 | 内容に近いもの |
-  | `chore` | 上のどれにも当たらないもの | 内容に近いもの |
-  | `revert` | 前の変更の取り消し | 取り消す変更と同じもの |
+  | 型 | 使うとき |
+  |---|---|
+  | `feat` | 機能の追加・変更 |
+  | `fix` | 不具合の修正 |
+  | `docs` | 文書だけの変更 |
+  | `refactor` | 動きを変えない書き直し |
+  | `perf` | 速さの改善 |
+  | `test` | テストだけの追加・修正 |
+  | `style` | 書式だけの変更（空白・改行など） |
+  | `build` | 配布物の作り方・依存の更新 |
+  | `ci` | CI・git のフック・開発用の道具 |
+  | `chore` | 上のどれにも当たらないもの |
+  | `revert` | 前の変更の取り消し |
 
   機械的に確かめる: コミットは `commit-msg` フック、PR のタイトルは CI（`.github/workflows/title.yml` の `pr-title`。失敗するとマージできない）、Issue のタイトルは同じワークフローが形の違うものに直し方をコメントする。判定は `tools/check_commit_message.ps1` にまとめてある。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べない。
 - **コミットには `git commit -s` で `Signed-off-by: <名前> <メールアドレス>` を付ける。** [DCO](https://developercertificate.org/)（その変更を出す権利があること）に同意したことを表す。メールアドレスはコミットの作者のもの（下の「個人情報を書かない」の noreply）と同じにする。
 
   機械的に確かめる: コミットは `commit-msg` フック、PR のコミットは CI（`test.yml` の `test`。失敗するとマージできない）。判定は `tools/check_signoff.ps1`。マージコミットと bot（Dependabot など）のコミットは調べない。決まりを作る前（#53 より前）のコミットには付いていないが、書き換えない。付け忘れたまま PR のブランチに push したときに限り、`git rebase --signoff origin/main` で付け直して `git push --force-with-lease` してよい。
-- マージしたブランチは GitHub が自動で消す。手元の worktree とブランチは上の「作業場所」の手順で消す。
-- **GitHub Actions の更新は Dependabot が PR を出す**（`.github/dependabot.yml`）。CI が通れば、内容を見て下の「マージ」の手順で利用者に諮る。
-
-### マージ
-
-**エージェントは自分の判断でマージしない。** 次の条件をそろえたら、マージの方針を利用者に提案し、許可を得てからマージする。
-
-1. 最新の main を取り込んである（上の `git merge origin/main`）。
-2. CI がすべて通っている（`gh pr checks <番号>`）。失敗・実行中のものが 1 つでもあればマージしない。
-3. PR テンプレートの「確認したこと」をすべて済ませた。画面を変えた場合は、実際に起動して見た。
-4. 差分を読み直し、PR の目的と関係のない変更・個人情報が入っていない。
-5. ラベルが付いている。
-
-提案には次を書く。
-
-- 対象の PR の番号とタイトル（main のコミットのタイトルになる）、変更の要点
-- CI の結果と、条件 1〜5 を満たしていること
-- 複数の PR があるときは、マージする順番
-- マージの後に出すリリース（版の番号、または出さない理由。下の「リリース」）
-- `breaking` の PR は、移行の手順
-
-利用者が許可したものだけを、次でマージする。
-
-```
-gh pr merge <番号> --squash
-```
-
-- `--admin` でブランチ保護を飛ばさない。
-- マージしたら、上の「作業場所」の手順で worktree とブランチを消す。続けて下の「リリース」の要否を判断する。
-
-### リリース
-
-`v<メジャー>.<マイナー>.<パッチ>`（SemVer）のタグを main のコミットに付けて push すると、`release.yml` が配布 zip を GitHub Release に載せる。
-
-**今は 0.x（`v0.<マイナー>.<パッチ>`）を続ける。** 1.0.0 に上げるのは利用者が決める。0.x の間、上げる桁は前のタグ以降にマージされた PR のラベルで次のように決める。上から順に見て、最初に当てはまったものにする。
-
-| マージされた PR のラベル | 0.x の間 | 1.0.0 以降 |
-|---|---|---|
-| `breaking` が 1 つでもある | マイナー（0.3.1 → 0.4.0） | メジャー（1.3.1 → 2.0.0） |
-| `enhancement` がある | パッチ（0.3.1 → 0.3.2） | マイナー（1.3.1 → 1.4.0） |
-| `bug` がある | パッチ（0.3.1 → 0.3.2） | パッチ（1.3.1 → 1.3.2） |
-| `documentation` / `dependencies` だけ | リリースしない | リリースしない |
-
-リリースする時機:
-
-- **リリースも、マージの提案と一緒に版を示し、利用者の了承を得てからタグを push する。**
-- **`bug` の PR をマージしたら、すぐにパッチを出す。** 不具合で困っている利用者に早く届けるため。
-- **`enhancement` は、利用者に頼まれた一連の作業の PR をすべてマージしてから、まとめて 1 回出す。** PR ごとに版を分けない。
-- **`breaking` を含むリリースは、利用者の了承を得てから出す。** 互換を壊す変更はなるべく 1 回のリリースにまとめる。
-
-手順:
-
-```
-git fetch origin --tags
-$prev = git describe --tags --abbrev=0 origin/main        # 前の版
-$since = git log -1 --format=%cI $prev                     # その日時
-gh pr list --state merged --base main --search "merged:>$since" --json number,title,labels
-```
-
-一覧のラベルで次の版を決め、タグを付けて push する。push したら `gh run watch` で `release` の成功を確かめ、利用者に版と含めた PR の番号を報告する。
-
-```
-git tag v0.1.0 origin/main
-git push origin v0.1.0
-```
-
-- タグは一度 push したら付け直さない。間違えたら、直した版を次の番号で出す。
 
 ## 除外設定（読ませない・検索させない）
 
