@@ -29,8 +29,9 @@ Start-Service -Name AppIDSvc
 Get-Service -Name AppIDSvc | Format-List Name, Status, StartType | Out-String | Write-Host
 Get-AppLockerPolicy -Effective -Xml | Write-Host
 # 規則が効いているか（リポジトリのスクリプトは拒否、Windows の下は許可になるはず）
-$targets = @(
-    (Join-Path $env:GITHUB_WORKSPACE 'tools\clm_poc\probe.ps1'),
-    (Join-Path $env:windir 'System32\WindowsPowerShell\v1.0\Modules\Microsoft.PowerShell.Archive\Microsoft.PowerShell.Archive.psm1')
-)
-Test-AppLockerPolicy -XmlPolicy $path -Path $targets -User Everyone | Format-Table -AutoSize | Out-String -Width 300 | Write-Host
+# Test-AppLockerPolicy は .psm1 を扱えない（UnsupportedFileTypeException）ので ps1 だけを調べる
+try {
+    Test-AppLockerPolicy -XmlPolicy $path -Path (Join-Path $env:GITHUB_WORKSPACE 'tools\clm_poc\probe.ps1') -User Everyone | Format-List | Out-String -Width 300 | Write-Host
+} catch {
+    Write-Warning ("Test-AppLockerPolicy: " + $_.Exception.Message)
+}
