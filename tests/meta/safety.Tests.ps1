@@ -114,6 +114,11 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
         (findPattern $code 'Get-Credential|ConvertTo-SecureString|PSCredential') | Should Be ""
     }
 
+    It "壊れたハッシュ（MD5・SHA-1）と、FIPS 準拠でないハッシュの実装を使わない" {
+        # FIPS モードの Windows では、FIPS 準拠でない実装（MD5・*Managed）を作ると例外になり起動できなくなる
+        (findPattern $code 'MD5|SHA1|RIPEMD|SHA(256|384|512)Managed|HashAlgorithm\]::Create') | Should Be ""
+    }
+
     It "リモート実行を行わない" {
         (findPattern $code 'Invoke-Command|New-PSSession|Enter-PSSession|WinRM') | Should Be ""
     }

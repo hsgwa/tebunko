@@ -48,14 +48,11 @@ trap {
 #
 # すでに開いているときは、その画面のウィンドウを前面に出して終わる（もう一度起動するのは、
 # たいてい「開いたつもりのウィンドウが他のウィンドウの裏にある」ときのため）。
-# 知らせるのは名前付きイベントで行う。ここは型を読み込む前のため、.NET の機能だけを使う。
+# 知らせるのは名前付きイベントで行う。
 
-$md5 = New-Object System.Security.Cryptography.MD5CryptoServiceProvider
-$instanceKey = [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(${rootDir}.ToLowerInvariant()))).Replace("-", "")
+$instanceKey = getFolderKey ${rootDir}
 $mutexName = "Local\tebunko_gui_" + $instanceKey
 $activateName = "Local\tebunko_gui_activate_" + $instanceKey
-# 以前の版（tebunko_grep だけの画面）のミューテックス。同じフォルダで開いていれば、同じ設定・インデックスを書き換えるため開かない
-$legacyMutexName = "Local\${appId}_gui_" + $instanceKey
 $createdNew = $false
 $mutex = New-Object System.Threading.Mutex($true, $mutexName, [ref]$createdNew)
 if (!$createdNew) {
@@ -66,14 +63,6 @@ if (!$createdNew) {
         exit
     }
     [System.Windows.MessageBox]::Show("すでに開いています。", ${appTitle}, "OK", "Information") | Out-Null
-    exit
-}
-$legacyMutex = $null
-if ([System.Threading.Mutex]::TryOpenExisting($legacyMutexName, [ref]$legacyMutex)) {
-    $legacyMutex.Dispose()
-    $mutex.ReleaseMutex()
-    $mutex.Dispose()
-    [System.Windows.MessageBox]::Show("以前の版の画面（tebunko_grep）が開いています。閉じてから開き直してください。", ${appTitle}, "OK", "Information") | Out-Null
     exit
 }
 $activateEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threading.EventResetMode]::AutoReset, $activateName)
