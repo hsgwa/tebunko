@@ -6,6 +6,10 @@
 #     プレビューの URL を PR にコメントする。PR を閉じたら（マージを含む）プレビューを消す
 # どちらも mkdocs build --strict で作る。リンク先のファイルや見出し（アンカー）が無いと失敗する。
 #
+# サイトを作るジョブ（build。チェックの名前は docs）は main の必須チェックにしている。必須のチェックは、ワークフローが動かないと
+# 待ったままになり PR をマージできないため、PR では paths で絞らず、どの PR でもサイトを作る。
+# プレビューを置くかどうかは、変えたファイルを調べるジョブ（changes）で決める。
+#
 # サイトを作るジョブ（build）は PR のコード（tools/mkdocs/hooks.py）を動かすため、読み取りの権限だけで動かす。
 # gh-pages への書き込みと PR へのコメントは、作ったサイトを受け取るだけのジョブ（publish）で行う。
 # fork からの PR には書き込みの権限が無いため、プレビューは作らない（ビルドの確認だけを行う）。
@@ -19,19 +23,42 @@ on:
       - "docs/**"
       - "tools/mkdocs/**"
       - ".github/workflows/docs.yml"
+  # 必須チェックのため、paths で絞らない（上の説明）
   pull_request:
     types: [opened, reopened, synchronize, closed]
-    paths:
-      - "docs/**"
-      - "tools/mkdocs/**"
-      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  # PR でサイトに関わるファイル（上の push の paths と同じもの）を変えたかを調べる。変えた PR だけプレビューを置く
+  changes:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      docs: ${{ steps.files.outputs.docs }}
+    steps:
+      - name: 変えたファイルを調べる
+        id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # 一覧をいったん変数に受ける（grep -q が途中で読むのをやめると、pipefail で gh の失敗に見えるため）
+          files=$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
+          if grep -qE '^(docs/|tools/mkdocs/|\.github/workflows/docs\.yml$)' <<< "$files"; then
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    # 必須チェックの名前（ruleset の required_status_checks）
+    name: docs
     # 閉じた PR ではプレビューを消すだけなので、サイトを作らない
     if: ${{ github.event.action != 'closed' }}
     runs-on: ubuntu-latest
@@ -70,12 +97,14 @@ jobs:
           retention-days: 1
 
   publish:
-    needs: build
-    # main の更新と、このリポジトリのブランチからの PR だけ。閉じた PR では build を飛ばしても動かす
+    needs: [changes, build]
+    # main の更新と、このリポジトリのブランチからの、サイトに関わるファイルを変えた PR だけ。
+    # 閉じた PR では build を飛ばしても動かす。push では changes を飛ばすため、その結果は見ない
     if: >-
       ${{ !cancelled()
       && (needs.build.result == 'success' || github.event.action == 'closed')
-      && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+      && (github.event_name != 'pull_request'
+      || (needs.changes.outputs.docs == 'true' && github.event.pull_request.head.repo.full_name == github.repository)) }}
     runs-on: ubuntu-latest
     permissions:
       # gh-pages ブランチへの書き込み
