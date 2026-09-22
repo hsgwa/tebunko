@@ -1418,7 +1418,7 @@
 <td>画面の枠（ウィンドウとタブ）。タブの中身は別ファイルにし、<code>gui.ps1</code> が読み込んで入れる</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/xaml/tab_index.xaml</code><br><code>tab_search.xaml</code><br><code>tab_kill.xaml</code></td>
+<td><code>scripts/tebunko_grep/xaml/tab_index.xaml</code><br><code>tab_search.xaml</code><br><code>tab_settings.xaml</code><br><code>tab_kill.xaml</code></td>
 <td>各タブの中身。イベントは書かず、<code>x:Name</code> だけを付ける。ルート要素には <code>StaticResource</code> を使う属性を置かない（自分の <code>Resources</code> より先に解決されるため）。<code>x:Name</code> が <code>gui.ps1</code> の一覧と食い違っていないことは <code>tests/meta/structure.Tests.ps1</code> で確かめる</td>
 </tr>
 <tr>
@@ -1466,11 +1466,15 @@
 <td>［2 検索］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2</a>）。検索の実行（<code>search_tab.ps1</code>）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。<code>result_list.ps1</code>）、選択行のプレビュー（<code>preview.ps1</code>）、元のファイルを開く処理（Excel COM。<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#45-元のファイルを開く">4.5</a>。<code>open_source.ps1</code>）、検索対象インデックスのツリー（<code>index_tree.ps1</code>）</td>
 </tr>
 <tr>
+<td><code>scripts/tebunko_grep/ui/settings_tab.ps1</code></td>
+<td>［8 設定］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。インデックスの置き場所を変えたら画面を開き直す</td>
+</tr>
+<tr>
 <td><code>scripts/tebunko_grep/ui/process_tab.ps1</code></td>
 <td>［9 プロセス停止］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3</a>）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code></td>
+<td><code>scripts/tebunko_grep/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code></td>
 <td>画面の<strong>判断層</strong>。「何を出すか」を決める部分を <code>$ui</code> に触らない関数として切り出したもの（入力は素の値、出力は素の値）。色は意味（<code>info</code> / <code>ok</code> / <code>warn</code> / <code>ng</code> / <code>gray</code>）で返し、実際の色はタブ側で対応表から引く。Pester でテストする（16.1）</td>
 </tr>
 <tr>
