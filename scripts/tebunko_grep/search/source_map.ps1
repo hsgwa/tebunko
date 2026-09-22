@@ -20,7 +20,7 @@ function writeSourceFolderFile {
     foreach ($line in @(readListFile $rootPath)) {
         $fields = $line.Split("`t")
         if ($fields.Count -eq 2 -and $fields[0] -ne "" -and $fields[1] -ne "" -and $names -notcontains $fields[0]) {
-            $items += [pscustomobject]@{ Name = $fields[0]; Path = $fields[1] }
+            $items += New-Object PSObject -Property ([ordered]@{ Name = $fields[0]; Path = $fields[1] })
             $names += $fields[0]
         }
     }
@@ -47,7 +47,8 @@ function readSourceFolderFile {
         [string]$dir
     )
 
-    $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # ハッシュテーブルは大文字・小文字を区別しない（制限モード（制限言語モード）からも使うため Dictionary にしない）
+    $map = @{}
     foreach ($line in @(readListFile (Join-Path $dir ${sourceFolderFileName}))) {
         $fields = $line.Split("`t")
         if ($fields.Count -eq 2 -and $fields[0] -ne "" -and $fields[1] -ne "") {
@@ -115,20 +116,20 @@ function getSourceLocation {
 
     $root = ([string]$hit.Root).TrimEnd("\")
     $relDir = [string]$hit.RelDir
-    $candidates = New-Object System.Collections.Generic.List[object]
+    $candidates = @()
     if ($relDir) {
         $parts = splitIndexRelPath $relDir
-        $candidates.Add(@{ Dir = $root; Name = $parts.Name; Rest = $parts.Rest })
+        $candidates += @{ Dir = $root; Name = $parts.Name; Rest = $parts.Rest }
         # インデックスのフォルダの中の記録（<インデックス名> のフォルダだけを別の場所へコピーした場合）
-        $candidates.Add(@{ Dir = (Join-Path $root $parts.Name); Name = $parts.Name; Rest = $parts.Rest })
+        $candidates += @{ Dir = (Join-Path $root $parts.Name); Name = $parts.Name; Rest = $parts.Rest }
     }
     # 検索対象にインデックス名のフォルダ（…\index\<インデックス名>）を直接指定した場合。
     # そのフォルダ自身の記録を先に見て、無ければ親フォルダの記録を見る
     $leaf = Split-Path $root -Leaf
-    $candidates.Add(@{ Dir = $root; Name = $leaf; Rest = $relDir })
+    $candidates += @{ Dir = $root; Name = $leaf; Rest = $relDir }
     $parent = Split-Path $root -Parent
     if ($parent) {
-        $candidates.Add(@{ Dir = $parent; Name = $leaf; Rest = $relDir })
+        $candidates += @{ Dir = $parent; Name = $leaf; Rest = $relDir }
     }
 
     foreach ($candidate in $candidates) {

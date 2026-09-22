@@ -32,20 +32,22 @@ function readSettings {
 
     $settings = newSettings
     if (!(Test-Path -LiteralPath $path)) {
-        if (readLegacySettings $settings (Join-Path ([System.IO.Path]::GetDirectoryName($path)) ${legacyConfigDirName})) {
+        if (readLegacySettings $settings (Join-Path (getPathParent $path) ${legacyConfigDirName})) {
             writeSettings $settings $path
         }
         return $settings
     }
 
-    $json = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
-    if ($json.Trim() -eq "") {
+    # 制限モード（制限言語モード）からも読むため、System.IO.File ではなく Get-Content で読む（BOM の有無によらず UTF-8）
+    # 空のファイル（BOM だけを含む）では何も返らない
+    $json = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop
+    if ($null -eq $json -or $json.Trim() -eq "") {
         return $settings
     }
     try {
         $data = ConvertFrom-Json $json
     } catch {
-        throw "$([System.IO.Path]::GetFileName($path)) を読み込めません。（$($_.Exception.Message)）"
+        throw "$(getPathLeaf $path) を読み込めません。（$($_.Exception.Message)）"
     }
     # 中身が null だけなら、空のファイルと同じく既定値（配列・数値だけのときと同じ扱い）
     if ($null -eq $data) {
@@ -76,9 +78,11 @@ function toSettingBool {
     )
 
     if ($value -is [string]) {
-        $parsed = $false
-        if ([bool]::TryParse($value.Trim(), [ref]$parsed)) {
-            return $parsed
+        # [bool]::TryParse と同じく、前後の空白を除いた true / false を大文字・小文字を区別せずに読む
+        # （TryParse は [ref] を渡すため、制限言語モードでは使えない）
+        switch ($value.Trim()) {
+            "true" { return $true }
+            "false" { return $false }
         }
         return $default
     }
@@ -91,8 +95,8 @@ function writeSettings {
         [string]$path = ${settingsFile}
     )
 
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
-    [System.IO.File]::WriteAllText($path, (ConvertTo-Json -InputObject $settings -Depth 5), (New-Object System.Text.UTF8Encoding($false)))
+    New-Item -ItemType Directory -Path (getPathParent $path) -Force | Out-Null
+    writeUtf8NoBom $path (ConvertTo-Json -InputObject $settings -Depth 5)
 }
 
 function updateSettings {
@@ -122,7 +126,7 @@ function readLegacySettings {
         # 行頭が # の行はチェックなし
         # インデックス名は以前の設定ファイルには無いため空にする（取り込み時に割り当てる。assignIndexNames）
         $settings.targetFolders = @(readListFile $file | ForEach-Object { $_.Trim() } | ForEach-Object {
-            [pscustomobject]@{ name = ""; path = (normalizeFolderPath $_.TrimStart("#")); enabled = -not $_.StartsWith("#") }
+            New-Object PSObject -Property ([ordered]@{ name = ""; path = (normalizeFolderPath $_.TrimStart("#")); enabled = -not $_.StartsWith("#") })
         } | Where-Object { $_.path -ne "" })
     }
     $file = Join-Path $dir ${legacySearchOptionFileName}
@@ -146,24 +150,31 @@ function getTargetFolders {
         [string]$path = ${settingsFile}
     )
 
-    $folders = New-Object System.Collections.Generic.List[object]
-    $seenPath = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    $seenName = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # 制限モード（制限言語モード）からも読むため、List・HashSet ではなく配列と、
+    # ToUpperInvariant したものをキーにしたハッシュテーブル（大文字・小文字を区別しない集合）で持つ
+    $folders = @()
+    $seenPath = @{}
+    $seenName = @{}
     foreach ($item in @((readSettings $path).targetFolders)) {
         $folder = normalizeFolderPath ([string]$item.path)
-        if ($folder -eq "" -or -not $seenPath.Add($folder)) {
+        if ($folder -eq "" -or $seenPath.ContainsKey($folder.ToUpperInvariant())) {
             continue
         }
+        $seenPath[$folder.ToUpperInvariant()] = $true
         if (@($folders | Where-Object { testSameFolder $_.Path $folder }).Count -gt 0) {
             continue
         }
         $name = toSafeFileName ([string]$item.name).Trim()
-        if ($name -ne "" -and -not $seenName.Add($name)) {
-            $name = ""
+        if ($name -ne "") {
+            if ($seenName.ContainsKey($name.ToUpperInvariant())) {
+                $name = ""
+            } else {
+                $seenName[$name.ToUpperInvariant()] = $true
+            }
         }
-        $folders.Add([pscustomobject]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false) })
+        $folders += New-Object PSObject -Property ([ordered]@{ Name = $name; Path = $folder; Enabled = ($item.enabled -ne $false) })
     }
-    return $folders.ToArray()
+    return $folders
 }
 
 function writeTargetFolders {
@@ -174,7 +185,7 @@ function writeTargetFolders {
     )
 
     updateSettings "targetFolders" ([object[]]@($folders | Where-Object { $_ } | ForEach-Object {
-        [pscustomobject]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled }
+        New-Object PSObject -Property ([ordered]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled })
     })) $path
 }
 
@@ -185,17 +196,18 @@ function readIndexSources {
         [string]$path = ${settingsFile}
     )
 
-    $items = New-Object System.Collections.Generic.List[object]
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $items = @()
+    $seen = @{}
     foreach ($item in @((readSettings $path).indexSources)) {
         $name = ([string]$item.name).Trim()
         $folder = normalizeFolderPath ([string]$item.path)
-        if ($name -eq "" -or $folder -eq "" -or -not $seen.Add($name)) {
+        if ($name -eq "" -or $folder -eq "" -or $seen.ContainsKey($name.ToUpperInvariant())) {
             continue
         }
-        $items.Add([pscustomobject]@{ Name = $name; Path = $folder })
+        $seen[$name.ToUpperInvariant()] = $true
+        $items += New-Object PSObject -Property ([ordered]@{ Name = $name; Path = $folder })
     }
-    return $items.ToArray()
+    return $items
 }
 
 function writeIndexSources {
@@ -205,7 +217,7 @@ function writeIndexSources {
     )
 
     updateSettings "indexSources" ([object[]]@($sources | Where-Object { $_ } | ForEach-Object {
-        [pscustomobject]@{ name = $_.Name; path = $_.Path }
+        New-Object PSObject -Property ([ordered]@{ name = $_.Name; path = $_.Path })
     })) $path
 }
 
@@ -228,12 +240,12 @@ function setIndexSourceFolder {
     $targets = @(getTargetFolders $path)
     if (@($targets | Where-Object { $_.Name -eq $name }).Count -gt 0) {
         writeTargetFolders @($targets | ForEach-Object {
-            if ($_.Name -eq $name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
+            if ($_.Name -eq $name) { New-Object PSObject -Property ([ordered]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled }) } else { $_ }
         }) $path
         return
     }
 
-    $sources = @(@(readIndexSources $path | Where-Object { $_.Name -ne $name }) + @([pscustomobject]@{ Name = $name; Path = $folder }))
+    $sources = @(@(readIndexSources $path | Where-Object { $_.Name -ne $name }) + @(New-Object PSObject -Property ([ordered]@{ Name = $name; Path = $folder })))
     writeIndexSources $sources $path
 }
 
@@ -244,16 +256,16 @@ function readSearchExcludes {
         [string]$path = ${settingsFile}
     )
 
-    $result = New-Object System.Collections.Generic.List[object]
+    $result = @()
     foreach ($item in @((readSettings $path).searchExcludes)) {
         $folder = ([string]$item.path).Trim().TrimEnd("\")
         if ($folder -eq "") {
             continue
         }
         $subfolders = if ($null -eq $item.subfolders) { $true } else { toSettingBool $item.subfolders $true }
-        $result.Add([pscustomobject]@{ Path = $folder; Subfolders = $subfolders })
+        $result += New-Object PSObject -Property ([ordered]@{ Path = $folder; Subfolders = $subfolders })
     }
-    return $result.ToArray()
+    return $result
 }
 
 function writeSearchExcludes {

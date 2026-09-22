@@ -288,3 +288,32 @@ Describe "getComputerFolders" -Tag Io {
         }
     }
 }
+
+Describe "normalizeFolderPath（制限言語モードの書き方）" -Tag Io {
+    # 制限言語モードでは GetFullPath の代わりに resolveFullPathText を使う。同じ入力に同じ結果を返すこと
+    $inputs = @(
+        '  "C:\data\"  ', "D:\", "D:", "\server\share\", "C:/data/見積", "//server/share/見積",
+        "\?\C:\data\見積", "\?\UNC\server\share\見積", "C:\data\見積", "C:\data\.\見積",
+        "C:\data\売上\..\見積", "\server\share\売上\..\見積", "C:\..\..\a", "\server\share\..\..\a",
+        "work\index", ".\work\index", "..\x", "C:\data*", "\server", "\server\share", "", "C:\a. \b.", "C:\a\...\b",
+        "C:\a\b. ", "C:\a\...", "C:\a\b\..\..\..", "D:\x\..", "\server\share\x\.. ", "C:data"
+    )
+    foreach ($path in $inputs) {
+        It "「$path」" {
+            $expected = normalizeFolderPath $path
+            $fullLanguage = $false
+            normalizeFolderPath $path | Should Be $expected
+        }
+    }
+
+    It "環境変数を展開し、無い変数はそのまま残す" {
+        $env:tebunko_grep_TEST_CLM = "C:\data\見積"
+        try {
+            $fullLanguage = $false
+            normalizeFolderPath "%tebunko_grep_TEST_CLM%\2024" | Should Be "C:\data\見積\2024"
+            expandEnvironmentText "%tebunko_grep_TEST_CLM%;%tebunko_grep_TEST_NONE%;100%" | Should Be "C:\data\見積;%tebunko_grep_TEST_NONE%;100%"
+        } finally {
+            Remove-Item Env:\tebunko_grep_TEST_CLM
+        }
+    }
+}

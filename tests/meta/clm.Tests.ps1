@@ -43,6 +43,8 @@ Describe "制限言語モードで動かすファイル" -Tag Meta {
         $names = @($files | ForEach-Object { Split-Path $_ -Leaf })
         $names -contains "startup_view.ps1" | Should Be $true
         $names -contains "startup_check.ps1" | Should Be $true
+        $names -contains "lib_restricted.ps1" | Should Be $true
+        $names -contains "index_name.ps1" | Should Be $true
     }
 
     # 模擬の CLM で読み込むだけでは、実行されない行の書き方は分からないため、CLM で使えない書き方を字面でも調べる
@@ -54,8 +56,12 @@ Describe "制限言語モードで動かすファイル" -Tag Meta {
             ([regex]::Matches($text, '(?m)^\s*class\s+\w+')).Count | Should Be 0
         }
 
-        It "$name で [pscustomobject] を作らない" {
-            ([regex]::Matches($text, '\[pscustomobject\]\s*@\{')).Count | Should Be 0
+        # いつもの画面と共用のファイル（shared\・tebunko_grep の core\ など）には、いつもの画面だけが使う関数もある。
+        # そこでは [pscustomobject] を許し、制限モードが使う関数は下の「制限モードが使う関数の結果」で確かめる
+        if ($file -like "*\tebunko_grep\restricted\*" -or $name -eq "start.ps1") {
+            It "$name で [pscustomobject] を作らない" {
+                ([regex]::Matches($text, '\[pscustomobject\]\s*@\{')).Count | Should Be 0
+            }
         }
 
         # CLM ではエラーにならずに、ブロックの文字列そのものに置き換わる
@@ -80,5 +86,50 @@ Describe "制限言語モードで動かすファイル" -Tag Meta {
     It "FullLanguage では、いつもの画面で起動できると返す（終了コード 10）" {
         $result = invokeStart
         $result.ExitCode | Should Be 10
+    }
+}
+
+Describe "制限モードが使う関数の結果" -Tag Meta {
+    # tests\meta\clm_cases.ps1 の呼び出しを、FullLanguage と模擬の制限言語モードの子プロセスでそれぞれ動かし、結果を比べる
+    $lib = "${scriptsDir}\tebunko_grep\restricted\lib_restricted.ps1"
+    $cases = "$PSScriptRoot\clm_cases.ps1"
+    $runner = "$PSScriptRoot\clm_run.ps1"
+
+    function invokeCases {
+        param ([string]$label, [switch]$Clm)
+
+        $dir = Join-Path $TestDrive "cases_$label"
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $out = Join-Path $TestDrive "result_$label.txt"
+        $prefix = if ($Clm) { "`$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; " } else { "" }
+        $quote = { param($s) "'" + $s.Replace("'", "''") + "'" }
+        $command = "$prefix& $(& $quote $runner) -Lib $(& $quote $lib) -Cases $(& $quote $cases) -CaseDir $(& $quote $dir) -Out $(& $quote $out)"
+        $output = & powershell -NoProfile -ExecutionPolicy Bypass -Command $command 2>&1
+        $results = [ordered]@{}
+        if (Test-Path -LiteralPath $out) {
+            foreach ($line in (Get-Content -LiteralPath $out -Encoding UTF8)) {
+                $i = $line.IndexOf("`t")
+                $results[$line.Substring(0, $i)] = $line.Substring($i + 1)
+            }
+        }
+        $results["（出力）"] = (@($output | ForEach-Object { "$_" }) -join "`n")
+        return $results
+    }
+
+    $full = invokeCases "full"
+    $clm = invokeCases "clm" -Clm
+    . $cases
+
+    It "呼び出し例がそろって動いた" {
+        $full["（出力）"] | Should Be ""
+        $clm["（出力）"] | Should Be ""
+        @($full.Keys).Count | Should Be (@($clmCases.Keys).Count + 1)
+    }
+
+    foreach ($name in @($clmCases.Keys)) {
+        It "$name の結果が同じ" {
+            $full[$name] | Should Not Match "^エラー: "
+            $clm[$name] | Should Be $full[$name]
+        }
     }
 }

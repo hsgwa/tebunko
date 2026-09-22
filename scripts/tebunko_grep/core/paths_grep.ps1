@@ -4,8 +4,14 @@
 ${appId} = "tebunko_grep"
 
 # Excelは [ ] を含むパスに保存できないため TEMP を使う。
-# インデックス作成を同時に複数実行しても互いのTSVを削除・移動しないよう、プロセスごとに分ける
-${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_grep\${PID}"
+# インデックス作成を同時に複数実行しても互いのTSVを削除・移動しないよう、プロセスごとに分ける。
+# 制限言語モードでは GetTempPath を呼べないため、同じ順（TMP・TEMP・USERPROFILE）で環境変数から求める
+${tempRoot} = if (${fullLanguage}) {
+    [System.IO.Path]::GetTempPath()
+} else {
+    @($env:TMP, $env:TEMP, $env:USERPROFILE | Where-Object { $_ })[0]
+}
+${tmpDir}    = Join-Path ${tempRoot} "tebunko_grep\${PID}"
 ${indexDir}  = "${workDir}\index"
 
 # 取り込んだTSVをインデックスに入れる直前に集めるフォルダ（publishIndexFiles）。

@@ -251,6 +251,26 @@ Describe "getIndexNameMap（見出し行まで読む）" -Tag Io {
         $map["見積"] | Should Be "C:\data\見積"
         (getIndexNameMap "$TestDrive\none_status.tsv").Count | Should Be 0
     }
+
+    It "制限言語モードの書き方（Get-Content）でも同じ。見出し行が 1000 行より後ろ・無い場合も読む" {
+        $path = "$TestDrive\name_map_clm.tsv"
+        writeListFile $path @(
+            "${statusFolderKey}`tC:\data\見積`t見積",
+            ($statusColumns -join "`t"),
+            "${statusFolderKey}`tC:\x`tx")
+        $long = "$TestDrive\name_map_long.tsv"
+        writeListFile $long (@(1..1200 | ForEach-Object { "${statusFolderKey}`tC:\data\f$_`tf$_" }) + @(($statusColumns -join "`t"), "${statusFolderKey}`tC:\y`ty"))
+        $noHeader = "$TestDrive\name_map_noheader.tsv"
+        writeListFile $noHeader @("${statusFolderKey}`tC:\z`tz")
+        $fullLanguage = $false
+        $map = getIndexNameMap $path
+        $map.Count | Should Be 1
+        $map["見積"] | Should Be "C:\data\見積"
+        $longMap = getIndexNameMap $long
+        $longMap.Count | Should Be 1200
+        $longMap["F1200"] | Should Be "C:\data\f1200"
+        (getIndexNameMap $noHeader)["z"] | Should Be "C:\z"
+    }
 }
 
 Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {

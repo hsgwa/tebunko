@@ -10,8 +10,16 @@ function replaceCellNewLine {
         [string]$inputString
     )
 
-    # "" はクォート内のダブルクォートのエスケープだが、"…" "…" の2つに分けてマッチしても結果は同じ
-    return [regex]::Replace($inputString, '"[^"]*"', { param($m) $m.Value -replace "\r\n|\r|\n", ${cellNewLine} })
+    # "" はクォート内のダブルクォートのエスケープだが、"…" "…" の2つに分けてマッチしても結果は同じ。
+    # 囲みの部分で分け（捕まえたグループは奇数番目に入る）、その中の改行だけを置き換える。
+    # [regex]::Replace にスクリプトブロックを渡すと、制限言語モードではエラーにならずにブロックの文字列に置き換わるため使わない
+    $parts = [regex]::Split($inputString, '("[^"]*")')
+    for ($i = 1; $i -lt $parts.Count; $i += 2) {
+        if ($parts[$i].IndexOfAny([char[]]"`r`n") -ge 0) {
+            $parts[$i] = $parts[$i] -replace "\r\n|\r|\n", ${cellNewLine}
+        }
+    }
+    return ($parts -join "")
 }
 
 function formatTsv {
@@ -28,15 +36,20 @@ function formatTsv {
     $content = replaceCellNewLine $content
     $columnPadding = "`t" * ($firstColumn - 1)
 
-    $lines = New-Object System.Collections.Generic.List[string]
-    for ($i = 1; $i -lt $firstRow; $i++) {
-        $lines.Add("")
+    # 制限言語モードでも動くよう、List ではなく配列で組み立てる（foreach の出力を受ければ、行が多くても遅くならない）
+    $body = @(foreach ($line in ($content -split "\r?\n")) {
+            ($columnPadding + $line).TrimEnd("`t")
+        })
+    $last = $body.Count - 1
+    while ($last -ge 0 -and $body[$last].Trim() -eq "") {
+        $last--
     }
-    foreach ($line in ($content -split "\r?\n")) {
-        $lines.Add(($columnPadding + $line).TrimEnd("`t"))
+    if ($last -lt 0) {
+        return ""
     }
-    while ($lines.Count -gt 0 -and $lines[$lines.Count - 1].Trim() -eq "") {
-        $lines.RemoveAt($lines.Count - 1)
+    $lines = @($body[0..$last])
+    if ($firstRow -gt 1) {
+        $lines = @(@("") * ($firstRow - 1)) + $lines
     }
 
     return ($lines -join "`r`n")
@@ -82,7 +95,8 @@ function toColumnName {
     while ($number -gt 0) {
         $number--
         $name = [string][char](65 + ($number % 26)) + $name
-        $number = [math]::Floor($number / 26)
+        # 割り切れる形にしてから割る（制限言語モードでは [math]::Floor を呼べないため）
+        $number = ($number - ($number % 26)) / 26
     }
     return $name
 }
@@ -133,13 +147,12 @@ function splitTsvCells {
         [string]$line
     )
 
-    $cells = New-Object System.Collections.Generic.List[string]
-    foreach ($match in [regex]::Matches("`t${line}", '\t(?:"(?:[^"]|"")*"[^\t]*|[^\t]*)')) {
-        $cell = $match.Value.Substring(1)
-        if ($cell -match '^"(?<inner>(?:[^"]|"")*)"(?<rest>.*)$') {
-            $cell = $Matches.inner.Replace('""', '"') + $Matches.rest
-        }
-        $cells.Add($cell)
-    }
-    return , $cells.ToArray()
+    $cells = @(foreach ($match in [regex]::Matches("`t${line}", '\t(?:"(?:[^"]|"")*"[^\t]*|[^\t]*)')) {
+            $cell = $match.Value.Substring(1)
+            if ($cell -match '^"(?<inner>(?:[^"]|"")*)"(?<rest>.*)$') {
+                $cell = $Matches.inner.Replace('""', '"') + $Matches.rest
+            }
+            $cell
+        })
+    return , [string[]]$cells
 }

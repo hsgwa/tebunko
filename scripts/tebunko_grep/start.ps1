@@ -36,6 +36,10 @@ if ((getStartupMode $facts) -eq ${startupModeNormal}) {
 foreach ($line in (getRestrictedStartupLines $facts)) {
     Write-Host $line
 }
+
+# 制限モードの部品（-CheckOnly でも読み込み、制限言語モードで読み込めることを確かめる）
+. "$PSScriptRoot\restricted\lib_restricted.ps1"
+
 if ($CheckOnly) {
     exit 11
 }

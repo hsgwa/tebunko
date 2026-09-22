@@ -1,11 +1,13 @@
 ﻿# インデックス名と TSV のファイル名の決め方（判断層。ファイルに触らない）。
+# 制限モード（制限言語モード）からも使うため、List・HashSet・[Math] などは使わない。
+# 大文字・小文字を区別しない名前の集合は、ToUpperInvariant した名前をキーにしたハッシュテーブルで持つ
 
 function newIndexName {
     # クロール対象フォルダのインデックス名（work\index 直下のフォルダ名）を作る。
     # フォルダ名（ドライブ直下はドライブ名）を使い、usedNames と重複すれば「名前(2)」「名前(3)」…とする
     param (
         [string]$folderPath,
-        $usedNames = $null  # HashSet[string]・配列・1 個の文字列・$null のいずれでもよい
+        $usedNames = $null  # 名前の配列・1 個の文字列・$null・newNameSet の集合のいずれでもよい
     )
 
     $base = toSafeFileName (getFolderLeafName $folderPath)
@@ -14,20 +16,51 @@ function newIndexName {
     }
 
     # 呼び出し側から $null や文字列の配列で渡されても落ちないよう、ここで集合に直す（大文字・小文字は区別しない）
-    $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($usedName in @($usedNames)) {
-        if ($usedName) {
-            [void]$used.Add([string]$usedName)
-        }
-    }
+    $used = newNameSet $usedNames
 
     $name = $base
-    for ($i = 2; $used.Contains($name); $i++) {
+    for ($i = 2; $used.ContainsKey($name.ToUpperInvariant()); $i++) {
         # 長いフォルダ名に (2) を付けるとファイル名の上限を超えてフォルダを作れないため、上限に収まるよう名前を切り詰める
         $suffix = "(${i})"
-        $name = $base.Substring(0, [Math]::Min($base.Length, ${maxFileNameLength} - $suffix.Length)) + $suffix
+        $keep = ${maxFileNameLength} - $suffix.Length
+        if ($base.Length -lt $keep) {
+            $keep = $base.Length
+        }
+        $name = $base.Substring(0, $keep) + $suffix
     }
     return $name
+}
+
+function newNameSet {
+    # 大文字・小文字を区別しない名前の集合（ToUpperInvariant した名前 → 元の名前 のハッシュテーブル）を作る。
+    # names は名前の配列・1 個の文字列・$null・この関数で作った集合のいずれでもよい
+    param (
+        $names = $null
+    )
+
+    $set = @{}
+    if ($names -is [hashtable]) {
+        foreach ($key in $names.Keys) {
+            $set[$key] = $names[$key]
+        }
+        return $set
+    }
+    foreach ($name in @($names)) {
+        if ($name) {
+            $set[([string]$name).ToUpperInvariant()] = [string]$name
+        }
+    }
+    return $set
+}
+
+function addNameSet {
+    # newNameSet の集合に名前を足す
+    param (
+        [hashtable]$set,
+        [string]$name
+    )
+
+    $set[$name.ToUpperInvariant()] = $name
 }
 
 function assignIndexNames {
@@ -41,34 +74,32 @@ function assignIndexNames {
         [object[]]$previousFolders  # readStatusFile の Folders（@{ Path; Name }）
     )
 
-    $previousNames = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # 前回のフォルダのパス（大文字・小文字を区別しない。ToUpperInvariant したもの）→ 名前
+    $previousNames = @{}
     foreach ($folder in @($previousFolders | Where-Object { $_ -and $_.Name })) {
-        $previousNames[$folder.Path] = $folder.Name
+        $previousNames[([string]$folder.Path).ToUpperInvariant()] = $folder.Name
     }
 
     # 設定にある名前・前回の名前は使わない（別のフォルダに同じ名前を付けてインデックスを取り違えないため）
-    $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($name in $previousNames.Values) {
-        [void]$used.Add($name)
-    }
+    $used = newNameSet @($previousNames.Values)
     foreach ($folder in @($targetFolders | Where-Object { $_ -and $_.Name })) {
-        [void]$used.Add($folder.Name)
+        addNameSet $used $folder.Name
     }
 
-    $result = New-Object System.Collections.Generic.List[object]
-    foreach ($folder in @($targetFolders | Where-Object { $_ })) {
-        $name = [string]$folder.Name
-        if ($name -eq "") {
-            if ($previousNames.ContainsKey($folder.Path)) {
-                $name = $previousNames[$folder.Path]
-            } else {
-                $name = newIndexName $folder.Path $used
+    $result = @(foreach ($folder in @($targetFolders | Where-Object { $_ })) {
+            $name = [string]$folder.Name
+            if ($name -eq "") {
+                $key = ([string]$folder.Path).ToUpperInvariant()
+                if ($previousNames.ContainsKey($key)) {
+                    $name = $previousNames[$key]
+                } else {
+                    $name = newIndexName $folder.Path $used
+                }
+                addNameSet $used $name
             }
-            [void]$used.Add($name)
-        }
-        $result.Add([pscustomobject]@{ Path = $folder.Path; Enabled = $folder.Enabled; Name = $name })
-    }
-    return $result.ToArray()
+            New-Object PSObject -Property ([ordered]@{ Path = $folder.Path; Enabled = $folder.Enabled; Name = $name })
+        })
+    return $result
 }
 
 function splitIndexRelPath {
@@ -109,7 +140,8 @@ function testIndexName {
     if ($name.Length -gt ${maxFileNameLength}) {
         return "インデックス名が長すぎます（${maxFileNameLength} 文字まで）。"
     }
-    if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
+    # [System.IO.Path]::GetInvalidFileNameChars() と同じ文字（制御文字と " < > | : * ? \ /）
+    if ($name -match '[\x00-\x1F"<>|:*?\\/]') {
         return "インデックス名に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
     }
     if ($name.EndsWith(".")) {
@@ -135,7 +167,16 @@ function encodeIndexPlace {
         [string]$place
     )
 
-    return [regex]::Replace($place, '[\x00-\x1F"%*/:<>?\\_|]', { param($m) '%{0:X2}' -f [int][char]$m.Value })
+    # 置き換える文字で分け（捕まえたグループは奇数番目に入る）、その文字だけを %XX にする。
+    # [regex]::Replace にスクリプトブロックを渡すと、制限言語モードではエラーにならずにブロックの文字列に置き換わるため使わない
+    $parts = [regex]::Split($place, '([\x00-\x1F"%*/:<>?\\_|])')
+    if ($parts.Count -eq 1) {
+        return $place
+    }
+    for ($i = 1; $i -lt $parts.Count; $i += 2) {
+        $parts[$i] = '%{0:X2}' -f [int][char]$parts[$i]
+    }
+    return ($parts -join "")
 }
 
 function decodeIndexPlace {
@@ -148,7 +189,11 @@ function decodeIndexPlace {
     if ($place.IndexOf("%") -lt 0) {
         return $place
     }
-    return [regex]::Replace($place, '%(?:[01][0-9A-F]|2[25AF]|3[ACEF]|5[CF]|7C)', { param($m) [string][char][Convert]::ToInt32($m.Value.Substring(1), 16) })
+    $parts = [regex]::Split($place, '(%(?:[01][0-9A-F]|2[25AF]|3[ACEF]|5[CF]|7C))')
+    for ($i = 1; $i -lt $parts.Count; $i += 2) {
+        $parts[$i] = [string][char][int]("0x" + $parts[$i].Substring(1))
+    }
+    return ($parts -join "")
 }
 
 function toIndexFileName {
@@ -262,13 +307,14 @@ function splitIndexTsvPath {
         [string]$relPath
     )
 
-    $fileName = [System.IO.Path]::GetFileName($relPath)
-    $dir = [System.IO.Path]::GetDirectoryName($relPath)
-    if ($fileName.IndexOf("_") -lt 0 -and $dir -and ([System.IO.Path]::GetFileName($dir) -match ${indexBookDirPattern})) {
+    # 相対パス（ドライブや UNC で始まらない）のため、System.IO.Path の代わりに文字列で分ける（fs.ps1 の getPathLeaf など）
+    $fileName = getPathLeaf $relPath
+    $dir = getPathParent $relPath
+    if ($fileName.IndexOf("_") -lt 0 -and $dir -and ((getPathLeaf $dir) -match ${indexBookDirPattern})) {
         return @{
-            Book   = [System.IO.Path]::GetFileName($dir)
-            Place  = (decodeIndexPlace ([System.IO.Path]::GetFileNameWithoutExtension($fileName)))
-            RelDir = [System.IO.Path]::GetDirectoryName($dir)
+            Book   = getPathLeaf $dir
+            Place  = (decodeIndexPlace (getPathStem $fileName))
+            RelDir = getPathParent $dir
         }
     }
 

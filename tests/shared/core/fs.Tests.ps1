@@ -281,3 +281,82 @@ Describe "newAppMutex" -Tag Io {
         }
     }
 }
+
+Describe "getPathLeaf / getPathParent / getPathStem（System.IO.Path の代わり）" -Tag Unit {
+    It "ファイル名は System.IO.Path.GetFileName と同じ" {
+        foreach ($path in @("a\b.tsv", "a\b\", "C:", "C:\", "x", "\s\share\f.xlsx", "a/b", "見積\2024\a.xlsx\売上.tsv", "")) {
+            getPathLeaf $path | Should Be ([System.IO.Path]::GetFileName($path))
+        }
+    }
+
+    It "親は System.IO.Path.GetDirectoryName と同じ（相対パス）" {
+        foreach ($path in @("a\b.tsv", "a\b\c", "見積\2024\a.xlsx\売上.tsv")) {
+            getPathParent $path | Should Be ([System.IO.Path]::GetDirectoryName($path))
+        }
+        getPathParent "b.tsv" | Should Be ""
+    }
+
+    It "拡張子を除いた名前は System.IO.Path.GetFileNameWithoutExtension と同じ" {
+        foreach ($path in @("a\b.tsv", "c", "d.e.f", ".x", "a.b\c")) {
+            getPathStem $path | Should Be ([System.IO.Path]::GetFileNameWithoutExtension($path))
+        }
+    }
+}
+
+Describe "writeUtf8NoBom" -Tag Io {
+    foreach ($mode in @($true, $false)) {
+        It "BOM なしの UTF-8 で書く（FullLanguage: $mode）" {
+            $fullLanguage = $mode
+            $path = Join-Path $TestDrive "nobom_$mode.json"
+            writeUtf8NoBom $path "{`"a`":`"あ𠮷é`"}`r`n"
+            $bytes = [System.IO.File]::ReadAllBytes($path)
+            ($bytes -join ",") | Should Be (([System.Text.UTF8Encoding]::new($false)).GetBytes("{`"a`":`"あ𠮷é`"}`r`n") -join ",")
+        }
+
+        It "空の文字列なら空のファイル（FullLanguage: $mode）" {
+            $fullLanguage = $mode
+            $path = Join-Path $TestDrive "empty_$mode.json"
+            writeUtf8NoBom $path ""
+            (Get-Item -LiteralPath $path).Length | Should Be 0
+        }
+    }
+}
+
+Describe "制限言語モードの書き方（writeListFile・writeTextLinesAtomic・removeDirectoryRetry）" -Tag Io {
+    # ${fullLanguage} を $false にすると、制限言語モードのときの書き方を通る（中身は FullLanguage と同じになること）
+    It "writeListFile は FullLanguage と同じ中身（BOM 付き・行ごとに CRLF。行が無ければ BOM だけ）" {
+        $full = Join-Path $TestDrive "full\a.txt"
+        writeListFile $full @("1行目", "", "𠮷")
+        $fullEmpty = Join-Path $TestDrive "full\b.txt"
+        writeListFile $fullEmpty @()
+        $fullLanguage = $false
+        $clm = Join-Path $TestDrive "clm\新しい\a.txt"
+        writeListFile $clm @("1行目", "", "𠮷")
+        $clmEmpty = Join-Path $TestDrive "clm\新しい\b.txt"
+        writeListFile $clmEmpty $null
+        ([System.IO.File]::ReadAllBytes($clm) -join ",") | Should Be ([System.IO.File]::ReadAllBytes($full) -join ",")
+        ([System.IO.File]::ReadAllBytes($clmEmpty) -join ",") | Should Be ([System.IO.File]::ReadAllBytes($fullEmpty) -join ",")
+    }
+
+    It "writeTextLinesAtomic は一時ファイルを残さずに置き換える" {
+        $fullLanguage = $false
+        $path = Join-Path $TestDrive "clm_atomic\a.tsv"
+        writeTextLinesAtomic $path @("x`ty")
+        writeTextLinesAtomic $path @("上書き")
+        [System.IO.File]::ReadAllText($path) | Should Be "上書き`r`n"
+        Test-Path -LiteralPath "$path.tmp" | Should Be $false
+    }
+
+    It "writeTextLinesAtomic は置き換えられなければ試し直して、最後は例外にする" {
+        $fullLanguage = $false
+        $path = Join-Path $TestDrive "clm_atomic_locked\a.tsv"
+        writeTextLinesAtomic $path @("元")
+        $stream = [System.IO.File]::Open($path, "Open", "Read", "None")
+        try {
+            { writeTextLinesAtomic $path @("新") } | Should Throw
+        } finally {
+            $stream.Dispose()
+        }
+        [System.IO.File]::ReadAllText($path) | Should Be "元`r`n"
+    }
+}

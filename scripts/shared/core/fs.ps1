@@ -14,6 +14,84 @@ function readListFile {
     return @(Get-Content -LiteralPath $path -Encoding UTF8 -ErrorAction Stop | Where-Object { $_.Trim() -ne "" })
 }
 
+function getPathLeaf {
+    # パスの最後の部分（ファイル名・フォルダ名）を返す。[System.IO.Path]::GetFileName と同じく、
+    # 最後の \ / : より後ろを返す（末尾が区切りなら空）。制限言語モードでは System.IO.Path を呼べないため文字列で求める
+    param (
+        [string]$path
+    )
+
+    return $path.Substring($path.LastIndexOfAny([char[]]"\/:") + 1)
+}
+
+function getPathParent {
+    # パスの親（最後の \ / より前）を返す。区切りが無ければ空。
+    # [System.IO.Path]::GetDirectoryName の代わり（制限言語モードで使う）。ドライブ直下・UNC の共有直下の扱いは
+    # GetDirectoryName と違うため、ファイルやフォルダのパス（相対パスを含む）の親を求めるときだけ使う
+    param (
+        [string]$path
+    )
+
+    $i = $path.LastIndexOfAny([char[]]"\/")
+    if ($i -lt 0) {
+        return ""
+    }
+    return $path.Substring(0, $i)
+}
+
+function getPathStem {
+    # ファイル名から拡張子を除いたもの（[System.IO.Path]::GetFileNameWithoutExtension と同じ。最後の . より前）
+    param (
+        [string]$path
+    )
+
+    $leaf = getPathLeaf $path
+    $i = $leaf.LastIndexOf(".")
+    if ($i -lt 0) {
+        return $leaf
+    }
+    return $leaf.Substring(0, $i)
+}
+
+function writeUtf8NoBom {
+    # 文字列を BOM なしの UTF-8 で書く。制限言語モードでは System.Text.Encoding を使えず、
+    # Set-Content -Encoding UTF8 は BOM を付けるため、バイト列を組み立てて書く（設定ファイルのような小さなファイル用）
+    param (
+        [string]$path,
+        [string]$text
+    )
+
+    if (${fullLanguage}) {
+        [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
+        return
+    }
+    $bytes = @(for ($i = 0; $i -lt $text.Length; $i++) {
+            $code = [int]$text[$i]
+            if ($code -ge 0xD800 -and $code -le 0xDBFF -and $i + 1 -lt $text.Length) {
+                # サロゲートペア（𠮷 など）は 1 つの文字（4 バイト）にする
+                $low = [int]$text[$i + 1]
+                if ($low -ge 0xDC00 -and $low -le 0xDFFF) {
+                    $code = 0x10000 + (($code - 0xD800) -shl 10) + ($low - 0xDC00)
+                    $i++
+                }
+            }
+            if ($code -lt 0x80) {
+                $code
+            } elseif ($code -lt 0x800) {
+                0xC0 -bor ($code -shr 6); 0x80 -bor ($code -band 0x3F)
+            } elseif ($code -lt 0x10000) {
+                0xE0 -bor ($code -shr 12); 0x80 -bor (($code -shr 6) -band 0x3F); 0x80 -bor ($code -band 0x3F)
+            } else {
+                0xF0 -bor ($code -shr 18); 0x80 -bor (($code -shr 12) -band 0x3F); 0x80 -bor (($code -shr 6) -band 0x3F); 0x80 -bor ($code -band 0x3F)
+            }
+        })
+    if ($bytes.Count -eq 0) {
+        New-Item -ItemType File -Path $path -Force | Out-Null
+        return
+    }
+    Set-Content -LiteralPath $path -Value ([byte[]]$bytes) -Encoding Byte
+}
+
 function writeListFile {
     param (
         [string]$path,
@@ -23,8 +101,29 @@ function writeListFile {
     if ($null -eq $lines) {
         $lines = [string[]]@()
     }
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
-    [System.IO.File]::WriteAllLines($path, $lines, ${utf8Bom})
+    if (${fullLanguage}) {
+        [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
+        [System.IO.File]::WriteAllLines($path, $lines, ${utf8Bom})
+        return
+    }
+    # 制限言語モード: Set-Content -Encoding UTF8 も BOM 付き・行ごとに CRLF で書く（WriteAllLines と同じ中身）
+    New-Item -ItemType Directory -Path (getPathParent $path) -Force | Out-Null
+    writeUtf8BomLines $path $lines
+}
+
+function writeUtf8BomLines {
+    # 行の配列を BOM 付き UTF-8・行ごとに CRLF で書く（制限言語モード用。[System.IO.File]::WriteAllLines と同じ中身）。
+    # 行が無いときも、WriteAllLines と同じく BOM だけのファイルにする
+    param (
+        [string]$path,
+        [string[]]$lines
+    )
+
+    if ($lines.Count -eq 0) {
+        Set-Content -LiteralPath $path -Value ([byte[]](0xEF, 0xBB, 0xBF)) -Encoding Byte
+        return
+    }
+    Set-Content -LiteralPath $path -Value $lines -Encoding UTF8
 }
 
 function formatFileTime {
@@ -43,13 +142,21 @@ function writeTextLinesAtomic {
         [object[]]$lines
     )
 
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
     $tmpPath = "${path}.tmp"
-    [System.IO.File]::WriteAllLines($tmpPath, [string[]]@($lines), ${utf8Bom})
+    if (${fullLanguage}) {
+        [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
+        [System.IO.File]::WriteAllLines($tmpPath, [string[]]@($lines), ${utf8Bom})
+    } else {
+        New-Item -ItemType Directory -Path (getPathParent $path) -Force | Out-Null
+        writeUtf8BomLines $tmpPath ([string[]]@($lines))
+    }
     # 書いた直後のファイルは、ウイルス対策ソフト等が一時的に掴んでいて置き換えられないことがあるため、少し待って数回試す
     for ($i = 1; $true; $i++) {
         try {
-            if (Test-Path -LiteralPath $path) {
+            if (!${fullLanguage}) {
+                # 制限言語モードでは File.Replace を呼べないため、上書きの移動で置き換える
+                Move-Item -LiteralPath $tmpPath -Destination $path -Force -ErrorAction Stop
+            } elseif (Test-Path -LiteralPath $path) {
                 # $null は空文字列として渡されて例外になるため、[NullString]::Value（バックアップを作らない）を渡す
                 [System.IO.File]::Replace($tmpPath, $path, [NullString]::Value)
             } else {
@@ -157,7 +264,7 @@ function removeDirectoryRetry {
     # 中に長いパス（260文字超）のファイルがあっても削除できるよう \\?\ 付きで削除する
     $longPath = toLongPath $path
     for ($i = 1; $true; $i++) {
-        if (![System.IO.Directory]::Exists($longPath)) {
+        if (!(Test-Path -LiteralPath $longPath -PathType Container)) {
             return
         }
         try {

@@ -7,15 +7,38 @@ function getIndexNameMap {
         [string]$path = ${statusFile}
     )
 
-    $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # ハッシュテーブルは大文字・小文字を区別しない（制限モード（制限言語モード）からも使うため Dictionary にしない）
+    $map = @{}
     if (!(Test-Path -LiteralPath $path)) {
         return , $map
+    }
+    $header = ${statusColumns} -join "`t"
+    if (!${fullLanguage}) {
+        # 制限言語モードでは FileStream を使えないため Get-Content で先頭から読む。
+        # 見出し行はふつう先頭の数十行にあるため、まず 1000 行だけ読み、見つからなければ全体を読む
+        foreach ($count in @(1000, -1)) {
+            $lines = @(Get-Content -LiteralPath $path -Encoding UTF8 -TotalCount $count -ErrorAction Stop)
+            $found = $false
+            $folders = @{}
+            foreach ($line in $lines) {
+                if ($line -eq $header) {
+                    $found = $true
+                    break
+                }
+                $fields = $line.Split("`t")
+                if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and $fields[2]) {
+                    $folders[$fields[2]] = $fields[1]
+                }
+            }
+            if ($found -or $count -lt 0 -or $lines.Count -lt $count) {
+                return , $folders
+            }
+        }
     }
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
     $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
     $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
     try {
-        $header = ${statusColumns} -join "`t"
         while ($null -ne ($line = $reader.ReadLine())) {
             if ($line -eq $header) {
                 break

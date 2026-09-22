@@ -149,13 +149,14 @@ function newFileFilter {
         [string]$filter
     )
 
-    $include = New-Object System.Collections.Generic.List[string]
-    $exclude = New-Object System.Collections.Generic.List[string]
+    # 制限モード（制限言語モード）からも使うため、List ではなく配列で集める
+    $include = @()
+    $exclude = @()
     foreach ($item in ([string]$filter).Split([char[]]";；")) {
         $item = $item.Trim()
-        $list = $include
+        $isExclude = $false
         if ($item.StartsWith("!") -or $item.StartsWith("！")) {
-            $list = $exclude
+            $isExclude = $true
             $item = $item.Substring(1).Trim()
         }
         if ($item -eq "") {
@@ -164,7 +165,12 @@ function newFileFilter {
         if ($item.IndexOfAny([char[]]"*?") -lt 0) {
             $item = "*${item}*"
         }
-        $list.Add("^" + [regex]::Escape($item).Replace("\*", ".*").Replace("\?", ".") + "$")
+        $pattern = "^" + [regex]::Escape($item).Replace("\*", ".*").Replace("\?", ".") + "$"
+        if ($isExclude) {
+            $exclude += $pattern
+        } else {
+            $include += $pattern
+        }
     }
 
     $options = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor [System.Text.RegularExpressions.RegexOptions]::CultureInvariant

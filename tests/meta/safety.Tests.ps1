@@ -198,7 +198,11 @@ Describe "書き込み先が限られていること（docs/04_安全性.md 3.1�
         $paths = @($code | Where-Object { $_.File -eq "paths.ps1" -or $_.File -eq "paths_grep.ps1" -or $_.File -eq "settings_grep.ps1" })
         (findPattern $paths '\$\{workDir\}\s*=\s*"\$\{rootDir\}\\work"') | Should Not Be ""
         (findPattern $paths '\$\{indexDir\}\s*=\s*"\$\{workDir\}\\index"') | Should Not Be ""
-        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko_grep\\\$\{PID\}"') | Should Not Be ""
+        # TEMP は GetTempPath（制限言語モードでは、同じ順に環境変数 TMP・TEMP・USERPROFILE）から求める
+        (findPattern $paths '\$\{tempRoot\}\s*=\s*if\s*\(\$\{fullLanguage\}\)') | Should Not Be ""
+        (findPattern $paths '^\s*\[System\.IO\.Path\]::GetTempPath\(\)$') | Should Not Be ""
+        (findPattern $paths '^\s*@\(\$env:TMP, \$env:TEMP, \$env:USERPROFILE \| Where-Object') | Should Not Be ""
+        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\$\{tempRoot\}\s*"tebunko_grep\\\$\{PID\}"') | Should Not Be ""
         (findPattern $paths '\$\{publishDir\}\s*=\s*"\$\{workDir\}\\') | Should Not Be ""
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{rootDir\}\\setting\.config"') | Should Not Be ""
     }

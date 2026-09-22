@@ -18,7 +18,11 @@ function normalizeFolderPath {
         return ""
     }
     if ($path.IndexOf("%") -ge 0) {
-        $path = [System.Environment]::ExpandEnvironmentVariables($path).Trim()
+        if (${fullLanguage}) {
+            $path = [System.Environment]::ExpandEnvironmentVariables($path).Trim()
+        } else {
+            $path = (expandEnvironmentText $path).Trim()
+        }
     }
     $path = (fromLongPath ($path.Replace("/", "\"))).TrimEnd("\")
     if ($path -eq "") {
@@ -28,6 +32,14 @@ function normalizeFolderPath {
     # GetFullPath はそのドライブの「現在のフォルダ」を返すことがあるため、先に決める
     if ($path -match "^[A-Za-z]:$") {
         return "${path}\"
+    }
+    if (!${fullLanguage}) {
+        # 制限言語モードでは System.IO.Path を呼べないため、同じ規則を文字列で行う（resolveFullPathText）
+        $path = resolveFullPathText $path
+        if ($path -match "^[A-Za-z]:$") {
+            return "${path}\"
+        }
+        return $path
     }
     try {
         if (![System.IO.Path]::IsPathRooted($path)) {
@@ -45,6 +57,78 @@ function normalizeFolderPath {
         return "${path}\"
     }
     return $path
+}
+
+function expandEnvironmentText {
+    # %名前% を環境変数の値に置き換える（[System.Environment]::ExpandEnvironmentVariables の代わり。制限言語モードで使う）。
+    # 無い変数は %名前% のまま残す。環境変数のドライブ（env:）から読む
+    param (
+        [string]$text
+    )
+
+    $parts = [regex]::Split($text, '(%[^%]+%)')
+    for ($i = 1; $i -lt $parts.Count; $i += 2) {
+        $name = $parts[$i].Substring(1, $parts[$i].Length - 2)
+        $item = Get-Item -LiteralPath "env:$name" -ErrorAction SilentlyContinue
+        if ($item) {
+            $parts[$i] = $item.Value
+        }
+    }
+    return ($parts -join "")
+}
+
+function resolveFullPathText {
+    # normalizeFolderPath の [System.IO.Path]::GetFullPath の代わり（制限言語モードで使う）。
+    # 重なった \ ・ . ・ .. を解決し、最後の部分の末尾の . と空白を取り除く。相対パスはツールのフォルダからとみなす。
+    # パスとして解釈できない場合（使えない文字を含む・共有名の無い \\server・\ ひとつで始まる・"C:data" のような
+    # ドライブからの相対）は、GetFullPath が例外にするか使わない場合と同じく、書かれたとおりに返す。
+    # 入力は normalizeFolderPath が / を \ に、\\?\ を外し、末尾の \ を取り除いたもの
+    param (
+        [string]$path
+    )
+
+    if ($path -match '[\x00-\x1F"<>|*?]') {
+        return $path
+    }
+    if ($path -match '^([A-Za-z]:)\\(.*)$') {
+        $root = $Matches[1]
+        $rest = $Matches[2]
+    } elseif ($path -match '^\\\\([^\\]+)\\([^\\]+)(\\.*)?$') {
+        $root = "\\" + $Matches[1] + "\" + $Matches[2]
+        $rest = [string]$Matches[3]
+    } elseif ($path.StartsWith("\") -or $path -match '^[A-Za-z]:') {
+        return $path
+    } else {
+        # 相対パス（ツールのフォルダから）
+        return (resolveFullPathText "${rootDir}\${path}")
+    }
+
+    $segments = @()
+    foreach ($segment in $rest.Split("\")) {
+        if ($segment -eq "" -or $segment -eq ".") {
+            continue
+        }
+        if ($segment -eq "..") {
+            # ドライブ直下・共有の直下より上には上がらない
+            if ($segments.Count -gt 0) {
+                $segments = @($segments | Select-Object -First ($segments.Count - 1))
+            }
+            continue
+        }
+        $segments += $segment
+    }
+    # GetFullPath と同じく、最後の部分だけ末尾の . と空白を取り除く（途中の "a. " や "..." はそのまま残す）
+    if ($segments.Count -gt 0) {
+        $last = $segments[$segments.Count - 1].TrimEnd(". ".ToCharArray())
+        $segments = @($segments | Select-Object -First ($segments.Count - 1))
+        if ($last -ne "") {
+            $segments += $last
+        }
+    }
+    if ($segments.Count -eq 0) {
+        return $root
+    }
+    return ($root + "\" + ($segments -join "\"))
 }
 
 function getPathUnderFolder {
@@ -84,7 +168,8 @@ function getDriveTargets {
     if ($null -ne ${script:driveTargets}) {
         return ${script:driveTargets}
     }
-    $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # ハッシュテーブルは大文字・小文字を区別しない（"z:" でも引ける）
+    $map = @{}
     try {
         # DriveType=4 はネットワークドライブ。DeviceID="Z:"、ProviderName="\\server\share"
         foreach ($d in @(Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DriveType=4" -ErrorAction SilentlyContinue)) {
@@ -111,10 +196,9 @@ function getFolderPathAliases {
         $drives = (getDriveTargets)  # ドライブ文字 → 割り当て先（テストで差し替える）
     )
 
-    $result = New-Object System.Collections.Generic.List[string]
-    $result.Add($path)
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    [void]$seen.Add($path.TrimEnd("\"))
+    # 制限言語モードでも動くよう、List・HashSet ではなく配列と、ToUpperInvariant したパスをキーにしたハッシュテーブルで持つ
+    $result = @($path)
+    $seen = @{ $path.TrimEnd("\").ToUpperInvariant() = $true }
 
     foreach ($entry in $drives.GetEnumerator()) {
         $alias = $null
@@ -129,11 +213,15 @@ function getFolderPathAliases {
                 $alias = if ($rest -eq "") { "$($entry.Key)\" } else { joinSourcePath "$($entry.Key)\" $rest }
             }
         }
-        if ($alias -and $seen.Add($alias.TrimEnd("\"))) {
-            $result.Add($alias)
+        if ($alias) {
+            $key = $alias.TrimEnd("\").ToUpperInvariant()
+            if (!$seen.ContainsKey($key)) {
+                $seen[$key] = $true
+                $result += $alias
+            }
         }
     }
-    return $result.ToArray()
+    return $result
 }
 
 function testSameFolder {
@@ -424,7 +512,7 @@ function getFolderLeafName {
     )
 
     $path = $folderPath.TrimEnd("\")
-    $leaf = [System.IO.Path]::GetFileName($path)
+    $leaf = getPathLeaf $path
     if ($leaf -eq "") {
         $leaf = $path.TrimEnd(":")
     }
