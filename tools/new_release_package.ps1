@@ -1,9 +1,9 @@
 ﻿# 配布する zip を作る（GitHub Actions の .github\workflows\release.yml が使う。手元でも実行できる）。
 #
-#   .\tools\new_release_package.ps1 -Version v1.0.0     work\release\tebunko_grep-v1.0.0.zip を作る
+#   .\tools\new_release_package.ps1 -Version v1.0.0     work\release\tebunko-v1.0.0.zip を作る
 #
-# zip の中身（展開すると tebunko_grep\ フォルダになる）:
-#   scripts\ tebunko_grep.bat                         ツール本体
+# zip の中身（展開すると tebunko\ フォルダになる）:
+#   scripts\ tebunko.bat tebunko_grep.bat             ツール本体（tebunko_grep.bat は以前の版のショートカットのために残す）
 #   LICENSE README.md SECURITY.md sbom.cdx.json       ライセンス・説明・部品表（SECURITY.md の元は .github\SECURITY.md）
 #   tebunko.cat SHA256SUMS.txt                        改ざんの確認用（tools\new_release_files.ps1 が作る）
 #
@@ -34,7 +34,7 @@ $entries = [ordered]@{}
 foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -Recurse -File | Sort-Object FullName)) {
     $entries[$file.FullName.Substring($rootDir.Length + 1)] = $file.FullName
 }
-foreach ($name in @("tebunko_grep.bat", "LICENSE", "README.md", "sbom.cdx.json")) {
+foreach ($name in @("tebunko.bat", "tebunko_grep.bat", "LICENSE", "README.md", "sbom.cdx.json")) {
     $entries[$name] = Join-Path $rootDir $name
 }
 # リポジトリでは .github\ に置いているが、zip では直下に置く
@@ -43,7 +43,7 @@ foreach ($name in @("tebunko.cat", "SHA256SUMS.txt")) {
     $entries[$name] = Join-Path $checkDir $name
 }
 
-$zipPath = Join-Path $OutDir "tebunko_grep-$Version.zip"
+$zipPath = Join-Path $OutDir "tebunko-$Version.zip"
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
 }
@@ -52,7 +52,7 @@ $stream = [System.IO.File]::Open($zipPath, [System.IO.FileMode]::CreateNew)
 $archive = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
     foreach ($name in $entries.Keys) {
-        $entry = $archive.CreateEntry("tebunko_grep/" + $name.Replace("\", "/"), [System.IO.Compression.CompressionLevel]::Optimal)
+        $entry = $archive.CreateEntry("tebunko/" + $name.Replace("\", "/"), [System.IO.Compression.CompressionLevel]::Optimal)
         $entry.LastWriteTime = (Get-Item -LiteralPath $entries[$name]).LastWriteTime
         $writer = $entry.Open()
         try {

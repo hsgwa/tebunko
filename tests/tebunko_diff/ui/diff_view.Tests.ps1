@@ -142,3 +142,43 @@ Describe "getDiffKind" -Tag Unit {
         getExtractFailureText "right" "パスワード" | Should Be "比較先を読み取れませんでした。（パスワード）"
     }
 }
+
+
+Describe "文言と可否（細かい場合）" -Tag Unit {
+    It "比較元だけが空・比較元のフォルダが比較先の中にある" {
+        getCompareBlockReason "file" (newItem "") (newItem "C:\a.xlsx") | Should Be "比較元のファイルを選んでください。"
+        getCompareBlockReason "folder" (newItem "C:\営業\2024" $true $true) (newItem "C:\営業" $true $true) | Should Be "比較元のフォルダが比較先のフォルダの中にあります。"
+    }
+
+    It "何もドロップされていなければ入れない。1 つを左に" {
+        getDropAction @() "left" "file" | Should BeNullOrEmpty
+        $action = getDropAction @(@{ Path = "C:\a.xlsx"; IsFolder = $false }) "" "folder"
+        $action.Mode | Should Be "file"
+        $action.Left | Should Be "C:\a.xlsx"
+        $action.Right | Should BeNullOrEmpty
+    }
+
+    It "場所の見出し（削除・同じ・違いの数の無い変更）" {
+        $place = [PlaceDiff]::new()
+        $place.Name = "表紙"
+        $place.Status = "delete"
+        getPlaceTabText $place | Should Be "表紙（削除）"
+        $place.Status = "same"
+        getPlaceTabText $place | Should Be "表紙"
+        $place.Status = "change"
+        getPlaceTabText $place | Should Be "表紙"
+    }
+}
+
+Describe "画面の型" -Tag Unit {
+    It "DiffViewState は横の位置を変えると知らせる" {
+        . "${scriptsDir}\shared\ui\types.ps1"
+        . "${scriptsDir}\tebunko_diff\ui\types_diff.ps1"
+        $state = [DiffViewState]::new()
+        $raised = New-Object System.Collections.ArrayList
+        $state.add_PropertyChanged({ param($sender, $e) [void]$raised.Add($e.PropertyName) }.GetNewClosure())
+        $state.SetOffset(-40)
+        $state.CellOffset | Should Be -40
+        ($raised -join ",") | Should Be "CellOffset"
+    }
+}

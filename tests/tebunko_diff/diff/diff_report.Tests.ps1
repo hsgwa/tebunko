@@ -45,3 +45,41 @@ Describe "getOptionsText" -Tag Unit {
         getOptionsText @{ IncludeShapes = $false; IncludeComments = $false } | Should Be "（なし）"
     }
 }
+
+
+Describe "比較結果ファイル（細かい場合）" -Tag Unit {
+    It "PowerPoint: スライドの見出しの行と、要約" {
+        $l = [ordered]@{ "スライド001" = [string[]]@("表紙") }
+        $r = [ordered]@{ "スライド001" = [string[]]@("表紙"); "スライド002" = [string[]]@("追加") }
+        $diff = compareOfficeUnits "PowerPoint" $l $r
+        $lines = getFileReportLines $diff
+        ($lines -join "`n") | Should Match "□ スライド 2 追加"
+        (getFileSummaryText $diff).Title | Should Be "スライド 1 → 2"
+        $same = compareOfficeUnits "PowerPoint" $l $l
+        (getFileSummaryText $same).Title | Should Be "スライド 1 → 1（違いはありません）"
+        getFileSummaryParts $same | Should Be "スライド 1 → 1（違いはありません）"
+    }
+
+    It "注意のある場所は注意を出し、先頭の追加の位置は「先頭」" {
+        $place = newTooLargePlace "S" "S" "S" ([string[]]@("a")) ([string[]]@("b"))
+        $diff = [FileDiff]::new()
+        $diff.Places = @($place)
+        (getFileReportLines $diff)[1] | Should Match "行ごとには比べていません"
+        $inserted = compareOfficeUnits "Word" ([ordered]@{ "ページ001" = [string[]]@("b") }) ([ordered]@{ "ページ001" = [string[]]@("a", "b") })
+        ((getFileReportLines $inserted) -join "`n") | Should Match "\(先頭\) → p.1 ¶1"
+    }
+
+    It "状態の名前と、比較できないファイルの原因" {
+        getStatusLabel "same" | Should Be "同じ"
+        getStatusLabel "similar" | Should Be "中身は同じ"
+        getStatusLabel "failed" | Should Be "比較できない"
+        getStatusLabel "running" | Should Be "比較中"
+        getStatusLabel "pending" | Should Be "比較待ち"
+        getKindLabel "same" | Should Be "同じ"
+        $entries = getFolderEntries @(@{ RelPath = "a.xlsx"; Size = 1; Time = [datetime]::Now }) @(@{ RelPath = "a.xlsx"; Size = 2; Time = [datetime]::Now })
+        $entries[0].Status = "failed"
+        $entries[0].Error = "比較元を読み取れませんでした。（パスワード）"
+        $lines = getFolderReport "C:\左" "C:\右" $entries @{} $null $false ([datetime]"2026-09-22")
+        $lines[6] | Should Be "比較できない`ta.xlsx`t比較元を読み取れませんでした。（パスワード）"
+    }
+}

@@ -221,3 +221,19 @@ Describe "差分の速さ" -Tag Slow {
         $watch.Elapsed.TotalSeconds -lt 5 | Should Be $true
     }
 }
+
+
+Describe "差分の中心（細かい場合）" -Tag Unit {
+    It "Excel の同じ行は、似ている度合い 1" {
+        getCellSimilarity "a`tb" "a`tb" | Should Be 1
+    }
+
+    It "左に 1 行多く挟まっているときは、その行を削除にして次の行と組む" {
+        $left = [string[]]@("a", "無関係の行", "支払は30日以内", "z")
+        $right = [string[]]@("a", "支払は45日以内", "z")
+        $k = getKeys $left $right
+        $match = getLineMatches $k.A $k.B
+        $pairs = getAlignedPairs $match $right.Count $left $right { param($x, $y) getTextSimilarity $x $y }
+        (@($pairs | ForEach-Object { getPairKind $_[2] }) -join ",") | Should Be "same,delete,change,same"
+    }
+}

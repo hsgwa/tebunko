@@ -124,3 +124,31 @@ Describe "formatFileSize" -Tag Unit {
         formatFileSize (1.5MB) | Should Be "1.5 MB"
     }
 }
+
+
+Describe "フォルダの状態（細かい場合）" -Tag Unit {
+    It "入れ子のフォルダの中の状態もまとめ、比較できないファイルだけのフォルダは「比較できない」" {
+        $entries = getFolderEntries @((newFile "上\下\a.xlsx"), (newFile "上\b.xlsx")) @((newFile "上\下\a.xlsx"), (newFile "上\b.xlsx"))
+        ($entries | Where-Object { $_.RelPath -eq "上\下\a.xlsx" }).Status = "failed"
+        ($entries | Where-Object { $_.RelPath -eq "上\b.xlsx" }).Status = "same"
+        $rows = buildTreeRows $entries (newSet) (newSet) $false
+        $rows[0].Name | Should Be "上"
+        $rows[0].Status | Should Be "failed"
+        $rows[0].RightMeta | Should Be "比較できない 1"
+        ($rows | Where-Object { $_.Name -eq "a.xlsx" }).RightMeta | Should Match "^比較できない · "
+    }
+
+    It "ファイルの行の説明（中身は同じ・比較中・比較待ち）" {
+        getEntryNote @{ Status = "similar" } | Should Be "中身は同じ · "
+        getEntryNote @{ Status = "running" } | Should Be "比較中… · "
+        getEntryNote @{ Status = "pending" } | Should Be "比較待ち · "
+        getEntryNote @{ Status = "same" } | Should Be ""
+        getChangeCountText 0 0 0 | Should Be "違いなし"
+    }
+
+    It "表示中の行に違うファイルが無ければ -1" {
+        $entries = getFolderEntries @((newFile "a.xlsx")) @((newFile "a.xlsx"))
+        $entries[0].Status = "same"
+        findNextDiffRow (buildTreeRows $entries (newSet) (newSet) $false) -1 1 | Should Be -1
+    }
+}

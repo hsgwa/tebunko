@@ -1,12 +1,675 @@
-﻿<!-- ［2 比較］タブの中身。tebunko.xaml の DiffTab に入れる（scripts\tebunko\gui.ps1） -->
+﻿<!-- ［2 比較］タブの中身。tebunko.xaml の DiffTab に入れる（scripts\tebunko\gui.ps1）。
+     上から: 入力（［ファイル｜フォルダ］のトグル・比較元・比較先・オプション）／比べた後の 1 行／要約と進み具合／
+     フォルダのツリー（フォルダのときだけ）／ファイルの差分（左右に並べる・一覧）。
+     画面の左半分はすべて比較元、右半分はすべて比較先。
+     速さのため、行の一覧は仮想化した ListBox で作り、行の種類ごとに型（DataTemplate）を分けて、選んだ型の部品だけを作る -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Name="DiffRoot" AllowDrop="True">
   <Grid.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
+
+      <!-- 差分の色（行の背景は薄く、違う部分は濃く） -->
+      <SolidColorBrush x:Key="Diff.AddBg" Color="#F0FDF4" />
+      <SolidColorBrush x:Key="Diff.AddStrong" Color="#BBF7D0" />
+      <SolidColorBrush x:Key="Diff.AddInk" Color="#166534" />
+      <SolidColorBrush x:Key="Diff.DelBg" Color="#FEF2F2" />
+      <SolidColorBrush x:Key="Diff.DelStrong" Color="#FECACA" />
+      <SolidColorBrush x:Key="Diff.DelInk" Color="#991B1B" />
+      <SolidColorBrush x:Key="Diff.ChgBg" Color="#F5F8FF" />
+      <SolidColorBrush x:Key="Diff.ChgStrong" Color="#DBEAFE" />
+      <SolidColorBrush x:Key="Diff.ChgInk" Color="#1D4ED8" />
+      <SolidColorBrush x:Key="Diff.FailInk" Color="#C2410C" />
+      <SolidColorBrush x:Key="Diff.WaitInk" Color="#A16207" />
+      <!-- 相手側に無い行の空き（斜線） -->
+      <LinearGradientBrush x:Key="Diff.Hatch" MappingMode="Absolute" StartPoint="0,0" EndPoint="8,8" SpreadMethod="Repeat">
+        <GradientStop Color="#EEF0F3" Offset="0" />
+        <GradientStop Color="#EEF0F3" Offset="0.5" />
+        <GradientStop Color="#FFFFFF" Offset="0.5" />
+        <GradientStop Color="#FFFFFF" Offset="1" />
+      </LinearGradientBrush>
+
+      <!-- ［ファイル｜フォルダ］［左右に並べる｜一覧］の切り替え（灰色の枠の中で、選んだ側を白くする） -->
+      <Style x:Key="Diff.Toggle" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="RadioButton">
+              <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}" MinWidth="{TemplateBinding MinWidth}">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                  <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Surface}" />
+                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Border.Normal}" />
+                  <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+                  <Setter Property="FontWeight" Value="SemiBold" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent.Ring}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+
+      <!-- 行の一覧の項目（選択の色だけを付ける軽い枠） -->
+      <Style x:Key="Diff.Item" TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="ListBoxItem">
+              <Border x:Name="Bd" Background="Transparent" BorderThickness="0,0,0,1" BorderBrush="#F3F5F7">
+                <ContentPresenter />
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                  <Setter TargetName="Bd" Property="BorderThickness" Value="0,1,0,1" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="Diff.List" TargetType="ListBox">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource Diff.Item}" />
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="SelectionMode" Value="Single" />
+      </Style>
+
+      <!-- 文字の区切り（違う部分に色） -->
+      <DataTemplate x:Key="SegLeft">
+        <TextBlock x:Name="T" Text="{Binding Text}" TextWrapping="Wrap" />
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Changed}" Value="True">
+            <Setter TargetName="T" Property="Background" Value="{StaticResource Diff.DelStrong}" />
+            <Setter TargetName="T" Property="Foreground" Value="{StaticResource Diff.DelInk}" />
+            <Setter TargetName="T" Property="TextDecorations" Value="Strikethrough" />
+          </DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <DataTemplate x:Key="SegRight">
+        <TextBlock x:Name="T" Text="{Binding Text}" TextWrapping="Wrap" />
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Changed}" Value="True">
+            <Setter TargetName="T" Property="Background" Value="{StaticResource Diff.AddStrong}" />
+            <Setter TargetName="T" Property="Foreground" Value="{StaticResource Diff.AddInk}" />
+          </DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <ItemsPanelTemplate x:Key="WrapPanelTemplate">
+        <WrapPanel />
+      </ItemsPanelTemplate>
+      <ItemsPanelTemplate x:Key="RowPanelTemplate">
+        <StackPanel Orientation="Horizontal" />
+      </ItemsPanelTemplate>
+
+      <!-- Excel のセル -->
+      <DataTemplate x:Key="GridCell">
+        <Border x:Name="B" Width="{Binding Width}" Height="24" BorderThickness="0,0,1,0" BorderBrush="#EEF0F3">
+          <TextBlock Text="{Binding Text}" Margin="6,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="12" ToolTip="{Binding Text}" />
+        </Border>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change">
+            <Setter TargetName="B" Property="Background" Value="{StaticResource Diff.ChgStrong}" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="insert">
+            <Setter TargetName="B" Property="Background" Value="{StaticResource Diff.AddStrong}" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="delete">
+            <Setter TargetName="B" Property="Background" Value="{StaticResource Diff.DelStrong}" />
+          </DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+
+      <!-- ================= 左右に並べる行：片側の中身（行の種類ごとに型を分ける） ================= -->
+      <!-- 空き（相手側にだけある行） -->
+      <DataTemplate x:Key="SideEmpty">
+        <Border Background="{StaticResource Diff.Hatch}" MinHeight="24" />
+      </DataTemplate>
+      <!-- 文字の行（段落・図形・コメント）。左 -->
+      <DataTemplate x:Key="LeftText">
+        <DockPanel x:Name="P" MinHeight="24">
+          <TextBlock DockPanel.Dock="Left" Width="64" Text="{Binding LeftNo}" Foreground="{StaticResource Ink.Faint}" FontSize="11" TextAlignment="Right" Padding="0,5,8,0" />
+          <TextBlock x:Name="Plain" Margin="4,3,8,3" Text="{Binding LeftText}" TextWrapping="Wrap" />
+        </DockPanel>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.ChgBg}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="delete"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.DelBg}" /><Setter TargetName="Plain" Property="Background" Value="{StaticResource Diff.DelStrong}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <DataTemplate x:Key="LeftSegText">
+        <DockPanel Background="{StaticResource Diff.ChgBg}" MinHeight="24">
+          <TextBlock DockPanel.Dock="Left" Width="64" Text="{Binding LeftNo}" Foreground="{StaticResource Ink.Faint}" FontSize="11" TextAlignment="Right" Padding="0,5,8,0" />
+          <ItemsControl Margin="4,3,8,3" ItemsSource="{Binding LeftSegs}" ItemTemplate="{StaticResource SegLeft}" ItemsPanel="{StaticResource WrapPanelTemplate}" />
+        </DockPanel>
+      </DataTemplate>
+      <!-- 文字の行。右 -->
+      <DataTemplate x:Key="RightText">
+        <DockPanel x:Name="P" MinHeight="24">
+          <TextBlock DockPanel.Dock="Left" Width="64" Text="{Binding RightNo}" Foreground="{StaticResource Ink.Faint}" FontSize="11" TextAlignment="Right" Padding="0,5,8,0" />
+          <TextBlock x:Name="Plain" Margin="4,3,8,3" Text="{Binding RightText}" TextWrapping="Wrap" />
+        </DockPanel>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.ChgBg}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="insert"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.AddBg}" /><Setter TargetName="Plain" Property="Background" Value="{StaticResource Diff.AddStrong}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <DataTemplate x:Key="RightSegText">
+        <DockPanel Background="{StaticResource Diff.ChgBg}" MinHeight="24">
+          <TextBlock DockPanel.Dock="Left" Width="64" Text="{Binding RightNo}" Foreground="{StaticResource Ink.Faint}" FontSize="11" TextAlignment="Right" Padding="0,5,8,0" />
+          <ItemsControl Margin="4,3,8,3" ItemsSource="{Binding RightSegs}" ItemTemplate="{StaticResource SegRight}" ItemsPanel="{StaticResource WrapPanelTemplate}" />
+        </DockPanel>
+      </DataTemplate>
+      <!-- Excel の行（セル）。横の位置は、一覧の Tag（DiffViewState.CellOffset）で左右そろって動く -->
+      <DataTemplate x:Key="LeftCells">
+        <DockPanel x:Name="P" Height="24">
+          <TextBlock DockPanel.Dock="Left" Width="44" Text="{Binding LeftNo}" Foreground="{StaticResource Ink.Faint}" FontSize="11" TextAlignment="Right" Padding="0,5,6,0" Background="{StaticResource Bg.Subtle}" />
+          <Canvas ClipToBounds="True">
+            <ItemsControl Canvas.Left="{Binding Tag.CellOffset, RelativeSource={RelativeSource AncestorType=ListBox}}" ItemsSource="{Binding LeftCells}" ItemTemplate="{StaticResource GridCell}" ItemsPanel="{StaticResource RowPanelTemplate}" />
+          </Canvas>
+        </DockPanel>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.ChgBg}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="delete"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.DelBg}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <DataTemplate x:Key="RightCells">
+        <DockPanel x:Name="P" Height="24">
+          <TextBlock DockPanel.Dock="Left" Width="44" Text="{Binding RightNo}" Foreground="{StaticResource Ink.Faint}" FontSize="11" TextAlignment="Right" Padding="0,5,6,0" Background="{StaticResource Bg.Subtle}" />
+          <Canvas ClipToBounds="True">
+            <ItemsControl Canvas.Left="{Binding Tag.CellOffset, RelativeSource={RelativeSource AncestorType=ListBox}}" ItemsSource="{Binding RightCells}" ItemTemplate="{StaticResource GridCell}" ItemsPanel="{StaticResource RowPanelTemplate}" />
+          </Canvas>
+        </DockPanel>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.ChgBg}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="insert"><Setter TargetName="P" Property="Background" Value="{StaticResource Diff.AddBg}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <!-- PowerPoint のスライドの見出し -->
+      <DataTemplate x:Key="LeftHeader">
+        <Border x:Name="B" Background="#F3F5F7" Height="28" BorderThickness="0,1,0,0" BorderBrush="#E9ECF0">
+          <StackPanel Orientation="Horizontal" Margin="12,0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding LeftNo}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" />
+            <TextBlock Text="{Binding LeftText}" Margin="10,0,0,0" Foreground="{StaticResource Ink.Muted}" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </Border>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter TargetName="B" Property="Background" Value="#EAF0FE" /></DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="delete"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.DelStrong}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <DataTemplate x:Key="RightHeader">
+        <Border x:Name="B" Background="#F3F5F7" Height="28" BorderThickness="0,1,0,0" BorderBrush="#E9ECF0">
+          <StackPanel Orientation="Horizontal" Margin="12,0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding RightNo}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" />
+            <TextBlock Text="{Binding RightText}" Margin="10,0,0,0" Foreground="{StaticResource Ink.Muted}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding Detail}" Margin="10,0,0,0" Foreground="{StaticResource Diff.ChgInk}" FontSize="12" />
+          </StackPanel>
+        </Border>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter TargetName="B" Property="Background" Value="#EAF0FE" /></DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="insert"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.AddStrong}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <!-- ノート・図形・コメントの小見出し -->
+      <DataTemplate x:Key="LeftSection">
+        <TextBlock Text="{Binding LeftText}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ink.Muted}" Margin="68,4,0,0" />
+      </DataTemplate>
+      <DataTemplate x:Key="RightSection">
+        <TextBlock Text="{Binding RightText}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Ink.Muted}" Margin="68,4,0,0" />
+      </DataTemplate>
+      <!-- たたんだ同じ行（クリックで開く） -->
+      <DataTemplate x:Key="LeftFold">
+        <Border Background="#F6F7F9" Height="24" Cursor="Hand">
+          <TextBlock Text="{Binding LeftText, StringFormat='▸ {0}'}" Foreground="{StaticResource Ink.Muted}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </DataTemplate>
+      <DataTemplate x:Key="RightFold">
+        <Border Background="#F6F7F9" Height="24" Cursor="Hand">
+          <TextBlock Text="{Binding RightText, StringFormat='▸ {0}'}" Foreground="{StaticResource Ink.Muted}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </DataTemplate>
+
+      <!-- 片側の型を、行の種類で選ぶ（ContentControl のスタイルで切り替え、選んだ型の部品だけを作る） -->
+      <Style x:Key="LeftSide" TargetType="ContentControl">
+        <Setter Property="ContentTemplate" Value="{StaticResource LeftText}" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter Property="ContentTemplate" Value="{StaticResource LeftSegText}" /></DataTrigger>
+          <DataTrigger Binding="{Binding LeftSegs}" Value="{x:Null}"><Setter Property="ContentTemplate" Value="{StaticResource LeftText}" /></DataTrigger>
+          <DataTrigger Binding="{Binding HasCells}" Value="True"><Setter Property="ContentTemplate" Value="{StaticResource LeftCells}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Type}" Value="Header"><Setter Property="ContentTemplate" Value="{StaticResource LeftHeader}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Type}" Value="Section"><Setter Property="ContentTemplate" Value="{StaticResource LeftSection}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Type}" Value="Fold"><Setter Property="ContentTemplate" Value="{StaticResource LeftFold}" /></DataTrigger>
+          <DataTrigger Binding="{Binding LeftEmpty}" Value="True"><Setter Property="ContentTemplate" Value="{StaticResource SideEmpty}" /></DataTrigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="RightSide" TargetType="ContentControl">
+        <Setter Property="ContentTemplate" Value="{StaticResource RightText}" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change"><Setter Property="ContentTemplate" Value="{StaticResource RightSegText}" /></DataTrigger>
+          <DataTrigger Binding="{Binding RightSegs}" Value="{x:Null}"><Setter Property="ContentTemplate" Value="{StaticResource RightText}" /></DataTrigger>
+          <DataTrigger Binding="{Binding HasCells}" Value="True"><Setter Property="ContentTemplate" Value="{StaticResource RightCells}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Type}" Value="Header"><Setter Property="ContentTemplate" Value="{StaticResource RightHeader}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Type}" Value="Section"><Setter Property="ContentTemplate" Value="{StaticResource RightSection}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Type}" Value="Fold"><Setter Property="ContentTemplate" Value="{StaticResource RightFold}" /></DataTrigger>
+          <DataTrigger Binding="{Binding RightEmpty}" Value="True"><Setter Property="ContentTemplate" Value="{StaticResource SideEmpty}" /></DataTrigger>
+        </Style.Triggers>
+      </Style>
+
+      <!-- 左右に並べる 1 行 -->
+      <DataTemplate x:Key="SideRow">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="2" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <ContentControl Grid.Column="0" Content="{Binding}" Style="{StaticResource LeftSide}" Focusable="False" />
+          <Border Grid.Column="1" Background="#D7DBE0" />
+          <ContentControl Grid.Column="2" Content="{Binding}" Style="{StaticResource RightSide}" Focusable="False" />
+        </Grid>
+      </DataTemplate>
+
+      <!-- 一覧の 1 行（変更の行だけ） -->
+      <DataTemplate x:Key="ListRow">
+        <Grid MinHeight="30">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="64" />
+            <ColumnDefinition Width="110" />
+            <ColumnDefinition Width="110" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Border x:Name="Pill" Grid.Column="0" CornerRadius="9" Height="18" Margin="8,0" VerticalAlignment="Center" Background="{StaticResource Diff.ChgStrong}">
+            <TextBlock x:Name="PillText" Text="変更" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Diff.ChgInk}" />
+          </Border>
+          <TextBlock Grid.Column="1" Text="{Binding LeftNo}" VerticalAlignment="Center" Foreground="{StaticResource Ink.Muted}" />
+          <TextBlock Grid.Column="2" Text="{Binding RightNo}" VerticalAlignment="Center" Foreground="{StaticResource Ink.Muted}" />
+          <Grid Grid.Column="3" Margin="0,4,10,4">
+            <TextBlock x:Name="LeftPlain" Text="{Binding LeftText}" TextTrimming="CharacterEllipsis" />
+            <ItemsControl x:Name="LeftSegsBox" ItemsSource="{Binding LeftSegs}" ItemTemplate="{StaticResource SegLeft}" ItemsPanel="{StaticResource WrapPanelTemplate}" />
+          </Grid>
+          <Grid Grid.Column="4" Margin="0,4,10,4">
+            <TextBlock x:Name="RightPlain" Text="{Binding RightText}" TextTrimming="CharacterEllipsis" />
+            <ItemsControl x:Name="RightSegsBox" ItemsSource="{Binding RightSegs}" ItemTemplate="{StaticResource SegRight}" ItemsPanel="{StaticResource WrapPanelTemplate}" />
+          </Grid>
+        </Grid>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Kind}" Value="change">
+            <Setter TargetName="LeftPlain" Property="Visibility" Value="Collapsed" />
+            <Setter TargetName="RightPlain" Property="Visibility" Value="Collapsed" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding HasCells}" Value="True">
+            <Setter TargetName="LeftPlain" Property="Visibility" Value="Visible" />
+            <Setter TargetName="RightPlain" Property="Visibility" Value="Visible" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="insert">
+            <Setter TargetName="Pill" Property="Background" Value="{StaticResource Diff.AddStrong}" />
+            <Setter TargetName="PillText" Property="Foreground" Value="{StaticResource Diff.AddInk}" />
+            <Setter TargetName="PillText" Property="Text" Value="追加" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding Kind}" Value="delete">
+            <Setter TargetName="Pill" Property="Background" Value="{StaticResource Diff.DelStrong}" />
+            <Setter TargetName="PillText" Property="Foreground" Value="{StaticResource Diff.DelInk}" />
+            <Setter TargetName="PillText" Property="Text" Value="削除" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding Type}" Value="Header">
+            <Setter TargetName="PillText" Property="Text" Value="スライド" />
+          </DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+
+      <!-- フォルダのツリーの片側 -->
+      <DataTemplate x:Key="TreeLeft">
+        <Grid x:Name="G" Height="26">
+          <Border x:Name="Hatch" Background="{StaticResource Diff.Hatch}" Visibility="Collapsed" />
+          <DockPanel x:Name="Body" Margin="10,0">
+            <TextBlock DockPanel.Dock="Right" Text="{Binding LeftMeta}" FontSize="11" Foreground="{StaticResource Ink.Faint}" VerticalAlignment="Center" Margin="8,0,0,0" />
+            <Border DockPanel.Dock="Left" Width="{Binding Indent}" />
+            <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Width="14" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" />
+            <TextBlock x:Name="Name" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+        </Grid>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding LeftEmpty}" Value="True">
+            <Setter TargetName="Hatch" Property="Visibility" Value="Visible" />
+            <Setter TargetName="Body" Property="Visibility" Value="Collapsed" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="change"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Diff.ChgInk}" /><Setter TargetName="Name" Property="FontWeight" Value="SemiBold" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="delete"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Diff.DelInk}" /><Setter TargetName="Name" Property="FontWeight" Value="SemiBold" /><Setter TargetName="G" Property="Background" Value="{StaticResource Diff.DelBg}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="same"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Ink.Muted}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="similar"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Ink.Muted}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="failed"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Diff.FailInk}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <DataTemplate x:Key="TreeRight">
+        <Grid x:Name="G" Height="26">
+          <Border x:Name="Hatch" Background="{StaticResource Diff.Hatch}" Visibility="Collapsed" />
+          <DockPanel x:Name="Body" Margin="10,0">
+            <TextBlock DockPanel.Dock="Right" Text="{Binding RightMeta}" FontSize="11" Foreground="{StaticResource Ink.Faint}" VerticalAlignment="Center" Margin="8,0,0,0" />
+            <Border DockPanel.Dock="Left" Width="{Binding Indent}" />
+            <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Width="14" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" />
+            <TextBlock x:Name="Name" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+        </Grid>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding RightEmpty}" Value="True">
+            <Setter TargetName="Hatch" Property="Visibility" Value="Visible" />
+            <Setter TargetName="Body" Property="Visibility" Value="Collapsed" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="change"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Diff.ChgInk}" /><Setter TargetName="Name" Property="FontWeight" Value="SemiBold" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="insert"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Diff.AddInk}" /><Setter TargetName="Name" Property="FontWeight" Value="SemiBold" /><Setter TargetName="G" Property="Background" Value="{StaticResource Diff.AddBg}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="same"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Ink.Muted}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="similar"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Ink.Muted}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="failed"><Setter TargetName="Name" Property="Foreground" Value="{StaticResource Diff.FailInk}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+      <DataTemplate x:Key="TreeRow">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="30" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <ContentControl Grid.Column="0" Content="{Binding}" ContentTemplate="{StaticResource TreeLeft}" Focusable="False" />
+          <Border Grid.Column="1" Background="#F6F7F9" BorderThickness="1,0" BorderBrush="#E9ECF0">
+            <TextBlock x:Name="Mark" Text="{Binding Mark}" FontWeight="Bold" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Ink.Faint}" />
+          </Border>
+          <ContentControl Grid.Column="2" Content="{Binding}" ContentTemplate="{StaticResource TreeRight}" Focusable="False" />
+        </Grid>
+        <DataTemplate.Triggers>
+          <DataTrigger Binding="{Binding Status}" Value="change"><Setter TargetName="Mark" Property="Foreground" Value="{StaticResource Accent}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="insert"><Setter TargetName="Mark" Property="Foreground" Value="#16A34A" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="delete"><Setter TargetName="Mark" Property="Foreground" Value="#DC2626" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="failed"><Setter TargetName="Mark" Property="Foreground" Value="{StaticResource Diff.FailInk}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="running"><Setter TargetName="Mark" Property="Foreground" Value="{StaticResource Diff.WaitInk}" /></DataTrigger>
+          <DataTrigger Binding="{Binding Status}" Value="pending"><Setter TargetName="Mark" Property="Foreground" Value="{StaticResource Diff.WaitInk}" /></DataTrigger>
+        </DataTemplate.Triggers>
+      </DataTemplate>
+
+      <!-- 場所の見出し（Excel のシートの見出しのような横のタブ） -->
+      <Style x:Key="PlaceItem" TargetType="ListBoxItem">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="ListBoxItem">
+              <Border x:Name="Bd" Background="#FAFBFC" BorderBrush="#D7DBE0" BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="12,5" Margin="0,0,2,0">
+                <ContentPresenter />
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                  <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Surface}" />
+                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent.Ring}" />
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
     </ResourceDictionary>
   </Grid.Resources>
-  <TextBlock x:Name="DiffRoot" Text="準備中" />
+
+  <Grid.RowDefinitions>
+    <RowDefinition Height="Auto" />  <!-- 入力（開いたとき）／比べた後の 1 行 -->
+    <RowDefinition Height="Auto" />  <!-- 要約と進み具合 -->
+    <RowDefinition x:Name="TreeRowDefinition" Height="0" />  <!-- フォルダのツリー（フォルダのときだけ） -->
+    <RowDefinition x:Name="SplitterRowDefinition" Height="0" />
+    <RowDefinition Height="*" />     <!-- ファイルの差分 -->
+    <RowDefinition Height="Auto" />  <!-- 下の説明と［結果をファイルに出力］ -->
+  </Grid.RowDefinitions>
+
+  <!-- ================= 入力（開いたとき） ================= -->
+  <Border x:Name="InputPanel" Grid.Row="0" Style="{StaticResource Card}" Padding="16,14">
+    <StackPanel>
+      <DockPanel>
+        <TextBlock Style="{StaticResource Heading}" Text="比べるもの" VerticalAlignment="Center" Margin="0,0,12,0" />
+        <Border Background="{StaticResource Bg.Pressed}" CornerRadius="8" Padding="3" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="ModeFileButton" GroupName="DiffMode" Content="ファイル" Style="{StaticResource Diff.Toggle}" Padding="14,4" MinWidth="80" IsChecked="True" />
+            <RadioButton x:Name="ModeFolderButton" GroupName="DiffMode" Content="フォルダ" Style="{StaticResource Diff.Toggle}" Padding="14,4" MinWidth="80" Margin="2,0,0,0" />
+          </StackPanel>
+        </Border>
+        <TextBlock x:Name="ModeNoteText" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="14,0,0,0" />
+      </DockPanel>
+
+      <Grid Margin="0,14,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <DockPanel x:Name="LeftInput" Grid.Column="0" AllowDrop="True">
+          <TextBlock Style="{StaticResource Label}" Text="比較元" VerticalAlignment="Center" Width="52" />
+          <Button x:Name="LeftPickButton" DockPanel.Dock="Right" Content="ファイル…" Margin="8,0,0,0" MinWidth="84" />
+          <Grid>
+            <TextBox x:Name="LeftBox" Height="32" />
+            <TextBlock x:Name="LeftPlaceholder" Style="{StaticResource Placeholder}" Text="ファイルを選ぶか、ここへドロップ" />
+          </Grid>
+        </DockPanel>
+        <Button x:Name="SwapButton" Grid.Column="1" Content="⇄" Margin="12,0" Width="36" ToolTip="比較元と比較先を入れ替える" />
+        <DockPanel x:Name="RightInput" Grid.Column="2" AllowDrop="True">
+          <TextBlock Style="{StaticResource Label}" Text="比較先" VerticalAlignment="Center" Width="52" />
+          <Button x:Name="RightPickButton" DockPanel.Dock="Right" Content="ファイル…" Margin="8,0,0,0" MinWidth="84" />
+          <Grid>
+            <TextBox x:Name="RightBox" Height="32" />
+            <TextBlock x:Name="RightPlaceholder" Style="{StaticResource Placeholder}" Text="ファイルを選ぶか、ここへドロップ" />
+          </Grid>
+        </DockPanel>
+      </Grid>
+
+      <Border Margin="0,14,0,0" Padding="12,10" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="8">
+        <StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Meta}" Text="フォルダのとき" Width="96" VerticalAlignment="Center" />
+            <CheckBox x:Name="SubfolderCheck" Content="サブフォルダも比較" Margin="0,0,18,0" VerticalAlignment="Center" />
+            <CheckBox x:Name="HideSameCheck" Content="同じファイルを隠す" VerticalAlignment="Center"
+                      ToolTip="バイトまで同じファイルと、中がすべて同じフォルダをツリーに出しません" />
+          </StackPanel>
+          <DockPanel Margin="0,10,0,0">
+            <TextBlock Style="{StaticResource Meta}" Text="共通" Width="96" VerticalAlignment="Center" />
+            <Button x:Name="CompareButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="比較" MinWidth="110" Height="34" Margin="12,0,0,0" />
+            <TextBlock x:Name="BlockReasonText" DockPanel.Dock="Right" Style="{StaticResource WarnText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420" />
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <CheckBox x:Name="ShapeCheck" Content="図形も比較" Margin="0,0,18,0"
+                        ToolTip="図形・テキストボックス・SmartArt・グラフの文字も比べます" />
+              <CheckBox x:Name="CommentCheck" Content="コメントも比較" Margin="0,0,18,0" />
+              <CheckBox x:Name="WhitespaceCheck" Content="空白の違いを無視" Margin="0,0,18,0"
+                        ToolTip="続く空白を 1 つとみなし、行頭・行末・セルの前後の空白を無視します" />
+              <CheckBox x:Name="CaseCheck" Content="大文字と小文字を区別" />
+            </StackPanel>
+          </DockPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </Border>
+
+  <!-- ================= 比べた後の 1 行 ================= -->
+  <DockPanel x:Name="CompactBar" Grid.Row="0" Visibility="Collapsed">
+    <Border DockPanel.Dock="Left" Background="{StaticResource Bg.Pressed}" CornerRadius="8" Padding="3" VerticalAlignment="Center" Margin="0,0,10,0">
+      <StackPanel Orientation="Horizontal">
+        <RadioButton x:Name="CompactFileButton" GroupName="DiffModeCompact" Content="ファイル" Style="{StaticResource Diff.Toggle}" Padding="10,3" />
+        <RadioButton x:Name="CompactFolderButton" GroupName="DiffModeCompact" Content="フォルダ" Style="{StaticResource Diff.Toggle}" Padding="10,3" Margin="2,0,0,0" />
+      </StackPanel>
+    </Border>
+    <Button x:Name="StopButton" DockPanel.Dock="Right" Style="{StaticResource Danger}" Content="中止（Esc）" Margin="8,0,0,0" Visibility="Collapsed" />
+    <Button x:Name="RecompareButton" DockPanel.Dock="Right" Content="比べ直す（F5）" Margin="8,0,0,0" />
+    <Button x:Name="EditInputButton" DockPanel.Dock="Right" Content="選び直す・設定" Margin="8,0,0,0" />
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <TextBlock x:Name="LeftNameText" Grid.Column="0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Ink.Strong}"
+                 VerticalAlignment="Center" Cursor="Hand" ToolTip="クリックすると、入力欄を開き直します" />
+      <Button x:Name="SwapCompactButton" Grid.Column="1" Content="⇄" Width="34" Margin="8,0" ToolTip="比較元と比較先を入れ替える" />
+      <TextBlock x:Name="RightNameText" Grid.Column="2" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Ink.Strong}"
+                 VerticalAlignment="Center" Cursor="Hand" ToolTip="クリックすると、入力欄を開き直します" />
+    </Grid>
+  </DockPanel>
+
+  <!-- ================= 要約と進み具合 ================= -->
+  <DockPanel x:Name="SummaryBar" Grid.Row="1" Margin="0,12,0,6" Visibility="Collapsed">
+    <Button x:Name="CollapseTreeButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="すべて閉じる" Margin="12,0,0,0" VerticalAlignment="Center" />
+    <Button x:Name="ExpandTreeButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="すべて開く" Margin="12,0,0,0" VerticalAlignment="Center" />
+    <TextBlock x:Name="ProgressText" DockPanel.Dock="Right" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="12,0,0,0" />
+    <ProgressBar x:Name="DiffProgress" DockPanel.Dock="Right" Width="140" Height="4" Maximum="1" VerticalAlignment="Center" Visibility="Collapsed" />
+    <TextBlock x:Name="SummaryText" Style="{StaticResource Focal}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    <TextBlock x:Name="CountsText" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="12,0,0,0" />
+  </DockPanel>
+
+  <!-- ================= フォルダのツリー ================= -->
+  <Border x:Name="TreePanel" Grid.Row="2" BorderBrush="{StaticResource Border.Normal}" BorderThickness="1" CornerRadius="8" Background="{StaticResource Bg.Surface}" Visibility="Collapsed">
+    <DockPanel>
+      <Grid DockPanel.Dock="Top" Height="30" Background="{StaticResource Bg.Subtle}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="30" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock x:Name="TreeLeftTitle" Grid.Column="0" Style="{StaticResource Meta}" Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="TreeRightTitle" Grid.Column="2" Style="{StaticResource Meta}" Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </Grid>
+      <ListBox x:Name="TreeList" Style="{StaticResource Diff.List}" ItemTemplate="{StaticResource TreeRow}" />
+    </DockPanel>
+  </Border>
+  <GridSplitter x:Name="TreeSplitter" Grid.Row="3" Height="8" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="Transparent" Visibility="Collapsed" Cursor="SizeNS" />
+
+  <!-- ================= ファイルの差分 ================= -->
+  <DockPanel x:Name="DiffPanel" Grid.Row="4" Visibility="Collapsed">
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,0">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,4">
+        <CheckBox x:Name="FoldCheck" Content="同じ行をたたむ" VerticalAlignment="Center" Margin="0,0,12,0" />
+        <Border Background="{StaticResource Bg.Pressed}" CornerRadius="8" Padding="3" Margin="0,0,10,0">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="ViewSideButton" GroupName="DiffView" Content="左右に並べる" Style="{StaticResource Diff.Toggle}" Padding="10,3" IsChecked="True" />
+            <RadioButton x:Name="ViewListButton" GroupName="DiffView" Content="一覧" Style="{StaticResource Diff.Toggle}" Padding="10,3" Margin="2,0,0,0" />
+          </StackPanel>
+        </Border>
+        <Button x:Name="PrevChangeButton" Content="↑ 前の変更" ToolTip="Shift+F8" Margin="0,0,6,0" />
+        <Button x:Name="NextChangeButton" Content="↓ 次の変更" ToolTip="F8" />
+      </StackPanel>
+      <TextBlock x:Name="FileTitleText" DockPanel.Dock="Left" Style="{StaticResource Focal}" VerticalAlignment="Bottom" Margin="0,0,12,8" TextTrimming="CharacterEllipsis" MaxWidth="360" />
+      <ListBox x:Name="PlaceList" VerticalAlignment="Bottom" BorderThickness="0" Background="Transparent" ItemContainerStyle="{StaticResource PlaceItem}"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <TextBlock x:Name="T" Text="{Binding Text}" FontSize="12" />
+            <DataTemplate.Triggers>
+              <DataTrigger Binding="{Binding Status}" Value="same"><Setter TargetName="T" Property="Foreground" Value="{StaticResource Ink.Faint}" /></DataTrigger>
+              <DataTrigger Binding="{Binding Status}" Value="insert"><Setter TargetName="T" Property="Foreground" Value="{StaticResource Diff.AddInk}" /></DataTrigger>
+              <DataTrigger Binding="{Binding Status}" Value="delete"><Setter TargetName="T" Property="Foreground" Value="{StaticResource Diff.DelInk}" /></DataTrigger>
+              <DataTrigger Binding="{Binding Status}" Value="change"><Setter TargetName="T" Property="Foreground" Value="{StaticResource Diff.ChgInk}" /></DataTrigger>
+            </DataTemplate.Triggers>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <!-- 選んだ変更（Excel の違うセル）と、元のファイルを開くボタン -->
+    <DockPanel x:Name="DetailBar" DockPanel.Dock="Bottom" Margin="0,8,0,0">
+      <Button x:Name="OpenRightButton" DockPanel.Dock="Right" Content="比較先を開く" Margin="8,0,0,0" IsEnabled="False" />
+      <Button x:Name="OpenLeftButton" DockPanel.Dock="Right" Content="比較元を開く" IsEnabled="False" />
+      <TextBlock x:Name="DetailText" Style="{StaticResource Meta}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    </DockPanel>
+
+    <Border BorderBrush="{StaticResource Border.Normal}" BorderThickness="1" CornerRadius="0,8,8,8" Background="{StaticResource Bg.Surface}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="14" />
+        </Grid.ColumnDefinitions>
+        <DockPanel Grid.Column="0">
+          <!-- Excel の列の見出し（左右） -->
+          <Grid x:Name="GridHeader" DockPanel.Dock="Top" Height="24" Background="#F3F5F7" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="2" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <DockPanel Grid.Column="0">
+              <Border DockPanel.Dock="Left" Width="44" />
+              <Canvas ClipToBounds="True">
+                <ItemsControl x:Name="LeftColumnHeader" ItemsPanel="{StaticResource RowPanelTemplate}"
+                              Canvas.Left="{Binding Tag.CellOffset, ElementName=SideList}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Width="{Binding Width}" Height="24" BorderThickness="0,0,1,1" BorderBrush="#E9ECF0">
+                        <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{StaticResource Ink.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Canvas>
+            </DockPanel>
+            <Border Grid.Column="1" Background="#D7DBE0" />
+            <DockPanel Grid.Column="2">
+              <Border DockPanel.Dock="Left" Width="44" />
+              <Canvas ClipToBounds="True">
+                <ItemsControl x:Name="RightColumnHeader" ItemsPanel="{StaticResource RowPanelTemplate}"
+                              Canvas.Left="{Binding Tag.CellOffset, ElementName=SideList}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Width="{Binding Width}" Height="24" BorderThickness="0,0,1,1" BorderBrush="#E9ECF0">
+                        <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{StaticResource Ink.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Canvas>
+            </DockPanel>
+          </Grid>
+          <!-- Excel の表の横のスクロール（左右そろって動く） -->
+          <ScrollBar x:Name="GridHScroll" DockPanel.Dock="Bottom" Orientation="Horizontal" Height="14" Visibility="Collapsed" SmallChange="40" />
+          <Grid>
+            <ListBox x:Name="SideList" Style="{StaticResource Diff.List}" ItemTemplate="{StaticResource SideRow}" />
+            <ListBox x:Name="ChangeList" Style="{StaticResource Diff.List}" ItemTemplate="{StaticResource ListRow}" Visibility="Collapsed" />
+            <TextBlock x:Name="DiffMessage" Style="{StaticResource Placeholder}" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="24" />
+          </Grid>
+        </DockPanel>
+        <!-- 変更の位置のバー -->
+        <Canvas x:Name="OverviewBar" Grid.Column="1" Background="#F3F5F7" ClipToBounds="True" Cursor="Hand" ToolTip="変更の位置（クリックで移る）" />
+      </Grid>
+    </Border>
+  </DockPanel>
+
+  <!-- ================= 比べる前の案内 ================= -->
+  <Border x:Name="StartHint" Grid.Row="2" Grid.RowSpan="3" Margin="0,16,0,0" BorderBrush="{StaticResource Accent.Ring}" BorderThickness="2" CornerRadius="12" Background="#FAFBFF">
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock x:Name="StartHintTitle" Text="比べる 2 つのファイルを選ぶか、ここへドロップしてください" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" HorizontalAlignment="Center" />
+      <TextBlock Style="{StaticResource Meta}" Margin="0,10,0,0" HorizontalAlignment="Center" TextAlignment="Center"
+                 Text="2 つまとめてドロップすると、名前の順に比較元・比較先へ入ります。フォルダをドロップすると［フォルダ］に切り替わります。&#x0a;原本は書き換えません。読み取った内容は画面を閉じると消えます。" />
+    </StackPanel>
+  </Border>
+
+  <!-- ================= 下の説明と出力 ================= -->
+  <DockPanel Grid.Row="5" Margin="0,8,0,0">
+    <Button x:Name="ExportButton" DockPanel.Dock="Right" Content="結果をファイルに出力" IsEnabled="False" />
+    <TextBlock x:Name="FooterHint" Style="{StaticResource Micro}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+               Text="F8 / Shift+F8：次・前の変更　ダブルクリック：その側のファイルをその位置で開く　Ctrl+↓：次の違うファイル（フォルダのとき）" />
+  </DockPanel>
 </Grid>

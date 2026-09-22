@@ -342,3 +342,56 @@ function writeDiffReport {
     [System.IO.File]::WriteAllLines($path, $lines, ${utf8Bom})
     return $path
 }
+
+function readNewExtractResults {
+    # 抽出の結果のうち、offset（バイト）より後に書き足された行だけを読む（毎回全部を読むと、ファイルが多いとき遅いため）。
+    # 返すのは @{ Rows = @{ Id; Side; State; Count; Message } の配列; Offset = 次に読む位置 }。書き込み途中の行（改行の無い行）は次に回す
+    param (
+        [string]$jobDir,
+        [long]$offset = 0
+    )
+
+    $path = Join-Path $jobDir ${diffResultFileName}
+    $rows = New-Object System.Collections.Generic.List[object]
+    if (!(Test-Path -LiteralPath $path)) {
+        return @{ Rows = $rows.ToArray(); Offset = $offset }
+    }
+    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $length = $stream.Length
+        if ($length -le $offset) {
+            return @{ Rows = $rows.ToArray(); Offset = $offset }
+        }
+        [void]$stream.Seek($offset, [System.IO.SeekOrigin]::Begin)
+        $bytes = New-Object byte[] ($length - $offset)
+        $read = 0
+        while ($read -lt $bytes.Length) {
+            $n = $stream.Read($bytes, $read, $bytes.Length - $read)
+            if ($n -le 0) { break }
+            $read += $n
+        }
+    } finally {
+        $stream.Dispose()
+    }
+    $last = [Array]::LastIndexOf($bytes, [byte]10, $read - 1)
+    if ($last -lt 0) {
+        return @{ Rows = $rows.ToArray(); Offset = $offset }
+    }
+    $start = 0
+    if ($offset -eq 0 -and $read -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        $start = 3
+    }
+    $text = [System.Text.Encoding]::UTF8.GetString($bytes, $start, $last + 1 - $start)
+    foreach ($line in ($text -split "`r?`n")) {
+        $parts = $line.Split("`t")
+        if ($parts.Count -lt 5) {
+            continue
+        }
+        $id = 0
+        if (![int]::TryParse($parts[0], [ref]$id)) {
+            continue
+        }
+        $rows.Add(@{ Id = $id; Side = $parts[1]; State = $parts[2]; Count = [int]$parts[3]; Message = $parts[4] })
+    }
+    return @{ Rows = $rows.ToArray(); Offset = $offset + $last + 1 }
+}

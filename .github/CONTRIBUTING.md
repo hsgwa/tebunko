@@ -1,4 +1,4 @@
-# 開発に参加する
+﻿# 開発に参加する
 
 tebunko への不具合の報告・要望・修正の提案を歓迎します。このページは、変更を提案するときの手順と決まりをまとめたものです。
 
@@ -84,7 +84,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 .\tests\run.ps1 -Tag Office     # Excel・Word・PowerPoint が要るテスト
 ```
 
-画面を変えたときは、`tebunko_grep.bat` で実際に起動して確かめてください。テストの分け方と CI の中身は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) にあります。
+画面を変えたときは、`tebunko.bat` で実際に起動して確かめてください。テストの分け方と CI の中身は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) にあります。
 
 ## コードの決まり
 
@@ -93,7 +93,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 - **スクリプト・XAML は BOM 付き UTF-8・CRLF** で保存します（Windows PowerShell 5.1 の前提）。
 - **`scripts/shared/` は個々のツールを知らない**ようにします。ツール同士も互いを読み込みません。
 - **判断層**（`*_view.ps1`・`index_name.ps1`・`search_query.ps1`・`text.ps1`）は画面（WPF）に触れません。画面に出す文言や可否の判定はここに置き、テストを書きます。
-- 足したファイルは、読み込み口（`shared/shared.ps1`・`tebunko_grep/lib.ps1`・`gui.ps1`・`indexer.ps1`）から読み込みます。
+- 足したファイルは、読み込み口（`shared/shared.ps1`・`tebunko_grep/lib.ps1`・`tebunko_diff/lib.ps1`・`tebunko/gui.ps1`・`indexer.ps1`・`differ.ps1`）から読み込みます。
 - **ネットワーク通信・動的なコード実行・レジストリの変更・第三者のライブラリは使いません。** 利用者が導入を審査するときの前提です（[docs/04_安全性.md](../docs/04_安全性.md)）。
 
 ソースの構成は [docs/00_index.md](../docs/00_index.md) にあります。

@@ -188,7 +188,7 @@ function compareLines {
     $b = getLineKeys $right $dict $options.IgnoreWhitespace $options.CaseSensitive
     $match = getLineMatches $a $b
     if ($cells) {
-        return , (getAlignedPairs $match $right.Count $left $right { param($x, $y) [Math]::Max((getCellSimilarity $x $y), (getTextSimilarity $x $y)) } ${diffPairMinCellSimilarity})
+        return , (getAlignedPairs $match $right.Count $left $right { param($x, $y) [Math]::Max([double](getCellSimilarity $x $y), [double](getTextSimilarity $x $y)) } ${diffPairMinCellSimilarity})
     }
     return , (getAlignedPairs $match $right.Count $left $right { param($x, $y) getTextSimilarity $x $y })
 }
@@ -252,15 +252,6 @@ function getParagraphNos {
         $nos[$i] = "¶$($i + 1)"
     }
     return , $nos
-}
-
-function toDisplayText {
-    # TSV の 1 行を画面に出す文字にする（セル内の改行 U+2028 は ↵ にする）
-    param (
-        [string]$line
-    )
-
-    return $line.Replace([string][char]0x2028, " ↵ ")
 }
 
 function newPlaceDiff {
@@ -370,6 +361,7 @@ function compareExcelSheet {
         $row.RightLine = $pair[1]
         $row.LeftPlace = $leftName
         $row.RightPlace = $rightName
+        $row.HasCells = $true
         # `$x = if (...) { $array }` と書くと配列がばらされる（1 セルの行が文字列になる）ため、分けて代入する
         $lc = $null
         if ($pair[0] -ge 0) { $lc = $leftCells[$pair[0]] }
@@ -408,6 +400,7 @@ function compareExcelSheet {
                 if ($c -lt $lc.Count) { $cell.Text = $lc[$c] } else { $cell.Text = "" }
                 $cell.Width = $widths[$c]
                 $cell.Changed = $whole -or $changed[$c]
+                if ($cell.Changed) { $cell.Kind = $row.Kind }
                 $items[$c] = $cell
             }
             $row.LeftCells = $items
@@ -424,6 +417,7 @@ function compareExcelSheet {
                 if ($c -lt $rc.Count) { $cell.Text = $rc[$c] } else { $cell.Text = "" }
                 $cell.Width = $widths[$c]
                 $cell.Changed = $whole -or $changed[$c]
+                if ($cell.Changed) { $cell.Kind = $row.Kind }
                 $items[$c] = $cell
             }
             $row.RightCells = $items

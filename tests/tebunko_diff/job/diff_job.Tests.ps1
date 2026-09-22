@@ -113,3 +113,61 @@ Describe "フォルダのファイル" -Tag Io {
         [System.IO.File]::ReadAllLines($path)[1] | Should Be "2 行目"
     }
 }
+
+Describe "readNewExtractResults" -Tag Io {
+    It "前回読んだ位置より後に書き足された行だけを読み、書き込み途中の行は次に回す" {
+        $dir = newDiffJobDir $PID "$TestDrive\incremental"
+        addExtractResult $dir 1 "left" ${diffStateDone} 2
+        $first = readNewExtractResults $dir 0
+        @($first.Rows).Count | Should Be 1
+        $first.Rows[0].Id | Should Be 1
+
+        addExtractResult $dir 1 "right" ${diffStateDone} 3
+        [System.IO.File]::AppendAllText((Join-Path $dir ${diffResultFileName}), "2`tle", [System.Text.Encoding]::UTF8)
+        $second = readNewExtractResults $dir $first.Offset
+        @($second.Rows).Count | Should Be 1
+        $second.Rows[0].Side | Should Be "right"
+
+        [System.IO.File]::AppendAllText((Join-Path $dir ${diffResultFileName}), "ft`t済`t1`t`r`n", [System.Text.Encoding]::UTF8)
+        $third = readNewExtractResults $dir $second.Offset
+        $third.Rows[0].Id | Should Be 2
+        $third.Rows[0].Side | Should Be "left"
+        @((readNewExtractResults $dir $third.Offset).Rows).Count | Should Be 0
+    }
+}
+
+
+Describe "作業フォルダ（細かい場合）" -Tag Io {
+    It "無いもの・壊れたものを読んでも止まらない" {
+        removeStaleDiffDirs "$TestDrive\無い" | Should Be 0
+        $dir = newDiffJobDir $PID "$TestDrive\missing"
+        @((readExtractResults $dir).Keys).Count | Should Be 0
+        readDiffProgress $dir | Should BeNullOrEmpty
+        [System.IO.File]::WriteAllText((Join-Path $dir ${diffProgressFileName}), "壊れた")
+        readDiffProgress $dir | Should BeNullOrEmpty
+        $priority = readDiffPriority $dir
+        $priority.Count | Should Be 0
+        $read = readNewExtractResults $dir 0
+        @($read.Rows).Count | Should Be 0
+        [System.IO.File]::WriteAllText((Join-Path $dir ${diffResultFileName}), "改行の無い行")
+        (readNewExtractResults $dir 0).Offset | Should Be 0
+        [System.IO.File]::WriteAllText((Join-Path $dir ${diffRequestFileName}), "1`tleft`r`n2`tright`tC:\a.xlsx`r`n")
+        @(readExtractRequest $dir).Count | Should Be 1
+    }
+
+    It "作業フォルダを消す（無ければ何もしない）。PID でない名前のフォルダは残す" {
+        $root = "$TestDrive\remove"
+        $dir = newDiffJobDir $PID $root
+        removeDiffJobDir $dir
+        Test-Path -LiteralPath $dir | Should Be $false
+        removeDiffJobDir "$TestDrive\無い"
+        removeDiffJobDir ""
+        [System.IO.Directory]::CreateDirectory("$root\名前") | Out-Null
+        removeStaleDiffDirs $root | Should Be 0
+        Test-Path -LiteralPath "$root\名前" | Should Be $true
+    }
+
+    It "抽出結果のフォルダ" {
+        getExtractDir "C:\job" "right" 3 | Should Be "C:\job\right\3"
+    }
+}

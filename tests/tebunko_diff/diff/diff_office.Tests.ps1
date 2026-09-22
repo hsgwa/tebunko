@@ -51,6 +51,13 @@ Describe "Excel" -Tag Unit {
         $place.Rows[0].LeftCells[0].Text | Should Be "見出し"
     }
 
+    It "先頭のセルが空の行も、似ていれば変更に組む（セルの一致の割合が 0 でも、文字が似ていれば組む）" {
+        $l = [ordered]@{ S = [string[]]@("", "`t御見積書", "`tA社 御中") }
+        $r = [ordered]@{ S = [string[]]@("", "`t御見積書（2025年度）", "`tA社 御中") }
+        $place = (compareOfficeUnits "Excel" $l $r).Places[0]
+        getRowText $place.Rows | Should Be "same:1:1 change:2:2 same:3:3"
+    }
+
     It "シート名の大文字・小文字の違いは同じシートとする" {
         $r = compareOfficeUnits "Excel" ([ordered]@{ Sheet1 = [string[]]@("a") }) ([ordered]@{ SHEET1 = [string[]]@("a") })
         @($r.Places).Count | Should Be 1
@@ -186,5 +193,67 @@ Describe "大きすぎる場所" -Tag Unit {
         $place = newTooLargePlace "S" "S" "S" ([string[]]@("a", "b")) ([string[]]@("a", "c"))
         $place.Status | Should Be "change"
         $place.Note | Should Match "中身が違います"
+    }
+}
+
+
+Describe "種類ごとの比べ方（細かい場合）" -Tag Unit {
+    It "比べられない種類は例外にする" {
+        { compareOfficeUnits "PDF" ([ordered]@{}) ([ordered]@{}) } | Should Throw "比べられない種類です"
+    }
+
+    It "片方の場所が無くても比べられる（空の辞書・null）" {
+        $result = compareOfficeUnits "Word" $null ([ordered]@{ "ページ001" = [string[]]@("a") })
+        $result.Places[0].Status | Should Be "insert"
+        (getUnitLines ([ordered]@{ a = $null }) "a").Count | Should Be 0
+    }
+
+    It "違うセルが 6 つ以上なら、5 つまで出して残りの数を出す" {
+        $l = [ordered]@{ S = [string[]]@("k`t10001`t10002`t10003`t10004`t10005`t10006`t10007") }
+        $r = [ordered]@{ S = [string[]]@("k`t10011`t10012`t10013`t10014`t10015`t10016`t10017") }
+        $row = (compareOfficeUnits "Excel" $l $r).Places[0].Rows[0]
+        $row.Kind | Should Be "change"
+        $row.Detail | Should Match "ほか 2 セル$"
+    }
+
+    It "上限を超える行数の場所は、行ごとに比べない（Excel・Word）" {
+        $saved = ${diffMaxLines}
+        try {
+            ${script:diffMaxLines} = 2
+            $big = [string[]]@("a", "b", "c")
+            $excel = compareOfficeUnits "Excel" ([ordered]@{ S = $big }) ([ordered]@{ S = $big })
+            $excel.Places[0].Note | Should Match "中身は同じです"
+            $word = compareOfficeUnits "Word" ([ordered]@{ "ページ001" = $big }) ([ordered]@{ "ページ001" = [string[]]@("x", "y", "z") })
+            $word.Places[0].Status | Should Be "change"
+        } finally {
+            ${script:diffMaxLines} = $saved
+        }
+    }
+
+    It "PowerPoint の図形・コメントはスライドの中の小見出しの下に比べる" {
+        $l = [ordered]@{ "スライド001" = [string[]]@("表紙"); "スライド001[図形]" = [string[]]@("図1"); "スライド001[コメント]" = [string[]]@("確認") }
+        $r = [ordered]@{ "スライド001" = [string[]]@("表紙"); "スライド001[図形]" = [string[]]@("図2"); "スライド001[コメント]" = [string[]]@("確認") }
+        $rows = (compareOfficeUnits "PowerPoint" $l $r).Places[0].Rows
+        (@($rows | Where-Object { $_.Type -eq "Section" } | ForEach-Object { $_.LeftText }) -join ",") | Should Be "図形,コメント"
+    }
+
+    It "非表示かどうかだけが変わったスライドも、場所を変更にする" {
+        $l = [ordered]@{ "スライド001" = [string[]]@("補足") }
+        $r = [ordered]@{ "スライド001（非表示）" = [string[]]@("補足") }
+        $place = (compareOfficeUnits "PowerPoint" $l $r).Places[0]
+        $place.Status | Should Be "change"
+        $place.Rows[0].Detail | Should Be "非表示にした"
+    }
+
+    It "片方だけの非表示のスライドには「非表示」を出す" {
+        $inserted = compareOfficeUnits "PowerPoint" ([ordered]@{ "スライド001" = [string[]]@("a") }) ([ordered]@{ "スライド001" = [string[]]@("a"); "スライド002（非表示）" = [string[]]@("隠し") })
+        (@($inserted.Places[0].Rows | Where-Object { $_.Type -eq "Header" })[1]).Detail | Should Be "非表示"
+        $deleted = compareOfficeUnits "PowerPoint" ([ordered]@{ "スライド001" = [string[]]@("a"); "スライド002（非表示）" = [string[]]@("隠し") }) ([ordered]@{ "スライド001" = [string[]]@("a") })
+        (@($deleted.Places[0].Rows | Where-Object { $_.Type -eq "Header" })[1]).Detail | Should Be "非表示"
+    }
+
+    It "スライドの名前は本文の最初の段落（空なら空、長ければ切る）" {
+        getSlideTitle @{ Body = [string[]]@("", " ") } | Should Be ""
+        getSlideTitle @{ Body = [string[]]@("あ" * 50) } | Should Be (("あ" * 40) + "…")
     }
 }

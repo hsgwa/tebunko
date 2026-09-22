@@ -30,6 +30,7 @@ class DiffRow {
     [object[]]$RightSegs
     [object[]]$LeftCells        # Excel のセル（DiffCell）。Excel 以外は $null
     [object[]]$RightCells
+    [bool]$HasCells             # Excel の表として出す行（画面の型を選ぶのに使う）
     [int]$LeftLine = -1         # その場所の TSV での行の位置（0 から）。空きなら -1
     [int]$RightLine = -1
     [string]$LeftPlace = ""     # 開くときの場所（Excel のシート名）
@@ -51,6 +52,7 @@ class DiffSeg {
 class DiffCell {
     [string]$Text
     [bool]$Changed
+    [string]$Kind = ""          # 違うセルの種類（change / insert / delete。同じセルは ""）。画面の色に使う
     [bool]$Blank                # 相手側に行が無い（insert・delete の行のセル）
     [double]$Width
 }
@@ -386,7 +388,8 @@ function getCellSimilarity {
     if ($filled -eq 0) {
         return 1.0
     }
-    return $same / $filled
+    # 整数の割り算は整数（0 など）になり、[Math]::Max で整数どうしの比べ方が選ばれて小数が切り捨てられるため、double にする
+    return [double]$same / $filled
 }
 
 # ----------------------------------------------------------------------------

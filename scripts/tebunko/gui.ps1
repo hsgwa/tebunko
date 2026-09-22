@@ -108,7 +108,18 @@ $tabs = @(
         "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
         "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
         "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
-    @{ Tab = "DiffTab"; File = "tab_diff.xaml"; Dir = "${diffDir}\xaml"; Names = @("DiffRoot") }
+    @{ Tab = "DiffTab"; File = "tab_diff.xaml"; Dir = "${diffDir}\xaml"; Names = @(
+        "DiffRoot", "TreeRowDefinition", "SplitterRowDefinition", "InputPanel", "ModeFileButton", "ModeFolderButton",
+        "ModeNoteText", "LeftInput", "LeftPickButton", "LeftBox", "LeftPlaceholder", "SwapButton", "RightInput",
+        "RightPickButton", "RightBox", "RightPlaceholder", "SubfolderCheck", "HideSameCheck", "CompareButton", "BlockReasonText",
+        "ShapeCheck", "CommentCheck", "WhitespaceCheck", "CaseCheck", "CompactBar", "CompactFileButton", "CompactFolderButton",
+        "StopButton", "RecompareButton", "EditInputButton", "LeftNameText", "SwapCompactButton",
+        "RightNameText", "SummaryBar", "CollapseTreeButton", "ExpandTreeButton", "ProgressText",
+        "DiffProgress", "SummaryText", "CountsText", "TreePanel", "TreeLeftTitle", "TreeRightTitle", "TreeList", "TreeSplitter",
+        "DiffPanel", "FoldCheck", "ViewSideButton", "ViewListButton", "PrevChangeButton", "NextChangeButton", "FileTitleText",
+        "PlaceList", "DetailBar", "OpenRightButton", "OpenLeftButton", "DetailText", "GridHeader", "LeftColumnHeader",
+        "RightColumnHeader", "GridHScroll", "SideList", "ChangeList", "DiffMessage", "OverviewBar", "StartHint",
+        "StartHintTitle", "ExportButton", "FooterHint") }
     @{ Tab = "KillTab"; File = "tab_kill.xaml"; Dir = ${sharedXamlDir}; Names = @(
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
         "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }

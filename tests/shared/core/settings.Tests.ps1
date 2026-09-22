@@ -88,3 +88,10 @@ Describe "mergeSettingValues" -Tag Unit {
         $settings.flag | Should Be $true
     }
 }
+
+
+Describe "toSettingValue" -Tag Unit {
+    It "既定値が文字列・真偽・数値・配列・辞書でなければ、読んだ値をそのまま使う" {
+        toSettingValue 2.5 1.0 | Should Be 2.5
+    }
+}

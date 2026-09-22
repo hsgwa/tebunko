@@ -53,9 +53,11 @@ if ($Ci) {
     [System.IO.Directory]::CreateDirectory($outDir) | Out-Null
     $arguments.OutputFile   = "$outDir\results.xml"
     $arguments.OutputFormat = "NUnitXml"
-    # カバレッジの対象は判断層・状態層だけにする（画面層は自動テストの対象外）
+    # カバレッジの対象は判断層・状態層だけにする（画面層は自動テストの対象外）。
+    # 画面層: 起動口（gui）・画面の土台（shell・app_host）・タブ（*_tab）・ダイアログ（*_dialog）と、
+    # ウィンドウ全体の処理（grep_page）・比較の差分の表示（diff_pane）・フォルダのツリー（diff_tree）
     $arguments.CodeCoverage = @(Get-ChildItem "$rootDir\scripts" -Recurse -Filter "*.ps1" |
-        Where-Object { $_.Name -notmatch "^(gui|shell|app_host)\.ps1$" -and $_.Name -notmatch "_tab\.ps1$" -and $_.Name -notmatch "_dialog\.ps1$" } |
+        Where-Object { $_.Name -notmatch "^(gui|shell|app_host|grep_page|diff_pane|diff_tree)\.ps1$" -and $_.Name -notmatch "_tab\.ps1$" -and $_.Name -notmatch "_dialog\.ps1$" } |
         ForEach-Object { $_.FullName })
 }
 
