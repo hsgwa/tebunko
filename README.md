@@ -15,7 +15,7 @@ Office があれば、すぐに使えます。インストール不要・管理�
 [![Windows](https://img.shields.io/badge/Windows-PowerShell%205.1-0078D4?logo=windows)](#動作環境)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[**ダウンロード**](https://github.com/hsgwa/tebunko/releases/latest) ・ [使い方](#使い方) ・ [ドキュメント](https://hsgwa.github.io/tebunko/) ・ [サポート](.github/SUPPORT.md)
+[**ダウンロード**](https://github.com/hsgwa/tebunko/releases/latest) ・ [使い方](#使い方) ・ [ドキュメント](https://hsgwa.github.io/tebunko/) ・ [サポート](.github/SUPPORT.ja.md)
 
 <img src="docs/images/screenshot_search.png" alt="tebunko の検索画面。「(株)山田商事」で検索し、一致した Excel・Word・PowerPoint のファイルが見出しごとに並び、選んだ行の前後がプレビューに出ている" width="880">
 
@@ -146,7 +146,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 > [!IMPORTANT]
 > インデックス（`work/index/`）には文書の文字がそのまま入っており、元のファイルのアクセス権は引き継がれません。tebunko を置くフォルダのアクセス権は、検索するフォルダと同じか、それより厳しくしてください。
 
-根拠やご自身で確かめる手順、配布ファイルの検証方法は [安全性の説明](docs/04_安全性.md) に、脆弱性の報告先は [SECURITY.md](.github/SECURITY.md) にあります。
+根拠やご自身で確かめる手順、配布ファイルの検証方法は [安全性の説明](docs/04_安全性.md) に、脆弱性の報告先は [SECURITY.md](.github/SECURITY.ja.md) にあります。
 
 ## 仕組み
 
@@ -189,14 +189,14 @@ flowchart LR
 
 ## 開発に参加する
 
-不具合の報告や要望、改善の提案をお待ちしています。参加する際は [行動規範](.github/CODE_OF_CONDUCT.md) をお守りください。
+不具合の報告や要望、改善の提案をお待ちしています。参加する際は [行動規範](.github/CODE_OF_CONDUCT.ja.md) をお守りください。
 
 | したいこと | 場所 |
 |---|---|
 | 不具合の報告・機能の要望 | [Issue](https://github.com/hsgwa/tebunko/issues/new/choose) |
-| 使い方の質問 | [SUPPORT.md](.github/SUPPORT.md) |
-| 脆弱性の報告（非公開） | [SECURITY.md](.github/SECURITY.md) |
-| 変更の提案 | [CONTRIBUTING.md](.github/CONTRIBUTING.md) |
+| 使い方の質問 | [SUPPORT.md](.github/SUPPORT.ja.md) |
+| 脆弱性の報告（非公開） | [SECURITY.md](.github/SECURITY.ja.md) |
+| 変更の提案 | [CONTRIBUTING.md](.github/CONTRIBUTING.ja.md) |
 
 テストは次のコマンドで実行できます（Pester 3.4）。Pull Request を出すと、CI がテスト・カバレッジ・静的解析・個人情報の有無を自動で確かめます。
 

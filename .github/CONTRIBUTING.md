@@ -1,136 +1,139 @@
-# 開発に参加する
+# Contributing
 
-tebunko への不具合の報告・要望・修正の提案を歓迎します。このページは、変更を提案するときの手順と決まりをまとめたものです。
+English | [日本語](CONTRIBUTING.ja.md)
 
-- 使い方の質問は [SUPPORT.md](SUPPORT.md) を見てください。
-- 安全性に関わる問題は、Issue ではなく [SECURITY.md](SECURITY.md) の手順で非公開で連絡してください。
-- 参加する人は [行動規範](CODE_OF_CONDUCT.md) に従ってください。
+Bug reports, feature requests and proposed fixes for tebunko are welcome. This page describes how to propose a change and the rules for doing so.
 
-## 変更の流れ
+- For questions about how to use the tool, see [SUPPORT.md](SUPPORT.md).
+- Report security issues privately as described in [SECURITY.md](SECURITY.md), not in an issue.
+- Everyone who takes part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Issues and pull requests may be written in English or Japanese. The design documents (`docs/`) and most comments in the code are in Japanese.
 
-変更は **Issue → ブランチ → Pull Request → main** の順で入れます。
+## How changes are made
 
-1. **Issue を立てる。** 不具合は「不具合」、機能の追加・変更は「機能の要望」のテンプレートを使います。タイトルは下の「コミットと Pull Request のタイトル」の形にします（テンプレートが `fix: ` `feat: ` を最初から入れます）。誤字の修正のような小さな変更は、Issue なしで Pull Request を出してかまいません。
-2. **main から作業用のブランチを作る。**
-3. **変更し、テストを通す**（下の「テスト」）。
-4. **Pull Request を出す。** 出す前に最新の main を merge で取り込みます（main を取り込んでいないブランチはマージできません。push 済みのブランチを rebase して force push しないでください）。本文はテンプレートに沿って書き、`Closes #<Issue の番号>` で Issue とつなぎます。ラベルを 1 つ付けます（`enhancement` / `bug` / `documentation` / `dependencies`）。前の版と互換が無くなる変更には `breaking` も付け、移行の手順を書きます。
-5. **CI が通り、レビューが済んだら squash merge します。** Pull Request のタイトルが main のコミットのタイトルになるので、下の「コミットと Pull Request のタイトル」の形で、変更の内容が分かる 1 行にしてください。
+Changes go in this order: **issue → branch → pull request → main**.
 
-1 つの Pull Request には 1 つの変更だけを入れます。関係のない修正は別の Pull Request にしてください。
+1. **Open an issue.** Use the "不具合" (bug) template for bugs and the "機能の要望" (feature request) template for new or changed features. Write the title in the form described in "Commit and pull request titles" below (the templates start the title with `fix: ` or `feat: `). A small change such as a typo fix can go straight to a pull request without an issue.
+2. **Create a working branch from main.**
+3. **Make the change and run the tests** (see "Tests" below).
+4. **Open a pull request.** Before you open it, bring in the latest main with a merge (a branch that does not include the latest main cannot be merged; do not rebase and force-push a branch that you have already pushed). Fill in the pull request template and link the issue with `Closes #<issue number>`. Add one label (`enhancement` / `bug` / `documentation` / `dependencies`). If the change breaks compatibility with the previous version, also add `breaking` and describe how to migrate.
+5. **When CI passes and the review is done, the pull request is squash merged.** The pull request title becomes the title of the commit on main, so write it as one line that says what the change does, in the form described in "Commit and pull request titles".
 
-### コミットと Pull Request のタイトル
+Put only one change in each pull request. Send unrelated fixes as separate pull requests.
 
-コミットメッセージの 1 行目、Pull Request のタイトル、Issue のタイトルは [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/) の形にします。型は英語、説明は日本語で書きます。
+### Commit and pull request titles
+
+The first line of a commit message, the pull request title and the issue title follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Write the type in English. Write the description in Japanese or English.
 
 ```
-<型>(<範囲>)!: <説明>
+<type>(<scope>)!: <description>
 
 feat: Excel の図形の文字を検索できるようにする
-fix(gui): 検索結果の件数が 0 のままになるのを直す
-feat!: インデックスの形式を変える
+fix(gui): fix the result count that stays at 0
+feat!: change the index format
 ```
 
-- 範囲（`(gui)` など）は省略できます。書くときは空白を含まない 1 語にします。
-- `!` は、設定ファイルやインデックスが前の版のまま使えなくなる変更に付けます。Pull Request には `breaking` ラベルも付けます（上げる桁は下の「リリース」）。
-- 型の後ろは半角のコロンと空白 1 つです。
+- The scope (such as `(gui)`) is optional. If you write one, make it a single word with no spaces.
+- Add `!` to a change after which the settings file or the index of the previous version can no longer be used as is. Also add the `breaking` label to the pull request (see "Releases" below for which part of the version goes up).
+- After the type, write one colon and one space.
 
-| 型 | 使うとき | Pull Request のラベル |
+| Type | Use for | Pull request label |
 |---|---|---|
-| `feat` | 機能の追加・変更 | `enhancement` |
-| `fix` | 不具合の修正 | `bug` |
-| `docs` | 文書だけの変更 | `documentation` |
-| `refactor` | 動きを変えない書き直し | 内容に近いもの |
-| `perf` | 速さの改善 | `enhancement` |
-| `test` | テストだけの追加・修正 | 内容に近いもの |
-| `style` | 書式だけの変更（空白・改行など） | 内容に近いもの |
-| `build` | 配布物の作り方・依存の更新 | `dependencies`（依存の更新のとき） |
-| `ci` | CI・git のフック・開発用の道具 | 内容に近いもの |
-| `chore` | 上のどれにも当たらないもの | 内容に近いもの |
-| `revert` | 前の変更の取り消し | 取り消す変更と同じもの |
+| `feat` | Adding or changing a feature | `enhancement` |
+| `fix` | Fixing a bug | `bug` |
+| `docs` | Changes to documents only | `documentation` |
+| `refactor` | Rewriting without changing behavior | The closest one |
+| `perf` | Making it faster | `enhancement` |
+| `test` | Adding or fixing tests only | The closest one |
+| `style` | Formatting only (spaces, line breaks) | The closest one |
+| `build` | How the release is built, dependency updates | `dependencies` (for dependency updates) |
+| `ci` | CI, git hooks, development tools | The closest one |
+| `chore` | Anything that fits none of the above | The closest one |
+| `revert` | Reverting an earlier change | The same as the change being reverted |
 
-形は機械的に確かめます。コミットは `commit-msg` フック（下の「開発の準備」）、Pull Request のタイトルは CI が確かめ、形が違うとマージできません。Issue のタイトルが違う形のときは、直し方が自動でコメントされます。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べません。
+The form is checked automatically. The `commit-msg` hook checks commits (see "Setting up" below), and CI checks pull request titles; a pull request with a title in the wrong form cannot be merged. If an issue title is in the wrong form, a comment explaining how to fix it is added automatically. Messages that git creates on its own (`Merge ...`, `Revert "..."`, `fixup! ...`) are not checked.
 
 ### Signed-off-by
 
-コミットは `git commit -s` で作り、`Signed-off-by: <名前> <メールアドレス>` を付けてください。[DCO（Developer Certificate of Origin）](https://developercertificate.org/)に同意し、その変更をこのリポジトリのライセンスで出す権利があることを表します。メールアドレスはコミットの作者のものと同じにしてください。
+Create commits with `git commit -s` so that they carry `Signed-off-by: <name> <email address>`. This shows that you agree to the [DCO (Developer Certificate of Origin)](https://developercertificate.org/) and that you have the right to submit the change under the license of this repository. Use the same email address as the author of the commit.
 
-付いていないコミットは `commit-msg` フックが止めます。Pull Request では CI が調べ、付いていないコミットがあるとマージできません。付け忘れたまま push したときは、`git rebase --signoff origin/main` で付け直して `git push --force-with-lease` してください。
+The `commit-msg` hook stops commits without it. CI checks the commits of a pull request, and a pull request that contains a commit without it cannot be merged. If you pushed commits without it, add it with `git rebase --signoff origin/main` and push with `git push --force-with-lease`.
 
-## 開発の準備
+## Setting up
 
-必要なもの:
+You need:
 
-- Windows と Windows PowerShell 5.1（Windows に最初から入っています）
-- Pester 3.4（テストの実行に使います。Windows に最初から入っている版です）
-- Microsoft Excel・Word・PowerPoint（インデックス作成を実際に試すとき。自動テストには不要です）
+- Windows and Windows PowerShell 5.1 (included with Windows)
+- Pester 3.4 (used to run the tests; the version included with Windows)
+- Microsoft Excel, Word and PowerPoint (only to actually build indexes; the automated tests do not need them)
 
-clone したら、コミット前の検査を有効にします（1 回だけ）。
+After you clone the repository, turn on the pre-commit checks (once).
 
 ```powershell
 .\tools\install_hooks.ps1
 ```
 
-以後、コミットのたびに次の検査が動きます。引っかかったときは `--no-verify` で飛ばさず、内容を直してください。
+From then on, the following checks run on every commit. If a check fails, fix the content instead of skipping the check with `--no-verify`.
 
-- 個人情報（実名・メールアドレス・利用者名を含むパスなど）と、スクリプトの文字コードの検査（`tools\check_commit.ps1 -Staged`）
-- 速いテスト（`tests\run.ps1 -Tag Unit,Meta -Quiet`）
-- コミットメッセージの 1 行目の形（`tools\check_commit_message.ps1`。上の「コミットと Pull Request のタイトル」）
-- `Signed-off-by` が付いていること（`tools\check_signoff.ps1`。上の「Signed-off-by」）
+- Personal information (real names, email addresses, paths that contain a user name) and the text encoding of scripts (`tools\check_commit.ps1 -Staged`)
+- The fast tests (`tests\run.ps1 -Tag Unit,Meta -Quiet`)
+- The form of the first line of the commit message (`tools\check_commit_message.ps1`; see "Commit and pull request titles" above)
+- That `Signed-off-by` is present (`tools\check_signoff.ps1`; see "Signed-off-by" above)
 
-## テスト
+## Tests
 
 ```powershell
-.\tests\run.ps1                 # 既定のテスト（Unit・Io・Meta）
-.\tests\run.ps1 -Tag Office     # Excel・Word・PowerPoint が要るテスト
+.\tests\run.ps1                 # The default tests (Unit, Io, Meta)
+.\tests\run.ps1 -Tag Office     # Tests that need Excel, Word and PowerPoint
 ```
 
-- **機能を足したり動きを変えたりしたら、同じ Pull Request でテストを書いてください。** 画面に出す文言や可否の判定（判断層）は特に厚くします。
-- **カバレッジは下げません。** CI（`.\tests\run.ps1 -Ci`）は、カバレッジが `tests/coverage.baseline` の値を下回ると失敗します。下回ったらテストを足して戻し、上がったら同じ Pull Request で下限を上げてください。画面層は計測の対象外です。
-- 画面を変えたときは、`tebunko_grep.bat` で実際に起動して確かめてください。
+- **When you add a feature or change behavior, write tests in the same pull request.** Test the text shown on screen and the decisions about what is allowed (the decision layer) especially well.
+- **Do not lower the coverage.** CI (`.\tests\run.ps1 -Ci`) fails when the coverage falls below the value in `tests/coverage.baseline`. If it falls, add tests to bring it back. If it rises, raise the baseline in the same pull request. The screen layer is not measured.
+- When you change the screen, start the tool with `tebunko_grep.bat` and check it.
 
-テストの分け方と CI の中身は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) にあります。
+How the tests are organized and what CI does is described in [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) (Japanese).
 
-## コードの決まり
+## Coding rules
 
-`tests/meta/` のテストと、CI の静的解析（PSScriptAnalyzer。重大度 Error の指摘が 0 件であること）が機械的に確かめます。
+The tests in `tests/meta/` and the static analysis in CI (PSScriptAnalyzer; no findings of severity Error) check these rules automatically.
 
-- **スクリプト・XAML は BOM 付き UTF-8・CRLF** で保存します（Windows PowerShell 5.1 の前提）。
-- **`scripts/shared/` は個々のツールを知らない**ようにします。ツール同士も互いを読み込みません。
-- **判断層**（`*_view.ps1`・`index_name.ps1`・`search_query.ps1`・`text.ps1`）は画面（WPF）に触れません。画面に出す文言や可否の判定はここに置き、テストを書きます。
-- 足したファイルは、読み込み口（`shared/shared.ps1`・`tebunko_grep/lib.ps1`・`gui.ps1`・`indexer.ps1`）から読み込みます。
-- **ネットワーク通信・動的なコード実行・レジストリの変更・第三者のライブラリは使いません。** 利用者が導入を審査するときの前提です（[docs/04_安全性.md](../docs/04_安全性.md)）。
+- **Save scripts and XAML as UTF-8 with BOM and CRLF line endings** (required by Windows PowerShell 5.1).
+- **`scripts/shared/` does not know about individual tools.** Tools do not load each other either.
+- **The decision layer** (`*_view.ps1`, `index_name.ps1`, `search_query.ps1`, `text.ps1`) does not touch the screen (WPF). Put the text shown on screen and the decisions about what is allowed here, and write tests for them.
+- Load every file you add from an entry point (`shared/shared.ps1`, `tebunko_grep/lib.ps1`, `gui.ps1`, `indexer.ps1`).
+- **Do not use network access, dynamic code execution, registry changes or third-party libraries.** Users rely on this when they review the tool before introducing it ([docs/04_安全性.md](../docs/04_安全性.md), Japanese).
 
-ソースの構成は [docs/00_index.md](../docs/00_index.md) にあります。
+The structure of the source code is described in [docs/00_index.md](../docs/00_index.md) (Japanese).
 
-## 個人情報を含めない
+## Do not include personal information
 
-このリポジトリは公開しています。**履歴に一度でも入れたものは公開されたのと同じ**なので、コミットする前に確かめてください。
+This repository is public. **Anything that has ever been in the history is as good as published**, so check before you commit.
 
-- テストデータや文書の例には、架空の名前（`山田` `佐藤`）、`example.com` のメールアドレス、架空の組織（`(株)山田商事`・`C:\共有\営業部`）を使います。
-- 利用者名を含む絶対パス（`C:\Users\<利用者名>\...`）を書きません。例示が必要なら `C:\Users\test\...` とします。
-- Office ファイルには、中身を見ただけでは分からない場所に作成者名などが埋め込まれます。テストデータを作り直したら、[tests/testdata/README.md](../tests/testdata/README.md) の手順で取り除いてください。
-- コミットの作者のメールアドレスは GitHub の noreply アドレスにしてください。
+- In test data and in examples in documents, use made-up names (`山田`, `佐藤`), email addresses at `example.com`, and made-up organizations (`(株)山田商事`, `C:\共有\営業部`).
+- Do not write absolute paths that contain a user name (`C:\Users\<user name>\...`). If you need an example, use `C:\Users\test\...`.
+- Office files hide the author's name and similar information in places you cannot see by looking at the content. If you regenerate test data, remove it as described in [tests/testdata/README.md](../tests/testdata/README.md) (Japanese).
+- Use your GitHub noreply address as the email address of the commit author.
 
-## ドキュメント
+## Documents
 
-- 設計書は `docs/` にあります。動きを変えたら、該当する設計書も同じ Pull Request で直してください。
-- 図は Mermaid か draw.io（`.drawio.png`）で描きます。罫線文字のアスキーアートは使いません。
-- 設計書は [Web サイト](https://hsgwa.github.io/tebunko/)（MkDocs）にもなります。設計書を足したときは `tools/mkdocs/mkdocs.yml` の `nav` にも足してください。設計書を変えた Pull Request には、サイトのプレビューの URL が自動でコメントされます。手元での確かめ方は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) の「CI」にあります。
+- The design documents are in `docs/`. If you change behavior, update the related design document in the same pull request.
+- Draw figures with Mermaid or draw.io (`.drawio.png`). Do not use ASCII art made of box-drawing characters.
+- The design documents are also published as a [website](https://hsgwa.github.io/tebunko/) (MkDocs). When you add a design document, also add it to `nav` in `tools/mkdocs/mkdocs.yml`. A pull request that changes the design documents gets a comment with a preview URL of the site automatically. How to check the site locally is described in "CI" in [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) (Japanese).
 
-## リリース
+## Releases
 
-管理者が `v<メジャー>.<マイナー>.<パッチ>`（SemVer）のタグを main に付けて push すると、テストを通したうえで配布 zip が GitHub Release に公開されます。
+When the maintainer pushes a `v<major>.<minor>.<patch>` (SemVer) tag on main, the tests run and the release zip is published on GitHub Releases.
 
-今は 0.x の版です。前の版以降にマージされた Pull Request のラベルで、上げる桁を決めます。
+The version is 0.x for now. Which part goes up is decided by the labels of the pull requests merged since the previous version.
 
-- **マイナー（0.3.1 → 0.4.0）** … `breaking`（設定ファイル `setting.config` やインデックスの形式が変わり、前の版のものがそのまま使えなくなる）を含むとき
-- **パッチ（0.3.1 → 0.3.2）** … 機能の追加（`enhancement`）か不具合の修正（`bug`）だけのとき
-- 文書（`documentation`）・依存の更新（`dependencies`）だけのときはリリースしません
+- **Minor (0.3.1 → 0.4.0)** … when a `breaking` change is included (the format of the settings file `setting.config` or of the index changes, and the files of the previous version can no longer be used as is)
+- **Patch (0.3.1 → 0.3.2)** … when there are only new features (`enhancement`) or bug fixes (`bug`)
+- No release when there are only documents (`documentation`) or dependency updates (`dependencies`)
 
-1.0.0 以降は、`breaking` でメジャー、`enhancement` でマイナー、`bug` でパッチを上げます。
+From 1.0.0 on, `breaking` raises the major version, `enhancement` the minor version and `bug` the patch version.
 
-リリースノートは GitHub Release に自動で作られ、Pull Request のラベルで「互換が無くなる変更」「機能」「不具合の修正」「文書」「依存の更新」に分類されます（`.github/release.yml`）。
+The release notes are created on GitHub Releases automatically and are grouped by the labels of the pull requests: breaking changes, features, bug fixes, documents and dependency updates (`.github/release.yml`).
 
-## ライセンス
+## License
 
-Pull Request で提出した変更（コード・ドキュメント・テストデータを含む）は、本リポジトリと同じ [MIT License](../LICENSE) で公開されます。提出するのは、自分で作ったものか、MIT License で公開してよい権利を持つものに限ってください。第三者のコード・画像・文書をそのまま持ち込むときは、事前に Issue で相談してください（本ツールは第三者の部品を含まないことを前提にしています。[sbom.cdx.json](../sbom.cdx.json)）。
+Changes you submit in a pull request (including code, documents and test data) are published under the same [MIT License](../LICENSE) as this repository. Submit only what you made yourself or what you have the right to publish under the MIT License. If you want to bring in third-party code, images or documents as is, discuss it in an issue first (the tool assumes that it contains no third-party components; see [sbom.cdx.json](../sbom.cdx.json)).
