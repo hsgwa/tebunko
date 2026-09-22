@@ -15,3 +15,9 @@
 . "$PSScriptRoot\..\index\index_store.ps1"
 . "$PSScriptRoot\..\search\search_query.ps1"
 . "$PSScriptRoot\..\search\source_map.ps1"
+# 制限モードだけで使う部品（検索・結果のブック・コンソール）
+. "$PSScriptRoot\restricted_search.ps1"
+. "$PSScriptRoot\result_book_view.ps1"
+. "$PSScriptRoot\result_book.ps1"
+. "$PSScriptRoot\console_view.ps1"
+. "$PSScriptRoot\search_console.ps1"

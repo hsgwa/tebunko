@@ -166,15 +166,16 @@ function getSearchIndexes {
     $root = (Resolve-Path -LiteralPath $dir).ProviderPath.TrimEnd("\")
     $sources = getSourceFolderMap $root $statusPath $settingsPath
 
-    # ［1 インデックス管理］の一覧の順番（インデックス名 → 何番目か）
-    $order = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # ［1 インデックス管理］の一覧の順番（インデックス名 → 何番目か。ハッシュテーブルは大文字・小文字を区別しない）。
+    # 制限モード（制限言語モード）からも使うため、Dictionary・List・[pscustomobject] は使わない
+    $order = @{}
     foreach ($folder in @(getTargetFolders $settingsPath | Where-Object { $_.Name })) {
         if (!$order.ContainsKey($folder.Name)) {
             $order[$folder.Name] = $order.Count
         }
     }
 
-    $indexes = New-Object System.Collections.Generic.List[object]
+    $indexes = @()
     foreach ($sub in @(Get-ChildItem -LiteralPath (toLongPath $root) -Directory -ErrorAction SilentlyContinue)) {
         $name = $sub.Name
         $path = (fromLongPath $sub.FullName)
@@ -186,7 +187,7 @@ function getSearchIndexes {
                 $sources[$name] = $own[$name]
             }
         }
-        $indexes.Add([pscustomobject]@{
+        $indexes += New-Object PSObject -Property ([ordered]@{
             Name       = $name
             Path       = $path
             SourcePath = $(if ($sources.ContainsKey($name)) { $sources[$name] } else { "" })
@@ -194,7 +195,7 @@ function getSearchIndexes {
         })
     }
     return @($indexes | Sort-Object Order, Name | ForEach-Object {
-        [pscustomobject]@{ Name = $_.Name; Path = $_.Path; SourcePath = $_.SourcePath }
+        New-Object PSObject -Property ([ordered]@{ Name = $_.Name; Path = $_.Path; SourcePath = $_.SourcePath })
     })
 }
 

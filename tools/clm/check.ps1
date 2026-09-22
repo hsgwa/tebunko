@@ -155,6 +155,23 @@ expect 'start.ps1 が制限モードで起動する旨を出す（終了コー�
     "exit=$code"
 }
 
+expect '制限モードの検索と、結果のブック（tar.exe で xlsx を作る）' ok {
+    . (Join-Path $Root 'scripts\tebunko_grep\restricted\lib_restricted.ps1')
+    $index = Join-Path $work 'index'
+    $tsv = Join-Path $index '見積\a.xlsx\売上.tsv'
+    New-Item -ItemType Directory -Path (Split-Path $tsv -Parent) -Force | Out-Null
+    Set-Content -LiteralPath $tsv -Value "りんご`t100`r`nみかん`r`nりんご飴`r`n" -Encoding UTF8 -NoNewline
+    $files = getRestrictedTsvFiles @(@{ Name = '見積'; Path = (Join-Path $index '見積') })
+    $result = searchRestricted 'りんご' $files $true
+    if ($result.Hits.Count -ne 2) { throw "hits=$($result.Hits.Count)" }
+    $regex = (newSearchRegex 'りんご' $true $false).Regex
+    $book = saveResultBook $result $regex @(, @('検索ワード', 'りんご')) (Join-Path $work '検索結果')
+    # ブックの名前は日本語のため、引数ではなく標準入力から渡す
+    $list = cmd.exe /d /c "`"$tar`" -tf - < `"$book`"" 2>&1
+    if (@($list) -notcontains 'xl/worksheets/sheet1.xml') { throw 'ブックの中に sheet1.xml が無い: ' + (@($list) -join ' ') }
+    'hits=2 ' + (Get-Item -LiteralPath $book).Length + ' bytes'
+}
+
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- 結果 ---

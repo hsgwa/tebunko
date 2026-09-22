@@ -202,6 +202,65 @@ $clmCases = [ordered]@{
         }
     }
 
+    # --- tebunko_grep/restricted/（制限モードの検索・結果のブック・コンソールの文言） ---
+    "searchRestricted"   = {
+        $root = Join-Path $caseDir "search_index"
+        $texts = [ordered]@{
+            "見積\a.xlsx\売上.tsv"           = "りんご`t100`r`nみかん`tりんごりんご`r`n`"青森$([char]0x2028)ふじ`"`tりんご飴`r`n"
+            "見積\a.xlsx\売上[図形].tsv"     = "B2`tりんごの図形`r`n"
+            "見積\2024\b.docx\ページ001.tsv" = "1 行目 りんご`nApple`napple pie"
+            "見積\old.xls_Sheet1.tsv"        = "旧形式 りんご 5`r`n"
+        }
+        foreach ($rel in $texts.Keys) {
+            $path = Join-Path $root $rel
+            New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
+            Set-Content -LiteralPath $path -Value $texts[$rel] -Encoding UTF8 -NoNewline
+        }
+        $files = getRestrictedTsvFiles @(@{ Name = "見積"; Path = "$root\見積" }) @(@{ Path = "$root\見積\2024"; Subfolders = $false })
+        @(
+            @("りんご", $true, $false, 0, ""), @("apple", $true, $true, 0, ""), @("^り", $false, $false, 0, ""),
+            @("a\sb", $false, $false, 0, ""), @("(?i)APPLE", $false, $false, 0, ""), @("りんご", $true, $false, 2, "*.xlsx")
+        ) | ForEach-Object {
+            $r = searchRestricted $_[0] $files $_[1] $_[2] $_[3] $_[4]
+            (@($r.Hits | ForEach-Object { "$($_.RelPath)|$($_.RelDir)|$($_.Book)|$($_.Location)|$($_.LineNumber)|$($_.Line)" }) -join "`n") + "#$($r.Total)#$($r.Truncated)"
+        }
+    }
+    "resultBookXml"      = {
+        $rows = @(
+            @{ Style = ${resultStyleHeader}; Level = 0; Texts = @("ファイル", "場所", "種別", "行", "A") },
+            @{ Style = ${resultStyleGroup}; Level = 0; Texts = @("見積\a.xlsx", "フォルダを開く", "1 件"); Styles = @{ 0 = ${resultStyleGroupLink} }; Links = @{ 0 = @{ Target = "C:\元 データ #1\a%.xlsx" } } },
+            @{ Style = ${resultStyleNormal}; Level = 1; Collapsed = $true; HighlightFrom = 4; Texts = @("a.xlsx", "[シート] 売上", "セル", "2", "りんご & <りんご>"); Links = @{ 0 = @{ Target = "C:\data\a.xlsx"; Location = (toXlsxLocation "売上 '1'" "B2") } } },
+            @{ Style = ${resultStyleContext}; Level = 2; Hidden = $true; Texts = @("", "", "前の行", "1", "品名$([char]1)_x0041_") }
+        )
+        $sheet = getResultSheetXml $rows 5 @(40, 24) ([regex]"りんご")
+        $parts = getResultBookParts $sheet (getResultInfoSheetXml @(, @("検索ワード", "りんご"))) 4 5
+        @($sheet.Sheet, $sheet.Rels, $sheet.LinkCount, (@($parts.Keys) -join "|"), $parts["xl/workbook.xml"], (escapeXlsxText ("a" * 40000)).Length)
+    }
+    "consoleView"        = {
+        $option = @{ UseRegex = $true; CaseSensitive = $false; FileFilter = "*.xlsx"; IncludeShapes = $true; IncludeComments = $false }
+        $indexes = @(@{ Name = "見積"; Path = "C:\t\見積"; SourcePath = "D:\見積" }, @{ Name = "営業"; Path = "C:\t\営業"; SourcePath = "" })
+        $excludes = @(@{ Path = "C:\t\営業"; Subfolders = $true })
+        $hit = @{ RelDir = "見積"; Book = "a.xlsx"; Location = "売上"; LineNumber = 3; Line = "りんご`t100" }
+        @(
+            (describeRestrictedOption $option), ((getOptionMenuLines $option) -join "|"),
+            (describeRestrictedIndexes $indexes $excludes), ((getIndexMenuLines $indexes $excludes) -join "|"),
+            (@(switchIndexExclude $indexes[1] $excludes) | ConvertTo-Json -Compress),
+            (parseMenuNumber "２" 3), ((parseHitChoice "f1" 3) | ConvertTo-Json -Compress),
+            ((getSearchSummaryLines "a(" @{ Hits = @(); Total = 2; Truncated = $false; SimpleMatch = $true } $true 10000) -join "|"),
+            (formatHitListLine 1 $hit 30)
+        )
+    }
+    "resultBook"         = {
+        # tar.exe で ZIP にまとめる（中身は tar.exe で一覧にする。System.IO.Compression は制限言語モードで使えない）
+        $rows = @(@{ Style = ${resultStyleHeader}; Level = 0; Texts = @("ファイル") })
+        $parts = getResultBookParts (getResultSheetXml $rows 1) (getResultInfoSheetXml @(, @("a", "b"))) 1 1
+        $path = Join-Path $caseDir "結果𠮷\book.xlsx"
+        New-Item -ItemType Directory -Path (Split-Path $path -Parent) -Force | Out-Null
+        writeResultBook $parts $path
+        $list = cmd.exe /d /c "cd /d `"$(Split-Path $path -Parent)`" && `"${tarExe}`" -tf book.xlsx"
+        @(@($list | Where-Object { $_ -notmatch '/$' }) | Sort-Object) -join "|"
+    }
+
     # --- tebunko_grep/search/source_map.ps1・index/index_store.ps1 ---
     "sourceMap"          = {
         $index = Join-Path $caseDir "index"

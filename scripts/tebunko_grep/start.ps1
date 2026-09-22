@@ -44,7 +44,5 @@ if ($CheckOnly) {
     exit 11
 }
 
-Write-Host ""
-Write-Host "制限モードの検索は、まだ使えません（準備中）。"
-Read-Host "Enter キーで閉じます" | Out-Null
+runRestrictedConsole $facts.HasExcel
 exit 0
