@@ -1701,7 +1701,7 @@
 </tr>
 <tr>
 <td>審査用の資料</td>
-<td><code>docs/04_安全性.md</code>・<code>SECURITY.md</code>・<code>tools/new_release_files.ps1</code>・<code>sbom.cdx.json</code> がそろっており、SBOM が第三者の部品（<code>purl</code> を持つ部品）を含まないこと</td>
+<td><code>docs/04_安全性.md</code>・<code>.github/SECURITY.md</code>・<code>tools/new_release_files.ps1</code>・<code>sbom.cdx.json</code> がそろっており、SBOM が第三者の部品（<code>purl</code> を持つ部品）を含まないこと</td>
 </tr>
 </tbody>
 </table>
@@ -1967,18 +1967,18 @@ git push origin v1.0.0
 </code></pre></div>
 <p>設計書（<code>docs/</code>）は <code>.github/workflows/docs.yml</code> が <a href="https://www.mkdocs.org/">MkDocs</a>（テーマは Material for MkDocs）で Web サイトにし、main が更新されるたびに <a href="https://hsgwa.github.io/tebunko/">GitHub Pages</a> に公開する。</p>
 <ul>
-<li>サイトはどれも <code>mkdocs build --strict</code> で作る。リンク先のファイルや見出し（アンカー）が無いと失敗する</li>
+<li>設定は <code>tools/mkdocs/mkdocs.yml</code>。サイトはどれもリポジトリの直下で <code>mkdocs build --strict -f tools/mkdocs/mkdocs.yml</code> を実行して作る。リンク先のファイルや見出し（アンカー）が無いと失敗する</li>
 <li>GitHub Pages は <code>gh-pages</code> ブランチの内容をそのまま公開する。main のサイトはその直下に置く</li>
-<li><code>docs/</code>・<code>mkdocs.yml</code>・<code>tools/mkdocs/</code> を変えた PR では、サイトのプレビューを <code>gh-pages</code> の <code>pr-preview/pr-&lt;PR の番号&gt;/</code> に置き、URL を PR にコメントする（<code>rossjrw/pr-preview-action</code>）。push のたびに更新し、PR を閉じたら消す。fork からの PR ではプレビューを作らず、サイトを作れることだけを確かめる</li>
+<li><code>docs/</code>・<code>tools/mkdocs/</code> を変えた PR では、サイトのプレビューを <code>gh-pages</code> の <code>pr-preview/pr-&lt;PR の番号&gt;/</code> に置き、URL を PR にコメントする（<code>rossjrw/pr-preview-action</code>）。push のたびに更新し、PR を閉じたら消す。fork からの PR ではプレビューを作らず、サイトを作れることだけを確かめる</li>
 <li>サイトを作るジョブは PR のコード（<code>tools/mkdocs/hooks.py</code>）を動かすため、読み取りの権限だけで動かす。<code>gh-pages</code> への書き込みと PR へのコメントは、作ったサイトを受け取るだけの別のジョブで行う</li>
-<li>アンカーは GitHub と同じ形（日本語を残し、記号を除き、英字を小文字にする）で作る（<code>mkdocs.yml</code> の <code>toc.slugify</code>）。<code>docs/</code> の中のリンクは GitHub で読めるように書けば、サイトでもそのまま飛べる</li>
-<li>GitHub で読むときとの違いは <code>tools/mkdocs/hooks.py</code> で埋める。<code>00_index.md</code> をサイトの先頭ページにし、<code>docs/</code> の外（<code>../SECURITY.md</code> など）へのリンクは GitHub 上のファイルへのリンクに書き換える</li>
+<li>アンカーは GitHub と同じ形（日本語を残し、記号を除き、英字を小文字にする）で作る（<code>tools/mkdocs/mkdocs.yml</code> の <code>toc.slugify</code>）。<code>docs/</code> の中のリンクは GitHub で読めるように書けば、サイトでもそのまま飛べる</li>
+<li>GitHub で読むときとの違いは <code>tools/mkdocs/hooks.py</code> で埋める。<code>00_index.md</code> をサイトの先頭ページにし、<code>docs/</code> の外（<code>../.github/SECURITY.md</code> など）へのリンクは GitHub 上のファイルへのリンクに書き換える</li>
 <li>使うパッケージは <code>tools/mkdocs/requirements.txt</code> に版とハッシュで固定し、<code>pip install --require-hashes</code> で入れる。更新は Dependabot が PR を出す。サイトを作るときだけに使い、配布物には含めない</li>
 <li>サイトを見る人のブラウザーが第三者のサーバーへ通信しないようにする。フォントは Google Fonts を使わず OS のもので表示する（<code>theme.font: false</code>）。Mermaid は Material テーマが既定では unpkg から読み込むため、<code>extra_javascript</code> で版を固定して先に読み込ませ、<code>privacy</code> プラグインがビルドのときに取り込んでサイトに同梱する（取り込んだファイルは <code>work/cache/privacy/</code> に置く）。Mermaid の版は、Material テーマが読み込む版（<code>mermaid@11</code>）に合わせる</li>
 <li>手元で見るときは次のとおり（生成物は <code>work/site/</code>）</li>
 </ul>
 <div class="highlight"><pre><span></span><code>pip install --require-hashes -r tools/mkdocs/requirements.txt
-mkdocs serve
+mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
 <h4 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h4>
 <p>clone したら 1 回だけ次を実行する。<code>core.hooksPath</code> を <code>tools/hooks</code> にし、コミットのたびに <code>tools/hooks/pre-commit</code> が動く（git worktree で作ったツリーでも、そのツリーのフックが動く）。</p>
