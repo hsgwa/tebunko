@@ -103,7 +103,7 @@ $tabs = @(
         "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
         "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
     @{ Tab = "SettingsTab"; File = "tab_settings.xaml"; Names = @(
-        "WorkDirText", "WorkDirNote", "ChangeWorkDirButton", "ResetWorkDirButton", "SettingsFileText", "SettingsFileNote") }
+        "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
     @{ Tab = "KillTab"; File = "tab_kill.xaml"; Names = @(
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
         "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
@@ -303,7 +303,7 @@ try {
     $activateEvent.Close()
     $mutex.ReleaseMutex()
     $mutex.Dispose()
-    # インデックスの置き場所を変えたときは、新しい置き場所で開き直す（work の中のファイルの場所は、読み込み時に決まるため）。
+    # ワークスペースを変えたときは、新しいワークスペースで開き直す（ワークスペースの中のファイルの場所は、読み込み時に決まるため）。
     # 多重起動の判定に掛からないよう、ミューテックスを放してから起動する
     if ($script:restartRequested) {
         Start-Process -FilePath "powershell.exe" -WindowStyle Hidden `

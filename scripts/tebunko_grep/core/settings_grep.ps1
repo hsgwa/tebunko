@@ -27,7 +27,7 @@ function newSettings {
         includeShapes      = $true    # 図形（テキストボックス等）の文字も検索する（場所 "<元の場所>[図形]"。index_name.ps1 の objectPlacePattern）
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
-        workFolder         = ""       # work（インデックス・取り込み一覧・ログ）を置くフォルダ。空なら既定（設定ファイルと同じフォルダの work）
+        workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（設定ファイルと同じフォルダの work）
     }
 }
 
@@ -346,13 +346,13 @@ function getDefaultWorkDir {
 }
 
 function getWorkDir {
-    # work の置き場所を返す。設定 workFolder が空なら既定（getDefaultWorkDir）。
+    # work の置き場所を返す。設定 workspaceFolder が空なら既定（getDefaultWorkDir）。
     # 手で書いた相対パスは、設定ファイルのフォルダからとみなす
     param (
         [string]$path = ${settingsFile}
     )
 
-    $folder = ([string](readSettings $path).workFolder).Trim()
+    $folder = ([string](readSettings $path).workspaceFolder).Trim()
     if ($folder -eq "") {
         return getDefaultWorkDir $path
     }
@@ -360,7 +360,7 @@ function getWorkDir {
     return [System.IO.Path]::GetFullPath([System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($path), $folder)).TrimEnd("\")
 }
 
-function writeWorkFolder {
+function writeWorkspaceFolder {
     # work の置き場所を保存する。既定の場所なら空にする（ツールのフォルダを移しても既定のまま付いてくるように）
     param (
         [string]$folder,
@@ -371,5 +371,5 @@ function writeWorkFolder {
     if ($folder -ne "" -and (testSameFolder $folder (getDefaultWorkDir $path))) {
         $folder = ""
     }
-    updateSettings "workFolder" $folder $path
+    updateSettings "workspaceFolder" $folder $path
 }

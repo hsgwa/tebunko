@@ -8,7 +8,7 @@ Describe "パス定義" -Tag Meta {
         $settingsFile | Should Be "$rootDir\setting.config"
     }
 
-    It "work の中身は work の置き場所（既定はリポジトリ直下の work。setting.config の workFolder で変わる）を基準にする" {
+    It "work の中身は work の置き場所（既定はリポジトリ直下の work。setting.config の workspaceFolder で変わる）を基準にする" {
         $workDir | Should Be (getWorkDir $settingsFile)
         $indexDir | Should Be "$workDir\index"
         $publishDir | Should Be "$workDir\取り込み出力\$PID"

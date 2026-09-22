@@ -1,7 +1,7 @@
 ﻿# tebunko_grep の画面以外の部品の読み込み口。
 # 画面（gui）・インデクサ・テスト・画面が起こす別スレッドから dot-source して使う。読み込む順に意味がある。
 . "$PSScriptRoot\..\shared\shared.ps1"
-# 設定を先に読み込む（work の置き場所は設定の workFolder で決まる。paths_grep.ps1 の ${workDir}）
+# 設定を先に読み込む（work の置き場所は設定の workspaceFolder で決まる。paths_grep.ps1 の ${workDir}）
 . "$PSScriptRoot\core\settings_grep.ps1"
 . "$PSScriptRoot\core\paths_grep.ps1"
 . "$PSScriptRoot\index\index_name.ps1"

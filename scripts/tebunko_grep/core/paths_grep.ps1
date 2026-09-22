@@ -8,7 +8,7 @@ ${appId} = "tebunko_grep"
 ${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_grep\${PID}"
 
 # work（インデックス・取り込み一覧・ログ・取り込みの出力）の置き場所。
-# setting.config の workFolder で変えられる。空なら既定（設定ファイルと同じフォルダの work。settings_grep.ps1 の getWorkDir）
+# setting.config の workspaceFolder で変えられる。空なら既定（設定ファイルと同じフォルダの work。settings_grep.ps1 の getWorkDir）
 ${workDir}   = getWorkDir
 ${indexDir}  = "${workDir}\index"
 

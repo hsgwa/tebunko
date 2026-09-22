@@ -179,12 +179,12 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should Be $false
     }
 
-    It "設定 workFolder があれば、そのフォルダ（無ければ作る）にインデックス・取り込み一覧を作り、ツールのフォルダの work には書かない" {
+    It "設定 workspaceFolder があれば、そのフォルダ（無ければ作る）にインデックス・取り込み一覧を作り、ツールのフォルダの work には書かない" {
         $root = newRoot
         $work = Join-Path $TestDrive "別のドライブのつもり$($script:rootCount)\データ"
         $settings = newSettings
         $settings.targetFolders = @(@{ name = "営業"; path = $source; enabled = $true })
-        $settings.workFolder = $work
+        $settings.workspaceFolder = $work
         writeSettings $settings "$root\setting.config"
 
         invokeIndexer $root | Should Be 0
