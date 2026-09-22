@@ -1,6 +1,6 @@
 ﻿# 画面（WPF）
 #
-# ［1 インデックス管理］［2 検索］［9 プロセス停止］の3タブ。画面の定義は xaml\tebunko_grep.xaml。
+# ［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］の4タブ。画面の定義は xaml\tebunko_grep.xaml。
 # インデックス作成は indexer.ps1 をウィンドウを出さずに起動して進み具合を表示し、検索・プロセス停止は画面内で行う。
 #
 # このファイルは起動口。画面の中身は ui\ 配下と ..\shared\ui\ 配下に分けてある（下の読み込みの順に意味がある）。
@@ -89,7 +89,7 @@ $window = loadWindow "${xamlDir}\tebunko_grep.xaml"
 $tabs = @(
     @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
         "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
-        "IndexSummaryText", "WorkDirText", "ChangeWorkDirButton", "ResetWorkDirButton", "IndexingStateText", "IndexingButton", "IndexingHint",
+        "IndexSummaryText", "IndexingStateText", "IndexingButton", "IndexingHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
         "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
         "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
@@ -102,13 +102,15 @@ $tabs = @(
         "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
         "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
         "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
+    @{ Tab = "SettingsTab"; File = "tab_settings.xaml"; Names = @(
+        "WorkDirText", "WorkDirNote", "ChangeWorkDirButton", "ResetWorkDirButton", "SettingsFileText", "SettingsFileNote") }
     @{ Tab = "KillTab"; File = "tab_kill.xaml"; Names = @(
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
         "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
 )
 
 $ui = @{}
-foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
     $ui[$name] = $window.FindName($name)
 }
 foreach ($tab in $tabs) {
@@ -133,6 +135,7 @@ ${grayBrush} = themeBrush "Ink.Muted"
 . "$PSScriptRoot\ui\indexing_view.ps1"
 . "$PSScriptRoot\ui\search_view.ps1"
 . "$PSScriptRoot\ui\preview_view.ps1"
+. "$PSScriptRoot\ui\settings_view.ps1"
 . "$PSScriptRoot\ui\index_tab.ps1"
 . "$PSScriptRoot\ui\indexing_tab.ps1"
 . "$PSScriptRoot\ui\result_list.ps1"
@@ -141,6 +144,7 @@ ${grayBrush} = themeBrush "Ink.Muted"
 . "$PSScriptRoot\ui\open_source.ps1"
 . "$PSScriptRoot\ui\index_tree.ps1"
 . "$PSScriptRoot\ui\process_tab.ps1"
+. "$PSScriptRoot\ui\settings_tab.ps1"
 # ============================================================================
 # ウィンドウ全体
 # ============================================================================
@@ -249,7 +253,7 @@ $window.Add_Loaded({
 # ---- 起動 ----
 
 loadTargets
-updateWorkDirView
+updateSettingsView
 setSearchOptionToUi (readSearchOption)
 setOpenMode (readOpenMode)
 updateOpenMenu

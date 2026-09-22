@@ -1,0 +1,43 @@
+﻿<!-- ［8 設定］タブの中身。tebunko_grep.xaml の SettingsTab に入れる（gui.ps1） -->
+<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </StackPanel.Resources>
+
+  <!-- インデックス（work）の置き場所。ツールのフォルダの外にも置ける -->
+  <Border Style="{StaticResource Card}">
+    <StackPanel>
+      <TextBlock Style="{StaticResource Heading}" Text="インデックスの置き場所" />
+      <TextBlock Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap"
+                 Text="インデックス・取り込み一覧・ログを置くフォルダです。インデックスには文書の文字がそのまま入るため、アクセス権を絞ったフォルダや容量のあるドライブに置けます。" />
+      <DockPanel Margin="0,14,0,0">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Top">
+          <Button x:Name="ChangeWorkDirButton" Content="変更…" MinWidth="90"
+                  ToolTip="インデックス・取り込み一覧・ログを置くフォルダを変えます（今のインデックスは移しません）" />
+          <Button x:Name="ResetWorkDirButton" Content="既定に戻す" MinWidth="90" Margin="8,0,0,0" Visibility="Collapsed"
+                  ToolTip="設定ファイルと同じフォルダの work に戻します" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock x:Name="WorkDirText" Style="{StaticResource Focal}" TextWrapping="Wrap" />
+          <TextBlock x:Name="WorkDirNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
+      <TextBlock Style="{StaticResource Micro}" Margin="0,14,0,0" TextWrapping="Wrap"
+                 Text="変えると画面を開き直します。今のインデックスは移さず、元の場所に残ります。インデックス作成中は変えられません。" />
+    </StackPanel>
+  </Border>
+
+  <!-- 設定ファイルの場所（表示だけ） -->
+  <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+    <StackPanel>
+      <TextBlock Style="{StaticResource Heading}" Text="設定ファイル" />
+      <TextBlock x:Name="SettingsFileText" Margin="0,10,0,0" TextWrapping="Wrap" />
+      <TextBlock x:Name="SettingsFileNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
+    </StackPanel>
+  </Border>
+</StackPanel>

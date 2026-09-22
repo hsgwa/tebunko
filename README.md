@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 <img src="docs/images/logo.svg" alt="" width="96" height="96">
 
@@ -123,7 +123,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 
 元のフォルダを移動したときは、［編集…］で新しい場所を指定するだけで済みます。インデックスを作り直す必要はありません。
 
-インデックスの置き場所は、［1 インデックス管理］の「インデックスの置き場所」の［変更…］で、アクセス権を絞ったフォルダや容量のあるドライブに変えられます。tebunko を書き込めない場所（`C:\Program Files` など）に置いたときは、設定とインデックスを利用者ごとの `%LOCALAPPDATA%\tebunko\` の下に置きます。
+インデックスの置き場所は、［8 設定］の「インデックスの置き場所」の［変更…］で、アクセス権を絞ったフォルダや容量のあるドライブに変えられます。tebunko を書き込めない場所（`C:\Program Files` など）に置いたときは、設定とインデックスを利用者ごとの `%LOCALAPPDATA%\tebunko\` の下に置きます。
 
 画面ごとの詳しい説明は [ドキュメント](https://hsgwa.github.io/tebunko/) をご覧ください。
 

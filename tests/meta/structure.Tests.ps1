@@ -113,7 +113,7 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "ウィンドウの枠の名前がある" {
         $names = getXamlNames "$here\..\scripts\tebunko_grep\xaml\tebunko_grep.xaml"
-        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
             $names -contains $name | Should Be $true
         }
     }
@@ -121,6 +121,7 @@ Describe "画面の部品の名前" -Tag Meta {
     foreach ($tab in @(
             @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
             @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
+            @{ File = "tab_settings.xaml"; Marker = 'Tab = "SettingsTab"' }
             @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' })) {
         $file = $tab.File
         $marker = $tab.Marker

@@ -45,6 +45,14 @@
         <!-- 中身は tab_search.xaml（gui.ps1 が読み込んで入れる） -->
       </TabItem>
 
+      <!-- ================= 8 設定 ================= -->
+      <TabItem x:Name="SettingsTab">
+        <TabItem.Header>
+          <TextBlock Style="{x:Null}" Text="8 設定" />
+        </TabItem.Header>
+        <!-- 中身は tab_settings.xaml（gui.ps1 が読み込んで入れる） -->
+      </TabItem>
+
       <!-- ================= 9 プロセス停止 ================= -->
       <TabItem x:Name="KillTab">
         <TabItem.Header>
