@@ -2001,12 +2001,20 @@
 <td>上記</td>
 </tr>
 <tr>
+<td><code>getFolderKey</code></td>
+<td>dir</td>
+<td>string（16 進 64 文字）</td>
+<td>フォルダのパスを小文字にした SHA-256。名前付きミューテックス・イベントの名前に使う。FIPS モードの Windows でも動くよう、FIPS 準拠の実装（<code>SHA256CryptoServiceProvider</code>）を使う</td>
+<td>–</td>
+<td>newAppMutex, 画面（多重起動の防止）</td>
+</tr>
+<tr>
 <td><code>newAppMutex</code></td>
 <td>name（<code>gui</code> / <code>indexer</code>）, dir（既定 <code>$rootDir</code>）</td>
 <td><code>@{Mutex; Acquired}</code></td>
-<td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_grep_&lt;name&gt;_&lt;配置フォルダの MD5&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
+<td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_grep_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a></td>
-<td>インデックス作成（起動時）。画面は同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
+<td>インデックス作成（起動時）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
 </tr>
 <tr>
 <td><code>getIndexNameMap</code></td>
