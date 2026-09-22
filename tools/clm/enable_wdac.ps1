@@ -1,9 +1,10 @@
-﻿# GitHub Actions の Windows の実行環境（使い捨て）に、スクリプトの制限を有効にした WDAC のポリシーを当てる（Issue #71 の作業 1 の試作）。
-# 開発機では実行しない。当てた後に起動した PowerShell は、信頼されていないスクリプトを制限言語モード（CLM）で動かす。
+﻿# GitHub Actions の Windows の実行環境（使い捨て）に、スクリプトの制限を有効にした WDAC のポリシーを当てる（CI の clm.yml から呼ぶ）。
+# 開発機では実行しない（ほかのアプリも止まる）。当てた後に起動した PowerShell は、信頼されていないスクリプトを制限言語モード（CLM）で動かす。
 #
 # ポリシー: Windows に付いている例（DefaultWindows_Enforced.xml。Windows が署名したものだけを許可する）を元にし、
 # 実行環境が後の手順で起動する exe（Git・Node など）が止まらないよう、C:\ の決まったフォルダをパスの規則で許可する。
 # リポジトリ（D:\a\...）は許可しないので、リポジトリのスクリプトは CLM で動く。
+# なお、パスの規則で許可したフォルダのスクリプトは、windows-2022 では CLM のまま、windows-2025 では FullLanguage になった。
 $ErrorActionPreference = 'Stop'
 
 $dir = Join-Path $env:RUNNER_TEMP 'wdac'

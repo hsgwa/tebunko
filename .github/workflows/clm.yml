@@ -1,0 +1,60 @@
+﻿# 本物の制限言語モード（CLM）で、制限モードに使う部品が思ったとおりに動くかを確かめる
+#
+# 使い捨ての Windows の実行環境に、スクリプトの制限を強制した WDAC のポリシーを当ててから（tools\clm\enable_wdac.ps1）、
+# 新しい powershell.exe で tools\clm\check.ps1 を動かす。見込みと違う項目があれば失敗にする。結果はジョブの概要（Summary）に表で出る。
+# 手元の開発機（Windows 11 Home）では本物の CLM を作れず、模擬（LanguageMode を書き換える方法）は本物と挙動が違うため、ここで確かめる。
+#
+# - windows-2022 は WMI で、windows-2025 は CiTool で、再起動なしにポリシーを当てる
+# - ポリシーを当てた後は、手順の shell を cmd にする（shell: powershell は一時フォルダの ps1 を動かすため、それ自体が CLM になる）
+# - cmd の手順は一時ファイルの文字コードで日本語が化けるおそれがあるため、run の中は ASCII だけにする
+# - AppLocker でも試したが、ポリシーの判定は効いても PowerShell が CLM にならなかったため使わない
+# - main の必須チェックにはしない（ランナーの版が上がると、ポリシーの当て方が変わるおそれがあるため）
+name: clm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'tools/clm/**'
+      - 'tebunko_grep.bat'
+      - '.github/workflows/clm.yml'
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'tools/clm/**'
+      - 'tebunko_grep.bat'
+      - '.github/workflows/clm.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: clm-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  clm:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    name: clm (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: WDAC のポリシーを当てる
+        shell: powershell
+        run: .\tools\clm\enable_wdac.ps1
+
+      - name: 対話セッションの言語モード
+        shell: cmd
+        run: powershell -NoProfile -Command "$ExecutionContext.SessionState.LanguageMode"
+
+      - name: CLM で部品を確かめる
+        shell: cmd
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\clm\check.ps1 -Root "%GITHUB_WORKSPACE%" -Label "clm ${{ matrix.os }}"
