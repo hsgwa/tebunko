@@ -34,7 +34,7 @@ git branch -D worktree-<名前>
 変更は **Issue → ブランチ → PR → main** の順で入れる。GitHub の操作は `gh` で行う。
 
 - **Issue から始める。** 機能追加・不具合修正は、先に Issue を立てる（テンプレートは `.github/ISSUE_TEMPLATE/`）。誤字直しのような小さな変更は Issue なしで PR を出してよい。
-- **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護で禁止し、CI（`test.yml` の `test`）が通らないとマージできない。
+- **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護で禁止し、CI（`test.yml` の `test` と `title.yml` の `pr-title`）が通らないとマージできない。
 - **1 つの PR には 1 つの機能だけを入れる。** 関係のない修正は別の PR にする。
 - **PR 本文は `.github/pull_request_template.md` に沿って書き、`Closes #<番号>` で Issue とつなぐ。** マージすると Issue が自動で閉じる。
 - **PR にはラベルを 1 つ付ける**（`enhancement` / `bug` / `documentation` / `dependencies`）。リリースノートはこのラベルで分類される（`.github/release.yml`）。
@@ -62,7 +62,7 @@ git branch -D worktree-<名前>
   | `chore` | 上のどれにも当たらないもの | 内容に近いもの |
   | `revert` | 前の変更の取り消し | 取り消す変更と同じもの |
 
-  機械的に確かめる: コミットは `commit-msg` フック、PR のタイトルは CI（`.github/workflows/title.yml` の `pr`。失敗するとマージできない）、Issue のタイトルは同じワークフローが形の違うものに直し方をコメントする。判定は `tools/check_commit_message.ps1` にまとめてある。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べない。
+  機械的に確かめる: コミットは `commit-msg` フック、PR のタイトルは CI（`.github/workflows/title.yml` の `pr-title`。失敗するとマージできない）、Issue のタイトルは同じワークフローが形の違うものに直し方をコメントする。判定は `tools/check_commit_message.ps1` にまとめてある。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べない。
 - マージしたブランチは GitHub が自動で消す。手元の worktree とブランチは上の「作業場所」の手順で消す。
 - **GitHub Actions の更新は Dependabot が PR を出す**（`.github/dependabot.yml`）。CI が通れば、内容を見てマージする。
 

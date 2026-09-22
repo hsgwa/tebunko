@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  pr:
+  pr-title:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +32,7 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: ./tools/check_commit_message.ps1 -Title $env:TITLE
 
-  issue:
+  issue-title:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
     permissions:
