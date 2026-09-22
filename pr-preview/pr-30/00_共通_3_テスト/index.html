@@ -1922,8 +1922,10 @@
 .\tests\run.ps1 -Tag Unit    速い確認だけ
 .\tests\run.ps1 -All         Office・Slow も含める（Office が必要）
 .\tests\run.ps1 -Ci          結果の XML（work\test\results.xml）とカバレッジ（work\test\coverage.xml）を出す
+.\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 </code></pre></div>
-<p>いずれも失敗したテストの数を終了コードにする（pre-commit フックと CI が見る）。</p>
+<p>いずれも失敗したテストの数を終了コードにする（pre-commit フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。</p>
+<p><code>-Tag</code>・<code>-ExcludeTag</code> はカンマ区切りの文字列でも受け取る。<code>powershell.exe -File</code> で呼ぶと <code>-Tag Unit,Meta</code> は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。<code>tests/meta/runner.Tests.ps1</code> が、この呼び方で 0 件なら失敗になることと、タグを分けて受け取ることを確かめる。</p>
 <p>カバレッジは判断層・状態層だけを対象にする（画面層 <code>gui.ps1</code>・<code>*_tab.ps1</code>・<code>shell.ps1</code>・<code>app_host.ps1</code>・<code>*_dialog.ps1</code> は自動テストの対象外のため）。
 下限は <code>tests/coverage.baseline</code> に置き、下回ると <code>-Ci</code> が失敗する。上がったら基準を上げる。</p>
 <p><code>-Ci</code> はカバレッジを Cobertura 形式の XML（<code>work\test\coverage.xml</code>）にも書き出す。Pester 3.4 はカバレッジをファイルに出せないため、<code>tests/run.ps1</code> が結果（コマンド単位）から行単位に組み立てる。1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。そのため、行単位の値はコマンド単位の値と少し違う。ファイル名はリポジトリからの相対パスで書き、利用者名を含む絶対パスは入れない。</p>
@@ -1992,7 +1994,7 @@ mkdocs serve
 <tr>
 <td>2</td>
 <td><code>tests/run.ps1 -Tag Unit,Meta -Quiet</code>：速いテスト（<code>Io</code> を含む既定のテストと静的解析は CI で行う）。失敗したテストだけを表示する</td>
-<td>5 秒程度</td>
+<td>1 分強</td>
 </tr>
 </tbody>
 </table>

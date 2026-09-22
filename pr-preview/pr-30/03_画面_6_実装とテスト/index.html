@@ -1458,8 +1458,8 @@
 <td>［1 インデックス管理］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1</a>）。インデックスの一覧・新規作成・編集・削除と、変換の起動・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（8 章）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/ui/search_tab.ps1</code><br><code>scripts/tebunko_grep/ui/preview.ps1</code><br><code>scripts/tebunko_grep/ui/open_source.ps1</code><br><code>scripts/tebunko_grep/ui/index_tree.ps1</code></td>
-<td>［2 検索］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2</a>）。検索の実行と結果の表・絞り込み、選択行のプレビュー、元のファイルを開く処理（Excel COM。<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#45-元のファイルを開く">4.5</a>）、検索対象インデックスのツリー</td>
+<td><code>scripts/tebunko_grep/ui/search_tab.ps1</code><br><code>scripts/tebunko_grep/ui/result_list.ps1</code><br><code>scripts/tebunko_grep/ui/preview.ps1</code><br><code>scripts/tebunko_grep/ui/open_source.ps1</code><br><code>scripts/tebunko_grep/ui/index_tree.ps1</code></td>
+<td>［2 検索］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2</a>）。検索の実行、結果の表（ファイルごとの見出しと行。<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/#49-ファイルごとにまとめた表示">4.9</a>）・絞り込み、選択行のプレビュー、元のファイルを開く処理（Excel COM。<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#45-元のファイルを開く">4.5</a>）、検索対象インデックスのツリー</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/ui/process_tab.ps1</code></td>
@@ -1527,7 +1527,7 @@
 </tr>
 <tr>
 <td><code>searchIndex</code></td>
-<td>ワード, Files, 文字どおりか, 上限, 何ファイルずつか, 進捗コールバック, 中止の判定, 大文字と小文字を区別するか, 対象ファイル, 並列のスレッド数, 読んだ内容の使い回し（画面が 1 つ持つ <code>newTsvTextCache</code>）</td>
+<td>ワード, Files, 文字どおりか, 上限, 何ファイルずつか, 進捗コールバック, 中止の判定, 大文字と小文字を区別するか, 対象ファイル, 並列のスレッド数, 読んだ内容の使い回し（画面が 1 つ持つ <code>newTsvTextCache</code>）, 図形・コメントも検索するか</td>
 <td><code>@{ Hits; SimpleMatch; Total; Truncated; Cancelled }</code></td>
 <td>4.1 の検索（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイルで絞った後の TSV の数</td>
 <td>画面</td>
@@ -1619,8 +1619,8 @@
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 <td>– / 変える項目の hashtable</td>
-<td><code>@{ UseRegex; CaseSensitive; FileFilter; GroupByFile }</code></td>
-<td><code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>groupByFile</code>（8 章）</td>
+<td><code>@{ UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments }</code></td>
+<td><code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>（8 章）</td>
 <td>画面</td>
 </tr>
 <tr>

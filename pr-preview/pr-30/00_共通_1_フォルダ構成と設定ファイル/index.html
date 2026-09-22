@@ -1766,7 +1766,8 @@
 <span class="w">    </span><span class="nt">"useRegex"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"caseSensitive"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"fileFilter"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">"groupByFile"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"includeShapes"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"includeComments"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"openMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -1824,10 +1825,17 @@
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 </tr>
 <tr>
-<td><code>groupByFile</code></td>
+<td><code>includeShapes</code></td>
 <td>true / false</td>
-<td>false</td>
-<td>［ファイルごとにまとめる］の状態。検索結果をファイルごとにまとめて表示するか（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/#49-ファイルごとにまとめた表示">03_画面_2_検索タブ.md 4.9</a>）</td>
+<td>true</td>
+<td>［図形も検索］の状態。オフなら図形の場所（<code>&lt;元の場所&gt;[図形]</code>。今は Excel だけ）を検索しない（同上）</td>
+<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
+</tr>
+<tr>
+<td><code>includeComments</code></td>
+<td>true / false</td>
+<td>true</td>
+<td>［コメントも検索］の状態。オフならコメントの場所（<code>&lt;元の場所&gt;[コメント]</code>。今は Excel だけ）を検索しない（同上）</td>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 </tr>
 <tr>

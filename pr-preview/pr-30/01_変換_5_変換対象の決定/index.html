@@ -1432,6 +1432,7 @@ D&lt;TAB&gt;D:\
     INT -- いいえ --&gt; W["変換一覧を書き出す（writeStatusFile）"]</code></pre>
 <ul>
 <li><strong>更新の判定</strong>: 更新日時（秒まで）とサイズのどちらかが変換一覧と異なれば「更新あり」。古い版に戻した場合も再変換される。</li>
+<li><strong>前の抽出版で変換したファイル</strong>: 更新が無く <code>済</code> でも、変換一覧の「抽出版」がその形式の今の版（<code>getExtractVersion</code>）より小さければ変換し直す（<code>getConvertDecision</code> の <code>outdated</code>）。ツールの版を上げて読み取る内容が増えたとき（例: Excel の図形・コメント）、既存のインデックスにも反映するため。件数は「更新あり」に数える。前回 <code>失敗</code> のファイルは、抽出版によらず「前回失敗」のまま。</li>
 <li><strong>一覧に無いファイル</strong>（初回・旧版からの移行後・変換一覧を削除した後）は、出力先の <code>&lt;ファイル名&gt;_*.tsv</code> の最新の更新日時が元ファイルの更新日時以降なら、変換せずに <code>済</code> として登録する（既存のインデックスを作り直さない）。</li>
 <li><strong>インデックスが無くなった・壊れているファイル</strong>: 変換一覧が <code>済</code> でも、次のどちらかに当てはまれば変換し直す（<code>testIndexComplete</code>）。一覧だけを見ると <code>済</code> のままになり、検索しても出てこない状態が続くため。</li>
 <li>インデックス（<code>work/index/&lt;相対パス&gt;/*.tsv</code>）が無い・記録した TSV 数より少ない（<code>work/index</code> のフォルダ・TSV を直接削除した場合）。</li>
