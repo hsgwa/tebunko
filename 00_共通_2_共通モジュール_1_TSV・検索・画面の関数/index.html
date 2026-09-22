@@ -1461,6 +1461,22 @@
 <td>画面・検索処理（<code>newTsvFiles</code>）も同じ規則</td>
 </tr>
 <tr>
+<td><code>splitObjectPlace</code></td>
+<td>place</td>
+<td><code>@{Base; Kind}</code></td>
+<td>図形・コメントの場所（<code>&lt;元の場所&gt;[図形]</code> 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空</td>
+<td><a href="../01_%E5%A4%89%E6%8F%9B_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_変換_7</a> 6.1「図形・コメントの場所」</td>
+<td>元のファイルを開く</td>
+</tr>
+<tr>
+<td><code>describePlace</code></td>
+<td>book, place</td>
+<td><code>@{Place; Kind}</code></td>
+<td>画面の「場所」「種別」と検索結果ファイルに出す文字（<code>[シート] 売上</code>・図形、<code>[ページ] 3（目安）</code>・本文 など）</td>
+<td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 5.1</td>
+<td>画面・<code>toResultLine</code></td>
+</tr>
+<tr>
 <td><code>splitIndexFileName</code></td>
 <td>fileName</td>
 <td><code>@{book; sheet}</code></td>
@@ -1504,7 +1520,7 @@
 <td><code>toResultLine</code></td>
 <td>book, location, lineNumber, line</td>
 <td>string</td>
-<td><code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;行番号&lt;TAB&gt;該当行</code> を返す。Excel はセル内改行を LF に戻し、Word・PowerPoint は <code>"</code> で始まるセルを <code>"</code> で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする</td>
+<td><code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行番号&lt;TAB&gt;該当行</code> を返す（場所・種別は <code>describePlace</code> の表示）。Excel はセル内改行を LF に戻し、Word・PowerPoint は <code>"</code> で始まるセルを <code>"</code> で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする</td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
 <td>検索</td>
 </tr>
@@ -1528,7 +1544,7 @@
 <td><code>toResultHeader</code></td>
 <td>columnCount</td>
 <td>string</td>
-<td>見出し行 <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B…</code> を返す</td>
+<td>見出し行 <code>ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B…</code> を返す</td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
 <td>検索</td>
 </tr>
@@ -1581,10 +1597,18 @@
 <td><code>searchIndex</code></td>
 </tr>
 <tr>
+<td><code>newPlaceExclude</code></td>
+<td>includeShapes, includeComments</td>
+<td>regex / <code>$null</code></td>
+<td>検索から外す図形・コメントの場所（名前の末尾 <code>[図形]</code> <code>[コメント]</code>）の正規表現。どちらも検索するなら <code>$null</code></td>
+<td>同上</td>
 <td><code>searchIndex</code></td>
-<td>word, tsvFiles, simpleMatch, limit, chunkSize, onProgress, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動）, cache（<code>newTsvTextCache</code>）</td>
+</tr>
+<tr>
+<td><code>searchIndex</code></td>
+<td>word, tsvFiles, simpleMatch, limit, chunkSize, onProgress, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled}</code></td>
-<td>TSV を検索する（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイルで絞った後の TSV の数。chunkSize 件ずつ検索して進捗を知らせ、上限・中止に対応する。TSV が多ければ複数スレッドで並行して検索する（結果の順は変わらない）。読めない TSV は飛ばす</td>
+<td>TSV を検索する（照合は <code>searchTsvFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath・RelDir・FileName・Book・Location・LineNumber・Line）。Total は対象ファイル・図形とコメントの指定で絞った後の TSV の数。chunkSize 件ずつ検索して進捗を知らせ、上限・中止に対応する。TSV が多ければ複数スレッドで並行して検索する（結果の順は変わらない）。読めない TSV は飛ばす</td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
 <td>検索・画面</td>
 </tr>
@@ -1701,9 +1725,9 @@
 </tr>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
-<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter}</code> のうち変える項目）, path</td>
-<td><code>@{UseRegex; CaseSensitive; FileFilter}</code> / –</td>
-<td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code>。無ければオフ・空）。保存は option にある項目だけを変える</td>
+<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
+<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
+<td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える</td>
 <td>–</td>
 <td>画面</td>
 </tr>
