@@ -17,4 +17,4 @@
 | `chore` | 上のどれにも当たらないもの |
 | `revert` | 前の変更の取り消し |
 
-型の後ろは半角のコロンと空白 1 つです。前の版と互換が無くなる変更は `feat!:` のように `!` を付けます。詳しくは [CONTRIBUTING.md](https://github.com/hsgwa/tebunko/blob/main/CONTRIBUTING.md) を見てください。
+型の後ろは半角のコロンと空白 1 つです。前の版と互換が無くなる変更は `feat!:` のように `!` を付けます。詳しくは [CONTRIBUTING.md](https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.md#コミットと-pull-request-のタイトル) を見てください。

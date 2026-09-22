@@ -1,4 +1,4 @@
-<!-- タイトルは「<型>: <説明>」の形にする（例 feat: Excel の図形の文字を検索できるようにする）。squash merge でそのまま main のコミットになる（CONTRIBUTING.md） -->
+<!-- タイトルは「<型>: <説明>」の形にする（例 feat: Excel の図形の文字を検索できるようにする）。squash merge でそのまま main のコミットになる（.github/CONTRIBUTING.md） -->
 
 ## 目的
 
@@ -16,5 +16,5 @@ Closes #
 - [ ] 画面を変えた場合は、実際に起動して見た
 - [ ] 個人情報（実名・メールアドレス・利用者名を含む絶対パス・実在の組織名）を含めていない（AGENTS.md「個人情報を書かない」）
 - [ ] Office のテストデータを作り直した場合は、埋め込まれた作成者名などを取り除いた
-- [ ] タイトルを `<型>: <説明>` の形にした（`feat` / `fix` / `docs` など。CONTRIBUTING.md「コミットと PR のタイトル」）
+- [ ] タイトルを `<型>: <説明>` の形にした（`feat` / `fix` / `docs` など。.github/CONTRIBUTING.md「コミットと Pull Request のタイトル」）
 - [ ] ラベルを 1 つ付けた（`enhancement` / `bug` / `documentation` / `dependencies`）
