@@ -98,7 +98,7 @@ $tabs = @(
         "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder",
         "WordNotice", "SearchTargetText", "GoIndexTabButton",
         "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
-        "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ResultGrid", "IndexColumn",
+        "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "GroupByFileCheck", "ResultGrid", "IndexColumn",
         "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath",
         "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
         "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",

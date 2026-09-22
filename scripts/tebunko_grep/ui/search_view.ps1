@@ -45,3 +45,69 @@ function newSearchButtonState {
     }
     return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0) }
 }
+
+# ---- ファイルごとにまとめた表示 ----
+
+function getAppKind {
+    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint。どれでもなければ空）を返す
+    param (
+        [string]$book
+    )
+
+    $extension = [System.IO.Path]::GetExtension($book).ToLowerInvariant()
+    if ($extension -match '^\.xls') {
+        return "Excel"
+    }
+    if ($extension -match '^\.doc') {
+        return "Word"
+    }
+    if ($extension -match '^\.ppt') {
+        return "PowerPoint"
+    }
+    return ""
+}
+
+function formatLocationLabel {
+    # 結果の「場所」（TSV の名前）を、まとめ表示の見出しに出す表記にする。
+    # Excel は「シート 4月」、Word は「3 ページ」、PowerPoint は「スライド 7」。それ以外（ヘッダー・フッターなど）はそのまま
+    param (
+        [string]$book,
+        [string]$location
+    )
+
+    if ((getAppKind $book) -eq "Excel") {
+        return "シート $location"
+    }
+    if ($location -match '^ページ0*(\d+)(.*)$') {
+        return "$($Matches[1]) ページ$($Matches[2])"
+    }
+    if ($location -match '^スライド0*(\d+)(.*)$') {
+        # 発表者ノート（スライド003_ノート）は「スライド 3 ノート」とする
+        return "スライド $($Matches[1])$($Matches[2] -replace '^_', ' ')"
+    }
+    return $location
+}
+
+function describeFileLocations {
+    # ファイルの中でヒットした場所（見つかった順・重複なし）を、見出しの右端に出す文字列にする。
+    # 1 か所ならその場所、2 か所以上なら「シート 4月 ほか 2 か所」
+    param (
+        [string[]]$labels
+    )
+
+    # 検索中にファイル・場所が増えるたびに呼ぶため、パイプライン（Where-Object）を使わない（1 回 1 ms を超えて検索が遅くなる）
+    $first = ""
+    $count = 0
+    foreach ($label in $labels) {
+        if ($label) {
+            if ($count -eq 0) {
+                $first = $label
+            }
+            $count++
+        }
+    }
+    if ($count -le 1) {
+        return $first
+    }
+    return "$first ほか $($count - 1) か所"
+}

@@ -142,6 +142,39 @@ class PreviewTable {
     }
 }
 
+# 検索結果をファイルごとにまとめたときの見出し 1 つ（元のファイル 1 つ）。同じファイルの HitRow が同じものを参照し、
+# 結果の表はこれでグループに分ける（PropertyGroupDescription "FileGroup"。参照が同じものが同じグループ）。
+# 文言（AppKind・LocationText）は画面側で判断層（search_view.ps1）の関数から作って入れる
+class FileGroup : NotifyBase {
+    [string]$Book
+    [string]$RelDir
+    [string]$FullPath
+    [string]$AppKind        # Excel / Word / PowerPoint（アイコンの色と文字を決める。どれでもなければ空）
+    [string]$LocationText   # 見出しの右端（「シート 4月 ほか 2 か所」）
+    [bool]$IsExpanded = $true   # 開いてヒットした行を見せるか（見出しのクリックで切り替える。TwoWay バインド）
+    hidden [System.Collections.Generic.HashSet[string]]$locations = [System.Collections.Generic.HashSet[string]]::new()
+    hidden [System.Collections.Generic.List[string]]$labels = [System.Collections.Generic.List[string]]::new()
+
+    # ヒットした場所（結果の「場所」そのまま）を記録する。初めての場所なら $true
+    # （呼び出し側が表記を AddLabel で足し、LocationText を作り直す。ヒットごとに表記を作らないため）
+    [bool] AddLocation([string]$location) {
+        return $this.locations.Add($location)
+    }
+
+    [void] AddLabel([string]$label) {
+        $this.labels.Add($label)
+    }
+
+    [string[]] GetLocations() {
+        return $this.labels.ToArray()
+    }
+
+    [void] SetLocationText([string]$text) {
+        $this.LocationText = $text
+        $this.Raise("LocationText")
+    }
+}
+
 # 検索結果の1行。生成時は生データのみ。表示用（DisplayLine・Segments・CellText）は Prepare() で作る（可視行だけ）。
 # 表示用の各項目は Prepare() 後に PropertyChanged を出す（LoadingRow より前にバインドされても更新されるように）
 class HitRow : NotifyBase {
@@ -175,6 +208,7 @@ class HitRow : NotifyBase {
     [string]$DisplayLine
     [System.Collections.Generic.List[Segment]]$Segments
     [bool]$Prepared
+    [FileGroup]$FileGroup   # ファイルごとにまとめるときの見出し（同じファイルの行で共有する）
 
     hidden [string]$word
     hidden [regex]$pattern

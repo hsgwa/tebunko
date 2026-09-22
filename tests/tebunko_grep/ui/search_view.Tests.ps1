@@ -67,3 +67,53 @@ Describe "newSearchButtonState" -Tag Unit {
         (newSearchButtonState $false $false "見積" $true 0).Enabled | Should Be $false
     }
 }
+
+Describe "getAppKind" -Tag Unit {
+    It "拡張子からアプリの種類を返す（大文字・小文字は問わない）" {
+        getAppKind "見積.xlsx" | Should Be "Excel"
+        getAppKind "古い見積.XLS" | Should Be "Excel"
+        getAppKind "マクロ.xlsm" | Should Be "Excel"
+        getAppKind "報告書.docx" | Should Be "Word"
+        getAppKind "報告書.doc" | Should Be "Word"
+        getAppKind "提案.pptx" | Should Be "PowerPoint"
+    }
+
+    It "Office のファイルでなければ空" {
+        getAppKind "メモ.txt" | Should Be ""
+        getAppKind "" | Should Be ""
+    }
+}
+
+Describe "formatLocationLabel" -Tag Unit {
+    It "Excel はシート名に「シート」を付ける" {
+        formatLocationLabel "見積.xlsx" "4月" | Should Be "シート 4月"
+    }
+
+    It "Word のページは「N ページ」にする" {
+        formatLocationLabel "報告書.docx" "ページ003" | Should Be "3 ページ"
+    }
+
+    It "PowerPoint のスライドは「スライド N」にし、非表示・ノートの印を残す" {
+        formatLocationLabel "提案.pptx" "スライド007" | Should Be "スライド 7"
+        formatLocationLabel "提案.pptx" "スライド003（非表示）" | Should Be "スライド 3（非表示）"
+        formatLocationLabel "提案.pptx" "スライド003_ノート" | Should Be "スライド 3 ノート"
+    }
+
+    It "ページ・スライドでない場所はそのまま" {
+        formatLocationLabel "報告書.docx" "ヘッダー・フッター" | Should Be "ヘッダー・フッター"
+    }
+}
+
+Describe "describeFileLocations" -Tag Unit {
+    It "場所が無ければ空" {
+        describeFileLocations @() | Should Be ""
+    }
+
+    It "1 か所ならその場所" {
+        describeFileLocations @("シート 4月") | Should Be "シート 4月"
+    }
+
+    It "2 か所以上なら先頭と、ほかの数" {
+        describeFileLocations @("シート 4月", "シート 5月", "シート 6月") | Should Be "シート 4月 ほか 2 か所"
+    }
+}

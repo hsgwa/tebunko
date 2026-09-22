@@ -113,13 +113,91 @@
         <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="12" Text="結果の中から探す" />
       </Grid>
       <TextBlock DockPanel.Dock="Right" Text="絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <CheckBox x:Name="GroupByFileCheck" DockPanel.Dock="Right" Content="ファイルごとにまとめる" VerticalAlignment="Center" Margin="0,0,18,0"
+                ToolTip="オンにすると、結果をファイルごとにまとめて表示します。見出しをクリックすると、そのファイルのヒットした行を閉じる・開くことができます" />
       <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="180" Margin="0,0,16,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
       <!-- 検索結果の件数は、この画面の主役 -->
       <TextBlock x:Name="SummaryText" Style="{StaticResource Focal}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
     </DockPanel>
 
     <!-- 結果の表 -->
-    <DataGrid Grid.Row="3" x:Name="ResultGrid">
+    <!-- ファイルごとにまとめるときも、見えている行だけを作る（IsVirtualizingWhenGrouping。件数が多くても軽い） -->
+    <DataGrid Grid.Row="3" x:Name="ResultGrid" VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+      <!-- ［ファイルごとにまとめる］がオンのときの見出し（グループの Name は FileGroup）。
+           DataGrid.GroupStyle には書かず、まとめている間だけ search_tab.ps1 の applyGrouping が GroupStyle に足す
+           （GroupStyle のある DataGrid には列の幅の不具合があるため。詳細は applyGrouping） -->
+      <DataGrid.Resources>
+        <GroupStyle x:Key="FileGroupStyle">
+          <GroupStyle.ContainerStyle>
+            <Style TargetType="GroupItem">
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="GroupItem">
+                    <StackPanel>
+                      <!-- 見出しをクリックすると、そのファイルのヒットした行を閉じる・開く（状態は FileGroup.IsExpanded に持つ。
+                           スクロールで見出しが作り直されても戻らないように） -->
+                      <ToggleButton x:Name="Toggle" IsChecked="{Binding Name.IsExpanded, Mode=TwoWay}" Focusable="False" Cursor="Hand"
+                                    ToolTip="{Binding Name.FullPath}">
+                        <ToggleButton.Template>
+                          <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="HeaderBg" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}"
+                                    BorderThickness="0,0,0,1" Padding="8,6,12,6">
+                              <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                              <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Bg.Hover}" />
+                              </Trigger>
+                            </ControlTemplate.Triggers>
+                          </ControlTemplate>
+                        </ToggleButton.Template>
+                        <DockPanel>
+                          <!-- 右端：ヒットした場所と件数（件数は絞り込み後の行の数） -->
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding ItemCount, StringFormat={}{0:N0} 件}" Style="{StaticResource Meta}"
+                                     VerticalAlignment="Center" MinWidth="48" TextAlignment="Right" Margin="12,0,0,0" />
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding Name.LocationText}" Style="{StaticResource Meta}"
+                                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" />
+                          <TextBlock x:Name="Arrow" DockPanel.Dock="Left" Text="▾" Foreground="{StaticResource Ink.Muted}" Width="14"
+                                     VerticalAlignment="Center" />
+                          <!-- アプリのアイコン（Excel・Word・PowerPoint の色と頭文字） -->
+                          <Border x:Name="Badge" DockPanel.Dock="Left" Width="18" Height="18" CornerRadius="3" Margin="0,0,8,0"
+                                  Background="{StaticResource Ink.Muted}" VerticalAlignment="Center">
+                            <TextBlock x:Name="BadgeText" Text="?" Foreground="White" FontSize="11" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                          </Border>
+                          <TextBlock DockPanel.Dock="Left" Text="{Binding Name.Book}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
+                                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Name.RelDir}" Style="{StaticResource Meta}" VerticalAlignment="Center"
+                                     Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                      </ToggleButton>
+                      <ItemsPresenter x:Name="Rows" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                      <Trigger SourceName="Toggle" Property="IsChecked" Value="False">
+                        <Setter TargetName="Rows" Property="Visibility" Value="Collapsed" />
+                        <Setter TargetName="Arrow" Property="Text" Value="▸" />
+                      </Trigger>
+                      <DataTrigger Binding="{Binding Name.AppKind}" Value="Excel">
+                        <Setter TargetName="Badge" Property="Background" Value="#217346" />
+                        <Setter TargetName="BadgeText" Property="Text" Value="X" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Name.AppKind}" Value="Word">
+                        <Setter TargetName="Badge" Property="Background" Value="#2B579A" />
+                        <Setter TargetName="BadgeText" Property="Text" Value="W" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Name.AppKind}" Value="PowerPoint">
+                        <Setter TargetName="Badge" Property="Background" Value="#C43E1C" />
+                        <Setter TargetName="BadgeText" Property="Text" Value="P" />
+                      </DataTrigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+            </Style>
+          </GroupStyle.ContainerStyle>
+        </GroupStyle>
+      </DataGrid.Resources>
       <DataGrid.Columns>
         <DataGridTextColumn x:Name="IndexColumn" Header="インデックス" Binding="{Binding IndexName}" Width="100" Visibility="Collapsed"
                             ElementStyle="{StaticResource Cell.Meta}" />
