@@ -4,11 +4,13 @@
 # 3 系を使う（無ければ入れる。tests\run.ps1 が 3 系を明示して読み込む）。
 # ランナーに Office は入っていないため、Office が要るテスト（タグ Office）は tests\run.ps1 が既定で外す。
 # release.yml からも呼ばれる（workflow_call）。タグの push では release.yml の中で実行するため、ここでは動かさない。
+# 作業ブランチは PR（pull_request）で確かめる。push でも動かすと、PR のブランチでは同じテストが 2 回走るため、push は main だけにする。
+# main への push では、Codecov の比較元になる main のカバレッジを送る。
 name: test
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_call:
 
