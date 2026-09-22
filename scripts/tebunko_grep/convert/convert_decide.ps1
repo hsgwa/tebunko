@@ -3,8 +3,14 @@
 
 # 読み取る内容（抽出版）。読み取る場所を増やしたら、その形式の版を上げる。
 # 前の版で変換したファイルは、更新が無くても変換し直す（変換一覧の「抽出版」。空は 1）
-#   2: Excel（.xlsx / .xlsm）の図形・コメントを読む
-${extractVersions} = @{ ".xlsx" = 2; ".xlsm" = 2 }
+#   2: Excel（.xlsx / .xlsm）の図形・コメントを読む。
+#      Word・PowerPoint のコメント・SmartArt・グラフを読み、Word のテキストボックスを本文から図形に分ける
+#      （Word・PowerPoint は旧形式も新形式に変換してから読むため、.doc / .ppt も上げる）
+${extractVersions} = @{
+    ".xlsx" = 2; ".xlsm" = 2
+    ".docx" = 2; ".docm" = 2; ".doc" = 2
+    ".pptx" = 2; ".pptm" = 2; ".ppt" = 2
+}
 
 function getExtractVersion {
     # ファイルの形式（拡張子）の今の抽出版を返す

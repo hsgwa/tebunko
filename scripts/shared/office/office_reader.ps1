@@ -3,10 +3,11 @@
 # 変換処理・テストから dot-source して使う。共通の部品（shared.ps1）を先に読み込んでおくこと。
 #
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
-#   Word      : ページ001, ページ002, ..., ヘッダー・フッター, 脚注
-#   PowerPoint: スライド001, スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
+#   Word      : ページ001, ページ001[図形], ページ001[コメント], ページ002, ..., ヘッダー・フッター, 脚注
+#   PowerPoint: スライド001, スライド001[図形], スライド001[コメント], スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
 #   Excel     : <シート名>[図形], <シート名>[コメント]（セルの値は変換処理が Excel で読む）
-# 1行は段落1つ、または表の1行（セルをタブ区切り）。Excel は図形・コメント1つ（"<セル番地><TAB><文字>"）。
+# 1行は段落1つ、または表の1行（セルをタブ区切り）。図形・コメントの場所は図形・コメント1つ
+# （Word・PowerPoint は文字だけ、Excel は "<セル番地><TAB><文字>"）。
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -17,6 +18,8 @@ ${nsPresent} = "http://schemas.openxmlformats.org/presentationml/2006/main"
 ${nsCompat}  = "http://schemas.openxmlformats.org/markup-compatibility/2006"
 ${nsRel}     = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 ${nsPkgRel}  = "http://schemas.openxmlformats.org/package/2006/relationships"
+${nsDiagram} = "http://schemas.openxmlformats.org/drawingml/2006/diagram"
+${nsChart}   = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 
 # PowerPointで読み飛ばすプレースホルダー（スライド番号・日付・ヘッダー・フッター・スライド画像）
 ${skipPlaceholderTypes} = @("sldNum", "dt", "hdr", "ftr", "sldImg")
@@ -147,11 +150,17 @@ function readXmlLines {
     #   $pageMode = "none" の場合はページを数えない（PowerPoint）
     # ・PowerPoint: $onlyPlaceholders を指定すると、その種類のプレースホルダー（例: "ftr"）のテキストだけを読む。
     #   指定しない場合は、スライド番号・日付・ヘッダー・フッター・スライド画像のプレースホルダーを読まない
+    # ・$objects（リスト）を渡すと、本文以外の文字の在りかを、ページ付きでそこに集める（渡さなければ今までどおり）:
+    #     @{ Kind = "shape";   Page; Text }   Word のテキストボックス・図形内の文字（本文の行には入れない。段落はスペースでつなぐ）
+    #     @{ Kind = "diagram"; Page; RelId }  SmartArt（dgm:relIds の r:dm。データはリレーションシップの先）
+    #     @{ Kind = "chart";   Page; RelId }  グラフ（c:chart の r:id）
+    #     @{ Kind = "comment"; Page; Id }     コメントの参照（w:commentReference の w:id）
     param (
         [string]$xml,
         [string]$ns,
         [string]$pageMode = "none",
-        [string[]]$onlyPlaceholders = $null
+        [string[]]$onlyPlaceholders = $null,
+        [System.Collections.Generic.List[object]]$objects = $null
     )
 
     # 要素・テキストごとに呼ぶため、PowerShell で遅い書き方（スクリプトブロックの呼び出し・switch・型名の解決・
@@ -166,6 +175,9 @@ function readXmlLines {
     $inText = $false
     $inSectPr = $false
     $skipShapeText = $false
+    # 開いているテキストボックス（$objects を渡したときだけ使う）。TcBase は開いた時点のセルの数（テキストボックスの外のセル）
+    $collect = ($null -ne $objects)
+    $boxFrames = New-Object System.Collections.Generic.List[hashtable]
 
     $elementType = [System.Xml.XmlNodeType]::Element
     $endElementType = [System.Xml.XmlNodeType]::EndElement
@@ -261,7 +273,17 @@ function readXmlLines {
                         if ($inSectPr -and $reader.GetAttribute("val", $ns) -eq "continuous") {
                             if ($pFrames.Count -gt 0) { $pFrames[$pFrames.Count - 1].BreakAfter = $false }
                         }
+                    } elseif ($collect -and $name -eq "txbxContent") {
+                        if (-not $isEmpty) {
+                            $boxFrames.Add(@{ Lines = (New-Object System.Collections.Generic.List[string]); Page = $page; TcBase = $tcFrames.Count })
+                        }
+                    } elseif ($collect -and $name -eq "commentReference") {
+                        $objects.Add(@{ Kind = "comment"; Page = $page; Id = $reader.GetAttribute("id", $ns) })
                     }
+                } elseif ($collect -and $uri -eq ${nsDiagram} -and $name -eq "relIds") {
+                    $objects.Add(@{ Kind = "diagram"; Page = $page; RelId = $reader.GetAttribute("dm", ${nsRel}) })
+                } elseif ($collect -and $uri -eq ${nsChart} -and $name -eq "chart") {
+                    $objects.Add(@{ Kind = "chart"; Page = $page; RelId = $reader.GetAttribute("id", ${nsRel}) })
                 } elseif ($uri -eq ${nsPresent}) {
                     if ($name -eq "sp") {
                         $skipShapeText = $onlyMode
@@ -305,13 +327,28 @@ function readXmlLines {
                     } elseif ($name -eq "tr") {
                         $row = $trFrames[$trFrames.Count - 1]
                         $trFrames.RemoveAt($trFrames.Count - 1)
-                        # 入れ子の表の行は、外側のセルの中ではスペース区切りにする
-                        $text = ($row.Cells -join $(if ($tcFrames.Count -gt 0) { " " } else { "`t" })).TrimEnd()
+                        # 入れ子の表の行は、外側のセルの中ではスペース区切りにする（テキストボックスの外のセルは数えない）
+                        $cellBase = $(if ($boxFrames.Count -gt 0) { $boxFrames[$boxFrames.Count - 1].TcBase } else { 0 })
+                        $text = ($row.Cells -join $(if ($tcFrames.Count -gt $cellBase) { " " } else { "`t" })).TrimEnd()
                         $textPage = $(if ($null -ne $row.Page) { $row.Page } else { $page })
                         $separator = " "
+                    } elseif ($name -eq "txbxContent" -and $boxFrames.Count -gt 0) {
+                        # テキストボックスが終わったら、段落をスペースでつないで図形 1 つにする
+                        $box = $boxFrames[$boxFrames.Count - 1]
+                        $boxFrames.RemoveAt($boxFrames.Count - 1)
+                        if ($box.Lines.Count -gt 0) {
+                            $objects.Add(@{ Kind = "shape"; Page = $box.Page; Text = ($box.Lines -join " ") })
+                        }
                     }
                     if ($text) {
-                        if ($tcFrames.Count -gt 0) {
+                        # テキストボックスの中（その中のセルは除く）なら、テキストボックスの行にする
+                        $box = $null
+                        if ($boxFrames.Count -gt 0 -and $tcFrames.Count -le $boxFrames[$boxFrames.Count - 1].TcBase) {
+                            $box = $boxFrames[$boxFrames.Count - 1]
+                        }
+                        if ($box) {
+                            $box.Lines.Add($text)
+                        } elseif ($tcFrames.Count -gt 0) {
                             $cell = $tcFrames[$tcFrames.Count - 1]
                             if ($cell.Text.Length -gt 0) {
                                 [void]$cell.Text.Append($separator)
@@ -365,8 +402,120 @@ function addUnitLines {
     }
 }
 
+function readDiagramText {
+    # SmartArt のデータ（diagrams/dataN.xml）の文字を、スペースでつないで 1 つにする。
+    # 同じ文字の描画用（diagrams/drawingN.xml）は、重複するため読まない
+    param (
+        [string]$xml
+    )
+
+    return (@(readXmlLines $xml ${nsDrawing} | ForEach-Object { $_.Text }) -join " ")
+}
+
+function readChartText {
+    # グラフ（charts/chartN.xml）の文字（タイトル・軸ラベル・系列名・項目名）を、スペースでつないで 1 つにする。
+    # 数値（numCache）は読まない。同じ文字は 1 回だけにする
+    param (
+        [string]$xml
+    )
+
+    $texts = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object System.Collections.Generic.HashSet[string]
+    # タイトル・軸ラベル（c:rich の a:p）
+    foreach ($line in (readXmlLines $xml ${nsDrawing})) {
+        if ($seen.Add($line.Text)) { $texts.Add($line.Text) }
+    }
+    # 系列名・項目名（c:strCache / c:multiLvlStrCache の c:pt/c:v）
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml($xml)
+    foreach ($v in $doc.GetElementsByTagName("v", ${nsChart})) {
+        $cache = $v.ParentNode.ParentNode
+        if ($cache.LocalName -eq "lvl") { $cache = $cache.ParentNode }
+        if ($cache.LocalName -notin @("strCache", "multiLvlStrCache")) { continue }
+        $text = $v.InnerText.Trim()
+        if ($text -ne "" -and $seen.Add($text)) { $texts.Add($text) }
+    }
+    return ($texts -join " ")
+}
+
+function readObjectText {
+    # readXmlLines が集めた SmartArt・グラフの参照（RelId）から、その文字を返す（読めなければ空）
+    param (
+        [System.IO.Compression.ZipArchive]$zip,
+        [hashtable]$rels,   # readRelationships の結果
+        $object
+    )
+
+    $rel = $rels[[string]$object.RelId]
+    if ($null -eq $rel) {
+        return ""
+    }
+    $xml = readZipEntry $zip $rel.Target
+    if ($null -eq $xml) {
+        return ""
+    }
+    if ($object.Kind -eq "diagram") {
+        return (readDiagramText $xml)
+    }
+    return (readChartText $xml)
+}
+
+function readWordComments {
+    # Word のコメント（word/comments.xml）を、w:id → 文字（段落をスペースでつなぐ）の辞書で返す。
+    # 返信も別のコメント（別の w:id）として入っている。作成者名は読まない
+    param (
+        [string]$xml
+    )
+
+    $comments = @{}
+    if (-not $xml) {
+        return $comments  # コメントが無い（[string] の引数は $null を空文字にする）
+    }
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml($xml)
+    foreach ($comment in $doc.GetElementsByTagName("comment", ${nsWord})) {
+        $text = @(readXmlLines $comment.OuterXml ${nsWord} | ForEach-Object { $_.Text }) -join " "
+        if ($text -ne "") {
+            $comments[$comment.GetAttribute("id", ${nsWord})] = $text
+        }
+    }
+    return $comments
+}
+
+function readSlideComments {
+    # PowerPoint のスライドのコメントを、コメント・返信ごとの文字の配列で返す（作成者名は読まない）。
+    #   旧形式（ppt/comments/commentN.xml）: p:cm の p:text
+    #   新形式（ppt/comments/modernComment_*.xml）: p188:cm の p188:txBody と、返信（p188:reply）の p188:txBody
+    param (
+        [string]$xml
+    )
+
+    $texts = New-Object System.Collections.Generic.List[string]
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml($xml)
+    foreach ($cm in @($doc.SelectNodes("//*") | Where-Object { $_.LocalName -eq "cm" })) {
+        if ($cm.NamespaceURI -eq ${nsPresent}) {
+            $body = @($cm.ChildNodes | Where-Object { $_.LocalName -eq "text" })
+            if ($body.Count -gt 0 -and $body[0].InnerText.Trim() -ne "") { $texts.Add($body[0].InnerText.Trim()) }
+            continue
+        }
+        # 新形式: XML では返信の一覧（replyLst）が本文（txBody）より前にあるため、本文を先に出してから返信を出す
+        $bodies = @($cm.ChildNodes | Where-Object { $_.LocalName -eq "txBody" })
+        foreach ($reply in @($cm.ChildNodes | Where-Object { $_.LocalName -eq "replyLst" } | ForEach-Object { $_.ChildNodes } | Where-Object { $_.LocalName -eq "reply" })) {
+            $bodies += @($reply.ChildNodes | Where-Object { $_.LocalName -eq "txBody" })
+        }
+        foreach ($body in $bodies) {
+            $text = @(readXmlLines $body.OuterXml ${nsDrawing} | ForEach-Object { $_.Text }) -join " "
+            if ($text -ne "") { $texts.Add($text) }
+        }
+    }
+    return $texts.ToArray()
+}
+
 function readDocxUnits {
-    # Word（.docx / .docm）のテキストを、ページ・ヘッダー/フッター・脚注ごとに返す
+    # Word（.docx / .docm）のテキストを、ページ・ヘッダー/フッター・脚注ごとに返す。
+    # 本文のテキストボックス・図形内の文字と SmartArt・グラフの文字は "ページNNN[図形]"、
+    # コメントは "ページNNN[コメント]"（コメントを付けた所のページ）に分ける（1 行は図形・コメント 1 つ）
     param (
         [string]$path
     )
@@ -384,7 +533,8 @@ function readDocxUnits {
         # 本文は行数が多いため、1行ずつ addUnitLines を呼ばずにページのユニットへ入れる（結果は addUnitLines と同じ）
         $lastPage = $null
         $pageLines = $null
-        foreach ($line in (readXmlLines $body ${nsWord} $pageMode)) {
+        $objects = New-Object System.Collections.Generic.List[object]
+        foreach ($line in (readXmlLines $body ${nsWord} $pageMode $null $objects)) {
             if ($null -eq $pageLines -or $line.Page -ne $lastPage) {
                 $unitName = "ページ{0:D3}" -f $line.Page
                 if (-not $units.Contains($unitName)) {
@@ -394,6 +544,33 @@ function readDocxUnits {
                 $lastPage = $line.Page
             }
             $pageLines.Add($line.Text)
+        }
+
+        # 図形（テキストボックス・SmartArt・グラフ）とコメント。文書の中の順に、そのページの場所へ入れる
+        $rels = readRelationships $zip "word/document.xml"
+        $comments = readWordComments (readZipEntry $zip "word/comments.xml")
+        $usedComments = New-Object System.Collections.Generic.HashSet[string]
+        foreach ($object in $objects) {
+            $base = "ページ{0:D3}" -f $object.Page
+            if ($object.Kind -eq "shape") {
+                addUnitLines $units "${base}[図形]" @($object.Text)
+            } elseif ($object.Kind -eq "comment") {
+                $id = [string]$object.Id
+                if ($comments.ContainsKey($id) -and $usedComments.Add($id)) {
+                    addUnitLines $units "${base}[コメント]" @($comments[$id])
+                }
+            } else {
+                $text = readObjectText $zip $rels $object
+                if ($text -ne "") {
+                    addUnitLines $units "${base}[図形]" @($text)
+                }
+            }
+        }
+        # 本文に参照の無いコメント（ヘッダー・脚注に付けたものなど）は、場所が分からないため "文書[コメント]" にまとめる
+        foreach ($id in @($comments.Keys | Sort-Object { $n = 0; [void][int]::TryParse($_, [ref]$n); $n })) {
+            if (-not $usedComments.Contains($id)) {
+                addUnitLines $units "文書[コメント]" @($comments[$id])
+            }
         }
 
         # ヘッダー・フッター（セクションごとに同じ内容が並ぶため、重複は除く）
@@ -459,7 +636,25 @@ function readPptxUnits {
             if ($slideXml -match '^[\s\S]{0,2000}?<p:sld\b[^>]*\sshow="(0|false)"') {
                 $unitName += "（非表示）"
             }
-            addUnitLines $units $unitName @(readXmlLines $slideXml ${nsDrawing} | ForEach-Object { $_.Text })
+            # テキストボックス・図形の文字はスライドの本文にする（スライドの文字はほとんどが図形のため）。
+            # SmartArt・グラフの文字は "スライドNNN[図形]"、コメントは "スライドNNN[コメント]" に分ける
+            $objects = New-Object System.Collections.Generic.List[object]
+            addUnitLines $units $unitName @(readXmlLines $slideXml ${nsDrawing} "none" $null $objects | ForEach-Object { $_.Text })
+            $slideRels = readRelationships $zip $rel.Target
+            foreach ($object in $objects) {
+                $text = readObjectText $zip $slideRels $object
+                if ($text -ne "") {
+                    addUnitLines $units "${unitName}[図形]" @($text)
+                }
+            }
+            foreach ($slideRel in $slideRels.Values) {
+                if ($slideRel.Type -like "*/comments") {
+                    $commentsXml = readZipEntry $zip $slideRel.Target
+                    if ($null -ne $commentsXml) {
+                        addUnitLines $units "${unitName}[コメント]" @(readSlideComments $commentsXml)
+                    }
+                }
+            }
 
             # スライドのフッター（各スライドに同じ内容が並ぶため、重複は除く）
             foreach ($line in (readXmlLines $slideXml ${nsDrawing} "none" @("ftr"))) {
@@ -469,7 +664,6 @@ function readPptxUnits {
             }
 
             # 発表者ノート
-            $slideRels = readRelationships $zip $rel.Target
             foreach ($slideRel in $slideRels.Values) {
                 if ($slideRel.Type -like "*/notesSlide") {
                     $notesXml = readZipEntry $zip $slideRel.Target
