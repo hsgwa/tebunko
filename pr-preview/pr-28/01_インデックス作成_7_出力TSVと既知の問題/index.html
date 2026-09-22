@@ -804,6 +804,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        図形・コメントの場所（Excel・Word・PowerPoint で共通の決まり）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#インデックスへの入れ替えpublishtsv--publishindexfiles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1371,6 +1382,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        図形・コメントの場所（Excel・Word・PowerPoint で共通の決まり）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#インデックスへの入れ替えpublishtsv--publishindexfiles" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1524,12 +1546,48 @@
 </table>
 <ul>
 <li>クロール対象フォルダのフォルダ構成が <code>work/index/&lt;インデックス名&gt;/</code> 配下にそのまま再現され、その下に<strong>ファイル 1 つにつきフォルダ 1 つ</strong>ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。</li>
-<li>「場所」は Excel ではシート名、Word ではページ・ヘッダー/フッター・脚注（6.5 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/#65-word-のテキスト読み取りと-tsv-の場所readdocxunits">01_インデックス作成_2_Word.md</a>）、PowerPoint ではスライド・ノート（6.6 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#66-powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">01_インデックス作成_3_PowerPoint.md</a>）。</li>
+<li>「場所」は Excel ではシート名と、図形・コメントの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code>（下の「図形・コメントの場所」、6.7 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_インデックス作成_1_Excel.md</a>）、Word ではページ・ヘッダー/フッター・脚注（6.5 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/#65-word-のテキスト読み取りと-tsv-の場所readdocxunits">01_インデックス作成_2_Word.md</a>）、PowerPoint ではスライド・ノート（6.6 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#66-powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">01_インデックス作成_3_PowerPoint.md</a>）。</li>
 <li>TSV のファイル名は場所だけ（<code>toIndexFileName</code>）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。</li>
 <li><strong>ファイル名をフォルダ名にする理由</strong>（以前は <code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> の 1 つの名前にしていた）:</li>
 <li>ファイル名と場所の区切りが <code>\</code> になり、名前の中の文字と衝突しない（<code>_</code> の符号化に頼らずに分けられる）。</li>
 <li>取り込み直すときは<strong>フォルダごと削除</strong>すればよく、別のファイルの TSV を巻き込まない（以前は <code>&lt;ファイル名&gt;_*.tsv</code> で消していたため、<code>a.xls</code> の取り込みで <code>a.xls_b.xlsx</code> の TSV まで消えていた）。</li>
 <li><code>&lt;ファイル名&gt;＋&lt;場所&gt;</code> が 255 文字を超えて保存できないファイルが無くなる（以前は名前の長いファイルが <code>失敗</code> になっていた）。</li>
+</ul>
+<h4 id="図形コメントの場所excelwordpowerpoint-で共通の決まり">図形・コメントの場所（Excel・Word・PowerPoint で共通の決まり）<a class="headerlink" href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" title="Permanent link">&para;</a></h4>
+<p>本文（セル・段落）以外の文字は、<strong><code>&lt;元の場所&gt;[&lt;種類&gt;]</code></strong> という場所（TSV）に分けて出力する。種類ごとに、検索に含めるかを画面で選べる（［図形も検索］［コメントも検索］。<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.1）。</p>
+<table>
+<thead>
+<tr>
+<th>種類</th>
+<th>入れるもの</th>
+<th>Excel（今）</th>
+<th>Word（予定）</th>
+<th>PowerPoint（予定）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>図形</code></td>
+<td>図形・テキストボックス・WordArt（SmartArt・グラフも入れる予定）</td>
+<td><code>売上[図形]</code></td>
+<td><code>ページ003[図形]</code></td>
+<td><code>スライド002[図形]</code></td>
+</tr>
+<tr>
+<td><code>コメント</code></td>
+<td>コメント（メモ・スレッド形式・返信）</td>
+<td><code>売上[コメント]</code></td>
+<td><code>ページ003[コメント]</code></td>
+<td><code>スライド002[コメント]</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。</li>
+<li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types_grep.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
+<li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「セル」と、開くときに選ぶセルに使う）。Word・PowerPoint では、図形・コメント 1 つを 1 行（文字だけ）にする予定。元の場所（ページ・スライド）は場所の名前で分かる。</li>
+<li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5</a>）。</li>
+<li><strong>Word・PowerPoint に広げるときに決めること</strong>: Word のテキストボックス・図形内の文字は、今はページの本文に含めている（6.4 節）。<code>[図形]</code> に移すかどうか（移すと［図形も検索］をオフにしたときに検索されなくなる）。</li>
 </ul>
 <h4 id="インデックスへの入れ替えpublishtsv--publishindexfiles">インデックスへの入れ替え（<code>publishTsv</code> / <code>publishIndexFiles</code>）<a class="headerlink" href="#インデックスへの入れ替えpublishtsv--publishindexfiles" title="Permanent link">&para;</a></h4>
 <p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code>）にできた TSV をインデックスへ入れる。このとき、TSV をいったん <code>work/取り込み出力/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。</p>
@@ -1705,6 +1763,7 @@
 <blockquote>
 <p><strong>6.5 Word のテキスト読み取りと TSV の場所（<code>readDocxUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/#65-word-のテキスト読み取りと-tsv-の場所readdocxunits">01_インデックス作成_2_Word.md</a></p>
 <p><strong>6.6 PowerPoint のテキスト読み取りと TSV の場所（<code>readPptxUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#66-powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">01_インデックス作成_3_PowerPoint.md</a></p>
+<p><strong>6.7 Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_インデックス作成_1_Excel.md</a></p>
 </blockquote>
 <hr />
 <h2 id="7-実装上の注意点既知の問題">7. 実装上の注意点・既知の問題<a class="headerlink" href="#7-実装上の注意点既知の問題" title="Permanent link">&para;</a></h2>
