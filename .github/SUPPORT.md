@@ -13,7 +13,7 @@
 |---|---|
 | 思ったとおりに動かない | [Issue（不具合）](https://github.com/hsgwa/tebunko/issues/new?template=bug.yml) |
 | 機能の追加・変更の要望 | [Issue（機能の要望）](https://github.com/hsgwa/tebunko/issues/new?template=feature.yml) |
-| 安全性に関わる問題 | [非公開の報告](https://github.com/hsgwa/tebunko/security/advisories/new)（[SECURITY.md](../SECURITY.md)） |
+| 安全性に関わる問題 | [非公開の報告](https://github.com/hsgwa/tebunko/security/advisories/new)（[SECURITY.md](SECURITY.md)） |
 
 Issue に画面の写しやログを貼るときは、利用者名を含むパス（`C:\Users\<利用者名>\...`）や社名・顧客名を消してから貼ってください。Office ファイルそのものは、機密情報を含むおそれがあるため添付しないでください。
 

@@ -111,7 +111,7 @@
 - **根拠と確認手順:** [docs/04_安全性.md](docs/04_安全性.md)（審査する側が、同じ結果を自分で確かめられる手順つき）
 - **機械的な検査:** 上の主張は `tests/meta/safety.Tests.ps1` が CI で毎回確かめます。静的解析（PSScriptAnalyzer）の安全性のルールでの指摘は 0 件です。
 - **配布物の完全性:** Releases の zip にはカタログ（`tebunko.cat`）とハッシュ一覧（`SHA256SUMS.txt`）が入っています。`Test-FileCatalog` で確かめられます（証明書は不要）。zip 自体の SHA256 はリリースの説明に載せています。
-- **脆弱性の報告:** [SECURITY.md](SECURITY.md)（非公開で報告できます）
+- **脆弱性の報告:** [SECURITY.md](https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.md)（非公開で報告できます）
 
 ## 開発に参加する
 
