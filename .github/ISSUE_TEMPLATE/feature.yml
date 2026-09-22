@@ -1,5 +1,6 @@
 name: 機能の要望
 description: 新しい機能や、今の機能の変更を提案する
+title: "feat: "
 labels: ["enhancement"]
 body:
   - type: textarea

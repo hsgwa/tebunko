@@ -1,5 +1,6 @@
 name: 不具合
 description: 思ったとおりに動かないことを報告する
+title: "fix: "
 labels: ["bug"]
 body:
   - type: markdown
