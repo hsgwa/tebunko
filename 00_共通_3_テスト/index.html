@@ -1936,7 +1936,7 @@
 <li>ランナーには Pester 5 も入っており、そのままでは <code>Invoke-Pester</code> が 5 を読み込んで全テストが失敗する（5 はテストの書き方が違う）。<code>tests/run.ps1</code> は <code>Import-Module Pester -MaximumVersion 3.99.99</code> で 3 系を明示し、CI は 3 系が無ければ 3.4.0 を入れる</li>
 <li>スクリプトの改行はランナーの <code>core.autocrlf</code> に左右されないよう、<code>.gitattributes</code> で <code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF に固定している</li>
 <li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは自動的に外れる。COM を使うインデックス作成の確認は手元で <code>-All</code> を使う（6.2）</li>
-<li>あわせて PSScriptAnalyzer の <code>Error</code> を 0 件に保つ（継承元が別ファイルのための <code>TypeNotFound</code> は除く）。安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）はタグ <code>Meta</code> のため既定で実行され、PSScriptAnalyzer が入っていない環境では静的解析の項目だけを飛ばす</li>
+<li>あわせて PSScriptAnalyzer の <code>Error</code> を 0 件に保つ（継承元が別ファイルのための <code>TypeNotFound</code> は除く）。PSScriptAnalyzer の版は <code>test.yml</code> で固定する（新しい版でルールが増えて、コードを変えずに CI が落ちるのを防ぐ。Dependabot の対象外のため、上げるときは版を書き換えた PR で指摘が 0 件のままか確かめる）。安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）はタグ <code>Meta</code> のため既定で実行され、PSScriptAnalyzer が入っていない環境では静的解析の項目だけを飛ばす</li>
 <li>テストの前に <code>tools/check_commit.ps1</code> で、追跡している全ファイルと全コミットの作者を検査する（下の「公開してはいけない内容の検査」）。作者を全履歴で調べるため <code>fetch-depth: 0</code> で取得する</li>
 <li>同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
 <li>テストのあと、<code>work\test\coverage.xml</code> を <a href="https://codecov.io/gh/hsgwa/tebunko">Codecov</a> に送る（<code>codecov/codecov-action</code>。版はコミットのハッシュで固定する）。README のバッジ、PR へのコメント（ファイルごとの増減）、行ごとの表示は Codecov が出す</li>
