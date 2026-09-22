@@ -10,6 +10,8 @@ ${diffMaxGridColumns} = 100  # Excel の表として出す列の上限（これ�
 ${diffObjectKinds}    = @{ Shape = "[図形]"; Comment = "[コメント]" }
 ${diffPairMinSlideSimilarity} = 0.4  # PowerPoint の本文が一致しないスライドを対応づける、似ている度合いの下限
 ${diffPairMinCellSimilarity} = 0.4  # Excel の削除と追加の行を「変更」として組む下限（同じセルの割合と、行の文字の似ている度合いの大きい方）
+# 見えない文字（引用符・ゼロ幅スペース・BOM・セル内の改行）。これと空白だけのセル・段落は空として扱う（isBlankCell）
+${diffInvisibleChars} = [char[]]@('"', [char]0x200B, [char]0xFEFF, [char]0x2028)
 
 # 画面に出す場所 1 つ（Excel のシート、Word の本文・脚注、PowerPoint のスライドとノート など）
 class PlaceDiff {
@@ -232,7 +234,19 @@ function getCompareKeys {
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $text = $lines[$i]
         if ($cells) {
+            # 見えない文字だけのセル（"" ・ゼロ幅スペース・BOM・セル内の改行だけ）は、空のセルとして扱う。
+            # その文字を含む行だけセルに分けて調べる（ほとんどの行は分けずに済む）
+            if ($text.IndexOfAny(${diffInvisibleChars}) -ge 0) {
+                $parts = $text.Split("`t")
+                for ($c = 0; $c -lt $parts.Count; $c++) {
+                    if (isBlankCell $parts[$c]) { $parts[$c] = "" }
+                }
+                $text = [string]::Join("`t", $parts)
+            }
             $text = $text.TrimEnd("`t")
+        } elseif ($text.IndexOfAny(${diffInvisibleChars}) -ge 0 -and (isBlankCell $text)) {
+            # 見えない文字だけの段落は空の段落
+            $text = ""
         }
         if ($normalize) {
             $text = normalizeDiffLine $text $options.IgnoreWhitespace $options.CaseSensitive
@@ -240,6 +254,18 @@ function getCompareKeys {
         $keys[$i] = $text
     }
     return , $keys
+}
+
+function isBlankCell {
+    # 見た目が空のセル・段落か（引用符を外した中身が、空白と見えない文字だけ）
+    param (
+        [string]$cell
+    )
+
+    if ($cell.Length -ge 2 -and $cell[0] -eq '"' -and $cell[$cell.Length - 1] -eq '"') {
+        $cell = $cell.Substring(1, $cell.Length - 2).Replace('""', '"')
+    }
+    return [string]::IsNullOrWhiteSpace($cell.Replace([string][char]0x200B, "").Replace([string][char]0xFEFF, "").Replace([string][char]0x2028, ""))
 }
 
 function newTextRows {
@@ -423,6 +449,8 @@ function compareExcelSheet {
             for ($c = 0; $c -lt $width; $c++) {
                 $l = if ($c -lt $lc.Count) { $lc[$c] } else { "" }
                 $r = if ($c -lt $rc.Count) { $rc[$c] } else { "" }
+                # 見た目が空のセルどうしは同じ（splitExcelLines でセル内の改行は " ↵ " になっている）
+                if ($l -ne $r -and (isBlankCell $l.Replace(" ↵ ", "")) -and (isBlankCell $r.Replace(" ↵ ", ""))) { continue }
                 if ((normalizeDiffLine $l $options.IgnoreWhitespace $options.CaseSensitive) -ne (normalizeDiffLine $r $options.IgnoreWhitespace $options.CaseSensitive)) {
                     $changedColumns.Add($c)
                 }

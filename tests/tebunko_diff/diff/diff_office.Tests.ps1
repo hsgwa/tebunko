@@ -66,6 +66,21 @@ Describe "Excel" -Tag Unit {
         getRowText $place.Rows | Should Be "same:1:1 same:2:4 same:3:6"
     }
 
+    It "見えない文字だけの行（空文字の引用・ゼロ幅スペース・BOM・セル内の改行だけ）も差分にしない" {
+        $l = [ordered]@{ S = [string[]]@("TC01-005`t田中 健", "TC01-006`tSmith John") }
+        $r = [ordered]@{ S = [string[]]@("TC01-005`t田中 健", "TC01-006`tSmith John", '""', "$([char]0x200B)`t$([char]0xFEFF)", "`"$([char]0x2028)`"") }
+        $place = (compareOfficeUnits "Excel" $l $r).Places[0]
+        $place.Status | Should Be "same"
+        getRowText $place.Rows | Should Be "same:1:1 same:2:2"
+    }
+
+    It "見た目が空のセルどうしは、値の違うセルにしない" {
+        $l = [ordered]@{ S = [string[]]@("a`t`t1") }
+        $r = [ordered]@{ S = [string[]]@("a`t$([char]0x200B)`t2") }
+        $row = (compareOfficeUnits "Excel" $l $r).Places[0].Rows[0]
+        $row.Detail | Should Be "C1：1 → 2"
+    }
+
     It "右端の空のセルの数が違うだけの行は、同じ行にする" {
         $l = [ordered]@{ S = [string[]]@("a`tb", "c`t1") }
         $r = [ordered]@{ S = [string[]]@("a`tb`t`t", "c`t2`t") }
