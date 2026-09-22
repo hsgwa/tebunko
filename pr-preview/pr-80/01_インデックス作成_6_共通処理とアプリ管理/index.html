@@ -1412,6 +1412,7 @@
 
 <h1 id="インデックス作成インデクサ設計書--共通処理と-office-アプリの管理">インデックス作成（インデクサ）設計書 ― 共通処理と Office アプリの管理<a class="headerlink" href="#インデックス作成インデクサ設計書--共通処理と-office-アプリの管理" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の一部である。章・節の番号は 01_インデックス作成.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#ファイル構成">01_インデックス作成.md</a> の表のとおり。</p>
+<p>Word・PowerPoint で共通の抽出処理（4.4）、失敗の原因の言い換え（4.7）、Office アプリの起動・終了と制限時間の監視（5 章）を扱う。</p>
 <hr />
 <h2 id="4-処理フロー続き">4. 処理フロー（続き）<a class="headerlink" href="#4-処理フロー続き" title="Permanent link">&para;</a></h2>
 <h3 id="44-wordpowerpoint-の抽出処理extractdocument">4.4 Word・PowerPoint の抽出処理（<code>extractDocument</code>）<a class="headerlink" href="#44-wordpowerpoint-の抽出処理extractdocument" title="Permanent link">&para;</a></h3>
@@ -1420,12 +1421,14 @@
     A["extractDocument(パス)"] --&gt; CP["作業領域に source.#lt;拡張子#gt; としてコピー&lt;br&gt;（copyFileShared。元のファイルを占有しない）"]
     CP --&gt; Z{"コピーの先頭が&lt;br&gt;ZIP のシグネチャ（PK）？"}
     Z -- はい --&gt; R["コピーをそのまま読む（6.4〜6.6）&lt;br&gt;readDocxUnits / readPptxUnits"]
-    Z -- "いいえ&lt;br&gt;（旧形式・パスワード付き・&lt;br&gt;拡張子と中身が異なる）" --&gt; C["コピーの名前を source.doc / source.ppt に変える"]
+    Z -- "いいえ&lt;br&gt;（旧形式・パスワード付き・&lt;br&gt;拡張子と中身が異なる）" --&gt; PC{"PowerPoint で、先頭が&lt;br&gt;複合ドキュメント形式でない？（4.6）"}
+    PC -- はい --&gt; ERR
+    PC -- いいえ --&gt; C["コピーの名前を source.doc / source.ppt に変える"]
     C --&gt; O{"Word / PowerPoint で開く&lt;br&gt;（4.5 / 4.6）"}
     O -- "開けない&lt;br&gt;（パスワード付き等）" --&gt; ERR["例外 → 取り込み一覧に『失敗』と記録"]
     O -- 開けた --&gt; S["converted.docx / converted.pptx として保存"]
     S --&gt; R2["保存したファイルを読む（6.4〜6.6）"]
-    R &amp; R2 --&gt; W["writeUnits: 場所ごとに&lt;br&gt;#lt;ファイル名#gt;_#lt;場所#gt;.tsv を作業領域に出力&lt;br&gt;（空の場所は出力しない）"]
+    R &amp; R2 --&gt; W["writeUnits: 場所ごとに&lt;br&gt;#lt;場所#gt;.tsv を作業領域に出力&lt;br&gt;（空の場所は出力しない）"]
     W --&gt; D["作業領域のコピー・変換したファイルを削除（finally）"]</code></pre>
 <ul>
 <li>元のファイルは直接読まず、先に作業領域へコピーする（Excel と同じく <code>copyFileShared</code>。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">01_インデックス作成_1_Excel.md</a> の補足）。ZIP を直接開くと、読んでいる間ほかのアプリの書き込みを拒否するうえ、利用者が編集中（書き込みで開いている）のファイルは共有違反で読めないため。</li>
@@ -1531,7 +1534,7 @@
 </tr>
 <tr>
 <td>終了</td>
-<td><code>Quit()</code> と <code>ReleaseComObject</code> の後、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）以内にプロセスが終了しなければ PID で強制終了する。Excel は抽出で取り出した COM オブジェクトが解放されきらないため、インデクサが動いている間は Quit しても終わらず、以前は毎回 5 秒待ってから強制終了していた（インデックス作成 1 回ごと・再起動ごとに 5 秒の無駄）。<code>GC.Collect()</code> で解放を促して自分で終わらせる方法は、インデクサの終了が COM の解放待ちで約 60 秒止まることがあった（実測 25 回中 1〜2 回）ため採らない。<code>GC.WaitForPendingFinalizers()</code> も同じ理由で使わない</td>
+<td><code>Quit()</code> と <code>ReleaseComObject</code> の後、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）以内にプロセスが終了しなければ PID で強制終了する。Excel の待ち時間が短いのは、抽出で取り出した COM オブジェクトが解放されきらず、インデクサが動いている間は Quit しても終わらない（長く待っても無駄になる）ため。<code>GC.Collect()</code> で解放を促して自分で終わらせる方法は、インデクサの終了が COM の解放待ちで約 60 秒止まることがある（実測 25 回中 1〜2 回）ため採らない。<code>GC.WaitForPendingFinalizers()</code> も同じ理由で使わない</td>
 </tr>
 <tr>
 <td>終了の失敗</td>

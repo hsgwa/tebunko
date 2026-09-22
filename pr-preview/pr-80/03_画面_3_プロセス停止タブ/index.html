@@ -1380,6 +1380,7 @@
 <p>本書は <a href="../03_%E7%94%BB%E9%9D%A2/">03_画面.md</a> の一部である。章・節の番号は 03_画面.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../03_%E7%94%BB%E9%9D%A2/#ファイル構成">03_画面.md</a> の表のとおり。</p>
 <hr />
 <h2 id="5-9-プロセス停止タブ">5. ［9 プロセス停止］タブ<a class="headerlink" href="#5-9-プロセス停止タブ" title="Permanent link">&para;</a></h2>
+<p>インデックス作成を中断したときなどに残った Excel・Word・PowerPoint のプロセスを一覧し、終了するタブ。</p>
 <p><img alt="［9 プロセス停止］タブ" src="../images/%E7%94%BB%E9%9D%A2_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96.drawio.png" /></p>
 <p>このタブは検索と比較で共通（<code>shared/ui/process_tab.ps1</code>・<code>shared/xaml/tab_kill.xaml</code>）。図は以前の版のもので、タブの並びが今と異なる（今の 1 段目は［1 検索］［2 比較］［9 プロセス停止］）。</p>
 <table>
@@ -1394,12 +1395,12 @@
 <tr>
 <td>1</td>
 <td>プロセスの表</td>
-<td>実行中の Excel・Word・PowerPoint を一覧する（5.1）。複数選択できる</td>
+<td>見出しは <code>残っている Office のプロセス</code>、その下に <code>インデックス作成を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。</code>。実行中の Excel・Word・PowerPoint を一覧する（5.1）。複数選択できる</td>
 </tr>
 <tr>
 <td>2</td>
 <td>［更新］</td>
-<td>一覧を取り直す。F5 でも同じ。表の上に <code>N 件（バックグラウンド X 件・画面に表示中 Y 件） ・ HH:mm 時点</code> を表示する</td>
+<td>一覧を取り直す。F5 でも同じ。表の下に <code>N 件（バックグラウンド X 件・画面に表示中 Y 件） ・ H:mm:ss 時点</code> を表示する（0 件なら <code>実行中の Excel・Word・PowerPoint はありません。（H:mm:ss 時点）</code>）</td>
 </tr>
 <tr>
 <td>3</td>
@@ -1419,7 +1420,7 @@
 <tr>
 <td>6</td>
 <td>［すべて終了］</td>
-<td>一覧のすべてを終了する。赤枠で表示し、誤操作に注意を促す</td>
+<td>一覧のすべてを終了する。0 件なら無効。赤枠で表示し、誤操作に注意を促す</td>
 </tr>
 <tr>
 <td>7</td>
@@ -1447,7 +1448,7 @@
 </tr>
 <tr>
 <td>起動時刻</td>
-<td>当日なら <code>HH:mm</code>、それ以前は <code>M/d HH:mm</code>。取得できなければ空欄</td>
+<td>当日なら <code>H:mm</code>、それ以前は <code>M/d H:mm</code>。取得できなければ空欄</td>
 </tr>
 <tr>
 <td>メモリ</td>
@@ -1462,7 +1463,7 @@
 <ul>
 <li>一覧とバックグラウンドの判定は <code>shared/office/office_process.ps1</code> の <code>getOfficeProcesses</code>、終了は <code>stopOfficeProcesses</code> で行う（12 章）。「バックグラウンド」は <code>MainWindowHandle</code> が 0 のものをさす。列としては表示せず、並び順・［バックグラウンドのみ終了］・タブ見出しの <code>⚠</code> に使う（画面上では「ウィンドウ」列が <code>（なし）</code> かどうかで分かる）。</li>
 <li>並び順はバックグラウンドを先に、次に起動時刻の古い順とする。</li>
-<li>タブを開いたとき・［更新］・終了操作の後に取り直す。タブを表示している間は 5 秒ごとに自動で取り直す。</li>
+<li>タブを開いたとき・［更新］・終了操作の前後に取り直す。タブを表示している間は 5 秒ごとに自動で取り直す。</li>
 </ul>
 <h3 id="52-終了の確認">5.2 終了の確認<a class="headerlink" href="#52-終了の確認" title="Permanent link">&para;</a></h3>
 <p>終了は <code>Stop-Process -Force</code>（保存確認なし）で行うため、必ず確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）を出す。ボタンは［終了する］。</p>

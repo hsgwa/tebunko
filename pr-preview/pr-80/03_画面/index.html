@@ -1535,7 +1535,7 @@
 </tr>
 <tr>
 <td>起動用バッチ</td>
-<td><code>tebunko.bat</code>。以前の版のショートカットのために <code>tebunko_grep.bat</code> も残し、同じ画面を［1 検索］で開く（<code>-StartPage search</code>）</td>
+<td><code>tebunko.bat</code>（名称は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#14-未決事項">14 章</a> U1。以前の版の <code>tebunko_grep.bat</code> は無くした）。PowerShell の窓を残さずに画面だけを開く（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">10.1</a>）</td>
 </tr>
 <tr>
 <td>スクリプト</td>
@@ -1603,53 +1603,42 @@
 <hr />
 <h2 id="1-概要">1. 概要<a class="headerlink" href="#1-概要" title="Permanent link">&para;</a></h2>
 <h3 id="11-目的">1.1 目的<a class="headerlink" href="#11-目的" title="Permanent link">&para;</a></h3>
-<p>以前は、利用者が <code>config/*.txt</code> をメモ帳で編集し、<code>.bat</code> を起動し、結果のテキストファイルを開いて確認していた。
-この一連の操作を 1 つの画面で完結させる。特に、最も頻度の高い「ワードを入れて検索し、結果を見て、元のファイルを開く」操作を短くする。</p>
+<p>インデックスの作成・検索・元のファイルを開く、までの一連の操作を 1 つの画面で完結させる。設定ファイルの編集やバッチの使い分けは要らない。特に、最も頻度の高い「ワードを入れて検索し、結果を見て、元のファイルを開く」操作を短くする。</p>
 <h3 id="12-利用場面">1.2 利用場面<a class="headerlink" href="#12-利用場面" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
 <th>場面</th>
 <th>頻度</th>
-<th>以前の操作</th>
-<th>困りごと</th>
-<th>本書での対応</th>
+<th>画面での操作</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>初回の準備</td>
 <td>1 回</td>
-<td>txt にパスを書き、<code>1_変換.bat</code> を実行</td>
-<td>どのファイルを編集するか分からない。パスを手入力する</td>
-<td>フォルダ選択ダイアログ・ドラッグ＆ドロップ（3 章）</td>
+<td>フォルダ選択ダイアログ・ドラッグ＆ドロップでインデックスを追加し、［インデックス作成を開始］（3 章）</td>
 </tr>
 <tr>
 <td><strong>検索</strong></td>
 <td><strong>毎日・何度も</strong></td>
-<td><code>検索ワード.txt</code> を編集 → <code>2_検索.bat</code> → 結果ファイルを開く → 元のファイルを探して開く</td>
-<td>txt・bat・結果ファイル・エクスプローラーを行き来する</td>
-<td>ワードを入れて Enter。結果を画面の表で確認し、ダブルクリックで元のファイルの該当箇所を開く（4 章）</td>
+<td>ワードを入れて Enter。結果をファイルごとの見出しで確認し、行のダブルクリックで元のファイルの該当箇所を開く（4 章）</td>
 </tr>
 <tr>
 <td>インデックスの更新</td>
 <td>時々</td>
-<td><code>1_変換.bat</code></td>
-<td>最終取り込み日時や、中断・失敗が残っているかが見えない</td>
-<td>インデックスの状態表示（3 章・6 章）</td>
+<td>最終取り込み日時・中断・失敗を見て、［インデックス作成を開始］（3 章・6 章）</td>
 </tr>
 <tr>
 <td>残った Office の終了</td>
 <td>まれ</td>
-<td><code>9_Office強制終了.bat</code> で番号を入力</td>
-<td>どのプロセスが残っているか見えない</td>
-<td>プロセスの一覧を見て終了する（5 章）</td>
+<td>残っているプロセスの一覧を見て終了する（5 章）</td>
 </tr>
 </tbody>
 </table>
 <h3 id="13-設計方針">1.3 設計方針<a class="headerlink" href="#13-設計方針" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>作業単位でタブを分ける</strong>。1 段目は［1 検索］［2 比較］［9 プロセス停止］の 3 つとし、［1 検索］の中を 2 段目の［インデックス管理］［検索］に分ける（インデックスは検索だけのもののため）。［9 プロセス停止］の番号は以前の <code>.bat</code> と合わせる。</li>
+<li><strong>作業単位でタブを分ける</strong>。1 段目は［1 検索］［2 比較］［9 プロセス停止］の 3 つとし、［1 検索］の中を 2 段目の［インデックス管理］［検索］に分ける（インデックスは検索だけのもののため）。［9 プロセス停止］の番号は、画面を作る前の起動用バッチ <code>9_Office強制終了.bat</code> に合わせたもの。</li>
 <li><strong>検索は 1 ワードずつ、結果は画面に出す</strong>。ワードを入れて Enter で検索し、結果を画面の表で確認する。表から元のファイルを開ける。</li>
 <li><strong>保存を意識させない</strong>。インデックスの追加・編集・削除・チェックの変更、検索オプションはその場で保存する。保存の操作は無い。</li>
 <li><strong>状態を常に見せる</strong>。インデックスの件数・最終取り込み日時・中断や失敗の有無・残っている Office プロセスを表示する。</li>
@@ -1737,7 +1726,7 @@
 <tr>
 <td>プロセス停止</td>
 <td><strong>画面内</strong></td>
-<td><code>shared/office/office_process.ps1</code> の関数でプロセスを取得・終了する（5 章）</td>
+<td><code>shared/office/office_process.ps1</code> の関数（<code>tebunko_grep/lib.ps1</code> から読み込む）でプロセスを取得・終了する（5 章）</td>
 </tr>
 </tbody>
 </table>
@@ -1783,9 +1772,9 @@
 </tbody>
 </table>
 <h3 id="22-起動時に開くタブ">2.2 起動時に開くタブ<a class="headerlink" href="#22-起動時に開くタブ" title="Permanent link">&para;</a></h3>
-<p>1 段目は、<code>-StartPage diff</code> を付けたときだけ［2 比較］、それ以外（<code>tebunko.bat</code>・<code>tebunko_grep.bat</code>）は［1 検索］で開く。最後に開いていたタブは覚えない。［1 検索］の中の 2 段目は次のとおり決める（<code>startGrepPage</code>）。</p>
+<p>1 段目は、<code>-StartPage diff</code> を付けたときだけ［2 比較］、それ以外（<code>tebunko.bat</code>）は［1 検索］で開く。最後に開いていたタブは覚えない。［1 検索］の中の 2 段目は次のとおり決める（<code>startGrepPage</code>）。</p>
 <pre class="mermaid"><code>flowchart TD
-    S(["起動"]) --&gt; R{"インデックス作成（tebunko_grep/indexer.ps1）が&lt;br&gt;実行中？（3.1）"}
+    S(["起動"]) --&gt; R{"インデックス作成（tebunko_grep/indexer.ps1）が&lt;br&gt;実行中？（3.3）"}
     R -- はい --&gt; T1
     R -- いいえ --&gt; A{"work/取り込み一覧.tsv に『未取り込み』の行がある？&lt;br&gt;（前回のインデックス作成が中断中）"}
     A -- はい --&gt; T1["［インデックス管理］を開く"]

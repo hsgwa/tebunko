@@ -1420,16 +1420,17 @@
 <ul>
 <li><strong>インデックス名</strong>（<code>assignIndexNames</code> / <code>newIndexName</code>）: クロール対象フォルダごとの <code>work/index</code> 直下のフォルダ名。<strong>設定（<code>setting.config</code> の <code>targetFolders[].name</code>）に持ち、フォルダの置き場所（<code>path</code>）とは分けて管理する</strong>。</li>
 <li>設定に名前があればそれを使う。<strong>フォルダの場所（<code>path</code>）を書き換えても名前は変わらないため、同じインデックスとして扱える</strong>（インデックスも取り込み一覧の行もそのまま使うので、フォルダを移しただけなら再取り込みは起きない）。</li>
-<li>名前が無い場合（画面で新しく追加したフォルダ・以前の版の設定から移行した直後）は、前回の取り込み一覧に同じパスがあればその名前を使い、無ければフォルダ名（ドライブ直下はドライブ名、UNC の共有直下は共有名）を <code>toSafeFileName</code> したものにする。設定にある名前・前回使われた名前（削除したフォルダの名前を含む）と重なる場合は <code>名前(2)</code> <code>名前(3)</code> … とする。</li>
+<li>名前が無い場合（画面で新しく追加したフォルダ・以前の版の設定から移行した直後）は、前回の取り込み一覧に同じパスがあればその名前を使い、無ければフォルダ名（ドライブ直下はドライブ名、UNC の共有直下は共有名）を <code>toSafeFileName</code> したものにする。設定にある名前・前回使われた名前（削除したフォルダの名前を含む）と重なる場合は <code>名前(2)</code> <code>名前(3)</code> … とする（ファイル名の上限 255 文字に収まるよう、元の名前を切り詰めてから付ける）。</li>
 <li>割り当てた名前は、インデックス作成の最初に設定へ保存する（<code>writeTargetFolders</code>。<code>インデックス名を設定に保存しました: …</code> と表示する）。以後は設定の名前が使われる。</li>
 <li><strong>以前の形式からの移行</strong>（<code>moveLegacyIndex</code>）: 1 フォルダだけ扱っていた版のインデックスは <code>work/index</code> 直下にある。次のどちらかに当てはまれば、<code>work/index</code> を丸ごと <code>work/index/&lt;インデックス名&gt;</code> に移し（<code>以前の形式のインデックスを work\index\&lt;インデックス名&gt; に移しました。</code>）、取り込み一覧の相対パスの先頭にインデックス名を付ける。移したインデックスは下の「一覧に無いファイル」の規則で <code>済</code> として登録されるため、取り込み直さない。</li>
 <li>取り込み一覧が以前の形式（インデックス名の無いフォルダの行）: そのフォルダのインデックスとみなす。そのフォルダが設定から削除されていれば移さず、<code>work\index 直下に、クロール対象から外したフォルダ（&lt;パス&gt;）の以前の形式のインデックスがあります。不要なら削除してください。</code> と表示する。</li>
 <li>取り込み一覧が無く、<code>work/index</code> 直下にインデックス名のフォルダ以外（TSV など。<code>元のフォルダ.txt</code> は除く）がある: クロール対象フォルダの 1 件目のフォルダのインデックスとみなす。</li>
+<li>移すときは <code>work/index</code> をいったん <code>work/index_移行中</code> に改名してから <code>work/index/&lt;インデックス名&gt;</code> へ移す（同じ名前のサブフォルダとぶつからないため）。途中で止まって <code>work/index_移行中</code> が残っていれば、次回はそれを移すところから続ける。</li>
 <li><strong>フォルダごと移動した場合</strong>: クロール対象フォルダを別のドライブ・共有フォルダへ移した場合は、<strong>画面の［編集…］でそのインデックスの「元のフォルダ」を書き換えるだけでよい</strong>（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1_インデックス管理タブ.md</a>）。インデックス名は変わらないため、インデックス（TSV）と取り込み一覧の行をそのまま使い、<strong>移動しただけで全件再取り込みにならない</strong>（次のインデックス作成では、更新されたファイルだけを取り込む）。フォルダ名を変えて移した場合も同じで、名前はインデックス名として保たれる。</li>
 <li>インデックスを削除して新しいパスで作り直すと、別のインデックス（新しい名前）になり、全件取り込みになる。移した場合は［編集…］を使う。</li>
 <li>検索結果から元のファイルを開くときにフォルダを選んだ場合も、同じ設定（インデックス名に対する場所）が書き換わるため、次のインデックス作成ではそのフォルダを取り込む（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#452-元のファイルが見つからないとき元のフォルダを設定する">03_画面_2_検索タブ_1_元のファイルを開く.md 4.5.2</a>）。</li>
 <li><strong>設定から削除したフォルダ</strong>（<code>removeDroppedFolders</code>）: 前回の取り込み一覧にあって、今回どのフォルダにも使われていない<strong>インデックス名</strong>のインデックス（<code>work/index/&lt;インデックス名&gt;</code>）を削除する。名前で比べるため、移動を引き継いだインデックスは削除しない。</li>
-<li><strong>元のフォルダ.txt</strong>（<code>writeSourceFolderFile</code>）: 取り込み一覧を書き出した直後（取り込むファイルが無い場合も）、<code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code>（そのインデックス 1 件分。フォルダがまだ無ければ書かない）に、インデックス名とクロール対象フォルダの対応を書き出す。取り込み一覧は <code>work/</code> にあるため、インデックスのフォルダ（<code>work/index</code>）だけを別の PC・場所へコピーすると元のフォルダが分からなくなる。これを避けるため、インデックスのフォルダの中にも対応を置く。インデックス 1 件につき 1 ファイルのため、<code>work/index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでもコピーできる。拡張子を <code>.tsv</code> にすると検索対象になるため <code>.txt</code> にする。以前の版は <code>work/index</code> 直下にも全インデックス分の 1 ファイルを書いていた。同じ内容が 2 か所にあるだけのため書くのをやめ、残っていれば各インデックスのフォルダへ移してから消す。画面での使い方は <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#451-元のフォルダの特定インデックスを別の-pc場所で使う場合">03_画面_2_検索タブ.md</a> を参照。
+<li><strong>元のフォルダ.txt</strong>（<code>writeSourceFolderFile</code>）: 取り込み一覧を書き出した直後（取り込むファイルが無い場合も）、<code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code>（そのインデックス 1 件分。フォルダがまだ無ければ書かない）に、インデックス名とクロール対象フォルダの対応を書き出す。取り込み一覧は <code>work/</code> にあるため、インデックスのフォルダ（<code>work/index</code>）だけを別の PC・場所へコピーすると元のフォルダが分からなくなる。これを避けるため、インデックスのフォルダの中にも対応を置く。インデックス 1 件につき 1 ファイルのため、<code>work/index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでもコピーできる。拡張子を <code>.tsv</code> にすると検索対象になるため <code>.txt</code> にする。<code>work/index</code> 直下に全インデックス分の <code>元のフォルダ.txt</code>（以前の版が書いたもの）が残っていれば、各インデックスのフォルダへ移してから消す。画面での使い方は <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#451-元のフォルダの特定インデックスを別の-pc場所で使う場合">03_画面_2_検索タブ.md</a> を参照。
   <div class="highlight"><pre><span></span><code># 検索結果から元のファイルを開くときに使う、インデックス名とクロール対象フォルダの対応です（インデックス作成のたびに作り直します）
 営業&lt;TAB&gt;C:\data\営業
 D&lt;TAB&gt;D:\
@@ -1437,7 +1438,7 @@ D&lt;TAB&gt;D:\
 </ul>
 <h4 id="取り込み対象の決定createtargetlist">取り込み対象の決定（<code>createTargetList</code>）<a class="headerlink" href="#取り込み対象の決定createtargetlist" title="Permanent link">&para;</a></h4>
 <pre class="mermaid"><code>flowchart TD
-    A["取り込み一覧を読む（readStatusFile）"] --&gt; N["インデックス名の割り当て（assignIndexNames）&lt;br&gt;以前の形式のインデックスの移行（moveLegacyIndex）&lt;br&gt;設定から削除したフォルダのインデックスを削除（removeDroppedFolders）"]
+    A["取り込み一覧を読む（readStatusFile）"] --&gt; N["インデックス名の割り当て（assignIndexNames）&lt;br&gt;以前の形式のインデックスの移行（moveLegacyIndex）&lt;br&gt;設定から削除したフォルダのインデックスを削除（removeDroppedFolders）&lt;br&gt;以前の形式の TSV 名の移行（migrateFlatIndex。6.1 節）"]
     N --&gt; C["インデックスにある TSV の数を数える（getIndexTsvCounts）"]
     C --&gt; FOLDER{"クロール対象フォルダごと（設定の順）"}
     FOLDER -- "チェックなし・フォルダが見つからない" --&gt; KEEP["取り込まない&lt;br&gt;前回の行をそのまま残す"]
@@ -1460,13 +1461,13 @@ D&lt;TAB&gt;D:\
 <ul>
 <li><strong>更新の判定</strong>: 更新日時（秒まで）とサイズのどちらかが取り込み一覧と異なれば「更新あり」。古い版に戻した場合も再取り込みされる。</li>
 <li><strong>前の抽出版で取り込んだファイル</strong>: 更新が無く <code>済</code> でも、取り込み一覧の「抽出版」がその形式の今の版（<code>getExtractVersion</code>）より小さければ取り込み直す（<code>getIngestDecision</code> の <code>outdated</code>）。ツールの版を上げて読み取る内容が増えたとき（例: Excel の図形・コメント）、既存のインデックスにも反映するため。件数は「更新あり」に数える。前回 <code>失敗</code> のファイルは、抽出版によらず「前回失敗」のまま。</li>
-<li><strong>一覧に無いファイル</strong>（初回・旧版からの移行後・取り込み一覧を削除した後）は、出力先の <code>&lt;ファイル名&gt;_*.tsv</code> の最新の更新日時が元ファイルの更新日時以降なら、取り込まずに <code>済</code> として登録する（既存のインデックスを作り直さない）。</li>
+<li><strong>一覧に無いファイル</strong>（初回・旧版からの移行後・取り込み一覧を削除した後）は、そのファイルのインデックスのフォルダ（<code>work/index/&lt;相対パス&gt;/*.tsv</code>）の最新の更新日時が元ファイルの更新日時以降なら、取り込まずに <code>済</code> として登録する（既存のインデックスを作り直さない）。</li>
 <li><strong>インデックスが無くなった・壊れているファイル</strong>: 取り込み一覧が <code>済</code> でも、次のどちらかに当てはまれば取り込み直す（<code>testIndexComplete</code>）。一覧だけを見ると <code>済</code> のままになり、検索しても出てこない状態が続くため。</li>
 <li>インデックス（<code>work/index/&lt;相対パス&gt;/*.tsv</code>）が無い・記録した TSV 数より少ない（<code>work/index</code> のフォルダ・TSV を直接削除した場合）。</li>
 <li>0 バイトの TSV がある（書き込みの途中で電源が落ちた場合など）。空のシート・ページは保存しない（<code>prettyTsv</code> / <code>writeUnits</code>）ため、0 バイトの TSV は正常には作られない。</li>
 <li>1 ファイルずつ調べると件数の分だけ時間がかかるため、取り込み対象を調べる前に、インデックスのフォルダと TSV をそれぞれ 1 回ずつ列挙して数える（<code>getIndexTsvCounts</code>。大きさは列挙のときに分かる）。列挙できない場合（アクセス権が無い等）は確認しない。TSV 数を記録していない行（以前の形式）も確認しない。</li>
 <li>TSV の<strong>中身の書き換え</strong>（手で編集した等、0 バイトでないもの）までは分からない。その場合は画面でインデックスを［削除］してから作成し直す（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1</a>）。</li>
-<li><strong>元ファイルが無くなったファイル</strong>（削除・名前変更・移動）は、出力先の <code>&lt;ファイル名&gt;_*.tsv</code> を削除して一覧から除き、<code>元ファイルが無くなった N 件のインデックス（TSV）を削除しました。</code> を表示する。ただし、クロール中にアクセスできないフォルダがあった場合は、見つからないだけの可能性があるため削除せず一覧に残し、その旨を表示する。</li>
+<li><strong>元ファイルが無くなったファイル</strong>（削除・名前変更・移動）は、そのファイルのインデックスのフォルダ（<code>work/index/&lt;相対パス&gt;</code>）を削除して一覧から除き、<code>元ファイルが無くなった N 件のインデックス（TSV）を削除しました。</code> を表示する。ただし、クロール中にアクセスできないフォルダがあった場合は、見つからないだけの可能性があるため削除せず一覧に残し、その旨を表示する。</li>
 <li>以前の版の途中状態ファイル（<code>work/変換対象一覧.txt</code>・<code>work/変換失敗一覧.txt</code>）が残っていれば削除する。</li>
 <li>フォルダごとに <code>[&lt;インデックス名&gt;] &lt;パス&gt;</code> と、クロール後に <code>[&lt;インデックス名&gt;] Officeファイル N 件（取り込み済み A 件 / 新規 B 件 / 更新あり C 件 / 前回未完了 D 件 / 前回失敗 E 件）</code> を表示する。インデックスが無くなった・壊れているファイルがあるときだけ <code>/ インデックスが無い・壊れている F 件</code> を付け、続けて <code>インデックス（TSV）が無くなった・壊れている F 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）</code> を表示する。チェックなしのフォルダは <code>… チェックなしのため取り込みません（インデックスはそのまま残します）</code> と表示する。</li>
 <li>インデックス作成中は <code>[i/N] &lt;インデックス名&gt;\&lt;相対パス&gt;</code> を表示する。元ファイルのパスは、相対パスの先頭のインデックス名からクロール対象フォルダを引いて求める。</li>
@@ -1495,7 +1496,7 @@ D&lt;TAB&gt;D:\
     New --&gt; Done : 取り込み成功
     New --&gt; Failed : 取り込み失敗 / 制限時間超過 / 取り込み中に続けて 2 回強制終了
     New --&gt; New : 画面の［中止］・取り込み中に強制終了 → 次回取り込み（強制終了したファイルは最後に）
-    Done --&gt; New : 元ファイルが更新された / インデックス（TSV）が無くなった・壊れた
+    Done --&gt; New : 元ファイルが更新された / インデックス（TSV）が無くなった・壊れた / 前の抽出版で取り込んだ
     Failed --&gt; New : 元ファイルが更新された / -RetryFailed
     Done --&gt; [*] : 元ファイルが無くなった（TSV を削除）
     Failed --&gt; [*] : 元ファイルが無くなった
@@ -1505,11 +1506,11 @@ D&lt;TAB&gt;D:\
 <li>拡張子が <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>（大文字・小文字を区別しない）。テンプレート（<code>.xltx</code> <code>.dotx</code> <code>.potx</code> 等）は対象外</li>
 <li>ファイル名が <code>~$</code> で始まるもの（Office のロックファイル）は除外</li>
 <li>アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）</li>
-<li>相対パスは、実際に列挙したフォルダ（<code>Resolve-Path</code> で解決した <code>Root</code>。<code>findOfficeFiles</code> が返す）から <code>getPathUnderFolder</code> で求める。
-  設定に書かれたパスとは書き方が違うことがあるため（末尾の <code>\</code>、<code>\\?\</code> 付き、<code>.</code> ・ <code>..</code> を含む、<code>/</code> 区切り）、パスの文字数では切り出さない</li>
+<li>相対パスは、実際に列挙したフォルダ（<code>Resolve-Path</code> で解決した <code>Root</code>。<code>findOfficeFiles</code> が返す）から求める。列挙したファイルのパスが <code>\\?\</code> 付きの <code>Root</code> で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ <code>getPathUnderFolder</code> で求める。
+  設定に書かれたパスとは書き方が違うことがあるため（末尾の <code>\</code>、<code>\\?\</code> 付き、<code>.</code> ・ <code>..</code> を含む、<code>/</code> 区切り）、設定のパスの文字数では切り出さない</li>
 </ul>
 <p>各ファイルは拡張子で抽出方法を振り分ける（<code>extractOfficeFile</code>。<code>scripts/shared/office/office_extract.ps1</code>）。<code>.xls*</code> は 4.3（Excel、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">01_インデックス作成_1_Excel.md</a>）、<code>.doc*</code> <code>.ppt*</code> は 4.4（Word・PowerPoint 共通、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/">01_インデックス作成_6_共通処理とアプリ管理.md</a>）と 4.5（Word、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/">01_インデックス作成_2_Word.md</a>）・4.6（PowerPoint、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/">01_インデックス作成_3_PowerPoint.md</a>）。
-進捗は <code>[i/N] &lt;相対パス&gt;</code>、成功時は <code>TSV N 件を作成しました。</code> を表示する。</p>
+成功時は <code>TSV N 件を作成しました。</code> を表示する。</p>
 <blockquote>
 <p><strong>4.3 Excel の抽出処理（<code>extractWorkbook</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#43-excel-の抽出処理extractworkbook">01_インデックス作成_1_Excel.md</a></p>
 </blockquote>

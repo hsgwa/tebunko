@@ -1345,6 +1345,7 @@
 <h1 id="インデックス作成インデクサ設計書--powerpoint">インデックス作成（インデクサ）設計書 ― PowerPoint<a class="headerlink" href="#インデックス作成インデクサ設計書--powerpoint" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の一部である。章・節の番号は 01_インデックス作成.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/#ファイル構成">01_インデックス作成.md</a> の表のとおり。
 Word・PowerPoint で共通の処理は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/">01_インデックス作成_6_共通処理とアプリ管理.md</a> の 4.4 節（抽出処理）・5.1 節（起動・終了）と <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_インデックス作成_7_出力TSVと既知の問題.md</a> の 6.4 節（テキスト読み取り）を参照。</p>
+<p>PowerPoint の旧形式（<code>.ppt</code> 等）の変換（4.6）、スライド・ノート・図形・コメントごとの読み取り（6.6）、PowerPoint に固有の注意点（7.3）を扱う。</p>
 <hr />
 <h2 id="46-powerpoint-の旧形式の変換extractwithpowerpoint">4.6 PowerPoint の旧形式の変換（<code>extractWithPowerPoint</code>）<a class="headerlink" href="#46-powerpoint-の旧形式の変換extractwithpowerpoint" title="Permanent link">&para;</a></h2>
 <p>4.4 節で ZIP ではないと判定したファイル（<code>.ppt</code>、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で <code>.pptx</code> に変換する。</p>
@@ -1395,7 +1396,7 @@ Word・PowerPoint で共通の処理は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%
 </tr>
 <tr>
 <td><code>スライドNNN（非表示）</code></td>
-<td>非表示スライド（<code>&lt;p:sld show="0"&gt;</code>）</td>
+<td>非表示スライド（<code>&lt;p:sld show="0"&gt;</code>。<code>show="false"</code> も同じ）</td>
 </tr>
 <tr>
 <td><code>スライドNNN_ノート</code></td>

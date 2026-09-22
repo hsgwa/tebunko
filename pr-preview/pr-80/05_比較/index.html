@@ -1468,6 +1468,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#47-確かめた直し方" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.7 確かめた直し方
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1984,6 +1995,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#47-確かめた直し方" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.7 確かめた直し方
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2279,8 +2301,7 @@
 <li>書式（色・フォント・罫線・列幅）、画像、数式そのものの比較（Excel は表示されている値で比べる。インデックスと同じ）</li>
 <li>ファイルの書き換え（マージ・差分の反映）</li>
 <li>種類の違うファイルどうしの比較（Excel と Word など）。<code>.xls</code> と <code>.xlsx</code> のように、同じ種類で形式が違うものは比べられる</li>
-<li>名前を変えたファイル・シートの対応づけ（削除と追加として出す。<a href="#12-未決事項後回しにすること">12 章</a>）</li>
-<li>Excel の列の挿入・削除を見つけること（<a href="#44-excel">4.4</a>）</li>
+<li>名前を変えたファイルの対応づけ（フォルダ同士では削除と追加として出す。<a href="#12-未決事項後回しにすること">12 章</a>）。名前を変えたシートは対応づける（<a href="#44-excel">4.4</a>）</li>
 </ul>
 <hr />
 <h2 id="2-画面の構成">2. 画面の構成<a class="headerlink" href="#2-画面の構成" title="Permanent link">&para;</a></h2>
@@ -2296,10 +2317,6 @@
 <tr>
 <td><code>tebunko.bat</code></td>
 <td>入口。<code>scripts/tebunko/gui.ps1</code> を開く。［1 検索］で開く</td>
-</tr>
-<tr>
-<td><code>tebunko_grep.bat</code></td>
-<td>以前の版のショートカットのために残す。<code>scripts/tebunko/gui.ps1 -StartPage search</code> を開く。起動のしかたは <code>tebunko.bat</code> と同じ（Mark-of-the-Web を消してから RemoteSigned で開く）</td>
 </tr>
 </tbody>
 </table>
@@ -2532,9 +2549,15 @@
 <hr />
 <h2 id="4-差分の取り方">4. 差分の取り方<a class="headerlink" href="#4-差分の取り方" title="Permanent link">&para;</a></h2>
 <h3 id="41-行の対応scriptstebunko_diffdiffdiff_coreps1判断層">4.1 行の対応（<code>scripts/tebunko_diff/diff/diff_core.ps1</code>、判断層）<a class="headerlink" href="#41-行の対応scriptstebunko_diffdiffdiff_coreps1判断層" title="Permanent link">&para;</a></h3>
-<p>行を整数の番号に置き換え（同じ文字列は同じ番号。<code>getLineKeys</code>）、次の順に対応を求める（<code>getLineMatches</code>）。PowerShell は 1 回ごとの処理が遅いため、比べる量を先に減らす。</p>
-<ol>
-<li>前後の一致する行を取り除く。</li>
+<p>行を比べるための形にし（<code>getCompareKeys</code>）、<strong>空の行を除いて</strong>から整数の番号に置き換え（同じ文字列は同じ番号。<code>getLineKeys</code>）、次の順に対応を求める（<code>getLineMatches</code>）。PowerShell は 1 回ごとの処理が遅いため、比べる量を先に減らす。</p>
+<ul>
+<li>比べるための形: ［空白の違いを無視］［大文字と小文字を区別］の設定に合わせて整える。Excel の行は、右端の空のセル（TSV の行末のタブ）を落とし、値のあるセルだけで比べる。</li>
+<li>
+<p>空の行（空白だけの行、値が 1 つも無い Excel の行、空の段落。見えない文字（空文字の引用 <code>""</code>・ゼロ幅スペース・BOM・セル内の改行）だけのセルも空とみなす。<code>isBlankCell</code>）は比べず、差分の一覧にも出さない。空の行を足した・消しただけでは差分にしない。行番号は元の位置のまま出す（間の空の行の分だけ番号が飛ぶ）。</p>
+</li>
+<li>
+<p>前後の一致する行を取り除く。</p>
+</li>
 <li>両方に 1 回ずつしか出てこない行を目印にし、両方で順番がそろう最長の並び（最長増加部分列）を選び、その目印で区間に分ける（patience diff）。区間ごとに 1. からくり返す。</li>
 <li>
 <p>目印が無い区間だけを <strong>Myers の O(ND) 法</strong> で比べる。違いの数 D が <strong>300</strong>（<code>${diffMaxMyersD}</code>）を超える区間は、その区間だけまとめて置き換え（削除と追加）にする。</p>
@@ -2544,11 +2567,11 @@
 </li>
 <li>1 つの場所で、どちらかが <strong>100,000 行</strong>（<code>${diffMaxLines}</code>）を超えたら行ごとには比べず、「行が多すぎるため（上限 100000 行）、行ごとには比べていません。中身は同じです／違います。」とだけ出す。</li>
 <li>patience diff は最長の対応を必ず返すとは限らないが、目印（1 回しか出てこない行）で区切るため、行の挿入・削除のずれが起きにくい。Myers の部分は最長の対応を返すことをテストで確かめる。</li>
-</ol>
+</ul>
 <h3 id="42-変更の組み立て">4.2 変更の組み立て<a class="headerlink" href="#42-変更の組み立て" title="Permanent link">&para;</a></h3>
 <p>一致しなかった区間の削除と追加を、前から順に組んで <strong><code>変更</code></strong> にする（<code>getAlignedPairs</code>）。</p>
 <ul>
-<li>組んだ 2 行の似ている度合いが下限以上なら <code>変更</code>、下限未満なら組まない。組まないときは、1 行先に似ている行があればそれと組み（間の行は <code>追加</code>・<code>削除</code>）、無ければ <code>削除</code> と <code>追加</code> に分ける。</li>
+<li>今の 2 行と、1 行先との組（左の行と右の次の行、左の次の行と右の行）の似ている度合いを比べ、いちばん似ている組を選ぶ。今の 2 行が下限以上でいちばん似ていれば <code>変更</code>。1 行先の組のほうが似ていれば、間の行を <code>追加</code>（または <code>削除</code>）にする（行を挿入して番号を振り直したとき、挿入した行を別の行の <code>変更</code> と取り違えないため）。どれも下限未満なら <code>削除</code> と <code>追加</code> に分ける。完全に一致する組より似ているものは無いため、そのときは 1 行先と比べない。</li>
 <li>似ている度合い:</li>
 <li>文字の行（Word・PowerPoint の段落、Excel の図形・コメント）: 2 文字ずつの組の重なり（Dice 係数。<code>getTextSimilarity</code>）が <strong>0.3</strong> 以上。1 文字以下の行は、同じでなければ 0。</li>
 <li>Excel の行: 同じ列で同じ値のセルの割合（<code>getCellSimilarity</code>）と、行の文字の Dice 係数の大きい方が <strong>0.4</strong> 以上。</li>
@@ -2584,6 +2607,7 @@
 </tr>
 </tbody>
 </table>
+<p><strong>移動</strong>: <code>削除</code> と <code>追加</code> の行で比べる形（4.1）が同じものは、動かした行として組み（<code>markMovedRows</code>）、説明に「行 6 へ移動」「行 2 から移動」（Word は「p.3 ¶2 から移動」）と書く。色は <code>削除</code>・<code>追加</code> のままで、件数は <code>追加</code>・<code>削除</code> に数えず <code>移動</code> として 1 回数える（並べ替え・切り取りと貼り付けで動かした行が、別々の削除と追加に見えないようにする）。</p>
 <h3 id="43-比べ方の設定">4.3 比べ方の設定<a class="headerlink" href="#43-比べ方の設定" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -2627,19 +2651,31 @@
 <tbody>
 <tr>
 <td>場所の対応</td>
-<td>シート名で対応づける（大文字・小文字を区別しない）。片方にしか無いシートは、シートごと <code>追加</code> / <code>削除</code>。並びは比較先の順を基にし、比較元にしか無いシートは、比較元でその前にあったシートの後ろに入れる（<code>mergePlaceOrder</code>）。シートの順番の違いは差分にしない</td>
+<td>シート名で対応づける（大文字・小文字を区別しない）。並びは比較先の順を基にし、比較元にしか無いシートは、比較元でその前にあったシートの後ろに入れる（<code>mergePlaceOrder</code>）。シートの順番の違いは差分にしない</td>
+</tr>
+<tr>
+<td>シート名の変更</td>
+<td>名前で対応しなかったシート（比較元だけ・比較先だけ）は、値のある行のうち同じ中身の行の割合（行の順番は見ない。<code>getSheetSimilarity</code>）が <strong>0.5</strong> 以上なら同じシートとして組み（<code>pairRenamedSheets</code>）、「シート名を変えました（売上 → 売上実績）。」と出す。そのシートの <code>[図形]</code> <code>[コメント]</code> も同じように組む。組めなかったシートは、シートごと <code>追加</code> / <code>削除</code></td>
+</tr>
+<tr>
+<td>列の対応</td>
+<td>行より先に列を対応づける（<code>alignExcelColumns</code>）。列ごとの値の並び（値のある行の先頭 <strong>2,000 行</strong>）が同じ列を目印にし、目印の間は、左右の列の数が同じなら位置どうしで組む（値を直した・行を足しただけでも、どの列も並びが変わるため）。数が違う区間だけ、値の重なりの割合（行の位置は見ない。<code>getColumnSimilarity</code>）が <strong>0.5</strong> 以上の列を組み（4.2 と同じ組み方）、残りを列の <code>追加</code> / <code>削除</code> にする。値の並びが同じ削除と追加の列は、列の移動とする。空の列（値のあるセルが 1 つも無い列）は組に入れない（空の列を足した・消しただけでは差分にしない）。片側にしか無いシート・片側が空のシートでは、列の追加・削除を数えない</td>
 </tr>
 <tr>
 <td>比べる単位</td>
-<td>TSV の 1 行 = シートの 1 行（空の行も行番号を保つため残っている）。行の文字（タブ区切りのセルの並び）で対応を取り、<strong>行の挿入・削除を見つける</strong></td>
+<td>TSV の 1 行 = シートの 1 行（空の行も行番号を保つため残っている）。<strong>共通の列</strong>（両側で組んだ列）のセルの値の並び（右端の空の値は落とす）で対応を取り、<strong>行の挿入・削除を見つける</strong>。追加・削除した列は行の比べ方に入れないため、列を挿入してもほかの行を <code>変更</code> にしない。値の無い行は比べず、表にも出さない</td>
 </tr>
 <tr>
 <td>変更の中身</td>
-<td><code>変更</code> の 2 行は同じ列どうしでセルを比べ、違うセルに色を付ける。説明は <code>B5：10 → 12　C5：120,000 → 144,000</code>（行番号が違えば <code>B2→B3：1 → 2</code>。5 セルまで）</td>
+<td><code>変更</code> の 2 行は共通の列どうしでセルを比べ、値の違うセルだけに色を付ける。見た目が空のセルどうしは違うセルにしない。値の違うセルが無ければ（［空白の違いを無視］で同じになったときなど）<code>変更</code> にしない。説明は <code>B5：10 → 12　C5：120,000 → 144,000</code>（番地が左右で違えば <code>B2→B3：1 → 2</code>、<code>C3→D3：6 → 9</code>。5 セルまで）</td>
+</tr>
+<tr>
+<td>列の追加・削除・移動</td>
+<td>表の上に「列の追加 C（役職）・列の削除 D（内線）・列の移動 D → B（内線）」と出す（かっこの中は、その列の最初の値）。列の見出しと、その列の値のあるセルに色を付ける（追加は緑、削除は赤）。その列に値のある行は、同じ行でもたたまない。行の件数には数えず、要約に「列追加 1・列削除 1・列移動 1」と出す</td>
 </tr>
 <tr>
 <td>表示</td>
-<td>左右それぞれを、列の見出し（A・B・C…）と行番号の付いた表として出す。列は <strong>100 列</strong>まで。列の幅は左右で同じにし、値の長い方に合わせる（Shift_JIS のバイト数 × 7 + 14 px。44〜240 px。先頭の 3,000 行で測る）</td>
+<td>左右それぞれを、列の見出し（A・B・C…。左右それぞれの本当の列名）と行番号の付いた表として出す。列は行と同じく<strong>左右をそろえて</strong>並べ、相手側にしか無い列は空き（斜線）にする。列は <strong>100 列</strong>まで。列の幅は左右で同じにし、値の長い方に合わせる（Shift_JIS のバイト数 × 7 + 14 px。44〜240 px。先頭の 3,000 行で測る）</td>
 </tr>
 <tr>
 <td>図形・コメント</td>
@@ -2655,7 +2691,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>列の挿入・削除</strong>は見つけない。列を 1 つ挿入すると、それより右にセルのある行が <code>変更</code> になる。</p>
+<p>同じ行は、左右の列が 1 対 1 に対応して値もすべて同じなら、比較元のセルの部品をそのまま比較先にも使う（部品を作るのは遅いため。大きいシートでは、作る数がほぼ半分になる）。</p>
 <h3 id="45-word">4.5 Word<a class="headerlink" href="#45-word" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -2712,6 +2748,74 @@
 <td>たたむ</td>
 <td>変わらないスライドが続くところは「変わらないスライド N 枚（スライド a〜b）」の 1 行にまとめる</td>
 </tr>
+<tr>
+<td>並べ替え</td>
+<td><code>削除</code> と <code>追加</code> のスライドで本文が同じものは、動かしたスライドとして組み（<code>getMovedSlides</code>）、見出しの説明に「スライド 4 へ移動」「スライド 1 から移動」と書く。件数は、スライドの追加・削除と中の段落に数えず「スライド移動 1」と数える</td>
+</tr>
+</tbody>
+</table>
+<h3 id="47-確かめた直し方">4.7 確かめた直し方<a class="headerlink" href="#47-確かめた直し方" title="Permanent link">&para;</a></h3>
+<p>人が直したところだけが出ることを、テストデータ（<code>tests/testdata/office</code>）のコピーを Office で直して確かめた（直したあとに抽出して <code>compareOfficeUnits</code> で比べる）。</p>
+<table>
+<thead>
+<tr>
+<th>直し方</th>
+<th>出るもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>セルの値を直す・消す・セル内で改行する・見出しを直す</td>
+<td>そのセルの <code>変更</code>（<code>C3：総務部 → 人事部</code>）</td>
+</tr>
+<tr>
+<td>行を挿入・削除（途中・末尾・複数行）</td>
+<td>その行の <code>追加</code> / <code>削除</code> だけ</td>
+</tr>
+<tr>
+<td>行を挿入し、番号を振り直す（見積の明細）</td>
+<td>挿入した行の <code>追加</code>、番号のセルの <code>変更</code>（<code>A4→A5：3 → 4</code>）、合計のセルの <code>変更</code></td>
+</tr>
+<tr>
+<td>行を移動・並べ替え</td>
+<td>「行 6 へ移動」「行 2 から移動」（件数は <code>移動</code>）</td>
+</tr>
+<tr>
+<td>空の行・空の列を挿入、シートの順番を入れ替え</td>
+<td>差分なし</td>
+</tr>
+<tr>
+<td>列を挿入・削除（値あり、複数）</td>
+<td>列の追加・削除だけ（行は <code>変更</code> にしない）</td>
+</tr>
+<tr>
+<td>列を移動</td>
+<td>列の移動だけ</td>
+</tr>
+<tr>
+<td>行の挿入・列の削除・セルの修正を一度に</td>
+<td>行の <code>追加</code>、セルの <code>変更</code>、列の削除の 3 つ</td>
+</tr>
+<tr>
+<td>シート名を変える</td>
+<td>シート名の変更だけ</td>
+</tr>
+<tr>
+<td>シートを追加</td>
+<td>シートの <code>追加</code></td>
+</tr>
+<tr>
+<td>大きいシート（20,000 行）で行と列を挿入・セルを 1 つ直す</td>
+<td>直したところだけ（比較は約 7 秒。裏のスレッドで行うため、画面は止まらない）</td>
+</tr>
+<tr>
+<td>Word: 段落を直す・挿入・削除・移動、空の段落を挿入、表の行を足す・セルを直す</td>
+<td>直した段落だけ（移動は「p.1 ¶2 から移動」、空の段落は差分なし）</td>
+</tr>
+<tr>
+<td>PowerPoint: 文字・ノートを直す、スライドの複製・削除・並べ替え</td>
+<td>直したところだけ（並べ替えは「スライド移動 1」）</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2752,7 +2856,8 @@
 <p><strong>トグル（［ファイル｜フォルダ］）</strong></p>
 <ul>
 <li>既定は、最後に使った側（<code>diffMode</code>）。初めて開いたときは［ファイル］。</li>
-<li>パスは側ごとに覚える（<code>diffFileLeft</code> / <code>diffFileRight</code>、<code>diffFolderLeft</code> / <code>diffFolderRight</code>）。切り替えると、その側の最後のパスに入れ替える。入れていた分は捨てずに、元の側に戻せば戻る。</li>
+<li>パスは側ごとに覚える。切り替えると、その側の最後のパスに入れ替える。入れていた分は捨てずに、元の側に戻せば戻る。</li>
+<li>比較元・比較先のパスは設定ファイルに保存しない。画面を開いている間だけ覚え、閉じたら忘れる（起動したときの欄は空）。比較の作業フォルダ（3.3）も、画面を閉じたら消す。</li>
 </ul>
 <p><strong>トグルで変わるもの</strong>（<code>getModeView</code>）</p>
 <table>
@@ -2989,18 +3094,6 @@
 <td>トグル（<code>file</code> / <code>folder</code>）。最後に使った側</td>
 </tr>
 <tr>
-<td><code>diffFileLeft</code> / <code>diffFileRight</code></td>
-<td>文字列</td>
-<td><code>""</code></td>
-<td>［ファイル］で最後に比べた比較元・比較先</td>
-</tr>
-<tr>
-<td><code>diffFolderLeft</code> / <code>diffFolderRight</code></td>
-<td>文字列</td>
-<td><code>""</code></td>
-<td>［フォルダ］で最後に比べた比較元・比較先</td>
-</tr>
-<tr>
 <td><code>diffSubfolders</code></td>
 <td>真偽</td>
 <td><code>true</code></td>
@@ -3038,6 +3131,7 @@
 </tr>
 </tbody>
 </table>
+<p>比較元・比較先のパスは保存しない（5.2）。以前の版が保存していた <code>diffFileLeft</code> / <code>diffFileRight</code> / <code>diffFolderLeft</code> / <code>diffFolderRight</code> は、比較の設定を保存するときにファイルから消す（<code>${diffObsoleteSettingKeys}</code>。<code>writeSettingsFile</code> の <code>removeKeys</code>）。</p>
 <ul>
 <li>知らない値（<code>diffMode</code> が <code>file</code> / <code>folder</code> 以外など）は既定値にする。</li>
 <li>以前の版の tebunko_grep で設定を保存すると、<code>diff</code> のキーは消える。消えても既定値で動く。</li>
@@ -3065,7 +3159,6 @@
 <h2 id="9-ソースの構成">9. ソースの構成<a class="headerlink" href="#9-ソースの構成" title="Permanent link">&para;</a></h2>
 <h3 id="91-フォルダ">9.1 フォルダ<a class="headerlink" href="#91-フォルダ" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>tebunko.bat                      入口
-tebunko_grep.bat                 以前の版のショートカットのため（tebunko を -StartPage search で開く）
 scripts/
   shared/                        どのツールからも使う
     core/settings.ps1            setting.config の読み書き（知らないキーを残す）
@@ -3143,7 +3236,7 @@ scripts/
 <tr>
 <td>Unit</td>
 <td><code>tests/tebunko_diff/diff/diff_office.Tests.ps1</code></td>
-<td>Excel（シートの対応・行の挿入・違うセルの説明・行番号のずれ・1 セルの行・先頭が空の行・引用符・図形とコメント・オプション・列の幅・列名）、Word（ページをまたぐ段落・場所の分け方）、PowerPoint（スライドの挿入・削除・番号のずれ・非表示・ノート・たたみ・ヘッダー・フッター）、場所の並び、大きすぎる場所</td>
+<td>Excel（シートの対応・シート名の変更・列の追加・削除・移動・空の列・行の挿入・番号を振り直した行の挿入・行の移動・空の行と右端の空のセルを差分にしない・違うセルの説明・行番号のずれ・1 セルの行・先頭が空の行・引用符・図形とコメント・オプション・列の幅・列名）、Word（ページをまたぐ段落・場所の分け方・空の段落・段落の移動）、PowerPoint（スライドの挿入・削除・番号のずれ・非表示・ノート・たたみ・ヘッダー・フッター）、場所の並び、大きすぎる場所</td>
 </tr>
 <tr>
 <td>Unit</td>
@@ -3182,7 +3275,7 @@ scripts/
 <h2 id="11-pr-の範囲">11. PR の範囲<a class="headerlink" href="#11-pr-の範囲" title="Permanent link">&para;</a></h2>
 <p>1 つの PR で次をすべて入れる。</p>
 <ol>
-<li>入口: <code>tebunko.bat</code>・<code>scripts/tebunko/</code>・2 段のタブ・<code>tebunko_grep.bat</code> の互換</li>
+<li>入口: <code>tebunko.bat</code>・<code>scripts/tebunko/</code>・2 段のタブ・<code>tebunko_grep.bat</code> を無くす</li>
 <li><code>shared/</code> へ上げる: 抽出・クロールの列挙・場所の名前・失敗の文言・設定の読み書き・ファイルを開く処理・［9 プロセス停止］</li>
 <li>比較: <code>scripts/tebunko_diff/</code>（ファイル同士・フォルダ同士）</li>
 <li>テスト（10 章）</li>
@@ -3193,7 +3286,7 @@ scripts/
 <ol>
 <li><code>tebunko-&lt;版&gt;.zip</code> を展開する。</li>
 <li>前の <code>tebunko_grep\</code> フォルダから、<code>work\</code> と <code>setting.config</code> を新しい <code>tebunko\</code> フォルダへ移す。</li>
-<li>作ったショートカットは <code>tebunko.bat</code> に作り直す。<code>tebunko_grep.bat</code> も残してあるので、作り直さなくても動く。</li>
+<li>作ったショートカットは <code>tebunko.bat</code> に作り直す（<code>tebunko_grep.bat</code> は無くした）。</li>
 </ol>
 <hr />
 <h2 id="12-未決事項後回しにすること">12. 未決事項・後回しにすること<a class="headerlink" href="#12-未決事項後回しにすること" title="Permanent link">&para;</a></h2>
@@ -3206,12 +3299,8 @@ scripts/
 </thead>
 <tbody>
 <tr>
-<td>列の挿入・削除（Excel）</td>
-<td>列の対応を先に決めてから行を比べる方式を検討する</td>
-</tr>
-<tr>
-<td>名前を変えたファイル・シート</td>
-<td>中身の似ている度合いで <code>削除</code> と <code>追加</code> を対応づける</td>
+<td>名前を変えたファイル（フォルダ同士）</td>
+<td>中身の似ている度合いで <code>削除</code> と <code>追加</code> を対応づける（シートは対応づけ済み。4.4）</td>
 </tr>
 <tr>
 <td>Word・PowerPoint の位置で開く</td>
