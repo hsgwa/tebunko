@@ -1858,7 +1858,7 @@
 <h1 id="tebunko_grep-安全性説明書">tebunko_grep 安全性説明書<a class="headerlink" href="#tebunko_grep-安全性説明書" title="Permanent link">&para;</a></h1>
 <p>本書は、本ツールの導入を審査する担当者（情報システム部門・セキュリティ部門など）と、OSS としての安全性を評価する人に向けて、<strong>本ツールが何をするか・何をしないか</strong>と、<strong>その根拠をどう自分の手で確かめられるか</strong>を示す。</p>
 <p>本書の主張はすべて、このリポジトリのコード・設定に基づく。各主張には、<strong>それを機械的に守らせている仕組み</strong>（テスト・CI）と、<strong>審査する側が自分で再現するコマンド</strong>を併記する。本書を信用しなくても、同じ結果を自分で確かめられる。</p>
-<p>脆弱性・不審な挙動の連絡先は <a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.md">SECURITY.md</a>（GitHub の非公開の報告窓口）。</p>
+<p>脆弱性・不審な挙動の連絡先は <a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>（GitHub の非公開の報告窓口）。</p>
 <hr />
 <h2 id="1-要約">1. 要約<a class="headerlink" href="#1-要約" title="Permanent link">&para;</a></h2>
 <table>
@@ -2341,8 +2341,8 @@
 <td>ツール本体</td>
 </tr>
 <tr>
-<td><code>LICENSE</code>・<code>README.md</code>・<code>SECURITY.md</code>・<code>sbom.cdx.json</code></td>
-<td>ライセンス・説明・脆弱性の連絡先・部品表</td>
+<td><code>LICENSE</code>・<code>README.md</code>・<code>SECURITY.md</code>・<code>SECURITY.ja.md</code>・<code>sbom.cdx.json</code></td>
+<td>ライセンス・説明・脆弱性の連絡先（英語・日本語）・部品表</td>
 </tr>
 <tr>
 <td><code>tebunko.cat</code>・<code>SHA256SUMS.txt</code></td>
@@ -2644,7 +2644,7 @@
 <li>原本のパスを書き込み・削除の API に渡さないこと、<code>SaveAs</code> の保存先が作業フォルダだけであること、原本を読むのは <code>copyFileShared</code> の読み取りだけであること</li>
 <li>書き込み先が <code>work</code> 配下と <code>%TEMP%</code> 配下に限られること、異常終了で残った作業フォルダを次回起動時に回収すること（4.4）</li>
 <li>PSScriptAnalyzer の安全性ルール・<code>Error</code> 重大度・制限言語モードの指摘が 0 件であること（未導入の環境では飛ばす）</li>
-<li>本書・<a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM が第三者の部品を含まないこと、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
+<li>本書・<a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM が第三者の部品を含まないこと、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
 </ul>
 <p>テストとコードの指標（安全性の間接的な根拠）:</p>
 <table>
@@ -2715,7 +2715,7 @@
 </tr>
 <tr>
 <td>脆弱性の連絡</td>
-<td><a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.md">SECURITY.md</a>。公開の Issue ではなく GitHub の非公開の報告窓口（Private vulnerability reporting）で受け付け、7 日以内に受領を返す。修正は最新のマイナー版にパッチ版として出す</td>
+<td><a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>。公開の Issue ではなく GitHub の非公開の報告窓口（Private vulnerability reporting）で受け付け、7 日以内に受領を返す。修正は最新のマイナー版にパッチ版として出す</td>
 </tr>
 </tbody>
 </table>
@@ -2737,7 +2737,7 @@
 <tr>
 <td>DCO</td>
 <td>コミットに <code>Signed-off-by</code> を付ける。コミット時は <code>commit-msg</code> フック、PR では CI（<code>test.yml</code>）が <code>tools/check_signoff.ps1</code> で確かめる</td>
-<td><a href="https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.md">CONTRIBUTING.md</a></td>
+<td><a href="https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.ja.md">CONTRIBUTING.md</a></td>
 </tr>
 <tr>
 <td>コミット前の検査</td>
