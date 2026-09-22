@@ -175,7 +175,8 @@ function getUnitLines {
 }
 
 function compareLines {
-    # 行の並び 2 つを比べ、getAlignedPairs の組を返す。cells は Excel のセルの似ている度合いで組むとき
+    # 行の並び 2 つを比べ、getAlignedPairs の組（位置は元の行の位置）を返す。cells は Excel のセルの似ている度合いで組むとき。
+    # 空の行（空白だけの行・値の無い Excel の行）は比べず、組にも入れない（空の行を足した・消しただけでは差分にしない）
     param (
         [string[]]$left,
         [string[]]$right,
@@ -183,14 +184,62 @@ function compareLines {
         [bool]$cells = $false
     )
 
+    $leftKeys = getCompareKeys $left $options $cells
+    $rightKeys = getCompareKeys $right $options $cells
+    $leftIndex = [System.Collections.Generic.List[int]]::new()
+    $leftFilled = [System.Collections.Generic.List[string]]::new()
+    for ($i = 0; $i -lt $leftKeys.Count; $i++) {
+        if (![string]::IsNullOrWhiteSpace($leftKeys[$i])) { $leftIndex.Add($i); $leftFilled.Add($leftKeys[$i]) }
+    }
+    $rightIndex = [System.Collections.Generic.List[int]]::new()
+    $rightFilled = [System.Collections.Generic.List[string]]::new()
+    for ($i = 0; $i -lt $rightKeys.Count; $i++) {
+        if (![string]::IsNullOrWhiteSpace($rightKeys[$i])) { $rightIndex.Add($i); $rightFilled.Add($rightKeys[$i]) }
+    }
+    $a2 = $leftFilled.ToArray()
+    $b2 = $rightFilled.ToArray()
+
+    # 比べる形はすでに整えてあるため、getLineKeys では整えない
     $dict = New-Object 'System.Collections.Generic.Dictionary[string,int]'
-    $a = getLineKeys $left $dict $options.IgnoreWhitespace $options.CaseSensitive
-    $b = getLineKeys $right $dict $options.IgnoreWhitespace $options.CaseSensitive
+    $a = getLineKeys $a2 $dict
+    $b = getLineKeys $b2 $dict
     $match = getLineMatches $a $b
     if ($cells) {
-        return , (getAlignedPairs $match $right.Count $left $right { param($x, $y) [Math]::Max([double](getCellSimilarity $x $y), [double](getTextSimilarity $x $y)) } ${diffPairMinCellSimilarity})
+        $pairs = getAlignedPairs $match $b2.Count $a2 $b2 { param($x, $y) [Math]::Max([double](getCellSimilarity $x $y), [double](getTextSimilarity $x $y)) } ${diffPairMinCellSimilarity}
+    } else {
+        $pairs = getAlignedPairs $match $b2.Count $a2 $b2 { param($x, $y) getTextSimilarity $x $y }
     }
-    return , (getAlignedPairs $match $right.Count $left $right { param($x, $y) getTextSimilarity $x $y })
+    # 空の行を除いた位置を、元の行の位置に戻す
+    foreach ($pair in $pairs) {
+        if ($pair[0] -ge 0) { $pair[0] = $leftIndex[$pair[0]] }
+        if ($pair[1] -ge 0) { $pair[1] = $rightIndex[$pair[1]] }
+    }
+    return , $pairs
+}
+
+function getCompareKeys {
+    # 比べるための行の形（string[]）。空白の違い・大文字と小文字の設定に合わせて整える。
+    # Excel（cells）は、右端の空のセルを落とす（値のあるセルだけで比べ、TSV の区切りの数の違いを差分にしない）
+    param (
+        [string[]]$lines,
+        $options,
+        [bool]$cells = $false
+    )
+
+    # 行ごとに関数を呼ぶと遅いため、整える設定のあるときだけ normalizeDiffLine を呼ぶ
+    $normalize = $options.IgnoreWhitespace -or !$options.CaseSensitive
+    $keys = [string[]]::new($lines.Count)
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $text = $lines[$i]
+        if ($cells) {
+            $text = $text.TrimEnd("`t")
+        }
+        if ($normalize) {
+            $text = normalizeDiffLine $text $options.IgnoreWhitespace $options.CaseSensitive
+        }
+        $keys[$i] = $text
+    }
+    return , $keys
 }
 
 function newTextRows {
@@ -378,6 +427,8 @@ function compareExcelSheet {
                     $changedColumns.Add($c)
                 }
             }
+            # 値の違うセルが無ければ（空白の違いを無視したときなど）同じ行にする
+            if ($changedColumns.Count -eq 0) { $row.Kind = "same" }
         }
         # 違うセルの印（列ごと）。行ごと追加・削除なら全部の列。
         # 1 行ごとに回るところのため、関数や名前を組み立てたプロパティの読み書きを使わず、左右を別々に書く。
@@ -707,13 +758,14 @@ function getSlides {
 }
 
 function getSlideKey {
-    # スライドの対応づけに使う文字（本文の段落を改行でつないだもの）
+    # スライドの対応づけに使う文字（本文の空でない段落を改行でつないだもの）
     param (
         $slide,
         $options
     )
 
-    return (normalizeDiffLine ($slide.Body -join "`n") $options.IgnoreWhitespace $options.CaseSensitive)
+    $body = @($slide.Body | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
+    return (normalizeDiffLine ($body -join "`n") $options.IgnoreWhitespace $options.CaseSensitive)
 }
 
 function getSlideSimilarity {

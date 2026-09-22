@@ -25,12 +25,12 @@ Describe "Excel" -Tag Unit {
         (@($result.Places | ForEach-Object { "$($_.Name)=$($_.Status)" }) -join ",") | Should Be "明細=change,表紙=delete,条件=insert"
     }
 
-    It "行の挿入を見つけ、下の行の対応がずれない" {
-        getRowText $sheet.Rows | Should Be "same:1:1 same:2:2 change:3:3 same:4:4 change:5:5 insert::6 same:6:7 same:7:8"
+    It "行の挿入を見つけ、下の行の対応がずれない（空の行は差分に出さない）" {
+        getRowText $sheet.Rows | Should Be "same:1:1 change:3:3 same:4:4 change:5:5 insert::6 same:6:7 same:7:8"
     }
 
     It "変更の行は、違うセルの番地と値を出し、そのセルに印を付ける" {
-        $row = $sheet.Rows[4]
+        $row = $sheet.Rows[3]
         $row.Detail | Should Be "B5：10 → 12　C5：120,000 → 144,000"
         $row.RightCell | Should Be "B5"
         (@($row.RightCells | ForEach-Object { $_.Changed }) -join ",") | Should Be "False,True,True"
@@ -55,7 +55,30 @@ Describe "Excel" -Tag Unit {
         $l = [ordered]@{ S = [string[]]@("", "`t御見積書", "`tA社 御中") }
         $r = [ordered]@{ S = [string[]]@("", "`t御見積書（2025年度）", "`tA社 御中") }
         $place = (compareOfficeUnits "Excel" $l $r).Places[0]
-        getRowText $place.Rows | Should Be "same:1:1 change:2:2 same:3:3"
+        getRowText $place.Rows | Should Be "change:2:2 same:3:3"
+    }
+
+    It "空の行を足した・消しただけでは差分にしない" {
+        $l = [ordered]@{ S = [string[]]@("見出し", "a`t1", "b`t2") }
+        $r = [ordered]@{ S = [string[]]@("見出し", "", "`t`t", "a`t1", "", "b`t2", " ") }
+        $place = (compareOfficeUnits "Excel" $l $r).Places[0]
+        $place.Status | Should Be "same"
+        getRowText $place.Rows | Should Be "same:1:1 same:2:4 same:3:6"
+    }
+
+    It "右端の空のセルの数が違うだけの行は、同じ行にする" {
+        $l = [ordered]@{ S = [string[]]@("a`tb", "c`t1") }
+        $r = [ordered]@{ S = [string[]]@("a`tb`t`t", "c`t2`t") }
+        $place = (compareOfficeUnits "Excel" $l $r).Places[0]
+        getRowText $place.Rows | Should Be "same:1:1 change:2:2"
+        $place.Rows[1].Detail | Should Be "B2：1 → 2"
+    }
+
+    It "値の違うセルが無い行は、変更にしない（空白の違いを無視するとき）" {
+        $l = [ordered]@{ S = [string[]]@("見積`t10", "x") }
+        $r = [ordered]@{ S = [string[]]@("見積 `t10", "x") }
+        $place = (compareOfficeUnits "Excel" $l $r @{ IgnoreWhitespace = $true }).Places[0]
+        $place.Status | Should Be "same"
     }
 
     It "シート名の大文字・小文字の違いは同じシートとする" {
@@ -118,6 +141,23 @@ Describe "Word" -Tag Unit {
         $groups = getWordGroups $units
         (@($groups.Keys) -join ",") | Should Be "本文,脚注,コメント,図形,ヘッダー・フッター"
         (@($groups["コメント"].Lines) -join ",") | Should Be "c,d"
+    }
+}
+
+Describe "空の段落" -Tag Unit {
+    It "Word の空の段落を足した・消しただけでは差分にしない" {
+        $l = [ordered]@{ "ページ1" = [string[]]@("はじめに", "本文") }
+        $r = [ordered]@{ "ページ1" = [string[]]@("はじめに", "", "　", "本文", "") }
+        $result = compareOfficeUnits "Word" $l $r
+        $result.Places[0].Status | Should Be "same"
+        getRowText $result.Places[0].Rows | Should Be "same:p.1 ¶1:p.1 ¶1 same:p.1 ¶2:p.1 ¶4"
+    }
+
+    It "PowerPoint の空の段落だけが違うスライドは、同じスライドとして対応づける" {
+        $l = [ordered]@{ "スライド1" = [string[]]@("表題", "本文") }
+        $r = [ordered]@{ "スライド1" = [string[]]@("表題", "", "本文") }
+        $result = compareOfficeUnits "PowerPoint" $l $r
+        $result.Places[0].Status | Should Be "same"
     }
 }
 
