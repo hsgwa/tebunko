@@ -37,7 +37,10 @@ $work = Join-Path $env:TEMP ('clm_check_' + (Get-Date -Format 'yyyyMMddHHmmssfff
 New-Item -ItemType Directory -Path $work | Out-Null
 $book = Join-Path $Root 'tests\testdata\office\Excel\基本.xlsx'
 $docx = @(Get-ChildItem -LiteralPath (Join-Path $Root 'tests\testdata\office\Word') -Recurse -Filter '*.docx')[0]
-# CP932 に無い文字を含む名前（tar.exe は引数を CP932 で受け取るため、引数では開けない）
+# tar.exe は引数を ANSI のコードページ（日本語版の Windows は CP932、英語版は CP1252）で受け取るため、
+# そこに無い文字を含むパスは引数では開けない。英語版のランナーでは日本語の名前も開けないため、引数で渡すのは ASCII のパスだけにする
+$asciiBook = Join-Path $work 'book.xlsx'
+Copy-Item -LiteralPath $book -Destination $asciiBook
 $unicodeBook = Join-Path $work '𠮷野家😀.xlsx'
 Copy-Item -LiteralPath $book -Destination $unicodeBook
 
@@ -49,24 +52,25 @@ expect '言語モードが ConstrainedLanguage' ok {
 }
 
 # --- ZIP の読み書き（tar.exe） ---
-expect 'tar.exe で xlsx から XML を取り出す（引数で渡す）' ok {
+expect 'tar.exe で xlsx から XML を取り出す（ASCII のパスを引数で渡す）' ok {
     $out = Join-Path $work 'x1'
     New-Item -ItemType Directory -Path $out | Out-Null
-    & $tar -xf $book -C $out 'xl/workbook.xml' 'xl/worksheets' 2>&1 | Out-Null
+    & $tar -xf $asciiBook -C $out 'xl/workbook.xml' 'xl/worksheets' 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "tar の終了コード $LASTEXITCODE" }
     'sheets=' + @(Get-ChildItem -LiteralPath (Join-Path $out 'xl\worksheets') -Filter '*.xml').Count
 }
-expect 'tar.exe に CP932 に無い文字のパスを引数で渡すと開けない' NG {
+expect 'tar.exe に CP932 に無い文字（𠮷・絵文字）のパスを引数で渡すと開けない' NG {
     $out = Join-Path $work 'x2'
     New-Item -ItemType Directory -Path $out | Out-Null
     $msg = & $tar -xf $unicodeBook -C $out 'xl/workbook.xml' 2>&1
     if ($LASTEXITCODE -ne 0) { throw "exit=$LASTEXITCODE " + (@($msg) -join ' ') }
     'opened'
 }
-expect 'tar.exe に cmd のリダイレクトで渡す（CP932 に無い文字のパス）' ok {
-    $out = Join-Path $work 'x3'
+# 展開先も -C で渡さず、cmd で移ってから展開する（利用者名が日本語だと TEMP のパスも日本語になるため）
+expect 'tar.exe に cmd のリダイレクトで渡し、日本語の名前のフォルダに展開する（CP932 に無い文字のパス）' ok {
+    $out = Join-Path $work '展開先𠮷'
     New-Item -ItemType Directory -Path $out | Out-Null
-    $msg = cmd.exe /d /c "`"$tar`" -xf - -C `"$out`" xl/workbook.xml < `"$unicodeBook`"" 2>&1
+    $msg = cmd.exe /d /c "cd /d `"$out`" && `"$tar`" -xf - xl/workbook.xml < `"$unicodeBook`"" 2>&1
     if ($LASTEXITCODE -ne 0) { throw "exit=$LASTEXITCODE " + (@($msg) -join ' ') }
     [xml]$xml = Get-Content -LiteralPath (Join-Path $out 'xl\workbook.xml') -Encoding UTF8 -Raw
     'sheets=' + @($xml.workbook.sheets.sheet).Count
@@ -84,7 +88,7 @@ expect 'tar.exe で ZIP を作る（cmd で作業フォルダに移り、相対�
 expect 'tar.exe で docx から word/document.xml を取り出す' ok {
     $out = Join-Path $work 'x4'
     New-Item -ItemType Directory -Path $out | Out-Null
-    $msg = cmd.exe /d /c "`"$tar`" -xf - -C `"$out`" word/document.xml < `"$($docx.FullName)`"" 2>&1
+    $msg = cmd.exe /d /c "cd /d `"$out`" && `"$tar`" -xf - word/document.xml < `"$($docx.FullName)`"" 2>&1
     if ($LASTEXITCODE -ne 0) { throw "exit=$LASTEXITCODE " + (@($msg) -join ' ') }
     'chars=' + (Get-Content -LiteralPath (Join-Path $out 'word\document.xml') -Encoding UTF8 -Raw).Length
 }
