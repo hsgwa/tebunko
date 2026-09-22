@@ -2,10 +2,14 @@
 # コミットメッセージの検査（git for Windows の sh が実行する。有効にするのは tools/install_hooks.ps1）。
 #
 #   tools/check_commit_message.ps1 -Path <メッセージのファイル> … 1 行目が Conventional Commits の形（feat: ... など）であること
+#   tools/check_signoff.ps1 -Path <メッセージのファイル>        … 作者の Signed-off-by が付いていること（git commit -s）
 #
-# どうしても飛ばすときは git commit --no-verify（squash merge では PR のタイトルが main のコミットになり、それは CI が調べる）。
+# どうしても飛ばすときは git commit --no-verify（squash merge では PR のタイトルが main のコミットになり、それは CI が調べる。
+# Signed-off-by は PR のコミットを CI が調べる）。
 # このファイルは sh が読むため LF で保存する（.gitattributes で固定している）。
 
 root=$(git rev-parse --show-toplevel) || exit 1
+run="powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File"
 
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File "$root/tools/check_commit_message.ps1" -Path "$1" || exit 1
+$run "$root/tools/check_commit_message.ps1" -Path "$1" || exit 1
+$run "$root/tools/check_signoff.ps1" -Path "$1" || exit 1

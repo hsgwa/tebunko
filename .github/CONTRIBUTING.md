@@ -50,6 +50,12 @@ feat!: インデックスの形式を変える
 
 形は機械的に確かめます。コミットは `commit-msg` フック（下の「開発の準備」）、Pull Request のタイトルは CI が確かめ、形が違うとマージできません。Issue のタイトルが違う形のときは、直し方が自動でコメントされます。git が自動で作るメッセージ（`Merge ...` `Revert "..."` `fixup! ...`）は調べません。
 
+### Signed-off-by
+
+コミットは `git commit -s` で作り、`Signed-off-by: <名前> <メールアドレス>` を付けてください。[DCO（Developer Certificate of Origin）](https://developercertificate.org/)に同意し、その変更をこのリポジトリのライセンスで出す権利があることを表します。メールアドレスはコミットの作者のものと同じにしてください。
+
+付いていないコミットは `commit-msg` フックが止めます。Pull Request では CI が調べ、付いていないコミットがあるとマージできません。付け忘れたまま push したときは、`git rebase --signoff origin/main` で付け直して `git push --force-with-lease` してください。
+
 ## 開発の準備
 
 必要なもの:
@@ -69,6 +75,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 - 個人情報（実名・メールアドレス・利用者名を含むパスなど）と、スクリプトの文字コードの検査（`tools\check_commit.ps1 -Staged`）
 - 速いテスト（`tests\run.ps1 -Tag Unit,Meta -Quiet`）
 - コミットメッセージの 1 行目の形（`tools\check_commit_message.ps1`。上の「コミットと Pull Request のタイトル」）
+- `Signed-off-by` が付いていること（`tools\check_signoff.ps1`。上の「Signed-off-by」）
 
 ## テスト
 

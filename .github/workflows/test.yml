@@ -37,6 +37,14 @@ jobs:
         shell: powershell
         run: .\tools\check_commit.ps1
 
+      # PR のコミットに作者の Signed-off-by があるか（AGENTS.md「GitHub の運用」）。
+      # pull_request では PR をマージした形のコミットを取り出すため、1 つ目の親が main、2 つ目の親が PR の先頭になる。
+      # その間だけを調べるので、main から取り込んだコミットと、決まりを作る前の履歴は調べない
+      - name: Signed-off-by の検査
+        if: github.event_name == 'pull_request'
+        shell: powershell
+        run: .\tools\check_signoff.ps1 -Range "HEAD^1..HEAD^2"
+
       - name: Pester 3.4 の用意
         shell: powershell
         run: |
