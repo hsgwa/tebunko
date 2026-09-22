@@ -1844,7 +1844,11 @@
 </tr>
 <tr>
 <td><code>tests/meta/</code></td>
-<td>構成を守るテスト（<code>structure</code>・<code>encoding</code>・<code>layers</code>）と安全性の検査（<code>safety</code>）</td>
+<td>構成を守るテスト（<code>structure</code>・<code>encoding</code>・<code>layers</code>・<code>links</code>）と安全性の検査（<code>safety</code>）</td>
+</tr>
+<tr>
+<td><code>tests/tools/</code></td>
+<td>開発用の道具（<code>tools/</code>）のテスト（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_markdown_links</code>）</td>
 </tr>
 <tr>
 <td><code>tests/testdata/</code></td>
@@ -1868,6 +1872,10 @@
 <tr>
 <td><code>encoding</code></td>
 <td>全 <code>.ps1</code>・<code>.xaml</code> が BOM 付き UTF-8 で、改行が CRLF</td>
+</tr>
+<tr>
+<td><code>links</code></td>
+<td>git で管理している全 <code>.md</code> の相対リンク（画像・参照リンクの定義・HTML の <code>href</code>/<code>src</code> を含む）の先のファイルがあり（大文字・小文字も区別する）、<code>.md</code> のアンカーの見出しがある（<code>tools/check_markdown_links.ps1</code>。外部の URL は調べない）</td>
 </tr>
 <tr>
 <td><code>layers</code></td>
@@ -1968,7 +1976,7 @@ git push origin v1.0.0
 </code></pre></div>
 <p>設計書（<code>docs/</code>）は <code>.github/workflows/docs.yml</code> が <a href="https://www.mkdocs.org/">MkDocs</a>（テーマは Material for MkDocs）で Web サイトにし、main が更新されるたびに <a href="https://hsgwa.github.io/tebunko/">GitHub Pages</a> に公開する。</p>
 <ul>
-<li>設定は <code>tools/mkdocs/mkdocs.yml</code>。サイトはどれもリポジトリの直下で <code>mkdocs build --strict -f tools/mkdocs/mkdocs.yml</code> を実行して作る。リンク先のファイルや見出し（アンカー）が無いと失敗する</li>
+<li>設定は <code>tools/mkdocs/mkdocs.yml</code>。サイトはどれもリポジトリの直下で <code>mkdocs build --strict -f tools/mkdocs/mkdocs.yml</code> を実行して作る。リンク先のファイルや見出し（アンカー）が無いと失敗する。<code>docs/</code> の外の Markdown と、<code>docs/</code> から外へのリンクはここでは調べないため、<code>tests/meta/</code> の <code>links</code>（6.3）が調べる</li>
 <li>サイトを作るジョブ（チェックの名前は <code>docs</code>）は main の必須チェックにしている。必須のチェックはワークフローが動かないと待ったままになるため、PR では変えたファイルで絞らず、どの PR でもサイトを作る</li>
 <li>GitHub Pages は <code>gh-pages</code> ブランチの内容をそのまま公開する。main のサイトはその直下に置く</li>
 <li><code>docs/</code>・<code>tools/mkdocs/</code> を変えた PR では（変えたかどうかは <code>changes</code> のジョブが PR のファイルの一覧で調べる）、サイトのプレビューを <code>gh-pages</code> の <code>pr-preview/pr-&lt;PR の番号&gt;/</code> に置き、URL を PR にコメントする（<code>rossjrw/pr-preview-action</code>）。push のたびに更新し、PR を閉じたら消す。fork からの PR ではプレビューを作らず、サイトを作れることだけを確かめる</li>
