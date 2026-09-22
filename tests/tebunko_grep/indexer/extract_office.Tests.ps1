@@ -37,10 +37,11 @@ function newRange([int]$row, [int]$column, [int]$rows = 1, [int]$columns = 1) {
 
 # 偽のシート。SaveAs では Excel の「Unicode テキスト」と同じ UTF-16（BOM 付き）で $text を書く。
 #   used      : 使用範囲（UsedRange）の @(行, 列, 行数, 列数)
-#   dataLast  : 値のある最後のセルの @(行, 列)（Cells.Find の結果）
+#   dataLast  : 値のある最後のセルの @(行, 列)（Cells.Find の結果。@(0, 0) は値のあるセルが無い = Find が何も返さない）
 function newSheet([string]$name, [int]$visible, [string]$text, [int[]]$used = @(1, 1, 1, 1), [int[]]$dataLast = @(1, 1)) {
     $cells = newFake @{} @{
         Find = {
+            if ($this.DataLast[0] -eq 0) { return $null }
             # 引数の 5 番目が検索の向き（1 = 行ごと → 最後の行、2 = 列ごと → 最後の列）
             if ($args[4] -eq 1) { return newRange $this.DataLast[0] 1 }
             return newRange 1 $this.DataLast[1]
@@ -245,6 +246,59 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
 
         [void](extractWorkbook $source)
         @($log | Where-Object { $_ -eq "AddSheet" }).Count | Should Be 0
+    }
+
+    It "使用範囲が広くても、データがそのほとんどを占めるシートは一時シートを使わない" {
+        # 使用範囲 1,048,576 行 × 2 列、データ 1,000,000 行 × 2 列（差は 10 万セルたらず）
+        $excel = newExcel @((newSheet "大きい" -1 "a`r`n" @(1, 1, 1048576, 2) @(1000000, 2)))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+
+        extractWorkbook $source | Should Be 1
+        @($log | Where-Object { $_ -eq "AddSheet" }).Count | Should Be 0
+    }
+
+    It "書式だけで値のあるセルが無い広いシートは、一時シートを使わずにそのまま書き出す（空のシートとして扱う）" {
+        $excel = newExcel @((newSheet "書式だけ" -1 "" @(1, 1, 1048576, 16384) @(0, 0)))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+
+        extractWorkbook $source | Should Be 0
+        @($log | Where-Object { $_ -eq "AddSheet" }).Count | Should Be 0
+        @(listTmp).Count | Should Be 0
+    }
+
+    It "一時シートにコピーできなかったときは、一時シートを消して元のシートをそのまま書き出す" {
+        $sheet = newSheet "肥大" -1 "元のシート`r`n" @(1, 1, 1048576, 2) @(3, 2)
+        $sheet | Add-Member -MemberType ScriptMethod -Name Range -Value {
+            $range = newRange 1 1
+            $range | Add-Member -MemberType ScriptMethod -Name Copy -Value { throw "コピーできません" }
+            return $range
+        } -Force
+        $excel = newExcel @($sheet)
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock Write-Host {}
+
+        extractWorkbook $source | Should Be 1
+        ($log | Where-Object { $_ -notlike "Open:*" -and $_ -notlike "Close:*" }) -join "|" |
+            Should Be "AddSheet|Delete:一時|Activate:肥大|SaveAs:肥大:42"
+        readTsv "肥大.tsv" | Should Be "元のシート`r`n"
+        Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -match "肥大 の使用範囲を縮められませんでした" }
+    }
+
+    It "作業フォルダ＋ファイル名が長すぎて Excel で開けないときは、短い名前のコピーを開く" {
+        $longName = ("長" * 200) + ".xlsx"
+        $longSource = toLongPath (Join-Path $TestDrive $longName)
+        [System.IO.File]::WriteAllText($longSource, "元のファイル")
+        $excel = newExcel @((newSheet "Sheet1" -1 "a`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+
+        try {
+            extractWorkbook (Join-Path $TestDrive $longName) | Should Be 1
+            $log[0] | Should Be "Open:source.xlsx:ReadOnly=True:Password=dummy"
+            Test-Path -LiteralPath (Join-Path $tmpDir "source.xlsx") | Should Be $false
+        } finally {
+            # Pester 3.4 の TestDrive の後片付けは 260 文字を超えるパスを消せない（一時フォルダが残る）ため、ここで消す
+            [System.IO.File]::Delete($longSource)
+        }
     }
 
     It "新形式（ZIP）のブックは、図形・コメントの文字を別の場所の TSV にする" {

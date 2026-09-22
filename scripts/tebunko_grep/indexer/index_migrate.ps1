@@ -65,6 +65,9 @@ function moveLegacyIndex {
     )
 
     $legacyPath = $null
+    # 前回の移行が途中（work\index を別名にした直後）で止まると、_移行中 が残り、work\index は空で作り直されている
+    $movingDir = "${indexDir}_移行中"
+    $resuming = [System.IO.Directory]::Exists($movingDir)
     $legacyFolder = @($status.Folders | Where-Object { -not $_.Name }) | Select-Object -First 1
     if ($legacyFolder) {
         $legacyPath = normalizeFolderPath $legacyFolder.Path
@@ -75,7 +78,7 @@ function moveLegacyIndex {
         $others = @(Get-ChildItem -LiteralPath $indexDir -Force | Where-Object {
             ($_.PSIsContainer -and $names -notcontains $_.Name) -or (-not $_.PSIsContainer -and $_.Name -ne ${sourceFolderFileName})
         })
-        if ($others.Count -gt 0) {
+        if ($others.Count -gt 0 -or $resuming) {
             $legacyPath = $folders[0].Path
         }
     }
@@ -90,9 +93,11 @@ function moveLegacyIndex {
         return , $rows
     }
 
-    # work\index を丸ごと work\index\<インデックス名> に移す（同じ名前のサブフォルダがあっても衝突しないよう、いったん別名にする）
-    $movingDir = "${indexDir}_移行中"
-    [System.IO.Directory]::Move($indexDir, $movingDir)
+    # work\index を丸ごと work\index\<インデックス名> に移す（同じ名前のサブフォルダがあっても衝突しないよう、いったん別名にする）。
+    # 前回の移行が途中で止まっていれば、残った _移行中 を移すところから続ける
+    if (-not $resuming) {
+        [System.IO.Directory]::Move($indexDir, $movingDir)
+    }
     [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
     [System.IO.Directory]::Move($movingDir, (Join-Path $indexDir $folder.Name))
     Write-Host "以前の形式のインデックスを work\index\$($folder.Name) に移しました。（$($folder.Path) のインデックス）"

@@ -435,3 +435,76 @@ Describe "readPptxUnits（図形・コメント）" -Tag Io {
         @($units["スライド002（非表示）[コメント]"]) -join "|" | Should Be "新形式の コメント|返信です"
     }
 }
+
+Describe "readDocxUnits（表・変更履歴・書式・改行の細かい扱い）" -Tag Io {
+    $body = @(
+        # 入れ子の表は外側のセルの中でスペース区切り。空のセル（<w:tc/>）も列として数え、後ろの列がずれない
+        '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>外</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>内1</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>内2</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:tc><w:tc/><w:tc><w:p><w:r><w:t>右</w:t></w:r></w:p></w:tc></w:tr></w:tbl>',
+        '<w:tbl><w:tr><w:tc/><w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc></w:tr></w:tbl>',
+        # 文字の書式は読み飛ばしても文字は残す。変更履歴の移動元は読まない（移動先と重複する）
+        '<w:p><w:r><w:rPr><w:b/><w:color w:val="FF0000"/></w:rPr><w:t>太字</w:t></w:r><w:moveFrom><w:r><w:t>移動元</w:t></w:r></w:moveFrom><w:moveTo><w:r><w:t>移動先</w:t></w:r></w:moveTo></w:p>',
+        # 行内の改行・改行文字はスペース、改行しないハイフンは -
+        '<w:p><w:r><w:t>改行</w:t><w:br/><w:t>後</w:t><w:cr/><w:t>ハイフン</w:t><w:noBreakHyphen/><w:t>X</w:t></w:r></w:p>'
+    ) -join ""
+    $path = "$TestDrive\details.docx"
+    newZip $path @{ "word/document.xml" = "<w:document $wNs><w:body>$body</w:body></w:document>" }
+    $units = readDocxUnits $path
+
+    It "入れ子の表・空のセル・書式・移動・行内の改行を扱う" {
+        @($units["ページ001"]) -join "|" | Should Be "外 内1 内2`t`t右|`tB|太字移動先|改行 後 ハイフン-X"
+    }
+}
+
+Describe "readDocxUnits / readPptxUnits（必要な部品が無い ZIP）" -Tag Io {
+    It "Word の本文が無ければ、分かるメッセージで例外にする" {
+        $path = "$TestDrive\本文なし.docx"
+        newZip $path @{ "word/other.xml" = "x" }
+        { readDocxUnits $path } | Should Throw "word/document.xml"
+    }
+
+    It "PowerPoint のプレゼンテーション情報が無ければ、分かるメッセージで例外にする" {
+        $path = "$TestDrive\情報なし.pptx"
+        newZip $path @{ "ppt/other.xml" = "x" }
+        { readPptxUnits $path } | Should Throw "ppt/presentation.xml"
+    }
+}
+
+Describe "readObjectText / readChartText" -Tag Io {
+    $path = "$TestDrive\objects_missing.docx"
+    newZip $path @{ "word/document.xml" = "<w:document $wNs/>" }
+
+    It "参照（RelId）が無い・参照先のファイルが無ければ空" {
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $rels = @{ rId1 = @{ Type = "$docRel/chart"; Target = "word/charts/無い.xml" } }
+            readObjectText $zip $rels @{ Kind = "chart"; RelId = "rId9" } | Should Be ""
+            readObjectText $zip $rels @{ Kind = "chart"; RelId = "rId1" } | Should Be ""
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "多段の項目名（multiLvlStrCache）も読み、数値は読まない" {
+        $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser>" +
+            "<c:cat><c:multiLvlStrRef><c:multiLvlStrCache><c:ptCount val=`"1`"/>" +
+            "<c:lvl><c:pt idx=`"0`"><c:v>上期</c:v></c:pt></c:lvl><c:lvl><c:pt idx=`"0`"><c:v>2024年</c:v></c:pt></c:lvl>" +
+            "</c:multiLvlStrCache></c:multiLvlStrRef></c:cat>" +
+            "<c:val><c:numRef><c:numCache><c:pt idx=`"0`"><c:v>100</c:v></c:pt></c:numCache></c:numRef></c:val>" +
+            "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+        readChartText $xml | Should Be "上期 2024年"
+    }
+}
+
+Describe "getCellPosition" -Tag Unit {
+    It "セル番地を @(行, 列) にする（$ 付き・小文字も読む）" {
+        (getCellPosition "AB12") -join "," | Should Be "12,28"
+        (getCellPosition '$A$1') -join "," | Should Be "1,1"
+        (getCellPosition "xfd1048576") -join "," | Should Be "1048576,16384"
+    }
+
+    It "セル番地として読めなければ @(0, 0)" {
+        (getCellPosition "") -join "," | Should Be "0,0"
+        (getCellPosition "1A") -join "," | Should Be "0,0"
+        (getCellPosition "A1:B2") -join "," | Should Be "0,0"
+    }
+}

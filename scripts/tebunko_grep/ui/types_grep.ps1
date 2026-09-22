@@ -516,7 +516,7 @@ class HitRow : NotifyBase {
         while ($number -gt 0) {
             $number--
             $name = [char]([int][char]'A' + $number % 26) + $name
-            $number = [int]($number / 26)
+            $number = [int][Math]::Floor($number / 26)   # [int] だけでは四捨五入になる（26 → "AZ"）
         }
         return $name
     }
@@ -621,7 +621,8 @@ class IndexNode : NotifyBase {
         $node.SourcePath = $sourcePath
         $dir = $node.FullPath()
         $node.Exists = [System.IO.Directory]::Exists([IndexNode]::LongPath($dir))
-        $node.ToolTip = $(if ($null -ne $sourcePath) { "元のフォルダ：" + $sourcePath + "`nインデックス：" + $dir } else { $dir })
+        # [string] の引数・プロパティは $null を "" にするため、元のフォルダが分からないことは空で判定する
+        $node.ToolTip = $(if (-not [string]::IsNullOrEmpty($sourcePath)) { "元のフォルダ：" + $sourcePath + "`nインデックス：" + $dir } else { $dir })
         if (-not $node.Exists) { $node.ToolTip += "`n（フォルダが見つかりません。検索時はスキップします）" }
         if ($node.Exists -and [IndexNode]::HasSubfolders($dir)) { $node.Children.Add([IndexNode]::NewPlaceholder($node)) }
         return $node
@@ -688,14 +689,14 @@ class IndexNode : NotifyBase {
         $names.Sort([System.StringComparer]::CurrentCultureIgnoreCase)
         if ($names.Count -gt 0 -and [IndexNode]::HasFiles($dir)) {
             $files = [IndexNode]::new($this, "（このフォルダ直下のファイル）", $this.Root, $this.RelPath, $true)
-            $files.ToolTip = "サブフォルダを除く、" + $(if ($null -ne $this.SourcePath) { $this.SourcePath } else { $dir }) + " の直下のファイル"
+            $files.ToolTip = "サブフォルダを除く、" + $(if (-not [string]::IsNullOrEmpty($this.SourcePath)) { $this.SourcePath } else { $dir }) + " の直下のファイル"
             $this.Children.Add($files)
         }
         foreach ($n in $names) {
             $childRel = $(if ($this.RelPath -eq "") { $n } else { $this.RelPath + "\" + $n })
             $child = [IndexNode]::new($this, $n, $this.Root, $childRel, $false)
-            if ($null -ne $this.SourcePath) { $child.SourcePath = $this.SourcePath.TrimEnd('\') + "\" + $n }
-            $child.ToolTip = $(if ($null -ne $child.SourcePath) { "元のフォルダ：" + $child.SourcePath } else { $child.FullPath() })
+            if (-not [string]::IsNullOrEmpty($this.SourcePath)) { $child.SourcePath = $this.SourcePath.TrimEnd('\') + "\" + $n }
+            $child.ToolTip = $(if (-not [string]::IsNullOrEmpty($child.SourcePath)) { "元のフォルダ：" + $child.SourcePath } else { $child.FullPath() })
             if ([IndexNode]::HasSubfolders($child.FullPath())) { $child.Children.Add([IndexNode]::NewPlaceholder($child)) }
             $this.Children.Add($child)
         }

@@ -47,6 +47,10 @@ function readSettings {
     } catch {
         throw "$([System.IO.Path]::GetFileName($path)) を読み込めません。（$($_.Exception.Message)）"
     }
+    # 中身が null だけなら、空のファイルと同じく既定値（配列・数値だけのときと同じ扱い）
+    if ($null -eq $data) {
+        return $settings
+    }
     foreach ($key in @($settings.Keys)) {
         $property = $data.PSObject.Properties[$key]
         if ($null -eq $property -or $null -eq $property.Value) {
@@ -57,10 +61,28 @@ function readSettings {
         } elseif ($settings[$key] -is [string]) {
             $settings[$key] = [string]$property.Value
         } else {
-            $settings[$key] = [bool]$property.Value
+            $settings[$key] = toSettingBool $property.Value $settings[$key]
         }
     }
     return $settings
+}
+
+function toSettingBool {
+    # 設定ファイルの真偽値を読む。手で書き換えた "false" などの文字列は [bool] にすると $true になるため、
+    # 文字列は true / false として読み、読めなければ既定値（default）にする
+    param (
+        $value,
+        [bool]$default
+    )
+
+    if ($value -is [string]) {
+        $parsed = $false
+        if ([bool]::TryParse($value.Trim(), [ref]$parsed)) {
+            return $parsed
+        }
+        return $default
+    }
+    return [bool]$value
 }
 
 function writeSettings {
@@ -228,7 +250,7 @@ function readSearchExcludes {
         if ($folder -eq "") {
             continue
         }
-        $subfolders = if ($null -eq $item.subfolders) { $true } else { [bool]$item.subfolders }
+        $subfolders = if ($null -eq $item.subfolders) { $true } else { toSettingBool $item.subfolders $true }
         $result.Add([pscustomobject]@{ Path = $folder; Subfolders = $subfolders })
     }
     return $result.ToArray()
