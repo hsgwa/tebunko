@@ -2848,7 +2848,7 @@
 <h3 id="61-フォルダのツリー左右に並べる">6.1 フォルダのツリー（左右に並べる）<a class="headerlink" href="#61-フォルダのツリー左右に並べる" title="Permanent link">&para;</a></h3>
 <p>左に比較元のフォルダ、右に比較先のフォルダを、<strong>同じ並びのツリー</strong> として出す（<code>buildTreeRows</code>）。</p>
 <ul>
-<li><strong>行</strong>: 両方のフォルダの中身を相対パス（大文字・小文字を区別しない）で対応づけ、1 つの行に左右を並べる。並びは、フォルダが先、同じ階層の中は名前の順（エクスプローラーと同じく読みで並ぶ）。</li>
+<li><strong>行</strong>: 両方のフォルダの中身を相対パス（大文字・小文字を区別しない）で対応づけ、1 つの行に左右を並べる。並びは、フォルダが先、同じ階層の中は名前の順。名前は日本語（<code>ja-JP</code>）の規則で並べ、Windows の表示言語が違う PC でも同じ順にする（<code>diff_folder.ps1</code> の <code>$diffSortCulture</code>）。</li>
 <li><strong>片方にしか無いもの</strong>: もう片方は斜線の空きにする。フォルダごと片方にしか無いときも同じ（「フォルダ · N ファイル」）。</li>
 <li><strong>中央の印</strong>:</li>
 </ul>
