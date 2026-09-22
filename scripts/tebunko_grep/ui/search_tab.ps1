@@ -4,19 +4,7 @@
 # ［2 検索］
 # ============================================================================
 
-$script:hitRows = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
-$ui.ResultGrid.ItemsSource = $script:hitRows
-$script:hitView = [System.Windows.Data.CollectionViewSource]::GetDefaultView($script:hitRows)
-# 表示用（強調セグメント・DisplayLine・セル列）は、行が画面に出るときだけ作る（件数が多くても軽い）。
-# HitRow.Prepare は1回だけ実行し、作った値は PropertyChanged で反映する
-$ui.ResultGrid.Add_LoadingRow({
-    param ($s, $e)
-    if ($e.Row.Item -is [HitRow]) { $e.Row.Item.Prepare() }
-})
-# ファイルごとにまとめるときの見出し（元のファイルのフルパス → FileGroup）。検索のたびに作り直す
-$script:fileGroups = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-# 表が初めて表示されたときに、まとめるかどうかを反映する（applyGrouping。見出しは表が表示された後でないと付けられない）
-$ui.ResultGrid.Add_Loaded({ safe { applyGrouping } })
+# 結果（ヒットした行・ファイルごとの見出し）と表の中身は result_list.ps1
 $script:search = $null
 $script:lastSearch = $null
 $script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名と変換対象フォルダの対応（getSourceLocation のキャッシュ）
@@ -64,7 +52,6 @@ function getSearchOptionFromUi {
         UseRegex      = [bool]$ui.RegexCheck.IsChecked
         CaseSensitive = [bool]$ui.CaseCheck.IsChecked
         FileFilter    = $ui.FileFilterBox.Text.Trim()
-        GroupByFile   = [bool]$ui.GroupByFileCheck.IsChecked
     }
 }
 
@@ -76,109 +63,6 @@ function setSearchOptionToUi {
     $ui.RegexCheck.IsChecked = [bool]$option.UseRegex
     $ui.CaseCheck.IsChecked = [bool]$option.CaseSensitive
     $ui.FileFilterBox.Text = [string]$option.FileFilter
-    $ui.GroupByFileCheck.IsChecked = [bool]$option.GroupByFile
-    applyGrouping
-}
-
-function applyGrouping {
-    # ［ファイルごとにまとめる］の状態に合わせて、結果の表をファイルごとのグループに分ける・戻す。
-    # 行（HitRow）はそのままなので、選択・プレビュー・元のファイルを開く・絞り込み・出力はどちらでも同じに動く。
-    # 見出し（GroupStyle。tab_search.xaml の FileGroupStyle）はまとめている間だけ付ける。GroupStyle のある表は
-    # ・空のまま初めて表示されると、あとで行を入れても列の幅が決まらず、列見出しとセルが空になる
-    # ・縦のスクロールバーが出ても「該当行」（幅 *）の幅を計算し直さず、横にはみ出す
-    # という WPF の不具合があるため。前者を避けるため、表が表示される前（起動時）は付けず、Loaded で付ける
-    $grid = $ui.ResultGrid
-    $groups = $script:hitView.GroupDescriptions
-    if ([bool]$ui.GroupByFileCheck.IsChecked) {
-        if (!$grid.IsLoaded) {
-            return
-        }
-        if ($grid.GroupStyle.Count -eq 0) {
-            $grid.GroupStyle.Add($grid.Resources["FileGroupStyle"])
-        }
-        if ($groups.Count -eq 0) {
-            # 行ごとの表示の間に入れた行には見出しが無いため、先に付ける
-            assignFileGroups $script:hitRows
-            $groups.Add((New-Object System.Windows.Data.PropertyGroupDescription "FileGroup"))
-        }
-    } else {
-        $groups.Clear()
-        $grid.GroupStyle.Clear()
-    }
-    refreshStarColumns
-}
-
-function refreshStarColumns {
-    # 幅 * の列（該当行）の幅を、今の表の幅で計算し直す（applyGrouping の後者の不具合への対処）。
-    # まとめ表示に切り替えたとき・戻したとき、まとめ表示で行の数が変わったとき（検索の終わり・絞り込み）に呼ぶ。
-    # 行の並びが決まった後に計算させるため、画面の処理が済んでから行う
-    [void]$ui.ResultGrid.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background, [Action]{
-        safe {
-            foreach ($column in $ui.ResultGrid.Columns) {
-                if ($column.Width.IsStar) {
-                    $width = $column.Width
-                    $column.Width = [System.Windows.Controls.DataGridLength]::Auto
-                    $column.Width = $width
-                }
-            }
-        }
-    })
-}
-
-function isGroupedByFile {
-    # 結果の表をファイルごとにまとめて表示しているか
-    return $ui.ResultGrid.GroupStyle.Count -gt 0
-}
-
-function assignFileGroups {
-    # 見出しの無い行に、元のファイルの見出し（FileGroup）を付ける（pumpSearch の中の処理と同じ）
-    param (
-        $rows
-    )
-
-    foreach ($row in $rows) {
-        if ($null -ne $row.FileGroup) {
-            continue
-        }
-        $fileKey = "$($row.Root)\$($row.RelDir)\$($row.Book)"
-        $group = $null
-        if (!$script:fileGroups.TryGetValue($fileKey, [ref]$group)) {
-            $group = newFileGroup $fileKey $row.RelDir $row.Book
-        }
-        if ($group.AddLocation($row.Location)) {
-            addFileGroupLocation $group $row.Book $row.Location
-        }
-        $row.FileGroup = $group
-    }
-}
-
-function newFileGroup {
-    # 元のファイルの見出し（FileGroup）を作って覚える（key は元のファイルのフルパス）
-    param (
-        [string]$key,
-        [string]$relDir,
-        [string]$book
-    )
-
-    $group = [FileGroup]::new()
-    $group.Book = $book
-    $group.RelDir = $relDir
-    $group.FullPath = $key
-    $group.AppKind = getAppKind $book
-    $script:fileGroups[$key] = $group
-    return $group
-}
-
-function addFileGroupLocation {
-    # 見出しに、そのファイルで初めてヒットした場所を足し、右端の表記を作り直す
-    param (
-        [FileGroup]$group,
-        [string]$book,
-        [string]$location
-    )
-
-    $group.AddLabel((formatLocationLabel $book $location))
-    $group.SetLocationText((describeFileLocations $group.GetLocations()))
 }
 
 function updateWordNotice {
@@ -240,9 +124,7 @@ function startSearch {
 
     $ui.FilterBox.Text = ""
     $script:filterText = ""
-    $script:hitView.Filter = $null
-    $script:hitRows.Clear()
-    $script:fileGroups.Clear()
+    clearResults
     clearDetail
     # 検索対象ツリーでチェックしたフォルダだけを検索する（結果の相対パスは、インデックスのフォルダからのまま）
     $folders = @(getSearchTargets)
@@ -296,7 +178,7 @@ function pumpSearch {
     $hit = $null
     # 1 回に移す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が 0.5 秒以上止まる）
     $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
-    $grouped = isGroupedByFile
+    $filterText = $script:filterText
     while ($elapsed.ElapsedMilliseconds -lt ${searchPumpMilliseconds} -and $shared.Queue.TryDequeue([ref]$hit)) {
         # インデックスのフォルダ（work\index）からの相対パスの先頭がインデックス名（splitIndexRelPath と同じ。1 件ごとの関数呼び出しを省く）
         $relDir = [string]$hit.RelDir
@@ -304,22 +186,26 @@ function pumpSearch {
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
         $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
                 $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern)
-        if ($grouped) {
-            # まとめているときは、表に入れる前に見出しを決める（入れた時点の値でグループに振り分けるため）。
-            # 行ごとの表示のときは作らない（切り替えたときに assignFileGroups で付ける）。
-            # ヒットごとに通る処理なので assignFileGroups を呼ばずに同じことを書く（関数を呼ぶと、そのぶん検索が遅くなる）
-            $fileKey = "$($hit.Root)\$relDir\$($hit.Book)"
-            $group = $null
-            if (!$script:fileGroups.TryGetValue($fileKey, [ref]$group)) {
-                $group = newFileGroup $fileKey $relDir $hit.Book
-            }
-            if ($group.AddLocation($hit.Location)) {
-                addFileGroupLocation $group $hit.Book $hit.Location
-            }
-            $row.FileGroup = $group
-        }
+        $row.Order = $script:hitRows.Count
         $script:hitRows.Add($row)
+        # 行は元のファイルの見出しに持たせ、表には入れない（表への反映は、この 1 回の最後に flushResults でまとめて行う）。
+        # ヒットごとに通る処理なので、関数は初めてのファイル・場所のときだけ呼ぶ（呼ぶと、そのぶん検索が遅くなる）
+        $fileKey = "$($hit.Root)\$relDir\$($hit.Book)"
+        $group = $null
+        if (!$script:fileGroups.TryGetValue($fileKey, [ref]$group)) {
+            $group = newFileGroup $fileKey $relDir $hit.Book
+        }
+        if ($group.AddLocation($hit.Location)) {
+            addFileGroupLocation $group $hit.Book $hit.Location
+        }
+        $row.FileGroup = $group
+        $group.Rows.Add($row)
+        if ($filterText -eq "" -or $row.Contains($filterText)) {
+            $group.ShownRows.Add($row)
+        }
+        [void]$script:dirtyGroups.Add($group)
     }
+    flushResults
 
     if ($shared.Total -gt 0) {
         $ratio = $shared.Done / $shared.Total
@@ -361,9 +247,7 @@ function finishSearch {
     $script:lastSearch = $s
     $seconds = ((Get-Date) - $s.Start).TotalSeconds
     updateSearchButton
-    if (isGroupedByFile) {
-        refreshStarColumns
-    }
+    finishResults
 
     if ($shared.Error) {
         $ui.SummaryText.Text = "検索できませんでした"
@@ -372,10 +256,7 @@ function finishSearch {
     }
 
     $count = $script:hitRows.Count
-    $files = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($row in $script:hitRows) {
-        [void]$files.Add("$($row.Root)\$($row.RelDir)\$($row.Book)")
-    }
+    $files = $script:fileGroups
 
     if ($shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "対象ファイル（$($s.Option.FileFilter)）に一致するファイルがありません。"
@@ -421,19 +302,9 @@ $script:searchTimer = newTimer 100 { safe { pumpSearch } }
 
 function applyFilter {
     $script:filterText = $ui.FilterBox.Text.Trim()
-    if ($script:filterText -eq "") {
-        $script:hitView.Filter = $null
-    } else {
-        $script:hitView.Filter = [Predicate[object]] { param ($row) $row.Contains($script:filterText) }
-    }
-    if (isGroupedByFile) {
-        refreshStarColumns
-    }
+    applyResultFilter $script:filterText
     if ($script:lastSearch -and !$script:search -and $script:hitRows.Count -gt 0) {
-        $shown = 0
-        foreach ($row in $script:hitView) {
-            $shown++
-        }
+        $shown = getShownHitCount
         if ($script:filterText -eq "") {
             finishSummaryText
         } else {
@@ -443,11 +314,7 @@ function applyFilter {
 }
 
 function finishSummaryText {
-    $files = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($row in $script:hitRows) {
-        [void]$files.Add("$($row.Root)\$($row.RelDir)\$($row.Book)")
-    }
-    $ui.SummaryText.Text = "$($script:hitRows.Count.ToString('N0')) 件（$($files.Count.ToString('N0')) ファイル）"
+    $ui.SummaryText.Text = "$($script:hitRows.Count.ToString('N0')) 件（$($script:fileGroups.Count.ToString('N0')) ファイル）"
 }
 
 $script:filterTimer = newTimer 300 {
@@ -477,12 +344,6 @@ $ui.RegexCheck.Add_Click({
     }
 })
 $ui.CaseCheck.Add_Click({ safe { writeSearchOption @{ CaseSensitive = [bool]$ui.CaseCheck.IsChecked } } })
-$ui.GroupByFileCheck.Add_Click({
-    safe {
-        writeSearchOption @{ GroupByFile = [bool]$ui.GroupByFileCheck.IsChecked }
-        applyGrouping
-    }
-})
 $ui.FileFilterBox.Add_TextChanged({
     $ui.FileFilterPlaceholder.Visibility = if ($ui.FileFilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
 })

@@ -17,7 +17,6 @@ function newSettings {
         useRegex           = $false   # 検索ワードを正規表現として扱う
         caseSensitive      = $false   # 英字の大文字と小文字を区別する
         fileFilter         = ""       # 対象ファイル（元のファイル名のワイルドカード。; 区切り、! で始まるものは除外。空ならすべて）
-        groupByFile        = $false   # 検索結果をファイルごとにまとめて表示する
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
     }
 }
@@ -246,12 +245,12 @@ function writeSearchExcludes {
 }
 
 
-${searchOptionKeys} = [ordered]@{ UseRegex = "useRegex"; CaseSensitive = "caseSensitive"; FileFilter = "fileFilter"; GroupByFile = "groupByFile" }
+${searchOptionKeys} = [ordered]@{ UseRegex = "useRegex"; CaseSensitive = "caseSensitive"; FileFilter = "fileFilter" }
 
 
 function readSearchOption {
-    # 画面の検索オプションを @{ UseRegex; CaseSensitive; FileFilter; GroupByFile } で返す。
-    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて・行ごとの表示
+    # 画面の検索オプションを @{ UseRegex; CaseSensitive; FileFilter } で返す。
+    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて
     param (
         [string]$path = ${settingsFile}
     )

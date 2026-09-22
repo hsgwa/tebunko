@@ -117,3 +117,97 @@ Describe "describeFileLocations" -Tag Unit {
         describeFileLocations @("シート 4月", "シート 5月", "シート 6月") | Should Be "シート 4月 ほか 2 か所"
     }
 }
+
+# 結果の表の項目のテストに使う、HitRow・FileGroup と同じ項目を持つもの
+function newTestRow {
+    param ([int]$order, [string]$line, [int]$lineNumber = 1)
+
+    $row = [pscustomobject]@{ Order = $order; Line = $line; LineNumber = $lineNumber }
+    $row | Add-Member -MemberType ScriptMethod -Name Contains -Value { param ($text) $this.Line.Contains($text) }
+    return $row
+}
+
+function newTestGroup {
+    param ([int]$order, [object[]]$rows, [bool]$expanded = $false)
+
+    $group = [pscustomobject]@{
+        Order = $order; IsExpanded = $expanded
+        Rows = New-Object 'System.Collections.Generic.List[object]'
+        ShownRows = New-Object 'System.Collections.Generic.List[object]'
+    }
+    $group.Rows.AddRange($rows)
+    $group.ShownRows.AddRange($rows)
+    return $group
+}
+
+Describe "selectShownRows" -Tag Unit {
+    It "絞り込みが空ならすべて、あれば合う行だけを元の順で返す" {
+        $rows = @((newTestRow 1 "見積 A"), (newTestRow 2 "請求 B"), (newTestRow 3 "見積 C"))
+        (selectShownRows $rows "").Count | Should Be 3
+        $shown = selectShownRows $rows "見積"
+        $shown.Count | Should Be 2
+        $shown[0].Order | Should Be 1
+        $shown[1].Order | Should Be 3
+    }
+
+    It "合う行が無ければ空の一覧" {
+        (selectShownRows @((newTestRow 1 "見積")) "請求").Count | Should Be 0
+    }
+}
+
+Describe "getResultItems" -Tag Unit {
+    It "閉じているファイルは見出しだけ、開いているファイルは見出しと行" {
+        $a = newTestGroup 1 @((newTestRow 1 "a1"), (newTestRow 2 "a2"))
+        $b = newTestGroup 2 @((newTestRow 3 "b1")) $true
+        $items = getResultItems @($a, $b)
+        $items.Count | Should Be 3
+        [object]::ReferenceEquals($items[0], $a) | Should Be $true
+        [object]::ReferenceEquals($items[1], $b) | Should Be $true
+        $items[2].Line | Should Be "b1"
+    }
+
+    It "絞り込みで行が残らないファイルは見出しも出さない" {
+        $a = newTestGroup 1 @((newTestRow 1 "a1"))
+        $a.ShownRows.Clear()
+        $b = newTestGroup 2 @((newTestRow 2 "b1"))
+        $items = getResultItems @($a, $b)
+        $items.Count | Should Be 1
+        [object]::ReferenceEquals($items[0], $b) | Should Be $true
+    }
+}
+
+Describe "getShownHitRows" -Tag Unit {
+    It "閉じているファイルの行も含め、表の順に返す" {
+        $a = newTestGroup 1 @((newTestRow 1 "a1"), (newTestRow 2 "a2"))
+        $b = newTestGroup 2 @((newTestRow 3 "b1")) $true
+        $rows = getShownHitRows @($a, $b)
+        @($rows | ForEach-Object { $_.Line }) -join "," | Should Be "a1,a2,b1"
+    }
+}
+
+Describe "sortFileGroups" -Tag Unit {
+    It "ファイルの中の行を並べ替え、ファイルは先頭の行の順にする" {
+        $a = newTestGroup 1 @((newTestRow 1 "a" 5), (newTestRow 2 "a" 9))
+        $b = newTestGroup 2 @((newTestRow 3 "b" 7), (newTestRow 4 "b" 1))
+        $sorted = sortFileGroups @($a, $b) "LineNumber" $false
+        [object]::ReferenceEquals($sorted[0], $b) | Should Be $true
+        @($b.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should Be "1,7"
+        @($a.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should Be "5,9"
+    }
+
+    It "逆順にもできる" {
+        $a = newTestGroup 1 @((newTestRow 1 "a" 5), (newTestRow 2 "a" 9))
+        $b = newTestGroup 2 @((newTestRow 3 "b" 7), (newTestRow 4 "b" 1))
+        $sorted = sortFileGroups @($a, $b) "LineNumber" $true
+        [object]::ReferenceEquals($sorted[0], $a) | Should Be $true
+        @($a.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should Be "9,5"
+    }
+
+    It "同じ値のときは見つかった順" {
+        $a = newTestGroup 1 @((newTestRow 2 "x" 1), (newTestRow 1 "x" 1))
+        $b = newTestGroup 2 @((newTestRow 3 "x" 1))
+        $sorted = sortFileGroups @($b, $a) "LineNumber" $false
+        [object]::ReferenceEquals($sorted[0], $a) | Should Be $true
+        @($a.Rows | ForEach-Object { $_.Order }) -join "," | Should Be "1,2"
+    }
+}

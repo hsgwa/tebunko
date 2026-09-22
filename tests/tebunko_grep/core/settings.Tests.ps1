@@ -20,16 +20,6 @@ Describe "readSettings / writeSettings" -Tag Io {
         }
     }
 
-    It "ファイルごとにまとめる表示（groupByFile）は既定でオフ、保存した値を読み込める" {
-        $path = "$TestDrive\まとめ\setting.config"
-        (readSearchOption $path).GroupByFile | Should Be $false
-        writeSearchOption @{ GroupByFile = $true } $path
-        $option = readSearchOption $path
-        $option.GroupByFile | Should Be $true
-        # ほかの検索条件は変えない
-        $option.UseRegex | Should Be $false
-    }
-
     It "開き方が無い・知らない値なら「通常」とする" {
         $path = "$TestDrive\開き方2\setting.config"
         readOpenMode $path | Should Be ${openModeNormal}        # ファイルが無い
