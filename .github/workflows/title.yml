@@ -1,0 +1,65 @@
+# PR と Issue のタイトルが Conventional Commits の形（feat: ... など）かを確かめる（tools/check_commit_message.ps1。AGENTS.md「GitHub の運用」）。
+#
+# - PR … squash merge では PR のタイトルが main のコミットのタイトルになる。形が違えば失敗にし、マージを止める（ブランチ保護の必須のチェック）。
+#         必須のチェックは head のコミットごとに要るため、push（synchronize）でも動かす
+# - Issue … 作成は止められないため、形が違えば直し方を 1 回だけコメントする
+#
+# タイトルは誰でも書ける信頼できない入力のため、式で run に埋め込まず環境変数で渡す。
+# スクリプトは PowerShell 7 でも動くように書いてあるため、起動の速い ubuntu のランナーで pwsh を使う
+name: title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: PR のタイトル
+        shell: pwsh
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: ./tools/check_commit_message.ps1 -Title $env:TITLE
+
+  issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Issue のタイトル
+        id: check
+        continue-on-error: true
+        shell: pwsh
+        env:
+          TITLE: ${{ github.event.issue.title }}
+        run: ./tools/check_commit_message.ps1 -Title $env:TITLE
+
+      # 同じ Issue に何度もコメントしないよう、目印（.github/title_comment.md の 1 行目）が付いたコメントがあれば書かない
+      - name: 直し方をコメントする
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          marker=$(head -n 1 .github/title_comment.md)
+          found=$(gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json comments --jq "[.comments[].body | select(startswith(\"$marker\"))] | length")
+          if [ "$found" = "0" ]; then
+            gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file .github/title_comment.md
+          fi
