@@ -1405,7 +1405,7 @@
 <tbody>
 <tr>
 <td><code>scripts/shared/core/</code></td>
-<td>パス定義（<code>paths.ps1</code>）・ファイルの読み書き（<code>fs.ps1</code>）・TSV とセルの文字列（<code>text.ps1</code>）・フォルダのパスと一覧（<code>folder.ps1</code>）</td>
+<td>パス定義（<code>paths.ps1</code>）・ファイルの読み書き（<code>fs.ps1</code>）・データの置き場所（<code>data_dir.ps1</code>）・TSV とセルの文字列（<code>text.ps1</code>）・フォルダのパスと一覧（<code>folder.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/office/</code></td>
@@ -1514,9 +1514,14 @@
 <td><code>shared/core/paths.ps1</code></td>
 </tr>
 <tr>
+<td><code>$dataDir</code></td>
+<td>設定ファイルと既定の <code>work</code> を置くフォルダ。<code>$rootDir</code> に書き込めればそこ、書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>（<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#33-データの置き場所settingconfigwork">3.3</a>）</td>
+<td><code>shared/core/data_dir.ps1</code></td>
+</tr>
+<tr>
 <td><code>$workDir</code></td>
-<td><code>$rootDir\work</code></td>
-<td>同上</td>
+<td><code>work</code> の置き場所。共通基盤では既定の <code>$dataDir\work</code>。tebunko_grep は設定 <code>workspaceFolder</code> から決め直す（<code>getWorkDir</code>）</td>
+<td><code>shared/core/data_dir.ps1</code>・<code>tebunko_grep/core/paths_grep.ps1</code></td>
 </tr>
 <tr>
 <td><code>$utf8Bom</code></td>
@@ -1659,14 +1664,14 @@
 <td>同上</td>
 </tr>
 <tr>
+<td><code>$settingsFile</code></td>
+<td><code>$dataDir\setting.config</code>（画面が保存する設定。内容は JSON。<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a>）</td>
+<td><code>tebunko_grep/core/settings_grep.ps1</code></td>
+</tr>
+<tr>
 <td><code>$openModeNormal</code> / <code>$openModeReadOnly</code> / <code>$openModeNew</code>・<code>$openModes</code></td>
 <td>元のファイルの開き方（設定 <code>openMode</code> の値 <code>normal</code> / <code>readOnly</code> / <code>new</code>）と、その一覧</td>
 <td>同上</td>
-</tr>
-<tr>
-<td><code>$settingsFile</code></td>
-<td><code>$rootDir\setting.config</code>（画面が保存する設定。内容は JSON。<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a>）</td>
-<td><code>tebunko_grep/core/settings_grep.ps1</code></td>
 </tr>
 <tr>
 <td><code>$legacyConfigDirName</code> / <code>$legacyTargetFolderFileName</code> / <code>$legacySearchOptionFileName</code></td>
@@ -1763,7 +1768,7 @@
 <td><code>newSettings</code></td>
 <td>–</td>
 <td>ordered hashtable</td>
-<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileFilter</code> <code>includeShapes</code> <code>includeComments</code> <code>openMode</code>）</td>
+<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileFilter</code> <code>includeShapes</code> <code>includeComments</code> <code>openMode</code> <code>workspaceFolder</code>）</td>
 <td><a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#4-設定ファイル-settingconfigreadsettings">4 章</a></td>
 <td>readSettings</td>
 </tr>
@@ -1863,6 +1868,30 @@
 <td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#45-元のファイルを開く">03_画面_2_検索タブ_1 4.5</a></td>
 <td>画面</td>
 </tr>
+<tr>
+<td><code>getDefaultWorkDir</code></td>
+<td>path（既定 <code>$settingsFile</code>）</td>
+<td>string</td>
+<td>既定の <code>work</code> の置き場所（設定ファイルと同じフォルダの <code>work</code>）</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#33-データの置き場所settingconfigwork">3.3</a></td>
+<td>getWorkDir, writeWorkspaceFolder, 画面</td>
+</tr>
+<tr>
+<td><code>getWorkDir</code></td>
+<td>path（既定 <code>$settingsFile</code>）</td>
+<td>string</td>
+<td><code>work</code> の置き場所（<code>workspaceFolder</code>。空なら既定。相対パスは設定ファイルのフォルダから、<code>%変数%</code> は展開する）</td>
+<td>同上</td>
+<td><code>paths_grep.ps1</code>（<code>$workDir</code>）</td>
+</tr>
+<tr>
+<td><code>writeWorkspaceFolder</code></td>
+<td>folder, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td><code>work</code> の置き場所を保存する。既定の場所なら空で保存する</td>
+<td>同上</td>
+<td>画面</td>
+</tr>
 </tbody>
 </table>
 <p><strong>ファイルとフォルダ（<code>shared/core/fs.ps1</code>・<code>folder.ps1</code>・<code>shared/office/office_files.ps1</code>）</strong></p>
@@ -1927,12 +1956,28 @@
 <td>newAppMutex, 画面（多重起動の防止）</td>
 </tr>
 <tr>
+<td><code>testWritableFolder</code></td>
+<td>dir</td>
+<td>bool</td>
+<td>フォルダにファイルを作れるか（試しに作ったファイルは閉じると消える）。無いフォルダは <code>$false</code></td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#33-データの置き場所settingconfigwork">3.3</a></td>
+<td>getDataDir, 画面（置き場所の変更）</td>
+</tr>
+<tr>
+<td><code>getDataDir</code></td>
+<td>root（既定 <code>$rootDir</code>）, fallbackBase（既定 <code>%LOCALAPPDATA%</code>）</td>
+<td>string</td>
+<td>設定ファイルと既定の <code>work</code> を置くフォルダ。root に書き込めれば root、書き込めなければ <code>&lt;fallbackBase&gt;\tebunko\&lt;getFolderKey の先頭 16 文字&gt;</code>（<code>shared/core/data_dir.ps1</code>）</td>
+<td>同上</td>
+<td><code>data_dir.ps1</code>（<code>$dataDir</code>）</td>
+</tr>
+<tr>
 <td><code>newAppMutex</code></td>
 <td>name（<code>gui</code> / <code>indexer</code>）, dir（既定 <code>$rootDir</code>）</td>
 <td><code>@{Mutex; Acquired}</code></td>
 <td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_grep_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a></td>
-<td>インデックス作成（起動時）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
+<td>インデックス作成（起動時。dir に <code>$workDir</code> を渡し、同じ <code>work</code> を使うものを 1 つにする）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
 </tr>
 <tr>
 <td><code>testOfficeFile</code></td>
