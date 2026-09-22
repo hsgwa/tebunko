@@ -119,6 +119,14 @@
       </StackPanel>
       <StackPanel Grid.Row="3">
         <TextBlock x:Name="IndexSummaryText" Text="確認中…" />
+        <!-- インデックス（work）の置き場所。ツールのフォルダの外にも置ける -->
+        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+          <TextBlock x:Name="WorkDirText" Style="{StaticResource Meta}" VerticalAlignment="Center" />
+          <Button x:Name="ChangeWorkDirButton" Style="{StaticResource Link}" Content="変更…" VerticalAlignment="Center" Margin="12,0,0,0"
+                  ToolTip="インデックス・取り込み一覧・ログを置くフォルダを変えます（今のインデックスは移しません）" />
+          <Button x:Name="ResetWorkDirButton" Style="{StaticResource Link}" Content="既定に戻す" VerticalAlignment="Center" Margin="12,0,0,0"
+                  Visibility="Collapsed" ToolTip="設定ファイルと同じフォルダの work に戻します" />
+        </StackPanel>
         <TextBlock x:Name="IndexingStateText" Style="{StaticResource WarnText}" Margin="0,6,0,0" />
         <StackPanel x:Name="FailedPanel" Visibility="Collapsed" Margin="0,8,0,0">
           <DockPanel>

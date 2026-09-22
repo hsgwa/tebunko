@@ -89,7 +89,7 @@ $window = loadWindow "${xamlDir}\tebunko_grep.xaml"
 $tabs = @(
     @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
         "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
-        "IndexSummaryText", "IndexingStateText", "IndexingButton", "IndexingHint",
+        "IndexSummaryText", "WorkDirText", "ChangeWorkDirButton", "ResetWorkDirButton", "IndexingStateText", "IndexingButton", "IndexingHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
         "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
         "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
@@ -249,6 +249,7 @@ $window.Add_Loaded({
 # ---- 起動 ----
 
 loadTargets
+updateWorkDirView
 setSearchOptionToUi (readSearchOption)
 setOpenMode (readOpenMode)
 updateOpenMenu
@@ -298,4 +299,10 @@ try {
     $activateEvent.Close()
     $mutex.ReleaseMutex()
     $mutex.Dispose()
+    # インデックスの置き場所を変えたときは、新しい置き場所で開き直す（work の中のファイルの場所は、読み込み時に決まるため）。
+    # 多重起動の判定に掛からないよう、ミューテックスを放してから起動する
+    if ($script:restartRequested) {
+        Start-Process -FilePath "powershell.exe" -WindowStyle Hidden `
+            -ArgumentList "-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$PSCommandPath`""
+    }
 }

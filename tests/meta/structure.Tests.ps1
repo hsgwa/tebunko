@@ -2,12 +2,17 @@
 . "$PSScriptRoot\..\helpers\load.ps1"
 
 Describe "パス定義" -Tag Meta {
-    It "リポジトリ直下を基準にする" {
+    It "リポジトリ直下を基準にする（書き込めるため、設定ファイルもリポジトリ直下に置く）" {
         $rootDir | Should Be (Resolve-Path "$here\..").Path
-        $indexDir | Should Be "$rootDir\work\index"
-        $publishDir | Should Be "$rootDir\work\取り込み出力\$PID"
-        $resultFile | Should Be "$rootDir\work\検索結果.txt"
+        $dataDir | Should Be $rootDir
         $settingsFile | Should Be "$rootDir\setting.config"
+    }
+
+    It "work の中身は work の置き場所（既定はリポジトリ直下の work。setting.config の workFolder で変わる）を基準にする" {
+        $workDir | Should Be (getWorkDir $settingsFile)
+        $indexDir | Should Be "$workDir\index"
+        $publishDir | Should Be "$workDir\取り込み出力\$PID"
+        $resultFile | Should Be "$workDir\検索結果.txt"
     }
 }
 

@@ -6,6 +6,10 @@ ${appId} = "tebunko_grep"
 # Excelは [ ] を含むパスに保存できないため TEMP を使う。
 # インデックス作成を同時に複数実行しても互いのTSVを削除・移動しないよう、プロセスごとに分ける
 ${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_grep\${PID}"
+
+# work（インデックス・取り込み一覧・ログ・取り込みの出力）の置き場所。
+# setting.config の workFolder で変えられる。空なら既定（設定ファイルと同じフォルダの work。settings_grep.ps1 の getWorkDir）
+${workDir}   = getWorkDir
 ${indexDir}  = "${workDir}\index"
 
 # 取り込んだTSVをインデックスに入れる直前に集めるフォルダ（publishIndexFiles）。
@@ -58,9 +62,3 @@ ${statusFolderKey} = "クロール対象フォルダ"
 ${stateNew}    = "未取り込み"
 ${stateDone}   = "済"
 ${stateFailed} = "失敗"
-
-# 検索結果から元のファイルを開くときの開き方（設定 openMode の値）
-${openModeNormal}   = "normal"    # そのまま開く（編集する）
-${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上書きしない）
-${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
-${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})

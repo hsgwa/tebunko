@@ -321,3 +321,33 @@ Describe "readSearchOption / writeSearchOption" -Tag Io {
         $option.FileFilter | Should Be "*.xlsx;!*old*"
     }
 }
+
+Describe "getWorkDir / writeWorkFolder" -Tag Io {
+    It "設定が無ければ、設定ファイルと同じフォルダの work（以前の版と同じ）" {
+        getWorkDir "$TestDrive\既定\setting.config" | Should Be "$TestDrive\既定\work"
+    }
+
+    It "保存したフォルダを返し、ほかの設定は保つ" {
+        $path = "$TestDrive\別の場所\setting.config"
+        writeOpenMode ${openModeReadOnly} $path
+        writeWorkFolder "D:\データ\tebunko\" $path
+        getWorkDir $path | Should Be "D:\データ\tebunko"
+        readOpenMode $path | Should Be ${openModeReadOnly}
+    }
+
+    It "既定の場所を選んだときは空で保存する（ツールのフォルダを移しても既定のまま付いてくる）" {
+        $path = "$TestDrive\既定に戻す\setting.config"
+        writeWorkFolder "D:\データ" $path
+        writeWorkFolder "$TestDrive\既定に戻す\WORK" $path
+        (readSettings $path).workFolder | Should Be ""
+        getWorkDir $path | Should Be "$TestDrive\既定に戻す\work"
+    }
+
+    It "手で書いた相対パスは設定ファイルのフォルダから、環境変数は展開して読む" {
+        $path = "$TestDrive\相対\setting.config"
+        updateSettings "workFolder" "..\データ" $path
+        getWorkDir $path | Should Be "$TestDrive\データ"
+        updateSettings "workFolder" "%TEMP%\tebunko" $path
+        getWorkDir $path | Should Be ([System.IO.Path]::GetFullPath("$env:TEMP\tebunko"))
+    }
+}
