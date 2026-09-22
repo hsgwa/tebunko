@@ -7,8 +7,12 @@
 # レジストリは読まない（docs/04_安全性.md 2.1）。CLM では COM を作れないため、起動して確かめることもしない。
 # クイック実行版（root\Office16）と MSI 版（Office16 など）の 64 bit・32 bit を見る
 function testExcelInstalled {
-    $roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ }
-    foreach ($root in $roots) {
+    param (
+        # 探す場所（テストで差し替える。Excel の入っていない PC でも両方の道筋を確かめられるようにする）
+        [string[]]$roots = @($env:ProgramFiles, ${env:ProgramFiles(x86)})
+    )
+
+    foreach ($root in @($roots | Where-Object { $_ })) {
         foreach ($pattern in @("Microsoft Office\root\Office*\EXCEL.EXE", "Microsoft Office\Office*\EXCEL.EXE")) {
             if (@(Get-ChildItem -Path (Join-Path $root $pattern) -ErrorAction SilentlyContinue).Count -gt 0) {
                 return $true
