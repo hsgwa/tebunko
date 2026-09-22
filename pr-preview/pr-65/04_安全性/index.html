@@ -1334,6 +1334,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko_grep.bat）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remotesigned-で起動する理由" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RemoteSigned で起動する理由
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1655,6 +1672,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko_grep.bat）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remotesigned-で起動する理由" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RemoteSigned で起動する理由
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -2165,9 +2199,39 @@
 <ul>
 <li><strong>理由</strong>: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー <code>RemoteSigned</code> では未署名スクリプトが実行できないため。</li>
 <li><strong>範囲</strong>: <code>%~dp0scripts</code>（<code>tebunko_grep.bat</code> があるフォルダの <code>scripts</code>）配下のみ。実行するスクリプトはすべてここにある。インデックス（<code>work</code>）・文書（<code>docs</code>）には触らない。システム全体やユーザーのドキュメントには影響しない。</li>
-<li><strong>実行ポリシー</strong>: <code>Bypass</code> は使わず <code>RemoteSigned</code> で起動する。恒久的な設定変更（<code>Set-ExecutionPolicy</code>）も行わない。</li>
+<li><strong>実行ポリシー</strong>: <code>Bypass</code> は使わず <code>RemoteSigned</code> で起動する。恒久的な設定変更（<code>Set-ExecutionPolicy</code>）も行わない。理由は次の「<code>RemoteSigned</code> で起動する理由」を参照。</li>
 <li><strong>恒久的な解消策</strong>: 配布物のカタログ（5.1）にコードサイニング証明書で署名すれば、この <code>Unblock-File</code> は不要になり、<code>AllSigned</code> でも動作する。</li>
 </ul>
+<h4 id="remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由<a class="headerlink" href="#remotesigned-で起動する理由" title="Permanent link">&para;</a></h4>
+<p>Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの既定が <code>Restricted</code> で、<code>.ps1</code> を 1 つも実行できない。本ツールはスクリプトでできているため、何らかの実行ポリシーを指定しないと起動できない。そこで、<code>tebunko_grep.bat</code> と画面（インデクサの起動）は、<code>powershell.exe</code> の <code>-ExecutionPolicy RemoteSigned</code> で<strong>そのプロセスだけ</strong>の実行ポリシーを指定する。</p>
+<ul>
+<li><strong>設定を変えない</strong>: <code>-ExecutionPolicy</code> の指定は、起動したプロセスとその子プロセスだけに効く。PC や利用者の実行ポリシーは書き換えず（<code>Set-ExecutionPolicy</code> を使わない）、管理者権限も要らない。本ツールを終えると元のとおりである。</li>
+<li><strong><code>RemoteSigned</code> を選ぶ理由</strong>: 署名の無い手元のスクリプトを実行できる実行ポリシーのうち、いちばん厳しいため。手元のスクリプトは実行し、インターネットから来た（Mark-of-the-Web が付いた）スクリプトは署名が無ければ止める。本ツールのスクリプトは、上の <code>Unblock-File</code> で自分のフォルダの <code>scripts</code> 配下だけ印を消して実行する。それ以外のダウンロードしたスクリプトは、本ツールのプロセスの中でも今までどおり止まる。</li>
+<li><strong>組織が実行ポリシーを決めている場合</strong>: グループポリシーで実行ポリシーを決めている PC（<code>Get-ExecutionPolicy -List</code> の <code>MachinePolicy</code> か <code>UserPolicy</code> に値がある）では、そちらが優先され、<code>-ExecutionPolicy</code> の指定は効かない。グループポリシーが <code>AllSigned</code> なら、本ツールは署名するまで起動できない。これは組織の設定を守るための Windows の仕様であり、本ツールから回避はしない。</li>
+</ul>
+<p>ほかの実行ポリシーを使わない理由は次のとおり。</p>
+<table>
+<thead>
+<tr>
+<th>実行ポリシー</th>
+<th>使わない理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Bypass</code></td>
+<td>何も止めず、警告も出さない。未署名のスクリプトを <code>Bypass</code> とウィンドウを隠す指定（<code>-WindowStyle Hidden</code>）で動かす形は、マルウェアがよく使う形と同じで、EDR やウイルス対策ソフトに怪しまれやすい</td>
+</tr>
+<tr>
+<td><code>Unrestricted</code></td>
+<td>インターネットから来た未署名のスクリプトも、確認を出したうえで実行できてしまう。確認はウィンドウを隠した起動では見えず、処理が止まる</td>
+</tr>
+<tr>
+<td><code>AllSigned</code></td>
+<td>すべてのスクリプトに署名が要る。本ツールはまだ署名していない（署名すれば <code>AllSigned</code> でも動く。上の「恒久的な解消策」）</td>
+</tr>
+</tbody>
+</table>
 <h3 id="43-インデックスが元文書の本文を保持する情報の集約">4.3 インデックスが元文書の本文を保持する（情報の集約）<a class="headerlink" href="#43-インデックスが元文書の本文を保持する情報の集約" title="Permanent link">&para;</a></h3>
 <p>本ツールは全文検索のために、<strong>元の文書の本文を平文の TSV としてインデックス（<code>work\index\</code>）に保持する</strong>。これはツールの目的そのものであり、避けられない。審査では次の点が論点になる。</p>
 <table>
