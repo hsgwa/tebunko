@@ -51,7 +51,7 @@ jobs:
       # トークンはリポジトリの Secrets の CODECOV_TOKEN。fork からの PR ではトークンが無くても送れる。
       # 送れなくても CI は失敗にしない（下限の確認は tests\run.ps1 -Ci が行う）。
       # タグの push（release.yml から呼ばれたとき）では送らない。
-      # Codecov の設定はリポジトリ直下の codecov.yml。判定（commit status）は参考表示だけにして PR を止めない。
+      # Codecov の設定は .github/codecov.yml。判定（commit status）は参考表示だけにして PR を止めない。
       # Windows の Codecov CLI は codecov.yml を cp1252 で読むため、codecov.yml には ASCII の文字だけを書く（コメントも書かない）
       - name: カバレッジを Codecov に送る
         if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && hashFiles('work/test/coverage.xml') != '' }}
@@ -60,6 +60,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: work/test/coverage.xml
           disable_search: true
+          codecov_yml_path: .github/codecov.yml
           fail_ci_if_error: false
 
       - name: 静的解析（PSScriptAnalyzer）
