@@ -38,11 +38,18 @@ Describe "createTargetList" -Tag Io {
     }
 
     It "変換済みで更新が無ければ変換しない" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
+        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated "" "2"))
         $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
         $result.Targets.Count | Should Be 0
         $result.Plan.変換対象 | Should Be 0
         $result.Rows.Count | Should Be 1
+    }
+
+    It "前の抽出版で変換したファイルは、更新が無くても変換し直す（更新ありに数える）" {
+        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
+        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
+        $result.Targets.Count | Should Be 1
+        $result.Plan.更新あり | Should Be 1
     }
 
     It "変換済みでも TSV が無ければ変換し直す（変換結果なし）" {

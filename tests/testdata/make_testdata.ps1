@@ -727,7 +727,7 @@ try {
         $ws.Columns.Item(8).Hidden = $true
         [void]$ws.Range("A11:C15").AutoFilter(1, "<>絞込")
 
-        # --- オブジェクト（検索対象外の場所にある文字列）---
+        # --- オブジェクト（セル以外の場所にある文字列。コメント・テキストボックスは別の場所で検索できる）---
         $ws = $wb.Worksheets.Item(5)
         setRows $ws "A1" @(
             @("ID", "種類", "セル値"),

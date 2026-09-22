@@ -29,6 +29,69 @@ Describe "encodeIndexPlace / decodeIndexPlace" -Tag Unit {
     }
 }
 
+Describe "splitObjectPlace" -Tag Unit {
+    It "図形・コメントの場所を、元の場所と種類に分ける（Excel のシート・Word のページ・PowerPoint のスライド）" {
+        $shape = splitObjectPlace "売上[図形]"
+        $shape.Base | Should Be "売上"
+        $shape.Kind | Should Be "図形"
+        (splitObjectPlace "売上 (2)[コメント]").Base | Should Be "売上 (2)"
+        (splitObjectPlace "ページ003[コメント]").Kind | Should Be "コメント"
+        (splitObjectPlace "スライド002[図形]").Base | Should Be "スライド002"
+    }
+
+    It "ふつうの場所・知らない種類はそのまま（種類は空）" {
+        $plain = splitObjectPlace "ページ001"
+        $plain.Base | Should Be "ページ001"
+        $plain.Kind | Should Be ""
+        (splitObjectPlace "売上[メモ]").Kind | Should Be ""
+    }
+
+    It "種類の名前が、書き出す側（office_reader.ps1）と画面（HitRow）でも同じ" {
+        # 画面のクラスはスクリプトの変数を使えず、shared はツールの変数を使えないため、同じ名前を別々に書いている
+        $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
+        $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko_grep\ui\types_grep.ps1")
+        foreach ($kind in @(${placeKindShape}, ${placeKindComment})) {
+            $reader.Contains("[$kind]") | Should Be $true
+        }
+        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment})\]") | Should Be $true
+    }
+}
+
+Describe "describePlace" -Tag Unit {
+    function described([string]$book, [string]$place) {
+        $d = describePlace $book $place
+        return "$($d.Place)|$($d.Kind)"
+    }
+
+    It "Excel はシート名と、セル・図形・コメントの種別にする（検索条件のチェックと同じ言葉）" {
+        described "見積.xlsx" "売上" | Should Be "[シート] 売上|セル"
+        described "見積.xlsx" "売上[図形]" | Should Be "[シート] 売上|図形"
+        described "見積.xlsx" "売上[コメント]" | Should Be "[シート] 売上|コメント"
+        # シート名が「ページ001」でも、Excel ならシートとして出す
+        described "旧.XLS" "ページ001" | Should Be "[シート] ページ001|セル"
+    }
+
+    It "Word のページは番号にし、目安であることを付ける。番号の無い場所は [ ] で囲む" {
+        described "報告.docx" "ページ003" | Should Be "[ページ] 3（目安）|本文"
+        described "報告.docx" "ページ120" | Should Be "[ページ] 120（目安）|本文"
+        described "報告.docx" "ヘッダー・フッター" | Should Be "[ヘッダー・フッター]|本文"
+        described "報告.docx" "脚注" | Should Be "[脚注]|本文"
+        # Word のコメント（予定）も同じ決まりで出せる
+        described "報告.docx" "ページ003[コメント]" | Should Be "[ページ] 3（目安）|コメント"
+    }
+
+    It "PowerPoint はスライド番号にし、非表示はそのまま付け、ノートは種別で分ける" {
+        described "提案.pptx" "スライド001" | Should Be "[スライド] 1|本文"
+        described "提案.pptx" "スライド002（非表示）" | Should Be "[スライド] 2（非表示）|本文"
+        described "提案.pptx" "スライド002_ノート" | Should Be "[スライド] 2|ノート"
+        described "提案.pptx" "スライド002[図形]" | Should Be "[スライド] 2|図形"
+    }
+
+    It "場所が空（以前の形式で分けられなかった TSV）なら空" {
+        described "a.docx" "" | Should Be "|本文"
+    }
+}
+
 Describe "toIndexFileName" -Tag Unit {
     It "<場所>.tsv にし、場所は符号化する（元のファイル名はフォルダ名にするため入れない）" {
         toIndexFileName "記号<>_1" | Should Be "記号%3C%3E%5F1.tsv"

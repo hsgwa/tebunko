@@ -31,7 +31,8 @@ ${searchScript} = {
         $shared.Total = $index.Files.Count
         $shared.IndexTotal = $index.Files.Count
         # 検索条件（大文字・小文字の区別・対象ファイル）は startSearch が $shared に入れる
-        $result = searchIndex $word $index.Files $simpleMatch $limit 50 -caseSensitive $shared.CaseSensitive -fileFilter $shared.FileFilter -cache $cache -onProgress {
+        $result = searchIndex $word $index.Files $simpleMatch $limit 50 -caseSensitive $shared.CaseSensitive -fileFilter $shared.FileFilter -cache $cache `
+            -includeShapes $shared.IncludeShapes -includeComments $shared.IncludeComments -onProgress {
             param ($done, $total, $newHits)
             foreach ($hit in $newHits) {
                 $shared.Queue.Enqueue($hit)
@@ -60,6 +61,8 @@ function getSearchOptionFromUi {
         UseRegex      = [bool]$ui.RegexCheck.IsChecked
         CaseSensitive = [bool]$ui.CaseCheck.IsChecked
         FileFilter    = $ui.FileFilterBox.Text.Trim()
+        IncludeShapes   = [bool]$ui.ShapeCheck.IsChecked
+        IncludeComments = [bool]$ui.CommentCheck.IsChecked
     }
 }
 
@@ -71,6 +74,8 @@ function setSearchOptionToUi {
     $ui.RegexCheck.IsChecked = [bool]$option.UseRegex
     $ui.CaseCheck.IsChecked = [bool]$option.CaseSensitive
     $ui.FileFilterBox.Text = [string]$option.FileFilter
+    $ui.ShapeCheck.IsChecked = [bool]$option.IncludeShapes
+    $ui.CommentCheck.IsChecked = [bool]$option.IncludeComments
 }
 
 function updateWordNotice {
@@ -148,6 +153,7 @@ function startSearch {
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Folders = $null; Scanned = 0
         Truncated = $false; Cancelled = $false; Error = $null
         CaseSensitive = $option.CaseSensitive; FileFilter = $option.FileFilter
+        IncludeShapes = $option.IncludeShapes; IncludeComments = $option.IncludeComments
     })
     $ps = [powershell]::Create()
     [void]$ps.AddScript(${searchScript}.ToString())
@@ -157,6 +163,7 @@ function startSearch {
     $script:search = @{
         PS = $ps; Handle = $ps.BeginInvoke(); Shared = $shared
         Word = $word; Pattern = $pattern; SimpleMatch = $simpleMatch; UseRegex = $useRegex; Option = $option; Start = Get-Date
+        Places = @{}  # 場所の表示（describePlace）の覚え
     }
 
     $ui.SearchProgress.Visibility = "Visible"
@@ -192,8 +199,18 @@ function pumpSearch {
         $relDir = [string]$hit.RelDir
         $cut = $relDir.IndexOf("\")
         $indexName = if ($cut -lt 0) { $relDir } else { $relDir.Substring(0, $cut) }
-        $script:hitRows.Add([HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
-                $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern))
+        $row = [HitRow]::Create($indexName, $hit.Root, $hit.RelPath, $relDir, $hit.FileName,
+                $hit.Book, $hit.Location, [int]$hit.LineNumber, $hit.Line, $s.Word, $s.Pattern)
+        # 場所・種別の表示は、同じ種類のファイル・場所なら同じなので、検索ごとに覚えておく（1 件ずつの関数呼び出しを省く）
+        $placeKey = "$([int]$row.IsExcel)|$($hit.Location)"
+        $described = $s.Places[$placeKey]
+        if ($null -eq $described) {
+            $described = describePlace $hit.Book $hit.Location
+            $s.Places[$placeKey] = $described
+        }
+        $row.PlaceText = $described.Place
+        $row.Kind = $described.Kind
+        $script:hitRows.Add($row)
     }
 
     if ($shared.Total -gt 0) {
@@ -346,6 +363,8 @@ $ui.RegexCheck.Add_Click({
     }
 })
 $ui.CaseCheck.Add_Click({ safe { writeSearchOption @{ CaseSensitive = [bool]$ui.CaseCheck.IsChecked } } })
+$ui.ShapeCheck.Add_Click({ safe { writeSearchOption @{ IncludeShapes = [bool]$ui.ShapeCheck.IsChecked } } })
+$ui.CommentCheck.Add_Click({ safe { writeSearchOption @{ IncludeComments = [bool]$ui.CommentCheck.IsChecked } } })
 $ui.FileFilterBox.Add_TextChanged({
     $ui.FileFilterPlaceholder.Visibility = if ($ui.FileFilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
 })

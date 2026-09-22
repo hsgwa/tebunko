@@ -52,7 +52,8 @@ ${planKindMissing}   = "フォルダなし"  # 元のフォルダが見つから
 ${retryFailedMark} = "失敗分も再変換"
 
 # 変換一覧の列と状態
-${statusColumns}   = @("相対パス", "更新日時", "サイズ", "状態", "TSV数", "変換日時", "エラー")
+${statusColumns}   = @("相対パス", "更新日時", "サイズ", "状態", "TSV数", "変換日時", "エラー", "抽出版")
+${legacyStatusColumnCount} = 7  # 抽出版の列が無い以前の形式の列数
 ${statusFolderKey} = "変換対象フォルダ"
 ${stateNew}    = "未変換"
 ${stateDone}   = "済"
