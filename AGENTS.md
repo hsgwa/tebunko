@@ -174,7 +174,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 入出力の書式例・メッセージ例・ファイル名規則などの**図ではないテキスト**は、従来どおりコードブロックで書いてよい。
 
-`docs/` は MkDocs で Web サイトにして GitHub Pages に公開する（`tools/mkdocs/mkdocs.yml`・`.github/workflows/docs.yml`）。設計書を足したら `tools/mkdocs/mkdocs.yml` の `nav` にも足す。リンク先のファイルや見出しが無いと CI（`docs`）が失敗するので、見出しを変えたらリンクも直す。
+`docs/` は MkDocs で Web サイトにして GitHub Pages に公開する（`tools/mkdocs/mkdocs.yml`・`.github/workflows/docs.yml`）。設計書を足したら `tools/mkdocs/mkdocs.yml` の `nav` にも足す。リンク先のファイルや見出しが無いと CI（`docs`）が失敗するので、見出しを変えたらリンクも直す。`docs/` の外（`README.md`・`AGENTS.md`・`.github/` など）を含む全 Markdown のリンクは `tests/meta/links.Tests.ps1`（`tools/check_markdown_links.ps1`）が確かめ、切れているとコミット前のフックと CI（`test`）が失敗する。
 
 ## ソースの分け方
 
