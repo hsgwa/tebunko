@@ -81,6 +81,95 @@ Describe "Excel" -Tag Unit {
         $row.Detail | Should Be "C1：1 → 2"
     }
 
+    $people = [string[]]@("ID`t氏名`t部署`t内線", "1`t山田`t営業部`t101", "2`t佐藤`t総務部`t102", "3`t鈴木`t開発部`t103", "4`t高橋`t開発部`t104")
+
+    It "列を挿入しても、ほかの行を変更にせず、列の追加として出す" {
+        $r = [string[]]@("ID`t氏名`t役職`t部署`t内線", "1`t山田`t課長`t営業部`t101", "2`t佐藤`t`t総務部`t102", "3`t鈴木`t`t開発部`t103", "4`t高橋`t主任`t開発部`t104")
+        $result = compareOfficeUnits "Excel" ([ordered]@{ S = $people }) ([ordered]@{ S = $r })
+        $place = $result.Places[0]
+        getRowText $place.Rows | Should Be "same:1:1 same:2:2 same:3:3 same:4:4 same:5:5"
+        $place.Status | Should Be "change"
+        $place.ColumnNote | Should Be "列の追加 C（役職）"
+        $result.ColumnInserts | Should Be 1
+        (@($place.RightColumnNames) -join ",") | Should Be "A,B,C,D,E"
+        (@($place.LeftColumnNames) -join ",") | Should Be "A,B,,C,D"
+        (@($place.ColumnKinds) -join ",") | Should Be ",,insert,,"
+        # 追加した列の値のセルに印を付け、比較元の側は空きにする
+        $place.Rows[1].RightCells[2].Kind | Should Be "insert"
+        $place.Rows[1].LeftCells[2].Kind | Should Be "empty"
+        $place.Rows[2].RightCells[2].Kind | Should Be ""
+        # 追加した列に値のある行（1・2・5 行目）はたたまずに見せる
+        (@($place.FoldedRows | Where-Object { $_.Type -eq "Line" -and $_.HasColumnChange } | ForEach-Object { $_.RightNo }) -join ",") | Should Be "1,2,5"
+    }
+
+    It "列を削除しても、ほかの行を変更にせず、列の削除として出す" {
+        $r = [string[]]@("ID`t氏名`t内線", "1`t山田`t101", "2`t佐藤`t102", "3`t鈴木`t103", "4`t高橋`t104")
+        $result = compareOfficeUnits "Excel" ([ordered]@{ S = $people }) ([ordered]@{ S = $r })
+        getRowText $result.Places[0].Rows | Should Be "same:1:1 same:2:2 same:3:3 same:4:4 same:5:5"
+        $result.Places[0].ColumnNote | Should Be "列の削除 C（部署）"
+        $result.ColumnDeletes | Should Be 1
+    }
+
+    It "空の列を挿入しただけでは差分にしない" {
+        $r = [string[]]@($people | ForEach-Object { $parts = $_ -split "`t"; ($parts[0], "", $parts[1], $parts[2], $parts[3]) -join "`t" })
+        $place = (compareOfficeUnits "Excel" ([ordered]@{ S = $people }) ([ordered]@{ S = $r })).Places[0]
+        $place.Status | Should Be "same"
+        (@($place.RightColumnNames) -join ",") | Should Be "A,C,D,E"
+    }
+
+    It "列を動かしたら、列の移動として出す" {
+        $r = [string[]]@($people | ForEach-Object { $parts = $_ -split "`t"; ($parts[0], $parts[3], $parts[1], $parts[2]) -join "`t" })
+        $result = compareOfficeUnits "Excel" ([ordered]@{ S = $people }) ([ordered]@{ S = $r })
+        $result.Places[0].ColumnNote | Should Be "列の移動 D → B（内線）"
+        $result.ColumnMoves | Should Be 1
+        $result.ColumnInserts + $result.ColumnDeletes | Should Be 0
+    }
+
+    It "行の挿入・列の削除・セルの修正を一度にしても、直したところだけを出す" {
+        $r = [string[]]@("ID`t氏名`t内線", "1`t山田 次郎`t101", "2`t佐藤`t102", "5`t中村`t105", "3`t鈴木`t103", "4`t高橋`t104")
+        $place = (compareOfficeUnits "Excel" ([ordered]@{ S = $people }) ([ordered]@{ S = $r })).Places[0]
+        getRowText $place.Rows | Should Be "same:1:1 change:2:2 same:3:3 insert::4 same:4:5 same:5:6"
+        $place.Rows[1].Detail | Should Be "B2：山田 → 山田 次郎"
+        $place.ColumnNote | Should Be "列の削除 C（部署）"
+    }
+
+    It "列の番地が左右で違う変更は、左右の番地を出す" {
+        $l = [ordered]@{ S = [string[]]@("a`tb`tc", "1`t2`t3", "4`t5`t6") }
+        $r = [ordered]@{ S = [string[]]@("x`ta`tb`tc", "y`t1`t2`t3", "z`t4`t5`t9") }
+        $place = (compareOfficeUnits "Excel" $l $r).Places[0]
+        $place.Rows[2].Detail | Should Be "C3→D3：6 → 9"
+    }
+
+    It "シート名を変えたシートは、中身が似ていれば同じシートとして比べる" {
+        $result = compareOfficeUnits "Excel" ([ordered]@{ 売上 = $people; 表紙 = [string[]]@("x") }) ([ordered]@{ 売上実績 = $people; 表紙 = [string[]]@("x") })
+        (@($result.Places | ForEach-Object { "$($_.LeftName)>$($_.RightName)=$($_.Status)" }) -join ",") | Should Be "売上>売上実績=change,表紙>表紙=same"
+        $result.Places[0].Note | Should Be "シート名を変えました（売上 → 売上実績）。"
+        $result.Inserts + $result.Deletes | Should Be 0
+    }
+
+    It "中身の違うシートは、名前が違えば追加と削除のまま" {
+        $result = compareOfficeUnits "Excel" ([ordered]@{ A = $people }) ([ordered]@{ B = [string[]]@("別の", "中身") })
+        (@($result.Places | ForEach-Object { $_.Status }) -join ",") | Should Be "delete,insert"
+    }
+
+    It "行を挿入して番号を振り直しても、挿入した行を別の行の変更と取り違えない" {
+        $l = [ordered]@{ S = [string[]]@("No`t品名`t数量`t単価`t金額", "1`tノートPC`t10`t150,000`t1,500,000", "2`tモニター`t10`t40,000`t400,000", "3`t保守サービス`t1`t200,000`t200,000") }
+        $r = [ordered]@{ S = [string[]]@("No`t品名`t数量`t単価`t金額", "1`tノートPC`t10`t150,000`t1,500,000", "2`tモニター`t10`t40,000`t400,000", "3`tキーボード`t10`t5,000`t50,000", "4`t保守サービス`t1`t200,000`t200,000") }
+        $place = (compareOfficeUnits "Excel" $l $r).Places[0]
+        getRowText $place.Rows | Should Be "same:1:1 same:2:2 same:3:3 insert::4 change:4:5"
+        $place.Rows[4].Detail | Should Be "A4→A5：3 → 4"
+    }
+
+    It "動かした行は、移動の元と先を説明に書く" {
+        $r = [string[]]@($people[0], $people[2], $people[3], $people[1], $people[4])
+        $result = compareOfficeUnits "Excel" ([ordered]@{ S = $people }) ([ordered]@{ S = $r })
+        $place = $result.Places[0]
+        (@($place.Rows | Where-Object { $_.Detail } | ForEach-Object { "$($_.Kind):$($_.Detail)" }) -join ",") | Should Be "delete:行 4 へ移動,insert:行 2 から移動"
+        # 追加・削除ではなく、移動として 1 回数える
+        "$($result.Inserts),$($result.Deletes),$($result.Moves)" | Should Be "0,0,1"
+        $place.Status | Should Be "change"
+    }
+
     It "右端の空のセルの数が違うだけの行は、同じ行にする" {
         $l = [ordered]@{ S = [string[]]@("a`tb", "c`t1") }
         $r = [ordered]@{ S = [string[]]@("a`tb`t`t", "c`t2`t") }
@@ -166,6 +255,23 @@ Describe "空の段落" -Tag Unit {
         $result = compareOfficeUnits "Word" $l $r
         $result.Places[0].Status | Should Be "same"
         getRowText $result.Places[0].Rows | Should Be "same:p.1 ¶1:p.1 ¶1 same:p.1 ¶2:p.1 ¶4"
+    }
+
+    It "Word で動かした段落は、移動の元と先を説明に書く" {
+        $l = [ordered]@{ "ページ1" = [string[]]@("第1章", "本文A", "本文B", "本文C") }
+        $r = [ordered]@{ "ページ1" = [string[]]@("第1章", "本文B", "本文C", "本文A") }
+        $rows = (compareOfficeUnits "Word" $l $r).Places[0].Rows
+        (@($rows | Where-Object { $_.Detail } | ForEach-Object { "$($_.Kind):$($_.Detail)" }) -join ",") | Should Be "delete:p.1 ¶4 へ移動,insert:p.1 ¶2 から移動"
+    }
+
+    It "PowerPoint で並べ替えたスライドは、見出しに移動の元と先を書く" {
+        $l = [ordered]@{ "スライド1" = [string[]]@("表紙"); "スライド2" = [string[]]@("目次"); "スライド3" = [string[]]@("本文") }
+        $r = [ordered]@{ "スライド1" = [string[]]@("目次"); "スライド2" = [string[]]@("本文"); "スライド3" = [string[]]@("表紙") }
+        $result = compareOfficeUnits "PowerPoint" $l $r
+        $rows = $result.Places[0].Rows
+        (@($rows | Where-Object { $_.Type -eq "Header" -and $_.Kind -ne "same" } | ForEach-Object { "$($_.Kind):$($_.Detail)" }) -join ",") | Should Be "delete:スライド 3 へ移動,insert:スライド 1 から移動"
+        "$($result.SlideInserts),$($result.SlideDeletes),$($result.SlideMoves),$($result.Inserts),$($result.Deletes)" | Should Be "0,0,1,0,0"
+        (getFileSummaryText $result).Counts | Should Be "スライド移動 1"
     }
 
     It "PowerPoint の空の段落だけが違うスライドは、同じスライドとして対応づける" {

@@ -136,6 +136,10 @@
           <DataTrigger Binding="{Binding Kind}" Value="delete">
             <Setter TargetName="B" Property="Background" Value="{StaticResource Diff.DelStrong}" />
           </DataTrigger>
+          <!-- 相手側にだけある列の空き -->
+          <DataTrigger Binding="{Binding Kind}" Value="empty">
+            <Setter TargetName="B" Property="Background" Value="{StaticResource Diff.Hatch}" />
+          </DataTrigger>
         </DataTemplate.Triggers>
       </DataTemplate>
 
@@ -604,6 +608,8 @@
           <ColumnDefinition Width="14" />
         </Grid.ColumnDefinitions>
         <DockPanel Grid.Column="0">
+          <!-- 場所の説明（シート名を変えた・列を追加・削除・移動した） -->
+          <TextBlock x:Name="PlaceNoteText" DockPanel.Dock="Top" Style="{StaticResource Meta}" Foreground="{StaticResource Diff.ChgInk}" Margin="4,0,0,6" TextWrapping="Wrap" Visibility="Collapsed" />
           <!-- Excel の列の見出し（左右） -->
           <Grid x:Name="GridHeader" DockPanel.Dock="Top" Height="24" Background="#F3F5F7" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
@@ -618,9 +624,14 @@
                               Canvas.Left="{Binding Tag.CellOffset, ElementName=SideList}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Width="{Binding Width}" Height="24" BorderThickness="0,0,1,1" BorderBrush="#E9ECF0">
+                      <Border x:Name="B" Width="{Binding Width}" Height="24" BorderThickness="0,0,1,1" BorderBrush="#E9ECF0">
                         <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{StaticResource Ink.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                       </Border>
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Kind}" Value="insert"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.AddStrong}" /></DataTrigger>
+                        <DataTrigger Binding="{Binding Kind}" Value="delete"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.DelStrong}" /></DataTrigger>
+                        <DataTrigger Binding="{Binding Kind}" Value="empty"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.Hatch}" /></DataTrigger>
+                      </DataTemplate.Triggers>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -634,9 +645,14 @@
                               Canvas.Left="{Binding Tag.CellOffset, ElementName=SideList}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Width="{Binding Width}" Height="24" BorderThickness="0,0,1,1" BorderBrush="#E9ECF0">
+                      <Border x:Name="B" Width="{Binding Width}" Height="24" BorderThickness="0,0,1,1" BorderBrush="#E9ECF0">
                         <TextBlock Text="{Binding Text}" FontSize="11" Foreground="{StaticResource Ink.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                       </Border>
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Kind}" Value="insert"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.AddStrong}" /></DataTrigger>
+                        <DataTrigger Binding="{Binding Kind}" Value="delete"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.DelStrong}" /></DataTrigger>
+                        <DataTrigger Binding="{Binding Kind}" Value="empty"><Setter TargetName="B" Property="Background" Value="{StaticResource Diff.Hatch}" /></DataTrigger>
+                      </DataTemplate.Triggers>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>

@@ -15,12 +15,26 @@ Describe "readDiffSettings / updateDiffSettings" -Tag Io {
         $path = "$TestDrive\keep\setting.config"
         writeSettings (newSettings) $path
         updateSettings "useRegex" $true $path
-        updateDiffSettings ([ordered]@{ diffMode = "folder"; diffFolderLeft = "C:\共有\2024" }) $path
+        updateDiffSettings ([ordered]@{ diffMode = "folder"; diffSubfolders = $false }) $path
 
         $diff = readDiffSettings $path
         $diff.diffMode | Should Be "folder"
-        $diff.diffFolderLeft | Should Be "C:\共有\2024"
+        $diff.diffSubfolders | Should Be $false
         (readSettings $path).useRegex | Should Be $true
+    }
+
+    It "比較元・比較先のパスは保存せず、以前の版が保存したパスは保存するときに消す" {
+        $path = "$TestDrive\paths\setting.config"
+        [System.IO.Directory]::CreateDirectory((Split-Path $path)) | Out-Null
+        [System.IO.File]::WriteAllText($path, '{ "useRegex": true, "diffFileLeft": "C:\\共有\\a.xlsx", "diffFolderRight": "C:\\共有\\2024" }')
+        (newDiffSettings).Contains("diffFileLeft") | Should Be $false
+        { updateDiffSettings ([ordered]@{ diffFileLeft = "C:\共有\b.xlsx" }) $path } | Should Throw "比較の設定に無いキー"
+
+        updateDiffSettings ([ordered]@{ diffMode = "folder" }) $path
+        $data = readSettingsData $path
+        $data.PSObject.Properties.Name -contains "diffFileLeft" | Should Be $false
+        $data.PSObject.Properties.Name -contains "diffFolderRight" | Should Be $false
+        $data.useRegex | Should Be $true
     }
 
     It "比べ方（入れ子）を保存して読み直せる" {

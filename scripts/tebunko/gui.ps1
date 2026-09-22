@@ -107,7 +107,7 @@ $tabs = @(
         "DiffProgress", "SummaryText", "CountsText", "TreePanel", "TreeLeftTitle", "TreeRightTitle", "TreeList", "TreeSplitter",
         "DiffPanel", "FoldCheck", "ViewSideButton", "ViewListButton", "PrevChangeButton", "NextChangeButton", "FileTitleText",
         "PlaceList", "DetailBar", "OpenRightButton", "OpenLeftButton", "DetailText", "GridHeader", "LeftColumnHeader",
-        "RightColumnHeader", "GridHScroll", "SideList", "ChangeList", "DiffMessage", "OverviewBar", "StartHint",
+        "RightColumnHeader", "GridHScroll", "SideList", "ChangeList", "DiffMessage", "PlaceNoteText", "OverviewBar", "StartHint",
         "StartHintTitle", "ExportButton", "FooterHint") }
     @{ Tab = "KillTab"; File = "tab_kill.xaml"; Dir = ${sharedXamlDir}; Names = @(
         "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",

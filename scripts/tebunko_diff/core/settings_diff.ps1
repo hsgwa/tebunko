@@ -1,14 +1,14 @@
 ﻿# setting.config のうち、比較（tebunko_diff）の設定。キーは diff で始める。
 # 読み書きは shared\core\settings.ps1（検索の設定のキーは残す）。
+# 比較元・比較先のパスは保存しない（画面を開いている間だけ覚え、閉じたら忘れる）。
+
+# 使わなくなったキー（以前の版が保存していた比較元・比較先のパス）。設定を保存するときにファイルから消す
+${diffObsoleteSettingKeys} = @("diffFileLeft", "diffFileRight", "diffFolderLeft", "diffFolderRight")
 
 function newDiffSettings {
     # 比較の設定の既定値。設定ファイル（JSON）のキーと同じ
     return [ordered]@{
         diffMode        = "file"   # トグル（file = ファイル、folder = フォルダ）。最後に使った側
-        diffFileLeft    = ""       # ［ファイル］で最後に入れた比較元・比較先
-        diffFileRight   = ""
-        diffFolderLeft  = ""       # ［フォルダ］で最後に入れた比較元・比較先
-        diffFolderRight = ""
         diffSubfolders  = $true    # ［サブフォルダも比較］（［フォルダ］のときだけ使う）
         diffHideSame    = $true    # ［同じファイルを隠す］（［フォルダ］のときだけ使う）
         diffOptions     = [ordered]@{  # 比べ方（両方の側で共通）
@@ -51,5 +51,5 @@ function updateDiffSettings {
         }
         $settings[$key] = $values[$key]
     }
-    writeSettingsFile $settings $path
+    writeSettingsFile $settings $path ${diffObsoleteSettingKeys}
 }

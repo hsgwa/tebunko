@@ -28,6 +28,7 @@ function clearFileDiff {
     $ui.GridHeader.Visibility = "Collapsed"
     $ui.GridHScroll.Visibility = "Collapsed"
     $ui.OverviewBar.Children.Clear()
+    $ui.PlaceNoteText.Visibility = "Collapsed"
     $ui.DiffMessage.Text = $message
     $ui.DiffMessage.Visibility = if ($message) { "Visible" } else { "Collapsed" }
     $ui.DetailText.Text = ""
@@ -89,17 +90,22 @@ function showPlace {
     $ui.GridHScroll.Value = 0
 
     if ($place.IsGrid) {
-        $heads = New-Object System.Collections.Generic.List[object]
+        # 左右の列はそろえて並べてある。相手側にだけある列は見出しを空きにし、追加・削除した列は色を付ける
+        $leftHeads = New-Object System.Collections.Generic.List[object]
+        $rightHeads = New-Object System.Collections.Generic.List[object]
         $total = 0.0
-        for ($c = 0; $c -lt @($place.ColumnNames).Count; $c++) {
-            $head = [ColumnHead]::new()
-            $head.Text = $place.ColumnNames[$c]
-            $head.Width = $place.ColumnWidths[$c]
-            $total += $head.Width
-            $heads.Add($head)
+        for ($c = 0; $c -lt @($place.ColumnWidths).Count; $c++) {
+            $total += $place.ColumnWidths[$c]
+            foreach ($side in @("Left", "Right")) {
+                $head = [ColumnHead]::new()
+                $head.Text = $place."${side}ColumnNames"[$c]
+                $head.Width = $place.ColumnWidths[$c]
+                $head.Kind = if (!$head.Text) { "empty" } else { $place.ColumnKinds[$c] }
+                if ($side -eq "Left") { $leftHeads.Add($head) } else { $rightHeads.Add($head) }
+            }
         }
-        $ui.LeftColumnHeader.ItemsSource = $heads
-        $ui.RightColumnHeader.ItemsSource = $heads
+        $ui.LeftColumnHeader.ItemsSource = $leftHeads
+        $ui.RightColumnHeader.ItemsSource = $rightHeads
         $ui.GridHeader.Visibility = "Visible"
         $script:pane.GridWidth = $total
         updateGridScroll
@@ -108,10 +114,14 @@ function showPlace {
         $ui.GridHScroll.Visibility = "Collapsed"
     }
 
-    $message = ""
-    if ($place.Note) {
-        $message = $place.Note
-    } elseif ($script:pane.Rows.Count -eq 0) {
+    # シート名を変えた・行が多すぎる等の注意と、追加・削除・移動した列の説明。
+    # 行があるときは表の上の欄に、行が無いときは表の真ん中に出す
+    $note = (@($place.Note, $place.ColumnNote) | Where-Object { $_ }) -join "　"
+    $showNote = ($note -and $script:pane.Rows.Count -gt 0)
+    $ui.PlaceNoteText.Text = if ($showNote) { $note } else { "" }
+    $ui.PlaceNoteText.Visibility = if ($showNote) { "Visible" } else { "Collapsed" }
+    $message = if ($showNote) { "" } else { $note }
+    if (!$message -and $script:pane.Rows.Count -eq 0) {
         $message = "文字がありません。"
     }
     $ui.DiffMessage.Text = $message
@@ -122,7 +132,7 @@ function showPlace {
     $hasChange = @($place.Rows | Where-Object { ($_.Type -eq "Line" -or $_.Type -eq "Header") -and $_.Kind -ne "same" }).Count -gt 0
     $ui.PrevChangeButton.IsEnabled = $true
     $ui.NextChangeButton.IsEnabled = $true
-    $ui.DetailText.Text = if ($hasChange) { "" } else { "この場所に違いはありません。" }
+    $ui.DetailText.Text = if ($hasChange -or $place.Status -ne "same") { "" } else { "この場所に違いはありません。" }
     $ui.OpenLeftButton.IsEnabled = [bool]$script:pane.LeftPath -and [bool]$place.LeftName
     $ui.OpenRightButton.IsEnabled = [bool]$script:pane.RightPath -and [bool]$place.RightName
     updateOverviewBar

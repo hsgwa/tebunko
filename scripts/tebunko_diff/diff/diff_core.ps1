@@ -38,6 +38,8 @@ class DiffRow {
     [string]$LeftCell = ""      # 開くときに選ぶセル（Excel。違うセルがあれば最初のもの）
     [string]$RightCell = ""
     [string]$Detail = ""        # 変更の中身の説明（Excel は "B8：10 → 12" など）
+    [bool]$HasColumnChange      # Excel: 追加・削除・移動した列に値がある行（同じ行でも、たたまずに見せる）
+    [bool]$Moved                # 動かした行（削除と追加の組。Kind は delete / insert のまま。件数は移動として 1 回だけ数える）
     [int]$FoldCount             # Fold の行: たたんだ行の数
     [object[]]$FoldRows         # Fold の行: たたんだ行（開くと、この行の代わりに並べる）
 }
@@ -457,15 +459,24 @@ function addGapPairs {
     while ($p -lt $dels.Count -and $q -lt $inss.Count) {
         $left = $leftLines[$dels[$p]]
         $right = $rightLines[$inss[$q]]
-        if ((& $similarity $left $right) -ge $minSimilarity) {
+        $same = [double](& $similarity $left $right)
+        # 1 行先と組んだほうがよく似ていれば、間の行は追加・削除にする（行を挿入して番号を振り直したときなど）。
+        # 完全に一致する組より似ているものは無いため、そのときは比べない
+        $nextRight = -1.0
+        $nextLeft = -1.0
+        if ($same -lt 1.0) {
+            if ($q + 1 -lt $inss.Count) { $nextRight = [double](& $similarity $left $rightLines[$inss[$q + 1]]) }
+            if ($p + 1 -lt $dels.Count) { $nextLeft = [double](& $similarity $leftLines[$dels[$p + 1]] $right) }
+        }
+        if ($same -ge $minSimilarity -and $same -ge $nextRight -and $same -ge $nextLeft) {
             $pairs.Add([int[]]@($dels[$p], $inss[$q], 3))
             $p++
             $q++
-        } elseif ($q + 1 -lt $inss.Count -and (& $similarity $left $rightLines[$inss[$q + 1]]) -ge $minSimilarity) {
+        } elseif ($nextRight -ge $minSimilarity -and $nextRight -ge $nextLeft) {
             # 右に 1 行多く挟まっている
             $pairs.Add([int[]]@(-1, $inss[$q], 2))
             $q++
-        } elseif ($p + 1 -lt $dels.Count -and (& $similarity $leftLines[$dels[$p + 1]] $right) -ge $minSimilarity) {
+        } elseif ($nextLeft -ge $minSimilarity) {
             # 左に 1 行多く挟まっている
             $pairs.Add([int[]]@($dels[$p], -1, 1))
             $p++
@@ -558,7 +569,7 @@ function newDiffSeg {
 }
 
 function foldSameRows {
-    # 同じ行（Type Line・Kind same）が続くところを、変更の前後 context 行を残して Fold の行にまとめる。
+    # 同じ行（Type Line・Kind same。追加・削除した列に値のある行は除く）が続くところを、変更の前後 context 行を残して Fold の行にまとめる。
     # label は、たたんだ行の説明の書き方（{0} = 行数、{1} = 最初の行番号、{2} = 最後の行番号）
     param (
         [object[]]$rows,
@@ -569,7 +580,7 @@ function foldSameRows {
     # 行ごとに関数を呼ぶと遅いため、たためる行かどうかを先に配列にしておく
     $foldable = New-Object bool[] $rows.Count
     for ($k = 0; $k -lt $rows.Count; $k++) {
-        $foldable[$k] = ($rows[$k].Type -eq "Line" -and $rows[$k].Kind -eq "same")
+        $foldable[$k] = ($rows[$k].Type -eq "Line" -and $rows[$k].Kind -eq "same" -and !$rows[$k].HasColumnChange)
     }
     $result = New-Object System.Collections.Generic.List[object]
     $i = 0
@@ -608,14 +619,19 @@ function foldSameRows {
 }
 
 function getRowCounts {
-    # 行の種類ごとの数: @{ Insert; Delete; Change }（Line の行だけを数える。Fold の中は同じ行なので数えない）
+    # 行の種類ごとの数: @{ Insert; Delete; Change; Move }（Line の行だけを数える。Fold の中は同じ行なので数えない）。
+    # 動かした行（Moved）は追加・削除に数えず、追加の側で移動として 1 回数える
     param (
         [object[]]$rows
     )
 
-    $counts = @{ Insert = 0; Delete = 0; Change = 0 }
+    $counts = @{ Insert = 0; Delete = 0; Change = 0; Move = 0 }
     foreach ($row in $rows) {
         if ($row.Type -ne "Line") {
+            continue
+        }
+        if ($row.Moved) {
+            if ($row.Kind -eq "insert") { $counts.Move++ }
             continue
         }
         switch ($row.Kind) {

@@ -87,8 +87,13 @@ function setEntryResult {
 
     $entry.Inserts = $fileDiff.Inserts + $fileDiff.SlideInserts
     $entry.Deletes = $fileDiff.Deletes + $fileDiff.SlideDeletes
-    $entry.Changes = $fileDiff.Changes
+    # 移動（行・スライド・列）と列の追加・削除も、ツリーの件数では「変更」に数える
+    $entry.Changes = $fileDiff.Changes + $fileDiff.Moves + $fileDiff.SlideMoves + $fileDiff.ColumnInserts + $fileDiff.ColumnDeletes + $fileDiff.ColumnMoves
     $changed = @($fileDiff.Places | Where-Object { $_.Status -ne "same" }).Count -gt 0
+    if ($changed -and ($entry.Inserts + $entry.Deletes + $entry.Changes) -eq 0) {
+        # シート名を変えただけ等（行の数に出ない変更）
+        $entry.Changes = 1
+    }
     $entry.Status = if ($changed -or ($entry.Inserts + $entry.Deletes + $entry.Changes) -gt 0) { "change" } else { "similar" }
 }
 

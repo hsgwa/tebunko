@@ -1,6 +1,7 @@
 ﻿# 種類ごとの比べ方（判断層）。場所（シート・ページ・スライド）ごとの行（抽出した TSV の中身）を受け取り、
 # 画面に出す場所（PlaceDiff）と左右に並べる行（DiffRow）を組み立てる。
-#   Excel      : シート名で場所を対応づけ、行の LCS で行の挿入・削除を見つける。対応した行はセルごとに比べる
+#   Excel      : シート名で場所を対応づけ（名前を変えたシートは中身で組む）、列を対応づけてから（列の挿入・削除）、
+#                共通の列の値で行の挿入・削除を見つける。対応した行はセルごとに比べる
 #   Word       : ページをつないだ段落の並びで比べる（ページの区切りは目安で、動きやすいため対応づけに使わない）
 #   PowerPoint : スライドの本文でスライドを対応づけ、その中の段落・ノート・図形・コメントを比べる
 #
@@ -10,6 +11,9 @@ ${diffMaxGridColumns} = 100  # Excel の表として出す列の上限（これ�
 ${diffObjectKinds}    = @{ Shape = "[図形]"; Comment = "[コメント]" }
 ${diffPairMinSlideSimilarity} = 0.4  # PowerPoint の本文が一致しないスライドを対応づける、似ている度合いの下限
 ${diffPairMinCellSimilarity} = 0.4  # Excel の削除と追加の行を「変更」として組む下限（同じセルの割合と、行の文字の似ている度合いの大きい方）
+${diffPairMinColumnSimilarity} = 0.5  # Excel の列を対応づける、値の重なりの割合の下限（下回れば列の追加・削除）
+${diffColumnSampleRows} = 2000     # Excel の列の対応づけに使う、値のある行の数（先頭から）
+${diffPairMinSheetSimilarity} = 0.5  # 名前の違うシートを同じシート（名前を変えた）とする、同じ中身の行の割合の下限
 # 見えない文字（引用符・ゼロ幅スペース・BOM・セル内の改行）。これと空白だけのセル・段落は空として扱う（isBlankCell）
 ${diffInvisibleChars} = [char[]]@('"', [char]0x200B, [char]0xFEFF, [char]0x2028)
 
@@ -24,9 +28,16 @@ class PlaceDiff {
     [int]$Inserts
     [int]$Deletes
     [int]$Changes
+    [int]$Moves                 # 動かした行の数
     [bool]$IsGrid               # Excel の表として出す
-    [double[]]$ColumnWidths     # 表の列の幅（IsGrid のとき）
-    [string[]]$ColumnNames      # 表の列の見出し（A, B, …）
+    [double[]]$ColumnWidths     # 表の列の幅（IsGrid のとき。左右そろえた列ごと）
+    [string[]]$LeftColumnNames  # 表の列の見出し（A, B, …。相手側にだけある列は ""）
+    [string[]]$RightColumnNames
+    [string[]]$ColumnKinds      # 列の種類（"" / insert（比較先だけ。動かした先も）/ delete（比較元だけ。動かす前も））
+    [int]$ColumnInserts         # 追加・削除した列の数（空の列は数えない）
+    [int]$ColumnDeletes
+    [int]$ColumnMoves           # 動かした列の数
+    [string]$ColumnNote = ""    # 追加・削除した列の説明（"列の追加 C（役職）"）
     [string]$Note = ""          # 注意（大きすぎて行ごとに比べなかった等）
 }
 
@@ -37,10 +48,15 @@ class FileDiff {
     [int]$Inserts
     [int]$Deletes
     [int]$Changes
+    [int]$Moves                 # 動かした行・段落の数
+    [int]$ColumnInserts         # Excel: 追加・削除した列の数
+    [int]$ColumnDeletes
+    [int]$ColumnMoves
     [int]$LeftSlides            # PowerPoint: スライドの枚数
     [int]$RightSlides
     [int]$SlideInserts          # PowerPoint: 追加・削除したスライドの枚数
     [int]$SlideDeletes
+    [int]$SlideMoves            # PowerPoint: 並べ替えで動かしたスライドの数
 }
 
 function getDiffOptions {
@@ -86,6 +102,10 @@ function compareOfficeUnits {
         $result.Inserts += $place.Inserts
         $result.Deletes += $place.Deletes
         $result.Changes += $place.Changes
+        $result.Moves += $place.Moves
+        $result.ColumnInserts += $place.ColumnInserts
+        $result.ColumnDeletes += $place.ColumnDeletes
+        $result.ColumnMoves += $place.ColumnMoves
     }
     return $result
 }
@@ -177,17 +197,26 @@ function getUnitLines {
 }
 
 function compareLines {
-    # 行の並び 2 つを比べ、getAlignedPairs の組（位置は元の行の位置）を返す。cells は Excel のセルの似ている度合いで組むとき。
-    # 空の行（空白だけの行・値の無い Excel の行）は比べず、組にも入れない（空の行を足した・消しただけでは差分にしない）
+    # 文字の行の並び 2 つを比べ、getAlignedPairs の組（位置は元の行の位置）を返す（compareKeyLines）
     param (
         [string[]]$left,
         [string[]]$right,
-        $options,
+        $options
+    )
+
+    return , (compareKeyLines (getCompareKeys $left $options) (getCompareKeys $right $options))
+}
+
+function compareKeyLines {
+    # 比べる形にした行（getCompareKeys・getRowKeys）の並び 2 つを比べ、getAlignedPairs の組（位置は元の行の位置）を返す。
+    # cells は Excel のセルの似ている度合いで組むとき。
+    # 空の行（空白だけの行・値の無い Excel の行）は比べず、組にも入れない（空の行を足した・消しただけでは差分にしない）
+    param (
+        [string[]]$leftKeys,
+        [string[]]$rightKeys,
         [bool]$cells = $false
     )
 
-    $leftKeys = getCompareKeys $left $options $cells
-    $rightKeys = getCompareKeys $right $options $cells
     $leftIndex = [System.Collections.Generic.List[int]]::new()
     $leftFilled = [System.Collections.Generic.List[string]]::new()
     for ($i = 0; $i -lt $leftKeys.Count; $i++) {
@@ -220,12 +249,10 @@ function compareLines {
 }
 
 function getCompareKeys {
-    # 比べるための行の形（string[]）。空白の違い・大文字と小文字の設定に合わせて整える。
-    # Excel（cells）は、右端の空のセルを落とす（値のあるセルだけで比べ、TSV の区切りの数の違いを差分にしない）
+    # 比べるための文字の行の形（string[]）。空白の違い・大文字と小文字の設定に合わせて整え、見えない文字だけの段落は空にする
     param (
         [string[]]$lines,
-        $options,
-        [bool]$cells = $false
+        $options
     )
 
     # 行ごとに関数を呼ぶと遅いため、整える設定のあるときだけ normalizeDiffLine を呼ぶ
@@ -233,19 +260,7 @@ function getCompareKeys {
     $keys = [string[]]::new($lines.Count)
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $text = $lines[$i]
-        if ($cells) {
-            # 見えない文字だけのセル（"" ・ゼロ幅スペース・BOM・セル内の改行だけ）は、空のセルとして扱う。
-            # その文字を含む行だけセルに分けて調べる（ほとんどの行は分けずに済む）
-            if ($text.IndexOfAny(${diffInvisibleChars}) -ge 0) {
-                $parts = $text.Split("`t")
-                for ($c = 0; $c -lt $parts.Count; $c++) {
-                    if (isBlankCell $parts[$c]) { $parts[$c] = "" }
-                }
-                $text = [string]::Join("`t", $parts)
-            }
-            $text = $text.TrimEnd("`t")
-        } elseif ($text.IndexOfAny(${diffInvisibleChars}) -ge 0 -and (isBlankCell $text)) {
-            # 見えない文字だけの段落は空の段落
+        if ($text.IndexOfAny(${diffInvisibleChars}) -ge 0 -and (isBlankCell $text)) {
             $text = ""
         }
         if ($normalize) {
@@ -257,7 +272,7 @@ function getCompareKeys {
 }
 
 function isBlankCell {
-    # 見た目が空のセル・段落か（引用符を外した中身が、空白と見えない文字だけ）
+    # 見た目が空のセル・段落か（引用符を外した中身が、空白と見えない文字だけ。セル内の改行 " ↵ " も見えない文字とする）
     param (
         [string]$cell
     )
@@ -265,7 +280,40 @@ function isBlankCell {
     if ($cell.Length -ge 2 -and $cell[0] -eq '"' -and $cell[$cell.Length - 1] -eq '"') {
         $cell = $cell.Substring(1, $cell.Length - 2).Replace('""', '"')
     }
-    return [string]::IsNullOrWhiteSpace($cell.Replace([string][char]0x200B, "").Replace([string][char]0xFEFF, "").Replace([string][char]0x2028, ""))
+    return [string]::IsNullOrWhiteSpace($cell.Replace([string][char]0x200B, "").Replace([string][char]0xFEFF, "").Replace([string][char]0x2028, "").Replace("↵", ""))
+}
+
+function markMovedRows {
+    # 削除と追加の行で中身（keys。行の位置 → 比べる形）が同じものを組み、説明（Detail）に移動の元と先を書く。
+    # 並べ替え・切り取りと貼り付けで動いた行を、別々の削除と追加ではなく移動と分かるようにする
+    param (
+        [object[]]$rows,
+        [string[]]$leftKeys,
+        [string[]]$rightKeys,
+        [string]$unit = "行 "
+    )
+
+    $deleted = New-Object 'System.Collections.Generic.Dictionary[string,object]'
+    foreach ($row in $rows) {
+        if ($row.Type -ne "Line" -or $row.Kind -ne "delete" -or $row.LeftLine -lt 0) { continue }
+        $key = $leftKeys[$row.LeftLine]
+        if ([string]::IsNullOrWhiteSpace($key)) { continue }
+        if (!$deleted.ContainsKey($key)) { $deleted.Add($key, (New-Object System.Collections.Generic.Queue[object])) }
+        $deleted[$key].Enqueue($row)
+    }
+    if ($deleted.Count -eq 0) {
+        return
+    }
+    foreach ($row in $rows) {
+        if ($row.Type -ne "Line" -or $row.Kind -ne "insert" -or $row.RightLine -lt 0) { continue }
+        $key = $rightKeys[$row.RightLine]
+        if (!$deleted.ContainsKey($key) -or $deleted[$key].Count -eq 0) { continue }
+        $from = $deleted[$key].Dequeue()
+        $from.Detail = "$unit$($row.RightNo) へ移動"
+        $row.Detail = "$unit$($from.LeftNo) から移動"
+        $from.Moved = $true
+        $row.Moved = $true
+    }
 }
 
 function newTextRows {
@@ -348,7 +396,8 @@ function newPlaceDiff {
     $place.Inserts = $counts.Insert
     $place.Deletes = $counts.Delete
     $place.Changes = $counts.Change
-    $place.Status = if (!$leftName) { "insert" } elseif (!$rightName) { "delete" } elseif (($counts.Insert + $counts.Delete + $counts.Change) -gt 0) { "change" } else { "same" }
+    $place.Moves = $counts.Move
+    $place.Status = if (!$leftName) { "insert" } elseif (!$rightName) { "delete" } elseif (($counts.Insert + $counts.Delete + $counts.Change + $counts.Move) -gt 0) { "change" } else { "same" }
     $place.FoldedRows = foldSameRows $rows ${diffFoldContext} $foldLabel
     return $place
 }
@@ -387,26 +436,134 @@ function compareExcelUnits {
         $options
     )
 
+    $order = pairRenamedSheets (mergePlaceOrder @($left.Keys) @($right.Keys)) $left $right
     $places = New-Object System.Collections.Generic.List[object]
-    foreach ($pair in (mergePlaceOrder @($left.Keys) @($right.Keys))) {
+    foreach ($pair in $order) {
         $leftLines = getUnitLines $left $pair.Left
         $rightLines = getUnitLines $right $pair.Right
         $name = if ($pair.Right) { $pair.Right } else { $pair.Left }
         if ($leftLines.Count -gt ${diffMaxLines} -or $rightLines.Count -gt ${diffMaxLines}) {
-            $places.Add((newTooLargePlace $name $pair.Left $pair.Right $leftLines $rightLines))
-            continue
-        }
-        if ($name.EndsWith(${diffObjectKinds}.Shape) -or $name.EndsWith(${diffObjectKinds}.Comment)) {
-            $places.Add((compareExcelObjects $name $pair.Left $pair.Right $leftLines $rightLines $options))
+            $place = newTooLargePlace $name $pair.Left $pair.Right $leftLines $rightLines
+        } elseif ($name.EndsWith(${diffObjectKinds}.Shape) -or $name.EndsWith(${diffObjectKinds}.Comment)) {
+            $place = compareExcelObjects $name $pair.Left $pair.Right $leftLines $rightLines $options
         } else {
-            $places.Add((compareExcelSheet $name $pair.Left $pair.Right $leftLines $rightLines $options))
+            $place = compareExcelSheet $name $pair.Left $pair.Right $leftLines $rightLines $options
         }
+        # 名前を変えたシート（大文字・小文字だけの違いは同じ名前とする）
+        if ($pair.Left -and $pair.Right -and $pair.Left -ne $pair.Right) {
+            $place.Note = ("シート名を変えました（$($pair.Left) → $($pair.Right)）。" + $place.Note)
+            if ($place.Status -eq "same") { $place.Status = "change" }
+        }
+        $places.Add($place)
     }
     return , $places.ToArray()
 }
 
+function pairRenamedSheets {
+    # 名前で対応しなかったシート（比較元だけ・比較先だけ）を、中身が似ていれば同じシートとして組む（シート名を変えたとき）。
+    # そのシートの図形・コメントの場所も同じように組む。order は mergePlaceOrder の形で、同じ形で返す
+    param (
+        [object[]]$order,
+        $left,
+        $right
+    )
+
+    $isObject = { param($n) $n.EndsWith(${diffObjectKinds}.Shape) -or $n.EndsWith(${diffObjectKinds}.Comment) }
+    $leftOnly = @($order | Where-Object { $_.Left -and !$_.Right -and !(& $isObject $_.Left) } | ForEach-Object { $_.Left })
+    $rightOnly = @($order | Where-Object { !$_.Left -and $_.Right -and !(& $isObject $_.Right) } | ForEach-Object { $_.Right })
+    if ($leftOnly.Count -eq 0 -or $rightOnly.Count -eq 0) {
+        return , $order
+    }
+
+    # 比較先のシートごとに、いちばん似ている比較元のシートを選ぶ（組んだものは使わない）
+    $comparer = [System.StringComparer]::OrdinalIgnoreCase
+    $renamed = New-Object 'System.Collections.Generic.Dictionary[string,string]' $comparer  # 比較先の名前 → 比較元の名前
+    $used = New-Object 'System.Collections.Generic.HashSet[string]' $comparer
+    foreach ($rightName in $rightOnly) {
+        $best = $null
+        $bestScore = 0.0
+        foreach ($leftName in $leftOnly) {
+            if ($used.Contains($leftName)) { continue }
+            $score = getSheetSimilarity (getUnitLines $left $leftName) (getUnitLines $right $rightName)
+            if ($score -gt $bestScore) { $best = $leftName; $bestScore = $score }
+        }
+        if ($null -ne $best -and $bestScore -ge ${diffPairMinSheetSimilarity}) {
+            $renamed.Add($rightName, $best)
+            [void]$used.Add($best)
+        }
+    }
+    if ($renamed.Count -eq 0) {
+        return , $order
+    }
+    # 図形・コメントの場所（"<シート名>[図形]"）も、シートと同じ組にする
+    $leftNames = New-Object 'System.Collections.Generic.HashSet[string]' $comparer
+    foreach ($entry in $order) { if ($entry.Left) { [void]$leftNames.Add($entry.Left) } }
+    foreach ($entry in @($order | Where-Object { !$_.Left -and $_.Right -and (& $isObject $_.Right) })) {
+        $at = $entry.Right.LastIndexOf("[")
+        $base = $entry.Right.Substring(0, $at)
+        if ($renamed.ContainsKey($base)) {
+            $leftName = $renamed[$base] + $entry.Right.Substring($at)
+            if ($leftNames.Contains($leftName) -and !$used.Contains($leftName)) {
+                $renamed.Add($entry.Right, $leftName)
+                [void]$used.Add($leftName)
+            }
+        }
+    }
+
+    $result = New-Object System.Collections.Generic.List[object]
+    foreach ($entry in $order) {
+        if ($entry.Left -and !$entry.Right -and $used.Contains($entry.Left)) {
+            continue
+        }
+        if (!$entry.Left -and $renamed.ContainsKey($entry.Right)) {
+            $result.Add(@{ Left = $renamed[$entry.Right]; Right = $entry.Right })
+            continue
+        }
+        $result.Add($entry)
+    }
+    return , $result.ToArray()
+}
+
+function getSheetSimilarity {
+    # 2 枚のシートの似ている度合い（0〜1）。値のある行のうち、同じ中身の行の割合（多い方の行数で割る。行の順番は見ない）
+    param (
+        [string[]]$left,
+        [string[]]$right
+    )
+
+    $counts = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+    $leftCount = 0
+    foreach ($line in $left) {
+        $key = $line.TrimEnd("`t")
+        if ([string]::IsNullOrWhiteSpace($key)) { continue }
+        $leftCount++
+        $n = 0
+        [void]$counts.TryGetValue($key, [ref]$n)
+        $counts[$key] = $n + 1
+    }
+    $rightCount = 0
+    $common = 0
+    foreach ($line in $right) {
+        $key = $line.TrimEnd("`t")
+        if ([string]::IsNullOrWhiteSpace($key)) { continue }
+        $rightCount++
+        $n = 0
+        if ($counts.TryGetValue($key, [ref]$n) -and $n -gt 0) {
+            $common++
+            $counts[$key] = $n - 1
+        }
+    }
+    $max = [Math]::Max($leftCount, $rightCount)
+    if ($max -eq 0) {
+        return 0.0
+    }
+    return [double]$common / $max
+}
+
 function compareExcelSheet {
-    # シート 1 枚。行番号は TSV の行の位置 + 1（TSV の N 行目 = シートの N 行目）
+    # シート 1 枚。行番号は TSV の行の位置 + 1（TSV の N 行目 = シートの N 行目）。
+    # 先に列を対応づけ（alignExcelColumns）、左右の表の列をそろえる。追加・削除した列と空の列は行の比べ方に入れず、
+    # 共通の列だけで行を対応づける（列を挿入しても、ほかの行を変更にしない）
     param (
         [string]$name,
         [string]$leftName,
@@ -416,18 +573,82 @@ function compareExcelSheet {
         $options
     )
 
-    $pairs = compareLines $left $right $options $true
     $leftCells = splitExcelLines $left
     $rightCells = splitExcelLines $right
-    $columns = 0
-    foreach ($cells in @($leftCells + $rightCells)) {
-        if ($cells.Count -gt $columns) { $columns = $cells.Count }
+    $leftValues = getCellValues $leftCells $options
+    $rightValues = getCellValues $rightCells $options
+    $slots = alignExcelColumns $leftValues $rightValues
+    if ($slots.Count -eq 0) {
+        # 両方とも空のシート
+        $slots = @(, [int[]]@(0, 0, 0, -1))
     }
-    $columns = [Math]::Max(1, [Math]::Min($columns, ${diffMaxGridColumns}))
-    $widths = getGridColumnWidths $leftCells $rightCells $columns
+    $leftPaired = [System.Collections.Generic.List[int]]::new()
+    $rightPaired = [System.Collections.Generic.List[int]]::new()
+    foreach ($slot in $slots) {
+        if ($slot[0] -ge 0 -and $slot[1] -ge 0) { $leftPaired.Add($slot[0]); $rightPaired.Add($slot[1]) }
+    }
+    if ($leftPaired.Count -eq 0) {
+        # 片側にしか無い（または片側が空の）シートは、行ごと追加・削除になるため、列の追加・削除とはしない
+        foreach ($slot in $slots) { $slot[2] = 0 }
+    }
+    $leftKeys = getRowKeys $leftValues $leftPaired.ToArray()
+    $rightKeys = getRowKeys $rightValues $rightPaired.ToArray()
+    $pairs = compareKeyLines $leftKeys $rightKeys $true
+
+    # 表の列（左右そろえた列）。表に出すのは ${diffMaxGridColumns} 列まで。列の幅は左右の長い方の値に合わせる
+    $columns = [Math]::Min($slots.Count, ${diffMaxGridColumns})
+    $leftWidth = 0
+    foreach ($cells in $leftCells) { if ($cells.Count -gt $leftWidth) { $leftWidth = $cells.Count } }
+    $rightWidth = 0
+    foreach ($cells in $rightCells) { if ($cells.Count -gt $rightWidth) { $rightWidth = $cells.Count } }
+    $leftColumnWidths = getGridColumnWidths $leftCells @() ([Math]::Max(1, $leftWidth))
+    $rightColumnWidths = getGridColumnWidths @() $rightCells ([Math]::Max(1, $rightWidth))
+    $leftSlotOf = [int[]]::new([Math]::Max(1, $leftWidth))
+    $rightSlotOf = [int[]]::new([Math]::Max(1, $rightWidth))
+    for ($c = 0; $c -lt $leftSlotOf.Count; $c++) { $leftSlotOf[$c] = -1 }
+    for ($c = 0; $c -lt $rightSlotOf.Count; $c++) { $rightSlotOf[$c] = -1 }
+    $widths = [double[]]::new($columns)
+    $leftNames = [string[]]::new($columns)
+    $rightNames = [string[]]::new($columns)
+    $kinds = [string[]]::new($columns)
+    $lastLeftGap = -1
+    $lastRightGap = -1
+    for ($s = 0; $s -lt $columns; $s++) {
+        $lc = $slots[$s][0]
+        $rc = $slots[$s][1]
+        $width = 44.0
+        if ($lc -ge 0) {
+            if ($lc -lt $leftSlotOf.Count) { $leftSlotOf[$lc] = $s }
+            if ($lc -lt $leftColumnWidths.Count) { $width = [Math]::Max($width, $leftColumnWidths[$lc]) }
+            $leftNames[$s] = getColumnName ($lc + 1)
+        } else {
+            $leftNames[$s] = ""
+            $lastLeftGap = $s
+        }
+        if ($rc -ge 0) {
+            if ($rc -lt $rightSlotOf.Count) { $rightSlotOf[$rc] = $s }
+            if ($rc -lt $rightColumnWidths.Count) { $width = [Math]::Max($width, $rightColumnWidths[$rc]) }
+            $rightNames[$s] = getColumnName ($rc + 1)
+        } else {
+            $rightNames[$s] = ""
+            $lastRightGap = $s
+        }
+        $widths[$s] = $width
+        $kinds[$s] = switch ($slots[$s][2]) { 1 { "delete" } 4 { "delete" } 2 { "insert" } 5 { "insert" } default { "" } }
+    }
+
+    # 表の列ごとの、比較元・比較先の列の番号（1 行ごとに回るところで組を引かないよう、先に配列にしておく）
+    $leftColumnOf = [int[]]::new($columns)
+    $rightColumnOf = [int[]]::new($columns)
+    $allPaired = $true
+    for ($s = 0; $s -lt $columns; $s++) {
+        $leftColumnOf[$s] = $slots[$s][0]
+        $rightColumnOf[$s] = $slots[$s][1]
+        if ($slots[$s][2] -ne 0) { $allPaired = $false }
+    }
 
     $kindNames = @("same", "delete", "insert", "change")
-    $noChange = New-Object bool[] $columns
+    $noChange = [bool[]]::new($columns)
     $rows = New-Object System.Collections.Generic.List[object]
     foreach ($pair in $pairs) {
         $row = [DiffRow]::new()
@@ -439,48 +660,63 @@ function compareExcelSheet {
         $row.HasCells = $true
         # `$x = if (...) { $array }` と書くと配列がばらされる（1 セルの行が文字列になる）ため、分けて代入する
         $lc = $null
-        if ($pair[0] -ge 0) { $lc = $leftCells[$pair[0]] }
+        $lv = $null
+        if ($pair[0] -ge 0) { $lc = $leftCells[$pair[0]]; $lv = $leftValues[$pair[0]] }
         $rc = $null
-        if ($pair[1] -ge 0) { $rc = $rightCells[$pair[1]] }
+        $rv = $null
+        if ($pair[1] -ge 0) { $rc = $rightCells[$pair[1]]; $rv = $rightValues[$pair[1]] }
+        # 値の違うセル（共通の列だけを比べる。比べる値は整えたもの）
         # New-Object はコマンドレットの呼び出しで遅いため、1 行ごとに回るところでは ::new を使う
-        $changedColumns = [System.Collections.Generic.List[int]]::new()
+        $changedSlots = [System.Collections.Generic.List[int]]::new()
         if ($row.Kind -eq "change") {
-            $width = [Math]::Max($lc.Count, $rc.Count)
-            for ($c = 0; $c -lt $width; $c++) {
-                $l = if ($c -lt $lc.Count) { $lc[$c] } else { "" }
-                $r = if ($c -lt $rc.Count) { $rc[$c] } else { "" }
-                # 見た目が空のセルどうしは同じ（splitExcelLines でセル内の改行は " ↵ " になっている）
-                if ($l -ne $r -and (isBlankCell $l.Replace(" ↵ ", "")) -and (isBlankCell $r.Replace(" ↵ ", ""))) { continue }
-                if ((normalizeDiffLine $l $options.IgnoreWhitespace $options.CaseSensitive) -ne (normalizeDiffLine $r $options.IgnoreWhitespace $options.CaseSensitive)) {
-                    $changedColumns.Add($c)
-                }
+            for ($s = 0; $s -lt $slots.Count; $s++) {
+                $x = $slots[$s][0]
+                $y = $slots[$s][1]
+                if ($x -lt 0 -or $y -lt 0) { continue }
+                $l = if ($x -lt $lv.Count) { $lv[$x] } else { "" }
+                $r = if ($y -lt $rv.Count) { $rv[$y] } else { "" }
+                if ($l -cne $r) { $changedSlots.Add($s) }
             }
             # 値の違うセルが無ければ（空白の違いを無視したときなど）同じ行にする
-            if ($changedColumns.Count -eq 0) { $row.Kind = "same" }
+            if ($changedSlots.Count -eq 0) { $row.Kind = "same" }
         }
-        # 違うセルの印（列ごと）。行ごと追加・削除なら全部の列。
-        # 1 行ごとに回るところのため、関数や名前を組み立てたプロパティの読み書きを使わず、左右を別々に書く。
-        # セルの部品は、値のある列（右端の空のセルは作らない）と違うセルの列の分だけ作る
         $changed = $noChange
-        if ($changedColumns.Count -gt 0) {
+        $lastChanged = -1
+        if ($changedSlots.Count -gt 0) {
             $changed = [bool[]]::new($columns)
-            foreach ($c in $changedColumns) { if ($c -lt $columns) { $changed[$c] = $true } }
+            foreach ($s in $changedSlots) { if ($s -lt $columns) { $changed[$s] = $true; $lastChanged = $s } }
         }
         $whole = ($row.Kind -eq "delete" -or $row.Kind -eq "insert")
-        $last = -1
-        if ($changedColumns.Count -gt 0) { $last = [Math]::Min($changedColumns[$changedColumns.Count - 1], $columns - 1) }
+        # 1 行ごとに回るところのため、関数や名前を組み立てたプロパティの読み書きを使わず、左右を別々に書く。
+        # セルの部品は、値のある列・違うセルの列・相手側にだけある列（空き）の分だけ作る
         if ($null -ne $lc) {
             $row.LeftNo = [string]($pair[0] + 1)
             $row.LeftText = [string]::Join("`t", $lc)
-            $count = [Math]::Max([Math]::Min($lc.Count, $columns), $last + 1)
-            $items = [object[]]::new($count)
-            for ($c = 0; $c -lt $count; $c++) {
+            $last = [Math]::Max($lastChanged, $lastLeftGap)
+            for ($c = 0; $c -lt $lc.Count -and $c -lt $leftSlotOf.Count; $c++) {
+                if ($lc[$c].Length -gt 0 -and $leftSlotOf[$c] -gt $last -and $leftSlotOf[$c] -lt $columns) { $last = $leftSlotOf[$c] }
+            }
+            $items = [object[]]::new($last + 1)
+            for ($s = 0; $s -le $last; $s++) {
                 $cell = [DiffCell]::new()
-                if ($c -lt $lc.Count) { $cell.Text = $lc[$c] } else { $cell.Text = "" }
-                $cell.Width = $widths[$c]
-                $cell.Changed = $whole -or $changed[$c]
-                if ($cell.Changed) { $cell.Kind = $row.Kind }
-                $items[$c] = $cell
+                $cell.Width = $widths[$s]
+                $x = $leftColumnOf[$s]
+                if ($x -lt 0) {
+                    $cell.Text = ""
+                    $cell.Kind = "empty"
+                } else {
+                    if ($x -lt $lc.Count) { $cell.Text = $lc[$x] } else { $cell.Text = "" }
+                    if ($whole -or $changed[$s]) {
+                        $cell.Changed = $true
+                        $cell.Kind = $row.Kind
+                    } elseif (($slots[$s][2] -eq 1 -or $slots[$s][2] -eq 4) -and $x -lt $lv.Count -and $lv[$x].Length -gt 0) {
+                        # 削除した（動かす前の）列の値
+                        $cell.Changed = $true
+                        $cell.Kind = "delete"
+                        $row.HasColumnChange = $true
+                    }
+                }
+                $items[$s] = $cell
             }
             $row.LeftCells = $items
         } else {
@@ -489,36 +725,312 @@ function compareExcelSheet {
         if ($null -ne $rc) {
             $row.RightNo = [string]($pair[1] + 1)
             $row.RightText = [string]::Join("`t", $rc)
-            $count = [Math]::Max([Math]::Min($rc.Count, $columns), $last + 1)
-            $items = [object[]]::new($count)
-            for ($c = 0; $c -lt $count; $c++) {
-                $cell = [DiffCell]::new()
-                if ($c -lt $rc.Count) { $cell.Text = $rc[$c] } else { $cell.Text = "" }
-                $cell.Width = $widths[$c]
-                $cell.Changed = $whole -or $changed[$c]
-                if ($cell.Changed) { $cell.Kind = $row.Kind }
-                $items[$c] = $cell
+            $last = [Math]::Max($lastChanged, $lastRightGap)
+            for ($c = 0; $c -lt $rc.Count -and $c -lt $rightSlotOf.Count; $c++) {
+                if ($rc[$c].Length -gt 0 -and $rightSlotOf[$c] -gt $last -and $rightSlotOf[$c] -lt $columns) { $last = $rightSlotOf[$c] }
             }
-            $row.RightCells = $items
+            # 同じ行で、表の列が左右で 1 対 1 に対応し、値もすべて同じなら、比較元のセルの部品をそのまま使う
+            # （部品を作るのは遅いため。大きいシートの同じ行の分がほぼ半分になる）
+            $shared = $false
+            if ($row.Kind -eq "same" -and $allPaired -and $null -ne $row.LeftCells -and $row.LeftCells.Count -eq $last + 1) {
+                $shared = $true
+                for ($s = 0; $s -le $last; $s++) {
+                    $y = $rightColumnOf[$s]
+                    $text = if ($y -lt $rc.Count) { $rc[$y] } else { "" }
+                    if ($text -cne $row.LeftCells[$s].Text) { $shared = $false; break }
+                }
+            }
+            if ($shared) {
+                $row.RightCells = $row.LeftCells
+            }
+            $items = [object[]]::new($last + 1)
+            for ($s = 0; $s -le $last -and !$shared; $s++) {
+                $cell = [DiffCell]::new()
+                $cell.Width = $widths[$s]
+                $y = $rightColumnOf[$s]
+                if ($y -lt 0) {
+                    $cell.Text = ""
+                    $cell.Kind = "empty"
+                } else {
+                    if ($y -lt $rc.Count) { $cell.Text = $rc[$y] } else { $cell.Text = "" }
+                    if ($whole -or $changed[$s]) {
+                        $cell.Changed = $true
+                        $cell.Kind = $row.Kind
+                    } elseif (($slots[$s][2] -eq 2 -or $slots[$s][2] -eq 5) -and $y -lt $rv.Count -and $rv[$y].Length -gt 0) {
+                        # 追加した（動かした先の）列の値
+                        $cell.Changed = $true
+                        $cell.Kind = "insert"
+                        $row.HasColumnChange = $true
+                    }
+                }
+                $items[$s] = $cell
+            }
+            if (!$shared) { $row.RightCells = $items }
         } else {
             $row.RightEmpty = $true
         }
-        if ($changedColumns.Count -gt 0) {
-            $first = getColumnName ($changedColumns[0] + 1)
-            $row.LeftCell = "$first$($pair[0] + 1)"
-            $row.RightCell = "$first$($pair[1] + 1)"
-            $row.Detail = getCellChangeDetail $lc $rc $changedColumns ($pair[0] + 1) ($pair[1] + 1)
+        if ($changedSlots.Count -gt 0) {
+            $first = $slots[$changedSlots[0]]
+            $row.LeftCell = "$(getColumnName ($first[0] + 1))$($pair[0] + 1)"
+            $row.RightCell = "$(getColumnName ($first[1] + 1))$($pair[1] + 1)"
+            $row.Detail = getCellChangeDetail $lc $rc $slots $changedSlots ($pair[0] + 1) ($pair[1] + 1)
         } elseif ($null -ne $lc -or $null -ne $rc) {
             $row.LeftCell = if ($null -ne $lc) { "A$($pair[0] + 1)" } else { "" }
             $row.RightCell = if ($null -ne $rc) { "A$($pair[1] + 1)" } else { "" }
         }
         $rows.Add($row)
     }
-    $place = newPlaceDiff $name $leftName $rightName $rows.ToArray()
+    $rowArray = $rows.ToArray()
+    markMovedRows $rowArray $leftKeys $rightKeys
+    $place = newPlaceDiff $name $leftName $rightName $rowArray
     $place.IsGrid = $true
     $place.ColumnWidths = $widths
-    $place.ColumnNames = @(1..$columns | ForEach-Object { getColumnName $_ })
+    $place.LeftColumnNames = $leftNames
+    $place.RightColumnNames = $rightNames
+    $place.ColumnKinds = $kinds
+
+    # 追加・削除・移動した列（空の列は数えない）。見出しには、その列の最初の値を添える
+    $notes = New-Object System.Collections.Generic.List[string]
+    foreach ($slot in $slots) {
+        if ($slot[2] -eq 4) {
+            $place.ColumnMoves++
+            $to = $slots[$slot[3]][1]
+            $notes.Add("列の移動 $(getColumnName ($slot[0] + 1)) → $(getColumnName ($to + 1))$(getColumnLabel $leftCells $slot[0])")
+        } elseif ($slot[2] -eq 1) {
+            $place.ColumnDeletes++
+            $notes.Add("列の削除 $(getColumnName ($slot[0] + 1))$(getColumnLabel $leftCells $slot[0])")
+        } elseif ($slot[2] -eq 2) {
+            $place.ColumnInserts++
+            $notes.Add("列の追加 $(getColumnName ($slot[1] + 1))$(getColumnLabel $rightCells $slot[1])")
+        }
+    }
+    $place.ColumnNote = $notes -join "・"
+    if ($place.Status -eq "same" -and $notes.Count -gt 0) {
+        $place.Status = "change"
+    }
     return $place
+}
+
+function getCellValues {
+    # 比べるためのセルの値（行ごとの string[]）。見た目が空のセル（空白・見えない文字だけ）は ""、
+    # 空白の違い・大文字と小文字の設定に合わせて整える。cells は splitExcelLines の結果
+    param (
+        [object[]]$cells,
+        $options
+    )
+
+    # セルごとに関数を呼ぶと遅いため、見えない文字を含むセル・整える設定のあるときだけ呼ぶ
+    $normalize = $options.IgnoreWhitespace -or !$options.CaseSensitive
+    $invisible = [char[]]@([char]0x200B, [char]0xFEFF, [char]0x21B5)
+    $result = [object[]]::new($cells.Count)
+    for ($i = 0; $i -lt $cells.Count; $i++) {
+        $source = $cells[$i]
+        $values = [string[]]::new($source.Count)
+        for ($c = 0; $c -lt $source.Count; $c++) {
+            $value = $source[$c]
+            if ($value.Length -gt 0) {
+                if ([string]::IsNullOrWhiteSpace($value)) {
+                    $value = ""
+                } elseif ($value.IndexOfAny($invisible) -ge 0 -and (isBlankCell $value)) {
+                    $value = ""
+                } elseif ($normalize) {
+                    $value = normalizeDiffLine $value $options.IgnoreWhitespace $options.CaseSensitive
+                }
+            }
+            $values[$c] = $value
+        }
+        $result[$i] = $values
+    }
+    return , $result
+}
+
+function getRowKeys {
+    # 行を比べるための形（string[]）。共通の列（columns。列の番号の並び）の値をタブでつなぎ、右端の空の値を落とす。
+    # 共通の列に値が無く、追加・削除した列にだけ値のある行は、その行の値すべてで比べる（ほかの行と組まない）
+    param (
+        [object[]]$values,
+        [int[]]$columns
+    )
+
+    $keys = [string[]]::new($values.Count)
+    $parts = [string[]]::new($columns.Count)
+    $mark = [string][char]1
+    for ($i = 0; $i -lt $values.Count; $i++) {
+        $row = $values[$i]
+        for ($k = 0; $k -lt $columns.Count; $k++) {
+            $c = $columns[$k]
+            if ($c -lt $row.Count) { $parts[$k] = $row[$c] } else { $parts[$k] = "" }
+        }
+        $key = [string]::Join("`t", $parts).TrimEnd("`t")
+        if ($key.Length -eq 0) {
+            $all = [string]::Join("`t", $row).Trim("`t")
+            if ($all.Length -gt 0) { $key = $mark + $all }
+        }
+        $keys[$i] = $key
+    }
+    return , $keys
+}
+
+function alignExcelColumns {
+    # 左右の列を対応づけ、表に並べる順の組を返す。
+    # 組は int[]（比較元の列, 比較先の列, 種類, 相手の位置）。種類は 0 = 対応・1 = 削除・2 = 追加・4 = 移動の元・5 = 移動の先。
+    # 列は 0 から数え、無い側は -1。空の列（値のあるセルが 1 つも無い列）は組に入れない（空の列を足した・消しただけでは差分にしない）。
+    # 列の値の並び（値のある行の先頭 ${diffColumnSampleRows} 行）が同じ列を目印にし、残りは値の重なりの似ている度合いで組む
+    param (
+        [object[]]$leftValues,
+        [object[]]$rightValues
+    )
+
+    $leftColumns = getColumnKeys $leftValues
+    $rightColumns = getColumnKeys $rightValues
+    $slots = New-Object System.Collections.Generic.List[int[]]
+    $a2 = $leftColumns.Keys
+    $b2 = $rightColumns.Keys
+    $dict = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+    $a = getLineKeys $a2 $dict
+    $b = getLineKeys $b2 $dict
+    $match = getLineMatches $a $b
+    # 値の並びが同じ列を目印にし、その間の列は、左右の数が同じなら位置どうしで組む（行を足した・値を直しただけなら、
+    # どの列も並びが変わるため）。数が違う区間だけ、値の重なりで追加・削除の列を決める
+    $pairs = New-Object System.Collections.Generic.List[int[]]
+    $i = 0
+    $j = 0
+    while ($i -lt $a2.Count -or $j -lt $b2.Count) {
+        if ($i -lt $a2.Count -and $match[$i] -ge 0 -and $match[$i] -eq $j) {
+            $pairs.Add([int[]]@($i, $j, 0))
+            $i++
+            $j++
+            continue
+        }
+        $dels = [System.Collections.Generic.List[int]]::new()
+        while ($i -lt $a2.Count -and $match[$i] -lt 0) {
+            $dels.Add($i)
+            $i++
+        }
+        $nextJ = if ($i -lt $a2.Count) { $match[$i] } else { $b2.Count }
+        $inss = [System.Collections.Generic.List[int]]::new()
+        while ($j -lt $nextJ) {
+            $inss.Add($j)
+            $j++
+        }
+        if ($dels.Count -eq $inss.Count) {
+            for ($k = 0; $k -lt $dels.Count; $k++) { $pairs.Add([int[]]@($dels[$k], $inss[$k], 3)) }
+        } else {
+            addGapPairs $pairs $dels $inss $a2 $b2 { param($x, $y) getColumnSimilarity $x $y } ${diffPairMinColumnSimilarity}
+        }
+    }
+    $keys = [System.Collections.Generic.List[string]]::new()
+    foreach ($pair in $pairs) {
+        $x = if ($pair[0] -ge 0) { $leftColumns.Index[$pair[0]] } else { -1 }
+        $y = if ($pair[1] -ge 0) { $rightColumns.Index[$pair[1]] } else { -1 }
+        $kind = switch ($pair[2]) { 1 { 1 } 2 { 2 } default { 0 } }
+        $slots.Add([int[]]@($x, $y, $kind, -1))
+        $keys.Add($(if ($pair[2] -eq 1) { $a2[$pair[0]] } elseif ($pair[2] -eq 2) { $b2[$pair[1]] } else { "" }))
+    }
+    # 動かした列（削除と追加の列で、値の並びが同じもの）は、種類を 4（元の位置）・5（動かした先）にし、4 つ目に相手の位置を入れる
+    for ($s = 0; $s -lt $slots.Count; $s++) {
+        if ($slots[$s][2] -ne 1) { continue }
+        for ($t = 0; $t -lt $slots.Count; $t++) {
+            if ($slots[$t][2] -eq 2 -and $keys[$t] -ceq $keys[$s]) {
+                $slots[$s][2] = 4
+                $slots[$s][3] = $t
+                $slots[$t][2] = 5
+                $slots[$t][3] = $s
+                break
+            }
+        }
+    }
+    return , $slots.ToArray()
+}
+
+function getColumnKeys {
+    # 値のある列ごとの、値の並び（値のある行の先頭 ${diffColumnSampleRows} 行の値を改行でつないだもの）。
+    # 返すのは @{ Index = int[]（列の番号）; Keys = string[] }
+    param (
+        [object[]]$values
+    )
+
+    $rows = [System.Collections.Generic.List[object]]::new()
+    $width = 0
+    foreach ($row in $values) {
+        if ($rows.Count -ge ${diffColumnSampleRows}) { break }
+        $filled = $false
+        foreach ($value in $row) { if ($value.Length -gt 0) { $filled = $true; break } }
+        if (!$filled) { continue }
+        $rows.Add($row)
+        if ($row.Count -gt $width) { $width = $row.Count }
+    }
+    $index = [System.Collections.Generic.List[int]]::new()
+    $keys = [System.Collections.Generic.List[string]]::new()
+    $parts = [string[]]::new($rows.Count)
+    for ($c = 0; $c -lt $width; $c++) {
+        $filled = $false
+        for ($k = 0; $k -lt $rows.Count; $k++) {
+            $row = $rows[$k]
+            if ($c -lt $row.Count) { $parts[$k] = $row[$c] } else { $parts[$k] = "" }
+            if ($parts[$k].Length -gt 0) { $filled = $true }
+        }
+        if ($filled) {
+            $index.Add($c)
+            $keys.Add([string]::Join("`n", $parts))
+        }
+    }
+    return @{ Index = $index.ToArray(); Keys = $keys.ToArray() }
+}
+
+function getColumnSimilarity {
+    # 2 つの列（getColumnKeys の値の並び）の似ている度合い（0〜1）。値のあるセルのうち、同じ値のセルの割合
+    # （多い方の数で割る。行の位置は見ない。行を足したり消したりしても、ほかの値は重なるため）
+    param (
+        [string]$x,
+        [string]$y
+    )
+
+    if ($x -ceq $y) {
+        return 1.0
+    }
+    $counts = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+    $leftCount = 0
+    foreach ($value in $x.Split("`n")) {
+        if ($value.Length -eq 0) { continue }
+        $leftCount++
+        $n = 0
+        [void]$counts.TryGetValue($value, [ref]$n)
+        $counts[$value] = $n + 1
+    }
+    $rightCount = 0
+    $common = 0
+    foreach ($value in $y.Split("`n")) {
+        if ($value.Length -eq 0) { continue }
+        $rightCount++
+        $n = 0
+        if ($counts.TryGetValue($value, [ref]$n) -and $n -gt 0) {
+            $common++
+            $counts[$value] = $n - 1
+        }
+    }
+    $max = [Math]::Max($leftCount, $rightCount)
+    if ($max -eq 0) {
+        return 1.0
+    }
+    return [double]$common / $max
+}
+
+function getColumnLabel {
+    # 追加・削除した列の説明に添える、その列の最初の値（"（役職）"。長ければ切る。値が無ければ ""）
+    param (
+        [object[]]$cells,
+        [int]$column
+    )
+
+    foreach ($row in $cells) {
+        if ($column -lt $row.Count -and ![string]::IsNullOrWhiteSpace($row[$column])) {
+            $text = $row[$column]
+            if ($text.Length -gt 20) { $text = $text.Substring(0, 20) + "…" }
+            return "（$text）"
+        }
+    }
+    return ""
 }
 
 function compareExcelObjects {
@@ -630,25 +1142,30 @@ function getGridColumnWidths {
 }
 
 function getCellChangeDetail {
-    # 変更の行の、違うセルの説明（"B8：10 → 12　D8：120,000 → 144,000"。行番号が違えば "B8→B9：…"）。5 つまで
+    # 変更の行の、違うセルの説明（"B8：10 → 12　D8：120,000 → 144,000"。番地が左右で違えば "B8→C9：…"）。5 つまで。
+    # slots は alignExcelColumns の組、changed は違うセルの組の位置
     param (
         [string[]]$left,
         [string[]]$right,
-        $columns,
+        $slots,
+        $changed,
         [int]$leftRow,
         [int]$rightRow
     )
 
     $parts = New-Object System.Collections.Generic.List[string]
-    foreach ($c in $columns) {
+    foreach ($s in $changed) {
         if ($parts.Count -ge 5) {
-            $parts.Add("ほか $($columns.Count - 5) セル")
+            $parts.Add("ほか $($changed.Count - 5) セル")
             break
         }
-        $column = getColumnName ($c + 1)
-        $address = if ($leftRow -eq $rightRow) { "$column$leftRow" } else { "$column$leftRow→$column$rightRow" }
-        $l = if ($c -lt $left.Count -and $left[$c] -ne "") { $left[$c] } else { "（空）" }
-        $r = if ($c -lt $right.Count -and $right[$c] -ne "") { $right[$c] } else { "（空）" }
+        $x = $slots[$s][0]
+        $y = $slots[$s][1]
+        $leftAddress = "$(getColumnName ($x + 1))$leftRow"
+        $rightAddress = "$(getColumnName ($y + 1))$rightRow"
+        $address = if ($leftAddress -eq $rightAddress) { $leftAddress } else { "$leftAddress→$rightAddress" }
+        $l = if ($x -lt $left.Count -and $left[$x] -ne "") { $left[$x] } else { "（空）" }
+        $r = if ($y -lt $right.Count -and $right[$y] -ne "") { $right[$y] } else { "（空）" }
         $parts.Add("${address}：$l → $r")
     }
     return ($parts -join "　")
@@ -741,8 +1258,11 @@ function compareWordUnits {
             $places.Add((newTooLargePlace $name $pair.Left $pair.Right $l.Lines $r.Lines))
             continue
         }
-        $pairs = compareLines $l.Lines $r.Lines $options
+        $leftKeys = getCompareKeys $l.Lines $options
+        $rightKeys = getCompareKeys $r.Lines $options
+        $pairs = compareKeyLines $leftKeys $rightKeys
         $rows = newTextRows $pairs $l.Lines $r.Lines $l.Nos $r.Nos $pair.Left $pair.Right
+        markMovedRows $rows $leftKeys $rightKeys ""
         $places.Add((newPlaceDiff $name $pair.Left $pair.Right $rows "同じ段落 {0} 個（{1}〜{2}）"))
     }
     return , $places.ToArray()
@@ -835,16 +1355,30 @@ function compareSlideUnits {
     $similarity = { param($x, $y) 0.0 }  # 組むかどうかは下で判断する（本文の文字ではなくスライドの似ている度合いで）
     $pairs = getAlignedPairs $match $rightSlides.Count $leftKeys $rightKeys $similarity 2.0
     $pairs = pairSimilarSlides $pairs $leftSlides $rightSlides
+    $moves = getMovedSlides $pairs $leftKeys $rightKeys $leftSlides $rightSlides
 
     $rows = New-Object System.Collections.Generic.List[object]
     foreach ($pair in $pairs) {
         $ls = if ($pair[0] -ge 0) { $leftSlides[$pair[0]] } else { $null }
         $rs = if ($pair[1] -ge 0) { $rightSlides[$pair[1]] } else { $null }
-        if ($null -eq $ls) { $result.SlideInserts++ }
-        if ($null -eq $rs) { $result.SlideDeletes++ }
-        foreach ($row in (newSlideRows $ls $rs $options)) { $rows.Add($row) }
+        $slideRows = newSlideRows $ls $rs $options
+        # 並べ替えで動いたスライドは、見出しの説明に移動の元と先を書き、追加・削除ではなく移動として数える
+        # （中の段落も、動かした行として件数に入れない）
+        $move = $null
+        if ($null -eq $rs -and $moves.Left.ContainsKey($pair[0])) { $move = $moves.Left[$pair[0]] }
+        if ($null -eq $ls -and $moves.Right.ContainsKey($pair[1])) { $move = $moves.Right[$pair[1]]; $result.SlideMoves++ }
+        if ($move) {
+            $slideRows[0].Detail = (@($move, $slideRows[0].Detail) | Where-Object { $_ }) -join "・"
+            foreach ($row in $slideRows) { $row.Moved = $true }
+        } else {
+            if ($null -eq $ls) { $result.SlideInserts++ }
+            if ($null -eq $rs) { $result.SlideDeletes++ }
+        }
+        foreach ($row in $slideRows) { $rows.Add($row) }
     }
     $place = newPlaceDiff "スライドとノート" "スライド" "スライド" $rows.ToArray()
+    # 動かしたスライドは SlideMoves で数えるため、中の段落を移動として数えない
+    $place.Moves = 0
     $place.FoldedRows = foldSameSlides $rows.ToArray()
     # スライドの追加・削除・非表示の切り替えは、行の数に出ないことがあるため見出しの行でも判断する
     if ($place.Status -eq "same" -and @($rows | Where-Object { $_.Type -eq "Header" -and $_.Kind -ne "same" }).Count -gt 0) {
@@ -864,6 +1398,36 @@ function compareSlideUnits {
         $places.Add((newPlaceDiff $name $pair.Left $pair.Right $textRows "同じ段落 {0} 個（{1}〜{2}）"))
     }
     $result.Places = $places.ToArray()
+}
+
+function getMovedSlides {
+    # 削除と追加のスライドで本文が同じもの（並べ替えで動いたスライド）を組み、説明の文字を返す。
+    # 返すのは @{ Left = 比較元の位置 → "スライド 4 へ移動"; Right = 比較先の位置 → "スライド 1 から移動" }
+    param (
+        $pairs,
+        [string[]]$leftKeys,
+        [string[]]$rightKeys,
+        [object[]]$leftSlides,
+        [object[]]$rightSlides
+    )
+
+    $result = @{ Left = @{}; Right = @{} }
+    $deleted = @{}
+    foreach ($pair in $pairs) {
+        if ($pair[1] -lt 0 -and $leftKeys[$pair[0]]) {
+            if (!$deleted.ContainsKey($leftKeys[$pair[0]])) { $deleted[$leftKeys[$pair[0]]] = New-Object System.Collections.Generic.Queue[int] }
+            $deleted[$leftKeys[$pair[0]]].Enqueue($pair[0])
+        }
+    }
+    foreach ($pair in $pairs) {
+        if ($pair[0] -ge 0) { continue }
+        $key = $rightKeys[$pair[1]]
+        if (!$key -or !$deleted.ContainsKey($key) -or $deleted[$key].Count -eq 0) { continue }
+        $from = $deleted[$key].Dequeue()
+        $result.Left[$from] = "スライド $($rightSlides[$pair[1]].Number) へ移動"
+        $result.Right[$pair[1]] = "スライド $($leftSlides[$from].Number) から移動"
+    }
+    return $result
 }
 
 function pairSimilarSlides {

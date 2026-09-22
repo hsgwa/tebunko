@@ -32,6 +32,9 @@ function getFileReportLines {
         if ($place.Note) {
             $lines.Add($place.Note)
         }
+        if ($place.ColumnNote) {
+            $lines.Add($place.ColumnNote)
+        }
         foreach ($row in $place.Rows) {
             if ($row.Type -eq "Header" -and $row.Kind -ne "same") {
                 $title = if ($row.RightNo) { $row.RightNo } else { $row.LeftNo }
@@ -44,10 +47,11 @@ function getFileReportLines {
             $position = "$(if ($row.LeftEmpty) { "($(getNearNo $place.Rows $row 'Left'))" } else { $row.LeftNo }) → $(if ($row.RightEmpty) { "($(getNearNo $place.Rows $row 'Right'))" } else { $row.RightNo })"
             $content = switch ($row.Kind) {
                 "change" { if ($row.Detail) { $row.Detail } else { "$($row.LeftText) → $($row.RightText)" } }
-                "insert" { $row.RightText }
-                "delete" { $row.LeftText }
+                "insert" { $row.RightText + $(if ($row.Detail) { "（$($row.Detail)）" }) }
+                "delete" { $row.LeftText + $(if ($row.Detail) { "（$($row.Detail)）" }) }
             }
-            $lines.Add("$(getKindLabel $row.Kind)`t$position`t$content")
+            $label = if ($row.Moved) { "移動" } else { getKindLabel $row.Kind }
+            $lines.Add("$label`t$position`t$content")
         }
         $lines.Add("")
     }
@@ -195,9 +199,14 @@ function getFileSummaryText {
     $parts = @()
     if ($fileDiff.SlideInserts -gt 0) { $parts += "スライド追加 $($fileDiff.SlideInserts)" }
     if ($fileDiff.SlideDeletes -gt 0) { $parts += "スライド削除 $($fileDiff.SlideDeletes)" }
+    if ($fileDiff.SlideMoves -gt 0) { $parts += "スライド移動 $($fileDiff.SlideMoves)" }
+    if ($fileDiff.ColumnInserts -gt 0) { $parts += "列追加 $($fileDiff.ColumnInserts)" }
+    if ($fileDiff.ColumnDeletes -gt 0) { $parts += "列削除 $($fileDiff.ColumnDeletes)" }
+    if ($fileDiff.ColumnMoves -gt 0) { $parts += "列移動 $($fileDiff.ColumnMoves)" }
     if ($fileDiff.Inserts -gt 0) { $parts += "追加 $($fileDiff.Inserts)" }
     if ($fileDiff.Deletes -gt 0) { $parts += "削除 $($fileDiff.Deletes)" }
     if ($fileDiff.Changes -gt 0) { $parts += "変更 $($fileDiff.Changes)" }
+    if ($fileDiff.Moves -gt 0) { $parts += "移動 $($fileDiff.Moves)" }
     if ($fileDiff.Kind -eq "PowerPoint" -and $parts.Count -eq 0) {
         $title += "（違いはありません）"
     }

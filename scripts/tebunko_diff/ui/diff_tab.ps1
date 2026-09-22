@@ -301,15 +301,11 @@ function startDiff {
     $script:dt.CompareTotal = 0
     $script:dt.Stopping = $false
 
+    # 比べ方は保存する。比較元・比較先のパスは保存しない（画面を閉じたら忘れてよい）
     $mode = $script:dt.Mode
     $values = [ordered]@{ diffMode = $mode; diffOptions = $script:dt.Options }
     if ($mode -eq "folder") {
-        $values.diffFolderLeft = $script:dt.LeftPath
-        $values.diffFolderRight = $script:dt.RightPath
         $values.diffSubfolders = $script:dt.Subfolders
-    } else {
-        $values.diffFileLeft = $script:dt.LeftPath
-        $values.diffFileRight = $script:dt.RightPath
     }
     updateDiffSettingsSafe $values
 
@@ -927,14 +923,11 @@ function closeDiffPage {
 }
 
 function startDiffPage {
-    # 起動時: 前回の設定を入れ、強制終了で残った作業フォルダを消し、比較の runspace を用意する
+    # 起動時: 前回の設定（比べ方・表示）を入れ、強制終了で残った作業フォルダを消し、比較の runspace を用意する。
+    # 比較元・比較先の欄は空で始める（パスは保存しない）
     $settings = readDiffSettings
     $script:diffLoading = $true
     try {
-        $script:diffInputs.file.Left = $settings.diffFileLeft
-        $script:diffInputs.file.Right = $settings.diffFileRight
-        $script:diffInputs.folder.Left = $settings.diffFolderLeft
-        $script:diffInputs.folder.Right = $settings.diffFolderRight
         $script:diffInputMode = $settings.diffMode
         $ui.LeftBox.Text = $script:diffInputs[$settings.diffMode].Left
         $ui.RightBox.Text = $script:diffInputs[$settings.diffMode].Right

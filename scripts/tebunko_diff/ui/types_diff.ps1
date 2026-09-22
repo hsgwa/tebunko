@@ -22,4 +22,5 @@ class PlaceTab {
 class ColumnHead {
     [string]$Text
     [double]$Width
+    [string]$Kind = ""          # "" / insert（追加した列）/ delete（削除した列）/ empty（相手側にだけある列の空き）
 }

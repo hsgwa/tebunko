@@ -101,10 +101,12 @@ function toSettingBool {
 
 function writeSettingsFile {
     # 設定（settings）を書き込む。ファイルにあって settings に無いキー（ほかのツールの設定）は、そのまま残す。
+    # removeKeys に挙げたキー（使わなくなった設定）はファイルから消す。
     # 今のファイルが JSON として読めないときは、settings だけで書き直す（読めない内容は残せないため）
     param (
         $settings,
-        [string]$path = ${settingsFile}
+        [string]$path = ${settingsFile},
+        [string[]]$removeKeys = @()
     )
 
     $merged = [ordered]@{}
@@ -119,7 +121,7 @@ function writeSettingsFile {
     }
     if ($current -is [System.Management.Automation.PSCustomObject]) {
         foreach ($property in $current.PSObject.Properties) {
-            if (!$merged.Contains($property.Name)) {
+            if (!$merged.Contains($property.Name) -and $removeKeys -notcontains $property.Name) {
                 $merged[$property.Name] = $property.Value
             }
         }

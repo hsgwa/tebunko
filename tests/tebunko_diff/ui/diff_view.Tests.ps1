@@ -82,6 +82,13 @@ Describe "要約" -Tag Unit {
         $text.Counts | Should Be "追加 2・削除 1"
     }
 
+    It "ファイル同士（Excel）で列を足した・消した・動かしたときは、列の数も出す" {
+        $l = [string[]]@("ID`t氏名`t部署`t内線`t備考", "1`t山田`t営業部`t101`t在宅", "2`t佐藤`t総務部`t102`t")
+        $r = [string[]]@("ID`t内線`t氏名`t役職`t部署", "1`t101`t山田`t課長`t営業部", "2`t102`t佐藤`t`t総務部")
+        $text = getFileSummaryText (compareOfficeUnits "Excel" ([ordered]@{ S = $l }) ([ordered]@{ S = $r }))
+        $text.Counts | Should Be "列追加 1・列削除 1・列移動 1"
+    }
+
     It "違いが無いとき" {
         $diff = compareOfficeUnits "Excel" ([ordered]@{ A = [string[]]@("a") }) ([ordered]@{ A = [string[]]@("a") })
         (getFileSummaryText $diff).Title | Should Be "違いはありません。（シート 1）"
