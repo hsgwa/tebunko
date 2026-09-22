@@ -1,26 +1,26 @@
-# サポート
+# Support
 
-## 困ったときは
+English | [日本語](SUPPORT.ja.md)
 
-1. **[README](../README.md) の「使い方」と「制約」を見る。** 検索できない文字・取り込めないファイルの一覧があります。
-2. **ログを見る。** インデックス作成の経過と、取り込みに失敗したファイルの理由は `work\インデックス作成ログ.txt` に、インデックス作成を続けられなかったときのエラーは `work\インデックス作成エラー.txt` に出ます。エラーの意味は [docs/01_インデックス作成_8_エラーメッセージ一覧.md](../docs/01_インデックス作成_8_エラーメッセージ一覧.md) にあります。
-3. **設計書を見る。** 画面・インデックス作成・検索の細かい動きは [docs/](../docs/00_index.md) にあります。
-4. **既存の Issue を探す。** 同じ現象がすでに報告されていないか、[Issue](https://github.com/hsgwa/tebunko/issues?q=is%3Aissue) を検索してください。
+## When you have a problem
 
-## 報告する
+1. **Read "使い方" (how to use) and "制約" (limitations) in the [README](../README.md) (Japanese).** It lists the characters that cannot be searched and the files that cannot be read.
+2. **Read the logs.** The progress of indexing and the reasons why files could not be read are written to `work\インデックス作成ログ.txt`. Errors that stopped indexing are written to `work\インデックス作成エラー.txt`. The meaning of each error is described in [docs/01_インデックス作成_8_エラーメッセージ一覧.md](../docs/01_インデックス作成_8_エラーメッセージ一覧.md) (Japanese).
+3. **Read the design documents.** How the screen, indexing and search work in detail is described in [docs/](../docs/00_index.md) (Japanese).
+4. **Search the existing issues.** Check whether the same problem has already been reported in the [issues](https://github.com/hsgwa/tebunko/issues?q=is%3Aissue).
 
-| 内容 | 連絡先 |
+## Reporting
+
+| What | Where |
 |---|---|
-| 思ったとおりに動かない | [Issue（不具合）](https://github.com/hsgwa/tebunko/issues/new?template=bug.yml) |
-| 機能の追加・変更の要望 | [Issue（機能の要望）](https://github.com/hsgwa/tebunko/issues/new?template=feature.yml) |
-| 安全性に関わる問題 | [非公開の報告](https://github.com/hsgwa/tebunko/security/advisories/new)（[SECURITY.md](SECURITY.md)） |
+| It does not work as expected | [Issue (bug)](https://github.com/hsgwa/tebunko/issues/new?template=bug.yml) |
+| A request for a new or changed feature | [Issue (feature request)](https://github.com/hsgwa/tebunko/issues/new?template=feature.yml) |
+| A security problem | [Private report](https://github.com/hsgwa/tebunko/security/advisories/new) ([SECURITY.md](SECURITY.md)) |
 
-Issue に画面の写しやログを貼るときは、利用者名を含むパス（`C:\Users\<利用者名>\...`）や社名・顧客名を消してから貼ってください。Office ファイルそのものは、機密情報を含むおそれがあるため添付しないでください。
+When you paste a screenshot or a log into an issue, first remove paths that contain your user name (`C:\Users\<user name>\...`) and the names of companies and customers. Do not attach the Office files themselves, because they may contain confidential information.
 
-Issue・Pull Request・脆弱性の報告は、日本語でも英語でも受け付けます。返答は日本語か英語で行います。
+Issues, pull requests and vulnerability reports are welcome in English or Japanese. We reply in English or Japanese.
 
-Bug reports, feature requests, pull requests and vulnerability reports in English are welcome.
+## Scope of support
 
-## サポートの範囲
-
-tebunko は個人が開発・保守しているオープンソースソフトウェアです。回答や修正は可能な範囲で行いますが、期限の約束はできません。最新の版で直っていることがあるので、まず [Releases](https://github.com/hsgwa/tebunko/releases/latest) の最新版で試してください。
+tebunko is open source software developed and maintained by an individual. We answer and fix problems as far as we can, but we cannot promise any deadline. The problem may already be fixed in the latest version, so first try the latest version from [Releases](https://github.com/hsgwa/tebunko/releases/latest).

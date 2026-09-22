@@ -1,44 +1,46 @@
-# 行動規範
+# Code of Conduct
 
-この行動規範は [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) に基づいています。原文と[日本語訳](https://www.contributor-covenant.org/ja/version/2/1/code_of_conduct/)も参照してください。
+English | [日本語](CODE_OF_CONDUCT.ja.md)
 
-## 私たちの約束
+This code of conduct is based on the [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
 
-私たちは、年齢、体格、目に見える・見えない障害、民族、性的特徴、性自認と性表現、経験の程度、学歴、社会的・経済的な地位、国籍、容姿、人種、カースト、肌の色、宗教、性的指向にかかわらず、誰にとっても嫌がらせのない場にすることを約束します。
+## Our pledge
 
-私たちは、開かれた、歓迎する、多様で、包括的で、健全なコミュニティに貢献するように行動します。
+We pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, caste, color, religion, or sexual identity and orientation.
 
-## 望ましい行動
+We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
 
-- 他の人に共感と思いやりを示す
-- 異なる意見・視点・経験を尊重する
-- 建設的な指摘をし、受け入れる
-- 自分の誤りの責任を取り、影響を受けた人に謝り、経験から学ぶ
-- 個人ではなく、コミュニティ全体にとって何が最善かを考える
+## Expected behavior
 
-## 受け入れられない行動
+- Demonstrating empathy and kindness toward other people
+- Being respectful of differing opinions, viewpoints, and experiences
+- Giving and gracefully accepting constructive feedback
+- Accepting responsibility and apologizing to those affected by our mistakes, and learning from the experience
+- Focusing on what is best not just for us as individuals, but for the overall community
 
-- 性的な言葉や画像の使用、性的な注目や誘い
-- 荒らし、侮辱的・軽蔑的なコメント、個人攻撃・政治的攻撃
-- 公開・非公開を問わない嫌がらせ
-- 住所やメールアドレスなど他者の個人情報を、明示的な許可なく公開すること
-- 職業上の場で不適切と合理的に考えられるその他の行動
+## Unacceptable behavior
 
-## 適用範囲
+- The use of sexualized language or imagery, and sexual attention or advances of any kind
+- Trolling, insulting or derogatory comments, and personal or political attacks
+- Public or private harassment
+- Publishing others' private information, such as a physical or email address, without their explicit permission
+- Other conduct which could reasonably be considered inappropriate in a professional setting
 
-この行動規範は、Issue・Pull Request などのこのリポジトリのすべての場と、公的な場でプロジェクトを代表して行動するときに適用します。
+## Scope
 
-## 報告
+This code of conduct applies within all spaces of this repository, such as issues and pull requests, and also applies when an individual is officially representing the project in public spaces.
 
-受け入れられない行動を見かけたり、受けたりした場合は、リポジトリの管理者（[@hsgwa](https://github.com/hsgwa)）に連絡してください。公開の場に書きにくい内容は、[非公開の報告](https://github.com/hsgwa/tebunko/security/advisories/new)の窓口を使ってかまいません（件名に「行動規範」と書いてください）。
+## Reporting
 
-管理者は、すべての報告を速やかに公正に確認し、報告した人のプライバシーと安全を守ります。
+If you see or experience unacceptable behavior, contact the maintainer of the repository ([@hsgwa](https://github.com/hsgwa)). For matters that are hard to write in public, you may use the [private report](https://github.com/hsgwa/tebunko/security/advisories/new) form (write "Code of Conduct" in the title).
 
-## 対応
+The maintainer reviews every report promptly and fairly, and respects the privacy and security of the reporter.
 
-管理者は、行動規範に反すると判断した行動に対し、内容に応じて次の対応を取ります。
+## Enforcement
 
-1. **訂正** … 非公開での注意と、何が不適切だったかの説明。公開の謝罪を求めることがあります。
-2. **警告** … 一定期間、関係者とのやり取りを控えるよう求めます。守られない場合は一時的な参加禁止に進みます。
-3. **一時的な参加禁止** … 一定期間、コミュニティでのやり取りと公開の発言を禁止します。
-4. **永久的な参加禁止** … コミュニティでのやり取りを永久に禁止します。
+The maintainer takes the following actions, depending on the case, against behavior that they judge to violate this code of conduct.
+
+1. **Correction** … A private, written warning with an explanation of why the behavior was inappropriate. A public apology may be requested.
+2. **Warning** … A request to avoid interaction with the people involved for a period of time. If this is not followed, it may lead to a temporary ban.
+3. **Temporary ban** … A ban from any interaction and public communication with the community for a period of time.
+4. **Permanent ban** … A permanent ban from any interaction with the community.
