@@ -55,8 +55,7 @@ trap {
 # たいてい「開いたつもりのウィンドウが他のウィンドウの裏にある」ときのため）。
 # 知らせるのは名前付きイベントで行う。ここは C# の型をコンパイルする前のため、.NET の機能だけを使う。
 
-$md5 = New-Object System.Security.Cryptography.MD5CryptoServiceProvider
-$instanceKey = [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(${rootDir}.ToLowerInvariant()))).Replace("-", "")
+$instanceKey = getFolderKey ${rootDir}
 $mutexName = "Local\${appId}_gui_" + $instanceKey
 $activateName = "Local\${appId}_gui_activate_" + $instanceKey
 $createdNew = $false
