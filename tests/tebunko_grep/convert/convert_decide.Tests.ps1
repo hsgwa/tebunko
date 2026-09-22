@@ -2,8 +2,35 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 function newRow {
-    param ([string]$state, [string]$updated = "2026/01/01 10:00:00", [string]$size = "1000")
-    return [pscustomobject]@{ 相対パス = "売上\a.xlsx"; 更新日時 = $updated; サイズ = $size; 状態 = $state; TSV数 = "3" }
+    param ([string]$state, [string]$updated = "2026/01/01 10:00:00", [string]$size = "1000", [string]$version = "2", [string]$relPath = "売上\a.xlsx")
+    return [pscustomobject]@{ 相対パス = $relPath; 更新日時 = $updated; サイズ = $size; 状態 = $state; TSV数 = "3"; 抽出版 = $version }
+}
+
+Describe "getExtractVersion" -Tag Unit {
+    It "図形・コメントを読む Excel の新形式は 2、それ以外は 1（大文字の拡張子も同じ）" {
+        getExtractVersion "売上\a.xlsx" | Should Be 2
+        getExtractVersion "売上\a.XLSM" | Should Be 2
+        getExtractVersion "売上\a.xls" | Should Be 1
+        getExtractVersion "売上\a.xlsb" | Should Be 1
+        getExtractVersion "売上\a.docx" | Should Be 1
+    }
+}
+
+Describe "getConvertDecision（抽出版）" -Tag Unit {
+    It "前の抽出版で変換した「済」は、更新が無くても変換し直す（outdated）" {
+        $d = getConvertDecision (newRow ${stateDone} -version "1") "2026/01/01 10:00:00" "1000" $true
+        $d.Convert | Should Be $true
+        $d.Reason | Should Be "outdated"
+    }
+
+    It "抽出版が空（以前の形式の変換一覧）は 1 とみなす" {
+        (getConvertDecision (newRow ${stateDone} -version "") "2026/01/01 10:00:00" "1000" $true).Reason | Should Be "outdated"
+        (getConvertDecision (newRow ${stateDone} -version "" -relPath "売上\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should Be "done"
+    }
+
+    It "前回失敗は、抽出版が古くても failed のまま（再変換するかは呼び出し元が決める）" {
+        (getConvertDecision (newRow ${stateFailed} -version "") "2026/01/01 10:00:00" "1000" $true).Reason | Should Be "failed"
+    }
 }
 
 Describe "getConvertDecision" -Tag Unit {

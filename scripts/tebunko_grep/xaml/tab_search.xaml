@@ -87,6 +87,10 @@
           <CheckBox x:Name="CaseCheck" DockPanel.Dock="Left" Content="大文字と小文字を区別" VerticalAlignment="Center" Margin="0,0,18,0"
                     ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
           <CheckBox x:Name="RegexCheck" DockPanel.Dock="Left" Content="正規表現を使う" VerticalAlignment="Center" Margin="0,0,18,0" />
+          <CheckBox x:Name="ShapeCheck" DockPanel.Dock="Left" Content="図形も検索" VerticalAlignment="Center" Margin="0,0,18,0"
+                    ToolTip="オンにすると、図形（テキストボックスなど）の文字も検索します。場所の名前が [図形] で終わる結果です（今は Excel だけ）" />
+          <CheckBox x:Name="CommentCheck" DockPanel.Dock="Left" Content="コメントも検索" VerticalAlignment="Center" Margin="0,0,18,0"
+                    ToolTip="オンにすると、コメント（メモ）も検索します。場所の名前が [コメント] で終わる結果です（今は Excel だけ）" />
           <TextBlock DockPanel.Dock="Left" Text="対象ファイル" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,8,0" />
           <Grid MaxWidth="320" HorizontalAlignment="Stretch"
                 ToolTip="元のファイル名で検索するファイルを絞ります。; で区切り、! で始まるものは除外します。* は任意の文字列（* が無ければ部分一致）。空ならすべて&#10;例: *.xlsx;見積;!*old*">
@@ -189,7 +193,9 @@
                             ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTextColumn Header="フォルダ" Binding="{Binding RelDir}" Width="150" ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTextColumn Header="ファイル名" Binding="{Binding Book}" Width="170" ElementStyle="{StaticResource Cell.Key}" />
-        <DataGridTextColumn Header="場所" Binding="{Binding Location}" Width="110" ElementStyle="{StaticResource Cell.Meta}" />
+        <!-- 場所は表示用の文字（[シート] 売上 など）。並べ替えは元の名前（ページ003 など、桁をそろえてある）で行う -->
+        <DataGridTextColumn Header="場所" Binding="{Binding PlaceText}" SortMemberPath="Location" Width="130" ElementStyle="{StaticResource Cell.Meta}" />
+        <DataGridTextColumn Header="種別" Binding="{Binding Kind}" Width="64" ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTextColumn Header="行" Binding="{Binding LineNumber}" Width="50" ElementStyle="{StaticResource Cell.Number}" />
         <DataGridTextColumn Header="セル" Binding="{Binding CellText}" Width="80" CanUserSort="False" ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="Line">

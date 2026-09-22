@@ -18,6 +18,12 @@ Describe "describeSearchOption" -Tag Unit {
     It "両方あれば中黒でつなぐ" {
         describeSearchOption @{ CaseSensitive = $true; FileFilter = "*.xlsx" } | Should Be "大文字と小文字を区別・対象ファイル：*.xlsx"
     }
+
+    It "図形・コメントを外したときだけ出す" {
+        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true } | Should Be ""
+        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $false; IncludeComments = $false } | Should Be "図形を除く・コメントを除く"
+        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeComments = $false } | Should Be "コメントを除く"
+    }
 }
 
 Describe "getWordNotice" -Tag Unit {
@@ -84,37 +90,17 @@ Describe "getAppKind" -Tag Unit {
     }
 }
 
-Describe "formatLocationLabel" -Tag Unit {
-    It "Excel はシート名に「シート」を付ける" {
-        formatLocationLabel "見積.xlsx" "4月" | Should Be "シート 4月"
-    }
-
-    It "Word のページは「N ページ」にする" {
-        formatLocationLabel "報告書.docx" "ページ003" | Should Be "3 ページ"
-    }
-
-    It "PowerPoint のスライドは「スライド N」にし、非表示・ノートの印を残す" {
-        formatLocationLabel "提案.pptx" "スライド007" | Should Be "スライド 7"
-        formatLocationLabel "提案.pptx" "スライド003（非表示）" | Should Be "スライド 3（非表示）"
-        formatLocationLabel "提案.pptx" "スライド003_ノート" | Should Be "スライド 3 ノート"
-    }
-
-    It "ページ・スライドでない場所はそのまま" {
-        formatLocationLabel "報告書.docx" "ヘッダー・フッター" | Should Be "ヘッダー・フッター"
-    }
-}
-
 Describe "describeFileLocations" -Tag Unit {
     It "場所が無ければ空" {
         describeFileLocations @() | Should Be ""
     }
 
     It "1 か所ならその場所" {
-        describeFileLocations @("シート 4月") | Should Be "シート 4月"
+        describeFileLocations @("[シート] 4月") | Should Be "[シート] 4月"
     }
 
     It "2 か所以上なら先頭と、ほかの数" {
-        describeFileLocations @("シート 4月", "シート 5月", "シート 6月") | Should Be "シート 4月 ほか 2 か所"
+        describeFileLocations @("[シート] 4月", "[シート] 5月", "[シート] 6月") | Should Be "[シート] 4月 ほか 2 か所"
     }
 }
 

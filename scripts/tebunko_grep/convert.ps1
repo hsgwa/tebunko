@@ -325,6 +325,7 @@ try {
             $row.状態 = ${stateDone}
             $row.TSV数 = [string]$tsvCount
             $row.エラー = ""
+            $row.抽出版 = [string](getExtractVersion $relPath)
             $successCount++
         } catch {
             $message = describeConvertError $_.Exception
@@ -335,6 +336,7 @@ try {
             $row.状態 = ${stateFailed}
             $row.TSV数 = ""
             $row.エラー = $message
+            $row.抽出版 = ""
             $failures.Add(@{ RelPath = $relPath; Message = $message })
 
             # アプリが不安定になっている可能性があるため終了する（次に必要になったときに起動し直す）

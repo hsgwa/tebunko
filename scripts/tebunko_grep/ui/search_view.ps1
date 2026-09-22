@@ -14,6 +14,13 @@ function describeSearchOption {
     if ($option.FileFilter) {
         $items += "対象ファイル：$($option.FileFilter)"
     }
+    # 既定はどちらも検索する（項目が無い古い形の条件も、検索するものとみなす）
+    if ($option.ContainsKey("IncludeShapes") -and -not $option.IncludeShapes) {
+        $items += "図形を除く"
+    }
+    if ($option.ContainsKey("IncludeComments") -and -not $option.IncludeComments) {
+        $items += "コメントを除く"
+    }
     return ($items -join "・")
 }
 
@@ -67,30 +74,9 @@ function getAppKind {
     return ""
 }
 
-function formatLocationLabel {
-    # 結果の「場所」（TSV の名前）を、まとめ表示の見出しに出す表記にする。
-    # Excel は「シート 4月」、Word は「3 ページ」、PowerPoint は「スライド 7」。それ以外（ヘッダー・フッターなど）はそのまま
-    param (
-        [string]$book,
-        [string]$location
-    )
-
-    if ((getAppKind $book) -eq "Excel") {
-        return "シート $location"
-    }
-    if ($location -match '^ページ0*(\d+)(.*)$') {
-        return "$($Matches[1]) ページ$($Matches[2])"
-    }
-    if ($location -match '^スライド0*(\d+)(.*)$') {
-        # 発表者ノート（スライド003_ノート）は「スライド 3 ノート」とする
-        return "スライド $($Matches[1])$($Matches[2] -replace '^_', ' ')"
-    }
-    return $location
-}
-
 function describeFileLocations {
     # ファイルの中でヒットした場所（見つかった順・重複なし）を、見出しの右端に出す文字列にする。
-    # 1 か所ならその場所、2 か所以上なら「シート 4月 ほか 2 か所」
+    # 1 か所ならその場所、2 か所以上なら「[シート] 4月 ほか 2 か所」（場所の表記は describePlace）
     param (
         [string[]]$labels
     )

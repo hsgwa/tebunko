@@ -95,7 +95,7 @@ $tabs = @(
         "ConvertProgressPanel", "ConvertProgressText", "ConvertProgressEta", "ConvertProgress",
         "ConvertProgressDetail", "ConvertStopButton", "ConvertLogButton") }
     @{ Tab = "SearchTab"; File = "tab_search.xaml"; Names = @(
-        "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "FileFilterBox", "FileFilterPlaceholder",
+        "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "FileFilterBox", "FileFilterPlaceholder",
         "WordNotice", "SearchTargetText", "GoIndexTabButton",
         "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
         "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ResultGrid", "IndexColumn",

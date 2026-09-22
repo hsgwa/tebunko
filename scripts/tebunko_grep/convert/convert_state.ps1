@@ -9,7 +9,8 @@ function newStatusRow {
         [string]$state = ${stateNew},
         [string]$tsvCount = "",
         [string]$converted = "",
-        [string]$errorMessage = ""
+        [string]$errorMessage = "",
+        [string]$extractVersion = ""
     )
 
     return [pscustomobject]@{
@@ -20,6 +21,7 @@ function newStatusRow {
         TSV数    = $tsvCount
         変換日時 = $converted
         エラー   = $errorMessage
+        抽出版   = $extractVersion
     }
 }
 
@@ -43,7 +45,7 @@ function toStatusLine {
     }
     return [string]::Join("`t", @(
         [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
-        [string]$row.TSV数, [string]$row.変換日時, $errorText))
+        [string]$row.TSV数, [string]$row.変換日時, $errorText, [string]$row.抽出版))
 }
 
 function describeConvertError {
@@ -131,14 +133,20 @@ function readStatusFile {
         $reader.Dispose()
     }
 
-    $header = ${statusColumns} -join "`t"
+    # 以前の形式（抽出版の列が無い）は見出しの列数で見分け、その見出しの後の行は以前の列数で読む。
+    # 変換中の追記は、見出しを今の形式で書き直した後に行うため、1 つのファイルで形式が混ざることは無い
+    $columnCount = ${statusColumns}.Count
     foreach ($line in $lines) {
         $fields = $line.Split("`t")
         if ($fields[0] -eq ${statusFolderKey} -and ($fields.Count -eq 2 -or $fields.Count -eq 3)) {
             $folders.Add([pscustomobject]@{ Path = $fields[1]; Name = $(if ($fields.Count -eq 3) { $fields[2] } else { "" }) })
             continue
         }
-        if ($line -eq $header -or $fields.Count -ne ${statusColumns}.Count -or $fields[0] -eq "") {
+        if ($fields[0] -eq ${statusColumns}[0]) {
+            $columnCount = $fields.Count  # 見出し
+            continue
+        }
+        if ($fields.Count -ne $columnCount -or $fields[0] -eq "") {
             continue
         }
         # 数万行を読むため、1行ごとの関数呼び出し（newStatusRow）は使わずにその場で作る（列は $statusColumns と同じ）
@@ -150,6 +158,7 @@ function readStatusFile {
             TSV数    = $fields[4]
             変換日時 = $fields[5]
             エラー   = $fields[6]
+            抽出版   = $(if ($fields.Count -gt 7) { $fields[7] } else { "" })
         }
     }
     return $result
@@ -181,7 +190,7 @@ function writeStatusFile {
         }
         $lines.Add([string]::Join("`t", @(
             [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
-            [string]$row.TSV数, [string]$row.変換日時, $errorText)))
+            [string]$row.TSV数, [string]$row.変換日時, $errorText, [string]$row.抽出版)))
     }
 
     writeTextLinesAtomic $path $lines

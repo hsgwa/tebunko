@@ -51,14 +51,13 @@ function newFileGroup {
 }
 
 function addFileGroupLocation {
-    # 見出しに、そのファイルで初めてヒットした場所を足し、右端の表記を作り直す
+    # 見出しに、そのファイルで初めてヒットした場所（表の「場所」と同じ表記。describePlace）を足し、右端の表記を作り直す
     param (
         [FileGroup]$group,
-        [string]$book,
-        [string]$location
+        [string]$place
     )
 
-    $group.AddLabel((formatLocationLabel $book $location))
+    $group.AddLabel($place)
     $group.SetLocationText((describeFileLocations $group.GetLocations()))
 }
 

@@ -1,4 +1,4 @@
-﻿# 1ファイルを TSV に変換する（Excel は COM、Word・PowerPoint はファイルを直接読む）。
+﻿# 1ファイルを TSV に変換する（Excel のセルは COM、Excel の図形・コメントと Word・PowerPoint はファイルを直接読む）。
 
 $excelMaxPath = 218       # Excelで開けるパスの長さの目安（古い版の上限）。作業フォルダのコピーのパスがこれ以上なら短い名前にする
 $excelExtraCells = 1000000  # 使用範囲がデータの範囲よりこのセル数以上広いシートは、データの範囲だけを一時シートにコピーしてから書き出す
@@ -103,6 +103,18 @@ function convertWorkbook {
     copyFileShared $sourcePath $copyPath
     $openPath = $copyPath
 
+    # 図形・コメントの文字は、テキスト保存には出ないため、新形式（ZIP）のブックを直接読む（Excel より速い）。
+    # 旧形式（.xls）・パスワード付きのブックは ZIP ではないため読まない。
+    # 読めなくてもセルの値は変換できるため、変換ログに記録して続ける
+    $objectUnits = $null
+    if (isZipFile $copyPath) {
+        try {
+            $objectUnits = readXlsxObjectUnits $copyPath
+        } catch {
+            Write-Host "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+
     # 読み取り専用・リンク更新なしで開く。
     # パスワード付きのファイルは、ダイアログを出さずにエラーとするためダミーのパスワードを渡す
     $workbooks = (getApp "Excel").Workbooks
@@ -168,6 +180,9 @@ function convertWorkbook {
             $count++
         }
         Remove-Item -LiteralPath $sheet[0] -Force
+    }
+    if ($null -ne $objectUnits) {
+        $count += writeUnits $objectUnits $tmpDir
     }
     return $count
 }
