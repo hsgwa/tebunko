@@ -142,8 +142,8 @@ class PreviewTable {
     }
 }
 
-# 検索結果の、元のファイル 1 つ分（結果の表の見出しの行）。ヒットした行（HitRow）はここに持ち、
-# 開いているときだけ、見出しの下に表の行として並べる（result_list.ps1）。
+# 検索結果の、元のファイル 1 つ分（結果の表の見出しの行）。検索のヒットは生のまま Hits に持ち、表の行（HitRow）は
+# 開いたとき・絞り込み・並べ替え・出力のときに初めて作って Rows に入れる。開いているときだけ、見出しの下に表の行として並べる（result_list.ps1）。
 # 文言（AppKind・LocationText）は画面側で判断層（search_view.ps1）の関数から作って入れる
 class FileGroup : NotifyBase {
     [bool]$IsFileHeader = $true   # 結果の表で見出しの形にする（tab_search.xaml の FileHeaderRow）
@@ -154,8 +154,10 @@ class FileGroup : NotifyBase {
     [string]$AppKind        # Excel / Word / PowerPoint（アイコンの色と文字を決める。どれでもなければ空）
     [string]$LocationText   # 見出しの右端（「[シート] 4月 ほか 2 か所」）
     [bool]$IsExpanded       # 見出しの下にヒットした行を並べるか（検索した直後は閉じている）
-    [int]$ShownCount        # 見出しに出す件数（ShownRows の数）
-    # ヒットした行（見つかった順。並べ替えたらその順）と、そのうち絞り込みに合う行
+    [int]$ShownCount        # 見出しに出す件数（絞り込みに合うヒットの数）
+    # 検索のヒット（searchIndex の結果そのまま。見つかった順）
+    [System.Collections.Generic.List[object]]$Hits = [System.Collections.Generic.List[object]]::new()
+    # 作った表の行（Hits の先頭から順に作る。並べ替えたらその順）と、そのうち絞り込みに合う行
     [System.Collections.Generic.List[object]]$Rows = [System.Collections.Generic.List[object]]::new()
     [System.Collections.Generic.List[object]]$ShownRows = [System.Collections.Generic.List[object]]::new()
     # 結果の表での状態（result_list.ps1 が使う）。InView は見出しを表に入れたか、DisplayedCount は見出しの下に入れた行の数
@@ -170,8 +172,11 @@ class FileGroup : NotifyBase {
         return $this.locations.Add($location)
     }
 
-    [void] AddLabel([string]$label) {
+    # 場所の表記を足す（図形・コメントは元の場所と同じ表記になるため、同じ表記は 1 つにする）。足したら $true
+    [bool] AddLabel([string]$label) {
+        if ($this.labels.Contains($label)) { return $false }
         $this.labels.Add($label)
+        return $true
     }
 
     [string[]] GetLocations() {
@@ -189,9 +194,9 @@ class FileGroup : NotifyBase {
         $this.Raise("IsExpanded")
     }
 
-    [void] UpdateCount() {
-        if ($this.ShownCount -eq $this.ShownRows.Count) { return }
-        $this.ShownCount = $this.ShownRows.Count
+    [void] SetCount([int]$count) {
+        if ($this.ShownCount -eq $count) { return }
+        $this.ShownCount = $count
         $this.Raise("ShownCount")
     }
 }
@@ -236,7 +241,7 @@ class HitRow : NotifyBase {
     [System.Collections.Generic.List[Segment]]$Segments
     [bool]$Prepared
     [bool]$IsFileHeader     # 常に $false（結果の表で、見出しの行と区別する）
-    [int]$Order             # 見つかった順（並べ替えで同じ値のときの順）
+    [int]$Order             # そのファイルの中で見つかった順（並べ替えで同じ値のときの順）
     [FileGroup]$FileGroup   # 元のファイルの見出し（同じファイルの行で共有する）
 
     hidden [string]$word

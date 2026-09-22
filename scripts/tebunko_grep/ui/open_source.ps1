@@ -353,7 +353,7 @@ function exportResults {
         return
     }
     Invoke-Item -LiteralPath ${resultFile}
-    if ($rows.Count -lt $script:hitRows.Count) {
+    if ($rows.Count -lt $script:hitCount) {
         setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を検索結果.txt に出力しました"
     } else {
         setStatus "検索結果.txt に出力しました（$($rows.Count.ToString('N0')) 件）"

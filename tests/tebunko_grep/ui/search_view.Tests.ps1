@@ -117,7 +117,7 @@ function newTestGroup {
     param ([int]$order, [object[]]$rows, [bool]$expanded = $false)
 
     $group = [pscustomobject]@{
-        Order = $order; IsExpanded = $expanded
+        Order = $order; IsExpanded = $expanded; ShownCount = $rows.Count
         Rows = New-Object 'System.Collections.Generic.List[object]'
         ShownRows = New-Object 'System.Collections.Generic.List[object]'
     }
@@ -155,6 +155,7 @@ Describe "getResultItems" -Tag Unit {
     It "絞り込みで行が残らないファイルは見出しも出さない" {
         $a = newTestGroup 1 @((newTestRow 1 "a1"))
         $a.ShownRows.Clear()
+        $a.ShownCount = 0
         $b = newTestGroup 2 @((newTestRow 2 "b1"))
         $items = getResultItems @($a, $b)
         $items.Count | Should Be 1

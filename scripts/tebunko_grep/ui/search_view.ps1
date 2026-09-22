@@ -99,7 +99,7 @@ function describeFileLocations {
 }
 
 # ---- 結果の表に並べる項目（見出しと行） ----
-# group は FileGroup（types_grep.ps1）と同じ項目（Rows・ShownRows・IsExpanded・Order）を持つもの、
+# group は FileGroup（types_grep.ps1）と同じ項目（Rows・ShownRows・ShownCount・IsExpanded・Order）を持つもの、
 # row は HitRow と同じ項目（Order・Contains(文字列)）を持つもの。
 
 function selectShownRows {
@@ -120,14 +120,14 @@ function selectShownRows {
 
 function getResultItems {
     # 結果の表に並べる項目。ファイルごとに見出しを 1 つ置き、開いているファイルだけ、その下に行を並べる。
-    # 絞り込みで行が 1 つも残らないファイルは、見出しも出さない
+    # 絞り込みで行が 1 つも残らないファイル（ShownCount が 0）は、見出しも出さない。開いているファイルの行は作ってあること
     param (
         $groups
     )
 
     $items = New-Object 'System.Collections.Generic.List[object]'
     foreach ($group in $groups) {
-        if ($group.ShownRows.Count -eq 0) {
+        if ($group.ShownCount -eq 0) {
             continue
         }
         $items.Add($group)
@@ -139,7 +139,7 @@ function getResultItems {
 }
 
 function getShownHitRows {
-    # 絞り込みに合う行を、表の順（閉じているファイルの行も含む）に並べて返す（結果の出力・件数に使う）
+    # 絞り込みに合う行を、表の順（閉じているファイルの行も含む）に並べて返す（結果の出力に使う。行はすべて作ってあること）
     param (
         $groups
     )
