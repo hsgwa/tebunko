@@ -1552,9 +1552,19 @@
 <td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 6 章）</td>
 </tr>
 <tr>
-<td><code>SECURITY.md</code></td>
+<td><code>.github/SECURITY.md</code></td>
 <td>ドキュメント</td>
-<td>安全性の説明の入口と、脆弱性の連絡先・対応方針</td>
+<td>安全性の説明の入口と、脆弱性の連絡先・対応方針。配布 zip では直下に置く</td>
+</tr>
+<tr>
+<td><code>tools/mkdocs/</code></td>
+<td>開発用</td>
+<td>設計書の Web サイトを作る設定（<code>mkdocs.yml</code>）・フック（<code>hooks.py</code>）・使うパッケージ（<code>requirements.txt</code>）（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
+</tr>
+<tr>
+<td><code>.claude/CLAUDE.md</code></td>
+<td>開発用</td>
+<td>Claude Code 向けの入口。本文は直下の <code>AGENTS.md</code> を読み込む</td>
 </tr>
 <tr>
 <td><code>docs/</code></td>
