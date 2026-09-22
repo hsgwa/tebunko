@@ -34,6 +34,9 @@ class TreeRow {
     [string]$Glyph = ""         # フォルダの開閉の印（▾ / ▸）
 }
 
+
+# 名前の並べ順。Windows の表示言語に左右されず、どの PC でも日本語の並びにする
+${diffSortCulture} = "ja-JP"
 function getFolderEntries {
     # 左右のファイルを相対パス（大文字・小文字を区別しない）で対応づけ、相対パスの順に返す。
     # 1 件は @{ RelPath; Left; Right; Status; Inserts; Deletes; Changes; Error }。Status は、
@@ -55,7 +58,7 @@ function getFolderEntries {
         }
     }
     $result = New-Object System.Collections.Generic.List[object]
-    foreach ($key in @($map.Keys | Sort-Object)) {
+    foreach ($key in @($map.Keys | Sort-Object -Culture ${diffSortCulture})) {
         $entry = $map[$key]
         $entry.Inserts = 0
         $entry.Deletes = 0
@@ -201,7 +204,7 @@ function addTreeRows {
         [bool]$hideSame
     )
 
-    foreach ($key in @($node.Folders.Keys | Sort-Object)) {
+    foreach ($key in @($node.Folders.Keys | Sort-Object -Culture ${diffSortCulture})) {
         $child = $node.Folders[$key]
         $stats = getFolderStats $child
         $status = getFolderStatus $stats
@@ -229,7 +232,7 @@ function addTreeRows {
             addTreeRows $rows $child ($depth + 1) $expanded $collapsed $hideSame
         }
     }
-    foreach ($entry in @($node.Files | Sort-Object { [System.IO.Path]::GetFileName($_.RelPath) })) {
+    foreach ($entry in @($node.Files | Sort-Object { [System.IO.Path]::GetFileName($_.RelPath) } -Culture ${diffSortCulture})) {
         if ($hideSame -and $entry.Status -eq "same") {
             continue
         }
@@ -366,10 +369,10 @@ function addEntriesInTreeOrder {
         $node
     )
 
-    foreach ($key in @($node.Folders.Keys | Sort-Object)) {
+    foreach ($key in @($node.Folders.Keys | Sort-Object -Culture ${diffSortCulture})) {
         addEntriesInTreeOrder $result $node.Folders[$key]
     }
-    foreach ($entry in @($node.Files | Sort-Object { [System.IO.Path]::GetFileName($_.RelPath) })) {
+    foreach ($entry in @($node.Files | Sort-Object { [System.IO.Path]::GetFileName($_.RelPath) } -Culture ${diffSortCulture})) {
         $result.Add($entry)
     }
 }
