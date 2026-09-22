@@ -95,3 +95,28 @@ Describe "getIngestDecision" -Tag Unit {
         $d.Reason | Should Be "failed"
     }
 }
+
+Describe "testExtractOutdated（制限モードで取り込んだ行）" -Tag Unit {
+    # 制限モードは Excel を使わずにセルの表示形式を当てるため、Excel が出す文字と少し違うものがある。
+    # そこで抽出版に R を付け、いつもの画面（Excel が使える PC）では取り込み直す
+    It "いつもの画面では、R の付いた行を取り込み直す" {
+        testExtractOutdated (newRow ${stateDone} "2026/01/01 10:00:00" "1000" "2R") | Should Be $true
+        testExtractOutdated (newRow ${stateDone} "2026/01/01 10:00:00" "1000" "2") | Should Be $false
+    }
+
+    It "制限モードでは、R の付いた行も、Excel で取り込んだ行も取り込み直さない" {
+        & {
+            ${restrictedIngestMode} = $true
+            testExtractOutdated (newRow ${stateDone} "2026/01/01 10:00:00" "1000" "2R") | Should Be $false
+            testExtractOutdated (newRow ${stateDone} "2026/01/01 10:00:00" "1000" "2") | Should Be $false
+            # 前の抽出版のものは、どちらのモードでも取り込み直す
+            testExtractOutdated (newRow ${stateDone} "2026/01/01 10:00:00" "1000" "1R") | Should Be $true
+        }
+    }
+
+    It "R の付いた行も、取り込むかどうかの判断（getIngestDecision）では outdated にする" {
+        $d = getIngestDecision (newRow ${stateDone} "2026/01/01 10:00:00" "1000" "2R") "2026/01/01 10:00:00" "1000" $true
+        $d.Ingest | Should Be $true
+        $d.Reason | Should Be "outdated"
+    }
+}

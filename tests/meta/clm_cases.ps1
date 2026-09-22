@@ -349,4 +349,48 @@ $clmCases = [ordered]@{
             (getCaseBytes (Join-Path $indexDir "元\資料.pptx\スライド001.tsv"))
         )
     }
+
+    # --- shared/office/office_numfmt.ps1・office_reader_clm.ps1（Excel のセル） ---
+    "numberFormat"       = {
+        @(
+            (formatExcelCellText "1234567" "number" "General"),
+            (formatExcelCellText "1234567" "number" "#,##0"),
+            (formatExcelCellText "1234567" "number" '#,##0"円"'),
+            (formatExcelCellText "0.125" "number" "0.0%"),
+            (formatExcelCellText "-1500" "number" '#,##0;"▲"#,##0'),
+            (formatExcelCellText "0" "number" '#,##0;\-#,##0;'),
+            (formatExcelCellText "12345678901234567890" "number" "General"),
+            (formatExcelCellText "0.75" "number" "# ?/?"),
+            (formatExcelCellText "45383" "number" "yyyy/mm/dd"),
+            (formatExcelCellText "45383" "number" "[$-ja-JP]yyyy/m/d(aaa)"),
+            (formatExcelCellText "45383" "number" '[$-411]ggge"年"m"月"d"日"'),
+            (formatExcelCellText "45383.7569444444" "number" "yyyy/mm/dd hh:mm:ss"),
+            (formatExcelCellText "1.5" "number" "[h]:mm"),
+            (formatExcelCellText "0.75" "number" "h:mm AM/PM"),
+            (formatExcelCellText "60" "number" "yyyy/mm/dd"),
+            (formatExcelCellText "45383" "number" "yyyy/mm/dd" $true),
+            (formatExcelCellText "1" "boolean" "General"),
+            (formatExcelCellText "#N/A" "error" "General"),
+            (getNumberFormatCode "58" @{}),
+            (getNumberFormatCode "3" @{})
+        )
+    }
+    "xlsxCells"          = {
+        # テストデータの Excel を読み、セル・図形・コメントの TSV をバイト列で比べる
+        $outDir = Join-Path $caseDir "xlsx"
+        $workDir2 = Join-Path $caseDir "xlsx作業"
+        New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $workDir2 -Force | Out-Null
+        $count = writeXlsxTsvClm "$PSScriptRoot\..\testdata\office\Excel\セル内容.xlsx" $workDir2 $outDir
+        $names = @(Get-ChildItem -LiteralPath $outDir -File | ForEach-Object { $_.Name } | Sort-Object)
+        @(
+            [string]$count,
+            ($names -join "|"),
+            (getCaseBytes (Join-Path $outDir "数値と日付.tsv")),
+            (getCaseBytes (Join-Path $outDir "文字列.tsv")),
+            (getCaseBytes (Join-Path $outDir "レイアウト.tsv")),
+            # 作業フォルダを残さない
+            [string]@(Get-ChildItem -LiteralPath $workDir2).Count
+        )
+    }
 }

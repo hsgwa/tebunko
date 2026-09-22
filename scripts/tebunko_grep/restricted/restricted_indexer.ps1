@@ -3,10 +3,12 @@
 # いつものインデクサ（indexer.ps1）と同じ取り込み一覧・同じ形のインデックスを作る。取り込む対象の決め方（createTargetList）、
 # 取り込み一覧の読み書き（indexer_state.ps1）、インデックスへの入れ替え（publishTsv）は、いつものインデクサと同じ関数を使う。
 # 違うのは次の点:
-#   ・読めるのは Word・PowerPoint の新形式（.docx .docm .pptx .pptm）の ZIP だけ（office_reader_clm.ps1。Office は使わない）。
-#     Excel・旧形式（.xls .doc .ppt 等）・ZIP でないファイル（パスワード付きなど）は取り込まずに飛ばし、
+#   ・読めるのは新形式（.docx .docm .pptx .pptm .xlsx .xlsm）の ZIP だけ（office_reader_clm.ps1。Office は使わない）。
+#     旧形式（.xls .doc .ppt 等）・ZIP でないファイル（パスワード付きなど）は取り込まずに飛ばし、
 #     取り込み一覧では「未取り込み」のまま残す（いつもの画面が使える PC で取り込めるようにする。「失敗」にすると、
 #     いつもの画面で「失敗分も再取り込み」を選ぶまで取り込まれないため）
+#   ・Excel のセルは、表示形式を自前で当てて作る（office_numfmt.ps1）。Excel が出す文字と少し違うものがあるため、
+#     制限モードで取り込んだ行は取り込み一覧の「抽出版」に R を付け、いつもの画面が使える PC では取り込み直す
 #   ・Office を使わないため、制限時間・Office の再起動は無い
 #   ・二重起動は名前付きミューテックスの代わりに、PID を書いたロックファイル（work\インデックス作成中.lock）で防ぐ
 #   ・進み具合は Write-Progress でコンソールに出す（画面の進捗ファイルは書かない）
@@ -14,7 +16,7 @@
 # 取り込み済みの分は 1 件ごとに取り込み一覧へ追記するため、Ctrl+C で止めても次回は続きから取り込める。
 
 # 制限モードで取り込める拡張子
-${restrictedIngestExtensions} = @(".docx", ".docm", ".pptx", ".pptm")
+${restrictedIngestExtensions} = @(".docx", ".docm", ".pptx", ".pptm", ".xlsx", ".xlsm")
 
 # 二重起動を防ぐロックファイル（中身は "PID<TAB>コンピューター名<TAB>開始日時"）
 ${restrictedLockFile} = "${workDir}\インデックス作成中.lock"
@@ -132,6 +134,10 @@ function ingestRestrictedFile {
     if (!(readZipSignature $sourcePath)) {
         return $null
     }
+    if ($sourcePath -match '\.xls[xm]$') {
+        # Excel はセル・図形・コメントをまとめて書く（ZIP を 1 回だけ開く）
+        return (writeXlsxTsvClm $sourcePath ${tmpDir} ${tmpDir})
+    }
     if ($sourcePath -match '\.ppt[xm]$') {
         $units = readPptxUnitsClm $sourcePath ${tmpDir}
     } else {
@@ -151,6 +157,9 @@ function invokeRestrictedIndexing {
     if ($reason) {
         throw $reason
     }
+    # この呼び出しの間だけ「制限モードで取り込み中」にする（testExtractOutdated が、制限モードで取り込んだ行を
+    # 取り込み直さないようにするため。関数の中の変数は、そこから呼ぶ関数からも見える）
+    ${restrictedIngestMode} = $true
     $result = @{ Success = 0; Failed = @(); Skipped = @(); Dropped = 0; Targets = 0 }
     $folders = $null
     $rows = @{}
@@ -278,7 +287,8 @@ function invokeRestrictedIndexing {
                 $row.状態 = ${stateDone}
                 $row.TSV数 = [string]$tsvCount
                 $row.エラー = ""
-                $row.抽出版 = [string](getExtractVersion $relPath)
+                # 制限モードで取り込んだ印（R）を付ける。いつもの画面が使える PC では取り込み直す（testExtractOutdated）
+                $row.抽出版 = [string](getExtractVersion $relPath) + ${restrictedExtractMark}
                 $result.Success++
             } catch {
                 $message = ($_.Exception.Message -replace "\s+", " ").Trim()

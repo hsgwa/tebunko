@@ -1,6 +1,7 @@
 ﻿# 制限モードのインデックス作成（tebunko_grep\restricted\restricted_indexer.ps1）のテスト。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 . "${scriptsDir}\shared\office\office_text.ps1"
+. "${scriptsDir}\shared\office\office_numfmt.ps1"
 . "${scriptsDir}\shared\office\office_reader_clm.ps1"
 . "${scriptsDir}\tebunko_grep\indexer\indexer_plan.ps1"
 . "${scriptsDir}\tebunko_grep\indexer\index_migrate.ps1"
@@ -17,8 +18,9 @@ function newIndexerFixture {
     New-Item -ItemType Directory -Path $source -Force | Out-Null
     Copy-Item -LiteralPath "${testDataDir}\office\Word\基本.docx" -Destination (Join-Path $source "文書.docx")
     Copy-Item -LiteralPath "${testDataDir}\office\PowerPoint\基本.pptx" -Destination (Join-Path $source "資料.pptx")
-    # 制限モードでは取り込まないファイル（Excel・ZIP でないファイル）
-    [System.IO.File]::WriteAllText((Join-Path $source "表.xlsx"), "dummy")
+    Copy-Item -LiteralPath "${testDataDir}\office\Excel\基本.xlsx" -Destination (Join-Path $source "表.xlsx")
+    # 制限モードでは取り込まないファイル（旧形式・ZIP でないファイル）
+    [System.IO.File]::WriteAllText((Join-Path $source "旧形式.xls"), "dummy")
     [System.IO.File]::WriteAllText((Join-Path $source "中身はdoc.docx"), "not a zip")
     return @{
         Source   = $source
@@ -64,11 +66,11 @@ function getFixtureStatus {
 }
 
 Describe "testRestrictedIngestable" -Tag Unit {
-    It "Word・PowerPoint の新形式だけ取り込む（大文字の拡張子も）" {
-        @("a\文書.docx", "b.DOCX", "c.docm", "d.pptx", "e.PPTM") | ForEach-Object {
+    It "新形式（Word・PowerPoint・Excel）だけ取り込む（大文字の拡張子も）" {
+        @("a\文書.docx", "b.DOCX", "c.docm", "d.pptx", "e.PPTM", "f.xlsx", "g.XLSM") | ForEach-Object {
             testRestrictedIngestable $_ | Should Be $true
         }
-        @("a.xlsx", "b.xlsm", "c.doc", "d.ppt", "e.pdf", "f") | ForEach-Object {
+        @("a.xls", "b.xlsb", "c.doc", "d.ppt", "e.pdf", "f") | ForEach-Object {
             testRestrictedIngestable $_ | Should Be $false
         }
     }
@@ -150,29 +152,32 @@ Describe "invokeRestrictedIndexing" -Tag Io {
         { invokeFixtureIndexing $fixture } | Should Throw "クロール対象フォルダがありません"
     }
 
-    It "Word・PowerPoint を取り込み、Excel・ZIP でないファイルは未取り込みのまま残す" {
+    It "Word・PowerPoint・Excel を取り込み、旧形式・ZIP でないファイルは未取り込みのまま残す" {
         $fixture = newIndexerFixture "idx_run"
         writeTargetFolders @((New-Object PSObject -Property ([ordered]@{ Name = "元"; Path = $fixture.Source; Enabled = $true }))) $fixture.Settings
 
         $result = invokeFixtureIndexing $fixture
-        $result.Success | Should Be 2
+        $result.Success | Should Be 3
         @($result.Failed).Count | Should Be 0
         @($result.Skipped).Count | Should Be 2
-        $result.Targets | Should Be 4
+        $result.Targets | Should Be 5
 
         # いつものインデクサと同じ形（work\index\<インデックス名>\<相対パス>\<場所>.tsv）に作る
         $indexDir = Join-Path $fixture.Work "index"
         Test-Path -LiteralPath (Join-Path $indexDir "元\文書.docx\ページ001.tsv") | Should Be $true
         Test-Path -LiteralPath (Join-Path $indexDir "元\資料.pptx\スライド001.tsv") | Should Be $true
-        Test-Path -LiteralPath (Join-Path $indexDir "元\表.xlsx") | Should Be $false
+        Test-Path -LiteralPath (Join-Path $indexDir "元\表.xlsx\売上.tsv") | Should Be $true
+        Test-Path -LiteralPath (Join-Path $indexDir "元\旧形式.xls") | Should Be $false
 
         $status = getFixtureStatus $fixture
         $status.Rows["元\文書.docx"].状態 | Should Be ${stateDone}
         $status.Rows["元\文書.docx"].TSV数 | Should Be "3"
-        $status.Rows["元\文書.docx"].抽出版 | Should Be "2"
+        # 制限モードで取り込んだ行には R を付ける（いつもの画面が使える PC では取り込み直す）
+        $status.Rows["元\文書.docx"].抽出版 | Should Be "2R"
         $status.Rows["元\資料.pptx"].状態 | Should Be ${stateDone}
+        $status.Rows["元\表.xlsx"].状態 | Should Be ${stateDone}
         # 取り込めないファイルは「失敗」にしない（いつもの画面が使える PC で取り込めるようにするため）
-        $status.Rows["元\表.xlsx"].状態 | Should Be ${stateNew}
+        $status.Rows["元\旧形式.xls"].状態 | Should Be ${stateNew}
         $status.Rows["元\中身はdoc.docx"].状態 | Should Be ${stateNew}
         # クロール対象フォルダとインデックス名を記録する
         $status.Folders[0].Name | Should Be "元"
@@ -290,14 +295,14 @@ Describe "invokeRestrictedIndexing" -Tag Io {
 
         # 1 回目の強制終了: 最後に回して取り込む（印は消える）
         writeIngestingFile "元\文書.docx" 1 $ingesting
-        (invokeFixtureIndexing $fixture).Success | Should Be 2
+        (invokeFixtureIndexing $fixture).Success | Should Be 3
         Test-Path -LiteralPath $ingesting | Should Be $false
 
         # 2 回続けて強制終了したファイルは取り込まずに失敗にする
         writeIngestingFile "元\資料.pptx" 2 $ingesting
         Remove-Item -LiteralPath (Join-Path $fixture.Work "index\元\資料.pptx") -Recurse -Force
         $result = invokeFixtureIndexing $fixture
-        $result.Targets | Should Be 2  # 資料.pptx は対象から外れ、取り込めない 2 件（Excel・ZIP でないファイル）が残る
+        $result.Targets | Should Be 2  # 資料.pptx は対象から外れ、取り込めない 2 件（旧形式・ZIP でないファイル）が残る
         $row = (getFixtureStatus $fixture).Rows["元\資料.pptx"]
         $row.状態 | Should Be ${stateFailed}
         $row.エラー | Should Match "2 回続けて強制終了された"

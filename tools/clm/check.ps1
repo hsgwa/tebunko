@@ -172,7 +172,7 @@ expect '制限モードの検索と、結果のブック（tar.exe で xlsx を�
     'hits=2 ' + (Get-Item -LiteralPath $book).Length + ' bytes'
 }
 
-expect '制限モードのインデックス作成（Word・PowerPoint を tar.exe で読む）' ok {
+expect '制限モードのインデックス作成（Word・PowerPoint・Excel を tar.exe で読む）' ok {
     . (Join-Path $Root 'scripts\tebunko_grep\restricted\lib_restricted.ps1')
     $caseRoot = Join-Path $work '作成'
     $source = Join-Path $caseRoot '元'
@@ -192,16 +192,17 @@ expect '制限モードのインデックス作成（Word・PowerPoint を tar.e
     $restrictedLockFile = Join-Path $workDir 'インデックス作成中.lock'
     writeTargetFolders @((New-Object PSObject -Property ([ordered]@{ Name = '元'; Path = $source; Enabled = $true }))) $settingsFile
     $result = invokeRestrictedIndexing
-    if ($result.Success -ne 2) {
+    if ($result.Success -ne 3) {
         throw '取り込み=' + $result.Success + ' 失敗=' + (@($result.Failed | ForEach-Object { $_.Message }) -join ' ')
     }
-    # Excel は制限モードでは取り込まず、未取り込みのまま残す
+    # Excel のセルも取り込み、制限モードで取り込んだ印（R）を付ける
     $status = readStatusFile $statusFile
-    $state = [string]$status.Rows['元\表.xlsx'].状態
-    if ($state -ne ${stateNew}) { throw 'xlsx の状態=' + $state }
+    $row = $status.Rows['元\表.xlsx']
+    if ([string]$row.状態 -ne ${stateDone}) { throw 'xlsx の状態=' + $row.状態 }
+    if ([string]$row.抽出版 -notmatch 'R$') { throw 'xlsx の抽出版=' + $row.抽出版 }
     $tsv = @(Get-ChildItem -LiteralPath $indexDir -Recurse -Filter '*.tsv')
-    if ($tsv.Count -lt 2) { throw 'TSV=' + $tsv.Count }
-    '取り込み 2 件・TSV ' + $tsv.Count + ' 件'
+    if ($tsv.Count -lt 3) { throw 'TSV=' + $tsv.Count }
+    '取り込み 3 件・TSV ' + $tsv.Count + ' 件'
 }
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 

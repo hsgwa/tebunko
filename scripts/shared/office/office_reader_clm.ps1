@@ -850,53 +850,62 @@ function readXlsxObjectUnitsClm {
         [string]$workRoot
     )
 
-    $units = newUnitsClm
     $zip = openOfficeZip $path $workRoot
     try {
-        $workbookXml = readOfficeZipEntry $zip "xl/workbook.xml"
-        if ($null -eq $workbookXml) {
-            return (getUnitsClm $units)
-        }
-        [xml]$workbook = $workbookXml
-        $workbookRels = readRelationshipsClm $zip "xl/workbook.xml"
-
-        foreach ($sheet in $workbook.GetElementsByTagName("sheet", ${nsSheetClm})) {
-            if ((getXmlAttribute $sheet "state") -in @("hidden", "veryHidden")) { continue }
-            $rel = $workbookRels[(getXmlAttribute $sheet "id" ${nsRelClm})]
-            if ($null -eq $rel -or $rel.Type -notlike "*/worksheet") { continue }
-            $sheetName = getXmlAttribute $sheet "name"
-
-            $shapes = @()
-            $commentsXml = $null
-            $threadedXmls = @()
-            foreach ($sheetRel in (readRelationshipsClm $zip $rel.Target).Values) {
-                $xml = readOfficeZipEntry $zip $sheetRel.Target
-                if ($null -eq $xml) { continue }
-                if ($sheetRel.Type -like "*/drawing") {
-                    $shapes += @(readXlsxShapeRowsClm $xml)
-                } elseif ($sheetRel.Type -like "*/comments") {
-                    $commentsXml = $xml
-                } elseif ($sheetRel.Type -like "*/threadedComment") {
-                    $threadedXmls += $xml
-                }
-            }
-
-            for ($i = 0; $i -lt $shapes.Count; $i++) { $shapes[$i].Order = $i }
-            $lines = @($shapes | Sort-Object { $_.Row }, { $_.Column }, { $_.Order } |
-                ForEach-Object { "$(toColumnName $_.Column)$($_.Row)`t$($_.Text)" })
-            if ($lines.Count -gt 0) {
-                addUnitLinesClm $units "${sheetName}[図形]" $lines
-            }
-
-            $comments = readXlsxCommentRowsClm $commentsXml $threadedXmls
-            $lines = @($comments.Keys | Sort-Object { (getCellPosition $_)[0] }, { (getCellPosition $_)[1] } |
-                ForEach-Object { "$($_.Replace('$', ''))`t$(toObjectCellText @($comments[$_] -split "\r\n|\r|\n"))" })
-            if ($lines.Count -gt 0) {
-                addUnitLinesClm $units "${sheetName}[コメント]" $lines
-            }
-        }
+        return (readXlsxObjectUnitsFromZipClm $zip)
     } finally {
         closeOfficeZip $zip
+    }
+}
+
+function readXlsxObjectUnitsFromZipClm {
+    # 開いてある ZIP から、図形とコメントの文字を読む（セルと一緒に読むとき、ZIP を 2 回展開しないため）
+    param (
+        $zip
+    )
+
+    $units = newUnitsClm
+    $workbookXml = readOfficeZipEntry $zip "xl/workbook.xml"
+    if ($null -eq $workbookXml) {
+        return (getUnitsClm $units)
+    }
+    [xml]$workbook = $workbookXml
+    $workbookRels = readRelationshipsClm $zip "xl/workbook.xml"
+
+    foreach ($sheet in $workbook.GetElementsByTagName("sheet", ${nsSheetClm})) {
+        if ((getXmlAttribute $sheet "state") -in @("hidden", "veryHidden")) { continue }
+        $rel = $workbookRels[(getXmlAttribute $sheet "id" ${nsRelClm})]
+        if ($null -eq $rel -or $rel.Type -notlike "*/worksheet") { continue }
+        $sheetName = getXmlAttribute $sheet "name"
+
+        $shapes = @()
+        $commentsXml = $null
+        $threadedXmls = @()
+        foreach ($sheetRel in (readRelationshipsClm $zip $rel.Target).Values) {
+            $xml = readOfficeZipEntry $zip $sheetRel.Target
+            if ($null -eq $xml) { continue }
+            if ($sheetRel.Type -like "*/drawing") {
+                $shapes += @(readXlsxShapeRowsClm $xml)
+            } elseif ($sheetRel.Type -like "*/comments") {
+                $commentsXml = $xml
+            } elseif ($sheetRel.Type -like "*/threadedComment") {
+                $threadedXmls += $xml
+            }
+        }
+
+        for ($i = 0; $i -lt $shapes.Count; $i++) { $shapes[$i].Order = $i }
+        $lines = @($shapes | Sort-Object { $_.Row }, { $_.Column }, { $_.Order } |
+            ForEach-Object { "$(toColumnName $_.Column)$($_.Row)`t$($_.Text)" })
+        if ($lines.Count -gt 0) {
+            addUnitLinesClm $units "${sheetName}[図形]" $lines
+        }
+
+        $comments = readXlsxCommentRowsClm $commentsXml $threadedXmls
+        $lines = @($comments.Keys | Sort-Object { (getCellPosition $_)[0] }, { (getCellPosition $_)[1] } |
+            ForEach-Object { "$($_.Replace('$', ''))`t$(toObjectCellText @($comments[$_] -split "\r\n|\r|\n"))" })
+        if ($lines.Count -gt 0) {
+            addUnitLinesClm $units "${sheetName}[コメント]" $lines
+        }
     }
     return (getUnitsClm $units)
 }
@@ -917,6 +926,301 @@ function writeUnitsClm {
         if ($lines.Count -eq 0) { continue }
         $path = Join-Path $outDir (toIndexFileName $unitName)
         Set-Content -LiteralPath (toLongPath $path) -Value $lines -Encoding UTF8
+        $count++
+    }
+    return $count
+}
+
+# ----------------------------------------------------------------------------
+# Excel のセル（Excel を使わずに xl/worksheets/*.xml から読む）
+# ----------------------------------------------------------------------------
+
+function readSharedStringsClm {
+    # xl/sharedStrings.xml の文字列を、番号順の配列で返す。
+    # ふりがな（rPh）は読まず、書式で分かれた <r> はつなぐ（Excel のセルの文字と同じ）
+    param (
+        [string]$xml
+    )
+
+    if (!$xml) {
+        return @()
+    }
+    # <si> ごとに、<rPh> の中を除いた <t> をつなぐ
+    $items = @{}
+    foreach ($match in [regex]::Matches($xml, '<si>(.*?)</si>', "Singleline")) {
+        $inner = $match.Groups[1].Value
+        # ふりがなは読まない（office_reader.ps1 のコメントと同じ扱い）
+        $inner = [regex]::Replace($inner, '<rPh\b.*?</rPh>', "", "Singleline")
+        $text = ""
+        foreach ($t in [regex]::Matches($inner, '<t(?:\s[^>]*)?>(.*?)</t>', "Singleline")) {
+            $text += decodeXmlText $t.Groups[1].Value
+        }
+        $items[$items.Count] = decodeXlsxEscapes $text
+    }
+    return @(for ($i = 0; $i -lt $items.Count; $i++) { $items[$i] })
+}
+
+function decodeXlsxEscapes {
+    # Excel が文字列に書く _xHHHH_（CR など、XML にそのまま書けない文字）を元の文字に戻す。
+    # 元から _xHHHH_ という文字だったものは _x005F_xHHHH_ と書かれるため、先に守ってから戻す
+    param (
+        [string]$text
+    )
+
+    if ($text.IndexOf("_x") -lt 0) {
+        return $text
+    }
+    $guard = [string][char]0xE0FE
+    $text = $text.Replace("_x005F_", $guard)
+    foreach ($match in [regex]::Matches($text, '_x([0-9A-Fa-f]{4})_')) {
+        $code = [int]("0x" + $match.Groups[1].Value)
+        $text = $text.Replace($match.Value, [string][char]$code)
+    }
+    return $text.Replace($guard, "_x005F_")
+}
+
+function readCellStylesClm {
+    # xl/styles.xml から、セルの書式（s 属性）→ 表示形式の書式 の配列を返す
+    param (
+        [string]$xml
+    )
+
+    if (!$xml) {
+        return @()
+    }
+    # ブックに書かれた表示形式（番号 → 書式）
+    $formats = @{}
+    foreach ($match in [regex]::Matches($xml, '<numFmt\b[^>]*/?>')) {
+        $tag = $match.Value
+        if ($tag -match 'numFmtId="([^"]*)"' ) {
+            $id = $Matches[1]
+            if ($tag -match 'formatCode="([^"]*)"') {
+                $formats[$id] = decodeXmlText $Matches[1]
+            }
+        }
+    }
+    # セルの書式（cellXfs）の並び順が s 属性の番号になる
+    $styles = @{}
+    if ($xml -match '<cellXfs\b.*?</cellXfs>') {
+        foreach ($match in [regex]::Matches($Matches[0], '<xf\b[^>]*>')) {
+            $id = "0"
+            if ($match.Value -match 'numFmtId="([^"]*)"') {
+                $id = $Matches[1]
+            }
+            $styles[$styles.Count] = getNumberFormatCode $id $formats
+        }
+    }
+    return @(for ($i = 0; $i -lt $styles.Count; $i++) { $styles[$i] })
+}
+
+function toExcelCellText {
+    # セルの表示文字を、Excel のテキスト保存と同じ 1 セルにする。
+    # 改行はセル内改行（$cellNewLine）にし、改行・" ・タブ・カンマを含むときは " で囲む（中の " は "" にする）
+    param (
+        [string]$text
+    )
+
+    if ($text -eq "") {
+        return ""
+    }
+    if ($text.IndexOfAny([char[]]@('"', "`t", "`r", "`n", ",")) -lt 0) {
+        return $text
+    }
+    $text = ($text -replace "\r\n|\r|\n", ${cellNewLine}).Replace('"', '""')
+    return "`"$text`""
+}
+
+function readXlsxSheetTextClm {
+    # 1 シートの XML を、Excel のテキスト保存と同じ TSV（整形前）にする。
+    # 1 行目がシートの 1 行目、1 列目が A 列になるよう、間の空行・空セルはタブと改行で埋める
+    param (
+        [string]$xml,
+        [object[]]$sharedStrings = @(),
+        [object[]]$styles = @(),
+        [bool]$date1904 = $false
+    )
+
+    if (!$xml) {
+        return ""
+    }
+    # 行ごと・セルごとに走査する（シートが大きいと [xml] の組み立てが重いため、正規表現で読む）
+    $rows = @{}
+    $maxRow = 0
+    foreach ($rowMatch in [regex]::Matches($xml, '<row\b[^>]*?(?:/>|>(.*?)</row>)', "Singleline")) {
+        $rowTag = $rowMatch.Value
+        $rowNumber = 0
+        if ($rowTag -match '^<row\b[^>]*\br="([0-9]{1,9})"') {
+            $rowNumber = [int]$Matches[1]
+        }
+        $cells = @{}
+        $maxColumn = 0
+        $nextColumn = 1  # r（セル番地）の無いファイルのために、左から順に数える
+        foreach ($cellMatch in [regex]::Matches($rowMatch.Groups[1].Value, '<c\b[^>]*?(?:/>|>(.*?)</c>)', "Singleline")) {
+            $cellTag = $cellMatch.Value
+            $column = 0
+            if ($cellTag -match '^<c\b[^>]*\br="([A-Za-z]{1,3})([0-9]{1,9})"') {
+                $position = getCellPosition ($Matches[1] + $Matches[2])
+                $column = $position[1]
+                if ($rowNumber -eq 0) { $rowNumber = $position[0] }
+            } else {
+                $column = $nextColumn  # r が無いファイル（書き出し側によっては省く）は左から順に並ぶ
+            }
+            $nextColumn = $column + 1
+            $kind = "number"
+            if ($cellTag -match '^<c\b[^>]*\bt="([^"]*)"') {
+                $kind = $Matches[1]
+            }
+            $style = ""
+            if ($cellTag -match '^<c\b[^>]*\bs="([0-9]{1,9})"') {
+                $style = $Matches[1]
+            }
+            $inner = $cellMatch.Groups[1].Value
+            $text = getXlsxCellDisplayText $inner $kind $style $sharedStrings $styles $date1904
+            if ($text -ne "") {
+                $cells[$column] = toExcelCellText $text
+                if ($column -gt $maxColumn) { $maxColumn = $column }
+            }
+        }
+        if ($rowNumber -gt 0 -and $maxColumn -gt 0) {
+            $line = @(for ($i = 1; $i -le $maxColumn; $i++) { $(if ($cells.ContainsKey($i)) { $cells[$i] } else { "" }) }) -join "`t"
+            $rows[$rowNumber] = $line
+            if ($rowNumber -gt $maxRow) { $maxRow = $rowNumber }
+        }
+    }
+    if ($maxRow -eq 0) {
+        return ""
+    }
+    return (@(for ($i = 1; $i -le $maxRow; $i++) { $(if ($rows.ContainsKey($i)) { $rows[$i] } else { "" }) }) -join "`r`n")
+}
+
+function getXlsxCellDisplayText {
+    # 1 セルの中身（<c> の中）から、Excel が画面に出す文字を作る
+    param (
+        [string]$inner,
+        [string]$kind,
+        [string]$style,
+        [object[]]$sharedStrings = @(),
+        [object[]]$styles = @(),
+        [bool]$date1904 = $false
+    )
+
+    if ($kind -eq "inlineStr") {
+        $text = ""
+        $body = [regex]::Replace($inner, '<rPh\b.*?</rPh>', "", "Singleline")
+        foreach ($t in [regex]::Matches($body, '<t(?:\s[^>]*)?>(.*?)</t>', "Singleline")) {
+            $text += decodeXmlText $t.Groups[1].Value
+        }
+        return $text
+    }
+    $value = ""
+    # 改行を含む値（数式の結果など）もあるため、改行をまたいで探す
+    $found = [regex]::Match($inner, '<v(?:\s[^>]*)?>(.*?)</v>', "Singleline")
+    if ($found.Success) {
+        $value = decodeXmlText $found.Groups[1].Value
+    }
+    if ($value -eq "") {
+        return ""
+    }
+    if ($kind -eq "s") {
+        # 共有文字列（番号で引く）
+        if ($value -match '^[0-9]{1,9}$' -and [int]$value -lt $sharedStrings.Count) {
+            return [string]$sharedStrings[[int]$value]
+        }
+        return ""
+    }
+    if ($kind -eq "str") {
+        return $value  # 数式の結果の文字列
+    }
+    $format = "General"
+    if ($style -ne "" -and [int]$style -lt $styles.Count) {
+        $format = [string]$styles[[int]$style]
+    }
+    if ($kind -eq "e") {
+        return (formatExcelCellText $value "error" $format $date1904)
+    }
+    if ($kind -eq "b") {
+        return (formatExcelCellText $value "boolean" $format $date1904)
+    }
+    return (formatExcelCellText $value "number" $format $date1904)
+}
+
+function readXlsxCellTextsClm {
+    # Excel（.xlsx / .xlsm）の表示シートのセルを、シート名 → TSV（整形前）で返す。
+    # 非表示シート・グラフシート・値の無いシートは返さない（いつものインデクサと同じ）
+    param (
+        [string]$path,
+        [string]$workRoot
+    )
+
+    $zip = openOfficeZip $path $workRoot
+    try {
+        return (readXlsxCellTextsFromZipClm $zip)
+    } finally {
+        closeOfficeZip $zip
+    }
+}
+
+function readXlsxCellTextsFromZipClm {
+    # 開いてある ZIP から、表示シートのセルを シート名 → TSV（整形前）で読む
+    param (
+        $zip
+    )
+
+    $texts = [ordered]@{}
+    $workbookXml = readOfficeZipEntry $zip "xl/workbook.xml"
+    if ($null -eq $workbookXml) {
+        return $texts
+    }
+    [xml]$workbook = $workbookXml
+    $date1904 = $false
+    foreach ($pr in $workbook.GetElementsByTagName("workbookPr", ${nsSheetClm})) {
+        $flag = getXmlAttribute $pr "date1904"
+        if ($flag -eq "1" -or $flag -eq "true") { $date1904 = $true }
+    }
+    $sharedStrings = readSharedStringsClm (readOfficeZipEntry $zip "xl/sharedStrings.xml")
+    $styles = readCellStylesClm (readOfficeZipEntry $zip "xl/styles.xml")
+    $workbookRels = readRelationshipsClm $zip "xl/workbook.xml"
+
+    foreach ($sheet in $workbook.GetElementsByTagName("sheet", ${nsSheetClm})) {
+        if ((getXmlAttribute $sheet "state") -in @("hidden", "veryHidden")) { continue }
+        $rel = $workbookRels[(getXmlAttribute $sheet "id" ${nsRelClm})]
+        if ($null -eq $rel -or $rel.Type -notlike "*/worksheet") { continue }
+        $sheetXml = readOfficeZipEntry $zip $rel.Target
+        if ($null -eq $sheetXml) { continue }
+        $text = readXlsxSheetTextClm $sheetXml $sharedStrings $styles $date1904
+        if ($text -ne "") {
+            # シート名のタブ・改行は _x0009_ のように書かれるため、元の文字に戻す
+            $texts[(decodeXlsxEscapes (getXmlAttribute $sheet "name"))] = $text
+        }
+    }
+    return $texts
+}
+
+function writeXlsxTsvClm {
+    # Excel（.xlsx / .xlsm）のセル・図形・コメントを、いつものインデクサと同じ形の TSV にして書き、書いた数を返す。
+    # ZIP は 1 回だけ開く（tar.exe での展開は時間がかかるため）
+    param (
+        [string]$path,
+        [string]$workRoot,
+        [string]$outDir
+    )
+
+    $zip = openOfficeZip $path $workRoot
+    try {
+        $units = readXlsxObjectUnitsFromZipClm $zip
+        $texts = readXlsxCellTextsFromZipClm $zip
+    } finally {
+        closeOfficeZip $zip
+    }
+
+    $count = writeUnitsClm $units $outDir
+    foreach ($sheetName in @($texts.Keys)) {
+        # 行末の空セル・末尾の空行を取り除き、1 行目がシートの 1 行目になるようにそろえる（いつものインデクサと同じ formatTsv）
+        $content = formatTsv $texts[$sheetName] 1 1
+        if ($content -eq "") {
+            continue
+        }
+        writeUtf8BomLines (toLongPath (Join-Path $outDir (toIndexFileName $sheetName))) ($content -split "`r`n")
         $count++
     }
     return $count

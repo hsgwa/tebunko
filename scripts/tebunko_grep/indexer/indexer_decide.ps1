@@ -24,16 +24,27 @@ function getExtractVersion {
     return $(if ($null -eq $version) { 1 } else { $version })
 }
 
+# 制限モードでインデックスを作っている最中か（invokeRestrictedIndexing が自分の呼び出しの間だけ $true にする）。
+# 制限モードは Excel を使わずにセルの表示形式を当てるため、Excel が出す文字と少し違うものがある。
+# そこで制限モードで取り込んだ行の「抽出版」には R を付け、いつもの画面が使える PC では取り込み直す
+${restrictedIngestMode} = $false
+${restrictedExtractMark} = "R"
+
 function testExtractOutdated {
-    # 取り込み一覧の行が、今の抽出版より前の版で取り込んだものか
+    # 取り込み一覧の行が、取り込み直す版のものか（前の抽出版で取り込んだもの・制限モードで取り込んだもの）
     param (
         $row
     )
 
     # 読めなければ 1（[int]::TryParse の [ref] は制限言語モードで使えないため、形を確かめてから [int] にする）
     $version = 1
-    if ([string]$row.抽出版 -match '^\s*[+-]?[0-9]{1,9}\s*$') {
-        $version = [int][string]$row.抽出版
+    $text = [string]$row.抽出版
+    if ($text -match '^\s*[+-]?([0-9]{1,9})\s*R?\s*$') {
+        $version = [int]$Matches[1]
+    }
+    if ($text -match 'R\s*$' -and -not ${restrictedIngestMode}) {
+        # 制限モードで取り込んだ行。いつもの画面（Excel が使える PC）では、Excel の表示どおりに取り込み直す
+        return $true
     }
     return ($version -lt (getExtractVersion $row.相対パス))
 }

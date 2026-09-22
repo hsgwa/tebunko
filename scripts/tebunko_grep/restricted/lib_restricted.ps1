@@ -18,6 +18,7 @@
 # インデックス作成（いつものインデクサと同じ判断・同じ形の取り込み一覧。Office の読み取りは制限言語モード用のもの）
 . "$PSScriptRoot\..\..\shared\office\office_files.ps1"
 . "$PSScriptRoot\..\..\shared\office\office_text.ps1"
+. "$PSScriptRoot\..\..\shared\office\office_numfmt.ps1"
 . "$PSScriptRoot\..\..\shared\office\office_reader_clm.ps1"
 . "$PSScriptRoot\..\indexer\indexer_state.ps1"
 . "$PSScriptRoot\..\indexer\indexer_decide.ps1"
