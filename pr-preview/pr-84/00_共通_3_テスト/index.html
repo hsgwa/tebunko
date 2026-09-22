@@ -2386,7 +2386,7 @@
 <li>当てた後に新しい <code>powershell.exe</code> で <code>tools/clm/check.ps1</code> を動かす。項目ごとに「動く」か「止まる」かの見込みを書いてあり、見込みと違う項目があれば失敗にする。結果はジョブの概要（Summary）に表で出る</li>
 <li>当てた後の手順は <code>shell: cmd</code> にする。<code>shell: powershell</code> は一時フォルダの ps1 を動かすため、手順そのものが制限言語モードになる</li>
 <li>必須チェックにはしない。ランナーの版が上がると、ポリシーの当て方が変わるおそれがあるため</li>
-<li>確かめたことの例: <code>tar.exe</code> は引数を CP932 で受け取るため、CP932 に無い文字（<code>𠮷</code> や絵文字）を含むパスは引数では開けず、cmd のリダイレクト（<code>tar -xf - &lt; "&lt;パス&gt;"</code>）なら開ける。<code>[regex]::Replace</code> にスクリプトブロックを渡すと、エラーにならずにブロックの文字列そのものに置き換わる</li>
+<li>確かめたことの例: <code>tar.exe</code> は引数を ANSI のコードページ（日本語版の Windows は CP932、英語版のランナーは CP1252）で受け取るため、そこに無い文字を含むパスは引数では開けない（英語版では日本語の名前も開けない）。cmd のリダイレクト（<code>tar -xf - &lt; "&lt;パス&gt;"</code>）なら開ける。<code>[regex]::Replace</code> にスクリプトブロックを渡すと、エラーにならずにブロックの文字列そのものに置き換わる</li>
 <li>AppLocker でも試したが、規則の判定は効いても PowerShell が制限言語モードにならなかったため使わない</li>
 </ul>
 <p><strong><code>release.yml</code>（配布物の公開）</strong></p>
