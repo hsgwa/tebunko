@@ -13,6 +13,10 @@ function newStatusRow {
         [string]$extractVersion = ""
     )
 
+    if (!${fullLanguage}) {
+        # 制限言語モード（制限モードのインデックス作成）では [pscustomobject] を作れないため、同じ項目のハッシュテーブルにする
+        return @{ 相対パス = $relPath; 更新日時 = $updated; サイズ = $size; 状態 = $state; TSV数 = $tsvCount; 取り込み日時 = $ingested; エラー = $errorMessage; 抽出版 = $extractVersion }
+    }
     return [pscustomobject]@{
         相対パス = $relPath
         更新日時 = $updated
@@ -116,6 +120,9 @@ function readStatusFile {
         [string]$path = ${statusFile}
     )
 
+    if (!${fullLanguage}) {
+        return (readStatusFileClm $path)
+    }
     $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
     $folders = New-Object System.Collections.Generic.List[object]
     $result = @{ Folders = $folders; Rows = $rows }
@@ -164,6 +171,44 @@ function readStatusFile {
     return $result
 }
 
+function readStatusFileClm {
+    # readStatusFile の制限言語モードの書き方（FileStream・Dictionary・[pscustomobject] を使えない）。
+    # Rows はハッシュテーブル（大文字・小文字を区別しない）、行もハッシュテーブル（項目は newStatusRow と同じ）、Folders は配列にする
+    param (
+        [string]$path
+    )
+
+    $rows = @{}
+    $folders = @()
+    if (!(Test-Path -LiteralPath $path)) {
+        return @{ Folders = $folders; Rows = $rows }
+    }
+    $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop
+    if ($null -eq $text) {
+        $text = ""
+    }
+    $columnCount = ${statusColumns}.Count
+    foreach ($line in ($text -split "\r?\n")) {
+        $fields = $line.Split("`t")
+        if ($fields[0] -eq ${statusFolderKey} -and ($fields.Count -eq 2 -or $fields.Count -eq 3)) {
+            $folders += New-Object PSObject -Property ([ordered]@{ Path = $fields[1]; Name = $(if ($fields.Count -eq 3) { $fields[2] } else { "" }) })
+            continue
+        }
+        if ($fields[0] -eq ${statusColumns}[0]) {
+            $columnCount = $fields.Count
+            continue
+        }
+        if ($fields.Count -ne $columnCount -or $fields[0] -eq "") {
+            continue
+        }
+        $rows[$fields[0]] = @{
+            相対パス = $fields[0]; 更新日時 = $fields[1]; サイズ = $fields[2]; 状態 = $fields[3]; TSV数 = $fields[4]
+            取り込み日時 = $fields[5]; エラー = $fields[6]; 抽出版 = $(if ($fields.Count -gt 7) { $fields[7] } else { "" })
+        }
+    }
+    return @{ Folders = $folders; Rows = $rows }
+}
+
 function writeStatusFile {
     # 取り込み一覧を書き出す（1ファイル1行）。途中で中断しても壊れないよう、一時ファイルに書いてから置き換える
     #   folders: クロール対象フォルダ @{ Path; Name } の配列。"クロール対象フォルダ<TAB>パス<TAB>インデックス名" の行にする
@@ -173,27 +218,26 @@ function writeStatusFile {
         [string]$path = ${statusFile}
     )
 
-    $lines = New-Object System.Collections.Generic.List[string]
-    foreach ($folder in @($folders | Where-Object { $_ })) {
-        $lines.Add("${statusFolderKey}`t$($folder.Path)`t$($folder.Name)")
-    }
-    $lines.Add((${statusColumns} -join "`t"))
+    $head = @(foreach ($folder in @($folders | Where-Object { $_ })) {
+            "${statusFolderKey}`t$($folder.Path)`t$($folder.Name)"
+        }) + @(${statusColumns} -join "`t")
     # 数万行を書き出すため、1行ごとの関数呼び出し（toStatusLine）・パイプライン（Where-Object）は使わない
-    # （5万行で約 10 秒 → 約 0.2 秒。この間はインデックス作成の進み具合が止まって見えるため速くする）
-    foreach ($row in $rows) {
-        if ($null -eq $row) {
-            continue
-        }
-        $errorText = [string]$row.エラー
-        if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
-            $errorText = $errorText -replace "[\t\r\n]+", " "
-        }
-        $lines.Add([string]::Join("`t", @(
-            [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
-            [string]$row.TSV数, [string]$row.取り込み日時, $errorText, [string]$row.抽出版)))
-    }
+    # （5万行で約 10 秒 → 約 0.2 秒。この間はインデックス作成の進み具合が止まって見えるため速くする）。
+    # 制限言語モードでも動くよう、List ではなく foreach の出力を受けて配列にする
+    $body = @(foreach ($row in $rows) {
+            if ($null -eq $row) {
+                continue
+            }
+            $errorText = [string]$row.エラー
+            if ($errorText.IndexOfAny(${statusLineBreaks}) -ge 0) {
+                $errorText = $errorText -replace "[\t\r\n]+", " "
+            }
+            [string]::Join("`t", @(
+                    [string]$row.相対パス, [string]$row.更新日時, [string]$row.サイズ, [string]$row.状態,
+                    [string]$row.TSV数, [string]$row.取り込み日時, $errorText, [string]$row.抽出版))
+        })
 
-    writeTextLinesAtomic $path $lines
+    writeTextLinesAtomic $path ($head + $body)
 }
 
 function addStatusRow {
@@ -203,6 +247,11 @@ function addStatusRow {
         [string]$path = ${statusFile}
     )
 
+    if (!${fullLanguage}) {
+        # 制限言語モード: Add-Content -Encoding UTF8 は、既にあるファイルには BOM を付けずに足す（AppendAllText と同じ中身）
+        Add-Content -LiteralPath $path -Value (toStatusLine $row) -Encoding UTF8
+        return
+    }
     [System.IO.File]::AppendAllText($path, "$(toStatusLine $row)`r`n", ${utf8Bom})
 }
 
@@ -218,8 +267,12 @@ function readIngestingFile {
         return $null
     }
     $fields = $lines[0].Split("`t")
-    $count = 0
-    if ($fields.Count -ne 2 -or -not [int]::TryParse($fields[0], [ref]$count) -or $count -lt 1 -or $fields[1] -eq "") {
+    # 回数は [int]::TryParse と同じく読む（[ref] は制限言語モードで使えないため、形を確かめてから [int] にする）
+    if ($fields.Count -ne 2 -or $fields[0] -notmatch '^\s*[+-]?[0-9]{1,9}\s*$' -or $fields[1] -eq "") {
+        return $null
+    }
+    $count = [int]$fields[0]
+    if ($count -lt 1) {
         return $null
     }
     return @{ RelPath = $fields[1]; Count = $count }
@@ -337,7 +390,8 @@ function newIngestPlanRow {
         [int]$failed = 0    # 前回失敗し、その後更新されていない（再取り込みするかは画面で選ぶ）
     )
 
-    return [pscustomobject]@{
+    # インデックス 1 件に 1 回だけ作るため、制限言語モードでも作れる New-Object PSObject にする
+    return New-Object PSObject -Property ([ordered]@{
         インデックス名 = $name
         元のフォルダ   = $path
         区分           = $kind
@@ -348,7 +402,7 @@ function newIngestPlanRow {
         前回未完了     = $pending
         インデックスなし   = $lost
         前回失敗       = $failed
-    }
+    })
 }
 
 function writeIngestPlan {
@@ -507,12 +561,12 @@ function renameStatusIndexName {
         return
     }
 
-    $result = New-Object System.Collections.Generic.List[string]
-    foreach ($line in $lines) {
+    # 制限モード（制限言語モード）からも使うため、List ではなく配列に集める
+    $result = @(foreach ($line in $lines) {
         $fields = $line.Split("`t")
         if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and [string]::Equals($fields[2], $oldName, [System.StringComparison]::OrdinalIgnoreCase)) {
             $fields[2] = $newName
-            $result.Add($fields -join "`t")
+            $fields -join "`t"
             continue
         }
         # 以前の形式（抽出版の列が無い）の行も readStatusFile は読むため、同じように扱う
@@ -520,12 +574,12 @@ function renameStatusIndexName {
             $split = splitIndexRelPath $fields[0]
             if ($split.Rest -ne "" -and [string]::Equals($split.Name, $oldName, [System.StringComparison]::OrdinalIgnoreCase)) {
                 $fields[0] = "${newName}\$($split.Rest)"
-                $result.Add($fields -join "`t")
+                $fields -join "`t"
                 continue
             }
         }
-        $result.Add($line)
-    }
+        $line
+    })
     writeTextLinesAtomic $path $result
 }
 
@@ -541,8 +595,8 @@ function removeStatusIndexName {
         return
     }
 
-    $result = New-Object System.Collections.Generic.List[string]
-    foreach ($line in $lines) {
+    # 制限モード（制限言語モード）からも使うため、List ではなく配列に集める
+    $result = @(foreach ($line in $lines) {
         $fields = $line.Split("`t")
         if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and [string]::Equals($fields[2], $name, [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
@@ -554,8 +608,8 @@ function removeStatusIndexName {
                 continue
             }
         }
-        $result.Add($line)
-    }
+        $line
+    })
     writeTextLinesAtomic $path $result
 }
 

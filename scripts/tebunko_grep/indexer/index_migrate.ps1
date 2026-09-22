@@ -8,7 +8,7 @@ function publishTsv {
         [string]$bookDir
     )
 
-    publishIndexFiles $tmpDir $bookDir (Join-Path ${publishDir} ([System.IO.Path]::GetFileName($bookDir)))
+    publishIndexFiles $tmpDir $bookDir (Join-Path ${publishDir} (getPathLeaf $bookDir))
 }
 
 function clearTmpDir {

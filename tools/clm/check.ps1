@@ -172,6 +172,37 @@ expect '制限モードの検索と、結果のブック（tar.exe で xlsx を�
     'hits=2 ' + (Get-Item -LiteralPath $book).Length + ' bytes'
 }
 
+expect '制限モードのインデックス作成（Word・PowerPoint を tar.exe で読む）' ok {
+    . (Join-Path $Root 'scripts\tebunko_grep\restricted\lib_restricted.ps1')
+    $caseRoot = Join-Path $work '作成'
+    $source = Join-Path $caseRoot '元'
+    New-Item -ItemType Directory -Path $source -Force | Out-Null
+    Copy-Item -LiteralPath $docx.FullName -Destination (Join-Path $source '文書.docx')
+    $pptx = @(Get-ChildItem -LiteralPath (Join-Path $Root 'tests\testdata\office\PowerPoint') -Filter '*.pptx')[0]
+    Copy-Item -LiteralPath $pptx.FullName -Destination (Join-Path $source '資料.pptx')
+    Copy-Item -LiteralPath $book -Destination (Join-Path $source '表.xlsx')
+    # 取り込み先を、このスクリプトの作業フォルダに向ける（関数の引数の既定値は、呼び出し元のこの変数から決まる）
+    $workDir = Join-Path $caseRoot 'work'
+    $indexDir = Join-Path $workDir 'index'
+    $tmpDir = Join-Path $workDir 'tmp'
+    $publishDir = Join-Path $workDir '出力'
+    $statusFile = Join-Path $workDir '取り込み一覧.tsv'
+    $ingestingFile = Join-Path $workDir '取り込み中.txt'
+    $settingsFile = Join-Path $caseRoot 'setting.config'
+    $restrictedLockFile = Join-Path $workDir 'インデックス作成中.lock'
+    writeTargetFolders @((New-Object PSObject -Property ([ordered]@{ Name = '元'; Path = $source; Enabled = $true }))) $settingsFile
+    $result = invokeRestrictedIndexing
+    if ($result.Success -ne 2) {
+        throw '取り込み=' + $result.Success + ' 失敗=' + (@($result.Failed | ForEach-Object { $_.Message }) -join ' ')
+    }
+    # Excel は制限モードでは取り込まず、未取り込みのまま残す
+    $status = readStatusFile $statusFile
+    $state = [string]$status.Rows['元\表.xlsx'].状態
+    if ($state -ne ${stateNew}) { throw 'xlsx の状態=' + $state }
+    $tsv = @(Get-ChildItem -LiteralPath $indexDir -Recurse -Filter '*.tsv')
+    if ($tsv.Count -lt 2) { throw 'TSV=' + $tsv.Count }
+    '取り込み 2 件・TSV ' + $tsv.Count + ' 件'
+}
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- 結果 ---

@@ -18,7 +18,9 @@ function getExtractVersion {
         [string]$path
     )
 
-    $version = ${extractVersions}[[System.IO.Path]::GetExtension($path).ToLowerInvariant()]
+    # 拡張子（最後の . から。フォルダの区切りより後ろ）。制限言語モードでも動くよう、System.IO.Path を使わずに求める
+    $extension = if ($path -match '(\.[^.\\/:]*)$') { $Matches[1] } else { "" }
+    $version = ${extractVersions}[$extension.ToLowerInvariant()]
     return $(if ($null -eq $version) { 1 } else { $version })
 }
 
@@ -28,9 +30,10 @@ function testExtractOutdated {
         $row
     )
 
+    # 読めなければ 1（[int]::TryParse の [ref] は制限言語モードで使えないため、形を確かめてから [int] にする）
     $version = 1
-    if ($row.抽出版) {
-        [void][int]::TryParse([string]$row.抽出版, [ref]$version)
+    if ([string]$row.抽出版 -match '^\s*[+-]?[0-9]{1,9}\s*$') {
+        $version = [int][string]$row.抽出版
     }
     return ($version -lt (getExtractVersion $row.相対パス))
 }

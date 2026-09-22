@@ -267,14 +267,15 @@ function testIndexComplete {
     if ($null -eq $counts -or $null -eq $row) {
         return $true
     }
-    $expected = 0
-    if (-not [int]::TryParse([string]$row.TSV数, [ref]$expected)) {
+    # 制限言語モードでも動くよう、[int]::TryParse・TryGetValue（[ref]）は使わない
+    if ([string]$row.TSV数 -notmatch '^\s*[+-]?[0-9]{1,9}\s*$') {
         return $true  # TSVの数を記録していない行（以前の形式）は確認できない
     }
-    $actual = 0
-    if (-not $counts.TryGetValue($relPath, [ref]$actual)) {
+    $expected = [int][string]$row.TSV数
+    if (-not $counts.ContainsKey($relPath)) {
         return $false  # フォルダごと無い
     }
+    $actual = $counts[$relPath]
     if ($actual -eq ${indexBrokenCount}) {
         return $false  # 0 バイトのTSVがある（書き込みの途中で電源が落ちた場合など）
     }
@@ -295,6 +296,17 @@ function publishIndexFiles {
     )
 
     removeDirectoryRetry $stagingDir
+    if (!${fullLanguage}) {
+        # 制限言語モード（制限モードのインデックス作成）: System.IO を使えないため、同じ手順をコマンドレットで行う
+        New-Item -ItemType Directory -Path (toLongPath $stagingDir) -Force | Out-Null
+        foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $fromDir) -Filter "*.tsv" -File)) {
+            Move-Item -LiteralPath $file.FullName -Destination (toLongPath (Join-Path $stagingDir $file.Name))
+        }
+        removeDirectoryRetry $bookDir
+        New-Item -ItemType Directory -Path (toLongPath (getPathParent $bookDir)) -Force | Out-Null
+        Move-Item -LiteralPath (toLongPath $stagingDir) -Destination (toLongPath $bookDir)
+        return
+    }
     [System.IO.Directory]::CreateDirectory((toLongPath $stagingDir)) | Out-Null
     foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $fromDir) -Filter "*.tsv" -File)) {
         [System.IO.File]::Move($file.FullName, (toLongPath (Join-Path $stagingDir $file.Name)))

@@ -436,3 +436,29 @@ Describe "publishIndexFiles" -Tag Io {
         @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name }) | Should Be "明細.tsv"
     }
 }
+
+Describe "制限言語モードの書き方（インデックスへの入れ替え）" -Tag Io {
+    # publishIndexFiles の制限言語モードの分岐（New-Item・Move-Item）が、いつもの分岐と同じ結果になることを確かめる
+    It "publishIndexFiles は、どちらの分岐でも同じインデックスのフォルダを作る" {
+        foreach ($clm in @($false, $true)) {
+            $root = Join-Path $TestDrive "publish_$clm"
+            $from = Join-Path $root "tmp"
+            $book = Join-Path $root "index\元\a.docx"
+            $staging = Join-Path $root "出力\a.docx"
+            New-Item -ItemType Directory -Path $from -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $from "ページ001.tsv") -Value "1 行目" -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $from "ページ002.tsv") -Value "2 行目" -Encoding UTF8
+            # 前のインデックス（入れ替えで消える）
+            New-Item -ItemType Directory -Path $book -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $book "古い.tsv") -Value "古い" -Encoding UTF8
+
+            & {
+                ${fullLanguage} = -not $clm
+                publishIndexFiles $from $book $staging
+            }
+            @(Get-ChildItem -LiteralPath $book | ForEach-Object { $_.Name }) -join "|" | Should Be "ページ001.tsv|ページ002.tsv"
+            @(Get-ChildItem -LiteralPath $from).Count | Should Be 0
+            Test-Path -LiteralPath $staging | Should Be $false
+        }
+    }
+}

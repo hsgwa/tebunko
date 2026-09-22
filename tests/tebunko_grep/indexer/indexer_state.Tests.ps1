@@ -471,3 +471,53 @@ Describe "renameStatusIndexName / removeStatusIndexName（以前の形式の取�
         @($status.Rows.Keys) -join "," | Should Be "技術\b.docx"
     }
 }
+
+Describe "制限言語モードの書き方（取り込み一覧の読み書き）" -Tag Io {
+    # 制限言語モードの分岐（${fullLanguage} が $false）は、本物の制限言語モードでは子プロセスで動かすため
+    # カバレッジに出ない。ここでは同じプロセスで ${fullLanguage} を $false にして、いつもの分岐と同じ結果になることを確かめる
+    It "readStatusFileClm は readStatusFile と同じクロール対象フォルダ・行を返す" {
+        $path = "$TestDrive\clm_status.tsv"
+        $folders = @(
+            [pscustomobject]@{ Path = "C:\data [1]"; Name = "data" },
+            [pscustomobject]@{ Path = "D:\"; Name = "D" }
+        )
+        $rows = @(
+            (newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "10420" ${stateDone} "3" "2026/09/20 10:00:00" "" "2"),
+            (newStatusRow "data\b.docx" "2025/01/11 00:00:00" "0" ${stateNew}),
+            (newStatusRow "data\c.pptx" "2025/01/12 00:00:00" "5" ${stateFailed} "" "2026/09/20 10:00:00" "開けません")
+        )
+        writeStatusFile $folders $rows $path
+        # 以前の形式（抽出版の列が無い）の行と、列数の合わない行も同じように扱う
+        Add-Content -LiteralPath $path -Value "data\d.xlsx`t2025/01/13 00:00:00`t7`t済`t1`t2026/09/20 10:00:00`t" -Encoding UTF8
+        Add-Content -LiteralPath $path -Value "壊れた行" -Encoding UTF8
+
+        $expected = readStatusFile $path
+        $actual = & { ${fullLanguage} = $false; readStatusFile $path }
+
+        @($actual.Folders | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join "|" |
+            Should Be (@($expected.Folders | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join "|")
+        @($actual.Rows.Keys | Sort-Object) -join "|" | Should Be (@($expected.Rows.Keys | Sort-Object) -join "|")
+        foreach ($key in @($expected.Rows.Keys)) {
+            (toStatusLine $actual.Rows[$key]) | Should Be (toStatusLine $expected.Rows[$key])
+        }
+        # 取り込み一覧が無ければ空を返す
+        $none = & { ${fullLanguage} = $false; readStatusFile "$TestDrive\clm_none.tsv" }
+        $none.Folders.Count | Should Be 0
+        $none.Rows.Count | Should Be 0
+    }
+
+    It "newStatusRow・addStatusRow は、いつもの分岐と同じ行を書く" {
+        $expectedPath = "$TestDrive\clm_add_a.tsv"
+        $actualPath = "$TestDrive\clm_add_b.tsv"
+        writeStatusFile @() @() $expectedPath
+        writeStatusFile @() @() $actualPath
+        $row = newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "10420" ${stateDone} "3" "2026/09/20 10:00:00" "エラー`tの`r`n説明" "2"
+        addStatusRow $row $expectedPath
+        & {
+            ${fullLanguage} = $false
+            $clmRow = newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "10420" ${stateDone} "3" "2026/09/20 10:00:00" "エラー`tの`r`n説明" "2"
+            addStatusRow $clmRow $actualPath
+        }
+        ([System.IO.File]::ReadAllBytes($actualPath) -join ",") | Should Be ([System.IO.File]::ReadAllBytes($expectedPath) -join ",")
+    }
+}

@@ -75,10 +75,12 @@ function createTargetList {
 
     $prefix = "$($folder.Name)\"
     $scan = findOfficeFiles $folder.Path
-    $rows = New-Object System.Collections.Generic.List[object]
-    $targets = New-Object System.Collections.Generic.List[object]
-    $failed = New-Object System.Collections.Generic.List[object]
-    $found = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # 制限モード（制限言語モード）からも使うため、List・HashSet は使わない。行は番号 → 行のハッシュテーブルに入れ（配列に += で足すと、
+    # ファイルが多いと遅いため）、最後に配列にする。見つけたファイルの集合は、大文字・小文字を区別しないハッシュテーブル
+    $rows = @{}
+    $targets = @{}
+    $failed = @{}
+    $found = @{}
     $count = @{ Done = 0; New = 0; Updated = 0; Pending = 0; Lost = 0 }
 
     # 列挙したファイルの FullName は、\\?\ 付きの Root で始まる。ファイルが多いと1件ずつの関数呼び出しだけで
@@ -95,12 +97,14 @@ function createTargetList {
             $relative = $file.Name  # 通常は起こらない（$scan.Root の下を列挙している）
         }
         $relPath = $prefix + $relative
-        [void]$found.Add($relPath)
+        $found[$relPath] = $true
         $updated = formatFileTime $file.LastWriteTime
         $size = [string]$file.Length
 
         $old = $null
-        [void]$previous.TryGetValue($relPath, [ref]$old)
+        if ($previous.ContainsKey($relPath)) {
+            $old = $previous[$relPath]
+        }
 
         # 取り込むかどうかの判断は indexer_decide.ps1（テストしやすいように分けてある）
         # インデックス（TSV）の有無は、前回と同じファイルで「済」のときだけ調べる（取り込み直すものには要らない）
@@ -114,7 +118,7 @@ function createTargetList {
             # 更新なし。失敗したファイルを再取り込みするかは呼び出し元で決める
             $row = $old
             if ($decision.Reason -eq "failed") {
-                $failed.Add($row)
+                $failed[$failed.Count] = $row
             } else {
                 $count.Done++
             }
@@ -136,7 +140,7 @@ function createTargetList {
                 $count.Done++
             } else {
                 $row = newStatusRow $relPath $updated $size ${stateNew}
-                $targets.Add($row)
+                $targets[$targets.Count] = $row
                 switch ($decision.Reason) {
                     "lost"    { $count.Lost++ }
                     "new"     { $count.New++ }
@@ -145,16 +149,16 @@ function createTargetList {
                 }
             }
         }
-        $rows.Add($row)
+        $rows[$rows.Count] = $row
     }
 
     $removed = 0
     foreach ($relPath in @($previous.Keys)) {
-        if (!$relPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or $found.Contains($relPath)) {
+        if (!$relPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or $found.ContainsKey($relPath)) {
             continue
         }
         if ($scan.HasError) {
-            $rows.Add($previous[$relPath])
+            $rows[$rows.Count] = $previous[$relPath]
             continue
         }
         removeBookDir (getBookDir $relPath)
@@ -180,7 +184,12 @@ function createTargetList {
 
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count
-    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Plan = $plan }
+    return @{
+        Rows    = @(for ($i = 0; $i -lt $rows.Count; $i++) { $rows[$i] })
+        Targets = @(for ($i = 0; $i -lt $targets.Count; $i++) { $targets[$i] })
+        Failed  = @(for ($i = 0; $i -lt $failed.Count; $i++) { $failed[$i] })
+        Plan    = $plan
+    }
 }
 
 function waitForIndexingApproval {

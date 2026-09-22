@@ -120,3 +120,80 @@ Describe "formatHitListLine（相対フォルダが無い）" -Tag Unit {
         formatHitListLine 1 @{ RelDir = ""; Book = "a.docx"; Location = "ページ001"; LineNumber = 2; Line = "x" } | Should Be "   1. a.docx  [ページ] 1（目安）  2 行目: x"
     }
 }
+
+Describe "インデックスを管理するメニュー" -Tag Unit {
+    $folders = @(
+        (New-Object PSObject -Property ([ordered]@{ Name = "見積"; Path = "D:\見積"; Enabled = $true })),
+        (New-Object PSObject -Property ([ordered]@{ Name = "資料"; Path = "D:\資料"; Enabled = $false }))
+    )
+
+    It "一覧に、取り込む・取り込まないとインデックス名・フォルダを出す" {
+        (getCrawlMenuLines $folders) -join "|" | Should Be ("インデックス（番号: 取り込む・取り込まないを切り替え、a: 追加、d番号: 削除、空で Enter: 戻る）|" +
+            "  1. [x] 見積（D:\見積）|  2. [ ] 資料（D:\資料）")
+    }
+
+    It "1 つも無ければ、追加の仕方を出す" {
+        (getCrawlMenuLines @())[1] | Should Be "  （まだありません。a で Office ファイルのあるフォルダを追加してください）"
+    }
+
+    It "入力を、切り替え・削除・追加に分ける" {
+        (parseCrawlChoice "2" 2).Kind | Should Be "switch"
+        (parseCrawlChoice "2" 2).Number | Should Be 2
+        (parseCrawlChoice "d1" 2).Kind | Should Be "delete"
+        (parseCrawlChoice "Ｄ ２" 2).Number | Should Be 2
+        (parseCrawlChoice "a" 2).Kind | Should Be "add"
+        (parseCrawlChoice "ａ" 0).Kind | Should Be "add"
+        parseCrawlChoice "3" 2 | Should BeNullOrEmpty
+        parseCrawlChoice "d0" 2 | Should BeNullOrEmpty
+        parseCrawlChoice "x" 2 | Should BeNullOrEmpty
+    }
+}
+
+Describe "testRestrictedFolderInput" -Tag Unit {
+    $folders = @(New-Object PSObject -Property ([ordered]@{ Name = "見積"; Path = "D:\見積"; Enabled = $true }))
+    $drives = @{ "Z:" = "\server\share" }
+
+    It "問題が無ければ空文字列" {
+        testRestrictedFolderInput "D:\資料" "資料" $folders $drives | Should Be ""
+    }
+
+    It "フォルダを入れていなければ、そのことを返す" {
+        testRestrictedFolderInput "  " "資料" $folders $drives | Should Be "元のフォルダを指定してください。"
+    }
+
+    It "同じフォルダ・入れ子のフォルダは追加できない（ネットワークドライブの別の書き方も同じフォルダとみなす）" {
+        testRestrictedFolderInput "D:\見積\" "別名" $folders $drives | Should Match "のインデックス \[見積\] が既にあります。"
+        testRestrictedFolderInput "D:\見積\2024" "下" $folders $drives | Should Match "の中のフォルダです"
+        testRestrictedFolderInput "D:\" "上" $folders $drives | Should Match "の中には、インデックス"
+        $z = @(New-Object PSObject -Property ([ordered]@{ Name = "共有"; Path = "Z:\見積"; Enabled = $true }))
+        testRestrictedFolderInput "\server\share\見積" "別名" $z $drives | Should Match "のインデックス \[共有\] が既にあります。"
+    }
+
+    It "インデックス名の決まり（いつもの画面と同じ）を確かめる" {
+        testRestrictedFolderInput "D:\資料" "" $folders $drives | Should Be "インデックス名を入力してください。"
+        testRestrictedFolderInput "D:\資料" "見積" $folders $drives | Should Match "ほかのインデックスが使っています"
+        testRestrictedFolderInput "D:\資料" "a\b" $folders $drives | Should Match "使えない文字"
+    }
+}
+
+Describe "getIndexingSummaryLines" -Tag Unit {
+    It "取り込むファイルが無ければ、そのことだけを出す" {
+        (getIndexingSummaryLines @{ Targets = 0; Success = 0; Failed = @(); Skipped = @(); Dropped = 0 }) -join "|" |
+            Should Be "取り込むファイルはありませんでした（インデックスは最新です）。"
+    }
+
+    It "取り込んだ件数・失敗・取り込まなかったファイルを出す" {
+        $lines = getIndexingSummaryLines @{ Targets = 5; Success = 2; Dropped = 1
+            Failed = @(@{ RelPath = "元\a.docx"; Message = "開けません" }); Skipped = @("元\b.xlsx", "元\c.doc") }
+        $lines[0] | Should Be "取り込み: 2 件 / 失敗: 1 件 / 元のファイルが無くなったもの: 1 件"
+        $lines[1] | Should Match "取り込まずに残したファイル: 2 件"
+        $lines[2] | Should Be "  失敗: 元\a.docx（開けません）"
+    }
+
+    It "失敗が多いときは先頭の 10 件だけ出す" {
+        $failed = @(1..12 | ForEach-Object { @{ RelPath = "元\$_.docx"; Message = "エラー" } })
+        $lines = getIndexingSummaryLines @{ Targets = 12; Success = 0; Failed = $failed; Skipped = @(); Dropped = 0 }
+        $lines.Count | Should Be 12
+        $lines[-1] | Should Be "  ほか 2 件（work\取り込み一覧.tsv で確かめられます）"
+    }
+}

@@ -15,9 +15,19 @@
 . "$PSScriptRoot\..\index\index_store.ps1"
 . "$PSScriptRoot\..\search\search_query.ps1"
 . "$PSScriptRoot\..\search\source_map.ps1"
-# 制限モードだけで使う部品（検索・結果のブック・コンソール）
+# インデックス作成（いつものインデクサと同じ判断・同じ形の取り込み一覧。Office の読み取りは制限言語モード用のもの）
+. "$PSScriptRoot\..\..\shared\office\office_files.ps1"
+. "$PSScriptRoot\..\..\shared\office\office_text.ps1"
+. "$PSScriptRoot\..\..\shared\office\office_reader_clm.ps1"
+. "$PSScriptRoot\..\indexer\indexer_state.ps1"
+. "$PSScriptRoot\..\indexer\indexer_decide.ps1"
+. "$PSScriptRoot\..\indexer\indexer_plan.ps1"
+. "$PSScriptRoot\..\indexer\index_migrate.ps1"
+# 制限モードだけで使う部品（検索・結果のブック・インデックス作成・コンソール）
 . "$PSScriptRoot\restricted_search.ps1"
 . "$PSScriptRoot\result_book_view.ps1"
 . "$PSScriptRoot\result_book.ps1"
 . "$PSScriptRoot\console_view.ps1"
 . "$PSScriptRoot\search_console.ps1"
+. "$PSScriptRoot\restricted_indexer.ps1"
+. "$PSScriptRoot\index_console.ps1"

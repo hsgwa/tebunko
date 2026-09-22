@@ -293,4 +293,60 @@ $clmCases = [ordered]@{
             (joinSourcePath "D:\" "" "a.xlsx"), (joinSourcePath "C:\a" "b\c" "")
         )
     }
+
+    # --- tebunko_grep/restricted/console_view.ps1・restricted_indexer.ps1（インデックスの管理・作成） ---
+    "crawlMenu"          = {
+        $folders = @(
+            (New-Object PSObject -Property ([ordered]@{ Name = "見積"; Path = "D:\見積"; Enabled = $true })),
+            (New-Object PSObject -Property ([ordered]@{ Name = "資料"; Path = "Z:\資料"; Enabled = $false }))
+        )
+        @(
+            ((getCrawlMenuLines $folders) -join "|"),
+            ((getCrawlMenuLines @()) -join "|"),
+            (testRestrictedFolderInput "D:\資料" "資料" $folders @{}),
+            (testRestrictedFolderInput "D:\見積\2024" "下" $folders @{}),
+            (testRestrictedFolderInput "D:\資料" "見積" $folders @{}),
+            ((parseCrawlChoice "ｄ ２" 2) | ConvertTo-Json -Compress),
+            ((parseCrawlChoice "ａ" 0) | ConvertTo-Json -Compress),
+            ([string](parseCrawlChoice "9" 2))
+        )
+    }
+    "indexingSummary"    = {
+        @(
+            ((getIndexingSummaryLines @{ Targets = 0; Success = 0; Failed = @(); Skipped = @(); Dropped = 0 }) -join "|"),
+            ((getIndexingSummaryLines @{ Targets = 3; Success = 1; Dropped = 1; Skipped = @("b.xlsx")
+                Failed = @(@{ RelPath = "元\a.docx"; Message = "開けません" }) }) -join "|"),
+            (@("a.docx", "b.DOCX", "c.pptm", "d.xlsx", "e.doc", "f" | ForEach-Object { [string](testRestrictedIngestable $_) }) -join "|"),
+            (@("a.docx", "b.xlsx", "c.doc", "d.txt" | ForEach-Object { [string](getExtractVersion $_) }) -join "|"),
+            (@("1", "2", "", " 3 ", "x" | ForEach-Object { [string](testExtractOutdated (New-Object PSObject -Property ([ordered]@{ 相対パス = "a.docx"; 抽出版 = $_ }))) }) -join "|")
+        )
+    }
+    "restrictedIndexing" = {
+        # 取り込み一覧・インデックスの作成を通しで行う（いつものインデクサと同じ関数を使う）
+        $root = Join-Path $caseDir "作成"
+        $source = Join-Path $root "元"
+        New-Item -ItemType Directory -Path $source -Force | Out-Null
+        Copy-Item -LiteralPath "$PSScriptRoot\..\testdata\office\Word\基本.docx" -Destination (Join-Path $source "文書.docx")
+        Copy-Item -LiteralPath "$PSScriptRoot\..\testdata\office\PowerPoint\基本.pptx" -Destination (Join-Path $source "資料.pptx")
+        Set-Content -LiteralPath (Join-Path $source "表.xlsx") -Value "dummy" -Encoding UTF8
+        $workDir = Join-Path $root "work"
+        $indexDir = Join-Path $workDir "index"
+        $tmpDir = Join-Path $workDir "tmp"
+        $publishDir = Join-Path $workDir "出力"
+        $statusFile = Join-Path $workDir "取り込み一覧.tsv"
+        $ingestingFile = Join-Path $workDir "取り込み中.txt"
+        $settingsFile = Join-Path $root "setting.config"
+        $restrictedLockFile = Join-Path $workDir "インデックス作成中.lock"
+        writeTargetFolders @((New-Object PSObject -Property ([ordered]@{ Name = "元"; Path = $source; Enabled = $true }))) $settingsFile
+        # クロールの進み具合の表示（Write-Host）は、ほかの呼び出し例と同じく出さない
+        $result = invokeRestrictedIndexing 6>$null
+        $status = readStatusFile $statusFile
+        @(
+            "$($result.Success)/$(@($result.Failed).Count)/$(@($result.Skipped).Count)/$($result.Dropped)/$($result.Targets)",
+            (@(Get-ChildItem -LiteralPath $indexDir -Recurse -File | ForEach-Object { getCaseRelative $_.FullName } | Sort-Object) -join "|"),
+            (@($status.Rows.Keys | Sort-Object | ForEach-Object { "$_=$($status.Rows[$_].状態)/$($status.Rows[$_].TSV数)/$($status.Rows[$_].抽出版)" }) -join "|"),
+            (getCaseBytes (Join-Path $indexDir "元\文書.docx\ページ001.tsv")),
+            (getCaseBytes (Join-Path $indexDir "元\資料.pptx\スライド001.tsv"))
+        )
+    }
 }

@@ -75,7 +75,7 @@ function describeRestrictedIndexes {
     )
 
     if ($indexes.Count -eq 0) {
-        return "（インデックスがありません。いつもの画面が使える PC で作り、work\index に置いてください）"
+        return "（インデックスがありません。メニューの［インデックスを管理する］でフォルダを追加し、［インデックスを作成する］で取り込んでください）"
     }
     $names = @($indexes | Where-Object { testIndexChecked $_ $excludes } | ForEach-Object { $_.Name })
     if ($names.Count -eq 0) {
@@ -219,4 +219,98 @@ function getResultInfoItems {
         @("検索した日時", $now.ToString("yyyy/MM/dd HH:mm:ss")),
         @("見方", "ファイルの行の + で、ファイルごとのヒットを開閉できます。ヒットの行の + で前後の行が見えます。ファイル名のリンクで元のファイル（Excel は該当のシートとセル）を開きます。")
     )
+}
+
+function getCrawlMenuLines {
+    # インデックスを管理するメニュー（クロール対象フォルダの一覧と操作）
+    param (
+        [object[]]$folders
+    )
+
+    $lines = @("インデックス（番号: 取り込む・取り込まないを切り替え、a: 追加、d番号: 削除、空で Enter: 戻る）")
+    if ($folders.Count -eq 0) {
+        $lines += "  （まだありません。a で Office ファイルのあるフォルダを追加してください）"
+    }
+    for ($i = 0; $i -lt $folders.Count; $i++) {
+        $mark = if ($folders[$i].Enabled) { "[x]" } else { "[ ]" }
+        $lines += "  $($i + 1). $mark $($folders[$i].Name)（$($folders[$i].Path)）"
+    }
+    return , $lines
+}
+
+function testRestrictedFolderInput {
+    # インデックスを追加するときの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
+    # いつもの画面の testIndexEditInput と同じ判定（HashSet を使わずに書いたもの）
+    param (
+        [string]$path,
+        [string]$name,
+        [object[]]$folders,
+        $drives = $null  # ドライブ文字 → 割り当て先（テストで差し替える）
+    )
+
+    $folder = normalizeFolderPath $path
+    if ($folder -eq "") {
+        return "元のフォルダを指定してください。"
+    }
+    foreach ($other in $folders) {
+        if (testSameFolder $other.Path $folder $drives) {
+            return "「${folder}」のインデックス [$($other.Name)] が既にあります。"
+        }
+        if (testFolderUnder $folder $other.Path $drives) {
+            return "「${folder}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。同じファイルが二重に取り込まれるため、追加できません。"
+        }
+        if (testFolderUnder $other.Path $folder $drives) {
+            return "「${folder}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。同じファイルが二重に取り込まれるため、追加できません。"
+        }
+    }
+    return (testIndexName $name.Trim() @($folders | ForEach-Object { $_.Name }))
+}
+
+function parseCrawlChoice {
+    # インデックスを管理するメニューの入力を読む: 番号 → @{ Kind = "switch"; Number }、d番号 → @{ Kind = "delete"; Number }、
+    # a → @{ Kind = "add" }、読めなければ $null
+    param (
+        [string]$text,
+        [int]$count
+    )
+
+    $text = $text.Trim()
+    if ($text -match "^[aａAＡ]$") {
+        return @{ Kind = "add"; Number = 0 }
+    }
+    $kind = "switch"
+    if ($text -match "^[dｄDＤ]\s*(.+)$") {
+        $kind = "delete"
+        $text = $Matches[1]
+    }
+    $number = parseMenuNumber $text $count
+    if ($number -le 0) {
+        return $null
+    }
+    return @{ Kind = $kind; Number = $number }
+}
+
+function getIndexingSummaryLines {
+    # インデックス作成の後に出す行（invokeRestrictedIndexing の結果）
+    param (
+        $result
+    )
+
+    $lines = @()
+    if ($result.Targets -eq 0) {
+        $lines += "取り込むファイルはありませんでした（インデックスは最新です）。"
+        return , $lines
+    }
+    $lines += "取り込み: $($result.Success) 件 / 失敗: $(@($result.Failed).Count) 件 / 元のファイルが無くなったもの: $($result.Dropped) 件"
+    if (@($result.Skipped).Count -gt 0) {
+        $lines += "制限モードで読めないため、取り込まずに残したファイル: $(@($result.Skipped).Count) 件" +
+            "（Excel・旧形式・パスワード付きなど。いつもの画面が使える PC でインデックスを作成すると取り込みます）"
+    }
+    foreach ($failed in @($result.Failed | Select-Object -First 10)) {
+        $lines += "  失敗: $($failed.RelPath)（$($failed.Message)）"
+    }
+    if (@($result.Failed).Count -gt 10) {
+        $lines += "  ほか $(@($result.Failed).Count - 10) 件（work\取り込み一覧.tsv で確かめられます）"
+    }
+    return , $lines
 }
