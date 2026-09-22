@@ -1,8 +1,8 @@
 ﻿# tebunko 設計書（インデックス）
 
-本設計書は `scripts/*.ps1` および起動用 `tebunko_grep.bat` の実装から仕様を書き起こしたものである。記載内容は**現行実装の挙動**を正とする。
+本設計書は `scripts/*.ps1` および起動用 `tebunko.bat`（互換用の `tebunko_grep.bat`）の実装から仕様を書き起こしたものである。記載内容は**現行実装の挙動**を正とする。
 
-本ツールは画面（`tebunko_grep.bat`）から使う。インデックス作成・検索・プロセス停止はすべて画面から行い、コンソールでの操作（`.bat` の実行・設定ファイルの手編集・キー入力）は前提としない。
+本ツールは画面（`tebunko.bat`）から使う。インデックス作成・検索・比較・プロセス停止はすべて画面から行い、コンソールでの操作（`.bat` の実行・設定ファイルの手編集・キー入力）は前提としない。
 
 本書（インデックス）には全体構成と、複数のツールにまたがる共通事項をまとめる。ツールごとの仕様は下表の各設計書を参照。
 
@@ -12,7 +12,7 @@
 |---|---|---|---|
 | [00_index.md](00_index.md)（本書） | – | – | ドキュメント構成、1. 概要・全体構成、2. 動作環境 |
 | └ [00_共通_1_フォルダ構成と設定ファイル.md](00_共通_1_フォルダ構成と設定ファイル.md) | – | – | 3. フォルダ・ファイル構成、4. 設定ファイル（`setting.config`） |
-| └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `tebunko_grep/lib.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
+| └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `shared/shared.ps1` / `tebunko_grep/lib.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
 | └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `tebunko_grep/lib.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
 | └ [00_共通_3_テスト.md](00_共通_3_テスト.md) | – | – | 6. テスト（単体テスト・結合テスト） |
 | [01_インデックス作成.md](01_インデックス作成.md) | 画面の［インデックス作成を開始］（ウィンドウ無しで起動） | `tebunko_grep/indexer.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成 |
@@ -24,10 +24,10 @@
 | └ [01_インデックス作成_6_共通処理とアプリ管理.md](01_インデックス作成_6_共通処理とアプリ管理.md) | | | 4.4 Word・PowerPoint の抽出、4.7 失敗の原因、5. Office アプリの管理 |
 | └ [01_インデックス作成_7_出力TSVと既知の問題.md](01_インデックス作成_7_出力TSVと既知の問題.md) | | | 6.1・6.2・6.4 出力 TSV の仕様、7.1 注意点・既知の問題（共通） |
 | └ [01_インデックス作成_8_エラーメッセージ一覧.md](01_インデックス作成_8_エラーメッセージ一覧.md) | | | 4.8 エラーメッセージ一覧（続けられないエラー・ファイルごとの失敗・警告） |
-| [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `tebunko_grep/lib.ps1` | TSV インデックスの検索処理と検索結果ファイルの形式 |
-| [03_画面.md](03_画面.md) | `tebunko_grep.bat` | `tebunko_grep/gui.ps1` / `tebunko_grep/xaml/tebunko_grep.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
-| └ [03_画面_1_インデックス管理タブ.md](03_画面_1_インデックス管理タブ.md) | | | 3. ［1 インデックス管理］タブ |
-| └ [03_画面_2_検索タブ.md](03_画面_2_検索タブ.md) | | | 4. ［2 検索］タブ |
+| [02_検索.md](02_検索.md) | 画面の［1 検索］→［検索］タブ | `tebunko_grep/lib.ps1` | TSV インデックスの検索処理と検索結果ファイルの形式 |
+| [03_画面.md](03_画面.md) | `tebunko.bat`（`tebunko_grep.bat`） | `tebunko/gui.ps1` / `tebunko/xaml/tebunko.xaml` / `tebunko_grep/ui/` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI）。［2 比較］は 05_比較.md |
+| └ [03_画面_1_インデックス管理タブ.md](03_画面_1_インデックス管理タブ.md) | | | 3. ［インデックス管理］タブ |
+| └ [03_画面_2_検索タブ.md](03_画面_2_検索タブ.md) | | | 4. ［検索］タブ |
 | └ [03_画面_2_検索タブ_1_元のファイルを開く.md](03_画面_2_検索タブ_1_元のファイルを開く.md) | | | 4.5 元のファイルを開く |
 | └ [03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md) | | | 5. ［9 プロセス停止］タブ |
 | └ [03_画面_4_状態と操作の流れ.md](03_画面_4_状態と操作の流れ.md) | | | 6. 状態の判定と表示、7. 操作の流れ |
@@ -35,7 +35,7 @@
 | └ [03_画面_6_実装とテスト.md](03_画面_6_実装とテスト.md) | | | 12. 実装構成、13. 既存スクリプトへの影響と段階、14. 未決事項、15. 既知の制約 |
 | └ [03_画面_6_実装とテスト_1_テスト.md](03_画面_6_実装とテスト_1_テスト.md) | | | 16. テスト |
 | [04_安全性.md](04_安全性.md) | – | – | 導入審査向けの安全性説明（危険な処理・ライブラリを使っていないことの根拠と確認手順、書き込み範囲、開示事項、第三者のツールによる検査結果、供給網とライセンス） |
-| [05_比較.md](05_比較.md) | 画面の［2 比較］タブ（仕様案） | `tebunko/gui.ps1` / `tebunko_diff/`（未実装） | 入口 `tebunko` への統合と、ファイル・フォルダの比較（仕様案） |
+| [05_比較.md](05_比較.md) | 画面の［2 比較］タブ（抽出はウィンドウ無しで起動） | `tebunko_diff/lib.ps1` / `tebunko_diff/differ.ps1` / `tebunko_diff/ui/` | 入口 `tebunko` への統合と、Excel・Word・PowerPoint のファイル同士・フォルダ同士の比較 |
 
 Office プロセスの強制終了は画面の［9 プロセス停止］タブ（[03_画面_3_プロセス停止タブ.md](03_画面_3_プロセス停止タブ.md)）で行う。以前のコンソール用のツール（`1_変換.bat`、`2_検索.bat` / `grep.ps1`、`9_Office強制終了.bat` / `kill_process.ps1`、`config/検索ワード.txt`）は廃止した。インデクサ `tebunko_grep/indexer.ps1` は画面から起動される処理として残している。
 
@@ -49,7 +49,7 @@ Office プロセスの強制終了は画面の［9 プロセス停止］タブ�
 
 ### 1.1 目的
 
-フォルダ配下に大量に存在する Office ファイルに対し、**ファイルを開かずに全文検索**できるようにする。
+フォルダ配下に大量に存在する Office ファイルに対し、**ファイルを開かずに全文検索**できるようにする。あわせて、2 つのファイル（またはフォルダ）の中身の**違いを比較**できるようにする。
 
 | 種類 | 拡張子 |
 |---|---|
@@ -66,7 +66,11 @@ Office プロセスの強制終了は画面の［9 プロセス停止］タブ�
 2. **検索**（[02_検索.md](02_検索.md)）
    インデックスの TSV を検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を画面の表に表示する。必要なときは `work/検索結果.txt` に出力する。
 
-どちらも画面（[03_画面.md](03_画面.md)）から行う。インデックス作成は画面がウィンドウ無しで起動し、進み具合を画面に表示する。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
+どちらも画面（[03_画面.md](03_画面.md)）から行う。
+
+比較（[05_比較.md](05_比較.md)）はインデックスを使わない。比べる 2 つのファイル（フォルダ同士なら中の Office ファイル）を、インデックス作成と同じ抽出で場所ごとのテキストにして一時フォルダに書き出し、行・セル・段落・スライドの単位で違いを画面に表示する。
+
+インデックス作成は画面がウィンドウ無しで起動し、進み具合を画面に表示する。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
 
 用語は検索エンジンにならい、画面・設計書・コードで次のようにそろえる。
 
@@ -88,85 +92,99 @@ Office プロセスの強制終了は画面の［9 プロセス停止］タブ�
 flowchart LR
     user(["利用者"])
 
-    bat["tebunko_grep.bat"]
+    bat["tebunko.bat<br>（互換用 tebunko_grep.bat）"]
 
     subgraph scripts["scripts/"]
-        subgraph tool["tebunko_grep/（このツール固有）"]
-            gui["gui.ps1<br>画面の起動口<br>（ui/ 配下を読み込む）"]
+        subgraph top["tebunko/（組み立てるだけ）"]
+            gui["gui.ps1<br>画面の起動口<br>（xaml/tebunko.xaml。両ツールの ui/ を読み込む）"]
+        end
+        subgraph tool["tebunko_grep/（検索）"]
             conv["indexer.ps1<br>インデクサの起動口<br>（indexer/ 配下を読み込む）"]
             common["lib.ps1<br>画面以外の部品の読み込み口<br>（core/・index/・indexer/・search/）"]
         end
+        subgraph dtool["tebunko_diff/（比較）"]
+            differ["differ.ps1<br>比較の抽出プロセス"]
+            dlib["lib.ps1<br>画面以外の部品の読み込み口<br>（core/・diff/・job/）"]
+        end
         subgraph sh["shared/（どのツールからも使う）"]
             shared["shared.ps1<br>共通基盤の読み込み口<br>（core/・office/）"]
+            extract["office/office_extract.ps1<br>1 ファイルの抽出"]
             reader["office/office_reader.ps1<br>Word・PowerPoint の読み取り"]
             app["office/office_app.ps1<br>Officeアプリの起動・終了"]
         end
     end
 
-    c1["setting.config<br>画面が保存する設定<br>（クロール対象フォルダ・検索対象インデックスなど）"]
+    c1["setting.config<br>画面が保存する設定<br>（クロール対象フォルダ・検索対象インデックス・比較の設定など）"]
 
     subgraph work["work/（自動生成）"]
         idx[("index/<br>TSV インデックス")]
         status["取り込み一覧.tsv<br>（更新日時・状態）"]
         ctl["取り込み予定.tsv・インデックス作成開始要求<br>インデックス作成中止要求・インデックス作成エラー.txt<br>インデックス作成ログ.txt"]
         out["検索結果.txt<br>（［結果をファイルに出力］）"]
+        dout["tebunko_diff/比較結果.txt<br>（［結果をファイルに出力］）"]
     end
 
     tmp[("%TEMP%\tebunko_grep\#lt;PID#gt;<br>取り込みの作業領域")]
-    src[("クロール対象フォルダ<br>Excel・Word・PowerPoint ファイル群")]
+    dtmp[("%TEMP%\tebunko\diff\#lt;PID#gt;\#lt;番号#gt;<br>比較の作業フォルダ<br>（抽出した TSV。閉じたら消す）")]
+    src[("クロール対象フォルダ・比べるファイル<br>Excel・Word・PowerPoint ファイル群")]
     excel["Microsoft Excel<br>（COM）"]
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]
 
     user --> bat --> gui
     gui -- "起動（-ConfirmTargets）" --> conv
-    gui -. "dot-source" .-> common
+    gui -- "起動（-JobDir）" --> differ
+    gui -. "dot-source" .-> common & dlib
     conv -. "dot-source" .-> common
+    differ -. "dot-source" .-> dlib
     common -. "dot-source" .-> shared
-    conv -. "dot-source" .-> reader
-    conv -. "dot-source" .-> app
+    dlib -. "dot-source" .-> shared
+    conv & differ -. "dot-source" .-> extract
+    extract --> reader & app
 
     gui <--> c1
     c1 --> conv
     src --> excel & office & reader
     app <--> excel
     app <--> office
-    conv --> reader
     conv <--> status
     gui <--> status & ctl
     conv <--> ctl
     conv --> tmp --> idx
+    gui <--> dtmp
+    differ --> dtmp
 
     idx --> gui
-    gui --> out
+    gui --> out & dout
     gui -- "強制終了" --> excel & office
 ```
 
 ### 1.4 ソースの分け方
 
-ソースは**文脈**（どの機能か）と**層**（何をするか）で分ける。今後ツール（`tebunko_diff` など）を増やしても、共通部分を作り直さずに済むようにするため。
+ソースは**文脈**（どの機能か）と**層**（何をするか）で分ける。ツール（検索 `tebunko_grep`・比較 `tebunko_diff`）を増やしても、共通部分を作り直さずに済むようにするため。
 
 | 分け方 | 内容 |
 |---|---|
-| 文脈（上位） | `scripts/shared/`（どのツールからも使う）と `scripts/tebunko_grep/`（このツール固有）。その下はドメイン（`core`・`office`・`index`・`indexer`・`search`・`ui`） |
+| 文脈（上位） | `scripts/shared/`（どのツールからも使う）・`scripts/tebunko_grep/`（検索）・`scripts/tebunko_diff/`（比較）・`scripts/tebunko/`（両方のツールを 1 つの画面に組み立てるだけ。`gui.ps1`・`xaml/tebunko.xaml`・`tebunko.ico`）。その下はドメイン（`core`・`office`・`index`・`indexer`・`search`・`diff`・`job`・`ui`・`xaml`） |
 | 層（下位） | 判断層（入力は素の値、出力は素の値）・状態層（ファイル・COM を読み書き）・画面層（`$ui` を触る） |
 
 決まりごとは 3 つ。いずれも `tests/meta/` で機械的に確かめる（[6.3](00_共通_3_テスト.md#63-テストの構成と実行)）。
 
-1. `shared/` はツールを知らない（依存は一方向）。ツール同士も互いを読み込まない。
+1. `shared/` はツールを知らない（依存は一方向）。ツール同士も互いを読み込まない。両方のツールを読み込んでよいのは `tebunko/` だけで、ツールから `tebunko/` も読み込まない。
 2. 判断層は画面に触らない。触らないからテストが書ける。
 3. 足したファイルは、必ずどこかの読み込み口から読み込む。
 
 詳細は [5 章](00_共通_2_共通モジュール.md#5-共通モジュール)。
+
 ### 1.5 処理の流れ（利用者視点）
 
 ```mermaid
 sequenceDiagram
     actor U as 利用者
-    participant G as 画面（tebunko_grep.bat）
+    participant G as 画面（tebunko.bat）
     participant CV as インデクサ（tebunko_grep/indexer.ps1）
     participant W as work/index/
 
-    U->>G: ［1 インデックス管理］の［追加…］でインデックスを追加
+    U->>G: ［1 検索］→［インデックス管理］の［追加…］でインデックスを追加
     U->>G: ［インデックス作成を開始］
     G->>CV: ウィンドウ無しで起動（-ConfirmTargets）
     CV->>CV: 取り込み対象を数える（更新日時・サイズを前回と比べる）
@@ -174,9 +192,28 @@ sequenceDiagram
     U->>G: ［インデックス作成を開始］（前回失敗分も再取り込みするかを選べる）／［キャンセル］
     CV->>W: シート・ページ・スライドごとの TSV を作成（取り込み済み・更新なしはスキップ）
     G->>U: 進み具合・失敗したファイルを表示（［中止］で止められる）
-    U->>G: ［2 検索］でワードを入力
+    U->>G: ［1 検索］→［検索］でワードを入力
     G->>W: TSV を検索
     G->>U: 結果を表に表示（ダブルクリックで元のファイルを開く）
+```
+
+比較（［2 比較］）の流れ。詳細は [05_比較.md](05_比較.md)。
+
+```mermaid
+sequenceDiagram
+    actor U as 利用者
+    participant G as 画面（tebunko.bat）
+    participant D as 抽出プロセス（tebunko_diff/differ.ps1）
+    participant T as 比較の作業フォルダ（%TEMP%）
+
+    U->>G: ［ファイル｜フォルダ］を選び、比較元・比較先を指定して［比較］
+    G->>T: 作業フォルダを作り、抽出要求を書く
+    G->>D: ウィンドウ無しで起動（-JobDir）
+    D->>T: ファイルごとに、場所ごとの TSV を書き出す
+    G->>T: 抽出できたものから読み、差分を取る
+    G->>U: 差分を左右に並べて表示（フォルダ同士はツリーも）
+    U->>G: ダブルクリックでその位置の元のファイルを開く
+    G->>T: 画面を閉じたら作業フォルダを消す
 ```
 
 ---
@@ -187,9 +224,9 @@ sequenceDiagram
 |---|---|
 | OS | Windows |
 | 実行環境 | Windows PowerShell 5.1（`powershell.exe`） |
-| 必須ソフトウェア | Microsoft Excel（`Excel.Application` COM オブジェクトを使用。Excel ファイルの取り込みに必要） |
-| 任意のソフトウェア | Microsoft Word・PowerPoint（旧形式 `.doc` `.ppt`、パスワード付き、拡張子と中身が異なる Word・PowerPoint ファイルの取り込みにのみ使用。新形式の `.docx` `.pptx` 等は無くても取り込める） |
-| 起動方法 | `tebunko_grep.bat` をダブルクリック。`-ExecutionPolicy RemoteSigned` で画面を開く（`Bypass` は使わない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサも画面が同じ方法（`-WindowStyle Hidden`）で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
+| 必須ソフトウェア | Microsoft Excel（`Excel.Application` COM オブジェクトを使用。Excel ファイルの取り込み・比較に必要） |
+| 任意のソフトウェア | Microsoft Word・PowerPoint（旧形式 `.doc` `.ppt`、パスワード付き、拡張子と中身が異なる Word・PowerPoint ファイルの取り込み・比較にのみ使用。新形式の `.docx` `.pptx` 等は無くても取り込める） |
+| 起動方法 | `tebunko.bat` をダブルクリック。`-ExecutionPolicy RemoteSigned` で画面（`scripts/tebunko/gui.ps1`）を開く（`Bypass` は使わない）。zip 展開で付く Mark-of-the-Web は、`tebunko.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。以前の版のショートカットのために残した `tebunko_grep.bat` も同じ起動のしかたで、`-StartPage search` を付けて同じ画面を［1 検索］で開く。インデクサ（`indexer.ps1`）と比較の抽出プロセス（`differ.ps1`）も画面が同じ方法（`-WindowStyle Hidden`）で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
 | スクリプトの文字コード | `scripts/*.ps1`・`tests/*.ps1` は **UTF-8（BOM 付き）**、改行 CRLF。PowerShell 5.1 は BOM なしファイルをシステム既定コードページ（CP932）で読むため、BOM を外すと日本語リテラルが化ける |
 | テスト | Pester 3.4（Windows PowerShell 5.1 標準）。`Invoke-Pester .\tests` |
 

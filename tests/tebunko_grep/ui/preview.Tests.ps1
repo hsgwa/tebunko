@@ -1,4 +1,4 @@
-﻿# ［2 検索］の選択行のプレビュー（tebunko_grep\ui\preview.ps1）のテスト。
+﻿# ［検索］の選択行のプレビュー（tebunko_grep\ui\preview.ps1）のテスト。
 # 画面の部品（$ui.PreviewRows など）は偽物にして、表示する中身と状態の変化を確かめる。
 # クリップボードは利用者の PC のものを書き換えるため、コピーは「選んでいないとき」だけを確かめる。
 . "$PSScriptRoot\..\..\helpers\load.ps1"

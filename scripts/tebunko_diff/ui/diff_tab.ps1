@@ -646,6 +646,14 @@ function checkEntryExtracted {
         $result = $results["$($entry.Id)|$side"]
         if ($null -eq $result) { continue }
         if ($result.State -eq ${diffStateFailed}) {
+            if ($entry.Status -in @("insert", "delete")) {
+                # 片方にしか無いファイルは、状態（追加・削除）を変えずに理由だけを持つ（件数の「追加」「削除」から外さない）
+                if (!$entry.Error) {
+                    $entry.Error = getExtractFailureText $side $result.Message
+                    if ($script:tree.Selected -eq $entry.RelPath) { clearFileDiff $entry.Error }
+                }
+                return $false
+            }
             if ($entry.Status -ne "failed") {
                 $entry.Status = "failed"
                 $entry.Error = getExtractFailureText $side $result.Message
@@ -804,6 +812,7 @@ function onDiffFileSelected {
             return
         }
         { $_ -in @("insert", "delete") } {
+            if ($entry.Error) { clearFileDiff $entry.Error; return }
             if (!$script:dt.Job -or $entry.Id -eq $null) { clearFileDiff "読み取りを待っています…"; return }
             clearFileDiff "読み取っています…"
             ensureExtracted $entry

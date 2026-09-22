@@ -1,7 +1,7 @@
-﻿# ［2 検索］タブ（検索条件・検索の実行・結果の一覧と絞り込み）。
+﻿# ［検索］タブ（検索条件・検索の実行・結果の一覧と絞り込み）。
 
 # ============================================================================
-# ［2 検索］
+# ［検索］
 # ============================================================================
 
 # 結果（ヒットした行・ファイルごとの見出し）と表の中身は result_list.ps1
@@ -93,7 +93,7 @@ function updateSearchTarget {
     $targets = @(getSearchTargets)
     $summary = $script:indexSummary
     if ($summary -and $summary["Count"] -eq 0) {
-        $ui.SearchTargetText.Text = "検索対象：なし（インデックスがありません。先に［1 インデックス管理］で作成してください）"
+        $ui.SearchTargetText.Text = "検索対象：なし（インデックスがありません。先に［インデックス管理］で作成してください）"
     } elseif ($targets.Count -eq 0) {
         $ui.SearchTargetText.Text = "検索対象：なし（左の一覧で、検索するインデックス・フォルダにチェックを付けてください）"
     } elseif (!(isAllIndexChecked)) {

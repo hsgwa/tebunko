@@ -1,4 +1,4 @@
-﻿# ［2 検索］タブのプレビューの判断（高さから読む行数を決める・短い文字列にする）。
+﻿# ［検索］タブのプレビューの判断（高さから読む行数を決める・短い文字列にする）。
 # 画面に触らないため、そのままテストできる（tests\tebunko_grep\ui\preview_view.Tests.ps1）。
 
 function getPreviewRowCounts {

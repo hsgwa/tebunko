@@ -1,4 +1,4 @@
-﻿# ［1 インデックス管理］タブの判断（入力の検査・名前の重複）。
+﻿# ［インデックス管理］タブの判断（入力の検査・名前の重複）。
 # 画面に触らないため、そのままテストできる（tests\tebunko_grep\ui\index_view.Tests.ps1）。
 
 function getUsedIndexNames {
@@ -42,7 +42,7 @@ function testIndexEditInput {
         # 入れ子のフォルダは、同じファイルが2つのインデックスに入り、取り込みも検索結果も二重になるため登録しない
         if (testFolderUnder $folder $other.Path) {
             return "「${folder}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。" +
-                "同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
+                "同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［検索］の検索対象で外してください。"
         }
         if (testFolderUnder $other.Path $folder) {
             return "「${folder}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。" +

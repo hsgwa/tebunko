@@ -1,4 +1,4 @@
-﻿# ［2 検索］の結果の表（tebunko_grep\ui\result_list.ps1）のテスト。
+﻿# ［検索］の結果の表（tebunko_grep\ui\result_list.ps1）のテスト。
 # 画面の部品（$ui.ResultGrid など）は偽物にして、見出し・行の出し入れと状態の変化を確かめる。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase

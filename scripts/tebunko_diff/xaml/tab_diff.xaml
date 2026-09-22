@@ -391,7 +391,7 @@
           </Grid.ColumnDefinitions>
           <ContentControl Grid.Column="0" Content="{Binding}" ContentTemplate="{StaticResource TreeLeft}" Focusable="False" />
           <Border Grid.Column="1" Background="#F6F7F9" BorderThickness="1,0" BorderBrush="#E9ECF0">
-            <TextBlock x:Name="Mark" Text="{Binding Mark}" FontWeight="Bold" FontSize="13" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Ink.Faint}" />
+            <TextBlock x:Name="Mark" Text="{Binding Mark}" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Ink.Faint}" />
           </Border>
           <ContentControl Grid.Column="2" Content="{Binding}" ContentTemplate="{StaticResource TreeRight}" Focusable="False" />
         </Grid>

@@ -1,4 +1,4 @@
-﻿# ［2 検索］タブの判断（検索できるか・注意書き・検索条件の説明）。
+﻿# ［検索］タブの判断（検索できるか・注意書き・検索条件の説明）。
 # 画面に触らないため、そのままテストできる（tests\tebunko_grep\ui\search_view.Tests.ps1）。
 
 function describeSearchOption {

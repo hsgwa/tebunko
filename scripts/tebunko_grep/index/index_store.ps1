@@ -129,7 +129,7 @@ function removeIndex {
 function getSearchIndexes {
     # インデックスの一覧（work\index 直下のフォルダ 1 つがインデックス 1 つ）を
     # @{ Name（インデックス名）; Path（インデックスのフォルダのフルパス）; SourcePath（元のフォルダ。分からなければ ""） } の配列で返す。
-    # 並びは［1 インデックス管理］の一覧（targetFolders）と同じにし、その一覧に無いもの
+    # 並びは［インデックス管理］の一覧（targetFolders）と同じにし、その一覧に無いもの
     # （別の場所・PC から work\index にコピーしたインデックスなど）は名前順で後ろに付ける
     param (
         [string]$dir = ${indexDir},
@@ -143,7 +143,7 @@ function getSearchIndexes {
     $root = (Resolve-Path -LiteralPath $dir).ProviderPath.TrimEnd("\")
     $sources = getSourceFolderMap $root $statusPath $settingsPath
 
-    # ［1 インデックス管理］の一覧の順番（インデックス名 → 何番目か）
+    # ［インデックス管理］の一覧の順番（インデックス名 → 何番目か）
     $order = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($folder in @(getTargetFolders $settingsPath | Where-Object { $_.Name })) {
         if (!$order.ContainsKey($folder.Name)) {

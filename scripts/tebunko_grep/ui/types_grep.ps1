@@ -522,7 +522,7 @@ class HitRow : NotifyBase {
     }
 }
 
-# ［1 インデックス管理］の取り込みに失敗したファイル1件
+# ［インデックス管理］の取り込みに失敗したファイル1件
 class FailRow {
     [string]$RelPath
     [string]$Reason
@@ -540,7 +540,7 @@ class PlanRow {
     [string]$TotalText    # 見つかった Office ファイルの数
 }
 
-# ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
+# ［インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
 # ［作成］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）

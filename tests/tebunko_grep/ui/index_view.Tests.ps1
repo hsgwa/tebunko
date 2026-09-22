@@ -1,4 +1,4 @@
-﻿# ［1 インデックス管理］の判断（tebunko_grep\ui\index_view.ps1）のテスト。
+﻿# ［インデックス管理］の判断（tebunko_grep\ui\index_view.ps1）のテスト。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 . "${scriptsDir}\tebunko_grep\ui\index_view.ps1"
 

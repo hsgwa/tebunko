@@ -1,4 +1,4 @@
-﻿# ［2 検索］タブの、検索対象インデックスのツリー。
+﻿# ［検索］タブの、検索対象インデックスのツリー。
 
 
 # ---- 検索対象インデックスのツリー ----
@@ -8,7 +8,7 @@ $ui.IndexTree.ItemsSource = $script:indexRoots
 
 function loadIndexTree {
     # インデックスの一覧（getSearchIndexes）をツリーに読み込む。一番上の項目がインデックス 1 件で、
-    # ［1 インデックス管理］で作ったインデックスがすべて並ぶ。
+    # ［インデックス管理］で作ったインデックスがすべて並ぶ。
     # 保存したチェックなしのフォルダと、読み込み前の展開の状態は戻す
     $expanded = New-Object 'System.Collections.Generic.List[string]'
     foreach ($node in $script:indexRoots) {

@@ -1,4 +1,4 @@
-﻿# ［2 検索］の判断（tebunko_grep\ui\search_view.ps1）のテスト。
+﻿# ［検索］の判断（tebunko_grep\ui\search_view.ps1）のテスト。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 . "${scriptsDir}\tebunko_grep\ui\search_view.ps1"
 
