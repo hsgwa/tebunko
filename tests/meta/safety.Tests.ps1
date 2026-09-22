@@ -4,7 +4,7 @@
 $here = (Resolve-Path "$PSScriptRoot\..").Path
 $rootDir = (Resolve-Path "$here\..").Path
 $scriptsDir = "$rootDir\scripts"
-$launchers = @("$rootDir\tebunko.bat", "$rootDir\tebunko_grep.bat")
+$launchers = @("$rootDir\tebunko.bat")
 
 function getCodeLines {
     # 検査対象のコード行を @{ File; Line; Text } で返す。

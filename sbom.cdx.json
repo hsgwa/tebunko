@@ -8,7 +8,7 @@
       "bom-ref": "tebunko",
       "group": "tebunko",
       "name": "tebunko",
-      "description": "Office ファイルを場所ごとに TSV へ書き出してインデックスを作り、文字列を一括検索する Windows PowerShell ツール",
+      "description": "Office ファイルを場所ごとに TSV へ書き出してインデックスを作り文字列を一括検索し、Office ファイル・フォルダ同士の違いを比べる Windows PowerShell ツール",
       "scope": "required",
       "licenses": [
         {
@@ -29,11 +29,11 @@
       },
       {
         "name": "tebunko:prerequisite",
-        "value": "Microsoft Excel（Excel ファイルの取り込みに必要。COM で操作する）"
+        "value": "Microsoft Excel（Excel ファイルの取り込み・比較に必要。COM で操作する）"
       },
       {
         "name": "tebunko:prerequisite",
-        "value": "Microsoft Word / PowerPoint（旧形式 .doc / .ppt の取り込みにのみ使用。任意）"
+        "value": "Microsoft Word / PowerPoint（旧形式 .doc / .ppt の取り込み・比較にのみ使用。任意）"
       },
       {
         "name": "tebunko:prerequisite",
@@ -52,17 +52,17 @@
   "components": [
     {
       "type": "file",
-      "bom-ref": "tebunko_grep.bat",
+      "bom-ref": "tebunko.bat",
       "group": "tebunko",
-      "name": "tebunko_grep.bat",
+      "name": "tebunko.bat",
       "description": "起動用バッチ。Mark-of-the-Web を解除し、RemoteSigned で画面を開く"
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/gui.ps1",
+      "bom-ref": "scripts/tebunko/gui.ps1",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/gui.ps1",
-      "description": "画面（WPF）の起動口"
+      "name": "scripts/tebunko/gui.ps1",
+      "description": "画面（WPF）の起動口。検索と比較を 1 つのウィンドウに組み立てる"
     },
     {
       "type": "file",
@@ -76,7 +76,21 @@
       "bom-ref": "scripts/tebunko_grep/lib.ps1",
       "group": "tebunko",
       "name": "scripts/tebunko_grep/lib.ps1",
-      "description": "このツール固有の部品（core・index・indexer・search）の読み込み口"
+      "description": "検索の部品（core・index・indexer・search）の読み込み口"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/tebunko_diff/differ.ps1",
+      "group": "tebunko",
+      "name": "scripts/tebunko_diff/differ.ps1",
+      "description": "比較の抽出プロセスの起動口"
+    },
+    {
+      "type": "file",
+      "bom-ref": "scripts/tebunko_diff/lib.ps1",
+      "group": "tebunko",
+      "name": "scripts/tebunko_diff/lib.ps1",
+      "description": "比較の部品（core・diff・job）の読み込み口"
     },
     {
       "type": "file",
@@ -101,24 +115,26 @@
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/tebunko_grep.ico",
+      "bom-ref": "scripts/tebunko/tebunko.ico",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/tebunko_grep.ico",
+      "name": "scripts/tebunko/tebunko.ico",
       "description": "画面のアイコン（同梱する唯一のバイナリ）。元データは docs/images/logo.svg（リポジトリの管理者が作成）で、tools/new_icon.ps1 で作る"
     }
   ],
   "dependencies": [
     {
-      "ref": "tebunko_grep",
+      "ref": "tebunko",
       "dependsOn": [
-        "tebunko_grep.bat",
-        "scripts/tebunko_grep/gui.ps1",
+        "tebunko.bat",
+        "scripts/tebunko/gui.ps1",
         "scripts/tebunko_grep/indexer.ps1",
         "scripts/tebunko_grep/lib.ps1",
+        "scripts/tebunko_diff/differ.ps1",
+        "scripts/tebunko_diff/lib.ps1",
         "scripts/shared/shared.ps1",
         "scripts/shared/office/office_reader.ps1",
         "scripts/xaml",
-        "scripts/tebunko_grep/tebunko_grep.ico"
+        "scripts/tebunko/tebunko.ico"
       ]
     }
   ]
