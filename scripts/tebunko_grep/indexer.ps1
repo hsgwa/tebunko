@@ -50,6 +50,16 @@ trap {
     exit 1
 }
 
+# 同じ work（同じ配置フォルダ）に対してインデックス作成を2つ動かすと、取り込み一覧・インデックスが食い違うため1つだけ動かす。
+# 画面は実行中のインデックス作成を見つけて進み具合を表示するため、ここに来るのは画面を使わずに起動した場合。
+# ミューテックスはプロセスが終われば解放されるため、強制終了されても残らない。
+# 実行中のインデックス作成が画面とやり取りしているファイル（中止要求・取り込み予定・開始要求・進み具合）とログを
+# 消したり上書きしたりしないよう、下の後片付けより先に確かめる
+$indexerMutex = newAppMutex "indexer"
+if (!$indexerMutex.Acquired) {
+    throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
+}
+
 # 前回の実行で残った中止要求・エラーは使わない。表示内容はログに記録する
 [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
 foreach ($oldFile in @(${stopRequestFile}, ${indexingErrorFile}, ${ingestPlanFile}, ${indexingStartRequestFile})) {
@@ -60,14 +70,6 @@ foreach ($oldFile in @(${stopRequestFile}, ${indexingErrorFile}, ${ingestPlanFil
 # 前回の進み具合も消す。残っていると、画面が起動直後に前回の最後の1行（「仕上げ」など）を読んでしまう
 removeIndexingProgress
 try { Start-Transcript -LiteralPath ${indexingLogFile} -Force | Out-Null } catch {}
-
-# 同じ work（同じ配置フォルダ）に対してインデックス作成を2つ動かすと、取り込み一覧・インデックスが食い違うため1つだけ動かす。
-# 画面は実行中のインデックス作成を見つけて進み具合を表示するため、ここに来るのは画面を使わずに起動した場合。
-# ミューテックスはプロセスが終われば解放されるため、強制終了されても残らない
-$indexerMutex = newAppMutex "indexer"
-if (!$indexerMutex.Acquired) {
-    throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
-}
 
 # 進み具合は1行のファイル（インデックス作成進捗.txt）に書く。画面はこれを読んで表示する
 # （取り込み一覧は数万行になるため、画面が毎秒読み直すと、その間ずっと画面が固まる）

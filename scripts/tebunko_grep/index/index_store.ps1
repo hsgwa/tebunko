@@ -81,7 +81,8 @@ function renameIndex {
         [string]$statusPath = ${statusFile}
     )
 
-    if ($oldName -eq "" -or $newName -eq "" -or $oldName -eq $newName) {
+    # 大文字・小文字だけの変更も改名するため、同じ名前かは大文字・小文字を区別して比べる（-ceq）
+    if ($oldName -eq "" -or $newName -eq "" -or $oldName -ceq $newName) {
         return
     }
 
@@ -117,8 +118,10 @@ function removeIndex {
     }
     $target = Join-Path $dir $name
     if (Test-Path -LiteralPath $target -PathType Container) {
-        # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
-        Remove-Item -LiteralPath (toLongPath $target) -Recurse -Force
+        # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する。
+        # 画面は別スレッド（$ErrorActionPreference が既定の Continue）で呼ぶため、消せなければ例外にして
+        # 取り込み一覧の記録を残す（-ErrorAction Stop が無いと、フォルダが残ったまま記録だけ消える）
+        Remove-Item -LiteralPath (toLongPath $target) -Recurse -Force -ErrorAction Stop
     }
     removeStatusIndexName $name $statusPath
 }

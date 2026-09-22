@@ -161,6 +161,76 @@ Describe "removeDirectoryRetry" -Tag Io {
     It "フォルダが無ければ何もしない" {
         { removeDirectoryRetry "$TestDrive\無いフォルダ" } | Should Not Throw
     }
+
+    It "中のファイルがほかから開かれていて消せなければ、決めた回数だけ試してから例外にする" {
+        Mock Start-Sleep {}
+        $dir = "$TestDrive\使用中のフォルダ"
+        writeListFile "$dir\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$dir\a.tsv", "Open", "Read", "None")
+        try {
+            { removeDirectoryRetry $dir 3 1 } | Should Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Assert-MockCalled Start-Sleep -Times 2 -Exactly -Scope It
+        Test-Path -LiteralPath "$dir\a.tsv" | Should Be $true
+    }
+}
+
+Describe "readListFile（読めないファイル）" -Tag Io {
+    It "ほかから共有せずに開かれていて読めなければ、空の一覧ではなく例外にする（`$ErrorActionPreference によらない）" {
+        $path = "$TestDrive\読めない一覧\list.txt"
+        writeListFile $path @("a")
+        $stream = [System.IO.File]::Open($path, "Open", "ReadWrite", "None")
+        try {
+            & {
+                $ErrorActionPreference = "Continue"
+                { readListFile $path } | Should Throw
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    }
+}
+
+Describe "writeListFile（行が無い）" -Tag Io {
+    It "行を渡さなければ空のファイルを作る" {
+        $path = "$TestDrive\空の一覧\list.txt"
+        writeListFile $path $null
+        Test-Path -LiteralPath $path | Should Be $true
+        @(readListFile $path).Count | Should Be 0
+    }
+}
+
+Describe "writeTextLinesAtomic" -Tag Io {
+    It "新しいファイルを作り、一時ファイルを残さない" {
+        $path = "$TestDrive\atomic\新規.txt"
+        writeTextLinesAtomic $path @("一", "二")
+        @(readListFile $path) -join "," | Should Be "一,二"
+        Test-Path -LiteralPath "${path}.tmp" | Should Be $false
+    }
+
+    It "既存のファイルを置き換える" {
+        $path = "$TestDrive\atomic\置換.txt"
+        writeTextLinesAtomic $path @("前")
+        writeTextLinesAtomic $path @("後")
+        @(readListFile $path) -join "," | Should Be "後"
+        Test-Path -LiteralPath "${path}.tmp" | Should Be $false
+    }
+
+    It "置き換えられなければ 5 回まで試してから例外にし、元のファイルは壊さない" {
+        Mock Start-Sleep {}
+        $path = "$TestDrive\atomic\使用中.txt"
+        writeTextLinesAtomic $path @("元の内容")
+        $stream = [System.IO.File]::Open($path, "Open", "Read", "None")
+        try {
+            { writeTextLinesAtomic $path @("新しい内容") } | Should Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Assert-MockCalled Start-Sleep -Times 4 -Exactly -Scope It
+        @(readListFile $path) -join "," | Should Be "元の内容"
+    }
 }
 
 Describe "newAppMutex" -Tag Io {

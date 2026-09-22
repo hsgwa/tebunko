@@ -63,7 +63,8 @@ function findSourceFile {
         $description = "「$($location.Folder)」に当たるフォルダ（または $($row.Book) のあるフォルダ）を選んでください"
         $initial = getExistingFolder $path
     } else {
-        $path = "$($row.Root)\$($row.RelDir)\$($row.Book)"
+        # 相対フォルダが空（インデックスの直下）でも \ が重ならないようにつなぐ
+        $path = joinSourcePath $row.Root $row.RelDir $row.Book
         $missing = factGone "このファイルが今どこにあるか、記録がありません" $relPath
         $description = "$($row.Book) のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
         $initial = ""
@@ -350,6 +351,10 @@ function exportResults {
         }
     } catch [System.IO.IOException] {
         setStatus "検索結果.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        return
+    } catch [System.UnauthorizedAccessException] {
+        # 読み取り専用・書き込み権限が無いときは、アプリを閉じても直らないため別の文言にする
+        setStatus "検索結果.txt に書き込む権限がありません（読み取り専用など）。${resultFile} を確かめてから、もう一度出力してください。"
         return
     }
     Invoke-Item -LiteralPath ${resultFile}

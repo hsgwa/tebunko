@@ -163,6 +163,25 @@ Describe "readTsvContext" -Tag Io {
         @(readTsvContext (Join-Path $TestDrive "missing.tsv") 1).Count | Should Be 0
     }
 
+    It "範囲が無い（行番号が 0 で前後も 0）なら、ファイルを読まずに空" {
+        @(readTsvContext $path 0 0 0).Count | Should Be 0
+    }
+
+    It "ほかのアプリが共有せずに開いていて読めなければ空" {
+        $locked = Join-Path $TestDrive "context_locked.tsv"
+        newTsv $locked @("l1", "l2")
+        $stream = [System.IO.File]::Open($locked, "Open", "ReadWrite", "None")
+        try {
+            # 画面（$ErrorActionPreference = "Stop"）から呼ぶときと同じにする
+            & {
+                $ErrorActionPreference = "Stop"
+                @(readTsvContext $locked 1).Count | Should Be 0
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    }
+
     It "CRLF・LF・CR のどれで区切られていても、検索と同じ行番号になる" {
         $mixedDir = Join-Path $TestDrive "context_mixed"
         [void][System.IO.Directory]::CreateDirectory($mixedDir)

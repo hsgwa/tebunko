@@ -107,6 +107,32 @@ Describe "getIndexTsvFiles / testIndexExists / getIndexSummary" -Tag Io {
         $summary.LastWrite | Should Be ([datetime]"2030-01-02 03:04:05")
         $summary.Missing.Count | Should Be 1
     }
+
+    It "TSV の無いフォルダ・存在しないフォルダだけなら、TSV なし・件数 0・更新日時なし" {
+        $empty = Join-Path $TestDrive "empty_index"
+        New-Item -ItemType Directory -Path "$empty\sub" -Force | Out-Null
+        testIndexExists @($empty, $missing) | Should Be $false
+        testIndexExists @() | Should Be $false
+        $summary = getIndexSummary @($empty)
+        $summary.Count | Should Be 0
+        $summary.LastWrite | Should Be $null
+        @($summary.Missing).Count | Should Be 0
+        $result = getIndexTsvFiles @($empty, $missing)
+        $result.Files.Count | Should Be 0
+        ($result.Folders | ForEach-Object { "$($_.Exists):$($_.Count)" }) -join "," | Should Be "True:0,False:0"
+    }
+
+    It "2000 件ごとに、数えた件数を知らせる" {
+        $many = Join-Path $TestDrive "many2000\book.xlsx"
+        [void][System.IO.Directory]::CreateDirectory($many)
+        for ($i = 0; $i -lt 2001; $i++) {
+            [System.IO.File]::WriteAllText("$many\S$i.tsv", "x")
+        }
+        $counts = New-Object System.Collections.Generic.List[int]
+        $result = getIndexTsvFiles @((Split-Path $many -Parent)) { param ($count) $counts.Add($count) }
+        $result.Files.Count | Should Be 2001
+        ($counts -join ",") | Should Be "2000"
+    }
 }
 
 Describe "searchIndex（今の形式: <ファイル名>\<場所>.tsv）" -Tag Io {
@@ -248,6 +274,69 @@ Describe "searchIndex" -Tag Io {
         $hits = @((searchIndex "株" $targets $true).Hits)
         $hits.Count | Should Be 1
         $hits[0].Book | Should Be "b.xlsx"
+    }
+
+    It "上限 0 は上限なし。対象の TSV が無ければ 0 件（打ち切り・中止にしない）" {
+        $all = searchIndex "株" $files $true 0
+        $all.Hits.Count | Should Be 3
+        $all.Truncated | Should Be $false
+        $none = searchIndex "株" @{} $true
+        $none.Total | Should Be 0
+        $none.Hits.Count | Should Be 0
+        $none.Truncated | Should Be $false
+        $none.Cancelled | Should Be $false
+    }
+
+    It "対象ファイルに当たる TSV が無ければ、Total は 0" {
+        $result = searchIndex "株" $files $true -fileFilter "*.pptx"
+        $result.Total | Should Be 0
+        $result.Hits.Count | Should Be 0
+    }
+}
+
+Describe "searchIndex（正規表現の照合の時間切れ）" -Tag Io {
+    # 入れ子の繰り返し（(a+)+$）は、一致しない文字列で照合の時間が指数的に増える
+    $dir = Join-Path $TestDrive "timeout"
+    for ($i = 0; $i -lt 3; $i++) {
+        newTsv "$dir\book$i.xlsx\S.tsv" @(("a" * 40) + "!")
+    }
+    $files = (getIndexTsvFiles @($dir)).Files
+    $message = "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
+
+    It "時間切れなら、分かるメッセージで検索を中止する" {
+        $regexTimeout = [timespan]::FromMilliseconds(1)
+        { searchIndex "(a+)+$" $files $false -workerCount 1 } | Should Throw $message
+    }
+
+    It "並列に検索していても、時間切れなら同じメッセージで中止する" {
+        $regexTimeout = [timespan]::FromMilliseconds(1)
+        { searchIndex "(a+)+$" $files $false 0 1 -workerCount 2 } | Should Throw $message
+    }
+}
+
+Describe "searchTsvFiles（全文を読まない大きさの TSV）" -Tag Io {
+    $dir = Join-Path $TestDrive "large"
+    newTsv "$dir\a.xlsx\S.tsv" @("見積 1", "x", "見積 2")
+    newTsv "$dir\b.docx\ページ001.tsv" @("見積 3")
+    $targets = newTsvFiles (getIndexTsvFiles @($dir)).Files
+
+    # searchTsvFiles は List を 1 つのまま返すため、1 件ずつ "ファイル名:行番号" にする
+    function formatBookLines {
+        param ($hits)
+        return (@(foreach ($hit in $hits) { "$($hit.Book):$($hit.LineNumber)" }) -join ",")
+    }
+
+    It "上限より大きい TSV は 1 行ずつ照合し、結果・行番号は同じ" {
+        $search = newSearchRegex "見積" $true
+        $expected = formatBookLines (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex $search.ScanMode)
+        $expected | Should Be "a.xlsx:1,a.xlsx:3,b.docx:1"
+
+        $searchWholeFileMax = 4
+        $cache = newTsvTextCache
+        formatBookLines (searchTsvFiles $targets 0 $targets.Count $search.Regex -1 $search.TextRegex $search.ScanMode $cache) |
+            Should Be $expected
+        # 大きい TSV は内容を残さない
+        $cache.Texts.Count | Should Be 0
     }
 }
 

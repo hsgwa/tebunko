@@ -56,6 +56,36 @@ Describe "readSettings / writeSettings" -Tag Io {
         (readSettings $path).useRegex | Should Be $false
     }
 
+    It "中身が JSON の null・配列・数値だけなら既定値（空のファイルと同じ）" {
+        $path = "$TestDrive\値だけ.json"
+        foreach ($json in @("null", " null ", "[]", "123", '"x"')) {
+            [System.IO.File]::WriteAllText($path, $json, ${utf8Bom})
+            $settings = readSettings $path
+            $settings.useRegex | Should Be $false
+            @($settings.targetFolders).Count | Should Be 0
+            $settings.openMode | Should Be ${openModeNormal}
+        }
+    }
+
+    It "手で書いた真偽値の文字列（""false"" 等）は真偽値として読み、読めない値は既定値のまま" {
+        $path = "$TestDrive\文字列の真偽値.json"
+        [System.IO.File]::WriteAllText($path, '{ "useRegex": "false", "caseSensitive": "True", "includeShapes": "いいえ", "includeComments": 0 }', ${utf8Bom})
+        $settings = readSettings $path
+        $settings.useRegex | Should Be $false
+        $settings.caseSensitive | Should Be $true
+        $settings.includeShapes | Should Be $true    # 読めない値は既定値
+        $settings.includeComments | Should Be $false # 数値の 0 は偽
+    }
+
+    It "文字列の項目に数値が書かれていても文字列として読む。一覧に 1 件だけ書かれていても配列にする" {
+        $path = "$TestDrive\型違い.json"
+        [System.IO.File]::WriteAllText($path, '{ "fileFilter": 123, "targetFolders": { "path": "C:\\a" }, "indexSources": null }', ${utf8Bom})
+        $settings = readSettings $path
+        $settings.fileFilter | Should BeExactly "123"
+        @($settings.targetFolders).Count | Should Be 1
+        @($settings.indexSources).Count | Should Be 0
+    }
+
     It "JSON として読めなければ例外を投げる" {
         $path = "$TestDrive\壊れ.json"
         [System.IO.File]::WriteAllText($path, "{ targetFolders: ", ${utf8Bom})
@@ -117,6 +147,29 @@ Describe "getTargetFolders / writeTargetFolders" -Tag Io {
         @(getTargetFolders "$TestDrive\none_targets.json").Count | Should Be 0
     }
 
+    It "インデックス名が重なれば（大文字・小文字の違いも）2 つ目以降の名前を空にする（取り込み時に割り当て直す）" {
+        $path = "$TestDrive\targets_names.json"
+        [System.IO.File]::WriteAllText($path, @'
+{ "targetFolders": [
+    null,
+    { "path": "C:\\a", "name": "見積" },
+    { "path": "C:\\b", "name": " 見積 " },
+    { "path": "C:\\c", "name": "Sales" },
+    { "path": "C:\\d", "name": "sales" },
+    { "path": "C:\\e", "name": "a/b" }
+] }
+'@, ${utf8Bom})
+        $folders = @(getTargetFolders $path)
+        ($folders | ForEach-Object { "$($_.Path)=$($_.Name)" }) -join "," |
+            Should Be "C:\a=見積,C:\b=,C:\c=Sales,C:\d=,C:\e=a／b"
+    }
+
+    It "enabled に文字列の ""false"" が書かれていてもチェックなしにする" {
+        $path = "$TestDrive\targets_enabled.json"
+        [System.IO.File]::WriteAllText($path, '{ "targetFolders": [ { "path": "C:\\a", "enabled": "false" } ] }', ${utf8Bom})
+        @(getTargetFolders $path)[0].Enabled | Should Be $false
+    }
+
     It "保存した一覧をそのまま読み込め、ほかの設定は保つ" {
         $path = "$TestDrive\targets_write.json"
         writeSearchOption @{ UseRegex = $true } $path
@@ -176,6 +229,22 @@ Describe "indexSources / setIndexSourceFolder" -Tag Io {
         setIndexSourceFolder "営業" "  " $path
         @(readIndexSources $path).Count | Should Be 0
     }
+
+    It "名前・フォルダが空の記録と、同じ名前（大文字・小文字の違いも）の 2 つ目以降は読まない" {
+        $path = "$TestDrive\sources_hand.config"
+        [System.IO.File]::WriteAllText($path, @'
+{ "indexSources": [
+    { "name": "", "path": "C:\\a" },
+    { "name": "営業", "path": "" },
+    { "name": "Sales", "path": "C:\\b\\" },
+    { "name": "sales", "path": "C:\\c" }
+] }
+'@, ${utf8Bom})
+        $sources = @(readIndexSources $path)
+        $sources.Count | Should Be 1
+        $sources[0].Name | Should Be "Sales"
+        $sources[0].Path | Should Be "C:\b"
+    }
 }
 
 Describe "readSearchExcludes / writeSearchExcludes" -Tag Io {
@@ -196,6 +265,15 @@ Describe "readSearchExcludes / writeSearchExcludes" -Tag Io {
         $excludes[0].Subfolders | Should Be $true
         $excludes[1].Subfolders | Should Be $false
         (readSearchOption $path).UseRegex | Should Be $true
+    }
+
+    It "subfolders の記載が無ければフォルダ以下すべて、文字列の ""false"" は直下のファイルだけとして読む" {
+        $path = "$TestDrive\excludes_hand.json"
+        [System.IO.File]::WriteAllText($path, '{ "searchExcludes": [ { "path": "D:\\a" }, { "path": "D:\\b", "subfolders": "false" }, { "path": "  " } ] }', ${utf8Bom})
+        $excludes = @(readSearchExcludes $path)
+        $excludes.Count | Should Be 2
+        $excludes[0].Subfolders | Should Be $true
+        $excludes[1].Subfolders | Should Be $false
     }
 
     It "空で保存すると空になる" {

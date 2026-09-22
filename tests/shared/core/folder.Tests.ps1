@@ -221,3 +221,70 @@ Describe "getFolderLeafName" -Tag Io {
         getFolderLeafName "\server\share" | Should Be "share"
     }
 }
+
+Describe "normalizeFolderPath（区切りだけ・ドライブ直下に戻るパス）" -Tag Io {
+    It "\ だけのパスは空にする" {
+        normalizeFolderPath "\" | Should Be ""
+        normalizeFolderPath "\\?\" | Should Be ""
+    }
+
+    It ".. でドライブ直下まで戻ったら \ を付ける" {
+        normalizeFolderPath "C:\data\.." | Should Be "C:\"
+    }
+}
+
+Describe "joinFolderPath / getParentFolderPath（フォルダが無い・相対パス）" -Tag Io {
+    It "フォルダが空なら名前だけを返す" {
+        joinFolderPath "" "見積" | Should Be "見積"
+    }
+
+    It "1 つ上の無い相対パスは空文字列" {
+        getParentFolderPath "見積" | Should Be ""
+    }
+}
+
+Describe "getFolderEntries（隠しファイルばかりのフォルダ・開けないパス）" -Tag Io {
+    It "隠しファイルばかりでも、見た件数が上限の 10 倍を超えたら打ち切る" {
+        $root = "$TestDrive\隠しばかり"
+        [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        for ($i = 0; $i -lt 12; $i++) {
+            $path = "$root\隠し$i.txt"
+            [System.IO.File]::WriteAllText($path, "x")
+            (Get-Item -LiteralPath $path).Attributes = "Hidden"
+        }
+        $result = getFolderEntries $root 1
+        @($result.Entries).Count | Should Be 0
+        $result.Truncated | Should Be $true
+    }
+
+    It "パスとして開けない書き方は、理由を付けて Error に入れる" {
+        $result = getFolderEntries "C:\a<b>"
+        @($result.Entries).Count | Should Be 0
+        $result.Error | Should Match "^フォルダを開けません（"
+    }
+}
+
+Describe "getQuickFolders" -Tag Io {
+    It "実際にあるフォルダだけを、重複させずに返す" {
+        $items = @(getQuickFolders)
+        foreach ($item in $items) {
+            [System.IO.Directory]::Exists($item.Path) | Should Be $true
+        }
+        @($items | ForEach-Object { $_.Path } | Sort-Object -Unique).Count | Should Be $items.Count
+        @($items | Where-Object { @("デスクトップ", "ドキュメント", "ダウンロード") -notcontains $_.Name }).Count | Should Be 0
+    }
+}
+
+Describe "getComputerFolders" -Tag Io {
+    It "使えるドライブを「名前 (C:)」とドライブ直下のパスで返す" {
+        $empty = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $items = @(getComputerFolders $empty)
+        $system = $env:SystemDrive
+        $item = @($items | Where-Object { $_.Path -eq "${system}\" })
+        $item.Count | Should Be 1
+        $item[0].Name | Should Match " \($([regex]::Escape($system))\)$"
+        foreach ($other in $items) {
+            $other.Path | Should Match "^[A-Z]:\\$"
+        }
+    }
+}

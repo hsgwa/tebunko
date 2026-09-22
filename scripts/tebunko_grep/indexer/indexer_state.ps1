@@ -515,7 +515,8 @@ function renameStatusIndexName {
             $result.Add($fields -join "`t")
             continue
         }
-        if ($fields.Count -eq ${statusColumns}.Count -and $fields[0] -ne "") {
+        # 以前の形式（抽出版の列が無い）の行も readStatusFile は読むため、同じように扱う
+        if ($fields.Count -ge ${statusColumns}.Count - 1 -and $fields.Count -le ${statusColumns}.Count -and $fields[0] -ne "") {
             $split = splitIndexRelPath $fields[0]
             if ($split.Rest -ne "" -and [string]::Equals($split.Name, $oldName, [System.StringComparison]::OrdinalIgnoreCase)) {
                 $fields[0] = "${newName}\$($split.Rest)"
@@ -546,7 +547,8 @@ function removeStatusIndexName {
         if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and [string]::Equals($fields[2], $name, [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
-        if ($fields.Count -eq ${statusColumns}.Count -and $fields[0] -ne "") {
+        # 以前の形式（抽出版の列が無い）の行も readStatusFile は読むため、同じように扱う
+        if ($fields.Count -ge ${statusColumns}.Count - 1 -and $fields.Count -le ${statusColumns}.Count -and $fields[0] -ne "") {
             $split = splitIndexRelPath $fields[0]
             if ($split.Rest -ne "" -and [string]::Equals($split.Name, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
                 continue

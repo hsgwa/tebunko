@@ -89,6 +89,37 @@ Describe "renameIndex" -Tag Io {
 
         { renameIndex "営業" "技術" $dir $path } | Should Throw
     }
+
+    It "大文字・小文字だけを変えられる（フォルダ・記録とも新しい書き方になる）" {
+        $dir = "$TestDrive\rename4\index"
+        $path = "$TestDrive\rename4\取り込み一覧.tsv"
+        writeListFile "$dir\sales\a.xlsx\Sheet1.tsv" @("本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "sales" }) @(
+            (newStatusRow "sales\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $path
+
+        renameIndex "sales" "Sales" $dir $path
+
+        @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name }) -join "," | Should BeExactly "Sales"
+        Get-Content -LiteralPath "$dir\Sales\a.xlsx\Sheet1.tsv" -Encoding UTF8 | Should Be "本文"
+        $status = readStatusFile $path
+        $status.Folders[0].Name | Should BeExactly "Sales"
+        $status.Rows["Sales\a.xlsx"].相対パス | Should BeExactly "Sales\a.xlsx"
+    }
+
+    It "名前が空・同じなら何もしない" {
+        $dir = "$TestDrive\rename5\index"
+        $path = "$TestDrive\rename5\取り込み一覧.tsv"
+        New-Item -ItemType Directory -Path "$dir\営業" -Force | Out-Null
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @() $path
+
+        renameIndex "" "技術" $dir $path
+        renameIndex "営業" "" $dir $path
+        renameIndex "営業" "営業" $dir $path
+
+        Test-Path -LiteralPath "$dir\営業" | Should Be $true
+        (readStatusFile $path).Folders[0].Name | Should Be "営業"
+    }
 }
 
 Describe "removeIndex" -Tag Io {
@@ -127,6 +158,30 @@ Describe "removeIndex" -Tag Io {
         removeIndex "" "$TestDrive\remove2\index" $path
 
         (readStatusFile $path).Rows.Count | Should Be 1
+    }
+
+    It "フォルダを消せなければ（TSV を開いている等）例外にし、取り込み一覧の記録は残す" {
+        # 画面は別スレッド（$ErrorActionPreference が既定の Continue）で呼ぶため、消せなかったことを例外で知らせる必要がある
+        $dir = "$TestDrive\remove3\index"
+        $path = "$TestDrive\remove3\取り込み一覧.tsv"
+        writeListFile "$dir\営業\a.xlsx\Sheet1.tsv" @("本文")
+        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $path
+
+        $stream = [System.IO.File]::Open("$dir\営業\a.xlsx\Sheet1.tsv", "Open", "Read", "None")
+        try {
+            & {
+                $ErrorActionPreference = "Continue"
+                { removeIndex "営業" $dir $path } | Should Throw
+            }
+        } finally {
+            $stream.Dispose()
+        }
+
+        $status = readStatusFile $path
+        $status.Folders.Count | Should Be 1
+        $status.Rows.ContainsKey("営業\a.xlsx") | Should Be $true
     }
 }
 

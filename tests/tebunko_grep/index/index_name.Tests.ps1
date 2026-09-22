@@ -328,4 +328,43 @@ Describe "testIndexName" -Tag Unit {
     It "長すぎる名前は使えない" {
         testIndexName ("あ" * 256) | Should Match "長すぎます"
     }
+
+    It "ちょうど上限の長さなら使える" {
+        testIndexName ("あ" * 255) | Should Be ""
+    }
+
+    It "拡張子の付いた予約語・. だけの名前・制御文字も使えない" {
+        testIndexName "CON.txt" | Should Match "使えない名前"
+        testIndexName "com9.backup" | Should Match "使えない名前"
+        testIndexName "." | Should Match "最後に \."
+        testIndexName "営業`t部" | Should Match "使えない文字"
+    }
+
+    It "予約語を含むだけの名前は使える" {
+        testIndexName "CONSOLE" | Should Be ""
+        testIndexName "営業NUL" | Should Be ""
+    }
+
+    It "ほかのインデックスの名前が無い（`$null）場合も使える" {
+        testIndexName "営業" $null | Should Be ""
+    }
+}
+
+Describe "newIndexName（名前にできない・長いフォルダ名）" -Tag Unit {
+    It "フォルダ名が取れなければ「フォルダ」とする" {
+        newIndexName "" | Should Be "フォルダ"
+        newIndexName "" @("フォルダ") | Should Be "フォルダ(2)"
+    }
+
+    It "重複して (2) を付けても、ファイル名の上限（255 文字）を超えない" {
+        $long = "あ" * 255
+        $name = newIndexName "C:\$long" @($long)
+        $name.Length | Should BeLessThan 256
+        $name | Should Match "\(2\)$"
+        testIndexName $name @($long) | Should Be ""
+        # 切り詰めた名前どうしも重複させない
+        $third = newIndexName "C:\$long" @($long, $name)
+        $third | Should Match "\(3\)$"
+        $third.Length | Should BeLessThan 256
+    }
 }
