@@ -2,12 +2,17 @@
 . "$PSScriptRoot\..\helpers\load.ps1"
 
 Describe "パス定義" -Tag Meta {
-    It "リポジトリ直下を基準にする" {
+    It "リポジトリ直下を基準にする（書き込めるため、設定ファイルもリポジトリ直下に置く）" {
         $rootDir | Should Be (Resolve-Path "$here\..").Path
-        $indexDir | Should Be "$rootDir\work\index"
-        $publishDir | Should Be "$rootDir\work\取り込み出力\$PID"
-        $resultFile | Should Be "$rootDir\work\検索結果.txt"
+        $dataDir | Should Be $rootDir
         $settingsFile | Should Be "$rootDir\setting.config"
+    }
+
+    It "work の中身は work の置き場所（既定はリポジトリ直下の work。setting.config の workspaceFolder で変わる）を基準にする" {
+        $workDir | Should Be (getWorkDir $settingsFile)
+        $indexDir | Should Be "$workDir\index"
+        $publishDir | Should Be "$workDir\取り込み出力\$PID"
+        $resultFile | Should Be "$workDir\検索結果.txt"
     }
 }
 
@@ -108,7 +113,7 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "ウィンドウの枠の名前がある" {
         $names = getXamlNames "$here\..\scripts\tebunko_grep\xaml\tebunko_grep.xaml"
-        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
             $names -contains $name | Should Be $true
         }
     }
@@ -116,6 +121,7 @@ Describe "画面の部品の名前" -Tag Meta {
     foreach ($tab in @(
             @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
             @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
+            @{ File = "tab_settings.xaml"; Marker = 'Tab = "SettingsTab"' }
             @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' })) {
         $file = $tab.File
         $marker = $tab.Marker

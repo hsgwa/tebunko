@@ -1,14 +1,14 @@
 ﻿# インデクサの起動口（tebunko_grep\indexer.ps1）のテスト。
 # indexer.ps1 は lib.ps1 を読み込み、置き場所（リポジトリ直下の setting.config・work\）を決める。
-# リポジトリの設定・インデックスを書き換えないよう、paths.ps1 で ${rootDir}・${workDir} を決めた直後に止めて、
-# テスト用のフォルダ（TestDrive）に差し替えてから続けさせる（Set-PSBreakpoint の -Action）。
+# リポジトリの設定・インデックスを書き換えないよう、data_dir.ps1 で ${dataDir} を決める直前に止めて、
+# ツールのフォルダ（${rootDir}）をテスト用のフォルダ（TestDrive）に差し替えてから続けさせる（Set-PSBreakpoint の -Action）。
 # 同じやり方で、取り込みの途中に中止要求・画面の返事・元のファイルの削除を起こす。
 # Excel は COM が要るため使わない。Word・PowerPoint の新形式（.docx・.pptx）はファイルを直接読むため、そのまま取り込む。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 $indexerPath = "${scriptsDir}\tebunko_grep\indexer.ps1"
 $indexerDir  = "${scriptsDir}\tebunko_grep"
-$pathsPath   = "${scriptsDir}\shared\core\paths.ps1"
+$dataDirPath = "${scriptsDir}\shared\core\data_dir.ps1"
 $planPath    = "${scriptsDir}\tebunko_grep\indexer\indexer_plan.ps1"
 $docxSource  = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
 $pptxSource  = "${testDataDir}\office\PowerPoint\基本.pptx"
@@ -63,10 +63,10 @@ function invokeIndexer {
     $global:indexerTestRoot = $root
     $points = New-Object System.Collections.Generic.List[object]
     try {
-        # ${rootDir}・${workDir} を決めた次の行（${utf8Bom}）で差し替える。Action は止まった場所の子のスコープで動く
-        $points.Add((Set-PSBreakpoint -Script $pathsPath -Line (findLine $pathsPath '^\$\{utf8Bom\}') -Action {
+        # ${dataDir} を決める行で、その前に ${rootDir} を差し替える（テスト用のフォルダには書き込めるため、setting.config・work もそこになる）。
+        # Action は止まった場所の子のスコープで動く
+        $points.Add((Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
             Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
-            Set-Variable -Name workDir -Value "$($global:indexerTestRoot)\work" -Scope 1
         }))
         foreach ($break in $breaks) {
             $points.Add((Set-PSBreakpoint -Script $break.Script -Line (findLine $break.Script $break.Pattern) -Action $break.Action))
@@ -119,7 +119,7 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         foreach ($name in $files) {
             [System.IO.File]::WriteAllText("$root\work\$name", "実行中")
         }
-        $other = newAppMutex "indexer" $root
+        $other = newAppMutex "indexer" "$root\work"
         try {
             invokeIndexer $root | Should Be 1
         } finally {
@@ -177,6 +177,22 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $progress.Failed | Should Be 1
         readTestError $root | Should BeNullOrEmpty
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should Be $false
+    }
+
+    It "設定 workspaceFolder があれば、そのフォルダ（無ければ作る）にインデックス・取り込み一覧を作り、ツールのフォルダの work には書かない" {
+        $root = newRoot
+        $work = Join-Path $TestDrive "別のドライブのつもり$($script:rootCount)\データ"
+        $settings = newSettings
+        $settings.targetFolders = @(@{ name = "営業"; path = $source; enabled = $true })
+        $settings.workspaceFolder = $work
+        writeSettings $settings "$root\setting.config"
+
+        invokeIndexer $root | Should Be 0
+
+        Test-Path -LiteralPath "$work\取り込み一覧.tsv" | Should Be $true
+        @(Get-ChildItem -LiteralPath "$work\index\営業\議事録.docx" -Filter "*.tsv").Count | Should BeGreaterThan 0
+        Test-Path -LiteralPath "$work\インデックス作成ログ.txt" | Should Be $true
+        @(Get-ChildItem -LiteralPath "$root\work").Count | Should Be 0
     }
 
     It "2 回目は更新の無いファイルを取り込まず、前回失敗したファイルもスキップする" {

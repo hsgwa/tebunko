@@ -1,0 +1,131 @@
+﻿# ［8 設定］タブ（ワークスペース・設定ファイルの場所）。文言と可否の判定は settings_view.ps1。
+
+$script:restartRequested = $false  # ワークスペースを変えたため、閉じたあと開き直す（gui.ps1）
+${workspaceCountLimit} = 1000      # 選んだフォルダの中身を数える上限（大きなフォルダで待たせない）
+
+function updateSettingsView {
+    # ワークスペースと設定ファイルの場所を表示する
+    $view = getWorkspaceView ${workDir} (getDefaultWorkDir)
+    $ui.WorkspaceText.Text = $view.Path
+    $ui.WorkspaceNote.Text = $view.Note
+    $ui.ResetWorkspaceButton.Visibility = if ($view.CanReset) { "Visible" } else { "Collapsed" }
+
+    $file = getSettingsFileView ${settingsFile} ${rootDir}
+    $ui.SettingsFileText.Text = $file.Path
+    $ui.SettingsFileNote.Text = $file.Note
+}
+
+function testWorkspaceChangeable {
+    # インデックス作成中はワークスペースを変えない（インデクサが今のワークスペースに書いている。画面を使わずに起動したものも含む）
+    if ((isIndexing) -or (findRunningIndexer)) {
+        showMessage "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" "OK" "Warning" | Out-Null
+        return $false
+    }
+    if ($script:indexBusy) {
+        showMessage "前のインデックスの削除が終わるまでお待ちください。" "OK" "Warning" | Out-Null
+        return $false
+    }
+    return $true
+}
+
+function chooseWorkspace {
+    # ［変更…］。空のフォルダを選んで、ワークスペースにする（空でなければ警告する）
+    if (!(testWorkspaceChangeable)) {
+        return
+    }
+    $folder = selectFolder "ワークスペースにする空のフォルダを選んでください。インデックス・取り込み一覧・ログをここに置きます。" ${workDir}
+    if ($null -eq $folder) {
+        return
+    }
+    applyWorkspace $folder $true
+}
+
+function resetWorkspace {
+    # ［既定に戻す］。設定ファイルと同じフォルダの work に戻す（無ければ作る。前に使っていた既定の場所のため、空かどうかは問わない）
+    if (!(testWorkspaceChangeable)) {
+        return
+    }
+    $folder = getDefaultWorkDir
+    try {
+        [System.IO.Directory]::CreateDirectory($folder) | Out-Null
+    } catch {
+        # 作れなければ、書き込めないフォルダとして下の確認で伝える
+    }
+    applyWorkspace $folder $false
+}
+
+function getFolderEntrySample {
+    # フォルダの中のファイル・フォルダを上限まで数え、先頭の名前を返す: @{ Count; Names; Capped }
+    param (
+        [string]$folder
+    )
+
+    $count = 0
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($entry in [System.IO.Directory]::EnumerateFileSystemEntries((toLongPath $folder))) {
+        $count++
+        if ($names.Count -lt ${workspaceSampleCount}) {
+            $names.Add([System.IO.Path]::GetFileName($entry))
+        }
+        if ($count -ge ${workspaceCountLimit}) {
+            break
+        }
+    }
+    return @{ Count = $count; Names = $names.ToArray(); Capped = ($count -ge ${workspaceCountLimit}) }
+}
+
+function applyWorkspace {
+    # 確かめてからワークスペースを保存し、画面を開き直す（ワークスペースの中のファイルの場所は、読み込み時に決まるため）
+    param (
+        [string]$folder,
+        [bool]$requireEmpty   # 空のフォルダを求める（［変更…］）。空でなければ警告する
+    )
+
+    $check = testWorkspaceChoice $folder ${workDir} (testWritableFolder $folder)
+    if ($check.Kind -eq "same") {
+        setStatus "今と同じワークスペースです"
+        return
+    }
+    if ($check.Kind -eq "error") {
+        showMessage $check.Message "OK" "Warning" | Out-Null
+        return
+    }
+
+    $folder = normalizeFolderPath $folder
+    $entries = if ($requireEmpty) { getFolderEntrySample $folder } else { @{ Count = 0; Names = @(); Capped = $false } }
+    $sub = Join-Path $folder ${workspaceSubFolderName}
+    $canMakeSub = -not (Test-Path -LiteralPath $sub) -or
+        ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)
+    $confirm = newWorkspaceConfirm $folder ${workDir} $entries.Count $entries.Names $entries.Capped `
+        (Test-Path -LiteralPath (Join-Path $folder "index") -PathType Container) $canMakeSub
+    # switch の中の $_ は switch の値になるため、行を変数に受けてから使う
+    $facts = @($confirm.Facts | ForEach-Object {
+        $fact = $_
+        switch ($fact.Kind) {
+            "kept"  { factKept $fact.Title $fact.Detail }
+            "warn"  { factWarn $fact.Title $fact.Detail }
+            default { factNext $fact.Title $fact.Detail }
+        }
+    })
+    $answer = showConfirm -heading $confirm.Heading -facts $facts -hint $confirm.Hint -choices $confirm.Choices
+    if ($null -eq $answer) {
+        return
+    }
+    if ($answer -eq "sub") {
+        [System.IO.Directory]::CreateDirectory($sub) | Out-Null
+        if (-not (testWritableFolder $sub)) {
+            showMessage "「${sub}」にはファイルを作れません。書き込めるフォルダを選んでください。" "OK" "Warning" | Out-Null
+            return
+        }
+        $folder = $sub
+    }
+
+    writeWorkspaceFolder $folder
+    $script:restartRequested = $true
+    $window.Close()
+}
+
+# ---- イベント ----
+
+$ui.ChangeWorkspaceButton.Add_Click({ safe { chooseWorkspace } })
+$ui.ResetWorkspaceButton.Add_Click({ safe { resetWorkspace } })

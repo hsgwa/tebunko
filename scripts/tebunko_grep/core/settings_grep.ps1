@@ -1,7 +1,14 @@
 ﻿# setting.config の読み書き（tebunko_grep の設定）。
 
-# 設定ファイル（画面が読み書きする。インデクサはクロール対象フォルダを読む）。内容は JSON
-${settingsFile} = "${rootDir}\setting.config"
+# 設定ファイル（画面が読み書きする。インデクサはクロール対象フォルダと work の置き場所を読む）。内容は JSON。
+# ツールのフォルダに書き込めないときは、利用者ごとの場所に置く（shared\core\data_dir.ps1 の getDataDir）
+${settingsFile} = "${dataDir}\setting.config"
+
+# 検索結果から元のファイルを開くときの開き方（設定 openMode の値）
+${openModeNormal}   = "normal"    # そのまま開く（編集する）
+${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上書きしない）
+${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
+${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})
 # 以前の設定ファイル（設定ファイルと同じフォルダの config\*.txt）。設定ファイルが無いときだけ読み込んで移す
 ${legacyConfigDirName}        = "config"
 ${legacyTargetFolderFileName} = "変換対象フォルダパス.txt"
@@ -20,6 +27,7 @@ function newSettings {
         includeShapes      = $true    # 図形（テキストボックス等）の文字も検索する（場所 "<元の場所>[図形]"。index_name.ps1 の objectPlacePattern）
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
+        workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（設定ファイルと同じフォルダの work）
     }
 }
 
@@ -326,4 +334,42 @@ function writeOpenMode {
     )
 
     updateSettings "openMode" $mode $path
+}
+
+function getDefaultWorkDir {
+    # 既定の work の置き場所（設定ファイルと同じフォルダの work）
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    return Join-Path ([System.IO.Path]::GetDirectoryName($path)) "work"
+}
+
+function getWorkDir {
+    # work の置き場所を返す。設定 workspaceFolder が空なら既定（getDefaultWorkDir）。
+    # 手で書いた相対パスは、設定ファイルのフォルダからとみなす
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    $folder = ([string](readSettings $path).workspaceFolder).Trim()
+    if ($folder -eq "") {
+        return getDefaultWorkDir $path
+    }
+    $folder = [System.Environment]::ExpandEnvironmentVariables($folder)
+    return [System.IO.Path]::GetFullPath([System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($path), $folder)).TrimEnd("\")
+}
+
+function writeWorkspaceFolder {
+    # work の置き場所を保存する。既定の場所なら空にする（ツールのフォルダを移しても既定のまま付いてくるように）
+    param (
+        [string]$folder,
+        [string]$path = ${settingsFile}
+    )
+
+    $folder = ([string]$folder).Trim().TrimEnd("\")
+    if ($folder -ne "" -and (testSameFolder $folder (getDefaultWorkDir $path))) {
+        $folder = ""
+    }
+    updateSettings "workspaceFolder" $folder $path
 }

@@ -38,6 +38,8 @@ function factGone { param ([string]$title, [string]$detail = "") [ConfirmFact]@{
 
 function factNext { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "→"; MarkBrush = ${infoBrush}; Title = $title; Detail = $detail } }
 
+function factWarn { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "!"; MarkBrush = ${warnBrush}; Title = $title; Detail = $detail } }
+
 function newChoiceContent {
     # 選択肢ボタンの中身。1 行目に動作、2 行目にその結果を置く
     param (
