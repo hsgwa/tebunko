@@ -284,7 +284,7 @@ Describe "newAppMutex" -Tag Io {
 
 Describe "getPathLeaf / getPathParent / getPathStem（System.IO.Path の代わり）" -Tag Unit {
     It "ファイル名は System.IO.Path.GetFileName と同じ" {
-        foreach ($path in @("a\b.tsv", "a\b\", "C:", "C:\", "x", "\s\share\f.xlsx", "a/b", "見積\2024\a.xlsx\売上.tsv", "")) {
+        foreach ($path in @("a\b.tsv", "a\b\", "C:", "C:\", "x", "\\s\share\f.xlsx", "a/b", "見積\2024\a.xlsx\売上.tsv", "")) {
             getPathLeaf $path | Should Be ([System.IO.Path]::GetFileName($path))
         }
     }
