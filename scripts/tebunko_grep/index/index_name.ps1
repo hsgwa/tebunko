@@ -23,7 +23,9 @@ function newIndexName {
 
     $name = $base
     for ($i = 2; $used.Contains($name); $i++) {
-        $name = "${base}(${i})"
+        # 長いフォルダ名に (2) を付けるとファイル名の上限を超えてフォルダを作れないため、上限に収まるよう名前を切り詰める
+        $suffix = "(${i})"
+        $name = $base.Substring(0, [Math]::Min($base.Length, ${maxFileNameLength} - $suffix.Length)) + $suffix
     }
     return $name
 }

@@ -378,3 +378,96 @@ Describe "writeIndexingStartRequest / readIndexingStartRequest / removeIndexingS
         { removeIndexingStartRequest $path } | Should Not Throw
     }
 }
+
+Describe "ほかから共有せずに開かれているときの読み込み" -Tag Io {
+    # インデクサが書き込み・置き換えをしている最中に画面が読む場合。例外にせず $null を返し、次の機会に読み直す
+    function lockFile([string]$path) {
+        return [System.IO.File]::Open($path, "Open", "ReadWrite", "None")
+    }
+
+    It "進み具合・取り込み予定・開始要求は `$null を返す" {
+        $progress = "$TestDrive\lock_progress.txt"
+        writeIndexingProgress ${indexingPhaseIngest} 1 2 0 "a" $progress
+        $plan = "$TestDrive\lock_plan.tsv"
+        writeIngestPlan @() $plan
+        $request = "$TestDrive\lock_request"
+        writeIndexingStartRequest $true $request
+
+        foreach ($case in @(@($progress, { readIndexingProgress $progress }), @($plan, { readIngestPlan $plan }), @($request, { readIndexingStartRequest $request }))) {
+            $stream = lockFile $case[0]
+            try {
+                & $case[1] | Should Be $null
+            } finally {
+                $stream.Dispose()
+            }
+        }
+        # 開放されれば読める
+        (readIndexingStartRequest $request).RetryFailed | Should Be $true
+    }
+}
+
+Describe "describeIngestError（パスが長すぎる）" -Tag Io {
+    It "原因を付けて元のメッセージを詳細にする" {
+        describeIngestError (New-Object System.IO.PathTooLongException("長すぎます。")) | Should Be "パスが長すぎるため読めません（詳細: 長すぎます。）"
+    }
+}
+
+Describe "getIndexingState（指定した時刻以降に取り込んだ件数）" -Tag Io {
+    $path = "$TestDrive\status_since.tsv"
+    writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
+        (newStatusRow "data\前.xlsx" "" "1" $stateDone "1" "2026/09/19 09:59:59"),
+        (newStatusRow "data\同じ秒.xlsx" "" "1" $stateDone "1" "2026/09/19 10:00:00"),
+        (newStatusRow "data\後.docx" "" "1" $stateFailed "" "2026/09/19 10:00:01" "原因"),
+        (newStatusRow "data\日時なし.pptx" "" "1" $stateNew),
+        (newStatusRow "data\日時が壊れている.xlsx" "" "1" $stateDone "1" "2026-09-19 11:00")
+    ) $path
+
+    It "取り込み日時が指定した時刻（秒未満は切り捨て）以降の行を数える。日時の無い・読めない行は数えない" {
+        $state = getIndexingState ([datetime]"2026/09/19 10:00:00.700") $path
+        $state.IngestedSince | Should Be 2
+        $state.Total | Should Be 5
+        $state.Done | Should Be 3
+    }
+
+    It "時刻を指定しなければ数えない" {
+        (getIndexingState -path $path).IngestedSince | Should Be 0
+    }
+}
+
+Describe "readStatusLines" -Tag Io {
+    It "ファイルが無ければ空の配列" {
+        @(readStatusLines "$TestDrive\無い一覧.tsv").Count | Should Be 0
+    }
+}
+
+Describe "renameStatusIndexName / removeStatusIndexName（以前の形式の取り込み一覧）" -Tag Io {
+    # 抽出版の列が無い以前の形式の取り込み一覧も readStatusFile は読めるため、名前の変更・削除も同じように行う
+    function writeLegacyStatus([string]$path) {
+        [System.IO.File]::WriteAllLines($path, [string[]]@(
+            "クロール対象フォルダ`tC:\data`t営業",
+            "クロール対象フォルダ`tD:\tech`t技術",
+            "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー",
+            "営業\a.xlsx`t2025/01/10 12:34:56`t1`t済`t1`t2026/09/18 10:00:00`t",
+            "技術\b.docx`t2025/01/10 12:34:56`t1`t済`t1`t2026/09/18 10:00:00`t"
+        ), $utf8Bom)
+    }
+
+    It "名前を変えると、以前の形式の行の相対パスも新しい名前にする" {
+        $path = "$TestDrive\legacy_rename.tsv"
+        writeLegacyStatus $path
+        renameStatusIndexName "営業" "営業部" $path
+        $status = readStatusFile $path
+        $status.Folders[0].Name | Should Be "営業部"
+        @($status.Rows.Keys | Sort-Object) -join "," | Should Be "営業部\a.xlsx,技術\b.docx"
+        $status.Rows["営業部\a.xlsx"].状態 | Should Be $stateDone
+    }
+
+    It "削除すると、以前の形式の行も取り除く" {
+        $path = "$TestDrive\legacy_remove.tsv"
+        writeLegacyStatus $path
+        removeStatusIndexName "営業" $path
+        $status = readStatusFile $path
+        @($status.Folders | ForEach-Object { $_.Name }) -join "," | Should Be "技術"
+        @($status.Rows.Keys) -join "," | Should Be "技術\b.docx"
+    }
+}

@@ -42,6 +42,8 @@ Describe "getIndexNameMap / resolveSourcePath" -Tag Io {
     }
 
     It "既定のインデックスは取り込み一覧の記録を使う" {
+        # リポジトリの work\index を作らないよう、既定のインデックスの場所をテスト用のフォルダに向ける
+        $indexDir = "$TestDrive\default_work\index"
         [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
         $status = "$TestDrive\status_default.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\新\見積"; Name = "見積" }) @() $status
@@ -192,5 +194,23 @@ Describe "findMovedSource" -Tag Io {
 
     It "見つからなければ `$null" {
         findMovedSource "$TestDrive\移動先" "2024\B社" "見積.xlsx" | Should Be $null
+    }
+
+    It "相対フォルダの前後・途中に余分な \ があっても同じように探す" {
+        $found = findMovedSource $moved "\2024\\A社\" "見積.xlsx"
+        $found.Path | Should Be "$moved\2024\A社\見積.xlsx"
+        $found.Root | Should Be $moved
+    }
+
+    It "ファイルと同じ名前のフォルダは、見つかったことにしない" {
+        [System.IO.Directory]::CreateDirectory("$moved\2024\A社\フォルダ.xlsx") | Out-Null
+        findMovedSource $moved "2024\A社" "フォルダ.xlsx" | Should Be $null
+    }
+}
+
+Describe "joinSourcePath（共有フォルダ・空の名前）" -Tag Io {
+    It "共有フォルダ直下・名前なしでもつなげる" {
+        joinSourcePath "\\server\share" "見積" "a.xlsx" | Should Be "\\server\share\見積\a.xlsx"
+        joinSourcePath "\\server\share\" "" "" | Should Be "\\server\share"
     }
 }

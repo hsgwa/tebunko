@@ -134,9 +134,94 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         @($log).Count | Should Be 0
     }
 
+    It "起動の前後で同じアプリのプロセスが複数増えた（どれが自分のか分からない）ときは、強制終了の対象にしない" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        setProcesses @(100) @(100, 700, 800)
+        [void](getApp "Excel")
+        @($script:watchdog.Pids).Count | Should Be 0
+
+        # 自分で起動したことにはなるため Quit はするが、プロセスを指定した強制終了はしない
+        stopApp "Excel"
+        $log -join "|" | Should Be "Quit"
+    }
+
     It "起動していないアプリの stopApp は何もしない" {
         { stopApp "Excel" } | Should Not Throw
         @($log).Count | Should Be 0
+    }
+}
+
+Describe "stopAllApps" -Tag Unit {
+    It "1 つのアプリの終了に失敗しても、残りのアプリは終了させる" {
+        $script:apps["Excel"] = @{ Com = $null; Pid = 0; Shared = $true }
+        $script:apps["Word"] = @{ Com = $null; Pid = 0; Shared = $true }
+        $script:stopped = New-Object System.Collections.ArrayList
+        Mock stopApp {
+            [void]$script:stopped.Add($name)
+            $script:apps.Remove($name)
+            if ($name -eq "Excel") { throw "終了できません" }
+        }
+        Mock Write-Host {}
+
+        { stopAllApps } | Should Not Throw
+        @($script:stopped | Sort-Object) -join "," | Should Be "Excel,Word"
+        $script:apps.Count | Should Be 0
+        Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -match "Excel の終了に失敗しました: 終了できません" }
+    }
+
+    It "起動しているアプリが無ければ何もしない" {
+        $script:apps.Clear()
+        { stopAllApps } | Should Not Throw
+    }
+}
+
+Describe "releaseComObject" -Tag Unit {
+    It "`$null は何もしない" {
+        { releaseComObject $null } | Should Not Throw
+    }
+
+    It "COM オブジェクトを解放する（解放した後は使えない）" {
+        $com = New-Object -ComObject Scripting.Dictionary
+        releaseComObject $com
+        { $com.Add("a", 1) } | Should Throw
+    }
+}
+
+Describe "startWatchdog / stopWatchdog（1 ファイルの制限時間の監視）" -Tag Unit {
+    AfterEach {
+        stopWatchdog
+        $script:watchdog.Stop = $false
+        $script:watchdog.TimedOut = $false
+        $script:watchdog.Deadline = [datetime]::MaxValue
+        $script:watchdog.Pids = @()
+    }
+
+    It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。Office 以外のプロセスは終了させない" {
+        # Office アプリではない自分自身のプロセス（ID が再利用された場合に当たる）
+        $script:watchdog.Pids = @($PID)
+        startWatchdog
+        $script:watchdog.Deadline = [datetime]::Now.AddSeconds(-1)
+        $deadline = [datetime]::Now.AddSeconds(10)
+        while (-not $script:watchdog.TimedOut -and [datetime]::Now -lt $deadline) {
+            Start-Sleep -Milliseconds 100
+        }
+        $script:watchdog.TimedOut | Should Be $true
+        $script:watchdog.Deadline | Should Be ([datetime]::MaxValue)
+        (Get-Process -Id $PID).HasExited | Should Be $false
+    }
+
+    It "制限時間内なら TimedOut を立てない。止めると監視のスレッドを片付ける" {
+        startWatchdog
+        $script:watchdog.Deadline = [datetime]::Now.AddMinutes(10)
+        Start-Sleep -Milliseconds 700
+        $script:watchdog.TimedOut | Should Be $false
+        stopWatchdog
+        $script:watchdogThread | Should Be $null
+    }
+
+    It "監視を始めていなければ、止めても何もしない" {
+        { stopWatchdog } | Should Not Throw
     }
 }
 

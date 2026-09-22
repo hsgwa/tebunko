@@ -1,7 +1,9 @@
 ﻿# ファイルの読み書き（行ファイル・原子的な書き込み・長いパス・排他）。
 
 function readListFile {
-    # 1行1件のファイルを読み込む（空行を除く）。ファイルが無ければ空配列
+    # 1行1件のファイルを読み込む（空行を除く）。ファイルが無ければ空配列。
+    # 読めない（ほかが書き込み中など）ときは例外にする。呼び出し側の $ErrorActionPreference が既定の Continue でも
+    # 空の一覧と取り違えないよう -ErrorAction Stop を付ける
     param (
         [string]$path
     )
@@ -9,7 +11,7 @@ function readListFile {
     if (!(Test-Path -LiteralPath $path)) {
         return @()
     }
-    return @(Get-Content -LiteralPath $path -Encoding UTF8 | Where-Object { $_.Trim() -ne "" })
+    return @(Get-Content -LiteralPath $path -Encoding UTF8 -ErrorAction Stop | Where-Object { $_.Trim() -ne "" })
 }
 
 function writeListFile {
@@ -159,7 +161,9 @@ function removeDirectoryRetry {
             return
         }
         try {
-            Remove-Item -LiteralPath $longPath -Recurse -Force
+            # 呼び出し側の $ErrorActionPreference によらず、消せなければ catch に来るよう -ErrorAction Stop を付ける
+            # （付けないと既定の Continue では例外にならず、試し直しも失敗の報告もせずに戻ってしまう）
+            Remove-Item -LiteralPath $longPath -Recurse -Force -ErrorAction Stop
             return
         } catch {
             if ($i -ge $tries) {
