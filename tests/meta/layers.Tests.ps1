@@ -73,6 +73,10 @@ Describe "判断層" -Tag Meta {
             "${scriptsDir}\tebunko_grep\index\index_name.ps1"
             "${scriptsDir}\tebunko_grep\search\search_query.ps1"
             "${scriptsDir}\tebunko_grep\indexer\indexer_decide.ps1"
+            "${scriptsDir}\tebunko_diff\diff\diff_core.ps1"
+            "${scriptsDir}\tebunko_diff\diff\diff_office.ps1"
+            "${scriptsDir}\tebunko_diff\diff\diff_folder.ps1"
+            "${scriptsDir}\tebunko_diff\diff\diff_report.ps1"
         ) + @(Get-ChildItem "${scriptsDir}" -Recurse -Filter "*_view.ps1" | ForEach-Object { $_.FullName })
         foreach ($file in $files) {
             $text = [System.IO.File]::ReadAllText($file)
