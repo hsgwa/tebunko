@@ -174,6 +174,23 @@ function removeDirectoryRetry {
     }
 }
 
+function getFolderKey {
+    # フォルダのパスから、名前付きミューテックス・イベントの名前に使う鍵（16 進 64 文字）を作る。大文字と小文字は区別しない。
+    # 安全性のためではなく、パスを名前に使える長さと文字にするためのハッシュ。
+    # FIPS 準拠の実装（SHA256CryptoServiceProvider）を使う。MD5 や SHA256Managed は、
+    # FIPS モードを有効にした Windows では作るときに例外になり、起動できなくなるため
+    param (
+        [string]$dir
+    )
+
+    $sha = New-Object System.Security.Cryptography.SHA256CryptoServiceProvider
+    try {
+        return [BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($dir.ToLowerInvariant()))).Replace("-", "")
+    } finally {
+        $sha.Dispose()
+    }
+}
+
 function newAppMutex {
     # 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックスを作り、@{ Mutex; Acquired } を返す。
     # Acquired が $false なら、ほかで実行中。プロセスが終われば解放されるため、強制終了されても残らない
@@ -183,12 +200,7 @@ function newAppMutex {
         [string]$dir = ${rootDir}
     )
 
-    $md5 = New-Object System.Security.Cryptography.MD5CryptoServiceProvider
-    try {
-        $key = [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(([string]$dir).ToLowerInvariant()))).Replace("-", "")
-    } finally {
-        $md5.Dispose()
-    }
+    $key = getFolderKey $dir
     $createdNew = $false
     $mutex = New-Object System.Threading.Mutex($true, "Local\${appId}_${name}_${key}", [ref]$createdNew)
     return @{ Mutex = $mutex; Acquired = $createdNew }
