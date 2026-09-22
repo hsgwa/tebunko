@@ -1,0 +1,2109 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の設計書">
+      
+      
+      
+        <link rel="canonical" href="https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">
+      
+      
+        <link rel="prev" href="../03_%E7%94%BB%E9%9D%A2/">
+      
+      
+        <link rel="next" href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>インデックス管理タブ - tebunko 設計書</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#画面gui設計書--1-インデックス管理タブ" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="ヘッダー">
+    <a href=".." title="tebunko 設計書" class="md-header__button md-logo" aria-label="tebunko 設計書" data-md-component="logo">
+      
+  <img src="../images/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tebunko 設計書
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              インデックス管理タブ
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードにする"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードにする" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードにする"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードにする" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="tebunko 設計書" class="md-nav__button md-logo" aria-label="tebunko 設計書" data-md-component="logo">
+      
+  <img src="../images/logo.svg" alt="logo">
+
+    </a>
+    tebunko 設計書
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    共通
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    フォルダ構成と設定ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通モジュール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TSV・検索・画面の関数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックス作成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成（インデクサ）設計書
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Excel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Word
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PowerPoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    メインフローと取り込み一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    クロール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通処理とアプリ管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    出力 TSV と既知の問題
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_8_%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%A1%E3%83%83%E3%82%BB%E3%83%BC%E3%82%B8%E4%B8%80%E8%A6%A7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02_%E6%A4%9C%E7%B4%A2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面（GUI）設計書
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス管理タブ
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス管理タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#3-1-インデックス管理タブ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. ［1 インデックス管理］タブ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. ［1 インデックス管理］タブ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-一覧の列" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 一覧の列
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-追加編集のダイアログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 追加・編集のダイアログ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.2 追加・編集のダイアログ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#名前を変えたときの処理renameindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        名前を変えたときの処理（renameIndex）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#削除したときの処理removeindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        削除したときの処理（removeIndex）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#321-フォルダ選択ダイアログ参照" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2.1 フォルダ選択ダイアログ（［参照…］）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-実行ボタンの表示" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 実行ボタンの表示
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-インデックス作成の確認ダイアログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 インデックス作成の確認ダイアログ
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-インデックス一覧を変更したとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 インデックス一覧を変更したとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-インデックス作成の進み具合" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 インデックス作成の進み具合
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#37-中止終了ログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.7 中止・終了・ログ
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセス停止タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_4_%E7%8A%B6%E6%85%8B%E3%81%A8%E6%93%8D%E4%BD%9C%E3%81%AE%E6%B5%81%E3%82%8C/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    状態と操作の流れ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通仕様
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    実装とテスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のテスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安全性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#3-1-インデックス管理タブ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. ［1 インデックス管理］タブ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. ［1 インデックス管理］タブ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-一覧の列" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 一覧の列
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-追加編集のダイアログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 追加・編集のダイアログ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3.2 追加・編集のダイアログ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#名前を変えたときの処理renameindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        名前を変えたときの処理（renameIndex）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#削除したときの処理removeindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        削除したときの処理（removeIndex）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#321-フォルダ選択ダイアログ参照" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2.1 フォルダ選択ダイアログ（［参照…］）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-実行ボタンの表示" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 実行ボタンの表示
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-インデックス作成の確認ダイアログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 インデックス作成の確認ダイアログ
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-インデックス一覧を変更したとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 インデックス一覧を変更したとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-インデックス作成の進み具合" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 インデックス作成の進み具合
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#37-中止終了ログ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.7 中止・終了・ログ
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="画面gui設計書--1-インデックス管理タブ">画面（GUI）設計書 ― ［1 インデックス管理］タブ<a class="headerlink" href="#画面gui設計書--1-インデックス管理タブ" title="Permanent link">&para;</a></h1>
+<p>本書は <a href="../03_%E7%94%BB%E9%9D%A2/">03_画面.md</a> の一部である。章・節の番号は 03_画面.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../03_%E7%94%BB%E9%9D%A2/#ファイル構成">03_画面.md</a> の表のとおり。</p>
+<hr />
+<h2 id="3-1-インデックス管理タブ">3. ［1 インデックス管理］タブ<a class="headerlink" href="#3-1-インデックス管理タブ" title="Permanent link">&para;</a></h2>
+<p>インデックスを <strong>追加・一覧・編集・削除</strong> し、インデックス作成（クロールして Office ファイルの文字を TSV に取り込む）を実行するタブ。
+図は「前回取り込みに失敗したファイルがあり、インデックス作成を実行中」の状態。</p>
+<p><img alt="［1 インデックス管理］タブ" src="../images/%E7%94%BB%E9%9D%A2_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96.drawio.png" /></p>
+<table>
+<thead>
+<tr>
+<th>No.</th>
+<th>部品</th>
+<th>仕様</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>インデックス一覧</td>
+<td>見出しは <code>インデックス一覧</code>、その右に <code>チェックを付けたインデックスを取り込みます</code>。1 行 1 インデックス（1 フォルダ）。列は「作成」（チェック）・「インデックス名」・「元のフォルダ」・「フォルダの状態」・「ファイル」・「最終取り込み」（3.1）。<strong>チェックを付けたインデックスだけを取り込む</strong>（チェックを外したインデックスは、一覧にも <code>work\index</code> にも残したまま取り込まない）。一覧が空なら <code>インデックスがありません。［追加…］で、Office ファイルのあるフォルダを指定してください。</code>。並びは <code>targetFolders</code> の順で、検索対象のツリー（4.8）もこの順に並ぶ</td>
+</tr>
+<tr>
+<td>2</td>
+<td>［追加…］</td>
+<td>追加のダイアログ（3.2）を開き、決めた内容でインデックスを 1 件追加する。一覧へのフォルダのドラッグ＆ドロップでも追加できる（このときインデックス名はフォルダ名から自動で決める）。追加するだけでインデックス作成はせず、ステータスに <code>インデックス [&lt;名前&gt;] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます</code> と表示する（フォルダが見つからない場合は <code>インデックス [&lt;名前&gt;] を追加しましたが、フォルダが見つかりません：&lt;パス&gt;</code>）。同じフォルダ（書き方の違い・大文字小文字を含む）のインデックスは二重に追加しない</td>
+</tr>
+<tr>
+<td>3</td>
+<td>［編集…］</td>
+<td>選択中のインデックスの<strong>名前</strong>と<strong>元のフォルダの場所</strong>を変える（3.2。行のダブルクリックでも開く）。変えても<strong>インデックスは作り直さない</strong>。変更したらステータスに <code>インデックスを変更しました（名前 [&lt;旧&gt;] → [&lt;新&gt;] / 場所 &lt;旧&gt; → &lt;新&gt;）</code> と表示する</td>
+</tr>
+<tr>
+<td>4</td>
+<td>［削除］</td>
+<td>選択中のインデックスを削除する（Delete キーでも同じ）。確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）で確認する。見出しは <code>インデックス「&lt;名前&gt;」を一覧から削除しますか？</code>、結果は <code>✗ tebunko_grep が作ったインデックスが消えます</code>（<code>このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）</code>）／ <code>✓ 元のフォルダと、その中のファイルはそのままです</code>（<code>&lt;パス&gt;</code>）、補足は <code>しばらく検索しないだけなら、削除せずに［作成］のチェックを外してください。インデックスは残ったままです。</code>、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で一覧からすぐ消し、<code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>removeIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] の TSV を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
+</tr>
+<tr>
+<td>5</td>
+<td>インデックスの状態</td>
+<td>すべてのインデックスの合計。<code>取り込み済み N ファイル（TSV M 件 ・ 最終取り込み M/d H:mm）</code>。インデックスが無いときは <code>まだインデックスがありません。</code>。中断があれば次の行に表示する（6.1）。失敗は No.8 の一覧に表示する</td>
+</tr>
+<tr>
+<td>6</td>
+<td>注意書き・実行ボタン</td>
+<td>注意書きは、押す前は「押すと何が起きるか」（<code>押すと、何件取り込むかを確認してから、新しいファイル・変わったファイルだけを取り込みます。</code>）、インデックス作成中は「やめるとどうなるか」（<code>インデックス作成中も検索できます。やめるときは［中止］を押してください（次に［インデックス作成を開始］を押すと続きから再開します）。</code>）を書く。ボタンは状態に応じて表示を変える（3.3）。押すと <code>tebunko_grep/indexer.ps1</code> をウィンドウなしで起動し、<strong>取り込み対象を数え終えたところで確認のダイアログを出す</strong>（3.4）。ダイアログで［インデックス作成を開始］を押すとインデックス作成が始まり、進み具合を表示する（3.6）</td>
+</tr>
+<tr>
+<td>7</td>
+<td>タブ見出し</td>
+<td>取り込みに失敗したファイルが残っているとき <code>⚠</code> を付ける</td>
+</tr>
+<tr>
+<td>8</td>
+<td>取り込みに失敗したファイル</td>
+<td>取り込み一覧に状態が <code>失敗</code> の行があるときだけ表示する。見出しは <code>⚠ 取り込みに失敗したファイル N 件</code>。列は「ファイル」（相対パス）・「失敗の原因」（取り込み一覧のエラー列。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/#47-失敗の原因describeingesterror">01_インデックス作成.md 4.7</a>）・「日時」。取り込み日時の新しい順に並べ、高さを超えたらスクロールする。行をダブルクリックすると、元のファイルをエクスプローラーで選択した状態で開く（ファイルが無ければフォルダを開き、ステータスに表示する）。インデックス作成中も、失敗が増えるたびに更新する。インデックス作成が終わったとき失敗があれば、進み具合の下に <code>失敗したファイルと原因は「取り込みに失敗したファイル」の一覧で確認できます。</code> と表示する</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>インデックスの追加・編集・削除・チェックの変更は、その場で <code>setting.config</code>（<code>targetFolders</code>）に保存する（<code>writeTargetFolders</code>。チェックなしは <code>enabled</code> が <code>false</code>）。保存の操作は無い。</li>
+<li><strong>インデックス作成中は追加・編集・削除をしない</strong>。［追加…］［編集…］［削除］は無効にし、操作しようとした場合は <code>インデックス作成中はインデックスを&lt;追加／編集／削除&gt;できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。</code> と出す。インデクサがインデックスのフォルダと取り込み一覧を使っているため。</li>
+<li>［編集…］［削除］は、一覧で 1 件選んでいるときだけ有効にする。</li>
+<li><strong>インデックスを一から作り直すボタンは置かない</strong>。取り込み対象は毎回［インデックス作成を開始］の確認（3.4）で分かるため、ふだんは作り直す必要がない。更新日時が変わらないまま中身が変わった場合など、どうしても作り直したいときは［削除］してから追加し直す。</li>
+</ul>
+<p><strong>インデックス名と場所は分けて持つ</strong>（<code>targetFolders</code> の <code>name</code> と <code>path</code>）。<code>name</code> が <code>work\index</code> 直下のフォルダ名になり、インデックスの同一性を表す。<code>path</code> を書き換えても <code>name</code> は変わらないため、フォルダを移してもインデックスを作り直さない（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#クロール対象フォルダとインデックス名">01_インデックス作成_5</a>）。
+画面では<strong>追加した時点で名前を決めて保存する</strong>（追加のダイアログの既定値は <code>newIndexName</code>）。名前の無い設定（以前の版から移した直後）を読み込んだときは、<code>assignIndexNames</code> で名前を割り当てて保存してから一覧に出す。</p>
+<h3 id="31-一覧の列">3.1 一覧の列<a class="headerlink" href="#31-一覧の列" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>幅</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>作成</td>
+<td>52</td>
+<td>チェックボックス。<strong>チェックを付けたインデックスだけを取り込む</strong>。切り替えたその場で <code>setting.config</code> に保存する。ツールチップは <code>チェックを付けたインデックスだけを取り込みます（外してもインデックスは残ります）</code></td>
+</tr>
+<tr>
+<td>インデックス名</td>
+<td>150</td>
+<td><code>work\index</code> 直下のフォルダ名（<code>targetFolders[].name</code>）。検索対象のツリー・検索結果の表示にも使う</td>
+</tr>
+<tr>
+<td>元のフォルダ</td>
+<td>残り</td>
+<td>Office ファイルのあるフォルダ（<code>targetFolders[].path</code>）。入りきらなければ <code>…</code> で省略し、ツールチップに全体を出す</td>
+</tr>
+<tr>
+<td>フォルダの状態</td>
+<td>140</td>
+<td><code>✓ フォルダがあります</code>（緑）/ <code>✗ フォルダが見つかりません</code>（赤）/ 調べている間は <code>… フォルダを確認しています</code>（灰）。起動時とウィンドウがアクティブになるたびに、別スレッドで調べ直す（届かないネットワークのフォルダでは確認に十数秒かかり、画面のスレッドで調べると「応答なし」になるため）</td>
+</tr>
+<tr>
+<td>ファイル</td>
+<td>76</td>
+<td>取り込み一覧に記録されているこのインデックスのファイル数（<code>getIndexStats</code>。3 桁区切り）。まだ取り込んでいなければ <code>－</code>（ツールチップは <code>まだ取り込んでいません</code>）。ツールチップは <code>済 N 件 ・ 未取り込み M 件 ・ 失敗 K 件</code></td>
+</tr>
+<tr>
+<td>最終取り込み</td>
+<td>100</td>
+<td>このインデックスの最も新しい取り込み日時（当日は <code>H:mm</code>、それ以外は <code>M/d H:mm</code>）。まだ取り込んでいなければ空</td>
+</tr>
+</tbody>
+</table>
+<p>「ファイル」「最終取り込み」は取り込み一覧（<code>work/取り込み一覧.tsv</code>）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。</p>
+<h3 id="32-追加編集のダイアログ">3.2 追加・編集のダイアログ<a class="headerlink" href="#32-追加編集のダイアログ" title="Permanent link">&para;</a></h3>
+<p><code>tebunko_grep/xaml/dialog_index_edit.xaml</code>。追加と編集で同じダイアログを使い、表題と説明を変える。</p>
+<table>
+<thead>
+<tr>
+<th>部品</th>
+<th>仕様</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>表題・説明</td>
+<td>追加は <code>インデックスの追加</code> と <code>Office ファイル（Excel・Word・PowerPoint）の入っているフォルダを 1 つ選んでください。ここでは一覧に加えるだけです。中のファイルを読むのは［インデックス作成を開始］を押してからです。</code>。編集は <code>インデックスの編集</code> と <code>名前と、元のフォルダの場所を変えられます。</code></td>
+</tr>
+<tr>
+<td>元のフォルダ</td>
+<td>パスの入力・貼り付け・フォルダのドラッグ＆ドロップで指定する。前後の空白・<code>"</code>・末尾の <code>\</code> は取り除く（<code>normalizeFolderPath</code>。エクスプローラーの「パスのコピー」をそのまま貼れる）。［参照…］はエクスプローラー風のフォルダ選択ダイアログ（<a href="#321-フォルダ選択ダイアログ参照">3.2.1</a>。初期位置は今の入力値）</td>
+</tr>
+<tr>
+<td>インデックス名</td>
+<td>画面では <code>インデックス名</code> とだけ書き、<code>work\index</code> 直下のフォルダ名になることは書かない（利用者が決めるのは検索対象の一覧と検索結果に出る名前のため）。入力欄の下は <code>検索対象の一覧と検索結果に、この名前が出ます。\ / : * ? " &lt; &gt; | は使えません。</code>。<strong>追加では、フォルダを指定すると <code>newIndexName</code> の名前を自動で入れる</strong>（利用者が名前を変えた後は上書きしない）。編集では今の名前を初期値にする</td>
+</tr>
+<tr>
+<td>注意書き（編集のみ）</td>
+<td><code>変えるのは名前と場所だけです。インデックスはそのまま使います（作り直しません）。フォルダを別のドライブや共有フォルダへ移したときは、ここで新しい場所を指定してください。</code></td>
+</tr>
+<tr>
+<td>［OK］</td>
+<td>入力を調べ、問題があればダイアログ内に赤字で出して閉じない（下表）。問題がなければ確定する</td>
+</tr>
+</tbody>
+</table>
+<p>［OK］で調べる内容（<code>checkIndexEditInput</code> / <code>testIndexName</code>）:</p>
+<table>
+<thead>
+<tr>
+<th>条件</th>
+<th>メッセージ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>フォルダが空</td>
+<td><code>元のフォルダを指定してください。</code></td>
+</tr>
+<tr>
+<td>ほかのインデックスと同じフォルダ</td>
+<td><code>「&lt;パス&gt;」のインデックス [&lt;名前&gt;] が既にあります。</code></td>
+</tr>
+<tr>
+<td>ほかのインデックスのフォルダの中（<code>testFolderUnder</code>）</td>
+<td><code>「&lt;パス&gt;」は、インデックス [&lt;名前&gt;]（&lt;そのパス&gt;）の中のフォルダです。同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。</code></td>
+</tr>
+<tr>
+<td>中にほかのインデックスのフォルダがある</td>
+<td><code>「&lt;パス&gt;」の中には、インデックス [&lt;名前&gt;]（&lt;そのパス&gt;）があります。同じファイルが二重に取り込まれるため、登録できません。まとめるときは、先に [&lt;名前&gt;] を削除してください。</code></td>
+</tr>
+<tr>
+<td>名前が空</td>
+<td><code>インデックス名を入力してください。</code></td>
+</tr>
+<tr>
+<td>名前の前後に空白</td>
+<td><code>インデックス名の前後に空白は使えません。</code></td>
+</tr>
+<tr>
+<td>名前が 255 文字超</td>
+<td><code>インデックス名が長すぎます（255 文字まで）。</code></td>
+</tr>
+<tr>
+<td>名前にファイル名で使えない文字</td>
+<td><code>インデックス名に使えない文字が含まれています（\ / : * ? " &lt; &gt; \| と制御文字）。</code></td>
+</tr>
+<tr>
+<td>名前の末尾が <code>.</code></td>
+<td><code>インデックス名の最後に . は使えません。</code></td>
+</tr>
+<tr>
+<td>名前が Windows の予約語（<code>CON</code> <code>PRN</code> <code>AUX</code> <code>NUL</code> <code>COM1</code>〜<code>COM9</code> <code>LPT1</code>〜<code>LPT9</code>）</td>
+<td><code>「&lt;名前&gt;」は Windows で使えない名前です。</code></td>
+</tr>
+<tr>
+<td>ほかのインデックスと同じ名前（大文字・小文字を区別しない）</td>
+<td><code>「&lt;名前&gt;」は、ほかのインデックスが使っています。別の名前を付けてください。</code></td>
+</tr>
+</tbody>
+</table>
+<p>フォルダが見つからない場合も追加・変更できる（一覧の「フォルダの状態」に <code>✗ フォルダが見つかりません</code> と出す）。ネットワークドライブが一時的に切れている場合に登録できなくなるのを避けるため。</p>
+<h4 id="名前を変えたときの処理renameindex">名前を変えたときの処理（<code>renameIndex</code>）<a class="headerlink" href="#名前を変えたときの処理renameindex" title="Permanent link">&para;</a></h4>
+<p>名前を変えても<strong>インデックスは作り直さない</strong>。次の順に、名前だけを付け替える。</p>
+<ol>
+<li><code>work\index\&lt;旧名&gt;</code> を <code>work\index\&lt;新名&gt;</code> に改名する（長いパスの TSV があっても扱えるよう <code>\\?\</code> 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する</li>
+<li>取り込み一覧（<code>work/取り込み一覧.tsv</code>）の <code>クロール対象フォルダ</code> の行のインデックス名と、各行の相対パスの先頭（<code>&lt;旧名&gt;\…</code> → <code>&lt;新名&gt;\…</code>）を書き換える（<code>renameStatusIndexName</code>。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）</li>
+<li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの <code>元のフォルダ.txt</code> を書き直す（<code>updateIndexSourceFile</code>）</li>
+</ol>
+<h4 id="削除したときの処理removeindex">削除したときの処理（<code>removeIndex</code>）<a class="headerlink" href="#削除したときの処理removeindex" title="Permanent link">&para;</a></h4>
+<ol>
+<li><code>work\index\&lt;名前&gt;</code> を中身ごと削除する（<code>\\?\</code> 付き）</li>
+<li>取り込み一覧から、そのインデックスの <code>クロール対象フォルダ</code> の行と各ファイルの行を取り除く（<code>removeStatusIndexName</code>）</li>
+<li><code>setting.config</code> から外して保存し、<code>元のフォルダ.txt</code> を書き直す</li>
+</ol>
+<p>インデクサの <code>removeDroppedFolders</code>（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#クロール対象フォルダとインデックス名">01_インデックス作成_5</a>）は、画面を通さずに設定を書き換えた場合の後始末として残す。画面から削除した場合は、その場で消えているため何もしない。</p>
+<h3 id="321-フォルダ選択ダイアログ参照">3.2.1 フォルダ選択ダイアログ（［参照…］）<a class="headerlink" href="#321-フォルダ選択ダイアログ参照" title="Permanent link">&para;</a></h3>
+<p><code>shared/xaml/dialog_folder_select.xaml</code>。<strong>エクスプローラーと同じ感覚で、フォルダの中身を見ながら目的のフォルダまでたどれる</strong>ようにする。</p>
+<p>Windows 標準のフォルダ選択（WinForms の <code>FolderBrowserDialog</code>）はツリーだけでフォルダの中身が見えず、「このフォルダで合っているか」を確かめられない。エクスプローラー形式の標準ダイアログ（COM の <code>IFileOpenDialog</code>）は呼び出しに実行時コンパイルが要るため使えない（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">12.2</a>）。そのため、画面として作る。</p>
+<p>［参照…］（<a href="#32-追加編集のダイアログ">3.2</a>）と、元のファイルのフォルダを選んでもらう場面（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#452-元のファイルが見つからないとき元のフォルダを設定する">4.5.2</a>）で共通に使う（<code>selectFolder</code>）。</p>
+<table>
+<thead>
+<tr>
+<th>部品</th>
+<th>仕様</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>説明（最上段）</td>
+<td>呼び出し元が渡す文言。追加・編集は <code>インデックスにする、Office ファイルのあるフォルダを選んでください</code></td>
+</tr>
+<tr>
+<td>［←］［→］［↑］</td>
+<td>履歴を戻る・進む、1 つ上のフォルダへ。マウスのサイドボタン（戻る・進む）でもたどれる。たどれないときは押せない（ドライブ直下・共有フォルダ直下より上へは行かない）</td>
+</tr>
+<tr>
+<td>アドレスバー</td>
+<td>今のフォルダのパス。入力・貼り付けて <code>Enter</code> で移動する。前後の空白・<code>"</code>・末尾の <code>\</code> は取り除く（<code>normalizeFolderPath</code>。エクスプローラーの「パスのコピー」や <code>\\server\share</code> をそのまま貼れる）</td>
+</tr>
+<tr>
+<td>ツリー（左）</td>
+<td><code>よく使う場所</code>（デスクトップ・ドキュメント・ダウンロードのうち、あるもの）と <code>PC</code>（使えるドライブ。ネットワークドライブは割り当て先 <code>\\server\share</code> を名前に出す）。▷ で下のフォルダを開き、開いたときに 1 段だけ読み込む</td>
+</tr>
+<tr>
+<td>一覧（右）</td>
+<td>今のフォルダの中身。フォルダが先、それぞれ名前順。列は <code>名前</code>・<code>種類</code>・<code>更新日時</code>。<strong>選べるのはフォルダだけで、ファイルは薄く出す</strong>（Office ファイルは緑にし、目的のフォルダかどうかを確かめられるようにする）。ダブルクリック・<code>Enter</code> でそのフォルダへ移動する</td>
+</tr>
+<tr>
+<td>件数（一覧の下）</td>
+<td><code>フォルダー N 個 ・ Office ファイル M 個</code>。打ち切った場合は <code>（中身が多いため、先頭だけを表示しています）</code> を付ける</td>
+</tr>
+<tr>
+<td>［フォルダー：］</td>
+<td>選ぶフォルダのパス。一覧でフォルダを選ぶと入り、選んでいなければ今のフォルダ。入力・貼り付け・フォルダのドラッグ＆ドロップもできる</td>
+</tr>
+<tr>
+<td>［選択］</td>
+<td>［フォルダー：］のパスを返す（<code>Enter</code>）</td>
+</tr>
+<tr>
+<td>［キャンセル］</td>
+<td>何も返さない（<code>Esc</code>）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>キーボード・マウスの操作</strong>（エクスプローラーに合わせる）:</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Alt+←</code> / <code>Alt+→</code> / マウスのサイドボタン</td>
+<td>戻る・進む</td>
+</tr>
+<tr>
+<td><code>Alt+↑</code> / <code>BackSpace</code></td>
+<td>1 つ上のフォルダへ（<code>BackSpace</code> は入力欄では文字を消すため、入力欄以外にいるときだけ）</td>
+</tr>
+<tr>
+<td><code>F5</code> / <code>Ctrl+R</code></td>
+<td>今のフォルダとツリーの下を読み直す</td>
+</tr>
+<tr>
+<td><code>F4</code> / <code>Alt+D</code> / <code>Ctrl+L</code></td>
+<td>アドレスバーへ移り、今のパスを選んだ状態にする</td>
+</tr>
+<tr>
+<td><code>Enter</code>（一覧）</td>
+<td>選んでいるフォルダへ移動する（ダブルクリックと同じ）</td>
+</tr>
+<tr>
+<td><code>Enter</code>（それ以外）</td>
+<td>［選択］</td>
+</tr>
+<tr>
+<td><code>Esc</code></td>
+<td>［キャンセル］</td>
+</tr>
+</tbody>
+</table>
+<p><strong>左のツリーの追随</strong>：エクスプローラーと同じく、<strong>移動しただけでは途中のフォルダを勝手に開かない</strong>。すでに開いてあるところにそのフォルダがあれば選び、1 つ上のフォルダが開いてあれば、そこだけ開いて選ぶ（右の一覧で下りると 1 段ずつ開く）。深いパスを貼り付けた場合など、ツリーに出ていないフォルダのときは選択を外すだけにする。</p>
+<ul>
+<li><strong>最初に開くフォルダ</strong>：呼び出し元が渡したフォルダ（［参照…］は今の入力値）。無ければその上の、今もあるフォルダ →「よく使う場所」→ ドライブ の順に試す。</li>
+<li><strong>開けないフォルダ</strong>（権限が無い・切れているネットワークドライブ・消えたフォルダ）は移動せず、下に赤字で <code>「&lt;パス&gt;」を開けません。&lt;理由&gt;</code> と出す。［選択］のときは <code>「&lt;パス&gt;」は見つかりません。一覧から選ぶか、パスを確かめてください。</code>。</li>
+<li><strong>隠し・システムのフォルダとファイルは出さない</strong>（エクスプローラーの既定と同じ）。</li>
+<li>中身の多いフォルダでも待たせないよう、一覧は 2000 件で打ち切る（<code>getFolderEntries</code> の <code>limit</code>）。</li>
+</ul>
+<h3 id="33-実行ボタンの表示">3.3 実行ボタンの表示<a class="headerlink" href="#33-実行ボタンの表示" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>状態（6.1）</th>
+<th>ボタン</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>未作成・通常</td>
+<td>［インデックス作成を開始］</td>
+</tr>
+<tr>
+<td>中断中</td>
+<td>［続きから再開（残り N 件）］</td>
+</tr>
+<tr>
+<td>失敗あり</td>
+<td>［インデックス作成を開始］（中断中なら［続きから再開（残り N 件）］）。注意書きの前に <code>前回うまく取り込めなかったファイルがあります（押したあとで、もう一度ためすか選べます）。</code> を付ける。失敗分も再取り込みするかは、取り込み対象を数えた後の確認のダイアログ（3.4）のチェックボックスで選ぶ</td>
+</tr>
+<tr>
+<td>インデックス作成中</td>
+<td>無効。表示は <code>インデックス作成中…</code>。進み具合と［中止］を表示する（3.6）。［追加…］［編集…］［削除］も無効にする</td>
+</tr>
+<tr>
+<td>チェックを付けた、存在するフォルダが無い</td>
+<td>無効。注意書きを <code>まずインデックスを追加して、［作成］にチェックを付けてください。</code> にする</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>インデックス作成は <code>powershell -NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File scripts\tebunko_grep\indexer.ps1 -ConfirmTargets</code> で起動する。<code>-ConfirmTargets</code> は、取り込み対象を数えたところでいったん止まって画面の確認（3.4）を待つ指定。ウィンドウは出さない（コンソールでの確認・<code>pause</code> は無い）。<code>Bypass</code> は使わない（Mark-of-the-Web は起動時に消してある。<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a>）。</li>
+<li>「インデックス作成中」は、この画面から起動したインデックス作成のプロセスが終了するまでとする。インデックス作成の二重起動を防ぐ。</li>
+<li>画面の起動時と［インデックス作成を開始］を押したときは、このツールの <code>scripts\tebunko_grep\indexer.ps1</code> をコマンドラインに含む <code>powershell.exe</code> が動いていないかも調べる（<code>Win32_Process</code>）。動いていれば新たに起動せず、そのプロセスの進み具合を表示する。起動時に見つかった場合は［1 インデックス管理］タブを開く。</li>
+</ul>
+<h3 id="34-インデックス作成の確認ダイアログ">3.4 インデックス作成の確認ダイアログ<a class="headerlink" href="#34-インデックス作成の確認ダイアログ" title="Permanent link">&para;</a></h3>
+<p><code>tebunko_grep/xaml/dialog_indexing_confirm.xaml</code>。［インデックス作成を開始］を押すと、インデクサはまず<strong>取り込み対象を数えるだけ</strong>行って止まり（<code>-ConfirmTargets</code>）、インデックスごとの件数を <code>work/取り込み予定.tsv</code> に書く（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a>）。
+画面は進み具合の段階が <code>確認</code> になったらそれを読み、<strong>このダイアログを 1 回だけ開く</strong>。
+何件取り込むかは元のファイルの更新日時・サイズを調べないと分からないため、数えるのはインデクサで行う（画面は数えている間も固まらない）。</p>
+<table>
+<thead>
+<tr>
+<th>部品</th>
+<th>仕様</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>表題・説明</td>
+<td><code>インデックス作成の確認</code>。<code>元のファイルの更新日時とサイズを、前回取り込んだときの記録と比べました。［インデックス作成を開始］を押すと、取り込み対象のファイルだけを取り込みます。</code></td>
+</tr>
+<tr>
+<td>一覧</td>
+<td>1 行 1 インデックス（設定の順）。列は「インデックス」「取り込み対象」「内訳」「Office ファイル」（見つかった数）「元のフォルダ」。入りきらない文字は <code>…</code> で省略し、ツールチップに全体を出す</td>
+</tr>
+<tr>
+<td>「取り込み対象」の表示</td>
+<td>取り込むファイルがあれば <code>N 件</code>（青）／無ければ <code>更新不要</code>（緑）／［作成］のチェックが外れていれば <code>取り込みません</code>（灰）／元のフォルダが見つからなければ <code>取り込めません</code>（赤）。チェックなし・フォルダなしのインデックスは数えないため、「Office ファイル」は <code>－</code></td>
+</tr>
+<tr>
+<td>「内訳」の表示</td>
+<td><code>新規 N 件</code> <code>更新あり N 件</code> <code>前回未完了 N 件</code> <code>インデックスが無い・壊れている N 件</code> <code>前回失敗 N 件</code> のうち 1 件以上のものを <code>/</code> でつなぐ。どれも 0 件なら <code>すべて取り込み済みです</code></td>
+</tr>
+<tr>
+<td>前回失敗の再取り込み</td>
+<td>前回失敗し、その後更新されていないファイルが 1 件以上あるときだけチェックボックスを出す。<code>前回取り込みに失敗し、その後更新されていないファイル N 件も再取り込みする（パスワード付きなど）</code>。切り替えると合計の表示も変える（既定は外す）</td>
+</tr>
+<tr>
+<td>合計</td>
+<td>取り込むものがあれば <code>合計 N 件を取り込みます。</code>。無ければ <code>更新が必要なファイルはありません（すべて取り込み済みです）。</code> とし、注意書き <code>更新日時が変わらないまま中身が変わったファイルは、取り込み対象になりません。そのインデックスを一から作り直すときは、［削除］してから追加し直してください。</code> を添える</td>
+</tr>
+<tr>
+<td>［インデックス作成を開始］</td>
+<td><code>work/インデックス作成開始要求</code>（<code>$indexingStartRequestFile</code>）を作り、インデクサの待ちを解く。失敗分も再取り込みするかは、このファイルの中身（<code>失敗分も再取り込み</code>）で伝える。取り込むものが無いときは表示を［閉じる］にし、［キャンセル］は出さない（押してもインデクサはそのまま終わるだけのため）</td>
+</tr>
+<tr>
+<td>［キャンセル］</td>
+<td><code>work/インデックス作成中止要求</code> を作る。インデクサは 1 件も取り込まずに終了コード 2 で終わる。<strong>取り込み一覧は前回のまま</strong>にする（取り込み対象にした行を「未取り込み」で記録すると、次回の表示が［続きから再開］になり、中断したように見えるため）</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>インデックスごとの件数を一覧で見せるため、共通の確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）ではなく専用のダイアログにする。ボタンの文言を操作そのものにする点は同じ。</li>
+<li>ダイアログを開いている間も進み具合のタイマーは動くため、<strong>開く前に「開いた」ことにして</strong>二重に開かないようにする。</li>
+<li>画面を閉じるなどして返事をしない場合、インデクサは 60 分で取りやめる（待ち続けないため）。画面をもう一度開けば、実行中のインデックス作成を見つけて（3.3）確認のダイアログを出せる。</li>
+</ul>
+<h3 id="35-インデックス一覧を変更したとき">3.5 インデックス一覧を変更したとき<a class="headerlink" href="#35-インデックス一覧を変更したとき" title="Permanent link">&para;</a></h3>
+<p>確認は出さずにそのまま保存する。
+取り込み一覧（<code>work/取り込み一覧.tsv</code>）の 1 行目にはクロール対象フォルダを記録しており、取り込み時に今のフォルダと異なれば取り込み一覧を作り直す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成.md 4.2 節</a>）。
+そのため、変更前のフォルダの相対パスのまま新しいフォルダを処理することはない。</p>
+<h3 id="36-インデックス作成の進み具合">3.6 インデックス作成の進み具合<a class="headerlink" href="#36-インデックス作成の進み具合" title="Permanent link">&para;</a></h3>
+<p>インデックス作成はウィンドウなしで実行するため、画面は<strong>インデクサが書く進み具合の 1 行</strong>（<code>work/インデックス作成進捗.txt</code>。<code>readIndexingProgress</code>）を 1 秒ごとに読んで表示する。
+インデクサの書き込みを妨げないよう共有を許して読む。</p>
+<table>
+<thead>
+<tr>
+<th>状況</th>
+<th>判定（進み具合の段階）</th>
+<th>表示</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>クロール中</td>
+<td><code>クロール</code></td>
+<td>動き続けるバー。<code>クロールしています…</code>。下に、インデクサが今していること（<code>インデックス作成の準備をしています…</code>・<code>[&lt;インデックス名&gt;] のOfficeファイルを探しています… &lt;パス&gt;</code>・<code>取り込み済みのインデックスを確認しています…</code>・<code>取り込み一覧を書き出しています…</code>）</td>
+</tr>
+<tr>
+<td>インデックス作成の確認待ち</td>
+<td><code>確認</code></td>
+<td>動き続けるバー（タスクバーは黄色）。<code>取り込む内容を確認してください</code>、<code>取り込み対象の一覧を表示しています。</code>。確認のダイアログを開く（3.4）</td>
+</tr>
+<tr>
+<td>取り込みの開始前</td>
+<td><code>取り込み</code> で処理済みが 0</td>
+<td>動き続けるバー。<code>N 件のファイルを取り込みます</code>、<code>取り込み中のファイル：&lt;相対パス&gt;</code></td>
+</tr>
+<tr>
+<td>取り込み中</td>
+<td><code>取り込み</code> で処理済みが 1 件以上</td>
+<td>バー（処理済み ÷（処理済み＋残り））、<code>インデックス作成中… 14 / 31 件（失敗 1 件）</code>、<code>残り約 N 分</code>（1 分未満は <code>残り 1 分未満</code>。最初の 1 件が終わってからの速さで計算）、<code>取り込み中のファイル：&lt;相対パス&gt;</code></td>
+</tr>
+<tr>
+<td>後片付け中</td>
+<td><code>仕上げ</code></td>
+<td>動き続けるバー。<code>インデックス作成を終えています…</code>、<code>Officeアプリを終了しています…</code> / <code>取り込み一覧を書き直しています…</code></td>
+</tr>
+<tr>
+<td>終わった</td>
+<td>プロセスが終了した</td>
+<td>終了コードに応じて表示する（3.7）。状態・件数を読み直す</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>タスクバーのアイコンにも進み具合を表示する（失敗があれば黄色）。<strong>インデックス作成が終わったとき、進み具合とステータスで知らせる</strong>。前面には割り込まず、タスクバーのボタンも光らせない（光らせるには P/Invoke（<code>FlashWindowEx</code>）が要るため。<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">12.2</a>）。</li>
+<li><strong>取り込み一覧（<code>work/取り込み一覧.tsv</code>）は毎秒読まない</strong>。数万行になると 1 回の読み直しに数秒かかり（5 万行で約 5.8 秒）、1 秒ごとに読むと画面が固まる（「応答なし」になる）。進み具合はインデクサが数えて 1 行に書く（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a>）。</li>
+<li>「処理済み」はインデクサが数えた件数（今回の実行で取り込んだファイルと、取り込みに失敗したファイル）。前回失敗したファイルを再取り込みする場合（確認のダイアログでチェックを付けた場合）も、その分は最初から件数に入る。</li>
+</ul>
+<h3 id="37-中止終了ログ">3.7 中止・終了・ログ<a class="headerlink" href="#37-中止終了ログ" title="Permanent link">&para;</a></h3>
+<ul>
+<li>確認のダイアログを出している間の取りやめは、ダイアログの［キャンセル］で行う（3.4）。</li>
+<li>インデックス作成中は、進み具合の右に［中止］を表示する。押すと確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）を出す。見出しは <code>インデックス作成を中止しますか？</code>、結果は <code>→ いま取り込んでいるファイルが終わったところで止まります</code> ／ <code>✓ ここまで取り込んだ分はそのまま残ります</code>（<code>次に［インデックス作成を開始］を押すと、続きから再開します</code>）、ボタンは［中止する］（既定は［キャンセル］）。［中止する］で <code>work/インデックス作成中止要求</code>（<code>$stopRequestFile</code>）を作る。インデクサは取り込み中のファイルが終わったところで止まり、終了コード 2 で終わる。終わるまでは <code>中止しています…（取り込み中のファイルが終わるまでお待ちください）</code> と表示する。</li>
+<li>プロセスが終わったら、終了コードに応じて次のように表示する。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>終了コード</th>
+<th>表示</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>インデックス作成が終わりました（成功 N 件 / 失敗 M 件）</code>。失敗があれば <code>失敗したファイルと原因は「取り込みに失敗したファイル」の一覧で確認できます。</code> を加える。取り込んだファイルが無ければ <code>取り込みが必要なファイルはありませんでした</code></td>
+</tr>
+<tr>
+<td>2（確認で取りやめた）</td>
+<td><code>インデックス作成を取りやめました</code>、<code>取り込んだファイルはありません。［インデックス作成を開始］を押すと、もう一度確認できます。</code></td>
+</tr>
+<tr>
+<td>2（中止した）</td>
+<td><code>インデックス作成を中止しました（成功 N 件 / 失敗 M 件 / 残り K 件）</code>、<code>次回は続きから再開できます。</code></td>
+</tr>
+<tr>
+<td>1（続けられないエラー。クロール対象フォルダが無い など）</td>
+<td><code>work/インデックス作成エラー.txt</code>（<code>$indexingErrorFile</code>）を読み、<code>インデックスを作成できませんでした</code> とそのメッセージを表示する。同じ内容をエラーのダイアログでも出す</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>プロセスが終わると［ログを開く］を表示する。インデックス作成のログ <code>work/インデックス作成ログ.txt</code>（<code>$indexingLogFile</code>。インデクサの実行記録）を開く。</li>
+<li>インデックス作成中にウィンドウを閉じようとすると、確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）を出す。見出しは <code>まだインデックス作成の途中です。どうしますか？</code>、選択肢は <code>インデックス作成を続けたまま閉じる</code>（<code>インデックス作成は裏で続きます。もう一度開くと進み具合が出ます</code>）と <code>インデックス作成を止めてから閉じる</code>（<code>いま取り込んでいるファイルが終わったところで止まります（次に開いたとき続きから再開できます）</code>）、キャンセルのボタンは［閉じない］。後者は中止の要求ファイルを作ってから閉じる。前者はインデックス作成を続けたまま閉じ、次に画面を開くと実行中のインデックス作成を見つけて進み具合を表示する（3.3）。</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="フッター" >
+        
+          
+          <a href="../03_%E7%94%BB%E9%9D%A2/" class="md-footer__link md-footer__link--prev" aria-label="前: 画面（GUI）設計書">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                前
+              </span>
+              <div class="md-ellipsis">
+                画面（GUI）設計書
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/" class="md-footer__link md-footer__link--next" aria-label="次: 検索タブ">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                次
+              </span>
+              <div class="md-ellipsis">
+                検索タブ
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 hsgwa / MIT License
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
