@@ -214,7 +214,7 @@ Describe "writeUnits" -Tag Io {
         addUnitLines $units "ページ002" @("", " ")
         addUnitLines $units "スライド001_ノート" @("メモ")
 
-        # ファイル名はフォルダ名（変換処理が作業フォルダから移す先）になるため、TSVの名前は場所だけ
+        # ファイル名はフォルダ名（インデクサが作業フォルダから移す先）になるため、TSVの名前は場所だけ
         writeUnits $units $outDir | Should Be 2
         [System.IO.File]::ReadAllText("$outDir\ページ001.tsv") | Should Be "a`tb`r`n"
         Test-Path -LiteralPath "$outDir\ページ002.tsv" | Should Be $false

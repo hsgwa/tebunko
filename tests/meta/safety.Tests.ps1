@@ -130,7 +130,7 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
 
 Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2）" -Tag Meta {
     $app = @($code | Where-Object { $_.File -eq "office_app.ps1" })
-    $convert = @($code | Where-Object { $_.File -eq "convert_office.ps1" })
+    $extract = @($code | Where-Object { $_.File -eq "extract_office.ps1" })
 
     It "マクロを強制的に無効にしてから開く（AutomationSecurity = 3）" {
         (findPattern $app 'AutomationSecurity\s*=\s*3') | Should Not Be ""
@@ -142,10 +142,10 @@ Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2
 
     It "外部リンクを更新しない（AskToUpdateLinks = false・Open の UpdateLinks = 0）" {
         (findPattern $app 'AskToUpdateLinks\s*=\s*\$false') | Should Not Be ""
-        (findPattern $convert '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
+        (findPattern $extract '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
     }
 
-    It "変換処理の Office は画面に出さない（Visible = false）" {
+    It "インデクサの Office は画面に出さない（Visible = false）" {
         (findPattern $app 'Visible\s*=\s*\$false') | Should Not Be ""
         # 可視にするのは画面から元のファイルを開くときだけ（ui/open_source.ps1）
         $visible = @($code | Where-Object { $_.Text -match 'Visible\s*=\s*\$true' })
@@ -153,11 +153,11 @@ Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2
     }
 }
 
-Describe "変換対象のファイルを書き換えないこと（docs/04_安全性.md 3.2）" -Tag Meta {
+Describe "取り込み対象のファイルを書き換えないこと（docs/04_安全性.md 3.2）" -Tag Meta {
     It "元のファイルのパスを書き込み・削除の API に渡さない" {
-        # 書き込み・削除の呼び出し行に、変換対象（原本）を指す変数が現れないこと。
+        # 書き込み・削除の呼び出し行に、取り込み対象（原本）を指す変数が現れないこと。
         # 原本は作業フォルダへコピーしてから開くため、書き込み先は常にコピー側（$tmpPath・$destPath・$copyPath 等）になる。
-        # $targetFolder・$folder.Path = 変換対象フォルダ、$row.SourcePath = 検索結果の元のファイル
+        # $targetFolder・$folder.Path = クロール対象フォルダ、$row.SourcePath = 検索結果の元のファイル
         $writes = @($code | Where-Object { $_.Text -match 'Remove-Item|WriteAllText|WriteAllLines|StreamWriter|\.SaveAs|\[System\.IO\.(File|Directory)\]::Move|Move-Item' })
         ($writes.Count -gt 0) | Should Be $true
         (@($writes | Where-Object { $_.Text -match '\$targetFolder|\$row\.SourcePath|\$folder\.Path' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
@@ -180,11 +180,11 @@ Describe "変換対象のファイルを書き換えないこと（docs/04_安�
     }
 
     It "原本は読み取り専用で開く（Excel・Word・PowerPoint）" {
-        $convert = @($code | Where-Object { $_.File -eq "convert_office.ps1" })
+        $extract = @($code | Where-Object { $_.File -eq "extract_office.ps1" })
         # Excel: Open の第 3 引数 ReadOnly = $true / Word: 第 3 引数 ReadOnly = $true / PowerPoint: 第 2 引数 ReadOnly = -1
-        (findPattern $convert '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
-        (findPattern $convert '\$documents\.Open\(\$sourcePath,\s*\$false,\s*\$true') | Should Not Be ""
-        (findPattern $convert '\$presentations\.Open\("\$\{sourcePath\}::dummy::",\s*-1') | Should Not Be ""
+        (findPattern $extract '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
+        (findPattern $extract '\$documents\.Open\(\$sourcePath,\s*\$false,\s*\$true') | Should Not Be ""
+        (findPattern $extract '\$presentations\.Open\("\$\{sourcePath\}::dummy::",\s*-1') | Should Not Be ""
     }
 }
 

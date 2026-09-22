@@ -1,8 +1,8 @@
 ﻿# 検索結果から元のファイルの場所を求める（元のフォルダ.txt の読み書きを含む）。
 
 function writeSourceFolderFile {
-    # 各インデックスのフォルダに、インデックス名と変換対象フォルダの対応（元のフォルダ.txt）を書き出す。
-    # 1行目は説明、2行目は "インデックス名<TAB>変換対象フォルダ"。
+    # 各インデックスのフォルダに、インデックス名とクロール対象フォルダの対応（元のフォルダ.txt）を書き出す。
+    # 1行目は説明、2行目は "インデックス名<TAB>クロール対象フォルダ"。
     # インデックス1件につき1ファイルのため、<インデックス名> のフォルダだけを別の PC・場所へコピーしても
     # 元のファイルの場所が分かる（work\index ごとコピーした場合は readSourceFolderFile が各フォルダを読む）
     param (
@@ -10,11 +10,11 @@ function writeSourceFolderFile {
         [string]$dir = ${indexDir}
     )
 
-    $header = "# 検索結果から元のファイルを開くときに使う、インデックス名と変換対象フォルダの対応です（変換のたびに作り直します）"
+    $header = "# 検索結果から元のファイルを開くときに使う、インデックス名とクロール対象フォルダの対応です（インデックス作成のたびに作り直します）"
     $items = @($folders | Where-Object { $_ -and $_.Name })
 
     # 以前の版は、インデックスのフォルダ直下にも全インデックス分の 元のフォルダ.txt を書いていた。
-    # そこにしか記録の無いインデックス（変換対象フォルダから外したものなど）の分を各フォルダへ移してから、直下のファイルを消す
+    # そこにしか記録の無いインデックス（クロール対象フォルダから外したものなど）の分を各フォルダへ移してから、直下のファイルを消す
     $rootPath = Join-Path $dir ${sourceFolderFileName}
     $names = @($items | ForEach-Object { $_.Name })
     foreach ($line in @(readListFile $rootPath)) {
@@ -26,7 +26,7 @@ function writeSourceFolderFile {
     }
 
     foreach ($folder in $items) {
-        # インデックスのフォルダがまだ無い（1件も変換していない）場合は作らない
+        # インデックスのフォルダがまだ無い（1件も取り込んでいない）場合は作らない
         $indexPath = Join-Path $dir $folder.Name
         if (Test-Path -LiteralPath (toLongPath $indexPath) -PathType Container) {
             writeListFile (Join-Path $indexPath ${sourceFolderFileName}) @($header, "$($folder.Name)`t$($folder.Path)")
@@ -39,7 +39,7 @@ function writeSourceFolderFile {
 }
 
 function readSourceFolderFile {
-    # インデックスのフォルダ（dir）直下の 元のフォルダ.txt を読み、インデックス名 → 変換対象フォルダ を返す
+    # インデックスのフォルダ（dir）直下の 元のフォルダ.txt を読み、インデックス名 → クロール対象フォルダ を返す
     # （大文字・小文字を区別しない）。ファイルが無ければ空。
     # ファイルは各インデックスのフォルダ（work\index\<インデックス名>）に置くため、dir にはそのフォルダを渡す。
     # dir の下を探し回らないのは、インデックスのフォルダの下が元のファイル1つにつき1フォルダ（数万個）になるため
@@ -61,7 +61,7 @@ function getSourceFolderMap {
     # インデックスのフォルダ（dir）の インデックス名 → 元のフォルダ（今そのフォルダが置かれている場所）を返す。
     # 次の順に読み、後のもので上書きする（後のものが優先）:
     #   1. dir 直下の 元のフォルダ.txt … インデックスを作ったときの場所。インデックスをコピーしても付いてくる
-    #   2. 既定のインデックス（work\index）なら変換一覧の記録
+    #   2. 既定のインデックス（work\index）なら取り込み一覧の記録
     #   3. 設定のインデックス名に対する場所（targetFolders・indexSources）… 利用者が指定した「今の場所」のため最も優先する
     param (
         [string]$dir,

@@ -1,4 +1,4 @@
-﻿<!-- インデックスの新規作成・編集ダイアログ（［1 インデックス管理］タブ）。config_gui.ps1 が読み込む。
+﻿<!-- インデックスの追加・編集ダイアログ（［1 インデックス管理］タブ）。gui.ps1 が読み込む。
      色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

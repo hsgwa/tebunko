@@ -1,11 +1,11 @@
 ﻿# Word（.docx / .docm）・PowerPoint（.pptx / .pptm）のファイルと、Excel（.xlsx / .xlsm）の図形・コメントからテキストを読み出す。
 # ファイルはZIP（Office Open XML）として直接読むため、Word・PowerPoint・Excelは使わない。
-# 変換処理・テストから dot-source して使う。共通の部品（shared.ps1）を先に読み込んでおくこと。
+# インデクサ・テストから dot-source して使う。共通の部品（shared.ps1）を先に読み込んでおくこと。
 #
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
 #   Word      : ページ001, ページ002, ..., ヘッダー・フッター, 脚注
 #   PowerPoint: スライド001, スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
-#   Excel     : <シート名>[図形], <シート名>[コメント]（セルの値は変換処理が Excel で読む）
+#   Excel     : <シート名>[図形], <シート名>[コメント]（セルの値はインデクサが Excel で読む）
 # 1行は段落1つ、または表の1行（セルをタブ区切り）。Excel は図形・コメント1つ（"<セル番地><TAB><文字>"）。
 
 Add-Type -AssemblyName System.IO.Compression
@@ -663,7 +663,7 @@ function readXlsxObjectUnits {
             }
 
             # 上の行から順に（同じ行は左から、同じセルは XML の順に）並べる。
-            # Sort-Object は同じキーの順を保たない（変換のたびに順が変わる）ため、XML の順もキーにする
+            # Sort-Object は同じキーの順を保たない（インデックス作成のたびに順が変わる）ため、XML の順もキーにする
             for ($i = 0; $i -lt $shapes.Count; $i++) {
                 $shapes[$i].Order = $i
             }
@@ -688,7 +688,7 @@ function readXlsxObjectUnits {
 
 function writeUnits {
     # ユニットごとに "<場所>.tsv" を出力し、出力したファイル数を返す（空のユニットは出力しない）。
-    # 元のファイル名は、出力先のフォルダ名（変換処理が作業フォルダから移すときのフォルダ）になる
+    # 元のファイル名は、出力先のフォルダ名（インデクサが作業フォルダから移すときのフォルダ）になる
     param (
         [System.Collections.Specialized.OrderedDictionary]$units,
         [string]$outDir

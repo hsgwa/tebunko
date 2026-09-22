@@ -153,7 +153,7 @@ Describe "indexSources / setIndexSourceFolder" -Tag Io {
         @($sources | Where-Object { $_.Name -eq "営業" })[0].Path | Should Be "D:\新しい営業"
     }
 
-    It "変換対象フォルダにある名前なら、そのフォルダの場所を書き換える" {
+    It "クロール対象フォルダにある名前なら、そのフォルダの場所を書き換える" {
         $path = "$TestDrive\sources_target.config"
         writeTargetFolders @(
             [pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true },
@@ -166,7 +166,7 @@ Describe "indexSources / setIndexSourceFolder" -Tag Io {
         $folders[0].Path | Should Be "\server\移動先\見積"
         $folders[0].Enabled | Should Be $true
         $folders[1].Path | Should Be "C:\data\営業"
-        # 変換対象フォルダを書き換えたので、indexSources には入れない
+        # クロール対象フォルダを書き換えたので、indexSources には入れない
         @(readIndexSources $path).Count | Should Be 0
     }
 

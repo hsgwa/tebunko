@@ -26,7 +26,7 @@ function writeListFile {
 }
 
 function formatFileTime {
-    # 変換一覧に記録する日時の書式（秒まで）。更新の有無はこの文字列で比べる
+    # 取り込み一覧に記録する日時の書式（秒まで）。更新の有無はこの文字列で比べる
     param (
         [datetime]$time
     )
@@ -105,7 +105,7 @@ function toLongPath {
 }
 
 function copyFileShared {
-    # 元のファイルを占有せずにコピーする（変換は、このコピーを開いて行う）。
+    # 元のファイルを占有せずにコピーする（インデックス作成は、このコピーを開いて行う）。
     # File.Copy は元のファイルをほかのアプリの書き込みを拒否して開くため、コピーの間は利用者が上書き保存できず、
     # 利用者がファイルを開いて編集中だとコピーできないことがある。
     # ここでは読み取りだけで開き、ほかのアプリの読み書き・削除・名前変更を妨げない。
@@ -173,7 +173,7 @@ function removeDirectoryRetry {
 function newAppMutex {
     # 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックスを作り、@{ Mutex; Acquired } を返す。
     # Acquired が $false なら、ほかで実行中。プロセスが終われば解放されるため、強制終了されても残らない
-    #   name: 処理の種類（"gui" = 画面、"convert" = 変換）
+    #   name: 処理の種類（"gui" = 画面、"indexer" = インデックス作成）
     param (
         [string]$name,
         [string]$dir = ${rootDir}

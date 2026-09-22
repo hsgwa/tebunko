@@ -1,6 +1,6 @@
 ﻿# setting.config の読み書き（tebunko_grep の設定）。
 
-# 設定ファイル（画面が読み書きする。変換処理は変換対象フォルダを読む）。内容は JSON
+# 設定ファイル（画面が読み書きする。インデクサはクロール対象フォルダを読む）。内容は JSON
 ${settingsFile} = "${rootDir}\setting.config"
 # 以前の設定ファイル（設定ファイルと同じフォルダの config\*.txt）。設定ファイルが無いときだけ読み込んで移す
 ${legacyConfigDirName}        = "config"
@@ -11,8 +11,8 @@ ${legacySearchOptionFileName} = "検索オプション.txt"
 function newSettings {
     # 設定の既定値。設定ファイル（JSON）のキーと同じ
     return [ordered]@{
-        targetFolders      = @()      # 変換対象フォルダ: @{ name（インデックス名）; path（今フォルダが置かれている場所）; enabled }（記載順。enabled が false は登録のみで変換しない）
-        indexSources       = @()      # 変換しないインデックスの元のフォルダ: @{ name; path }（別のPC・場所で作ったインデックスを検索するとき）
+        targetFolders      = @()      # クロール対象フォルダ: @{ name（インデックス名）; path（今フォルダが置かれている場所）; enabled }（記載順。enabled が false は登録のみで取り込まない）
+        indexSources       = @()      # 取り込まないインデックスの元のフォルダ: @{ name; path }（別のPC・場所で作ったインデックスを検索するとき）
         searchExcludes     = @()      # 画面の検索対象ツリーでチェックを外したフォルダ: @{ path（フルパス）; subfolders（false はフォルダ直下のファイルだけ） }
         useRegex           = $false   # 検索ワードを正規表現として扱う
         caseSensitive      = $false   # 英字の大文字と小文字を区別する
@@ -98,7 +98,7 @@ function readLegacySettings {
     if (Test-Path -LiteralPath $file) {
         $found = $true
         # 行頭が # の行はチェックなし
-        # インデックス名は以前の設定ファイルには無いため空にする（変換時に割り当てる。assignIndexNames）
+        # インデックス名は以前の設定ファイルには無いため空にする（取り込み時に割り当てる。assignIndexNames）
         $settings.targetFolders = @(readListFile $file | ForEach-Object { $_.Trim() } | ForEach-Object {
             [pscustomobject]@{ name = ""; path = (normalizeFolderPath $_.TrimStart("#")); enabled = -not $_.StartsWith("#") }
         } | Where-Object { $_.path -ne "" })
@@ -113,11 +113,11 @@ function readLegacySettings {
 }
 
 function getTargetFolders {
-    # 変換対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled }。
+    # クロール対象フォルダの一覧（記載順）を返す: @{ Name; Path; Enabled }。
     #   Name   : インデックス名（work\index 直下のフォルダ名）。インデックスの「名前」で、フォルダの置き場所（Path）とは分けて持つ。
-    #            Path を書き換えても Name が同じなら同じインデックスとして扱う（変換し直さない）。空なら変換時に割り当てる（assignIndexNames）
+    #            Path を書き換えても Name が同じなら同じインデックスとして扱う（取り込み直さない）。空なら取り込み時に割り当てる（assignIndexNames）
     #   Path   : そのフォルダが今置かれている場所
-    #   Enabled: false はチェックなし（登録のみで変換しない）
+    #   Enabled: false はチェックなし（登録のみで取り込まない）
     # 同じフォルダ・同じ名前は最初のものだけ使う（名前の重複は、2 つ目以降を空にして割り当て直す）。
     # 書き方が違うだけで同じフォルダを指す場合（ネットワークドライブと UNC パスなど）も同じフォルダとみなす
     param (
@@ -145,7 +145,7 @@ function getTargetFolders {
 }
 
 function writeTargetFolders {
-    # 変換対象フォルダの一覧（@{ Name; Path; Enabled } の配列）を保存する
+    # クロール対象フォルダの一覧（@{ Name; Path; Enabled } の配列）を保存する
     param (
         [object[]]$folders,
         [string]$path = ${settingsFile}
@@ -157,7 +157,7 @@ function writeTargetFolders {
 }
 
 function readIndexSources {
-    # 変換しないインデックスの元のフォルダ（indexSources）を @{ Name; Path } の配列で返す。
+    # 取り込まないインデックスの元のフォルダ（indexSources）を @{ Name; Path } の配列で返す。
     # 別の PC・場所で作ったインデックスを検索するとき、そのインデックス名の元のフォルダを覚えておくために使う
     param (
         [string]$path = ${settingsFile}
@@ -189,7 +189,7 @@ function writeIndexSources {
 
 function setIndexSourceFolder {
     # インデックス名に対する元のフォルダ（今そのフォルダが置かれている場所）を設定に記録する。
-    # 変換対象フォルダにある名前ならそのパスを書き換え、無ければ indexSources に記録する。
+    # クロール対象フォルダにある名前ならそのパスを書き換え、無ければ indexSources に記録する。
     # 「名前」と「置き場所」を分けて持つため、フォルダを移した場合もこの 1 か所を書き換えるだけで済む
     param (
         [string]$name,
