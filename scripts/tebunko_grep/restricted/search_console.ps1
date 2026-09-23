@@ -211,7 +211,7 @@ function runRestrictedConsole {
         Write-Host ""
         Write-Host "  1. 検索の条件を変える"
         Write-Host "  2. 検索するインデックスを選ぶ"
-        Write-Host "  3. インデックスを作成する（Word・PowerPoint）"
+        Write-Host "  3. インデックスを作成する（Word・PowerPoint・Excel）"
         Write-Host "  4. インデックスを管理する（追加・削除・取り込むものの選択）"
         Write-Host "  0. 終わる"
         switch ((Read-Host "番号（空で Enter: 戻る）").Trim()) {

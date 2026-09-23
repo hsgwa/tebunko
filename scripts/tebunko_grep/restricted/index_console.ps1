@@ -95,8 +95,8 @@ function removeRestrictedCrawlTarget {
 function runRestrictedIndexing {
     # インデックスを作成する（Word・PowerPoint だけ）
     Write-Host ""
-    Write-Host "インデックスを作成します。制限モードで取り込めるのは Word・PowerPoint（.docx .docm .pptx .pptm）だけです。"
-    Write-Host "Excel と旧形式（.xls .doc .ppt など）は、いつもの画面が使える PC でインデックスを作成すると取り込みます。"
+    Write-Host "インデックスを作成します。制限モードで取り込めるのは新形式（.docx .docm .pptx .pptm .xlsx .xlsm）だけです。"
+    Write-Host "旧形式（.xls .doc .ppt など）とパスワード付きのファイルは、いつもの画面が使える PC でインデックスを作成すると取り込みます。"
     Write-Host "途中で止めるときは Ctrl+C を押します（取り込んだ分は残り、次回は続きから取り込みます）。"
     try {
         $result = invokeRestrictedIndexing
