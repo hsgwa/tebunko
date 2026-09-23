@@ -1,10 +1,11 @@
-# Support
+﻿# Support
 
 English | [日本語](SUPPORT.ja.md)
 
 ## When you have a problem
 
 1. **Read "使い方" (how to use) and "制約" (limitations) in the [README](../README.md) (Japanese).** It lists the characters that cannot be searched and the files that cannot be read.
+   - **If the window does not open and a console says `制限モードで起動します`**, application control (AppLocker or WDAC) on that PC runs PowerShell in Constrained Language Mode. You can still index and search in this restricted mode ([README](../README.md#制限モード), Japanese). To get the window back, ask your administrator to read the [administrator guide](../docs/05_制限モード_1_管理者向け.md) (Japanese).
 2. **Read the logs.** The progress of indexing and the reasons why files could not be read are written to `work\インデックス作成ログ.txt`. Errors that stopped indexing are written to `work\インデックス作成エラー.txt`. The meaning of each error is described in [docs/01_インデックス作成_8_エラーメッセージ一覧.md](../docs/01_インデックス作成_8_エラーメッセージ一覧.md) (Japanese).
 3. **Read the design documents.** How the screen, indexing and search work in detail is described in [docs/](../docs/00_index.md) (Japanese).
 4. **Search the existing issues.** Check whether the same problem has already been reported in the [issues](https://github.com/hsgwa/tebunko/issues?q=is%3Aissue).
