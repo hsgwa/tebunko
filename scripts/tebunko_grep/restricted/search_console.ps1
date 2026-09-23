@@ -6,6 +6,20 @@
 # いつもの画面と同じく setting.config に保存する（どちらのモードで変えても、もう一方に引き継がれる）。
 # 文言と入力の読み方は console_view.ps1 に置く。
 
+function readConsoleLine {
+    # コンソールから 1 行読む。入力が終わっている（Ctrl+Z を押した・パイプの終わり）ときは $null を返す。
+    # $null を返したら、呼び出した側はメニュー・コンソールを終える（同じ問いを繰り返さないため）
+    param (
+        [string]$prompt
+    )
+
+    $line = Read-Host $prompt
+    if ($null -eq $line) {
+        return $null
+    }
+    return [string]$line
+}
+
 function readRestrictedSetting {
     # 設定を読む。読めない（壊れた JSON など）ときは既定値で続ける
     param (
@@ -43,8 +57,8 @@ function editRestrictedOption {
     while ($true) {
         Write-Host ""
         foreach ($line in (getOptionMenuLines $option)) { Write-Host $line }
-        $answer = Read-Host "番号"
-        if ($answer.Trim() -eq "") {
+        $answer = readConsoleLine "番号"
+        if ($null -eq $answer -or $answer.Trim() -eq "") {
             return
         }
         $number = parseMenuNumber $answer ${restrictedOptionItems}.Count
@@ -55,7 +69,9 @@ function editRestrictedOption {
         $key = ${restrictedOptionItems}[$number - 1].Key
         if ($key -eq "FileFilter") {
             Write-Host "  対象ファイル（例: *.xlsx;見積*;!*old*。; で区切り、! で始まるものは除く。空ですべて）"
-            $option[$key] = (Read-Host "  対象ファイル").Trim()
+            $filter = readConsoleLine "  対象ファイル"
+            if ($null -eq $filter) { return }
+            $option[$key] = $filter.Trim()
         } else {
             $option[$key] = !$option[$key]
         }
@@ -78,10 +94,11 @@ function editRestrictedIndexes {
             return
         }
         foreach ($line in (getIndexMenuLines $indexes $excludes)) { Write-Host $line }
-        $answer = (Read-Host "番号").Trim()
-        if ($answer -eq "") {
+        $answer = readConsoleLine "番号"
+        if ($null -eq $answer -or $answer.Trim() -eq "") {
             return
         }
+        $answer = $answer.Trim()
         if ($answer -eq "a" -or $answer -eq "ａ") {
             $kept = @($excludes | Where-Object { $e = $_; @($indexes | Where-Object { $null -ne (getPathUnderFolder $e.Path $_.Path) }).Count -eq 0 })
             saveRestrictedSetting { writeSearchExcludes $kept }
@@ -114,8 +131,8 @@ function showRestrictedHitList {
         Write-Host "  （先頭の $($shown.Count) 件だけを出しました）"
     }
     while ($true) {
-        $answer = Read-Host "番号で元のファイルを開きます（f番号: フォルダ、空で Enter: 戻る）"
-        if ($answer.Trim() -eq "") {
+        $answer = readConsoleLine "番号で元のファイルを開きます（f番号: フォルダ、空で Enter: 戻る）"
+        if ($null -eq $answer -or $answer.Trim() -eq "") {
             return
         }
         $choice = parseHitChoice $answer $shown.Count
@@ -203,7 +220,10 @@ function runRestrictedConsole {
         Write-Host ""
         Write-Host "検索するインデックス: $(describeRestrictedIndexes $indexes $excludes)"
         Write-Host "条件: $(describeRestrictedOption $option)"
-        $word = Read-Host "検索ワード（空で Enter: メニュー）"
+        $word = readConsoleLine "検索ワード（空で Enter: メニュー）"
+        if ($null -eq $word) {
+            return  # 入力が終わった（Ctrl+Z・パイプの終わり）
+        }
         if ($word -ne "") {
             invokeRestrictedSearch $word $option $indexes $hasExcel
             continue
@@ -211,10 +231,14 @@ function runRestrictedConsole {
         Write-Host ""
         Write-Host "  1. 検索の条件を変える"
         Write-Host "  2. 検索するインデックスを選ぶ"
-        Write-Host "  3. インデックスを作成する（Word・PowerPoint）"
+        Write-Host "  3. インデックスを作成する（Word・PowerPoint・Excel）"
         Write-Host "  4. インデックスを管理する（追加・削除・取り込むものの選択）"
         Write-Host "  0. 終わる"
-        switch ((Read-Host "番号（空で Enter: 戻る）").Trim()) {
+        $choice = readConsoleLine "番号（空で Enter: 戻る）"
+        if ($null -eq $choice) {
+            return
+        }
+        switch ($choice.Trim()) {
             "1" { editRestrictedOption $option }
             "2" { editRestrictedIndexes $indexes }
             "3" { runRestrictedIndexing }

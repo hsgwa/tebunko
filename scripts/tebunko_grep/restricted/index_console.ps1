@@ -11,8 +11,8 @@ function editRestrictedCrawlTargets {
         $folders = @(readRestrictedSetting { getTargetFolders } @())
         Write-Host ""
         foreach ($line in (getCrawlMenuLines $folders)) { Write-Host $line }
-        $answer = Read-Host "番号"
-        if ($answer.Trim() -eq "") {
+        $answer = readConsoleLine "番号"
+        if ($null -eq $answer -or $answer.Trim() -eq "") {
             return
         }
         $choice = parseCrawlChoice $answer $folders.Count
@@ -41,7 +41,11 @@ function addRestrictedCrawlTarget {
     )
 
     Write-Host "  Office ファイル（Word・PowerPoint・Excel）の入っているフォルダのパスを入れてください（エクスプローラーのアドレス欄からコピーできます）。"
-    $path = normalizeFolderPath (Read-Host "  フォルダ").Trim().Trim('"')
+    $answer = readConsoleLine "  フォルダ"
+    if ($null -eq $answer) {
+        return
+    }
+    $path = normalizeFolderPath $answer.Trim().Trim('"')
     if ($path -eq "") {
         return
     }
@@ -50,7 +54,11 @@ function addRestrictedCrawlTarget {
         return
     }
     $suggested = newIndexName $path @($folders | ForEach-Object { $_.Name })
-    $name = (Read-Host "  インデックス名（空で Enter: $suggested）").Trim()
+    $name = readConsoleLine "  インデックス名（空で Enter: $suggested）"
+    if ($null -eq $name) {
+        return
+    }
+    $name = $name.Trim()
     if ($name -eq "") {
         $name = $suggested
     }
@@ -72,7 +80,8 @@ function removeRestrictedCrawlTarget {
     )
 
     Write-Host "  インデックス [$($folder.Name)]（$($folder.Path)）を削除します。元のフォルダのファイルは削除しません。"
-    if ((Read-Host "  削除してよければ y").Trim() -notmatch '^[yｙYＹ]$') {
+    $answer = readConsoleLine "  削除してよければ y"
+    if ($null -eq $answer -or $answer.Trim() -notmatch '^[yｙYＹ]$') {
         return
     }
     $reason = enterIndexingLock
@@ -95,8 +104,8 @@ function removeRestrictedCrawlTarget {
 function runRestrictedIndexing {
     # インデックスを作成する（Word・PowerPoint だけ）
     Write-Host ""
-    Write-Host "インデックスを作成します。制限モードで取り込めるのは Word・PowerPoint（.docx .docm .pptx .pptm）だけです。"
-    Write-Host "Excel と旧形式（.xls .doc .ppt など）は、いつもの画面が使える PC でインデックスを作成すると取り込みます。"
+    Write-Host "インデックスを作成します。制限モードで取り込めるのは新形式（.docx .docm .pptx .pptm .xlsx .xlsm）だけです。"
+    Write-Host "旧形式（.xls .doc .ppt など）とパスワード付きのファイルは、いつもの画面が使える PC でインデックスを作成すると取り込みます。"
     Write-Host "途中で止めるときは Ctrl+C を押します（取り込んだ分は残り、次回は続きから取り込みます）。"
     try {
         $result = invokeRestrictedIndexing

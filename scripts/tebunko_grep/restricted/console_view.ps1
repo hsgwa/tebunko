@@ -304,7 +304,7 @@ function getIndexingSummaryLines {
     $lines += "取り込み: $($result.Success) 件 / 失敗: $(@($result.Failed).Count) 件 / 元のファイルが無くなったもの: $($result.Dropped) 件"
     if (@($result.Skipped).Count -gt 0) {
         $lines += "制限モードで読めないため、取り込まずに残したファイル: $(@($result.Skipped).Count) 件" +
-            "（Excel・旧形式・パスワード付きなど。いつもの画面が使える PC でインデックスを作成すると取り込みます）"
+            "（旧形式・パスワード付きなど。いつもの画面が使える PC でインデックスを作成すると取り込みます）"
     }
     foreach ($failed in @($result.Failed | Select-Object -First 10)) {
         $lines += "  失敗: $($failed.RelPath)（$($failed.Message)）"
