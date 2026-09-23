@@ -39,10 +39,39 @@ function testFolderWritable {
     }
 }
 
+function readStartupModeSetting {
+    # setting.config の startupMode を読む。ファイルが無い・壊れている・書かれていなければ空文字列。
+    # 起動の判断より前に読むため、設定ファイル一式（settings_grep.ps1）は読み込まず、この 1 項目だけを自分で読む
+    param (
+        [string]$path
+    )
+
+    if (!(Test-Path -LiteralPath $path -PathType Leaf)) {
+        return ""
+    }
+    try {
+        $json = Get-Content -LiteralPath $path -Raw -Encoding UTF8 -ErrorAction Stop
+        if ($null -eq $json -or $json.Trim() -eq "") {
+            return ""
+        }
+        $data = ConvertFrom-Json $json
+        if ($null -eq $data) {
+            return ""
+        }
+        return [string]$data.startupMode
+    } catch {
+        # 壊れた設定ファイルでも起動は続ける（いつもどおりの判断にする）
+        return ""
+    }
+}
+
 # 起動時の確認に使う事実を集める（キーの意味は startup_view.ps1 の先頭）。
 # WPF は FullLanguage のときだけ読み込んでみる（CLM では Add-Type が使えないことが分かっているため）
 function getStartupFacts {
-    param ([string]$workDir)
+    param (
+        [string]$workDir,
+        [string]$settingsFile = ""
+    )
 
     $mode = [string]$ExecutionContext.SessionState.LanguageMode
     $wpfError = ""
@@ -59,5 +88,6 @@ function getStartupFacts {
         HasExcel     = (testExcelInstalled)
         WorkDir      = $workDir
         CanWriteWork = (testFolderWritable $workDir)
+        Setting      = $(if ($settingsFile) { readStartupModeSetting $settingsFile } else { "" })
     }
 }

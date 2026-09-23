@@ -20,6 +20,7 @@ function newSettings {
         includeShapes      = $true    # 図形（テキストボックス等）の文字も検索する（場所 "<元の場所>[図形]"。index_name.ps1 の objectPlacePattern）
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
+        startupMode        = ${startupModeAuto} # 起動のしかた: auto（いつもの画面を開けるかで決める）/ restricted（制限モードで起動）/ clm（模擬の制限言語モードで制限モードを起動）。restricted・clm は手元で制限モードを確かめるための設定（05_制限モード.md）
     }
 }
 

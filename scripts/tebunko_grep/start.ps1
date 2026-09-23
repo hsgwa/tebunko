@@ -25,12 +25,25 @@ trap {
 . "$PSScriptRoot\restricted\startup_check.ps1"
 
 # このファイルは scripts\tebunko_grep\ に置く。2 つ上がリポジトリ直下になる
-# （shared\core\paths.ps1 は CLM で使えない型を使うため、ここでは読み込まない）
+# （shared\core\paths.ps1 は起動の判断より後に読み込む。ここでは setting.config の startupMode だけを自分で読む）
 $rootDir = (Resolve-Path -LiteralPath "$PSScriptRoot\..\..").Path
-$facts = getStartupFacts (Join-Path $rootDir "work")
+$facts = getStartupFacts (Join-Path $rootDir "work") (Join-Path $rootDir "setting.config")
 
 if ((getStartupMode $facts) -eq ${startupModeNormal}) {
     exit 10
+}
+
+# 設定（startupMode = clm）で、模擬の制限言語モードでの確認を選んでいるとき。
+# 言語モードはセッションの初めにしか変えられないため、自分をもう一度起動して、そこで制限モードを動かす。
+# -File では変える前に読み込まれてしまうため -Command で起動する（本物の制限言語モードでは、すでに CLM なので起動し直さない）
+if ((testStartupSettingClm $facts.Setting) -and $facts.LanguageMode -eq "FullLanguage") {
+    Write-Host "setting.config の startupMode が clm のため、模擬の制限言語モードで起動し直します。"
+    $script = $PSCommandPath.Replace("'", "''")
+    $arguments = $(if ($CheckOnly) { " -CheckOnly" } else { "" })
+    # 最後の exit で、起動し直した側の終了コード（10・11・12・0）をそのまま返す（bat が見るため）
+    $command = "`$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; & '${script}'${arguments}; exit `$LASTEXITCODE"
+    & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -Command $command
+    exit $LASTEXITCODE
 }
 
 foreach ($line in (getRestrictedStartupLines $facts)) {

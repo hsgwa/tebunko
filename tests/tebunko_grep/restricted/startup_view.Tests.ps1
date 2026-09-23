@@ -12,6 +12,7 @@ function newFacts {
         HasExcel     = $true
         WorkDir      = "C:\tools\tebunko_grep\work"
         CanWriteWork = $true
+        Setting      = ""
     }
     foreach ($key in $override.Keys) { $facts[$key] = $override[$key] }
     return $facts
@@ -66,5 +67,42 @@ Describe "getRestrictedStartupLines" -Tag Unit {
     It "1 行だけでも配列で返す" {
         $lines = getRestrictedStartupLines (newFacts @{ LanguageMode = "ConstrainedLanguage" })
         ($lines -is [array]) | Should Be $true
+    }
+}
+
+Describe "getStartupMode（設定で制限モードにする）" -Tag Unit {
+    It "startupMode が restricted・clm なら、画面を開ける PC でも制限モードにする" {
+        getStartupMode (newFacts @{ Setting = "restricted" }) | Should Be ${startupModeRestricted}
+        getStartupMode (newFacts @{ Setting = "clm" }) | Should Be ${startupModeRestricted}
+        # 大文字・前後の空白は無視する
+        getStartupMode (newFacts @{ Setting = "  CLM  " }) | Should Be ${startupModeRestricted}
+    }
+
+    It "startupMode が auto・空・知らない値なら、今までどおり調べて決める" {
+        foreach ($setting in @("auto", "", "  ", "Auto", "ほかの値")) {
+            getStartupMode (newFacts @{ Setting = $setting }) | Should Be ${startupModeNormal}
+            getStartupMode (newFacts @{ Setting = $setting; LanguageMode = "ConstrainedLanguage" }) | Should Be ${startupModeRestricted}
+        }
+    }
+
+    It "模擬の制限言語モードで起動し直すのは clm のときだけ" {
+        testStartupSettingClm "clm" | Should Be $true
+        testStartupSettingClm " CLM " | Should Be $true
+        testStartupSettingClm "restricted" | Should Be $false
+        testStartupSettingClm "auto" | Should Be $false
+        testStartupSettingClm "" | Should Be $false
+    }
+}
+
+Describe "getRestrictedStartupLines（設定で制限モードにしたとき）" -Tag Unit {
+    It "設定で制限モードにしたことと、戻し方を出す" {
+        $lines = getRestrictedStartupLines (newFacts @{ Setting = "restricted" })
+        $lines[1] | Should Be "  理由: setting.config の startupMode が restricted になっています（確認用の設定。auto に戻すと、いつもの画面で起動します）。"
+        $lines[-1] | Should Be "  いつもの画面を使うには: setting.config の startupMode を auto に戻してください。"
+    }
+
+    It "模擬の制限言語モードで起動し直した後は、言語モードも出す" {
+        $lines = getRestrictedStartupLines (newFacts @{ Setting = "clm"; LanguageMode = "ConstrainedLanguage" })
+        $lines[2] | Should Be "  言語モード: ConstrainedLanguage（制限言語モードとして動いています）"
     }
 }

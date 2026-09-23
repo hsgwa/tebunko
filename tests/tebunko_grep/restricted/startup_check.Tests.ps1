@@ -55,3 +55,35 @@ Describe "getStartupFacts" -Tag Io {
         $facts.HasExcel | Should Be (testExcelInstalled)
     }
 }
+
+Describe "readStartupModeSetting" -Tag Io {
+    It "setting.config の startupMode を読む" {
+        $path = Join-Path $TestDrive "setting.config"
+        Set-Content -LiteralPath $path -Value '{ "startupMode": "clm", "useRegex": true }' -Encoding UTF8
+        readStartupModeSetting $path | Should Be "clm"
+    }
+
+    It "ファイルが無い・空・壊れている・書かれていないときは空文字列（起動は続ける）" {
+        readStartupModeSetting (Join-Path $TestDrive "無い.config") | Should Be ""
+        $empty = Join-Path $TestDrive "空.config"
+        Set-Content -LiteralPath $empty -Value "" -Encoding UTF8
+        readStartupModeSetting $empty | Should Be ""
+        $broken = Join-Path $TestDrive "壊れた.config"
+        Set-Content -LiteralPath $broken -Value "{ これは JSON ではない" -Encoding UTF8
+        readStartupModeSetting $broken | Should Be ""
+        $other = Join-Path $TestDrive "ほか.config"
+        Set-Content -LiteralPath $other -Value '{ "useRegex": true }' -Encoding UTF8
+        readStartupModeSetting $other | Should Be ""
+        $nulls = Join-Path $TestDrive "null.config"
+        Set-Content -LiteralPath $nulls -Value "null" -Encoding UTF8
+        readStartupModeSetting $nulls | Should Be ""
+    }
+
+    It "getStartupFacts は、設定ファイルを渡したときだけ読む" {
+        $dir = Join-Path $TestDrive "work2"
+        $path = Join-Path $TestDrive "facts.config"
+        Set-Content -LiteralPath $path -Value '{ "startupMode": "restricted" }' -Encoding UTF8
+        (getStartupFacts $dir $path).Setting | Should Be "restricted"
+        (getStartupFacts $dir).Setting | Should Be ""
+    }
+}
