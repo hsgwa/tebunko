@@ -416,3 +416,56 @@ Describe "publishIndexFiles" -Tag Io {
         @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name }) | Should Be "明細.tsv"
     }
 }
+
+Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
+    $storePath = "${scriptsDir}\tebunko_grep\index\index_store.ps1"
+    function script:findStoreLine {
+        param ([string]$pattern)
+        return @(Select-String -LiteralPath $storePath -Pattern $pattern)[0].LineNumber
+    }
+
+    It "フォルダごと移せないとき（別のドライブへのリンクなど）は、1 件ずつ移して集めたフォルダを消す" {
+        $from = "$TestDrive\pub\tmp"
+        [System.IO.Directory]::CreateDirectory($from) | Out-Null
+        writeListFile "$from\明細.tsv" @("a")
+        writeListFile "$from\表紙.tsv" @("b")
+        $bookDir = "$TestDrive\pub\index\営業\A社.xlsx"
+        $staging = "$TestDrive\pub\出力\A社.xlsx"
+        # フォルダごとの移動の直前に移し先を作っておくと、移動が IOException になる
+        $point = Set-PSBreakpoint -Script $storePath -Line (findStoreLine '^\s+\[System\.IO\.Directory\]::Move\(\(toLongPath \$stagingDir\)') -Action {
+            [System.IO.Directory]::CreateDirectory((toLongPath $bookDir)) | Out-Null
+        }
+        try {
+            publishIndexFiles $from $bookDir $staging
+        } finally {
+            Remove-PSBreakpoint -Breakpoint $point
+        }
+
+        $names = @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name })
+        $names.Count | Should Be 2
+        ($names -contains "明細.tsv") | Should Be $true
+        ($names -contains "表紙.tsv") | Should Be $true
+        [System.IO.Directory]::Exists($staging) | Should Be $false
+    }
+
+    It "列挙の途中で失敗したら（アクセス権が無い等）null を返す（呼び出し元は確認を省く）" {
+        $dir = "$TestDrive\cnt\index"
+        [System.IO.Directory]::CreateDirectory("$dir\営業\A社.xlsx") | Out-Null
+        writeListFile "$dir\営業\A社.xlsx\明細.tsv" @("a")
+        # 今の利用者から一覧の表示を拒否したフォルダを置くと、列挙が UnauthorizedAccessException になる（テストの一時フォルダだけを変え、最後に戻す）
+        $locked = New-Object System.IO.DirectoryInfo "$dir\営業\読めない"
+        $locked.Create()
+        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
+        $acl = $locked.GetAccessControl("Access")
+        $acl.AddAccessRule($deny)
+        $locked.SetAccessControl($acl)
+        try {
+            getIndexTsvCounts $dir | Should Be $null
+        } finally {
+            $acl = $locked.GetAccessControl("Access")
+            [void]$acl.RemoveAccessRule($deny)
+            $locked.SetAccessControl($acl)
+        }
+    }
+}

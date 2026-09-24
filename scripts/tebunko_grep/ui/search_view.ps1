@@ -37,6 +37,39 @@ function getWordNotice {
     return ""
 }
 
+function getFastSearchView {
+    # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否。
+    #   available: Windows Search が使えるか（testWindowsSearch）。$null はまだ確かめていない（使えるものとして扱う）
+    param (
+        $available,
+        [bool]$useRegex,
+        [string]$word
+    )
+
+    $usable = testFastSearchUsable ($available -ne $false) $useRegex $word
+    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" } }
+}
+
+function getSearchProgressText {
+    # 検索中の要約欄
+    param (
+        [int]$hits
+    )
+
+    return "検索中…　該当 $($hits.ToString('N0')) 件"
+}
+
+function getSearchSummaryText {
+    # 検索が終わったときの要約欄（ヒットがあるとき）
+    param (
+        [int]$hits,
+        [int]$files,
+        [double]$seconds
+    )
+
+    return "該当 $($hits.ToString('N0')) 件（$($files.ToString('N0')) ファイル） ・ $($seconds.ToString('0.0')) 秒"
+}
+
 function newSearchButtonState {
     # ［検索］ボタンの文言と、押せるかどうか
     param (

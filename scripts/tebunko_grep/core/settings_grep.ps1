@@ -337,12 +337,57 @@ function writeOpenMode {
 }
 
 function getDefaultWorkDir {
-    # 既定の work の置き場所（設定ファイルと同じフォルダの work）
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko）。高速検索のため、Windows Search の索引の対象になる場所に置く。
+    # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
     param (
-        [string]$path = ${settingsFile}
+        [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")
     )
 
-    return Join-Path ([System.IO.Path]::GetDirectoryName($path)) "work"
+    return Join-Path $profileDir "Documents\tebunko"
+}
+
+# 既定のワークスペースが空でないときの文言（画面の［既定に戻す］・起動時、インデクサで共通）
+function getDefaultWorkspaceError {
+    param (
+        [string]$folder
+    )
+
+    return "「${folder}」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+}
+
+function testDefaultWorkspace {
+    # 既定のワークスペースを使えるか: @{ Usable; Folder; Message }。
+    # 使える: 無い（使うときに作る）・空・前から使っているワークスペース（index か 取り込み一覧.tsv がある）。
+    # それ以外（ほかのファイルが置いてある）は、インデックスのファイルと混ざるため使わせない
+    param (
+        [string]$folder = (getDefaultWorkDir)
+    )
+
+    $result = @{ Usable = $true; Folder = $folder; Message = "" }
+    if (![System.IO.Directory]::Exists($folder)) {
+        return $result
+    }
+    $names = @([System.IO.Directory]::EnumerateFileSystemEntries($folder) | Select-Object -First 1000 | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+    if ($names.Count -eq 0 -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName(${statusFile}))) {
+        return $result
+    }
+    $result.Usable = $false
+    $result.Message = getDefaultWorkspaceError $folder
+    return $result
+}
+
+function getWorkspaceBlockMessage {
+    # 今のワークスペースが既定の場所で、そこにほかのファイルが置いてあるなら、その文言（使えるなら空）。
+    # インデックスのファイルと混ざるため、インデックス作成を始めず、［8 設定］で別のフォルダを選んでもらう
+    param (
+        [string]$current = ${workDir},
+        [string]$defaultDir = (getDefaultWorkDir)
+    )
+
+    if (!(testSameFolder $current $defaultDir)) {
+        return ""
+    }
+    return (testDefaultWorkspace $defaultDir).Message
 }
 
 function getWorkDir {
@@ -354,7 +399,7 @@ function getWorkDir {
 
     $folder = ([string](readSettings $path).workspaceFolder).Trim()
     if ($folder -eq "") {
-        return getDefaultWorkDir $path
+        return getDefaultWorkDir
     }
     $folder = [System.Environment]::ExpandEnvironmentVariables($folder)
     return [System.IO.Path]::GetFullPath([System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($path), $folder)).TrimEnd("\")
@@ -368,7 +413,7 @@ function writeWorkspaceFolder {
     )
 
     $folder = ([string]$folder).Trim().TrimEnd("\")
-    if ($folder -ne "" -and (testSameFolder $folder (getDefaultWorkDir $path))) {
+    if ($folder -ne "" -and (testSameFolder $folder (getDefaultWorkDir))) {
         $folder = ""
     }
     updateSettings "workspaceFolder" $folder $path

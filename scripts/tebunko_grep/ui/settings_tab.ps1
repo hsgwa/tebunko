@@ -41,11 +41,16 @@ function chooseWorkspace {
 }
 
 function resetWorkspace {
-    # ［既定に戻す］。設定ファイルと同じフォルダの work に戻す（無ければ作る。前に使っていた既定の場所のため、空かどうかは問わない）
+    # ［既定に戻す］。既定の場所（ドキュメントの tebunko）に戻す（無ければ作る）。ほかのファイルが置いてあれば戻さない
     if (!(testWorkspaceChangeable)) {
         return
     }
     $folder = getDefaultWorkDir
+    $check = testDefaultWorkspace $folder
+    if (!$check.Usable) {
+        showMessage $check.Message "OK" "Warning" | Out-Null
+        return
+    }
     try {
         [System.IO.Directory]::CreateDirectory($folder) | Out-Null
     } catch {

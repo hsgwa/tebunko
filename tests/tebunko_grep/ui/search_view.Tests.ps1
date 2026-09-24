@@ -26,6 +26,29 @@ Describe "describeSearchOption" -Tag Unit {
     }
 }
 
+Describe "getFastSearchView" -Tag Unit {
+    It "Windows Search が使え（またはまだ確かめていない）、正規表現がオフで、2 文字以上の部分があれば使用可" {
+        (getFastSearchView $true $false "見積").Text | Should Be "高速検索：使用可"
+        (getFastSearchView $null $false "見積").Usable | Should Be $true
+    }
+
+    It "正規表現をオンにした・1 文字・Windows Search が使えないときは使用不可" {
+        (getFastSearchView $true $true "見積").Text | Should Be "高速検索：使用不可"
+        (getFastSearchView $true $false "見").Usable | Should Be $false
+        (getFastSearchView $false $false "見積").Usable | Should Be $false
+    }
+}
+
+Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
+    It "検索中は該当件数を出す" {
+        getSearchProgressText 1234 | Should Be "検索中…　該当 1,234 件"
+    }
+
+    It "終わったら該当件数・ファイル数・秒数を出す" {
+        getSearchSummaryText 1234 5 1.25 | Should Match "^該当 1,234 件（5 ファイル） ・ 1\.[23] 秒$"
+    }
+}
+
 Describe "getWordNotice" -Tag Unit {
     It "正規表現でなければ出さない" {
         getWordNotice "(" $false | Should Be ""

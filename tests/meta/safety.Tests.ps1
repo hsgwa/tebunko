@@ -91,6 +91,12 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
         ($addType.Count -gt 0) | Should Be $true
     }
 
+    It "Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る" {
+        # 高速検索（docs/02_検索.md）は OLE DB の Search.CollatorDSO で読み取るだけ。ほかのファイルからは DB に触らない
+        (@($code | Where-Object { $_.Text -match 'OleDb|CommandText' -and $_.File -ne "windows_search.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
+        (@($code | Where-Object { $_.File -eq "windows_search.ps1" -and $_.Text -match '\^\\s\*SELECT' }).Count -gt 0) | Should Be $true
+    }
+
     It "レジストリを読み書きしない" {
         (findPattern $code 'HKLM|HKCU|HKEY_|Set-ItemProperty|New-ItemProperty|Registry::') | Should Be ""
     }

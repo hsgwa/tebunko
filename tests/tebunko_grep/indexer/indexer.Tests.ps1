@@ -37,6 +37,8 @@ function writeTestSettings {
     param ([string]$root, [object[]]$folders)
     $settings = newSettings
     $settings.targetFolders = @($folders)
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko）は開発の PC ではほかのファイルがあり使えないため、テスト用の work を指す
+    $settings.workspaceFolder = "$root\work"
     writeSettings $settings "$root\setting.config"
 }
 
@@ -416,5 +418,151 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         $rows = @((readTestStatus $root).Rows.Values)
         $rows.Count | Should Be 3
         @($rows | Where-Object { $_.状態 -eq ${stateNew} }).Count | Should Be 3
+    }
+}
+
+Describe "indexer.ps1（システムインデックス）" -Tag Io {
+    $source = newSourceFolder "広報"
+
+    function script:readTestSystemState {
+        param ([string]$root)
+        return (readSystemIndexState "$root\work\システムインデックスの状態.tsv")
+    }
+
+    function script:readTestLog {
+        param ([string]$root)
+        return [System.IO.File]::ReadAllText("$root\work\インデックス作成ログ.txt")
+    }
+
+    It "取り込むと、フォルダごとのシステムインデックスを作り、インデックスを対応済みにする" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
+
+        invokeIndexer $root | Should Be 0
+
+        $txt = "$root\work\system_index\広報\${systemIndexFileName}"
+        [System.IO.File]::Exists($txt) | Should Be $true
+        [System.IO.File]::Exists("$root\work\system_index\広報\資料\${systemIndexFileName}") | Should Be $true
+        $state = readTestSystemState $root
+        $state.Covered.Contains("広報") | Should Be $true
+        # 反映待ちの日時は txt の更新日時（Windows Search に反映されたかの判定に使う）
+        $state.Pending["広報\${systemIndexFileName}"] | Should Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
+    }
+
+    It "取り込むファイルが無くても、無くなったシステムインデックスは作り直す（この版に上げた直後など）" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
+        invokeIndexer $root | Should Be 0
+        removeDirectoryRetry "$root\work\system_index"
+        [System.IO.File]::Delete("$root\work\システムインデックスの状態.tsv")
+
+        invokeIndexer $root | Should Be 0
+
+        (readTestLog $root) | Should Match "取り込みが必要なファイルはありません"
+        [System.IO.File]::Exists("$root\work\system_index\広報\${systemIndexFileName}") | Should Be $true
+        (readTestSystemState $root).Covered.Contains("広報") | Should Be $true
+    }
+
+    It "取り込みの途中で中止したら作らず、取り込んだフォルダは反映待ち（日時 0）のままにする" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
+        # 取り込めたファイル（TSV を入れ替えたファイル）を記録した直後に中止する
+        $stop = @{ Script = $indexerPath; Pattern = '^\s+addStatusRow \$row'; Action = { if ($row.状態 -eq ${stateDone}) { [System.IO.File]::WriteAllText(${stopRequestFile}, "") } } }
+
+        invokeIndexer $root @{} @($stop) | Should Be 2
+
+        [System.IO.Directory]::Exists("$root\work\system_index") | Should Be $false
+        $state = readTestSystemState $root
+        $state.Covered.Count | Should Be 0
+        @($state.Pending.Values | Where-Object { $_ -eq 0 }).Count | Should Be 1
+    }
+
+    It "システムインデックスを作れなくても、インデックス作成は終わり、理由をログに書く" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
+        # system_index という名前のファイルがあると、フォルダを作れない
+        [System.IO.File]::WriteAllText("$root\work\system_index", "")
+
+        invokeIndexer $root | Should Be 0
+
+        (readTestLog $root) | Should Match "システムインデックスを作れませんでした"
+        (readTestStatus $root).Rows["広報\議事録.docx"].状態 | Should Be ${stateDone}
+        (readTestSystemState $root).Covered.Count | Should Be 0
+
+        # 取り込むファイルが無いときも同じ
+        invokeIndexer $root | Should Be 0
+        (readTestLog $root) | Should Match "システムインデックスを作れませんでした"
+    }
+
+    It "状態ファイルに書けなくても取り込みを続け、インデックス作成の終わりに作り直す" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
+        # 1 件目の TSV を入れ替える直前に状態ファイルをほかから開き、記録した直後に閉じる
+        $lock = @{ Script = $indexerPath; Pattern = '^\s+publishTsv \(getBookDir'; Action = {
+                if (!$global:systemStateLock) {
+                    [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
+                    $global:systemStateLock = [System.IO.FileStream]::new(${systemIndexStateFile}, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+                }
+            }
+        }
+        $unlock = @{ Script = $indexerPath; Pattern = '^\s+addStatusRow \$row'; Action = {
+                if ($global:systemStateLock) { $global:systemStateLock.Dispose() }
+            }
+        }
+        try {
+            invokeIndexer $root @{} @($lock, $unlock) | Should Be 0
+        } finally {
+            if ($global:systemStateLock) { $global:systemStateLock.Dispose() }
+            Remove-Variable -Name systemStateLock -Scope Global -ErrorAction SilentlyContinue
+        }
+
+        (readTestLog $root) | Should Match "システムインデックスの状態を書き込めませんでした"
+        (readTestSystemState $root).Covered.Contains("広報") | Should Be $true
+        [System.IO.File]::Exists("$root\work\system_index\広報\${systemIndexFileName}") | Should Be $true
+    }
+}
+
+Describe "indexer.ps1（まれな状況）" -Tag Io {
+    $source = newSourceFolder "法務"
+
+    It "既定のワークスペースにほかのファイルがあれば、ワークスペースに何も書かずに 1 で終わる" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "法務"; path = $source; enabled = $true })
+        # 既定のワークスペースが使えないと判定された状態にする（空でないフォルダにエラーのファイルやログを書かない）
+        $block = @{ Script = $indexerPath; Pattern = '^if \(\$workspaceBlock\) \{'; Action = {
+                Set-Variable -Name workspaceBlock -Value "「C:\Users\test\Documents\tebunko」は空のフォルダではありません。" -Scope 1
+            }
+        }
+
+        invokeIndexer $root @{} @($block) | Should Be 1
+
+        @(Get-ChildItem -LiteralPath "$root\work" -Force).Count | Should Be 0
+    }
+
+    It "インデックスのフォルダを調べられなくても、確認を省いて取り込む" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "法務"; path = $source; enabled = $true })
+        $unreadable = @{ Script = $indexerPath; Pattern = '^if \(\$null -eq \$indexCounts\) \{'; Action = {
+                Set-Variable -Name indexCounts -Value $null -Scope 1
+            }
+        }
+
+        invokeIndexer $root @{} @($unreadable) | Should Be 0
+
+        (readTestLog $root) | Should Match "インデックスのフォルダを調べられないため"
+        (readTestStatus $root).Rows["法務\議事録.docx"].状態 | Should Be ${stateDone}
+    }
+
+    It "失敗したファイルが表示の上限を超えたら、残りの件数を出す" {
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "法務"; path = $source; enabled = $true })
+        $limit = @{ Script = $indexerPath; Pattern = '^\s+if \(\$failures\.Count -gt \$failureListLimit\) \{'; Action = {
+                Set-Variable -Name failureListLimit -Value 0 -Scope 1
+            }
+        }
+
+        invokeIndexer $root @{} @($limit) | Should Be 0
+
+        (readTestLog $root) | Should Match "ほか 1 件"
     }
 }

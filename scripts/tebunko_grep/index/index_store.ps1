@@ -102,6 +102,8 @@ function renameIndex {
         }
     }
     renameStatusIndexName $oldName $newName $statusPath
+    # 高速検索の システムインデックス（同じワークスペースの system_index）は古い名前の分を消す。次のインデックス作成で作り直す
+    removeSystemIndexOfWorkspace $oldName $dir
 }
 
 function removeIndex {
@@ -124,6 +126,22 @@ function removeIndex {
         Remove-Item -LiteralPath (toLongPath $target) -Recurse -Force -ErrorAction Stop
     }
     removeStatusIndexName $name $statusPath
+    removeSystemIndexOfWorkspace $name $dir
+}
+
+function removeSystemIndexOfWorkspace {
+    # インデックスのフォルダ（dir = <ワークスペース>\index）と同じワークスペースの system_index から、インデックス name の分を消す。
+    # 消せなくても（状態ファイルがほかに開かれている等）インデックスの操作は続ける。次のインデックス作成で整理される
+    param (
+        [string]$name,
+        [string]$dir
+    )
+
+    $workspace = [System.IO.Path]::GetDirectoryName($dir.TrimEnd("\"))
+    try {
+        [void](removeSystemIndexOf $name ([System.IO.Path]::Combine($workspace, [System.IO.Path]::GetFileName(${systemIndexDir}))) ([System.IO.Path]::Combine($workspace, [System.IO.Path]::GetFileName(${systemIndexStateFile}))))
+    } catch {
+    }
 }
 
 function getSearchIndexes {

@@ -37,6 +37,14 @@ param (
 
 $ErrorActionPreference = "Stop"
 
+# 既定のワークスペースにほかのファイルが置いてあれば、インデックスのファイルと混ざるため作成しない。
+# 空でないフォルダにエラーのファイルを書かないよう、例外（下の trap）にせずに終える（画面は起動する前に同じ確認をする）
+$workspaceBlock = getWorkspaceBlockMessage
+if ($workspaceBlock) {
+    Write-Host $workspaceBlock -ForegroundColor Red
+    exit 1
+}
+
 trap {
     # 続けられないエラー。画面に伝えるため、メッセージをファイルに書いて終了する
     $message = $_.Exception.Message
@@ -249,6 +257,13 @@ foreach ($folder in $folders) {
 if ($targets.Count -eq 0) {
     Write-Host ""
     Write-Host "取り込みが必要なファイルはありません。（一覧: $(Split-Path $statusFile -Leaf)）" -ForegroundColor Green
+    # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
+    writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "システムインデックス（高速検索用）を確かめています…"
+    try {
+        [void](updateSystemIndexes)
+    } catch {
+        Write-Host "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
     writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "取り込みが必要なファイルはありませんでした"
     removeTmpDir
     try { Stop-Transcript | Out-Null } catch {}
@@ -324,6 +339,10 @@ try {
                 $script:watchdog.Deadline = [datetime]::MaxValue
             }
             publishTsv (getBookDir $relPath)
+            # 高速検索: このフォルダの システムインデックスを作り直すまで、検索ではこのフォルダを必ず照合させる
+            if (!(markSystemIndexChanged @([System.IO.Path]::GetDirectoryName($relPath)))) {
+                Write-Host "    システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" -ForegroundColor Yellow
+            }
             Write-Host "    TSV ${tsvCount} 件を作成しました。"
             $row.状態 = ${stateDone}
             $row.TSV数 = [string]$tsvCount
@@ -372,6 +391,16 @@ try {
     # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
     # （work\index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
     writeSourceFolderFile $folders
+    # 高速検索用の システムインデックスを作り直す。中止したとき・フォルダが見えなくなったときは作らない
+    # （作り直していないフォルダは反映待ちのままのため、検索ではそのフォルダを照合する）
+    if (!$stopped -and !$folderLost) {
+        writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "システムインデックス（高速検索用）を作っています…"
+        try {
+            [void](updateSystemIndexes)
+        } catch {
+            Write-Host "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
     # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す
     writeIndexingProgress ${indexingPhaseFinish} $processed $remaining $failures.Count ""
 }

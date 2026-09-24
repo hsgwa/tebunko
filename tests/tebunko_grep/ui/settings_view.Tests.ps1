@@ -6,7 +6,7 @@ Describe "getWorkspaceView" -Tag Unit {
     It "既定の場所なら既定だと伝え、［既定に戻す］は出さない" {
         $view = getWorkspaceView "C:\tool\work" "C:\Tool\work\"
         $view.Path | Should Be "C:\tool\work"
-        $view.Note | Should Be "既定の場所（設定ファイルと同じフォルダの work）です。"
+        $view.Note | Should Be "既定の場所（ドキュメントの tebunko）です。"
         $view.CanReset | Should Be $false
     }
 
