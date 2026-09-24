@@ -1,6 +1,6 @@
 ﻿# 高速検索: Windows Search で検索語を含みうるフォルダを先に絞り、照合する TSV を集める（状態層）。
 # 集めた TSV は、今までどおり searchIndex で照合する。結果（行・行番号・順番）は、すべての TSV を照合したときと同じになる:
-#   反映済みの Windows インデックスには、そのフォルダの TSV のすべての 2-gram が入っていて、検索語の語はその一部のため、
+#   反映済みの システムインデックスには、そのフォルダの TSV のすべての 2-gram が入っていて、検索語の語はその一部のため、
 #   当たる TSV のフォルダは必ず候補に入る。反映済みでない・対象外・対応済みでないものは、候補に関係なく照合する。
 
 function getFastSearchTsvFiles {
@@ -15,7 +15,7 @@ function getFastSearchTsvFiles {
         [scriptblock]$query = $null,
         [string]$indexRoot = ${indexDir},
         [string]$systemRoot = ${systemIndexDir},
-        [string]$statePath = ${windowsIndexStateFile},
+        [string]$statePath = ${systemIndexStateFile},
         [scriptblock]$onProgress = $null
     )
 
@@ -23,7 +23,7 @@ function getFastSearchTsvFiles {
     if ($grams.Count -eq 0) {
         return $null
     }
-    $state = readWindowsIndexState $statePath
+    $state = readSystemIndexState $statePath
     if ($null -eq $state) {
         return $null
     }
@@ -49,9 +49,9 @@ function getFastSearchTsvFiles {
     try {
         # 反映の判定（状態ファイルに反映待ちがあるものだけ。反映済みになった行は、この後で状態から消す）
         if ($state.Pending.Count -gt 0) {
-            foreach ($row in (& $ask (newWindowsIndexStateQuery $systemRootPath))) {
+            foreach ($row in (& $ask (newSystemIndexStateQuery $systemRootPath))) {
                 $rel = getRelativePath (convertItemUrl ([string]$row[0])) $systemRootPath
-                if ($rel -and $state.Pending.ContainsKey($rel) -and (testWindowsIndexReflected $row[1] $row[2] $state.Pending[$rel])) {
+                if ($rel -and $state.Pending.ContainsKey($rel) -and (testSystemIndexReflected $row[1] $row[2] $state.Pending[$rel])) {
                     [void]$reflected.Add($rel)
                 }
             }
@@ -78,7 +78,7 @@ function getFastSearchTsvFiles {
             $found = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
             $scopeDir = "$systemRootPath\$relPath"
             if ([System.IO.Directory]::Exists((toLongPath $scopeDir))) {
-                foreach ($row in (& $ask (newWindowsIndexQuery $scopeDir $grams))) {
+                foreach ($row in (& $ask (newSystemIndexQuery $scopeDir $grams))) {
                     $rel = getRelativePath ([System.IO.Path]::GetDirectoryName((convertItemUrl ([string]$row[0])))) $systemRootPath
                     if ($rel) { [void]$found.Add($rel) }
                 }
@@ -86,7 +86,7 @@ function getFastSearchTsvFiles {
                 $split = $null
                 foreach ($gram in $grams) {
                     $hit = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
-                    foreach ($row in (& $ask (newWindowsIndexSplitQuery $scopeDir $gram))) {
+                    foreach ($row in (& $ask (newSystemIndexSplitQuery $scopeDir $gram))) {
                         $rel = getRelativePath ([System.IO.Path]::GetDirectoryName((convertItemUrl ([string]$row[0])))) $systemRootPath
                         if ($rel) { [void]$hit.Add($rel) }
                     }
@@ -116,9 +116,9 @@ function getFastSearchTsvFiles {
     $index = getIndexTsvFiles $targets.ToArray() $onProgress
     if ($reflected.Count -gt 0) {
         # 反映済みになった行を消す（txt が書き直されて日時が変わった行は残す）。書けなくても検索は続ける。
-        # 書き換えの中から見る値は、updateWindowsIndexState の変数と名前が重ならないようにする（呼び出し先の $state が見えてしまう）
+        # 書き換えの中から見る値は、updateSystemIndexState の変数と名前が重ならないようにする（呼び出し先の $state が見えてしまう）
         $readTicks = $state.Pending
-        [void](updateWindowsIndexState {
+        [void](updateSystemIndexState {
             param ($current)
             foreach ($rel in $reflected) {
                 if ($current.Pending.ContainsKey($rel) -and $current.Pending[$rel] -eq $readTicks[$rel]) {

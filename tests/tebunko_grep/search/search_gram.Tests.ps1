@@ -87,7 +87,7 @@ Describe "addTextGrams / convertToGramText" -Tag Unit {
     }
 }
 
-Describe "getGramPartCount / getWindowsIndexFileNames / testWindowsIndexPath" -Tag Unit {
+Describe "getGramPartCount / getSystemIndexFileNames / testSystemIndexPath" -Tag Unit {
     It "上限を超える分だけ分ける" {
         getGramPartCount 0 100 | Should Be 1
         getGramPartCount 10 100 | Should Be 1
@@ -95,13 +95,13 @@ Describe "getGramPartCount / getWindowsIndexFileNames / testWindowsIndexPath" -T
     }
 
     It "分けないときは 1 つ、分けるときは番号を付ける" {
-        (getWindowsIndexFileNames 1) -join "," | Should Be ${windowsIndexFileName}
-        (getWindowsIndexFileNames 2) -join "," | Should Be "Windowsインデックス_1.txt,Windowsインデックス_2.txt"
+        (getSystemIndexFileNames 1) -join "," | Should Be ${systemIndexFileName}
+        (getSystemIndexFileNames 2) -join "," | Should Be "システムインデックス_1.txt,システムインデックス_2.txt"
     }
 
     It "パスが 240 文字以上になるなら作らない" {
-        testWindowsIndexPath "C:\ws\system_index\a" | Should Be $true
-        testWindowsIndexPath ("C:\" + ("a" * 230)) | Should Be $false
+        testSystemIndexPath "C:\ws\system_index\a" | Should Be $true
+        testSystemIndexPath ("C:\" + ("a" * 230)) | Should Be $false
     }
 }
 
@@ -113,7 +113,7 @@ Describe "convertFolderRoot / convertItemUrl / convertToScopeUrl" -Tag Unit {
     }
 
     It "ItemUrl は file: を外して / を \ にするだけ（% は戻さない）" {
-        convertItemUrl "file:C:/ws/system_index/タブ%09あり/Windowsインデックス.txt" | Should Be "C:\ws\system_index\タブ%09あり\Windowsインデックス.txt"
+        convertItemUrl "file:C:/ws/system_index/タブ%09あり/システムインデックス.txt" | Should Be "C:\ws\system_index\タブ%09あり\システムインデックス.txt"
     }
 
     It "SCOPE の URL は ' を重ねる" {
@@ -132,28 +132,28 @@ Describe "getRelativePath" -Tag Unit {
 
 Describe "問い合わせ" -Tag Unit {
     It "候補・分けた txt・反映の判定の問い合わせを組み立てる" {
-        $sql = newWindowsIndexQuery "C:\ws\system_index\営業" @("x61006200", "x62006300")
+        $sql = newSystemIndexQuery "C:\ws\system_index\営業" @("x61006200", "x62006300")
         $sql | Should Match "SCOPE='file:C:/ws/system_index/営業'"
-        $sql | Should Match "System.FileName = 'Windowsインデックス.txt'"
+        $sql | Should Match "System.FileName = 'システムインデックス.txt'"
         $sql | Should Match ([regex]::Escape("CONTAINS(System.Search.Contents, '`"x61006200`" AND `"x62006300`"')"))
-        newWindowsIndexSplitQuery "C:\ws\system_index" "x61006200" | Should Match ([regex]::Escape("LIKE 'Windowsインデックス[_]%'"))
-        newWindowsIndexStateQuery "C:\ws\system_index" | Should Match "System.Search.GatherTime, System.DateModified"
+        newSystemIndexSplitQuery "C:\ws\system_index" "x61006200" | Should Match ([regex]::Escape("LIKE 'システムインデックス[_]%'"))
+        newSystemIndexStateQuery "C:\ws\system_index" | Should Match "System.Search.GatherTime, System.DateModified"
     }
 }
 
-Describe "testWindowsIndexReflected" -Tag Unit {
+Describe "testSystemIndexReflected" -Tag Unit {
     $ticks = [datetime]::new(2026, 9, 24, 1, 2, 3, 456, [DateTimeKind]::Utc).Ticks
     $truncated = [datetime]::new(2026, 9, 24, 1, 2, 3)
 
     It "本文を読み終え、更新日時（秒で切り捨て）が同じなら反映済み" {
-        testWindowsIndexReflected ([datetime]::Now) $truncated $ticks | Should Be $true
+        testSystemIndexReflected ([datetime]::Now) $truncated $ticks | Should Be $true
     }
 
     It "本文を読み終えていない・更新日時が違う・値が無いなら未反映" {
-        testWindowsIndexReflected ([System.DBNull]::Value) $truncated $ticks | Should Be $false
-        testWindowsIndexReflected ([datetime]::Now) $truncated.AddSeconds(-1) $ticks | Should Be $false
-        testWindowsIndexReflected ([datetime]::Now) $null $ticks | Should Be $false
-        testWindowsIndexReflected $null $truncated $ticks | Should Be $false
+        testSystemIndexReflected ([System.DBNull]::Value) $truncated $ticks | Should Be $false
+        testSystemIndexReflected ([datetime]::Now) $truncated.AddSeconds(-1) $ticks | Should Be $false
+        testSystemIndexReflected ([datetime]::Now) $null $ticks | Should Be $false
+        testSystemIndexReflected $null $truncated $ticks | Should Be $false
     }
 }
 
@@ -175,17 +175,17 @@ Describe "状態ファイルの行" -Tag Unit {
         $lines = @(
             "対応済み`t営業`t",
             "対象外`t営業\長い`t",
-            "反映待ち`t営業\2024\Windowsインデックス.txt`t639258025749778837",
+            "反映待ち`t営業\2024\システムインデックス.txt`t639258025749778837",
             "反映待ち`t壊れた行`tabc",
             "不明`tx`t",
             ""
         )
-        $state = convertFromWindowsIndexState $lines
+        $state = convertFromSystemIndexState $lines
         $state.Covered.Contains("営業") | Should Be $true
         $state.Excluded.Contains("営業\長い") | Should Be $true
-        $state.Pending["営業\2024\Windowsインデックス.txt"] | Should Be 639258025749778837
+        $state.Pending["営業\2024\システムインデックス.txt"] | Should Be 639258025749778837
         $state.Pending.Count | Should Be 1
-        (convertToWindowsIndexState $state) -join "|" | Should Be ($lines[0..2] -join "|")
+        (convertToSystemIndexState $state) -join "|" | Should Be ($lines[0..2] -join "|")
     }
 
     It "インデックス名は相対パスの先頭" {

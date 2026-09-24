@@ -18,10 +18,10 @@ function script:newFastWorkspace {
         [System.IO.File]::WriteAllText($path, $item.Text, ${utf8Bom})
     }
     $system = "$root\system_index"
-    $statePath = "$root\Windowsインデックスの状態.tsv"
-    $state = newWindowsIndexState
-    $results = writeWindowsIndexFolders (getWindowsIndexStaleFolders $index $system $state) $index $system 1
-    [void](updateWindowsIndexState { param ($s) setWindowsIndexResults $s $results; [void]$s.Covered.Add("営業"); [void]$s.Covered.Add("総務") } $statePath)
+    $statePath = "$root\システムインデックスの状態.tsv"
+    $state = newSystemIndexState
+    $results = writeSystemIndexFolders (getSystemIndexStaleFolders $index $system $state) $index $system 1
+    [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results; [void]$s.Covered.Add("営業"); [void]$s.Covered.Add("総務") } $statePath)
     return @{ Index = $index; System = $system; State = $statePath }
 }
 
@@ -37,7 +37,7 @@ function script:newFakeWindowsSearch {
         $unreflected = $script:fakeUnreflected
         $rows = New-Object 'System.Collections.Generic.List[object[]]'
         $scope = convertItemUrl ([regex]::Match($sql, "SCOPE='([^']*)'").Groups[1].Value.Replace("''", "'"))
-        $files = @([System.IO.Directory]::GetFiles($scope, "Windowsインデックス*.txt", [System.IO.SearchOption]::AllDirectories))
+        $files = @([System.IO.Directory]::GetFiles($scope, "システムインデックス*.txt", [System.IO.SearchOption]::AllDirectories))
         if ($sql -match "GatherTime, System.DateModified") {
             foreach ($file in $files) {
                 $rel = getRelativePath $file $system
@@ -51,7 +51,7 @@ function script:newFakeWindowsSearch {
         $split = $sql -match "\[_\]"
         foreach ($file in $files) {
             $name = [System.IO.Path]::GetFileName($file)
-            if ($split -ne ($name -ne ${windowsIndexFileName})) { continue }
+            if ($split -ne ($name -ne ${systemIndexFileName})) { continue }
             if ($unreflected -contains (getRelativePath $file $system)) { continue }
             $tokens = ([System.IO.File]::ReadAllText($file)).Trim() -split " "
             if (@($grams | Where-Object { $tokens -notcontains $_ }).Count -eq 0) {
@@ -93,14 +93,14 @@ Describe "getFastSearchTsvFiles" -Tag Io {
 
     It "反映済みの行は状態から消す" {
         $ws = newFastWorkspace "$TestDrive\f2"
-        (readWindowsIndexState $ws.State).Pending.Count | Should BeGreaterThan 0
+        (readSystemIndexState $ws.State).Pending.Count | Should BeGreaterThan 0
         [void](getFastSearchTsvFiles "モニター" @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true }) (newFakeWindowsSearch $ws.System) $ws.Index $ws.System $ws.State)
-        (readWindowsIndexState $ws.State).Pending.Count | Should Be 0
+        (readSystemIndexState $ws.State).Pending.Count | Should Be 0
     }
 
     It "反映されていないフォルダは、候補でなくても照合する" {
         $ws = newFastWorkspace "$TestDrive\f3"
-        $query = newFakeWindowsSearch $ws.System @("営業\2024\2月\Windowsインデックス.txt")
+        $query = newFakeWindowsSearch $ws.System @("営業\2024\2月\システムインデックス.txt")
         $fast = compareSearch $ws "千代田区" @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true }) $query
         $fast.Fast.Unreflected | Should Be 1
         @($fast.Files.Keys | Where-Object { $_ -like "*\2月\*" }).Count | Should Be 1
@@ -109,14 +109,14 @@ Describe "getFastSearchTsvFiles" -Tag Io {
     It "TSV を入れ替えたフォルダ（反映待ちの日時 0）は、txt を書いたのと同じ秒の中でも照合する" {
         $ws = newFastWorkspace "$TestDrive\f4"
         [System.IO.File]::AppendAllText("$($ws.Index)\営業\2025\D社.xlsx\表紙.tsv", "追加した行`r`n", ${utf8Bom})
-        [void](markWindowsIndexChanged @("営業\2025") $ws.State)
+        [void](markSystemIndexChanged @("営業\2025") $ws.State)
         $fast = compareSearch $ws "追加した行" @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true }) (newFakeWindowsSearch $ws.System)
         @($fast.Files.Keys | Where-Object { $_ -like "*\2025\*" }).Count | Should Be 1
     }
 
     It "対象外のフォルダ・対応済みでないインデックスは照合する" {
         $ws = newFastWorkspace "$TestDrive\f5"
-        [void](updateWindowsIndexState { param ($s) [void]$s.Excluded.Add("営業\2025"); [void]$s.Covered.Remove("総務") } $ws.State)
+        [void](updateSystemIndexState { param ($s) [void]$s.Excluded.Add("営業\2025"); [void]$s.Covered.Remove("総務") } $ws.State)
         Remove-Item -LiteralPath "$($ws.System)\営業\2025" -Recurse
         Remove-Item -LiteralPath "$($ws.System)\総務" -Recurse
         $folders = @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true }, @{ Root = $ws.Index; RelPath = "総務"; Recurse = $true })
@@ -127,10 +127,10 @@ Describe "getFastSearchTsvFiles" -Tag Io {
 
     It "分けた txt でも、すべての語が見つかったフォルダを候補にする" {
         $ws = newFastWorkspace "$TestDrive\f6"
-        $windowsIndexPartBytes = 100
-        $results = writeWindowsIndexFolders @("$($ws.Index)\営業\2024") $ws.Index $ws.System 1
+        $systemIndexPartBytes = 100
+        $results = writeSystemIndexFolders @("$($ws.Index)\営業\2024") $ws.Index $ws.System 1
         $results[0].Files.Count | Should BeGreaterThan 1
-        [void](updateWindowsIndexState { param ($s) setWindowsIndexResults $s $results } $ws.State)
+        [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results } $ws.State)
         $folders = @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true })
         $fast = compareSearch $ws "保守サービス" $folders (newFakeWindowsSearch $ws.System)
         @($fast.Files.Keys | Where-Object { $_ -like "*\2024\A社.xlsx\*" }).Count | Should Be 1

@@ -1,24 +1,24 @@
 ﻿# 高速検索（Windows Search で検索語を含みうるフォルダを先に絞る）の決まり（判断層。ファイルにも画面にも触らない）。
-# Windows インデックス（system_index の txt）は、文字の 2-gram を英数字の語にしたものを空白区切りで書く。
+# システムインデックス（system_index の txt）は、文字の 2-gram を英数字の語にしたものを空白区切りで書く。
 # Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致を落とすが、
 # 2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。
 
-# Windows インデックスの名前（置き場所は paths_grep.ps1 の ${systemIndexDir}）
-${windowsIndexFileName}      = "Windowsインデックス.txt"
-${windowsIndexFileLike}      = "Windowsインデックス%"      # 問い合わせの LIKE（分けたものも含む）
-${windowsIndexSplitLike}     = "Windowsインデックス[_]%"   # 分けたもの（Windowsインデックス_1.txt …）だけ
+# システムインデックスの名前（置き場所は paths_grep.ps1 の ${systemIndexDir}）
+${systemIndexFileName}      = "システムインデックス.txt"
+${systemIndexFileLike}      = "システムインデックス%"      # 問い合わせの LIKE（分けたものも含む）
+${systemIndexSplitLike}     = "システムインデックス[_]%"   # 分けたもの（システムインデックス_1.txt …）だけ
 
 # 1 つの txt の大きさの上限（これを超えたら語の範囲で分ける。実測では 16MB までは末尾まで索引された）
-${windowsIndexPartBytes} = 8MB
+${systemIndexPartBytes} = 8MB
 # txt のパスの長さの上限（これ以上は作らず、そのフォルダは .NET で照合する。Windows Search が長いパスを索引しないおそれがあるため）
-${windowsIndexPathMax} = 240
+${systemIndexPathMax} = 240
 # 1 回の問い合わせに使う語の数の上限（多いときは均等に間引く。間引いても候補が増えるだけで漏れない）
 ${searchGramMax} = 16
 
 # 状態ファイルの行の種別
-${windowsIndexCovered}  = "対応済み"   # インデックスのすべてのフォルダに txt がある（または対象外として記録した）
-${windowsIndexPending}  = "反映待ち"   # txt を書いた（値は txt の更新日時。UTC の Ticks）
-${windowsIndexExcluded} = "対象外"     # txt を作らなかったフォルダ（常に .NET で照合する）
+${systemIndexCovered}  = "対応済み"   # インデックスのすべてのフォルダに txt がある（または対象外として記録した）
+${systemIndexPending}  = "反映待ち"   # txt を書いた（値は txt の更新日時。UTC の Ticks）
+${systemIndexExcluded} = "対象外"     # txt を作らなかったフォルダ（常に .NET で照合する）
 
 function convertToGramToken {
     # 2 文字（小文字にしたもの）を語にする: x ＋ UTF-16LE の 4 バイトの 16 進（例: "ニタ" → xcb30bf30）
@@ -118,35 +118,35 @@ function getGramPartCount {
     # 語の数から、txt をいくつに分けるかを返す（1 語は "x" ＋ 8 桁 ＋ 空白の 10 バイト）
     param (
         [int]$count,
-        [long]$partBytes = ${windowsIndexPartBytes}
+        [long]$partBytes = ${systemIndexPartBytes}
     )
 
     $perPart = [Math]::Max(1, [int][Math]::Floor($partBytes / 10))
     return [Math]::Max(1, [int][Math]::Ceiling($count / $perPart))
 }
 
-function getWindowsIndexFileNames {
-    # txt の名前（分けないときは 1 つ。分けるときは Windowsインデックス_1.txt …）
+function getSystemIndexFileNames {
+    # txt の名前（分けないときは 1 つ。分けるときは システムインデックス_1.txt …）
     param (
         [int]$parts
     )
 
     if ($parts -le 1) {
-        return , @(${windowsIndexFileName})
+        return , @(${systemIndexFileName})
     }
-    $base = [System.IO.Path]::GetFileNameWithoutExtension(${windowsIndexFileName})
+    $base = [System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName})
     return , @(1..$parts | ForEach-Object { "${base}_$_.txt" })
 }
 
-function testWindowsIndexPath {
+function testSystemIndexPath {
     # txt のパスが長すぎないか（分けたときは最も長い名前で判定する）
     param (
         [string]$folder,
         [int]$parts = 1
     )
 
-    $longest = @(getWindowsIndexFileNames $parts | Sort-Object Length -Descending)[0]
-    return ("$folder\$longest").Length -lt ${windowsIndexPathMax}
+    $longest = @(getSystemIndexFileNames $parts | Sort-Object Length -Descending)[0]
+    return ("$folder\$longest").Length -lt ${systemIndexPathMax}
 }
 
 function convertFolderRoot {
@@ -200,7 +200,7 @@ function convertToScopeUrl {
     return ("file:" + $path.TrimEnd("\").Replace("\", "/")).Replace("'", "''")
 }
 
-function newWindowsIndexQuery {
+function newSystemIndexQuery {
     # 候補の txt（分けていないもの）を探す問い合わせ
     param (
         [string]$scopeDir,
@@ -208,29 +208,29 @@ function newWindowsIndexQuery {
     )
 
     $condition = ($grams | ForEach-Object { "`"$_`"" }) -join " AND "
-    return "SELECT System.ItemUrl FROM SystemIndex WHERE SCOPE='$(convertToScopeUrl $scopeDir)' AND System.FileName = '${windowsIndexFileName}' AND CONTAINS(System.Search.Contents, '$condition')"
+    return "SELECT System.ItemUrl FROM SystemIndex WHERE SCOPE='$(convertToScopeUrl $scopeDir)' AND System.FileName = '${systemIndexFileName}' AND CONTAINS(System.Search.Contents, '$condition')"
 }
 
-function newWindowsIndexSplitQuery {
+function newSystemIndexSplitQuery {
     # 分けた txt から、語を 1 つ含むものを探す問い合わせ（分けた txt は AND で 1 回に問えないため語ごとに問う）
     param (
         [string]$scopeDir,
         [string]$gram
     )
 
-    return "SELECT System.ItemUrl FROM SystemIndex WHERE SCOPE='$(convertToScopeUrl $scopeDir)' AND System.FileName LIKE '${windowsIndexSplitLike}' AND CONTAINS(System.Search.Contents, '`"$gram`"')"
+    return "SELECT System.ItemUrl FROM SystemIndex WHERE SCOPE='$(convertToScopeUrl $scopeDir)' AND System.FileName LIKE '${systemIndexSplitLike}' AND CONTAINS(System.Search.Contents, '`"$gram`"')"
 }
 
-function newWindowsIndexStateQuery {
+function newSystemIndexStateQuery {
     # 反映の判定に使う値（GatherTime・DateModified）を取る問い合わせ
     param (
         [string]$scopeDir
     )
 
-    return "SELECT System.ItemUrl, System.Search.GatherTime, System.DateModified FROM SystemIndex WHERE SCOPE='$(convertToScopeUrl $scopeDir)' AND System.FileName LIKE '${windowsIndexFileLike}'"
+    return "SELECT System.ItemUrl, System.Search.GatherTime, System.DateModified FROM SystemIndex WHERE SCOPE='$(convertToScopeUrl $scopeDir)' AND System.FileName LIKE '${systemIndexFileLike}'"
 }
 
-function testWindowsIndexReflected {
+function testSystemIndexReflected {
     # txt が Windows Search に反映済みか: 本文を読み終えた（GatherTime がある）かつ、今の版を索引した
     # （DateModified が txt の更新日時を秒で切り捨てた値と同じ。Windows Search は秒未満を切り捨てて持つ）
     param (
@@ -260,23 +260,23 @@ function testFolderInTarget {
     return ($recurse -and $folder.StartsWith("$target\", [System.StringComparison]::OrdinalIgnoreCase))
 }
 
-function convertFromWindowsIndexState {
+function convertFromSystemIndexState {
     # 状態ファイルの行を読む（パスは system_index からの相対パス）。形の違う行は無視する。
     #   Covered : 対応済みのインデックス名 / Pending: txt の相対パス → 書いた日時（Ticks）/ Excluded: 対象外のフォルダの相対パス
     param (
         [string[]]$lines
     )
 
-    $state = newWindowsIndexState
+    $state = newSystemIndexState
     foreach ($line in $lines) {
         $cells = ([string]$line).Split("`t")
         if ($cells.Count -lt 2 -or $cells[1] -eq "") {
             continue
         }
         switch ($cells[0]) {
-            ${windowsIndexCovered} { [void]$state.Covered.Add($cells[1]) }
-            ${windowsIndexExcluded} { [void]$state.Excluded.Add($cells[1]) }
-            ${windowsIndexPending} {
+            ${systemIndexCovered} { [void]$state.Covered.Add($cells[1]) }
+            ${systemIndexExcluded} { [void]$state.Excluded.Add($cells[1]) }
+            ${systemIndexPending} {
                 $ticks = 0L
                 if ($cells.Count -ge 3 -and [long]::TryParse($cells[2], [ref]$ticks)) {
                     $state.Pending[$cells[1]] = $ticks
@@ -287,7 +287,7 @@ function convertFromWindowsIndexState {
     return $state
 }
 
-function newWindowsIndexState {
+function newSystemIndexState {
     # 空の状態
     return @{
         Covered  = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
@@ -296,7 +296,7 @@ function newWindowsIndexState {
     }
 }
 
-function convertToWindowsIndexState {
+function convertToSystemIndexState {
     # 状態を状態ファイルの行にする（対応済み・対象外・反映待ちの順。それぞれ名前順）
     param (
         $state
@@ -304,13 +304,13 @@ function convertToWindowsIndexState {
 
     $lines = New-Object System.Collections.Generic.List[string]
     foreach ($name in ($state.Covered | Sort-Object)) {
-        $lines.Add("${windowsIndexCovered}`t$name`t")
+        $lines.Add("${systemIndexCovered}`t$name`t")
     }
     foreach ($rel in ($state.Excluded | Sort-Object)) {
-        $lines.Add("${windowsIndexExcluded}`t$rel`t")
+        $lines.Add("${systemIndexExcluded}`t$rel`t")
     }
     foreach ($rel in ($state.Pending.Keys | Sort-Object)) {
-        $lines.Add("${windowsIndexPending}`t$rel`t$($state.Pending[$rel])")
+        $lines.Add("${systemIndexPending}`t$rel`t$($state.Pending[$rel])")
     }
     return , $lines.ToArray()
 }

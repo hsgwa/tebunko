@@ -1,8 +1,8 @@
-﻿# Windows インデックス（system_index の txt）と、その状態ファイル（Windowsインデックスの状態.tsv）の読み書き（状態層）。
+﻿# システムインデックス（system_index の txt）と、その状態ファイル（システムインデックスの状態.tsv）の読み書き（状態層）。
 # txt は index の中のフォルダ 1 つにつき 1 つ（分けたときは複数）で、index と同じ相対パスの system_index の中に置く。
 # 中身は、そのフォルダ直下の TSV と、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
 
-function getWindowsIndexFolderTsvPaths {
+function getSystemIndexFolderTsvPaths {
     # index の中のフォルダ 1 つの TSV（直下の TSV と、直下のブックのフォルダの中の TSV。\\?\ 付き）。
     # 検索対象のツリーで「フォルダ直下のファイル」を選んだときと同じ範囲（getIndexTsvFiles の Recurse = $false）
     param (
@@ -23,7 +23,7 @@ function getWindowsIndexFolderTsvPaths {
     return , $paths.ToArray()
 }
 
-function writeWindowsIndexFolder {
+function writeSystemIndexFolder {
     # index の中のフォルダ 1 つについて、system_index の txt を作り直す。
     # @{ Rel（index からの相対パス）; Files（@{ Rel（system_index からの txt の相対パス）; Ticks（更新日時。UTC の Ticks） } の配列）;
     #    Excluded（パスが長すぎて作らなかった） } を返す。TSV が無くなったフォルダは txt を消して Files を空で返す
@@ -40,11 +40,11 @@ function writeWindowsIndexFolder {
 
     # 前の txt（分けた数が変わることもあるため、すべて）を消す
     if ([System.IO.Directory]::Exists($longOut)) {
-        foreach ($old in [System.IO.Directory]::GetFiles($longOut, "$([System.IO.Path]::GetFileNameWithoutExtension(${windowsIndexFileName}))*.txt")) {
+        foreach ($old in [System.IO.Directory]::GetFiles($longOut, "$([System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName}))*.txt")) {
             [System.IO.File]::Delete($old)
         }
     }
-    $tsvPaths = getWindowsIndexFolderTsvPaths $folder
+    $tsvPaths = getSystemIndexFolderTsvPaths $folder
     if ($tsvPaths.Count -eq 0) {
         return $result
     }
@@ -57,14 +57,14 @@ function writeWindowsIndexFolder {
     $set.CopyTo($values)
     [Array]::Sort($values)
     $parts = getGramPartCount $values.Length
-    if (!(testWindowsIndexPath $outDir $parts)) {
+    if (!(testSystemIndexPath $outDir $parts)) {
         $result.Excluded = $true
         return $result
     }
 
     [System.IO.Directory]::CreateDirectory($longOut) | Out-Null
     $perPart = [int][Math]::Ceiling($values.Length / $parts)
-    $names = getWindowsIndexFileNames $parts
+    $names = getSystemIndexFileNames $parts
     $files = New-Object System.Collections.Generic.List[hashtable]
     for ($p = 0; $p -lt $parts; $p++) {
         $start = $p * $perPart
@@ -78,10 +78,10 @@ function writeWindowsIndexFolder {
 }
 
 # txt をまとめて作るときのスレッドの数の上限（物理メモリ 8GB の PC で 4 スレッドのときにメモリが足りなくなったことがあるため）
-${windowsIndexWorkerMax} = 4
+${systemIndexWorkerMax} = 4
 
-function writeWindowsIndexFolders {
-    # index の中のフォルダの txt を、まとめて作り直す（並列）。writeWindowsIndexFolder の結果の配列を返す。
+function writeSystemIndexFolders {
+    # index の中のフォルダの txt を、まとめて作り直す（並列）。writeSystemIndexFolder の結果の配列を返す。
     #   shouldStop: $true を返すと、始めていない分を作らずに止める（作った分だけを返す）
     param (
         [string[]]$folders,
@@ -96,7 +96,7 @@ function writeWindowsIndexFolders {
         return , $results.ToArray()
     }
     if ($workers -le 0) {
-        $workers = [Math]::Min([Environment]::ProcessorCount, ${windowsIndexWorkerMax})
+        $workers = [Math]::Min([Environment]::ProcessorCount, ${systemIndexWorkerMax})
     }
     $workers = [Math]::Min($workers, $folders.Count)
     if ($workers -le 1) {
@@ -104,18 +104,18 @@ function writeWindowsIndexFolders {
             if ($shouldStop -and (& $shouldStop)) {
                 break
             }
-            $results.Add((writeWindowsIndexFolder $folder $indexRoot $systemRoot))
+            $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot))
         }
         return , $results.ToArray()
     }
 
     # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）
     $state = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
-    foreach ($name in @("writeWindowsIndexFolder", "getWindowsIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
-            "getGramPartCount", "getWindowsIndexFileNames", "testWindowsIndexPath", "toLongPath")) {
+    foreach ($name in @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
+            "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath")) {
         $state.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new($name, (Get-Command $name -CommandType Function).Definition))
     }
-    foreach ($name in @("windowsIndexFileName", "windowsIndexPartBytes", "windowsIndexPathMax", "indexBookDirPattern")) {
+    foreach ($name in @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern")) {
         $state.Variables.Add([System.Management.Automation.Runspaces.SessionStateVariableEntry]::new($name, (Get-Variable $name -ValueOnly), ""))
     }
     $pool = [runspacefactory]::CreateRunspacePool(1, $workers, $state, $Host)
@@ -134,7 +134,7 @@ function writeWindowsIndexFolders {
                 $ps.RunspacePool = $pool
                 [void]$ps.AddScript({
                     param ($folder, $indexRoot, $systemRoot)
-                    @{ Result = writeWindowsIndexFolder $folder $indexRoot $systemRoot }
+                    @{ Result = writeSystemIndexFolder $folder $indexRoot $systemRoot }
                 }).AddArgument($folders[$next]).AddArgument($indexRoot).AddArgument($systemRoot)
                 $pending.Enqueue(@{ PowerShell = $ps; Handle = $ps.BeginInvoke() })
                 $next++
@@ -162,22 +162,22 @@ function writeWindowsIndexFolders {
     return , $results.ToArray()
 }
 
-function readWindowsIndexState {
-    # 状態ファイルを読む（convertFromWindowsIndexState の形）。無ければ空。
+function readSystemIndexState {
+    # 状態ファイルを読む（convertFromSystemIndexState の形）。無ければ空。
     # 書き込み中などで読めなければ $null（高速検索を使わず、すべてを照合する）
     param (
-        [string]$path = ${windowsIndexStateFile}
+        [string]$path = ${systemIndexStateFile}
     )
 
     if (![System.IO.File]::Exists($path)) {
-        return newWindowsIndexState
+        return newSystemIndexState
     }
     for ($i = 1; $i -le 10; $i++) {
         try {
             $stream = [System.IO.FileStream]::new($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
             try {
                 $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8, $true)
-                return convertFromWindowsIndexState ($reader.ReadToEnd() -split "\r?\n")
+                return convertFromSystemIndexState ($reader.ReadToEnd() -split "\r?\n")
             } finally {
                 $stream.Dispose()
             }
@@ -188,13 +188,13 @@ function readWindowsIndexState {
     return $null
 }
 
-function updateWindowsIndexState {
+function updateSystemIndexState {
     # 状態ファイルを排他で開き、change（{ param($state) }）で書き換えて保存する。
     # インデクサ（取り込み）と画面（検索のたびの整理）が同時に書かないよう、開いている間はほかから開けない。
     # 開けなければ少し待って数回試し、それでも開けなければ $false を返す（書き換えは次の機会に回る）
     param (
         [scriptblock]$change,
-        [string]$path = ${windowsIndexStateFile}
+        [string]$path = ${systemIndexStateFile}
     )
 
     [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
@@ -211,10 +211,10 @@ function updateWindowsIndexState {
     }
     try {
         $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8, $true, 4096, $true)
-        $state = convertFromWindowsIndexState ($reader.ReadToEnd() -split "\r?\n")
+        $state = convertFromSystemIndexState ($reader.ReadToEnd() -split "\r?\n")
         $reader.Dispose()
         & $change $state
-        $bytes = ${utf8Bom}.GetPreamble() + ${utf8Bom}.GetBytes(((convertToWindowsIndexState $state) -join "`r`n") + "`r`n")
+        $bytes = ${utf8Bom}.GetPreamble() + ${utf8Bom}.GetBytes(((convertToSystemIndexState $state) -join "`r`n") + "`r`n")
         $stream.SetLength(0)
         $stream.Write($bytes, 0, $bytes.Length)
     } finally {
@@ -223,7 +223,7 @@ function updateWindowsIndexState {
     return $true
 }
 
-function removeWindowsIndexEntries {
+function removeSystemIndexEntries {
     # 状態から、相対パス rel のフォルダ（とその中）の行を消す。indexName を渡したら、そのインデックスの「対応済み」も消す
     param (
         $state,
@@ -246,8 +246,8 @@ function removeWindowsIndexEntries {
     }
 }
 
-function setWindowsIndexResults {
-    # writeWindowsIndexFolder の結果を状態に書く（フォルダの前の行は消して、作った txt を反映待ちにする）
+function setSystemIndexResults {
+    # writeSystemIndexFolder の結果を状態に書く（フォルダの前の行は消して、作った txt を反映待ちにする）
     param (
         $state,
         [object[]]$results
@@ -270,24 +270,24 @@ function setWindowsIndexResults {
     }
 }
 
-function markWindowsIndexChanged {
+function markSystemIndexChanged {
     # TSV を入れ替えたフォルダを「反映待ち（日時は 0）」にする（txt を作り直すまで、そのフォルダは .NET で照合させる）。
     # 0 は txt の更新日時とも Windows Search の DateModified とも一致しないため、前の txt が索引されていても反映済みにならない
     # （今の日時にすると、txt を書いたのと同じ秒の中では一致して、反映済みと取り違える）
     param (
         [string[]]$rels,
-        [string]$path = ${windowsIndexStateFile}
+        [string]$path = ${systemIndexStateFile}
     )
 
-    return updateWindowsIndexState {
+    return updateSystemIndexState {
         param ($state)
         foreach ($rel in $rels) {
-            $state.Pending["$rel\${windowsIndexFileName}"] = 0
+            $state.Pending["$rel\${systemIndexFileName}"] = 0
         }
     } $path
 }
 
-function getWindowsIndexStaleFolders {
+function getSystemIndexStaleFolders {
     # txt の作り直しが要る index の中のフォルダ（フルパス）を返す。
     #   txt が無い・TSV より古い・状態が「反映待ち」なのに txt の更新日時と合わない（取り込みの途中で止まった）もの
     param (
@@ -311,9 +311,9 @@ function getWindowsIndexStaleFolders {
         if ($state.Excluded.Contains($rel)) {
             continue
         }
-        $tsvPaths = getWindowsIndexFolderTsvPaths $folder
+        $tsvPaths = getSystemIndexFolderTsvPaths $folder
         $txtDir = toLongPath "$($systemRoot.TrimEnd('\'))\$rel"
-        $txts = if ([System.IO.Directory]::Exists($txtDir)) { @([System.IO.Directory]::GetFiles($txtDir, "$([System.IO.Path]::GetFileNameWithoutExtension(${windowsIndexFileName}))*.txt")) } else { @() }
+        $txts = if ([System.IO.Directory]::Exists($txtDir)) { @([System.IO.Directory]::GetFiles($txtDir, "$([System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName}))*.txt")) } else { @() }
         if ($tsvPaths.Count -eq 0) {
             if ($txts.Count -gt 0) {
                 $stale.Add($folder)   # TSV が無くなった（txt を消す）
@@ -326,8 +326,8 @@ function getWindowsIndexStaleFolders {
         }
         $oldest = ($txts | ForEach-Object { [System.IO.File]::GetLastWriteTimeUtc($_) } | Measure-Object -Minimum).Minimum
         $newestTsv = ($tsvPaths | ForEach-Object { [System.IO.File]::GetLastWriteTimeUtc($_) } | Measure-Object -Maximum).Maximum
-        $marked = $state.Pending.ContainsKey("$rel\${windowsIndexFileName}") -and
-            $state.Pending["$rel\${windowsIndexFileName}"] -ne [System.IO.File]::GetLastWriteTimeUtc("$txtDir\${windowsIndexFileName}").Ticks
+        $marked = $state.Pending.ContainsKey("$rel\${systemIndexFileName}") -and
+            $state.Pending["$rel\${systemIndexFileName}"] -ne [System.IO.File]::GetLastWriteTimeUtc("$txtDir\${systemIndexFileName}").Ticks
         if ($newestTsv -gt $oldest -or $marked) {
             $stale.Add($folder)
         }
@@ -335,21 +335,21 @@ function getWindowsIndexStaleFolders {
     return , $stale.ToArray()
 }
 
-function updateWindowsIndexes {
-    # インデックス作成の終わりに、Windows インデックスの作り直しが要るフォルダをまとめて作り直し、状態ファイルに書く。
+function updateSystemIndexes {
+    # インデックス作成の終わりに、システムインデックスの作り直しが要るフォルダをまとめて作り直し、状態ファイルに書く。
     # すべてのフォルダの txt がそろったインデックスは「対応済み」にする（対応済みでないインデックスは、高速検索でもすべてを照合する）。
     # 利用者の作業の邪魔にならないよう、作っている間はプロセスの優先度を下げる。中止要求（stopFile）があれば、始めていない分は作らない。
     # 作り直したフォルダの数と、作り終えていないインデックスの数を @{ Built; Unfinished } で返す
     param (
         [string]$indexRoot = ${indexDir},
         [string]$systemRoot = ${systemIndexDir},
-        [string]$statePath = ${windowsIndexStateFile},
+        [string]$statePath = ${systemIndexStateFile},
         [string]$stopFile = ${stopRequestFile}
     )
 
-    $state = readWindowsIndexState $statePath
+    $state = readSystemIndexState $statePath
     if ($null -eq $state) {
-        Write-Host "Windows インデックスの状態を読めないため、作り直しは次のインデックス作成に回します。" -ForegroundColor Yellow
+        Write-Host "システムインデックスの状態を読めないため、作り直しは次のインデックス作成に回します。" -ForegroundColor Yellow
         return @{ Built = 0; Unfinished = -1 }
     }
     # 無くなったインデックス（設定から外した・画面で削除した）の txt と状態の行を消す
@@ -368,20 +368,20 @@ function updateWindowsIndexes {
     $gone.AddRange([string[]]@($state.Covered))
     foreach ($name in ($gone | Sort-Object -Unique)) {
         if (!$names.Contains($name)) {
-            [void](removeWindowsIndexOf $name $systemRoot $statePath)
+            [void](removeSystemIndexOf $name $systemRoot $statePath)
             [void]$state.Covered.Remove($name)
         }
     }
 
-    $stale = getWindowsIndexStaleFolders $indexRoot $systemRoot $state
+    $stale = getSystemIndexStaleFolders $indexRoot $systemRoot $state
     $results = @()
     if ($stale.Count -gt 0) {
-        Write-Host "Windows インデックス（高速検索用）を作っています…（$($stale.Count) フォルダ）"
+        Write-Host "システムインデックス（高速検索用）を作っています…（$($stale.Count) フォルダ）"
         $process = [System.Diagnostics.Process]::GetCurrentProcess()
         $priority = $process.PriorityClass
         try { $process.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::BelowNormal } catch {}
         try {
-            $results = writeWindowsIndexFolders $stale $indexRoot $systemRoot 0 { [System.IO.File]::Exists($stopFile) }
+            $results = writeSystemIndexFolders $stale $indexRoot $systemRoot 0 { [System.IO.File]::Exists($stopFile) }
         } finally {
             try { $process.PriorityClass = $priority } catch {}
         }
@@ -399,9 +399,9 @@ function updateWindowsIndexes {
             [void]$unfinished.Add((getIndexNameOfRelPath $rel))
         }
     }
-    $saved = updateWindowsIndexState {
+    $saved = updateSystemIndexState {
         param ($current)
-        setWindowsIndexResults $current $results
+        setSystemIndexResults $current $results
         foreach ($name in $names) {
             if ($unfinished.Contains($name)) {
                 [void]$current.Covered.Remove($name)
@@ -411,19 +411,19 @@ function updateWindowsIndexes {
         }
     } $statePath
     if (!$saved) {
-        Write-Host "Windows インデックスの状態を書き込めなかったため、次のインデックス作成で作り直します。" -ForegroundColor Yellow
+        Write-Host "システムインデックスの状態を書き込めなかったため、次のインデックス作成で作り直します。" -ForegroundColor Yellow
     } elseif ($unfinished.Count -gt 0) {
-        Write-Host "中止したため、Windows インデックスの一部（$($stale.Count - $built.Count) フォルダ）は次のインデックス作成で作ります。" -ForegroundColor Yellow
+        Write-Host "中止したため、システムインデックスの一部（$($stale.Count - $built.Count) フォルダ）は次のインデックス作成で作ります。" -ForegroundColor Yellow
     }
     return @{ Built = $built.Count; Unfinished = $unfinished.Count }
 }
 
-function removeWindowsIndexOf {
+function removeSystemIndexOf {
     # インデックス（または index の中のフォルダ）を消したとき、system_index の同じフォルダと状態の行を消す
     param (
         [string]$rel,
         [string]$systemRoot = ${systemIndexDir},
-        [string]$path = ${windowsIndexStateFile}
+        [string]$path = ${systemIndexStateFile}
     )
 
     $dir = toLongPath "$($systemRoot.TrimEnd('\'))\$rel"
@@ -432,5 +432,5 @@ function removeWindowsIndexOf {
     }
     $name = getIndexNameOfRelPath $rel
     $indexName = if ($name -eq $rel) { $name } else { "" }
-    return updateWindowsIndexState { param ($state) removeWindowsIndexEntries $state $rel $indexName } $path
+    return updateSystemIndexState { param ($state) removeSystemIndexEntries $state $rel $indexName } $path
 }

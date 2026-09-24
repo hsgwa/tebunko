@@ -45,7 +45,13 @@ Describe "Windows Search（本物）" -Tag Io {
             return
         }
         try {
-            $rows = invokeWindowsSearch $connection "SELECT TOP 1 System.ItemUrl FROM SystemIndex"
+            try {
+                $rows = invokeWindowsSearch $connection "SELECT TOP 1 System.ItemUrl FROM SystemIndex"
+            } catch {
+                # CI のランナーなど、開けても問い合わせに答えない環境（E_FAIL）がある
+                Set-TestInconclusive "Windows Search が問い合わせに答えない環境: $($_.Exception.Message)"
+                return
+            }
             $rows.GetType().Name | Should Be 'List`1'
         } finally {
             $connection.Dispose()

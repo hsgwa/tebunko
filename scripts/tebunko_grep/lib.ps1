@@ -6,7 +6,7 @@
 . "$PSScriptRoot\core\paths_grep.ps1"
 . "$PSScriptRoot\index\index_name.ps1"
 . "$PSScriptRoot\index\index_store.ps1"
-. "$PSScriptRoot\index\windows_index.ps1"
+. "$PSScriptRoot\index\system_index.ps1"
 . "$PSScriptRoot\indexer\indexer_state.ps1"
 . "$PSScriptRoot\indexer\indexer_decide.ps1"
 . "$PSScriptRoot\search\search_query.ps1"
