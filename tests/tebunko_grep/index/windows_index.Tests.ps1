@@ -88,7 +88,17 @@ Describe "writeWindowsIndexFolder" -Tag Io {
     }
 }
 
+Describe "getWindowsIndexFolderTsvPaths" -Tag Io {
+    It "フォルダが無ければ空" {
+        (getWindowsIndexFolderTsvPaths "$TestDrive\無いフォルダ").Count | Should Be 0
+    }
+}
+
 Describe "writeWindowsIndexFolders" -Tag Io {
+    It "フォルダが無ければ何もしない" {
+        (writeWindowsIndexFolders @() "$TestDrive\i" "$TestDrive\s").Count | Should Be 0
+    }
+
     It "並列でも 1 つずつでも同じ結果になり、始めた順に返す" {
         $index = newIndexTree "$TestDrive\p"
         $folders = @("$index\営業\2024", "$index\営業\2024\2月")
@@ -265,5 +275,17 @@ Describe "removeWindowsIndexOf" -Tag Io {
         $state = readWindowsIndexState $path
         $state.Covered.Count | Should Be 0
         $state.Pending.Count | Should Be 0
+    }
+
+    It "インデックスの中のフォルダだけを消すときは、インデックスの対応済みを残す" {
+        $index = newIndexTree "$TestDrive\rm2"
+        $system = "$TestDrive\rm2\system_index"
+        $path = "$TestDrive\rm2\state.tsv"
+        $results = writeWindowsIndexFolders @("$index\営業\2024", "$index\営業\2024\2月") $index $system 1
+        [void](updateWindowsIndexState { param ($s) setWindowsIndexResults $s $results; [void]$s.Covered.Add("営業") } $path)
+        removeWindowsIndexOf "営業\2024\2月" $system $path | Should Be $true
+        $state = readWindowsIndexState $path
+        $state.Covered.Contains("営業") | Should Be $true
+        @($state.Pending.Keys) -join "|" | Should Be "営業\2024\Windowsインデックス.txt"
     }
 }

@@ -37,6 +37,8 @@ function writeTestSettings {
     param ([string]$root, [object[]]$folders)
     $settings = newSettings
     $settings.targetFolders = @($folders)
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko）は開発の PC ではほかのファイルがあり使えないため、テスト用の work を指す
+    $settings.workspaceFolder = "$root\work"
     writeSettings $settings "$root\setting.config"
 }
 
