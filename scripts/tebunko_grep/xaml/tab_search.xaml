@@ -123,7 +123,7 @@
               ToolTip="すべてのファイルを閉じて、ファイルの見出しだけを表示します" />
       <Button x:Name="ExpandAllButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="すべて展開" VerticalAlignment="Center" Margin="0,0,12,0"
               ToolTip="すべてのファイルを開いて、ヒットした行を表示します（ヒットが多いと時間がかかります）" />
-      <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="180" Margin="0,0,16,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
+      <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
       <!-- 検索結果の件数は、この画面の主役 -->
       <TextBlock x:Name="SummaryText" Style="{StaticResource Focal}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
     </DockPanel>
