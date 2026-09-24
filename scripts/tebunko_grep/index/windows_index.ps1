@@ -335,6 +335,89 @@ function getWindowsIndexStaleFolders {
     return , $stale.ToArray()
 }
 
+function updateWindowsIndexes {
+    # インデックス作成の終わりに、Windows インデックスの作り直しが要るフォルダをまとめて作り直し、状態ファイルに書く。
+    # すべてのフォルダの txt がそろったインデックスは「対応済み」にする（対応済みでないインデックスは、高速検索でもすべてを照合する）。
+    # 利用者の作業の邪魔にならないよう、作っている間はプロセスの優先度を下げる。中止要求（stopFile）があれば、始めていない分は作らない。
+    # 作り直したフォルダの数と、作り終えていないインデックスの数を @{ Built; Unfinished } で返す
+    param (
+        [string]$indexRoot = ${indexDir},
+        [string]$systemRoot = ${systemIndexDir},
+        [string]$statePath = ${windowsIndexStateFile},
+        [string]$stopFile = ${stopRequestFile}
+    )
+
+    $state = readWindowsIndexState $statePath
+    if ($null -eq $state) {
+        Write-Host "Windows インデックスの状態を読めないため、作り直しは次のインデックス作成に回します。" -ForegroundColor Yellow
+        return @{ Built = 0; Unfinished = -1 }
+    }
+    # 無くなったインデックス（設定から外した・画面で削除した）の txt と状態の行を消す
+    $names = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    if ([System.IO.Directory]::Exists((toLongPath $indexRoot))) {
+        foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $indexRoot))) {
+            [void]$names.Add([System.IO.Path]::GetFileName($dir))
+        }
+    }
+    $gone = New-Object System.Collections.Generic.List[string]
+    if ([System.IO.Directory]::Exists((toLongPath $systemRoot))) {
+        foreach ($dir in [System.IO.Directory]::GetDirectories((toLongPath $systemRoot))) {
+            $gone.Add([System.IO.Path]::GetFileName($dir))
+        }
+    }
+    $gone.AddRange([string[]]@($state.Covered))
+    foreach ($name in ($gone | Sort-Object -Unique)) {
+        if (!$names.Contains($name)) {
+            [void](removeWindowsIndexOf $name $systemRoot $statePath)
+            [void]$state.Covered.Remove($name)
+        }
+    }
+
+    $stale = getWindowsIndexStaleFolders $indexRoot $systemRoot $state
+    $results = @()
+    if ($stale.Count -gt 0) {
+        Write-Host "Windows インデックス（高速検索用）を作っています…（$($stale.Count) フォルダ）"
+        $process = [System.Diagnostics.Process]::GetCurrentProcess()
+        $priority = $process.PriorityClass
+        try { $process.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::BelowNormal } catch {}
+        try {
+            $results = writeWindowsIndexFolders $stale $indexRoot $systemRoot 0 { [System.IO.File]::Exists($stopFile) }
+        } finally {
+            try { $process.PriorityClass = $priority } catch {}
+        }
+    }
+    # 作り終えていないフォルダがあるインデックスは、対応済みにしない
+    $built = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($result in $results) {
+        [void]$built.Add($result.Rel)
+    }
+    $unfinished = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    $rootLength = $indexRoot.TrimEnd("\").Length
+    foreach ($folder in $stale) {
+        $rel = $folder.Substring($rootLength).Trim("\")
+        if (!$built.Contains($rel)) {
+            [void]$unfinished.Add((getIndexNameOfRelPath $rel))
+        }
+    }
+    $saved = updateWindowsIndexState {
+        param ($current)
+        setWindowsIndexResults $current $results
+        foreach ($name in $names) {
+            if ($unfinished.Contains($name)) {
+                [void]$current.Covered.Remove($name)
+            } else {
+                [void]$current.Covered.Add($name)
+            }
+        }
+    } $statePath
+    if (!$saved) {
+        Write-Host "Windows インデックスの状態を書き込めなかったため、次のインデックス作成で作り直します。" -ForegroundColor Yellow
+    } elseif ($unfinished.Count -gt 0) {
+        Write-Host "中止したため、Windows インデックスの一部（$($stale.Count - $built.Count) フォルダ）は次のインデックス作成で作ります。" -ForegroundColor Yellow
+    }
+    return @{ Built = $built.Count; Unfinished = $unfinished.Count }
+}
+
 function removeWindowsIndexOf {
     # インデックス（または index の中のフォルダ）を消したとき、system_index の同じフォルダと状態の行を消す
     param (

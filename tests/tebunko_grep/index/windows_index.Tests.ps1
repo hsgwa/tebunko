@@ -190,6 +190,69 @@ Describe "getWindowsIndexStaleFolders" -Tag Io {
     }
 }
 
+Describe "updateWindowsIndexes" -Tag Io {
+    It "作り直しが要るフォルダを作り、インデックスを対応済みにする。2 回目は何もしない" {
+        $index = newIndexTree "$TestDrive\u1"
+        $system = "$TestDrive\u1\system_index"
+        $path = "$TestDrive\u1\state.tsv"
+        $result = updateWindowsIndexes $index $system $path "$TestDrive\u1\stop"
+        $result.Built | Should Be 2
+        $result.Unfinished | Should Be 0
+        $state = readWindowsIndexState $path
+        $state.Covered.Contains("営業") | Should Be $true
+        $state.Pending.Count | Should Be 2
+        (updateWindowsIndexes $index $system $path "$TestDrive\u1\stop").Built | Should Be 0
+    }
+
+    It "無くなったインデックスの txt と状態の行を消す" {
+        $index = newIndexTree "$TestDrive\u2"
+        $system = "$TestDrive\u2\system_index"
+        $path = "$TestDrive\u2\state.tsv"
+        [void](updateWindowsIndexes $index $system $path "$TestDrive\u2\stop")
+        Remove-Item -LiteralPath "$index\営業" -Recurse
+        [void](updateWindowsIndexes $index $system $path "$TestDrive\u2\stop")
+        [System.IO.Directory]::Exists("$system\営業") | Should Be $false
+        $state = readWindowsIndexState $path
+        $state.Covered.Count | Should Be 0
+        $state.Pending.Count | Should Be 0
+    }
+
+    It "中止要求があれば作らず、そのインデックスは対応済みにしない" {
+        $index = newIndexTree "$TestDrive\u3"
+        [System.IO.File]::WriteAllText("$TestDrive\u3\stop", "")
+        $result = updateWindowsIndexes $index "$TestDrive\u3\system_index" "$TestDrive\u3\state.tsv" "$TestDrive\u3\stop"
+        $result.Built | Should Be 0
+        $result.Unfinished | Should Be 1
+        (readWindowsIndexState "$TestDrive\u3\state.tsv").Covered.Count | Should Be 0
+    }
+
+    It "状態ファイルを読めなければ何もしない" {
+        $index = newIndexTree "$TestDrive\u4"
+        $path = "$TestDrive\u4\state.tsv"
+        [void](updateWindowsIndexState { param ($s) } $path)
+        $stream = [System.IO.FileStream]::new($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            (updateWindowsIndexes $index "$TestDrive\u4\system_index" $path "$TestDrive\u4\stop").Unfinished | Should Be -1
+        } finally {
+            $stream.Dispose()
+        }
+    }
+}
+
+Describe "removeIndex / renameIndex の Windows インデックス" -Tag Io {
+    It "インデックスを削除・名前変更すると、同じワークスペースの system_index の分を消す" {
+        $index = newIndexTree "$TestDrive\ix"
+        [void](updateWindowsIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\Windowsインデックスの状態.tsv" "$TestDrive\ix\stop")
+        renameIndex "営業" "営業2" $index "$TestDrive\ix\取り込み一覧.tsv"
+        [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業") | Should Be $false
+        (readWindowsIndexState "$TestDrive\ix\Windowsインデックスの状態.tsv").Covered.Count | Should Be 0
+        [void](updateWindowsIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\Windowsインデックスの状態.tsv" "$TestDrive\ix\stop")
+        [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should Be $true
+        removeIndex "営業2" $index "$TestDrive\ix\取り込み一覧.tsv"
+        [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should Be $false
+    }
+}
+
 Describe "removeWindowsIndexOf" -Tag Io {
     It "system_index の同じフォルダと状態の行を消す" {
         $index = newIndexTree "$TestDrive\rm"
