@@ -11,6 +11,9 @@ ${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_grep\${PID}"
 # setting.config の workspaceFolder で変えられる。空なら既定（設定ファイルと同じフォルダの work。settings_grep.ps1 の getWorkDir）
 ${workDir}   = getWorkDir
 ${indexDir}  = "${workDir}\index"
+# Windows インデックス（本文インデックスの 2-gram を書いた txt。index と同じ相対パスの構成。Windows Search に索引させる）と、その状態
+${systemIndexDir} = "${workDir}\system_index"
+${windowsIndexStateFile} = "${workDir}\Windowsインデックスの状態.tsv"
 
 # 取り込んだTSVをインデックスに入れる直前に集めるフォルダ（publishIndexFiles）。
 # フォルダごと入れ替えるため、インデックスと同じドライブ（work の中）に置く。

@@ -3,12 +3,10 @@
 # Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致を落とすが、
 # 2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。
 
-# Windows インデックスの置き場所（ワークスペースの直下）と名前
-${systemIndexDirName}        = "system_index"
+# Windows インデックスの名前（置き場所は paths_grep.ps1 の ${systemIndexDir}）
 ${windowsIndexFileName}      = "Windowsインデックス.txt"
 ${windowsIndexFileLike}      = "Windowsインデックス%"      # 問い合わせの LIKE（分けたものも含む）
 ${windowsIndexSplitLike}     = "Windowsインデックス[_]%"   # 分けたもの（Windowsインデックス_1.txt …）だけ
-${windowsIndexStateFileName} = "Windowsインデックスの状態.tsv"
 
 # 1 つの txt の大きさの上限（これを超えたら語の範囲で分ける。実測では 16MB までは末尾まで索引された）
 ${windowsIndexPartBytes} = 8MB
