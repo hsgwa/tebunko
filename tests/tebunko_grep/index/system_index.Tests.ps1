@@ -110,6 +110,13 @@ Describe "writeSystemIndexFolders" -Tag Io {
         }
     }
 
+    It "並列で作っていて書けなかったら、作ったことにせず例外にする" {
+        $index = newIndexTree "$TestDrive\pe"
+        # system_index という名前のファイルがあると、フォルダを作れない
+        [System.IO.File]::WriteAllText("$TestDrive\pe\system_index", "")
+        { writeSystemIndexFolders @("$index\営業\2024", "$index\営業\2024\2月") $index "$TestDrive\pe\system_index" 2 } | Should Throw
+    }
+
     It "止めるよう求められたら、始めていない分は作らない" {
         $index = newIndexTree "$TestDrive\stop"
         $results = writeSystemIndexFolders @("$index\営業\2024", "$index\営業\2024\2月") $index "$TestDrive\stop\s" 1 { $true }
@@ -234,6 +241,17 @@ Describe "updateSystemIndexes" -Tag Io {
         $result.Built | Should Be 0
         $result.Unfinished | Should Be 1
         (readSystemIndexState "$TestDrive\u3\state.tsv").Covered.Count | Should Be 0
+    }
+
+    # Pester 3 の Mock は Describe・Context の中の後のテストにも効くため、Context で囲む
+    Context "状態ファイルに書けないとき" {
+        It "状態ファイルに書けなければ、次のインデックス作成に回すと知らせる（対応済みにしない）" {
+            $index = newIndexTree "$TestDrive\u5"
+            Mock updateSystemIndexState { $false }
+            $result = updateSystemIndexes $index "$TestDrive\u5\system_index" "$TestDrive\u5\state.tsv" "$TestDrive\u5\stop"
+            $result.Built | Should Be 2
+            (readSystemIndexState "$TestDrive\u5\state.tsv").Covered.Count | Should Be 0
+        }
     }
 
     It "状態ファイルを読めなければ何もしない" {

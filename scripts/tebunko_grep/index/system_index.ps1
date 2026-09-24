@@ -134,6 +134,8 @@ function writeSystemIndexFolders {
                 $ps.RunspacePool = $pool
                 [void]$ps.AddScript({
                     param ($folder, $indexRoot, $systemRoot)
+                    # 別スレッドは既定では .NET の例外で止まらず、書けなかった txt を作ったものとして返してしまう。例外で止めて呼び出し元に伝える
+                    $ErrorActionPreference = "Stop"
                     @{ Result = writeSystemIndexFolder $folder $indexRoot $systemRoot }
                 }).AddArgument($folders[$next]).AddArgument($indexRoot).AddArgument($systemRoot)
                 $pending.Enqueue(@{ PowerShell = $ps; Handle = $ps.BeginInvoke() })
