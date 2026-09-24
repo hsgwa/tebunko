@@ -37,6 +37,14 @@ param (
 
 $ErrorActionPreference = "Stop"
 
+# 既定のワークスペースにほかのファイルが置いてあれば、インデックスのファイルと混ざるため作成しない。
+# 空でないフォルダにエラーのファイルを書かないよう、例外（下の trap）にせずに終える（画面は起動する前に同じ確認をする）
+$workspaceBlock = getWorkspaceBlockMessage
+if ($workspaceBlock) {
+    Write-Host $workspaceBlock -ForegroundColor Red
+    exit 1
+}
+
 trap {
     # 続けられないエラー。画面に伝えるため、メッセージをファイルに書いて終了する
     $message = $_.Exception.Message

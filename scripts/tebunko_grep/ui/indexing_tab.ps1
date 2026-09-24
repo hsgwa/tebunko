@@ -185,6 +185,14 @@ function startIndexing {
         return
     }
 
+    # 既定のワークスペースにほかのファイルが置いてあれば、始めずに［8 設定］で別のフォルダを選んでもらう
+    $workspaceBlock = getWorkspaceBlockMessage
+    if ($workspaceBlock) {
+        showMessage $workspaceBlock "OK" "Warning" | Out-Null
+        $ui.Tabs.SelectedItem = $ui.SettingsTab
+        return
+    }
+
     saveTargets
     # 何件取り込むかは、元のファイルの更新日時とサイズを見ないと分からない。
     # -ConfirmTargets を付けると、インデクサは数え終えたところで止まって確認（インデックス作成開始要求）を待つ

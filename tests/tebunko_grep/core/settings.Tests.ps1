@@ -323,8 +323,8 @@ Describe "readSearchOption / writeSearchOption" -Tag Io {
 }
 
 Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
-    It "設定が無ければ、設定ファイルと同じフォルダの work（以前の版と同じ）" {
-        getWorkDir "$TestDrive\既定\setting.config" | Should Be "$TestDrive\既定\work"
+    It "設定が無ければ、既定の場所（%USERPROFILE%\Documents\tebunko）" {
+        getWorkDir "$TestDrive\既定\setting.config" | Should Be (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko")
     }
 
     It "保存したフォルダを返し、ほかの設定は保つ" {
@@ -338,9 +338,9 @@ Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
     It "既定の場所を選んだときは空で保存する（ツールのフォルダを移しても既定のまま付いてくる）" {
         $path = "$TestDrive\既定に戻す\setting.config"
         writeWorkspaceFolder "D:\データ" $path
-        writeWorkspaceFolder "$TestDrive\既定に戻す\WORK" $path
+        writeWorkspaceFolder ((getDefaultWorkDir).ToUpperInvariant()) $path
         (readSettings $path).workspaceFolder | Should Be ""
-        getWorkDir $path | Should Be "$TestDrive\既定に戻す\work"
+        getWorkDir $path | Should Be (getDefaultWorkDir)
     }
 
     It "手で書いた相対パスは設定ファイルのフォルダから、環境変数は展開して読む" {
@@ -349,5 +349,38 @@ Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
         getWorkDir $path | Should Be "$TestDrive\データ"
         updateSettings "workspaceFolder" "%TEMP%\tebunko" $path
         getWorkDir $path | Should Be ([System.IO.Path]::GetFullPath("$env:TEMP\tebunko"))
+    }
+}
+
+Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -Tag Io {
+    It "既定はプロファイルの Documents\tebunko（OneDrive のドキュメントではない）" {
+        getDefaultWorkDir "C:\Users\test" | Should Be "C:\Users\test\Documents\tebunko"
+    }
+
+    It "無い・空・前から使っているワークスペースなら使える" {
+        (testDefaultWorkspace "$TestDrive\無い").Usable | Should Be $true
+        [System.IO.Directory]::CreateDirectory("$TestDrive\空") | Out-Null
+        (testDefaultWorkspace "$TestDrive\空").Usable | Should Be $true
+        [System.IO.Directory]::CreateDirectory("$TestDrive\前から\index") | Out-Null
+        (testDefaultWorkspace "$TestDrive\前から").Usable | Should Be $true
+        [System.IO.Directory]::CreateDirectory("$TestDrive\一覧だけ") | Out-Null
+        [System.IO.File]::WriteAllText("$TestDrive\一覧だけ\取り込み一覧.tsv", "")
+        (testDefaultWorkspace "$TestDrive\一覧だけ").Usable | Should Be $true
+    }
+
+    It "ほかのファイルが置いてあれば使えず、空のフォルダではないと伝える" {
+        [System.IO.Directory]::CreateDirectory("$TestDrive\ほか") | Out-Null
+        [System.IO.File]::WriteAllText("$TestDrive\ほか\README.md", "")
+        $check = testDefaultWorkspace "$TestDrive\ほか"
+        $check.Usable | Should Be $false
+        $check.Message | Should Be "「$TestDrive\ほか」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+    }
+
+    It "今のワークスペースが既定の場所で、使えないときだけ文言を返す" {
+        [System.IO.Directory]::CreateDirectory("$TestDrive\既定ほか") | Out-Null
+        [System.IO.File]::WriteAllText("$TestDrive\既定ほか\a.txt", "")
+        getWorkspaceBlockMessage "$TestDrive\既定ほか" "$TestDrive\既定ほか" | Should Match "空のフォルダではありません"
+        getWorkspaceBlockMessage "$TestDrive\別" "$TestDrive\既定ほか" | Should Be ""
+        getWorkspaceBlockMessage "$TestDrive\空" "$TestDrive\空" | Should Be ""
     }
 }

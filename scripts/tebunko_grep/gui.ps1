@@ -247,6 +247,9 @@ $window.Add_Loaded({
         if ($ui.Tabs.SelectedItem -eq $ui.SearchTab) {
             $ui.WordBox.Focus() | Out-Null
         }
+        if ($script:workspaceBlock) {
+            showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
+        }
     }
 })
 
@@ -273,6 +276,12 @@ if ($runningIndexing) {
 # 起動時のタブ：インデックス作成中・中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
 $openIndexTab = $runningIndexing -or ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
 $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
+# 既定のワークスペースにほかのファイルが置いてあれば、［8 設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
+$script:workspaceBlock = getWorkspaceBlockMessage
+if ($script:workspaceBlock) {
+    $ui.Tabs.SelectedItem = $ui.SettingsTab
+    setStatus $script:workspaceBlock
+}
 setStatus ""
 
 # 多重起動したとき（2つ目のプロセスが $activateEvent を合図）に、この画面を前面へ出す。

@@ -1,5 +1,5 @@
 ﻿# ［8 設定］タブの判断（表示の文言・選んだワークスペースの可否・確認ダイアログの中身）。
-# ワークスペースは、インデックス・取り込み一覧・ログを置くフォルダ（$workDir。既定は設定ファイルと同じフォルダの work）。
+# ワークスペースは、インデックス・取り込み一覧・ログを置くフォルダ（$workDir。既定は %USERPROFILE%\Documents\tebunko）。
 # 画面に触らないため、そのままテストできる（tests\tebunko_grep\ui\settings_view.Tests.ps1）。
 
 ${workspaceSubFolderName} = "workspace"  # 空でないフォルダを選んだとき、中に作るワークスペースのフォルダ名
@@ -13,7 +13,7 @@ function getWorkspaceView {
     )
 
     $isDefault = $workDir.TrimEnd("\").Equals($defaultDir.TrimEnd("\"), [System.StringComparison]::OrdinalIgnoreCase)
-    $note = if ($isDefault) { "既定の場所（設定ファイルと同じフォルダの work）です。" } else { "既定の場所は「${defaultDir}」です。" }
+    $note = if ($isDefault) { "既定の場所（ドキュメントの tebunko）です。" } else { "既定の場所は「${defaultDir}」です。" }
     return @{ Path = $workDir; Note = $note; CanReset = -not $isDefault }
 }
 
