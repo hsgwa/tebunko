@@ -918,8 +918,30 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#44-高速検索windows-search-で先に絞る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 高速検索（Windows Search で先に絞る）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#よく出る語はほとんどのフォルダが候補になるため速くならない上限の-1-万件で打ち切るのは-43-と同じ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        よく出る語はほとんどのフォルダが候補になるため、速くならない（上限の 1 万件で打ち切るのは 4.3 と同じ）。
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1466,8 +1488,30 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#44-高速検索windows-search-で先に絞る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 高速検索（Windows Search で先に絞る）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#よく出る語はほとんどのフォルダが候補になるため速くならない上限の-1-万件で打ち切るのは-43-と同じ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        よく出る語はほとんどのフォルダが候補になるため、速くならない（上限の 1 万件で打ち切るのは 4.3 と同じ）。
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1588,7 +1632,7 @@
 </tr>
 <tr>
 <td>使用する共通関数</td>
-<td><code>getIndexTsvFiles</code> / <code>getSearchIndexes</code> / <code>searchIndex</code> / <code>writeSearchResult</code>（→ <code>toSearchResultLines</code> → <code>toResultLine</code> / <code>toResultHeader</code>）（<a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">00_共通_2_共通モジュール.md</a>）</td>
+<td><code>getFastSearchTsvFiles</code>（高速検索。4.4）/ <code>getIndexTsvFiles</code> / <code>getSearchIndexes</code> / <code>searchIndex</code> / <code>writeSearchResult</code>（→ <code>toSearchResultLines</code> → <code>toResultLine</code> / <code>toResultHeader</code>）（<a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">00_共通_2_共通モジュール.md</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -1620,6 +1664,11 @@
 <td>入力</td>
 <td><code>work/index/**/*.tsv</code></td>
 <td>インデックス作成で書き出した TSV</td>
+</tr>
+<tr>
+<td>入力</td>
+<td><code>work/system_index/**/システムインデックス*.txt</code>・<code>work/システムインデックスの状態.tsv</code></td>
+<td>高速検索に使う システムインデックスとその状態（4.4。Windows Search に問い合わせる）</td>
 </tr>
 <tr>
 <td>出力</td>
@@ -1854,7 +1903,80 @@
 </tr>
 </tbody>
 </table>
-<hr />
+<h3 id="44-高速検索windows-search-で先に絞る">4.4 高速検索（Windows Search で先に絞る）<a class="headerlink" href="#44-高速検索windows-search-で先に絞る" title="Permanent link">&para;</a></h3>
+<p>インデックスが大きいと、すべての TSV を読んで照合するのに時間がかかる（1GB で 10 分前後かかった PC もある）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の TSV だけを 4.3 の方式で照合する（<code>tebunko_grep/search/fast_search.ps1</code> の <code>getFastSearchTsvFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての TSV を照合したときと同じ</strong>になる。</p>
+<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下の TSV と直下のブックのフォルダの TSV から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#68-システムインデックスsystem_index">01_インデックス作成_7</a> 6.8）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>仕様</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>使える条件（画面の「高速検索：使用可」）</td>
+<td>Windows Search を開けて <code>work/system_index</code> が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（<code>testFastSearchUsable</code>・<code>getFastSearchView</code>）。使えないときは 4.3 のとおりすべてを照合する</td>
+</tr>
+<tr>
+<td>語の作り方</td>
+<td>ワードを空白で区切り、2 文字以上の部分の隣り合う 2 文字を小文字にし、UTF-16LE の 4 バイトを 16 進にした語（<code>x</code> ＋ 8 桁）にする（<code>getSearchGrams</code>）。最大 16 個（多いときは均等に間引く。間引いても候補が増えるだけ）</td>
+</tr>
+<tr>
+<td>候補</td>
+<td><code>CONTAINS(System.Search.Contents, '"x…" AND "x…"')</code> で、検索対象のフォルダの中の txt を探す。語の範囲で分けた txt（<code>システムインデックス_1.txt</code> …）は語ごとに問い合わせ、すべての語がどれかで見つかったフォルダを候補にする</td>
+</tr>
+<tr>
+<td>反映の判定</td>
+<td>txt が Windows Search に反映済み ⇔ <code>System.Search.GatherTime</code> が空でない（本文を読み終えた）かつ <code>System.DateModified</code> が txt の更新日時（UTC）を秒で切り捨てた値と同じ（Windows Search は秒未満を切り捨てて持つ。<code>testSystemIndexReflected</code>）</td>
+</tr>
+<tr>
+<td>照合するフォルダ</td>
+<td>候補、反映されていないフォルダ（状態ファイルの「反映待ち」）、対象外のフォルダ、対応済みでないインデックスの全体。これらの TSV を <code>getIndexTsvFiles</code> で集め、<code>searchIndex</code> で照合する</td>
+</tr>
+<tr>
+<td>すべてを照合する場合</td>
+<td>使える条件を満たさない、状態ファイルを読めない、Windows Search への問い合わせに失敗した（時間切れ 10 秒を含む）、インデックス全体（ツリーの一番上より上）・別の場所のインデックス・無いフォルダを検索対象にした</td>
+</tr>
+<tr>
+<td>状態の整理</td>
+<td>反映済みになった「反映待ち」の行は、検索のたびに状態ファイルから消す（書けなければ次の機会に回す）</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart TD
+    S(["検索"]) --&gt; U{"高速検索が使える？"}
+    U -- いいえ --&gt; ALL["getIndexTsvFiles&lt;br&gt;すべての TSV"]
+    U -- はい --&gt; Q["Windows Search に問い合わせる&lt;br&gt;候補のフォルダ・反映の判定"]
+    Q -- 失敗 --&gt; ALL
+    Q --&gt; T["照合するフォルダ&lt;br&gt;候補＋反映待ち＋対象外＋未対応"]
+    T --&gt; F["getIndexTsvFiles&lt;br&gt;そのフォルダの TSV"]
+    ALL --&gt; R["searchIndex（4.3 と同じ）"]
+    F --&gt; R</code></pre>
+<p><strong><code>work/index</code> を Windows Search の対象から外す（推奨）</strong>: TSV も索引の対象になっていると、Windows Search は TSV の処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（TSV は 4.3 の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/index</code> を外す（README の「高速検索」）。</p>
+<p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致）:</p>
+<table>
+<thead>
+<tr>
+<th>検索</th>
+<th>すべてを照合</th>
+<th>高速検索</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0 件</td>
+<td>650 秒</td>
+<td>0.49 秒</td>
+</tr>
+<tr>
+<td>まれな語（3 件）</td>
+<td>602 秒</td>
+<td>29.9 秒</td>
+</tr>
+</tbody>
+</table>
+<h2 id="よく出る語はほとんどのフォルダが候補になるため速くならない上限の-1-万件で打ち切るのは-43-と同じ">よく出る語はほとんどのフォルダが候補になるため、速くならない（上限の 1 万件で打ち切るのは 4.3 と同じ）。<a class="headerlink" href="#よく出る語はほとんどのフォルダが候補になるため速くならない上限の-1-万件で打ち切るのは-43-と同じ" title="Permanent link">&para;</a></h2>
 <h2 id="5-出力仕様">5. 出力仕様<a class="headerlink" href="#5-出力仕様" title="Permanent link">&para;</a></h2>
 <h3 id="51-出力フォーマットwork検索結果txt">5.1 出力フォーマット（<code>work/検索結果.txt</code>）<a class="headerlink" href="#51-出力フォーマットwork検索結果txt" title="Permanent link">&para;</a></h3>
 <p>画面の［結果をファイルに出力］で、表示中の結果（絞り込み後）を書き出す。UTF-8（BOM 付き）、改行は CRLF。</p>
@@ -2046,7 +2168,17 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 <tbody>
 <tr>
 <td>1</td>
-<td>検索のたびに全 TSV を照合するため、インデックス量に比例して時間がかかる（1 万ファイル・70MB で 0.7〜2.2 秒。読んだ内容の使い回しは約 128MB まで。4.3）</td>
+<td>高速検索を使えないとき（4.4）は、検索のたびに全 TSV を照合するため、インデックス量に比例して時間がかかる（1 万ファイル・70MB で 0.7〜2.2 秒。読んだ内容の使い回しは約 128MB まで。4.3）</td>
+<td>◎</td>
+</tr>
+<tr>
+<td>1-2</td>
+<td>初めて作った大きなインデックスは、Windows Search が システムインデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。<code>work/index</code> を Windows Search の対象から外すと早く終わる（4.4）</td>
+<td>◎</td>
+</tr>
+<tr>
+<td>1-3</td>
+<td>ワードによく出る 2-gram しか無いときは、ほとんどのフォルダが候補になり、高速検索でも速くならない（4.4）</td>
 <td>◎</td>
 </tr>
 <tr>

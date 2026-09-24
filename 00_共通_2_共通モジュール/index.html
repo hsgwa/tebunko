@@ -1421,7 +1421,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/index/</code></td>
-<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）</td>
+<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/indexer/</code></td>
@@ -1429,7 +1429,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/search/</code></td>
-<td>検索条件（<code>search_query.ps1</code>）・検索の実行（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）</td>
+<td>検索条件（<code>search_query.ps1</code>）・検索の実行（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する TSV の収集（<code>fast_search.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/ui/</code></td>
@@ -1449,12 +1449,12 @@
 <tbody>
 <tr>
 <td>判断層（入力は素の値、出力は素の値）</td>
-<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>search_query.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code></td>
+<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code></td>
 <td>する（主にタグ <code>Unit</code>）</td>
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
-<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>search_run.ps1</code></td>
+<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code></td>
 <td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>

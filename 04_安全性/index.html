@@ -1914,6 +1914,12 @@
 <td><a href="#21-検査項目と結果">2.1</a></td>
 </tr>
 <tr>
+<td>Windows Search</td>
+<td><strong>読み取りだけ</strong>。高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。システムインデックスを作る間は、自分のプロセスの優先度を下げる（BelowNormal）</td>
+<td><code>safety.Tests.ps1</code>「Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る」</td>
+<td><a href="#21-検査項目と結果">2.1</a></td>
+</tr>
+<tr>
 <td>実行ポリシー</td>
 <td><code>Bypass</code> を使わず <code>RemoteSigned</code> で起動する。恒久的な変更（<code>Set-ExecutionPolicy</code>）をしない</td>
 <td><code>safety.Tests.ps1</code></td>
@@ -1939,7 +1945,7 @@
 </tr>
 <tr>
 <td>書き込み先</td>
-<td><code>work/</code> 配下（既定はツールのフォルダ。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）、<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> 配下、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先のみ</td>
+<td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）、<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> 配下、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先のみ</td>
 <td><code>safety.Tests.ps1</code></td>
 <td><a href="#31-書き込み削除する場所">3.1</a></td>
 </tr>
@@ -1957,7 +1963,7 @@
 </tr>
 <tr>
 <td>規模（監査の目安）</td>
-<td><code>scripts/</code> 配下 44 ファイル・10,235 行（空行を除く）・343 関数。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
+<td><code>scripts/</code> 配下 48 ファイル・11,306 行（空行を除く）・389 関数。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
 <td>–</td>
 <td><a href="#57-同梱の機械検査と品質の指標">5.7</a></td>
 </tr>
@@ -2176,7 +2182,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>work/</code> 配下（既定はツールを置いたフォルダの直下。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）</td>
+<td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）</td>
 <td>TSV インデックス（<code>work/index/</code>）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果</td>
 <td><code>shared/core/data_dir.ps1:41</code>、<code>tebunko_grep/core/paths_grep.ps1:12</code>・<code>13</code>・<code>18</code>・<code>26</code>〜<code>41</code></td>
 </tr>
@@ -2667,15 +2673,15 @@
 <tbody>
 <tr>
 <td>テスト件数</td>
-<td>1,011 件（既定のタグ Unit・Io・Meta。失敗 0 件。うち安全性・構成の検査（タグ <code>Meta</code>）が 104 件）</td>
+<td>1,160 件（既定のタグ Unit・Io・Meta。失敗 0 件。うち安全性・構成の検査（タグ <code>Meta</code>）が 116 件）</td>
 </tr>
 <tr>
 <td>コードカバレッジ</td>
-<td>96.5%（4,922/5,100 コマンド）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（96.5%）で、下回ると CI が失敗する</td>
+<td>97.1%（5,701/5,873 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため 96.9%）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（96.5%）で、下回ると CI が失敗する</td>
 </tr>
 <tr>
 <td>規模</td>
-<td><code>scripts/</code> 配下 44 ファイル・10,235 行（空行を除く）・343 関数</td>
+<td><code>scripts/</code> 配下 48 ファイル・11,306 行（空行を除く）・389 関数</td>
 </tr>
 <tr>
 <td>第三者依存</td>
@@ -2683,7 +2689,7 @@
 </tr>
 </tbody>
 </table>
-<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 10,235 行で閉じる。</p>
+<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 11,306 行で閉じる。</p>
 <hr />
 <h2 id="6-供給網サプライチェーンとライセンス">6. 供給網（サプライチェーン）とライセンス<a class="headerlink" href="#6-供給網サプライチェーンとライセンス" title="Permanent link">&para;</a></h2>
 <p>第三者の部品を 1 つも使わないため、実行時の供給網に関する論点は次のように閉じる。部品表は <a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>（CycloneDX 1.6 形式）にある。</p>

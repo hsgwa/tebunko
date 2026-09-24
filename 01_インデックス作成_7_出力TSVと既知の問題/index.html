@@ -874,8 +874,30 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#68-システムインデックスsystem_index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.8 システムインデックス（system_index）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデクサ追記作り直しと画面検索のたびの整理が同時に書かないよう状態ファイルは排他で開く開けなければ少し待って数回試しそれでも開けなければ書き換えを次の機会に回す検索は読めなければすべてを照合する" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデクサ（追記・作り直し）と画面（検索のたびの整理）が同時に書かないよう、状態ファイルは排他で開く。開けなければ少し待って数回試し、それでも開けなければ書き換えを次の機会に回す（検索は、読めなければすべてを照合する）。
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1452,8 +1474,30 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#68-システムインデックスsystem_index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.8 システムインデックス（system_index）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデクサ追記作り直しと画面検索のたびの整理が同時に書かないよう状態ファイルは排他で開く開けなければ少し待って数回試しそれでも開けなければ書き換えを次の機会に回す検索は読めなければすべてを照合する" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデクサ（追記・作り直し）と画面（検索のたびの整理）が同時に書かないよう、状態ファイルは排他で開く。開けなければ少し待って数回試し、それでも開けなければ書き換えを次の機会に回す（検索は、読めなければすべてを照合する）。
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1772,7 +1816,90 @@
 <p><strong>6.6 PowerPoint のテキスト読み取りと TSV の場所（<code>readPptxUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#66-powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">01_インデックス作成_3_PowerPoint.md</a></p>
 <p><strong>6.7 Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_インデックス作成_1_Excel.md</a></p>
 </blockquote>
-<hr />
+<h3 id="68-システムインデックスsystem_index">6.8 システムインデックス（system_index）<a class="headerlink" href="#68-システムインデックスsystem_index" title="Permanent link">&para;</a></h3>
+<p>高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）のため、インデックス作成は TSV とは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko_grep/index/system_index.ps1</code>。語の決まりは <code>tebunko_grep/search/search_gram.ps1</code>）。</p>
+<div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名&gt;/&lt;場所&gt;.tsv        … 本文インデックス（6.1）
+work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/システムインデックス.txt … システムインデックス
+work/システムインデックスの状態.tsv                                         … その状態
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>仕様</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>単位</td>
+<td><code>work/index</code> の中のフォルダ 1 つにつき 1 つ。中身は、そのフォルダ直下の TSV（以前の形式）と、直下のブックのフォルダ（<code>&lt;ファイル名.xlsx&gt;</code> など）の中の TSV から作る。サブフォルダのブックは、サブフォルダの txt に入る</td>
+</tr>
+<tr>
+<td>中身</td>
+<td>本文を小文字にし、隣り合う 2 文字（UTF-16 の単位）を、UTF-16LE の 4 バイトの 16 進にした語（<code>x</code> ＋ 8 桁。例: <code>ニタ</code> → <code>xcb30bf30</code>）にして、重複を除いて空白区切りの ASCII で書く。空白を含む 2-gram も入るが、問い合わせには使わない</td>
+</tr>
+<tr>
+<td>作り方の速さ</td>
+<td><code>char[]</code> を <code>uint32[]</code> に写して .NET の <code>HashSet</code> で重複を除く（1 文字ずつ PowerShell で回さない）。合成データの実測で MB あたり約 0.7 秒（4 スレッド）</td>
+</tr>
+<tr>
+<td>大きいとき</td>
+<td>8MB を超える（語 1 つ 10 バイトで約 84 万語）と、語の値の範囲で <code>システムインデックス_1.txt</code>・<code>_2.txt</code> … に分ける（実測で 16MB までは末尾まで索引された）</td>
+</tr>
+<tr>
+<td>パスが長いとき</td>
+<td>txt のパスが 240 文字以上になるフォルダは作らず、状態ファイルに「対象外」と書く（検索のたびにそのフォルダを照合する）</td>
+</tr>
+<tr>
+<td>作る時機</td>
+<td>インデックス作成の終わりに、作り直しが要るフォルダ（txt が無い・TSV より新しい TSV がある・反映待ちの日時が txt と合わない・TSV が無くなった）をまとめて作る（<code>updateSystemIndexes</code>）。取り込む対象が 0 件のときも作る。中止したとき・クロール対象フォルダが見えなくなったときは作らない</td>
+</tr>
+<tr>
+<td>負荷</td>
+<td>最大 4 スレッド（物理メモリ 8GB の PC で 4 スレッドのときにメモリが足りなくなったことがあるため）。作っている間はプロセスの優先度を BelowNormal に下げる。中止要求があれば、始めていないフォルダは作らない</td>
+</tr>
+<tr>
+<td>取り込みのとき</td>
+<td>1 ファイルを取り込んで TSV を入れ替えたら、そのフォルダを「反映待ち（日時 0）」にする。txt を作り直すまで、検索はそのフォルダを必ず照合する（日時 0 は txt の更新日時とも Windows Search の値とも一致しない）</td>
+</tr>
+<tr>
+<td>削除・名前変更</td>
+<td>画面でインデックスを削除・名前変更したら、<code>work/system_index/&lt;名前&gt;</code> と状態の行を消す（名前を変えたときは、次のインデックス作成で作り直す）。設定から外したインデックスも、インデックス作成の終わりに消す</td>
+</tr>
+</tbody>
+</table>
+<p><strong>状態ファイル</strong>（<code>システムインデックスの状態.tsv</code>。BOM 付き UTF-8・CRLF。1 行 <code>種別&lt;TAB&gt;対象&lt;TAB&gt;値</code>、パスは <code>work/system_index</code> からの相対パス）:</p>
+<table>
+<thead>
+<tr>
+<th>種別</th>
+<th>対象</th>
+<th>値</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>対応済み</code></td>
+<td>インデックス名</td>
+<td>―</td>
+<td>すべてのフォルダの txt がある（または対象外として記録した）。無いインデックスは、高速検索でもすべてを照合する</td>
+</tr>
+<tr>
+<td><code>反映待ち</code></td>
+<td>txt</td>
+<td>書いた日時（UTC の Ticks）</td>
+<td>Windows Search の <code>DateModified</code> がこの日時（秒で切り捨て）と同じで、<code>GatherTime</code> が空でなくなれば反映済み（検索がこの行を消す）</td>
+</tr>
+<tr>
+<td><code>対象外</code></td>
+<td>フォルダ</td>
+<td>―</td>
+<td>txt を作らなかった（パスが長い）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="インデクサ追記作り直しと画面検索のたびの整理が同時に書かないよう状態ファイルは排他で開く開けなければ少し待って数回試しそれでも開けなければ書き換えを次の機会に回す検索は読めなければすべてを照合する">インデクサ（追記・作り直し）と画面（検索のたびの整理）が同時に書かないよう、状態ファイルは排他で開く。開けなければ少し待って数回試し、それでも開けなければ書き換えを次の機会に回す（検索は、読めなければすべてを照合する）。<a class="headerlink" href="#インデクサ追記作り直しと画面検索のたびの整理が同時に書かないよう状態ファイルは排他で開く開けなければ少し待って数回試しそれでも開けなければ書き換えを次の機会に回す検索は読めなければすべてを照合する" title="Permanent link">&para;</a></h2>
 <h2 id="7-実装上の注意点既知の問題">7. 実装上の注意点・既知の問題<a class="headerlink" href="#7-実装上の注意点既知の問題" title="Permanent link">&para;</a></h2>
 <p>確度: ◎ = 動作確認済み、○ = コード上明らか、△ = 推定。</p>
 <p>Word に固有のものは 7.2 節（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/#72-word-の注意点既知の問題">01_インデックス作成_2_Word.md</a>）、PowerPoint に固有のものは 7.3 節（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#73-powerpoint-の注意点既知の問題">01_インデックス作成_3_PowerPoint.md</a>）にまとめる。</p>

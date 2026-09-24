@@ -1825,6 +1825,14 @@
 <td>インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。<code>work/index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける</td>
 </tr>
 <tr>
+<td><code>work/system_index/</code></td>
+<td>システムインデックス（高速検索用。<code>work/index</code> の中のフォルダごとの 2-gram の txt。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#68-システムインデックスsystem_index">01_インデックス作成_7</a> 6.8）。Windows Search に索引させる</td>
+</tr>
+<tr>
+<td><code>work/システムインデックスの状態.tsv</code></td>
+<td>システムインデックスの状態（対応済み・反映待ち・対象外。同 6.8）</td>
+</tr>
+<tr>
 <td><code>work/取り込み一覧.tsv</code></td>
 <td>取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗）</td>
 </tr>
@@ -2050,12 +2058,13 @@
 </tr>
 <tr>
 <td><code>$workDir</code></td>
-<td><code>setting.config</code> の <code>workspaceFolder</code>（4.1）。空なら既定の <code>$dataDir\work</code></td>
+<td><code>setting.config</code> の <code>workspaceFolder</code>（4.1）。空なら既定の <code>%USERPROFILE%\Documents\tebunko</code>（<code>getDefaultWorkDir</code>。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents）</td>
 <td><code>scripts/tebunko_grep/core/paths_grep.ps1</code>（<code>getWorkDir</code>）</td>
 </tr>
 </tbody>
 </table>
 <ul>
+<li>既定の場所をドキュメントにするのは、高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>index</code> か <code>取り込み一覧.tsv</code> がある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
 <li><code>$workDir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。</li>
 <li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
 <li>置き場所を変えても、今の <code>work/</code> の中身は移さない。移すときは利用者がエクスプローラーで移してから、移した先を選ぶ。</li>
@@ -2162,7 +2171,7 @@
 <td><code>workspaceFolder</code></td>
 <td>文字列</td>
 <td>空</td>
-<td><code>work</code>（インデックス・取り込み一覧・ログ）を置くフォルダ（3.3）。空なら設定ファイルと同じフォルダの <code>work</code>。既定の場所を選んだときも空で保存する（ツールのフォルダを移しても既定のまま付いてくる）。手で書いた相対パスは設定ファイルのフォルダから、<code>%変数%</code> は展開して読む</td>
+<td><code>work</code>（インデックス・取り込み一覧・ログ）を置くフォルダ（3.3）。空なら既定の <code>%USERPROFILE%\Documents\tebunko</code>（3.3）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、<code>%変数%</code> は展開して読む</td>
 <td><code>getWorkDir</code> / <code>writeWorkspaceFolder</code></td>
 </tr>
 </tbody>
