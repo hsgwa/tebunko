@@ -2677,7 +2677,7 @@
 </tr>
 <tr>
 <td>コードカバレッジ</td>
-<td>97.1%（5,701/5,873 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため約 0.1 低い）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（96.5%）で、下回ると CI が失敗する</td>
+<td>97.1%（5,701/5,873 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため 96.9%）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（96.5%）で、下回ると CI が失敗する</td>
 </tr>
 <tr>
 <td>規模</td>
