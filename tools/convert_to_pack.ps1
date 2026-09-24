@@ -1,23 +1,20 @@
 ﻿# 今の形式のインデックス（場所ごとの TSV）を、検索用のまとめファイル（フォルダごと・拡張子ごとの 本文.xlsx.tsv など）に変換する（PoC 用）。
-# -InPlace でなければ、元のインデックスは読むだけで書き換えない。変換を終えたフォルダは飛ばすため、止めても続きから変換できる。
+# 元のインデックスは読むだけで書き換えない。変換先に同じフォルダのまとめファイルがあれば飛ばすため、止めても続きから変換できる。
 #
 #   .\tools\convert_to_pack.ps1 -Source <元の index フォルダ> -Dest <変換先の index フォルダ>
 #   -Minutes 9   … この時間を過ぎたら新しいフォルダを始めない（1 回の実行を短く切る）
 #   -Workers 4   … 並行して変換するスレッドの数
-#   -InPlace     … 元のインデックスのフォルダそのものにまとめファイルを書き、TSV（元のファイルごとのフォルダ）を消す（移行と同じ）。-Dest は使わない
 param (
     [Parameter(Mandatory = $true)][string]$Source,
-    [string]$Dest,
+    [Parameter(Mandatory = $true)][string]$Dest,
     [double]$Minutes = 9,
-    [int]$Workers = 4,
-    [switch]$InPlace
+    [int]$Workers = 4
 )
 
 $ErrorActionPreference = "Stop"
 $lib = Join-Path (Split-Path $PSScriptRoot -Parent) "scripts\tebunko_grep\lib.ps1"
 . $lib
 $Source = (Resolve-Path -LiteralPath $Source).ProviderPath.TrimEnd("\")
-if ($InPlace) { $Dest = $Source } elseif (!$Dest) { throw "-Dest か -InPlace を指定してください" }
 [void][System.IO.Directory]::CreateDirectory($Dest)
 $Dest = (Resolve-Path -LiteralPath $Dest).ProviderPath.TrimEnd("\")
 
@@ -37,8 +34,7 @@ $todo = @($folders | Where-Object {
     $rel = if ($_.Length -gt $Source.Length) { $_.Substring($Source.Length + 1) } else { "" }
     $target = if ($rel) { "$Dest\$rel" } else { $Dest }
     $longTarget = toLongPath $target
-    # -InPlace では、変換を終えたフォルダには TSV が残らないため、そもそも集めた中に入らない
-    $InPlace -or !([System.IO.Directory]::Exists($longTarget) -and [System.IO.Directory]::GetFiles($longTarget, ${packFilePattern}).Count -gt 0)
+    !([System.IO.Directory]::Exists($longTarget) -and [System.IO.Directory]::GetFiles($longTarget, ${packFilePattern}).Count -gt 0)
 })
 Write-Host ("フォルダ {0:N0} 件（うち変換済み {1:N0} 件）。列挙 {2:N1} 秒" -f $folders.Count, ($folders.Count - $todo.Count), $watch.Elapsed.TotalSeconds)
 
@@ -49,7 +45,7 @@ $jobs = foreach ($k in 0..($Workers - 1)) {
     $ps = [powershell]::Create()
     $ps.RunspacePool = $pool
     [void]$ps.AddScript({
-        param ($lib, $list, $k, $step, $source, $dest, $deadline, $removeTsv)
+        param ($lib, $list, $k, $step, $source, $dest, $deadline)
         . $lib
         $done = 0; $tsv = 0; $chars = 0L
         for ($i = $k; $i -lt $list.Count; $i += $step) {
@@ -57,11 +53,11 @@ $jobs = foreach ($k in 0..($Workers - 1)) {
             $folder = $list[$i]
             $rel = if ($folder.Length -gt $source.Length) { $folder.Substring($source.Length + 1) } else { "" }
             $target = if ($rel) { "$dest\$rel" } else { $dest }
-            $r = convertIndexFolderToPack $folder $target @() $removeTsv
+            $r = convertIndexFolderToPack $folder $target
             $done++; $tsv += $r.Tsv; $chars += $r.Chars
         }
         @{ Done = $done; Tsv = $tsv; Chars = $chars }
-    }).AddArgument($lib).AddArgument($todo).AddArgument($k).AddArgument($Workers).AddArgument($Source).AddArgument($Dest).AddArgument($deadline).AddArgument([bool]$InPlace)
+    }).AddArgument($lib).AddArgument($todo).AddArgument($k).AddArgument($Workers).AddArgument($Source).AddArgument($Dest).AddArgument($deadline)
     @{ P = $ps; H = $ps.BeginInvoke() }
 }
 $done = 0; $tsv = 0; $chars = 0L
