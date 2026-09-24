@@ -1,5 +1,5 @@
 ﻿# 検索用のまとめファイル（pack_format.ps1）の読み書き（状態層）。
-# まとめファイルは work\index の中のフォルダごとに 1 つ（本文.tsv）。UTF-16LE（BOM 付き）で書く
+# まとめファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに 1 つ（本文.xlsx.tsv など）。UTF-16LE（BOM 付き）で書く
 # （UTF-8 より文字列への変換が速い。日本語が多いと大きさはほとんど変わらない）。
 
 function writePackFile {
@@ -71,8 +71,8 @@ function getIndexFolderBooks {
 
 
 function convertIndexFolderToPack {
-    # 今の形式のインデックスのフォルダ 1 つを、まとめファイル（destFolder\本文.tsv）に変換する。
-    # 元のファイルが無いフォルダは作らない。@{ Books; Tsv; Chars } を返す
+    # 今の形式のインデックスのフォルダ 1 つを、拡張子ごとのまとめファイル（destFolder\本文.xlsx.tsv など）に変換する。
+    # 元のファイルが無くなった拡張子のまとめファイルは消す。元のファイルが無いフォルダは作らない。@{ Books; Tsv; Chars; Files } を返す
     param (
         [string]$folder,
         [string]$destFolder
@@ -86,18 +86,32 @@ function convertIndexFolderToPack {
             $tsvCount++
         }
     }
-    if ($books.Count -eq 0) {
-        return @{ Books = 0; Tsv = 0; Chars = 0 }
+    $longDest = toLongPath $destFolder
+    $written = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $chars = 0L
+    if ($books.Count -gt 0) {
+        [void][System.IO.Directory]::CreateDirectory($longDest)
+        $groups = splitPackBooksByExtension $books
+        foreach ($extension in $groups.Keys) {
+            $name = getPackFileName $extension
+            $text = convertToPackText $groups[$extension]
+            writePackFile (Join-Path $destFolder $name) $text
+            [void]$written.Add($name)
+            $chars += $text.Length
+        }
     }
-    $text = convertToPackText $books
-    [void][System.IO.Directory]::CreateDirectory((toLongPath $destFolder))
-    writePackFile (Join-Path $destFolder ${packFileName}) $text
-    return @{ Books = $books.Count; Tsv = $tsvCount; Chars = $text.Length }
+    if ([System.IO.Directory]::Exists($longDest)) {
+        foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${packFilePattern})) {
+            if (!$written.Contains([System.IO.Path]::GetFileName($old))) {
+                [System.IO.File]::Delete($old)
+            }
+        }
+    }
+    return @{ Books = $books.Count; Tsv = $tsvCount; Chars = $chars; Files = $written.Count }
 }
 
-
 function getPackFiles {
-    # インデックスのフォルダ以下のまとめファイルを列挙し、フォルダの順に並べて返す。
+    # インデックスのフォルダ以下のまとめファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べて返す。
     #   root   : インデックスのフォルダ（相対パスの基準）
     #   relPath: その中のフォルダ（空は root 自身）
     #   recurse: $false なら、そのフォルダのまとめファイルだけ
@@ -116,7 +130,7 @@ function getPackFiles {
         return , @()
     }
     $option = if ($recurse) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
-    $found = [System.IO.DirectoryInfo]::new($longDir).GetFiles(${packFileName}, $option)
+    $found = [System.IO.DirectoryInfo]::new($longDir).GetFiles(${packFilePattern}, $option)
     $plainDir = fromLongPath $longDir
     $list = New-Object System.Collections.Generic.List[hashtable]
     foreach ($file in $found) {
@@ -128,9 +142,7 @@ function getPackFiles {
             Ticks = $file.LastWriteTimeUtc.Ticks; Size = $file.Length
         })
     }
-    # フォルダの順（現在のカルチャ・大文字と小文字を区別しない）
-    $keys = [string[]]@($list | ForEach-Object { $_.RelDir })
-    $items = $list.ToArray()
-    [System.Array]::Sort($keys, $items, [System.StringComparer]::CurrentCultureIgnoreCase)
+    # フォルダの順、フォルダの中はまとめファイルの名前の順（現在のカルチャ・大文字と小文字を区別しない）
+    $items = [hashtable[]]@($list | Sort-Object @{ Expression = { $_.RelDir } }, @{ Expression = { [System.IO.Path]::GetFileName($_.RelPath) } })
     return , $items
 }

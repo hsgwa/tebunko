@@ -1,4 +1,4 @@
-﻿# 今の形式のインデックス（場所ごとの TSV）を、検索用のまとめファイル（フォルダごとの 本文.tsv）に変換する（PoC 用）。
+﻿# 今の形式のインデックス（場所ごとの TSV）を、検索用のまとめファイル（フォルダごと・拡張子ごとの 本文.xlsx.tsv など）に変換する（PoC 用）。
 # 元のインデックスは読むだけで書き換えない。変換先に同じフォルダのまとめファイルがあれば飛ばすため、止めても続きから変換できる。
 #
 #   .\tools\convert_to_pack.ps1 -Source <元の index フォルダ> -Dest <変換先の index フォルダ>
@@ -33,7 +33,8 @@ foreach ($dir in @($Source) + @([System.IO.Directory]::GetDirectories((toLongPat
 $todo = @($folders | Where-Object {
     $rel = if ($_.Length -gt $Source.Length) { $_.Substring($Source.Length + 1) } else { "" }
     $target = if ($rel) { "$Dest\$rel" } else { $Dest }
-    ![System.IO.File]::Exists((toLongPath "$target\${packFileName}"))
+    $longTarget = toLongPath $target
+    !([System.IO.Directory]::Exists($longTarget) -and [System.IO.Directory]::GetFiles($longTarget, ${packFilePattern}).Count -gt 0)
 })
 Write-Host ("フォルダ {0:N0} 件（うち変換済み {1:N0} 件）。列挙 {2:N1} 秒" -f $folders.Count, ($folders.Count - $todo.Count), $watch.Elapsed.TotalSeconds)
 

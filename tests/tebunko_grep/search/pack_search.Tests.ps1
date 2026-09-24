@@ -25,10 +25,19 @@ Describe "まとめファイルの検索" -Tag Io {
     $tsvFiles = (getIndexTsvFiles @($tsvRoot)).Files
     $packs = getPackFiles $packRoot
 
-    It "フォルダごとに 1 つのまとめファイルを作る" {
-        $packs.Count | Should Be 2
-        $packs[0].RelDir | Should Be "営業"
-        $packs[1].RelDir | Should Be "営業\2025"
+    It "フォルダごと・拡張子ごとにまとめファイルを作り、フォルダの順・名前の順に並べる" {
+        $packs.Count | Should Be 3
+        $packs[0].RelPath | Should Be "営業\本文.docx.tsv"
+        $packs[1].RelPath | Should Be "営業\本文.xlsx.tsv"
+        $packs[2].RelPath | Should Be "営業\2025\本文.pptx.tsv"
+    }
+
+    It "元のファイルが無くなった拡張子のまとめファイルは、変換し直すときに消す" {
+        $dest = Join-Path $TestDrive "reconvert"
+        newTsv "$dest\本文.pptx.tsv" @("古い")
+        $result = convertIndexFolderToPack $idx $dest
+        $result.Files | Should Be 2
+        @([System.IO.Directory]::GetFiles($dest) | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object) -join "," | Should Be "本文.docx.tsv,本文.xlsx.tsv"
     }
 
     It "まとめファイルは UTF-16LE（BOM 付き）で、一時ファイルを残さない" {
@@ -76,7 +85,7 @@ Describe "まとめファイルの検索" -Tag Io {
     It "キャッシュを使っても結果が同じで、2 回目はファイルを読まない" {
         $cache = newTsvTextCache
         $first = toKeys (searchPackIndex "単価" $packs $true -cache $cache).Hits
-        $cache.Texts.Count | Should Be 2
+        $cache.Texts.Count | Should Be 3
         # ファイルを消しても、更新日時・大きさが同じ（列挙したときの値）ならキャッシュから探せる
         $second = toKeys (searchPackIndex "単価" $packs $true -cache $cache).Hits
         $second -join "`n" | Should BeExactly ($first -join "`n")
@@ -85,14 +94,14 @@ Describe "まとめファイルの検索" -Tag Io {
     It "並列でも 1 スレッドと同じ結果を同じ順で返す" {
         $single = toKeys (searchPackIndex "単価" $packs $true -workerCount 1).Hits
         $tasks = splitPackTasks $packs 1
-        $tasks.Count | Should Be 2
+        $tasks.Count | Should Be 3
         # 1 バイトごとに分けて、2 つのスレッドで探す
         $parallel = toKeys (searchPackIndex "単価" $packs $true -workerCount 2 -taskBytes 1).Hits
         $parallel -join "`n" | Should BeExactly ($single -join "`n")
     }
 
     It "フォルダの一部・直下だけ・無いフォルダを列挙できる。元のファイルが無いフォルダは作らない" {
-        (getPackFiles $packRoot "営業" $false).Count | Should Be 1
+        (getPackFiles $packRoot "営業" $false).Count | Should Be 2
         (getPackFiles $packRoot "営業\2025" $true).Count | Should Be 1
         (getPackFiles $packRoot "無いフォルダ").Count | Should Be 0
         $empty = Join-Path $TestDrive "empty"
@@ -107,7 +116,7 @@ Describe "まとめファイルの検索" -Tag Io {
         $chars = $cache.Chars[0]
         $changed = @($packs | ForEach-Object { $copy = $_.Clone(); $copy.Ticks = $_.Ticks + 1; $copy })
         (toKeys (searchPackIndex "単価" $changed $true -cache $cache).Hits).Count | Should Be 7
-        $cache.Texts.Count | Should Be 2
+        $cache.Texts.Count | Should Be 3
         $cache.Chars[0] | Should Be $chars
         $cache.Texts[$packs[0].Path][0] | Should Be ($packs[0].Ticks + 1)
     }
@@ -152,7 +161,7 @@ Describe "まとめファイルの検索" -Tag Io {
     }
 
     It "書き直すと中身が置き換わる" {
-        $path = Join-Path $TestDrive "rewrite\${packFileName}"
+        $path = Join-Path $TestDrive "rewrite\$(getPackFileName "xlsx")"
         [void][System.IO.Directory]::CreateDirectory((Split-Path $path))
         writePackFile $path "a"
         writePackFile $path "b"

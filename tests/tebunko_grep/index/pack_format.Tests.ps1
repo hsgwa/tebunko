@@ -40,6 +40,20 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
     }
 }
 
+Describe "getPackFileName / splitPackBooksByExtension" -Tag Unit {
+    It "まとめファイルの名前に元のファイルの拡張子（小文字）を入れる" {
+        getPackExtension "見積.XLSX" | Should Be "xlsx"
+        getPackFileName (getPackExtension "議事録.docx") | Should Be "本文.docx.tsv"
+    }
+
+    It "元のファイルを拡張子ごとに分け、それぞれの中の順は変えない" {
+        $books = @(@{ Name = "a.xlsx" }, @{ Name = "b.docx" }, @{ Name = "c.XLSX" }, @{ Name = "d.xlsm" })
+        $groups = splitPackBooksByExtension $books
+        @($groups.Keys) -join "," | Should Be "xlsx,docx,xlsm"
+        @($groups["xlsx"] | ForEach-Object { $_.Name }) -join "," | Should Be "a.xlsx,c.XLSX"
+    }
+}
+
 Describe "encodePackValue / decodePackValue" -Tag Unit {
     It "改行・制御文字・% を符号化し、タブはそのまま残して戻せる" {
         $value = "50%引き`n2行目`t" + [char]0x1E

@@ -1,4 +1,4 @@
-﻿# 検索用のまとめファイル（フォルダ 1 つに 1 つ。本文.tsv）の形式（判断層）。
+﻿# 検索用のまとめファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つ。本文.xlsx.tsv など）の形式（判断層）。
 # ファイル（元のファイル）ごと・場所（シート・ページ・スライドなど）ごとに、メタ情報の行と今の TSV の中身を並べる。
 #
 #   ␞ 版=1
@@ -14,7 +14,8 @@
 # ・改行は LF にそろえる。行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR）にし、行番号を変えない
 # ・文字コードは UTF-16LE（BOM 付き。pack_store.ps1 が読み書きする）
 
-${packFileName} = "本文.tsv"
+# まとめファイルの名前は「本文.<元のファイルの拡張子（小文字）>.tsv」。_ は使わない（以前の形式 <ブック>_<場所>.tsv と区別するため）
+${packFilePattern} = "本文.*.tsv"
 ${packVersion} = 1
 ${packMark} = [char]0x1E
 
@@ -32,6 +33,43 @@ function getPackFileKind {
     if ($book -match '\.doc[a-z]?$') { return "Word" }
     if ($book -match '\.ppt[a-z]?$') { return "PowerPoint" }
     return ""
+}
+
+function getPackExtension {
+    # 元のファイル名から、まとめファイルを分ける拡張子（小文字・先頭の . なし）を返す
+    param (
+        [string]$book
+    )
+
+    return [System.IO.Path]::GetExtension($book).TrimStart(".").ToLowerInvariant()
+}
+
+
+function getPackFileName {
+    # 拡張子のまとめファイルの名前（本文.xlsx.tsv など）を返す
+    param (
+        [string]$extension
+    )
+
+    return "本文.{0}.tsv" -f $extension
+}
+
+
+function splitPackBooksByExtension {
+    # 元のファイルの並びを、拡張子ごとの並び（[ordered] 拡張子 → 並び。拡張子は現れた順）に分ける。各並びの中の順は変えない
+    param (
+        $books
+    )
+
+    $groups = [ordered]@{}
+    foreach ($book in $books) {
+        $extension = getPackExtension ([string]$book.Name)
+        if (!$groups.Contains($extension)) {
+            $groups[$extension] = New-Object System.Collections.Generic.List[object]
+        }
+        $groups[$extension].Add($book)
+    }
+    return $groups
 }
 
 
