@@ -106,6 +106,7 @@
       <TextBlock x:Name="WordNotice" Style="{StaticResource WarnText}" Visibility="Collapsed" />
       <DockPanel>
         <Button x:Name="GoIndexTabButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="インデックスを作成する" Margin="12,0,0,0" Visibility="Collapsed" />
+        <TextBlock x:Name="FastSearchText" DockPanel.Dock="Right" Style="{StaticResource Micro}" Margin="12,0,0,0" ToolTip="Windows Search で、検索語を含みうるフォルダを先に絞ります。正規表現・1 文字のワード・Windows Search が使えないときは、すべてを検索します" />
         <TextBlock x:Name="SearchTargetText" Style="{StaticResource Micro}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
       </DockPanel>
     </StackPanel>

@@ -11,14 +11,27 @@ $script:sourceFolderMaps = @{}  # インデックスのフォルダ → イン�
 $script:filterText = ""
 # 検索で読んだ TSV の内容（画面を閉じるまで残し、次の検索では更新の無い TSV をファイルから読まない）
 $script:tsvCache = newTsvTextCache
+# Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
+$script:fastAvailable = $null
 
 # 別スレッドで実行する検索（結果は $shared.Queue に少しずつ入れる）
 ${searchScript} = {
     param ($libPath, $word, $simpleMatch, $folders, $limit, $shared, $cache)
     try {
         . $libPath
-        # TSV が多いと数え上げだけで数秒かかるため、途中の件数を画面に伝える（止まって見えないように）
-        $index = getIndexTsvFiles $folders { param ($count) $shared.Scanned = $count }
+        # 高速検索が使えるなら、Windows Search で検索語を含みうるフォルダを先に絞る（使えなければ $null で、すべてを集める）
+        $index = $null
+        if ($shared.UseFast) {
+            $shared.FastAvailable = testWindowsSearch
+            if ($shared.FastAvailable) {
+                $index = getFastSearchTsvFiles $word $folders -onProgress { param ($count) $shared.Scanned = $count }
+            }
+        }
+        $shared.FastUsed = ($null -ne $index)
+        if ($null -eq $index) {
+            # TSV が多いと数え上げだけで数秒かかるため、途中の件数を画面に伝える（止まって見えないように）
+            $index = getIndexTsvFiles $folders { param ($count) $shared.Scanned = $count }
+        }
         $shared.Folders = $index.Folders
         $shared.Total = $index.Files.Count
         $shared.IndexTotal = $index.Files.Count
@@ -70,7 +83,26 @@ function setSearchOptionToUi {
     $ui.CommentCheck.IsChecked = [bool]$option.IncludeComments
 }
 
+function updateFastSearchView {
+    # 高速検索の使用可否（ワード・［正規表現を使う］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）
+    $ui.FastSearchText.Text = (getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)).Text
+}
+
+function checkFastSearchAvailable {
+    # Windows Search が使えるか（system_index が索引の対象か）を別スレッドで確かめる（画面を固めないように）
+    startJob {
+        param ($libPath)
+        . $libPath
+        testWindowsSearch
+    } @(${libPath}) {
+        param ($output, $errorText)
+        $script:fastAvailable = if ($errorText -or $output.Count -eq 0) { $false } else { [bool]$output[0] }
+        updateFastSearchView
+    }
+}
+
 function updateWordNotice {
+    updateFastSearchView
     $notice = getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
     if ($notice -ne "") {
         $ui.WordNotice.Text = $notice
@@ -143,6 +175,7 @@ function startSearch {
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Folders = $null; Scanned = 0
         Truncated = $false; Cancelled = $false; Error = $null
+        UseFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable; FastUsed = $false; FastAvailable = $null
         CaseSensitive = $option.CaseSensitive; FileFilter = $option.FileFilter
         IncludeShapes = $option.IncludeShapes; IncludeComments = $option.IncludeComments
     })
@@ -209,7 +242,7 @@ function pumpSearch {
         $taskbar.ProgressState = "Normal"
         $taskbar.ProgressValue = $ratio
         if (!$shared.Stop) {
-            $ui.SummaryText.Text = "検索中… $($shared.Done.ToString('N0')) / $($shared.Total.ToString('N0')) ファイル（$($script:hitCount.ToString('N0')) 件）"
+            $ui.SummaryText.Text = getSearchProgressText $script:hitCount
         }
     } elseif ($shared.Total -lt 0 -and !$shared.Stop) {
         # 数え上げの途中。件数が増えていくのが見えれば、止まっていないことが分かる
@@ -252,10 +285,15 @@ function finishSearch {
 
     $count = $script:hitCount
     $files = $script:fileGroups
+    if ($null -ne $shared.FastAvailable) {
+        $script:fastAvailable = [bool]$shared.FastAvailable
+        updateFastSearchView
+    }
 
-    if ($shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
+    # 高速検索では、候補の無いフォルダの TSV を集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
+    if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "対象ファイル（$($s.Option.FileFilter)）に一致するファイルがありません。"
-    } elseif ($shared.Total -eq 0) {
+    } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "検索対象の TSV がありません。先にインデックスを作成してください。"
     } elseif ($count -eq 0) {
         $text = "見つかりませんでした。"
@@ -266,7 +304,7 @@ function finishSearch {
         }
         $ui.SummaryText.Text = $text
     } else {
-        $ui.SummaryText.Text = "$($count.ToString('N0')) 件（$($files.Count.ToString('N0')) ファイル） ・ $($seconds.ToString('0.0')) 秒"
+        $ui.SummaryText.Text = getSearchSummaryText $count $files.Count $seconds
     }
 
     $status = "検索しました（$($s.Word)：$($count.ToString('N0')) 件）"

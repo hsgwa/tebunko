@@ -271,18 +271,18 @@ function setWindowsIndexResults {
 }
 
 function markWindowsIndexChanged {
-    # TSV を入れ替えたフォルダを「反映待ち（日時は今）」にする（txt を作り直すまで、そのフォルダは .NET で照合させる）。
-    # 今の日時は、前の txt の更新日時と一致しないため、Windows Search が前の txt を索引していても反映済みにならない
+    # TSV を入れ替えたフォルダを「反映待ち（日時は 0）」にする（txt を作り直すまで、そのフォルダは .NET で照合させる）。
+    # 0 は txt の更新日時とも Windows Search の DateModified とも一致しないため、前の txt が索引されていても反映済みにならない
+    # （今の日時にすると、txt を書いたのと同じ秒の中では一致して、反映済みと取り違える）
     param (
         [string[]]$rels,
         [string]$path = ${windowsIndexStateFile}
     )
 
-    $now = [datetime]::UtcNow.Ticks
     return updateWindowsIndexState {
         param ($state)
         foreach ($rel in $rels) {
-            $state.Pending["$rel\${windowsIndexFileName}"] = $now
+            $state.Pending["$rel\${windowsIndexFileName}"] = 0
         }
     } $path
 }

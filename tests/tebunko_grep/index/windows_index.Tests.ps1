@@ -143,11 +143,10 @@ Describe "setWindowsIndexResults / markWindowsIndexChanged / removeWindowsIndexE
         $state.Excluded.Contains("営業\c") | Should Be $true
     }
 
-    It "TSV を入れ替えたフォルダを、今の日時で反映待ちにする" {
+    It "TSV を入れ替えたフォルダを、日時 0 で反映待ちにする" {
         $path = "$TestDrive\mark.tsv"
-        $before = [datetime]::UtcNow.Ticks
         markWindowsIndexChanged @("営業\a") $path | Should Be $true
-        (readWindowsIndexState $path).Pending["営業\a\Windowsインデックス.txt"] -ge $before | Should Be $true
+        (readWindowsIndexState $path).Pending["営業\a\Windowsインデックス.txt"] | Should Be 0
     }
 
     It "フォルダとその中の行、インデックスの対応済みを消す" {

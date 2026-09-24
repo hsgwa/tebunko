@@ -121,6 +121,15 @@ Describe "convertFolderRoot / convertItemUrl / convertToScopeUrl" -Tag Unit {
     }
 }
 
+Describe "getRelativePath" -Tag Unit {
+    It "root からの相対パス。外・root そのものは null" {
+        getRelativePath "C:\ws\system_index\営業\a" "C:\ws\system_index\" | Should Be "営業\a"
+        getRelativePath "C:\WS\SYSTEM_INDEX\営業" "C:\ws\system_index" | Should Be "営業"
+        getRelativePath "C:\ws\system_index" "C:\ws\system_index" | Should Be $null
+        getRelativePath "C:\ws\index\営業" "C:\ws\system_index" | Should Be $null
+    }
+}
+
 Describe "問い合わせ" -Tag Unit {
     It "候補・分けた txt・反映の判定の問い合わせを組み立てる" {
         $sql = newWindowsIndexQuery "C:\ws\system_index\営業" @("x61006200", "x62006300")

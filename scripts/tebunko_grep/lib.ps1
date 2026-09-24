@@ -12,5 +12,6 @@
 . "$PSScriptRoot\search\search_query.ps1"
 . "$PSScriptRoot\search\search_gram.ps1"
 . "$PSScriptRoot\search\windows_search.ps1"
+. "$PSScriptRoot\search\fast_search.ps1"
 . "$PSScriptRoot\search\search_run.ps1"
 . "$PSScriptRoot\search\source_map.ps1"

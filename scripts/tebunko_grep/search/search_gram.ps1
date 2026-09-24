@@ -168,6 +168,20 @@ function convertFolderRoot {
     return $null
 }
 
+function getRelativePath {
+    # root からの相対パス（root の外・root そのものは $null）
+    param (
+        [string]$path,
+        [string]$root
+    )
+
+    $base = $root.TrimEnd("\")
+    if ($path.StartsWith("$base\", [System.StringComparison]::OrdinalIgnoreCase) -and $path.Length -gt $base.Length + 1) {
+        return $path.Substring($base.Length + 1)
+    }
+    return $null
+}
+
 function convertItemUrl {
     # Windows Search の System.ItemUrl（file:C:/…）をパスにする。% は符号化されていないため URL として戻さない
     param (
