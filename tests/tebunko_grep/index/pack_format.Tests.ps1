@@ -108,6 +108,15 @@ Describe "convertToPackText / readPackPlaces" -Tag Unit {
         $places[3].End - $places[3].Start | Should Be 0
     }
 
+    It "元のファイルごとのまとまりに分け、そのまま並べ直すと元に戻る" {
+        $blocks = splitPackTextByBook $text
+        @($blocks | ForEach-Object { $_.Name }) -join "," | Should Be "見積.xlsx,議事録.docx"
+        $blocks[0].Block.StartsWith([string][char]0x1E + " ファイル名=見積.xlsx`n") | Should Be $true
+        convertToPackText $blocks | Should BeExactly $text
+        (splitPackTextByBook "").Count | Should Be 0
+        { splitPackTextByBook ([string][char]0x1E + " 版=2`n") } | Should Throw
+    }
+
     It "版が違う・無いときは例外にする" {
         { readPackPlaces ([string][char]0x1E + " 版=2`n") } | Should Throw
         { readPackPlaces ([string][char]0x1E + " ファイル名=a.xlsx`n") } | Should Throw

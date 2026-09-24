@@ -204,7 +204,9 @@ function convertToPackBody {
 
 function convertToPackText {
     # フォルダ直下の元のファイルの中身から、まとめファイルの文字列を作る。
-    #   books: @{ Name（元のファイル名）; Places（@{ Place（今の場所の名前）; Text（TSV の中身） } の並び） } の並び（この順に書く）
+    #   books: 次のどちらかの並び（この順に書く）
+    #     @{ Name（元のファイル名）; Places（@{ Place（今の場所の名前）; Text（TSV の中身） } の並び） } … TSV から新しく作る
+    #     @{ Name; Block（splitPackTextByBook で取り出した、そのファイルのまとまり） }       … 前のまとめファイルからそのまま写す
     param (
         $books
     )
@@ -213,6 +215,10 @@ function convertToPackText {
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.Append("$mark 版=${packVersion}`n")
     foreach ($book in $books) {
+        if ($null -ne $book.Block) {
+            [void]$sb.Append([string]$book.Block)
+            continue
+        }
         $name = [string]$book.Name
         [void]$sb.Append("$mark ファイル名=").Append((encodePackValue $name)).Append("`n")
         $kind = getPackFileKind $name
@@ -288,4 +294,35 @@ function readPackPlaces {
         throw "まとめファイルの版がありません"
     }
     return , $places
+}
+
+
+function splitPackTextByBook {
+    # まとめファイルの文字列を、元のファイルごとのまとまり（@{ Name; Block }。Block は「ファイル名=」の行から次の「ファイル名=」の行の前まで）
+    # に分けて先頭から順に返す（元のファイルを入れ替えるとき、変わらないファイルをそのまま写すため）。版が違えば例外にする
+    param (
+        [string]$text
+    )
+
+    $books = New-Object System.Collections.Generic.List[hashtable]
+    if ($text.Length -eq 0) {
+        return , $books
+    }
+    $head = "$([string]${packMark}) ファイル名="
+    $versionLine = "$([string]${packMark}) 版="
+    $firstEnd = $text.IndexOf([char]10)
+    if (!$text.StartsWith($versionLine, [System.StringComparison]::Ordinal) -or $firstEnd -lt 0 -or $text.Substring($versionLine.Length, $firstEnd - $versionLine.Length) -ne [string]${packVersion}) {
+        throw "まとめファイルの版が違います"
+    }
+    $pos = $text.IndexOf("`n$head", [System.StringComparison]::Ordinal)
+    while ($pos -ge 0) {
+        $start = $pos + 1
+        $lineEnd = $text.IndexOf([char]10, $start)
+        $name = decodePackValue $text.Substring($start + $head.Length, $lineEnd - $start - $head.Length)
+        $next = $text.IndexOf("`n$head", $lineEnd, [System.StringComparison]::Ordinal)
+        $end = if ($next -ge 0) { $next + 1 } else { $text.Length }
+        $books.Add(@{ Name = $name; Block = $text.Substring($start, $end - $start) })
+        $pos = $next
+    }
+    return , $books
 }

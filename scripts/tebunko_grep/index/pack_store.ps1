@@ -71,11 +71,19 @@ function getIndexFolderBooks {
 
 
 function convertIndexFolderToPack {
-    # 今の形式のインデックスのフォルダ 1 つを、拡張子ごとのまとめファイル（destFolder\本文.xlsx.tsv など）に変換する。
-    # 元のファイルが無くなった拡張子のまとめファイルは消す。元のファイルが無いフォルダは作らない。@{ Books; Tsv; Chars; Files } を返す
+    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごとのまとめファイル
+    # （destFolder\本文.xlsx.tsv など）を書く。destFolder に前のまとめファイルがあれば、それとまぜる:
+    #   ・TSV のある元のファイルは、TSV の中身で入れ替える（追加・更新）
+    #   ・removeBooks に挙げた元のファイルは外す（元のファイルが無くなった）
+    #   ・それ以外の元のファイルは、前のまとめファイルからそのまま写す
+    # 元のファイルが無くなった拡張子のまとめファイルは消す。removeTsv なら、まとめファイルを書き終えた後に、
+    # 読み込んだ元のファイルのフォルダ（TSV）を消す（TSV は一時的な置き場で、残すとインデックスの容量が倍になるため）。
+    # 書き終える前に止まっても、TSV か前のまとめファイルのどちらかに中身が残る。@{ Books; Tsv; Chars; Files } を返す
     param (
         [string]$folder,
-        [string]$destFolder
+        [string]$destFolder,
+        [string[]]$removeBooks = @(),
+        [bool]$removeTsv = $false
     )
 
     $books = getIndexFolderBooks $folder
@@ -87,11 +95,27 @@ function convertIndexFolderToPack {
         }
     }
     $longDest = toLongPath $destFolder
+    # 前のまとめファイルから、入れ替えない元のファイルを取り出す
+    $replaced = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($book in $books) { [void]$replaced.Add($book.Name) }
+    foreach ($name in $removeBooks) { [void]$replaced.Add($name) }
+    $merged = New-Object System.Collections.Generic.List[object]
+    $merged.AddRange([object[]]@($books))
+    if ([System.IO.Directory]::Exists($longDest)) {
+        foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${packFilePattern})) {
+            foreach ($kept in (splitPackTextByBook (readPackText $old))) {
+                if (!$replaced.Contains($kept.Name)) { $merged.Add($kept) }
+            }
+        }
+    }
+    # 元のファイル名の順（現在のカルチャ・大文字と小文字を区別しない）
+    $sorted = @($merged | Sort-Object { [string]$_.Name })
+
     $written = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $chars = 0L
-    if ($books.Count -gt 0) {
+    if ($sorted.Count -gt 0) {
         [void][System.IO.Directory]::CreateDirectory($longDest)
-        $groups = splitPackBooksByExtension $books
+        $groups = splitPackBooksByExtension $sorted
         foreach ($extension in $groups.Keys) {
             $name = getPackFileName $extension
             $text = convertToPackText $groups[$extension]
@@ -107,7 +131,25 @@ function convertIndexFolderToPack {
             }
         }
     }
-    return @{ Books = $books.Count; Tsv = $tsvCount; Chars = $chars; Files = $written.Count }
+    if ($removeTsv) {
+        foreach ($book in $books) {
+            $bookDir = [System.IO.Path]::GetDirectoryName($book.Places[0].Path)
+            [System.IO.Directory]::Delete($bookDir, $true)
+        }
+    }
+    return @{ Books = $sorted.Count; Tsv = $tsvCount; Chars = $chars; Files = $written.Count }
+}
+
+
+function updateIndexFolderPack {
+    # インデックスのフォルダ 1 つで、置かれた TSV（追加・更新した元のファイル）をまとめファイルに入れ、TSV を消す。
+    # removeBooks に挙げた元のファイル（無くなったもの）はまとめファイルから外す
+    param (
+        [string]$folder,
+        [string[]]$removeBooks = @()
+    )
+
+    return convertIndexFolderToPack $folder $folder $removeBooks $true
 }
 
 function getPackFiles {

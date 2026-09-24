@@ -34,8 +34,9 @@ Describe "まとめファイルの検索" -Tag Io {
 
     It "元のファイルが無くなった拡張子のまとめファイルは、変換し直すときに消す" {
         $dest = Join-Path $TestDrive "reconvert"
-        newTsv "$dest\本文.pptx.tsv" @("古い")
-        $result = convertIndexFolderToPack $idx $dest
+        [void][System.IO.Directory]::CreateDirectory($dest)
+        writePackFile "$dest\本文.pptx.tsv" (convertToPackText @(@{ Name = "古い.pptx"; Places = @(@{ Place = "スライド001"; Text = "古い" }) }))
+        $result = convertIndexFolderToPack $idx $dest @("古い.pptx")
         $result.Files | Should Be 2
         @([System.IO.Directory]::GetFiles($dest) | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object) -join "," | Should Be "本文.docx.tsv,本文.xlsx.tsv"
     }
@@ -158,6 +159,28 @@ Describe "まとめファイルの検索" -Tag Io {
         $hits = searchPackFiles $slowPacks 0 1 $lineRegex -1 $textRegex "lines"
         $hits.Count | Should Be 1
         $hits[0].LineNumber | Should Be 3001
+    }
+
+    It "置かれた TSV をまとめファイルに入れて TSV を消し、変わらない元のファイルは前のまとめファイルから写す" {
+        $dir = Join-Path $TestDrive "inplace\営業"
+        newTsv "$dir\A.xlsx\$(toIndexFileName "S")" @("A の単価")
+        newTsv "$dir\B.xlsx\$(toIndexFileName "S")" @("B の古い単価")
+        (updateIndexFolderPack $dir).Books | Should Be 2
+        @([System.IO.Directory]::GetDirectories($dir)).Count | Should Be 0
+        # B を更新し、C（Word）を足す。A の TSV はもう無い
+        newTsv "$dir\B.xlsx\$(toIndexFileName "S")" @("B の新しい単価")
+        newTsv "$dir\C.docx\$(toIndexFileName "ページ001")" @("C の単価")
+        $result = updateIndexFolderPack $dir
+        $result.Books | Should Be 3
+        $result.Tsv | Should Be 2
+        @([System.IO.Directory]::GetDirectories($dir)).Count | Should Be 0
+        $inPacks = getPackFiles (Join-Path $TestDrive "inplace")
+        @($inPacks | ForEach-Object { [System.IO.Path]::GetFileName($_.RelPath) }) -join "," | Should Be "本文.docx.tsv,本文.xlsx.tsv"
+        (toKeys (searchPackIndex "単価" $inPacks $true).Hits) -join "`n" | Should BeExactly ((
+            "営業|C.docx|ページ001|1|C の単価", "営業|A.xlsx|S|1|A の単価", "営業|B.xlsx|S|1|B の新しい単価") -join "`n")
+        # C が無くなったら外し、Word のまとめファイルを消す
+        (updateIndexFolderPack $dir @("C.docx")).Books | Should Be 2
+        @([System.IO.Directory]::GetFiles($dir) | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should Be "本文.xlsx.tsv"
     }
 
     It "書き直すと中身が置き換わる" {
