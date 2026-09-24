@@ -9,5 +9,6 @@
 . "$PSScriptRoot\indexer\indexer_state.ps1"
 . "$PSScriptRoot\indexer\indexer_decide.ps1"
 . "$PSScriptRoot\search\search_query.ps1"
+. "$PSScriptRoot\search\search_gram.ps1"
 . "$PSScriptRoot\search\search_run.ps1"
 . "$PSScriptRoot\search\source_map.ps1"
