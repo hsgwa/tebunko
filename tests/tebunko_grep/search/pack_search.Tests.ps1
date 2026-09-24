@@ -91,6 +91,66 @@ Describe "まとめファイルの検索" -Tag Io {
         $parallel -join "`n" | Should BeExactly ($single -join "`n")
     }
 
+    It "フォルダの一部・直下だけ・無いフォルダを列挙できる。元のファイルが無いフォルダは作らない" {
+        (getPackFiles $packRoot "営業" $false).Count | Should Be 1
+        (getPackFiles $packRoot "営業\2025" $true).Count | Should Be 1
+        (getPackFiles $packRoot "無いフォルダ").Count | Should Be 0
+        $empty = Join-Path $TestDrive "empty"
+        [void][System.IO.Directory]::CreateDirectory($empty)
+        (convertIndexFolderToPack $empty (Join-Path $TestDrive "empty_pack")).Books | Should Be 0
+        [System.IO.Directory]::Exists((Join-Path $TestDrive "empty_pack")) | Should Be $false
+    }
+
+    It "更新日時が変わったまとめファイルは読み直し、キャッシュの古い内容を置き換える" {
+        $cache = newTsvTextCache
+        [void](searchPackIndex "単価" $packs $true -cache $cache)
+        $chars = $cache.Chars[0]
+        $changed = @($packs | ForEach-Object { $copy = $_.Clone(); $copy.Ticks = $_.Ticks + 1; $copy })
+        (toKeys (searchPackIndex "単価" $changed $true -cache $cache).Hits).Count | Should Be 7
+        $cache.Texts.Count | Should Be 2
+        $cache.Chars[0] | Should Be $chars
+        $cache.Texts[$packs[0].Path][0] | Should Be ($packs[0].Ticks + 1)
+    }
+
+    It "中止を求められたら止める" {
+        $result = searchPackIndex "単価" $packs $true -shouldStop { $true }
+        $result.Cancelled | Should Be $true
+        $result.Hits.Count | Should Be 0
+    }
+
+    It "並列でも上限で打ち切り、残りの検索を止める" {
+        $result = searchPackIndex "単価" $packs $true 1 -workerCount 2 -taskBytes 1
+        $result.Hits.Count | Should Be 1
+        $result.Truncated | Should Be $true
+    }
+
+    It "1 行ずつ照合する検索語でも上限で打ち切る" {
+        $result = searchPackIndex "(?!予備)単価" $packs $false 2
+        $result.Hits.Count | Should Be 2
+        $result.Truncated | Should Be $true
+    }
+
+    It "照合のしかたが無い（全文の正規表現を渡さない）ときは 1 行ずつ照合する" {
+        $hits = searchPackFiles $packs 0 $packs.Count ([regex]"単価") -1 $null "lines"
+        $expected = ((toKeys (searchPackIndex "単価" $packs $true).Hits) | Sort-Object) -join "`n"
+        ((toKeys $hits) | Sort-Object) -join "`n" | Should BeExactly $expected
+    }
+
+    It "全文への照合が時間切れになったファイルは、1 行ずつ照合し直す" {
+        # 1 行は短いため 1 行ずつなら速いが、全文には時間がかかる正規表現（全文の方だけ時間切れを短くする）
+        $slowRoot = Join-Path $TestDrive "slow"
+        newTsv "$slowRoot\idx\遅い.xlsx\$(toIndexFileName "S")" (@(1..3000 | ForEach-Object { "aaaaaaaaaaaaaaaaaaaaaa!" }) + @("aaab"))
+        convertIndexFolderToPack "$slowRoot\idx" "$slowRoot\pack\idx" | Out-Null
+        $slowPacks = getPackFiles "$slowRoot\pack"
+        $pattern = "^(a|aa)+b"
+        $options = [System.Text.RegularExpressions.RegexOptions]::None
+        $lineRegex = [regex]::new($pattern, $options, [timespan]::FromSeconds(5))
+        $textRegex = [regex]::new($pattern, $options -bor [System.Text.RegularExpressions.RegexOptions]::Multiline, [timespan]::FromMilliseconds(1))
+        $hits = searchPackFiles $slowPacks 0 1 $lineRegex -1 $textRegex "lines"
+        $hits.Count | Should Be 1
+        $hits[0].LineNumber | Should Be 3001
+    }
+
     It "書き直すと中身が置き換わる" {
         $path = Join-Path $TestDrive "rewrite\${packFileName}"
         [void][System.IO.Directory]::CreateDirectory((Split-Path $path))

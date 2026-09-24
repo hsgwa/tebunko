@@ -26,6 +26,13 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
         }
     }
 
+    It "種類の分からないファイルは、部分に場所の名前を持つ" {
+        getPackFileKind "メモ.txt" | Should Be ""
+        $meta = convertPlaceToPackMeta "メモ.txt" "本文[図形]"
+        (($meta.Keys | ForEach-Object { "$_=$($meta[$_])" }) -join "|") | Should Be "部分=本文|対象=図形"
+        convertPackMetaToPlace $meta | Should BeExactly "本文[図形]"
+    }
+
     It "組み立て直すと同じにならない名前は、部分にそのまま持つ" {
         $meta = convertPlaceToPackMeta "議事録.docx" "ページ1"
         $meta["部分"] | Should Be "ページ1"
@@ -87,7 +94,15 @@ Describe "convertToPackText / readPackPlaces" -Tag Unit {
         $places[3].End - $places[3].Start | Should Be 0
     }
 
-    It "版が違えば例外にする" {
+    It "版が違う・無いときは例外にする" {
         { readPackPlaces ([string][char]0x1E + " 版=2`n") } | Should Throw
+        { readPackPlaces ([string][char]0x1E + " ファイル名=a.xlsx`n") } | Should Throw
+    }
+
+    It "末尾に改行が無くても、最後のメタ情報の行まで読む" {
+        $mark = [string][char]0x1E
+        $places = readPackPlaces "$mark 版=1`n$mark ファイル名=a.xlsx`n$mark シート=S`n$mark 対象=図形"
+        $places.Count | Should Be 1
+        $places[0].Location | Should Be "S[図形]"
     }
 }

@@ -33,11 +33,13 @@ function searchPackFiles {
         $pack = $packs[$i]
         $text = $null
         $places = $null
+        $cached = $false
         if ($null -ne $cache) {
             $entry = $null
             if ($cache.Texts.TryGetValue($pack.Path, [ref]$entry) -and $entry[0] -eq $pack.Ticks -and $entry[1] -eq $pack.Size) {
                 $text = $entry[2]
                 $places = $entry[3]
+                $cached = $true
             }
         }
         if ($null -eq $text) {
@@ -51,12 +53,21 @@ function searchPackFiles {
                 continue
             }
         }
-        # 一致しなければ、場所の一覧も作らずに次へ（場所の一覧は、一致したときか、キャッシュに入れるときだけ作る）
-        $matched = ($mode -eq "scan") -or $textRegex.IsMatch($text)
+        # 一致しなければ、場所の一覧も作らずに次へ（場所の一覧は、一致したときか、キャッシュに入れるときだけ作る）。
+        # 全文への照合が時間切れなら、このファイルは 1 行ずつ照合する（searchTsvFiles と同じ）
+        $packMode = $mode
+        $matched = $true
+        if ($packMode -ne "scan") {
+            try {
+                $matched = $textRegex.IsMatch($text)
+            } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
+                $packMode = "scan"
+            }
+        }
         if ($null -eq $places -and ($matched -or $null -ne $cache)) {
             $places = readPackPlaces $text
         }
-        if ($null -ne $cache -and $null -ne $places) {
+        if ($null -ne $cache -and !$cached) {
             [System.Threading.Monitor]::Enter($cache)
             try {
                 $old = $null
@@ -74,7 +85,7 @@ function searchPackFiles {
         if (!$matched) { continue }
 
         $before = $hits.Count
-        $lineMode = $mode -eq "lines"
+        $lineMode = $packMode -eq "lines"
         if ($lineMode) {
             try {
                 $length = $text.Length
