@@ -1667,8 +1667,8 @@
 </tr>
 <tr>
 <td>入力</td>
-<td><code>work/system_index/**/Windowsインデックス*.txt</code>・<code>work/Windowsインデックスの状態.tsv</code></td>
-<td>高速検索に使う Windows インデックスとその状態（4.4。Windows Search に問い合わせる）</td>
+<td><code>work/system_index/**/システムインデックス*.txt</code>・<code>work/システムインデックスの状態.tsv</code></td>
+<td>高速検索に使う システムインデックスとその状態（4.4。Windows Search に問い合わせる）</td>
 </tr>
 <tr>
 <td>出力</td>
@@ -1905,7 +1905,7 @@
 </table>
 <h3 id="44-高速検索windows-search-で先に絞る">4.4 高速検索（Windows Search で先に絞る）<a class="headerlink" href="#44-高速検索windows-search-で先に絞る" title="Permanent link">&para;</a></h3>
 <p>インデックスが大きいと、すべての TSV を読んで照合するのに時間がかかる（1GB で 10 分前後かかった PC もある）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の TSV だけを 4.3 の方式で照合する（<code>tebunko_grep/search/fast_search.ps1</code> の <code>getFastSearchTsvFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての TSV を照合したときと同じ</strong>になる。</p>
-<p><strong>Windows インデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下の TSV と直下のブックのフォルダの TSV から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#68-windows-インデックスsystem_index">01_インデックス作成_7</a> 6.8）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
+<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下の TSV と直下のブックのフォルダの TSV から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#68-システムインデックスsystem_index">01_インデックス作成_7</a> 6.8）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
 <table>
 <thead>
 <tr>
@@ -1924,11 +1924,11 @@
 </tr>
 <tr>
 <td>候補</td>
-<td><code>CONTAINS(System.Search.Contents, '"x…" AND "x…"')</code> で、検索対象のフォルダの中の txt を探す。語の範囲で分けた txt（<code>Windowsインデックス_1.txt</code> …）は語ごとに問い合わせ、すべての語がどれかで見つかったフォルダを候補にする</td>
+<td><code>CONTAINS(System.Search.Contents, '"x…" AND "x…"')</code> で、検索対象のフォルダの中の txt を探す。語の範囲で分けた txt（<code>システムインデックス_1.txt</code> …）は語ごとに問い合わせ、すべての語がどれかで見つかったフォルダを候補にする</td>
 </tr>
 <tr>
 <td>反映の判定</td>
-<td>txt が Windows Search に反映済み ⇔ <code>System.Search.GatherTime</code> が空でない（本文を読み終えた）かつ <code>System.DateModified</code> が txt の更新日時（UTC）を秒で切り捨てた値と同じ（Windows Search は秒未満を切り捨てて持つ。<code>testWindowsIndexReflected</code>）</td>
+<td>txt が Windows Search に反映済み ⇔ <code>System.Search.GatherTime</code> が空でない（本文を読み終えた）かつ <code>System.DateModified</code> が txt の更新日時（UTC）を秒で切り捨てた値と同じ（Windows Search は秒未満を切り捨てて持つ。<code>testSystemIndexReflected</code>）</td>
 </tr>
 <tr>
 <td>照合するフォルダ</td>
@@ -1953,7 +1953,7 @@
     T --&gt; F["getIndexTsvFiles&lt;br&gt;そのフォルダの TSV"]
     ALL --&gt; R["searchIndex（4.3 と同じ）"]
     F --&gt; R</code></pre>
-<p><strong><code>work/index</code> を Windows Search の対象から外す（推奨）</strong>: TSV も索引の対象になっていると、Windows Search は TSV の処理に時間を取られ、Windows インデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（TSV は 4.3 の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/index</code> を外す（README の「高速検索」）。</p>
+<p><strong><code>work/index</code> を Windows Search の対象から外す（推奨）</strong>: TSV も索引の対象になっていると、Windows Search は TSV の処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（TSV は 4.3 の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/index</code> を外す（README の「高速検索」）。</p>
 <p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致）:</p>
 <table>
 <thead>
@@ -2173,7 +2173,7 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 </tr>
 <tr>
 <td>1-2</td>
-<td>初めて作った大きなインデックスは、Windows Search が Windows インデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。<code>work/index</code> を Windows Search の対象から外すと早く終わる（4.4）</td>
+<td>初めて作った大きなインデックスは、Windows Search が システムインデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。<code>work/index</code> を Windows Search の対象から外すと早く終わる（4.4）</td>
 <td>◎</td>
 </tr>
 <tr>

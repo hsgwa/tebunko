@@ -1915,7 +1915,7 @@
 </tr>
 <tr>
 <td>Windows Search</td>
-<td><strong>読み取りだけ</strong>。高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。Windows インデックスを作る間は、自分のプロセスの優先度を下げる（BelowNormal）</td>
+<td><strong>読み取りだけ</strong>。高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。システムインデックスを作る間は、自分のプロセスの優先度を下げる（BelowNormal）</td>
 <td><code>safety.Tests.ps1</code>「Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る」</td>
 <td><a href="#21-検査項目と結果">2.1</a></td>
 </tr>
@@ -2677,7 +2677,7 @@
 </tr>
 <tr>
 <td>コードカバレッジ</td>
-<td>96.6%（5,674/5,872 コマンド）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（96.5%）で、下回ると CI が失敗する</td>
+<td>96.5%（5,668/5,872 コマンド。CI の実測）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（96.5%）で、下回ると CI が失敗する</td>
 </tr>
 <tr>
 <td>規模</td>

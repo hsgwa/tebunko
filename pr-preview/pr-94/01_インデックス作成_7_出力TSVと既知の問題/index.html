@@ -875,10 +875,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#68-windows-インデックスsystem_index" class="md-nav__link">
+  <a href="#68-システムインデックスsystem_index" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.8 Windows インデックス（system_index）
+        6.8 システムインデックス（system_index）
       
     </span>
   </a>
@@ -1475,10 +1475,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#68-windows-インデックスsystem_index" class="md-nav__link">
+  <a href="#68-システムインデックスsystem_index" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6.8 Windows インデックス（system_index）
+        6.8 システムインデックス（system_index）
       
     </span>
   </a>
@@ -1816,11 +1816,11 @@
 <p><strong>6.6 PowerPoint のテキスト読み取りと TSV の場所（<code>readPptxUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#66-powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">01_インデックス作成_3_PowerPoint.md</a></p>
 <p><strong>6.7 Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_インデックス作成_1_Excel.md</a></p>
 </blockquote>
-<h3 id="68-windows-インデックスsystem_index">6.8 Windows インデックス（system_index）<a class="headerlink" href="#68-windows-インデックスsystem_index" title="Permanent link">&para;</a></h3>
-<p>高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）のため、インデックス作成は TSV とは別に、Windows Search に索引させる txt（Windows インデックス）を作る（<code>tebunko_grep/index/windows_index.ps1</code>。語の決まりは <code>tebunko_grep/search/search_gram.ps1</code>）。</p>
+<h3 id="68-システムインデックスsystem_index">6.8 システムインデックス（system_index）<a class="headerlink" href="#68-システムインデックスsystem_index" title="Permanent link">&para;</a></h3>
+<p>高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）のため、インデックス作成は TSV とは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko_grep/index/system_index.ps1</code>。語の決まりは <code>tebunko_grep/search/search_gram.ps1</code>）。</p>
 <div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名&gt;/&lt;場所&gt;.tsv        … 本文インデックス（6.1）
-work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/Windowsインデックス.txt … Windows インデックス
-work/Windowsインデックスの状態.tsv                                         … その状態
+work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/システムインデックス.txt … システムインデックス
+work/システムインデックスの状態.tsv                                         … その状態
 </code></pre></div>
 <table>
 <thead>
@@ -1844,7 +1844,7 @@ work/Windowsインデックスの状態.tsv                                     
 </tr>
 <tr>
 <td>大きいとき</td>
-<td>8MB を超える（語 1 つ 10 バイトで約 84 万語）と、語の値の範囲で <code>Windowsインデックス_1.txt</code>・<code>_2.txt</code> … に分ける（実測で 16MB までは末尾まで索引された）</td>
+<td>8MB を超える（語 1 つ 10 バイトで約 84 万語）と、語の値の範囲で <code>システムインデックス_1.txt</code>・<code>_2.txt</code> … に分ける（実測で 16MB までは末尾まで索引された）</td>
 </tr>
 <tr>
 <td>パスが長いとき</td>
@@ -1852,7 +1852,7 @@ work/Windowsインデックスの状態.tsv                                     
 </tr>
 <tr>
 <td>作る時機</td>
-<td>インデックス作成の終わりに、作り直しが要るフォルダ（txt が無い・TSV より新しい TSV がある・反映待ちの日時が txt と合わない・TSV が無くなった）をまとめて作る（<code>updateWindowsIndexes</code>）。取り込む対象が 0 件のときも作る。中止したとき・クロール対象フォルダが見えなくなったときは作らない</td>
+<td>インデックス作成の終わりに、作り直しが要るフォルダ（txt が無い・TSV より新しい TSV がある・反映待ちの日時が txt と合わない・TSV が無くなった）をまとめて作る（<code>updateSystemIndexes</code>）。取り込む対象が 0 件のときも作る。中止したとき・クロール対象フォルダが見えなくなったときは作らない</td>
 </tr>
 <tr>
 <td>負荷</td>
@@ -1868,7 +1868,7 @@ work/Windowsインデックスの状態.tsv                                     
 </tr>
 </tbody>
 </table>
-<p><strong>状態ファイル</strong>（<code>Windowsインデックスの状態.tsv</code>。BOM 付き UTF-8・CRLF。1 行 <code>種別&lt;TAB&gt;対象&lt;TAB&gt;値</code>、パスは <code>work/system_index</code> からの相対パス）:</p>
+<p><strong>状態ファイル</strong>（<code>システムインデックスの状態.tsv</code>。BOM 付き UTF-8・CRLF。1 行 <code>種別&lt;TAB&gt;対象&lt;TAB&gt;値</code>、パスは <code>work/system_index</code> からの相対パス）:</p>
 <table>
 <thead>
 <tr>
