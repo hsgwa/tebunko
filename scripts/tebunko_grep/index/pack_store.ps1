@@ -1,9 +1,9 @@
-﻿# 検索用のまとめファイル（pack_format.ps1）の読み書き（状態層）。
-# まとめファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに、大きさで分けて置く（content.xlsx.001.tsv など）。UTF-16LE（BOM 付き）で書く
+﻿# 検索用の集約ファイル（pack_format.ps1）の読み書き（状態層）。
+# 集約ファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに、大きさで分けて置く（content.xlsx.001.tsv など）。UTF-16LE（BOM 付き）で書く
 # （UTF-8 より文字列への変換が速い。日本語が多いと大きさはほとんど変わらない）。
 
 function writePackFile {
-    # まとめファイルを書く。一時ファイル（<名前>.tmp）に書き終えてから置き換えるため、途中で止まっても前のファイルが残る
+    # 集約ファイルを書く。一時ファイル（<名前>.tmp）に書き終えてから置き換えるため、途中で止まっても前のファイルが残る
     param (
         [string]$path,
         [string]$text
@@ -22,7 +22,7 @@ function writePackFile {
 
 
 function readPackText {
-    # まとめファイルを文字列で読む（インデックス作成中の置き換えと同時に読めるよう、共有モードは ReadWrite|Delete）
+    # 集約ファイルを文字列で読む（インデックス作成中の置き換えと同時に読めるよう、共有モードは ReadWrite|Delete）
     param (
         [string]$path
     )
@@ -39,12 +39,12 @@ function readPackText {
 
 
 function testIndexBookDir {
-    # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。まとめファイルに入れる前の TSV の置き場所）か。
+    # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。集約ファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
     #   ・名前が Office の拡張子で終わる（indexBookDirPattern）
-    #   ・サブフォルダもまとめファイル（content.<拡張子>.tsv）も無い
-    #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、まとめファイルに入れるものが無い）
-    # 読めないフォルダは $false（まとめファイルに入れる・消す対象にしない）
+    #   ・サブフォルダも集約ファイル（content.<拡張子>.tsv）も無い
+    #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、集約ファイルに入れるものが無い）
+    # 読めないフォルダは $false（集約ファイルに入れる・消す対象にしない）
     param (
         [string]$dir,
         [bool]$withTsv = $true
@@ -72,7 +72,7 @@ function testIndexBookDir {
 }
 
 function getIndexFolderBooks {
-    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、まとめファイルに入れる元のファイルの並びを作る。
+    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、集約ファイルに入れる元のファイルの並びを作る。
     # 並びは今の検索結果と同じ順（TSV のパスを現在のカルチャ・大文字と小文字を区別しない順に並べたもの）。
     # @{ Name; Places（@{ Place; Path } の並び） } の並びを返す
     param (
@@ -104,17 +104,17 @@ function getIndexFolderBooks {
 
 
 function convertIndexFolderToPack {
-    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごと・番号ごとのまとめファイル
-    # （destFolder\content.xlsx.001.tsv など）を書く。destFolder に前のまとめファイルがあれば、それとまぜる（planPackParts）:
-    #   ・TSV のある元のファイルは、TSV の中身で入れ替える（前のまとめファイルに無ければ、最後の番号のまとめファイルに足す。
-    #     packFileMaxBytes 以上なら次の番号のまとめファイルを作る）
+    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごと・番号ごとの集約ファイル
+    # （destFolder\content.xlsx.001.tsv など）を書く。destFolder に前の集約ファイルがあれば、それとまぜる（planPackParts）:
+    #   ・TSV のある元のファイルは、TSV の中身で入れ替える（前の集約ファイルに無ければ、最後の番号の集約ファイルに足す。
+    #     packFileMaxBytes 以上なら次の番号の集約ファイルを作る）
     #   ・removeBooks に挙げた元のファイルは外す（元のファイルが無くなった）
-    #   ・それ以外の元のファイルは、前のまとめファイルのまま。変わらないまとめファイルは書き直さない
-    # 元のファイルが無くなったまとめファイルは消す。removeTsv なら、まとめファイルを書き終えた後に、
+    #   ・それ以外の元のファイルは、前の集約ファイルのまま。変わらない集約ファイルは書き直さない
+    # 元のファイルが無くなった集約ファイルは消す。removeTsv なら、集約ファイルを書き終えた後に、
     # 読み込んだ元のファイルのフォルダ（TSV）を消す（TSV は一時的な置き場で、残すとインデックスの容量が倍になるため）。
-    # 書き終える前に止まっても、TSV か前のまとめファイルのどちらかに中身が残る。
-    # @{ Books; Tsv; Chars; Files（まとめファイルの数）; Written（書き直した数）;
-    #    Texts（そのフォルダのすべてのまとめファイルの中身。システムインデックスを読み直さずに作るため） } を返す
+    # 書き終える前に止まっても、TSV か前の集約ファイルのどちらかに中身が残る。
+    # @{ Books; Tsv; Chars; Files（集約ファイルの数）; Written（書き直した数）;
+    #    Texts（そのフォルダのすべての集約ファイルの中身。システムインデックスを読み直さずに作るため） } を返す
     param (
         [string]$folder,
         [string]$destFolder,
@@ -134,7 +134,7 @@ function convertIndexFolderToPack {
         $newBooks.Add(@{ Name = $book.Name; Block = (convertBookToPackBlock $book) })
     }
     $longDest = toLongPath $destFolder
-    # 前のまとめファイル（番号の付いた名前のもの）を読む
+    # 前の集約ファイル（番号の付いた名前のもの）を読む
     $parts = New-Object System.Collections.Generic.List[hashtable]
     $oldTexts = @{}
     if ([System.IO.Directory]::Exists($longDest)) {
@@ -181,8 +181,8 @@ function convertIndexFolderToPack {
 }
 
 function updateIndexFolderPack {
-    # インデックスのフォルダ 1 つで、置かれた TSV（追加・更新した元のファイル）をまとめファイルに入れ、TSV を消す。
-    # removeBooks に挙げた元のファイル（無くなったもの）はまとめファイルから外す
+    # インデックスのフォルダ 1 つで、置かれた TSV（追加・更新した元のファイル）を集約ファイルに入れ、TSV を消す。
+    # removeBooks に挙げた元のファイル（無くなったもの）は集約ファイルから外す
     param (
         [string]$folder,
         [string[]]$removeBooks = @()
@@ -192,10 +192,10 @@ function updateIndexFolderPack {
 }
 
 function getPackFiles {
-    # インデックスのフォルダ以下のまとめファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べて返す。
+    # インデックスのフォルダ以下の集約ファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べて返す。
     #   root   : インデックスのフォルダ（相対パスの基準）
     #   relPath: その中のフォルダ（空は root 自身）
-    #   recurse: $false なら、そのフォルダのまとめファイルだけ
+    #   recurse: $false なら、そのフォルダの集約ファイルだけ
     # 各要素は @{ Path（\\?\ 付き）; Root; RelDir（root からのフォルダ）; RelPath; Ticks; Size }
     param (
         [string]$root,
@@ -223,14 +223,14 @@ function getPackFiles {
             Ticks = $file.LastWriteTimeUtc.Ticks; Size = $file.Length
         })
     }
-    # フォルダの順、フォルダの中はまとめファイルの名前の順（現在のカルチャ・大文字と小文字を区別しない）
+    # フォルダの順、フォルダの中は集約ファイルの名前の順（現在のカルチャ・大文字と小文字を区別しない）
     $items = [hashtable[]]@($list | Sort-Object @{ Expression = { $_.RelDir } }, @{ Expression = { [System.IO.Path]::GetFileName($_.RelPath) } })
     return , $items
 }
 
 
 function findIndexFoldersWithBooks {
-    # インデックスのフォルダ以下で、元のファイルごとのフォルダ（<ファイル名.xlsx>。まとめファイルに入れる前の TSV）が
+    # インデックスのフォルダ以下で、元のファイルごとのフォルダ（<ファイル名.xlsx>。集約ファイルに入れる前の TSV）が
     # 直下にあるフォルダを返す（インデックス作成が途中で止まった・前の形式のインデックス）。root 自身も含む
     param (
         [string]$root
@@ -257,9 +257,9 @@ function findIndexFoldersWithBooks {
 
 function publishIndexFolders {
     # インデックス作成で TSV を置いた・元のファイルが無くなったフォルダを、まとめて書き出す。フォルダごとに次を続けて行う:
-    #   1. まとめファイルを書く（前のまとめファイルとまぜ、無くなった元のファイルは外す）
+    #   1. 集約ファイルを書く（前の集約ファイルとまぜ、無くなった元のファイルは外す）
     #   2. 元のファイルごとのフォルダの TSV を消す
-    #   3. 書いたまとめファイルの中身から、そのフォルダのシステムインデックスの txt を作る（読み直さない）
+    #   3. 書いた集約ファイルの中身から、そのフォルダのシステムインデックスの txt を作る（読み直さない）
     # txt の状態（反映待ち）はまとめて状態ファイルに書く。書き出したフォルダの数を返す。
     #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
     param (
@@ -285,9 +285,9 @@ function publishIndexFolders {
 
 
 function readPackContext {
-    # まとめファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
+    # 集約ファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
     # @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー。行の数え方は検索と同じ）。
-    # cache（検索のキャッシュ）に同じまとめファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空
+    # cache（検索のキャッシュ）に同じ集約ファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空
     param (
         [string]$path,
         [string]$book,

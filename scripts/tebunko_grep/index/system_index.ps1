@@ -1,10 +1,10 @@
 ﻿# システムインデックス（system_index の txt）と、その状態ファイル（システムインデックスの状態.tsv）の読み書き（状態層）。
 # txt は index の中のフォルダ 1 つにつき 1 つ（分けたときは複数）で、index と同じ相対パスの system_index の中に置く。
-# 中身は、そのフォルダ直下のまとめファイル（content.<拡張子>.tsv）と、インデックス作成の途中で残った、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
-# まとめファイルのメタ情報の行は除く（getPackContentText）。
+# 中身は、そのフォルダ直下の集約ファイル（content.<拡張子>.tsv）と、インデックス作成の途中で残った、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
+# 集約ファイルのメタ情報の行は除く（getPackContentText）。
 
 function getSystemIndexFolderTsvPaths {
-    # index の中のフォルダ 1 つの、システムインデックスの元になるファイル（直下のまとめファイル・TSV と、直下のブックのフォルダの中の TSV。\\?\ 付き）。
+    # index の中のフォルダ 1 つの、システムインデックスの元になるファイル（直下の集約ファイル・TSV と、直下のブックのフォルダの中の TSV。\\?\ 付き）。
     # 検索対象のツリーで「フォルダ直下のファイル」を選んだときと同じ範囲（getIndexPackFiles の Recurse = $false）
     param (
         [string]$folder
@@ -27,8 +27,8 @@ function getSystemIndexFolderTsvPaths {
 function writeSystemIndexFolder {
     # index の中のフォルダ 1 つについて、system_index の txt を作り直す。
     # @{ Rel（index からの相対パス）; Files（@{ Rel（system_index からの txt の相対パス）; Ticks（更新日時。UTC の Ticks） } の配列）;
-    #    Excluded（パスが長すぎて作らなかった） } を返す。まとめファイル・TSV が無くなったフォルダは txt を消して Files を空で返す
-    #   texts: そのフォルダのまとめファイルの中身（インデックス作成で書いたばかりのもの）。渡せばファイルを読み直さない
+    #    Excluded（パスが長すぎて作らなかった） } を返す。集約ファイル・TSV が無くなったフォルダは txt を消して Files を空で返す
+    #   texts: そのフォルダの集約ファイルの中身（インデックス作成で書いたばかりのもの）。渡せばファイルを読み直さない
     param (
         [string]$folder,
         [string]$indexRoot,
@@ -320,7 +320,7 @@ function getSystemIndexStaleFolders {
     }
     $rootLength = $indexRoot.TrimEnd("\").Length
     foreach ($longDir in [System.IO.Directory]::EnumerateDirectories($longRoot, "*", [System.IO.SearchOption]::AllDirectories)) {
-        # 元のファイルごとのフォルダ（まとめる前の TSV・中身が空のファイル）は、親のフォルダの txt に入る
+        # 元のファイルごとのフォルダ（集約する前の TSV・中身が空のファイル）は、親のフォルダの txt に入る
         if (testIndexBookDir $longDir $false) {
             continue
         }

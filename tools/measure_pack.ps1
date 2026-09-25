@@ -1,4 +1,4 @@
-﻿# まとめファイル（content.<拡張子>.tsv）の検索の速さを測る。結果には時間と件数だけを出す。
+﻿# 集約ファイル（content.<拡張子>.tsv）の検索の速さを測る。結果には時間と件数だけを出す。
 #
 #   .\tools\measure_pack.ps1 -IndexRoot <index のフォルダ> -Folders poc\部署0,poc\部署1 -Words 見積
 #   -Folders   … 測るフォルダ（index からの相対パス。省略するとすべて）
@@ -20,7 +20,7 @@ $report = New-Object System.Collections.Generic.List[string]
 function out([string]$text) { $report.Add($text); Write-Host $text }
 $mp = New-Object System.Diagnostics.PerformanceCounter "Process", "% Processor Time", "MsMpEng"
 
-out "# まとめファイルの計測 $((Get-Date).ToString('yyyy-MM-dd HH:mm'))"
+out "# 集約ファイルの計測 $((Get-Date).ToString('yyyy-MM-dd HH:mm'))"
 out ""
 out "## 1. 環境"
 $os = Get-CimInstance Win32_OperatingSystem
@@ -32,8 +32,8 @@ $packs = (getIndexPackFiles $targets).Packs
 $bytes = 0L; $maxBytes = 0L
 foreach ($p in $packs) { $bytes += $p.Size; $maxBytes = [Math]::Max($maxBytes, $p.Size) }
 out ""
-out "## 2. まとめファイル"
-out ("まとめファイル {0:N0} 件 / 合計 {1:N1} MB / 平均 {2:N2} MB / 最大 {3:N2} MB" -f $packs.Count, ($bytes / 1MB), ($bytes / [Math]::Max(1, $packs.Count) / 1MB), ($maxBytes / 1MB))
+out "## 2. 集約ファイル"
+out ("集約ファイル {0:N0} 件 / 合計 {1:N1} MB / 平均 {2:N2} MB / 最大 {3:N2} MB" -f $packs.Count, ($bytes / 1MB), ($bytes / [Math]::Max(1, $packs.Count) / 1MB), ($maxBytes / 1MB))
 
 # 画面の検索スレッドと同じ流れ（新しいスレッドで lib.ps1 を読み込み、列挙して検索する）。読んだ内容の入れ物は画面と同じく持ち続ける
 $searchScript = {
@@ -49,7 +49,7 @@ $searchScript = {
 
 out ""
 out "## 3. 画面と同じ検索（スレッドの用意から検索の終わりまで。画面への表示は含まない）"
-out "| 回 | ワード | まとめファイル | ヒット | 合計 | lib.ps1 | 列挙 | 検索 | MsMpEng CPU |"
+out "| 回 | ワード | 集約ファイル | ヒット | 合計 | lib.ps1 | 列挙 | 検索 | MsMpEng CPU |"
 out "|---|---|---|---|---|---|---|---|---|"
 $cache = newTsvTextCache
 foreach ($round in 1..2) {

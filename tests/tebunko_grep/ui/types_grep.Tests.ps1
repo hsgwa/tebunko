@@ -639,7 +639,7 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         [IndexNode]::IsBookDir($name) | Should Be $expected
     }
 
-    It "IsBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（まとめファイル・サブフォルダがある）を見分ける" {
+    It "IsBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（集約ファイル・サブフォルダがある）を見分ける" {
         $dir = "$TestDrive\bookdir_path"
         newTsv "$dir\資料.xlsx\content.docx.001.tsv" @("x")
         [void][System.IO.Directory]::CreateDirectory("$dir\親.xlsx\子")
@@ -864,7 +864,7 @@ Describe "IndexNode（フォルダの読み込み）" -Tag Io {
         @($root.Children | ForEach-Object { $_.Name }) | Should Be @("営業部", "総務部")
     }
 
-    It "直下のまとめファイルもファイルとして数える（ほかの .tsv は数えない）" {
+    It "直下の集約ファイルもファイルとして数える（ほかの .tsv は数えない）" {
         newTsv "$script:indexRoot\人事部\a.tsv" @("x")
         [IndexNode]::HasFiles("$script:indexRoot\人事部") | Should Be $false
         newTsv "$script:indexRoot\総務部\content.xlsx.001.tsv" @("x")

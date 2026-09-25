@@ -1,6 +1,6 @@
 ﻿# 高速検索（tebunko_grep\search\fast_search.ps1）のテスト。
 # Windows Search の代わりに、system_index の txt を実際に読んで同じ問い合わせに答える偽物を使い、
-# 高速検索で集めたまとめファイルを照合した結果が、すべてのまとめファイルを照合した結果と同じになることを確かめる。
+# 高速検索で集めた集約ファイルを照合した結果が、すべての集約ファイルを照合した結果と同じになることを確かめる。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 function script:newFastWorkspace {
@@ -17,7 +17,7 @@ function script:newFastWorkspace {
         [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
         [System.IO.File]::WriteAllText($path, $item.Text, ${utf8Bom})
     }
-    # インデックス作成と同じく、フォルダごとのまとめファイルにして TSV を消す
+    # インデックス作成と同じく、フォルダごとの集約ファイルにして TSV を消す
     foreach ($folder in (findIndexFoldersWithBooks $index)) {
         [void](updateIndexFolderPack $folder)
     }
@@ -110,7 +110,7 @@ Describe "getFastSearchPackFiles" -Tag Io {
         @($fast.Packs | Where-Object { $_.RelPath -like "*\2月\*" }).Count | Should Be 1
     }
 
-    It "まとめファイルを書き直したフォルダ（反映待ちの日時 0）は、txt を書いたのと同じ秒の中でも照合する" {
+    It "集約ファイルを書き直したフォルダ（反映待ちの日時 0）は、txt を書いたのと同じ秒の中でも照合する" {
         $ws = newFastWorkspace "$TestDrive\f4"
         newTsv "$($ws.Index)\営業\2025\D社.xlsx\表紙.tsv" @("見積書（確定）", "追加した行")
         [void](updateIndexFolderPack "$($ws.Index)\営業\2025")

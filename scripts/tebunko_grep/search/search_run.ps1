@@ -42,14 +42,14 @@ function toResultHeader {
 }
 
 
-# 検索で読んだまとめファイルの内容を残しておく量の上限（文字数。1 文字 2 バイトのため約 128MB）
+# 検索で読んだ集約ファイルの内容を残しておく量の上限（文字数。1 文字 2 バイトのため約 128MB）
 ${searchCacheMaxChars} = 64000000
 
 function newTsvTextCache {
-    # 検索で読んだまとめファイルの内容を、次の検索で使い回すための入れ物を作る（画面が 1 つ持ち、検索のたびに searchPackIndex に渡す）。
-    # 2 回目以降の検索ではファイルを開かない。更新日時・サイズが列挙したときと違うまとめファイル（書き直した等）は読み直す。
+    # 検索で読んだ集約ファイルの内容を、次の検索で使い回すための入れ物を作る（画面が 1 つ持ち、検索のたびに searchPackIndex に渡す）。
+    # 2 回目以降の検索ではファイルを開かない。更新日時・サイズが列挙したときと違う集約ファイル（書き直した等）は読み直す。
     # 並列検索の各スレッドから使うため、中身は ConcurrentDictionary。
-    #   Texts: まとめファイルの \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容, 場所の一覧) / Chars: 残している文字数 / MaxChars: 上限
+    #   Texts: 集約ファイルの \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容, 場所の一覧) / Chars: 残している文字数 / MaxChars: 上限
     param (
         [long]$maxChars = ${searchCacheMaxChars}
     )
@@ -62,7 +62,7 @@ function newTsvTextCache {
 }
 
 function testIndexExists {
-    # 検索対象インデックスにまとめファイルが1件でもあるか（最初の1件が見つかった時点で打ち切る）
+    # 検索対象インデックスに集約ファイルが1件でもあるか（最初の1件が見つかった時点で打ち切る）
     param (
         [string[]]$folders = @(${indexDir})
     )
@@ -87,7 +87,7 @@ function testIndexExists {
 }
 
 function getIndexSummary {
-    # 検索対象インデックスのまとめファイルの件数と最新の更新日時を返す: @{ Count; LastWrite（無ければ $null）; Missing（存在しないフォルダ） }
+    # 検索対象インデックスの集約ファイルの件数と最新の更新日時を返す: @{ Count; LastWrite（無ければ $null）; Missing（存在しないフォルダ） }
     param (
         [string[]]$folders = @(${indexDir})
     )

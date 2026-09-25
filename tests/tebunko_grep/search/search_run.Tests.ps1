@@ -37,23 +37,23 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
         writePackFile "$($item.Folder)\$(getPackFileName (getPackExtension $item.Name))" (convertToPackText @(@{ Name = $item.Name; Places = @(@{ Place = "S"; Text = "x" }) }))
     }
     (Get-Item -LiteralPath "$other\content.docx.001.tsv").LastWriteTime = [datetime]"2030-01-02 03:04:05"
-    # まとめる前の TSV（インデックス作成の途中）は数えない
+    # 集約する前の TSV（インデックス作成の途中）は数えない
     newTsv "$other\d.xlsx\S.tsv" @("d")
     $missing = Join-Path $TestDrive "missing"
 
-    It "まとめファイルの有無を判定する" {
+    It "集約ファイルの有無を判定する" {
         testIndexExists @($missing, $other) | Should Be $true
         testIndexExists @($missing) | Should Be $false
     }
 
-    It "まとめファイルの件数・最新の更新日時・存在しないフォルダを返す" {
+    It "集約ファイルの件数・最新の更新日時・存在しないフォルダを返す" {
         $summary = getIndexSummary @($index, $other, $missing, $index)
         $summary.Count | Should Be 3
         $summary.LastWrite | Should Be ([datetime]"2030-01-02 03:04:05")
         $summary.Missing.Count | Should Be 1
     }
 
-    It "まとめファイルの無いフォルダ・存在しないフォルダだけなら、なし・件数 0・更新日時なし" {
+    It "集約ファイルの無いフォルダ・存在しないフォルダだけなら、なし・件数 0・更新日時なし" {
         $empty = Join-Path $TestDrive "empty_index"
         New-Item -ItemType Directory -Path "$empty\sub" -Force | Out-Null
         newTsv "$empty\sub\e.xlsx\S.tsv" @("e")
@@ -66,7 +66,7 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
     }
 }
 
-Describe "検索結果の行（まとめファイルのヒット）" -Tag Io {
+Describe "検索結果の行（集約ファイルのヒット）" -Tag Io {
     It "ファイル名に .xlsx_ を含んでも、元のファイル名と場所で組み立てる" {
         $index = Join-Path $TestDrive "search_dir"
         newTsv "$index\A社.xlsx_old.xlsx\$(toIndexFileName "Sheet1")" @("りんご`t200")

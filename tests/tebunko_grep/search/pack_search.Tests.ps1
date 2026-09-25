@@ -1,9 +1,9 @@
-﻿# 検索用のまとめファイルの検索（tebunko_grep\search\pack_search.ps1）と読み書き（index\pack_store.ps1）のテスト。
-# 元の TSV を 1 行ずつ読んで照合した結果（referenceKeys）と、まとめファイルの検索の結果が同じになることを確かめる
+﻿# 検索用の集約ファイルの検索（tebunko_grep\search\pack_search.ps1）と読み書き（index\pack_store.ps1）のテスト。
+# 元の TSV を 1 行ずつ読んで照合した結果（referenceKeys）と、集約ファイルの検索の結果が同じになることを確かめる
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 function script:toKeys {
-    # ヒットを比べられる文字列にする（RelPath・FileName はまとめファイルのもののため比べない）
+    # ヒットを比べられる文字列にする（RelPath・FileName は集約ファイルのもののため比べない）
     param ($hits)
     return @($hits | ForEach-Object { "{0}|{1}|{2}|{3}|{4}" -f $_.RelDir, $_.Book, $_.Location, $_.LineNumber, $_.Line })
 }
@@ -15,7 +15,7 @@ function script:sortedKeys {
 
 function script:referenceKeys {
     # 元の TSV（<相対フォルダ>\<ファイル名.xlsx>\<場所>.tsv）を StreamReader.ReadLine で 1 行ずつ読み、
-    # 検索語の正規表現で照合した結果（まとめファイルの検索が同じ結果になるべきもの）
+    # 検索語の正規表現で照合した結果（集約ファイルの検索が同じ結果になるべきもの）
     param (
         [string]$tsvRoot,
         [string]$word,
@@ -52,7 +52,7 @@ function script:referenceKeys {
 }
 
 function script:newPackIndex {
-    # TSV のインデックス（tsvRoot）から、フォルダごとのまとめファイル（packRoot。同じ相対パス）を作り、getPackFiles の結果を返す
+    # TSV のインデックス（tsvRoot）から、フォルダごとの集約ファイル（packRoot。同じ相対パス）を作り、getPackFiles の結果を返す
     param ([string]$tsvRoot, [string]$packRoot)
     foreach ($folder in (findIndexFoldersWithBooks $tsvRoot)) {
         [void](convertIndexFolderToPack $folder ($packRoot + $folder.Substring($tsvRoot.Length)))
@@ -60,7 +60,7 @@ function script:newPackIndex {
     return , (getPackFiles $packRoot)
 }
 
-Describe "まとめファイルの作成と検索" -Tag Io {
+Describe "集約ファイルの作成と検索" -Tag Io {
     $tsvRoot = Join-Path $TestDrive "tsv"
     $packRoot = Join-Path $TestDrive "pack"
     $idx = "$tsvRoot\営業"
@@ -73,14 +73,14 @@ Describe "まとめファイルの作成と検索" -Tag Io {
     newTsv "$idx\2025\提案.pptx\$(toIndexFileName "スライド002（非表示）")" @("予備", "単価")
     $packs = newPackIndex $tsvRoot $packRoot
 
-    It "フォルダごと・拡張子ごとにまとめファイルを作り、フォルダの順・名前の順に並べる" {
+    It "フォルダごと・拡張子ごとに集約ファイルを作り、フォルダの順・名前の順に並べる" {
         $packs.Count | Should Be 3
         $packs[0].RelPath | Should Be "営業\content.docx.001.tsv"
         $packs[1].RelPath | Should Be "営業\content.xlsx.001.tsv"
         $packs[2].RelPath | Should Be "営業\2025\content.pptx.001.tsv"
     }
 
-    It "元のファイルが無くなった拡張子のまとめファイルは、変換し直すときに消す" {
+    It "元のファイルが無くなった拡張子の集約ファイルは、変換し直すときに消す" {
         $dest = Join-Path $TestDrive "reconvert"
         [void][System.IO.Directory]::CreateDirectory($dest)
         writePackFile "$dest\content.pptx.001.tsv" (convertToPackText @(@{ Name = "古い.pptx"; Places = @(@{ Place = "スライド001"; Text = "古い" }) }))
@@ -89,7 +89,7 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         @([System.IO.Directory]::GetFiles($dest) | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object) -join "," | Should Be "content.docx.001.tsv,content.xlsx.001.tsv"
     }
 
-    It "まとめファイルは UTF-16LE（BOM 付き）で、一時ファイルを残さない" {
+    It "集約ファイルは UTF-16LE（BOM 付き）で、一時ファイルを残さない" {
         $bytes = [System.IO.File]::ReadAllBytes($packs[0].Path)
         "{0:X2}{1:X2}" -f $bytes[0], $bytes[1] | Should Be "FFFE"
         @(Get-ChildItem $packRoot -Recurse -Filter "*.tmp").Count | Should Be 0
@@ -154,7 +154,7 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         [System.IO.Directory]::Exists((Join-Path $TestDrive "empty_pack")) | Should Be $false
     }
 
-    It "更新日時が変わったまとめファイルは読み直し、キャッシュの古い内容を置き換える" {
+    It "更新日時が変わった集約ファイルは読み直し、キャッシュの古い内容を置き換える" {
         $cache = newTsvTextCache
         [void](searchPackIndex "単価" $packs $true -cache $cache)
         $chars = $cache.Chars[0]
@@ -203,7 +203,7 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         $hits[0].LineNumber | Should Be 3001
     }
 
-    It "置かれた TSV をまとめファイルに入れて TSV を消し、変わらない元のファイルは前のまとめファイルから写す" {
+    It "置かれた TSV を集約ファイルに入れて TSV を消し、変わらない元のファイルは前の集約ファイルから写す" {
         $dir = Join-Path $TestDrive "inplace\営業"
         newTsv "$dir\A.xlsx\$(toIndexFileName "S")" @("A の単価")
         newTsv "$dir\B.xlsx\$(toIndexFileName "S")" @("B の古い単価")
@@ -220,17 +220,17 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         @($inPacks | ForEach-Object { [System.IO.Path]::GetFileName($_.RelPath) }) -join "," | Should Be "content.docx.001.tsv,content.xlsx.001.tsv"
         (toKeys (searchPackIndex "単価" $inPacks $true).Hits) -join "`n" | Should BeExactly ((
             "営業|C.docx|ページ001|1|C の単価", "営業|A.xlsx|S|1|A の単価", "営業|B.xlsx|S|1|B の新しい単価") -join "`n")
-        # C が無くなったら外し、Word のまとめファイルを消す
+        # C が無くなったら外し、Word の集約ファイルを消す
         (updateIndexFolderPack $dir @("C.docx")).Books | Should Be 2
         @([System.IO.Directory]::GetFiles($dir) | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should Be "content.xlsx.001.tsv"
     }
 
-    It "TSV の残ったフォルダを見つけ、まとめファイルとシステムインデックスに書き出して TSV を消す" {
+    It "TSV の残ったフォルダを見つけ、集約ファイルとシステムインデックスに書き出して TSV を消す" {
         $work = Join-Path $TestDrive "publish"
         $index = "$work\index"
         newTsv "$index\人事\A.xlsx\$(toIndexFileName "S")" @("採用の計画")
         newTsv "$index\人事\2025\B.docx\$(toIndexFileName "ページ001")" @("評価の方針")
-        # まとめファイルは、元のファイルごとのフォルダではない
+        # 集約ファイルは、元のファイルごとのフォルダではない
         writePackFile "$index\人事\2025\content.xlsx.001.tsv" (convertToPackText @(@{ Name = "C.xlsx"; Places = @(@{ Place = "S"; Text = "既に入っている" }) }))
         $found = findIndexFoldersWithBooks $index
         @($found | ForEach-Object { $_.Substring($index.Length) }) -join "," | Should Be "\人事,\人事\2025"
@@ -248,13 +248,13 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         (readSystemIndexState $state).Pending["人事\2025\${systemIndexFileName}"] | Should Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
     }
 
-    It "名前が .xlsx などで終わる本物のフォルダ・中身が空のファイルのフォルダは、まとめる前の TSV と取り違えない" {
+    It "名前が .xlsx などで終わる本物のフォルダ・中身が空のファイルのフォルダは、集約する前の TSV と取り違えない" {
         $index = Join-Path $TestDrive "bookdir\index"
         $folder = "$index\営業"
-        # 元のフォルダに「資料.xlsx」という名前のフォルダがあり、その中のまとめファイルがある
+        # 元のフォルダに「資料.xlsx」という名前のフォルダがあり、その中の集約ファイルがある
         [void][System.IO.Directory]::CreateDirectory("$folder\資料.xlsx")
         writePackFile "$folder\資料.xlsx\content.docx.001.tsv" (convertToPackText @(@{ Name = "中の文書.docx"; Places = @(@{ Place = "ページ001"; Text = "中の文書" }) }))
-        # 取り込んだが中身が空のファイル（フォルダだけ残る）と、まとめる前の TSV
+        # 取り込んだが中身が空のファイル（フォルダだけ残る）と、集約する前の TSV
         [void][System.IO.Directory]::CreateDirectory("$folder\空.xlsx")
         newTsv "$folder\B.xlsx\$(toIndexFileName "S")" @("B の中身")
 
@@ -275,10 +275,10 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         (getSystemIndexFolderTsvPaths $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should Be "content.xlsx.001.tsv"
     }
 
-    It "大きさの上限を超えたら次の番号のまとめファイルに分け、変わったまとめファイルだけを書き直す。検索の結果は変わらない" {
+    It "大きさの上限を超えたら次の番号の集約ファイルに分け、変わった集約ファイルだけを書き直す。検索の結果は変わらない" {
         $dir = Join-Path $TestDrive "split\営業"
         foreach ($i in 1..5) { newTsv ("$dir\資料{0}.xlsx\S.tsv" -f $i) @(("行 $i " + ("あ" * 600)), "単価 $i") }
-        # 1 冊は約 1.3KB。上限 2KB なら 2 冊ずつのまとめファイルに分かれる
+        # 1 冊は約 1.3KB。上限 2KB なら 2 冊ずつの集約ファイルに分かれる
         $result = convertIndexFolderToPack $dir $dir @() $true 2048
         $result.Files | Should Be 3
         $result.Texts.Count | Should Be 3
@@ -286,7 +286,7 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         $splitPacks = getPackFiles (Join-Path $TestDrive "split")
         (toKeys (searchPackIndex "単価" $splitPacks $true).Hits | ForEach-Object { ($_ -split "\|")[1] }) -join "," | Should Be "資料1.xlsx,資料2.xlsx,資料3.xlsx,資料4.xlsx,資料5.xlsx"
 
-        # 資料1 を更新し、資料6 を足す。資料1 のまとめファイル（001）と最後のまとめファイル（003）だけを書き直す
+        # 資料1 を更新し、資料6 を足す。資料1 の集約ファイル（001）と最後の集約ファイル（003）だけを書き直す
         $before = @{}
         foreach ($p in $splitPacks) { $before[[System.IO.Path]::GetFileName($p.RelPath)] = $p.Ticks }
         Start-Sleep -Milliseconds 20
@@ -301,7 +301,7 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         ($after["content.xlsx.001.tsv"] -ne $before["content.xlsx.001.tsv"]) | Should Be $true
         (searchPackIndex "単価" (getPackFiles (Join-Path $TestDrive "split")) $true).Hits.Count | Should Be 6
 
-        # 2 冊とも無くなったまとめファイル（002）は消す
+        # 2 冊とも無くなった集約ファイル（002）は消す
         $result = convertIndexFolderToPack $dir $dir @("資料3.xlsx", "資料4.xlsx") $true 2048
         [System.IO.File]::Exists("$dir\content.xlsx.002.tsv") | Should Be $false
         $result.Files | Should Be 2
@@ -391,7 +391,7 @@ Describe "searchPackIndex（検索語・条件・上限・中止）" -Tag Io {
         (searchPackIndex "株" $packs $true 0).Hits.Count | Should Be 3
     }
 
-    It "進み具合（照合したまとめファイルの数）を知らせ、中止できる" {
+    It "進み具合（照合した集約ファイルの数）を知らせ、中止できる" {
         $script:progress = @()
         $result = searchPackIndex "株" $packs $true -taskBytes 1 -workerCount 1 -onProgress { param($done, $total, $newHits) $script:progress += "$done/$total" } -shouldStop { $script:progress.Count -ge 1 }
         $result.Cancelled | Should Be $true
@@ -404,7 +404,7 @@ Describe "searchPackIndex（検索語・条件・上限・中止）" -Tag Io {
         @((searchPackIndex "株" $packs $true -fileFilter "*.pptx").Hits).Count | Should Be 0
     }
 
-    It "検索の途中で読めなくなったまとめファイル（インデックス作成中に削除された等）は飛ばす。対象が無ければ 0 件" {
+    It "検索の途中で読めなくなった集約ファイル（インデックス作成中に削除された等）は飛ばす。対象が無ければ 0 件" {
         $copyRoot = Join-Path $TestDrive "deleted_pack"
         $copies = newPackIndex $tsvRoot $copyRoot
         Remove-Item -LiteralPath (fromLongPath $copies[0].Path)
@@ -451,14 +451,14 @@ Describe "searchPackIndex（並列検索・読んだ内容の使い回し）" -T
         return (@($hits | ForEach-Object { "$($_.Book):$($_.LineNumber)" }) -join ",")
     }
 
-    It "並列に検索しても、まとめファイルの順に同じ結果を返す" {
+    It "並列に検索しても、集約ファイルの順に同じ結果を返す" {
         $expected = formatBookLines (searchPackIndex "見積" $packs $true -workerCount 1).Hits
         $result = searchPackIndex "見積" $packs $true -workerCount 3 -taskBytes 1
         formatBookLines $result.Hits | Should Be $expected
         $result.Hits.Count | Should Be 60
     }
 
-    It "並列でも上限で打ち切り、進み具合をまとめファイルの順に知らせる" {
+    It "並列でも上限で打ち切り、進み具合を集約ファイルの順に知らせる" {
         $script:done = New-Object System.Collections.Generic.List[int]
         $result = searchPackIndex "見積" $packs $true 5 -workerCount 3 -taskBytes 1 -onProgress { param($done, $total, $newHits) $script:done.Add($done) }
         $result.Truncated | Should Be $true
@@ -473,7 +473,7 @@ Describe "searchPackIndex（並列検索・読んだ内容の使い回し）" -T
         $script:calls | Should Be 2
     }
 
-    It "内容を使い回し、書き直されたまとめファイルは読み直す" {
+    It "内容を使い回し、書き直された集約ファイルは読み直す" {
         $cache = newTsvTextCache
         (searchPackIndex "更新後" $packs $true -cache $cache).Hits.Count | Should Be 0
         newTsv "$packRoot\sub0\book00.xlsx\S.tsv" @("更新後の内容")
@@ -509,7 +509,7 @@ Describe "getIndexPackFiles" -Tag Io {
         @($result.Packs | Where-Object { $_.RelPath -eq "sub\content.xlsx.001.tsv" }).Count | Should Be 1
     }
 
-    It "入れ子のフォルダを指定しても同じまとめファイルを重複させない" {
+    It "入れ子のフォルダを指定しても同じ集約ファイルを重複させない" {
         (getIndexPackFiles @($index, "$index\sub")).Packs.Count | Should Be 2
     }
 

@@ -1,9 +1,9 @@
-﻿# 検索用のまとめファイル（pack_format.ps1）を検索する。
-# まとめファイルの全文に 1 回照合し、一致しないファイルは飛ばす。一致したら、位置から場所と行を求める。
+﻿# 検索用の集約ファイル（pack_format.ps1）を検索する。
+# 集約ファイルの全文に 1 回照合し、一致しないファイルは飛ばす。一致したら、位置から場所と行を求める。
 # 照合のしかた（lines・filter・scan。search_query.ps1 の getRegexScanMode）で、全文への照合と 1 行ずつの照合の結果を同じにする。
 
 function searchPackFiles {
-    # packs の start から count 件のまとめファイルを読み、regex に一致する行を PSCustomObject で返す（1 行に複数一致しても 1 件）。
+    # packs の start から count 件の集約ファイルを読み、regex に一致する行を PSCustomObject で返す（1 行に複数一致しても 1 件）。
     # max 以上（max+1 件目）が見つかった時点で打ち切る（負は上限なし）。読めないファイルは飛ばす。
     #   include / exclude: 元のファイル名の条件（$null は条件なし） / excludePlace: 除く場所（図形・コメント）
     #   cache: newTsvTextCache。更新日時・大きさが同じなら、前に読んだ内容と場所の一覧を使う
@@ -164,10 +164,10 @@ function searchPackFiles {
 }
 
 
-# まとめファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
+# 集約ファイルの検索で、1 つのスレッドにまとめて渡す大きさの目安（バイト）
 ${packTaskBytes} = 16MB
 
-# まとめファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout } を返す
+# 集約ファイルの検索の各スレッドで動かすスクリプト。@{ Hits; Timeout } を返す
 ${packWorkerScript} = {
     param ($packs, $start, $count, $regex, $max, $textRegex, $scanMode, $cache, $include, $exclude, $excludePlace)
     try {
@@ -185,7 +185,7 @@ ${packWorkerScript} = {
 
 
 function newPackWorkerPool {
-    # まとめファイルの検索のスレッドを用意する。各スレッドには検索に要る関数と値だけを読み込む
+    # 集約ファイルの検索のスレッドを用意する。各スレッドには検索に要る関数と値だけを読み込む
     param (
         [int]$workers
     )
@@ -204,7 +204,7 @@ function newPackWorkerPool {
 
 
 function splitPackTasks {
-    # まとめファイルの並びを、1 つのスレッドに渡す単位（@{ Start; Count }）に分ける（合計がおよそ packTaskBytes になるまでまとめる）
+    # 集約ファイルの並びを、1 つのスレッドに渡す単位（@{ Start; Count }）に分ける（合計がおよそ packTaskBytes になるまでまとめる）
     param (
         $packs,
         [long]$taskBytes = ${packTaskBytes}
@@ -226,7 +226,7 @@ function splitPackTasks {
 
 
 function searchPackIndex {
-    # まとめファイルをワードで検索し、ヒットした行を返す（画面の検索処理）。
+    # 集約ファイルをワードで検索し、ヒットした行を返す（画面の検索処理）。
     #   packs        : getPackFiles・getIndexPackFiles の結果
     #   simpleMatch  : $true なら文字どおりに検索する。$false なら正規表現として検索し、正規表現として不正なら文字どおりに検索する
     #   limit        : 件数の上限（0 は上限なし）。超えたら打ち切る
@@ -234,12 +234,12 @@ function searchPackIndex {
     #   caseSensitive: 英字の大文字・小文字を区別する（newSearchRegex）
     #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないものは検索しない
     #   workerCount  : 並列に検索するスレッドの数（0 は CPU のコア数から決める。最大 4）
-    #   cache        : 読んだまとめファイルの内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
+    #   cache        : 読んだ集約ファイルの内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
     #   includeShapes / includeComments: 図形・コメントの場所（"<シート名>[図形]" 等）も検索する（newPlaceExclude）
     #   taskBytes    : 1 つのスレッドにまとめて渡す大きさの目安（バイト）
-    #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total はまとめファイルの数）
-    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（まとめファイルの数）; Truncated; Cancelled } を返す。
-    # Hits の各要素は PSCustomObject（Root; RelPath（まとめファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
+    #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total は集約ファイルの数）
+    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（集約ファイルの数）; Truncated; Cancelled } を返す。
+    # Hits の各要素は PSCustomObject（Root; RelPath（集約ファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
         [string]$word,
         $packs,
@@ -325,7 +325,7 @@ function searchPackIndex {
 
 
 function getIndexPackFiles {
-    # 検索対象のまとめファイルを集め、@{ Folders; Packs } を返す。
+    # 検索対象の集約ファイルを集め、@{ Folders; Packs } を返す。
     #   folders: 検索対象インデックスのフォルダ（文字列。フォルダ以下すべて）、または
     #            @{ Root（インデックスのフォルダ）; RelPath（その中のフォルダ。空は Root 自身）; Recurse（$false は直下のファイルだけ） }
     #   Folders: フォルダごとの @{ Path; Root（フルパス）; Exists; Count }

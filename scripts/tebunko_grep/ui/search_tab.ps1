@@ -9,7 +9,7 @@ $script:search = $null
 $script:lastSearch = $null
 $script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名とクロール対象フォルダの対応（getSourceLocation のキャッシュ）
 $script:filterText = ""
-# 検索で読んだまとめファイルの内容（画面を閉じるまで残し、次の検索では更新の無いまとめファイルをファイルから読まない）
+# 検索で読んだ集約ファイルの内容（画面を閉じるまで残し、次の検索では更新の無い集約ファイルをファイルから読まない）
 $script:tsvCache = newTsvTextCache
 # Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
 $script:fastAvailable = $null
@@ -133,7 +133,7 @@ function updateSearchTarget {
     } elseif ($null -eq $summary) {
         $ui.SearchTargetText.Text = "検索対象：すべて（確認中…）"
     } else {
-        $ui.SearchTargetText.Text = "検索対象：すべて（まとめファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])）"
+        $ui.SearchTargetText.Text = "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])）"
     }
     $ui.SearchTargetText.ToolTip = $ui.SearchTargetText.Text
     $ui.GoIndexTabButton.Visibility = if ($summary -and $summary["Count"] -eq 0) { "Visible" } else { "Collapsed" }
@@ -290,7 +290,7 @@ function finishSearch {
         updateFastSearchView
     }
 
-    # 高速検索では、候補の無いフォルダのまとめファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
+    # 高速検索では、候補の無いフォルダの集約ファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
     if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "対象ファイル（$($s.Option.FileFilter)）に一致するファイルがありません。"
     } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {

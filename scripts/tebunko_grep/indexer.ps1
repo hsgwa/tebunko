@@ -90,7 +90,7 @@ $approvalTimeoutMinutes = 60  # -ConfirmTargets で画面の返事を待つ制�
 $interruptLimit = 2       # 取り込み中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
 $failureListLimit = 50    # 終了時に失敗したファイルと原因を表示する最大件数（残りは取り込み一覧で確認する）
 
-# まとめファイル（content.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
+# 集約ファイル（content.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
 # 取り込んだ TSV は元のファイルごとのフォルダに一時的に置き、同じフォルダの取り込みが終わったらまとめて書き出す
 # （元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ書き直すことになるため）
 $script:pendingPublish = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -112,7 +112,7 @@ function addPendingPublish {
 }
 
 function flushPendingPublish {
-    # 書き出し待ちのフォルダ（keepFolder は、まだ取り込みが続くため除く）を、まとめファイル・システムインデックスに書き出す。
+    # 書き出し待ちのフォルダ（keepFolder は、まだ取り込みが続くため除く）を、集約ファイル・システムインデックスに書き出す。
     # 書き出せなかったフォルダは TSV が残るため、次のインデックス作成の始めに書き出す
     param (
         [string]$keepFolder = ""
@@ -167,11 +167,11 @@ $folders = @(assignIndexNames $targetFolders $status.Folders)
 $previous = moveLegacyIndex $folders $status $statusExists
 removeDroppedFolders $folders $status.Folders
 migrateFlatIndex
-# 前回のインデックス作成が途中で止まり、まとめファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
+# 前回のインデックス作成が途中で止まり、集約ファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
 $leftover = findIndexFoldersWithBooks $indexDir
 if ($leftover.Count -gt 0) {
-    Write-Host "まとめファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
-    writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "まとめファイルに入れていないインデックスをまとめています…"
+    Write-Host "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+    writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "集約ファイルに入れていないインデックスをまとめています…"
     foreach ($folder in $leftover) {
         $script:pendingPublish[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     }
@@ -315,7 +315,7 @@ foreach ($folder in $folders) {
 if ($targets.Count -eq 0) {
     Write-Host ""
     Write-Host "取り込みが必要なファイルはありません。（一覧: $(Split-Path $statusFile -Leaf)）" -ForegroundColor Green
-    # 元のファイルが無くなったフォルダは、まとめファイルから外す
+    # 元のファイルが無くなったフォルダは、集約ファイルから外す
     flushPendingPublish
     # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
     writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "システムインデックス（高速検索用）を確かめています…"
@@ -358,7 +358,7 @@ try {
 
         $row = $targets[$i]
         $relPath = $row.相対パス
-        # 取り込みが別のフォルダに移ったら、それまでのフォルダをまとめファイルに書き出す
+        # 取り込みが別のフォルダに移ったら、それまでのフォルダを集約ファイルに書き出す
         flushPendingPublish ([System.IO.Path]::GetDirectoryName((getBookDir $relPath)))
         $parts = splitIndexRelPath $relPath
         $sourceFolder = $folderByName[$parts.Name]
@@ -449,7 +449,7 @@ try {
     stopAllApps
     removeTmpDir
     removeIngestingFile
-    # 取り込んだ TSV は、中止したときも残さずまとめファイルに入れる（残すとインデックスの容量が倍になる）
+    # 取り込んだ TSV は、中止したときも残さず集約ファイルに入れる（残すとインデックスの容量が倍になる）
     writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "インデックスをまとめています…"
     flushPendingPublish
     writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "取り込み一覧を書き直しています…"

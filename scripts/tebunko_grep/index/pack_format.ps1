@@ -1,4 +1,4 @@
-﻿# 検索用のまとめファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。content.xlsx.001.tsv など）の形式（判断層）。
+﻿# 検索用の集約ファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。content.xlsx.001.tsv など）の形式（判断層）。
 # ファイル（元のファイル）ごと・場所（シート・ページ・スライドなど）ごとに、メタ情報の行と今の TSV の中身を並べる。
 #
 #   ␞ 版=1
@@ -14,9 +14,9 @@
 # ・改行は LF にそろえる。行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR）にし、行番号を変えない
 # ・文字コードは UTF-16LE（BOM 付き。pack_store.ps1 が読み書きする）
 
-# まとめファイルの名前は「content.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content.xlsx.001.tsv など）。
+# 集約ファイルの名前は「content.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content.xlsx.001.tsv など）。
 # _ は使わない（以前の形式 <ブック>_<場所>.tsv と区別するため）。
-# 1 つのまとめファイルが packFileMaxBytes 以上になったら、それ以上ブックを足さず、次の番号のまとめファイルに足す
+# 1 つの集約ファイルが packFileMaxBytes 以上になったら、それ以上ブックを足さず、次の番号の集約ファイルに足す
 ${packFilePattern} = "content.*.tsv"
 ${packFileNamePattern} = '^content\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$'
 ${packFileMaxBytes} = 4MB
@@ -40,7 +40,7 @@ function getPackFileKind {
 }
 
 function getPackExtension {
-    # 元のファイル名から、まとめファイルを分ける拡張子（小文字・先頭の . なし）を返す
+    # 元のファイル名から、集約ファイルを分ける拡張子（小文字・先頭の . なし）を返す
     param (
         [string]$book
     )
@@ -50,7 +50,7 @@ function getPackExtension {
 
 
 function getPackFileName {
-    # 拡張子・番号のまとめファイルの名前（content.xlsx.001.tsv など）を返す
+    # 拡張子・番号の集約ファイルの名前（content.xlsx.001.tsv など）を返す
     param (
         [string]$extension,
         [int]$part = 1
@@ -61,7 +61,7 @@ function getPackFileName {
 
 
 function readPackFileName {
-    # まとめファイルの名前から @{ Extension; Part } を返す。まとめファイルの名前でなければ $null
+    # 集約ファイルの名前から @{ Extension; Part } を返す。集約ファイルの名前でなければ $null
     param (
         [string]$name
     )
@@ -200,7 +200,7 @@ function convertPackMetaToPlace {
 
 
 function convertToPackBody {
-    # TSV の中身を、まとめファイルに入れる形（LF 区切り・末尾に LF・U+001C〜U+001F を除く）にする。
+    # TSV の中身を、集約ファイルに入れる形（LF 区切り・末尾に LF・U+001C〜U+001F を除く）にする。
     # 行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR で分け、末尾の改行の後ろは行にしない）。中身が空なら空を返す
     param (
         [string]$text
@@ -221,9 +221,9 @@ function convertToPackBody {
 
 
 function convertBookToPackBlock {
-    # 元のファイル 1 つの中身から、まとめファイルに入れるまとまり（「ファイル名=」の行から最後の行まで）の文字列を作る。
+    # 元のファイル 1 つの中身から、集約ファイルに入れるまとまり（「ファイル名=」の行から最後の行まで）の文字列を作る。
     #   book: @{ Name（元のファイル名）; Places（@{ Place（今の場所の名前）; Text（TSV の中身） } の並び） }
-    #         または @{ Name; Block }（前のまとめファイルから取り出したまとまり。そのまま返す）
+    #         または @{ Name; Block }（前の集約ファイルから取り出したまとまり。そのまま返す）
     param (
         $book
     )
@@ -251,7 +251,7 @@ function convertBookToPackBlock {
 
 
 function convertToPackText {
-    # 元のファイルの並びから、まとめファイルの文字列を作る（この順に書く）。
+    # 元のファイルの並びから、集約ファイルの文字列を作る（この順に書く）。
     #   books: convertBookToPackBlock に渡せるもの（@{ Name; Places } か @{ Name; Block }）の並び
     param (
         $books
@@ -267,18 +267,18 @@ function convertToPackText {
 
 
 function planPackParts {
-    # フォルダ 1 つの、拡張子ごと・番号ごとのまとめファイルに、どの元のファイルを入れるかを決める。
-    #   parts  : 前のまとめファイルの並び。@{ Extension; Part; Books（@{ Name; Block } の並び。ファイルの中の順） }
+    # フォルダ 1 つの、拡張子ごと・番号ごとの集約ファイルに、どの元のファイルを入れるかを決める。
+    #   parts  : 前の集約ファイルの並び。@{ Extension; Part; Books（@{ Name; Block } の並び。ファイルの中の順） }
     #   books  : 足す・入れ替える元のファイル（@{ Name; Block }）。元のファイル名の順に足す
     #   remove : 外す元のファイル名
-    #   maxBytes: この大きさ（UTF-16 のバイト数）以上のまとめファイルには、もう足さない
+    #   maxBytes: この大きさ（UTF-16 のバイト数）以上の集約ファイルには、もう足さない
     # 決め方:
-    #   ・入れ替える元のファイルは、今入っているまとめファイルの同じ位置で入れ替える（ほかのまとめファイルへ移さない）
-    #   ・外す元のファイルは、入っているまとめファイルから外す
-    #   ・新しい元のファイルは、その拡張子の最後の番号のまとめファイルが maxBytes 未満ならそこに、以上なら次の番号の新しいまとめファイルに足す
-    #   ・1 つの元のファイルは 2 つのまとめファイルにまたがらない（1 つで maxBytes を超えても、その 1 つで 1 つのまとめファイルにする）
+    #   ・入れ替える元のファイルは、今入っている集約ファイルの同じ位置で入れ替える（ほかの集約ファイルへ移さない）
+    #   ・外す元のファイルは、入っている集約ファイルから外す
+    #   ・新しい元のファイルは、その拡張子の最後の番号の集約ファイルが maxBytes 未満ならそこに、以上なら次の番号の新しい集約ファイルに足す
+    #   ・1 つの元のファイルは 2 つの集約ファイルにまたがらない（1 つで maxBytes を超えても、その 1 つで 1 つの集約ファイルにする）
     # @{ Extension; Part; Books; Changed（書き直しが要る） } の並び（拡張子・番号の順）を返す。
-    # 元のファイルが無くなったまとめファイルは、Books が空で Changed が $true（消す）
+    # 元のファイルが無くなった集約ファイルは、Books が空で Changed が $true（消す）
     param (
         $parts,
         $books,
@@ -310,7 +310,7 @@ function planPackParts {
         $plan.Add(@{ Extension = [string]$part.Extension; Part = [int]$part.Part; Books = $kept; Changed = $changed })
     }
 
-    # 新しい元のファイル（どのまとめファイルにも無かったもの）を、元のファイル名の順に足す
+    # 新しい元のファイル（どの集約ファイルにも無かったもの）を、元のファイル名の順に足す
     foreach ($book in @($replace.Values | Sort-Object { [string]$_.Name })) {
         $extension = getPackExtension ([string]$book.Name)
         $last = $null
@@ -330,7 +330,7 @@ function planPackParts {
 
 
 function measurePackPartBytes {
-    # まとめファイルの大きさ（UTF-16 のバイト数。BOM と版の行を含む）を、元のファイルのまとまり（@{ Name; Block }）の並びから求める
+    # 集約ファイルの大きさ（UTF-16 のバイト数。BOM と版の行を含む）を、元のファイルのまとまり（@{ Name; Block }）の並びから求める
     param (
         $books
     )
@@ -343,7 +343,7 @@ function measurePackPartBytes {
 }
 
 function readPackPlaces {
-    # まとめファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
+    # 集約ファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }
     # を先頭から順に返す。版が分からないときは例外にする
     param (
         [string]$text
@@ -367,7 +367,7 @@ function readPackPlaces {
             $value = decodePackValue $line.Substring($eq + 1)
             if ($key -eq "版") {
                 if ($value -ne [string]${packVersion}) {
-                    throw "まとめファイルの版が違います（$value）"
+                    throw "集約ファイルの版が違います（$value）"
                 }
                 $versionSeen = $true
             } elseif ($key -eq "ファイル名" -or $placeKeys -contains $key) {
@@ -396,14 +396,14 @@ function readPackPlaces {
         $places.Add($current)
     }
     if (!$versionSeen -and $text.Length -gt 0) {
-        throw "まとめファイルの版がありません"
+        throw "集約ファイルの版がありません"
     }
     return , $places
 }
 
 
 function splitPackTextByBook {
-    # まとめファイルの文字列を、元のファイルごとのまとまり（@{ Name; Block }。Block は「ファイル名=」の行から次の「ファイル名=」の行の前まで）
+    # 集約ファイルの文字列を、元のファイルごとのまとまり（@{ Name; Block }。Block は「ファイル名=」の行から次の「ファイル名=」の行の前まで）
     # に分けて先頭から順に返す（元のファイルを入れ替えるとき、変わらないファイルをそのまま写すため）。版が違えば例外にする
     param (
         [string]$text
@@ -417,7 +417,7 @@ function splitPackTextByBook {
     $versionLine = "$([string]${packMark}) 版="
     $firstEnd = $text.IndexOf([char]10)
     if (!$text.StartsWith($versionLine, [System.StringComparison]::Ordinal) -or $firstEnd -lt 0 -or $text.Substring($versionLine.Length, $firstEnd - $versionLine.Length) -ne [string]${packVersion}) {
-        throw "まとめファイルの版が違います"
+        throw "集約ファイルの版が違います"
     }
     $pos = $text.IndexOf("`n$head", [System.StringComparison]::Ordinal)
     while ($pos -ge 0) {
@@ -434,7 +434,7 @@ function splitPackTextByBook {
 
 
 function getPackContentText {
-    # まとめファイルの文字列から、メタ情報の行（先頭が RS の行）を除いた中身だけを返す（システムインデックスの語を作るため。
+    # 集約ファイルの文字列から、メタ情報の行（先頭が RS の行）を除いた中身だけを返す（システムインデックスの語を作るため。
     # メタ情報の「ファイル名」「シート」などの語が入ると、その語で探したときにどのフォルダも候補になってしまう）
     param (
         [string]$text

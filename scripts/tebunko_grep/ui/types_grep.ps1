@@ -773,8 +773,8 @@ class IndexNode : NotifyBase {
     }
 
     static [bool] IsBookDirPath([string]$dir) {
-        # 元のファイルごとのフォルダ（まとめる前の TSV・中身が空のファイルのフォルダ）か。名前が .xlsx などで終わる本物のフォルダと
-        # 区別するため、サブフォルダもまとめファイル（content.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
+        # 元のファイルごとのフォルダ（集約する前の TSV・中身が空のファイルのフォルダ）か。名前が .xlsx などで終わる本物のフォルダと
+        # 区別するため、サブフォルダも集約ファイル（content.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
         if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($dir.TrimEnd('\')))) { return $false }
         try {
             $long = [IndexNode]::LongPath($dir)
@@ -795,7 +795,7 @@ class IndexNode : NotifyBase {
 
     static [bool] HasFiles([string]$dir) {
         try {
-            # まとめファイル（content.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、まとめる前の TSV があれば、フォルダ直下にファイルがある
+            # 集約ファイル（content.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、集約する前の TSV があれば、フォルダ直下にファイルがある
             foreach ($f in [System.IO.Directory]::EnumerateFiles([IndexNode]::LongPath($dir), "content.*.tsv")) { return $true }
             foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
                 if (-not [IndexNode]::IsBookDirPath($sub)) { continue }

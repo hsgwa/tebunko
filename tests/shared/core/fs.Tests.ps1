@@ -104,7 +104,7 @@ Describe "長いパス（260文字超）" -Tag Io {
         }
     }
 
-    It "長いパスのフォルダでも、まとめファイルを作り・列挙・検索でき、相対パスは \\?\ の無い形になる" {
+    It "長いパスのフォルダでも、集約ファイルを作り・列挙・検索でき、相対パスは \\?\ の無い形になる" {
         $root = "$TestDrive\indexLong"
         $dir = "$root\$deepRel"
         [void][System.IO.Directory]::CreateDirectory((toLongPath "$dir\book.xlsx"))

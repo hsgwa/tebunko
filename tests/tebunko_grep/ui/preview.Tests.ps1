@@ -98,14 +98,14 @@ function resetPreview {
 }
 
 function writeHitPack {
-    # インデックスのまとめファイル（TestDrive に作る）に、元のファイル book の場所 location の行を書く
+    # インデックスの集約ファイル（TestDrive に作る）に、元のファイル book の場所 location の行を書く
     param ([string]$path, [string]$book, [string]$location, [string[]]$lines)
     [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path))
     writePackFile $path (convertToPackText @(@{ Name = $book; Places = @(@{ Place = $location; Text = (($lines -join "`r`n") + "`r`n") }) }))
 }
 
 function newHitRow {
-    # インデックスのまとめファイル（TestDrive に作る）の lineNumber 行目にヒットした行
+    # インデックスの集約ファイル（TestDrive に作る）の lineNumber 行目にヒットした行
     param (
         [string]$book,
         [string]$location,
@@ -269,7 +269,7 @@ Describe "showDetail" -Tag Io {
         $fake.Scrolls[-1] | Should Be 0
     }
 
-    It "インデックスのまとめファイルが読めなければ、選んだ行だけを出す" {
+    It "インデックスの集約ファイルが読めなければ、選んだ行だけを出す" {
         $row = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
         Remove-Item -LiteralPath ([System.IO.Path]::Combine($row.Root, $row.RelPath))
         $fake.Current = $row

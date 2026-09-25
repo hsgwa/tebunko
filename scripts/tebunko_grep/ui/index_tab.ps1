@@ -223,7 +223,7 @@ function testIndexOperable {
         return $false
     }
     if ($script:indexBusy) {
-        # 前のインデックス（まとめファイル）を削除している最中（別スレッド）
+        # 前のインデックス（集約ファイル）を削除している最中（別スレッド）
         showMessage "前のインデックスの削除が終わるまでお待ちください。" "OK" "Warning" | Out-Null
         return $false
     }
@@ -634,7 +634,7 @@ function updateIndexSummaryText {
         $ui.IndexSummaryText.Text = "まだインデックスがありません。"
         return
     }
-    $text = "まとめファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])"
+    $text = "集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])"
     $state = $script:indexingState
     if ($state -and $state.Done -gt 0) {
         $text = "取り込み済み $($state.Done.ToString('N0')) ファイル（$text）"
@@ -643,7 +643,7 @@ function updateIndexSummaryText {
 }
 
 function refreshIndexSummary {
-    # まとめファイルの件数は数えるのに時間がかかることがあるため、別スレッドで数える
+    # 集約ファイルの件数は数えるのに時間がかかることがあるため、別スレッドで数える
     if ($script:summaryRunning) {
         $script:summaryAgain = $true
         return

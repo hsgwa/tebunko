@@ -40,7 +40,7 @@ sequenceDiagram
         S->>T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
     S->>T: 図形・コメント → #lt;シート名#gt;[図形].tsv・#lt;シート名#gt;[コメント].tsv
-    S->>I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv。6.1 節）<br>まとめファイルへは、フォルダの取り込みが終わってから入れる（publishIndexFolders。6.1 節）
+    S->>I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv。6.1 節）<br>集約ファイルへは、フォルダの取り込みが終わってから入れる（publishIndexFolders。6.1 節）
     S->>L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
         S->>L: 当該ファイルの行（状態 = 失敗、エラー）を追記

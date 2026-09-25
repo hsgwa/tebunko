@@ -168,7 +168,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status.Rows["営業\資料\提案.pptx"].状態 | Should Be ${stateDone}
         $status.Rows["営業\壊れた.pptx"].状態 | Should Be ${stateFailed}
         $status.Rows["営業\壊れた.pptx"].エラー | Should Match "PowerPoint"
-        # 取り込んだ TSV はフォルダのまとめファイルに入れ、元のファイルごとのフォルダは残さない
+        # 取り込んだ TSV はフォルダの集約ファイルに入れ、元のファイルごとのフォルダは残さない
         [System.IO.File]::Exists("$root\work\index\営業\content.docx.001.tsv") | Should Be $true
         [System.IO.Directory]::Exists("$root\work\index\営業\議事録.docx") | Should Be $false
         Test-Path -LiteralPath "$root\work\index\営業\元のフォルダ.txt" | Should Be $true
@@ -403,7 +403,7 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         $status.Rows.ContainsKey("人事\壊れた.pptx") | Should Be $false
     }
 
-    It "元のファイルが無くなったら、次のインデックス作成でまとめファイルから外す" {
+    It "元のファイルが無くなったら、次のインデックス作成で集約ファイルから外す" {
         $source = newSourceFolder "総務2"
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務2"; path = $source; enabled = $true })
@@ -412,12 +412,12 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         Remove-Item -LiteralPath "$source\議事録.docx" -Force
 
         invokeIndexer $root | Should Be 0
-        # docx は議事録.docx だけだったため、まとめファイルごと無くなる
+        # docx は議事録.docx だけだったため、集約ファイルごと無くなる
         [System.IO.File]::Exists("$root\work\index\総務2\content.docx.001.tsv") | Should Be $false
         (readTestStatus $root).Rows.ContainsKey("総務2\議事録.docx") | Should Be $false
     }
 
-    It "前回の作成で残った TSV（元のファイルごとのフォルダ）は、次の作成の始めにまとめファイルへ入れる" {
+    It "前回の作成で残った TSV（元のファイルごとのフォルダ）は、次の作成の始めに集約ファイルへ入れる" {
         $source = newSourceFolder "総務3"
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務3"; path = $source; enabled = $true })
@@ -492,7 +492,7 @@ Describe "indexer.ps1（システムインデックス）" -Tag Io {
         (readTestSystemState $root).Covered.Contains("広報") | Should Be $true
     }
 
-    It "取り込みの途中で中止しても、取り込んだ分はまとめファイルとシステムインデックスに入れ、対応済みにはしない" {
+    It "取り込みの途中で中止しても、取り込んだ分は集約ファイルとシステムインデックスに入れ、対応済みにはしない" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
         # 取り込めたファイル（TSV を入れ替えたファイル）を記録した直後に中止する
@@ -500,7 +500,7 @@ Describe "indexer.ps1（システムインデックス）" -Tag Io {
 
         invokeIndexer $root @{} @($stop) | Should Be 2
 
-        # 取り込んだ TSV は残さない（まとめファイルに入れる）
+        # 取り込んだ TSV は残さない（集約ファイルに入れる）
         (findIndexFoldersWithBooks "$root\work\index").Count | Should Be 0
         @([System.IO.Directory]::GetFiles("$root\work\index", ${packFilePattern}, "AllDirectories")).Count | Should Be 1
         @([System.IO.Directory]::GetFiles("$root\work\system_index", "*.txt", "AllDirectories")).Count | Should Be 1
