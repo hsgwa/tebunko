@@ -25,7 +25,8 @@ ${searchLimit} = 10000
 ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
 ${previewScrollBarSize} = 18   # 横スクロールバーの高さの目安（ViewportHeight が取れないときに引く）
 ${maxPreviewRows}       = 101  # プレビューに出す行数の上限（選択行＋前後 50 行）
-${libPath}  = "$PSScriptRoot\lib.ps1"  # 別スレッドで読み込む（startJob に渡す）
+${libPath}  = "$PSScriptRoot\lib.ps1"  # 別スレッドで読み込む（検索の司令・startJob のスレッド）
+${backgroundWorkers} = 2  # startJob のスレッドの数
 # インデクサ（ウィンドウを出さずに別プロセスで起動する。indexing_tab.ps1）。
 # ui\ 配下のファイルの中で $PSScriptRoot を使うと ui\ を指してしまうため、パスはここで決める
 ${indexerScriptPath} = "$PSScriptRoot\indexer.ps1"
@@ -130,6 +131,9 @@ ${grayBrush} = themeBrush "Ink.Muted"
 
 # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
 . "$PSScriptRoot\..\shared\ui\shell.ps1"
+# 画面から頼む短い仕事（startJob）のスレッド。長い仕事（件数の数え上げ等）の間もプレビューが待たないよう 2 つにする。
+# 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/00_共通_4_プロセスとスレッド.md 7.2）
+$script:backgroundQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host)
 . "$PSScriptRoot\..\shared\ui\folder_dialog.ps1"
 . "$PSScriptRoot\ui\index_view.ps1"
 . "$PSScriptRoot\ui\indexing_view.ps1"
@@ -308,6 +312,8 @@ try {
 } finally {
     # 検索を取り消し、検索の司令のスレッドと照合のプールを片づける（docs/00_共通_4_プロセスとスレッド.md 7.6）
     $script:searchService.Close()
+    $script:jobTimer.Stop()
+    $script:backgroundQueue.Close()
     $activateTimer.Stop()
     $activateEvent.Close()
     $mutex.ReleaseMutex()

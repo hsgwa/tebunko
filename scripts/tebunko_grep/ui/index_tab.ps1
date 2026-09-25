@@ -430,10 +430,9 @@ function startIndexRemoveJob {
     updateIndexingButton
     setStatus "インデックス [${name}] を削除しています…（件数によっては少し時間がかかります）"
     startJob {
-        param ($libPath, $name)
-        . $libPath
+        param ($name)
         removeIndex $name
-    } @(${libPath}, $name) {
+    } @($name) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateIndexingButton
@@ -534,10 +533,8 @@ function refreshIndexingState {
     $script:stateRunning = $true
     $script:stateAgain = $false
     startJob {
-        param ($libPath)
-        . $libPath
         getIndexingState
-    } @(${libPath}) {
+    } @() {
         param ($output, $errorText)
         $script:stateRunning = $false
         # インデクサが書き込んでいる瞬間などは、次の機会に読み直す
@@ -652,10 +649,9 @@ function refreshIndexSummary {
     $script:summaryAgain = $false
     $folders = @(${indexDir})
     startJob {
-        param ($libPath, $folders)
-        . $libPath
+        param ($folders)
         getIndexSummary $folders
-    } @(${libPath}, $folders) {
+    } @(, $folders) {
         param ($output, $errorText)
         $script:summaryRunning = $false
         if ($output -and $output.Count -gt 0) {

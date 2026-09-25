@@ -77,3 +77,61 @@ Describe "WorkerPool" -Tag Unit {
         { $script:pool.Submit('1', @()) } | Should Throw "閉じています"
     }
 }
+
+Describe "WorkerPool（Prelude）" -Tag Unit {
+    It "各スレッドで最初の仕事の前に 1 回だけ実行し、定義した関数を次の仕事でも使える" {
+        $pool = [WorkerPool]::new(1, (newWorkerState), $null, "Normal")
+        try {
+            $pool.Prelude = 'function preludeDefined { "定義済み" }; $global:preludeCount = [int]$global:preludeCount + 1'
+            @($pool.Receive($pool.Submit('preludeDefined', @()))) | Should Be "定義済み"
+            @($pool.Receive($pool.Submit('"$(preludeDefined) $global:preludeCount"', @()))) | Should Be "定義済み 1"
+        } finally {
+            $pool.Close()
+        }
+    }
+}
+
+Describe "BackgroundQueue" -Tag Unit {
+    BeforeEach {
+        $script:queue = [BackgroundQueue]::new(2, 'function queueHelper($x) { "[$x]" }', $null)
+        $script:done = New-Object System.Collections.Generic.List[string]
+    }
+    AfterEach {
+        $script:queue.Close()
+    }
+
+    function waitQueue {
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($script:queue.Poll() -gt 0 -and $watch.Elapsed.TotalSeconds -lt 30) {
+            Start-Sleep -Milliseconds 20
+        }
+    }
+
+    It "終わった仕事の出力を onDone に渡す（prelude の関数を使える）" {
+        $script:queue.Post('param ($a) queueHelper $a', @("x"), { param ($output, $errorText) $script:done.Add("$($output[0])|$errorText") })
+        waitQueue
+        $script:done -join "," | Should Be "[x]|"
+    }
+
+    It "仕事の失敗は errorText で渡す" {
+        $script:queue.Post('throw "読めません"', @(), { param ($output, $errorText) $script:done.Add("$errorText") })
+        $script:queue.Post('Write-Error "警告付き"; "続き"', @(), { param ($output, $errorText) $script:done.Add("$($output[0])|$errorText") })
+        waitQueue
+        ($script:done | Sort-Object) -join "," | Should Be "続き|警告付き,読めません"
+    }
+
+    It "終わっていない仕事の数を返す" {
+        $script:queue.Post('Start-Sleep -Milliseconds 500', @(), $null)
+        $script:queue.Poll() | Should Be 1
+        waitQueue
+        $script:queue.Poll() | Should Be 0
+    }
+
+    It "閉じると終わっていない仕事を止める。Close は何度呼んでもよい" {
+        $script:queue.Post('Start-Sleep -Seconds 30', @(), { param ($output, $errorText) $script:done.Add("呼ばれた") })
+        $script:queue.Close()
+        $script:queue.Close()
+        $script:queue.Poll() | Should Be 0
+        $script:done.Count | Should Be 0
+    }
+}
