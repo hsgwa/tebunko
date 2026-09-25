@@ -325,6 +325,26 @@ Describe "PowerPoint の共有（偽の PowerPoint）" -Tag Unit {
         $script:powerPointShare.Owned | Should Be $true
     }
 
+    # Pester 3 の Mock は Describe の中の後のテストにも効くため、Context で囲む
+    Context "起動したプロセスの優先度" {
+        It "起動した Excel・Word は優先度を下げ、PowerPoint は下げない（利用者の PowerPoint も同じプロセスで動くため）" {
+            $script:started = @{}
+            Mock Get-Process {
+                if (!$script:started.ContainsKey($Id[0])) {
+                    $script:started[$Id[0]] = [pscustomobject]@{ Id = $Id[0]; ProcessName = "X"; PriorityClass = "Normal" }
+                }
+                return $script:started[$Id[0]]
+            } -ParameterFilter { $Id }
+            Mock New-Object { newFakeApp } -ParameterFilter { $ComObject -eq "PowerPoint.Application" -or $ComObject -eq "Excel.Application" }
+            setProcesses @() @(410)
+            [void](getApp "PowerPoint")
+            setProcesses @() @(420)
+            [void](getApp "Excel")
+            # PowerPoint のプロセスは、優先度を変えない（触らない）
+            (!$script:started.ContainsKey(410) -or [string]$script:started[410].PriorityClass -eq "Normal") | Should Be $true
+            [string]$script:started[420].PriorityClass | Should Be "BelowNormal"
+        }
+    }
     It "共有しているときの stopApp は、PowerPoint を終了せずにつながりを放すだけ" {
         $fake = newFakeApp
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
