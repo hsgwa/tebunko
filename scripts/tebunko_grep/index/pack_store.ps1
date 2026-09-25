@@ -277,7 +277,7 @@ function publishIndexFolders {
     if ($results.Count -gt 0) {
         $saved = updateSystemIndexState { param ($state) setSystemIndexResults $state $results.ToArray() } $statePath
         if (!$saved) {
-            Write-Host "システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" -ForegroundColor Yellow
+            writeIndexerLog "システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" "Yellow"
         }
     }
     return $results.Count

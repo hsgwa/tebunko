@@ -20,6 +20,17 @@ Describe "readSettings / writeSettings" -Tag Io {
         }
     }
 
+    It "取り込みのスレッドの数（ingestThreads）は数値で読む。数値にできなければ既定値（0）" {
+        $path = "$TestDrive\スレッド\setting.config"
+        (readSettings $path).ingestThreads | Should Be 0
+        updateSettings "ingestThreads" 2 $path
+        (readSettings $path).ingestThreads | Should Be 2
+        updateSettings "ingestThreads" "3" $path   # 手で書いた文字列
+        (readSettings $path).ingestThreads | Should Be 3
+        updateSettings "ingestThreads" "たくさん" $path
+        (readSettings $path).ingestThreads | Should Be 0
+    }
+
     It "開き方が無い・知らない値なら「通常」とする" {
         $path = "$TestDrive\開き方2\setting.config"
         readOpenMode $path | Should Be ${openModeNormal}        # ファイルが無い

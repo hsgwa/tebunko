@@ -30,14 +30,14 @@ $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickE
 })
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
 $script:editDialog = $null    # 追加・編集のダイアログ（開いている間だけ）
-$script:indexingProcess = $null
+$script:indexingSession = $null  # 実行中のインデックス作成（IndexingSession。終わって片づけたら $null）
 $script:indexingStart = $null
 $script:ingestFailed = 0  # インデックス作成中に一覧へ反映済みの失敗件数
 $script:indexingState = $null
 $script:indexSummary = $null
 
 function isIndexing {
-    return ($null -ne $script:indexingProcess) -and !$script:indexingProcess.HasExited
+    return ($null -ne $script:indexingSession) -and $script:indexingSession.IsRunning()
 }
 
 $script:folderCheckRunning = $false

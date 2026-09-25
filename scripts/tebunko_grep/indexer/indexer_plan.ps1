@@ -168,15 +168,15 @@ function createTargetList {
         # インデックスを直接削除された場合など。ふだんは 0 件のため、あるときだけ表示する
         $detail += " / インデックスが無い・壊れている $($count.Lost) 件"
     }
-    Write-Host ("  [{0}] Officeファイル {1} 件（{2}）" -f $folder.Name, $scan.Files.Count, $detail)
+    writeIndexerLog ("  [{0}] Officeファイル {1} 件（{2}）" -f $folder.Name, $scan.Files.Count, $detail)
     if ($count.Lost -gt 0) {
-        Write-Host "    インデックス（TSV）が無くなった・壊れている $($count.Lost) 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" -ForegroundColor Yellow
+        writeIndexerLog "    インデックス（TSV）が無くなった・壊れている $($count.Lost) 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" "Yellow"
     }
     if ($removed.Count -gt 0) {
-        Write-Host "    元ファイルが無くなった $($removed.Count) 件は、インデックスから除きます。"
+        writeIndexerLog "    元ファイルが無くなった $($removed.Count) 件は、インデックスから除きます。"
     }
     if ($scan.HasError) {
-        Write-Host "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" -ForegroundColor Yellow
+        writeIndexerLog "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" "Yellow"
     }
 
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
@@ -185,40 +185,34 @@ function createTargetList {
 }
 
 function waitForIndexingApproval {
-    # 取り込み対象の件数を画面に渡し（取り込み予定.tsv）、［インデックス作成を開始］（インデックス作成開始要求）か［キャンセル］（インデックス作成中止要求）の返事を待つ。
-    #   取り込む → @{ RetryFailed } / 取りやめ → $null
-    # 画面を閉じた・落ちた場合に待ち続けないよう、$approvalTimeoutMinutes で打ち切って取りやめる
+    # 取り込み対象の件数を受け渡しの口（newIndexerChannel）で画面に渡し、［インデックス作成を開始］か［キャンセル］の返事を待つ。
+    #   取り込む → @{ RetryFailed } / 取りやめ（中止を求められた場合を含む） → $null
+    # 画面が返事をしないまま待ち続けないよう、timeoutMinutes で打ち切って取りやめる
     param (
+        $channel,
         $plan,               # newIngestPlanRow の配列（インデックスごと）
         [int]$targetCount,   # 取り込み対象の合計（画面の進み具合に出す）
-        [int]$failedCount    # 前回失敗の合計（画面で再取り込みするかを選ぶ）
+        [int]$failedCount,   # 前回失敗の合計（画面で再取り込みするかを選ぶ）
+        [int]$timeoutMinutes = 60
     )
 
-    removeIndexingStartRequest
-    writeIngestPlan $plan
-    writeIndexingProgress ${indexingPhaseConfirm} 0 $targetCount $failedCount "取り込む内容を画面で確認しています…"
-    Write-Host ""
-    Write-Host "取り込み対象を画面に表示しました。［インデックス作成を開始］が押されるまで待ちます。（${approvalTimeoutMinutes} 分待っても返事が無ければ取りやめます）"
+    [void]$channel.Answered.Reset()
+    $channel.Answer = $null
+    $channel.Plan = @($plan)
+    writeIndexingProgress ${indexingPhaseConfirm} 0 $targetCount $failedCount "取り込む内容を画面で確認しています…" $channel
+    writeIndexerLog ""
+    writeIndexerLog "取り込み対象を画面に表示しました。［インデックス作成を開始］が押されるまで待ちます。（${timeoutMinutes} 分待っても返事が無ければ取りやめます）"
 
-    $limit = (Get-Date).AddMinutes($approvalTimeoutMinutes)
-    while ($true) {
-        if (Test-Path -LiteralPath ${stopRequestFile}) {
-            # 画面で［キャンセル］［中止］を押した
-            Remove-Item -LiteralPath ${stopRequestFile} -Force
-            removeIngestPlan
+    try {
+        if (!$channel.Answered.WaitOne([TimeSpan]::FromMinutes($timeoutMinutes))) {
+            writeIndexerLog "画面からの返事が ${timeoutMinutes} 分ありませんでした。インデックス作成を取りやめます。" "Yellow"
             return $null
         }
-        $answer = readIndexingStartRequest
-        if ($answer) {
-            removeIndexingStartRequest
-            removeIngestPlan
-            return $answer
-        }
-        if ((Get-Date) -gt $limit) {
-            Write-Host "画面からの返事が ${approvalTimeoutMinutes} 分ありませんでした。インデックス作成を取りやめます。" -ForegroundColor Yellow
-            removeIngestPlan
+        if ($channel.Stop) {
             return $null
         }
-        Start-Sleep -Milliseconds 300
+        return $channel.Answer
+    } finally {
+        $channel.Plan = $null
     }
 }

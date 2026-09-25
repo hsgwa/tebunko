@@ -226,27 +226,78 @@ $window.Add_PreviewKeyDown({
     }
 })
 
-$window.Add_Closing({
-    param ($sender, $e)
-    # インデックス作成はウィンドウを出さずに動いているため、閉じる前にどうするか聞く
-    if (isIndexing) {
-        $answer = showConfirm `
-            -heading "まだインデックス作成の途中です。どうしますか？" `
-            -choices @(
-                @{ Text = "インデックス作成を続けたまま閉じる"; Detail = "インデックス作成は裏で続きます。もう一度開くと進み具合が出ます"; Value = "keep" },
-                @{ Text = "インデックス作成を止めてから閉じる"; Detail = "いま取り込んでいるファイルが終わったところで止まります（次に開いたとき続きから再開できます）"; Value = "stop" }
-            ) `
-            -cancelText "閉じない"
-        if ($null -eq $answer) {
-            $e.Cancel = $true
-            return
-        }
-        if ($answer -eq "stop") {
-            [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
+# 閉じるときの順番（docs/00_共通_4_プロセスとスレッド.md 7.6）。インデックス作成は画面のプロセスのスレッドで動くため、
+# 止めてから閉じる。止め終わるまで閉じるのを保留し、closeTimer が終わりを待ってから閉じ直す
+$script:closeWaiting = $false   # インデックス作成が止まるのを待っている
+$script:closeDeadline = $null   # これを過ぎたら、インデックス作成が起動した Office を止める
+$script:closeKilled = $false    # Office を止めた
+$script:closeReady = $false     # 待ち終えた（もう聞かずに閉じる）
+${closeWaitSeconds} = 60        # インデックス作成が止まるのを待つ時間。過ぎたら Office を止めて、さらに closeKillWaitSeconds 待つ
+${closeKillWaitSeconds} = 15
+
+$script:closeTimer = newTimer 500 {
+    safe {
+        $now = Get-Date
+        if (!(isIndexing)) {
+            $script:closeTimer.Stop()
+            $script:closeReady = $true
+            $window.Close()
+        } elseif (!$script:closeKilled -and $now -gt $script:closeDeadline) {
+            # 取り込み中の Office が応答しない。インデックス作成が起動した Office だけを PID で止める（COM の呼び出しが戻る）
+            $script:closeKilled = $true
+            [void]$script:indexingSession.KillOffice()
+            $script:closeDeadline = $now.AddSeconds(${closeKillWaitSeconds})
+        } elseif ($script:closeKilled -and $now -gt $script:closeDeadline) {
+            # それでも止まらない。スレッドは finally で止める
+            $script:closeTimer.Stop()
+            $script:closeReady = $true
+            $window.Close()
         }
     }
+}
+
+$window.Add_Closing({
+    param ($sender, $e)
+    if ($script:closeReady) {
+        return
+    }
+    if ($script:closeWaiting) {
+        # 止まるのを待っている間に、もう一度閉じようとした
+        $e.Cancel = $true
+        return
+    }
+    # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
+    if (isIndexing) {
+        $answer = showConfirm `
+            -heading "まだインデックス作成の途中です。止めてから閉じますか？" `
+            -facts @(
+                (factNext "いま取り込んでいるファイルが終わったところで止まり、画面を閉じます"),
+                (factKept "ここまで取り込んだ分はそのまま残ります" "次に開いて［インデックス作成を開始］を押すと、続きから再開します")
+            ) `
+            -choices @(@{ Text = "インデックス作成を止めて閉じる"; Value = "stop"; Careful = $true }) `
+            -cancelText "閉じない"
+        $e.Cancel = $true
+        if ($answer -ne "stop" -or !(isIndexing)) {
+            if ($answer -eq "stop") {
+                # 聞いている間に終わった
+                $script:closeReady = $true
+                $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
+            }
+            return
+        }
+        $script:closeWaiting = $true
+        $script:indexingTimer.Stop()
+        $script:indexingSession.Stop()
+        $ui.IndexingStopButton.IsEnabled = $false
+        $ui.IndexingProgressText.Text = "インデックス作成を止めています…"
+        $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。"
+        setStatus "インデックス作成を止めてから閉じます…"
+        $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
+        $script:closeTimer.Start()
+        return
+    }
     if ($script:search) {
-        $script:search.Shared.Stop = $true
+        cancelSearch
     }
 })
 
@@ -275,14 +326,8 @@ checkFastSearchAvailable
 updateKillBadge
 refreshIndexSummary
 
-# 前回の画面で起動したインデックス作成が続いていれば、進み具合を表示する
-$runningIndexing = findRunningIndexer
-if ($runningIndexing) {
-    adoptIndexing $runningIndexing
-}
-
-# 起動時のタブ：インデックス作成中・中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
-$openIndexTab = $runningIndexing -or ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
+# 起動時のタブ：インデックス作成が中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
+$openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
 $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
 # 既定のワークスペースにほかのファイルが置いてあれば、［8 設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
 $script:workspaceBlock = getWorkspaceBlockMessage
@@ -314,7 +359,13 @@ $activateTimer.Start()
 try {
     [void]$window.ShowDialog()
 } finally {
-    # 検索を取り消し、検索の司令のスレッドと照合のプールを片づける（docs/00_共通_4_プロセスとスレッド.md 7.6）
+    # インデックス作成のスレッド、検索の司令のスレッドと照合のプール、画面の裏の仕事のスレッドを片づける
+    # （docs/00_共通_4_プロセスとスレッド.md 7.6）
+    $script:closeTimer.Stop()
+    $script:indexingTimer.Stop()
+    if ($script:indexingSession) {
+        $script:indexingSession.Close()
+    }
     $script:searchService.Close()
     $script:jobTimer.Stop()
     $script:backgroundQueue.Close()

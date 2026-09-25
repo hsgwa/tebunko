@@ -124,19 +124,20 @@ function writeSystemIndexFolders {
         return , $results.ToArray()
     }
 
-    # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）
-    $state = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
-    foreach ($name in @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
-            "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getPackContentText", "testIndexBookDir")) {
-        $state.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new($name, (Get-Command $name -CommandType Function).Definition))
-    }
-    foreach ($name in @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "packFilePattern")) {
-        $state.Variables.Add([System.Management.Automation.Runspaces.SessionStateVariableEntry]::new($name, (Get-Variable $name -ValueOnly), ""))
-    }
-    $pool = [runspacefactory]::CreateRunspacePool(1, $workers, $state, $Host)
+    # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）。
+    # インデックス作成の処理のため、スレッドの優先度を下げる（画面・検索を先に動かす。docs/00_共通_4_プロセスとスレッド.md 7.2）
+    $state = newWorkerState @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
+        "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getPackContentText", "testIndexBookDir") `
+        @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "packFilePattern")
+    $pool = [WorkerPool]::new($workers, $state, $Host, "BelowNormal")
     $pending = New-Object System.Collections.Generic.Queue[hashtable]
+    $jobScript = {
+        param ($folder, $indexRoot, $systemRoot)
+        # 別スレッドは既定では .NET の例外で止まらず、書けなかった txt を作ったものとして返してしまう。例外で止めて呼び出し元に伝える
+        $ErrorActionPreference = "Stop"
+        @{ Result = writeSystemIndexFolder $folder $indexRoot $systemRoot }
+    }.ToString()
     try {
-        $pool.Open()
         $next = 0
         while ($next -lt $folders.Count -or $pending.Count -gt 0) {
             # スレッド数の 2 倍まで先に始めておき、終わった順ではなく始めた順に受け取る
@@ -145,36 +146,22 @@ function writeSystemIndexFolders {
                     $next = $folders.Count
                     break
                 }
-                $ps = [powershell]::Create()
-                $ps.RunspacePool = $pool
-                [void]$ps.AddScript({
-                    param ($folder, $indexRoot, $systemRoot)
-                    # 別スレッドは既定では .NET の例外で止まらず、書けなかった txt を作ったものとして返してしまう。例外で止めて呼び出し元に伝える
-                    $ErrorActionPreference = "Stop"
-                    @{ Result = writeSystemIndexFolder $folder $indexRoot $systemRoot }
-                }).AddArgument($folders[$next]).AddArgument($indexRoot).AddArgument($systemRoot)
-                $pending.Enqueue(@{ PowerShell = $ps; Handle = $ps.BeginInvoke() })
+                $pending.Enqueue($pool.Submit($jobScript, @($folders[$next], $indexRoot, $systemRoot)))
                 $next++
             }
             if ($pending.Count -eq 0) {
                 break
             }
-            $job = $pending.Dequeue()
-            try {
-                $output = $job.PowerShell.EndInvoke($job.Handle)
-                if ($output.Count -gt 0) {
-                    $results.Add($output[0].Result)
-                }
-            } finally {
-                $job.PowerShell.Dispose()
+            $output = $pool.Receive($pending.Dequeue())
+            if ($output.Count -gt 0) {
+                $results.Add($output[0].Result)
             }
         }
     } finally {
         foreach ($job in $pending) {
-            try { $job.PowerShell.Stop() } catch {}
-            $job.PowerShell.Dispose()
+            $pool.Cancel($job)
         }
-        $pool.Dispose()
+        $pool.Close()
     }
     return , $results.ToArray()
 }
@@ -356,18 +343,18 @@ function getSystemIndexStaleFolders {
 function updateSystemIndexes {
     # インデックス作成の終わりに、システムインデックスの作り直しが要るフォルダをまとめて作り直し、状態ファイルに書く。
     # すべてのフォルダの txt がそろったインデックスは「対応済み」にする（対応済みでないインデックスは、高速検索でもすべてを照合する）。
-    # 利用者の作業の邪魔にならないよう、作っている間はプロセスの優先度を下げる。中止要求（stopFile）があれば、始めていない分は作らない。
+    # 利用者の作業の邪魔にならないよう、作るスレッドの優先度を下げる（writeSystemIndexFolders）。shouldStop が $true を返せば、始めていない分は作らない。
     # 作り直したフォルダの数と、作り終えていないインデックスの数を @{ Built; Unfinished } で返す
     param (
         [string]$indexRoot = ${indexDir},
         [string]$systemRoot = ${systemIndexDir},
         [string]$statePath = ${systemIndexStateFile},
-        [string]$stopFile = ${stopRequestFile}
+        [scriptblock]$shouldStop = $null
     )
 
     $state = readSystemIndexState $statePath
     if ($null -eq $state) {
-        Write-Host "システムインデックスの状態を読めないため、作り直しは次のインデックス作成に回します。" -ForegroundColor Yellow
+        writeIndexerLog "システムインデックスの状態を読めないため、作り直しは次のインデックス作成に回します。" "Yellow"
         return @{ Built = 0; Unfinished = -1 }
     }
     # 無くなったインデックス（設定から外した・画面で削除した）の txt と状態の行を消す
@@ -394,15 +381,9 @@ function updateSystemIndexes {
     $stale = getSystemIndexStaleFolders $indexRoot $systemRoot $state
     $results = @()
     if ($stale.Count -gt 0) {
-        Write-Host "システムインデックス（高速検索用）を作っています…（$($stale.Count) フォルダ）"
-        $process = [System.Diagnostics.Process]::GetCurrentProcess()
-        $priority = $process.PriorityClass
-        try { $process.PriorityClass = [System.Diagnostics.ProcessPriorityClass]::BelowNormal } catch {}
-        try {
-            $results = writeSystemIndexFolders $stale $indexRoot $systemRoot 0 { [System.IO.File]::Exists($stopFile) }
-        } finally {
-            try { $process.PriorityClass = $priority } catch {}
-        }
+        writeIndexerLog "システムインデックス（高速検索用）を作っています…（$($stale.Count) フォルダ）"
+        $results = writeSystemIndexFolders $stale $indexRoot $systemRoot 0 $shouldStop
+
     }
     # 作り終えていないフォルダがあるインデックスは、対応済みにしない
     $built = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
@@ -429,9 +410,9 @@ function updateSystemIndexes {
         }
     } $statePath
     if (!$saved) {
-        Write-Host "システムインデックスの状態を書き込めなかったため、次のインデックス作成で作り直します。" -ForegroundColor Yellow
+        writeIndexerLog "システムインデックスの状態を書き込めなかったため、次のインデックス作成で作り直します。" "Yellow"
     } elseif ($unfinished.Count -gt 0) {
-        Write-Host "中止したため、システムインデックスの一部（$($stale.Count - $built.Count) フォルダ）は次のインデックス作成で作ります。" -ForegroundColor Yellow
+        writeIndexerLog "中止したため、システムインデックスの一部（$($stale.Count - $built.Count) フォルダ）は次のインデックス作成で作ります。" "Yellow"
     }
     return @{ Built = $built.Count; Unfinished = $unfinished.Count }
 }

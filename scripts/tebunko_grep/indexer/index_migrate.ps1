@@ -21,7 +21,7 @@ function removeTmpDir {
         try {
             removeDirectoryRetry $dir
         } catch {
-            Write-Host "    作業フォルダを削除できませんでした: ${dir}" -ForegroundColor Yellow
+            writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}" "Yellow"
         }
     }
 }
@@ -89,7 +89,7 @@ function moveLegacyIndex {
     $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
     $folder = @($folders | Where-Object { $_.Path -eq $legacyPath }) | Select-Object -First 1
     if (!$folder) {
-        Write-Host "work\index 直下に、クロール対象から外したフォルダ（${legacyPath}）の以前の形式のインデックスがあります。不要なら削除してください。" -ForegroundColor Yellow
+        writeIndexerLog "work\index 直下に、クロール対象から外したフォルダ（${legacyPath}）の以前の形式のインデックスがあります。不要なら削除してください。" "Yellow"
         return , $rows
     }
 
@@ -100,8 +100,7 @@ function moveLegacyIndex {
     }
     [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
     [System.IO.Directory]::Move($movingDir, (Join-Path $indexDir $folder.Name))
-    Write-Host "以前の形式のインデックスを work\index\$($folder.Name) に移しました。（$($folder.Path) のインデックス）"
-
+    writeIndexerLog "以前の形式のインデックスを work\index\$($folder.Name) に移しました。（$($folder.Path) のインデックス）"
     foreach ($row in $status.Rows.Values) {
         $row.相対パス = "$($folder.Name)\$($row.相対パス)"
         $rows[$row.相対パス] = $row
@@ -125,7 +124,7 @@ function removeDroppedFolders {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
             Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
         }
-        Write-Host "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
+        writeIndexerLog "クロール対象から削除されたフォルダ（$($previous.Path)）のインデックスを削除しました。"
     }
 }
 
@@ -159,9 +158,9 @@ function migrateFlatIndex {
     }
 
     if ($moved -gt 0) {
-        Write-Host "以前の形式のTSV ${moved} 件を、元のファイル名のフォルダへ移しました。（取り込み直しません）"
+        writeIndexerLog "以前の形式のTSV ${moved} 件を、元のファイル名のフォルダへ移しました。（取り込み直しません）"
     }
     if ($failed -gt 0) {
-        Write-Host "以前の形式のTSV ${failed} 件は移せませんでした。該当のファイルは次のインデックス作成で作り直します。" -ForegroundColor Yellow
+        writeIndexerLog "以前の形式のTSV ${failed} 件は移せませんでした。該当のファイルは次のインデックス作成で作り直します。" "Yellow"
     }
 }

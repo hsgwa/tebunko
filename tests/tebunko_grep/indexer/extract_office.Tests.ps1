@@ -275,13 +275,13 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         } -Force
         $excel = newExcel @($sheet)
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
-        Mock Write-Host {}
+        Mock writeIndexerLog {}
 
         extractWorkbook $source | Should Be 1
         ($log | Where-Object { $_ -notlike "Open:*" -and $_ -notlike "Close:*" }) -join "|" |
             Should Be "AddSheet|Delete:一時|Activate:肥大|SaveAs:肥大:42"
         readTsv "肥大.tsv" | Should Be "元のシート`r`n"
-        Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -match "肥大 の使用範囲を縮められませんでした" }
+        Assert-MockCalled writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "肥大 の使用範囲を縮められませんでした" }
     }
 
     It "作業フォルダ＋ファイル名が長すぎて Excel で開けないときは、短い名前のコピーを開く" {

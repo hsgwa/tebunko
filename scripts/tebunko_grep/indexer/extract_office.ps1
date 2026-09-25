@@ -74,7 +74,7 @@ function copyDataRangeToTempSheet {
         return $temp
     } catch {
         # ブックの構成が保護されている場合など。元のシートをそのまま書き出す（時間切れで失敗することがある）
-        Write-Host "    $($worksheet.Name) の使用範囲を縮められませんでした: $($_.Exception.Message)" -ForegroundColor Yellow
+        writeIndexerLog "    $($worksheet.Name) の使用範囲を縮められませんでした: $($_.Exception.Message)" "Yellow"
         if ($temp) {
             $temp.Delete()
             releaseComObject $temp
@@ -111,7 +111,7 @@ function extractWorkbook {
         try {
             $objectUnits = readXlsxObjectUnits $copyPath
         } catch {
-            Write-Host "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" -ForegroundColor Yellow
+            writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
         }
     }
 
@@ -221,20 +221,28 @@ function extractWithPowerPoint {
         [string]$destPath
     )
 
-    # 読み取り専用・ウィンドウ無しで開く。
-    # ファイル名の後ろに "::<パスワード>::" を付けると、パスワード付きのファイルはダイアログを出さずにエラーになる
-    $presentations = (getApp "PowerPoint").Presentations
+    # PowerPoint は 1 つのプロセスしか持てず、取り込みのスレッドの間で共有になる。ほかのスレッドが使っている間に
+    # 終了させないよう、使う間は鍵を取り、使い終わったら終了する（次に使うスレッドが起動し直す。旧形式は少ないため待ちは小さい）
+    $lock = lockOfficeProcess "PowerPoint"
     try {
-        $pres = $presentations.Open("${sourcePath}::dummy::", -1, 0, 0)  # ReadOnly, Untitled = False, WithWindow = False
-    } finally {
-        releaseComObject $presentations
-    }
+        # 読み取り専用・ウィンドウ無しで開く。
+        # ファイル名の後ろに "::<パスワード>::" を付けると、パスワード付きのファイルはダイアログを出さずにエラーになる
+        $presentations = (getApp "PowerPoint").Presentations
+        try {
+            $pres = $presentations.Open("${sourcePath}::dummy::", -1, 0, 0)  # ReadOnly, Untitled = False, WithWindow = False
+        } finally {
+            releaseComObject $presentations
+        }
 
-    try {
-        [void]$pres.SaveAs($destPath, 24)  # 24 = ppSaveAsOpenXMLPresentation（.pptx）
+        try {
+            [void]$pres.SaveAs($destPath, 24)  # 24 = ppSaveAsOpenXMLPresentation（.pptx）
+        } finally {
+            $pres.Close()
+            releaseComObject $pres
+        }
     } finally {
-        $pres.Close()
-        releaseComObject $pres
+        try { stopApp "PowerPoint" } catch {}
+        unlockOfficeProcess $lock
     }
 }
 

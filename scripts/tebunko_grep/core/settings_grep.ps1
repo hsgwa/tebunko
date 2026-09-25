@@ -28,6 +28,7 @@ function newSettings {
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
         workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（設定ファイルと同じフォルダの work）
+        ingestThreads      = 0        # 取り込みのスレッドの数（1〜4。0 はコア数から決める）。Excel をスレッドの数だけ同時に動かすため、メモリの少ない PC では減らす
     }
 }
 
@@ -68,6 +69,12 @@ function readSettings {
             $settings[$key] = @($property.Value | Where-Object { $null -ne $_ })
         } elseif ($settings[$key] -is [string]) {
             $settings[$key] = [string]$property.Value
+        } elseif ($settings[$key] -is [int]) {
+            # 数値。手で書き換えて数値にできないときは既定値
+            $number = 0
+            if ([int]::TryParse([string]$property.Value, [ref]$number)) {
+                $settings[$key] = $number
+            }
         } else {
             $settings[$key] = toSettingBool $property.Value $settings[$key]
         }

@@ -3,14 +3,12 @@
 # ---- インデックス作成の起動と進み具合 ----
 
 function getIndexingProgress {
-    # インデックス作成の進み具合を返す（インデクサが書く インデックス作成進捗.txt の1行を読む）。
-    # 取り込み一覧（数万行）を読み直すと1回に数秒かかり、毎秒読むと画面が固まるため、この1行だけを読む
-    param (
-        [datetime]$since
-    )
-
+    # インデックス作成の進み具合を返す（インデクサが受け渡しの口に入れた進み具合を読む。取り込み一覧は読まない）
     $progress = @{ Scanned = $false; Processed = 0; Failed = 0; Remaining = 0; Current = ""; Detail = ""; Finishing = $false; Confirming = $false }
-    $current = readIndexingProgress
+    $current = $null
+    if ($script:indexingSession) {
+        $current = readIndexingProgress $script:indexingSession.Channel
+    }
     if ($null -eq $current) {
         return $progress
     }
@@ -26,20 +24,6 @@ function getIndexingProgress {
         $progress.Current = $current.Detail  # 取り込み中のファイルの相対パス
     }
     return $progress
-}
-
-function findRunningIndexer {
-    # このツールのインデックス作成（tebunko_grep\indexer.ps1）が実行中なら、そのプロセスを返す（画面を閉じて開き直した場合など）
-    $script = ${indexerScriptPath}
-    foreach ($process in @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue)) {
-        if ($process.CommandLine -and $process.CommandLine.IndexOf($script, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-            try {
-                return Get-Process -Id $process.ProcessId -ErrorAction Stop
-            } catch {
-            }
-        }
-    }
-    return $null
 }
 
 function showIndexingPanel {
@@ -148,9 +132,10 @@ function confirmIndexingTargets {
     if ($script:indexingConfirmed) {
         return
     }
-    $plan = readIngestPlan
+    $channel = $script:indexingSession.Channel
+    $plan = $channel.Plan
     if ($null -eq $plan) {
-        return  # 書き込みの途中・まだ読めない。次の機会に読む
+        return  # まだ入っていない。次の機会に読む
     }
     $script:indexingConfirmed = $true
 
@@ -159,16 +144,16 @@ function confirmIndexingTargets {
     $ui.IndexingProgressDetail.Text = "取り込み対象の一覧を表示しています。"
     $answer = showIndexingConfirmDialog $plan
     if ($null -eq $answer) {
-        # 取りやめ。インデクサはインデックス作成中止要求を見て、何も取り込まずに終わる
+        # 取りやめ。インデクサは何も取り込まずに終わる
         $script:indexingCanceledAtConfirm = $true
         $ui.IndexingStopButton.IsEnabled = $false
         $ui.IndexingProgressText.Text = "インデックス作成を取りやめています…"
         $ui.IndexingProgressDetail.Text = ""
-        [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
+        answerIndexingPlan $channel $null
         setStatus "インデックス作成を取りやめました"
         return
     }
-    writeIndexingStartRequest $answer.RetryFailed
+    answerIndexingPlan $channel $answer
     $script:indexingRate = $null  # 残り時間の目安は、確認を待っていた時間を含めずに計る
     $ui.IndexingProgressText.Text = "インデックス作成を始めています…"
     setStatus "インデックス作成を開始しました"
@@ -176,12 +161,6 @@ function confirmIndexingTargets {
 
 function startIndexing {
     if (isIndexing) {
-        return
-    }
-    $existing = findRunningIndexer
-    if ($existing) {
-        adoptIndexing $existing
-        setStatus "実行中のインデックス作成があるため、その進み具合を表示します"
         return
     }
 
@@ -195,42 +174,18 @@ function startIndexing {
 
     saveTargets
     # 何件取り込むかは、元のファイルの更新日時とサイズを見ないと分からない。
-    # -ConfirmTargets を付けると、インデクサは数え終えたところで止まって確認（インデックス作成開始要求）を待つ
-    $arguments = "-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"${indexerScriptPath}`" -ConfirmTargets"
+    # ConfirmTargets にすると、インデクサは数え終えたところで止まって確認の返事（answerIndexingPlan）を待つ。
+    # インデクサは画面のプロセスのスレッドで動く（docs/00_共通_4_プロセスとスレッド.md 7.1）
     $script:indexingStart = Get-Date
     $script:indexingRate = $null
     $script:indexingConfirmed = $false
     $script:indexingCanceledAtConfirm = $false
-    $script:indexingProcess = Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -WorkingDirectory ${rootDir} -WindowStyle Hidden -PassThru
-    # PowerShell 5.1 では、起動直後にハンドルを取っておかないと終了コードを取得できないことがある
-    $null = $script:indexingProcess.Handle
-    $script:indexingAdopted = $false
+    $script:indexingSession = newIndexingSession ${indexerScriptPath} (newIndexerChannel -confirmTargets $true)
 
     showIndexingPanel
     setStatus "クロールしています…"
     updateIndexingButton
     updateKillBadge
-    $script:indexingTimer.Start()
-}
-
-function adoptIndexing {
-    # 画面の外で起動された（または前回の画面で起動した）インデックス作成の進み具合を表示する
-    param (
-        [System.Diagnostics.Process]$process
-    )
-
-    $script:indexingProcess = $process
-    try {
-        $null = $process.Handle
-    } catch {
-    }
-    $script:indexingStart = $process.StartTime
-    $script:indexingRate = $null
-    $script:indexingConfirmed = $false
-    $script:indexingCanceledAtConfirm = $false
-    $script:indexingAdopted = $true
-    showIndexingPanel
-    updateIndexingButton
     $script:indexingTimer.Start()
 }
 
@@ -248,7 +203,7 @@ function stopIndexing {
     if ($answer -ne "stop") {
         return
     }
-    [System.IO.File]::WriteAllText(${stopRequestFile}, "", ${utf8Bom})
+    requestIndexingStop $script:indexingSession.Channel
     $ui.IndexingStopButton.IsEnabled = $false
     $ui.IndexingProgressDetail.Text = "中止しています…（取り込み中のファイルが終わるまでお待ちください）"
     setStatus "インデックス作成の中止を要求しました"
@@ -261,7 +216,7 @@ function updateIndexingProgress {
     }
 
     try {
-        $progress = getIndexingProgress $script:indexingStart
+        $progress = getIndexingProgress
     } catch {
         return
     }
@@ -338,17 +293,17 @@ function finishIndexing {
     $taskbar.ProgressState = "None"
     # インデックス作成完了の通知。以前はタスクバーのボタンを光らせていたが（FlashWindowEx）、P/Invoke は
     # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は進捗表示・ステータスで分かる。
-    $exitCode = $null
-    try {
-        $script:indexingProcess.WaitForExit()
-        $exitCode = $script:indexingProcess.ExitCode
-    } catch {
-    }
+    $session = $script:indexingSession
     $progress = $null
     try {
-        $progress = getIndexingProgress $script:indexingStart
+        $progress = getIndexingProgress
     } catch {
     }
+    $exitCode = $session.GetExitCode()
+    $errorText = $session.GetError()
+    # インデクサのスレッドを片づける（終わっているため待たない）
+    $session.Close()
+    $script:indexingSession = $null
 
     $counts = ""
     if ($progress -and $progress.Processed -gt 0) {
@@ -365,7 +320,7 @@ function finishIndexing {
 
     if ($exitCode -eq 1) {
         # インデックス作成を続けられないエラー（クロール対象フォルダが無い など）
-        $message = (readTextShared ${indexingErrorFile}).Trim()
+        $message = $errorText.Trim()
         if ($message -eq "") {
             $message = "詳しくはログを確認してください。"
         }
@@ -395,7 +350,6 @@ function finishIndexing {
     $ui.IndexingStopButton.Visibility = "Collapsed"
     $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath ${indexingLogFile}) { "Visible" } else { "Collapsed" }
 
-    $script:indexingProcess = $null
     $script:sourceFolderMaps = @{}
     refreshIndexingState
     refreshIndexSummary

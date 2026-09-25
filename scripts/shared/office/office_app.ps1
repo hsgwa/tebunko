@@ -18,6 +18,38 @@ $appInfo = @{
     PowerPoint = @{ ProgId = "PowerPoint.Application"; Process = "POWERPNT"; ExitWait = 5000 }
 }
 
+# 起動した Office のプロセスの優先度。利用者の操作・検索を先に動かすため下げる（docs/00_共通_4_プロセスとスレッド.md 7.2）
+$officePriority = [System.Diagnostics.ProcessPriorityClass]::BelowNormal
+# 起動したアプリの PID を入れる入れ物（ConcurrentDictionary[int,string]。$null なら入れない）。
+# 取り込みを複数のスレッドで行うとき、画面が閉じるときに、インデックス作成が起動した Office を PID で止めるために使う
+$script:officePidSink = $null
+
+function lockOfficeProcess {
+    # プロセスの中で 1 つずつ行う Office の操作の鍵（名前付きミューテックス）を取る。解放は unlockOfficeProcess。
+    #   start     : 起動（起動の前後のプロセスの一覧の差で PID を調べるため、同時に起動すると取り違える）
+    #   PowerPoint: PowerPoint を使う操作（PowerPoint は 1 つのプロセスしか持てず、ほかのスレッドと共有になるため）
+    param (
+        [string]$name
+    )
+
+    $mutex = New-Object System.Threading.Mutex($false, "Local\tebunko_office_${name}_${PID}")
+    try {
+        [void]$mutex.WaitOne()
+    } catch [System.Threading.AbandonedMutexException] {
+        # 持っていたスレッドが解放せずに終わった。鍵は取れている
+    }
+    return $mutex
+}
+
+function unlockOfficeProcess {
+    param (
+        [System.Threading.Mutex]$mutex
+    )
+
+    $mutex.ReleaseMutex()
+    $mutex.Dispose()
+}
+
 function getApp {
     # アプリのCOMオブジェクトを返す。起動していなければ起動する
     param (
@@ -27,11 +59,23 @@ function getApp {
     if (-not $script:apps.ContainsKey($name)) {
         $info = $appInfo[$name]
 
-        # 終了できなかった場合に強制終了するため、新しく起動したプロセスのIDを控えておく
-        $before = @(Get-Process -Name $info.Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
-        $com = New-Object -ComObject $info.ProgId
-        $after = @(Get-Process -Name $info.Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+        # 終了できなかった場合に強制終了するため、新しく起動したプロセスのIDを控えておく。
+        # 取り込みのスレッドが同時に起動すると、どれが自分の起動したものか分からなくなるため、起動は 1 つずつ行う
+        $lock = lockOfficeProcess "start"
+        try {
+            $before = @(Get-Process -Name $info.Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+            $com = New-Object -ComObject $info.ProgId
+            $after = @(Get-Process -Name $info.Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+        } finally {
+            unlockOfficeProcess $lock
+        }
         $newIds = @($after | Where-Object { $before -notcontains $_ })
+        if ($newIds.Count -eq 1) {
+            try { (Get-Process -Id $newIds[0]).PriorityClass = $officePriority } catch {}
+            if ($script:officePidSink) {
+                $script:officePidSink[[int]$newIds[0]] = $info.Process
+            }
+        }
 
         switch ($name) {
             "Excel" {
@@ -99,6 +143,10 @@ function stopApp {
             # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
             try { $process.Kill() } catch {}
         }
+    }
+    if ($app.Pid -and $script:officePidSink) {
+        $removed = $null
+        [void]$script:officePidSink.TryRemove([int]$app.Pid, [ref]$removed)
     }
 }
 
