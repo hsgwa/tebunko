@@ -1786,7 +1786,7 @@
 </tr>
 <tr>
 <td><code>getIndexTsvCounts</code> / <code>testIndexComplete</code></td>
-<td>まとめファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、まとめファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の以前の形式の TSV は数えない、フォルダが無ければ空）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
+<td>集約ファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、集約ファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の以前の形式の TSV は数えない、フォルダが無ければ空）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
 </tr>
 <tr>
 <td><code>publishIndexFiles</code></td>
@@ -1794,7 +1794,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>まとめファイル（<code>tests/tebunko_grep/index/pack_format</code>・<code>tests/tebunko_grep/search/pack_search</code>）</strong></p>
+<p><strong>集約ファイル（<code>tests/tebunko_grep/index/pack_format</code>・<code>tests/tebunko_grep/search/pack_search</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1809,15 +1809,15 @@
 </tr>
 <tr>
 <td><code>getPackFileName</code> / <code>readPackFileName</code> / <code>planPackParts</code> / <code>splitPackBooksByExtension</code> / <code>encodePackValue</code> / <code>decodePackValue</code> / <code>convertToPackBody</code></td>
-<td>まとめファイルの名前、拡張子ごとの分け方、値の <code>%XX</code> の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く</td>
+<td>集約ファイルの名前、拡張子ごとの分け方、値の <code>%XX</code> の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く</td>
 </tr>
 <tr>
 <td><code>convertToPackText</code> / <code>readPackPlaces</code></td>
-<td>文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、版の無い・違うまとめファイルは例外</td>
+<td>文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、版の無い・違う集約ファイルは例外</td>
 </tr>
 <tr>
 <td><code>convertIndexFolderToPack</code> / <code>updateIndexFolderPack</code> / <code>findIndexFoldersWithBooks</code> / <code>publishIndexFolders</code></td>
-<td>フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子のまとめファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけてまとめファイルとシステムインデックスに入れる</td>
+<td>フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の集約ファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて集約ファイルとシステムインデックスに入れる</td>
 </tr>
 <tr>
 <td><code>searchPackIndex</code> / <code>getIndexPackFiles</code> / <code>readPackContext</code></td>
@@ -1872,7 +1872,7 @@
 </tr>
 <tr>
 <td><code>createTargetList</code> / <code>findOfficeFiles</code> / <code>waitForIndexingApproval</code></td>
-<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（まとめファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を待つ</td>
+<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を待つ</td>
 </tr>
 <tr>
 <td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>moveLegacyIndex</code> / <code>removeDroppedFolders</code> / <code>migrateFlatIndex</code></td>
@@ -1880,7 +1880,7 @@
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
-<td>設定とインデックスを <code>$TestDrive</code> に差し替えて通しで動かす（Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。続けられないエラーと終了コード、2 回目は更新の無いファイルを取り込まない、<code>-RetryFailed</code>、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめ・中止（終了コード 2）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、元のファイルが無くなったら次の作成でまとめファイルから外す、前回残った TSV を次の作成の始めにまとめファイルへ入れる、中止しても取り込んだ分はまとめファイルとシステムインデックスに入れる</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替えて通しで動かす（Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。続けられないエラーと終了コード、2 回目は更新の無いファイルを取り込まない、<code>-RetryFailed</code>、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめ・中止（終了コード 2）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、元のファイルが無くなったら次の作成で集約ファイルから外す、前回残った TSV を次の作成の始めに集約ファイルへ入れる、中止しても取り込んだ分は集約ファイルとシステムインデックスに入れる</td>
 </tr>
 </tbody>
 </table>

@@ -1628,7 +1628,7 @@
 </tr>
 <tr>
 <td>スクリプト</td>
-<td><code>scripts/tebunko_grep/search/search_query.ps1</code>（検索条件）・<code>pack_search.ps1</code>（まとめファイルの列挙と検索）・<code>search_run.ps1</code>（結果の組み立て）。<code>scripts/tebunko_grep/lib.ps1</code> から読み込み、画面 <code>scripts/tebunko_grep/gui.ps1</code> から呼ぶ</td>
+<td><code>scripts/tebunko_grep/search/search_query.ps1</code>（検索条件）・<code>pack_search.ps1</code>（集約ファイルの列挙と検索）・<code>search_run.ps1</code>（結果の組み立て）。<code>scripts/tebunko_grep/lib.ps1</code> から読み込み、画面 <code>scripts/tebunko_grep/gui.ps1</code> から呼ぶ</td>
 </tr>
 <tr>
 <td>使用する共通関数</td>
@@ -1636,10 +1636,10 @@
 </tr>
 </tbody>
 </table>
-<p>全体構成・動作環境・フォルダ構成は <a href="../">00_index.md</a> を参照。インデックス（まとめファイル）の作り方は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> を参照。画面の操作・表示は <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> を参照。</p>
+<p>全体構成・動作環境・フォルダ構成は <a href="../">00_index.md</a> を参照。インデックス（集約ファイル）の作り方は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> を参照。画面の操作・表示は <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> を参照。</p>
 <hr />
 <h2 id="1-概要">1. 概要<a class="headerlink" href="#1-概要" title="Permanent link">&para;</a></h2>
-<p>画面の［2 検索］タブで入力したワードで、<code>work/index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダのまとめファイル（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/検索結果.txt</code> の形式を定める。</p>
+<p>画面の［2 検索］タブで入力したワードで、<code>work/index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの集約ファイル（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/検索結果.txt</code> の形式を定める。</p>
 <h2 id="2-入出力">2. 入出力<a class="headerlink" href="#2-入出力" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1663,7 +1663,7 @@
 <tr>
 <td>入力</td>
 <td><code>work/index/**/content.*.tsv</code></td>
-<td>インデックス作成で書き出したまとめファイル（フォルダ・元のファイルの拡張子ごとに 1 つ）</td>
+<td>インデックス作成で書き出した集約ファイル（フォルダ・元のファイルの拡張子ごとに 1 つ）</td>
 </tr>
 <tr>
 <td>入力</td>
@@ -1690,24 +1690,24 @@
 <li>1 件を <code>@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }</code> で返す。</li>
 <li>別の場所・PC で作ったインデックスは、そのフォルダを <code>work/index</code> 直下に置けば一覧に並ぶ（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5_クロール.md</a>）。</li>
 <li><code>work/index</code> が無ければ空を返す。<code>setting.config</code> は作成しない。</li>
-<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> 4.8）。選んだ範囲は <code>getIndexPackFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下のまとめファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
+<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> 4.8）。選んだ範囲は <code>getIndexPackFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下の集約ファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
 <li>チェックを外したフォルダは <code>searchExcludes</code>（<code>@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }</code> の配列）に保存する（<code>readSearchExcludes</code> / <code>writeSearchExcludes</code>）。無ければすべてを検索する。</li>
 </ul>
 <hr />
 <h2 id="4-検索処理">4. 検索処理<a class="headerlink" href="#4-検索処理" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
     S(["画面で検索を実行"]) --&gt; C["getIndexPackFiles&lt;br&gt;各インデックスフォルダ配下の content.*.tsv を列挙&lt;br&gt;（存在しないフォルダは Exists = False）"]
-    C --&gt; D{"まとめファイルが 1 件以上ある？"}
+    C --&gt; D{"集約ファイルが 1 件以上ある？"}
     D -- いいえ --&gt; E1["画面に案内を表示&lt;br&gt;（インデックス作成を促す）"]
     D -- はい --&gt; M["newSearchRegex&lt;br&gt;検索条件（文字どおり／正規表現・大文字と小文字の区別）&lt;br&gt;から照合用の正規表現を作る"]
     M --&gt; F["newFileFilter / newPlaceExclude&lt;br&gt;対象ファイル・図形とコメントの条件（元のファイル名・場所の名前で判定）"]
-    F --&gt; SS["searchPackIndex&lt;br&gt;まとめファイルを約 16MB ずつ .NET（StreamReader＋regex）で照合&lt;br&gt;（進捗を画面に通知、上限・中止を確認）"]
+    F --&gt; SS["searchPackIndex&lt;br&gt;集約ファイルを約 16MB ずつ .NET（StreamReader＋regex）で照合&lt;br&gt;（進捗を画面に通知、上限・中止を確認）"]
     SS --&gt; R["ヒット: Root・RelPath・RelDir・FileName・&lt;br&gt;Book・Location・LineNumber・Line"]
     R --&gt; G["画面の表に表示"]
     G -- "［結果をファイルに出力］" --&gt; W["writeSearchResult&lt;br&gt;work/検索結果.txt に書き出して開く（5 章）"]</code></pre>
 <ul>
-<li>まとめファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じまとめファイルを二重に検索しない。</li>
-<li>検索は画面の別スレッドで行い、1 つの作業（まとめファイル約 16MB 分。4.3）を照合するたびに進捗を通知する。画面の中止ボタン（<code>shouldStop</code>）で中止でき、件数の上限（<code>limit</code>）に達したら打ち切る（上限・表示は <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a>）。</li>
+<li>集約ファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ集約ファイルを二重に検索しない。</li>
+<li>検索は画面の別スレッドで行い、1 つの作業（集約ファイル約 16MB 分。4.3）を照合するたびに進捗を通知する。画面の中止ボタン（<code>shouldStop</code>）で中止でき、件数の上限（<code>limit</code>）に達したら打ち切る（上限・表示は <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a>）。</li>
 </ul>
 <h3 id="41-検索仕様">4.1 検索仕様<a class="headerlink" href="#41-検索仕様" title="Permanent link">&para;</a></h3>
 <table>
@@ -1720,31 +1720,31 @@
 <tbody>
 <tr>
 <td>検索対象</td>
-<td>各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダのまとめファイル <code>content.*.tsv</code>（3 章）。フォルダの順、フォルダの中はまとめファイルの名前（拡張子・番号）の順、まとめファイルの中は入れた順に検索する</td>
+<td>各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダの集約ファイル <code>content.*.tsv</code>（3 章）。フォルダの順、フォルダの中は集約ファイルの名前（拡張子・番号）の順、集約ファイルの中は入れた順に検索する</td>
 </tr>
 <tr>
 <td>対象ファイル</td>
-<td>画面の「対象ファイル」（<code>setting.config</code> の <code>fileFilter</code>）を指定すると、<strong>元のファイル名</strong>（5.3 の Book。まとめファイルの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（4.2）。空ならすべて</td>
+<td>画面の「対象ファイル」（<code>setting.config</code> の <code>fileFilter</code>）を指定すると、<strong>元のファイル名</strong>（5.3 の Book。集約ファイルの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（4.2）。空ならすべて</td>
 </tr>
 <tr>
 <td>図形・コメント</td>
-<td>既定は検索する。画面の［図形も検索］［コメントも検索］（<code>setting.config</code> の <code>includeShapes</code> / <code>includeComments</code>）をオフにすると、場所が <code>&lt;元の場所&gt;[図形]</code> / <code>&lt;元の場所&gt;[コメント]</code>（まとめファイルのメタ情報 <code>対象=図形</code> / <code>対象=コメント</code>）の中を検索しない（<code>newPlaceExclude</code>。Excel・Word・PowerPoint で共通の決まり。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_インデックス作成_7</a> 6.1「図形・コメントの場所」）</td>
+<td>既定は検索する。画面の［図形も検索］［コメントも検索］（<code>setting.config</code> の <code>includeShapes</code> / <code>includeComments</code>）をオフにすると、場所が <code>&lt;元の場所&gt;[図形]</code> / <code>&lt;元の場所&gt;[コメント]</code>（集約ファイルのメタ情報 <code>対象=図形</code> / <code>対象=コメント</code>）の中を検索しない（<code>newPlaceExclude</code>。Excel・Word・PowerPoint で共通の決まり。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/">01_インデックス作成_7</a> 6.1「図形・コメントの場所」）</td>
 </tr>
 <tr>
 <td>長いパス</td>
-<td>列挙と検索（.NET の <code>DirectoryInfo</code>・<code>StreamReader</code>）には <code>\\?\</code> を付けたパスを渡す（<code>toLongPath</code>）。付けないと、約 248 文字を超えるフォルダの中を列挙できず、260 文字を超えるまとめファイルを読めない。結果の相対パスは <code>\\?\</code> の無い形で扱う（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#長いパス260-文字超の扱い">01_インデックス作成.md 6.1 節</a>）</td>
+<td>列挙と検索（.NET の <code>DirectoryInfo</code>・<code>StreamReader</code>）には <code>\\?\</code> を付けたパスを渡す（<code>toLongPath</code>）。付けないと、約 248 文字を超えるフォルダの中を列挙できず、260 文字を超える集約ファイルを読めない。結果の相対パスは <code>\\?\</code> の無い形で扱う（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#長いパス260-文字超の扱い">01_インデックス作成.md 6.1 節</a>）</td>
 </tr>
 <tr>
 <td>読み込み文字コード</td>
 <td>UTF-16LE（BOM があれば BOM に従う）</td>
 </tr>
 <tr>
-<td>読めないまとめファイル</td>
-<td>列挙した後に読めなくなったまとめファイル（インデックス作成中に削除された等）は飛ばして、検索を続ける。読み込み中のまとめファイルは、インデクサの置き換え・削除を妨げないよう共有モードで開く</td>
+<td>読めない集約ファイル</td>
+<td>列挙した後に読めなくなった集約ファイル（インデックス作成中に削除された等）は飛ばして、検索を続ける。読み込み中の集約ファイルは、インデクサの置き換え・削除を妨げないよう共有モードで開く</td>
 </tr>
 <tr>
 <td>検索単位</td>
-<td>まとめファイルの中身の 1 行（= 元の TSV の 1 行 = Excel の 1 行）。1 行に複数ヒットしても 1 件。メタ情報の行（先頭が RS）は検索しない。行番号は場所ごとに数え、Excel では場所のメタ情報の後の N 行目がシートの N 行目になる。行の区切りは LF（まとめファイルを書くときに CRLF・CR を LF にそろえる）</td>
+<td>集約ファイルの中身の 1 行（= 元の TSV の 1 行 = Excel の 1 行）。1 行に複数ヒットしても 1 件。メタ情報の行（先頭が RS）は検索しない。行番号は場所ごとに数え、Excel では場所のメタ情報の後の N 行目がシートの N 行目になる。行の区切りは LF（集約ファイルを書くときに CRLF・CR を LF にそろえる）</td>
 </tr>
 <tr>
 <td>数値のセル</td>
@@ -1768,16 +1768,16 @@
 </tr>
 <tr>
 <td>照合の時間切れ</td>
-<td>1 行の照合に 5 秒を超えた（正規表現によっては終わらなくなる）場合は、<code>正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。</code> として検索を止める。まとめファイルの全文への照合が時間切れになったときは、そのまとめファイルを 1 行ずつ照合し直す（4.3）</td>
+<td>1 行の照合に 5 秒を超えた（正規表現によっては終わらなくなる）場合は、<code>正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。</code> として検索を止める。集約ファイルの全文への照合が時間切れになったときは、その集約ファイルを 1 行ずつ照合し直す（4.3）</td>
 </tr>
 <tr>
 <td>複数フォルダ</td>
-<td>全フォルダのまとめファイルをまとめて検索する</td>
+<td>全フォルダの集約ファイルをまとめて検索する</td>
 </tr>
 </tbody>
 </table>
 <h3 id="42-検索条件サクラエディタの-grep-にならう">4.2 検索条件（サクラエディタの Grep にならう）<a class="headerlink" href="#42-検索条件サクラエディタの-grep-にならう" title="Permanent link">&para;</a></h3>
-<p>条件の考え方はサクラエディタの Grep（「英大文字と小文字を区別する」「正規表現」「ファイル」）にならう。インデックスは Office ファイルから作ったまとめファイルなので、「ファイル」はまとめファイルの名前ではなく<strong>元のファイル名</strong>で判定する。</p>
+<p>条件の考え方はサクラエディタの Grep（「英大文字と小文字を区別する」「正規表現」「ファイル」）にならう。インデックスは Office ファイルから作った集約ファイルなので、「ファイル」は集約ファイルの名前ではなく<strong>元のファイル名</strong>で判定する。</p>
 <table>
 <thead>
 <tr>
@@ -1810,8 +1810,8 @@
 </tbody>
 </table>
 <h3 id="43-検索の実装速度">4.3 検索の実装（速度）<a class="headerlink" href="#43-検索の実装速度" title="Permanent link">&para;</a></h3>
-<p>まとめファイル（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko_grep/search/pack_search.ps1</code> の <code>searchPackIndex</code>／<code>searchPackFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">03_画面_6_実装とテスト.md 12.2</a>。実測: 50 万行で約 0.6 秒）。</p>
-<p>1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このためまとめファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。<strong>全文で一致しないまとめファイルは、そのまま飛ばす。</strong> 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（<code>readPackPlaces</code>）、一致の位置から元のファイル・場所・行番号を求める（5.3）。全文にかけてよいかは <code>getRegexScanMode</code> が正規表現の書き方から判定する。</p>
+<p>集約ファイル（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko_grep/search/pack_search.ps1</code> の <code>searchPackIndex</code>／<code>searchPackFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">03_画面_6_実装とテスト.md 12.2</a>。実測: 50 万行で約 0.6 秒）。</p>
+<p>1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため集約ファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。<strong>全文で一致しない集約ファイルは、そのまま飛ばす。</strong> 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（<code>readPackPlaces</code>）、一致の位置から元のファイル・場所・行番号を求める（5.3）。全文にかけてよいかは <code>getRegexScanMode</code> が正規表現の書き方から判定する。</p>
 <table>
 <thead>
 <tr>
@@ -1829,7 +1829,7 @@
 <tr>
 <td><code>filter</code></td>
 <td><code>見積\s確定</code>、<code>[^,]+</code>、<code>a(?=b)</code>（改行に一致しうる・行の外を見る）</td>
-<td>全文で一致しないまとめファイルは読み飛ばし、一致したものだけ場所ごとに 1 行ずつ照合する</td>
+<td>全文で一致しない集約ファイルは読み飛ばし、一致したものだけ場所ごとに 1 行ずつ照合する</td>
 </tr>
 <tr>
 <td><code>scan</code></td>
@@ -1840,7 +1840,7 @@
 </table>
 <ul>
 <li><code>^</code> <code>$</code> は全文用の正規表現に <code>Multiline</code> を付けて行の先頭・末尾に一致させる。判定は安全側に倒し、どの照合でも検索結果（行・行番号）は、元の TSV を 1 行ずつ照合したときと同じになる（<code>pack_search.Tests.ps1</code> で改行の種類・照合のしかたごとに突き合わせている）。</li>
-<li>全文への照合が時間切れになったまとめファイルは、1 行ずつ照合し直す。</li>
+<li>全文への照合が時間切れになった集約ファイルは、1 行ずつ照合し直す。</li>
 <li>対象ファイル（<code>newFileFilter</code>）・図形とコメント（<code>newPlaceExclude</code>）の条件は、場所ごとに元のファイル名・場所の名前で判定し、当てはまらない場所の一致は結果に入れない（1 行ずつ照合するときは、その場所を照合しない）。</li>
 </ul>
 <p>さらに、次の 3 つで待ち時間を減らしている。</p>
@@ -1854,19 +1854,19 @@
 <tbody>
 <tr>
 <td>並列検索</td>
-<td>まとめファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitPackTasks</code>）、作業が 2 つ以上なら別スレッド（RunspacePool。コア数、最大 4）で並行して照合する。各スレッドには照合に要る関数（<code>searchPackFiles</code>・<code>readPackPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数はまとめファイルの数）の扱いは 1 スレッドのときと同じ</td>
+<td>集約ファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitPackTasks</code>）、作業が 2 つ以上なら別スレッド（RunspacePool。コア数、最大 4）で並行して照合する。各スレッドには照合に要る関数（<code>searchPackFiles</code>・<code>readPackPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は集約ファイルの数）の扱いは 1 スレッドのときと同じ</td>
 </tr>
 <tr>
 <td>列挙</td>
-<td>まとめファイルの列挙（<code>getIndexPackFiles</code> → <code>getPackFiles</code>）は、.NET（<code>DirectoryInfo.GetFiles</code>）で <code>content.*.tsv</code> を 1 回で集め、更新日時・サイズも列挙のときに得る</td>
+<td>集約ファイルの列挙（<code>getIndexPackFiles</code> → <code>getPackFiles</code>）は、.NET（<code>DirectoryInfo.GetFiles</code>）で <code>content.*.tsv</code> を 1 回で集め、更新日時・サイズも列挙のときに得る</td>
 </tr>
 <tr>
 <td>読んだ内容の使い回し</td>
-<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだまとめファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じまとめファイルはファイルを開かない。書き直したまとめファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readPackContext</code>）も同じ内容を使う</td>
+<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ集約ファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ集約ファイルはファイルを開かない。書き直した集約ファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readPackContext</code>）も同じ内容を使う</td>
 </tr>
 </tbody>
 </table>
-<p><strong>まとめファイルにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。Microsoft Defender は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイルの場所ごとの TSV を読んでいた前の版では、TSV が数万件になると初回の検索に数分〜10 分以上かかった。</p>
+<p><strong>集約ファイルにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。Microsoft Defender は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイルの場所ごとの TSV を読んでいた前の版では、TSV が数万件になると初回の検索に数分〜10 分以上かかった。</p>
 <p>実測（Windows PowerShell 5.1、4 コア・物理メモリ 8GB、Microsoft Defender は有効。画面と同じく、列挙から検索の終わりまで）:</p>
 <table>
 <thead>
@@ -1874,12 +1874,12 @@
 <th>インデックス</th>
 <th>検索</th>
 <th>TSV（前の版）</th>
-<th>まとめファイル</th>
+<th>集約ファイル</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>7,000 ファイル規模（TSV 6,412 件 → まとめファイル 20 件・46MB）</td>
+<td>7,000 ファイル規模（TSV 6,412 件 → 集約ファイル 20 件・46MB）</td>
 <td>初回</td>
 <td>30.0 秒</td>
 <td>2.1 秒</td>
@@ -1891,7 +1891,7 @@
 <td>0.29 秒</td>
 </tr>
 <tr>
-<td>TSV 16 万件・1GB（→ まとめファイル 502 件・1.1GB）</td>
+<td>TSV 16 万件・1GB（→ 集約ファイル 502 件・1.1GB）</td>
 <td>初回</td>
 <td>10 分超</td>
 <td>38 秒</td>
@@ -1908,8 +1908,8 @@
 <li>1GB の 2 回目以降は、読んだ内容の使い回しの上限（約 128MB）を超え、物理メモリ 8GB では OS のファイルキャッシュにも収まりきらないため、ディスクの読み込みの速さで決まる。</li>
 </ul>
 <h3 id="44-高速検索windows-search-で先に絞る">4.4 高速検索（Windows Search で先に絞る）<a class="headerlink" href="#44-高速検索windows-search-で先に絞る" title="Permanent link">&para;</a></h3>
-<p>インデックスが大きいと、すべてのまとめファイルを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。4.3）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中のまとめファイルだけを 4.3 の方式で照合する（<code>tebunko_grep/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべてのまとめファイルを照合したときと同じ</strong>になる。</p>
-<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下のまとめファイルの中身（メタ情報の行を除く）から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#68-システムインデックスsystem_index">01_インデックス作成_7</a> 6.8）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
+<p>インデックスが大きいと、すべての集約ファイルを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。4.3）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の集約ファイルだけを 4.3 の方式で照合する（<code>tebunko_grep/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての集約ファイルを照合したときと同じ</strong>になる。</p>
+<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下の集約ファイルの中身（メタ情報の行を除く）から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#68-システムインデックスsystem_index">01_インデックス作成_7</a> 6.8）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
 <table>
 <thead>
 <tr>
@@ -1936,7 +1936,7 @@
 </tr>
 <tr>
 <td>照合するフォルダ</td>
-<td>候補、反映されていないフォルダ（状態ファイルの「反映待ち」）、対象外のフォルダ、対応済みでないインデックスの全体。これらのフォルダのまとめファイルを <code>getIndexPackFiles</code> で集め、<code>searchPackIndex</code> で照合する</td>
+<td>候補、反映されていないフォルダ（状態ファイルの「反映待ち」）、対象外のフォルダ、対応済みでないインデックスの全体。これらのフォルダの集約ファイルを <code>getIndexPackFiles</code> で集め、<code>searchPackIndex</code> で照合する</td>
 </tr>
 <tr>
 <td>すべてを照合する場合</td>
@@ -1950,15 +1950,15 @@
 </table>
 <pre class="mermaid"><code>flowchart TD
     S(["検索"]) --&gt; U{"高速検索が使える？"}
-    U -- いいえ --&gt; ALL["getIndexPackFiles&lt;br&gt;すべてのまとめファイル"]
+    U -- いいえ --&gt; ALL["getIndexPackFiles&lt;br&gt;すべての集約ファイル"]
     U -- はい --&gt; Q["Windows Search に問い合わせる&lt;br&gt;候補のフォルダ・反映の判定"]
     Q -- 失敗 --&gt; ALL
     Q --&gt; T["照合するフォルダ&lt;br&gt;候補＋反映待ち＋対象外＋未対応"]
-    T --&gt; F["getIndexPackFiles&lt;br&gt;そのフォルダのまとめファイル"]
+    T --&gt; F["getIndexPackFiles&lt;br&gt;そのフォルダの集約ファイル"]
     ALL --&gt; R["searchPackIndex（4.3 と同じ）"]
     F --&gt; R</code></pre>
-<p><strong><code>work/index</code> を Windows Search の対象から外す（推奨）</strong>: まとめファイル（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（まとめファイルは 4.3 の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/index</code> を外す（README の「高速検索」）。</p>
-<p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。まとめファイルにする前の版で、TSV を照合したとき。まとめファイルでは、すべてを照合しても初回 38 秒（4.3））:</p>
+<p><strong><code>work/index</code> を Windows Search の対象から外す（推奨）</strong>: 集約ファイル（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（集約ファイルは 4.3 の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/index</code> を外す（README の「高速検索」）。</p>
+<p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。集約ファイルにする前の版で、TSV を照合したとき。集約ファイルでは、すべてを照合しても初回 38 秒（4.3））:</p>
 <table>
 <thead>
 <tr>
@@ -1992,7 +1992,7 @@
 <ul>
 <li><code>【検索文字列　…】</code> の空白は全角スペース。ブロックの後に空行を 1 行出力する。</li>
 <li>ファイル名は、インデックスフォルダからの相対フォルダ（= クロール対象フォルダからの相対フォルダ）付き。直下のファイルはフォルダ部分なし。</li>
-<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。まとめファイルのメタ情報から組み立てる。5.3）を画面と同じ表示にしたもの（<code>describePlace</code>）。</li>
+<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。集約ファイルのメタ情報から組み立てる。5.3）を画面と同じ表示にしたもの（<code>describePlace</code>）。</li>
 </ul>
 <table>
 <thead>
@@ -2095,7 +2095,7 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 <tbody>
 <tr>
 <td>RelDir</td>
-<td>まとめファイルのあるフォルダの、インデックスのフォルダ（<code>Root</code>）からの相対パス（<code>getPackFiles</code>）</td>
+<td>集約ファイルのあるフォルダの、インデックスのフォルダ（<code>Root</code>）からの相対パス（<code>getPackFiles</code>）</td>
 </tr>
 <tr>
 <td>Book</td>
@@ -2103,7 +2103,7 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 </tr>
 <tr>
 <td>Location</td>
-<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1「まとめファイルの形式」）</td>
+<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1「集約ファイルの形式」）</td>
 </tr>
 <tr>
 <td>LineNumber</td>
@@ -2112,14 +2112,14 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 </tbody>
 </table>
 <pre class="mermaid"><code>flowchart TD
-    A["まとめファイルの全文"] --&gt; B["readPackPlaces&lt;br&gt;先頭が RS の行（メタ情報）を順に読む"]
+    A["集約ファイルの全文"] --&gt; B["readPackPlaces&lt;br&gt;先頭が RS の行（メタ情報）を順に読む"]
     B --&gt; C["ファイル名= で元のファイルが変わる&lt;br&gt;シート= / ページ= / スライド= / 部分= で場所が変わる"]
     C --&gt; D["場所ごとの一覧&lt;br&gt;（Book, Location, 中身の先頭の位置, 終わりの位置）"]
     D --&gt; E["一致の位置を含む場所を探し、&lt;br&gt;場所の先頭から改行を数えて行番号にする"]</code></pre>
 <ul>
-<li>場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しないまとめファイルでは作らない（4.3）。</li>
+<li>場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない集約ファイルでは作らない（4.3）。</li>
 <li>画面の選択行のプレビュー（<code>readPackContext</code>）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> 4.7）。</li>
-<li>検索では TSV の相対パスを分解しない。TSV の名前の分解は、インデックス作成で以前の形式から移すとき（<code>migrateFlatIndex</code>）とまとめファイルに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
+<li>検索では TSV の相対パスを分解しない。TSV の名前の分解は、インデックス作成で以前の形式から移すとき（<code>migrateFlatIndex</code>）と集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
 </ul>
 <h4 id="以前の形式フラットの分解splitindexfilename">以前の形式（フラット）の分解（<code>splitIndexFileName</code>）<a class="headerlink" href="#以前の形式フラットの分解splitindexfilename" title="Permanent link">&para;</a></h4>
 <p>インデックス作成で以前の形式の TSV を移すとき（<code>migrateFlatIndex</code>。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#以前の形式フラットからの移行migrateflatindex">01_インデックス作成_7</a> 6.1）、TSV の<strong>ファイル名</strong>を正規表現 <code>$indexFileNamePattern</code> で元のファイル名（book）と場所（sheet）に分解し、場所を <code>decodeIndexPlace</code> で元に戻す。</p>
@@ -2201,7 +2201,7 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 <tbody>
 <tr>
 <td>1</td>
-<td>高速検索を使えないとき（4.4）は、検索のたびにすべてのまとめファイルを照合するため、インデックス量に比例して時間がかかる（まとめファイル 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。4.3）</td>
+<td>高速検索を使えないとき（4.4）は、検索のたびにすべての集約ファイルを照合するため、インデックス量に比例して時間がかかる（集約ファイル 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。4.3）</td>
 <td>◎</td>
 </tr>
 <tr>
