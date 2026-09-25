@@ -306,9 +306,8 @@ $activateTimer.Start()
 try {
     [void]$window.ShowDialog()
 } finally {
-    if ($script:search) {
-        $script:search.PS.Stop()
-    }
+    # 検索を取り消し、検索の司令のスレッドと照合のプールを片づける（docs/00_共通_4_プロセスとスレッド.md 7.6）
+    $script:searchService.Close()
     $activateTimer.Stop()
     $activateEvent.Close()
     $mutex.ReleaseMutex()

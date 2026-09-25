@@ -17,4 +17,5 @@
 . "$PSScriptRoot\search\fast_search.ps1"
 . "$PSScriptRoot\search\search_run.ps1"
 . "$PSScriptRoot\search\pack_search.ps1"
+. "$PSScriptRoot\search\search_service.ps1"
 . "$PSScriptRoot\search\source_map.ps1"

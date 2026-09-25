@@ -51,15 +51,6 @@ function script:referenceKeys {
     return ($keys | Sort-Object) -join "`n"
 }
 
-function script:newPackIndex {
-    # TSV のインデックス（tsvRoot）から、フォルダごとの集約ファイル（packRoot。同じ相対パス）を作り、getPackFiles の結果を返す
-    param ([string]$tsvRoot, [string]$packRoot)
-    foreach ($folder in (findIndexFoldersWithBooks $tsvRoot)) {
-        [void](convertIndexFolderToPack $folder ($packRoot + $folder.Substring($tsvRoot.Length)))
-    }
-    return , (getPackFiles $packRoot)
-}
-
 Describe "集約ファイルの作成と検索" -Tag Io {
     $tsvRoot = Join-Path $TestDrive "tsv"
     $packRoot = Join-Path $TestDrive "pack"

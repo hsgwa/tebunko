@@ -185,21 +185,15 @@ ${packWorkerScript} = {
 
 
 function newPackWorkerPool {
-    # 集約ファイルの検索のスレッドを用意する。各スレッドには検索に要る関数と値だけを読み込む
+    # 集約ファイルの照合のプール（WorkerPool）を作る。各スレッドには照合に要る関数と値だけを読み込む。
+    # 利用者が結果を待つ処理のため、優先度は下げない（docs/00_共通_4_プロセスとスレッド.md 7.2）
     param (
-        [int]$workers
+        [int]$workers = (getWorkerCount)
     )
 
-    $state = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
-    foreach ($name in "searchPackFiles", "readPackPlaces", "convertPackMetaToPlace", "decodePackValue") {
-        $state.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new($name, (Get-Item "function:$name").ScriptBlock.ToString()))
-    }
-    foreach ($name in "packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment") {
-        $state.Variables.Add([System.Management.Automation.Runspaces.SessionStateVariableEntry]::new($name, (Get-Variable -Name $name -ValueOnly), ""))
-    }
-    $pool = [runspacefactory]::CreateRunspacePool(1, $workers, $state, $Host)
-    $pool.Open()
-    return $pool
+    $state = newWorkerState @("searchPackFiles", "readPackPlaces", "convertPackMetaToPlace", "decodePackValue") `
+        @("packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment")
+    return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
 
 
@@ -238,6 +232,7 @@ function searchPackIndex {
     #   includeShapes / includeComments: 図形・コメントの場所（"<シート名>[図形]" 等）も検索する（newPlaceExclude）
     #   taskBytes    : 1 つのスレッドにまとめて渡す大きさの目安（バイト）
     #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total は集約ファイルの数）
+    #   pool         : 照合に使うプール（newPackWorkerPool。検索の司令が使い回す）。$null なら、並列にするときだけ作って最後に閉じる
     # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（集約ファイルの数）; Truncated; Cancelled } を返す。
     # Hits の各要素は PSCustomObject（Root; RelPath（集約ファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
@@ -253,7 +248,8 @@ function searchPackIndex {
         [bool]$includeShapes = $true,
         [bool]$includeComments = $true,
         [long]$taskBytes = ${packTaskBytes},
-        [scriptblock]$onProgress = $null
+        [scriptblock]$onProgress = $null,
+        $pool = $null
     )
 
     $search = newSearchRegex $word $simpleMatch $caseSensitive
@@ -263,13 +259,18 @@ function searchPackIndex {
     $result = @{ Hits = $hits; SimpleMatch = $search.SimpleMatch; Total = $packs.Count; Truncated = $false; Cancelled = $false }
     $timeoutMessage = "正規表現の照合に時間がかかりすぎるため、検索を中止しました。正規表現を見直してください。"
     $tasks = splitPackTasks $packs $taskBytes
-    $workers = if ($workerCount -gt 0) { $workerCount } else { [Math]::Min([Environment]::ProcessorCount, 4) }
+    $workers = if ($pool) { $pool.Size } elseif ($workerCount -gt 0) { $workerCount } else { getWorkerCount }
     if ($tasks.Count -lt 2) { $workers = 1 }
 
-    $pool = $null
+    $ownPool = $null
     $pending = New-Object System.Collections.Generic.Queue[hashtable]
     try {
-        if ($workers -gt 1) { $pool = newPackWorkerPool $workers }
+        if ($workers -le 1) {
+            $pool = $null
+        } elseif ($null -eq $pool) {
+            $ownPool = newPackWorkerPool $workers
+            $pool = $ownPool
+        }
         $next = 0
         while ($next -lt $tasks.Count -or $pending.Count -gt 0) {
             if ($shouldStop -and (& $shouldStop)) {
@@ -280,14 +281,13 @@ function searchPackIndex {
                 while ($pending.Count -lt $workers * 2 -and $next -lt $tasks.Count) {
                     $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                     $task = $tasks[$next]
-                    $ps = [powershell]::Create()
-                    $ps.RunspacePool = $pool
-                    [void]$ps.AddScript(${packWorkerScript}).AddArgument($packs).AddArgument($task.Start).AddArgument($task.Count).AddArgument($search.Regex).AddArgument($max).AddArgument($search.TextRegex).AddArgument($search.ScanMode).AddArgument($cache).AddArgument($filter.Include).AddArgument($filter.Exclude).AddArgument($excludePlace)
-                    $pending.Enqueue(@{ PowerShell = $ps; Handle = $ps.BeginInvoke(); Done = $task.Start + $task.Count })
+                    $job = $pool.Submit(${packWorkerScript}.ToString(), @($packs, $task.Start, $task.Count, $search.Regex, $max, $search.TextRegex,
+                            $search.ScanMode, $cache, $filter.Include, $filter.Exclude, $excludePlace))
+                    $job.Done = $task.Start + $task.Count
+                    $pending.Enqueue($job)
                     $next++
                 }
-                $job = $pending.Dequeue()
-                try { $output = $job.PowerShell.EndInvoke($job.Handle) } finally { $job.PowerShell.Dispose() }
+                $output = $pool.Receive($pending.Dequeue())
                 if ($output[0].Timeout) { throw $timeoutMessage }
                 $newHits = $output[0].Hits
                 $done = $job.Done
@@ -315,10 +315,9 @@ function searchPackIndex {
         }
     } finally {
         foreach ($job in $pending) {
-            try { $job.PowerShell.Stop() } catch {}
-            $job.PowerShell.Dispose()
+            $pool.Cancel($job)
         }
-        if ($pool) { $pool.Dispose() }
+        if ($ownPool) { $ownPool.Close() }
     }
     return $result
 }
