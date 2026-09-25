@@ -1421,7 +1421,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/index/</code></td>
-<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
+<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・検索用の集約ファイルの形式（<code>pack_format.ps1</code>）と読み書き（<code>pack_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/indexer/</code></td>
@@ -1429,7 +1429,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/search/</code></td>
-<td>検索条件（<code>search_query.ps1</code>）・検索の実行（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する TSV の収集（<code>fast_search.ps1</code>）</td>
+<td>検索条件（<code>search_query.ps1</code>）・集約ファイルの検索（<code>pack_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する集約ファイルの収集（<code>fast_search.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko_grep/ui/</code></td>
@@ -1449,12 +1449,12 @@
 <tbody>
 <tr>
 <td>判断層（入力は素の値、出力は素の値）</td>
-<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code></td>
+<td><code>text.ps1</code>・<code>index_name.ps1</code>・<code>pack_format.ps1</code>・<code>search_query.ps1</code>・<code>search_gram.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code></td>
 <td>する（主にタグ <code>Unit</code>）</td>
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
-<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code></td>
+<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code></td>
 <td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>
@@ -2370,7 +2370,7 @@
 </tr>
 </tbody>
 </table>
-<p>TSV の名前・配置・検索にかかわる関数（<code>index_name.ps1</code> の <code>encodeIndexPlace</code> など、<code>index_store.ps1</code> の <code>getIndexTsvCounts</code> / <code>publishIndexFiles</code> など）は 5.2.2 に記載する。</p>
+<p>TSV の名前・配置、集約ファイル、検索にかかわる関数（<code>index_name.ps1</code> の <code>encodeIndexPlace</code> など、<code>index_store.ps1</code> の <code>getIndexTsvCounts</code> / <code>publishIndexFiles</code> など、<code>pack_format.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>）は 5.2.2 に記載する。</p>
 <blockquote>
 <p><strong>5.2.2 TSV の作成・検索</strong> → <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/#522-tsv-の作成検索">00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md</a></p>
 <p><strong>5.2.3 元のファイルの特定・画面</strong> → <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/#523-元のファイルの特定画面">00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md</a></p>
@@ -2393,7 +2393,8 @@
         RNL["replaceCellNewLine"]
         FT["formatTsv"]
         PT["prettyTsv"]
-        SIF["splitIndexTsvPath"]
+        PUB["publishIndexFolders&lt;br&gt;（集約ファイルの書き出し）"]
+        RPP["readPackPlaces"]
         TRL["toResultLine"]
         CTF["countTsvFields"]
         TRH["toResultHeader"]
@@ -2405,12 +2406,13 @@
     OT --&gt; GID
     OT --&gt; TSF
     OT --&gt; PT --&gt; FT --&gt; RNL
-    GR --&gt; ITF["getIndexTsvFiles"] --&gt; GIF --&gt; RCL
-    GR --&gt; SI["searchIndex"]
+    OT --&gt; PUB
+    GR --&gt; ITF["getIndexPackFiles"] --&gt; GIF --&gt; RCL
+    GR --&gt; SI["searchPackIndex"]
     SI --&gt; NSR["newSearchRegex / newFileFilter / newPlaceExclude"]
-    SI --&gt; STF["newTsvFiles / searchTsvFiles&lt;br&gt;（.NET の StreamReader＋regex）"]
+    SI --&gt; STF["searchPackFiles&lt;br&gt;（.NET の StreamReader＋regex）"] --&gt; RPP
     GR --&gt; WSR["writeSearchResult"] --&gt; TSR["toSearchResultLines"]
-    TSR --&gt; TRL --&gt; SIF
+    TSR --&gt; TRL
     TSR --&gt; CTF
     TSR --&gt; TRH --&gt; TCN</code></pre>
 <p>画面（<code>tebunko_grep/gui.ps1</code>）は、ほかに次の関数を使う。</p>
@@ -2422,7 +2424,8 @@
         TF["getTargetFolders / writeTargetFolders"]
         CS["getIndexingState"] --&gt; RSF["readStatusFile"]
         SUM["getIndexSummary / testIndexExists"]
-        SI["searchIndex / toSearchResultLines / writeSearchResult"]
+        SI["searchPackIndex / toSearchResultLines / writeSearchResult"]
+        RPC["readPackContext（選択行のプレビュー）"]
         RSP["resolveSourcePath"] --&gt; SL["getSourceLocation"] --&gt; SFM["getSourceFolderMap"] --&gt; INM["getIndexNameMap"] --&gt; RSF
         SFM --&gt; RSFF["readSourceFolderFile"]
         SFM --&gt; TGT["getTargetFolders / readIndexSources"]
@@ -2432,7 +2435,7 @@
         SOP["stopOfficeProcesses"]
     end
 
-    G --&gt; TF &amp; CS &amp; SUM &amp; SI &amp; RSP &amp; OPT &amp; GOP &amp; SOP</code></pre>
+    G --&gt; TF &amp; CS &amp; SUM &amp; SI &amp; RPC &amp; RSP &amp; OPT &amp; GOP &amp; SOP</code></pre>
 
 
 

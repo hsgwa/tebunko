@@ -1351,7 +1351,7 @@
         S-&gt;&gt;T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
     S-&gt;&gt;T: 図形・コメント → #lt;シート名#gt;[図形].tsv・#lt;シート名#gt;[コメント].tsv
-    S-&gt;&gt;I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、&lt;br&gt;インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv。6.1 節）
+    S-&gt;&gt;I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、&lt;br&gt;インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv。6.1 節）&lt;br&gt;集約ファイルへは、フォルダの取り込みが終わってから入れる（publishIndexFolders。6.1 節）
     S-&gt;&gt;L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
         S-&gt;&gt;L: 当該ファイルの行（状態 = 失敗、エラー）を追記

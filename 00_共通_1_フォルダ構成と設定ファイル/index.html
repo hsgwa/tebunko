@@ -1818,7 +1818,7 @@
 <tbody>
 <tr>
 <td><code>work/index/</code></td>
-<td>取り込み済み TSV。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下は元のファイル 1 つにつき 1 フォルダ（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）</td>
+<td>インデックス。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（<code>content.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）</td>
 </tr>
 <tr>
 <td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
@@ -1883,7 +1883,7 @@
 </tbody>
 </table>
 <p>取り込みの作業領域は <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> に置く。Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、ツールの配置場所に依存させない。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。</p>
-<p>できた TSV をインデックスに入れるときは、<code>work/取り込み出力/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域（<code>%TEMP%</code>）とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
+<p>できた TSV をインデックス（集約ファイルに入れる前の置き場所）に入れるときは、<code>work/取り込み出力/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域（<code>%TEMP%</code>）とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
 <h3 id="32-入出力ファイル一覧">3.2 入出力ファイル一覧<a class="headerlink" href="#32-入出力ファイル一覧" title="Permanent link">&para;</a></h3>
 <p>画面（<code>gui.ps1</code>）とインデクサ（<code>indexer.ps1</code>）は別のプロセスで動き、<code>work/</code> のファイルで状態を受け渡す。</p>
 <pre class="mermaid"><code>flowchart LR
@@ -1897,7 +1897,7 @@
     IDX -- 進捗・取り込み予定・エラー --&gt; GUI
     GUI -- 開始要求・中止要求 --&gt; IDX
     IDX -- 読み書き --&gt; ST
-    IDX -- TSV を書く --&gt; IX
+    IDX -- 集約ファイルを書く --&gt; IX
     GUI -- 検索・一覧 --&gt; IX
     GUI -- 集計を読む --&gt; ST</code></pre>
 <table>
@@ -2013,8 +2013,8 @@
 <td>インデックス</td>
 <td>インデックス作成</td>
 <td>検索</td>
-<td>UTF-8（BOM 付き）、CRLF</td>
-<td>シート・ページ・スライドごとの TSV と、図形・コメントの TSV（<code>&lt;元の場所&gt;[図形]</code>・<code>&lt;元の場所&gt;[コメント]</code>）</td>
+<td>集約ファイルは UTF-16LE（BOM 付き）、LF。取り込み中の TSV は UTF-8（BOM 付き）、CRLF</td>
+<td>フォルダ・拡張子ごとの集約ファイル（<code>content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメントの TSV（<code>&lt;元の場所&gt;[図形]</code>・<code>&lt;元の場所&gt;[コメント]</code>）</td>
 </tr>
 <tr>
 <td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>

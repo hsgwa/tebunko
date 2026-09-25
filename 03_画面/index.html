@@ -1516,7 +1516,7 @@
 </tr>
 <tr>
 <td>使用する共通関数</td>
-<td><code>writeListFile</code> / <code>readStatusFile</code> / <code>getSearchIndexes</code> / <code>splitIndexTsvPath</code> / <code>toResultLine</code> / <code>toResultHeader</code>（<a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">00_共通_2_共通モジュール.md</a>）、および本書で追加する関数（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#12-実装構成">12 章</a>）</td>
+<td><code>writeListFile</code> / <code>readStatusFile</code> / <code>getSearchIndexes</code> / <code>readPackContext</code> / <code>toResultLine</code> / <code>toResultHeader</code>（<a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">00_共通_2_共通モジュール.md</a>）、および本書で追加する関数（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#12-実装構成">12 章</a>）</td>
 </tr>
 <tr>
 <td>起動する処理</td>
@@ -1745,13 +1745,13 @@
     R -- はい --&gt; T1
     R -- いいえ --&gt; A{"work/取り込み一覧.tsv に『未取り込み』の行がある？&lt;br&gt;（前回のインデックス作成が中断中）"}
     A -- はい --&gt; T1["［1 インデックス管理］を開く"]
-    A -- いいえ --&gt; B{"検索対象インデックスに&lt;br&gt;TSV が 1 件以上ある？"}
+    A -- いいえ --&gt; B{"検索対象インデックスに&lt;br&gt;集約ファイルが 1 件以上ある？"}
     B -- いいえ --&gt; T1
     B -- はい --&gt; T2["［2 検索］を開く&lt;br&gt;検索ワード欄にフォーカス"]</code></pre>
 <ul>
 <li>［9 プロセス停止］タブは起動時に開かない。バックグラウンドの Office プロセスが残っていれば、タブ見出しに <code>⚠</code> を付けて知らせる（5.3）。</li>
 <li>取り込みに失敗したファイルが残っているだけの場合は［2 検索］を開き、［1 インデックス管理］タブの見出しに <code>⚠</code> を付ける。</li>
-<li>TSV の有無は、最初の 1 件が見つかった時点で判定を打ち切る（件数は 6.3 のとおり別スレッドで数える）。</li>
+<li>集約ファイルの有無は、最初の 1 件が見つかった時点で判定を打ち切る（件数は 6.3 のとおり別スレッドで数える）。</li>
 </ul>
 <hr />
 

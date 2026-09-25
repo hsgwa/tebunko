@@ -1489,7 +1489,7 @@
 <tbody>
 <tr>
 <td>未作成</td>
-<td><code>work/index</code> に TSV が無い</td>
+<td><code>work/index</code> に集約ファイルが無い</td>
 <td>No.5 に <code>まだインデックスがありません。</code></td>
 <td>1</td>
 </tr>
@@ -1514,13 +1514,13 @@
 <tr>
 <td>通常</td>
 <td>上のいずれでもない</td>
-<td>No.5 に <code>取り込み済み N ファイル（TSV M 件 ・ 最終取り込み M/d H:mm）</code> のみ</td>
+<td>No.5 に <code>取り込み済み N ファイル（集約ファイル M 件 ・ 最終取り込み M/d H:mm）</code> のみ</td>
 <td>2</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>「最終取り込み」は、インデックス配下の TSV の最新の更新日時とする。</li>
+<li>「最終取り込み」は、インデックス配下の集約ファイルの最新の更新日時とする。</li>
 <li>「インデックス作成中」は、画面の起動時と［インデックス作成を開始］を押したときに、このツールの <code>scripts\tebunko_grep\indexer.ps1</code> を実行中の <code>powershell.exe</code> を探して判定する（3.3）。見つかれば、そのプロセスの進み具合を表示し、二重に起動しない。</li>
 </ul>
 <h3 id="62-インデックス作成の状態遷移画面から見た状態">6.2 インデックス作成の状態遷移（画面から見た状態）<a class="headerlink" href="#62-インデックス作成の状態遷移画面から見た状態" title="Permanent link">&para;</a></h3>
@@ -1544,7 +1544,7 @@
 <h3 id="63-状態を読み直すタイミング">6.3 状態を読み直すタイミング<a class="headerlink" href="#63-状態を読み直すタイミング" title="Permanent link">&para;</a></h3>
 <ul>
 <li>起動時、タブを切り替えたとき、ウィンドウがアクティブになったとき、起動したインデックス作成のプロセスが終了したとき。</li>
-<li>TSV の件数は、インデックスが大きいと数えるのに時間がかかるため、別スレッド（Runspace）で数える。数え終わるまでは <code>確認中…</code> と表示し、その間も画面を操作できるようにする。</li>
+<li>集約ファイルの件数は、インデックスが大きいと数えるのに時間がかかるため、別スレッド（Runspace）で数える。数え終わるまでは <code>確認中…</code> と表示し、その間も画面を操作できるようにする。</li>
 </ul>
 <hr />
 <h2 id="7-操作の流れ">7. 操作の流れ<a class="headerlink" href="#7-操作の流れ" title="Permanent link">&para;</a></h2>
@@ -1553,11 +1553,11 @@
     autonumber
     actor U as 利用者
     participant G as 画面
-    participant S as 検索スレッド（searchIndex）
+    participant S as 検索スレッド（searchPackIndex）
     participant I as 検索対象インデックス
 
     U-&gt;&gt;G: ワードを入力して Enter
-    G-&gt;&gt;G: 入力チェック（ワードが空でない・TSV 1 件以上・検索対象にチェックあり）
+    G-&gt;&gt;G: 入力チェック（ワードが空でない・集約ファイル 1 件以上・検索対象にチェックあり）
     G-&gt;&gt;S: 検索開始（ワード・検索条件・検索対象フォルダ）
     G-&gt;&gt;G: ［検索］→［中止］、結果の表をクリア
     loop 50 ファイルごと
@@ -1595,7 +1595,7 @@
         P--&gt;&gt;G: 1 件も取り込まずに終了（終了コード 2）
     end
     loop 1 秒ごと（プロセスが終わるまで）
-        P-&gt;&gt;W: TSV を作成、取り込み一覧・インデックス作成進捗.txt を更新
+        P-&gt;&gt;W: TSV を作成してフォルダごとに集約ファイルに入れ、取り込み一覧・インデックス作成進捗.txt を更新
         G-&gt;&gt;W: インデックス作成進捗.txt を読む
         G-&gt;&gt;G: 進み具合を表示（3.6）
     end
