@@ -90,6 +90,51 @@ $approvalTimeoutMinutes = 60  # -ConfirmTargets で画面の返事を待つ制�
 $interruptLimit = 2       # 取り込み中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
 $failureListLimit = 50    # 終了時に失敗したファイルと原因を表示する最大件数（残りは取り込み一覧で確認する）
 
+# 集約ファイル（content.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
+# 取り込んだ TSV は元のファイルごとのフォルダに一時的に置き、同じフォルダの取り込みが終わったらまとめて書き出す
+# （元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ書き直すことになるため）
+$script:pendingPublish = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+
+function addPendingPublish {
+    # 取り込んだ・無くなった元のファイルのフォルダを、書き出し待ちにする
+    param (
+        [string]$relPath,
+        [bool]$removed = $false
+    )
+
+    $folder = [System.IO.Path]::GetDirectoryName((getBookDir $relPath))
+    if (!$script:pendingPublish.ContainsKey($folder)) {
+        $script:pendingPublish[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    }
+    if ($removed) {
+        [void]$script:pendingPublish[$folder].Add([System.IO.Path]::GetFileName($relPath))
+    }
+}
+
+function flushPendingPublish {
+    # 書き出し待ちのフォルダ（keepFolder は、まだ取り込みが続くため除く）を、集約ファイル・システムインデックスに書き出す。
+    # 書き出せなかったフォルダは TSV が残るため、次のインデックス作成の始めに書き出す
+    param (
+        [string]$keepFolder = ""
+    )
+
+    $flush = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($folder in @($script:pendingPublish.Keys)) {
+        if ($folder -ne $keepFolder) {
+            $flush[$folder] = $script:pendingPublish[$folder]
+            [void]$script:pendingPublish.Remove($folder)
+        }
+    }
+    if ($flush.Count -eq 0) {
+        return
+    }
+    try {
+        [void](publishIndexFolders $flush)
+    } catch {
+        Write-Host "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 # ----------------------------------------------------------------------------
 # メイン処理
 # ----------------------------------------------------------------------------
@@ -122,6 +167,16 @@ $folders = @(assignIndexNames $targetFolders $status.Folders)
 $previous = moveLegacyIndex $folders $status $statusExists
 removeDroppedFolders $folders $status.Folders
 migrateFlatIndex
+# 前回のインデックス作成が途中で止まり、集約ファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
+$leftover = findIndexFoldersWithBooks $indexDir
+if ($leftover.Count -gt 0) {
+    Write-Host "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
+    writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "集約ファイルに入れていないインデックスをまとめています…"
+    foreach ($folder in $leftover) {
+        $script:pendingPublish[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    }
+    flushPendingPublish
+}
 
 # 新しく割り当てたインデックス名を設定に保存する（インデックスの「名前」と「置き場所」を設定で分けて持つため。
 # 名前が設定にあれば、フォルダを移してパスを書き換えても同じインデックスとして扱える）
@@ -160,6 +215,9 @@ foreach ($folder in $folders) {
         $targets.AddRange($list.Targets)
         $failed.AddRange($list.Failed)
         $plan.Add($list.Plan)
+        foreach ($removedPath in $list.Removed) {
+            addPendingPublish $removedPath $true
+        }
         continue
     }
 
@@ -257,6 +315,8 @@ foreach ($folder in $folders) {
 if ($targets.Count -eq 0) {
     Write-Host ""
     Write-Host "取り込みが必要なファイルはありません。（一覧: $(Split-Path $statusFile -Leaf)）" -ForegroundColor Green
+    # 元のファイルが無くなったフォルダは、集約ファイルから外す
+    flushPendingPublish
     # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
     writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "システムインデックス（高速検索用）を確かめています…"
     try {
@@ -298,6 +358,8 @@ try {
 
         $row = $targets[$i]
         $relPath = $row.相対パス
+        # 取り込みが別のフォルダに移ったら、それまでのフォルダを集約ファイルに書き出す
+        flushPendingPublish ([System.IO.Path]::GetDirectoryName((getBookDir $relPath)))
         $parts = splitIndexRelPath $relPath
         $sourceFolder = $folderByName[$parts.Name]
         $sourcePath = Join-Path $sourceFolder $parts.Rest
@@ -318,6 +380,7 @@ try {
             }
             Write-Host "    元のファイルが無くなったため、取り込まずに一覧から除きます。（移動・削除・名前変更された）" -ForegroundColor Yellow
             removeBookDir (getBookDir $relPath)
+            addPendingPublish $relPath $true
             [void]$droppedRows.Add($relPath)
             continue
         }
@@ -339,6 +402,7 @@ try {
                 $script:watchdog.Deadline = [datetime]::MaxValue
             }
             publishTsv (getBookDir $relPath)
+            addPendingPublish $relPath
             # 高速検索: このフォルダの システムインデックスを作り直すまで、検索ではこのフォルダを必ず照合させる
             if (!(markSystemIndexChanged @([System.IO.Path]::GetDirectoryName($relPath)))) {
                 Write-Host "    システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" -ForegroundColor Yellow
@@ -385,6 +449,9 @@ try {
     stopAllApps
     removeTmpDir
     removeIngestingFile
+    # 取り込んだ TSV は、中止したときも残さず集約ファイルに入れる（残すとインデックスの容量が倍になる）
+    writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "インデックスをまとめています…"
+    flushPendingPublish
     writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "取り込み一覧を書き直しています…"
     # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
     writeStatusFile $folders @($rows | Where-Object { $_ -and !$droppedRows.Contains([string]$_.相対パス) })

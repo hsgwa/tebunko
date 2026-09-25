@@ -315,6 +315,36 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         testIndexComplete $row $row.相対パス $counts | Should Be $false
     }
 
+    It "集約ファイルは、フォルダと拡張子ごとに数える（0 バイトは壊れているとする）" {
+        $dir = "$TestDrive\index_pack1"
+        newTestIndex $dir
+        writeListFile "$dir\営業\2024\content.xlsx.001.tsv" @("a")
+        [System.IO.File]::WriteAllText("$dir\営業\2024\content.docx.001.tsv", "")
+        $counts = getIndexTsvCounts $dir
+        # 番号を除いた「フォルダ\content.<拡張子>」で数え、どれか 1 つでも 0 バイトなら壊れているとする
+        writeListFile "$dir\営業\2024\content.xlsx.002.tsv" @("b")
+        writeListFile "$dir\営業\2024\content.docx.002.tsv" @("c")
+        $counts = getIndexTsvCounts $dir
+        $counts["営業\2024\content.xlsx"] | Should Be 1
+        $counts["営業\2024\content.docx"] | Should Be ${indexBrokenCount}
+        # 集約ファイルはフォルダの TSV の数には入れない
+        $counts["営業\2024"] | Should Be 0
+    }
+
+    It "集約ファイルがあれば、元のファイルごとのフォルダが無くても「済」のままにする" {
+        $dir = "$TestDrive\index_pack2"
+        writeListFile "$dir\営業\2024\content.xlsx.001.tsv" @("a")
+        [System.IO.File]::WriteAllText("$dir\営業\2024\content.docx.001.tsv", "")
+        $counts = getIndexTsvCounts $dir
+        $row = newStatusRow "営業\2024\B社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "3"
+        testIndexComplete $row $row.相対パス $counts | Should Be $true
+        # 拡張子の集約ファイルが無い・壊れているなら、そろっていないとする
+        $row = newStatusRow "営業\2024\C社.pptx" "2025/01/10 12:34:56" "100" ${stateDone} "1"
+        testIndexComplete $row $row.相対パス $counts | Should Be $false
+        $row = newStatusRow "営業\2024\D社.docx" "2025/01/10 12:34:56" "100" ${stateDone} "1"
+        testIndexComplete $row $row.相対パス $counts | Should Be $false
+    }
+
     It "TSVが足りない場合も、そろっていないとする" {
         $dir = "$TestDrive\index7"
         newTestIndex $dir

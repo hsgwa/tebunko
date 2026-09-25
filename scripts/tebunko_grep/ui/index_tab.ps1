@@ -223,7 +223,7 @@ function testIndexOperable {
         return $false
     }
     if ($script:indexBusy) {
-        # 前のインデックスの TSV を削除している最中（別スレッド）
+        # 前のインデックス（集約ファイル）を削除している最中（別スレッド）
         showMessage "前のインデックスの削除が終わるまでお待ちください。" "OK" "Warning" | Out-Null
         return $false
     }
@@ -428,7 +428,7 @@ function startIndexRemoveJob {
     $script:indexJobOnDone = $onDone
     $script:indexJobOperation = $operation
     updateIndexingButton
-    setStatus "インデックス [${name}] の TSV を削除しています…（件数によっては少し時間がかかります）"
+    setStatus "インデックス [${name}] を削除しています…（件数によっては少し時間がかかります）"
     startJob {
         param ($libPath, $name)
         . $libPath
@@ -451,7 +451,7 @@ function startIndexRemoveJob {
 }
 
 function deleteIndex {
-    # ［削除］。一覧から削除し、取り込んだ TSV（work\index\<名前>）と取り込み一覧の記録も削除する
+    # ［削除］。一覧から削除し、インデックス（work\index\<名前>）と取り込み一覧の記録も削除する
     $item = $ui.IndexGrid.SelectedItem
     if ($null -eq $item -or !(testIndexOperable "削除")) {
         return
@@ -469,7 +469,7 @@ function deleteIndex {
         return
     }
 
-    # 一覧からはすぐ消し、TSV の削除（時間がかかることがある）は別スレッドで行う
+    # 一覧からはすぐ消し、インデックスの削除（時間がかかることがある）は別スレッドで行う
     $script:targetItems.Remove($item)
     saveTargets
     updateIndexSourceFile
@@ -634,7 +634,7 @@ function updateIndexSummaryText {
         $ui.IndexSummaryText.Text = "まだインデックスがありません。"
         return
     }
-    $text = "TSV $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])"
+    $text = "集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])"
     $state = $script:indexingState
     if ($state -and $state.Done -gt 0) {
         $text = "取り込み済み $($state.Done.ToString('N0')) ファイル（$text）"
@@ -643,7 +643,7 @@ function updateIndexSummaryText {
 }
 
 function refreshIndexSummary {
-    # TSV の件数は数えるのに時間がかかることがあるため、別スレッドで数える
+    # 集約ファイルの件数は数えるのに時間がかかることがあるため、別スレッドで数える
     if ($script:summaryRunning) {
         $script:summaryAgain = $true
         return

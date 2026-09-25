@@ -106,54 +106,6 @@ Describe "toIndexFileName" -Tag Unit {
     }
 }
 
-Describe "splitIndexTsvPath" -Tag Unit {
-    It "今の形式（<ファイル名.xlsx>\<場所>.tsv）をファイル名・場所・フォルダに分ける" {
-        foreach ($case in @(
-            @("A.xlsx", "old.xlsx_1"),
-            @("A.xlsx_old.xlsx", "1"),
-            @("コピー.xls_old.xlsx", "Sheet1"),
-            @("終わりが_.xlsx", "_"),
-            @("100%.xlsx", "100%"),
-            @("ア_イ_ウ.xlsx", "シ_ー_ト"),
-            @("[確定]報告書.xlsx", "衝突`""),
-            @("資料.pptx", "スライド003_ノート"),
-            @("報告書.docx", "ヘッダー・フッター")
-        )) {
-            $parts = splitIndexTsvPath "営業\2024\$($case[0])\$(toIndexFileName $case[1])"
-            $parts.Book | Should BeExactly $case[0]
-            $parts.Place | Should BeExactly $case[1]
-            $parts.RelDir | Should Be "営業\2024"
-        }
-    }
-
-    It "インデックスフォルダの直下のファイルは、フォルダが空になる" {
-        $parts = splitIndexTsvPath "A.xlsx\Sheet1.tsv"
-        $parts.Book | Should Be "A.xlsx"
-        $parts.Place | Should Be "Sheet1"
-        $parts.RelDir | Should Be ""
-    }
-
-    It "以前の形式（<ファイル名.xlsx>_<場所>.tsv）も分けられる" {
-        $parts = splitIndexTsvPath "営業\コピー.xls_old.xlsx_Sheet1.tsv"
-        $parts.Book | Should Be "コピー.xls_old.xlsx"
-        $parts.Place | Should Be "Sheet1"
-        $parts.RelDir | Should Be "営業"
-
-        # さらに以前の形式（場所に _ をそのまま入れていた版）
-        $parts = splitIndexTsvPath "売上.xls_2024_上期.tsv"
-        $parts.Book | Should Be "売上.xls"
-        $parts.Place | Should Be "2024_上期"
-        $parts.RelDir | Should Be ""
-    }
-
-    It "Officeファイル以外の名前のフォルダにあるTSVは、ファイル名をそのまま返す" {
-        $parts = splitIndexTsvPath "メモ\other.tsv"
-        $parts.Book | Should Be "other.tsv"
-        $parts.Place | Should Be ""
-        $parts.RelDir | Should Be "メモ"
-    }
-}
-
 Describe "splitIndexFileName" -Tag Unit {
     It "ブック名とシート名に分解する" {
         $name = splitIndexFileName "book.xlsx_Sheet1.tsv"

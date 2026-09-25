@@ -69,6 +69,7 @@ Describe "判断層" -Tag Meta {
         $files = @(
             "${scriptsDir}\shared\core\text.ps1"
             "${scriptsDir}\tebunko_grep\index\index_name.ps1"
+            "${scriptsDir}\tebunko_grep\index\pack_format.ps1"
             "${scriptsDir}\tebunko_grep\search\search_query.ps1"
             "${scriptsDir}\tebunko_grep\search\search_gram.ps1"
             "${scriptsDir}\tebunko_grep\indexer\indexer_decide.ps1"

@@ -51,9 +51,9 @@ function showDetail {
     $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
-    # 前後の行をインデックスのTSVから読む（読めなければ選択行だけを出す）。行数はプレビューの高さに合わせる
+    # 前後の行を集約ファイルから読む（読めなければ選択行だけを出す）。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う
     $lines = getPreviewContextLines
-    $context = @(readTsvContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.LineNumber $lines[0] $lines[1])
+    $context = @(readPackContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.Book $row.Location $row.LineNumber $lines[0] $lines[1] $script:tsvCache)
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
     $title = "${path} ・ $($row.PlaceText) ・ $($row.Kind) ・ ${place}"

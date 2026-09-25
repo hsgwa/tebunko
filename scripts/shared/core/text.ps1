@@ -87,45 +87,6 @@ function toColumnName {
     return $name
 }
 
-function readTsvContext {
-    # インデックスのTSVの lineNumber 行目と、その前後 before 行・after 行を @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー）。
-    # 行の数え方は検索（searchTsvFiles）と同じ（どちらも StreamReader.ReadLine で数えるため一致する。Excel のTSVでは行番号 = シートの行番号）。
-    # ファイルが無い・読めない場合は空。インデックス作成中のTSVも読めるよう共有モードは ReadWrite|Delete。
-    # ※以前は C#（TsvContextReader）で行の位置を覚えて速くしていたが、実行時コンパイル（csc.exe）を無くすため PowerShell で読む
-    #   （プレビューは選択行の前後だけで、TSV は元のファイル1つ分＝通常は数千行までのため、先頭から目的行までの読み込みで十分）。
-    param (
-        [string]$path,
-        [int]$lineNumber,
-        [int]$before = 3,
-        [int]$after = 3
-    )
-
-    $rows = New-Object System.Collections.Generic.List[psobject]
-    $first = [Math]::Max(1, $lineNumber - $before)
-    $last = $lineNumber + $after
-    if ($last -lt $first) { return @() }
-
-    $reader = $null
-    try {
-        $stream = New-Object System.IO.FileStream((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
-        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8, $true)
-        $number = 0
-        while ($null -ne ($line = $reader.ReadLine())) {
-            $number++
-            if ($number -lt $first) { continue }
-            if ($number -gt $last) { break }
-            $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $line })
-        }
-    } catch [System.IO.IOException] {
-        $rows.Clear()
-    } catch [System.UnauthorizedAccessException] {
-        $rows.Clear()
-    } finally {
-        if ($reader) { $reader.Dispose() }
-    }
-    # 呼び出し側で @() にして使う
-    return $rows.ToArray()
-}
 
 function splitTsvCells {
     # TSVの1行をセルに分ける。" で始まるセルは閉じる " までを1セルとし、囲みの " を外して "" を " に戻す（countTsvFields と同じ区切り方）

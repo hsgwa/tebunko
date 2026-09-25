@@ -638,6 +638,21 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         param ($name, $expected)
         [IndexNode]::IsBookDir($name) | Should Be $expected
     }
+
+    It "IsBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（集約ファイル・サブフォルダがある）を見分ける" {
+        $dir = "$TestDrive\bookdir_path"
+        newTsv "$dir\資料.xlsx\content.docx.001.tsv" @("x")
+        [void][System.IO.Directory]::CreateDirectory("$dir\親.xlsx\子")
+        [void][System.IO.Directory]::CreateDirectory("$dir\空.xlsx")
+        newTsv "$dir\B.xlsx\S.tsv" @("x")
+        [IndexNode]::IsBookDirPath("$dir\資料.xlsx") | Should Be $false
+        [IndexNode]::IsBookDirPath("$dir\親.xlsx") | Should Be $false
+        [IndexNode]::IsBookDirPath("$dir\空.xlsx") | Should Be $true
+        [IndexNode]::IsBookDirPath("$dir\B.xlsx") | Should Be $true
+        [IndexNode]::IsBookDirPath("$dir\営業部") | Should Be $false
+        # 本物のフォルダはツリーに出し、元のファイルごとのフォルダは出さない
+        [IndexNode]::HasSubfolders($dir) | Should Be $true
+    }
 }
 
 Describe "IndexNode（チェック）" -Tag Unit {
@@ -849,8 +864,10 @@ Describe "IndexNode（フォルダの読み込み）" -Tag Io {
         @($root.Children | ForEach-Object { $_.Name }) | Should Be @("営業部", "総務部")
     }
 
-    It "直下の TSV もファイルとして数える" {
-        newTsv "$script:indexRoot\総務部\a.tsv" @("x")
+    It "直下の集約ファイルもファイルとして数える（ほかの .tsv は数えない）" {
+        newTsv "$script:indexRoot\人事部\a.tsv" @("x")
+        [IndexNode]::HasFiles("$script:indexRoot\人事部") | Should Be $false
+        newTsv "$script:indexRoot\総務部\content.xlsx.001.tsv" @("x")
         [IndexNode]::HasFiles("$script:indexRoot\総務部") | Should Be $true
         [IndexNode]::HasFiles("$script:indexRoot\営業部\東京") | Should Be $false
         [IndexNode]::HasFiles("$TestDrive\無い") | Should Be $false

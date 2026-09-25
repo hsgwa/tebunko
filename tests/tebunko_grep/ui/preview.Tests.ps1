@@ -97,8 +97,15 @@ function resetPreview {
     clearDetail
 }
 
+function writeHitPack {
+    # インデックスの集約ファイル（TestDrive に作る）に、元のファイル book の場所 location の行を書く
+    param ([string]$path, [string]$book, [string]$location, [string[]]$lines)
+    [void][System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path))
+    writePackFile $path (convertToPackText @(@{ Name = $book; Places = @(@{ Place = $location; Text = (($lines -join "`r`n") + "`r`n") }) }))
+}
+
 function newHitRow {
-    # インデックスのTSV（TestDrive に作る）の lineNumber 行目にヒットした行
+    # インデックスの集約ファイル（TestDrive に作る）の lineNumber 行目にヒットした行
     param (
         [string]$book,
         [string]$location,
@@ -108,9 +115,10 @@ function newHitRow {
     )
 
     $root = "$TestDrive\index"
-    $relPath = "$relDir\$book\$location.tsv"
-    newTsv "$root\$relPath" $lines
-    $row = [HitRow]::Create("営業部", $root, $relPath, $relDir, "$location.tsv", $book, $location, $lineNumber, $lines[$lineNumber - 1], "見積", [regex]"見積")
+    $name = getPackFileName (getPackExtension $book)
+    $relPath = if ($relDir) { "$relDir\$name" } else { $name }
+    writeHitPack "$root\$relPath" $book $location $lines
+    $row = [HitRow]::Create("営業部", $root, $relPath, $relDir, $book, $book, $location, $lineNumber, $lines[$lineNumber - 1], "見積", [regex]"見積")
     $described = describePlace $book $location
     $row.PlaceText = $described.Place
     $row.Kind = $described.Kind
@@ -251,7 +259,7 @@ Describe "showDetail" -Tag Io {
 
     It "検索のあとにインデックスが短くなり、選んだ行が無くなっていても落ちない" {
         $row = newHitRow "見積.xlsx" "4月" 5 @("`ta", "`tb", "`tc", "`td", "`t見積")
-        newTsv ([System.IO.Path]::Combine($row.Root, $row.RelPath)) @("`ta", "`tb")
+        writeHitPack ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.Book $row.Location @("`ta", "`tb")
         $fake.Current = $row
 
         showDetail
@@ -261,7 +269,7 @@ Describe "showDetail" -Tag Io {
         $fake.Scrolls[-1] | Should Be 0
     }
 
-    It "インデックスのTSVが読めなければ、選んだ行だけを出す" {
+    It "インデックスの集約ファイルが読めなければ、選んだ行だけを出す" {
         $row = newHitRow "見積.xlsx" "4月" 2 @("`t前", "`t見積", "`t後")
         Remove-Item -LiteralPath ([System.IO.Path]::Combine($row.Root, $row.RelPath))
         $fake.Current = $row
