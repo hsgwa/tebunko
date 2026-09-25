@@ -221,28 +221,60 @@ function extractWithPowerPoint {
         [string]$destPath
     )
 
-    # PowerPoint は 1 つのプロセスしか持てず、取り込みのスレッドの間で共有になる。ほかのスレッドが使っている間に
-    # 終了させないよう、使う間は鍵を取り、使い終わったら終了する（次に使うスレッドが起動し直す。旧形式は少ないため待ちは小さい）
-    $lock = lockOfficeProcess "PowerPoint"
-    try {
-        # 読み取り専用・ウィンドウ無しで開く。
-        # ファイル名の後ろに "::<パスワード>::" を付けると、パスワード付きのファイルはダイアログを出さずにエラーになる
-        $presentations = (getApp "PowerPoint").Presentations
-        try {
-            $pres = $presentations.Open("${sourcePath}::dummy::", -1, 0, 0)  # ReadOnly, Untitled = False, WithWindow = False
-        } finally {
-            releaseComObject $presentations
+    # PowerPoint は 1 つのプロセスしか持てず、取り込みのスレッドの間で共有になる（$script:powerPointShare）。
+    # 使う間は鍵を取る。共有しているときは鍵を待たずに試し、ほかのスレッドが使っていれば、後回しにする例外にする
+    # （取り込みのスレッドは、ほかのファイルを先に取り込む。runIngestWorker）。PowerPoint は終了せずに使い回す
+    $share = $script:powerPointShare
+    if ($share) {
+        $lock = lockOfficeProcess "PowerPoint" 0
+        if ($null -eq $lock) {
+            throw (New-Object System.OperationCanceledException ${powerPointBusyMessage})
         }
-
+    } else {
+        $lock = lockOfficeProcess "PowerPoint"
+    }
+    $script:powerPointHeld = $true
+    updateWatchedPids
+    try {
         try {
-            [void]$pres.SaveAs($destPath, 24)  # 24 = ppSaveAsOpenXMLPresentation（.pptx）
-        } finally {
-            $pres.Close()
-            releaseComObject $pres
+            convertWithPowerPoint $sourcePath $destPath
+        } catch {
+            # ほかのスレッドのつながりのまま、PowerPoint が終わっていた（制限時間で止められた等）。
+            # つながりを捨ててつなぎ直し、1 回だけやり直す（このファイルで制限時間を過ぎたときは、やり直さない）
+            if (!$share -or $script:watchdog.TimedOut -or !(testComDisconnected $_.Exception)) {
+                throw
+            }
+            stopApp "PowerPoint"
+            convertWithPowerPoint $sourcePath $destPath
         }
     } finally {
-        try { stopApp "PowerPoint" } catch {}
+        $script:powerPointHeld = $false
+        updateWatchedPids
         unlockOfficeProcess $lock
+    }
+}
+
+function convertWithPowerPoint {
+    # PowerPoint で開いて .pptx で保存する（extractWithPowerPoint が鍵を取って呼ぶ）
+    param (
+        [string]$sourcePath,
+        [string]$destPath
+    )
+
+    # 読み取り専用・ウィンドウ無しで開く。
+    # ファイル名の後ろに "::<パスワード>::" を付けると、パスワード付きのファイルはダイアログを出さずにエラーになる
+    $presentations = (getApp "PowerPoint").Presentations
+    try {
+        $pres = $presentations.Open("${sourcePath}::dummy::", -1, 0, 0)  # ReadOnly, Untitled = False, WithWindow = False
+    } finally {
+        releaseComObject $presentations
+    }
+
+    try {
+        [void]$pres.SaveAs($destPath, 24)  # 24 = ppSaveAsOpenXMLPresentation（.pptx）
+    } finally {
+        $pres.Close()
+        releaseComObject $pres
     }
 }
 

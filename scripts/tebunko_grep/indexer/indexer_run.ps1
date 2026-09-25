@@ -26,23 +26,74 @@ ${ingestWorkerScript} = {
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     [System.IO.Directory]::CreateDirectory($publishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
+    $script:powerPointShare = $settings.PowerPointShare
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
 
+    enterPowerPointShare $settings.PowerPointShare
     startWatchdog
-    $done = 0
     try {
-        foreach ($task in $tasks.GetConsumingEnumerable()) {
-            $result = invokeIngestTask $task $settings.FileTimeoutMinutes
-            $results.Add($result)
-            $done++
-            if ($result.TimedOut -or ($done % $settings.RestartInterval) -eq 0) {
-                # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
-                stopAllApps
-            }
-        }
+        runIngestWorker $tasks $results $settings.PowerPointQueue $settings.FileTimeoutMinutes $settings.RestartInterval
     } finally {
         stopWatchdog
         stopAllApps
+        # 最後のスレッドが、共有の PowerPoint を終了する
+        exitPowerPointShare $settings.PowerPointShare
+    }
+}
+
+function runIngestWorker {
+    # 取り込みのスレッドの繰り返し（ingestWorkerScript が呼ぶ）。1 件ずつ、次の順に取り込み、結果を results に入れる。
+    #   1. PowerPoint 待ちの列（pptQueue）にファイルがあり、PowerPoint の鍵が取れたら、それを取り込む
+    #   2. 無ければ、取り込み待ちの列（tasks）から次を取る。PowerPoint がほかのスレッドで使用中なら、PowerPoint 待ちの列に入れて次へ進む
+    # 取り込み待ちの列が閉じて空になったら、PowerPoint 待ちの列を鍵を待って片づけてから終わる。
+    # 後回しにしたファイルも司令から見れば取り込み中のままのため、結果は 1 件に 1 つだけ返す
+    param (
+        $tasks,
+        $results,
+        $pptQueue,
+        [int]$fileTimeoutMinutes,
+        [int]$restartInterval
+    )
+
+    $done = 0
+    while ($true) {
+        $result = $null
+        $task = $null
+        if (!$pptQueue.IsEmpty) {
+            # 待つのは、ほかに取り込むものが無くなってから
+            $wait = if ($tasks.IsCompleted) { -1 } else { 0 }
+            $lock = lockOfficeProcess "PowerPoint" $wait
+            if ($lock) {
+                try {
+                    if ($pptQueue.TryDequeue([ref]$task)) {
+                        # 鍵を持っているため、後回しにはならない（同じスレッドは続けて鍵を取れる）
+                        $result = invokeIngestTask $task $fileTimeoutMinutes
+                    }
+                } finally {
+                    unlockOfficeProcess $lock
+                }
+            }
+        }
+        if ($null -eq $result) {
+            if (!$tasks.TryTake([ref]$task, 200)) {
+                if ($tasks.IsCompleted -and $pptQueue.IsEmpty) {
+                    break
+                }
+                continue
+            }
+            $result = invokeIngestTask $task $fileTimeoutMinutes
+            if ($result.Deferred) {
+                $pptQueue.Enqueue($task)
+                continue
+            }
+        }
+        $results.Add($result)
+        $done++
+        if ($result.TimedOut -or ($done % $restartInterval) -eq 0) {
+            # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
+            # （共有の PowerPoint は終了せず、このスレッドのつながりを放すだけ）
+            stopAllApps
+        }
     }
 }
 
@@ -74,7 +125,8 @@ function invokeIngestTask {
         [int]$fileTimeoutMinutes
     )
 
-    $result = @{ RelPath = $task.RelPath; Ok = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
+    # Deferred: PowerPoint がほかのスレッドで使用中だったため、取り込まずに後回しにした（runIngestWorker が PowerPoint 待ちの列に入れる）
+    $result = @{ RelPath = $task.RelPath; Ok = $false; Deferred = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
     $log = New-Object System.IO.StringWriter
     $previousLog = $script:indexerLog
     $script:indexerLog = $log
@@ -91,6 +143,10 @@ function invokeIngestTask {
         $result.ExtractVersion = [string](getExtractVersion $task.RelPath)
         $result.Ok = $true
     } catch {
+        if ($_.Exception.GetBaseException() -is [System.OperationCanceledException] -and $_.Exception.GetBaseException().Message -eq ${powerPointBusyMessage}) {
+            $result.Deferred = $true
+            return $result
+        }
         $message = describeIngestError $_.Exception
         if ($script:watchdog.TimedOut) {
             $message = "${fileTimeoutMinutes} 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）"
@@ -480,6 +536,9 @@ function invokeIndexerBody {
                 Lib = ${indexerLibPath}
                 Paths = @{ indexDir = ${indexDir}; workDir = ${workDir}; tmpDir = ${tmpDir}; publishDir = ${publishDir} }
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
+                # PowerPoint は取り込みのスレッドの間で共有し、使用中なら後回しにする（PowerPoint 待ちの列）
+                PowerPointShare = (newPowerPointShare)
+                PowerPointQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[hashtable]'
             }
         } else {
             $script:officePidSink = $channel.OfficePids

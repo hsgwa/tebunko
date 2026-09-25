@@ -28,13 +28,18 @@ function lockOfficeProcess {
     # プロセスの中で 1 つずつ行う Office の操作の鍵（名前付きミューテックス）を取る。解放は unlockOfficeProcess。
     #   start     : 起動（起動の前後のプロセスの一覧の差で PID を調べるため、同時に起動すると取り違える）
     #   PowerPoint: PowerPoint を使う操作（PowerPoint は 1 つのプロセスしか持てず、ほかのスレッドと共有になるため）
+    # timeout（ミリ秒。-1 は取れるまで待つ）までに取れなければ $null を返す。同じスレッドは続けて取れる（取った数だけ解放する）
     param (
-        [string]$name
+        [string]$name,
+        [int]$timeout = -1
     )
 
     $mutex = New-Object System.Threading.Mutex($false, "Local\tebunko_office_${name}_${PID}")
     try {
-        [void]$mutex.WaitOne()
+        if (!$mutex.WaitOne($timeout)) {
+            $mutex.Dispose()
+            return $null
+        }
     } catch [System.Threading.AbandonedMutexException] {
         # 持っていたスレッドが解放せずに終わった。鍵は取れている
     }
@@ -48,6 +53,105 @@ function unlockOfficeProcess {
 
     $mutex.ReleaseMutex()
     $mutex.Dispose()
+}
+
+# 取り込みのスレッドの間で PowerPoint を共有するときの状態（newPowerPointShare。$null なら共有しない）。
+# PowerPoint は 1 つのプロセスしか持てないため、一度起動したら、インデックス作成が終わるまで同じプロセスを使い回す。
+# COM の部品（つながり）は作ったスレッドでしか使えないため、スレッドごとにつなぐ
+$script:powerPointShare = $null
+# PowerPoint がほかの取り込みのスレッドで使われているときの例外の文言（後回しにする。invokeIngestTask）
+${powerPointBusyMessage} = "PowerPoint はほかの取り込みで使用中です。"
+
+function newPowerPointShare {
+    # PowerPoint を共有するときの状態を作る（司令が作り、取り込みのスレッドに渡す）。
+    #   Pid: 使っている PowerPoint の PID（0 は無い）/ Owned: インデックス作成が起動したものか（利用者の PowerPoint なら $false）/
+    #   Workers: 動いている取り込みのスレッドの数（最後のスレッドが終了する）
+    return [hashtable]::Synchronized(@{ Pid = 0; Owned = $false; Workers = 0 })
+}
+
+function enterPowerPointShare {
+    # 取り込みのスレッドが始まるときに呼ぶ
+    param (
+        [hashtable]$share
+    )
+
+    [System.Threading.Monitor]::Enter($share.SyncRoot)
+    try {
+        $share.Workers = $share.Workers + 1
+    } finally {
+        [System.Threading.Monitor]::Exit($share.SyncRoot)
+    }
+}
+
+function exitPowerPointShare {
+    # 取り込みのスレッドが終わるときに呼ぶ。最後のスレッドなら、インデックス作成が起動した PowerPoint を終了する
+    param (
+        [hashtable]$share
+    )
+
+    [System.Threading.Monitor]::Enter($share.SyncRoot)
+    try {
+        $share.Workers = $share.Workers - 1
+        $last = ($share.Workers -le 0)
+    } finally {
+        [System.Threading.Monitor]::Exit($share.SyncRoot)
+    }
+    if ($last) {
+        closeSharedPowerPoint $share
+    }
+}
+
+function closeSharedPowerPoint {
+    # インデックス作成が起動した PowerPoint を終了する（利用者の PowerPoint・利用者がファイルを開いている PowerPoint は終了しない）
+    param (
+        [hashtable]$share
+    )
+
+    $lock = lockOfficeProcess "PowerPoint"
+    try {
+        if (!$share.Owned -or !$share.Pid) {
+            return
+        }
+        $process = Get-Process -Id $share.Pid -ErrorAction SilentlyContinue
+        if ($process -and $process.ProcessName -eq $appInfo.PowerPoint.Process) {
+            $inUse = $false
+            $com = $null
+            try {
+                # 起動済みの PowerPoint につなぐ（PowerPoint は 1 つのプロセスしか持てないため、新しくは起動しない）
+                $com = New-Object -ComObject $appInfo.PowerPoint.ProgId
+                $inUse = ($com.Presentations.Count -gt 0)
+                if (!$inUse) {
+                    $com.Quit()
+                }
+            } catch {
+            } finally {
+                try { releaseComObject $com } catch {}
+            }
+            if (!$inUse -and !$process.WaitForExit($appInfo.PowerPoint.ExitWait)) {
+                try { $process.Kill() } catch {}
+            }
+        }
+        if ($script:officePidSink) {
+            $removed = $null
+            [void]$script:officePidSink.TryRemove([int]$share.Pid, [ref]$removed)
+        }
+        $share.Pid = 0
+        $share.Owned = $false
+    } finally {
+        unlockOfficeProcess $lock
+    }
+}
+
+function testComDisconnected {
+    # COM の呼び出しの例外が「つながっていない」（相手の Office のプロセスが終わった等）ものか
+    param (
+        [System.Exception]$exception
+    )
+
+    $base = $exception.GetBaseException()
+    # RPC_E_DISCONNECTED / RPC_S_SERVER_UNAVAILABLE / RPC_S_CALL_FAILED / CO_E_OBJNOTCONNECTED
+    # （PowerShell 5.1 は 0x8… の値を HResult と同じ Int32（負の数）として読む）
+    return @(0x80010108, 0x800706BA, 0x800706BE, 0x800401FD) -contains $base.HResult
 }
 
 function getApp {
@@ -74,6 +178,18 @@ function getApp {
             try { (Get-Process -Id $newIds[0]).PriorityClass = $officePriority } catch {}
             if ($script:officePidSink) {
                 $script:officePidSink[[int]$newIds[0]] = $info.Process
+            }
+        }
+        if ($name -eq "PowerPoint" -and $script:powerPointShare) {
+            # 共有する PowerPoint を記録する（PowerPoint を使う操作は鍵を取って行うため、ここは 1 つずつ通る）。
+            # 起動しなかったときは、ほかのスレッドが起動したものか、利用者の PowerPoint につないでいる
+            $share = $script:powerPointShare
+            if ($newIds.Count -eq 1) {
+                $share.Pid = [int]$newIds[0]
+                $share.Owned = $true
+            } elseif (!$share.Pid -or !(Get-Process -Id $share.Pid -ErrorAction SilentlyContinue)) {
+                $share.Pid = 0
+                $share.Owned = $false
             }
         }
 
@@ -118,6 +234,13 @@ function stopApp {
     }
     $script:apps.Remove($name)
     updateWatchedPids
+
+    if ($name -eq "PowerPoint" -and $script:powerPointShare) {
+        # 共有している PowerPoint は、ほかのスレッドも使うため終了しない。このスレッドのつながりだけを放す
+        # （終了は最後のスレッドが行う。closeSharedPowerPoint）
+        try { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($app.Com) } catch {}
+        return
+    }
 
     # インデックス作成中に利用者が同じアプリでファイルを開いた場合は、終了させない
     $inUse = $app.Shared
@@ -192,10 +315,20 @@ function releaseComObject($object) {
 #   TimedOut: 制限時間を過ぎて強制終了した
 $script:watchdog = [hashtable]::Synchronized(@{ Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false })
 $script:watchdogThread = $null
+# このスレッドが共有の PowerPoint を使っている（鍵を持っている）間 $true。そのときだけ共有の PowerPoint を監視の対象に入れる
+$script:powerPointHeld = $false
 
 function updateWatchedPids {
-    # 強制終了してよいプロセスIDを、起動中のアプリのうち自分で起動したものにする（利用者のアプリは終了させない）
-    $script:watchdog.Pids = @($script:apps.Values | Where-Object { -not $_.Shared -and $_.Pid } | ForEach-Object { $_.Pid })
+    # 強制終了してよいプロセスIDを、起動中のアプリのうち自分で起動したものにする（利用者のアプリは終了させない）。
+    # 共有の PowerPoint は、このスレッドが使っている間だけ入れる（ほかのスレッドの変換の途中で止めないため）
+    $share = $script:powerPointShare
+    $ids = @($script:apps.GetEnumerator() | Where-Object {
+            -not ($share -and $_.Key -eq "PowerPoint") -and -not $_.Value.Shared -and $_.Value.Pid
+        } | ForEach-Object { $_.Value.Pid })
+    if ($share -and $script:powerPointHeld -and $share.Owned -and $share.Pid) {
+        $ids += $share.Pid
+    }
+    $script:watchdog.Pids = $ids
 }
 
 function startWatchdog {

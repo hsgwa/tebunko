@@ -441,3 +441,73 @@ Describe "ingestFile" -Tag Io {
         ingestFile "a.ppt" | Should Be "Word・PowerPoint"
     }
 }
+
+Describe "extractWithPowerPoint（PowerPoint の共有）" -Tag Io {
+    function newDisconnected {
+        return New-Object System.Runtime.InteropServices.COMException("RPC サーバーを利用できません。", [Convert]::ToInt32("800706BA", 16))
+    }
+
+    AfterEach {
+        $script:powerPointShare = $null
+        $script:watchdog.TimedOut = $false
+    }
+
+    It "共有していて、ほかのスレッドが PowerPoint を使っていれば、待たずに後回しの例外にする" {
+        Mock convertWithPowerPoint { }
+        $script:powerPointShare = newPowerPointShare
+        $holder = holdOfficeLock "PowerPoint"
+        try {
+            $caught = $null
+            try { extractWithPowerPoint "a.ppt" "b.pptx" } catch { $caught = $_.Exception }
+            $caught -is [System.OperationCanceledException] | Should Be $true
+            $caught.Message | Should Be ${powerPointBusyMessage}
+            Assert-MockCalled convertWithPowerPoint -Times 0 -Exactly -Scope It
+        } finally {
+            releaseOfficeLock $holder
+        }
+    }
+
+    It "変換しても PowerPoint を終了しない（一度起動したら使い回す）" {
+        Mock convertWithPowerPoint { }
+        Mock stopApp { }
+        $script:powerPointShare = newPowerPointShare
+        extractWithPowerPoint "a.ppt" "b.pptx"
+        Assert-MockCalled convertWithPowerPoint -Times 1 -Exactly -Scope It
+        Assert-MockCalled stopApp -Times 0 -Exactly -Scope It
+    }
+
+    It "PowerPoint が終わっていた（つながっていない）ときは、つなぎ直して 1 回だけやり直す" {
+        $script:calls = 0
+        Mock convertWithPowerPoint { $script:calls++; if ($script:calls -eq 1) { throw (newDisconnected) } }
+        Mock stopApp { }
+        $script:powerPointShare = newPowerPointShare
+        extractWithPowerPoint "a.ppt" "b.pptx"
+        $script:calls | Should Be 2
+        Assert-MockCalled stopApp -Times 1 -Exactly -Scope It -ParameterFilter { $name -eq "PowerPoint" }
+    }
+
+    It "やり直しても失敗したら、その例外を返す" {
+        Mock convertWithPowerPoint { throw (newDisconnected) }
+        Mock stopApp { }
+        $script:powerPointShare = newPowerPointShare
+        { extractWithPowerPoint "a.ppt" "b.pptx" } | Should Throw "RPC サーバーを利用できません"
+        Assert-MockCalled convertWithPowerPoint -Times 2 -Exactly -Scope It
+    }
+
+    It "つながっていない以外の例外・制限時間で止めたとき・共有していないときは、やり直さない" {
+        Mock stopApp { }
+        Mock convertWithPowerPoint { throw "パスワードが違います" }
+        $script:powerPointShare = newPowerPointShare
+        { extractWithPowerPoint "a.ppt" "b.pptx" } | Should Throw "パスワードが違います"
+        Assert-MockCalled convertWithPowerPoint -Times 1 -Exactly -Scope It
+
+        Mock convertWithPowerPoint { throw (newDisconnected) }
+        $script:watchdog.TimedOut = $true
+        { extractWithPowerPoint "a.ppt" "b.pptx" } | Should Throw
+        $script:watchdog.TimedOut = $false
+        $script:powerPointShare = $null
+        { extractWithPowerPoint "a.ppt" "b.pptx" } | Should Throw
+        Assert-MockCalled convertWithPowerPoint -Times 3 -Exactly -Scope It
+        Assert-MockCalled stopApp -Times 0 -Exactly -Scope It
+    }
+}

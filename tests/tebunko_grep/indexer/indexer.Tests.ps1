@@ -690,6 +690,7 @@ Describe "getIngestWorkerCount" -Tag Unit {
 Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）" -Tag Io {
     # 取り込みのスレッドで動くスクリプトを、このスレッドで直接動かして確かめる（スレッドの中の動きはブレークポイントで止められないため）
     . $runPath
+    . "${scriptsDir}\shared\office\office_app.ps1"
 
     It "取り込み待ちの列のファイルを取り込んで結果の列に入れ、列が閉じられたら Office を片づけて終わる" {
         $root = Join-Path $TestDrive "worker_direct"
@@ -706,6 +707,8 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
             Paths = @{ indexDir = "$root\index"; workDir = $root; tmpDir = "$root\tmp"; publishDir = "$root\publish" }
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+            PowerPointShare = (newPowerPointShare)
+            PowerPointQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[hashtable]'
         }
         $priority = [System.Threading.Thread]::CurrentThread.Priority
         try {
@@ -726,5 +729,102 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $failed = $results.Take()
         $failed.Ok | Should Be $false
         $failed.Message | Should Not BeNullOrEmpty
+        # 終わるときに、共有の PowerPoint の利用者の数を戻す
+        $settings.PowerPointShare.Workers | Should Be 0
+    }
+}
+
+Describe "runIngestWorker（PowerPoint の後回し）" -Tag Io {
+    . "${scriptsDir}\shared\office\office_app.ps1"
+    . $runPath
+
+    function newQueues([string[]]$paths) {
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        foreach ($path in $paths) {
+            $tasks.Add(@{ RelPath = $path; SourcePath = $path })
+        }
+        $tasks.CompleteAdding()
+        return @{
+            Tasks   = $tasks
+            Results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+            Ppt     = New-Object 'System.Collections.Concurrent.ConcurrentQueue[hashtable]'
+        }
+    }
+
+    function takeOrder($queues) {
+        $order = New-Object System.Collections.Generic.List[string]
+        $result = $null
+        while ($queues.Results.TryTake([ref]$result)) {
+            $order.Add($result.RelPath)
+        }
+        return , $order.ToArray()
+    }
+
+    BeforeEach {
+        $script:calls = New-Object System.Collections.Generic.List[string]
+        # 旧形式の PowerPoint（*.ppt）は、PowerPoint の鍵をほかのスレッドが持っていれば後回しになる（extractWithPowerPoint と同じ）
+        Mock invokeIngestTask {
+            param ($task, $fileTimeoutMinutes)
+            $script:calls.Add($task.RelPath)
+            $deferred = $false
+            if ($task.RelPath -like "*.ppt") {
+                $lock = lockOfficeProcess "PowerPoint" 0
+                if ($lock) { unlockOfficeProcess $lock } else { $deferred = $true }
+            }
+            return @{ RelPath = $task.RelPath; Ok = !$deferred; Deferred = $deferred; TimedOut = $false }
+        }
+        Mock stopAllApps { }
+    }
+
+    It "PowerPoint が空いていれば、そのまま順に取り込む" {
+        $queues = newQueues @("a.xlsx", "b.ppt", "c.docx")
+        runIngestWorker $queues.Tasks $queues.Results $queues.Ppt 10 100
+        (takeOrder $queues) -join "," | Should Be "a.xlsx,b.ppt,c.docx"
+        $script:calls.Count | Should Be 3
+    }
+
+    It "PowerPoint が使用中なら後回しにしてほかを先に取り込み、空いたら取り込む。結果は 1 件に 1 つ" {
+        $queues = newQueues @("a.xlsx", "b.ppt", "c.docx", "d.xlsx")
+        $holder = holdOfficeLock "PowerPoint"
+        # ほかのファイルを取り込み終えた後に、PowerPoint を使っていたスレッドが鍵を放す
+        $releaser = [powershell]::Create()
+        [void]$releaser.AddScript({ param ($event) Start-Sleep -Milliseconds 800; [void]$event.Set() }).AddArgument($holder.Release)
+        $handle = $releaser.BeginInvoke()
+        try {
+            runIngestWorker $queues.Tasks $queues.Results $queues.Ppt 10 100
+        } finally {
+            [void]$releaser.EndInvoke($handle)
+            $releaser.Dispose()
+            releaseOfficeLock $holder
+        }
+        (takeOrder $queues) -join "," | Should Be "a.xlsx,c.docx,d.xlsx,b.ppt"
+        # b.ppt は後回しの 1 回と、取り込んだ 1 回
+        @($script:calls | Where-Object { $_ -eq "b.ppt" }).Count | Should Be 2
+        $queues.Ppt.IsEmpty | Should Be $true
+    }
+
+    It "決まった数を取り込むたびに Office を起動し直す" {
+        $queues = newQueues @("a.xlsx", "b.xlsx", "c.xlsx")
+        runIngestWorker $queues.Tasks $queues.Results $queues.Ppt 10 2
+        Assert-MockCalled stopAllApps -Times 1 -Exactly -Scope It
+    }
+}
+
+Describe "invokeIngestTask（PowerPoint が使用中）" -Tag Io {
+    . "${scriptsDir}\shared\office\office_app.ps1"
+    . "${scriptsDir}\tebunko_grep\indexer\extract_office.ps1"
+    . "${scriptsDir}\tebunko_grep\indexer\index_migrate.ps1"
+    . $runPath
+
+    It "使用中の例外なら、失敗にせず後回し（Deferred）として返し、Office も終了しない" {
+        ${tmpDir} = Join-Path $TestDrive "deferred_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { throw (New-Object System.OperationCanceledException ${powerPointBusyMessage}) }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "営業\古い.ppt"; SourcePath = "C:\data\古い.ppt" } 10
+        $result.Deferred | Should Be $true
+        $result.Ok | Should Be $false
+        $result.Message | Should BeNullOrEmpty
+        Assert-MockCalled stopApp -Times 0 -Exactly -Scope It
     }
 }

@@ -252,3 +252,145 @@ Describe "getAppName" -Tag Unit {
         getAppName "a.txt" | Should Be $null
     }
 }
+
+Describe "lockOfficeProcess（待たずに試す）" -Tag Unit {
+    It "ほかのスレッドが鍵を持っていれば、待たずに `$null を返す。放されたら取れる" {
+        $holder = holdOfficeLock "PowerPoint"
+        try {
+            lockOfficeProcess "PowerPoint" 0 | Should BeNullOrEmpty
+        } finally {
+            releaseOfficeLock $holder
+        }
+        $lock = lockOfficeProcess "PowerPoint" 0
+        $lock | Should Not BeNullOrEmpty
+        # 同じスレッドは続けて取れる（取った数だけ放す）
+        $again = lockOfficeProcess "PowerPoint" 0
+        $again | Should Not BeNullOrEmpty
+        unlockOfficeProcess $again
+        unlockOfficeProcess $lock
+    }
+}
+
+Describe "testComDisconnected" -Tag Unit {
+    It "相手の Office のプロセスが終わったときの例外だけを「つながっていない」とする" {
+        foreach ($code in "80010108", "800706BA", "800706BE", "800401FD") {
+            testComDisconnected (New-Object System.Runtime.InteropServices.COMException("切れた", [Convert]::ToInt32($code, 16))) | Should Be $true
+        }
+        testComDisconnected (New-Object System.Runtime.InteropServices.COMException("開けない", [Convert]::ToInt32("800A03EC", 16))) | Should Be $false
+        testComDisconnected (New-Object System.InvalidOperationException("ほか")) | Should Be $false
+    }
+}
+
+Describe "PowerPoint の共有（偽の PowerPoint）" -Tag Unit {
+    Mock Get-Process {
+        $processes.Calls++
+        $ids = if ($processes.Calls -eq 1) { $processes.Before } else { $processes.After }
+        return @($ids | ForEach-Object { [pscustomobject]@{ Id = $_ } })
+    } -ParameterFilter { $Name }
+    # 動いているプロセス（共有の PowerPoint がまだ動いているかの確認・終了の待ち）
+    Mock Get-Process {
+        $process = [pscustomobject]@{ Id = $Id[0]; ProcessName = "POWERPNT" }
+        $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { [void]$log.Add("WaitForExit"); return $true }
+        $process | Add-Member -MemberType ScriptMethod -Name Kill -Value { [void]$log.Add("Kill") }
+        return $process
+    } -ParameterFilter { $Id }
+
+    BeforeEach {
+        $script:powerPointShare = newPowerPointShare
+        $script:powerPointHeld = $false
+        setProcesses @() @()
+        foreach ($name in @("Excel", "Word", "PowerPoint")) { $script:apps.Remove($name) }
+        $log.Clear()
+    }
+    AfterEach {
+        $script:powerPointShare = $null
+        $script:powerPointHeld = $false
+        foreach ($name in @("Excel", "Word", "PowerPoint")) { $script:apps.Remove($name) }
+    }
+
+    It "起動した PowerPoint を共有の状態に記録し、ほかのスレッドは同じ PowerPoint につなぐ（自分のものにしない）" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        setProcesses @() @(400)
+        [void](getApp "PowerPoint")
+        $script:powerPointShare.Pid | Should Be 400
+        $script:powerPointShare.Owned | Should Be $true
+
+        # ほかのスレッドの代わりに、つながりを放してからつなぎ直す（新しいプロセスは起動しない）
+        stopApp "PowerPoint"
+        setProcesses @(400) @(400)
+        [void](getApp "PowerPoint")
+        $script:apps["PowerPoint"].Shared | Should Be $true
+        $script:powerPointShare.Pid | Should Be 400
+        $script:powerPointShare.Owned | Should Be $true
+    }
+
+    It "共有しているときの stopApp は、PowerPoint を終了せずにつながりを放すだけ" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        setProcesses @() @(400)
+        [void](getApp "PowerPoint")
+        stopApp "PowerPoint"
+        $log -contains "Quit" | Should Be $false
+        $script:apps.ContainsKey("PowerPoint") | Should Be $false
+    }
+
+    It "共有の PowerPoint は、このスレッドが使っている間だけ監視の対象に入れる" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        setProcesses @() @(400)
+        [void](getApp "PowerPoint")
+        @($script:watchdog.Pids) -contains 400 | Should Be $false
+        $script:powerPointHeld = $true
+        updateWatchedPids
+        @($script:watchdog.Pids) -contains 400 | Should Be $true
+    }
+
+    It "利用者の PowerPoint につないだときは、自分のものにせず監視の対象にも入れない" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        setProcesses @(500) @(500)
+        [void](getApp "PowerPoint")
+        $script:powerPointShare.Owned | Should Be $false
+        $script:powerPointHeld = $true
+        updateWatchedPids
+        @($script:watchdog.Pids).Count | Should Be 0
+    }
+
+    It "最後の取り込みのスレッドが終わるときだけ、インデックス作成が起動した PowerPoint を終了する" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        $share = $script:powerPointShare
+        $share.Pid = 400
+        $share.Owned = $true
+        enterPowerPointShare $share
+        enterPowerPointShare $share
+        exitPowerPointShare $share
+        $log -contains "Quit" | Should Be $false
+        exitPowerPointShare $share
+        $log -contains "Quit" | Should Be $true
+        $share.Pid | Should Be 0
+        $share.Owned | Should Be $false
+    }
+
+    It "利用者の PowerPoint（自分のものでない）は、最後でも終了しない" {
+        Mock New-Object { newFakeApp } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        $share = $script:powerPointShare
+        $share.Pid = 500
+        $share.Owned = $false
+        enterPowerPointShare $share
+        exitPowerPointShare $share
+        Assert-MockCalled New-Object -Times 0 -Exactly -Scope It -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+    }
+
+    It "利用者がファイルを開いている PowerPoint は、最後でも終了しない" {
+        $fake = newFakeApp 1
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        $share = $script:powerPointShare
+        $share.Pid = 400
+        $share.Owned = $true
+        closeSharedPowerPoint $share
+        $log -contains "Quit" | Should Be $false
+        $log -contains "Kill" | Should Be $false
+    }
+}
