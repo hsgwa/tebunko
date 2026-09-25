@@ -400,7 +400,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
 
 Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" -Tag Io {
     # 取り込みを始める直前（1 件目）に、元のファイル・フォルダを消す
-    $beforeIngest = '^\s+\$row = \$targets\[\$next\]'
+    $beforeIngest = '^\s+\$row = \$targets\[\$i\]'
 
     It "元のファイルが無くなっていたら、取り込まずに一覧から除く" {
         $source = newSourceFolder "人事"
@@ -655,14 +655,14 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         $progress = readTestProgress
         $progress.Processed | Should Be 5
         $progress.Failed | Should Be 1
-        (Get-Content -LiteralPath "$parallel\work\インデックス作成ログ.txt" -Raw) | Should Match "取り込みのスレッド 3 個"
+        (Get-Content -LiteralPath "$parallel\work\インデックス作成ログ.txt" -Raw) | Should Match "3 個のスレッドで並べて取り込みます"
     }
 
     It "取り込みのスレッドが始められなければ、続けられないエラーで 1 を返す" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "並列"; path = $source; enabled = $true })
         # 取り込みのスレッドが読み込む部品の場所を、無い場所にする
-        $broken = @{ Script = $runPath; Pattern = '^\s+\$pool = startIngestWorkers'; Action = {
+        $broken = @{ Script = $runPath; Pattern = '^\s+\$pool = newIngestPool'; Action = {
                 Set-Variable -Name indexerLibPath -Value (Join-Path $TestDrive "無い.ps1") -Scope 1
             }
         }
@@ -707,8 +707,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
             Paths = @{ indexDir = "$root\index"; workDir = $root; tmpDir = "$root\tmp"; publishDir = "$root\publish" }
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
-            PowerPointShare = (newPowerPointShare)
-            PowerPointQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[hashtable]'
+            Lane = ${laneReader}
         }
         $priority = [System.Threading.Thread]::CurrentThread.Priority
         try {
@@ -729,102 +728,75 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $failed = $results.Take()
         $failed.Ok | Should Be $false
         $failed.Message | Should Not BeNullOrEmpty
-        # 終わるときに、共有の PowerPoint の利用者の数を戻す
-        $settings.PowerPointShare.Workers | Should Be 0
     }
 }
 
-Describe "runIngestWorker（PowerPoint の後回し）" -Tag Io {
-    . "${scriptsDir}\shared\office\office_app.ps1"
-    . $runPath
-
-    function newQueues([string[]]$paths) {
-        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
-        foreach ($path in $paths) {
-            $tasks.Add(@{ RelPath = $path; SourcePath = $path })
-        }
-        $tasks.CompleteAdding()
-        return @{
-            Tasks   = $tasks
-            Results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
-            Ppt     = New-Object 'System.Collections.Concurrent.ConcurrentQueue[hashtable]'
-        }
-    }
-
-    function takeOrder($queues) {
-        $order = New-Object System.Collections.Generic.List[string]
-        $result = $null
-        while ($queues.Results.TryTake([ref]$result)) {
-            $order.Add($result.RelPath)
-        }
-        return , $order.ToArray()
-    }
-
-    BeforeEach {
-        $script:calls = New-Object System.Collections.Generic.List[string]
-        # 旧形式の PowerPoint（*.ppt）は、PowerPoint の鍵をほかのスレッドが持っていれば後回しになる（extractWithPowerPoint と同じ）
-        Mock invokeIngestTask {
-            param ($task, $fileTimeoutMinutes)
-            $script:calls.Add($task.RelPath)
-            $deferred = $false
-            if ($task.RelPath -like "*.ppt") {
-                $lock = lockOfficeProcess "PowerPoint" 0
-                if ($lock) { unlockOfficeProcess $lock } else { $deferred = $true }
-            }
-            return @{ RelPath = $task.RelPath; Ok = !$deferred; Deferred = $deferred; TimedOut = $false }
-        }
-        Mock stopAllApps { }
-    }
-
-    It "PowerPoint が空いていれば、そのまま順に取り込む" {
-        $queues = newQueues @("a.xlsx", "b.ppt", "c.docx")
-        runIngestWorker $queues.Tasks $queues.Results $queues.Ppt 10 100
-        (takeOrder $queues) -join "," | Should Be "a.xlsx,b.ppt,c.docx"
-        $script:calls.Count | Should Be 3
-    }
-
-    It "PowerPoint が使用中なら後回しにしてほかを先に取り込み、空いたら取り込む。結果は 1 件に 1 つ" {
-        $queues = newQueues @("a.xlsx", "b.ppt", "c.docx", "d.xlsx")
-        $holder = holdOfficeLock "PowerPoint"
-        # ほかのファイルを取り込み終えた後に、PowerPoint を使っていたスレッドが鍵を放す
-        $releaser = [powershell]::Create()
-        [void]$releaser.AddScript({ param ($event) Start-Sleep -Milliseconds 800; [void]$event.Set() }).AddArgument($holder.Release)
-        $handle = $releaser.BeginInvoke()
-        try {
-            runIngestWorker $queues.Tasks $queues.Results $queues.Ppt 10 100
-        } finally {
-            [void]$releaser.EndInvoke($handle)
-            $releaser.Dispose()
-            releaseOfficeLock $holder
-        }
-        (takeOrder $queues) -join "," | Should Be "a.xlsx,c.docx,d.xlsx,b.ppt"
-        # b.ppt は後回しの 1 回と、取り込んだ 1 回
-        @($script:calls | Where-Object { $_ -eq "b.ppt" }).Count | Should Be 2
-        $queues.Ppt.IsEmpty | Should Be $true
-    }
-
-    It "決まった数を取り込むたびに Office を起動し直す" {
-        $queues = newQueues @("a.xlsx", "b.xlsx", "c.xlsx")
-        runIngestWorker $queues.Tasks $queues.Results $queues.Ppt 10 2
-        Assert-MockCalled stopAllApps -Times 1 -Exactly -Scope It
-    }
-}
-
-Describe "invokeIngestTask（PowerPoint が使用中）" -Tag Io {
+Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
     . "${scriptsDir}\shared\office\office_app.ps1"
     . "${scriptsDir}\tebunko_grep\indexer\extract_office.ps1"
     . "${scriptsDir}\tebunko_grep\indexer\index_migrate.ps1"
     . $runPath
 
-    It "使用中の例外なら、失敗にせず後回し（Deferred）として返し、Office も終了しない" {
-        ${tmpDir} = Join-Path $TestDrive "deferred_tmp"
+    AfterEach { $script:officeUnavailable = $false }
+
+    It "列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる" {
+        Mock invokeIngestTask { param ($task) @{ RelPath = $task.RelPath; Ok = $true; Reroute = $false; TimedOut = $false } }
+        Mock stopAllApps { }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        foreach ($path in "a.xlsx", "b.xlsx", "c.xlsx") { $tasks.Add(@{ RelPath = $path }) }
+        $tasks.CompleteAdding()
+        $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        runIngestWorker $tasks $results 10 2
+        @($results.ToArray() | ForEach-Object { $_.RelPath }) -join "," | Should Be "a.xlsx,b.xlsx,c.xlsx"
+        # Office を持つスレッドは、決まった数を取り込むたびに Office を起動し直す
+        Assert-MockCalled stopAllApps -Times 1 -Exactly -Scope It
+    }
+
+    It "読み取りのスレッドは Office を起動し直さない" {
+        Mock invokeIngestTask { param ($task) @{ RelPath = $task.RelPath; Ok = $true; Reroute = $false; TimedOut = $false } }
+        Mock stopAllApps { }
+        $script:officeUnavailable = $true
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        foreach ($path in "a.docx", "b.docx") { $tasks.Add(@{ RelPath = $path }) }
+        $tasks.CompleteAdding()
+        runIngestWorker $tasks (New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]') 10 1
+        Assert-MockCalled stopAllApps -Times 0 -Exactly -Scope It
+    }
+
+}
+
+Describe "invokeIngestTask（Office が要る）" -Tag Io {
+    # 前の Describe の invokeIngestTask の Mock が残らないよう、分ける
+    . "${scriptsDir}\shared\office\office_app.ps1"
+    . "${scriptsDir}\tebunko_grep\indexer\extract_office.ps1"
+    . "${scriptsDir}\tebunko_grep\indexer\index_migrate.ps1"
+    . $runPath
+
+    AfterEach { $script:officeUnavailable = $false }
+
+    It "「Office が要る」の例外なら、失敗にせず回し直し（Reroute）として返し、Office も終了しない" {
+        ${tmpDir} = Join-Path $TestDrive "reroute_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
-        Mock ingestFile { throw (New-Object System.OperationCanceledException ${powerPointBusyMessage}) }
+        # Mock の中からは、この Describe で読み込んだ値が見えないため、global に置いて渡す
+        $global:testOfficeRequiredMessage = ${officeRequiredMessage}
+        Mock ingestFile { throw (New-Object System.OperationCanceledException $global:testOfficeRequiredMessage) }
         Mock stopApp { }
-        $result = invokeIngestTask @{ RelPath = "営業\古い.ppt"; SourcePath = "C:\data\古い.ppt" } 10
-        $result.Deferred | Should Be $true
+        $script:officeUnavailable = $true
+        $result = invokeIngestTask @{ RelPath = "営業\中身が旧形式.docx"; SourcePath = "C:\data\中身が旧形式.docx" } 10
+        Remove-Variable -Name testOfficeRequiredMessage -Scope Global
+        $result.Reroute | Should Be $true
         $result.Ok | Should Be $false
         $result.Message | Should BeNullOrEmpty
         Assert-MockCalled stopApp -Times 0 -Exactly -Scope It
+    }
+}
+
+Describe "getIngestLaneCapacity" -Tag Unit {
+    . $runPath
+    It "Office のレーンは取り込み中と次の 1 件、読み取りのレーンはスレッドの数の 2 倍まで渡す" {
+        getIngestLaneCapacity ${laneExcel} 3 | Should Be 2
+        getIngestLaneCapacity ${lanePowerPoint} 3 | Should Be 2
+        getIngestLaneCapacity ${laneReader} 3 | Should Be 6
+        getIngestLaneCapacity ${laneReader} 0 | Should Be 2
     }
 }

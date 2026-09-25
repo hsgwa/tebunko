@@ -68,10 +68,14 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
 
     It "Close は、動いていれば中止を求めて終わりを待ち、片づける。何度呼んでもよい" {
         $fake = newFakeIndexer "close" @'
+$Channel.Started = $true
 while (!$Channel.Stop) { Start-Sleep -Milliseconds 20 }
 $Channel.ExitCode = 2
 '@
         $session = newIndexingSession $fake (newIndexerChannel)
+        # インデクサが動き始めてから閉じる（PC が混んでいると、スレッドが動き始めるまでに時間がかかる）
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        while (!$session.Channel.Started -and $watch.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 20 }
         $session.Close()
         $session.Close()
         $session.IsRunning() | Should Be $false

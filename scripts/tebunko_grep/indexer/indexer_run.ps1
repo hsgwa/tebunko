@@ -10,7 +10,8 @@
 # 取り込みのスレッドが読み込む部品（indexer_lib.ps1）
 ${indexerLibPath} = "$PSScriptRoot\indexer_lib.ps1"
 
-# 取り込みのスレッドで動かすスクリプト。取り込み待ちの列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
+# 取り込みのスレッドで動かすスクリプト。自分のレーンの列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
+# Office のレーン（Excel・Word・PowerPoint）は STA で、そのアプリを 1 つ持つ。読み取りのレーンは Office を持たない。
 # 列が閉じられたら（CompleteAdding）、Office を終了して終わる
 ${ingestWorkerScript} = {
     param ($settings, $tasks, $results, $number)
@@ -26,80 +27,51 @@ ${ingestWorkerScript} = {
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     [System.IO.Directory]::CreateDirectory($publishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
-    $script:powerPointShare = $settings.PowerPointShare
+    $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
 
-    enterPowerPointShare $settings.PowerPointShare
-    startWatchdog
+    if (!$script:officeUnavailable) {
+        startWatchdog
+    }
     try {
-        runIngestWorker $tasks $results $settings.PowerPointQueue $settings.FileTimeoutMinutes $settings.RestartInterval
+        runIngestWorker $tasks $results $settings.FileTimeoutMinutes $settings.RestartInterval
     } finally {
-        stopWatchdog
-        stopAllApps
-        # 最後のスレッドが、共有の PowerPoint を終了する
-        exitPowerPointShare $settings.PowerPointShare
+        if (!$script:officeUnavailable) {
+            stopWatchdog
+            stopAllApps
+        }
     }
 }
 
+# 司令が並びの先を見る件数（空いているレーン向けのファイルを先に渡すため）。大きくすると、集約ファイルの書き出しが遅れるフォルダが増える
+${ingestLookAhead} = 200
+
 function runIngestWorker {
-    # 取り込みのスレッドの繰り返し（ingestWorkerScript が呼ぶ）。1 件ずつ、次の順に取り込み、結果を results に入れる。
-    #   1. PowerPoint 待ちの列（pptQueue）にファイルがあり、PowerPoint の鍵が取れたら、それを取り込む
-    #   2. 無ければ、取り込み待ちの列（tasks）から次を取る。PowerPoint がほかのスレッドで使用中なら、PowerPoint 待ちの列に入れて次へ進む
-    # 取り込み待ちの列が閉じて空になったら、PowerPoint 待ちの列を鍵を待って片づけてから終わる。
-    # 後回しにしたファイルも司令から見れば取り込み中のままのため、結果は 1 件に 1 つだけ返す
+    # 取り込みのスレッドの繰り返し（ingestWorkerScript が呼ぶ）。列から 1 件ずつ取り込み、結果を results に入れる。
+    # Office を持つスレッドは、決まった数を取り込むたびに Office を起動し直す
     param (
         $tasks,
         $results,
-        $pptQueue,
         [int]$fileTimeoutMinutes,
         [int]$restartInterval
     )
 
     $done = 0
-    while ($true) {
-        $result = $null
-        $task = $null
-        if (!$pptQueue.IsEmpty) {
-            # 待つのは、ほかに取り込むものが無くなってから
-            $wait = if ($tasks.IsCompleted) { -1 } else { 0 }
-            $lock = lockOfficeProcess "PowerPoint" $wait
-            if ($lock) {
-                try {
-                    if ($pptQueue.TryDequeue([ref]$task)) {
-                        # 鍵を持っているため、後回しにはならない（同じスレッドは続けて鍵を取れる）
-                        $result = invokeIngestTask $task $fileTimeoutMinutes
-                    }
-                } finally {
-                    unlockOfficeProcess $lock
-                }
-            }
-        }
-        if ($null -eq $result) {
-            if (!$tasks.TryTake([ref]$task, 200)) {
-                if ($tasks.IsCompleted -and $pptQueue.IsEmpty) {
-                    break
-                }
-                continue
-            }
-            $result = invokeIngestTask $task $fileTimeoutMinutes
-            if ($result.Deferred) {
-                $pptQueue.Enqueue($task)
-                continue
-            }
-        }
+    foreach ($task in $tasks.GetConsumingEnumerable()) {
+        $result = invokeIngestTask $task $fileTimeoutMinutes
         $results.Add($result)
         $done++
-        if ($result.TimedOut -or ($done % $restartInterval) -eq 0) {
+        if (!$script:officeUnavailable -and ($result.TimedOut -or ($done % $restartInterval) -eq 0)) {
             # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
-            # （共有の PowerPoint は終了せず、このスレッドのつながりを放すだけ）
             stopAllApps
         }
     }
 }
 
 function getIngestWorkerCount {
-    # 取り込みのスレッドの数を決める。requested が 0 以上ならその数（0 は司令のスレッドで取り込む）、負なら設定（ingestThreads）、
-    # 設定が 0 ならコア数から決める。取り込むファイルの数より多くはしない
+    # 読み取りのスレッド（Office を使わずに読むファイル）の数を決める。requested が 0 以上ならその数
+    # （0 は取り込みのスレッドを使わず、司令のスレッドで取り込む）、負なら設定（ingestThreads）、設定が 0 ならコア数から決める。
+    # 取り込むファイルの数より多くはしない
     param (
         [int]$requested,
         [int]$total,
@@ -117,16 +89,29 @@ function getIngestWorkerCount {
     return [Math]::Max(0, [Math]::Min($count, $total))
 }
 
+function getIngestLaneCapacity {
+    # レーンに同時に渡しておく数。Office のレーンは取り込み中の 1 件と次の 1 件、読み取りのレーンはスレッドの数の 2 倍
+    param (
+        [string]$lane,
+        [int]$readers
+    )
+
+    if ($lane -eq ${laneReader}) {
+        return [Math]::Max(1, $readers) * 2
+    }
+    return 2
+}
+
 function invokeIngestTask {
-    # 1 ファイルを取り込み、結果 @{ RelPath; Ok; TsvCount; Message; TimedOut; ExtractVersion; Log } を返す（例外は投げない）。
+    # 1 ファイルを取り込み、結果 @{ RelPath; Ok; Reroute; TsvCount; Message; TimedOut; ExtractVersion; Log } を返す（例外は投げない）。
     # 取り込みのスレッド、またはスレッドの数が 0 のときは司令のスレッドで動く。表示内容は Log に貯め、司令がログに書く
     param (
         [hashtable]$task,
         [int]$fileTimeoutMinutes
     )
 
-    # Deferred: PowerPoint がほかのスレッドで使用中だったため、取り込まずに後回しにした（runIngestWorker が PowerPoint 待ちの列に入れる）
-    $result = @{ RelPath = $task.RelPath; Ok = $false; Deferred = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
+    # Reroute: Office を使わずに読めなかった（中身が旧形式・パスワード付き）。司令が Word・PowerPoint のレーンに回し直す
+    $result = @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
     $log = New-Object System.IO.StringWriter
     $previousLog = $script:indexerLog
     $script:indexerLog = $log
@@ -143,8 +128,9 @@ function invokeIngestTask {
         $result.ExtractVersion = [string](getExtractVersion $task.RelPath)
         $result.Ok = $true
     } catch {
-        if ($_.Exception.GetBaseException() -is [System.OperationCanceledException] -and $_.Exception.GetBaseException().Message -eq ${powerPointBusyMessage}) {
-            $result.Deferred = $true
+        $base = $_.Exception.GetBaseException()
+        if ($base -is [System.OperationCanceledException] -and $base.Message -eq ${officeRequiredMessage}) {
+            $result.Reroute = $true
             return $result
         }
         $message = describeIngestError $_.Exception
@@ -153,7 +139,9 @@ function invokeIngestTask {
         }
         $result.Message = $message
         # アプリが不安定になっている可能性があるため終了する（次に必要になったときに起動し直す）
-        try { stopApp (getAppName $task.RelPath) } catch {}
+        if (!$script:officeUnavailable) {
+            try { stopApp (getAppName $task.RelPath) } catch {}
+        }
     } finally {
         $result.TimedOut = [bool]$script:watchdog.TimedOut
         $script:indexerLog = $previousLog
@@ -162,30 +150,56 @@ function invokeIngestTask {
     return $result
 }
 
-function startIngestWorkers {
-    # 取り込みのスレッド（STA）を count 個始める。@{ Tasks; Results; Workers } を返す（stopIngestWorkers で片づける）
+function newIngestPool {
+    # 取り込みのスレッドの入れ物を作る。スレッドは、そのレーンのファイルを初めて渡すときに始める（addIngestTask）。
+    # 渡すファイルが無いレーンは、スレッドも Office も作らない。@{ Queues; Results; Workers; Readers; Settings; Count }
     param (
-        [int]$count,
+        [int]$readers,
         [hashtable]$settings
     )
 
-    $pool = @{
-        Tasks   = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
-        Results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
-        Workers = New-Object System.Collections.Generic.List[hashtable]
+    $queues = @{}
+    foreach ($lane in ${laneExcel}, ${laneWord}, ${lanePowerPoint}, ${laneReader}) {
+        $queues[$lane] = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
     }
-    for ($i = 1; $i -le $count; $i++) {
-        $runspace = [runspacefactory]::CreateRunspace()
-        # Office の COM は、作ったスレッドから呼ぶ（STA）。スレッドは取り込みを終えるまで使い続ける
-        $runspace.ApartmentState = [System.Threading.ApartmentState]::STA
-        $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
-        $runspace.Open()
-        $ps = [powershell]::Create()
-        $ps.Runspace = $runspace
-        [void]$ps.AddScript(${ingestWorkerScript}.ToString()).AddArgument($settings).AddArgument($pool.Tasks).AddArgument($pool.Results).AddArgument($i)
-        $pool.Workers.Add(@{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false })
+    return @{
+        Queues   = $queues
+        Results  = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        Workers  = New-Object System.Collections.Generic.List[hashtable]
+        Readers  = $readers
+        Settings = $settings
+        Started  = @{}
     }
-    return $pool
+}
+
+function addIngestTask {
+    # レーンの列にファイルを渡す。そのレーンのスレッドがまだ無ければ始める
+    # （Office のレーンは STA のスレッド 1 つ、読み取りのレーンは MTA のスレッドを読み取りの数だけ）
+    param (
+        [hashtable]$pool,
+        [string]$lane,
+        [hashtable]$task
+    )
+
+    if (!$pool.Started.ContainsKey($lane)) {
+        $pool.Started[$lane] = $true
+        $count = if ($lane -eq ${laneReader}) { $pool.Readers } else { 1 }
+        for ($i = 0; $i -lt $count; $i++) {
+            $settings = $pool.Settings.Clone()
+            $settings.Lane = $lane
+            $runspace = [runspacefactory]::CreateRunspace()
+            # Office の COM は、作ったスレッドから呼ぶ（STA）。読み取りのスレッドは COM を使わない（MTA）
+            $runspace.ApartmentState = if ($lane -eq ${laneReader}) { [System.Threading.ApartmentState]::MTA } else { [System.Threading.ApartmentState]::STA }
+            $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
+            $runspace.Open()
+            $ps = [powershell]::Create()
+            $ps.Runspace = $runspace
+            $number = $pool.Workers.Count + 1
+            [void]$ps.AddScript(${ingestWorkerScript}.ToString()).AddArgument($settings).AddArgument($pool.Queues[$lane]).AddArgument($pool.Results).AddArgument($number)
+            $pool.Workers.Add(@{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false; Lane = $lane })
+        }
+    }
+    $pool.Queues[$lane].Add($task)
 }
 
 function receiveIngestResult {
@@ -218,12 +232,14 @@ function receiveIngestResult {
 }
 
 function stopIngestWorkers {
-    # 取り込みのスレッドに終わりを伝え、取り込み中のファイルが終わるのを待ってから片づける（各スレッドは Office を終了してから終わる）
+    # 取り込みのスレッドに終わりを伝え、取り込み中のファイルが終わるのを待ってから片づける（Office のスレッドは Office を終了してから終わる）
     param (
         [hashtable]$pool
     )
 
-    $pool.Tasks.CompleteAdding()
+    foreach ($queue in $pool.Queues.Values) {
+        $queue.CompleteAdding()
+    }
     foreach ($worker in $pool.Workers) {
         if (!$worker.Ended) {
             try {
@@ -235,7 +251,9 @@ function stopIngestWorkers {
         $worker.PowerShell.Dispose()
         $worker.Runspace.Dispose()
     }
-    $pool.Tasks.Dispose()
+    foreach ($queue in $pool.Queues.Values) {
+        $queue.Dispose()
+    }
     $pool.Results.Dispose()
 }
 
@@ -511,9 +529,13 @@ function invokeIndexerBody {
     }
 
     $total = $targets.Count
-    $workers = getIngestWorkerCount $channel.Workers $total ([int](readSettings).ingestThreads)
+    $readers = getIngestWorkerCount $channel.Workers $total ([int](readSettings).ingestThreads)
     writeIndexerLog ""
-    writeIndexerLog "$total 件のファイルを取り込みます。（取り込みのスレッド $([Math]::Max(1, $workers)) 個。1ファイルの取り込みに ${fileTimeoutMinutes} 分以上かかった場合は、そのファイルを失敗として次のファイルへ進みます）"
+    if ($readers -gt 0) {
+        writeIndexerLog "$total 件のファイルを取り込みます。（Excel・Word・PowerPoint はそれぞれ 1 つずつ、Office を使わずに読むファイルは $readers 個のスレッドで並べて取り込みます。1ファイルの取り込みに ${fileTimeoutMinutes} 分以上かかった場合は、そのファイルを失敗として次のファイルへ進みます）"
+    } else {
+        writeIndexerLog "$total 件のファイルを取り込みます。（1ファイルの取り込みに ${fileTimeoutMinutes} 分以上かかった場合は、そのファイルを失敗として次のファイルへ進みます）"
+    }
 
     $successCount = 0
     $stopped = $false
@@ -522,23 +544,33 @@ function invokeIndexerBody {
     $droppedRows = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     $folderLost = ""  # インデックス作成中に見えなくなったクロール対象フォルダ（見つかったら中止する）
     $remaining = 0
-    # 取り込み中のファイル: 相対パス → @{ Row; Count; Folder }。フォルダごとの取り込み中の数（揃ったら集約ファイルに書き出す）
+    # 取り込み中のファイル: 相対パス → @{ Row; Count; Folder; Number; Lane; Task }
     $inflight = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # フォルダごとの取り込み中の数と、まだ渡していない数（どちらも 0 になったら集約ファイルに書き出す）
     $folderBusy = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $folderPending = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # レーンごとの取り込み中の数（レーンに渡せる数は ingestLaneCapacity）
+    $laneBusy = @{}
+    $lanes = New-Object string[] $total
+    $bookFolders = New-Object string[] $total
+    $dispatched = New-Object bool[] $total
+    $undispatched = $total
+    for ($i = 0; $i -lt $total; $i++) {
+        $lanes[$i] = getIngestLane $targets[$i].相対パス
+        $bookFolders[$i] = [System.IO.Path]::GetDirectoryName((getBookDir $targets[$i].相対パス))
+        $folderPending[$bookFolders[$i]] = [int]$folderPending[$bookFolders[$i]] + 1
+    }
     $pool = $null
     $inlineResult = $null
     $currentPath = ""  # 最後に取り込みのスレッドに渡したファイル（画面に「取り込み中のファイル」として出す）
-    $next = 0
+    $next = 0          # まだ渡していない最初のファイル
 
     try {
-        if ($workers -gt 0) {
-            $pool = startIngestWorkers $workers @{
+        if ($readers -gt 0) {
+            $pool = newIngestPool $readers @{
                 Lib = ${indexerLibPath}
                 Paths = @{ indexDir = ${indexDir}; workDir = ${workDir}; tmpDir = ${tmpDir}; publishDir = ${publishDir} }
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
-                # PowerPoint は取り込みのスレッドの間で共有し、使用中なら後回しにする（PowerPoint 待ちの列）
-                PowerPointShare = (newPowerPointShare)
-                PowerPointQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[hashtable]'
             }
         } else {
             $script:officePidSink = $channel.OfficePids
@@ -546,23 +578,34 @@ function invokeIndexerBody {
         }
 
         while ($true) {
-            # 空いている取り込みのスレッドに、次のファイルを渡す（フォルダの順に渡し、書き出しをフォルダごとにまとめる）
-            while (!$stopped -and !$folderLost -and $next -lt $total -and $inflight.Count -lt [Math]::Max(1, $workers)) {
+            # 空いているレーンに、次のファイルを渡す。並びの先（ingestLookAhead 件まで）も見て、空いているレーン向けのものを先に渡す
+            # （Excel のファイルが続いても、Office を使わずに読むファイルを待たせない）
+            if (!$stopped -and !$folderLost -and $undispatched -gt 0 -and $channel.Stop) {
                 # 画面から中止を求められたら、次のファイルを渡さずに終える（残りは「未取り込み」のまま、次回取り込みする）
-                if ($channel.Stop) {
-                    $stopped = $true
-                    $remaining = $total - $next
-                    writeIndexerLog ""
-                    writeIndexerLog "中止の要求を受けたため、インデックス作成を中止します。（残り ${remaining} 件は次回取り込みします）" "Yellow"
+                $stopped = $true
+                $remaining = $undispatched
+                writeIndexerLog ""
+                writeIndexerLog "中止の要求を受けたため、インデックス作成を中止します。（残り ${remaining} 件は次回取り込みします）" "Yellow"
+            }
+            $limit = [Math]::Min($total, $next + ${ingestLookAhead})
+            for ($i = $next; !$stopped -and !$folderLost -and $i -lt $limit; $i++) {
+                if ($dispatched[$i]) {
+                    continue
+                }
+                $lane = $lanes[$i]
+                if ($pool) {
+                    if ([int]$laneBusy[$lane] -ge (getIngestLaneCapacity $lane $readers)) {
+                        continue
+                    }
+                } elseif ($inflight.Count -ge 1) {
                     break
                 }
-                $row = $targets[$next]
+                $row = $targets[$i]
                 $relPath = $row.相対パス
-                $bookFolder = [System.IO.Path]::GetDirectoryName((getBookDir $relPath))
+                $bookFolder = $bookFolders[$i]
                 $parts = splitIndexRelPath $relPath
                 $sourceFolder = $folderByName[$parts.Name]
                 $sourcePath = Join-Path $sourceFolder $parts.Rest
-                $next++
 
                 # 取り込み対象を調べてから取り込むまでの間に、元のファイルが移動・削除されることがある。
                 # 「失敗」として記録すると、再取り込みを選ぶまで残ってしまうため、無くなったファイルは一覧・インデックスから除く
@@ -571,10 +614,13 @@ function invokeIndexerBody {
                         # クロール対象フォルダごと見えなくなった（ネットワークの切断・USBメモリの取り外し等）。
                         # 残りのファイルをすべて失敗にしないよう、「未取り込み」のまま中止する（次回、続きから取り込める）
                         $folderLost = $sourceFolder
-                        $remaining = $total - $next + 1
+                        $remaining = $undispatched
                         break
                     }
-                    writeIndexerLog ("[{0}/{1}] {2}" -f $next, $total, $relPath)
+                    $dispatched[$i] = $true
+                    $undispatched--
+                    $folderPending[$bookFolder] = $folderPending[$bookFolder] - 1
+                    writeIndexerLog ("[{0}/{1}] {2}" -f ($i + 1), $total, $relPath)
                     writeIndexerLog "    元のファイルが無くなったため、取り込まずに一覧から除きます。（移動・削除・名前変更された）" "Yellow"
                     removeBookDir (getBookDir $relPath)
                     addPendingPublish $relPath $true
@@ -588,21 +634,31 @@ function invokeIndexerBody {
                     $count = $carried[$relPath] + 1
                     [void]$carried.Remove($relPath)
                 }
-                $inflight[$relPath] = @{ Row = $row; Count = $count; Folder = $bookFolder; Number = $next }
+                $task = @{ RelPath = $relPath; SourcePath = $sourcePath }
+                $dispatched[$i] = $true
+                $undispatched--
+                $folderPending[$bookFolder] = $folderPending[$bookFolder] - 1
+                $inflight[$relPath] = @{ Row = $row; Count = $count; Folder = $bookFolder; Number = $i + 1; Lane = $lane; Task = $task }
                 $folderBusy[$bookFolder] = [int]$folderBusy[$bookFolder] + 1
+                $laneBusy[$lane] = [int]$laneBusy[$lane] + 1
                 writeIngestingFiles (getIngestingEntries $inflight $carried)
                 # 画面はこの 1 行から進み具合を作る（取り込み一覧は読まない）
                 $currentPath = $relPath
                 writeIndexingProgress ${indexingPhaseIngest} ($successCount + $failures.Count) ($total - $successCount - $failures.Count) $failures.Count $currentPath
-                $task = @{ RelPath = $relPath; SourcePath = $sourcePath }
                 if ($pool) {
-                    $pool.Tasks.Add($task)
+                    addIngestTask $pool $lane $task
                 } else {
                     $inlineResult = invokeIngestTask $task $fileTimeoutMinutes
                 }
             }
+            while ($next -lt $total -and $dispatched[$next]) {
+                $next++
+            }
             if ($inflight.Count -eq 0) {
-                break
+                if ($stopped -or $folderLost -or $undispatched -eq 0) {
+                    break
+                }
+                continue
             }
 
             # 取り込みの結果を 1 つ受け取って記録する
@@ -613,7 +669,17 @@ function invokeIndexerBody {
                 $inlineResult = $null
             }
             $entry = $inflight[$result.RelPath]
+            if ($result.Reroute) {
+                # Office を使わずに読めなかった（中身が旧形式・パスワード付き）。Word・PowerPoint のレーンに回し直す
+                # （取り込み中のまま。中止を求められていても最後まで取り込む）
+                $laneBusy[$entry.Lane] = $laneBusy[$entry.Lane] - 1
+                $entry.Lane = getOfficeLane $result.RelPath
+                $laneBusy[$entry.Lane] = [int]$laneBusy[$entry.Lane] + 1
+                addIngestTask $pool $entry.Lane $entry.Task
+                continue
+            }
             [void]$inflight.Remove($result.RelPath)
+            $laneBusy[$entry.Lane] = $laneBusy[$entry.Lane] - 1
             $row = $entry.Row
             writeIndexerLog ("[{0}/{1}] {2}" -f $entry.Number, $total, $result.RelPath)
             foreach ($line in ($result.Log -split "\r?\n")) {
@@ -653,12 +719,8 @@ function invokeIndexerBody {
                 # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
                 stopAllApps
             }
-            # 取り込みが終わったフォルダ（取り込み中が無く、次に渡すファイルのフォルダでもない）を、集約ファイルに書き出す
-            $nextFolder = ""
-            if ($next -lt $total -and !$stopped -and !$folderLost) {
-                $nextFolder = [System.IO.Path]::GetDirectoryName((getBookDir $targets[$next].相対パス))
-            }
-            flushPendingPublish @($folderBusy.Keys | Where-Object { $folderBusy[$_] -gt 0 }) $nextFolder
+            # 取り込みが揃ったフォルダ（取り込み中が無く、まだ渡していないファイルも無い）を、集約ファイルに書き出す
+            flushPendingPublish (@($folderBusy.Keys | Where-Object { $folderBusy[$_] -gt 0 }) + @($folderPending.Keys | Where-Object { $folderPending[$_] -gt 0 }))
         }
     } finally {
         # 中止・続けられないエラーの場合もここは実行される。
@@ -774,15 +836,14 @@ function addPendingPublish {
 
 function flushPendingPublish {
     # 書き出し待ちのフォルダを、集約ファイル・システムインデックスに書き出す。keepFolders は、まだ取り込みが続くため除く
-    # （取り込み中のファイルがあるフォルダと、次に取り込むファイルのフォルダ）。
+    # （取り込み中のファイルがあるフォルダと、まだ取り込みのスレッドに渡していないファイルがあるフォルダ）。
     # 書き出せなかったフォルダは TSV が残るため、次のインデックス作成の始めに書き出す
     param (
-        [string[]]$keepFolders = @(),
-        [string]$nextFolder = ""
+        [string[]]$keepFolders = @()
     )
 
     $keep = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($folder in @($keepFolders) + @($nextFolder)) {
+    foreach ($folder in @($keepFolders)) {
         if ($folder) {
             [void]$keep.Add($folder)
         }

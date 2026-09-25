@@ -221,46 +221,6 @@ function extractWithPowerPoint {
         [string]$destPath
     )
 
-    # PowerPoint は 1 つのプロセスしか持てず、取り込みのスレッドの間で共有になる（$script:powerPointShare）。
-    # 使う間は鍵を取る。共有しているときは鍵を待たずに試し、ほかのスレッドが使っていれば、後回しにする例外にする
-    # （取り込みのスレッドは、ほかのファイルを先に取り込む。runIngestWorker）。PowerPoint は終了せずに使い回す
-    $share = $script:powerPointShare
-    if ($share) {
-        $lock = lockOfficeProcess "PowerPoint" 0
-        if ($null -eq $lock) {
-            throw (New-Object System.OperationCanceledException ${powerPointBusyMessage})
-        }
-    } else {
-        $lock = lockOfficeProcess "PowerPoint"
-    }
-    $script:powerPointHeld = $true
-    updateWatchedPids
-    try {
-        try {
-            convertWithPowerPoint $sourcePath $destPath
-        } catch {
-            # ほかのスレッドのつながりのまま、PowerPoint が終わっていた（制限時間で止められた等）。
-            # つながりを捨ててつなぎ直し、1 回だけやり直す（このファイルで制限時間を過ぎたときは、やり直さない）
-            if (!$share -or $script:watchdog.TimedOut -or !(testComDisconnected $_.Exception)) {
-                throw
-            }
-            stopApp "PowerPoint"
-            convertWithPowerPoint $sourcePath $destPath
-        }
-    } finally {
-        $script:powerPointHeld = $false
-        updateWatchedPids
-        unlockOfficeProcess $lock
-    }
-}
-
-function convertWithPowerPoint {
-    # PowerPoint で開いて .pptx で保存する（extractWithPowerPoint が鍵を取って呼ぶ）
-    param (
-        [string]$sourcePath,
-        [string]$destPath
-    )
-
     # 読み取り専用・ウィンドウ無しで開く。
     # ファイル名の後ろに "::<パスワード>::" を付けると、パスワード付きのファイルはダイアログを出さずにエラーになる
     $presentations = (getApp "PowerPoint").Presentations
@@ -277,6 +237,11 @@ function convertWithPowerPoint {
         releaseComObject $pres
     }
 }
+
+# 読み取りのスレッド（Office を持たない）なら $true。Office が要るファイルは「Office が要る」の例外にする
+$script:officeUnavailable = $false
+# Office が要るときの例外の文言（invokeIngestTask が見分けて、司令に回し直しを頼む）
+${officeRequiredMessage} = "このファイルの取り込みには Word・PowerPoint が要ります。"
 
 function extractDocument {
     # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す
@@ -300,6 +265,11 @@ function extractDocument {
             # Wordはテキスト・HTML・RTFも正しく読めるため、そのまま Word で開く
             if (!$isWord -and !(isCompoundFile $copyPath)) {
                 throw "ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。"
+            }
+
+            # 読み取りのスレッド（Office を持たない）では、Office のレーンに回す（indexer_run.ps1 の runIngestWorker・invokeIngestTask）
+            if ($script:officeUnavailable) {
+                throw (New-Object System.OperationCanceledException ${officeRequiredMessage})
             }
 
             # Word・PowerPointは拡張子と中身が異なるファイル（中身が .doc の .docx 等）を開けないため、

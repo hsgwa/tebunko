@@ -95,3 +95,24 @@ Describe "getIngestDecision" -Tag Unit {
         $d.Reason | Should Be "failed"
     }
 }
+
+Describe "getIngestLane・getOfficeLane" -Tag Unit {
+    It "Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン" {
+        $expected = @(
+            @("営業\a.xlsx", ${laneExcel}), @("a.xlsm", ${laneExcel}), @("a.xls", ${laneExcel}), @("a.xlsb", ${laneExcel}), @("A.XLSX", ${laneExcel}),
+            @("a.doc", ${laneWord}), @("B.DOC", ${laneWord}),
+            @("a.ppt", ${lanePowerPoint}), @("B.PPT", ${lanePowerPoint}),
+            @("a.docx", ${laneReader}), @("a.docm", ${laneReader}), @("a.pptx", ${laneReader}), @("a.pptm", ${laneReader}), @("大文字.DOCX", ${laneReader})
+        )
+        foreach ($case in $expected) {
+            getIngestLane $case[0] | Should Be $case[1]
+        }
+    }
+
+    It "読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン" {
+        getOfficeLane "a.pptx" | Should Be ${lanePowerPoint}
+        getOfficeLane "A.PPTM" | Should Be ${lanePowerPoint}
+        getOfficeLane "a.docx" | Should Be ${laneWord}
+        getOfficeLane "a.docm" | Should Be ${laneWord}
+    }
+}

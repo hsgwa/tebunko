@@ -73,3 +73,38 @@ function getIngestDecision {
     }
     return @{ Ingest = $true; Reason = "updated" }
 }
+
+# 取り込みのレーン（docs/00_共通_4_プロセスとスレッド.md 7.4）。Office のレーンはアプリごとに 1 つのスレッドで、そのアプリを 1 つ持つ。
+# 読み取りのレーンは Office を使わず、ZIP の中の XML を直接読む（複数のスレッド）
+${laneExcel}      = "Excel"
+${laneWord}       = "Word"
+${lanePowerPoint} = "PowerPoint"
+${laneReader}     = "Reader"
+
+function getIngestLane {
+    # 取り込むファイルのレーンを拡張子で決める。Excel はセルの表示値を読むため、すべて Excel のレーン。
+    # Word・PowerPoint は、旧形式（.doc / .ppt）だけ Office のレーン、新形式は読み取りのレーン
+    # （中身が旧形式・パスワード付きと分かったら、読み取りのスレッドが Office のレーンに回し直す。getOfficeLane）
+    param (
+        [string]$relPath
+    )
+
+    switch -Regex ([System.IO.Path]::GetExtension($relPath).ToLowerInvariant()) {
+        "^\.xls"   { return ${laneExcel} }
+        "^\.doc$"  { return ${laneWord} }
+        "^\.ppt$"  { return ${lanePowerPoint} }
+    }
+    return ${laneReader}
+}
+
+function getOfficeLane {
+    # 読み取りのスレッドが Office が要ると返したファイルの、回し先の Office のレーン
+    param (
+        [string]$relPath
+    )
+
+    if ([System.IO.Path]::GetExtension($relPath).ToLowerInvariant().StartsWith(".ppt")) {
+        return ${lanePowerPoint}
+    }
+    return ${laneWord}
+}
