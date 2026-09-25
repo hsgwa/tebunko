@@ -27,7 +27,7 @@ Please include:
 - What happened (which file, which operation, and what went wrong)
 - Steps to reproduce (conditions of the crawled folder, types of files and so on)
 - Your environment (Windows version, Windows PowerShell version, Office version)
-- Related logs (`work\インデックス作成ログ.txt` and `work\インデックス作成エラー.txt`; hide any confidential information in them)
+- Related logs (`work\インデックス作成ログ.txt` and the error message shown on the screen; hide any confidential information in them)
 
 **Do not send the Office files themselves, because they may contain confidential information.** Attach a file only if you can make a minimal file that causes the same problem.
 

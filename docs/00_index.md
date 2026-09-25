@@ -16,7 +16,7 @@
 | └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `tebunko_grep/lib.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
 | └ [00_共通_3_テスト.md](00_共通_3_テスト.md) | – | – | 6. テスト（品質の関門の一覧・単体テスト・結合テスト・カバレッジ・コミット前の検査・CI） |
 | └ [00_共通_4_プロセスとスレッド.md](00_共通_4_プロセスとスレッド.md) | – | – | 7. プロセスとスレッド（スレッドの一覧・寿命・インデックス作成の並列化・受け渡し・閉じる順番・GC） |
-| [01_インデックス作成.md](01_インデックス作成.md) | 画面の［インデックス作成を開始］（ウィンドウ無しで起動） | `tebunko_grep/indexer.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成 |
+| [01_インデックス作成.md](01_インデックス作成.md) | 画面の［インデックス作成を開始］（画面のプロセスのスレッドで実行） | `tebunko_grep/indexer.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成 |
 | └ [01_インデックス作成_1_Excel.md](01_インデックス作成_1_Excel.md) | | | 4.3 Excel の抽出、6.3 TSV 整形仕様、6.7 Excel の図形・コメントの読み取り |
 | └ [01_インデックス作成_2_Word.md](01_インデックス作成_2_Word.md) | | | 4.5 Word の旧形式の変換、6.5 テキスト読み取りと TSV の場所、7.2 注意点・既知の問題 |
 | └ [01_インデックス作成_3_PowerPoint.md](01_インデックス作成_3_PowerPoint.md) | | | 4.6 PowerPoint の旧形式の変換、6.6 テキスト読み取りと TSV の場所、7.3 注意点・既知の問題 |
@@ -64,7 +64,7 @@
 2. **検索**（[02_検索.md](02_検索.md)）
    インデックスの集約ファイルを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは `work/検索結果.txt` に出力する。
 
-どちらも画面（[03_画面.md](03_画面.md)）から行う。インデックス作成は画面がウィンドウ無しで起動し、進み具合を画面に表示する。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
+どちらも画面（[03_画面.md](03_画面.md)）から行う。インデックス作成は画面のプロセスの中のスレッドで動き、進み具合を画面に表示する（[7 章](00_共通_4_プロセスとスレッド.md#7-プロセスとスレッド)）。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
 
 用語は検索エンジンにならい、画面・設計書・コードで次のようにそろえる。
 
@@ -106,7 +106,7 @@ flowchart LR
     subgraph work["work/（自動生成）"]
         idx[("index/<br>集約ファイル")]
         status["取り込み一覧.tsv<br>（更新日時・状態）"]
-        ctl["取り込み予定.tsv・インデックス作成開始要求<br>インデックス作成中止要求・インデックス作成エラー.txt<br>インデックス作成ログ.txt"]
+        ctl["インデックス作成ログ.txt<br>取り込み中.txt"]
         out["検索結果.txt<br>（［結果をファイルに出力］）"]
     end
 
@@ -116,7 +116,7 @@ flowchart LR
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]
 
     user --> bat --> gui
-    gui -- "起動（-ConfirmTargets）" --> conv
+    gui -- "スレッドで実行（-Channel）" --> conv
     gui -. "dot-source" .-> common
     conv -. "dot-source" .-> common
     common -. "dot-source" .-> shared
@@ -130,7 +130,8 @@ flowchart LR
     app <--> office
     conv --> reader
     conv <--> status
-    gui <--> status & ctl
+    gui <--> status
+    gui --> ctl
     conv <--> ctl
     conv --> tmp --> idx
 
@@ -166,7 +167,7 @@ sequenceDiagram
 
     U->>G: ［1 インデックス管理］の［追加…］でインデックスを追加
     U->>G: ［インデックス作成を開始］
-    G->>CV: ウィンドウ無しで起動（-ConfirmTargets）
+    G->>CV: 画面のプロセスのスレッドで実行（受け渡しの口 -Channel）
     CV->>CV: 取り込み対象を数える（更新日時・サイズを前回と比べる）
     G->>U: インデックスごとの取り込み対象の件数を確認（更新が無ければ「更新不要」）
     U->>G: ［インデックス作成を開始］（前回失敗分も再取り込みするかを選べる）／［キャンセル］
@@ -187,7 +188,7 @@ sequenceDiagram
 | 実行環境 | Windows PowerShell 5.1（`powershell.exe`） |
 | 必須ソフトウェア | Microsoft Excel（`Excel.Application` COM オブジェクトを使用。Excel ファイルの取り込みに必要） |
 | 任意のソフトウェア | Microsoft Word・PowerPoint（旧形式 `.doc` `.ppt`、パスワード付き、拡張子と中身が異なる Word・PowerPoint ファイルの取り込みにのみ使用。新形式の `.docx` `.pptx` 等は無くても取り込める） |
-| 起動方法 | `tebunko_grep.bat` をダブルクリック。`conhost.exe` を通して `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で画面を開く（`Bypass` は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が `Start-Process` で同じ実行ポリシー・`-WindowStyle Hidden` で起動する。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
+| 起動方法 | `tebunko_grep.bat` をダブルクリック。`conhost.exe` を通して `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で画面を開く（`Bypass` は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面のプロセスの中のスレッドで動く（別の `powershell.exe` は起動しない）。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
 | スクリプトの文字コード | `scripts/*.ps1`・`tests/*.ps1` は **UTF-8（BOM 付き）**、改行 CRLF。PowerShell 5.1 は BOM なしファイルをシステム既定コードページ（CP932）で読むため、BOM を外すと日本語リテラルが化ける |
 | テスト | Pester 3.4（Windows PowerShell 5.1 標準）。`.\tests\run.ps1`（詳細は [6.3](00_共通_3_テスト.md#63-テストの構成と実行)） |
 
