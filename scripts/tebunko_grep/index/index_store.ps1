@@ -201,6 +201,7 @@ ${indexBrokenCount} = -1
 function getIndexTsvCounts {
     # インデックスのフォルダの中のフォルダごとのTSVの数を返す（取り込み一覧の「済」と、インデックスの実体が合っているかの確認に使う）:
     #   インデックスのフォルダからの相対パス（大文字・小文字を区別しない）→ そのフォルダの直下のTSVの数
+    #   まとめファイル（本文.<拡張子>.tsv）は、そのファイルの相対パス → 1（0 バイトなら ${indexBrokenCount}）
     # 元のファイル1つにつき1フォルダ（<ファイル名.xlsx>\<場所>.tsv）のため、キーは取り込み一覧の相対パスと同じになる。
     # 0 バイトのTSVがあるフォルダは ${indexBrokenCount}（-1）にする。
     # 空のシート・ページは保存しない（prettyTsv / writeUnits）ため、0 バイトのTSVは書き込みの途中で
@@ -225,6 +226,11 @@ function getIndexTsvCounts {
             $counts[$sub.Substring($prefix)] = 0
         }
         foreach ($file in (New-Object System.IO.DirectoryInfo($root)).EnumerateFiles("*.tsv", [System.IO.SearchOption]::AllDirectories)) {
+            if ($file.Name -like ${packFilePattern}) {
+                # まとめファイル（本文.<拡張子>.tsv）は、そのファイルの相対パスをキーにする（testIndexComplete が拡張子ごとに見る）
+                $counts[$file.FullName.Substring($prefix)] = $(if ($file.Length -eq 0) { ${indexBrokenCount} } else { 1 })
+                continue
+            }
             $parent = [System.IO.Path]::GetDirectoryName($file.FullName)
             if ($parent.Length -lt $prefix) {
                 continue  # インデックスのフォルダの直下のTSV（以前の形式）は、どのファイルのものか分からないため数えない
@@ -247,8 +253,10 @@ function getIndexTsvCounts {
 }
 
 function testIndexComplete {
-    # 取り込み一覧の行（状態が「済」）に対して、インデックスの実体（TSV）がそろっているかを返す。
-    # 利用者が work\index のフォルダ・TSVを直接削除した場合に、「済」のまま検索できなくなるのを防ぐ
+    # 取り込み一覧の行（状態が「済」）に対して、インデックスの実体がそろっているかを返す。
+    # 利用者が work\index のフォルダ・ファイルを直接削除した場合に、「済」のまま検索できなくなるのを防ぐ。
+    # 元のファイルの中身は、フォルダのまとめファイル（本文.<拡張子>.tsv）か、まとめファイルに入れる前の TSV
+    # （<ファイル名.xlsx>\<場所>.tsv。インデックス作成が途中で止まったとき）のどちらかにある
     #   row    : 取り込み一覧の行（TSV数 を使う）
     #   relPath: 取り込み一覧の相対パス（= インデックスのフォルダからの相対パス）
     #   counts : getIndexTsvCounts の結果（$null なら確認せず、そろっているものとして扱う）
@@ -261,13 +269,20 @@ function testIndexComplete {
     if ($null -eq $counts -or $null -eq $row) {
         return $true
     }
+    # まとめファイル: そのフォルダ・その拡張子のまとめファイルがあれば、そろっているものとする
+    # （まとめファイルの中の元のファイルごとの場所の数は、中身を読まないと分からないため数えない）
+    $packRel = Join-Path ([string][System.IO.Path]::GetDirectoryName($relPath)) (getPackFileName (getPackExtension $relPath))
+    $packCount = 0
+    if ($counts.TryGetValue($packRel, [ref]$packCount) -and $packCount -ne ${indexBrokenCount}) {
+        return $true
+    }
     $expected = 0
     if (-not [int]::TryParse([string]$row.TSV数, [ref]$expected)) {
         return $true  # TSVの数を記録していない行（以前の形式）は確認できない
     }
     $actual = 0
     if (-not $counts.TryGetValue($relPath, [ref]$actual)) {
-        return $false  # フォルダごと無い
+        return $false  # まとめファイルも、元のファイルごとのフォルダも無い
     }
     if ($actual -eq ${indexBrokenCount}) {
         return $false  # 0 バイトのTSVがある（書き込みの途中で電源が落ちた場合など）

@@ -1,6 +1,6 @@
 ﻿# 検索用のまとめファイル（pack_format.ps1）を検索する。
 # まとめファイルの全文に 1 回照合し、一致しないファイルは飛ばす。一致したら、位置から場所と行を求める。
-# 照合のしかた（lines・filter・scan）と結果の形は、TSV の検索（searchTsvFiles）と同じ。
+# 照合のしかた（lines・filter・scan。search_query.ps1 の getRegexScanMode）で、全文への照合と 1 行ずつの照合の結果を同じにする。
 
 function searchPackFiles {
     # packs の start から count 件のまとめファイルを読み、regex に一致する行を PSCustomObject で返す（1 行に複数一致しても 1 件）。
@@ -54,7 +54,7 @@ function searchPackFiles {
             }
         }
         # 一致しなければ、場所の一覧も作らずに次へ（場所の一覧は、一致したときか、キャッシュに入れるときだけ作る）。
-        # 全文への照合が時間切れなら、このファイルは 1 行ずつ照合する（searchTsvFiles と同じ）
+        # 全文への照合が時間切れなら、このファイルは 1 行ずつ照合する
         $packMode = $mode
         $matched = $true
         if ($packMode -ne "scan") {
@@ -226,9 +226,20 @@ function splitPackTasks {
 
 
 function searchPackIndex {
-    # まとめファイルをワードで検索し、ヒットした行を返す（searchIndex のまとめファイル版）。引数・戻り値は searchIndex と同じ考え方。
-    #   packs: getPackFiles の結果
-    # @{ Hits; SimpleMatch; Total（まとめファイルの数）; Truncated; Cancelled } を返す
+    # まとめファイルをワードで検索し、ヒットした行を返す（画面の検索処理）。
+    #   packs        : getPackFiles・getIndexPackFiles の結果
+    #   simpleMatch  : $true なら文字どおりに検索する。$false なら正規表現として検索し、正規表現として不正なら文字どおりに検索する
+    #   limit        : 件数の上限（0 は上限なし）。超えたら打ち切る
+    #   shouldStop   : $true を返すと中止する
+    #   caseSensitive: 英字の大文字・小文字を区別する（newSearchRegex）
+    #   fileFilter   : 対象ファイル（newFileFilter）。元のファイル名が一致しないものは検索しない
+    #   workerCount  : 並列に検索するスレッドの数（0 は CPU のコア数から決める。最大 4）
+    #   cache        : 読んだまとめファイルの内容を次の検索で使い回す入れ物（newTsvTextCache。$null は使い回さない）
+    #   includeShapes / includeComments: 図形・コメントの場所（"<シート名>[図形]" 等）も検索する（newPlaceExclude）
+    #   taskBytes    : 1 つのスレッドにまとめて渡す大きさの目安（バイト）
+    #   onProgress   : 1 つの作業を照合するたびに呼ぶ { param($done, $total, $newHits) }（done・total はまとめファイルの数）
+    # @{ Hits; SimpleMatch（実際に文字どおり検索したか）; Total（まとめファイルの数）; Truncated; Cancelled } を返す。
+    # Hits の各要素は PSCustomObject（Root; RelPath（まとめファイル）; RelDir; FileName; Book; Location; LineNumber; Line）
     param (
         [string]$word,
         $packs,
@@ -241,7 +252,8 @@ function searchPackIndex {
         $cache = $null,
         [bool]$includeShapes = $true,
         [bool]$includeComments = $true,
-        [long]$taskBytes = ${packTaskBytes}
+        [long]$taskBytes = ${packTaskBytes},
+        [scriptblock]$onProgress = $null
     )
 
     $search = newSearchRegex $word $simpleMatch $caseSensitive
@@ -271,16 +283,18 @@ function searchPackIndex {
                     $ps = [powershell]::Create()
                     $ps.RunspacePool = $pool
                     [void]$ps.AddScript(${packWorkerScript}).AddArgument($packs).AddArgument($task.Start).AddArgument($task.Count).AddArgument($search.Regex).AddArgument($max).AddArgument($search.TextRegex).AddArgument($search.ScanMode).AddArgument($cache).AddArgument($filter.Include).AddArgument($filter.Exclude).AddArgument($excludePlace)
-                    $pending.Enqueue(@{ PowerShell = $ps; Handle = $ps.BeginInvoke() })
+                    $pending.Enqueue(@{ PowerShell = $ps; Handle = $ps.BeginInvoke(); Done = $task.Start + $task.Count })
                     $next++
                 }
                 $job = $pending.Dequeue()
                 try { $output = $job.PowerShell.EndInvoke($job.Handle) } finally { $job.PowerShell.Dispose() }
                 if ($output[0].Timeout) { throw $timeoutMessage }
                 $newHits = $output[0].Hits
+                $done = $job.Done
             } else {
                 $task = $tasks[$next]
                 $next++
+                $done = $task.Start + $task.Count
                 $max = if ($limit -gt 0) { $limit - $hits.Count } else { -1 }
                 try {
                     $newHits = searchPackFiles $packs $task.Start $task.Count $search.Regex $max $search.TextRegex $search.ScanMode $cache $filter.Include $filter.Exclude $excludePlace
@@ -294,6 +308,9 @@ function searchPackIndex {
                 $result.Truncated = $true
             }
             $hits.AddRange($newHits)
+            if ($onProgress) {
+                & $onProgress $done $packs.Count $newHits
+            }
             if ($result.Truncated) { break }
         }
     } finally {
@@ -304,4 +321,43 @@ function searchPackIndex {
         if ($pool) { $pool.Dispose() }
     }
     return $result
+}
+
+
+function getIndexPackFiles {
+    # 検索対象のまとめファイルを集め、@{ Folders; Packs } を返す。
+    #   folders: 検索対象インデックスのフォルダ（文字列。フォルダ以下すべて）、または
+    #            @{ Root（インデックスのフォルダ）; RelPath（その中のフォルダ。空は Root 自身）; Recurse（$false は直下のファイルだけ） }
+    #   Folders: フォルダごとの @{ Path; Root（フルパス）; Exists; Count }
+    #   Packs  : getPackFiles の結果をつないだもの（入れ子のフォルダを選んでも重複しない）
+    #   onProgress: 数えた件数を知らせる { param($count) }
+    param (
+        [object[]]$folders = @(${indexDir}),
+        [scriptblock]$onProgress = $null
+    )
+
+    $folderInfo = New-Object System.Collections.Generic.List[object]
+    $packs = New-Object System.Collections.Generic.List[hashtable]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($target in $folders) {
+        if ($target -is [string]) {
+            $target = @{ Root = $target; RelPath = ""; Recurse = $true }
+        }
+        $relPath = ([string]$target.RelPath).Trim("\")
+        $dir = if ($relPath) { "$(([string]$target.Root).TrimEnd('\'))\${relPath}" } else { [string]$target.Root }
+        if (!(Test-Path -LiteralPath $target.Root -PathType Container) -or ![System.IO.Directory]::Exists((toLongPath $dir))) {
+            $folderInfo.Add(@{ Path = $dir; Root = ""; Exists = $false; Count = 0 })
+            continue
+        }
+        $root = (Resolve-Path -LiteralPath $target.Root).ProviderPath.TrimEnd("\")
+        $found = getPackFiles $root $relPath ([bool]$target.Recurse)
+        $folderInfo.Add(@{ Path = $dir; Root = $root; Exists = $true; Count = $found.Count })
+        foreach ($pack in $found) {
+            if ($seen.Add($pack.Path)) { $packs.Add($pack) }
+        }
+        if ($onProgress) { & $onProgress $packs.Count }
+    }
+    # フォルダの順、フォルダの中は名前の順（getPackFiles と同じ）。検索対象を複数選んだときも順が崩れないよう並べ直す
+    $sorted = [hashtable[]]@($packs | Sort-Object @{ Expression = { $_.Root } }, @{ Expression = { $_.RelDir } }, @{ Expression = { [System.IO.Path]::GetFileName($_.RelPath) } })
+    return @{ Folders = $folderInfo.ToArray(); Packs = $sorted }
 }

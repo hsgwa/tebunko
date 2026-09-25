@@ -1,10 +1,11 @@
 ﻿# システムインデックス（system_index の txt）と、その状態ファイル（システムインデックスの状態.tsv）の読み書き（状態層）。
 # txt は index の中のフォルダ 1 つにつき 1 つ（分けたときは複数）で、index と同じ相対パスの system_index の中に置く。
-# 中身は、そのフォルダ直下の TSV と、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
+# 中身は、そのフォルダ直下のまとめファイル（本文.<拡張子>.tsv）と、インデックス作成の途中で残った、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
+# まとめファイルのメタ情報の行は除く（getPackContentText）。
 
 function getSystemIndexFolderTsvPaths {
-    # index の中のフォルダ 1 つの TSV（直下の TSV と、直下のブックのフォルダの中の TSV。\\?\ 付き）。
-    # 検索対象のツリーで「フォルダ直下のファイル」を選んだときと同じ範囲（getIndexTsvFiles の Recurse = $false）
+    # index の中のフォルダ 1 つの、システムインデックスの元になるファイル（直下のまとめファイル・TSV と、直下のブックのフォルダの中の TSV。\\?\ 付き）。
+    # 検索対象のツリーで「フォルダ直下のファイル」を選んだときと同じ範囲（getIndexPackFiles の Recurse = $false）
     param (
         [string]$folder
     )
@@ -16,7 +17,7 @@ function getSystemIndexFolderTsvPaths {
     }
     $paths.AddRange([System.IO.Directory]::GetFiles($long, "*.tsv"))
     foreach ($sub in [System.IO.Directory]::GetDirectories($long)) {
-        if ([System.IO.Path]::GetFileName($sub) -match ${indexBookDirPattern}) {
+        if (testIndexBookDir $sub) {
             $paths.AddRange([System.IO.Directory]::GetFiles($sub, "*.tsv"))
         }
     }
@@ -26,11 +27,13 @@ function getSystemIndexFolderTsvPaths {
 function writeSystemIndexFolder {
     # index の中のフォルダ 1 つについて、system_index の txt を作り直す。
     # @{ Rel（index からの相対パス）; Files（@{ Rel（system_index からの txt の相対パス）; Ticks（更新日時。UTC の Ticks） } の配列）;
-    #    Excluded（パスが長すぎて作らなかった） } を返す。TSV が無くなったフォルダは txt を消して Files を空で返す
+    #    Excluded（パスが長すぎて作らなかった） } を返す。まとめファイル・TSV が無くなったフォルダは txt を消して Files を空で返す
+    #   texts: そのフォルダのまとめファイルの中身（インデックス作成で書いたばかりのもの）。渡せばファイルを読み直さない
     param (
         [string]$folder,
         [string]$indexRoot,
-        [string]$systemRoot
+        [string]$systemRoot,
+        [string[]]$texts = $null
     )
 
     $rel = $folder.Substring($indexRoot.TrimEnd("\").Length).Trim("\")
@@ -44,14 +47,26 @@ function writeSystemIndexFolder {
             [System.IO.File]::Delete($old)
         }
     }
-    $tsvPaths = getSystemIndexFolderTsvPaths $folder
-    if ($tsvPaths.Count -eq 0) {
-        return $result
-    }
-
     $set = New-Object 'System.Collections.Generic.HashSet[uint32]'
-    foreach ($path in $tsvPaths) {
-        addTextGrams $set ([System.IO.File]::ReadAllText($path))
+    if ($null -ne $texts) {
+        if ($texts.Count -eq 0) {
+            return $result
+        }
+        foreach ($text in $texts) {
+            addTextGrams $set (getPackContentText $text)
+        }
+    } else {
+        $tsvPaths = getSystemIndexFolderTsvPaths $folder
+        if ($tsvPaths.Count -eq 0) {
+            return $result
+        }
+        foreach ($path in $tsvPaths) {
+            $text = [System.IO.File]::ReadAllText($path)
+            if ([System.IO.Path]::GetFileName($path) -like ${packFilePattern}) {
+                $text = getPackContentText $text
+            }
+            addTextGrams $set $text
+        }
     }
     $values = New-Object 'uint32[]' $set.Count
     $set.CopyTo($values)
@@ -112,10 +127,10 @@ function writeSystemIndexFolders {
     # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）
     $state = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
     foreach ($name in @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
-            "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath")) {
+            "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getPackContentText", "testIndexBookDir")) {
         $state.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new($name, (Get-Command $name -CommandType Function).Definition))
     }
-    foreach ($name in @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern")) {
+    foreach ($name in @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "packFilePattern")) {
         $state.Variables.Add([System.Management.Automation.Runspaces.SessionStateVariableEntry]::new($name, (Get-Variable $name -ValueOnly), ""))
     }
     $pool = [runspacefactory]::CreateRunspacePool(1, $workers, $state, $Host)
@@ -305,7 +320,8 @@ function getSystemIndexStaleFolders {
     }
     $rootLength = $indexRoot.TrimEnd("\").Length
     foreach ($longDir in [System.IO.Directory]::EnumerateDirectories($longRoot, "*", [System.IO.SearchOption]::AllDirectories)) {
-        if ([System.IO.Path]::GetFileName($longDir) -match ${indexBookDirPattern}) {
+        # 元のファイルごとのフォルダ（まとめる前の TSV・中身が空のファイル）は、親のフォルダの txt に入る
+        if (testIndexBookDir $longDir $false) {
             continue
         }
         $folder = fromLongPath $longDir

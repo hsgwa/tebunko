@@ -77,6 +77,38 @@ Describe "writeSystemIndexFolder" -Tag Io {
         }
     }
 
+    It "まとめファイルからは、メタ情報の行（ファイル名・シート名）を除いて txt を作る" {
+        $index = "$TestDrive\w5\index"
+        [System.IO.Directory]::CreateDirectory("$index\営業") | Out-Null
+        writePackFile "$index\営業\本文.xlsx.tsv" (convertToPackText @(@{ Name = "山田商事.xlsx"; Places = @(@{ Place = "見積"; Text = "保守サービス`r`n" }) }))
+        $system = "$TestDrive\w5\system_index"
+        $result = writeSystemIndexFolder "$index\営業" $index $system
+        $result.Files.Count | Should Be 1
+        $tokens = readTokens "$system\営業\システムインデックス.txt"
+        foreach ($gram in (getSearchGrams "サービス")) {
+            $tokens.Contains($gram) | Should Be $true
+        }
+        foreach ($word in @("山田商事", "ファイル名", "シート")) {
+            @((getSearchGrams $word) | Where-Object { $tokens.Contains($_) }).Count | Should Be 0
+        }
+    }
+
+    It "中身（texts）を渡せば、ファイルを読まずにその中身から作る。空なら txt を消す" {
+        $index = newIndexTree "$TestDrive\w6"
+        $system = "$TestDrive\w6\system_index"
+        $text = convertToPackText @(@{ Name = "E社.xlsx"; Places = @(@{ Place = "S"; Text = "渡した中身`r`n" }) })
+        [void](writeSystemIndexFolder "$index\営業\2024" $index $system @($text))
+        $tokens = readTokens "$system\営業\2024\システムインデックス.txt"
+        foreach ($gram in (getSearchGrams "渡した中身")) {
+            $tokens.Contains($gram) | Should Be $true
+        }
+        # フォルダの TSV は読まない
+        @((getSearchGrams "見積") | Where-Object { $tokens.Contains($_) }).Count | Should Be 0
+        $result = writeSystemIndexFolder "$index\営業\2024" $index $system @()
+        $result.Files.Count | Should Be 0
+        [System.IO.File]::Exists("$system\営業\2024\システムインデックス.txt") | Should Be $false
+    }
+
     It "TSV が無くなったフォルダは txt を消す" {
         $index = newIndexTree "$TestDrive\w4"
         $system = "$TestDrive\w4\system_index"

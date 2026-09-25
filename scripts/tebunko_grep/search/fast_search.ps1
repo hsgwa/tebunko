@@ -1,13 +1,13 @@
-﻿# 高速検索: Windows Search で検索語を含みうるフォルダを先に絞り、照合する TSV を集める（状態層）。
-# 集めた TSV は、今までどおり searchIndex で照合する。結果（行・行番号・順番）は、すべての TSV を照合したときと同じになる:
-#   反映済みの システムインデックスには、そのフォルダの TSV のすべての 2-gram が入っていて、検索語の語はその一部のため、
-#   当たる TSV のフォルダは必ず候補に入る。反映済みでない・対象外・対応済みでないものは、候補に関係なく照合する。
+﻿# 高速検索: Windows Search で検索語を含みうるフォルダを先に絞り、照合するまとめファイルを集める（状態層）。
+# 集めたまとめファイルは、今までどおり searchPackIndex で照合する。結果（行・行番号・順番）は、すべてを照合したときと同じになる:
+#   反映済みの システムインデックスには、そのフォルダのまとめファイルのすべての 2-gram が入っていて、検索語の語はその一部のため、
+#   当たるまとめファイルのフォルダは必ず候補に入る。反映済みでない・対象外・対応済みでないものは、候補に関係なく照合する。
 
-function getFastSearchTsvFiles {
-    # 高速検索で照合する TSV を、getIndexTsvFiles と同じ形（@{ Folders; Files }）に Fast（@{ Candidates; Unreflected }）を足して返す。
+function getFastSearchPackFiles {
+    # 高速検索で照合するまとめファイルを、getIndexPackFiles と同じ形（@{ Folders; Packs }）に Fast（@{ Candidates; Unreflected }）を足して返す。
     # 高速検索を使えないとき（検索語から語を作れない・状態ファイルを読めない・Windows Search に問い合わせられない）は $null
-    # （呼び出し側が getIndexTsvFiles ですべての TSV を集める）。
-    #   folders: getIndexTsvFiles と同じ（文字列、または @{ Root; RelPath; Recurse }）
+    # （呼び出し側が getIndexPackFiles ですべてのまとめファイルを集める）。
+    #   folders: getIndexPackFiles と同じ（文字列、または @{ Root; RelPath; Recurse }）
     #   query  : { param($sql) 行（object[]）の一覧 }。$null なら Windows Search を開いて問い合わせる（テストで差し替える）
     param (
         [string]$word,
@@ -113,7 +113,7 @@ function getFastSearchTsvFiles {
         }
     }
 
-    $index = getIndexTsvFiles $targets.ToArray() $onProgress
+    $index = getIndexPackFiles $targets.ToArray() $onProgress
     if ($reflected.Count -gt 0) {
         # 反映済みになった行を消す（txt が書き直されて日時が変わった行は残す）。書けなくても検索は続ける。
         # 書き換えの中から見る値は、updateSystemIndexState の変数と名前が重ならないようにする（呼び出し先の $state が見えてしまう）

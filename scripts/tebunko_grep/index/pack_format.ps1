@@ -326,3 +326,17 @@ function splitPackTextByBook {
     }
     return , $books
 }
+
+
+function getPackContentText {
+    # まとめファイルの文字列から、メタ情報の行（先頭が RS の行）を除いた中身だけを返す（システムインデックスの語を作るため。
+    # メタ情報の「ファイル名」「シート」などの語が入ると、その語で探したときにどのフォルダも候補になってしまう）
+    param (
+        [string]$text
+    )
+
+    if ($text.IndexOf([char]0x1E) -lt 0) {
+        return $text
+    }
+    return [regex]::Replace($text, "(?m)^\x1E[^\n]*\n?", "")
+}

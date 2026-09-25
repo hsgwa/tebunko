@@ -155,7 +155,7 @@ class FileGroup : NotifyBase {
     [string]$LocationText   # 見出しの右端（「[シート] 4月 ほか 2 か所」）
     [bool]$IsExpanded       # 見出しの下にヒットした行を並べるか（検索した直後は閉じている）
     [int]$ShownCount        # 見出しに出す件数（絞り込みに合うヒットの数）
-    # 検索のヒット（searchIndex の結果そのまま。見つかった順）
+    # 検索のヒット（searchPackIndex の結果そのまま。見つかった順）
     [System.Collections.Generic.List[object]]$Hits = [System.Collections.Generic.List[object]]::new()
     # 作った表の行（Hits の先頭から順に作る。並べ替えたらその順）と、そのうち絞り込みに合う行
     [System.Collections.Generic.List[object]]$Rows = [System.Collections.Generic.List[object]]::new()
@@ -396,7 +396,7 @@ class HitRow : NotifyBase {
         return $cells
     }
 
-    # 選択行のプレビュー（前後の行をセルに分けた表）を作る。numbers・lines は readTsvContext の結果
+    # 選択行のプレビュー（前後の行をセルに分けた表）を作る。numbers・lines は readPackContext の結果
     [PreviewTable] BuildPreview([int[]]$numbers, [string[]]$lines) {
         if ($null -eq $numbers -or $null -eq $lines -or $numbers.Length -eq 0 -or $numbers.Length -ne $lines.Length) {
             $numbers = @($this.LineNumber)
@@ -574,7 +574,7 @@ class FolderItem : NotifyBase {
     }
 }
 
-# 検索対象の1件（tebunko_grep\search\search_run.ps1 の getIndexTsvFiles に渡す）
+# 検索対象の1件（tebunko_grep\search\pack_search.ps1 の getIndexPackFiles に渡す）
 class SearchTarget {
     [string]$Root
     [string]$RelPath
@@ -681,7 +681,7 @@ class IndexNode : NotifyBase {
         try {
             foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
                 $n = [System.IO.Path]::GetFileName($sub)
-                if ([IndexNode]::IsBookDir($n)) { continue }
+                if ([IndexNode]::IsBookDirPath($sub)) { continue }
                 $names.Add($n)
             }
         } catch {
@@ -772,10 +772,22 @@ class IndexNode : NotifyBase {
         return $ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt")
     }
 
+    static [bool] IsBookDirPath([string]$dir) {
+        # 元のファイルごとのフォルダ（まとめる前の TSV・中身が空のファイルのフォルダ）か。名前が .xlsx などで終わる本物のフォルダと
+        # 区別するため、サブフォルダもまとめファイル（本文.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
+        if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($dir.TrimEnd('\')))) { return $false }
+        try {
+            $long = [IndexNode]::LongPath($dir)
+            foreach ($sub in [System.IO.Directory]::EnumerateDirectories($long)) { return $false }
+            foreach ($f in [System.IO.Directory]::EnumerateFiles($long, "本文.*.tsv")) { return $false }
+            return $true
+        } catch { return $false }
+    }
+
     static [bool] HasSubfolders([string]$dir) {
         try {
             foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
-                if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($sub))) { return $true }
+                if (-not [IndexNode]::IsBookDirPath($sub)) { return $true }
             }
             return $false
         } catch { return $false }
@@ -783,9 +795,10 @@ class IndexNode : NotifyBase {
 
     static [bool] HasFiles([string]$dir) {
         try {
-            foreach ($f in [System.IO.Directory]::EnumerateFiles([IndexNode]::LongPath($dir), "*.tsv")) { return $true }
+            # まとめファイル（本文.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、まとめる前の TSV があれば、フォルダ直下にファイルがある
+            foreach ($f in [System.IO.Directory]::EnumerateFiles([IndexNode]::LongPath($dir), "本文.*.tsv")) { return $true }
             foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
-                if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($sub))) { continue }
+                if (-not [IndexNode]::IsBookDirPath($sub)) { continue }
                 foreach ($f in [System.IO.Directory]::EnumerateFiles($sub, "*.tsv")) { return $true }
             }
             return $false

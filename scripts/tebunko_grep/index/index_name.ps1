@@ -176,7 +176,7 @@ ${indexFileNamePattern} = "^(?:(?<book>.*\.(?:xls|doc|ppt)[a-z]?)_(?<sheet>[^_]*
 
 function splitIndexFileName {
     # 以前の形式（フラット）の "ファイル名.拡張子_場所.tsv" を、ファイル名と場所に分解する（場所は decodeIndexPlace で元に戻す）。
-    # 今の形式は「ファイル名のフォルダ＋場所.tsv」のため splitIndexTsvPath を使う
+    # 今の形式（ファイル名のフォルダ＋場所.tsv）は、getIndexFolderBooks がフォルダ名とファイル名から求める
     #   例: "ブック名.xlsx_シート名.tsv" / "文書.docx_ページ001.tsv" / "資料.pptx_スライド003%5Fノート.tsv"
     param (
         [string]$fileName
@@ -252,26 +252,3 @@ function describePlace {
 
 # インデックスの「元のファイル名のフォルダ」と分かる名前（Officeファイルの拡張子で終わる）
 ${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$"
-
-
-function splitIndexTsvPath {
-    # インデックスフォルダからのTSVの相対パスを @{ Book（元のファイル名）; Place（場所）; RelDir（元のファイルのあるフォルダ） } に分解する。
-    # 今の形式（<相対フォルダ>\<ファイル名.xlsx>\<場所>.tsv）と、以前の形式（<相対フォルダ>\<ファイル名.xlsx>_<場所>.tsv）の両方を扱う。
-    # 場所には _ を符号化して入れる（encodeIndexPlace）ため、ファイル名に _ があれば以前の形式と分かる
-    param (
-        [string]$relPath
-    )
-
-    $fileName = [System.IO.Path]::GetFileName($relPath)
-    $dir = [System.IO.Path]::GetDirectoryName($relPath)
-    if ($fileName.IndexOf("_") -lt 0 -and $dir -and ([System.IO.Path]::GetFileName($dir) -match ${indexBookDirPattern})) {
-        return @{
-            Book   = [System.IO.Path]::GetFileName($dir)
-            Place  = (decodeIndexPlace ([System.IO.Path]::GetFileNameWithoutExtension($fileName)))
-            RelDir = [System.IO.Path]::GetDirectoryName($dir)
-        }
-    }
-
-    $name = splitIndexFileName $fileName
-    return @{ Book = $name.book; Place = $name.sheet; RelDir = $dir }
-}

@@ -38,6 +38,39 @@ function readPackText {
 }
 
 
+function testIndexBookDir {
+    # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。まとめファイルに入れる前の TSV の置き場所）か。
+    # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
+    #   ・名前が Office の拡張子で終わる（indexBookDirPattern）
+    #   ・サブフォルダもまとめファイル（本文.<拡張子>.tsv）も無い
+    #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、まとめファイルに入れるものが無い）
+    # 読めないフォルダは $false（まとめファイルに入れる・消す対象にしない）
+    param (
+        [string]$dir,
+        [bool]$withTsv = $true
+    )
+
+    if ([System.IO.Path]::GetFileName($dir.TrimEnd("\")) -notmatch ${indexBookDirPattern}) {
+        return $false
+    }
+    $long = toLongPath $dir
+    try {
+        foreach ($sub in [System.IO.Directory]::EnumerateDirectories($long)) {
+            return $false
+        }
+        $hasTsv = $false
+        foreach ($file in [System.IO.Directory]::EnumerateFiles($long, "*.tsv")) {
+            if ([System.IO.Path]::GetFileName($file) -like ${packFilePattern}) {
+                return $false
+            }
+            $hasTsv = $true
+        }
+        return ($hasTsv -or !$withTsv)
+    } catch {
+        return $false
+    }
+}
+
 function getIndexFolderBooks {
     # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、まとめファイルに入れる元のファイルの並びを作る。
     # 並びは今の検索結果と同じ順（TSV のパスを現在のカルチャ・大文字と小文字を区別しない順に並べたもの）。
@@ -49,7 +82,7 @@ function getIndexFolderBooks {
     $longDir = toLongPath $folder
     $paths = New-Object System.Collections.Generic.List[string]
     foreach ($sub in [System.IO.Directory]::EnumerateDirectories($longDir)) {
-        if ([System.IO.Path]::GetFileName($sub) -notmatch ${indexBookDirPattern}) {
+        if (!(testIndexBookDir $sub)) {
             continue
         }
         $paths.AddRange([System.IO.Directory]::GetFiles($sub, "*.tsv", [System.IO.SearchOption]::TopDirectoryOnly))
@@ -78,7 +111,8 @@ function convertIndexFolderToPack {
     #   ・それ以外の元のファイルは、前のまとめファイルからそのまま写す
     # 元のファイルが無くなった拡張子のまとめファイルは消す。removeTsv なら、まとめファイルを書き終えた後に、
     # 読み込んだ元のファイルのフォルダ（TSV）を消す（TSV は一時的な置き場で、残すとインデックスの容量が倍になるため）。
-    # 書き終える前に止まっても、TSV か前のまとめファイルのどちらかに中身が残る。@{ Books; Tsv; Chars; Files } を返す
+    # 書き終える前に止まっても、TSV か前のまとめファイルのどちらかに中身が残る。
+    # @{ Books; Tsv; Chars; Files; Texts（書いたまとめファイルの中身の並び。システムインデックスを読み直さずに作るため） } を返す
     param (
         [string]$folder,
         [string]$destFolder,
@@ -112,6 +146,7 @@ function convertIndexFolderToPack {
     $sorted = @($merged | Sort-Object { [string]$_.Name })
 
     $written = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $texts = New-Object System.Collections.Generic.List[string]
     $chars = 0L
     if ($sorted.Count -gt 0) {
         [void][System.IO.Directory]::CreateDirectory($longDest)
@@ -121,6 +156,7 @@ function convertIndexFolderToPack {
             $text = convertToPackText $groups[$extension]
             writePackFile (Join-Path $destFolder $name) $text
             [void]$written.Add($name)
+            $texts.Add($text)
             $chars += $text.Length
         }
     }
@@ -137,7 +173,7 @@ function convertIndexFolderToPack {
             [System.IO.Directory]::Delete($bookDir, $true)
         }
     }
-    return @{ Books = $sorted.Count; Tsv = $tsvCount; Chars = $chars; Files = $written.Count }
+    return @{ Books = $sorted.Count; Tsv = $tsvCount; Chars = $chars; Files = $written.Count; Texts = [string[]]$texts.ToArray() }
 }
 
 
@@ -187,4 +223,119 @@ function getPackFiles {
     # フォルダの順、フォルダの中はまとめファイルの名前の順（現在のカルチャ・大文字と小文字を区別しない）
     $items = [hashtable[]]@($list | Sort-Object @{ Expression = { $_.RelDir } }, @{ Expression = { [System.IO.Path]::GetFileName($_.RelPath) } })
     return , $items
+}
+
+
+function findIndexFoldersWithBooks {
+    # インデックスのフォルダ以下で、元のファイルごとのフォルダ（<ファイル名.xlsx>。まとめファイルに入れる前の TSV）が
+    # 直下にあるフォルダを返す（インデックス作成が途中で止まった・前の形式のインデックス）。root 自身も含む
+    param (
+        [string]$root
+    )
+
+    $found = New-Object System.Collections.Generic.List[string]
+    $longRoot = toLongPath $root.TrimEnd("\")
+    if (![System.IO.Directory]::Exists($longRoot)) {
+        return , $found.ToArray()
+    }
+    $dirs = @($longRoot) + @([System.IO.Directory]::GetDirectories($longRoot, "*", [System.IO.SearchOption]::AllDirectories))
+    foreach ($dir in $dirs) {
+        if ($dir -ne $longRoot -and (testIndexBookDir $dir $false)) { continue }
+        foreach ($sub in [System.IO.Directory]::EnumerateDirectories($dir)) {
+            if (testIndexBookDir $sub) {
+                $found.Add((fromLongPath $dir))
+                break
+            }
+        }
+    }
+    return , $found.ToArray()
+}
+
+
+function publishIndexFolders {
+    # インデックス作成で TSV を置いた・元のファイルが無くなったフォルダを、まとめて書き出す。フォルダごとに次を続けて行う:
+    #   1. まとめファイルを書く（前のまとめファイルとまぜ、無くなった元のファイルは外す）
+    #   2. 元のファイルごとのフォルダの TSV を消す
+    #   3. 書いたまとめファイルの中身から、そのフォルダのシステムインデックスの txt を作る（読み直さない）
+    # txt の状態（反映待ち）はまとめて状態ファイルに書く。書き出したフォルダの数を返す。
+    #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
+    param (
+        $pending,
+        [string]$indexRoot = ${indexDir},
+        [string]$systemRoot = ${systemIndexDir},
+        [string]$statePath = ${systemIndexStateFile}
+    )
+
+    $results = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($folder in @($pending.Keys)) {
+        $pack = updateIndexFolderPack $folder ([string[]]@($pending[$folder]))
+        $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $pack.Texts))
+    }
+    if ($results.Count -gt 0) {
+        $saved = updateSystemIndexState { param ($state) setSystemIndexResults $state $results.ToArray() } $statePath
+        if (!$saved) {
+            Write-Host "システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" -ForegroundColor Yellow
+        }
+    }
+    return $results.Count
+}
+
+
+function readPackContext {
+    # まとめファイルの中の、元のファイル book・場所 location の lineNumber 行目と、その前後 before 行・after 行を
+    # @{ LineNumber; Line } の配列で返す（画面の選択行のプレビュー。行の数え方は検索と同じ）。
+    # cache（検索のキャッシュ）に同じまとめファイルの内容があれば、ファイルを読み直さない。読めない・見つからなければ空
+    param (
+        [string]$path,
+        [string]$book,
+        [string]$location,
+        [int]$lineNumber,
+        [int]$before = 3,
+        [int]$after = 3,
+        $cache = $null
+    )
+
+    $rows = New-Object System.Collections.Generic.List[psobject]
+    $first = [Math]::Max(1, $lineNumber - $before)
+    $last = $lineNumber + $after
+    if ($last -lt $first) { return @() }
+    $text = $null
+    $places = $null
+    $longPath = toLongPath $path
+    $entry = $null
+    if ($null -ne $cache -and $cache.Texts.TryGetValue($longPath, [ref]$entry) -and $entry.Count -ge 4) {
+        $info = [System.IO.FileInfo]::new($longPath)
+        if ($info.Exists -and $entry[0] -eq $info.LastWriteTimeUtc.Ticks -and $entry[1] -eq $info.Length) {
+            $text = $entry[2]
+            $places = $entry[3]
+        }
+    }
+    try {
+        if ($null -eq $text) {
+            $text = readPackText $path
+            $places = readPackPlaces $text
+        }
+    } catch [System.IO.IOException] {
+        return @()
+    } catch [System.UnauthorizedAccessException] {
+        return @()
+    }
+    foreach ($place in $places) {
+        if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
+        $number = 0
+        $pos = $place.Start
+        while ($pos -lt $place.End) {
+            $n = $text.IndexOf([char]10, $pos, $place.End - $pos)
+            if ($n -lt 0) { $n = $place.End }
+            $number++
+            if ($number -gt $last) { break }
+            if ($number -ge $first) {
+                $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $text.Substring($pos, $n - $pos) })
+            }
+            $pos = $n + 1
+        }
+        break
+    }
+    # 呼び出し側で @() にして使う
+    return $rows.ToArray()
 }

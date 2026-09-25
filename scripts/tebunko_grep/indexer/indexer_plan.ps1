@@ -62,6 +62,7 @@ function createTargetList {
     # クロール対象フォルダを1つ検索して取り込み一覧の行を作り直し、次を返す。
     #   Rows   : 全ファイルの行 / Targets: 取り込む行 / Failed: 前回失敗し、更新の無い行
     #   Plan   : 画面の確認に出す件数（newIngestPlanRow。取り込み予定.tsv の1行）
+    #   Removed: 元のファイルが無くなったファイルの相対パス（呼び出し元がまとめファイルから外す）
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）
@@ -148,7 +149,7 @@ function createTargetList {
         $rows.Add($row)
     }
 
-    $removed = 0
+    $removed = New-Object System.Collections.Generic.List[string]
     foreach ($relPath in @($previous.Keys)) {
         if (!$relPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or $found.Contains($relPath)) {
             continue
@@ -158,7 +159,7 @@ function createTargetList {
             continue
         }
         removeBookDir (getBookDir $relPath)
-        $removed++
+        $removed.Add($relPath)
     }
 
     $detail = "取り込み済み {0} 件 / 新規 {1} 件 / 更新あり {2} 件 / 前回未完了 {3} 件 / 前回失敗 {4} 件" -f
@@ -171,8 +172,8 @@ function createTargetList {
     if ($count.Lost -gt 0) {
         Write-Host "    インデックス（TSV）が無くなった・壊れている $($count.Lost) 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" -ForegroundColor Yellow
     }
-    if ($removed -gt 0) {
-        Write-Host "    元ファイルが無くなった ${removed} 件のインデックス（TSV）を削除しました。"
+    if ($removed.Count -gt 0) {
+        Write-Host "    元ファイルが無くなった $($removed.Count) 件は、インデックスから除きます。"
     }
     if ($scan.HasError) {
         Write-Host "    アクセスできないフォルダがあったため、元ファイルが無くなったかどうかの確認は行いませんでした。" -ForegroundColor Yellow
@@ -180,7 +181,7 @@ function createTargetList {
 
     $plan = newIngestPlanRow $folder.Name $folder.Path ${planKindIngest} $scan.Files.Count $targets.Count `
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count
-    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Plan = $plan }
+    return @{ Rows = $rows; Targets = $targets; Failed = $failed; Plan = $plan; Removed = $removed.ToArray() }
 }
 
 function waitForIndexingApproval {

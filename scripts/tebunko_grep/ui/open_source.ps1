@@ -329,7 +329,8 @@ function copySourcePath {
     }
     $path = getSourcePath $row
     if (!$path) {
-        $path = "$($row.Root)\$($row.RelPath)"
+        # 元のファイルの場所が分からない（インデックスだけを別の PC にコピーした等）ときは、インデックスの中の位置（フォルダ\元のファイル名）を写す
+        $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
     }
     [System.Windows.Clipboard]::SetText($path)
     setStatus "パスをコピーしました：${path}"

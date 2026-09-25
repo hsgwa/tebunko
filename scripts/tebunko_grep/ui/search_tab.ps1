@@ -9,7 +9,7 @@ $script:search = $null
 $script:lastSearch = $null
 $script:sourceFolderMaps = @{}  # インデックスのフォルダ → インデックス名とクロール対象フォルダの対応（getSourceLocation のキャッシュ）
 $script:filterText = ""
-# 検索で読んだ TSV の内容（画面を閉じるまで残し、次の検索では更新の無い TSV をファイルから読まない）
+# 検索で読んだまとめファイルの内容（画面を閉じるまで残し、次の検索では更新の無いまとめファイルをファイルから読まない）
 $script:tsvCache = newTsvTextCache
 # Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
 $script:fastAvailable = $null
@@ -24,19 +24,19 @@ ${searchScript} = {
         if ($shared.UseFast) {
             $shared.FastAvailable = testWindowsSearch
             if ($shared.FastAvailable) {
-                $index = getFastSearchTsvFiles $word $folders -onProgress { param ($count) $shared.Scanned = $count }
+                $index = getFastSearchPackFiles $word $folders -onProgress { param ($count) $shared.Scanned = $count }
             }
         }
         $shared.FastUsed = ($null -ne $index)
         if ($null -eq $index) {
-            # TSV が多いと数え上げだけで数秒かかるため、途中の件数を画面に伝える（止まって見えないように）
-            $index = getIndexTsvFiles $folders { param ($count) $shared.Scanned = $count }
+            # 途中の件数を画面に伝える（止まって見えないように）
+            $index = getIndexPackFiles $folders { param ($count) $shared.Scanned = $count }
         }
         $shared.Folders = $index.Folders
-        $shared.Total = $index.Files.Count
-        $shared.IndexTotal = $index.Files.Count
+        $shared.Total = $index.Packs.Count
+        $shared.IndexTotal = $index.Packs.Count
         # 検索条件（大文字・小文字の区別・対象ファイル）は startSearch が $shared に入れる
-        $result = searchIndex $word $index.Files $simpleMatch $limit 50 -caseSensitive $shared.CaseSensitive -fileFilter $shared.FileFilter -cache $cache `
+        $result = searchPackIndex $word $index.Packs $simpleMatch $limit -caseSensitive $shared.CaseSensitive -fileFilter $shared.FileFilter -cache $cache `
             -includeShapes $shared.IncludeShapes -includeComments $shared.IncludeComments -onProgress {
             param ($done, $total, $newHits)
             foreach ($hit in $newHits) {
@@ -133,7 +133,7 @@ function updateSearchTarget {
     } elseif ($null -eq $summary) {
         $ui.SearchTargetText.Text = "検索対象：すべて（確認中…）"
     } else {
-        $ui.SearchTargetText.Text = "検索対象：すべて（TSV $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])）"
+        $ui.SearchTargetText.Text = "検索対象：すべて（まとめファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])）"
     }
     $ui.SearchTargetText.ToolTip = $ui.SearchTargetText.Text
     $ui.GoIndexTabButton.Visibility = if ($summary -and $summary["Count"] -eq 0) { "Visible" } else { "Collapsed" }
@@ -290,11 +290,11 @@ function finishSearch {
         updateFastSearchView
     }
 
-    # 高速検索では、候補の無いフォルダの TSV を集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
+    # 高速検索では、候補の無いフォルダのまとめファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
     if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "対象ファイル（$($s.Option.FileFilter)）に一致するファイルがありません。"
     } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
-        $ui.SummaryText.Text = "検索対象の TSV がありません。先にインデックスを作成してください。"
+        $ui.SummaryText.Text = "検索対象のインデックスがありません。先にインデックスを作成してください。"
     } elseif ($count -eq 0) {
         $text = "見つかりませんでした。"
         if (!$s.UseRegex -and $s.Word -match '[\\()\[\]{}.*+?^$|]') {

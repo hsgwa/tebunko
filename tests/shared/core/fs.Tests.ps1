@@ -104,19 +104,23 @@ Describe "長いパス（260文字超）" -Tag Io {
         }
     }
 
-    It "getIndexTsvFiles・searchIndex で長いパスのTSVも列挙・検索でき、相対パスは \\?\ の無い形になる" {
+    It "長いパスのフォルダでも、まとめファイルを作り・列挙・検索でき、相対パスは \\?\ の無い形になる" {
         $root = "$TestDrive\indexLong"
         $dir = "$root\$deepRel"
-        [void][System.IO.Directory]::CreateDirectory((toLongPath $dir))
-        [System.IO.File]::WriteAllText((toLongPath "$dir\book.xlsx_Sheet1.tsv"), "hello`r`n", $utf8Bom)
-        [System.IO.File]::WriteAllText("$root\short.xlsx_Sheet1.tsv", "hello`r`n", $utf8Bom)
+        [void][System.IO.Directory]::CreateDirectory((toLongPath "$dir\book.xlsx"))
+        [System.IO.File]::WriteAllText((toLongPath "$dir\book.xlsx\Sheet1.tsv"), "hello`r`n", $utf8Bom)
+        [void][System.IO.Directory]::CreateDirectory("$root\short.xlsx")
+        [System.IO.File]::WriteAllText("$root\short.xlsx\Sheet1.tsv", "hello`r`n", $utf8Bom)
         try {
-            $index = getIndexTsvFiles @($root)
+            foreach ($folder in (findIndexFoldersWithBooks $root)) {
+                [void](updateIndexFolderPack $folder)
+            }
+            $index = getIndexPackFiles @($root)
             $index.Folders[0].Count | Should Be 2
-            $rel = @($index.Files.Values | ForEach-Object { $_.RelPath } | Sort-Object)
-            $rel | Should Be @("$deepRel\book.xlsx_Sheet1.tsv", "short.xlsx_Sheet1.tsv")
+            $rel = @($index.Packs | ForEach-Object { $_.RelPath } | Sort-Object)
+            $rel | Should Be @("$deepRel\本文.xlsx.tsv", "本文.xlsx.tsv")
 
-            $hits = @((searchIndex "hello" $index.Files).Hits)
+            $hits = @((searchPackIndex "hello" $index.Packs).Hits)
             $hits.Count | Should Be 2
             @($hits | Where-Object { $_.RelDir -eq $deepRel }).Count | Should Be 1
 
