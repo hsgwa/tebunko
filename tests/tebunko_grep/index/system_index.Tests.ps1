@@ -80,7 +80,7 @@ Describe "writeSystemIndexFolder" -Tag Io {
     It "まとめファイルからは、メタ情報の行（ファイル名・シート名）を除いて txt を作る" {
         $index = "$TestDrive\w5\index"
         [System.IO.Directory]::CreateDirectory("$index\営業") | Out-Null
-        writePackFile "$index\営業\content.xlsx.tsv" (convertToPackText @(@{ Name = "山田商事.xlsx"; Places = @(@{ Place = "見積"; Text = "保守サービス`r`n" }) }))
+        writePackFile "$index\営業\content.xlsx.001.tsv" (convertToPackText @(@{ Name = "山田商事.xlsx"; Places = @(@{ Place = "見積"; Text = "保守サービス`r`n" }) }))
         $system = "$TestDrive\w5\system_index"
         $result = writeSystemIndexFolder "$index\営業" $index $system
         $result.Files.Count | Should Be 1

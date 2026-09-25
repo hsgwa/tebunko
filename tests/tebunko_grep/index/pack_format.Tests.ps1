@@ -43,7 +43,7 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
 Describe "getPackFileName / splitPackBooksByExtension" -Tag Unit {
     It "まとめファイルの名前に元のファイルの拡張子（小文字）を入れる" {
         getPackExtension "見積.XLSX" | Should Be "xlsx"
-        getPackFileName (getPackExtension "議事録.docx") | Should Be "content.docx.tsv"
+        getPackFileName (getPackExtension "議事録.docx") | Should Be "content.docx.001.tsv"
     }
 
     It "元のファイルを拡張子ごとに分け、それぞれの中の順は変えない" {
@@ -51,6 +51,50 @@ Describe "getPackFileName / splitPackBooksByExtension" -Tag Unit {
         $groups = splitPackBooksByExtension $books
         @($groups.Keys) -join "," | Should Be "xlsx,docx,xlsm"
         @($groups["xlsx"] | ForEach-Object { $_.Name }) -join "," | Should Be "a.xlsx,c.XLSX"
+    }
+}
+
+Describe "getPackFileName / readPackFileName" -Tag Unit {
+    It "名前に拡張子と 3 桁の番号を入れ、名前から取り出せる" {
+        getPackFileName "xlsx" | Should Be "content.xlsx.001.tsv"
+        getPackFileName "docx" 12 | Should Be "content.docx.012.tsv"
+        $info = readPackFileName "content.XLSX.002.tsv"
+        $info.Extension | Should Be "xlsx"
+        $info.Part | Should Be 2
+        readPackFileName "content.xlsx.tsv" | Should Be $null
+        readPackFileName "見積.xlsx_S.tsv" | Should Be $null
+    }
+}
+
+Describe "planPackParts" -Tag Unit {
+    function newBook([string]$name, [int]$chars) {
+        return @{ Name = $name; Block = ("x" * $chars) }
+    }
+    function describePlan($plan) {
+        return (@($plan | ForEach-Object { "{0}.{1}:{2}:{3}" -f $_.Extension, $_.Part, (@($_.Books | ForEach-Object { $_.Name }) -join "+"), $(if ($_.Changed) { "書く" } else { "そのまま" }) }) -join " | ")
+    }
+
+    It "新しい元のファイルは、上限に達するまで同じまとめファイルに足し、達したら次の番号に足す" {
+        # 1 冊 1,000 文字（2,000 バイト）。上限 4,000 バイトなら 2 冊で上限に達する
+        $plan = planPackParts @() @((newBook "c.xlsx" 1000), (newBook "a.xlsx" 1000), (newBook "b.xlsx" 1000), (newBook "d.docx" 10)) @() 4000
+        describePlan $plan | Should Be "docx.1:d.docx:書く | xlsx.1:a.xlsx+b.xlsx:書く | xlsx.2:c.xlsx:書く"
+    }
+
+    It "入れ替えは同じ位置で、外したものは除き、変わらないまとめファイルは書き直さない。新しいものは最後の番号に足す" {
+        $parts = @(
+            @{ Extension = "xlsx"; Part = 1; Books = @((newBook "a.xlsx" 10), (newBook "b.xlsx" 10)) },
+            @{ Extension = "xlsx"; Part = 2; Books = @((newBook "c.xlsx" 10)) },
+            @{ Extension = "docx"; Part = 1; Books = @((newBook "d.docx" 10)) }
+        )
+        $plan = planPackParts $parts @((newBook "B.XLSX" 20), (newBook "e.xlsx" 10)) @("d.docx") 4000
+        describePlan $plan | Should Be "docx.1::書く | xlsx.1:a.xlsx+B.XLSX:書く | xlsx.2:c.xlsx+e.xlsx:書く"
+        ($plan | Where-Object { $_.Extension -eq "xlsx" -and $_.Part -eq 1 }).Books[1].Block.Length | Should Be 20
+        describePlan (planPackParts $parts @() @() 4000) | Should Be "docx.1:d.docx:そのまま | xlsx.1:a.xlsx+b.xlsx:そのまま | xlsx.2:c.xlsx:そのまま"
+    }
+
+    It "最後の番号のまとめファイルが上限以上なら、次の番号のまとめファイルを作る（1 冊が上限を超えても、その 1 冊で 1 つ）" {
+        $parts = @(@{ Extension = "xlsx"; Part = 3; Books = @((newBook "a.xlsx" 5000)) })
+        describePlan (planPackParts $parts @((newBook "b.xlsx" 5000)) @() 4000) | Should Be "xlsx.3:a.xlsx:そのまま | xlsx.4:b.xlsx:書く"
     }
 }
 

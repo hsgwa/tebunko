@@ -1,4 +1,4 @@
-﻿# 検索用のまとめファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つ。content.xlsx.tsv など）の形式（判断層）。
+﻿# 検索用のまとめファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。content.xlsx.001.tsv など）の形式（判断層）。
 # ファイル（元のファイル）ごと・場所（シート・ページ・スライドなど）ごとに、メタ情報の行と今の TSV の中身を並べる。
 #
 #   ␞ 版=1
@@ -14,8 +14,12 @@
 # ・改行は LF にそろえる。行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR）にし、行番号を変えない
 # ・文字コードは UTF-16LE（BOM 付き。pack_store.ps1 が読み書きする）
 
-# まとめファイルの名前は「content.<元のファイルの拡張子（小文字）>.tsv」。_ は使わない（以前の形式 <ブック>_<場所>.tsv と区別するため）
+# まとめファイルの名前は「content.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content.xlsx.001.tsv など）。
+# _ は使わない（以前の形式 <ブック>_<場所>.tsv と区別するため）。
+# 1 つのまとめファイルが packFileMaxBytes 以上になったら、それ以上ブックを足さず、次の番号のまとめファイルに足す
 ${packFilePattern} = "content.*.tsv"
+${packFileNamePattern} = '^content\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$'
+${packFileMaxBytes} = 4MB
 ${packVersion} = 1
 ${packMark} = [char]0x1E
 
@@ -46,12 +50,26 @@ function getPackExtension {
 
 
 function getPackFileName {
-    # 拡張子のまとめファイルの名前（content.xlsx.tsv など）を返す
+    # 拡張子・番号のまとめファイルの名前（content.xlsx.001.tsv など）を返す
     param (
-        [string]$extension
+        [string]$extension,
+        [int]$part = 1
     )
 
-    return "content.{0}.tsv" -f $extension
+    return "content.{0}.{1:D3}.tsv" -f $extension, $part
+}
+
+
+function readPackFileName {
+    # まとめファイルの名前から @{ Extension; Part } を返す。まとめファイルの名前でなければ $null
+    param (
+        [string]$name
+    )
+
+    if ($name -match ${packFileNamePattern}) {
+        return @{ Extension = $Matches.ext.ToLowerInvariant(); Part = [int]$Matches.part }
+    }
+    return $null
 }
 
 
@@ -202,40 +220,127 @@ function convertToPackBody {
 }
 
 
-function convertToPackText {
-    # フォルダ直下の元のファイルの中身から、まとめファイルの文字列を作る。
-    #   books: 次のどちらかの並び（この順に書く）
-    #     @{ Name（元のファイル名）; Places（@{ Place（今の場所の名前）; Text（TSV の中身） } の並び） } … TSV から新しく作る
-    #     @{ Name; Block（splitPackTextByBook で取り出した、そのファイルのまとまり） }       … 前のまとめファイルからそのまま写す
+function convertBookToPackBlock {
+    # 元のファイル 1 つの中身から、まとめファイルに入れるまとまり（「ファイル名=」の行から最後の行まで）の文字列を作る。
+    #   book: @{ Name（元のファイル名）; Places（@{ Place（今の場所の名前）; Text（TSV の中身） } の並び） }
+    #         または @{ Name; Block }（前のまとめファイルから取り出したまとまり。そのまま返す）
     param (
-        $books
+        $book
     )
 
+    if ($null -ne $book.Block) {
+        return [string]$book.Block
+    }
     $mark = [string]${packMark}
+    $name = [string]$book.Name
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append("$mark 版=${packVersion}`n")
-    foreach ($book in $books) {
-        if ($null -ne $book.Block) {
-            [void]$sb.Append([string]$book.Block)
-            continue
+    [void]$sb.Append("$mark ファイル名=").Append((encodePackValue $name)).Append("`n")
+    $kind = getPackFileKind $name
+    if ($kind) {
+        [void]$sb.Append("$mark 種類=$kind`n")
+    }
+    foreach ($place in $book.Places) {
+        $meta = convertPlaceToPackMeta $name ([string]$place.Place)
+        foreach ($key in $meta.Keys) {
+            [void]$sb.Append("$mark ").Append($key).Append("=").Append((encodePackValue ([string]$meta[$key]))).Append("`n")
         }
-        $name = [string]$book.Name
-        [void]$sb.Append("$mark ファイル名=").Append((encodePackValue $name)).Append("`n")
-        $kind = getPackFileKind $name
-        if ($kind) {
-            [void]$sb.Append("$mark 種類=$kind`n")
-        }
-        foreach ($place in $book.Places) {
-            $meta = convertPlaceToPackMeta $name ([string]$place.Place)
-            foreach ($key in $meta.Keys) {
-                [void]$sb.Append("$mark ").Append($key).Append("=").Append((encodePackValue ([string]$meta[$key]))).Append("`n")
-            }
-            [void]$sb.Append((convertToPackBody ([string]$place.Text)))
-        }
+        [void]$sb.Append((convertToPackBody ([string]$place.Text)))
     }
     return $sb.ToString()
 }
 
+
+function convertToPackText {
+    # 元のファイルの並びから、まとめファイルの文字列を作る（この順に書く）。
+    #   books: convertBookToPackBlock に渡せるもの（@{ Name; Places } か @{ Name; Block }）の並び
+    param (
+        $books
+    )
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append("$([string]${packMark}) 版=${packVersion}`n")
+    foreach ($book in $books) {
+        [void]$sb.Append((convertBookToPackBlock $book))
+    }
+    return $sb.ToString()
+}
+
+
+function planPackParts {
+    # フォルダ 1 つの、拡張子ごと・番号ごとのまとめファイルに、どの元のファイルを入れるかを決める。
+    #   parts  : 前のまとめファイルの並び。@{ Extension; Part; Books（@{ Name; Block } の並び。ファイルの中の順） }
+    #   books  : 足す・入れ替える元のファイル（@{ Name; Block }）。元のファイル名の順に足す
+    #   remove : 外す元のファイル名
+    #   maxBytes: この大きさ（UTF-16 のバイト数）以上のまとめファイルには、もう足さない
+    # 決め方:
+    #   ・入れ替える元のファイルは、今入っているまとめファイルの同じ位置で入れ替える（ほかのまとめファイルへ移さない）
+    #   ・外す元のファイルは、入っているまとめファイルから外す
+    #   ・新しい元のファイルは、その拡張子の最後の番号のまとめファイルが maxBytes 未満ならそこに、以上なら次の番号の新しいまとめファイルに足す
+    #   ・1 つの元のファイルは 2 つのまとめファイルにまたがらない（1 つで maxBytes を超えても、その 1 つで 1 つのまとめファイルにする）
+    # @{ Extension; Part; Books; Changed（書き直しが要る） } の並び（拡張子・番号の順）を返す。
+    # 元のファイルが無くなったまとめファイルは、Books が空で Changed が $true（消す）
+    param (
+        $parts,
+        $books,
+        [string[]]$remove = @(),
+        [long]$maxBytes = ${packFileMaxBytes}
+    )
+
+    $removeSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $remove) { [void]$removeSet.Add($name) }
+    $replace = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($book in $books) { $replace[[string]$book.Name] = $book }
+
+    $plan = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($part in @($parts | Sort-Object { $_.Extension }, { $_.Part })) {
+        $kept = New-Object System.Collections.Generic.List[object]
+        $changed = $false
+        foreach ($book in $part.Books) {
+            $name = [string]$book.Name
+            if ($removeSet.Contains($name)) {
+                $changed = $true
+            } elseif ($replace.ContainsKey($name)) {
+                $kept.Add($replace[$name])
+                [void]$replace.Remove($name)
+                $changed = $true
+            } else {
+                $kept.Add($book)
+            }
+        }
+        $plan.Add(@{ Extension = [string]$part.Extension; Part = [int]$part.Part; Books = $kept; Changed = $changed })
+    }
+
+    # 新しい元のファイル（どのまとめファイルにも無かったもの）を、元のファイル名の順に足す
+    foreach ($book in @($replace.Values | Sort-Object { [string]$_.Name })) {
+        $extension = getPackExtension ([string]$book.Name)
+        $last = $null
+        foreach ($p in $plan) {
+            if ($p.Extension -eq $extension -and ($null -eq $last -or $p.Part -gt $last.Part)) { $last = $p }
+        }
+        if ($null -eq $last -or (measurePackPartBytes $last.Books) -ge $maxBytes) {
+            $number = if ($null -eq $last) { 1 } else { $last.Part + 1 }
+            $last = @{ Extension = $extension; Part = $number; Books = (New-Object System.Collections.Generic.List[object]); Changed = $true }
+            $plan.Add($last)
+        }
+        $last.Books.Add($book)
+        $last.Changed = $true
+    }
+    return , @($plan | Sort-Object { $_.Extension }, { $_.Part })
+}
+
+
+function measurePackPartBytes {
+    # まとめファイルの大きさ（UTF-16 のバイト数。BOM と版の行を含む）を、元のファイルのまとまり（@{ Name; Block }）の並びから求める
+    param (
+        $books
+    )
+
+    $chars = 1 + ("$([string]${packMark}) 版=${packVersion}`n").Length
+    foreach ($book in $books) {
+        $chars += ([string]$book.Block).Length
+    }
+    return [long]$chars * 2
+}
 
 function readPackPlaces {
     # まとめファイルの文字列を読み、場所ごとの @{ Book; Location（今の場所の名前）; Start（中身の先頭の位置）; End（中身の終わりの次の位置） }

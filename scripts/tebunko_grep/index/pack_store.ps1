@@ -1,5 +1,5 @@
 ﻿# 検索用のまとめファイル（pack_format.ps1）の読み書き（状態層）。
-# まとめファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに 1 つ（content.xlsx.tsv など）。UTF-16LE（BOM 付き）で書く
+# まとめファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに、大きさで分けて置く（content.xlsx.001.tsv など）。UTF-16LE（BOM 付き）で書く
 # （UTF-8 より文字列への変換が速い。日本語が多いと大きさはほとんど変わらない）。
 
 function writePackFile {
@@ -104,68 +104,72 @@ function getIndexFolderBooks {
 
 
 function convertIndexFolderToPack {
-    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごとのまとめファイル
-    # （destFolder\content.xlsx.tsv など）を書く。destFolder に前のまとめファイルがあれば、それとまぜる:
-    #   ・TSV のある元のファイルは、TSV の中身で入れ替える（追加・更新）
+    # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごと・番号ごとのまとめファイル
+    # （destFolder\content.xlsx.001.tsv など）を書く。destFolder に前のまとめファイルがあれば、それとまぜる（planPackParts）:
+    #   ・TSV のある元のファイルは、TSV の中身で入れ替える（前のまとめファイルに無ければ、最後の番号のまとめファイルに足す。
+    #     packFileMaxBytes 以上なら次の番号のまとめファイルを作る）
     #   ・removeBooks に挙げた元のファイルは外す（元のファイルが無くなった）
-    #   ・それ以外の元のファイルは、前のまとめファイルからそのまま写す
-    # 元のファイルが無くなった拡張子のまとめファイルは消す。removeTsv なら、まとめファイルを書き終えた後に、
+    #   ・それ以外の元のファイルは、前のまとめファイルのまま。変わらないまとめファイルは書き直さない
+    # 元のファイルが無くなったまとめファイルは消す。removeTsv なら、まとめファイルを書き終えた後に、
     # 読み込んだ元のファイルのフォルダ（TSV）を消す（TSV は一時的な置き場で、残すとインデックスの容量が倍になるため）。
     # 書き終える前に止まっても、TSV か前のまとめファイルのどちらかに中身が残る。
-    # @{ Books; Tsv; Chars; Files; Texts（書いたまとめファイルの中身の並び。システムインデックスを読み直さずに作るため） } を返す
+    # @{ Books; Tsv; Chars; Files（まとめファイルの数）; Written（書き直した数）;
+    #    Texts（そのフォルダのすべてのまとめファイルの中身。システムインデックスを読み直さずに作るため） } を返す
     param (
         [string]$folder,
         [string]$destFolder,
         [string[]]$removeBooks = @(),
-        [bool]$removeTsv = $false
+        [bool]$removeTsv = $false,
+        [long]$maxBytes = ${packFileMaxBytes}
     )
 
     $books = getIndexFolderBooks $folder
     $tsvCount = 0
+    $newBooks = New-Object System.Collections.Generic.List[hashtable]
     foreach ($book in $books) {
         foreach ($place in $book.Places) {
             $place.Text = [System.IO.File]::ReadAllText($place.Path)
             $tsvCount++
         }
+        $newBooks.Add(@{ Name = $book.Name; Block = (convertBookToPackBlock $book) })
     }
     $longDest = toLongPath $destFolder
-    # 前のまとめファイルから、入れ替えない元のファイルを取り出す
-    $replaced = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($book in $books) { [void]$replaced.Add($book.Name) }
-    foreach ($name in $removeBooks) { [void]$replaced.Add($name) }
-    $merged = New-Object System.Collections.Generic.List[object]
-    $merged.AddRange([object[]]@($books))
+    # 前のまとめファイル（番号の付いた名前のもの）を読む
+    $parts = New-Object System.Collections.Generic.List[hashtable]
+    $oldTexts = @{}
     if ([System.IO.Directory]::Exists($longDest)) {
         foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${packFilePattern})) {
-            foreach ($kept in (splitPackTextByBook (readPackText $old))) {
-                if (!$replaced.Contains($kept.Name)) { $merged.Add($kept) }
-            }
+            $info = readPackFileName ([System.IO.Path]::GetFileName($old))
+            if ($null -eq $info) { continue }
+            $text = readPackText $old
+            $oldTexts[(getPackFileName $info.Extension $info.Part)] = $text
+            $parts.Add(@{ Extension = $info.Extension; Part = $info.Part; Books = (splitPackTextByBook $text) })
         }
     }
-    # 元のファイル名の順（現在のカルチャ・大文字と小文字を区別しない）
-    $sorted = @($merged | Sort-Object { [string]$_.Name })
 
-    $written = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $plan = planPackParts $parts $newBooks $removeBooks $maxBytes
     $texts = New-Object System.Collections.Generic.List[string]
+    $bookTotal = 0
+    $written = 0
     $chars = 0L
-    if ($sorted.Count -gt 0) {
-        [void][System.IO.Directory]::CreateDirectory($longDest)
-        $groups = splitPackBooksByExtension $sorted
-        foreach ($extension in $groups.Keys) {
-            $name = getPackFileName $extension
-            $text = convertToPackText $groups[$extension]
-            writePackFile (Join-Path $destFolder $name) $text
-            [void]$written.Add($name)
-            $texts.Add($text)
-            $chars += $text.Length
+    foreach ($part in $plan) {
+        $name = getPackFileName $part.Extension $part.Part
+        $path = Join-Path $destFolder $name
+        if ($part.Books.Count -eq 0) {
+            if ([System.IO.File]::Exists((toLongPath $path))) { [System.IO.File]::Delete((toLongPath $path)) }
+            continue
         }
-    }
-    if ([System.IO.Directory]::Exists($longDest)) {
-        foreach ($old in [System.IO.Directory]::GetFiles($longDest, ${packFilePattern})) {
-            if (!$written.Contains([System.IO.Path]::GetFileName($old))) {
-                [System.IO.File]::Delete($old)
-            }
+        if ($part.Changed) {
+            [void][System.IO.Directory]::CreateDirectory($longDest)
+            $text = convertToPackText $part.Books
+            writePackFile $path $text
+            $written++
+        } else {
+            $text = $oldTexts[$name]
         }
+        $texts.Add($text)
+        $bookTotal += $part.Books.Count
+        $chars += $text.Length
     }
     if ($removeTsv) {
         foreach ($book in $books) {
@@ -173,9 +177,8 @@ function convertIndexFolderToPack {
             [System.IO.Directory]::Delete($bookDir, $true)
         }
     }
-    return @{ Books = $sorted.Count; Tsv = $tsvCount; Chars = $chars; Files = $written.Count; Texts = [string[]]$texts.ToArray() }
+    return @{ Books = $bookTotal; Tsv = $tsvCount; Chars = $chars; Files = $texts.Count; Written = $written; Texts = [string[]]$texts.ToArray() }
 }
-
 
 function updateIndexFolderPack {
     # インデックスのフォルダ 1 つで、置かれた TSV（追加・更新した元のファイル）をまとめファイルに入れ、TSV を消す。

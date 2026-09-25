@@ -138,7 +138,7 @@ Describe "getFastSearchPackFiles" -Tag Io {
         [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results } $ws.State)
         $folders = @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true })
         $fast = compareSearch $ws "保守サービス" $folders (newFakeWindowsSearch $ws.System)
-        @($fast.Packs | Where-Object { $_.RelPath -like "*\2024\content.xlsx.tsv" }).Count | Should Be 1
+        @($fast.Packs | Where-Object { $_.RelPath -like "*\2024\content.xlsx.001.tsv" }).Count | Should Be 1
         [void](compareSearch $ws "丸の内" $folders (newFakeWindowsSearch $ws.System))
     }
 

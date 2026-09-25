@@ -198,10 +198,22 @@ function getSearchIndexes {
 ${indexBrokenCount} = -1
 
 
+function getPackKeyOf {
+    # getIndexTsvCounts のまとめファイルのキー（「<インデックスのフォルダからのフォルダ>\content.<拡張子>」）を返す
+    param (
+        [string]$relDir,
+        [string]$extension
+    )
+
+    $name = "content.$extension"
+    if ($relDir) { return "$relDir\$name" }
+    return $name
+}
+
 function getIndexTsvCounts {
     # インデックスのフォルダの中のフォルダごとのTSVの数を返す（取り込み一覧の「済」と、インデックスの実体が合っているかの確認に使う）:
     #   インデックスのフォルダからの相対パス（大文字・小文字を区別しない）→ そのフォルダの直下のTSVの数
-    #   まとめファイル（content.<拡張子>.tsv）は、そのファイルの相対パス → 1（0 バイトなら ${indexBrokenCount}）
+    #   まとめファイル（content.<拡張子>.<番号>.tsv）は、「<フォルダ>\content.<拡張子>」 → 1（どれかが 0 バイトなら ${indexBrokenCount}）
     # 元のファイル1つにつき1フォルダ（<ファイル名.xlsx>\<場所>.tsv）のため、キーは取り込み一覧の相対パスと同じになる。
     # 0 バイトのTSVがあるフォルダは ${indexBrokenCount}（-1）にする。
     # 空のシート・ページは保存しない（prettyTsv / writeUnits）ため、0 バイトのTSVは書き込みの途中で
@@ -226,9 +238,18 @@ function getIndexTsvCounts {
             $counts[$sub.Substring($prefix)] = 0
         }
         foreach ($file in (New-Object System.IO.DirectoryInfo($root)).EnumerateFiles("*.tsv", [System.IO.SearchOption]::AllDirectories)) {
-            if ($file.Name -like ${packFilePattern}) {
-                # まとめファイル（content.<拡張子>.tsv）は、そのファイルの相対パスをキーにする（testIndexComplete が拡張子ごとに見る）
-                $counts[$file.FullName.Substring($prefix)] = $(if ($file.Length -eq 0) { ${indexBrokenCount} } else { 1 })
+            $packInfo = readPackFileName $file.Name
+            if ($null -ne $packInfo) {
+                # まとめファイル（content.<拡張子>.<番号>.tsv）は、番号を除いた「<フォルダ>\content.<拡張子>」をキーにする
+                # （testIndexComplete が拡張子ごとに見る）。どれか 1 つでも 0 バイトなら壊れているとする
+                $packDir = if ($file.DirectoryName.Length -ge $prefix) { $file.DirectoryName.Substring($prefix) } else { "" }
+                $key = getPackKeyOf $packDir $packInfo.Extension
+                $current = 0
+                if ($file.Length -eq 0 -or ($counts.TryGetValue($key, [ref]$current) -and $current -eq ${indexBrokenCount})) {
+                    $counts[$key] = ${indexBrokenCount}
+                } else {
+                    $counts[$key] = 1
+                }
                 continue
             }
             $parent = [System.IO.Path]::GetDirectoryName($file.FullName)
@@ -271,7 +292,7 @@ function testIndexComplete {
     }
     # まとめファイル: そのフォルダ・その拡張子のまとめファイルがあれば、そろっているものとする
     # （まとめファイルの中の元のファイルごとの場所の数は、中身を読まないと分からないため数えない）
-    $packRel = Join-Path ([string][System.IO.Path]::GetDirectoryName($relPath)) (getPackFileName (getPackExtension $relPath))
+    $packRel = getPackKeyOf ([string][System.IO.Path]::GetDirectoryName($relPath)) (getPackExtension $relPath)
     $packCount = 0
     if ($counts.TryGetValue($packRel, [ref]$packCount) -and $packCount -ne ${indexBrokenCount}) {
         return $true
