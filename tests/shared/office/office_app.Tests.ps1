@@ -327,7 +327,7 @@ Describe "PowerPoint の共有（偽の PowerPoint）" -Tag Unit {
 
     # Pester 3 の Mock は Describe の中の後のテストにも効くため、Context で囲む
     Context "起動したプロセスの優先度" {
-        It "起動した Excel・Word は優先度を下げ、PowerPoint は下げない（利用者の PowerPoint も同じプロセスで動くため）" {
+        It "起動した Office の優先度は変えない（利用者とプロセスを共有しうるため）" {
             $script:started = @{}
             Mock Get-Process {
                 if (!$script:started.ContainsKey($Id[0])) {
@@ -340,9 +340,9 @@ Describe "PowerPoint の共有（偽の PowerPoint）" -Tag Unit {
             [void](getApp "PowerPoint")
             setProcesses @() @(420)
             [void](getApp "Excel")
-            # PowerPoint のプロセスは、優先度を変えない（触らない）
-            (!$script:started.ContainsKey(410) -or [string]$script:started[410].PriorityClass -eq "Normal") | Should Be $true
-            [string]$script:started[420].PriorityClass | Should Be "BelowNormal"
+            foreach ($id in 410, 420) {
+                (!$script:started.ContainsKey($id) -or [string]$script:started[$id].PriorityClass -eq "Normal") | Should Be $true
+            }
         }
     }
     It "共有しているときの stopApp は、PowerPoint を終了せずにつながりを放すだけ" {
