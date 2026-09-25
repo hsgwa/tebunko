@@ -36,7 +36,7 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
         [void][System.IO.Directory]::CreateDirectory($item.Folder)
         writePackFile "$($item.Folder)\$(getPackFileName (getPackExtension $item.Name))" (convertToPackText @(@{ Name = $item.Name; Places = @(@{ Place = "S"; Text = "x" }) }))
     }
-    (Get-Item -LiteralPath "$other\本文.docx.tsv").LastWriteTime = [datetime]"2030-01-02 03:04:05"
+    (Get-Item -LiteralPath "$other\content.docx.tsv").LastWriteTime = [datetime]"2030-01-02 03:04:05"
     # まとめる前の TSV（インデックス作成の途中）は数えない
     newTsv "$other\d.xlsx\S.tsv" @("d")
     $missing = Join-Path $TestDrive "missing"

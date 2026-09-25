@@ -1,5 +1,5 @@
 ﻿# 検索用のまとめファイル（pack_format.ps1）の読み書き（状態層）。
-# まとめファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに 1 つ（本文.xlsx.tsv など）。UTF-16LE（BOM 付き）で書く
+# まとめファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに 1 つ（content.xlsx.tsv など）。UTF-16LE（BOM 付き）で書く
 # （UTF-8 より文字列への変換が速い。日本語が多いと大きさはほとんど変わらない）。
 
 function writePackFile {
@@ -42,7 +42,7 @@ function testIndexBookDir {
     # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。まとめファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
     #   ・名前が Office の拡張子で終わる（indexBookDirPattern）
-    #   ・サブフォルダもまとめファイル（本文.<拡張子>.tsv）も無い
+    #   ・サブフォルダもまとめファイル（content.<拡張子>.tsv）も無い
     #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、まとめファイルに入れるものが無い）
     # 読めないフォルダは $false（まとめファイルに入れる・消す対象にしない）
     param (
@@ -105,7 +105,7 @@ function getIndexFolderBooks {
 
 function convertIndexFolderToPack {
     # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごとのまとめファイル
-    # （destFolder\本文.xlsx.tsv など）を書く。destFolder に前のまとめファイルがあれば、それとまぜる:
+    # （destFolder\content.xlsx.tsv など）を書く。destFolder に前のまとめファイルがあれば、それとまぜる:
     #   ・TSV のある元のファイルは、TSV の中身で入れ替える（追加・更新）
     #   ・removeBooks に挙げた元のファイルは外す（元のファイルが無くなった）
     #   ・それ以外の元のファイルは、前のまとめファイルからそのまま写す

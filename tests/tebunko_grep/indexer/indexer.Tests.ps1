@@ -169,7 +169,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status.Rows["営業\壊れた.pptx"].状態 | Should Be ${stateFailed}
         $status.Rows["営業\壊れた.pptx"].エラー | Should Match "PowerPoint"
         # 取り込んだ TSV はフォルダのまとめファイルに入れ、元のファイルごとのフォルダは残さない
-        [System.IO.File]::Exists("$root\work\index\営業\本文.docx.tsv") | Should Be $true
+        [System.IO.File]::Exists("$root\work\index\営業\content.docx.tsv") | Should Be $true
         [System.IO.Directory]::Exists("$root\work\index\営業\議事録.docx") | Should Be $false
         Test-Path -LiteralPath "$root\work\index\営業\元のフォルダ.txt" | Should Be $true
         Test-Path -LiteralPath "$root\work\変換失敗一覧.txt" | Should Be $false
@@ -194,7 +194,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         invokeIndexer $root | Should Be 0
 
         Test-Path -LiteralPath "$work\取り込み一覧.tsv" | Should Be $true
-        [System.IO.File]::Exists("$work\index\営業\本文.docx.tsv") | Should Be $true
+        [System.IO.File]::Exists("$work\index\営業\content.docx.tsv") | Should Be $true
         Test-Path -LiteralPath "$work\インデックス作成ログ.txt" | Should Be $true
         @(Get-ChildItem -LiteralPath "$root\work").Count | Should Be 0
     }
@@ -249,7 +249,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status = readTestStatus $root
         $status.Rows.Count | Should Be 3
         $status.Rows["一時\議事録.docx"].状態 | Should Be ${stateDone}
-        [System.IO.File]::Exists("$root\work\index\一時\本文.docx.tsv") | Should Be $true
+        [System.IO.File]::Exists("$root\work\index\一時\content.docx.tsv") | Should Be $true
     }
 
     It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
@@ -408,12 +408,12 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務2"; path = $source; enabled = $true })
         invokeIndexer $root | Should Be 0
-        [System.IO.File]::Exists("$root\work\index\総務2\本文.docx.tsv") | Should Be $true
+        [System.IO.File]::Exists("$root\work\index\総務2\content.docx.tsv") | Should Be $true
         Remove-Item -LiteralPath "$source\議事録.docx" -Force
 
         invokeIndexer $root | Should Be 0
         # docx は議事録.docx だけだったため、まとめファイルごと無くなる
-        [System.IO.File]::Exists("$root\work\index\総務2\本文.docx.tsv") | Should Be $false
+        [System.IO.File]::Exists("$root\work\index\総務2\content.docx.tsv") | Should Be $false
         (readTestStatus $root).Rows.ContainsKey("総務2\議事録.docx") | Should Be $false
     }
 

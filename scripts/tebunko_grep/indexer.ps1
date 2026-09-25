@@ -90,7 +90,7 @@ $approvalTimeoutMinutes = 60  # -ConfirmTargets で画面の返事を待つ制�
 $interruptLimit = 2       # 取り込み中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
 $failureListLimit = 50    # 終了時に失敗したファイルと原因を表示する最大件数（残りは取り込み一覧で確認する）
 
-# まとめファイル（本文.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
+# まとめファイル（content.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
 # 取り込んだ TSV は元のファイルごとのフォルダに一時的に置き、同じフォルダの取り込みが終わったらまとめて書き出す
 # （元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ書き直すことになるため）
 $script:pendingPublish = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)

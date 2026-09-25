@@ -1,4 +1,4 @@
-﻿# 検索用のまとめファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つ。本文.xlsx.tsv など）の形式（判断層）。
+﻿# 検索用のまとめファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つ。content.xlsx.tsv など）の形式（判断層）。
 # ファイル（元のファイル）ごと・場所（シート・ページ・スライドなど）ごとに、メタ情報の行と今の TSV の中身を並べる。
 #
 #   ␞ 版=1
@@ -14,8 +14,8 @@
 # ・改行は LF にそろえる。行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR）にし、行番号を変えない
 # ・文字コードは UTF-16LE（BOM 付き。pack_store.ps1 が読み書きする）
 
-# まとめファイルの名前は「本文.<元のファイルの拡張子（小文字）>.tsv」。_ は使わない（以前の形式 <ブック>_<場所>.tsv と区別するため）
-${packFilePattern} = "本文.*.tsv"
+# まとめファイルの名前は「content.<元のファイルの拡張子（小文字）>.tsv」。_ は使わない（以前の形式 <ブック>_<場所>.tsv と区別するため）
+${packFilePattern} = "content.*.tsv"
 ${packVersion} = 1
 ${packMark} = [char]0x1E
 
@@ -46,12 +46,12 @@ function getPackExtension {
 
 
 function getPackFileName {
-    # 拡張子のまとめファイルの名前（本文.xlsx.tsv など）を返す
+    # 拡張子のまとめファイルの名前（content.xlsx.tsv など）を返す
     param (
         [string]$extension
     )
 
-    return "本文.{0}.tsv" -f $extension
+    return "content.{0}.tsv" -f $extension
 }
 
 

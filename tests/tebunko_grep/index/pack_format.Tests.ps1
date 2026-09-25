@@ -43,7 +43,7 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
 Describe "getPackFileName / splitPackBooksByExtension" -Tag Unit {
     It "まとめファイルの名前に元のファイルの拡張子（小文字）を入れる" {
         getPackExtension "見積.XLSX" | Should Be "xlsx"
-        getPackFileName (getPackExtension "議事録.docx") | Should Be "本文.docx.tsv"
+        getPackFileName (getPackExtension "議事録.docx") | Should Be "content.docx.tsv"
     }
 
     It "元のファイルを拡張子ごとに分け、それぞれの中の順は変えない" {

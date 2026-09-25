@@ -75,18 +75,18 @@ Describe "まとめファイルの作成と検索" -Tag Io {
 
     It "フォルダごと・拡張子ごとにまとめファイルを作り、フォルダの順・名前の順に並べる" {
         $packs.Count | Should Be 3
-        $packs[0].RelPath | Should Be "営業\本文.docx.tsv"
-        $packs[1].RelPath | Should Be "営業\本文.xlsx.tsv"
-        $packs[2].RelPath | Should Be "営業\2025\本文.pptx.tsv"
+        $packs[0].RelPath | Should Be "営業\content.docx.tsv"
+        $packs[1].RelPath | Should Be "営業\content.xlsx.tsv"
+        $packs[2].RelPath | Should Be "営業\2025\content.pptx.tsv"
     }
 
     It "元のファイルが無くなった拡張子のまとめファイルは、変換し直すときに消す" {
         $dest = Join-Path $TestDrive "reconvert"
         [void][System.IO.Directory]::CreateDirectory($dest)
-        writePackFile "$dest\本文.pptx.tsv" (convertToPackText @(@{ Name = "古い.pptx"; Places = @(@{ Place = "スライド001"; Text = "古い" }) }))
+        writePackFile "$dest\content.pptx.tsv" (convertToPackText @(@{ Name = "古い.pptx"; Places = @(@{ Place = "スライド001"; Text = "古い" }) }))
         $result = convertIndexFolderToPack $idx $dest @("古い.pptx")
         $result.Files | Should Be 2
-        @([System.IO.Directory]::GetFiles($dest) | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object) -join "," | Should Be "本文.docx.tsv,本文.xlsx.tsv"
+        @([System.IO.Directory]::GetFiles($dest) | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Sort-Object) -join "," | Should Be "content.docx.tsv,content.xlsx.tsv"
     }
 
     It "まとめファイルは UTF-16LE（BOM 付き）で、一時ファイルを残さない" {
@@ -217,12 +217,12 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         $result.Tsv | Should Be 2
         @([System.IO.Directory]::GetDirectories($dir)).Count | Should Be 0
         $inPacks = getPackFiles (Join-Path $TestDrive "inplace")
-        @($inPacks | ForEach-Object { [System.IO.Path]::GetFileName($_.RelPath) }) -join "," | Should Be "本文.docx.tsv,本文.xlsx.tsv"
+        @($inPacks | ForEach-Object { [System.IO.Path]::GetFileName($_.RelPath) }) -join "," | Should Be "content.docx.tsv,content.xlsx.tsv"
         (toKeys (searchPackIndex "単価" $inPacks $true).Hits) -join "`n" | Should BeExactly ((
             "営業|C.docx|ページ001|1|C の単価", "営業|A.xlsx|S|1|A の単価", "営業|B.xlsx|S|1|B の新しい単価") -join "`n")
         # C が無くなったら外し、Word のまとめファイルを消す
         (updateIndexFolderPack $dir @("C.docx")).Books | Should Be 2
-        @([System.IO.Directory]::GetFiles($dir) | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should Be "本文.xlsx.tsv"
+        @([System.IO.Directory]::GetFiles($dir) | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should Be "content.xlsx.tsv"
     }
 
     It "TSV の残ったフォルダを見つけ、まとめファイルとシステムインデックスに書き出して TSV を消す" {
@@ -231,7 +231,7 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         newTsv "$index\人事\A.xlsx\$(toIndexFileName "S")" @("採用の計画")
         newTsv "$index\人事\2025\B.docx\$(toIndexFileName "ページ001")" @("評価の方針")
         # まとめファイルは、元のファイルごとのフォルダではない
-        writePackFile "$index\人事\2025\本文.xlsx.tsv" (convertToPackText @(@{ Name = "C.xlsx"; Places = @(@{ Place = "S"; Text = "既に入っている" }) }))
+        writePackFile "$index\人事\2025\content.xlsx.tsv" (convertToPackText @(@{ Name = "C.xlsx"; Places = @(@{ Place = "S"; Text = "既に入っている" }) }))
         $found = findIndexFoldersWithBooks $index
         @($found | ForEach-Object { $_.Substring($index.Length) }) -join "," | Should Be "\人事,\人事\2025"
         (findIndexFoldersWithBooks "$work\無い").Count | Should Be 0
@@ -241,8 +241,8 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         $state = "$work\システムインデックスの状態.tsv"
         publishIndexFolders $pending $index "$work\system_index" $state | Should Be 2
         (findIndexFoldersWithBooks $index).Count | Should Be 0
-        [System.IO.File]::Exists("$index\人事\本文.xlsx.tsv") | Should Be $true
-        [System.IO.File]::Exists("$index\人事\2025\本文.docx.tsv") | Should Be $true
+        [System.IO.File]::Exists("$index\人事\content.xlsx.tsv") | Should Be $true
+        [System.IO.File]::Exists("$index\人事\2025\content.docx.tsv") | Should Be $true
         $txt = "$work\system_index\人事\2025\${systemIndexFileName}"
         [System.IO.File]::Exists($txt) | Should Be $true
         (readSystemIndexState $state).Pending["人事\2025\${systemIndexFileName}"] | Should Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
@@ -253,7 +253,7 @@ Describe "まとめファイルの作成と検索" -Tag Io {
         $folder = "$index\営業"
         # 元のフォルダに「資料.xlsx」という名前のフォルダがあり、その中のまとめファイルがある
         [void][System.IO.Directory]::CreateDirectory("$folder\資料.xlsx")
-        writePackFile "$folder\資料.xlsx\本文.docx.tsv" (convertToPackText @(@{ Name = "中の文書.docx"; Places = @(@{ Place = "ページ001"; Text = "中の文書" }) }))
+        writePackFile "$folder\資料.xlsx\content.docx.tsv" (convertToPackText @(@{ Name = "中の文書.docx"; Places = @(@{ Place = "ページ001"; Text = "中の文書" }) }))
         # 取り込んだが中身が空のファイル（フォルダだけ残る）と、まとめる前の TSV
         [void][System.IO.Directory]::CreateDirectory("$folder\空.xlsx")
         newTsv "$folder\B.xlsx\$(toIndexFileName "S")" @("B の中身")
@@ -267,12 +267,12 @@ Describe "まとめファイルの作成と検索" -Tag Io {
 
         $result = updateIndexFolderPack $folder
         $result.Books | Should Be 1
-        [System.IO.File]::Exists("$folder\資料.xlsx\本文.docx.tsv") | Should Be $true
+        [System.IO.File]::Exists("$folder\資料.xlsx\content.docx.tsv") | Should Be $true
         [System.IO.Directory]::Exists("$folder\空.xlsx") | Should Be $true
         [System.IO.Directory]::Exists("$folder\B.xlsx") | Should Be $false
         (findIndexFoldersWithBooks $index).Count | Should Be 0
         # 本物のフォルダは、システムインデックスでも自分の txt を持つ（親の txt に入れない）
-        (getSystemIndexFolderTsvPaths $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should Be "本文.xlsx.tsv"
+        (getSystemIndexFolderTsvPaths $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join "," | Should Be "content.xlsx.tsv"
     }
 
     It "書き直すと中身が置き換わる" {
@@ -446,7 +446,7 @@ Describe "searchPackIndex（並列検索・読んだ内容の使い回し）" -T
         (searchPackIndex "更新後" $packs $true -cache $cache).Hits.Count | Should Be 0
         newTsv "$packRoot\sub0\book00.xlsx\S.tsv" @("更新後の内容")
         [void](updateIndexFolderPack "$packRoot\sub0")
-        (Get-Item -LiteralPath "$packRoot\sub0\本文.xlsx.tsv").LastWriteTime = (Get-Date).AddMinutes(1)
+        (Get-Item -LiteralPath "$packRoot\sub0\content.xlsx.tsv").LastWriteTime = (Get-Date).AddMinutes(1)
         (searchPackIndex "更新後" (getPackFiles $packRoot) $true -cache $cache).Hits.Count | Should Be 1
     }
 
@@ -474,7 +474,7 @@ Describe "getIndexPackFiles" -Tag Io {
         $result.Folders[0].Count | Should Be 2
         $result.Folders[1].Exists | Should Be $false
         $result.Packs.Count | Should Be 3
-        @($result.Packs | Where-Object { $_.RelPath -eq "sub\本文.xlsx.tsv" }).Count | Should Be 1
+        @($result.Packs | Where-Object { $_.RelPath -eq "sub\content.xlsx.tsv" }).Count | Should Be 1
     }
 
     It "入れ子のフォルダを指定しても同じまとめファイルを重複させない" {
@@ -489,7 +489,7 @@ Describe "getIndexPackFiles" -Tag Io {
         $result.Folders[0].Path | Should Be "$index\sub"
         $direct = getIndexPackFiles @(@{ Root = $index; RelPath = ""; Recurse = $false })
         $direct.Packs.Count | Should Be 1
-        $direct.Packs[0].RelPath | Should Be "本文.xlsx.tsv"
+        $direct.Packs[0].RelPath | Should Be "content.xlsx.tsv"
     }
 
     It "存在しないフォルダは Exists が false。数えた件数を知らせる" {
@@ -505,7 +505,7 @@ Describe "getIndexPackFiles" -Tag Io {
 Describe "readPackContext" -Tag Io {
     $folder = Join-Path $TestDrive "context"
     [void][System.IO.Directory]::CreateDirectory($folder)
-    $path = "$folder\本文.xlsx.tsv"
+    $path = "$folder\content.xlsx.tsv"
     writePackFile $path (convertToPackText @(
             @{ Name = "A.xlsx"; Places = @(@{ Place = "S"; Text = "1`r`n2`r`n3`r`n4`r`n5`r`n6`r`n" }, @{ Place = "T"; Text = "t1`r`n" }) },
             @{ Name = "B.xlsx"; Places = @(@{ Place = "S"; Text = "b1`r`nb2`r`n" }) }))

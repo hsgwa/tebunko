@@ -1,6 +1,6 @@
 ﻿# システムインデックス（system_index の txt）と、その状態ファイル（システムインデックスの状態.tsv）の読み書き（状態層）。
 # txt は index の中のフォルダ 1 つにつき 1 つ（分けたときは複数）で、index と同じ相対パスの system_index の中に置く。
-# 中身は、そのフォルダ直下のまとめファイル（本文.<拡張子>.tsv）と、インデックス作成の途中で残った、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
+# 中身は、そのフォルダ直下のまとめファイル（content.<拡張子>.tsv）と、インデックス作成の途中で残った、直下のブックのフォルダ（<ファイル名.xlsx>）の中の TSV から作る（search_gram.ps1）。
 # まとめファイルのメタ情報の行は除く（getPackContentText）。
 
 function getSystemIndexFolderTsvPaths {

@@ -1,4 +1,4 @@
-﻿# まとめファイル（本文.<拡張子>.tsv）の検索の速さを測る。結果には時間と件数だけを出す。
+﻿# まとめファイル（content.<拡張子>.tsv）の検索の速さを測る。結果には時間と件数だけを出す。
 #
 #   .\tools\measure_pack.ps1 -IndexRoot <index のフォルダ> -Folders poc\部署0,poc\部署1 -Words 見積
 #   -Folders   … 測るフォルダ（index からの相対パス。省略するとすべて）
