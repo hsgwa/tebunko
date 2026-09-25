@@ -1326,15 +1326,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#42-mark-of-the-web-の解除tebunko_grepbat" class="md-nav__link">
+  <a href="#42-mark-of-the-web-の解除tebunkobat" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4.2 Mark-of-the-Web の解除（tebunko_grep.bat）
+        4.2 Mark-of-the-Web の解除（tebunko.bat）
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko_grep.bat）">
+    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko.bat）">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1665,15 +1665,15 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#42-mark-of-the-web-の解除tebunko_grepbat" class="md-nav__link">
+  <a href="#42-mark-of-the-web-の解除tebunkobat" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4.2 Mark-of-the-Web の解除（tebunko_grep.bat）
+        4.2 Mark-of-the-Web の解除（tebunko.bat）
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko_grep.bat）">
+    <nav class="md-nav" aria-label="4.2 Mark-of-the-Web の解除（tebunko.bat）">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1873,7 +1873,7 @@
 <tbody>
 <tr>
 <td>構成物</td>
-<td>Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko_grep.bat</code>、アイコン <code>tebunko_grep.ico</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない</td>
+<td>Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko.bat</code>、アイコン <code>tebunko_grep.ico</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない</td>
 <td>配布 zip の中身は <code>tools/new_release_package.ps1</code> が決める</td>
 <td><a href="#51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1</a></td>
 </tr>
@@ -1923,7 +1923,7 @@
 <td>実行ポリシー</td>
 <td><code>Bypass</code> を使わず <code>RemoteSigned</code> で起動する。恒久的な変更（<code>Set-ExecutionPolicy</code>）をしない</td>
 <td><code>safety.Tests.ps1</code></td>
-<td><a href="#42-mark-of-the-web-の解除tebunko_grepbat">4.2</a></td>
+<td><a href="#42-mark-of-the-web-の解除tebunkobat">4.2</a></td>
 </tr>
 <tr>
 <td>取り込み対象のファイル</td>
@@ -2036,7 +2036,7 @@
 <td>8</td>
 <td>実行ポリシーの恒久変更・<code>Bypass</code></td>
 <td>該当 0 件</td>
-<td><code>scan 'Set-ExecutionPolicy','ExecutionPolicy\s+Bypass'</code> と <code>Select-String -Path .\tebunko_grep.bat -Pattern 'Bypass','Set-ExecutionPolicy'</code></td>
+<td><code>scan 'Set-ExecutionPolicy','ExecutionPolicy\s+Bypass'</code> と <code>Select-String -Path .\tebunko.bat -Pattern 'Bypass','Set-ExecutionPolicy'</code></td>
 </tr>
 <tr>
 <td>9</td>
@@ -2234,7 +2234,7 @@
 <p><strong>手順 A: ハッシュの比較</strong></p>
 <div class="highlight"><pre><span></span><code><span class="nv">$target</span> <span class="p">=</span> <span class="s2">"C:\確認用\対象フォルダ"</span>
 <span class="nv">$before</span> <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="o">-File</span> <span class="p">|</span> <span class="nb">Get-FileHash</span>
-<span class="c"># ここで tebunko_grep.bat を起動し、$target を対象にインデックスを作成する</span>
+<span class="c"># ここで tebunko.bat を起動し、$target を対象にインデックスを作成する</span>
 <span class="nv">$after</span>  <span class="p">=</span> <span class="nb">Get-ChildItem</span> <span class="nv">$target</span> <span class="n">-Recurse</span> <span class="o">-File</span> <span class="p">|</span> <span class="nb">Get-FileHash</span>
 <span class="nb">Compare-Object</span> <span class="nv">$before</span> <span class="nv">$after</span> <span class="n">-Property</span> <span class="n">Path</span><span class="p">,</span><span class="n">Hash</span>   <span class="c"># 何も出力されなければ、原本は 1 バイトも変わっていない</span>
 </code></pre></div>
@@ -2252,20 +2252,20 @@
 <li><strong>対象の限定</strong>: 対象は Excel（<code>EXCEL</code>）・Word（<code>WINWORD</code>）・PowerPoint（<code>POWERPNT</code>）のみ。他のプロセスは一覧に出ないため、選ぶことができない。</li>
 </ul>
 <p>詳細は <a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3_プロセス停止タブ.md</a> を参照。</p>
-<h3 id="42-mark-of-the-web-の解除tebunko_grepbat">4.2 Mark-of-the-Web の解除（<code>tebunko_grep.bat</code>）<a class="headerlink" href="#42-mark-of-the-web-の解除tebunko_grepbat" title="Permanent link">&para;</a></h3>
-<p><code>tebunko_grep.bat</code> は、画面を起動する前に、配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除し、そのあと画面を起動する。</p>
+<h3 id="42-mark-of-the-web-の解除tebunkobat">4.2 Mark-of-the-Web の解除（<code>tebunko.bat</code>）<a class="headerlink" href="#42-mark-of-the-web-の解除tebunkobat" title="Permanent link">&para;</a></h3>
+<p><code>tebunko.bat</code> は、画面を起動する前に、配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除し、そのあと画面を起動する。</p>
 <div class="highlight"><pre><span></span><code>powershell -NoProfile -Command <span class="s2">"Get-ChildItem -LiteralPath '</span><span class="nv">%~dp0</span><span class="s2">scripts' -Recurse -File | Unblock-File"</span> <span class="mi">1</span><span class="p">&gt;</span>nul <span class="mi">2</span><span class="p">&gt;</span>nul
 <span class="k">start</span> <span class="s2">""</span> conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File <span class="s2">"</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko_grep\gui.ps1"</span>
 </code></pre></div>
 <ul>
 <li><strong>理由</strong>: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー <code>RemoteSigned</code> では未署名スクリプトが実行できないため。</li>
-<li><strong>範囲</strong>: <code>%~dp0scripts</code>（<code>tebunko_grep.bat</code> があるフォルダの <code>scripts</code>）配下のみ。実行するスクリプトはすべてここにある。インデックス（<code>work</code>）には触らない。システム全体やユーザーのドキュメントには影響しない。画面（<code>gui.ps1</code>）も起動時に同じ <code>scripts</code> 配下に対して同じ解除を行う（ショートカットから直接起動したときのため）。</li>
+<li><strong>範囲</strong>: <code>%~dp0scripts</code>（<code>tebunko.bat</code> があるフォルダの <code>scripts</code>）配下のみ。実行するスクリプトはすべてここにある。インデックス（<code>work</code>）には触らない。システム全体やユーザーのドキュメントには影響しない。画面（<code>gui.ps1</code>）も起動時に同じ <code>scripts</code> 配下に対して同じ解除を行う（ショートカットから直接起動したときのため）。</li>
 <li><strong>実行ポリシー</strong>: <code>Bypass</code> は使わず <code>RemoteSigned</code> で起動する。恒久的な設定変更（<code>Set-ExecutionPolicy</code>）も行わない。<code>-ExecutionPolicy</code> はこのプロセスだけに効く。理由は次の「<code>RemoteSigned</code> で起動する理由」を参照。</li>
 <li><strong><code>conhost.exe</code> を通す理由</strong>: 既定のターミナルが Windows Terminal の場合でも <code>-WindowStyle Hidden</code> で PowerShell の窓を隠すため（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a>）。</li>
 <li><strong>恒久的な解消策</strong>: 配布物のカタログ（5.1）にコードサイニング証明書で署名すれば、この <code>Unblock-File</code> は不要になり、<code>AllSigned</code> でも動作する。</li>
 </ul>
 <h4 id="remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由<a class="headerlink" href="#remotesigned-で起動する理由" title="Permanent link">&para;</a></h4>
-<p>Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの既定が <code>Restricted</code> で、<code>.ps1</code> を 1 つも実行できない。本ツールはスクリプトでできているため、何らかの実行ポリシーを指定しないと起動できない。そこで、<code>tebunko_grep.bat</code> と画面（インデクサの起動）は、<code>powershell.exe</code> の <code>-ExecutionPolicy RemoteSigned</code> で<strong>そのプロセスだけ</strong>の実行ポリシーを指定する。</p>
+<p>Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの既定が <code>Restricted</code> で、<code>.ps1</code> を 1 つも実行できない。本ツールはスクリプトでできているため、何らかの実行ポリシーを指定しないと起動できない。そこで、<code>tebunko.bat</code> と画面（インデクサの起動）は、<code>powershell.exe</code> の <code>-ExecutionPolicy RemoteSigned</code> で<strong>そのプロセスだけ</strong>の実行ポリシーを指定する。</p>
 <ul>
 <li><strong>設定を変えない</strong>: <code>-ExecutionPolicy</code> の指定は、起動したプロセスとその子プロセスだけに効く。PC や利用者の実行ポリシーは書き換えず（<code>Set-ExecutionPolicy</code> を使わない）、管理者権限も要らない。本ツールを終えると元のとおりである。</li>
 <li><strong><code>RemoteSigned</code> を選ぶ理由</strong>: 署名の無い手元のスクリプトを実行できる実行ポリシーのうち、いちばん厳しいため。手元のスクリプトは実行し、インターネットから来た（Mark-of-the-Web が付いた）スクリプトは署名が無ければ止める。本ツールのスクリプトは、上の <code>Unblock-File</code> で自分のフォルダの <code>scripts</code> 配下だけ印を消して実行する。それ以外のダウンロードしたスクリプトは、本ツールのプロセスの中でも今までどおり止まる。</li>
@@ -2353,7 +2353,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>scripts/</code>・<code>tebunko_grep.bat</code></td>
+<td><code>scripts/</code>・<code>tebunko.bat</code></td>
 <td>ツール本体</td>
 </tr>
 <tr>
@@ -2366,8 +2366,8 @@
 </tr>
 </tbody>
 </table>
-<p><strong>カタログ（証明書は不要）</strong>: Windows PowerShell 5.1 標準の <code>New-FileCatalog</code> で、<code>scripts/</code> 配下すべてと <code>tebunko_grep.bat</code> の SHA256 を 1 つのカタログにまとめてある。受け取った側は、zip を展開したフォルダで次を実行すれば、配布時点から 1 バイトも変わっていないことを確かめられる。</p>
-<div class="highlight"><pre><span></span><code><span class="nb">Test-FileCatalog</span> <span class="n">-Path</span> <span class="p">.\</span><span class="n">scripts</span><span class="p">,</span> <span class="p">.\</span><span class="n">tebunko_grep</span><span class="p">.</span><span class="n">bat</span> <span class="n">-CatalogFilePath</span> <span class="p">.\</span><span class="n">tebunko</span><span class="p">.</span><span class="nb">cat </span><span class="n">-Detailed</span>
+<p><strong>カタログ（証明書は不要）</strong>: Windows PowerShell 5.1 標準の <code>New-FileCatalog</code> で、<code>scripts/</code> 配下すべてと <code>tebunko.bat</code> の SHA256 を 1 つのカタログにまとめてある。受け取った側は、zip を展開したフォルダで次を実行すれば、配布時点から 1 バイトも変わっていないことを確かめられる。</p>
+<div class="highlight"><pre><span></span><code><span class="nb">Test-FileCatalog</span> <span class="n">-Path</span> <span class="p">.\</span><span class="n">scripts</span><span class="p">,</span> <span class="p">.\</span><span class="n">tebunko</span><span class="p">.</span><span class="n">bat</span> <span class="n">-CatalogFilePath</span> <span class="p">.\</span><span class="n">tebunko</span><span class="p">.</span><span class="nb">cat </span><span class="n">-Detailed</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2379,7 +2379,7 @@
 <tbody>
 <tr>
 <td>対象ファイル数</td>
-<td>52（<code>scripts/</code> 配下すべてと <code>tebunko_grep.bat</code>）</td>
+<td>52（<code>scripts/</code> 配下すべてと <code>tebunko.bat</code>）</td>
 </tr>
 <tr>
 <td>検証結果</td>

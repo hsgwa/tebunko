@@ -1434,8 +1434,8 @@
 
 
 <h1 id="tebunko-設計書インデックス">tebunko 設計書（インデックス）<a class="headerlink" href="#tebunko-設計書インデックス" title="Permanent link">&para;</a></h1>
-<p>本設計書は <code>scripts/*.ps1</code> および起動用 <code>tebunko_grep.bat</code> の実装から仕様を書き起こしたものである。記載内容は<strong>現行実装の挙動</strong>を正とする。</p>
-<p>本ツールは画面（<code>tebunko_grep.bat</code>）から使う。インデックス作成・検索・プロセス停止はすべて画面から行い、コンソールでの操作（<code>.bat</code> の実行・設定ファイルの手編集・キー入力）は前提としない。</p>
+<p>本設計書は <code>scripts/*.ps1</code> および起動用 <code>tebunko.bat</code> の実装から仕様を書き起こしたものである。記載内容は<strong>現行実装の挙動</strong>を正とする。</p>
+<p>本ツールは画面（<code>tebunko.bat</code>）から使う。インデックス作成・検索・プロセス停止はすべて画面から行い、コンソールでの操作（<code>.bat</code> の実行・設定ファイルの手編集・キー入力）は前提としない。</p>
 <p>本書（インデックス）には全体構成と、複数のツールにまたがる共通事項をまとめる。ツールごとの仕様は下表の各設計書を参照。</p>
 <h2 id="ドキュメント構成">ドキュメント構成<a class="headerlink" href="#ドキュメント構成" title="Permanent link">&para;</a></h2>
 <table>
@@ -1540,7 +1540,7 @@
 </tr>
 <tr>
 <td><a href="03_%E7%94%BB%E9%9D%A2/">03_画面.md</a></td>
-<td><code>tebunko_grep.bat</code></td>
+<td><code>tebunko.bat</code></td>
 <td><code>tebunko_grep/gui.ps1</code> / <code>tebunko_grep/xaml/tebunko_grep.xaml</code></td>
 <td>インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI）</td>
 </tr>
@@ -1689,7 +1689,7 @@
 <pre class="mermaid"><code>flowchart LR
     user(["利用者"])
 
-    bat["tebunko_grep.bat"]
+    bat["tebunko.bat"]
 
     subgraph scripts["scripts/"]
         subgraph tool["tebunko_grep/（このツール固有）"]
@@ -1770,7 +1770,7 @@
 <h3 id="15-処理の流れ利用者視点">1.5 処理の流れ（利用者視点）<a class="headerlink" href="#15-処理の流れ利用者視点" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>sequenceDiagram
     actor U as 利用者
-    participant G as 画面（tebunko_grep.bat）
+    participant G as 画面（tebunko.bat）
     participant CV as インデクサ（tebunko_grep/indexer.ps1）
     participant W as work/index/
 
@@ -1813,7 +1813,7 @@
 </tr>
 <tr>
 <td>起動方法</td>
-<td><code>tebunko_grep.bat</code> をダブルクリック。<code>conhost.exe</code> を通して <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で画面を開く（<code>Bypass</code> は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、<code>tebunko_grep.bat</code> が起動前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が <code>Start-Process</code> で同じ実行ポリシー・<code>-WindowStyle Hidden</code> で起動する。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
+<td><code>tebunko.bat</code> をダブルクリック。<code>conhost.exe</code> を通して <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で画面を開く（<code>Bypass</code> は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、<code>tebunko.bat</code> が起動前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が <code>Start-Process</code> で同じ実行ポリシー・<code>-WindowStyle Hidden</code> で起動する。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
 </tr>
 <tr>
 <td>スクリプトの文字コード</td>

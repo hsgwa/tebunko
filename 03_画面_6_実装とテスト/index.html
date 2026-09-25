@@ -1406,7 +1406,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tebunko_grep.bat</code></td>
+<td><code>tebunko.bat</code></td>
 <td>起動用バッチ。<code>scripts</code> 配下の Mark-of-the-Web を消してから、<code>conhost.exe</code> を通して <code>powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File scripts\tebunko_grep\gui.ps1</code> を <code>start</code> で起動する（<code>conhost.exe</code> を通すのは、既定のターミナルが Windows Terminal でも窓を隠すため）。ASCII・CRLF で書き、説明コメントは英語にする（cmd はコードページ・改行に敏感なため）。詳細は <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
 </tr>
 <tr>
@@ -1850,8 +1850,8 @@
 <tr>
 <td>U1</td>
 <td>入口の名前</td>
-<td><code>0_設定.bat</code> / <code>tebunko_grep.bat</code> / <code>0_tebunko_grep.bat</code> など</td>
-<td><strong><code>tebunko_grep.bat</code></strong>。画面がすべての操作の入口で <code>.bat</code> もこれ 1 本だけのため、番号を付けず画面の表題（<code>tebunko_grep</code>）と同じ名前にする</td>
+<td><code>0_設定.bat</code> / <code>tebunko_grep.bat</code> / <code>tebunko.bat</code> など</td>
+<td><strong><code>tebunko.bat</code></strong>。画面がすべての操作の入口で <code>.bat</code> もこれ 1 本だけのため、番号を付けない。ツールが増えても入口は 1 つにするため、画面の表題（<code>tebunko_grep</code>）ではなくツール全体の名前（<code>tebunko</code>）にする</td>
 </tr>
 <tr>
 <td>U2</td>
