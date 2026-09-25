@@ -71,6 +71,21 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         Assert-MockCalled New-Object -Times 1 -Exactly -Scope It -ParameterFilter { $ComObject -eq "Excel.Application" }
     }
 
+    It "PID の入れ物があれば、自分で起動したアプリの PID とプロセス名を入れ、終了したら外す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
+        setProcesses @(100) @(100, 300)
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        try {
+            [void](getApp "Word")
+            $script:officePidSink[300] | Should Be "WINWORD"
+            stopApp "Word"
+            $script:officePidSink.Count | Should Be 0
+        } finally {
+            $script:officePidSink = $null
+        }
+    }
+
     It "自分で起動したアプリは、制限時間を過ぎたら強制終了してよいプロセスに入れる" {
         $fake = newFakeApp
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }

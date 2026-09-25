@@ -427,6 +427,21 @@ Describe "searchPackIndex（正規表現の照合の時間切れ）" -Tag Io {
         $regexTimeout = [timespan]::FromMilliseconds(1)
         { searchPackIndex "(a+)+$" $packs $false -workerCount 2 -taskBytes 1 } | Should Throw $message
     }
+
+    It "照合のスレッドのスクリプトは、時間切れを例外にせず Timeout で返す（このスレッドで直接動かす）" {
+        $regexTimeout = [timespan]::FromMilliseconds(1)
+        $search = newSearchRegex "(a+)+$" $false $false
+        $output = & ${packWorkerScript} $packs 0 $packs.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null
+        $output.Timeout | Should Be $true
+        $output.Hits | Should BeNullOrEmpty
+    }
+
+    It "照合のスレッドのスクリプトは、ヒットを Hits で返す" {
+        $search = newSearchRegex "a!" $true $false
+        $output = & ${packWorkerScript} $packs 0 $packs.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $null $null $null
+        $output.Timeout | Should Be $false
+        @($output.Hits).Count | Should Be 3
+    }
 }
 
 Describe "searchPackIndex（並列検索・読んだ内容の使い回し）" -Tag Io {
@@ -556,3 +571,4 @@ Describe "readPackContext" -Tag Io {
         formatContext (readPackContext $path "A.xlsx" "T" 1 0 0 $cache) | Should Be "1:c1"
     }
 }
+

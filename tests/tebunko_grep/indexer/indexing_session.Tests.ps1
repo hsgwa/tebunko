@@ -98,4 +98,41 @@ $Channel.ExitCode = 2
             $session.Close()
         }
     }
+
+    It "インデクサが止まらずにエラーだけを書いて終わったら、その内容を理由として返す" {
+        $fake = newFakeIndexer "writeerror" 'Write-Error "読み込めないファイルがありました"'
+        $session = newIndexingSession $fake (newIndexerChannel)
+        try {
+            [void]$session.Wait(30000)
+            $session.GetExitCode() | Should Be 1
+            $session.GetError() | Should Match "読み込めないファイルがありました"
+        } finally {
+            $session.Close()
+        }
+    }
+
+    It "Close で中止を求めても終わらなければ、スレッドを止めて片づける" {
+        # 中止の要求を見ないインデクサ（Office が応答しないまま、など）
+        $fake = newFakeIndexer "hang" 'Start-Sleep -Seconds 60'
+        $session = newIndexingSession $fake (newIndexerChannel)
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $session.Close()
+        $watch.Elapsed.TotalSeconds | Should BeLessThan 30
+        $session.IsRunning() | Should Be $false
+    }
+}
+
+Describe "インデクサの司令のスクリプト（indexingSessionScript）" -Tag Io {
+    It "スレッドの優先度を下げて、indexer.ps1 に受け渡しの口を渡して動かす" {
+        $fake = newFakeIndexer "direct" '$Channel.Seen = [string][System.Threading.Thread]::CurrentThread.Priority; $Channel.ExitCode = 0'
+        $channel = newIndexerChannel
+        $priority = [System.Threading.Thread]::CurrentThread.Priority
+        try {
+            & ${indexingSessionScript} $fake $channel
+        } finally {
+            [System.Threading.Thread]::CurrentThread.Priority = $priority
+        }
+        $channel.Seen | Should Be "BelowNormal"
+        $channel.ExitCode | Should Be 0
+    }
 }

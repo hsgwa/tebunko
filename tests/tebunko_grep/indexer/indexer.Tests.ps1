@@ -111,6 +111,24 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         readTestError | Should Match "クロール対象フォルダがありません"
     }
 
+    It "受け渡しの口を渡さなければ（コンソールから実行したとき）、自分で口を作って動かし、終了コードで終わる" {
+        $root = newRoot
+        writeTestSettings $root @()
+        $global:indexerTestRoot = $root
+        $point = Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
+            Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
+        }
+        try {
+            $global:LASTEXITCODE = 0
+            & $indexerPath *> $null
+            $LASTEXITCODE | Should Be 1
+        } finally {
+            Remove-PSBreakpoint -Breakpoint $point
+            Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
+        }
+        [System.IO.File]::ReadAllText("$root\work\インデックス作成ログ.txt") | Should Match "クロール対象フォルダがありません"
+    }
+
     It "チェックの付いたフォルダが無ければ、エラーを書いて 1 で終わる" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = (Join-Path $TestDrive "無し"); enabled = $false })
@@ -666,5 +684,47 @@ Describe "getIngestWorkerCount" -Tag Unit {
         getIngestWorkerCount -1 10 0 2 | Should Be 1
         getIngestWorkerCount -1 2 0 8 | Should Be 2
         getIngestWorkerCount 3 0 0 8 | Should Be 0
+    }
+}
+
+Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）" -Tag Io {
+    # 取り込みのスレッドで動くスクリプトを、このスレッドで直接動かして確かめる（スレッドの中の動きはブレークポイントで止められないため）
+    . $runPath
+
+    It "取り込み待ちの列のファイルを取り込んで結果の列に入れ、列が閉じられたら Office を片づけて終わる" {
+        $root = Join-Path $TestDrive "worker_direct"
+        foreach ($dir in "index", "tmp", "publish") {
+            [System.IO.Directory]::CreateDirectory("$root\$dir") | Out-Null
+        }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $tasks.Add(@{ RelPath = "営業\議事録.docx"; SourcePath = $docxSource })
+        $tasks.Add(@{ RelPath = "営業\無い.docx"; SourcePath = (Join-Path $TestDrive "無い.docx") })
+        $tasks.CompleteAdding()
+        $settings = @{
+            Lib = "${scriptsDir}\tebunko_grep\indexer\indexer_lib.ps1"
+            Paths = @{ indexDir = "$root\index"; workDir = $root; tmpDir = "$root\tmp"; publishDir = "$root\publish" }
+            FileTimeoutMinutes = 10; RestartInterval = 1
+            OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        }
+        $priority = [System.Threading.Thread]::CurrentThread.Priority
+        try {
+            & ${ingestWorkerScript} $settings $tasks $results 7
+        } finally {
+            [System.Threading.Thread]::CurrentThread.Priority = $priority
+        }
+
+        $results.Count | Should Be 2
+        $done = $results.Take()
+        $done.RelPath | Should Be "営業\議事録.docx"
+        $done.Ok | Should Be $true
+        $done.TsvCount | Should BeGreaterThan 0
+        # 取り込んだ TSV は、渡したインデックスのフォルダの、元のファイルごとのフォルダに置く
+        @([System.IO.Directory]::GetFiles("$root\index\営業\議事録.docx", "*.tsv")).Count | Should Be $done.TsvCount
+        # 一時フォルダはスレッドごとに分ける
+        [System.IO.Directory]::Exists("$root\tmp\w7") | Should Be $true
+        $failed = $results.Take()
+        $failed.Ok | Should Be $false
+        $failed.Message | Should Not BeNullOrEmpty
     }
 }

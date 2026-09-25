@@ -16,12 +16,13 @@ ${ingestWorkerScript} = {
     param ($settings, $tasks, $results, $number)
     $ErrorActionPreference = "Stop"
     . $settings.Lib
-    # 置き場所は司令のスレッドと同じにする（読み込み直すと設定から決め直してしまうため）。一時フォルダはスレッドごとに分ける
+    # 置き場所は司令のスレッドと同じにする（読み込み直すと設定から決め直してしまうため）。一時フォルダはスレッドごとに分ける。
+    # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
     foreach ($name in @($settings.Paths.Keys)) {
-        Set-Variable -Name $name -Value $settings.Paths[$name] -Scope Global
+        Set-Variable -Name $name -Value $settings.Paths[$name]
     }
-    Set-Variable -Name tmpDir -Value (Join-Path $settings.Paths.tmpDir "w$number") -Scope Global
-    Set-Variable -Name publishDir -Value (Join-Path $settings.Paths.publishDir "w$number") -Scope Global
+    Set-Variable -Name tmpDir -Value (Join-Path $settings.Paths.tmpDir "w$number")
+    Set-Variable -Name publishDir -Value (Join-Path $settings.Paths.publishDir "w$number")
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     [System.IO.Directory]::CreateDirectory($publishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids

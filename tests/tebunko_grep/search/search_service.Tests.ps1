@@ -102,6 +102,7 @@ Describe "SearchService" -Tag Io {
             (takeHits $second).Count | Should Be 1
             [object]::ReferenceEquals($thread, $service.PowerShell) | Should Be $true
             $service.IsRunning() | Should Be $true
+            $service.GetFailure() | Should Be ""
         } finally {
             $service.Close()
         }
@@ -142,6 +143,43 @@ Describe "SearchService" -Tag Io {
             $request = $service.Request((newSearchRequest "単価" $true @($packRoot) 0))
             waitRequest $request | Should Be $true
             (takeHits $request).Count | Should Be 3
+        } finally {
+            $service.Close()
+        }
+    }
+
+    It "スレッドの数を省くと、コア数から決める（getWorkerCount）" {
+        $service = newSearchService $libPath
+        try {
+            $service.Workers | Should Be (getWorkerCount)
+        } finally {
+            $service.Close()
+        }
+        $pool = newPackWorkerPool
+        try {
+            $pool.Size | Should Be (getWorkerCount)
+        } finally {
+            $pool.Close()
+        }
+    }
+
+    It "閉じるときに司令のスレッドが止まらなければ、スレッドを止めて片づける" {
+        # 要求の列を見ずに動き続ける司令のスクリプト（照合が長引いている、など）
+        $service = [SearchService]::new('param ($libPath, $requests, $cache, $workers) Start-Sleep -Seconds 60', $libPath, $null, 1, 200)
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $service.Close()
+        $watch.Elapsed.TotalSeconds | Should BeLessThan 30
+        $service.IsRunning() | Should Be $false
+    }
+
+    It "司令のスレッドが止めずにエラーだけを書いて終わったら、その内容を理由として返す" {
+        $service = [SearchService]::new('param ($libPath, $requests, $cache, $workers) Write-Error "司令のエラー"', $libPath, $null, 1, 5000)
+        try {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($service.IsRunning() -and $watch.Elapsed.TotalSeconds -lt 30) {
+                Start-Sleep -Milliseconds 20
+            }
+            $service.GetFailure() | Should Match "司令のエラー"
         } finally {
             $service.Close()
         }
@@ -195,5 +233,50 @@ Describe "読んだ内容の世代（searchPackIndex）" -Tag Io {
         [void](trimTsvTextCache $cache)
         [void](searchPackIndex "単価" $packs $true -cache $cache)
         $cache.Texts[$packs[0].Path][4] | Should Be 1
+    }
+}
+
+Describe "検索の司令のスクリプト（searchServiceScript）" -Tag Io {
+    # 司令のスレッドで動くスクリプトを、このスレッドで直接動かして確かめる
+    $tsvRoot = Join-Path $TestDrive "script_tsv"
+    newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105", "単価`t200")
+    newTsv "$tsvRoot\B社.xlsx\Sheet1.tsv" @("単価`t300")
+    $packRoot = Join-Path $TestDrive "script_pack"
+    [void](newPackIndex $tsvRoot $packRoot)
+
+    It "要求の列の要求を順に実行し、検索のたびに読んだ内容を整理する。列が閉じられたら終わる" {
+        $requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $first = newSearchRequest "単価" $true @($packRoot) 0
+        $second = newSearchRequest "300" $true @($packRoot) 0
+        $requests.Add($first)
+        $requests.Add($second)
+        $requests.CompleteAdding()
+        $cache = newTsvTextCache
+
+        & ${searchServiceScript} "${scriptsDir}\tebunko_grep\lib.ps1" $requests $cache 2
+
+        $first.Finished | Should Be $true
+        (takeHits $first).Count | Should Be 3
+        (takeHits $second).Count | Should Be 1
+        # 検索 1 回ごとに世代を進める（trimTsvTextCache）
+        $cache.Generation[0] | Should Be 2
+    }
+}
+
+Describe "invokeSearchRequest（高速検索）" -Tag Io {
+    $tsvRoot = Join-Path $TestDrive "fast_tsv"
+    newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105")
+    $packRoot = Join-Path $TestDrive "fast_pack"
+    $packs = newPackIndex $tsvRoot $packRoot
+
+    It "Windows Search が使えれば、候補の集約ファイルだけを照合する" {
+        Mock testWindowsSearch { $true }
+        Mock getFastSearchPackFiles { @{ Folders = @(); Packs = $packs } }
+        $request = newSearchRequest "単価" $true @($packRoot) 0 @{} $true
+        invokeSearchRequest $request
+        $request.FastAvailable | Should Be $true
+        $request.FastUsed | Should Be $true
+        (takeHits $request).Count | Should Be 1
+        Assert-MockCalled getFastSearchPackFiles -Times 1 -Exactly -Scope It
     }
 }
