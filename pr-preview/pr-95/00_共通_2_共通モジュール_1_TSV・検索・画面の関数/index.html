@@ -1591,11 +1591,11 @@
 <td>convertToPackText, convertPlaceToPackMeta</td>
 </tr>
 <tr>
-<td><code>getPackExtension</code> / <code>getPackFileName</code></td>
-<td>book / extension</td>
-<td>string</td>
-<td>まとめファイルを分ける拡張子（小文字・<code>.</code> なし） / まとめファイルの名前（<code>content.&lt;拡張子&gt;.tsv</code>）</td>
-<td>convertIndexFolderToPack, testIndexComplete</td>
+<td><code>getPackExtension</code> / <code>getPackFileName</code> / <code>readPackFileName</code></td>
+<td>book / extension, part / name</td>
+<td>string / <code>@{Extension; Part}</code></td>
+<td>まとめファイルを分ける拡張子（小文字・<code>.</code> なし） / まとめファイルの名前（<code>content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>） / 名前から拡張子と番号を取り出す</td>
+<td>convertIndexFolderToPack, getIndexTsvCounts</td>
 </tr>
 <tr>
 <td><code>splitPackBooksByExtension</code></td>

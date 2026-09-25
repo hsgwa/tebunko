@@ -1600,11 +1600,11 @@
 <h2 id="6-出力-tsv-の仕様">6. 出力 TSV の仕様<a class="headerlink" href="#6-出力-tsv-の仕様" title="Permanent link">&para;</a></h2>
 <h3 id="61-配置命名規則">6.1 配置・命名規則<a class="headerlink" href="#61-配置命名規則" title="Permanent link">&para;</a></h3>
 <p>インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの<strong>まとめファイル</strong>にする。検索はまとめファイルだけを読む（<a href="../02_%E6%A4%9C%E7%B4%A2/#43-検索の実装速度">02_検索.md</a> 4.3）。</p>
-<div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子（小文字）&gt;.tsv                        … まとめファイル（検索に使う）
+<div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子（小文字）&gt;.&lt;番号&gt;.tsv                        … まとめファイル（検索に使う）
 work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名（拡張子あり）&gt;/&lt;encodeIndexPlace(場所)&gt;.tsv … 取り込み中だけの TSV
 </code></pre></div>
 <ul>
-<li><strong>まとめファイル</strong>（<code>content.xlsx.tsv</code> <code>content.docx.tsv</code> など）には、そのフォルダ<strong>直下</strong>にある、その拡張子の元のファイルすべての中身を入れる。サブフォルダのファイルは、サブフォルダのまとめファイルに入る。形式は下の「まとめファイルの形式」。</li>
+<li><strong>まとめファイル</strong>（<code>content.xlsx.001.tsv</code> <code>content.docx.001.tsv</code> など）には、そのフォルダ<strong>直下</strong>にある、その拡張子の元のファイルすべての中身を入れる。サブフォルダのファイルは、サブフォルダのまとめファイルに入る。形式は下の「まとめファイルの形式」。</li>
 <li><strong>TSV</strong>（元のファイル 1 つ・場所 1 つにつき 1 つ）は、取り込んでからまとめファイルに入れるまでの<strong>一時的な置き場所</strong>。フォルダの取り込みが終わるとまとめファイルに入れ、TSV のフォルダは消す（下の「まとめファイルへの書き出し」。残すとインデックスの容量が倍になるため）。インデックス作成が途中で止まったときだけ残り、次のインデックス作成の始めにまとめファイルへ入れる。</li>
 </ul>
 <p>TSV は<strong>元のファイル名をフォルダ名</strong>にし、その中に場所ごとの TSV を置く。クロール対象フォルダが <code>C:\data\営業</code>（インデックス名 <code>営業</code>）の場合:</p>
@@ -1622,37 +1622,37 @@ work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファ�
 <td><code>2024/見積/A社.xlsx</code></td>
 <td>シート <code>明細</code></td>
 <td><code>work/index/営業/2024/見積/A社.xlsx/明細.tsv</code></td>
-<td><code>work/index/営業/2024/見積/content.xlsx.tsv</code></td>
+<td><code>work/index/営業/2024/見積/content.xlsx.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>売上.xls</code></td>
 <td>シート <code>2024_上期</code></td>
 <td><code>work/index/営業/売上.xls/2024%5F上期.tsv</code></td>
-<td><code>work/index/営業/content.xls.tsv</code></td>
+<td><code>work/index/営業/content.xls.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>[確定]見積.xlsx</code></td>
 <td>シート <code>記号&lt;&gt;</code></td>
 <td><code>work/index/営業/[確定]見積.xlsx/記号%3C%3E.tsv</code></td>
-<td><code>work/index/営業/content.xlsx.tsv</code></td>
+<td><code>work/index/営業/content.xlsx.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>コピー.xls_old.xlsx</code></td>
 <td>シート <code>Sheet1</code></td>
 <td><code>work/index/営業/コピー.xls_old.xlsx/Sheet1.tsv</code></td>
-<td><code>work/index/営業/content.xlsx.tsv</code></td>
+<td><code>work/index/営業/content.xlsx.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>報告書.DOCX</code></td>
 <td><code>ページ001</code></td>
 <td><code>work/index/営業/報告書.DOCX/ページ001.tsv</code></td>
-<td><code>work/index/営業/content.docx.tsv</code></td>
+<td><code>work/index/営業/content.docx.001.tsv</code></td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>クロール対象フォルダのフォルダ構成が <code>work/index/&lt;インデックス名&gt;/</code> 配下にそのまま再現され、各フォルダに<strong>拡張子ごとのまとめファイル</strong>ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。</li>
-<li>まとめファイルの名前には <code>_</code> を使わない（以前の形式 <code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> と見分けるため。下の「以前の形式（フラット）からの移行」）。拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content.docx.tsv</code> に入る）。</li>
+<li>まとめファイルの名前には <code>_</code> を使わない（以前の形式 <code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> と見分けるため。下の「以前の形式（フラット）からの移行」）。拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content.docx.001.tsv</code> に入る）。</li>
 <li>「場所」は Excel ではシート名と、図形・コメントの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code>（下の「図形・コメントの場所」、6.7 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_インデックス作成_1_Excel.md</a>）、Word ではページ・ヘッダー/フッター・脚注（6.5 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/#65-word-のテキスト読み取りと-tsv-の場所readdocxunits">01_インデックス作成_2_Word.md</a>）、PowerPoint ではスライド・ノート（6.6 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#66-powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">01_インデックス作成_3_PowerPoint.md</a>）。</li>
 <li>TSV のファイル名は場所だけ（<code>toIndexFileName</code>）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。</li>
 <li><strong>TSV でファイル名をフォルダ名にする理由</strong>（<code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> のように 1 つの名前にしない理由）:</li>
@@ -1709,7 +1709,11 @@ B2→確定版
 </tr>
 <tr>
 <td>名前</td>
-<td><code>content.&lt;元のファイルの拡張子（小文字）&gt;.tsv</code>（<code>getPackFileName</code>）。元のファイルが無くなった拡張子のまとめファイルは消す</td>
+<td><code>content.&lt;元のファイルの拡張子（小文字）&gt;.&lt;番号（3 桁）&gt;.tsv</code>（<code>getPackFileName</code>。例 <code>content.xlsx.001.tsv</code>）。分けていないときも <code>001</code> を付ける</td>
+</tr>
+<tr>
+<td>分け方</td>
+<td>1 つのまとめファイルが 4MB（<code>$packFileMaxBytes</code>）以上になったら、それ以上元のファイルを足さず、次の番号のまとめファイルに足す（<code>planPackParts</code>）。更新した元のファイルは今入っているまとめファイルの中で入れ替え、無くなった元のファイルは外す。変わらないまとめファイルは書き直さない。元のファイルが無くなったまとめファイルは消す（番号は詰めない）。1 つの元のファイルは 2 つのまとめファイルにまたがらない</td>
 </tr>
 </tbody>
 </table>
@@ -1993,7 +1997,7 @@ B2→確定版
 </blockquote>
 <h3 id="68-システムインデックスsystem_index">6.8 システムインデックス（system_index）<a class="headerlink" href="#68-システムインデックスsystem_index" title="Permanent link">&para;</a></h3>
 <p>高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）のため、インデックス作成はまとめファイルとは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko_grep/index/system_index.ps1</code>。語の決まりは <code>tebunko_grep/search/search_gram.ps1</code>）。</p>
-<div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.tsv              … まとめファイル（6.1）
+<div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … まとめファイル（6.1）
 work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/システムインデックス.txt … システムインデックス
 work/システムインデックスの状態.tsv                                         … その状態
 </code></pre></div>
