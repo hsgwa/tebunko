@@ -3,7 +3,7 @@
 #   .\tools\new_release_package.ps1 -Version v1.0.0     work\release\tebunko_grep-v1.0.0.zip を作る
 #
 # zip の中身（展開すると tebunko_grep\ フォルダになる）:
-#   scripts\ tebunko_grep.bat                         ツール本体
+#   scripts\ tebunko.bat                              ツール本体
 #   LICENSE README.md SECURITY.md SECURITY.ja.md sbom.cdx.json
 #                                                     ライセンス・説明・脆弱性の連絡先（英語・日本語。元は .github\ の同じ名前のファイル）・部品表
 #   tebunko.cat SHA256SUMS.txt                        改ざんの確認用（tools\new_release_files.ps1 が作る）
@@ -35,7 +35,7 @@ $entries = [ordered]@{}
 foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -Recurse -File | Sort-Object FullName)) {
     $entries[$file.FullName.Substring($rootDir.Length + 1)] = $file.FullName
 }
-foreach ($name in @("tebunko_grep.bat", "LICENSE", "README.md", "sbom.cdx.json")) {
+foreach ($name in @("tebunko.bat", "LICENSE", "README.md", "sbom.cdx.json")) {
     $entries[$name] = Join-Path $rootDir $name
 }
 # リポジトリでは .github\ に置いているが、zip では直下に置く
