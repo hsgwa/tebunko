@@ -10,7 +10,7 @@
 # 配布する zip に 2 つとも同梱する。受け取った側は次のコマンドで、配布時点から
 # 1 バイトも変わっていないことを自分で確認できる（証明書は要らない）。
 #
-#   Test-FileCatalog -Path .\scripts, .\tebunko_grep.bat -CatalogFilePath .\tebunko.cat -Detailed
+#   Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath .\tebunko.cat -Detailed
 #
 # Status が Valid なら改ざんなし。ValidationFailed なら、どのファイルが違うかが表示される。
 # コードサイニング証明書がある場合は、カタログに署名すると発行者の保証も付く。
@@ -30,7 +30,7 @@ if (!$OutDir) {
 # 配布物のうち、内容が固定されているもの（work・setting.config は利用者ごとに変わるため含めない）
 $targets = @(
     (Join-Path $rootDir "scripts"),
-    (Join-Path $rootDir "tebunko_grep.bat")
+    (Join-Path $rootDir "tebunko.bat")
 )
 
 $catalogPath = Join-Path $OutDir "tebunko.cat"
@@ -53,7 +53,7 @@ foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -R
     $relative = $file.FullName.Substring($rootDir.Length + 1)
     $lines.Add("$((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash)  $relative")
 }
-foreach ($name in @("tebunko_grep.bat", "sbom.cdx.json", "LICENSE")) {
+foreach ($name in @("tebunko.bat", "sbom.cdx.json", "LICENSE")) {
     $path = Join-Path $rootDir $name
     if (Test-Path -LiteralPath $path) {
         $lines.Add("$((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash)  $name")
