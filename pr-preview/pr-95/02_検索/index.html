@@ -1662,7 +1662,7 @@
 </tr>
 <tr>
 <td>入力</td>
-<td><code>work/index/**/本文.*.tsv</code></td>
+<td><code>work/index/**/content.*.tsv</code></td>
 <td>インデックス作成で書き出したまとめファイル（フォルダ・元のファイルの拡張子ごとに 1 つ）</td>
 </tr>
 <tr>
@@ -1696,7 +1696,7 @@
 <hr />
 <h2 id="4-検索処理">4. 検索処理<a class="headerlink" href="#4-検索処理" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
-    S(["画面で検索を実行"]) --&gt; C["getIndexPackFiles&lt;br&gt;各インデックスフォルダ配下の 本文.*.tsv を列挙&lt;br&gt;（存在しないフォルダは Exists = False）"]
+    S(["画面で検索を実行"]) --&gt; C["getIndexPackFiles&lt;br&gt;各インデックスフォルダ配下の content.*.tsv を列挙&lt;br&gt;（存在しないフォルダは Exists = False）"]
     C --&gt; D{"まとめファイルが 1 件以上ある？"}
     D -- いいえ --&gt; E1["画面に案内を表示&lt;br&gt;（インデックス作成を促す）"]
     D -- はい --&gt; M["newSearchRegex&lt;br&gt;検索条件（文字どおり／正規表現・大文字と小文字の区別）&lt;br&gt;から照合用の正規表現を作る"]
@@ -1720,7 +1720,7 @@
 <tbody>
 <tr>
 <td>検索対象</td>
-<td>各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダのまとめファイル <code>本文.*.tsv</code>（3 章）。フォルダの順、フォルダの中はまとめファイルの名前（拡張子）の順、まとめファイルの中は元のファイル名の順に検索する</td>
+<td>各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダのまとめファイル <code>content.*.tsv</code>（3 章）。フォルダの順、フォルダの中はまとめファイルの名前（拡張子）の順、まとめファイルの中は元のファイル名の順に検索する</td>
 </tr>
 <tr>
 <td>対象ファイル</td>
@@ -1858,7 +1858,7 @@
 </tr>
 <tr>
 <td>列挙</td>
-<td>まとめファイルの列挙（<code>getIndexPackFiles</code> → <code>getPackFiles</code>）は、.NET（<code>DirectoryInfo.GetFiles</code>）で <code>本文.*.tsv</code> を 1 回で集め、更新日時・サイズも列挙のときに得る</td>
+<td>まとめファイルの列挙（<code>getIndexPackFiles</code> → <code>getPackFiles</code>）は、.NET（<code>DirectoryInfo.GetFiles</code>）で <code>content.*.tsv</code> を 1 回で集め、更新日時・サイズも列挙のときに得る</td>
 </tr>
 <tr>
 <td>読んだ内容の使い回し</td>
