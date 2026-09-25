@@ -49,16 +49,56 @@ function newTsvTextCache {
     # 検索で読んだ集約ファイルの内容を、次の検索で使い回すための入れ物を作る（画面が 1 つ持ち、検索のたびに searchPackIndex に渡す）。
     # 2 回目以降の検索ではファイルを開かない。更新日時・サイズが列挙したときと違う集約ファイル（書き直した等）は読み直す。
     # 並列検索の各スレッドから使うため、中身は ConcurrentDictionary。
-    #   Texts: 集約ファイルの \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容, 場所の一覧) / Chars: 残している文字数 / MaxChars: 上限
+    #   Texts: 集約ファイルの \\?\ 付きのパス → @(更新日時（UTC の Ticks）, サイズ, 内容, 場所の一覧, 最後に使った世代) / Chars: 残している文字数 / MaxChars: 上限
+    #   Generation: 今の世代（検索 1 回ごとに trimTsvTextCache が 1 つ進める）
     param (
         [long]$maxChars = ${searchCacheMaxChars}
     )
 
     return @{
-        Texts    = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-        Chars    = [long[]]::new(1)
-        MaxChars = $maxChars
+        Texts      = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+        Chars      = [long[]]::new(1)
+        MaxChars   = $maxChars
+        Generation = [long[]]::new(1)
     }
+}
+
+# 検索の後、キャッシュがこの割合を超えていたら、空きを作る（次の検索で新しく読んだものが入るように）
+${searchCacheKeepRatio} = 0.9
+
+function trimTsvTextCache {
+    # 検索 1 回の後に呼ぶ（検索の司令のスレッド）。上限の keepRatio を超えていたら、今の世代で使わなかったものを、
+    # 古い世代から追い出す（消した集約ファイル・検索しなくなったフォルダの分）。今の世代で使ったものは残す
+    # （毎回同じ集約ファイルを順に読むため、使った順だけで追い出すと、上限より大きいインデックスでは何も残らない）。
+    # 最後に世代を 1 つ進める。追い出した数を返す
+    param (
+        $cache,
+        [double]$keepRatio = ${searchCacheKeepRatio}
+    )
+
+    $removed = 0
+    [System.Threading.Monitor]::Enter($cache)
+    try {
+        $current = $cache.Generation[0]
+        $limit = [long]($cache.MaxChars * $keepRatio)
+        if ($cache.Chars[0] -gt $limit) {
+            $old = @($cache.Texts.GetEnumerator() | Where-Object { $_.Value[4] -lt $current } | Sort-Object { $_.Value[4] })
+            foreach ($item in $old) {
+                if ($cache.Chars[0] -le $limit) {
+                    break
+                }
+                $entry = $null
+                if ($cache.Texts.TryRemove($item.Key, [ref]$entry)) {
+                    $cache.Chars[0] -= $entry[2].Length
+                    $removed++
+                }
+            }
+        }
+        $cache.Generation[0] = $current + 1
+    } finally {
+        [System.Threading.Monitor]::Exit($cache)
+    }
+    return $removed
 }
 
 function newSearchRequest {

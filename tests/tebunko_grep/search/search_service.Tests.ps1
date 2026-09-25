@@ -147,3 +147,53 @@ Describe "SearchService" -Tag Io {
         }
     }
 }
+
+Describe "trimTsvTextCache" -Tag Unit {
+    function addEntry($cache, [string]$path, [int]$chars, [long]$generation) {
+        $cache.Texts[$path] = [object[]]@(0L, 0L, ("x" * $chars), @(), $generation)
+        $cache.Chars[0] += $chars
+    }
+
+    It "上限の 9 割以下なら何も追い出さず、世代だけ進める" {
+        $cache = newTsvTextCache 100
+        addEntry $cache "a" 50 0
+        trimTsvTextCache $cache | Should Be 0
+        $cache.Texts.Count | Should Be 1
+        $cache.Generation[0] | Should Be 1
+    }
+
+    It "超えていたら、今の世代で使わなかったものを古い世代から追い出す" {
+        $cache = newTsvTextCache 100
+        $cache.Generation[0] = 3
+        addEntry $cache "old1" 30 1
+        addEntry $cache "old2" 30 2
+        addEntry $cache "now" 35 3
+        trimTsvTextCache $cache | Should Be 1
+        @($cache.Texts.Keys | Sort-Object) -join "," | Should Be "now,old2"
+        $cache.Chars[0] | Should Be 65
+        $cache.Generation[0] | Should Be 4
+    }
+
+    It "今の世代で使ったものは、上限を超えていても残す" {
+        $cache = newTsvTextCache 100
+        addEntry $cache "now1" 60 0
+        addEntry $cache "now2" 40 0
+        trimTsvTextCache $cache | Should Be 0
+        $cache.Texts.Count | Should Be 2
+    }
+}
+
+Describe "読んだ内容の世代（searchPackIndex）" -Tag Io {
+    $tsvRoot = Join-Path $TestDrive "generation_tsv"
+    newTsv "$tsvRoot\A社.xlsx\Sheet1.tsv" @("単価`t105")
+    $packs = newPackIndex $tsvRoot (Join-Path $TestDrive "generation_pack")
+
+    It "入れたとき・使ったときの世代を残す" {
+        $cache = newTsvTextCache
+        [void](searchPackIndex "単価" $packs $true -cache $cache)
+        $cache.Texts[$packs[0].Path][4] | Should Be 0
+        [void](trimTsvTextCache $cache)
+        [void](searchPackIndex "単価" $packs $true -cache $cache)
+        $cache.Texts[$packs[0].Path][4] | Should Be 1
+    }
+}

@@ -16,6 +16,9 @@ ${searchServiceScript} = {
     try {
         foreach ($request in $requests.GetConsumingEnumerable()) {
             invokeSearchRequest $request $pool $cache
+            if ($cache) {
+                [void](trimTsvTextCache $cache)
+            }
         }
     } finally {
         if ($pool) {

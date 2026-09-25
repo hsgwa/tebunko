@@ -40,6 +40,8 @@ function searchPackFiles {
                 $text = $entry[2]
                 $places = $entry[3]
                 $cached = $true
+                # この検索で使ったことを残す（trimTsvTextCache は、使われていない古いものから追い出す）
+                $entry[4] = $cache.Generation[0]
             }
         }
         if ($null -eq $text) {
@@ -75,7 +77,7 @@ function searchPackFiles {
                     $cache.Chars[0] -= $old[2].Length
                 }
                 if ($cache.Chars[0] + $text.Length -le $cache.MaxChars) {
-                    $cache.Texts[$pack.Path] = [object[]]@($pack.Ticks, $pack.Size, $text, $places)
+                    $cache.Texts[$pack.Path] = [object[]]@($pack.Ticks, $pack.Size, $text, $places, $cache.Generation[0])
                     $cache.Chars[0] += $text.Length
                 }
             } finally {

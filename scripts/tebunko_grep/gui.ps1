@@ -19,6 +19,10 @@ try {
 
 $ErrorActionPreference = "Stop"
 
+# 検索・画面の裏の仕事も同じプロセスのスレッドで動くため、画面を止める重い GC（全体の GC）をなるべく後回しにする
+# （docs/00_共通_4_プロセスとスレッド.md 7.7）
+[System.Runtime.GCSettings]::LatencyMode = [System.Runtime.GCLatencyMode]::SustainedLowLatency
+
 ${appTitle}    = "tebunko_grep"
 ${searchLimit} = 10000
 # 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
