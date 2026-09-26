@@ -158,7 +158,7 @@ function moveSearchExcludes {
 
     $fromIndex = [Workspace]::new($from.TrimEnd("\")).IndexDir
     $toIndex = [Workspace]::new($to.TrimEnd("\")).IndexDir
-    return invokeSettingsLocked $path {
+    return invokeSettingsLocked -path $path -action {
         $count = 0
         $excludes = @(readSearchExcludes $path | ForEach-Object {
             $folder = $_.Path

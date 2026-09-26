@@ -370,7 +370,7 @@ Describe "writeSettings の書き込み（一時ファイルから置き換え�
     }
 }
 
-Describe "設定の同時の書き込み" -Tag Io, Slow {
+Describe "設定の同時の書き込み" -Tag Io {
     It "2 つのランスペースが別々のキーを交互に 50 回ずつ書いても、両方の値が残る" {
         $path = "$TestDrive\同時\setting.config"
         writeSettings (newSettings) $path
@@ -434,5 +434,33 @@ Describe "mergeAssignedIndexNames / saveAssignedIndexNames" -Tag Io {
         $after[0].Name | Should -Be $assigned[0].Name
         $after[1].Path | Should -Be "C:\総務"
         $after[1].Enabled | Should -Be $false
+    }
+}
+
+Describe "saveAssignedIndexNames の返す一覧" -Tag Io {
+    It "保存した名前を返す。同じ名前をほかの項目が使っていれば付けず、画面が先に付けた名前はそのまま返す" {
+        $path = "$TestDrive\競合\setting.config"
+        writeTargetFolders @(
+            [pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }
+            [pscustomobject]@{ Name = "営業"; Path = "C:\経理"; Enabled = $true }
+            [pscustomobject]@{ Name = "画面"; Path = "C:\総務"; Enabled = $true }
+        ) $path
+        $assigned = @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\営業"; Enabled = $true }
+            [pscustomobject]@{ Name = "インデクサ"; Path = "C:\総務"; Enabled = $true }
+        )
+        $saved = @(saveAssignedIndexNames $assigned $path)
+        $saved.Count | Should -Be 3
+        $saved[0].Name | Should -Be ""           # 同じ名前を経理が使っている
+        $saved[2].Name | Should -Be "画面"       # 画面が先に付けた名前
+        (@(getTargetFolders $path) | ForEach-Object { $_.Name }) -join "," | Should -Be ",営業,画面"
+    }
+
+    It "名前が付けば、その名前を返す" {
+        $path = "$TestDrive\返す\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }) $path
+        $saved = @(saveAssignedIndexNames @([pscustomobject]@{ Name = "営業"; Path = "C:\営業"; Enabled = $true }) $path)
+        $saved.Count | Should -Be 1
+        $saved[0].Name | Should -Be "営業"
     }
 }

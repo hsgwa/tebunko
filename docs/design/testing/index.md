@@ -55,9 +55,10 @@ flowchart LR
 | `toLongPath` / `fromLongPath`・長いパス | `\\?\`・`\\?\UNC\` の付け外し、260 文字を超えるパスの読み書き |
 | `copyFileShared` | ほかのアプリが書き込み用に開いているファイルもコピーでき、コピー中もほかのアプリの書き込みを妨げない |
 | `readListFile` / `writeListFile` | `[` `]`・先頭の空白を含むパスの往復、ファイル無しは空配列、読めないファイルは例外、行が無ければ空のファイル |
-| `writeTextLinesAtomic` | 新しいファイルを作り、一時ファイルを残さない |
+| `writeTextLinesAtomic` | 新しいファイルを作り、一時ファイルを残さない。既定は BOM 付き UTF-8、文字コードの引数で BOM なし UTF-8 にできる |
 | `formatFileTime` | 秒までの日時（`yyyy/MM/dd HH:mm:ss`） |
 | `removeDirectoryRetry` | 中身ごと削除、フォルダが無ければ何もしない |
+| `invokeWithNamedMutex` | 出力を返し手放す、例外でも手放す、同じスレッドの入れ子は通す、別のスレッドが持ったままなら時間切れの例外、持ったまま終わったスレッドの後は abandoned として続ける |
 | `newAppMutex` | 同じ処理・同じ配置フォルダでは 2 つ目を取得できない、処理の種類・配置フォルダが違えば同時に取得できる |
 | `replaceCellNewLine` | `"` 内の改行（LF・CR・CRLF）は U+2028 に置き換え、`"` 外の改行は保持 |
 | `formatTsv` | 行末の空セル・末尾の空行の除去（途中の空行は保持）、セル内改行を含む行を 1 行にまとめる、使用範囲の左上に合わせた先頭の空行・空セルの補完、空白だけなら空 |

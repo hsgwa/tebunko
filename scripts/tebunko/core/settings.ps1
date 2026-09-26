@@ -123,7 +123,7 @@ function updateSettings {
         [string]$path = ${settingsFile}
     )
 
-    invokeSettingsLocked $path {
+    invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
         $settings[$key] = $value
         writeSettings $settings $path
@@ -206,15 +206,18 @@ function mergeAssignedIndexNames {
 }
 
 function saveAssignedIndexNames {
-    # 割り当てたインデックス名（assigned。assignIndexNames の結果）を設定に保存する。
-    # 設定を読み直し（ほかの画面・インデクサの変更を保つ）、mergeAssignedIndexNames で名前だけを足して書く（読む → 書くを排他の中で行う）
+    # 割り当てたインデックス名（assigned。assignIndexNames の結果）を設定に保存し、保存した一覧（@{ Name; Path; Enabled }）を返す。
+    # 設定を読み直し（ほかの画面・インデクサの変更を保つ）、mergeAssignedIndexNames で名前だけを足して書く（読む → 書くを排他の中で行う）。
+    # 名前を付けられなかった項目（同じ名前をほかの項目が使っている・ほかが先に名前を付けた）は、返す一覧でも設定のとおり（空か、先に付いた名前）
     param (
         [object[]]$assigned,
         [string]$path = ${settingsFile}
     )
 
-    invokeSettingsLocked $path {
-        writeTargetFolders (mergeAssignedIndexNames @(getTargetFolders $path) $assigned) $path
+    return invokeSettingsLocked -path $path -action {
+        $merged = @(mergeAssignedIndexNames @(getTargetFolders $path) $assigned)
+        writeTargetFolders $merged $path
+        return $merged
     }
 }
 
@@ -265,7 +268,7 @@ function setIndexSourceFolder {
         return
     }
 
-    invokeSettingsLocked $path {
+    invokeSettingsLocked -path $path -action {
         $targets = @(getTargetFolders $path)
         if (@($targets | Where-Object { $_.Name -eq $name }).Count -gt 0) {
             writeTargetFolders @($targets | ForEach-Object {
@@ -339,7 +342,7 @@ function writeSearchOption {
         [string]$path = ${settingsFile}
     )
 
-    invokeSettingsLocked $path {
+    invokeSettingsLocked -path $path -action {
         $settings = readSettings $path
         foreach ($name in ${searchOptionKeys}.Keys) {
             if ($option.ContainsKey($name)) {
