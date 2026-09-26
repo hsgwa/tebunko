@@ -1267,10 +1267,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#23-外部プロセスの起動4-か所" class="md-nav__link">
+  <a href="#23-外部プロセスの起動3-か所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 外部プロセスの起動（4 か所）
+        2.3 外部プロセスの起動（3 か所）
       
     </span>
   </a>
@@ -1617,10 +1617,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#23-外部プロセスの起動4-か所" class="md-nav__link">
+  <a href="#23-外部プロセスの起動3-か所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 外部プロセスの起動（4 か所）
+        2.3 外部プロセスの起動（3 か所）
       
     </span>
   </a>
@@ -2105,7 +2105,7 @@
 <tr>
 <td>11</td>
 <td>外部プロセスの起動</td>
-<td>4 か所のみ（2.3）</td>
+<td>3 か所のみ（2.3）</td>
 <td><code>scan 'Start-Process'</code></td>
 </tr>
 <tr>
@@ -2198,8 +2198,8 @@
 </table>
 <p>パスワード付きファイルは、開くときに固定文字列 <code>"dummy"</code> をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、<strong>パスワード入力ダイアログを出さずに確実に失敗させる</strong>ための指定である。パスワード付きファイルは取り込まれず、<code>work\取り込み一覧.tsv</code> に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。</p>
 <p>Excel は、セルの値をテキストに書き出すために、すべてのブックを上の設定で開く。Word・PowerPoint で開くのは、ZIP 形式でない旧形式（<code>.doc</code> / <code>.ppt</code>）などを新形式に変換するときだけである。新形式（<code>.xlsx</code> / <code>.docx</code> / <code>.pptx</code>）の図形・コメント・本文・SmartArt・グラフの文字は、Office を使わずに ZIP の中の XML を直接読む（<code>shared/office/office_reader.ps1</code>）。いずれも作業フォルダのコピーを読む（3.2）。</p>
-<h3 id="23-外部プロセスの起動4-か所">2.3 外部プロセスの起動（4 か所）<a class="headerlink" href="#23-外部プロセスの起動4-か所" title="Permanent link">&para;</a></h3>
-<p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe と自分自身（powershell.exe）だけ」が確かめる。</p>
+<h3 id="23-外部プロセスの起動3-か所">2.3 外部プロセスの起動（3 か所）<a class="headerlink" href="#23-外部プロセスの起動3-か所" title="Permanent link">&para;</a></h3>
+<p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe だけ」が確かめる。</p>
 <table>
 <thead>
 <tr>
@@ -2210,14 +2210,9 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tebunko/ui/index_tab.ps1:612</code>・<code>617</code>、<code>tebunko/ui/open_source.ps1:311</code></td>
+<td><code>tebunko/ui/index_tab.ps1:618</code>・<code>623</code>、<code>tebunko/ui/open_source.ps1:311</code></td>
 <td><code>explorer.exe</code></td>
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）</td>
-</tr>
-<tr>
-<td><code>tebunko/gui.ps1:384</code></td>
-<td><code>powershell.exe</code></td>
-<td>本ツール自身の画面 <code>tebunko/gui.ps1</code> を開き直す（［8 設定］でワークスペースを変えたときだけ。<code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
 </tr>
 </tbody>
 </table>
@@ -2264,6 +2259,7 @@
 </tbody>
 </table>
 <p>削除（<code>Remove-Item</code>）は 18 か所あるが、対象はすべて <code>work/</code> 配下または <code>%TEMP%\tebunko\&lt;PID&gt;</code> 配下、すなわち<strong>本ツールが自分で作ったファイル</strong>である。クロール対象フォルダ内のファイルを削除する処理は無い。</p>
+<p>［8 設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（<code>Workspace.Entries</code>：<code>index</code>・<code>system_index</code>・取り込み一覧・状態・ログ・取り込み出力）だけを新しいワークスペースへ移す（<code>moveWorkspace</code>）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ <code>Workspace.Entries</code>）だけを削除する（<code>removeWorkspaceEntries</code>）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。</p>
 <p>確認コマンド（2.1 の <code>scan</code> を使う）:</p>
 <div class="highlight"><pre><span></span><code><span class="c"># 削除・書き込みの呼び出し箇所をすべて列挙し、対象のパスが work / tmpDir 由来であることを目で確かめる</span>
 <span class="n">scan</span> <span class="s1">'Remove-Item'</span><span class="p">,</span><span class="s1">'WriteAllText'</span><span class="p">,</span><span class="s1">'WriteAllLines'</span><span class="p">,</span><span class="s1">'StreamWriter'</span><span class="p">,</span><span class="s1">'\.SaveAs'</span><span class="p">,</span><span class="s1">'::Move'</span><span class="p">,</span><span class="s1">'Move-Item'</span>

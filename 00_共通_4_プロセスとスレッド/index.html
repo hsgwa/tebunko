@@ -1543,7 +1543,7 @@
 <li><strong>画面を閉じたら何も残さない。</strong> インデックス作成中に閉じるときは、作成を中止してから閉じる（<a href="#76-閉じるときの順番">7.6</a>）。作成を続けたまま画面だけを閉じることはできない。</li>
 <li>画面は、インデックス作成 1 回ごとに <code>IndexingSession</code>（<code>newIndexingSession</code>）を作る。<code>IndexingSession</code> はインデクサの司令のスレッドを作り、そこで <code>indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する。</li>
 <li><code>indexer.ps1</code> は、画面を使わずにインデックスを作る入口としても使える（<code>-RetryFailed</code>）。<code>-Channel</code> を付けなければ自分で受け渡しの口を作り、ログをコンソールにも出す。中身は画面から使うものと同じ関数（<code>invokeIndexer</code>）で、コンソールのプロセスの中で同じスレッドの構成で動く。</li>
-<li>ツールが起動する外のプロセスは、エクスプローラー（<code>explorer.exe</code>）と、ワークスペースを変えたときに起動し直す画面（<code>powershell.exe</code>）だけである。インデックス作成のために <code>powershell.exe</code> を起動することはない。</li>
+<li>ツールが起動する外のプロセスは、エクスプローラー（<code>explorer.exe</code>）だけである。ワークスペースを変えても、画面は起動し直さない（その場で切り替える）。インデックス作成のために <code>powershell.exe</code> を起動することはない。</li>
 </ul>
 <p>分けない理由は、閉じるときに後始末を確実にするためと、受け渡しをファイルで行わずに済ませるためである。スレッドにすると GC で画面が止まるおそれがあるが、実測では画面の止まりが増えなかった（<a href="#77-gc-とメモリ">7.7</a>）。</p>
 <h3 id="72-スレッドの一覧">7.2 スレッドの一覧<a class="headerlink" href="#72-スレッドの一覧" title="Permanent link">&para;</a></h3>
@@ -1704,6 +1704,7 @@
 <li>アプリの寿命のスレッドは、最初に使うときに作る。ランスペースには、はじめに一度だけ関数を読み込む。検索のたびに lib.ps1 を読み込み直さない。</li>
 <li>検索の司令（<code>SearchService</code>）は、スレッドを始めたときに lib.ps1 を 1 回だけ読み込み、照合のプール（<code>newPackWorkerPool</code>）を 1 回だけ作る。</li>
 <li>バックグラウンド（<code>BackgroundQueue</code>）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（<code>WorkerPool.Prelude</code>）。</li>
+<li>そのため、これらのスレッドは読み込んだときのワークスペース（<code>$workspace</code>）を持ち続ける。画面は仕事を頼むときにワークスペースの中の場所を渡す（検索の要求は <code>WorkDir</code> を持つ）。ワークスペースを変えてもスレッドは作り直さない（<a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#511-ワークスペースの中の場所workspace">00_共通_2 5.1.1</a>）。</li>
 <li>照合のプールでは、ランスペースに加えて PowerShell のインスタンスも使い回す（<code>WorkerPool</code>）。</li>
 <li>検索の要求（<code>newSearchRequest</code>。<code>[hashtable]::Synchronized</code>）は、<code>invokeSearchRequest</code> が実行する。要求の <code>Stop</code> が取り消しの札になる。新しい要求を出すと、前の要求の <code>Stop</code> を立てて取り消す。</li>
 <li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="#77-gc-とメモリ">7.7</a>）。</li>
