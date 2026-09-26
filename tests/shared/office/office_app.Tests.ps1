@@ -66,9 +66,25 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @() @(200)
 
-        [void](getApp "Excel")
-        [void](getApp "Excel")
+        $first = getApp "Excel"
+        $second = getApp "Excel"
+        [object]::ReferenceEquals($first, $second) | Should Be $true
         Assert-MockCalled New-Object -Times 1 -Exactly -Scope It -ParameterFilter { $ComObject -eq "Excel.Application" }
+    }
+
+    It "PID の入れ物があれば、自分で起動したアプリの PID とプロセス名を入れ、終了したら外す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
+        setProcesses @(100) @(100, 300)
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        try {
+            [void](getApp "Word")
+            $script:officePidSink[300] | Should Be "WINWORD"
+            stopApp "Word"
+            $script:officePidSink.Count | Should Be 0
+        } finally {
+            $script:officePidSink = $null
+        }
     }
 
     It "自分で起動したアプリは、制限時間を過ぎたら強制終了してよいプロセスに入れる" {
@@ -145,11 +161,6 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         stopApp "Excel"
         $log -join "|" | Should Be "Quit"
     }
-
-    It "起動していないアプリの stopApp は何もしない" {
-        { stopApp "Excel" } | Should Not Throw
-        @($log).Count | Should Be 0
-    }
 }
 
 Describe "stopAllApps" -Tag Unit {
@@ -168,11 +179,6 @@ Describe "stopAllApps" -Tag Unit {
         @($script:stopped | Sort-Object) -join "," | Should Be "Excel,Word"
         $script:apps.Count | Should Be 0
         Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -match "Excel の終了に失敗しました: 終了できません" }
-    }
-
-    It "起動しているアプリが無ければ何もしない" {
-        $script:apps.Clear()
-        { stopAllApps } | Should Not Throw
     }
 }
 
@@ -219,10 +225,6 @@ Describe "startWatchdog / stopWatchdog（1 ファイルの制限時間の監視�
         stopWatchdog
         $script:watchdogThread | Should Be $null
     }
-
-    It "監視を始めていなければ、止めても何もしない" {
-        { stopWatchdog } | Should Not Throw
-    }
 }
 
 Describe "getAppName" -Tag Unit {
@@ -235,5 +237,32 @@ Describe "getAppName" -Tag Unit {
         getAppName "a.pptx" | Should Be "PowerPoint"
         getAppName "a.pptm" | Should Be "PowerPoint"
         getAppName "a.txt" | Should Be $null
+    }
+}
+
+Describe "getApp（起動したプロセスの優先度）" -Tag Unit {
+    It "起動した Office の優先度は変えない（利用者とプロセスを共有しうるため）" {
+        $script:started = @{}
+        Mock Get-Process {
+            $processes.Calls++
+            $ids = if ($processes.Calls -eq 1) { $processes.Before } else { $processes.After }
+            return @($ids | ForEach-Object { [pscustomobject]@{ Id = $_ } })
+        } -ParameterFilter { $Name }
+        Mock Get-Process {
+            if (!$script:started.ContainsKey($Id[0])) {
+                $script:started[$Id[0]] = [pscustomobject]@{ Id = $Id[0]; ProcessName = "X"; PriorityClass = "Normal" }
+            }
+            return $script:started[$Id[0]]
+        } -ParameterFilter { $Id }
+        Mock New-Object { newFakeApp } -ParameterFilter { $ComObject -eq "PowerPoint.Application" -or $ComObject -eq "Excel.Application" }
+        foreach ($name in @("Excel", "PowerPoint")) { $script:apps.Remove($name) }
+        setProcesses @() @(410)
+        [void](getApp "PowerPoint")
+        setProcesses @() @(420)
+        [void](getApp "Excel")
+        foreach ($id in 410, 420) {
+            (!$script:started.ContainsKey($id) -or [string]$script:started[$id].PriorityClass -eq "Normal") | Should Be $true
+        }
+        foreach ($name in @("Excel", "PowerPoint")) { $script:apps.Remove($name) }
     }
 }

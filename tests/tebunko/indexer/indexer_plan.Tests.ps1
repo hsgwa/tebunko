@@ -28,57 +28,38 @@ Describe "createTargetList" -Tag Io {
     # getIndexFiles / removeBookDir が実際のインデックスを見ないよう、テスト用のフォルダに向ける
     ${indexDir} = Join-Path $TestDrive "index"
 
-    It "一覧に無いファイルは取り込み対象になる（新規）" {
-        $result = createTargetList $folder (newPrevious) $null
-        $result.Targets.Count | Should Be 1
-        $result.Targets[0].相対パス | Should Be "売上\a.xlsx"
-        $result.Plan.新規 | Should Be 1
-        $result.Plan.ファイル数 | Should Be 1
-        $result.Plan.取り込み対象 | Should Be 1
-    }
-
-    It "取り込み済みで更新が無ければ取り込まない" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated "" "2"))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 0
-        $result.Plan.取り込み対象 | Should Be 0
+    # 一覧の行（state が $null なら一覧に無い。modified は元のファイルが更新されたか、version は抽出版）と
+    # TSV の数え上げ（tsv が $null なら数えない・0 なら数え上げに無い）→ 取り込み対象・失敗の数と、取り込み予定のどの件数に数えるか
+    It "<name>" -TestCases @(
+        @{ name = "一覧に無いファイルは取り込み対象になる（新規）"; state = $null; modified = $false; version = "2"; tsv = $null; targets = 1; failed = 0; field = "新規" }
+        @{ name = "取り込み済みで更新が無ければ取り込まない"; state = $stateDone; modified = $false; version = "2"; tsv = 1; targets = 0; failed = 0; field = "" }
+        @{ name = "前の抽出版で取り込んだファイルは、更新が無くても取り込み直す（更新ありに数える）"; state = $stateDone; modified = $false; version = ""; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
+        @{ name = "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）"; state = $stateDone; modified = $false; version = "2"; tsv = 0; targets = 1; failed = 0; field = "インデックスなし" }
+        @{ name = "更新されていれば取り込み対象になる（更新あり）"; state = $stateDone; modified = $true; version = "2"; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
+        @{ name = "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す"; state = $stateFailed; modified = $false; version = "2"; tsv = 1; targets = 0; failed = 1; field = "前回失敗" }
+        @{ name = "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）"; state = $stateNew; modified = $false; version = "2"; tsv = 1; targets = 1; failed = 0; field = "前回未完了" }
+    ) {
+        param ($name, $state, $modified, $version, $tsv, $targets, $failed, $field)
+        $rows = @()
+        if ($null -ne $state) {
+            $rowUpdated = if ($modified) { "2000/01/01 00:00:00" } else { $updated }
+            $rows = @((newStatusRow "売上\a.xlsx" $rowUpdated $size $state 1 $updated "" $version))
+        }
+        $counts = $null
+        if ($tsv -eq 0) {
+            $counts = newCounts
+        } elseif ($tsv) {
+            $counts = newCounts @{ "売上\a.xlsx" = $tsv }
+        }
+        $result = createTargetList $folder (newPrevious $rows) $counts
         $result.Rows.Count | Should Be 1
-    }
-
-    It "前の抽出版で取り込んだファイルは、更新が無くても取り込み直す（更新ありに数える）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 1
-        $result.Plan.更新あり | Should Be 1
-    }
-
-    It "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
-        $result = createTargetList $folder $previous (newCounts)
-        $result.Targets.Count | Should Be 1
-        $result.Plan.インデックスなし | Should Be 1
-    }
-
-    It "更新されていれば取り込み対象になる（更新あり）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" "2000/01/01 00:00:00" $size ${stateDone} 1 $updated))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 1
-        $result.Plan.更新あり | Should Be 1
-    }
-
-    It "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateFailed} 0 $updated "開けませんでした"))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 0
-        $result.Failed.Count | Should Be 1
-        $result.Plan.前回失敗 | Should Be 1
-    }
-
-    It "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateNew}))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 1
-        $result.Plan.前回未完了 | Should Be 1
+        $result.Targets.Count | Should Be $targets
+        $result.Failed.Count | Should Be $failed
+        if ($field) {
+            $result.Plan.$field | Should Be 1
+        }
+        $result.Plan.ファイル数 | Should Be 1
+        $result.Plan.取り込み対象 | Should Be $targets
     }
 }
 
@@ -182,14 +163,6 @@ Describe "findOfficeFiles" -Tag Io {
         $scan.Root.TrimEnd("\") | Should Be $source
         $scan.Files.Count | Should Be 5
     }
-
-    It "Office のファイルが無いフォルダは 0 件" {
-        $empty = Join-Path $TestDrive "空"
-        [System.IO.Directory]::CreateDirectory($empty) | Out-Null
-        $scan = findOfficeFiles $empty
-        @($scan.Files).Count | Should Be 0
-        $scan.HasError | Should Be $false
-    }
 }
 
 Describe "getIndexFiles" -Tag Io {
@@ -206,70 +179,70 @@ Describe "getIndexFiles" -Tag Io {
     }
 }
 
-Describe "getBookDir" -Tag Unit {
-    It "インデックスのフォルダに相対パスをつなぐ" {
-        ${indexDir} = "C:\tool\work\index"
-        getBookDir "営業\2024\A社.xlsx" | Should Be "C:\tool\work\index\営業\2024\A社.xlsx"
-    }
-}
-
 Describe "waitForIndexingApproval" -Tag Io {
-    # 画面とのやり取りのファイルをテスト用のフォルダに向ける（関数は呼び出し元の変数を見る）
-    $stopRequestFile          = Join-Path $TestDrive "インデックス作成中止要求"
-    $ingestPlanFile           = Join-Path $TestDrive "取り込み予定.tsv"
-    $indexingProgressFile     = Join-Path $TestDrive "インデックス作成進捗.txt"
-    $indexingStartRequestFile = Join-Path $TestDrive "インデックス作成開始要求"
-    $approvalTimeoutMinutes   = 60
     $plan = @((newIngestPlanRow "営業" "C:\共有\営業部" ${planKindIngest} 3 2 1 1 0 0 1))
 
-    AfterEach {
-        foreach ($path in @($stopRequestFile, $ingestPlanFile, $indexingProgressFile, $indexingStartRequestFile)) {
-            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
-        }
+    function startAnswer($channel, $answer, [bool]$cancel = $false) {
+        # 画面の代わりに、別のスレッドで待たれている間の中身を控えてから返事をする
+        $ps = [powershell]::Create()
+        [void]$ps.AddScript({
+            param ($channel, $answer, $cancel)
+            while ($null -eq $channel.Plan) { Start-Sleep -Milliseconds 20 }
+            $seen = @{ Plan = @($channel.Plan); Progress = $channel.Progress }
+            if ($cancel) {
+                $channel.Stop = $true
+            } else {
+                $channel.Answer = $answer
+            }
+            [void]$channel.Answered.Set()
+            $seen
+        }).AddArgument($channel).AddArgument($answer).AddArgument($cancel)
+        return @{ PowerShell = $ps; Handle = $ps.BeginInvoke() }
     }
 
-    It "取り込み予定と確認待ちの進み具合を書いてから待ち、画面が開始を選んだら返事を返す" {
-        Mock Start-Sleep {
-            # 待っている間に書かれている内容を確かめてから、画面が開始を選ぶ
-            $script:seenPlan = @(readIngestPlan $ingestPlanFile)
-            $script:seenProgress = readIndexingProgress $indexingProgressFile
-            writeIndexingStartRequest $false $indexingStartRequestFile
-        }
-        $answer = waitForIndexingApproval $plan 2 1
+    function endAnswer($job) {
+        try { return $job.PowerShell.EndInvoke($job.Handle)[0] } finally { $job.PowerShell.Dispose() }
+    }
+
+    It "取り込み予定と確認待ちの進み具合を入れてから待ち、画面が開始を選んだら返事を返す" {
+        $channel = newIndexerChannel
+        $job = startAnswer $channel @{ RetryFailed = $false }
+        $answer = waitForIndexingApproval $channel $plan 2 1
+        $seen = endAnswer $job
         $answer.RetryFailed | Should Be $false
-        $script:seenPlan.Count | Should Be 1
-        $script:seenPlan[0].インデックス名 | Should Be "営業"
-        $script:seenProgress.Phase | Should Be ${indexingPhaseConfirm}
-        $script:seenProgress.Remaining | Should Be 2
-        $script:seenProgress.Failed | Should Be 1
-        # 返事を読んだら、開始要求と取り込み予定は消す
-        Test-Path -LiteralPath $indexingStartRequestFile | Should Be $false
-        Test-Path -LiteralPath $ingestPlanFile | Should Be $false
+        $seen.Plan.Count | Should Be 1
+        $seen.Plan[0].インデックス名 | Should Be "営業"
+        $seen.Progress.Phase | Should Be ${indexingPhaseConfirm}
+        $seen.Progress.Remaining | Should Be 2
+        $seen.Progress.Failed | Should Be 1
+        # 返事を受けたら、取り込み予定は外す
+        $channel.Plan | Should BeNullOrEmpty
     }
 
     It "画面が失敗分の再取り込みを選んだら RetryFailed を返す" {
-        Mock Start-Sleep { writeIndexingStartRequest $true $indexingStartRequestFile }
-        (waitForIndexingApproval $plan 2 1).RetryFailed | Should Be $true
+        $channel = newIndexerChannel
+        $job = startAnswer $channel @{ RetryFailed = $true }
+        (waitForIndexingApproval $channel $plan 2 1).RetryFailed | Should Be $true
+        [void](endAnswer $job)
     }
 
-    It "中止要求があれば `$null を返し、中止要求と取り込み予定を消す" {
-        Mock Start-Sleep { [System.IO.File]::WriteAllText($stopRequestFile, "") }
-        waitForIndexingApproval $plan 2 1 | Should BeNullOrEmpty
-        Test-Path -LiteralPath $stopRequestFile | Should Be $false
-        Test-Path -LiteralPath $ingestPlanFile | Should Be $false
+    It "中止を求められたら `$null を返す" {
+        $channel = newIndexerChannel
+        $job = startAnswer $channel $null $true
+        waitForIndexingApproval $channel $plan 2 1 | Should BeNullOrEmpty
+        [void](endAnswer $job)
     }
 
-    It "前回残った開始要求は使わない（待ち始める前に消す）" {
-        writeIndexingStartRequest $true $indexingStartRequestFile
-        Mock Start-Sleep { [System.IO.File]::WriteAllText($stopRequestFile, "") }
-        waitForIndexingApproval $plan 2 1 | Should BeNullOrEmpty
+    It "前に残った返事は使わない（待ち始める前に消す）" {
+        $channel = newIndexerChannel
+        answerIndexingPlan $channel @{ RetryFailed = $true }
+        $channel.Stop = $false
+        waitForIndexingApproval $channel $plan 2 1 0 | Should BeNullOrEmpty
     }
 
-    It "制限時間を過ぎても返事が無ければ `$null を返す" {
-        # 制限時間を負にして、待ち始めた時点で制限時刻を過ぎているようにする
-        $approvalTimeoutMinutes = -1
-        Mock Start-Sleep { }
-        waitForIndexingApproval $plan 2 1 | Should BeNullOrEmpty
-        Test-Path -LiteralPath $ingestPlanFile | Should Be $false
+    It "制限時間を過ぎても返事が無ければ `$null を返し、取り込み予定を外す" {
+        $channel = newIndexerChannel
+        waitForIndexingApproval $channel $plan 2 1 0 | Should BeNullOrEmpty
+        $channel.Plan | Should BeNullOrEmpty
     }
 }

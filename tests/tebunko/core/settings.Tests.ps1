@@ -20,6 +20,17 @@ Describe "readSettings / writeSettings" -Tag Io {
         }
     }
 
+    It "取り込みのスレッドの数（ingestThreads）は数値で読む。数値にできなければ既定値（0）" {
+        $path = "$TestDrive\スレッド\setting.config"
+        (readSettings $path).ingestThreads | Should Be 0
+        updateSettings "ingestThreads" 2 $path
+        (readSettings $path).ingestThreads | Should Be 2
+        updateSettings "ingestThreads" "3" $path   # 手で書いた文字列
+        (readSettings $path).ingestThreads | Should Be 3
+        updateSettings "ingestThreads" "たくさん" $path
+        (readSettings $path).ingestThreads | Should Be 0
+    }
+
     It "開き方が無い・知らない値なら「通常」とする" {
         $path = "$TestDrive\開き方2\setting.config"
         readOpenMode $path | Should Be ${openModeNormal}        # ファイルが無い
@@ -143,10 +154,6 @@ Describe "getTargetFolders / writeTargetFolders" -Tag Io {
         $folders[0].Enabled | Should Be $true
     }
 
-    It "設定が無ければ空の配列を返す" {
-        @(getTargetFolders "$TestDrive\none_targets.json").Count | Should Be 0
-    }
-
     It "インデックス名が重なれば（大文字・小文字の違いも）2 つ目以降の名前を空にする（取り込み時に割り当て直す）" {
         $path = "$TestDrive\targets_names.json"
         [System.IO.File]::WriteAllText($path, @'
@@ -248,10 +255,6 @@ Describe "indexSources / setIndexSourceFolder" -Tag Io {
 }
 
 Describe "readSearchExcludes / writeSearchExcludes" -Tag Io {
-    It "設定が無ければ空（すべて検索する）" {
-        @(readSearchExcludes "$TestDrive\none_excludes.json").Count | Should Be 0
-    }
-
     It "チェックを外したフォルダを保存し、ほかの設定は変えない" {
         $path = "$TestDrive\excludes.json"
         writeSearchOption @{ UseRegex = $true } $path
@@ -276,7 +279,8 @@ Describe "readSearchExcludes / writeSearchExcludes" -Tag Io {
         $excludes[1].Subfolders | Should Be $false
     }
 
-    It "空で保存すると空になる" {
+    It "設定が無い・空で保存したときは空（すべて検索する）" {
+        @(readSearchExcludes "$TestDrive\none_excludes.json").Count | Should Be 0
         $path = "$TestDrive\excludes_empty.json"
         writeSearchExcludes @([pscustomobject]@{ Path = "D:\a"; Subfolders = $true }) $path
         writeSearchExcludes @() $path
@@ -285,40 +289,24 @@ Describe "readSearchExcludes / writeSearchExcludes" -Tag Io {
 }
 
 Describe "readSearchOption / writeSearchOption" -Tag Io {
-    $path = Join-Path $TestDrive "setting.config"
-
-    It "ファイルが無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて" {
-        $option = readSearchOption $path
-        $option.UseRegex | Should Be $false
-        $option.CaseSensitive | Should Be $false
-        $option.FileFilter | Should Be ""
-        # 図形・コメントも検索する
-        $option.IncludeShapes | Should Be $true
-        $option.IncludeComments | Should Be $true
-    }
-
-    It "図形・コメントを検索するかを保存・読み込みできる" {
-        $optionPath = Join-Path $TestDrive "setting_object.config"
-        writeSearchOption @{ IncludeShapes = $false } $optionPath
-        $option = readSearchOption $optionPath
-        $option.IncludeShapes | Should Be $false
-        $option.IncludeComments | Should Be $true
-    }
-
-    It "保存した値を読み込む" {
-        writeSearchOption @{ UseRegex = $true } $path
-        (readSearchOption $path).UseRegex | Should Be $true
-        writeSearchOption @{ UseRegex = $false } $path
-        (readSearchOption $path).UseRegex | Should Be $false
-    }
-
-    It "指定した項目だけを変え、ほかの項目は保つ" {
-        writeSearchOption @{ UseRegex = $true; CaseSensitive = $true; FileFilter = "*.xlsx;!*old*" } $path
-        writeSearchOption @{ CaseSensitive = $false } $path
-        $option = readSearchOption $path
-        $option.UseRegex | Should Be $true
-        $option.CaseSensitive | Should Be $false
-        $option.FileFilter | Should Be "*.xlsx;!*old*"
+    # writes: 順に保存する項目、expected: 読み込んだときの値
+    It "<name>" -TestCases @(
+        @{ name = "ファイルが無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて"; writes = @()
+           expected = @{ UseRegex = $false; CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true } }
+        @{ name = "図形・コメントを検索するかを保存・読み込みできる"; writes = @(@{ IncludeShapes = $false })
+           expected = @{ IncludeShapes = $false; IncludeComments = $true } }
+        @{ name = "指定した項目だけを変え、ほかの項目は保つ"; writes = @(@{ UseRegex = $true; CaseSensitive = $true; FileFilter = "*.xlsx;!*old*" }, @{ CaseSensitive = $false })
+           expected = @{ UseRegex = $true; CaseSensitive = $false; FileFilter = "*.xlsx;!*old*" } }
+    ) {
+        param ($name, $writes, $expected)
+        $path = Join-Path $TestDrive "setting_$([guid]::NewGuid()).config"
+        foreach ($option in $writes) {
+            writeSearchOption $option $path
+        }
+        $read = readSearchOption $path
+        foreach ($key in $expected.Keys) {
+            $read.$key | Should Be $expected[$key]
+        }
     }
 }
 

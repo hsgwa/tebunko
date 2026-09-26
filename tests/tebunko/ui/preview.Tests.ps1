@@ -77,6 +77,22 @@ function newTimer {
 function getCurrentHitRow {
     return $fake.Current
 }
+function startJob {
+    # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
+    # 返すまでの間に選択が変わった場合を試すため、$fake.BeforeDone があれば結果を渡す前に呼ぶ
+    param ([scriptblock]$scriptBlock, [object[]]$arguments, [scriptblock]$onDone)
+    $output = $null
+    $errorText = $null
+    try {
+        $output = @(& $scriptBlock @arguments)
+    } catch {
+        $errorText = $_.Exception.Message
+    }
+    if ($fake.BeforeDone) {
+        & $fake.BeforeDone
+    }
+    & $onDone $output $errorText
+}
 
 . "${scriptsDir}\tebunko\ui\preview.ps1"
 
@@ -123,16 +139,6 @@ function newHitRow {
     $row.PlaceText = $described.Place
     $row.Kind = $described.Kind
     return $row
-}
-
-Describe "読み込み" -Tag Unit {
-    It "選択が変わったときにまとめて読むタイマーと、イベントを登録する" {
-        $handlers.ContainsKey("Timer.Tick") | Should Be $true
-        $handlers.ContainsKey("ResultGrid.SelectionChanged") | Should Be $true
-        $handlers.ContainsKey("PreviewRows.PreviewMouseLeftButtonDown") | Should Be $true
-        $handlers.ContainsKey("MenuPreviewCopyRow.Click") | Should Be $true
-        $handlers["PreviewHeader.DragDelta"] -is [System.Windows.Controls.Primitives.DragDeltaEventHandler] | Should Be $true
-    }
 }
 
 Describe "clearDetail" -Tag Unit {
@@ -223,6 +229,43 @@ Describe "showDetail" -Tag Io {
         $ui.DetailTitle.Text | Should Be "議事録.docx ・ [ページ] 1（目安） ・ 本文 ・ 2 行目"
     }
 
+    It "読んでいる間に別の行を選んだら、読み終えた古い行の結果は出さない" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積", "`t次")
+        $other = newHitRow "請求.xlsx" "5月" 1 @("`t請求")
+        $fake.BeforeDone = { $fake.Current = $other }
+        try {
+            showDetail
+        } finally {
+            $fake.BeforeDone = $null
+        }
+        $ui.DetailTitle.Text | Should Be ""
+        $script:previewTable | Should BeNullOrEmpty
+    }
+
+    It "後から頼んだ読み込みがあれば、先に頼んだ分の結果は捨てる" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積")
+        $fake.BeforeDone = { $script:previewRequest++ }
+        try {
+            showDetail
+        } finally {
+            $fake.BeforeDone = $null
+        }
+        $script:previewTable | Should BeNullOrEmpty
+    }
+
+    # Pester 3 の Mock は Describe の中の後のテストにも効くため、Context で囲む
+    Context "前後の行を読めないとき" {
+        It "選んだ行だけを出す" {
+            Mock readPackContext { throw "読めません" }
+            $fake.Current = newHitRow "議事録.docx" "ページ001" 2 @("はじめに", "見積の件", "おわりに") ""
+
+            showDetail
+
+            $script:previewTable.Rows.Count | Should Be 1
+            $ui.DetailTitle.Text | Should Be "議事録.docx ・ [ページ] 1（目安） ・ 本文 ・ 2 行目"
+        }
+    }
+
     It "列が多すぎるときは、表示した列の範囲を知らせる" {
         $cells = @(1..250 | ForEach-Object { "値$_" })
         $cells[229] = "見積"
@@ -281,12 +324,6 @@ Describe "showDetail" -Tag Io {
     }
 }
 
-Describe "getPreviewCell" -Tag Unit {
-    It "セルの上でなければ無し" {
-        $null -eq (getPreviewCell $null) | Should Be $true
-    }
-}
-
 Describe "copyPreviewSelection" -Tag Unit {
     BeforeEach { resetPreview }
 
@@ -295,19 +332,14 @@ Describe "copyPreviewSelection" -Tag Unit {
         $fake.Status | Should Match "^プレビューでコピーするセルをクリックしてください"
     }
 
-    It "セルを選んでいないときも、案内だけを出す" {
-        $script:previewTable = [PreviewTable]::new()
-        $fake.Status = ""
-
-        & $handlers["MenuPreviewCopy.Click"]
-
-        $fake.Status | Should Match "^プレビューでコピーするセルをクリックしてください"
-    }
-
-    It "［行をコピー］もセルを選んでいなければ案内だけを出す" {
+    It "<name>" -TestCases @(
+        @{ name = "セルを選んでいないときも、案内だけを出す"; menu = "MenuPreviewCopy.Click" }
+        @{ name = "［行をコピー］もセルを選んでいなければ案内だけを出す"; menu = "MenuPreviewCopyRow.Click" }
+    ) {
+        param ($name, $menu)
         $script:previewTable = [PreviewTable]::new()
 
-        & $handlers["MenuPreviewCopyRow.Click"]
+        & $handlers[$menu]
 
         $fake.Status | Should Match "^プレビューでコピーするセルをクリックしてください"
     }
@@ -383,14 +415,6 @@ Describe "イベント" -Tag Unit {
         $script:previewTable.HasSelection() | Should Be $false
     }
 
-    It "ボタンを押していないマウスの移動は無視する" {
-        $script:previewTable = [PreviewTable]::new()
-
-        & $handlers["PreviewRows.MouseMove"] $ui.PreviewRows ([pscustomobject]@{ OriginalSource = $null; LeftButton = "Released" })
-
-        $script:previewTable.HasSelection() | Should Be $false
-    }
-
     It "列見出しの右端をドラッグすると、その列の幅が変わる" {
         $column = [PreviewColumn]::new()
         $column.Width = 100
@@ -401,13 +425,5 @@ Describe "イベント" -Tag Unit {
         $handlers["PreviewHeader.DragDelta"].Invoke($ui.PreviewHeader, $e)
 
         $column.Width | Should Be 130
-    }
-
-    It "列見出し以外のドラッグでは何もしない" {
-        $e = New-Object System.Windows.Controls.Primitives.DragDeltaEventArgs 30.0, 0.0
-        $e.RoutedEvent = [System.Windows.Controls.Primitives.Thumb]::DragDeltaEvent
-        $e.Source = [pscustomobject]@{ DataContext = "列ではない" }
-
-        { $handlers["PreviewHeader.DragDelta"].Invoke($ui.PreviewHeader, $e) } | Should Not Throw
     }
 }

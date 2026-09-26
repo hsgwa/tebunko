@@ -134,35 +134,42 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
     }
 }
 
-Describe "readIngestingFile / writeIngestingFile / removeIngestingFile" -Tag Io {
-    It "書き込んだ相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
+Describe "readIngestingFiles / writeIngestingFiles / removeIngestingFile" -Tag Io {
+    It "取り込み中の複数のファイルの相対パスと回数をそのまま読み込める（[ ] や空白を含むパス）" {
         $path = "$TestDrive\ingesting[1].txt"
-        writeIngestingFile "フォルダ1\a [確定]\見積.xlsx" 2 $path
+        writeIngestingFiles @(@{ RelPath = "フォルダ1\a [確定]\見積.xlsx"; Count = 2 }, @{ RelPath = "b.docx"; Count = 1 }) $path
 
-        $ingesting = readIngestingFile $path
-        $ingesting.RelPath | Should Be "フォルダ1\a [確定]\見積.xlsx"
+        $ingesting = readIngestingFiles $path
         $ingesting.Count | Should Be 2
+        $ingesting[0].RelPath | Should Be "フォルダ1\a [確定]\見積.xlsx"
+        $ingesting[0].Count | Should Be 2
+        $ingesting[1].RelPath | Should Be "b.docx"
     }
 
-    It "削除すると記録なし（`$null）になる" {
-        $path = "$TestDrive\ingesting_remove.txt"
-        writeIngestingFile "a.xlsx" 1 $path
-        removeIngestingFile $path
-
+    It "取り込み中が無ければ記録を消す" {
+        $path = "$TestDrive\ingesting_empty.txt"
+        writeIngestingFiles @(@{ RelPath = "a.xlsx"; Count = 1 }) $path
+        writeIngestingFiles @() $path
         Test-Path -LiteralPath $path | Should Be $false
-        readIngestingFile $path | Should Be $null
+        (readIngestingFiles $path).Count | Should Be 0
     }
 
-    It "ファイルが無くても削除でエラーにならない" {
+    It "削除すると記録なし（空）になる。ファイルが無くても削除でエラーにならない" {
+        $path = "$TestDrive\ingesting_remove.txt"
+        writeIngestingFiles @(@{ RelPath = "a.xlsx"; Count = 1 }) $path
+        removeIngestingFile $path
+        Test-Path -LiteralPath $path | Should Be $false
+        (readIngestingFiles $path).Count | Should Be 0
         { removeIngestingFile "$TestDrive\none_ingesting.txt" } | Should Not Throw
     }
 
-    It "壊れた記録（回数が数値でない・相対パスが無い・空）は `$null を返す" {
+    It "壊れた行（回数が数値でない・相対パスが無い・空）は読み飛ばす" {
         $path = "$TestDrive\ingesting_broken.txt"
-        foreach ($content in @("x`ta.xlsx", "0`ta.xlsx", "1`t", "a.xlsx", "")) {
-            [System.IO.File]::WriteAllText($path, $content, $utf8Bom)
-            readIngestingFile $path | Should Be $null
-        }
+        writeListFile $path @("x`ta.xlsx", "0`ta.xlsx", "1`t", "a.xlsx", "", "3`t残る.xlsx")
+        $ingesting = readIngestingFiles $path
+        $ingesting.Count | Should Be 1
+        $ingesting[0].RelPath | Should Be "残る.xlsx"
+        $ingesting[0].Count | Should Be 3
     }
 }
 
@@ -171,47 +178,55 @@ Describe "describeIngestError" -Tag Io {
         return New-Object System.Runtime.InteropServices.COMException($message, [Convert]::ToInt32($code, 16))
     }
 
-    It "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す" {
-        $expected = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
-        describeIngestError (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") | Should Be $expected
-        describeIngestError (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") | Should Be $expected
-        describeIngestError (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") | Should Be $expected
-    }
+    $password = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
 
-    It "メソッド呼び出しの例外は中の例外のメッセージを使う" {
-        $inner = newComError "Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。" "800A03EC"
-        $outer = New-Object System.Management.Automation.MethodInvocationException('"7" 個の引数を指定して "Open" を呼び出し中に例外が発生しました', $inner)
-        describeIngestError $outer | Should Be "ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。）"
-    }
-
-    It "スクリプト自身が throw したメッセージはそのまま返す" {
-        $exception = $null
-        try { throw "ファイルが壊れているか、PowerPointのファイルではありません。" } catch { $exception = $_.Exception }
-        describeIngestError $exception | Should Be "ファイルが壊れているか、PowerPointのファイルではありません。"
-    }
-
-    It "使用中・アクセス権なし・ファイルなしは原因を付けて元のメッセージを詳細にする" {
-        $locked = New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16))
-        describeIngestError $locked | Should Be "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: 別のプロセスで使用されているため、アクセスできません。）"
-        describeIngestError (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。")) | Should Match "^ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）$"
-        describeIngestError (New-Object System.IO.FileNotFoundException("見つかりません。")) | Should Match "^ファイルが見つかりません（"
-    }
-
-    It "Officeアプリの異常終了・応答なし・起動失敗は HRESULT で判断する" {
-        describeIngestError (newComError "RPC サーバーを利用できません。" "800706BA") | Should Match "^Officeアプリが異常終了したか、内部でエラーが発生しました（.*（詳細: RPC サーバーを利用できません。）$"
-        describeIngestError (newComError "呼び出し先が呼び出しを拒否しました。" "80010001") | Should Match "^Officeアプリが応答しませんでした"
-        describeIngestError (newComError "クラスが登録されていません" "80040154") | Should Match "^Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした"
-    }
-
-    It "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする" {
-        $inner = New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown.")
-        $outer = New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました', $inner)
-        describeIngestError $outer | Should Match "^シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: "
-    }
-
-    It "原因が分からないものは元のメッセージ（改行は詰める）、メッセージが無ければエラーコードを返す" {
-        describeIngestError (newComError "予期しない`r`nエラーです。" "800A03EC") | Should Be "予期しない エラーです。"
-        describeIngestError (New-Object System.Exception(" ")) | Should Match "^エラーコード 0x[0-9A-F]{8}$"
+    # expected は返す文言そのもの、pattern は返す文言の形（元のメッセージの前に付ける原因など）
+    It "<name>" -TestCases @(
+        @{ name = "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す（Excel）"; expected = $password
+           exception = (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") }
+        @{ name = "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す（Word）"; expected = $password
+           exception = (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") }
+        @{ name = "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す（PowerPoint）"; expected = $password
+           exception = (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") }
+        @{ name = "メソッド呼び出しの例外は中の例外のメッセージを使う"
+           exception = (New-Object System.Management.Automation.MethodInvocationException('"7" 個の引数を指定して "Open" を呼び出し中に例外が発生しました',
+               (newComError "Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。" "800A03EC")))
+           expected = "ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。）" }
+        # throw "文字列" の例外は RuntimeException
+        @{ name = "スクリプト自身が throw したメッセージはそのまま返す"
+           exception = (New-Object System.Management.Automation.RuntimeException("ファイルが壊れているか、PowerPointのファイルではありません。"))
+           expected = "ファイルが壊れているか、PowerPointのファイルではありません。" }
+        @{ name = "使用中は原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16)))
+           expected = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: 別のプロセスで使用されているため、アクセスできません。）" }
+        @{ name = "アクセス権なしは原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。"))
+           expected = "ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）" }
+        @{ name = "ファイルなしは原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.IO.FileNotFoundException("見つかりません。")); pattern = "^ファイルが見つかりません（.*（詳細: 見つかりません。）$" }
+        @{ name = "パスが長すぎるときは原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.IO.PathTooLongException("長すぎます。")); expected = "パスが長すぎるため読めません（詳細: 長すぎます。）" }
+        @{ name = "Officeアプリの異常終了は HRESULT で判断する"
+           exception = (newComError "RPC サーバーを利用できません。" "800706BA"); pattern = "^Officeアプリが異常終了したか、内部でエラーが発生しました（.*（詳細: RPC サーバーを利用できません。）$" }
+        @{ name = "Officeアプリの応答なしは HRESULT で判断する"
+           exception = (newComError "呼び出し先が呼び出しを拒否しました。" "80010001"); pattern = "^Officeアプリが応答しませんでした" }
+        @{ name = "Officeアプリの起動失敗は HRESULT で判断する"
+           exception = (newComError "クラスが登録されていません" "80040154"); pattern = "^Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした" }
+        @{ name = "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました',
+               (New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown."))))
+           pattern = "^シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: " }
+        @{ name = "原因が分からないものは元のメッセージ（改行は詰める）"
+           exception = (newComError "予期しない`r`nエラーです。" "800A03EC"); expected = "予期しない エラーです。" }
+        @{ name = "メッセージが無ければエラーコードを返す"
+           exception = (New-Object System.Exception(" ")); pattern = "^エラーコード 0x[0-9A-F]{8}$" }
+    ) {
+        param ($name, $exception, $expected, $pattern)
+        if ($pattern) {
+            describeIngestError $exception | Should Match $pattern
+        } else {
+            describeIngestError $exception | Should Be $expected
+        }
     }
 }
 
@@ -242,173 +257,104 @@ Describe "getIndexingState" -Tag Io {
     }
 }
 
-Describe "writeIndexingProgress / readIndexingProgress / removeIndexingProgress" -Tag Io {
-    It "段階・件数・内容を往復できる" {
-        $path = "$TestDrive\進捗1.txt"
-        writeIndexingProgress ${indexingPhaseIngest} 12 34 5 "営業\見積.xlsx" $path
-        $progress = readIndexingProgress $path
+Describe "newIndexerChannel / writeIndexingProgress / readIndexingProgress" -Tag Unit {
+    It "画面が決めた条件を入れ、スレッドをまたいで使える形にする" {
+        $channel = newIndexerChannel $true $true 2
+        $channel.RetryFailed | Should Be $true
+        $channel.ConfirmTargets | Should Be $true
+        $channel.Workers | Should Be 2
+        $channel.IsSynchronized | Should Be $true
+        $channel.Stop | Should Be $false
+        $channel.ExitCode | Should BeNullOrEmpty
+        $channel.OfficePids.Count | Should Be 0
+    }
+
+    It "段階・件数・内容を往復できる。タブ・改行はスペースにする" {
+        $channel = newIndexerChannel
+        readIndexingProgress $channel | Should BeNullOrEmpty
+        writeIndexingProgress ${indexingPhaseIngest} 12 34 5 "営業\見積`t.xlsx" $channel
+        $progress = readIndexingProgress $channel
         $progress.Phase | Should Be ${indexingPhaseIngest}
         $progress.Processed | Should Be 12
         $progress.Remaining | Should Be 34
         $progress.Failed | Should Be 5
-        $progress.Detail | Should Be "営業\見積.xlsx"
+        $progress.Detail | Should Be "営業\見積 .xlsx"
     }
 
-    It "タブ・改行はスペースにする（1行に保つ）" {
-        $path = "$TestDrive\進捗2.txt"
-        writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "あ`tい`r`nう" $path
-        (readIndexingProgress $path).Detail | Should Be "あ い う"
+    It "受け渡しの口が無ければ何もしない" {
+        { writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "a" $null } | Should Not Throw
+        readIndexingProgress $null | Should BeNullOrEmpty
+    }
+}
+
+Describe "requestIndexingStop / answerIndexingPlan" -Tag Unit {
+    It "中止を求めると、確認を待っていても返事を待つのをやめる" {
+        $channel = newIndexerChannel
+        requestIndexingStop $channel
+        $channel.Stop | Should Be $true
+        $channel.Answered.WaitOne(0) | Should Be $true
     }
 
-    It "ファイルが無い・壊れていれば null" {
-        readIndexingProgress "$TestDrive\進捗なし.txt" | Should BeNullOrEmpty
-        $path = "$TestDrive\進捗3.txt"
-        writeListFile $path @("見積`tあ`tい`tう`tえ")   # 件数が数値でない
-        readIndexingProgress $path | Should BeNullOrEmpty
-        writeListFile $path @("見積`t1`t2")              # 列が足りない（書き込みの途中）
-        readIndexingProgress $path | Should BeNullOrEmpty
+    It "取り込む返事を渡す（中止にはしない）" {
+        $channel = newIndexerChannel
+        answerIndexingPlan $channel @{ RetryFailed = $true }
+        $channel.Answer.RetryFailed | Should Be $true
+        $channel.Stop | Should Be $false
+        $channel.Answered.WaitOne(0) | Should Be $true
     }
 
-    It "画面が読んでいる間も書ける（共有して開く）" {
-        $path = "$TestDrive\進捗4.txt"
-        writeIndexingProgress ${indexingPhaseIngest} 1 2 0 "はじめ" $path
-        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
+    It "取りやめの返事（`$null）は中止にする" {
+        $channel = newIndexerChannel
+        answerIndexingPlan $channel $null
+        $channel.Stop | Should Be $true
+    }
+}
+
+Describe "testIndexerRunning" -Tag Io {
+    It "インデックス作成の鍵をほかが持っていれば `$true、持っていなければ `$false（調べた後は鍵を持たない）" {
+        $work = Join-Path $TestDrive "running_work"
+        testIndexerRunning $work | Should Be $false
+        testIndexerRunning $work | Should Be $false
+        $other = newAppMutex "indexer" $work
         try {
-            { writeIndexingProgress ${indexingPhaseIngest} 2 1 0 "つぎ" $path } | Should Not Throw
+            # 同じスレッドが持つ鍵も「動いている」と数える（画面のインデクサのスレッドが持っているとき）
+            testIndexerRunning $work | Should Be $true
         } finally {
-            $stream.Dispose()
+            $other.Mutex.ReleaseMutex()
+            $other.Mutex.Dispose()
         }
-        (readIndexingProgress $path).Detail | Should Be "つぎ"
-    }
-
-    It "削除できる（無ければ何もしない）" {
-        $path = "$TestDrive\進捗5.txt"
-        writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "" $path
-        removeIndexingProgress $path
-        Test-Path -LiteralPath $path | Should Be $false
-        { removeIndexingProgress $path } | Should Not Throw
+        testIndexerRunning $work | Should Be $false
     }
 }
 
-Describe "writeIngestPlan / readIngestPlan / removeIngestPlan" -Tag Io {
-    It "インデックスごとの件数を往復できる（件数は数値で返る）" {
-        $path = "$TestDrive\予定1.tsv"
-        $rows = @(
-            (newIngestPlanRow "営業" "C:\data\営業" ${planKindIngest} 1234 12 5 7 0 0 3),
-            (newIngestPlanRow "技術" "\\server\share\技術" ${planKindIngest} 20 0 0 0 0 0 0))
-        writeIngestPlan $rows $path
-        $plan = readIngestPlan $path
-        $plan.Count | Should Be 2
-        $plan[0].インデックス名 | Should Be "営業"
-        $plan[0].元のフォルダ | Should Be "C:\data\営業"
-        $plan[0].区分 | Should Be ${planKindIngest}
-        ($plan[0].ファイル数 + 1) | Should Be 1235   # 文字列ではなく数値で返る
-        $plan[0].取り込み対象 | Should Be 12
-        $plan[0].新規 | Should Be 5
-        $plan[0].更新あり | Should Be 7
-        $plan[0].前回失敗 | Should Be 3
-        $plan[1].取り込み対象 | Should Be 0
+Describe "writeIndexerLog" -Tag Unit {
+    AfterEach {
+        $script:indexerLog = $null
+        $script:indexerEcho = $false
     }
 
-    It "チェックなし・フォルダなしの区分も往復できる（件数は 0）" {
-        $path = "$TestDrive\予定2.tsv"
-        writeIngestPlan @(
-            (newIngestPlanRow "外した" "D:\過去" ${planKindUnchecked}),
-            (newIngestPlanRow "無い" "E:\USB" ${planKindMissing})) $path
-        $plan = readIngestPlan $path
-        $plan[0].区分 | Should Be ${planKindUnchecked}
-        $plan[0].ファイル数 | Should Be 0
-        $plan[1].区分 | Should Be ${planKindMissing}
+    It "ログを開いていればログに書く。開いていなければ何もしない" {
+        { writeIndexerLog "何もしない" } | Should Not Throw
+        $script:indexerLog = New-Object System.IO.StringWriter
+        writeIndexerLog "1 行目"
+        writeIndexerLog "2 行目" "Yellow"
+        $script:indexerLog.ToString() | Should Be "1 行目`r`n2 行目`r`n"
     }
 
-    It "インデックスが1件も無くても読める（空の配列）" {
-        $path = "$TestDrive\予定3.tsv"
-        writeIngestPlan @() $path
-        (readIngestPlan $path).Count | Should Be 0
+    It "コンソールに出すときは色を付ける" {
+        Mock Write-Host {}
+        $script:indexerEcho = $true
+        writeIndexerLog "注意" "Yellow"
+        writeIndexerLog "普通"
+        Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -eq "注意" -and $ForegroundColor -eq "Yellow" }
+        Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -eq "普通" -and !$ForegroundColor }
     }
 
-    It "ファイルが無い・列が合わなければ null（画面は次の機会に読み直す）" {
-        readIngestPlan "$TestDrive\予定なし.tsv" | Should BeNullOrEmpty
-        $path = "$TestDrive\予定4.tsv"
-        writeListFile $path @("べつの見出し")
-        readIngestPlan $path | Should BeNullOrEmpty
-    }
-
-    It "画面が読んでいる間も書ける（共有して開く）" {
-        $path = "$TestDrive\予定5.tsv"
-        writeIngestPlan @((newIngestPlanRow "営業" "C:\data" ${planKindIngest} 1 1 1 0 0 0 0)) $path
-        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-        try {
-            { writeIngestPlan @((newIngestPlanRow "営業" "C:\data" ${planKindIngest} 2 2 2 0 0 0 0)) $path } | Should Not Throw
-        } finally {
-            $stream.Dispose()
-        }
-        (readIngestPlan $path)[0].取り込み対象 | Should Be 2
-    }
-
-    It "削除できる（無ければ何もしない）" {
-        $path = "$TestDrive\予定6.tsv"
-        writeIngestPlan @() $path
-        removeIngestPlan $path
-        Test-Path -LiteralPath $path | Should Be $false
-        { removeIngestPlan $path } | Should Not Throw
-    }
-}
-
-Describe "writeIndexingStartRequest / readIndexingStartRequest / removeIndexingStartRequest" -Tag Io {
-    It "前回失敗したファイルも再取り込みするかを伝えられる" {
-        $path = "$TestDrive\開始要求1"
-        writeIndexingStartRequest $true $path
-        (readIndexingStartRequest $path).RetryFailed | Should Be $true
-        writeIndexingStartRequest $false $path
-        (readIndexingStartRequest $path).RetryFailed | Should Be $false
-    }
-
-    It "まだ返事が無ければ null（インデクサは待ち続ける）" {
-        readIndexingStartRequest "$TestDrive\開始要求なし" | Should BeNullOrEmpty
-    }
-
-    It "削除できる（無ければ何もしない）" {
-        $path = "$TestDrive\開始要求2"
-        writeIndexingStartRequest $false $path
-        removeIndexingStartRequest $path
-        Test-Path -LiteralPath $path | Should Be $false
-        { removeIndexingStartRequest $path } | Should Not Throw
-    }
-}
-
-Describe "ほかから共有せずに開かれているときの読み込み" -Tag Io {
-    # インデクサが書き込み・置き換えをしている最中に画面が読む場合。例外にせず $null を返し、次の機会に読み直す
-    function lockFile([string]$path) {
-        return [System.IO.File]::Open($path, "Open", "ReadWrite", "None")
-    }
-
-    It "進み具合・取り込み予定・開始要求は `$null を返す" {
-        $progress = "$TestDrive\lock_progress.txt"
-        writeIndexingProgress ${indexingPhaseIngest} 1 2 0 "a" $progress
-        $plan = "$TestDrive\lock_plan.tsv"
-        writeIngestPlan @() $plan
-        $request = "$TestDrive\lock_request"
-        writeIndexingStartRequest $true $request
-
-        foreach ($case in @(@($progress, { readIndexingProgress $progress }), @($plan, { readIngestPlan $plan }), @($request, { readIndexingStartRequest $request }))) {
-            $stream = lockFile $case[0]
-            try {
-                & $case[1] | Should Be $null
-            } finally {
-                $stream.Dispose()
-            }
-        }
-        # 開放されれば読める
-        (readIndexingStartRequest $request).RetryFailed | Should Be $true
-    }
-}
-
-Describe "describeIngestError（パスが長すぎる）" -Tag Io {
-    It "原因を付けて元のメッセージを詳細にする" {
-        describeIngestError (New-Object System.IO.PathTooLongException("長すぎます。")) | Should Be "パスが長すぎるため読めません（詳細: 長すぎます。）"
+    It "ログに書けなくても止めない" {
+        $writer = New-Object System.IO.StringWriter
+        $writer.Dispose()
+        $script:indexerLog = $writer
+        { writeIndexerLog "書けない" } | Should Not Throw
     }
 }
 
@@ -431,12 +377,6 @@ Describe "getIndexingState（指定した時刻以降に取り込んだ件数）
 
     It "時刻を指定しなければ数えない" {
         (getIndexingState -path $path).IngestedSince | Should Be 0
-    }
-}
-
-Describe "readStatusLines" -Tag Io {
-    It "ファイルが無ければ空の配列" {
-        @(readStatusLines "$TestDrive\無い一覧.tsv").Count | Should Be 0
     }
 }
 

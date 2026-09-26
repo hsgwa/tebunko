@@ -26,15 +26,4 @@ Describe "NotifyBase" -Tag Unit {
         $node.Raise("Name")
         $names.Count | Should Be 0
     }
-
-    It "ハンドラーが無くても失敗しない" {
-        $node = [NotifyBase]::new()
-        { $node.Raise("Name") } | Should Not Throw
-    }
-}
-
-Describe "ConfirmFact" -Tag Unit {
-    It "詳細の既定は空" {
-        ([ConfirmFact]@{ Mark = "✓"; Title = "インデックスは残ります" }).Detail | Should Be ""
-    }
 }

@@ -240,17 +240,14 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         readTsv "肥大.tsv" | Should Be "元のシート`r`n"
     }
 
-    It "使用範囲とデータの差が小さいシートは、一時シートを使わない" {
-        $excel = newExcel @((newSheet "普通" -1 "a`r`n" @(1, 1, 100, 10) @(90, 10)))
-        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
-
-        [void](extractWorkbook $source)
-        @($log | Where-Object { $_ -eq "AddSheet" }).Count | Should Be 0
-    }
-
-    It "使用範囲が広くても、データがそのほとんどを占めるシートは一時シートを使わない" {
-        # 使用範囲 1,048,576 行 × 2 列、データ 1,000,000 行 × 2 列（差は 10 万セルたらず）
-        $excel = newExcel @((newSheet "大きい" -1 "a`r`n" @(1, 1, 1048576, 2) @(1000000, 2)))
+    # used: 使用範囲（開始行・開始列・行数・列数）、data: データのある範囲（行数・列数）
+    It "<name>" -TestCases @(
+        @{ name = "使用範囲とデータの差が小さいシートは、一時シートを使わない"; used = @(1, 1, 100, 10); data = @(90, 10) }
+        # 差は 10 万セルたらず
+        @{ name = "使用範囲が広くても、データがそのほとんどを占めるシートは一時シートを使わない"; used = @(1, 1, 1048576, 2); data = @(1000000, 2) }
+    ) {
+        param ($name, $used, $data)
+        $excel = newExcel @((newSheet "シート" -1 "a`r`n" $used $data))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
         extractWorkbook $source | Should Be 1
@@ -275,13 +272,13 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         } -Force
         $excel = newExcel @($sheet)
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
-        Mock Write-Host {}
+        Mock writeIndexerLog {}
 
         extractWorkbook $source | Should Be 1
         ($log | Where-Object { $_ -notlike "Open:*" -and $_ -notlike "Close:*" }) -join "|" |
             Should Be "AddSheet|Delete:一時|Activate:肥大|SaveAs:肥大:42"
         readTsv "肥大.tsv" | Should Be "元のシート`r`n"
-        Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -match "肥大 の使用範囲を縮められませんでした" }
+        Assert-MockCalled writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "肥大 の使用範囲を縮められませんでした" }
     }
 
     It "作業フォルダ＋ファイル名が長すぎて Excel で開けないときは、短い名前のコピーを開く" {
@@ -439,5 +436,36 @@ Describe "ingestFile" -Tag Io {
         ingestFile "a.XLS" | Should Be "Excel"
         ingestFile "a.docx" | Should Be "Word・PowerPoint"
         ingestFile "a.ppt" | Should Be "Word・PowerPoint"
+    }
+}
+
+Describe "extractDocument（読み取りのスレッド）" -Tag Io {
+    # 読み取りのスレッドは Office を持たない。Office が要るファイルは「Office が要る」の例外にして、Office のレーンに回してもらう
+    ${tmpDir} = Join-Path $TestDrive "reader_tmp"
+    [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+    $legacy = Join-Path $TestDrive "中身が旧形式.docx"
+    # 複合ドキュメント形式（旧形式）の先頭 8 バイト
+    [System.IO.File]::WriteAllBytes($legacy, [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1) + [byte[]]::new(504))
+    $broken = Join-Path $TestDrive "壊れた.pptx"
+    [System.IO.File]::WriteAllText($broken, "PowerPoint ではない内容")
+
+    BeforeEach { $script:officeUnavailable = $true }
+    AfterEach { $script:officeUnavailable = $false }
+
+    It "中身が旧形式なら、Office を使わずに「Office が要る」の例外にする" {
+        Mock getApp { throw "Office は使わない" }
+        $caught = $null
+        try { [void](extractDocument $legacy) } catch { $caught = $_.Exception.GetBaseException() }
+        $caught -is [System.OperationCanceledException] | Should Be $true
+        $caught.Message | Should Be ${officeRequiredMessage}
+        Assert-MockCalled getApp -Times 0 -Exactly -Scope It
+        # 作業フォルダにコピーを残さない
+        @([System.IO.Directory]::GetFiles(${tmpDir})).Count | Should Be 0
+    }
+
+    It "PowerPoint のファイルとして壊れているものは、回さずに失敗にする" {
+        Mock getApp { throw "Office は使わない" }
+        { extractDocument $broken } | Should Throw "ファイルが壊れているか、PowerPointのファイルではありません"
+        Assert-MockCalled getApp -Times 0 -Exactly -Scope It
     }
 }

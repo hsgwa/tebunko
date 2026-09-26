@@ -8,6 +8,9 @@ $script:detailTimer = newTimer 120 {
 }
 # 高さを変えただけのときは、横スクロールの位置をそのままにする（ドラッグのたびに左へ戻らないように）
 $script:detailKeepScroll = $false
+# 読み込みを頼んだプレビューの番号と行（別の行を選んだ後に届いた古い結果を捨てるため）
+$script:previewRequest = 0
+$script:previewRow = $null
 
 # 表示中の行（getViewRows）・選んでいる行（getSelectedRows）・選んでいる行 1 つ（getCurrentHitRow）は result_list.ps1
 
@@ -47,13 +50,40 @@ function showDetail {
     # 閉じている見出しを選んだときの先頭の行は、まだ画面に出ていない（LoadingRow で Prepare されていない）ため、
     # セル番地（MatchCell）が空のままになる。ここで作っておく（作り済みなら何もしない）
     $row.Prepare()
-    $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
-    $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
-    # 前後の行を集約ファイルから読む（読めなければ選択行だけを出す）。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う
+    # 前後の行を集約ファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
+    # 読み込みは画面のスレッドでは行わない（キャッシュに無いと集約ファイル全体を読むため）。読み終わったら applyDetail で表にする。
+    # 読んでいる間に別の行を選んだら、古い結果は捨てる（番号で見分ける）
     $lines = getPreviewContextLines
-    $context = @(readPackContext ([System.IO.Path]::Combine($row.Root, $row.RelPath)) $row.Book $row.Location $row.LineNumber $lines[0] $lines[1] $script:tsvCache)
+    $script:previewRequest++
+    $script:previewRow = $row
+    startJob {
+        param ($id, $path, $book, $location, $lineNumber, $before, $after, $cache)
+        @{ Id = $id; Context = @(readPackContext $path $book $location $lineNumber $before $after $cache) }
+    } @($script:previewRequest, [System.IO.Path]::Combine($row.Root, $row.RelPath), $row.Book, $row.Location, $row.LineNumber, $lines[0], $lines[1], $script:tsvCache) {
+        param ($output, $errorText)
+        if ($output -and $output.Count -gt 0 -and $output[0].Id -eq $script:previewRequest) {
+            applyDetail $script:previewRow $output[0].Context
+        } elseif ($errorText -and $null -ne $script:previewRow) {
+            # 読めなければ選択行だけを出す
+            applyDetail $script:previewRow @([pscustomobject]@{ LineNumber = $script:previewRow.LineNumber; Line = $script:previewRow.Line })
+        }
+    }
+}
+
+function applyDetail {
+    # 読んだ前後の行（readPackContext の結果）でプレビューの表を作る
+    param (
+        $row,
+        [object[]]$context
+    )
+
+    if (!$row.Equals((getCurrentHitRow))) {
+        return
+    }
+    $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
+    $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
     $title = "${path} ・ $($row.PlaceText) ・ $($row.Kind) ・ ${place}"

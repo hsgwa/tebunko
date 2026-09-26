@@ -7,8 +7,34 @@
 $script:processes = @()
 
 function refreshProcesses {
+    # 実行中の Office の一覧を取り直して表示する（すぐに一覧が要るとき。ボタンの操作など）
+    applyProcesses @(getOfficeProcesses)
+}
+
+function refreshProcessesInBackground {
+    # 一覧の取り直しを別スレッドで行う（タブを開いている間の定期的な更新。画面のスレッドでプロセスを調べない）
+    if ($script:processRefreshing) {
+        return
+    }
+    $script:processRefreshing = $true
+    startJob {
+        , @(getOfficeProcesses)
+    } @() {
+        param ($output, $errorText)
+        $script:processRefreshing = $false
+        if (!$errorText -and $output -and $output.Count -gt 0) {
+            applyProcesses @($output[0])
+        }
+    }
+}
+
+function applyProcesses {
+    param (
+        [object[]]$list
+    )
+
     $selectedIds = @($ui.ProcessGrid.SelectedItems | ForEach-Object { $_.Id })
-    $script:processes = @(getOfficeProcesses | Sort-Object @{ Expression = { !$_.Background } }, @{ Expression = { $_.StartTime } })
+    $script:processes = @($list | Sort-Object @{ Expression = { !$_.Background } }, @{ Expression = { $_.StartTime } })
 
     $rows = New-Object System.Collections.ArrayList
     foreach ($process in $script:processes) {
@@ -48,7 +74,16 @@ function updateKillBadge {
     )
 
     if ($null -eq $background) {
-        $background = @(getOfficeProcesses | Where-Object { $_.Background }).Count
+        # 数えるのは別スレッドで行い、数が分かったら印を付け直す（ウィンドウを前面にするたびに呼ばれるため、画面のスレッドで調べない）
+        startJob {
+            @(getOfficeProcesses | Where-Object { $_.Background }).Count
+        } @() {
+            param ($output, $errorText)
+            if (!$errorText -and $output -and $output.Count -gt 0) {
+                updateKillBadge ([int]$output[0])
+            }
+        }
+        return
     }
     # インデックス作成中はバックグラウンドの Excel 等があって当然なので、印を付けない
     $ui.KillTabHeader.Text = if ($background -gt 0 -and !(isIndexing)) { "⚠ 9 プロセス停止" } else { "9 プロセス停止" }
@@ -102,7 +137,8 @@ function killProcesses {
     refreshProcesses
 }
 
-$script:processTimer = newTimer 5000 { safe { refreshProcesses } }
+$script:processRefreshing = $false
+$script:processTimer = newTimer 5000 { safe { refreshProcessesInBackground } }
 
 $ui.RefreshProcessButton.Add_Click({ safe { refreshProcesses } })
 $ui.ProcessGrid.Add_SelectionChanged({ $ui.KillSelectedButton.IsEnabled = $ui.ProcessGrid.SelectedItems.Count -gt 0 })

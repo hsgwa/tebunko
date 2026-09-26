@@ -17,7 +17,7 @@ function updateSettingsView {
 
 function testWorkspaceChangeable {
     # インデックス作成中はワークスペースを変えない（インデクサが今のワークスペースに書いている。画面を使わずに起動したものも含む）
-    if ((isIndexing) -or (findRunningIndexer)) {
+    if ((isIndexing) -or (testIndexerRunning)) {
         showMessage "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" "OK" "Warning" | Out-Null
         return $false
     }

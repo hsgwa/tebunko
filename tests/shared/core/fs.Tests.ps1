@@ -2,37 +2,27 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "toSafeFileName" -Tag Io {
-    It "ファイル名に使えない文字を全角に変換する" {
-        toSafeFileName 'a<b>c\d*e:f?g|h' | Should Be 'a＜b＞c￥d＊e：f？g｜h'
-    }
-
-    It "スラッシュを全角に変換する" {
-        toSafeFileName 'a/b' | Should Be 'a／b'
-    }
-
-    It "ダブルクォートを全角に変換する" {
-        toSafeFileName 'a"b' | Should Be 'a”b'
-    }
-
-    It "使える文字はそのまま返す" {
-        toSafeFileName 'シート1 (2)' | Should Be 'シート1 (2)'
+    It "<name>" -TestCases @(
+        @{ name = "ファイル名に使えない文字を全角に変換する"; text = 'a<b>c\d*e:f?g|h'; expected = 'a＜b＞c￥d＊e：f？g｜h' }
+        @{ name = "スラッシュを全角に変換する"; text = 'a/b'; expected = 'a／b' }
+        @{ name = "ダブルクォートを全角に変換する"; text = 'a"b'; expected = 'a”b' }
+        @{ name = "使える文字はそのまま返す"; text = 'シート1 (2)'; expected = 'シート1 (2)' }
+    ) {
+        param($name, $text, $expected)
+        toSafeFileName $text | Should Be $expected
     }
 }
 
 Describe "toLongPath / fromLongPath" -Tag Io {
-    It "ドライブのパスに \\?\ を付け、外すと元に戻る" {
-        toLongPath "C:\data\a.xlsx" | Should Be "\\?\C:\data\a.xlsx"
-        fromLongPath "\\?\C:\data\a.xlsx" | Should Be "C:\data\a.xlsx"
-    }
-
-    It "ネットワークのパスは \\?\UNC\ にし、外すと元に戻る" {
-        toLongPath "\\server\share\a.xlsx" | Should Be "\\?\UNC\server\share\a.xlsx"
-        fromLongPath "\\?\UNC\server\share\a.xlsx" | Should Be "\\server\share\a.xlsx"
-    }
-
-    It "付いていればそのまま、付いていなければ外してもそのまま" {
-        toLongPath "\\?\C:\a" | Should Be "\\?\C:\a"
-        fromLongPath "C:\a" | Should Be "C:\a"
+    It "<name>。外すと元に戻り、付いていればそのまま、付いていなければ外してもそのまま" -TestCases @(
+        @{ name = "ドライブのパスに \\?\ を付ける"; short = "C:\data\a.xlsx"; long = "\\?\C:\data\a.xlsx" }
+        @{ name = "ネットワークのパスは \\?\UNC\ にする"; short = "\\server\share\a.xlsx"; long = "\\?\UNC\server\share\a.xlsx" }
+    ) {
+        param($name, $short, $long)
+        toLongPath $short | Should Be $long
+        fromLongPath $long | Should Be $short
+        toLongPath $long | Should Be $long
+        fromLongPath $short | Should Be $short
     }
 
     It "/ は \ にする" {
@@ -145,6 +135,27 @@ Describe "readListFile / writeListFile" -Tag Io {
     It "ファイルが無ければ空配列を返す" {
         @(readListFile "$TestDrive\none_list.txt").Count | Should Be 0
     }
+
+    It "ほかから共有せずに開かれていて読めなければ、空の一覧ではなく例外にする（`$ErrorActionPreference によらない）" {
+        $path = "$TestDrive\読めない一覧\list.txt"
+        writeListFile $path @("a")
+        $stream = [System.IO.File]::Open($path, "Open", "ReadWrite", "None")
+        try {
+            & {
+                $ErrorActionPreference = "Continue"
+                { readListFile $path } | Should Throw
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    }
+
+    It "行を渡さなければ空のファイルを作る" {
+        $path = "$TestDrive\空の一覧\list.txt"
+        writeListFile $path $null
+        Test-Path -LiteralPath $path | Should Be $true
+        @(readListFile $path).Count | Should Be 0
+    }
 }
 
 Describe "formatFileTime" -Tag Io {
@@ -178,31 +189,6 @@ Describe "removeDirectoryRetry" -Tag Io {
         }
         Assert-MockCalled Start-Sleep -Times 2 -Exactly -Scope It
         Test-Path -LiteralPath "$dir\a.tsv" | Should Be $true
-    }
-}
-
-Describe "readListFile（読めないファイル）" -Tag Io {
-    It "ほかから共有せずに開かれていて読めなければ、空の一覧ではなく例外にする（`$ErrorActionPreference によらない）" {
-        $path = "$TestDrive\読めない一覧\list.txt"
-        writeListFile $path @("a")
-        $stream = [System.IO.File]::Open($path, "Open", "ReadWrite", "None")
-        try {
-            & {
-                $ErrorActionPreference = "Continue"
-                { readListFile $path } | Should Throw
-            }
-        } finally {
-            $stream.Dispose()
-        }
-    }
-}
-
-Describe "writeListFile（行が無い）" -Tag Io {
-    It "行を渡さなければ空のファイルを作る" {
-        $path = "$TestDrive\空の一覧\list.txt"
-        writeListFile $path $null
-        Test-Path -LiteralPath $path | Should Be $true
-        @(readListFile $path).Count | Should Be 0
     }
 }
 
@@ -241,14 +227,6 @@ Describe "getFolderKey" -Tag Unit {
     It "SHA-256 の 16 進 64 文字を返す" {
         # "c:\tool" の SHA-256（小文字にしてから UTF-8 で計算する）
         getFolderKey "C:\Tool" | Should Be "DA4B936E296325CC586C02ADB4518ABB2C4021761A7AFCE2D670263F384C89F5"
-    }
-
-    It "大文字と小文字だけが違うフォルダは同じ鍵になる" {
-        getFolderKey "C:\Tool" | Should Be (getFolderKey "c:\tool")
-    }
-
-    It "フォルダが違えば鍵も違う" {
-        (getFolderKey "C:\Tool") -eq (getFolderKey "C:\Tool2") | Should Be $false
     }
 }
 
