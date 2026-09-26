@@ -23,14 +23,14 @@ $types = [ordered]@{
     feat     = "機能の追加・変更（ラベル enhancement）"
     fix      = "不具合の修正（ラベル bug）"
     docs     = "文書だけの変更（ラベル documentation）"
-    refactor = "動きを変えない書き直し"
-    perf     = "速さの改善"
-    test     = "テストだけの追加・修正"
-    style    = "書式だけの変更（空白・改行など）"
-    build    = "配布物の作り方・依存の更新（ラベル dependencies）"
-    ci       = "CI・git のフック・開発用の道具"
-    chore    = "上のどれにも当たらないもの"
-    revert   = "前の変更の取り消し"
+    refactor = "動きを変えない書き直し（ラベル internal）"
+    perf     = "速さの改善（ラベル enhancement）"
+    test     = "テストだけの追加・修正（ラベル internal）"
+    style    = "書式だけの変更（空白・改行など）（ラベル internal）"
+    build    = "配布物の作り方・依存の更新（依存の更新はラベル dependencies、ほかは internal）"
+    ci       = "CI・git のフック・開発用の道具（ラベル internal）"
+    chore    = "上のどれにも当たらないもの（ラベル internal）"
+    revert   = "前の変更の取り消し（取り消した PR と同じラベル）"
 }
 
 # git が自動で作るメッセージ
