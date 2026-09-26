@@ -2193,7 +2193,7 @@
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）</td>
 </tr>
 <tr>
-<td><code>tebunko/gui.ps1:379</code></td>
+<td><code>tebunko/gui.ps1:384</code></td>
 <td><code>powershell.exe</code></td>
 <td>本ツール自身の画面 <code>tebunko/gui.ps1</code> を開き直す（［8 設定］でワークスペースを変えたときだけ。<code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
 </tr>
@@ -2217,7 +2217,7 @@
 <tr>
 <td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）</td>
 <td>TSV インデックス（<code>work/index/</code>）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果</td>
-<td><code>shared/core/data_dir.ps1:41</code>、<code>tebunko/core/paths.ps1:12</code>・<code>13</code>・<code>18</code>・<code>26</code>〜<code>41</code></td>
+<td><code>tebunko/core/paths.ps1</code>（<code>$workspace</code>）、<code>tebunko/core/workspace.ps1</code>（<code>Workspace</code>）</td>
 </tr>
 <tr>
 <td><code>%TEMP%\tebunko\&lt;PID&gt;</code> 配下</td>
