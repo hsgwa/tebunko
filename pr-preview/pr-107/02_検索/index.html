@@ -1940,6 +1940,7 @@
 </table>
 <ul>
 <li>1GB の 2 回目以降は、読んだ内容の使い回しの上限（約 128MB）を超え、物理メモリ 8GB では OS のファイルキャッシュにも収まりきらないため、ディスクの読み込みの速さで決まる。</li>
+<li>同じ形のデータを使った pack の作成・検索の速さとリソースの推移は、GitHub Actions の <code>perf.yml</code>（手動で起動）でも測れる。計測スクリプトは <code>tools/measure_perf.ps1</code>（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">00_共通_3_テスト.md</a> の「CI」）。</li>
 </ul>
 <h3 id="44-高速検索windows-search-で先に絞る">4.4 高速検索（Windows Search で先に絞る）<a class="headerlink" href="#44-高速検索windows-search-で先に絞る" title="Permanent link">&para;</a></h3>
 <p>インデックスが大きいと、すべての集約ファイルを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。4.3）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の集約ファイルだけを 4.3 の方式で照合する（<code>tebunko/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての集約ファイルを照合したときと同じ</strong>になる。</p>
