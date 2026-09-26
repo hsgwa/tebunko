@@ -1,18 +1,20 @@
 ﻿# スクリプトの構成（パス定義・構文・XAML・型の読み込み）のテスト
-. "$PSScriptRoot\..\helpers\load.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\helpers\load.ps1"
+}
 
 Describe "パス定義" -Tag Meta {
     It "リポジトリ直下を基準にする（書き込めるため、設定ファイルもリポジトリ直下に置く）" {
-        $rootDir | Should Be (Resolve-Path "$here\..").Path
-        $dataDir | Should Be $rootDir
-        $settingsFile | Should Be "$rootDir\setting.config"
+        $rootDir | Should -Be (Resolve-Path "$here\..").Path
+        $dataDir | Should -Be $rootDir
+        $settingsFile | Should -Be "$rootDir\setting.config"
     }
 
     It "work の中身は work の置き場所（既定はリポジトリ直下の work。setting.config の workspaceFolder で変わる）を基準にする" {
-        $workDir | Should Be (getWorkDir $settingsFile)
-        $indexDir | Should Be "$workDir\index"
-        $publishDir | Should Be "$workDir\取り込み出力\$PID"
-        $resultFile | Should Be "$workDir\検索結果.txt"
+        $workspace.Dir | Should -Be (getWorkDir $settingsFile)
+        $workspace.IndexDir | Should -Be "$($workspace.Dir)\index"
+        $workspace.PublishDir | Should -Be "$($workspace.Dir)\取り込み出力\$PID"
+        $workspace.ResultFile | Should -Be "$($workspace.Dir)\検索結果.txt"
     }
 }
 
@@ -25,37 +27,39 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
             Where-Object { $_.DirectoryName -match '\\ui$' } |
             Select-String -Pattern '\$\{?PSScriptRoot\}?' |
             ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
-        ($found -join ", ") | Should Be ""
+        ($found -join ", ") | Should -Be ""
     }
 
     It "gui.ps1 が指すインデクサのファイルがある" {
         $line =@(Select-String -Path "$here\..\scripts\tebunko\gui.ps1" -Pattern '^\$\{indexerScriptPath\}\s*=\s*"\$PSScriptRoot\\(.+)"')
-        $line.Count | Should Be 1
-        Test-Path -LiteralPath "$here\..\scripts\tebunko\$($line[0].Matches[0].Groups[1].Value)" | Should Be $true
+        $line.Count | Should -Be 1
+        Test-Path -LiteralPath "$here\..\scripts\tebunko\$($line[0].Matches[0].Groups[1].Value)" | Should -Be $true
     }
 }
 
 Describe "スクリプトの構文" -Tag Meta {
-    Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1" | ForEach-Object {
-        $script = $_
+    BeforeDiscovery {
+        $scriptFiles = @(Get-ChildItem "$PSScriptRoot\..\..\scripts" -Recurse -Filter "*.ps1" |
+            ForEach-Object { @{ Name = $_.Name; FullName = $_.FullName } })
+    }
 
-        It "$($script.Name) に構文エラーが無い" {
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$errors) | Out-Null
-            # 継承元の型が別ファイルにある場合、1 ファイルだけを読むと型が見つからない（TypeNotFound）。
-            # 読み込む順で解決できることは、下の「型の読み込み」で実際に読み込んで確かめる
-            @($errors | Where-Object { $_.ErrorId -ne "TypeNotFound" }).Count | Should Be 0
-        }
+    It "<name> に構文エラーが無い" -ForEach $scriptFiles {
+        $errors = $null
+        [System.Management.Automation.Language.Parser]::ParseFile($FullName, [ref]$null, [ref]$errors) | Out-Null
+        # 継承元の型が別ファイルにある場合、1 ファイルだけを読むと型が見つからない（TypeNotFound）。
+        # 読み込む順で解決できることは、下の「型の読み込み」で実際に読み込んで確かめる
+        @($errors | Where-Object { $_.ErrorId -ne "TypeNotFound" }).Count | Should -Be 0
     }
 }
 
 Describe "画面定義（XAML）" -Tag Meta {
-    Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.xaml" | ForEach-Object {
-        $file = $_
+    BeforeDiscovery {
+        $xamlFiles = @(Get-ChildItem "$PSScriptRoot\..\..\scripts" -Recurse -Filter "*.xaml" |
+            ForEach-Object { @{ Name = $_.Name; FullName = $_.FullName } })
+    }
 
-        It "$($file.Name) が XML として読める" {
-            { [xml](Get-Content $file.FullName -Raw -Encoding UTF8) } | Should Not Throw
-        }
+    It "<name> が XML として読める" -ForEach $xamlFiles {
+        { [xml](Get-Content $FullName -Raw -Encoding UTF8) } | Should -Not -Throw
     }
 }
 
@@ -72,50 +76,48 @@ Describe "型の読み込み" -Tag Meta {
             '([HitRow], [IndexNode], [ConfirmFact], [PreviewTable]).Count'
         )
         $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1
-        ($output -join "") | Should Be "4"
+        ($output -join "") | Should -Be "4"
     }
 }
 
 Describe "画面の部品の名前" -Tag Meta {
     # gui.ps1 が FindName で取る名前が、XAML に実在すること。
     # タブの中身を別ファイルに分けているため、名前を足したり動かしたりすると気づきにくい
-    $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
-    $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\gui.ps1")
+    BeforeAll {
+        $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\gui.ps1")
 
-    function getXamlNames {
-        param ([string]$path)
-        [xml]$xaml = Get-Content $path -Raw -Encoding UTF8
-        return @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
+        function getXamlNames {
+            param ([string]$path)
+            [xml]$xaml = Get-Content $path -Raw -Encoding UTF8
+            return @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
+        }
     }
 
     It "ウィンドウの枠の名前がある" {
         $names = getXamlNames "$here\..\scripts\tebunko\xaml\tebunko.xaml"
         foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
-            $names -contains $name | Should Be $true
+            $names -contains $name | Should -Be $true
         }
     }
 
-    foreach ($tab in @(
-            @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
-            @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
-            @{ File = "tab_settings.xaml"; Marker = 'Tab = "SettingsTab"' }
-            @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' })) {
-        $file = $tab.File
-        $marker = $tab.Marker
+    It "<file> に、gui.ps1 が使う名前がすべてある" -ForEach @(
+        @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
+        @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
+        @{ File = "tab_settings.xaml"; Marker = 'Tab = "SettingsTab"' }
+        @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' }
+    ) {
+        # gui.ps1 の $tabs から、そのタブの名前の一覧を取り出す
+        $start = $gui.IndexOf($Marker)
+        $start | Should -Not -Be -1
+        $listStart = $gui.IndexOf("Names = @(", $start)
+        $listEnd = $gui.IndexOf(") }", $listStart)
+        $list = $gui.Substring($listStart, $listEnd - $listStart)
+        $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
+        $wanted.Count -gt 0 | Should -Be $true
 
-        It "$file に、gui.ps1 が使う名前がすべてある" {
-            # gui.ps1 の $tabs から、そのタブの名前の一覧を取り出す
-            $start = $gui.IndexOf($marker)
-            $start | Should Not Be -1
-            $listStart = $gui.IndexOf("Names = @(", $start)
-            $listEnd = $gui.IndexOf(") }", $listStart)
-            $list = $gui.Substring($listStart, $listEnd - $listStart)
-            $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
-            $wanted.Count -gt 0 | Should Be $true
-
-            $names = getXamlNames "$here\..\scripts\tebunko\xaml\$file"
-            $missing = @($wanted | Where-Object { $names -notcontains $_ })
-            ($missing -join ", ") | Should Be ""
-        }
+        $names = getXamlNames "$here\..\scripts\tebunko\xaml\$File"
+        $missing = @($wanted | Where-Object { $names -notcontains $_ })
+        ($missing -join ", ") | Should -Be ""
     }
 }

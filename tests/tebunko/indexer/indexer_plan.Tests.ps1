@@ -35,6 +35,7 @@ Describe "createTargetList" -Tag Io {
         $folder = @{ Path = $source; Name = "売上" }
         # getIndexFiles / removeBookDir が実際のインデックスを見ないよう、テスト用のフォルダに向ける
         ${indexDir} = Join-Path $TestDrive "index"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
     }
 
     # 一覧の行（state が $null なら一覧に無い。modified は元のファイルが更新されたか、version は抽出版）と
@@ -81,6 +82,7 @@ Describe "createTargetList（インデックスが先にあるファイル・無
         (Get-Item -LiteralPath $file).LastWriteTime = [datetime]"2024/04/01 09:00:00"
         $folder = @{ Path = $source; Name = "経理" }
         ${indexDir} = Join-Path $TestDrive "index2"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
         $bookDir = Join-Path ${indexDir} "経理\2024\b.docx"
 
         function newIndexTsv([string]$name, [datetime]$time) {

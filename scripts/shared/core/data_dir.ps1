@@ -1,7 +1,7 @@
 ﻿# データ（設定ファイル・work）の置き場所の既定（どのツールからも使う）。
 # ツールのフォルダに書き込めればそこに置く（以前の版と同じ）。書き込めないとき（Program Files・読み取り専用の共有フォルダに
 # 置いたとき）だけ、利用者ごとの場所（%LOCALAPPDATA%\tebunko\<ツールのフォルダの鍵>）に置く。
-# work の置き場所は、ツールの設定でさらに変えられる（ツール側で ${workDir} を決め直す）。
+# work の置き場所は、ツールの側で決める（tebunko は設定の workspaceFolder）。
 
 function testWritableFolder {
     # フォルダにファイルを作れるか。試しに作ったファイルは閉じると消える（DeleteOnClose）。フォルダが無ければ $false
@@ -38,4 +38,3 @@ function getDataDir {
 }
 
 ${dataDir} = getDataDir
-${workDir} = "${dataDir}\work"  # 既定の置き場所。ツールの設定で変えたときは、ツール側で決め直す

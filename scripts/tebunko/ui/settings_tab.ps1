@@ -5,7 +5,7 @@ ${workspaceCountLimit} = 1000      # 選んだフォルダの中身を数える�
 
 function updateSettingsView {
     # ワークスペースと設定ファイルの場所を表示する
-    $view = getWorkspaceView ${workDir} (getDefaultWorkDir)
+    $view = getWorkspaceView $workspace.Dir (getDefaultWorkDir)
     $ui.WorkspaceText.Text = $view.Path
     $ui.WorkspaceNote.Text = $view.Note
     $ui.ResetWorkspaceButton.Visibility = if ($view.CanReset) { "Visible" } else { "Collapsed" }
@@ -33,7 +33,7 @@ function chooseWorkspace {
     if (!(testWorkspaceChangeable)) {
         return
     }
-    $folder = selectFolder "ワークスペースにする空のフォルダを選んでください。インデックス・取り込み一覧・ログをここに置きます。" ${workDir}
+    $folder = selectFolder "ワークスペースにする空のフォルダを選んでください。インデックス・取り込み一覧・ログをここに置きます。" $workspace.Dir
     if ($null -eq $folder) {
         return
     }
@@ -86,7 +86,7 @@ function applyWorkspace {
         [bool]$requireEmpty   # 空のフォルダを求める（［変更…］）。空でなければ警告する
     )
 
-    $check = testWorkspaceChoice $folder ${workDir} (testWritableFolder $folder)
+    $check = testWorkspaceChoice $folder $workspace.Dir (testWritableFolder $folder)
     if ($check.Kind -eq "same") {
         setStatus "今と同じワークスペースです"
         return
@@ -101,7 +101,7 @@ function applyWorkspace {
     $sub = Join-Path $folder ${workspaceSubFolderName}
     $canMakeSub = -not (Test-Path -LiteralPath $sub) -or
         ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)
-    $confirm = newWorkspaceConfirm $folder ${workDir} $entries.Count $entries.Names $entries.Capped `
+    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped `
         (Test-Path -LiteralPath (Join-Path $folder "index") -PathType Container) $canMakeSub
     # switch の中の $_ は switch の値になるため、行を変数に受けてから使う
     $facts = @($confirm.Facts | ForEach-Object {

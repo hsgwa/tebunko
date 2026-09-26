@@ -14,7 +14,7 @@ function getBookDir {
         [string]$relPath
     )
 
-    return (Join-Path $indexDir $relPath)
+    return (Join-Path $workspace.IndexDir $relPath)
 }
 
 function getIndexFiles {

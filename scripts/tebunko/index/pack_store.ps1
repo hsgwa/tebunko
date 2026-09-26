@@ -264,9 +264,9 @@ function publishIndexFolders {
     #   pending: フォルダ（フルパス）→ 無くなった元のファイル名の集まり
     param (
         $pending,
-        [string]$indexRoot = ${indexDir},
-        [string]$systemRoot = ${systemIndexDir},
-        [string]$statePath = ${systemIndexStateFile}
+        [string]$indexRoot = $workspace.IndexDir,
+        [string]$systemRoot = $workspace.SystemIndexDir,
+        [string]$statePath = $workspace.SystemIndexStateFile
     )
 
     $results = New-Object System.Collections.Generic.List[hashtable]

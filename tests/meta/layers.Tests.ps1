@@ -1,20 +1,22 @@
 ﻿# フォルダ構成の決まりごとのテスト（文脈と層の分け方を保つ）。
-. "$PSScriptRoot\..\helpers\load.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\helpers\load.ps1"
 
-# ファイルが dot-source している相手を返す（. "$PSScriptRoot\..." の形だけを見る）
-function getSourcedFiles {
-    param ([string]$path)
+    # ファイルが dot-source している相手を返す（. "$PSScriptRoot\..." の形だけを見る）
+    function getSourcedFiles {
+        param ([string]$path)
 
-    $dir = Split-Path $path -Parent
-    $text = [System.IO.File]::ReadAllText($path)
-    $result = @()
-    foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$PSScriptRoot\\([^"]+)"')) {
-        $full = Join-Path $dir $match.Groups[1].Value
-        if (Test-Path -LiteralPath $full) {
-            $result += (Resolve-Path -LiteralPath $full).Path
+        $dir = Split-Path $path -Parent
+        $text = [System.IO.File]::ReadAllText($path)
+        $result = @()
+        foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$PSScriptRoot\\([^"]+)"')) {
+            $full = Join-Path $dir $match.Groups[1].Value
+            if (Test-Path -LiteralPath $full) {
+                $result += (Resolve-Path -LiteralPath $full).Path
+            }
         }
+        return $result
     }
-    return $result
 }
 
 Describe "依存の向き" -Tag Meta {
@@ -26,7 +28,7 @@ Describe "依存の向き" -Tag Meta {
         $found = @(Get-ChildItem "${scriptsDir}\shared" -Recurse -Include *.ps1, *.xaml |
             Select-String -Pattern $pattern |
             ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
-        ($found -join ", ") | Should Be ""
+        ($found -join ", ") | Should -Be ""
     }
 
     It "ツール同士は互いを読み込まない" {
@@ -37,7 +39,7 @@ Describe "依存の向き" -Tag Meta {
             foreach ($file in (Get-ChildItem $tool.FullName -Recurse -Filter "*.ps1")) {
                 foreach ($sourced in (getSourcedFiles $file.FullName)) {
                     foreach ($other in $others) {
-                        ($sourced -like "*\scripts\$other\*") | Should Be $false
+                        ($sourced -like "*\scripts\$other\*") | Should -Be $false
                     }
                 }
             }
@@ -62,7 +64,7 @@ Describe "読み込み漏れ" -Tag Meta {
         }
         $all = @(Get-ChildItem "${scriptsDir}" -Recurse -Filter "*.ps1" | ForEach-Object { $_.FullName })
         $missing = @($all | Where-Object { !$seen.Contains($_) } | ForEach-Object { Split-Path $_ -Leaf })
-        ($missing -join ", ") | Should Be ""
+        ($missing -join ", ") | Should -Be ""
     }
 }
 
@@ -80,7 +82,7 @@ Describe "判断層" -Tag Meta {
         foreach ($file in $files) {
             $text = [System.IO.File]::ReadAllText($file)
             $hit = [regex]::Matches($text, '\$ui\.|\$window|System\.Windows\.Media')
-            "$(Split-Path $file -Leaf): $($hit.Count)" | Should Be "$(Split-Path $file -Leaf): 0"
+            "$(Split-Path $file -Leaf): $($hit.Count)" | Should -Be "$(Split-Path $file -Leaf): 0"
         }
     }
 }

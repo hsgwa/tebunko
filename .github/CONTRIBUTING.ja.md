@@ -64,7 +64,7 @@ feat!: インデックスの形式を変える
 必要なもの:
 
 - Windows と Windows PowerShell 5.1（Windows に最初から入っています）
-- Pester 3.4（テストの実行に使います。Windows に最初から入っている版です）
+- Pester 5.9.0（テストの実行に使います）。Windows に最初から入っている 3.4 では動きません。`Install-Module Pester -RequiredVersion 5.9.0 -Scope CurrentUser -Force -SkipPublisherCheck` で 1 回入れてください（最初から入っている 3.4 と発行元が違うため `-SkipPublisherCheck` が要ります）
 - Microsoft Excel・Word・PowerPoint（インデックス作成を実際に試すとき。自動テストには不要です）
 
 clone したら、コミット前の検査を有効にします（1 回だけ）。
@@ -76,7 +76,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 以後、コミットのたびに次の検査が動きます。引っかかったときは `--no-verify` で飛ばさず、内容を直してください。
 
 - 個人情報（実名・メールアドレス・利用者名を含むパスなど）と、スクリプトの文字コードの検査（`tools\check_commit.ps1 -Staged`）
-- 速いテスト（`tests\run.ps1 -Tag Unit,Meta -Quiet`）
+- 変更したファイルに対応するテスト（`tools\run_commit_tests.ps1`。たとえば `scripts\<パス>.ps1` なら `tests\<パス>.Tests.ps1`。どのテストに効くか分からない変更のときは速いテストを全部流します。全テストは CI が流します）
 - コミットメッセージの 1 行目の形（`tools\check_commit_message.ps1`。上の「コミットと Pull Request のタイトル」）
 - `Signed-off-by` が付いていること（`tools\check_signoff.ps1`。上の「Signed-off-by」）
 

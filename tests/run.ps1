@@ -26,8 +26,11 @@ function splitTags([string[]]$tags) {
 }
 $Tag = splitTags $Tag
 $ExcludeTag = splitTags $ExcludeTag
+$Path = splitTags $Path
 
-# Windows に最初から入っている Pester 3.4 ではなく、版を固定して読み込む（入れ方は .github/CONTRIBUTING.ja.md）
+# Windows に最初から入っている Pester 3.4 ではなく、版を固定して読み込む（入れ方は .github/CONTRIBUTING.ja.md）。
+# 同じセッションで別の版を読み込んでいれば外す（2 つの版が並ぶと、どちらの Invoke-Pester が動くか分からないため）
+Get-Module Pester | Where-Object { $_.Version -ne [version]"5.9.0" } | Remove-Module
 Import-Module Pester -RequiredVersion 5.9.0
 
 $testsDir = $PSScriptRoot
@@ -59,11 +62,25 @@ if ($Ci) {
     $config.CodeCoverage.Path = @(Get-ChildItem "$rootDir\scripts" -Recurse -Filter "*.ps1" |
         Where-Object { $_.Name -notmatch "^(gui|shell|app_host)\.ps1$" -and $_.Name -notmatch "_tab\.ps1$" -and $_.Name -notmatch "_dialog\.ps1$" } |
         ForEach-Object { $_.FullName })
-    # Pester が書き出す XML には絶対パスが入るため、Codecov には送らない（下の writeCobertura で書く）
-    $config.CodeCoverage.OutputPath = "$outDir\coverage.pester.xml"
+    # Pester が書き出す XML には絶対パスが入るため、work\test（CI の成果物に入る）には置かず、使わない（下の writeCobertura で書く）
+    $config.CodeCoverage.OutputPath = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko-coverage-$PID.xml"
 }
 
-$result = Invoke-Pester -Configuration $config
+if ($Ci) {
+    # カバレッジの計測（Profiler）はトレースを使う。Windows PowerShell 5.1 では、最後のブレークポイントを外すとデバッガが止まり、
+    # トレースも止まる。テストの中で Set-PSBreakpoint / Remove-PSBreakpoint を使う（indexer・index_store）と、後に流すテストの
+    # カバレッジが取れなくなるため、実行している間は当たらないブレークポイントを 1 つ置いておく
+    $keepDebugger = Set-PSBreakpoint -Command "__tebunko_keep_debugger__" -Action { }
+}
+try {
+    $result = Invoke-Pester -Configuration $config
+} finally {
+    if ($Ci) { Remove-PSBreakpoint -Breakpoint $keepDebugger }
+}
+if (!$result) {
+    Write-Host "テストを実行できませんでした（-Path $($Path -join ',')）。" -ForegroundColor Red
+    exit 1
+}
 
 # 探索や BeforeAll で失敗したファイル・ブロックはテストの失敗数に入らないため、足して数える
 $failed = $result.FailedCount + $result.FailedBlocksCount + $result.FailedContainersCount

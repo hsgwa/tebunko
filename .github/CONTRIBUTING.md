@@ -64,7 +64,7 @@ The `commit-msg` hook stops commits without it. CI checks the commits of a pull 
 You need:
 
 - Windows and Windows PowerShell 5.1 (included with Windows)
-- Pester 3.4 (used to run the tests; the version included with Windows)
+- Pester 5.9.0 (used to run the tests). Windows includes Pester 3.4, which cannot run these tests. Install 5.9.0 once with `Install-Module Pester -RequiredVersion 5.9.0 -Scope CurrentUser -Force -SkipPublisherCheck` (`-SkipPublisherCheck` is needed because the publisher differs from the included 3.4)
 - Microsoft Excel, Word and PowerPoint (only to actually build indexes; the automated tests do not need them)
 
 After you clone the repository, turn on the pre-commit checks (once).
@@ -76,7 +76,7 @@ After you clone the repository, turn on the pre-commit checks (once).
 From then on, the following checks run on every commit. If a check fails, fix the content instead of skipping the check with `--no-verify`.
 
 - Personal information (real names, email addresses, paths that contain a user name) and the text encoding of scripts (`tools\check_commit.ps1 -Staged`)
-- The fast tests (`tests\run.ps1 -Tag Unit,Meta -Quiet`)
+- The tests for the files you changed (`tools\run_commit_tests.ps1`; for example, `tests\<path>.Tests.ps1` for `scripts\<path>.ps1`. When it cannot tell which tests are affected, it runs all the fast tests. CI runs all the tests)
 - The form of the first line of the commit message (`tools\check_commit_message.ps1`; see "Commit and pull request titles" above)
 - That `Signed-off-by` is present (`tools\check_signoff.ps1`; see "Signed-off-by" above)
 
