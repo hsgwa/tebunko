@@ -44,12 +44,12 @@ jobs:
         run: .\tools\new_release_package.ps1 -Version $env:GITHUB_REF_NAME
 
       # Inno Setup は、版を決めて公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。
-      # 版を上げるときは、URL と SHA256 を一緒に直す
+      # 版を上げるときは、URL と SHA256 を一緒に直す。6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため、7.1.0 にした
       - name: Inno Setup を入れる
         shell: powershell
         env:
-          INNO_URL: https://github.com/jrsoftware/issrc/releases/download/is-6_7_1/innosetup-6.7.1.exe
-          INNO_SHA256: 4D11E8050B6185E0D49BD9E8CC661A7A59F44959A621D31D11033124C4E8A7B0
+          INNO_URL: https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe
+          INNO_SHA256: 0362A383ED217D4C4239B5933866DD96D3EB2102737DA92F80F6057A4B40DF2F
         run: |
           $installer = Join-Path $env:RUNNER_TEMP "innosetup.exe"
           $dir = Join-Path $env:RUNNER_TEMP "inno"

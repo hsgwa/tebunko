@@ -1,4 +1,4 @@
-﻿; tebunko のインストーラー（Inno Setup 6）
+﻿; tebunko のインストーラー（Inno Setup 7）
 ;
 ; ビルドは tools\new_installer.ps1 が行う（release.yml からも呼ぶ）。次の値をコマンドラインの /D で渡す:
 ;   AppVersion      表示する版（例 0.2.0。アンインストールの一覧に出る）

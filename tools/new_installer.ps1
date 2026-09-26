@@ -6,9 +6,9 @@
 # 手順:
 #   1. 起動口 tebunko.exe（installer\tebunko.cs）を、Windows 標準の .NET Framework の csc.exe でビルドする
 #   2. tebunko.exe・scripts\・LICENSE を work\release\installer\stage\ に並べる
-#   3. Inno Setup 6 のコンパイラ（ISCC.exe）で installer\tebunko.iss をビルドする
+#   3. Inno Setup 7 のコンパイラ（ISCC.exe）で installer\tebunko.iss をビルドする
 #
-# Inno Setup は -Iscc で指定するか、既定の場所（Program Files (x86)・%LOCALAPPDATA%\Programs の Inno Setup 6）に入れておく。
+# Inno Setup は -Iscc で指定するか、既定の場所（Program Files (x86)・%LOCALAPPDATA%\Programs の Inno Setup 7）に入れておく。
 param (
     [Parameter(Mandatory = $true)]
     [string]$Version,
@@ -50,16 +50,16 @@ function findIscc {
         return $path
     }
     $candidates = @(
-        (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
-        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"),
-        (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe")
+        (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 7\ISCC.exe"),
+        (Join-Path $env:ProgramFiles "Inno Setup 7\ISCC.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 7\ISCC.exe")
     )
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate) {
             return $candidate
         }
     }
-    throw "Inno Setup 6 の ISCC.exe が見つかりません。Inno Setup 6 を入れるか、-Iscc で指定してください。"
+    throw "Inno Setup 7 の ISCC.exe が見つかりません。Inno Setup 7 を入れるか、-Iscc で指定してください。"
 }
 
 $appVersion = $Version -replace '^v', ''
