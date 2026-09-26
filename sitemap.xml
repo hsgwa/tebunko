@@ -5,103 +5,135 @@
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/architecture/layout/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/architecture/modules/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/architecture/settings-file/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/architecture/threads/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/common/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/implementation/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/index-tab/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/process-tab/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/search-tab/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/settings-tab/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/gui/state-flow/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_8_%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%A1%E3%83%83%E3%82%BB%E3%83%BC%E3%82%B8%E4%B8%80%E8%A6%A7/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/02_%E6%A4%9C%E7%B4%A2/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/errors/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/excel/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/flow/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/index-format/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/known-issues/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/office-apps/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_4_%E7%8A%B6%E6%85%8B%E3%81%A8%E6%93%8D%E4%BD%9C%E3%81%AE%E6%B5%81%E3%82%8C/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/powerpoint/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/indexer/word/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/search/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/search/fast-search/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
     <url>
-         <loc>https://hsgwa.github.io/tebunko/04_%E5%AE%89%E5%85%A8%E6%80%A7/</loc>
+         <loc>https://hsgwa.github.io/tebunko/design/search/output/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/design/testing/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/design/testing/ci/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/safety/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/safety/checks/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/safety/disclosure/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/safety/file-access/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/safety/scans/</loc>
+         <lastmod>2026-09-26</lastmod>
+    </url>
+    <url>
+         <loc>https://hsgwa.github.io/tebunko/safety/supply-chain/</loc>
          <lastmod>2026-09-26</lastmod>
     </url>
 </urlset>
