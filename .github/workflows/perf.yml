@@ -1,4 +1,5 @@
-# 性能とリソースを手動で測る（pack の作成、検索、リソースの推移）。結果はジョブの Summary と artifact に出力する。
+# 性能とリソースを手動で測る（インデックス作成と検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
+# 数字は result.json と metrics.csv（1 行 1 指標。後で Grafana などに入れるため）にも書く。
 #
 # Actions の画面か `gh workflow run perf.yml -f ref=<ref> -f scale=0.1` で起動する。
 # 計測スクリプト（tools/measure_perf.ps1）はこのワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする（作業中のブランチも測れる）。
@@ -19,19 +20,19 @@ on:
         type: choice
         options: ["0.1", "0.3", "1"]
         default: "0.1"
-      repeat:
-        description: 検索を繰り返す回数（中央値を出す）
-        default: "3"
-      words:
-        description: 追加で検索する語（空白区切り。省略可）
-        default: ""
+      count:
+        description: 語ごとに続けて検索する回数（最小・中央値・平均・最大を出す）
+        default: "20"
+  # 一時的: PR のブランチで動きを確かめるため（マージ前に外す）
+  push:
+    branches: [ci/perf-workflow]
 
 permissions:
   contents: read
 
 # 同じ ref で続けて起動したときは、前の実行を取り消さず、終わるのを待つ
 concurrency:
-  group: perf-${{ inputs.ref }}
+  group: perf-${{ inputs.ref || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -52,7 +53,7 @@ jobs:
       - name: 計測対象のコードをチェックアウトする
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
           path: target
           persist-credentials: false
 
@@ -67,29 +68,29 @@ jobs:
       - name: データを生成する
         shell: powershell
         env:
-          SCALE: ${{ inputs.scale }}
+          SCALE: ${{ inputs.scale || '0.1' }}
         run: |
           $ErrorActionPreference = "Stop"
           $work = Join-Path $env:RUNNER_TEMP "perf"
           $watch = [System.Diagnostics.Stopwatch]::StartNew()
           & .\perfdata\tools\new_index.ps1 -Dest (Join-Path $work "index") -Scale ([double]::Parse($env:SCALE, [System.Globalization.CultureInfo]::InvariantCulture))
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          [System.IO.File]::WriteAllText((Join-Path $work "data_seconds.txt"), [string]$watch.Elapsed.TotalSeconds)
+          [System.IO.File]::WriteAllText((Join-Path $work "data_seconds.txt"), $watch.Elapsed.TotalSeconds.ToString([System.Globalization.CultureInfo]::InvariantCulture))
 
       - name: 計測する
         shell: powershell
         env:
-          REF: ${{ inputs.ref }}
-          SCALE: ${{ inputs.scale }}
-          REPEAT: ${{ inputs.repeat }}
-          WORDS: ${{ inputs.words }}
+          REF: ${{ inputs.ref || github.ref_name }}
+          SCALE: ${{ inputs.scale || '0.1' }}
+          COUNT: ${{ inputs.count || '20' }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = "Stop"
           $work = Join-Path $env:RUNNER_TEMP "perf"
-          $sha = git -C target rev-parse --short HEAD
-          $add = @($env:WORDS -split '\s+' | Where-Object { $_ })
-          $data = [double][System.IO.File]::ReadAllText((Join-Path $work "data_seconds.txt"))
-          & .\tool\tools\measure_perf.ps1 -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -AddWords $add -Repeat ([int]$env:REPEAT) -Label "$env:REF ($sha) scale $env:SCALE" -DataSeconds $data -Out (Join-Path $work "result")
+          $sha = git -C target rev-parse HEAD
+          $short = $sha.Substring(0, 7)
+          $data = [double]::Parse([System.IO.File]::ReadAllText((Join-Path $work "data_seconds.txt")), [System.Globalization.CultureInfo]::InvariantCulture)
+          & .\tool\tools\measure_perf.ps1 -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
 
       - name: 結果を Summary に書き出す
         if: always()
