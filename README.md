@@ -161,7 +161,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 - **Excel の数値：** セルに表示されている形で検索します。表示形式が「標準」で 12 桁以上の数値は指数表記（`4.90123E+12`）になるため、元の番号では見つかりません
 - **反映のタイミング：** 元のファイルを変更した内容は、次にインデックスを作成したときに反映されます
 
-制限事項の一覧は [設計書](docs/01_インデックス作成_7_出力TSVと既知の問題.md) にあります。
+制限事項の一覧は [設計書](docs/design/indexer/known-issues.md) にあります。
 
 ## 安全性
 
@@ -174,7 +174,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 > [!IMPORTANT]
 > インデックス（`work/index/`）には文書の文字がそのまま入っており、元のファイルのアクセス権は引き継がれません。インデックスを置くフォルダ（既定は tebunko を置くフォルダ）のアクセス権は、検索するフォルダと同じか、それより厳しくしてください。
 
-根拠やご自身で確かめる手順、配布ファイルの検証方法は [安全性の説明](docs/04_安全性.md) に、脆弱性の報告先は [SECURITY.md](.github/SECURITY.ja.md) にあります。
+根拠やご自身で確かめる手順、配布ファイルの検証方法は [安全性の説明](docs/safety/index.md) に、脆弱性の報告先は [SECURITY.md](.github/SECURITY.ja.md) にあります。
 
 ## 仕組み
 
@@ -213,7 +213,7 @@ flowchart LR
 | ヒットしたファイルを開く | 元のファイルを Excel・Word・PowerPoint で開きます。そのまま編集して保存できます |
 | 残った Office を終了する | インデックスの作成を途中で止めたときなどに残った Excel・Word・PowerPoint を、［9 プロセス停止］タブで終了します |
 
-設計の詳細は [設計書](https://hsgwa.github.io/tebunko/)（[docs/](docs/00_index.md)）にあります。
+設計の詳細は [設計書](https://hsgwa.github.io/tebunko/)（[docs/](docs/design/index.md)）にあります。
 
 ## 開発に参加する
 

@@ -1,5 +1,5 @@
 ﻿# インデックス作成の本体（invokeIndexer）。画面を使わない起動口（indexer.ps1）と、画面のインデクサのスレッド（IndexingSession）が呼ぶ。
-# 設計は docs/00_共通_4_プロセスとスレッド.md の 7.4・7.5。
+# 設計は docs/design/architecture/threads.md「インデックス作成の並列化」「画面とインデクサの受け渡し」。
 #
 # ・司令のスレッド（invokeIndexer を呼んだスレッド）が、クロール・確認・取り込み一覧・集約ファイルとシステムインデックスの書き出しを行う。
 #   Office の COM には触らない

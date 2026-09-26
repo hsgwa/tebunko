@@ -7,7 +7,7 @@
 ;   StageDir        入れるファイルを並べたフォルダ（tebunko.exe・scripts\・LICENSE）
 ;   IconFile        インストーラーのアイコン（scripts\tebunko\tebunko.ico）
 ;
-; 方針（docs/04_安全性.md 4.6）:
+; 方針（docs/safety/disclosure.md「インストーラー版」）:
 ;   ・管理者権限なしで、利用者ごとの %LOCALAPPDATA%\Programs\tebunko に入れる。管理者なら Program Files も選べる
 ;   ・入れるのは tebunko.exe（installer\tebunko.cs）・scripts\・LICENSE だけ。レジストリに書くのは、Windows のインストーラーが
 ;     必ず書くアンインストールの情報だけ（[Registry] は使わない）。サービス・自動起動・PATH・ファイルの関連付けは触らない

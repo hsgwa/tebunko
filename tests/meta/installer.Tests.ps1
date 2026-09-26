@@ -1,4 +1,4 @@
-﻿# インストーラー（installer\）の決まりを確かめるテスト（docs/04_安全性.md 4.6）。
+﻿# インストーラー（installer\）の決まりを確かめるテスト（docs/safety/disclosure.md「インストーラー版」）。
 # インストーラーそのもののビルド（Inno Setup）は release.yml で行う。ここでは、起動口 tebunko.exe がビルドできることと、
 # インストーラーが書き込む先・入れるものを広げていないことを、スクリプトを読んで確かめる。
 BeforeAll {

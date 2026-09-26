@@ -6,7 +6,7 @@ This page collects information about the safety of tebunko and explains how to c
 
 ## How the tool stays safe
 
-What the tool does and does not do, why it does not use dangerous operations or libraries, and the results of checks by third-party tools are described in [docs/04_安全性.md](../docs/04_安全性.md) (Japanese). If you are reviewing the tool before introducing it, read this document first.
+What the tool does and does not do, why it does not use dangerous operations or libraries, and the results of checks by third-party tools are described in [docs/safety/index.md](../docs/safety/index.md) (Japanese). If you are reviewing the tool before introducing it, read this document first.
 
 The claims can be checked automatically with the following command (the checks are in `tests/meta/safety.Tests.ps1`).
 
@@ -44,12 +44,12 @@ Security fixes are made for the latest minor version (the latest `v<major>.<mino
 
 - We acknowledge a report within 7 days.
 - We check the report and try to reproduce the problem.
-- If we fix it, we describe the cause and the impact in [docs/04_安全性.md](../docs/04_安全性.md) (Japanese) and the related design documents, and add tests to `tests/` to prevent it from happening again.
+- If we fix it, we describe the cause and the impact in [docs/safety/index.md](../docs/safety/index.md) (Japanese) and the related design documents, and add tests to `tests/` to prevent it from happening again.
 - The fix is released with the catalog and hash list made by `tools\new_release_files.ps1`, and the provenance of the zip is signed with Sigstore. Anyone who receives it can check that the release has not been altered (see the "安全性" (safety) section of the [README](../README.md#安全性), Japanese).
 
 ## What we ask of users
 
-The tool **keeps the text of the original documents in plain text in the index (the TSV files in `work\index\`)**. The access rights of the original files are not carried over. Please note the following (details in section 4.3 of [docs/04_安全性.md](../docs/04_安全性.md), Japanese).
+The tool **keeps the text of the original documents in plain text in the index (the TSV files in `work\index\`)**. The access rights of the original files are not carried over. Please note the following (details in [docs/safety/disclosure.md](../docs/safety/disclosure.md), Japanese).
 
 - Restrict access to the folder where the tool is placed to at least the same level as the crawled folders.
 - Do not put the index as is in a shared folder that users with different access rights can read.

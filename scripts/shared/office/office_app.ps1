@@ -20,7 +20,7 @@ $appInfo = @{
 
 # 起動した Office のプロセスの優先度は下げない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、
 # PowerPoint は 1 つのプロセスしか持てないため、利用者とプロセスを共有しないと確実には言えない。利用者の操作を遅くしないよう、
-# 優先度を下げるのは、利用者と共有しないインデックス作成のスレッドだけにする（docs/00_共通_4_プロセスとスレッド.md 7.2）
+# 優先度を下げるのは、利用者と共有しないインデックス作成のスレッドだけにする（docs/design/architecture/threads.md「スレッドの一覧」）
 # 起動したアプリの PID を入れる入れ物（ConcurrentDictionary[int,string]。$null なら入れない）。
 # 画面が閉じるときに、インデックス作成が起動した Office を PID で止めるために使う
 $script:officePidSink = $null

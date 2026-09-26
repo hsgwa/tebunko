@@ -1,9 +1,9 @@
 ﻿# PSScriptAnalyzer（Microsoft 提供の静的解析）のうち、安全性にかかわるルールだけを有効にした設定。
 # 使い方:
 #   Invoke-ScriptAnalyzer -Path .\scripts -Recurse -Settings .\tests\meta\PSScriptAnalyzer.security.psd1
-# この設定での指摘が 0 件であることを tests\meta\safety.Tests.ps1 で検査する（docs\04_安全性.md 5.2）。
+# この設定での指摘が 0 件であることを tests\meta\safety.Tests.ps1 で検査する（docs\safety\scans.md「静的解析: PSScriptAnalyzer（Microsoft）」）。
 # 書き方・可読性のルール（Write-Host を使わない等）は安全性の判断に関わらないため、ここでは外している。
-# 全ルールでの検査は -Settings を付けずに実行する（指摘の内容は docs\04_安全性.md 5.2 の表を参照）。
+# 全ルールでの検査は -Settings を付けずに実行する（指摘の内容は docs\safety\scans.md「静的解析: PSScriptAnalyzer（Microsoft）」 の表を参照）。
 @{
     IncludeRules = @(
         # 文字列を式として実行しない

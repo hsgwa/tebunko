@@ -6,12 +6,12 @@
 #   git push origin v1.0.0
 #
 # zip の中身はツール本体（tebunko.bat・scripts\）と README.md・LICENSE だけにする。
-# zip と並べて、インストーラー（tebunko-setup-<タグ>.exe。Inno Setup で作る。tools\new_installer.ps1）も載せる（docs\04_安全性.md 4.6）。
-# 改ざんの確認用のカタログ（tebunko.cat）・ハッシュ一覧（SHA256SUMS.txt）と部品表（sbom.cdx.json）は、zip と並べてリリースに載せる（docs\04_安全性.md 5.1）。
+# zip と並べて、インストーラー（tebunko-setup-<タグ>.exe。Inno Setup で作る。tools\new_installer.ps1）も載せる（docs\safety\disclosure.md「インストーラー版」）。
+# 改ざんの確認用のカタログ（tebunko.cat）・ハッシュ一覧（SHA256SUMS.txt）と部品表（sbom.cdx.json）は、zip と並べてリリースに載せる（docs\safety\scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」）。
 # SECURITY は zip に入れず、README とリリースの説明からリンクする。
-# zip とインストーラーの SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
+# zip とインストーラーの SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\safety\scans.md「複数エンジンでの検査: VirusTotal（外部へファイルを送信する）」）。
 # zip とインストーラーのビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
-# 署名の bundle（tebunko-<タグ>.zip.sigstore.json・tebunko-setup-<タグ>.exe.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。
+# 署名の bundle（tebunko-<タグ>.zip.sigstore.json・tebunko-setup-<タグ>.exe.sigstore.json）もリリースに載せる（docs\safety\scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」。OpenSSF Scorecard の Signed-Releases）。
 name: release
 
 on:

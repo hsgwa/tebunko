@@ -74,7 +74,7 @@ function getIngestDecision {
     return @{ Ingest = $true; Reason = "updated" }
 }
 
-# 取り込みのレーン（docs/00_共通_4_プロセスとスレッド.md 7.4）。Office のレーンはアプリごとに 1 つのスレッドで、そのアプリを 1 つ持つ。
+# 取り込みのレーン（docs/design/architecture/threads.md「インデックス作成の並列化」）。Office のレーンはアプリごとに 1 つのスレッドで、そのアプリを 1 つ持つ。
 # 読み取りのレーンは Office を使わず、ZIP の中の XML を直接読む（複数のスレッド）
 ${laneExcel}      = "Excel"
 ${laneWord}       = "Word"

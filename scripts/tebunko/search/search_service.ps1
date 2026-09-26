@@ -1,6 +1,6 @@
 ﻿# 検索の司令のスレッド（SearchService）。画面を開いている間 1 つだけ動かし、検索の要求（newSearchRequest）を順に実行する。
 # lib.ps1 の読み込みと照合のプールの用意は、スレッドを始めたときに 1 回だけ行う（検索のたびに行わない）。
-# 設計は docs/00_共通_4_プロセスとスレッド.md の 7.2・7.3。
+# 設計は docs/design/architecture/threads.md「スレッドの一覧」「寿命」。
 #
 # SearchService は画面のスレッドだけから呼ぶ（PowerShell 5.1 のクラスのメソッドは、定義したランスペースで動くため）。
 # スレッドをまたいで使う要求は、Synchronized の hashtable（newSearchRequest）にする。

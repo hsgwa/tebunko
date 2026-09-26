@@ -1,4 +1,4 @@
-﻿# 安全性説明書（docs/04_安全性.md）の主張を機械的に検査するテスト。
+﻿# 安全性説明書（docs/safety/index.md）の主張を機械的に検査するテスト。
 # 「危険な処理・ライブラリを使っていない」ことを、将来の変更で崩れたら失敗する形で固定する。
 # スクリプトを読むだけなので、Office もテストデータも要らない。
 BeforeAll {
@@ -63,7 +63,7 @@ BeforeAll {
     $code = getCodeLines $scriptFiles
 }
 
-Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1）" -Tag Meta {
+Describe "危険な処理を使っていないこと（docs/safety/checks.md「検査項目と結果」）" -Tag Meta {
     It "scripts 配下のスクリプトがすべて検査対象になっている" {
         # 検査の取りこぼし（対象 0 件で全項目が通る）を防ぐ
         ($scriptFiles.Count -ge 30) | Should -Be $true
@@ -87,7 +87,7 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
     }
 
     It "内部の型（NonPublic）をリフレクションで呼ぶのは、フォルダ選択の 1 か所だけ" {
-        # Windows 標準のフォルダ選択を、実行時コンパイルなしで開くため（docs/04_安全性.md 2.1）
+        # Windows 標準のフォルダ選択を、実行時コンパイルなしで開くため（docs/safety/checks.md「検査項目と結果」）
         (@($code | Where-Object { $_.Text -match 'NonPublic|Reflection\.BindingFlags' -and $_.File -ne "folder_dialog.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         (@($code | Where-Object { $_.File -eq "folder_dialog.ps1" -and $_.Text -match 'NonPublic' }).Count) | Should -Be 1
     }
@@ -100,7 +100,7 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
     }
 
     It "Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る" {
-        # 高速検索（docs/02_検索.md）は OLE DB の Search.CollatorDSO で読み取るだけ。ほかのファイルからは DB に触らない
+        # 高速検索（docs/design/search/index.md）は OLE DB の Search.CollatorDSO で読み取るだけ。ほかのファイルからは DB に触らない
         (@($code | Where-Object { $_.Text -match 'OleDb|CommandText' -and $_.File -ne "windows_search.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         (@($code | Where-Object { $_.File -eq "windows_search.ps1" -and $_.Text -match '\^\\s\*SELECT' }).Count -gt 0) | Should -Be $true
     }
@@ -147,7 +147,7 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
     }
 }
 
-Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2）" -Tag Meta {
+Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「Office ファイルを開くときの設定」）" -Tag Meta {
     BeforeAll {
         $app = @($code | Where-Object { $_.File -eq "office_app.ps1" })
         $extract = @($code | Where-Object { $_.File -eq "extract_office.ps1" })
@@ -175,7 +175,7 @@ Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2
     }
 }
 
-Describe "取り込み対象のファイルを書き換えないこと（docs/04_安全性.md 3.2）" -Tag Meta {
+Describe "取り込み対象のファイルを書き換えないこと（docs/safety/file-access.md「取り込み対象のファイルは書き換えない」）" -Tag Meta {
     It "元のファイルのパスを書き込み・削除の API に渡さない" {
         # 書き込み・削除の呼び出し行に、取り込み対象（原本）を指す変数が現れないこと。
         # 原本は作業フォルダへコピーしてから開くため、書き込み先は常にコピー側（$tmpPath・$destPath・$copyPath 等）になる。
@@ -210,7 +210,7 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/04
     }
 }
 
-Describe "書き込み先が限られていること（docs/04_安全性.md 3.1）" -Tag Meta {
+Describe "書き込み先が限られていること（docs/safety/file-access.md「書き込み・削除する場所」）" -Tag Meta {
     It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と TEMP 配下だけ" {
         $paths = @($code | Where-Object { $_.File -in @("paths.ps1", "workspace.ps1", "data_dir.ps1", "settings.ps1") })
         # データの置き場所は、ツールのフォルダか、書き込めないときの %LOCALAPPDATA%\tebunko\<鍵>
@@ -230,14 +230,14 @@ Describe "書き込み先が限られていること（docs/04_安全性.md 3.1�
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
-        # %TEMP%\tebunko\<PID> に原本のコピーが残り続けないこと（docs/04_安全性.md 4.4）
+        # %TEMP%\tebunko\<PID> に原本のコピーが残り続けないこと（docs/safety/disclosure.md「原本の一時コピーと、その回収」）
         (findPattern $code 'function removeStaleTmpDirs') | Should -Not -Be ""
         # インデックス作成の始め（invokeIndexer の本体）で呼ぶ
         (findPattern $code '^\s+removeStaleTmpDirs$') | Should -Not -Be ""
     }
 }
 
-Describe "サードパーティの静的解析（docs/04_安全性.md 5.2）" -Tag Meta {
+Describe "サードパーティの静的解析（docs/safety/scans.md「静的解析: PSScriptAnalyzer（Microsoft）」）" -Tag Meta {
     # PSScriptAnalyzer（Microsoft 提供）で検査する。未導入の環境では飛ばす:
     #   Install-Module PSScriptAnalyzer -Scope CurrentUser
     # -Skip は探索のときに決まるため、導入の有無は Describe の本体で調べる
@@ -266,7 +266,7 @@ Describe "サードパーティの静的解析（docs/04_安全性.md 5.2）" -T
     }
 
     It "制限言語モード（Constrained Language Mode）で使えない書き方が無い" -Skip:(-not $hasAnalyzer) {
-        # AppLocker・WDAC で制限言語モードを強制している環境向け（docs/04_安全性.md 5.4）
+        # AppLocker・WDAC で制限言語モードを強制している環境向け（docs/safety/scans.md「実行環境の制約との適合」）
         (formatFindings (Invoke-ScriptAnalyzer -Path $scriptsDir -Recurse -IncludeRule PSUseConstrainedLanguageMode)) | Should -Be ""
     }
 
@@ -280,9 +280,9 @@ Describe "サードパーティの静的解析（docs/04_安全性.md 5.2）" -T
     }
 }
 
-Describe "第三者が検証するための資料がそろっていること（docs/04_安全性.md 5.1・6）" -Tag Meta {
+Describe "第三者が検証するための資料がそろっていること（docs/safety/scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」・docs/safety/supply-chain.md「供給網（サプライチェーン）とライセンス」）" -Tag Meta {
     It "<name>" -TestCases @(
-        @{ name = "安全性説明書がある"; file = "docs\04_安全性.md" }
+        @{ name = "安全性説明書がある"; file = "docs\safety\index.md" }
         @{ name = "脆弱性の連絡先（.github\SECURITY.md）がある"; file = ".github\SECURITY.md" }
         @{ name = "配布物の完全性を確かめる手順（tools\new_release_files.ps1）がある"; file = "tools\new_release_files.ps1" }
     ) {

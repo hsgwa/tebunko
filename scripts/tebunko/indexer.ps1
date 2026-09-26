@@ -2,8 +2,8 @@
 #
 # 画面で設定したクロール対象フォルダ（setting.config。チェックなしのフォルダは取り込まない）配下の
 # Excel・Word・PowerPoint ファイルを取り込み、work\index のフォルダごと・拡張子ごとの集約ファイルに入れる。
-# 本体は indexer\indexer_run.ps1 の invokeIndexer（流れは docs/01_インデックス作成_4_メインフローと取り込み一覧.md、
-# スレッドの分け方は docs/00_共通_4_プロセスとスレッド.md）。
+# 本体は indexer\indexer_run.ps1 の invokeIndexer（流れは docs/design/indexer/flow.md、
+# スレッドの分け方は docs/design/architecture/threads.md）。
 #
 # ・Excel は Excel で抽出する（セルの表示値を得るため）
 # ・Word・PowerPoint（.docx / .pptx 等）は、ファイルを直接読む（Word・PowerPointは使わない）

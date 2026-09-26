@@ -1,4 +1,4 @@
-# 設計書（docs/）を MkDocs で HTML のサイトにする設定。
+# ドキュメント（docs/）を MkDocs で HTML のサイトにする設定。
 #
 # リポジトリの直下で実行する（privacy プラグインの cache_dir は実行した場所から数えるため）。
 #
@@ -8,11 +8,11 @@
 #
 # docs_dir・site_dir・hooks のパスは、このファイルのある場所から数える。
 # docs/ の Markdown は GitHub でもそのまま読めるように書いたものを変えずに使う。
-# GitHub との違いは hooks.py で埋める（先頭ページ・docs/ の外へのリンク）。
+# GitHub との違いは hooks.py で埋める（docs/ の外へのリンク）。
 # 公開は .github/workflows/docs.yml が main の更新ごとに GitHub Pages へ行う。
-site_name: tebunko 設計書
+site_name: tebunko
 site_url: https://hsgwa.github.io/tebunko/
-site_description: Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の設計書
+site_description: Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計
 repo_url: https://github.com/hsgwa/tebunko
 repo_name: hsgwa/tebunko
 edit_uri: edit/main/docs/
@@ -33,6 +33,8 @@ theme:
   # Google Fonts を使わず、閲覧者の OS のフォントで表示する（既定の Roboto は日本語を含まないため見た目もほぼ変わらない）
   font: false
   features:
+    - navigation.tabs
+    - navigation.sections
     - navigation.indexes
     - navigation.top
     - navigation.footer
@@ -92,34 +94,46 @@ validation:
   unrecognized_links: warn
   anchors: warn
 
-# 並びと階層は docs/00_index.md の「ドキュメント構成」に合わせる
+# 上部のタブ（navigation.tabs）が読者ごとの区分になる。ページを足したらここにも足す
 nav:
-  - 概要: 00_index.md
-  - 共通:
-      - フォルダ構成と設定ファイル: 00_共通_1_フォルダ構成と設定ファイル.md
-      - 共通モジュール: 00_共通_2_共通モジュール.md
-      - TSV・検索・画面の関数: 00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md
-      - テスト: 00_共通_3_テスト.md
-      - プロセスとスレッド: 00_共通_4_プロセスとスレッド.md
-  - インデックス作成:
-      - 01_インデックス作成.md
-      - Excel: 01_インデックス作成_1_Excel.md
-      - Word: 01_インデックス作成_2_Word.md
-      - PowerPoint: 01_インデックス作成_3_PowerPoint.md
-      - メインフローと取り込み一覧: 01_インデックス作成_4_メインフローと取り込み一覧.md
-      - クロール: 01_インデックス作成_5_クロール.md
-      - 共通処理とアプリ管理: 01_インデックス作成_6_共通処理とアプリ管理.md
-      - 出力 TSV と既知の問題: 01_インデックス作成_7_出力TSVと既知の問題.md
-      - エラーメッセージ一覧: 01_インデックス作成_8_エラーメッセージ一覧.md
-  - 検索: 02_検索.md
-  - 画面:
-      - 03_画面.md
-      - インデックス管理タブ: 03_画面_1_インデックス管理タブ.md
-      - 検索タブ: 03_画面_2_検索タブ.md
-      - 元のファイルを開く: 03_画面_2_検索タブ_1_元のファイルを開く.md
-      - プロセス停止タブ: 03_画面_3_プロセス停止タブ.md
-      - 状態と操作の流れ: 03_画面_4_状態と操作の流れ.md
-      - 共通仕様: 03_画面_5_共通仕様.md
-      - 実装とテスト: 03_画面_6_実装とテスト.md
-      - 画面のテスト: 03_画面_6_実装とテスト_1_テスト.md
-  - 安全性: 04_安全性.md
+  - ホーム: index.md
+  - 安全性:
+      - safety/index.md
+      - 危険とされる処理の検査結果: safety/checks.md
+      - ファイルの読み書きの範囲: safety/file-access.md
+      - 開示事項: safety/disclosure.md
+      - 第三者のツールによる検査結果: safety/scans.md
+      - 供給網とライセンス: safety/supply-chain.md
+  - 設計・開発:
+      - design/index.md
+      - 構成:
+          - フォルダ構成とデータの置き場所: design/architecture/layout.md
+          - 設定ファイル: design/architecture/settings-file.md
+          - 共通モジュール: design/architecture/modules.md
+          - プロセスとスレッド: design/architecture/threads.md
+      - インデックス作成:
+          - design/indexer/index.md
+          - 処理の流れと取り込み一覧: design/indexer/flow.md
+          - Excel: design/indexer/excel.md
+          - Word: design/indexer/word.md
+          - PowerPoint: design/indexer/powerpoint.md
+          - 共通処理と Office アプリの管理: design/indexer/office-apps.md
+          - インデックスの形式: design/indexer/index-format.md
+          - エラーメッセージ一覧: design/indexer/errors.md
+          - 既知の問題: design/indexer/known-issues.md
+      - 検索:
+          - design/search/index.md
+          - 高速検索: design/search/fast-search.md
+          - 検索結果ファイル: design/search/output.md
+      - 画面:
+          - design/gui/index.md
+          - ［1 インデックス管理］タブ: design/gui/index-tab.md
+          - ［2 検索］タブ: design/gui/search-tab.md
+          - ［8 設定］タブ: design/gui/settings-tab.md
+          - ［9 プロセス停止］タブ: design/gui/process-tab.md
+          - 状態と操作の流れ: design/gui/state-flow.md
+          - 共通仕様: design/gui/common.md
+          - 実装: design/gui/implementation.md
+      - テスト:
+          - design/testing/index.md
+          - テストの実行と CI: design/testing/ci.md
