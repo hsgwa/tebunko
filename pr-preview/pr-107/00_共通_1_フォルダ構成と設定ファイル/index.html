@@ -1626,7 +1626,7 @@
 <tr>
 <td><code>tebunko.bat</code></td>
 <td>起動用バッチ</td>
-<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>scripts</code> の中のファイルから Mark-of-the-Web を外し（<code>Unblock-File</code>。<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.2）、<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で起動して <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
+<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で 1 回起動し、その中で <code>scripts</code> の中のファイルから Mark-of-the-Web を外して（<code>Unblock-File</code>。<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.2）から <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
 </tr>
 <tr>
 <td><code>setting.config</code></td>
@@ -1734,6 +1734,16 @@
 <td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 6 章）。配布 zip と並べてリリースに載せる</td>
 </tr>
 <tr>
+<td><code>installer/tebunko.iss</code></td>
+<td>配布用</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を作る Inno Setup 7 のスクリプト。管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れ、スタートメニューとアンインストールに登録する（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.6）。BOM 付き UTF-8・CRLF</td>
+</tr>
+<tr>
+<td><code>installer/tebunko.cs</code></td>
+<td>配布用</td>
+<td>インストーラー版の起動口 <code>tebunko.exe</code> のソース（C# 5）。<code>tebunko.bat</code> と同じく <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動する。窓を作らずに起動し、起動できなかったときは PowerShell のエラーをメッセージで出す。zip 版には入れない</td>
+</tr>
+<tr>
 <td><code>docs/</code></td>
 <td>ドキュメント</td>
 <td>設計書（本書を含む）。<code>docs/images/</code> に図・画面の画像・ロゴ（<code>logo.svg</code>）を置く。配布 zip には入れない</td>
@@ -1796,6 +1806,11 @@
 <td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
 </tr>
 <tr>
+<td><code>tools/new_installer.ps1</code></td>
+<td>配布用</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を <code>work/release/</code> に作る。起動口 <code>tebunko.exe</code> を Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドし、<code>scripts/</code>・<code>LICENSE</code> と並べて Inno Setup 7 の <code>ISCC.exe</code> に渡す。<code>release.yml</code> が実行する。手元で作るときは Inno Setup 7 を入れておく（<code>-Iscc</code> で場所を指定できる）</td>
+</tr>
+<tr>
 <td><code>tools/new_icon.ps1</code></td>
 <td>開発用</td>
 <td>画面のアイコン（<code>tebunko.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
@@ -1833,7 +1848,7 @@
 <tr>
 <td><code>.gitattributes</code></td>
 <td>開発用</td>
-<td><code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF、<code>tools/hooks/*</code> を LF に固定する</td>
+<td><code>.ps1</code>・<code>.xaml</code>・<code>.bat</code>・<code>.iss</code>・<code>.cs</code> を CRLF、<code>tools/hooks/*</code> を LF に固定する</td>
 </tr>
 <tr>
 <td><code>AGENTS.md</code>・<code>.claude/CLAUDE.md</code></td>
@@ -2032,18 +2047,18 @@
 <td><code>scripts/tebunko/core/settings.ps1</code></td>
 </tr>
 <tr>
-<td><code>$workDir</code></td>
-<td><code>setting.config</code> の <code>workspaceFolder</code>（4.1）。空なら既定の <code>%USERPROFILE%\Documents\tebunko</code>（<code>getDefaultWorkDir</code>。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents）</td>
+<td><code>$workspace.Dir</code></td>
+<td><code>setting.config</code> の <code>workspaceFolder</code>（4.1）。空なら既定の <code>%USERPROFILE%\Documents\tebunko_ws</code>（<code>getDefaultWorkDir</code>。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents）</td>
 <td><code>scripts/tebunko/core/paths.ps1</code>（<code>getWorkDir</code>）</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>既定の場所をドキュメントにするのは、高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>index</code> か <code>取り込み一覧.tsv</code> がある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
-<li><code>$workDir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。</li>
+<li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。</li>
 <li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
 <li>置き場所を変えても、今の <code>work/</code> の中身は移さない。移すときは利用者がエクスプローラーで移してから、移した先を選ぶ。</li>
-<li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workDir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
+<li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workspace.Dir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
 <li><code>$rootDir</code> が書き込めるかは読み込むたびに調べる。書き込めない場所から書き込める場所に戻すと、設定は <code>$rootDir</code> 直下のものに戻る。</li>
 </ul>
 <hr />
@@ -2147,7 +2162,7 @@
 <td><code>workspaceFolder</code></td>
 <td>文字列</td>
 <td>空</td>
-<td><code>work</code>（インデックス・取り込み一覧・ログ）を置くフォルダ（3.3）。空なら既定の <code>%USERPROFILE%\Documents\tebunko</code>（3.3）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、<code>%変数%</code> は展開して読む</td>
+<td><code>work</code>（インデックス・取り込み一覧・ログ）を置くフォルダ（3.3）。空なら既定の <code>%USERPROFILE%\Documents\tebunko_ws</code>（3.3）。既定の場所を選んだときも空で保存する。手で書いた相対パスは設定ファイルのフォルダから、<code>%変数%</code> は展開して読む</td>
 <td><code>getWorkDir</code> / <code>writeWorkspaceFolder</code></td>
 </tr>
 <tr>
