@@ -7,7 +7,7 @@ function writeSourceFolderFile {
     # 元のファイルの場所が分かる（work\index ごとコピーした場合は readSourceFolderFile が各フォルダを読む）
     param (
         [object[]]$folders,  # assignIndexNames の結果（@{ Path; Name }）
-        [string]$dir = ${indexDir}
+        [string]$dir = $workspace.IndexDir
     )
 
     $header = "# 検索結果から元のファイルを開くときに使う、インデックス名とクロール対象フォルダの対応です（インデックス作成のたびに作り直します）"
@@ -65,13 +65,13 @@ function getSourceFolderMap {
     #   3. 設定のインデックス名に対する場所（targetFolders・indexSources）… 利用者が指定した「今の場所」のため最も優先する
     param (
         [string]$dir,
-        [string]$statusPath = ${statusFile},
+        [string]$statusPath = $workspace.StatusFile,
         [string]$settingsPath = ${settingsFile}
     )
 
     $map = readSourceFolderFile $dir
-    if ((Test-Path -LiteralPath ${indexDir} -PathType Container) -and
-        (testSameFolder $dir (Resolve-Path -LiteralPath ${indexDir}).ProviderPath)) {
+    if ((Test-Path -LiteralPath $workspace.IndexDir -PathType Container) -and
+        (testSameFolder $dir (Resolve-Path -LiteralPath $workspace.IndexDir).ProviderPath)) {
         foreach ($entry in (getIndexNameMap $statusPath).GetEnumerator()) {
             $map[$entry.Key] = $entry.Value
         }

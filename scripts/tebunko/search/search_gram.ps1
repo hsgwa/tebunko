@@ -3,7 +3,7 @@
 # Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致を落とすが、
 # 2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。
 
-# システムインデックスの名前（置き場所は paths.ps1 の ${systemIndexDir}）
+# システムインデックスの名前（置き場所は paths.ps1 の $workspace.SystemIndexDir）
 ${systemIndexFileName}      = "システムインデックス.txt"
 ${systemIndexFileLike}      = "システムインデックス%"      # 問い合わせの LIKE（分けたものも含む）
 ${systemIndexSplitLike}     = "システムインデックス[_]%"   # 分けたもの（システムインデックス_1.txt …）だけ

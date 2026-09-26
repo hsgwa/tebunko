@@ -333,7 +333,7 @@ function getIndexPackFiles {
     #   Packs  : getPackFiles の結果をつないだもの（入れ子のフォルダを選んでも重複しない）
     #   onProgress: 数えた件数を知らせる { param($count) }
     param (
-        [object[]]$folders = @(${indexDir}),
+        [object[]]$folders = @($workspace.IndexDir),
         [scriptblock]$onProgress = $null
     )
 

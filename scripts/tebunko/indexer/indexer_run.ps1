@@ -19,13 +19,12 @@ ${ingestWorkerScript} = {
     . $settings.Lib
     # 置き場所は司令のスレッドと同じにする（読み込み直すと設定から決め直してしまうため）。一時フォルダはスレッドごとに分ける。
     # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
-    foreach ($name in @($settings.Paths.Keys)) {
-        Set-Variable -Name $name -Value $settings.Paths[$name]
-    }
-    Set-Variable -Name tmpDir -Value (Join-Path $settings.Paths.tmpDir "w$number")
-    Set-Variable -Name publishDir -Value (Join-Path $settings.Paths.publishDir "w$number")
+    $own = [Workspace]::new($settings.WorkDir)
+    $own.PublishDir = Join-Path $settings.PublishDir "w$number"
+    Set-Variable -Name workspace -Value $own
+    Set-Variable -Name tmpDir -Value (Join-Path $settings.TmpDir "w$number")
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
-    [System.IO.Directory]::CreateDirectory($publishDir) | Out-Null
+    [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
@@ -278,19 +277,19 @@ function invokeIndexer {
         } else {
             # 同じ work に対してインデックス作成を 2 つ動かすと、取り込み一覧・インデックスが食い違うため 1 つだけ動かす。
             # 画面と indexer.ps1 の両方から動かせるため、鍵は work のパスから作る。ログに触る前に確かめる
-            $mutex = newAppMutex "indexer" ${workDir}
+            $mutex = newAppMutex "indexer" $workspace.Dir
             if (!$mutex.Acquired) {
                 throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
             }
-            [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
+            [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
             # 以前の版が画面とのやり取りに使っていたファイルが残っていれば消す
             foreach ($name in @("インデックス作成中止要求", "インデックス作成エラー.txt", "取り込み予定.tsv", "インデックス作成開始要求", "インデックス作成進捗.txt")) {
-                $oldFile = Join-Path ${workDir} $name
+                $oldFile = Join-Path $workspace.Dir $name
                 if (Test-Path -LiteralPath $oldFile) {
                     Remove-Item -LiteralPath $oldFile -Force
                 }
             }
-            $writer = New-Object System.IO.StreamWriter(${indexingLogFile}, $false, ${utf8Bom})
+            $writer = New-Object System.IO.StreamWriter($workspace.IndexingLogFile, $false, ${utf8Bom})
             $writer.AutoFlush = $true
             $script:indexerLog = $writer
             # 途中の処理が出力した値が混ざらないよう、最後の値（return した終了コード）を使う
@@ -347,28 +346,28 @@ function invokeIndexerBody {
         throw "チェックの付いたクロール対象フォルダがありません。画面で取り込むフォルダにチェックを付けてください。"
     }
 
-    [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
+    [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
     removeStaleTmpDirs
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
-    [System.IO.Directory]::CreateDirectory(${publishDir}) | Out-Null
+    [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
     # 以前の版の途中状態ファイル（取り込み一覧.tsv に置き換えた）は使わないため削除する
     foreach ($name in @("変換対象一覧.txt", "変換失敗一覧.txt")) {
-        $oldFile = Join-Path $workDir $name
+        $oldFile = Join-Path $workspace.Dir $name
         if (Test-Path -LiteralPath $oldFile) {
             Remove-Item -LiteralPath $oldFile -Force
         }
     }
 
     # クロール対象フォルダごとにインデックス名（work\index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
-    $statusExists = Test-Path -LiteralPath $statusFile
+    $statusExists = Test-Path -LiteralPath $workspace.StatusFile
     $status = readStatusFile
     $folders = @(assignIndexNames $targetFolders $status.Folders)
     $previous = moveLegacyIndex $folders $status $statusExists
     removeDroppedFolders $folders $status.Folders
     migrateFlatIndex
     # 前回のインデックス作成が途中で止まり、集約ファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
-    $leftover = findIndexFoldersWithBooks $indexDir
+    $leftover = findIndexFoldersWithBooks $workspace.IndexDir
     if ($leftover.Count -gt 0) {
         writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
         writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "集約ファイルに入れていないインデックスをまとめています…"
@@ -385,7 +384,7 @@ function invokeIndexerBody {
         writeIndexerLog "インデックス名を設定に保存しました: $((@($folders | ForEach-Object { $_.Name }) -join '、'))"
     }
 
-    writeIndexerLog "出力先フォルダ: ${indexDir}"
+    writeIndexerLog "出力先フォルダ: $($workspace.IndexDir)"
     writeIndexerLog ""
     writeIndexerLog "クロールしています..."
     # 取り込み一覧の「済」に対してインデックス（TSV）が残っているかを調べるため、今あるTSVの数を数えておく
@@ -513,7 +512,7 @@ function invokeIndexerBody {
 
     if ($targets.Count -eq 0) {
         writeIndexerLog ""
-        writeIndexerLog "取り込みが必要なファイルはありません。（一覧: $(Split-Path $statusFile -Leaf)）" "Green"
+        writeIndexerLog "取り込みが必要なファイルはありません。（一覧: $(Split-Path $workspace.StatusFile -Leaf)）" "Green"
         # 元のファイルが無くなったフォルダは、集約ファイルから外す
         flushPendingPublish
         # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
@@ -569,7 +568,7 @@ function invokeIndexerBody {
         if ($readers -gt 0) {
             $pool = newIngestPool $readers @{
                 Lib = ${indexerLibPath}
-                Paths = @{ indexDir = ${indexDir}; workDir = ${workDir}; tmpDir = ${tmpDir}; publishDir = ${publishDir} }
+                WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
             }
         } else {
@@ -779,7 +778,7 @@ function invokeIndexerBody {
     if ($droppedRows.Count -gt 0) {
         writeIndexerLog "取り込みの直前に元のファイルが無くなった $($droppedRows.Count) 件は、取り込まずに一覧から除きました。" "Yellow"
     }
-    writeIndexerLog "各ファイルの状態・更新日時は $(Split-Path $statusFile -Leaf) で確認できます。"
+    writeIndexerLog "各ファイルの状態・更新日時は $(Split-Path $workspace.StatusFile -Leaf) で確認できます。"
     if ($failures.Count -gt 0) {
         # インデックス作成中の表示は流れて見えなくなるため、失敗したファイルと原因を最後にまとめて表示する
         writeIndexerLog ""

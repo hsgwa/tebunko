@@ -16,7 +16,7 @@ function loadIndexTree {
     }
 
     $script:indexRoots.Clear()
-    $root = ${indexDir}
+    $root = $workspace.IndexDir
     if (Test-Path -LiteralPath $root -PathType Container) {
         $root = (Resolve-Path -LiteralPath $root).ProviderPath.TrimEnd("\")
     }

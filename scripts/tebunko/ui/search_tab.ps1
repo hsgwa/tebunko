@@ -52,8 +52,9 @@ function updateFastSearchView {
 function checkFastSearchAvailable {
     # Windows Search が使えるか（system_index が索引の対象か）を別スレッドで確かめる（画面を固めないように）
     startJob {
-        testWindowsSearch
-    } @() {
+        param ($systemRoot)
+        testWindowsSearch $systemRoot
+    } @($workspace.SystemIndexDir) {
         param ($output, $errorText)
         $script:fastAvailable = if ($errorText -or $output.Count -eq 0) { $false } else { [bool]$output[0] }
         updateFastSearchView

@@ -11,6 +11,7 @@ Describe "publishTsv" -Tag Io {
     It "作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移す" {
         $tmpDir = "$TestDrive\publish\tmp"
         $publishDir = "$TestDrive\publish\出力"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
         $bookDir = "$TestDrive\publish\index\営業\見積.xlsx"
         newTsv "$tmpDir\Sheet1.tsv" @("a`tb")
         newTsv "$tmpDir\Sheet2.tsv" @("c")
@@ -26,6 +27,7 @@ Describe "publishTsv" -Tag Io {
     It "ファイル名に [ ] があっても取り込み、TSV 以外のファイルは取り込まない" {
         $tmpDir = "$TestDrive\publish2\tmp"
         $publishDir = "$TestDrive\publish2\出力"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
         $bookDir = "$TestDrive\publish2\index\営業\[確定]見積.xlsx"
         newTsv "$tmpDir\[表]売上.tsv" @("a")
         newTsv "$tmpDir\作業.txt" @("x")
@@ -39,6 +41,7 @@ Describe "publishTsv" -Tag Io {
     It "取り込んだ TSV が 0 件なら、前回のインデックスを空にする（文字の無いファイルになった）" {
         $tmpDir = "$TestDrive\publish3\tmp"
         $publishDir = "$TestDrive\publish3\出力"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
         $bookDir = "$TestDrive\publish3\index\営業\空.xlsx"
         [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
         newTsv "$bookDir\Sheet1.tsv" @("old")
@@ -52,6 +55,7 @@ Describe "publishTsv" -Tag Io {
     It "260 文字を超えるパスのインデックスにも取り込む" {
         $tmpDir = "$TestDrive\publish4\tmp"
         $publishDir = "$TestDrive\publish4\出力"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
         $bookDir = "$TestDrive\publish4\index\" + ("深いフォルダ" * 20) + "\" + ("もっと深いフォルダ" * 15) + "\見積.xlsx"
         newTsv "$tmpDir\Sheet1.tsv" @("a")
         try {
@@ -82,6 +86,7 @@ Describe "removeTmpDir" -Tag Io {
     It "作業フォルダと出力用のフォルダを削除する" {
         $tmpDir = "$TestDrive\remove\tmp"
         $publishDir = "$TestDrive\remove\出力"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
         newTsv "$tmpDir\a.tsv" @("a")
         newTsv "$publishDir\b.xlsx\b.tsv" @("b")
 
@@ -94,6 +99,7 @@ Describe "removeTmpDir" -Tag Io {
     It "削除できなくても止まらず、次のフォルダも削除する" {
         $tmpDir = "$TestDrive\remove_fail\tmp"
         $publishDir = "$TestDrive\remove_fail\出力"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
         newTsv "$tmpDir\使用中.tsv" @("a")
         newTsv "$publishDir\b.xlsx\b.tsv" @("b")
         # 1 つ目（作業フォルダ）の中のファイルをほかから開いておき、削除に失敗させる
@@ -139,6 +145,7 @@ Describe "removeStaleTmpDirs" -Tag Io {
     It "作業フォルダと出力用のフォルダの、それぞれの親フォルダを片付ける" {
         $tmpDir = "$TestDrive\stale_both\temp\$PID"
         $publishDir = "$TestDrive\stale_both\出力\$PID"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
         [System.IO.Directory]::CreateDirectory("$TestDrive\stale_both\temp\$deadPid") | Out-Null
         [System.IO.Directory]::CreateDirectory("$TestDrive\stale_both\出力\$deadPid") | Out-Null
 
@@ -165,6 +172,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "取り込み一覧のインデックス名の無いフォルダのインデックスを、そのインデックス名の下へ移し、相対パスも付け替える" {
         $indexDir = "$TestDrive\legacy1\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\見積.xlsx\Sheet1.tsv" @("a")
         newTsv "$indexDir\sub\報告.docx\ページ001.tsv" @("b")
         $status = newStatus @([pscustomobject]@{ Path = "C:\data\技術"; Name = "" }) @("見積.xlsx", "sub\報告.docx")
@@ -181,6 +189,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "取り込み一覧のフォルダの書き方（大文字・小文字・末尾の \）が違っても、同じフォルダとして移す" {
         $indexDir = "$TestDrive\legacy_case\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\見積.xlsx\Sheet1.tsv" @("a")
         $status = newStatus @([pscustomobject]@{ Path = "c:\DATA\技術\"; Name = "" }) @("見積.xlsx")
 
@@ -192,6 +201,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "以前の形式のインデックスに、インデックス名と同じ名前のフォルダがあっても移せる" {
         $indexDir = "$TestDrive\legacy_same\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("a")  # 元のフォルダの下の「技術」フォルダ
         $status = newStatus @([pscustomobject]@{ Path = "C:\data\技術"; Name = "" }) @("技術\仕様.docx")
 
@@ -204,6 +214,7 @@ Describe "moveLegacyIndex" -Tag Io {
     It "前回の移行が途中で止まり _移行中 が残っていれば、その続きから移す（取り込み一覧あり）" {
         # 1 回目の移動の後に止まり、次の実行で空の work\index が作られた状態
         $indexDir = "$TestDrive\legacy_resume\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "${indexDir}_移行中\見積.xlsx\Sheet1.tsv" @("a")
         [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
         $status = newStatus @([pscustomobject]@{ Path = "C:\data\技術"; Name = "" }) @("見積.xlsx")
@@ -217,6 +228,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "前回の移行が途中で止まり _移行中 が残っていれば、その続きから移す（取り込み一覧なし）" {
         $indexDir = "$TestDrive\legacy_resume2\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "${indexDir}_移行中\見積.xlsx_Sheet1.tsv" @("a")
         [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
         $status = newStatus @() @()
@@ -230,6 +242,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "取り込み一覧が無く、クロール対象フォルダも無ければ、直下に何があっても移さない" {
         $indexDir = "$TestDrive\legacy_nofolder\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\見積.xlsx_Sheet1.tsv" @("a")
         $status = newStatus @() @()
 
@@ -241,6 +254,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "以前の形式のフォルダがクロール対象から外れていれば、移さずに知らせ、前回の行は使わない" {
         $indexDir = "$TestDrive\legacy2\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\見積.xlsx\Sheet1.tsv" @("a")
         $status = newStatus @([pscustomobject]@{ Path = "C:\data\外した"; Name = "" }) @("見積.xlsx")
 
@@ -252,6 +266,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "取り込み一覧が無く、work\index 直下にインデックス名以外のものがあれば、1件目のフォルダのインデックスとみなす" {
         $indexDir = "$TestDrive\legacy3\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\見積.xlsx_Sheet1.tsv" @("a")
         $status = newStatus @() @()
 
@@ -263,6 +278,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "取り込み一覧が無くても、直下がインデックス名のフォルダと 元のフォルダ.txt だけなら移さない" {
         $indexDir = "$TestDrive\legacy4\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("a")
         newTsv "$indexDir\${sourceFolderFileName}" @("# 説明")
         $status = newStatus @() @("営業\見積.xlsx")
@@ -275,6 +291,7 @@ Describe "moveLegacyIndex" -Tag Io {
 
     It "取り込み一覧があり、以前の形式のフォルダが無ければ、前回の行をそのまま返す" {
         $indexDir = "$TestDrive\legacy5\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\ばらばら.tsv" @("a")
         $status = newStatus @($folders) @("営業\見積.xlsx", "技術\仕様.docx")
 
@@ -288,6 +305,7 @@ Describe "moveLegacyIndex" -Tag Io {
 Describe "removeDroppedFolders" -Tag Io {
     It "クロール対象から削除されたフォルダのインデックスだけを削除する" {
         $indexDir = "$TestDrive\dropped\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("a")
         newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("b")
         $folders = @([pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" })
@@ -306,6 +324,7 @@ Describe "removeDroppedFolders" -Tag Io {
 
     It "インデックス名に [ ] があり、中に 260 文字を超えるパスがあっても削除する" {
         $indexDir = "$TestDrive\dropped2\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         $deep = "$indexDir\[旧]営業\" + ("深いフォルダ" * 20) + "\" + ("もっと深いフォルダ" * 15)
         newTsv (toLongPath "$deep\見積.xlsx\Sheet1.tsv") @("a")
         newTsv "$indexDir\[旧]営業2\見積.xlsx\Sheet1.tsv" @("b")  # 名前の先頭が同じだけの別のインデックスは残す
@@ -321,6 +340,7 @@ Describe "removeDroppedFolders" -Tag Io {
 
     It "前回のクロール対象フォルダが無ければ何も削除しない" {
         $indexDir = "$TestDrive\dropped3\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("a")
 
         removeDroppedFolders @() $null
@@ -330,6 +350,7 @@ Describe "removeDroppedFolders" -Tag Io {
 
     It "インデックス名の大文字・小文字だけが違うフォルダは、同じフォルダとして残す" {
         $indexDir = "$TestDrive\dropped4\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\Sales\見積.xlsx\Sheet1.tsv" @("a")
 
         removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\sales"; Name = "sales" }) @([pscustomobject]@{ Path = "C:\data\Sales"; Name = "Sales" })
@@ -341,6 +362,7 @@ Describe "removeDroppedFolders" -Tag Io {
 Describe "migrateFlatIndex" -Tag Io {
     It "以前の形式のTSVを <ファイル名>\<場所>.tsv へ移し、今の形式・分けられない名前のものは触らない" {
         $indexDir = "$TestDrive\flat\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\営業\A社.xlsx_Sheet1.tsv" @("new")
         newTsv "$indexDir\営業\A社.xlsx\Sheet1.tsv" @("old")         # 移し先に同じ名前があれば置き換える
         newTsv "$indexDir\営業\sub\報告.docx_ページ001.tsv" @("b")
@@ -358,6 +380,7 @@ Describe "migrateFlatIndex" -Tag Io {
 
     It "ファイル名に [ ] ・ _ があるもの、符号化した場所のものも、元のファイル名と場所に分けて移す" {
         $indexDir = "$TestDrive\flat2\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\[確定]見積.xlsx_Sheet1.tsv" @("a")
         newTsv "$indexDir\A_B社.xlsx_Sheet1.tsv" @("b")
         newTsv "$indexDir\資料.pptx_スライド003%5Fノート.tsv" @("c")
@@ -372,6 +395,7 @@ Describe "migrateFlatIndex" -Tag Io {
 
     It "260 文字を超えるパスにある以前の形式のTSVも移す" {
         $indexDir = "$TestDrive\flat3\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         $deep = "$indexDir\営業\" + ("深いフォルダ" * 20) + "\" + ("もっと深いフォルダ" * 15)
         newTsv (toLongPath "$deep\見積.xlsx_Sheet1.tsv") @("a")
         try {
@@ -386,6 +410,7 @@ Describe "migrateFlatIndex" -Tag Io {
 
     It "移せないTSVは数えて残し、止まらない" {
         $indexDir = "$TestDrive\flat_fail\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\C社.xlsx_Sheet1.tsv" @("a")
         # 移し先のフォルダと同じ名前のファイルがあると、フォルダを作れない
         [System.IO.File]::WriteAllText("$indexDir\C社.xlsx", "")
@@ -396,6 +421,7 @@ Describe "migrateFlatIndex" -Tag Io {
 
     It "インデックスのフォルダが無くても止まらない" {
         $indexDir = "$TestDrive\flat_none\index"
+        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         { migrateFlatIndex } | Should Not Throw
     }
 }

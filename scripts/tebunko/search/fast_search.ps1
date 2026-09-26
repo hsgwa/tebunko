@@ -13,9 +13,9 @@ function getFastSearchPackFiles {
         [string]$word,
         [object[]]$folders,
         [scriptblock]$query = $null,
-        [string]$indexRoot = ${indexDir},
-        [string]$systemRoot = ${systemIndexDir},
-        [string]$statePath = ${systemIndexStateFile},
+        [string]$indexRoot = $workspace.IndexDir,
+        [string]$systemRoot = $workspace.SystemIndexDir,
+        [string]$statePath = $workspace.SystemIndexStateFile,
         [scriptblock]$onProgress = $null
     )
 

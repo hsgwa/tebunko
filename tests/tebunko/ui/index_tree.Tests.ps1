@@ -43,6 +43,7 @@ $safeDir = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_index_tree_test_
 $indexDir = "$safeDir\index"
 $settingsFile = "$safeDir\setting.config"
 $statusFile = "$safeDir\取り込み一覧.tsv"
+$workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
 
 # ---- テストの準備 ----
 
@@ -102,6 +103,7 @@ Describe "loadIndexTree" -Tag Io {
     $indexDir = "$TestDrive\index"
     $settingsFile = "$TestDrive\setting.config"
     $statusFile = "$TestDrive\取り込み一覧.tsv"
+    $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
 
     BeforeEach {
         Remove-Item -LiteralPath $indexDir, $settingsFile -Recurse -Force -ErrorAction SilentlyContinue
@@ -204,6 +206,7 @@ Describe "saveSearchExcludes・setAllIndexChecked" -Tag Io {
     $indexDir = "$TestDrive\index"
     $settingsFile = "$TestDrive\setting.config"
     $statusFile = "$TestDrive\取り込み一覧.tsv"
+    $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
 
     BeforeEach {
         Remove-Item -LiteralPath $indexDir, $settingsFile -Recurse -Force -ErrorAction SilentlyContinue
@@ -282,6 +285,7 @@ Describe "イベント" -Tag Io {
     $indexDir = "$TestDrive\index"
     $settingsFile = "$TestDrive\setting.config"
     $statusFile = "$TestDrive\取り込み一覧.tsv"
+    $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
 
     BeforeEach {
         Remove-Item -LiteralPath $indexDir, $settingsFile -Recurse -Force -ErrorAction SilentlyContinue
