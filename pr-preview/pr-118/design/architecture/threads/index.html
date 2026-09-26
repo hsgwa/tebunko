@@ -1,0 +1,2948 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+      
+      
+      
+        <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/architecture/threads/">
+      
+      
+        <link rel="prev" href="../modules/">
+      
+      
+        <link rel="next" href="../../indexer/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../images/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>プロセスとスレッド - tebunko</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#プロセスとスレッド" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="ヘッダー">
+    <a href="../../.." title="tebunko" class="md-header__button md-logo" aria-label="tebunko" data-md-component="logo">
+      
+  <img src="../../../images/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tebunko
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              プロセスとスレッド
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ダークモードにする"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードにする" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ライトモードにする"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードにする" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="タブ" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  ホーム
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../guide/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  使い方
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  設計・開発
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="tebunko" class="md-nav__button md-logo" aria-label="tebunko" data-md-component="logo">
+      
+  <img src="../../../images/logo.svg" alt="logo">
+
+    </a>
+    tebunko
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ホーム
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../guide/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    使い方
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    使い方
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    はじめて使う
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスを作る
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索する
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/open-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/fast-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    高速検索
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設定
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Office のプロセスを止める
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    キーボード操作
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/limitations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    できないこと
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    困ったとき
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    よくある質問
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/update-uninstall/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    更新とアンインストール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設計・開発
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    設計・開発
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    構成
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    構成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    フォルダ構成とデータの置き場所
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設定ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通モジュール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#プロセス" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        プロセス
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#スレッドの一覧" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        スレッドの一覧
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#寿命" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        寿命
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデックス作成の並列化" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックス作成の並列化
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#画面とインデクサの受け渡し" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画面とインデクサの受け渡し
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#閉じるときの順番" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        閉じるときの順番
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gc-とメモリ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GC とメモリ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#クラスと関数の使い分け" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        クラスと関数の使い分け
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../indexer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックス作成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    処理の流れと取り込み一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/excel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Excel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/word/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Word
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/powerpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PowerPoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/office-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/index-format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスの形式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/known-issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    既知の問題
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    検索
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../search/fast-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    高速検索
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../search/output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索結果ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/state-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    状態と操作の流れ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通仕様
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    実装
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../testing/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テスト
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    テスト
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テストの実行と CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../safety/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安全性
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    安全性
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    危険とされる処理の検査結果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/file-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ファイルの読み書きの範囲
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/disclosure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    開示事項
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/scans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第三者のツールによる検査結果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/supply-chain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    供給網とライセンス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#プロセス" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        プロセス
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#スレッドの一覧" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        スレッドの一覧
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#寿命" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        寿命
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデックス作成の並列化" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックス作成の並列化
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#画面とインデクサの受け渡し" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画面とインデクサの受け渡し
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#閉じるときの順番" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        閉じるときの順番
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gc-とメモリ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GC とメモリ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#クラスと関数の使い分け" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        クラスと関数の使い分け
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="プロセスとスレッド">プロセスとスレッド<a class="headerlink" href="#プロセスとスレッド" title="Permanent link">&para;</a></h1>
+<p>このページは、tebunko がどのプロセス・スレッドで動き、それぞれをいつ作っていつ片づけるかをまとめる。検索・インデックス作成・画面の処理を足すときは、ここの決まりに合わせる。</p>
+<table>
+<thead>
+<tr>
+<th>知りたいこと</th>
+<th>節</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>プロセスをどう分けているか</td>
+<td><a href="#プロセス">プロセス</a></td>
+</tr>
+<tr>
+<td>どのスレッドが何をするか・優先度・STA と MTA</td>
+<td><a href="#スレッドの一覧">スレッドの一覧</a></td>
+</tr>
+<tr>
+<td>いつ作っていつ片づけるか</td>
+<td><a href="#寿命">寿命</a></td>
+</tr>
+<tr>
+<td>インデックス作成の並列化</td>
+<td><a href="#インデックス作成の並列化">インデックス作成の並列化</a></td>
+</tr>
+<tr>
+<td>画面とインデクサの受け渡し</td>
+<td><a href="#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
+</tr>
+<tr>
+<td>閉じるときの順番</td>
+<td><a href="#閉じるときの順番">閉じるときの順番</a></td>
+</tr>
+<tr>
+<td>GC で画面を止めないための決まり</td>
+<td><a href="#gc-とメモリ">GC とメモリ</a></td>
+</tr>
+<tr>
+<td>クラスを使ってよいところ</td>
+<td><a href="#クラスと関数の使い分け">クラスと関数の使い分け</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="プロセス">プロセス<a class="headerlink" href="#プロセス" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>画面のプロセス 1 つで動く。</strong> 検索・インデックス作成・画面の裏の読み込みは、どれも画面のプロセスの中のスレッドで行う。</li>
+<li><strong>別のプロセスになるのは Office（Excel・Word・PowerPoint）だけ。</strong> COM で操作するアプリは、COM の仕組みで別のプロセスとして動く。</li>
+<li><strong>画面を閉じたら何も残さない。</strong> インデックス作成中に閉じるときは、作成を中止してから閉じる（<a href="#閉じるときの順番">閉じるときの順番</a>）。作成を続けたまま画面だけを閉じることはできない。</li>
+<li>画面は、インデックス作成 1 回ごとに <code>IndexingSession</code>（<code>newIndexingSession</code>）を作る。<code>IndexingSession</code> はインデクサの司令のスレッドを作り、そこで <code>indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する。</li>
+<li><code>indexer.ps1</code> は、画面を使わずにインデックスを作る入口としても使える（<code>-RetryFailed</code>）。<code>-Channel</code> を付けなければ自分で受け渡しの口を作り、ログをコンソールにも出す。中身は画面から使うものと同じ関数（<code>invokeIndexer</code>）で、コンソールのプロセスの中で同じスレッドの構成で動く。</li>
+<li>ツールが起動する外のプロセスは、エクスプローラー（<code>explorer.exe</code>）だけである。ワークスペースを変えても、画面は起動し直さない（その場で切り替える）。インデックス作成のために <code>powershell.exe</code> を起動することはない。</li>
+</ul>
+<p>分けない理由は、閉じるときに後始末を確実にするためと、受け渡しをファイルで行わずに済ませるためである。スレッドにすると GC で画面が止まるおそれがあるが、実測では画面の止まりが増えなかった（<a href="#gc-とメモリ">GC とメモリ</a>）。</p>
+<h2 id="スレッドの一覧">スレッドの一覧<a class="headerlink" href="#スレッドの一覧" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>スレッド</th>
+<th>数</th>
+<th>寿命</th>
+<th>アパートメント</th>
+<th>優先度</th>
+<th>役目</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>画面</td>
+<td>1</td>
+<td>アプリ</td>
+<td>STA</td>
+<td>Normal</td>
+<td>表示と操作の受け付けだけ。ファイルの読み込みなどの重い処理はしない</td>
+</tr>
+<tr>
+<td>検索の司令</td>
+<td>1</td>
+<td>アプリ</td>
+<td>MTA</td>
+<td>Normal</td>
+<td>検索の要求を待ち、候補を集め、照合を照合のプールに配り、結果を画面へ渡す</td>
+</tr>
+<tr>
+<td>照合のプール</td>
+<td>コア数 − 1（1〜4）</td>
+<td>アプリ</td>
+<td>MTA</td>
+<td>Normal</td>
+<td>集約ファイルを読み、正規表現で照合する</td>
+</tr>
+<tr>
+<td>バックグラウンド</td>
+<td>2</td>
+<td>アプリ</td>
+<td>MTA</td>
+<td>Normal</td>
+<td>画面から頼まれる短い仕事（<code>startJob</code>。プレビューの読み込み・状態の読み直し・プロセスの一覧など）。長い仕事の間もプレビューが待たないよう 2 つにする</td>
+</tr>
+<tr>
+<td>インデクサの司令</td>
+<td>1</td>
+<td>インデックス作成 1 回</td>
+<td>MTA</td>
+<td>BelowNormal</td>
+<td>クロール・確認・取り込みの振り分け・取り込み一覧・集約ファイルとシステムインデックスの書き出し</td>
+</tr>
+<tr>
+<td>取り込み（Excel）</td>
+<td>1</td>
+<td>インデックス作成 1 回</td>
+<td>STA</td>
+<td>BelowNormal</td>
+<td>Excel のファイル（<code>.xls*</code>）を 1 つずつ TSV に取り込む。Excel を 1 つ持つ</td>
+</tr>
+<tr>
+<td>取り込み（Word）</td>
+<td>1</td>
+<td>インデックス作成 1 回</td>
+<td>STA</td>
+<td>BelowNormal</td>
+<td>旧形式の Word のファイル（<code>.doc</code>）を取り込む。Word を 1 つ持つ</td>
+</tr>
+<tr>
+<td>取り込み（PowerPoint）</td>
+<td>1</td>
+<td>インデックス作成 1 回</td>
+<td>STA</td>
+<td>BelowNormal</td>
+<td>旧形式の PowerPoint のファイル（<code>.ppt</code>）を取り込む。PowerPoint を 1 つ持つ</td>
+</tr>
+<tr>
+<td>取り込み（読み取り）</td>
+<td>コア数 − 1（1〜4。設定 <code>ingestThreads</code> で変えられる）</td>
+<td>インデックス作成 1 回</td>
+<td>MTA</td>
+<td>BelowNormal</td>
+<td>新形式の Word・PowerPoint のファイル（<code>.docx</code>・<code>.docm</code>・<code>.pptx</code>・<code>.pptm</code>）を、Office を使わずに読む</td>
+</tr>
+<tr>
+<td>監視</td>
+<td>Office の取り込みスレッド 1 つに 1 つ</td>
+<td>インデックス作成 1 回</td>
+<td>MTA</td>
+<td>Normal</td>
+<td>自分の取り込みスレッドの制限時間を見て、過ぎたらそのスレッドが起動した Office だけを PID で止める</td>
+</tr>
+<tr>
+<td>システムインデックスのプール</td>
+<td>最大 4</td>
+<td>インデックス作成 1 回</td>
+<td>MTA</td>
+<td>BelowNormal</td>
+<td>フォルダごとのシステムインデックスを作る（<code>WorkerPool</code>）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>優先度の決まり。</strong> 利用者が結果を待つもの（画面・検索・バックグラウンド）は Normal にする。インデックス作成のものは BelowNormal にし、インデックス作成中も検索を先に動かす。監視は、固まった Office を止める役目のため Normal のままにする。</p>
+<ul>
+<li>優先度は、プロセス全体（<code>PriorityClass</code>）ではなくスレッドごと（<code>Thread.Priority</code>）に下げる。プロセス全体を下げると画面も下がるため。画面のプロセスの <code>PriorityClass</code> は変えない。</li>
+<li><strong>優先度を下げるのは、利用者とプロセスを共有しないと確実に言えるものだけにする。</strong> インデックス作成のスレッドは画面のプロセスの中にあり、利用者と共有しないため下げる。取り込みスレッドが起動した Office のプロセスは、<code>PriorityClass</code> を変えない（Normal のまま）。利用者がダブルクリックしたファイルが、インデックス作成が起動した画面の無い Excel・Word で開くことがあり、PowerPoint は 1 つのプロセスしか持てず利用者の PowerPoint と同じプロセスになるため、下げると利用者の操作が遅くなるおそれがある。Excel の <code>IgnoreRemoteRequests</code> で分けることもできるが、この設定は Excel のオプションとして残ることがあり、インデックス作成の Excel が途中で止まると利用者の Excel でファイルを開けなくなるおそれがあるため使わない。</li>
+</ul>
+<p><strong>STA と MTA の使い分け。</strong></p>
+<ul>
+<li>STA（シングルスレッド アパートメント）では、そのスレッドで作った COM の部品を、そのスレッドだけで呼ぶ。Office の COM と WPF の画面はこれが前提になっている。</li>
+<li>MTA（マルチスレッド アパートメント）は、どのスレッドからでも呼べる。PowerShell のランスペースの既定である。</li>
+<li>Office の COM に触るスレッド（画面・Excel・Word・PowerPoint の取り込み）だけを STA にし、それ以外は MTA にする。STA のスレッドが長く待つと、そのスレッドの COM の部品への呼び出しが止まるため、必要なところに絞る。</li>
+<li>COM の部品はスレッドの間で渡さない。作ったスレッドで使い、同じスレッドで片づける。</li>
+<li>画面のスレッドで COM を使うのは、利用者の Excel に「開いて」と頼む短い呼び出し（<a href="../../gui/search-tab/">元のファイルを開く</a>）だけにする。</li>
+</ul>
+<h2 id="寿命">寿命<a class="headerlink" href="#寿命" title="Permanent link">&para;</a></h2>
+<p>スレッドやランスペースは、作っては捨てるのをやめ、次の 4 つの寿命のどれかに属させる。</p>
+<table>
+<thead>
+<tr>
+<th>寿命</th>
+<th>始まり</th>
+<th>終わり</th>
+<th>属するもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>アプリ</td>
+<td>画面を開く</td>
+<td>画面を閉じる</td>
+<td>検索の司令・照合のプール・バックグラウンド・読んだ内容のキャッシュ</td>
+</tr>
+<tr>
+<td>インデックス作成 1 回</td>
+<td>［インデックス作成を開始］</td>
+<td>完了・中止・エラー</td>
+<td>インデクサの司令・取り込み・監視・システムインデックスのプール・Office</td>
+</tr>
+<tr>
+<td>検索の要求 1 回</td>
+<td>検索の開始</td>
+<td>結果の受け渡しの完了・取り消し</td>
+<td>要求（語・条件・取り消しの札 <code>Stop</code>）と結果の列だけ。スレッドは作らない</td>
+</tr>
+<tr>
+<td>読んだ内容</td>
+<td>集約ファイルを読む</td>
+<td>キャッシュの予算を超えて追い出される・ファイルが変わる</td>
+<td>集約ファイルの内容（<a href="#gc-とメモリ">GC とメモリ</a>）</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>アプリの寿命のスレッドは、最初に使うときに作る。ランスペースには、はじめに一度だけ関数を読み込む。検索のたびに lib.ps1 を読み込み直さない。</li>
+<li>検索の司令（<code>SearchService</code>）は、スレッドを始めたときに lib.ps1 を 1 回だけ読み込み、照合のプール（<code>newPackWorkerPool</code>）を 1 回だけ作る。</li>
+<li>バックグラウンド（<code>BackgroundQueue</code>）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（<code>WorkerPool.Prelude</code>）。</li>
+<li>そのため、これらのスレッドは読み込んだときのワークスペース（<code>$workspace</code>）を持ち続ける。画面は仕事を頼むときにワークスペースの中の場所を渡す（検索の要求は <code>WorkDir</code> を持つ）。ワークスペースを変えてもスレッドは作り直さない（<a href="../modules/#ワークスペースの中の場所workspace">ワークスペースの中の場所（Workspace）</a>）。</li>
+<li>照合のプールでは、ランスペースに加えて PowerShell のインスタンスも使い回す（<code>WorkerPool</code>）。</li>
+<li>検索の要求（<code>newSearchRequest</code>。<code>[hashtable]::Synchronized</code>）は、<code>invokeSearchRequest</code> が実行する。要求の <code>Stop</code> が取り消しの札になる。新しい要求を出すと、前の要求の <code>Stop</code> を立てて取り消す。</li>
+<li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="#gc-とメモリ">GC とメモリ</a>）。</li>
+</ul>
+<h2 id="インデックス作成の並列化">インデックス作成の並列化<a class="headerlink" href="#インデックス作成の並列化" title="Permanent link">&para;</a></h2>
+<p>インデクサの司令が取り込み対象を並べ、ファイルの種類ごとの「レーン」に 1 ファイルずつ渡す。レーンごとに列と取り込みスレッドを持つ。取り込みスレッドは結果（成功・失敗・TSV の場所）を返し、書き出しは司令がまとめて行う。</p>
+<table>
+<thead>
+<tr>
+<th>レーン</th>
+<th>対象（拡張子）</th>
+<th>スレッド</th>
+<th>Office</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Excel</td>
+<td><code>.xls*</code>（すべての Excel のファイル。セルの表示値を読むため Excel が要る）</td>
+<td>1（STA）</td>
+<td>Excel を 1 つ</td>
+</tr>
+<tr>
+<td>Word</td>
+<td><code>.doc</code></td>
+<td>1（STA）</td>
+<td>Word を 1 つ</td>
+</tr>
+<tr>
+<td>PowerPoint</td>
+<td><code>.ppt</code></td>
+<td>1（STA）</td>
+<td>PowerPoint を 1 つ</td>
+</tr>
+<tr>
+<td>読み取り</td>
+<td><code>.docx</code>・<code>.docm</code>・<code>.pptx</code>・<code>.pptm</code></td>
+<td>設定 <code>ingestThreads</code>（1〜4。0 はコア数 − 1 で 1〜4。取り込むファイルの数より多くはしない）（MTA）</td>
+<td>使わない</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>flowchart LR
+    C["インデクサの司令&lt;br&gt;（MTA）"] -- ".xls*" --&gt; QE[("Excel の列")]
+    C -- ".doc" --&gt; QW[("Word の列")]
+    C -- ".ppt" --&gt; QP[("PowerPoint の列")]
+    C -- ".docx・.pptx など" --&gt; QR[("読み取りの列")]
+    QE --&gt; WE["Excel のスレッド&lt;br&gt;（STA・Excel を 1 つ&lt;br&gt;自分の監視）"]
+    QW --&gt; WW["Word のスレッド&lt;br&gt;（STA・Word を 1 つ&lt;br&gt;自分の監視）"]
+    QP --&gt; WP["PowerPoint のスレッド&lt;br&gt;（STA・PowerPoint を 1 つ&lt;br&gt;自分の監視）"]
+    QR --&gt; WR["読み取りのスレッド 1〜4&lt;br&gt;（MTA・Office を使わない）"]
+    WE &amp; WW &amp; WP &amp; WR -- 結果 --&gt; R[("結果の列")]
+    R --&gt; C
+    C -- "Office が要る（回し直し）" --&gt; QW
+    C -- "Office が要る（回し直し）" --&gt; QP
+    C -- フォルダが揃ったら --&gt; P["集約ファイル&lt;br&gt;システムインデックス"]</code></pre>
+<ul>
+<li><strong>レーンは拡張子で決める</strong>（<code>getIngestLane</code>。判断層の <code>indexer_decide.ps1</code>）。Excel のファイルはセルの表示値を読むため、すべて Excel のレーンにする。Word・PowerPoint は、旧形式（<code>.doc</code>・<code>.ppt</code>）だけ Office のレーンにし、新形式は読み取りのレーンにする。</li>
+<li><strong>Office は種類ごとに 1 つだけ起動する。</strong> Excel・Word・PowerPoint のレーンは、それぞれスレッド 1 つが自分の Office を 1 つ持つ。インデックス作成が起動する Office は、Excel・Word・PowerPoint がそれぞれ最大 1 つになる。3 つのレーンは互いに並べて動く。PowerPoint も、自分のスレッドが一度起動したら使い回す（変換のたびに起動し直さない）。同じ種類の Office を複数のスレッドが同時に起動しないため、起動の前後のプロセスの一覧の差で PID を取り違えない。起動した Office の優先度は変えない（<a href="#スレッドの一覧">スレッドの一覧</a>）。起動した Office の PID は受け渡しの口（<code>OfficePids</code>）に記録する。</li>
+<li><strong>レーンのスレッドは、そのレーンのファイルを初めて渡すときに始める</strong>（<code>addIngestTask</code>）。渡すファイルが無いレーンは、スレッドも Office も作らない。列は <code>newIngestPool</code> がレーンごとに作る（<code>BlockingCollection</code>）。</li>
+<li><strong>読み取りのスレッドは Office を使わない。</strong> <code>.docx</code>・<code>.pptx</code> などの ZIP（XML）の形式を <code>office_reader</code> で直接読む。監視も持たない。</li>
+<li><strong>Office が要ると分かったファイルは、Office のレーンに回し直す。</strong> 新形式の拡張子でも、中身が ZIP でない（パスワード付き・中身が旧形式）ことがある。読み取りのスレッドでは、<code>extractDocument</code> が <code>${officeRequiredMessage}</code>（<code>このファイルの取り込みには Word・PowerPoint が要ります。</code>）の例外を投げ、<code>invokeIngestTask</code> が <code>Reroute</code> を返す。司令は同じファイルを Word または PowerPoint のレーン（<code>getOfficeLane</code>）に渡し直す。回し直す間も取り込み中のまま扱う。ZIP でも旧形式でもない PowerPoint のファイル（壊れている）は、回し直さずに失敗にする。</li>
+<li><strong>並びの先を見て、空いているレーンに渡す。</strong> 司令は、まだ渡していない最初のファイルから <code>${ingestLookAhead}</code>（200 件）先までを見て、レーンに空きがあるファイルを渡す。レーンに渡しておける数（<code>getIngestLaneCapacity</code>）は、Office のレーンが 2（取り込み中の 1 件と次の 1 件）、読み取りのレーンが読み取りのスレッドの数 × 2 である。Excel のファイルが続いても、読み取りのスレッドを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・集約ファイル）は同じになる。</li>
+<li><strong>監視は Office のスレッドごとに持つ。</strong> Office のレーンのスレッドは、始めるときに自分の監視のスレッドを作る（<code>startWatchdog</code>）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。</li>
+<li><strong>Office の起動し直しと制限時間は、Office のスレッドごとに数える。</strong> スレッドごとに 100 ファイルで起動し直す。1 ファイルの制限時間は 10 分。</li>
+<li><strong>一時フォルダはスレッドごとに分ける。</strong> <code>%TEMP%\tebunko\&lt;PID&gt;\w&lt;番号&gt;</code> と、取り込み出力の <code>w&lt;番号&gt;</code> を使う。</li>
+<li><strong>集約ファイルはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を数えておき、取り込み中の数（<code>folderBusy</code>）と、まだ渡していない数（<code>folderPending</code>）を持つ。結果を受け取るたびに、どちらも 0 になったフォルダの集約ファイルとシステムインデックスを書き出す（<code>flushPendingPublish</code> に、まだ書き出さないフォルダを渡す）。</li>
+<li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
+<li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>取り込み中.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
+<li><strong>中止。</strong> 司令は振り分けをやめ、取り込み中のファイル（回し直したものを含む）が終わるのを待ってから、書き出しと Office の片づけを行う。各レーンのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>stopIngestWorkers</code>）。</li>
+<li><strong>取り込みスレッドが止まったら。</strong> 取り込みスレッドが途中で止まった（読み込めない等）ときは、インデックス作成を続けられないエラー <code>取り込みのスレッドが止まりました：&lt;理由&gt;</code> にする。</li>
+</ul>
+<p><code>setting.config</code> の <code>ingestThreads</code> で変えられるのは、読み取りのスレッドの数だけである。Excel・Word・PowerPoint のレーンは、いつもスレッド 1 つ・Office 1 つにする。</p>
+<p>取り込みのスレッドを使うときは、はじめにログに <code>N 件のファイルを取り込みます。（Excel・Word・PowerPoint はそれぞれ 1 つずつ、Office を使わずに読むファイルは R 個のスレッドで並べて取り込みます。…）</code> と出す。</p>
+<p>テストでは受け渡しの口の <code>Workers</code> を 0 にし、すべてのファイルの取り込みを司令のスレッドで行う（途中に割り込むため）。テストデータ（300 ファイル）で、スレッド 1 つと 4 つの結果（集約ファイルと取り込み一覧）が同じになることを確かめた。</p>
+<p>速さは、空いている CPU の量で決まる。1 ファイルの取り込みには、Excel と PowerShell で約 1 コアを使う。スレッドと Office の両方の優先度を下げていたときは、ほかのアプリが約 2 コアを使っている PC で、変更前より 1〜2 割遅くなった（性能データ 1,080 ファイル。変更前 414 秒、取り込みのスレッド 1 つ 518 秒、3 つ 456 秒。両方 Normal では 398 秒）。PowerPoint を変換のたびに起動し直していたときは、旧形式 1 件に約 7 秒かかった（使い回すと約 0.25 秒）。</p>
+<h2 id="画面とインデクサの受け渡し">画面とインデクサの受け渡し<a class="headerlink" href="#画面とインデクサの受け渡し" title="Permanent link">&para;</a></h2>
+<p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>書く側</th>
+<th>読む側</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RetryFailed・ConfirmTargets・Workers</td>
+<td>画面</td>
+<td>インデクサ</td>
+<td>前回失敗したファイルも取り込むか・取り込む前に確認するか・読み取りのスレッドの数（-1 は設定とコア数から決める。0 はすべてを司令のスレッドで取り込む（テスト））</td>
+</tr>
+<tr>
+<td>Progress</td>
+<td>インデクサの司令（<code>writeIndexingProgress</code>）</td>
+<td>画面（<code>readIndexingProgress</code>）</td>
+<td>段階・処理済み・残り・失敗・詳細</td>
+</tr>
+<tr>
+<td>Stop</td>
+<td>画面（<code>requestIndexingStop</code>）</td>
+<td>インデクサ</td>
+<td>中止の要求</td>
+</tr>
+<tr>
+<td>Plan・Answer・Answered</td>
+<td>インデクサ → 画面（<code>answerIndexingPlan</code>） → インデクサ</td>
+<td>両方</td>
+<td>取り込み予定と、利用者の返事。インデクサは <code>Answered</code>（<code>ManualResetEvent</code>）で待つ（<code>waitForIndexingApproval</code>。60 分で取りやめる）</td>
+</tr>
+<tr>
+<td>Error・ExitCode</td>
+<td>インデクサ</td>
+<td>画面</td>
+<td>続けられないエラーの内容と、終了コード（0 完了・1 エラー・2 中止）。<code>ExitCode</code> は最後に入れる</td>
+</tr>
+<tr>
+<td>OfficePids</td>
+<td>取り込みスレッド</td>
+<td>画面</td>
+<td>インデックス作成が起動した Office の PID とプロセス名（<code>ConcurrentDictionary</code>）。閉じるときに止まらなければ、これだけを止める</td>
+</tr>
+</tbody>
+</table>
+<p>ファイルに残すのは次のものだけである。</p>
+<ul>
+<li><code>取り込み一覧.tsv</code></li>
+<li><code>取り込み中.txt</code>（強制終了からの再開）</li>
+<li><code>インデックス作成ログ.txt</code>（<code>writeIndexerLog</code> で書く。実行ごとに上書き）</li>
+</ul>
+<p>インデクサのミューテックス（<code>newAppMutex "indexer"</code>。画面と <code>indexer.ps1</code> が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［8 設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（<code>testIndexerRunning</code>）。</p>
+<h2 id="閉じるときの順番">閉じるときの順番<a class="headerlink" href="#閉じるときの順番" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant U as 利用者
+    participant G as 画面
+    participant I as インデクサ
+    participant S as 検索・バックグラウンド
+    U-&gt;&gt;G: 閉じる
+    alt インデックス作成中
+        G-&gt;&gt;U: 「まだインデックス作成の途中です。止めてから閉じますか？」
+        U-&gt;&gt;G: ［インデックス作成を止めて閉じる］
+        G-&gt;&gt;I: Stop
+        G-&gt;&gt;G: 閉じるのを保留して「インデックス作成を止めています…」&lt;br&gt;closeTimer（0.5 秒ごと）で終わりを待つ
+        I-&gt;&gt;I: 取り込み中のファイルの区切りで止まる&lt;br&gt;集約ファイルを書き出す・Office を終了
+        I--&gt;&gt;G: 終了
+    end
+    G-&gt;&gt;S: 検索を取り消す
+    G-&gt;&gt;G: closeTimer・インデックス作成のタイマーを止める
+    G-&gt;&gt;I: IndexingSession.Close
+    G-&gt;&gt;S: 検索の司令（照合のプール）・バックグラウンドを閉じる（jobTimer を止める）
+    G-&gt;&gt;G: ミューテックスを解放
+    G-&gt;&gt;U: 閉じる</code></pre>
+<ul>
+<li>確認の選択肢は［インデックス作成を止めて閉じる］と［閉じない］だけである。インデックス作成を続けたまま画面を閉じることはできない。確認している間にインデックス作成が終わっていれば、そのまま閉じる。</li>
+<li>Office が固まってインデクサが戻らないときは、まず監視が制限時間で Office を止める。画面は 60 秒待っても終わらなければ、インデックス作成が起動した Office を PID で止め（<code>IndexingSession.KillOffice</code>）、さらに 15 秒待つ。それでも終わらなければ、そのまま閉じる（スレッドは <code>IndexingSession.Close</code> で止める）。</li>
+<li>止めるのは、インデックス作成が起動して PID を記録した Office（<code>OfficePids</code>）だけである。PID が別のプロセスに使い回されていないよう、記録したプロセス名と同じかも確かめる。利用者が開いていた Office は止めない。</li>
+<li>止めるのを待っている間にもう一度閉じようとしても、何もしない。</li>
+</ul>
+<h2 id="gc-とメモリ">GC とメモリ<a class="headerlink" href="#gc-とメモリ" title="Permanent link">&para;</a></h2>
+<p>スレッドは同じプロセスのヒープを使うため、インデクサや検索が大量にメモリを使うと、GC で画面のスレッドも止まる。</p>
+<p>実測（画面の代わりに 5ms ごとに起きるスレッドを動かし、遅れを測った。ヒープ 300MB、20 秒）では、次のとおりだった。</p>
+<table>
+<thead>
+<tr>
+<th>負荷</th>
+<th>遅れの最大</th>
+<th>50ms を超えた回数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>なし</td>
+<td>27.0ms</td>
+<td>0</td>
+</tr>
+<tr>
+<td>同じプロセスのスレッドで集約ファイルの読み書き</td>
+<td>45.0ms</td>
+<td>0</td>
+</tr>
+<tr>
+<td>別のプロセスで同じ負荷</td>
+<td>18.8ms</td>
+<td>0</td>
+</tr>
+<tr>
+<td>同じプロセス＋<code>SustainedLowLatency</code></td>
+<td>33.2ms</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>Windows のタイマーの刻み（約 15.6ms）を考えると、どれも画面の操作で気づく止まりではない。そのうえで、次を守る。</p>
+<ul>
+<li>起動時に <code>GCSettings.LatencyMode</code> を <code>SustainedLowLatency</code> にする（重い全体の GC を後回しにする）。</li>
+<li>読んだ内容のキャッシュに予算（文字数）を決め、超えたら使われていないものから追い出す。追い出しは検索の司令のスレッドで、検索の後に行う（<code>trimTsvTextCache</code>）。</li>
+<li>キャッシュの各内容には、最後に使った世代を付ける。世代は検索 1 回ごとに 1 つ進める。</li>
+<li>予算の 90% を超えていたら、今の世代（いま終わった検索）で使わなかったものを、古い世代から追い出す。今の世代で使ったものは残す（毎回同じ集約ファイルを順に読むため、使った順だけで追い出すと、予算より大きいインデックスでは何も残らない）。</li>
+<li>画面のスレッドで大きな文字列を作らない。プレビューの読み込み（<code>readPackContext</code>）はバックグラウンドのスレッドで行い、表示する分だけを受け取る。</li>
+<li>検索の結果は、時間で区切って少しずつ画面に移す（<code>pumpSearch</code>）。</li>
+</ul>
+<p>実装を変えたときは、画面の心拍（画面のスレッドの <code>DispatcherTimer</code> の遅れ）を、インデックス作成と検索を同時に動かして測る。100ms を超える止まりが出るようなら、インデクサだけを別のプロセスに戻すことを検討する。</p>
+<h2 id="クラスと関数の使い分け">クラスと関数の使い分け<a class="headerlink" href="#クラスと関数の使い分け" title="Permanent link">&para;</a></h2>
+<p>PowerShell 5.1 のクラスのメソッドは、クラスを定義したランスペースで動く（別のスレッドから呼んでも、定義したランスペースに戻って実行される）。このため次のように使い分ける。</p>
+<ul>
+<li><strong>クラスにしてよいもの</strong>: 画面のスレッドだけから呼ぶ持ち主のオブジェクト。スレッドやプールの寿命を持つ。</li>
+<li><code>WorkerPool</code>: ランスペースのプールと PowerShell のインスタンスを貸し借りする</li>
+<li><code>SearchService</code>: 検索の司令のスレッドと、要求・結果の列を持つ</li>
+<li><code>BackgroundQueue</code>: バックグラウンドのスレッドに仕事を渡し、結果を画面に返す</li>
+<li><code>IndexingSession</code>: インデックス作成 1 回分のスレッドと受け渡しの口を持つ（<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>・<code>GetError</code>・<code>KillOffice</code>・<code>Close</code>）</li>
+<li><strong>クラスにしないもの</strong>: スレッドをまたいで使うもの（受け渡しの口・キャッシュ・結果）。.NET のコレクション（<code>ConcurrentQueue</code>・<code>ConcurrentDictionary</code>・<code>[hashtable]::Synchronized</code> など）と関数で作る。</li>
+<li>持ち主のクラスは <code>Open</code>（または最初の使用）でスレッドを作り、<code>Close</code> で止めて片づける。<code>Close</code> は何度呼んでもよい。</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="フッター" >
+        
+          
+          <a href="../modules/" class="md-footer__link md-footer__link--prev" aria-label="前: 共通モジュール">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                前
+              </span>
+              <div class="md-ellipsis">
+                共通モジュール
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../indexer/" class="md-footer__link md-footer__link--next" aria-label="次: インデックス作成（インデクサ）">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                次
+              </span>
+              <div class="md-ellipsis">
+                インデックス作成（インデクサ）
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 hsgwa / MIT License
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
