@@ -32,7 +32,7 @@ body:
     id: version
     attributes:
       label: 版
-      description: 配布 zip の版（例: v1.2.0）か、コミットの番号
+      description: 配布 zip の版（例: v1.2.0）か、コミットの番号。右上の［⋯］→［tebunko について］で確かめられます
   - type: input
     id: env
     attributes:

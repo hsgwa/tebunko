@@ -26,40 +26,53 @@
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Style="{StaticResource Micro}" Margin="2,12,0,0"
                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
 
-    <TabControl x:Name="Tabs">
+    <Grid>
+      <TabControl x:Name="Tabs">
 
-      <!-- ================= 1 インデックス管理 ================= -->
-      <TabItem x:Name="IndexTab">
-        <TabItem.Header>
-          <!-- Style を外して、選択中のタブの文字色・太さ（TabItem 側）を受け継ぐ -->
-          <TextBlock x:Name="IndexTabHeader" Style="{x:Null}" Text="1 インデックス管理" />
-        </TabItem.Header>
-        <!-- 中身は tab_index.xaml（gui.ps1 が読み込んで入れる） -->
-      </TabItem>
+        <!-- ================= 1 インデックス管理 ================= -->
+        <TabItem x:Name="IndexTab">
+          <TabItem.Header>
+            <!-- Style を外して、選択中のタブの文字色・太さ（TabItem 側）を受け継ぐ -->
+            <TextBlock x:Name="IndexTabHeader" Style="{x:Null}" Text="1 インデックス管理" />
+          </TabItem.Header>
+          <!-- 中身は tab_index.xaml（gui.ps1 が読み込んで入れる） -->
+        </TabItem>
 
-      <!-- ================= 2 検索 ================= -->
-      <TabItem x:Name="SearchTab">
-        <TabItem.Header>
-          <TextBlock Style="{x:Null}" Text="2 検索" />
-        </TabItem.Header>
-        <!-- 中身は tab_search.xaml（gui.ps1 が読み込んで入れる） -->
-      </TabItem>
+        <!-- ================= 2 検索 ================= -->
+        <TabItem x:Name="SearchTab">
+          <TabItem.Header>
+            <TextBlock Style="{x:Null}" Text="2 検索" />
+          </TabItem.Header>
+          <!-- 中身は tab_search.xaml（gui.ps1 が読み込んで入れる） -->
+        </TabItem>
 
-      <!-- ================= 8 設定 ================= -->
-      <TabItem x:Name="SettingsTab">
-        <TabItem.Header>
-          <TextBlock Style="{x:Null}" Text="8 設定" />
-        </TabItem.Header>
-        <!-- 中身は tab_settings.xaml（gui.ps1 が読み込んで入れる） -->
-      </TabItem>
+        <!-- ================= 8 設定 ================= -->
+        <TabItem x:Name="SettingsTab">
+          <TabItem.Header>
+            <TextBlock Style="{x:Null}" Text="8 設定" />
+          </TabItem.Header>
+          <!-- 中身は tab_settings.xaml（gui.ps1 が読み込んで入れる） -->
+        </TabItem>
 
-      <!-- ================= 9 プロセス停止 ================= -->
-      <TabItem x:Name="KillTab">
-        <TabItem.Header>
-          <TextBlock x:Name="KillTabHeader" Style="{x:Null}" Text="9 プロセス停止" />
-        </TabItem.Header>
-        <!-- 中身は tab_kill.xaml（gui.ps1 が読み込んで入れる） -->
-      </TabItem>
-    </TabControl>
+        <!-- ================= 9 プロセス停止 ================= -->
+        <TabItem x:Name="KillTab">
+          <TabItem.Header>
+            <TextBlock x:Name="KillTabHeader" Style="{x:Null}" Text="9 プロセス停止" />
+          </TabItem.Header>
+          <!-- 中身は tab_kill.xaml（gui.ps1 が読み込んで入れる） -->
+        </TabItem>
+      </TabControl>
+
+      <!-- タブの並びの右端に重ねる［⋯］メニュー（「tebunko について」。ui/about_dialog.ps1 が開閉を扱う） -->
+      <Button x:Name="MoreButton" Content="⋯" Style="{StaticResource ToolButton}"
+              HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
+              ToolTip="メニュー" AutomationProperties.Name="メニュー">
+        <Button.ContextMenu>
+          <ContextMenu>
+            <MenuItem x:Name="AboutMenuItem" Header="tebunko について" />
+          </ContextMenu>
+        </Button.ContextMenu>
+      </Button>
+    </Grid>
   </DockPanel>
 </Window>

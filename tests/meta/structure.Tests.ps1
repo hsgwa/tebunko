@@ -96,7 +96,7 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "ウィンドウの枠の名前がある" {
         $names = getXamlNames "$here\..\scripts\tebunko\xaml\tebunko.xaml"
-        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "MoreButton", "AboutMenuItem")) {
             $names -contains $name | Should -Be $true
         }
     }

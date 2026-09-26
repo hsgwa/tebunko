@@ -4,12 +4,13 @@
 ;   AppVersion      表示する版（例 0.2.0。アンインストールの一覧に出る）
 ;   SetupVersion    インストーラーのファイル名に付ける版（タグの名前。例 v0.2.0。zip の名前と揃える）
 ;   NumericVersion  exe の版の情報に書く数字だけの版（例 0.2.0.0）
-;   StageDir        入れるファイルを並べたフォルダ（tebunko.exe・scripts\・LICENSE）
+;   StageDir        入れるファイルを並べたフォルダ（tebunko.exe・scripts\・LICENSE・VERSION.txt）
 ;   IconFile        インストーラーのアイコン（scripts\tebunko\tebunko.ico）
 ;
 ; 方針（docs/safety/disclosure.md「インストーラー版」）:
 ;   ・管理者権限なしで、利用者ごとの %LOCALAPPDATA%\Programs\tebunko に入れる。管理者なら Program Files も選べる
-;   ・入れるのは tebunko.exe（installer\tebunko.cs）・scripts\・LICENSE だけ。レジストリに書くのは、Windows のインストーラーが
+;   ・入れるのは tebunko.exe（installer\tebunko.cs）・scripts\・LICENSE・VERSION.txt（tools\new_version_text.ps1。画面の「tebunko について」）
+;     だけ。レジストリに書くのは、Windows のインストーラーが
 ;     必ず書くアンインストールの情報だけ（[Registry] は使わない）。サービス・自動起動・PATH・ファイルの関連付けは触らない
 ;   ・更新は、新しい版のインストーラーを実行するだけにする。古い版で消したスクリプトが残らないよう、scripts\ を消してから入れる
 ;   ・アンインストールでは、入れたファイルと setting.config を消す。インデックス（ワークスペース）は利用者が選んだ場所にあり得るため
@@ -78,6 +79,7 @@ Type: filesandordirs; Name: "{app}\scripts"
 [Files]
 Source: "{#StageDir}\tebunko.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#StageDir}\VERSION.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#StageDir}\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]

@@ -7,6 +7,7 @@
 #   README.md                                         使い方。相対リンクと画像は、その版の GitHub の URL に書き換える
 #                                                     （docs\ や画像は zip に入れないため。ページ内のリンク #… はそのまま）
 #   LICENSE                                           ライセンス（MIT。写しに許諾表示を含めるため同梱する）
+#   VERSION.txt                                       版とコミットの SHA（tools\new_version_text.ps1 が作る。画面の「tebunko について」）
 #
 # zip の横に並べて、GitHub Release に載せるもの（release.yml）:
 #   tebunko-<版>.zip
@@ -34,11 +35,15 @@ if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
     throw "バージョンに使えない文字が含まれています: $Version"
 }
 
+# VERSION.txt の中身を先に作る（git の SHA が取れないときは、ここで止めて何も作らない）。
+# リポジトリの作業ツリーには書かず、下の zip のエントリーへバイト列のまま直接書く
+$versionBytes = & (Join-Path $PSScriptRoot "new_version_text.ps1") -Version $Version
+
 # zip の横に並べるもの: カタログとハッシュ一覧（配布物と同じ中身から作る）と部品表
 & (Join-Path $PSScriptRoot "new_release_files.ps1") -OutDir $OutDir
 Copy-Item -LiteralPath (Join-Path $rootDir "sbom.cdx.json") -Destination $OutDir -Force
 
-# zip に入れるファイル（zip 内のパス → 元のファイル）
+# zip に入れるファイル（zip 内のパス → 元のファイル。VERSION.txt は実ファイルが無い合成エントリーなので $null にする）
 $entries = [ordered]@{}
 foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -Recurse -File | Sort-Object FullName)) {
     $entries[$file.FullName.Substring($rootDir.Length + 1)] = $file.FullName
@@ -46,6 +51,7 @@ foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -R
 foreach ($name in @("tebunko.bat", "README.md", "LICENSE")) {
     $entries[$name] = Join-Path $rootDir $name
 }
+$entries["VERSION.txt"] = $null
 
 # README の相対リンク（](docs/…)）と画像（src="docs/…"）を、その版の GitHub の URL にする。
 # 展開したフォルダには docs\ などが無く、そのままでは画像が出ずリンクも切れるため
@@ -65,14 +71,18 @@ $archive = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compr
 try {
     foreach ($name in $entries.Keys) {
         $entry = $archive.CreateEntry("tebunko/" + $name.Replace("\", "/"), [System.IO.Compression.CompressionLevel]::Optimal)
-        $entry.LastWriteTime = (Get-Item -LiteralPath $entries[$name]).LastWriteTime
+        if ($name -eq "README.md") {
+            $bytes = $readmeBytes
+            $entry.LastWriteTime = (Get-Item -LiteralPath $entries[$name]).LastWriteTime
+        } elseif ($name -eq "VERSION.txt") {
+            $bytes = $versionBytes
+            $entry.LastWriteTime = Get-Date
+        } else {
+            $bytes = [System.IO.File]::ReadAllBytes($entries[$name])
+            $entry.LastWriteTime = (Get-Item -LiteralPath $entries[$name]).LastWriteTime
+        }
         $writer = $entry.Open()
         try {
-            if ($name -eq "README.md") {
-                $bytes = $readmeBytes
-            } else {
-                $bytes = [System.IO.File]::ReadAllBytes($entries[$name])
-            }
             $writer.Write($bytes, 0, $bytes.Length)
         } finally {
             $writer.Dispose()

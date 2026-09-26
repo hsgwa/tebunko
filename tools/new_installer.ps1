@@ -5,7 +5,7 @@
 #
 # 手順:
 #   1. 起動口 tebunko.exe（installer\tebunko.cs）を、Windows 標準の .NET Framework の csc.exe でビルドする
-#   2. tebunko.exe・scripts\・LICENSE を work\release\installer\stage\ に並べる
+#   2. tebunko.exe・scripts\・LICENSE・VERSION.txt（tools\new_version_text.ps1）を work\release\installer\stage\ に並べる
 #   3. Inno Setup 7 のコンパイラ（ISCC.exe）で installer\tebunko.iss をビルドする
 #
 # Inno Setup は -Iscc で指定するか、既定の場所（Program Files (x86)・%LOCALAPPDATA%\Programs の Inno Setup 7）に入れておく。
@@ -25,6 +25,9 @@ if (!$OutDir) {
 if ($Version -notmatch '^[A-Za-z0-9._-]+$') {
     throw "バージョンに使えない文字が含まれています: $Version"
 }
+
+# VERSION.txt の中身を先に作る（git の SHA が取れないときは、ここで止めてビルドを始めない）
+$versionBytes = & (Join-Path $PSScriptRoot "new_version_text.ps1") -Version $Version
 
 function getNumericVersion {
     # exe の版の情報に書く数字だけの版（v1.2.3 → 1.2.3.0）。数字の版でないとき（手元での試し）は 0.0.0.0
@@ -95,6 +98,7 @@ if ($LASTEXITCODE -ne 0) {
 # 2. 入れるファイルを並べる（zip と同じく work\・setting.config は入れない）
 Copy-Item -LiteralPath (Join-Path $rootDir "scripts") -Destination $stageDir -Recurse
 Copy-Item -LiteralPath (Join-Path $rootDir "LICENSE") -Destination $stageDir
+[System.IO.File]::WriteAllBytes((Join-Path $stageDir "VERSION.txt"), $versionBytes)
 
 # 3. インストーラーをビルドする
 & $isccPath /Q "/O$OutDir" "/DAppVersion=$appVersion" "/DSetupVersion=$Version" "/DNumericVersion=$numericVersion" "/DStageDir=$stageDir" "/DIconFile=$icon" `
