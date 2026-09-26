@@ -97,6 +97,20 @@ validation:
 # 上部のタブ（navigation.tabs）が読者ごとの区分になる。ページを足したらここにも足す
 nav:
   - ホーム: index.md
+  - 使い方:
+      - guide/index.md
+      - はじめて使う: guide/quickstart.md
+      - インデックスを作る: guide/indexing.md
+      - 検索する: guide/search.md
+      - 元のファイルを開く: guide/open-files.md
+      - 高速検索: guide/fast-search.md
+      - 設定: guide/settings.md
+      - Office のプロセスを止める: guide/process.md
+      - キーボード操作: guide/keyboard.md
+      - できないこと: guide/limitations.md
+      - 困ったとき: guide/troubleshooting.md
+      - よくある質問: guide/faq.md
+      - 更新とアンインストール: guide/update-uninstall.md
   - 安全性:
       - safety/index.md
       - 危険とされる処理の検査結果: safety/checks.md
