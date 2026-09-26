@@ -81,7 +81,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 ## インストール
 
 1. [Releases](https://github.com/hsgwa/tebunko/releases/latest) から `tebunko_grep-<バージョン>.zip` をダウンロードし、好きな場所に展開します。共有フォルダに置いてもかまいません。
-2. 展開したフォルダの `tebunko.bat` をダブルクリックすると、画面が開きます。
+2. 展開したフォルダの `tebunko.bat` をダブルクリックすると、画面が開きます。フォルダには、ほかにツールの本体（`scripts`）・この説明（`README.md`）・ライセンス（`LICENSE`）が入っています。
 
 初回は「セキュリティの警告」が表示されます。［実行］を押してください。表示させたくない場合は、先に `tebunko.bat` のプロパティを開き、［ブロックの解除］にチェックを入れておきます。
 
