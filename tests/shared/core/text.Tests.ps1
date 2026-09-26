@@ -2,12 +2,8 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "replaceCellNewLine" -Tag Io {
-    It "ダブルクォート内の改行（LF・CR・CRLF）をセル内改行の文字に置き換える" {
+    It "ダブルクォート内の改行（LF・CR・CRLF）をセル内改行の文字に置き換え、外の改行は残す" {
         replaceCellNewLine "`"a`nb`rc`r`nd`"`te`r`n" | Should Be "`"a${cellNewLine}b${cellNewLine}c${cellNewLine}d`"`te`r`n"
-    }
-
-    It "ダブルクォート外の改行は残す" {
-        replaceCellNewLine "a`r`nb" | Should Be "a`r`nb"
     }
 }
 

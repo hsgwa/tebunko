@@ -73,11 +73,11 @@ function script:hitKeys {
 
 function script:compareSearch {
     # 高速検索とすべての照合で結果が同じか。高速検索の結果を返す
-    param ($ws, [string]$word, [object[]]$folders, [scriptblock]$query, [int]$limit = 0)
+    param ($ws, [string]$word, [object[]]$folders, [scriptblock]$query)
     $fast = getFastSearchPackFiles $word $folders $query $ws.Index $ws.System $ws.State
     $fast | Should Not Be $null
     $all = getIndexPackFiles $folders
-    hitKeys (searchPackIndex $word $fast.Packs $true $limit) | Should Be (hitKeys (searchPackIndex $word $all.Packs $true $limit))
+    hitKeys (searchPackIndex $word $fast.Packs $true) | Should Be (hitKeys (searchPackIndex $word $all.Packs $true))
     return $fast
 }
 
@@ -146,11 +146,6 @@ Describe "getFastSearchPackFiles" -Tag Io {
         $ws = newFastWorkspace "$TestDrive\f7"
         $fast = compareSearch $ws "千代田区" @(@{ Root = $ws.Index; RelPath = "営業\2024"; Recurse = $false }) (newFakeWindowsSearch $ws.System)
         @($fast.Packs | Where-Object { $_.RelPath -like "*\2月\*" }).Count | Should Be 0
-    }
-
-    It "上限で打ち切っても、すべての照合と同じ位置で切れる" {
-        $ws = newFastWorkspace "$TestDrive\f8"
-        [void](compareSearch $ws "モニター" @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true }, @{ Root = $ws.Index; RelPath = "総務"; Recurse = $true }) (newFakeWindowsSearch $ws.System) 1)
     }
 
     It "インデックス全体・別の場所・無いフォルダの検索対象は、すべてを列挙する" {

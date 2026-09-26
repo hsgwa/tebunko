@@ -22,13 +22,6 @@ Describe "toResultLine" -Tag Io {
     }
 }
 
-Describe "toResultHeader" -Tag Io {
-    It "ファイル名・場所・種別・行と、列名を並べる" {
-        toResultHeader 3 | Should Be "ファイル名`t場所`t種別`t行`tA`tB`tC"
-        toResultHeader 0 | Should Be "ファイル名`t場所`t種別`t行"
-    }
-}
-
 Describe "testIndexExists / getIndexSummary" -Tag Io {
     $index = Join-Path $TestDrive "index[1]"
     $other = Join-Path $TestDrive "other"

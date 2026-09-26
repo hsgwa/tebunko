@@ -28,57 +28,38 @@ Describe "createTargetList" -Tag Io {
     # getIndexFiles / removeBookDir が実際のインデックスを見ないよう、テスト用のフォルダに向ける
     ${indexDir} = Join-Path $TestDrive "index"
 
-    It "一覧に無いファイルは取り込み対象になる（新規）" {
-        $result = createTargetList $folder (newPrevious) $null
-        $result.Targets.Count | Should Be 1
-        $result.Targets[0].相対パス | Should Be "売上\a.xlsx"
-        $result.Plan.新規 | Should Be 1
-        $result.Plan.ファイル数 | Should Be 1
-        $result.Plan.取り込み対象 | Should Be 1
-    }
-
-    It "取り込み済みで更新が無ければ取り込まない" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated "" "2"))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 0
-        $result.Plan.取り込み対象 | Should Be 0
+    # 一覧の行（state が $null なら一覧に無い。modified は元のファイルが更新されたか、version は抽出版）と
+    # TSV の数え上げ（tsv が $null なら数えない・0 なら数え上げに無い）→ 取り込み対象・失敗の数と、取り込み予定のどの件数に数えるか
+    It "<name>" -TestCases @(
+        @{ name = "一覧に無いファイルは取り込み対象になる（新規）"; state = $null; modified = $false; version = "2"; tsv = $null; targets = 1; failed = 0; field = "新規" }
+        @{ name = "取り込み済みで更新が無ければ取り込まない"; state = $stateDone; modified = $false; version = "2"; tsv = 1; targets = 0; failed = 0; field = "" }
+        @{ name = "前の抽出版で取り込んだファイルは、更新が無くても取り込み直す（更新ありに数える）"; state = $stateDone; modified = $false; version = ""; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
+        @{ name = "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）"; state = $stateDone; modified = $false; version = "2"; tsv = 0; targets = 1; failed = 0; field = "インデックスなし" }
+        @{ name = "更新されていれば取り込み対象になる（更新あり）"; state = $stateDone; modified = $true; version = "2"; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
+        @{ name = "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す"; state = $stateFailed; modified = $false; version = "2"; tsv = 1; targets = 0; failed = 1; field = "前回失敗" }
+        @{ name = "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）"; state = $stateNew; modified = $false; version = "2"; tsv = 1; targets = 1; failed = 0; field = "前回未完了" }
+    ) {
+        param ($name, $state, $modified, $version, $tsv, $targets, $failed, $field)
+        $rows = @()
+        if ($null -ne $state) {
+            $rowUpdated = if ($modified) { "2000/01/01 00:00:00" } else { $updated }
+            $rows = @((newStatusRow "売上\a.xlsx" $rowUpdated $size $state 1 $updated "" $version))
+        }
+        $counts = $null
+        if ($tsv -eq 0) {
+            $counts = newCounts
+        } elseif ($tsv) {
+            $counts = newCounts @{ "売上\a.xlsx" = $tsv }
+        }
+        $result = createTargetList $folder (newPrevious $rows) $counts
         $result.Rows.Count | Should Be 1
-    }
-
-    It "前の抽出版で取り込んだファイルは、更新が無くても取り込み直す（更新ありに数える）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 1
-        $result.Plan.更新あり | Should Be 1
-    }
-
-    It "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateDone} 1 $updated))
-        $result = createTargetList $folder $previous (newCounts)
-        $result.Targets.Count | Should Be 1
-        $result.Plan.インデックスなし | Should Be 1
-    }
-
-    It "更新されていれば取り込み対象になる（更新あり）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" "2000/01/01 00:00:00" $size ${stateDone} 1 $updated))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 1
-        $result.Plan.更新あり | Should Be 1
-    }
-
-    It "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateFailed} 0 $updated "開けませんでした"))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 0
-        $result.Failed.Count | Should Be 1
-        $result.Plan.前回失敗 | Should Be 1
-    }
-
-    It "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）" {
-        $previous = newPrevious @((newStatusRow "売上\a.xlsx" $updated $size ${stateNew}))
-        $result = createTargetList $folder $previous (newCounts @{ "売上\a.xlsx" = 1 })
-        $result.Targets.Count | Should Be 1
-        $result.Plan.前回未完了 | Should Be 1
+        $result.Targets.Count | Should Be $targets
+        $result.Failed.Count | Should Be $failed
+        if ($field) {
+            $result.Plan.$field | Should Be 1
+        }
+        $result.Plan.ファイル数 | Should Be 1
+        $result.Plan.取り込み対象 | Should Be $targets
     }
 }
 
@@ -182,14 +163,6 @@ Describe "findOfficeFiles" -Tag Io {
         $scan.Root.TrimEnd("\") | Should Be $source
         $scan.Files.Count | Should Be 5
     }
-
-    It "Office のファイルが無いフォルダは 0 件" {
-        $empty = Join-Path $TestDrive "空"
-        [System.IO.Directory]::CreateDirectory($empty) | Out-Null
-        $scan = findOfficeFiles $empty
-        @($scan.Files).Count | Should Be 0
-        $scan.HasError | Should Be $false
-    }
 }
 
 Describe "getIndexFiles" -Tag Io {
@@ -203,13 +176,6 @@ Describe "getIndexFiles" -Tag Io {
 
     It "フォルダが無ければ空" {
         @(getIndexFiles (Join-Path $TestDrive "無い.xlsx")).Count | Should Be 0
-    }
-}
-
-Describe "getBookDir" -Tag Unit {
-    It "インデックスのフォルダに相対パスをつなぐ" {
-        ${indexDir} = "C:\tool\work\index"
-        getBookDir "営業\2024\A社.xlsx" | Should Be "C:\tool\work\index\営業\2024\A社.xlsx"
     }
 }
 

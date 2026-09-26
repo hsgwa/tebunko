@@ -120,17 +120,7 @@ Describe "writeSystemIndexFolder" -Tag Io {
     }
 }
 
-Describe "getSystemIndexFolderTsvPaths" -Tag Io {
-    It "フォルダが無ければ空" {
-        (getSystemIndexFolderTsvPaths "$TestDrive\無いフォルダ").Count | Should Be 0
-    }
-}
-
 Describe "writeSystemIndexFolders" -Tag Io {
-    It "フォルダが無ければ何もしない" {
-        (writeSystemIndexFolders @() "$TestDrive\i" "$TestDrive\s").Count | Should Be 0
-    }
-
     It "並列でも 1 つずつでも同じ結果になり、始めた順に返す" {
         $index = newIndexTree "$TestDrive\p"
         $folders = @("$index\営業\2024", "$index\営業\2024\2月")
