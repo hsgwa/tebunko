@@ -110,18 +110,18 @@ nav:
   - ホーム: index.md
   - 使い方:
       - guide/index.md
-      - はじめる:
-          - インデックスとは: guide/about-index.md
-          - はじめて使う: guide/quickstart.md
+      - 導入:
+          - インデックスの仕組み: guide/about-index.md
+          - クイックスタート: guide/quickstart.md
       - 操作ガイド:
-          - インデックスを作る: guide/indexing.md
-          - 検索する: guide/search.md
+          - インデックスの作成: guide/indexing.md
+          - 検索: guide/search.md
           - 元のファイルを開く: guide/open-files.md
           - 高速検索: guide/fast-search.md
           - 設定: guide/settings.md
-          - Office のプロセスを止める: guide/process.md
+          - Office プロセスの停止: guide/process.md
       # 安全性は、導入を審査する人（情報システム部門など）向け。ファイルは docs/safety/ に置く
-      - 導入と管理:
+      - 運用管理:
           - 安全性:
               - safety/index.md
               - 危険とされる処理の検査結果: safety/checks.md
@@ -130,10 +130,10 @@ nav:
               - 第三者のツールによる検査結果: safety/scans.md
               - 供給網とライセンス: safety/supply-chain.md
           - 更新とアンインストール: guide/update-uninstall.md
-      - 困ったとき・資料:
-          - 困ったとき: guide/troubleshooting.md
+      - サポート・リファレンス:
+          - トラブルシューティング: guide/troubleshooting.md
           - よくある質問: guide/faq.md
-          - できないこと: guide/limitations.md
+          - 制限事項: guide/limitations.md
           - キーボード操作: guide/keyboard.md
           # 利用者が見るメッセージの一覧。ファイルはインデクサの設計書の隣に置く
           - エラーメッセージ一覧: design/indexer/errors.md
