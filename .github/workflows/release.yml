@@ -5,7 +5,7 @@
 #   git tag v1.0.0
 #   git push origin v1.0.0
 #
-# zip の中身はツール本体（tebunko.bat・scripts\）と README.md・LICENSE だけにする。
+# zip の中身はツール本体（tebunko.bat・scripts\）と README.md・LICENSE・VERSION.txt（版とコミットの記録）だけにする。
 # zip と並べて、インストーラー（tebunko-setup-<タグ>.exe。Inno Setup で作る。tools\new_installer.ps1）も載せる（docs\safety\disclosure.md「インストーラー版」）。
 # 改ざんの確認用のカタログ（tebunko.cat）・ハッシュ一覧（SHA256SUMS.txt）と部品表（sbom.cdx.json）は、zip と並べてリリースに載せる（docs\safety\scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」）。
 # SECURITY は zip に入れず、README とリリースの説明からリンクする。
