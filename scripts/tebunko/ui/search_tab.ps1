@@ -53,10 +53,15 @@ function checkFastSearchAvailable {
     # Windows Search が使えるか（system_index が索引の対象か）を別スレッドで確かめる（画面を固めないように）
     startJob {
         param ($systemRoot)
-        testWindowsSearch $systemRoot
+        @{ Root = $systemRoot; Available = (testWindowsSearch $systemRoot) }
     } @($workspace.SystemIndexDir) {
         param ($output, $errorText)
-        $script:fastAvailable = if ($errorText -or $output.Count -eq 0) { $false } else { [bool]$output[0] }
+        $result = if (!$errorText -and $output.Count -gt 0) { $output[0] } else { $null }
+        if ($result -and $result.Root -ne $workspace.SystemIndexDir) {
+            # 確かめている間にワークスペースを変えた（切り替えたときに確かめ直している）
+            return
+        }
+        $script:fastAvailable = if ($result) { [bool]$result.Available } else { $false }
         updateFastSearchView
     }
 }
@@ -153,6 +158,28 @@ function cancelSearch {
         $ui.SummaryText.Text = "中止しています…"
         updateSearchButton
     }
+}
+
+function clearSearchView {
+    # ワークスペースを変えたとき、前のワークスペースの検索を止め、結果・プレビュー・インデックスの対応を捨てる
+    $s = $script:search
+    if ($s) {
+        # 止めた検索のヒットは画面に移さない（司令のスレッドは止まり次第、次の要求に移る）
+        $s.Shared.Stop = $true
+        $script:search = $null
+        $script:searchTimer.Stop()
+        $ui.SearchProgress.Visibility = "Collapsed"
+        $taskbar.ProgressState = "None"
+    }
+    $script:lastSearch = $null
+    $script:sourceFolderMaps = @{}
+    $script:fastAvailable = $null
+    $ui.FilterBox.Text = ""
+    $script:filterText = ""
+    clearResults "" $null
+    clearDetail
+    $ui.SummaryText.Text = ""
+    updateSearchButton
 }
 
 function pumpSearch {
