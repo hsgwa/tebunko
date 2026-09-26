@@ -8,7 +8,7 @@
 
 | 観点 | 本ツールの挙動 | 守らせている仕組み | 詳細 |
 |---|---|---|---|
-| 構成物 | **zip 版**: Windows PowerShell スクリプト（`scripts/**/*.ps1`）、画面定義（`*.xaml`）、起動用 `tebunko.bat`、アイコン `tebunko.ico` のみ。実行可能バイナリ（`.exe` / `.dll`）を同梱しない。**インストーラー版**: 同じスクリプトに、起動用の `tebunko.exe`（本リポジトリのソースからビルド）と、Inno Setup のインストーラー・アンインストーラーが加わる | zip の中身は `tools/new_release_package.ps1`、インストーラーの中身は `installer/tebunko.iss` が決める（`installer.Tests.ps1`） | [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)・[インストーラー版](disclosure.md#インストーラー版) |
+| 構成物 | **zip 版**: Windows PowerShell スクリプト（`scripts/**/*.ps1`）、画面定義（`*.xaml`）、起動用 `tebunko.bat`、アイコン `tebunko.ico`、版とコミットの記録 `VERSION.txt` のみ。実行可能バイナリ（`.exe` / `.dll`）を同梱しない。**インストーラー版**: 同じスクリプトに、起動用の `tebunko.exe`（本リポジトリのソースからビルド）と、Inno Setup のインストーラー・アンインストーラーが加わる | zip の中身は `tools/new_release_package.ps1`、インストーラーの中身は `installer/tebunko.iss` が決める（`installer.Tests.ps1`） | [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)・[インストーラー版](disclosure.md#インストーラー版) |
 | 第三者ライブラリ | **使用しない**。実行時の依存は Windows 標準の .NET アセンブリと Microsoft Office のみ | `safety.Tests.ps1`（SBOM に第三者の部品が無いこと） | [供給網（サプライチェーン）とライセンス](supply-chain.md) |
 | ネットワーク通信 | **行わない**。通信用の API を使っていない | `safety.Tests.ps1`「ネットワーク通信を行わない」 | [検査項目と結果](checks.md#検査項目と結果) |
 | 動的コード実行・難読化 | **行わない**。`Invoke-Expression`、文字列からのスクリプト生成、Base64 のコマンドを使っていない | `safety.Tests.ps1`・PSScriptAnalyzer | [検査項目と結果](checks.md#検査項目と結果) |

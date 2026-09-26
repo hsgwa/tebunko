@@ -167,7 +167,7 @@ $tabs = @(
 )
 
 $ui = @{}
-foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
+foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "MoreButton", "AboutMenuItem")) {
     $ui[$name] = $window.FindName($name)
 }
 foreach ($tab in $tabs) {
@@ -197,6 +197,7 @@ $script:backgroundQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${l
 . "$PSScriptRoot\ui\search_view.ps1"
 . "$PSScriptRoot\ui\preview_view.ps1"
 . "$PSScriptRoot\ui\settings_view.ps1"
+. "$PSScriptRoot\ui\about_view.ps1"
 stepSplash 80
 . "$PSScriptRoot\ui\index_tab.ps1"
 . "$PSScriptRoot\ui\indexing_tab.ps1"
@@ -207,6 +208,7 @@ stepSplash 80
 . "$PSScriptRoot\ui\index_tree.ps1"
 . "$PSScriptRoot\ui\process_tab.ps1"
 . "$PSScriptRoot\ui\settings_tab.ps1"
+. "$PSScriptRoot\ui\about_dialog.ps1"
 stepSplash 90
 # ============================================================================
 # ウィンドウ全体
@@ -407,6 +409,9 @@ function loadStartupData {
 }
 
 # ---- 起動 ----
+
+# 版・コミットの表示は起動時に 1 回だけ組み立てる（VERSION.txt は配布物にだけあり、開発中は無いので「開発版」になる）
+$script:aboutView = getAboutView (readVersionFile (Join-Path ${rootDir} "VERSION.txt"))
 
 updateSettingsView
 setSearchOptionToUi (readSearchOption)

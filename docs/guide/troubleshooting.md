@@ -76,4 +76,4 @@
 
 ## サポート
 
-[サポート](https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md) を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。
+[サポート](https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md) を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。tebunko のバージョンは、画面右上の［⋯］→［tebunko について］で確認できます。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。
