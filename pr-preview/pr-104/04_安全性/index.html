@@ -2308,9 +2308,8 @@
 </ul>
 <p>詳細は <a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3_プロセス停止タブ.md</a> を参照。</p>
 <h3 id="42-mark-of-the-web-の解除tebunkobat">4.2 Mark-of-the-Web の解除（<code>tebunko.bat</code>）<a class="headerlink" href="#42-mark-of-the-web-の解除tebunkobat" title="Permanent link">&para;</a></h3>
-<p><code>tebunko.bat</code> は、画面を起動する前に、配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除し、そのあと画面を起動する。</p>
-<div class="highlight"><pre><span></span><code>powershell -NoProfile -Command <span class="s2">"Get-ChildItem -LiteralPath '</span><span class="nv">%~dp0</span><span class="s2">scripts' -Recurse -File | Unblock-File"</span> <span class="mi">1</span><span class="p">&gt;</span>nul <span class="mi">2</span><span class="p">&gt;</span>nul
-<span class="k">start</span> <span class="s2">""</span> conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File <span class="s2">"</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko\gui.ps1"</span>
+<p><code>tebunko.bat</code> は PowerShell を 1 回起動し、その中で配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除してから、画面のスクリプトを実行する。</p>
+<div class="highlight"><pre><span></span><code><span class="k">start</span> <span class="s2">""</span> conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command <span class="s2">"Get-ChildItem -LiteralPath '</span><span class="nv">%~dp0</span><span class="s2">scripts' -Recurse -File | Unblock-File -ErrorAction SilentlyContinue; &amp; '</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko\gui.ps1'"</span>
 </code></pre></div>
 <ul>
 <li><strong>理由</strong>: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー <code>RemoteSigned</code> では未署名スクリプトが実行できないため。</li>

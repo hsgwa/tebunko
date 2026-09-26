@@ -1626,7 +1626,7 @@
 <tr>
 <td><code>tebunko.bat</code></td>
 <td>起動用バッチ</td>
-<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>scripts</code> の中のファイルから Mark-of-the-Web を外し（<code>Unblock-File</code>。<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.2）、<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で起動して <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
+<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で 1 回起動し、その中で <code>scripts</code> の中のファイルから Mark-of-the-Web を外して（<code>Unblock-File</code>。<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.2）から <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
 </tr>
 <tr>
 <td><code>setting.config</code></td>

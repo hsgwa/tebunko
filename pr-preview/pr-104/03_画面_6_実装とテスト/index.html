@@ -1437,7 +1437,7 @@
 <tbody>
 <tr>
 <td><code>tebunko.bat</code></td>
-<td>起動用バッチ。<code>scripts</code> 配下の Mark-of-the-Web を消してから、<code>conhost.exe</code> を通して <code>powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File scripts\tebunko\gui.ps1</code> を <code>start</code> で起動する（<code>conhost.exe</code> を通すのは、既定のターミナルが Windows Terminal でも窓を隠すため）。ASCII・CRLF で書き、説明コメントは英語にする（cmd はコードページ・改行に敏感なため）。詳細は <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
+<td>起動用バッチ。<code>conhost.exe</code> を通して <code>powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "..."</code> を <code>start</code> で起動する。<code>-Command</code> の中で <code>scripts</code> 配下の Mark-of-the-Web を消してから、<code>&amp; 'scripts\tebunko\gui.ps1'</code> で画面を開く（PowerShell の起動は 1 回。<code>conhost.exe</code> を通すのは、既定のターミナルが Windows Terminal でも窓を隠すため）。ASCII・CRLF で書き、説明コメントは英語にする（cmd はコードページ・改行に敏感なため）。詳細は <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/gui.ps1</code></td>
