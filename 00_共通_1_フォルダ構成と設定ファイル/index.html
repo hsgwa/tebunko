@@ -544,17 +544,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#43-以前の設定ファイルからの移行" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4.3 以前の設定ファイルからの移行
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1565,17 +1554,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#43-以前の設定ファイルからの移行" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4.3 以前の設定ファイルからの移行
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2182,41 +2160,15 @@
     C -- いいえ --&gt; E["UTF-8 で読み込み、JSON として解釈"]
     E -- 解釈できない --&gt; F["例外:&lt;br&gt;『setting.config を読み込めません。（詳細）』"]
     E --&gt; G["記載のあるキーだけ既定値を上書きして返す"]
-    B -- いいえ --&gt; H{"同じフォルダの config/ に以前の設定ファイル（*.txt）がある？"}
-    H -- いいえ --&gt; D
-    H -- はい --&gt; I["以前の設定ファイルを読み込み、setting.config に保存して返す（4.3）"]</code></pre>
+    B -- いいえ --&gt; D</code></pre>
 <ul>
-<li>ファイルが無くても作成しない（既定値で動く）。ファイルを作るのは画面が設定を保存したときと、以前の設定ファイルから移したときだけ。</li>
+<li>ファイルが無くても作成しない（既定値で動く）。ファイルを作るのは画面が設定を保存したときだけ。</li>
 <li>記載の無いキー・未知のキー・値が <code>null</code> のキーは無視する（キーが増えても古い設定ファイルをそのまま読める）。</li>
 <li>真偽値のキーは、手で <code>"false"</code> のような文字列に書き換えても <code>true</code> / <code>false</code> として読む（<code>toSettingBool</code>）。読めない値は既定値にする。</li>
 <li>数値のキー（<code>ingestThreads</code>）は、手で <code>"2"</code> のような文字列に書き換えても数値として読む。数値にできない値は既定値にする。</li>
 <li>保存（<code>updateSettings</code>）は、保存のたびにファイルを読み直し、変えたキーだけを書き換える。ほかのキーは、ほかの画面・処理が保存した内容を保つ。UTF-8（BOM なし）。</li>
 <li>JSON として解釈できないときは例外にする。インデクサでは、例外は <code>invokeIndexer</code> が受け、受け渡しの口の <code>Error</code> に入れて画面が表示する（終了コード 1）。</li>
 </ul>
-<h3 id="43-以前の設定ファイルからの移行">4.3 以前の設定ファイルからの移行<a class="headerlink" href="#43-以前の設定ファイルからの移行" title="Permanent link">&para;</a></h3>
-<p><code>setting.config</code> が無く、同じフォルダの <code>config/</code> に以前の版の設定ファイルがあれば、最初に読むときに内容を <code>setting.config</code> へ移す（<code>readLegacySettings</code>）。以前のファイルは削除しないが、移した後は読まない（<code>config/</code> フォルダは移した後に削除してよい）。</p>
-<table>
-<thead>
-<tr>
-<th>以前の設定ファイル</th>
-<th>形式</th>
-<th>移す先</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>変換対象フォルダパス.txt</code></td>
-<td>1 行 1 フォルダ。行頭 <code>#</code> はチェックなし</td>
-<td><code>targetFolders</code></td>
-</tr>
-<tr>
-<td><code>検索オプション.txt</code></td>
-<td><code>正規表現=オン</code> / <code>正規表現=オフ</code></td>
-<td><code>useRegex</code></td>
-</tr>
-</tbody>
-</table>
-<p>いずれも空行・前後の空白は無視する。<code>変換対象フォルダパス.txt</code> にはインデックス名が無いため、<code>name</code> は空にする（インデックス作成時に割り当てて保存する）。<code>config/</code> のほかのファイルは読まない。</p>
 
 
 

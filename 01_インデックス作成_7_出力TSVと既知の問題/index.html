@@ -878,17 +878,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#以前の形式フラットからの移行migrateflatindex" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        以前の形式（フラット）からの移行（migrateFlatIndex）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#長いパス260-文字超の扱い" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1500,17 +1489,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#以前の形式フラットからの移行migrateflatindex" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        以前の形式（フラット）からの移行（migrateFlatIndex）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#長いパス260-文字超の扱い" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1682,7 +1660,7 @@ work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファ�
 </table>
 <ul>
 <li>クロール対象フォルダのフォルダ構成が <code>work/index/&lt;インデックス名&gt;/</code> 配下にそのまま再現され、各フォルダに<strong>拡張子ごとの集約ファイル</strong>ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。</li>
-<li>集約ファイルの名前には <code>_</code> を使わない（以前の形式 <code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> と見分けるため。下の「以前の形式（フラット）からの移行」）。拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content.docx.001.tsv</code> に入る）。</li>
+<li>集約ファイルの拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content.docx.001.tsv</code> に入る）。</li>
 <li>「場所」は Excel ではシート名と、図形・コメントの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code>（下の「図形・コメントの場所」、6.7 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_インデックス作成_1_Excel.md</a>）、Word ではページ・ヘッダー/フッター・脚注（6.5 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/#65-word-のテキスト読み取りと-tsv-の場所readdocxunits">01_インデックス作成_2_Word.md</a>）、PowerPoint ではスライド・ノート（6.6 節、<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/#66-powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">01_インデックス作成_3_PowerPoint.md</a>）。</li>
 <li>TSV のファイル名は場所だけ（<code>toIndexFileName</code>）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。</li>
 <li><strong>TSV でファイル名をフォルダ名にする理由</strong>（<code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> のように 1 つの名前にしない理由）:</li>
@@ -1850,14 +1828,6 @@ B2→確定版
 <li><strong>途中で止まったとき</strong>: 集約ファイルは一時ファイルに書き終えてから置き換えるため、書き終える前に止まっても、前の集約ファイルか TSV のどちらかに中身が残る。TSV のフォルダが残ったフォルダは、次のインデックス作成の始めに（取り込み対象を調べる前に）書き出す（<code>findIndexFoldersWithBooks</code>。進み具合は <code>集約ファイルに入れていないインデックスをまとめています…</code>）。書き出しに失敗したときも、同じく次のインデックス作成でまとめ直す（<code>インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）</code>）。</li>
 <li><strong>元のファイルが無くなったとき</strong>: クロールで無くなったと分かったファイル（<code>createTargetList</code> の <code>Removed</code>。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a>）と、取り込みの直前に無くなっていたファイル（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a>）は、そのフォルダを書き出し待ちにして、集約ファイルから外す。取り込むファイルが 0 件のときも書き出す。</li>
 <li><strong>検索との同時実行</strong>: 集約ファイルは置き換えで書くため、検索は置き換えの前か後のどちらかの中身を読む（読み込みは共有モードで開き、置き換えを妨げない）。</li>
-<li>以前の版のインデックスは変換しない。この版で作り直す（<code>work/index</code> に以前の版の TSV のフォルダが残っていれば、上の「途中で止まったとき」と同じく、次のインデックス作成の始めに集約ファイルへ入れる）。</li>
-</ul>
-<h4 id="以前の形式フラットからの移行migrateflatindex">以前の形式（フラット）からの移行（<code>migrateFlatIndex</code>）<a class="headerlink" href="#以前の形式フラットからの移行migrateflatindex" title="Permanent link">&para;</a></h4>
-<p>インデックス作成の最初に、<code>work/index</code> 配下の以前の形式の TSV（<code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code>）を、今の形式（<code>&lt;ファイル名&gt;/&lt;場所&gt;.tsv</code>）へ<strong>名前を変えるだけ</strong>で移す（取り込み直さない。更新日時もそのまま）。移した TSV は、続けて集約ファイルに入れる（上の「途中で止まったとき」と同じ <code>findIndexFoldersWithBooks</code>）。</p>
-<ul>
-<li>今の形式の TSV 名・集約ファイルの名前には <code>_</code> が無い（場所の <code>_</code> は符号化されている。6.2）ため、<strong>名前に <code>_</code> があるものが以前の形式</strong>と分かる。</li>
-<li>ファイル名と場所への分解は <code>splitIndexFileName</code>（以前の形式の規則）で行い、移した数を <code>以前の形式のTSV N 件を、元のファイル名のフォルダへ移しました。（取り込み直しません）</code> と表示する。移せなかったものは次のインデックス作成で作り直す。</li>
-<li>検索は集約ファイルだけを読むため、別の PC へコピーした以前の版のインデックス（<code>work/index</code> の外に置いたもの・インデックス作成をしていないもの）は、そのままでは検索できない。</li>
 </ul>
 <h4 id="長いパス260-文字超の扱い">長いパス（260 文字超）の扱い<a class="headerlink" href="#長いパス260-文字超の扱い" title="Permanent link">&para;</a></h4>
 <p>出力 TSV のパスは、元ファイルのパスより <code>&lt;tebunko の場所&gt;\work\index\&lt;インデックス名&gt;\</code> と <code>\&lt;場所&gt;.tsv</code> の分だけ長くなるため（集約ファイルも <code>&lt;tebunko の場所&gt;\work\index\&lt;インデックス名&gt;\</code> の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に <code>\\?\</code> を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには <code>toLongPath</code> で <code>\\?\</code> を付ける。</p>
@@ -1876,7 +1846,7 @@ B2→確定版
 <td><code>\\?\</code> 付きで検索し、<code>FullName</code> から相対パスを求めるときは <code>fromLongPath</code> で外す</td>
 </tr>
 <tr>
-<td>TSV・集約ファイルの保存・移動・削除（<code>prettyTsv</code> / <code>writeUnits</code> / <code>publishTsv</code> / <code>getIndexFiles</code> / <code>writePackFile</code> / <code>updateIndexFolderPack</code>）</td>
+<td>TSV・集約ファイルの保存・移動・削除（<code>prettyTsv</code> / <code>writeUnits</code> / <code>publishTsv</code> / <code>writePackFile</code> / <code>updateIndexFolderPack</code>）</td>
 <td>260 文字を超えるパスは「パスの一部が見つかりません」で失敗する。<code>Test-Path</code> は <code>$false</code> を返す</td>
 <td><code>\\?\</code> 付きで操作する</td>
 </tr>
@@ -1898,7 +1868,7 @@ B2→確定版
 <li>ファイル名・フォルダ名 1 つの上限（255 文字）は <code>\\?\</code> でも超えられない。</li>
 </ul>
 <h3 id="62-場所の符号化encodeindexplace--decodeindexplace">6.2 場所の符号化（<code>encodeIndexPlace</code> / <code>decodeIndexPlace</code>）<a class="headerlink" href="#62-場所の符号化encodeindexplace--decodeindexplace" title="Permanent link">&para;</a></h3>
-<p>TSV のファイル名に入れる場所（シート名など）は、次の文字を <code>%</code> と 16 進数 2 桁にする。集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）と以前の形式からの移行（<code>splitIndexFileName</code>）で <code>decodeIndexPlace</code> で元に戻す。集約ファイルのメタ情報には元のシート名を書き（値の符号化は 6.1「集約ファイルの形式」）、検索結果の「場所」には元のシート名を表示する。</p>
+<p>TSV のファイル名に入れる場所（シート名など）は、次の文字を <code>%</code> と 16 進数 2 桁にする。集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）に <code>decodeIndexPlace</code> で元に戻す。集約ファイルのメタ情報には元のシート名を書き（値の符号化は 6.1「集約ファイルの形式」）、検索結果の「場所」には元のシート名を表示する。</p>
 <table>
 <thead>
 <tr>
@@ -1937,8 +1907,6 @@ B2→確定版
 </table>
 <ul>
 <li>全角に置き換える方式にしないのは、<code>衝突"</code> と <code>衝突”</code> のように別のシートが同じ TSV 名になり、後のシートで上書きされるため。元に戻せる形にすれば、シート名が違えば TSV 名も必ず違う。</li>
-<li>場所の <code>_</code> も符号化するため、今の形式の TSV 名には <code>_</code> が残らない。これにより、<strong>名前に <code>_</code> があれば以前の形式（フラット）</strong>と分かり、1 つのインデックスに両方があっても見分けられる（6.1 の移行）。</li>
-<li>以前の版で作ったフラットの TSV（場所を全角に置き換え、<code>_</code> はそのまま）も移行できる（<code>splitIndexFileName</code> は、最後の <code>_</code> の前が拡張子にならなければ、最初の「拡張子_」で分ける。<a href="../02_%E6%A4%9C%E7%B4%A2/#53-ファイル名場所の求め方readpackplaces">02_検索.md 5.3 節</a>）。</li>
 <li>ファイル名は符号化しない（元ファイルの名前がそのまま TSV のフォルダ名になる。Windows のファイル名なので使えない文字は含まない）。</li>
 <li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../02_%E6%A4%9C%E7%B4%A2/#51-出力フォーマットwork検索結果txt">02_検索.md</a> 5.1）。</li>
 <li>インデックス名（<code>work/index</code> 直下のフォルダ名）は符号化せず、<code>toSafeFileName</code>（ファイル名に使えない文字を全角に置き換える）で作る。</li>
@@ -2184,51 +2152,46 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>13</td>
-<td>取り込み一覧が無い状態で <code>work/index</code> 直下に TSV などがあると、以前の形式とみなして設定の 1 行目のフォルダのインデックスとして移す。以前の形式でない場合（手で置いたファイルなど）も移される</td>
-<td>○</td>
-</tr>
-<tr>
-<td>14</td>
 <td>インデックスのファイルの数は、元のフォルダの数 × 拡張子の種類の数まで（集約ファイル）。取り込み中だけは元のファイル 1 つにつきフォルダ 1 つができるが、フォルダの取り込みが終わると消す。検索の速度は読むファイルの数で決まるため、集約ファイルにして速くなる（<a href="../02_%E6%A4%9C%E7%B4%A2/#43-検索の実装速度">02_検索.md</a> 4.3）</td>
 <td>○</td>
 </tr>
 <tr>
-<td>15</td>
+<td>14</td>
 <td>元のファイル名が <code>.xlsx</code> などで終わるフォルダ（例: <code>拡張子付きフォルダ.xlsx</code>）がクロール対象フォルダの中にあると、インデックスでは「ファイル名のフォルダ」（集約する前の TSV の置き場所）と同じ形になる。画面の検索対象ツリーには出ない</td>
 <td>○</td>
 </tr>
 <tr>
-<td>16</td>
+<td>15</td>
 <td>制限時間（10 分）で強制終了できるのは自分で起動した Office アプリだけ。利用者の PowerPoint に接続して変換している場合や、<code>.docx</code> <code>.pptx</code> を直接読む処理（Office を使わない）が長引いた場合は止められない。画面の［中止］もファイルの切れ目まで効かない。画面を閉じるときは 60 秒待ってインデックス作成が起動した Office を止め、さらに 15 秒待っても終わらなければそのまま閉じる（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#76-閉じるときの順番">7.6</a>）。画面（<code>powershell.exe</code>）を強制終了した場合も、次回はそのファイルを最後に回し、続けて 2 回なら失敗にする</td>
 <td>○</td>
 </tr>
 <tr>
-<td>17</td>
+<td>16</td>
 <td>正常でも 10 分以上かかる巨大なファイルは失敗になる。取り込みたい場合は <code>tebunko/indexer/indexer_run.ps1</code> の <code>$fileTimeoutMinutes</code> を大きくする</td>
 <td>○</td>
 </tr>
 <tr>
-<td>18</td>
+<td>17</td>
 <td>制限時間を過ぎたときは、そのレーンのスレッドが自分で起動した Office（レーンごとに 1 つ）を強制終了する。ほかのレーンのアプリは止めない（次に必要になったときに起動し直すため、結果には影響しない）</td>
 <td>○</td>
 </tr>
 <tr>
-<td>19</td>
+<td>18</td>
 <td>Excel は<strong>表示されている形</strong>で出力するため、表示形式が「標準」の 12 桁以上の数値は指数表記（<code>4901234567894</code> → <code>4.90123E+12</code>）、「#,##0」などのセルは桁区切り付きになる。数値として入力した JAN コード・伝票番号は、その番号で検索してもヒットしない（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#43-excel-の抽出処理extractworkbook">01_インデックス作成_1_Excel.md</a> 4.3）。表示形式を「文字列」にするか、セルの先頭に <code>'</code> を付けて入力すれば検索できる</td>
 <td>◎</td>
 </tr>
 <tr>
-<td>20</td>
+<td>19</td>
 <td>整形（<code>prettyTsv</code>）はシート 1 枚分を一度に読み込むため、大きなシートほどメモリを使う（実測: 100 万行 × 10 列 = 書き出し 440MB で約 2.8GB、書き出し 800MB で約 3GB・60 秒）。書き出しが約 1GB を超えるシートはメモリ不足で「失敗」になる（4.7 の <code>シート・文書が大きすぎて取り込めません</code>）</td>
 <td>◎</td>
 </tr>
 <tr>
-<td>21</td>
+<td>20</td>
 <td>使用範囲（<code>UsedRange</code>）が実際のデータよりずっと広いシート（最終行・右端に書式だけが残っている等）は、データの範囲だけを一時シートにコピーしてから書き出す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#43-excel-の抽出処理extractworkbook">01_インデックス作成_1_Excel.md</a> 4.3）。ブックの構成が保護されていて一時シートを作れない場合は、そのまま書き出すため制限時間で失敗することがある（その場合はインデックス作成ログに記録する）</td>
 <td>◎</td>
 </tr>
 <tr>
-<td>22</td>
+<td>21</td>
 <td>取り込みはファイルの種類ごとのレーンで並べて行い、Excel・Word・PowerPoint を同時に 1 つずつ動かすため、メモリを多く使う（同じ種類の Office を複数は起動しない）。Office を使わずに読むスレッド（既定はコア数 − 1、最大 4）もメモリを使う。メモリの少ない PC でメモリが足りなくなるときは、<code>setting.config</code> の <code>ingestThreads</code> を減らす（<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#41-形式">00_共通_1 4.1</a>）</td>
 <td>○</td>
 </tr>

@@ -1018,23 +1018,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5.3 ファイル名・場所の求め方（readPackPlaces）">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#以前の形式フラットの分解splitindexfilename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        以前の形式（フラット）の分解（splitIndexFileName）
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
       </ul>
@@ -1588,23 +1571,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="5.3 ファイル名・場所の求め方（readPackPlaces）">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#以前の形式フラットの分解splitindexfilename" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        以前の形式（フラット）の分解（splitIndexFileName）
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
       </ul>
@@ -2154,74 +2120,9 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 <ul>
 <li>場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない集約ファイルでは作らない（4.3）。</li>
 <li>画面の選択行のプレビュー（<code>readPackContext</code>）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/">03_画面_2_検索タブ.md</a> 4.7）。</li>
-<li>検索では TSV の相対パスを分解しない。TSV の名前の分解は、インデックス作成で以前の形式から移すとき（<code>migrateFlatIndex</code>）と集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
+<li>検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
 </ul>
-<h4 id="以前の形式フラットの分解splitindexfilename">以前の形式（フラット）の分解（<code>splitIndexFileName</code>）<a class="headerlink" href="#以前の形式フラットの分解splitindexfilename" title="Permanent link">&para;</a></h4>
-<p>インデックス作成で以前の形式の TSV を移すとき（<code>migrateFlatIndex</code>。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#以前の形式フラットからの移行migrateflatindex">01_インデックス作成_7</a> 6.1）、TSV の<strong>ファイル名</strong>を正規表現 <code>$indexFileNamePattern</code> で元のファイル名（book）と場所（sheet）に分解し、場所を <code>decodeIndexPlace</code> で元に戻す。</p>
-<div class="highlight"><pre><span></span><code>^(?:(?&lt;book&gt;.*\.(?:xls|doc|ppt)[a-z]?)_(?&lt;sheet&gt;[^_]*)|(?&lt;book&gt;.*?\.(?:xls|doc|ppt)[a-z]?)_(?&lt;sheet&gt;.*))\.tsv$
-</code></pre></div>
-<ol>
-<li>前半: 場所は <code>_</code> を <code>%5F</code> に符号化してある（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#62-場所の符号化encodeindexplace--decodeindexplace">01_インデックス作成.md</a> 6.2）ため、<strong>最後の <code>_</code></strong> で分ける。ファイル名に <code>.xls_</code> 等を含んでも正しく分かれる。</li>
-<li>後半: 以前の版の TSV（場所の <code>_</code> を符号化していない）で、最後の <code>_</code> の前が拡張子にならないものは、最短一致で最初の「拡張子_」で分ける。</li>
-</ol>
-<table>
-<thead>
-<tr>
-<th>ファイル名（以前の形式）</th>
-<th>book</th>
-<th>sheet（場所）</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>book.xlsx_Sheet1.tsv</code></td>
-<td><code>book.xlsx</code></td>
-<td><code>Sheet1</code></td>
-</tr>
-<tr>
-<td><code>売上.xls_2024%5F上期%22.tsv</code></td>
-<td><code>売上.xls</code></td>
-<td><code>2024_上期"</code></td>
-</tr>
-<tr>
-<td><code>コピー.xls_old.xlsx_Sheet1.tsv</code></td>
-<td><code>コピー.xls_old.xlsx</code></td>
-<td><code>Sheet1</code></td>
-</tr>
-<tr>
-<td><code>macro.xlsm_A.tsv</code></td>
-<td><code>macro.xlsm</code></td>
-<td><code>A</code></td>
-</tr>
-<tr>
-<td><code>報告書.docx_ページ001.tsv</code></td>
-<td><code>報告書.docx</code></td>
-<td><code>ページ001</code></td>
-</tr>
-<tr>
-<td><code>旧.doc_ヘッダー・フッター.tsv</code></td>
-<td><code>旧.doc</code></td>
-<td><code>ヘッダー・フッター</code></td>
-</tr>
-<tr>
-<td><code>提案.pptx_スライド003%5Fノート.tsv</code></td>
-<td><code>提案.pptx</code></td>
-<td><code>スライド003_ノート</code></td>
-</tr>
-<tr>
-<td><code>売上.xls_2024_上期.tsv</code>（以前の版）</td>
-<td><code>売上.xls</code></td>
-<td><code>2024_上期</code></td>
-</tr>
-<tr>
-<td><code>other.tsv</code>（形式外）</td>
-<td><code>other.tsv</code></td>
-<td>（空）</td>
-</tr>
-</tbody>
-</table>
-<p>以前の版の TSV で、シート名に <code>.xlsx_</code> 等を含むもの（ブック <code>A.xlsx</code> のシート <code>old.xlsx_1</code> → <code>A.xlsx_old.xlsx_1.tsv</code>）は、ブック <code>A.xlsx_old.xlsx</code> のシート <code>1</code> と区別できないため前半で分けられる（再取り込みすると新しい名前になる）。
-場所の付け方は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の 6.1・6.2 を参照。</p>
+<p>場所の付け方は <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a> の 6.1・6.2 を参照。</p>
 <hr />
 <h2 id="6-実装上の注意点既知の問題">6. 実装上の注意点・既知の問題<a class="headerlink" href="#6-実装上の注意点既知の問題" title="Permanent link">&para;</a></h2>
 <p>確度: ◎ = 動作確認済み、○ = コード上明らか、△ = 推定。</p>

@@ -1422,7 +1422,7 @@
 <td>string</td>
 <td>ファイル名禁止文字を全角に置換</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a></td>
-<td>インデックス名（newIndexName・getTargetFolders）、以前の版のインデックスのシート名の照合（画面）</td>
+<td>インデックス名（newIndexName・getTargetFolders）、シート名の照合（画面。元のファイルを開くとき）</td>
 </tr>
 <tr>
 <td><code>encodeIndexPlace</code></td>
@@ -1438,7 +1438,7 @@
 <td>string</td>
 <td><code>encodeIndexPlace</code> の <code>%XX</code> を元に戻す（それ以外の <code>%</code> はそのまま）</td>
 <td>同上</td>
-<td>splitIndexFileName, getIndexFolderBooks</td>
+<td>getIndexFolderBooks</td>
 </tr>
 <tr>
 <td><code>toIndexFileName</code></td>
@@ -1447,14 +1447,6 @@
 <td>インデックスの TSV のファイル名 <code>&lt;場所&gt;.tsv</code>（場所は <code>encodeIndexPlace</code>）。元のファイル名はフォルダ名にするため入れない。<code>$maxFileNameLength</code>（255）文字を超えれば例外</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7 6.1 節</a></td>
 <td>インデックス作成（Excel・Word・PowerPoint）</td>
-</tr>
-<tr>
-<td><code>splitIndexFileName</code></td>
-<td>fileName</td>
-<td><code>@{book; sheet}</code></td>
-<td>以前の形式（フラット）のインデックスファイル名を元のファイル名・場所に分解し、場所を <code>decodeIndexPlace</code> で元に戻す（正規表現は <code>$indexFileNamePattern</code>）</td>
-<td>同上</td>
-<td>インデックス作成（migrateFlatIndex）</td>
 </tr>
 <tr>
 <td><code>splitObjectPlace</code></td>
@@ -1749,7 +1741,7 @@
 <td><code>findIndexFoldersWithBooks</code></td>
 <td>root</td>
 <td>string[]</td>
-<td>元のファイルごとのフォルダ（集約ファイルに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まった・以前の版のインデックス）</td>
+<td>元のファイルごとのフォルダ（集約ファイルに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まったとき）</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7 6.1 節</a></td>
 <td>インデックス作成（開始時）</td>
 </tr>
@@ -2029,7 +2021,7 @@
 <td><code>writeSourceFolderFile</code></td>
 <td>folders（<code>@{Path; Name}</code> の配列）, dir（既定 <code>$workspace.IndexDir</code>）</td>
 <td>–</td>
-<td>各インデックスのフォルダ（<code>dir\&lt;インデックス名&gt;</code>）に <code>元のフォルダ.txt</code>（<code>インデックス名&lt;TAB&gt;クロール対象フォルダ</code>）を書き出す。以前の版が <code>dir</code> 直下に書いた全インデックス分のファイルがあれば、各フォルダへ移してから消す</td>
+<td>各インデックスのフォルダ（<code>dir\&lt;インデックス名&gt;</code>）に <code>元のフォルダ.txt</code>（<code>インデックス名&lt;TAB&gt;クロール対象フォルダ</code>）を書き出す</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
 <td>インデックス作成</td>
 </tr>

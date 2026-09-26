@@ -1610,7 +1610,7 @@
 <li><strong>インデックスを一から作り直すボタンは置かない</strong>。取り込み対象は毎回［インデックス作成を開始］の確認（3.4）で分かるため、ふだんは作り直す必要がない。更新日時が変わらないまま中身が変わった場合など、どうしても作り直したいときは［削除］してから追加し直す。</li>
 </ul>
 <p><strong>インデックス名と場所は分けて持つ</strong>（<code>targetFolders</code> の <code>name</code> と <code>path</code>）。<code>name</code> が <code>work\index</code> 直下のフォルダ名になり、インデックスの同一性を表す。<code>path</code> を書き換えても <code>name</code> は変わらないため、フォルダを移してもインデックスを作り直さない（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#クロール対象フォルダとインデックス名">01_インデックス作成_5</a>）。
-画面では<strong>追加した時点で名前を決めて保存する</strong>（追加のダイアログの既定値は <code>newIndexName</code>）。名前の無い設定（以前の版から移した直後）を読み込んだときは、<code>assignIndexNames</code> で名前を割り当てて保存してから一覧に出す。</p>
+画面では<strong>追加した時点で名前を決めて保存する</strong>（追加のダイアログの既定値は <code>newIndexName</code>）。名前の無い設定（設定ファイルを直接書き換えた場合など）を読み込んだときは、<code>assignIndexNames</code> で名前を割り当てて保存してから一覧に出す。</p>
 <h3 id="31-一覧の列">3.1 一覧の列<a class="headerlink" href="#31-一覧の列" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

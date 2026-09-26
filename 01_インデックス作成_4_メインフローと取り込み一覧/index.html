@@ -1425,7 +1425,7 @@
     WS -- いいえ --&gt; E0
     WS -- はい --&gt; M{"ほかのインデックス作成が実行中？&lt;br&gt;（newAppMutex）"}
     M -- はい --&gt; E0
-    M -- いいえ --&gt; PRE["以前の版が画面とのやり取りに使っていたファイルが残っていれば削除&lt;br&gt;インデックス作成ログ.txt を開く"]
+    M -- いいえ --&gt; PRE["インデックス作成ログ.txt を開く"]
     PRE --&gt; T{"getTargetFolders 成功？&lt;br&gt;チェックの付いたフォルダがある？"}
     T -- 失敗 --&gt; E0["受け渡しの口の Error にメッセージを入れる&lt;br&gt;終了コード 1"]
     T -- 成功 --&gt; PK["前回集約ファイルに入れていない TSV があれば、&lt;br&gt;先に集約ファイルに書き出す（findIndexFoldersWithBooks）"]
@@ -1482,9 +1482,8 @@
 <li>段階は <code>クロール</code>（取り込み対象を探している。件数はまだ分からない）・<code>確認</code>（数え終えて、画面で取り込むかどうかを選ぶのを待っている）・<code>取り込み</code>（ファイルを取り込んでいる）・<code>仕上げ</code>（Office アプリの終了・集約ファイルへの書き出し・取り込み一覧の書き直し）。<strong>待ち時間が長くなりがちな「クロール」「仕上げ」でも、何をしているか</strong>（どのフォルダをクロールしているか・取り込み一覧を書き直しているか）<strong>を書く</strong>。</li>
 <li>インデックス作成が終わっても消さない（画面が終わり方（成功・失敗の件数）を読むため）。</li>
 <li><strong>取り込み前の確認</strong>（受け渡しの口の <code>ConfirmTargets</code>。画面から実行したとき）: 取り込み対象を数え終えたところで、インデックスごとの件数を受け渡しの口の <code>Plan</code> に入れ、段階を <code>確認</code> にして画面の返事を待つ（<code>waitForIndexingApproval</code>。<code>Answered</code> で待つ）。画面が取り込む返事（<code>answerIndexingPlan</code>。<code>@{RetryFailed}</code>）を渡せばインデックス作成を始め（<code>RetryFailed</code> なら、前回失敗したファイルも対象に加える）、取りやめ（<code>$null</code>）か中止（<code>Stop</code>）なら 1 件も取り込まずに終了コード 2 で終わる。60 分待っても返事が無ければ取りやめる（画面が返事をしないまま待ち続けないため）。待ち終えたら <code>Plan</code> を外す。</li>
-<li>取りやめたときは、<strong>取り込み一覧を前回の内容のまま書き直す</strong>（今回の取り込み対象は記録しない）。「未取り込み」で記録すると、画面の表示が［続きから再開］になり、インデックス作成を中断したように見えるため。一方で、以前の形式からの移行・元ファイルが無くなった分の削除は済んでいるため、取り込み一覧そのものは書き直す。</li>
+<li>取りやめたときは、<strong>取り込み一覧を前回の内容のまま書き直す</strong>（今回の取り込み対象は記録しない）。「未取り込み」で記録すると、画面の表示が［続きから再開］になり、インデックス作成を中断したように見えるため。一方で、元ファイルが無くなった分の削除は済んでいるため、取り込み一覧そのものは書き直す。</li>
 <li><strong>ログ</strong>: 表示内容は <code>writeIndexerLog</code> で <code>work/インデックス作成ログ.txt</code>（UTF-8 BOM 付き）に書く（実行ごとに上書き）。取り込みのスレッドは 1 ファイル分のログを貯めて結果と一緒に返し、司令が書く（結果を受け取った順に並ぶ。先頭の <code>[番号/件数]</code> が取り込み対象の中の順である）。画面を使わずに実行したときはコンソールにも出す。問題が起きたときはこのログで確認する。</li>
-<li><strong>以前の版のファイル</strong>: 以前の版は画面とのやり取りをファイル（<code>インデックス作成中止要求</code>・<code>インデックス作成エラー.txt</code>・<code>インデックス作成進捗.txt</code>・<code>取り込み予定.tsv</code>・<code>インデックス作成開始要求</code>）で行っていた。残っていれば、始めるときに消す。</li>
 </ul>
 <h3 id="42-取り込み一覧と取り込み対象の決定差分中断再試行">4.2 取り込み一覧と取り込み対象の決定（差分・中断・再試行）<a class="headerlink" href="#42-取り込み一覧と取り込み対象の決定差分中断再試行" title="Permanent link">&para;</a></h3>
 <h4 id="取り込み一覧-work取り込み一覧tsv">取り込み一覧 <code>work/取り込み一覧.tsv</code><a class="headerlink" href="#取り込み一覧-work取り込み一覧tsv" title="Permanent link">&para;</a></h4>
@@ -1507,7 +1506,7 @@
 <tbody>
 <tr>
 <td>先頭の行</td>
-<td><code>クロール対象フォルダ&lt;TAB&gt;&lt;パス&gt;&lt;TAB&gt;&lt;インデックス名&gt;</code>。クロール対象フォルダ（チェックなしを含む）ごとに 1 行。以前の形式（<code>クロール対象フォルダ&lt;TAB&gt;&lt;パス&gt;</code> の 1 行だけ）も読める</td>
+<td><code>クロール対象フォルダ&lt;TAB&gt;&lt;パス&gt;&lt;TAB&gt;&lt;インデックス名&gt;</code>。クロール対象フォルダ（チェックなしを含む）ごとに 1 行</td>
 </tr>
 <tr>
 <td>相対パス</td>
@@ -1535,14 +1534,13 @@
 </tr>
 <tr>
 <td>抽出版</td>
-<td>取り込んだ（<code>済</code>）ときの、その形式の読み取る内容の版（<code>getExtractVersion</code>。<code>indexer_decide.ps1</code> の <code>$extractVersions</code>）。今は <code>.xlsx</code> <code>.xlsm</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code> が 2（図形・コメント等を読む）、<code>.xls</code> <code>.xlsb</code> は 1。今の版より小さければ、更新が無くても取り込み直す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5</a>）。空は 1 とみなす（この列が無い以前の形式の一覧も同じ）</td>
+<td>取り込んだ（<code>済</code>）ときの、その形式の読み取る内容の版（<code>getExtractVersion</code>。<code>indexer_decide.ps1</code> の <code>$extractVersions</code>）。今は <code>.xlsx</code> <code>.xlsm</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code> が 2（図形・コメント等を読む）、<code>.xls</code> <code>.xlsb</code> は 1。今の版より小さければ、更新が無くても取り込み直す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5</a>）。空は 1 とみなす</td>
 </tr>
 </tbody>
 </table>
 <p>書き込み方（<code>writeStatusFile</code> / <code>addStatusRow</code> / <code>readStatusFile</code>）:</p>
 <ul>
 <li>クロールの後に全ファイルを書き出す（一時ファイル <code>取り込み一覧.tsv.tmp</code> に書いてから置き換える）。</li>
-<li>見出しの行の列数で形式を見分ける。見出しが以前の形式（抽出版の列が無い 7 列）なら、その後の行を 7 列として読む。インデックス作成中の追記は、見出しを今の形式で書き直した後に行うため、1 つのファイルで形式が混ざることは無い。</li>
 <li>インデックス作成中は 1 件ごとに結果の行を<strong>末尾に追記</strong>する。読み込み時は同じ相対パスの後の行を優先するため、途中で中断しても取り込み済みの結果は失われない。列数の合わない行（書き込み途中で強制終了した行）は無視する。</li>
 <li>終了時（<code>finally</code>）に 1 ファイル 1 行に書き直す。インデクサが強制終了された場合は追記した行が重複して残るが、次回のクロール時に書き直される。</li>
 </ul>

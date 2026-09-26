@@ -1837,7 +1837,6 @@
 <li><code>取り込み中.txt</code>（強制終了からの再開）</li>
 <li><code>インデックス作成ログ.txt</code>（<code>writeIndexerLog</code> で書く。実行ごとに上書き）</li>
 </ul>
-<p>以前の版が受け渡しに使っていたファイル（<code>インデックス作成中止要求</code>・<code>インデックス作成エラー.txt</code>・<code>インデックス作成進捗.txt</code>・<code>取り込み予定.tsv</code>・<code>インデックス作成開始要求</code>）が残っていれば、インデクサが始めるときに消す。</p>
 <p>インデクサのミューテックス（<code>newAppMutex "indexer"</code>。画面と <code>indexer.ps1</code> が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［8 設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（<code>testIndexerRunning</code>）。</p>
 <h3 id="76-閉じるときの順番">7.6 閉じるときの順番<a class="headerlink" href="#76-閉じるときの順番" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>sequenceDiagram

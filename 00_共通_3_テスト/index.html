@@ -1730,7 +1730,7 @@
 <tbody>
 <tr>
 <td><code>readSettings</code> / <code>writeSettings</code> / <code>updateSettings</code></td>
-<td>ファイル無しは既定値でファイルを作らない、保存と読み込みの往復（1 件だけの一覧も配列のまま）、1 つのキーだけ変えてもほかのキーを保つ、記載の無いキー・空のファイルは既定値、JSON として読めなければ例外、以前の設定ファイル（<code>*.txt</code>）からの移行（移した後は以前のファイルを読まない）</td>
+<td>ファイル無しは既定値でファイルを作らない、保存と読み込みの往復（1 件だけの一覧も配列のまま）、1 つのキーだけ変えてもほかのキーを保つ、記載の無いキー・空のファイルは既定値、JSON として読めなければ例外</td>
 </tr>
 <tr>
 <td><code>getTargetFolders</code> / <code>writeTargetFolders</code></td>
@@ -1766,10 +1766,6 @@
 <tr>
 <td><code>toIndexFileName</code></td>
 <td>場所の符号化、255 文字の上限</td>
-</tr>
-<tr>
-<td><code>splitIndexFileName</code></td>
-<td>ブック名・シート名の分解（場所の <code>%XX</code> を戻す、<code>.xls_</code> を含むブック名、以前の版の <code>_</code> を含むシート名、大文字の拡張子、形式外）</td>
 </tr>
 <tr>
 <td><code>newIndexName</code> / <code>assignIndexNames</code></td>
@@ -1816,7 +1812,7 @@
 </tr>
 <tr>
 <td><code>getIndexTsvCounts</code> / <code>testIndexComplete</code></td>
-<td>集約ファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、集約ファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の以前の形式の TSV は数えない）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
+<td>集約ファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、集約ファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の TSV は数えない）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
 </tr>
 <tr>
 <td><code>publishIndexFiles</code></td>
@@ -1870,7 +1866,7 @@
 </tr>
 <tr>
 <td><code>readStatusLines</code> / <code>renameStatusIndexName</code> / <code>removeStatusIndexName</code></td>
-<td>行の順序と内容を保った書き換え、以前の形式（抽出版の列が無い）の取り込み一覧</td>
+<td>名前の変更（クロール対象フォルダの行と各行の相対パス）、インデックスの記録の削除</td>
 </tr>
 <tr>
 <td><code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code></td>
@@ -1913,12 +1909,12 @@
 <td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む）</td>
 </tr>
 <tr>
-<td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>moveLegacyIndex</code> / <code>removeDroppedFolders</code> / <code>migrateFlatIndex</code></td>
-<td>作業フォルダの TSV をインデックスへ移す（<code>[</code> <code>]</code>・260 文字超のパス）、終了したプロセスの作業フォルダだけを削除する、以前の形式のインデックスの移行（途中で止まっても続きから移す）</td>
+<td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>removeDroppedFolders</code></td>
+<td>作業フォルダの TSV をインデックスへ移す（<code>[</code> <code>]</code>・260 文字超のパス）、終了したプロセスの作業フォルダだけを削除する、クロール対象から削除したフォルダのインデックスだけを削除する</td>
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
-<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、以前の版が画面とのやり取りに使っていたファイルを始める前に消す、基本の流れ（取り込み・集約ファイル・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、前回残った TSV を次の作成の始めに集約ファイルへ入れる、既定のワークスペースが空でなければ何も書かない</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、基本の流れ（取り込み・集約ファイル・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、前回残った TSV を次の作成の始めに集約ファイルへ入れる、既定のワークスペースが空でなければ何も書かない</td>
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（取り込みのスレッド）</td>
@@ -1992,7 +1988,7 @@
 </tr>
 <tr>
 <td><code>writeSourceFolderFile</code> / <code>readSourceFolderFile</code> / <code>getSourceLocation</code></td>
-<td>各インデックスのフォルダへの書き出しと読み込み（説明の行は無視）、別の場所にコピーしたインデックス、インデックス名のフォルダを検索対象にした場合（そのフォルダの記録）、以前の版が直下に書いたファイルの移行と削除、分からない場合は Known = <code>$false</code>・Folder は空でインデックス名を返す、キャッシュ</td>
+<td>各インデックスのフォルダへの書き出しと読み込み（説明の行は無視）、別の場所にコピーしたインデックス、インデックス名のフォルダを検索対象にした場合（そのフォルダの記録）、分からない場合は Known = <code>$false</code>・Folder は空でインデックス名を返す、キャッシュ</td>
 </tr>
 <tr>
 <td><code>joinSourcePath</code></td>
