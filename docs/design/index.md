@@ -11,6 +11,7 @@
 - **検索**：[検索](search/index.md)
 - **画面**：[画面（GUI）](gui/index.md)
 - **テスト**：[テスト](testing/index.md)、[テストの実行と CI](testing/ci.md)
+- **安全性**：[安全性の要約](../safety/index.md)（何をして何をしないか、その根拠と確かめ方。導入を審査する方向け）
 
 ## 目的
 

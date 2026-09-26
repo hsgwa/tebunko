@@ -121,13 +121,6 @@ nav:
       - 困ったとき: guide/troubleshooting.md
       - よくある質問: guide/faq.md
       - 更新とアンインストール: guide/update-uninstall.md
-  - 安全性:
-      - safety/index.md
-      - 危険とされる処理の検査結果: safety/checks.md
-      - ファイルの読み書きの範囲: safety/file-access.md
-      - 開示事項: safety/disclosure.md
-      - 第三者のツールによる検査結果: safety/scans.md
-      - 供給網とライセンス: safety/supply-chain.md
   - 設計・開発:
       - design/index.md
       - 構成:
@@ -161,3 +154,11 @@ nav:
       - テスト:
           - design/testing/index.md
           - テストの実行と CI: design/testing/ci.md
+      # 安全性は導入を審査する方向けの説明だが、設計の一部として「設計・開発」の中に置く（ファイルは docs/safety/ のまま）
+      - 安全性:
+          - safety/index.md
+          - 危険とされる処理の検査結果: safety/checks.md
+          - ファイルの読み書きの範囲: safety/file-access.md
+          - 開示事項: safety/disclosure.md
+          - 第三者のツールによる検査結果: safety/scans.md
+          - 供給網とライセンス: safety/supply-chain.md
