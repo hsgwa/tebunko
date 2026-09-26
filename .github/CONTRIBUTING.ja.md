@@ -92,7 +92,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 - **数字を上げるためだけのテストは書きません。** 動きは単体テストで確かめます。入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめてください。
 - 画面を変えたときは、`tebunko.bat` で実際に起動して確かめてください。
 
-テストの分け方と CI の中身は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) にあります。
+テストの分け方と CI の中身は [docs/design/testing/index.md](../docs/design/testing/index.md) にあります。
 
 ## コードの決まり
 
@@ -102,9 +102,9 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 - **`scripts/shared/` は個々のツールを知らない**ようにします。ツール同士も互いを読み込みません。
 - **判断層**（`*_view.ps1`・`index_name.ps1`・`search_query.ps1`・`text.ps1`）は画面（WPF）に触れません。画面に出す文言や可否の判定はここに置き、テストを書きます。
 - 足したファイルは、読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`gui.ps1`・`indexer.ps1`）から読み込みます。
-- **ネットワーク通信・動的なコード実行・レジストリの変更・第三者のライブラリは使いません。** 利用者が導入を審査するときの前提です（[docs/04_安全性.md](../docs/04_安全性.md)）。
+- **ネットワーク通信・動的なコード実行・レジストリの変更・第三者のライブラリは使いません。** 利用者が導入を審査するときの前提です（[docs/safety/index.md](../docs/safety/index.md)）。
 
-ソースの構成は [docs/00_index.md](../docs/00_index.md) にあります。
+ソースの構成は [docs/design/index.md](../docs/design/index.md) にあります。
 
 ## 個人情報を含めない
 
@@ -119,7 +119,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 
 - 設計書は `docs/` にあります。動きを変えたら、該当する設計書も同じ Pull Request で直してください。
 - 図は Mermaid か draw.io（`.drawio.png`）で描きます。罫線文字のアスキーアートは使いません。
-- 設計書は [Web サイト](https://hsgwa.github.io/tebunko/)（MkDocs）にもなります。設計書を足したときは `tools/mkdocs/mkdocs.yml` の `nav` にも足してください。設計書を変えた Pull Request には、サイトのプレビューの URL が自動でコメントされます。手元での確かめ方は [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) の「CI」にあります。
+- 設計書は [Web サイト](https://hsgwa.github.io/tebunko/)（MkDocs）にもなります。設計書を足したときは `tools/mkdocs/mkdocs.yml` の `nav` にも足してください。設計書を変えた Pull Request には、サイトのプレビューの URL が自動でコメントされます。手元での確かめ方は [docs/design/testing/ci.md](../docs/design/testing/ci.md) にあります。
 
 ## リリース
 

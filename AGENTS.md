@@ -88,7 +88,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 ## ソースの分け方
 
-`scripts/` は **文脈**（`shared/` = どのツールからも使う、`tebunko/` = このツール固有）と **層**（判断層・状態層・画面層）で分ける。詳細は [docs/00_index.md 1.4](docs/00_index.md) と [docs/00_共通_2_共通モジュール.md 5.0](docs/00_共通_2_共通モジュール.md)。
+`scripts/` は **文脈**（`shared/` = どのツールからも使う、`tebunko/` = このツール固有）と **層**（判断層・状態層・画面層）で分ける。詳細は [docs/design/index.md「ソースの分け方」](docs/design/index.md) と [docs/design/architecture/modules.md「フォルダの分け方と読み込み口」](docs/design/architecture/modules.md)。
 
 守ること（`tests/meta/` が機械的に確かめる）:
 
@@ -101,7 +101,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 ## テストカバレッジの方針
 
-全体の目標値は決めない。**下限を割らないこと**と、**テストが効く層を厚くすること**を守る。数値の見方と CI での扱いは [docs/00_共通_3_テスト.md](docs/00_共通_3_テスト.md) の 6.3「タグと実行」と「CI」にある。
+全体の目標値は決めない。**下限を割らないこと**と、**テストが効く層を厚くすること**を守る。数値の見方と CI での扱いは [docs/design/testing/ci.md](docs/design/testing/ci.md) の「タグと実行」と「CI」にある。
 
 - **下限は `tests/coverage.baseline`（90.0）。** `.\tests\run.ps1 -Ci` がこれを下回ると失敗し、CI の必須チェック `test` が通らないためマージできない。
   - 下回ったら、テストを足して戻す。下限の値を下げて通さない。
@@ -122,6 +122,6 @@ clone したら `.\tools\install_hooks.ps1` を 1 回実行する（`core.hooksP
 - `tools/check_commit_message.ps1`（`commit-msg` フック）… コミットメッセージの 1 行目が上の「GitHub の運用」の形であること。
 - `tools/check_signoff.ps1`（`commit-msg` フック）… 作者の `Signed-off-by` が付いていること。
 
-CI（`.github/workflows/test.yml`）は全ファイル・全履歴の検査、既定のテスト、PSScriptAnalyzer を行い、カバレッジを Codecov に送る。`v` で始まるタグを push すると `release.yml` が配布 zip を作って GitHub Release に載せる。詳細は [docs/00_共通_3_テスト.md](docs/00_共通_3_テスト.md) の「CI」。
+CI（`.github/workflows/test.yml`）は全ファイル・全履歴の検査、既定のテスト、PSScriptAnalyzer を行い、カバレッジを Codecov に送る。`v` で始まるタグを push すると `release.yml` が配布 zip を作って GitHub Release に載せる。詳細は [docs/design/testing/ci.md](docs/design/testing/ci.md) の「CI」。
 
-検査に引っかかったら、`--no-verify` で飛ばさずに内容を直す。例示用として通す名前・ドメインを増やすときは `tools/check_commit.ps1` の先頭で行う。
+検査に引っかかったら、`--no-verify` で飛ばさずに内容を直す。例示用として通す名前・ドメインを増やすときは `tools/check_commit.ps1` の先頭で行う。

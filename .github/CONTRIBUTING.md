@@ -92,7 +92,7 @@ From then on, the following checks run on every commit. If a check fails, fix th
 - **Do not write tests only to raise the number.** Test behavior at the unit level. If several tests differ only in input and expected value, put them in one `It` with `-TestCases`.
 - When you change the screen, start the tool with `tebunko.bat` and check it.
 
-How the tests are organized and what CI does is described in [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) (Japanese).
+How the tests are organized and what CI does is described in [docs/design/testing/index.md](../docs/design/testing/index.md) (Japanese).
 
 ## Coding rules
 
@@ -102,9 +102,9 @@ The tests in `tests/meta/` and the static analysis in CI (PSScriptAnalyzer; no f
 - **`scripts/shared/` does not know about individual tools.** Tools do not load each other either.
 - **The decision layer** (`*_view.ps1`, `index_name.ps1`, `search_query.ps1`, `text.ps1`) does not touch the screen (WPF). Put the text shown on screen and the decisions about what is allowed here, and write tests for them.
 - Load every file you add from an entry point (`shared/shared.ps1`, `tebunko/lib.ps1`, `gui.ps1`, `indexer.ps1`).
-- **Do not use network access, dynamic code execution, registry changes or third-party libraries.** Users rely on this when they review the tool before introducing it ([docs/04_安全性.md](../docs/04_安全性.md), Japanese).
+- **Do not use network access, dynamic code execution, registry changes or third-party libraries.** Users rely on this when they review the tool before introducing it ([docs/safety/index.md](../docs/safety/index.md), Japanese).
 
-The structure of the source code is described in [docs/00_index.md](../docs/00_index.md) (Japanese).
+The structure of the source code is described in [docs/design/index.md](../docs/design/index.md) (Japanese).
 
 ## Do not include personal information
 
@@ -119,7 +119,7 @@ This repository is public. **Anything that has ever been in the history is as go
 
 - The design documents are in `docs/`. If you change behavior, update the related design document in the same pull request.
 - Draw figures with Mermaid or draw.io (`.drawio.png`). Do not use ASCII art made of box-drawing characters.
-- The design documents are also published as a [website](https://hsgwa.github.io/tebunko/) (MkDocs). When you add a design document, also add it to `nav` in `tools/mkdocs/mkdocs.yml`. A pull request that changes the design documents gets a comment with a preview URL of the site automatically. How to check the site locally is described in "CI" in [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) (Japanese).
+- The design documents are also published as a [website](https://hsgwa.github.io/tebunko/) (MkDocs). When you add a design document, also add it to `nav` in `tools/mkdocs/mkdocs.yml`. A pull request that changes the design documents gets a comment with a preview URL of the site automatically. How to check the site locally is described in [docs/design/testing/ci.md](../docs/design/testing/ci.md) (Japanese).
 
 ## Releases
 

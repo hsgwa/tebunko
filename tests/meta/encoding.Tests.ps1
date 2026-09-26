@@ -32,7 +32,7 @@ Describe "文字コードと改行" -Tag Meta {
     }
 
     # Windows で動く Codecov の CLI は codecov.yml を cp1252 として読み、日本語があると止まる（UnicodeDecodeError）。
-    # そのため codecov.yml には ASCII の文字だけを書き、説明は .github\workflows\test.yml と docs\00_共通_3_テスト.md に置く
+    # そのため codecov.yml には ASCII の文字だけを書き、説明は .github\workflows\test.yml と docs\design\testing\ci.md に置く
     It "codecov.yml は ASCII の文字だけ" {
         $bytes = [System.IO.File]::ReadAllBytes("$here\..\.github\codecov.yml")
         @($bytes | Where-Object { $_ -gt 0x7F }).Count | Should -Be 0

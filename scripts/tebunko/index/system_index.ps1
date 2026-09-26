@@ -125,7 +125,7 @@ function writeSystemIndexFolders {
     }
 
     # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）。
-    # インデックス作成の処理のため、スレッドの優先度を下げる（画面・検索を先に動かす。docs/00_共通_4_プロセスとスレッド.md 7.2）
+    # インデックス作成の処理のため、スレッドの優先度を下げる（画面・検索を先に動かす。docs/design/architecture/threads.md「スレッドの一覧」）
     $state = newWorkerState @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
         "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getPackContentText", "testIndexBookDir") `
         @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "packFilePattern")

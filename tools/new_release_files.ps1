@@ -1,4 +1,4 @@
-﻿# 配布物の完全性を確かめるためのファイルを作る（docs\04_安全性.md 5.1）。
+﻿# 配布物の完全性を確かめるためのファイルを作る（docs\safety\scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」）。
 #
 #   .\tools\new_release_files.ps1              work\release\ に書き出す
 #   .\tools\new_release_files.ps1 -OutDir .\dist
