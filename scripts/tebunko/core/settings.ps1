@@ -22,8 +22,8 @@ function newSettings {
         includeShapes      = $true    # 図形（テキストボックス等）の文字も検索する（場所 "<元の場所>[図形]"。index_name.ps1 の objectPlacePattern）
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
-        workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（設定ファイルと同じフォルダの work）
-        ingestThreads      = 0        # 取り込みのスレッドの数（1〜4。0 はコア数から決める）。Excel をスレッドの数だけ同時に動かすため、メモリの少ない PC では減らす
+        workspaceFolder    = ""       # ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）。空なら既定（%USERPROFILE%\Documents\tebunko_ws。getDefaultWorkDir）
+        ingestThreads      = 0        # Office を使わずに読むファイル（.docx・.pptx など）の読み取りのスレッドの数（1〜4。0 はコア数から決める。getIngestWorkerCount）。Excel・Word・PowerPoint は種類ごとに 1 つ
     }
 }
 

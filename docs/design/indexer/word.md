@@ -15,7 +15,7 @@ Word 文書の旧形式（`.doc` 等）の変換（[Word の旧形式の変換](
 | 保存 | `Repaginate()` でページ割りを確定させてから `SaveAs2(converted.docx, 12 = wdFormatXMLDocument)` |
 | アプリの設定 | `Visible = False`、`DisplayAlerts = 0`（wdAlertsNone）、`AutomationSecurity = 3` |
 
-- `Repaginate()` を呼ぶのは、保存時に記録されるページ区切り（6.5 のページの目安）を確定させるため。呼ばないと、同じ内容の文書でも変換のたびにページ区切りの位置が変わることがある（◎）。
+- `Repaginate()` を呼ぶのは、保存時に記録されるページ区切り（[Word のテキスト読み取りと TSV の場所](#word-のテキスト読み取りと-tsv-の場所readdocxunits) のページの目安）を確定させるため。呼ばないと、同じ内容の文書でも変換のたびにページ区切りの位置が変わることがある（◎）。
 
 ## Word のテキスト読み取りと TSV の場所（`readDocxUnits`）
 

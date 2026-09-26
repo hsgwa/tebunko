@@ -4,13 +4,13 @@
 |---|---|
 | 画面 | ［2 検索］タブ（[［2 検索］タブ](../gui/search-tab.md)） |
 | スクリプト | `scripts/tebunko/search/search_query.ps1`（検索条件）・`pack_search.ps1`（集約ファイルの列挙と検索）・`search_run.ps1`（結果の組み立て）。`scripts/tebunko/lib.ps1` から読み込み、画面 `scripts/tebunko/gui.ps1` から呼ぶ |
-| 使用する共通関数 | `getFastSearchPackFiles`（高速検索。4.4）/ `getIndexPackFiles` / `getSearchIndexes` / `searchPackIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[共通モジュール](../architecture/modules.md)） |
+| 使用する共通関数 | `getFastSearchPackFiles`（高速検索。[高速検索（Windows Search）](fast-search.md)）/ `getIndexPackFiles` / `getSearchIndexes` / `searchPackIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[共通モジュール](../architecture/modules.md)） |
 
 全体構成・動作環境・フォルダ構成は [設計の概要](../index.md) を参照。インデックス（集約ファイル）の作り方は [インデックス作成（インデクサ）](../indexer/index.md) を参照。画面の操作・表示は [［2 検索］タブ](../gui/search-tab.md) を参照。
 
 ## 概要
 
-画面の［2 検索］タブで入力したワードで、`work/index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの集約ファイル（[配置・命名規則](../indexer/index-format.md#配置命名規則) 6.1）を検索する処理と、［結果をファイルに出力］で書き出す `work/検索結果.txt` の形式を定める。
+画面の［2 検索］タブで入力したワードで、`work/index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの集約ファイル（[配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/検索結果.txt` の形式を定める。
 
 ## 入出力
 
@@ -19,7 +19,7 @@
 | 入力 | 画面で入力したワード | 1 回の検索で 1 ワード |
 | 入力 | `setting.config` の `searchExcludes` | 画面の検索対象のツリーでチェックを外したフォルダ（[インデックスの一覧](#インデックスの一覧getsearchindexes)、省略可） |
 | 入力 | `work/index/**/content.*.tsv` | インデックス作成で書き出した集約ファイル（フォルダ・元のファイルの拡張子ごとに 1 つ） |
-| 入力 | `work/system_index/**/システムインデックス*.txt`・`work/システムインデックスの状態.tsv` | 高速検索に使う システムインデックスとその状態（4.4。Windows Search に問い合わせる） |
+| 入力 | `work/system_index/**/システムインデックス*.txt`・`work/システムインデックスの状態.tsv` | 高速検索に使う システムインデックスとその状態（[高速検索（Windows Search）](fast-search.md)。Windows Search に問い合わせる） |
 | 出力 | `work/検索結果.txt` | 画面の［結果をファイルに出力］で書き出す検索結果（[検索結果ファイル](output.md)）。出力ごとに上書き |
 
 ## インデックスの一覧（`getSearchIndexes`）
@@ -38,7 +38,7 @@ flowchart TD
 - 1 件を `@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }` で返す。
 - 別の場所・PC で作ったインデックスは、そのフォルダを `work/index` 直下に置けば一覧に並ぶ（[処理の流れと取り込み一覧](../indexer/flow.md)）。
 - `work/index` が無ければ空を返す。`setting.config` は作成しない。
-- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［2 検索］タブ](../gui/search-tab.md) 4.8）。選んだ範囲は `getIndexPackFiles` に `@{ Root（インデックスのフォルダ `work/index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の集約ファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
+- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［2 検索］タブ](../gui/search-tab.md) [検索対象のツリー（No.13）](../gui/search-tab.md#検索対象のツリーno13)）。選んだ範囲は `getIndexPackFiles` に `@{ Root（インデックスのフォルダ `work/index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の集約ファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
 - チェックを外したフォルダは `searchExcludes`（`@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }` の配列）に保存する（`readSearchExcludes` / `writeSearchExcludes`）。無ければすべてを検索する。
 
 ```mermaid
@@ -55,20 +55,20 @@ flowchart TD
 ```
 
 - 集約ファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ集約ファイルを二重に検索しない。
-- 検索は画面の別スレッドで行い、1 つの作業（集約ファイル約 16MB 分。4.3）を照合するたびに進捗を通知する。画面の中止ボタン（`shouldStop`）で中止でき、件数の上限（`limit`）に達したら打ち切る（上限・表示は [［2 検索］タブ](../gui/search-tab.md)）。
+- 検索は画面の別スレッドで行い、1 つの作業（集約ファイル約 16MB 分。[検索の実装（速度）](#検索の実装速度)）を照合するたびに進捗を通知する。画面の中止ボタン（`shouldStop`）で中止でき、件数の上限（`limit`）に達したら打ち切る（上限・表示は [［2 検索］タブ](../gui/search-tab.md)）。
 
 ## 検索仕様
 
 | 項目 | 仕様 |
 |---|---|
 | 検索対象 | 各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダの集約ファイル `content.*.tsv`（[インデックスの一覧](#インデックスの一覧getsearchindexes)）。フォルダの順、フォルダの中は集約ファイルの名前（拡張子・番号）の順、集約ファイルの中は入れた順に検索する |
-| 対象ファイル | 画面の「対象ファイル」（`setting.config` の `fileFilter`）を指定すると、**元のファイル名**（5.3 の Book。集約ファイルの `ファイル名=` の値）が一致する元のファイルだけを検索する（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)）。空ならすべて |
-| 図形・コメント | 既定は検索する。画面の［図形も検索］［コメントも検索］（`setting.config` の `includeShapes` / `includeComments`）をオフにすると、場所が `<元の場所>[図形]` / `<元の場所>[コメント]`（集約ファイルのメタ情報 `対象=図形` / `対象=コメント`）の中を検索しない（`newPlaceExclude`。Excel・Word・PowerPoint で共通の決まり。[インデックスの形式](../indexer/index-format.md) 6.1「図形・コメントの場所」） |
+| 対象ファイル | 画面の「対象ファイル」（`setting.config` の `fileFilter`）を指定すると、**元のファイル名**（[ファイル名・場所の求め方](output.md#ファイル名場所の求め方readpackplaces) の Book。集約ファイルの `ファイル名=` の値）が一致する元のファイルだけを検索する（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)）。空ならすべて |
+| 図形・コメント | 既定は検索する。画面の［図形も検索］［コメントも検索］（`setting.config` の `includeShapes` / `includeComments`）をオフにすると、場所が `<元の場所>[図形]` / `<元の場所>[コメント]`（集約ファイルのメタ情報 `対象=図形` / `対象=コメント`）の中を検索しない（`newPlaceExclude`。Excel・Word・PowerPoint で共通の決まり。[インデックスの形式](../indexer/index-format.md) [配置・命名規則](../indexer/index-format.md#配置命名規則)「図形・コメントの場所」） |
 | 長いパス | 列挙と検索（.NET の `DirectoryInfo`・`StreamReader`）には `\\?\` を付けたパスを渡す（`toLongPath`）。付けないと、約 248 文字を超えるフォルダの中を列挙できず、260 文字を超える集約ファイルを読めない。結果の相対パスは `\\?\` の無い形で扱う（[長いパス（260 文字超）の扱い](../indexer/index-format.md#長いパス260-文字超の扱い)） |
 | 読み込み文字コード | UTF-16LE（BOM があれば BOM に従う） |
 | 読めない集約ファイル | 列挙した後に読めなくなった集約ファイル（インデックス作成中に削除された等）は飛ばして、検索を続ける。読み込み中の集約ファイルは、インデクサの置き換え・削除を妨げないよう共有モードで開く |
 | 検索単位 | 集約ファイルの中身の 1 行（= 元の TSV の 1 行 = Excel の 1 行）。1 行に複数ヒットしても 1 件。メタ情報の行（先頭が RS）は検索しない。行番号は場所ごとに数え、Excel では場所のメタ情報の後の N 行目がシートの N 行目になる。行の区切りは LF（集約ファイルを書くときに CRLF・CR を LF にそろえる） |
-| 数値のセル | Excel の数値は、シートで**表示されている形**でインデックスに入る。表示形式が「標準」の 12 桁以上の数値は指数表記（`4.90123E+12`）、「#,##0」のセルは桁区切り付き（`1,234,568`）のため、元の番号（`4901234567894`・`1234568`）では見つからない（[Excel の抽出処理](../indexer/excel.md#excel-の抽出処理extractworkbook) 4.3） |
+| 数値のセル | Excel の数値は、シートで**表示されている形**でインデックスに入る。表示形式が「標準」の 12 桁以上の数値は指数表記（`4.90123E+12`）、「#,##0」のセルは桁区切り付き（`1,234,568`）のため、元の番号（`4901234567894`・`1234568`）では見つからない（[Excel の抽出処理](../indexer/excel.md#excel-の抽出処理extractworkbook) [Excel の抽出処理](../indexer/excel.md#excel-の抽出処理extractworkbook)） |
 | セル内改行 | インデックスでは U+2028 になっているため、正規表現の `.` や `\s` にマッチする（例: `1行目.2行目`）。改行をはさんだ文字列をそのまま連結したワード（`1行目2行目`）はヒットしない |
 | マッチ方式 | 画面の［正規表現を使う］がオフなら文字どおり、オンなら正規表現として検索する。どちらも `newSearchRegex` で 1 つの正規表現にして照合し、画面の一致箇所の強調にも同じ正規表現を使う（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)） |
 | 大文字と小文字 | 既定は区別しない。画面の［大文字と小文字を区別］がオンなら区別する（全角の英字も同じ） |
@@ -89,7 +89,7 @@ flowchart TD
 
 ## 検索の実装（速度）
 
-集約ファイル（[配置・命名規則](../indexer/index-format.md#配置命名規則) 6.1）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（`tebunko/search/pack_search.ps1` の `searchPackIndex`／`searchPackFiles`。`FileStream`＋`StreamReader`＋`[regex]`。`Select-String` で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（`Add-Type`／csc.exe）は使わない（[画面の実装](../gui/implementation.md#実行時コンパイルcscexeを使わない)。実測: 50 万行で約 0.6 秒）。
+集約ファイル（[配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（`tebunko/search/pack_search.ps1` の `searchPackIndex`／`searchPackFiles`。`FileStream`＋`StreamReader`＋`[regex]`。`Select-String` で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（`Add-Type`／csc.exe）は使わない（[画面の実装](../gui/implementation.md#実行時コンパイルcscexeを使わない)。実測: 50 万行で約 0.6 秒）。
 
 1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため集約ファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。**全文で一致しない集約ファイルは、そのまま飛ばす。** 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（`readPackPlaces`）、一致の位置から元のファイル・場所・行番号を求める（[ファイル名・場所の求め方](output.md#ファイル名場所の求め方readpackplaces)）。全文にかけてよいかは `getRegexScanMode` が正規表現の書き方から判定する。
 
@@ -132,7 +132,7 @@ flowchart TD
 
 | # | 内容 | 確度 |
 |---|---|---|
-| 1 | 高速検索を使えないとき（[高速検索（Windows Search）](fast-search.md)）は、検索のたびにすべての集約ファイルを照合するため、インデックス量に比例して時間がかかる（集約ファイル 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。4.3） | ◎ |
+| 1 | 高速検索を使えないとき（[高速検索（Windows Search）](fast-search.md)）は、検索のたびにすべての集約ファイルを照合するため、インデックス量に比例して時間がかかる（集約ファイル 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。[検索の実装（速度）](#検索の実装速度)） | ◎ |
 | 1-2 | 初めて作った大きなインデックスは、Windows Search が システムインデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。`work/index` を Windows Search の対象から外すと早く終わる（[高速検索（Windows Search）](fast-search.md)） | ◎ |
 | 1-3 | ワードによく出る 2-gram しか無いときは、ほとんどのフォルダが候補になり、高速検索でも速くならない（[高速検索（Windows Search）](fast-search.md)） | ◎ |
 | 2 | 結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に `検索結果.txt に書き込めません。…` と表示する） | ◎ |

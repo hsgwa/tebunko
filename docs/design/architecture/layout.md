@@ -2,14 +2,14 @@
 
 ## フォルダ構成
 
-スクリプトの場所は `scripts/shared/core/paths.ps1` の `$rootDir`（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。`setting.config` と `work/` は、ふつうは `$rootDir` の直下に置くが、ツールのフォルダに書き込めないときや、利用者が画面で置き場所を変えたときは別の場所になる（[データの置き場所](#データの置き場所settingconfigwork)）。**カレントディレクトリには依存しない。**
+スクリプトの場所は `scripts/shared/core/paths.ps1` の `$rootDir`（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。`setting.config` は、ふつうは `$rootDir` の直下に置く（ツールのフォルダに書き込めないときは利用者ごとの場所）。インデックス・取り込み一覧・ログ（ワークスペース）は、既定で `%USERPROFILE%\Documents\tebunko_ws` に置き、利用者が画面で置き場所を変えられる（[データの置き場所](#データの置き場所settingconfigwork)）。**カレントディレクトリには依存しない。**
 ファイル操作は `-LiteralPath` または .NET の `System.IO` を使い、`[` `]` を含むファイル名・フォルダ名を扱える。
 
 ### 利用者が使うもの
 
 | パス | 種別 | 説明 |
 |---|---|---|
-| `tebunko.bat` | 起動用バッチ | 画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。`conhost.exe` 経由で PowerShell を `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で 1 回起動し、その中で `scripts` の中のファイルから Mark-of-the-Web を外して（`Unblock-File`。[安全性の要約](../../safety/index.md) の 4.2）から `gui.ps1` を開く。既定のターミナルが Windows Terminal だと `-WindowStyle Hidden` が効かず、PowerShell の窓が残るため `conhost.exe` を通す |
+| `tebunko.bat` | 起動用バッチ | 画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。`conhost.exe` 経由で PowerShell を `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で 1 回起動し、その中で `scripts` の中のファイルから Mark-of-the-Web を外して（`Unblock-File`。[安全性の要約](../../safety/index.md) の [Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat)）から `gui.ps1` を開く。既定のターミナルが Windows Terminal だと `-WindowStyle Hidden` が効かず、PowerShell の窓が残るため `conhost.exe` を通す |
 | `setting.config` | 設定 | 画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。[設定ファイル（setting.config）](settings-file.md)）。ツールのフォルダに書き込めないときは利用者ごとの場所に置く（[データの置き場所](#データの置き場所settingconfigwork)） |
 | `work/` | 自動生成 | インデックス・状態ファイル・ログ（[入出力ファイル一覧](#入出力ファイル一覧)）。git 管理外。削除すると全件取り込み直しになる。置き場所は画面で変えられる（[データの置き場所](#データの置き場所settingconfigwork)） |
 
@@ -21,7 +21,7 @@
 |---|---|---|
 | `scripts/shared/` | スクリプト | どのツールからも使う部品（`core/`・`office/`・`ui/`・`xaml/`） |
 | `scripts/shared/shared.ps1` | スクリプト | 共通基盤の読み込み口 |
-| `scripts/shared/office/office_reader.ps1` | スクリプト | Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメントの文字を取り出す（[インデックスの形式](../indexer/index-format.md) の 6.4、Word は [Word](../indexer/word.md)、PowerPoint は [PowerPoint](../indexer/powerpoint.md)） |
+| `scripts/shared/office/office_reader.ps1` | スクリプト | Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメントの文字を取り出す（[インデックスの形式](../indexer/index-format.md) の [Word・PowerPoint のテキスト読み取り](../indexer/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、Word は [Word](../indexer/word.md)、PowerPoint は [PowerPoint](../indexer/powerpoint.md)） |
 | `scripts/shared/xaml/` | 画面定義 | 共通の画面定義（`theme.xaml`・確認ダイアログ） |
 | `scripts/tebunko/` | スクリプト | tebunko 固有の処理と画面（`core/`・`index/`・`indexer/`・`search/`・`ui/`・`xaml/`） |
 | `scripts/tebunko/gui.ps1` | スクリプト | 画面の起動口（[画面（GUI）](../gui/index.md)）。検索・プロセス停止は画面の中で行う |
@@ -38,7 +38,7 @@
 | `LICENSE` | ドキュメント | ライセンス（MIT）。配布 zip に同梱する |
 | `.github/SECURITY.md`・`.github/SECURITY.ja.md` | ドキュメント | 安全性の説明の入口と、脆弱性の連絡先・対応方針（英語版が正、`.ja.md` が日本語版）。配布 zip には入れず、リリースの説明からリンクする |
 | `sbom.cdx.json` | 配布用 | 部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（[安全性の要約](../../safety/index.md) の [供給網（サプライチェーン）とライセンス](../../safety/supply-chain.md)）。配布 zip と並べてリリースに載せる |
-| `installer/tebunko.iss` | 配布用 | インストーラー（`tebunko-setup-<バージョン>.exe`）を作る Inno Setup 7 のスクリプト。管理者権限なしで `%LOCALAPPDATA%\Programs\tebunko` に入れ、スタートメニューとアンインストールに登録する（[安全性の要約](../../safety/index.md) の 4.6）。BOM 付き UTF-8・CRLF |
+| `installer/tebunko.iss` | 配布用 | インストーラー（`tebunko-setup-<バージョン>.exe`）を作る Inno Setup 7 のスクリプト。管理者権限なしで `%LOCALAPPDATA%\Programs\tebunko` に入れ、スタートメニューとアンインストールに登録する（[安全性の要約](../../safety/index.md) の [インストーラー版](../../safety/disclosure.md#インストーラー版)）。BOM 付き UTF-8・CRLF |
 | `installer/tebunko.cs` | 配布用 | インストーラー版の起動口 `tebunko.exe` のソース（C# 5）。`tebunko.bat` と同じく `gui.ps1` を `-ExecutionPolicy RemoteSigned` で起動する。窓を作らずに起動し、起動できなかったときは PowerShell のエラーをメッセージで出す。zip 版には入れない |
 | `docs/` | ドキュメント | 利用者向けの使い方・安全性の説明・設計書（MkDocs のサイトの元）。`docs/images/` に図・画面の画像・ロゴ（`logo.svg`）を置く。配布 zip には入れない |
 | `.github/CONTRIBUTING.md`・`.github/SUPPORT.md`・`.github/CODE_OF_CONDUCT.md`（と、それぞれの `.ja.md`） | ドキュメント | 開発に参加する手順・使い方の質問の窓口・行動規範。英語版が正で、`.ja.md` が日本語版。GitHub は `.github/` に置いた英語版の名前のファイルを認識する |
@@ -53,13 +53,13 @@
 | `tools/check_signoff.ps1` | 開発用 | コミットに作者の `Signed-off-by` があるかを確かめる。commit-msg フックと CI（`test.yml`）が使う |
 | `tools/check_markdown_links.ps1` | 開発用 | git で管理している `.md` の相対リンクの先（ファイル・見出し）があるかを確かめる。`tests/meta/links.Tests.ps1` が使う（[テストの実行と CI](../testing/ci.md)） |
 | `tools/hooks/pre-commit`・`tools/hooks/commit-msg`・`tools/install_hooks.ps1` | 開発用 | コミット時の検査。clone 後に `install_hooks.ps1` を 1 回実行して有効にする（[CI](../testing/ci.md#ci)） |
-| `tools/new_release_files.ps1` | 配布用 | 配布物のカタログ（`tebunko.cat`）とハッシュ一覧（`SHA256SUMS.txt`）を作る（既定の出力先は `work/release/`）。受け取った側が改ざんの有無を確認できる（[安全性の要約](../../safety/index.md) の 5.1） |
+| `tools/new_release_files.ps1` | 配布用 | 配布物のカタログ（`tebunko.cat`）とハッシュ一覧（`SHA256SUMS.txt`）を作る（既定の出力先は `work/release/`）。受け取った側が改ざんの有無を確認できる（[安全性の要約](../../safety/index.md) の [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](../../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)） |
 | `tools/new_release_package.ps1` | 配布用 | 配布する zip（`tebunko-<バージョン>.zip`。本体・README・LICENSE）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を `work/release/` に作る。`v` で始まるタグを push すると `.github/workflows/release.yml` が実行し、GitHub Release に載せる（[CI](../testing/ci.md#ci)） |
 | `tools/new_installer.ps1` | 配布用 | インストーラー（`tebunko-setup-<バージョン>.exe`）を `work/release/` に作る。起動口 `tebunko.exe` を Windows 標準の `csc.exe`（.NET Framework）でビルドし、`scripts/`・`LICENSE` と並べて Inno Setup 7 の `ISCC.exe` に渡す。`release.yml` が実行する。手元で作るときは Inno Setup 7 を入れておく（`-Iscc` で場所を指定できる） |
 | `tools/new_icon.ps1` | 開発用 | 画面のアイコン（`tebunko.ico`）を元データの `docs/images/logo.svg` から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の `System.Drawing` で 16〜256 px の 8 サイズに縮小して、PNG 形式の `.ico` にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と `.ico` を同じコミットに入れる |
 | `tools/make_social_preview.ps1` | 開発用 | GitHub の social preview 用の画像（`docs/images/social_preview.png`）を作る。登録はリポジトリの設定から手で行う |
 | `tools/mkdocs/` | 開発用 | 設計書の Web サイトを作る設定（`mkdocs.yml`）・フック（`hooks.py`）・使うパッケージ（`requirements.txt`）（[CI](../testing/ci.md#ci)） |
-| `.github/workflows/` | 開発用 | CI（`test.yml`・`title.yml`・`docs.yml`・`codeql.yml`・`scorecard.yml`）と配布物の公開（`release.yml`）（[CI](../testing/ci.md#ci)） |
+| `.github/workflows/` | 開発用 | CI（`test.yml`・`title.yml`・`docs.yml`・`codeql.yml`・`scorecard.yml`）、性能の計測（`perf.yml`）と配布物の公開（`release.yml`）（[CI](../testing/ci.md#ci)） |
 | `.github/codecov.yml` | 開発用 | Codecov の設定。ASCII の文字だけで書く（[CI](../testing/ci.md#ci)） |
 | `.github/dependabot.yml`・`.github/release.yml` | 開発用 | 依存（GitHub Actions・MkDocs のパッケージ）の更新 PR の設定と、リリースノートを PR のラベルで分ける設定 |
 | `.github/ISSUE_TEMPLATE/`・`.github/pull_request_template.md`・`.github/title_comment.md` | 開発用 | Issue・PR のテンプレートと、形の違う Issue のタイトルに付けるコメント |
@@ -68,12 +68,15 @@
 
 ### 自動生成（`work/`）
 
+!!! note "設計書の `work/` の書き方"
+    設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を `work/` と書く。実際の場所は、既定では `%USERPROFILE%\Documents\tebunko_ws`、［8 設定］で変えたときはその場所である（[データの置き場所](#データの置き場所settingconfigwork)）。以前の版はツールのフォルダの `work` に置いていたため、この書き方を残している。開発用のリポジトリ直下の `work/`（`work/test/`・`work/release/`・`work/site/` など、git 管理外）は別のもの。
+
 | パス | 説明 |
 |---|---|
-| `work/index/` | インデックス。クロール対象フォルダごとに `work/index/<インデックス名>/` に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（`content.xlsx.001.tsv` など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（`<ファイル名.xlsx>/<場所>.tsv`）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（[配置・命名規則](../indexer/index-format.md#配置命名規則) 6.1） |
+| `work/index/` | インデックス。クロール対象フォルダごとに `work/index/<インデックス名>/` に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（`content.xlsx.001.tsv` など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（`<ファイル名.xlsx>/<場所>.tsv`）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（[配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)） |
 | `work/index/<インデックス名>/元のフォルダ.txt` | インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。`work/index` ごとでも `<インデックス名>` のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける |
-| `work/system_index/` | システムインデックス（高速検索用。`work/index` の中のフォルダごとの 2-gram の txt。[システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index) 6.8）。Windows Search に索引させる |
-| `work/システムインデックスの状態.tsv` | システムインデックスの状態（対応済み・反映待ち・対象外。同 6.8） |
+| `work/system_index/` | システムインデックス（高速検索用。`work/index` の中のフォルダごとの 2-gram の txt。[システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index) [システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index)）。Windows Search に索引させる |
+| `work/システムインデックスの状態.tsv` | システムインデックスの状態（対応済み・反映待ち・対象外。[システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index)） |
 | `work/取り込み一覧.tsv` | 取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗） |
 | `work/取り込み中.txt` | 取り込み中のファイル（取り込みのスレッドごとに 1 行）。取り込み中に強制終了したときだけ残る |
 | `work/取り込み出力/<PID>/` | 1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ（インデックス作成の終了時に削除する） |
@@ -124,17 +127,17 @@ flowchart LR
 
 ## データの置き場所（`setting.config`・`work/`）
 
-ツールを書き込めない場所（`C:\Program Files`、読み取り専用の共有フォルダ）に置いても動くよう、また、インデックス（元の文書の本文を持つ。[安全性の要約](../../safety/index.md) の 4.3）をアクセス権を絞ったフォルダや容量のあるドライブに置けるよう、データの置き場所をツールのフォルダと分けられるようにしている。
+ツールを書き込めない場所（`C:\Program Files`、読み取り専用の共有フォルダ）に置いても動くよう、また、インデックス（元の文書の本文を持つ。[安全性の要約](../../safety/index.md) の [インデックスが元文書の本文を保持する（情報の集約）](../../safety/disclosure.md#インデックスが元文書の本文を保持する情報の集約)）をアクセス権を絞ったフォルダや容量のあるドライブに置けるよう、データの置き場所をツールのフォルダと分けられるようにしている。
 
 | 変数 | 決め方 | 定義 |
 |---|---|---|
 | `$dataDir` | ツールのフォルダ（`$rootDir`）にファイルを作れればそこ（以前の版と同じ）。作れなければ `%LOCALAPPDATA%\tebunko\<鍵>`。鍵は `getFolderKey $rootDir` の先頭 16 文字で、ツールのフォルダごとに分かれる | `scripts/shared/core/data_dir.ps1` の `getDataDir`（書き込めるかは `testWritableFolder`。試しに作ったファイルは閉じると消える） |
 | `$settingsFile` | `$dataDir\setting.config` | `scripts/tebunko/core/settings.ps1` |
-| `$workspace.Dir` | `setting.config` の `workspaceFolder`（[形式](settings-file.md#形式)）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents） | `scripts/tebunko/core/paths.ps1`（`getWorkDir`） |
+| `$workspace.Dir` | `setting.config` の `workspaceFolder`（[形式](settings-file.md#形式)）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents） | `scripts/tebunko/core/settings.ps1`（`getWorkDir`） |
 
-- 既定の場所をドキュメントにするのは、高速検索（[検索](../search/index.md) 4.4）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（`testDefaultWorkspace`・`getWorkspaceBlockMessage`。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、`「…」は空のフォルダではありません。…` と出す）。無い・空・前から使っているワークスペース（`index` か `取り込み一覧.tsv` がある）なら使える。以前の既定（設定ファイルと同じフォルダの `work`）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。
-- `$workspace.Dir` のフォルダを画面では**ワークスペース**と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（[［8 設定］タブ](settings-file.md#8-設定タブ)）。
+- 既定の場所をドキュメントにするのは、高速検索（[検索](../search/index.md) [高速検索（Windows Search）](../search/fast-search.md)）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（`testDefaultWorkspace`・`getWorkspaceBlockMessage`。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、`「…」は空のフォルダではありません。…` と出す）。無い・空・前から使っているワークスペース（`index` か `取り込み一覧.tsv` がある）なら使える。以前の既定（設定ファイルと同じフォルダの `work`）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。
+- `$workspace.Dir` のフォルダを画面では**ワークスペース**と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（[［8 設定］タブ](../gui/settings-tab.md)）。
 - `work/` の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（`work/取り込み出力/<PID>`）はインデックスとフォルダごと入れ替えるため、インデックスと同じ `work` の中に置く。
-- 置き場所を変えると、今の `work/` の中身（tebunko が作るファイル・フォルダだけ。`Workspace.Entries`）を新しい場所へ移す（`moveWorkspace`）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）も、移した先のインデックスに付け替える（`moveSearchExcludes`）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（[［8 設定］タブ](settings-file.md#8-設定タブ)）。
+- 置き場所を変えると、今の `work/` の中身（tebunko が作るファイル・フォルダだけ。`Workspace.Entries`）を新しい場所へ移す（`moveWorkspace`）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）も、移した先のインデックスに付け替える（`moveSearchExcludes`）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（[［8 設定］タブ](../gui/settings-tab.md)）。
 - 同じ `work` を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を `$workspace.Dir` から作るため、別のツールのフォルダから同じ `work` を指しても二重には動かない。
 - `$rootDir` が書き込めるかは読み込むたびに調べる。書き込めない場所から書き込める場所に戻すと、設定は `$rootDir` 直下のものに戻る。

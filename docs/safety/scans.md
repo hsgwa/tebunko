@@ -1,6 +1,6 @@
 ﻿# 第三者のツールによる検査結果
 
-本ツールの作者以外が作ったツールでの検査結果を示す。5.1〜5.4 は誰でも同じコマンドで再現できる。
+本ツールの作者以外が作ったツールでの検査結果を示す。[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](#配布物の完全性カタログハッシュ一覧来歴の署名)〜[実行環境の制約との適合](#実行環境の制約との適合) は誰でも同じコマンドで再現できる。
 
 ## 配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）
 
@@ -11,7 +11,7 @@ GitHub Release の配布 zip（`tebunko-<タグ>.zip`）は、`v` で始まる�
 | `tebunko.bat`・`scripts/` | zip の中 | ツール本体 |
 | `README.md` | zip の中 | 使い方。相対リンクと画像は、その版の GitHub の URL に書き換えて入れる（`docs/` や画像は zip に入れないため） |
 | `LICENSE` | zip の中 | ライセンス（MIT。写しに許諾表示を含めるため同梱する） |
-| `tebunko-setup-<タグ>.exe` | リリース（zip の横） | インストーラー版（4.6。`tools/new_installer.ps1` が作る）。中身のスクリプトは zip と同じ |
+| `tebunko-setup-<タグ>.exe` | リリース（zip の横） | インストーラー版（[インストーラー版](disclosure.md#インストーラー版)。`tools/new_installer.ps1` が作る）。中身のスクリプトは zip と同じ |
 | `tebunko.cat`・`SHA256SUMS.txt` | リリース（zip の横） | 改ざんの確認用（`tools/new_release_files.ps1` が作る） |
 | `sbom.cdx.json` | リリース（zip の横） | 部品表 |
 
@@ -23,7 +23,7 @@ Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <ダウンロ�
 
 | 項目 | 値 |
 |---|---|
-| 対象ファイル数 | 63（`scripts/` 配下すべてと `tebunko.bat`） |
+| 対象ファイル | `scripts/` 配下のすべてのファイルと `tebunko.bat`（2026-09-26 時点で 69） |
 | 検証結果 | `Status: Valid`（改ざんなし） |
 | 署名 | `NotSigned`（コードサイニング証明書を導入すれば、発行者の保証も付く） |
 | ハッシュ方式 | SHA256（`-CatalogVersion 2`） |
@@ -36,7 +36,7 @@ Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <ダウンロ�
 gh attestation verify .\tebunko-v0.1.0.zip -R hsgwa/tebunko
 ```
 
-署名の bundle（`tebunko-<タグ>.zip.sigstore.json`）もリリースに載せている。GitHub に問い合わせずに確かめるときは `--bundle .\tebunko-v0.1.0.zip.sigstore.json` を付ける。zip 自体の SHA256 はリリースの説明に書いてある（5.6 の照会に使える）。インストーラー（`tebunko-setup-<タグ>.exe`）にも同じく来歴の署名を付け、bundle（`tebunko-setup-<タグ>.exe.sigstore.json`）と SHA256 をリリースに載せる。確かめ方は zip と同じ（`gh attestation verify .\tebunko-setup-<タグ>.exe -R hsgwa/tebunko`）。
+署名の bundle（`tebunko-<タグ>.zip.sigstore.json`）もリリースに載せている。GitHub に問い合わせずに確かめるときは `--bundle .\tebunko-v0.1.0.zip.sigstore.json` を付ける。zip 自体の SHA256 はリリースの説明に書いてある（[複数エンジンでの検査: VirusTotal（外部へファイルを送信する）](#複数エンジンでの検査-virustotal外部へファイルを送信する) の照会に使える）。インストーラー（`tebunko-setup-<タグ>.exe`）にも同じく来歴の署名を付け、bundle（`tebunko-setup-<タグ>.exe.sigstore.json`）と SHA256 をリリースに載せる。確かめ方は zip と同じ（`gh attestation verify .\tebunko-setup-<タグ>.exe -R hsgwa/tebunko`）。
 
 ## 静的解析: PSScriptAnalyzer（Microsoft）
 
@@ -137,7 +137,7 @@ Get-MpComputerStatus | Select-Object AMProductVersion, AntivirusSignatureVersion
 | 送信の全遮断で完走 | 通信が不要であること | Windows ファイアウォールで送信を全ブロック、または Windows Sandbox（ネットワーク無効）でインデックス作成を完走させる |
 | PowerShell のログ | 実行された全コマンド | グループポリシーでスクリプトブロックログ（イベント ID 4104）・モジュールログ・トランスクリプションを有効にして 1 回実行し、記録を提出する |
 | 標準ユーザーで完走 | 管理者権限が不要であること | 管理者権限のないアカウントで起動して一通り操作する |
-| 対象フォルダを読み取り専用にして完走 | 原本を書き換えないこと（3.3 手順 B） | 読み取りの権限だけを与えたアカウントで実行する |
+| 対象フォルダを読み取り専用にして完走 | 原本を書き換えないこと（[読み取りのみであることの実証](file-access.md#読み取りのみであることの実証) 手順 B） | 読み取りの権限だけを与えたアカウントで実行する |
 
 参考: 通信状況はインデックス作成中に次のコマンドでも確認できる。
 
@@ -149,7 +149,7 @@ Get-NetTCPConnection -OwningProcess (Get-Process powershell).Id -ErrorAction Sil
 
 約 70 社のエンジンで一度に判定でき、結果が URL として残る。ただし**アップロードしたファイルはセキュリティ各社と共有される**ため、社外に出せないコードを含む場合は実施しない。その場合は次のいずれかで代える。
 
-- 5.3 のローカルスキャン（送信なし）で代える。
+- [マルウェア検査: Microsoft Defender（外部への送信なし）](#マルウェア検査-microsoft-defender外部への送信なし) のローカルスキャン（送信なし）で代える。
 - ファイルのハッシュだけを照会する（ハッシュは内容を復元できない。ただし過去に誰かが同じファイルを提出していない限り「未登録」となる）。配布 zip の SHA256 はリリースの説明にも書いてある。
 
 ```powershell
@@ -158,14 +158,14 @@ Get-FileHash .\tebunko-v0.1.0.zip -Algorithm SHA256    # この値を VirusTotal
 
 ## 同梱の機械検査と品質の指標
 
-[危険とされる処理の検査結果](checks.md)・[ファイルの読み書きの範囲](file-access.md)の主張と 5.2・5.4 の結果は、1 つのコマンドで検査できる（リポジトリを clone して実行する。配布 zip には `tests/` を入れていない）。
+[危険とされる処理の検査結果](checks.md)・[ファイルの読み書きの範囲](file-access.md)の主張と [静的解析: PSScriptAnalyzer（Microsoft）](#静的解析-psscriptanalyzermicrosoft)・[実行環境の制約との適合](#実行環境の制約との適合) の結果は、1 つのコマンドで検査できる（リポジトリを clone して実行する。配布 zip には `tests/` を入れていない）。
 
 ```powershell
 .\tests\run.ps1 -Tag Meta     # 安全性・構成の検査だけ
 .\tests\run.ps1 -Ci           # 既定のテストとカバレッジ（CI と同じ）
 ```
 
-`tests/meta/safety.Tests.ps1`（34 件）は次を検査する。将来の変更でいずれかの前提が崩れれば失敗し、CI の必須チェック `test` が通らないため main にマージできない。
+`tests/meta/safety.Tests.ps1`（36 件）は次を検査する。将来の変更でいずれかの前提が崩れれば失敗し、CI の必須チェック `test` が通らないため main にマージできない。
 
 - [危険とされる処理の検査結果](checks.md)の禁止する処理が 0 件であること、許す処理（`Add-Type`・`Start-Process`・`Stop-Process`）が限定されていること
 - Office をマクロ無効・イベント無効・外部リンク更新なし・不可視・読み取り専用で開くこと
@@ -180,7 +180,7 @@ Get-FileHash .\tebunko-v0.1.0.zip -Algorithm SHA256    # この値を VirusTotal
 |---|---|
 | テスト件数 | 1,189 件（既定のタグ Unit・Io・Meta。失敗 0 件。うち安全性・構成の検査（タグ `Meta`）が 122 件） |
 | コードカバレッジ | 97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（`tests/run.ps1` の `CodeCoverage` の条件）。Office の COM を使うインデクサは、COM の入口（`getApp`）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は `tests/coverage.baseline`（90.0%）で、下回ると CI が失敗する |
-| 規模 | `scripts/` 配下 48 ファイル・11,306 行（空行を除く）・389 関数 |
+| 規模 | `scripts/` 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点） |
 | 第三者依存 | 0 件 |
 
-規模と依存の数を示す意味は、**監査にかかる手間を見積もれる**ことである。第三者依存が無いため、読む範囲はこの 11,306 行で閉じる。
+規模と依存の数を示す意味は、**監査にかかる手間を見積もれる**ことである。第三者依存が無いため、読む範囲はこの 12,326 行で閉じる。
