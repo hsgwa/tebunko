@@ -7,5 +7,5 @@ $here          = (Resolve-Path "$PSScriptRoot\..").Path
 ${scriptsDir}  = (Resolve-Path "$here\..\scripts").Path
 ${testDataDir} = "$here\testdata"
 
-. "${scriptsDir}\tebunko_grep\lib.ps1"
+. "${scriptsDir}\tebunko\lib.ps1"
 . "$PSScriptRoot\tsv.ps1"

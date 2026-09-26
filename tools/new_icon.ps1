@@ -1,6 +1,6 @@
-﻿# 画面のアイコン（scripts\tebunko_grep\tebunko_grep.ico）を、元データの SVG（docs\images\logo.svg）から作る。
+﻿# 画面のアイコン（scripts\tebunko\tebunko.ico）を、元データの SVG（docs\images\logo.svg）から作る。
 #
-#   .\tools\new_icon.ps1                     docs\images\logo.svg から scripts\tebunko_grep\tebunko_grep.ico を作る
+#   .\tools\new_icon.ps1                     docs\images\logo.svg から scripts\tebunko\tebunko.ico を作る
 #
 # 手順:
 #   1. SVG を Microsoft Edge（Windows に入っているもの）のヘッドレスモードで、背景を透明にして 1024 px の PNG に描く
@@ -21,7 +21,7 @@ if (!$Svg) {
     $Svg = Join-Path $rootDir "docs\images\logo.svg"
 }
 if (!$OutFile) {
-    $OutFile = Join-Path $rootDir "scripts\tebunko_grep\tebunko_grep.ico"
+    $OutFile = Join-Path $rootDir "scripts\tebunko\tebunko.ico"
 }
 $Svg = (Resolve-Path -LiteralPath $Svg).Path
 

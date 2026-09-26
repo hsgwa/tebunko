@@ -12,7 +12,7 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-$lib = Join-Path (Split-Path $PSScriptRoot -Parent) "scripts\tebunko_grep\lib.ps1"
+$lib = Join-Path (Split-Path $PSScriptRoot -Parent) "scripts\tebunko\lib.ps1"
 . $lib
 $Source = (Resolve-Path -LiteralPath $Source).ProviderPath.TrimEnd("\")
 [void][System.IO.Directory]::CreateDirectory($Dest)

@@ -583,58 +583,6 @@
     </Setter>
   </Style>
 
-  <!-- ============ 一覧（フォルダ選択の右側） ============ -->
-  <Style TargetType="ListView">
-    <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
-    <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="FontSize" Value="12" />
-    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
-  </Style>
-  <Style TargetType="ListViewItem">
-    <Setter Property="Padding" Value="6,5" />
-    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="ListViewItem">
-          <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
-                  CornerRadius="5" Padding="{TemplateBinding Padding}" Margin="2,1">
-            <GridViewRowPresenter VerticalAlignment="Center" />
-          </Border>
-          <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
-            </Trigger>
-            <Trigger Property="IsSelected" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent.Ring}" />
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Opacity" Value="0.75" />
-            </Trigger>
-          </ControlTemplate.Triggers>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
-  </Style>
-  <Style TargetType="GridViewColumnHeader">
-    <Setter Property="Background" Value="{StaticResource Bg.Subtle}" />
-    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
-    <Setter Property="FontSize" Value="11" />
-    <Setter Property="Padding" Value="10,7" />
-    <Setter Property="HorizontalContentAlignment" Value="Left" />
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="GridViewColumnHeader">
-          <Border Background="{TemplateBinding Background}" BorderBrush="{StaticResource Border.Soft}"
-                  BorderThickness="0,0,0,1" Padding="{TemplateBinding Padding}">
-            <ContentPresenter VerticalAlignment="Center" />
-          </Border>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
-  </Style>
-
   <!-- ============ ツリー（▷ をシェブロンに） ============ -->
   <Style x:Key="TreeChevron" TargetType="ToggleButton">
     <Setter Property="Focusable" Value="False" />

@@ -12,11 +12,11 @@
 |---|---|---|---|
 | [00_index.md](00_index.md)（本書） | – | – | ドキュメント構成、1. 概要・全体構成、2. 動作環境 |
 | └ [00_共通_1_フォルダ構成と設定ファイル.md](00_共通_1_フォルダ構成と設定ファイル.md) | – | – | 3. フォルダ・ファイル構成、4. 設定ファイル（`setting.config`） |
-| └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `tebunko_grep/lib.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
-| └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `tebunko_grep/lib.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
+| └ [00_共通_2_共通モジュール.md](00_共通_2_共通モジュール.md) | – | `tebunko/lib.ps1` | 5. 共通モジュール（パス定義・関数一覧） |
+| └ [00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md](00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md) | – | `tebunko/lib.ps1` | 5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数 |
 | └ [00_共通_3_テスト.md](00_共通_3_テスト.md) | – | – | 6. テスト（品質の関門の一覧・単体テスト・結合テスト・カバレッジ・コミット前の検査・CI） |
 | └ [00_共通_4_プロセスとスレッド.md](00_共通_4_プロセスとスレッド.md) | – | – | 7. プロセスとスレッド（スレッドの一覧・寿命・インデックス作成の並列化・受け渡し・閉じる順番・GC） |
-| [01_インデックス作成.md](01_インデックス作成.md) | 画面の［インデックス作成を開始］（画面のプロセスのスレッドで実行） | `tebunko_grep/indexer.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成 |
+| [01_インデックス作成.md](01_インデックス作成.md) | 画面の［インデックス作成を開始］（画面のプロセスのスレッドで実行） | `tebunko/indexer.ps1` / `shared/office/office_reader.ps1` | Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成 |
 | └ [01_インデックス作成_1_Excel.md](01_インデックス作成_1_Excel.md) | | | 4.3 Excel の抽出、6.3 TSV 整形仕様、6.7 Excel の図形・コメントの読み取り |
 | └ [01_インデックス作成_2_Word.md](01_インデックス作成_2_Word.md) | | | 4.5 Word の旧形式の変換、6.5 テキスト読み取りと TSV の場所、7.2 注意点・既知の問題 |
 | └ [01_インデックス作成_3_PowerPoint.md](01_インデックス作成_3_PowerPoint.md) | | | 4.6 PowerPoint の旧形式の変換、6.6 テキスト読み取りと TSV の場所、7.3 注意点・既知の問題 |
@@ -25,8 +25,8 @@
 | └ [01_インデックス作成_6_共通処理とアプリ管理.md](01_インデックス作成_6_共通処理とアプリ管理.md) | | | 4.4 Word・PowerPoint の抽出、4.7 失敗の原因、5. Office アプリの管理 |
 | └ [01_インデックス作成_7_出力TSVと既知の問題.md](01_インデックス作成_7_出力TSVと既知の問題.md) | | | 6.1・6.2・6.4 出力 TSV の仕様、7.1 注意点・既知の問題（共通） |
 | └ [01_インデックス作成_8_エラーメッセージ一覧.md](01_インデックス作成_8_エラーメッセージ一覧.md) | | | 4.8 エラーメッセージ一覧（続けられないエラー・ファイルごとの失敗・警告） |
-| [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `tebunko_grep/search/search_query.ps1` / `tebunko_grep/search/pack_search.ps1` / `tebunko_grep/search/search_run.ps1` | インデックス（集約ファイル）の検索処理と検索結果ファイルの形式 |
-| [03_画面.md](03_画面.md) | `tebunko.bat` | `tebunko_grep/gui.ps1` / `tebunko_grep/xaml/tebunko_grep.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
+| [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `tebunko/search/search_query.ps1` / `tebunko/search/pack_search.ps1` / `tebunko/search/search_run.ps1` | インデックス（集約ファイル）の検索処理と検索結果ファイルの形式 |
+| [03_画面.md](03_画面.md) | `tebunko.bat` | `tebunko/gui.ps1` / `tebunko/xaml/tebunko.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
 | └ [03_画面_1_インデックス管理タブ.md](03_画面_1_インデックス管理タブ.md) | | | 3. ［1 インデックス管理］タブ |
 | └ [03_画面_2_検索タブ.md](03_画面_2_検索タブ.md) | | | 4. ［2 検索］タブ |
 | └ [03_画面_2_検索タブ_1_元のファイルを開く.md](03_画面_2_検索タブ_1_元のファイルを開く.md) | | | 4.5 元のファイルを開く |
@@ -89,7 +89,7 @@ flowchart LR
     bat["tebunko.bat"]
 
     subgraph scripts["scripts/"]
-        subgraph tool["tebunko_grep/（このツール固有）"]
+        subgraph tool["tebunko/（このツール固有）"]
             gui["gui.ps1<br>画面の起動口<br>（ui/ 配下を読み込む）"]
             conv["indexer.ps1<br>インデクサの起動口<br>（indexer/ 配下を読み込む）"]
             common["lib.ps1<br>画面以外の部品の読み込み口<br>（core/・index/・indexer/・search/）"]
@@ -110,7 +110,7 @@ flowchart LR
         out["検索結果.txt<br>（［結果をファイルに出力］）"]
     end
 
-    tmp[("%TEMP%\tebunko_grep\#lt;PID#gt;<br>取り込みの作業領域")]
+    tmp[("%TEMP%\tebunko\#lt;PID#gt;<br>取り込みの作業領域")]
     src[("クロール対象フォルダ<br>Excel・Word・PowerPoint ファイル群")]
     excel["Microsoft Excel<br>（COM）"]
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]
@@ -146,7 +146,7 @@ flowchart LR
 
 | 分け方 | 内容 |
 |---|---|
-| 文脈（上位） | `scripts/shared/`（どのツールからも使う）と `scripts/tebunko_grep/`（このツール固有）。その下はドメイン（`core`・`office`・`index`・`indexer`・`search`・`ui`） |
+| 文脈（上位） | `scripts/shared/`（どのツールからも使う）と `scripts/tebunko/`（このツール固有）。その下はドメイン（`core`・`office`・`index`・`indexer`・`search`・`ui`） |
 | 層（下位） | 判断層（入力は素の値、出力は素の値）・状態層（ファイル・COM を読み書き）・画面層（`$ui` を触る） |
 
 決まりごとは 3 つ。いずれも `tests/meta/` で機械的に確かめる（[6.3](00_共通_3_テスト.md#63-テストの構成と実行)）。
@@ -162,7 +162,7 @@ flowchart LR
 sequenceDiagram
     actor U as 利用者
     participant G as 画面（tebunko.bat）
-    participant CV as インデクサ（tebunko_grep/indexer.ps1）
+    participant CV as インデクサ（tebunko/indexer.ps1）
     participant W as work/index/
 
     U->>G: ［1 インデックス管理］の［追加…］でインデックスを追加

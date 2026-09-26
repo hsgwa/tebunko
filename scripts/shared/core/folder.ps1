@@ -1,4 +1,4 @@
-﻿# フォルダのパスと一覧（正規化・同一判定・ドライブ・エクスプローラー風の一覧）。
+﻿# フォルダのパス（正規化・同一判定・ドライブ・フォルダ選択の開始フォルダ）。
 
 function normalizeFolderPath {
     # フォルダパスを1つの書き方にそろえる（書き方の違いで同じフォルダを別のフォルダとみなさないため）。
@@ -188,234 +188,25 @@ function testFolderUnder {
 }
 
 
-# ---- フォルダ選択（エクスプローラー風のフォルダ選択ダイアログが使う） ----
+# ---- フォルダ選択の開始フォルダ ----
 
 
-function joinFolderPath {
-    # フォルダのパスとその中の名前をつなぐ（ドライブ直下 "C:\" ・共有フォルダ直下 "\\server\share" で \ が重ならないようにする）
+function getExistingAncestorFolder {
+    # folder が今もあればそのまま、無ければその上の今もあるフォルダを返す（フォルダ選択を開く場所）。どこにも無ければ空
     param (
-        [string]$folder,
-        [string]$name
+        [string]$folder
     )
 
-    if ($folder -eq "") {
-        return $name
-    }
-    return ($folder.TrimEnd("\") + "\" + $name)
-}
-
-function getParentFolderPath {
-    # 1つ上のフォルダを返す。これより上へはたどれない場合（ドライブ直下 "C:\"・共有フォルダ直下 "\\server\share"）は ""。
-    # フォルダ選択ダイアログの［↑］（1つ上へ）で使う
-    param (
-        [string]$path
-    )
-
-    $path = ([string]$path).Trim().TrimEnd("\")
-    if ($path -eq "" -or $path -match "^[A-Za-z]:$") {
-        return ""
-    }
-    if ($path.StartsWith("\\")) {
-        # "\\server\share" までで1つのフォルダ（共有フォルダ）。サーバー名だけ・共有名までなら、これより上は無い
-        if (@($path.Substring(2) -split "\\" | Where-Object { $_ -ne "" }).Count -le 2) {
-            return ""
+    $dir = $folder
+    while ($dir) {
+        if (Test-Path -LiteralPath (toLongPath $dir) -PathType Container) {
+            return $dir
         }
+        $dir = Split-Path $dir -Parent
     }
-    $parent = ([string][System.IO.Path]::GetDirectoryName($path)).TrimEnd("\")
-    if ($parent -eq "") {
-        return ""
-    }
-    if ($parent -match "^[A-Za-z]:$") {
-        # ドライブ直下は "C:\"（normalizeFolderPath と同じ書き方）
-        return "${parent}\"
-    }
-    return $parent
+    return ""
 }
 
-function testVisibleEntry {
-    # 隠し・システムの属性が付いていない（エクスプローラーの既定で見える）ものかを返す
-    param (
-        [System.IO.FileSystemInfo]$entry
-    )
-
-    return (($entry.Attributes -band ([System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System)) -eq 0)
-}
-
-function testHasSubFolders {
-    # フォルダの中にサブフォルダ（隠し・システムを除く）があるかを返す。
-    # フォルダ選択ダイアログのツリーで ▷（展開できる印）を出すかの判定に使う。
-    # 1つ見つかった時点で打ち切るため、中身の多いフォルダでも待たない
-    param (
-        [string]$path
-    )
-
-    try {
-        $dir = New-Object System.IO.DirectoryInfo ((toLongPath $path))
-        foreach ($sub in $dir.EnumerateDirectories()) {
-            if (testVisibleEntry $sub) {
-                return $true
-            }
-        }
-    } catch {
-        # 開けないフォルダ（権限が無い・切れているネットワークドライブなど）は、サブフォルダ無しとして扱う
-    }
-    return $false
-}
-
-function getFolderEntries {
-    # フォルダの中身を、フォルダ選択ダイアログの一覧に出す順（フォルダが先、それぞれ名前順）で返す。
-    # 隠し・システムのフォルダとファイルは出さない（エクスプローラーの既定と同じ）。
-    #   Entries     : @{ Name; Path; IsFolder; IsOffice; Updated（DateTime。取れなければ $null） } の配列
-    #   FolderCount : 一覧に出したフォルダの数
-    #   OfficeCount : 一覧に出した Office ファイルの数（そのフォルダが目的のフォルダかの目安になる）
-    #   Truncated   : 中身が limit 件を超えて打ち切ったか（中身の多いフォルダで画面が固まらないようにする）
-    #   Error       : 開けなかった理由（開けたときは ""）
-    # foldersOnly を付けるとフォルダだけを返す（ツリーの読み込み用。ファイルを数えない分だけ速い）
-    param (
-        [string]$path,
-        [int]$limit = 2000,
-        [switch]$foldersOnly
-    )
-
-    $folders = New-Object System.Collections.Generic.List[object]
-    $files = New-Object System.Collections.Generic.List[object]
-    $truncated = $false
-    $message = ""
-    if (([string]$path).Trim() -eq "") {
-        return @{ Entries = @(); FolderCount = 0; OfficeCount = 0; Truncated = $false; Error = "フォルダを指定してください。" }
-    }
-    try {
-        $dir = New-Object System.IO.DirectoryInfo ((toLongPath $path))
-        $scanned = 0
-        foreach ($entry in $dir.EnumerateFileSystemInfos()) {
-            # 中身が非常に多いフォルダでも待たせないよう、見た件数でも打ち切る（隠しファイルばかりのフォルダ対策）
-            $scanned++
-            if ($scanned -gt ($limit * 10)) {
-                $truncated = $true
-                break
-            }
-            if (-not (testVisibleEntry $entry)) {
-                continue
-            }
-            if (($folders.Count + $files.Count) -ge $limit) {
-                $truncated = $true
-                break
-            }
-            $isFolder = (($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0)
-            if ($foldersOnly -and -not $isFolder) {
-                continue
-            }
-            $updated = $null
-            try {
-                $updated = $entry.LastWriteTime
-            } catch {
-                # 更新日時が取れなくても一覧には出す
-            }
-            $item = [pscustomobject]@{
-                Name     = $entry.Name
-                Path     = (joinFolderPath $path $entry.Name)
-                IsFolder = $isFolder
-                IsOffice = ((-not $isFolder) -and (testOfficeFile $entry.Name))
-                Updated  = $updated
-            }
-            if ($isFolder) {
-                $folders.Add($item)
-            } else {
-                $files.Add($item)
-            }
-        }
-    } catch [System.UnauthorizedAccessException] {
-        $message = "このフォルダを開く権限がありません。"
-    } catch [System.IO.DirectoryNotFoundException] {
-        $message = "フォルダが見つかりません。"
-    } catch {
-        $message = "フォルダを開けません（$($_.Exception.Message)）。"
-    }
-    $sortedFolders = @($folders | Sort-Object -Property Name)
-    $sortedFiles = @($files | Sort-Object -Property Name)
-    return @{
-        Entries     = @($sortedFolders + $sortedFiles)
-        FolderCount = $sortedFolders.Count
-        OfficeCount = @($sortedFiles | Where-Object { $_.IsOffice }).Count
-        Truncated   = $truncated
-        Error       = $message
-    }
-}
-
-function getQuickFolders {
-    # フォルダ選択ダイアログの左側に出す「よく使う場所」（実際にあるフォルダだけ）。
-    #   @{ Name; Path } の配列
-    $items = New-Object System.Collections.Generic.List[object]
-    $places = @(
-        @{ Name = "デスクトップ"; Path = [System.Environment]::GetFolderPath("DesktopDirectory") },
-        @{ Name = "ドキュメント"; Path = [System.Environment]::GetFolderPath("MyDocuments") },
-        @{ Name = "ダウンロード"; Path = (joinFolderPath ([System.Environment]::GetFolderPath("UserProfile")) "Downloads") }
-    )
-    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($place in $places) {
-        $path = ([string]$place.Path).TrimEnd("\")
-        if ($path -eq "" -or -not $seen.Add($path)) {
-            continue
-        }
-        try {
-            if (-not [System.IO.Directory]::Exists((toLongPath $path))) {
-                continue
-            }
-        } catch {
-            continue
-        }
-        $items.Add([pscustomobject]@{ Name = $place.Name; Path = $path })
-    }
-    return $items.ToArray()
-}
-
-function getComputerFolders {
-    # フォルダ選択ダイアログの「PC」の下に出すドライブの一覧（使えるドライブだけ）。
-    #   @{ Name = "Windows (C:)"; Path = "C:\" } の配列
-    # ネットワークドライブは割り当て先（\\server\share）を名前に出す
-    param (
-        $drives = (getDriveTargets)  # ドライブ文字 → 割り当て先（テストで差し替える）
-    )
-
-    $items = New-Object System.Collections.Generic.List[object]
-    $found = @()
-    try {
-        $found = [System.IO.DriveInfo]::GetDrives()
-    } catch {
-        # ドライブを調べられない環境では、ツリーにドライブを出さない（アドレスバーからは開ける）
-        return $items.ToArray()
-    }
-    foreach ($drive in $found) {
-        try {
-            if (-not $drive.IsReady) {
-                continue
-            }
-            $letter = $drive.Name.TrimEnd("\")
-            $label = ""
-            try {
-                $label = ([string]$drive.VolumeLabel).Trim()
-            } catch {
-                # ラベルが取れないドライブは種類の名前で出す
-            }
-            if ($drive.DriveType -eq [System.IO.DriveType]::Network -and $drives.ContainsKey($letter)) {
-                $label = $drives[$letter]
-            }
-            if ($label -eq "") {
-                $label = switch ($drive.DriveType) {
-                    "Network"   { "ネットワークドライブ" }
-                    "Removable" { "リムーバブルディスク" }
-                    "CDRom"     { "DVD ドライブ" }
-                    default     { "ローカルディスク" }
-                }
-            }
-            $items.Add([pscustomobject]@{ Name = "$label ($letter)"; Path = "${letter}\" })
-        } catch {
-            # 準備できていないドライブ（切れているネットワークドライブなど）は飛ばす
-            continue
-        }
-    }
-    return $items.ToArray()
-}
 
 function getFolderLeafName {
     # フォルダ名（ドライブ直下はドライブ名、UNC の共有直下は共有名）を返す

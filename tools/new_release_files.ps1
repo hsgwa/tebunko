@@ -7,10 +7,11 @@
 #   tebunko.cat       カタログ（各ファイルの SHA256。Test-FileCatalog で検証する）
 #   SHA256SUMS.txt     ファイルごとの SHA256（テキストで目視・比較できる形式）
 #
-# 配布する zip に 2 つとも同梱する。受け取った側は次のコマンドで、配布時点から
+# 2 つとも配布する zip には入れず、zip と並べて GitHub Release に載せる（tools\new_release_package.ps1・release.yml）。
+# 受け取った側は、zip を展開したフォルダで次のコマンドを実行すると、配布時点から
 # 1 バイトも変わっていないことを自分で確認できる（証明書は要らない）。
 #
-#   Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath .\tebunko.cat -Detailed
+#   Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <ダウンロードした tebunko.cat> -Detailed
 #
 # Status が Valid なら改ざんなし。ValidationFailed なら、どのファイルが違うかが表示される。
 # コードサイニング証明書がある場合は、カタログに署名すると発行者の保証も付く。
@@ -47,7 +48,7 @@ if ($result.Status -ne "Valid") {
 
 $sumsPath = Join-Path $OutDir "SHA256SUMS.txt"
 $lines = New-Object System.Collections.Generic.List[string]
-$lines.Add("# tebunko_grep 配布物の SHA256（$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') 時点）")
+$lines.Add("# tebunko 配布物の SHA256（$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') 時点）")
 $lines.Add("# 確認: Get-FileHash <ファイル> -Algorithm SHA256")
 foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -Recurse -File | Sort-Object FullName)) {
     $relative = $file.FullName.Substring($rootDir.Length + 1)
