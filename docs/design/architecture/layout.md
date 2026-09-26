@@ -73,9 +73,9 @@
 
 | パス | 説明 |
 |---|---|
-| `work/index/` | インデックス。クロール対象フォルダごとに `work/index/<インデックス名>/` に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（`content.xlsx.001.tsv` など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（`<ファイル名.xlsx>/<場所>.tsv`）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（[配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)） |
+| `work/index/` | インデックス。クロール対象フォルダごとに `work/index/<インデックス名>/` に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（`content.xlsx.001.tsv` など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（`<ファイル名.xlsx>/<場所>.tsv`）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（[配置・命名規則](../indexer/index-format.md#配置命名規則)） |
 | `work/index/<インデックス名>/元のフォルダ.txt` | インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。`work/index` ごとでも `<インデックス名>` のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける |
-| `work/system_index/` | システムインデックス（高速検索用。`work/index` の中のフォルダごとの 2-gram の txt。[システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index) [システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index)）。Windows Search に索引させる |
+| `work/system_index/` | システムインデックス（高速検索用。`work/index` の中のフォルダごとの 2-gram の txt。[システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index)）。Windows Search に索引させる |
 | `work/システムインデックスの状態.tsv` | システムインデックスの状態（対応済み・反映待ち・対象外。[システムインデックス（system_index）](../indexer/index-format.md#システムインデックスsystem_index)） |
 | `work/取り込み一覧.tsv` | 取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗） |
 | `work/取り込み中.txt` | 取り込み中のファイル（取り込みのスレッドごとに 1 行）。取り込み中に強制終了したときだけ残る |
