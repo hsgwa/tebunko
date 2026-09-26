@@ -170,16 +170,6 @@ function newTimer {
     return $timer
 }
 
-function testSamePath {
-    # フォルダ選択ダイアログの中で、2つのパスが同じ書き方かを見る（末尾の \ ・大文字と小文字の違いは無視する）
-    param (
-        [string]$a,
-        [string]$b
-    )
-
-    return [string]::Equals(([string]$a).TrimEnd("\"), ([string]$b).TrimEnd("\"), [System.StringComparison]::OrdinalIgnoreCase)
-}
-
 function formatTime {
     # 当日なら HH:mm、それ以前は M/d HH:mm
     param (
@@ -216,7 +206,8 @@ function readTextShared {
 
 # ---- 別スレッドの処理（インデックスの件数など） ----
 
-$script:jobs = New-Object System.Collections.ArrayList
+# 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui.ps1）が $script:backgroundQueue に用意する。
+# 仕事のスクリプトでは、そのツールの関数（lib.ps1）をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
 
 function startJob {
     # scriptBlock を別スレッドで実行し、終わったら画面のスレッドで onDone { param($output, $errorText) } を呼ぶ
@@ -226,38 +217,14 @@ function startJob {
         [scriptblock]$onDone
     )
 
-    $ps = [powershell]::Create()
-    [void]$ps.AddScript($scriptBlock.ToString())
-    foreach ($argument in $arguments) {
-        [void]$ps.AddArgument($argument)
-    }
-    [void]$script:jobs.Add(@{ PS = $ps; Handle = $ps.BeginInvoke(); OnDone = $onDone })
+    $script:backgroundQueue.Post($scriptBlock.ToString(), $arguments, $onDone)
     $script:jobTimer.Start()
 }
 
-
-$script:jobTimer = newTimer 200 {
+# 終わった仕事を受け取る間隔。プレビューの読み込みも通るため短くする（仕事が無ければ止める）
+$script:jobTimer = newTimer 50 {
     safe {
-        foreach ($job in @($script:jobs.ToArray())) {
-            if (!$job.Handle.IsCompleted) {
-                continue
-            }
-            $script:jobs.Remove($job)
-            $output = $null
-            $errorText = $null
-            try {
-                $output = $job.PS.EndInvoke($job.Handle)
-                if ($job.PS.Streams.Error.Count -gt 0) {
-                    $errorText = $job.PS.Streams.Error[0].ToString()
-                }
-            } catch {
-                $errorText = $_.Exception.Message
-            } finally {
-                $job.PS.Dispose()
-            }
-            & $job.OnDone $output $errorText
-        }
-        if ($script:jobs.Count -eq 0) {
+        if ($script:backgroundQueue.Poll() -eq 0) {
             $script:jobTimer.Stop()
         }
     }

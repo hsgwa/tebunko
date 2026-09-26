@@ -11,7 +11,7 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
-$lib = Join-Path (Split-Path $PSScriptRoot -Parent) "scripts\tebunko_grep\lib.ps1"
+$lib = Join-Path (Split-Path $PSScriptRoot -Parent) "scripts\tebunko\lib.ps1"
 . $lib
 $IndexRoot = (Resolve-Path -LiteralPath $IndexRoot).ProviderPath.TrimEnd("\")
 $Words = @("tebunko計測用の存在しない語") + @($Words | Where-Object { $_ })

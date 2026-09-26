@@ -18,6 +18,13 @@ $appInfo = @{
     PowerPoint = @{ ProgId = "PowerPoint.Application"; Process = "POWERPNT"; ExitWait = 5000 }
 }
 
+# 起動した Office のプロセスの優先度は下げない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、
+# PowerPoint は 1 つのプロセスしか持てないため、利用者とプロセスを共有しないと確実には言えない。利用者の操作を遅くしないよう、
+# 優先度を下げるのは、利用者と共有しないインデックス作成のスレッドだけにする（docs/00_共通_4_プロセスとスレッド.md 7.2）
+# 起動したアプリの PID を入れる入れ物（ConcurrentDictionary[int,string]。$null なら入れない）。
+# 画面が閉じるときに、インデックス作成が起動した Office を PID で止めるために使う
+$script:officePidSink = $null
+
 function getApp {
     # アプリのCOMオブジェクトを返す。起動していなければ起動する
     param (
@@ -32,6 +39,9 @@ function getApp {
         $com = New-Object -ComObject $info.ProgId
         $after = @(Get-Process -Name $info.Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
         $newIds = @($after | Where-Object { $before -notcontains $_ })
+        if ($newIds.Count -eq 1 -and $script:officePidSink) {
+            $script:officePidSink[[int]$newIds[0]] = $info.Process
+        }
 
         switch ($name) {
             "Excel" {
@@ -99,6 +109,10 @@ function stopApp {
             # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
             try { $process.Kill() } catch {}
         }
+    }
+    if ($app.Pid -and $script:officePidSink) {
+        $removed = $null
+        [void]$script:officePidSink.TryRemove([int]$app.Pid, [ref]$removed)
     }
 }
 

@@ -2,14 +2,14 @@
 #
 #   .\tools\new_release_package.ps1 -Version v1.0.0     work\release\ に zip と、zip の横に並べるファイルを作る
 #
-# zip の中身（展開すると tebunko_grep\ フォルダになる）。展開したときに、起動するもの（tebunko.bat）と使い方がすぐ分かるものだけにする:
+# zip の中身（展開すると tebunko\ フォルダになる）。展開したときに、起動するもの（tebunko.bat）と使い方がすぐ分かるものだけにする:
 #   tebunko.bat scripts\                              ツール本体
 #   README.md                                         使い方。相対リンクと画像は、その版の GitHub の URL に書き換える
 #                                                     （docs\ や画像は zip に入れないため。ページ内のリンク #… はそのまま）
 #   LICENSE                                           ライセンス（MIT。写しに許諾表示を含めるため同梱する）
 #
 # zip の横に並べて、GitHub Release に載せるもの（release.yml）:
-#   tebunko_grep-<版>.zip
+#   tebunko-<版>.zip
 #   tebunko.cat SHA256SUMS.txt                        改ざんの確認用（tools\new_release_files.ps1 が作る）
 #   sbom.cdx.json                                     部品表
 # SECURITY は zip に入れず、README とリリースの説明からリンクする。
@@ -55,7 +55,7 @@ $readme = [regex]::Replace($readme, '\]\((?!https?:|#|mailto:)([^)\s]+)\)', "](h
 $readme = [regex]::Replace($readme, 'src="(?!https?:)([^"]+)"', "src=`"https://raw.githubusercontent.com/$Repository/$Version/`$1`"")
 $readmeBytes = (New-Object System.Text.UTF8Encoding($true)).GetPreamble() + (New-Object System.Text.UTF8Encoding($false)).GetBytes($readme)
 
-$zipPath = Join-Path $OutDir "tebunko_grep-$Version.zip"
+$zipPath = Join-Path $OutDir "tebunko-$Version.zip"
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
 }
@@ -64,7 +64,7 @@ $stream = [System.IO.File]::Open($zipPath, [System.IO.FileMode]::CreateNew)
 $archive = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
     foreach ($name in $entries.Keys) {
-        $entry = $archive.CreateEntry("tebunko_grep/" + $name.Replace("\", "/"), [System.IO.Compression.CompressionLevel]::Optimal)
+        $entry = $archive.CreateEntry("tebunko/" + $name.Replace("\", "/"), [System.IO.Compression.CompressionLevel]::Optimal)
         $entry.LastWriteTime = (Get-Item -LiteralPath $entries[$name]).LastWriteTime
         $writer = $entry.Open()
         try {

@@ -48,7 +48,7 @@ if ($result.Status -ne "Valid") {
 
 $sumsPath = Join-Path $OutDir "SHA256SUMS.txt"
 $lines = New-Object System.Collections.Generic.List[string]
-$lines.Add("# tebunko_grep 配布物の SHA256（$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') 時点）")
+$lines.Add("# tebunko 配布物の SHA256（$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') 時点）")
 $lines.Add("# 確認: Get-FileHash <ファイル> -Algorithm SHA256")
 foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -Recurse -File | Sort-Object FullName)) {
     $relative = $file.FullName.Substring($rootDir.Length + 1)

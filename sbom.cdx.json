@@ -59,23 +59,23 @@
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/gui.ps1",
+      "bom-ref": "scripts/tebunko/gui.ps1",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/gui.ps1",
+      "name": "scripts/tebunko/gui.ps1",
       "description": "画面（WPF）の起動口"
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/indexer.ps1",
+      "bom-ref": "scripts/tebunko/indexer.ps1",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/indexer.ps1",
+      "name": "scripts/tebunko/indexer.ps1",
       "description": "インデクサ（インデックス作成）の起動口"
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/lib.ps1",
+      "bom-ref": "scripts/tebunko/lib.ps1",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/lib.ps1",
+      "name": "scripts/tebunko/lib.ps1",
       "description": "このツール固有の部品（core・index・indexer・search）の読み込み口"
     },
     {
@@ -101,24 +101,24 @@
     },
     {
       "type": "file",
-      "bom-ref": "scripts/tebunko_grep/tebunko_grep.ico",
+      "bom-ref": "scripts/tebunko/tebunko.ico",
       "group": "tebunko",
-      "name": "scripts/tebunko_grep/tebunko_grep.ico",
+      "name": "scripts/tebunko/tebunko.ico",
       "description": "画面のアイコン（同梱する唯一のバイナリ）。元データは docs/images/logo.svg（リポジトリの管理者が作成）で、tools/new_icon.ps1 で作る"
     }
   ],
   "dependencies": [
     {
-      "ref": "tebunko_grep",
+      "ref": "tebunko",
       "dependsOn": [
         "tebunko.bat",
-        "scripts/tebunko_grep/gui.ps1",
-        "scripts/tebunko_grep/indexer.ps1",
-        "scripts/tebunko_grep/lib.ps1",
+        "scripts/tebunko/gui.ps1",
+        "scripts/tebunko/indexer.ps1",
+        "scripts/tebunko/lib.ps1",
         "scripts/shared/shared.ps1",
         "scripts/shared/office/office_reader.ps1",
         "scripts/xaml",
-        "scripts/tebunko_grep/tebunko_grep.ico"
+        "scripts/tebunko/tebunko.ico"
       ]
     }
   ]
