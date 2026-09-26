@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1411,7 +1441,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/gui.ps1</code></td>
-<td>画面の起動口。Mark-of-the-Web の除去、多重起動の防止（12.1）、ウィンドウとタブの読み込みと <code>x:Name</code> の対応表（<code>$ui</code>）の作成、各部品の読み込み（<strong>順に意味がある</strong>）、ウィンドウ全体のイベント、<code>ShowDialog</code>。判定・検索ロジックは持たない</td>
+<td>画面の起動口。Mark-of-the-Web の除去、多重起動の防止（12.1）、ウィンドウとタブの読み込みと <code>x:Name</code> の対応表（<code>$ui</code>）の作成、各部品の読み込み（<strong>順に意味がある</strong>）、ウィンドウ全体のイベント、<code>ShowDialog</code>。画面を開いている間使うスレッド（検索の司令 <code>SearchService</code>・画面の裏の仕事 <code>BackgroundQueue</code>）の用意と、閉じるときの順番（インデックス作成を止めてから閉じる。<a href="../03_%E7%94%BB%E9%9D%A2_4_%E7%8A%B6%E6%85%8B%E3%81%A8%E6%93%8D%E4%BD%9C%E3%81%AE%E6%B5%81%E3%82%8C/#74-閉じる">7.4</a>）。起動時に <code>GCSettings.LatencyMode</code> を <code>SustainedLowLatency</code> にする。判定・検索ロジックは持たない</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/tebunko.xaml</code></td>
@@ -1427,7 +1457,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_indexing_confirm.xaml</code></td>
-<td>インデックス作成の確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#34-インデックス作成の確認ダイアログ">3.4</a>）。インデックスごとの取り込み対象の件数（<code>work/取り込み予定.tsv</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
+<td>インデックス作成の確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#34-インデックス作成の確認ダイアログ">3.4</a>）。インデックスごとの取り込み対象の件数（受け渡しの口の <code>Plan</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
 </tr>
 <tr>
 <td><code>scripts/shared/xaml/dialog_confirm.xaml</code></td>
@@ -1447,7 +1477,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/shell.ps1</code></td>
-<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、タイマー（<code>newTimer</code>）、別スレッド（<code>startJob</code>。12.1）</td>
+<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。12.1）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/folder_dialog.ps1</code></td>
@@ -1455,7 +1485,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/index_tab.ps1</code><br><code>indexing_tab.ps1</code></td>
-<td>［1 インデックス管理］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の起動・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（8 章）</td>
+<td>［1 インデックス管理］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（<code>IndexingSession</code>）・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（8 章）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/search_tab.ps1</code><br><code>result_list.ps1</code><br><code>preview.ps1</code><br><code>open_source.ps1</code><br><code>index_tree.ps1</code></td>
@@ -1467,7 +1497,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/process_tab.ps1</code></td>
-<td>［9 プロセス停止］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3</a>）</td>
+<td>［9 プロセス停止］タブ（<a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3</a>）。定期的な一覧の取り直しとタブ見出しの ⚠ の判定は <code>startJob</code> で行う（ボタンでの取り直しは画面のスレッドで行う）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code></td>
@@ -1475,7 +1505,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/lib.ps1</code></td>
-<td>画面とインデックス作成（<code>tebunko/indexer.ps1</code>）で使う部品の読み込み口（下表の関数。実体は <code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code> と <code>shared/</code>）。画面が起こす別スレッドもこれを読み込む</td>
+<td>画面とインデックス作成（<code>tebunko/indexer.ps1</code>）で使う部品の読み込み口（下表の関数。実体は <code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code> と <code>shared/</code>）。検索の司令・画面の裏の仕事のスレッドも、始めたときに 1 回だけこれを読み込む</td>
 </tr>
 </tbody>
 </table>
@@ -1604,6 +1634,34 @@
 <td>画面</td>
 </tr>
 <tr>
+<td><code>newSearchService</code> / <code>newSearchRequest</code></td>
+<td>lib.ps1 のパス, 読んだ内容の使い回し, 照合のスレッド数 / ワード, 文字どおりか, 検索対象, 上限, 検索条件, 高速検索を使うか</td>
+<td><code>SearchService</code> / 要求</td>
+<td>検索の司令のスレッド（画面を開いている間 1 つ）と、検索 1 回分の要求（<code>Request</code> で渡す。前の要求は取り消す）（12.1。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#73-寿命">7.3</a>）</td>
+<td>画面</td>
+</tr>
+<tr>
+<td><code>newIndexingSession</code> / <code>newIndexerChannel</code></td>
+<td>indexer.ps1 のパス, 受け渡しの口 / 失敗分も再取り込みするか, 確認するか, 読み取りのスレッドの数</td>
+<td><code>IndexingSession</code> / 受け渡しの口</td>
+<td>インデックス作成 1 回分のスレッドと受け渡しの口（12.1。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#75-画面とインデクサの受け渡し">7.5</a>）</td>
+<td>画面</td>
+</tr>
+<tr>
+<td><code>readIndexingProgress</code> / <code>requestIndexingStop</code> / <code>answerIndexingPlan</code></td>
+<td>受け渡しの口 / 受け渡しの口 / 受け渡しの口, 返事</td>
+<td>進み具合 / – / –</td>
+<td>進み具合を読む（3.6）、中止を求める（3.7）、確認の返事を返す（3.4）</td>
+<td>画面</td>
+</tr>
+<tr>
+<td><code>testIndexerRunning</code></td>
+<td>–</td>
+<td>bool</td>
+<td>画面を使わずに起動したものを含め、この <code>work</code> でインデックス作成が動いているか（ワークスペースを変える前に調べる）</td>
+<td>画面（［8 設定］）</td>
+</tr>
+<tr>
 <td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
 <td>– / <code>@{ Path; Subfolders }</code> の配列</td>
 <td>同左 / –</td>
@@ -1645,11 +1703,11 @@
 <tbody>
 <tr>
 <td><strong>画面のスレッドで 0.2 秒を超える可能性のある処理をしない</strong></td>
-<td>ファイル数・行数に比例する処理（検索、取り込み一覧の集計、インデックスの削除、TSV の数え上げ）は別スレッド（Runspace）で行い、終わったら画面のスレッドで結果を反映する。終わるまでは、その操作のボタンを無効にして何をしているかをステータスに出す</td>
+<td>ファイル数・行数に比例する処理（検索、取り込み一覧の集計、インデックスの削除、TSV の数え上げ）は別のスレッド（検索の司令・画面の裏の仕事。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#72-スレッドの一覧">7.2</a>）で行い、終わったら画面のスレッドで結果を反映する。終わるまでは、その操作のボタンを無効にして何をしているかをステータスに出す</td>
 </tr>
 <tr>
 <td><strong>繰り返し読むものは小さくする</strong></td>
-<td>1 秒ごとに読むものは「進み具合の 1 行」（<code>work/インデックス作成進捗.txt</code>。実測 約 1 ミリ秒）にする。数万行の取り込み一覧を毎秒読み直すと、その間ずっと画面が止まる（5 万行で 1 回約 1.4 秒）。書く側（インデクサ）が数えて 1 行にする</td>
+<td>1 秒ごとに読むものは、受け渡しの口の進み具合（<code>readIndexingProgress</code>。メモリ上の値）にする。数万行の取り込み一覧を毎秒読み直すと、その間ずっと画面が止まる（5 万行で 1 回約 1.4 秒）。書く側（インデクサ）が数えて進み具合に入れる</td>
 </tr>
 <tr>
 <td><strong>無言の時間を作らない</strong></td>
@@ -1680,7 +1738,7 @@
 <td>取り込み一覧の読み込み（<code>readStatusFile</code>）</td>
 <td>0.32 秒</td>
 <td>1.4 秒</td>
-<td>1 行ごとに関数を呼ばない。毎秒は読まず、進み具合の 1 行を読む</td>
+<td>1 行ごとに関数を呼ばない。毎秒は読まず、受け渡しの口の進み具合を読む</td>
 </tr>
 <tr>
 <td>取り込み一覧の書き出し（<code>writeStatusFile</code>）</td>
@@ -1713,9 +1771,10 @@
 </blockquote>
 <p>別スレッドとタイマーの扱い：</p>
 <ul>
-<li>検索は <code>search_tab.ps1</code> が専用の Runspace（<code>[powershell]::Create()</code>）で実行する。結果はスレッド間で共有するキュー（<code>ConcurrentQueue</code>）に入れ、画面の <code>DispatcherTimer</code>（0.1 秒間隔）で取り出して表に加える。1 回に取り出す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が止まる）。中止はフラグで伝える。</li>
-<li>集約ファイルの件数取得・取り込み一覧の集計・インデックスの削除は <code>startJob</code>（<code>shell.ps1</code>）で実行する。終わったかは <code>DispatcherTimer</code>（0.2 秒間隔）で確かめ、画面のスレッドで <code>onDone</code> を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。</li>
-<li>インデックス作成のプロセスは <code>Start-Process -PassThru</code>（<code>-WindowStyle Hidden</code>）で起動し、<code>DispatcherTimer</code>（1 秒間隔）で <code>HasExited</code> と進み具合の 1 行（<code>work/インデックス作成進捗.txt</code>）を確認する（3.6）。終了後は <code>ExitCode</code> で表示を分ける（3.7）。起動時と開始時は、<code>Win32_Process</code> のコマンドラインから実行中のインデックス作成を探し、見つかればそのプロセスを監視する（3.3）。</li>
+<li>スレッドの分け方・寿命・閉じる順番は <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#7-プロセスとスレッド">7 章</a> にまとめる。画面のプロセスの中で、画面・検索・画面の裏の仕事・インデックス作成が別々のスレッドで動く。</li>
+<li>検索は検索の司令のスレッド（<code>SearchService</code>。画面を開いている間 1 つ）が、要求（<code>newSearchRequest</code>）を 1 つずつ実行する。lib.ps1 の読み込みと照合のプールの用意は、スレッドを始めたときに 1 回だけ行う。結果は要求の中のキュー（<code>ConcurrentQueue</code>）に入れ、画面の <code>DispatcherTimer</code>（0.1 秒間隔）で取り出して表に加える（<code>pumpSearch</code>）。1 回に取り出す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が止まる）。中止は要求の <code>Stop</code> で伝える。新しい要求を渡すと、前の要求の <code>Stop</code> を立てる。</li>
+<li>集約ファイルの件数取得・取り込み一覧の集計・インデックスの削除・選択行のプレビューの読み込み・［9 プロセス停止］の定期的な一覧の取り直しとタブ見出しの ⚠ の判定は <code>startJob</code>（<code>shell.ps1</code>）で実行する。<code>startJob</code> は画面の裏の仕事のスレッド（<code>BackgroundQueue</code>。2 つ。長い仕事の間もプレビューが待たないため）に渡す。各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む。終わったかは <code>DispatcherTimer</code>（<code>jobTimer</code>。仕事がある間だけ 0.05 秒間隔）で確かめ、画面のスレッドで <code>onDone</code> を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。</li>
+<li>インデックス作成は <code>newIndexingSession</code> で画面のプロセスの中のスレッド（MTA・BelowNormal）で実行し、<code>DispatcherTimer</code>（1 秒間隔）で <code>IsRunning</code> と受け渡しの口の進み具合（<code>readIndexingProgress</code>）を確認する（3.6）。終わったら受け渡しの口の終了コード（<code>GetExitCode</code>）で表示を分け（3.7）、<code>Close</code> でスレッドを片づける。</li>
 <li>進み具合の段階が <code>確認</code> になったら、インデックス作成の確認ダイアログを開く（3.4）。<strong>ダイアログを開いている間も <code>DispatcherTimer</code> は動く</strong>（<code>ShowDialog</code> は入れ子のメッセージループのため）。開く前に「開いた」ことにして、二重に開かないようにする。</li>
 <li>多重起動は、ツールの配置フォルダごとの名前付き Mutex で防ぐ。2 つ目のプロセスは、同じくフォルダごとの名前付きイベント（<code>Local\tebunko_gui_activate_&lt;フォルダのハッシュ&gt;</code>）を合図して終了し、すでに開いている画面が <code>DispatcherTimer</code>（0.3 秒間隔）でそれを確認して <code>Window.Activate()</code>（＋最小化なら復帰）で前面に出す。別アプリが前面のときはフォーカスを奪えないことがある（OS の制限。P/Invoke の <code>SetForegroundWindow</code> は使わない。12.2）。</li>
 </ul>
@@ -1785,7 +1844,7 @@
 </tr>
 <tr>
 <td>第 2 段階</td>
-<td>画面だけで操作する。インデックス作成はウィンドウなしで起動し、［中止］・終了後の表示・［ログを開く］・インデックス作成中に閉じるときの確認（3.7）。実行中のインデックス作成の検出（3.1）。［インデックス作成を開始］で取り込み対象を数えて、インデックスごとの件数を確認する（3.4。失敗分の再取り込みもここで選ぶ）。画面とインデクサの受け渡しは、<code>tebunko/indexer.ps1</code> の引数（<code>-ConfirmTargets</code>・<code>-RetryFailed</code>）・終了コード（0 / 1 / 2）と <code>work/</code> のファイル（<code>取り込み予定.tsv</code>・<code>インデックス作成開始要求</code>・<code>インデックス作成中止要求</code>・<code>インデックス作成エラー.txt</code>・<code>インデックス作成ログ.txt</code>）で行う</td>
+<td>画面だけで操作する。インデックス作成は画面のプロセスの中のスレッドで実行し、［中止］・終了後の表示・［ログを開く］・インデックス作成中に閉じるときの確認（止めてから閉じる。3.7）。［インデックス作成を開始］で取り込み対象を数えて、インデックスごとの件数を確認する（3.4。失敗分の再取り込みもここで選ぶ）。画面とインデクサの受け渡しは、メモリ上の受け渡しの口（<code>newIndexerChannel</code>。確認の返事・中止・進み具合・エラー・終了コード 0 / 1 / 2）で行い、ファイルには <code>インデックス作成ログ.txt</code> だけを書く（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#75-画面とインデクサの受け渡し">7.5</a>）</td>
 <td><strong>実装済み</strong></td>
 </tr>
 <tr>

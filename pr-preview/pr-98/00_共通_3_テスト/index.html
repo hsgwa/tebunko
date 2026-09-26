@@ -16,7 +16,7 @@
         <link rel="prev" href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/">
       
       
-        <link rel="next" href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">
+        <link rel="next" href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/">
       
       
         
@@ -282,6 +282,8 @@
   
     
     
+      
+        
       
         
       
@@ -596,6 +598,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1843,8 +1873,8 @@
 <td>行の順序と内容を保った書き換え、以前の形式（抽出版の列が無い）の取り込み一覧</td>
 </tr>
 <tr>
-<td><code>readIngestingFile</code> / <code>writeIngestingFile</code> / <code>removeIngestingFile</code></td>
-<td>回数と相対パスの往復、無い・壊れていれば <code>$null</code></td>
+<td><code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code></td>
+<td>取り込み中の複数のファイルの回数と相対パスの往復、取り込み中が無ければ記録を消す、壊れた行は読み飛ばす</td>
 </tr>
 <tr>
 <td><code>describeIngestError</code></td>
@@ -1855,24 +1885,32 @@
 <td>状態ごとの件数、失敗したファイルの行の並び、指定した時刻以降に取り込んだ件数</td>
 </tr>
 <tr>
-<td><code>writeIndexingProgress</code> / <code>readIndexingProgress</code> / <code>removeIndexingProgress</code></td>
-<td>段階・件数・内容の往復、タブ・改行はスペース（1 行に保つ）、ファイルが無い・列が足りない・件数が数値でないときは <code>$null</code>、画面が読んでいる間も書ける（共有して開く）、削除（無ければ何もしない）</td>
+<td><code>newIndexerChannel</code> / <code>writeIndexingProgress</code> / <code>readIndexingProgress</code></td>
+<td>画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない</td>
 </tr>
 <tr>
-<td><code>writeIngestPlan</code> / <code>readIngestPlan</code> / <code>removeIngestPlan</code></td>
-<td>インデックスごとの件数の往復（件数は数値で返る）、<code>チェックなし</code>・<code>フォルダなし</code> の区分、インデックスが 0 件、見出しが合わない・ファイルが無いときは <code>$null</code>、画面が読んでいる間も書ける（共有して開く）、削除（無ければ何もしない）</td>
+<td><code>requestIndexingStop</code> / <code>answerIndexingPlan</code></td>
+<td>中止を求めると確認を待っていても待つのをやめる、取り込む返事は中止にしない、取りやめの返事（<code>$null</code>）は中止にする</td>
 </tr>
 <tr>
-<td><code>writeIndexingStartRequest</code> / <code>readIndexingStartRequest</code> / <code>removeIndexingStartRequest</code></td>
-<td>失敗分も再取り込みするかの往復、返事がまだ無ければ <code>$null</code>、削除（無ければ何もしない）</td>
+<td><code>testIndexerRunning</code></td>
+<td>インデックス作成の鍵をほかが持っていれば <code>$true</code>、調べた後は鍵を持たない</td>
+</tr>
+<tr>
+<td><code>writeIndexerLog</code></td>
+<td>ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない</td>
 </tr>
 <tr>
 <td><code>getExtractVersion</code> / <code>getIngestDecision</code></td>
 <td>形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了・インデックスなし・前回失敗・前の抽出版）</td>
 </tr>
 <tr>
+<td><code>getIngestLane</code> / <code>getOfficeLane</code></td>
+<td>Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン。読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン</td>
+</tr>
+<tr>
 <td><code>createTargetList</code> / <code>findOfficeFiles</code> / <code>waitForIndexingApproval</code></td>
-<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を待つ</td>
+<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む）</td>
 </tr>
 <tr>
 <td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>moveLegacyIndex</code> / <code>removeDroppedFolders</code> / <code>migrateFlatIndex</code></td>
@@ -1880,7 +1918,62 @@
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
-<td>設定とインデックスを <code>$TestDrive</code> に差し替えて通しで動かす（Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。続けられないエラーと終了コード、2 回目は更新の無いファイルを取り込まない、<code>-RetryFailed</code>、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめ・中止（終了コード 2）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、元のファイルが無くなったら次の作成で集約ファイルから外す、前回残った TSV を次の作成の始めに集約ファイルへ入れる、中止しても取り込んだ分は集約ファイルとシステムインデックスに入れる</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。以前の版が画面とのやり取りに使っていたファイルを始める前に消す、続けられないエラーと終了コード、2 回目は更新の無いファイルを取り込まない、<code>-RetryFailed</code>、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめ・中止（終了コード 2）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、元のファイルが無くなったら次の作成で集約ファイルから外す、前回残った TSV を次の作成の始めに集約ファイルへ入れる、中止しても取り込んだ分は集約ファイルとシステムインデックスに入れる</td>
+</tr>
+<tr>
+<td><code>indexer.ps1</code>（取り込みのスレッド）</td>
+<td>取り込みのスレッドで取り込んでも、取り込み一覧・集約ファイルがスレッドを使わないときと同じになる、取り込みのスレッドが始められなければ続けられないエラーで 1 を返す</td>
+</tr>
+<tr>
+<td><code>getIngestWorkerCount</code></td>
+<td>読み取りのスレッドの数。指定があればその数、無ければ設定（<code>ingestThreads</code>）、設定が 0 ならコア数から決める、ファイルの数より多くしない</td>
+</tr>
+<tr>
+<td><code>getIngestLaneCapacity</code></td>
+<td>Office のレーンは取り込み中と次の 1 件、読み取りのレーンはスレッドの数の 2 倍まで渡す</td>
+</tr>
+<tr>
+<td><code>runIngestWorker</code> / <code>invokeIngestTask</code>（レーン）</td>
+<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない</td>
+</tr>
+<tr>
+<td><code>IndexingSession</code>（<code>indexing_session</code>）</td>
+<td>インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の <code>Stop</code> を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、<code>Close</code> は動いていれば中止を求めて待つ（何度呼んでもよい）、<code>KillOffice</code> は記録した PID のうちプロセス名が同じものだけを止める</td>
+</tr>
+</tbody>
+</table>
+<p><strong>スレッドとプール（<code>tests/shared/core/worker_pool</code>・<code>tests/tebunko/search/search_service</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getWorkerCount</code> / <code>newWorkerState</code></td>
+<td>画面のために 1 コアを残し 1〜上限に収める、指定した関数と値だけを各スレッドに読み込む</td>
+</tr>
+<tr>
+<td><code>WorkerPool</code></td>
+<td>仕事の出力と引数の受け渡し、指定した優先度、PowerShell のインスタンスの使い回し、同時に複数の仕事、仕事の例外を投げても次の仕事を続けられる、止めた仕事は使い回さない、閉じた後は受け付けない（<code>Close</code> は何度呼んでもよい）、<code>Prelude</code> は各スレッドで 1 回だけ実行する</td>
+</tr>
+<tr>
+<td><code>BackgroundQueue</code></td>
+<td>終わった仕事の出力を onDone に渡す、失敗は errorText で渡す、終わっていない仕事の数、閉じると終わっていない仕事を止める</td>
+</tr>
+<tr>
+<td><code>newSearchRequest</code> / <code>invokeSearchRequest</code></td>
+<td>ヒットを列に入れて件数と終わったことを伝える、照合のプールを渡しても同じ結果、始める前に取り消されていたら検索しない、検索できなかった理由を <code>Error</code> に入れる（例外は投げない）</td>
+</tr>
+<tr>
+<td><code>SearchService</code></td>
+<td>要求を順に実行し同じスレッドを使い続ける、次の要求を渡すと前の要求を取り消す、閉じるとスレッドを止める、司令のスレッドが止まっていたら理由を返し次の要求で作り直す</td>
+</tr>
+<tr>
+<td><code>trimTsvTextCache</code></td>
+<td>上限の 9 割以下なら追い出さずに世代だけ進める、超えていたら今の世代で使わなかったものを古い世代から追い出す、今の世代で使ったものは残す、入れたとき・使ったときの世代を残す</td>
 </tr>
 </tbody>
 </table>
@@ -1934,7 +2027,7 @@
 </tr>
 <tr>
 <td><code>measure_perf.ps1</code></td>
-<td>小さなインデックスで pack の作成と検索を最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数（初回・2 回目）、段階ごとのリソースと推移の記録、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る</td>
+<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数と検索時間の統計値、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る</td>
 </tr>
 </tbody>
 </table>
@@ -1994,11 +2087,11 @@
 <tbody>
 <tr>
 <td><code>tests/tebunko/indexer/extract_office.Tests.ps1</code></td>
-<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、失敗しても文書を閉じて作業ファイルを消す</td>
+<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、読み取りのスレッドでは中身が旧形式の <code>.docx</code> を Office を使わずに「Office が要る」の例外にし（<code>getApp</code> を呼ばない）、壊れた <code>.pptx</code> は回し直さずに失敗にする、失敗しても文書を閉じて作業ファイルを消す</td>
 </tr>
 <tr>
 <td><code>tests/shared/office/office_app.Tests.ps1</code></td>
-<td>起動時の設定（非表示・警告なし・イベントなし・リンクを更新しない・マクロ無効。PowerPoint は <code>Visible</code> を変えない）、起動済みのアプリを使い回す、自分で起動したアプリだけを制限時間の強制終了の対象にする、Quit して終わらなければ強制終了する（Excel は 1 秒、Word・PowerPoint は 5 秒待つ）、利用者のアプリ・利用者が文書を開いたアプリは終了させない、制限時間の監視</td>
+<td>起動時の設定（非表示・警告なし・イベントなし・リンクを更新しない・マクロ無効。PowerPoint は <code>Visible</code> を変えない）、起動済みのアプリを使い回す、自分で起動したアプリだけを制限時間の強制終了の対象にする、Quit して終わらなければ強制終了する（Excel は 1 秒、Word・PowerPoint は 5 秒待つ）、利用者のアプリ・利用者が文書を開いたアプリは終了させない、制限時間の監視、起動した Office の優先度は変えない</td>
 </tr>
 </tbody>
 </table>
@@ -2158,7 +2251,7 @@
 </tr>
 <tr>
 <td><code>tests/shared/core/</code></td>
-<td><code>fs</code>・<code>text</code>・<code>folder</code></td>
+<td><code>fs</code>・<code>text</code>・<code>folder</code>・<code>worker_pool</code></td>
 </tr>
 <tr>
 <td><code>tests/shared/office/</code></td>
@@ -2178,11 +2271,11 @@
 </tr>
 <tr>
 <td><code>tests/tebunko/indexer/</code></td>
-<td><code>indexer_state</code>・<code>indexer_decide</code>・<code>indexer_plan</code>・<code>extract_office</code>・<code>index_migrate</code>、起動口の通しのテスト（<code>indexer</code>）</td>
+<td><code>indexer_state</code>・<code>indexer_decide</code>・<code>indexer_plan</code>・<code>extract_office</code>・<code>index_migrate</code>・<code>indexing_session</code>、起動口の通しのテスト（<code>indexer</code>）</td>
 </tr>
 <tr>
 <td><code>tests/tebunko/search/</code></td>
-<td><code>search_query</code>・<code>search_run</code>・<code>pack_search</code>・<code>source_map</code></td>
+<td><code>search_query</code>・<code>search_run</code>・<code>pack_search</code>・<code>search_service</code>・<code>source_map</code></td>
 </tr>
 <tr>
 <td><code>tests/tebunko/ui/</code></td>
@@ -2433,19 +2526,24 @@ git push origin v0.1.0
 mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
 <p><strong><code>perf.yml</code>（性能とリソースの計測）</strong></p>
-<p>手動で起動し、決まった量のデータで pack の作成と検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。大きな変更の前後で数字を比べるときなどに使う。必須のチェックではない。</p>
+<p>手動で起動し、決まった量のデータで、インデックス作成と検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。大きな変更の前後で数字を比べるときなどに使う。必須のチェックではない。</p>
 <div class="highlight"><pre><span></span><code>gh workflow run perf.yml -f ref=&lt;測る ref&gt; -f scale=0.1
 </code></pre></div>
 <ul>
-<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>repeat</code>（検索を繰り返す回数。中央値を出す）、<code>words</code>（追加で検索する語）</li>
-<li>計測スクリプト（<code>tools/measure_perf.ps1</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（pack 形式より前の版）では、エラーメッセージを出して止まる</li>
+<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）</li>
+<li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（pack 形式より前の版）では、エラーメッセージを出して止まる</li>
 <li>データは <a href="https://github.com/hsgwa/tebunko-perfdata">tebunko-perfdata</a> の <code>new_index.ps1</code> で毎回生成する（取り込みの一時置き場と同じ形の TSV）。使う版は <code>perf.yml</code> の <code>PERFDATA_SHA</code> でコミットに固定する。検索する語は同じリポジトリの <code>words.tsv</code>（0 件・まれ（3 件）・大量・正規表現）</li>
-<li>測るもの</li>
-<li>pack の作成 … インデクサと同じ <code>publishIndexFolders</code>（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、ランナーに Office が無いので測らない</li>
-<li>検索 … 画面の検索スレッドと同じ流れ（新しい Runspace で <code>lib.ps1</code> を読み込む → 列挙 → 照合。上限 1 万件）。検索のキャッシュを空にしてから初回と 2 回目を検索し、これを <code>repeat</code> 回繰り返す。高速検索は、ランナーに Windows Search が無いので使わない</li>
-<li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、このプロセスのワーキングセット・プライベート・マネージドのメモリ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する</li>
-<li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（<code>summary.md</code>・<code>result.json</code>・<code>resource.csv</code>。保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
-<li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる</li>
+<li>測るもの（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）</li>
+<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、ランナーに Office が無いので測らない</li>
+<li>検索 … 語ごとに新しいプロセスを起動し、同じプロセスで <code>count</code> 回続けて検索する。1 回の検索は画面の検索スレッドと同じ流れ（新しい Runspace で <code>lib.ps1</code> を読み込む → 列挙 → 照合。上限 1 万件）で、検索のキャッシュは画面と同じくプロセスで 1 つを持ち続ける。語ごとに、検索時間の最小・中央値・平均・最大と、その内訳（読み込み・列挙・照合）を出す。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。高速検索は、ランナーに Windows Search が無いので使わない</li>
+<li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）</li>
+<li>OS のファイルキャッシュは空にしない。pack は作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
+<li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
+<li><code>summary.md</code> … Summary と同じ内容</li>
+<li><code>result.json</code> … すべての数字。形式の版（<code>Schema</code>）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む</li>
+<li><code>metrics.csv</code> … 1 行 1 指標の縦長の形（<code>run_id, date, ref, sha, scale, metric, word, stat, value, unit</code>）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）</li>
+<li><code>searches.csv</code>（検索 1 回ごと）・<code>resource-index.csv</code>・<code>resource-search.csv</code>（リソースの記録）</li>
+<li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、pack の作成の時間は 5 割ほどぶれることがある</li>
 <li>手元でも同じ計測スクリプトで測れる（<code>.\tools\measure_perf.ps1 -Index &lt;TSV のフォルダ&gt; -Work &lt;作業フォルダ&gt; -Words &lt;words.tsv&gt;</code>）。渡した TSV は pack に変換され、元の TSV は削除される</li>
 </ul>
 <h4 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h4>
@@ -2591,13 +2689,13 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
         
         
           
-          <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/" class="md-footer__link md-footer__link--next" aria-label="次: インデックス作成（インデクサ）設計書">
+          <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-footer__link md-footer__link--next" aria-label="次: プロセスとスレッド">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                インデックス作成（インデクサ）設計書
+                プロセスとスレッド
               </div>
             </div>
             <div class="md-footer__button md-icon">

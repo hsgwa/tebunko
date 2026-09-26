@@ -291,6 +291,8 @@
       
         
       
+        
+      
     
     
     
@@ -533,6 +535,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1844,7 +1874,7 @@
 </tr>
 <tr>
 <td><code>searchPackIndex</code></td>
-<td>word, packs, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は集約ファイルの数）</td>
+<td>word, packs, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は集約ファイルの数）, pool（照合のプール <code>newPackWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled}</code></td>
 <td>集約ファイルを検索する（照合は <code>searchPackFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（集約ファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は集約ファイルの数。作業（約 16MB）ごとに進捗を知らせ、上限・中止に対応する。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/#4-検索処理">02_検索.md</a></td>
@@ -1853,10 +1883,42 @@
 <tr>
 <td><code>newTsvTextCache</code></td>
 <td>maxChars（既定 6,400 万文字）</td>
-<td><code>@{Texts; Chars; MaxChars}</code></td>
-<td>検索で読んだ集約ファイルの内容と場所の一覧を次の検索・プレビューで使い回す入れ物（パス → 更新日時・サイズ・内容・場所の一覧）。更新日時・サイズが変わった集約ファイルは読み直す</td>
+<td><code>@{Texts; Chars; MaxChars; Generation}</code></td>
+<td>検索で読んだ集約ファイルの内容と場所の一覧を次の検索・プレビューで使い回す入れ物（パス → 更新日時・サイズ・内容・場所の一覧・最後に使った世代）。更新日時・サイズが変わった集約ファイルは読み直す。追い出しは <code>trimTsvTextCache</code></td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/#43-検索の実装速度">02_検索.md 4.3</a></td>
 <td>画面</td>
+</tr>
+<tr>
+<td><code>newPackWorkerPool</code></td>
+<td>workers（既定 <code>getWorkerCount</code>）</td>
+<td><code>WorkerPool</code></td>
+<td>集約ファイルの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。優先度は Normal）</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#73-寿命">7.3</a></td>
+<td>検索の司令（<code>SearchService</code>）、searchPackIndex</td>
+</tr>
+<tr>
+<td><code>trimTsvTextCache</code></td>
+<td>cache, keepRatio（既定 0.9）</td>
+<td>追い出した数</td>
+<td>検索 1 回の後に呼ぶ。上限の keepRatio を超えていたら、今の世代で使わなかったものを古い世代から追い出し、世代を 1 つ進める</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#77-gc-とメモリ">7.7</a></td>
+<td>検索の司令</td>
+</tr>
+<tr>
+<td><code>newSearchRequest</code></td>
+<td>word, simpleMatch, folders, limit, option, useFast</td>
+<td>検索の要求（<code>[hashtable]::Synchronized</code>）</td>
+<td>検索 1 回分の要求を作る。画面が条件と <code>Stop</code>（取り消し）を書き、検索の司令がヒット（<code>Queue</code>）・進み具合・<code>Finished</code> を書く</td>
+<td><a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#73-寿命">7.3</a></td>
+<td>画面</td>
+</tr>
+<tr>
+<td><code>invokeSearchRequest</code></td>
+<td>request, pool, cache</td>
+<td>–</td>
+<td>検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに <code>Error</code> に入れる。始める前に取り消されていたら何もせずに <code>Cancelled</code> にする</td>
+<td>同上</td>
+<td>検索の司令</td>
 </tr>
 <tr>
 <td><code>toResultLine</code></td>
@@ -1889,6 +1951,63 @@
 <td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を書き出す</td>
 <td>同上</td>
 <td>検索・画面</td>
+</tr>
+</tbody>
+</table>
+<p><strong>スレッドとプール（<code>shared/core/worker_pool.ps1</code>・<code>tebunko/search/search_service.ps1</code>・<code>tebunko/indexer/indexing_session.ps1</code>）</strong></p>
+<p>設計は <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#7-プロセスとスレッド">7 章</a>。クラスは画面のスレッド（作ったランスペースのスレッド）だけから呼ぶ（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#78-クラスと関数の使い分け">7.8</a>）。</p>
+<table>
+<thead>
+<tr>
+<th>関数・クラス</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>newWorkerState</code></td>
+<td>functions, variables</td>
+<td><code>InitialSessionState</code></td>
+<td>プールの各スレッドに読み込む関数・値だけを入れた状態を作る（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）</td>
+<td>newPackWorkerPool, writeSystemIndexFolders</td>
+</tr>
+<tr>
+<td><code>getWorkerCount</code></td>
+<td>max（既定 4）, processors</td>
+<td>int</td>
+<td>プールのスレッドの数の既定（コア数 − 1。1〜max）</td>
+<td>検索・インデックス作成</td>
+</tr>
+<tr>
+<td><code>WorkerPool</code></td>
+<td>size, state, host, priority</td>
+<td>–</td>
+<td>ランスペースと PowerShell のインスタンスを使い回すプール。<code>Submit</code>（仕事を始める）・<code>Receive</code>（終わりを待って出力を返す）・<code>Cancel</code>・<code>Close</code>。<code>Priority</code> は仕事を始めるたびにスレッドに設定する。<code>Prelude</code> は各スレッドで最初の仕事の前に 1 回だけ実行する</td>
+<td>照合のプール・システムインデックスのプール・BackgroundQueue</td>
+</tr>
+<tr>
+<td><code>BackgroundQueue</code></td>
+<td>size, prelude, host</td>
+<td>–</td>
+<td>画面から頼まれる短い仕事のスレッド（画面は 2 つで作る）。<code>Post</code>（仕事を始める）・<code>Poll</code>（終わった仕事の onDone を画面のスレッドで呼び、残りの数を返す）・<code>Close</code></td>
+<td>startJob（<code>shell.ps1</code>）</td>
+</tr>
+<tr>
+<td><code>newSearchService</code> / <code>SearchService</code></td>
+<td>libPath, cache, workers</td>
+<td><code>SearchService</code></td>
+<td>検索の司令のスレッド（画面を開いている間 1 つ）。<code>Request</code>（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・<code>Cancel</code>・<code>IsRunning</code>・<code>GetFailure</code>・<code>Close</code>（5 秒待って止まらなければスレッドを止める）</td>
+<td>画面</td>
+</tr>
+<tr>
+<td><code>newIndexingSession</code> / <code>IndexingSession</code></td>
+<td>indexerPath, channel</td>
+<td><code>IndexingSession</code></td>
+<td>インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、<code>indexer.ps1 -Channel &lt;channel&gt;</code> を実行する。<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>（終了コードが無ければ 1）・<code>GetError</code>・<code>KillOffice</code>（<code>OfficePids</code> に記録した Office だけを、プロセス名を確かめて止める）・<code>Close</code></td>
+<td>画面</td>
 </tr>
 </tbody>
 </table>
