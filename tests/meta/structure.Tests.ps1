@@ -61,23 +61,11 @@ Describe "スクリプトの構文" -Tag Meta {
 }
 
 Describe "画面定義（XAML）" -Tag Meta {
-    $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
-
     Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.xaml" | ForEach-Object {
         $file = $_
 
         It "$($file.Name) が XML として読める" {
             { [xml](Get-Content $file.FullName -Raw -Encoding UTF8) } | Should Not Throw
-        }
-    }
-
-    It "フォルダ選択の画面に、gui.ps1 が使う x:Name がすべてある" {
-        [xml]$xaml = Get-Content "$here\..\scripts\shared\xaml\dialog_folder_select.xaml" -Raw -Encoding UTF8
-        $names = @($xaml.SelectNodes("//*") | ForEach-Object { $_.GetAttribute("Name", $xamlNs) } | Where-Object { $_ -ne "" })
-        foreach ($name in @(
-                "DescriptionText", "BackButton", "ForwardButton", "UpButton", "AddressBox",
-                "FolderTree", "EntryList", "EntryPlaceholder", "StatusText", "FolderBox", "OkButton", "ErrorText")) {
-            $names -contains $name | Should Be $true
         }
     }
 }
@@ -92,10 +80,10 @@ Describe "型の読み込み" -Tag Meta {
             'Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase'
             ". `"$scripts\shared\ui\types.ps1`""
             ". `"$scripts\tebunko_grep\ui\types_grep.ps1`""
-            '([HitRow], [IndexNode], [FolderNode], [ConfirmFact], [PreviewTable]).Count'
+            '([HitRow], [IndexNode], [ConfirmFact], [PreviewTable]).Count'
         )
         $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1
-        ($output -join "") | Should Be "5"
+        ($output -join "") | Should Be "4"
     }
 }
 

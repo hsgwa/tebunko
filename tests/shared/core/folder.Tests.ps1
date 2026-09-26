@@ -120,100 +120,6 @@ Describe "getFolderPathAliases / testSameFolder" -Tag Io {
     }
 }
 
-Describe "getParentFolderPath" -Tag Io {
-    It "1つ上のフォルダを返す" {
-        getParentFolderPath "C:\data\見積\2025" | Should Be "C:\data\見積"
-        getParentFolderPath "C:\data" | Should Be "C:\"
-        getParentFolderPath "\\server\share\見積\2025" | Should Be "\\server\share\見積"
-        getParentFolderPath "\\server\share\見積" | Should Be "\\server\share"
-    }
-
-    It "これ以上たどれないフォルダ（ドライブ直下・共有フォルダ直下）は空文字列" {
-        getParentFolderPath "C:\" | Should Be ""
-        getParentFolderPath "C:" | Should Be ""
-        getParentFolderPath "\\server\share" | Should Be ""
-        getParentFolderPath "\\server" | Should Be ""
-        getParentFolderPath "" | Should Be ""
-    }
-}
-
-Describe "joinFolderPath" -Tag Io {
-    It "ドライブ直下・共有フォルダ直下でも \ が重ならない" {
-        joinFolderPath "C:\" "data" | Should Be "C:\data"
-        joinFolderPath "C:\data" "見積" | Should Be "C:\data\見積"
-        joinFolderPath "\\server\share" "見積" | Should Be "\\server\share\見積"
-    }
-}
-
-Describe "getFolderEntries / testHasSubFolders" -Tag Io {
-    $root = "$TestDrive\folderEntries"
-    New-Item -ItemType Directory -Path "$root\B社" -Force | Out-Null
-    New-Item -ItemType Directory -Path "$root\A社" -Force | Out-Null
-    New-Item -ItemType Directory -Path "$root\A社\2025" -Force | Out-Null
-    New-Item -ItemType Directory -Path "$root\_隠しフォルダ" -Force | Out-Null
-    (Get-Item "$root\_隠しフォルダ").Attributes = "Directory, Hidden"
-    Set-Content "$root\見積.xlsx" "x" -Encoding UTF8
-    Set-Content "$root\メモ.txt" "x" -Encoding UTF8
-    Set-Content "$root\隠し.txt" "x" -Encoding UTF8
-    (Get-Item "$root\隠し.txt").Attributes = "Hidden"
-
-    It "フォルダを先に、それぞれ名前順で返す" {
-        $result = getFolderEntries $root
-        # 名前順は Windows の並び（カタカナが漢字より先）
-        @($result.Entries | ForEach-Object { $_.Name }) -join "," | Should Be "A社,B社,メモ.txt,見積.xlsx"
-    }
-
-    It "フォルダ数と Office ファイル数を返す" {
-        $result = getFolderEntries $root
-        $result.FolderCount | Should Be 2
-        $result.OfficeCount | Should Be 1
-        $result.Truncated | Should Be $false
-        $result.Error | Should Be ""
-    }
-
-    It "隠し・システムのフォルダとファイルは返さない（エクスプローラーの既定と同じ）" {
-        $names = @((getFolderEntries $root).Entries | ForEach-Object { $_.Name })
-        $names -contains "_隠しフォルダ" | Should Be $false
-        $names -contains "隠し.txt" | Should Be $false
-    }
-
-    It "パスと種別を返す" {
-        $entry = @((getFolderEntries $root).Entries | Where-Object { $_.Name -eq "見積.xlsx" })[0]
-        $entry.Path | Should Be "$root\見積.xlsx"
-        $entry.IsFolder | Should Be $false
-        $entry.IsOffice | Should Be $true
-        $entry.Updated | Should Not BeNullOrEmpty
-    }
-
-    It "foldersOnly はフォルダだけを返す（ツリーの読み込み用）" {
-        $result = getFolderEntries $root -foldersOnly
-        @($result.Entries | ForEach-Object { $_.Name }) -join "," | Should Be "A社,B社"
-        $result.OfficeCount | Should Be 0
-    }
-
-    It "件数が多いときは打ち切り、Truncated を立てる" {
-        $result = getFolderEntries $root 2
-        @($result.Entries).Count | Should Be 2
-        $result.Truncated | Should Be $true
-    }
-
-    It "開けないフォルダは Error に理由を入れる（一覧は空）" {
-        $result = getFolderEntries "$root\ありません"
-        @($result.Entries).Count | Should Be 0
-        $result.Error | Should Match "見つかりません"
-    }
-
-    It "フォルダを指定しなければ Error を返す" {
-        (getFolderEntries "").Error | Should Match "指定してください"
-    }
-
-    It "サブフォルダがあるかを返す（ツリーの ▷ の判定）" {
-        testHasSubFolders $root | Should Be $true
-        testHasSubFolders "$root\B社" | Should Be $false
-        testHasSubFolders "$root\ありません" | Should Be $false
-    }
-}
-
 Describe "getFolderLeafName" -Tag Io {
     It "フォルダ名を返す（ドライブ直下はドライブ名、UNC は共有名、末尾の \ は無視）" {
         getFolderLeafName "C:\data\見積\" | Should Be "見積"
@@ -233,58 +139,28 @@ Describe "normalizeFolderPath（区切りだけ・ドライブ直下に戻るパ
     }
 }
 
-Describe "joinFolderPath / getParentFolderPath（フォルダが無い・相対パス）" -Tag Io {
-    It "フォルダが空なら名前だけを返す" {
-        joinFolderPath "" "見積" | Should Be "見積"
+Describe "getExistingAncestorFolder" -Tag Io {
+    $root = "$TestDrive\共有"
+    New-Item -ItemType Directory -Force -Path "$root\営業部" | Out-Null
+
+    It "フォルダがあればそのまま返す" {
+        getExistingAncestorFolder "$root\営業部" | Should Be "$root\営業部"
     }
 
-    It "1 つ上の無い相対パスは空文字列" {
-        getParentFolderPath "見積" | Should Be ""
+    It "フォルダが無ければ、その上の今もあるフォルダを返す" {
+        getExistingAncestorFolder "$root\営業部\2024\見積" | Should Be "$root\営業部"
     }
-}
 
-Describe "getFolderEntries（隠しファイルばかりのフォルダ・開けないパス）" -Tag Io {
-    It "隠しファイルばかりでも、見た件数が上限の 10 倍を超えたら打ち切る" {
-        $root = "$TestDrive\隠しばかり"
-        [System.IO.Directory]::CreateDirectory($root) | Out-Null
-        for ($i = 0; $i -lt 12; $i++) {
-            $path = "$root\隠し$i.txt"
-            [System.IO.File]::WriteAllText($path, "x")
-            (Get-Item -LiteralPath $path).Attributes = "Hidden"
+    It "上のどこにも無ければ空を返す" {
+        # 使われていないドライブ名を選ぶ（無ければこのケースは確かめない）
+        $used = @([System.IO.DriveInfo]::GetDrives() | ForEach-Object { $_.Name.Substring(0, 1) })
+        $free = @([char[]]"QRSTUVWXYZ" | Where-Object { $used -notcontains "$_" })
+        if ($free.Count -gt 0) {
+            getExistingAncestorFolder "$($free[0]):\営業部\見積" | Should Be ""
         }
-        $result = getFolderEntries $root 1
-        @($result.Entries).Count | Should Be 0
-        $result.Truncated | Should Be $true
     }
 
-    It "パスとして開けない書き方は、理由を付けて Error に入れる" {
-        $result = getFolderEntries "C:\a<b>"
-        @($result.Entries).Count | Should Be 0
-        $result.Error | Should Match "^フォルダを開けません（"
-    }
-}
-
-Describe "getQuickFolders" -Tag Io {
-    It "実際にあるフォルダだけを、重複させずに返す" {
-        $items = @(getQuickFolders)
-        foreach ($item in $items) {
-            [System.IO.Directory]::Exists($item.Path) | Should Be $true
-        }
-        @($items | ForEach-Object { $_.Path } | Sort-Object -Unique).Count | Should Be $items.Count
-        @($items | Where-Object { @("デスクトップ", "ドキュメント", "ダウンロード") -notcontains $_.Name }).Count | Should Be 0
-    }
-}
-
-Describe "getComputerFolders" -Tag Io {
-    It "使えるドライブを「名前 (C:)」とドライブ直下のパスで返す" {
-        $empty = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
-        $items = @(getComputerFolders $empty)
-        $system = $env:SystemDrive
-        $item = @($items | Where-Object { $_.Path -eq "${system}\" })
-        $item.Count | Should Be 1
-        $item[0].Name | Should Match " \($([regex]::Escape($system))\)$"
-        foreach ($other in $items) {
-            $other.Path | Should Match "^[A-Z]:\\$"
-        }
+    It "空のパスは空を返す" {
+        getExistingAncestorFolder "" | Should Be ""
     }
 }

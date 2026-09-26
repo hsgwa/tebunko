@@ -1,6 +1,6 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
-$targetExtensions = ${officeExtensions}  # 取り込み対象の拡張子（shared\office\office_files.ps1。画面のフォルダ選択でも同じ一覧を使う）
+$targetExtensions = ${officeExtensions}  # 取り込み対象の拡張子（shared\office\office_files.ps1）
 
 # ----------------------------------------------------------------------------
 # 取り込み対象
