@@ -1333,7 +1333,7 @@
 <h2 id="16-テスト">16. テスト<a class="headerlink" href="#16-テスト" title="Permanent link">&para;</a></h2>
 <h3 id="161-単体テストpester">16.1 単体テスト（Pester）<a class="headerlink" href="#161-単体テストpester" title="Permanent link">&para;</a></h3>
 <p>画面が使う関数と画面の部品を Pester 3.4 で確かめる（実行方法・タグ・カバレッジは <a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">00_共通_3_テスト.md</a>）。画面の部品（<code>ui/*.ps1</code>）のテストは、WPF のコントロール（<code>$ui.ResultGrid</code> など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。</p>
-<p><strong>画面が使う <code>tebunko_grep/lib.ps1</code> の関数</strong>（12 章）</p>
+<p><strong>画面が使う <code>tebunko/lib.ps1</code> の関数</strong>（12 章）</p>
 <table>
 <thead>
 <tr>
@@ -1345,7 +1345,7 @@
 <tbody>
 <tr>
 <td><code>searchPackIndex</code></td>
-<td><code>tests/tebunko_grep/search/pack_search.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/pack_search.Tests.ps1</code></td>
 <td>結果が TSV を 1 行ずつ照合したときと同じこと（改行の種類・照合のしかたごと）、文字どおり・正規表現・不正な正規表現、大文字・小文字、対象ファイル・図形とコメントの除外、上限での打ち切り、正規表現の照合の時間切れ（全文への照合は 1 行ずつに切り替える）、並列検索と読んだ内容の使い回し、中止・進捗の通知</td>
 </tr>
 <tr>
@@ -1355,7 +1355,7 @@
 </tr>
 <tr>
 <td><code>testIndexExists</code> / <code>getIndexSummary</code></td>
-<td><code>tests/tebunko_grep/search/search_run.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/search_run.Tests.ps1</code></td>
 <td>集約ファイルの有無・件数・最新の更新日時、存在しないフォルダ</td>
 </tr>
 <tr>
@@ -1365,12 +1365,12 @@
 </tr>
 <tr>
 <td><code>isValidRegex</code> / <code>newSearchRegex</code> / <code>newFileFilter</code></td>
-<td><code>tests/tebunko_grep/search/search_query.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/search_query.Tests.ps1</code></td>
 <td>文字どおりの記号、不正な正規表現、大文字と小文字の区別。対象ファイルは <code>;</code> / <code>；</code> の区切り、<code>!</code> の除外、部分一致、<code>?</code>、ほかの記号は文字どおり、空なら条件なし</td>
 </tr>
 <tr>
 <td><code>getSourceLocation</code> / <code>resolveSourcePath</code> / <code>findMovedSource</code></td>
-<td><code>tests/tebunko_grep/search/source_map.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/source_map.Tests.ps1</code></td>
 <td>元のファイルのインデックス名・場所・パスの特定、選んだフォルダからの探索（4.5.1・4.5.2）</td>
 </tr>
 <tr>
@@ -1395,12 +1395,12 @@
 </tr>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code> ほか設定の読み書き</td>
-<td><code>tests/tebunko_grep/core/settings.Tests.ps1</code></td>
+<td><code>tests/tebunko/core/settings.Tests.ps1</code></td>
 <td>ファイルが無ければオフ・空、保存した値の読み込み、指定した項目だけを変える</td>
 </tr>
 <tr>
 <td><code>newIndexName</code></td>
-<td><code>tests/tebunko_grep/index/index_name.Tests.ps1</code></td>
+<td><code>tests/tebunko/index/index_name.Tests.ps1</code></td>
 <td>使用済みの名前が無い・1 個だけの場合も正しく判定すること（PowerShell は集合を返すと中身を展開するため、<code>$null</code>・文字列で渡ることがある）</td>
 </tr>
 </tbody>
@@ -1417,38 +1417,38 @@
 <tbody>
 <tr>
 <td>画面の型（12.2）</td>
-<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko_grep/ui/types_grep.Tests.ps1</code></td>
+<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko/ui/types.Tests.ps1</code></td>
 <td><code>NotifyBase</code> の変更通知、<code>FolderNode</code>・<code>FolderEntry</code>・<code>ConfirmFact</code>。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
 </tr>
 <tr>
 <td>判断層</td>
-<td><code>tests/tebunko_grep/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings_view.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings_view.Tests.ps1</code></td>
 <td>画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス）</td>
 </tr>
 <tr>
 <td>結果の表</td>
-<td><code>tests/tebunko_grep/ui/result_list.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/result_list.Tests.ps1</code></td>
 <td>ファイルごとの見出しの作成と開閉（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/#49-ファイルごとにまとめた表示">4.9</a>）、行の作成、絞り込み、並べ替え、検索の終了時の表示、選択行の取得、イベント</td>
 </tr>
 <tr>
 <td>選択行のプレビュー</td>
-<td><code>tests/tebunko_grep/ui/preview.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/preview.Tests.ps1</code></td>
 <td>表示・消去、高さに収まる行数、セルの特定とコピー、イベント</td>
 </tr>
 <tr>
 <td>元のファイルを開く</td>
-<td><code>tests/tebunko_grep/ui/open_source.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/open_source.Tests.ps1</code></td>
 <td>パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、行・パスのコピー、ファイル出力、画面の操作</td>
 </tr>
 <tr>
 <td>検索対象のツリー</td>
-<td><code>tests/tebunko_grep/ui/index_tree.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/index_tree.Tests.ps1</code></td>
 <td>ツリーの読み込み、検索範囲の説明、除外の保存、すべてのチェック、イベント</td>
 </tr>
 <tr>
 <td>画面定義（XAML）</td>
 <td><code>tests/meta/structure.Tests.ps1</code></td>
-<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブ・フォルダ選択の画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko_grep の型を順に読み込めること</td>
+<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブ・フォルダ選択の画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko の型を順に読み込めること</td>
 </tr>
 </tbody>
 </table>
@@ -1544,7 +1544,7 @@
 <td>一覧・ボタンの有効／無効のみ◎</td>
 </tr>
 <tr>
-<td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko_grep）</td>
+<td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko）</td>
 <td>10 章</td>
 <td>要手動</td>
 </tr>
@@ -1561,7 +1561,7 @@
 <tr>
 <td>zip 展開直後（Mark-of-the-Web 付き）から <code>tebunko.bat</code> で起動でき、印が消えること（<code>Bypass</code> なし・<code>RemoteSigned</code>）</td>
 <td>10.1</td>
-<td>◎（テスト用のコピー全ファイルに MOTW を付け、<code>RemoteSigned</code> でブロックされること→<code>tebunko.bat</code> 実行で <code>scripts</code> 配下の MOTW 0 件→<code>RemoteSigned</code> で画面が開く（ウィンドウ表題 <code>tebunko_grep</code>）ことを確認）</td>
+<td>◎（テスト用のコピー全ファイルに MOTW を付け、<code>RemoteSigned</code> でブロックされること→<code>tebunko.bat</code> 実行で <code>scripts</code> 配下の MOTW 0 件→<code>RemoteSigned</code> で画面が開く（ウィンドウ表題 <code>tebunko</code>）ことを確認）</td>
 </tr>
 <tr>
 <td><code>tebunko.bat</code> で起動したとき、PowerShell の窓が残らないこと（既定のターミナルが Windows Terminal でも）</td>

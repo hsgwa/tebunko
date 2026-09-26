@@ -1549,7 +1549,7 @@
 <tr>
 <td>4</td>
 <td>［削除］</td>
-<td>選択中のインデックスを削除する（Delete キーでも同じ）。確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）で確認する。見出しは <code>インデックス「&lt;名前&gt;」を一覧から削除しますか？</code>、結果は <code>✗ tebunko_grep が作ったインデックスが消えます</code>（<code>このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）</code>）／ <code>✓ 元のフォルダと、その中のファイルはそのままです</code>（<code>&lt;パス&gt;</code>）、補足は <code>しばらく検索しないだけなら、削除せずに［作成］のチェックを外してください。インデックスは残ったままです。</code>、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で一覧からすぐ消し、<code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>removeIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
+<td>選択中のインデックスを削除する（Delete キーでも同じ）。確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）で確認する。見出しは <code>インデックス「&lt;名前&gt;」を一覧から削除しますか？</code>、結果は <code>✗ tebunko が作ったインデックスが消えます</code>（<code>このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）</code>）／ <code>✓ 元のフォルダと、その中のファイルはそのままです</code>（<code>&lt;パス&gt;</code>）、補足は <code>しばらく検索しないだけなら、削除せずに［作成］のチェックを外してください。インデックスは残ったままです。</code>、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で一覧からすぐ消し、<code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>removeIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
 </tr>
 <tr>
 <td>5</td>
@@ -1559,7 +1559,7 @@
 <tr>
 <td>6</td>
 <td>注意書き・実行ボタン</td>
-<td>注意書きは、押す前は「押すと何が起きるか」（<code>押すと、何件取り込むかを確認してから、新しいファイル・変わったファイルだけを取り込みます。</code>）、インデックス作成中は「やめるとどうなるか」（<code>インデックス作成中も検索できます。やめるときは［中止］を押してください（次に［インデックス作成を開始］を押すと続きから再開します）。</code>）を書く。ボタンは状態に応じて表示を変える（3.3）。押すと <code>tebunko_grep/indexer.ps1</code> をウィンドウなしで起動し、<strong>取り込み対象を数え終えたところで確認のダイアログを出す</strong>（3.4）。ダイアログで［インデックス作成を開始］を押すとインデックス作成が始まり、進み具合を表示する（3.6）</td>
+<td>注意書きは、押す前は「押すと何が起きるか」（<code>押すと、何件取り込むかを確認してから、新しいファイル・変わったファイルだけを取り込みます。</code>）、インデックス作成中は「やめるとどうなるか」（<code>インデックス作成中も検索できます。やめるときは［中止］を押してください（次に［インデックス作成を開始］を押すと続きから再開します）。</code>）を書く。ボタンは状態に応じて表示を変える（3.3）。押すと <code>tebunko/indexer.ps1</code> をウィンドウなしで起動し、<strong>取り込み対象を数え終えたところで確認のダイアログを出す</strong>（3.4）。ダイアログで［インデックス作成を開始］を押すとインデックス作成が始まり、進み具合を表示する（3.6）</td>
 </tr>
 <tr>
 <td>7</td>
@@ -1625,7 +1625,7 @@
 </table>
 <p>「ファイル」「最終取り込み」は取り込み一覧（<code>work/取り込み一覧.tsv</code>）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。</p>
 <h3 id="32-追加編集のダイアログ">3.2 追加・編集のダイアログ<a class="headerlink" href="#32-追加編集のダイアログ" title="Permanent link">&para;</a></h3>
-<p><code>tebunko_grep/xaml/dialog_index_edit.xaml</code>。追加と編集で同じダイアログを使い、表題と説明を変える。</p>
+<p><code>tebunko/xaml/dialog_index_edit.xaml</code>。追加と編集で同じダイアログを使い、表題と説明を変える。</p>
 <table>
 <thead>
 <tr>
@@ -1854,12 +1854,12 @@
 </tbody>
 </table>
 <ul>
-<li>インデックス作成は <code>powershell -NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File scripts\tebunko_grep\indexer.ps1 -ConfirmTargets</code> で起動する。<code>-ConfirmTargets</code> は、取り込み対象を数えたところでいったん止まって画面の確認（3.4）を待つ指定。ウィンドウは出さない（コンソールでの確認・<code>pause</code> は無い）。<code>Bypass</code> は使わない（Mark-of-the-Web は起動時に消してある。<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a>）。</li>
+<li>インデックス作成は <code>powershell -NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File scripts\tebunko\indexer.ps1 -ConfirmTargets</code> で起動する。<code>-ConfirmTargets</code> は、取り込み対象を数えたところでいったん止まって画面の確認（3.4）を待つ指定。ウィンドウは出さない（コンソールでの確認・<code>pause</code> は無い）。<code>Bypass</code> は使わない（Mark-of-the-Web は起動時に消してある。<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a>）。</li>
 <li>「インデックス作成中」は、この画面から起動したインデックス作成のプロセスが終了するまでとする。インデックス作成の二重起動を防ぐ。</li>
-<li>画面の起動時と［インデックス作成を開始］を押したときは、このツールの <code>scripts\tebunko_grep\indexer.ps1</code> をコマンドラインに含む <code>powershell.exe</code> が動いていないかも調べる（<code>Win32_Process</code>）。動いていれば新たに起動せず、そのプロセスの進み具合を表示する。起動時に見つかった場合は［1 インデックス管理］タブを開く。</li>
+<li>画面の起動時と［インデックス作成を開始］を押したときは、このツールの <code>scripts\tebunko\indexer.ps1</code> をコマンドラインに含む <code>powershell.exe</code> が動いていないかも調べる（<code>Win32_Process</code>）。動いていれば新たに起動せず、そのプロセスの進み具合を表示する。起動時に見つかった場合は［1 インデックス管理］タブを開く。</li>
 </ul>
 <h3 id="34-インデックス作成の確認ダイアログ">3.4 インデックス作成の確認ダイアログ<a class="headerlink" href="#34-インデックス作成の確認ダイアログ" title="Permanent link">&para;</a></h3>
-<p><code>tebunko_grep/xaml/dialog_indexing_confirm.xaml</code>。［インデックス作成を開始］を押すと、インデクサはまず<strong>取り込み対象を数えるだけ</strong>行って止まり（<code>-ConfirmTargets</code>）、インデックスごとの件数を <code>work/取り込み予定.tsv</code> に書く（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a>）。
+<p><code>tebunko/xaml/dialog_indexing_confirm.xaml</code>。［インデックス作成を開始］を押すと、インデクサはまず<strong>取り込み対象を数えるだけ</strong>行って止まり（<code>-ConfirmTargets</code>）、インデックスごとの件数を <code>work/取り込み予定.tsv</code> に書く（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a>）。
 画面は進み具合の段階が <code>確認</code> になったらそれを読み、<strong>このダイアログを 1 回だけ開く</strong>。
 何件取り込むかは元のファイルの更新日時・サイズを調べないと分からないため、数えるのはインデクサで行う（画面は数えている間も固まらない）。</p>
 <table>

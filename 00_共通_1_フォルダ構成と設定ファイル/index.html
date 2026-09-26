@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tebunko_grep-設計書フォルダファイル構成と設定ファイル" class="md-skip">
+        <a href="#tebunko-設計書フォルダファイル構成と設定ファイル" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -1571,7 +1571,7 @@
   
 
 
-<h1 id="tebunko_grep-設計書フォルダファイル構成と設定ファイル">tebunko_grep 設計書（フォルダ・ファイル構成と設定ファイル）<a class="headerlink" href="#tebunko_grep-設計書フォルダファイル構成と設定ファイル" title="Permanent link">&para;</a></h1>
+<h1 id="tebunko-設計書フォルダファイル構成と設定ファイル">tebunko 設計書（フォルダ・ファイル構成と設定ファイル）<a class="headerlink" href="#tebunko-設計書フォルダファイル構成と設定ファイル" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../">00_index.md</a> の一部である。章・節の番号は 00_index.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../#ドキュメント構成">00_index.md</a> の表のとおり。</p>
 <p>本書で分かること:</p>
 <ul>
@@ -1611,7 +1611,7 @@
 </tbody>
 </table>
 <h4 id="スクリプトscripts">スクリプト（<code>scripts/</code>）<a class="headerlink" href="#スクリプトscripts" title="Permanent link">&para;</a></h4>
-<p>ソースは<strong>文脈</strong>（<code>shared/</code> = どのツールからも使う、<code>tebunko_grep/</code> = このツール固有）と<strong>層</strong>で分ける。フォルダごとの中身と読み込み口は <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">5 章</a>。</p>
+<p>ソースは<strong>文脈</strong>（<code>shared/</code> = どのツールからも使う、<code>tebunko/</code> = このツール固有）と<strong>層</strong>で分ける。フォルダごとの中身と読み込み口は <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/#5-共通モジュール">5 章</a>。</p>
 <table>
 <thead>
 <tr>
@@ -1642,32 +1642,32 @@
 <td>共通の画面定義（<code>theme.xaml</code>・確認ダイアログ・フォルダ選択）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/</code></td>
+<td><code>scripts/tebunko/</code></td>
 <td>スクリプト</td>
-<td>tebunko_grep 固有の処理と画面（<code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code>・<code>ui/</code>・<code>xaml/</code>）</td>
+<td>tebunko 固有の処理と画面（<code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code>・<code>ui/</code>・<code>xaml/</code>）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/gui.ps1</code></td>
+<td><code>scripts/tebunko/gui.ps1</code></td>
 <td>スクリプト</td>
 <td>画面の起動口（<a href="../03_%E7%94%BB%E9%9D%A2/">03_画面.md</a>）。検索・プロセス停止は画面の中で行う</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/indexer.ps1</code></td>
+<td><code>scripts/tebunko/indexer.ps1</code></td>
 <td>スクリプト</td>
 <td>インデックス作成の起動口（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>）。画面がウィンドウ無しで起動する</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/lib.ps1</code></td>
+<td><code>scripts/tebunko/lib.ps1</code></td>
 <td>スクリプト</td>
 <td>画面以外の部品の読み込み口</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/xaml/</code></td>
+<td><code>scripts/tebunko/xaml/</code></td>
 <td>画面定義</td>
-<td>tebunko_grep の画面定義（<code>tebunko_grep.xaml</code>・タブ・ダイアログ）</td>
+<td>tebunko の画面定義（<code>tebunko.xaml</code>・タブ・ダイアログ）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko_grep/tebunko_grep.ico</code></td>
+<td><code>scripts/tebunko/tebunko.ico</code></td>
 <td>画像</td>
 <td>画面のアイコン（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#10-表示アクセシビリティ">03_画面_5_共通仕様.md 10 章</a>）。元データは <code>docs/images/logo.svg</code>（リポジトリの管理者が作成）で、<code>tools/new_icon.ps1</code> で作る。手で編集しない</td>
 </tr>
@@ -1763,12 +1763,12 @@
 <tr>
 <td><code>tools/new_release_package.ps1</code></td>
 <td>配布用</td>
-<td>配布する zip（<code>tebunko_grep-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
+<td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
 </tr>
 <tr>
 <td><code>tools/new_icon.ps1</code></td>
 <td>開発用</td>
-<td>画面のアイコン（<code>tebunko_grep.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
+<td>画面のアイコン（<code>tebunko.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
 </tr>
 <tr>
 <td><code>tools/make_social_preview.ps1</code></td>
@@ -1887,7 +1887,7 @@
 </tr>
 </tbody>
 </table>
-<p>取り込みの作業領域は <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> に置く。Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、ツールの配置場所に依存させない。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。</p>
+<p>取り込みの作業領域は <code>%TEMP%\tebunko\&lt;PID&gt;</code> に置く。Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、ツールの配置場所に依存させない。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。</p>
 <p>できた TSV をインデックス（集約ファイルに入れる前の置き場所）に入れるときは、<code>work/取り込み出力/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域（<code>%TEMP%</code>）とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
 <h3 id="32-入出力ファイル一覧">3.2 入出力ファイル一覧<a class="headerlink" href="#32-入出力ファイル一覧" title="Permanent link">&para;</a></h3>
 <p>画面（<code>gui.ps1</code>）とインデクサ（<code>indexer.ps1</code>）は別のプロセスで動き、<code>work/</code> のファイルで状態を受け渡す。</p>
@@ -1950,7 +1950,7 @@
 <td>1 ファイル分の TSV（<code>&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>）。集め終わったら <code>work/index</code> の中へフォルダごと移す（<code>publishIndexFiles</code>）</td>
 </tr>
 <tr>
-<td><code>%TEMP%\tebunko_grep\&lt;PID&gt;\</code></td>
+<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
 <td>作業領域</td>
 <td>インデックス作成</td>
 <td>インデックス作成</td>
@@ -2059,12 +2059,12 @@
 <tr>
 <td><code>$settingsFile</code></td>
 <td><code>$dataDir\setting.config</code></td>
-<td><code>scripts/tebunko_grep/core/settings_grep.ps1</code></td>
+<td><code>scripts/tebunko/core/settings.ps1</code></td>
 </tr>
 <tr>
 <td><code>$workDir</code></td>
 <td><code>setting.config</code> の <code>workspaceFolder</code>（4.1）。空なら既定の <code>%USERPROFILE%\Documents\tebunko</code>（<code>getDefaultWorkDir</code>。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents）</td>
-<td><code>scripts/tebunko_grep/core/paths_grep.ps1</code>（<code>getWorkDir</code>）</td>
+<td><code>scripts/tebunko/core/paths.ps1</code>（<code>getWorkDir</code>）</td>
 </tr>
 </tbody>
 </table>
@@ -2078,7 +2078,7 @@
 </ul>
 <hr />
 <h2 id="4-設定ファイル-settingconfigreadsettings">4. 設定ファイル <code>setting.config</code>（<code>readSettings</code>）<a class="headerlink" href="#4-設定ファイル-settingconfigreadsettings" title="Permanent link">&para;</a></h2>
-<p>設定は、ツール直下（書き込めなければ利用者ごとの場所。3.3）の <code>setting.config</code>（内容は JSON）の 1 ファイルにまとめ、画面が読み書きする。利用者が手で編集する前提にはしない。インデクサ（別プロセス）は、画面が保存したクロール対象フォルダと <code>work</code> の置き場所をこのファイルから読む。読み書きの関数は <code>scripts/tebunko_grep/core/settings_grep.ps1</code> にある。</p>
+<p>設定は、ツール直下（書き込めなければ利用者ごとの場所。3.3）の <code>setting.config</code>（内容は JSON）の 1 ファイルにまとめ、画面が読み書きする。利用者が手で編集する前提にはしない。インデクサ（別プロセス）は、画面が保存したクロール対象フォルダと <code>work</code> の置き場所をこのファイルから読む。読み書きの関数は <code>scripts/tebunko/core/settings.ps1</code> にある。</p>
 <h3 id="41-形式">4.1 形式<a class="headerlink" href="#41-形式" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="w">    </span><span class="nt">"targetFolders"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
