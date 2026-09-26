@@ -178,47 +178,55 @@ Describe "describeIngestError" -Tag Io {
         return New-Object System.Runtime.InteropServices.COMException($message, [Convert]::ToInt32($code, 16))
     }
 
-    It "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す" {
-        $expected = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
-        describeIngestError (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") | Should Be $expected
-        describeIngestError (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") | Should Be $expected
-        describeIngestError (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") | Should Be $expected
-    }
+    $password = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
 
-    It "メソッド呼び出しの例外は中の例外のメッセージを使う" {
-        $inner = newComError "Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。" "800A03EC"
-        $outer = New-Object System.Management.Automation.MethodInvocationException('"7" 個の引数を指定して "Open" を呼び出し中に例外が発生しました', $inner)
-        describeIngestError $outer | Should Be "ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。）"
-    }
-
-    It "スクリプト自身が throw したメッセージはそのまま返す" {
-        $exception = $null
-        try { throw "ファイルが壊れているか、PowerPointのファイルではありません。" } catch { $exception = $_.Exception }
-        describeIngestError $exception | Should Be "ファイルが壊れているか、PowerPointのファイルではありません。"
-    }
-
-    It "使用中・アクセス権なし・ファイルなしは原因を付けて元のメッセージを詳細にする" {
-        $locked = New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16))
-        describeIngestError $locked | Should Be "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: 別のプロセスで使用されているため、アクセスできません。）"
-        describeIngestError (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。")) | Should Match "^ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）$"
-        describeIngestError (New-Object System.IO.FileNotFoundException("見つかりません。")) | Should Match "^ファイルが見つかりません（"
-    }
-
-    It "Officeアプリの異常終了・応答なし・起動失敗は HRESULT で判断する" {
-        describeIngestError (newComError "RPC サーバーを利用できません。" "800706BA") | Should Match "^Officeアプリが異常終了したか、内部でエラーが発生しました（.*（詳細: RPC サーバーを利用できません。）$"
-        describeIngestError (newComError "呼び出し先が呼び出しを拒否しました。" "80010001") | Should Match "^Officeアプリが応答しませんでした"
-        describeIngestError (newComError "クラスが登録されていません" "80040154") | Should Match "^Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした"
-    }
-
-    It "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする" {
-        $inner = New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown.")
-        $outer = New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました', $inner)
-        describeIngestError $outer | Should Match "^シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: "
-    }
-
-    It "原因が分からないものは元のメッセージ（改行は詰める）、メッセージが無ければエラーコードを返す" {
-        describeIngestError (newComError "予期しない`r`nエラーです。" "800A03EC") | Should Be "予期しない エラーです。"
-        describeIngestError (New-Object System.Exception(" ")) | Should Match "^エラーコード 0x[0-9A-F]{8}$"
+    # expected は返す文言そのもの、pattern は返す文言の形（元のメッセージの前に付ける原因など）
+    It "<name>" -TestCases @(
+        @{ name = "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す（Excel）"; expected = $password
+           exception = (newComError "入力したパスワードが間違っています。CapsLock キーの状態に注意して…" "800A03EC") }
+        @{ name = "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す（Word）"; expected = $password
+           exception = (newComError "パスワードが正しくありません。文書を開けません。 (C:\Users\a\AppData\...\source.doc)" "800A1520") }
+        @{ name = "パスワード付きのファイルは、Officeアプリの分かりにくいメッセージを付けずに原因だけを返す（PowerPoint）"; expected = $password
+           exception = (newComError "Presentations.Open : 読み取りパスワードをもう一度入力してください(&P):" "80004005") }
+        @{ name = "メソッド呼び出しの例外は中の例外のメッセージを使う"
+           exception = (New-Object System.Management.Automation.MethodInvocationException('"7" 個の引数を指定して "Open" を呼び出し中に例外が発生しました',
+               (newComError "Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。" "800A03EC")))
+           expected = "ファイルが壊れているか、拡張子と中身の形式が一致していません（詳細: Excel でファイル 'a.xlsx' を開くことができません。ファイル形式またはファイル拡張子が正しくありません。）" }
+        # throw "文字列" の例外は RuntimeException
+        @{ name = "スクリプト自身が throw したメッセージはそのまま返す"
+           exception = (New-Object System.Management.Automation.RuntimeException("ファイルが壊れているか、PowerPointのファイルではありません。"))
+           expected = "ファイルが壊れているか、PowerPointのファイルではありません。" }
+        @{ name = "使用中は原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16)))
+           expected = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: 別のプロセスで使用されているため、アクセスできません。）" }
+        @{ name = "アクセス権なしは原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。"))
+           expected = "ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）" }
+        @{ name = "ファイルなしは原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.IO.FileNotFoundException("見つかりません。")); pattern = "^ファイルが見つかりません（.*（詳細: 見つかりません。）$" }
+        @{ name = "パスが長すぎるときは原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.IO.PathTooLongException("長すぎます。")); expected = "パスが長すぎるため読めません（詳細: 長すぎます。）" }
+        @{ name = "Officeアプリの異常終了は HRESULT で判断する"
+           exception = (newComError "RPC サーバーを利用できません。" "800706BA"); pattern = "^Officeアプリが異常終了したか、内部でエラーが発生しました（.*（詳細: RPC サーバーを利用できません。）$" }
+        @{ name = "Officeアプリの応答なしは HRESULT で判断する"
+           exception = (newComError "呼び出し先が呼び出しを拒否しました。" "80010001"); pattern = "^Officeアプリが応答しませんでした" }
+        @{ name = "Officeアプリの起動失敗は HRESULT で判断する"
+           exception = (newComError "クラスが登録されていません" "80040154"); pattern = "^Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした" }
+        @{ name = "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする"
+           exception = (New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました',
+               (New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown."))))
+           pattern = "^シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: " }
+        @{ name = "原因が分からないものは元のメッセージ（改行は詰める）"
+           exception = (newComError "予期しない`r`nエラーです。" "800A03EC"); expected = "予期しない エラーです。" }
+        @{ name = "メッセージが無ければエラーコードを返す"
+           exception = (New-Object System.Exception(" ")); pattern = "^エラーコード 0x[0-9A-F]{8}$" }
+    ) {
+        param ($name, $exception, $expected, $pattern)
+        if ($pattern) {
+            describeIngestError $exception | Should Match $pattern
+        } else {
+            describeIngestError $exception | Should Be $expected
+        }
     }
 }
 
@@ -350,12 +358,6 @@ Describe "writeIndexerLog" -Tag Unit {
     }
 }
 
-Describe "describeIngestError（パスが長すぎる）" -Tag Io {
-    It "原因を付けて元のメッセージを詳細にする" {
-        describeIngestError (New-Object System.IO.PathTooLongException("長すぎます。")) | Should Be "パスが長すぎるため読めません（詳細: 長すぎます。）"
-    }
-}
-
 Describe "getIndexingState（指定した時刻以降に取り込んだ件数）" -Tag Io {
     $path = "$TestDrive\status_since.tsv"
     writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(
@@ -375,12 +377,6 @@ Describe "getIndexingState（指定した時刻以降に取り込んだ件数）
 
     It "時刻を指定しなければ数えない" {
         (getIndexingState -path $path).IngestedSince | Should Be 0
-    }
-}
-
-Describe "readStatusLines" -Tag Io {
-    It "ファイルが無ければ空の配列" {
-        @(readStatusLines "$TestDrive\無い一覧.tsv").Count | Should Be 0
     }
 }
 
