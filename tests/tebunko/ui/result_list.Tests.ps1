@@ -1,95 +1,97 @@
 ﻿# ［2 検索］の結果の表（tebunko\ui\result_list.ps1）のテスト。
 # 画面の部品（$ui.ResultGrid など）は偽物にして、見出し・行の出し入れと状態の変化を確かめる。
-. "$PSScriptRoot\..\..\helpers\load.ps1"
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
-. "${scriptsDir}\shared\ui\types.ps1"
-. "${scriptsDir}\tebunko\ui\types.ps1"
-. "${scriptsDir}\tebunko\ui\search_view.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+    Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+    . "${scriptsDir}\shared\ui\types.ps1"
+    . "${scriptsDir}\tebunko\ui\types.ps1"
+    . "${scriptsDir}\tebunko\ui\search_view.ps1"
 
-# ---- 画面の偽物 ----
-# 読み込み時に登録されるイベントの処理は $handlers に取っておき、テストから呼ぶ
-$handlers = @{}
+    # ---- 画面の偽物 ----
+    # 読み込み時に登録されるイベントの処理は $handlers に取っておき、テストから呼ぶ
+    $handlers = @{}
 
-function newFakeButton([string]$name) {
-    $button = [pscustomobject]@{ Name = $name }
-    $button | Add-Member ScriptMethod Add_Click { param ($block) $handlers["$($this.Name).Click"] = $block }
-    return $button
-}
-
-$grid = [pscustomobject]@{
-    ItemsSource   = $null
-    SelectedItem  = $null
-    SelectedItems = @()
-    Columns       = New-Object 'System.Collections.Generic.List[object]'
-    Scrolled      = New-Object 'System.Collections.Generic.List[object]'
-}
-$grid | Add-Member ScriptMethod Add_LoadingRow { param ($block) $handlers["LoadingRow"] = $block }
-$grid | Add-Member ScriptMethod Add_Sorting { param ($block) $handlers["Sorting"] = $block }
-$grid | Add-Member ScriptMethod AddHandler { param ($event, $handler, $handledToo) $handlers["PreviewMouseUp"] = $handler }
-$grid | Add-Member ScriptMethod ScrollIntoView { param ($item) $this.Scrolled.Add($item) }
-
-$ui = [pscustomobject]@{
-    ResultGrid        = $grid
-    ExpandAllButton   = newFakeButton "ExpandAll"
-    CollapseAllButton = newFakeButton "CollapseAll"
-}
-
-# イベント処理が使う画面の共通部品（shared\ui\shell.ps1）の代わり。例外はそのまま出す
-function safe {
-    param ([scriptblock]$block)
-    & $block
-}
-
-. "${scriptsDir}\tebunko\ui\result_list.ps1"
-
-# ---- テストの準備 ----
-
-function resetResults {
-    $script:filterText = ""
-    $ui.ResultGrid.SelectedItem = $null
-    $ui.ResultGrid.SelectedItems = @()
-    $ui.ResultGrid.Columns.Clear()
-    $ui.ResultGrid.Scrolled.Clear()
-    clearResults "見積" ([regex]"見積")
-}
-
-function addHit {
-    # 検索のヒットを 1 件、元のファイルの見出しに足す（検索の処理と同じく、見出しが無ければ作る）
-    param (
-        [string]$book,
-        [string]$location,
-        [string]$line,
-        [int]$lineNumber = 1,
-        [string]$relDir = "営業部\2024"
-    )
-
-    $key = "C:\共有\$relDir\$book"
-    $group = $null
-    if (!$script:fileGroups.TryGetValue($key, [ref]$group)) {
-        $group = newFileGroup $key $relDir $book
+    function newFakeButton([string]$name) {
+        $button = [pscustomobject]@{ Name = $name }
+        $button | Add-Member ScriptMethod Add_Click { param ($block) $handlers["$($this.Name).Click"] = $block }
+        return $button
     }
-    $group.Hits.Add([pscustomobject]@{
-        Root = "C:\tebunko\work\index"; RelPath = "$relDir\$book\$location.tsv"; RelDir = $relDir
-        FileName = "$location.tsv"; Book = $book; Location = $location; LineNumber = $lineNumber; Line = $line
-    })
-    [void]$group.AddLocation($location)
-    addFileGroupLocation $group $book $location
-    [void]$script:dirtyGroups.Add($group)
-    $script:hitCount++
-    return $group
-}
 
-function getItemNames {
-    # 表に並んでいる項目を、見出しは「#ファイル名」、行は「ファイル名:行番号」で返す
-    return @($script:resultItems | ForEach-Object {
-        if ($_ -is [FileGroup]) { "#$($_.Book)" } else { "$($_.Book):$($_.LineNumber)" }
-    })
-}
+    $grid = [pscustomobject]@{
+        ItemsSource   = $null
+        SelectedItem  = $null
+        SelectedItems = @()
+        Columns       = New-Object 'System.Collections.Generic.List[object]'
+        Scrolled      = New-Object 'System.Collections.Generic.List[object]'
+    }
+    $grid | Add-Member ScriptMethod Add_LoadingRow { param ($block) $handlers["LoadingRow"] = $block }
+    $grid | Add-Member ScriptMethod Add_Sorting { param ($block) $handlers["Sorting"] = $block }
+    $grid | Add-Member ScriptMethod AddHandler { param ($event, $handler, $handledToo) $handlers["PreviewMouseUp"] = $handler }
+    $grid | Add-Member ScriptMethod ScrollIntoView { param ($item) $this.Scrolled.Add($item) }
 
-function newSortColumn([string]$path) {
-    $column = New-Object System.Windows.Controls.DataGridTextColumn
-    $column.SortMemberPath = $path
-    return $column
+    $ui = [pscustomobject]@{
+        ResultGrid        = $grid
+        ExpandAllButton   = newFakeButton "ExpandAll"
+        CollapseAllButton = newFakeButton "CollapseAll"
+    }
+
+    # イベント処理が使う画面の共通部品（shared\ui\shell.ps1）の代わり。例外はそのまま出す
+    function safe {
+        param ([scriptblock]$block)
+        & $block
+    }
+
+    . "${scriptsDir}\tebunko\ui\result_list.ps1"
+
+    # ---- テストの準備 ----
+
+    function resetResults {
+        $script:filterText = ""
+        $ui.ResultGrid.SelectedItem = $null
+        $ui.ResultGrid.SelectedItems = @()
+        $ui.ResultGrid.Columns.Clear()
+        $ui.ResultGrid.Scrolled.Clear()
+        clearResults "見積" ([regex]"見積")
+    }
+
+    function addHit {
+        # 検索のヒットを 1 件、元のファイルの見出しに足す（検索の処理と同じく、見出しが無ければ作る）
+        param (
+            [string]$book,
+            [string]$location,
+            [string]$line,
+            [int]$lineNumber = 1,
+            [string]$relDir = "営業部\2024"
+        )
+
+        $key = "C:\共有\$relDir\$book"
+        $group = $null
+        if (!$script:fileGroups.TryGetValue($key, [ref]$group)) {
+            $group = newFileGroup $key $relDir $book
+        }
+        $group.Hits.Add([pscustomobject]@{
+            Root = "C:\tebunko\work\index"; RelPath = "$relDir\$book\$location.tsv"; RelDir = $relDir
+            FileName = "$location.tsv"; Book = $book; Location = $location; LineNumber = $lineNumber; Line = $line
+        })
+        [void]$group.AddLocation($location)
+        addFileGroupLocation $group $book $location
+        [void]$script:dirtyGroups.Add($group)
+        $script:hitCount++
+        return $group
+    }
+
+    function getItemNames {
+        # 表に並んでいる項目を、見出しは「#ファイル名」、行は「ファイル名:行番号」で返す
+        return @($script:resultItems | ForEach-Object {
+            if ($_ -is [FileGroup]) { "#$($_.Book)" } else { "$($_.Book):$($_.LineNumber)" }
+        })
+    }
+
+    function newSortColumn([string]$path) {
+        $column = New-Object System.Windows.Controls.DataGridTextColumn
+        $column.SortMemberPath = $path
+        return $column
+    }
 }
 
 Describe "clearResults" -Tag Unit {
@@ -104,15 +106,15 @@ Describe "clearResults" -Tag Unit {
 
         clearResults "請求" ([regex]"請求")
 
-        $script:hitCount | Should Be 0
-        $script:fileGroups.Count | Should Be 0
-        $script:groupList.Count | Should Be 0
-        $script:dirtyGroups.Count | Should Be 0
-        $script:resultItems.Count | Should Be 0
-        $script:expandNew | Should Be $false
-        $script:rowWord | Should Be "請求"
-        $script:rowPattern.ToString() | Should Be "請求"
-        $null -eq $column.SortDirection | Should Be $true
+        $script:hitCount | Should -Be 0
+        $script:fileGroups.Count | Should -Be 0
+        $script:groupList.Count | Should -Be 0
+        $script:dirtyGroups.Count | Should -Be 0
+        $script:resultItems.Count | Should -Be 0
+        $script:expandNew | Should -Be $false
+        $script:rowWord | Should -Be "請求"
+        $script:rowPattern.ToString() | Should -Be "請求"
+        $null -eq $column.SortDirection | Should -Be $true
     }
 }
 
@@ -123,22 +125,22 @@ Describe "newFileGroup" -Tag Unit {
         $first = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         $second = newFileGroup "C:\共有\議事録.docx" "" "議事録.docx"
 
-        $first.Order | Should Be 0
-        $second.Order | Should Be 1
-        $first.AppKind | Should Be "Excel"
-        $second.AppKind | Should Be "Word"
-        $second.FullPath | Should Be "C:\共有\議事録.docx"
-        $script:groupList.Count | Should Be 2
+        $first.Order | Should -Be 0
+        $second.Order | Should -Be 1
+        $first.AppKind | Should -Be "Excel"
+        $second.AppKind | Should -Be "Word"
+        $second.FullPath | Should -Be "C:\共有\議事録.docx"
+        $script:groupList.Count | Should -Be 2
     }
 
     It "フルパスは大文字と小文字を区別せずに引ける" {
         $group = newFileGroup "C:\共有\Mitsumori.xlsx" "" "Mitsumori.xlsx"
-        $script:fileGroups["c:\共有\MITSUMORI.XLSX"] | Should Be $group
+        $script:fileGroups["c:\共有\MITSUMORI.XLSX"] | Should -Be $group
     }
 
     It "［すべて展開］のあとに見つかったファイルは開いておく" {
         $script:expandNew = $true
-        (newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx").IsExpanded | Should Be $true
+        (newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx").IsExpanded | Should -Be $true
     }
 }
 
@@ -146,26 +148,26 @@ Describe "getPlace・addFileGroupLocation" -Tag Unit {
     BeforeEach { resetResults }
 
     It "Excel とそれ以外は別の表記にする" {
-        (getPlace "見積.xlsx" "ページ003").Place | Should Be "[シート] ページ003"
-        (getPlace "議事録.docx" "ページ003").Place | Should Be "[ページ] 3（目安）"
-        $script:places.Count | Should Be 2
+        (getPlace "見積.xlsx" "ページ003").Place | Should -Be "[シート] ページ003"
+        (getPlace "議事録.docx" "ページ003").Place | Should -Be "[ページ] 3（目安）"
+        $script:places.Count | Should -Be 2
     }
 
     It "見出しの右端に、ヒットした場所を足していく" {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         addFileGroupLocation $group "見積.xlsx" "4月"
-        $group.LocationText | Should Be "[シート] 4月"
+        $group.LocationText | Should -Be "[シート] 4月"
         addFileGroupLocation $group "見積.xlsx" "5月"
         addFileGroupLocation $group "見積.xlsx" "6月"
-        $group.LocationText | Should Be "[シート] 4月 ほか 2 か所"
+        $group.LocationText | Should -Be "[シート] 4月 ほか 2 か所"
     }
 
     It "図形の場所は元のシートと同じ表記なので増やさない" {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         addFileGroupLocation $group "見積.xlsx" "4月"
         addFileGroupLocation $group "見積.xlsx" "4月[図形]"
-        $group.LocationText | Should Be "[シート] 4月"
-        @($group.GetLocations()).Count | Should Be 1
+        $group.LocationText | Should -Be "[シート] 4月"
+        @($group.GetLocations()).Count | Should -Be 1
     }
 }
 
@@ -178,17 +180,17 @@ Describe "ensureRows" -Tag Unit {
 
         ensureRows $group
 
-        $group.Rows.Count | Should Be 2
+        $group.Rows.Count | Should -Be 2
         $row = $group.Rows[0]
-        $row.IndexName | Should Be "営業部"
-        $row.PlaceText | Should Be "[シート] 4月"
-        $row.Kind | Should Be "セル"
-        $row.LineNumber | Should Be 3
-        $row.Order | Should Be 0
-        $row.FileGroup | Should Be $group
-        $group.Rows[1].Kind | Should Be "図形"
-        $group.Rows[1].Order | Should Be 1
-        $group.ShownRows.Count | Should Be 2
+        $row.IndexName | Should -Be "営業部"
+        $row.PlaceText | Should -Be "[シート] 4月"
+        $row.Kind | Should -Be "セル"
+        $row.LineNumber | Should -Be 3
+        $row.Order | Should -Be 0
+        $row.FileGroup | Should -Be $group
+        $group.Rows[1].Kind | Should -Be "図形"
+        $group.Rows[1].Order | Should -Be 1
+        $group.ShownRows.Count | Should -Be 2
     }
 
     It "相対フォルダが空・無いときは、インデックス名も空にする" {
@@ -198,14 +200,14 @@ Describe "ensureRows" -Tag Unit {
 
         ensureRows $group
 
-        $group.Rows[0].IndexName | Should Be ""
-        $group.Rows[0].RelDir | Should Be ""
+        $group.Rows[0].IndexName | Should -Be ""
+        $group.Rows[0].RelDir | Should -Be ""
     }
 
     It "インデックス直下のファイルは、相対パスそのものがインデックス名" {
         $group = addHit "見積.xlsx" "4月" "`t見積" 1 "営業部"
         ensureRows $group
-        $group.Rows[0].IndexName | Should Be "営業部"
+        $group.Rows[0].IndexName | Should -Be "営業部"
     }
 
     It "作り済みの行は作り直さず、増えた分だけ足す" {
@@ -216,8 +218,8 @@ Describe "ensureRows" -Tag Unit {
 
         ensureRows $group
 
-        $group.Rows.Count | Should Be 2
-        [object]::ReferenceEquals($group.Rows[0], $first) | Should Be $true
+        $group.Rows.Count | Should -Be 2
+        [object]::ReferenceEquals($group.Rows[0], $first) | Should -Be $true
     }
 
     It "絞り込み中は、合う行だけを ShownRows に入れる" {
@@ -227,9 +229,9 @@ Describe "ensureRows" -Tag Unit {
 
         ensureRows $group
 
-        $group.Rows.Count | Should Be 2
-        $group.ShownRows.Count | Should Be 1
-        $group.ShownRows[0].LineNumber | Should Be 2
+        $group.Rows.Count | Should -Be 2
+        $group.ShownRows.Count | Should -Be 1
+        $group.ShownRows[0].LineNumber | Should -Be 2
     }
 }
 
@@ -240,8 +242,8 @@ Describe "updateGroupCount" -Tag Unit {
         $group = addHit "見積.xlsx" "4月" "`t見積" 1
         [void](addHit "見積.xlsx" "4月" "`t見積" 2)
         updateGroupCount $group
-        $group.ShownCount | Should Be 2
-        $group.Rows.Count | Should Be 0
+        $group.ShownCount | Should -Be 2
+        $group.Rows.Count | Should -Be 0
     }
 
     It "絞り込み中は合う行の数" {
@@ -250,7 +252,7 @@ Describe "updateGroupCount" -Tag Unit {
         $script:filterText = "山田"
         ensureRows $group
         updateGroupCount $group
-        $group.ShownCount | Should Be 1
+        $group.ShownCount | Should -Be 1
     }
 }
 
@@ -264,10 +266,10 @@ Describe "flushResults" -Tag Unit {
 
         flushResults
 
-        (getItemNames) -join "," | Should Be "#見積.xlsx,#議事録.docx"
-        $script:fileGroups["C:\共有\営業部\2024\見積.xlsx"].ShownCount | Should Be 2
-        $script:dirtyGroups.Count | Should Be 0
-        $script:lastInViewOrder | Should Be 1
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
+        $script:fileGroups["C:\共有\営業部\2024\見積.xlsx"].ShownCount | Should -Be 2
+        $script:dirtyGroups.Count | Should -Be 0
+        $script:lastInViewOrder | Should -Be 1
     }
 
     It "開いているファイルは、あとから来た行も見出しの下に足す" {
@@ -279,8 +281,8 @@ Describe "flushResults" -Tag Unit {
 
         flushResults
 
-        (getItemNames) -join "," | Should Be "#見積.xlsx,見積.xlsx:1,見積.xlsx:7,#議事録.docx,議事録.docx:1"
-        $script:fileGroups["C:\共有\営業部\2024\見積.xlsx"].DisplayedCount | Should Be 2
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:1,見積.xlsx:7,#議事録.docx,議事録.docx:1"
+        $script:fileGroups["C:\共有\営業部\2024\見積.xlsx"].DisplayedCount | Should -Be 2
     }
 
     It "絞り込みに合う行が無いファイルは見出しも出さない" {
@@ -290,7 +292,7 @@ Describe "flushResults" -Tag Unit {
 
         flushResults
 
-        (getItemNames) -join "," | Should Be "#議事録.docx"
+        (getItemNames) -join "," | Should -Be "#議事録.docx"
     }
 
     It "隠れていたファイルに、あとから合う行が来たら作り直しを予約する" {
@@ -302,8 +304,8 @@ Describe "flushResults" -Tag Unit {
 
         flushResults
 
-        $script:needsRebuild | Should Be $true
-        (getItemNames) -join "," | Should Be "#議事録.docx"
+        $script:needsRebuild | Should -Be $true
+        (getItemNames) -join "," | Should -Be "#議事録.docx"
     }
 }
 
@@ -317,9 +319,9 @@ Describe "setResultItems" -Tag Unit {
 
         setResultItems ([System.Collections.Generic.List[object]]@($group))
 
-        [object]::ReferenceEquals($ui.ResultGrid.ItemsSource, $script:resultItems) | Should Be $true
-        $ui.ResultGrid.SelectedItem | Should Be $group
-        $ui.ResultGrid.Scrolled.Count | Should Be 1
+        [object]::ReferenceEquals($ui.ResultGrid.ItemsSource, $script:resultItems) | Should -Be $true
+        $ui.ResultGrid.SelectedItem | Should -Be $group
+        $ui.ResultGrid.Scrolled.Count | Should -Be 1
     }
 
     It "選んでいた項目が無くなったら選び直さない" {
@@ -329,9 +331,9 @@ Describe "setResultItems" -Tag Unit {
 
         setResultItems (New-Object 'System.Collections.Generic.List[object]')
 
-        $group.InView | Should Be $false
-        $script:lastInViewOrder | Should Be -1
-        $ui.ResultGrid.Scrolled.Count | Should Be 0
+        $group.InView | Should -Be $false
+        $script:lastInViewOrder | Should -Be -1
+        $ui.ResultGrid.Scrolled.Count | Should -Be 0
     }
 
     It "開いている見出しは、下に入れた行の数を覚える" {
@@ -343,9 +345,9 @@ Describe "setResultItems" -Tag Unit {
 
         setResultItems (getResultItems $script:groupList)
 
-        $group.InView | Should Be $true
-        $group.DisplayedCount | Should Be 2
-        $script:lastInViewOrder | Should Be 0
+        $group.InView | Should -Be $true
+        $group.DisplayedCount | Should -Be 2
+        $script:lastInViewOrder | Should -Be 0
     }
 }
 
@@ -359,13 +361,13 @@ Describe "toggleFileGroup" -Tag Unit {
         flushResults
 
         toggleFileGroup $mitsumori
-        $mitsumori.IsExpanded | Should Be $true
-        (getItemNames) -join "," | Should Be "#見積.xlsx,見積.xlsx:1,見積.xlsx:2,#議事録.docx"
+        $mitsumori.IsExpanded | Should -Be $true
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:1,見積.xlsx:2,#議事録.docx"
 
         toggleFileGroup $mitsumori
-        $mitsumori.IsExpanded | Should Be $false
-        $mitsumori.DisplayedCount | Should Be 0
-        (getItemNames) -join "," | Should Be "#見積.xlsx,#議事録.docx"
+        $mitsumori.IsExpanded | Should -Be $false
+        $mitsumori.DisplayedCount | Should -Be 0
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
     }
 
     It "行が多いときは、1 件ずつ入れずに表を作り直す" {
@@ -376,12 +378,12 @@ Describe "toggleFileGroup" -Tag Unit {
         flushResults
 
         toggleFileGroup $group
-        $script:resultItems.Count | Should Be (${rebuildThreshold} + 2)
-        $group.DisplayedCount | Should Be (${rebuildThreshold} + 1)
+        $script:resultItems.Count | Should -Be (${rebuildThreshold} + 2)
+        $group.DisplayedCount | Should -Be (${rebuildThreshold} + 1)
 
         toggleFileGroup $group
-        $script:resultItems.Count | Should Be 1
-        $group.IsExpanded | Should Be $false
+        $script:resultItems.Count | Should -Be 1
+        $group.IsExpanded | Should -Be $false
     }
 }
 
@@ -395,12 +397,12 @@ Describe "setAllFileGroupsExpanded" -Tag Unit {
 
         setAllFileGroupsExpanded $true
 
-        $script:expandNew | Should Be $true
-        (getItemNames) -join "," | Should Be "#見積.xlsx,見積.xlsx:1,#議事録.docx,議事録.docx:1"
+        $script:expandNew | Should -Be $true
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:1,#議事録.docx,議事録.docx:1"
 
         setAllFileGroupsExpanded $false
-        $script:expandNew | Should Be $false
-        (getItemNames) -join "," | Should Be "#見積.xlsx,#議事録.docx"
+        $script:expandNew | Should -Be $false
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
     }
 
     It "［すべて展開］［すべて折りたたむ］のボタンから切り替える" {
@@ -408,10 +410,10 @@ Describe "setAllFileGroupsExpanded" -Tag Unit {
         flushResults
 
         & $handlers["ExpandAll.Click"]
-        $script:resultItems.Count | Should Be 2
+        $script:resultItems.Count | Should -Be 2
 
         & $handlers["CollapseAll.Click"]
-        $script:resultItems.Count | Should Be 1
+        $script:resultItems.Count | Should -Be 1
     }
 }
 
@@ -427,16 +429,16 @@ Describe "applyResultFilter" -Tag Unit {
         $script:filterText = "佐藤"
         applyResultFilter "佐藤"
 
-        (getItemNames) -join "," | Should Be "#見積.xlsx"
-        $mitsumori.ShownCount | Should Be 1
-        (getShownHitCount) | Should Be 1
+        (getItemNames) -join "," | Should -Be "#見積.xlsx"
+        $mitsumori.ShownCount | Should -Be 1
+        (getShownHitCount) | Should -Be 1
 
         $script:filterText = ""
         applyResultFilter ""
 
-        (getItemNames) -join "," | Should Be "#見積.xlsx,#議事録.docx"
-        $mitsumori.ShownCount | Should Be 2
-        (getShownHitCount) | Should Be 3
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
+        $mitsumori.ShownCount | Should -Be 2
+        (getShownHitCount) | Should -Be 3
     }
 }
 
@@ -451,7 +453,7 @@ Describe "applyResultFilter（絞り込みの文字）" -Tag Unit {
         $script:filterText = "ESTIMATE"
         applyResultFilter "ESTIMATE"
 
-        (getItemNames) -join "," | Should Be "#Mitsumori.xlsx"
+        (getItemNames) -join "," | Should -Be "#Mitsumori.xlsx"
     }
 
     It "ワイルドカード・正規表現の記号も文字どおりに探す" {
@@ -461,15 +463,15 @@ Describe "applyResultFilter（絞り込みの文字）" -Tag Unit {
 
         $script:filterText = "[図形]"
         applyResultFilter "[図形]"
-        (getShownHitCount) | Should Be 1
+        (getShownHitCount) | Should -Be 1
 
         $script:filterText = "*"
         applyResultFilter "*"
-        (getShownHitCount) | Should Be 1
+        (getShownHitCount) | Should -Be 1
 
         $script:filterText = "?"
         applyResultFilter "?"
-        (getShownHitCount) | Should Be 0
+        (getShownHitCount) | Should -Be 0
     }
 
     It "場所・種別の表示でも絞り込める" {
@@ -480,7 +482,7 @@ Describe "applyResultFilter（絞り込みの文字）" -Tag Unit {
         $script:filterText = "コメント"
         applyResultFilter "コメント"
 
-        (getShownHitCount) | Should Be 1
+        (getShownHitCount) | Should -Be 1
     }
 }
 
@@ -495,8 +497,8 @@ Describe "sortResults・applySort" -Tag Unit {
 
         sortResults $column
 
-        $null -eq $column.SortDirection | Should Be $true
-        $script:groupList[0].Rows.Count | Should Be 0
+        $null -eq $column.SortDirection | Should -Be $true
+        $script:groupList[0].Rows.Count | Should -Be 0
     }
 
     It "1 回目は昇順、もう一度で降順にし、ほかの列の印を消す" {
@@ -511,17 +513,17 @@ Describe "sortResults・applySort" -Tag Unit {
         $ui.ResultGrid.Columns.Add($column)
 
         sortResults $column
-        $column.SortDirection | Should Be ([System.ComponentModel.ListSortDirection]::Ascending)
-        $null -eq $other.SortDirection | Should Be $true
-        (getItemNames) -join "," | Should Be "#a.docx,#b.docx,#c.docx"
+        $column.SortDirection | Should -Be ([System.ComponentModel.ListSortDirection]::Ascending)
+        $null -eq $other.SortDirection | Should -Be $true
+        (getItemNames) -join "," | Should -Be "#a.docx,#b.docx,#c.docx"
 
         sortResults $column
-        $column.SortDirection | Should Be ([System.ComponentModel.ListSortDirection]::Descending)
-        (getItemNames) -join "," | Should Be "#c.docx,#b.docx,#a.docx"
+        $column.SortDirection | Should -Be ([System.ComponentModel.ListSortDirection]::Descending)
+        (getItemNames) -join "," | Should -Be "#c.docx,#b.docx,#a.docx"
 
         sortResults $column
-        $column.SortDirection | Should Be ([System.ComponentModel.ListSortDirection]::Ascending)
-        (getItemNames) -join "," | Should Be "#a.docx,#b.docx,#c.docx"
+        $column.SortDirection | Should -Be ([System.ComponentModel.ListSortDirection]::Ascending)
+        (getItemNames) -join "," | Should -Be "#a.docx,#b.docx,#c.docx"
     }
 
     It "同じ値のファイル・行は、見つかった順のまま並べる" {
@@ -533,10 +535,10 @@ Describe "sortResults・applySort" -Tag Unit {
         flushResults
 
         applySort "IndexName" $false
-        (getItemNames) -join "," | Should Be "#見積.xlsx,見積.xlsx:5,見積.xlsx:2,#議事録.docx,#規程.docx"
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:5,見積.xlsx:2,#議事録.docx,#規程.docx"
 
         applySort "IndexName" $true
-        (getItemNames) -join "," | Should Be "#見積.xlsx,見積.xlsx:5,見積.xlsx:2,#議事録.docx,#規程.docx"
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:5,見積.xlsx:2,#議事録.docx,#規程.docx"
     }
 
     It "ファイルの中の行も並べ替え、絞り込みを当て直す" {
@@ -549,7 +551,7 @@ Describe "sortResults・applySort" -Tag Unit {
 
         applySort "LineNumber" $true
 
-        (getItemNames) -join "," | Should Be "#見積.xlsx,見積.xlsx:3,見積.xlsx:1"
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,見積.xlsx:3,見積.xlsx:1"
     }
 
     It "表の並べ替えのイベントは、表に任せずファイルごとに並べ替える" {
@@ -562,8 +564,8 @@ Describe "sortResults・applySort" -Tag Unit {
 
         & $handlers["Sorting"] $ui.ResultGrid $e
 
-        $e.Handled | Should Be $true
-        (getItemNames) -join "," | Should Be "#a.docx,#b.docx"
+        $e.Handled | Should -Be $true
+        (getItemNames) -join "," | Should -Be "#a.docx,#b.docx"
     }
 }
 
@@ -580,7 +582,7 @@ Describe "finishResults" -Tag Unit {
 
         finishResults
 
-        (getItemNames) -join "," | Should Be "#a.docx,#b.docx"
+        (getItemNames) -join "," | Should -Be "#a.docx,#b.docx"
     }
 
     It "隠れていたファイルに合う行が来ていたら作り直す" {
@@ -592,8 +594,8 @@ Describe "finishResults" -Tag Unit {
 
         finishResults
 
-        $script:needsRebuild | Should Be $false
-        (getItemNames) -join "," | Should Be "#見積.xlsx,#議事録.docx"
+        $script:needsRebuild | Should -Be $false
+        (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
     }
 
     It "どちらでもなければ表はそのまま" {
@@ -603,7 +605,7 @@ Describe "finishResults" -Tag Unit {
 
         finishResults
 
-        [object]::ReferenceEquals($script:resultItems, $items) | Should Be $true
+        [object]::ReferenceEquals($script:resultItems, $items) | Should -Be $true
     }
 }
 
@@ -615,7 +617,7 @@ Describe "getCurrentHitRow" -Tag Unit {
         flushResults
         $ui.ResultGrid.SelectedItem = $group
 
-        (getCurrentHitRow).LineNumber | Should Be 4
+        (getCurrentHitRow).LineNumber | Should -Be 4
     }
 
     It "見出しの行がすべて絞り込みで隠れていれば無し" {
@@ -623,17 +625,17 @@ Describe "getCurrentHitRow" -Tag Unit {
         $script:filterText = "佐藤"
         $ui.ResultGrid.SelectedItem = $group
 
-        $null -eq (getCurrentHitRow) | Should Be $true
+        $null -eq (getCurrentHitRow) | Should -Be $true
     }
 
     It "行を選んでいるときはその行、何も選んでいなければ無し" {
         $group = addHit "見積.xlsx" "4月" "`t見積" 4
         ensureRows $group
         $ui.ResultGrid.SelectedItem = $group.Rows[0]
-        (getCurrentHitRow) | Should Be $group.Rows[0]
+        (getCurrentHitRow) | Should -Be $group.Rows[0]
 
         $ui.ResultGrid.SelectedItem = $null
-        $null -eq (getCurrentHitRow) | Should Be $true
+        $null -eq (getCurrentHitRow) | Should -Be $true
     }
 }
 
@@ -647,20 +649,20 @@ Describe "getViewRows・getSelectedRows" -Tag Unit {
 
         $rows = getViewRows
 
-        $rows.Count | Should Be 2
-        $rows[0].Book | Should Be "見積.xlsx"
-        $rows[1].Book | Should Be "議事録.docx"
+        $rows.Count | Should -Be 2
+        $rows[0].Book | Should -Be "見積.xlsx"
+        $rows[1].Book | Should -Be "議事録.docx"
     }
 
     It "結果が無い・何も選んでいないときは空の配列を返す" {
         $view = getViewRows
         $selected = getSelectedRows
 
-        , $view | Should BeOfType [object[]]
-        $view.Count | Should Be 0
-        , $selected | Should BeOfType [object[]]
-        $selected.Count | Should Be 0
-        (getShownHitCount) | Should Be 0
+        , $view | Should -BeOfType [object[]]
+        $view.Count | Should -Be 0
+        , $selected | Should -BeOfType [object[]]
+        $selected.Count | Should -Be 0
+        (getShownHitCount) | Should -Be 0
     }
 
     It "見出しを選ぶとそのファイルの行をすべて、行を選ぶとその行を、表の順に返す" {
@@ -673,7 +675,7 @@ Describe "getViewRows・getSelectedRows" -Tag Unit {
 
         $rows = getSelectedRows
 
-        (@($rows | ForEach-Object { $_.LineNumber }) -join ",") | Should Be "1,2,4"
+        (@($rows | ForEach-Object { $_.LineNumber }) -join ",") | Should -Be "1,2,4"
     }
 }
 
@@ -688,7 +690,7 @@ Describe "イベント" -Tag Unit {
 
         & $handlers["LoadingRow"] $ui.ResultGrid $e
 
-        $row.Prepared | Should Be $true
-        $row.MatchCell | Should Be "B1"
+        $row.Prepared | Should -Be $true
+        $row.MatchCell | Should -Be "B1"
     }
 }
