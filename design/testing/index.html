@@ -3077,7 +3077,7 @@
 </tr>
 <tr>
 <td><code>measure_perf.ps1</code></td>
-<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る</td>
+<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る。<code>-Office</code> の取り込みは、<code>new_ingest_data.ps1</code>（種類ごとの数・50 ファイルごとのフォルダ分け・同じ引数から同じ構成になること）、取り込み一覧の数え方（同じ相対パスは最後の行・成功 + 失敗がファイル数と合わなければ失敗）、段階が読めないときと知らない段階のときの失敗、記録のスレッドが受け渡しの口の段階を読むこと、小さな .docx・.pptx のデータで最後まで動かして <code>result.json</code> の <code>Ingest</code>・<code>metrics.csv</code> の <code>ingest_</code> の行・<code>summary.md</code> の「Office からの取り込み」の表（パスを含まないこと）を確かめる。<code>-Office</code> だけのときは <code>Index</code>・<code>Search</code> を、<code>-Index</code> だけのときは <code>Ingest</code> を、キーを残して <code>null</code> にする（<code>Schema</code> は 1 のまま）。リポジトリの <code>setting.config</code> を作らない・変えないことも確かめる。Office を使う取り込み（.xlsx・.doc・.ppt）は CI では測れないので、手元の Windows で測る（<a href="ci/">CI</a>）</td>
 </tr>
 </tbody>
 </table>

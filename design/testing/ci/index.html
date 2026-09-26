@@ -2862,7 +2862,7 @@
 <td><code>perf.yml</code></td>
 <td><code>perf</code></td>
 <td>手動（<code>workflow_dispatch</code>）</td>
-<td>pack の作成・検索の速さとリソースの推移を測る</td>
+<td>Office からの取り込み（.docx・.pptx）・pack の作成・検索の速さとリソースの推移を測る</td>
 <td>–</td>
 </tr>
 </tbody>
@@ -2932,15 +2932,16 @@ git push origin v0.1.0
 mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
 <p><strong><code>perf.yml</code>（性能とリソースの計測）</strong></p>
-<p>手動で起動し、決まった量のデータで、インデックス作成と検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。大きな変更の前後で数字を比べるときなどに使う。必須のチェックではない。</p>
-<div class="highlight"><pre><span></span><code>gh workflow run perf.yml -f ref=&lt;測る ref&gt; -f scale=0.1
+<p>手動で起動し、決まった量のデータで、Office からの取り込み、インデックス作成、検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。大きな変更の前後で数字を比べるときなどに使う。必須のチェックではない。</p>
+<div class="highlight"><pre><span></span><code>gh workflow run perf.yml -f ref=&lt;測る ref&gt; -f scale=0.1 -f ingest=200
 </code></pre></div>
 <ul>
-<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）</li>
+<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）、<code>ingest</code>（取り込みを測る .docx・.pptx のそれぞれの数。<code>0</code> <code>200</code> <code>1000</code>。既定 <code>0</code> は取り込みを測らない。検索だけを測る起動が長くならないようにする）</li>
 <li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（pack 形式より前の版）では、エラーメッセージを出して止まる</li>
 <li>データは <a href="https://github.com/hsgwa/tebunko-perfdata">tebunko-perfdata</a> の <code>new_index.ps1</code> で毎回生成する（取り込みの一時置き場と同じ形の TSV）。使う版は <code>perf.yml</code> の <code>PERFDATA_SHA</code> でコミットに固定する。検索する語は同じリポジトリの <code>words.tsv</code>（0 件・まれ（3 件）・大量・正規表現）</li>
 <li>測るもの（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）</li>
-<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、ランナーに Office が無いので測らない。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る</li>
+<li>Office からの取り込み … <code>ingest</code> が <code>0</code> でないときだけ。<code>tools/perf/new_ingest_data.ps1</code> でテストデータ（<code>tests/testdata/office</code>）の複製を作り（.docx・.pptx を <code>ingest</code> 個ずつ。50 ファイルごとにフォルダを分ける）、<code>measure_perf.ps1 -Office</code> で測る。ランナーには Office が無いので、Office を使わずに読むファイル（.docx・.pptx。読み取りのスレッド）だけを測り、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は手元の Windows で測る（下の「取り込みの計測」）</li>
+<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、下の取り込みの計測で別に測る。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る</li>
 <li>検索 … 語ごとに新しいプロセスを起動し、同じプロセスで <code>count</code> 回続けて検索する（上限 1 万件）。画面と同じく、検索の司令のスレッド（<code>newSearchService</code>）を 1 つ作り、要求（<code>newSearchRequest</code>）を順に送る。<code>lib.ps1</code> の読み込みと照合のスレッドの用意は司令のスレッドが始めに 1 回だけ行うので、1 回目の時間に含まれる。検索のキャッシュも画面と同じくプロセスで 1 つを持ち続ける。語ごとに、検索時間の最小・中央値・平均・最大と、その内訳（列挙・照合）を出す。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。高速検索は、ランナーに Windows Search が無いので使わない<ul>
 <li>司令のスレッドが無い版（#102 より前）は、その版の画面と同じく、検索のたびに新しい Runspace で <code>lib.ps1</code> を読み込んで測る（内訳に読み込みの時間も出す）。どちらで測ったかは結果の <code>SearchMode</code>（<code>service</code> / <code>runspace</code>）に出るので、#102 の前後を同じワークフローで比べられる</li>
 </ul>
@@ -2948,13 +2949,56 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）</li>
 <li>OS のファイルキャッシュは空にしない。pack は作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
 <li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
-<li><code>summary.md</code> … Summary と同じ内容</li>
+<li><code>summary.md</code> … Summary と同じ内容（「Office からの取り込み」の節を含む）</li>
 <li><code>result.json</code> … すべての数字。形式の版（<code>Schema</code>）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む</li>
 <li><code>metrics.csv</code> … 1 行 1 指標の縦長の形（<code>run_id, date, ref, sha, scale, metric, word, stat, value, unit</code>）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）</li>
-<li><code>searches.csv</code>（検索 1 回ごと）・<code>resource-index.csv</code>・<code>resource-search.csv</code>（リソースの記録）</li>
+<li><code>searches.csv</code>（検索 1 回ごと）・<code>resource-ingest.csv</code>・<code>resource-index.csv</code>・<code>resource-search.csv</code>（リソースの記録）</li>
 <li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、pack の作成の時間は 5 割ほどぶれることがある</li>
 <li>手元でも同じ計測スクリプトで測れる（<code>.\tools\measure_perf.ps1 -Index &lt;TSV のフォルダ&gt; -Work &lt;作業フォルダ&gt; -Words &lt;words.tsv&gt;</code>）。渡した TSV は pack に変換され、元の TSV は削除される</li>
 </ul>
+<p><strong>取り込みの計測（手元の Windows。Excel・Word・PowerPoint が入った機械で）</strong></p>
+<div class="highlight"><pre><span></span><code>.\tools\perf\new_ingest_data.ps1 -Dest C:\perf\office -Docx 50 -Pptx 50
+.\tools\measure_perf.ps1 -Office C:\perf\office -Work C:\perf\work -Repeat 1
+</code></pre></div>
+<ul>
+<li>データ（<code>new_ingest_data.ps1</code>）… .docx・.pptx（<code>-Docx</code>・<code>-Pptx</code>。既定 200）、.doc・.ppt（<code>-Doc</code>・<code>-Ppt</code>。既定 0）はテストデータの複製、.xlsx（<code>-Xlsx</code>。既定 0）は tebunko-perfdata の <code>new_books.ps1</code> で作ったブック（<code>-Books</code>）の先頭の数冊。50 ファイルごとにフォルダを分ける（フォルダごとの集約ファイルの書き出しも一緒に測るため）。同じ引数からは同じ構成・同じ中身になる。Excel は .xlsx、Word は .doc、PowerPoint は .ppt を読むので、使う Office はデータにある種類で決まる</li>
+<li>測り方（<code>tools/perf/measure_ingest.ps1</code>）… <code>-Repeat</code> 回（既定 3）、1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）。測る tebunko の <code>scripts</code> を作業フォルダに写して <code>setting.config</code> を書くので、利用者の設定・既定のワークスペース・リポジトリの <code>setting.config</code> には触らない。取り込みは起動口 <code>indexer.ps1 -Channel</code> で動かし、記録のスレッドが受け渡しの口の <code>Progress.Phase</code> を読んで、段階（クロール・確認・取り込み・仕上げ）ごとの時間とリソースを出す。1 ファイルあたりの ms は、取り込みの段階の秒 ÷ ファイル数</li>
+<li>成功・失敗は、ワークスペースの <code>取り込み一覧.tsv</code> を計測の側で読んで数える（同じ相対パスは最後の行の状態）。成功 + 失敗がファイル数と合わなければ、終了コードが 0 でなければ、取り込みの段階が読めなかったとき・知らない段階の名前が来たときは、計測を失敗にする。失敗したファイルがあれば <code>summary.md</code> に書く</li>
+<li>リソースの表が測るのは、計測の PowerShell のプロセスだけ。EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）</li>
+<li>取り込みの時間に上限を付けた合否のテストは無い。Office の時間は機械・Defender・Office の版で大きく揺れるので、比べるのは同じ機械・同じ日・同じ引数で続けて測った数字どうしにする（Office の版は結果の実行の情報に出す）</li>
+</ul>
+<p><strong>計測の口（取り込みの計測が頼るもの）</strong></p>
+<p>取り込みのコードを書き直すときは、この口を変えない。変えるときは、先に計測（<code>measure_ingest.ps1</code>）を直し、変える前の版を測り直してから比べる。</p>
+<table>
+<thead>
+<tr>
+<th>口</th>
+<th>中身</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>起動口</td>
+<td><code>scripts\tebunko\indexer.ps1 -Channel &lt;口&gt;</code>。終了コード 0 = 完了</td>
+</tr>
+<tr>
+<td>読み込み口</td>
+<td><code>scripts\tebunko\lib.ps1</code>（<code>resolveTebunkoLib</code> が頼っている）の <code>newIndexerChannel</code>（引数 <code>retryFailed</code>・<code>confirmTargets</code>・<code>workers</code>）</td>
+</tr>
+<tr>
+<td>受け渡しの口</td>
+<td><code>Progress.Phase</code> と、その値 <code>クロール</code>・<code>確認</code>・<code>取り込み</code>・<code>仕上げ</code></td>
+</tr>
+<tr>
+<td>設定</td>
+<td><code>setting.config</code> がツールのフォルダにあること。キー <code>targetFolders</code>（<code>@{ name; path; enabled }</code> の配列）・<code>workspaceFolder</code>・<code>ingestThreads</code></td>
+</tr>
+<tr>
+<td>取り込み一覧</td>
+<td>ワークスペース直下の <code>取り込み一覧.tsv</code>。見出しの <code>相対パス</code>・<code>状態</code>。状態の値 <code>済</code>・<code>失敗</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h2>
 <p>clone したら 1 回だけ次を実行する。<code>core.hooksPath</code> を <code>tools/hooks</code> にし、コミットのたびに <code>tools/hooks/pre-commit</code> と <code>tools/hooks/commit-msg</code> が動く（git worktree で作ったツリーでも、そのツリーのフックが動く）。</p>
 <div class="highlight"><pre><span></span><code>.\tools\install_hooks.ps1              有効にする
