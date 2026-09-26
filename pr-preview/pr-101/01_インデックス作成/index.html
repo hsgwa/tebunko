@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">
       
       
-        <link rel="prev" href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">
+        <link rel="prev" href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/">
       
       
         <link rel="next" href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/">
@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1349,19 +1379,19 @@
 <tbody>
 <tr>
 <td>起動</td>
-<td>画面の［1 インデックス管理］タブの［インデックス作成を開始］（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1_インデックス管理タブ.md</a>）。画面がウィンドウ無しで起動する</td>
+<td>画面の［1 インデックス管理］タブの［インデックス作成を開始］（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1_インデックス管理タブ.md</a>）。画面は自分のプロセスの中のスレッド（インデクサの司令）で <code>indexer.ps1 -Channel</code> を実行する（<code>IndexingSession</code>。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#7-プロセスとスレッド">7 章</a>）。画面を使わずにコンソールから <code>indexer.ps1</code> を実行することもできる</td>
 </tr>
 <tr>
 <td>スクリプト</td>
-<td><code>scripts/tebunko_grep/indexer.ps1</code>、<code>scripts/shared/office/office_reader.ps1</code>（Word・PowerPoint の読み取り）</td>
+<td><code>scripts/tebunko/indexer.ps1</code>（起動口）、<code>scripts/tebunko/indexer/indexer_run.ps1</code>（本体 <code>invokeIndexer</code>・取り込みのスレッド）、<code>scripts/shared/office/office_reader.ps1</code>（Word・PowerPoint の読み取り）</td>
 </tr>
 <tr>
 <td>引数</td>
-<td><code>-RetryFailed</code>（省略可）: 前回失敗し、その後更新されていないファイルも再取り込みする<br><code>-ConfirmTargets</code>（省略可。画面から起動するときに付ける）: 取り込み対象を数えたところでいったん止まり、画面の返事を待つ（4.2）</td>
+<td><code>-RetryFailed</code>（省略可）: 前回失敗し、その後更新されていないファイルも再取り込みする<br><code>-Channel</code>（省略可。画面から実行するときに渡す）: 受け渡しの口（<code>newIndexerChannel</code>）。取り込む前の確認・中止・進み具合・エラーはこれでやり取りする（確認するかは口の <code>ConfirmTargets</code>、失敗分の再取り込みは口の <code>RetryFailed</code> で決まる）。省略すると自分で口を作り、確認はせず、表示内容をコンソールにも出す</td>
 </tr>
 <tr>
 <td>終了コード</td>
-<td><code>0</code> 完了（ファイルごとの失敗は取り込み一覧に記録）/ <code>1</code> 続けられないエラー（<code>work/インデックス作成エラー.txt</code>）/ <code>2</code> 画面からの中止（確認で取りやめた場合を含む）</td>
+<td><code>0</code> 完了（ファイルごとの失敗は取り込み一覧に記録）/ <code>1</code> 続けられないエラー（内容は受け渡しの口の <code>Error</code> とログ）/ <code>2</code> 中止（確認で取りやめた場合を含む）。受け渡しの口の <code>ExitCode</code> にも入れる</td>
 </tr>
 <tr>
 <td>使用する共通関数</td>
@@ -1503,16 +1533,17 @@
 </tr>
 </tbody>
 </table>
-<p>いずれも元のファイルは直接開かず、作業領域（<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。インデックス作成中も、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
+<p>いずれも元のファイルは直接開かず、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。インデックス作成中も、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
 <ul>
 <li>クロール対象フォルダは複数登録でき、チェックを付けたフォルダだけを取り込む。チェックを外したフォルダは取り込まないが、インデックスは残す。</li>
 <li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/取り込み一覧.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
-<li>利用者に入力を求めない（コンソールで確認・キー入力を待たない）。画面から起動した場合（<code>-ConfirmTargets</code>）は、<strong>取り込み対象を数えたところでいったん止まり、インデックスごとの件数を画面に出して取り込むかどうかの返事を待つ</strong>（4.2）。前回失敗したファイルを再取り込みするかも、この確認で受け取る（コンソールから直接実行する場合は <code>-RetryFailed</code> で渡す）。</li>
+<li>利用者に入力を求めない（コンソールで確認・キー入力を待たない）。画面から実行した場合（受け渡しの口の <code>ConfirmTargets</code>）は、<strong>取り込み対象を数えたところでいったん止まり、インデックスごとの件数を画面に出して取り込むかどうかの返事を待つ</strong>（4.2）。前回失敗したファイルを再取り込みするかも、この確認で受け取る（コンソールから直接実行する場合は <code>-RetryFailed</code> で渡す）。</li>
 <li>画面の［中止］で中止した場合、次回は未処理のファイルから再開する。インデクサが強制終了された（PC が停止した等）場合も同様で、強制終了したときに取り込んでいたファイルは最後に回す（4.2）。</li>
 <li>1 ファイルの取り込みが制限時間（10 分）を超えたら、Office アプリを強制終了してそのファイルを「失敗」とし、次のファイルへ進む（応答しなくなったファイルで止まり続けないため。4.2）。</li>
 <li>取り込みに失敗したファイルは取り込み一覧の状態を「失敗」とし、更新されない限り次回以降はスキップする（画面で「失敗分も再取り込みする」を選ぶと再取り込みする）。</li>
 <li>元ファイルが無くなったファイルは、インデックス（集約ファイル）から外して取り込み一覧から除く。</li>
 <li>Excel・Word・PowerPoint は必要になったときだけ起動する（Word・PowerPoint は旧形式などの変換時のみ）。</li>
+<li>1 ファイルの取り込みは、ファイルの種類ごとのレーンで並べて行う。Excel・Word（<code>.doc</code>）・PowerPoint（<code>.ppt</code>）は、それぞれスレッド 1 つが Office を 1 つ持つ。<code>.docx</code>・<code>.pptx</code> などは、Office を使わない読み取りのスレッド（既定はコア数 − 1、最大 4。設定 <code>ingestThreads</code>）で読む（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#74-インデックス作成の並列化">7.4</a>）。</li>
 </ul>
 <h2 id="2-入出力">2. 入出力<a class="headerlink" href="#2-入出力" title="Permanent link">&para;</a></h2>
 <table>
@@ -1542,42 +1573,22 @@
 <tr>
 <td>入出力</td>
 <td><code>work/取り込み中.txt</code></td>
-<td>取り込み中のファイル。取り込みが終われば削除する。残っていれば、そのファイルの取り込み中に強制終了した（4.2）</td>
+<td>取り込み中のファイル（1 行に 1 ファイル。レーンに渡したものすべて）。インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（4.2）</td>
 </tr>
 <tr>
-<td>出力</td>
-<td><code>work/インデックス作成進捗.txt</code></td>
-<td>進み具合の 1 行（段階・処理済み・残り・失敗・いま行っていること）。画面はこれだけを読んで進み具合を表示する（4.1）</td>
-</tr>
-<tr>
-<td>入力</td>
-<td><code>work/インデックス作成中止要求</code></td>
-<td>画面の［中止］・確認の［キャンセル］で作成される。見つけたら削除して中止する（4.1）</td>
-</tr>
-<tr>
-<td>出力</td>
-<td><code>work/取り込み予定.tsv</code></td>
-<td><code>-ConfirmTargets</code> のとき、数えたインデックスごとの取り込み対象の件数（画面の確認に出す）。返事を受け取ったら削除する（4.2）</td>
-</tr>
-<tr>
-<td>入力</td>
-<td><code>work/インデックス作成開始要求</code></td>
-<td>画面の確認で［インデックス作成を開始］が押されると作成される。中身で、前回失敗したファイルも再取り込みするかを受け取る（4.2）</td>
-</tr>
-<tr>
-<td>出力</td>
-<td><code>work/インデックス作成エラー.txt</code></td>
-<td>続けられないエラーのメッセージ（終了コード 1）。開始時・正常終了時には無い（4.1）</td>
+<td>入出力</td>
+<td>受け渡しの口（メモリ上。<code>newIndexerChannel</code>）</td>
+<td>画面とのやり取り。進み具合（段階・処理済み・残り・失敗・いま行っていること）・取り込み予定（確認に出す件数）・確認の返事・中止の要求・続けられないエラー・終了コード（4.1・4.2。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#75-画面とインデクサの受け渡し">7.5</a>）</td>
 </tr>
 <tr>
 <td>出力</td>
 <td><code>work/インデックス作成ログ.txt</code></td>
-<td>表示内容の記録（<code>Start-Transcript</code>。実行ごとに上書き）</td>
+<td>表示内容の記録（<code>writeIndexerLog</code>。実行ごとに上書き）</td>
 </tr>
 <tr>
 <td>作業領域</td>
-<td><code>%TEMP%\tebunko_grep\&lt;PID&gt;\</code></td>
-<td>取り込み途中のファイル（元のファイルのコピー・変換したファイル・TSV）。終了時に削除する</td>
+<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
+<td>取り込み途中のファイル（元のファイルのコピー・変換したファイル・TSV）。取り込みのスレッドごとに <code>w&lt;番号&gt;</code> に分ける。終了時に削除する</td>
 </tr>
 <tr>
 <td>作業領域</td>
@@ -1603,7 +1614,7 @@
 <li>パスは 1 つの書き方にそろえる（<code>normalizeFolderPath</code>）。エクスプローラーの「パスのコピー」をそのまま貼り付けられる。</li>
 <li>前後の空白・<code>"</code> と末尾の <code>\</code> を取り除く（ドライブ直下は <code>D:\</code> のまま、UNC の共有直下は <code>\\server\share</code>）。</li>
 <li>環境変数（<code>%USERPROFILE%</code> など）を展開し、<code>/</code> を <code>\</code> にそろえ、長いパス用の <code>\\?\</code> ・ <code>\\?\UNC\</code> を外し、重なった <code>\</code> ・ <code>.</code> ・ <code>..</code> を解決する。</li>
-<li>相対パス（<code>work\index</code> など）は tebunko_grep のフォルダからとみなして絶対パスにする。</li>
+<li>相対パス（<code>work\index</code> など）は tebunko のフォルダからとみなして絶対パスにする。</li>
 <li>パスとして解釈できない場合（<code>*</code> <code>?</code> を含む・共有名の無い <code>\\server</code> ・ <code>\</code> ひとつで始まる）は、書かれたとおりに扱う（存在しないフォルダになる）。</li>
 <li>同じフォルダ（大文字・小文字、末尾の <code>\</code> の違いを含む）が複数あれば、最初のものだけを使う。
   ネットワークドライブと UNC パス（<code>Z:\見積</code> と <code>\\server\share\見積</code>）、<code>subst</code> のドライブと割り当て元のフォルダのように、
@@ -1674,7 +1685,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/" class="md-footer__link md-footer__link--prev" aria-label="前: テスト">
+          <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-footer__link md-footer__link--prev" aria-label="前: プロセスとスレッド">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1684,7 +1695,7 @@
                 前
               </span>
               <div class="md-ellipsis">
-                テスト
+                プロセスとスレッド
               </div>
             </div>
           </a>

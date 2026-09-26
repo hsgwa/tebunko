@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1322,10 +1352,10 @@
 <h2 id="43-excel-の抽出処理extractworkbook">4.3 Excel の抽出処理（<code>extractWorkbook</code>）<a class="headerlink" href="#43-excel-の抽出処理extractworkbook" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
     autonumber
-    participant S as tebunko_grep/indexer.ps1
+    participant S as tebunko/indexer.ps1
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
-    participant T as 作業領域 %TEMP%\tebunko_grep\#lt;PID#gt;
+    participant T as 作業領域 %TEMP%\tebunko\#lt;PID#gt;
     participant I as work/index
     participant L as 取り込み一覧（work/取り込み一覧.tsv）
 

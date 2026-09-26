@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1333,7 +1363,7 @@
 <h2 id="16-テスト">16. テスト<a class="headerlink" href="#16-テスト" title="Permanent link">&para;</a></h2>
 <h3 id="161-単体テストpester">16.1 単体テスト（Pester）<a class="headerlink" href="#161-単体テストpester" title="Permanent link">&para;</a></h3>
 <p>画面が使う関数と画面の部品を Pester 3.4 で確かめる（実行方法・タグ・カバレッジは <a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">00_共通_3_テスト.md</a>）。画面の部品（<code>ui/*.ps1</code>）のテストは、WPF のコントロール（<code>$ui.ResultGrid</code> など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。</p>
-<p><strong>画面が使う <code>tebunko_grep/lib.ps1</code> の関数</strong>（12 章）</p>
+<p><strong>画面が使う <code>tebunko/lib.ps1</code> の関数</strong>（12 章）</p>
 <table>
 <thead>
 <tr>
@@ -1345,7 +1375,7 @@
 <tbody>
 <tr>
 <td><code>searchPackIndex</code></td>
-<td><code>tests/tebunko_grep/search/pack_search.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/pack_search.Tests.ps1</code></td>
 <td>結果が TSV を 1 行ずつ照合したときと同じこと（改行の種類・照合のしかたごと）、文字どおり・正規表現・不正な正規表現、大文字・小文字、対象ファイル・図形とコメントの除外、上限での打ち切り、正規表現の照合の時間切れ（全文への照合は 1 行ずつに切り替える）、並列検索と読んだ内容の使い回し、中止・進捗の通知</td>
 </tr>
 <tr>
@@ -1355,7 +1385,7 @@
 </tr>
 <tr>
 <td><code>testIndexExists</code> / <code>getIndexSummary</code></td>
-<td><code>tests/tebunko_grep/search/search_run.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/search_run.Tests.ps1</code></td>
 <td>集約ファイルの有無・件数・最新の更新日時、存在しないフォルダ</td>
 </tr>
 <tr>
@@ -1365,12 +1395,12 @@
 </tr>
 <tr>
 <td><code>newSearchRegex</code> / <code>getRegexScanMode</code> / <code>newFileFilter</code></td>
-<td><code>tests/tebunko_grep/search/search_query.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/search_query.Tests.ps1</code></td>
 <td>文字どおりの記号、不正な正規表現、大文字と小文字の区別。対象ファイルは <code>;</code> / <code>；</code> の区切り、<code>!</code> の除外、部分一致、<code>?</code>、ほかの記号は文字どおり、空なら条件なし</td>
 </tr>
 <tr>
 <td><code>getSourceLocation</code> / <code>resolveSourcePath</code> / <code>findMovedSource</code></td>
-<td><code>tests/tebunko_grep/search/source_map.Tests.ps1</code></td>
+<td><code>tests/tebunko/search/source_map.Tests.ps1</code></td>
 <td>元のファイルのインデックス名・場所・パスの特定、選んだフォルダからの探索（4.5.1・4.5.2）</td>
 </tr>
 <tr>
@@ -1379,14 +1409,9 @@
 <td><code>"</code> で囲まれたセル内のタブ、空のセル、先頭のセルが空の行</td>
 </tr>
 <tr>
-<td><code>getFolderEntries</code> / <code>testHasSubFolders</code> / <code>getParentFolderPath</code> / <code>joinFolderPath</code> / <code>getQuickFolders</code> / <code>getComputerFolders</code></td>
+<td><code>getExistingAncestorFolder</code></td>
 <td><code>tests/shared/core/folder.Tests.ps1</code></td>
-<td>フォルダ選択の一覧（フォルダが先・それぞれ名前順、フォルダ数と Office ファイル数、パスと種別・更新日時）、隠し・システムを出さないこと、<code>-foldersOnly</code>、上限での打ち切り、開けないフォルダ・空の指定の理由、サブフォルダの有無（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）。1 つ上のフォルダ（ドライブ直下・共有フォルダ直下より上へは行かない）、<code>\</code> が重ならない連結</td>
-</tr>
-<tr>
-<td><code>testOfficeFile</code></td>
-<td><code>tests/shared/office/office_files.Tests.ps1</code></td>
-<td>Office ファイルの判定（大文字・小文字を区別しない）</td>
+<td>フォルダ選択を開く場所（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）。フォルダがあればそのまま、無ければその上の今もあるフォルダ、どこにも無い・空なら空</td>
 </tr>
 <tr>
 <td><code>getOfficeProcesses</code> / <code>stopOfficeProcesses</code></td>
@@ -1395,12 +1420,12 @@
 </tr>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code> ほか設定の読み書き</td>
-<td><code>tests/tebunko_grep/core/settings.Tests.ps1</code></td>
+<td><code>tests/tebunko/core/settings.Tests.ps1</code></td>
 <td>ファイルが無ければオフ・空、保存した値の読み込み、指定した項目だけを変える</td>
 </tr>
 <tr>
 <td><code>newIndexName</code></td>
-<td><code>tests/tebunko_grep/index/index_name.Tests.ps1</code></td>
+<td><code>tests/tebunko/index/index_name.Tests.ps1</code></td>
 <td>使用済みの名前が無い・1 個だけの場合も正しく判定すること（PowerShell は集合を返すと中身を展開するため、<code>$null</code>・文字列で渡ることがある）</td>
 </tr>
 </tbody>
@@ -1417,38 +1442,38 @@
 <tbody>
 <tr>
 <td>画面の型（12.2）</td>
-<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko_grep/ui/types_grep.Tests.ps1</code></td>
-<td><code>NotifyBase</code> の変更通知、<code>FolderNode</code>・<code>FolderEntry</code>・<code>ConfirmFact</code>。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
+<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko/ui/types.Tests.ps1</code></td>
+<td><code>NotifyBase</code> の変更通知。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
 </tr>
 <tr>
 <td>判断層</td>
-<td><code>tests/tebunko_grep/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings_view.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings_view.Tests.ps1</code></td>
 <td>画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス）</td>
 </tr>
 <tr>
 <td>結果の表</td>
-<td><code>tests/tebunko_grep/ui/result_list.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/result_list.Tests.ps1</code></td>
 <td>ファイルごとの見出しの作成と開閉（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/#49-ファイルごとにまとめた表示">4.9</a>）、行の作成、絞り込み、並べ替え、検索の終了時の表示、選択行の取得、イベント</td>
 </tr>
 <tr>
 <td>選択行のプレビュー</td>
-<td><code>tests/tebunko_grep/ui/preview.Tests.ps1</code></td>
-<td>表示・消去、高さに収まる行数、セルを選んでいないときのコピーの案内、イベント</td>
+<td><code>tests/tebunko/ui/preview.Tests.ps1</code></td>
+<td>表示・消去、高さに収まる行数、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）</td>
 </tr>
 <tr>
 <td>元のファイルを開く</td>
-<td><code>tests/tebunko_grep/ui/open_source.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/open_source.Tests.ps1</code></td>
 <td>パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、ファイル出力、画面の操作</td>
 </tr>
 <tr>
 <td>検索対象のツリー</td>
-<td><code>tests/tebunko_grep/ui/index_tree.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/index_tree.Tests.ps1</code></td>
 <td>ツリーの読み込み、検索範囲の説明、除外の保存、すべてのチェック、イベント</td>
 </tr>
 <tr>
 <td>画面定義（XAML）</td>
 <td><code>tests/meta/structure.Tests.ps1</code></td>
-<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブ・フォルダ選択の画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko_grep の型を順に読み込めること</td>
+<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブの画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko の型を順に読み込めること</td>
 </tr>
 </tbody>
 </table>
@@ -1479,9 +1504,9 @@
 <td>要手動</td>
 </tr>
 <tr>
-<td>フォルダ選択ダイアログ（ツリー・一覧の表示、アドレスバーでの移動、［選択］で元のフォルダに入ること）</td>
+<td>フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと）</td>
 <td>3.2.1</td>
-<td>◎（UI オートメーションで［追加…］→［参照…］→アドレスバーに入力→［選択］まで操作し、表示内容とインデックス編集への反映を確認）。［←］［→］［↑］・マウスのサイドボタン・ダブルクリックでの移動・キーボードのショートカット・ドラッグ＆ドロップは要手動</td>
+<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動</td>
 </tr>
 <tr>
 <td>状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止</td>
@@ -1496,7 +1521,12 @@
 <tr>
 <td>インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］）</td>
 <td>3.4</td>
-<td>◎（インデクサを <code>-ConfirmTargets</code> で実際に動かし、<code>取り込み予定.tsv</code> の内容・終了コード・取り込み一覧が前回のまま残ることを確認。ダイアログの見た目は要手動）</td>
+<td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動</td>
+</tr>
+<tr>
+<td>インデックス作成中に画面を閉じる（止めてから閉じる確認・<code>インデックス作成を止めています…</code>・止まってから閉じる。60 秒で Office を止める）</td>
+<td>3.7、7.4</td>
+<td>要手動</td>
 </tr>
 <tr>
 <td>検索中の進捗表示・中止、大量ヒット時の打ち切り、検索中も画面を操作できること</td>
@@ -1544,7 +1574,7 @@
 <td>一覧・ボタンの有効／無効のみ◎</td>
 </tr>
 <tr>
-<td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko_grep）</td>
+<td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko）</td>
 <td>10 章</td>
 <td>要手動</td>
 </tr>
@@ -1561,7 +1591,7 @@
 <tr>
 <td>zip 展開直後（Mark-of-the-Web 付き）から <code>tebunko.bat</code> で起動でき、印が消えること（<code>Bypass</code> なし・<code>RemoteSigned</code>）</td>
 <td>10.1</td>
-<td>◎（テスト用のコピー全ファイルに MOTW を付け、<code>RemoteSigned</code> でブロックされること→<code>tebunko.bat</code> 実行で <code>scripts</code> 配下の MOTW 0 件→<code>RemoteSigned</code> で画面が開く（ウィンドウ表題 <code>tebunko_grep</code>）ことを確認）</td>
+<td>◎（テスト用のコピー全ファイルに MOTW を付け、<code>RemoteSigned</code> でブロックされること→<code>tebunko.bat</code> 実行で <code>scripts</code> 配下の MOTW 0 件→<code>RemoteSigned</code> で画面が開く（ウィンドウ表題 <code>tebunko</code>）ことを確認）</td>
 </tr>
 <tr>
 <td><code>tebunko.bat</code> で起動したとき、PowerShell の窓が残らないこと（既定のターミナルが Windows Terminal でも）</td>

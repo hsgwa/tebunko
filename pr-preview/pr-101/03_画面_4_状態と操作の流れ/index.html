@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1507,7 +1537,7 @@
 </tr>
 <tr>
 <td>インデックス作成中</td>
-<td>この画面から起動したインデックス作成（<code>tebunko_grep/indexer.ps1</code>）のプロセス、または起動時・開始時に見つけた実行中のインデックス作成のプロセスが動いている（3.3）</td>
+<td>この画面で始めたインデックス作成のスレッド（<code>IndexingSession</code>）が動いている（<code>isIndexing</code>。3.3）</td>
 <td>No.6 のボタンが <code>インデックス作成中…</code>（無効）。進み具合（3.6）</td>
 <td>1</td>
 </tr>
@@ -1521,7 +1551,7 @@
 </table>
 <ul>
 <li>「最終取り込み」は、インデックス配下の集約ファイルの最新の更新日時とする。</li>
-<li>「インデックス作成中」は、画面の起動時と［インデックス作成を開始］を押したときに、このツールの <code>scripts\tebunko_grep\indexer.ps1</code> を実行中の <code>powershell.exe</code> を探して判定する（3.3）。見つかれば、そのプロセスの進み具合を表示し、二重に起動しない。</li>
+<li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが動いているかで判定する。インデックス作成は画面のプロセスの中で動くため、画面を閉じて開き直したときに動いているものは無い。画面を使わずに起動した <code>indexer.ps1</code> と重なったときは、インデクサがミューテックスで二重に動かないようにする（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a>）。</li>
 </ul>
 <h3 id="62-インデックス作成の状態遷移画面から見た状態">6.2 インデックス作成の状態遷移（画面から見た状態）<a class="headerlink" href="#62-インデックス作成の状態遷移画面から見た状態" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -1539,12 +1569,12 @@
     HasError --&gt; Running : インデックス作成を開始&lt;br&gt;（確認で失敗分も再取り込みするかを選ぶ）
     Running --&gt; Ready : 全件成功
     Running --&gt; HasError : 失敗あり
-    Running --&gt; Suspended : ［中止］&lt;br&gt;プロセス停止・PC の停止
+    Running --&gt; Suspended : ［中止］・止めて閉じる&lt;br&gt;プロセス停止・PC の停止
     Running --&gt; Ready : 確認で［キャンセル］&lt;br&gt;更新不要（取り込むものが無い）</code></pre>
 <h3 id="63-状態を読み直すタイミング">6.3 状態を読み直すタイミング<a class="headerlink" href="#63-状態を読み直すタイミング" title="Permanent link">&para;</a></h3>
 <ul>
-<li>起動時、タブを切り替えたとき、ウィンドウがアクティブになったとき、起動したインデックス作成のプロセスが終了したとき。</li>
-<li>集約ファイルの件数は、インデックスが大きいと数えるのに時間がかかるため、別スレッド（Runspace）で数える。数え終わるまでは <code>確認中…</code> と表示し、その間も画面を操作できるようにする。</li>
+<li>起動時、タブを切り替えたとき、ウィンドウがアクティブになったとき、始めたインデックス作成が終わったとき。</li>
+<li>集約ファイルの件数は、インデックスが大きいと数えるのに時間がかかるため、画面の裏の仕事のスレッド（<code>startJob</code>。<code>BackgroundQueue</code>）で数える。数え終わるまでは <code>確認中…</code> と表示し、その間も画面を操作できるようにする。</li>
 </ul>
 <hr />
 <h2 id="7-操作の流れ">7. 操作の流れ<a class="headerlink" href="#7-操作の流れ" title="Permanent link">&para;</a></h2>
@@ -1553,58 +1583,67 @@
     autonumber
     actor U as 利用者
     participant G as 画面
-    participant S as 検索スレッド（searchPackIndex）
+    participant S as 検索の司令（SearchService）
+    participant P as 照合のプール
     participant I as 検索対象インデックス
 
     U-&gt;&gt;G: ワードを入力して Enter
     G-&gt;&gt;G: 入力チェック（ワードが空でない・集約ファイル 1 件以上・検索対象にチェックあり）
-    G-&gt;&gt;S: 検索開始（ワード・検索条件・検索対象フォルダ）
+    G-&gt;&gt;S: 検索の要求を渡す（newSearchRequest。前の要求は Stop で取り消す）
     G-&gt;&gt;G: ［検索］→［中止］、結果の表をクリア
-    loop 50 ファイルごと
-        S-&gt;&gt;I: .NET（StreamReader＋[regex]）で読み込み・照合
-        S--&gt;&gt;G: 結果と進捗
-        G-&gt;&gt;G: ファイルの見出しを表に追加、「検索中… N / M ファイル（K 件）」
+    loop 作業（約 16MB）ごと
+        S-&gt;&gt;P: 作業を渡す
+        P-&gt;&gt;I: .NET（StreamReader＋[regex]）で読み込み・照合
+        P--&gt;&gt;S: ヒット
+        S--&gt;&gt;G: 要求の列にヒットと進み具合を入れる
+        G-&gt;&gt;G: 時間で区切って列から取り出し（pumpSearch）、ファイルの見出しを表に追加、「検索中… N / M ファイル（K 件）」
     end
-    S--&gt;&gt;G: 完了
+    S--&gt;&gt;G: 完了（Finished）
+    S-&gt;&gt;S: 読んだ内容のキャッシュを整理（trimTsvTextCache）
     G-&gt;&gt;G: 「N 件（M ファイル） ・ X 秒」、［中止］→［検索］
     U-&gt;&gt;G: 見出しをクリックして行を開き、行をダブルクリック
     G-&gt;&gt;G: 元のファイルの該当箇所を開く（4.5）</code></pre>
+<ul>
+<li>検索の司令と照合のプールは、画面を開いている間使い回す（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#73-寿命">7.3</a>）。</li>
+</ul>
 <h3 id="72-インデックス作成">7.2 インデックス作成<a class="headerlink" href="#72-インデックス作成" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>sequenceDiagram
     autonumber
     actor U as 利用者
     participant G as 画面
     participant C as setting.config
+    participant K as 受け渡しの口（メモリ）
+    participant P as インデクサの司令のスレッド（indexer.ps1 -Channel）
     participant W as work/
-    participant P as tebunko_grep/indexer.ps1（ウィンドウなし）
+
 
     U-&gt;&gt;G: ［インデックス作成を開始］など（3.3）
-    G-&gt;&gt;G: 実行中のインデックス作成を探す（あればその進み具合を表示して終わり）
     G-&gt;&gt;C: インデックス一覧を保存
-    G-&gt;&gt;P: 起動（-WindowStyle Hidden -ConfirmTargets）
+    G-&gt;&gt;P: スレッドで実行（IndexingSession。受け渡しの口の ConfirmTargets）
     G-&gt;&gt;G: 実行ボタンを無効化、「インデックス作成中…」、［中止］を表示
-    P-&gt;&gt;W: 取り込み対象を数えて 取り込み予定.tsv を書き、返事を待つ
-    G-&gt;&gt;W: 取り込み予定.tsv を読む
+    P-&gt;&gt;K: 取り込み対象を数えて取り込み予定（Plan）を入れ、返事を待つ
+    G-&gt;&gt;K: 取り込み予定を読む
     G-&gt;&gt;U: インデックス作成の確認（インデックスごとの件数。3.4）
     alt ［インデックス作成を開始］
         U-&gt;&gt;G: （前回失敗分も再取り込みするかを選ぶ）
-        G-&gt;&gt;W: インデックス作成開始要求 を作る
+        G-&gt;&gt;K: 取り込む返事（answerIndexingPlan）
     else ［キャンセル］
         U-&gt;&gt;G: 取りやめ
-        G-&gt;&gt;W: インデックス作成中止要求 を作る
+        G-&gt;&gt;K: 取りやめの返事（answerIndexingPlan $null）
         P--&gt;&gt;G: 1 件も取り込まずに終了（終了コード 2）
     end
-    loop 1 秒ごと（プロセスが終わるまで）
-        P-&gt;&gt;W: TSV を作成してフォルダごとに集約ファイルに入れ、取り込み一覧・インデックス作成進捗.txt を更新
-        G-&gt;&gt;W: インデックス作成進捗.txt を読む
+    loop 1 秒ごと（スレッドが終わるまで）
+        P-&gt;&gt;W: 取り込みのスレッドで TSV を作成し、フォルダごとに集約ファイルに入れ、取り込み一覧を更新
+        P-&gt;&gt;K: 進み具合（Progress）を入れる
+        G-&gt;&gt;K: 進み具合を読む
         G-&gt;&gt;G: 進み具合を表示（3.6）
     end
     opt ［中止］
         U-&gt;&gt;G: ［中止］→［中止する］
-        G-&gt;&gt;W: インデックス作成中止要求 を作る
+        G-&gt;&gt;K: 中止（requestIndexingStop）
         P-&gt;&gt;W: 取り込み中のファイルが終わったら止まる
     end
-    P--&gt;&gt;G: プロセス終了（終了コード 0 / 1 / 2）
+    P--&gt;&gt;G: スレッドの終了（受け渡しの口の ExitCode 0 / 1 / 2・Error）
     G-&gt;&gt;G: 終了コードに応じた表示、［ログを開く］（3.7）
     G-&gt;&gt;W: 状態を読み直す（6.1）</code></pre>
 <h3 id="73-プロセス停止">7.3 プロセス停止<a class="headerlink" href="#73-プロセス停止" title="Permanent link">&para;</a></h3>
@@ -1627,8 +1666,67 @@
 <ul>
 <li>閉じるのはタイトルバーの［×］（または Alt+F4）で行う。画面に［閉じる］ボタンは置かない。</li>
 <li>設定はその場で保存しているため、保存の確認は無い。</li>
-<li>検索中なら検索を中止してから閉じる。</li>
-<li>インデックス作成中なら、インデックス作成を中止してから閉じるか、続けたまま閉じるかを確認する（3.7）。続けたまま閉じた場合、次に画面を開くと実行中のインデックス作成を見つけて進み具合を表示する。</li>
+<li>検索中なら検索を取り消してから閉じる。</li>
+<li>インデックス作成は画面のプロセスの中で動くため、画面を閉じるときは止める。インデックス作成を続けたまま画面だけを閉じることはできない。</li>
+</ul>
+<p>インデックス作成中に閉じようとすると、確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）を出す。</p>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>見出し</td>
+<td><code>まだインデックス作成の途中です。止めてから閉じますか？</code></td>
+</tr>
+<tr>
+<td>結果の行</td>
+<td><code>→ いま取り込んでいるファイルが終わったところで止まり、画面を閉じます</code>、<code>✓ ここまで取り込んだ分はそのまま残ります</code>（詳細: <code>次に開いて［インデックス作成を開始］を押すと、続きから再開します</code>）</td>
+</tr>
+<tr>
+<td>選択肢</td>
+<td>［インデックス作成を止めて閉じる］／［閉じない］</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    actor U as 利用者
+    participant G as 画面
+    participant P as インデクサ（IndexingSession）
+    participant S as 検索・画面の裏の仕事
+
+    U-&gt;&gt;G: ［×］
+    alt インデックス作成中
+        G-&gt;&gt;U: 止めてから閉じるか確認（［閉じない］なら閉じずに終わる）
+        U-&gt;&gt;G: ［インデックス作成を止めて閉じる］
+        G-&gt;&gt;G: 閉じるのを保留。進み具合欄に「インデックス作成を止めています…」
+        G-&gt;&gt;P: 中止（Stop）
+        loop 0.5 秒ごと（closeTimer）
+            G-&gt;&gt;P: 終わったか（IsRunning）
+        end
+        opt 60 秒たっても終わらない
+            G-&gt;&gt;P: インデックス作成が起動した Office だけを止める（KillOffice）
+        end
+        opt さらに 15 秒たっても終わらない
+            G-&gt;&gt;G: 待つのをやめる
+        end
+        P--&gt;&gt;G: 終了
+    end
+    G-&gt;&gt;S: 検索を取り消す
+    G-&gt;&gt;G: closeTimer・インデックス作成のタイマーを止める
+    G-&gt;&gt;P: スレッドを片づける（IndexingSession.Close）
+    G-&gt;&gt;S: 検索の司令・照合のプールを閉じる（SearchService.Close）
+    G-&gt;&gt;S: jobTimer を止め、画面の裏の仕事のスレッドを閉じる（BackgroundQueue.Close）
+    G-&gt;&gt;G: 多重起動のミューテックスを解放
+    G-&gt;&gt;U: 閉じる</code></pre>
+<ul>
+<li>確認している間にインデックス作成が終わっていれば、［インデックス作成を止めて閉じる］でそのまま閉じる。</li>
+<li>止めるのを待っている間にもう一度［×］を押しても、何もしない。</li>
+<li>60 秒待っても終わらないのは、Office が応答しないときである。止めるのは、インデックス作成が起動して PID を記録した Office だけで、利用者が開いていた Office は止めない（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#76-閉じるときの順番">7.6</a>）。</li>
 </ul>
 
 

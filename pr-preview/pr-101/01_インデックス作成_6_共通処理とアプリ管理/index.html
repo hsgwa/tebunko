@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1494,11 +1524,15 @@
 <tbody>
 <tr>
 <td>起動</td>
-<td><code>getApp &lt;名前&gt;</code> がアプリごとに 1 つの COM オブジェクトを保持し、最初に必要になったときに起動する</td>
+<td><code>getApp &lt;名前&gt;</code> がアプリごとに 1 つの COM オブジェクトを保持し、最初に必要になったときに起動する。保持はスレッドごとで、Excel・Word・PowerPoint はそれぞれのレーンのスレッド 1 つだけが起動する（Excel のスレッドは Excel だけ、Word のスレッドは Word だけ、PowerPoint のスレッドは PowerPoint だけを持つ。読み取りのスレッドは Office を起動しない）。インデックス作成が起動する Office は、種類ごとに最大 1 つである。スレッドの間で Office を分け合わないため、鍵は使わない（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#74-インデックス作成の並列化">7.4</a>）</td>
 </tr>
 <tr>
 <td>PID の取得</td>
-<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする</td>
+<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする。同じ種類の Office を起動するのはそのレーンのスレッド 1 つだけのため、ほかのスレッドの起動と取り違えない</td>
+</tr>
+<tr>
+<td>優先度</td>
+<td>自分が起動した Office のプロセスも <code>PriorityClass</code> を変えない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、PowerPoint は利用者と同じプロセスになるため、利用者とプロセスを共有しないと確実には言えない（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#72-スレッドの一覧">7.2</a>）。PID とプロセス名を受け渡しの口の <code>OfficePids</code> に記録する（画面を閉じるときに止まらなければ、これだけを止める。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#76-閉じるときの順番">7.6</a>）</td>
 </tr>
 <tr>
 <td>利用者のアプリとの共用</td>
@@ -1514,7 +1548,11 @@
 </tr>
 <tr>
 <td>制限時間の監視</td>
-<td><code>getApp</code> / <code>stopApp</code> のたびに、自分で起動したアプリの PID を監視スレッドに渡す（<code>updateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（4.2「強制終了・時間切れからの再開」）。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> のときだけ終了させる</td>
+<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>startWatchdog</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>updateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（4.2「強制終了・時間切れからの再開」）。ほかのレーンのアプリは止めない。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> のときだけ終了させる</td>
+</tr>
+<tr>
+<td>PowerPoint</td>
+<td>PowerPoint のレーンのスレッドが、一度起動したら使い回す（旧形式の変換のたびに起動し直さない）。ほかの Office と同じく、100 ファイルごと・取り込み失敗時・制限時間を過ぎたときに終了し、次に必要になったときに起動し直す。インデックス作成が起動した PowerPoint は、そのスレッドが終わるときに終了する（利用者の PowerPoint は終了しない）</td>
 </tr>
 </tbody>
 </table>

@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -770,10 +800,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#取り込み予定-work取り込み予定tsv画面の確認に出す件数" class="md-nav__link">
+  <a href="#取り込み予定画面の確認に出す件数" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込み予定 work/取り込み予定.tsv（画面の確認に出す件数）
+        取り込み予定（画面の確認に出す件数）
       
     </span>
   </a>
@@ -1343,10 +1373,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#取り込み予定-work取り込み予定tsv画面の確認に出す件数" class="md-nav__link">
+  <a href="#取り込み予定画面の確認に出す件数" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込み予定 work/取り込み予定.tsv（画面の確認に出す件数）
+        取り込み予定（画面の確認に出す件数）
       
     </span>
   </a>
@@ -1424,10 +1454,10 @@ D&lt;TAB&gt;D:\
     EACH -- "上記以外（新規・更新あり・未取り込み）" --&gt; TARGET["取り込み対象（『未取り込み』）"]
     DONE &amp; FAILED &amp; DONE2 &amp; TARGET --&gt; DEL["このフォルダの行で見つからないファイル:&lt;br&gt;TSV を削除して一覧から除き、Removed で返す&lt;br&gt;（呼び出し元が集約ファイルから外す）&lt;br&gt;数えた件数を取り込み予定の1行にする（newIngestPlanRow）"]
     KEEP &amp; DEL --&gt; Q{"前回失敗が 1 件以上？"}
-    Q -- はい --&gt; Q1{"-RetryFailed が指定されている？&lt;br&gt;（画面で「失敗分も再取り込みする」を選んだ）"}
+    Q -- はい --&gt; Q1{"RetryFailed？&lt;br&gt;（画面で「失敗分も再取り込みする」を選んだ・-RetryFailed）"}
     Q1 -- はい --&gt; ADD["前回失敗も取り込み対象に加える"] --&gt; INT
     Q1 -- いいえ --&gt; INT
-    Q -- いいえ --&gt; INT{"取り込み中.txt のファイルが取り込み対象にある？&lt;br&gt;（前回、取り込み中に強制終了した）"}
+    Q -- いいえ --&gt; INT{"取り込み中.txt のファイル（すべて）が取り込み対象にある？&lt;br&gt;（前回、取り込み中に強制終了した）"}
     INT -- "はい（1 回目）" --&gt; LAST["取り込み対象の最後に回す"] --&gt; W
     INT -- "はい（続けて 2 回目）" --&gt; FAIL2["『失敗』にして取り込み対象から除く"] --&gt; W
     INT -- いいえ --&gt; W["取り込み一覧を書き出す（writeStatusFile）"]</code></pre>
@@ -1445,9 +1475,9 @@ D&lt;TAB&gt;D:\
 <li>フォルダごとに <code>[&lt;インデックス名&gt;] &lt;パス&gt;</code> と、クロール後に <code>[&lt;インデックス名&gt;] Officeファイル N 件（取り込み済み A 件 / 新規 B 件 / 更新あり C 件 / 前回未完了 D 件 / 前回失敗 E 件）</code> を表示する。インデックスが無くなった・壊れているファイルがあるときだけ <code>/ インデックスが無い・壊れている F 件</code> を付け、続けて <code>インデックス（TSV）が無くなった・壊れている F 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）</code> を表示する。チェックなしのフォルダは <code>… チェックなしのため取り込みません（インデックスはそのまま残します）</code> と表示する。</li>
 <li>インデックス作成中は <code>[i/N] &lt;インデックス名&gt;\&lt;相対パス&gt;</code> を表示する。元ファイルのパスは、相対パスの先頭のインデックス名からクロール対象フォルダを引いて求める。</li>
 </ul>
-<h4 id="取り込み予定-work取り込み予定tsv画面の確認に出す件数">取り込み予定 <code>work/取り込み予定.tsv</code>（画面の確認に出す件数）<a class="headerlink" href="#取り込み予定-work取り込み予定tsv画面の確認に出す件数" title="Permanent link">&para;</a></h4>
-<p><code>-ConfirmTargets</code>（画面から起動したとき）は、取り込み対象を決めた後、インデックスごとの件数を 1 行で書き出す（<code>newIngestPlanRow</code> / <code>writeIngestPlan</code>）。
-画面はこれを読んで確認のダイアログを出す（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#34-インデックス作成の確認ダイアログ">03_画面_1 の 3.4</a>）。返事を受け取ったら削除する。</p>
+<h4 id="取り込み予定画面の確認に出す件数">取り込み予定（画面の確認に出す件数）<a class="headerlink" href="#取り込み予定画面の確認に出す件数" title="Permanent link">&para;</a></h4>
+<p>受け渡しの口の <code>ConfirmTargets</code>（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（<code>newIngestPlanRow</code>）、受け渡しの口の <code>Plan</code> に入れる（<code>waitForIndexingApproval</code>）。
+画面はこれを読んで確認のダイアログを出す（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#34-インデックス作成の確認ダイアログ">03_画面_1 の 3.4</a>）。返事を受け取ったら <code>Plan</code> を外す。次の例は、1 行を列の順にタブで区切って並べたものである。</p>
 <div class="highlight"><pre><span></span><code>インデックス名 元のフォルダ  区分  ファイル数   取り込み対象  新規  更新あり    前回未完了   インデックスなし    前回失敗
 営業  C:\data\営業  取り込み    1234    12  5   7   0   0   3
 2019年度  D:\old\2019年度   チェックなし  0   0   0   0   0   0   0
@@ -1455,7 +1485,6 @@ D&lt;TAB&gt;D:\
 <ul>
 <li><strong>区分</strong>: <code>取り込み</code>（チェックが付いていて元のフォルダもある。数えた結果を書く）/ <code>チェックなし</code> / <code>フォルダなし</code>。後の 2 つは数えないため、件数はすべて 0。</li>
 <li><strong>取り込み対象</strong> = 新規 ＋ 更新あり ＋ 前回未完了 ＋ インデックスなし。<strong>前回失敗</strong>は含めない（画面の確認で「失敗分も再取り込みする」を選んだときだけ対象になる）。</li>
-<li>書き込みの途中を画面に読ませないよう、一時ファイルに書いてから置き換える（<code>writeTextLinesAtomic</code>）。画面は読めなければ次の機会に読み直す。</li>
 </ul>
 <p>取り込み一覧の各ファイルの状態遷移:</p>
 <pre class="mermaid"><code>stateDiagram-v2

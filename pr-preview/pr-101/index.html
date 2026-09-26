@@ -428,6 +428,8 @@
       
         
       
+        
+      
     
     
     
@@ -567,6 +569,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1463,13 +1493,13 @@
 <tr>
 <td>└ <a href="00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/">00_共通_2_共通モジュール.md</a></td>
 <td>–</td>
-<td><code>tebunko_grep/lib.ps1</code></td>
+<td><code>tebunko/lib.ps1</code></td>
 <td>5. 共通モジュール（パス定義・関数一覧）</td>
 </tr>
 <tr>
 <td>└ <a href="00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/">00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md</a></td>
 <td>–</td>
-<td><code>tebunko_grep/lib.ps1</code></td>
+<td><code>tebunko/lib.ps1</code></td>
 <td>5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数</td>
 </tr>
 <tr>
@@ -1479,9 +1509,15 @@
 <td>6. テスト（品質の関門の一覧・単体テスト・結合テスト・カバレッジ・コミット前の検査・CI）</td>
 </tr>
 <tr>
+<td>└ <a href="00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/">00_共通_4_プロセスとスレッド.md</a></td>
+<td>–</td>
+<td>–</td>
+<td>7. プロセスとスレッド（スレッドの一覧・寿命・インデックス作成の並列化・受け渡し・閉じる順番・GC）</td>
+</tr>
+<tr>
 <td><a href="01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a></td>
-<td>画面の［インデックス作成を開始］（ウィンドウ無しで起動）</td>
-<td><code>tebunko_grep/indexer.ps1</code> / <code>shared/office/office_reader.ps1</code></td>
+<td>画面の［インデックス作成を開始］（画面のプロセスのスレッドで実行）</td>
+<td><code>tebunko/indexer.ps1</code> / <code>shared/office/office_reader.ps1</code></td>
 <td>Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成</td>
 </tr>
 <tr>
@@ -1535,13 +1571,13 @@
 <tr>
 <td><a href="02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
 <td>画面の［2 検索］タブ</td>
-<td><code>tebunko_grep/search/search_query.ps1</code> / <code>tebunko_grep/search/pack_search.ps1</code> / <code>tebunko_grep/search/search_run.ps1</code></td>
+<td><code>tebunko/search/search_query.ps1</code> / <code>tebunko/search/pack_search.ps1</code> / <code>tebunko/search/search_run.ps1</code></td>
 <td>インデックス（集約ファイル）の検索処理と検索結果ファイルの形式</td>
 </tr>
 <tr>
 <td><a href="03_%E7%94%BB%E9%9D%A2/">03_画面.md</a></td>
 <td><code>tebunko.bat</code></td>
-<td><code>tebunko_grep/gui.ps1</code> / <code>tebunko_grep/xaml/tebunko_grep.xaml</code></td>
+<td><code>tebunko/gui.ps1</code> / <code>tebunko/xaml/tebunko.xaml</code></td>
 <td>インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI）</td>
 </tr>
 <tr>
@@ -1636,7 +1672,7 @@
 <li><strong>検索</strong>（<a href="02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>）
    インデックスの集約ファイルを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは <code>work/検索結果.txt</code> に出力する。</li>
 </ol>
-<p>どちらも画面（<a href="03_%E7%94%BB%E9%9D%A2/">03_画面.md</a>）から行う。インデックス作成は画面がウィンドウ無しで起動し、進み具合を画面に表示する。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。</p>
+<p>どちらも画面（<a href="03_%E7%94%BB%E9%9D%A2/">03_画面.md</a>）から行う。インデックス作成は画面のプロセスの中のスレッドで動き、進み具合を画面に表示する（<a href="00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#7-プロセスとスレッド">7 章</a>）。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。</p>
 <p>用語は検索エンジンにならい、画面・設計書・コードで次のようにそろえる。</p>
 <table>
 <thead>
@@ -1692,7 +1728,7 @@
     bat["tebunko.bat"]
 
     subgraph scripts["scripts/"]
-        subgraph tool["tebunko_grep/（このツール固有）"]
+        subgraph tool["tebunko/（このツール固有）"]
             gui["gui.ps1&lt;br&gt;画面の起動口&lt;br&gt;（ui/ 配下を読み込む）"]
             conv["indexer.ps1&lt;br&gt;インデクサの起動口&lt;br&gt;（indexer/ 配下を読み込む）"]
             common["lib.ps1&lt;br&gt;画面以外の部品の読み込み口&lt;br&gt;（core/・index/・indexer/・search/）"]
@@ -1709,17 +1745,17 @@
     subgraph work["work/（自動生成）"]
         idx[("index/&lt;br&gt;集約ファイル")]
         status["取り込み一覧.tsv&lt;br&gt;（更新日時・状態）"]
-        ctl["取り込み予定.tsv・インデックス作成開始要求&lt;br&gt;インデックス作成中止要求・インデックス作成エラー.txt&lt;br&gt;インデックス作成ログ.txt"]
+        ctl["インデックス作成ログ.txt&lt;br&gt;取り込み中.txt"]
         out["検索結果.txt&lt;br&gt;（［結果をファイルに出力］）"]
     end
 
-    tmp[("%TEMP%\tebunko_grep\#lt;PID#gt;&lt;br&gt;取り込みの作業領域")]
+    tmp[("%TEMP%\tebunko\#lt;PID#gt;&lt;br&gt;取り込みの作業領域")]
     src[("クロール対象フォルダ&lt;br&gt;Excel・Word・PowerPoint ファイル群")]
     excel["Microsoft Excel&lt;br&gt;（COM）"]
     office["Microsoft Word / PowerPoint&lt;br&gt;（COM。旧形式の変換のみ）"]
 
     user --&gt; bat --&gt; gui
-    gui -- "起動（-ConfirmTargets）" --&gt; conv
+    gui -- "スレッドで実行（-Channel）" --&gt; conv
     gui -. "dot-source" .-&gt; common
     conv -. "dot-source" .-&gt; common
     common -. "dot-source" .-&gt; shared
@@ -1733,7 +1769,8 @@
     app &lt;--&gt; office
     conv --&gt; reader
     conv &lt;--&gt; status
-    gui &lt;--&gt; status &amp; ctl
+    gui &lt;--&gt; status
+    gui --&gt; ctl
     conv &lt;--&gt; ctl
     conv --&gt; tmp --&gt; idx
 
@@ -1752,7 +1789,7 @@
 <tbody>
 <tr>
 <td>文脈（上位）</td>
-<td><code>scripts/shared/</code>（どのツールからも使う）と <code>scripts/tebunko_grep/</code>（このツール固有）。その下はドメイン（<code>core</code>・<code>office</code>・<code>index</code>・<code>indexer</code>・<code>search</code>・<code>ui</code>）</td>
+<td><code>scripts/shared/</code>（どのツールからも使う）と <code>scripts/tebunko/</code>（このツール固有）。その下はドメイン（<code>core</code>・<code>office</code>・<code>index</code>・<code>indexer</code>・<code>search</code>・<code>ui</code>）</td>
 </tr>
 <tr>
 <td>層（下位）</td>
@@ -1771,12 +1808,12 @@
 <pre class="mermaid"><code>sequenceDiagram
     actor U as 利用者
     participant G as 画面（tebunko.bat）
-    participant CV as インデクサ（tebunko_grep/indexer.ps1）
+    participant CV as インデクサ（tebunko/indexer.ps1）
     participant W as work/index/
 
     U-&gt;&gt;G: ［1 インデックス管理］の［追加…］でインデックスを追加
     U-&gt;&gt;G: ［インデックス作成を開始］
-    G-&gt;&gt;CV: ウィンドウ無しで起動（-ConfirmTargets）
+    G-&gt;&gt;CV: 画面のプロセスのスレッドで実行（受け渡しの口 -Channel）
     CV-&gt;&gt;CV: 取り込み対象を数える（更新日時・サイズを前回と比べる）
     G-&gt;&gt;U: インデックスごとの取り込み対象の件数を確認（更新が無ければ「更新不要」）
     U-&gt;&gt;G: ［インデックス作成を開始］（前回失敗分も再取り込みするかを選べる）／［キャンセル］
@@ -1813,7 +1850,7 @@
 </tr>
 <tr>
 <td>起動方法</td>
-<td><code>tebunko.bat</code> をダブルクリック。<code>conhost.exe</code> を通して <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で画面を開く（<code>Bypass</code> は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、<code>tebunko.bat</code> が起動前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面が <code>Start-Process</code> で同じ実行ポリシー・<code>-WindowStyle Hidden</code> で起動する。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
+<td><code>tebunko.bat</code> をダブルクリック。<code>conhost.exe</code> を通して <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で画面を開く（<code>Bypass</code> は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、<code>tebunko.bat</code> が起動前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面のプロセスの中のスレッドで動く（別の <code>powershell.exe</code> は起動しない）。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
 </tr>
 <tr>
 <td>スクリプトの文字コード</td>

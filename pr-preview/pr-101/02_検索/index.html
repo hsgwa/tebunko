@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1628,7 +1658,7 @@
 </tr>
 <tr>
 <td>スクリプト</td>
-<td><code>scripts/tebunko_grep/search/search_query.ps1</code>（検索条件）・<code>pack_search.ps1</code>（集約ファイルの列挙と検索）・<code>search_run.ps1</code>（結果の組み立て）。<code>scripts/tebunko_grep/lib.ps1</code> から読み込み、画面 <code>scripts/tebunko_grep/gui.ps1</code> から呼ぶ</td>
+<td><code>scripts/tebunko/search/search_query.ps1</code>（検索条件）・<code>pack_search.ps1</code>（集約ファイルの列挙と検索）・<code>search_run.ps1</code>（結果の組み立て）。<code>scripts/tebunko/lib.ps1</code> から読み込み、画面 <code>scripts/tebunko/gui.ps1</code> から呼ぶ</td>
 </tr>
 <tr>
 <td>使用する共通関数</td>
@@ -1810,7 +1840,7 @@
 </tbody>
 </table>
 <h3 id="43-検索の実装速度">4.3 検索の実装（速度）<a class="headerlink" href="#43-検索の実装速度" title="Permanent link">&para;</a></h3>
-<p>集約ファイル（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko_grep/search/pack_search.ps1</code> の <code>searchPackIndex</code>／<code>searchPackFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">03_画面_6_実装とテスト.md 12.2</a>。実測: 50 万行で約 0.6 秒）。</p>
+<p>集約ファイル（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko/search/pack_search.ps1</code> の <code>searchPackIndex</code>／<code>searchPackFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">03_画面_6_実装とテスト.md 12.2</a>。実測: 50 万行で約 0.6 秒）。</p>
 <p>1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため集約ファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。<strong>全文で一致しない集約ファイルは、そのまま飛ばす。</strong> 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（<code>readPackPlaces</code>）、一致の位置から元のファイル・場所・行番号を求める（5.3）。全文にかけてよいかは <code>getRegexScanMode</code> が正規表現の書き方から判定する。</p>
 <table>
 <thead>
@@ -1843,7 +1873,7 @@
 <li>全文への照合が時間切れになった集約ファイルは、1 行ずつ照合し直す。</li>
 <li>対象ファイル（<code>newFileFilter</code>）・図形とコメント（<code>newPlaceExclude</code>）の条件は、場所ごとに元のファイル名・場所の名前で判定し、当てはまらない場所の一致は結果に入れない（1 行ずつ照合するときは、その場所を照合しない）。</li>
 </ul>
-<p>さらに、次の 3 つで待ち時間を減らしている。</p>
+<p>さらに、次の 4 つで待ち時間を減らしている。</p>
 <table>
 <thead>
 <tr>
@@ -1854,7 +1884,11 @@
 <tbody>
 <tr>
 <td>並列検索</td>
-<td>集約ファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitPackTasks</code>）、作業が 2 つ以上なら別スレッド（RunspacePool。コア数、最大 4）で並行して照合する。各スレッドには照合に要る関数（<code>searchPackFiles</code>・<code>readPackPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は集約ファイルの数）の扱いは 1 スレッドのときと同じ</td>
+<td>集約ファイルを、大きさの合計がおよそ 16MB になるまでまとめて 1 つの作業にし（<code>splitPackTasks</code>）、作業が 2 つ以上なら照合のプール（<code>WorkerPool</code>。コア数 − 1、1〜4）で並行して照合する。各スレッドには照合に要る関数（<code>searchPackFiles</code>・<code>readPackPlaces</code> など）と値だけを読み込む。結果は作業の順に取り込み、上限・中止・進み具合（1 つの作業を照合するたびに通知。件数は集約ファイルの数）の扱いは 1 スレッドのときと同じ</td>
+</tr>
+<tr>
+<td>スレッドの使い回し</td>
+<td>画面は、検索の司令のスレッド（<code>SearchService</code>）を画面を開いている間 1 つだけ動かす。lib.ps1 の読み込みと照合のプールの用意（<code>newPackWorkerPool</code>）は、司令のスレッドを始めたときに 1 回だけ行い、検索のたびに行わない。検索 1 回は要求（<code>newSearchRequest</code>）として渡し、<code>invokeSearchRequest</code> が実行する。新しい要求を渡すと、前の要求の <code>Stop</code> を立てて取り消す（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#73-寿命">7.3</a>）</td>
 </tr>
 <tr>
 <td>列挙</td>
@@ -1862,7 +1896,7 @@
 </tr>
 <tr>
 <td>読んだ内容の使い回し</td>
-<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ集約ファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ集約ファイルはファイルを開かない。書き直した集約ファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readPackContext</code>）も同じ内容を使う</td>
+<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ集約ファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ集約ファイルはファイルを開かない。書き直した集約ファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readPackContext</code>）も同じ内容を使う。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#77-gc-とメモリ">7.7</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -1908,7 +1942,7 @@
 <li>1GB の 2 回目以降は、読んだ内容の使い回しの上限（約 128MB）を超え、物理メモリ 8GB では OS のファイルキャッシュにも収まりきらないため、ディスクの読み込みの速さで決まる。</li>
 </ul>
 <h3 id="44-高速検索windows-search-で先に絞る">4.4 高速検索（Windows Search で先に絞る）<a class="headerlink" href="#44-高速検索windows-search-で先に絞る" title="Permanent link">&para;</a></h3>
-<p>インデックスが大きいと、すべての集約ファイルを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。4.3）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の集約ファイルだけを 4.3 の方式で照合する（<code>tebunko_grep/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての集約ファイルを照合したときと同じ</strong>になる。</p>
+<p>インデックスが大きいと、すべての集約ファイルを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。4.3）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の集約ファイルだけを 4.3 の方式で照合する（<code>tebunko/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての集約ファイルを照合したときと同じ</strong>になる。</p>
 <p><strong>システムインデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下の集約ファイルの中身（メタ情報の行を除く）から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#68-システムインデックスsystem_index">01_インデックス作成_7</a> 6.8）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
 <table>
 <thead>

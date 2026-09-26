@@ -16,7 +16,7 @@
         <link rel="prev" href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/">
       
       
-        <link rel="next" href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">
+        <link rel="next" href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/">
       
       
         
@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tebunko_grep-設計書テスト" class="md-skip">
+        <a href="#tebunko-設計書テスト" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -282,6 +282,8 @@
   
     
     
+      
+        
       
         
       
@@ -596,6 +598,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1471,9 +1501,9 @@
   
 
 
-<h1 id="tebunko_grep-設計書テスト">tebunko_grep 設計書（テスト）<a class="headerlink" href="#tebunko_grep-設計書テスト" title="Permanent link">&para;</a></h1>
+<h1 id="tebunko-設計書テスト">tebunko 設計書（テスト）<a class="headerlink" href="#tebunko-設計書テスト" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../">00_index.md</a> の一部である。章・節の番号は 00_index.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../#ドキュメント構成">00_index.md</a> の表のとおり。</p>
-<p>本書は、tebunko_grep の品質をどう確かめているかをまとめる。コードを変えたときに何が自動で確かめられ、何を手で確かめるかが分かる。</p>
+<p>本書は、tebunko の品質をどう確かめているかをまとめる。コードを変えたときに何が自動で確かめられ、何を手で確かめるかが分かる。</p>
 <table>
 <thead>
 <tr>
@@ -1606,7 +1636,7 @@
 </table>
 <h3 id="61-単体テスト">6.1 単体テスト<a class="headerlink" href="#61-単体テスト" title="Permanent link">&para;</a></h3>
 <p><code>tests/</code>（Pester 3.4）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（<code>Add-Type -TypeDefinition</code>）を使わないことを検証する。テストは <code>scripts/</code> と同じ構成に並べる（<a href="#63-テストの構成と実行">6.3</a>）。検索・画面の部品のテストの内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1 にある。</p>
-<p><strong>共通基盤（<code>tests/shared/core/</code>・<code>tests/shared/office/office_files</code>）</strong></p>
+<p><strong>共通基盤（<code>tests/shared/core/</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1684,12 +1714,12 @@
 <td>ドライブ直下・UNC・末尾の <code>\</code></td>
 </tr>
 <tr>
-<td>フォルダ選択の部品（<code>getFolderEntries</code> など）・<code>testOfficeFile</code></td>
+<td>フォルダ選択を開く場所（<code>getExistingAncestorFolder</code>）</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1</td>
 </tr>
 </tbody>
 </table>
-<p><strong>設定ファイル（<code>tests/tebunko_grep/core/settings</code>）</strong></p>
+<p><strong>設定ファイル（<code>tests/tebunko/core/settings</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1716,7 +1746,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>インデックス名と TSV の名前（<code>tests/tebunko_grep/index/index_name</code>）</strong></p>
+<p><strong>インデックス名と TSV の名前（<code>tests/tebunko/index/index_name</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1755,7 +1785,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>インデックスの管理（<code>tests/tebunko_grep/index/index_store</code>）</strong></p>
+<p><strong>インデックスの管理（<code>tests/tebunko/index/index_store</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1794,7 +1824,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>集約ファイル（<code>tests/tebunko_grep/index/pack_format</code>・<code>tests/tebunko_grep/search/pack_search</code>）</strong></p>
+<p><strong>集約ファイル（<code>tests/tebunko/index/pack_format</code>・<code>tests/tebunko/search/pack_search</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1825,7 +1855,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>インデックス作成（<code>tests/tebunko_grep/indexer/</code>）</strong></p>
+<p><strong>インデックス作成（<code>tests/tebunko/indexer/</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1843,8 +1873,8 @@
 <td>行の順序と内容を保った書き換え、以前の形式（抽出版の列が無い）の取り込み一覧</td>
 </tr>
 <tr>
-<td><code>readIngestingFile</code> / <code>writeIngestingFile</code> / <code>removeIngestingFile</code></td>
-<td>回数と相対パスの往復、無い・壊れていれば <code>$null</code></td>
+<td><code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code></td>
+<td>取り込み中の複数のファイルの回数と相対パスの往復、取り込み中が無ければ記録を消す、壊れた行は読み飛ばす</td>
 </tr>
 <tr>
 <td><code>describeIngestError</code></td>
@@ -1855,24 +1885,32 @@
 <td>状態ごとの件数、失敗したファイルの行の並び、指定した時刻以降に取り込んだ件数</td>
 </tr>
 <tr>
-<td><code>writeIndexingProgress</code> / <code>readIndexingProgress</code> / <code>removeIndexingProgress</code></td>
-<td>段階・件数・内容の往復、タブ・改行はスペース（1 行に保つ）、ファイルが無い・列が足りない・件数が数値でないときは <code>$null</code>、画面が読んでいる間も書ける（共有して開く）、削除（無ければ何もしない）</td>
+<td><code>newIndexerChannel</code> / <code>writeIndexingProgress</code> / <code>readIndexingProgress</code></td>
+<td>画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない</td>
 </tr>
 <tr>
-<td><code>writeIngestPlan</code> / <code>readIngestPlan</code> / <code>removeIngestPlan</code></td>
-<td>インデックスごとの件数の往復（件数は数値で返る）、<code>チェックなし</code>・<code>フォルダなし</code> の区分、インデックスが 0 件、見出しが合わない・ファイルが無いときは <code>$null</code>、画面が読んでいる間も書ける（共有して開く）、削除（無ければ何もしない）</td>
+<td><code>requestIndexingStop</code> / <code>answerIndexingPlan</code></td>
+<td>中止を求めると確認を待っていても待つのをやめる、取り込む返事は中止にしない、取りやめの返事（<code>$null</code>）は中止にする</td>
 </tr>
 <tr>
-<td><code>writeIndexingStartRequest</code> / <code>readIndexingStartRequest</code> / <code>removeIndexingStartRequest</code></td>
-<td>失敗分も再取り込みするかの往復、返事がまだ無ければ <code>$null</code>、削除（無ければ何もしない）</td>
+<td><code>testIndexerRunning</code></td>
+<td>インデックス作成の鍵をほかが持っていれば <code>$true</code>、調べた後は鍵を持たない</td>
+</tr>
+<tr>
+<td><code>writeIndexerLog</code></td>
+<td>ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない</td>
 </tr>
 <tr>
 <td><code>getExtractVersion</code> / <code>getIngestDecision</code></td>
 <td>形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了・インデックスなし・前回失敗・前の抽出版）</td>
 </tr>
 <tr>
+<td><code>getIngestLane</code> / <code>getOfficeLane</code></td>
+<td>Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン。読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン</td>
+</tr>
+<tr>
 <td><code>createTargetList</code> / <code>findOfficeFiles</code> / <code>waitForIndexingApproval</code></td>
-<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を待つ</td>
+<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む）</td>
 </tr>
 <tr>
 <td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>moveLegacyIndex</code> / <code>removeDroppedFolders</code> / <code>migrateFlatIndex</code></td>
@@ -1880,11 +1918,66 @@
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
-<td>設定とインデックスを <code>$TestDrive</code> に差し替えて通しで動かす（Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、基本の流れ（取り込み・集約ファイル・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、前回残った TSV を次の作成の始めに集約ファイルへ入れる、既定のワークスペースが空でなければ何も書かない</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、以前の版が画面とのやり取りに使っていたファイルを始める前に消す、基本の流れ（取り込み・集約ファイル・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、前回残った TSV を次の作成の始めに集約ファイルへ入れる、既定のワークスペースが空でなければ何も書かない</td>
+</tr>
+<tr>
+<td><code>indexer.ps1</code>（取り込みのスレッド）</td>
+<td>取り込みのスレッドで取り込んでも、取り込み一覧・集約ファイルがスレッドを使わないときと同じになる、取り込みのスレッドが始められなければ続けられないエラーで 1 を返す</td>
+</tr>
+<tr>
+<td><code>getIngestWorkerCount</code></td>
+<td>読み取りのスレッドの数。指定があればその数、無ければ設定（<code>ingestThreads</code>）、設定が 0 ならコア数から決める、ファイルの数より多くしない</td>
+</tr>
+<tr>
+<td><code>getIngestLaneCapacity</code></td>
+<td>Office のレーンは取り込み中と次の 1 件、読み取りのレーンはスレッドの数の 2 倍まで渡す</td>
+</tr>
+<tr>
+<td><code>runIngestWorker</code> / <code>invokeIngestTask</code>（レーン）</td>
+<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない</td>
+</tr>
+<tr>
+<td><code>IndexingSession</code>（<code>indexing_session</code>）</td>
+<td>インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の <code>Stop</code> を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、<code>Close</code> は動いていれば中止を求めて待つ（何度呼んでもよい）、<code>KillOffice</code> は記録した PID のうちプロセス名が同じものだけを止める</td>
 </tr>
 </tbody>
 </table>
-<p><strong>元のファイルの特定（<code>tests/tebunko_grep/search/source_map</code>）</strong></p>
+<p><strong>スレッドとプール（<code>tests/shared/core/worker_pool</code>・<code>tests/tebunko/search/search_service</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getWorkerCount</code> / <code>newWorkerState</code></td>
+<td>画面のために 1 コアを残し 1〜上限に収める、指定した関数と値だけを各スレッドに読み込む</td>
+</tr>
+<tr>
+<td><code>WorkerPool</code></td>
+<td>仕事の出力と引数の受け渡し、指定した優先度、PowerShell のインスタンスの使い回し、同時に複数の仕事、仕事の例外を投げても次の仕事を続けられる、止めた仕事は使い回さない、閉じた後は受け付けない（<code>Close</code> は何度呼んでもよい）、<code>Prelude</code> は各スレッドで 1 回だけ実行する</td>
+</tr>
+<tr>
+<td><code>BackgroundQueue</code></td>
+<td>終わった仕事の出力を onDone に渡す、失敗は errorText で渡す、終わっていない仕事の数、閉じると終わっていない仕事を止める</td>
+</tr>
+<tr>
+<td><code>newSearchRequest</code> / <code>invokeSearchRequest</code></td>
+<td>ヒットを列に入れて件数と終わったことを伝える、照合のプールを渡しても同じ結果、始める前に取り消されていたら検索しない、検索できなかった理由を <code>Error</code> に入れる（例外は投げない）</td>
+</tr>
+<tr>
+<td><code>SearchService</code></td>
+<td>要求を順に実行し同じスレッドを使い続ける、次の要求を渡すと前の要求を取り消す、閉じるとスレッドを止める、司令のスレッドが止まっていたら理由を返し次の要求で作り直す</td>
+</tr>
+<tr>
+<td><code>trimTsvTextCache</code></td>
+<td>上限の 9 割以下なら追い出さずに世代だけ進める、超えていたら今の世代で使わなかったものを古い世代から追い出す、今の世代で使ったものは残す、入れたとき・使ったときの世代を残す</td>
+</tr>
+</tbody>
+</table>
+<p><strong>元のファイルの特定（<code>tests/tebunko/search/source_map</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1978,7 +2071,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>COM を使う処理（<code>tests/tebunko_grep/indexer/extract_office</code>・<code>tests/shared/office/office_app</code>）</strong></p>
+<p><strong>COM を使う処理（<code>tests/tebunko/indexer/extract_office</code>・<code>tests/shared/office/office_app</code>）</strong></p>
 <p>Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流れを検証する。COM の入口は <code>getApp</code>（アプリの取得）と <code>New-Object -ComObject</code> だけなので、ここを Pester の <code>Mock</code> で差し替え、本物と同じ呼び方ができる偽のオブジェクト（呼ばれたメソッドと引数を記録し、保存では本物と同じ形式のファイルを書く）を返す。実機での動作は 6.2 の手動の結合テストで確かめる。</p>
 <table>
 <thead>
@@ -1989,21 +2082,21 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tests/tebunko_grep/indexer/extract_office.Tests.ps1</code></td>
-<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、失敗しても文書を閉じて作業ファイルを消す</td>
+<td><code>tests/tebunko/indexer/extract_office.Tests.ps1</code></td>
+<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、読み取りのスレッドでは中身が旧形式の <code>.docx</code> を Office を使わずに「Office が要る」の例外にし（<code>getApp</code> を呼ばない）、壊れた <code>.pptx</code> は回し直さずに失敗にする、失敗しても文書を閉じて作業ファイルを消す</td>
 </tr>
 <tr>
 <td><code>tests/shared/office/office_app.Tests.ps1</code></td>
-<td>起動時の設定（非表示・警告なし・イベントなし・リンクを更新しない・マクロ無効。PowerPoint は <code>Visible</code> を変えない）、起動済みのアプリを使い回す、自分で起動したアプリだけを制限時間の強制終了の対象にする、Quit して終わらなければ強制終了する（Excel は 1 秒、Word・PowerPoint は 5 秒待つ）、利用者のアプリ・利用者が文書を開いたアプリは終了させない、制限時間の監視</td>
+<td>起動時の設定（非表示・警告なし・イベントなし・リンクを更新しない・マクロ無効。PowerPoint は <code>Visible</code> を変えない）、起動済みのアプリを使い回す、自分で起動したアプリだけを制限時間の強制終了の対象にする、Quit して終わらなければ強制終了する（Excel は 1 秒、Word・PowerPoint は 5 秒待つ）、利用者のアプリ・利用者が文書を開いたアプリは終了させない、制限時間の監視、起動した Office の優先度は変えない</td>
 </tr>
 </tbody>
 </table>
-<p><strong>画面の部品（<code>tests/tebunko_grep/ui/</code>・<code>tests/shared/ui/</code>）</strong></p>
-<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（<code>preview.ps1</code> の <code>copyPreviewSelection</code>）だけを確かめる。型（<code>types.ps1</code>・<code>types_grep.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1。</p>
+<p><strong>画面の部品（<code>tests/tebunko/ui/</code>・<code>tests/shared/ui/</code>）</strong></p>
+<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（<code>preview.ps1</code> の <code>copyPreviewSelection</code>）だけを確かめる。型（<code>shared/ui/types.ps1</code>・<code>tebunko/ui/types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1。</p>
 <p><strong>テストデータの個人情報の除去（<code>tests/testdata/scrub_personal</code>）</strong></p>
 <p>タグ <code>Io</code> で、テストデータから個人情報を取り除く <code>tests/testdata/scrub_personal.ps1</code> を検証する（OOXML・ODF・<code>.xlsb</code> の中のバイナリ・旧形式・Shift_JIS のテキスト、壊れた ZIP、隠し属性・読み取り専用属性）。</p>
 <p><strong>安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）</strong></p>
-<p>タグ <code>Meta</code> で、<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない（35 件）。</p>
+<p>タグ <code>Meta</code> で、<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない（36 件）。</p>
 <table>
 <thead>
 <tr>
@@ -2150,39 +2243,39 @@
 <tbody>
 <tr>
 <td><code>tests/helpers/</code></td>
-<td>共通の準備（<code>load.ps1</code>。<code>$here</code>・<code>${scriptsDir}</code>・<code>${testDataDir}</code> を決めて <code>tebunko_grep/lib.ps1</code> を読み込む）とテスト用の TSV 作成（<code>tsv.ps1</code>）</td>
+<td>共通の準備（<code>load.ps1</code>。<code>$here</code>・<code>${scriptsDir}</code>・<code>${testDataDir}</code> を決めて <code>tebunko/lib.ps1</code> を読み込む）とテスト用の TSV 作成（<code>tsv.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>tests/shared/core/</code></td>
-<td><code>fs</code>・<code>text</code>・<code>folder</code></td>
+<td><code>fs</code>・<code>text</code>・<code>folder</code>・<code>worker_pool</code></td>
 </tr>
 <tr>
 <td><code>tests/shared/office/</code></td>
-<td><code>office_files</code>・<code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
+<td><code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
 </tr>
 <tr>
 <td><code>tests/shared/ui/</code></td>
 <td>画面の型（<code>types</code>）</td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/core/</code></td>
+<td><code>tests/tebunko/core/</code></td>
 <td><code>settings</code>（<code>setting.config</code>）</td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/index/</code></td>
+<td><code>tests/tebunko/index/</code></td>
 <td><code>index_name</code>・<code>index_store</code>・<code>pack_format</code></td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/indexer/</code></td>
-<td><code>indexer_state</code>・<code>indexer_decide</code>・<code>indexer_plan</code>・<code>extract_office</code>・<code>index_migrate</code>、起動口の通しのテスト（<code>indexer</code>）</td>
+<td><code>tests/tebunko/indexer/</code></td>
+<td><code>indexer_state</code>・<code>indexer_decide</code>・<code>indexer_plan</code>・<code>extract_office</code>・<code>index_migrate</code>・<code>indexing_session</code>、起動口の通しのテスト（<code>indexer</code>）</td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/search/</code></td>
-<td><code>search_query</code>・<code>search_run</code>・<code>pack_search</code>・<code>source_map</code></td>
+<td><code>tests/tebunko/search/</code></td>
+<td><code>search_query</code>・<code>search_run</code>・<code>pack_search</code>・<code>search_service</code>・<code>source_map</code></td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/ui/</code></td>
-<td>画面の判断層（<code>index_view</code>・<code>indexing_view</code>・<code>search_view</code>・<code>preview_view</code>・<code>settings_view</code>）と、<code>$ui</code> を偽物にした画面の部品（<code>result_list</code>・<code>open_source</code>・<code>preview</code>・<code>index_tree</code>）・型（<code>types_grep</code>）</td>
+<td><code>tests/tebunko/ui/</code></td>
+<td>画面の判断層（<code>index_view</code>・<code>indexing_view</code>・<code>search_view</code>・<code>preview_view</code>・<code>settings_view</code>）と、<code>$ui</code> を偽物にした画面の部品（<code>result_list</code>・<code>open_source</code>・<code>preview</code>・<code>index_tree</code>）・型（<code>types</code>）</td>
 </tr>
 <tr>
 <td><code>tests/tools/</code></td>
@@ -2198,7 +2291,7 @@
 </tr>
 </tbody>
 </table>
-<p>入力と期待値だけが違うテストは、<code>-TestCases</code> の 1 つの <code>It</code> にまとめる（例: <code>tests/tebunko_grep/ui/types_grep.Tests.ps1</code> の <code>HitRow.Contains</code>）。表は <code>It</code> の中にそのまま書き、計算で作らない。キーには <code>input</code>・<code>args</code>・<code>_</code>・<code>Matches</code> など PowerShell の自動変数の名前を使わない。各行に <code>name</code> を持たせ、<code>It "&lt;name&gt;"</code> で失敗した行が分かるようにする。Pester 5 に移るときは <code>-ForEach</code> に置き換えるだけで済むようにするため。</p>
+<p>入力と期待値だけが違うテストは、<code>-TestCases</code> の 1 つの <code>It</code> にまとめる（例: <code>tests/tebunko/ui/types.Tests.ps1</code> の <code>HitRow.Contains</code>）。表は <code>It</code> の中にそのまま書き、計算で作らない。キーには <code>input</code>・<code>args</code>・<code>_</code>・<code>Matches</code> など PowerShell の自動変数の名前を使わない。各行に <code>name</code> を持たせ、<code>It "&lt;name&gt;"</code> で失敗した行が分かるようにする。Pester 5 に移るときは <code>-ForEach</code> に置き換えるだけで済むようにするため。</p>
 <p><code>tests/meta/</code> は、直し忘れると気づきにくい決まりごとを機械的に確かめる。</p>
 <table>
 <thead>
@@ -2395,10 +2488,10 @@
 <li>Scorecard はリポジトリを Linux で展開する。名前が UTF-8 で 255 バイト（日本語で 85 字）を超えるファイルがあると展開できず、ほとんどの項目が採点できなくなる。そのため <code>tools/check_commit.ps1</code> がこの長さを超える名前を止める</li>
 </ul>
 <p><strong><code>release.yml</code>（配布物の公開）</strong></p>
-<p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko_grep-&lt;タグ&gt;.zip</code>）を作って GitHub Release に載せる。</p>
+<p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）を作って GitHub Release に載せる。</p>
 <ul>
 <li>zip にはツール本体（<code>tebunko.bat</code>・<code>scripts/</code>）と <code>README.md</code>・<code>LICENSE</code> だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（<code>tebunko.cat</code>）・ハッシュ一覧（<code>SHA256SUMS.txt</code>）・部品表（<code>sbom.cdx.json</code>）は zip と並べてリリースに載せ（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 5.6 の VirusTotal での照会用）</li>
-<li>zip のビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko_grep-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
+<li>zip のビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
 <li>リリースノートは GitHub が PR から作り、<code>.github/release.yml</code> で PR のラベルごとに分ける</li>
 <li>版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける</li>
 </ul>
@@ -2565,13 +2658,13 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
         
         
           
-          <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/" class="md-footer__link md-footer__link--next" aria-label="次: インデックス作成（インデクサ）設計書">
+          <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-footer__link md-footer__link--next" aria-label="次: プロセスとスレッド">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                インデックス作成（インデクサ）設計書
+                プロセスとスレッド
               </div>
             </div>
             <div class="md-footer__button md-icon">
