@@ -106,8 +106,8 @@ jobs:
           $sha = git -C target rev-parse HEAD
           $short = $sha.Substring(0, 7)
           $data = [double]::Parse([System.IO.File]::ReadAllText((Join-Path $work "data_seconds.txt")), [System.Globalization.CultureInfo]::InvariantCulture)
-          $office = @()
-          if ($env:INGEST -ne "0") { $office = @("-Office", (Join-Path $work "office")) }
+          $office = @{}
+          if ($env:INGEST -ne "0") { $office.Office = Join-Path $work "office" }
           & .\tool\tools\measure_perf.ps1 @office -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
 
       - name: 結果を Summary に書き出す
