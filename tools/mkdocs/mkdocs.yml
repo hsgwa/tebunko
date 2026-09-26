@@ -104,33 +104,41 @@ validation:
   unrecognized_links: warn
   anchors: warn
 
-# 上部のタブ（navigation.tabs）が読者ごとの区分になる。ページを足したらここにも足す
+# 上部のタブ（navigation.tabs）は読む人で分ける: 「使い方」は使う人（利用者と、導入を審査する人）、
+# 「開発者向け」は作る人。その中は目的ごとのまとまり（navigation.sections）に分ける。ページを足したらここにも足す
 nav:
   - ホーム: index.md
   - 使い方:
       - guide/index.md
-      - はじめて使う: guide/quickstart.md
-      - インデックスを作る: guide/indexing.md
-      - 検索する: guide/search.md
-      - 元のファイルを開く: guide/open-files.md
-      - 高速検索: guide/fast-search.md
-      - 設定: guide/settings.md
-      - Office のプロセスを止める: guide/process.md
-      - キーボード操作: guide/keyboard.md
-      - できないこと: guide/limitations.md
-      - 困ったとき: guide/troubleshooting.md
-      - よくある質問: guide/faq.md
-      - 更新とアンインストール: guide/update-uninstall.md
-  - 安全性:
-      - safety/index.md
-      - 危険とされる処理の検査結果: safety/checks.md
-      - ファイルの読み書きの範囲: safety/file-access.md
-      - 開示事項: safety/disclosure.md
-      - 第三者のツールによる検査結果: safety/scans.md
-      - 供給網とライセンス: safety/supply-chain.md
-  - 設計・開発:
+      - はじめる:
+          - はじめて使う: guide/quickstart.md
+      - 操作ガイド:
+          - インデックスを作る: guide/indexing.md
+          - 検索する: guide/search.md
+          - 元のファイルを開く: guide/open-files.md
+          - 高速検索: guide/fast-search.md
+          - 設定: guide/settings.md
+          - Office のプロセスを止める: guide/process.md
+      # 安全性は、導入を審査する人（情報システム部門など）向け。ファイルは docs/safety/ に置く
+      - 導入と管理:
+          - 安全性:
+              - safety/index.md
+              - 危険とされる処理の検査結果: safety/checks.md
+              - ファイルの読み書きの範囲: safety/file-access.md
+              - 開示事項: safety/disclosure.md
+              - 第三者のツールによる検査結果: safety/scans.md
+              - 供給網とライセンス: safety/supply-chain.md
+          - 更新とアンインストール: guide/update-uninstall.md
+      - 困ったとき・資料:
+          - 困ったとき: guide/troubleshooting.md
+          - よくある質問: guide/faq.md
+          - できないこと: guide/limitations.md
+          - キーボード操作: guide/keyboard.md
+          # 利用者が見るメッセージの一覧。ファイルはインデクサの設計書の隣に置く
+          - エラーメッセージ一覧: design/indexer/errors.md
+  - 開発者向け:
       - design/index.md
-      - 構成:
+      - 全体像:
           - フォルダ構成とデータの置き場所: design/architecture/layout.md
           - 設定ファイル: design/architecture/settings-file.md
           - 共通モジュール: design/architecture/modules.md
@@ -143,7 +151,6 @@ nav:
           - PowerPoint: design/indexer/powerpoint.md
           - 共通処理と Office アプリの管理: design/indexer/office-apps.md
           - インデックスの形式: design/indexer/index-format.md
-          - エラーメッセージ一覧: design/indexer/errors.md
           - 既知の問題: design/indexer/known-issues.md
       - 検索:
           - design/search/index.md
@@ -158,6 +165,7 @@ nav:
           - 状態と操作の流れ: design/gui/state-flow.md
           - 共通仕様: design/gui/common.md
           - 実装: design/gui/implementation.md
-      - テスト:
-          - design/testing/index.md
+      - 開発の進め方:
+          - テスト: design/testing/index.md
           - テストの実行と CI: design/testing/ci.md
+          - 貢献のしかた: https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.ja.md
