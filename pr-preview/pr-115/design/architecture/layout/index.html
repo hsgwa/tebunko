@@ -1,0 +1,2998 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+      
+      
+      
+        <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/architecture/layout/">
+      
+      
+        <link rel="prev" href="../../">
+      
+      
+        <link rel="next" href="../settings-file/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../images/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>フォルダ構成とデータの置き場所 - tebunko</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#フォルダ構成とデータの置き場所" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="ヘッダー">
+    <a href="../../.." title="tebunko" class="md-header__button md-logo" aria-label="tebunko" data-md-component="logo">
+      
+  <img src="../../../images/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tebunko
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              フォルダ構成とデータの置き場所
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードにする"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードにする" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードにする"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードにする" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="タブ" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  ホーム
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../guide/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  使い方
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../safety/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  安全性
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  設計・開発
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="tebunko" class="md-nav__button md-logo" aria-label="tebunko" data-md-component="logo">
+      
+  <img src="../../../images/logo.svg" alt="logo">
+
+    </a>
+    tebunko
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ホーム
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../guide/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    使い方
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    使い方
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    はじめて使う
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/indexing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスを作る
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索する
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/open-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/fast-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    高速検索
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設定
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Office のプロセスを止める
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/keyboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    キーボード操作
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/limitations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    できないこと
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    困ったとき
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    よくある質問
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/update-uninstall/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    更新とアンインストール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../safety/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安全性
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    安全性
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    危険とされる処理の検査結果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/file-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ファイルの読み書きの範囲
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/disclosure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    開示事項
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/scans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第三者のツールによる検査結果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../safety/supply-chain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    供給網とライセンス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設計・開発
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    設計・開発
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    構成
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    構成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    フォルダ構成とデータの置き場所
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    フォルダ構成とデータの置き場所
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#フォルダ構成" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        フォルダ構成
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="フォルダ構成">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#利用者が使うもの" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        利用者が使うもの
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#スクリプトscripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        スクリプト（scripts/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ドキュメント配布物" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ドキュメント・配布物
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#開発用配布しない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        開発用（配布しない）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#自動生成work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        自動生成（work/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#入出力ファイル一覧" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        入出力ファイル一覧
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#データの置き場所settingconfigwork" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        データの置き場所（setting.config・work/）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設定ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通モジュール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../threads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../indexer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_3" id="__nav_4_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックス作成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    処理の流れと取り込み一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/excel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Excel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/word/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Word
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/powerpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PowerPoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/office-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/index-format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスの形式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexer/known-issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    既知の問題
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    検索
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../search/fast-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    高速検索
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../search/output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索結果ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_5" id="__nav_4_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/state-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    状態と操作の流れ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通仕様
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    実装
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../testing/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テスト
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4_6" id="__nav_4_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    テスト
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テストの実行と CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#フォルダ構成" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        フォルダ構成
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="フォルダ構成">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#利用者が使うもの" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        利用者が使うもの
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#スクリプトscripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        スクリプト（scripts/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ドキュメント配布物" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ドキュメント・配布物
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#開発用配布しない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        開発用（配布しない）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#自動生成work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        自動生成（work/）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#入出力ファイル一覧" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        入出力ファイル一覧
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#データの置き場所settingconfigwork" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        データの置き場所（setting.config・work/）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="フォルダ構成とデータの置き場所">フォルダ構成とデータの置き場所<a class="headerlink" href="#フォルダ構成とデータの置き場所" title="Permanent link">&para;</a></h1>
+<h2 id="フォルダ構成">フォルダ構成<a class="headerlink" href="#フォルダ構成" title="Permanent link">&para;</a></h2>
+<p>スクリプトの場所は <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<code>setting.config</code> と <code>work/</code> は、ふつうは <code>$rootDir</code> の直下に置くが、ツールのフォルダに書き込めないときや、利用者が画面で置き場所を変えたときは別の場所になる（<a href="#データの置き場所settingconfigwork">データの置き場所</a>）。<strong>カレントディレクトリには依存しない。</strong>
+ファイル操作は <code>-LiteralPath</code> または .NET の <code>System.IO</code> を使い、<code>[</code> <code>]</code> を含むファイル名・フォルダ名を扱える。</p>
+<h3 id="利用者が使うもの">利用者が使うもの<a class="headerlink" href="#利用者が使うもの" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>種別</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tebunko.bat</code></td>
+<td>起動用バッチ</td>
+<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で 1 回起動し、その中で <code>scripts</code> の中のファイルから Mark-of-the-Web を外して（<code>Unblock-File</code>。<a href="../../../safety/">安全性の要約</a> の 4.2）から <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
+</tr>
+<tr>
+<td><code>setting.config</code></td>
+<td>設定</td>
+<td>画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。<a href="../settings-file/">設定ファイル（setting.config）</a>）。ツールのフォルダに書き込めないときは利用者ごとの場所に置く（<a href="#データの置き場所settingconfigwork">データの置き場所</a>）</td>
+</tr>
+<tr>
+<td><code>work/</code></td>
+<td>自動生成</td>
+<td>インデックス・状態ファイル・ログ（<a href="#入出力ファイル一覧">入出力ファイル一覧</a>）。git 管理外。削除すると全件取り込み直しになる。置き場所は画面で変えられる（<a href="#データの置き場所settingconfigwork">データの置き場所</a>）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="スクリプトscripts">スクリプト（<code>scripts/</code>）<a class="headerlink" href="#スクリプトscripts" title="Permanent link">&para;</a></h3>
+<p>ソースは<strong>文脈</strong>（<code>shared/</code> = どのツールからも使う、<code>tebunko/</code> = このツール固有）と<strong>層</strong>で分ける。フォルダごとの中身と読み込み口は <a href="../modules/">共通モジュール</a>。</p>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>種別</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/shared/</code></td>
+<td>スクリプト</td>
+<td>どのツールからも使う部品（<code>core/</code>・<code>office/</code>・<code>ui/</code>・<code>xaml/</code>）</td>
+</tr>
+<tr>
+<td><code>scripts/shared/shared.ps1</code></td>
+<td>スクリプト</td>
+<td>共通基盤の読み込み口</td>
+</tr>
+<tr>
+<td><code>scripts/shared/office/office_reader.ps1</code></td>
+<td>スクリプト</td>
+<td>Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメントの文字を取り出す（<a href="../../indexer/index-format/">インデックスの形式</a> の 6.4、Word は <a href="../../indexer/word/">Word</a>、PowerPoint は <a href="../../indexer/powerpoint/">PowerPoint</a>）</td>
+</tr>
+<tr>
+<td><code>scripts/shared/xaml/</code></td>
+<td>画面定義</td>
+<td>共通の画面定義（<code>theme.xaml</code>・確認ダイアログ）</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/</code></td>
+<td>スクリプト</td>
+<td>tebunko 固有の処理と画面（<code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code>・<code>ui/</code>・<code>xaml/</code>）</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/gui.ps1</code></td>
+<td>スクリプト</td>
+<td>画面の起動口（<a href="../../gui/">画面（GUI）</a>）。検索・プロセス停止は画面の中で行う</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/indexer.ps1</code></td>
+<td>スクリプト</td>
+<td>インデックス作成の起動口（<a href="../../indexer/">インデックス作成（インデクサ）</a>）。画面は自分のプロセスのスレッドでこれを実行する（<code>-Channel</code>）。画面を使わずにコンソールから実行することもできる</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/lib.ps1</code></td>
+<td>スクリプト</td>
+<td>画面以外の部品の読み込み口</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/</code></td>
+<td>画面定義</td>
+<td>tebunko の画面定義（<code>tebunko.xaml</code>・タブ・ダイアログ）</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/tebunko.ico</code></td>
+<td>画像</td>
+<td>画面のアイコン（<a href="../../gui/common/#表示アクセシビリティ">画面の共通仕様</a>）。元データは <code>docs/images/logo.svg</code>（リポジトリの管理者が作成）で、<code>tools/new_icon.ps1</code> で作る。手で編集しない</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ドキュメント配布物">ドキュメント・配布物<a class="headerlink" href="#ドキュメント配布物" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>種別</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>README.md</code></td>
+<td>ドキュメント</td>
+<td>使い方の入口。配布 zip に同梱する（相対リンクと画像は、その版の GitHub の URL に書き換える）</td>
+</tr>
+<tr>
+<td><code>LICENSE</code></td>
+<td>ドキュメント</td>
+<td>ライセンス（MIT）。配布 zip に同梱する</td>
+</tr>
+<tr>
+<td><code>.github/SECURITY.md</code>・<code>.github/SECURITY.ja.md</code></td>
+<td>ドキュメント</td>
+<td>安全性の説明の入口と、脆弱性の連絡先・対応方針（英語版が正、<code>.ja.md</code> が日本語版）。配布 zip には入れず、リリースの説明からリンクする</td>
+</tr>
+<tr>
+<td><code>sbom.cdx.json</code></td>
+<td>配布用</td>
+<td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/supply-chain/">供給網（サプライチェーン）とライセンス</a>）。配布 zip と並べてリリースに載せる</td>
+</tr>
+<tr>
+<td><code>installer/tebunko.iss</code></td>
+<td>配布用</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を作る Inno Setup 7 のスクリプト。管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れ、スタートメニューとアンインストールに登録する（<a href="../../../safety/">安全性の要約</a> の 4.6）。BOM 付き UTF-8・CRLF</td>
+</tr>
+<tr>
+<td><code>installer/tebunko.cs</code></td>
+<td>配布用</td>
+<td>インストーラー版の起動口 <code>tebunko.exe</code> のソース（C# 5）。<code>tebunko.bat</code> と同じく <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動する。窓を作らずに起動し、起動できなかったときは PowerShell のエラーをメッセージで出す。zip 版には入れない</td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>ドキュメント</td>
+<td>利用者向けの使い方・安全性の説明・設計書（MkDocs のサイトの元）。<code>docs/images/</code> に図・画面の画像・ロゴ（<code>logo.svg</code>）を置く。配布 zip には入れない</td>
+</tr>
+<tr>
+<td><code>.github/CONTRIBUTING.md</code>・<code>.github/SUPPORT.md</code>・<code>.github/CODE_OF_CONDUCT.md</code>（と、それぞれの <code>.ja.md</code>）</td>
+<td>ドキュメント</td>
+<td>開発に参加する手順・使い方の質問の窓口・行動規範。英語版が正で、<code>.ja.md</code> が日本語版。GitHub は <code>.github/</code> に置いた英語版の名前のファイルを認識する</td>
+</tr>
+</tbody>
+</table>
+<h3 id="開発用配布しない">開発用（配布しない）<a class="headerlink" href="#開発用配布しない" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>種別</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/</code></td>
+<td>テスト</td>
+<td>Pester テスト（<code>scripts/</code> と同じ構成。<a href="../../testing/">テスト</a>）</td>
+</tr>
+<tr>
+<td><code>tools/check_commit.ps1</code></td>
+<td>開発用</td>
+<td>公開してはいけない内容（利用者名を含むパス・メールアドレス・Office ファイルの作成者名など）・<code>.ps1</code> と <code>.xaml</code> の文字コード・長すぎるファイル名を検査する。pre-commit フックと CI が使う（<a href="../../testing/ci/#ci">CI</a>）</td>
+</tr>
+<tr>
+<td><code>tools/check_commit_message.ps1</code></td>
+<td>開発用</td>
+<td>コミットメッセージの 1 行目・PR と Issue のタイトルが Conventional Commits の形かを確かめる。commit-msg フックと CI（<code>title.yml</code>）が使う</td>
+</tr>
+<tr>
+<td><code>tools/check_signoff.ps1</code></td>
+<td>開発用</td>
+<td>コミットに作者の <code>Signed-off-by</code> があるかを確かめる。commit-msg フックと CI（<code>test.yml</code>）が使う</td>
+</tr>
+<tr>
+<td><code>tools/check_markdown_links.ps1</code></td>
+<td>開発用</td>
+<td>git で管理している <code>.md</code> の相対リンクの先（ファイル・見出し）があるかを確かめる。<code>tests/meta/links.Tests.ps1</code> が使う（<a href="../../testing/ci/">テストの実行と CI</a>）</td>
+</tr>
+<tr>
+<td><code>tools/hooks/pre-commit</code>・<code>tools/hooks/commit-msg</code>・<code>tools/install_hooks.ps1</code></td>
+<td>開発用</td>
+<td>コミット時の検査。clone 後に <code>install_hooks.ps1</code> を 1 回実行して有効にする（<a href="../../testing/ci/#ci">CI</a>）</td>
+</tr>
+<tr>
+<td><code>tools/new_release_files.ps1</code></td>
+<td>配布用</td>
+<td>配布物のカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を作る（既定の出力先は <code>work/release/</code>）。受け取った側が改ざんの有無を確認できる（<a href="../../../safety/">安全性の要約</a> の 5.1）</td>
+</tr>
+<tr>
+<td><code>tools/new_release_package.ps1</code></td>
+<td>配布用</td>
+<td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../../testing/ci/#ci">CI</a>）</td>
+</tr>
+<tr>
+<td><code>tools/new_installer.ps1</code></td>
+<td>配布用</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を <code>work/release/</code> に作る。起動口 <code>tebunko.exe</code> を Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドし、<code>scripts/</code>・<code>LICENSE</code> と並べて Inno Setup 7 の <code>ISCC.exe</code> に渡す。<code>release.yml</code> が実行する。手元で作るときは Inno Setup 7 を入れておく（<code>-Iscc</code> で場所を指定できる）</td>
+</tr>
+<tr>
+<td><code>tools/new_icon.ps1</code></td>
+<td>開発用</td>
+<td>画面のアイコン（<code>tebunko.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
+</tr>
+<tr>
+<td><code>tools/make_social_preview.ps1</code></td>
+<td>開発用</td>
+<td>GitHub の social preview 用の画像（<code>docs/images/social_preview.png</code>）を作る。登録はリポジトリの設定から手で行う</td>
+</tr>
+<tr>
+<td><code>tools/mkdocs/</code></td>
+<td>開発用</td>
+<td>設計書の Web サイトを作る設定（<code>mkdocs.yml</code>）・フック（<code>hooks.py</code>）・使うパッケージ（<code>requirements.txt</code>）（<a href="../../testing/ci/#ci">CI</a>）</td>
+</tr>
+<tr>
+<td><code>.github/workflows/</code></td>
+<td>開発用</td>
+<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../../testing/ci/#ci">CI</a>）</td>
+</tr>
+<tr>
+<td><code>.github/codecov.yml</code></td>
+<td>開発用</td>
+<td>Codecov の設定。ASCII の文字だけで書く（<a href="../../testing/ci/#ci">CI</a>）</td>
+</tr>
+<tr>
+<td><code>.github/dependabot.yml</code>・<code>.github/release.yml</code></td>
+<td>開発用</td>
+<td>依存（GitHub Actions・MkDocs のパッケージ）の更新 PR の設定と、リリースノートを PR のラベルで分ける設定</td>
+</tr>
+<tr>
+<td><code>.github/ISSUE_TEMPLATE/</code>・<code>.github/pull_request_template.md</code>・<code>.github/title_comment.md</code></td>
+<td>開発用</td>
+<td>Issue・PR のテンプレートと、形の違う Issue のタイトルに付けるコメント</td>
+</tr>
+<tr>
+<td><code>.gitattributes</code></td>
+<td>開発用</td>
+<td><code>.ps1</code>・<code>.xaml</code>・<code>.bat</code>・<code>.iss</code>・<code>.cs</code> を CRLF、<code>tools/hooks/*</code> を LF に固定する</td>
+</tr>
+<tr>
+<td><code>AGENTS.md</code>・<code>.claude/CLAUDE.md</code></td>
+<td>開発用</td>
+<td>コーディングエージェント向けの決まり。<code>CLAUDE.md</code> は <code>AGENTS.md</code> を読み込む</td>
+</tr>
+</tbody>
+</table>
+<h3 id="自動生成work">自動生成（<code>work/</code>）<a class="headerlink" href="#自動生成work" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>説明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>work/index/</code></td>
+<td>インデックス。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（<code>content.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> 6.1）</td>
+</tr>
+<tr>
+<td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td>インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。<code>work/index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける</td>
+</tr>
+<tr>
+<td><code>work/system_index/</code></td>
+<td>システムインデックス（高速検索用。<code>work/index</code> の中のフォルダごとの 2-gram の txt。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a> 6.8）。Windows Search に索引させる</td>
+</tr>
+<tr>
+<td><code>work/システムインデックスの状態.tsv</code></td>
+<td>システムインデックスの状態（対応済み・反映待ち・対象外。同 6.8）</td>
+</tr>
+<tr>
+<td><code>work/取り込み一覧.tsv</code></td>
+<td>取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗）</td>
+</tr>
+<tr>
+<td><code>work/取り込み中.txt</code></td>
+<td>取り込み中のファイル（取り込みのスレッドごとに 1 行）。取り込み中に強制終了したときだけ残る</td>
+</tr>
+<tr>
+<td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
+<td>1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ（インデックス作成の終了時に削除する）</td>
+</tr>
+<tr>
+<td><code>work/インデックス作成ログ.txt</code></td>
+<td>インデクサの表示内容の記録（実行ごとに上書き）</td>
+</tr>
+<tr>
+<td><code>work/画面エラー.txt</code></td>
+<td>画面で起きた予期しないエラーの記録（追記）</td>
+</tr>
+<tr>
+<td><code>work/検索結果.txt</code></td>
+<td>画面の［結果をファイルに出力］で書き出す検索結果</td>
+</tr>
+<tr>
+<td><code>work/test/</code>・<code>work/release/</code>・<code>work/site/</code>・<code>work/cache/</code></td>
+<td>開発用の出力（テスト結果とカバレッジ・配布物・設計書のサイト・サイトを作るときのキャッシュ）</td>
+</tr>
+</tbody>
+</table>
+<p>取り込みの作業領域は <code>%TEMP%\tebunko\&lt;PID&gt;</code> に置く。Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、ツールの配置場所に依存させない。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。その下は、取り込みのスレッド（Excel・Word・PowerPoint・読み取りのレーンのスレッド）ごとに <code>w&lt;番号&gt;</code> のフォルダに分ける（<code>work/取り込み出力/&lt;PID&gt;</code> も同じ。<a href="../threads/#インデックス作成の並列化">インデックス作成の並列化</a>）。</p>
+<p>できた TSV をインデックス（集約ファイルに入れる前の置き場所）に入れるときは、<code>work/取り込み出力/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域（<code>%TEMP%</code>）とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
+<h2 id="入出力ファイル一覧">入出力ファイル一覧<a class="headerlink" href="#入出力ファイル一覧" title="Permanent link">&para;</a></h2>
+<p>画面（<code>gui.ps1</code>）とインデクサ（<code>indexer.ps1</code>）は同じプロセスの別のスレッドで動き、進み具合・取り込み予定・確認の返事・中止・エラーはメモリ上の受け渡しの口（<code>newIndexerChannel</code>）で受け渡す（<a href="../threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a>）。ファイルに残すのは、取り込み一覧・取り込み中のファイル・ログだけである。</p>
+<pre class="mermaid"><code>flowchart LR
+    CFG[("setting.config")]
+    GUI["画面&lt;br&gt;gui.ps1"]
+    IDX["インデクサ&lt;br&gt;indexer.ps1"]
+    ST[("取り込み一覧.tsv&lt;br&gt;取り込み中.txt")]
+    IX[("work/index/")]
+    GUI -- 読み書き --&gt; CFG
+    IDX -- クロール対象フォルダを読む --&gt; CFG
+    IDX -- "進捗・取り込み予定・エラー（受け渡しの口）" --&gt; GUI
+    GUI -- "確認の返事・中止（受け渡しの口）" --&gt; IDX
+    IDX -- 読み書き --&gt; ST
+    IDX -- 集約ファイルを書く --&gt; IX
+    GUI -- 検索・一覧 --&gt; IX
+    GUI -- 集計を読む --&gt; ST</code></pre>
+<table>
+<thead>
+<tr>
+<th>パス</th>
+<th>種別</th>
+<th>作成</th>
+<th>使用</th>
+<th>文字コード</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>setting.config</code></td>
+<td>設定</td>
+<td>画面</td>
+<td>画面・インデックス作成</td>
+<td>UTF-8（BOM なし）、JSON</td>
+<td>クロール対象フォルダ・検索対象のツリーでチェックを外したフォルダ・元のフォルダ・検索条件・開き方（<a href="../settings-file/">設定ファイル（setting.config）</a>）。PC ごとの設定</td>
+</tr>
+<tr>
+<td><code>work/取り込み一覧.tsv</code></td>
+<td>インデックス作成の状態</td>
+<td>インデックス作成</td>
+<td>インデックス作成・画面</td>
+<td>UTF-8（BOM 付き）、タブ区切り</td>
+<td>先頭にクロール対象フォルダの行、以降 1 ファイル 1 行で相対パス・更新日時・サイズ・状態・TSV 数・取り込み日時・エラー・抽出版（<a href="../../indexer/flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>）</td>
+</tr>
+<tr>
+<td><code>work/取り込み中.txt</code></td>
+<td>インデックス作成の状態</td>
+<td>インデックス作成</td>
+<td>インデックス作成</td>
+<td>UTF-8（BOM 付き）</td>
+<td>取り込み中のファイルごとに <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> の 1 行（取り込みを複数のスレッドで行うため、取り込み中のものすべて。<code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code>）。取り込みが終わったファイルの行は消し、インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（<a href="../../indexer/flow/#強制終了時間切れからの再開">強制終了・時間切れからの再開</a>）</td>
+</tr>
+<tr>
+<td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
+<td>作業領域</td>
+<td>インデックス作成</td>
+<td>インデックス作成</td>
+<td>–</td>
+<td>1 ファイル分の TSV（<code>&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>）。集め終わったら <code>work/index</code> の中へフォルダごと移す（<code>publishIndexFiles</code>）</td>
+</tr>
+<tr>
+<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
+<td>作業領域</td>
+<td>インデックス作成</td>
+<td>インデックス作成</td>
+<td>–</td>
+<td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。元のファイルを占有しないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code></td>
+</tr>
+<tr>
+<td><code>work/インデックス作成ログ.txt</code></td>
+<td>記録</td>
+<td>インデックス作成</td>
+<td>利用者</td>
+<td>UTF-8（BOM 付き）</td>
+<td>インデクサの表示内容（<code>writeIndexerLog</code>。実行ごとに上書き）</td>
+</tr>
+<tr>
+<td><code>work/画面エラー.txt</code></td>
+<td>記録</td>
+<td>画面</td>
+<td>利用者</td>
+<td>UTF-8（BOM 付き）</td>
+<td>画面で起きた予期しないエラーの内容（<code>writeErrorLog</code>。追記）</td>
+</tr>
+<tr>
+<td><code>work/index/</code></td>
+<td>インデックス</td>
+<td>インデックス作成</td>
+<td>検索</td>
+<td>集約ファイルは UTF-16LE（BOM 付き）、LF。取り込み中の TSV は UTF-8（BOM 付き）、CRLF</td>
+<td>フォルダ・拡張子ごとの集約ファイル（<code>content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメントの TSV（<code>&lt;元の場所&gt;[図形]</code>・<code>&lt;元の場所&gt;[コメント]</code>）</td>
+</tr>
+<tr>
+<td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td>インデックス</td>
+<td>インデックス作成</td>
+<td>画面</td>
+<td>UTF-8（BOM 付き）、タブ区切り</td>
+<td>1 行目は説明、2 行目は <code>&lt;インデックス名&gt;&lt;TAB&gt;&lt;元のフォルダ&gt;</code>（<a href="../../indexer/flow/#クロール対象フォルダとインデックス名">クロール対象フォルダとインデックス名</a>）。<code>.tsv</code> にすると検索対象になるため <code>.txt</code></td>
+</tr>
+<tr>
+<td><code>work/検索結果.txt</code></td>
+<td>出力</td>
+<td>画面</td>
+<td>利用者</td>
+<td>UTF-8（BOM 付き）、CRLF</td>
+<td>検索結果（<a href="../../search/output/">検索結果ファイル</a>）</td>
+</tr>
+</tbody>
+</table>
+<p>各設定の意味は、使用する処理の設計書に記載する（クロール対象フォルダ → <a href="../../indexer/">インデックス作成（インデクサ）</a>、検索対象インデックス → <a href="../../search/">検索</a>、画面での扱い → <a href="../settings-file/#画面での読み書き">設定ファイル（setting.config）</a>）。</p>
+<h2 id="データの置き場所settingconfigwork">データの置き場所（<code>setting.config</code>・<code>work/</code>）<a class="headerlink" href="#データの置き場所settingconfigwork" title="Permanent link">&para;</a></h2>
+<p>ツールを書き込めない場所（<code>C:\Program Files</code>、読み取り専用の共有フォルダ）に置いても動くよう、また、インデックス（元の文書の本文を持つ。<a href="../../../safety/">安全性の要約</a> の 4.3）をアクセス権を絞ったフォルダや容量のあるドライブに置けるよう、データの置き場所をツールのフォルダと分けられるようにしている。</p>
+<table>
+<thead>
+<tr>
+<th>変数</th>
+<th>決め方</th>
+<th>定義</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$dataDir</code></td>
+<td>ツールのフォルダ（<code>$rootDir</code>）にファイルを作れればそこ（以前の版と同じ）。作れなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>。鍵は <code>getFolderKey $rootDir</code> の先頭 16 文字で、ツールのフォルダごとに分かれる</td>
+<td><code>scripts/shared/core/data_dir.ps1</code> の <code>getDataDir</code>（書き込めるかは <code>testWritableFolder</code>。試しに作ったファイルは閉じると消える）</td>
+</tr>
+<tr>
+<td><code>$settingsFile</code></td>
+<td><code>$dataDir\setting.config</code></td>
+<td><code>scripts/tebunko/core/settings.ps1</code></td>
+</tr>
+<tr>
+<td><code>$workspace.Dir</code></td>
+<td><code>setting.config</code> の <code>workspaceFolder</code>（<a href="../settings-file/#形式">形式</a>）。空なら既定の <code>%USERPROFILE%\Documents\tebunko_ws</code>（<code>getDefaultWorkDir</code>。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents）</td>
+<td><code>scripts/tebunko/core/paths.ps1</code>（<code>getWorkDir</code>）</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a> 4.4）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>index</code> か <code>取り込み一覧.tsv</code> がある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
+<li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../settings-file/#8-設定タブ">［8 設定］タブ</a>）。</li>
+<li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
+<li>置き場所を変えると、今の <code>work/</code> の中身（tebunko が作るファイル・フォルダだけ。<code>Workspace.Entries</code>）を新しい場所へ移す（<code>moveWorkspace</code>）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）も、移した先のインデックスに付け替える（<code>moveSearchExcludes</code>）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（<a href="../settings-file/#8-設定タブ">［8 設定］タブ</a>）。</li>
+<li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workspace.Dir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
+<li><code>$rootDir</code> が書き込めるかは読み込むたびに調べる。書き込めない場所から書き込める場所に戻すと、設定は <code>$rootDir</code> 直下のものに戻る。</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="フッター" >
+        
+          
+          <a href="../../" class="md-footer__link md-footer__link--prev" aria-label="前: 設計の概要">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                前
+              </span>
+              <div class="md-ellipsis">
+                設計の概要
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../settings-file/" class="md-footer__link md-footer__link--next" aria-label="次: 設定ファイル">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                次
+              </span>
+              <div class="md-ellipsis">
+                設定ファイル
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 hsgwa / MIT License
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
