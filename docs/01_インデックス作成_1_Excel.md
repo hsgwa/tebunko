@@ -11,10 +11,10 @@ Excel ブックから、セルの表示値（Excel の COM で書き出す）と
 ```mermaid
 sequenceDiagram
     autonumber
-    participant S as tebunko_grep/indexer.ps1
+    participant S as tebunko/indexer.ps1
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
-    participant T as 作業領域 %TEMP%\tebunko_grep\#lt;PID#gt;
+    participant T as 作業領域 %TEMP%\tebunko\#lt;PID#gt;
     participant I as work/index
     participant L as 取り込み一覧（work/取り込み一覧.tsv）
 
