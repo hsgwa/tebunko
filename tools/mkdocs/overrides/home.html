@@ -3,7 +3,8 @@
   docs/index.md の本文は GitHub で読むときのためのもので、サイトではここで組み立てた内容を出す。
   画像・リンクは url フィルタでページからの相対にする（PR のプレビュー pr-preview/pr-<番号>/ でも切れない）。
   アイコンは Material テーマが持つ SVG を埋め込む（外部から読み込まない）。
-  文面は、初めて見た人に価値がすぐ伝わることを優先する（使い方のページはマニュアルの文体）。
+  伝えることの順番: 1. どこに書いてあるかがすぐ分かる → 2. そのまま開いて編集できる → 3. PC の中で完結し、安全に導入できる。
+  使い方のページ（マニュアルの文体）とは書き分ける。
 -#}
 {% extends "main.html" %}
 
@@ -13,9 +14,9 @@
     <div class="md-grid md-typeset tb-hero__inner">
       <div class="tb-hero__text">
         <img class="tb-hero__logo" src="{{ 'images/logo.svg' | url }}" alt="" width="72" height="72">
-        <h1 class="tb-hero__title">Office 文書の中身を、<br>数秒で横断検索。</h1>
+        <h1 class="tb-hero__title">どこに書いてあるか、<br>すぐ見つかる。</h1>
         <p class="tb-hero__lead">
-          共有フォルダに蓄積された数千の Excel・Word・PowerPoint から、探している言葉が<strong>どのファイルの、どのシートの、何行目にあるか</strong>を一覧で表示。ダブルクリックで、その箇所を直接開きます。
+          Excel・Word・PowerPoint の中身をまとめて検索し、その言葉が書かれた<strong>ファイル・シート・行</strong>を一覧に。ダブルクリックでその箇所が開き、<strong>そのまま編集</strong>できます。
         </p>
         <div class="tb-hero__actions">
           <a class="md-button md-button--primary tb-hero__primary" href="https://github.com/hsgwa/tebunko/releases/latest">
@@ -26,8 +27,8 @@
           </a>
         </div>
         <ul class="tb-hero__facts">
-          <li>Windows 10 / 11</li>
-          <li>Microsoft Office</li>
+          <li>PC の中で完結・通信なし</li>
+          <li>インストール不要</li>
           <li>管理者権限不要</li>
           <li>オープンソース（MIT）</li>
         </ul>
@@ -43,85 +44,100 @@
 
 {% block content %}
   <section class="tb-section">
-    <h2 class="tb-section__title">こんな場面で</h2>
-    <p class="tb-section__lead">ファイルを 1 つずつ開いて探していた時間が、検索 1 回で済みます。</p>
-    <div class="tb-cards tb-cards--3">
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/file-table-outline.svg" %}</span>
-        <h3>過去の見積書から単価を調べる</h3>
-        <p>取引先名や品名で検索し、該当する見積書のシートと行を特定。数年分の Excel を開き直す必要はありません。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/book-search-outline.svg" %}</span>
-        <h3>規程や手順書の記載箇所を探す</h3>
-        <p>キーワードで Word の規程集を横断検索し、該当する文書とページを一覧で確認。その場で元の文書を開けます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/folder-account-outline.svg" %}</span>
-        <h3>引き継いだ資料の全体像をつかむ</h3>
-        <p>顧客名や案件名で検索するだけで、関連する提案書・議事録・報告書がまとめて見つかります。</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="tb-section">
-    <h2 class="tb-section__title">tebunko の特長</h2>
-    <div class="tb-cards tb-cards--3">
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/lightning-bolt.svg" %}</span>
-        <h3>数秒で結果が出る</h3>
-        <p>文書の文字をあらかじめ索引（インデックス）にまとめておくため、100 万行規模でも検索は 1〜2 秒。検索のたびにファイルを開く待ち時間はありません。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/crosshairs-gps.svg" %}</span>
-        <h3>該当箇所へ直行</h3>
-        <p>ファイル・シート（ページ・スライド）・行まで特定し、一致した文字を強調表示。Excel は該当セルを選択した状態で開きます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/shape-outline.svg" %}</span>
-        <h3>図形やコメントの中まで</h3>
-        <p>セルや本文に加え、図形・テキストボックス・コメント内の文字も検索対象。.xls・.doc・.ppt の旧形式にも対応します。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/briefcase-check-outline.svg" %}</span>
-        <h3>会社の PC でそのまま使える</h3>
-        <p>必要なのは Windows と Microsoft Office だけ。管理者権限、追加のソフトウェア、設定の変更は一切不要です。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/update.svg" %}</span>
-        <h3>更新は変更分だけ</h3>
-        <p>2 回目以降は、追加・変更されたファイルだけを取り込み。変更が無ければ数秒で、常に最新の内容を検索できます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/shield-check-outline.svg" %}</span>
-        <h3>外部と通信しない</h3>
-        <p>ネットワーク通信は一切行いません。処理の範囲をすべて公開し、変更のたびに自動テストで検証しています。</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="tb-section">
-    <h2 class="tb-section__title">使い始めるまで 3 ステップ</h2>
+    <h2 class="tb-section__title">探して、そのまま編集へ</h2>
+    <p class="tb-section__lead">ファイルを 1 つずつ開いて探す必要はありません。</p>
     <ol class="tb-steps">
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">1</span>
         <div>
-          <h3>フォルダを登録</h3>
-          <p>検索したいファイルがあるフォルダを追加します。共有フォルダやネットワークドライブにも対応しています。</p>
+          <h3>言葉を入れて検索</h3>
+          <p>探したい言葉を入力して Enter。登録したフォルダの Excel・Word・PowerPoint をまとめて検索します。100 万行規模でも 1〜2 秒です。</p>
         </div>
       </li>
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">2</span>
         <div>
-          <h3>インデックスを作成</h3>
-          <p>ボタン 1 つで、ファイルの文字を検索用の索引にまとめます。300 ファイルで約 3 分。作成中も検索できます。</p>
+          <h3>書いてある場所が分かる</h3>
+          <p>見つかった箇所を、ファイル・シート（ページ・スライド）・行の単位で一覧表示。一致した文字は強調され、前後の内容もその場で確認できます。</p>
         </div>
       </li>
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">3</span>
         <div>
-          <h3>検索して開く</h3>
-          <p>言葉を入力して Enter。結果をダブルクリックすれば、元のファイルの該当箇所が開きます。</p>
+          <h3>そのまま開いて編集</h3>
+          <p>結果をダブルクリックすると、元のファイルの該当箇所が開きます。Excel は該当セルを選択した状態で開くので、すぐに編集できます。</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="tb-section">
+    <h2 class="tb-section__title">会社の PC にも、安心して</h2>
+    <div class="tb-cards tb-cards--3">
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/laptop.svg" %}</span>
+        <h3>PC の中で完結</h3>
+        <p>検索も索引の作成も、すべて手元の PC の中で行います。ネットワーク通信は一切行わず、文書が外部に送られることはありません。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/package-variant-closed.svg" %}</span>
+        <h3>インストール不要・.exe なし</h3>
+        <p>zip を展開するだけで使えます。zip 版は PowerShell のスクリプトと画面定義だけで、実行ファイル（.exe・.dll）を含みません。管理者権限も不要です。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/shield-check-outline.svg" %}</span>
+        <h3>処理の範囲を公開</h3>
+        <p>何をして何をしないかを公開し、変更のたびに自動テストで検証しています。元のファイルを書き換えることもありません。</p>
+      </div>
+    </div>
+    <p class="tb-center">
+      <a class="md-button" href="{{ 'safety/' | url }}">安全性の詳細を見る</a>
+    </p>
+  </section>
+
+  <section class="tb-section">
+    <h2 class="tb-section__title">そのほかの特長</h2>
+    <div class="tb-cards tb-cards--3">
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/shape-outline.svg" %}</span>
+        <h3>図形やコメントの中まで</h3>
+        <p>セルや本文に加え、図形・テキストボックス・コメント内の文字も検索。.xls・.doc・.ppt の旧形式にも対応します。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/update.svg" %}</span>
+        <h3>更新は変更分だけ</h3>
+        <p>2 回目以降は、追加・変更されたファイルだけを取り込み。変更が無ければ数秒で、最新の内容を検索できます。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/folder-network-outline.svg" %}</span>
+        <h3>共有フォルダに対応</h3>
+        <p>ネットワークドライブや共有フォルダのファイルも検索できます。作成した索引は、複数の利用者で共有することもできます。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="tb-section">
+    <h2 class="tb-section__title">使い始めるまで</h2>
+    <ol class="tb-steps">
+      <li class="tb-step">
+        <span class="tb-step__num" aria-hidden="true">1</span>
+        <div>
+          <h3>ダウンロードして展開</h3>
+          <p>zip を展開して <code>tebunko.bat</code> を実行します。インストーラー版も選べます。</p>
+        </div>
+      </li>
+      <li class="tb-step">
+        <span class="tb-step__num" aria-hidden="true">2</span>
+        <div>
+          <h3>フォルダを登録</h3>
+          <p>検索したいファイルがあるフォルダを追加します。</p>
+        </div>
+      </li>
+      <li class="tb-step">
+        <span class="tb-step__num" aria-hidden="true">3</span>
+        <div>
+          <h3>索引（インデックス）を作成</h3>
+          <p>ボタン 1 つで、検索用の索引を作ります。300 ファイルで約 3 分。以降はすぐに検索できます。</p>
         </div>
       </li>
     </ol>
