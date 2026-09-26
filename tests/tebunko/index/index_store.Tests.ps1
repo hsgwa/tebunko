@@ -1,5 +1,7 @@
 ﻿# インデックスの追加・集計・改名・削除（tebunko\index\index_store.ps1）のテスト
-. "$PSScriptRoot\..\..\helpers\load.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+}
 
 Describe "getIndexStats" -Tag Io {
     It "インデックス名ごとに件数と最終取り込み日時を集計する" {
@@ -15,13 +17,13 @@ Describe "getIndexStats" -Tag Io {
         ) $path
 
         $stats = getIndexStats (readStatusFile $path).Rows
-        $stats["営業"].Total | Should Be 3
-        $stats["営業"].Done | Should Be 1
-        $stats["営業"].Failed | Should Be 1
-        $stats["営業"].Pending | Should Be 1
-        $stats["営業"].LastIngested | Should Be "2026/09/19 11:00:00"
-        $stats["技術"].Total | Should Be 1
-        $stats["技術"].LastIngested | Should Be "2026/09/17 09:00:00"
+        $stats["営業"].Total | Should -Be 3
+        $stats["営業"].Done | Should -Be 1
+        $stats["営業"].Failed | Should -Be 1
+        $stats["営業"].Pending | Should -Be 1
+        $stats["営業"].LastIngested | Should -Be "2026/09/19 11:00:00"
+        $stats["技術"].Total | Should -Be 1
+        $stats["技術"].LastIngested | Should -Be "2026/09/17 09:00:00"
     }
 
 }
@@ -43,17 +45,17 @@ Describe "renameIndex" -Tag Io {
 
         renameIndex "営業" "営業部" $dir $path
 
-        Test-Path "$dir\営業" | Should Be $false
-        Get-Content -LiteralPath "$dir\営業部\a.xlsx\Sheet1.tsv" | Should Be "本文"
+        Test-Path "$dir\営業" | Should -Be $false
+        Get-Content -LiteralPath "$dir\営業部\a.xlsx\Sheet1.tsv" | Should -Be "本文"
 
         $status = readStatusFile $path
-        $status.Folders[0].Name | Should Be "営業部"
-        $status.Folders[0].Path | Should Be "C:\data"
-        $status.Rows.ContainsKey("営業部\a.xlsx") | Should Be $true
-        $status.Rows["営業部\a.xlsx"].状態 | Should Be $stateDone
+        $status.Folders[0].Name | Should -Be "営業部"
+        $status.Folders[0].Path | Should -Be "C:\data"
+        $status.Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
+        $status.Rows["営業部\a.xlsx"].状態 | Should -Be $stateDone
         # ほかのインデックスはそのまま
-        $status.Folders[1].Name | Should Be "技術"
-        $status.Rows.ContainsKey("技術\d.pptx") | Should Be $true
+        $status.Folders[1].Name | Should -Be "技術"
+        $status.Rows.ContainsKey("技術\d.pptx") | Should -Be $true
     }
 
     It "インデックスのフォルダがまだ無くても、取り込み一覧の記録は変える" {
@@ -66,7 +68,7 @@ Describe "renameIndex" -Tag Io {
 
         renameIndex "営業" "営業部" $dir $path
 
-        (readStatusFile $path).Rows.ContainsKey("営業部\a.xlsx") | Should Be $true
+        (readStatusFile $path).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
     }
 
     It "同じ名前のフォルダが既にあれば例外にする" {
@@ -75,7 +77,7 @@ Describe "renameIndex" -Tag Io {
         New-Item -ItemType Directory -Path "$dir\営業" -Force | Out-Null
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
 
-        { renameIndex "営業" "技術" $dir $path } | Should Throw
+        { renameIndex "営業" "技術" $dir $path } | Should -Throw
     }
 
     It "大文字・小文字だけを変えられる（フォルダ・記録とも新しい書き方になる）" {
@@ -88,11 +90,11 @@ Describe "renameIndex" -Tag Io {
 
         renameIndex "sales" "Sales" $dir $path
 
-        @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name }) -join "," | Should BeExactly "Sales"
-        Get-Content -LiteralPath "$dir\Sales\a.xlsx\Sheet1.tsv" -Encoding UTF8 | Should Be "本文"
+        @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name }) -join "," | Should -BeExactly "Sales"
+        Get-Content -LiteralPath "$dir\Sales\a.xlsx\Sheet1.tsv" -Encoding UTF8 | Should -Be "本文"
         $status = readStatusFile $path
-        $status.Folders[0].Name | Should BeExactly "Sales"
-        $status.Rows["Sales\a.xlsx"].相対パス | Should BeExactly "Sales\a.xlsx"
+        $status.Folders[0].Name | Should -BeExactly "Sales"
+        $status.Rows["Sales\a.xlsx"].相対パス | Should -BeExactly "Sales\a.xlsx"
     }
 
     It "名前が空・同じなら何もしない" {
@@ -105,8 +107,8 @@ Describe "renameIndex" -Tag Io {
         renameIndex "営業" "" $dir $path
         renameIndex "営業" "営業" $dir $path
 
-        Test-Path -LiteralPath "$dir\営業" | Should Be $true
-        (readStatusFile $path).Folders[0].Name | Should Be "営業"
+        Test-Path -LiteralPath "$dir\営業" | Should -Be $true
+        (readStatusFile $path).Folders[0].Name | Should -Be "営業"
     }
 }
 
@@ -127,14 +129,14 @@ Describe "removeIndex" -Tag Io {
 
         removeIndex "営業" $dir $path
 
-        Test-Path "$dir\営業" | Should Be $false
-        Test-Path "$dir\技術" | Should Be $true
+        Test-Path "$dir\営業" | Should -Be $false
+        Test-Path "$dir\技術" | Should -Be $true
 
         $status = readStatusFile $path
-        $status.Folders.Count | Should Be 1
-        $status.Folders[0].Name | Should Be "技術"
-        $status.Rows.Count | Should Be 1
-        $status.Rows.ContainsKey("技術\d.pptx") | Should Be $true
+        $status.Folders.Count | Should -Be 1
+        $status.Folders[0].Name | Should -Be "技術"
+        $status.Rows.Count | Should -Be 1
+        $status.Rows.ContainsKey("技術\d.pptx") | Should -Be $true
     }
 
     It "名前が空なら何もしない" {
@@ -145,7 +147,7 @@ Describe "removeIndex" -Tag Io {
 
         removeIndex "" "$TestDrive\remove2\index" $path
 
-        (readStatusFile $path).Rows.Count | Should Be 1
+        (readStatusFile $path).Rows.Count | Should -Be 1
     }
 
     It "フォルダを消せなければ（TSV を開いている等）例外にし、取り込み一覧の記録は残す" {
@@ -161,21 +163,21 @@ Describe "removeIndex" -Tag Io {
         try {
             & {
                 $ErrorActionPreference = "Continue"
-                { removeIndex "営業" $dir $path } | Should Throw
+                { removeIndex "営業" $dir $path } | Should -Throw
             }
         } finally {
             $stream.Dispose()
         }
 
         $status = readStatusFile $path
-        $status.Folders.Count | Should Be 1
-        $status.Rows.ContainsKey("営業\a.xlsx") | Should Be $true
+        $status.Folders.Count | Should -Be 1
+        $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
     }
 }
 
 Describe "getSearchIndexes" -Tag Io {
     It "インデックスのフォルダが無ければ空" {
-        @(getSearchIndexes "$TestDrive\無いフォルダ\index").Count | Should Be 0
+        @(getSearchIndexes "$TestDrive\無いフォルダ\index").Count | Should -Be 0
     }
 
     It "work\index 直下のフォルダをインデックス 1 件として返し、元のフォルダも返す" {
@@ -189,13 +191,13 @@ Describe "getSearchIndexes" -Tag Io {
             [pscustomobject]@{ Name = "営業"; Path = "C:\data\営業"; Enabled = $true }) $settings
 
         $indexes = @(getSearchIndexes $dir "$TestDrive\取り込み一覧なし.tsv" $settings)
-        $indexes.Count | Should Be 2
+        $indexes.Count | Should -Be 2
         # ［1 インデックス作成］の一覧と同じ並び
-        $indexes[0].Name | Should Be "見積"
-        $indexes[0].SourcePath | Should Be "C:\data\見積"
-        $indexes[0].Path | Should Be (Resolve-Path -LiteralPath "$dir\見積").ProviderPath
-        $indexes[1].Name | Should Be "営業"
-        $indexes[1].SourcePath | Should Be "C:\data\営業"
+        $indexes[0].Name | Should -Be "見積"
+        $indexes[0].SourcePath | Should -Be "C:\data\見積"
+        $indexes[0].Path | Should -Be (Resolve-Path -LiteralPath "$dir\見積").ProviderPath
+        $indexes[1].Name | Should -Be "営業"
+        $indexes[1].SourcePath | Should -Be "C:\data\営業"
     }
 
     It "一覧に無いインデックス（コピーしたものなど）も名前順で後ろに並べる" {
@@ -207,9 +209,9 @@ Describe "getSearchIndexes" -Tag Io {
         writeTargetFolders @([pscustomobject]@{ Name = "見積"; Path = "C:\data\見積"; Enabled = $true }) $settings
 
         $indexes = @(getSearchIndexes $dir "$TestDrive\取り込み一覧なし.tsv" $settings)
-        @($indexes | ForEach-Object { $_.Name }) -join "," | Should Be "見積,あとから,報告書"
+        @($indexes | ForEach-Object { $_.Name }) -join "," | Should -Be "見積,あとから,報告書"
         # 元のフォルダが分からないものは空
-        $indexes[1].SourcePath | Should Be ""
+        $indexes[1].SourcePath | Should -Be ""
     }
 
     It "一覧にも取り込み一覧にも無いインデックスは、そのフォルダの 元のフォルダ.txt から元のフォルダを読む" {
@@ -220,9 +222,9 @@ Describe "getSearchIndexes" -Tag Io {
         writeSourceFolderFile @([pscustomobject]@{ Path = "\\server\営業"; Name = "営業" }) $dir
 
         $indexes = @(getSearchIndexes $dir "$TestDrive\取り込み一覧なし.tsv" $settings)
-        $indexes.Count | Should Be 1
-        $indexes[0].Name | Should Be "営業"
-        $indexes[0].SourcePath | Should Be "\\server\営業"
+        $indexes.Count | Should -Be 1
+        $indexes[0].Name | Should -Be "営業"
+        $indexes[0].SourcePath | Should -Be "\\server\営業"
     }
 }
 
@@ -235,52 +237,54 @@ Describe "getIndexNameMap（見出し行まで読む）" -Tag Io {
             ($statusColumns -join "`t"),
             "${statusFolderKey}`tC:\x`tx")
         $map = getIndexNameMap $path
-        $map.Count | Should Be 1
-        $map["見積"] | Should Be "C:\data\見積"
-        (getIndexNameMap "$TestDrive\none_status.tsv").Count | Should Be 0
+        $map.Count | Should -Be 1
+        $map["見積"] | Should -Be "C:\data\見積"
+        (getIndexNameMap "$TestDrive\none_status.tsv").Count | Should -Be 0
     }
 }
 
 Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
-    function newTestIndex {
-        # テスト用のインデックス（work\index 相当）を作る
-        param ([string]$dir)
+    BeforeAll {
+        function newTestIndex {
+            # テスト用のインデックス（work\index 相当）を作る
+            param ([string]$dir)
 
-        [System.IO.Directory]::CreateDirectory("$dir\営業\2024\A社.xlsx") | Out-Null
-        writeListFile "$dir\営業\2024\A社.xlsx\明細.tsv" @("a")
-        writeListFile "$dir\営業\2024\A社.xlsx\表紙.tsv" @("b")
-        [System.IO.Directory]::CreateDirectory("$dir\営業\空.xlsx") | Out-Null
-        [System.IO.Directory]::CreateDirectory("$dir\営業\資料.docx") | Out-Null
-        writeListFile "$dir\営業\資料.docx\ページ001.tsv" @("c")
+            [System.IO.Directory]::CreateDirectory("$dir\営業\2024\A社.xlsx") | Out-Null
+            writeListFile "$dir\営業\2024\A社.xlsx\明細.tsv" @("a")
+            writeListFile "$dir\営業\2024\A社.xlsx\表紙.tsv" @("b")
+            [System.IO.Directory]::CreateDirectory("$dir\営業\空.xlsx") | Out-Null
+            [System.IO.Directory]::CreateDirectory("$dir\営業\資料.docx") | Out-Null
+            writeListFile "$dir\営業\資料.docx\ページ001.tsv" @("c")
+        }
     }
 
     It "元のファイル1つ分のフォルダごとにTSVの数を数える" {
         $dir = "$TestDrive\index1"
         newTestIndex $dir
         $counts = getIndexTsvCounts $dir
-        $counts["営業\2024\A社.xlsx"] | Should Be 2
-        $counts["営業\資料.docx"] | Should Be 1
+        $counts["営業\2024\A社.xlsx"] | Should -Be 2
+        $counts["営業\資料.docx"] | Should -Be 1
     }
 
     It "TSVの無いフォルダ（内容が空のファイル）は0件として数える" {
         $dir = "$TestDrive\index2"
         newTestIndex $dir
         $counts = getIndexTsvCounts $dir
-        $counts.ContainsKey("営業\空.xlsx") | Should Be $true
-        $counts["営業\空.xlsx"] | Should Be 0
+        $counts.ContainsKey("営業\空.xlsx") | Should -Be $true
+        $counts["営業\空.xlsx"] | Should -Be 0
     }
 
     It "大文字・小文字を区別しない" {
         $dir = "$TestDrive\index3"
         newTestIndex $dir
-        (getIndexTsvCounts $dir)["営業\2024\a社.XLSX"] | Should Be 2
+        (getIndexTsvCounts $dir)["営業\2024\a社.XLSX"] | Should -Be 2
     }
 
     It "インデックスのフォルダの直下のTSV（以前の形式）は数えない" {
         $dir = "$TestDrive\index4"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
         writeListFile "$dir\ブック.xlsx_シート.tsv" @("a")
-        (getIndexTsvCounts $dir).Count | Should Be 0
+        (getIndexTsvCounts $dir).Count | Should -Be 0
     }
 
     # newTestIndex のインデックスに対して、取り込み一覧の行（相対パス・TSV数）がそろっているか
@@ -294,7 +298,7 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         $dir = "$TestDrive\index_complete"
         newTestIndex $dir
         $row = newStatusRow $relPath "2025/01/10 12:34:56" "100" ${stateDone} $tsvCount
-        testIndexComplete $row $row.相対パス (getIndexTsvCounts $dir) | Should Be $complete
+        testIndexComplete $row $row.相対パス (getIndexTsvCounts $dir) | Should -Be $complete
     }
 
     It "集約ファイルは、フォルダと拡張子ごとに数える（0 バイトは壊れているとする）" {
@@ -307,10 +311,10 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         writeListFile "$dir\営業\2024\content.xlsx.002.tsv" @("b")
         writeListFile "$dir\営業\2024\content.docx.002.tsv" @("c")
         $counts = getIndexTsvCounts $dir
-        $counts["営業\2024\content.xlsx"] | Should Be 1
-        $counts["営業\2024\content.docx"] | Should Be ${indexBrokenCount}
+        $counts["営業\2024\content.xlsx"] | Should -Be 1
+        $counts["営業\2024\content.docx"] | Should -Be ${indexBrokenCount}
         # 集約ファイルはフォルダの TSV の数には入れない
-        $counts["営業\2024"] | Should Be 0
+        $counts["営業\2024"] | Should -Be 0
     }
 
     It "集約ファイルがあれば、元のファイルごとのフォルダが無くても「済」のままにする" {
@@ -319,12 +323,12 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         [System.IO.File]::WriteAllText("$dir\営業\2024\content.docx.001.tsv", "")
         $counts = getIndexTsvCounts $dir
         $row = newStatusRow "営業\2024\B社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "3"
-        testIndexComplete $row $row.相対パス $counts | Should Be $true
+        testIndexComplete $row $row.相対パス $counts | Should -Be $true
         # 拡張子の集約ファイルが無い・壊れているなら、そろっていないとする
         $row = newStatusRow "営業\2024\C社.pptx" "2025/01/10 12:34:56" "100" ${stateDone} "1"
-        testIndexComplete $row $row.相対パス $counts | Should Be $false
+        testIndexComplete $row $row.相対パス $counts | Should -Be $false
         $row = newStatusRow "営業\2024\D社.docx" "2025/01/10 12:34:56" "100" ${stateDone} "1"
-        testIndexComplete $row $row.相対パス $counts | Should Be $false
+        testIndexComplete $row $row.相対パス $counts | Should -Be $false
     }
 
     It "0 バイトのTSVがあるフォルダは、壊れているとして作り直す" {
@@ -333,13 +337,13 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         # 書き込みの途中で電源が落ちた場合など（空のシート・ページは保存しないため、0 バイトのTSVは異常）
         [System.IO.File]::WriteAllBytes("$dir\営業\2024\A社.xlsx\途中.tsv", (New-Object byte[] 0))
         $counts = getIndexTsvCounts $dir
-        $counts["営業\2024\A社.xlsx"] | Should Be ${indexBrokenCount}
-        $counts["営業\資料.docx"] | Should Be 1   # ほかのファイルは巻き込まない
+        $counts["営業\2024\A社.xlsx"] | Should -Be ${indexBrokenCount}
+        $counts["営業\資料.docx"] | Should -Be 1   # ほかのファイルは巻き込まない
 
         $row = newStatusRow "営業\2024\A社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "2"
-        testIndexComplete $row $row.相対パス $counts | Should Be $false
+        testIndexComplete $row $row.相対パス $counts | Should -Be $false
         $other = newStatusRow "営業\資料.docx" "2025/01/10 12:34:56" "100" ${stateDone} "1"
-        testIndexComplete $other $other.相対パス $counts | Should Be $true
+        testIndexComplete $other $other.相対パス $counts | Should -Be $true
     }
 
     It "0 バイトのTSVが先に見つかっても、後のTSVで数え直さない" {
@@ -347,14 +351,14 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         [System.IO.Directory]::CreateDirectory("$dir\営業\B社.xlsx") | Out-Null
         [System.IO.File]::WriteAllBytes("$dir\営業\B社.xlsx\001_途中.tsv", (New-Object byte[] 0))
         writeListFile "$dir\営業\B社.xlsx\002_あと.tsv" @("a")
-        (getIndexTsvCounts $dir)["営業\B社.xlsx"] | Should Be ${indexBrokenCount}
+        (getIndexTsvCounts $dir)["営業\B社.xlsx"] | Should -Be ${indexBrokenCount}
     }
 
     It "TSVの数を記録していない行・数えられなかった場合は確認しない" {
         $row = newStatusRow "営業\2024\A社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} ""
-        testIndexComplete $row $row.相対パス (getIndexTsvCounts "$TestDrive\none_index2") | Should Be $true
+        testIndexComplete $row $row.相対パス (getIndexTsvCounts "$TestDrive\none_index2") | Should -Be $true
         $done = newStatusRow "営業\2024\A社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "2"
-        testIndexComplete $done $done.相対パス $null | Should Be $true
+        testIndexComplete $done $done.相対パス $null | Should -Be $true
     }
 }
 
@@ -369,8 +373,8 @@ Describe "publishIndexFiles" -Tag Io {
 
         publishIndexFiles $from $bookDir "$TestDrive\pub2\出力\A社.xlsx"
 
-        Test-Path -LiteralPath "$bookDir\前のシート.tsv" | Should Be $false
-        Test-Path -LiteralPath "$bookDir\新しいシート.tsv" | Should Be $true
+        Test-Path -LiteralPath "$bookDir\前のシート.tsv" | Should -Be $false
+        Test-Path -LiteralPath "$bookDir\新しいシート.tsv" | Should -Be $true
     }
 
     It "TSVが1件も無ければ、空のフォルダにする（内容が空のファイル）" {
@@ -380,8 +384,8 @@ Describe "publishIndexFiles" -Tag Io {
 
         publishIndexFiles $from $bookDir "$TestDrive\pub3\出力\空.xlsx"
 
-        Test-Path -LiteralPath $bookDir -PathType Container | Should Be $true
-        @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv").Count | Should Be 0
+        Test-Path -LiteralPath $bookDir -PathType Container | Should -Be $true
+        @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv").Count | Should -Be 0
     }
 
     It "前回の出力用フォルダが残っていても入れ替えられる" {
@@ -395,15 +399,17 @@ Describe "publishIndexFiles" -Tag Io {
 
         publishIndexFiles $from $bookDir $staging
 
-        @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name }) | Should Be "明細.tsv"
+        @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name }) | Should -Be "明細.tsv"
     }
 }
 
 Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
-    $storePath = "${scriptsDir}\tebunko\index\index_store.ps1"
-    function script:findStoreLine {
-        param ([string]$pattern)
-        return @(Select-String -LiteralPath $storePath -Pattern $pattern)[0].LineNumber
+    BeforeAll {
+        $storePath = "${scriptsDir}\tebunko\index\index_store.ps1"
+        function script:findStoreLine {
+            param ([string]$pattern)
+            return @(Select-String -LiteralPath $storePath -Pattern $pattern)[0].LineNumber
+        }
     }
 
     It "フォルダごと移せないとき（別のドライブへのリンクなど）は、1 件ずつ移して集めたフォルダを消す" {
@@ -424,10 +430,10 @@ Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
         }
 
         $names = @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv" | ForEach-Object { $_.Name })
-        $names.Count | Should Be 2
-        ($names -contains "明細.tsv") | Should Be $true
-        ($names -contains "表紙.tsv") | Should Be $true
-        [System.IO.Directory]::Exists($staging) | Should Be $false
+        $names.Count | Should -Be 2
+        ($names -contains "明細.tsv") | Should -Be $true
+        ($names -contains "表紙.tsv") | Should -Be $true
+        [System.IO.Directory]::Exists($staging) | Should -Be $false
     }
 
     It "列挙の途中で失敗したら（アクセス権が無い等）null を返す（呼び出し元は確認を省く）" {
@@ -443,7 +449,7 @@ Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
         $acl.AddAccessRule($deny)
         $locked.SetAccessControl($acl)
         try {
-            getIndexTsvCounts $dir | Should Be $null
+            getIndexTsvCounts $dir | Should -Be $null
         } finally {
             $acl = $locked.GetAccessControl("Access")
             [void]$acl.RemoveAccessRule($deny)

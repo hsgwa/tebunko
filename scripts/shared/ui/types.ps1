@@ -8,6 +8,10 @@
 
 class NotifyBase : System.ComponentModel.INotifyPropertyChanged {
     hidden [System.ComponentModel.PropertyChangedEventHandler] $handler
+    # 既定のコンストラクタを明示する。Windows PowerShell 5.1 では、メソッドを持ち、コンストラクタも初期値付きのフィールドも無いクラスを
+    # Set-PSDebug -Trace の最中に作ると ArgumentOutOfRangeException になる（テストのカバレッジの計測がトレースを使う）。
+    # 継承するクラスも同じ形なら、それぞれ明示する（tests\meta\classes.Tests.ps1 が確かめる）
+    NotifyBase() {}
     [void] add_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]$h) { $this.handler = [Delegate]::Combine($this.handler, $h) }
     [void] remove_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]$h) { $this.handler = [Delegate]::Remove($this.handler, $h) }
     [void] Raise([string]$name) { if ($this.handler) { $this.handler.Invoke($this, (New-Object System.ComponentModel.PropertyChangedEventArgs $name)) } }

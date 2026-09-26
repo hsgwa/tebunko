@@ -20,6 +20,7 @@ class PreviewColumn : NotifyBase {
     static [double] $MinWidth = 24   # ドラッグで狭くできる下限
     [string]$Label
     [double]$Width
+    PreviewColumn() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
     [void] SetWidth([double]$value) {
         $newWidth = [Math]::Max([PreviewColumn]::MinWidth, $value)
         if ($this.Width -eq $newWidth) { return }
@@ -38,6 +39,7 @@ class PreviewCell : NotifyBase {
     [int]$RowIndex
     [int]$ColumnIndex
     [bool]$IsSelected
+    PreviewCell() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
     [void] SetSelected([bool]$value) {
         if ($this.IsSelected -eq $value) { return }
         $this.IsSelected = $value
@@ -246,6 +248,8 @@ class HitRow : NotifyBase {
 
     hidden [string]$word
     hidden [regex]$pattern
+
+    HitRow() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
     # 生成（検索ヒットごと。生データの代入のみ＝軽い）
     static [HitRow] Create([string]$indexName, [string]$root, [string]$relPath, [string]$relDir, [string]$fileName,
@@ -563,6 +567,8 @@ class FolderItem : NotifyBase {
     [string]$LastIngestedText
     [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
     [bool]$FolderExists    # 調べた結果、フォルダがあったか
+
+    FolderItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
     [void] SetEnabled([bool]$value) { if ($this.Enabled -ne $value) { $this.Enabled = $value; $this.Raise("Enabled") } }
     [void] SetName([string]$value) { if ($this.Name -ne $value) { $this.Name = $value; $this.Raise("Name") } }

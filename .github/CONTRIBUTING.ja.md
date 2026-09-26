@@ -64,7 +64,7 @@ feat!: インデックスの形式を変える
 必要なもの:
 
 - Windows と Windows PowerShell 5.1（Windows に最初から入っています）
-- Pester 3.4（テストの実行に使います。Windows に最初から入っている版です）
+- Pester 5.9.0（テストの実行に使います）。Windows に最初から入っている 3.4 では動きません。`Install-Module Pester -RequiredVersion 5.9.0 -Scope CurrentUser -Force -SkipPublisherCheck` で 1 回入れてください（最初から入っている 3.4 と発行元が違うため `-SkipPublisherCheck` が要ります）
 - Microsoft Excel・Word・PowerPoint（インデックス作成を実際に試すとき。自動テストには不要です）
 
 clone したら、コミット前の検査を有効にします（1 回だけ）。

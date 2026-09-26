@@ -1,22 +1,24 @@
 ﻿# 検索条件の組み立て（tebunko\search\search_query.ps1）のテスト
-. "$PSScriptRoot\..\..\helpers\load.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+}
 
 Describe "newSearchRegex" -Tag Unit {
     It "文字どおりなら記号をそのまま探し、既定は大文字と小文字を区別しない" {
         $regex = (newSearchRegex "C++ (株)").Regex
-        $regex.IsMatch("c++ (株)") | Should Be $true
-        $regex.IsMatch("C (株)") | Should Be $false
+        $regex.IsMatch("c++ (株)") | Should -Be $true
+        $regex.IsMatch("C (株)") | Should -Be $false
     }
 
     It "正規表現として不正なワードは文字どおりにする" {
         $result = newSearchRegex "(" $false
-        $result.SimpleMatch | Should Be $true
-        $result.Regex.IsMatch("a(b") | Should Be $true
+        $result.SimpleMatch | Should -Be $true
+        $result.Regex.IsMatch("a(b") | Should -Be $true
     }
 
     It "大文字と小文字を区別できる" {
-        (newSearchRegex "ID" $true $true).Regex.IsMatch("社員id") | Should Be $false
-        (newSearchRegex "ID" $true $true).Regex.IsMatch("社員ID") | Should Be $true
+        (newSearchRegex "ID" $true $true).Regex.IsMatch("社員id") | Should -Be $false
+        (newSearchRegex "ID" $true $true).Regex.IsMatch("社員ID") | Should -Be $true
     }
 }
 
@@ -34,70 +36,70 @@ Describe "getRegexScanMode" -Tag Unit {
     ) {
         param ($name, $patterns, $expected)
         foreach ($pattern in $patterns) {
-            getRegexScanMode $pattern | Should Be $expected
+            getRegexScanMode $pattern | Should -Be $expected
         }
     }
 }
 
 Describe "newPlaceExclude" -Tag Unit {
     It "どちらも検索するなら `$null" {
-        newPlaceExclude $true $true | Should Be $null
+        newPlaceExclude $true $true | Should -Be $null
     }
 
     It "外す種類の場所（名前の末尾）だけに一致する" {
         $shapes = newPlaceExclude $false $true
-        $shapes.IsMatch("売上[図形]") | Should Be $true
-        $shapes.IsMatch("売上[コメント]") | Should Be $false
-        $shapes.IsMatch("売上") | Should Be $false
+        $shapes.IsMatch("売上[図形]") | Should -Be $true
+        $shapes.IsMatch("売上[コメント]") | Should -Be $false
+        $shapes.IsMatch("売上") | Should -Be $false
         $both = newPlaceExclude $false $false
-        $both.IsMatch("売上[図形]") | Should Be $true
-        $both.IsMatch("売上[コメント]") | Should Be $true
-        $both.IsMatch("ページ001") | Should Be $false
+        $both.IsMatch("売上[図形]") | Should -Be $true
+        $both.IsMatch("売上[コメント]") | Should -Be $true
+        $both.IsMatch("ページ001") | Should -Be $false
     }
 }
 
 Describe "newFileFilter" -Tag Unit {
     It "; で区切ったワイルドカードで含め、! で始まるもので除く" {
         $filter = newFileFilter "*.xlsx；見積 ; !*old*"
-        $filter.Include.IsMatch("A社.XLSX") | Should Be $true
-        $filter.Include.IsMatch("2024見積書.docx") | Should Be $true
-        $filter.Include.IsMatch("報告書.docx") | Should Be $false
-        $filter.Exclude.IsMatch("A社_old.xlsx") | Should Be $true
+        $filter.Include.IsMatch("A社.XLSX") | Should -Be $true
+        $filter.Include.IsMatch("2024見積書.docx") | Should -Be $true
+        $filter.Include.IsMatch("報告書.docx") | Should -Be $false
+        $filter.Exclude.IsMatch("A社_old.xlsx") | Should -Be $true
     }
 
     It "空なら条件なし" {
         $filter = newFileFilter "  "
-        $filter.Include | Should Be $null
-        $filter.Exclude | Should Be $null
+        $filter.Include | Should -Be $null
+        $filter.Exclude | Should -Be $null
     }
 
     It "? は任意の1文字、ほかの記号は文字どおり" {
         $filter = newFileFilter "v?.[確定].xlsx"
-        $filter.Include.IsMatch("v1.[確定].xlsx") | Should Be $true
-        $filter.Include.IsMatch("v1x[確定].xlsx") | Should Be $false
+        $filter.Include.IsMatch("v1.[確定].xlsx") | Should -Be $true
+        $filter.Include.IsMatch("v1x[確定].xlsx") | Should -Be $false
     }
 
     It "除外だけなら Include は `$null（除外に当たらないものはすべて対象）" {
         $filter = newFileFilter "！*old*"
-        $filter.Include | Should Be $null
-        $filter.Exclude.IsMatch("A社_OLD.xlsx") | Should Be $true
+        $filter.Include | Should -Be $null
+        $filter.Exclude.IsMatch("A社_OLD.xlsx") | Should -Be $true
     }
 
     It "! や ; だけ・空の項目は無視する" {
         $filter = newFileFilter "!;;； ; ! "
-        $filter.Include | Should Be $null
-        $filter.Exclude | Should Be $null
+        $filter.Include | Should -Be $null
+        $filter.Exclude | Should -Be $null
     }
 
     It "ワイルドカードは名前全体に一致させる（*.xlsx は .xlsx.bak に当たらない）" {
         $filter = newFileFilter "*.xlsx"
-        $filter.Include.IsMatch("a.xlsx") | Should Be $true
-        $filter.Include.IsMatch("a.xlsx.bak") | Should Be $false
+        $filter.Include.IsMatch("a.xlsx") | Should -Be $true
+        $filter.Include.IsMatch("a.xlsx.bak") | Should -Be $false
     }
 
     It "正規表現の記号（( ) + ^ $ など）を含む名前も文字どおりに部分一致させる" {
         $filter = newFileFilter "(1)+`$^"
-        $filter.Include.IsMatch("見積(1)+`$^版.xlsx") | Should Be $true
-        $filter.Include.IsMatch("見積1.xlsx") | Should Be $false
+        $filter.Include.IsMatch("見積(1)+`$^版.xlsx") | Should -Be $true
+        $filter.Include.IsMatch("見積1.xlsx") | Should -Be $false
     }
 }

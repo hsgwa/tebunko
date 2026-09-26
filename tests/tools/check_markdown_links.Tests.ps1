@@ -1,37 +1,41 @@
 ﻿# Markdown のリンク切れを確かめるスクリプト（tools\check_markdown_links.ps1）のテスト
-$check = "$PSScriptRoot\..\..\tools\check_markdown_links.ps1"
+BeforeAll {
+    $check = "$PSScriptRoot\..\..\tools\check_markdown_links.ps1"
 
-function writeText([string]$path, [string]$text) {
-    [void](New-Item -ItemType Directory -Force (Split-Path $path))
-    [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
-}
+    function writeText([string]$path, [string]$text) {
+        [void](New-Item -ItemType Directory -Force (Split-Path $path))
+        [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
+    }
 
-# docs\page.md に本文を書いて調べ、切れたリンクの行（「  docs/page.md:行: 理由」）を返す
-function checkPage([string]$markdown) {
-    writeText "$TestDrive\repo\docs\page.md" $markdown
-    $output = @(& $check -Root "$TestDrive\repo" -Path "docs/page.md" 6>&1 | ForEach-Object { "$_" })
-    $problems = @($output | Where-Object { $_.StartsWith("  ") } | ForEach-Object { $_.Trim() })
-    # 終了コードと出力が食い違わないこと
-    $null = ($LASTEXITCODE -eq 1) | Should Be ($problems.Count -gt 0)
-    return $problems
+    # docs\page.md に本文を書いて調べ、切れたリンクの行（「  docs/page.md:行: 理由」）を返す
+    function checkPage([string]$markdown) {
+        writeText "$TestDrive\repo\docs\page.md" $markdown
+        $output = @(& $check -Root "$TestDrive\repo" -Path "docs/page.md" 6>&1 | ForEach-Object { "$_" })
+        $problems = @($output | Where-Object { $_.StartsWith("  ") } | ForEach-Object { $_.Trim() })
+        # 終了コードと出力が食い違わないこと
+        $null = ($LASTEXITCODE -eq 1) | Should -Be ($problems.Count -gt 0)
+        return $problems
+    }
 }
 
 Describe "check_markdown_links.ps1" -Tag Io {
     # リンク先にするファイル
-    writeText "$TestDrive\repo\README.md" "# 使い方`n"
-    writeText "$TestDrive\repo\docs\images\図.png" ""
-    writeText "$TestDrive\repo\docs\target.md" (@(
-        "# 1 概要"
-        "## 4.3 Excel の抽出処理（``ExtractWorkbook``）"
-        "## 6.3 TSV 整形仕様（``PrettyTsv`` / ``FormatTsv``）"
-        "## [リンク](README.md) の見出し"
-        "## 重複"
-        "## 重複"
-        "``````"
-        "## コードブロックの中"
-        "``````"
-        "<a id=""手で付けた""></a>"
-    ) -join "`n")
+    BeforeAll {
+        writeText "$TestDrive\repo\README.md" "# 使い方`n"
+        writeText "$TestDrive\repo\docs\images\図.png" ""
+        writeText "$TestDrive\repo\docs\target.md" (@(
+            "# 1 概要"
+            "## 4.3 Excel の抽出処理（``ExtractWorkbook``）"
+            "## 6.3 TSV 整形仕様（``PrettyTsv`` / ``FormatTsv``）"
+            "## [リンク](README.md) の見出し"
+            "## 重複"
+            "## 重複"
+            "``````"
+            "## コードブロックの中"
+            "``````"
+            "<a id=""手で付けた""></a>"
+        ) -join "`n")
+    }
 
     It "あるファイル・フォルダ・見出しへのリンクを通す: <link>" -TestCases @(
         @{ link = "[a](target.md)" }
@@ -54,11 +58,11 @@ Describe "check_markdown_links.ps1" -Tag Io {
         @{ link = "[a](https://example.com/no/such/page) [b](mailto:a@example.com)" }
     ) {
         param($link)
-        checkPage $link | Should BeNullOrEmpty
+        checkPage $link | Should -BeNullOrEmpty
     }
 
     It "コードの中のリンクは調べない" {
-        checkPage "``[a](none.md)```n``````md`n[a](none.md)`n```````n~~~`n[a](none.md)`n~~~`n" | Should BeNullOrEmpty
+        checkPage "``[a](none.md)```n``````md`n[a](none.md)`n```````n~~~`n[a](none.md)`n~~~`n" | Should -BeNullOrEmpty
     }
 
     It "切れたリンクを止める: <link>" -TestCases @(
@@ -75,11 +79,11 @@ Describe "check_markdown_links.ps1" -Tag Io {
     ) {
         param($link, $reason)
         $problems = @(checkPage "# 題`n`n$link`n")
-        $problems.Count | Should Be 1
-        $problems[0] | Should Match "^docs/page\.md:3: .*$reason"
+        $problems.Count | Should -Be 1
+        $problems[0] | Should -Match "^docs/page\.md:3: .*$reason"
     }
 
     It "1 行に複数のリンクがあれば、それぞれ調べる" {
-        @(checkPage "[a](none1.md) [b](target.md) [c](none2.md)").Count | Should Be 2
+        @(checkPage "[a](none1.md) [b](target.md) [c](none2.md)").Count | Should -Be 2
     }
 }

@@ -1,12 +1,14 @@
 ﻿# 画面で使う共通の型（shared\ui\types.ps1）のテスト。
-. "$PSScriptRoot\..\..\helpers\load.ps1"
-. "${scriptsDir}\shared\ui\types.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+    . "${scriptsDir}\shared\ui\types.ps1"
 
-# PropertyChanged で通知されたプロパティ名を集める
-function watchChanges($target) {
-    $names = New-Object System.Collections.Generic.List[string]
-    $target.add_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]{ param($sender, $e) $names.Add($e.PropertyName) }.GetNewClosure())
-    , $names
+    # PropertyChanged で通知されたプロパティ名を集める
+    function watchChanges($target) {
+        $names = New-Object System.Collections.Generic.List[string]
+        $target.add_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]{ param($sender, $e) $names.Add($e.PropertyName) }.GetNewClosure())
+        , $names
+    }
 }
 
 Describe "NotifyBase" -Tag Unit {
@@ -14,7 +16,7 @@ Describe "NotifyBase" -Tag Unit {
         $node = [NotifyBase]::new()
         $names = watchChanges $node
         $node.Raise("Name")
-        @($names) | Should Be @("Name")
+        @($names) | Should -Be @("Name")
     }
 
     It "ハンドラーを外すと通知しない" {
@@ -24,6 +26,6 @@ Describe "NotifyBase" -Tag Unit {
         $node.add_PropertyChanged($handler)
         $node.remove_PropertyChanged($handler)
         $node.Raise("Name")
-        $names.Count | Should Be 0
+        $names.Count | Should -Be 0
     }
 }

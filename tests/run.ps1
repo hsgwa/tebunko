@@ -1,4 +1,4 @@
-﻿# テストの実行（Pester 3.4）
+﻿# テストの実行（Pester 5.9.0）
 #
 #   .\tests\run.ps1              既定（Unit・Io・Meta。Office と Slow は除く）
 #   .\tests\run.ps1 -Tag Unit    速い確認だけ
@@ -26,10 +26,12 @@ function splitTags([string[]]$tags) {
 }
 $Tag = splitTags $Tag
 $ExcludeTag = splitTags $ExcludeTag
+$Path = splitTags $Path
 
-# テストは Pester 3.4 の書き方。Pester 5 も入っている環境（GitHub Actions のランナーなど）では 5 が読み込まれて
-# 全部失敗するため、3 系を明示して読み込む
-Import-Module Pester -MaximumVersion 3.99.99
+# Windows に最初から入っている Pester 3.4 ではなく、版を固定して読み込む（入れ方は .github/CONTRIBUTING.ja.md）。
+# 同じセッションで別の版を読み込んでいれば外す（2 つの版が並ぶと、どちらの Invoke-Pester が動くか分からないため）
+Get-Module Pester | Where-Object { $_.Version -ne [version]"5.9.0" } | Remove-Module
+Import-Module Pester -RequiredVersion 5.9.0
 
 $testsDir = $PSScriptRoot
 $rootDir  = Split-Path $testsDir -Parent
@@ -41,50 +43,75 @@ if (!$PSBoundParameters.ContainsKey("ExcludeTag")) {
     $ExcludeTag = if ($All) { @("Manual") } else { $defaultExclude }
 }
 
-$arguments = @{
-    Script     = if ($Path) { $Path } else { $testsDir }
-    PassThru   = $true
-    ExcludeTag = $ExcludeTag
-}
-if ($Tag)   { $arguments.Tag = $Tag }
-if ($Quiet) { $arguments.Quiet = $true }
+$config = New-PesterConfiguration
+$config.Run.Path = if ($Path) { $Path } else { $testsDir }
+$config.Run.PassThru = $true
+$config.Filter.ExcludeTag = $ExcludeTag
+if ($Tag) { $config.Filter.Tag = $Tag }
+$config.Output.Verbosity = if ($Quiet) { "None" } else { "Normal" }
 
 if ($Ci) {
     [System.IO.Directory]::CreateDirectory($outDir) | Out-Null
-    $arguments.OutputFile   = "$outDir\results.xml"
-    $arguments.OutputFormat = "NUnitXml"
-    # カバレッジの対象は判断層・状態層だけにする（画面層は自動テストの対象外）
-    $arguments.CodeCoverage = @(Get-ChildItem "$rootDir\scripts" -Recurse -Filter "*.ps1" |
+    $config.TestResult.Enabled = $true
+    $config.TestResult.OutputFormat = "NUnitXml"
+    $config.TestResult.OutputPath = "$outDir\results.xml"
+    # カバレッジの対象は判断層・状態層だけにする（画面層は自動テストの対象外）。
+    # ブレークポイントを使う計測は遅いため、使わない計測（Profiler）にする
+    $config.CodeCoverage.Enabled = $true
+    $config.CodeCoverage.UseBreakpoints = $false
+    $config.CodeCoverage.Path = @(Get-ChildItem "$rootDir\scripts" -Recurse -Filter "*.ps1" |
         Where-Object { $_.Name -notmatch "^(gui|shell|app_host)\.ps1$" -and $_.Name -notmatch "_tab\.ps1$" -and $_.Name -notmatch "_dialog\.ps1$" } |
         ForEach-Object { $_.FullName })
+    # Pester が書き出す XML には絶対パスが入るため、work\test（CI の成果物に入る）には置かず、使わない（下の writeCobertura で書く）
+    $config.CodeCoverage.OutputPath = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko-coverage-$PID.xml"
 }
 
-$result = Invoke-Pester @arguments
+if ($Ci) {
+    # カバレッジの計測（Profiler）はトレースを使う。Windows PowerShell 5.1 では、最後のブレークポイントを外すとデバッガが止まり、
+    # トレースも止まる。テストの中で Set-PSBreakpoint / Remove-PSBreakpoint を使う（indexer・index_store）と、後に流すテストの
+    # カバレッジが取れなくなるため、実行している間は当たらないブレークポイントを 1 つ置いておく
+    $keepDebugger = Set-PSBreakpoint -Command "__tebunko_keep_debugger__" -Action { }
+}
+try {
+    $result = Invoke-Pester -Configuration $config
+} finally {
+    if ($Ci) { Remove-PSBreakpoint -Breakpoint $keepDebugger }
+}
+if (!$result) {
+    Write-Host "テストを実行できませんでした（-Path $($Path -join ',')）。" -ForegroundColor Red
+    exit 1
+}
 
-if ($result.TotalCount -eq 0) {
+# 探索や BeforeAll で失敗したファイル・ブロックはテストの失敗数に入らないため、足して数える
+$failed = $result.FailedCount + $result.FailedBlocksCount + $result.FailedContainersCount
+
+if ($result.PassedCount + $result.FailedCount -eq 0 -and $failed -eq 0) {
     Write-Host "実行したテストが 0 件でした（-Tag $($Tag -join ',') / -ExcludeTag $($ExcludeTag -join ',')）。タグの指定を確かめてください。" -ForegroundColor Red
     exit 1
 }
 
 # -Quiet のときは何も表示されないため、失敗したテストだけを出す
-if ($Quiet -and $result.FailedCount -gt 0) {
-    Write-Host "失敗したテスト（$($result.FailedCount) 件）:" -ForegroundColor Red
-    foreach ($test in @($result.TestResult | Where-Object { $_.Result -eq "Failed" })) {
-        Write-Host "  $(@($test.Describe, $test.Context, $test.Name | Where-Object { $_ }) -join ' / ')"
-        Write-Host "    $($test.FailureMessage)"
+if ($Quiet -and $failed -gt 0) {
+    Write-Host "失敗したテスト（$failed 件）:" -ForegroundColor Red
+    foreach ($item in @($result.Failed) + @($result.FailedBlocks) + @($result.FailedContainers)) {
+        $name = if ($item.ExpandedPath) { $item.ExpandedPath } else { [string]$item.Item }
+        Write-Host "  $name"
+        foreach ($record in @($item.ErrorRecord)) {
+            Write-Host "    $($record.Exception.Message)"
+        }
     }
 }
 
-# Pester 3.4 のカバレッジ（コマンド単位）を、行単位の Cobertura XML にして書き出す（Codecov に送るため）。
-# Pester 3.4 はカバレッジをファイルに出せないため、HitCommands / MissedCommands から組み立てる。
+# カバレッジ（コマンド単位）を、行単位の Cobertura XML にして書き出す（Codecov に送るため）。
+# Pester が書き出す XML は <source> に絶対パス（利用者名を含む）が入るため、CommandsExecuted / CommandsMissed から組み立てる。
 # 1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。
 # ファイル名はリポジトリからの相対パス（/ 区切り）にする。絶対パスには利用者名が入るため書かない
 function writeCobertura($coverage, [string]$path) {
     $invariant = [System.Globalization.CultureInfo]::InvariantCulture
     $rootPrefix = $rootDir.TrimEnd('\') + '\'
     $files = @{}
-    foreach ($item in @(@($coverage.HitCommands | ForEach-Object { @{ Command = $_; Hit = 1 } }) +
-                        @($coverage.MissedCommands | ForEach-Object { @{ Command = $_; Hit = 0 } }))) {
+    foreach ($item in @(@($coverage.CommandsExecuted | ForEach-Object { @{ Command = $_; Hit = 1 } }) +
+                        @($coverage.CommandsMissed | ForEach-Object { @{ Command = $_; Hit = 0 } }))) {
         $file = [string]$item.Command.File
         if ($file.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { $file = $file.Substring($rootPrefix.Length) }
         $file = $file.Replace('\', '/')
@@ -175,12 +202,12 @@ if ($Ci) {
     $covered = 0
     $total = 0
     if ($result.CodeCoverage) {
-        $covered = @($result.CodeCoverage.HitCommands).Count
-        $total   = $covered + @($result.CodeCoverage.MissedCommands).Count
+        $covered = [int]$result.CodeCoverage.CommandsExecutedCount
+        $total   = [int]$result.CodeCoverage.CommandsAnalyzedCount
     }
     $percent = if ($total -gt 0) { [Math]::Round(100.0 * $covered / $total, 1) } else { 0 }
     "テスト {0} 件中 {1} 件成功 / {2} 件失敗　カバレッジ {3}%（{4}/{5}）" -f `
-        $result.TotalCount, $result.PassedCount, $result.FailedCount, $percent, $covered, $total | Write-Host
+        ($result.PassedCount + $result.FailedCount), $result.PassedCount, $failed, $percent, $covered, $total | Write-Host
 
     # カバレッジの下限（tests\coverage.baseline。下回ったら失敗にする）
     $baselineFile = "$testsDir\coverage.baseline"
@@ -191,6 +218,6 @@ if ($Ci) {
             exit 1
         }
     }
-    exit $result.FailedCount
+    exit $failed
 }
-exit $result.FailedCount
+exit $failed
