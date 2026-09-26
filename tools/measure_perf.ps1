@@ -301,7 +301,8 @@ foreach ($p in $phaseRows) {
 if ($samples.Count -ge 2) {
     $step = [Math]::Max(1, [int][Math]::Ceiling($samples.Count / 100))
     $points = @(for ($i = 0; $i -lt $samples.Count; $i += $step) { $samples[$i] })
-    $xs = ($points | ForEach-Object { [Math]::Round($_.Ms / 1000, 1).ToString([System.Globalization.CultureInfo]::InvariantCulture) }) -join ", "
+    # 記録はほぼ等間隔なので、横軸は秒の範囲にして目盛りは Mermaid に任せる（点ごとの目盛りは詰まって読めない）
+    $lastSecond = [Math]::Ceiling($points[$points.Count - 1].Ms / 1000)
     $cpu = New-Object System.Collections.Generic.List[string]
     for ($i = 0; $i -lt $points.Count; $i++) {
         if ($i -eq 0) { $cpu.Add("0"); continue }
@@ -321,7 +322,7 @@ if ($samples.Count -ge 2) {
         $md.Add('```mermaid')
         $md.Add("xychart-beta")
         $md.Add("    title `"$($chart.Title)`"")
-        $md.Add("    x-axis `"秒`" [$xs]")
+        $md.Add("    x-axis `"秒`" 0 --> $lastSecond")
         foreach ($line in $chart.Lines) {
             $md.Add("    line [" + (($line | ForEach-Object { ([double]$_).ToString([System.Globalization.CultureInfo]::InvariantCulture) }) -join ", ") + "]")
         }
