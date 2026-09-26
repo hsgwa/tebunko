@@ -13,5 +13,8 @@ changelog:
       labels: [documentation]
     - title: 依存の更新
       labels: [dependencies]
+    # 利用者から見て動きの変わらない変更（refactor・test・style・ci・chore など）
+    - title: 内部の変更
+      labels: [internal]
     - title: その他
       labels: ["*"]
