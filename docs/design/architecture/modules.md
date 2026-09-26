@@ -23,7 +23,7 @@
 | 状態層（ファイル・COM を読み書きする） | `indexer_state.ps1`・`index_store.ps1`・`pack_store.ps1`・`pack_search.ps1`・`search_run.ps1`・`system_index.ps1`・`fast_search.ps1`・`windows_search.ps1` | する（主にタグ `Io`。`$TestDrive` を使う） |
 | 画面層（`$ui` を触る） | `gui.ps1`・`*_tab.ps1`・`shell.ps1`・`app_host.ps1`・`folder_dialog.ps1`、`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` | `gui.ps1`・`*_tab.ps1`・`shell.ps1`・`app_host.ps1`・`*_dialog.ps1` は手で確かめる（カバレッジの対象外）。ほかは `$ui` を偽物にしてテストする |
 
-依存の向きは一方向にする。**`shared/` はツール（`tebunko/`）を知らない。** ツール同士も互いを読み込まない。判断層は `$ui`・`$window`・WPF の型に触らない。これらの決まりは `tests/meta/layers.Tests.ps1` で機械的に確かめる。
+依存の向きは一方向にする。**`shared/` はツール（`tebunko/`）を知らない。** ツール同士も互いを読み込まない。判断層と状態層（`core/`・`index/`・`indexer/`・`search/`・`shared/` の `core/`・`office/`）は `$ui`・`$window`・WPF の型に触らず、画面以外の読み込み口（`shared.ps1`・`lib.ps1`・`indexer.ps1`）は `ui/` のファイルを読み込まない。これらの決まりは `tests/meta/layers.Tests.ps1` で機械的に確かめる。
 
 ```mermaid
 flowchart TD
@@ -37,7 +37,7 @@ flowchart TD
     SH --> SC["shared/core/*・office/office_files.ps1・office_process.ps1"]
 ```
 
-読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは `tests/meta/layers.Tests.ps1` が起動口からたどって検出する）。
+読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは `tests/meta/layers.Tests.ps1` が起動口からたどって検出する）。読み込みは `. "$PSScriptRoot\..."` の形で書く（この形の行だけを検査がたどる）。
 
 | 読み込み口 | 読み込むもの | 使う側 |
 |---|---|---|
