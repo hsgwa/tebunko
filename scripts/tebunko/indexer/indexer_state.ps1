@@ -109,7 +109,7 @@ function describeIngestError {
 
 function readStatusFile {
     # 取り込み一覧を読み込み、@{ Folders; Rows } を返す。ファイルが無ければ空。
-    #   Folders: クロール対象フォルダ @{ Path; Name（インデックス名） } の配列。以前の形式（インデックス名なし）は Name が空
+    #   Folders: クロール対象フォルダ @{ Path; Name（インデックス名） } の配列
     #   Rows   : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
     # インデックス作成中は1件ごとに行を追記するため、同じ相対パスの行は後の行を優先する。列数の合わない行（書き込み途中で中断した行など）は無視する
     param (
@@ -133,20 +133,14 @@ function readStatusFile {
         $reader.Dispose()
     }
 
-    # 以前の形式（抽出版の列が無い）は見出しの列数で見分け、その見出しの後の行は以前の列数で読む。
-    # インデックス作成中の追記は、見出しを今の形式で書き直した後に行うため、1 つのファイルで形式が混ざることは無い
     $columnCount = ${statusColumns}.Count
     foreach ($line in $lines) {
         $fields = $line.Split("`t")
-        if ($fields[0] -eq ${statusFolderKey} -and ($fields.Count -eq 2 -or $fields.Count -eq 3)) {
-            $folders.Add([pscustomobject]@{ Path = $fields[1]; Name = $(if ($fields.Count -eq 3) { $fields[2] } else { "" }) })
+        if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3) {
+            $folders.Add([pscustomobject]@{ Path = $fields[1]; Name = $fields[2] })
             continue
         }
-        if ($fields[0] -eq ${statusColumns}[0]) {
-            $columnCount = $fields.Count  # 見出し
-            continue
-        }
-        if ($fields.Count -ne $columnCount -or $fields[0] -eq "") {
+        if ($fields.Count -ne $columnCount -or $fields[0] -eq "" -or $fields[0] -eq ${statusColumns}[0]) {
             continue
         }
         # 数万行を読むため、1行ごとの関数呼び出し（newStatusRow）は使わずにその場で作る（列は $statusColumns と同じ）
@@ -158,7 +152,7 @@ function readStatusFile {
             TSV数    = $fields[4]
             取り込み日時 = $fields[5]
             エラー   = $fields[6]
-            抽出版   = $(if ($fields.Count -gt 7) { $fields[7] } else { "" })
+            抽出版   = $fields[7]
         }
     }
     return $result
@@ -446,8 +440,7 @@ function renameStatusIndexName {
             $result.Add($fields -join "`t")
             continue
         }
-        # 以前の形式（抽出版の列が無い）の行も readStatusFile は読むため、同じように扱う
-        if ($fields.Count -ge ${statusColumns}.Count - 1 -and $fields.Count -le ${statusColumns}.Count -and $fields[0] -ne "") {
+        if ($fields.Count -eq ${statusColumns}.Count -and $fields[0] -ne "") {
             $split = splitIndexRelPath $fields[0]
             if ($split.Rest -ne "" -and [string]::Equals($split.Name, $oldName, [System.StringComparison]::OrdinalIgnoreCase)) {
                 $fields[0] = "${newName}\$($split.Rest)"
@@ -478,8 +471,7 @@ function removeStatusIndexName {
         if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and [string]::Equals($fields[2], $name, [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
-        # 以前の形式（抽出版の列が無い）の行も readStatusFile は読むため、同じように扱う
-        if ($fields.Count -ge ${statusColumns}.Count - 1 -and $fields.Count -le ${statusColumns}.Count -and $fields[0] -ne "") {
+        if ($fields.Count -eq ${statusColumns}.Count -and $fields[0] -ne "") {
             $split = splitIndexRelPath $fields[0]
             if ($split.Rest -ne "" -and [string]::Equals($split.Name, $name, [System.StringComparison]::OrdinalIgnoreCase)) {
                 continue

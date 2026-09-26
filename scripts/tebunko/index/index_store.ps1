@@ -254,7 +254,7 @@ function getIndexTsvCounts {
             }
             $parent = [System.IO.Path]::GetDirectoryName($file.FullName)
             if ($parent.Length -lt $prefix) {
-                continue  # インデックスのフォルダの直下のTSV（以前の形式）は、どのファイルのものか分からないため数えない
+                continue  # インデックスのフォルダの直下のTSVは、どのファイルのものか分からないため数えない
             }
             $key = $parent.Substring($prefix)
             $count = 0
@@ -299,7 +299,7 @@ function testIndexComplete {
     }
     $expected = 0
     if (-not [int]::TryParse([string]$row.TSV数, [ref]$expected)) {
-        return $true  # TSVの数を記録していない行（以前の形式）は確認できない
+        return $true  # TSVの数を記録していない行は確認できない
     }
     $actual = 0
     if (-not $counts.TryGetValue($relPath, [ref]$actual)) {

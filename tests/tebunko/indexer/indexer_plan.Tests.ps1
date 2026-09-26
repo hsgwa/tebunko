@@ -33,7 +33,7 @@ Describe "createTargetList" -Tag Io {
         $updated = formatFileTime $info.LastWriteTime
         $size = [string]$info.Length
         $folder = @{ Path = $source; Name = "売上" }
-        # getIndexFiles / removeBookDir が実際のインデックスを見ないよう、テスト用のフォルダに向ける
+        # removeBookDir が実際のインデックスを見ないよう、テスト用のフォルダに向ける
         ${indexDir} = Join-Path $TestDrive "index"
         $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
     }
@@ -73,7 +73,7 @@ Describe "createTargetList" -Tag Io {
     }
 }
 
-Describe "createTargetList（インデックスが先にあるファイル・無くなったファイル）" -Tag Io {
+Describe "createTargetList（サブフォルダ・無くなったファイル）" -Tag Io {
     BeforeAll {
         $source = Join-Path $TestDrive "src2"
         [System.IO.Directory]::CreateDirectory("$source\2024") | Out-Null
@@ -102,28 +102,11 @@ Describe "createTargetList（インデックスが先にあるファイル・無
         $result.Rows[0].相対パス | Should -Be "経理\2024\b.docx"
     }
 
-    It "一覧に無くても、元のファイルより新しいインデックスがあれば取り込み済みとする" {
+    It "一覧に無いファイルは、元のファイルより新しいインデックスのフォルダが残っていても取り込み対象にする" {
         newIndexTsv "1ページ.tsv" ([datetime]"2024/04/02 09:00:00")
-        newIndexTsv "2ページ.tsv" ([datetime]"2024/04/03 09:00:00")
-        $result = createTargetList $folder (newPrevious) $null
-        $result.Targets.Count | Should -Be 0
-        $result.Rows[0].状態 | Should -Be ${stateDone}
-        $result.Rows[0].TSV数 | Should -Be "2"
-        # 取り込み日時は、いちばん新しいTSVの更新日時にする
-        $result.Rows[0].取り込み日時 | Should -Be (formatFileTime ([datetime]"2024/04/03 09:00:00"))
-    }
-
-    It "インデックスが元のファイルより古ければ取り込み対象にする" {
-        newIndexTsv "1ページ.tsv" ([datetime]"2024/03/01 09:00:00")
         $result = createTargetList $folder (newPrevious) $null
         $result.Targets.Count | Should -Be 1
         $result.Plan.新規 | Should -Be 1
-    }
-
-    It "インデックスの数え上げ（counts）に無いファイルは、ディスクを調べずに取り込み対象にする" {
-        newIndexTsv "1ページ.tsv" ([datetime]"2024/04/02 09:00:00")
-        $result = createTargetList $folder (newPrevious) (newCounts)
-        $result.Targets.Count | Should -Be 1
     }
 
     It "一覧にあって元のファイルが無くなったものは、インデックスを消して一覧から除く" {
@@ -177,20 +160,6 @@ Describe "findOfficeFiles" -Tag Io {
         $scan = findOfficeFiles "$source\"
         $scan.Root.TrimEnd("\") | Should -Be $source
         $scan.Files.Count | Should -Be 5
-    }
-}
-
-Describe "getIndexFiles" -Tag Io {
-    It "フォルダの中の TSV だけを返す" {
-        $dir = Join-Path $TestDrive "book.xlsx"
-        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-        [System.IO.File]::WriteAllText("$dir\Sheet1.tsv", "")
-        [System.IO.File]::WriteAllText("$dir\メモ.txt", "")
-        @(getIndexFiles $dir | ForEach-Object { $_.Name }) -join "," | Should -Be "Sheet1.tsv"
-    }
-
-    It "フォルダが無ければ空" {
-        @(getIndexFiles (Join-Path $TestDrive "無い.xlsx")).Count | Should -Be 0
     }
 }
 

@@ -162,15 +162,6 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         }
         readTestError | Should -Match "ほかのインデックス作成が実行中です"
     }
-
-    It "以前の版が画面とのやり取りに使っていたファイルは、始める前に消す" {
-        $root = newRoot
-        writeTestSettings $root @()
-        foreach ($name in @("インデックス作成中止要求", "取り込み予定.tsv", "インデックス作成開始要求", "変換対象一覧.txt")) {
-            [System.IO.File]::WriteAllText("$root\work\$name", "前回")
-        }
-        runIndexer $root | Should -Be 1
-    }
 }
 
 Describe "indexer.ps1（取り込み）" -Tag Io {
@@ -186,8 +177,6 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
             @{ name = ""; path = $source; enabled = $true },
             @{ name = ""; path = $unchecked; enabled = $false },
             @{ name = ""; path = $missing; enabled = $true })
-        # 以前の版の途中状態ファイルは消す
-        [System.IO.File]::WriteAllText("$root\work\変換失敗一覧.txt", "前回")
 
         runIndexer $root | Should -Be 0
 
@@ -201,7 +190,6 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         [System.IO.File]::Exists("$root\work\index\営業\content.docx.001.tsv") | Should -Be $true
         [System.IO.Directory]::Exists("$root\work\index\営業\議事録.docx") | Should -Be $false
         Test-Path -LiteralPath "$root\work\index\営業\元のフォルダ.txt" | Should -Be $true
-        Test-Path -LiteralPath "$root\work\変換失敗一覧.txt" | Should -Be $false
         # フォルダごとのシステムインデックスを作り、インデックスを対応済みにする
         [System.IO.File]::Exists("$root\work\system_index\営業\${systemIndexFileName}") | Should -Be $true
         (readTestSystemState $root).Covered.Contains("営業") | Should -Be $true

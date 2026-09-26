@@ -108,24 +108,6 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
         (readSourceFolderFile $dir).Count | Should -Be 0
     }
 
-    It "以前の版が書いた、インデックスのフォルダ直下の 元のフォルダ.txt は各フォルダへ移して消す" {
-        $dir = "$TestDrive\移行\index"
-        [void][System.IO.Directory]::CreateDirectory("$dir\見積")
-        [void][System.IO.Directory]::CreateDirectory("$dir\やめた")
-        # 以前の版と同じ形式（全インデックス分を直下に 1 ファイル）
-        writeListFile (Join-Path $dir ${sourceFolderFileName}) @(
-            "# 説明",
-            "見積`tC:\旧\見積",
-            "やめた`tC:\data\やめた")
-
-        # クロール対象フォルダから外したインデックス（やめた）の記録も残す
-        writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
-
-        Test-Path -LiteralPath (Join-Path $dir ${sourceFolderFileName}) | Should -Be $false
-        (readSourceFolderFile "$dir\見積")["見積"] | Should -Be "C:\data\見積"
-        (readSourceFolderFile "$dir\やめた")["やめた"] | Should -Be "C:\data\やめた"
-    }
-
     It "インデックス名のフォルダを検索対象にした場合は、そのフォルダの 元のフォルダ.txt を使う" {
         $dir = "$TestDrive\別PC2\index"
         [void][System.IO.Directory]::CreateDirectory("$dir\見積")

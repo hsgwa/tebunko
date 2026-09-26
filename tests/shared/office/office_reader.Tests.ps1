@@ -261,7 +261,7 @@ Describe "writeUnits" -Tag Io {
         writeUnits $units $outDir | Should -Be 2
         [System.IO.File]::ReadAllText("$outDir\ページ001.tsv") | Should -Be "a`tb`r`n"
         Test-Path -LiteralPath "$outDir\ページ002.tsv" | Should -Be $false
-        # 場所の _ は符号化する（以前の形式のTSVと見分けるため）
+        # 場所の _ は符号化する（toIndexFileName）
         Test-Path -LiteralPath "$outDir\スライド001%5Fノート.tsv" | Should -Be $true
     }
 }

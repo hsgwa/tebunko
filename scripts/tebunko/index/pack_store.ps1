@@ -231,7 +231,7 @@ function getPackFiles {
 
 function findIndexFoldersWithBooks {
     # インデックスのフォルダ以下で、元のファイルごとのフォルダ（<ファイル名.xlsx>。集約ファイルに入れる前の TSV）が
-    # 直下にあるフォルダを返す（インデックス作成が途中で止まった・前の形式のインデックス）。root 自身も含む
+    # 直下にあるフォルダを返す（インデックス作成が途中で止まったとき）。root 自身も含む
     param (
         [string]$root
     )

@@ -29,7 +29,7 @@ Describe "getExtractVersion" -Tag Unit {
 }
 
 Describe "getIngestDecision（抽出版）" -Tag Unit {
-    It "抽出版が空（以前の形式の取り込み一覧）は 1 とみなす" {
+    It "抽出版が空は 1 とみなす" {
         (getIngestDecision (newRow ${stateDone} -version "") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
         (getIngestDecision (newRow ${stateDone} -version "" -relPath "売上\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should -Be "outdated"
         # 版が上がっていない形式（Excel の旧形式）は、抽出版が空でも取り込み直さない

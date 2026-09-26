@@ -9,11 +9,6 @@ ${openModeNormal}   = "normal"    # そのまま開く（編集する）
 ${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上書きしない）
 ${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
 ${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})
-# 以前の設定ファイル（設定ファイルと同じフォルダの config\*.txt）。設定ファイルが無いときだけ読み込んで移す
-${legacyConfigDirName}        = "config"
-${legacyTargetFolderFileName} = "変換対象フォルダパス.txt"
-${legacySourceReplaceFileName} = "元のフォルダの置き換え.txt"
-${legacySearchOptionFileName} = "検索オプション.txt"
 
 function newSettings {
     # 設定の既定値。設定ファイル（JSON）のキーと同じ
@@ -33,17 +28,13 @@ function newSettings {
 }
 
 function readSettings {
-    # 設定を newSettings と同じ形で返す。記載の無い項目は既定値。
-    # 設定ファイルが無ければ、同じフォルダの config\ にある以前の設定ファイル（*.txt）から移して保存する（それも無ければ既定値）
+    # 設定を newSettings と同じ形で返す。記載の無い項目は既定値。設定ファイルが無ければ既定値
     param (
         [string]$path = ${settingsFile}
     )
 
     $settings = newSettings
     if (!(Test-Path -LiteralPath $path)) {
-        if (readLegacySettings $settings (Join-Path ([System.IO.Path]::GetDirectoryName($path)) ${legacyConfigDirName})) {
-            writeSettings $settings $path
-        }
         return $settings
     }
 
@@ -121,32 +112,6 @@ function updateSettings {
     $settings = readSettings $path
     $settings[$key] = $value
     writeSettings $settings $path
-}
-
-function readLegacySettings {
-    # 以前の設定ファイル（1行1件のテキスト）を settings に読み込む。1つも無ければ $false
-    param (
-        $settings,
-        [string]$dir
-    )
-
-    $found = $false
-    $file = Join-Path $dir ${legacyTargetFolderFileName}
-    if (Test-Path -LiteralPath $file) {
-        $found = $true
-        # 行頭が # の行はチェックなし
-        # インデックス名は以前の設定ファイルには無いため空にする（取り込み時に割り当てる。assignIndexNames）
-        $settings.targetFolders = @(readListFile $file | ForEach-Object { $_.Trim() } | ForEach-Object {
-            [pscustomobject]@{ name = ""; path = (normalizeFolderPath $_.TrimStart("#")); enabled = -not $_.StartsWith("#") }
-        } | Where-Object { $_.path -ne "" })
-    }
-    $file = Join-Path $dir ${legacySearchOptionFileName}
-    if (Test-Path -LiteralPath $file) {
-        $found = $true
-        # "正規表現=オン" の行
-        $settings.useRegex = @(readListFile $file | Where-Object { $_ -match "^\s*正規表現\s*=\s*オン\s*$" }).Count -gt 0
-    }
-    return $found
 }
 
 function getTargetFolders {
