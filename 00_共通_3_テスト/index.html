@@ -1575,7 +1575,7 @@
 <tr>
 <td>カバレッジの下限</td>
 <td>テストされない処理が増えること</td>
-<td><code>tests/coverage.baseline</code>（今は 96.5%）を下回ると <code>-Ci</code> が失敗する。<a href="#タグと実行">タグと実行</a></td>
+<td><code>tests/coverage.baseline</code>（90.0%）を下回ると <code>-Ci</code> が失敗する。<a href="#タグと実行">タグと実行</a></td>
 <td>CI の <code>test</code></td>
 </tr>
 <tr>
@@ -1694,8 +1694,8 @@
 <td>タブ区切りのセル数、先頭のセルが空の行、<code>"</code> で始まるセル内のタブ・改行は区切りとしない、途中の <code>"</code> は囲みとしない</td>
 </tr>
 <tr>
-<td><code>toColumnName</code> / <code>toResultHeader</code></td>
-<td>列名（<code>A</code> <code>Z</code> <code>AA</code> <code>ZZ</code> <code>AAA</code> <code>XFD</code>）、見出し行</td>
+<td><code>toColumnName</code></td>
+<td>列名（<code>A</code> <code>Z</code> <code>AA</code> <code>ZZ</code> <code>AAA</code> <code>XFD</code>）</td>
 </tr>
 <tr>
 <td><code>normalizeFolderPath</code></td>
@@ -1769,7 +1769,7 @@
 </tr>
 <tr>
 <td><code>splitIndexFileName</code></td>
-<td>ブック名・シート名の分解（場所の <code>%XX</code> を戻す、<code>.xls_</code> を含むブック名、以前の版の <code>_</code> を含むシート名、<code>.xlsm</code>、大文字の拡張子、形式外）</td>
+<td>ブック名・シート名の分解（場所の <code>%XX</code> を戻す、<code>.xls_</code> を含むブック名、以前の版の <code>_</code> を含むシート名、大文字の拡張子、形式外）</td>
 </tr>
 <tr>
 <td><code>newIndexName</code> / <code>assignIndexNames</code></td>
@@ -1796,7 +1796,7 @@
 <tbody>
 <tr>
 <td><code>getIndexStats</code></td>
-<td>インデックス名ごとの件数（合計・済・未取り込み・失敗）と最終取り込み日時を集計する。行が無ければ空。<code>getIndexingState</code> の <code>IndexStats</code> からも取れる</td>
+<td>インデックス名ごとの件数（合計・済・未取り込み・失敗）と最終取り込み日時を集計する</td>
 </tr>
 <tr>
 <td><code>renameIndex</code></td>
@@ -1816,7 +1816,7 @@
 </tr>
 <tr>
 <td><code>getIndexTsvCounts</code> / <code>testIndexComplete</code></td>
-<td>集約ファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、集約ファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の以前の形式の TSV は数えない、フォルダが無ければ空）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
+<td>集約ファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、集約ファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の以前の形式の TSV は数えない）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
 </tr>
 <tr>
 <td><code>publishIndexFiles</code></td>
@@ -1918,7 +1918,7 @@
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（起動口）</td>
-<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。以前の版が画面とのやり取りに使っていたファイルを始める前に消す、続けられないエラーと終了コード、2 回目は更新の無いファイルを取り込まない、<code>-RetryFailed</code>、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめ・中止（終了コード 2）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、元のファイルが無くなったら次の作成で集約ファイルから外す、前回残った TSV を次の作成の始めに集約ファイルへ入れる、中止しても取り込んだ分は集約ファイルとシステムインデックスに入れる</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、以前の版が画面とのやり取りに使っていたファイルを始める前に消す、基本の流れ（取り込み・集約ファイル・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、前回残った TSV を次の作成の始めに集約ファイルへ入れる、既定のワークスペースが空でなければ何も書かない</td>
 </tr>
 <tr>
 <td><code>indexer.ps1</code>（取り込みのスレッド）</td>
@@ -2019,7 +2019,7 @@
 </tr>
 <tr>
 <td><code>check_signoff.ps1</code></td>
-<td>作者の <code>Signed-off-by</code> があれば通す、無い・作者と違うメールアドレスなら止める、コメント行と <code>git commit -v</code> の差分の中は数えない、マージコミット・bot は調べない、範囲より前のコミットは調べない</td>
+<td>作者の <code>Signed-off-by</code> があれば通す、無い・作者と違うメールアドレスなら止める、コメント行と <code>git commit -v</code> の差分の中は数えない、マージコミット・bot は調べない</td>
 </tr>
 <tr>
 <td><code>check_markdown_links.ps1</code></td>
@@ -2092,11 +2092,11 @@
 </tbody>
 </table>
 <p><strong>画面の部品（<code>tests/tebunko/ui/</code>・<code>tests/shared/ui/</code>）</strong></p>
-<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」だけを確かめる。型（<code>types.ps1</code>・<code>types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1。</p>
+<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（<code>preview.ps1</code> の <code>copyPreviewSelection</code>）だけを確かめる。型（<code>shared/ui/types.ps1</code>・<code>tebunko/ui/types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1。</p>
 <p><strong>テストデータの個人情報の除去（<code>tests/testdata/scrub_personal</code>）</strong></p>
 <p>タグ <code>Io</code> で、テストデータから個人情報を取り除く <code>tests/testdata/scrub_personal.ps1</code> を検証する（OOXML・ODF・<code>.xlsb</code> の中のバイナリ・旧形式・Shift_JIS のテキスト、壊れた ZIP、隠し属性・読み取り専用属性）。</p>
 <p><strong>安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）</strong></p>
-<p>タグ <code>Meta</code> で、<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない（33 件）。</p>
+<p>タグ <code>Meta</code> で、<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない（36 件）。</p>
 <table>
 <thead>
 <tr>
@@ -2291,6 +2291,7 @@
 </tr>
 </tbody>
 </table>
+<p>入力と期待値だけが違うテストは、<code>-TestCases</code> の 1 つの <code>It</code> にまとめる（例: <code>tests/tebunko/ui/types.Tests.ps1</code> の <code>HitRow.Contains</code>）。表は <code>It</code> の中にそのまま書き、計算で作らない。キーには <code>input</code>・<code>args</code>・<code>_</code>・<code>Matches</code> など PowerShell の自動変数の名前を使わない。各行に <code>name</code> を持たせ、<code>It "&lt;name&gt;"</code> で失敗した行が分かるようにする。Pester 5 に移るときは <code>-ForEach</code> に置き換えるだけで済むようにするため。</p>
 <p><code>tests/meta/</code> は、直し忘れると気づきにくい決まりごとを機械的に確かめる。</p>
 <table>
 <thead>
@@ -2302,7 +2303,7 @@
 <tbody>
 <tr>
 <td><code>structure</code></td>
-<td><code>$rootDir</code> などのパス定義、全 <code>.ps1</code> の構文、<code>Add-Type -TypeDefinition</code> を使わない、<code>ui/</code> のスクリプトで <code>$PSScriptRoot</code> を使わない、<code>gui.ps1</code> が指すインデクサのファイルがある、XAML が XML として読める・<code>gui.ps1</code> が使う <code>x:Name</code> がある、型を読み込む順で継承が解決できる</td>
+<td><code>$rootDir</code> などのパス定義、全 <code>.ps1</code> の構文、<code>ui/</code> のスクリプトで <code>$PSScriptRoot</code> を使わない、<code>gui.ps1</code> が指すインデクサのファイルがある、XAML が XML として読める・<code>gui.ps1</code> が使う <code>x:Name</code> がある、型を読み込む順で継承が解決できる</td>
 </tr>
 <tr>
 <td><code>encoding</code></td>
@@ -2390,7 +2391,7 @@
 <ul>
 <li>対象は <code>scripts/</code> の <code>.ps1</code> のうち、画面層の <code>gui.ps1</code>・<code>*_tab.ps1</code>・<code>shell.ps1</code>・<code>app_host.ps1</code>・<code>*_dialog.ps1</code> を除いたもの（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。除いたものは自動テストの対象外で、手で確かめる。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。</li>
 <li>値は Pester のコマンド単位（実行されたコマンドの数 ÷ 全コマンドの数。小数点以下 1 桁）。</li>
-<li><strong>下限は <code>tests/coverage.baseline</code>（今は 96.5）。</strong> <code>-Ci</code> はこれを下回ると失敗し、CI の必須チェック <code>test</code> が通らない。下回ったらテストを足して戻し、下限は下げない。上がったら、同じ PR で下限を実測の値まで上げる。</li>
+<li><strong>下限は <code>tests/coverage.baseline</code>（90.0）。</strong> <code>-Ci</code> はこれを下回ると失敗し、CI の必須チェック <code>test</code> が通らない。下回ったらテストを足して戻し、下限は下げない。実測が上がっても下限は上げない（変えるのはメンテナだけ）。</li>
 <li>全体の目標値は決めない。判断層は 95% 以上を保ち、数字を上げるためだけのテスト（結果を確かめないもの）は書かない（AGENTS.md「テストカバレッジの方針」）。</li>
 <li><code>-Ci</code> はカバレッジを Cobertura 形式の XML（<code>work\test\coverage.xml</code>）にも書き出す。Pester 3.4 はカバレッジをファイルに出せないため、<code>tests/run.ps1</code> が結果（コマンド単位）から行単位に組み立てる。1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。そのため、行単位の値（Codecov の表示）はコマンド単位の値と少し違う。ファイル名はリポジトリからの相対パスで書き、利用者名を含む絶対パスは入れない。</li>
 </ul>

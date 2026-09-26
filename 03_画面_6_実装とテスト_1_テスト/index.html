@@ -1394,7 +1394,7 @@
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> の結果ファイルの形式になること</td>
 </tr>
 <tr>
-<td><code>isValidRegex</code> / <code>newSearchRegex</code> / <code>newFileFilter</code></td>
+<td><code>newSearchRegex</code> / <code>getRegexScanMode</code> / <code>newFileFilter</code></td>
 <td><code>tests/tebunko/search/search_query.Tests.ps1</code></td>
 <td>文字どおりの記号、不正な正規表現、大文字と小文字の区別。対象ファイルは <code>;</code> / <code>；</code> の区切り、<code>!</code> の除外、部分一致、<code>?</code>、ほかの記号は文字どおり、空なら条件なし</td>
 </tr>
@@ -1443,7 +1443,7 @@
 <tr>
 <td>画面の型（12.2）</td>
 <td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko/ui/types.Tests.ps1</code></td>
-<td><code>NotifyBase</code> の変更通知、<code>ConfirmFact</code>。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
+<td><code>NotifyBase</code> の変更通知。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
 </tr>
 <tr>
 <td>判断層</td>
@@ -1458,12 +1458,12 @@
 <tr>
 <td>選択行のプレビュー</td>
 <td><code>tests/tebunko/ui/preview.Tests.ps1</code></td>
-<td>表示・消去、高さに収まる行数、セルの特定とコピー、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）</td>
+<td>表示・消去、高さに収まる行数、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）</td>
 </tr>
 <tr>
 <td>元のファイルを開く</td>
 <td><code>tests/tebunko/ui/open_source.Tests.ps1</code></td>
-<td>パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、行・パスのコピー、ファイル出力、画面の操作</td>
+<td>パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、ファイル出力、画面の操作</td>
 </tr>
 <tr>
 <td>検索対象のツリー</td>
@@ -1601,7 +1601,7 @@
 <tr>
 <td>実行時コンパイル（csc.exe）を出さないこと</td>
 <td>12.2</td>
-<td>◎（全スクリプトに <code>Add-Type -TypeDefinition</code> が無いこと（<code>tests/meta/structure.Tests.ps1</code>）・起動〜検索で <code>csc.exe</code> 0 回／一時 DLL 0 個を実起動で確認）</td>
+<td>◎（<code>Add-Type</code> は標準アセンブリの読み込みだけであること（<code>tests/meta/safety.Tests.ps1</code>）・起動〜検索で <code>csc.exe</code> 0 回／一時 DLL 0 個を実起動で確認）</td>
 </tr>
 <tr>
 <td><code>[</code> <code>]</code> を含むツールの配置フォルダからの起動</td>
