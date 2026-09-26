@@ -343,8 +343,8 @@ function exportResults {
     }
     $rows = getViewRows
     try {
-        [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
-        $writer = New-Object System.IO.StreamWriter(${resultFile}, $false, ${utf8Bom})
+        [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
+        $writer = New-Object System.IO.StreamWriter($workspace.ResultFile, $false, ${utf8Bom})
         try {
             writeSearchResult $writer $script:lastSearch.Word $rows
         } finally {
@@ -355,10 +355,10 @@ function exportResults {
         return
     } catch [System.UnauthorizedAccessException] {
         # 読み取り専用・書き込み権限が無いときは、アプリを閉じても直らないため別の文言にする
-        setStatus "検索結果.txt に書き込む権限がありません（読み取り専用など）。${resultFile} を確かめてから、もう一度出力してください。"
+        setStatus "検索結果.txt に書き込む権限がありません（読み取り専用など）。$($workspace.ResultFile) を確かめてから、もう一度出力してください。"
         return
     }
-    Invoke-Item -LiteralPath ${resultFile}
+    Invoke-Item -LiteralPath $workspace.ResultFile
     if ($rows.Count -lt $script:hitCount) {
         setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を検索結果.txt に出力しました"
     } else {

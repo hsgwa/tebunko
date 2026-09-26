@@ -27,6 +27,7 @@ Describe "createTargetList" -Tag Io {
     $folder = @{ Path = $source; Name = "売上" }
     # getIndexFiles / removeBookDir が実際のインデックスを見ないよう、テスト用のフォルダに向ける
     ${indexDir} = Join-Path $TestDrive "index"
+    $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
 
     It "一覧に無いファイルは取り込み対象になる（新規）" {
         $result = createTargetList $folder (newPrevious) $null
@@ -90,6 +91,7 @@ Describe "createTargetList（インデックスが先にあるファイル・無
     (Get-Item -LiteralPath $file).LastWriteTime = [datetime]"2024/04/01 09:00:00"
     $folder = @{ Path = $source; Name = "経理" }
     ${indexDir} = Join-Path $TestDrive "index2"
+    $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
     $bookDir = Join-Path ${indexDir} "経理\2024\b.docx"
 
     function newIndexTsv([string]$name, [datetime]$time) {
@@ -209,6 +211,7 @@ Describe "getIndexFiles" -Tag Io {
 Describe "getBookDir" -Tag Unit {
     It "インデックスのフォルダに相対パスをつなぐ" {
         ${indexDir} = "C:\tool\work\index"
+        $workspace = newTestWorkspace @{ IndexDir = ${indexDir} }
         getBookDir "営業\2024\A社.xlsx" | Should Be "C:\tool\work\index\営業\2024\A社.xlsx"
     }
 }

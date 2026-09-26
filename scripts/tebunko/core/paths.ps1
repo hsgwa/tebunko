@@ -7,32 +7,14 @@ ${appId} = "tebunko"
 # インデックス作成を同時に複数実行しても互いのTSVを削除・移動しないよう、プロセスごとに分ける
 ${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko\${PID}"
 
-# work（インデックス・取り込み一覧・ログ・取り込みの出力）の置き場所。
-# setting.config の workspaceFolder で変えられる。空なら既定（設定ファイルと同じフォルダの work。settings.ps1 の getWorkDir）
-${workDir}   = getWorkDir
-${indexDir}  = "${workDir}\index"
-# システムインデックス（本文インデックスの 2-gram を書いた txt。index と同じ相対パスの構成。Windows Search に索引させる）と、その状態
-${systemIndexDir} = "${workDir}\system_index"
-${systemIndexStateFile} = "${workDir}\システムインデックスの状態.tsv"
-
-# 取り込んだTSVをインデックスに入れる直前に集めるフォルダ（publishIndexFiles）。
-# フォルダごと入れ替えるため、インデックスと同じドライブ（work の中）に置く。
-# 検索対象に入らないよう work\index の外にする
-${publishDir} = "${workDir}\取り込み出力\${PID}"
+# ワークスペース（インデックス・取り込み一覧・ログ・取り込みの出力の置き場所。中の場所は workspace.ps1 の Workspace）。
+# setting.config の workspaceFolder で変えられる。空なら既定（settings.ps1 の getWorkDir）
+${workspace} = [Workspace]::new((getWorkDir))
 
 # インデックスのフォルダに置く、インデックス名とクロール対象フォルダの対応（インデクサが作成する）。
 # インデックスのフォルダごと別の場所・PCへコピーしても、検索結果から元のファイルの場所が分かるようにする。
 # 拡張子を .tsv にすると検索対象になるため .txt にする
 ${sourceFolderFileName} = "元のフォルダ.txt"
-
-# 取り込み一覧・出力（自動生成）
-${statusFile} = "${workDir}\取り込み一覧.tsv"
-${ingestingFile} = "${workDir}\取り込み中.txt"  # 取り込み中のファイル。強制終了で残っていれば、そのファイルの取り込み中に止まった
-${resultFile} = "${workDir}\検索結果.txt"
-
-# インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
-${indexingLogFile}   = "${workDir}\インデックス作成ログ.txt"    # インデクサの表示内容の記録（実行ごとに上書き）
-${guiErrorLogFile}  = "${workDir}\画面エラー.txt"  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
 
 # インデックス作成の進み具合の段階（writeIndexingProgress の phase）
 ${indexingPhaseCrawl}   = "クロール"  # 取り込み対象のファイルを探している（件数はまだ分からない）

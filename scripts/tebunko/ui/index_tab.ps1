@@ -167,7 +167,7 @@ function saveTargets {
 function updateIndexSourceFile {
     # インデックスのフォルダの 元のフォルダ.txt を今の一覧に合わせて書き直す。
     # 次のインデックス作成を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無ければ何もしない）
-    if (!(Test-Path -LiteralPath ${indexDir} -PathType Container)) {
+    if (!(Test-Path -LiteralPath $workspace.IndexDir -PathType Container)) {
         return
     }
     writeSourceFolderFile @($script:targetItems | Where-Object { $_.Name } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path } })
@@ -429,10 +429,11 @@ function startIndexRemoveJob {
     $script:indexJobOperation = $operation
     updateIndexingButton
     setStatus "インデックス [${name}] を削除しています…（件数によっては少し時間がかかります）"
+    # 裏のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、場所は渡す
     startJob {
-        param ($name)
-        removeIndex $name
-    } @($name) {
+        param ($name, $dir, $statusPath)
+        removeIndex $name $dir $statusPath
+    } @($name, $workspace.IndexDir, $workspace.StatusFile) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateIndexingButton
@@ -533,8 +534,9 @@ function refreshIndexingState {
     $script:stateRunning = $true
     $script:stateAgain = $false
     startJob {
-        getIndexingState
-    } @() {
+        param ($path)
+        getIndexingState -path $path
+    } @($workspace.StatusFile) {
         param ($output, $errorText)
         $script:stateRunning = $false
         # インデクサが書き込んでいる瞬間などは、次の機会に読み直す
@@ -647,7 +649,7 @@ function refreshIndexSummary {
     }
     $script:summaryRunning = $true
     $script:summaryAgain = $false
-    $folders = @(${indexDir})
+    $folders = @($workspace.IndexDir)
     startJob {
         param ($folders)
         getIndexSummary $folders

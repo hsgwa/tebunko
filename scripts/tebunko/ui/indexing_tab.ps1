@@ -349,7 +349,7 @@ function finishIndexing {
     }
     $ui.IndexingProgressEta.Text = ""
     $ui.IndexingStopButton.Visibility = "Collapsed"
-    $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath ${indexingLogFile}) { "Visible" } else { "Collapsed" }
+    $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath $workspace.IndexingLogFile) { "Visible" } else { "Collapsed" }
 
     $script:sourceFolderMaps = @{}
     refreshIndexingState
@@ -378,8 +378,8 @@ $ui.IndexingButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingStopButton.Add_Click({ safe { stopIndexing } })
 $ui.IndexingLogButton.Add_Click({
     safe {
-        if (Test-Path -LiteralPath ${indexingLogFile}) {
-            Invoke-Item -LiteralPath ${indexingLogFile}
+        if (Test-Path -LiteralPath $workspace.IndexingLogFile) {
+            Invoke-Item -LiteralPath $workspace.IndexingLogFile
         }
     }
 })

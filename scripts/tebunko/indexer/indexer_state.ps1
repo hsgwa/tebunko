@@ -113,7 +113,7 @@ function readStatusFile {
     #   Rows   : 相対パス（"インデックス名\フォルダからの相対パス"。大文字・小文字を区別しない）→ 行
     # インデックス作成中は1件ごとに行を追記するため、同じ相対パスの行は後の行を優先する。列数の合わない行（書き込み途中で中断した行など）は無視する
     param (
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -170,7 +170,7 @@ function writeStatusFile {
     param (
         [object[]]$folders,
         [object[]]$rows,
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     $lines = New-Object System.Collections.Generic.List[string]
@@ -200,7 +200,7 @@ function addStatusRow {
     # 取り込み一覧の末尾に1行追記する（readStatusFile では後の行が優先される）
     param (
         $row,
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     [System.IO.File]::AppendAllText($path, "$(toStatusLine $row)`r`n", ${utf8Bom})
@@ -210,7 +210,7 @@ function readIngestingFiles {
     # 取り込み中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて取り込みを始めて終わらなかった回数 } の配列を返す。
     # 取り込みを複数のスレッドで行うため、1 行に 1 ファイル。記録が無ければ空。壊れた行は読み飛ばす
     param (
-        [string]$path = ${ingestingFile}
+        [string]$path = $workspace.IngestingFile
     )
 
     $result = New-Object System.Collections.Generic.List[hashtable]
@@ -229,7 +229,7 @@ function writeIngestingFiles {
     # 取り込み中のファイル（@{ RelPath; Count } の並び）を "回数<TAB>相対パス" で記録する。無ければ記録を消す
     param (
         [object[]]$entries,
-        [string]$path = ${ingestingFile}
+        [string]$path = $workspace.IngestingFile
     )
 
     $lines = @($entries | Where-Object { $_ } | ForEach-Object { "$($_.Count)`t$($_.RelPath)" })
@@ -242,7 +242,7 @@ function writeIngestingFiles {
 
 function removeIngestingFile {
     param (
-        [string]$path = ${ingestingFile}
+        [string]$path = $workspace.IngestingFile
     )
 
     if (Test-Path -LiteralPath $path) {
@@ -333,7 +333,7 @@ function testIndexerRunning {
     # この work でインデックス作成が動いているか（画面のスレッド・画面を使わない indexer.ps1 のどちらでも）。
     # インデックス作成が持つ鍵（newAppMutex "indexer"）を取れるかで調べ、取れたらすぐ放す
     param (
-        [string]$dir = ${workDir}
+        [string]$dir = $workspace.Dir
     )
 
     $mutex = newAppMutex "indexer" $dir
@@ -407,7 +407,7 @@ function newIngestPlanRow {
 function readStatusLines {
     # 取り込み一覧を1行ずつ読む（インデックス作成中でも読めるよう共有を許して開く）。ファイルが無ければ空
     param (
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     if (!(Test-Path -LiteralPath $path)) {
@@ -430,7 +430,7 @@ function renameStatusIndexName {
     param (
         [string]$oldName,
         [string]$newName,
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     $lines = @(readStatusLines $path)
@@ -464,7 +464,7 @@ function removeStatusIndexName {
     # 取り込み一覧から、あるインデックスの記録（クロール対象フォルダの行と、そのインデックスの各行）を取り除く
     param (
         [string]$name,
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     $lines = @(readStatusLines $path)
@@ -496,7 +496,7 @@ function getIndexingState {
     #      FailedRows（失敗したファイルの行。取り込み日時の新しい順）; IndexStats（インデックス名ごとの集計。getIndexStats） }
     param (
         [datetime]$since = [datetime]::MaxValue,
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     $state = @{ Exists = $false; Folders = @(); Total = 0; Pending = 0; Failed = 0; Done = 0; IngestedSince = 0; Updated = $null; FailedRows = @(); IndexStats = (getIndexStats $null) }

@@ -549,8 +549,8 @@ Describe "indexer.ps1（システムインデックス）" -Tag Io {
         # 1 件目の TSV を入れ替える直前に状態ファイルをほかから開き、記録した直後に閉じる
         $lock = @{ Script = $runPath; Pattern = '^\s+publishTsv \(getBookDir'; Action = {
                 if (!$global:systemStateLock) {
-                    [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
-                    $global:systemStateLock = [System.IO.FileStream]::new(${systemIndexStateFile}, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+                    [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
+                    $global:systemStateLock = [System.IO.FileStream]::new($workspace.SystemIndexStateFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
                 }
             }
         }
@@ -704,7 +704,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $tasks.CompleteAdding()
         $settings = @{
             Lib = "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
-            Paths = @{ indexDir = "$root\index"; workDir = $root; tmpDir = "$root\tmp"; publishDir = "$root\publish" }
+            WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
             Lane = ${laneReader}
