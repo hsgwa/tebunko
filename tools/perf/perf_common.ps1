@@ -63,7 +63,7 @@ function startResourceMonitor {
     $monitor = [hashtable]::Synchronized(@{
         Stop = $false; Phase = "準備"; Clock = [System.Diagnostics.Stopwatch]::StartNew()
         Samples = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
-        Phases = New-Object System.Collections.Generic.List[hashtable]
+        Phases = New-Object System.Collections.Generic.List[hashtable]; PhaseChannel = $phaseChannel
     })
     $sampler = {
         param ($monitor, $sampleMs, $takeText, $phaseChannel)
@@ -129,11 +129,19 @@ function stopResourceMonitor {
         $monitor
     )
 
-    # 記録のスレッドを先に止める（段階を自分で切り替えるスレッドが、閉じた段階をまた開かないように）
-    $monitor.Stop = $true
+    if ($null -eq $monitor.PhaseChannel) {
+        setMonitorPhase $monitor ""
+        $monitor.Stop = $true
+    } else {
+        # 記録のスレッドが段階を切り替えるとき（phaseChannel あり）は、閉じた段階をまた開かないよう、先に止めてから閉じる
+        $monitor.Stop = $true
+        [void]$monitor.PowerShell.EndInvoke($monitor.Handle)
+        setMonitorPhase $monitor ""
+        $monitor.PowerShell.Dispose()
+        return , @($monitor.Samples.ToArray())
+    }
     [void]$monitor.PowerShell.EndInvoke($monitor.Handle)
     $monitor.PowerShell.Dispose()
-    setMonitorPhase $monitor ""
     return , @($monitor.Samples.ToArray())
 }
 

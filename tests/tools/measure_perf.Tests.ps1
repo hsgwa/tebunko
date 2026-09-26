@@ -202,6 +202,7 @@ Describe "取り込みの計測の部品（ingest_common.ps1）" -Tag Unit {
     It "<name>は失敗にする" -TestCases @(
         @{ name = "取り込みの段階が読めなかったとき"; phases = @(@{ Name = "クロール"; StartMs = 0; EndMs = 500 }, @{ Name = "仕上げ"; StartMs = 500; EndMs = 700 }); message = "*取り込みの段階が読めませんでした*" }
         @{ name = "段階が 1 つも読めなかったとき"; phases = @(); message = "*取り込みの段階が読めませんでした*" }
+        @{ name = "最初に読めた段階がクロールでないとき（記録の開始が遅れた）"; phases = @(@{ Name = "取り込み"; StartMs = 0; EndMs = 500 }, @{ Name = "仕上げ"; StartMs = 500; EndMs = 700 }); message = "*最初に読めた段階*" }
         @{ name = "知らない段階の名前が来たとき"; phases = @(@{ Name = "取り込み"; StartMs = 0; EndMs = 500 }, @{ Name = "整理"; StartMs = 500; EndMs = 700 }); message = "*知らない段階*" }
         @{ name = "閉じていない段階があるとき"; phases = @(@{ Name = "取り込み"; StartMs = 0; EndMs = $null }); message = "*閉じていません*" }
     ) {

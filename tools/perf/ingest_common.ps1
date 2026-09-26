@@ -95,6 +95,8 @@ function getIngestPhaseSeconds {
         if (!$seconds.Contains($p.Name)) { $seconds[$p.Name] = 0.0 }
         $seconds[$p.Name] += ($p.EndMs - $p.StartMs) / 1000
     }
+    # 最初に読めた段階がクロールでなければ、記録の開始が遅れて最初の段階を取りこぼしている（時間が短く出る）
+    if (@($phases).Count -gt 0 -and @($phases)[0].Name -ne $ingestPhaseNames[0]) { throw "最初に読めた段階が「$(@($phases)[0].Name)」です（記録の開始が遅れて「$($ingestPhaseNames[0])」を取りこぼした疑いがあります）。" }
     if (!$seconds.Contains($ingestPhaseIngest)) { throw "取り込みの段階が読めませんでした（受け渡しの口の Progress.Phase が変わった疑いがあります）。" }
     return $seconds
 }

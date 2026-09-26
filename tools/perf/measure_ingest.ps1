@@ -53,6 +53,10 @@ $channel = newIndexerChannel -retryFailed $false -confirmTargets $false -workers
 
 Write-Host ("取り込みを測ります（{0} ファイル・読み取りのスレッド {1}・Office: {2}）…" -f $counts.Total, $Threads, (getIngestLanes $counts))
 $monitor = startResourceMonitor $SampleMs $channel
+# 記録のスレッドの準備（Runspace・パフォーマンスカウンター）が終わり、最初の記録が入るまで待つ。
+# 待たずに取り込みを始めると、最初の段階（クロール）を取りこぼし、時間が短く出る
+for ($i = 0; $i -lt 600 -and $monitor.Samples.Count -eq 0; $i++) { Start-Sleep -Milliseconds 50 }
+if ($monitor.Samples.Count -eq 0) { throw "リソースを記録するスレッドが 30 秒たっても始まりませんでした。" }
 $exitCode = -1
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
 try {
