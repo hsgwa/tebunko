@@ -72,6 +72,10 @@ Describe "インストーラー（installer\tebunko.iss）" -Tag Meta {
         ($sources -join ", ") | Should Be "tebunko.exe, LICENSE, scripts\*"
     }
 
+    It "アンインストーラーは、tebunko のものと分かるよう uninstall\ に置く" {
+        @(getIssSection "Setup") -contains 'UninstallFilesDir={app}\uninstall' | Should Be $true
+    }
+
     It "更新のときは、前の版の scripts\ を消してから入れる" {
         @(getIssSection "InstallDelete") -contains 'Type: filesandordirs; Name: "{app}\scripts"' | Should Be $true
     }
@@ -83,11 +87,13 @@ Describe "インストーラー（installer\tebunko.iss）" -Tag Meta {
 
 Describe "インストーラーのファイルの文字コードと改行" -Tag Meta {
     # Inno Setup は BOM の無いスクリプトを ANSI として読むため、日本語が化ける
-    foreach ($path in @($launcherSource, $setupScript)) {
-        It "$([System.IO.Path]::GetFileName($path)) は BOM 付き UTF-8・CRLF" {
-            $bytes = [System.IO.File]::ReadAllBytes($path)
-            ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) | Should Be $true
-            [regex]::Matches([System.IO.File]::ReadAllText($path), "(?<!`r)`n").Count | Should Be 0
-        }
+    It "<name> は BOM 付き UTF-8・CRLF" -TestCases @(
+        @{ name = "tebunko.cs"; path = $launcherSource }
+        @{ name = "tebunko.iss"; path = $setupScript }
+    ) {
+        param ($name, $path)
+        $bytes = [System.IO.File]::ReadAllBytes($path)
+        ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) | Should Be $true
+        [regex]::Matches([System.IO.File]::ReadAllText($path), "(?<!`r)`n").Count | Should Be 0
     }
 }

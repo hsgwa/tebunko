@@ -57,6 +57,8 @@ AppMutex=tebunko-installed-app
 CloseApplications=no
 SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\tebunko.exe
+; アンインストーラー（Inno Setup が unins000.exe と名付ける。名前を変える設定は無い）は、tebunko のものと分かるよう uninstall\ に置く
+UninstallFilesDir={app}\uninstall
 UninstallDisplayName=tebunko
 WizardStyle=modern
 Compression=lzma2/max
