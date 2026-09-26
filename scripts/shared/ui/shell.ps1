@@ -170,16 +170,6 @@ function newTimer {
     return $timer
 }
 
-function testSamePath {
-    # フォルダ選択ダイアログの中で、2つのパスが同じ書き方かを見る（末尾の \ ・大文字と小文字の違いは無視する）
-    param (
-        [string]$a,
-        [string]$b
-    )
-
-    return [string]::Equals(([string]$a).TrimEnd("\"), ([string]$b).TrimEnd("\"), [System.StringComparison]::OrdinalIgnoreCase)
-}
-
 function formatTime {
     # 当日なら HH:mm、それ以前は M/d HH:mm
     param (

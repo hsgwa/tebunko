@@ -84,6 +84,12 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
         (findPattern $code 'DllImport|GetDelegateForFunctionPointer') | Should Be ""
     }
 
+    It "内部の型（NonPublic）をリフレクションで呼ぶのは、フォルダ選択の 1 か所だけ" {
+        # Windows 標準のフォルダ選択を、実行時コンパイルなしで開くため（docs/04_安全性.md 2.1）
+        (@($code | Where-Object { $_.Text -match 'NonPublic|Reflection\.BindingFlags' -and $_.File -ne "folder_dialog.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
+        (@($code | Where-Object { $_.File -eq "folder_dialog.ps1" -and $_.Text -match 'NonPublic' }).Count) | Should Be 1
+    }
+
     It "実行時にコードをコンパイルしない（Add-Type は標準アセンブリの読み込みだけ）" {
         $addType = @($code | Where-Object { $_.Text -match 'Add-Type' })
         # Add-Type がある行は、すべて -AssemblyName（アセンブリの読み込み）であること
