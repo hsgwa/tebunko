@@ -319,17 +319,23 @@ $window.Add_Loaded({
 
 # ---- 起動 ----
 
-loadTargets
-updateSettingsView
+function loadWorkspaceViews {
+    # ワークスペースの中身（インデックスの一覧・取り込みの状態・検索対象のツリー・件数）を画面に読み込む。
+    # 起動したときと、［8 設定］でワークスペースを変えたとき（settings_tab.ps1 の switchWorkspace）に呼ぶ
+    loadTargets
+    updateSettingsView
+    refreshIndexingState
+    loadIndexTree
+    checkFastSearchAvailable
+    refreshIndexSummary
+}
+
 setSearchOptionToUi (readSearchOption)
 setOpenMode (readOpenMode)
 updateOpenMenu
-refreshIndexingState
-loadIndexTree
+loadWorkspaceViews
 updateWordNotice
-checkFastSearchAvailable
 updateKillBadge
-refreshIndexSummary
 
 # 起動時のタブ：インデックス作成が中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
 $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
@@ -378,10 +384,4 @@ try {
     $activateEvent.Close()
     $mutex.ReleaseMutex()
     $mutex.Dispose()
-    # ワークスペースを変えたときは、新しいワークスペースで開き直す（ワークスペースの中のファイルの場所は、読み込み時に決まるため）。
-    # 多重起動の判定に掛からないよう、ミューテックスを放してから起動する
-    if ($script:restartRequested) {
-        Start-Process -FilePath "powershell.exe" -WindowStyle Hidden `
-            -ArgumentList "-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$PSCommandPath`""
-    }
 }

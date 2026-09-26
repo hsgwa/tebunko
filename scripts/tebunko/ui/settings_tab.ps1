@@ -1,6 +1,5 @@
 ﻿# ［8 設定］タブ（ワークスペース・設定ファイルの場所）。文言と可否の判定は settings_view.ps1。
 
-$script:restartRequested = $false  # ワークスペースを変えたため、閉じたあと開き直す（gui.ps1）
 ${workspaceCountLimit} = 1000      # 選んだフォルダの中身を数える上限（大きなフォルダで待たせない）
 
 function updateSettingsView {
@@ -80,7 +79,7 @@ function getFolderEntrySample {
 }
 
 function applyWorkspace {
-    # 確かめてからワークスペースを保存し、画面を開き直す（ワークスペースの中のファイルの場所は、読み込み時に決まるため）
+    # 確かめてからワークスペースを保存し、画面をそのワークスペースに切り替える
     param (
         [string]$folder,
         [bool]$requireEmpty   # 空のフォルダを求める（［変更…］）。空でなければ警告する
@@ -126,8 +125,21 @@ function applyWorkspace {
     }
 
     writeWorkspaceFolder $folder
-    $script:restartRequested = $true
-    $window.Close()
+    switchWorkspace
+}
+
+function switchWorkspace {
+    # 設定のワークスペースに切り替える。画面は開き直さない。
+    # 関数は既定値で $workspace の場所を使い、裏のスレッドには場所を渡しているため、$workspace を差し替えれば新しい場所を使う
+    # （docs/00_共通_2_共通モジュール.md 5.1.1）。インデックス作成中・削除中は testWorkspaceChangeable が止めている
+    clearSearchView
+    $script:workspace = [Workspace]::new((getWorkDir))
+    $script:workspaceBlock = getWorkspaceBlockMessage
+    $script:indexingState = $null
+    $script:indexSummary = $null
+    $ui.IndexingProgressPanel.Visibility = "Collapsed"
+    loadWorkspaceViews
+    setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
 }
 
 # ---- イベント ----

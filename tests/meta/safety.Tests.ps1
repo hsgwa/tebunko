@@ -133,9 +133,9 @@ Describe "危険な処理を使っていないこと（docs/04_安全性.md 2.1�
         (findPattern $code 'Invoke-Command|New-PSSession|Enter-PSSession|WinRM') | Should Be ""
     }
 
-    It "外部プロセスの起動は explorer.exe と自分自身（powershell.exe）だけ" {
+    It "外部プロセスの起動は explorer.exe だけ" {
         $starts = @($code | Where-Object { $_.Text -match 'Start-Process' })
-        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe|powershell\.exe' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
+        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should Be ""
     }
 
     It "プロセスの強制終了は office_process.ps1 の 1 か所だけ（画面の［9 プロセス停止］）" {

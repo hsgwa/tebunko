@@ -83,7 +83,7 @@ function newWorkspaceConfirm {
                 @{ Kind = "next"; Title = "このフォルダにはまだインデックスがありません"; Detail = "［インデックス作成を開始］で、一覧のフォルダを取り込み直します" },
                 $keptCurrent)
             Hint    = $hint
-            Choices = @(@{ Text = "ワークスペースを変えて、画面を開き直す"; Detail = ""; Value = "change"; Careful = $false })
+            Choices = @(@{ Text = "ワークスペースを変える"; Detail = ""; Value = "change"; Careful = $false })
         }
     }
 
