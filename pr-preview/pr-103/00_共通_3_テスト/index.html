@@ -1547,7 +1547,7 @@
 <h3 id="60-品質の関門の一覧">6.0 品質の関門の一覧<a class="headerlink" href="#60-品質の関門の一覧" title="Permanent link">&para;</a></h3>
 <p>変更は、手元のコミット → PR → main → リリースの順に、次の関門を通る。main へは PR 経由でしか入れられず（ブランチ保護）、必須チェックが通らないとマージできない。</p>
 <pre class="mermaid"><code>flowchart LR
-    C["コミット"] --&gt; H1["pre-commit フック&lt;br&gt;check_commit.ps1 -Staged&lt;br&gt;run.ps1 -Tag Unit,Meta"]
+    C["コミット"] --&gt; H1["pre-commit フック&lt;br&gt;check_commit.ps1 -Staged&lt;br&gt;run_commit_tests.ps1"]
     C --&gt; H2["commit-msg フック&lt;br&gt;check_commit_message.ps1&lt;br&gt;check_signoff.ps1"]
     H1 &amp; H2 --&gt; PR["PR"]
     PR --&gt; R1["test（test.yml）"]
@@ -2025,6 +2025,10 @@
 <td><code>check_markdown_links.ps1</code></td>
 <td>あるファイル・フォルダ・見出しへのリンクを通し、切れたリンクを止める、コードの中のリンクは調べない、1 行に複数あるリンクをそれぞれ調べる</td>
 </tr>
+<tr>
+<td><code>measure_perf.ps1</code></td>
+<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Office ファイルの読み取り（<code>tests/shared/office/office_reader</code>）</strong></p>
@@ -2279,7 +2283,7 @@
 </tr>
 <tr>
 <td><code>tests/tools/</code></td>
-<td>開発用の道具（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_markdown_links</code>）</td>
+<td>開発用の道具（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_markdown_links</code>・<code>measure_perf</code>）</td>
 </tr>
 <tr>
 <td><code>tests/meta/</code></td>
@@ -2450,6 +2454,13 @@
 <td>テストのうえ、配布 zip を GitHub Release に載せる</td>
 <td>–</td>
 </tr>
+<tr>
+<td><code>perf.yml</code></td>
+<td><code>perf</code></td>
+<td>手動（<code>workflow_dispatch</code>）</td>
+<td>pack の作成・検索の速さとリソースの推移を測る</td>
+<td>–</td>
+</tr>
 </tbody>
 </table>
 <p><strong><code>test.yml</code></strong></p>
@@ -2515,6 +2526,30 @@ git push origin v0.1.0
 <div class="highlight"><pre><span></span><code>pip install --require-hashes -r tools/mkdocs/requirements.txt
 mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
+<p><strong><code>perf.yml</code>（性能とリソースの計測）</strong></p>
+<p>手動で起動し、決まった量のデータで、インデックス作成と検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。大きな変更の前後で数字を比べるときなどに使う。必須のチェックではない。</p>
+<div class="highlight"><pre><span></span><code>gh workflow run perf.yml -f ref=&lt;測る ref&gt; -f scale=0.1
+</code></pre></div>
+<ul>
+<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）</li>
+<li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（pack 形式より前の版）では、エラーメッセージを出して止まる</li>
+<li>データは <a href="https://github.com/hsgwa/tebunko-perfdata">tebunko-perfdata</a> の <code>new_index.ps1</code> で毎回生成する（取り込みの一時置き場と同じ形の TSV）。使う版は <code>perf.yml</code> の <code>PERFDATA_SHA</code> でコミットに固定する。検索する語は同じリポジトリの <code>words.tsv</code>（0 件・まれ（3 件）・大量・正規表現）</li>
+<li>測るもの（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）</li>
+<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、ランナーに Office が無いので測らない。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る</li>
+<li>検索 … 語ごとに新しいプロセスを起動し、同じプロセスで <code>count</code> 回続けて検索する（上限 1 万件）。画面と同じく、検索の司令のスレッド（<code>newSearchService</code>）を 1 つ作り、要求（<code>newSearchRequest</code>）を順に送る。<code>lib.ps1</code> の読み込みと照合のスレッドの用意は司令のスレッドが始めに 1 回だけ行うので、1 回目の時間に含まれる。検索のキャッシュも画面と同じくプロセスで 1 つを持ち続ける。語ごとに、検索時間の最小・中央値・平均・最大と、その内訳（列挙・照合）を出す。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。高速検索は、ランナーに Windows Search が無いので使わない<ul>
+<li>司令のスレッドが無い版（#102 より前）は、その版の画面と同じく、検索のたびに新しい Runspace で <code>lib.ps1</code> を読み込んで測る（内訳に読み込みの時間も出す）。どちらで測ったかは結果の <code>SearchMode</code>（<code>service</code> / <code>runspace</code>）に出るので、#102 の前後を同じワークフローで比べられる</li>
+</ul>
+</li>
+<li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）</li>
+<li>OS のファイルキャッシュは空にしない。pack は作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
+<li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
+<li><code>summary.md</code> … Summary と同じ内容</li>
+<li><code>result.json</code> … すべての数字。形式の版（<code>Schema</code>）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む</li>
+<li><code>metrics.csv</code> … 1 行 1 指標の縦長の形（<code>run_id, date, ref, sha, scale, metric, word, stat, value, unit</code>）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）</li>
+<li><code>searches.csv</code>（検索 1 回ごと）・<code>resource-index.csv</code>・<code>resource-search.csv</code>（リソースの記録）</li>
+<li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、pack の作成の時間は 5 割ほどぶれることがある</li>
+<li>手元でも同じ計測スクリプトで測れる（<code>.\tools\measure_perf.ps1 -Index &lt;TSV のフォルダ&gt; -Work &lt;作業フォルダ&gt; -Words &lt;words.tsv&gt;</code>）。渡した TSV は pack に変換され、元の TSV は削除される</li>
+</ul>
 <h4 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h4>
 <p>clone したら 1 回だけ次を実行する。<code>core.hooksPath</code> を <code>tools/hooks</code> にし、コミットのたびに <code>tools/hooks/pre-commit</code> と <code>tools/hooks/commit-msg</code> が動く（git worktree で作ったツリーでも、そのツリーのフックが動く）。</p>
 <div class="highlight"><pre><span></span><code>.\tools\install_hooks.ps1              有効にする
@@ -2539,8 +2574,8 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <tr>
 <td><code>pre-commit</code></td>
 <td>2</td>
-<td><code>tests/run.ps1 -Tag Unit,Meta -Quiet</code>：速いテスト（<code>Io</code> を含む既定のテストと静的解析は CI で行う）。失敗したテストだけを表示する</td>
-<td>1 分強</td>
+<td><code>tools/run_commit_tests.ps1</code>：ステージした変更に対応するテストだけを、既定のタグ（<code>Unit</code>・<code>Io</code>・<code>Meta</code>）で流す。失敗したテストだけを表示する。選び方は下の表。全テストと静的解析は CI で行う</td>
+<td>変更による（文書だけなら 20 秒ほど、全部流すと 1 分半ほど）</td>
 </tr>
 <tr>
 <td><code>commit-msg</code></td>
@@ -2556,6 +2591,50 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 </tr>
 </tbody>
 </table>
+<p><code>run_commit_tests.ps1</code> は、ステージした変更（名前の変更は、消したファイルと足したファイルに分ける）から流すテストを選ぶ。<code>-List -Files &lt;パス&gt;</code> で、選んだテストを流さずに出せる。</p>
+<table>
+<thead>
+<tr>
+<th>変更したファイル</th>
+<th>流すテスト</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/&lt;パス&gt;.ps1</code></td>
+<td><code>tests/&lt;パス&gt;.Tests.ps1</code> と <code>meta/structure</code>・<code>meta/layers</code>（<code>scripts/tebunko/indexer.ps1</code> は <code>tests/tebunko/indexer/indexer.Tests.ps1</code>）</td>
+</tr>
+<tr>
+<td><code>scripts/</code> の <code>.xaml</code></td>
+<td><code>meta/structure</code></td>
+</tr>
+<tr>
+<td><code>tests/</code> の <code>*.Tests.ps1</code></td>
+<td>そのテスト</td>
+</tr>
+<tr>
+<td><code>tools/&lt;名前&gt;.ps1</code></td>
+<td><code>tests/tools/&lt;名前&gt;.Tests.ps1</code>（無ければ流さない）。<code>check_markdown_links.ps1</code> は <code>meta/links</code> も</td>
+</tr>
+<tr>
+<td><code>tests/testdata/scrub_personal.ps1</code></td>
+<td><code>tests/testdata/scrub_personal.Tests.ps1</code></td>
+</tr>
+<tr>
+<td><code>.md</code>・<code>docs/</code> の中</td>
+<td><code>meta/links</code></td>
+</tr>
+<tr>
+<td>対応するテストが無い・消した <code>scripts/</code> の <code>.ps1</code>、<code>tests/</code> のほかのファイル（<code>run.ps1</code>・<code>helpers/</code>・<code>testdata/</code> など）</td>
+<td>速いテスト（<code>Unit</code>・<code>Meta</code>）を全部</td>
+</tr>
+<tr>
+<td>それ以外（<code>.github/</code>・画像・設定など）</td>
+<td>流さない</td>
+</tr>
+</tbody>
+</table>
+<p>文字コードは <code>check_commit.ps1 -Staged</code> が確かめるため、<code>meta/encoding</code> はフックでは流さない。</p>
 <p>引っかかったら内容を直す。<code>git commit --no-verify</code> で飛ばしても、CI で同じ検査が走る（コミットメッセージは、squash merge で main のコミットになる PR のタイトルを CI が確かめる）。フックは git for Windows の sh が読むため LF で保存する（<code>.gitattributes</code> で固定）。</p>
 <h4 id="公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査（<code>tools/check_commit.ps1</code>）<a class="headerlink" href="#公開してはいけない内容の検査toolscheck_commitps1" title="Permanent link">&para;</a></h4>
 <p>リポジトリは公開しているため、履歴に一度でも入れたら公開されたのと同じになる（AGENTS.md「個人情報を書かない」）。これを機械的に止める。手元では <code>-Staged</code> でステージした内容を、CI では追跡している全ファイルと全コミットを調べる。</p>
