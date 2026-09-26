@@ -3,6 +3,7 @@
   docs/index.md の本文は GitHub で読むときのためのもので、サイトではここで組み立てた内容を出す。
   画像・リンクは url フィルタでページからの相対にする（PR のプレビュー pr-preview/pr-<番号>/ でも切れない）。
   アイコンは Material テーマが持つ SVG を埋め込む（外部から読み込まない）。
+  文面は、初めて見た人に価値がすぐ伝わることを優先する（使い方のページはマニュアルの文体）。
 -#}
 {% extends "main.html" %}
 
@@ -12,23 +13,23 @@
     <div class="md-grid md-typeset tb-hero__inner">
       <div class="tb-hero__text">
         <img class="tb-hero__logo" src="{{ 'images/logo.svg' | url }}" alt="" width="72" height="72">
-        <h1 class="tb-hero__title">Office 文書の<br>全文検索ツール</h1>
+        <h1 class="tb-hero__title">Office 文書の中身を、<br>数秒で横断検索。</h1>
         <p class="tb-hero__lead">
-          Excel・Word・PowerPoint のファイルを内容の文字列で横断検索し、<strong>該当するファイル・シート（ページ・スライド）・行</strong>を特定します。
+          共有フォルダに蓄積された数千の Excel・Word・PowerPoint から、探している言葉が<strong>どのファイルの、どのシートの、何行目にあるか</strong>を一覧で表示。ダブルクリックで、その箇所を直接開きます。
         </p>
         <div class="tb-hero__actions">
           <a class="md-button md-button--primary tb-hero__primary" href="https://github.com/hsgwa/tebunko/releases/latest">
-            {% include ".icons/material/download.svg" %} ダウンロード
+            {% include ".icons/material/download.svg" %} 無料でダウンロード
           </a>
-          <a class="md-button tb-hero__secondary" href="{{ 'guide/' | url }}">
-            ドキュメント
+          <a class="md-button tb-hero__secondary" href="{{ 'guide/quickstart/' | url }}">
+            使い方を見る
           </a>
         </div>
         <ul class="tb-hero__facts">
           <li>Windows 10 / 11</li>
           <li>Microsoft Office</li>
           <li>管理者権限不要</li>
-          <li>MIT License</li>
+          <li>オープンソース（MIT）</li>
         </ul>
       </div>
       <figure class="tb-hero__shot">
@@ -42,68 +43,90 @@
 
 {% block content %}
   <section class="tb-section">
-    <h2 class="tb-section__title">主な機能</h2>
+    <h2 class="tb-section__title">こんな場面で</h2>
+    <p class="tb-section__lead">ファイルを 1 つずつ開いて探していた時間が、検索 1 回で済みます。</p>
     <div class="tb-cards tb-cards--3">
       <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/lightning-bolt.svg" %}</span>
-        <h3>インデックスによる高速検索</h3>
-        <p>ファイルから抽出した文字列を索引データ（インデックス）として保存し、検索時はインデックスのみを照合します。100 万行（約 70MB）のインデックスを 1〜2 秒で検索します。</p>
+        <span class="tb-card__icon">{% include ".icons/material/file-table-outline.svg" %}</span>
+        <h3>過去の見積書から単価を調べる</h3>
+        <p>取引先名や品名で検索し、該当する見積書のシートと行を特定。数年分の Excel を開き直す必要はありません。</p>
       </div>
       <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/map-marker-outline.svg" %}</span>
-        <h3>該当箇所の特定</h3>
-        <p>該当箇所をファイル・シート（ページ・スライド）・行の単位で表示します。元のファイルを直接開くことができ、Excel では該当するセルを選択した状態で開きます。</p>
+        <span class="tb-card__icon">{% include ".icons/material/book-search-outline.svg" %}</span>
+        <h3>規程や手順書の記載箇所を探す</h3>
+        <p>キーワードで Word の規程集を横断検索し、該当する文書とページを一覧で確認。その場で元の文書を開けます。</p>
       </div>
       <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/shape-outline.svg" %}</span>
-        <h3>図形・コメントも検索対象</h3>
-        <p>セル・段落に加え、図形・テキストボックス・コメント内の文字列も検索します。.xls・.doc・.ppt などの旧形式にも対応しています。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/package-variant-closed.svg" %}</span>
-        <h3>導入が容易</h3>
-        <p>動作に必要なのは Windows と Microsoft Office のみです。管理者権限や追加のソフトウェアは不要で、zip の展開またはインストーラーで導入できます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/update.svg" %}</span>
-        <h3>差分取り込み</h3>
-        <p>2 回目以降のインデックス作成では、追加・変更されたファイルのみを取り込みます。中断した処理は次回に再開でき、作成中も検索を実行できます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon">{% include ".icons/material/shield-check-outline.svg" %}</span>
-        <h3>ネットワーク通信なし</h3>
-        <p>ネットワーク通信を一切行いません。処理の範囲を公開し、変更のたびに自動テストで検証しています。</p>
+        <span class="tb-card__icon">{% include ".icons/material/folder-account-outline.svg" %}</span>
+        <h3>引き継いだ資料の全体像をつかむ</h3>
+        <p>顧客名や案件名で検索するだけで、関連する提案書・議事録・報告書がまとめて見つかります。</p>
       </div>
     </div>
   </section>
 
   <section class="tb-section">
-    <h2 class="tb-section__title">利用の流れ</h2>
+    <h2 class="tb-section__title">tebunko の特長</h2>
+    <div class="tb-cards tb-cards--3">
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/lightning-bolt.svg" %}</span>
+        <h3>数秒で結果が出る</h3>
+        <p>文書の文字をあらかじめ索引（インデックス）にまとめておくため、100 万行規模でも検索は 1〜2 秒。検索のたびにファイルを開く待ち時間はありません。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/crosshairs-gps.svg" %}</span>
+        <h3>該当箇所へ直行</h3>
+        <p>ファイル・シート（ページ・スライド）・行まで特定し、一致した文字を強調表示。Excel は該当セルを選択した状態で開きます。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/shape-outline.svg" %}</span>
+        <h3>図形やコメントの中まで</h3>
+        <p>セルや本文に加え、図形・テキストボックス・コメント内の文字も検索対象。.xls・.doc・.ppt の旧形式にも対応します。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/briefcase-check-outline.svg" %}</span>
+        <h3>会社の PC でそのまま使える</h3>
+        <p>必要なのは Windows と Microsoft Office だけ。管理者権限、追加のソフトウェア、設定の変更は一切不要です。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/update.svg" %}</span>
+        <h3>更新は変更分だけ</h3>
+        <p>2 回目以降は、追加・変更されたファイルだけを取り込み。変更が無ければ数秒で、常に最新の内容を検索できます。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon">{% include ".icons/material/shield-check-outline.svg" %}</span>
+        <h3>外部と通信しない</h3>
+        <p>ネットワーク通信は一切行いません。処理の範囲をすべて公開し、変更のたびに自動テストで検証しています。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="tb-section">
+    <h2 class="tb-section__title">使い始めるまで 3 ステップ</h2>
     <ol class="tb-steps">
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">1</span>
         <div>
-          <h3>フォルダの登録</h3>
-          <p>［1 インデックス管理］で、検索対象のファイルを格納したフォルダを登録します。共有フォルダにも対応しています。</p>
+          <h3>フォルダを登録</h3>
+          <p>検索したいファイルがあるフォルダを追加します。共有フォルダやネットワークドライブにも対応しています。</p>
         </div>
       </li>
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">2</span>
         <div>
-          <h3>インデックスの作成</h3>
-          <p>［インデックス作成を開始］で、ファイルから文字列を抽出してインデックスを作成します。所要時間の目安は 300 ファイルで約 3 分です。</p>
+          <h3>インデックスを作成</h3>
+          <p>ボタン 1 つで、ファイルの文字を検索用の索引にまとめます。300 ファイルで約 3 分。作成中も検索できます。</p>
         </div>
       </li>
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">3</span>
         <div>
-          <h3>検索と表示</h3>
-          <p>［2 検索］で検索ワードを入力して検索します。検索結果から、元のファイルの該当箇所を開きます。</p>
+          <h3>検索して開く</h3>
+          <p>言葉を入力して Enter。結果をダブルクリックすれば、元のファイルの該当箇所が開きます。</p>
         </div>
       </li>
     </ol>
     <p class="tb-center">
-      <a class="md-button" href="{{ 'guide/quickstart/' | url }}">クイックスタート</a>
+      <a class="md-button" href="{{ 'guide/quickstart/' | url }}">クイックスタートを見る</a>
     </p>
   </section>
 
@@ -113,12 +136,12 @@
       <a class="tb-card tb-card--link" href="{{ 'guide/' | url }}">
         <span class="tb-card__icon">{% include ".icons/material/book-open-page-variant-outline.svg" %}</span>
         <h3>使い方</h3>
-        <p>インストール、インデックスの作成、検索、トラブルシューティング。</p>
+        <p>インストールから検索、トラブルシューティングまで。</p>
       </a>
       <a class="tb-card tb-card--link" href="{{ 'safety/' | url }}">
         <span class="tb-card__icon">{% include ".icons/material/shield-search.svg" %}</span>
         <h3>安全性</h3>
-        <p>導入を審査する方向け。処理の範囲、その根拠、および検証手順。</p>
+        <p>導入を審査する方へ。何をして何をしないか、その根拠と検証方法。</p>
       </a>
       <a class="tb-card tb-card--link" href="{{ 'design/' | url }}">
         <span class="tb-card__icon">{% include ".icons/material/sitemap-outline.svg" %}</span>
@@ -128,7 +151,7 @@
       <a class="tb-card tb-card--link" href="https://github.com/hsgwa/tebunko">
         <span class="tb-card__icon">{% include ".icons/fontawesome/brands/github.svg" %}</span>
         <h3>GitHub</h3>
-        <p>ソースコード、リリース、Issue による不具合報告と問い合わせ。</p>
+        <p>ソースコード、リリース、不具合の報告・お問い合わせ。</p>
       </a>
     </div>
   </section>

@@ -154,6 +154,12 @@
   text-align: center;
 }
 
+.md-typeset .tb-section__lead {
+  margin: -0.6rem 0 1.4rem;
+  text-align: center;
+  color: var(--md-default-fg-color--light);
+}
+
 .tb-center {
   text-align: center;
 }
