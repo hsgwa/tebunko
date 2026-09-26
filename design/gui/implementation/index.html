@@ -2729,6 +2729,10 @@
 <td>インデックス作成の確認ダイアログ（<a href="../index-tab/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。インデックスごとの取り込み対象の件数（受け渡しの口の <code>Plan</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
 </tr>
 <tr>
+<td><code>scripts/tebunko/xaml/dialog_about.xaml</code></td>
+<td>「tebunko について」ダイアログ（タブ右上の［⋯］メニュー。<a href="../#画面構成">画面構成</a>）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。<code>ui/about_dialog.ps1</code> が開く</td>
+</tr>
+<tr>
 <td><code>scripts/shared/xaml/dialog_confirm.xaml</code></td>
 <td>確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）。見出し・結果の一覧（<code>ItemsControl</code> に <code>ConfirmFact</code> をバインド）・補足だけを定義し、ボタンは場面ごとに違うため <code>shared/ui/shell.ps1</code> の <code>showConfirm</code> が組み立てて <code>ButtonPanel</code> / <code>ChoicePanel</code> に入れる</td>
 </tr>
@@ -2769,8 +2773,12 @@
 <td>［9 プロセス停止］タブ（<a href="../process-tab/">［9 プロセス停止］タブ</a>）。定期的な一覧の取り直しとタブ見出しの ⚠ の判定は <code>startJob</code> で行う（ボタンでの取り直しは画面のスレッドで行う）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code></td>
-<td>画面の<strong>判断層</strong>。「何を出すか」を決める部分を <code>$ui</code> に触らない関数として切り出したもの（入力は素の値、出力は素の値）。色は意味（<code>info</code> / <code>ok</code> / <code>warn</code> / <code>ng</code> / <code>gray</code>）で返し、実際の色はタブ側で対応表から引く。Pester でテストする（<a href="../../testing/#画面の単体テスト">画面の単体テスト</a>）</td>
+<td><code>scripts/tebunko/ui/about_dialog.ps1</code></td>
+<td>タブ右上の［⋯］メニューと「tebunko について」ダイアログ（<code>dialog_about.xaml</code>）。［⋯］は <code>Button.ContextMenu</code> を <code>Click</code> で開く（左クリック・キーボードの両方で開けるよう、右クリックでしか開かない既定の動きをコードで補う）。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code><br><code>about_view.ps1</code></td>
+<td>画面の<strong>判断層</strong>。「何を出すか」を決める部分を <code>$ui</code> に触らない関数として切り出したもの（入力は素の値、出力は素の値）。色は意味（<code>info</code> / <code>ok</code> / <code>warn</code> / <code>ng</code> / <code>gray</code>）で返し、実際の色はタブ側で対応表から引く。<code>about_view.ps1</code> の <code>getAboutView</code> は、版の記録（<code>scripts/shared/core/version.ps1</code> の <code>readVersionFile</code>）から画面に出す版・コミットの文字列を決める。Pester でテストする（<a href="../../testing/#画面の単体テスト">画面の単体テスト</a>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/lib.ps1</code></td>
@@ -2778,7 +2786,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>tebunko/lib.ps1</code> の関数のうち、画面が使うものは次のとおり（引数・戻り値・内容は <a href="../../architecture/modules/#関数一覧">共通モジュール</a> の関数一覧にある）：<code>isValidRegex</code>・<code>getIndexPackFiles</code>・<code>testIndexExists</code>・<code>getIndexSummary</code>・<code>newSearchRegex</code>・<code>searchPackIndex</code>・<code>toSearchResultLines</code>・<code>writeSearchResult</code>・<code>readPackContext</code>・<code>getSourceLocation</code>・<code>resolveSourcePath</code>・<code>findMovedSource</code>・<code>setIndexSourceFolder</code>・<code>getTargetFolders</code>・<code>writeTargetFolders</code>・<code>normalizeFolderPath</code>・<code>readSearchOption</code>・<code>writeSearchOption</code>・<code>readOpenMode</code>・<code>writeOpenMode</code>・<code>getSearchIndexes</code>・<code>newSearchService</code>・<code>newSearchRequest</code>・<code>newIndexingSession</code>・<code>newIndexerChannel</code>・<code>readIndexingProgress</code>・<code>requestIndexingStop</code>・<code>answerIndexingPlan</code>・<code>testIndexerRunning</code>・<code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>getIndexingState</code>・<code>getOfficeProcesses</code>・<code>stopOfficeProcesses</code>。</p>
+<p><code>tebunko/lib.ps1</code> の関数のうち、画面が使うものは次のとおり（引数・戻り値・内容は <a href="../../architecture/modules/#関数一覧">共通モジュール</a> の関数一覧にある）：<code>isValidRegex</code>・<code>getIndexPackFiles</code>・<code>testIndexExists</code>・<code>getIndexSummary</code>・<code>newSearchRegex</code>・<code>searchPackIndex</code>・<code>toSearchResultLines</code>・<code>writeSearchResult</code>・<code>readPackContext</code>・<code>getSourceLocation</code>・<code>resolveSourcePath</code>・<code>findMovedSource</code>・<code>setIndexSourceFolder</code>・<code>getTargetFolders</code>・<code>writeTargetFolders</code>・<code>normalizeFolderPath</code>・<code>readSearchOption</code>・<code>writeSearchOption</code>・<code>readOpenMode</code>・<code>writeOpenMode</code>・<code>getSearchIndexes</code>・<code>newSearchService</code>・<code>newSearchRequest</code>・<code>newIndexingSession</code>・<code>newIndexerChannel</code>・<code>readIndexingProgress</code>・<code>requestIndexingStop</code>・<code>answerIndexingPlan</code>・<code>testIndexerRunning</code>・<code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>getIndexingState</code>・<code>getOfficeProcesses</code>・<code>stopOfficeProcesses</code>・<code>readVersionFile</code>。</p>
 <h3 id="待たせ方の方針画面を固まらせない">待たせ方の方針（画面を固まらせない）<a class="headerlink" href="#待たせ方の方針画面を固まらせない" title="Permanent link">&para;</a></h3>
 <p><strong>画面が「応答なし」になることは、処理が長いこと自体よりも利用者を不安にさせる</strong>（壊れたと思って強制終了され、インデックス作成が中断して Office のプロセスが残る）。そのため、次を守る。</p>
 <table>

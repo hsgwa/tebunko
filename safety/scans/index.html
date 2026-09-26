@@ -2702,7 +2702,7 @@
 <h1 id="第三者のツールによる検査結果">第三者のツールによる検査結果<a class="headerlink" href="#第三者のツールによる検査結果" title="Permanent link">&para;</a></h1>
 <p>本ツールの作者以外が作ったツールでの検査結果を示す。<a href="#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>〜<a href="#実行環境の制約との適合">実行環境の制約との適合</a> は誰でも同じコマンドで再現できる。</p>
 <h2 id="配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）<a class="headerlink" href="#配布物の完全性カタログハッシュ一覧来歴の署名" title="Permanent link">&para;</a></h2>
-<p>GitHub Release の配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）は、<code>v</code> で始まるタグを push したときに <code>.github/workflows/release.yml</code> が作る。作る前に <code>test.yml</code> と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンスだけを入れ、確認用のファイルは zip と並べてリリースに載せる（<code>tools/new_release_package.ps1</code>）。<code>docs/</code>・<code>tests/</code>・<code>work/</code>・<code>setting.config</code> はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。</p>
+<p>GitHub Release の配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）は、<code>v</code> で始まるタグを push したときに <code>.github/workflows/release.yml</code> が作る。作る前に <code>test.yml</code> と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンス・版の記録だけを入れ、確認用のファイルは zip と並べてリリースに載せる（<code>tools/new_release_package.ps1</code>）。<code>docs/</code>・<code>tests/</code>・<code>work/</code>・<code>setting.config</code> はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。</p>
 <table>
 <thead>
 <tr>
@@ -2726,6 +2726,11 @@
 <td><code>LICENSE</code></td>
 <td>zip の中</td>
 <td>ライセンス（MIT。写しに許諾表示を含めるため同梱する）</td>
+</tr>
+<tr>
+<td><code>VERSION.txt</code></td>
+<td>zip の中</td>
+<td>版とコミットの記録（タグ名とコミットの SHA の2行。<code>tools/new_version_text.ps1</code> が作る。画面の「tebunko について」に出す）</td>
 </tr>
 <tr>
 <td><code>tebunko-setup-&lt;タグ&gt;.exe</code></td>

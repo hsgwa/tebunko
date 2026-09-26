@@ -2525,7 +2525,7 @@
 <tbody>
 <tr>
 <td>構成物</td>
-<td><strong>zip 版</strong>: Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko.bat</code>、アイコン <code>tebunko.ico</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない。<strong>インストーラー版</strong>: 同じスクリプトに、起動用の <code>tebunko.exe</code>（本リポジトリのソースからビルド）と、Inno Setup のインストーラー・アンインストーラーが加わる</td>
+<td><strong>zip 版</strong>: Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko.bat</code>、アイコン <code>tebunko.ico</code>、版とコミットの記録 <code>VERSION.txt</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない。<strong>インストーラー版</strong>: 同じスクリプトに、起動用の <code>tebunko.exe</code>（本リポジトリのソースからビルド）と、Inno Setup のインストーラー・アンインストーラーが加わる</td>
 <td>zip の中身は <code>tools/new_release_package.ps1</code>、インストーラーの中身は <code>installer/tebunko.iss</code> が決める（<code>installer.Tests.ps1</code>）</td>
 <td><a href="scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>・<a href="disclosure/#インストーラー版">インストーラー版</a></td>
 </tr>

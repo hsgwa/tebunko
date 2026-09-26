@@ -2928,12 +2928,17 @@
 <tr>
 <td><code>tools/new_release_package.ps1</code></td>
 <td>配布用</td>
-<td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../../testing/ci/#ci">CI</a>）</td>
+<td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE・VERSION.txt）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../../testing/ci/#ci">CI</a>）</td>
 </tr>
 <tr>
 <td><code>tools/new_installer.ps1</code></td>
 <td>配布用</td>
-<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を <code>work/release/</code> に作る。起動口 <code>tebunko.exe</code> を Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドし、<code>scripts/</code>・<code>LICENSE</code> と並べて Inno Setup 7 の <code>ISCC.exe</code> に渡す。<code>release.yml</code> が実行する。手元で作るときは Inno Setup 7 を入れておく（<code>-Iscc</code> で場所を指定できる）</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を <code>work/release/</code> に作る。起動口 <code>tebunko.exe</code> を Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドし、<code>scripts/</code>・<code>LICENSE</code>・<code>VERSION.txt</code> と並べて Inno Setup 7 の <code>ISCC.exe</code> に渡す。<code>release.yml</code> が実行する。手元で作るときは Inno Setup 7 を入れておく（<code>-Iscc</code> で場所を指定できる）</td>
+</tr>
+<tr>
+<td><code>tools/new_version_text.ps1</code></td>
+<td>配布用</td>
+<td>配布物に入れる <code>VERSION.txt</code> の中身（タグ名とコミットの SHA の2行。BOM 付き UTF-8・CRLF）を作る。<code>new_release_package.ps1</code>・<code>new_installer.ps1</code> が共通で呼ぶ。<code>VERSION.txt</code> は zip のエントリー・インストーラーのステージにだけ作り、リポジトリの作業ツリーには書かない（開発中に git のチェックアウトから起動すると「開発版」と出る）</td>
 </tr>
 <tr>
 <td><code>tools/new_icon.ps1</code></td>
