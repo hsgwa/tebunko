@@ -41,7 +41,11 @@
       },
       {
         "name": "tebunko:note",
-        "value": "配布物に実行可能バイナリ（.exe / .dll）・第三者ライブラリ・パッケージマネージャー（NuGet・npm・PyPI）由来の部品を含まない。したがって第三者部品に由来する既知脆弱性（CVE）とライセンス義務が発生しない。"
+        "value": "ツール本体に第三者ライブラリ・パッケージマネージャー（NuGet・npm・PyPI）由来の部品を含まない。したがって第三者部品に由来する既知脆弱性（CVE）とライセンス義務が発生しない。zip 版は実行可能バイナリ（.exe / .dll）も含まない。"
+      },
+      {
+        "name": "tebunko:note",
+        "value": "インストーラー版（tebunko-setup-<版>.exe）は Inno Setup（https://jrsoftware.org/isinfo.php、Inno Setup License）で作る。インストーラーとアンインストーラー（unins000.exe）の本体は Inno Setup のもので、インストールとアンインストールのときだけ動き、ツールの実行中には使わない。"
       },
       {
         "name": "tebunko:note",
@@ -56,6 +60,13 @@
       "group": "tebunko",
       "name": "tebunko.bat",
       "description": "起動用バッチ。Mark-of-the-Web を解除し、RemoteSigned で画面を開く"
+    },
+    {
+      "type": "file",
+      "bom-ref": "tebunko.exe",
+      "group": "tebunko",
+      "name": "tebunko.exe",
+      "description": "インストーラー版の起動口。installer/tebunko.cs を Windows 標準の csc.exe でビルドする。RemoteSigned で画面を開く（zip 版には入れない）"
     },
     {
       "type": "file",
@@ -104,7 +115,7 @@
       "bom-ref": "scripts/tebunko/tebunko.ico",
       "group": "tebunko",
       "name": "scripts/tebunko/tebunko.ico",
-      "description": "画面のアイコン（同梱する唯一のバイナリ）。元データは docs/images/logo.svg（リポジトリの管理者が作成）で、tools/new_icon.ps1 で作る"
+      "description": "画面のアイコン（zip に同梱する唯一のバイナリ）。元データは docs/images/logo.svg（リポジトリの管理者が作成）で、tools/new_icon.ps1 で作る"
     }
   ],
   "dependencies": [
@@ -112,6 +123,7 @@
       "ref": "tebunko",
       "dependsOn": [
         "tebunko.bat",
+        "tebunko.exe",
         "scripts/tebunko/gui.ps1",
         "scripts/tebunko/indexer.ps1",
         "scripts/tebunko/lib.ps1",

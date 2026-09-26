@@ -3,6 +3,9 @@
 *.ps1 text eol=crlf
 *.xaml text eol=crlf
 *.bat text eol=crlf
+# インストーラー（Inno Setup のスクリプトと、起動口 tebunko.exe のソース）も Windows の道具が読むため CRLF にする
+*.iss text eol=crlf
+*.cs text eol=crlf
 
 # git のフックは git for Windows の sh が読むため、LF で取り出す
 tools/hooks/* text eol=lf

@@ -138,6 +138,7 @@ function switchWorkspace {
     $script:indexingState = $null
     $script:indexSummary = $null
     $ui.IndexingProgressPanel.Visibility = "Collapsed"
+    updateSettingsView
     loadWorkspaceViews
     setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
 }

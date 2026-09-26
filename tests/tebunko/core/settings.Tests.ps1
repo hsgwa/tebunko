@@ -311,8 +311,8 @@ Describe "readSearchOption / writeSearchOption" -Tag Io {
 }
 
 Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
-    It "設定が無ければ、既定の場所（%USERPROFILE%\Documents\tebunko）" {
-        getWorkDir "$TestDrive\既定\setting.config" | Should Be (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko")
+    It "設定が無ければ、既定の場所（%USERPROFILE%\Documents\tebunko_ws）" {
+        getWorkDir "$TestDrive\既定\setting.config" | Should Be (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws")
     }
 
     It "保存したフォルダを返し、ほかの設定は保つ" {
@@ -341,8 +341,8 @@ Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
 }
 
 Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -Tag Io {
-    It "既定はプロファイルの Documents\tebunko（OneDrive のドキュメントではない）" {
-        getDefaultWorkDir "C:\Users\test" | Should Be "C:\Users\test\Documents\tebunko"
+    It "既定はプロファイルの Documents\tebunko_ws（OneDrive のドキュメントではない）" {
+        getDefaultWorkDir "C:\Users\test" | Should Be "C:\Users\test\Documents\tebunko_ws"
     }
 
     It "無い・空・前から使っているワークスペースなら使える" {

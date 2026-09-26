@@ -6,11 +6,12 @@
 #   git push origin v1.0.0
 #
 # zip の中身はツール本体（tebunko.bat・scripts\）と README.md・LICENSE だけにする。
+# zip と並べて、インストーラー（tebunko-setup-<タグ>.exe。Inno Setup で作る。tools\new_installer.ps1）も載せる（docs\04_安全性.md 4.6）。
 # 改ざんの確認用のカタログ（tebunko.cat）・ハッシュ一覧（SHA256SUMS.txt）と部品表（sbom.cdx.json）は、zip と並べてリリースに載せる（docs\04_安全性.md 5.1）。
 # SECURITY は zip に入れず、README とリリースの説明からリンクする。
-# zip 自体の SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
-# zip のビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
-# 署名の bundle（tebunko-<タグ>.zip.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。
+# zip とインストーラーの SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
+# zip とインストーラーのビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
+# 署名の bundle（tebunko-<タグ>.zip.sigstore.json・tebunko-setup-<タグ>.exe.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。
 name: release
 
 on:
@@ -42,11 +43,37 @@ jobs:
         shell: powershell
         run: .\tools\new_release_package.ps1 -Version $env:GITHUB_REF_NAME
 
+      # Inno Setup は、版を決めて公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。
+      # 版を上げるときは、URL と SHA256 を一緒に直す。6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため、7.1.0 にした
+      - name: Inno Setup を入れる
+        shell: powershell
+        env:
+          INNO_URL: https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe
+          INNO_SHA256: 0362A383ED217D4C4239B5933866DD96D3EB2102737DA92F80F6057A4B40DF2F
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup.exe"
+          $dir = Join-Path $env:RUNNER_TEMP "inno"
+          Invoke-WebRequest -Uri $env:INNO_URL -OutFile $installer -UseBasicParsing
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
+          if ($hash -ne $env:INNO_SHA256) { throw "Inno Setup の SHA256 が違います: $hash" }
+          $p = Start-Process -FilePath $installer -ArgumentList "/CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOICONS /PORTABLE=1 /TASKS=`"`" /DIR=`"$dir`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Inno Setup を入れられませんでした（終了コード $($p.ExitCode)）" }
+
+      - name: インストーラーを作る
+        shell: powershell
+        run: .\tools\new_installer.ps1 -Version $env:GITHUB_REF_NAME -Iscc (Join-Path $env:RUNNER_TEMP "inno\ISCC.exe")
+
       - name: 配布物の来歴に署名する
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: work/release/tebunko-${{ github.ref_name }}.zip
+
+      - name: インストーラーの来歴に署名する
+        id: attest-setup
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: work/release/tebunko-setup-${{ github.ref_name }}.exe
 
       # pwsh（PowerShell 7）で動かす。ランナーは run の内容を BOM なしの UTF-8 のファイルにして実行するが、
       # Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため、説明に書く日本語が化ける
@@ -55,22 +82,32 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          SETUP_BUNDLE_PATH: ${{ steps.attest-setup.outputs.bundle-path }}
         run: |
           $zip = "work\release\tebunko-$env:GITHUB_REF_NAME.zip"
           $bundle = "$zip.sigstore.json"
           Copy-Item -LiteralPath $env:BUNDLE_PATH -Destination $bundle
+          $setup = "work\release\tebunko-setup-$env:GITHUB_REF_NAME.exe"
+          $setupBundle = "$setup.sigstore.json"
+          Copy-Item -LiteralPath $env:SETUP_BUNDLE_PATH -Destination $setupBundle
           $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+          $setupHash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
           $repo = "https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_REF_NAME"
           $notes = @(
             "使い方: [README]($repo/README.md)"
+            ""
+            "- インストールして使う: ``tebunko-setup-$env:GITHUB_REF_NAME.exe``（管理者権限は要りません。署名が無いため、Windows の警告が出たら［詳細情報］→［実行］）"
+            "- 展開して使う（実行ファイルを含みません）: ``tebunko-$env:GITHUB_REF_NAME.zip``"
             ""
             "安全性・脆弱性の連絡先: [SECURITY]($repo/.github/SECURITY.ja.md)"
             ""
             "配布 zip の SHA256: ``$hash``"
             ""
-            "来歴の確認: ``gh attestation verify tebunko-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``"
+            "インストーラーの SHA256: ``$setupHash``"
+            ""
+            "来歴の確認: ``gh attestation verify tebunko-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``（インストーラーも同じ）"
             ""
             "改ざんの確認（zip を展開したフォルダで、ダウンロードした tebunko.cat を指定する）: ``Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <tebunko.cat> -Detailed``"
           ) -join "`n"
-          gh release create $env:GITHUB_REF_NAME $zip $bundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
+          gh release create $env:GITHUB_REF_NAME $zip $bundle $setup $setupBundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

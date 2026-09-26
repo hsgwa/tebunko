@@ -1,0 +1,18 @@
+﻿<!-- 起動中の表示。gui.ps1 がスクリプトを読み込む前に出し、画面（tebunko.xaml）が描き終わったら閉じる。
+     早く出すため theme.xaml は読み込まず、色は theme.xaml と同じ値を直接書く
+     （Bg.Window・Border.Normal・Ink.Strong・Ink.Muted・Accent・Border.Soft）。 -->
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="tebunko" Width="360" Height="120"
+        WindowStyle="None" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
+        Background="#F6F7F9" BorderBrush="#D7DBE0" BorderThickness="1"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+  <StackPanel VerticalAlignment="Center" Margin="24,0">
+    <TextBlock Text="tebunko" FontSize="18" FontWeight="SemiBold" Foreground="#1F2937" />
+    <TextBlock Text="起動しています…" Margin="0,4,0,12" Foreground="#78828F" />
+    <ProgressBar x:Name="SplashProgress" Height="4" Minimum="0" Maximum="100" Value="0"
+                 Foreground="#2563EB" Background="#E9ECF0" BorderThickness="0" />
+  </StackPanel>
+</Window>
