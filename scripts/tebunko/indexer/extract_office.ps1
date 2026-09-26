@@ -74,7 +74,7 @@ function copyDataRangeToTempSheet {
         return $temp
     } catch {
         # ブックの構成が保護されている場合など。元のシートをそのまま書き出す（時間切れで失敗することがある）
-        Write-Host "    $($worksheet.Name) の使用範囲を縮められませんでした: $($_.Exception.Message)" -ForegroundColor Yellow
+        writeIndexerLog "    $($worksheet.Name) の使用範囲を縮められませんでした: $($_.Exception.Message)" "Yellow"
         if ($temp) {
             $temp.Delete()
             releaseComObject $temp
@@ -111,7 +111,7 @@ function extractWorkbook {
         try {
             $objectUnits = readXlsxObjectUnits $copyPath
         } catch {
-            Write-Host "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" -ForegroundColor Yellow
+            writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
         }
     }
 
@@ -238,6 +238,11 @@ function extractWithPowerPoint {
     }
 }
 
+# 読み取りのスレッド（Office を持たない）なら $true。Office が要るファイルは「Office が要る」の例外にする
+$script:officeUnavailable = $false
+# Office が要るときの例外の文言（invokeIngestTask が見分けて、司令に回し直しを頼む）
+${officeRequiredMessage} = "このファイルの取り込みには Word・PowerPoint が要ります。"
+
 function extractDocument {
     # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す
     param (
@@ -260,6 +265,11 @@ function extractDocument {
             # Wordはテキスト・HTML・RTFも正しく読めるため、そのまま Word で開く
             if (!$isWord -and !(isCompoundFile $copyPath)) {
                 throw "ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。"
+            }
+
+            # 読み取りのスレッド（Office を持たない）では、Office のレーンに回す（indexer_run.ps1 の runIngestWorker・invokeIngestTask）
+            if ($script:officeUnavailable) {
+                throw (New-Object System.OperationCanceledException ${officeRequiredMessage})
             }
 
             # Word・PowerPointは拡張子と中身が異なるファイル（中身が .doc の .docx 等）を開けないため、

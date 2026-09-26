@@ -11,49 +11,10 @@ $script:sourceFolderMaps = @{}  # インデックスのフォルダ → イン�
 $script:filterText = ""
 # 検索で読んだ集約ファイルの内容（画面を閉じるまで残し、次の検索では更新の無い集約ファイルをファイルから読まない）
 $script:tsvCache = newTsvTextCache
+# 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）
+$script:searchService = newSearchService ${libPath} $script:tsvCache
 # Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
 $script:fastAvailable = $null
-
-# 別スレッドで実行する検索（結果は $shared.Queue に少しずつ入れる）
-${searchScript} = {
-    param ($libPath, $word, $simpleMatch, $folders, $limit, $shared, $cache)
-    try {
-        . $libPath
-        # 高速検索が使えるなら、Windows Search で検索語を含みうるフォルダを先に絞る（使えなければ $null で、すべてを集める）
-        $index = $null
-        if ($shared.UseFast) {
-            $shared.FastAvailable = testWindowsSearch
-            if ($shared.FastAvailable) {
-                $index = getFastSearchPackFiles $word $folders -onProgress { param ($count) $shared.Scanned = $count }
-            }
-        }
-        $shared.FastUsed = ($null -ne $index)
-        if ($null -eq $index) {
-            # 途中の件数を画面に伝える（止まって見えないように）
-            $index = getIndexPackFiles $folders { param ($count) $shared.Scanned = $count }
-        }
-        $shared.Folders = $index.Folders
-        $shared.Total = $index.Packs.Count
-        $shared.IndexTotal = $index.Packs.Count
-        # 検索条件（大文字・小文字の区別・対象ファイル）は startSearch が $shared に入れる
-        $result = searchPackIndex $word $index.Packs $simpleMatch $limit -caseSensitive $shared.CaseSensitive -fileFilter $shared.FileFilter -cache $cache `
-            -includeShapes $shared.IncludeShapes -includeComments $shared.IncludeComments -onProgress {
-            param ($done, $total, $newHits)
-            foreach ($hit in $newHits) {
-                $shared.Queue.Enqueue($hit)
-            }
-            $shared.Total = $total
-            $shared.Done = $done
-        } -shouldStop { $shared.Stop }
-        $shared.Total = $result.Total
-        $shared.Truncated = $result.Truncated
-        $shared.Cancelled = $result.Cancelled
-    } catch {
-        $shared.Error = $_.Exception.Message
-    } finally {
-        $shared.Finished = $true
-    }
-}
 
 # 検索ワード（前後の空白を除く）
 function getWordText {
@@ -91,10 +52,8 @@ function updateFastSearchView {
 function checkFastSearchAvailable {
     # Windows Search が使えるか（system_index が索引の対象か）を別スレッドで確かめる（画面を固めないように）
     startJob {
-        param ($libPath)
-        . $libPath
         testWindowsSearch
-    } @(${libPath}) {
+    } @() {
         param ($output, $errorText)
         $script:fastAvailable = if ($errorText -or $output.Count -eq 0) { $false } else { [bool]$output[0] }
         updateFastSearchView
@@ -171,21 +130,10 @@ function startSearch {
     }
     $ui.IndexColumn.Visibility = if (@($folders | ForEach-Object { (splitIndexRelPath ([string]$_.RelPath)).Name } | Sort-Object -Unique).Count -gt 1) { "Visible" } else { "Collapsed" }
 
-    $shared = [hashtable]::Synchronized(@{
-        Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
-        Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Folders = $null; Scanned = 0
-        Truncated = $false; Cancelled = $false; Error = $null
-        UseFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable; FastUsed = $false; FastAvailable = $null
-        CaseSensitive = $option.CaseSensitive; FileFilter = $option.FileFilter
-        IncludeShapes = $option.IncludeShapes; IncludeComments = $option.IncludeComments
-    })
-    $ps = [powershell]::Create()
-    [void]$ps.AddScript(${searchScript}.ToString())
-    foreach ($argument in @(${libPath}, $word, $simpleMatch, $folders, ${searchLimit}, $shared, $script:tsvCache)) {
-        [void]$ps.AddArgument($argument)
-    }
+    $useFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable
+    $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders ${searchLimit} $option $useFast))
     $script:search = @{
-        PS = $ps; Handle = $ps.BeginInvoke(); Shared = $shared
+        Shared = $shared
         Word = $word; Pattern = $pattern; SimpleMatch = $simpleMatch; UseRegex = $useRegex; Option = $option; Start = Get-Date
     }
 
@@ -254,6 +202,11 @@ function pumpSearch {
         }
     }
 
+    if (!$shared.Finished -and !$script:searchService.IsRunning()) {
+        # 司令のスレッドが止まった（lib.ps1 を読み込めなかった等）。次の検索で作り直す
+        $shared.Error = $script:searchService.GetFailure()
+        $shared.Finished = $true
+    }
     if ($shared.Finished -and $shared.Queue.IsEmpty) {
         finishSearch
     }
@@ -263,11 +216,6 @@ function finishSearch {
     $s = $script:search
     $script:search = $null
     $script:searchTimer.Stop()
-    try {
-        [void]$s.PS.EndInvoke($s.Handle)
-    } catch {
-    }
-    $s.PS.Dispose()
 
     $shared = $s.Shared
     $ui.SearchProgress.Visibility = "Collapsed"

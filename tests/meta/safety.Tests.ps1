@@ -227,7 +227,8 @@ Describe "書き込み先が限られていること（docs/04_安全性.md 3.1�
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
         # %TEMP%\tebunko\<PID> に原本のコピーが残り続けないこと（docs/04_安全性.md 4.4）
         (findPattern $code 'function removeStaleTmpDirs') | Should Not Be ""
-        (findPattern $code '^removeStaleTmpDirs') | Should Not Be ""
+        # インデックス作成の始め（invokeIndexer の本体）で呼ぶ
+        (findPattern $code '^\s+removeStaleTmpDirs$') | Should Not Be ""
     }
 }
 

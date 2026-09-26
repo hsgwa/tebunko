@@ -1,4 +1,4 @@
-﻿# インデックス作成の状態を表すファイル（取り込み一覧・取り込み中・進捗・予定・開始要求）の読み書き。
+﻿# インデックス作成の状態（取り込み一覧・取り込み中のファイル）の読み書きと、画面とインデクサの受け渡しの口・ログ。
 
 function newStatusRow {
     # 取り込み一覧の1行（1ファイル）を作る
@@ -206,34 +206,38 @@ function addStatusRow {
     [System.IO.File]::AppendAllText($path, "$(toStatusLine $row)`r`n", ${utf8Bom})
 }
 
-function readIngestingFile {
-    # 取り込み中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて取り込みを始めて終わらなかった回数 } を返す。
-    # 記録が無い・壊れている場合は $null
+function readIngestingFiles {
+    # 取り込み中のファイルの記録を読み、@{ RelPath = 相対パス; Count = 続けて取り込みを始めて終わらなかった回数 } の配列を返す。
+    # 取り込みを複数のスレッドで行うため、1 行に 1 ファイル。記録が無ければ空。壊れた行は読み飛ばす
     param (
         [string]$path = ${ingestingFile}
     )
 
-    $lines = @(readListFile $path)
-    if ($lines.Count -eq 0) {
-        return $null
+    $result = New-Object System.Collections.Generic.List[hashtable]
+    foreach ($line in @(readListFile $path)) {
+        $fields = $line.Split("`t")
+        $count = 0
+        if ($fields.Count -ne 2 -or -not [int]::TryParse($fields[0], [ref]$count) -or $count -lt 1 -or $fields[1] -eq "") {
+            continue
+        }
+        $result.Add(@{ RelPath = $fields[1]; Count = $count })
     }
-    $fields = $lines[0].Split("`t")
-    $count = 0
-    if ($fields.Count -ne 2 -or -not [int]::TryParse($fields[0], [ref]$count) -or $count -lt 1 -or $fields[1] -eq "") {
-        return $null
-    }
-    return @{ RelPath = $fields[1]; Count = $count }
+    return , $result.ToArray()
 }
 
-function writeIngestingFile {
-    # 取り込みを始めるファイルを "回数<TAB>相対パス" で記録する。取り込みが終われば removeIngestingFile で消す
+function writeIngestingFiles {
+    # 取り込み中のファイル（@{ RelPath; Count } の並び）を "回数<TAB>相対パス" で記録する。無ければ記録を消す
     param (
-        [string]$relPath,
-        [int]$count,
+        [object[]]$entries,
         [string]$path = ${ingestingFile}
     )
 
-    writeListFile $path @("${count}`t${relPath}")
+    $lines = @($entries | Where-Object { $_ } | ForEach-Object { "$($_.Count)`t$($_.RelPath)" })
+    if ($lines.Count -eq 0) {
+        removeIngestingFile $path
+        return
+    }
+    writeListFile $path $lines
 }
 
 function removeIngestingFile {
@@ -246,79 +250,128 @@ function removeIngestingFile {
     }
 }
 
+# ----------------------------------------------------------------------------
+# 画面（または indexer.ps1）とインデクサの受け渡しの口（docs/00_共通_4_プロセスとスレッド.md 7.5）
+# ----------------------------------------------------------------------------
+
+function newIndexerChannel {
+    # 受け渡しの口を作る。画面とインデクサのスレッドの両方から読み書きするため Synchronized にする。
+    #   画面が書く      : RetryFailed・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer
+    #   インデクサが書く: Progress（readIndexingProgress の形）・Plan（取り込み予定）・Error・ExitCode（0 完了 / 1 エラー / 2 中止）
+    #   OfficePids: インデックス作成が起動した Office の PID → プロセス名（閉じるときに止まらなければ、この PID だけを止める）
+    param (
+        [bool]$retryFailed = $false,
+        [bool]$confirmTargets = $false,
+        [int]$workers = -1
+    )
+
+    return [hashtable]::Synchronized(@{
+        RetryFailed = $retryFailed; ConfirmTargets = $confirmTargets; Workers = $workers
+        Progress = $null; Stop = $false
+        Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
+        Error = ""; ExitCode = $null
+        OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+    })
+}
+
+# いま動いているインデックス作成の受け渡しの口（invokeIndexer が入れる。$null なら進み具合を伝えない）
+$script:indexerChannel = $null
+
 function writeIndexingProgress {
-    # インデックス作成の進み具合を1行で書く（画面が読む）。書き込みは1ファイルにつき1回で、インデックス作成の速さに影響しない大きさにする。
-    #   "<段階><TAB><処理済み><TAB><残り><TAB><失敗><TAB><いま行っていること>"
-    # 画面が読んでいる最中でも書けるよう、共有を許して開く
+    # インデックス作成の進み具合を受け渡しの口に入れる（画面が 1 秒ごとに読む）
     param (
         [string]$phase,
         [int]$processed = 0,
         [int]$remaining = 0,
         [int]$failed = 0,
         [string]$detail = "",
-        [string]$path = ${indexingProgressFile}
+        $channel = $script:indexerChannel
     )
 
-    $line = "{0}`t{1}`t{2}`t{3}`t{4}" -f $phase, $processed, $remaining, $failed, ($detail -replace "[\t\r\n]+", " ")
-    try {
-        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-        try {
-            $bytes = ${utf8Bom}.GetPreamble() + ${utf8Bom}.GetBytes($line)
-            $stream.Write($bytes, 0, $bytes.Length)
-        } finally {
-            $stream.Dispose()
-        }
-    } catch {
-        # 進み具合の表示のためだけのファイルのため、書けなくてもインデックス作成は続ける
+    if ($null -ne $channel) {
+        $channel.Progress = @{ Phase = $phase; Processed = $processed; Remaining = $remaining; Failed = $failed; Detail = ($detail -replace "[\t\r\n]+", " ") }
     }
 }
 
 function readIndexingProgress {
-    # インデックス作成の進み具合を読む（無い・壊れていれば $null）。画面が毎秒呼ぶため、1行だけ読む
+    # インデックス作成の進み具合（@{ Phase; Processed; Remaining; Failed; Detail }）を返す。まだ無ければ $null
     param (
-        [string]$path = ${indexingProgressFile}
+        $channel
     )
 
-    if (!(Test-Path -LiteralPath $path)) {
+    if ($null -eq $channel) {
         return $null
     }
-    # インデクサが書いている最中でも読めるよう、共有を許して開く
-    $text = ""
-    try {
-        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-        $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
-        try {
-            $text = $reader.ReadToEnd()
-        } finally {
-            $reader.Dispose()
-        }
-    } catch {
-        return $null  # 書き込みと重なった等。次の機会に読む
-    }
-
-    $fields = (($text -split "\r?\n")[0]).Split("`t")
-    if ($fields.Count -lt 5) {
-        return $null  # 書き込みの途中
-    }
-    $numbers = @(0, 0, 0)
-    for ($i = 0; $i -lt 3; $i++) {
-        $value = 0
-        if (-not [int]::TryParse($fields[$i + 1], [ref]$value)) {
-            return $null
-        }
-        $numbers[$i] = $value
-    }
-    return @{ Phase = $fields[0]; Processed = $numbers[0]; Remaining = $numbers[1]; Failed = $numbers[2]; Detail = $fields[4] }
+    return $channel.Progress
 }
 
-function removeIndexingProgress {
+function requestIndexingStop {
+    # 中止を求める。取り込みはファイルの切れ目で止まる。確認を待っていれば、取りやめの返事にする
     param (
-        [string]$path = ${indexingProgressFile}
+        $channel
     )
 
-    if (Test-Path -LiteralPath $path) {
-        Remove-Item -LiteralPath $path -Force
+    $channel.Stop = $true
+    [void]$channel.Answered.Set()
+}
+
+function answerIndexingPlan {
+    # 確認の返事を返す。取り込む → @{ RetryFailed } ／ 取りやめ → $null
+    param (
+        $channel,
+        $answer
+    )
+
+    $channel.Answer = $answer
+    if ($null -eq $answer) {
+        $channel.Stop = $true
+    }
+    [void]$channel.Answered.Set()
+}
+
+function testIndexerRunning {
+    # この work でインデックス作成が動いているか（画面のスレッド・画面を使わない indexer.ps1 のどちらでも）。
+    # インデックス作成が持つ鍵（newAppMutex "indexer"）を取れるかで調べ、取れたらすぐ放す
+    param (
+        [string]$dir = ${workDir}
+    )
+
+    $mutex = newAppMutex "indexer" $dir
+    try {
+        return !$mutex.Acquired
+    } finally {
+        if ($mutex.Acquired) {
+            $mutex.Mutex.ReleaseMutex()
+        }
+        $mutex.Mutex.Dispose()
+    }
+}
+
+# インデックス作成のログ（invokeIndexer が開く TextWriter。取り込みのスレッドでは 1 ファイル分を貯める StringWriter）
+$script:indexerLog = $null
+# ログをコンソールにも出すか（画面を使わずに indexer.ps1 を実行したとき）
+$script:indexerEcho = $false
+
+function writeIndexerLog {
+    # インデックス作成の表示内容をログ（インデックス作成ログ.txt）に書く。color はコンソールに出すときの色
+    param (
+        [string]$text = "",
+        [string]$color = ""
+    )
+
+    if ($null -ne $script:indexerLog) {
+        try {
+            $script:indexerLog.WriteLine($text)
+        } catch {
+            # ログのためだけの書き込みのため、書けなくてもインデックス作成は続ける
+        }
+    }
+    if ($script:indexerEcho) {
+        if ($color) {
+            Write-Host $text -ForegroundColor $color
+        } else {
+            Write-Host $text
+        }
     }
 }
 
@@ -348,128 +401,6 @@ function newIngestPlanRow {
         前回未完了     = $pending
         インデックスなし   = $lost
         前回失敗       = $failed
-    }
-}
-
-function writeIngestPlan {
-    # 取り込み予定を書き出す（インデックス1件1行）。画面は数える前から読むため、
-    # 途中の状態を読ませないよう一時ファイルに書いてから置き換える
-    param (
-        [object[]]$rows,
-        [string]$path = ${ingestPlanFile}
-    )
-
-    $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add((${ingestPlanColumns} -join "`t"))
-    foreach ($row in @($rows | Where-Object { $_ })) {
-        $values = foreach ($column in ${ingestPlanColumns}) { ([string]$row.$column) -replace "[\t\r\n]+", " " }
-        $lines.Add([string]::Join("`t", @($values)))
-    }
-    writeTextLinesAtomic $path $lines
-}
-
-function readIngestPlan {
-    # 取り込み予定を読む。ファイルが無い・列が合わない場合は $null（画面は次の機会に読み直す）。
-    # 件数の列は数値にして返す
-    param (
-        [string]$path = ${ingestPlanFile}
-    )
-
-    if (!(Test-Path -LiteralPath $path)) {
-        return $null
-    }
-    # インデクサが置き換えている最中でも読めるよう、共有を許して開く
-    $text = ""
-    try {
-        $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-        $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-        $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
-        try {
-            $text = $reader.ReadToEnd()
-        } finally {
-            $reader.Dispose()
-        }
-    } catch {
-        return $null  # 置き換えと重なった等。次の機会に読む
-    }
-
-    $lines = @($text -split "\r?\n")
-    if ($lines.Count -eq 0 -or $lines[0] -ne (${ingestPlanColumns} -join "`t")) {
-        return $null
-    }
-    $rows = New-Object System.Collections.Generic.List[object]
-    for ($i = 1; $i -lt $lines.Count; $i++) {
-        $fields = $lines[$i].Split("`t")
-        if ($fields.Count -ne ${ingestPlanColumns}.Count) {
-            continue  # 空行・書き込みの途中
-        }
-        $row = [ordered]@{}
-        for ($c = 0; $c -lt ${ingestPlanColumns}.Count; $c++) {
-            $column = ${ingestPlanColumns}[$c]
-            $value = $fields[$c]
-            if ($c -ge 3) {
-                # 件数の列。数値にできない場合は 0 とする
-                $number = 0
-                [void][int]::TryParse($value, [ref]$number)
-                $value = $number
-            }
-            $row[$column] = $value
-        }
-        $rows.Add([pscustomobject]$row)
-    }
-    return , @($rows.ToArray())
-}
-
-function removeIngestPlan {
-    param (
-        [string]$path = ${ingestPlanFile}
-    )
-
-    if (Test-Path -LiteralPath $path) {
-        Remove-Item -LiteralPath $path -Force
-    }
-}
-
-function writeIndexingStartRequest {
-    # 画面が「取り込む」を選んだことをインデクサに伝える（前回失敗したファイルも再取り込みするかも伝える）。
-    # インデクサが読んでいる途中の内容を見ないよう、一時ファイルに書いてから置き換える
-    param (
-        [bool]$retryFailed = $false,
-        [string]$path = ${indexingStartRequestFile}
-    )
-
-    $lines = @()
-    if ($retryFailed) {
-        $lines = @(${retryFailedMark})
-    }
-    writeTextLinesAtomic $path $lines
-}
-
-function readIndexingStartRequest {
-    # 画面からの「取り込む」の返事を読む。まだ無ければ $null
-    param (
-        [string]$path = ${indexingStartRequestFile}
-    )
-
-    if (!(Test-Path -LiteralPath $path)) {
-        return $null
-    }
-    $lines = @()
-    try {
-        $lines = @(readListFile $path)
-    } catch {
-        return $null  # 置き換えと重なった等。次の機会に読む
-    }
-    return @{ RetryFailed = (@($lines | Where-Object { $_.Trim() -eq ${retryFailedMark} }).Count -gt 0) }
-}
-
-function removeIndexingStartRequest {
-    param (
-        [string]$path = ${indexingStartRequestFile}
-    )
-
-    if (Test-Path -LiteralPath $path) {
-        Remove-Item -LiteralPath $path -Force
     }
 }
 

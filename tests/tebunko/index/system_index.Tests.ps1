@@ -244,32 +244,31 @@ Describe "updateSystemIndexes" -Tag Io {
         $index = newIndexTree "$TestDrive\u1"
         $system = "$TestDrive\u1\system_index"
         $path = "$TestDrive\u1\state.tsv"
-        $result = updateSystemIndexes $index $system $path "$TestDrive\u1\stop"
+        $result = updateSystemIndexes $index $system $path { $false }
         $result.Built | Should Be 2
         $result.Unfinished | Should Be 0
         $state = readSystemIndexState $path
         $state.Covered.Contains("営業") | Should Be $true
         $state.Pending.Count | Should Be 2
-        (updateSystemIndexes $index $system $path "$TestDrive\u1\stop").Built | Should Be 0
+        (updateSystemIndexes $index $system $path { $false }).Built | Should Be 0
     }
 
     It "無くなったインデックスの txt と状態の行を消す" {
         $index = newIndexTree "$TestDrive\u2"
         $system = "$TestDrive\u2\system_index"
         $path = "$TestDrive\u2\state.tsv"
-        [void](updateSystemIndexes $index $system $path "$TestDrive\u2\stop")
+        [void](updateSystemIndexes $index $system $path { $false })
         Remove-Item -LiteralPath "$index\営業" -Recurse
-        [void](updateSystemIndexes $index $system $path "$TestDrive\u2\stop")
+        [void](updateSystemIndexes $index $system $path { $false })
         [System.IO.Directory]::Exists("$system\営業") | Should Be $false
         $state = readSystemIndexState $path
         $state.Covered.Count | Should Be 0
         $state.Pending.Count | Should Be 0
     }
 
-    It "中止要求があれば作らず、そのインデックスは対応済みにしない" {
+    It "中止を求められていれば（shouldStop）作らず、そのインデックスは対応済みにしない" {
         $index = newIndexTree "$TestDrive\u3"
-        [System.IO.File]::WriteAllText("$TestDrive\u3\stop", "")
-        $result = updateSystemIndexes $index "$TestDrive\u3\system_index" "$TestDrive\u3\state.tsv" "$TestDrive\u3\stop"
+        $result = updateSystemIndexes $index "$TestDrive\u3\system_index" "$TestDrive\u3\state.tsv" { $true }
         $result.Built | Should Be 0
         $result.Unfinished | Should Be 1
         (readSystemIndexState "$TestDrive\u3\state.tsv").Covered.Count | Should Be 0
@@ -280,7 +279,7 @@ Describe "updateSystemIndexes" -Tag Io {
         It "状態ファイルに書けなければ、次のインデックス作成に回すと知らせる（対応済みにしない）" {
             $index = newIndexTree "$TestDrive\u5"
             Mock updateSystemIndexState { $false }
-            $result = updateSystemIndexes $index "$TestDrive\u5\system_index" "$TestDrive\u5\state.tsv" "$TestDrive\u5\stop"
+            $result = updateSystemIndexes $index "$TestDrive\u5\system_index" "$TestDrive\u5\state.tsv" { $false }
             $result.Built | Should Be 2
             (readSystemIndexState "$TestDrive\u5\state.tsv").Covered.Count | Should Be 0
         }
@@ -292,7 +291,7 @@ Describe "updateSystemIndexes" -Tag Io {
         [void](updateSystemIndexState { param ($s) } $path)
         $stream = [System.IO.FileStream]::new($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
         try {
-            (updateSystemIndexes $index "$TestDrive\u4\system_index" $path "$TestDrive\u4\stop").Unfinished | Should Be -1
+            (updateSystemIndexes $index "$TestDrive\u4\system_index" $path { $false }).Unfinished | Should Be -1
         } finally {
             $stream.Dispose()
         }
@@ -302,11 +301,11 @@ Describe "updateSystemIndexes" -Tag Io {
 Describe "removeIndex / renameIndex の システムインデックス" -Tag Io {
     It "インデックスを削除・名前変更すると、同じワークスペースの system_index の分を消す" {
         $index = newIndexTree "$TestDrive\ix"
-        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" "$TestDrive\ix\stop")
+        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" { $false })
         renameIndex "営業" "営業2" $index "$TestDrive\ix\取り込み一覧.tsv"
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業") | Should Be $false
         (readSystemIndexState "$TestDrive\ix\システムインデックスの状態.tsv").Covered.Count | Should Be 0
-        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" "$TestDrive\ix\stop")
+        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" { $false })
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should Be $true
         removeIndex "営業2" $index "$TestDrive\ix\取り込み一覧.tsv"
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should Be $false

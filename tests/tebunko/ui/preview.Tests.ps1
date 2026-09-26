@@ -77,6 +77,22 @@ function newTimer {
 function getCurrentHitRow {
     return $fake.Current
 }
+function startJob {
+    # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
+    # 返すまでの間に選択が変わった場合を試すため、$fake.BeforeDone があれば結果を渡す前に呼ぶ
+    param ([scriptblock]$scriptBlock, [object[]]$arguments, [scriptblock]$onDone)
+    $output = $null
+    $errorText = $null
+    try {
+        $output = @(& $scriptBlock @arguments)
+    } catch {
+        $errorText = $_.Exception.Message
+    }
+    if ($fake.BeforeDone) {
+        & $fake.BeforeDone
+    }
+    & $onDone $output $errorText
+}
 
 . "${scriptsDir}\tebunko\ui\preview.ps1"
 
@@ -221,6 +237,43 @@ Describe "showDetail" -Tag Io {
 
         $ui.OpenButton.Content | Should Be "開く"
         $ui.DetailTitle.Text | Should Be "議事録.docx ・ [ページ] 1（目安） ・ 本文 ・ 2 行目"
+    }
+
+    It "読んでいる間に別の行を選んだら、読み終えた古い行の結果は出さない" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積", "`t次")
+        $other = newHitRow "請求.xlsx" "5月" 1 @("`t請求")
+        $fake.BeforeDone = { $fake.Current = $other }
+        try {
+            showDetail
+        } finally {
+            $fake.BeforeDone = $null
+        }
+        $ui.DetailTitle.Text | Should Be ""
+        $script:previewTable | Should BeNullOrEmpty
+    }
+
+    It "後から頼んだ読み込みがあれば、先に頼んだ分の結果は捨てる" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積")
+        $fake.BeforeDone = { $script:previewRequest++ }
+        try {
+            showDetail
+        } finally {
+            $fake.BeforeDone = $null
+        }
+        $script:previewTable | Should BeNullOrEmpty
+    }
+
+    # Pester 3 の Mock は Describe の中の後のテストにも効くため、Context で囲む
+    Context "前後の行を読めないとき" {
+        It "選んだ行だけを出す" {
+            Mock readPackContext { throw "読めません" }
+            $fake.Current = newHitRow "議事録.docx" "ページ001" 2 @("はじめに", "見積の件", "おわりに") ""
+
+            showDetail
+
+            $script:previewTable.Rows.Count | Should Be 1
+            $ui.DetailTitle.Text | Should Be "議事録.docx ・ [ページ] 1（目安） ・ 本文 ・ 2 行目"
+        }
     }
 
     It "列が多すぎるときは、表示した列の範囲を知らせる" {

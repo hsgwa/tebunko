@@ -275,13 +275,13 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         } -Force
         $excel = newExcel @($sheet)
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
-        Mock Write-Host {}
+        Mock writeIndexerLog {}
 
         extractWorkbook $source | Should Be 1
         ($log | Where-Object { $_ -notlike "Open:*" -and $_ -notlike "Close:*" }) -join "|" |
             Should Be "AddSheet|Delete:一時|Activate:肥大|SaveAs:肥大:42"
         readTsv "肥大.tsv" | Should Be "元のシート`r`n"
-        Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -match "肥大 の使用範囲を縮められませんでした" }
+        Assert-MockCalled writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "肥大 の使用範囲を縮められませんでした" }
     }
 
     It "作業フォルダ＋ファイル名が長すぎて Excel で開けないときは、短い名前のコピーを開く" {
@@ -439,5 +439,36 @@ Describe "ingestFile" -Tag Io {
         ingestFile "a.XLS" | Should Be "Excel"
         ingestFile "a.docx" | Should Be "Word・PowerPoint"
         ingestFile "a.ppt" | Should Be "Word・PowerPoint"
+    }
+}
+
+Describe "extractDocument（読み取りのスレッド）" -Tag Io {
+    # 読み取りのスレッドは Office を持たない。Office が要るファイルは「Office が要る」の例外にして、Office のレーンに回してもらう
+    ${tmpDir} = Join-Path $TestDrive "reader_tmp"
+    [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+    $legacy = Join-Path $TestDrive "中身が旧形式.docx"
+    # 複合ドキュメント形式（旧形式）の先頭 8 バイト
+    [System.IO.File]::WriteAllBytes($legacy, [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1) + [byte[]]::new(504))
+    $broken = Join-Path $TestDrive "壊れた.pptx"
+    [System.IO.File]::WriteAllText($broken, "PowerPoint ではない内容")
+
+    BeforeEach { $script:officeUnavailable = $true }
+    AfterEach { $script:officeUnavailable = $false }
+
+    It "中身が旧形式なら、Office を使わずに「Office が要る」の例外にする" {
+        Mock getApp { throw "Office は使わない" }
+        $caught = $null
+        try { [void](extractDocument $legacy) } catch { $caught = $_.Exception.GetBaseException() }
+        $caught -is [System.OperationCanceledException] | Should Be $true
+        $caught.Message | Should Be ${officeRequiredMessage}
+        Assert-MockCalled getApp -Times 0 -Exactly -Scope It
+        # 作業フォルダにコピーを残さない
+        @([System.IO.Directory]::GetFiles(${tmpDir})).Count | Should Be 0
+    }
+
+    It "PowerPoint のファイルとして壊れているものは、回さずに失敗にする" {
+        Mock getApp { throw "Office は使わない" }
+        { extractDocument $broken } | Should Throw "ファイルが壊れているか、PowerPointのファイルではありません"
+        Assert-MockCalled getApp -Times 0 -Exactly -Scope It
     }
 }

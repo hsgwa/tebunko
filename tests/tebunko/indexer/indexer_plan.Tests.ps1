@@ -214,62 +214,69 @@ Describe "getBookDir" -Tag Unit {
 }
 
 Describe "waitForIndexingApproval" -Tag Io {
-    # 画面とのやり取りのファイルをテスト用のフォルダに向ける（関数は呼び出し元の変数を見る）
-    $stopRequestFile          = Join-Path $TestDrive "インデックス作成中止要求"
-    $ingestPlanFile           = Join-Path $TestDrive "取り込み予定.tsv"
-    $indexingProgressFile     = Join-Path $TestDrive "インデックス作成進捗.txt"
-    $indexingStartRequestFile = Join-Path $TestDrive "インデックス作成開始要求"
-    $approvalTimeoutMinutes   = 60
     $plan = @((newIngestPlanRow "営業" "C:\共有\営業部" ${planKindIngest} 3 2 1 1 0 0 1))
 
-    AfterEach {
-        foreach ($path in @($stopRequestFile, $ingestPlanFile, $indexingProgressFile, $indexingStartRequestFile)) {
-            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
-        }
+    function startAnswer($channel, $answer, [bool]$cancel = $false) {
+        # 画面の代わりに、別のスレッドで待たれている間の中身を控えてから返事をする
+        $ps = [powershell]::Create()
+        [void]$ps.AddScript({
+            param ($channel, $answer, $cancel)
+            while ($null -eq $channel.Plan) { Start-Sleep -Milliseconds 20 }
+            $seen = @{ Plan = @($channel.Plan); Progress = $channel.Progress }
+            if ($cancel) {
+                $channel.Stop = $true
+            } else {
+                $channel.Answer = $answer
+            }
+            [void]$channel.Answered.Set()
+            $seen
+        }).AddArgument($channel).AddArgument($answer).AddArgument($cancel)
+        return @{ PowerShell = $ps; Handle = $ps.BeginInvoke() }
     }
 
-    It "取り込み予定と確認待ちの進み具合を書いてから待ち、画面が開始を選んだら返事を返す" {
-        Mock Start-Sleep {
-            # 待っている間に書かれている内容を確かめてから、画面が開始を選ぶ
-            $script:seenPlan = @(readIngestPlan $ingestPlanFile)
-            $script:seenProgress = readIndexingProgress $indexingProgressFile
-            writeIndexingStartRequest $false $indexingStartRequestFile
-        }
-        $answer = waitForIndexingApproval $plan 2 1
+    function endAnswer($job) {
+        try { return $job.PowerShell.EndInvoke($job.Handle)[0] } finally { $job.PowerShell.Dispose() }
+    }
+
+    It "取り込み予定と確認待ちの進み具合を入れてから待ち、画面が開始を選んだら返事を返す" {
+        $channel = newIndexerChannel
+        $job = startAnswer $channel @{ RetryFailed = $false }
+        $answer = waitForIndexingApproval $channel $plan 2 1
+        $seen = endAnswer $job
         $answer.RetryFailed | Should Be $false
-        $script:seenPlan.Count | Should Be 1
-        $script:seenPlan[0].インデックス名 | Should Be "営業"
-        $script:seenProgress.Phase | Should Be ${indexingPhaseConfirm}
-        $script:seenProgress.Remaining | Should Be 2
-        $script:seenProgress.Failed | Should Be 1
-        # 返事を読んだら、開始要求と取り込み予定は消す
-        Test-Path -LiteralPath $indexingStartRequestFile | Should Be $false
-        Test-Path -LiteralPath $ingestPlanFile | Should Be $false
+        $seen.Plan.Count | Should Be 1
+        $seen.Plan[0].インデックス名 | Should Be "営業"
+        $seen.Progress.Phase | Should Be ${indexingPhaseConfirm}
+        $seen.Progress.Remaining | Should Be 2
+        $seen.Progress.Failed | Should Be 1
+        # 返事を受けたら、取り込み予定は外す
+        $channel.Plan | Should BeNullOrEmpty
     }
 
     It "画面が失敗分の再取り込みを選んだら RetryFailed を返す" {
-        Mock Start-Sleep { writeIndexingStartRequest $true $indexingStartRequestFile }
-        (waitForIndexingApproval $plan 2 1).RetryFailed | Should Be $true
+        $channel = newIndexerChannel
+        $job = startAnswer $channel @{ RetryFailed = $true }
+        (waitForIndexingApproval $channel $plan 2 1).RetryFailed | Should Be $true
+        [void](endAnswer $job)
     }
 
-    It "中止要求があれば `$null を返し、中止要求と取り込み予定を消す" {
-        Mock Start-Sleep { [System.IO.File]::WriteAllText($stopRequestFile, "") }
-        waitForIndexingApproval $plan 2 1 | Should BeNullOrEmpty
-        Test-Path -LiteralPath $stopRequestFile | Should Be $false
-        Test-Path -LiteralPath $ingestPlanFile | Should Be $false
+    It "中止を求められたら `$null を返す" {
+        $channel = newIndexerChannel
+        $job = startAnswer $channel $null $true
+        waitForIndexingApproval $channel $plan 2 1 | Should BeNullOrEmpty
+        [void](endAnswer $job)
     }
 
-    It "前回残った開始要求は使わない（待ち始める前に消す）" {
-        writeIndexingStartRequest $true $indexingStartRequestFile
-        Mock Start-Sleep { [System.IO.File]::WriteAllText($stopRequestFile, "") }
-        waitForIndexingApproval $plan 2 1 | Should BeNullOrEmpty
+    It "前に残った返事は使わない（待ち始める前に消す）" {
+        $channel = newIndexerChannel
+        answerIndexingPlan $channel @{ RetryFailed = $true }
+        $channel.Stop = $false
+        waitForIndexingApproval $channel $plan 2 1 0 | Should BeNullOrEmpty
     }
 
-    It "制限時間を過ぎても返事が無ければ `$null を返す" {
-        # 制限時間を負にして、待ち始めた時点で制限時刻を過ぎているようにする
-        $approvalTimeoutMinutes = -1
-        Mock Start-Sleep { }
-        waitForIndexingApproval $plan 2 1 | Should BeNullOrEmpty
-        Test-Path -LiteralPath $ingestPlanFile | Should Be $false
+    It "制限時間を過ぎても返事が無ければ `$null を返し、取り込み予定を外す" {
+        $channel = newIndexerChannel
+        waitForIndexingApproval $channel $plan 2 1 0 | Should BeNullOrEmpty
+        $channel.Plan | Should BeNullOrEmpty
     }
 }
