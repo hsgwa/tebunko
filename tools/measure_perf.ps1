@@ -1,24 +1,24 @@
-﻿# pack の作成と検索の速さ、そのあいだのリソース（メモリ・CPU・スレッド・GC）を測る。GitHub Actions の perf.yml と手元で使う。
-# 結果には時間・件数・大きさだけを出し、パス・ファイル名は出さない（そのまま共有できる）。
+﻿# pack の作成と検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・GC）を測る。GitHub Actions の perf.yml からも、手元からも使う。
+# 結果には時間・件数・大きさだけを書き、パスやファイル名は書かない（そのまま共有できるようにするため）。
 #
 #   .\tools\measure_perf.ps1 -Index <TSV のインデックス> -Work <作業フォルダ> -Words <words.tsv>
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
-#                pack に書き換えて TSV を消すので、作り直したものを渡す。pack だけなら作成は測らず検索だけを測る
+#                TSV は pack に変換され、元の TSV は削除されるので、毎回作り直したものを渡す。pack しか無いときは、作成は測らず検索だけを測る
 #   -Tool     … 測る tebunko のフォルダ（scripts\tebunko_grep\lib.ps1 を読む）。既定はこのスクリプトのリポジトリ
 #   -Words    … 検索する語の表（名前・語・正規表現・件数。tebunko-perfdata の words.tsv）
-#   -AddWords … 足して検索する語（文字どおり）
+#   -AddWords … 追加で検索する語（文字どおりに検索する）
 #   -Repeat   … 検索を繰り返す回数（中央値を出す）
 #   -SampleMs … リソースを記録する間隔（ミリ秒）
 #   -Label    … 結果の見出しに出す名前（測る ref など）
-#   -DataSeconds … データ（TSV）の作成にかかった秒数。渡せば結果に書く
+#   -DataSeconds … データ（TSV）の生成にかかった秒数。指定すると結果に書く
 #   -Out      … 結果（summary.md・result.json・resource.csv）を書くフォルダ。既定は <Work>\result
 #
 # 段階:
 #   1. 環境            … PowerShell・OS・CPU・メモリ・Defender のリアルタイム保護
 #   2. pack の作成     … インデクサと同じ publishIndexFolders（pack・TSV の削除・システムインデックス）。Office の取り込みは含まない
 #   3. 検索            … 画面の検索スレッドと同じ流れ（新しい Runspace で lib.ps1 を読む → 列挙 → 照合）。
-#                        読んだ内容の入れ物（newTsvTextCache）を新しくしてから初回・2 回目を行い、これを -Repeat 回繰り返す
-#   リソースは、別のスレッドで -SampleMs ごとにこのプロセスと PC 全体の値を記録し、段階ごとにまとめる
+#                        検索のキャッシュ（newTsvTextCache）を空にしてから初回と 2 回目を検索し、これを -Repeat 回繰り返す
+#   リソースは、別のスレッドで -SampleMs ごとに、このプロセスと PC 全体の値を記録し、段階ごとに集計する
 param (
     [Parameter(Mandatory = $true)][string]$Index,
     [Parameter(Mandatory = $true)][string]$Work,
@@ -43,7 +43,7 @@ if (!(Test-Path -LiteralPath $lib)) {
 . $lib
 foreach ($name in @("findIndexFoldersWithBooks", "publishIndexFolders", "getIndexPackFiles", "searchPackIndex", "newTsvTextCache")) {
     if (!(Get-Command $name -CommandType Function -ErrorAction SilentlyContinue)) {
-        throw "測る tebunko に $name がありません。pack 形式より前の版は測れません（この道具が呼ぶ関数の形が変わった場合は、道具を直してください）。"
+        throw "測る tebunko に $name がありません。pack 形式より前の版は測れません（関数の引数が変わった場合は、この計測スクリプトを直してください）。"
     }
 }
 $Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("\")
@@ -71,7 +71,7 @@ foreach ($w in @($AddWords | Where-Object { $_ })) {
 }
 
 # リソースの記録。別のスレッドが -SampleMs ごとに記録し、段階（Phase）を切り替えるときは呼び出し元でも記録する
-# （短い段階にも始まりと終わりの値が残るように）。時計は 1 つを共有する
+# （短い段階でも、開始時と終了時の値が残るようにするため）。時計は 1 つを共有する
 $monitor = [hashtable]::Synchronized(@{ Stop = $false; Phase = "準備"; Clock = [System.Diagnostics.Stopwatch]::StartNew(); Samples = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList)) })
 $takeSample = {
     param ($monitor, $cpuCounter, $memCounter)
@@ -126,7 +126,7 @@ try {
     try { $envInfo.DefenderRealtime = [string](Get-MpComputerStatus -ErrorAction Stop).RealTimeProtectionEnabled } catch { $envInfo.DefenderRealtime = "不明" }
     $result.Environment = $envInfo
 
-    # 2. pack の作成（インデクサと同じ関数。TSV を置いたフォルダをまとめて書き出す）
+    # 2. pack の作成（インデクサと同じ関数で、TSV があるフォルダをまとめて pack にする）
     $systemRoot = Join-Path $Work "system_index"
     $statePath = Join-Path $Work "システムインデックスの状態.tsv"
     $folders = [string[]](findIndexFoldersWithBooks $Index)
@@ -154,11 +154,11 @@ try {
             Seconds = [Math]::Round($packMs / 1000, 2); Packs = $packs.Count; PackMB = [Math]::Round($packBytes / 1MB, 1); SystemIndexMB = [Math]::Round($systemBytes / 1MB, 1) }
         Write-Host ("  {0:N1} 秒" -f ($packMs / 1000))
     } else {
-        Write-Host "TSV のフォルダがありません（pack だけのインデックス）。pack の作成は測りません。"
+        Write-Host "TSV が無い（pack だけの）インデックスなので、pack の作成は測りません。"
         $result.Pack = $null
     }
 
-    # 3. 検索（画面の検索スレッドと同じ流れ。読んだ内容の入れ物は、画面と同じく 1 回の繰り返しのあいだ持ち続ける）
+    # 3. 検索（画面の検索スレッドと同じ流れ。検索のキャッシュは、画面と同じく 1 巡の間は持ち続ける）
     $searchScript = {
         param ($lib, $index, $word, $simple, $cache)
         $total = [System.Diagnostics.Stopwatch]::StartNew(); $step = [System.Diagnostics.Stopwatch]::StartNew()
@@ -173,7 +173,7 @@ try {
     for ($rep = 1; $rep -le $Repeat; $rep++) {
         $cache = newTsvTextCache
         foreach ($round in @("初回", "2 回目")) {
-            setPhase "検索 $rep $round"
+            setPhase "検索（$rep 巡目・$round）"
             foreach ($w in $wordList) {
                 $ps = [powershell]::Create()
                 try {
@@ -221,7 +221,7 @@ foreach ($w in $wordList) {
 $result.Search = $searchRows.ToArray()
 $result.SearchRuns = $runs.ToArray()
 
-# 段階ごとのリソース（記録の段階名でまとめる）
+# 段階ごとのリソース（記録した段階名ごとに集計する）
 $samples = @($monitor.Samples.ToArray())
 $cores = [Environment]::ProcessorCount
 $phaseRows = New-Object System.Collections.Generic.List[object]
@@ -255,7 +255,7 @@ $csv = @($samples | ConvertTo-Csv -NoTypeInformation)
 $md = New-Object System.Collections.Generic.List[string]
 $md.Add("# tebunko の性能$(if ($Label) { "（$Label）" })")
 $md.Add("")
-$md.Add("$($result.Date)。時間・件数・大きさだけを出す。")
+$md.Add("計測日時: $($result.Date)。結果には時間・件数・大きさだけを書き、パスやファイル名は書かない。")
 $md.Add("")
 $md.Add("## 環境")
 $md.Add("")
@@ -265,23 +265,23 @@ $md.Add("| $($envInfo.PowerShell) | $($envInfo.OS) | $($envInfo.Cpu) | $($envInf
 $md.Add("")
 $md.Add("## pack の作成")
 $md.Add("")
-if ($null -ne $result.DataSeconds) { $md.Add(("データ（TSV）の作成: {0:N1} 秒（tebunko-perfdata の new_index.ps1。tebunko の処理ではない）。" -f $result.DataSeconds)); $md.Add("") }
+if ($null -ne $result.DataSeconds) { $md.Add(("データ（TSV）の生成に {0:N1} 秒かかった（tebunko-perfdata の new_index.ps1 による。tebunko の処理時間には含まない）。" -f $result.DataSeconds)); $md.Add("") }
 if ($result.Pack) {
     $pk = $result.Pack
-    $md.Add("Office の取り込みを除いた、インデックス作成の後半（pack を書く・TSV を消す・システムインデックスを作る）。")
+    $md.Add("インデックス作成のうち、Office からの取り込みを除いた後半の処理（pack の書き出し、TSV の削除、システムインデックスの作成）の時間。")
     $md.Add("")
     $md.Add("| フォルダ | ブック | TSV | TSV の合計 | 時間 | pack | pack の合計 | システムインデックス |")
     $md.Add("|---|---|---|---|---|---|---|---|")
     $md.Add(("| {0:N0} | {1:N0} | {2:N0} | {3:N1} MB | {4:N1} 秒 | {5:N0} | {6:N1} MB | {7:N1} MB |" -f $pk.Folders, $pk.Books, $pk.Tsv, $pk.TsvMB, $pk.Seconds, $pk.Packs, $pk.PackMB, $pk.SystemIndexMB))
 } else {
-    $md.Add("測っていない（渡したインデックスに TSV が無い）。")
+    $md.Add("渡したインデックスに TSV が無いため、測っていない。")
 }
 $md.Add("")
 $md.Add("## 検索")
 $md.Add("")
-$md.Add("画面の検索と同じ流れ（新しいスレッドで lib.ps1 を読む → 列挙 → 照合。上限 1 万件）。$Repeat 回の中央値（最小〜最大）。初回は読んだ内容の入れ物が空の検索（OS のファイルのキャッシュは効いている）。")
+$md.Add("画面の検索と同じ流れ（新しいスレッドで lib.ps1 を読み込む → 集約ファイルを列挙する → 照合する。上限 1 万件）で測った、$Repeat 巡の中央値（かっこ内は最小〜最大）。「初回」は検索のキャッシュが空の状態での検索（OS のファイルキャッシュには残っている）、「2 回目」はキャッシュが効いた状態での検索。")
 $md.Add("")
-$md.Add("| 語 | 回 | ヒット | 合計 | lib.ps1 | 列挙 | 照合 |")
+$md.Add("| 語 | 回 | ヒット件数 | 合計 | lib.ps1 の読み込み | 列挙 | 照合 |")
 $md.Add("|---|---|---|---|---|---|---|")
 foreach ($s in $searchRows) {
     $md.Add(("| {0} | {1} | {2} | {3:N0} ms（{4:N0}〜{5:N0}） | {6:N0} ms | {7:N0} ms | {8:N0} ms |" -f $s.Name, $s.Round, $s.Hits, $s.TotalMs, $s.MinMs, $s.MaxMs, $s.LoadMs, $s.ListMs, $s.SearchMs))
@@ -289,9 +289,9 @@ foreach ($s in $searchRows) {
 $md.Add("")
 $md.Add("## リソース（段階ごと）")
 $md.Add("")
-$md.Add("このプロセス（計測と tebunko の処理）の値。CPU はこのプロセスの使用率（全コアで 100%）、PC は PC 全体の平均。ピークのワーキングセットは $($result.PeakWorkingSetMB) MB。")
+$md.Add("値は、計測と tebunko の処理を動かしているこのプロセスのもの。「CPU」はこのプロセスの使用率（全コアを使い切ると 100%）、「PC の CPU」は PC 全体の使用率の平均。ワーキングセットのピークは $($result.PeakWorkingSetMB) MB。")
 $md.Add("")
-$md.Add("| 段階 | 時間 | CPU 時間 | CPU | PC の CPU | ワーキングセット | プライベート | マネージド | スレッド | ハンドル | GC 0/1/2 |")
+$md.Add("| 段階 | 時間 | CPU 時間 | CPU | PC の CPU | ワーキングセット | プライベート | マネージドヒープ | スレッド数 | ハンドル数 | GC 回数（0/1/2 世代） |")
 $md.Add("|---|---|---|---|---|---|---|---|---|---|---|")
 foreach ($p in $phaseRows) {
     $md.Add(("| {0} | {1:N1} 秒 | {2:N1} 秒 | {3}% | {4} | {5:N0} MB | {6:N0} MB | {7:N0} MB | {8} | {9} | {10}/{11}/{12} |" -f $p.Phase, $p.Seconds, $p.CpuSeconds, $p.CpuPercent, $(if ($null -ne $p.PcCpuPercent) { "$($p.PcCpuPercent)%" } else { "–" }), $p.WorkingSetMaxMB, $p.PrivateMaxMB, $p.ManagedMaxMB, $p.ThreadsMax, $p.HandlesMax, $p.Gc0, $p.Gc1, $p.Gc2))
@@ -312,10 +312,10 @@ if ($samples.Count -ge 2) {
     $md.Add("")
     $md.Add("## 推移")
     $md.Add("")
-    $md.Add("段階の始まり（秒）: " + (($phases | ForEach-Object { "{0} {1:N1}" -f $_.Name, ($_.StartMs / 1000) }) -join "、"))
+    $md.Add("各段階の開始時刻（秒）: " + (($phases | ForEach-Object { "{0} {1:N1}" -f $_.Name, ($_.StartMs / 1000) }) -join "、"))
     foreach ($chart in @(
-        @{ Title = "メモリ（MB）"; Lines = @(@($points | ForEach-Object { $_.WorkingSetMB }), @($points | ForEach-Object { $_.ManagedMB })); Legend = "ワーキングセット（上）・マネージド（下）" },
-        @{ Title = "CPU（このプロセス、%）"; Lines = @(, $cpu.ToArray()); Legend = "" }
+        @{ Title = "メモリ（MB）"; Lines = @(@($points | ForEach-Object { $_.WorkingSetMB }), @($points | ForEach-Object { $_.ManagedMB })); Legend = "上の線がワーキングセット、下の線がマネージドヒープ。" },
+        @{ Title = "CPU 使用率（このプロセス、%）"; Lines = @(, $cpu.ToArray()); Legend = "" }
     )) {
         $md.Add("")
         if ($chart.Legend) { $md.Add($chart.Legend) ; $md.Add("") }

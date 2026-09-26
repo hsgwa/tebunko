@@ -41,7 +41,7 @@ Describe "measure_perf.ps1" -Tag Io {
     It "段階ごとのリソースと、推移の記録を書く" {
         $names = @($result.Resources | ForEach-Object { $_.Phase })
         $names -contains "pack の作成" | Should Be $true
-        $names -contains "検索 1 初回" | Should Be $true
+        $names -contains "検索（1 巡目・初回）" | Should Be $true
         $result.PeakWorkingSetMB | Should BeGreaterThan 0
         @([System.IO.File]::ReadAllLines("$out\resource.csv")).Count | Should BeGreaterThan 1
     }
