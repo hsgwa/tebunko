@@ -1362,7 +1362,7 @@
 <hr />
 <h2 id="16-テスト">16. テスト<a class="headerlink" href="#16-テスト" title="Permanent link">&para;</a></h2>
 <h3 id="161-単体テストpester">16.1 単体テスト（Pester）<a class="headerlink" href="#161-単体テストpester" title="Permanent link">&para;</a></h3>
-<p>画面が使う関数と画面の部品を Pester 3.4 で確かめる（実行方法・タグ・カバレッジは <a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">00_共通_3_テスト.md</a>）。画面の部品（<code>ui/*.ps1</code>）のテストは、WPF のコントロール（<code>$ui.ResultGrid</code> など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。</p>
+<p>画面が使う関数と画面の部品を Pester 5.9.0 で確かめる（実行方法・タグ・カバレッジは <a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">00_共通_3_テスト.md</a>）。画面の部品（<code>ui/*.ps1</code>）のテストは、WPF のコントロール（<code>$ui.ResultGrid</code> など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。</p>
 <p><strong>画面が使う <code>tebunko/lib.ps1</code> の関数</strong>（12 章）</p>
 <table>
 <thead>

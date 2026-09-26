@@ -1686,7 +1686,7 @@
 <li>関数は、ワークスペースの中の場所を既定値で <code>$workspace</code> から取る（例 <code>[string]$path = $workspace.StatusFile</code>）。既定値は呼んだときに決まるため、<code>$workspace</code> を差し替えれば、読み込み直さずに別のワークスペースを使う。</li>
 <li>別のスレッド（画面の裏の仕事・検索の司令・取り込み）は <code>lib.ps1</code> を読み込んだときの <code>$workspace</code> を持つ。そのため画面は、場所を引数で渡すか、<code>Dir</code>（文字列）を渡してそのスレッドで <code>Workspace</code> を作り直す。オブジェクトはスレッドをまたいで渡さない。</li>
 <li>取り込みのスレッドは <code>PublishDir</code> を、その下の <code>w&lt;番号&gt;</code> に差し替える。</li>
-<li>ワークスペースを変えるときは、今のワークスペースの中身を移す。移すのは <code>Entries()</code>（tebunko が作るファイル・フォルダ）だけで、利用者のほかのファイルは移さない。<code>getWorkspaceEntries</code>（あるものだけ）・<code>getWorkspaceMoveConflicts</code>（移し先に同じ名前があるもの）・<code>moveWorkspace</code>（移す。移し先に同じ名前があれば何も移さず、途中で失敗したら移した分を戻す。別のドライブのフォルダは <code>copyDirectoryTree</code> で写してから消す）・<code>moveSearchExcludes</code>（<code>searchExcludes</code> を移した先のインデックスに付け替える）。</li>
+<li>ワークスペースを変えるときは、今のワークスペースの中身を移す。移すのは <code>Entries()</code>（tebunko が作るファイル・フォルダ）だけで、利用者のほかのファイルは移さない。<code>getWorkspaceEntries</code>（あるものだけ）・<code>getWorkspaceMoveConflicts</code>（移し先に同じ名前があるもの）・<code>moveWorkspace</code>（移す。移し先に同じ名前があれば何も移さず、途中で失敗したら移した分を戻す。別のドライブのフォルダは <code>copyDirectoryTree</code> で写してから消す）・<code>moveSearchExcludes</code>（<code>searchExcludes</code> を移した先のインデックスに付け替える）。選んだフォルダにすでにインデックスなどがあれば、<code>useWorkspaceTargets</code>（そのワークスペースの取り込み一覧のクロール対象フォルダを、インデックスの一覧にする）で使うか、<code>removeWorkspaceEntries</code>（tebunko のファイル・フォルダだけを削除する）で消してから移す。</li>
 </ul>
 <table>
 <thead>

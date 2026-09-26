@@ -1569,7 +1569,7 @@
 <tr>
 <td>単体テスト（Unit・Io・Meta）</td>
 <td>関数の動きの誤り、構成の決まりの違反</td>
-<td><code>tests/run.ps1</code>（Pester 3.4）。<a href="#61-単体テスト">6.1</a>・<a href="#63-テストの構成と実行">6.3</a></td>
+<td><code>tests/run.ps1</code>（Pester 5.9.0）。<a href="#61-単体テスト">6.1</a>・<a href="#63-テストの構成と実行">6.3</a></td>
 <td>CI の <code>test</code></td>
 </tr>
 <tr>
@@ -1635,7 +1635,7 @@
 </tbody>
 </table>
 <h3 id="61-単体テスト">6.1 単体テスト<a class="headerlink" href="#61-単体テスト" title="Permanent link">&para;</a></h3>
-<p><code>tests/</code>（Pester 3.4）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（<code>Add-Type -TypeDefinition</code>）を使わないことを検証する。テストは <code>scripts/</code> と同じ構成に並べる（<a href="#63-テストの構成と実行">6.3</a>）。検索・画面の部品のテストの内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1 にある。</p>
+<p><code>tests/</code>（Pester 5.9.0）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（<code>Add-Type -TypeDefinition</code>）を使わないことを検証する。テストは <code>scripts/</code> と同じ構成に並べる（<a href="#63-テストの構成と実行">6.3</a>）。検索・画面の部品のテストの内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1 にある。</p>
 <p><strong>共通基盤（<code>tests/shared/core/</code>）</strong></p>
 <table>
 <thead>
@@ -2319,7 +2319,13 @@
 </tr>
 </tbody>
 </table>
-<p>入力と期待値だけが違うテストは、<code>-TestCases</code> の 1 つの <code>It</code> にまとめる（例: <code>tests/tebunko/ui/types.Tests.ps1</code> の <code>HitRow.Contains</code>）。表は <code>It</code> の中にそのまま書き、計算で作らない。キーには <code>input</code>・<code>args</code>・<code>_</code>・<code>Matches</code> など PowerShell の自動変数の名前を使わない。各行に <code>name</code> を持たせ、<code>It "&lt;name&gt;"</code> で失敗した行が分かるようにする。Pester 5 に移るときは <code>-ForEach</code> に置き換えるだけで済むようにするため。</p>
+<p>入力と期待値だけが違うテストは、<code>-TestCases</code> の 1 つの <code>It</code> にまとめる（例: <code>tests/tebunko/ui/types.Tests.ps1</code> の <code>HitRow.Contains</code>）。表は <code>It</code> の中にそのまま書き、計算で作らない。キーには <code>input</code>・<code>args</code>・<code>_</code>・<code>Matches</code> など PowerShell の自動変数の名前を使わない。各行に <code>name</code> を持たせ、<code>It "&lt;name&gt;"</code> で失敗した行が分かるようにする。表の中で変数（<code>$stateDone</code> など）を使うときは、<code>BeforeDiscovery</code> で用意する（表はテストを探す段階で作られ、<code>BeforeAll</code> より先に評価されるため）。</p>
+<p>Pester 5 はテストを「探す段階」と「流す段階」に分けて動かす。探す段階では <code>Describe</code> の中身がそのまま実行され、<code>BeforeAll</code> の中身は流す段階まで実行されない。そのため次のように書く。</p>
+<ul>
+<li>ファイルの先頭の読み込み（<code>. "$PSScriptRoot\..\helpers\load.ps1"</code>・<code>Add-Type</code>）と、テスト用の関数・偽物のオブジェクトは、いちばん外の <code>BeforeAll { }</code> に書く。</li>
+<li><code>Describe</code> の準備（<code>$TestDrive</code> へのファイル作成・変数・<code>Mock</code>）は、その <code>Describe</code> の <code>BeforeAll</code> / <code>BeforeEach</code> に書く。探す段階では <code>$TestDrive</code> が空のため、<code>Describe</code> の中に直接書くとドライブ直下を指してしまう。</li>
+<li><code>Mock</code> はそれを書いたブロック（<code>It</code>・<code>Describe</code>）の中だけで効く。呼ばれたかは <code>Should -Invoke</code> で確かめる。</li>
+</ul>
 <p><code>tests/meta/</code> は、直し忘れると気づきにくい決まりごとを機械的に確かめる。</p>
 <table>
 <thead>
@@ -2421,7 +2427,8 @@
 <li>値は Pester のコマンド単位（実行されたコマンドの数 ÷ 全コマンドの数。小数点以下 1 桁）。</li>
 <li><strong>下限は <code>tests/coverage.baseline</code>（90.0）。</strong> <code>-Ci</code> はこれを下回ると失敗し、CI の必須チェック <code>test</code> が通らない。下回ったらテストを足して戻し、下限は下げない。実測が上がっても下限は上げない（変えるのはメンテナだけ）。</li>
 <li>全体の目標値は決めない。判断層は 95% 以上を保ち、数字を上げるためだけのテスト（結果を確かめないもの）は書かない（AGENTS.md「テストカバレッジの方針」）。</li>
-<li><code>-Ci</code> はカバレッジを Cobertura 形式の XML（<code>work\test\coverage.xml</code>）にも書き出す。Pester 3.4 はカバレッジをファイルに出せないため、<code>tests/run.ps1</code> が結果（コマンド単位）から行単位に組み立てる。1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。そのため、行単位の値（Codecov の表示）はコマンド単位の値と少し違う。ファイル名はリポジトリからの相対パスで書き、利用者名を含む絶対パスは入れない。</li>
+<li>カバレッジはブレークポイントを使わない計測（Pester の Profiler。<code>CodeCoverage.UseBreakpoints = $false</code>）で取る。ブレークポイントを使う計測より速い。</li>
+<li><code>-Ci</code> はカバレッジを Cobertura 形式の XML（<code>work\test\coverage.xml</code>）にも書き出す。Pester が書き出す XML には利用者名を含む絶対パスが入るため使わず、<code>tests/run.ps1</code> が結果（コマンド単位）から行単位に組み立てる。1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。そのため、行単位の値（Codecov の表示）はコマンド単位の値と少し違う。ファイル名はリポジトリからの相対パスで書き、利用者名を含む絶対パスは入れない。</li>
 </ul>
 <h4 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h4>
 <p>GitHub Actions のワークフローは次のとおり。使うアクションは、どのワークフローでもコミットのハッシュで固定する（版はハッシュの後ろのコメントに書き、Dependabot が更新する）。</p>
@@ -2491,7 +2498,7 @@
 <p>pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
 <ul>
 <li>Windows PowerShell 5.1 はランナーに最初から入っている（<code>shell: powershell</code> を明示する。<code>pwsh</code>（PowerShell 7）では COM と文字コードの扱いが変わる）</li>
-<li>ランナーには Pester 5 も入っており、そのままでは <code>Invoke-Pester</code> が 5 を読み込んで全テストが失敗する（5 はテストの書き方が違う）。<code>tests/run.ps1</code> は <code>Import-Module Pester -MaximumVersion 3.99.99</code> で 3 系を明示し、CI は 3 系が無ければ 3.4.0 を入れる</li>
+<li>ランナーには Windows に最初から入っている Pester 3.4 もある。<code>tests/run.ps1</code> は <code>Import-Module Pester -RequiredVersion 5.9.0</code> で版を指定し、CI は 5.9.0 が無ければ入れる（版は <code>test.yml</code> の <code>PESTER_VERSION</code> と <code>tests/run.ps1</code> の 2 か所で同じにする）</li>
 <li>スクリプトの改行はランナーの <code>core.autocrlf</code> に左右されないよう、<code>.gitattributes</code> で <code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF に固定している</li>
 <li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（6.2）</li>
 <li>あわせて PSScriptAnalyzer の <code>Error</code> を 0 件に保つ（<code>TypeNotFound</code> は除く）。PSScriptAnalyzer の版は <code>test.yml</code> で固定する（新しい版でルールが増えて、コードを変えずに CI が落ちるのを防ぐ。Dependabot の対象外のため、上げるときは版を書き換えた PR で指摘が 0 件のままか確かめる）。安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）はタグ <code>Meta</code> のため既定で実行される</li>
