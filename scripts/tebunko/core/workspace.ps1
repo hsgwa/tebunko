@@ -111,6 +111,42 @@ function copyDirectoryTree {
     }
 }
 
+function removeWorkspaceEntries {
+    # ワークスペース dir の tebunko のファイル・フォルダ（Workspace.Entries）を削除し、削除した数を返す。ほかのファイルは消さない。
+    # ワークスペースに選んだフォルダのインデックスを使わず、消して最初からやり直すときに使う
+    param (
+        [string]$dir
+    )
+
+    $entries = @(getWorkspaceEntries $dir)
+    foreach ($entry in $entries) {
+        $long = toLongPath $entry
+        if ([System.IO.Directory]::Exists($long)) {
+            removeDirectoryRetry $entry
+        } else {
+            [System.IO.File]::Delete($long)
+        }
+    }
+    return $entries.Count
+}
+
+function useWorkspaceTargets {
+    # ワークスペース dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（設定の targetFolders）にし、その数を返す。
+    # ほかの人が作ったワークスペースを使うとき、一覧をそのワークスペースに合わせる（合わせないままインデックス作成をすると、
+    # 一覧に無いインデックスは削除されたフォルダのものとして消える。removeDroppedFolders）。取り込み一覧が無ければ一覧は変えない
+    param (
+        [string]$dir,
+        [string]$path = ${settingsFile}
+    )
+
+    $map = getIndexNameMap ([Workspace]::new($dir.TrimEnd("\")).StatusFile)
+    if ($map.Count -eq 0) {
+        return 0
+    }
+    writeTargetFolders @($map.Keys | ForEach-Object { [pscustomobject]@{ Name = $_; Path = $map[$_]; Enabled = $true } }) $path
+    return $map.Count
+}
+
 function moveSearchExcludes {
     # 検索対象ツリーでチェックを外したフォルダ（searchExcludes。インデックスの下のフルパス）のうち、
     # ワークスペース from の index の下のものを、to の index の下に付け替えて保存する。付け替えた数を返す

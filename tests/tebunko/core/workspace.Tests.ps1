@@ -104,3 +104,41 @@ Describe "moveSearchExcludes" -Tag Io {
         @($excludes | ForEach-Object { $_.Subfolders }) -join "," | Should Be "True,False,True"
     }
 }
+
+Describe "removeWorkspaceEntries" -Tag Io {
+    It "tebunko のファイル・フォルダだけを削除し、削除した数を返す（利用者のファイルは残す）" {
+        newTsv "$TestDrive\remove_ws\index\営業\見積\content.xlsx.001.tsv" @("a")
+        newTsv "$TestDrive\remove_ws\取り込み一覧.tsv" @("b")
+        newTsv "$TestDrive\remove_ws\利用者のメモ.txt" @("c")
+
+        removeWorkspaceEntries "$TestDrive\remove_ws" | Should Be 2
+
+        @(getWorkspaceEntries "$TestDrive\remove_ws").Count | Should Be 0
+        Test-Path -LiteralPath "$TestDrive\remove_ws\利用者のメモ.txt" | Should Be $true
+    }
+}
+
+Describe "useWorkspaceTargets" -Tag Io {
+    It "ワークスペースの取り込み一覧にあるクロール対象フォルダを、インデックスの一覧にする" {
+        $settings = "$TestDrive\use\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" },
+            [pscustomobject]@{ Path = "\\server\共有\技術部"; Name = "技術" }
+        ) @() "$TestDrive\use\ws\取り込み一覧.tsv"
+
+        useWorkspaceTargets "$TestDrive\use\ws" $settings | Should Be 2
+
+        $targets = @(getTargetFolders $settings)
+        @($targets | ForEach-Object { "$($_.Name)=$($_.Path)=$($_.Enabled)" }) -join "|" | Should Be "営業=\\server\共有\営業部=True|技術=\\server\共有\技術部=True"
+    }
+
+    It "取り込み一覧が無ければ、一覧は変えない" {
+        $settings = "$TestDrive\use_none\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "自分"; Path = "C:\自分のフォルダ"; Enabled = $true }) $settings
+
+        useWorkspaceTargets "$TestDrive\use_none\ws" $settings | Should Be 0
+
+        @(getTargetFolders $settings)[0].Name | Should Be "自分"
+    }
+}

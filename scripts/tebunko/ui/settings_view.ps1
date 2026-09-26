@@ -63,18 +63,32 @@ function newWorkspaceConfirm {
     #   @{ Heading; Facts（@{ Kind = "next" / "kept" / "warn"; Title; Detail } の配列）; Hint; Choices（@{ Text; Detail; Value; Careful } の配列） }
     # ワークスペースには空のフォルダを選んでもらう。空でなければ警告し、中にワークスペースのフォルダを作るか、そのまま使うかを選ばせる。
     # 今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、いつも新しいワークスペースへ移す（moveWorkspace）。
-    #   Value: "change"（選んだフォルダにする）/ "sub"（中に workspace を作ってそこにする）/ "asis"（空でないまま使う）
+    # 選んだフォルダに tebunko のファイル（インデックスなど。ほかの人が共有したワークスペースなど）があれば、それを使うか、消して最初からやるかを選ばせる。
+    #   Value: "change"（選んだフォルダにする）/ "sub"（中に workspace を作ってそこにする）/ "asis"（空でないまま使う）/
+    #          "use"（中のインデックスを使う。今のワークスペースの中身は移さない）/ "reset"（中のインデックスを消し、今のワークスペースの中身を移す）
     param (
         [string]$folder,       # 選んだフォルダ
         [string]$current,      # 今のワークスペース
         [int]$entryCount,      # 選んだフォルダの中のファイル・フォルダの数（数えた上限で止めてよい）
         [string[]]$sampleNames = @(),  # 中身の例（先頭の数件の名前）
         [bool]$countCapped = $false,   # entryCount が数えた上限（それ以上あるかもしれない）
-        [bool]$hasIndex = $false,      # 中にインデックス（index フォルダ）がある（そのまま使うと、今のワークスペースの中身を移せない）
+        [string[]]$workspaceNames = @(), # 中にある tebunko のファイル・フォルダの名前（getWorkspaceEntries）。あれば、使うか消すかを選ばせる
         [bool]$canMakeSub = $true      # 中に workspace を作れる（無いか、あっても空）
     )
 
     $moveCurrent = @{ Kind = "next"; Title = "今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいワークスペースへ移します"; Detail = "移す前の場所：${current}" }
+    if (@($workspaceNames).Count -gt 0) {
+        return @{
+            Heading = "選んだフォルダには、すでにインデックスがあります。どうしますか？"
+            Facts   = @(
+                @{ Kind = "kept"; Title = "インデックス・取り込み一覧などがあります"; Detail = (@($workspaceNames) -join "、") },
+                @{ Kind = "next"; Title = "使うときは、インデックスの一覧もこのワークスペースのものにします"; Detail = "今のワークスペースの中身は移さず、元の場所に残します：${current}" })
+            Hint    = "ほかの人が共有したインデックスを使うときは［あるインデックスを使う］を選んでください。"
+            Choices = @(
+                @{ Text = "あるインデックスを使う"; Detail = $folder; Value = "use"; Careful = $false },
+                @{ Text = "消して、最初からやり直す"; Detail = "このフォルダのインデックス・取り込み一覧・ログを削除し、今のワークスペースの中身を移します（元に戻せません）"; Value = "reset"; Danger = $true; Careful = $true })
+        }
+    }
     if ($entryCount -le 0) {
         return @{
             Heading = "ワークスペースを変えますか？"
@@ -92,9 +106,7 @@ function newWorkspaceConfirm {
         $sample += " など"
     }
     $facts = @(@{ Kind = "warn"; Title = "このフォルダは空ではありません（ファイル・フォルダが ${countText}）"; Detail = $sample })
-    if ($hasIndex) {
-        $facts += @{ Kind = "warn"; Title = "インデックス（index フォルダ）があります"; Detail = "このフォルダをそのまま使うと、今のワークスペースの中身を移せません" }
-    }
+
     $facts += $moveCurrent
 
     $choices = @()

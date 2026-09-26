@@ -79,7 +79,8 @@ function getFolderEntrySample {
 }
 
 function applyWorkspace {
-    # 確かめてから、今のワークスペースの中身を移してワークスペースを保存し、画面をそのワークスペースに切り替える
+    # 確かめてから、今のワークスペースの中身を移してワークスペースを保存し、画面をそのワークスペースに切り替える。
+    # 選んだフォルダにインデックスなどがあれば、それを使う（中身は移さない）か、消して最初からやり直す（消してから移す）かを選ばせる
     param (
         [string]$folder,
         [bool]$requireEmpty   # 空のフォルダを求める（［変更…］）。空でなければ警告する
@@ -100,8 +101,8 @@ function applyWorkspace {
     $sub = Join-Path $folder ${workspaceSubFolderName}
     $canMakeSub = -not (Test-Path -LiteralPath $sub) -or
         ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)
-    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped `
-        (Test-Path -LiteralPath (Join-Path $folder "index") -PathType Container) $canMakeSub
+    $workspaceNames = @(getWorkspaceEntries $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped $workspaceNames $canMakeSub
     # switch の中の $_ は switch の値になるため、行を変数に受けてから使う
     $facts = @($confirm.Facts | ForEach-Object {
         $fact = $_
@@ -127,6 +128,22 @@ function applyWorkspace {
     # 集約ファイルを読んでいる検索があると移せないため、先に止める
     clearSearchView
     $previous = $workspace.Dir
+    if ($answer -eq "use") {
+        # 共有されたワークスペースなどを使う。今の中身は移さず、インデックスの一覧をこのワークスペースのものにする
+        $targets = useWorkspaceTargets $folder
+        writeWorkspaceFolder $folder
+        switchWorkspace
+        setStatus "ワークスペースを「${folder}」に変え、そこにあるインデックスを使います（インデックス $targets 件。前のワークスペースの中身は「${previous}」に残しています）"
+        return
+    }
+    if ($answer -eq "reset") {
+        try {
+            [void](removeWorkspaceEntries $folder)
+        } catch {
+            showMessage "「${folder}」のインデックスを削除できませんでした（$($_.Exception.Message)）。ファイルを開いているアプリを閉じてから、もう一度変えてください。" "OK" "Warning" | Out-Null
+            return
+        }
+    }
     try {
         $count = moveWorkspace $previous $folder
     } catch {
