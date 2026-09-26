@@ -45,7 +45,7 @@ flowchart LR
 
 ## 単体テスト
 
-`tests/`（Pester 5.9.0）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（`Add-Type -TypeDefinition`）を使わないことを検証する。テストは `scripts/` と同じ構成に並べる（[テストの実行と CI](ci.md)）。検索・画面の部品のテストの内容は [テスト](index.md) の 16.1 にある。
+`tests/`（Pester 5.9.0）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（`Add-Type -TypeDefinition`）を使わないことを検証する。テストは `scripts/` と同じ構成に並べる（[テストの実行と CI](ci.md)）。検索・画面の部品のテストの内容は [テスト](index.md) の [画面の単体テスト](#画面の単体テスト) にある。
 
 **共通基盤（`tests/shared/core/`）**
 
@@ -68,7 +68,7 @@ flowchart LR
 | `getPathUnderFolder` | フォルダからの相対パス（フォルダ自身は空、末尾の `\` ・大文字と小文字の違い、ドライブ直下、UNC の共有直下）、フォルダの下でなければ `$null`（フォルダ名の途中では一致しない） |
 | `getFolderPathAliases` / `testSameFolder` / `testFolderUnder` | ネットワークドライブ ⇔ UNC パス、`subst` のドライブ ⇔ 割り当て元のフォルダ、ドライブ直下・共有直下、割り当ての無いパスは自身だけ、同じフォルダの判定（割り当ては差し替えてテストする）、この PC の割り当てでも例外にならない、入れ子のフォルダの判定（自身も「中」・名前の先頭が同じだけのフォルダは別・別の書き方でも分かる） |
 | `getFolderLeafName` | ドライブ直下・UNC・末尾の `\` |
-| フォルダ選択を開く場所（`getExistingAncestorFolder`） | [テスト](index.md) の 16.1 |
+| フォルダ選択を開く場所（`getExistingAncestorFolder`） | [テスト](index.md) の [画面の単体テスト](#画面の単体テスト) |
 
 **設定ファイル（`tests/tebunko/core/settings`）**
 
@@ -182,7 +182,7 @@ Word・PowerPoint・Excel は使わず、最小限の `.docx` `.pptx` `.xlsx`（
 
 **COM を使う処理（`tests/tebunko/indexer/extract_office`・`tests/shared/office/office_app`）**
 
-Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流れを検証する。COM の入口は `getApp`（アプリの取得）と `New-Object -ComObject` だけなので、ここを Pester の `Mock` で差し替え、本物と同じ呼び方ができる偽のオブジェクト（呼ばれたメソッドと引数を記録し、保存では本物と同じ形式のファイルを書く）を返す。実機での動作は 6.2 の手動の結合テストで確かめる。
+Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流れを検証する。COM の入口は `getApp`（アプリの取得）と `New-Object -ComObject` だけなので、ここを Pester の `Mock` で差し替え、本物と同じ呼び方ができる偽のオブジェクト（呼ばれたメソッドと引数を記録し、保存では本物と同じ形式のファイルを書く）を返す。実機での動作は [結合テスト（手動）](#結合テスト手動) の手動の結合テストで確かめる。
 
 | テスト | 主な確認内容 |
 |---|---|
@@ -191,7 +191,7 @@ Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流
 
 **画面の部品（`tests/tebunko/ui/`・`tests/shared/ui/`）**
 
-判断層（`*_view.ps1`）はそのままテストする。`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` は `$ui`・`$window` を偽物にし、Excel・エクスプローラーの起動は `Mock` して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（`preview.ps1` の `copyPreviewSelection`）だけを確かめる。型（`shared/ui/types.ps1`・`tebunko/ui/types.ps1`）はプロパティの変更通知と各メソッドを確かめる。内容は [テスト](index.md) の 16.1。
+判断層（`*_view.ps1`）はそのままテストする。`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` は `$ui`・`$window` を偽物にし、Excel・エクスプローラーの起動は `Mock` して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（`preview.ps1` の `copyPreviewSelection`）だけを確かめる。型（`shared/ui/types.ps1`・`tebunko/ui/types.ps1`）はプロパティの変更通知と各メソッドを確かめる。内容は [テスト](index.md) の [画面の単体テスト](#画面の単体テスト)。
 
 **テストデータの個人情報の除去（`tests/testdata/scrub_personal`）**
 
@@ -204,20 +204,20 @@ Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流
 | 対象 | 主な確認内容 |
 |---|---|
 | 禁止する処理 | 動的なコード実行（`Invoke-Expression` 等）・難読化（Base64）・ネットワーク通信・P/Invoke・実行時コンパイル・レジストリ・権限やサービスの変更・`Set-ExecutionPolicy` と `Bypass`・資格情報・リモート実行が 0 件 |
-| 許す処理の限定 | `Add-Type` は `-AssemblyName` だけ、`Start-Process` は `explorer.exe` と `powershell.exe` だけ、`Stop-Process` は `shared/office/office_process.ps1` の 1 か所だけ |
+| 許す処理の限定 | `Add-Type` は `-AssemblyName` だけ、`Start-Process` は `explorer.exe` だけ、`Stop-Process` は `shared/office/office_process.ps1` の 1 か所だけ |
 | Office の開き方 | マクロ無効（`AutomationSecurity = 3`）・`EnableEvents = $false`・外部リンクを更新しない・インデクサでは不可視・Excel / Word / PowerPoint いずれも読み取り専用で開く |
 | 原本の保護 | 原本のパスを書き込み・削除の API に渡さない、`SaveAs` の保存先は作業フォルダのパスだけ、原本を読むのは `copyFileShared`（`FileAccess::Read`）だけ |
 | 書き込み先 | `$workspace`（`Workspace` の `IndexDir`・`PublishDir`）・`${tmpDir}`・`${settingsFile}` の定義が `work` 配下・`%TEMP%` 配下・`setting.config` だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（`removeStaleTmpDirs`） |
 | 静的解析（PSScriptAnalyzer） | 安全性にかかわるルール（`tests/meta/PSScriptAnalyzer.security.psd1` の 14 件）・`Error` 重大度・制限言語モード（`PSUseConstrainedLanguageMode`）の指摘が 0 件、設定ファイルから当該ルールが削られていないこと |
-| 審査用の資料 | `docs/04_安全性.md`・`.github/SECURITY.md`・`tools/new_release_files.ps1`・`sbom.cdx.json` がそろっており、SBOM が第三者の部品（`purl` を持つ部品）を含まないこと |
+| 審査用の資料 | `docs/safety/index.md`・`.github/SECURITY.md`・`tools/new_release_files.ps1`・`sbom.cdx.json` がそろっており、SBOM が第三者の部品（`purl` を持つ部品）を含まないこと |
 
-PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（`It -Skip`）。導入は `Install-Module PSScriptAnalyzer -Scope CurrentUser`。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は [安全性の要約](../../safety/index.md) の 5.2 に記載している。
+PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（`It -Skip`）。導入は `Install-Module PSScriptAnalyzer -Scope CurrentUser`。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は [安全性の要約](../../safety/index.md) の [静的解析: PSScriptAnalyzer（Microsoft）](../../safety/scans.md#静的解析-psscriptanalyzermicrosoft) に記載している。
 
 `TypeNotFound`（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは `tests/meta/structure.Tests.ps1` で確かめる。
 
 **インストーラーの検査（`tests/meta/installer.Tests.ps1`）**
 
-タグ `Meta` で、インストーラー（`installer/`）が [安全性の要約](../../safety/index.md) の 4.6 のとおりであることを確かめる。インストーラーそのもののビルド（Inno Setup）は `release.yml` だけで行い、ここではスクリプトを読んで確かめる。
+タグ `Meta` で、インストーラー（`installer/`）が [安全性の要約](../../safety/index.md) の [インストーラー版](../../safety/disclosure.md#インストーラー版) のとおりであることを確かめる。インストーラーそのもののビルド（Inno Setup）は `release.yml` だけで行い、ここではスクリプトを読んで確かめる。
 
 | 対象 | 主な確認内容 |
 |---|---|
@@ -288,27 +288,27 @@ Excel・Word・PowerPoint の COM を使うインデックス作成と、画面�
 
 | 確認内容 | 関連 | 確認 |
 |---|---|---|
-| 起動時のタブが状態（未作成・中断中・失敗あり・通常）に応じて変わる | 2.2 | ◎（中断中） |
+| 起動時のタブが状態（未作成・中断中・失敗あり・通常）に応じて変わる | [起動時に開くタブ](../gui/index.md#起動時に開くタブ) | ◎（中断中） |
 | インデックス一覧・チェック・存在の判定、ドラッグ＆ドロップ・［参照…］、`"` 付きのパスの貼り付け | [［1 インデックス管理］タブ](../gui/index-tab.md) | 一覧・判定は◎ |
 | インデックス一覧の［作成］チェックの切替が保存されること（Click で配線） | [［1 インデックス管理］タブ](../gui/index-tab.md) | 要手動 |
-| フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと） | 3.2.1 | ◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。`OpenFileDialog` に切り替わる場合は要手動 |
-| 状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止 | 3.1 | ◎ |
-| インデックス作成の進み具合（件数・失敗・残り時間・取り込み中のファイル・終了後の表示） | 3.6、3.7 | ◎（取り込み一覧を模擬） |
-| インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］） | 3.4 | 取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（`tests/tebunko/indexer/indexer.Tests.ps1` で、受け渡しの口の `ConfirmTargets` でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動 |
-| インデックス作成中に画面を閉じる（止めてから閉じる確認・`インデックス作成を止めています…`・止まってから閉じる。60 秒で Office を止める） | 3.7、7.4 | 要手動 |
-| 検索中の進捗表示・中止、大量ヒット時の打ち切り、検索中も画面を操作できること | 4.1 | |
-| `(株)` `1.5` `C++` の文字どおり検索と正規表現検索、不正な正規表現の注意 | 4.2 | ◎ |
-| 一致箇所の強調、並べ替え、絞り込み | 4.3、4.4 | 要手動。並べ替えは軽いフィールド（該当行→`Line`、セルは並べ替えない）。絞り込みは生データで照合するため、セル番地（例 `B5`）とタブ表示記号 ` │ ` には当たらない |
-| 「セル」列（`B6` / `A3 ほか 2`、Word は空欄）、選択行のプレビュー（前後の行・一致したセルの強調・先頭のセルが空の行・セル内改行のあるセルの折り返し）、列見出しのドラッグによる列幅の変更（下限 24px）、セルを選んでの値のコピー、［Excel で開く］［フォルダを開く］の表示 | 4.3、4.8 | ◎（テスト用の TSV を画面に入れて描画を確認。列幅は見出しの `Thumb` に `DragDelta` を起こして確認。コピーは、画面のセル（`Border`）から `getPreviewCell` でセルを特定し、1 セル・範囲・行のコピー結果とクリップボードの内容を確認。合成したマウスイベントは配送されないため、クリック操作そのものは要手動） |
-| 検索結果の遅延描画：スクロールしても一致箇所の強調・「セル」列が出る／大量ヒット（数千〜1万件）で固まらない（`HitRow.Prepare`＋`LoadingRow`） | 12.2、4.3 | クラスの動きは◎（[画面の単体テスト](#画面の単体テスト)）。スクロール時の描画・体感速度は要手動 |
-| 検索対象ツリーの 3 状態チェック（親子伝播）・展開時の子読み込み | 4.8 | 3 状態・検索範囲と除外の組み立ては◎（[画面の単体テスト](#画面の単体テスト)）。クリック操作・展開は要手動 |
-| Excel の該当シート・セルが選択された状態で開くこと、Word・PowerPoint が開くこと、ファイルが無い場合（フォルダを選ぶ確認・フォルダ選択） | 4.5 | 元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（`C3`）が選択されることは◎（`openInExcel` にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動 |
-| コピーした行を Excel に貼ったときの列の位置、結果ファイルの形式 | 4.5、4.6 | コピーの形式のみ◎ |
+| フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと） | [フォルダ選択ダイアログ（［参照…］）](../gui/index-tab.md#フォルダ選択ダイアログ参照) | ◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。`OpenFileDialog` に切り替わる場合は要手動 |
+| 状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止 | [一覧の列](../gui/index-tab.md#一覧の列) | ◎ |
+| インデックス作成の進み具合（件数・失敗・残り時間・取り込み中のファイル・終了後の表示） | [インデックス作成の進み具合](../gui/index-tab.md#インデックス作成の進み具合)、[中止・終了・ログ](../gui/index-tab.md#中止終了ログ) | ◎（取り込み一覧を模擬） |
+| インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］） | [インデックス作成の確認ダイアログ](../gui/index-tab.md#インデックス作成の確認ダイアログ) | 取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（`tests/tebunko/indexer/indexer.Tests.ps1` で、受け渡しの口の `ConfirmTargets` でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動 |
+| インデックス作成中に画面を閉じる（止めてから閉じる確認・`インデックス作成を止めています…`・止まってから閉じる。60 秒で Office を止める） | [中止・終了・ログ](../gui/index-tab.md#中止終了ログ)、[閉じる](../gui/state-flow.md#閉じる) | 要手動 |
+| 検索中の進捗表示・中止、大量ヒット時の打ち切り、検索中も画面を操作できること | [検索の実行](../gui/search-tab.md#検索の実行) | |
+| `(株)` `1.5` `C++` の文字どおり検索と正規表現検索、不正な正規表現の注意 | [検索ワードの扱い](../gui/search-tab.md#検索ワードの扱い) | ◎ |
+| 一致箇所の強調、並べ替え、絞り込み | [結果の表](../gui/search-tab.md#結果の表)、[絞り込み](../gui/search-tab.md#絞り込み) | 要手動。並べ替えは軽いフィールド（該当行→`Line`、セルは並べ替えない）。絞り込みは生データで照合するため、セル番地（例 `B5`）とタブ表示記号 ` │ ` には当たらない |
+| 「セル」列（`B6` / `A3 ほか 2`、Word は空欄）、選択行のプレビュー（前後の行・一致したセルの強調・先頭のセルが空の行・セル内改行のあるセルの折り返し）、列見出しのドラッグによる列幅の変更（下限 24px）、セルを選んでの値のコピー、［Excel で開く］［フォルダを開く］の表示 | [結果の表](../gui/search-tab.md#結果の表)、[検索対象のツリー（No.13）](../gui/search-tab.md#検索対象のツリーno13) | ◎（テスト用の TSV を画面に入れて描画を確認。列幅は見出しの `Thumb` に `DragDelta` を起こして確認。コピーは、画面のセル（`Border`）から `getPreviewCell` でセルを特定し、1 セル・範囲・行のコピー結果とクリップボードの内容を確認。合成したマウスイベントは配送されないため、クリック操作そのものは要手動） |
+| 検索結果の遅延描画：スクロールしても一致箇所の強調・「セル」列が出る／大量ヒット（数千〜1万件）で固まらない（`HitRow.Prepare`＋`LoadingRow`） | [実行時コンパイル（csc.exe）を使わない](../gui/implementation.md#実行時コンパイルcscexeを使わない)、[結果の表](../gui/search-tab.md#結果の表) | クラスの動きは◎（[画面の単体テスト](#画面の単体テスト)）。スクロール時の描画・体感速度は要手動 |
+| 検索対象ツリーの 3 状態チェック（親子伝播）・展開時の子読み込み | [検索対象のツリー（No.13）](../gui/search-tab.md#検索対象のツリーno13) | 3 状態・検索範囲と除外の組み立ては◎（[画面の単体テスト](#画面の単体テスト)）。クリック操作・展開は要手動 |
+| Excel の該当シート・セルが選択された状態で開くこと、Word・PowerPoint が開くこと、ファイルが無い場合（フォルダを選ぶ確認・フォルダ選択） | [元のファイルを開く](../gui/search-tab.md#元のファイルを開く) | 元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（`C3`）が選択されることは◎（`openInExcel` にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動 |
+| コピーした行を Excel に貼ったときの列の位置、結果ファイルの形式 | [元のファイルを開く](../gui/search-tab.md#元のファイルを開く)、[結果をファイルに出力](../gui/search-tab.md#結果をファイルに出力) | コピーの形式のみ◎ |
 | Office プロセスの一覧・各終了ボタン・確認ダイアログ・インデックス作成中の警告 | [［9 プロセス停止］タブ](../gui/process-tab.md) | 一覧・ボタンの有効／無効のみ◎ |
 | アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko） | [表示・アクセシビリティ](../gui/common.md#表示アクセシビリティ) | 要手動 |
 | 表示倍率 100 %・150 % での見た目 | [表示・アクセシビリティ](../gui/common.md#表示アクセシビリティ) | |
-| 多重起動したときに、2 つ目が終了して既存のウィンドウが前面に出ること | 2.1、12.1 | 最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動） |
-| zip 展開直後（Mark-of-the-Web 付き）から `tebunko.bat` で起動でき、印が消えること（`Bypass` なし・`RemoteSigned`） | 10.1 | ◎（テスト用のコピー全ファイルに MOTW を付け、`RemoteSigned` でブロックされること→`tebunko.bat` 実行で `scripts` 配下の MOTW 0 件→`RemoteSigned` で画面が開く（ウィンドウ表題 `tebunko`）ことを確認） |
-| `tebunko.bat` で起動したとき、PowerShell の窓が残らないこと（既定のターミナルが Windows Terminal でも） | 10.1 | ◎（エクスプローラーから起動し、Windows Terminal のタブが増えず、画面の親が `conhost.exe` であることを確認） |
-| 実行時コンパイル（csc.exe）を出さないこと | 12.2 | ◎（`Add-Type` は標準アセンブリの読み込みだけであること（`tests/meta/safety.Tests.ps1`）・起動〜検索で `csc.exe` 0 回／一時 DLL 0 個を実起動で確認） |
-| `[` `]` を含むツールの配置フォルダからの起動 | 00_共通_3_テスト.md | |
+| 多重起動したときに、2 つ目が終了して既存のウィンドウが前面に出ること | [ウィンドウ](../gui/index.md#ウィンドウ)、[待たせ方の方針（画面を固まらせない）](../gui/implementation.md#待たせ方の方針画面を固まらせない) | 最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動） |
+| zip 展開直後（Mark-of-the-Web 付き）から `tebunko.bat` で起動でき、印が消えること（`Bypass` なし・`RemoteSigned`） | [配布と実行ポリシー（Mark-of-the-Web）](../gui/common.md#配布と実行ポリシーmark-of-the-web) | ◎（テスト用のコピー全ファイルに MOTW を付け、`RemoteSigned` でブロックされること→`tebunko.bat` 実行で `scripts` 配下の MOTW 0 件→`RemoteSigned` で画面が開く（ウィンドウ表題 `tebunko`）ことを確認） |
+| `tebunko.bat` で起動したとき、PowerShell の窓が残らないこと（既定のターミナルが Windows Terminal でも） | [配布と実行ポリシー（Mark-of-the-Web）](../gui/common.md#配布と実行ポリシーmark-of-the-web) | ◎（エクスプローラーから起動し、Windows Terminal のタブが増えず、画面の親が `conhost.exe` であることを確認） |
+| 実行時コンパイル（csc.exe）を出さないこと | [実行時コンパイル（csc.exe）を使わない](../gui/implementation.md#実行時コンパイルcscexeを使わない) | ◎（`Add-Type` は標準アセンブリの読み込みだけであること（`tests/meta/safety.Tests.ps1`）・起動〜検索で `csc.exe` 0 回／一時 DLL 0 個を実起動で確認） |
+| `[` `]` を含むツールの配置フォルダからの起動 | [結合テスト（手動）](#結合テスト手動) | |

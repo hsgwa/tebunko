@@ -40,7 +40,7 @@ function chooseWorkspace {
 }
 
 function resetWorkspace {
-    # ［既定に戻す］。既定の場所（ドキュメントの tebunko）に戻す（無ければ作る）。ほかのファイルが置いてあれば戻さない
+    # ［既定に戻す］。既定の場所（ドキュメントの tebunko_ws）に戻す（無ければ作る）。ほかのファイルが置いてあれば戻さない
     if (!(testWorkspaceChangeable)) {
         return
     }

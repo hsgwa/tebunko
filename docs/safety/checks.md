@@ -2,7 +2,7 @@
 
 ## 検査項目と結果
 
-検査対象は `scripts/` 配下のすべての `.ps1`（44 ファイル）である。下の確認コマンドは、説明のコメント行（「〜は使わない」などの記述）を除いて検索する。「該当 0 件」は、コマンドが 1 件も出力しないことを意味する。同じ検査を `tests/meta/safety.Tests.ps1` の「危険な処理を使っていないこと」が行い、CI（`test.yml` の `test`。main へのマージに必須）で PR ごとに実行する。
+検査対象は `scripts/` 配下のすべての `.ps1` である。下の確認コマンドは、説明のコメント行（「〜は使わない」などの記述）を除いて検索する。「該当 0 件」は、コマンドが 1 件も出力しないことを意味する。同じ検査を `tests/meta/safety.Tests.ps1` の「危険な処理を使っていないこと」が行い、CI（`test.yml` の `test`。main へのマージに必須）で PR ごとに実行する。
 
 確認コマンドの準備（リポジトリ直下、または配布 zip を展開したフォルダで実行する）:
 
@@ -44,7 +44,7 @@ function scan { param([string[]]$Pattern)
 
 ## Office ファイルを開くときの設定
 
-インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（`shared/office/office_app.ps1:36-53`）。`tests/meta/safety.Tests.ps1` の「Office ファイルを安全に開くこと」がこれを確かめる。
+インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（`shared/office/office_app.ps1:46-63`）。`tests/meta/safety.Tests.ps1` の「Office ファイルを安全に開くこと」がこれを確かめる。
 
 | 設定 | 値 | 意味 |
 |---|---|---|

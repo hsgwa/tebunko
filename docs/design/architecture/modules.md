@@ -9,7 +9,7 @@
 | `scripts/shared/core/` | パス定義（`paths.ps1`）・ファイルの読み書き（`fs.ps1`）・データの置き場所（`data_dir.ps1`）・TSV とセルの文字列（`text.ps1`）・フォルダのパスと一覧（`folder.ps1`）・スレッドのプール（`worker_pool.ps1`。`WorkerPool`・`BackgroundQueue`） |
 | `scripts/shared/office/` | Office ファイルの判定（`office_files.ps1`）・プロセスの一覧と強制終了（`office_process.ps1`）・Office ファイルを ZIP として読む処理（`office_reader.ps1`）・Office アプリ（COM）の起動と終了（`office_app.ps1`） |
 | `scripts/shared/ui/` | 画面の土台と共通部品（`types.ps1`・`app_host.ps1`・`shell.ps1`・`folder_dialog.ps1`） |
-| `scripts/tebunko/core/` | tebunko のパス定義（`paths.ps1`）・設定ファイル（`settings.ps1`） |
+| `scripts/tebunko/core/` | tebunko のパス定義（`paths.ps1`）・設定ファイル（`settings.ps1`）・ワークスペース（`workspace.ps1`） |
 | `scripts/tebunko/index/` | インデックス名と TSV の名前の決め方（`index_name.ps1`）・インデックスの作成と集計（`index_store.ps1`）・検索用の集約ファイルの形式（`pack_format.ps1`）と読み書き（`pack_store.ps1`）・高速検索用の システムインデックスと状態（`system_index.ps1`） |
 | `scripts/tebunko/indexer/` | インデックス作成の状態ファイル（`indexer_state.ps1`）・取り込み直すかの判断（`indexer_decide.ps1`）・取り込み対象の決定（`indexer_plan.ps1`）・1 ファイルの取り込みと抽出（`extract_office.ps1`）・作業フォルダ・外したフォルダのインデックスの後始末（`index_migrate.ps1`）・インデックス作成の本体と取り込みのスレッド（`indexer_run.ps1`）・画面のインデックス作成 1 回分のスレッド（`indexing_session.ps1`。`IndexingSession`）・インデックス作成の部品の読み込み口（`indexer_lib.ps1`） |
 | `scripts/tebunko/search/` | 検索条件（`search_query.ps1`）・集約ファイルの検索（`pack_search.ps1`）・検索結果の組み立てとインデックスの件数（`search_run.ps1`）・元のファイルの場所（`source_map.ps1`）・高速検索の決まり（`search_gram.ps1`）・Windows Search への問い合わせ（`windows_search.ps1`）・高速検索で照合する集約ファイルの収集（`fast_search.ps1`）・検索の司令のスレッド（`search_service.ps1`。`SearchService`） |
@@ -55,14 +55,14 @@ flowchart TD
 | 変数 | 値 | 定義 |
 |---|---|---|
 | `$rootDir` | リポジトリ直下 | `shared/core/paths.ps1` |
-| `$dataDir` | 設定ファイルと既定の `work` を置くフォルダ。`$rootDir` に書き込めればそこ、書き込めなければ `%LOCALAPPDATA%\tebunko\<鍵>`（[データの置き場所](layout.md#データの置き場所settingconfigwork)） | `shared/core/data_dir.ps1` |
+| `$dataDir` | 設定ファイルを置くフォルダ（ワークスペースの既定の場所とは関係しない）。`$rootDir` に書き込めればそこ、書き込めなければ `%LOCALAPPDATA%\tebunko\<鍵>`（[データの置き場所](layout.md#データの置き場所settingconfigwork)） | `shared/core/data_dir.ps1` |
 | `$utf8Bom` | BOM 付き UTF-8 の `System.Text.Encoding` | `shared/core/paths.ps1` |
 | `$cellNewLine` | インデックス TSV でセル内改行の代わりに使う文字（U+2028 LINE SEPARATOR） | `shared/core/text.ps1` |
 | `$maxFileNameLength` | ファイル名 1 つの長さの上限（255） | `shared/core/fs.ps1` |
 | `$officeExtensions` | 取り込み対象の拡張子（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`） | `shared/office/office_files.ps1` |
 | `$officeProcessNames` | 強制終了の対象のプロセス名 → 表示名（`EXCEL` → `Excel`、`WINWORD` → `Word`、`POWERPNT` → `PowerPoint`） | `shared/office/office_process.ps1` |
 | `$appId` | ツールの ID（`tebunko`。ミューテックスの名前に使う） | `tebunko/core/paths.ps1` |
-| `$workspace` | 今のワークスペース（`Workspace`。5.1.1）。設定 `workspaceFolder` から決める（`getWorkDir`） | 同上 |
+| `$workspace` | 今のワークスペース（`Workspace`。[ワークスペースの中の場所（Workspace）](#ワークスペースの中の場所workspace)）。設定 `workspaceFolder` から決める（`getWorkDir`） | 同上 |
 | `$tmpDir` | `%TEMP%\tebunko\<PID>`（プロセスごと。取り込みのスレッドは、その下の `w<番号>` を使う） | 同上 |
 | `$sourceFolderFileName` | 各インデックスのフォルダに置く対応表のファイル名（`元のフォルダ.txt`） | 同上 |
 | `$indexingPhaseCrawl` / `$indexingPhaseConfirm` / `$indexingPhaseIngest` / `$indexingPhaseFinish` | インデックス作成の進み具合の段階（`クロール` / `確認` / `取り込み` / `仕上げ`） | 同上 |
@@ -108,7 +108,7 @@ flowchart TD
 
 | ファイル | 主な関数 | 記載先 |
 |---|---|---|
-| `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits` / `writeUnits` | [インデックスの形式](../indexer/index-format.md) の 6.4、[Excel](../indexer/excel.md)、[Word](../indexer/word.md)、[PowerPoint](../indexer/powerpoint.md) |
+| `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits` / `writeUnits` | [インデックスの形式](../indexer/index-format.md) の [Word・PowerPoint のテキスト読み取り](../indexer/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexer/excel.md)、[Word](../indexer/word.md)、[PowerPoint](../indexer/powerpoint.md) |
 | `shared/office/office_app.ps1` | `getApp` / `stopApp` / `stopAllApps` / `startWatchdog` / `stopWatchdog` | [Office アプリ（Excel・Word・PowerPoint）の管理](../indexer/office-apps.md#office-アプリexcelwordpowerpointの管理) |
 | `tebunko/indexer/indexer_plan.ps1` | `findOfficeFiles` / `createTargetList` / `waitForIndexingApproval` | [取り込み対象の決定](../indexer/flow.md#取り込み対象の決定createtargetlist)、[メインフロー](../indexer/flow.md#メインフロー) |
 | `tebunko/indexer/extract_office.ps1` | `ingestFile` / `extractWorkbook` / `extractDocument` | [Excel](../indexer/excel.md)、[Word・PowerPoint の抽出処理](../indexer/office-apps.md#wordpowerpoint-の抽出処理extractdocument) |
@@ -132,9 +132,9 @@ flowchart TD
 | `readIndexSources` / `writeIndexSources` | path（既定 `$settingsFile`） / sources, path | `@{Name; Path}` の配列 / – | インデックス作成の対象にしないインデックスの元のフォルダ（`indexSources`）を読み書きする | [設定ファイル（setting.config）](settings-file.md) | getSourceFolderMap, 画面 |
 | `setIndexSourceFolder` | name, folder, path（既定 `$settingsFile`） | – | インデックス名に対する元のフォルダを記録する。クロール対象フォルダにある名前ならそのフォルダの Path を書き換え、無ければ `indexSources` に記録する | [元のファイルが見つからないとき（元のフォルダを設定する）](../gui/search-tab.md#元のファイルが見つからないとき元のフォルダを設定する) | 画面 |
 | `readSearchExcludes` / `writeSearchExcludes` | path（既定 `$settingsFile`） / excludes, path | `@{Path; Subfolders}` の配列 / – | 画面の検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）を読み書きする。無ければ空（すべて検索） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
-| `readSearchOption` / `writeSearchOption` | path / option, path | `@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}` / – | 画面の検索条件。5.2.3 を参照 | [続き](#元のファイルの特定画面) | 画面 |
+| `readSearchOption` / `writeSearchOption` | path / option, path | `@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}` / – | 画面の検索条件。[元のファイルの特定・画面](#元のファイルの特定画面) を参照 | [続き](#元のファイルの特定画面) | 画面 |
 | `readOpenMode` / `writeOpenMode` | path（既定 `$settingsFile`） / mode, path | string / – | 元のファイルの開き方（`openMode`）を読み書きする。無い・知らない値なら `normal` | [元のファイルを開く](../gui/search-tab.md#元のファイルを開く) | 画面 |
-| `getDefaultWorkDir` | path（既定 `$settingsFile`） | string | 既定の `work` の置き場所（設定ファイルと同じフォルダの `work`） | [データの置き場所](layout.md#データの置き場所settingconfigwork) | getWorkDir, writeWorkspaceFolder, 画面 |
+| `getDefaultWorkDir` | profileDir（既定は利用者のプロファイル） | string | 既定のワークスペース `<profileDir>\Documents\tebunko_ws`（OneDrive にリダイレクトされた「ドキュメント」は使わない） | [データの置き場所](layout.md#データの置き場所settingconfigwork) | getWorkDir, writeWorkspaceFolder, 画面 |
 | `getWorkDir` | path（既定 `$settingsFile`） | string | `work` の置き場所（`workspaceFolder`。空なら既定。相対パスは設定ファイルのフォルダから、`%変数%` は展開する） | 同上 | `paths.ps1`（`$workspace`） |
 | `writeWorkspaceFolder` | folder, path（既定 `$settingsFile`） | – | `work` の置き場所を保存する。既定の場所なら空で保存する | 同上 | 画面 |
 
@@ -149,7 +149,7 @@ flowchart TD
 | `copyFileShared` | sourcePath, destPath | – | 元のファイルを読み取りだけで開いてコピーする（ほかのアプリの読み書き・削除を妨げない）。インデックス作成は、このコピーを開く | [取り込み対象のファイルは書き換えない](../../safety/file-access.md#取り込み対象のファイルは書き換えない) | インデックス作成 |
 | `getFolderKey` | dir | string（16 進 64 文字） | フォルダのパスを小文字にした SHA-256。名前付きミューテックス・イベントの名前に使う。FIPS モードの Windows でも動くよう、FIPS 準拠の実装（`SHA256CryptoServiceProvider`）を使う | – | newAppMutex, 画面（多重起動の防止） |
 | `testWritableFolder` | dir | bool | フォルダにファイルを作れるか（試しに作ったファイルは閉じると消える）。無いフォルダは `$false` | [データの置き場所](layout.md#データの置き場所settingconfigwork) | getDataDir, 画面（置き場所の変更） |
-| `getDataDir` | root（既定 `$rootDir`）, fallbackBase（既定 `%LOCALAPPDATA%`） | string | 設定ファイルと既定の `work` を置くフォルダ。root に書き込めれば root、書き込めなければ `<fallbackBase>\tebunko\<getFolderKey の先頭 16 文字>`（`shared/core/data_dir.ps1`） | 同上 | `data_dir.ps1`（`$dataDir`） |
+| `getDataDir` | root（既定 `$rootDir`）, fallbackBase（既定 `%LOCALAPPDATA%`） | string | 設定ファイルを置くフォルダ。root に書き込めれば root、書き込めなければ `<fallbackBase>\tebunko\<getFolderKey の先頭 16 文字>`（`shared/core/data_dir.ps1`） | 同上 | `data_dir.ps1`（`$dataDir`） |
 | `newAppMutex` | name（`gui` / `indexer`）, dir（既定 `$rootDir`） | `@{Mutex; Acquired}` | 同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（`Local\tebunko_<name>_<getFolderKey の鍵>`）。`Acquired` が `$false` なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない | [メインフロー](../indexer/flow.md#メインフロー) | インデックス作成（起動時。dir に `$workspace.Dir` を渡し、同じ `work` を使うものを 1 つにする）。画面は `getFolderKey` の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため） |
 | `normalizeFolderPath` | path | string | フォルダパスを 1 つの書き方にそろえる（前後の空白・`"` の除去、環境変数の展開、`/` → `\`、`\\?\` の除去、重なった `\` ・ `.` ・ `..` の解決、相対パスは `$rootDir` から、末尾の `\` の除去。ドライブ直下は `D:\` のまま）。解釈できない場合は書かれたとおり | [クロール対象フォルダ](../indexer/index.md#クロール対象フォルダgettargetfolders) | getTargetFolders, 画面 |
 | `getPathUnderFolder` | path, folder | string / `$null` | path が folder 自身か下なら folder からの相対パス（folder 自身は空）、下でなければ `$null`（大文字・小文字と末尾の `\` を無視）。パスの文字数で切り出さないために使う | 同上 | インデックス作成・検索 |
@@ -183,7 +183,7 @@ flowchart TD
 | `testIndexerRunning` | dir（既定 `$workspace.Dir`） | bool | この `work` でインデックス作成が動いているか（インデクサのミューテックスを取れるかで調べ、取れたらすぐ放す）。画面を使わずに起動したものも分かる | [画面とインデクサの受け渡し](threads.md#画面とインデクサの受け渡し) | 画面（［8 設定］） |
 | `writeIndexerLog` | text, color | – | インデックス作成の表示内容をログ（`インデックス作成ログ.txt`）に書く。画面を使わずに実行したときはコンソールにも出す（color はそのときの色）。取り込みのスレッドでは 1 ファイル分を貯め、司令がまとめて書く | [メインフロー](../indexer/flow.md#メインフロー) | インデックス作成 |
 | `newIngestPlanRow` | name, path, kind, total, targets, new, updated, pending, lost, failed | 取り込み予定の 1 行（`[pscustomobject]`） | インデックス 1 件分の取り込み対象の件数を作る（`$ingestPlanColumns` と同じ列） | [取り込み予定（画面の確認に出す件数）](../indexer/flow.md#取り込み予定画面の確認に出す件数) | インデックス作成 |
-| `getIndexingState` | since, path | 5.2.3 を参照 | 取り込み一覧の状態ごとの件数など | [続き](#元のファイルの特定画面) | 画面 |
+| `getIndexingState` | since, path | [元のファイルの特定・画面](#元のファイルの特定画面) を参照 | 取り込み一覧の状態ごとの件数など | [続き](#元のファイルの特定画面) | 画面 |
 
 **取り込み直すかの判断（`tebunko/indexer/indexer_decide.ps1`）**
 
@@ -209,11 +209,11 @@ flowchart TD
 | `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath | – | インデックスを削除する。`work\index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`） | 同上 | 画面（［削除］） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
 
-TSV の名前・配置、集約ファイル、検索にかかわる関数（`index_name.ps1` の `encodeIndexPlace` など、`index_store.ps1` の `getIndexTsvCounts` / `publishIndexFiles` など、`pack_format.ps1`・`pack_store.ps1`・`pack_search.ps1`）は 5.2.2 に記載する。
+TSV の名前・配置、集約ファイル、検索にかかわる関数（`index_name.ps1` の `encodeIndexPlace` など、`index_store.ps1` の `getIndexTsvCounts` / `publishIndexFiles` など、`pack_format.ps1`・`pack_store.ps1`・`pack_search.ps1`）は [TSV の作成・検索](#tsv-の作成検索) に記載する。
 
-> **5.2.2 TSV の作成・検索** → [TSV の作成・検索](#tsv-の作成検索)
+> **[TSV の作成・検索](#tsv-の作成検索) TSV の作成・検索** → [TSV の作成・検索](#tsv-の作成検索)
 
-> **5.2.3 元のファイルの特定・画面** → [元のファイルの特定・画面](#元のファイルの特定画面)
+> **[元のファイルの特定・画面](#元のファイルの特定画面) 元のファイルの特定・画面** → [元のファイルの特定・画面](#元のファイルの特定画面)
 
 インデクサ（`tebunko/indexer.ps1`）と、画面の検索（`tebunko/gui.ps1`）は次の関数を使う。
 
@@ -294,8 +294,8 @@ flowchart LR
 | `encodeIndexPlace` | place | string | TSV のファイル名に入れる場所を符号化する（ファイル名禁止文字・制御文字・`_`・`%` を `%XX` に） | [場所の符号化](../indexer/index-format.md#場所の符号化encodeindexplace--decodeindexplace) | toIndexFileName |
 | `decodeIndexPlace` | place | string | `encodeIndexPlace` の `%XX` を元に戻す（それ以外の `%` はそのまま） | 同上 | getIndexFolderBooks |
 | `toIndexFileName` | place | string | インデックスの TSV のファイル名 `<場所>.tsv`（場所は `encodeIndexPlace`）。元のファイル名はフォルダ名にするため入れない。`$maxFileNameLength`（255）文字を超えれば例外 | [配置・命名規則](../indexer/index-format.md#配置命名規則) | インデックス作成（Excel・Word・PowerPoint） |
-| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメントの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [配置・命名規則](../indexer/index-format.md#配置命名規則) 6.1「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
-| `describePlace` | book, place | `@{Place; Kind}` | 画面の「場所」「種別」と検索結果ファイルに出す文字（`[シート] 売上`・図形、`[ページ] 3（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) 5.1 | 画面・`toResultLine` |
+| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメントの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
+| `describePlace` | book, place | `@{Place; Kind}` | 画面の「場所」「種別」と検索結果ファイルに出す文字（`[シート] 売上`・図形、`[ページ] 3（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) | 画面・`toResultLine` |
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [長いパス（260 文字超）の扱い](../indexer/index-format.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す | – | インデックス作成（インデックス・作業フォルダの削除） |
@@ -321,7 +321,7 @@ flowchart LR
 
 **集約ファイルの形式（`tebunko/index/pack_format.ps1`）**
 
-形式は [配置・命名規則](../indexer/index-format.md#配置命名規則) 6.1「集約ファイルの形式」。判断層のため、ファイルを読み書きしない。
+形式は [配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)「集約ファイルの形式」。判断層のため、ファイルを読み書きしない。
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
@@ -348,7 +348,7 @@ flowchart LR
 | `getPackFiles` | root, relPath, recurse | `@{Path; Root; RelDir; RelPath; Ticks; Size}` の配列 | フォルダ以下の集約ファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べる（Path は `\\?\` 付き。Ticks・Size は読んだ内容を使い回してよいかの判定に使う） | [検索](../search/index.md#検索の実装速度) | getIndexPackFiles |
 | `findIndexFoldersWithBooks` | root | string[] | 元のファイルごとのフォルダ（集約ファイルに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まったとき） | [配置・命名規則](../indexer/index-format.md#配置命名規則) | インデックス作成（開始時） |
 | `publishIndexFolders` | pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath | 書き出したフォルダの数 | フォルダごとに、集約ファイルを書き（`updateIndexFolderPack`）、TSV を消し、書いた中身からシステムインデックスの txt を作る（`writeSystemIndexFolder`）。txt の「反映待ち」はまとめて状態ファイルに書く | 同上 | インデックス作成（flushPendingPublish） |
-| `readPackContext` | path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache | `@{LineNumber; Line}` の配列 | 集約ファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（`newTsvTextCache`）に同じ集約ファイルの内容があれば読み直さない。読めない・見つからなければ空 | [［2 検索］タブ](../gui/search-tab.md) 4.7 | 画面 |
+| `readPackContext` | path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache | `@{LineNumber; Line}` の配列 | 集約ファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（`newTsvTextCache`）に同じ集約ファイルの内容があれば読み直さない。読めない・見つからなければ空 | [［2 検索］タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/search-tab.md#選択行のプレビュー) | 画面 |
 
 **検索（`tebunko/search/search_query.ps1`・`pack_search.ps1`・`search_run.ps1`）**
 
