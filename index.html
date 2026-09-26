@@ -25,7 +25,7 @@
     
     
       
-        <title>Office ファイルを中身の文字で一括検索 - tebunko</title>
+        <title>Office 文書の全文検索ツール - tebunko</title>
       
     
     
@@ -105,7 +105,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Office ファイルを中身の文字で一括検索
+              Office 文書の全文検索ツール
             
           </span>
         </div>
@@ -286,29 +286,28 @@
     <div class="md-grid md-typeset tb-hero__inner">
       <div class="tb-hero__text">
         <img class="tb-hero__logo" src="images/logo.svg" alt="" width="72" height="72">
-        <h1 class="tb-hero__title">Office ファイルを、<br>中身の文字で一括検索</h1>
+        <h1 class="tb-hero__title">どこに書いてあるか、<br>すぐ見つかる。</h1>
         <p class="tb-hero__lead">
-          フォルダにたまった Excel・Word・PowerPoint から、探している言葉が
-          <strong>どのファイルの、どのシート・ページ・スライドの、何行目にあるか</strong>を、すぐに見つけます。
+          Excel・Word・PowerPoint の中身をまとめて検索し、その言葉が書かれた<strong>ファイル・シート・行</strong>を一覧に。ダブルクリックでその箇所が開き、<strong>そのまま編集</strong>できます。
         </p>
         <div class="tb-hero__actions">
           <a class="md-button md-button--primary tb-hero__primary" href="https://github.com/hsgwa/tebunko/releases/latest">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg> ダウンロード
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg> 無料でダウンロード
           </a>
-          <a class="md-button tb-hero__secondary" href="guide/">
+          <a class="md-button tb-hero__secondary" href="guide/quickstart/">
             使い方を見る
           </a>
         </div>
         <ul class="tb-hero__facts">
-          <li>Windows 10 / 11</li>
-          <li>Microsoft Office</li>
+          <li>PC の中で完結・通信なし</li>
+          <li>インストール不要</li>
           <li>管理者権限不要</li>
-          <li>MIT License</li>
+          <li>オープンソース（MIT）</li>
         </ul>
       </div>
       <figure class="tb-hero__shot">
         <img src="images/screenshot_search.png"
-             alt="tebunko の検索画面。検索した言葉が、ファイルごとにシートと行とともに一覧され、一致した文字が黄色で表示されている"
+             alt="tebunko の検索画面。検索結果がファイルごとにシートと行とともに一覧され、一致した文字列が強調表示されている"
              width="1252" height="875">
       </figure>
     </div>
@@ -502,7 +501,7 @@
   <span class="md-ellipsis">
     
   
-    はじめる
+    導入
   
 
     
@@ -518,7 +517,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    はじめる
+    導入
   
 
           </label>
@@ -538,7 +537,7 @@
   <span class="md-ellipsis">
     
   
-    インデックスとは
+    インデックスの仕組み
   
 
     
@@ -566,7 +565,7 @@
   <span class="md-ellipsis">
     
   
-    はじめて使う
+    クイックスタート
   
 
     
@@ -668,7 +667,7 @@
   <span class="md-ellipsis">
     
   
-    インデックスを作る
+    インデックスの作成
   
 
     
@@ -696,7 +695,7 @@
   <span class="md-ellipsis">
     
   
-    検索する
+    検索
   
 
     
@@ -808,7 +807,7 @@
   <span class="md-ellipsis">
     
   
-    Office のプロセスを止める
+    Office プロセスの停止
   
 
     
@@ -866,7 +865,7 @@
   <span class="md-ellipsis">
     
   
-    導入と管理
+    運用管理
   
 
     
@@ -882,7 +881,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    導入と管理
+    運用管理
   
 
           </label>
@@ -1191,7 +1190,7 @@
   <span class="md-ellipsis">
     
   
-    困ったとき・資料
+    サポート・リファレンス
   
 
     
@@ -1207,7 +1206,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    困ったとき・資料
+    サポート・リファレンス
   
 
           </label>
@@ -1227,7 +1226,7 @@
   <span class="md-ellipsis">
     
   
-    困ったとき
+    トラブルシューティング
   
 
     
@@ -1283,7 +1282,7 @@
   <span class="md-ellipsis">
     
   
-    できないこと
+    制限事項
   
 
     
@@ -2508,93 +2507,79 @@
               <article class="md-content__inner md-typeset">
                 
   <section class="tb-section">
-    <h2 class="tb-section__title">tebunko でできること</h2>
-    <div class="tb-cards tb-cards--3">
-      <div class="tb-card">
-        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 15H6l7-14v8h5l-7 14z"/></svg></span>
-        <h3>すばやく探せる</h3>
-        <p>先にファイルの文字を書き写した控え（インデックス）を作るので、検索のたびにファイルを開きません。100 万行（約 70MB）のインデックスでも 1〜2 秒で結果が出ます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 6.5A2.5 2.5 0 0 1 14.5 9a2.5 2.5 0 0 1-2.5 2.5A2.5 2.5 0 0 1 9.5 9 2.5 2.5 0 0 1 12 6.5M12 2a7 7 0 0 1 7 7c0 5.25-7 13-7 13S5 14.25 5 9a7 7 0 0 1 7-7m0 2a5 5 0 0 0-5 5c0 1 0 3 5 9.71C17 12 17 10 17 9a5 5 0 0 0-5-5"/></svg></span>
-        <h3>場所まで分かる</h3>
-        <p>ファイルごとに、シート・ページ・スライドと行を表示し、一致した文字を黄色で目立たせます。ダブルクリックで元のファイルを開き、Excel は該当のセルを選んだ状態で開きます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 13.5v8H3v-8zm-2 2H5v4h4zM12 2l5.5 9h-11zm0 3.86L10.08 9h3.84zM17.5 13c2.5 0 4.5 2 4.5 4.5S20 22 17.5 22 13 20 13 17.5s2-4.5 4.5-4.5m0 2a2.5 2.5 0 0 0-2.5 2.5 2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0 2.5-2.5 2.5 2.5 0 0 0-2.5-2.5"/></svg></span>
-        <h3>図形やコメントの中も</h3>
-        <p>セルや段落だけでなく、図形・テキストボックス・コメントの文字も探せます。.xls・.doc・.ppt などの古い形式にも対応しています。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15l-1.89 1.07L16 8.61l1.96-1.11zM6.04 7.5 12 10.85l1.96-1.1-5.88-3.4zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span>
-        <h3>Office があれば使える</h3>
-        <p>必要なのは Windows と Microsoft Office だけ。管理者権限も、追加のソフトも要りません。zip を展開するだけでも、インストーラーで入れても使えます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1a6.887 6.887 0 0 0 0 9.8c2.73 2.7 7.15 2.7 9.88 0 1.36-1.35 2.04-2.92 2.04-4.9h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58a8.987 8.987 0 0 1 12.65 0L21 3zM12.5 8v4.25l3.5 2.08-.72 1.21L11 13V8z"/></svg></span>
-        <h3>変わったファイルだけ取り込む</h3>
-        <p>2 回目からは、新しいファイルと変わったファイルだけを取り込みます。途中で止めても、次は続きから。作成中も検索できます。</p>
-      </div>
-      <div class="tb-card">
-        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 11c0 5.55-3.84 10.74-9 12-5.16-1.26-9-6.45-9-12V5l9-4 9 4zm-9 10c3.75-1 7-5.46 7-9.78V6.3l-7-3.12L5 6.3v4.92C5 15.54 8.25 20 12 21m-2-4-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9"/></svg></span>
-        <h3>通信しない</h3>
-        <p>ネットワークにはつながりません。何をして何をしないかを公開し、変更のたびにテストで確かめています。</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="tb-section">
-    <h2 class="tb-section__title">3 ステップで使えます</h2>
+    <h2 class="tb-section__title">探して、そのまま編集へ</h2>
+    <p class="tb-section__lead">ファイルを 1 つずつ開いて探す必要はありません。</p>
     <ol class="tb-steps">
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">1</span>
         <div>
-          <h3>フォルダを登録する</h3>
-          <p>［1 インデックス管理］で、探したいファイルが入ったフォルダを追加します。共有フォルダも登録できます。</p>
+          <h3>言葉を入れて検索</h3>
+          <p>探したい言葉を入力して Enter。登録したフォルダの Excel・Word・PowerPoint をまとめて検索します。100 万行規模でも 1〜2 秒です。</p>
         </div>
       </li>
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">2</span>
         <div>
-          <h3>インデックスを作る</h3>
-          <p>［インデックス作成を開始］を押すと、ファイルの文字を書き写して、検索用の控え（インデックス）を作ります。300 ファイルで 3 分ほどが目安です。</p>
+          <h3>書いてある場所が分かる</h3>
+          <p>見つかった箇所を、ファイル・シート（ページ・スライド）・行の単位で一覧表示。一致した文字は強調され、前後の内容もその場で確認できます。</p>
         </div>
       </li>
       <li class="tb-step">
         <span class="tb-step__num" aria-hidden="true">3</span>
         <div>
-          <h3>検索して、開く</h3>
-          <p>［2 検索］に言葉を入れて Enter。結果の行をダブルクリックすると、元のファイルの該当箇所が開きます。</p>
+          <h3>そのまま開いて編集</h3>
+          <p>結果をダブルクリックすると、元のファイルの該当箇所が開きます。Excel は該当セルを選択した状態で開くので、すぐに編集できます。</p>
         </div>
       </li>
     </ol>
+  </section>
+
+  <section class="tb-section">
+    <h2 class="tb-section__title">会社の PC にも、安心して</h2>
+    <div class="tb-cards tb-cards--3">
+      <div class="tb-card">
+        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 6h16v10H4m16 2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4c-1.11 0-2 .89-2 2v10a2 2 0 0 0 2 2H0v2h24v-2z"/></svg></span>
+        <h3>PC の中で完結</h3>
+        <p>検索も索引の作成も、すべて手元の PC の中で行います。ネットワーク通信は一切行わず、文書が外部に送られることはありません。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.99.99 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88zM12 4.15l-1.89 1.07L16 8.61l1.96-1.11zM6.04 7.5 12 10.85l1.96-1.1-5.88-3.4zM5 15.91l6 3.38v-6.71L5 9.21zm14 0v-6.7l-6 3.37v6.71z"/></svg></span>
+        <h3>インストール不要・.exe なし</h3>
+        <p>zip を展開するだけで使えます。zip 版は PowerShell のスクリプトと画面定義だけで、実行ファイル（.exe・.dll）を含みません。管理者権限も不要です。</p>
+      </div>
+      <div class="tb-card">
+        <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 11c0 5.55-3.84 10.74-9 12-5.16-1.26-9-6.45-9-12V5l9-4 9 4zm-9 10c3.75-1 7-5.46 7-9.78V6.3l-7-3.12L5 6.3v4.92C5 15.54 8.25 20 12 21m-2-4-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9"/></svg></span>
+        <h3>処理の範囲を公開</h3>
+        <p>何をして何をしないかを公開し、変更のたびに自動テストで検証しています。元のファイルを書き換えることもありません。</p>
+      </div>
+    </div>
     <p class="tb-center">
-      <a class="md-button" href="guide/quickstart/">はじめて使う手順を見る</a>
+      <a class="md-button" href="safety/">安全性の詳細を見る</a>
     </p>
   </section>
 
   <section class="tb-section">
-    <h2 class="tb-section__title">目的に合わせて読む</h2>
+    <h2 class="tb-section__title">ドキュメント</h2>
     <div class="tb-cards">
       <a class="tb-card tb-card--link" href="guide/">
         <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m19 1-5 5v11l5-4.5zm2 4v13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V6c-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1M10 18.41C8.75 18.09 7.5 18 6.5 18c-1.06 0-2.32.19-3.5.5V7.13c.91-.4 2.14-.63 3.5-.63s2.59.23 3.5.63z"/></svg></span>
         <h3>使い方</h3>
-        <p>インストールから、インデックスの作成・検索・困ったときの対処まで。</p>
+        <p>インストールから検索、トラブルシューティングまで。</p>
       </a>
       <a class="tb-card tb-card--link" href="safety/">
         <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 9a3 3 0 0 1 3 3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1 3-3m5.86 10.31C16.23 21.22 14.28 22.45 12 23c-2.56-.61-4.7-2.07-6.42-4.37C3.86 16.34 3 13.8 3 11V5l9-4 9 4v6c0 2.39-.64 4.61-1.92 6.67l-2.91-2.91c.52-.79.83-1.76.83-2.76a5 5 0 0 0-5-5 5 5 0 0 0-5 5 5 5 0 0 0 5 5c1 0 1.97-.31 2.76-.83z"/></svg></span>
         <h3>安全性</h3>
-        <p>導入を審査する方へ。何をして何をしないかと、その根拠を自分で確かめる方法。</p>
+        <p>導入を審査する方へ。何をして何をしないか、その根拠と検証方法。</p>
       </a>
       <a class="tb-card tb-card--link" href="design/">
         <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 16v-3c0-1.11-.89-2-2-2h-6V8h2V2H9v6h2v3H5c-1.11 0-2 .89-2 2v3H1v6h6v-6H5v-3h6v3H9v6h6v-6h-2v-3h6v3h-2v6h6v-6zM11 4h2v2h-2zM5 20H3v-2h2zm8 0h-2v-2h2zm8 0h-2v-2h2z"/></svg></span>
         <h3>開発者向け</h3>
-        <p>仕組みを知りたい方・開発に加わる方へ。インデックス作成・検索・画面の設計と、開発の進め方。</p>
+        <p>インデックス作成・検索・画面の設計と、開発の手順。</p>
       </a>
       <a class="tb-card tb-card--link" href="https://github.com/hsgwa/tebunko">
         <span class="tb-card__icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg></span>
         <h3>GitHub</h3>
-        <p>ソースコード・リリース・不具合の報告や質問はこちら。</p>
+        <p>ソースコード、リリース、不具合の報告・お問い合わせ。</p>
       </a>
     </div>
   </section>

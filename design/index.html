@@ -459,7 +459,7 @@
   <span class="md-ellipsis">
     
   
-    はじめる
+    導入
   
 
     
@@ -475,7 +475,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    はじめる
+    導入
   
 
           </label>
@@ -495,7 +495,7 @@
   <span class="md-ellipsis">
     
   
-    インデックスとは
+    インデックスの仕組み
   
 
     
@@ -523,7 +523,7 @@
   <span class="md-ellipsis">
     
   
-    はじめて使う
+    クイックスタート
   
 
     
@@ -625,7 +625,7 @@
   <span class="md-ellipsis">
     
   
-    インデックスを作る
+    インデックスの作成
   
 
     
@@ -653,7 +653,7 @@
   <span class="md-ellipsis">
     
   
-    検索する
+    検索
   
 
     
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office のプロセスを止める
+    Office プロセスの停止
   
 
     
@@ -823,7 +823,7 @@
   <span class="md-ellipsis">
     
   
-    導入と管理
+    運用管理
   
 
     
@@ -839,7 +839,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    導入と管理
+    運用管理
   
 
           </label>
@@ -1148,7 +1148,7 @@
   <span class="md-ellipsis">
     
   
-    困ったとき・資料
+    サポート・リファレンス
   
 
     
@@ -1164,7 +1164,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    困ったとき・資料
+    サポート・リファレンス
   
 
           </label>
@@ -1184,7 +1184,7 @@
   <span class="md-ellipsis">
     
   
-    困ったとき
+    トラブルシューティング
   
 
     
@@ -1240,7 +1240,7 @@
   <span class="md-ellipsis">
     
   
-    できないこと
+    制限事項
   
 
     
@@ -2611,7 +2611,7 @@
 </tbody>
 </table>
 <h2 id="方式">方式<a class="headerlink" href="#方式" title="Permanent link">&para;</a></h2>
-<p>2 段階方式を採る。先に Office ファイルの文字を書き写した<strong>インデックス</strong>を作っておき（本の巻末の索引にあたる）、検索のときはインデックスだけを読む。こうすると、検索のたびに Office でファイルを開かずに済む。インデックスの中身の具体例は <a href="indexer/#インデックスとははじめて読む方へ">インデックスとは（はじめて読む方へ）</a> にある。</p>
+<p>2 段階方式を採る。Office ファイルから抽出した文字列を索引データ（<strong>インデックス</strong>）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびに Office でファイルを開く処理を省く。インデックスの中身の具体例は <a href="indexer/#インデックスとははじめて読む方へ">インデックスとは（はじめて読む方へ）</a> にある。</p>
 <ol>
 <li><strong>インデックス作成</strong>（<a href="indexer/">インデックス作成（インデクサ）</a>）
    各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの集約ファイルにまとめて <code>work/index/</code> に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
