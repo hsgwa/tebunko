@@ -27,6 +27,8 @@ hooks:
 
 theme:
   name: material
+  # 先頭ページのテンプレート（overrides/home.html）を置く場所
+  custom_dir: overrides
   language: ja
   logo: images/logo.svg
   favicon: images/logo.svg
@@ -41,13 +43,18 @@ theme:
     - search.highlight
     - content.code.copy
   palette:
+    # 色はロゴに合わせて docs/stylesheets/extra.css で決める
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: ダークモードにする
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: ライトモードにする
@@ -66,6 +73,9 @@ plugins:
 # 版は Material テーマが読み込む版（mermaid@11）に合わせて固定する
 extra_javascript:
   - https://unpkg.com/mermaid@11.17.2/dist/mermaid.min.js
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:
   - tables
