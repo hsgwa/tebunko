@@ -2,25 +2,55 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "normalizeFolderPath" -Tag Io {
-    It "前後の空白・引用符と末尾の \ を取り除き、ドライブ直下は \ を残す" {
-        normalizeFolderPath '  "C:\data\"  ' | Should Be "C:\data"
-        normalizeFolderPath "D:\" | Should Be "D:\"
-        normalizeFolderPath "D:" | Should Be "D:\"
-        normalizeFolderPath "\\server\share\" | Should Be "\\server\share"
-    }
-
-    It "/ を \ にそろえ、長いパス用の \\?\ ・ \\?\UNC\ を外す" {
-        normalizeFolderPath "C:/data/見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "//server/share/見積" | Should Be "\\server\share\見積"
-        normalizeFolderPath "\\?\C:\data\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "\\?\UNC\server\share\見積" | Should Be "\\server\share\見積"
-    }
-
-    It "重なった \ ・ . ・ .. を解決する" {
-        normalizeFolderPath "C:\data\\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "C:\data\.\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "C:\data\売上\..\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "\\server\share\売上\..\見積" | Should Be "\\server\share\見積"
+    # cases = 渡すパス（path）と期待する結果（expected）の組
+    It "<name>" -TestCases @(
+        @{ name = "前後の空白・引用符と末尾の \ を取り除き、ドライブ直下は \ を残す"; cases = @(
+                @{ path = '  "C:\data\"  '; expected = "C:\data" }
+                @{ path = "D:\"; expected = "D:\" }
+                @{ path = "D:"; expected = "D:\" }
+                @{ path = "\\server\share\"; expected = "\\server\share" }
+            )
+        }
+        @{ name = "/ を \ にそろえ、長いパス用の \\?\ ・ \\?\UNC\ を外す"; cases = @(
+                @{ path = "C:/data/見積"; expected = "C:\data\見積" }
+                @{ path = "//server/share/見積"; expected = "\\server\share\見積" }
+                @{ path = "\\?\C:\data\見積"; expected = "C:\data\見積" }
+                @{ path = "\\?\UNC\server\share\見積"; expected = "\\server\share\見積" }
+            )
+        }
+        @{ name = "重なった \ ・ . ・ .. を解決する"; cases = @(
+                @{ path = "C:\data\\見積"; expected = "C:\data\見積" }
+                @{ path = "C:\data\.\見積"; expected = "C:\data\見積" }
+                @{ path = "C:\data\売上\..\見積"; expected = "C:\data\見積" }
+                @{ path = "\\server\share\売上\..\見積"; expected = "\\server\share\見積" }
+            )
+        }
+        @{ name = ".. でドライブ直下まで戻ったら \ を付ける"; cases = @(
+                @{ path = "C:\data\.."; expected = "C:\" }
+            )
+        }
+        @{ name = "\ だけのパスは空にする"; cases = @(
+                @{ path = "\"; expected = "" }
+                @{ path = "\\?\"; expected = "" }
+            )
+        }
+        @{ name = "相対パスは tebunko のフォルダからとみなす"; cases = @(
+                @{ path = "work\index"; expected = "${rootDir}\work\index" }
+                @{ path = ".\work\index"; expected = "${rootDir}\work\index" }
+            )
+        }
+        @{ name = "パスとして解釈できない場合は書かれたとおりに扱う"; cases = @(
+                @{ path = "C:\data*"; expected = "C:\data*" }
+                @{ path = "\\server"; expected = "\\server" }
+                # \ ひとつで始まるパスは、書き間違えた UNC パスのことが多いため、今のドライブのパスに直さない
+                @{ path = "\server\share"; expected = "\server\share" }
+            )
+        }
+    ) {
+        param ($name, $cases)
+        foreach ($case in $cases) {
+            normalizeFolderPath $case.path | Should Be $case.expected
+        }
     }
 
     It "環境変数を展開する" {
@@ -31,18 +61,6 @@ Describe "normalizeFolderPath" -Tag Io {
         } finally {
             Remove-Item Env:\tebunko_TEST_FOLDER
         }
-    }
-
-    It "相対パスは tebunko のフォルダからとみなす" {
-        normalizeFolderPath "work\index" | Should Be "${rootDir}\work\index"
-        normalizeFolderPath ".\work\index" | Should Be "${rootDir}\work\index"
-    }
-
-    It "パスとして解釈できない場合は書かれたとおりに扱う" {
-        normalizeFolderPath "C:\data*" | Should Be "C:\data*"
-        normalizeFolderPath "\\server" | Should Be "\\server"
-        # \ ひとつで始まるパスは、書き間違えた UNC パスのことが多いため、今のドライブのパスに直さない
-        normalizeFolderPath "\server\share" | Should Be "\server\share"
     }
 }
 
@@ -125,17 +143,6 @@ Describe "getFolderLeafName" -Tag Io {
         getFolderLeafName "C:\data\見積\" | Should Be "見積"
         getFolderLeafName "D:\" | Should Be "D"
         getFolderLeafName "\server\share" | Should Be "share"
-    }
-}
-
-Describe "normalizeFolderPath（区切りだけ・ドライブ直下に戻るパス）" -Tag Io {
-    It "\ だけのパスは空にする" {
-        normalizeFolderPath "\" | Should Be ""
-        normalizeFolderPath "\\?\" | Should Be ""
-    }
-
-    It ".. でドライブ直下まで戻ったら \ を付ける" {
-        normalizeFolderPath "C:\data\.." | Should Be "C:\"
     }
 }
 

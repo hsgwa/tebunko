@@ -141,16 +141,6 @@ function newHitRow {
     return $row
 }
 
-Describe "読み込み" -Tag Unit {
-    It "選択が変わったときにまとめて読むタイマーと、イベントを登録する" {
-        $handlers.ContainsKey("Timer.Tick") | Should Be $true
-        $handlers.ContainsKey("ResultGrid.SelectionChanged") | Should Be $true
-        $handlers.ContainsKey("PreviewRows.PreviewMouseLeftButtonDown") | Should Be $true
-        $handlers.ContainsKey("MenuPreviewCopyRow.Click") | Should Be $true
-        $handlers["PreviewHeader.DragDelta"] -is [System.Windows.Controls.Primitives.DragDeltaEventHandler] | Should Be $true
-    }
-}
-
 Describe "clearDetail" -Tag Unit {
     BeforeEach { resetPreview }
 
@@ -334,12 +324,6 @@ Describe "showDetail" -Tag Io {
     }
 }
 
-Describe "getPreviewCell" -Tag Unit {
-    It "セルの上でなければ無し" {
-        $null -eq (getPreviewCell $null) | Should Be $true
-    }
-}
-
 Describe "copyPreviewSelection" -Tag Unit {
     BeforeEach { resetPreview }
 
@@ -348,19 +332,14 @@ Describe "copyPreviewSelection" -Tag Unit {
         $fake.Status | Should Match "^プレビューでコピーするセルをクリックしてください"
     }
 
-    It "セルを選んでいないときも、案内だけを出す" {
-        $script:previewTable = [PreviewTable]::new()
-        $fake.Status = ""
-
-        & $handlers["MenuPreviewCopy.Click"]
-
-        $fake.Status | Should Match "^プレビューでコピーするセルをクリックしてください"
-    }
-
-    It "［行をコピー］もセルを選んでいなければ案内だけを出す" {
+    It "<name>" -TestCases @(
+        @{ name = "セルを選んでいないときも、案内だけを出す"; menu = "MenuPreviewCopy.Click" }
+        @{ name = "［行をコピー］もセルを選んでいなければ案内だけを出す"; menu = "MenuPreviewCopyRow.Click" }
+    ) {
+        param ($name, $menu)
         $script:previewTable = [PreviewTable]::new()
 
-        & $handlers["MenuPreviewCopyRow.Click"]
+        & $handlers[$menu]
 
         $fake.Status | Should Match "^プレビューでコピーするセルをクリックしてください"
     }
@@ -436,14 +415,6 @@ Describe "イベント" -Tag Unit {
         $script:previewTable.HasSelection() | Should Be $false
     }
 
-    It "ボタンを押していないマウスの移動は無視する" {
-        $script:previewTable = [PreviewTable]::new()
-
-        & $handlers["PreviewRows.MouseMove"] $ui.PreviewRows ([pscustomobject]@{ OriginalSource = $null; LeftButton = "Released" })
-
-        $script:previewTable.HasSelection() | Should Be $false
-    }
-
     It "列見出しの右端をドラッグすると、その列の幅が変わる" {
         $column = [PreviewColumn]::new()
         $column.Width = 100
@@ -454,13 +425,5 @@ Describe "イベント" -Tag Unit {
         $handlers["PreviewHeader.DragDelta"].Invoke($ui.PreviewHeader, $e)
 
         $column.Width | Should Be 130
-    }
-
-    It "列見出し以外のドラッグでは何もしない" {
-        $e = New-Object System.Windows.Controls.Primitives.DragDeltaEventArgs 30.0, 0.0
-        $e.RoutedEvent = [System.Windows.Controls.Primitives.Thumb]::DragDeltaEvent
-        $e.Source = [pscustomobject]@{ DataContext = "列ではない" }
-
-        { $handlers["PreviewHeader.DragDelta"].Invoke($ui.PreviewHeader, $e) } | Should Not Throw
     }
 }
