@@ -2713,7 +2713,7 @@
 </tr>
 <tr>
 <td><code>writeTextLinesAtomic</code></td>
-<td>新しいファイルを作り、一時ファイルを残さない</td>
+<td>新しいファイルを作り、一時ファイルを残さない。既定は BOM 付き UTF-8、文字コードの引数で BOM なし UTF-8 にできる</td>
 </tr>
 <tr>
 <td><code>formatFileTime</code></td>
@@ -2722,6 +2722,10 @@
 <tr>
 <td><code>removeDirectoryRetry</code></td>
 <td>中身ごと削除、フォルダが無ければ何もしない</td>
+</tr>
+<tr>
+<td><code>invokeWithNamedMutex</code></td>
+<td>出力を返し手放す、例外でも手放す、同じスレッドの入れ子は通す、別のスレッドが持ったままなら時間切れの例外、持ったまま終わったスレッドの後は abandoned として続ける</td>
 </tr>
 <tr>
 <td><code>newAppMutex</code></td>
