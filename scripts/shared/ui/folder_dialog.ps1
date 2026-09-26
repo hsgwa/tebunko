@@ -2,6 +2,7 @@
 
 ${folderPickOption} = [uint32]0x20                  # FOS_PICKFOLDERS（ファイルではなくフォルダを選ぶ）
 ${folderPickCanceled} = [int]0x800704C7             # HRESULT_FROM_WIN32(ERROR_CANCELLED)（［キャンセル］で閉じた）
+${folderPickFileName} = "フォルダーの選択"          # 予備のダイアログのファイル名の欄に入れておく名前
 
 function selectFolder {
     # Windows 標準のエクスプローラー形式のダイアログでフォルダを選んでもらい、選んだフォルダを返す（キャンセルなら $null）。
@@ -10,7 +11,7 @@ function selectFolder {
     #   インターフェースの定義が要る。自分で定義すると実行時コンパイル（csc.exe）が要るため（12.2）、
     #   WinForms（読み込み済み）が内部に持つ定義 FileDialogNative+IFileDialog をリフレクションで呼ぶ。
     #   内部の型（NonPublic）を呼ぶのはここだけ（tests\meta\safety.Tests.ps1 が確かめる）。
-    #   内部の型が使えないとき（.NET の変更など）は、ツリー形式の FolderBrowserDialog で選んでもらう。
+    #   内部の型が使えないとき（.NET の変更など）は、同じ見た目のファイルを開くダイアログで、フォルダの中に入って選んでもらう。
     param (
         [string]$description,
         [string]$initialPath,
@@ -25,9 +26,9 @@ function selectFolder {
     try {
         return showFolderPicker $description $start $hwnd
     } catch {
-        writeErrorLog "フォルダ選択（標準のダイアログを開けないため、ツリー形式で開く）" $_
+        writeErrorLog "フォルダ選択（標準のフォルダ選択を開けないため、ファイルを開くダイアログで選んでもらう）" $_
     }
-    return showFolderBrowser $description $start $hwnd
+    return showFolderByFileDialog $description $start $hwnd
 }
 
 function showFolderPicker {
@@ -42,59 +43,65 @@ function showFolderPicker {
     $fileDialogType = [System.Windows.Forms.FileDialog]
     $assembly = $fileDialogType.Assembly
     $nativeType = $assembly.GetType("System.Windows.Forms.FileDialogNative+IFileDialog", $true)
-    $eventsType = $assembly.GetType("System.Windows.Forms.FileDialog+VistaDialogEvents", $true)
+    $itemType = $assembly.GetType("System.Windows.Forms.FileDialogNative+IShellItem", $true)
+    $nameType = $assembly.GetType("System.Windows.Forms.FileDialogNative+SIGDN", $true)
 
     $dialog = New-Object System.Windows.Forms.OpenFileDialog
     $dialog.Title = $description
     $dialog.InitialDirectory = $start
-    # フォルダのパスをファイル名として確かめさせない
-    $dialog.CheckFileExists = $false
-    $dialog.AddExtension = $false
-    $dialog.ValidateNames = $false
 
+    $path = ""
     $native = $fileDialogType.GetMethod("CreateVistaDialog", $flags).Invoke($dialog, $null)
     try {
         # タイトル・開始フォルダなどを WinForms に設定させ、フォルダ選択の指定を足す
         $fileDialogType.GetMethod("OnBeforeVistaDialog", $flags).Invoke($dialog, @($native)) | Out-Null
         $options = [uint32]$fileDialogType.GetMethod("get_Options", $flags).Invoke($dialog, $null)
         $nativeType.GetMethod("SetOptions").Invoke($native, @($options -bor ${folderPickOption})) | Out-Null
-        # 閉じるときに、選んだパスを $dialog.FileName に入れさせる
-        # （引数の配列の中は PowerShell が包んだまま渡すため、.NET のオブジェクトそのものを入れる）
-        $events = [System.Activator]::CreateInstance($eventsType, $flags, $null, [object[]]@($dialog.PSObject.BaseObject), $null)
-        $advise = [object[]]@($events, [uint32]0)
-        $nativeType.GetMethod("Advise").Invoke($native, $advise) | Out-Null
+        $hr = [int]$nativeType.GetMethod("Show").Invoke($native, @($hwnd))
+        if ($hr -eq ${folderPickCanceled}) {
+            return $null
+        }
+        if ($hr -ne 0) {
+            throw "フォルダ選択のダイアログがエラーを返しました（0x$($hr.ToString('X8'))）"
+        }
+        # 選んだフォルダ（IShellItem）のファイルシステムのパス（SIGDN_FILESYSPATH）を読む。
+        # out 引数は、渡した配列の同じ位置に入って戻る
+        $resultArgs = [object[]]@($null)
+        $nativeType.GetMethod("GetResult").Invoke($native, $resultArgs) | Out-Null
+        $item = $resultArgs[0]
         try {
-            $hr = [int]$nativeType.GetMethod("Show").Invoke($native, @($hwnd))
+            $nameArgs = [object[]]@([Enum]::Parse($nameType, "SIGDN_FILESYSPATH"), $null)
+            $itemType.GetMethod("GetDisplayName").Invoke($item, $nameArgs) | Out-Null
+            $path = normalizeFolderPath ([string]$nameArgs[1])
         } finally {
-            $nativeType.GetMethod("Unadvise").Invoke($native, @($advise[1])) | Out-Null
+            [System.Runtime.InteropServices.Marshal]::ReleaseComObject($item) | Out-Null
         }
     } finally {
         [System.Runtime.InteropServices.Marshal]::ReleaseComObject($native) | Out-Null
     }
-    if ($hr -eq ${folderPickCanceled}) {
-        return $null
-    }
-    if ($hr -ne 0) {
-        throw "フォルダ選択のダイアログがエラーを返しました（0x$($hr.ToString('X8'))）"
-    }
-    $path = normalizeFolderPath $dialog.FileName
     if ($path -eq "") {
         return $null
     }
     return $path
 }
 
-function showFolderBrowser {
-    # ツリー形式のフォルダ選択（エクスプローラー形式のダイアログを開けないときに使う）
+function showFolderByFileDialog {
+    # 予備のフォルダ選択（標準のフォルダ選択を開けないときに使う）。見た目は同じエクスプローラー形式で、
+    # 公開の API だけを使う。ファイルは出さず、選びたいフォルダの中に入って［開く］を押してもらう
     param (
         [string]$description,
         [string]$start,
         [IntPtr]$hwnd
     )
 
-    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dialog.Description = $description
-    $dialog.SelectedPath = $start
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = "$description（フォルダの中に入って［開く］を押してください）"
+    $dialog.InitialDirectory = $start
+    $dialog.FileName = ${folderPickFileName}
+    $dialog.Filter = "フォルダー|*.tebunko-folder"   # どのファイルにも当たらない条件にして、フォルダだけを出す
+    $dialog.CheckFileExists = $false
+    $dialog.ValidateNames = $false
+    $dialog.AddExtension = $false
     $ownerWindow = New-Object System.Windows.Forms.NativeWindow
     if ($hwnd -ne [IntPtr]::Zero) {
         $ownerWindow.AssignHandle($hwnd)
@@ -108,7 +115,7 @@ function showFolderBrowser {
     if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
         return $null
     }
-    return normalizeFolderPath $dialog.SelectedPath
+    return normalizeFolderPath ([System.IO.Path]::GetDirectoryName($dialog.FileName))
 }
 
 function getDroppedFolders {
