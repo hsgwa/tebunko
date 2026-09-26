@@ -434,6 +434,8 @@
       
         
       
+        
+      
     
     
     
@@ -478,6 +480,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/about-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスとは
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2450,6 +2480,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#インデックスとははじめて読む方へ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックスとは（はじめて読む方へ）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#この区分のページ" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2515,6 +2556,56 @@
 
 <h1 id="インデックス作成インデクサ">インデックス作成（インデクサ）<a class="headerlink" href="#インデックス作成インデクサ" title="Permanent link">&para;</a></h1>
 <p>クロール対象フォルダの Office ファイル（Excel・Word・PowerPoint）から文字を抽出し、検索用のインデックス（TSV）を作るインデクサの設計書。このページは概要・入出力・クロール対象フォルダを扱い、処理の詳細は下の「この区分のページ」の各ページに分ける。</p>
+<h2 id="インデックスとははじめて読む方へ">インデックスとは（はじめて読む方へ）<a class="headerlink" href="#インデックスとははじめて読む方へ" title="Permanent link">&para;</a></h2>
+<p><strong>インデックス</strong>は、Office ファイルの中の文字を、検索しやすい形で前もって書き写しておいたものである。本の巻末の索引と同じく、検索のたびに元のファイルを開かずに済むようにするためにある。利用者向けのたとえ話は <a href="../../guide/about-index/">インデックスとは</a> にある。ここでは、中に何が入っているかを具体例で示す。</p>
+<p><strong>例</strong>: <code>C:\共有\営業部\見積\(株)山田商事_見積書.xlsx</code> に「見積」シートがあり、1 行目に <code>品名 数量 単価</code>、2 行目に <code>りんご 10 100</code> と書いてあるとする。</p>
+<pre class="mermaid"><code>flowchart LR
+    X["(株)山田商事_見積書.xlsx&lt;br&gt;シート「見積」"] -- "① 取り込み&lt;br&gt;Excel でシートを&lt;br&gt;テキストに書き出す" --&gt; T["場所ごとの TSV&lt;br&gt;（1 行 = Excel の 1 行）"]
+    T -- "② フォルダの取り込みが&lt;br&gt;終わったら集約" --&gt; P[("集約ファイル&lt;br&gt;index/営業部/見積/&lt;br&gt;content.xlsx.001.tsv")]
+    P -- "③ 検索は&lt;br&gt;集約ファイルだけを読む" --&gt; R["結果: (株)山田商事_見積書.xlsx&lt;br&gt;見積・2 行目「りんご…」"]</code></pre>
+<ol>
+<li><strong>取り込み</strong>：元のファイルのコピーを開き、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
+<li>
+<p><strong>集約</strong>：フォルダの取り込みが終わると、そのフォルダの TSV を、フォルダ・拡張子ごとの<strong>集約ファイル</strong>にまとめる。集約ファイルには、どのファイルのどの場所かを示す行（メタ情報の行）と、TSV の中身が並ぶ。</p>
+<div class="highlight"><pre><span></span><code>␞ ファイル名=(株)山田商事_見積書.xlsx
+␞ 種類=Excel
+␞ シート=見積
+␞ 対象=本文
+品名→数量→単価
+りんご→10→100
+</code></pre></div>
+<p>（<code>␞</code> はメタ情報の行の印、<code>→</code> はタブ。形式の詳細は <a href="index-format/#集約ファイルの形式pack_formatps1">インデックスの形式</a>）
+3. <strong>検索</strong>：検索は集約ファイルだけを順に読んで照合する。ファイル 1 つにつき 1 回開くのではなく、大きな集約ファイルをまとめて読むので速い（<a href="../search/#検索の実装速度">検索の実装（速度）</a>）。</p>
+</li>
+</ol>
+<p>インデックスは、ワークスペース（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。設計書では <code>work/</code> と書く）に置く次のものでできている。</p>
+<table>
+<thead>
+<tr>
+<th>もの</th>
+<th>置き場所</th>
+<th>役割</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>集約ファイル</td>
+<td><code>work/index/&lt;インデックス名&gt;/&lt;フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
+<td>検索が読む本体。<strong>インデックス名</strong>は、画面で登録したフォルダ（クロール対象フォルダ）1 つごとの名前</td>
+</tr>
+<tr>
+<td>取り込み一覧</td>
+<td><code>work/取り込み一覧.tsv</code></td>
+<td>どのファイルを、いつ、どの版で取り込んだか。2 回目からは、ここと比べて新しいファイル・変わったファイルだけを取り込む（差分取り込み）</td>
+</tr>
+<tr>
+<td>システムインデックス</td>
+<td><code>work/system_index/</code></td>
+<td>高速検索のために Windows Search に索引させる txt（<a href="../search/fast-search/">高速検索（Windows Search）</a>）</td>
+</tr>
+</tbody>
+</table>
+<p>インデックスは元のファイルから作り直せる。消しても元のファイルは失われず、次のインデックス作成ですべて取り込み直す。</p>
 <table>
 <thead>
 <tr>

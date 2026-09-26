@@ -434,6 +434,8 @@
       
         
       
+        
+      
     
     
     
@@ -478,6 +480,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/about-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスとは
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2707,7 +2737,7 @@
 <h1 id="インデックスの形式">インデックスの形式<a class="headerlink" href="#インデックスの形式" title="Permanent link">&para;</a></h1>
 <p>インデックス（集約ファイル・TSV）の置き場所・名前・中身の形式（<a href="./">インデックスの形式</a>）と、実装上の注意点・既知の問題（<a href="../known-issues/">既知の問題</a>）を扱う。</p>
 <h2 id="配置命名規則">配置・命名規則<a class="headerlink" href="#配置命名規則" title="Permanent link">&para;</a></h2>
-<p>インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの<strong>集約ファイル</strong>にする。検索は集約ファイルだけを読む（<a href="../../search/#検索の実装速度">検索の実装（速度）</a> <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</p>
+<p>インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの<strong>集約ファイル</strong>にする。検索は集約ファイルだけを読む（<a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</p>
 <div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子（小文字）&gt;.&lt;番号&gt;.tsv                        … 集約ファイル（検索に使う）
 work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名（拡張子あり）&gt;/&lt;encodeIndexPlace(場所)&gt;.tsv … 取り込み中だけの TSV
 </code></pre></div>
@@ -2761,13 +2791,13 @@ work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファ�
 <ul>
 <li>クロール対象フォルダのフォルダ構成が <code>work/index/&lt;インデックス名&gt;/</code> 配下にそのまま再現され、各フォルダに<strong>拡張子ごとの集約ファイル</strong>ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。</li>
 <li>集約ファイルの拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content.docx.001.tsv</code> に入る）。</li>
-<li>「場所」は Excel ではシート名と、図形・コメントの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code>（下の「図形・コメントの場所」、<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>、<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）、Word ではページ・ヘッダー/フッター・脚注（<a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>、<a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>）、PowerPoint ではスライド・ノート（<a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>、<a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>）。</li>
+<li>「場所」は Excel ではシート名と、図形・コメントの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code>（下の「図形・コメントの場所」、<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）、Word ではページ・ヘッダー/フッター・脚注（<a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>）、PowerPoint ではスライド・ノート（<a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>）。</li>
 <li>TSV のファイル名は場所だけ（<code>toIndexFileName</code>）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。</li>
 <li><strong>TSV でファイル名をフォルダ名にする理由</strong>（<code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> のように 1 つの名前にしない理由）:</li>
 <li>ファイル名と場所の区切りが <code>\</code> になり、名前の中の文字と衝突しない（<code>_</code> の符号化に頼らずに分けられる）。</li>
 <li>取り込み直すときは<strong>フォルダごと入れ替え</strong>ればよく、別のファイルの TSV を巻き込まない（<code>&lt;ファイル名&gt;_*.tsv</code> で消すと、<code>a.xls</code> の取り込みで <code>a.xls_b.xlsx</code> の TSV まで消える）。</li>
 <li><code>&lt;ファイル名&gt;＋&lt;場所&gt;</code> が 255 文字を超えて保存できない、ということが起きない。</li>
-<li><strong>集約ファイルにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。ウイルス対策ソフト（Microsoft Defender）は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイル 1 つ・場所 1 つにつき TSV 1 つだと、TSV が数万件になり、初回の検索が数分〜10 分以上かかった。フォルダ・拡張子ごとにまとめると、読むファイルの数が数百分の 1 になる（実測は <a href="../../search/#検索の実装速度">検索の実装（速度）</a> <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</li>
+<li><strong>集約ファイルにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。ウイルス対策ソフト（Microsoft Defender）は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイル 1 つ・場所 1 つにつき TSV 1 つだと、TSV が数万件になり、初回の検索が数分〜10 分以上かかった。フォルダ・拡張子ごとにまとめると、読むファイルの数が数百分の 1 になる（実測は <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</li>
 </ul>
 <h3 id="集約ファイルの形式pack_formatps1">集約ファイルの形式（<code>pack_format.ps1</code>）<a class="headerlink" href="#集約ファイルの形式pack_formatps1" title="Permanent link">&para;</a></h3>
 <p>集約ファイルは、元のファイルごと・場所（シート・ページ・スライドなど）ごとに、<strong>メタ情報の行</strong>と、その場所の TSV の中身（<a href="../excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a> など。1 行 = Excel の 1 行・段落 1 つ）を並べたもの。例（<code>␞</code> は RS（U+001E）、<code>→</code> はタブ）:</p>
@@ -2869,7 +2899,7 @@ B2→確定版
 <ul>
 <li>知らないキーは読み飛ばし、無いキーは既定の値とみなす（後の版でキーを足しても、前の版の読み方で読める）。</li>
 <li>画面・検索結果に出す場所の名前は、メタ情報から TSV のときと同じ形に組み立て直す（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など）。TSV のファイル名（場所の名前）からメタ情報へは <code>convertPlaceToPackMeta</code> で分け、組み立て直して同じ名前にならないもの（番号の桁が違う等）は <code>部分=&lt;名前そのまま&gt;</code> にする。</li>
-<li>メタ情報の行は検索しない（ファイル名・シート名の語には一致しない。<a href="../../search/#検索の実装速度">検索の実装（速度）</a> <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</li>
+<li>メタ情報の行は検索しない（ファイル名・シート名の語には一致しない。<a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</li>
 </ul>
 <h3 id="図形コメントの場所excelwordpowerpoint-で共通の決まり">図形・コメントの場所（Excel・Word・PowerPoint で共通の決まり）<a class="headerlink" href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" title="Permanent link">&para;</a></h3>
 <p>本文（セル・段落）以外の文字は、<strong><code>&lt;元の場所&gt;[&lt;種類&gt;]</code></strong> という場所（TSV）に分けて出力する。種類ごとに、検索に含めるかを画面で選べる（［図形も検索］［コメントも検索］。<a href="../../search/">検索</a> <a href="../../search/#検索仕様">検索仕様</a>）。</p>
@@ -3008,7 +3038,7 @@ B2→確定版
 <ul>
 <li>全角に置き換える方式にしないのは、<code>衝突"</code> と <code>衝突”</code> のように別のシートが同じ TSV 名になり、後のシートで上書きされるため。元に戻せる形にすれば、シート名が違えば TSV 名も必ず違う。</li>
 <li>ファイル名は符号化しない（元ファイルの名前がそのまま TSV のフォルダ名になる。Windows のファイル名なので使えない文字は含まない）。</li>
-<li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a> <a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a>）。</li>
+<li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a>）。</li>
 <li>インデックス名（<code>work/index</code> 直下のフォルダ名）は符号化せず、<code>toSafeFileName</code>（ファイル名に使えない文字を全角に置き換える）で作る。</li>
 </ul>
 <table>

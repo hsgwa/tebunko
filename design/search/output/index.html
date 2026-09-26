@@ -434,6 +434,8 @@
       
         
       
+        
+      
     
     
     
@@ -478,6 +480,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/about-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスとは
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2658,7 +2688,7 @@
 </table>
 <ul>
 <li>Word のページは、Word が保存したときのページ区切りから数えた目安のため「（目安）」を付ける（<a href="../../indexer/word/">Word</a> <a href="../../indexer/known-issues/#word-の注意点既知の問題">Word の注意点・既知の問題</a>）。</li>
-<li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../../indexer/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a> <a href="../../indexer/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。</li>
+<li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../../indexer/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。</li>
 <li>シート名にタブ・改行が入っている場合（Excel は付けられる）は、列・行が分かれないようスペースにする。</li>
 <li><strong>行番号</strong> は場所の中の行番号（<code>searchPackIndex</code> の <code>LineNumber</code>。元の TSV の行番号と同じ）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。</li>
 <li><strong>該当行</strong> は、結果をすべて選択して Excel に貼り付けたとき、5 列目以降に元の列の順（5 列目 = A 列）でセルが並ぶように出力する。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。</li>
@@ -2704,7 +2734,7 @@ sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
 </tr>
 <tr>
 <td>Location</td>
-<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「集約ファイルの形式」）</td>
+<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「集約ファイルの形式」）</td>
 </tr>
 <tr>
 <td>LineNumber</td>

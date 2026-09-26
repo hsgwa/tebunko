@@ -434,6 +434,8 @@
       
         
       
+        
+      
     
     
     
@@ -478,6 +480,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guide/about-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスとは
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2967,7 +2997,7 @@
 <tbody>
 <tr>
 <td><code>work/index/</code></td>
-<td>インデックス。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（<code>content.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>）</td>
+<td>インデックス。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（<code>content.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>）</td>
 </tr>
 <tr>
 <td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
@@ -2975,7 +3005,7 @@
 </tr>
 <tr>
 <td><code>work/system_index/</code></td>
-<td>システムインデックス（高速検索用。<code>work/index</code> の中のフォルダごとの 2-gram の txt。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a> <a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）。Windows Search に索引させる</td>
+<td>システムインデックス（高速検索用。<code>work/index</code> の中のフォルダごとの 2-gram の txt。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）。Windows Search に索引させる</td>
 </tr>
 <tr>
 <td><code>work/システムインデックスの状態.tsv</code></td>
