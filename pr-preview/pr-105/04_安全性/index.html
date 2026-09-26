@@ -2804,7 +2804,7 @@
 </tr>
 <tr>
 <td>コミット前の検査</td>
-<td>個人情報・文字コードの検査（<code>tools/check_commit.ps1</code>）と速いテストを pre-commit フックで動かす。CI は全ファイル・全履歴を検査する</td>
+<td>個人情報・文字コードの検査（<code>tools/check_commit.ps1</code>）と、変更に対応するテスト（<code>tools/run_commit_tests.ps1</code>）を pre-commit フックで動かす。CI は全ファイル・全履歴を検査する</td>
 <td><code>tools/hooks/</code>・<code>test.yml</code></td>
 </tr>
 <tr>
