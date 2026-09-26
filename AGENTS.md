@@ -116,7 +116,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 clone したら `.\tools\install_hooks.ps1` を 1 回実行する（`core.hooksPath` を `tools/hooks` にする）。以後コミットのたびに次が動く。
 
 - `tools/check_commit.ps1 -Staged` … 上の「個人情報を書かない」と文字コードの決まりを、ステージした内容で機械的に確かめる。
-- `tests/run.ps1 -Tag Unit,Meta -Quiet` … 速いテスト。
+- `tools/run_commit_tests.ps1` … ステージした変更に対応するテストだけを流す（`scripts/<パス>.ps1` なら `tests/<パス>.Tests.ps1` と構成のテスト、`.md` ならリンクの検査）。どこに効くか分からない変更（`tests/run.ps1`・`tests/helpers/`・対応するテストが無いスクリプトなど）のときは速いテスト（`Unit`・`Meta`）を全部流す。全テストは CI が流す。
 - `tools/check_commit_message.ps1`（`commit-msg` フック）… コミットメッセージの 1 行目が上の「GitHub の運用」の形であること。
 - `tools/check_signoff.ps1`（`commit-msg` フック）… 作者の `Signed-off-by` が付いていること。
 

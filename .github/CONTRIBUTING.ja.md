@@ -76,7 +76,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 以後、コミットのたびに次の検査が動きます。引っかかったときは `--no-verify` で飛ばさず、内容を直してください。
 
 - 個人情報（実名・メールアドレス・利用者名を含むパスなど）と、スクリプトの文字コードの検査（`tools\check_commit.ps1 -Staged`）
-- 速いテスト（`tests\run.ps1 -Tag Unit,Meta -Quiet`）
+- 変更したファイルに対応するテスト（`tools\run_commit_tests.ps1`。たとえば `scripts\<パス>.ps1` なら `tests\<パス>.Tests.ps1`。どのテストに効くか分からない変更のときは速いテストを全部流します。全テストは CI が流します）
 - コミットメッセージの 1 行目の形（`tools\check_commit_message.ps1`。上の「コミットと Pull Request のタイトル」）
 - `Signed-off-by` が付いていること（`tools\check_signoff.ps1`。上の「Signed-off-by」）
 
