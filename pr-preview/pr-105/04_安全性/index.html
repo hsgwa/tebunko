@@ -1416,6 +1416,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#46-インストーラー版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 インストーラー版
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1755,6 +1766,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#46-インストーラー版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 インストーラー版
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1903,9 +1925,9 @@
 <tbody>
 <tr>
 <td>構成物</td>
-<td>Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko.bat</code>、アイコン <code>tebunko.ico</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない</td>
-<td>配布 zip の中身は <code>tools/new_release_package.ps1</code> が決める</td>
-<td><a href="#51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1</a></td>
+<td><strong>zip 版</strong>: Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko.bat</code>、アイコン <code>tebunko.ico</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない。<strong>インストーラー版</strong>: 同じスクリプトに、起動用の <code>tebunko.exe</code>（本リポジトリのソースからビルド）と、Inno Setup のインストーラー・アンインストーラーが加わる</td>
+<td>zip の中身は <code>tools/new_release_package.ps1</code>、インストーラーの中身は <code>installer/tebunko.iss</code> が決める（<code>installer.Tests.ps1</code>）</td>
+<td><a href="#51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1</a>・<a href="#46-インストーラー版">4.6</a></td>
 </tr>
 <tr>
 <td>第三者ライブラリ</td>
@@ -1933,15 +1955,15 @@
 </tr>
 <tr>
 <td>管理者権限・常駐</td>
-<td><strong>不要・しない</strong>。昇格要求・サービス登録・タスクスケジューラ登録・自動起動の登録を行わない。画面を閉じれば終了する</td>
-<td><code>safety.Tests.ps1</code></td>
+<td><strong>不要・しない</strong>。昇格要求・サービス登録・タスクスケジューラ登録・自動起動の登録を行わない。画面を閉じれば終了する。インストーラー版も既定は管理者権限なしで入れる</td>
+<td><code>safety.Tests.ps1</code>・<code>installer.Tests.ps1</code></td>
 <td><a href="#21-検査項目と結果">2.1</a></td>
 </tr>
 <tr>
 <td>レジストリ</td>
-<td><strong>読み書きしない</strong></td>
-<td><code>safety.Tests.ps1</code></td>
-<td><a href="#21-検査項目と結果">2.1</a></td>
+<td><strong>読み書きしない</strong>。インストーラー版では、インストーラーがアンインストールの情報（<code>HKCU</code> または <code>HKLM</code> の <code>...NINSTALL</code>）だけを書き、アンインストールで消す</td>
+<td><code>SAFETY.TESTS.PS1</code>・<code>INSTALLER.TESTS.PS1</code></td>
+<td><a href="#21-検査項目と結果">2.1</a>・<a href="#46-インストーラー版">4.6</a></td>
 </tr>
 <tr>
 <td>Windows Search</td>
@@ -1981,7 +2003,7 @@
 </tr>
 <tr>
 <td>配布物の完全性</td>
-<td>配布 zip と並べて、カタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）をリリースに載せ、zip にはビルドの来歴の署名を付ける</td>
+<td>配布 zip と並べて、カタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）をリリースに載せ、zip とインストーラーにはビルドの来歴の署名を付ける</td>
 <td><code>release.yml</code></td>
 <td><a href="#51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1</a></td>
 </tr>
@@ -2275,7 +2297,7 @@
 <p>対象フォルダに読み取りの権限だけを与えたアカウントで、インデックス作成を最後まで実行する。書き込みを試みていれば失敗するため、完走することが「読み取りのみ」の裏付けになる。</p>
 <hr />
 <h2 id="4-開示事項">4. 開示事項<a class="headerlink" href="#4-開示事項" title="Permanent link">&para;</a></h2>
-<p>次の 5 点は審査で論点になるため、本ツールの側から先に開示する。4.1・4.2・4.5 は利用者の操作に紐づく動作、4.3・4.4 はツールの性質上避けられない情報の扱いである。</p>
+<p>次の 6 点は審査で論点になるため、本ツールの側から先に開示する。4.1・4.2・4.5 は利用者の操作に紐づく動作、4.3・4.4 はツールの性質上避けられない情報の扱い、4.6 はインストーラー版だけに当てはまる動作である。</p>
 <h3 id="41-office-プロセスの強制終了9-プロセス停止タブ">4.1 Office プロセスの強制終了（［9 プロセス停止］タブ）<a class="headerlink" href="#41-office-プロセスの強制終了9-プロセス停止タブ" title="Permanent link">&para;</a></h3>
 <p>インデックス作成が異常終了すると、画面の無い Excel・Word・PowerPoint のプロセスが残り、メモリを占有し続けることがある。これを止めるために、画面の［9 プロセス停止］タブから <code>Stop-Process -Force</code> を実行する（<code>shared/office/office_process.ps1:43</code>。<code>safety.Tests.ps1</code> がこの 1 か所だけであることを確かめる）。</p>
 <ul>
@@ -2286,9 +2308,8 @@
 </ul>
 <p>詳細は <a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">03_画面_3_プロセス停止タブ.md</a> を参照。</p>
 <h3 id="42-mark-of-the-web-の解除tebunkobat">4.2 Mark-of-the-Web の解除（<code>tebunko.bat</code>）<a class="headerlink" href="#42-mark-of-the-web-の解除tebunkobat" title="Permanent link">&para;</a></h3>
-<p><code>tebunko.bat</code> は、画面を起動する前に、配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除し、そのあと画面を起動する。</p>
-<div class="highlight"><pre><span></span><code>powershell -NoProfile -Command <span class="s2">"Get-ChildItem -LiteralPath '</span><span class="nv">%~dp0</span><span class="s2">scripts' -Recurse -File | Unblock-File"</span> <span class="mi">1</span><span class="p">&gt;</span>nul <span class="mi">2</span><span class="p">&gt;</span>nul
-<span class="k">start</span> <span class="s2">""</span> conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File <span class="s2">"</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko\gui.ps1"</span>
+<p><code>tebunko.bat</code> は PowerShell を 1 回起動し、その中で配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除してから、画面のスクリプトを実行する。</p>
+<div class="highlight"><pre><span></span><code><span class="k">start</span> <span class="s2">""</span> conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command <span class="s2">"Get-ChildItem -LiteralPath '</span><span class="nv">%~dp0</span><span class="s2">scripts' -Recurse -File | Unblock-File -ErrorAction SilentlyContinue; &amp; '</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko\gui.ps1'"</span>
 </code></pre></div>
 <ul>
 <li><strong>理由</strong>: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー <code>RemoteSigned</code> では未署名スクリプトが実行できないため。</li>
@@ -2372,6 +2393,46 @@
 </ul>
 <h3 id="45-検索結果から開くと-excel-が前面に出る">4.5 検索結果から開くと Excel が前面に出る<a class="headerlink" href="#45-検索結果から開くと-excel-が前面に出る" title="Permanent link">&para;</a></h3>
 <p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は常に不可視で動作する（2.2。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> にしか無いことを確かめる）。</p>
+<h3 id="46-インストーラー版">4.6 インストーラー版<a class="headerlink" href="#46-インストーラー版" title="Permanent link">&para;</a></h3>
+<p>配布物は 2 つある。中身のスクリプト（<code>scripts/</code>）は同じで、入れ方と起動口だけが違う。</p>
+<table>
+<thead>
+<tr>
+<th>配布物</th>
+<th>向いている環境</th>
+<th>実行ファイル</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tebunko-&lt;タグ&gt;.zip</code></td>
+<td>実行ファイルを入れたくない・入れられない環境</td>
+<td>含まない（起動口は <code>tebunko.bat</code>）</td>
+</tr>
+<tr>
+<td><code>tebunko-setup-&lt;タグ&gt;.exe</code></td>
+<td>手軽にインストール・アンインストールしたい環境</td>
+<td>インストーラー自身と、入れる <code>tebunko.exe</code>・<code>uninstall\unins000.exe</code></td>
+</tr>
+</tbody>
+</table>
+<p>インストーラーは <a href="https://jrsoftware.org/isinfo.php">Inno Setup</a> 7 で作る（<code>installer/tebunko.iss</code>・<code>tools/new_installer.ps1</code>）。</p>
+<ul>
+<li><strong>入れる場所と権限</strong>: 既定は管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れる。管理者は、最初の画面で「すべてのユーザー」を選ぶと <code>C:\Program Files\tebunko</code> に入れられる。</li>
+<li><strong>入れるもの</strong>: <code>tebunko.exe</code>・<code>scripts\</code>・<code>LICENSE</code> と、Inno Setup のアンインストーラー（<code>uninstall\unins000.exe</code>・<code>uninstall\unins000.dat</code>。名前は Inno Setup が決め、変える設定が無いため、tebunko のものと分かるよう <code>uninstall</code> フォルダに置く）だけ。スタートメニューにショートカットを作る（デスクトップは選んだときだけ）。</li>
+<li><strong>レジストリ</strong>: インストーラーが、Windows の「インストールされているアプリ」に出すためのアンインストールの情報（利用者ごとなら <code>HKCU</code>、すべてのユーザーなら <code>HKLM</code> の <code>Software\Microsoft\Windows\CurrentVersion\Uninstall\{E2FA5AC9-5A36-41AF-B5E2-B989E2878D3C}_is1</code>）を書く。これ以外のレジストリ、PATH、ファイルの関連付け、サービス、自動起動には触らない（<code>installer.Tests.ps1</code> が <code>[Registry]</code> の節が無いことなどを確かめる）。ツール本体（スクリプト）はレジストリを読み書きしない（2.1）。</li>
+<li><strong>起動口 <code>tebunko.exe</code></strong>: 本リポジトリの <code>installer/tebunko.cs</code>（約 100 行）を、リリースのときに Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドする。していることは <code>tebunko.bat</code> と同じで、Windows の PowerShell 5.1 で <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動するだけである（4.2 の「<code>RemoteSigned</code> で起動する理由」）。インストーラーが書いたファイルには Mark-of-the-Web が付かないため、<code>Unblock-File</code> はしない。窓のアプリとしてビルドし、PowerShell も窓を作らずに起動する（<code>conhost.exe</code> は要らない）。PowerShell が 0 以外で終わりエラー出力があれば、その内容をメッセージで出す（実行ポリシーや制限言語モードで <code>gui.ps1</code> を読み込めないときに、何も出ずに終わらないようにするため）。エラー出力を受け取るため、画面を閉じるまで <code>tebunko.exe</code> のプロセスも残る（窓は無い）。</li>
+<li><strong>更新</strong>: 新しい版のインストーラーを実行する。前の版の <code>scripts\</code> を消してから入れるため、前の版にだけあったスクリプトは残らない。<code>setting.config</code> は残る。</li>
+<li><strong>起動中の更新・削除</strong>: <code>tebunko.exe</code> が起動中はミューテックス <code>tebunko-installed-app</code> を持ち、インストーラーとアンインストーラーはこれを見て、tebunko を閉じるよう求める（Inno Setup の <code>AppMutex</code>）。</li>
+<li><strong>アンインストール</strong>: 「設定」→「アプリ」から行う。入れたファイル・ショートカット・アンインストールの情報と、ツールのフォルダの <code>setting.config</code> を消す。<strong>インデックス（ワークスペース）は消さない。</strong> ワークスペースは利用者が選んだフォルダのこともあり、中身を確かめずに消すのは危ないためである。インデックスには文書の文字がそのまま入っているため（4.3）、アンインストールの最後に、残っている場所（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）を知らせる。</li>
+<li><strong>無人のインストール</strong>: <code>/VERYSILENT /CURRENTUSER</code>（アンインストールは <code>uninstall\unins000.exe /VERYSILENT</code>）で、画面を出さずに入れる・消すことができる。</li>
+<li><strong>署名</strong>: インストーラーと <code>tebunko.exe</code> にはまだコード署名が無い。そのため、ダウンロードしたインストーラーを実行すると SmartScreen の「Windows によって PC が保護されました」が出る（［詳細情報］→［実行］で進める）。改ざんの確認には、ビルドの来歴の署名と SHA256 を使う（5.1）。</li>
+<li><strong>再現性</strong>: <code>csc.exe</code>（.NET Framework）と Inno Setup はビルドの日時を埋め込むため、同じソースからビルドしてもハッシュは一致しない。zip の中身と同じスクリプトが入っていることは、インストールしたフォルダでカタログ（5.1）と比べれば分かる。カタログにある <code>tebunko.bat</code> はインストーラー版に無いため、<code>Status</code> は <code>ValidationFailed</code> になる。<code>tebunko.bat</code> を除いて違うファイルが無い（次の結果が空になる）ことを確かめる。</li>
+</ul>
+<p><div class="highlight"><pre><span></span><code><span class="nv">$r</span> <span class="p">=</span> <span class="nb">Test-FileCatalog</span> <span class="n">-Path</span> <span class="p">.\</span><span class="n">scripts</span> <span class="n">-CatalogFilePath</span> <span class="p">&lt;</span><span class="n">ダウンロードした</span> <span class="n">tebunko</span><span class="p">.</span><span class="n">cat</span><span class="p">&gt;</span> <span class="n">-Detailed</span>
+<span class="p">@(</span><span class="nv">$r</span><span class="p">.</span><span class="n">CatalogItems</span><span class="p">.</span><span class="n">Keys</span> <span class="p">+</span> <span class="nv">$r</span><span class="p">.</span><span class="n">PathItems</span><span class="p">.</span><span class="n">Keys</span> <span class="p">|</span> <span class="nb">Sort-Object</span> <span class="n">-Unique</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="p">{</span> <span class="nv">$_</span> <span class="o">-ne</span> <span class="s1">'tebunko.bat'</span> <span class="o">-and</span> <span class="nv">$r</span><span class="p">.</span><span class="n">CatalogItems</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span> <span class="o">-ne</span> <span class="nv">$r</span><span class="p">.</span><span class="n">PathItems</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span> <span class="p">})</span>
+</code></pre></div>
+- <strong>第三者の部品</strong>: インストーラーとアンインストーラーの本体は Inno Setup のものである（<a href="https://jrsoftware.org/files/is/license.txt">Inno Setup License</a>）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体の第三者の部品は 0 のまま（6 章）。</p>
 <hr />
 <h2 id="5-第三者のツールによる検査結果">5. 第三者のツールによる検査結果<a class="headerlink" href="#5-第三者のツールによる検査結果" title="Permanent link">&para;</a></h2>
 <p>本ツールの作者以外が作ったツールでの検査結果を示す。5.1〜5.4 は誰でも同じコマンドで再現できる。</p>
@@ -2400,6 +2461,11 @@
 <td><code>LICENSE</code></td>
 <td>zip の中</td>
 <td>ライセンス（MIT。写しに許諾表示を含めるため同梱する）</td>
+</tr>
+<tr>
+<td><code>tebunko-setup-&lt;タグ&gt;.exe</code></td>
+<td>リリース（zip の横）</td>
+<td>インストーラー版（4.6。<code>tools/new_installer.ps1</code> が作る）。中身のスクリプトは zip と同じ</td>
 </tr>
 <tr>
 <td><code>tebunko.cat</code>・<code>SHA256SUMS.txt</code></td>
@@ -2446,7 +2512,7 @@
 <p><strong>来歴の署名</strong>: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は <a href="https://cli.github.com/">GitHub CLI</a> で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。</p>
 <div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
-<p>署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（5.6 の照会に使える）。</p>
+<p>署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（5.6 の照会に使える）。インストーラー（<code>tebunko-setup-&lt;タグ&gt;.exe</code>）にも同じく来歴の署名を付け、bundle（<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）と SHA256 をリリースに載せる。確かめ方は zip と同じ（<code>gh attestation verify .\tebunko-setup-&lt;タグ&gt;.exe -R hsgwa/tebunko</code>）。</p>
 <h3 id="52-静的解析-psscriptanalyzermicrosoft">5.2 静的解析: PSScriptAnalyzer（Microsoft）<a class="headerlink" href="#52-静的解析-psscriptanalyzermicrosoft" title="Permanent link">&para;</a></h3>
 <p>PowerShell スクリプトの静的解析ツール。Microsoft が公開しているルールで、コードインジェクション・平文パスワードなどを検出する。</p>
 <div class="highlight"><pre><span></span><code><span class="nb">Install-Module</span> <span class="n">PSScriptAnalyzer</span> <span class="n">-RequiredVersion</span> <span class="n">1</span><span class="p">.</span><span class="n">25</span><span class="p">.</span><span class="n">0</span> <span class="n">-Scope</span> <span class="n">CurrentUser</span>   <span class="c"># 未導入の場合</span>
@@ -2829,7 +2895,7 @@
 </tr>
 <tr>
 <td>リリース</td>
-<td>タグの push で、テストを通してから配布 zip を作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、来歴に署名する（5.1）</td>
+<td>タグの push で、テストを通してから配布 zip とインストーラーを作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、来歴に署名する（5.1）</td>
 <td><code>.github/workflows/release.yml</code></td>
 </tr>
 </tbody>

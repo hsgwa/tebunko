@@ -1555,7 +1555,7 @@
     PR --&gt; R3["docs（docs.yml）"]
     PR --&gt; R4["analyze（codeql.yml）"]
     R1 &amp; R2 &amp; R3 &amp; R4 --&gt; M["main へ squash merge"]
-    M --&gt; T["v* タグ"] --&gt; REL["release.yml&lt;br&gt;test を再実行して配布 zip を公開"]</code></pre>
+    M --&gt; T["v* タグ"] --&gt; REL["release.yml&lt;br&gt;test を再実行して配布 zip とインストーラーを公開"]</code></pre>
 <table>
 <thead>
 <tr>
@@ -2141,6 +2141,30 @@
 </table>
 <p>PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（<code>It -Skip</code>）。導入は <code>Install-Module PSScriptAnalyzer -Scope CurrentUser</code>。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は <a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.2 に記載している。</p>
 <p><code>TypeNotFound</code>（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは <code>tests/meta/structure.Tests.ps1</code> で確かめる。</p>
+<p><strong>インストーラーの検査（<code>tests/meta/installer.Tests.ps1</code>）</strong></p>
+<p>タグ <code>Meta</code> で、インストーラー（<code>installer/</code>）が <a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.6 のとおりであることを確かめる。インストーラーそのもののビルド（Inno Setup）は <code>release.yml</code> だけで行い、ここではスクリプトを読んで確かめる。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>起動口 <code>tebunko.exe</code>（<code>tebunko.cs</code>）</td>
+<td>Windows 標準の <code>csc.exe</code> で警告なしにビルドできる、起動するのは Windows の PowerShell 5.1 だけで <code>-ExecutionPolicy RemoteSigned</code>（<code>Bypass</code> を使わない）、P/Invoke とレジストリを使わない、ミューテックスの名前がインストーラーの <code>AppMutex</code> と同じ</td>
+</tr>
+<tr>
+<td>インストーラー（<code>tebunko.iss</code>）</td>
+<td>既定は管理者権限なし、<code>[Registry]</code> を使わず PATH・関連付けも変えない、入れるのは <code>tebunko.exe</code>・<code>LICENSE</code>・<code>scripts\</code> だけ、更新では前の版の <code>scripts\</code> を消してから入れる、インストール後に起動するのは <code>tebunko.exe</code> だけ</td>
+</tr>
+<tr>
+<td>文字コード</td>
+<td>2 つとも BOM 付き UTF-8・CRLF（Inno Setup は BOM の無いスクリプトを ANSI として読む）</td>
+</tr>
+</tbody>
+</table>
 <h3 id="62-結合テスト手動">6.2 結合テスト（手動）<a class="headerlink" href="#62-結合テスト手動" title="Permanent link">&para;</a></h3>
 <p>Excel・Word・PowerPoint の COM を使うインデックス作成と、画面のプロセス停止は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。</p>
 <table>
@@ -2451,7 +2475,7 @@
 <td><code>release.yml</code></td>
 <td><code>test</code>・<code>release</code></td>
 <td><code>v</code> で始まるタグの push</td>
-<td>テストのうえ、配布 zip を GitHub Release に載せる</td>
+<td>テストのうえ、配布 zip とインストーラーを GitHub Release に載せる</td>
 <td>–</td>
 </tr>
 <tr>
@@ -2499,10 +2523,11 @@
 <li>Scorecard はリポジトリを Linux で展開する。名前が UTF-8 で 255 バイト（日本語で 85 字）を超えるファイルがあると展開できず、ほとんどの項目が採点できなくなる。そのため <code>tools/check_commit.ps1</code> がこの長さを超える名前を止める</li>
 </ul>
 <p><strong><code>release.yml</code>（配布物の公開）</strong></p>
-<p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）を作って GitHub Release に載せる。</p>
+<p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）を、<code>tools/new_installer.ps1</code> でインストーラー（<code>tebunko-setup-&lt;タグ&gt;.exe</code>）を作って GitHub Release に載せる。</p>
 <ul>
 <li>zip にはツール本体（<code>tebunko.bat</code>・<code>scripts/</code>）と <code>README.md</code>・<code>LICENSE</code> だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（<code>tebunko.cat</code>）・ハッシュ一覧（<code>SHA256SUMS.txt</code>）・部品表（<code>sbom.cdx.json</code>）は zip と並べてリリースに載せ（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 5.6 の VirusTotal での照会用）</li>
-<li>zip のビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
+<li>インストーラーは Inno Setup 7 で作る（6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため 7.1.0 にした）。Inno Setup は版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。版を上げるときは <code>release.yml</code> の URL と SHA256 を一緒に直す（Dependabot の対象外）。インストーラーの SHA256 もリリースの説明に書く</li>
+<li>zip とインストーラーのビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>・<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
 <li>リリースノートは GitHub が PR から作り、<code>.github/release.yml</code> で PR のラベルごとに分ける</li>
 <li>版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける</li>
 </ul>

@@ -1850,7 +1850,7 @@
 </tr>
 <tr>
 <td>起動方法</td>
-<td><code>tebunko.bat</code> をダブルクリック。<code>conhost.exe</code> を通して <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で画面を開く（<code>Bypass</code> は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、<code>tebunko.bat</code> が起動前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面のプロセスの中のスレッドで動く（別の <code>powershell.exe</code> は起動しない）。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
+<td><code>tebunko.bat</code> をダブルクリック。<code>conhost.exe</code> を通して <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で画面を開く（<code>Bypass</code> は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、同じ PowerShell が画面のスクリプトを実行する前に消す（<code>Unblock-File</code>）ため、RemoteSigned のままスクリプトを実行できる。PowerShell の起動は 1 回だけ。インデクサは画面のプロセスの中のスレッドで動く（別の <code>powershell.exe</code> は起動しない）。詳細は <a href="03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#101-配布と実行ポリシーmark-of-the-web">03_画面_5_共通仕様.md 10.1</a></td>
 </tr>
 <tr>
 <td>スクリプトの文字コード</td>
