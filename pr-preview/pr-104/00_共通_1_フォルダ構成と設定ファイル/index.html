@@ -2047,7 +2047,7 @@
 <td><code>scripts/tebunko/core/settings.ps1</code></td>
 </tr>
 <tr>
-<td><code>$workDir</code></td>
+<td><code>$workspace.Dir</code></td>
 <td><code>setting.config</code> の <code>workspaceFolder</code>（4.1）。空なら既定の <code>%USERPROFILE%\Documents\tebunko</code>（<code>getDefaultWorkDir</code>。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents）</td>
 <td><code>scripts/tebunko/core/paths.ps1</code>（<code>getWorkDir</code>）</td>
 </tr>
@@ -2055,10 +2055,10 @@
 </table>
 <ul>
 <li>既定の場所をドキュメントにするのは、高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>index</code> か <code>取り込み一覧.tsv</code> がある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
-<li><code>$workDir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。</li>
+<li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#81-8-設定タブ">03_画面_5 8.1</a>）。</li>
 <li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
 <li>置き場所を変えても、今の <code>work/</code> の中身は移さない。移すときは利用者がエクスプローラーで移してから、移した先を選ぶ。</li>
-<li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workDir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
+<li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workspace.Dir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
 <li><code>$rootDir</code> が書き込めるかは読み込むたびに調べる。書き込めない場所から書き込める場所に戻すと、設定は <code>$rootDir</code> 直下のものに戻る。</li>
 </ul>
 <hr />

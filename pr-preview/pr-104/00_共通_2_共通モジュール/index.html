@@ -459,6 +459,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="5.1 パス定義">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#511-ワークスペースの中の場所workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1.1 ワークスペースの中の場所（Workspace）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1358,6 +1375,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="5.1 パス定義">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#511-ワークスペースの中の場所workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1.1 ワークスペースの中の場所（Workspace）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1550,14 +1584,9 @@
 <td><code>shared/core/data_dir.ps1</code></td>
 </tr>
 <tr>
-<td><code>$workDir</code></td>
-<td><code>work</code> の置き場所。共通基盤では既定の <code>$dataDir\work</code>。tebunko は設定 <code>workspaceFolder</code> から決め直す（<code>getWorkDir</code>）</td>
-<td><code>shared/core/data_dir.ps1</code>・<code>tebunko/core/paths.ps1</code></td>
-</tr>
-<tr>
 <td><code>$utf8Bom</code></td>
 <td>BOM 付き UTF-8 の <code>System.Text.Encoding</code></td>
-<td>同上</td>
+<td><code>shared/core/paths.ps1</code></td>
 </tr>
 <tr>
 <td><code>$cellNewLine</code></td>
@@ -1585,8 +1614,8 @@
 <td><code>tebunko/core/paths.ps1</code></td>
 </tr>
 <tr>
-<td><code>$indexDir</code></td>
-<td><code>$workDir\index</code></td>
+<td><code>$workspace</code></td>
+<td>今のワークスペース（<code>Workspace</code>。5.1.1）。設定 <code>workspaceFolder</code> から決める（<code>getWorkDir</code>）</td>
 <td>同上</td>
 </tr>
 <tr>
@@ -1595,38 +1624,8 @@
 <td>同上</td>
 </tr>
 <tr>
-<td><code>$publishDir</code></td>
-<td><code>$workDir\取り込み出力\&lt;PID&gt;</code>（TSV をインデックスに入れる直前に集めるフォルダ。取り込みのスレッドは、その下の <code>w&lt;番号&gt;</code> を使う）</td>
-<td>同上</td>
-</tr>
-<tr>
 <td><code>$sourceFolderFileName</code></td>
 <td>各インデックスのフォルダに置く対応表のファイル名（<code>元のフォルダ.txt</code>）</td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>$statusFile</code></td>
-<td><code>$workDir\取り込み一覧.tsv</code></td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>$ingestingFile</code></td>
-<td><code>$workDir\取り込み中.txt</code></td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>$resultFile</code></td>
-<td><code>$workDir\検索結果.txt</code></td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>$indexingLogFile</code></td>
-<td><code>$workDir\インデックス作成ログ.txt</code>（インデクサの表示内容の記録。実行ごとに上書き）</td>
-<td>同上</td>
-</tr>
-<tr>
-<td><code>$guiErrorLogFile</code></td>
-<td><code>$workDir\画面エラー.txt</code>（画面で起きた予期しないエラーの記録。追記）</td>
 <td>同上</td>
 </tr>
 <tr>
@@ -1678,6 +1677,63 @@
 <td><code>$legacyConfigDirName</code> / <code>$legacyTargetFolderFileName</code> / <code>$legacySearchOptionFileName</code></td>
 <td>以前の版の設定ファイルのフォルダ名 <code>config</code> と、ファイル名 <code>変換対象フォルダパス.txt</code>・<code>検索オプション.txt</code>（<code>setting.config</code> が無いとき、同じフォルダの <code>config\</code> から移すときだけ読む。<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#43-以前の設定ファイルからの移行">4.3</a>）</td>
 <td>同上</td>
+</tr>
+</tbody>
+</table>
+<h4 id="511-ワークスペースの中の場所workspace">5.1.1 ワークスペースの中の場所（Workspace）<a class="headerlink" href="#511-ワークスペースの中の場所workspace" title="Permanent link">&para;</a></h4>
+<p><code>tebunko/core/workspace.ps1</code> の <code>Workspace</code> クラスは、ワークスペースのフォルダ（<code>Dir</code>）から中の場所を組み立てる。設定は読まない。</p>
+<ul>
+<li>関数は、ワークスペースの中の場所を既定値で <code>$workspace</code> から取る（例 <code>[string]$path = $workspace.StatusFile</code>）。既定値は呼んだときに決まるため、<code>$workspace</code> を差し替えれば、読み込み直さずに別のワークスペースを使う。</li>
+<li>別のスレッド（画面の裏の仕事・検索の司令・取り込み）は <code>lib.ps1</code> を読み込んだときの <code>$workspace</code> を持つ。そのため画面は、場所を引数で渡すか、<code>Dir</code>（文字列）を渡してそのスレッドで <code>Workspace</code> を作り直す。オブジェクトはスレッドをまたいで渡さない。</li>
+<li>取り込みのスレッドは <code>PublishDir</code> を、その下の <code>w&lt;番号&gt;</code> に差し替える。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>プロパティ</th>
+<th>値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Dir</code></td>
+<td>ワークスペースのフォルダ</td>
+</tr>
+<tr>
+<td><code>IndexDir</code></td>
+<td><code>&lt;Dir&gt;\index</code></td>
+</tr>
+<tr>
+<td><code>SystemIndexDir</code></td>
+<td><code>&lt;Dir&gt;\system_index</code>（システムインデックス）</td>
+</tr>
+<tr>
+<td><code>SystemIndexStateFile</code></td>
+<td><code>&lt;Dir&gt;\システムインデックスの状態.tsv</code></td>
+</tr>
+<tr>
+<td><code>PublishDir</code></td>
+<td><code>&lt;Dir&gt;\取り込み出力\&lt;PID&gt;</code>（TSV をインデックスに入れる直前に集めるフォルダ）</td>
+</tr>
+<tr>
+<td><code>StatusFile</code></td>
+<td><code>&lt;Dir&gt;\取り込み一覧.tsv</code></td>
+</tr>
+<tr>
+<td><code>IngestingFile</code></td>
+<td><code>&lt;Dir&gt;\取り込み中.txt</code></td>
+</tr>
+<tr>
+<td><code>ResultFile</code></td>
+<td><code>&lt;Dir&gt;\検索結果.txt</code></td>
+</tr>
+<tr>
+<td><code>IndexingLogFile</code></td>
+<td><code>&lt;Dir&gt;\インデックス作成ログ.txt</code>（インデクサの表示内容の記録。実行ごとに上書き）</td>
+</tr>
+<tr>
+<td><code>GuiErrorLogFile</code></td>
+<td><code>&lt;Dir&gt;\画面エラー.txt</code>（画面で起きた予期しないエラーの記録。追記。共通基盤の <code>writeErrorLog</code> は、画面が定義する <code>getGuiErrorLogFile</code> からこの場所を得る）</td>
 </tr>
 </tbody>
 </table>
@@ -1888,7 +1944,7 @@
 <td>string</td>
 <td><code>work</code> の置き場所（<code>workspaceFolder</code>。空なら既定。相対パスは設定ファイルのフォルダから、<code>%変数%</code> は展開する）</td>
 <td>同上</td>
-<td><code>paths.ps1</code>（<code>$workDir</code>）</td>
+<td><code>paths.ps1</code>（<code>$workspace</code>）</td>
 </tr>
 <tr>
 <td><code>writeWorkspaceFolder</code></td>
@@ -1983,7 +2039,7 @@
 <td><code>@{Mutex; Acquired}</code></td>
 <td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#41-メインフロー">01_インデックス作成_4</a></td>
-<td>インデックス作成（起動時。dir に <code>$workDir</code> を渡し、同じ <code>work</code> を使うものを 1 つにする）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
+<td>インデックス作成（起動時。dir に <code>$workspace.Dir</code> を渡し、同じ <code>work</code> を使うものを 1 つにする）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
 </tr>
 <tr>
 <td><code>normalizeFolderPath</code></td>
@@ -2090,7 +2146,7 @@
 </tr>
 <tr>
 <td><code>readStatusFile</code></td>
-<td>path（既定 <code>$statusFile</code>）</td>
+<td>path（既定 <code>$workspace.StatusFile</code>）</td>
 <td><code>@{Folders; Rows}</code></td>
 <td>取り込み一覧を読む。Folders はクロール対象フォルダ <code>@{Path; Name}</code>（Name = インデックス名。以前の形式は空）、Rows は相対パス（<code>インデックス名\フォルダからの相対パス</code>。大文字・小文字を区別しない）→ 行。同じ相対パスは後の行を優先し、列数の合わない行は無視。抽出版の列が無い以前の形式は見出しの列数で見分けて読む。インデックス作成中に読んでも書き込みを妨げない共有モードで開く。無ければ空</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
@@ -2098,7 +2154,7 @@
 </tr>
 <tr>
 <td><code>writeStatusFile</code></td>
-<td>folders（<code>@{Path; Name}</code> の配列）, rows, path（既定 <code>$statusFile</code>）</td>
+<td>folders（<code>@{Path; Name}</code> の配列）, rows, path（既定 <code>$workspace.StatusFile</code>）</td>
 <td>–</td>
 <td>取り込み一覧を書き出す（先頭にクロール対象フォルダの行、1 ファイル 1 行。一時ファイルに書いてから置き換える）</td>
 <td>同上</td>
@@ -2106,7 +2162,7 @@
 </tr>
 <tr>
 <td><code>addStatusRow</code></td>
-<td>row, path（既定 <code>$statusFile</code>）</td>
+<td>row, path（既定 <code>$workspace.StatusFile</code>）</td>
 <td>–</td>
 <td>取り込み一覧の末尾に 1 行追記する</td>
 <td>同上</td>
@@ -2114,7 +2170,7 @@
 </tr>
 <tr>
 <td><code>readStatusLines</code></td>
-<td>path（既定 <code>$statusFile</code>）</td>
+<td>path（既定 <code>$workspace.StatusFile</code>）</td>
 <td>行の配列</td>
 <td>取り込み一覧を共有を許して 1 行ずつ読む</td>
 <td>–</td>
@@ -2130,7 +2186,7 @@
 </tr>
 <tr>
 <td><code>readIngestingFiles</code></td>
-<td>path（既定 <code>$ingestingFile</code>）</td>
+<td>path（既定 <code>$workspace.IngestingFile</code>）</td>
 <td><code>@{RelPath; Count}</code> の配列</td>
 <td>取り込み中のファイルの記録（1 行に 1 ファイル。相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無ければ空。壊れた行は読み飛ばす</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#強制終了時間切れからの再開">01_インデックス作成_4</a></td>
@@ -2138,7 +2194,7 @@
 </tr>
 <tr>
 <td><code>writeIngestingFiles</code></td>
-<td>entries（<code>@{RelPath; Count}</code> の配列）, path（既定 <code>$ingestingFile</code>）</td>
+<td>entries（<code>@{RelPath; Count}</code> の配列）, path（既定 <code>$workspace.IngestingFile</code>）</td>
 <td>–</td>
 <td>取り込み中のファイルを 1 行に 1 つ <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> で記録する。無ければ記録を消す</td>
 <td>同上</td>
@@ -2146,7 +2202,7 @@
 </tr>
 <tr>
 <td><code>removeIngestingFile</code></td>
-<td>path（既定 <code>$ingestingFile</code>）</td>
+<td>path（既定 <code>$workspace.IngestingFile</code>）</td>
 <td>–</td>
 <td>取り込み中のファイルの記録を削除する（無くてもエラーにしない）</td>
 <td>同上</td>
@@ -2194,7 +2250,7 @@
 </tr>
 <tr>
 <td><code>testIndexerRunning</code></td>
-<td>dir（既定 <code>$workDir</code>）</td>
+<td>dir（既定 <code>$workspace.Dir</code>）</td>
 <td>bool</td>
 <td>この <code>work</code> でインデックス作成が動いているか（インデクサのミューテックスを取れるかで調べ、取れたらすぐ放す）。画面を使わずに起動したものも分かる</td>
 <td><a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#75-画面とインデクサの受け渡し">7.5</a></td>
@@ -2328,7 +2384,7 @@
 </tr>
 <tr>
 <td><code>getIndexNameMap</code></td>
-<td>path（既定 <code>$statusFile</code>）</td>
+<td>path（既定 <code>$workspace.StatusFile</code>）</td>
 <td>Dictionary（インデックス名 → フォルダパス）</td>
 <td>取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る</td>
 <td>同上</td>
@@ -2344,7 +2400,7 @@
 </tr>
 <tr>
 <td><code>renameIndex</code></td>
-<td>oldName, newName, dir（既定 <code>$indexDir</code>）, statusPath</td>
+<td>oldName, newName, dir（既定 <code>$workspace.IndexDir</code>）, statusPath</td>
 <td>–</td>
 <td>インデックス名を変える。<code>work\index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外</td>
 <td>同上</td>
@@ -2352,7 +2408,7 @@
 </tr>
 <tr>
 <td><code>removeIndex</code></td>
-<td>name, dir（既定 <code>$indexDir</code>）, statusPath</td>
+<td>name, dir（既定 <code>$workspace.IndexDir</code>）, statusPath</td>
 <td>–</td>
 <td>インデックスを削除する。<code>work\index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）</td>
 <td>同上</td>
@@ -2360,7 +2416,7 @@
 </tr>
 <tr>
 <td><code>getSearchIndexes</code></td>
-<td>dir（既定 <code>$indexDir</code>）, statusPath, settingsPath</td>
+<td>dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath</td>
 <td><code>@{Name; Path; SourcePath}</code> の配列</td>
 <td>インデックスの一覧（<code>work\index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/#3-インデックスの一覧getsearchindexes">02_検索.md</a></td>

@@ -2025,6 +2025,10 @@
 <td><code>check_markdown_links.ps1</code></td>
 <td>あるファイル・フォルダ・見出しへのリンクを通し、切れたリンクを止める、コードの中のリンクは調べない、1 行に複数あるリンクをそれぞれ調べる</td>
 </tr>
+<tr>
+<td><code>measure_perf.ps1</code></td>
+<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Office ファイルの読み取り（<code>tests/shared/office/office_reader</code>）</strong></p>
@@ -2123,7 +2127,7 @@
 </tr>
 <tr>
 <td>書き込み先</td>
-<td><code>${workDir}</code>・<code>${indexDir}</code>・<code>${tmpDir}</code>・<code>${publishDir}</code>・<code>${settingsFile}</code> の定義が <code>work</code> 配下・<code>%TEMP%</code> 配下・<code>setting.config</code> だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（<code>removeStaleTmpDirs</code>）</td>
+<td><code>$workspace</code>（<code>Workspace</code> の <code>IndexDir</code>・<code>PublishDir</code>）・<code>${tmpDir}</code>・<code>${settingsFile}</code> の定義が <code>work</code> 配下・<code>%TEMP%</code> 配下・<code>setting.config</code> だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（<code>removeStaleTmpDirs</code>）</td>
 </tr>
 <tr>
 <td>静的解析（PSScriptAnalyzer）</td>
@@ -2303,7 +2307,7 @@
 </tr>
 <tr>
 <td><code>tests/tools/</code></td>
-<td>開発用の道具（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_markdown_links</code>）</td>
+<td>開発用の道具（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_markdown_links</code>・<code>measure_perf</code>）</td>
 </tr>
 <tr>
 <td><code>tests/meta/</code></td>
@@ -2474,6 +2478,13 @@
 <td>テストのうえ、配布 zip とインストーラーを GitHub Release に載せる</td>
 <td>–</td>
 </tr>
+<tr>
+<td><code>perf.yml</code></td>
+<td><code>perf</code></td>
+<td>手動（<code>workflow_dispatch</code>）</td>
+<td>pack の作成・検索の速さとリソースの推移を測る</td>
+<td>–</td>
+</tr>
 </tbody>
 </table>
 <p><strong><code>test.yml</code></strong></p>
@@ -2540,6 +2551,30 @@ git push origin v0.1.0
 <div class="highlight"><pre><span></span><code>pip install --require-hashes -r tools/mkdocs/requirements.txt
 mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
+<p><strong><code>perf.yml</code>（性能とリソースの計測）</strong></p>
+<p>手動で起動し、決まった量のデータで、インデックス作成と検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。大きな変更の前後で数字を比べるときなどに使う。必須のチェックではない。</p>
+<div class="highlight"><pre><span></span><code>gh workflow run perf.yml -f ref=&lt;測る ref&gt; -f scale=0.1
+</code></pre></div>
+<ul>
+<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）</li>
+<li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（pack 形式より前の版）では、エラーメッセージを出して止まる</li>
+<li>データは <a href="https://github.com/hsgwa/tebunko-perfdata">tebunko-perfdata</a> の <code>new_index.ps1</code> で毎回生成する（取り込みの一時置き場と同じ形の TSV）。使う版は <code>perf.yml</code> の <code>PERFDATA_SHA</code> でコミットに固定する。検索する語は同じリポジトリの <code>words.tsv</code>（0 件・まれ（3 件）・大量・正規表現）</li>
+<li>測るもの（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）</li>
+<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、ランナーに Office が無いので測らない。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る</li>
+<li>検索 … 語ごとに新しいプロセスを起動し、同じプロセスで <code>count</code> 回続けて検索する（上限 1 万件）。画面と同じく、検索の司令のスレッド（<code>newSearchService</code>）を 1 つ作り、要求（<code>newSearchRequest</code>）を順に送る。<code>lib.ps1</code> の読み込みと照合のスレッドの用意は司令のスレッドが始めに 1 回だけ行うので、1 回目の時間に含まれる。検索のキャッシュも画面と同じくプロセスで 1 つを持ち続ける。語ごとに、検索時間の最小・中央値・平均・最大と、その内訳（列挙・照合）を出す。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。高速検索は、ランナーに Windows Search が無いので使わない<ul>
+<li>司令のスレッドが無い版（#102 より前）は、その版の画面と同じく、検索のたびに新しい Runspace で <code>lib.ps1</code> を読み込んで測る（内訳に読み込みの時間も出す）。どちらで測ったかは結果の <code>SearchMode</code>（<code>service</code> / <code>runspace</code>）に出るので、#102 の前後を同じワークフローで比べられる</li>
+</ul>
+</li>
+<li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）</li>
+<li>OS のファイルキャッシュは空にしない。pack は作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
+<li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
+<li><code>summary.md</code> … Summary と同じ内容</li>
+<li><code>result.json</code> … すべての数字。形式の版（<code>Schema</code>）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む</li>
+<li><code>metrics.csv</code> … 1 行 1 指標の縦長の形（<code>run_id, date, ref, sha, scale, metric, word, stat, value, unit</code>）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）</li>
+<li><code>searches.csv</code>（検索 1 回ごと）・<code>resource-index.csv</code>・<code>resource-search.csv</code>（リソースの記録）</li>
+<li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、pack の作成の時間は 5 割ほどぶれることがある</li>
+<li>手元でも同じ計測スクリプトで測れる（<code>.\tools\measure_perf.ps1 -Index &lt;TSV のフォルダ&gt; -Work &lt;作業フォルダ&gt; -Words &lt;words.tsv&gt;</code>）。渡した TSV は pack に変換され、元の TSV は削除される</li>
+</ul>
 <h4 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h4>
 <p>clone したら 1 回だけ次を実行する。<code>core.hooksPath</code> を <code>tools/hooks</code> にし、コミットのたびに <code>tools/hooks/pre-commit</code> と <code>tools/hooks/commit-msg</code> が動く（git worktree で作ったツリーでも、そのツリーのフックが動く）。</p>
 <div class="highlight"><pre><span></span><code>.\tools\install_hooks.ps1              有効にする

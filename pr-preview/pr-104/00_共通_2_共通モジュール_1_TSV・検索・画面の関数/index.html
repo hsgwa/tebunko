@@ -1576,7 +1576,7 @@
 <tbody>
 <tr>
 <td><code>getIndexTsvCounts</code></td>
-<td>dir（既定 <code>$indexDir</code>）</td>
+<td>dir（既定 <code>$workspace.IndexDir</code>）</td>
 <td>相対パス → 数の辞書 / <code>$null</code></td>
 <td>インデックスの中のファイルを 1 回列挙して数える。集約ファイルはそのファイルの相対パス → 1（0 バイトなら -1）、集約する前の TSV は元のファイルのフォルダの相対パス（取り込み一覧の相対パスと同じ）→ TSV の数（0 バイトの TSV があれば -1。TSV の無いフォルダは 0）。列挙できなければ <code>$null</code></td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/#取り込み対象の決定createtargetlist">01_インデックス作成_5</a></td>
@@ -1834,7 +1834,7 @@
 </tr>
 <tr>
 <td><code>getIndexPackFiles</code></td>
-<td>folders（既定 <code>$indexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに <code>{ param($count) }</code> を呼ぶ）</td>
+<td>folders（既定 <code>$workspace.IndexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに <code>{ param($count) }</code> を呼ぶ）</td>
 <td><code>@{Folders; Packs}</code></td>
 <td>検索対象の集約ファイルを列挙する（<code>getPackFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、Packs は <code>getPackFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
 <td><a href="../02_%E6%A4%9C%E7%B4%A2/#43-検索の実装速度">02_検索.md 4.3</a></td>
@@ -2027,7 +2027,7 @@
 <tbody>
 <tr>
 <td><code>writeSourceFolderFile</code></td>
-<td>folders（<code>@{Path; Name}</code> の配列）, dir（既定 <code>$indexDir</code>）</td>
+<td>folders（<code>@{Path; Name}</code> の配列）, dir（既定 <code>$workspace.IndexDir</code>）</td>
 <td>–</td>
 <td>各インデックスのフォルダ（<code>dir\&lt;インデックス名&gt;</code>）に <code>元のフォルダ.txt</code>（<code>インデックス名&lt;TAB&gt;クロール対象フォルダ</code>）を書き出す。以前の版が <code>dir</code> 直下に書いた全インデックス分のファイルがあれば、各フォルダへ移してから消す</td>
 <td><a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/#42-取り込み一覧と取り込み対象の決定差分中断再試行">01_インデックス作成_4</a></td>
@@ -2043,7 +2043,7 @@
 </tr>
 <tr>
 <td><code>getSourceFolderMap</code></td>
-<td>dir, statusPath（既定 <code>$statusFile</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
+<td>dir, statusPath（既定 <code>$workspace.StatusFile</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>Dictionary（インデックス名 → 元のフォルダ）</td>
 <td>インデックス名に対する元のフォルダ。<code>dir</code> 直下の <code>元のフォルダ.txt</code> → （既定のインデックスなら）取り込み一覧 → <strong>設定（<code>targetFolders</code> / <code>indexSources</code>）</strong> の順に上書きするため、設定の「今の置き場所」が最も優先される</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/#451-元のフォルダの特定インデックスを別の-pc場所で使う場合">03_画面_2_検索タブ_1</a></td>
