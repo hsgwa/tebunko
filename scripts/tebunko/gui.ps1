@@ -7,6 +7,46 @@
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
+# ---- 起動中の表示 ----
+# スクリプトの読み込みに数秒かかるため、先に小さなウィンドウ（xaml\splash.xaml）を出して、起動していることを知らせる。
+# 画面（$window）を描き終わったら閉じる（ContentRendered）。多重起動の判定より前に出すため、2 つ目の起動でも一瞬出る。
+# 読み込みの間は画面のスレッドが塞がるため、区切りごとに stepSplash で描画と入力の処理を進める（応答なしにしない）
+$script:splash = $null
+try {
+    $splashStream = [System.IO.File]::OpenRead("$PSScriptRoot\xaml\splash.xaml")
+    try {
+        $script:splash = [System.Windows.Markup.XamlReader]::Load($splashStream)
+    } finally {
+        $splashStream.Dispose()
+    }
+    $script:splash.Show()
+} catch {
+    # 出せなくても起動は続ける
+    $script:splash = $null
+}
+
+function stepSplash {
+    param (
+        [int]$percent
+    )
+
+    if ($null -eq $script:splash) {
+        return
+    }
+    $script:splash.FindName("SplashProgress").Value = $percent
+    # 自分のスレッドの Dispatcher に優先度 Background の空の仕事を渡し、それより優先度の高い描画・入力を先に処理させる
+    $script:splash.Dispatcher.Invoke([action]{ }, [System.Windows.Threading.DispatcherPriority]::Background)
+}
+
+function closeSplash {
+    if ($null -ne $script:splash) {
+        $script:splash.Close()
+        $script:splash = $null
+    }
+}
+
+stepSplash 5
+
 # zip 展開で付く Mark-of-the-Web（外部由来の印）を、scripts 配下から消す。印が残っていると
 # RemoteSigned でスクリプトの読み込みがブロックされるため。通常は tebunko.bat が起動前に消すが、
 # ショートカットから直接起動したときや、あとでファイルを差し替えたときのために、ここでも消しておく。
@@ -16,6 +56,7 @@ try {
 } catch { }
 
 . "$PSScriptRoot\lib.ps1"
+stepSplash 40
 
 $ErrorActionPreference = "Stop"
 
@@ -50,6 +91,9 @@ trap {
     if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
         writeErrorLog "起動・実行中" $_
     }
+    if ($null -ne $script:splash) {
+        $script:splash.Close()
+    }
     [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($_.Exception.Message)", ${appTitle}, "OK", "Error") | Out-Null
     exit 1
 }
@@ -73,6 +117,7 @@ if (!$createdNew) {
         exit
     }
     # 以前の版の画面が開いている等で知らせられないときだけ、メッセージを出す
+    closeSplash
     [System.Windows.MessageBox]::Show("すでに開いています。", ${appTitle}, "OK", "Information") | Out-Null
     exit
 }
@@ -83,10 +128,12 @@ $activateEvent = New-Object System.Threading.EventWaitHandle($false, [System.Thr
 . "$PSScriptRoot\..\shared\ui\types.ps1"
 . "$PSScriptRoot\ui\types.ps1"
 . "$PSScriptRoot\..\shared\ui\app_host.ps1"
+stepSplash 50
 
 # ---- ウィンドウと、画面の部品の対応 ----
 
 $window = loadWindow "${xamlDir}\tebunko.xaml"
+stepSplash 55
 
 # タブの中身はタブごとのファイルに分けてある。読み込んでタブに入れ、x:Name の対応表（$ui）を作る。
 # 別ファイルから読み込んだ中身は、そのファイルごとに名前を持つため、$window.FindName では見つからない。
@@ -124,6 +171,7 @@ foreach ($tab in $tabs) {
     foreach ($name in $tab.Names) {
         $ui[$name] = $content.FindName($name)
     }
+    stepSplash 70
 }
 $taskbar = $window.TaskbarItemInfo
 
@@ -144,6 +192,7 @@ $script:backgroundQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${l
 . "$PSScriptRoot\ui\search_view.ps1"
 . "$PSScriptRoot\ui\preview_view.ps1"
 . "$PSScriptRoot\ui\settings_view.ps1"
+stepSplash 80
 . "$PSScriptRoot\ui\index_tab.ps1"
 . "$PSScriptRoot\ui\indexing_tab.ps1"
 . "$PSScriptRoot\ui\result_list.ps1"
@@ -153,14 +202,19 @@ $script:backgroundQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${l
 . "$PSScriptRoot\ui\index_tree.ps1"
 . "$PSScriptRoot\ui\process_tab.ps1"
 . "$PSScriptRoot\ui\settings_tab.ps1"
+stepSplash 90
 # ============================================================================
 # ウィンドウ全体
 # ============================================================================
 
+# 起動時の読み込み（loadStartupData）が済んだか。済むまでは、タブの切り替え・ウィンドウの前面化で読み直さない
+# （起動時のタブを選んだとき・ウィンドウを出したときにも呼ばれ、同じ読み込みが重なるため）
+$script:startupLoaded = $false
+
 $ui.Tabs.Add_SelectionChanged({
     param ($sender, $e)
     # 中の表・一覧の選択変更も伝わってくるため、タブの切り替えだけを扱う
-    if ($e.OriginalSource -ne $ui.Tabs) {
+    if ($e.OriginalSource -ne $ui.Tabs -or !$script:startupLoaded) {
         return
     }
     safe {
@@ -177,6 +231,9 @@ $ui.Tabs.Add_SelectionChanged({
 })
 
 $window.Add_Activated({
+    if (!$script:startupLoaded) {
+        return
+    }
     safe {
         # クロール対象フォルダがほかの画面で変更されていれば読み直す
         if ((getTargetsKey @(getTargetFolders)) -ne $script:savedTargets) {
@@ -307,24 +364,47 @@ $window.Add_Loaded({
             $ui.WordBox.Focus() | Out-Null
         }
         if ($script:workspaceBlock) {
+            # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
+            closeSplash
             showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
         }
     }
 })
 
+# 画面を描き終わったら、起動中の表示を閉じ、一覧の読み込みと別スレッドでの集計を始める。
+# ウィンドウを出す前に行うと、そのぶん画面が出るのが遅れるため（一覧は読み込むまで空で出る）
+$window.Add_ContentRendered({
+    closeSplash
+    # 描いた画面が映ってから読み込むよう、描画より優先度の低い Background で行う
+    $window.Dispatcher.BeginInvoke([action]{ safe { loadStartupData } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+})
+
+function loadStartupData {
+    try {
+        loadTargets
+        refreshIndexingState
+        loadIndexTree
+        # 検索対象のツリーを読み込んだので、［検索］の可否を決め直す
+        updateSearchButton
+        checkFastSearchAvailable
+        updateKillBadge
+        refreshIndexSummary
+    } finally {
+        $script:startupLoaded = $true
+    }
+    setStatus ""
+}
+
 # ---- 起動 ----
 
-loadTargets
 updateSettingsView
 setSearchOptionToUi (readSearchOption)
 setOpenMode (readOpenMode)
 updateOpenMenu
-refreshIndexingState
-loadIndexTree
+# 検索ワードの注意と［検索］の可否（検索ワードが空なので押せない）。画面を出したときに押せる色で出ないよう、先に決める
 updateWordNotice
-checkFastSearchAvailable
-updateKillBadge
-refreshIndexSummary
+# 一覧を読み込むまで（loadStartupData）は、「インデックスがありません」の案内を出さない
+$ui.IndexGridPlaceholder.Visibility = "Collapsed"
 
 # 起動時のタブ：インデックス作成が中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
 $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
@@ -335,7 +415,8 @@ if ($script:workspaceBlock) {
     $ui.Tabs.SelectedItem = $ui.SettingsTab
     setStatus $script:workspaceBlock
 }
-setStatus ""
+setStatus "読み込んでいます…"
+stepSplash 95
 
 # 多重起動したとき（2つ目のプロセスが $activateEvent を合図）に、この画面を前面へ出す。
 # 画面のスレッドで一定間隔にイベントを確認する（P/Invoke を使わず、WPF の Activate で前面化する）。
