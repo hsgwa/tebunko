@@ -3092,15 +3092,23 @@
 <td><code>writeSettings</code></td>
 <td>settings, path（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>設定を JSON（UTF-8 BOM なし）で保存</td>
+<td>設定を JSON（UTF-8 BOM なし）で保存。一時ファイルに書いてから置き換える（<code>writeTextLinesAtomic</code>）</td>
 <td>同上</td>
 <td>updateSettings</td>
+</tr>
+<tr>
+<td><code>invokeSettingsLocked</code></td>
+<td>path, action, timeout（既定 5000 ミリ秒）</td>
+<td>action の出力</td>
+<td>設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;getFolderKey の鍵&gt;</code>）の中で action を実行する。設定の「読む → 変える → 書く」の一続きを囲む。引数の順は path, action, timeout（<code>-action</code> は名前で渡す）</td>
+<td><a href="../settings-file/">設定ファイル（setting.config）</a></td>
+<td>updateSettings など</td>
 </tr>
 <tr>
 <td><code>updateSettings</code></td>
 <td>key, value, path（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>ファイルを読み直し、key の値だけ変えて保存する</td>
+<td>ファイルを読み直し、key の値だけ変えて保存する（<code>invokeSettingsLocked</code> の中）</td>
 <td>同上</td>
 <td>設定の各関数</td>
 </tr>
@@ -3119,6 +3127,14 @@
 <td>クロール対象フォルダを <code>targetFolders</code> に保存（名前も保存する）</td>
 <td>同上</td>
 <td>インデックス作成・画面</td>
+</tr>
+<tr>
+<td><code>mergeAssignedIndexNames</code> / <code>saveAssignedIndexNames</code></td>
+<td>current, assigned / assigned, path</td>
+<td>一覧 / 一覧</td>
+<td>割り当てたインデックス名（assigned）を、読み直した今の一覧（current）の名前が空の項目にだけ、パスで突き合わせて足す（同じ名前をほかの項目が使っていれば付けない）/ 排他の中で読み直して足して保存し、保存した一覧を返す</td>
+<td><a href="../settings-file/">設定ファイル（setting.config）</a></td>
+<td>インデクサ・画面（loadTargets）</td>
 </tr>
 <tr>
 <td><code>readIndexSources</code> / <code>writeIndexSources</code></td>
@@ -3225,7 +3241,7 @@
 </tr>
 <tr>
 <td><code>writeTextLinesAtomic</code></td>
-<td>path, lines</td>
+<td>path, lines, encoding（既定は BOM 付き UTF-8）</td>
 <td>–</td>
 <td>一時ファイルに書いてから置き換える（置き換えられなければ少し待って 5 回まで試す）</td>
 <td>–</td>
@@ -3278,6 +3294,14 @@
 <td>同じツール（配置フォルダ）の処理を二重に動かさないための名前付きミューテックス（<code>Local\tebunko_&lt;name&gt;_&lt;getFolderKey の鍵&gt;</code>）。<code>Acquired</code> が <code>$false</code> なら、ほかで実行中。プロセスが終われば解放されるため、強制終了しても残らない</td>
 <td><a href="../../indexer/flow/#メインフロー">メインフロー</a></td>
 <td>インデックス作成（起動時。dir に <code>$workspace.Dir</code> を渡し、同じ <code>work</code> を使うものを 1 つにする）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
+</tr>
+<tr>
+<td><code>invokeWithNamedMutex</code></td>
+<td>mutexName, timeoutMilliseconds, action</td>
+<td>action の出力</td>
+<td>名前付きミューテックスを取って action を実行し、終わったら手放す。同じスレッドの入れ子は通す。時間を過ぎても取れなければ「排他の待ちが時間切れになりました」の例外。前の持ち主が手放さずに終わっていた（abandoned）ときは取れたものとして続ける</td>
+<td><a href="../threads/">スレッド</a></td>
+<td>invokeSettingsLocked</td>
 </tr>
 <tr>
 <td><code>normalizeFolderPath</code></td>
