@@ -444,10 +444,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#ドキュメント配布物に同梱するもの" class="md-nav__link">
+  <a href="#ドキュメント配布物" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ドキュメント・配布物に同梱するもの
+        ドキュメント・配布物
       
     </span>
   </a>
@@ -1437,10 +1437,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#ドキュメント配布物に同梱するもの" class="md-nav__link">
+  <a href="#ドキュメント配布物" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ドキュメント・配布物に同梱するもの
+        ドキュメント・配布物
       
     </span>
   </a>
@@ -1673,7 +1673,7 @@
 </tr>
 </tbody>
 </table>
-<h4 id="ドキュメント配布物に同梱するもの">ドキュメント・配布物に同梱するもの<a class="headerlink" href="#ドキュメント配布物に同梱するもの" title="Permanent link">&para;</a></h4>
+<h4 id="ドキュメント配布物">ドキュメント・配布物<a class="headerlink" href="#ドキュメント配布物" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
 <tr>
@@ -1684,19 +1684,24 @@
 </thead>
 <tbody>
 <tr>
-<td><code>README.md</code>・<code>LICENSE</code></td>
+<td><code>README.md</code></td>
 <td>ドキュメント</td>
-<td>使い方の入口とライセンス。配布 zip に同梱する</td>
+<td>使い方の入口。配布 zip に同梱する（相対リンクと画像は、その版の GitHub の URL に書き換える）</td>
+</tr>
+<tr>
+<td><code>LICENSE</code></td>
+<td>ドキュメント</td>
+<td>ライセンス（MIT）。配布 zip に同梱する</td>
 </tr>
 <tr>
 <td><code>.github/SECURITY.md</code>・<code>.github/SECURITY.ja.md</code></td>
 <td>ドキュメント</td>
-<td>安全性の説明の入口と、脆弱性の連絡先・対応方針（英語版が正、<code>.ja.md</code> が日本語版）。配布 zip では両方を直下に置く</td>
+<td>安全性の説明の入口と、脆弱性の連絡先・対応方針（英語版が正、<code>.ja.md</code> が日本語版）。配布 zip には入れず、リリースの説明からリンクする</td>
 </tr>
 <tr>
 <td><code>sbom.cdx.json</code></td>
 <td>配布用</td>
-<td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 6 章）</td>
+<td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 6 章）。配布 zip と並べてリリースに載せる</td>
 </tr>
 <tr>
 <td><code>docs/</code></td>
@@ -1758,7 +1763,7 @@
 <tr>
 <td><code>tools/new_release_package.ps1</code></td>
 <td>配布用</td>
-<td>配布する zip（<code>tebunko_grep-&lt;バージョン&gt;.zip</code>。本体・LICENSE・README・SECURITY・SBOM・カタログ・ハッシュ一覧）を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
+<td>配布する zip（<code>tebunko_grep-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/#ci">6 章</a>）</td>
 </tr>
 <tr>
 <td><code>tools/new_icon.ps1</code></td>

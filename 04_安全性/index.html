@@ -1951,7 +1951,7 @@
 </tr>
 <tr>
 <td>配布物の完全性</td>
-<td>配布 zip にカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を同梱し、zip にはビルドの来歴の署名を付ける</td>
+<td>配布 zip と並べて、カタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）をリリースに載せ、zip にはビルドの来歴の署名を付ける</td>
 <td><code>release.yml</code></td>
 <td><a href="#51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1</a></td>
 </tr>
@@ -2343,31 +2343,45 @@
 <h2 id="5-第三者のツールによる検査結果">5. 第三者のツールによる検査結果<a class="headerlink" href="#5-第三者のツールによる検査結果" title="Permanent link">&para;</a></h2>
 <p>本ツールの作者以外が作ったツールでの検査結果を示す。5.1〜5.4 は誰でも同じコマンドで再現できる。</p>
 <h3 id="51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1 配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）<a class="headerlink" href="#51-配布物の完全性カタログハッシュ一覧来歴の署名" title="Permanent link">&para;</a></h3>
-<p>GitHub Release の配布 zip（<code>tebunko_grep-&lt;タグ&gt;.zip</code>）は、<code>v</code> で始まるタグを push したときに <code>.github/workflows/release.yml</code> が作る。作る前に <code>test.yml</code> と同じ検査・テストを通す。zip の中身は次のとおり（<code>tools/new_release_package.ps1</code>）。<code>docs/</code>・<code>tests/</code>・<code>work/</code>・<code>setting.config</code> は入れない。</p>
+<p>GitHub Release の配布 zip（<code>tebunko_grep-&lt;タグ&gt;.zip</code>）は、<code>v</code> で始まるタグを push したときに <code>.github/workflows/release.yml</code> が作る。作る前に <code>test.yml</code> と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンスだけを入れ、確認用のファイルは zip と並べてリリースに載せる（<code>tools/new_release_package.ps1</code>）。<code>docs/</code>・<code>tests/</code>・<code>work/</code>・<code>setting.config</code> はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。</p>
 <table>
 <thead>
 <tr>
 <th>ファイル</th>
+<th>置き場所</th>
 <th>内容</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>scripts/</code>・<code>tebunko.bat</code></td>
+<td><code>tebunko.bat</code>・<code>scripts/</code></td>
+<td>zip の中</td>
 <td>ツール本体</td>
 </tr>
 <tr>
-<td><code>LICENSE</code>・<code>README.md</code>・<code>SECURITY.md</code>・<code>SECURITY.ja.md</code>・<code>sbom.cdx.json</code></td>
-<td>ライセンス・説明・脆弱性の連絡先（英語・日本語）・部品表</td>
+<td><code>README.md</code></td>
+<td>zip の中</td>
+<td>使い方。相対リンクと画像は、その版の GitHub の URL に書き換えて入れる（<code>docs/</code> や画像は zip に入れないため）</td>
+</tr>
+<tr>
+<td><code>LICENSE</code></td>
+<td>zip の中</td>
+<td>ライセンス（MIT。写しに許諾表示を含めるため同梱する）</td>
 </tr>
 <tr>
 <td><code>tebunko.cat</code>・<code>SHA256SUMS.txt</code></td>
+<td>リリース（zip の横）</td>
 <td>改ざんの確認用（<code>tools/new_release_files.ps1</code> が作る）</td>
+</tr>
+<tr>
+<td><code>sbom.cdx.json</code></td>
+<td>リリース（zip の横）</td>
+<td>部品表</td>
 </tr>
 </tbody>
 </table>
-<p><strong>カタログ（証明書は不要）</strong>: Windows PowerShell 5.1 標準の <code>New-FileCatalog</code> で、<code>scripts/</code> 配下すべてと <code>tebunko.bat</code> の SHA256 を 1 つのカタログにまとめてある。受け取った側は、zip を展開したフォルダで次を実行すれば、配布時点から 1 バイトも変わっていないことを確かめられる。</p>
-<div class="highlight"><pre><span></span><code><span class="nb">Test-FileCatalog</span> <span class="n">-Path</span> <span class="p">.\</span><span class="n">scripts</span><span class="p">,</span> <span class="p">.\</span><span class="n">tebunko</span><span class="p">.</span><span class="n">bat</span> <span class="n">-CatalogFilePath</span> <span class="p">.\</span><span class="n">tebunko</span><span class="p">.</span><span class="nb">cat </span><span class="n">-Detailed</span>
+<p><strong>カタログ（証明書は不要）</strong>: Windows PowerShell 5.1 標準の <code>New-FileCatalog</code> で、<code>scripts/</code> 配下すべてと <code>tebunko.bat</code> の SHA256 を 1 つのカタログにまとめてある。受け取った側は、リリースから <code>tebunko.cat</code> もダウンロードし、zip を展開したフォルダで次を実行すれば、配布時点から 1 バイトも変わっていないことを確かめられる。</p>
+<div class="highlight"><pre><span></span><code><span class="nb">Test-FileCatalog</span> <span class="n">-Path</span> <span class="p">.\</span><span class="n">scripts</span><span class="p">,</span> <span class="p">.\</span><span class="n">tebunko</span><span class="p">.</span><span class="n">bat</span> <span class="n">-CatalogFilePath</span> <span class="p">&lt;</span><span class="n">ダウンロードした</span> <span class="n">tebunko</span><span class="p">.</span><span class="n">cat</span><span class="p">&gt;</span> <span class="n">-Detailed</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2379,7 +2393,7 @@
 <tbody>
 <tr>
 <td>対象ファイル数</td>
-<td>52（<code>scripts/</code> 配下すべてと <code>tebunko.bat</code>）</td>
+<td>63（<code>scripts/</code> 配下すべてと <code>tebunko.bat</code>）</td>
 </tr>
 <tr>
 <td>検証結果</td>
@@ -2707,7 +2721,7 @@
 </tr>
 <tr>
 <td>部品表（SBOM）</td>
-<td>CycloneDX 1.6 形式で配布 zip に同梱。構成物は本ツール自身のファイルのみで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>safety.Tests.ps1</code> が確かめる）</td>
+<td>CycloneDX 1.6 形式で、配布 zip と並べてリリースに載せる。構成物は本ツール自身のファイルのみで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>safety.Tests.ps1</code> が確かめる）</td>
 </tr>
 <tr>
 <td>前提ソフトウェア</td>
@@ -2782,7 +2796,7 @@
 </tr>
 <tr>
 <td>リリース</td>
-<td>タグの push で、テストを通してから配布 zip を作り、カタログ・ハッシュ一覧・SBOM を同梱し、来歴に署名する（5.1）</td>
+<td>タグの push で、テストを通してから配布 zip を作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、来歴に署名する（5.1）</td>
 <td><code>.github/workflows/release.yml</code></td>
 </tr>
 </tbody>

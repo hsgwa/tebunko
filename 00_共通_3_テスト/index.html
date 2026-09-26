@@ -2396,7 +2396,7 @@
 <p><strong><code>release.yml</code>（配布物の公開）</strong></p>
 <p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko_grep-&lt;タグ&gt;.zip</code>）を作って GitHub Release に載せる。</p>
 <ul>
-<li>zip にはカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を同梱し（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）、ハッシュ一覧はリリースにも載せる。zip 自体の SHA256 はリリースの説明に書く（同 5.6 の VirusTotal での照会用）</li>
+<li>zip にはツール本体（<code>tebunko.bat</code>・<code>scripts/</code>）と <code>README.md</code>・<code>LICENSE</code> だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（<code>tebunko.cat</code>）・ハッシュ一覧（<code>SHA256SUMS.txt</code>）・部品表（<code>sbom.cdx.json</code>）は zip と並べてリリースに載せ（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 5.6 の VirusTotal での照会用）</li>
 <li>zip のビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko_grep-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
 <li>リリースノートは GitHub が PR から作り、<code>.github/release.yml</code> で PR のラベルごとに分ける</li>
 <li>版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける</li>
