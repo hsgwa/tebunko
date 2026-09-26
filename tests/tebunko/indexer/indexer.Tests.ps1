@@ -39,7 +39,7 @@ function writeTestSettings {
     param ([string]$root, [object[]]$folders)
     $settings = newSettings
     $settings.targetFolders = @($folders)
-    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko）は開発の PC ではほかのファイルがあり使えないため、テスト用の work を指す
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）には利用者のインデックスがあるため、テスト用の work を指す
     $settings.workspaceFolder = "$root\work"
     writeSettings $settings "$root\setting.config"
 }
@@ -407,7 +407,7 @@ Describe "indexer.ps1（まれな状況）" -Tag Io {
         writeTestSettings $root @(@{ name = "法務"; path = $source; enabled = $true })
         # 既定のワークスペースが使えないと判定された状態にする（空でないフォルダにエラーのファイルやログを書かない）
         $block = @{ Script = $runPath; Pattern = '^\s+if \(\$workspaceBlock\) \{'; Action = {
-                Set-Variable -Name workspaceBlock -Value "「C:\Users\test\Documents\tebunko」は空のフォルダではありません。" -Scope 1
+                Set-Variable -Name workspaceBlock -Value "「C:\Users\test\Documents\tebunko_ws」は空のフォルダではありません。" -Scope 1
             }
         }
 
@@ -506,7 +506,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $tasks.CompleteAdding()
         $settings = @{
             Lib = "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
-            Paths = @{ indexDir = "$root\index"; workDir = $root; tmpDir = "$root\tmp"; publishDir = "$root\publish" }
+            WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
             Lane = ${laneReader}
