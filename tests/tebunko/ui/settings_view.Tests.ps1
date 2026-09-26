@@ -63,27 +63,28 @@ Describe "testWorkspaceChoice" -Tag Unit {
 }
 
 Describe "newWorkspaceConfirm" -Tag Unit {
-    It "空のフォルダなら、取り込み直すことと、今のワークスペースは残ることを伝え、変えるボタンを 1 つ出す" {
+    It "空のフォルダなら、そこに置くことと、今のワークスペースの中身を移すことを伝え、変えるボタンを 1 つ出す" {
         $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 0
         $confirm.Heading | Should -Be "ワークスペースを変えますか？"
-        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "next,next,kept"
+        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "next,next"
         $confirm.Facts[0].Detail | Should -Be "D:\データ"
-        $confirm.Facts[1].Title | Should -Be "このフォルダにはまだインデックスがありません"
-        $confirm.Facts[2].Detail | Should -Be "C:\tool\work"
-        $confirm.Hint | Should -Match "「C:\\tool\\work」の中身を新しいフォルダへ移して"
+        $confirm.Facts[1].Title | Should -Be "今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいワークスペースへ移します"
+        $confirm.Facts[1].Detail | Should -Be "移す前の場所：C:\tool\work"
+        $confirm.Hint | Should -Be ""
         @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "change"
+        $confirm.Choices[0].Text | Should -Be "ワークスペースを変える"
     }
 
     It "空でなければ警告し、中身の数と例を出し、中に workspace を作るか・そのまま使うかを選ばせる" {
         $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 5 @("見積.xlsx", "報告書", "メモ.txt")
         $confirm.Heading | Should -Be "選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください。"
-        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "warn,kept"
+        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "warn,next"
         $confirm.Facts[0].Title | Should -Be "このフォルダは空ではありません（ファイル・フォルダが 5 個）"
         $confirm.Facts[0].Detail | Should -Be "見積.xlsx、報告書、メモ.txt など"
         @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "sub,asis"
         $confirm.Choices[0].Detail | Should -Be "D:\データ\workspace"
         $confirm.Choices[1].Careful | Should -Be $true
-        $confirm.Hint | Should -Match "^空のフォルダを選び直すときは［キャンセル］"
+        $confirm.Hint | Should -Be "空のフォルダを選び直すときは［キャンセル］を押してください。"
     }
 
     It "中身がすべて例に出ていれば「など」を付けず、数え切れなければ「以上」と出す" {
@@ -91,10 +92,20 @@ Describe "newWorkspaceConfirm" -Tag Unit {
         (newWorkspaceConfirm "D:\データ" "C:\tool\work" 1000 @("a", "b", "c") $true).Facts[0].Title | Should -Be "このフォルダは空ではありません（ファイル・フォルダが 1,000 個以上）"
     }
 
-    It "インデックスがあれば前のワークスペースとして使えると伝え、中に workspace を作れなければ、その選択肢を出さない" {
-        $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 3 @("index", "取り込み一覧.tsv", "インデックス作成ログ.txt") $false $true $false
-        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "warn,kept,kept"
-        $confirm.Facts[1].Title | Should -Be "インデックス（index フォルダ）があります"
+    It "中に workspace を作れなければ、その選択肢を出さない" {
+        $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 3 @("a", "b", "c") $false @() $false
         @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "asis"
+    }
+
+    It "インデックスなどがあれば、使うか、消して最初からやり直すかを選ばせる（消すほうは赤いボタンで、キャンセルを既定にする）" {
+        $confirm = newWorkspaceConfirm "D:\共有\tebunko_ws" "C:\tool\work" 3 @("index", "取り込み一覧.tsv", "memo.txt") $false @("index", "取り込み一覧.tsv")
+        $confirm.Heading | Should -Be "選んだフォルダには、すでにインデックスがあります。どうしますか？"
+        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "kept,next"
+        $confirm.Facts[0].Detail | Should -Be "index、取り込み一覧.tsv"
+        $confirm.Facts[1].Detail | Should -Be "今のワークスペースの中身は移さず、元の場所に残します：C:\tool\work"
+        @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "use,reset"
+        @($confirm.Choices | ForEach-Object { $_.Text }) -join "," | Should -Be "あるインデックスを使う,消して、最初からやり直す"
+        $confirm.Choices[1].Danger | Should -Be $true
+        $confirm.Choices[1].Careful | Should -Be $true
     }
 }

@@ -384,16 +384,22 @@ $window.Add_ContentRendered({
     $window.Dispatcher.BeginInvoke([action]{ safe { loadStartupData } }, [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
 })
 
+function loadWorkspaceViews {
+    # ワークスペースの中身（インデックスの一覧・取り込みの状態・検索対象のツリー・件数）を画面に読み込む。
+    # 起動したとき（loadStartupData）と、［8 設定］でワークスペースを変えたとき（settings_tab.ps1 の switchWorkspace）に呼ぶ
+    loadTargets
+    refreshIndexingState
+    loadIndexTree
+    # 検索対象のツリーを読み込んだので、［検索］の可否を決め直す
+    updateSearchButton
+    checkFastSearchAvailable
+    refreshIndexSummary
+}
+
 function loadStartupData {
     try {
-        loadTargets
-        refreshIndexingState
-        loadIndexTree
-        # 検索対象のツリーを読み込んだので、［検索］の可否を決め直す
-        updateSearchButton
-        checkFastSearchAvailable
+        loadWorkspaceViews
         updateKillBadge
-        refreshIndexSummary
     } finally {
         $script:startupLoaded = $true
     }
@@ -459,10 +465,4 @@ try {
     $activateEvent.Close()
     $mutex.ReleaseMutex()
     $mutex.Dispose()
-    # ワークスペースを変えたときは、新しいワークスペースで開き直す（ワークスペースの中のファイルの場所は、読み込み時に決まるため）。
-    # 多重起動の判定に掛からないよう、ミューテックスを放してから起動する
-    if ($script:restartRequested) {
-        Start-Process -FilePath "powershell.exe" -WindowStyle Hidden `
-            -ArgumentList "-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File `"$PSCommandPath`""
-    }
 }
