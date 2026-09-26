@@ -1,0 +1,2910 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+      
+      
+      
+        <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/testing/">
+      
+      
+        <link rel="prev" href="../gui/implementation/">
+      
+      
+        <link rel="next" href="ci/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>テスト - tebunko</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#テスト" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="ヘッダー">
+    <a href="../.." title="tebunko" class="md-header__button md-logo" aria-label="tebunko" data-md-component="logo">
+      
+  <img src="../../images/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tebunko
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              テスト
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードにする"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードにする" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードにする"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードにする" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="タブ" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  ホーム
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../safety/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  安全性
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  設計・開発
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="tebunko" class="md-nav__button md-logo" aria-label="tebunko" data-md-component="logo">
+      
+  <img src="../../images/logo.svg" alt="logo">
+
+    </a>
+    tebunko
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ホーム
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../safety/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安全性
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    安全性
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../safety/checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    危険とされる処理の検査結果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../safety/file-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ファイルの読み書きの範囲
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../safety/disclosure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    開示事項
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../safety/scans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第三者のツールによる検査結果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../safety/supply-chain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    供給網とライセンス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設計・開発
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    設計・開発
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    構成
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    構成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    フォルダ構成とデータの置き場所
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/settings-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設定ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/modules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通モジュール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/threads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../indexer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックス作成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    処理の流れと取り込み一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/excel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Excel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/word/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Word
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/powerpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PowerPoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/office-apps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/index-format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスの形式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexer/known-issues/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    既知の問題
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    検索
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../search/fast-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    高速検索
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../search/output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索結果ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../gui/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/state-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    状態と操作の流れ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通仕様
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/implementation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    実装
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./" class="md-nav__link md-nav__link--active">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テスト
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    テスト
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テストの実行と CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#品質の関門の一覧" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        品質の関門の一覧
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#単体テスト" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単体テスト
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#結合テスト手動" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        結合テスト（手動）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#画面の単体テスト" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画面の単体テスト
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#画面の確認" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画面の確認
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="テスト">テスト<a class="headerlink" href="#テスト" title="Permanent link">&para;</a></h1>
+<p>このページは、tebunko の品質をどう確かめているかをまとめる。コードを変えたときに何が自動で確かめられ、何を手で確かめるかが分かる。</p>
+<table>
+<thead>
+<tr>
+<th>知りたいこと</th>
+<th>節</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>品質の関門（どこで何を止めるか）の一覧</td>
+<td><a href="#品質の関門の一覧">品質の関門の一覧</a></td>
+</tr>
+<tr>
+<td>関数ごとに何をテストしているか</td>
+<td><a href="#単体テスト">単体テスト</a></td>
+</tr>
+<tr>
+<td>Office の実機で確かめたこと</td>
+<td><a href="#結合テスト手動">結合テスト（手動）</a></td>
+</tr>
+<tr>
+<td>テストの置き場所・タグ・実行のしかた・カバレッジ</td>
+<td><a href="ci/">テストの実行と CI</a>、<a href="ci/#タグと実行">タグと実行</a></td>
+</tr>
+<tr>
+<td>CI のワークフローとマージの必須チェック</td>
+<td><a href="ci/#ci">CI</a></td>
+</tr>
+<tr>
+<td>コミット時のフック</td>
+<td><a href="ci/#コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）</a></td>
+</tr>
+<tr>
+<td>個人情報・文字コードの検査</td>
+<td><a href="ci/#公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="品質の関門の一覧">品質の関門の一覧<a class="headerlink" href="#品質の関門の一覧" title="Permanent link">&para;</a></h2>
+<p>変更は、手元のコミット → PR → main → リリースの順に、次の関門を通る。main へは PR 経由でしか入れられず（ブランチ保護）、必須チェックが通らないとマージできない。</p>
+<pre class="mermaid"><code>flowchart LR
+    C["コミット"] --&gt; H1["pre-commit フック&lt;br&gt;check_commit.ps1 -Staged&lt;br&gt;run_commit_tests.ps1"]
+    C --&gt; H2["commit-msg フック&lt;br&gt;check_commit_message.ps1&lt;br&gt;check_signoff.ps1"]
+    H1 &amp; H2 --&gt; PR["PR"]
+    PR --&gt; R1["test（test.yml）"]
+    PR --&gt; R2["pr-title（title.yml）"]
+    PR --&gt; R3["docs（docs.yml）"]
+    PR --&gt; R4["analyze（codeql.yml）"]
+    R1 &amp; R2 &amp; R3 &amp; R4 --&gt; M["main へ squash merge"]
+    M --&gt; T["v* タグ"] --&gt; REL["release.yml&lt;br&gt;test を再実行して配布 zip とインストーラーを公開"]</code></pre>
+<table>
+<thead>
+<tr>
+<th>関門</th>
+<th>何を止めるか</th>
+<th>仕組み</th>
+<th>必須</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>単体テスト（Unit・Io・Meta）</td>
+<td>関数の動きの誤り、構成の決まりの違反</td>
+<td><code>tests/run.ps1</code>（Pester 5.9.0）。<a href="#単体テスト">単体テスト</a>・<a href="ci/">テストの実行と CI</a></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>カバレッジの下限</td>
+<td>テストされない処理が増えること</td>
+<td><code>tests/coverage.baseline</code>（90.0%）を下回ると <code>-Ci</code> が失敗する。<a href="ci/#タグと実行">タグと実行</a></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>構成・安全性のメタテスト</td>
+<td>層の決まり・文字コード・危険な処理（<code>Invoke-Expression</code>・通信・実行時コンパイルなど）の混入</td>
+<td><code>tests/meta/</code>。<a href="ci/">テストの実行と CI</a></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>静的解析</td>
+<td>PSScriptAnalyzer の <code>Error</code> と、安全性にかかわる 14 ルールの指摘</td>
+<td><code>test.yml</code>（版は 1.25.0 に固定）と <code>tests/meta/safety.Tests.ps1</code></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>個人情報・文字コード</td>
+<td>利用者名入りのパス・メールアドレス・Office ファイルの作成者名、BOM・CRLF でないスクリプト</td>
+<td><code>tools/check_commit.ps1</code>。<a href="ci/#公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査</a></td>
+<td>フックと CI の <code>test</code></td>
+</tr>
+<tr>
+<td>DCO（<code>Signed-off-by</code>）</td>
+<td>作者の署名の無いコミット</td>
+<td><code>tools/check_signoff.ps1</code></td>
+<td>フックと CI の <code>test</code></td>
+</tr>
+<tr>
+<td>コミット・PR のタイトル</td>
+<td>Conventional Commits の形でないもの</td>
+<td><code>tools/check_commit_message.ps1</code></td>
+<td>フックと CI の <code>pr-title</code></td>
+</tr>
+<tr>
+<td>設計書のリンク</td>
+<td>リンク先のファイル・見出しが無いこと</td>
+<td><code>mkdocs build --strict</code>（<code>docs/</code> の中）、メタテスト <code>links</code>（git で管理する全 <code>.md</code>）</td>
+<td>CI の <code>docs</code>・<code>test</code></td>
+</tr>
+<tr>
+<td>ワークフローの静的解析</td>
+<td>信頼できない入力を <code>run</code> に埋め込む書き方など</td>
+<td>CodeQL</td>
+<td>CI の <code>analyze</code></td>
+</tr>
+<tr>
+<td>サプライチェーンの採点</td>
+<td>―（採点だけでマージは止めない）</td>
+<td>OpenSSF Scorecard</td>
+<td>―</td>
+</tr>
+<tr>
+<td>Office の実機での確認</td>
+<td>COM を使うインデックス作成の不具合</td>
+<td>手動の結合テスト。<a href="#結合テスト手動">結合テスト（手動）</a></td>
+<td>―</td>
+</tr>
+</tbody>
+</table>
+<h2 id="単体テスト">単体テスト<a class="headerlink" href="#単体テスト" title="Permanent link">&para;</a></h2>
+<p><code>tests/</code>（Pester 5.9.0）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（<code>Add-Type -TypeDefinition</code>）を使わないことを検証する。テストは <code>scripts/</code> と同じ構成に並べる（<a href="ci/">テストの実行と CI</a>）。検索・画面の部品のテストの内容は <a href="./">テスト</a> の 16.1 にある。</p>
+<p><strong>共通基盤（<code>tests/shared/core/</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>toSafeFileName</code></td>
+<td>禁止文字の全角化、<code>/</code> → <code>／</code>、<code>"</code> → <code>”</code>、使用可能文字は不変</td>
+</tr>
+<tr>
+<td><code>toLongPath</code> / <code>fromLongPath</code>・長いパス</td>
+<td><code>\\?\</code>・<code>\\?\UNC\</code> の付け外し、260 文字を超えるパスの読み書き</td>
+</tr>
+<tr>
+<td><code>copyFileShared</code></td>
+<td>ほかのアプリが書き込み用に開いているファイルもコピーでき、コピー中もほかのアプリの書き込みを妨げない</td>
+</tr>
+<tr>
+<td><code>readListFile</code> / <code>writeListFile</code></td>
+<td><code>[</code> <code>]</code>・先頭の空白を含むパスの往復、ファイル無しは空配列、読めないファイルは例外、行が無ければ空のファイル</td>
+</tr>
+<tr>
+<td><code>writeTextLinesAtomic</code></td>
+<td>新しいファイルを作り、一時ファイルを残さない</td>
+</tr>
+<tr>
+<td><code>formatFileTime</code></td>
+<td>秒までの日時（<code>yyyy/MM/dd HH:mm:ss</code>）</td>
+</tr>
+<tr>
+<td><code>removeDirectoryRetry</code></td>
+<td>中身ごと削除、フォルダが無ければ何もしない</td>
+</tr>
+<tr>
+<td><code>newAppMutex</code></td>
+<td>同じ処理・同じ配置フォルダでは 2 つ目を取得できない、処理の種類・配置フォルダが違えば同時に取得できる</td>
+</tr>
+<tr>
+<td><code>replaceCellNewLine</code></td>
+<td><code>"</code> 内の改行（LF・CR・CRLF）は U+2028 に置き換え、<code>"</code> 外の改行は保持</td>
+</tr>
+<tr>
+<td><code>formatTsv</code></td>
+<td>行末の空セル・末尾の空行の除去（途中の空行は保持）、セル内改行を含む行を 1 行にまとめる、使用範囲の左上に合わせた先頭の空行・空セルの補完、空白だけなら空</td>
+</tr>
+<tr>
+<td><code>prettyTsv</code></td>
+<td>UTF-16 → UTF-8（BOM 付き）、<code>[</code> <code>]</code> を含む出力パス、使用範囲の左上の指定、空なら出力しない</td>
+</tr>
+<tr>
+<td><code>countTsvFields</code></td>
+<td>タブ区切りのセル数、先頭のセルが空の行、<code>"</code> で始まるセル内のタブ・改行は区切りとしない、途中の <code>"</code> は囲みとしない</td>
+</tr>
+<tr>
+<td><code>toColumnName</code></td>
+<td>列名（<code>A</code> <code>Z</code> <code>AA</code> <code>ZZ</code> <code>AAA</code> <code>XFD</code>）</td>
+</tr>
+<tr>
+<td><code>normalizeFolderPath</code></td>
+<td>前後の空白・引用符・末尾の <code>\</code> の除去、ドライブ直下は <code>D:\</code> のまま、UNC パス、<code>/</code> → <code>\</code>、<code>\\?\</code> ・ <code>\\?\UNC\</code> の除去、重なった <code>\</code> ・ <code>.</code> ・ <code>..</code> の解決、環境変数の展開、相対パスは <code>$rootDir</code> から、解釈できないパス（<code>*</code> を含む・<code>\\server</code> ・ <code>\</code> ひとつで始まる）は書かれたとおり</td>
+</tr>
+<tr>
+<td><code>getPathUnderFolder</code></td>
+<td>フォルダからの相対パス（フォルダ自身は空、末尾の <code>\</code> ・大文字と小文字の違い、ドライブ直下、UNC の共有直下）、フォルダの下でなければ <code>$null</code>（フォルダ名の途中では一致しない）</td>
+</tr>
+<tr>
+<td><code>getFolderPathAliases</code> / <code>testSameFolder</code> / <code>testFolderUnder</code></td>
+<td>ネットワークドライブ ⇔ UNC パス、<code>subst</code> のドライブ ⇔ 割り当て元のフォルダ、ドライブ直下・共有直下、割り当ての無いパスは自身だけ、同じフォルダの判定（割り当ては差し替えてテストする）、この PC の割り当てでも例外にならない、入れ子のフォルダの判定（自身も「中」・名前の先頭が同じだけのフォルダは別・別の書き方でも分かる）</td>
+</tr>
+<tr>
+<td><code>getFolderLeafName</code></td>
+<td>ドライブ直下・UNC・末尾の <code>\</code></td>
+</tr>
+<tr>
+<td>フォルダ選択を開く場所（<code>getExistingAncestorFolder</code>）</td>
+<td><a href="./">テスト</a> の 16.1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>設定ファイル（<code>tests/tebunko/core/settings</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>readSettings</code> / <code>writeSettings</code> / <code>updateSettings</code></td>
+<td>ファイル無しは既定値でファイルを作らない、保存と読み込みの往復（1 件だけの一覧も配列のまま）、1 つのキーだけ変えてもほかのキーを保つ、記載の無いキー・空のファイルは既定値、JSON として読めなければ例外</td>
+</tr>
+<tr>
+<td><code>getTargetFolders</code> / <code>writeTargetFolders</code></td>
+<td>記載順、<code>enabled</code> が <code>false</code> はチェックなし・記載が無ければチェックあり、引用符・末尾の <code>\</code> の除去、空のパスは除く、重複（大文字・小文字・末尾の <code>\</code> の違い）は最初のものだけ、設定が無ければ空、保存と読み込みの往復（ほかの設定を保つ）</td>
+</tr>
+<tr>
+<td><code>readIndexSources</code> / <code>setIndexSourceFolder</code></td>
+<td>インデックス名に対する元のフォルダの記録と読み込み、同じ名前は 1 か所（上書き）、クロール対象フォルダにある名前ならその <code>path</code> を書き換える（<code>indexSources</code> には入れない）、名前・フォルダが空なら何もしない</td>
+</tr>
+<tr>
+<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
+<td>無ければ空、保存したフォルダと直下だけの区別を読み戻す（末尾の <code>\</code> を除く、空のパスは除く）、ほかの設定を変えない、空で保存すると空</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックス名と TSV の名前（<code>tests/tebunko/index/index_name</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>encodeIndexPlace</code> / <code>decodeIndexPlace</code></td>
+<td>禁止文字・<code>_</code>・<code>%</code>・制御文字の <code>%XX</code> 化と往復、<code>衝突"</code> と <code>衝突”</code> が別の名前になる、使用可能文字（全角記号・空白・<code>&amp;'#()</code>）は不変、符号化で作らない <code>%XX</code>（<code>100%</code> 等）は戻さない</td>
+</tr>
+<tr>
+<td><code>splitObjectPlace</code> / <code>describePlace</code></td>
+<td>図形・コメントの場所の分解、画面と検索結果ファイルに出す場所・種別の文字</td>
+</tr>
+<tr>
+<td><code>toIndexFileName</code></td>
+<td>場所の符号化、255 文字の上限</td>
+</tr>
+<tr>
+<td><code>newIndexName</code> / <code>assignIndexNames</code></td>
+<td>フォルダ名・ドライブ名・共有名、重複時の <code>(2)</code> <code>(3)</code>、設定の名前をそのまま使う（フォルダの場所が変わっても同じ名前）、名前が無ければ前回の取り込み一覧の名前・フォルダ名から作る、設定にある名前はほかのフォルダに使わない、名前にできない・長いフォルダ名</td>
+</tr>
+<tr>
+<td><code>splitIndexRelPath</code></td>
+<td>先頭のインデックス名と残り（深い階層、数字を含む名前）、<code>\</code> が無い場合</td>
+</tr>
+<tr>
+<td><code>testIndexName</code></td>
+<td>使える名前は空文字列、空・前後の空白・255 文字超・使えない文字・末尾の <code>.</code>・Windows の予約語（大文字小文字を区別しない）・ほかのインデックスと重複、それぞれの理由を返す</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックスの管理（<code>tests/tebunko/index/index_store</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getIndexStats</code></td>
+<td>インデックス名ごとの件数（合計・済・未取り込み・失敗）と最終取り込み日時を集計する</td>
+</tr>
+<tr>
+<td><code>renameIndex</code></td>
+<td><code>work\index\&lt;旧名&gt;</code> を改名して中身をそのまま残し、取り込み一覧のクロール対象フォルダの行と各行の相対パスの先頭を書き換える。ほかのインデックスの記録は変えない。フォルダがまだ無くても記録は書き換える。同じ名前のフォルダが既にあれば例外</td>
+</tr>
+<tr>
+<td><code>removeIndex</code></td>
+<td><code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録を削除し、ほかのインデックスは残す。名前が空なら何もしない</td>
+</tr>
+<tr>
+<td><code>getSearchIndexes</code></td>
+<td><code>work\index</code> 直下のフォルダをインデックス 1 件として返す。［1 インデックス管理］の一覧と同じ並びで、一覧に無いものは名前順で後ろ。元のフォルダも返す（一覧にも取り込み一覧にも無ければ、そのフォルダの <code>元のフォルダ.txt</code> から読む。分からなければ空）。フォルダが無ければ空</td>
+</tr>
+<tr>
+<td><code>getIndexNameMap</code></td>
+<td>クロール対象フォルダの行だけを読み、見出し行の後の行・インデックス名の無い行は使わない。取り込み一覧が無ければ空</td>
+</tr>
+<tr>
+<td><code>getIndexTsvCounts</code> / <code>testIndexComplete</code></td>
+<td>集約ファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、集約ファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の TSV は数えない）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
+</tr>
+<tr>
+<td><code>publishIndexFiles</code></td>
+<td>作業フォルダの TSV をインデックスのフォルダへまとめて入れる、以前のインデックスを残さず入れ替える、TSV が 1 件も無ければ空のフォルダ、前回の出力用フォルダが残っていても入れ替えられる</td>
+</tr>
+</tbody>
+</table>
+<p><strong>集約ファイル（<code>tests/tebunko/index/pack_format</code>・<code>tests/tebunko/search/pack_search</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>convertPlaceToPackMeta</code> / <code>convertPackMetaToPlace</code></td>
+<td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
+</tr>
+<tr>
+<td><code>getPackFileName</code> / <code>readPackFileName</code> / <code>planPackParts</code> / <code>splitPackBooksByExtension</code> / <code>encodePackValue</code> / <code>decodePackValue</code> / <code>convertToPackBody</code></td>
+<td>集約ファイルの名前、拡張子ごとの分け方、値の <code>%XX</code> の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く</td>
+</tr>
+<tr>
+<td><code>convertToPackText</code> / <code>readPackPlaces</code></td>
+<td>文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、版の無い・違う集約ファイルは例外</td>
+</tr>
+<tr>
+<td><code>convertIndexFolderToPack</code> / <code>updateIndexFolderPack</code> / <code>findIndexFoldersWithBooks</code> / <code>publishIndexFolders</code></td>
+<td>フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の集約ファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて集約ファイルとシステムインデックスに入れる</td>
+</tr>
+<tr>
+<td><code>searchPackIndex</code> / <code>getIndexPackFiles</code> / <code>readPackContext</code></td>
+<td>結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックス作成（<code>tests/tebunko/indexer/</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>readStatusFile</code> / <code>writeStatusFile</code> / <code>addStatusRow</code></td>
+<td>クロール対象フォルダと各列の往復（<code>[</code> <code>]</code>・先頭の空白を含むパス）、1 行目・見出し行の書式、追記した行の優先（大文字・小文字を区別しない）、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と <code>toStatusLine</code>（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み</td>
+</tr>
+<tr>
+<td><code>readStatusLines</code> / <code>renameStatusIndexName</code> / <code>removeStatusIndexName</code></td>
+<td>名前の変更（クロール対象フォルダの行と各行の相対パス）、インデックスの記録の削除</td>
+</tr>
+<tr>
+<td><code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code></td>
+<td>取り込み中の複数のファイルの回数と相対パスの往復、取り込み中が無ければ記録を消す、壊れた行は読み飛ばす</td>
+</tr>
+<tr>
+<td><code>describeIngestError</code></td>
+<td>取り込みの例外から失敗の原因を作る（パスが長すぎる場合を含む）</td>
+</tr>
+<tr>
+<td><code>getIndexingState</code></td>
+<td>状態ごとの件数、失敗したファイルの行の並び、指定した時刻以降に取り込んだ件数</td>
+</tr>
+<tr>
+<td><code>newIndexerChannel</code> / <code>writeIndexingProgress</code> / <code>readIndexingProgress</code></td>
+<td>画面が決めた条件を入れスレッドをまたいで使える形にする、段階・件数・内容の往復（タブ・改行はスペース）、受け渡しの口が無ければ何もしない</td>
+</tr>
+<tr>
+<td><code>requestIndexingStop</code> / <code>answerIndexingPlan</code></td>
+<td>中止を求めると確認を待っていても待つのをやめる、取り込む返事は中止にしない、取りやめの返事（<code>$null</code>）は中止にする</td>
+</tr>
+<tr>
+<td><code>testIndexerRunning</code></td>
+<td>インデックス作成の鍵をほかが持っていれば <code>$true</code>、調べた後は鍵を持たない</td>
+</tr>
+<tr>
+<td><code>writeIndexerLog</code></td>
+<td>ログを開いていればログに書く、コンソールに出すときは色を付ける、ログに書けなくても止めない</td>
+</tr>
+<tr>
+<td><code>getExtractVersion</code> / <code>getIngestDecision</code></td>
+<td>形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了・インデックスなし・前回失敗・前の抽出版）</td>
+</tr>
+<tr>
+<td><code>getIngestLane</code> / <code>getOfficeLane</code></td>
+<td>Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン。読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン</td>
+</tr>
+<tr>
+<td><code>createTargetList</code> / <code>findOfficeFiles</code> / <code>waitForIndexingApproval</code></td>
+<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む）</td>
+</tr>
+<tr>
+<td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>removeDroppedFolders</code></td>
+<td>作業フォルダの TSV をインデックスへ移す（<code>[</code> <code>]</code>・260 文字超のパス）、終了したプロセスの作業フォルダだけを削除する、クロール対象から削除したフォルダのインデックスだけを削除する</td>
+</tr>
+<tr>
+<td><code>indexer.ps1</code>（起動口）</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替え、<code>indexer.ps1 -Channel</code> で通しで動かす（受け渡しの口の <code>Workers</code> を 0 にし、取り込みは司令のスレッドで行う。Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。代表的な場面だけを確かめる（関数の単位で確かめられることは各モジュールのテストで確かめる）。続けられないエラーと終了コード、ほかのインデックス作成が実行中なら触らない、基本の流れ（取り込み・集約ファイル・システムインデックス）、2 回目は更新の無いファイルを取り込まない、フォルダが見つからないときは前回の結果を残す、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめと失敗分の取り込み直し、中止（終了コード 2。元のファイルごとのフォルダを残さず、対応済みにしない）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、前回残った TSV を次の作成の始めに集約ファイルへ入れる、既定のワークスペースが空でなければ何も書かない</td>
+</tr>
+<tr>
+<td><code>indexer.ps1</code>（取り込みのスレッド）</td>
+<td>取り込みのスレッドで取り込んでも、取り込み一覧・集約ファイルがスレッドを使わないときと同じになる、取り込みのスレッドが始められなければ続けられないエラーで 1 を返す</td>
+</tr>
+<tr>
+<td><code>getIngestWorkerCount</code></td>
+<td>読み取りのスレッドの数。指定があればその数、無ければ設定（<code>ingestThreads</code>）、設定が 0 ならコア数から決める、ファイルの数より多くしない</td>
+</tr>
+<tr>
+<td><code>getIngestLaneCapacity</code></td>
+<td>Office のレーンは取り込み中と次の 1 件、読み取りのレーンはスレッドの数の 2 倍まで渡す</td>
+</tr>
+<tr>
+<td><code>runIngestWorker</code> / <code>invokeIngestTask</code>（レーン）</td>
+<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない</td>
+</tr>
+<tr>
+<td><code>IndexingSession</code>（<code>indexing_session</code>）</td>
+<td>インデクサを別のスレッド（MTA・優先度を下げる）で動かし終了コードを返す、中止を求めると受け渡しの口の <code>Stop</code> を立てて返事を待つのをやめさせる、終了コードを入れずに止まったら 1 と止まった理由、インデクサが入れたエラーの内容、<code>Close</code> は動いていれば中止を求めて待つ（何度呼んでもよい）、<code>KillOffice</code> は記録した PID のうちプロセス名が同じものだけを止める</td>
+</tr>
+</tbody>
+</table>
+<p><strong>スレッドとプール（<code>tests/shared/core/worker_pool</code>・<code>tests/tebunko/search/search_service</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getWorkerCount</code> / <code>newWorkerState</code></td>
+<td>画面のために 1 コアを残し 1〜上限に収める、指定した関数と値だけを各スレッドに読み込む</td>
+</tr>
+<tr>
+<td><code>WorkerPool</code></td>
+<td>仕事の出力と引数の受け渡し、指定した優先度、PowerShell のインスタンスの使い回し、同時に複数の仕事、仕事の例外を投げても次の仕事を続けられる、止めた仕事は使い回さない、閉じた後は受け付けない（<code>Close</code> は何度呼んでもよい）、<code>Prelude</code> は各スレッドで 1 回だけ実行する</td>
+</tr>
+<tr>
+<td><code>BackgroundQueue</code></td>
+<td>終わった仕事の出力を onDone に渡す、失敗は errorText で渡す、終わっていない仕事の数、閉じると終わっていない仕事を止める</td>
+</tr>
+<tr>
+<td><code>newSearchRequest</code> / <code>invokeSearchRequest</code></td>
+<td>ヒットを列に入れて件数と終わったことを伝える、照合のプールを渡しても同じ結果、始める前に取り消されていたら検索しない、検索できなかった理由を <code>Error</code> に入れる（例外は投げない）</td>
+</tr>
+<tr>
+<td><code>SearchService</code></td>
+<td>要求を順に実行し同じスレッドを使い続ける、次の要求を渡すと前の要求を取り消す、閉じるとスレッドを止める、司令のスレッドが止まっていたら理由を返し次の要求で作り直す</td>
+</tr>
+<tr>
+<td><code>trimTsvTextCache</code></td>
+<td>上限の 9 割以下なら追い出さずに世代だけ進める、超えていたら今の世代で使わなかったものを古い世代から追い出す、今の世代で使ったものは残す、入れたとき・使ったときの世代を残す</td>
+</tr>
+</tbody>
+</table>
+<p><strong>元のファイルの特定（<code>tests/tebunko/search/source_map</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getIndexNameMap</code> / <code>resolveSourcePath</code></td>
+<td>インデックス名から元のフォルダを引いた元のファイルのパス、ドライブ直下、元のフォルダが分からない結果は <code>$null</code>、<strong>設定（<code>targetFolders</code> / <code>indexSources</code>）を <code>元のフォルダ.txt</code>・取り込み一覧より優先</strong>、既定のインデックスは取り込み一覧を <code>元のフォルダ.txt</code> より優先</td>
+</tr>
+<tr>
+<td><code>writeSourceFolderFile</code> / <code>readSourceFolderFile</code> / <code>getSourceLocation</code></td>
+<td>各インデックスのフォルダへの書き出しと読み込み（説明の行は無視）、別の場所にコピーしたインデックス、インデックス名のフォルダを検索対象にした場合（そのフォルダの記録）、分からない場合は Known = <code>$false</code>・Folder は空でインデックス名を返す、キャッシュ</td>
+</tr>
+<tr>
+<td><code>joinSourcePath</code></td>
+<td>ドライブ直下・相対フォルダが空の場合・共有フォルダ・空の名前</td>
+</tr>
+<tr>
+<td><code>findMovedSource</code></td>
+<td>元のフォルダ・ファイルのあるフォルダ・途中のフォルダを選んだ場合も同じ <code>Root</code> を返す、相対フォルダが無い場合、見つからない場合</td>
+</tr>
+</tbody>
+</table>
+<p><strong>開発用の道具（<code>tests/tools/</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>check_commit_message.ps1</code></td>
+<td>形が合うタイトルを通し、違うものを止める、git が自動で作るメッセージは調べない、コメント行と空行を飛ばして最初の行を調べる、CRLF のファイル、空のメッセージは通す</td>
+</tr>
+<tr>
+<td><code>check_signoff.ps1</code></td>
+<td>作者の <code>Signed-off-by</code> があれば通す、無い・作者と違うメールアドレスなら止める、コメント行と <code>git commit -v</code> の差分の中は数えない、マージコミット・bot は調べない</td>
+</tr>
+<tr>
+<td><code>check_markdown_links.ps1</code></td>
+<td>あるファイル・フォルダ・見出しへのリンクを通し、切れたリンクを止める、コードの中のリンクは調べない、1 行に複数あるリンクをそれぞれ調べる</td>
+</tr>
+<tr>
+<td><code>measure_perf.ps1</code></td>
+<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Office ファイルの読み取り（<code>tests/shared/office/office_reader</code>）</strong></p>
+<p>Word・PowerPoint・Excel は使わず、最小限の <code>.docx</code> <code>.pptx</code> <code>.xlsx</code>（ZIP）をテスト内で作成する。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>isZipFile</code> / <code>isCompoundFile</code></td>
+<td>ZIP / 複合ドキュメント形式（旧形式・パスワード付き）/ 空ファイル・テキスト</td>
+</tr>
+<tr>
+<td><code>resolveZipPath</code></td>
+<td>リレーションシップの相対パス・<code>/</code> 始まりのパス</td>
+</tr>
+<tr>
+<td><code>readDocxUnits</code></td>
+<td>段落・表の行（タブ区切り、セル内の複数段落、末尾の空セル、入れ子の表）、変更履歴の削除・フィールドコードを読まない、保存時のページ区切り・手動の改ページ（直後の保存時のページ区切りの有無）・セクション区切り・段落前で改ページ、ヘッダー/フッターの重複除去、脚注、テキストボックスは本文から分けてそのページの図形にする、SmartArt・グラフの文字は図形にする、コメントと返信は付けた所のページに入れる</td>
+</tr>
+<tr>
+<td><code>readPptxUnits</code></td>
+<td>表示順（<code>sldIdLst</code>）、非表示スライド、グループ内の図形・表、スライド番号・日付のプレースホルダーを読まない、ノートとスライドの対応、SmartArt・グラフの文字はスライドの図形にする、旧形式・新形式のコメントと返信</td>
+</tr>
+<tr>
+<td><code>readXlsxObjectUnits</code> / <code>getCellPosition</code></td>
+<td>表示シートの図形・コメントだけをシートごとの場所にする、図形は左上のセル番地の順、グループ化した図形は 1 つ、互換用の代替表示は読まない、スレッド形式のコメント（返信を含む）、ふりがなは読まない、Excel のブックでない ZIP は何も返さない</td>
+</tr>
+<tr>
+<td><code>readObjectText</code> / <code>readChartText</code></td>
+<td>参照先が無ければ空、グラフはタイトル・系列名・項目名（多段を含む）を読み、数値は読まない</td>
+</tr>
+<tr>
+<td><code>readDocxUnits</code> / <code>readPptxUnits</code>（壊れた ZIP）</td>
+<td>本文・プレゼンテーション情報が無ければ、分かるメッセージで例外にする</td>
+</tr>
+<tr>
+<td><code>writeUnits</code></td>
+<td>場所ごとの TSV 出力、空の場所は出力しない、<code>[</code> <code>]</code> を含むパス</td>
+</tr>
+</tbody>
+</table>
+<p><strong>COM を使う処理（<code>tests/tebunko/indexer/extract_office</code>・<code>tests/shared/office/office_app</code>）</strong></p>
+<p>Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流れを検証する。COM の入口は <code>getApp</code>（アプリの取得）と <code>New-Object -ComObject</code> だけなので、ここを Pester の <code>Mock</code> で差し替え、本物と同じ呼び方ができる偽のオブジェクト（呼ばれたメソッドと引数を記録し、保存では本物と同じ形式のファイルを書く）を返す。実機での動作は 6.2 の手動の結合テストで確かめる。</p>
+<table>
+<thead>
+<tr>
+<th>テスト</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/tebunko/indexer/extract_office.Tests.ps1</code></td>
+<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、読み取りのスレッドでは中身が旧形式の <code>.docx</code> を Office を使わずに「Office が要る」の例外にし（<code>getApp</code> を呼ばない）、壊れた <code>.pptx</code> は回し直さずに失敗にする、失敗しても文書を閉じて作業ファイルを消す</td>
+</tr>
+<tr>
+<td><code>tests/shared/office/office_app.Tests.ps1</code></td>
+<td>起動時の設定（非表示・警告なし・イベントなし・リンクを更新しない・マクロ無効。PowerPoint は <code>Visible</code> を変えない）、起動済みのアプリを使い回す、自分で起動したアプリだけを制限時間の強制終了の対象にする、Quit して終わらなければ強制終了する（Excel は 1 秒、Word・PowerPoint は 5 秒待つ）、利用者のアプリ・利用者が文書を開いたアプリは終了させない、制限時間の監視、起動した Office の優先度は変えない</td>
+</tr>
+</tbody>
+</table>
+<p><strong>画面の部品（<code>tests/tebunko/ui/</code>・<code>tests/shared/ui/</code>）</strong></p>
+<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（<code>preview.ps1</code> の <code>copyPreviewSelection</code>）だけを確かめる。型（<code>shared/ui/types.ps1</code>・<code>tebunko/ui/types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="./">テスト</a> の 16.1。</p>
+<p><strong>テストデータの個人情報の除去（<code>tests/testdata/scrub_personal</code>）</strong></p>
+<p>タグ <code>Io</code> で、テストデータから個人情報を取り除く <code>tests/testdata/scrub_personal.ps1</code> を検証する（OOXML・ODF・<code>.xlsb</code> の中のバイナリ・旧形式・Shift_JIS のテキスト、壊れた ZIP、隠し属性・読み取り専用属性）。</p>
+<p><strong>安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）</strong></p>
+<p>タグ <code>Meta</code> で、<a href="../../safety/">安全性の要約</a> の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない（36 件）。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>禁止する処理</td>
+<td>動的なコード実行（<code>Invoke-Expression</code> 等）・難読化（Base64）・ネットワーク通信・P/Invoke・実行時コンパイル・レジストリ・権限やサービスの変更・<code>Set-ExecutionPolicy</code> と <code>Bypass</code>・資格情報・リモート実行が 0 件</td>
+</tr>
+<tr>
+<td>許す処理の限定</td>
+<td><code>Add-Type</code> は <code>-AssemblyName</code> だけ、<code>Start-Process</code> は <code>explorer.exe</code> と <code>powershell.exe</code> だけ、<code>Stop-Process</code> は <code>shared/office/office_process.ps1</code> の 1 か所だけ</td>
+</tr>
+<tr>
+<td>Office の開き方</td>
+<td>マクロ無効（<code>AutomationSecurity = 3</code>）・<code>EnableEvents = $false</code>・外部リンクを更新しない・インデクサでは不可視・Excel / Word / PowerPoint いずれも読み取り専用で開く</td>
+</tr>
+<tr>
+<td>原本の保護</td>
+<td>原本のパスを書き込み・削除の API に渡さない、<code>SaveAs</code> の保存先は作業フォルダのパスだけ、原本を読むのは <code>copyFileShared</code>（<code>FileAccess::Read</code>）だけ</td>
+</tr>
+<tr>
+<td>書き込み先</td>
+<td><code>$workspace</code>（<code>Workspace</code> の <code>IndexDir</code>・<code>PublishDir</code>）・<code>${tmpDir}</code>・<code>${settingsFile}</code> の定義が <code>work</code> 配下・<code>%TEMP%</code> 配下・<code>setting.config</code> だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（<code>removeStaleTmpDirs</code>）</td>
+</tr>
+<tr>
+<td>静的解析（PSScriptAnalyzer）</td>
+<td>安全性にかかわるルール（<code>tests/meta/PSScriptAnalyzer.security.psd1</code> の 14 件）・<code>Error</code> 重大度・制限言語モード（<code>PSUseConstrainedLanguageMode</code>）の指摘が 0 件、設定ファイルから当該ルールが削られていないこと</td>
+</tr>
+<tr>
+<td>審査用の資料</td>
+<td><code>docs/04_安全性.md</code>・<code>.github/SECURITY.md</code>・<code>tools/new_release_files.ps1</code>・<code>sbom.cdx.json</code> がそろっており、SBOM が第三者の部品（<code>purl</code> を持つ部品）を含まないこと</td>
+</tr>
+</tbody>
+</table>
+<p>PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（<code>It -Skip</code>）。導入は <code>Install-Module PSScriptAnalyzer -Scope CurrentUser</code>。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は <a href="../../safety/">安全性の要約</a> の 5.2 に記載している。</p>
+<p><code>TypeNotFound</code>（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは <code>tests/meta/structure.Tests.ps1</code> で確かめる。</p>
+<p><strong>インストーラーの検査（<code>tests/meta/installer.Tests.ps1</code>）</strong></p>
+<p>タグ <code>Meta</code> で、インストーラー（<code>installer/</code>）が <a href="../../safety/">安全性の要約</a> の 4.6 のとおりであることを確かめる。インストーラーそのもののビルド（Inno Setup）は <code>release.yml</code> だけで行い、ここではスクリプトを読んで確かめる。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>起動口 <code>tebunko.exe</code>（<code>tebunko.cs</code>）</td>
+<td>Windows 標準の <code>csc.exe</code> で警告なしにビルドできる、起動するのは Windows の PowerShell 5.1 だけで <code>-ExecutionPolicy RemoteSigned</code>（<code>Bypass</code> を使わない）、P/Invoke とレジストリを使わない、ミューテックスの名前がインストーラーの <code>AppMutex</code> と同じ</td>
+</tr>
+<tr>
+<td>インストーラー（<code>tebunko.iss</code>）</td>
+<td>既定は管理者権限なし、<code>[Registry]</code> を使わず PATH・関連付けも変えない、入れるのは <code>tebunko.exe</code>・<code>LICENSE</code>・<code>scripts\</code> だけ、更新では前の版の <code>scripts\</code> を消してから入れる、インストール後に起動するのは <code>tebunko.exe</code> だけ</td>
+</tr>
+<tr>
+<td>文字コード</td>
+<td>2 つとも BOM 付き UTF-8・CRLF（Inno Setup は BOM の無いスクリプトを ANSI として読む）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="結合テスト手動">結合テスト（手動）<a class="headerlink" href="#結合テスト手動" title="Permanent link">&para;</a></h2>
+<p>Excel・Word・PowerPoint の COM を使うインデックス作成と、画面のプロセス停止は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。</p>
+<table>
+<thead>
+<tr>
+<th>テストデータ</th>
+<th>確認内容</th>
+<th>関連</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[確定]</code> を含むブック名、<code>[1]</code> を含むツール配置フォルダ</td>
+<td>インデックス作成・検索できる</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>表示 / 非表示 / 完全に非表示 / 空 のシート</td>
+<td>表示かつ内容のあるシートのみ TSV になる</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>セル内改行・<code>"</code>・<code>:</code> を含むセル、離れた位置のセル</td>
+<td>1 行にまとまる。検索結果で行が途切れない</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td><code>セル内容.xlsx</code>（D5 から始まる表・空行・300 列の行・セル内改行を含む 5 シート）を <code>TC10</code> で検索し、結果を Excel に貼り付け</td>
+<td>71 行 × 300 列の各セルが、元のシートの「行番号・列」のセルの表示値と一致する（位置のずれ 0 件。表示形式の和暦の順序と、CR だけの改行が LF になる点のみ値が異なる）</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>Word の行（<code>"</code> で始まるセル、途中に <code>"</code> を含むセル、表の行）を含む検索結果を Excel に貼り付け</td>
+<td>各セルが元のまま貼り付けられ、後続の行がずれない</td>
+<td>検索</td>
+</tr>
+<tr>
+<td>サブフォルダ（空白を含む）内の <code>.xls</code></td>
+<td>相対フォルダ付きで検索結果に出る</td>
+<td>検索</td>
+</tr>
+<tr>
+<td>パスワード付きブック</td>
+<td>ダイアログを出さずに失敗として記録される</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>~$</code> で始まるロックファイル</td>
+<td>取り込み対象にならない</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>2 回目の実行 / 元ファイルの更新</td>
+<td>取り込み済みはスキップ、更新したファイルのみ再取り込み</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>インデックス作成後の Excel プロセス</td>
+<td>残らない</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>複数ページ・表・テキストボックス・ヘッダー/フッター・脚注・変更履歴（削除）を含む <code>.docx</code>（<code>[確定]</code> を含むファイル名）</td>
+<td>ページごとに分かれ、表は行ごと、削除した文字は出ない</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>旧形式 <code>.doc</code>、中身が <code>.doc</code> の <code>.docx</code></td>
+<td>Word で変換して同じ内容を読める</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>並べ替えたスライド・非表示スライド・表・グループ・ノートを含む <code>.pptx</code>、旧形式 <code>.ppt</code></td>
+<td>表示順のスライド番号、非表示・ノートが分かれる</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>パスワード付きの <code>.docx</code> / <code>.doc</code> / <code>.pptx</code></td>
+<td>ダイアログを出さずに失敗として記録される</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>テンプレート <code>.dotx</code>、<code>~$</code> で始まる <code>.docx</code></td>
+<td>取り込み対象にならない</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>インデックス作成後の Word・PowerPoint プロセス</td>
+<td>残らない（利用者が使用中の Word には触れない）</td>
+<td>インデックス作成</td>
+</tr>
+</tbody>
+</table>
+<p>テストデータの作り方と、各ファイルで確かめる内容は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a> にある。</p>
+<h2 id="画面の単体テスト">画面の単体テスト<a class="headerlink" href="#画面の単体テスト" title="Permanent link">&para;</a></h2>
+<p>画面が使う関数と画面の部品を Pester 5.9.0 で確かめる（実行方法・タグ・カバレッジは <a href="./">テスト</a>）。画面の部品（<code>ui/*.ps1</code>）のテストは、WPF のコントロール（<code>$ui.ResultGrid</code> など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。</p>
+<p><strong>画面が使う <code>tebunko/lib.ps1</code> の関数</strong>（<a href="../gui/implementation/#実装構成">実装構成</a>）</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>テスト</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>searchPackIndex</code></td>
+<td><code>tests/tebunko/search/pack_search.Tests.ps1</code></td>
+<td>結果が TSV を 1 行ずつ照合したときと同じこと（改行の種類・照合のしかたごと）、文字どおり・正規表現・不正な正規表現、大文字・小文字、対象ファイル・図形とコメントの除外、上限での打ち切り、正規表現の照合の時間切れ（全文への照合は 1 行ずつに切り替える）、並列検索と読んだ内容の使い回し、中止・進捗の通知</td>
+</tr>
+<tr>
+<td><code>getIndexPackFiles</code> / <code>readPackContext</code></td>
+<td>同上</td>
+<td>集約ファイルの列挙（フォルダの一部・直下だけ・無いフォルダ）、前後の行と行番号</td>
+</tr>
+<tr>
+<td><code>testIndexExists</code> / <code>getIndexSummary</code></td>
+<td><code>tests/tebunko/search/search_run.Tests.ps1</code></td>
+<td>集約ファイルの有無・件数・最新の更新日時、存在しないフォルダ</td>
+</tr>
+<tr>
+<td><code>toSearchResultLines</code> / <code>writeSearchResult</code></td>
+<td>同上</td>
+<td><a href="../search/">検索</a> の結果ファイルの形式になること</td>
+</tr>
+<tr>
+<td><code>newSearchRegex</code> / <code>getRegexScanMode</code> / <code>newFileFilter</code></td>
+<td><code>tests/tebunko/search/search_query.Tests.ps1</code></td>
+<td>文字どおりの記号、不正な正規表現、大文字と小文字の区別。対象ファイルは <code>;</code> / <code>；</code> の区切り、<code>!</code> の除外、部分一致、<code>?</code>、ほかの記号は文字どおり、空なら条件なし</td>
+</tr>
+<tr>
+<td><code>getSourceLocation</code> / <code>resolveSourcePath</code> / <code>findMovedSource</code></td>
+<td><code>tests/tebunko/search/source_map.Tests.ps1</code></td>
+<td>元のファイルのインデックス名・場所・パスの特定、選んだフォルダからの探索（<a href="../gui/search-tab/#元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）</a>・<a href="../gui/search-tab/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）</td>
+</tr>
+<tr>
+<td><code>splitTsvCells</code></td>
+<td><code>tests/shared/core/text.Tests.ps1</code></td>
+<td><code>"</code> で囲まれたセル内のタブ、空のセル、先頭のセルが空の行</td>
+</tr>
+<tr>
+<td><code>getExistingAncestorFolder</code></td>
+<td><code>tests/shared/core/folder.Tests.ps1</code></td>
+<td>フォルダ選択を開く場所（<a href="../gui/index-tab/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>）。フォルダがあればそのまま、無ければその上の今もあるフォルダ、どこにも無い・空なら空</td>
+</tr>
+<tr>
+<td><code>getOfficeProcesses</code> / <code>stopOfficeProcesses</code></td>
+<td><code>tests/shared/office/office_process.Tests.ps1</code></td>
+<td>バックグラウンドの判定、終了の成功・失敗（<code>Get-Process</code> / <code>Stop-Process</code> をモックする）</td>
+</tr>
+<tr>
+<td><code>readSearchOption</code> / <code>writeSearchOption</code> ほか設定の読み書き</td>
+<td><code>tests/tebunko/core/settings.Tests.ps1</code></td>
+<td>ファイルが無ければオフ・空、保存した値の読み込み、指定した項目だけを変える</td>
+</tr>
+<tr>
+<td><code>newIndexName</code></td>
+<td><code>tests/tebunko/index/index_name.Tests.ps1</code></td>
+<td>使用済みの名前が無い・1 個だけの場合も正しく判定すること（PowerShell は集合を返すと中身を展開するため、<code>$null</code>・文字列で渡ることがある）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>画面の型・判断層・部品</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>テスト</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>画面の型（<a href="../gui/implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）</td>
+<td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko/ui/types.Tests.ps1</code></td>
+<td><code>NotifyBase</code> の変更通知。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
+</tr>
+<tr>
+<td>判断層</td>
+<td><code>tests/tebunko/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings_view.Tests.ps1</code></td>
+<td>画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス）</td>
+</tr>
+<tr>
+<td>結果の表</td>
+<td><code>tests/tebunko/ui/result_list.Tests.ps1</code></td>
+<td>ファイルごとの見出しの作成と開閉（<a href="../gui/search-tab/#ファイルごとにまとめた表示">ファイルごとにまとめた表示</a>）、行の作成、絞り込み、並べ替え、検索の終了時の表示、選択行の取得、イベント</td>
+</tr>
+<tr>
+<td>選択行のプレビュー</td>
+<td><code>tests/tebunko/ui/preview.Tests.ps1</code></td>
+<td>表示・消去、高さに収まる行数、セルを選んでいないときのコピーの案内、イベント、読み込み（<code>startJob</code>）の結果の扱い（読んでいる間に別の行を選んだら古い結果を出さない・後から頼んだ読み込みがあれば先の分は捨てる・読めないときは選んだ行だけを出す）</td>
+</tr>
+<tr>
+<td>元のファイルを開く</td>
+<td><code>tests/tebunko/ui/open_source.Tests.ps1</code></td>
+<td>パスの特定・フォルダの選び直し、開き方の切り替え、既定のアプリで開く、フォルダを開く、ファイル出力、画面の操作</td>
+</tr>
+<tr>
+<td>検索対象のツリー</td>
+<td><code>tests/tebunko/ui/index_tree.Tests.ps1</code></td>
+<td>ツリーの読み込み、検索範囲の説明、除外の保存、すべてのチェック、イベント</td>
+</tr>
+<tr>
+<td>画面定義（XAML）</td>
+<td><code>tests/meta/structure.Tests.ps1</code></td>
+<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブの画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko の型を順に読み込めること</td>
+</tr>
+</tbody>
+</table>
+<h2 id="画面の確認">画面の確認<a class="headerlink" href="#画面の確認" title="Permanent link">&para;</a></h2>
+<p>確認欄：◎ = テスト用のコピー（一時フォルダ）で画面を動かして確認済み、空欄・「要手動」 = 未確認（手動で確認する）。</p>
+<table>
+<thead>
+<tr>
+<th>確認内容</th>
+<th>関連</th>
+<th>確認</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>起動時のタブが状態（未作成・中断中・失敗あり・通常）に応じて変わる</td>
+<td>2.2</td>
+<td>◎（中断中）</td>
+</tr>
+<tr>
+<td>インデックス一覧・チェック・存在の判定、ドラッグ＆ドロップ・［参照…］、<code>"</code> 付きのパスの貼り付け</td>
+<td><a href="../gui/index-tab/">［1 インデックス管理］タブ</a></td>
+<td>一覧・判定は◎</td>
+</tr>
+<tr>
+<td>インデックス一覧の［作成］チェックの切替が保存されること（Click で配線）</td>
+<td><a href="../gui/index-tab/">［1 インデックス管理］タブ</a></td>
+<td>要手動</td>
+</tr>
+<tr>
+<td>フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと）</td>
+<td>3.2.1</td>
+<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動</td>
+</tr>
+<tr>
+<td>状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止</td>
+<td>3.1</td>
+<td>◎</td>
+</tr>
+<tr>
+<td>インデックス作成の進み具合（件数・失敗・残り時間・取り込み中のファイル・終了後の表示）</td>
+<td>3.6、3.7</td>
+<td>◎（取り込み一覧を模擬）</td>
+</tr>
+<tr>
+<td>インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］）</td>
+<td>3.4</td>
+<td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動</td>
+</tr>
+<tr>
+<td>インデックス作成中に画面を閉じる（止めてから閉じる確認・<code>インデックス作成を止めています…</code>・止まってから閉じる。60 秒で Office を止める）</td>
+<td>3.7、7.4</td>
+<td>要手動</td>
+</tr>
+<tr>
+<td>検索中の進捗表示・中止、大量ヒット時の打ち切り、検索中も画面を操作できること</td>
+<td>4.1</td>
+<td></td>
+</tr>
+<tr>
+<td><code>(株)</code> <code>1.5</code> <code>C++</code> の文字どおり検索と正規表現検索、不正な正規表現の注意</td>
+<td>4.2</td>
+<td>◎</td>
+</tr>
+<tr>
+<td>一致箇所の強調、並べ替え、絞り込み</td>
+<td>4.3、4.4</td>
+<td>要手動。並べ替えは軽いフィールド（該当行→<code>Line</code>、セルは並べ替えない）。絞り込みは生データで照合するため、セル番地（例 <code>B5</code>）とタブ表示記号 <code>│</code> には当たらない</td>
+</tr>
+<tr>
+<td>「セル」列（<code>B6</code> / <code>A3 ほか 2</code>、Word は空欄）、選択行のプレビュー（前後の行・一致したセルの強調・先頭のセルが空の行・セル内改行のあるセルの折り返し）、列見出しのドラッグによる列幅の変更（下限 24px）、セルを選んでの値のコピー、［Excel で開く］［フォルダを開く］の表示</td>
+<td>4.3、4.8</td>
+<td>◎（テスト用の TSV を画面に入れて描画を確認。列幅は見出しの <code>Thumb</code> に <code>DragDelta</code> を起こして確認。コピーは、画面のセル（<code>Border</code>）から <code>getPreviewCell</code> でセルを特定し、1 セル・範囲・行のコピー結果とクリップボードの内容を確認。合成したマウスイベントは配送されないため、クリック操作そのものは要手動）</td>
+</tr>
+<tr>
+<td>検索結果の遅延描画：スクロールしても一致箇所の強調・「セル」列が出る／大量ヒット（数千〜1万件）で固まらない（<code>HitRow.Prepare</code>＋<code>LoadingRow</code>）</td>
+<td>12.2、4.3</td>
+<td>クラスの動きは◎（<a href="#画面の単体テスト">画面の単体テスト</a>）。スクロール時の描画・体感速度は要手動</td>
+</tr>
+<tr>
+<td>検索対象ツリーの 3 状態チェック（親子伝播）・展開時の子読み込み</td>
+<td>4.8</td>
+<td>3 状態・検索範囲と除外の組み立ては◎（<a href="#画面の単体テスト">画面の単体テスト</a>）。クリック操作・展開は要手動</td>
+</tr>
+<tr>
+<td>Excel の該当シート・セルが選択された状態で開くこと、Word・PowerPoint が開くこと、ファイルが無い場合（フォルダを選ぶ確認・フォルダ選択）</td>
+<td>4.5</td>
+<td>元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（<code>C3</code>）が選択されることは◎（<code>openInExcel</code> にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動</td>
+</tr>
+<tr>
+<td>コピーした行を Excel に貼ったときの列の位置、結果ファイルの形式</td>
+<td>4.5、4.6</td>
+<td>コピーの形式のみ◎</td>
+</tr>
+<tr>
+<td>Office プロセスの一覧・各終了ボタン・確認ダイアログ・インデックス作成中の警告</td>
+<td><a href="../gui/process-tab/">［9 プロセス停止］タブ</a></td>
+<td>一覧・ボタンの有効／無効のみ◎</td>
+</tr>
+<tr>
+<td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko）</td>
+<td><a href="../gui/common/#表示アクセシビリティ">表示・アクセシビリティ</a></td>
+<td>要手動</td>
+</tr>
+<tr>
+<td>表示倍率 100 %・150 % での見た目</td>
+<td><a href="../gui/common/#表示アクセシビリティ">表示・アクセシビリティ</a></td>
+<td></td>
+</tr>
+<tr>
+<td>多重起動したときに、2 つ目が終了して既存のウィンドウが前面に出ること</td>
+<td>2.1、12.1</td>
+<td>最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動）</td>
+</tr>
+<tr>
+<td>zip 展開直後（Mark-of-the-Web 付き）から <code>tebunko.bat</code> で起動でき、印が消えること（<code>Bypass</code> なし・<code>RemoteSigned</code>）</td>
+<td>10.1</td>
+<td>◎（テスト用のコピー全ファイルに MOTW を付け、<code>RemoteSigned</code> でブロックされること→<code>tebunko.bat</code> 実行で <code>scripts</code> 配下の MOTW 0 件→<code>RemoteSigned</code> で画面が開く（ウィンドウ表題 <code>tebunko</code>）ことを確認）</td>
+</tr>
+<tr>
+<td><code>tebunko.bat</code> で起動したとき、PowerShell の窓が残らないこと（既定のターミナルが Windows Terminal でも）</td>
+<td>10.1</td>
+<td>◎（エクスプローラーから起動し、Windows Terminal のタブが増えず、画面の親が <code>conhost.exe</code> であることを確認）</td>
+</tr>
+<tr>
+<td>実行時コンパイル（csc.exe）を出さないこと</td>
+<td>12.2</td>
+<td>◎（<code>Add-Type</code> は標準アセンブリの読み込みだけであること（<code>tests/meta/safety.Tests.ps1</code>）・起動〜検索で <code>csc.exe</code> 0 回／一時 DLL 0 個を実起動で確認）</td>
+</tr>
+<tr>
+<td><code>[</code> <code>]</code> を含むツールの配置フォルダからの起動</td>
+<td>00_共通_3_テスト.md</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="フッター" >
+        
+          
+          <a href="../gui/implementation/" class="md-footer__link md-footer__link--prev" aria-label="前: 実装">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                前
+              </span>
+              <div class="md-ellipsis">
+                実装
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="ci/" class="md-footer__link md-footer__link--next" aria-label="次: テストの実行と CI">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                次
+              </span>
+              <div class="md-ellipsis">
+                テストの実行と CI
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 hsgwa / MIT License
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
