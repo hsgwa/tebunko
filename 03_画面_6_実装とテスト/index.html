@@ -1430,10 +1430,6 @@
 <td>インデックス作成の確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#34-インデックス作成の確認ダイアログ">3.4</a>）。インデックスごとの取り込み対象の件数（<code>work/取り込み予定.tsv</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
 </tr>
 <tr>
-<td><code>scripts/shared/xaml/dialog_folder_select.xaml</code></td>
-<td>エクスプローラー風のフォルダ選択ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）。［参照…］と、元のファイルのフォルダを選んでもらう場面（4.5.2）で共通に使う</td>
-</tr>
-<tr>
 <td><code>scripts/shared/xaml/dialog_confirm.xaml</code></td>
 <td>確認ダイアログ（<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#102-確認ダイアログshowconfirm">10.2</a>）。見出し・結果の一覧（<code>ItemsControl</code> に <code>ConfirmFact</code> をバインド）・補足だけを定義し、ボタンは場面ごとに違うため <code>shared/ui/shell.ps1</code> の <code>showConfirm</code> が組み立てて <code>ButtonPanel</code> / <code>ChoicePanel</code> に入れる</td>
 </tr>
@@ -1443,7 +1439,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/types.ps1</code><br><code>scripts/tebunko/ui/types.ps1</code></td>
-<td>画面で使う型（PowerShell class。12.2）。継承元（<code>NotifyBase</code>・<code>ConfirmFact</code>・<code>FolderNode</code>・<code>FolderEntry</code>）は shared に置き、先に読み込む（型の解決は読み込む順に依存するため、<code>tests/meta/structure.Tests.ps1</code> で確かめる）。主な型は次のとおり。<br>・<code>FileGroup</code>：結果の表の、元のファイル 1 つ分の見出し（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/#49-ファイルごとにまとめた表示">4.9</a>）。ヒットは生のまま <code>Hits</code> に持ち、表の行は開いたとき・絞り込み・並べ替え・出力のときに作る<br>・<code>HitRow</code>：結果の 1 行。件数が多いので<strong>生成時は生データのみ</strong>を持ち、表示用（強調セグメント・DisplayLine・「セル」列）は<strong>画面に出た行だけ</strong> <code>Prepare()</code> で作る（<code>ResultGrid</code> の <code>LoadingRow</code> から呼び、<code>INotifyPropertyChanged</code> で反映）。選択行のプレビュー（4.7）の表は <code>BuildPreview</code>（<code>readTsvContext</code> で読んだ行から <code>PreviewTable</code> を作る）で組み立てる<br>・<code>PreviewColumn</code>：列の幅。列見出しと各行のセルで共有し、見出しの <code>Thumb</code> のドラッグで <code>SetWidth</code> を呼ぶと列全体に反映する<br>・<code>IndexNode</code>：検索対象のツリー（4.8）。展開時のフォルダ読み込み・3 状態のチェック・検索範囲 <code>SearchTarget</code>／除外 <code>SearchExclude</code> の組み立てを持つ。チェックは OneWay バインドとし、クリック（<code>Toggle</code>）・展開（<code>LoadChildren</code>）はイベントで駆動する（PS class はプロパティのセッターにロジックを書けないため）</td>
+<td>画面で使う型（PowerShell class。12.2）。継承元（<code>NotifyBase</code>）と共通の型（<code>ConfirmFact</code>）は shared に置き、先に読み込む（型の解決は読み込む順に依存するため、<code>tests/meta/structure.Tests.ps1</code> で確かめる）。主な型は次のとおり。<br>・<code>FileGroup</code>：結果の表の、元のファイル 1 つ分の見出し（<a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/#49-ファイルごとにまとめた表示">4.9</a>）。ヒットは生のまま <code>Hits</code> に持ち、表の行は開いたとき・絞り込み・並べ替え・出力のときに作る<br>・<code>HitRow</code>：結果の 1 行。件数が多いので<strong>生成時は生データのみ</strong>を持ち、表示用（強調セグメント・DisplayLine・「セル」列）は<strong>画面に出た行だけ</strong> <code>Prepare()</code> で作る（<code>ResultGrid</code> の <code>LoadingRow</code> から呼び、<code>INotifyPropertyChanged</code> で反映）。選択行のプレビュー（4.7）の表は <code>BuildPreview</code>（<code>readTsvContext</code> で読んだ行から <code>PreviewTable</code> を作る）で組み立てる<br>・<code>PreviewColumn</code>：列の幅。列見出しと各行のセルで共有し、見出しの <code>Thumb</code> のドラッグで <code>SetWidth</code> を呼ぶと列全体に反映する<br>・<code>IndexNode</code>：検索対象のツリー（4.8）。展開時のフォルダ読み込み・3 状態のチェック・検索範囲 <code>SearchTarget</code>／除外 <code>SearchExclude</code> の組み立てを持つ。チェックは OneWay バインドとし、クリック（<code>Toggle</code>）・展開（<code>LoadChildren</code>）はイベントで駆動する（PS class はプロパティのセッターにロジックを書けないため）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/app_host.ps1</code></td>
@@ -1455,7 +1451,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/folder_dialog.ps1</code></td>
-<td>エクスプローラー風のフォルダ選択（<code>selectFolder</code>。3.2.1）。ツリーは <code>FolderNode</code>・一覧は <code>FolderEntry</code> で表し、フォルダの読み込みは <code>shared/core/folder.ps1</code> の <code>getFolderEntries</code> / <code>testHasSubFolders</code> を呼ぶ。ツリーの展開は <code>IndexNode</code> と同じく <code>Expanded</code> イベントで駆動する</td>
+<td>Windows 標準のフォルダ選択（<code>selectFolder</code>。3.2.1）。WinForms 内部の <code>IFileDialog</code> をリフレクションで呼んで開き、開けなければ <code>OpenFileDialog</code> でフォルダの中に入って選んでもらう（12.2）。フォルダのドラッグ＆ドロップの判定（<code>getDroppedFolders</code>・<code>onFolderDragOver</code>）も置く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/index_tab.ps1</code><br><code>indexing_tab.ps1</code></td>
@@ -1584,41 +1580,6 @@
 <td>– / <code>@{ Name; Path; Enabled }</code> の配列 / パス</td>
 <td>同上 / – / パス</td>
 <td>インデックス一覧（<code>setting.config</code> の <code>targetFolders</code>。インデックス名と置き場所を分けて持つ）。［編集…］は Name・Path を書き換える（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/">03_画面_1</a>）</td>
-<td>画面・インデックス作成</td>
-</tr>
-<tr>
-<td><code>getFolderEntries</code></td>
-<td>フォルダ, 上限（既定 2000）, <code>-foldersOnly</code></td>
-<td><code>@{ Entries; FolderCount; OfficeCount; Truncated; Error }</code></td>
-<td>フォルダ選択の一覧に出す中身（フォルダが先・それぞれ名前順。隠し・システムは除く。Entries は <code>@{ Name; Path; IsFolder; IsOffice; Updated }</code>）。開けなければ Error に理由を入れる（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>testHasSubFolders</code></td>
-<td>フォルダ</td>
-<td>bool</td>
-<td>サブフォルダがあるか（ツリーの ▷ を出すかの判定。1 件見つけた時点で打ち切る）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>getParentFolderPath</code> / <code>joinFolderPath</code></td>
-<td>パス / フォルダ, 名前</td>
-<td>パス</td>
-<td>1 つ上のフォルダ（ドライブ直下 <code>C:\</code>・共有フォルダ直下 <code>\\server\share</code> は空）／<code>\</code> が重ならないパスの連結</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>getQuickFolders</code> / <code>getComputerFolders</code></td>
-<td>–</td>
-<td><code>@{ Name; Path }</code> の配列</td>
-<td>フォルダ選択のツリーに出す「よく使う場所」（デスクトップ・ドキュメント・ダウンロード）と「PC」のドライブ（<code>DriveInfo</code>。ネットワークドライブは <code>getDriveTargets</code> の割り当て先を名前にする）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>testOfficeFile</code></td>
-<td>ファイル名</td>
-<td>bool</td>
-<td>取り込み対象の Office ファイルか（拡張子の一覧 <code>officeExtensions</code> はインデクサと共通）</td>
 <td>画面・インデックス作成</td>
 </tr>
 <tr>
@@ -1762,7 +1723,7 @@
 <h3 id="122-実行時コンパイルcscexeを使わない">12.2 実行時コンパイル（csc.exe）を使わない<a class="headerlink" href="#122-実行時コンパイルcscexeを使わない" title="Permanent link">&para;</a></h3>
 <p>資産管理・EDR は「<code>powershell.exe</code> が <code>csc.exe</code> を起動して <code>%TEMP%</code> の一時 DLL を読み込む」動き（実行時コンパイル。MITRE ATT&amp;CK T1027.004）を、良性でも拾うことがある。tebunko はこれを一切出さない設計にする（<code>tests/meta/structure.Tests.ps1</code> の「実行時コンパイル（csc.exe）を使わない」と <code>tests/meta/safety.Tests.ps1</code> が確かめる。<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/#21-検査項目と結果">04_安全性.md 2.1</a>）。</p>
 <ul>
-<li><strong>画面で使う型は PowerShell class</strong>（<code>HitRow</code>・<code>FileGroup</code>・<code>Segment</code>・<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewRow</code>／<code>PreviewTable</code>・<code>ProcRow</code>・<code>FailRow</code>・<code>PlanRow</code>・<code>FolderItem</code>・<code>SearchTarget</code>・<code>SearchExclude</code>・<code>IndexNode</code>・<code>FolderNode</code>・<code>FolderEntry</code>・<code>ConfirmFact</code>）。PS class はエンジンがメモリ内で用意し、<code>csc.exe</code>・一時 DLL を出さない。<code>INotifyPropertyChanged</code> は <code>NotifyBase</code> を継承して実装する。</li>
+<li><strong>画面で使う型は PowerShell class</strong>（<code>HitRow</code>・<code>FileGroup</code>・<code>Segment</code>・<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewRow</code>／<code>PreviewTable</code>・<code>ProcRow</code>・<code>FailRow</code>・<code>PlanRow</code>・<code>FolderItem</code>・<code>SearchTarget</code>・<code>SearchExclude</code>・<code>IndexNode</code>・<code>ConfirmFact</code>）。PS class はエンジンがメモリ内で用意し、<code>csc.exe</code>・一時 DLL を出さない。<code>INotifyPropertyChanged</code> は <code>NotifyBase</code> を継承して実装する。</li>
 <li><strong>検索・集約ファイルの読み取りは .NET を直接呼ぶ</strong>（<code>searchPackFiles</code>／<code>readPackPlaces</code>／<code>readPackContext</code>。<code>StreamReader</code>＋<code>[regex]</code>）。</li>
 <li><strong>Win32 API（P/Invoke）と、インターフェース定義が要る COM を使わない</strong>。代わりに次を使う。</li>
 </ul>
@@ -1777,8 +1738,8 @@
 <tbody>
 <tr>
 <td>フォルダ選択</td>
-<td>エクスプローラー風の自作ダイアログ（WPF。<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）</td>
-<td><code>IFileOpenDialog</code>（Windows 標準の <code>FolderBrowserDialog</code> はツリーだけで中身が見えず使いにくい）</td>
+<td>Windows 標準のエクスプローラー形式のダイアログ（<code>IFileOpenDialog</code>）。インターフェースの定義は WinForms が内部に持つもの（<code>FileDialogNative+IFileDialog</code>）をリフレクションで使う（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）</td>
+<td><code>IFileOpenDialog</code> のインターフェースを自分で定義すること</td>
 </tr>
 <tr>
 <td>ドライブの列挙・ネットワークドライブの割り当て先</td>
@@ -1804,7 +1765,7 @@
 </table>
 <ul>
 <li>結果、起動〜検索を通じて <code>Add-Type</code>（実行時コンパイル）は 0 回、<code>csc.exe</code> の起動・一時 DLL の生成も 0（実起動で確認）。読み込むのは Microsoft 署名済みの GAC アセンブリ（WPF・WinForms）だけ。</li>
-<li>代償と対処：PS class はメソッド呼び出しが C# より遅い（実測: 検索コアは C# の約 2.6 倍だが 50 万行で約 0.6 秒。結果行 <code>HitRow</code> の一括生成は 1 万件で約 10 秒と遅いため、<strong>可視行だけ作る遅延描画</strong>（<code>HitRow.Prepare</code>＋<code>LoadingRow</code>。軽量生成は 1 万件で約 0.56 秒）で回避する）。PS class はプロパティのセッターにロジックを書けないため、列幅・チェック・選択は <code>Set*</code> メソッドやイベントで変える。<code>subst</code> ドライブは実体のパスに解決しない（フォルダ選択は自作ダイアログのため、パスの貼り付け・ドラッグ＆ドロップは使える）。タスクバーのボタンは PowerShell と同じグループにまとめられる（アイコン自体は tebunko のものが出る。<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#10-表示アクセシビリティ">10 章</a>）。</li>
+<li>代償と対処：PS class はメソッド呼び出しが C# より遅い（実測: 検索コアは C# の約 2.6 倍だが 50 万行で約 0.6 秒。結果行 <code>HitRow</code> の一括生成は 1 万件で約 10 秒と遅いため、<strong>可視行だけ作る遅延描画</strong>（<code>HitRow.Prepare</code>＋<code>LoadingRow</code>。軽量生成は 1 万件で約 0.56 秒）で回避する）。PS class はプロパティのセッターにロジックを書けないため、列幅・チェック・選択は <code>Set*</code> メソッドやイベントで変える。<code>subst</code> ドライブは実体のパスに解決しない。タスクバーのボタンは PowerShell と同じグループにまとめられる（アイコン自体は tebunko のものが出る。<a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/#10-表示アクセシビリティ">10 章</a>）。</li>
 </ul>
 <hr />
 <h2 id="13-既存スクリプトへの影響と段階">13. 既存スクリプトへの影響と段階<a class="headerlink" href="#13-既存スクリプトへの影響と段階" title="Permanent link">&para;</a></h2>
@@ -1920,7 +1881,7 @@
 </tr>
 <tr>
 <td>4</td>
-<td>フォルダ選択ダイアログは自作（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>。12.2）。そのため、エクスプローラーのクイックアクセス・検索・「よく使うフォルダー」の履歴や、ファイルの種類ごとのアイコンは出ない（ツリーは「よく使う場所」＋ドライブ、アイコンは図形で描く）。並び順は Windows の名前順（<code>名前(10)</code> が <code>名前(9)</code> より前に来る「数字を考えた並び」ではない）</td>
+<td>フォルダ選択は Windows 標準のダイアログのため、フォルダの中のファイル（Office ファイルがあるか）は一覧に出ない（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）。WinForms の内部の型を使うため、Windows PowerShell 5.1（.NET Framework）が前提。内部の型が使えないときは、<code>OpenFileDialog</code> でフォルダの中に入って［開く］を押す形になる</td>
 <td>○</td>
 </tr>
 <tr>

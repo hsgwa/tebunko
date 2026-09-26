@@ -1606,7 +1606,7 @@
 </table>
 <h3 id="61-単体テスト">6.1 単体テスト<a class="headerlink" href="#61-単体テスト" title="Permanent link">&para;</a></h3>
 <p><code>tests/</code>（Pester 3.4）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（<code>Add-Type -TypeDefinition</code>）を使わないことを検証する。テストは <code>scripts/</code> と同じ構成に並べる（<a href="#63-テストの構成と実行">6.3</a>）。検索・画面の部品のテストの内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1 にある。</p>
-<p><strong>共通基盤（<code>tests/shared/core/</code>・<code>tests/shared/office/office_files</code>）</strong></p>
+<p><strong>共通基盤（<code>tests/shared/core/</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1684,7 +1684,7 @@
 <td>ドライブ直下・UNC・末尾の <code>\</code></td>
 </tr>
 <tr>
-<td>フォルダ選択の部品（<code>getFolderEntries</code> など）・<code>testOfficeFile</code></td>
+<td>フォルダ選択を開く場所（<code>getExistingAncestorFolder</code>）</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1</td>
 </tr>
 </tbody>
@@ -2158,7 +2158,7 @@
 </tr>
 <tr>
 <td><code>tests/shared/office/</code></td>
-<td><code>office_files</code>・<code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
+<td><code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
 </tr>
 <tr>
 <td><code>tests/shared/ui/</code></td>

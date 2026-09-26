@@ -1379,14 +1379,9 @@
 <td><code>"</code> で囲まれたセル内のタブ、空のセル、先頭のセルが空の行</td>
 </tr>
 <tr>
-<td><code>getFolderEntries</code> / <code>testHasSubFolders</code> / <code>getParentFolderPath</code> / <code>joinFolderPath</code> / <code>getQuickFolders</code> / <code>getComputerFolders</code></td>
+<td><code>getExistingAncestorFolder</code></td>
 <td><code>tests/shared/core/folder.Tests.ps1</code></td>
-<td>フォルダ選択の一覧（フォルダが先・それぞれ名前順、フォルダ数と Office ファイル数、パスと種別・更新日時）、隠し・システムを出さないこと、<code>-foldersOnly</code>、上限での打ち切り、開けないフォルダ・空の指定の理由、サブフォルダの有無（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）。1 つ上のフォルダ（ドライブ直下・共有フォルダ直下より上へは行かない）、<code>\</code> が重ならない連結</td>
-</tr>
-<tr>
-<td><code>testOfficeFile</code></td>
-<td><code>tests/shared/office/office_files.Tests.ps1</code></td>
-<td>Office ファイルの判定（大文字・小文字を区別しない）</td>
+<td>フォルダ選択を開く場所（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">3.2.1</a>）。フォルダがあればそのまま、無ければその上の今もあるフォルダ、どこにも無い・空なら空</td>
 </tr>
 <tr>
 <td><code>getOfficeProcesses</code> / <code>stopOfficeProcesses</code></td>
@@ -1418,7 +1413,7 @@
 <tr>
 <td>画面の型（12.2）</td>
 <td><code>tests/shared/ui/types.Tests.ps1</code><br><code>tests/tebunko/ui/types.Tests.ps1</code></td>
-<td><code>NotifyBase</code> の変更通知、<code>FolderNode</code>・<code>FolderEntry</code>・<code>ConfirmFact</code>。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
+<td><code>NotifyBase</code> の変更通知、<code>ConfirmFact</code>。<code>HitRow</code>（生成・<code>Prepare</code>・絞り込みの一致・セルの分割・<code>BuildPreview</code>・境界値）、<code>FileGroup</code>、<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewTable</code>（範囲の選択とコピー、Excel に貼れる形への引用）、<code>IndexNode</code>（3 状態のチェック・フォルダの読み込み・境界値）、<code>FolderItem</code></td>
 </tr>
 <tr>
 <td>判断層</td>
@@ -1448,7 +1443,7 @@
 <tr>
 <td>画面定義（XAML）</td>
 <td><code>tests/meta/structure.Tests.ps1</code></td>
-<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブ・フォルダ選択の画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko の型を順に読み込めること</td>
+<td><code>scripts/**/*.xaml</code> が XML として読めること、各タブの画面に <code>gui.ps1</code> などが使う <code>x:Name</code> がすべてあること、shared と tebunko の型を順に読み込めること</td>
 </tr>
 </tbody>
 </table>
@@ -1479,9 +1474,9 @@
 <td>要手動</td>
 </tr>
 <tr>
-<td>フォルダ選択ダイアログ（ツリー・一覧の表示、アドレスバーでの移動、［選択］で元のフォルダに入ること）</td>
+<td>フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと）</td>
 <td>3.2.1</td>
-<td>◎（UI オートメーションで［追加…］→［参照…］→アドレスバーに入力→［選択］まで操作し、表示内容とインデックス編集への反映を確認）。［←］［→］［↑］・マウスのサイドボタン・ダブルクリックでの移動・キーボードのショートカット・ドラッグ＆ドロップは要手動</td>
+<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動</td>
 </tr>
 <tr>
 <td>状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止</td>

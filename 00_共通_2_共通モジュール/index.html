@@ -1745,7 +1745,7 @@
 </tr>
 <tr>
 <td><code>shared/ui/*</code>・<code>tebunko/ui/*</code></td>
-<td>画面の部品（<code>showConfirm</code>・<code>selectFolder</code>・<code>getFolderEntries</code> など）</td>
+<td>画面の部品（<code>showConfirm</code>・<code>selectFolder</code> など）</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#12-実装構成">03_画面_6_実装とテスト.md</a></td>
 </tr>
 </tbody>
@@ -1980,14 +1980,6 @@
 <td>インデックス作成（起動時。dir に <code>$workDir</code> を渡し、同じ <code>work</code> を使うものを 1 つにする）。画面は <code>getFolderKey</code> の鍵で同じ規則の名前を自前で作る（ウィンドウを前面に出すイベントの名前と共通の鍵を使うため）</td>
 </tr>
 <tr>
-<td><code>testOfficeFile</code></td>
-<td>name</td>
-<td>bool</td>
-<td>取り込み対象の Office ファイルか（拡張子が <code>$officeExtensions</code> のどれか。大文字・小文字を区別しない）。インデクサは同じ <code>$officeExtensions</code> で取り込み対象を探す</td>
-<td>–</td>
-<td>フォルダ選択（getFolderEntries）</td>
-</tr>
-<tr>
 <td><code>normalizeFolderPath</code></td>
 <td>path</td>
 <td>string</td>
@@ -2044,10 +2036,10 @@
 <td>newIndexName</td>
 </tr>
 <tr>
-<td><code>joinFolderPath</code> / <code>getParentFolderPath</code> / <code>getFolderEntries</code> / <code>testHasSubFolders</code> / <code>getQuickFolders</code> / <code>getComputerFolders</code></td>
-<td>–</td>
-<td>–</td>
-<td>フォルダ選択ダイアログの一覧・ツリー・移動に使う部品</td>
+<td><code>getExistingAncestorFolder</code></td>
+<td>folder</td>
+<td>string</td>
+<td>folder が今もあればそのまま、無ければその上の今もあるフォルダ。どこにも無ければ空</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">03_画面_1 3.2.1</a></td>
 <td>画面（フォルダ選択）</td>
 </tr>
