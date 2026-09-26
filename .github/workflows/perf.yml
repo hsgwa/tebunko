@@ -1,9 +1,11 @@
-# 性能とリソースを手動で測る（インデックス作成と検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
+# 性能とリソースを手動で測る（Office からの取り込み・インデックス作成・検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
 # 数字は result.json と metrics.csv（1 行 1 指標。後で Grafana などに入れるため）にも書く。
 #
-# Actions の画面か `gh workflow run perf.yml -f ref=<ref> -f scale=0.1` で起動する。
+# Actions の画面か `gh workflow run perf.yml -f ref=<ref> -f scale=0.1 -f ingest=200` で起動する。
 # 計測スクリプト（tools/measure_perf.ps1）はこのワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする（作業中のブランチも測れる）。
-# データ（場所ごとの TSV）は、tebunko-perfdata の new_index.ps1 で毎回生成する。ランナーには Office が無いので、Office からの取り込みは測らない。
+# データ（場所ごとの TSV）は、tebunko-perfdata の new_index.ps1 で毎回生成する。
+# 取り込み（入力 ingest が 0 でないとき）は、Office を使わずに読む .docx・.pptx だけを測る（テストデータの複製を new_ingest_data.ps1 で作る）。
+# ランナーには Office が無いので、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は測らない。
 # ランナーは手元の PC と条件が違う（コア数、Defender の設定。Windows Search も無いので高速検索は使わない）。比べるときは、このワークフローで測った数字どうしで比べる。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため。日本語は計測スクリプトの側で出力する）。
 name: perf
@@ -23,6 +25,11 @@ on:
       count:
         description: 語ごとに続けて検索する回数（最小・中央値・平均・最大を出す）
         default: "20"
+      ingest:
+        description: 取り込みを測る .docx・.pptx のそれぞれの数（0 は取り込みを測らない）
+        type: choice
+        options: ["0", "200", "1000"]
+        default: "0"
 
 permissions:
   contents: read
@@ -74,9 +81,21 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           [System.IO.File]::WriteAllText((Join-Path $work "data_seconds.txt"), $watch.Elapsed.TotalSeconds.ToString([System.Globalization.CultureInfo]::InvariantCulture))
 
+      - name: 取り込みのデータを生成する
+        if: ${{ inputs.ingest != '0' }}
+        shell: powershell
+        env:
+          INGEST: ${{ inputs.ingest }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "perf"
+          & .\tool\tools\perf\new_ingest_data.ps1 -Dest (Join-Path $work "office") -Source .\tool\tests\testdata\office -Docx ([int]$env:INGEST) -Pptx ([int]$env:INGEST)
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
       - name: 計測する
         shell: powershell
         env:
+          INGEST: ${{ inputs.ingest }}
           REF: ${{ inputs.ref }}
           SCALE: ${{ inputs.scale }}
           COUNT: ${{ inputs.count }}
@@ -87,7 +106,9 @@ jobs:
           $sha = git -C target rev-parse HEAD
           $short = $sha.Substring(0, 7)
           $data = [double]::Parse([System.IO.File]::ReadAllText((Join-Path $work "data_seconds.txt")), [System.Globalization.CultureInfo]::InvariantCulture)
-          & .\tool\tools\measure_perf.ps1 -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
+          $office = @()
+          if ($env:INGEST -ne "0") { $office = @("-Office", (Join-Path $work "office")) }
+          & .\tool\tools\measure_perf.ps1 @office -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
 
       - name: 結果を Summary に書き出す
         if: always()

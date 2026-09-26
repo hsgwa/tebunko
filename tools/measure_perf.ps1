@@ -1,7 +1,13 @@
-﻿# インデックス作成（pack の作成）と検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。
+﻿# Office からの取り込み、インデックス作成（pack の作成）、検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。
 # GitHub Actions の perf.yml からも、手元からも使う。結果には数字だけを書き、パスやファイル名は書かない（そのまま共有できるようにするため）。
 #
 #   .\tools\measure_perf.ps1 -Index <TSV のインデックス> -Work <作業フォルダ> -Words <words.tsv>
+#   .\tools\measure_perf.ps1 -Office <Office ファイルのフォルダ> -Work <作業フォルダ>
+#   -Index と -Office は、少なくとも一方を指定する（両方でもよい）。指定しなかった側は測らず、result.json の Index・Search・Ingest は null になる
+#   -Office   … Office からの取り込みを測る。取り込む Office ファイルのフォルダ（tools\perf\new_ingest_data.ps1 で作る）。
+#                測る tebunko の scripts を写して取り込むので、利用者の設定・既定のワークスペースには触らない。Excel・Word・PowerPoint の実機が要る種類は、データにあるときだけ使う
+#   -Threads  … 取り込みの、Office を使わずに読むファイル（.docx・.pptx）の読み取りのスレッドの数（既定 2）
+#   -Repeat   … 取り込みを測る回数（既定 3）。1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
 #                TSV は pack に変換され、元の TSV は削除されるので、毎回作り直したものを渡す。pack しか無いときは、作成は測らず検索だけを測る
 #   -Tool     … 測る tebunko のフォルダ。既定はこのスクリプトのリポジトリ
@@ -13,8 +19,9 @@
 #   -Out      … 結果を書くフォルダ。既定は <Work>\result
 #
 # 流れ（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）:
-#   1. インデックス作成 … tools\perf\measure_index.ps1（インデクサと同じ publishIndexFolders。Office からの取り込みは含まない）
-#   2. 検索            … 語ごとに tools\perf\measure_search.ps1 を起動し、同じプロセスで -Count 回続けて検索する
+#   1. 取り込み        … tools\perf\measure_ingest.ps1（起動口の indexer.ps1 で Office ファイルを取り込む。-Repeat 回）
+#   2. インデックス作成 … tools\perf\measure_index.ps1（インデクサと同じ publishIndexFolders。Office からの取り込みは含まない）
+#   3. 検索            … 語ごとに tools\perf\measure_search.ps1 を起動し、同じプロセスで -Count 回続けて検索する
 # OS のファイルキャッシュは空にしない（pack は作成の直後なので、OS のキャッシュに載っている）。
 #
 # 書くもの:
@@ -22,13 +29,16 @@
 #   result.json         … すべての数字（形式の版 Schema と実行の情報つき）
 #   metrics.csv         … 1 行 1 指標の縦長の形（run_id, date, ref, sha, scale, metric, word, stat, value, unit）。後で Grafana などに入れるため
 #   searches.csv        … 検索 1 回ごとの時間・ヒット件数・メモリ
-#   resource-index.csv・resource-search.csv … リソースの記録（-SampleMs ごと）
+#   resource-ingest.csv・resource-index.csv・resource-search.csv … リソースの記録（-SampleMs ごと。取り込みは段階が変わるたびにも記録する）
 param (
-    [Parameter(Mandatory = $true)][string]$Index,
+    [string]$Index,
+    [string]$Office,
     [Parameter(Mandatory = $true)][string]$Work,
     [string]$Tool = (Split-Path $PSScriptRoot -Parent),
     [string]$Words,
     [int]$Count = 20,
+    [int]$Threads = 2,
+    [int]$Repeat = 3,
     [int]$SampleMs = 200,
     [string]$Label = "",
     [string]$RunId = "",
@@ -41,9 +51,12 @@ param (
 
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\perf\perf_common.ps1"
+. "$PSScriptRoot\perf\ingest_common.ps1"
+if (!$Index -and !$Office) { throw "-Index と -Office の少なくとも一方を指定してください。" }
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath
 [void](resolveTebunkoLib $Tool)
-$Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("\")
+if ($Index) { $Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("\") }
+if ($Office) { $Office = (Resolve-Path -LiteralPath $Office).ProviderPath.TrimEnd("\") }
 [void][System.IO.Directory]::CreateDirectory($Work)
 $Work = (Resolve-Path -LiteralPath $Work).ProviderPath.TrimEnd("\")
 if (!$Out) { $Out = Join-Path $Work "result" }
@@ -56,7 +69,9 @@ $cores = [Environment]::ProcessorCount
 
 # 検索する語（words.tsv の 1 行目は見出し）
 $wordList = New-Object System.Collections.Generic.List[hashtable]
-if ($Words) {
+if (!$Index) {
+    # 検索は測らない
+} elseif ($Words) {
     $lines = [System.IO.File]::ReadAllLines((Resolve-Path -LiteralPath $Words).ProviderPath, [System.Text.Encoding]::UTF8)
     foreach ($line in @($lines | Select-Object -Skip 1)) {
         $f = $line.Split("`t")
@@ -78,21 +93,39 @@ function readJson([string]$path) { [System.IO.File]::ReadAllText($path, [System.
 $run = [ordered]@{
     RunId = $RunId; Date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"); Ref = $Ref; Sha = $Sha; Scale = $Scale; Label = $Label
     PowerShell = $PSVersionTable.PSVersion.ToString(); OS = [Environment]::OSVersion.VersionString; Cores = $cores
-    Count = $Count; DataSeconds = $(if ($DataSeconds -ge 0) { [Math]::Round($DataSeconds, 1) } else { $null })
+    Count = $Count; Threads = $(if ($Office) { $Threads } else { $null }); Repeat = $(if ($Office) { $Repeat } else { $null }); DataSeconds = $(if ($DataSeconds -ge 0) { [Math]::Round($DataSeconds, 1) } else { $null })
 }
+$run.Office = getOfficeVersions
 try { $run.Cpu = (@(Get-CimInstance Win32_Processor)[0].Name).Trim() } catch { $run.Cpu = "不明" }
 try { $run.MemoryGB = [Math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1) } catch { $run.MemoryGB = $null }
 try { $run.DefenderRealtime = [string](Get-MpComputerStatus -ErrorAction Stop).RealTimeProtectionEnabled } catch { $run.DefenderRealtime = "不明" }
 
-# 1. インデックス作成
-Write-Host "インデックス作成を測ります。"
-$indexJson = Join-Path $raw "index.json"
-invokeChild "measure_index.ps1" @("-Tool", $Tool, "-Index", $Index, "-Work", $Work, "-Out", $indexJson, "-SampleMs", $SampleMs)
-$indexRaw = readJson $indexJson
-$indexSamples = @($indexRaw.Samples)
-$indexResult = [ordered]@{ Pack = $indexRaw.Pack; Resources = (getPhaseResources $indexSamples $cores); PeakWorkingSetMB = $indexRaw.PeakWorkingSetMB }
+# 1. Office からの取り込み（1 回ごとに別のプロセス）
+$ingestResult = $null
+$ingestRuns = New-Object System.Collections.Generic.List[object]
+if ($Office) {
+    for ($i = 1; $i -le $Repeat; $i++) {
+        Write-Host "取り込みを測ります（$i / $Repeat 回目）。"
+        $ingestJson = Join-Path $raw "ingest-$i.json"
+        invokeChild "measure_ingest.ps1" @("-Tool", $Tool, "-Data", $Office, "-Work", $Work, "-Out", $ingestJson, "-Threads", $Threads, "-SampleMs", $SampleMs)
+        $ingestRuns.Add((readJson $ingestJson))
+    }
+    $ingestResult = newIngestResult $ingestRuns.ToArray()
+}
 
-# 2. 検索（語ごとに別のプロセス）
+# 2. インデックス作成
+$indexResult = $null
+$indexSamples = @()
+if ($Index) {
+    Write-Host "インデックス作成を測ります。"
+    $indexJson = Join-Path $raw "index.json"
+    invokeChild "measure_index.ps1" @("-Tool", $Tool, "-Index", $Index, "-Work", $Work, "-Out", $indexJson, "-SampleMs", $SampleMs)
+    $indexRaw = readJson $indexJson
+    $indexSamples = @($indexRaw.Samples)
+    $indexResult = [ordered]@{ Pack = $indexRaw.Pack; Resources = (getPhaseResources $indexSamples $cores); PeakWorkingSetMB = $indexRaw.PeakWorkingSetMB }
+}
+
+# 3. 検索（語ごとに別のプロセス）
 # 値の無い（$null の）記録は除く。service の流れでは、lib.ps1 の読み込みの時間を検索ごとには測れない
 function valuesOf($rows, [string]$key) {
     return , [double[]]@($rows | ForEach-Object { $_.$key } | Where-Object { $null -ne $_ })
@@ -131,7 +164,7 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
 
 # result.json（形式の版 1）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 1; Run = $run; Index = $indexResult; Search = $search.ToArray() }
+$result = [ordered]@{ Schema = 1; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult }
 [System.IO.File]::WriteAllText((Join-Path $Out "result.json"), ($result | ConvertTo-Json -Depth 6), $utf8)
 
 # metrics.csv（1 行 1 指標）
@@ -142,14 +175,23 @@ function addMetric([string]$metric, [string]$word, [string]$stat, $value, [strin
         metric = $metric; word = $word; stat = $stat; value = (formatPerfNumber ([double]$value)); unit = $unit })
 }
 addMetric "data_seconds" "" "value" $run.DataSeconds "s"
-if ($indexResult.Pack) {
+if ($ingestResult) {
+    addMetric "ingest_files" "" "value" $ingestResult.Total "count"
+    addMetric "ingest_failed" "" "max" $ingestResult.Failed "count"
+    foreach ($stat in @("Min", "Median", "Mean", "Max")) {
+        addMetric "ingest_seconds" "" $stat.ToLower() $ingestResult.Seconds[$stat] "s"
+        addMetric "ingest_per_file_ms" "" $stat.ToLower() $ingestResult.PerFileMs[$stat] "ms"
+        foreach ($ph in $ingestResult.PhaseSeconds) { addMetric "ingest_phase_seconds" $ph.Phase $stat.ToLower() $ph.Stats[$stat] "s" }
+    }
+}
+if ($indexResult -and $indexResult.Pack) {
     addMetric "index_seconds" "" "value" $indexResult.Pack.Seconds "s"
     addMetric "index_books" "" "value" $indexResult.Pack.Books "count"
     addMetric "index_tsv_mb" "" "value" $indexResult.Pack.TsvMB "MB"
     addMetric "index_pack_mb" "" "value" $indexResult.Pack.PackMB "MB"
     addMetric "index_system_index_mb" "" "value" $indexResult.Pack.SystemIndexMB "MB"
 }
-$packPhase = @($indexResult.Resources | Where-Object { $_.Phase -eq "pack の作成" })
+$packPhase = @($(if ($indexResult) { $indexResult.Resources }) | Where-Object { $_.Phase -eq "pack の作成" })
 if ($packPhase.Count) {
     addMetric "index_cpu_seconds" "" "value" $packPhase[0].CpuSeconds "s"
     addMetric "index_cpu_percent" "" "value" $packPhase[0].CpuPercent "%"
@@ -172,11 +214,17 @@ foreach ($s in $search) {
 [System.IO.File]::WriteAllLines((Join-Path $Out "metrics.csv"), [string[]]@($metrics | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 
 # searches.csv・resource-*.csv
+if ($ingestRuns.Count) {
+    $ingestSampleRows = for ($i = 0; $i -lt $ingestRuns.Count; $i++) { foreach ($sm in @($ingestRuns[$i].Samples)) { $o = [ordered]@{ Run = $i + 1 }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
+    [System.IO.File]::WriteAllLines((Join-Path $Out "resource-ingest.csv"), [string[]]@($ingestSampleRows | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+}
+if ($Index) {
 $searchRows = foreach ($r in $searchRaw) { foreach ($row in @($r.Searches)) { $o = [ordered]@{ Word = $r.Name }; foreach ($p in $row.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
 [System.IO.File]::WriteAllLines((Join-Path $Out "searches.csv"), [string[]]@($searchRows | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 [System.IO.File]::WriteAllLines((Join-Path $Out "resource-index.csv"), [string[]]@($indexSamples | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 $searchSamples = foreach ($r in $searchRaw) { foreach ($sm in @($r.Samples)) { $o = [ordered]@{ Word = $r.Name }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
 [System.IO.File]::WriteAllLines((Join-Path $Out "resource-search.csv"), [string[]]@($searchSamples | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+}
 
 # summary.md
 $palette = @("#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#a65628")
@@ -190,14 +238,48 @@ add "計測日時: $($run.Date)。結果には数字だけを書き、パスや�
 add
 add "## 環境"
 add
-add "| PowerShell | OS | CPU | 論理コア | メモリ | Defender のリアルタイム保護 | OS のファイルキャッシュ |"
-add "|---|---|---|---|---|---|---|"
-add "| $($run.PowerShell) | $($run.OS) | $($run.Cpu) | $($run.Cores) | $($run.MemoryGB) GB | $($run.DefenderRealtime) | 空にしていない |"
+add "| PowerShell | OS | CPU | 論理コア | メモリ | Defender のリアルタイム保護 | OS のファイルキャッシュ | Office のビルド（Excel／Word／PowerPoint） |"
+add "|---|---|---|---|---|---|---|---|"
+add "| $($run.PowerShell) | $($run.OS) | $($run.Cpu) | $($run.Cores) | $($run.MemoryGB) GB | $($run.DefenderRealtime) | 空にしていない | $($run.Office.Excel)／$($run.Office.Word)／$($run.Office.PowerPoint) |"
 if ($null -ne $run.DataSeconds) {
     add
     add ("データ（TSV）の生成に {0:N1} 秒かかった（tebunko-perfdata の new_index.ps1 による。tebunko の処理時間には含まない）。" -f $run.DataSeconds)
 }
 
+if ($ingestResult) {
+    $ig = $ingestResult
+    add
+    add "## Office からの取り込み"
+    add
+    add "起動口（indexer.ps1）で Office ファイルを取り込み、段階（クロール・確認・取り込み・仕上げ）ごとの時間を測った。測る tebunko の scripts を写して使い、$Repeat 回、1 回ごとに新しいプロセス・空のワークスペースで流した（Office の起動を含む、初めての取り込みの時間）。1 ファイルあたりの時間は、取り込みの段階の秒 ÷ ファイル数。"
+    add
+    add "| xlsx | docx | pptx | doc | ppt | 合計 | 成功 | 失敗 | 読み取りのスレッド | 使った Office のレーン | 回数 |"
+    add "|---|---|---|---|---|---|---|---|---|---|---|"
+    add ("| {0:N0} | {1:N0} | {2:N0} | {3:N0} | {4:N0} | {5:N0} | {6:N0} | {7:N0} | {8} | {9} | {10} |" -f $ig.Files.xlsx, $ig.Files.docx, $ig.Files.pptx, $ig.Files.doc, $ig.Files.ppt, $ig.Total, $ig.Done, $ig.Failed, $ig.Threads, $ig.Lanes, $ig.Repeat)
+    if ($ig.Failed -gt 0) {
+        add
+        add "**取り込みに失敗したファイルがある（最大 $($ig.Failed) 件）。時間は失敗を含む。**"
+    }
+    add
+    add "| 項目 | 最小 | 中央値 | 平均 | 最大 |"
+    add "|---|---|---|---|---|"
+    add ("| 全体（秒） | {0:N1} | {1:N1} | {2:N1} | {3:N1} |" -f $ig.Seconds.Min, $ig.Seconds.Median, $ig.Seconds.Mean, $ig.Seconds.Max)
+    foreach ($ph in $ig.PhaseSeconds) {
+        add ("| {0}（秒） | {1:N1} | {2:N1} | {3:N1} | {4:N1} |" -f $ph.Phase, $ph.Stats.Min, $ph.Stats.Median, $ph.Stats.Mean, $ph.Stats.Max)
+    }
+    add ("| 1 ファイルあたり（ms） | {0:N0} | {1:N0} | {2:N0} | {3:N0} |" -f $ig.PerFileMs.Min, $ig.PerFileMs.Median, $ig.PerFileMs.Mean, $ig.PerFileMs.Max)
+    add
+    add "### 取り込みのリソース"
+    add
+    add "全体の時間が中央値の回（$($ig.ResourceRun) 回目）の、段階ごとの値。ワーキングセットのピークは $($ig.PeakWorkingSetMB) MB（全回の最大）。測ったのは計測の PowerShell のプロセスだけで、EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）。"
+    add
+    add "| 段階 | 時間 | CPU 時間 | CPU | PC の CPU | ワーキングセット | プライベート | マネージドヒープ | スレッド数 | ハンドル数 | GC 回数（0/1/2 世代） |"
+    add "|---|---|---|---|---|---|---|---|---|---|---|"
+    foreach ($p in $ig.Resources) {
+        add ("| {0} | {1:N1} 秒 | {2:N1} 秒 | {3}% | {4} | {5:N0} MB | {6:N0} MB | {7:N0} MB | {8} | {9} | {10}/{11}/{12} |" -f $p.Phase, $p.Seconds, $p.CpuSeconds, $p.CpuPercent, $(if ($null -ne $p.PcCpuPercent) { "$($p.PcCpuPercent)%" } else { "–" }), $p.WorkingSetMaxMB, $p.PrivateMaxMB, $p.ManagedMaxMB, $p.ThreadsMax, $p.HandlesMax, $p.Gc0, $p.Gc1, $p.Gc2)
+    }
+}
+if ($indexResult) {
 add
 add "## インデックス作成"
 add
@@ -238,7 +320,9 @@ if ($indexSamples.Count -ge 2) {
     add
     foreach ($l in (newLineChart "インデックス作成の CPU 使用率（このプロセス）" "秒" "0 --> $lastSecond" "%" @(, $cpu.ToArray()) $palette[0..0])) { add $l }
 }
+}
 
+if ($Index) {
 add
 add "## 検索"
 add
@@ -279,5 +363,6 @@ if ($Count -ge 2) {
     add
     foreach ($l in (newLineChart "検索 1 回ごとのワーキングセット" "回" $xs "MB" @($searchRaw | ForEach-Object { , @(@($_.Searches) | ForEach-Object { $_.WorkingSetMB }) }) $colors)) { add $l }
 }
+}
 [System.IO.File]::WriteAllLines((Join-Path $Out "summary.md"), [string[]]$md, $utf8)
-Write-Host "結果を書きました: summary.md・result.json・metrics.csv・searches.csv・resource-index.csv・resource-search.csv"
+Write-Host "結果を書きました: summary.md・result.json・metrics.csv（と searches.csv・resource-*.csv）"
