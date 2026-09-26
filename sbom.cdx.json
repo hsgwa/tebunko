@@ -52,9 +52,9 @@
   "components": [
     {
       "type": "file",
-      "bom-ref": "tebunko_grep.bat",
+      "bom-ref": "tebunko.bat",
       "group": "tebunko",
-      "name": "tebunko_grep.bat",
+      "name": "tebunko.bat",
       "description": "起動用バッチ。Mark-of-the-Web を解除し、RemoteSigned で画面を開く"
     },
     {
@@ -111,7 +111,7 @@
     {
       "ref": "tebunko_grep",
       "dependsOn": [
-        "tebunko_grep.bat",
+        "tebunko.bat",
         "scripts/tebunko_grep/gui.ps1",
         "scripts/tebunko_grep/indexer.ps1",
         "scripts/tebunko_grep/lib.ps1",

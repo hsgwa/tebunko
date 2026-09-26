@@ -8,9 +8,9 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
 # zip 展開で付く Mark-of-the-Web（外部由来の印）を、scripts 配下から消す。印が残っていると
-# RemoteSigned でスクリプトの読み込みがブロックされるため。通常は tebunko_grep.bat が起動前に消すが、
+# RemoteSigned でスクリプトの読み込みがブロックされるため。通常は tebunko.bat が起動前に消すが、
 # ショートカットから直接起動したときや、あとでファイルを差し替えたときのために、ここでも消しておく。
-# （この gui.ps1 自身が印付きだと、この行に来る前にブロックされる。その場合は tebunko_grep.bat から起動する）
+# （この gui.ps1 自身が印付きだと、この行に来る前にブロックされる。その場合は tebunko.bat から起動する）
 try {
     Get-ChildItem -LiteralPath (Split-Path $PSScriptRoot -Parent) -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
 } catch { }

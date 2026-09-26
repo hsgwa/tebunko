@@ -1,6 +1,6 @@
 ﻿# テストデータ
 
-画面（`tebunko_grep.bat`）でインデックス作成・検索を手動で確認するための Excel・Word・PowerPoint のファイル群と、設定ファイルの例。
+画面（`tebunko.bat`）でインデックス作成・検索を手動で確認するための Excel・Word・PowerPoint のファイル群と、設定ファイルの例。
 いずれも `make_testdata.ps1` で生成したもの。
 
 ## 生成
