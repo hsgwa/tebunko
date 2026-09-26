@@ -1,0 +1,108 @@
+# 性能とリソースを手動で測る（インデックス作成と検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
+# 数字は result.json と metrics.csv（1 行 1 指標。後で Grafana などに入れるため）にも書く。
+#
+# Actions の画面か `gh workflow run perf.yml -f ref=<ref> -f scale=0.1` で起動する。
+# 計測スクリプト（tools/measure_perf.ps1）はこのワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする（作業中のブランチも測れる）。
+# データ（場所ごとの TSV）は、tebunko-perfdata の new_index.ps1 で毎回生成する。ランナーには Office が無いので、Office からの取り込みは測らない。
+# ランナーは手元の PC と条件が違う（コア数、Defender の設定。Windows Search も無いので高速検索は使わない）。比べるときは、このワークフローで測った数字どうしで比べる。
+# run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため。日本語は計測スクリプトの側で出力する）。
+name: perf
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 測る ref（ブランチ・タグ・コミット）
+        required: true
+        default: main
+      scale:
+        description: データの量（1 でブック 5.4 万・TSV 16 万・約 1GB）
+        type: choice
+        options: ["0.1", "0.3", "1"]
+        default: "0.1"
+      count:
+        description: 語ごとに続けて検索する回数（最小・中央値・平均・最大を出す）
+        default: "20"
+
+permissions:
+  contents: read
+
+# 同じ ref で続けて起動したときは、前の実行を取り消さず、終わるのを待つ
+concurrency:
+  group: perf-${{ inputs.ref }}
+  cancel-in-progress: false
+
+env:
+  # データ生成スクリプトのリポジトリ（https://github.com/hsgwa/tebunko-perfdata）のコミット。更新するときは手で書き換える
+  PERFDATA_SHA: 2d6c7a60ed9ae9949cc76f8ff00762d45707ee3a
+
+jobs:
+  perf:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: 計測スクリプトをチェックアウトする
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: tool
+          persist-credentials: false
+
+      - name: 計測対象のコードをチェックアウトする
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          path: target
+          persist-credentials: false
+
+      - name: データ生成スクリプトをチェックアウトする
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: hsgwa/tebunko-perfdata
+          ref: ${{ env.PERFDATA_SHA }}
+          path: perfdata
+          persist-credentials: false
+
+      - name: データを生成する
+        shell: powershell
+        env:
+          SCALE: ${{ inputs.scale }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "perf"
+          $watch = [System.Diagnostics.Stopwatch]::StartNew()
+          & .\perfdata\tools\new_index.ps1 -Dest (Join-Path $work "index") -Scale ([double]::Parse($env:SCALE, [System.Globalization.CultureInfo]::InvariantCulture))
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          [System.IO.File]::WriteAllText((Join-Path $work "data_seconds.txt"), $watch.Elapsed.TotalSeconds.ToString([System.Globalization.CultureInfo]::InvariantCulture))
+
+      - name: 計測する
+        shell: powershell
+        env:
+          REF: ${{ inputs.ref }}
+          SCALE: ${{ inputs.scale }}
+          COUNT: ${{ inputs.count }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "perf"
+          $sha = git -C target rev-parse HEAD
+          $short = $sha.Substring(0, 7)
+          $data = [double]::Parse([System.IO.File]::ReadAllText((Join-Path $work "data_seconds.txt")), [System.Globalization.CultureInfo]::InvariantCulture)
+          & .\tool\tools\measure_perf.ps1 -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
+
+      - name: 結果を Summary に書き出す
+        if: always()
+        shell: powershell
+        run: |
+          $summary = Join-Path $env:RUNNER_TEMP "perf\result\summary.md"
+          if (Test-Path -LiteralPath $summary) {
+            [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText($summary, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+          }
+
+      - name: 結果を artifact にアップロードする
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-${{ github.run_id }}
+          path: ${{ runner.temp }}/perf/result
+          retention-days: 90
+          if-no-files-found: ignore
