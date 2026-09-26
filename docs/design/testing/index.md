@@ -33,7 +33,7 @@ flowchart LR
 |---|---|---|---|
 | 単体テスト（Unit・Io・Meta） | 関数の動きの誤り、構成の決まりの違反 | `tests/run.ps1`（Pester 5.9.0）。[単体テスト](#単体テスト)・[テストの実行と CI](ci.md) | CI の `test` |
 | カバレッジの下限 | テストされない処理が増えること | `tests/coverage.baseline`（90.0%）を下回ると `-Ci` が失敗する。[タグと実行](ci.md#タグと実行) | CI の `test` |
-| 構成・安全性のメタテスト | 層の決まり・文字コード・危険な処理（`Invoke-Expression`・通信・実行時コンパイルなど）の混入 | `tests/meta/`。[テストの実行と CI](ci.md) | CI の `test` |
+| 構成・安全性のメタテスト | 層の決まり（判断層・状態層が画面に触らないこと、画面以外の読み込み口が `ui/` を読み込まないこと）・文字コード・危険な処理（`Invoke-Expression`・通信・実行時コンパイルなど）の混入 | `tests/meta/`。[テストの実行と CI](ci.md) | CI の `test` |
 | 静的解析 | PSScriptAnalyzer の `Error` と、安全性にかかわる 14 ルールの指摘 | `test.yml`（版は 1.25.0 に固定）と `tests/meta/safety.Tests.ps1` | CI の `test` |
 | 個人情報・文字コード | 利用者名入りのパス・メールアドレス・Office ファイルの作成者名、BOM・CRLF でないスクリプト | `tools/check_commit.ps1`。[公開してはいけない内容の検査](ci.md#公開してはいけない内容の検査toolscheck_commitps1) | フックと CI の `test` |
 | DCO（`Signed-off-by`） | 作者の署名の無いコミット | `tools/check_signoff.ps1` | フックと CI の `test` |

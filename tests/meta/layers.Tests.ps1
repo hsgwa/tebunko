@@ -17,6 +17,24 @@ BeforeAll {
         }
         return $result
     }
+
+    # 起点のファイルから dot-source でたどれるファイルを全部返す（幅優先）
+    function getReachableFiles {
+        param ([string[]]$entries)
+
+        $seen = New-Object 'System.Collections.Generic.HashSet[string]'
+        $queue = New-Object System.Collections.Queue
+        foreach ($entry in $entries) {
+            $full = (Resolve-Path -LiteralPath $entry).Path
+            if ($seen.Add($full)) { $queue.Enqueue($full) }
+        }
+        while ($queue.Count -gt 0) {
+            foreach ($next in (getSourcedFiles $queue.Dequeue())) {
+                if ($seen.Add($next)) { $queue.Enqueue($next) }
+            }
+        }
+        return $seen
+    }
 }
 
 Describe "依存の向き" -Tag Meta {
@@ -51,17 +69,7 @@ Describe "読み込み漏れ" -Tag Meta {
     # 起動口からたどれないファイルは、足したのに読み込み忘れている
     It "すべての .ps1 が起動口からたどれる" {
         $entries = @("${scriptsDir}\tebunko\gui.ps1", "${scriptsDir}\tebunko\indexer.ps1")
-        $seen = New-Object 'System.Collections.Generic.HashSet[string]'
-        $queue = New-Object System.Collections.Queue
-        foreach ($entry in $entries) {
-            [void]$seen.Add((Resolve-Path -LiteralPath $entry).Path)
-            $queue.Enqueue((Resolve-Path -LiteralPath $entry).Path)
-        }
-        while ($queue.Count -gt 0) {
-            foreach ($next in (getSourcedFiles $queue.Dequeue())) {
-                if ($seen.Add($next)) { $queue.Enqueue($next) }
-            }
-        }
+        $seen = getReachableFiles $entries
         $all = @(Get-ChildItem "${scriptsDir}" -Recurse -Filter "*.ps1" | ForEach-Object { $_.FullName })
         $missing = @($all | Where-Object { !$seen.Contains($_) } | ForEach-Object { Split-Path $_ -Leaf })
         ($missing -join ", ") | Should -Be ""
@@ -84,5 +92,36 @@ Describe "判断層" -Tag Meta {
             $hit = [regex]::Matches($text, '\$ui\.|\$window|System\.Windows\.Media')
             "$(Split-Path $file -Leaf): $($hit.Count)" | Should -Be "$(Split-Path $file -Leaf): 0"
         }
+    }
+}
+
+Describe "状態層と読み込み口" -Tag Meta {
+    # 状態層（ファイル・COM を読み書きする層）は画面に触らない。フォルダで決めるので、足したファイルも対象になる
+    It "状態層のファイルに画面への依存が無い" {
+        $dirs = @(
+            "${scriptsDir}\tebunko\core"
+            "${scriptsDir}\tebunko\index"
+            "${scriptsDir}\tebunko\indexer"
+            "${scriptsDir}\tebunko\search"
+            "${scriptsDir}\shared\core"
+            "${scriptsDir}\shared\office"
+        )
+        $found = @(Get-ChildItem $dirs -Recurse -Filter "*.ps1" |
+            Select-String -Pattern '\$ui\b|\$window\b|System\.Windows\b|PresentationFramework' |
+            ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
+        ($found -join ", ") | Should -Be ""
+    }
+
+    # 画面以外の読み込み口から ui/ をたどれると、インデックス作成などの画面の無い起動口が画面を読み込んでしまう
+    It "画面以外の読み込み口から ui/ のファイルをたどれない" {
+        $entries = @(
+            "${scriptsDir}\shared\shared.ps1"
+            "${scriptsDir}\tebunko\lib.ps1"
+            "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
+            "${scriptsDir}\tebunko\indexer.ps1"
+        )
+        $reached = getReachableFiles $entries
+        $ui = @($reached | Where-Object { $_ -like "*\ui\*" } | ForEach-Object { Split-Path $_ -Leaf })
+        ($ui -join ", ") | Should -Be ""
     }
 }
