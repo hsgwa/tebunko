@@ -111,6 +111,7 @@ nav:
   - 使い方:
       - guide/index.md
       - はじめる:
+          - インデックスとは: guide/about-index.md
           - はじめて使う: guide/quickstart.md
       - 操作ガイド:
           - インデックスを作る: guide/indexing.md

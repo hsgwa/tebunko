@@ -294,8 +294,8 @@ flowchart LR
 | `encodeIndexPlace` | place | string | TSV のファイル名に入れる場所を符号化する（ファイル名禁止文字・制御文字・`_`・`%` を `%XX` に） | [場所の符号化](../indexer/index-format.md#場所の符号化encodeindexplace--decodeindexplace) | toIndexFileName |
 | `decodeIndexPlace` | place | string | `encodeIndexPlace` の `%XX` を元に戻す（それ以外の `%` はそのまま） | 同上 | getIndexFolderBooks |
 | `toIndexFileName` | place | string | インデックスの TSV のファイル名 `<場所>.tsv`（場所は `encodeIndexPlace`）。元のファイル名はフォルダ名にするため入れない。`$maxFileNameLength`（255）文字を超えれば例外 | [配置・命名規則](../indexer/index-format.md#配置命名規則) | インデックス作成（Excel・Word・PowerPoint） |
-| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメントの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
-| `describePlace` | book, place | `@{Place; Kind}` | 画面の「場所」「種別」と検索結果ファイルに出す文字（`[シート] 売上`・図形、`[ページ] 3（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) | 画面・`toResultLine` |
+| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメントの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [配置・命名規則](../indexer/index-format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
+| `describePlace` | book, place | `@{Place; Kind}` | 画面の「場所」「種別」と検索結果ファイルに出す文字（`[シート] 売上`・図形、`[ページ] 3（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) | 画面・`toResultLine` |
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [長いパス（260 文字超）の扱い](../indexer/index-format.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す | – | インデックス作成（インデックス・作業フォルダの削除） |
@@ -321,7 +321,7 @@ flowchart LR
 
 **集約ファイルの形式（`tebunko/index/pack_format.ps1`）**
 
-形式は [配置・命名規則](../indexer/index-format.md#配置命名規則) [配置・命名規則](../indexer/index-format.md#配置命名規則)「集約ファイルの形式」。判断層のため、ファイルを読み書きしない。
+形式は [配置・命名規則](../indexer/index-format.md#配置命名規則)「集約ファイルの形式」。判断層のため、ファイルを読み書きしない。
 
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
