@@ -1,0 +1,2623 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の設計書">
+      
+      
+      
+        <link rel="canonical" href="https://hsgwa.github.io/tebunko/00_%E5%85%B1%E9%80%9A_3_%E3%83%86%E3%82%B9%E3%83%88/">
+      
+      
+        <link rel="prev" href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/">
+      
+      
+        <link rel="next" href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>テスト - tebunko 設計書</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tebunko_grep-設計書テスト" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="ヘッダー">
+    <a href=".." title="tebunko 設計書" class="md-header__button md-logo" aria-label="tebunko 設計書" data-md-component="logo">
+      
+  <img src="../images/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tebunko 設計書
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              テスト
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードにする"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードにする" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードにする"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードにする" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="tebunko 設計書" class="md-nav__button md-logo" aria-label="tebunko 設計書" data-md-component="logo">
+      
+  <img src="../images/logo.svg" alt="logo">
+
+    </a>
+    tebunko 設計書
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hsgwa/tebunko" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hsgwa/tebunko
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    共通
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    フォルダ構成と設定ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通モジュール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TSV・検索・画面の関数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テスト
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#6-テスト" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. テスト
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. テスト">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#60-品質の関門の一覧" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.0 品質の関門の一覧
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#61-単体テスト" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 単体テスト
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-結合テスト手動" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 結合テスト（手動）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-テストの構成と実行" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 テストの構成と実行
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.3 テストの構成と実行">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#タグと実行" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        タグと実行
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#コミット前の検査pre-commit-フック" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        コミット前の検査（pre-commit フック）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#公開してはいけない内容の検査toolscheck_commitps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        公開してはいけない内容の検査（tools/check_commit.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックス作成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成（インデクサ）設計書
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Excel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_2_Word/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Word
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_3_PowerPoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PowerPoint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_4_%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%95%E3%83%AD%E3%83%BC%E3%81%A8%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF%E4%B8%80%E8%A6%A7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    メインフローと取り込み一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    クロール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_6_%E5%85%B1%E9%80%9A%E5%87%A6%E7%90%86%E3%81%A8%E3%82%A2%E3%83%97%E3%83%AA%E7%AE%A1%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通処理とアプリ管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    出力 TSV と既知の問題
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_8_%E3%82%A8%E3%83%A9%E3%83%BC%E3%83%A1%E3%83%83%E3%82%BB%E3%83%BC%E3%82%B8%E4%B8%80%E8%A6%A7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エラーメッセージ一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../02_%E6%A4%9C%E7%B4%A2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面（GUI）設計書
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス管理タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_2_%E6%A4%9C%E7%B4%A2%E3%82%BF%E3%83%96_1_%E5%85%83%E3%81%AE%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E9%96%8B%E3%81%8F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセス停止タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_4_%E7%8A%B6%E6%85%8B%E3%81%A8%E6%93%8D%E4%BD%9C%E3%81%AE%E6%B5%81%E3%82%8C/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    状態と操作の流れ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_5_%E5%85%B1%E9%80%9A%E4%BB%95%E6%A7%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    共通仕様
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    実装とテスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のテスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安全性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#6-テスト" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. テスト
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. テスト">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#60-品質の関門の一覧" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.0 品質の関門の一覧
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#61-単体テスト" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 単体テスト
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-結合テスト手動" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 結合テスト（手動）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-テストの構成と実行" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 テストの構成と実行
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6.3 テストの構成と実行">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#タグと実行" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        タグと実行
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#コミット前の検査pre-commit-フック" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        コミット前の検査（pre-commit フック）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#公開してはいけない内容の検査toolscheck_commitps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        公開してはいけない内容の検査（tools/check_commit.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tebunko_grep-設計書テスト">tebunko_grep 設計書（テスト）<a class="headerlink" href="#tebunko_grep-設計書テスト" title="Permanent link">&para;</a></h1>
+<p>本書は <a href="../">00_index.md</a> の一部である。章・節の番号は 00_index.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../#ドキュメント構成">00_index.md</a> の表のとおり。</p>
+<p>本書は、tebunko_grep の品質をどう確かめているかをまとめる。コードを変えたときに何が自動で確かめられ、何を手で確かめるかが分かる。</p>
+<table>
+<thead>
+<tr>
+<th>知りたいこと</th>
+<th>節</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>品質の関門（どこで何を止めるか）の一覧</td>
+<td><a href="#60-品質の関門の一覧">6.0</a></td>
+</tr>
+<tr>
+<td>関数ごとに何をテストしているか</td>
+<td><a href="#61-単体テスト">6.1</a></td>
+</tr>
+<tr>
+<td>Office の実機で確かめたこと</td>
+<td><a href="#62-結合テスト手動">6.2</a></td>
+</tr>
+<tr>
+<td>テストの置き場所・タグ・実行のしかた・カバレッジ</td>
+<td><a href="#63-テストの構成と実行">6.3</a>、<a href="#タグと実行">タグと実行</a></td>
+</tr>
+<tr>
+<td>CI のワークフローとマージの必須チェック</td>
+<td><a href="#ci">CI</a></td>
+</tr>
+<tr>
+<td>コミット時のフック</td>
+<td><a href="#コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）</a></td>
+</tr>
+<tr>
+<td>個人情報・文字コードの検査</td>
+<td><a href="#公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-テスト">6. テスト<a class="headerlink" href="#6-テスト" title="Permanent link">&para;</a></h2>
+<h3 id="60-品質の関門の一覧">6.0 品質の関門の一覧<a class="headerlink" href="#60-品質の関門の一覧" title="Permanent link">&para;</a></h3>
+<p>変更は、手元のコミット → PR → main → リリースの順に、次の関門を通る。main へは PR 経由でしか入れられず（ブランチ保護）、必須チェックが通らないとマージできない。</p>
+<pre class="mermaid"><code>flowchart LR
+    C["コミット"] --&gt; H1["pre-commit フック&lt;br&gt;check_commit.ps1 -Staged&lt;br&gt;run.ps1 -Tag Unit,Meta"]
+    C --&gt; H2["commit-msg フック&lt;br&gt;check_commit_message.ps1&lt;br&gt;check_signoff.ps1"]
+    H1 &amp; H2 --&gt; PR["PR"]
+    PR --&gt; R1["test（test.yml）"]
+    PR --&gt; R2["pr-title（title.yml）"]
+    PR --&gt; R3["docs（docs.yml）"]
+    PR --&gt; R4["analyze（codeql.yml）"]
+    R1 &amp; R2 &amp; R3 &amp; R4 --&gt; M["main へ squash merge"]
+    M --&gt; T["v* タグ"] --&gt; REL["release.yml&lt;br&gt;test を再実行して配布 zip を公開"]</code></pre>
+<table>
+<thead>
+<tr>
+<th>関門</th>
+<th>何を止めるか</th>
+<th>仕組み</th>
+<th>必須</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>単体テスト（Unit・Io・Meta）</td>
+<td>関数の動きの誤り、構成の決まりの違反</td>
+<td><code>tests/run.ps1</code>（Pester 3.4）。<a href="#61-単体テスト">6.1</a>・<a href="#63-テストの構成と実行">6.3</a></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>カバレッジの下限</td>
+<td>テストされない処理が増えること</td>
+<td><code>tests/coverage.baseline</code>（今は 96.5%）を下回ると <code>-Ci</code> が失敗する。<a href="#タグと実行">タグと実行</a></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>構成・安全性のメタテスト</td>
+<td>層の決まり・文字コード・危険な処理（<code>Invoke-Expression</code>・通信・実行時コンパイルなど）の混入</td>
+<td><code>tests/meta/</code>。<a href="#63-テストの構成と実行">6.3</a></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>静的解析</td>
+<td>PSScriptAnalyzer の <code>Error</code> と、安全性にかかわる 14 ルールの指摘</td>
+<td><code>test.yml</code>（版は 1.25.0 に固定）と <code>tests/meta/safety.Tests.ps1</code></td>
+<td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>個人情報・文字コード</td>
+<td>利用者名入りのパス・メールアドレス・Office ファイルの作成者名、BOM・CRLF でないスクリプト</td>
+<td><code>tools/check_commit.ps1</code>。<a href="#公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査</a></td>
+<td>フックと CI の <code>test</code></td>
+</tr>
+<tr>
+<td>DCO（<code>Signed-off-by</code>）</td>
+<td>作者の署名の無いコミット</td>
+<td><code>tools/check_signoff.ps1</code></td>
+<td>フックと CI の <code>test</code></td>
+</tr>
+<tr>
+<td>コミット・PR のタイトル</td>
+<td>Conventional Commits の形でないもの</td>
+<td><code>tools/check_commit_message.ps1</code></td>
+<td>フックと CI の <code>pr-title</code></td>
+</tr>
+<tr>
+<td>設計書のリンク</td>
+<td>リンク先のファイル・見出しが無いこと</td>
+<td><code>mkdocs build --strict</code>（<code>docs/</code> の中）、メタテスト <code>links</code>（git で管理する全 <code>.md</code>）</td>
+<td>CI の <code>docs</code>・<code>test</code></td>
+</tr>
+<tr>
+<td>ワークフローの静的解析</td>
+<td>信頼できない入力を <code>run</code> に埋め込む書き方など</td>
+<td>CodeQL</td>
+<td>CI の <code>analyze</code></td>
+</tr>
+<tr>
+<td>サプライチェーンの採点</td>
+<td>―（採点だけでマージは止めない）</td>
+<td>OpenSSF Scorecard</td>
+<td>―</td>
+</tr>
+<tr>
+<td>Office の実機での確認</td>
+<td>COM を使うインデックス作成の不具合</td>
+<td>手動の結合テスト。<a href="#62-結合テスト手動">6.2</a></td>
+<td>―</td>
+</tr>
+</tbody>
+</table>
+<h3 id="61-単体テスト">6.1 単体テスト<a class="headerlink" href="#61-単体テスト" title="Permanent link">&para;</a></h3>
+<p><code>tests/</code>（Pester 3.4）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（<code>Add-Type -TypeDefinition</code>）を使わないことを検証する。テストは <code>scripts/</code> と同じ構成に並べる（<a href="#63-テストの構成と実行">6.3</a>）。検索・画面の部品のテストの内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1 にある。</p>
+<p><strong>共通基盤（<code>tests/shared/core/</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>toSafeFileName</code></td>
+<td>禁止文字の全角化、<code>/</code> → <code>／</code>、<code>"</code> → <code>”</code>、使用可能文字は不変</td>
+</tr>
+<tr>
+<td><code>toLongPath</code> / <code>fromLongPath</code>・長いパス</td>
+<td><code>\\?\</code>・<code>\\?\UNC\</code> の付け外し、260 文字を超えるパスの読み書き</td>
+</tr>
+<tr>
+<td><code>copyFileShared</code></td>
+<td>ほかのアプリが書き込み用に開いているファイルもコピーでき、コピー中もほかのアプリの書き込みを妨げない</td>
+</tr>
+<tr>
+<td><code>readListFile</code> / <code>writeListFile</code></td>
+<td><code>[</code> <code>]</code>・先頭の空白を含むパスの往復、ファイル無しは空配列、読めないファイルは例外、行が無ければ空のファイル</td>
+</tr>
+<tr>
+<td><code>writeTextLinesAtomic</code></td>
+<td>新しいファイルを作り、一時ファイルを残さない</td>
+</tr>
+<tr>
+<td><code>formatFileTime</code></td>
+<td>秒までの日時（<code>yyyy/MM/dd HH:mm:ss</code>）</td>
+</tr>
+<tr>
+<td><code>removeDirectoryRetry</code></td>
+<td>中身ごと削除、フォルダが無ければ何もしない</td>
+</tr>
+<tr>
+<td><code>newAppMutex</code></td>
+<td>同じ処理・同じ配置フォルダでは 2 つ目を取得できない、処理の種類・配置フォルダが違えば同時に取得できる</td>
+</tr>
+<tr>
+<td><code>replaceCellNewLine</code></td>
+<td><code>"</code> 内の改行（LF・CR・CRLF）は U+2028 に置き換え、<code>"</code> 外の改行は保持</td>
+</tr>
+<tr>
+<td><code>formatTsv</code></td>
+<td>行末の空セル・末尾の空行の除去（途中の空行は保持）、セル内改行を含む行を 1 行にまとめる、使用範囲の左上に合わせた先頭の空行・空セルの補完、空白だけなら空</td>
+</tr>
+<tr>
+<td><code>prettyTsv</code></td>
+<td>UTF-16 → UTF-8（BOM 付き）、<code>[</code> <code>]</code> を含む出力パス、使用範囲の左上の指定、空なら出力しない</td>
+</tr>
+<tr>
+<td><code>countTsvFields</code></td>
+<td>タブ区切りのセル数、先頭のセルが空の行、<code>"</code> で始まるセル内のタブ・改行は区切りとしない、途中の <code>"</code> は囲みとしない</td>
+</tr>
+<tr>
+<td><code>toColumnName</code> / <code>toResultHeader</code></td>
+<td>列名（<code>A</code> <code>Z</code> <code>AA</code> <code>ZZ</code> <code>AAA</code> <code>XFD</code>）、見出し行</td>
+</tr>
+<tr>
+<td><code>normalizeFolderPath</code></td>
+<td>前後の空白・引用符・末尾の <code>\</code> の除去、ドライブ直下は <code>D:\</code> のまま、UNC パス、<code>/</code> → <code>\</code>、<code>\\?\</code> ・ <code>\\?\UNC\</code> の除去、重なった <code>\</code> ・ <code>.</code> ・ <code>..</code> の解決、環境変数の展開、相対パスは <code>$rootDir</code> から、解釈できないパス（<code>*</code> を含む・<code>\\server</code> ・ <code>\</code> ひとつで始まる）は書かれたとおり</td>
+</tr>
+<tr>
+<td><code>getPathUnderFolder</code></td>
+<td>フォルダからの相対パス（フォルダ自身は空、末尾の <code>\</code> ・大文字と小文字の違い、ドライブ直下、UNC の共有直下）、フォルダの下でなければ <code>$null</code>（フォルダ名の途中では一致しない）</td>
+</tr>
+<tr>
+<td><code>getFolderPathAliases</code> / <code>testSameFolder</code> / <code>testFolderUnder</code></td>
+<td>ネットワークドライブ ⇔ UNC パス、<code>subst</code> のドライブ ⇔ 割り当て元のフォルダ、ドライブ直下・共有直下、割り当ての無いパスは自身だけ、同じフォルダの判定（割り当ては差し替えてテストする）、この PC の割り当てでも例外にならない、入れ子のフォルダの判定（自身も「中」・名前の先頭が同じだけのフォルダは別・別の書き方でも分かる）</td>
+</tr>
+<tr>
+<td><code>getFolderLeafName</code></td>
+<td>ドライブ直下・UNC・末尾の <code>\</code></td>
+</tr>
+<tr>
+<td>フォルダ選択を開く場所（<code>getExistingAncestorFolder</code>）</td>
+<td><a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>設定ファイル（<code>tests/tebunko_grep/core/settings</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>readSettings</code> / <code>writeSettings</code> / <code>updateSettings</code></td>
+<td>ファイル無しは既定値でファイルを作らない、保存と読み込みの往復（1 件だけの一覧も配列のまま）、1 つのキーだけ変えてもほかのキーを保つ、記載の無いキー・空のファイルは既定値、JSON として読めなければ例外、以前の設定ファイル（<code>*.txt</code>）からの移行（移した後は以前のファイルを読まない）</td>
+</tr>
+<tr>
+<td><code>getTargetFolders</code> / <code>writeTargetFolders</code></td>
+<td>記載順、<code>enabled</code> が <code>false</code> はチェックなし・記載が無ければチェックあり、引用符・末尾の <code>\</code> の除去、空のパスは除く、重複（大文字・小文字・末尾の <code>\</code> の違い）は最初のものだけ、設定が無ければ空、保存と読み込みの往復（ほかの設定を保つ）</td>
+</tr>
+<tr>
+<td><code>readIndexSources</code> / <code>setIndexSourceFolder</code></td>
+<td>インデックス名に対する元のフォルダの記録と読み込み、同じ名前は 1 か所（上書き）、クロール対象フォルダにある名前ならその <code>path</code> を書き換える（<code>indexSources</code> には入れない）、名前・フォルダが空なら何もしない</td>
+</tr>
+<tr>
+<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
+<td>無ければ空、保存したフォルダと直下だけの区別を読み戻す（末尾の <code>\</code> を除く、空のパスは除く）、ほかの設定を変えない、空で保存すると空</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックス名と TSV の名前（<code>tests/tebunko_grep/index/index_name</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>encodeIndexPlace</code> / <code>decodeIndexPlace</code></td>
+<td>禁止文字・<code>_</code>・<code>%</code>・制御文字の <code>%XX</code> 化と往復、<code>衝突"</code> と <code>衝突”</code> が別の名前になる、使用可能文字（全角記号・空白・<code>&amp;'#()</code>）は不変、符号化で作らない <code>%XX</code>（<code>100%</code> 等）は戻さない</td>
+</tr>
+<tr>
+<td><code>splitObjectPlace</code> / <code>describePlace</code></td>
+<td>図形・コメントの場所の分解、画面と検索結果ファイルに出す場所・種別の文字</td>
+</tr>
+<tr>
+<td><code>toIndexFileName</code></td>
+<td>場所の符号化、255 文字の上限</td>
+</tr>
+<tr>
+<td><code>splitIndexFileName</code></td>
+<td>ブック名・シート名の分解（場所の <code>%XX</code> を戻す、<code>.xls_</code> を含むブック名、以前の版の <code>_</code> を含むシート名、<code>.xlsm</code>、大文字の拡張子、形式外）</td>
+</tr>
+<tr>
+<td><code>newIndexName</code> / <code>assignIndexNames</code></td>
+<td>フォルダ名・ドライブ名・共有名、重複時の <code>(2)</code> <code>(3)</code>、設定の名前をそのまま使う（フォルダの場所が変わっても同じ名前）、名前が無ければ前回の取り込み一覧の名前・フォルダ名から作る、設定にある名前はほかのフォルダに使わない、名前にできない・長いフォルダ名</td>
+</tr>
+<tr>
+<td><code>splitIndexRelPath</code></td>
+<td>先頭のインデックス名と残り（深い階層、数字を含む名前）、<code>\</code> が無い場合</td>
+</tr>
+<tr>
+<td><code>testIndexName</code></td>
+<td>使える名前は空文字列、空・前後の空白・255 文字超・使えない文字・末尾の <code>.</code>・Windows の予約語（大文字小文字を区別しない）・ほかのインデックスと重複、それぞれの理由を返す</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックスの管理（<code>tests/tebunko_grep/index/index_store</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getIndexStats</code></td>
+<td>インデックス名ごとの件数（合計・済・未取り込み・失敗）と最終取り込み日時を集計する。行が無ければ空。<code>getIndexingState</code> の <code>IndexStats</code> からも取れる</td>
+</tr>
+<tr>
+<td><code>renameIndex</code></td>
+<td><code>work\index\&lt;旧名&gt;</code> を改名して中身をそのまま残し、取り込み一覧のクロール対象フォルダの行と各行の相対パスの先頭を書き換える。ほかのインデックスの記録は変えない。フォルダがまだ無くても記録は書き換える。同じ名前のフォルダが既にあれば例外</td>
+</tr>
+<tr>
+<td><code>removeIndex</code></td>
+<td><code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録を削除し、ほかのインデックスは残す。名前が空なら何もしない</td>
+</tr>
+<tr>
+<td><code>getSearchIndexes</code></td>
+<td><code>work\index</code> 直下のフォルダをインデックス 1 件として返す。［1 インデックス管理］の一覧と同じ並びで、一覧に無いものは名前順で後ろ。元のフォルダも返す（一覧にも取り込み一覧にも無ければ、そのフォルダの <code>元のフォルダ.txt</code> から読む。分からなければ空）。フォルダが無ければ空</td>
+</tr>
+<tr>
+<td><code>getIndexNameMap</code></td>
+<td>クロール対象フォルダの行だけを読み、見出し行の後の行・インデックス名の無い行は使わない。取り込み一覧が無ければ空</td>
+</tr>
+<tr>
+<td><code>getIndexTsvCounts</code> / <code>testIndexComplete</code></td>
+<td>集約ファイルはそのファイルの相対パスで数える（0 バイトは壊れているとする）、集約ファイルがあれば元のファイルごとのフォルダが無くても「済」のまま、フォルダごとの TSV の数（TSV の無いフォルダは 0 件、大文字・小文字を区別しない、インデックス直下の以前の形式の TSV は数えない、フォルダが無ければ空）、TSV がそろっていれば「済」のまま、フォルダごと削除・TSV が足りない場合は取り込み直す、0 バイトの TSV があるフォルダは壊れているとして作り直す（ほかのファイルは巻き込まない・後の TSV で数え直さない）、TSV 数が空の行・数えられなかった場合は確認しない</td>
+</tr>
+<tr>
+<td><code>publishIndexFiles</code></td>
+<td>作業フォルダの TSV をインデックスのフォルダへまとめて入れる、以前のインデックスを残さず入れ替える、TSV が 1 件も無ければ空のフォルダ、前回の出力用フォルダが残っていても入れ替えられる</td>
+</tr>
+</tbody>
+</table>
+<p><strong>集約ファイル（<code>tests/tebunko_grep/index/pack_format</code>・<code>tests/tebunko_grep/search/pack_search</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>convertPlaceToPackMeta</code> / <code>convertPackMetaToPlace</code></td>
+<td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
+</tr>
+<tr>
+<td><code>getPackFileName</code> / <code>readPackFileName</code> / <code>planPackParts</code> / <code>splitPackBooksByExtension</code> / <code>encodePackValue</code> / <code>decodePackValue</code> / <code>convertToPackBody</code></td>
+<td>集約ファイルの名前、拡張子ごとの分け方、値の <code>%XX</code> の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く</td>
+</tr>
+<tr>
+<td><code>convertToPackText</code> / <code>readPackPlaces</code></td>
+<td>文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、版の無い・違う集約ファイルは例外</td>
+</tr>
+<tr>
+<td><code>convertIndexFolderToPack</code> / <code>updateIndexFolderPack</code> / <code>findIndexFoldersWithBooks</code> / <code>publishIndexFolders</code></td>
+<td>フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の集約ファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて集約ファイルとシステムインデックスに入れる</td>
+</tr>
+<tr>
+<td><code>searchPackIndex</code> / <code>getIndexPackFiles</code> / <code>readPackContext</code></td>
+<td>結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行</td>
+</tr>
+</tbody>
+</table>
+<p><strong>インデックス作成（<code>tests/tebunko_grep/indexer/</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>readStatusFile</code> / <code>writeStatusFile</code> / <code>addStatusRow</code></td>
+<td>クロール対象フォルダと各列の往復（<code>[</code> <code>]</code>・先頭の空白を含むパス）、1 行目・見出し行の書式、追記した行の優先（大文字・小文字を区別しない）、エラーのタブ・改行をスペースに、列数の合わない行の無視、書き直し時の置き換え、ファイル無しは空、まとめて書き出した行と <code>toStatusLine</code>（1 件ずつの追記）の整形が同じ（速さのため別々に書いているため）、ほかから共有せずに開かれているときの読み込み</td>
+</tr>
+<tr>
+<td><code>readStatusLines</code> / <code>renameStatusIndexName</code> / <code>removeStatusIndexName</code></td>
+<td>行の順序と内容を保った書き換え、以前の形式（抽出版の列が無い）の取り込み一覧</td>
+</tr>
+<tr>
+<td><code>readIngestingFile</code> / <code>writeIngestingFile</code> / <code>removeIngestingFile</code></td>
+<td>回数と相対パスの往復、無い・壊れていれば <code>$null</code></td>
+</tr>
+<tr>
+<td><code>describeIngestError</code></td>
+<td>取り込みの例外から失敗の原因を作る（パスが長すぎる場合を含む）</td>
+</tr>
+<tr>
+<td><code>getIndexingState</code></td>
+<td>状態ごとの件数、失敗したファイルの行の並び、指定した時刻以降に取り込んだ件数</td>
+</tr>
+<tr>
+<td><code>writeIndexingProgress</code> / <code>readIndexingProgress</code> / <code>removeIndexingProgress</code></td>
+<td>段階・件数・内容の往復、タブ・改行はスペース（1 行に保つ）、ファイルが無い・列が足りない・件数が数値でないときは <code>$null</code>、画面が読んでいる間も書ける（共有して開く）、削除（無ければ何もしない）</td>
+</tr>
+<tr>
+<td><code>writeIngestPlan</code> / <code>readIngestPlan</code> / <code>removeIngestPlan</code></td>
+<td>インデックスごとの件数の往復（件数は数値で返る）、<code>チェックなし</code>・<code>フォルダなし</code> の区分、インデックスが 0 件、見出しが合わない・ファイルが無いときは <code>$null</code>、画面が読んでいる間も書ける（共有して開く）、削除（無ければ何もしない）</td>
+</tr>
+<tr>
+<td><code>writeIndexingStartRequest</code> / <code>readIndexingStartRequest</code> / <code>removeIndexingStartRequest</code></td>
+<td>失敗分も再取り込みするかの往復、返事がまだ無ければ <code>$null</code>、削除（無ければ何もしない）</td>
+</tr>
+<tr>
+<td><code>getExtractVersion</code> / <code>getIngestDecision</code></td>
+<td>形式ごとの抽出版、取り込むかどうかと理由（新規・更新あり・前回未完了・インデックスなし・前回失敗・前の抽出版）</td>
+</tr>
+<tr>
+<td><code>createTargetList</code> / <code>findOfficeFiles</code> / <code>waitForIndexingApproval</code></td>
+<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（集約ファイルから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を待つ</td>
+</tr>
+<tr>
+<td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>moveLegacyIndex</code> / <code>removeDroppedFolders</code> / <code>migrateFlatIndex</code></td>
+<td>作業フォルダの TSV をインデックスへ移す（<code>[</code> <code>]</code>・260 文字超のパス）、終了したプロセスの作業フォルダだけを削除する、以前の形式のインデックスの移行（途中で止まっても続きから移す）</td>
+</tr>
+<tr>
+<td><code>indexer.ps1</code>（起動口）</td>
+<td>設定とインデックスを <code>$TestDrive</code> に差し替えて通しで動かす（Excel は使わず、<code>.docx</code>・<code>.pptx</code> を取り込む）。続けられないエラーと終了コード、2 回目は更新の無いファイルを取り込まない、<code>-RetryFailed</code>、強制終了したファイルを最後に回す・続けて強制終了したら失敗にする、画面の確認での取りやめ・中止（終了コード 2）、制限時間、取り込み中に元のファイル・フォルダが無くなった場合、元のファイルが無くなったら次の作成で集約ファイルから外す、前回残った TSV を次の作成の始めに集約ファイルへ入れる、中止しても取り込んだ分は集約ファイルとシステムインデックスに入れる</td>
+</tr>
+</tbody>
+</table>
+<p><strong>元のファイルの特定（<code>tests/tebunko_grep/search/source_map</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getIndexNameMap</code> / <code>resolveSourcePath</code></td>
+<td>インデックス名から元のフォルダを引いた元のファイルのパス、ドライブ直下、元のフォルダが分からない結果は <code>$null</code>、<strong>設定（<code>targetFolders</code> / <code>indexSources</code>）を <code>元のフォルダ.txt</code>・取り込み一覧より優先</strong>、既定のインデックスは取り込み一覧を <code>元のフォルダ.txt</code> より優先</td>
+</tr>
+<tr>
+<td><code>writeSourceFolderFile</code> / <code>readSourceFolderFile</code> / <code>getSourceLocation</code></td>
+<td>各インデックスのフォルダへの書き出しと読み込み（説明の行は無視）、別の場所にコピーしたインデックス、インデックス名のフォルダを検索対象にした場合（そのフォルダの記録）、以前の版が直下に書いたファイルの移行と削除、分からない場合は Known = <code>$false</code>・Folder は空でインデックス名を返す、キャッシュ</td>
+</tr>
+<tr>
+<td><code>joinSourcePath</code></td>
+<td>ドライブ直下・相対フォルダが空の場合・共有フォルダ・空の名前</td>
+</tr>
+<tr>
+<td><code>findMovedSource</code></td>
+<td>元のフォルダ・ファイルのあるフォルダ・途中のフォルダを選んだ場合も同じ <code>Root</code> を返す、相対フォルダが無い場合、見つからない場合</td>
+</tr>
+</tbody>
+</table>
+<p><strong>開発用の道具（<code>tests/tools/</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>check_commit_message.ps1</code></td>
+<td>形が合うタイトルを通し、違うものを止める、git が自動で作るメッセージは調べない、コメント行と空行を飛ばして最初の行を調べる、CRLF のファイル、空のメッセージは通す</td>
+</tr>
+<tr>
+<td><code>check_signoff.ps1</code></td>
+<td>作者の <code>Signed-off-by</code> があれば通す、無い・作者と違うメールアドレスなら止める、コメント行と <code>git commit -v</code> の差分の中は数えない、マージコミット・bot は調べない、範囲より前のコミットは調べない</td>
+</tr>
+<tr>
+<td><code>check_markdown_links.ps1</code></td>
+<td>あるファイル・フォルダ・見出しへのリンクを通し、切れたリンクを止める、コードの中のリンクは調べない、1 行に複数あるリンクをそれぞれ調べる</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Office ファイルの読み取り（<code>tests/shared/office/office_reader</code>）</strong></p>
+<p>Word・PowerPoint・Excel は使わず、最小限の <code>.docx</code> <code>.pptx</code> <code>.xlsx</code>（ZIP）をテスト内で作成する。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>isZipFile</code> / <code>isCompoundFile</code></td>
+<td>ZIP / 複合ドキュメント形式（旧形式・パスワード付き）/ 空ファイル・テキスト</td>
+</tr>
+<tr>
+<td><code>resolveZipPath</code></td>
+<td>リレーションシップの相対パス・<code>/</code> 始まりのパス</td>
+</tr>
+<tr>
+<td><code>readDocxUnits</code></td>
+<td>段落・表の行（タブ区切り、セル内の複数段落、末尾の空セル、入れ子の表）、変更履歴の削除・フィールドコードを読まない、保存時のページ区切り・手動の改ページ（直後の保存時のページ区切りの有無）・セクション区切り・段落前で改ページ、ヘッダー/フッターの重複除去、脚注、テキストボックスは本文から分けてそのページの図形にする、SmartArt・グラフの文字は図形にする、コメントと返信は付けた所のページに入れる</td>
+</tr>
+<tr>
+<td><code>readPptxUnits</code></td>
+<td>表示順（<code>sldIdLst</code>）、非表示スライド、グループ内の図形・表、スライド番号・日付のプレースホルダーを読まない、ノートとスライドの対応、SmartArt・グラフの文字はスライドの図形にする、旧形式・新形式のコメントと返信</td>
+</tr>
+<tr>
+<td><code>readXlsxObjectUnits</code> / <code>getCellPosition</code></td>
+<td>表示シートの図形・コメントだけをシートごとの場所にする、図形は左上のセル番地の順、グループ化した図形は 1 つ、互換用の代替表示は読まない、スレッド形式のコメント（返信を含む）、ふりがなは読まない、Excel のブックでない ZIP は何も返さない</td>
+</tr>
+<tr>
+<td><code>readObjectText</code> / <code>readChartText</code></td>
+<td>参照先が無ければ空、グラフはタイトル・系列名・項目名（多段を含む）を読み、数値は読まない</td>
+</tr>
+<tr>
+<td><code>readDocxUnits</code> / <code>readPptxUnits</code>（壊れた ZIP）</td>
+<td>本文・プレゼンテーション情報が無ければ、分かるメッセージで例外にする</td>
+</tr>
+<tr>
+<td><code>writeUnits</code></td>
+<td>場所ごとの TSV 出力、空の場所は出力しない、<code>[</code> <code>]</code> を含むパス</td>
+</tr>
+</tbody>
+</table>
+<p><strong>COM を使う処理（<code>tests/tebunko_grep/indexer/extract_office</code>・<code>tests/shared/office/office_app</code>）</strong></p>
+<p>Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流れを検証する。COM の入口は <code>getApp</code>（アプリの取得）と <code>New-Object -ComObject</code> だけなので、ここを Pester の <code>Mock</code> で差し替え、本物と同じ呼び方ができる偽のオブジェクト（呼ばれたメソッドと引数を記録し、保存では本物と同じ形式のファイルを書く）を返す。実機での動作は 6.2 の手動の結合テストで確かめる。</p>
+<table>
+<thead>
+<tr>
+<th>テスト</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/tebunko_grep/indexer/extract_office.Tests.ps1</code></td>
+<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、失敗しても文書を閉じて作業ファイルを消す</td>
+</tr>
+<tr>
+<td><code>tests/shared/office/office_app.Tests.ps1</code></td>
+<td>起動時の設定（非表示・警告なし・イベントなし・リンクを更新しない・マクロ無効。PowerPoint は <code>Visible</code> を変えない）、起動済みのアプリを使い回す、自分で起動したアプリだけを制限時間の強制終了の対象にする、Quit して終わらなければ強制終了する（Excel は 1 秒、Word・PowerPoint は 5 秒待つ）、利用者のアプリ・利用者が文書を開いたアプリは終了させない、制限時間の監視</td>
+</tr>
+</tbody>
+</table>
+<p><strong>画面の部品（<code>tests/tebunko_grep/ui/</code>・<code>tests/shared/ui/</code>）</strong></p>
+<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」だけを確かめる。型（<code>types.ps1</code>・<code>types_grep.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1。</p>
+<p><strong>テストデータの個人情報の除去（<code>tests/testdata/scrub_personal</code>）</strong></p>
+<p>タグ <code>Io</code> で、テストデータから個人情報を取り除く <code>tests/testdata/scrub_personal.ps1</code> を検証する（OOXML・ODF・<code>.xlsb</code> の中のバイナリ・旧形式・Shift_JIS のテキスト、壊れた ZIP、隠し属性・読み取り専用属性）。</p>
+<p><strong>安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）</strong></p>
+<p>タグ <code>Meta</code> で、<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の主張を機械的に検証する。導入審査で「危険な処理・ライブラリを使っていないこと」を示すための検査であり、将来の変更でこの前提が崩れた場合に失敗する。スクリプトを読むだけで動作するため、Office もテストデータも要らない（33 件）。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>禁止する処理</td>
+<td>動的なコード実行（<code>Invoke-Expression</code> 等）・難読化（Base64）・ネットワーク通信・P/Invoke・実行時コンパイル・レジストリ・権限やサービスの変更・<code>Set-ExecutionPolicy</code> と <code>Bypass</code>・資格情報・リモート実行が 0 件</td>
+</tr>
+<tr>
+<td>許す処理の限定</td>
+<td><code>Add-Type</code> は <code>-AssemblyName</code> だけ、<code>Start-Process</code> は <code>explorer.exe</code> と <code>powershell.exe</code> だけ、<code>Stop-Process</code> は <code>shared/office/office_process.ps1</code> の 1 か所だけ</td>
+</tr>
+<tr>
+<td>Office の開き方</td>
+<td>マクロ無効（<code>AutomationSecurity = 3</code>）・<code>EnableEvents = $false</code>・外部リンクを更新しない・インデクサでは不可視・Excel / Word / PowerPoint いずれも読み取り専用で開く</td>
+</tr>
+<tr>
+<td>原本の保護</td>
+<td>原本のパスを書き込み・削除の API に渡さない、<code>SaveAs</code> の保存先は作業フォルダのパスだけ、原本を読むのは <code>copyFileShared</code>（<code>FileAccess::Read</code>）だけ</td>
+</tr>
+<tr>
+<td>書き込み先</td>
+<td><code>${workDir}</code>・<code>${indexDir}</code>・<code>${tmpDir}</code>・<code>${publishDir}</code>・<code>${settingsFile}</code> の定義が <code>work</code> 配下・<code>%TEMP%</code> 配下・<code>setting.config</code> だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（<code>removeStaleTmpDirs</code>）</td>
+</tr>
+<tr>
+<td>静的解析（PSScriptAnalyzer）</td>
+<td>安全性にかかわるルール（<code>tests/meta/PSScriptAnalyzer.security.psd1</code> の 14 件）・<code>Error</code> 重大度・制限言語モード（<code>PSUseConstrainedLanguageMode</code>）の指摘が 0 件、設定ファイルから当該ルールが削られていないこと</td>
+</tr>
+<tr>
+<td>審査用の資料</td>
+<td><code>docs/04_安全性.md</code>・<code>.github/SECURITY.md</code>・<code>tools/new_release_files.ps1</code>・<code>sbom.cdx.json</code> がそろっており、SBOM が第三者の部品（<code>purl</code> を持つ部品）を含まないこと</td>
+</tr>
+</tbody>
+</table>
+<p>PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（<code>It -Skip</code>）。導入は <code>Install-Module PSScriptAnalyzer -Scope CurrentUser</code>。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は <a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.2 に記載している。</p>
+<p><code>TypeNotFound</code>（継承元の型が別ファイルにあるための指摘）は、1 ファイルだけでは解決できないため除く。読み込む順で解決できることは <code>tests/meta/structure.Tests.ps1</code> で確かめる。</p>
+<h3 id="62-結合テスト手動">6.2 結合テスト（手動）<a class="headerlink" href="#62-結合テスト手動" title="Permanent link">&para;</a></h3>
+<p>Excel・Word・PowerPoint の COM を使うインデックス作成と、画面のプロセス停止は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。</p>
+<table>
+<thead>
+<tr>
+<th>テストデータ</th>
+<th>確認内容</th>
+<th>関連</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[確定]</code> を含むブック名、<code>[1]</code> を含むツール配置フォルダ</td>
+<td>インデックス作成・検索できる</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>表示 / 非表示 / 完全に非表示 / 空 のシート</td>
+<td>表示かつ内容のあるシートのみ TSV になる</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>セル内改行・<code>"</code>・<code>:</code> を含むセル、離れた位置のセル</td>
+<td>1 行にまとまる。検索結果で行が途切れない</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td><code>セル内容.xlsx</code>（D5 から始まる表・空行・300 列の行・セル内改行を含む 5 シート）を <code>TC10</code> で検索し、結果を Excel に貼り付け</td>
+<td>71 行 × 300 列の各セルが、元のシートの「行番号・列」のセルの表示値と一致する（位置のずれ 0 件。表示形式の和暦の順序と、CR だけの改行が LF になる点のみ値が異なる）</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>Word の行（<code>"</code> で始まるセル、途中に <code>"</code> を含むセル、表の行）を含む検索結果を Excel に貼り付け</td>
+<td>各セルが元のまま貼り付けられ、後続の行がずれない</td>
+<td>検索</td>
+</tr>
+<tr>
+<td>サブフォルダ（空白を含む）内の <code>.xls</code></td>
+<td>相対フォルダ付きで検索結果に出る</td>
+<td>検索</td>
+</tr>
+<tr>
+<td>パスワード付きブック</td>
+<td>ダイアログを出さずに失敗として記録される</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>~$</code> で始まるロックファイル</td>
+<td>取り込み対象にならない</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>2 回目の実行 / 元ファイルの更新</td>
+<td>取り込み済みはスキップ、更新したファイルのみ再取り込み</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>インデックス作成後の Excel プロセス</td>
+<td>残らない</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>複数ページ・表・テキストボックス・ヘッダー/フッター・脚注・変更履歴（削除）を含む <code>.docx</code>（<code>[確定]</code> を含むファイル名）</td>
+<td>ページごとに分かれ、表は行ごと、削除した文字は出ない</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>旧形式 <code>.doc</code>、中身が <code>.doc</code> の <code>.docx</code></td>
+<td>Word で変換して同じ内容を読める</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>並べ替えたスライド・非表示スライド・表・グループ・ノートを含む <code>.pptx</code>、旧形式 <code>.ppt</code></td>
+<td>表示順のスライド番号、非表示・ノートが分かれる</td>
+<td>インデックス作成・検索</td>
+</tr>
+<tr>
+<td>パスワード付きの <code>.docx</code> / <code>.doc</code> / <code>.pptx</code></td>
+<td>ダイアログを出さずに失敗として記録される</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>テンプレート <code>.dotx</code>、<code>~$</code> で始まる <code>.docx</code></td>
+<td>取り込み対象にならない</td>
+<td>インデックス作成</td>
+</tr>
+<tr>
+<td>インデックス作成後の Word・PowerPoint プロセス</td>
+<td>残らない（利用者が使用中の Word には触れない）</td>
+<td>インデックス作成</td>
+</tr>
+</tbody>
+</table>
+<p>テストデータの作り方と、各ファイルで確かめる内容は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a> にある。</p>
+<h3 id="63-テストの構成と実行">6.3 テストの構成と実行<a class="headerlink" href="#63-テストの構成と実行" title="Permanent link">&para;</a></h3>
+<p>テストは <code>scripts/</code> と同じ構成に並べる。どのモジュールのテストがどこにあるか、たどらなくても分かるようにするため。</p>
+<table>
+<thead>
+<tr>
+<th>フォルダ</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/helpers/</code></td>
+<td>共通の準備（<code>load.ps1</code>。<code>$here</code>・<code>${scriptsDir}</code>・<code>${testDataDir}</code> を決めて <code>tebunko_grep/lib.ps1</code> を読み込む）とテスト用の TSV 作成（<code>tsv.ps1</code>）</td>
+</tr>
+<tr>
+<td><code>tests/shared/core/</code></td>
+<td><code>fs</code>・<code>text</code>・<code>folder</code></td>
+</tr>
+<tr>
+<td><code>tests/shared/office/</code></td>
+<td><code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
+</tr>
+<tr>
+<td><code>tests/shared/ui/</code></td>
+<td>画面の型（<code>types</code>）</td>
+</tr>
+<tr>
+<td><code>tests/tebunko_grep/core/</code></td>
+<td><code>settings</code>（<code>setting.config</code>）</td>
+</tr>
+<tr>
+<td><code>tests/tebunko_grep/index/</code></td>
+<td><code>index_name</code>・<code>index_store</code>・<code>pack_format</code></td>
+</tr>
+<tr>
+<td><code>tests/tebunko_grep/indexer/</code></td>
+<td><code>indexer_state</code>・<code>indexer_decide</code>・<code>indexer_plan</code>・<code>extract_office</code>・<code>index_migrate</code>、起動口の通しのテスト（<code>indexer</code>）</td>
+</tr>
+<tr>
+<td><code>tests/tebunko_grep/search/</code></td>
+<td><code>search_query</code>・<code>search_run</code>・<code>pack_search</code>・<code>source_map</code></td>
+</tr>
+<tr>
+<td><code>tests/tebunko_grep/ui/</code></td>
+<td>画面の判断層（<code>index_view</code>・<code>indexing_view</code>・<code>search_view</code>・<code>preview_view</code>・<code>settings_view</code>）と、<code>$ui</code> を偽物にした画面の部品（<code>result_list</code>・<code>open_source</code>・<code>preview</code>・<code>index_tree</code>）・型（<code>types_grep</code>）</td>
+</tr>
+<tr>
+<td><code>tests/tools/</code></td>
+<td>開発用の道具（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_markdown_links</code>）</td>
+</tr>
+<tr>
+<td><code>tests/meta/</code></td>
+<td>構成を守るテスト（<code>structure</code>・<code>encoding</code>・<code>layers</code>・<code>links</code>・<code>runner</code>）と安全性の検査（<code>safety</code>）</td>
+</tr>
+<tr>
+<td><code>tests/testdata/</code></td>
+<td>手動の結合テスト用のデータ（6.2）と、その生成（<code>make_testdata.ps1</code>）・個人情報の除去（<code>scrub_personal</code>）</td>
+</tr>
+</tbody>
+</table>
+<p><code>tests/meta/</code> は、直し忘れると気づきにくい決まりごとを機械的に確かめる。</p>
+<table>
+<thead>
+<tr>
+<th>テスト</th>
+<th>確かめること</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>structure</code></td>
+<td><code>$rootDir</code> などのパス定義、全 <code>.ps1</code> の構文、<code>Add-Type -TypeDefinition</code> を使わない、<code>ui/</code> のスクリプトで <code>$PSScriptRoot</code> を使わない、<code>gui.ps1</code> が指すインデクサのファイルがある、XAML が XML として読める・<code>gui.ps1</code> が使う <code>x:Name</code> がある、型を読み込む順で継承が解決できる</td>
+</tr>
+<tr>
+<td><code>encoding</code></td>
+<td>全 <code>.ps1</code>・<code>.xaml</code> が BOM 付き UTF-8 で、改行が CRLF。<code>.github/codecov.yml</code> が ASCII の文字だけ</td>
+</tr>
+<tr>
+<td><code>layers</code></td>
+<td><code>shared/</code> にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない <code>.ps1</code> が無い、判断層（<code>text.ps1</code>・<code>index_name.ps1</code>・<code>search_query.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>）に画面への依存が無い</td>
+</tr>
+<tr>
+<td><code>links</code></td>
+<td>git で管理している全 <code>.md</code> の相対リンク（画像・参照リンクの定義・HTML の <code>href</code>/<code>src</code> を含む）の先のファイルがあり（大文字・小文字も区別する）、<code>.md</code> のアンカーの見出しがある（<code>tools/check_markdown_links.ps1</code>。外部の URL は調べない）</td>
+</tr>
+<tr>
+<td><code>runner</code></td>
+<td><code>tests/run.ps1</code> が、実行したテストが 0 件なら失敗にすること、<code>powershell.exe -File</code> で渡したカンマ区切りのタグを分けて受け取ること</td>
+</tr>
+<tr>
+<td><code>safety</code></td>
+<td>危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が <code>work</code>・<code>%TEMP%</code> だけ、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（6.1、<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a>）</td>
+</tr>
+</tbody>
+</table>
+<h4 id="タグと実行">タグと実行<a class="headerlink" href="#タグと実行" title="Permanent link">&para;</a></h4>
+<p><code>Describe</code> にタグを付け、実行するものを選べるようにする。</p>
+<table>
+<thead>
+<tr>
+<th>タグ</th>
+<th>内容</th>
+<th>外部ソフト</th>
+<th>既定で実行</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Unit</code></td>
+<td>ファイルに触らないもの（判断層、画面の部品を偽物にしたもの）</td>
+<td>不要</td>
+<td>する</td>
+</tr>
+<tr>
+<td><code>Io</code></td>
+<td>ファイルの読み書き（<code>$TestDrive</code> の中で完結する）</td>
+<td>不要</td>
+<td>する</td>
+</tr>
+<tr>
+<td><code>Meta</code></td>
+<td>構成を守るテスト・安全性の検査</td>
+<td>不要（PSScriptAnalyzer があれば静的解析も行う）</td>
+<td>する</td>
+</tr>
+<tr>
+<td><code>Office</code></td>
+<td>Excel・Word・PowerPoint の COM を実際に動かすもの（今は該当するテストが無い。COM は <code>Mock</code> で確かめる）</td>
+<td>必要</td>
+<td>しない（<code>-All</code> で実行）</td>
+</tr>
+<tr>
+<td><code>Slow</code></td>
+<td>時間のかかるもの（今は該当するテストが無い）</td>
+<td>不要</td>
+<td>しない（<code>-All</code> で実行）</td>
+</tr>
+<tr>
+<td><code>Manual</code></td>
+<td>手で確かめるもの（今は該当するテストが無い）</td>
+<td>–</td>
+<td>しない（<code>-All</code> でも実行しない）</td>
+</tr>
+</tbody>
+</table>
+<p>実行は <code>tests/run.ps1</code> から行う。</p>
+<div class="highlight"><pre><span></span><code>.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Manual は外す）
+.\tests\run.ps1 -Tag Unit    速い確認だけ
+.\tests\run.ps1 -All         Office・Slow も含める（Office が必要）
+.\tests\run.ps1 -Ci          結果の XML（work\test\results.xml）とカバレッジ（work\test\coverage.xml）を出し、カバレッジの下限を確かめる
+.\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
+.\tests\run.ps1 -Quiet       失敗したテストだけを表示する
+</code></pre></div>
+<p>いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。</p>
+<p><code>-Tag</code>・<code>-ExcludeTag</code> はカンマ区切りの文字列でも受け取る。<code>powershell.exe -File</code> で呼ぶと <code>-Tag Unit,Meta</code> は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。</p>
+<p><strong>カバレッジ</strong></p>
+<ul>
+<li>対象は <code>scripts/</code> の <code>.ps1</code> のうち、画面層の <code>gui.ps1</code>・<code>*_tab.ps1</code>・<code>shell.ps1</code>・<code>app_host.ps1</code>・<code>*_dialog.ps1</code> を除いたもの（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。除いたものは自動テストの対象外で、手で確かめる。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。</li>
+<li>値は Pester のコマンド単位（実行されたコマンドの数 ÷ 全コマンドの数。小数点以下 1 桁）。</li>
+<li><strong>下限は <code>tests/coverage.baseline</code>（今は 96.5）。</strong> <code>-Ci</code> はこれを下回ると失敗し、CI の必須チェック <code>test</code> が通らない。下回ったらテストを足して戻し、下限は下げない。上がったら、同じ PR で下限を実測の値まで上げる。</li>
+<li>全体の目標値は決めない。判断層は 95% 以上を保ち、数字を上げるためだけのテスト（結果を確かめないもの）は書かない（AGENTS.md「テストカバレッジの方針」）。</li>
+<li><code>-Ci</code> はカバレッジを Cobertura 形式の XML（<code>work\test\coverage.xml</code>）にも書き出す。Pester 3.4 はカバレッジをファイルに出せないため、<code>tests/run.ps1</code> が結果（コマンド単位）から行単位に組み立てる。1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。そのため、行単位の値（Codecov の表示）はコマンド単位の値と少し違う。ファイル名はリポジトリからの相対パスで書き、利用者名を含む絶対パスは入れない。</li>
+</ul>
+<h4 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h4>
+<p>GitHub Actions のワークフローは次のとおり。使うアクションは、どのワークフローでもコミットのハッシュで固定する（版はハッシュの後ろのコメントに書き、Dependabot が更新する）。</p>
+<table>
+<thead>
+<tr>
+<th>ワークフロー</th>
+<th>ジョブ（チェック名）</th>
+<th>動く時</th>
+<th>内容</th>
+<th>main の必須チェック</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test.yml</code></td>
+<td><code>test</code></td>
+<td>PR、main への push、<code>release.yml</code> からの呼び出し</td>
+<td>個人情報・文字コードの検査、<code>Signed-off-by</code> の検査（PR のみ）、テスト（<code>run.ps1 -Ci</code>）、Codecov への送信、PSScriptAnalyzer</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>title.yml</code></td>
+<td><code>pr-title</code>・<code>issue-title</code></td>
+<td>PR・Issue の作成と編集（PR は push でも）</td>
+<td>タイトルが Conventional Commits の形か</td>
+<td>○（<code>pr-title</code>）</td>
+</tr>
+<tr>
+<td><code>docs.yml</code></td>
+<td><code>docs</code>（ほかに <code>changes</code>・<code>publish</code>）</td>
+<td>PR、main で設計書が変わったとき</td>
+<td>設計書のサイトを作り、GitHub Pages に公開する</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>codeql.yml</code></td>
+<td><code>analyze</code></td>
+<td>PR、main への push、毎週 1 回</td>
+<td>ワークフローの静的解析</td>
+<td>○</td>
+</tr>
+<tr>
+<td><code>scorecard.yml</code></td>
+<td><code>analysis</code></td>
+<td>main への push、ブランチ保護の変更、毎週 1 回</td>
+<td>OpenSSF Scorecard の採点</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>release.yml</code></td>
+<td><code>test</code>・<code>release</code></td>
+<td><code>v</code> で始まるタグの push</td>
+<td>テストのうえ、配布 zip を GitHub Release に載せる</td>
+<td>–</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>test.yml</code></strong></p>
+<p>pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
+<ul>
+<li>Windows PowerShell 5.1 はランナーに最初から入っている（<code>shell: powershell</code> を明示する。<code>pwsh</code>（PowerShell 7）では COM と文字コードの扱いが変わる）</li>
+<li>ランナーには Pester 5 も入っており、そのままでは <code>Invoke-Pester</code> が 5 を読み込んで全テストが失敗する（5 はテストの書き方が違う）。<code>tests/run.ps1</code> は <code>Import-Module Pester -MaximumVersion 3.99.99</code> で 3 系を明示し、CI は 3 系が無ければ 3.4.0 を入れる</li>
+<li>スクリプトの改行はランナーの <code>core.autocrlf</code> に左右されないよう、<code>.gitattributes</code> で <code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF に固定している</li>
+<li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（6.2）</li>
+<li>あわせて PSScriptAnalyzer の <code>Error</code> を 0 件に保つ（<code>TypeNotFound</code> は除く）。PSScriptAnalyzer の版は <code>test.yml</code> で固定する（新しい版でルールが増えて、コードを変えずに CI が落ちるのを防ぐ。Dependabot の対象外のため、上げるときは版を書き換えた PR で指摘が 0 件のままか確かめる）。安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）はタグ <code>Meta</code> のため既定で実行される</li>
+<li>テストの前に <code>tools/check_commit.ps1</code> で、追跡している全ファイルと全コミットの作者を検査する（下の「公開してはいけない内容の検査」）。作者を全履歴で調べるため <code>fetch-depth: 0</code> で取得する</li>
+<li>PR では、PR のコミットに作者の <code>Signed-off-by</code> があるかを <code>tools/check_signoff.ps1 -Range HEAD^1..HEAD^2</code> で確かめる。pull_request では PR をマージした形のコミットを取り出すため、1 つ目の親が main、2 つ目の親が PR の先頭になる。その間だけを調べるので、main から取り込んだコミットと、決まりを作る前の履歴（<code>Signed-off-by</code> が無い）は調べない。マージコミットと bot（作者が <code>...[bot]@users.noreply.github.com</code>）のコミットも調べない</li>
+<li>同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
+<li>テスト結果（<code>work/test/</code>）は成否にかかわらず成果物として保存する</li>
+<li>テストのあと、<code>work\test\coverage.xml</code> を <a href="https://codecov.io/gh/hsgwa/tebunko">Codecov</a> に送る（<code>codecov/codecov-action</code>）。README のバッジ、PR へのコメント（ファイルごとの増減）、行ごとの表示は Codecov が出す</li>
+<li>送るのは相対パスと行ごとの実行回数だけで、ソースは送らない（Codecov はソースを GitHub から読む）</li>
+<li>トークンはリポジトリの Secrets の <code>CODECOV_TOKEN</code> に置く。fork からの PR ではトークンが無くても送れる</li>
+<li>送れなくても CI は失敗にしない。Codecov の判定（<code>.github/codecov.yml</code>）も参考表示だけにする。下限の確認は <code>tests/coverage.baseline</code> が受け持つ</li>
+<li><code>.github/codecov.yml</code> には ASCII の文字だけを書き、コメントも書かない。Windows で動く Codecov の CLI がこのファイルを cp1252 として読み、日本語があると <code>UnicodeDecodeError</code> で止まるため。<code>tests/meta/encoding.Tests.ps1</code> が確かめる</li>
+<li>タグの push（<code>release.yml</code> から呼ばれたとき）では送らない</li>
+</ul>
+<p><strong><code>title.yml</code></strong></p>
+<p>PR と Issue のタイトルを <code>tools/check_commit_message.ps1 -Title</code> で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。</p>
+<ul>
+<li>PR（ジョブ <code>pr-title</code>）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす</li>
+<li>Issue（ジョブ <code>issue-title</code>）… 作成は止められないため、形が違えば <code>.github/title_comment.md</code> の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）</li>
+<li>タイトルは誰でも書ける信頼できない入力のため、式で <code>run</code> に埋め込まず環境変数で渡す</li>
+<li>起動の速い ubuntu のランナーで <code>pwsh</code>（PowerShell 7）を使う。そのため <code>tools/check_commit_message.ps1</code> は 5.1 と 7 の両方で動くように書く</li>
+<li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
+</ul>
+<p><strong><code>codeql.yml</code>・<code>scorecard.yml</code>（サプライチェーンの安全性）</strong></p>
+<p>CodeQL（<code>analyze</code>）は main の必須チェックで、指摘があるとマージできない。Scorecard は採点するだけで、マージは止めない。</p>
+<ul>
+<li><code>codeql.yml</code> … GitHub Actions のワークフローを CodeQL で解析し、Security タブ（Code scanning）に載せる。信頼できない入力を <code>run</code> に埋め込む書き方などを見つける。PowerShell は CodeQL の対象外のため、スクリプトは上の PSScriptAnalyzer が受け持つ</li>
+<li><code>scorecard.yml</code> … <a href="https://scorecard.dev/viewer/?uri=github.com/hsgwa/tebunko">OpenSSF Scorecard</a> で採点し、結果を Code scanning と README のバッジに載せる</li>
+<li>Scorecard はリポジトリを Linux で展開する。名前が UTF-8 で 255 バイト（日本語で 85 字）を超えるファイルがあると展開できず、ほとんどの項目が採点できなくなる。そのため <code>tools/check_commit.ps1</code> がこの長さを超える名前を止める</li>
+</ul>
+<p><strong><code>release.yml</code>（配布物の公開）</strong></p>
+<p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko_grep-&lt;タグ&gt;.zip</code>）を作って GitHub Release に載せる。</p>
+<ul>
+<li>zip にはツール本体（<code>tebunko.bat</code>・<code>scripts/</code>）と <code>README.md</code>・<code>LICENSE</code> だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（<code>tebunko.cat</code>）・ハッシュ一覧（<code>SHA256SUMS.txt</code>）・部品表（<code>sbom.cdx.json</code>）は zip と並べてリリースに載せ（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 5.6 の VirusTotal での照会用）</li>
+<li>zip のビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko_grep-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
+<li>リリースノートは GitHub が PR から作り、<code>.github/release.yml</code> で PR のラベルごとに分ける</li>
+<li>版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける</li>
+</ul>
+<div class="highlight"><pre><span></span><code>git tag v0.1.0 origin/main
+git push origin v0.1.0
+</code></pre></div>
+<p><strong><code>docs.yml</code>（設計書のサイト）</strong></p>
+<p>設計書（<code>docs/</code>）は <a href="https://www.mkdocs.org/">MkDocs</a>（テーマは Material for MkDocs）で Web サイトにし、main で <code>docs/</code>・<code>tools/mkdocs/</code> が変わるたびに <a href="https://hsgwa.github.io/tebunko/">GitHub Pages</a> に公開する。</p>
+<ul>
+<li>設定は <code>tools/mkdocs/mkdocs.yml</code>。サイトはどれもリポジトリの直下で <code>mkdocs build --strict -f tools/mkdocs/mkdocs.yml</code> を実行して作る。リンク先のファイルや見出し（アンカー）が無いと失敗する。<code>docs/</code> の外の Markdown と、<code>docs/</code> から外へのリンクはここでは調べないため、<code>tests/meta/</code> の <code>links</code>（6.3）が調べる</li>
+<li>サイトを作るジョブ（チェックの名前は <code>docs</code>）は main の必須チェックにしている。必須のチェックはワークフローが動かないと待ったままになるため、PR では変えたファイルで絞らず、どの PR でもサイトを作る</li>
+<li>GitHub Pages は <code>gh-pages</code> ブランチの内容をそのまま公開する。main のサイトはその直下に置く</li>
+<li><code>docs/</code>・<code>tools/mkdocs/</code> を変えた PR では（変えたかどうかは <code>changes</code> のジョブが PR のファイルの一覧で調べる）、サイトのプレビューを <code>gh-pages</code> の <code>pr-preview/pr-&lt;PR の番号&gt;/</code> に置き、URL を PR にコメントする（<code>rossjrw/pr-preview-action</code>）。push のたびに更新し、PR を閉じたら消す。fork からの PR ではプレビューを作らず、サイトを作れることだけを確かめる</li>
+<li>サイトを作るジョブは PR のコード（<code>tools/mkdocs/hooks.py</code>）を動かすため、読み取りの権限だけで動かす。<code>gh-pages</code> への書き込みと PR へのコメントは、作ったサイトを受け取るだけの別のジョブ（<code>publish</code>）で行う</li>
+<li>アンカーは GitHub と同じ形（日本語を残し、記号を除き、英字を小文字にする）で作る（<code>tools/mkdocs/mkdocs.yml</code> の <code>toc.slugify</code>）。<code>docs/</code> の中のリンクは GitHub で読めるように書けば、サイトでもそのまま飛べる</li>
+<li>GitHub で読むときとの違いは <code>tools/mkdocs/hooks.py</code> で埋める。<code>00_index.md</code> をサイトの先頭ページにし、<code>docs/</code> の外（<code>../.github/SECURITY.md</code> など）へのリンクは GitHub 上のファイルへのリンクに書き換える</li>
+<li>使うパッケージは <code>tools/mkdocs/requirements.txt</code> に版とハッシュで固定し、<code>pip install --require-hashes</code> で入れる。更新は Dependabot が PR を出す。サイトを作るときだけに使い、配布物には含めない</li>
+<li>サイトを見る人のブラウザーが第三者のサーバーへ通信しないようにする。フォントは Google Fonts を使わず OS のもので表示する（<code>theme.font: false</code>）。Mermaid は Material テーマが既定では unpkg から読み込むため、<code>extra_javascript</code> で版を固定して先に読み込ませ、<code>privacy</code> プラグインがビルドのときに取り込んでサイトに同梱する（取り込んだファイルは <code>work/cache/privacy/</code> に置く）。Mermaid の版は、Material テーマが読み込む版（<code>mermaid@11</code>）に合わせる</li>
+<li>手元で見るときは次のとおり（生成物は <code>work/site/</code>）</li>
+</ul>
+<div class="highlight"><pre><span></span><code>pip install --require-hashes -r tools/mkdocs/requirements.txt
+mkdocs serve -f tools/mkdocs/mkdocs.yml
+</code></pre></div>
+<h4 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h4>
+<p>clone したら 1 回だけ次を実行する。<code>core.hooksPath</code> を <code>tools/hooks</code> にし、コミットのたびに <code>tools/hooks/pre-commit</code> と <code>tools/hooks/commit-msg</code> が動く（git worktree で作ったツリーでも、そのツリーのフックが動く）。</p>
+<div class="highlight"><pre><span></span><code>.\tools\install_hooks.ps1              有効にする
+.\tools\install_hooks.ps1 -Uninstall   やめる
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>フック</th>
+<th>順</th>
+<th>内容</th>
+<th>所要時間の目安</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pre-commit</code></td>
+<td>1</td>
+<td><code>tools/check_commit.ps1 -Staged</code>：ステージした内容と、これから作るコミットの作者を検査する</td>
+<td>数秒</td>
+</tr>
+<tr>
+<td><code>pre-commit</code></td>
+<td>2</td>
+<td><code>tests/run.ps1 -Tag Unit,Meta -Quiet</code>：速いテスト（<code>Io</code> を含む既定のテストと静的解析は CI で行う）。失敗したテストだけを表示する</td>
+<td>1 分強</td>
+</tr>
+<tr>
+<td><code>commit-msg</code></td>
+<td>1</td>
+<td><code>tools/check_commit_message.ps1 -Path &lt;メッセージのファイル&gt;</code>：1 行目が Conventional Commits の形（<code>feat: ...</code> など。AGENTS.md「GitHub の運用」）か。<code>#</code> で始まる行と空行は飛ばし、git が自動で作るメッセージ（<code>Merge ...</code> <code>Revert "..."</code> <code>fixup! ...</code> など）は調べない</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>commit-msg</code></td>
+<td>2</td>
+<td><code>tools/check_signoff.ps1 -Path &lt;メッセージのファイル&gt;</code>：作者（<code>git var GIT_AUTHOR_IDENT</code>）のメールアドレスの <code>Signed-off-by:</code> 行があるか（<code>git commit -s</code> で付く。大文字・小文字は区別しない）。<code>#</code> で始まる行と、<code>git commit -v</code> の切り取り線より後ろ（差分）は数えない。マージコミット（1 行目が <code>Merge</code>）と bot の作者は調べない</td>
+<td>–</td>
+</tr>
+</tbody>
+</table>
+<p>引っかかったら内容を直す。<code>git commit --no-verify</code> で飛ばしても、CI で同じ検査が走る（コミットメッセージは、squash merge で main のコミットになる PR のタイトルを CI が確かめる）。フックは git for Windows の sh が読むため LF で保存する（<code>.gitattributes</code> で固定）。</p>
+<h4 id="公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査（<code>tools/check_commit.ps1</code>）<a class="headerlink" href="#公開してはいけない内容の検査toolscheck_commitps1" title="Permanent link">&para;</a></h4>
+<p>リポジトリは公開しているため、履歴に一度でも入れたら公開されたのと同じになる（AGENTS.md「個人情報を書かない」）。これを機械的に止める。手元では <code>-Staged</code> でステージした内容を、CI では追跡している全ファイルと全コミットを調べる。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>見つけたら失敗にするもの</th>
+<th>例示用として通すもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>絶対パス</td>
+<td><code>C:\Users\&lt;名前&gt;</code>（<code>/</code> 区切り・<code>\\</code> のエスケープも）</td>
+<td><code>test</code>（<code>test_</code> のように長さを揃えたものも）・<code>a</code>・<code>Public</code>・<code>Default</code>・<code>%USERNAME%</code> <code>&lt;利用者名&gt;</code> のような置き換え用の表記</td>
+</tr>
+<tr>
+<td>メールアドレス</td>
+<td>すべて</td>
+<td><code>example.com</code> などの例示用のドメイン、GitHub の noreply</td>
+</tr>
+<tr>
+<td>Office ファイル</td>
+<td>作成者・最終更新者（<code>docProps/core.xml</code>・ODF の <code>meta.xml</code>・PDF の <code>/Author</code>）、コメント・変更履歴の作成者に付くアカウント ID（<code>userId</code>）</td>
+<td><code>test</code>、空、<code>0</code> だけの ID</td>
+</tr>
+<tr>
+<td>手元で実行したとき</td>
+<td>Windows のユーザー名そのもの（CI では調べない）</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>.ps1</code>・<code>.xaml</code></td>
+<td>BOM 付き UTF-8 でない、改行が CRLF でない</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ファイル名・フォルダ名</td>
+<td>UTF-8 で 255 バイトを超えるもの（上の Scorecard の制約）</td>
+<td>—</td>
+</tr>
+<tr>
+<td>コミットの作者・コミッター</td>
+<td>GitHub の noreply 以外のメールアドレス</td>
+<td><code>noreply@github.com</code>（GitHub 上でマージしたときのコミッター）</td>
+</tr>
+</tbody>
+</table>
+<p>Office ファイル（ZIP）は展開して中の XML・バイナリを 1 つずつ調べる。旧形式（<code>.doc</code> <code>.xls</code> <code>.ppt</code>）・PDF などはバイト列を UTF-8 と UTF-16LE の両方で読んで調べる。中身は作業ツリーではなく git に記録される内容を読む（改行だけは、git が LF にして記録するため作業ツリーのファイルで調べる）。例示用として通す名前・ドメインを増やすときは <code>tools/check_commit.ps1</code> の先頭で行う。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="フッター" >
+        
+          
+          <a href="../00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/" class="md-footer__link md-footer__link--prev" aria-label="前: TSV・検索・画面の関数">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                前
+              </span>
+              <div class="md-ellipsis">
+                TSV・検索・画面の関数
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/" class="md-footer__link md-footer__link--next" aria-label="次: インデックス作成（インデクサ）設計書">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                次
+              </span>
+              <div class="md-ellipsis">
+                インデックス作成（インデクサ）設計書
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 hsgwa / MIT License
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
+      
+    
+  </body>
+</html>
