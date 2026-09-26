@@ -289,6 +289,8 @@
       
         
       
+        
+      
     
     
     
@@ -428,6 +430,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1809,7 +1839,7 @@ B2→確定版
 <li>削除は、ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す（<code>removeDirectoryRetry</code>）。</li>
 </ul>
 <h4 id="集約ファイルへの書き出しpublishindexfolders">集約ファイルへの書き出し（<code>publishIndexFolders</code>）<a class="headerlink" href="#集約ファイルへの書き出しpublishindexfolders" title="Permanent link">&para;</a></h4>
-<p>取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（<code>indexer.ps1</code> の <code>addPendingPublish</code>）、<strong>取り込みが別のフォルダに移ったとき</strong>と、<strong>インデックス作成の終わり</strong>（中止したときも。<code>finally</code>）に、それまでのフォルダをまとめて書き出す（<code>flushPendingPublish</code> → <code>publishIndexFolders</code>）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ集約ファイルを書き直すことになるため。フォルダごとに次を続けて行う。</p>
+<p>取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（<code>indexer.ps1</code> の <code>addPendingPublish</code>）、<strong>そのフォルダに取り込み中のファイルも、まだ取り込みのスレッドに渡していないファイルも無くなったとき</strong>（結果を 1 つ受け取るたびに調べる。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#74-インデックス作成の並列化">7.4</a>）と、<strong>インデックス作成の終わり</strong>（中止したときも。<code>finally</code>）に、それまでのフォルダをまとめて書き出す（<code>flushPendingPublish</code> → <code>publishIndexFolders</code>）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ集約ファイルを書き直すことになるため。フォルダごとに次を続けて行う。</p>
 <pre class="mermaid"><code>flowchart TD
     P(["書き出し待ちのフォルダ&lt;br&gt;（フォルダ → 無くなった元のファイル名）"]) --&gt; A["1. 集約ファイルを書く（updateIndexFolderPack）&lt;br&gt;TSV のある元のファイル: TSV の中身で入れ替える&lt;br&gt;無くなった元のファイル: 外す&lt;br&gt;それ以外: 前の集約ファイルからそのまま写す"]
     A --&gt; B["拡張子ごとに #lt;名前#gt;.tmp に書いてから置き換える&lt;br&gt;（File.Replace。元のファイルが無くなった拡張子の集約ファイルは消す）"]
@@ -2035,7 +2065,7 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>負荷</td>
-<td>最大 4 スレッド（物理メモリ 8GB の PC で 4 スレッドのときにメモリが足りなくなったことがあるため）。作っている間はプロセスの優先度を BelowNormal に下げる。中止要求があれば、始めていないフォルダは作らない</td>
+<td>最大 4 スレッド（物理メモリ 8GB の PC で 4 スレッドのときにメモリが足りなくなったことがあるため）。作るスレッドの優先度を BelowNormal に下げる（<code>WorkerPool</code>。画面のプロセス全体の優先度は変えない）。中止を求められていれば（受け渡しの口の <code>Stop</code>。<code>updateSystemIndexes -shouldStop</code>）、始めていないフォルダは作らない</td>
 </tr>
 <tr>
 <td>取り込みのとき</td>
@@ -2099,7 +2129,7 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>2</td>
-<td>インデクサが強制終了された（PC の停止・タスクマネージャーでの終了等）場合は <code>finally</code> が実行されず、Excel・Word・PowerPoint が残る（画面の［9 プロセス停止］タブで終了する）。取り込み一覧には追記した行が重複して残るが、次回のクロール時に書き直される。作りかけのインデックス（一部のシートだけの TSV）は残らない（<code>publishIndexFiles</code>。6.1 節）。集約ファイルに入れる前の TSV のフォルダは残るが、次回のインデックス作成開始時に集約ファイルへ入れる（<code>findIndexFoldersWithBooks</code>。6.1 節）。<code>work/取り込み出力/&lt;PID&gt;</code>・<code>%TEMP%\tebunko\&lt;PID&gt;</code> も残るが、次回のインデックス作成開始時に削除する</td>
+<td>インデクサが強制終了された（PC の停止・タスクマネージャーでの画面の <code>powershell.exe</code> の終了等。インデックス作成は画面のプロセスの中で動く）場合は <code>finally</code> が実行されず、Excel・Word・PowerPoint が残る（画面の［9 プロセス停止］タブで終了する）。取り込み一覧には追記した行が重複して残るが、次回のクロール時に書き直される。作りかけのインデックス（一部のシートだけの TSV）は残らない（<code>publishIndexFiles</code>。6.1 節）。集約ファイルに入れる前の TSV のフォルダは残るが、次回のインデックス作成開始時に集約ファイルへ入れる（<code>findIndexFoldersWithBooks</code>。6.1 節）。<code>work/取り込み出力/&lt;PID&gt;</code>・<code>%TEMP%\tebunko\&lt;PID&gt;</code> も残るが、次回のインデックス作成開始時に削除する</td>
 <td>△</td>
 </tr>
 <tr>
@@ -2129,7 +2159,7 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>8</td>
-<td>取り込み一覧・インデックスの食い違いを避けるため、同じ配置フォルダのインデックス作成は同時に 1 つだけ動かす（<code>newAppMutex</code>）。別の場所にコピーしたツール（別の <code>work</code>）は、同時に動かしても互いに影響しない</td>
+<td>取り込み一覧・インデックスの食い違いを避けるため、同じ <code>work</code> のインデックス作成は同時に 1 つだけ動かす（<code>newAppMutex</code>。鍵は <code>work</code> のパスから作る）。別の <code>work</code> を使うツールは、同時に動かしても互いに影響しない</td>
 <td>◎</td>
 </tr>
 <tr>
@@ -2169,17 +2199,17 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>16</td>
-<td>制限時間（10 分）で強制終了できるのは自分で起動した Office アプリだけ。利用者の PowerPoint に接続して変換している場合や、<code>.docx</code> <code>.pptx</code> を直接読む処理（Office を使わない）が長引いた場合は止められない。画面の［中止］もファイルの切れ目まで効かない。その場合もインデクサ（<code>powershell.exe</code>）を強制終了すれば、次回はそのファイルを最後に回し、続けて 2 回なら失敗にする</td>
+<td>制限時間（10 分）で強制終了できるのは自分で起動した Office アプリだけ。利用者の PowerPoint に接続して変換している場合や、<code>.docx</code> <code>.pptx</code> を直接読む処理（Office を使わない）が長引いた場合は止められない。画面の［中止］もファイルの切れ目まで効かない。画面を閉じるときは 60 秒待ってインデックス作成が起動した Office を止め、さらに 15 秒待っても終わらなければそのまま閉じる（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#76-閉じるときの順番">7.6</a>）。画面（<code>powershell.exe</code>）を強制終了した場合も、次回はそのファイルを最後に回し、続けて 2 回なら失敗にする</td>
 <td>○</td>
 </tr>
 <tr>
 <td>17</td>
-<td>正常でも 10 分以上かかる巨大なファイルは失敗になる。取り込みたい場合は <code>tebunko/indexer.ps1</code> の <code>$fileTimeoutMinutes</code> を大きくする</td>
+<td>正常でも 10 分以上かかる巨大なファイルは失敗になる。取り込みたい場合は <code>tebunko/indexer/indexer_run.ps1</code> の <code>$fileTimeoutMinutes</code> を大きくする</td>
 <td>○</td>
 </tr>
 <tr>
 <td>18</td>
-<td>制限時間を過ぎたときは、取り込み中のファイルに使っていないアプリ（Excel ファイルの取り込み中の Word など）も自分で起動したものは強制終了する（次に必要になったときに起動し直すため、結果には影響しない）</td>
+<td>制限時間を過ぎたときは、そのレーンのスレッドが自分で起動した Office（レーンごとに 1 つ）を強制終了する。ほかのレーンのアプリは止めない（次に必要になったときに起動し直すため、結果には影響しない）</td>
 <td>○</td>
 </tr>
 <tr>
@@ -2196,6 +2226,11 @@ work/システムインデックスの状態.tsv                                
 <td>21</td>
 <td>使用範囲（<code>UsedRange</code>）が実際のデータよりずっと広いシート（最終行・右端に書式だけが残っている等）は、データの範囲だけを一時シートにコピーしてから書き出す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#43-excel-の抽出処理extractworkbook">01_インデックス作成_1_Excel.md</a> 4.3）。ブックの構成が保護されていて一時シートを作れない場合は、そのまま書き出すため制限時間で失敗することがある（その場合はインデックス作成ログに記録する）</td>
 <td>◎</td>
+</tr>
+<tr>
+<td>22</td>
+<td>取り込みはファイルの種類ごとのレーンで並べて行い、Excel・Word・PowerPoint を同時に 1 つずつ動かすため、メモリを多く使う（同じ種類の Office を複数は起動しない）。Office を使わずに読むスレッド（既定はコア数 − 1、最大 4）もメモリを使う。メモリの少ない PC でメモリが足りなくなるときは、<code>setting.config</code> の <code>ingestThreads</code> を減らす（<a href="../00_%E5%85%B1%E9%80%9A_1_%E3%83%95%E3%82%A9%E3%83%AB%E3%83%80%E6%A7%8B%E6%88%90%E3%81%A8%E8%A8%AD%E5%AE%9A%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB/#41-形式">00_共通_1 4.1</a>）</td>
+<td>○</td>
 </tr>
 </tbody>
 </table>

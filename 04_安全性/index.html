@@ -287,6 +287,8 @@
       
         
       
+        
+      
     
     
     
@@ -426,6 +428,34 @@
     
   
     テスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
   
 
     
@@ -1237,10 +1267,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#23-外部プロセスの起動5-か所" class="md-nav__link">
+  <a href="#23-外部プロセスの起動4-か所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 外部プロセスの起動（5 か所）
+        2.3 外部プロセスの起動（4 か所）
       
     </span>
   </a>
@@ -1576,10 +1606,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#23-外部プロセスの起動5-か所" class="md-nav__link">
+  <a href="#23-外部プロセスの起動4-か所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.3 外部プロセスの起動（5 か所）
+        2.3 外部プロセスの起動（4 か所）
       
     </span>
   </a>
@@ -1915,7 +1945,7 @@
 </tr>
 <tr>
 <td>Windows Search</td>
-<td><strong>読み取りだけ</strong>。高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。システムインデックスを作る間は、自分のプロセスの優先度を下げる（BelowNormal）</td>
+<td><strong>読み取りだけ</strong>。高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。システムインデックスを作るスレッドの優先度を下げる（BelowNormal。プロセス全体の優先度は変えない）</td>
 <td><code>safety.Tests.ps1</code>「Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る」</td>
 <td><a href="#21-検査項目と結果">2.1</a></td>
 </tr>
@@ -2053,7 +2083,7 @@
 <tr>
 <td>11</td>
 <td>外部プロセスの起動</td>
-<td>5 か所のみ（2.3）</td>
+<td>4 か所のみ（2.3）</td>
 <td><code>scan 'Start-Process'</code></td>
 </tr>
 <tr>
@@ -2146,7 +2176,7 @@
 </table>
 <p>パスワード付きファイルは、開くときに固定文字列 <code>"dummy"</code> をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、<strong>パスワード入力ダイアログを出さずに確実に失敗させる</strong>ための指定である。パスワード付きファイルは取り込まれず、<code>work\取り込み一覧.tsv</code> に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。</p>
 <p>Excel は、セルの値をテキストに書き出すために、すべてのブックを上の設定で開く。Word・PowerPoint で開くのは、ZIP 形式でない旧形式（<code>.doc</code> / <code>.ppt</code>）などを新形式に変換するときだけである。新形式（<code>.xlsx</code> / <code>.docx</code> / <code>.pptx</code>）の図形・コメント・本文・SmartArt・グラフの文字は、Office を使わずに ZIP の中の XML を直接読む（<code>shared/office/office_reader.ps1</code>）。いずれも作業フォルダのコピーを読む（3.2）。</p>
-<h3 id="23-外部プロセスの起動5-か所">2.3 外部プロセスの起動（5 か所）<a class="headerlink" href="#23-外部プロセスの起動5-か所" title="Permanent link">&para;</a></h3>
+<h3 id="23-外部プロセスの起動4-か所">2.3 外部プロセスの起動（4 か所）<a class="headerlink" href="#23-外部プロセスの起動4-か所" title="Permanent link">&para;</a></h3>
 <p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe と自分自身（powershell.exe）だけ」が確かめる。</p>
 <table>
 <thead>
@@ -2158,22 +2188,18 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tebunko/ui/index_tab.ps1:615</code>・<code>620</code>、<code>tebunko/ui/open_source.ps1:311</code></td>
+<td><code>tebunko/ui/index_tab.ps1:612</code>・<code>617</code>、<code>tebunko/ui/open_source.ps1:311</code></td>
 <td><code>explorer.exe</code></td>
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）</td>
 </tr>
 <tr>
-<td><code>tebunko/ui/indexing_tab.ps1:196</code></td>
-<td><code>powershell.exe</code></td>
-<td>本ツール自身のインデクサ <code>tebunko/indexer.ps1</code> を起動（<code>-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
-</tr>
-<tr>
-<td><code>tebunko/gui.ps1:309</code></td>
+<td><code>tebunko/gui.ps1:379</code></td>
 <td><code>powershell.exe</code></td>
 <td>本ツール自身の画面 <code>tebunko/gui.ps1</code> を開き直す（［8 設定］でワークスペースを変えたときだけ。<code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
 </tr>
 </tbody>
 </table>
+<p>インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために <code>powershell.exe</code> を起動することはない（<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#71-プロセス">7.1</a>）。</p>
 <p>元のファイルを開く操作（<code>tebunko/ui/open_source.ps1:125</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。</p>
 <hr />
 <h2 id="3-ファイルの読み書きの範囲">3. ファイルの読み書きの範囲<a class="headerlink" href="#3-ファイルの読み書きの範囲" title="Permanent link">&para;</a></h2>
@@ -2503,7 +2529,7 @@
 <tr>
 <td>59</td>
 <td><code>PSAvoidUsingWriteHost</code></td>
-<td><code>Write-Host</code> で画面・ログへ出力している。インデクサの進み具合と失敗の原因を利用者に見せるための出力であり、パイプラインへ返す値ではない</td>
+<td><code>Write-Host</code> でコンソールへ出力している。画面を使わずに <code>indexer.ps1</code> を実行したときに、インデクサの進み具合と失敗の原因を利用者に見せるための出力（<code>writeIndexerLog</code>）であり、パイプラインへ返す値ではない</td>
 </tr>
 <tr>
 <td>51</td>
