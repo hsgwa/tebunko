@@ -5,9 +5,9 @@
 #   git tag v1.0.0
 #   git push origin v1.0.0
 #
-# zip の中身はツール本体（tebunko.bat・scripts\）と LICENSE だけにする。
+# zip の中身はツール本体（tebunko.bat・scripts\）と README.md・LICENSE だけにする。
 # 改ざんの確認用のカタログ（tebunko.cat）・ハッシュ一覧（SHA256SUMS.txt）と部品表（sbom.cdx.json）は、zip と並べてリリースに載せる（docs\04_安全性.md 5.1）。
-# README・SECURITY は zip に入れず、リリースの説明からリンクする。
+# SECURITY は zip に入れず、README とリリースの説明からリンクする。
 # zip 自体の SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
 # zip のビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
 # 署名の bundle（tebunko_grep-<タグ>.zip.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。

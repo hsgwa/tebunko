@@ -2,21 +2,25 @@
 #
 #   .\tools\new_release_package.ps1 -Version v1.0.0     work\release\ に zip と、zip の横に並べるファイルを作る
 #
-# zip の中身（展開すると tebunko_grep\ フォルダになる）。展開したときに、起動するもの（tebunko.bat）が分かるよう、ツール本体とライセンスだけにする:
+# zip の中身（展開すると tebunko_grep\ フォルダになる）。展開したときに、起動するもの（tebunko.bat）と使い方がすぐ分かるものだけにする:
 #   tebunko.bat scripts\                              ツール本体
+#   README.md                                         使い方。相対リンクと画像は、その版の GitHub の URL に書き換える
+#                                                     （docs\ や画像は zip に入れないため。ページ内のリンク #… はそのまま）
 #   LICENSE                                           ライセンス（MIT。写しに許諾表示を含めるため同梱する）
 #
 # zip の横に並べて、GitHub Release に載せるもの（release.yml）:
 #   tebunko_grep-<版>.zip
 #   tebunko.cat SHA256SUMS.txt                        改ざんの確認用（tools\new_release_files.ps1 が作る）
 #   sbom.cdx.json                                     部品表
-# README・SECURITY は zip に入れず、リリースの説明からリンクする。
+# SECURITY は zip に入れず、README とリリースの説明からリンクする。
 #
 # work\・setting.config は利用者ごとに作られるため入れない。docs\・tests\ も配布しない。
 param (
     [Parameter(Mandatory = $true)]
     [string]$Version,
-    [string]$OutDir
+    [string]$OutDir,
+    # README のリンクの書き換え先（GitHub の <持ち主>/<リポジトリ>）
+    [string]$Repository = "hsgwa/tebunko"
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,9 +43,17 @@ $entries = [ordered]@{}
 foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $rootDir "scripts") -Recurse -File | Sort-Object FullName)) {
     $entries[$file.FullName.Substring($rootDir.Length + 1)] = $file.FullName
 }
-foreach ($name in @("tebunko.bat", "LICENSE")) {
+foreach ($name in @("tebunko.bat", "README.md", "LICENSE")) {
     $entries[$name] = Join-Path $rootDir $name
 }
+
+# README の相対リンク（](docs/…)）と画像（src="docs/…"）を、その版の GitHub の URL にする。
+# 展開したフォルダには docs\ などが無く、そのままでは画像が出ずリンクも切れるため
+$readmePath = $entries["README.md"]
+$readme = [System.IO.File]::ReadAllText($readmePath, [System.Text.Encoding]::UTF8)
+$readme = [regex]::Replace($readme, '\]\((?!https?:|#|mailto:)([^)\s]+)\)', "](https://github.com/$Repository/blob/$Version/`$1)")
+$readme = [regex]::Replace($readme, 'src="(?!https?:)([^"]+)"', "src=`"https://raw.githubusercontent.com/$Repository/$Version/`$1`"")
+$readmeBytes = (New-Object System.Text.UTF8Encoding($true)).GetPreamble() + (New-Object System.Text.UTF8Encoding($false)).GetBytes($readme)
 
 $zipPath = Join-Path $OutDir "tebunko_grep-$Version.zip"
 if (Test-Path -LiteralPath $zipPath) {
@@ -56,7 +68,11 @@ try {
         $entry.LastWriteTime = (Get-Item -LiteralPath $entries[$name]).LastWriteTime
         $writer = $entry.Open()
         try {
-            $bytes = [System.IO.File]::ReadAllBytes($entries[$name])
+            if ($name -eq "README.md") {
+                $bytes = $readmeBytes
+            } else {
+                $bytes = [System.IO.File]::ReadAllBytes($entries[$name])
+            }
             $writer.Write($bytes, 0, $bytes.Length)
         } finally {
             $writer.Dispose()
