@@ -3145,6 +3145,14 @@
 <td>画面（検索対象のツリー）</td>
 </tr>
 <tr>
+<td><code>readVersionFile</code></td>
+<td>path（配布物の <code>VERSION.txt</code> のパス）</td>
+<td><code>@{Tag; Sha}</code> / <code>$null</code></td>
+<td>版とコミットの記録を読む。無い・読めない・2行でない・形が違えば <code>$null</code>（画面は「開発版」と表示する。<code>about_view.ps1</code> の <code>getAboutView</code>）</td>
+<td><a href="../../gui/#画面構成">画面構成</a></td>
+<td>画面</td>
+</tr>
+<tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 <td>path / option, path</td>
 <td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
