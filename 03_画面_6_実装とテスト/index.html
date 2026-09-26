@@ -1441,11 +1441,15 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/gui.ps1</code></td>
-<td>画面の起動口。Mark-of-the-Web の除去、多重起動の防止（12.1）、ウィンドウとタブの読み込みと <code>x:Name</code> の対応表（<code>$ui</code>）の作成、各部品の読み込み（<strong>順に意味がある</strong>）、ウィンドウ全体のイベント、<code>ShowDialog</code>。画面を開いている間使うスレッド（検索の司令 <code>SearchService</code>・画面の裏の仕事 <code>BackgroundQueue</code>）の用意と、閉じるときの順番（インデックス作成を止めてから閉じる。<a href="../03_%E7%94%BB%E9%9D%A2_4_%E7%8A%B6%E6%85%8B%E3%81%A8%E6%93%8D%E4%BD%9C%E3%81%AE%E6%B5%81%E3%82%8C/#74-閉じる">7.4</a>）。起動時に <code>GCSettings.LatencyMode</code> を <code>SustainedLowLatency</code> にする。判定・検索ロジックは持たない</td>
+<td>画面の起動口。起動中の表示（<code>splash.xaml</code>。スクリプトを読み込む前に出し、区切りごとに <code>stepSplash</code> で描画を進め、画面の <code>ContentRendered</code> で閉じる）、Mark-of-the-Web の除去、多重起動の防止（12.1）、ウィンドウとタブの読み込みと <code>x:Name</code> の対応表（<code>$ui</code>）の作成、各部品の読み込み（<strong>順に意味がある</strong>）、ウィンドウ全体のイベント、<code>ShowDialog</code>、描き終わってからの一覧の読み込み（<code>loadStartupData</code>。済むまで <code>Activated</code>・タブの切り替えでは読み直さない）。画面を開いている間使うスレッド（検索の司令 <code>SearchService</code>・画面の裏の仕事 <code>BackgroundQueue</code>）の用意と、閉じるときの順番（インデックス作成を止めてから閉じる。<a href="../03_%E7%94%BB%E9%9D%A2_4_%E7%8A%B6%E6%85%8B%E3%81%A8%E6%93%8D%E4%BD%9C%E3%81%AE%E6%B5%81%E3%82%8C/#74-閉じる">7.4</a>）。起動時に <code>GCSettings.LatencyMode</code> を <code>SustainedLowLatency</code> にする。判定・検索ロジックは持たない</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/tebunko.xaml</code></td>
 <td>画面の枠（ウィンドウとタブ）。タブの中身は別ファイルにし、<code>gui.ps1</code> が読み込んで入れる</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/splash.xaml</code></td>
+<td>起動中の表示（<a href="../03_%E7%94%BB%E9%9D%A2/#21-ウィンドウ">2.1</a>）。早く出すため <code>theme.xaml</code> を読み込まず、色は <code>theme.xaml</code> と同じ値を直接書く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/tab_index.xaml</code><br><code>tab_search.xaml</code><br><code>tab_settings.xaml</code><br><code>tab_kill.xaml</code></td>
