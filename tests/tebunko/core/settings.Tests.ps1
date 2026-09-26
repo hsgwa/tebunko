@@ -356,3 +356,83 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
         getWorkspaceBlockMessage "$TestDrive\空" "$TestDrive\空" | Should -Be ""
     }
 }
+
+Describe "writeSettings の書き込み（一時ファイルから置き換え）" -Tag Io {
+    It "一時ファイルを残さず、BOM なし UTF-8 で書き、読み戻せる" {
+        $path = "$TestDrive\原子的\setting.config"
+        writeSettings ([ordered]@{ fileFilter = "*.xlsx"; useRegex = $true }) $path
+        Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
+        $bytes = [System.IO.File]::ReadAllBytes($path)
+        ($bytes[0] -eq 239 -and $bytes[1] -eq 187) | Should -Be $false
+        $settings = readSettings $path
+        $settings.fileFilter | Should -Be "*.xlsx"
+        $settings.useRegex | Should -Be $true
+    }
+}
+
+Describe "設定の同時の書き込み" -Tag Io, Slow {
+    It "2 つのランスペースが別々のキーを交互に 50 回ずつ書いても、両方の値が残る" {
+        $path = "$TestDrive\同時\setting.config"
+        writeSettings (newSettings) $path
+        $loader = (Resolve-Path "$PSScriptRoot\..\..\helpers\load.ps1").Path
+        $script = {
+            param ($loader, $path, $key, $prefix)
+            . $loader
+            for ($i = 1; $i -le 50; $i++) {
+                updateSettings $key "$prefix$i" $path
+            }
+        }
+        $jobs = @()
+        foreach ($pair in @(@("fileFilter", "f"), @("workspaceFolder", "w"))) {
+            $runspace = [runspacefactory]::CreateRunspace()
+            $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::UseNewThread
+            $runspace.Open()
+            $ps = [powershell]::Create()
+            $ps.Runspace = $runspace
+            [void]$ps.AddScript($script).AddArgument($loader).AddArgument($path).AddArgument($pair[0]).AddArgument($pair[1])
+            $jobs += @{ Ps = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke() }
+        }
+        foreach ($job in $jobs) {
+            [void]$job.Ps.EndInvoke($job.Handle)
+            $job.Ps.HadErrors | Should -Be $false
+            $job.Ps.Dispose()
+            $job.Runspace.Dispose()
+        }
+        { Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } | Should -Not -Throw
+        $settings = readSettings $path
+        $settings.fileFilter | Should -Be "f50"
+        $settings.workspaceFolder | Should -Be "w50"
+    }
+}
+
+Describe "mergeAssignedIndexNames / saveAssignedIndexNames" -Tag Io {
+    It "<name>" -TestCases @(
+        @{ name = "名前が空の項目に、パスで突き合わせて名前を付ける（大文字と小文字は区別しない）"
+           current = @(@{ Name = ""; Path = "C:\営業" }); assigned = @(@{ Name = "営業"; Path = "c:\営業" }); expected = "営業" }
+        @{ name = "名前がある項目は、割り当てた名前で書き換えない"
+           current = @(@{ Name = "旧"; Path = "C:\営業" }); assigned = @(@{ Name = "新"; Path = "C:\営業" }); expected = "旧" }
+        @{ name = "同じ名前をほかの項目が使っていれば付けない"
+           current = @(@{ Name = ""; Path = "C:\営業" }, @{ Name = "営業"; Path = "C:\経理" }); assigned = @(@{ Name = "営業"; Path = "C:\営業" }); expected = "" }
+        @{ name = "割り当てに無いパス（画面で足したフォルダ）はそのまま残す"
+           current = @(@{ Name = ""; Path = "C:\総務" }); assigned = @(@{ Name = "営業"; Path = "C:\営業" }); expected = "" }
+    ) {
+        param($name, $current, $assigned, $expected)
+        $result = @(mergeAssignedIndexNames @($current | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path; Enabled = $true } }) @($assigned | ForEach-Object { [pscustomobject]$_ }))
+        $result.Count | Should -Be $current.Count
+        $result[0].Name | Should -Be $expected
+    }
+
+    It "インデクサが読んだ後に画面で足したクロール対象フォルダは、名前の書き戻しの後も残る" {
+        $path = "$TestDrive\後勝ち\setting.config"
+        writeTargetFolders @([pscustomobject]@{ Name = ""; Path = "C:\営業"; Enabled = $true }) $path
+        $read = @(getTargetFolders $path)                               # インデクサが始めに読む
+        $assigned = @(assignIndexNames $read @())
+        writeTargetFolders @($read + [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $false }) $path   # その間に画面で足す
+        saveAssignedIndexNames $assigned $path                          # インデクサが名前を書き戻す
+        $after = @(getTargetFolders $path)
+        $after.Count | Should -Be 2
+        $after[0].Name | Should -Be $assigned[0].Name
+        $after[1].Path | Should -Be "C:\総務"
+        $after[1].Enabled | Should -Be $false
+    }
+}

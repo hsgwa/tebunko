@@ -363,7 +363,7 @@ function invokeIndexerBody {
     # 新しく割り当てたインデックス名を設定に保存する（インデックスの「名前」と「置き場所」を設定で分けて持つため。
     # 名前が設定にあれば、フォルダを移してパスを書き換えても同じインデックスとして扱える）
     if (@($targetFolders | Where-Object { -not $_.Name }).Count -gt 0) {
-        writeTargetFolders $folders
+        saveAssignedIndexNames $folders
         writeIndexerLog "インデックス名を設定に保存しました: $((@($folders | ForEach-Object { $_.Name }) -join '、'))"
     }
 

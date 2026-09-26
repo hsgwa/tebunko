@@ -97,8 +97,22 @@ function writeSettings {
         [string]$path = ${settingsFile}
     )
 
-    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
-    [System.IO.File]::WriteAllText($path, (ConvertTo-Json -InputObject $settings -Depth 5), (New-Object System.Text.UTF8Encoding($false)))
+    # 書き込みの途中で止まっても設定ファイルが壊れないよう、一時ファイルに書いてから置き換える（BOM なし UTF-8）
+    writeTextLinesAtomic $path @((ConvertTo-Json -InputObject $settings -Depth 5)) (New-Object System.Text.UTF8Encoding($false))
+}
+
+function invokeSettingsLocked {
+    # 設定ファイルの「読む → 変える → 書く」の一続きを、ほかの画面・インデクサ（別のプロセスも）と同時に行わないよう、
+    # 設定ファイルごとの名前付きミューテックスの中で action を実行する（同じスレッドの入れ子は通す）。
+    # action の出力を返す。5 秒待っても取れなければ例外（invokeWithNamedMutex）
+    param (
+        [string]$path,
+        [scriptblock]$action,
+        [int]$timeoutMilliseconds = 5000
+    )
+
+    $lockKey = getFolderKey ([System.IO.Path]::GetFullPath($path))
+    return invokeWithNamedMutex "Local\${appId}_settings_${lockKey}" $timeoutMilliseconds $action
 }
 
 function updateSettings {
@@ -109,9 +123,11 @@ function updateSettings {
         [string]$path = ${settingsFile}
     )
 
-    $settings = readSettings $path
-    $settings[$key] = $value
-    writeSettings $settings $path
+    invokeSettingsLocked $path {
+        $settings = readSettings $path
+        $settings[$key] = $value
+        writeSettings $settings $path
+    }
 }
 
 function getTargetFolders {
@@ -156,6 +172,50 @@ function writeTargetFolders {
     updateSettings "targetFolders" ([object[]]@($folders | Where-Object { $_ } | ForEach-Object {
         [pscustomobject]@{ name = [string]$_.Name; path = $_.Path; enabled = [bool]$_.Enabled }
     })) $path
+}
+
+function mergeAssignedIndexNames {
+    # 今の設定のクロール対象フォルダ（current。getTargetFolders の形）に、インデクサ・画面が割り当てたインデックス名（assigned。
+    # assignIndexNames の結果）を反映した一覧を返す。インデクサが始めに読んだ一覧を丸ごと書き戻すと、その間の画面での変更を消すため、
+    # 書き戻す直前に読み直した一覧へ、割り当てた名前だけを足す。
+    # 突き合わせる鍵はパス（大文字と小文字は区別しない）。名前は、今の一覧で名前が空の項目にだけ付ける。
+    # 同じ名前をほかの項目が使っていれば付けない（空のまま。次の機会に割り当て直す）
+    param (
+        [object[]]$current,
+        [object[]]$assigned
+    )
+
+    $assignedNames = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in @($assigned | Where-Object { $_ -and $_.Name })) {
+        $assignedNames[[string]$item.Path] = [string]$item.Name
+    }
+    $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($item in @($current | Where-Object { $_ -and $_.Name })) {
+        [void]$used.Add([string]$item.Name)
+    }
+
+    $result = New-Object System.Collections.Generic.List[object]
+    foreach ($item in @($current | Where-Object { $_ })) {
+        $name = [string]$item.Name
+        if ($name -eq "" -and $assignedNames.ContainsKey([string]$item.Path) -and $used.Add($assignedNames[[string]$item.Path])) {
+            $name = $assignedNames[[string]$item.Path]
+        }
+        $result.Add([pscustomobject]@{ Name = $name; Path = $item.Path; Enabled = $item.Enabled })
+    }
+    return $result.ToArray()
+}
+
+function saveAssignedIndexNames {
+    # 割り当てたインデックス名（assigned。assignIndexNames の結果）を設定に保存する。
+    # 設定を読み直し（ほかの画面・インデクサの変更を保つ）、mergeAssignedIndexNames で名前だけを足して書く（読む → 書くを排他の中で行う）
+    param (
+        [object[]]$assigned,
+        [string]$path = ${settingsFile}
+    )
+
+    invokeSettingsLocked $path {
+        writeTargetFolders (mergeAssignedIndexNames @(getTargetFolders $path) $assigned) $path
+    }
 }
 
 function readIndexSources {
@@ -205,16 +265,18 @@ function setIndexSourceFolder {
         return
     }
 
-    $targets = @(getTargetFolders $path)
-    if (@($targets | Where-Object { $_.Name -eq $name }).Count -gt 0) {
-        writeTargetFolders @($targets | ForEach-Object {
-            if ($_.Name -eq $name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
-        }) $path
-        return
-    }
+    invokeSettingsLocked $path {
+        $targets = @(getTargetFolders $path)
+        if (@($targets | Where-Object { $_.Name -eq $name }).Count -gt 0) {
+            writeTargetFolders @($targets | ForEach-Object {
+                if ($_.Name -eq $name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
+            }) $path
+            return
+        }
 
-    $sources = @(@(readIndexSources $path | Where-Object { $_.Name -ne $name }) + @([pscustomobject]@{ Name = $name; Path = $folder }))
-    writeIndexSources $sources $path
+        $sources = @(@(readIndexSources $path | Where-Object { $_.Name -ne $name }) + @([pscustomobject]@{ Name = $name; Path = $folder }))
+        writeIndexSources $sources $path
+    }
 }
 
 function readSearchExcludes {
@@ -277,13 +339,15 @@ function writeSearchOption {
         [string]$path = ${settingsFile}
     )
 
-    $settings = readSettings $path
-    foreach ($name in ${searchOptionKeys}.Keys) {
-        if ($option.ContainsKey($name)) {
-            $settings[${searchOptionKeys}[$name]] = $option[$name]
+    invokeSettingsLocked $path {
+        $settings = readSettings $path
+        foreach ($name in ${searchOptionKeys}.Keys) {
+            if ($option.ContainsKey($name)) {
+                $settings[${searchOptionKeys}[$name]] = $option[$name]
+            }
         }
+        writeSettings $settings $path
     }
-    writeSettings $settings $path
 }
 
 function readOpenMode {
