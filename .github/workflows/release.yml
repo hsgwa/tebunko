@@ -5,7 +5,9 @@
 #   git tag v1.0.0
 #   git push origin v1.0.0
 #
-# zip には改ざんの確認用のカタログ（tebunko.cat）とハッシュ一覧（SHA256SUMS.txt）を同梱する（docs\04_安全性.md 5.1）。
+# zip の中身はツール本体（tebunko.bat・scripts\）と README.md・LICENSE だけにする。
+# 改ざんの確認用のカタログ（tebunko.cat）・ハッシュ一覧（SHA256SUMS.txt）と部品表（sbom.cdx.json）は、zip と並べてリリースに載せる（docs\04_安全性.md 5.1）。
+# SECURITY は zip に入れず、README とリリースの説明からリンクする。
 # zip 自体の SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
 # zip のビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
 # 署名の bundle（tebunko_grep-<タグ>.zip.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。
@@ -58,6 +60,17 @@ jobs:
           $bundle = "$zip.sigstore.json"
           Copy-Item -LiteralPath $env:BUNDLE_PATH -Destination $bundle
           $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
-          $notes = "配布 zip の SHA256: ``$hash```n`n来歴の確認: ``gh attestation verify tebunko_grep-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``"
-          gh release create $env:GITHUB_REF_NAME $zip $bundle "work\release\check\SHA256SUMS.txt" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
+          $repo = "https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_REF_NAME"
+          $notes = @(
+            "使い方: [README]($repo/README.md)"
+            ""
+            "安全性・脆弱性の連絡先: [SECURITY]($repo/.github/SECURITY.ja.md)"
+            ""
+            "配布 zip の SHA256: ``$hash``"
+            ""
+            "来歴の確認: ``gh attestation verify tebunko_grep-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``"
+            ""
+            "改ざんの確認（zip を展開したフォルダで、ダウンロードした tebunko.cat を指定する）: ``Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <tebunko.cat> -Detailed``"
+          ) -join "`n"
+          gh release create $env:GITHUB_REF_NAME $zip $bundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
