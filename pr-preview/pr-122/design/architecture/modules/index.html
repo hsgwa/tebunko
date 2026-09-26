@@ -2737,7 +2737,7 @@
 <tbody>
 <tr>
 <td><code>scripts/shared/core/</code></td>
-<td>パス定義（<code>paths.ps1</code>）・ファイルの読み書き（<code>fs.ps1</code>）・データの置き場所（<code>data_dir.ps1</code>）・TSV とセルの文字列（<code>text.ps1</code>）・フォルダのパスと一覧（<code>folder.ps1</code>）・スレッドのプール（<code>worker_pool.ps1</code>。<code>WorkerPool</code>・<code>BackgroundQueue</code>）</td>
+<td>パス定義（<code>paths.ps1</code>）・ファイルの読み書き（<code>fs.ps1</code>）・データの置き場所（<code>data_dir.ps1</code>）・TSV とセルの文字列（<code>text.ps1</code>）・フォルダのパスと一覧（<code>folder.ps1</code>）・スレッドのプール（<code>worker_pool.ps1</code>。<code>WorkerPool</code>・<code>BackgroundQueue</code>）・配布物の版の記録（<code>version.ps1</code>。<code>VERSION.txt</code> の読み取り）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/office/</code></td>
@@ -2765,7 +2765,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/</code></td>
-<td>タブごとの画面（<code>*_tab.ps1</code> ほか）と、その判断層（<code>*_view.ps1</code>）</td>
+<td>タブごとの画面（<code>*_tab.ps1</code> ほか）と、その判断層（<code>*_view.ps1</code>）。タブに属さないもの（タブ右上の［⋯］メニューと「tebunko について」ダイアログ：<code>about_dialog.ps1</code>・判断層の <code>about_view.ps1</code> の <code>getAboutView</code>）も置く</td>
 </tr>
 </tbody>
 </table>
@@ -2786,7 +2786,7 @@
 </tr>
 <tr>
 <td>状態層（ファイル・COM を読み書きする）</td>
-<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code></td>
+<td><code>indexer_state.ps1</code>・<code>index_store.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>・<code>search_run.ps1</code>・<code>system_index.ps1</code>・<code>fast_search.ps1</code>・<code>windows_search.ps1</code>・<code>version.ps1</code></td>
 <td>する（主にタグ <code>Io</code>。<code>$TestDrive</code> を使う）</td>
 </tr>
 <tr>
@@ -3131,8 +3131,8 @@
 <tr>
 <td><code>mergeAssignedIndexNames</code> / <code>saveAssignedIndexNames</code></td>
 <td>current, assigned / assigned, path</td>
-<td>一覧 / –</td>
-<td>割り当てたインデックス名（assigned）を、読み直した今の一覧（current）の名前が空の項目にだけ、パスで突き合わせて足す（同じ名前をほかの項目が使っていれば付けない）/ 排他の中で読み直して足し、保存する</td>
+<td>一覧 / 一覧</td>
+<td>割り当てたインデックス名（assigned）を、読み直した今の一覧（current）の名前が空の項目にだけ、パスで突き合わせて足す（同じ名前をほかの項目が使っていれば付けない）/ 排他の中で読み直して足して保存し、保存した一覧を返す</td>
 <td><a href="../settings-file/">設定ファイル（setting.config）</a></td>
 <td>インデクサ・画面（loadTargets）</td>
 </tr>
@@ -3159,6 +3159,14 @@
 <td>画面の検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）を読み書きする。無ければ空（すべて検索）</td>
 <td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
 <td>画面（検索対象のツリー）</td>
+</tr>
+<tr>
+<td><code>readVersionFile</code></td>
+<td>path（配布物の <code>VERSION.txt</code> のパス）</td>
+<td><code>@{Tag; Sha}</code> / <code>$null</code></td>
+<td>版とコミットの記録を読む。無い・読めない・2行でない・形が違えば <code>$null</code>（画面は「開発版」と表示する。<code>about_view.ps1</code> の <code>getAboutView</code>）</td>
+<td><a href="../../gui/#画面構成">画面構成</a></td>
+<td>画面</td>
 </tr>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
