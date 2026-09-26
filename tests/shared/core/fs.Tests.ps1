@@ -1,5 +1,7 @@
 ﻿# ファイルの読み書き（shared\core\fs.ps1）のテスト
-. "$PSScriptRoot\..\..\helpers\load.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+}
 
 Describe "toSafeFileName" -Tag Io {
     It "<name>" -TestCases @(
@@ -9,7 +11,7 @@ Describe "toSafeFileName" -Tag Io {
         @{ name = "使える文字はそのまま返す"; text = 'シート1 (2)'; expected = 'シート1 (2)' }
     ) {
         param($name, $text, $expected)
-        toSafeFileName $text | Should Be $expected
+        toSafeFileName $text | Should -Be $expected
     }
 }
 
@@ -19,14 +21,14 @@ Describe "toLongPath / fromLongPath" -Tag Io {
         @{ name = "ネットワークのパスは \\?\UNC\ にする"; short = "\\server\share\a.xlsx"; long = "\\?\UNC\server\share\a.xlsx" }
     ) {
         param($name, $short, $long)
-        toLongPath $short | Should Be $long
-        fromLongPath $long | Should Be $short
-        toLongPath $long | Should Be $long
-        fromLongPath $short | Should Be $short
+        toLongPath $short | Should -Be $long
+        fromLongPath $long | Should -Be $short
+        toLongPath $long | Should -Be $long
+        fromLongPath $short | Should -Be $short
     }
 
     It "/ は \ にする" {
-        toLongPath "C:/data/a.xlsx" | Should Be "\\?\C:\data\a.xlsx"
+        toLongPath "C:/data/a.xlsx" | Should -Be "\\?\C:\data\a.xlsx"
     }
 }
 
@@ -43,7 +45,7 @@ Describe "copyFileShared" -Tag Io {
         } finally {
             $editing.Dispose()
         }
-        [System.IO.File]::ReadAllText("$TestDrive\コピー.xlsx") | Should Be "abc"
+        [System.IO.File]::ReadAllText("$TestDrive\コピー.xlsx") | Should -Be "abc"
     }
 
     It "読み取り専用のファイルも、通常の属性のコピーを作り、既にあれば上書きする" {
@@ -54,8 +56,8 @@ Describe "copyFileShared" -Tag Io {
         [System.IO.File]::WriteAllText($dest, "old-content", [System.Text.Encoding]::ASCII)
         try {
             copyFileShared $source $dest
-            [System.IO.File]::ReadAllText($dest) | Should Be "new"
-            ([System.IO.File]::GetAttributes($dest) -band [System.IO.FileAttributes]::ReadOnly) | Should Be 0
+            [System.IO.File]::ReadAllText($dest) | Should -Be "new"
+            ([System.IO.File]::GetAttributes($dest) -band [System.IO.FileAttributes]::ReadOnly) | Should -Be 0
         } finally {
             [System.IO.File]::SetAttributes($source, [System.IO.FileAttributes]::Normal)
         }
@@ -68,7 +70,7 @@ Describe "copyFileShared" -Tag Io {
         [System.IO.File]::WriteAllText((toLongPath $source), "long", [System.Text.Encoding]::ASCII)
         try {
             copyFileShared $source "$TestDrive\long_copy.xlsx"
-            [System.IO.File]::ReadAllText("$TestDrive\long_copy.xlsx") | Should Be "long"
+            [System.IO.File]::ReadAllText("$TestDrive\long_copy.xlsx") | Should -Be "long"
         } finally {
             Remove-Item -LiteralPath (toLongPath "$TestDrive\copyLong") -Recurse -Force
         }
@@ -77,7 +79,9 @@ Describe "copyFileShared" -Tag Io {
 
 Describe "長いパス（260文字超）" -Tag Io {
     # フォルダのパスが約248文字、ファイルのパスが260文字を超えると、\\?\ を付けないと扱えない
-    $deepRel = ("a" * 100) + "\" + ("b" * 100)
+    BeforeAll {
+        $deepRel = ("a" * 100) + "\" + ("b" * 100)
+    }
 
     It "prettyTsv で長いパスに保存できる" {
         $dir = "$TestDrive\prettyLong\$deepRel"
@@ -86,9 +90,9 @@ Describe "長いパス（260文字超）" -Tag Io {
         [System.IO.File]::WriteAllText($in, "x`r`n", [System.Text.Encoding]::Unicode)
         try {
             $out = "$dir\book.xlsx_Sheet1.tsv"
-            $out.Length | Should BeGreaterThan 260
-            prettyTsv $in $out | Should Be $true
-            [System.IO.File]::ReadAllText((toLongPath $out)) | Should Be "x`r`n"
+            $out.Length | Should -BeGreaterThan 260
+            prettyTsv $in $out | Should -Be $true
+            [System.IO.File]::ReadAllText((toLongPath $out)) | Should -Be "x`r`n"
         } finally {
             Remove-Item -LiteralPath (toLongPath "$TestDrive\prettyLong") -Recurse -Force
         }
@@ -106,16 +110,16 @@ Describe "長いパス（260文字超）" -Tag Io {
                 [void](updateIndexFolderPack $folder)
             }
             $index = getIndexPackFiles @($root)
-            $index.Folders[0].Count | Should Be 2
+            $index.Folders[0].Count | Should -Be 2
             $rel = @($index.Packs | ForEach-Object { $_.RelPath } | Sort-Object)
-            $rel | Should Be @("$deepRel\content.xlsx.001.tsv", "content.xlsx.001.tsv")
+            $rel | Should -Be @("$deepRel\content.xlsx.001.tsv", "content.xlsx.001.tsv")
 
             $hits = @((searchPackIndex "hello" $index.Packs).Hits)
-            $hits.Count | Should Be 2
-            @($hits | Where-Object { $_.RelDir -eq $deepRel }).Count | Should Be 1
+            $hits.Count | Should -Be 2
+            @($hits | Where-Object { $_.RelDir -eq $deepRel }).Count | Should -Be 1
 
-            (getIndexSummary @($root)).Count | Should Be 2
-            testIndexExists @($root) | Should Be $true
+            (getIndexSummary @($root)).Count | Should -Be 2
+            testIndexExists @($root) | Should -Be $true
         } finally {
             Remove-Item -LiteralPath (toLongPath $root) -Recurse -Force
         }
@@ -127,13 +131,13 @@ Describe "readListFile / writeListFile" -Tag Io {
         $path = "$TestDrive\list[1].txt"
         writeListFile $path @("a\[確定]見積.xlsx", " b.xls")
         $lines = readListFile $path
-        $lines.Count | Should Be 2
-        $lines[0] | Should Be "a\[確定]見積.xlsx"
-        $lines[1] | Should Be " b.xls"
+        $lines.Count | Should -Be 2
+        $lines[0] | Should -Be "a\[確定]見積.xlsx"
+        $lines[1] | Should -Be " b.xls"
     }
 
     It "ファイルが無ければ空配列を返す" {
-        @(readListFile "$TestDrive\none_list.txt").Count | Should Be 0
+        @(readListFile "$TestDrive\none_list.txt").Count | Should -Be 0
     }
 
     It "ほかから共有せずに開かれていて読めなければ、空の一覧ではなく例外にする（`$ErrorActionPreference によらない）" {
@@ -143,7 +147,7 @@ Describe "readListFile / writeListFile" -Tag Io {
         try {
             & {
                 $ErrorActionPreference = "Continue"
-                { readListFile $path } | Should Throw
+                { readListFile $path } | Should -Throw
             }
         } finally {
             $stream.Dispose()
@@ -153,14 +157,14 @@ Describe "readListFile / writeListFile" -Tag Io {
     It "行を渡さなければ空のファイルを作る" {
         $path = "$TestDrive\空の一覧\list.txt"
         writeListFile $path $null
-        Test-Path -LiteralPath $path | Should Be $true
-        @(readListFile $path).Count | Should Be 0
+        Test-Path -LiteralPath $path | Should -Be $true
+        @(readListFile $path).Count | Should -Be 0
     }
 }
 
 Describe "formatFileTime" -Tag Io {
     It "秒までの日時にする" {
-        formatFileTime (New-Object DateTime 2025, 1, 2, 3, 4, 5, 678) | Should Be "2025/01/02 03:04:05"
+        formatFileTime (New-Object DateTime 2025, 1, 2, 3, 4, 5, 678) | Should -Be "2025/01/02 03:04:05"
     }
 }
 
@@ -170,11 +174,11 @@ Describe "removeDirectoryRetry" -Tag Io {
         [System.IO.Directory]::CreateDirectory("$dir\中") | Out-Null
         writeListFile "$dir\中\a.tsv" @("a")
         removeDirectoryRetry $dir
-        Test-Path -LiteralPath $dir | Should Be $false
+        Test-Path -LiteralPath $dir | Should -Be $false
     }
 
     It "フォルダが無ければ何もしない" {
-        { removeDirectoryRetry "$TestDrive\無いフォルダ" } | Should Not Throw
+        { removeDirectoryRetry "$TestDrive\無いフォルダ" } | Should -Not -Throw
     }
 
     It "中のファイルがほかから開かれていて消せなければ、決めた回数だけ試してから例外にする" {
@@ -183,12 +187,12 @@ Describe "removeDirectoryRetry" -Tag Io {
         writeListFile "$dir\a.tsv" @("a")
         $stream = [System.IO.File]::Open("$dir\a.tsv", "Open", "Read", "None")
         try {
-            { removeDirectoryRetry $dir 3 1 } | Should Throw
+            { removeDirectoryRetry $dir 3 1 } | Should -Throw
         } finally {
             $stream.Dispose()
         }
-        Assert-MockCalled Start-Sleep -Times 2 -Exactly -Scope It
-        Test-Path -LiteralPath "$dir\a.tsv" | Should Be $true
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+        Test-Path -LiteralPath "$dir\a.tsv" | Should -Be $true
     }
 }
 
@@ -196,16 +200,16 @@ Describe "writeTextLinesAtomic" -Tag Io {
     It "新しいファイルを作り、一時ファイルを残さない" {
         $path = "$TestDrive\atomic\新規.txt"
         writeTextLinesAtomic $path @("一", "二")
-        @(readListFile $path) -join "," | Should Be "一,二"
-        Test-Path -LiteralPath "${path}.tmp" | Should Be $false
+        @(readListFile $path) -join "," | Should -Be "一,二"
+        Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
     }
 
     It "既存のファイルを置き換える" {
         $path = "$TestDrive\atomic\置換.txt"
         writeTextLinesAtomic $path @("前")
         writeTextLinesAtomic $path @("後")
-        @(readListFile $path) -join "," | Should Be "後"
-        Test-Path -LiteralPath "${path}.tmp" | Should Be $false
+        @(readListFile $path) -join "," | Should -Be "後"
+        Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
     }
 
     It "置き換えられなければ 5 回まで試してから例外にし、元のファイルは壊さない" {
@@ -214,19 +218,19 @@ Describe "writeTextLinesAtomic" -Tag Io {
         writeTextLinesAtomic $path @("元の内容")
         $stream = [System.IO.File]::Open($path, "Open", "Read", "None")
         try {
-            { writeTextLinesAtomic $path @("新しい内容") } | Should Throw
+            { writeTextLinesAtomic $path @("新しい内容") } | Should -Throw
         } finally {
             $stream.Dispose()
         }
-        Assert-MockCalled Start-Sleep -Times 4 -Exactly -Scope It
-        @(readListFile $path) -join "," | Should Be "元の内容"
+        Should -Invoke Start-Sleep -Times 4 -Exactly -Scope It
+        @(readListFile $path) -join "," | Should -Be "元の内容"
     }
 }
 
 Describe "getFolderKey" -Tag Unit {
     It "SHA-256 の 16 進 64 文字を返す" {
         # "c:\tool" の SHA-256（小文字にしてから UTF-8 で計算する）
-        getFolderKey "C:\Tool" | Should Be "DA4B936E296325CC586C02ADB4518ABB2C4021761A7AFCE2D670263F384C89F5"
+        getFolderKey "C:\Tool" | Should -Be "DA4B936E296325CC586C02ADB4518ABB2C4021761A7AFCE2D670263F384C89F5"
     }
 }
 
@@ -234,10 +238,10 @@ Describe "newAppMutex" -Tag Io {
     It "同じ処理・同じフォルダでは2つ目を取得できない" {
         $first = newAppMutex "test" "$TestDrive\tool"
         try {
-            $first.Acquired | Should Be $true
+            $first.Acquired | Should -Be $true
             $second = newAppMutex "test" "$TestDrive\tool"
             try {
-                $second.Acquired | Should Be $false
+                $second.Acquired | Should -Be $false
             } finally {
                 $second.Mutex.Dispose()
             }
@@ -252,9 +256,9 @@ Describe "newAppMutex" -Tag Io {
         $indexer = newAppMutex "indexer" "$TestDrive\tool"
         $other = newAppMutex "indexer" "$TestDrive\tool2"
         try {
-            $gui.Acquired | Should Be $true
-            $indexer.Acquired | Should Be $true
-            $other.Acquired | Should Be $true
+            $gui.Acquired | Should -Be $true
+            $indexer.Acquired | Should -Be $true
+            $other.Acquired | Should -Be $true
         } finally {
             foreach ($m in @($gui, $indexer, $other)) {
                 $m.Mutex.ReleaseMutex()

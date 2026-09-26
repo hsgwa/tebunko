@@ -226,7 +226,7 @@ flowchart LR
 | 脆弱性の報告（非公開） | [SECURITY.md](.github/SECURITY.ja.md) |
 | 変更の提案 | [CONTRIBUTING.md](.github/CONTRIBUTING.ja.md) |
 
-テストは次のコマンドで実行できます（Pester 3.4）。Pull Request を出すと、CI がテスト・カバレッジ・静的解析・個人情報の有無を自動で確かめます。
+テストは次のコマンドで実行できます（Pester 5.9.0。入れ方は [CONTRIBUTING](.github/CONTRIBUTING.ja.md)）。Pull Request を出すと、CI がテスト・カバレッジ・静的解析・個人情報の有無を自動で確かめます。
 
 ```powershell
 .\tests\run.ps1

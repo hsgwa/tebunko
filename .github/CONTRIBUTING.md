@@ -64,7 +64,7 @@ The `commit-msg` hook stops commits without it. CI checks the commits of a pull 
 You need:
 
 - Windows and Windows PowerShell 5.1 (included with Windows)
-- Pester 3.4 (used to run the tests; the version included with Windows)
+- Pester 5.9.0 (used to run the tests). Windows includes Pester 3.4, which cannot run these tests. Install 5.9.0 once with `Install-Module Pester -RequiredVersion 5.9.0 -Scope CurrentUser -Force -SkipPublisherCheck` (`-SkipPublisherCheck` is needed because the publisher differs from the included 3.4)
 - Microsoft Excel, Word and PowerPoint (only to actually build indexes; the automated tests do not need them)
 
 After you clone the repository, turn on the pre-commit checks (once).

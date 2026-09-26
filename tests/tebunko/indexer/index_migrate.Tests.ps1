@@ -1,11 +1,13 @@
 ﻿# TSV のインデックスへの取り込みと、作業フォルダ・以前の形式の後始末（tebunko\indexer\index_migrate.ps1）のテスト。
 # 作業フォルダ（$tmpDir）・出力用のフォルダ（$publishDir）・インデックスのフォルダ（$indexDir）は indexer.ps1 が決めるため、
 # テストごとに TestDrive の下に差し替える。
-. "$PSScriptRoot\..\..\helpers\load.ps1"
-. "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+    . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
 
-# 存在しないプロセスID（Windows のプロセスIDは 4 の倍数のため、奇数は使われない）
-$deadPid = 999999999
+    # 存在しないプロセスID（Windows のプロセスIDは 4 の倍数のため、奇数は使われない）
+    $deadPid = 999999999
+}
 
 Describe "publishTsv" -Tag Io {
     It "作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移す" {
@@ -19,9 +21,9 @@ Describe "publishTsv" -Tag Io {
 
         publishTsv $bookDir
 
-        @(Get-ChildItem -LiteralPath $bookDir | ForEach-Object { $_.Name } | Sort-Object) | Should Be @("Sheet1.tsv", "Sheet2.tsv")
-        @(Get-ChildItem -LiteralPath $tmpDir).Count | Should Be 0
-        Test-Path -LiteralPath "$publishDir\見積.xlsx" | Should Be $false
+        @(Get-ChildItem -LiteralPath $bookDir | ForEach-Object { $_.Name } | Sort-Object) | Should -Be @("Sheet1.tsv", "Sheet2.tsv")
+        @(Get-ChildItem -LiteralPath $tmpDir).Count | Should -Be 0
+        Test-Path -LiteralPath "$publishDir\見積.xlsx" | Should -Be $false
     }
 
     It "ファイル名に [ ] があっても取り込み、TSV 以外のファイルは取り込まない" {
@@ -34,8 +36,8 @@ Describe "publishTsv" -Tag Io {
 
         publishTsv $bookDir
 
-        @(Get-ChildItem -LiteralPath $bookDir | ForEach-Object { $_.Name }) | Should Be @("[表]売上.tsv")
-        Test-Path -LiteralPath "$tmpDir\作業.txt" | Should Be $true
+        @(Get-ChildItem -LiteralPath $bookDir | ForEach-Object { $_.Name }) | Should -Be @("[表]売上.tsv")
+        Test-Path -LiteralPath "$tmpDir\作業.txt" | Should -Be $true
     }
 
     It "取り込んだ TSV が 0 件なら、前回のインデックスを空にする（文字の無いファイルになった）" {
@@ -48,8 +50,8 @@ Describe "publishTsv" -Tag Io {
 
         publishTsv $bookDir
 
-        Test-Path -LiteralPath $bookDir -PathType Container | Should Be $true
-        @(Get-ChildItem -LiteralPath $bookDir).Count | Should Be 0
+        Test-Path -LiteralPath $bookDir -PathType Container | Should -Be $true
+        @(Get-ChildItem -LiteralPath $bookDir).Count | Should -Be 0
     }
 
     It "260 文字を超えるパスのインデックスにも取り込む" {
@@ -59,9 +61,9 @@ Describe "publishTsv" -Tag Io {
         $bookDir = "$TestDrive\publish4\index\" + ("深いフォルダ" * 20) + "\" + ("もっと深いフォルダ" * 15) + "\見積.xlsx"
         newTsv "$tmpDir\Sheet1.tsv" @("a")
         try {
-            $bookDir.Length | Should BeGreaterThan 260
+            $bookDir.Length | Should -BeGreaterThan 260
             publishTsv $bookDir
-            [System.IO.File]::Exists((toLongPath "$bookDir\Sheet1.tsv")) | Should Be $true
+            [System.IO.File]::Exists((toLongPath "$bookDir\Sheet1.tsv")) | Should -Be $true
         } finally {
             # TestDrive の後片付けは長いパスを消せないため、ここで消す
             removeDirectoryRetry "$TestDrive\publish4"
@@ -77,8 +79,8 @@ Describe "clearTmpDir" -Tag Io {
 
         clearTmpDir
 
-        Test-Path -LiteralPath "$tmpDir\a.tsv" | Should Be $false
-        Test-Path -LiteralPath "$tmpDir\sub\b.tsv" | Should Be $true
+        Test-Path -LiteralPath "$tmpDir\a.tsv" | Should -Be $false
+        Test-Path -LiteralPath "$tmpDir\sub\b.tsv" | Should -Be $true
     }
 }
 
@@ -92,8 +94,8 @@ Describe "removeTmpDir" -Tag Io {
 
         removeTmpDir
 
-        Test-Path -LiteralPath $tmpDir | Should Be $false
-        Test-Path -LiteralPath $publishDir | Should Be $false
+        Test-Path -LiteralPath $tmpDir | Should -Be $false
+        Test-Path -LiteralPath $publishDir | Should -Be $false
     }
 
     It "削除できなくても止まらず、次のフォルダも削除する" {
@@ -105,12 +107,12 @@ Describe "removeTmpDir" -Tag Io {
         # 1 つ目（作業フォルダ）の中のファイルをほかから開いておき、削除に失敗させる
         $stream = [System.IO.File]::Open("$tmpDir\使用中.tsv", "Open", "Read", "None")
         try {
-            { removeTmpDir } | Should Not Throw
-            Test-Path -LiteralPath "$tmpDir\使用中.tsv" | Should Be $true
+            { removeTmpDir } | Should -Not -Throw
+            Test-Path -LiteralPath "$tmpDir\使用中.tsv" | Should -Be $true
         } finally {
             $stream.Dispose()
         }
-        Test-Path -LiteralPath $publishDir | Should Be $false
+        Test-Path -LiteralPath $publishDir | Should -Be $false
     }
 }
 
@@ -124,11 +126,11 @@ Describe "removeStaleProcessDirs" -Tag Io {
 
         removeStaleProcessDirs $parent
 
-        Test-Path -LiteralPath "$parent\$deadPid" | Should Be $false
-        Test-Path -LiteralPath "$parent\4" | Should Be $true  # System プロセス（実行中）
-        Test-Path -LiteralPath "$parent\$PID" | Should Be $true
-        Test-Path -LiteralPath "$parent\abc" | Should Be $true
-        Test-Path -LiteralPath "$parent\1234567890" | Should Be $true  # 10 桁はプロセスIDとみなさない
+        Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $false
+        Test-Path -LiteralPath "$parent\4" | Should -Be $true  # System プロセス（実行中）
+        Test-Path -LiteralPath "$parent\$PID" | Should -Be $true
+        Test-Path -LiteralPath "$parent\abc" | Should -Be $true
+        Test-Path -LiteralPath "$parent\1234567890" | Should -Be $true  # 10 桁はプロセスIDとみなさない
     }
 
     It "削除できないフォルダは次回に回す" {
@@ -136,8 +138,8 @@ Describe "removeStaleProcessDirs" -Tag Io {
         [System.IO.Directory]::CreateDirectory("$parent\$deadPid") | Out-Null
         Mock Remove-Item { throw "使用中" }
 
-        { removeStaleProcessDirs $parent } | Should Not Throw
-        Test-Path -LiteralPath "$parent\$deadPid" | Should Be $true
+        { removeStaleProcessDirs $parent } | Should -Not -Throw
+        Test-Path -LiteralPath "$parent\$deadPid" | Should -Be $true
     }
 }
 
@@ -151,24 +153,26 @@ Describe "removeStaleTmpDirs" -Tag Io {
 
         removeStaleTmpDirs
 
-        Test-Path -LiteralPath "$TestDrive\stale_both\temp\$deadPid" | Should Be $false
-        Test-Path -LiteralPath "$TestDrive\stale_both\出力\$deadPid" | Should Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_both\temp\$deadPid" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_both\出力\$deadPid" | Should -Be $false
     }
 }
 
 Describe "moveLegacyIndex" -Tag Io {
-    function newStatus([object[]]$folders, [string[]]$relPaths) {
-        $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($relPath in $relPaths) {
-            $rows[$relPath] = newStatusRow $relPath
+    BeforeAll {
+        function newStatus([object[]]$folders, [string[]]$relPaths) {
+            $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($relPath in $relPaths) {
+                $rows[$relPath] = newStatusRow $relPath
+            }
+            return @{ Folders = $folders; Rows = $rows }
         }
-        return @{ Folders = $folders; Rows = $rows }
-    }
 
-    $folders = @(
-        [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" },
-        [pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }
-    )
+        $folders = @(
+            [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" },
+            [pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }
+        )
+    }
 
     It "取り込み一覧のインデックス名の無いフォルダのインデックスを、そのインデックス名の下へ移し、相対パスも付け替える" {
         $indexDir = "$TestDrive\legacy1\index"
@@ -179,12 +183,12 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $true
 
-        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should Be $true
-        Test-Path -LiteralPath "$indexDir\技術\sub\報告.docx\ページ001.tsv" | Should Be $true
-        Test-Path -LiteralPath "$indexDir\見積.xlsx" | Should Be $false
-        Test-Path -LiteralPath "${indexDir}_移行中" | Should Be $false
-        @($rows.Keys | Sort-Object) | Should Be @("技術\sub\報告.docx", "技術\見積.xlsx")
-        $rows["技術\見積.xlsx"].相対パス | Should Be "技術\見積.xlsx"
+        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\技術\sub\報告.docx\ページ001.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\見積.xlsx" | Should -Be $false
+        Test-Path -LiteralPath "${indexDir}_移行中" | Should -Be $false
+        @($rows.Keys | Sort-Object) | Should -Be @("技術\sub\報告.docx", "技術\見積.xlsx")
+        $rows["技術\見積.xlsx"].相対パス | Should -Be "技術\見積.xlsx"
     }
 
     It "取り込み一覧のフォルダの書き方（大文字・小文字・末尾の \）が違っても、同じフォルダとして移す" {
@@ -195,8 +199,8 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $true
 
-        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should Be $true
-        @($rows.Keys) | Should Be @("技術\見積.xlsx")
+        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        @($rows.Keys) | Should -Be @("技術\見積.xlsx")
     }
 
     It "以前の形式のインデックスに、インデックス名と同じ名前のフォルダがあっても移せる" {
@@ -207,8 +211,8 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $true
 
-        Test-Path -LiteralPath "$indexDir\技術\技術\仕様.docx\ページ001.tsv" | Should Be $true
-        @($rows.Keys) | Should Be @("技術\技術\仕様.docx")
+        Test-Path -LiteralPath "$indexDir\技術\技術\仕様.docx\ページ001.tsv" | Should -Be $true
+        @($rows.Keys) | Should -Be @("技術\技術\仕様.docx")
     }
 
     It "前回の移行が途中で止まり _移行中 が残っていれば、その続きから移す（取り込み一覧あり）" {
@@ -221,9 +225,9 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $true
 
-        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should Be $true
-        Test-Path -LiteralPath "${indexDir}_移行中" | Should Be $false
-        @($rows.Keys) | Should Be @("技術\見積.xlsx")
+        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "${indexDir}_移行中" | Should -Be $false
+        @($rows.Keys) | Should -Be @("技術\見積.xlsx")
     }
 
     It "前回の移行が途中で止まり _移行中 が残っていれば、その続きから移す（取り込み一覧なし）" {
@@ -235,9 +239,9 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $false
 
-        $rows.Count | Should Be 0
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx_Sheet1.tsv" | Should Be $true
-        Test-Path -LiteralPath "${indexDir}_移行中" | Should Be $false
+        $rows.Count | Should -Be 0
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx_Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "${indexDir}_移行中" | Should -Be $false
     }
 
     It "取り込み一覧が無く、クロール対象フォルダも無ければ、直下に何があっても移さない" {
@@ -248,8 +252,8 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex @() $status $false
 
-        $rows.Count | Should Be 0
-        Test-Path -LiteralPath "$indexDir\見積.xlsx_Sheet1.tsv" | Should Be $true
+        $rows.Count | Should -Be 0
+        Test-Path -LiteralPath "$indexDir\見積.xlsx_Sheet1.tsv" | Should -Be $true
     }
 
     It "以前の形式のフォルダがクロール対象から外れていれば、移さずに知らせ、前回の行は使わない" {
@@ -260,8 +264,8 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $true
 
-        $rows.Count | Should Be 0
-        Test-Path -LiteralPath "$indexDir\見積.xlsx\Sheet1.tsv" | Should Be $true
+        $rows.Count | Should -Be 0
+        Test-Path -LiteralPath "$indexDir\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }
 
     It "取り込み一覧が無く、work\index 直下にインデックス名以外のものがあれば、1件目のフォルダのインデックスとみなす" {
@@ -272,8 +276,8 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $false
 
-        $rows.Count | Should Be 0
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx_Sheet1.tsv" | Should Be $true
+        $rows.Count | Should -Be 0
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx_Sheet1.tsv" | Should -Be $true
     }
 
     It "取り込み一覧が無くても、直下がインデックス名のフォルダと 元のフォルダ.txt だけなら移さない" {
@@ -285,8 +289,8 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $false
 
-        @($rows.Keys) | Should Be @("営業\見積.xlsx")
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should Be $true
+        @($rows.Keys) | Should -Be @("営業\見積.xlsx")
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }
 
     It "取り込み一覧があり、以前の形式のフォルダが無ければ、前回の行をそのまま返す" {
@@ -297,8 +301,8 @@ Describe "moveLegacyIndex" -Tag Io {
 
         $rows = moveLegacyIndex $folders $status $true
 
-        $rows.Count | Should Be 2
-        Test-Path -LiteralPath "$indexDir\ばらばら.tsv" | Should Be $true
+        $rows.Count | Should -Be 2
+        Test-Path -LiteralPath "$indexDir\ばらばら.tsv" | Should -Be $true
     }
 }
 
@@ -318,8 +322,8 @@ Describe "removeDroppedFolders" -Tag Io {
 
         removeDroppedFolders $folders $previous
 
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should Be $true
-        Test-Path -LiteralPath "$indexDir\技術" | Should Be $false
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
     }
 
     It "インデックス名に [ ] があり、中に 260 文字を超えるパスがあっても削除する" {
@@ -334,8 +338,8 @@ Describe "removeDroppedFolders" -Tag Io {
             [pscustomobject]@{ Path = "C:\data\営業2"; Name = "[旧]営業2" }
         )
 
-        [System.IO.Directory]::Exists((toLongPath "$indexDir\[旧]営業")) | Should Be $false
-        Test-Path -LiteralPath "$indexDir\[旧]営業2\見積.xlsx\Sheet1.tsv" | Should Be $true
+        [System.IO.Directory]::Exists((toLongPath "$indexDir\[旧]営業")) | Should -Be $false
+        Test-Path -LiteralPath "$indexDir\[旧]営業2\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }
 
     It "前回のクロール対象フォルダが無ければ何も削除しない" {
@@ -345,7 +349,7 @@ Describe "removeDroppedFolders" -Tag Io {
 
         removeDroppedFolders @() $null
 
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should Be $true
+        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }
 
     It "インデックス名の大文字・小文字だけが違うフォルダは、同じフォルダとして残す" {
@@ -355,7 +359,7 @@ Describe "removeDroppedFolders" -Tag Io {
 
         removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\sales"; Name = "sales" }) @([pscustomobject]@{ Path = "C:\data\Sales"; Name = "Sales" })
 
-        Test-Path -LiteralPath "$indexDir\Sales\見積.xlsx\Sheet1.tsv" | Should Be $true
+        Test-Path -LiteralPath "$indexDir\Sales\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }
 }
 
@@ -371,11 +375,11 @@ Describe "migrateFlatIndex" -Tag Io {
 
         migrateFlatIndex
 
-        Test-Path -LiteralPath "$indexDir\営業\A社.xlsx_Sheet1.tsv" | Should Be $false
-        (Get-Content -LiteralPath "$indexDir\営業\A社.xlsx\Sheet1.tsv" -Encoding UTF8) | Should Be "new"
-        Test-Path -LiteralPath "$indexDir\営業\sub\報告.docx\ページ001.tsv" | Should Be $true
-        Test-Path -LiteralPath "$indexDir\営業\B社.xlsx\Sheet1.tsv" | Should Be $true
-        Test-Path -LiteralPath "$indexDir\営業\memo_1.tsv" | Should Be $true
+        Test-Path -LiteralPath "$indexDir\営業\A社.xlsx_Sheet1.tsv" | Should -Be $false
+        (Get-Content -LiteralPath "$indexDir\営業\A社.xlsx\Sheet1.tsv" -Encoding UTF8) | Should -Be "new"
+        Test-Path -LiteralPath "$indexDir\営業\sub\報告.docx\ページ001.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\営業\B社.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\営業\memo_1.tsv" | Should -Be $true
     }
 
     It "ファイル名に [ ] ・ _ があるもの、符号化した場所のものも、元のファイル名と場所に分けて移す" {
@@ -387,10 +391,10 @@ Describe "migrateFlatIndex" -Tag Io {
 
         migrateFlatIndex
 
-        Test-Path -LiteralPath "$indexDir\[確定]見積.xlsx\Sheet1.tsv" | Should Be $true
-        Test-Path -LiteralPath "$indexDir\A_B社.xlsx\Sheet1.tsv" | Should Be $true
-        Test-Path -LiteralPath "$indexDir\資料.pptx\$(toIndexFileName "スライド003_ノート")" | Should Be $true
-        @(Get-ChildItem -LiteralPath $indexDir -File).Count | Should Be 0
+        Test-Path -LiteralPath "$indexDir\[確定]見積.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\A_B社.xlsx\Sheet1.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$indexDir\資料.pptx\$(toIndexFileName "スライド003_ノート")" | Should -Be $true
+        @(Get-ChildItem -LiteralPath $indexDir -File).Count | Should -Be 0
     }
 
     It "260 文字を超えるパスにある以前の形式のTSVも移す" {
@@ -400,8 +404,8 @@ Describe "migrateFlatIndex" -Tag Io {
         newTsv (toLongPath "$deep\見積.xlsx_Sheet1.tsv") @("a")
         try {
             migrateFlatIndex
-            [System.IO.File]::Exists((toLongPath "$deep\見積.xlsx\Sheet1.tsv")) | Should Be $true
-            [System.IO.File]::Exists((toLongPath "$deep\見積.xlsx_Sheet1.tsv")) | Should Be $false
+            [System.IO.File]::Exists((toLongPath "$deep\見積.xlsx\Sheet1.tsv")) | Should -Be $true
+            [System.IO.File]::Exists((toLongPath "$deep\見積.xlsx_Sheet1.tsv")) | Should -Be $false
         } finally {
             # TestDrive の後片付けは長いパスを消せないため、ここで消す
             removeDirectoryRetry "$TestDrive\flat3"
@@ -415,13 +419,13 @@ Describe "migrateFlatIndex" -Tag Io {
         # 移し先のフォルダと同じ名前のファイルがあると、フォルダを作れない
         [System.IO.File]::WriteAllText("$indexDir\C社.xlsx", "")
 
-        { migrateFlatIndex } | Should Not Throw
-        Test-Path -LiteralPath "$indexDir\C社.xlsx_Sheet1.tsv" | Should Be $true
+        { migrateFlatIndex } | Should -Not -Throw
+        Test-Path -LiteralPath "$indexDir\C社.xlsx_Sheet1.tsv" | Should -Be $true
     }
 
     It "インデックスのフォルダが無くても止まらない" {
         $indexDir = "$TestDrive\flat_none\index"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        { migrateFlatIndex } | Should Not Throw
+        { migrateFlatIndex } | Should -Not -Throw
     }
 }

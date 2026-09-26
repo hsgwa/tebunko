@@ -1,7 +1,7 @@
 ﻿# テストの自動実行（GitHub Actions）
 #
-# Windows PowerShell 5.1 は windows ランナーに最初から入っている。ランナーには Pester 5 も入っているが、テストは 3.4 の書き方のため
-# 3 系を使う（無ければ入れる。tests\run.ps1 が 3 系を明示して読み込む）。
+# Windows PowerShell 5.1 は windows ランナーに最初から入っている。テストは Pester 5.9.0 で書く（tests\run.ps1 が版を指定して読み込む。
+# ランナーに無ければ入れる）。
 # ランナーに Office は入っていないため、Office が要るテスト（タグ Office）は tests\run.ps1 が既定で外す。
 # release.yml からも呼ばれる（workflow_call）。タグの push では release.yml の中で実行するため、ここでは動かさない。
 # 作業ブランチは PR（pull_request）で確かめる。push でも動かすと、PR のブランチでは同じテストが 2 回走るため、push は main だけにする。
@@ -45,11 +45,14 @@ jobs:
         shell: powershell
         run: .\tools\check_signoff.ps1 -Range "HEAD^1..HEAD^2"
 
-      - name: Pester 3.4 の用意
+      - name: Pester の用意
         shell: powershell
+        # 版は tests\run.ps1 の Import-Module と同じにする。Windows に最初から入っている 3.4 とは発行元が違うため -SkipPublisherCheck が要る
+        env:
+          PESTER_VERSION: 5.9.0
         run: |
-          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version.Major -eq 3 })) {
-            Install-Module Pester -RequiredVersion 3.4.0 -Force -Scope CurrentUser -SkipPublisherCheck
+          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
           }
           Get-Module Pester -ListAvailable | Format-Table Name, Version, ModuleBase -AutoSize | Out-String | Write-Host
 

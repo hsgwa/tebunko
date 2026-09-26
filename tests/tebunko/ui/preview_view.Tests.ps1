@@ -1,6 +1,8 @@
 ﻿# プレビューの判断（tebunko\ui\preview_view.ps1）のテスト。
-. "$PSScriptRoot\..\..\helpers\load.ps1"
-. "${scriptsDir}\tebunko\ui\preview_view.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
+    . "${scriptsDir}\tebunko\ui\preview_view.ps1"
+}
 
 Describe "getPreviewRowCounts" -Tag Unit {
     It "<name>" -TestCases @(
@@ -11,8 +13,8 @@ Describe "getPreviewRowCounts" -Tag Unit {
     ) {
         param ($name, $height, $before, $after)
         $counts = getPreviewRowCounts $height 22 101
-        $counts[0] | Should Be $before
-        $counts[1] | Should Be $after
+        $counts[0] | Should -Be $before
+        $counts[1] | Should -Be $after
     }
 }
 
@@ -24,6 +26,6 @@ Describe "toStatusText" -Tag Unit {
         @{ name = "ちょうど 40 文字なら省略しない"; text = ("あ" * 40); expected = ("あ" * 40) }
     ) {
         param ($name, $text, $expected)
-        toStatusText $text | Should Be $expected
+        toStatusText $text | Should -Be $expected
     }
 }
