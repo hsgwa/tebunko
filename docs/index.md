@@ -19,4 +19,4 @@ tebunko は、フォルダにたまった Excel・Word・PowerPoint を、ファ
 |---|---|
 | 使う方 | [使い方](guide/index.md) |
 | 導入を審査する方 | [安全性](safety/index.md) |
-| 開発に加わる方・仕組みを知りたい方 | [設計・開発](design/index.md) |
+| 開発に加わる方・仕組みを知りたい方 | [開発者向け](design/index.md) |
