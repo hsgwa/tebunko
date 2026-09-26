@@ -100,7 +100,7 @@ begin
       'tebunko を削除しました。' + #13#10#13#10 +
       'インデックス・取り込み一覧・ログ（ワークスペース）は削除していません。' +
       '文書の文字がそのまま入っているため、不要なら次のフォルダを削除してください。' + #13#10#13#10 +
-      '・ワークスペース（既定は ' + ExpandConstant('{%USERPROFILE}') + '\Documents\tebunko。［8 設定］で変えた場合はそのフォルダ）' + #13#10 +
+      '・ワークスペース（既定は ' + ExpandConstant('{%USERPROFILE}') + '\Documents\tebunko_ws。［8 設定］で変えた場合はそのフォルダ）' + #13#10 +
       '・' + ExpandConstant('{localappdata}') + '\tebunko（Program Files に入れた場合の設定など）',
       mbInformation, MB_OK, IDOK);
 end;
