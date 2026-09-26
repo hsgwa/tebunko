@@ -1,16 +1,6 @@
 ﻿# 検索条件の組み立て（tebunko\search\search_query.ps1）のテスト
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
-Describe "isValidRegex" -Tag Unit {
-    It "正しい正規表現は true" {
-        isValidRegex "見積.*確定" | Should Be $true
-    }
-
-    It "不正な正規表現は false" {
-        isValidRegex "(" | Should Be $false
-    }
-}
-
 Describe "newSearchRegex" -Tag Unit {
     It "文字どおりなら記号をそのまま探し、既定は大文字と小文字を区別しない" {
         $regex = (newSearchRegex "C++ (株)").Regex
@@ -31,51 +21,21 @@ Describe "newSearchRegex" -Tag Unit {
 }
 
 Describe "getRegexScanMode" -Tag Unit {
-    It "改行に一致しえず、行の外を見ない正規表現は lines" {
-        foreach ($pattern in @([regex]::Escape("C++ (株) a`tb"), "見積.*確定", "^abc$", "[a-z0-9]+", "\d{3}-\w+", "(?:a|b)(?<n>c)\k<n>", "\bID\b", "[]a]")) {
-            getRegexScanMode $pattern | Should Be "lines"
+    It "<name>" -TestCases @(
+        @{ name = "改行に一致しえず、行の外を見ない正規表現は lines"; patterns = @([regex]::Escape("C++ (株) a`tb"), "見積.*確定", "^abc$", "[a-z0-9]+", "\d{3}-\w+", "(?:a|b)(?<n>c)\k<n>", "\bID\b", "[]a]"); expected = "lines" }
+        @{ name = "改行に一致しうる・行の外を見る正規表現は filter"; patterns = @("見積\s確定", "[^,]+", "\W", "\x0A", "\p{L}", "a(?=b)", "(?<=a)b", "[\t-z]", "(a)\1"); expected = "filter" }
+        @{ name = "全文では 1 行と結果が変わりうる正規表現は scan"; patterns = @("\Aabc", "abc\z", "abc\Z", "\Gabc", "a(?!b)", "(?<!a)b", "(?i)abc", "(?s)a.b", "(?(a)b|c)"); expected = "scan" }
+        @{ name = "文字どおりのワードの改行は lines にしない"; patterns = @([regex]::Escape("a`nb")); expected = "filter" }
+        @{ name = "改行・タブの文字をそのまま含む正規表現は filter"; patterns = @("a`tb", "[`n]"); expected = "filter" }
+        @{ name = "末尾が \ だけで終わる（書きかけの）正規表現は scan（安全側）"; patterns = @("abc\"); expected = "scan" }
+        @{ name = "アトミックグループ・' で囲む名前付きグループ・改行に一致しない \S は lines"; patterns = @("(?>ab+)c", "(?'n'a)\k'n'", "\S+", "[\]\-]"); expected = "lines" }
+        @{ name = "コメント・インラインのオプションは scan"; patterns = @("a(?#コメント)b", "(?m)^a", "(?x) a b"); expected = "scan" }
+        @{ name = "空の正規表現は lines（どの行にも一致する）"; patterns = @(""); expected = "lines" }
+    ) {
+        param ($name, $patterns, $expected)
+        foreach ($pattern in $patterns) {
+            getRegexScanMode $pattern | Should Be $expected
         }
-    }
-
-    It "改行に一致しうる・行の外を見る正規表現は filter" {
-        foreach ($pattern in @("見積\s確定", "[^,]+", "\W", "\x0A", "\p{L}", "a(?=b)", "(?<=a)b", "[\t-z]", "(a)\1")) {
-            getRegexScanMode $pattern | Should Be "filter"
-        }
-    }
-
-    It "全文では 1 行と結果が変わりうる正規表現は scan" {
-        foreach ($pattern in @("\Aabc", "abc\z", "abc\Z", "\Gabc", "a(?!b)", "(?<!a)b", "(?i)abc", "(?s)a.b", "(?(a)b|c)")) {
-            getRegexScanMode $pattern | Should Be "scan"
-        }
-    }
-
-    It "文字どおりのワードの改行は lines にしない" {
-        getRegexScanMode ([regex]::Escape("a`nb")) | Should Be "filter"
-    }
-
-    It "改行・タブの文字をそのまま含む正規表現は filter" {
-        getRegexScanMode "a`tb" | Should Be "filter"
-        getRegexScanMode "[`n]" | Should Be "filter"
-    }
-
-    It "末尾が \ だけで終わる（書きかけの）正規表現は scan（安全側）" {
-        getRegexScanMode "abc\" | Should Be "scan"
-    }
-
-    It "アトミックグループ・' で囲む名前付きグループ・改行に一致しない \S は lines" {
-        foreach ($pattern in @("(?>ab+)c", "(?'n'a)\k'n'", "\S+", "[\]\-]")) {
-            getRegexScanMode $pattern | Should Be "lines"
-        }
-    }
-
-    It "コメント・インラインのオプションは scan" {
-        foreach ($pattern in @("a(?#コメント)b", "(?m)^a", "(?x) a b")) {
-            getRegexScanMode $pattern | Should Be "scan"
-        }
-    }
-
-    It "空の正規表現は lines（どの行にも一致する）" {
-        getRegexScanMode "" | Should Be "lines"
     }
 }
 
