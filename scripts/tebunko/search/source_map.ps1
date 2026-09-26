@@ -12,29 +12,12 @@ function writeSourceFolderFile {
 
     $header = "# 検索結果から元のファイルを開くときに使う、インデックス名とクロール対象フォルダの対応です（インデックス作成のたびに作り直します）"
     $items = @($folders | Where-Object { $_ -and $_.Name })
-
-    # 以前の版は、インデックスのフォルダ直下にも全インデックス分の 元のフォルダ.txt を書いていた。
-    # そこにしか記録の無いインデックス（クロール対象フォルダから外したものなど）の分を各フォルダへ移してから、直下のファイルを消す
-    $rootPath = Join-Path $dir ${sourceFolderFileName}
-    $names = @($items | ForEach-Object { $_.Name })
-    foreach ($line in @(readListFile $rootPath)) {
-        $fields = $line.Split("`t")
-        if ($fields.Count -eq 2 -and $fields[0] -ne "" -and $fields[1] -ne "" -and $names -notcontains $fields[0]) {
-            $items += [pscustomobject]@{ Name = $fields[0]; Path = $fields[1] }
-            $names += $fields[0]
-        }
-    }
-
     foreach ($folder in $items) {
         # インデックスのフォルダがまだ無い（1件も取り込んでいない）場合は作らない
         $indexPath = Join-Path $dir $folder.Name
         if (Test-Path -LiteralPath (toLongPath $indexPath) -PathType Container) {
             writeListFile (Join-Path $indexPath ${sourceFolderFileName}) @($header, "$($folder.Name)`t$($folder.Path)")
         }
-    }
-
-    if (Test-Path -LiteralPath $rootPath) {
-        Remove-Item -LiteralPath $rootPath -Force
     }
 }
 

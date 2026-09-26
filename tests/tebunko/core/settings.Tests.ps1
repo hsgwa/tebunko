@@ -104,24 +104,6 @@ Describe "readSettings / writeSettings" -Tag Io {
         [System.IO.File]::WriteAllText($path, "{ targetFolders: ", ${utf8Bom})
         { readSettings $path } | Should -Throw -ExpectedMessage "*読み込めません*"
     }
-
-    It "設定ファイルが無く config フォルダに以前の設定ファイル（*.txt）があれば、移して保存する" {
-        $dir = "$TestDrive\以前"
-        writeListFile "$dir\config\変換対象フォルダパス.txt" @("C:\データ\Excel\", "", "# D:\old\報告書")
-        writeListFile "$dir\config\検索オプション.txt" @("正規表現=オン")
-        $settings = readSettings "$dir\setting.config"
-        Test-Path -LiteralPath "$dir\setting.config" | Should -Be $true
-        $folders = @(getTargetFolders "$dir\setting.config")
-        $folders.Count | Should -Be 2
-        $folders[0].Path | Should -Be "C:\データ\Excel"
-        $folders[0].Enabled | Should -Be $true
-        $folders[1].Path | Should -Be "D:\old\報告書"
-        $folders[1].Enabled | Should -Be $false
-        (readSearchOption "$dir\setting.config").UseRegex | Should -Be $true
-        # 移した後は以前の設定ファイルを使わない
-        writeListFile "$dir\config\検索オプション.txt" @("正規表現=オフ")
-        (readSearchOption "$dir\setting.config").UseRegex | Should -Be $true
-    }
 }
 
 Describe "getTargetFolders / writeTargetFolders" -Tag Io {

@@ -280,7 +280,7 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         (getIndexTsvCounts $dir)["営業\2024\a社.XLSX"] | Should -Be 2
     }
 
-    It "インデックスのフォルダの直下のTSV（以前の形式）は数えない" {
+    It "インデックスのフォルダの直下のTSVは数えない" {
         $dir = "$TestDrive\index4"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
         writeListFile "$dir\ブック.xlsx_シート.tsv" @("a")

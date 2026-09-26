@@ -132,7 +132,7 @@ Describe "scrub_personal.ps1" -Tag Io {
     }
 
     It "テキスト（設定例）は長さを変えて置き換え、文字コード（Shift_JIS）を壊さない" {
-        $txt = Join-Path $dir "変換対象フォルダパス_ShiftJIS.txt"
+        $txt = Join-Path $dir "パス_ShiftJIS.txt"
         [System.IO.File]::WriteAllBytes($txt, $cp932.GetBytes("C:\Users\$titleName\テスト\ファイル名`r`n"))
         runScrub @($name)
 

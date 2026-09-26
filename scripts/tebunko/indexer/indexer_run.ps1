@@ -282,13 +282,6 @@ function invokeIndexer {
                 throw "ほかのインデックス作成が実行中です。インデックス作成が終わってから実行してください。"
             }
             [System.IO.Directory]::CreateDirectory($workspace.Dir) | Out-Null
-            # 以前の版が画面とのやり取りに使っていたファイルが残っていれば消す
-            foreach ($name in @("インデックス作成中止要求", "インデックス作成エラー.txt", "取り込み予定.tsv", "インデックス作成開始要求", "インデックス作成進捗.txt")) {
-                $oldFile = Join-Path $workspace.Dir $name
-                if (Test-Path -LiteralPath $oldFile) {
-                    Remove-Item -LiteralPath $oldFile -Force
-                }
-            }
             $writer = New-Object System.IO.StreamWriter($workspace.IndexingLogFile, $false, ${utf8Bom})
             $writer.AutoFlush = $true
             $script:indexerLog = $writer
@@ -351,21 +344,11 @@ function invokeIndexerBody {
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
-    # 以前の版の途中状態ファイル（取り込み一覧.tsv に置き換えた）は使わないため削除する
-    foreach ($name in @("変換対象一覧.txt", "変換失敗一覧.txt")) {
-        $oldFile = Join-Path $workspace.Dir $name
-        if (Test-Path -LiteralPath $oldFile) {
-            Remove-Item -LiteralPath $oldFile -Force
-        }
-    }
-
     # クロール対象フォルダごとにインデックス名（work\index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
-    $statusExists = Test-Path -LiteralPath $workspace.StatusFile
     $status = readStatusFile
     $folders = @(assignIndexNames $targetFolders $status.Folders)
-    $previous = moveLegacyIndex $folders $status $statusExists
+    $previous = $status.Rows
     removeDroppedFolders $folders $status.Folders
-    migrateFlatIndex
     # 前回のインデックス作成が途中で止まり、集約ファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
     $leftover = findIndexFoldersWithBooks $workspace.IndexDir
     if ($leftover.Count -gt 0) {
@@ -437,7 +420,7 @@ function invokeIndexerBody {
         if ($null -eq $answer) {
             # 取りやめ。1件も取り込んでいないため、取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
             # 「未取り込み」で記録すると、次回［インデックス作成を開始］が［続きから再開］になり、中断したように見えるため。
-            # 取り込み一覧自体は書き直す（以前の形式からの移行・無くなったファイルの削除を反映する必要があるため）
+            # 取り込み一覧自体は書き直す（無くなったファイルの削除を反映する必要があるため）
             $targetPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($row in $targets) {
                 [void]$targetPaths.Add($row.相対パス)

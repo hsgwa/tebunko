@@ -30,7 +30,6 @@ ${planKindMissing}   = "フォルダなし"  # 元のフォルダが見つから
 
 # 取り込み一覧の列と状態
 ${statusColumns}   = @("相対パス", "更新日時", "サイズ", "状態", "TSV数", "取り込み日時", "エラー", "抽出版")
-${legacyStatusColumnCount} = 7  # 抽出版の列が無い以前の形式の列数
 ${statusFolderKey} = "クロール対象フォルダ"
 ${stateNew}    = "未取り込み"
 ${stateDone}   = "済"

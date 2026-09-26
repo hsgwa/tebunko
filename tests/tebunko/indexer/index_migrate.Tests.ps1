@@ -1,4 +1,4 @@
-﻿# TSV のインデックスへの取り込みと、作業フォルダ・以前の形式の後始末（tebunko\indexer\index_migrate.ps1）のテスト。
+﻿# TSV のインデックスへの取り込みと、作業フォルダ・外したフォルダのインデックスの後始末（tebunko\indexer\index_migrate.ps1）のテスト。
 # 作業フォルダ（$tmpDir）・出力用のフォルダ（$publishDir）・インデックスのフォルダ（$indexDir）は indexer.ps1 が決めるため、
 # テストごとに TestDrive の下に差し替える。
 BeforeAll {
@@ -158,154 +158,6 @@ Describe "removeStaleTmpDirs" -Tag Io {
     }
 }
 
-Describe "moveLegacyIndex" -Tag Io {
-    BeforeAll {
-        function newStatus([object[]]$folders, [string[]]$relPaths) {
-            $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-            foreach ($relPath in $relPaths) {
-                $rows[$relPath] = newStatusRow $relPath
-            }
-            return @{ Folders = $folders; Rows = $rows }
-        }
-
-        $folders = @(
-            [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" },
-            [pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }
-        )
-    }
-
-    It "取り込み一覧のインデックス名の無いフォルダのインデックスを、そのインデックス名の下へ移し、相対パスも付け替える" {
-        $indexDir = "$TestDrive\legacy1\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\見積.xlsx\Sheet1.tsv" @("a")
-        newTsv "$indexDir\sub\報告.docx\ページ001.tsv" @("b")
-        $status = newStatus @([pscustomobject]@{ Path = "C:\data\技術"; Name = "" }) @("見積.xlsx", "sub\報告.docx")
-
-        $rows = moveLegacyIndex $folders $status $true
-
-        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$indexDir\技術\sub\報告.docx\ページ001.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$indexDir\見積.xlsx" | Should -Be $false
-        Test-Path -LiteralPath "${indexDir}_移行中" | Should -Be $false
-        @($rows.Keys | Sort-Object) | Should -Be @("技術\sub\報告.docx", "技術\見積.xlsx")
-        $rows["技術\見積.xlsx"].相対パス | Should -Be "技術\見積.xlsx"
-    }
-
-    It "取り込み一覧のフォルダの書き方（大文字・小文字・末尾の \）が違っても、同じフォルダとして移す" {
-        $indexDir = "$TestDrive\legacy_case\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\見積.xlsx\Sheet1.tsv" @("a")
-        $status = newStatus @([pscustomobject]@{ Path = "c:\DATA\技術\"; Name = "" }) @("見積.xlsx")
-
-        $rows = moveLegacyIndex $folders $status $true
-
-        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should -Be $true
-        @($rows.Keys) | Should -Be @("技術\見積.xlsx")
-    }
-
-    It "以前の形式のインデックスに、インデックス名と同じ名前のフォルダがあっても移せる" {
-        $indexDir = "$TestDrive\legacy_same\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\技術\仕様.docx\ページ001.tsv" @("a")  # 元のフォルダの下の「技術」フォルダ
-        $status = newStatus @([pscustomobject]@{ Path = "C:\data\技術"; Name = "" }) @("技術\仕様.docx")
-
-        $rows = moveLegacyIndex $folders $status $true
-
-        Test-Path -LiteralPath "$indexDir\技術\技術\仕様.docx\ページ001.tsv" | Should -Be $true
-        @($rows.Keys) | Should -Be @("技術\技術\仕様.docx")
-    }
-
-    It "前回の移行が途中で止まり _移行中 が残っていれば、その続きから移す（取り込み一覧あり）" {
-        # 1 回目の移動の後に止まり、次の実行で空の work\index が作られた状態
-        $indexDir = "$TestDrive\legacy_resume\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "${indexDir}_移行中\見積.xlsx\Sheet1.tsv" @("a")
-        [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
-        $status = newStatus @([pscustomobject]@{ Path = "C:\data\技術"; Name = "" }) @("見積.xlsx")
-
-        $rows = moveLegacyIndex $folders $status $true
-
-        Test-Path -LiteralPath "$indexDir\技術\見積.xlsx\Sheet1.tsv" | Should -Be $true
-        Test-Path -LiteralPath "${indexDir}_移行中" | Should -Be $false
-        @($rows.Keys) | Should -Be @("技術\見積.xlsx")
-    }
-
-    It "前回の移行が途中で止まり _移行中 が残っていれば、その続きから移す（取り込み一覧なし）" {
-        $indexDir = "$TestDrive\legacy_resume2\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "${indexDir}_移行中\見積.xlsx_Sheet1.tsv" @("a")
-        [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
-        $status = newStatus @() @()
-
-        $rows = moveLegacyIndex $folders $status $false
-
-        $rows.Count | Should -Be 0
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx_Sheet1.tsv" | Should -Be $true
-        Test-Path -LiteralPath "${indexDir}_移行中" | Should -Be $false
-    }
-
-    It "取り込み一覧が無く、クロール対象フォルダも無ければ、直下に何があっても移さない" {
-        $indexDir = "$TestDrive\legacy_nofolder\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\見積.xlsx_Sheet1.tsv" @("a")
-        $status = newStatus @() @()
-
-        $rows = moveLegacyIndex @() $status $false
-
-        $rows.Count | Should -Be 0
-        Test-Path -LiteralPath "$indexDir\見積.xlsx_Sheet1.tsv" | Should -Be $true
-    }
-
-    It "以前の形式のフォルダがクロール対象から外れていれば、移さずに知らせ、前回の行は使わない" {
-        $indexDir = "$TestDrive\legacy2\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\見積.xlsx\Sheet1.tsv" @("a")
-        $status = newStatus @([pscustomobject]@{ Path = "C:\data\外した"; Name = "" }) @("見積.xlsx")
-
-        $rows = moveLegacyIndex $folders $status $true
-
-        $rows.Count | Should -Be 0
-        Test-Path -LiteralPath "$indexDir\見積.xlsx\Sheet1.tsv" | Should -Be $true
-    }
-
-    It "取り込み一覧が無く、work\index 直下にインデックス名以外のものがあれば、1件目のフォルダのインデックスとみなす" {
-        $indexDir = "$TestDrive\legacy3\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\見積.xlsx_Sheet1.tsv" @("a")
-        $status = newStatus @() @()
-
-        $rows = moveLegacyIndex $folders $status $false
-
-        $rows.Count | Should -Be 0
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx_Sheet1.tsv" | Should -Be $true
-    }
-
-    It "取り込み一覧が無くても、直下がインデックス名のフォルダと 元のフォルダ.txt だけなら移さない" {
-        $indexDir = "$TestDrive\legacy4\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("a")
-        newTsv "$indexDir\${sourceFolderFileName}" @("# 説明")
-        $status = newStatus @() @("営業\見積.xlsx")
-
-        $rows = moveLegacyIndex $folders $status $false
-
-        @($rows.Keys) | Should -Be @("営業\見積.xlsx")
-        Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
-    }
-
-    It "取り込み一覧があり、以前の形式のフォルダが無ければ、前回の行をそのまま返す" {
-        $indexDir = "$TestDrive\legacy5\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\ばらばら.tsv" @("a")
-        $status = newStatus @($folders) @("営業\見積.xlsx", "技術\仕様.docx")
-
-        $rows = moveLegacyIndex $folders $status $true
-
-        $rows.Count | Should -Be 2
-        Test-Path -LiteralPath "$indexDir\ばらばら.tsv" | Should -Be $true
-    }
-}
-
 Describe "removeDroppedFolders" -Tag Io {
     It "クロール対象から削除されたフォルダのインデックスだけを削除する" {
         $indexDir = "$TestDrive\dropped\index"
@@ -316,8 +168,7 @@ Describe "removeDroppedFolders" -Tag Io {
         $previous = @(
             [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" },
             [pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" },
-            [pscustomobject]@{ Path = "C:\data\消えた"; Name = "消えた" },  # インデックスのフォルダが無い
-            [pscustomobject]@{ Path = "C:\data\以前"; Name = "" }           # 以前の形式（インデックス名なし）は対象外
+            [pscustomobject]@{ Path = "C:\data\消えた"; Name = "消えた" }  # インデックスのフォルダが無い
         )
 
         removeDroppedFolders $folders $previous
@@ -360,72 +211,5 @@ Describe "removeDroppedFolders" -Tag Io {
         removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\sales"; Name = "sales" }) @([pscustomobject]@{ Path = "C:\data\Sales"; Name = "Sales" })
 
         Test-Path -LiteralPath "$indexDir\Sales\見積.xlsx\Sheet1.tsv" | Should -Be $true
-    }
-}
-
-Describe "migrateFlatIndex" -Tag Io {
-    It "以前の形式のTSVを <ファイル名>\<場所>.tsv へ移し、今の形式・分けられない名前のものは触らない" {
-        $indexDir = "$TestDrive\flat\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\営業\A社.xlsx_Sheet1.tsv" @("new")
-        newTsv "$indexDir\営業\A社.xlsx\Sheet1.tsv" @("old")         # 移し先に同じ名前があれば置き換える
-        newTsv "$indexDir\営業\sub\報告.docx_ページ001.tsv" @("b")
-        newTsv "$indexDir\営業\B社.xlsx\Sheet1.tsv" @("current")      # 今の形式
-        newTsv "$indexDir\営業\memo_1.tsv" @("memo")                  # ファイル名と場所に分けられない
-
-        migrateFlatIndex
-
-        Test-Path -LiteralPath "$indexDir\営業\A社.xlsx_Sheet1.tsv" | Should -Be $false
-        (Get-Content -LiteralPath "$indexDir\営業\A社.xlsx\Sheet1.tsv" -Encoding UTF8) | Should -Be "new"
-        Test-Path -LiteralPath "$indexDir\営業\sub\報告.docx\ページ001.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$indexDir\営業\B社.xlsx\Sheet1.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$indexDir\営業\memo_1.tsv" | Should -Be $true
-    }
-
-    It "ファイル名に [ ] ・ _ があるもの、符号化した場所のものも、元のファイル名と場所に分けて移す" {
-        $indexDir = "$TestDrive\flat2\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\[確定]見積.xlsx_Sheet1.tsv" @("a")
-        newTsv "$indexDir\A_B社.xlsx_Sheet1.tsv" @("b")
-        newTsv "$indexDir\資料.pptx_スライド003%5Fノート.tsv" @("c")
-
-        migrateFlatIndex
-
-        Test-Path -LiteralPath "$indexDir\[確定]見積.xlsx\Sheet1.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$indexDir\A_B社.xlsx\Sheet1.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$indexDir\資料.pptx\$(toIndexFileName "スライド003_ノート")" | Should -Be $true
-        @(Get-ChildItem -LiteralPath $indexDir -File).Count | Should -Be 0
-    }
-
-    It "260 文字を超えるパスにある以前の形式のTSVも移す" {
-        $indexDir = "$TestDrive\flat3\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        $deep = "$indexDir\営業\" + ("深いフォルダ" * 20) + "\" + ("もっと深いフォルダ" * 15)
-        newTsv (toLongPath "$deep\見積.xlsx_Sheet1.tsv") @("a")
-        try {
-            migrateFlatIndex
-            [System.IO.File]::Exists((toLongPath "$deep\見積.xlsx\Sheet1.tsv")) | Should -Be $true
-            [System.IO.File]::Exists((toLongPath "$deep\見積.xlsx_Sheet1.tsv")) | Should -Be $false
-        } finally {
-            # TestDrive の後片付けは長いパスを消せないため、ここで消す
-            removeDirectoryRetry "$TestDrive\flat3"
-        }
-    }
-
-    It "移せないTSVは数えて残し、止まらない" {
-        $indexDir = "$TestDrive\flat_fail\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        newTsv "$indexDir\C社.xlsx_Sheet1.tsv" @("a")
-        # 移し先のフォルダと同じ名前のファイルがあると、フォルダを作れない
-        [System.IO.File]::WriteAllText("$indexDir\C社.xlsx", "")
-
-        { migrateFlatIndex } | Should -Not -Throw
-        Test-Path -LiteralPath "$indexDir\C社.xlsx_Sheet1.tsv" | Should -Be $true
-    }
-
-    It "インデックスのフォルダが無くても止まらない" {
-        $indexDir = "$TestDrive\flat_none\index"
-        $workspace = newTestWorkspace @{ IndexDir = $indexDir }
-        { migrateFlatIndex } | Should -Not -Throw
     }
 }

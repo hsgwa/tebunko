@@ -62,22 +62,6 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         $status.Rows["b.xlsx"].抽出版 | Should -Be "2"
     }
 
-    It "以前の形式（抽出版の列が無い）の行は抽出版を空として読む。今の形式で列が足りない行は無視する" {
-        $path = "$TestDrive\status_no_version.tsv"
-        [System.IO.File]::WriteAllLines($path, [string[]]@(
-            "クロール対象フォルダ`tC:\data`tdata",
-            "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー",
-            "a.xlsx`t2025/01/10 12:34:56`t1`t済`t1`t`t"
-        ), $utf8Bom)
-        $status = readStatusFile $path
-        $status.Rows["a.xlsx"].状態 | Should -Be $stateDone
-        $status.Rows["a.xlsx"].抽出版 | Should -Be ""
-
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "" "" "2") $path
-        [System.IO.File]::AppendAllText($path, "a.xlsx`t2025/01/10 12:34:56`t1`t失敗`t`t`tエラー`r`n", $utf8Bom)  # 7 列（書き込みの途中）
-        (readStatusFile $path).Rows["a.xlsx"].状態 | Should -Be $stateDone
-    }
-
     It "追記した行が前の行より優先される。相対パスの大文字・小文字は区別しない" {
         $path = "$TestDrive\status_append.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "data" }) @(newStatusRow "Dir\A.xlsx" "2025/01/10 12:34:56" "1" $stateNew) $path
@@ -113,20 +97,6 @@ Describe "readStatusFile / writeStatusFile / addStatusRow" -Tag Io {
         @($status.Folders | ForEach-Object { $_.Path }) | Should -Be @("C:\new")
         @($status.Rows.Keys) | Should -Be @("new\b.xlsx")
         Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
-    }
-
-    It "以前の形式（クロール対象フォルダが1つでインデックス名なし）も読める" {
-        $path = "$TestDrive\status_legacy.tsv"
-        [System.IO.File]::WriteAllLines($path, [string[]]@(
-            "クロール対象フォルダ`tC:\old",
-            "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー",
-            "a.xlsx`t2025/01/10 12:34:56`t1`t済`t1`t`t"
-        ), $utf8Bom)
-
-        $status = readStatusFile $path
-        $status.Folders[0].Path | Should -Be "C:\old"
-        $status.Folders[0].Name | Should -Be ""
-        $status.Rows["a.xlsx"].状態 | Should -Be $stateDone
     }
 
     It "ファイルが無ければ空の一覧を返す" {
@@ -386,33 +356,33 @@ Describe "getIndexingState（指定した時刻以降に取り込んだ件数）
     }
 }
 
-Describe "renameStatusIndexName / removeStatusIndexName（以前の形式の取り込み一覧）" -Tag Io {
-    # 抽出版の列が無い以前の形式の取り込み一覧も readStatusFile は読めるため、名前の変更・削除も同じように行う
+Describe "renameStatusIndexName / removeStatusIndexName" -Tag Io {
     BeforeAll {
-        function writeLegacyStatus([string]$path) {
-            [System.IO.File]::WriteAllLines($path, [string[]]@(
-                "クロール対象フォルダ`tC:\data`t営業",
-                "クロール対象フォルダ`tD:\tech`t技術",
-                "相対パス`t更新日時`tサイズ`t状態`tTSV数`t取り込み日時`tエラー",
-                "営業\a.xlsx`t2025/01/10 12:34:56`t1`t済`t1`t2026/09/18 10:00:00`t",
-                "技術\b.docx`t2025/01/10 12:34:56`t1`t済`t1`t2026/09/18 10:00:00`t"
-            ), $utf8Bom)
+        function writeTwoIndexStatus([string]$path) {
+            writeStatusFile @(
+                [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
+                [pscustomobject]@{ Path = "D:\tech"; Name = "技術" }
+            ) @(
+                (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00" "" "2"),
+                (newStatusRow "技術\b.docx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00" "" "2")
+            ) $path
         }
     }
 
-    It "名前を変えると、以前の形式の行の相対パスも新しい名前にする" {
-        $path = "$TestDrive\legacy_rename.tsv"
-        writeLegacyStatus $path
+    It "名前を変えると、クロール対象フォルダの行と、そのインデックスの行の相対パスを新しい名前にする" {
+        $path = "$TestDrive\status_rename.tsv"
+        writeTwoIndexStatus $path
         renameStatusIndexName "営業" "営業部" $path
         $status = readStatusFile $path
         $status.Folders[0].Name | Should -Be "営業部"
         @($status.Rows.Keys | Sort-Object) -join "," | Should -Be "営業部\a.xlsx,技術\b.docx"
         $status.Rows["営業部\a.xlsx"].状態 | Should -Be $stateDone
+        $status.Rows["営業部\a.xlsx"].抽出版 | Should -Be "2"
     }
 
-    It "削除すると、以前の形式の行も取り除く" {
-        $path = "$TestDrive\legacy_remove.tsv"
-        writeLegacyStatus $path
+    It "削除すると、クロール対象フォルダの行と、そのインデックスの行を取り除く" {
+        $path = "$TestDrive\status_remove.tsv"
+        writeTwoIndexStatus $path
         removeStatusIndexName "営業" $path
         $status = readStatusFile $path
         @($status.Folders | ForEach-Object { $_.Name }) -join "," | Should -Be "技術"

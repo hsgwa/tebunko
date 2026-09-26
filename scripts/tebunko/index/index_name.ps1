@@ -34,7 +34,7 @@ function assignIndexNames {
     # クロール対象フォルダ（getTargetFolders）にインデックス名を割り当て、@{ Path; Enabled; Name } の配列を返す。
     # インデックス名は設定に持つ（getTargetFolders の Name）。フォルダの置き場所（Path）を書き換えても名前は変わらないため、
     # フォルダを移しても同じインデックスとして扱える（インデックスを作り直さない）。
-    # 名前が無い場合（新しく追加したフォルダ・以前の版の設定）は、前回の取り込み一覧の同じパスの名前を使い、
+    # 名前が無い場合（新しく追加したフォルダ）は、前回の取り込み一覧の同じパスの名前を使い、
     # それも無ければフォルダ名から重複しない名前を作る
     param (
         [object[]]$targetFolders,
@@ -128,9 +128,8 @@ function testIndexName {
 
 function encodeIndexPlace {
     # インデックスのTSVのファイル名に入れる場所（シート名・ページ・スライド）を符号化する。
-    # ファイル名に使えない文字・制御文字と、区切りの _・符号化に使う % を "%XX"（16進数）にする（decodeIndexPlace で元に戻す）。
+    # ファイル名に使えない文字・制御文字と、_・符号化に使う % を "%XX"（16進数）にする（decodeIndexPlace で元に戻す）。
     #   ・全角に置き換えると `a"b` と `a”b` が同じファイル名になり、後のシートで上書きされるため、元に戻せる形にする
-    #   ・場所に _ が残らないため、ファイル名に .xlsx_ 等を含むブックでも、最後の _ でファイル名と場所に分けられる
     param (
         [string]$place
     )
@@ -164,29 +163,6 @@ function toIndexFileName {
         throw "インデックスのファイル名が長すぎるため保存できません（$($name.Length) 文字。上限 ${maxFileNameLength} 文字）: ${name}"
     }
     return $name
-}
-
-
-# インデックスのTSVのファイル名を、元のファイル名（book）と場所（sheet。encodeIndexPlace で符号化したもの）に分ける正規表現
-# （大文字・小文字を区別しない。検索処理の C# でも使う）。
-#   ・場所は _ を符号化してある（toIndexFileName）ため、最後の _ で分ける（ファイル名に .xlsx_ 等を含むブックでも正しく分かれる）
-#   ・以前の版のTSV（場所を全角に置き換え、_ はそのまま）で最後の _ の前が拡張子にならないものは、最初の「拡張子_」で分ける
-${indexFileNamePattern} = "^(?:(?<book>.*\.(?:xls|doc|ppt)[a-z]?)_(?<sheet>[^_]*)|(?<book>.*?\.(?:xls|doc|ppt)[a-z]?)_(?<sheet>.*))\.tsv$"
-
-
-function splitIndexFileName {
-    # 以前の形式（フラット）の "ファイル名.拡張子_場所.tsv" を、ファイル名と場所に分解する（場所は decodeIndexPlace で元に戻す）。
-    # 今の形式（ファイル名のフォルダ＋場所.tsv）は、getIndexFolderBooks がフォルダ名とファイル名から求める
-    #   例: "ブック名.xlsx_シート名.tsv" / "文書.docx_ページ001.tsv" / "資料.pptx_スライド003%5Fノート.tsv"
-    param (
-        [string]$fileName
-    )
-
-    if ($fileName -match ${indexFileNamePattern}) {
-        return @{ book = $Matches.book; sheet = (decodeIndexPlace $Matches.sheet) }
-    }
-
-    return @{ book = $fileName; sheet = "" }
 }
 
 

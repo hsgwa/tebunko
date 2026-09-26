@@ -141,7 +141,7 @@ function loadTargets {
     try {
         $script:targetItems.Clear()
         $folders = @(getTargetFolders)
-        # 名前の決まっていないインデックス（以前の版の設定から移した直後など）には、ここで名前を割り当てて確定する。
+        # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
         # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）
         if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
             $folders = @(assignIndexNames $folders (readStatusFile).Folders)

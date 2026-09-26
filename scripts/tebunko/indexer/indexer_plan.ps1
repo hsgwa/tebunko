@@ -17,19 +17,6 @@ function getBookDir {
     return (Join-Path $workspace.IndexDir $relPath)
 }
 
-function getIndexFiles {
-    # そのファイルのインデックス（フォルダの中のTSV）を返す
-    param (
-        [string]$bookDir
-    )
-
-    # 長いパス（260文字超）でも見つかるよう \\?\ 付きで調べる（返すファイルの FullName も \\?\ 付き）
-    if (!(Test-Path -LiteralPath (toLongPath $bookDir) -PathType Container)) {
-        return @()
-    }
-    return @(Get-ChildItem -LiteralPath (toLongPath $bookDir) -Filter "*.tsv" -File)
-}
-
 function removeBookDir {
     # そのファイルのインデックスのフォルダを削除する（元のファイルが無くなったとき・取り込み直すとき）。
     # ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
@@ -66,7 +53,6 @@ function createTargetList {
     # 行の相対パスは "インデックス名\フォルダからの相対パス"（= work\index からの相対パス）とする。
     # ・前回の一覧と更新日時・サイズが同じで取り込み済み（済）のファイルは取り込まない
     # ・取り込み済みでも、インデックス（TSV）が無くなっていれば取り込み直す（利用者が work\index を直接削除した場合など）
-    # ・一覧に無いファイル（初回など）は、インデックス（TSV）が元ファイルより新しければ取り込み済みとする
     # ・元ファイルが無くなったファイルは、インデックスを削除して一覧から除く（アクセスできないフォルダがあった場合は除かない）
     param (
         $folder,   # @{ Path; Name }
@@ -120,30 +106,13 @@ function createTargetList {
                 $count.Done++
             }
         } else {
-            $latest = $null
-            $indexFiles = @()
-            # インデックスのフォルダが無いことが counts で分かっていれば、ディスクを調べない（初回は全ファイルが一覧に無いため）
-            if ($null -eq $old -and ($null -eq $counts -or $counts.ContainsKey($relPath))) {
-                $indexFiles = getIndexFiles (getBookDir $relPath)
-                foreach ($indexFile in $indexFiles) {
-                    if ($null -eq $latest -or $indexFile.LastWriteTime -ge $latest.LastWriteTime) {
-                        $latest = $indexFile
-                    }
-                }
-            }
-            if ($latest -and $latest.LastWriteTime -ge $file.LastWriteTime) {
-                $tsvCount = $indexFiles.Count
-                $row = newStatusRow $relPath $updated $size ${stateDone} $tsvCount (formatFileTime $latest.LastWriteTime)
-                $count.Done++
-            } else {
-                $row = newStatusRow $relPath $updated $size ${stateNew}
-                $targets.Add($row)
-                switch ($decision.Reason) {
-                    "lost"    { $count.Lost++ }
-                    "new"     { $count.New++ }
-                    "pending" { $count.Pending++ }
-                    default   { $count.Updated++ }  # updated と outdated（前の抽出版で取り込んだ。画面では更新ありと同じに扱う）
-                }
+            $row = newStatusRow $relPath $updated $size ${stateNew}
+            $targets.Add($row)
+            switch ($decision.Reason) {
+                "lost"    { $count.Lost++ }
+                "new"     { $count.New++ }
+                "pending" { $count.Pending++ }
+                default   { $count.Updated++ }  # updated と outdated（前の抽出版で取り込んだ。画面では更新ありと同じに扱う）
             }
         }
         $rows.Add($row)

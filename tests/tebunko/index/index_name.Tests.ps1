@@ -16,7 +16,7 @@ Describe "encodeIndexPlace / decodeIndexPlace" -Tag Unit {
         decodeIndexPlace $encoded | Should -BeExactly $place
     }
 
-    It "符号化で作らない %XX はそのまま返す（以前の版のシート名 100% 等）" {
+    It "符号化で作らない %XX はそのまま返す（シート名 100% 等）" {
         decodeIndexPlace '100%' | Should -Be '100%'
         decodeIndexPlace '%41%2a' | Should -Be '%41%2a'
     }
@@ -82,7 +82,7 @@ Describe "describePlace" -Tag Unit {
         described "提案.pptx" "スライド002[図形]" | Should -Be "[スライド] 2|図形"
     }
 
-    It "場所が空（以前の形式で分けられなかった TSV）なら空" {
+    It "場所が空なら空" {
         described "a.docx" "" | Should -Be "|本文"
     }
 }
@@ -103,62 +103,6 @@ Describe "toIndexFileName" -Tag Unit {
         } else {
             (toIndexFileName $place).Length | Should -Be 255
         }
-    }
-}
-
-Describe "splitIndexFileName" -Tag Unit {
-    It "ブック名とシート名に分解する" {
-        $name = splitIndexFileName "book.xlsx_Sheet1.tsv"
-        $name.book | Should -Be "book.xlsx"
-        $name.sheet | Should -Be "Sheet1"
-    }
-
-    It "場所の %XX を元に戻す" {
-        $name = splitIndexFileName "売上.xls_2024%5F上期%22.tsv"
-        $name.book | Should -Be "売上.xls"
-        $name.sheet | Should -Be '2024_上期"'
-    }
-
-    It "ファイル名に .xls_ 等を含んでも、最後の _ で分解する" {
-        $name = splitIndexFileName "コピー.xls_old.xlsx_Sheet1.tsv"
-        $name.book | Should -Be "コピー.xls_old.xlsx"
-        $name.sheet | Should -Be "Sheet1"
-    }
-
-    It "以前の版のTSV（シート名の _ を符号化していない）も分解できる" {
-        $name = splitIndexFileName "売上.xls_2024_上期.tsv"
-        $name.book | Should -Be "売上.xls"
-        $name.sheet | Should -Be "2024_上期"
-
-        $name = splitIndexFileName "ア_イ_ウ.xlsx_シ_ト＜＞.tsv"
-        $name.book | Should -Be "ア_イ_ウ.xlsx"
-        $name.sheet | Should -Be "シ_ト＜＞"
-    }
-
-    It "拡張子が大文字でも分解できる" {
-        $name = splitIndexFileName "大文字.XLSX_Sheet1.tsv"
-        $name.book | Should -Be "大文字.XLSX"
-        $name.sheet | Should -Be "Sheet1"
-    }
-
-    It "Word・PowerPointのファイル名と場所に分解する" {
-        $name = splitIndexFileName "報告書.docx_ページ001.tsv"
-        $name.book | Should -Be "報告書.docx"
-        $name.sheet | Should -Be "ページ001"
-
-        $name = splitIndexFileName "旧.doc_ヘッダー・フッター.tsv"
-        $name.book | Should -Be "旧.doc"
-        $name.sheet | Should -Be "ヘッダー・フッター"
-
-        $name = splitIndexFileName "提案.pptx_スライド003%5Fノート.tsv"
-        $name.book | Should -Be "提案.pptx"
-        $name.sheet | Should -Be "スライド003_ノート"
-    }
-
-    It "形式外のファイル名はそのままブック名として返す" {
-        $name = splitIndexFileName "other.tsv"
-        $name.book | Should -Be "other.tsv"
-        $name.sheet | Should -Be ""
     }
 }
 

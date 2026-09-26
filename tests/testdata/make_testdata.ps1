@@ -1,4 +1,4 @@
-﻿# tebunko の動作確認用テストデータ（Excel・Word・PowerPoint のファイル群と設定ファイル例）を生成する。
+﻿# tebunko の動作確認用テストデータ（Excel・Word・PowerPoint のファイル群と検索ワードの例）を生成する。
 # Excel・Word・PowerPoint（COM）が必要。出力フォルダは削除して作り直す。
 # PowerPoint は起動中のインスタンスに接続してしまうため、PowerPoint を終了してから実行すること。
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\make_testdata.ps1
@@ -1150,24 +1150,8 @@ try {
         saveBook $wb "Excel\日付1904.xlsx"
     }
 
-    # 設定ファイルの例（config\ にコピーして使う）
+    # 検索ワードの例（画面の検索ワードに 1 つずつ入れて確かめる）
     Write-Host "[設定例]" -ForegroundColor Cyan
-    $sjis = [System.Text.Encoding]::GetEncoding(932)
-    writeText "$ConfigDir\変換対象フォルダパス.txt" "$OutDir`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_前後空白と空行.txt" "`r`n   $OutDir   `r`n`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_BOMなし.txt" $OutDir $noBom
-    writeText "$ConfigDir\変換対象フォルダパス_ShiftJIS.txt" "$OutDir\ファイル名" $sjis  # 日本語部分が文字化けする
-    writeText "$ConfigDir\変換対象フォルダパス_複数.txt" "$OutDir\Excel\2024`r`n$OutDir\Excel\2025`r`n"
-    # 末尾のフォルダ名が同じ（インデックス名が「見積」と「見積(2)」になる）
-    writeText "$ConfigDir\変換対象フォルダパス_同名フォルダ.txt" "$OutDir\Excel\2024\見積`r`n$OutDir\Excel\2025\見積`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_チェックなし.txt" "$OutDir\Excel\2024`r`n# $OutDir\Excel\2025`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_すべてチェックなし.txt" "# $OutDir`r`n"
-    # 同じフォルダを " で囲んだもの・末尾に \ を付けたもので重ねて書く（最初の行だけ使われる）
-    writeText "$ConfigDir\変換対象フォルダパス_重複.txt" "$OutDir\Excel\2024`r`n`"$OutDir\Excel\2024\`"`r`n$OutDir\Excel\2024\`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_空.txt" "`r`n  `r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_存在しない.txt" "C:\存在しないフォルダ\office`r`n$OutDir\Excel\2024`r`n"
-    writeText "$ConfigDir\変換対象フォルダパス_サブフォルダ.txt" "$OutDir\Excel\2024`r`n"
-
     writeText "$ConfigDir\検索ワード.txt" ((@(
         "TC01",
         "山田",

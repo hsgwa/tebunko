@@ -15,7 +15,6 @@
 # ・文字コードは UTF-16LE（BOM 付き。pack_store.ps1 が読み書きする）
 
 # 集約ファイルの名前は「content.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content.xlsx.001.tsv など）。
-# _ は使わない（以前の形式 <ブック>_<場所>.tsv と区別するため）。
 # 1 つの集約ファイルが packFileMaxBytes 以上になったら、それ以上ブックを足さず、次の番号の集約ファイルに足す
 ${packFilePattern} = "content.*.tsv"
 ${packFileNamePattern} = '^content\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$'
