@@ -4,7 +4,7 @@
 #   .\tools\measure_perf.ps1 -Index <TSV のインデックス> -Work <作業フォルダ> -Words <words.tsv>
 #   -Index    … 場所ごとの TSV（取り込みの一時置き場の形。tebunko-perfdata の new_index.ps1 で作る）。
 #                TSV は pack に変換され、元の TSV は削除されるので、毎回作り直したものを渡す。pack しか無いときは、作成は測らず検索だけを測る
-#   -Tool     … 測る tebunko のフォルダ（scripts\tebunko_grep\lib.ps1 を読む）。既定はこのスクリプトのリポジトリ
+#   -Tool     … 測る tebunko のフォルダ（scripts\tebunko\lib.ps1 を読み込む。名前を変える前の版は scripts\tebunko_grep\lib.ps1）。既定はこのスクリプトのリポジトリ
 #   -Words    … 検索する語の表（名前・語・正規表現・件数。tebunko-perfdata の words.tsv）
 #   -AddWords … 追加で検索する語（文字どおりに検索する）
 #   -Repeat   … 検索を繰り返す回数（中央値を出す）
@@ -36,9 +36,10 @@ $ErrorActionPreference = "Stop"
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath
-$lib = Join-Path $Tool "scripts\tebunko_grep\lib.ps1"
-if (!(Test-Path -LiteralPath $lib)) {
-    throw "測る tebunko に scripts\tebunko_grep\lib.ps1 がありません。-Tool に tebunko のフォルダを指定してください。"
+# 読み込み口は scripts\tebunko\lib.ps1。フォルダの名前を変える前（#99 より前）の版は scripts\tebunko_grep\lib.ps1
+$lib = @("scripts\tebunko\lib.ps1", "scripts\tebunko_grep\lib.ps1") | ForEach-Object { Join-Path $Tool $_ } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (!$lib) {
+    throw "測る tebunko に scripts\tebunko\lib.ps1 がありません。-Tool に tebunko のフォルダを指定してください。"
 }
 . $lib
 foreach ($name in @("findIndexFoldersWithBooks", "publishIndexFolders", "getIndexPackFiles", "searchPackIndex", "newTsvTextCache")) {
