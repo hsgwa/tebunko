@@ -506,7 +506,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $tasks.CompleteAdding()
         $settings = @{
             Lib = "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
-            Paths = @{ indexDir = "$root\index"; workDir = $root; tmpDir = "$root\tmp"; publishDir = "$root\publish" }
+            WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
             Lane = ${laneReader}

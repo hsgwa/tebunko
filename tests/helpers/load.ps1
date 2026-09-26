@@ -9,3 +9,4 @@ ${testDataDir} = "$here\testdata"
 
 . "${scriptsDir}\tebunko\lib.ps1"
 . "$PSScriptRoot\tsv.ps1"
+. "$PSScriptRoot\workspace.ps1"

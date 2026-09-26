@@ -9,10 +9,10 @@ Describe "パス定義" -Tag Meta {
     }
 
     It "work の中身は work の置き場所（既定はリポジトリ直下の work。setting.config の workspaceFolder で変わる）を基準にする" {
-        $workDir | Should Be (getWorkDir $settingsFile)
-        $indexDir | Should Be "$workDir\index"
-        $publishDir | Should Be "$workDir\取り込み出力\$PID"
-        $resultFile | Should Be "$workDir\検索結果.txt"
+        $workspace.Dir | Should Be (getWorkDir $settingsFile)
+        $workspace.IndexDir | Should Be "$($workspace.Dir)\index"
+        $workspace.PublishDir | Should Be "$($workspace.Dir)\取り込み出力\$PID"
+        $workspace.ResultFile | Should Be "$($workspace.Dir)\検索結果.txt"
     }
 }
 
