@@ -4,13 +4,14 @@
 
 ## 配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）
 
-GitHub Release の配布 zip（`tebunko-<タグ>.zip`）は、`v` で始まるタグを push したときに `.github/workflows/release.yml` が作る。作る前に `test.yml` と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンスだけを入れ、確認用のファイルは zip と並べてリリースに載せる（`tools/new_release_package.ps1`）。`docs/`・`tests/`・`work/`・`setting.config` はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。
+GitHub Release の配布 zip（`tebunko-<タグ>.zip`）は、`v` で始まるタグを push したときに `.github/workflows/release.yml` が作る。作る前に `test.yml` と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンス・版の記録だけを入れ、確認用のファイルは zip と並べてリリースに載せる（`tools/new_release_package.ps1`）。`docs/`・`tests/`・`work/`・`setting.config` はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。
 
 | ファイル | 置き場所 | 内容 |
 |---|---|---|
 | `tebunko.bat`・`scripts/` | zip の中 | ツール本体 |
 | `README.md` | zip の中 | 使い方。相対リンクと画像は、その版の GitHub の URL に書き換えて入れる（`docs/` や画像は zip に入れないため） |
 | `LICENSE` | zip の中 | ライセンス（MIT。写しに許諾表示を含めるため同梱する） |
+| `VERSION.txt` | zip の中 | 版とコミットの記録（タグ名とコミットの SHA の2行。`tools/new_version_text.ps1` が作る。画面の「tebunko について」に出す） |
 | `tebunko-setup-<タグ>.exe` | リリース（zip の横） | インストーラー版（[インストーラー版](disclosure.md#インストーラー版)。`tools/new_installer.ps1` が作る）。中身のスクリプトは zip と同じ |
 | `tebunko.cat`・`SHA256SUMS.txt` | リリース（zip の横） | 改ざんの確認用（`tools/new_release_files.ps1` が作る） |
 | `sbom.cdx.json` | リリース（zip の横） | 部品表 |

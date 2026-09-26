@@ -69,11 +69,11 @@ Describe "インストーラー（installer\tebunko.iss）" -Tag Meta {
         @(getIssSection "Setup") | Where-Object { $_ -match '^(ChangesEnvironment|ChangesAssociations)=yes' } | Should -BeNullOrEmpty
     }
 
-    It "入れるのは tebunko.exe・LICENSE・scripts\ だけ" {
+    It "入れるのは tebunko.exe・LICENSE・VERSION.txt・scripts\ だけ" {
         $sources = @(getIssSection "Files" | ForEach-Object {
             if ($_ -match 'Source: "\{#StageDir\}\\([^"]+)"') { $Matches[1] }
         })
-        ($sources -join ", ") | Should -Be "tebunko.exe, LICENSE, scripts\*"
+        ($sources -join ", ") | Should -Be "tebunko.exe, LICENSE, VERSION.txt, scripts\*"
     }
 
     It "アンインストーラーは、tebunko のものと分かるよう uninstall\ に置く" {
