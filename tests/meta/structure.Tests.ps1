@@ -29,7 +29,7 @@ Describe "実行時コンパイル（csc.exe）を使わない" -Tag Meta {
 
 Describe "画面の部品でのパスの組み立て" -Tag Meta {
     # ui\ 配下のファイルは gui.ps1 から dot-source する部品。中で $PSScriptRoot を使うと ui\ を指すため、
-    # "${PSScriptRoot}\tebunko_grep\indexer.ps1" のように起動口からの相対パスを書くと存在しないパスになる
+    # "${PSScriptRoot}\tebunko\indexer.ps1" のように起動口からの相対パスを書くと存在しないパスになる
     # （［インデックス作成を開始］でインデクサが起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
     It "ui 配下のスクリプトで `$PSScriptRoot を使っていない" {
         $found = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1" |
@@ -40,9 +40,9 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
     }
 
     It "gui.ps1 が指すインデクサのファイルがある" {
-        $line =@(Select-String -Path "$here\..\scripts\tebunko_grep\gui.ps1" -Pattern '^\$\{indexerScriptPath\}\s*=\s*"\$PSScriptRoot\\(.+)"')
+        $line =@(Select-String -Path "$here\..\scripts\tebunko\gui.ps1" -Pattern '^\$\{indexerScriptPath\}\s*=\s*"\$PSScriptRoot\\(.+)"')
         $line.Count | Should Be 1
-        Test-Path -LiteralPath "$here\..\scripts\tebunko_grep\$($line[0].Matches[0].Groups[1].Value)" | Should Be $true
+        Test-Path -LiteralPath "$here\..\scripts\tebunko\$($line[0].Matches[0].Groups[1].Value)" | Should Be $true
     }
 }
 
@@ -71,15 +71,15 @@ Describe "画面定義（XAML）" -Tag Meta {
 }
 
 Describe "型の読み込み" -Tag Meta {
-    # 画面で使う型は shared と tebunko_grep に分かれている。gui.ps1 と同じ順で読み込めば、
+    # 画面で使う型は shared と tebunko に分かれている。gui.ps1 と同じ順で読み込めば、
     # 継承（NotifyBase を継承する型）が解決できることを確かめる
-    It "shared と tebunko_grep の型を順に読み込める" {
+    It "shared と tebunko の型を順に読み込める" {
         $probe = Join-Path $TestDrive "probe.ps1"
         $scripts = (Resolve-Path "$here\..\scripts").Path
         Set-Content -LiteralPath $probe -Encoding UTF8 -Value @(
             'Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase'
             ". `"$scripts\shared\ui\types.ps1`""
-            ". `"$scripts\tebunko_grep\ui\types_grep.ps1`""
+            ". `"$scripts\tebunko\ui\types.ps1`""
             '([HitRow], [IndexNode], [ConfirmFact], [PreviewTable]).Count'
         )
         $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $probe 2>&1
@@ -91,7 +91,7 @@ Describe "画面の部品の名前" -Tag Meta {
     # gui.ps1 が FindName で取る名前が、XAML に実在すること。
     # タブの中身を別ファイルに分けているため、名前を足したり動かしたりすると気づきにくい
     $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
-    $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko_grep\gui.ps1")
+    $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\gui.ps1")
 
     function getXamlNames {
         param ([string]$path)
@@ -100,7 +100,7 @@ Describe "画面の部品の名前" -Tag Meta {
     }
 
     It "ウィンドウの枠の名前がある" {
-        $names = getXamlNames "$here\..\scripts\tebunko_grep\xaml\tebunko_grep.xaml"
+        $names = getXamlNames "$here\..\scripts\tebunko\xaml\tebunko.xaml"
         foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText")) {
             $names -contains $name | Should Be $true
         }
@@ -124,7 +124,7 @@ Describe "画面の部品の名前" -Tag Meta {
             $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
             $wanted.Count -gt 0 | Should Be $true
 
-            $names = getXamlNames "$here\..\scripts\tebunko_grep\xaml\$file"
+            $names = getXamlNames "$here\..\scripts\tebunko\xaml\$file"
             $missing = @($wanted | Where-Object { $names -notcontains $_ })
             ($missing -join ", ") | Should Be ""
         }

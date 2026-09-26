@@ -207,14 +207,14 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/04
 
 Describe "書き込み先が限られていること（docs/04_安全性.md 3.1）" -Tag Meta {
     It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と TEMP 配下だけ" {
-        $paths = @($code | Where-Object { $_.File -in @("paths.ps1", "data_dir.ps1", "paths_grep.ps1", "settings_grep.ps1") })
+        $paths = @($code | Where-Object { $_.File -in @("paths.ps1", "data_dir.ps1", "settings.ps1") })
         # データの置き場所は、ツールのフォルダか、書き込めないときの %LOCALAPPDATA%\tebunko\<鍵>
         (findPattern $paths '\$\{dataDir\}\s*=\s*getDataDir') | Should Not Be ""
         (findPattern $paths 'GetFolderPath\("LocalApplicationData"\)') | Should Not Be ""
         (findPattern $paths '\$\{workDir\}\s*=\s*"\$\{dataDir\}\\work"') | Should Not Be ""
         (findPattern $paths '\$\{workDir\}\s*=\s*getWorkDir') | Should Not Be ""
         (findPattern $paths '\$\{indexDir\}\s*=\s*"\$\{workDir\}\\index"') | Should Not Be ""
-        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko_grep\\\$\{PID\}"') | Should Not Be ""
+        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko\\\$\{PID\}"') | Should Not Be ""
         (findPattern $paths '\$\{publishDir\}\s*=\s*"\$\{workDir\}\\') | Should Not Be ""
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should Not Be ""
     }
@@ -225,7 +225,7 @@ Describe "書き込み先が限られていること（docs/04_安全性.md 3.1�
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
-        # %TEMP%\tebunko_grep\<PID> に原本のコピーが残り続けないこと（docs/04_安全性.md 4.4）
+        # %TEMP%\tebunko\<PID> に原本のコピーが残り続けないこと（docs/04_安全性.md 4.4）
         (findPattern $code 'function removeStaleTmpDirs') | Should Not Be ""
         (findPattern $code '^removeStaleTmpDirs') | Should Not Be ""
     }

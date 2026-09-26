@@ -1,0 +1,20 @@
+﻿# tebunko の画面以外の部品の読み込み口。
+# 画面（gui）・インデクサ・テスト・画面が起こす別スレッドから dot-source して使う。読み込む順に意味がある。
+. "$PSScriptRoot\..\shared\shared.ps1"
+# 設定を先に読み込む（work の置き場所は設定の workspaceFolder で決まる。paths.ps1 の ${workDir}）
+. "$PSScriptRoot\core\settings.ps1"
+. "$PSScriptRoot\core\paths.ps1"
+. "$PSScriptRoot\index\index_name.ps1"
+. "$PSScriptRoot\index\index_store.ps1"
+. "$PSScriptRoot\index\pack_format.ps1"
+. "$PSScriptRoot\index\pack_store.ps1"
+. "$PSScriptRoot\index\system_index.ps1"
+. "$PSScriptRoot\indexer\indexer_state.ps1"
+. "$PSScriptRoot\indexer\indexer_decide.ps1"
+. "$PSScriptRoot\search\search_query.ps1"
+. "$PSScriptRoot\search\search_gram.ps1"
+. "$PSScriptRoot\search\windows_search.ps1"
+. "$PSScriptRoot\search\fast_search.ps1"
+. "$PSScriptRoot\search\search_run.ps1"
+. "$PSScriptRoot\search\pack_search.ps1"
+. "$PSScriptRoot\search\source_map.ps1"

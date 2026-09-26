@@ -10,7 +10,7 @@
 # SECURITY は zip に入れず、README とリリースの説明からリンクする。
 # zip 自体の SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\04_安全性.md 5.6）。
 # zip のビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
-# 署名の bundle（tebunko_grep-<タグ>.zip.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。
+# 署名の bundle（tebunko-<タグ>.zip.sigstore.json）もリリースに載せる（docs\04_安全性.md 5.1。OpenSSF Scorecard の Signed-Releases）。
 name: release
 
 on:
@@ -46,7 +46,7 @@ jobs:
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: work/release/tebunko_grep-${{ github.ref_name }}.zip
+          subject-path: work/release/tebunko-${{ github.ref_name }}.zip
 
       # pwsh（PowerShell 7）で動かす。ランナーは run の内容を BOM なしの UTF-8 のファイルにして実行するが、
       # Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため、説明に書く日本語が化ける
@@ -56,7 +56,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
         run: |
-          $zip = "work\release\tebunko_grep-$env:GITHUB_REF_NAME.zip"
+          $zip = "work\release\tebunko-$env:GITHUB_REF_NAME.zip"
           $bundle = "$zip.sigstore.json"
           Copy-Item -LiteralPath $env:BUNDLE_PATH -Destination $bundle
           $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
@@ -68,7 +68,7 @@ jobs:
             ""
             "配布 zip の SHA256: ``$hash``"
             ""
-            "来歴の確認: ``gh attestation verify tebunko_grep-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``"
+            "来歴の確認: ``gh attestation verify tebunko-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``"
             ""
             "改ざんの確認（zip を展開したフォルダで、ダウンロードした tebunko.cat を指定する）: ``Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <tebunko.cat> -Detailed``"
           ) -join "`n"
