@@ -33,4 +33,142 @@ class Workspace {
         $this.IndexingLogFile = "$dir\インデックス作成ログ.txt"
         $this.GuiErrorLogFile = "$dir\画面エラー.txt"
     }
+
+    # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
+    # 取り込み出力はプロセスごとのフォルダ（PublishDir）の親を移す
+    [string[]] Entries() {
+        return @($this.IndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir))
+    }
+}
+
+function getWorkspaceEntries {
+    # ワークスペース dir にある、tebunko のファイル・フォルダ（Workspace.Entries のうち、あるもの）のフルパスを返す
+    param (
+        [string]$dir
+    )
+
+    return @([Workspace]::new($dir).Entries() | Where-Object {
+        $long = toLongPath $_
+        [System.IO.Directory]::Exists($long) -or [System.IO.File]::Exists($long)
+    })
+}
+
+function getWorkspaceMoveConflicts {
+    # ワークスペース from の中身を to へ移すとき、to に同じ名前が既にあるもの（移せないもの）の名前を返す
+    param (
+        [string]$from,
+        [string]$to
+    )
+
+    return @(getWorkspaceEntries $from | ForEach-Object { [System.IO.Path]::GetFileName($_) } | Where-Object {
+        $long = toLongPath (Join-Path $to $_)
+        [System.IO.Directory]::Exists($long) -or [System.IO.File]::Exists($long)
+    })
+}
+
+function moveWorkspaceEntry {
+    # ファイル・フォルダを 1 つ移す。同じドライブならそのまま移し、別のドライブのフォルダは写してから元を消す
+    # （Directory.Move は別のドライブへ移せないため）。写している途中で失敗したら、写した分を消して例外にする
+    param (
+        [string]$source,
+        [string]$dest
+    )
+
+    $longSource = toLongPath $source
+    $longDest = toLongPath $dest
+    if (![System.IO.Directory]::Exists($longSource)) {
+        # File.Move は別のドライブへも移せる
+        [System.IO.File]::Move($longSource, $longDest)
+        return
+    }
+    if ([System.IO.Path]::GetPathRoot($source) -eq [System.IO.Path]::GetPathRoot($dest)) {
+        [System.IO.Directory]::Move($longSource, $longDest)
+        return
+    }
+    try {
+        copyDirectoryTree $longSource $longDest
+    } catch {
+        removeDirectoryRetry $dest
+        throw
+    }
+    removeDirectoryRetry $source
+}
+
+function copyDirectoryTree {
+    # フォルダを中身ごと写す（\\?\ 付きのパスを受け取る）
+    param (
+        [string]$source,
+        [string]$dest
+    )
+
+    [System.IO.Directory]::CreateDirectory($dest) | Out-Null
+    foreach ($file in [System.IO.Directory]::GetFiles($source)) {
+        [System.IO.File]::Copy($file, [System.IO.Path]::Combine($dest, [System.IO.Path]::GetFileName($file)))
+    }
+    foreach ($sub in [System.IO.Directory]::GetDirectories($source)) {
+        copyDirectoryTree $sub ([System.IO.Path]::Combine($dest, [System.IO.Path]::GetFileName($sub)))
+    }
+}
+
+function moveSearchExcludes {
+    # 検索対象ツリーでチェックを外したフォルダ（searchExcludes。インデックスの下のフルパス）のうち、
+    # ワークスペース from の index の下のものを、to の index の下に付け替えて保存する。付け替えた数を返す
+    param (
+        [string]$from,
+        [string]$to,
+        [string]$path = ${settingsFile}
+    )
+
+    $fromIndex = [Workspace]::new($from.TrimEnd("\")).IndexDir
+    $toIndex = [Workspace]::new($to.TrimEnd("\")).IndexDir
+    $count = 0
+    $excludes = @(readSearchExcludes $path | ForEach-Object {
+        $folder = $_.Path
+        if ($folder.Equals($fromIndex, [System.StringComparison]::OrdinalIgnoreCase) -or
+            $folder.StartsWith("$fromIndex\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $folder = $toIndex + $folder.Substring($fromIndex.Length)
+            $count++
+        }
+        [pscustomobject]@{ Path = $folder; Subfolders = $_.Subfolders }
+    })
+    if ($count -gt 0) {
+        writeSearchExcludes $excludes $path
+    }
+    return $count
+}
+
+function moveWorkspace {
+    # ワークスペース from の中身（tebunko のファイル・フォルダ）を to へ移し、移した数を返す。ほかのファイルは移さない。
+    # to に同じ名前があれば、何も移さずに例外にする。途中で移せなかったら、移した分を from へ戻してから例外にする
+    # （どちらかのワークスペースに中身がそろった状態にし、半分ずつに分かれたままにしない）
+    param (
+        [string]$from,
+        [string]$to
+    )
+
+    $conflicts = @(getWorkspaceMoveConflicts $from $to)
+    if ($conflicts.Count -gt 0) {
+        throw "「${to}」には、すでに $($conflicts -join '、') があります。空のフォルダを選んでください。"
+    }
+    $entries = @(getWorkspaceEntries $from)
+    [System.IO.Directory]::CreateDirectory((toLongPath $to)) | Out-Null
+    $moved = New-Object System.Collections.Generic.List[string]
+    try {
+        foreach ($source in $entries) {
+            moveWorkspaceEntry $source (Join-Path $to ([System.IO.Path]::GetFileName($source)))
+            $moved.Add($source)
+        }
+    } catch {
+        $reason = $_.Exception.Message
+        for ($i = $moved.Count - 1; $i -ge 0; $i--) {
+            try {
+                moveWorkspaceEntry (Join-Path $to ([System.IO.Path]::GetFileName($moved[$i]))) $moved[$i]
+            } catch {
+                # 戻せなかったものは、移した先に残る（例外のメッセージで両方の場所を伝える）
+            }
+        }
+        throw "ワークスペースの中身を「${to}」へ移せませんでした（${reason}）。ファイルを開いているアプリを閉じてから、もう一度変えてください。中身は「${from}」に残しています。"
+    }
+    return $moved.Count
 }

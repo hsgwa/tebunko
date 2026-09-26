@@ -62,6 +62,7 @@ function newWorkspaceConfirm {
     # ワークスペースを変える前の確認ダイアログの中身:
     #   @{ Heading; Facts（@{ Kind = "next" / "kept" / "warn"; Title; Detail } の配列）; Hint; Choices（@{ Text; Detail; Value; Careful } の配列） }
     # ワークスペースには空のフォルダを選んでもらう。空でなければ警告し、中にワークスペースのフォルダを作るか、そのまま使うかを選ばせる。
+    # 今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、いつも新しいワークスペースへ移す（moveWorkspace）。
     #   Value: "change"（選んだフォルダにする）/ "sub"（中に workspace を作ってそこにする）/ "asis"（空でないまま使う）
     param (
         [string]$folder,       # 選んだフォルダ
@@ -69,20 +70,18 @@ function newWorkspaceConfirm {
         [int]$entryCount,      # 選んだフォルダの中のファイル・フォルダの数（数えた上限で止めてよい）
         [string[]]$sampleNames = @(),  # 中身の例（先頭の数件の名前）
         [bool]$countCapped = $false,   # entryCount が数えた上限（それ以上あるかもしれない）
-        [bool]$hasIndex = $false,      # 中にインデックス（index フォルダ）がある（前のワークスペースを移したもの）
+        [bool]$hasIndex = $false,      # 中にインデックス（index フォルダ）がある（そのまま使うと、今のワークスペースの中身を移せない）
         [bool]$canMakeSub = $true      # 中に workspace を作れる（無いか、あっても空）
     )
 
-    $keptCurrent = @{ Kind = "kept"; Title = "今のワークスペースの中身は、そのまま残ります（移しません）"; Detail = $current }
-    $hint = "今のインデックスを移して使うときは、先にエクスプローラーで「${current}」の中身を新しいフォルダへ移してから選んでください。"
+    $moveCurrent = @{ Kind = "next"; Title = "今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいワークスペースへ移します"; Detail = "移す前の場所：${current}" }
     if ($entryCount -le 0) {
         return @{
             Heading = "ワークスペースを変えますか？"
             Facts   = @(
                 @{ Kind = "next"; Title = "インデックス・取り込み一覧・ログを、このフォルダに置きます"; Detail = $folder },
-                @{ Kind = "next"; Title = "このフォルダにはまだインデックスがありません"; Detail = "［インデックス作成を開始］で、一覧のフォルダを取り込み直します" },
-                $keptCurrent)
-            Hint    = $hint
+                $moveCurrent)
+            Hint    = ""
             Choices = @(@{ Text = "ワークスペースを変える"; Detail = ""; Value = "change"; Careful = $false })
         }
     }
@@ -94,9 +93,9 @@ function newWorkspaceConfirm {
     }
     $facts = @(@{ Kind = "warn"; Title = "このフォルダは空ではありません（ファイル・フォルダが ${countText}）"; Detail = $sample })
     if ($hasIndex) {
-        $facts += @{ Kind = "kept"; Title = "インデックス（index フォルダ）があります"; Detail = "前のワークスペースを移したものなら、そのまま使えます" }
+        $facts += @{ Kind = "warn"; Title = "インデックス（index フォルダ）があります"; Detail = "このフォルダをそのまま使うと、今のワークスペースの中身を移せません" }
     }
-    $facts += $keptCurrent
+    $facts += $moveCurrent
 
     $choices = @()
     $sub = Join-Path $folder ${workspaceSubFolderName}
@@ -107,7 +106,7 @@ function newWorkspaceConfirm {
     return @{
         Heading = "選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください。"
         Facts   = $facts
-        Hint    = "空のフォルダを選び直すときは［キャンセル］を押してください。$hint"
+        Hint    = "空のフォルダを選び直すときは［キャンセル］を押してください。"
         Choices = $choices
     }
 }

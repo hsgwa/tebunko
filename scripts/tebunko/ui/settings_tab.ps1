@@ -79,7 +79,7 @@ function getFolderEntrySample {
 }
 
 function applyWorkspace {
-    # 確かめてからワークスペースを保存し、画面をそのワークスペースに切り替える
+    # 確かめてから、今のワークスペースの中身を移してワークスペースを保存し、画面をそのワークスペースに切り替える
     param (
         [string]$folder,
         [bool]$requireEmpty   # 空のフォルダを求める（［変更…］）。空でなければ警告する
@@ -124,8 +124,22 @@ function applyWorkspace {
         $folder = $sub
     }
 
+    # 集約ファイルを読んでいる検索があると移せないため、先に止める
+    clearSearchView
+    $previous = $workspace.Dir
+    try {
+        $count = moveWorkspace $previous $folder
+    } catch {
+        showMessage $_.Exception.Message "OK" "Warning" | Out-Null
+        return
+    }
+    # 検索対象ツリーでチェックを外したフォルダも、移した先のインデックスに付け替える
+    [void](moveSearchExcludes $previous $folder)
     writeWorkspaceFolder $folder
     switchWorkspace
+    if ($count -gt 0) {
+        setStatus "ワークスペースを「${folder}」に変え、中身を移しました（移す前の場所：${previous}）"
+    }
 }
 
 function switchWorkspace {

@@ -28,7 +28,7 @@
         </StackPanel>
       </DockPanel>
       <TextBlock Style="{StaticResource Micro}" Margin="0,14,0,0" TextWrapping="Wrap"
-                 Text="空のフォルダを選んでください。変えるとすぐに切り替わります。今のワークスペースの中身は移さず、元の場所に残ります。インデックス作成中は変えられません。" />
+                 Text="空のフォルダを選んでください。変えるとすぐに切り替わります。今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいフォルダへ移します。インデックス作成中は変えられません。" />
     </StackPanel>
   </Border>
 

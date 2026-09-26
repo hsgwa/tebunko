@@ -23,3 +23,84 @@ Describe "Workspace" -Tag Unit {
         @((getIndexSummary).Missing) | Should Be @("$TestDrive\別\index")
     }
 }
+
+Describe "moveWorkspace" -Tag Io {
+    function newWorkspaceFiles([string]$dir) {
+        # tebunko のファイル・フォルダと、利用者のファイル（移さない）を置く
+        newTsv "$dir\index\営業\見積\content.xlsx.001.tsv" @("a")
+        newTsv "$dir\system_index\営業\見積\システムインデックス.txt" @("b")
+        newTsv "$dir\取り込み一覧.tsv" @("c")
+        newTsv "$dir\インデックス作成ログ.txt" @("d")
+        newTsv "$dir\利用者のメモ.txt" @("e")
+    }
+
+    It "tebunko のファイル・フォルダだけを移し、移した数を返す（利用者のファイルは残す）" {
+        newWorkspaceFiles "$TestDrive\move\from"
+
+        moveWorkspace "$TestDrive\move\from" "$TestDrive\move\to" | Should Be 4
+
+        Test-Path -LiteralPath "$TestDrive\move\to\index\営業\見積\content.xlsx.001.tsv" | Should Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\system_index\営業\見積\システムインデックス.txt" | Should Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\取り込み一覧.tsv" | Should Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\インデックス作成ログ.txt" | Should Be $true
+        @(getWorkspaceEntries "$TestDrive\move\from").Count | Should Be 0
+        Test-Path -LiteralPath "$TestDrive\move\from\利用者のメモ.txt" | Should Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\利用者のメモ.txt" | Should Be $false
+    }
+
+    It "移し先に同じ名前があれば、何も移さずに例外にする" {
+        newWorkspaceFiles "$TestDrive\conflict\from"
+        newTsv "$TestDrive\conflict\to\取り込み一覧.tsv" @("別のワークスペース")
+
+        { moveWorkspace "$TestDrive\conflict\from" "$TestDrive\conflict\to" } | Should Throw "すでに 取り込み一覧.tsv があります"
+        @(getWorkspaceEntries "$TestDrive\conflict\from").Count | Should Be 4
+        Test-Path -LiteralPath "$TestDrive\conflict\to\index" | Should Be $false
+    }
+
+    It "途中で移せなければ、移した分を戻して例外にする（中身が 2 つに分かれない）" {
+        newWorkspaceFiles "$TestDrive\rollback\from"
+        # system_index の中のファイルを開いておき、フォルダを移せなくする（index は先に移る）
+        $stream = [System.IO.File]::Open("$TestDrive\rollback\from\system_index\営業\見積\システムインデックス.txt", "Open", "Read", "None")
+        try {
+            { moveWorkspace "$TestDrive\rollback\from" "$TestDrive\rollback\to" } | Should Throw "中身は「$TestDrive\rollback\from」に残しています"
+        } finally {
+            $stream.Dispose()
+        }
+        @(getWorkspaceEntries "$TestDrive\rollback\from").Count | Should Be 4
+        @(getWorkspaceEntries "$TestDrive\rollback\to").Count | Should Be 0
+    }
+
+    It "中身が無ければ何も移さない" {
+        moveWorkspace "$TestDrive\empty\from" "$TestDrive\empty\to" | Should Be 0
+    }
+}
+
+Describe "copyDirectoryTree" -Tag Io {
+    It "フォルダを中身ごと写す（別のドライブへ移すとき）" {
+        newTsv "$TestDrive\copy\from\a\b.tsv" @("b")
+        newTsv "$TestDrive\copy\from\c.txt" @("c")
+
+        copyDirectoryTree (toLongPath "$TestDrive\copy\from") (toLongPath "$TestDrive\copy\to")
+
+        Test-Path -LiteralPath "$TestDrive\copy\to\a\b.tsv" | Should Be $true
+        Test-Path -LiteralPath "$TestDrive\copy\to\c.txt" | Should Be $true
+        Test-Path -LiteralPath "$TestDrive\copy\from\c.txt" | Should Be $true
+    }
+}
+
+Describe "moveSearchExcludes" -Tag Io {
+    It "前のワークスペースのインデックスの下を、移した先のインデックスの下に付け替える（ほかは変えない）" {
+        $settings = "$TestDrive\excludes\setting.config"
+        writeSearchExcludes @(
+            [pscustomobject]@{ Path = "C:\old\index"; Subfolders = $true },
+            [pscustomobject]@{ Path = "C:\OLD\index\営業\見積"; Subfolders = $false },
+            [pscustomobject]@{ Path = "C:\old\index2\技術"; Subfolders = $true }
+        ) $settings
+
+        moveSearchExcludes "C:\old" "D:\新しい場所" $settings | Should Be 2
+
+        $excludes = @(readSearchExcludes $settings)
+        @($excludes | ForEach-Object { $_.Path }) -join "|" | Should Be "D:\新しい場所\index|D:\新しい場所\index\営業\見積|C:\old\index2\技術"
+        @($excludes | ForEach-Object { $_.Subfolders }) -join "," | Should Be "True,False,True"
+    }
+}
