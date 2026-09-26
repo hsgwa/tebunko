@@ -2630,7 +2630,7 @@
 </tr>
 <tr>
 <td>構成・安全性のメタテスト</td>
-<td>層の決まり・文字コード・危険な処理（<code>Invoke-Expression</code>・通信・実行時コンパイルなど）の混入</td>
+<td>層の決まり（判断層・状態層が画面に触らないこと、画面以外の読み込み口が <code>ui/</code> を読み込まないこと）・文字コード・危険な処理（<code>Invoke-Expression</code>・通信・実行時コンパイルなど）の混入</td>
 <td><code>tests/meta/</code>。<a href="ci/">テストの実行と CI</a></td>
 <td>CI の <code>test</code></td>
 </tr>
