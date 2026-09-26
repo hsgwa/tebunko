@@ -1322,10 +1322,10 @@
 <h2 id="43-excel-の抽出処理extractworkbook">4.3 Excel の抽出処理（<code>extractWorkbook</code>）<a class="headerlink" href="#43-excel-の抽出処理extractworkbook" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
     autonumber
-    participant S as tebunko_grep/indexer.ps1
+    participant S as tebunko/indexer.ps1
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
-    participant T as 作業領域 %TEMP%\tebunko_grep\#lt;PID#gt;
+    participant T as 作業領域 %TEMP%\tebunko\#lt;PID#gt;
     participant I as work/index
     participant L as 取り込み一覧（work/取り込み一覧.tsv）
 

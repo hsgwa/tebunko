@@ -1512,7 +1512,7 @@
 </tr>
 <tr>
 <td>スクリプト</td>
-<td><code>scripts/tebunko_grep/gui.ps1</code>（処理）/ <code>scripts/tebunko_grep/xaml/tebunko_grep.xaml</code>（画面定義）</td>
+<td><code>scripts/tebunko/gui.ps1</code>（処理）/ <code>scripts/tebunko/xaml/tebunko.xaml</code>（画面定義）</td>
 </tr>
 <tr>
 <td>使用する共通関数</td>
@@ -1520,7 +1520,7 @@
 </tr>
 <tr>
 <td>起動する処理</td>
-<td><code>scripts/tebunko_grep/indexer.ps1</code>（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>）をウィンドウなしで起動する。検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>）とプロセス停止（<a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">5 章</a>）は画面内で実行する</td>
+<td><code>scripts/tebunko/indexer.ps1</code>（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>）をウィンドウなしで起動する。検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>）とプロセス停止（<a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">5 章</a>）は画面内で実行する</td>
 </tr>
 </tbody>
 </table>
@@ -1683,18 +1683,18 @@
 <tbody>
 <tr>
 <td>インデックス作成</td>
-<td><strong>別プロセス（ウィンドウなし）</strong>（<code>tebunko_grep/indexer.ps1</code>）</td>
+<td><strong>別プロセス（ウィンドウなし）</strong>（<code>tebunko/indexer.ps1</code>）</td>
 <td>時間がかかるため別プロセスで実行する。進み具合・［中止］・ログは画面に表示する（3 章）</td>
 </tr>
 <tr>
 <td>検索</td>
 <td><strong>画面内</strong>（別スレッド）</td>
-<td><code>tebunko_grep/lib.ps1</code> の検索関数を使う（4.1）。結果ファイルへの出力は必要なときだけ行う（4.6）</td>
+<td><code>tebunko/lib.ps1</code> の検索関数を使う（4.1）。結果ファイルへの出力は必要なときだけ行う（4.6）</td>
 </tr>
 <tr>
 <td>プロセス停止</td>
 <td><strong>画面内</strong></td>
-<td><code>shared/office/office_process.ps1</code> の関数（<code>tebunko_grep/lib.ps1</code> から読み込む）でプロセスを取得・終了する（5 章）</td>
+<td><code>shared/office/office_process.ps1</code> の関数（<code>tebunko/lib.ps1</code> から読み込む）でプロセスを取得・終了する（5 章）</td>
 </tr>
 </tbody>
 </table>
@@ -1719,7 +1719,7 @@
 </tr>
 <tr>
 <td>タイトル</td>
-<td><code>tebunko_grep</code></td>
+<td><code>tebunko</code></td>
 </tr>
 <tr>
 <td>下部</td>
@@ -1741,7 +1741,7 @@
 </table>
 <h3 id="22-起動時に開くタブ">2.2 起動時に開くタブ<a class="headerlink" href="#22-起動時に開くタブ" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
-    S(["起動"]) --&gt; R{"インデックス作成（tebunko_grep/indexer.ps1）が&lt;br&gt;実行中？（3.3）"}
+    S(["起動"]) --&gt; R{"インデックス作成（tebunko/indexer.ps1）が&lt;br&gt;実行中？（3.3）"}
     R -- はい --&gt; T1
     R -- いいえ --&gt; A{"work/取り込み一覧.tsv に『未取り込み』の行がある？&lt;br&gt;（前回のインデックス作成が中断中）"}
     A -- はい --&gt; T1["［1 インデックス管理］を開く"]

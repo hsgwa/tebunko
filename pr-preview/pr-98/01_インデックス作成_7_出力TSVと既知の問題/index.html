@@ -1797,12 +1797,12 @@ B2→確定版
 <li>
 <p><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。</p>
 </li>
-<li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types_grep.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
+<li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
 <li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「セル」と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。</li>
 <li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_5_%E3%82%AF%E3%83%AD%E3%83%BC%E3%83%AB/">01_インデックス作成_5</a>）。今は <code>.xlsx</code> <code>.xlsm</code> と Word・PowerPoint のすべての形式が 2。</li>
 </ul>
 <h4 id="インデックスへの入れ替えpublishtsv--publishindexfiles">インデックスへの入れ替え（<code>publishTsv</code> / <code>publishIndexFiles</code>）<a class="headerlink" href="#インデックスへの入れ替えpublishtsv--publishindexfiles" title="Permanent link">&para;</a></h4>
-<p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code>）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん <code>work/取り込み出力/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。集約ファイルへは、そのフォルダの取り込みが終わってから入れる（下の「集約ファイルへの書き出し」）。</p>
+<p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん <code>work/取り込み出力/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。集約ファイルへは、そのフォルダの取り込みが終わってから入れる（下の「集約ファイルへの書き出し」）。</p>
 <ul>
 <li>1 件ずつインデックスへ移すと、途中で強制終了されたときに<strong>一部のシートだけが入ったインデックス</strong>が残り、検索しても欠けていることに気付けない。まとめて入れ替えれば、「前回のインデックスがそのまま」か「今回の分がそろった状態」のどちらかになる。</li>
 <li>フォルダごと移す（<code>Directory.Move</code>）には同じドライブである必要があるため、集める場所は <code>work</code> の中に置く（作業領域は <code>%TEMP%</code>）。別のドライブで移せない場合は、1 件ずつ移す方法に切り替える。</li>
@@ -1830,7 +1830,7 @@ B2→確定版
 <li>検索は集約ファイルだけを読むため、別の PC へコピーした以前の版のインデックス（<code>work/index</code> の外に置いたもの・インデックス作成をしていないもの）は、そのままでは検索できない。</li>
 </ul>
 <h4 id="長いパス260-文字超の扱い">長いパス（260 文字超）の扱い<a class="headerlink" href="#長いパス260-文字超の扱い" title="Permanent link">&para;</a></h4>
-<p>出力 TSV のパスは、元ファイルのパスより <code>&lt;tebunko_grep の場所&gt;\work\index\&lt;インデックス名&gt;\</code> と <code>\&lt;場所&gt;.tsv</code> の分だけ長くなるため（集約ファイルも <code>&lt;tebunko_grep の場所&gt;\work\index\&lt;インデックス名&gt;\</code> の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に <code>\\?\</code> を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには <code>toLongPath</code> で <code>\\?\</code> を付ける。</p>
+<p>出力 TSV のパスは、元ファイルのパスより <code>&lt;tebunko の場所&gt;\work\index\&lt;インデックス名&gt;\</code> と <code>\&lt;場所&gt;.tsv</code> の分だけ長くなるため（集約ファイルも <code>&lt;tebunko の場所&gt;\work\index\&lt;インデックス名&gt;\</code> の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に <code>\\?\</code> を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには <code>toLongPath</code> で <code>\\?\</code> を付ける。</p>
 <table>
 <thead>
 <tr>
@@ -1996,7 +1996,7 @@ B2→確定版
 <p><strong>6.7 Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）</strong> → <a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_1_Excel/#67-excel-の図形コメントの読み取りreadxlsxobjectunits">01_インデックス作成_1_Excel.md</a></p>
 </blockquote>
 <h3 id="68-システムインデックスsystem_index">6.8 システムインデックス（system_index）<a class="headerlink" href="#68-システムインデックスsystem_index" title="Permanent link">&para;</a></h3>
-<p>高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）のため、インデックス作成は集約ファイルとは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko_grep/index/system_index.ps1</code>。語の決まりは <code>tebunko_grep/search/search_gram.ps1</code>）。</p>
+<p>高速検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）のため、インデックス作成は集約ファイルとは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko/index/system_index.ps1</code>。語の決まりは <code>tebunko/search/search_gram.ps1</code>）。</p>
 <div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … 集約ファイル（6.1）
 work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/システムインデックス.txt … システムインデックス
 work/システムインデックスの状態.tsv                                         … その状態
@@ -2099,7 +2099,7 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>2</td>
-<td>インデクサが強制終了された（PC の停止・タスクマネージャーでの終了等）場合は <code>finally</code> が実行されず、Excel・Word・PowerPoint が残る（画面の［9 プロセス停止］タブで終了する）。取り込み一覧には追記した行が重複して残るが、次回のクロール時に書き直される。作りかけのインデックス（一部のシートだけの TSV）は残らない（<code>publishIndexFiles</code>。6.1 節）。集約ファイルに入れる前の TSV のフォルダは残るが、次回のインデックス作成開始時に集約ファイルへ入れる（<code>findIndexFoldersWithBooks</code>。6.1 節）。<code>work/取り込み出力/&lt;PID&gt;</code>・<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> も残るが、次回のインデックス作成開始時に削除する</td>
+<td>インデクサが強制終了された（PC の停止・タスクマネージャーでの終了等）場合は <code>finally</code> が実行されず、Excel・Word・PowerPoint が残る（画面の［9 プロセス停止］タブで終了する）。取り込み一覧には追記した行が重複して残るが、次回のクロール時に書き直される。作りかけのインデックス（一部のシートだけの TSV）は残らない（<code>publishIndexFiles</code>。6.1 節）。集約ファイルに入れる前の TSV のフォルダは残るが、次回のインデックス作成開始時に集約ファイルへ入れる（<code>findIndexFoldersWithBooks</code>。6.1 節）。<code>work/取り込み出力/&lt;PID&gt;</code>・<code>%TEMP%\tebunko\&lt;PID&gt;</code> も残るが、次回のインデックス作成開始時に削除する</td>
 <td>△</td>
 </tr>
 <tr>
@@ -2174,7 +2174,7 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>17</td>
-<td>正常でも 10 分以上かかる巨大なファイルは失敗になる。取り込みたい場合は <code>tebunko_grep/indexer.ps1</code> の <code>$fileTimeoutMinutes</code> を大きくする</td>
+<td>正常でも 10 分以上かかる巨大なファイルは失敗になる。取り込みたい場合は <code>tebunko/indexer.ps1</code> の <code>$fileTimeoutMinutes</code> を大きくする</td>
 <td>○</td>
 </tr>
 <tr>

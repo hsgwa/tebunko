@@ -1553,7 +1553,7 @@
 </table>
 <h3 id="41-検索の実行">4.1 検索の実行<a class="headerlink" href="#41-検索の実行" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>検索処理は <code>tebunko_grep/search/pack_search.ps1</code> の関数</strong>（<code>getIndexPackFiles</code> / <code>searchPackIndex</code>、12 章）で行う。対象・照合・速度の仕様は <a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4 章のとおり。</li>
+<li><strong>検索処理は <code>tebunko/search/pack_search.ps1</code> の関数</strong>（<code>getIndexPackFiles</code> / <code>searchPackIndex</code>、12 章）で行う。対象・照合・速度の仕様は <a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4 章のとおり。</li>
 <li>検索対象は No.13 のツリーでチェックしたインデックス・フォルダ配下の <code>*.tsv</code>（4.8）。結果のフォルダ（相対パス）は、選んだフォルダではなくインデックスのフォルダ（<code>work\index</code>）から求めるため、フォルダを絞っても結果の表示・元のファイルを開く動作は変わらない。</li>
 <li><strong>別スレッド（Runspace）で実行</strong>し、検索中も画面を操作できるようにする。</li>
 <li>高速検索が使えるとき（検索ワードの下の <code>高速検索：使用可</code>）は、Windows Search で検索語を含みうるフォルダを先に絞り、その集約ファイルだけを検索する（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 4.4）。<code>高速検索：使用可 / 使用不可</code> は、ワード・［正規表現を使う］を変えるとすぐ変わる（<code>getFastSearchView</code>。Windows Search が使えるかは、画面を開いたときと検索のたびに確かめる）。</li>
@@ -1703,7 +1703,7 @@
 <h3 id="46-結果をファイルに出力">4.6 結果をファイルに出力<a class="headerlink" href="#46-結果をファイルに出力" title="Permanent link">&para;</a></h3>
 <ul>
 <li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を <code>work/検索結果.txt</code> に出力し、既定のアプリで開く。ステータスには <code>検索結果.txt に出力しました（N 件）</code> と表示する。</li>
-<li>形式は <a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 5 章の結果ファイルの形式。出力は <code>tebunko_grep/search/search_run.ps1</code> の関数（<code>toSearchResultLines</code> / <code>writeSearchResult</code>、12 章）で行う。</li>
+<li>形式は <a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a> 5 章の結果ファイルの形式。出力は <code>tebunko/search/search_run.ps1</code> の関数（<code>toSearchResultLines</code> / <code>writeSearchResult</code>、12 章）で行う。</li>
 <li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を検索結果.txt に出力しました</code> と表示する（U7）。</li>
 <li>書き込めないときはステータスに表示する。ファイルが開かれているときは <code>検索結果.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>検索結果.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
 <li>まだ検索していなければ <code>先に検索してください。</code> と表示する。</li>
@@ -1792,7 +1792,7 @@
 </tr>
 <tr>
 <td>下の項目</td>
-<td>インデックスの中のフォルダ（= クロール対象フォルダの中のフォルダ）。名前順。<strong>元のファイル名のフォルダ</strong>（<code>A社.xlsx</code> など。取り込み中だけ TSV をこの中に置く。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）は、フォルダではなくファイルなのでツリーに出さない（<code>IndexNode.IsBookDir</code>。判定は <code>tebunko_grep/index/index_name.ps1</code> の <code>$indexBookDirPattern</code> と同じ、Office の拡張子で終わる名前）</td>
+<td>インデックスの中のフォルダ（= クロール対象フォルダの中のフォルダ）。名前順。<strong>元のファイル名のフォルダ</strong>（<code>A社.xlsx</code> など。取り込み中だけ TSV をこの中に置く。<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90_7_%E5%87%BA%E5%8A%9BTSV%E3%81%A8%E6%97%A2%E7%9F%A5%E3%81%AE%E5%95%8F%E9%A1%8C/#61-配置命名規則">01_インデックス作成_7</a> 6.1）は、フォルダではなくファイルなのでツリーに出さない（<code>IndexNode.IsBookDir</code>。判定は <code>tebunko/index/index_name.ps1</code> の <code>$indexBookDirPattern</code> と同じ、Office の拡張子で終わる名前）</td>
 </tr>
 <tr>
 <td>読み込み</td>

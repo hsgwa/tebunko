@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tebunko_grep-安全性説明書" class="md-skip">
+        <a href="#tebunko-安全性説明書" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -1855,7 +1855,7 @@
   
 
 
-<h1 id="tebunko_grep-安全性説明書">tebunko_grep 安全性説明書<a class="headerlink" href="#tebunko_grep-安全性説明書" title="Permanent link">&para;</a></h1>
+<h1 id="tebunko-安全性説明書">tebunko 安全性説明書<a class="headerlink" href="#tebunko-安全性説明書" title="Permanent link">&para;</a></h1>
 <p>本書は、本ツールの導入を審査する担当者（情報システム部門・セキュリティ部門など）と、OSS としての安全性を評価する人に向けて、<strong>本ツールが何をするか・何をしないか</strong>と、<strong>その根拠をどう自分の手で確かめられるか</strong>を示す。</p>
 <p>本書の主張はすべて、このリポジトリのコード・設定に基づく。各主張には、<strong>それを機械的に守らせている仕組み</strong>（テスト・CI）と、<strong>審査する側が自分で再現するコマンド</strong>を併記する。本書を信用しなくても、同じ結果を自分で確かめられる。</p>
 <p>脆弱性・不審な挙動の連絡先は <a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>（GitHub の非公開の報告窓口）。</p>
@@ -1873,7 +1873,7 @@
 <tbody>
 <tr>
 <td>構成物</td>
-<td>Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko.bat</code>、アイコン <code>tebunko_grep.ico</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない</td>
+<td>Windows PowerShell スクリプト（<code>scripts/**/*.ps1</code>）、画面定義（<code>*.xaml</code>）、起動用 <code>tebunko.bat</code>、アイコン <code>tebunko.ico</code> のみ。実行可能バイナリ（<code>.exe</code> / <code>.dll</code>）を同梱しない</td>
 <td>配布 zip の中身は <code>tools/new_release_package.ps1</code> が決める</td>
 <td><a href="#51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1</a></td>
 </tr>
@@ -1945,7 +1945,7 @@
 </tr>
 <tr>
 <td>書き込み先</td>
-<td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）、<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> 配下、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先のみ</td>
+<td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）、<code>%TEMP%\tebunko\&lt;PID&gt;</code> 配下、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先のみ</td>
 <td><code>safety.Tests.ps1</code></td>
 <td><a href="#31-書き込み削除する場所">3.1</a></td>
 </tr>
@@ -2068,6 +2068,12 @@
 <td>該当 0 件</td>
 <td><code>scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'</code></td>
 </tr>
+<tr>
+<td>14</td>
+<td>内部の型（<code>NonPublic</code>）のリフレクションでの呼び出し</td>
+<td>1 か所のみ（下）</td>
+<td><code>scan 'NonPublic','Reflection\.BindingFlags'</code></td>
+</tr>
 </tbody>
 </table>
 <p>クロール対象が共有フォルダにある場合のファイルの読み取りは、Windows のファイル共有（SMB）を通る。これは OS のファイル API によるもので、本ツールが通信処理を持つわけではない。</p>
@@ -2082,9 +2088,9 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tebunko_grep/gui.ps1:8</code></td>
+<td><code>tebunko/gui.ps1:8</code></td>
 <td><code>PresentationFramework</code> / <code>PresentationCore</code> / <code>WindowsBase</code> / <code>System.Windows.Forms</code></td>
-<td>画面（WPF）の表示</td>
+<td>画面（WPF）の表示、フォルダ選択（WinForms）</td>
 </tr>
 <tr>
 <td><code>shared/office/office_reader.ps1:12-13</code></td>
@@ -2094,6 +2100,7 @@
 </tbody>
 </table>
 <p>実行時コンパイル（<code>csc.exe</code> の起動）を使わないのは設計方針である。検索処理・画面の型定義などは C# を使わず PowerShell と .NET の直接呼び出しで書いている（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">03_画面_6_実装とテスト.md 12.2</a>）。実行時に一時フォルダへコンパイル結果を書き出す動作が無いため、EDR やアプリケーション制御（AppLocker・WDAC）との衝突も避けられる。<code>tests/meta/structure.Tests.ps1</code> の「実行時コンパイル（csc.exe）を使わない」も、<code>Add-Type -TypeDefinition</code> が無いことを確かめる。</p>
+<p><strong>内部の型のリフレクション（14）</strong>：フォルダ選択（<code>shared/ui/folder_dialog.ps1</code> の <code>showFolderPicker</code>）だけが、WinForms が内部に持つ <code>IFileOpenDialog</code> の定義（<code>FileDialogNative+IFileDialog</code>）をリフレクション（<code>BindingFlags</code> の <code>NonPublic</code>）で呼ぶ。Windows 標準のエクスプローラー形式のダイアログを、実行時コンパイルなしで開くためである（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">03_画面_1 3.2.1</a>）。呼ぶのは .NET Framework に署名付きで入っている WinForms のダイアログの処理だけで、メモリの書き換えや AMSI などの検査の仕組みには触れない。開いている間に <code>csc.exe</code> などの子プロセスと一時フォルダへの DLL の書き出しが無いことを実機で確かめた。なお、Windows PowerShell 5.1 は <code>Add-Type</code>・<code>BindingFlags</code>・<code>NonPublic</code>・<code>GetMethod</code>・<code>IntPtr</code>・<code>InteropServices</code> などの語を含むスクリプトを、ログの設定に関わらずイベントログ（Microsoft-Windows-PowerShell/Operational の 4104、警告）に自動で記録する。本ツールはこの変更の前から <code>Add-Type</code> などで記録の対象である。<code>tests/meta/safety.Tests.ps1</code> が、<code>NonPublic</code> を使うのがこの 1 か所だけであることを確かめる。</p>
 <h3 id="22-office-ファイルを開くときの設定">2.2 Office ファイルを開くときの設定<a class="headerlink" href="#22-office-ファイルを開くときの設定" title="Permanent link">&para;</a></h3>
 <p>インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（<code>shared/office/office_app.ps1:36-53</code>）。<code>tests/meta/safety.Tests.ps1</code> の「Office ファイルを安全に開くこと」がこれを確かめる。</p>
 <table>
@@ -2133,7 +2140,7 @@
 <tr>
 <td><code>Open</code> の <code>ReadOnly</code></td>
 <td>真</td>
-<td>読み取り専用で開く（<code>tebunko_grep/indexer/extract_office.ps1:122</code>（Excel）・<code>202</code>（Word）・<code>228</code>（PowerPoint））</td>
+<td>読み取り専用で開く（<code>tebunko/indexer/extract_office.ps1:122</code>（Excel）・<code>202</code>（Word）・<code>228</code>（PowerPoint））</td>
 </tr>
 </tbody>
 </table>
@@ -2151,23 +2158,23 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tebunko_grep/ui/index_tab.ps1:615</code>・<code>620</code>、<code>tebunko_grep/ui/open_source.ps1:311</code></td>
+<td><code>tebunko/ui/index_tab.ps1:615</code>・<code>620</code>、<code>tebunko/ui/open_source.ps1:311</code></td>
 <td><code>explorer.exe</code></td>
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）</td>
 </tr>
 <tr>
-<td><code>tebunko_grep/ui/indexing_tab.ps1:196</code></td>
+<td><code>tebunko/ui/indexing_tab.ps1:196</code></td>
 <td><code>powershell.exe</code></td>
-<td>本ツール自身のインデクサ <code>tebunko_grep/indexer.ps1</code> を起動（<code>-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
+<td>本ツール自身のインデクサ <code>tebunko/indexer.ps1</code> を起動（<code>-NoProfile -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
 </tr>
 <tr>
-<td><code>tebunko_grep/gui.ps1:309</code></td>
+<td><code>tebunko/gui.ps1:309</code></td>
 <td><code>powershell.exe</code></td>
-<td>本ツール自身の画面 <code>tebunko_grep/gui.ps1</code> を開き直す（［8 設定］でワークスペースを変えたときだけ。<code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
+<td>本ツール自身の画面 <code>tebunko/gui.ps1</code> を開き直す（［8 設定］でワークスペースを変えたときだけ。<code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden</code>）</td>
 </tr>
 </tbody>
 </table>
-<p>元のファイルを開く操作（<code>tebunko_grep/ui/open_source.ps1:125</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。</p>
+<p>元のファイルを開く操作（<code>tebunko/ui/open_source.ps1:125</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。</p>
 <hr />
 <h2 id="3-ファイルの読み書きの範囲">3. ファイルの読み書きの範囲<a class="headerlink" href="#3-ファイルの読み書きの範囲" title="Permanent link">&para;</a></h2>
 <h3 id="31-書き込み削除する場所">3.1 書き込み・削除する場所<a class="headerlink" href="#31-書き込み削除する場所" title="Permanent link">&para;</a></h3>
@@ -2184,17 +2191,17 @@
 <tr>
 <td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）</td>
 <td>TSV インデックス（<code>work/index/</code>）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果</td>
-<td><code>shared/core/data_dir.ps1:41</code>、<code>tebunko_grep/core/paths_grep.ps1:12</code>・<code>13</code>・<code>18</code>・<code>26</code>〜<code>41</code></td>
+<td><code>shared/core/data_dir.ps1:41</code>、<code>tebunko/core/paths.ps1:12</code>・<code>13</code>・<code>18</code>・<code>26</code>〜<code>41</code></td>
 </tr>
 <tr>
-<td><code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> 配下</td>
+<td><code>%TEMP%\tebunko\&lt;PID&gt;</code> 配下</td>
 <td>取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする</td>
-<td><code>tebunko_grep/core/paths_grep.ps1:8</code></td>
+<td><code>tebunko/core/paths.ps1:8</code></td>
 </tr>
 <tr>
 <td><code>setting.config</code>（ツールを置いたフォルダの直下）</td>
 <td>画面が保存する設定（クロール対象フォルダ・検索対象インデックス・<code>work</code> の置き場所など）</td>
-<td><code>shared/core/data_dir.ps1:40</code>、<code>tebunko_grep/core/settings_grep.ps1:5</code></td>
+<td><code>shared/core/data_dir.ps1:40</code>、<code>tebunko/core/settings.ps1:5</code></td>
 </tr>
 <tr>
 <td><code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code> 配下</td>
@@ -2208,19 +2215,19 @@
 </tr>
 </tbody>
 </table>
-<p>削除（<code>Remove-Item</code>）は 18 か所あるが、対象はすべて <code>work/</code> 配下または <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> 配下、すなわち<strong>本ツールが自分で作ったファイル</strong>である。クロール対象フォルダ内のファイルを削除する処理は無い。</p>
+<p>削除（<code>Remove-Item</code>）は 18 か所あるが、対象はすべて <code>work/</code> 配下または <code>%TEMP%\tebunko\&lt;PID&gt;</code> 配下、すなわち<strong>本ツールが自分で作ったファイル</strong>である。クロール対象フォルダ内のファイルを削除する処理は無い。</p>
 <p>確認コマンド（2.1 の <code>scan</code> を使う）:</p>
 <div class="highlight"><pre><span></span><code><span class="c"># 削除・書き込みの呼び出し箇所をすべて列挙し、対象のパスが work / tmpDir 由来であることを目で確かめる</span>
 <span class="n">scan</span> <span class="s1">'Remove-Item'</span><span class="p">,</span><span class="s1">'WriteAllText'</span><span class="p">,</span><span class="s1">'WriteAllLines'</span><span class="p">,</span><span class="s1">'StreamWriter'</span><span class="p">,</span><span class="s1">'\.SaveAs'</span><span class="p">,</span><span class="s1">'::Move'</span><span class="p">,</span><span class="s1">'Move-Item'</span>
 </code></pre></div>
 <h3 id="32-取り込み対象のファイルは書き換えない">3.2 取り込み対象のファイルは書き換えない<a class="headerlink" href="#32-取り込み対象のファイルは書き換えない" title="Permanent link">&para;</a></h3>
-<p>本ツールは、クロール対象フォルダのファイルを<strong>直接開かない</strong>。作業フォルダへコピーし、そのコピーだけを開く（<code>tebunko_grep/indexer/extract_office.ps1:103</code>・<code>256</code> の <code>copyFileShared</code>）。コピー元は読み取り専用で開く（<code>shared/core/fs.ps1:121</code>。<code>FileAccess::Read</code> で開き、ほかのアプリの読み書き・削除を妨げない）。</p>
+<p>本ツールは、クロール対象フォルダのファイルを<strong>直接開かない</strong>。作業フォルダへコピーし、そのコピーだけを開く（<code>tebunko/indexer/extract_office.ps1:103</code>・<code>256</code> の <code>copyFileShared</code>）。コピー元は読み取り専用で開く（<code>shared/core/fs.ps1:121</code>。<code>FileAccess::Read</code> で開き、ほかのアプリの読み書き・削除を妨げない）。</p>
 <p>この設計は、インデックス作成中も利用者が原本を上書き保存・移動できるように（ファイルロックを避けるために）入れたものだが、結果として原本への書き込み経路そのものが存在しない。</p>
 <pre class="mermaid"><code>flowchart LR
     src[("クロール対象フォルダ&lt;br&gt;原本")]
-    copy["%TEMP%\tebunko_grep\#lt;PID#gt;&lt;br&gt;コピー"]
+    copy["%TEMP%\tebunko\#lt;PID#gt;&lt;br&gt;コピー"]
     office["Excel / Word / PowerPoint&lt;br&gt;読み取り専用・マクロ無効"]
-    tsv["%TEMP%\tebunko_grep\#lt;PID#gt;&lt;br&gt;中間 TSV"]
+    tsv["%TEMP%\tebunko\#lt;PID#gt;&lt;br&gt;中間 TSV"]
     idx[("work/index/&lt;br&gt;TSV インデックス")]
 
     src -- "コピー（読み取りのみ）" --&gt; copy
@@ -2255,7 +2262,7 @@
 <h3 id="42-mark-of-the-web-の解除tebunkobat">4.2 Mark-of-the-Web の解除（<code>tebunko.bat</code>）<a class="headerlink" href="#42-mark-of-the-web-の解除tebunkobat" title="Permanent link">&para;</a></h3>
 <p><code>tebunko.bat</code> は、画面を起動する前に、配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除し、そのあと画面を起動する。</p>
 <div class="highlight"><pre><span></span><code>powershell -NoProfile -Command <span class="s2">"Get-ChildItem -LiteralPath '</span><span class="nv">%~dp0</span><span class="s2">scripts' -Recurse -File | Unblock-File"</span> <span class="mi">1</span><span class="p">&gt;</span>nul <span class="mi">2</span><span class="p">&gt;</span>nul
-<span class="k">start</span> <span class="s2">""</span> conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File <span class="s2">"</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko_grep\gui.ps1"</span>
+<span class="k">start</span> <span class="s2">""</span> conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File <span class="s2">"</span><span class="nv">%~dp0</span><span class="s2">scripts\tebunko\gui.ps1"</span>
 </code></pre></div>
 <ul>
 <li><strong>理由</strong>: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー <code>RemoteSigned</code> では未署名スクリプトが実行できないため。</li>
@@ -2331,19 +2338,19 @@
 </ul>
 <p>本ツール側では、インデックスの場所を <code>work/</code> 配下に限定し、アクセス権の変更（<code>Set-Acl</code> 等）を一切行わない。したがって<strong>インデックスの保護は設置フォルダのアクセス権で決まる</strong>。</p>
 <h3 id="44-原本の一時コピーとその回収">4.4 原本の一時コピーと、その回収<a class="headerlink" href="#44-原本の一時コピーとその回収" title="Permanent link">&para;</a></h3>
-<p>インデックス作成中は、原本のコピーを <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> に作る（3.2）。機密文書のコピーが一時的に <code>%TEMP%</code> に存在することになるため、扱いを明記する。</p>
+<p>インデックス作成中は、原本のコピーを <code>%TEMP%\tebunko\&lt;PID&gt;</code> に作る（3.2）。機密文書のコピーが一時的に <code>%TEMP%</code> に存在することになるため、扱いを明記する。</p>
 <ul>
 <li><strong>通常終了時</strong>: ファイルごとに、読み終えたコピーを削除する。インデックス作成の完了時に作業フォルダごと空にする（<code>removeTmpDir</code>）。</li>
-<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko_grep/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko_grep/indexer.ps1:97</code> で起動時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
-<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>%TEMP%\tebunko_grep</code> を手で削除してよい（動作に影響しない）。</li>
+<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko/indexer.ps1:97</code> で起動時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
+<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>%TEMP%\tebunko</code> を手で削除してよい（動作に影響しない）。</li>
 </ul>
 <h3 id="45-検索結果から開くと-excel-が前面に出る">4.5 検索結果から開くと Excel が前面に出る<a class="headerlink" href="#45-検索結果から開くと-excel-が前面に出る" title="Permanent link">&para;</a></h3>
-<p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko_grep/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は常に不可視で動作する（2.2。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> にしか無いことを確かめる）。</p>
+<p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は常に不可視で動作する（2.2。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> にしか無いことを確かめる）。</p>
 <hr />
 <h2 id="5-第三者のツールによる検査結果">5. 第三者のツールによる検査結果<a class="headerlink" href="#5-第三者のツールによる検査結果" title="Permanent link">&para;</a></h2>
 <p>本ツールの作者以外が作ったツールでの検査結果を示す。5.1〜5.4 は誰でも同じコマンドで再現できる。</p>
 <h3 id="51-配布物の完全性カタログハッシュ一覧来歴の署名">5.1 配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）<a class="headerlink" href="#51-配布物の完全性カタログハッシュ一覧来歴の署名" title="Permanent link">&para;</a></h3>
-<p>GitHub Release の配布 zip（<code>tebunko_grep-&lt;タグ&gt;.zip</code>）は、<code>v</code> で始まるタグを push したときに <code>.github/workflows/release.yml</code> が作る。作る前に <code>test.yml</code> と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンスだけを入れ、確認用のファイルは zip と並べてリリースに載せる（<code>tools/new_release_package.ps1</code>）。<code>docs/</code>・<code>tests/</code>・<code>work/</code>・<code>setting.config</code> はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。</p>
+<p>GitHub Release の配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）は、<code>v</code> で始まるタグを push したときに <code>.github/workflows/release.yml</code> が作る。作る前に <code>test.yml</code> と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンスだけを入れ、確認用のファイルは zip と並べてリリースに載せる（<code>tools/new_release_package.ps1</code>）。<code>docs/</code>・<code>tests/</code>・<code>work/</code>・<code>setting.config</code> はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。</p>
 <table>
 <thead>
 <tr>
@@ -2411,9 +2418,9 @@
 </table>
 <p><code>SHA256SUMS.txt</code> は、同じファイルと <code>sbom.cdx.json</code>・<code>LICENSE</code> の SHA256 をテキストで並べたもので、目視・比較に使える（リリースにも単独で載せている）。手元でカタログとハッシュ一覧を作り直すときは <code>.\tools\new_release_files.ps1</code>（<code>work\release\</code> に出力）を実行する。</p>
 <p><strong>来歴の署名</strong>: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は <a href="https://cli.github.com/">GitHub CLI</a> で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。</p>
-<div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko_grep-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
+<div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
-<p>署名の bundle（<code>tebunko_grep-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko_grep-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（5.6 の照会に使える）。</p>
+<p>署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（5.6 の照会に使える）。</p>
 <h3 id="52-静的解析-psscriptanalyzermicrosoft">5.2 静的解析: PSScriptAnalyzer（Microsoft）<a class="headerlink" href="#52-静的解析-psscriptanalyzermicrosoft" title="Permanent link">&para;</a></h3>
 <p>PowerShell スクリプトの静的解析ツール。Microsoft が公開しているルールで、コードインジェクション・平文パスワードなどを検出する。</p>
 <div class="highlight"><pre><span></span><code><span class="nb">Install-Module</span> <span class="n">PSScriptAnalyzer</span> <span class="n">-RequiredVersion</span> <span class="n">1</span><span class="p">.</span><span class="n">25</span><span class="p">.</span><span class="n">0</span> <span class="n">-Scope</span> <span class="n">CurrentUser</span>   <span class="c"># 未導入の場合</span>
@@ -2526,7 +2533,7 @@
 <tr>
 <td>6</td>
 <td><code>TypeNotFound</code></td>
-<td><code>tebunko_grep/ui/types_grep.ps1</code> が、<code>shared/ui/types.ps1</code> の型（<code>NotifyBase</code>）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（<code>tests/meta/structure.Tests.ps1</code> の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る</td>
+<td><code>tebunko/ui/types.ps1</code> が、<code>shared/ui/types.ps1</code> の型（<code>NotifyBase</code>）を継承しているため。1 ファイルだけを解析すると継承元が見つからないという指摘で、実際の読み込み順では解決する（<code>tests/meta/structure.Tests.ps1</code> の「型の読み込み」で実際に読み込んで確認している）。どのルールを指定しても出る</td>
 </tr>
 </tbody>
 </table>
@@ -2660,7 +2667,7 @@
 <li>5.3 のローカルスキャン（送信なし）で代える。</li>
 <li>ファイルのハッシュだけを照会する（ハッシュは内容を復元できない。ただし過去に誰かが同じファイルを提出していない限り「未登録」となる）。配布 zip の SHA256 はリリースの説明にも書いてある。</li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="nb">Get-FileHash</span> <span class="p">.\</span><span class="n">tebunko_grep-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-Algorithm</span> <span class="n">SHA256</span>    <span class="c"># この値を VirusTotal の検索欄で照会する</span>
+<div class="highlight"><pre><span></span><code><span class="nb">Get-FileHash</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-Algorithm</span> <span class="n">SHA256</span>    <span class="c"># この値を VirusTotal の検索欄で照会する</span>
 </code></pre></div>
 <h3 id="57-同梱の機械検査と品質の指標">5.7 同梱の機械検査と品質の指標<a class="headerlink" href="#57-同梱の機械検査と品質の指標" title="Permanent link">&para;</a></h3>
 <p>2 章・3 章の主張と 5.2・5.4 の結果は、1 つのコマンドで検査できる（リポジトリを clone して実行する。配布 zip には <code>tests/</code> を入れていない）。</p>
