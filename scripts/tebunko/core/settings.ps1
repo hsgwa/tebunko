@@ -344,13 +344,13 @@ function writeOpenMode {
 }
 
 function getDefaultWorkDir {
-    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko）。高速検索のため、Windows Search の索引の対象になる場所に置く。
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。高速検索のため、Windows Search の索引の対象になる場所に置く。
     # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
     param (
         [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")
     )
 
-    return Join-Path $profileDir "Documents\tebunko"
+    return Join-Path $profileDir "Documents\tebunko_ws"
 }
 
 # 既定のワークスペースが空でないときの文言（画面の［既定に戻す］・起動時、インデクサで共通）
