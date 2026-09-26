@@ -170,7 +170,7 @@ function readSystemIndexState {
     # 状態ファイルを読む（convertFromSystemIndexState の形）。無ければ空。
     # 書き込み中などで読めなければ $null（高速検索を使わず、すべてを照合する）
     param (
-        [string]$path = ${systemIndexStateFile}
+        [string]$path = $workspace.SystemIndexStateFile
     )
 
     if (![System.IO.File]::Exists($path)) {
@@ -198,7 +198,7 @@ function updateSystemIndexState {
     # 開けなければ少し待って数回試し、それでも開けなければ $false を返す（書き換えは次の機会に回る）
     param (
         [scriptblock]$change,
-        [string]$path = ${systemIndexStateFile}
+        [string]$path = $workspace.SystemIndexStateFile
     )
 
     [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
@@ -280,7 +280,7 @@ function markSystemIndexChanged {
     # （今の日時にすると、txt を書いたのと同じ秒の中では一致して、反映済みと取り違える）
     param (
         [string[]]$rels,
-        [string]$path = ${systemIndexStateFile}
+        [string]$path = $workspace.SystemIndexStateFile
     )
 
     return updateSystemIndexState {
@@ -346,9 +346,9 @@ function updateSystemIndexes {
     # 利用者の作業の邪魔にならないよう、作るスレッドの優先度を下げる（writeSystemIndexFolders）。shouldStop が $true を返せば、始めていない分は作らない。
     # 作り直したフォルダの数と、作り終えていないインデックスの数を @{ Built; Unfinished } で返す
     param (
-        [string]$indexRoot = ${indexDir},
-        [string]$systemRoot = ${systemIndexDir},
-        [string]$statePath = ${systemIndexStateFile},
+        [string]$indexRoot = $workspace.IndexDir,
+        [string]$systemRoot = $workspace.SystemIndexDir,
+        [string]$statePath = $workspace.SystemIndexStateFile,
         [scriptblock]$shouldStop = $null
     )
 
@@ -421,8 +421,8 @@ function removeSystemIndexOf {
     # インデックス（または index の中のフォルダ）を消したとき、system_index の同じフォルダと状態の行を消す
     param (
         [string]$rel,
-        [string]$systemRoot = ${systemIndexDir},
-        [string]$path = ${systemIndexStateFile}
+        [string]$systemRoot = $workspace.SystemIndexDir,
+        [string]$path = $workspace.SystemIndexStateFile
     )
 
     $dir = toLongPath "$($systemRoot.TrimEnd('\'))\$rel"

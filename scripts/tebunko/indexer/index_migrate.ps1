@@ -8,7 +8,7 @@ function publishTsv {
         [string]$bookDir
     )
 
-    publishIndexFiles $tmpDir $bookDir (Join-Path ${publishDir} ([System.IO.Path]::GetFileName($bookDir)))
+    publishIndexFiles $tmpDir $bookDir (Join-Path $workspace.PublishDir ([System.IO.Path]::GetFileName($bookDir)))
 }
 
 function clearTmpDir {
@@ -17,7 +17,7 @@ function clearTmpDir {
 
 function removeTmpDir {
     # 作業フォルダ（%TEMP%\tebunko\<PID>）と出力用のフォルダ（work\取り込み出力\<PID>）を削除する。終了時に呼ぶ
-    foreach ($dir in @(${tmpDir}, ${publishDir})) {
+    foreach ($dir in @(${tmpDir}, $workspace.PublishDir)) {
         try {
             removeDirectoryRetry $dir
         } catch {
@@ -29,7 +29,7 @@ function removeTmpDir {
 function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
     # （%TEMP%\tebunko\<PID>・work\取り込み出力\<PID>）を削除する
-    foreach ($parent in @((Split-Path ${tmpDir} -Parent), (Split-Path ${publishDir} -Parent))) {
+    foreach ($parent in @((Split-Path ${tmpDir} -Parent), (Split-Path $workspace.PublishDir -Parent))) {
         removeStaleProcessDirs $parent
     }
 }
@@ -66,7 +66,7 @@ function moveLegacyIndex {
 
     $legacyPath = $null
     # 前回の移行が途中（work\index を別名にした直後）で止まると、_移行中 が残り、work\index は空で作り直されている
-    $movingDir = "${indexDir}_移行中"
+    $movingDir = "$($workspace.IndexDir)_移行中"
     $resuming = [System.IO.Directory]::Exists($movingDir)
     $legacyFolder = @($status.Folders | Where-Object { -not $_.Name }) | Select-Object -First 1
     if ($legacyFolder) {
@@ -75,7 +75,7 @@ function moveLegacyIndex {
         # 取り込み一覧が無い（取り込み一覧を使う前の版）: work\index 直下が各フォルダのインデックス名のフォルダだけでなければ、
         # 以前の形式で、クロール対象フォルダの1件目のフォルダのインデックスとみなす
         $names = @($folders | ForEach-Object { $_.Name })
-        $others = @(Get-ChildItem -LiteralPath $indexDir -Force | Where-Object {
+        $others = @(Get-ChildItem -LiteralPath $workspace.IndexDir -Force | Where-Object {
             ($_.PSIsContainer -and $names -notcontains $_.Name) -or (-not $_.PSIsContainer -and $_.Name -ne ${sourceFolderFileName})
         })
         if ($others.Count -gt 0 -or $resuming) {
@@ -96,10 +96,10 @@ function moveLegacyIndex {
     # work\index を丸ごと work\index\<インデックス名> に移す（同じ名前のサブフォルダがあっても衝突しないよう、いったん別名にする）。
     # 前回の移行が途中で止まっていれば、残った _移行中 を移すところから続ける
     if (-not $resuming) {
-        [System.IO.Directory]::Move($indexDir, $movingDir)
+        [System.IO.Directory]::Move($workspace.IndexDir, $movingDir)
     }
-    [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
-    [System.IO.Directory]::Move($movingDir, (Join-Path $indexDir $folder.Name))
+    [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
+    [System.IO.Directory]::Move($movingDir, (Join-Path $workspace.IndexDir $folder.Name))
     writeIndexerLog "以前の形式のインデックスを work\index\$($folder.Name) に移しました。（$($folder.Path) のインデックス）"
     foreach ($row in $status.Rows.Values) {
         $row.相対パス = "$($folder.Name)\$($row.相対パス)"
@@ -119,7 +119,7 @@ function removeDroppedFolders {
     # インデックス名で比べる。フォルダを移動して登録し直した場合は、同じ名前を引き継ぐため削除しない（assignIndexNames）
     $current = @($folders | ForEach-Object { $_.Name })
     foreach ($previous in @($previousFolders | Where-Object { $_.Name -and $current -notcontains $_.Name })) {
-        $dir = Join-Path $indexDir $previous.Name
+        $dir = Join-Path $workspace.IndexDir $previous.Name
         if (Test-Path -LiteralPath $dir) {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
             Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
@@ -134,7 +134,7 @@ function migrateFlatIndex {
     # 今の形式のTSVの名前は場所だけ（_ は符号化されている）のため、_ を含む名前が以前の形式
     $moved = 0
     $failed = 0
-    foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $indexDir) -Filter "*.tsv" -File -Recurse -ErrorAction SilentlyContinue)) {
+    foreach ($file in @(Get-ChildItem -LiteralPath (toLongPath $workspace.IndexDir) -Filter "*.tsv" -File -Recurse -ErrorAction SilentlyContinue)) {
         if ($file.Name.IndexOf("_") -lt 0) {
             continue
         }
