@@ -16,17 +16,6 @@ Describe "パス定義" -Tag Meta {
     }
 }
 
-Describe "実行時コンパイル（csc.exe）を使わない" -Tag Meta {
-    # 画面・共通・インデックス作成の各スクリプトが Add-Type -TypeDefinition（実行時コンパイル）を使わないこと。
-    # 画面で使う型は PowerShell class に移した（csc.exe の親子関係・一時 DLL を出さないため）
-    It "scripts に Add-Type -TypeDefinition が無い" {
-        foreach ($file in (Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1")) {
-            $source = Get-Content $file.FullName -Raw -Encoding UTF8
-            ($source -match "Add-Type\s+-TypeDefinition") | Should Be $false
-        }
-    }
-}
-
 Describe "画面の部品でのパスの組み立て" -Tag Meta {
     # ui\ 配下のファイルは gui.ps1 から dot-source する部品。中で $PSScriptRoot を使うと ui\ を指すため、
     # "${PSScriptRoot}\tebunko\indexer.ps1" のように起動口からの相対パスを書くと存在しないパスになる

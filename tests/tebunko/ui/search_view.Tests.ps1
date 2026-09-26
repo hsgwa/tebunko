@@ -3,26 +3,17 @@
 . "${scriptsDir}\tebunko\ui\search_view.ps1"
 
 Describe "describeSearchOption" -Tag Unit {
-    It "既定のままなら空" {
-        describeSearchOption @{ CaseSensitive = $false; FileFilter = "" } | Should Be ""
-    }
-
-    It "大文字と小文字の区別を出す" {
-        describeSearchOption @{ CaseSensitive = $true; FileFilter = "" } | Should Be "大文字と小文字を区別"
-    }
-
-    It "対象ファイルを出す" {
-        describeSearchOption @{ CaseSensitive = $false; FileFilter = "*.xlsx" } | Should Be "対象ファイル：*.xlsx"
-    }
-
-    It "両方あれば中黒でつなぐ" {
-        describeSearchOption @{ CaseSensitive = $true; FileFilter = "*.xlsx" } | Should Be "大文字と小文字を区別・対象ファイル：*.xlsx"
-    }
-
-    It "図形・コメントを外したときだけ出す" {
-        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true } | Should Be ""
-        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $false; IncludeComments = $false } | Should Be "図形を除く・コメントを除く"
-        describeSearchOption @{ CaseSensitive = $false; FileFilter = ""; IncludeComments = $false } | Should Be "コメントを除く"
+    It "<name>" -TestCases @(
+        @{ name = "既定のままなら空"; option = @{ CaseSensitive = $false; FileFilter = "" }; expected = "" }
+        @{ name = "大文字と小文字の区別を出す"; option = @{ CaseSensitive = $true; FileFilter = "" }; expected = "大文字と小文字を区別" }
+        @{ name = "対象ファイルを出す"; option = @{ CaseSensitive = $false; FileFilter = "*.xlsx" }; expected = "対象ファイル：*.xlsx" }
+        @{ name = "両方あれば中黒でつなぐ"; option = @{ CaseSensitive = $true; FileFilter = "*.xlsx" }; expected = "大文字と小文字を区別・対象ファイル：*.xlsx" }
+        @{ name = "図形・コメントを含めるなら出さない"; option = @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true }; expected = "" }
+        @{ name = "図形・コメントを外したら出す"; option = @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $false; IncludeComments = $false }; expected = "図形を除く・コメントを除く" }
+        @{ name = "コメントだけ外したらコメントだけ出す"; option = @{ CaseSensitive = $false; FileFilter = ""; IncludeComments = $false }; expected = "コメントを除く" }
+    ) {
+        param ($name, $option, $expected)
+        describeSearchOption $option | Should Be $expected
     }
 }
 
@@ -50,50 +41,30 @@ Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
 }
 
 Describe "getWordNotice" -Tag Unit {
-    It "正規表現でなければ出さない" {
-        getWordNotice "(" $false | Should Be ""
-    }
-
-    It "正規表現として正しければ出さない" {
-        getWordNotice "見積.*確定" $true | Should Be ""
-    }
-
-    It "空のワードでは出さない" {
-        getWordNotice "" $true | Should Be ""
-    }
-
-    It "正規表現として不正なら、文字どおり検索すると伝える" {
-        getWordNotice "(" $true | Should Be "正規表現として不正なため、文字どおり検索します。"
+    It "<name>" -TestCases @(
+        @{ name = "正規表現でなければ出さない"; word = "("; useRegex = $false; expected = "" }
+        @{ name = "正規表現として正しければ出さない"; word = "見積.*確定"; useRegex = $true; expected = "" }
+        @{ name = "空のワードでは出さない"; word = ""; useRegex = $true; expected = "" }
+        @{ name = "正規表現として不正なら、文字どおり検索すると伝える"; word = "("; useRegex = $true; expected = "正規表現として不正なため、文字どおり検索します。" }
+    ) {
+        param ($name, $word, $useRegex, $expected)
+        getWordNotice $word $useRegex | Should Be $expected
     }
 }
 
 Describe "newSearchButtonState" -Tag Unit {
-    It "検索中は［中止］にする" {
-        $state = newSearchButtonState $true $false "見積" $true 1
-        $state.Content | Should Be "中止"
-        $state.Enabled | Should Be $true
-    }
-
-    It "中止を頼んだ後は押せない" {
-        (newSearchButtonState $true $true "見積" $true 1).Enabled | Should Be $false
-    }
-
-    It "ワード・インデックス・検索対象がそろえば押せる" {
-        $state = newSearchButtonState $false $false "見積" $true 2
-        $state.Content | Should Be "検索"
-        $state.Enabled | Should Be $true
-    }
-
-    It "ワードが空なら押せない" {
-        (newSearchButtonState $false $false "" $true 2).Enabled | Should Be $false
-    }
-
-    It "インデックスが無ければ押せない" {
-        (newSearchButtonState $false $false "見積" $false 2).Enabled | Should Be $false
-    }
-
-    It "検索対象が選ばれていなければ押せない" {
-        (newSearchButtonState $false $false "見積" $true 0).Enabled | Should Be $false
+    It "<name>" -TestCases @(
+        @{ name = "検索中は［中止］にする"; searching = $true; stopping = $false; word = "見積"; hasIndex = $true; targetCount = 1; content = "中止"; enabled = $true }
+        @{ name = "中止を頼んだ後は押せない"; searching = $true; stopping = $true; word = "見積"; hasIndex = $true; targetCount = 1; content = "中止"; enabled = $false }
+        @{ name = "ワード・インデックス・検索対象がそろえば押せる"; searching = $false; stopping = $false; word = "見積"; hasIndex = $true; targetCount = 2; content = "検索"; enabled = $true }
+        @{ name = "ワードが空なら押せない"; searching = $false; stopping = $false; word = ""; hasIndex = $true; targetCount = 2; content = "検索"; enabled = $false }
+        @{ name = "インデックスが無ければ押せない"; searching = $false; stopping = $false; word = "見積"; hasIndex = $false; targetCount = 2; content = "検索"; enabled = $false }
+        @{ name = "検索対象が選ばれていなければ押せない"; searching = $false; stopping = $false; word = "見積"; hasIndex = $true; targetCount = 0; content = "検索"; enabled = $false }
+    ) {
+        param ($name, $searching, $stopping, $word, $hasIndex, $targetCount, $content, $enabled)
+        $state = newSearchButtonState $searching $stopping $word $hasIndex $targetCount
+        $state.Content | Should Be $content
+        $state.Enabled | Should Be $enabled
     }
 }
 
@@ -114,16 +85,13 @@ Describe "getAppKind" -Tag Unit {
 }
 
 Describe "describeFileLocations" -Tag Unit {
-    It "場所が無ければ空" {
-        describeFileLocations @() | Should Be ""
-    }
-
-    It "1 か所ならその場所" {
-        describeFileLocations @("[シート] 4月") | Should Be "[シート] 4月"
-    }
-
-    It "2 か所以上なら先頭と、ほかの数" {
-        describeFileLocations @("[シート] 4月", "[シート] 5月", "[シート] 6月") | Should Be "[シート] 4月 ほか 2 か所"
+    It "<name>" -TestCases @(
+        @{ name = "場所が無ければ空"; locations = @(); expected = "" }
+        @{ name = "1 か所ならその場所"; locations = @("[シート] 4月"); expected = "[シート] 4月" }
+        @{ name = "2 か所以上なら先頭と、ほかの数"; locations = @("[シート] 4月", "[シート] 5月", "[シート] 6月"); expected = "[シート] 4月 ほか 2 か所" }
+    ) {
+        param ($name, $locations, $expected)
+        describeFileLocations $locations | Should Be $expected
     }
 }
 
