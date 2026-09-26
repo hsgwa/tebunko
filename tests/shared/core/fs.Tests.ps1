@@ -267,3 +267,90 @@ Describe "newAppMutex" -Tag Io {
         }
     }
 }
+
+Describe "writeTextLinesAtomic（文字コード）" -Tag Io {
+    It "既定は BOM 付き UTF-8、encoding を渡せば BOM なし UTF-8 で書く" {
+        $path = "$TestDrive\atomic\文字コード.txt"
+        writeTextLinesAtomic $path @("あ")
+        [System.IO.File]::ReadAllBytes($path)[0..2] -join "," | Should -Be "239,187,191"
+        writeTextLinesAtomic $path @("あ") (New-Object System.Text.UTF8Encoding($false))
+        [System.IO.File]::ReadAllBytes($path)[0] | Should -Not -Be 239
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8).Trim() | Should -Be "あ"
+    }
+}
+
+Describe "invokeWithNamedMutex" -Tag Io {
+    BeforeAll {
+        # 別のスレッド（新しいスレッドで動くランスペース）でミューテックスを取る。
+        # release が $true なら合図があるまで持ち続け、$false なら取ったまま終わる（abandoned になる）
+        function startMutexHolder {
+            param ([string]$name, [bool]$release)
+            $runspace = [runspacefactory]::CreateRunspace()
+            $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::UseNewThread
+            $runspace.Open()
+            $ps = [powershell]::Create()
+            $ps.Runspace = $runspace
+            $got = New-Object System.Threading.ManualResetEvent($false)
+            $stop = New-Object System.Threading.ManualResetEvent($false)
+            [void]$ps.AddScript({
+                param ($name, $release, $got, $stop)
+                $m = New-Object System.Threading.Mutex($false, $name)
+                [void]$m.WaitOne()
+                [void]$got.Set()
+                if ($release) {
+                    [void]$stop.WaitOne()
+                    $m.ReleaseMutex()
+                }
+            }).AddArgument($name).AddArgument($release).AddArgument($got).AddArgument($stop)
+            $handle = $ps.BeginInvoke()
+            $got.WaitOne(10000) | Should -Be $true
+            return @{ Ps = $ps; Runspace = $runspace; Handle = $handle; Stop = $stop }
+        }
+        function closeMutexHolder {
+            param ($holder)
+            [void]$holder.Stop.Set()
+            [void]$holder.Ps.EndInvoke($holder.Handle)
+            $holder.Ps.Dispose()
+            $holder.Runspace.Dispose()
+        }
+    }
+
+    It "action の出力を返し、終わったら手放す（続けて取れる）" {
+        $name = "Local\tebunko_test_mutex_$([guid]::NewGuid().ToString('N'))"
+        invokeWithNamedMutex $name 1000 { 42 } | Should -Be 42
+        invokeWithNamedMutex $name 1000 { 43 } | Should -Be 43
+    }
+
+    It "action が例外でも手放す" {
+        $name = "Local\tebunko_test_mutex_$([guid]::NewGuid().ToString('N'))"
+        { invokeWithNamedMutex $name 1000 { throw "失敗" } } | Should -Throw "失敗"
+        invokeWithNamedMutex $name 1000 { "取れた" } | Should -Be "取れた"
+    }
+
+    It "同じスレッドの入れ子は通す" {
+        $name = "Local\tebunko_test_mutex_$([guid]::NewGuid().ToString('N'))"
+        $inner = { "内側" }
+        invokeWithNamedMutex $name 1000 { invokeWithNamedMutex $name 1000 $inner } | Should -Be "内側"
+    }
+
+    It "別のスレッドが持ったままだと、決めた時間で分かる例外にする" {
+        $name = "Local\tebunko_test_mutex_$([guid]::NewGuid().ToString('N'))"
+        $holder = startMutexHolder $name $true
+        try {
+            { invokeWithNamedMutex $name 200 { "実行されない" } } | Should -Throw "*排他の待ちが時間切れになりました*"
+        } finally {
+            closeMutexHolder $holder
+        }
+        invokeWithNamedMutex $name 1000 { "取れた" } | Should -Be "取れた"
+    }
+
+    It "持ったまま終わったスレッドの後は、abandoned として続ける" {
+        $name = "Local\tebunko_test_mutex_$([guid]::NewGuid().ToString('N'))"
+        $holder = startMutexHolder $name $false
+        [void]$holder.Ps.EndInvoke($holder.Handle)
+        $holder.Ps.Dispose()
+        $holder.Runspace.Dispose()   # スレッドが終わる
+        Start-Sleep -Milliseconds 300
+        invokeWithNamedMutex $name 2000 { "続けた" } | Should -Be "続けた"
+    }
+}
