@@ -1542,7 +1542,7 @@
 </tr>
 <tr>
 <td>スクリプト</td>
-<td><code>scripts/tebunko_grep/gui.ps1</code>（処理）/ <code>scripts/tebunko_grep/xaml/tebunko_grep.xaml</code>（画面定義）</td>
+<td><code>scripts/tebunko/gui.ps1</code>（処理）/ <code>scripts/tebunko/xaml/tebunko.xaml</code>（画面定義）</td>
 </tr>
 <tr>
 <td>使用する共通関数</td>
@@ -1550,7 +1550,7 @@
 </tr>
 <tr>
 <td>起動する処理</td>
-<td><code>scripts/tebunko_grep/indexer.ps1</code>（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>）を、画面のプロセスの中のスレッドで実行する（別のプロセスは起動しない。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#7-プロセスとスレッド">7 章</a>）。検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>）とプロセス停止（<a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">5 章</a>）は画面内で実行する</td>
+<td><code>scripts/tebunko/indexer.ps1</code>（<a href="../01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a>）を、画面のプロセスの中のスレッドで実行する（別のプロセスは起動しない。<a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#7-プロセスとスレッド">7 章</a>）。検索（<a href="../02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a>）とプロセス停止（<a href="../03_%E7%94%BB%E9%9D%A2_3_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96/">5 章</a>）は画面内で実行する</td>
 </tr>
 </tbody>
 </table>
@@ -1713,18 +1713,18 @@
 <tbody>
 <tr>
 <td>インデックス作成</td>
-<td><strong>画面のプロセスの中のスレッド</strong>（<code>IndexingSession</code> が <code>tebunko_grep/indexer.ps1 -Channel</code> を実行する）</td>
+<td><strong>画面のプロセスの中のスレッド</strong>（<code>IndexingSession</code> が <code>tebunko/indexer.ps1 -Channel</code> を実行する）</td>
 <td>時間がかかるため、画面のスレッドとは別のスレッド（優先度 BelowNormal）で実行する。1 ファイルの取り込みは取り込みのスレッドで並べて行う。進み具合・［中止］・ログは画面に表示する（3 章）。スレッドの分け方は <a href="../00_%E5%85%B1%E9%80%9A_4_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E3%81%A8%E3%82%B9%E3%83%AC%E3%83%83%E3%83%89/#7-プロセスとスレッド">7 章</a></td>
 </tr>
 <tr>
 <td>検索</td>
 <td><strong>画面内</strong>（検索の司令のスレッド <code>SearchService</code> と照合のプール）</td>
-<td><code>tebunko_grep/lib.ps1</code> の検索関数を使う（4.1）。スレッドは画面を開いている間使い回す。結果ファイルへの出力は必要なときだけ行う（4.6）</td>
+<td><code>tebunko/lib.ps1</code> の検索関数を使う（4.1）。スレッドは画面を開いている間使い回す。結果ファイルへの出力は必要なときだけ行う（4.6）</td>
 </tr>
 <tr>
 <td>プロセス停止</td>
 <td><strong>画面内</strong></td>
-<td><code>shared/office/office_process.ps1</code> の関数（<code>tebunko_grep/lib.ps1</code> から読み込む）でプロセスを取得・終了する（5 章）</td>
+<td><code>shared/office/office_process.ps1</code> の関数（<code>tebunko/lib.ps1</code> から読み込む）でプロセスを取得・終了する（5 章）</td>
 </tr>
 </tbody>
 </table>
@@ -1749,7 +1749,7 @@
 </tr>
 <tr>
 <td>タイトル</td>
-<td><code>tebunko_grep</code></td>
+<td><code>tebunko</code></td>
 </tr>
 <tr>
 <td>下部</td>

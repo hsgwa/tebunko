@@ -1418,7 +1418,7 @@
 <hr />
 <h2 id="4-処理フロー続き">4. 処理フロー（続き）<a class="headerlink" href="#4-処理フロー続き" title="Permanent link">&para;</a></h2>
 <h3 id="48-エラーメッセージ一覧">4.8 エラーメッセージ一覧<a class="headerlink" href="#48-エラーメッセージ一覧" title="Permanent link">&para;</a></h3>
-<p>インデクサ（<code>tebunko_grep/indexer.ps1</code>・<code>indexer/indexer_run.ps1</code>）が利用者に示すエラー・警告の一覧。メッセージは種類によって記録先と画面での表示が異なる。</p>
+<p>インデクサ（<code>tebunko/indexer.ps1</code>・<code>indexer/indexer_run.ps1</code>）が利用者に示すエラー・警告の一覧。メッセージは種類によって記録先と画面での表示が異なる。</p>
 <pre class="mermaid"><code>flowchart LR
     E{"発生したエラー"} -- "インデックス作成を続けられない&lt;br&gt;（4.8.1）" --&gt; F["受け渡しの口の Error&lt;br&gt;終了コード 1"] --&gt; G1["画面: 進み具合欄とエラーのダイアログ"]
     E -- "1 ファイルの取り込みに失敗&lt;br&gt;（4.8.2）" --&gt; S["work/取り込み一覧.tsv のエラー列&lt;br&gt;状態は『失敗』"] --&gt; G2["画面: 「取り込みに失敗したファイル」の一覧"]
@@ -1686,7 +1686,7 @@
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>
-<td>終了時に <code>%TEMP%\tebunko_grep\&lt;PID&gt;</code> または <code>work/取り込み出力/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+<td>終了時に <code>%TEMP%\tebunko\&lt;PID&gt;</code> または <code>work/取り込み出力/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
 </tr>
 <tr>
 <td><code>work\index 直下に、クロール対象から外したフォルダ（&lt;パス&gt;）の以前の形式のインデックスがあります。不要なら削除してください。</code></td>

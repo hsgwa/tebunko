@@ -1493,13 +1493,13 @@
 <tr>
 <td>└ <a href="00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB/">00_共通_2_共通モジュール.md</a></td>
 <td>–</td>
-<td><code>tebunko_grep/lib.ps1</code></td>
+<td><code>tebunko/lib.ps1</code></td>
 <td>5. 共通モジュール（パス定義・関数一覧）</td>
 </tr>
 <tr>
 <td>└ <a href="00_%E5%85%B1%E9%80%9A_2_%E5%85%B1%E9%80%9A%E3%83%A2%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB_1_TSV%E3%83%BB%E6%A4%9C%E7%B4%A2%E3%83%BB%E7%94%BB%E9%9D%A2%E3%81%AE%E9%96%A2%E6%95%B0/">00_共通_2_共通モジュール_1_TSV・検索・画面の関数.md</a></td>
 <td>–</td>
-<td><code>tebunko_grep/lib.ps1</code></td>
+<td><code>tebunko/lib.ps1</code></td>
 <td>5.2.2 TSV の作成・検索・5.2.3 元のファイルの特定・画面の関数</td>
 </tr>
 <tr>
@@ -1517,7 +1517,7 @@
 <tr>
 <td><a href="01_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E4%BD%9C%E6%88%90/">01_インデックス作成.md</a></td>
 <td>画面の［インデックス作成を開始］（画面のプロセスのスレッドで実行）</td>
-<td><code>tebunko_grep/indexer.ps1</code> / <code>shared/office/office_reader.ps1</code></td>
+<td><code>tebunko/indexer.ps1</code> / <code>shared/office/office_reader.ps1</code></td>
 <td>Office（Excel・Word・PowerPoint）を TSV に取り込むインデックス作成</td>
 </tr>
 <tr>
@@ -1571,13 +1571,13 @@
 <tr>
 <td><a href="02_%E6%A4%9C%E7%B4%A2/">02_検索.md</a></td>
 <td>画面の［2 検索］タブ</td>
-<td><code>tebunko_grep/search/search_query.ps1</code> / <code>tebunko_grep/search/pack_search.ps1</code> / <code>tebunko_grep/search/search_run.ps1</code></td>
+<td><code>tebunko/search/search_query.ps1</code> / <code>tebunko/search/pack_search.ps1</code> / <code>tebunko/search/search_run.ps1</code></td>
 <td>インデックス（集約ファイル）の検索処理と検索結果ファイルの形式</td>
 </tr>
 <tr>
 <td><a href="03_%E7%94%BB%E9%9D%A2/">03_画面.md</a></td>
 <td><code>tebunko.bat</code></td>
-<td><code>tebunko_grep/gui.ps1</code> / <code>tebunko_grep/xaml/tebunko_grep.xaml</code></td>
+<td><code>tebunko/gui.ps1</code> / <code>tebunko/xaml/tebunko.xaml</code></td>
 <td>インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI）</td>
 </tr>
 <tr>
@@ -1728,7 +1728,7 @@
     bat["tebunko.bat"]
 
     subgraph scripts["scripts/"]
-        subgraph tool["tebunko_grep/（このツール固有）"]
+        subgraph tool["tebunko/（このツール固有）"]
             gui["gui.ps1&lt;br&gt;画面の起動口&lt;br&gt;（ui/ 配下を読み込む）"]
             conv["indexer.ps1&lt;br&gt;インデクサの起動口&lt;br&gt;（indexer/ 配下を読み込む）"]
             common["lib.ps1&lt;br&gt;画面以外の部品の読み込み口&lt;br&gt;（core/・index/・indexer/・search/）"]
@@ -1749,7 +1749,7 @@
         out["検索結果.txt&lt;br&gt;（［結果をファイルに出力］）"]
     end
 
-    tmp[("%TEMP%\tebunko_grep\#lt;PID#gt;&lt;br&gt;取り込みの作業領域")]
+    tmp[("%TEMP%\tebunko\#lt;PID#gt;&lt;br&gt;取り込みの作業領域")]
     src[("クロール対象フォルダ&lt;br&gt;Excel・Word・PowerPoint ファイル群")]
     excel["Microsoft Excel&lt;br&gt;（COM）"]
     office["Microsoft Word / PowerPoint&lt;br&gt;（COM。旧形式の変換のみ）"]
@@ -1789,7 +1789,7 @@
 <tbody>
 <tr>
 <td>文脈（上位）</td>
-<td><code>scripts/shared/</code>（どのツールからも使う）と <code>scripts/tebunko_grep/</code>（このツール固有）。その下はドメイン（<code>core</code>・<code>office</code>・<code>index</code>・<code>indexer</code>・<code>search</code>・<code>ui</code>）</td>
+<td><code>scripts/shared/</code>（どのツールからも使う）と <code>scripts/tebunko/</code>（このツール固有）。その下はドメイン（<code>core</code>・<code>office</code>・<code>index</code>・<code>indexer</code>・<code>search</code>・<code>ui</code>）</td>
 </tr>
 <tr>
 <td>層（下位）</td>
@@ -1808,7 +1808,7 @@
 <pre class="mermaid"><code>sequenceDiagram
     actor U as 利用者
     participant G as 画面（tebunko.bat）
-    participant CV as インデクサ（tebunko_grep/indexer.ps1）
+    participant CV as インデクサ（tebunko/indexer.ps1）
     participant W as work/index/
 
     U-&gt;&gt;G: ［1 インデックス管理］の［追加…］でインデックスを追加

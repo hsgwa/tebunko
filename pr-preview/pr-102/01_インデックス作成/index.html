@@ -1383,7 +1383,7 @@
 </tr>
 <tr>
 <td>スクリプト</td>
-<td><code>scripts/tebunko_grep/indexer.ps1</code>（起動口）、<code>scripts/tebunko_grep/indexer/indexer_run.ps1</code>（本体 <code>invokeIndexer</code>・取り込みのスレッド）、<code>scripts/shared/office/office_reader.ps1</code>（Word・PowerPoint の読み取り）</td>
+<td><code>scripts/tebunko/indexer.ps1</code>（起動口）、<code>scripts/tebunko/indexer/indexer_run.ps1</code>（本体 <code>invokeIndexer</code>・取り込みのスレッド）、<code>scripts/shared/office/office_reader.ps1</code>（Word・PowerPoint の読み取り）</td>
 </tr>
 <tr>
 <td>引数</td>
@@ -1533,7 +1533,7 @@
 </tr>
 </tbody>
 </table>
-<p>いずれも元のファイルは直接開かず、作業領域（<code>%TEMP%\tebunko_grep\&lt;PID&gt;</code>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。インデックス作成中も、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
+<p>いずれも元のファイルは直接開かず、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。インデックス作成中も、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
 <ul>
 <li>クロール対象フォルダは複数登録でき、チェックを付けたフォルダだけを取り込む。チェックを外したフォルダは取り込まないが、インデックスは残す。</li>
 <li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/取り込み一覧.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
@@ -1587,7 +1587,7 @@
 </tr>
 <tr>
 <td>作業領域</td>
-<td><code>%TEMP%\tebunko_grep\&lt;PID&gt;\</code></td>
+<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
 <td>取り込み途中のファイル（元のファイルのコピー・変換したファイル・TSV）。取り込みのスレッドごとに <code>w&lt;番号&gt;</code> に分ける。終了時に削除する</td>
 </tr>
 <tr>
@@ -1614,7 +1614,7 @@
 <li>パスは 1 つの書き方にそろえる（<code>normalizeFolderPath</code>）。エクスプローラーの「パスのコピー」をそのまま貼り付けられる。</li>
 <li>前後の空白・<code>"</code> と末尾の <code>\</code> を取り除く（ドライブ直下は <code>D:\</code> のまま、UNC の共有直下は <code>\\server\share</code>）。</li>
 <li>環境変数（<code>%USERPROFILE%</code> など）を展開し、<code>/</code> を <code>\</code> にそろえ、長いパス用の <code>\\?\</code> ・ <code>\\?\UNC\</code> を外し、重なった <code>\</code> ・ <code>.</code> ・ <code>..</code> を解決する。</li>
-<li>相対パス（<code>work\index</code> など）は tebunko_grep のフォルダからとみなして絶対パスにする。</li>
+<li>相対パス（<code>work\index</code> など）は tebunko のフォルダからとみなして絶対パスにする。</li>
 <li>パスとして解釈できない場合（<code>*</code> <code>?</code> を含む・共有名の無い <code>\\server</code> ・ <code>\</code> ひとつで始まる）は、書かれたとおりに扱う（存在しないフォルダになる）。</li>
 <li>同じフォルダ（大文字・小文字、末尾の <code>\</code> の違いを含む）が複数あれば、最初のものだけを使う。
   ネットワークドライブと UNC パス（<code>Z:\見積</code> と <code>\\server\share\見積</code>）、<code>subst</code> のドライブと割り当て元のフォルダのように、

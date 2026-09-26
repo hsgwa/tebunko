@@ -72,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tebunko_grep-設計書テスト" class="md-skip">
+        <a href="#tebunko-設計書テスト" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -1501,9 +1501,9 @@
   
 
 
-<h1 id="tebunko_grep-設計書テスト">tebunko_grep 設計書（テスト）<a class="headerlink" href="#tebunko_grep-設計書テスト" title="Permanent link">&para;</a></h1>
+<h1 id="tebunko-設計書テスト">tebunko 設計書（テスト）<a class="headerlink" href="#tebunko-設計書テスト" title="Permanent link">&para;</a></h1>
 <p>本書は <a href="../">00_index.md</a> の一部である。章・節の番号は 00_index.md と分割した各ファイルで通し番号とし、各章がどのファイルにあるかは <a href="../#ドキュメント構成">00_index.md</a> の表のとおり。</p>
-<p>本書は、tebunko_grep の品質をどう確かめているかをまとめる。コードを変えたときに何が自動で確かめられ、何を手で確かめるかが分かる。</p>
+<p>本書は、tebunko の品質をどう確かめているかをまとめる。コードを変えたときに何が自動で確かめられ、何を手で確かめるかが分かる。</p>
 <table>
 <thead>
 <tr>
@@ -1636,7 +1636,7 @@
 </table>
 <h3 id="61-単体テスト">6.1 単体テスト<a class="headerlink" href="#61-単体テスト" title="Permanent link">&para;</a></h3>
 <p><code>tests/</code>（Pester 3.4）で各モジュールの関数とパス定義、全スクリプトの構文、実行時コンパイル（<code>Add-Type -TypeDefinition</code>）を使わないことを検証する。テストは <code>scripts/</code> と同じ構成に並べる（<a href="#63-テストの構成と実行">6.3</a>）。検索・画面の部品のテストの内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1 にある。</p>
-<p><strong>共通基盤（<code>tests/shared/core/</code>・<code>tests/shared/office/office_files</code>）</strong></p>
+<p><strong>共通基盤（<code>tests/shared/core/</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1714,12 +1714,12 @@
 <td>ドライブ直下・UNC・末尾の <code>\</code></td>
 </tr>
 <tr>
-<td>フォルダ選択の部品（<code>getFolderEntries</code> など）・<code>testOfficeFile</code></td>
+<td>フォルダ選択を開く場所（<code>getExistingAncestorFolder</code>）</td>
 <td><a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1</td>
 </tr>
 </tbody>
 </table>
-<p><strong>設定ファイル（<code>tests/tebunko_grep/core/settings</code>）</strong></p>
+<p><strong>設定ファイル（<code>tests/tebunko/core/settings</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1746,7 +1746,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>インデックス名と TSV の名前（<code>tests/tebunko_grep/index/index_name</code>）</strong></p>
+<p><strong>インデックス名と TSV の名前（<code>tests/tebunko/index/index_name</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1785,7 +1785,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>インデックスの管理（<code>tests/tebunko_grep/index/index_store</code>）</strong></p>
+<p><strong>インデックスの管理（<code>tests/tebunko/index/index_store</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1824,7 +1824,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>集約ファイル（<code>tests/tebunko_grep/index/pack_format</code>・<code>tests/tebunko_grep/search/pack_search</code>）</strong></p>
+<p><strong>集約ファイル（<code>tests/tebunko/index/pack_format</code>・<code>tests/tebunko/search/pack_search</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1855,7 +1855,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>インデックス作成（<code>tests/tebunko_grep/indexer/</code>）</strong></p>
+<p><strong>インデックス作成（<code>tests/tebunko/indexer/</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1942,7 +1942,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>スレッドとプール（<code>tests/shared/core/worker_pool</code>・<code>tests/tebunko_grep/search/search_service</code>）</strong></p>
+<p><strong>スレッドとプール（<code>tests/shared/core/worker_pool</code>・<code>tests/tebunko/search/search_service</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -1977,7 +1977,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>元のファイルの特定（<code>tests/tebunko_grep/search/source_map</code>）</strong></p>
+<p><strong>元のファイルの特定（<code>tests/tebunko/search/source_map</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -2071,7 +2071,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>COM を使う処理（<code>tests/tebunko_grep/indexer/extract_office</code>・<code>tests/shared/office/office_app</code>）</strong></p>
+<p><strong>COM を使う処理（<code>tests/tebunko/indexer/extract_office</code>・<code>tests/shared/office/office_app</code>）</strong></p>
 <p>Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流れを検証する。COM の入口は <code>getApp</code>（アプリの取得）と <code>New-Object -ComObject</code> だけなので、ここを Pester の <code>Mock</code> で差し替え、本物と同じ呼び方ができる偽のオブジェクト（呼ばれたメソッドと引数を記録し、保存では本物と同じ形式のファイルを書く）を返す。実機での動作は 6.2 の手動の結合テストで確かめる。</p>
 <table>
 <thead>
@@ -2082,7 +2082,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tests/tebunko_grep/indexer/extract_office.Tests.ps1</code></td>
+<td><code>tests/tebunko/indexer/extract_office.Tests.ps1</code></td>
 <td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、読み取りのスレッドでは中身が旧形式の <code>.docx</code> を Office を使わずに「Office が要る」の例外にし（<code>getApp</code> を呼ばない）、壊れた <code>.pptx</code> は回し直さずに失敗にする、失敗しても文書を閉じて作業ファイルを消す</td>
 </tr>
 <tr>
@@ -2091,8 +2091,8 @@
 </tr>
 </tbody>
 </table>
-<p><strong>画面の部品（<code>tests/tebunko_grep/ui/</code>・<code>tests/shared/ui/</code>）</strong></p>
-<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」だけを確かめる。型（<code>types.ps1</code>・<code>types_grep.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1。</p>
+<p><strong>画面の部品（<code>tests/tebunko/ui/</code>・<code>tests/shared/ui/</code>）</strong></p>
+<p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」だけを確かめる。型（<code>types.ps1</code>・<code>types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。内容は <a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88_1_%E3%83%86%E3%82%B9%E3%83%88/#16-テスト">03_画面_6_実装とテスト_1_テスト.md</a> の 16.1。</p>
 <p><strong>テストデータの個人情報の除去（<code>tests/testdata/scrub_personal</code>）</strong></p>
 <p>タグ <code>Io</code> で、テストデータから個人情報を取り除く <code>tests/testdata/scrub_personal.ps1</code> を検証する（OOXML・ODF・<code>.xlsb</code> の中のバイナリ・旧形式・Shift_JIS のテキスト、壊れた ZIP、隠し属性・読み取り専用属性）。</p>
 <p><strong>安全性の検査（<code>tests/meta/safety.Tests.ps1</code>）</strong></p>
@@ -2243,7 +2243,7 @@
 <tbody>
 <tr>
 <td><code>tests/helpers/</code></td>
-<td>共通の準備（<code>load.ps1</code>。<code>$here</code>・<code>${scriptsDir}</code>・<code>${testDataDir}</code> を決めて <code>tebunko_grep/lib.ps1</code> を読み込む）とテスト用の TSV 作成（<code>tsv.ps1</code>）</td>
+<td>共通の準備（<code>load.ps1</code>。<code>$here</code>・<code>${scriptsDir}</code>・<code>${testDataDir}</code> を決めて <code>tebunko/lib.ps1</code> を読み込む）とテスト用の TSV 作成（<code>tsv.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>tests/shared/core/</code></td>
@@ -2251,31 +2251,31 @@
 </tr>
 <tr>
 <td><code>tests/shared/office/</code></td>
-<td><code>office_files</code>・<code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
+<td><code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
 </tr>
 <tr>
 <td><code>tests/shared/ui/</code></td>
 <td>画面の型（<code>types</code>）</td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/core/</code></td>
+<td><code>tests/tebunko/core/</code></td>
 <td><code>settings</code>（<code>setting.config</code>）</td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/index/</code></td>
+<td><code>tests/tebunko/index/</code></td>
 <td><code>index_name</code>・<code>index_store</code>・<code>pack_format</code></td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/indexer/</code></td>
+<td><code>tests/tebunko/indexer/</code></td>
 <td><code>indexer_state</code>・<code>indexer_decide</code>・<code>indexer_plan</code>・<code>extract_office</code>・<code>index_migrate</code>・<code>indexing_session</code>、起動口の通しのテスト（<code>indexer</code>）</td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/search/</code></td>
+<td><code>tests/tebunko/search/</code></td>
 <td><code>search_query</code>・<code>search_run</code>・<code>pack_search</code>・<code>search_service</code>・<code>source_map</code></td>
 </tr>
 <tr>
-<td><code>tests/tebunko_grep/ui/</code></td>
-<td>画面の判断層（<code>index_view</code>・<code>indexing_view</code>・<code>search_view</code>・<code>preview_view</code>・<code>settings_view</code>）と、<code>$ui</code> を偽物にした画面の部品（<code>result_list</code>・<code>open_source</code>・<code>preview</code>・<code>index_tree</code>）・型（<code>types_grep</code>）</td>
+<td><code>tests/tebunko/ui/</code></td>
+<td>画面の判断層（<code>index_view</code>・<code>indexing_view</code>・<code>search_view</code>・<code>preview_view</code>・<code>settings_view</code>）と、<code>$ui</code> を偽物にした画面の部品（<code>result_list</code>・<code>open_source</code>・<code>preview</code>・<code>index_tree</code>）・型（<code>types</code>）</td>
 </tr>
 <tr>
 <td><code>tests/tools/</code></td>
@@ -2487,10 +2487,10 @@
 <li>Scorecard はリポジトリを Linux で展開する。名前が UTF-8 で 255 バイト（日本語で 85 字）を超えるファイルがあると展開できず、ほとんどの項目が採点できなくなる。そのため <code>tools/check_commit.ps1</code> がこの長さを超える名前を止める</li>
 </ul>
 <p><strong><code>release.yml</code>（配布物の公開）</strong></p>
-<p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko_grep-&lt;タグ&gt;.zip</code>）を作って GitHub Release に載せる。</p>
+<p><code>v</code> で始まるタグを push すると動き、<code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）を作って GitHub Release に載せる。</p>
 <ul>
 <li>zip にはツール本体（<code>tebunko.bat</code>・<code>scripts/</code>）と <code>README.md</code>・<code>LICENSE</code> だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（<code>tebunko.cat</code>）・ハッシュ一覧（<code>SHA256SUMS.txt</code>）・部品表（<code>sbom.cdx.json</code>）は zip と並べてリリースに載せ（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 5.1）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 5.6 の VirusTotal での照会用）</li>
-<li>zip のビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko_grep-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
+<li>zip のビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せる（同 5.1）</li>
 <li>リリースノートは GitHub が PR から作り、<code>.github/release.yml</code> で PR のラベルごとに分ける</li>
 <li>版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける</li>
 </ul>
