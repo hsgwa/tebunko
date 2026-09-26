@@ -1507,7 +1507,7 @@
 </tr>
 <tr>
 <td>インデックス作成中</td>
-<td>この画面から起動したインデックス作成（<code>tebunko_grep/indexer.ps1</code>）のプロセス、または起動時・開始時に見つけた実行中のインデックス作成のプロセスが動いている（3.3）</td>
+<td>この画面から起動したインデックス作成（<code>tebunko/indexer.ps1</code>）のプロセス、または起動時・開始時に見つけた実行中のインデックス作成のプロセスが動いている（3.3）</td>
 <td>No.6 のボタンが <code>インデックス作成中…</code>（無効）。進み具合（3.6）</td>
 <td>1</td>
 </tr>
@@ -1521,7 +1521,7 @@
 </table>
 <ul>
 <li>「最終取り込み」は、インデックス配下の集約ファイルの最新の更新日時とする。</li>
-<li>「インデックス作成中」は、画面の起動時と［インデックス作成を開始］を押したときに、このツールの <code>scripts\tebunko_grep\indexer.ps1</code> を実行中の <code>powershell.exe</code> を探して判定する（3.3）。見つかれば、そのプロセスの進み具合を表示し、二重に起動しない。</li>
+<li>「インデックス作成中」は、画面の起動時と［インデックス作成を開始］を押したときに、このツールの <code>scripts\tebunko\indexer.ps1</code> を実行中の <code>powershell.exe</code> を探して判定する（3.3）。見つかれば、そのプロセスの進み具合を表示し、二重に起動しない。</li>
 </ul>
 <h3 id="62-インデックス作成の状態遷移画面から見た状態">6.2 インデックス作成の状態遷移（画面から見た状態）<a class="headerlink" href="#62-インデックス作成の状態遷移画面から見た状態" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -1576,7 +1576,7 @@
     participant G as 画面
     participant C as setting.config
     participant W as work/
-    participant P as tebunko_grep/indexer.ps1（ウィンドウなし）
+    participant P as tebunko/indexer.ps1（ウィンドウなし）
 
     U-&gt;&gt;G: ［インデックス作成を開始］など（3.3）
     G-&gt;&gt;G: 実行中のインデックス作成を探す（あればその進み具合を表示して終わり）
