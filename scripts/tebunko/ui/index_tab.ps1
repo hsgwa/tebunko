@@ -533,14 +533,18 @@ function refreshIndexingState {
     }
     $script:stateRunning = $true
     $script:stateAgain = $false
+    $script:stateJobPath = $workspace.StatusFile
     startJob {
         param ($path)
         getIndexingState -path $path
-    } @($workspace.StatusFile) {
+    } @($script:stateJobPath) {
         param ($output, $errorText)
         $script:stateRunning = $false
-        # インデクサが書き込んでいる瞬間などは、次の機会に読み直す
-        if ($output -and $output.Count -gt 0 -and $output[0]) {
+        if ($script:stateJobPath -ne $workspace.StatusFile) {
+            # 集計している間にワークスペースを変えた。前のワークスペースの結果は出さず、読み直す
+            $script:stateAgain = $true
+        } elseif ($output -and $output.Count -gt 0 -and $output[0]) {
+            # インデクサが書き込んでいる瞬間などは、次の機会に読み直す
             applyIndexingState $output[0]
         }
         if ($script:stateAgain) {
@@ -649,14 +653,17 @@ function refreshIndexSummary {
     }
     $script:summaryRunning = $true
     $script:summaryAgain = $false
-    $folders = @($workspace.IndexDir)
+    $script:summaryJobDir = $workspace.IndexDir
     startJob {
         param ($folders)
         getIndexSummary $folders
-    } @(, $folders) {
+    } @(, @($script:summaryJobDir)) {
         param ($output, $errorText)
         $script:summaryRunning = $false
-        if ($output -and $output.Count -gt 0) {
+        if ($script:summaryJobDir -ne $workspace.IndexDir) {
+            # 数えている間にワークスペースを変えた。前のワークスペースの件数は出さず、数え直す
+            $script:summaryAgain = $true
+        } elseif ($output -and $output.Count -gt 0) {
             $script:indexSummary = $output[0]
         }
         updateIndexSummaryText

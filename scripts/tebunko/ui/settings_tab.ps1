@@ -1,6 +1,5 @@
 ﻿# ［8 設定］タブ（ワークスペース・設定ファイルの場所）。文言と可否の判定は settings_view.ps1。
 
-$script:restartRequested = $false  # ワークスペースを変えたため、閉じたあと開き直す（gui.ps1）
 ${workspaceCountLimit} = 1000      # 選んだフォルダの中身を数える上限（大きなフォルダで待たせない）
 
 function updateSettingsView {
@@ -80,7 +79,8 @@ function getFolderEntrySample {
 }
 
 function applyWorkspace {
-    # 確かめてからワークスペースを保存し、画面を開き直す（ワークスペースの中のファイルの場所は、読み込み時に決まるため）
+    # 確かめてから、今のワークスペースの中身を移してワークスペースを保存し、画面をそのワークスペースに切り替える。
+    # 選んだフォルダにインデックスなどがあれば、それを使う（中身は移さない）か、消して最初からやり直す（消してから移す）かを選ばせる
     param (
         [string]$folder,
         [bool]$requireEmpty   # 空のフォルダを求める（［変更…］）。空でなければ警告する
@@ -101,8 +101,8 @@ function applyWorkspace {
     $sub = Join-Path $folder ${workspaceSubFolderName}
     $canMakeSub = -not (Test-Path -LiteralPath $sub) -or
         ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)
-    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped `
-        (Test-Path -LiteralPath (Join-Path $folder "index") -PathType Container) $canMakeSub
+    $workspaceNames = @(getWorkspaceEntries $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped $workspaceNames $canMakeSub
     # switch の中の $_ は switch の値になるため、行を変数に受けてから使う
     $facts = @($confirm.Facts | ForEach-Object {
         $fact = $_
@@ -125,9 +125,53 @@ function applyWorkspace {
         $folder = $sub
     }
 
+    # 集約ファイルを読んでいる検索があると移せないため、先に止める
+    clearSearchView
+    $previous = $workspace.Dir
+    if ($answer -eq "use") {
+        # 共有されたワークスペースなどを使う。今の中身は移さず、インデックスの一覧をこのワークスペースのものにする
+        $targets = useWorkspaceTargets $folder
+        writeWorkspaceFolder $folder
+        switchWorkspace
+        setStatus "ワークスペースを「${folder}」に変え、そこにあるインデックスを使います（インデックス $targets 件。前のワークスペースの中身は「${previous}」に残しています）"
+        return
+    }
+    if ($answer -eq "reset") {
+        try {
+            [void](removeWorkspaceEntries $folder)
+        } catch {
+            showMessage "「${folder}」のインデックスを削除できませんでした（$($_.Exception.Message)）。ファイルを開いているアプリを閉じてから、もう一度変えてください。" "OK" "Warning" | Out-Null
+            return
+        }
+    }
+    try {
+        $count = moveWorkspace $previous $folder
+    } catch {
+        showMessage $_.Exception.Message "OK" "Warning" | Out-Null
+        return
+    }
+    # 検索対象ツリーでチェックを外したフォルダも、移した先のインデックスに付け替える
+    [void](moveSearchExcludes $previous $folder)
     writeWorkspaceFolder $folder
-    $script:restartRequested = $true
-    $window.Close()
+    switchWorkspace
+    if ($count -gt 0) {
+        setStatus "ワークスペースを「${folder}」に変え、中身を移しました（移す前の場所：${previous}）"
+    }
+}
+
+function switchWorkspace {
+    # 設定のワークスペースに切り替える。画面は開き直さない。
+    # 関数は既定値で $workspace の場所を使い、裏のスレッドには場所を渡しているため、$workspace を差し替えれば新しい場所を使う
+    # （docs/00_共通_2_共通モジュール.md 5.1.1）。インデックス作成中・削除中は testWorkspaceChangeable が止めている
+    clearSearchView
+    $script:workspace = [Workspace]::new((getWorkDir))
+    $script:workspaceBlock = getWorkspaceBlockMessage
+    $script:indexingState = $null
+    $script:indexSummary = $null
+    $ui.IndexingProgressPanel.Visibility = "Collapsed"
+    updateSettingsView
+    loadWorkspaceViews
+    setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
 }
 
 # ---- イベント ----
