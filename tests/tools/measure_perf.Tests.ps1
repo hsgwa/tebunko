@@ -8,33 +8,50 @@ function writeTsv([string]$path, [string[]]$lines) {
 }
 
 Describe "perf_common.ps1 の統計値" -Tag Unit {
-    It "最小・中央値・平均・最大・件数を返す（件数が奇数・偶数）" {
-        $s = getStats ([double[]]@(5, 1, 3))
-        $s.Min | Should Be 1
-        $s.Median | Should Be 3
-        $s.Mean | Should Be 3
-        $s.Max | Should Be 5
-        $s.Count | Should Be 3
-        (getStats ([double[]]@(4, 1, 2, 3))).Median | Should Be 2.5
+    It "<name>" -TestCases @(
+        @{ name = "件数が奇数のときの最小・中央値・平均・最大"; values = @(5, 1, 3); min = 1; median = 3; mean = 3; max = 5; count = 3 }
+        @{ name = "件数が偶数のときは、中央の 2 つの平均を中央値にする"; values = @(4, 1, 2, 3); min = 1; median = 2.5; mean = 2.5; max = 4; count = 4 }
+        @{ name = "1 件だけのときは、どれも同じ値"; values = @(7); min = 7; median = 7; mean = 7; max = 7; count = 1 }
+    ) {
+        param ($values, $min, $median, $mean, $max, $count)
+        $s = getStats ([double[]]$values)
+        $s.Min | Should Be $min
+        $s.Median | Should Be $median
+        $s.Mean | Should Be $mean
+        $s.Max | Should Be $max
+        $s.Count | Should Be $count
     }
 
     It '値が無ければ $null を返す' {
         getStats ([double[]]@()) | Should BeNullOrEmpty
     }
 
-    It '最小二乗の傾きを返す。2 点に満たない・x が同じ値だけのときは $null を返す' {
-        getSlope ([double[]]@(1, 2, 3, 4)) ([double[]]@(10, 12, 14, 16)) | Should Be 2
-        getSlope ([double[]]@(1, 2, 3)) ([double[]]@(5, 5, 5)) | Should Be 0
-        getSlope ([double[]]@(1)) ([double[]]@(1)) | Should BeNullOrEmpty
-        getSlope ([double[]]@(2, 2)) ([double[]]@(1, 3)) | Should BeNullOrEmpty
+    It "<name>" -TestCases @(
+        @{ name = "最小二乗の傾き: 一直線に増える"; x = @(1, 2, 3, 4); y = @(10, 12, 14, 16); slope = 2 }
+        @{ name = "最小二乗の傾き: 変わらない"; x = @(1, 2, 3); y = @(5, 5, 5); slope = 0 }
+        @{ name = "最小二乗の傾き: ばらつきがある"; x = @(1, 2, 3); y = @(1, 4, 3); slope = 1 }
+    ) {
+        param ($x, $y, $slope)
+        getSlope ([double[]]$x) ([double[]]$y) | Should Be $slope
     }
 
-    It "点を間引いても、最後の点は残す" {
-        $thin = thinOut @(1..250) 100
-        $thin.Count | Should BeLessThan 101
-        $thin[0] | Should Be 1
-        $thin[$thin.Count - 1] | Should Be 250
-        (thinOut @(1..5) 100).Count | Should Be 5
+    It "<name>" -TestCases @(
+        @{ name = '最小二乗の傾き: 2 点に満たないときは $null'; x = @(1); y = @(1) }
+        @{ name = '最小二乗の傾き: x が同じ値だけのときは $null'; x = @(2, 2); y = @(1, 3) }
+    ) {
+        param ($x, $y)
+        getSlope ([double[]]$x) ([double[]]$y) | Should BeNullOrEmpty
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "点が多いときは間引き、最初と最後の点は残す"; count = 250; limit = 100; first = 1; last = 250; most = 101 }
+        @{ name = "点が少ないときは間引かない"; count = 5; limit = 100; first = 1; last = 5; most = 5 }
+    ) {
+        param ($count, $limit, $first, $last, $most)
+        $thin = thinOut @(1..$count) $limit
+        $thin.Count | Should Not BeGreaterThan $most
+        $thin[0] | Should Be $first
+        $thin[$thin.Count - 1] | Should Be $last
     }
 
     It "折れ線グラフは、数をカルチャによらない書き方にし、色を指定できる" {
@@ -63,6 +80,8 @@ Describe "measure_perf.ps1" -Tag Io {
         $result.Run.Ref | Should Be "main"
         $result.Run.Count | Should Be 3
         $result.Run.DataSeconds | Should Be 1.5
+        # main のコードは検索の司令のスレッド（SearchService）を持つので、画面と同じ流れで測る
+        $result.Run.SearchMode | Should Be "service"
     }
 
     It "インデックス作成で pack を作り、フォルダ・ブック・TSV の数を数える" {
@@ -88,6 +107,10 @@ Describe "measure_perf.ps1" -Tag Io {
             $s.TotalMs.Mean | Should Not BeGreaterThan $s.TotalMs.Max
             $s.TotalMs.Min | Should Not BeGreaterThan $s.TotalMs.Mean
             $s.WorkingSetPer10MB | Should Not BeNullOrEmpty
+            # service の流れでは、列挙と照合に分け、lib.ps1 の読み込みは検索ごとに分けない
+            $s.ListMs.Count | Should Be 3
+            $s.MatchMs.Count | Should Be 3
+            $s.LoadMs | Should BeNullOrEmpty
         }
     }
 

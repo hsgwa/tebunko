@@ -93,6 +93,10 @@ $indexSamples = @($indexRaw.Samples)
 $indexResult = [ordered]@{ Pack = $indexRaw.Pack; Resources = (getPhaseResources $indexSamples $cores); PeakWorkingSetMB = $indexRaw.PeakWorkingSetMB }
 
 # 2. 検索（語ごとに別のプロセス）
+# 値の無い（$null の）記録は除く。service の流れでは、lib.ps1 の読み込みの時間を検索ごとには測れない
+function valuesOf($rows, [string]$key) {
+    return , [double[]]@($rows | ForEach-Object { $_.$key } | Where-Object { $null -ne $_ })
+}
 $search = New-Object System.Collections.Generic.List[object]
 $searchRaw = New-Object System.Collections.Generic.List[object]
 for ($w = 0; $w -lt $wordList.Count; $w++) {
@@ -110,11 +114,11 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     $slope = getSlope $n $ws
     $res = @(getPhaseResources @($r.Samples) $cores | Where-Object { $_.Phase -eq "検索" })
     $search.Add([ordered]@{
-        Name = $r.Name; Regex = [bool]$r.Regex; Hits = $rows[0].Hits; Truncated = [bool]$rows[0].Truncated; Packs = $rows[0].Packs
-        TotalMs = getStats ([double[]]@($rows | ForEach-Object { $_.TotalMs }))
-        LoadMs = getStats ([double[]]@($rows | ForEach-Object { $_.LoadMs }))
-        ListMs = getStats ([double[]]@($rows | ForEach-Object { $_.ListMs }))
-        MatchMs = getStats ([double[]]@($rows | ForEach-Object { $_.MatchMs }))
+        Name = $r.Name; Regex = [bool]$r.Regex; Mode = [string]$r.Mode; Hits = $rows[0].Hits; Truncated = [bool]$rows[0].Truncated; Packs = $rows[0].Packs
+        TotalMs = getStats (valuesOf $rows "TotalMs")
+        LoadMs = getStats (valuesOf $rows "LoadMs")
+        ListMs = getStats (valuesOf $rows "ListMs")
+        MatchMs = getStats (valuesOf $rows "MatchMs")
         WorkingSetFirstMB = $ws[0]; WorkingSetLastMB = $ws[$ws.Count - 1]; WorkingSetMaxMB = ($ws | Measure-Object -Maximum).Maximum
         WorkingSetPer10MB = $(if ($null -ne $slope) { [Math]::Round($slope * 10, 2) } else { $null })
         HandlesFirst = $rows[0].Handles; HandlesLast = $rows[$rows.Count - 1].Handles
@@ -126,6 +130,7 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
 }
 
 # result.json（形式の版 1）
+$run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
 $result = [ordered]@{ Schema = 1; Run = $run; Index = $indexResult; Search = $search.ToArray() }
 [System.IO.File]::WriteAllText((Join-Path $Out "result.json"), ($result | ConvertTo-Json -Depth 6), $utf8)
 
@@ -154,6 +159,7 @@ if ($packPhase.Count) {
 }
 foreach ($s in $search) {
     foreach ($part in @(@("search_total_ms", $s.TotalMs), @("search_load_ms", $s.LoadMs), @("search_list_ms", $s.ListMs), @("search_match_ms", $s.MatchMs))) {
+        if ($null -eq $part[1]) { continue }
         foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric $part[0] $s.Name $stat.ToLower() $part[1][$stat] "ms" }
     }
     addMetric "search_hits" $s.Name "value" $s.Hits "count"
@@ -236,14 +242,20 @@ if ($indexSamples.Count -ge 2) {
 add
 add "## 検索"
 add
-add "語ごとに新しいプロセスを起動し、同じプロセスで $Count 回続けて検索した（画面の検索と同じ流れ: 新しいスレッドで lib.ps1 を読み込む → 集約ファイルを列挙する → 照合する。上限 1 万件）。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。"
+if ($run.SearchMode -eq "service") {
+    add "語ごとに新しいプロセスを起動し、同じプロセスで $Count 回続けて検索した。画面と同じく、検索の司令のスレッド（SearchService）を 1 つ作り、要求を順に送った（上限 1 万件）。lib.ps1 の読み込みと照合のスレッドの用意は、司令のスレッドが始めに 1 回だけ行うので、1 回目の時間に含まれる。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。"
+    add
+    add "列挙と照合の境目は、待ちながら見た時刻なので、約 15 ms の誤差がある。lib.ps1 の読み込みは検索ごとには分けられないので「–」にした。"
+} else {
+    add "語ごとに新しいプロセスを起動し、同じプロセスで $Count 回続けて検索した。測った版には検索の司令のスレッド（SearchService）が無いので、その版の画面と同じく、検索のたびに新しいスレッドで lib.ps1 を読み込み、集約ファイルを列挙して照合した（上限 1 万件）。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。"
+}
 add
 add "| 語 | ヒット件数 | 最小 | 中央値 | 平均 | 最大 | lib.ps1 の読み込み（中央値／最大） | 列挙（中央値／最大） | 照合（中央値／最大） |"
 add "|---|---|---|---|---|---|---|---|---|"
 foreach ($s in $search) {
-    add ("| {0} | {1}{2} | {3} ms | {4} ms | {5} ms | {6} ms | {7}／{8} ms | {9}／{10} ms | {11}／{12} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
+    add ("| {0} | {1}{2} | {3} ms | {4} ms | {5} ms | {6} ms | {7} | {8}／{9} ms | {10}／{11} ms |" -f $s.Name, $s.Hits, $(if ($s.Truncated) { "+" } else { "" }),
         (ms $s.TotalMs "Min"), (ms $s.TotalMs "Median"), (ms $s.TotalMs "Mean"), (ms $s.TotalMs "Max"),
-        (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max"), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"))
+        $(if ($s.LoadMs) { "{0}／{1} ms" -f (ms $s.LoadMs "Median"), (ms $s.LoadMs "Max") } else { "–" }), (ms $s.ListMs "Median"), (ms $s.ListMs "Max"), (ms $s.MatchMs "Median"), (ms $s.MatchMs "Max"))
 }
 add
 add "### 検索のリソース"
