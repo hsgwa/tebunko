@@ -23,16 +23,13 @@ on:
       count:
         description: 語ごとに続けて検索する回数（最小・中央値・平均・最大を出す）
         default: "20"
-  # 一時的: PR のブランチで動きを確かめるため（マージ前に外す）
-  push:
-    branches: [ci/perf-workflow]
 
 permissions:
   contents: read
 
 # 同じ ref で続けて起動したときは、前の実行を取り消さず、終わるのを待つ
 concurrency:
-  group: perf-${{ inputs.ref || github.ref }}
+  group: perf-${{ inputs.ref }}
   cancel-in-progress: false
 
 env:
@@ -53,7 +50,7 @@ jobs:
       - name: 計測対象のコードをチェックアウトする
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ inputs.ref }}
           path: target
           persist-credentials: false
 
@@ -68,7 +65,7 @@ jobs:
       - name: データを生成する
         shell: powershell
         env:
-          SCALE: ${{ inputs.scale || '0.1' }}
+          SCALE: ${{ inputs.scale }}
         run: |
           $ErrorActionPreference = "Stop"
           $work = Join-Path $env:RUNNER_TEMP "perf"
@@ -80,9 +77,9 @@ jobs:
       - name: 計測する
         shell: powershell
         env:
-          REF: ${{ inputs.ref || github.ref_name }}
-          SCALE: ${{ inputs.scale || '0.1' }}
-          COUNT: ${{ inputs.count || '20' }}
+          REF: ${{ inputs.ref }}
+          SCALE: ${{ inputs.scale }}
+          COUNT: ${{ inputs.count }}
           RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = "Stop"
