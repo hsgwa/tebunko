@@ -1,17 +1,19 @@
 ﻿# コミットメッセージ・タイトルの形を確かめるスクリプト（tools\check_commit_message.ps1）のテスト
-$check = "$PSScriptRoot\..\..\tools\check_commit_message.ps1"
+BeforeAll {
+    $check = "$PSScriptRoot\..\..\tools\check_commit_message.ps1"
 
-# 終了コードを返す（Write-Host の出力は捨てる）
-function checkTitle([string]$title) {
-    & $check -Title $title 6>$null
-    return $LASTEXITCODE
-}
+    # 終了コードを返す（Write-Host の出力は捨てる）
+    function checkTitle([string]$title) {
+        & $check -Title $title 6>$null
+        return $LASTEXITCODE
+    }
 
-function checkFile([string]$text) {
-    $path = Join-Path $TestDrive "COMMIT_EDITMSG"
-    [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
-    & $check -Path $path 6>$null
-    return $LASTEXITCODE
+    function checkFile([string]$text) {
+        $path = Join-Path $TestDrive "COMMIT_EDITMSG"
+        [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
+        & $check -Path $path 6>$null
+        return $LASTEXITCODE
+    }
 }
 
 Describe "check_commit_message.ps1 のタイトルの判定" -Tag Unit {
@@ -24,7 +26,7 @@ Describe "check_commit_message.ps1 のタイトルの判定" -Tag Unit {
         @{ title = "docs: 設計書の誤字を直す (#12)" }
     ) {
         param($title)
-        checkTitle $title | Should Be 0
+        checkTitle $title | Should -Be 0
     }
 
     It "git が自動で作るメッセージは調べない: <title>" -TestCases @(
@@ -34,7 +36,7 @@ Describe "check_commit_message.ps1 のタイトルの判定" -Tag Unit {
         @{ title = "squash! fix: 直す" }
     ) {
         param($title)
-        checkTitle $title | Should Be 0
+        checkTitle $title | Should -Be 0
     }
 
     It "形が違うものを止める: <title>" -TestCases @(
@@ -52,21 +54,21 @@ Describe "check_commit_message.ps1 のタイトルの判定" -Tag Unit {
         @{ title = "Revert: 自動で作るものに似せただけ" }
     ) {
         param($title)
-        checkTitle $title | Should Be 1
+        checkTitle $title | Should -Be 1
     }
 }
 
 Describe "check_commit_message.ps1 のコミットメッセージのファイル" -Tag Io {
     It "コメント行と空行を飛ばして、最初の行だけを調べる" {
-        checkFile "`n# コメント`nfeat: 足す`n`n本文は調べない`nCo-Authored-By: test <test@example.com>`n" | Should Be 0
-        checkFile "# コメント`n足す`n" | Should Be 1
+        checkFile "`n# コメント`nfeat: 足す`n`n本文は調べない`nCo-Authored-By: test <test@example.com>`n" | Should -Be 0
+        checkFile "# コメント`n足す`n" | Should -Be 1
     }
 
     It "CRLF のファイルも読める" {
-        checkFile "fix: 直す`r`n`r`n本文`r`n" | Should Be 0
+        checkFile "fix: 直す`r`n`r`n本文`r`n" | Should -Be 0
     }
 
     It "空のメッセージは通す（git がコミットを中止する）" {
-        checkFile "# コメントだけ`n`n" | Should Be 0
+        checkFile "# コメントだけ`n`n" | Should -Be 0
     }
 }

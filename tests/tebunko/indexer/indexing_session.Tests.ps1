@@ -1,11 +1,13 @@
 ﻿# 画面のインデックス作成 1 回分（tebunko\indexer\indexing_session.ps1 の IndexingSession）のテスト。
 # indexer.ps1 の代わりに、受け渡しの口（newIndexerChannel）だけを使う偽のスクリプトを動かす
-. "$PSScriptRoot\..\..\helpers\load.ps1"
+BeforeAll {
+    . "$PSScriptRoot\..\..\helpers\load.ps1"
 
-function newFakeIndexer([string]$name, [string]$body) {
-    $path = Join-Path $TestDrive "$name.ps1"
-    [System.IO.File]::WriteAllText($path, "param (`$Channel)`r`n$body", $utf8Bom)
-    return $path
+    function newFakeIndexer([string]$name, [string]$body) {
+        $path = Join-Path $TestDrive "$name.ps1"
+        [System.IO.File]::WriteAllText($path, "param (`$Channel)`r`n$body", $utf8Bom)
+        return $path
+    }
 }
 
 Describe "IndexingSession" -Tag Io {
@@ -16,12 +18,12 @@ $Channel.ExitCode = 0
 '@
         $session = newIndexingSession $fake (newIndexerChannel)
         try {
-            $session.Wait(30000) | Should Be $true
-            $session.IsRunning() | Should Be $false
-            $session.GetExitCode() | Should Be 0
-            $session.Channel.Seen.Thread | Should Not Be ([System.Threading.Thread]::CurrentThread.ManagedThreadId)
-            $session.Channel.Seen.Priority | Should Be "BelowNormal"
-            $session.Channel.Seen.Apartment | Should Be "MTA"
+            $session.Wait(30000) | Should -Be $true
+            $session.IsRunning() | Should -Be $false
+            $session.GetExitCode() | Should -Be 0
+            $session.Channel.Seen.Thread | Should -Not -Be ([System.Threading.Thread]::CurrentThread.ManagedThreadId)
+            $session.Channel.Seen.Priority | Should -Be "BelowNormal"
+            $session.Channel.Seen.Apartment | Should -Be "MTA"
         } finally {
             $session.Close()
         }
@@ -34,10 +36,10 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
 '@
         $session = newIndexingSession $fake (newIndexerChannel)
         try {
-            $session.IsRunning() | Should Be $true
+            $session.IsRunning() | Should -Be $true
             $session.Stop()
-            $session.Wait(30000) | Should Be $true
-            $session.GetExitCode() | Should Be 2
+            $session.Wait(30000) | Should -Be $true
+            $session.GetExitCode() | Should -Be 2
         } finally {
             $session.Close()
         }
@@ -47,9 +49,9 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
         $fake = newFakeIndexer "throw" 'throw "読み込めませんでした"'
         $session = newIndexingSession $fake (newIndexerChannel)
         try {
-            $session.Wait(30000) | Should Be $true
-            $session.GetExitCode() | Should Be 1
-            $session.GetError() | Should Match "読み込めませんでした"
+            $session.Wait(30000) | Should -Be $true
+            $session.GetExitCode() | Should -Be 1
+            $session.GetError() | Should -Match "読み込めませんでした"
         } finally {
             $session.Close()
         }
@@ -60,7 +62,7 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
         $session = newIndexingSession $fake (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
-            $session.GetError() | Should Be "クロール対象フォルダがありません。"
+            $session.GetError() | Should -Be "クロール対象フォルダがありません。"
         } finally {
             $session.Close()
         }
@@ -78,9 +80,9 @@ $Channel.ExitCode = 2
         while (!$session.Channel.Started -and $watch.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 20 }
         $session.Close()
         $session.Close()
-        $session.IsRunning() | Should Be $false
-        $session.GetExitCode() | Should Be 2
-        $session.Wait(0) | Should Be $true
+        $session.IsRunning() | Should -Be $false
+        $session.GetExitCode() | Should -Be 2
+        $session.Wait(0) | Should -Be $true
     }
 
     It "KillOffice は、記録した PID のうちプロセス名が同じものだけを止める" {
@@ -92,9 +94,9 @@ $Channel.ExitCode = 2
         try {
             $session.Channel.OfficePids[$target.Id] = $target.ProcessName
             $session.Channel.OfficePids[$other.Id] = "EXCEL"   # 名前が違う（ID が別のプロセスに使われた）ものは止めない
-            $session.KillOffice() | Should Be 1
-            $target.WaitForExit(10000) | Should Be $true
-            $other.HasExited | Should Be $false
+            $session.KillOffice() | Should -Be 1
+            $target.WaitForExit(10000) | Should -Be $true
+            $other.HasExited | Should -Be $false
         } finally {
             foreach ($process in @($target, $other)) {
                 if (!$process.HasExited) { $process.Kill() }
@@ -108,8 +110,8 @@ $Channel.ExitCode = 2
         $session = newIndexingSession $fake (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
-            $session.GetExitCode() | Should Be 1
-            $session.GetError() | Should Match "読み込めないファイルがありました"
+            $session.GetExitCode() | Should -Be 1
+            $session.GetError() | Should -Match "読み込めないファイルがありました"
         } finally {
             $session.Close()
         }
@@ -121,8 +123,8 @@ $Channel.ExitCode = 2
         $session = newIndexingSession $fake (newIndexerChannel)
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         $session.Close()
-        $watch.Elapsed.TotalSeconds | Should BeLessThan 30
-        $session.IsRunning() | Should Be $false
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 30
+        $session.IsRunning() | Should -Be $false
     }
 }
 
@@ -136,7 +138,7 @@ Describe "インデクサの司令のスクリプト（indexingSessionScript）"
         } finally {
             [System.Threading.Thread]::CurrentThread.Priority = $priority
         }
-        $channel.Seen | Should Be "BelowNormal"
-        $channel.ExitCode | Should Be 0
+        $channel.Seen | Should -Be "BelowNormal"
+        $channel.ExitCode | Should -Be 0
     }
 }
