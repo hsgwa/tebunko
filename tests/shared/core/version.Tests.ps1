@@ -25,47 +25,24 @@ Describe "readVersionFile" -Tag Io {
         readVersionFile (Join-Path $TestDrive "無い\VERSION.txt") | Should -BeNullOrEmpty
     }
 
-    It "空のファイルなら `$null" {
-        $path = Join-Path $TestDrive "empty.txt"
-        [System.IO.File]::WriteAllBytes($path, [byte[]]@())
+    It "<name>なら `$null" -TestCases @(
+        @{ name = "空のファイル"; lines = @() }
+        @{ name = "1 行だけ"; lines = @("v1.0.0") }
+        @{ name = "3 行ある"; lines = @("v1.0.0", "0123456789abcdef0123456789abcdef01234567", "") }
+        @{ name = "1 行目（タグ名）の形が違う"; lines = @("v1.0.0 だめ", "0123456789abcdef0123456789abcdef01234567") }
+        @{ name = "2 行目（SHA）の形が違う"; lines = @("v1.0.0", "abc") }
+    ) {
+        $path = Join-Path $TestDrive "version.txt"
+        writeVersionFileBytes $path $lines
         readVersionFile $path | Should -BeNullOrEmpty
     }
 
-    It "1 行だけなら `$null" {
-        $path = Join-Path $TestDrive "oneline.txt"
-        writeVersionFileBytes $path @("v1.0.0")
-        readVersionFile $path | Should -BeNullOrEmpty
-    }
-
-    It "3 行あれば `$null" {
-        $path = Join-Path $TestDrive "threelines.txt"
-        writeVersionFileBytes $path @("v1.0.0", "0123456789abcdef0123456789abcdef01234567", "")
-        readVersionFile $path | Should -BeNullOrEmpty
-    }
-
-    It "1 行目（タグ名）の形が違えば `$null" {
-        $path = Join-Path $TestDrive "badtag.txt"
-        writeVersionFileBytes $path @("v1.0.0 だめ", "0123456789abcdef0123456789abcdef01234567")
-        readVersionFile $path | Should -BeNullOrEmpty
-    }
-
-    It "2 行目（SHA）の形が違えば `$null" {
-        $path = Join-Path $TestDrive "badsha.txt"
-        writeVersionFileBytes $path @("v1.0.0", "abc")
-        readVersionFile $path | Should -BeNullOrEmpty
-    }
-
-    It "正しい形（BOM 付き UTF-8・CRLF）なら Tag・Sha を返す" {
+    It "<name>でも、2 行の形が正しければ Tag・Sha を返す" -TestCases @(
+        @{ name = "BOM 付き UTF-8・CRLF"; bom = $true; newLine = "`r`n" }
+        @{ name = "BOM が無く LF 区切り"; bom = $false; newLine = "`n" }
+    ) {
         $path = Join-Path $TestDrive "ok.txt"
-        writeVersionFileBytes $path @("v1.0.0", "0123456789abcdef0123456789abcdef01234567")
-        $result = readVersionFile $path
-        $result.Tag | Should -Be "v1.0.0"
-        $result.Sha | Should -Be "0123456789abcdef0123456789abcdef01234567"
-    }
-
-    It "BOM が無く LF 区切りでも、2 行の形が正しければ返す" {
-        $path = Join-Path $TestDrive "nobombutlf.txt"
-        writeVersionFileBytes $path @("v1.0.0", "0123456789abcdef0123456789abcdef01234567") $false "`n"
+        writeVersionFileBytes $path @("v1.0.0", "0123456789abcdef0123456789abcdef01234567") $bom $newLine
         $result = readVersionFile $path
         $result.Tag | Should -Be "v1.0.0"
         $result.Sha | Should -Be "0123456789abcdef0123456789abcdef01234567"

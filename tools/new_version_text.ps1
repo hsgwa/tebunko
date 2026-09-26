@@ -26,4 +26,6 @@ if ($LASTEXITCODE -ne 0 -or $sha -notmatch '^[0-9a-f]{40}$') {
 }
 
 $content = "$Version`r`n$sha`r`n"
-(New-Object System.Text.UTF8Encoding($true)).GetPreamble() + (New-Object System.Text.UTF8Encoding($false)).GetBytes($content)
+# byte[] 同士の + は Object[] になるため [byte[]] に戻す。先頭の , は呼び出し側が byte[] のまま受け取れるようにするため
+$bytes = [byte[]]((New-Object System.Text.UTF8Encoding($true)).GetPreamble() + (New-Object System.Text.UTF8Encoding($false)).GetBytes($content))
+, $bytes
