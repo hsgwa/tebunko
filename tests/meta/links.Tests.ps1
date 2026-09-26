@@ -1,6 +1,6 @@
 ﻿# Markdown のリンク切れのテスト。
 # git で管理している .md すべての相対リンクとアンカーを tools\check_markdown_links.ps1 で調べる。
-# コミット前のフック（Meta）と CI の必須チェック test で止め、リンクが切れたままマージできないようにする。
+# コミット前のフック（.md を変えたとき）と CI の必須チェック test で止め、リンクが切れたままマージできないようにする。
 # docs\ の中は mkdocs build --strict（docs.yml）でも調べるが、docs\ の外と docs\ から外へのリンクはここでしか調べない。
 . "$PSScriptRoot\..\helpers\load.ps1"
 
