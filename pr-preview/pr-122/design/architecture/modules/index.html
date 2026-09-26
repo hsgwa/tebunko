@@ -2796,7 +2796,7 @@
 </tr>
 </tbody>
 </table>
-<p>依存の向きは一方向にする。<strong><code>shared/</code> はツール（<code>tebunko/</code>）を知らない。</strong> ツール同士も互いを読み込まない。判断層は <code>$ui</code>・<code>$window</code>・WPF の型に触らない。これらの決まりは <code>tests/meta/layers.Tests.ps1</code> で機械的に確かめる。</p>
+<p>依存の向きは一方向にする。<strong><code>shared/</code> はツール（<code>tebunko/</code>）を知らない。</strong> ツール同士も互いを読み込まない。判断層と状態層（<code>core/</code>・<code>index/</code>・<code>indexer/</code>・<code>search/</code>・<code>shared/</code> の <code>core/</code>・<code>office/</code>）は <code>$ui</code>・<code>$window</code>・WPF の型に触らず、画面以外の読み込み口（<code>shared.ps1</code>・<code>lib.ps1</code>・<code>indexer.ps1</code>）は <code>ui/</code> のファイルを読み込まない。これらの決まりは <code>tests/meta/layers.Tests.ps1</code> で機械的に確かめる。</p>
 <pre class="mermaid"><code>flowchart TD
     GUI["tebunko/gui.ps1&lt;br&gt;（画面の起動口）"] --&gt; LIB
     IDX["tebunko/indexer.ps1&lt;br&gt;（インデックス作成の起動口）"]
@@ -2806,7 +2806,7 @@
     LIB["tebunko/lib.ps1"] --&gt; SH["shared/shared.ps1"]
     LIB --&gt; TG["tebunko の core/・index/・search/&lt;br&gt;indexer/indexer_state.ps1・indexer_decide.ps1・indexing_session.ps1"]
     SH --&gt; SC["shared/core/*・office/office_files.ps1・office_process.ps1"]</code></pre>
-<p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。</p>
+<p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。読み込みは <code>. "$PSScriptRoot\..."</code> の形で書く（この形の行だけを検査がたどる）。</p>
 <table>
 <thead>
 <tr>
