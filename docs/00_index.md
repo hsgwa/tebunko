@@ -1,8 +1,8 @@
 ﻿# tebunko 設計書（インデックス）
 
-本設計書は `scripts/*.ps1` および起動用 `tebunko_grep.bat` の実装から仕様を書き起こしたものである。記載内容は**現行実装の挙動**を正とする。
+本設計書は `scripts/*.ps1` および起動用 `tebunko.bat` の実装から仕様を書き起こしたものである。記載内容は**現行実装の挙動**を正とする。
 
-本ツールは画面（`tebunko_grep.bat`）から使う。インデックス作成・検索・プロセス停止はすべて画面から行い、コンソールでの操作（`.bat` の実行・設定ファイルの手編集・キー入力）は前提としない。
+本ツールは画面（`tebunko.bat`）から使う。インデックス作成・検索・プロセス停止はすべて画面から行い、コンソールでの操作（`.bat` の実行・設定ファイルの手編集・キー入力）は前提としない。
 
 本書（インデックス）には全体構成と、複数のツールにまたがる共通事項をまとめる。ツールごとの仕様は下表の各設計書を参照。
 
@@ -26,7 +26,7 @@
 | └ [01_インデックス作成_7_出力TSVと既知の問題.md](01_インデックス作成_7_出力TSVと既知の問題.md) | | | 6.1・6.2・6.4 出力 TSV の仕様、7.1 注意点・既知の問題（共通） |
 | └ [01_インデックス作成_8_エラーメッセージ一覧.md](01_インデックス作成_8_エラーメッセージ一覧.md) | | | 4.8 エラーメッセージ一覧（続けられないエラー・ファイルごとの失敗・警告） |
 | [02_検索.md](02_検索.md) | 画面の［2 検索］タブ | `tebunko_grep/search/search_query.ps1` / `tebunko_grep/search/pack_search.ps1` / `tebunko_grep/search/search_run.ps1` | インデックス（集約ファイル）の検索処理と検索結果ファイルの形式 |
-| [03_画面.md](03_画面.md) | `tebunko_grep.bat` | `tebunko_grep/gui.ps1` / `tebunko_grep/xaml/tebunko_grep.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
+| [03_画面.md](03_画面.md) | `tebunko.bat` | `tebunko_grep/gui.ps1` / `tebunko_grep/xaml/tebunko_grep.xaml` | インデックス作成・検索（結果を画面に表示）・プロセス停止を行う画面（GUI） |
 | └ [03_画面_1_インデックス管理タブ.md](03_画面_1_インデックス管理タブ.md) | | | 3. ［1 インデックス管理］タブ |
 | └ [03_画面_2_検索タブ.md](03_画面_2_検索タブ.md) | | | 4. ［2 検索］タブ |
 | └ [03_画面_2_検索タブ_1_元のファイルを開く.md](03_画面_2_検索タブ_1_元のファイルを開く.md) | | | 4.5 元のファイルを開く |
@@ -86,7 +86,7 @@
 flowchart LR
     user(["利用者"])
 
-    bat["tebunko_grep.bat"]
+    bat["tebunko.bat"]
 
     subgraph scripts["scripts/"]
         subgraph tool["tebunko_grep/（このツール固有）"]
@@ -161,7 +161,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     actor U as 利用者
-    participant G as 画面（tebunko_grep.bat）
+    participant G as 画面（tebunko.bat）
     participant CV as インデクサ（tebunko_grep/indexer.ps1）
     participant W as work/index/
 
@@ -188,7 +188,7 @@ sequenceDiagram
 | 実行環境 | Windows PowerShell 5.1（`powershell.exe`） |
 | 必須ソフトウェア | Microsoft Excel（`Excel.Application` COM オブジェクトを使用。Excel ファイルの取り込みに必要） |
 | 任意のソフトウェア | Microsoft Word・PowerPoint（旧形式 `.doc` `.ppt`、パスワード付き、拡張子と中身が異なる Word・PowerPoint ファイルの取り込みにのみ使用。新形式の `.docx` `.pptx` 等は無くても取り込める） |
-| 起動方法 | `tebunko_grep.bat` をダブルクリック。`conhost.exe` を通して `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で画面を開く（`Bypass` は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、`tebunko_grep.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面のプロセスの中のスレッドで動く（別の `powershell.exe` は起動しない）。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
+| 起動方法 | `tebunko.bat` をダブルクリック。`conhost.exe` を通して `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で画面を開く（`Bypass` は使わない。PowerShell の窓は残らない）。zip 展開で付く Mark-of-the-Web は、`tebunko.bat` が起動前に消す（`Unblock-File`）ため、RemoteSigned のままスクリプトを実行できる。インデクサは画面のプロセスの中のスレッドで動く（別の `powershell.exe` は起動しない）。詳細は [03_画面_5_共通仕様.md 10.1](03_画面_5_共通仕様.md#101-配布と実行ポリシーmark-of-the-web) |
 | スクリプトの文字コード | `scripts/*.ps1`・`tests/*.ps1` は **UTF-8（BOM 付き）**、改行 CRLF。PowerShell 5.1 は BOM なしファイルをシステム既定コードページ（CP932）で読むため、BOM を外すと日本語リテラルが化ける |
 | テスト | Pester 3.4（Windows PowerShell 5.1 標準）。`.\tests\run.ps1`（詳細は [6.3](00_共通_3_テスト.md#63-テストの構成と実行)） |
 
