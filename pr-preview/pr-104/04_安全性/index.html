@@ -2151,7 +2151,7 @@
 </tr>
 </tbody>
 </table>
-<p>実行時コンパイル（<code>csc.exe</code> の起動）を使わないのは設計方針である。検索処理・画面の型定義などは C# を使わず PowerShell と .NET の直接呼び出しで書いている（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">03_画面_6_実装とテスト.md 12.2</a>）。実行時に一時フォルダへコンパイル結果を書き出す動作が無いため、EDR やアプリケーション制御（AppLocker・WDAC）との衝突も避けられる。<code>tests/meta/structure.Tests.ps1</code> の「実行時コンパイル（csc.exe）を使わない」も、<code>Add-Type -TypeDefinition</code> が無いことを確かめる。</p>
+<p>実行時コンパイル（<code>csc.exe</code> の起動）を使わないのは設計方針である。検索処理・画面の型定義などは C# を使わず PowerShell と .NET の直接呼び出しで書いている（<a href="../03_%E7%94%BB%E9%9D%A2_6_%E5%AE%9F%E8%A3%85%E3%81%A8%E3%83%86%E3%82%B9%E3%83%88/#122-実行時コンパイルcscexeを使わない">03_画面_6_実装とテスト.md 12.2</a>）。実行時に一時フォルダへコンパイル結果を書き出す動作が無いため、EDR やアプリケーション制御（AppLocker・WDAC）との衝突も避けられる。<code>tests/meta/safety.Tests.ps1</code> の「実行時にコードをコンパイルしない」が、<code>Add-Type</code> は標準アセンブリの読み込み（<code>-AssemblyName</code>）だけであることを確かめる。</p>
 <p><strong>内部の型のリフレクション（14）</strong>：フォルダ選択（<code>shared/ui/folder_dialog.ps1</code> の <code>showFolderPicker</code>）だけが、WinForms が内部に持つ <code>IFileOpenDialog</code> の定義（<code>FileDialogNative+IFileDialog</code>）をリフレクション（<code>BindingFlags</code> の <code>NonPublic</code>）で呼ぶ。Windows 標準のエクスプローラー形式のダイアログを、実行時コンパイルなしで開くためである（<a href="../03_%E7%94%BB%E9%9D%A2_1_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96/#321-フォルダ選択ダイアログ参照">03_画面_1 3.2.1</a>）。呼ぶのは .NET Framework に署名付きで入っている WinForms のダイアログの処理だけで、メモリの書き換えや AMSI などの検査の仕組みには触れない。開いている間に <code>csc.exe</code> などの子プロセスと一時フォルダへの DLL の書き出しが無いことを実機で確かめた。なお、Windows PowerShell 5.1 は <code>Add-Type</code>・<code>BindingFlags</code>・<code>NonPublic</code>・<code>GetMethod</code>・<code>IntPtr</code>・<code>InteropServices</code> などの語を含むスクリプトを、ログの設定に関わらずイベントログ（Microsoft-Windows-PowerShell/Operational の 4104、警告）に自動で記録する。本ツールはこの変更の前から <code>Add-Type</code> などで記録の対象である。<code>tests/meta/safety.Tests.ps1</code> が、<code>NonPublic</code> を使うのがこの 1 か所だけであることを確かめる。</p>
 <h3 id="22-office-ファイルを開くときの設定">2.2 Office ファイルを開くときの設定<a class="headerlink" href="#22-office-ファイルを開くときの設定" title="Permanent link">&para;</a></h3>
 <p>インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（<code>shared/office/office_app.ps1:36-53</code>）。<code>tests/meta/safety.Tests.ps1</code> の「Office ファイルを安全に開くこと」がこれを確かめる。</p>
@@ -2283,7 +2283,7 @@
     office -- "SaveAs（保存先はコピー側）" --&gt; tsv
     tsv --&gt; idx</code></pre>
 <p>Office の <code>SaveAs</code> は 3 か所あるが、保存先は常に作業フォルダ内のパス（<code>$tmpPath</code> / <code>$destPath</code>）である（<code>extract_office.ps1:156</code>・<code>210</code>・<code>234</code>）。原本のパスを <code>SaveAs</code> に渡す経路は無い。</p>
-<p><code>tests/meta/safety.Tests.ps1</code> の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは <code>copyFileShared</code> の読み取りだけであること、<code>SaveAs</code> の保存先が作業フォルダだけであること、読み取り専用で開くことを確かめる。</p>
+<p><code>tests/meta/safety.Tests.ps1</code> の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは <code>copyFileShared</code> の読み取りだけであること、<code>SaveAs</code> の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。</p>
 <h3 id="33-読み取りのみであることの実証">3.3 読み取りのみであることの実証<a class="headerlink" href="#33-読み取りのみであることの実証" title="Permanent link">&para;</a></h3>
 <p>静的な確認に加えて、実際に動かして確認できる。第三者が再現できる手順は次の 2 つ。</p>
 <p><strong>手順 A: ハッシュの比較</strong></p>
@@ -2413,20 +2413,20 @@
 <tr>
 <td><code>tebunko-setup-&lt;タグ&gt;.exe</code></td>
 <td>手軽にインストール・アンインストールしたい環境</td>
-<td>インストーラー自身と、入れる <code>tebunko.exe</code>・<code>unins000.exe</code></td>
+<td>インストーラー自身と、入れる <code>tebunko.exe</code>・<code>uninstall\unins000.exe</code></td>
 </tr>
 </tbody>
 </table>
-<p>インストーラーは <a href="https://jrsoftware.org/isinfo.php">Inno Setup</a> 6 で作る（<code>installer/tebunko.iss</code>・<code>tools/new_installer.ps1</code>）。</p>
+<p>インストーラーは <a href="https://jrsoftware.org/isinfo.php">Inno Setup</a> 7 で作る（<code>installer/tebunko.iss</code>・<code>tools/new_installer.ps1</code>）。</p>
 <ul>
 <li><strong>入れる場所と権限</strong>: 既定は管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れる。管理者は、最初の画面で「すべてのユーザー」を選ぶと <code>C:\Program Files\tebunko</code> に入れられる。</li>
-<li><strong>入れるもの</strong>: <code>tebunko.exe</code>・<code>scripts\</code>・<code>LICENSE</code> と、Inno Setup のアンインストーラー（<code>unins000.exe</code>・<code>unins000.dat</code>）だけ。スタートメニューにショートカットを作る（デスクトップは選んだときだけ）。</li>
+<li><strong>入れるもの</strong>: <code>tebunko.exe</code>・<code>scripts\</code>・<code>LICENSE</code> と、Inno Setup のアンインストーラー（<code>uninstall\unins000.exe</code>・<code>uninstall\unins000.dat</code>。名前は Inno Setup が決め、変える設定が無いため、tebunko のものと分かるよう <code>uninstall</code> フォルダに置く）だけ。スタートメニューにショートカットを作る（デスクトップは選んだときだけ）。</li>
 <li><strong>レジストリ</strong>: インストーラーが、Windows の「インストールされているアプリ」に出すためのアンインストールの情報（利用者ごとなら <code>HKCU</code>、すべてのユーザーなら <code>HKLM</code> の <code>Software\Microsoft\Windows\CurrentVersion\Uninstall\{E2FA5AC9-5A36-41AF-B5E2-B989E2878D3C}_is1</code>）を書く。これ以外のレジストリ、PATH、ファイルの関連付け、サービス、自動起動には触らない（<code>installer.Tests.ps1</code> が <code>[Registry]</code> の節が無いことなどを確かめる）。ツール本体（スクリプト）はレジストリを読み書きしない（2.1）。</li>
 <li><strong>起動口 <code>tebunko.exe</code></strong>: 本リポジトリの <code>installer/tebunko.cs</code>（約 100 行）を、リリースのときに Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドする。していることは <code>tebunko.bat</code> と同じで、Windows の PowerShell 5.1 で <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動するだけである（4.2 の「<code>RemoteSigned</code> で起動する理由」）。インストーラーが書いたファイルには Mark-of-the-Web が付かないため、<code>Unblock-File</code> はしない。窓のアプリとしてビルドし、PowerShell も窓を作らずに起動する（<code>conhost.exe</code> は要らない）。PowerShell が 0 以外で終わりエラー出力があれば、その内容をメッセージで出す（実行ポリシーや制限言語モードで <code>gui.ps1</code> を読み込めないときに、何も出ずに終わらないようにするため）。エラー出力を受け取るため、画面を閉じるまで <code>tebunko.exe</code> のプロセスも残る（窓は無い）。</li>
 <li><strong>更新</strong>: 新しい版のインストーラーを実行する。前の版の <code>scripts\</code> を消してから入れるため、前の版にだけあったスクリプトは残らない。<code>setting.config</code> は残る。</li>
 <li><strong>起動中の更新・削除</strong>: <code>tebunko.exe</code> が起動中はミューテックス <code>tebunko-installed-app</code> を持ち、インストーラーとアンインストーラーはこれを見て、tebunko を閉じるよう求める（Inno Setup の <code>AppMutex</code>）。</li>
 <li><strong>アンインストール</strong>: 「設定」→「アプリ」から行う。入れたファイル・ショートカット・アンインストールの情報と、ツールのフォルダの <code>setting.config</code> を消す。<strong>インデックス（ワークスペース）は消さない。</strong> ワークスペースは利用者が選んだフォルダのこともあり、中身を確かめずに消すのは危ないためである。インデックスには文書の文字がそのまま入っているため（4.3）、アンインストールの最後に、残っている場所（既定は <code>%USERPROFILE%\Documents\tebunko</code>）を知らせる。</li>
-<li><strong>無人のインストール</strong>: <code>/VERYSILENT /CURRENTUSER</code>（アンインストールは <code>unins000.exe /VERYSILENT</code>）で、画面を出さずに入れる・消すことができる。</li>
+<li><strong>無人のインストール</strong>: <code>/VERYSILENT /CURRENTUSER</code>（アンインストールは <code>uninstall\unins000.exe /VERYSILENT</code>）で、画面を出さずに入れる・消すことができる。</li>
 <li><strong>署名</strong>: インストーラーと <code>tebunko.exe</code> にはまだコード署名が無い。そのため、ダウンロードしたインストーラーを実行すると SmartScreen の「Windows によって PC が保護されました」が出る（［詳細情報］→［実行］で進める）。改ざんの確認には、ビルドの来歴の署名と SHA256 を使う（5.1）。</li>
 <li><strong>再現性</strong>: <code>csc.exe</code>（.NET Framework）と Inno Setup はビルドの日時を埋め込むため、同じソースからビルドしてもハッシュは一致しない。zip の中身と同じスクリプトが入っていることは、インストールしたフォルダでカタログ（5.1）と比べれば分かる。カタログにある <code>tebunko.bat</code> はインストーラー版に無いため、<code>Status</code> は <code>ValidationFailed</code> になる。<code>tebunko.bat</code> を除いて違うファイルが無い（次の結果が空になる）ことを確かめる。</li>
 </ul>
@@ -2787,11 +2787,11 @@
 <tbody>
 <tr>
 <td>テスト件数</td>
-<td>1,160 件（既定のタグ Unit・Io・Meta。失敗 0 件。うち安全性・構成の検査（タグ <code>Meta</code>）が 116 件）</td>
+<td>1,189 件（既定のタグ Unit・Io・Meta。失敗 0 件。うち安全性・構成の検査（タグ <code>Meta</code>）が 122 件）</td>
 </tr>
 <tr>
 <td>コードカバレッジ</td>
-<td>97.1%（5,701/5,873 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため 96.9%）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（96.5%）で、下回ると CI が失敗する</td>
+<td>97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（90.0%）で、下回ると CI が失敗する</td>
 </tr>
 <tr>
 <td>規模</td>
@@ -2871,7 +2871,7 @@
 </tr>
 <tr>
 <td>コミット前の検査</td>
-<td>個人情報・文字コードの検査（<code>tools/check_commit.ps1</code>）と速いテストを pre-commit フックで動かす。CI は全ファイル・全履歴を検査する</td>
+<td>個人情報・文字コードの検査（<code>tools/check_commit.ps1</code>）と、変更に対応するテスト（<code>tools/run_commit_tests.ps1</code>）を pre-commit フックで動かす。CI は全ファイル・全履歴を検査する</td>
 <td><code>tools/hooks/</code>・<code>test.yml</code></td>
 </tr>
 <tr>

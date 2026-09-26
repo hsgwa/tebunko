@@ -1736,7 +1736,7 @@
 <tr>
 <td><code>installer/tebunko.iss</code></td>
 <td>配布用</td>
-<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を作る Inno Setup 6 のスクリプト。管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れ、スタートメニューとアンインストールに登録する（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.6）。BOM 付き UTF-8・CRLF</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を作る Inno Setup 7 のスクリプト。管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れ、スタートメニューとアンインストールに登録する（<a href="../04_%E5%AE%89%E5%85%A8%E6%80%A7/">04_安全性.md</a> の 4.6）。BOM 付き UTF-8・CRLF</td>
 </tr>
 <tr>
 <td><code>installer/tebunko.cs</code></td>
@@ -1808,7 +1808,7 @@
 <tr>
 <td><code>tools/new_installer.ps1</code></td>
 <td>配布用</td>
-<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を <code>work/release/</code> に作る。起動口 <code>tebunko.exe</code> を Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドし、<code>scripts/</code>・<code>LICENSE</code> と並べて Inno Setup 6 の <code>ISCC.exe</code> に渡す。<code>release.yml</code> が実行する。手元で作るときは Inno Setup 6 を入れておく（<code>-Iscc</code> で場所を指定できる）</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を <code>work/release/</code> に作る。起動口 <code>tebunko.exe</code> を Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドし、<code>scripts/</code>・<code>LICENSE</code> と並べて Inno Setup 7 の <code>ISCC.exe</code> に渡す。<code>release.yml</code> が実行する。手元で作るときは Inno Setup 7 を入れておく（<code>-Iscc</code> で場所を指定できる）</td>
 </tr>
 <tr>
 <td><code>tools/new_icon.ps1</code></td>
