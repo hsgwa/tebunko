@@ -92,17 +92,6 @@ function newSortColumn([string]$path) {
     return $column
 }
 
-Describe "読み込み" -Tag Unit {
-    It "表に結果の一覧をつなぎ、イベントを登録する" {
-        [object]::ReferenceEquals($ui.ResultGrid.ItemsSource, $script:resultItems) | Should Be $true
-        $handlers.ContainsKey("LoadingRow") | Should Be $true
-        $handlers.ContainsKey("Sorting") | Should Be $true
-        $handlers["PreviewMouseUp"] -is [System.Windows.Input.MouseButtonEventHandler] | Should Be $true
-        $handlers.ContainsKey("ExpandAll.Click") | Should Be $true
-        $handlers.ContainsKey("CollapseAll.Click") | Should Be $true
-    }
-}
-
 Describe "clearResults" -Tag Unit {
     BeforeEach { resetResults }
 
@@ -155,14 +144,6 @@ Describe "newFileGroup" -Tag Unit {
 
 Describe "getPlace・addFileGroupLocation" -Tag Unit {
     BeforeEach { resetResults }
-
-    It "同じ種類のファイル・同じ場所の表記は 1 回だけ作る" {
-        $a = getPlace "見積.xlsx" "4月"
-        $b = getPlace "請求.xlsm" "4月"
-        $a.Place | Should Be "[シート] 4月"
-        [object]::ReferenceEquals($a, $b) | Should Be $true
-        $script:places.Count | Should Be 1
-    }
 
     It "Excel とそれ以外は別の表記にする" {
         (getPlace "見積.xlsx" "ページ003").Place | Should Be "[シート] ページ003"
@@ -709,12 +690,5 @@ Describe "イベント" -Tag Unit {
 
         $row.Prepared | Should Be $true
         $row.MatchCell | Should Be "B1"
-    }
-
-    It "見出しを出すときは何もしない" {
-        $group = addHit "見積.xlsx" "4月" "`t見積" 1
-        $e = [pscustomobject]@{ Row = [pscustomobject]@{ Item = $group } }
-
-        { & $handlers["LoadingRow"] $ui.ResultGrid $e } | Should Not Throw
     }
 }

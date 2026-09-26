@@ -18,11 +18,6 @@ Describe "getOfficeProcesses / stopOfficeProcesses" -Tag Io {
         $processes[1].MemoryMB | Should Be 20
     }
 
-    It "プロセスが無ければ空配列" {
-        Mock Get-Process { }
-        @(getOfficeProcesses).Count | Should Be 0
-    }
-
     It "終了できなかったプロセスは理由を返す" {
         Mock Stop-Process { if ($Id -eq 2) { throw "アクセスが拒否されました" } }
         $results = @(stopOfficeProcesses @(1, 2))

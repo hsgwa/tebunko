@@ -57,13 +57,9 @@ Describe "check_commit_message.ps1 のタイトルの判定" -Tag Unit {
 }
 
 Describe "check_commit_message.ps1 のコミットメッセージのファイル" -Tag Io {
-    It "コメント行と空行を飛ばして、最初の行を調べる" {
-        checkFile "`n# コメント`nfeat: 足す`n`n本文は調べない`n" | Should Be 0
+    It "コメント行と空行を飛ばして、最初の行だけを調べる" {
+        checkFile "`n# コメント`nfeat: 足す`n`n本文は調べない`nCo-Authored-By: test <test@example.com>`n" | Should Be 0
         checkFile "# コメント`n足す`n" | Should Be 1
-    }
-
-    It "2 行目以降は調べない" {
-        checkFile "fix: 直す`n`nCo-Authored-By: test <test@example.com>`n" | Should Be 0
     }
 
     It "CRLF のファイルも読める" {

@@ -159,6 +159,7 @@ Describe "Office ファイルを安全に開くこと（docs/04_安全性.md 2.2
 
     It "外部リンクを更新しない（AskToUpdateLinks = false・Open の UpdateLinks = 0）" {
         (findPattern $app 'AskToUpdateLinks\s*=\s*\$false') | Should Not Be ""
+        # Excel の Workbooks.Open（第 2 引数 UpdateLinks = 0・第 3 引数 ReadOnly = $true）。3.2 の「原本は読み取り専用で開く」も兼ねる
         (findPattern $extract '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
     }
 
@@ -198,8 +199,8 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/04
 
     It "原本は読み取り専用で開く（Excel・Word・PowerPoint）" {
         $extract = @($code | Where-Object { $_.File -eq "extract_office.ps1" })
-        # Excel: Open の第 3 引数 ReadOnly = $true / Word: 第 3 引数 ReadOnly = $true / PowerPoint: 第 2 引数 ReadOnly = -1
-        (findPattern $extract '\.Open\(\$openPath,\s*0,\s*\$true') | Should Not Be ""
+        # Word: 第 3 引数 ReadOnly = $true / PowerPoint: 第 2 引数 ReadOnly = -1
+        # Excel（Open の第 3 引数 ReadOnly = $true）は、2.2 の「外部リンクを更新しない」で UpdateLinks と一緒に確かめる
         (findPattern $extract '\$documents\.Open\(\$sourcePath,\s*\$false,\s*\$true') | Should Not Be ""
         (findPattern $extract '\$presentations\.Open\("\$\{sourcePath\}::dummy::",\s*-1') | Should Not Be ""
     }
@@ -272,16 +273,13 @@ Describe "サードパーティの静的解析（docs/04_安全性.md 5.2）" -T
 }
 
 Describe "第三者が検証するための資料がそろっていること（docs/04_安全性.md 5.1・6）" -Tag Meta {
-    It "安全性説明書がある" {
-        (Test-Path -LiteralPath "$rootDir\docs\04_安全性.md") | Should Be $true
-    }
-
-    It "脆弱性の連絡先（.github\SECURITY.md）がある" {
-        (Test-Path -LiteralPath "$rootDir\.github\SECURITY.md") | Should Be $true
-    }
-
-    It "配布物の完全性を確かめる手順（tools\new_release_files.ps1）がある" {
-        (Test-Path -LiteralPath "$rootDir\tools\new_release_files.ps1") | Should Be $true
+    It "<name>" -TestCases @(
+        @{ name = "安全性説明書がある"; file = "docs\04_安全性.md" }
+        @{ name = "脆弱性の連絡先（.github\SECURITY.md）がある"; file = ".github\SECURITY.md" }
+        @{ name = "配布物の完全性を確かめる手順（tools\new_release_files.ps1）がある"; file = "tools\new_release_files.ps1" }
+    ) {
+        param ($name, $file)
+        (Test-Path -LiteralPath "$rootDir\$file") | Should Be $true
     }
 
     It "ライセンス（LICENSE）があり、MIT の条文と著作権表示を含む" {
