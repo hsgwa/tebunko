@@ -38,44 +38,30 @@ function pShape([string]$text, [string]$placeholder = "") {
 }
 
 Describe "isZipFile" -Tag Io {
-    It "ZIPなら `$true" {
+    # bytes = ファイルの中身。ZIP は先頭のシグネチャ（PK\x03\x04）だけで見分ける
+    It "<name>" -TestCases @(
+        @{ name = "ZIPなら `$true"; bytes = [byte[]](0x50, 0x4B, 0x03, 0x04, 0x14, 0x00); expected = $true }
+        @{ name = "旧形式・パスワード付き（複合ドキュメント形式）なら `$false"; bytes = [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1); expected = $false }
+        @{ name = "空ファイルなら `$false"; bytes = [byte[]]@(); expected = $false }
+    ) {
+        param ($name, $bytes, $expected)
         $path = "$TestDrive\zip.docx"
-        newZip $path @{ "a.txt" = "a" }
-        isZipFile $path | Should Be $true
-    }
-
-    It "旧形式・パスワード付き（複合ドキュメント形式）なら `$false" {
-        $path = "$TestDrive\cfb.docx"
-        [System.IO.File]::WriteAllBytes($path, [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1))
-        isZipFile $path | Should Be $false
-    }
-
-    It "空ファイルなら `$false" {
-        $path = "$TestDrive\empty.docx"
-        [System.IO.File]::WriteAllBytes($path, [byte[]]@())
-        isZipFile $path | Should Be $false
+        [System.IO.File]::WriteAllBytes($path, $bytes)
+        isZipFile $path | Should Be $expected
     }
 }
 
 Describe "isCompoundFile" -Tag Io {
-    It "複合ドキュメント形式（旧形式・パスワード付き）なら `$true" {
+    It "<name>" -TestCases @(
+        @{ name = "複合ドキュメント形式（旧形式・パスワード付き）なら `$true"; bytes = [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, 0x00); expected = $true }
+        @{ name = "ZIPなら `$false"; bytes = [byte[]](0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00, 0x08); expected = $false }
+        @{ name = "テキストなら `$false"; bytes = [System.Text.Encoding]::UTF8.GetBytes("壊れたファイル"); expected = $false }
+        @{ name = "空ファイルなら `$false"; bytes = [byte[]]@(); expected = $false }
+    ) {
+        param ($name, $bytes, $expected)
         $path = "$TestDrive\cfb.ppt"
-        [System.IO.File]::WriteAllBytes($path, [byte[]](0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, 0x00))
-        isCompoundFile $path | Should Be $true
-    }
-
-    It "ZIP・テキスト・空ファイルなら `$false" {
-        $zip = "$TestDrive\zip.pptx"
-        newZip $zip @{ "a.txt" = "a" }
-        isCompoundFile $zip | Should Be $false
-
-        $text = "$TestDrive\text.pptx"
-        [System.IO.File]::WriteAllText($text, "壊れたファイル", (New-Object System.Text.UTF8Encoding($false)))
-        isCompoundFile $text | Should Be $false
-
-        $empty = "$TestDrive\empty.ppt"
-        [System.IO.File]::WriteAllBytes($empty, [byte[]]@())
-        isCompoundFile $empty | Should Be $false
+        [System.IO.File]::WriteAllBytes($path, $bytes)
+        isCompoundFile $path | Should Be $expected
     }
 }
 

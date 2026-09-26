@@ -64,6 +64,7 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
         ) $dir
         # インデックスのフォルダ直下（全インデックス分）には書かない
         Test-Path -LiteralPath (Join-Path $dir ${sourceFolderFileName}) | Should Be $false
+        (readSourceFolderFile "$dir\見積").Count | Should Be 1
         (readSourceFolderFile "$dir\見積")["見積"] | Should Be "C:\data\見積"
         (readSourceFolderFile "$dir\D")["d"] | Should Be "D:\"
         (readSourceFolderFile "$TestDrive\none_dir").Count | Should Be 0
@@ -89,8 +90,6 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
             [pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" },
             [pscustomobject]@{ Path = "C:\data\営業"; Name = "営業" }
         ) $dir
-        (readSourceFolderFile "$dir\見積").Count | Should Be 1
-        (readSourceFolderFile "$dir\見積")["見積"] | Should Be "C:\data\見積"
 
         # <インデックス名> のフォルダだけを別の場所（ほかの PC の work\index 直下など）へコピーした場合
         $other = "$TestDrive\別 PC\index"
@@ -163,6 +162,11 @@ Describe "joinSourcePath" -Tag Io {
         joinSourcePath "D:\" "" "a.xlsx" | Should Be "D:\a.xlsx"
         joinSourcePath "C:\data" "2024" | Should Be "C:\data\2024"
     }
+
+    It "共有フォルダ直下・名前なしでもつなげる" {
+        joinSourcePath "\\server\share" "見積" "a.xlsx" | Should Be "\\server\share\見積\a.xlsx"
+        joinSourcePath "\\server\share\" "" "" | Should Be "\\server\share"
+    }
 }
 
 Describe "findMovedSource" -Tag Io {
@@ -206,12 +210,5 @@ Describe "findMovedSource" -Tag Io {
     It "ファイルと同じ名前のフォルダは、見つかったことにしない" {
         [System.IO.Directory]::CreateDirectory("$moved\2024\A社\フォルダ.xlsx") | Out-Null
         findMovedSource $moved "2024\A社" "フォルダ.xlsx" | Should Be $null
-    }
-}
-
-Describe "joinSourcePath（共有フォルダ・空の名前）" -Tag Io {
-    It "共有フォルダ直下・名前なしでもつなげる" {
-        joinSourcePath "\\server\share" "見積" "a.xlsx" | Should Be "\\server\share\見積\a.xlsx"
-        joinSourcePath "\\server\share\" "" "" | Should Be "\\server\share"
     }
 }

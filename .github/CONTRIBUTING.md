@@ -76,7 +76,7 @@ After you clone the repository, turn on the pre-commit checks (once).
 From then on, the following checks run on every commit. If a check fails, fix the content instead of skipping the check with `--no-verify`.
 
 - Personal information (real names, email addresses, paths that contain a user name) and the text encoding of scripts (`tools\check_commit.ps1 -Staged`)
-- The fast tests (`tests\run.ps1 -Tag Unit,Meta -Quiet`)
+- The tests for the files you changed (`tools\run_commit_tests.ps1`; for example, `tests\<path>.Tests.ps1` for `scripts\<path>.ps1`. When it cannot tell which tests are affected, it runs all the fast tests. CI runs all the tests)
 - The form of the first line of the commit message (`tools\check_commit_message.ps1`; see "Commit and pull request titles" above)
 - That `Signed-off-by` is present (`tools\check_signoff.ps1`; see "Signed-off-by" above)
 
@@ -88,7 +88,8 @@ From then on, the following checks run on every commit. If a check fails, fix th
 ```
 
 - **When you add a feature or change behavior, write tests in the same pull request.** Test the text shown on screen and the decisions about what is allowed (the decision layer) especially well.
-- **Do not lower the coverage.** CI (`.\tests\run.ps1 -Ci`) fails when the coverage falls below the value in `tests/coverage.baseline`. If it falls, add tests to bring it back. If it rises, raise the baseline in the same pull request. The screen layer is not measured.
+- **Keep the coverage at or above the baseline.** CI (`.\tests\run.ps1 -Ci`) fails when the coverage falls below the value in `tests/coverage.baseline` (90.0). If it falls, add tests to bring it back. Do not change the baseline; only the maintainer does. The screen layer is not measured.
+- **Do not write tests only to raise the number.** Test behavior at the unit level. If several tests differ only in input and expected value, put them in one `It` with `-TestCases`.
 - When you change the screen, start the tool with `tebunko.bat` and check it.
 
 How the tests are organized and what CI does is described in [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) (Japanese).

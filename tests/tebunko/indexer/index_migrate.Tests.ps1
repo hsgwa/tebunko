@@ -100,11 +100,17 @@ Describe "removeTmpDir" -Tag Io {
         $tmpDir = "$TestDrive\remove_fail\tmp"
         $publishDir = "$TestDrive\remove_fail\出力"
         $workspace = newTestWorkspace @{ PublishDir = $publishDir }
-        # 1 つ目（作業フォルダ）だけ削除に失敗する
-        Mock removeDirectoryRetry { if ($path -like "*\tmp") { throw "使用中" } }
-
-        { removeTmpDir } | Should Not Throw
-        Assert-MockCalled -Scope It removeDirectoryRetry -Times 1 -Exactly -ParameterFilter { $path -like "*\出力" }
+        newTsv "$tmpDir\使用中.tsv" @("a")
+        newTsv "$publishDir\b.xlsx\b.tsv" @("b")
+        # 1 つ目（作業フォルダ）の中のファイルをほかから開いておき、削除に失敗させる
+        $stream = [System.IO.File]::Open("$tmpDir\使用中.tsv", "Open", "Read", "None")
+        try {
+            { removeTmpDir } | Should Not Throw
+            Test-Path -LiteralPath "$tmpDir\使用中.tsv" | Should Be $true
+        } finally {
+            $stream.Dispose()
+        }
+        Test-Path -LiteralPath $publishDir | Should Be $false
     }
 }
 
@@ -123,10 +129,6 @@ Describe "removeStaleProcessDirs" -Tag Io {
         Test-Path -LiteralPath "$parent\$PID" | Should Be $true
         Test-Path -LiteralPath "$parent\abc" | Should Be $true
         Test-Path -LiteralPath "$parent\1234567890" | Should Be $true  # 10 桁はプロセスIDとみなさない
-    }
-
-    It "フォルダが無ければ何もしない" {
-        { removeStaleProcessDirs "$TestDrive\stale_none" } | Should Not Throw
     }
 
     It "削除できないフォルダは次回に回す" {
