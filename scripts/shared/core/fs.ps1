@@ -40,12 +40,13 @@ function writeTextLinesAtomic {
     # 途中で中断してもファイルが壊れないよう、一時ファイルに書いてから置き換える
     param (
         [string]$path,
-        [object[]]$lines
+        [object[]]$lines,
+        [System.Text.Encoding]$encoding = ${utf8Bom}  # 文字コード（既定は BOM 付き UTF-8）
     )
 
     [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
     $tmpPath = "${path}.tmp"
-    [System.IO.File]::WriteAllLines($tmpPath, [string[]]@($lines), ${utf8Bom})
+    [System.IO.File]::WriteAllLines($tmpPath, [string[]]@($lines), $encoding)
     # 書いた直後のファイルは、ウイルス対策ソフト等が一時的に掴んでいて置き換えられないことがあるため、少し待って数回試す
     for ($i = 1; $true; $i++) {
         try {
@@ -204,4 +205,46 @@ function newAppMutex {
     $createdNew = $false
     $mutex = New-Object System.Threading.Mutex($true, "Local\${appId}_${name}_${key}", [ref]$createdNew)
     return @{ Mutex = $mutex; Acquired = $createdNew }
+}
+
+function invokeWithNamedMutex {
+    # 名前付きミューテックスを取って action を実行し、action の出力を返す（終わったら必ず手放す）。
+    # 同じスレッドの入れ子は通す（ミューテックスは同じスレッドなら再び取れる）。
+    # timeoutMilliseconds を過ぎても取れなければ、「排他の待ちが時間切れになりました」の例外にする。
+    # 前の持ち主が手放さずに終わっていた（abandoned）ときは、取れたものとして続ける
+    #   mutexName: ミューテックスの名前（呼ぶ側が決める。同じ名前どうしで排他する）。
+    #   action から呼び出し元の変数を参照できるよう、この関数の変数の名前は目立つものにしてある（name・key・path などは使わない）
+    param (
+        [string]$mutexName,
+        [int]$timeoutMilliseconds,
+        [scriptblock]$action
+    )
+
+    $mutex = New-Object System.Threading.Mutex($false, $mutexName)
+    try {
+        $acquired = $false
+        try {
+            $acquired = $mutex.WaitOne($timeoutMilliseconds)
+        } catch {
+            # PowerShell では MethodInvocationException に包まれて届く。abandoned でも所有は移っている
+            $inner = $_.Exception
+            while ($null -ne $inner -and $inner -isnot [System.Threading.AbandonedMutexException]) {
+                $inner = $inner.InnerException
+            }
+            if ($null -eq $inner) {
+                throw
+            }
+            $acquired = $true
+        }
+        if (!$acquired) {
+            throw "排他の待ちが時間切れになりました（${timeoutMilliseconds} ミリ秒。${mutexName}）。ほかの処理が終わってからやり直してください。"
+        }
+        try {
+            & $action
+        } finally {
+            $mutex.ReleaseMutex()
+        }
+    } finally {
+        $mutex.Dispose()
+    }
 }

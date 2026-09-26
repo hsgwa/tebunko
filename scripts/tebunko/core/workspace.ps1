@@ -158,20 +158,22 @@ function moveSearchExcludes {
 
     $fromIndex = [Workspace]::new($from.TrimEnd("\")).IndexDir
     $toIndex = [Workspace]::new($to.TrimEnd("\")).IndexDir
-    $count = 0
-    $excludes = @(readSearchExcludes $path | ForEach-Object {
-        $folder = $_.Path
-        if ($folder.Equals($fromIndex, [System.StringComparison]::OrdinalIgnoreCase) -or
-            $folder.StartsWith("$fromIndex\", [System.StringComparison]::OrdinalIgnoreCase)) {
-            $folder = $toIndex + $folder.Substring($fromIndex.Length)
-            $count++
+    return invokeSettingsLocked -path $path -action {
+        $count = 0
+        $excludes = @(readSearchExcludes $path | ForEach-Object {
+            $folder = $_.Path
+            if ($folder.Equals($fromIndex, [System.StringComparison]::OrdinalIgnoreCase) -or
+                $folder.StartsWith("$fromIndex\", [System.StringComparison]::OrdinalIgnoreCase)) {
+                $folder = $toIndex + $folder.Substring($fromIndex.Length)
+                $count++
+            }
+            [pscustomobject]@{ Path = $folder; Subfolders = $_.Subfolders }
+        })
+        if ($count -gt 0) {
+            writeSearchExcludes $excludes $path
         }
-        [pscustomobject]@{ Path = $folder; Subfolders = $_.Subfolders }
-    })
-    if ($count -gt 0) {
-        writeSearchExcludes $excludes $path
+        return $count
     }
-    return $count
 }
 
 function moveWorkspace {

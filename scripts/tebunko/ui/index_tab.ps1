@@ -142,10 +142,11 @@ function loadTargets {
         $script:targetItems.Clear()
         $folders = @(getTargetFolders)
         # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
-        # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）
+        # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）。
+        # 取り込み一覧の読み込み（ネットワーク上のこともある）は排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
         if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
-            $folders = @(assignIndexNames $folders (readStatusFile).Folders)
-            writeTargetFolders $folders
+            saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)
+            $folders = @(getTargetFolders)
         }
         foreach ($folder in $folders) {
             $script:targetItems.Add((newFolderItem $folder.Path $folder.Enabled $folder.Name))
