@@ -2399,7 +2399,7 @@
 
 
 <h1 id="開示事項">開示事項<a class="headerlink" href="#開示事項" title="Permanent link">&para;</a></h1>
-<p>次の 6 点は審査で論点になるため、本ツールの側から先に開示する。4.1・4.2・4.5 は利用者の操作に紐づく動作、4.3・4.4 はツールの性質上避けられない情報の扱い、4.6 はインストーラー版だけに当てはまる動作である。</p>
+<p>次の 6 点は審査で論点になるため、本ツールの側から先に開示する。<a href="#office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）</a>・<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>・<a href="#検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る</a> は利用者の操作に紐づく動作、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>・<a href="#原本の一時コピーとその回収">原本の一時コピーと、その回収</a> はツールの性質上避けられない情報の扱い、<a href="#インストーラー版">インストーラー版</a> はインストーラー版だけに当てはまる動作である。</p>
 <h2 id="office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）<a class="headerlink" href="#office-プロセスの強制終了9-プロセス停止タブ" title="Permanent link">&para;</a></h2>
 <p>インデックス作成が異常終了すると、画面の無い Excel・Word・PowerPoint のプロセスが残り、メモリを占有し続けることがある。これを止めるために、画面の［9 プロセス停止］タブから <code>Stop-Process -Force</code> を実行する（<code>shared/office/office_process.ps1:43</code>。<code>safety.Tests.ps1</code> がこの 1 か所だけであることを確かめる）。</p>
 <ul>
@@ -2421,7 +2421,7 @@
 <li><strong>恒久的な解消策</strong>: 配布物のカタログ（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）にコードサイニング証明書で署名すれば、この <code>Unblock-File</code> は不要になり、<code>AllSigned</code> でも動作する。</li>
 </ul>
 <h3 id="remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由<a class="headerlink" href="#remotesigned-で起動する理由" title="Permanent link">&para;</a></h3>
-<p>Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの既定が <code>Restricted</code> で、<code>.ps1</code> を 1 つも実行できない。本ツールはスクリプトでできているため、何らかの実行ポリシーを指定しないと起動できない。そこで、<code>tebunko.bat</code> と画面（インデクサの起動）は、<code>powershell.exe</code> の <code>-ExecutionPolicy RemoteSigned</code> で<strong>そのプロセスだけ</strong>の実行ポリシーを指定する。</p>
+<p>Windows のクライアント版（Windows 10 / 11）は、実行ポリシーの既定が <code>Restricted</code> で、<code>.ps1</code> を 1 つも実行できない。本ツールはスクリプトでできているため、何らかの実行ポリシーを指定しないと起動できない。そこで、起動口（zip 版の <code>tebunko.bat</code>・インストーラー版の <code>tebunko.exe</code>）は、<code>powershell.exe</code> の <code>-ExecutionPolicy RemoteSigned</code> で<strong>そのプロセスだけ</strong>の実行ポリシーを指定する。</p>
 <ul>
 <li><strong>設定を変えない</strong>: <code>-ExecutionPolicy</code> の指定は、起動したプロセスとその子プロセスだけに効く。PC や利用者の実行ポリシーは書き換えず（<code>Set-ExecutionPolicy</code> を使わない）、管理者権限も要らない。本ツールを終えると元のとおりである。</li>
 <li><strong><code>RemoteSigned</code> を選ぶ理由</strong>: 署名の無い手元のスクリプトを実行できる実行ポリシーのうち、いちばん厳しいため。手元のスクリプトは実行し、インターネットから来た（Mark-of-the-Web が付いた）スクリプトは署名が無ければ止める。本ツールのスクリプトは、上の <code>Unblock-File</code> で自分のフォルダの <code>scripts</code> 配下だけ印を消して実行する。それ以外のダウンロードしたスクリプトは、本ツールのプロセスの中でも今までどおり止まる。</li>
@@ -2480,21 +2480,21 @@
 </table>
 <p>運用での対策（導入時に決めることを推奨）:</p>
 <ul>
-<li>ツールを置いたフォルダのアクセス権を、<strong>クロール対象フォルダと同等以上に制限する</strong>。</li>
+<li>ワークスペース（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。［8 設定］で変えられる）のアクセス権を、<strong>クロール対象フォルダと同等以上に制限する</strong>。</li>
 <li>権限の異なる利用者が読める共有フォルダに、インデックスをそのまま置かない（<code>work/index/</code> を各利用者のローカルに置く）。</li>
 <li>持ち出し（別 PC へのコピー）の可否を運用ルールで決める。</li>
 <li>ディスク暗号化（BitLocker）を前提にする。</li>
 </ul>
-<p>本ツール側では、インデックスの場所を <code>work/</code> 配下に限定し、アクセス権の変更（<code>Set-Acl</code> 等）を一切行わない。したがって<strong>インデックスの保護は設置フォルダのアクセス権で決まる</strong>。</p>
+<p>本ツール側では、インデックスの場所をワークスペース配下に限定し、アクセス権の変更（<code>Set-Acl</code> 等）を一切行わない。したがって<strong>インデックスの保護はワークスペースのアクセス権で決まる</strong>。</p>
 <h2 id="原本の一時コピーとその回収">原本の一時コピーと、その回収<a class="headerlink" href="#原本の一時コピーとその回収" title="Permanent link">&para;</a></h2>
 <p>インデックス作成中は、原本のコピーを <code>%TEMP%\tebunko\&lt;PID&gt;</code> に作る（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。機密文書のコピーが一時的に <code>%TEMP%</code> に存在することになるため、扱いを明記する。</p>
 <ul>
 <li><strong>通常終了時</strong>: ファイルごとに、読み終えたコピーを削除する。インデックス作成の完了時に作業フォルダごと空にする（<code>removeTmpDir</code>）。</li>
-<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko/indexer.ps1:97</code> で起動時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
+<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko/indexer/indexer_run.ps1:343</code> でインデックス作成の開始時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
 <li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>%TEMP%\tebunko</code> を手で削除してよい（動作に影響しない）。</li>
 </ul>
 <h2 id="検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る<a class="headerlink" href="#検索結果から開くと-excel-が前面に出る" title="Permanent link">&para;</a></h2>
-<p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は常に不可視で動作する（2.2。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> にしか無いことを確かめる）。</p>
+<p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は常に不可視で動作する（<a href="../checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> にしか無いことを確かめる）。</p>
 <h2 id="インストーラー版">インストーラー版<a class="headerlink" href="#インストーラー版" title="Permanent link">&para;</a></h2>
 <p>配布物は 2 つある。中身のスクリプト（<code>scripts/</code>）は同じで、入れ方と起動口だけが違う。</p>
 <table>
@@ -2523,7 +2523,7 @@
 <li><strong>入れる場所と権限</strong>: 既定は管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れる。管理者は、最初の画面で「すべてのユーザー」を選ぶと <code>C:\Program Files\tebunko</code> に入れられる。</li>
 <li><strong>入れるもの</strong>: <code>tebunko.exe</code>・<code>scripts\</code>・<code>LICENSE</code> と、Inno Setup のアンインストーラー（<code>uninstall\unins000.exe</code>・<code>uninstall\unins000.dat</code>。名前は Inno Setup が決め、変える設定が無いため、tebunko のものと分かるよう <code>uninstall</code> フォルダに置く）だけ。スタートメニューにショートカットを作る（デスクトップは選んだときだけ）。</li>
 <li><strong>レジストリ</strong>: インストーラーが、Windows の「インストールされているアプリ」に出すためのアンインストールの情報（利用者ごとなら <code>HKCU</code>、すべてのユーザーなら <code>HKLM</code> の <code>Software\Microsoft\Windows\CurrentVersion\Uninstall\{E2FA5AC9-5A36-41AF-B5E2-B989E2878D3C}_is1</code>）を書く。これ以外のレジストリ、PATH、ファイルの関連付け、サービス、自動起動には触らない（<code>installer.Tests.ps1</code> が <code>[Registry]</code> の節が無いことなどを確かめる）。ツール本体（スクリプト）はレジストリを読み書きしない（<a href="../checks/#検査項目と結果">検査項目と結果</a>）。</li>
-<li><strong>起動口 <code>tebunko.exe</code></strong>: 本リポジトリの <code>installer/tebunko.cs</code>（約 100 行）を、リリースのときに Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドする。していることは <code>tebunko.bat</code> と同じで、Windows の PowerShell 5.1 で <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動するだけである（4.2 の「<code>RemoteSigned</code> で起動する理由」）。インストーラーが書いたファイルには Mark-of-the-Web が付かないため、<code>Unblock-File</code> はしない。窓のアプリとしてビルドし、PowerShell も窓を作らずに起動する（<code>conhost.exe</code> は要らない）。PowerShell が 0 以外で終わりエラー出力があれば、その内容をメッセージで出す（実行ポリシーや制限言語モードで <code>gui.ps1</code> を読み込めないときに、何も出ずに終わらないようにするため）。エラー出力を受け取るため、画面を閉じるまで <code>tebunko.exe</code> のプロセスも残る（窓は無い）。</li>
+<li><strong>起動口 <code>tebunko.exe</code></strong>: 本リポジトリの <code>installer/tebunko.cs</code>（約 100 行）を、リリースのときに Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドする。していることは <code>tebunko.bat</code> と同じで、Windows の PowerShell 5.1 で <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動するだけである（<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a> の「<code>RemoteSigned</code> で起動する理由」）。インストーラーが書いたファイルには Mark-of-the-Web が付かないため、<code>Unblock-File</code> はしない。窓のアプリとしてビルドし、PowerShell も窓を作らずに起動する（<code>conhost.exe</code> は要らない）。PowerShell が 0 以外で終わりエラー出力があれば、その内容をメッセージで出す（実行ポリシーや制限言語モードで <code>gui.ps1</code> を読み込めないときに、何も出ずに終わらないようにするため）。エラー出力を受け取るため、画面を閉じるまで <code>tebunko.exe</code> のプロセスも残る（窓は無い）。</li>
 <li><strong>更新</strong>: 新しい版のインストーラーを実行する。前の版の <code>scripts\</code> を消してから入れるため、前の版にだけあったスクリプトは残らない。<code>setting.config</code> は残る。</li>
 <li><strong>起動中の更新・削除</strong>: <code>tebunko.exe</code> が起動中はミューテックス <code>tebunko-installed-app</code> を持ち、インストーラーとアンインストーラーはこれを見て、tebunko を閉じるよう求める（Inno Setup の <code>AppMutex</code>）。</li>
 <li><strong>アンインストール</strong>: 「設定」→「アプリ」から行う。入れたファイル・ショートカット・アンインストールの情報と、ツールのフォルダの <code>setting.config</code> を消す。<strong>インデックス（ワークスペース）は消さない。</strong> ワークスペースは利用者が選んだフォルダのこともあり、中身を確かめずに消すのは危ないためである。インデックスには文書の文字がそのまま入っているため（<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）、アンインストールの最後に、残っている場所（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）を知らせる。</li>

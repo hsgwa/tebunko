@@ -2452,7 +2452,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/core/</code></td>
-<td>tebunko のパス定義（<code>paths.ps1</code>）・設定ファイル（<code>settings.ps1</code>）</td>
+<td>tebunko のパス定義（<code>paths.ps1</code>）・設定ファイル（<code>settings.ps1</code>）・ワークスペース（<code>workspace.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/index/</code></td>
@@ -2551,7 +2551,7 @@
 </tr>
 <tr>
 <td><code>$dataDir</code></td>
-<td>設定ファイルと既定の <code>work</code> を置くフォルダ。<code>$rootDir</code> に書き込めればそこ、書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>（<a href="../layout/#データの置き場所settingconfigwork">データの置き場所</a>）</td>
+<td>設定ファイルを置くフォルダ（ワークスペースの既定の場所とは関係しない）。<code>$rootDir</code> に書き込めればそこ、書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>（<a href="../layout/#データの置き場所settingconfigwork">データの置き場所</a>）</td>
 <td><code>shared/core/data_dir.ps1</code></td>
 </tr>
 <tr>
@@ -2586,7 +2586,7 @@
 </tr>
 <tr>
 <td><code>$workspace</code></td>
-<td>今のワークスペース（<code>Workspace</code>。5.1.1）。設定 <code>workspaceFolder</code> から決める（<code>getWorkDir</code>）</td>
+<td>今のワークスペース（<code>Workspace</code>。<a href="#ワークスペースの中の場所workspace">ワークスペースの中の場所（Workspace）</a>）。設定 <code>workspaceFolder</code> から決める（<code>getWorkDir</code>）</td>
 <td>同上</td>
 </tr>
 <tr>
@@ -2719,7 +2719,7 @@
 <tr>
 <td><code>shared/office/office_reader.ps1</code></td>
 <td><code>isZipFile</code> / <code>isCompoundFile</code> / <code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code> / <code>writeUnits</code></td>
-<td><a href="../../indexer/index-format/">インデックスの形式</a> の 6.4、<a href="../../indexer/excel/">Excel</a>、<a href="../../indexer/word/">Word</a>、<a href="../../indexer/powerpoint/">PowerPoint</a></td>
+<td><a href="../../indexer/index-format/">インデックスの形式</a> の <a href="../../indexer/office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>、<a href="../../indexer/excel/">Excel</a>、<a href="../../indexer/word/">Word</a>、<a href="../../indexer/powerpoint/">PowerPoint</a></td>
 </tr>
 <tr>
 <td><code>shared/office/office_app.ps1</code></td>
@@ -2851,7 +2851,7 @@
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 <td>path / option, path</td>
 <td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
-<td>画面の検索条件。5.2.3 を参照</td>
+<td>画面の検索条件。<a href="#元のファイルの特定画面">元のファイルの特定・画面</a> を参照</td>
 <td><a href="#元のファイルの特定画面">続き</a></td>
 <td>画面</td>
 </tr>
@@ -2865,9 +2865,9 @@
 </tr>
 <tr>
 <td><code>getDefaultWorkDir</code></td>
-<td>path（既定 <code>$settingsFile</code>）</td>
+<td>profileDir（既定は利用者のプロファイル）</td>
 <td>string</td>
-<td>既定の <code>work</code> の置き場所（設定ファイルと同じフォルダの <code>work</code>）</td>
+<td>既定のワークスペース <code>&lt;profileDir&gt;\Documents\tebunko_ws</code>（OneDrive にリダイレクトされた「ドキュメント」は使わない）</td>
 <td><a href="../layout/#データの置き場所settingconfigwork">データの置き場所</a></td>
 <td>getWorkDir, writeWorkspaceFolder, 画面</td>
 </tr>
@@ -2962,7 +2962,7 @@
 <td><code>getDataDir</code></td>
 <td>root（既定 <code>$rootDir</code>）, fallbackBase（既定 <code>%LOCALAPPDATA%</code>）</td>
 <td>string</td>
-<td>設定ファイルと既定の <code>work</code> を置くフォルダ。root に書き込めれば root、書き込めなければ <code>&lt;fallbackBase&gt;\tebunko\&lt;getFolderKey の先頭 16 文字&gt;</code>（<code>shared/core/data_dir.ps1</code>）</td>
+<td>設定ファイルを置くフォルダ。root に書き込めれば root、書き込めなければ <code>&lt;fallbackBase&gt;\tebunko\&lt;getFolderKey の先頭 16 文字&gt;</code>（<code>shared/core/data_dir.ps1</code>）</td>
 <td>同上</td>
 <td><code>data_dir.ps1</code>（<code>$dataDir</code>）</td>
 </tr>
@@ -3208,7 +3208,7 @@
 <tr>
 <td><code>getIndexingState</code></td>
 <td>since, path</td>
-<td>5.2.3 を参照</td>
+<td><a href="#元のファイルの特定画面">元のファイルの特定・画面</a> を参照</td>
 <td>取り込み一覧の状態ごとの件数など</td>
 <td><a href="#元のファイルの特定画面">続き</a></td>
 <td>画面</td>
@@ -3357,10 +3357,10 @@
 </tr>
 </tbody>
 </table>
-<p>TSV の名前・配置、集約ファイル、検索にかかわる関数（<code>index_name.ps1</code> の <code>encodeIndexPlace</code> など、<code>index_store.ps1</code> の <code>getIndexTsvCounts</code> / <code>publishIndexFiles</code> など、<code>pack_format.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>）は 5.2.2 に記載する。</p>
+<p>TSV の名前・配置、集約ファイル、検索にかかわる関数（<code>index_name.ps1</code> の <code>encodeIndexPlace</code> など、<code>index_store.ps1</code> の <code>getIndexTsvCounts</code> / <code>publishIndexFiles</code> など、<code>pack_format.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>）は <a href="#tsv-の作成検索">TSV の作成・検索</a> に記載する。</p>
 <blockquote>
-<p><strong>5.2.2 TSV の作成・検索</strong> → <a href="#tsv-の作成検索">TSV の作成・検索</a></p>
-<p><strong>5.2.3 元のファイルの特定・画面</strong> → <a href="#元のファイルの特定画面">元のファイルの特定・画面</a></p>
+<p><strong><a href="#tsv-の作成検索">TSV の作成・検索</a> TSV の作成・検索</strong> → <a href="#tsv-の作成検索">TSV の作成・検索</a></p>
+<p><strong><a href="#元のファイルの特定画面">元のファイルの特定・画面</a> 元のファイルの特定・画面</strong> → <a href="#元のファイルの特定画面">元のファイルの特定・画面</a></p>
 </blockquote>
 <p>インデクサ（<code>tebunko/indexer.ps1</code>）と、画面の検索（<code>tebunko/gui.ps1</code>）は次の関数を使う。</p>
 <pre class="mermaid"><code>flowchart LR
@@ -3474,7 +3474,7 @@
 <td>place</td>
 <td><code>@{Base; Kind}</code></td>
 <td>図形・コメントの場所（<code>&lt;元の場所&gt;[図形]</code> 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空</td>
-<td><a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> 6.1「図形・コメントの場所」</td>
+<td><a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「図形・コメントの場所」</td>
 <td>元のファイルを開く、convertPlaceToPackMeta</td>
 </tr>
 <tr>
@@ -3482,7 +3482,7 @@
 <td>book, place</td>
 <td><code>@{Place; Kind}</code></td>
 <td>画面の「場所」「種別」と検索結果ファイルに出す文字（<code>[シート] 売上</code>・図形、<code>[ページ] 3（目安）</code>・本文 など）</td>
-<td><a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a> 5.1</td>
+<td><a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a> <a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a></td>
 <td>画面・<code>toResultLine</code></td>
 </tr>
 <tr>
@@ -3614,7 +3614,7 @@
 </tbody>
 </table>
 <p><strong>集約ファイルの形式（<code>tebunko/index/pack_format.ps1</code>）</strong></p>
-<p>形式は <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> 6.1「集約ファイルの形式」。判断層のため、ファイルを読み書きしない。</p>
+<p>形式は <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「集約ファイルの形式」。判断層のため、ファイルを読み書きしない。</p>
 <table>
 <thead>
 <tr>
@@ -3779,7 +3779,7 @@
 <td>path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache</td>
 <td><code>@{LineNumber; Line}</code> の配列</td>
 <td>集約ファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ集約ファイルの内容があれば読み直さない。読めない・見つからなければ空</td>
-<td><a href="../../gui/search-tab/">［2 検索］タブ</a> 4.7</td>
+<td><a href="../../gui/search-tab/">［2 検索］タブ</a> <a href="../../gui/search-tab/#選択行のプレビュー">選択行のプレビュー</a></td>
 <td>画面</td>
 </tr>
 </tbody>

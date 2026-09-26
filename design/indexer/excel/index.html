@@ -2371,7 +2371,7 @@
 <li><strong>使用範囲が膨らんだシートは、データの範囲だけを一時シートへコピーしてから書き出す</strong>（<code>copyDataRangeToTempSheet</code>）。最終行（1,048,576 行目）や右端（XFD 列）のセルに書式だけが残っていると使用範囲がシート全体になり、Excel のテキスト保存が空セルのタブだけを延々と書き出す（実測: 10 分で 6GB を書き出し、終わらない → 制限時間で「失敗」）。</li>
 <li>値・数式のある最後の行・列を <code>Cells.Find("*", A1, xlFormulas, , xlByRows/xlByColumns, xlPrevious)</code> で調べ、使用範囲がそれより <code>$excelExtraCells</code>（100 万）セル以上広いときだけ縮める（普通のシートはそのまま書き出す）。</li>
 <li><strong>元のシートの行・列は削除しない</strong>。削除すると、その範囲だけを参照する数式が <code>#REF!</code> になり、ほかのシートの表示値まで変わるため。同じブックに一時シートを追加し、<strong>同じ位置（行・列）に</strong>コピーするので、数式の参照先はずれない（実測: <code>=COUNTA(A200:A300)</code> は <code>0</code> のまま、別シート参照・表示形式も保たれる）。</li>
-<li>ブックの構成が保護されているなど、一時シートを作れない場合は元のシートをそのまま書き出し、<code>&lt;シート名&gt; の使用範囲を縮められませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する（<a href="../errors/">エラーメッセージ一覧</a> 4.8.3）。</li>
+<li>ブックの構成が保護されているなど、一時シートを作れない場合は元のシートをそのまま書き出し、<code>&lt;シート名&gt; の使用範囲を縮められませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する（<a href="../errors/">エラーメッセージ一覧</a> <a href="../errors/#警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）</a>）。</li>
 <li>一時シートは書き出した直後に削除する（次のシートの <code>Index</code> がずれないようにするため。ブックは保存せずに閉じる）。</li>
 <li>Excel のテキスト保存は A1 からではなく <strong>使用範囲（<code>UsedRange</code>）の左上のセルから</strong> 出力する（例: 使用範囲が C3 から始まるシートは、1 行目の 1 列目が C3 になる）。TSV の行・列をシートの行・列と一致させるため、保存前に <code>UsedRange.Row</code> / <code>UsedRange.Column</code> を控えて <code>prettyTsv</code> に渡す（<a href="#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a>）。</li>
 <li>インデックスはファイルごとのフォルダを丸ごと入れ替えるため、シートの削除・名前変更がインデックスに反映される（Word・PowerPoint も同じ）。</li>
@@ -2387,7 +2387,7 @@
     G -- はい --&gt; N["出力しない（$false）"]
     G -- いいえ --&gt; F["CRLF で連結し&lt;br&gt;File.WriteAllText（UTF-8 BOM 付き）"]</code></pre>
 <ol>
-<li><strong>セル内改行の置き換え</strong>: Excel はセル内改行・<code>"</code> を含むセルを <code>"</code> で囲んで出力する。正規表現 <code>"[^"]*"</code> にマッチする範囲の改行（CRLF・CR・LF。いずれも 1 つの改行として扱う）を <strong>U+2028（LINE SEPARATOR。<code>$cellNewLine</code>）</strong> に置き換え、1 セルを 1 行に収める。<code>Select-String</code> は U+2028 を行区切りとしないため、1 行 = Excel の 1 行が保たれる。検索結果の出力時に LF へ戻す（<a href="../../search/">検索</a> <a href="../office-apps/#wordpowerpoint-の起動終了">Word・PowerPoint の起動・終了</a>）。</li>
+<li><strong>セル内改行の置き換え</strong>: Excel はセル内改行・<code>"</code> を含むセルを <code>"</code> で囲んで出力する。正規表現 <code>"[^"]*"</code> にマッチする範囲の改行（CRLF・CR・LF。いずれも 1 つの改行として扱う）を <strong>U+2028（LINE SEPARATOR。<code>$cellNewLine</code>）</strong> に置き換え、1 セルを 1 行に収める。<code>Select-String</code> は U+2028 を行区切りとしないため、1 行 = Excel の 1 行が保たれる。検索結果の出力時に LF へ戻す（<a href="../../search/output/#1-行の組み立て">1 行の組み立て</a>）。</li>
 <li><strong>先頭の空行・空セルの補完</strong>: 引数 <code>firstRow</code> / <code>firstColumn</code>（使用範囲の左上の行・列番号。既定 1）に合わせて、先頭に <code>firstRow - 1</code> 行の空行を加え、各行の先頭に <code>firstColumn - 1</code> 個のタブを加える。</li>
 <li><strong>行末の空セル・末尾の空行の削除</strong>: 各行の末尾のタブ（空セル）だけを削除する（セル値の末尾の空白は残す）。途中の空行・空白だけの行は、行番号を保つため<strong>残す</strong>。末尾の空白だけの行は削除する。</li>
 </ol>
@@ -2423,7 +2423,7 @@
 <li><strong>場所の名前</strong>: シート名には <code>[</code> <code>]</code> を使えないため、<code>売上[図形]</code> は実在のシートと必ず区別できる（<a href="../index-format/#配置命名規則">配置・命名規則</a>「図形・コメントの場所」）。</li>
 <li><strong>文字の形</strong>: 段落・改行はセル内改行（U+2028）にし、改行・<code>"</code>・タブを含むときは <code>"</code> で囲む（中の <code>"</code> は <code>""</code>）。Excel のテキスト保存のセルと同じ形なので、検索結果の出力・画面のセルの分け方はセルと同じ処理で扱える。</li>
 <li><strong>並び順</strong>: 上の行から（同じ行は左から）。図形は左上のセル、コメントはそのセルの位置で並べる。</li>
-<li><strong>セル番地</strong>: 検索結果の「セル」に出し、元のファイルを開くときにそのセルを選ぶ（<a href="../../gui/search-tab/">［2 検索］タブ</a> 4.5）。位置をセルで持たない図形（<code>absoluteAnchor</code>）は <code>A1</code> とする。</li>
+<li><strong>セル番地</strong>: 検索結果の「セル」に出し、元のファイルを開くときにそのセルを選ぶ（<a href="../../gui/search-tab/">［2 検索］タブ</a> <a href="../../gui/search-tab/#元のファイルを開く">元のファイルを開く</a>）。位置をセルで持たない図形（<code>absoluteAnchor</code>）は <code>A1</code> とする。</li>
 <li>グループ化した図形は、まとめて 1 つの図形（1 行）とする。互換用の代替表示（<code>mc:Fallback</code>）は読まない。文字の無い図形（画像・グラフの枠）は出さない。</li>
 <li>スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。</li>
 <li>コメントのふりがな（<code>rPh</code>）と作成者名（<code>authors</code>）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。</li>

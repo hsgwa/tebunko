@@ -2111,10 +2111,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#既存スクリプトへの影響と段階" class="md-nav__link">
+  <a href="#今後の検討" class="md-nav__link">
     <span class="md-ellipsis">
       
-        既存スクリプトへの影響と段階
+        今後の検討
       
     </span>
   </a>
@@ -2122,10 +2122,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#未決事項" class="md-nav__link">
+  <a href="#決めたこと" class="md-nav__link">
     <span class="md-ellipsis">
       
-        未決事項
+        決めたこと
       
     </span>
   </a>
@@ -2341,10 +2341,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#既存スクリプトへの影響と段階" class="md-nav__link">
+  <a href="#今後の検討" class="md-nav__link">
     <span class="md-ellipsis">
       
-        既存スクリプトへの影響と段階
+        今後の検討
       
     </span>
   </a>
@@ -2352,10 +2352,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#未決事項" class="md-nav__link">
+  <a href="#決めたこと" class="md-nav__link">
     <span class="md-ellipsis">
       
-        未決事項
+        決めたこと
       
     </span>
   </a>
@@ -2441,7 +2441,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/types.ps1</code><br><code>scripts/tebunko/ui/types.ps1</code></td>
-<td>画面で使う型（PowerShell class。12.2）。継承元（<code>NotifyBase</code>）と共通の型（<code>ConfirmFact</code>）は shared に置き、先に読み込む（型の解決は読み込む順に依存するため、<code>tests/meta/structure.Tests.ps1</code> で確かめる）。主な型は次のとおり。<br>・<code>FileGroup</code>：結果の表の、元のファイル 1 つ分の見出し（<a href="../search-tab/#ファイルごとにまとめた表示">ファイルごとにまとめた表示</a>）。ヒットは生のまま <code>Hits</code> に持ち、表の行は開いたとき・絞り込み・並べ替え・出力のときに作る<br>・<code>HitRow</code>：結果の 1 行。件数が多いので<strong>生成時は生データのみ</strong>を持ち、表示用（強調セグメント・DisplayLine・「セル」列）は<strong>画面に出た行だけ</strong> <code>Prepare()</code> で作る（<code>ResultGrid</code> の <code>LoadingRow</code> から呼び、<code>INotifyPropertyChanged</code> で反映）。選択行のプレビュー（<a href="../search-tab/#選択行のプレビュー">選択行のプレビュー</a>）の表は <code>BuildPreview</code>（<code>readTsvContext</code> で読んだ行から <code>PreviewTable</code> を作る）で組み立てる<br>・<code>PreviewColumn</code>：列の幅。列見出しと各行のセルで共有し、見出しの <code>Thumb</code> のドラッグで <code>SetWidth</code> を呼ぶと列全体に反映する<br>・<code>IndexNode</code>：検索対象のツリー（<a href="../search-tab/#検索対象のツリーno13">検索対象のツリー（No.13）</a>）。展開時のフォルダ読み込み・3 状態のチェック・検索範囲 <code>SearchTarget</code>／除外 <code>SearchExclude</code> の組み立てを持つ。チェックは OneWay バインドとし、クリック（<code>Toggle</code>）・展開（<code>LoadChildren</code>）はイベントで駆動する（PS class はプロパティのセッターにロジックを書けないため）</td>
+<td>画面で使う型（PowerShell class。<a href="#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。継承元（<code>NotifyBase</code>）と共通の型（<code>ConfirmFact</code>）は shared に置き、先に読み込む（型の解決は読み込む順に依存するため、<code>tests/meta/structure.Tests.ps1</code> で確かめる）。主な型は次のとおり。<br>・<code>FileGroup</code>：結果の表の、元のファイル 1 つ分の見出し（<a href="../search-tab/#ファイルごとにまとめた表示">ファイルごとにまとめた表示</a>）。ヒットは生のまま <code>Hits</code> に持ち、表の行は開いたとき・絞り込み・並べ替え・出力のときに作る<br>・<code>HitRow</code>：結果の 1 行。件数が多いので<strong>生成時は生データのみ</strong>を持ち、表示用（強調セグメント・DisplayLine・「セル」列）は<strong>画面に出た行だけ</strong> <code>Prepare()</code> で作る（<code>ResultGrid</code> の <code>LoadingRow</code> から呼び、<code>INotifyPropertyChanged</code> で反映）。選択行のプレビュー（<a href="../search-tab/#選択行のプレビュー">選択行のプレビュー</a>）の表は <code>BuildPreview</code>（<code>readPackContext</code> で読んだ行から <code>PreviewTable</code> を作る）で組み立てる<br>・<code>PreviewColumn</code>：列の幅。列見出しと各行のセルで共有し、見出しの <code>Thumb</code> のドラッグで <code>SetWidth</code> を呼ぶと列全体に反映する<br>・<code>IndexNode</code>：検索対象のツリー（<a href="../search-tab/#検索対象のツリーno13">検索対象のツリー（No.13）</a>）。展開時のフォルダ読み込み・3 状態のチェック・検索範囲 <code>SearchTarget</code>／除外 <code>SearchExclude</code> の組み立てを持つ。チェックは OneWay バインドとし、クリック（<code>Toggle</code>）・展開（<code>LoadChildren</code>）はイベントで駆動する（PS class はプロパティのセッターにロジックを書けないため）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/app_host.ps1</code></td>
@@ -2449,11 +2449,11 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/shell.ps1</code></td>
-<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。12.1）</td>
+<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="#待たせ方の方針画面を固まらせない">待たせ方の方針（画面を固まらせない）</a>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/folder_dialog.ps1</code></td>
-<td>Windows 標準のフォルダ選択（<code>selectFolder</code>。3.2.1）。WinForms 内部の <code>IFileDialog</code> をリフレクションで呼んで開き、開けなければ <code>OpenFileDialog</code> でフォルダの中に入って選んでもらう（<a href="#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。フォルダのドラッグ＆ドロップの判定（<code>getDroppedFolders</code>・<code>onFolderDragOver</code>）も置く</td>
+<td>Windows 標準のフォルダ選択（<code>selectFolder</code>。<a href="../index-tab/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>）。WinForms 内部の <code>IFileDialog</code> をリフレクションで呼んで開き、開けなければ <code>OpenFileDialog</code> でフォルダの中に入って選んでもらう（<a href="#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。フォルダのドラッグ＆ドロップの判定（<code>getDroppedFolders</code>・<code>onFolderDragOver</code>）も置く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/index_tab.ps1</code><br><code>indexing_tab.ps1</code></td>
@@ -2465,7 +2465,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/settings_tab.ps1</code></td>
-<td>［8 設定］タブ（<a href="../../architecture/settings-file/#8-設定タブ">［8 設定］タブ</a>）。ワークスペースを変えたら、その場で切り替える</td>
+<td>［8 設定］タブ（<a href="../settings-tab/">［8 設定］タブ</a>）。ワークスペースを変えたら、その場で切り替える</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/process_tab.ps1</code></td>
@@ -2481,188 +2481,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>tebunko/lib.ps1</code> の関数（画面で使うもの）：</p>
-<table>
-<thead>
-<tr>
-<th>関数</th>
-<th>入力</th>
-<th>出力</th>
-<th>概要</th>
-<th>使用元</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>isValidRegex</code></td>
-<td>pattern</td>
-<td>bool</td>
-<td>正規表現として正しいか</td>
-<td>画面・<code>searchPackIndex</code></td>
-</tr>
-<tr>
-<td><code>getIndexPackFiles</code></td>
-<td>フォルダ、または <code>@{ Root; RelPath; Recurse }</code>（検索対象のツリーで選んだ範囲）の配列（既定 <code>work\index</code>）</td>
-<td><code>@{ Folders; Packs }</code></td>
-<td>検索対象の集約ファイルを列挙する。Packs は <code>@{ Path; Root; RelDir; RelPath; Ticks; Size }</code>（フォルダの順・名前の順、重複なし）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>testIndexExists</code></td>
-<td>フォルダの配列</td>
-<td>bool</td>
-<td>集約ファイルが 1 件でもあるか（最初の 1 件で打ち切る。2.2）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>getIndexSummary</code></td>
-<td>フォルダの配列</td>
-<td><code>@{ Count; LastWrite; Missing }</code></td>
-<td>集約ファイルの件数と最新の更新日時</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>newSearchRegex</code></td>
-<td>ワード, 文字どおりか, 大文字と小文字を区別するか</td>
-<td><code>@{ Regex; SimpleMatch }</code></td>
-<td>4.2 の検索条件から照合用の正規表現を作る。一致箇所の強調（<code>HitRow</code>）にも同じ正規表現を渡す</td>
-<td>画面・<code>searchPackIndex</code></td>
-</tr>
-<tr>
-<td><code>searchPackIndex</code></td>
-<td>ワード, Packs, 文字どおりか, 上限, 中止の判定, 大文字と小文字を区別するか, 対象ファイル, 並列のスレッド数, 読んだ内容の使い回し（画面が 1 つ持つ <code>newTsvTextCache</code>）, 図形・コメントも検索するか, 進捗コールバック</td>
-<td><code>@{ Hits; SimpleMatch; Total; Truncated; Cancelled }</code></td>
-<td>4.1 の検索（照合は <code>searchPackFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（集約ファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は集約ファイルの数</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>toSearchResultLines</code></td>
-<td>結果の配列</td>
-<td><code>@{ Header; Lines }</code></td>
-<td>検索結果ファイルの見出し行と各行（<code>toResultLine</code> / <code>toResultHeader</code>）</td>
-<td>画面（コピー）・<code>writeSearchResult</code></td>
-</tr>
-<tr>
-<td><code>writeSearchResult</code></td>
-<td>writer, ワード, 結果の配列</td>
-<td>–</td>
-<td><code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を書き出す</td>
-<td>画面（ファイル出力）</td>
-</tr>
-<tr>
-<td><code>splitTsvCells</code></td>
-<td>TSV の 1 行</td>
-<td>string[]</td>
-<td>セルに分割する（<code>"</code> で囲まれたセル内のタブは区切らない。先頭のセルが空でも次のセルを落とさない）</td>
-<td>– （画面は同じ処理を <code>HitRow.SplitCells</code>（PowerShell class）で行う）</td>
-</tr>
-<tr>
-<td><code>readPackContext</code></td>
-<td>集約ファイルのパス, 元のファイル名, 場所, 行番号, 前の行数, 後の行数, 読んだ内容の使い回し（<code>newTsvTextCache</code>）</td>
-<td><code>@{ LineNumber; Line }</code> の配列</td>
-<td>4.8 のプレビューに出す行を、集約ファイルの中のその元のファイル・場所から取り出す（検索で読んだ内容があれば読み直さない）。読めない・見つからなければ空</td>
-<td>画面（選択行のプレビュー）</td>
-</tr>
-<tr>
-<td><code>getSourceLocation</code> / <code>resolveSourcePath</code></td>
-<td>結果 1 件, フォルダ → 対応 のキャッシュ</td>
-<td><code>@{Name; Folder; Rest; Known}</code> / string / <code>$null</code></td>
-<td>元のファイルのインデックス名・場所・パス（<a href="../search-tab/#元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>findMovedSource</code> / <code>setIndexSourceFolder</code></td>
-<td>選んだフォルダ, 相対フォルダ, ファイル名 / インデックス名, フォルダ</td>
-<td><code>@{Path; Root}</code> / <code>$null</code></td>
-<td>元のファイルが見つからないとき、選んだフォルダから探し、インデックス名に対する元のフォルダを設定に記録する（<a href="../search-tab/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>getTargetFolders</code> / <code>writeTargetFolders</code> / <code>normalizeFolderPath</code></td>
-<td>– / <code>@{ Name; Path; Enabled }</code> の配列 / パス</td>
-<td>同上 / – / パス</td>
-<td>インデックス一覧（<code>setting.config</code> の <code>targetFolders</code>。インデックス名と置き場所を分けて持つ）。［編集…］は Name・Path を書き換える（<a href="../index-tab/">［1 インデックス管理］タブ</a>）</td>
-<td>画面・インデックス作成</td>
-</tr>
-<tr>
-<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
-<td>– / 変える項目の hashtable</td>
-<td><code>@{ UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments }</code></td>
-<td><code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>（<a href="../../architecture/settings-file/#画面での読み書き">画面での読み書き</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>readOpenMode</code> / <code>writeOpenMode</code></td>
-<td>– / 開き方</td>
-<td>開き方（<code>normal</code> / <code>readOnly</code> / <code>new</code>。知らない値は <code>normal</code>）</td>
-<td><code>setting.config</code> の <code>openMode</code>（<a href="../../architecture/settings-file/#画面での読み書き">画面での読み書き</a>、<a href="../search-tab/#元のファイルを開く">元のファイルを開く</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>getSearchIndexes</code></td>
-<td>–</td>
-<td><code>@{ Name; Path; SourcePath }</code> の配列</td>
-<td>インデックスの一覧（<code>work\index</code> 直下のフォルダ）。検索対象のツリーの一番上の項目に使う（<a href="../search-tab/#検索対象のツリーno13">検索対象のツリー（No.13）</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>newSearchService</code> / <code>newSearchRequest</code></td>
-<td>lib.ps1 のパス, 読んだ内容の使い回し, 照合のスレッド数 / ワード, 文字どおりか, 検索対象, 上限, 検索条件, 高速検索を使うか</td>
-<td><code>SearchService</code> / 要求</td>
-<td>検索の司令のスレッド（画面を開いている間 1 つ）と、検索 1 回分の要求（<code>Request</code> で渡す。前の要求は取り消す）（12.1。<a href="../../architecture/threads/#寿命">寿命</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>newIndexingSession</code> / <code>newIndexerChannel</code></td>
-<td>indexer.ps1 のパス, 受け渡しの口 / 失敗分も再取り込みするか, 確認するか, 読み取りのスレッドの数</td>
-<td><code>IndexingSession</code> / 受け渡しの口</td>
-<td>インデックス作成 1 回分のスレッドと受け渡しの口（12.1。<a href="../../architecture/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>readIndexingProgress</code> / <code>requestIndexingStop</code> / <code>answerIndexingPlan</code></td>
-<td>受け渡しの口 / 受け渡しの口 / 受け渡しの口, 返事</td>
-<td>進み具合 / – / –</td>
-<td>進み具合を読む（<a href="../index-tab/#インデックス作成の進み具合">インデックス作成の進み具合</a>）、中止を求める（<a href="../index-tab/#中止終了ログ">中止・終了・ログ</a>）、確認の返事を返す（<a href="../index-tab/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>testIndexerRunning</code></td>
-<td>–</td>
-<td>bool</td>
-<td>画面を使わずに起動したものを含め、この <code>work</code> でインデックス作成が動いているか（ワークスペースを変える前に調べる）</td>
-<td>画面（［8 設定］）</td>
-</tr>
-<tr>
-<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
-<td>– / <code>@{ Path; Subfolders }</code> の配列</td>
-<td>同左 / –</td>
-<td><code>setting.config</code> の <code>searchExcludes</code>（検索対象のツリーでチェックを外したフォルダ、4.8）を読み書きする</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>getIndexingState</code></td>
-<td>–</td>
-<td><code>@{ Exists; Folders; Total; Pending; Failed; Done; ...; FailedRows }</code></td>
-<td>6.1 の中断・失敗の件数、失敗したファイルと原因の一覧（<code>readStatusFile</code>）</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>getOfficeProcesses</code></td>
-<td>–</td>
-<td>種類・PID・バックグラウンドか・起動時刻・メモリ・タイトル の配列</td>
-<td>5.1 の一覧</td>
-<td>画面</td>
-</tr>
-<tr>
-<td><code>stopOfficeProcesses</code></td>
-<td>PID の配列</td>
-<td><code>@{ Id; Stopped; Message }</code> の配列</td>
-<td><code>Stop-Process -Force</code></td>
-<td>画面</td>
-</tr>
-</tbody>
-</table>
+<p><code>tebunko/lib.ps1</code> の関数のうち、画面が使うものは次のとおり（引数・戻り値・内容は <a href="../../architecture/modules/#関数一覧">共通モジュール</a> の関数一覧にある）：<code>isValidRegex</code>・<code>getIndexPackFiles</code>・<code>testIndexExists</code>・<code>getIndexSummary</code>・<code>newSearchRegex</code>・<code>searchPackIndex</code>・<code>toSearchResultLines</code>・<code>writeSearchResult</code>・<code>readPackContext</code>・<code>getSourceLocation</code>・<code>resolveSourcePath</code>・<code>findMovedSource</code>・<code>setIndexSourceFolder</code>・<code>getTargetFolders</code>・<code>writeTargetFolders</code>・<code>normalizeFolderPath</code>・<code>readSearchOption</code>・<code>writeSearchOption</code>・<code>readOpenMode</code>・<code>writeOpenMode</code>・<code>getSearchIndexes</code>・<code>newSearchService</code>・<code>newSearchRequest</code>・<code>newIndexingSession</code>・<code>newIndexerChannel</code>・<code>readIndexingProgress</code>・<code>requestIndexingStop</code>・<code>answerIndexingPlan</code>・<code>testIndexerRunning</code>・<code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>getIndexingState</code>・<code>getOfficeProcesses</code>・<code>stopOfficeProcesses</code>。</p>
 <h3 id="待たせ方の方針画面を固まらせない">待たせ方の方針（画面を固まらせない）<a class="headerlink" href="#待たせ方の方針画面を固まらせない" title="Permanent link">&para;</a></h3>
 <p><strong>画面が「応答なし」になることは、処理が長いこと自体よりも利用者を不安にさせる</strong>（壊れたと思って強制終了され、インデックス作成が中断して Office のプロセスが残る）。そのため、次を守る。</p>
 <table>
@@ -2691,7 +2510,7 @@
 </tr>
 <tr>
 <td><strong>終わったことを知らせる</strong></td>
-<td>インデックス作成が終わったとき、進み具合とステータスで知らせる（タスクバーのボタンを光らせる <code>FlashWindowEx</code> は P/Invoke が要るため使わない。12.2）</td>
+<td>インデックス作成が終わったとき、進み具合とステータスで知らせる（タスクバーのボタンを光らせる <code>FlashWindowEx</code> は P/Invoke が要るため使わない。<a href="#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -2748,7 +2567,7 @@
 <li>集約ファイルの件数取得・取り込み一覧の集計・インデックスの削除・選択行のプレビューの読み込み・［9 プロセス停止］の定期的な一覧の取り直しとタブ見出しの ⚠ の判定は <code>startJob</code>（<code>shell.ps1</code>）で実行する。<code>startJob</code> は画面の裏の仕事のスレッド（<code>BackgroundQueue</code>。2 つ。長い仕事の間もプレビューが待たないため）に渡す。各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む。終わったかは <code>DispatcherTimer</code>（<code>jobTimer</code>。仕事がある間だけ 0.05 秒間隔）で確かめ、画面のスレッドで <code>onDone</code> を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。</li>
 <li>インデックス作成は <code>newIndexingSession</code> で画面のプロセスの中のスレッド（MTA・BelowNormal）で実行し、<code>DispatcherTimer</code>（1 秒間隔）で <code>IsRunning</code> と受け渡しの口の進み具合（<code>readIndexingProgress</code>）を確認する（<a href="../index-tab/#インデックス作成の進み具合">インデックス作成の進み具合</a>）。終わったら受け渡しの口の終了コード（<code>GetExitCode</code>）で表示を分け（<a href="../index-tab/#中止終了ログ">中止・終了・ログ</a>）、<code>Close</code> でスレッドを片づける。</li>
 <li>進み具合の段階が <code>確認</code> になったら、インデックス作成の確認ダイアログを開く（<a href="../index-tab/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。<strong>ダイアログを開いている間も <code>DispatcherTimer</code> は動く</strong>（<code>ShowDialog</code> は入れ子のメッセージループのため）。開く前に「開いた」ことにして、二重に開かないようにする。</li>
-<li>多重起動は、ツールの配置フォルダごとの名前付き Mutex で防ぐ。2 つ目のプロセスは、同じくフォルダごとの名前付きイベント（<code>Local\tebunko_gui_activate_&lt;フォルダのハッシュ&gt;</code>）を合図して終了し、すでに開いている画面が <code>DispatcherTimer</code>（0.3 秒間隔）でそれを確認して <code>Window.Activate()</code>（＋最小化なら復帰）で前面に出す。別アプリが前面のときはフォーカスを奪えないことがある（OS の制限。P/Invoke の <code>SetForegroundWindow</code> は使わない。12.2）。</li>
+<li>多重起動は、ツールの配置フォルダごとの名前付き Mutex で防ぐ。2 つ目のプロセスは、同じくフォルダごとの名前付きイベント（<code>Local\tebunko_gui_activate_&lt;フォルダのハッシュ&gt;</code>）を合図して終了し、すでに開いている画面が <code>DispatcherTimer</code>（0.3 秒間隔）でそれを確認して <code>Window.Activate()</code>（＋最小化なら復帰）で前面に出す。別アプリが前面のときはフォーカスを奪えないことがある（OS の制限。P/Invoke の <code>SetForegroundWindow</code> は使わない。<a href="#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。</li>
 </ul>
 <p>注意（PowerShell 5.1）：<code>System.Collections.Generic.List[object]</code> を <code>@()</code> で配列にする・<code>[object[]]</code> 引数に渡すと例外（Argument types do not match）になる。結果のリストは <code>List[psobject]</code> にするか <code>.ToArray()</code> で返す。また PS class のメソッド内では、クラスのプロパティと同じ名前（大文字小文字を区別しない）のローカル変数は使えない（<code>$this.</code> の付け忘れとみなされる）ため、別名にする。</p>
 <h3 id="実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない<a class="headerlink" href="#実行時コンパイルcscexeを使わない" title="Permanent link">&para;</a></h3>
@@ -2798,35 +2617,12 @@
 <li>結果、起動〜検索を通じて <code>Add-Type</code>（実行時コンパイル）は 0 回、<code>csc.exe</code> の起動・一時 DLL の生成も 0（実起動で確認）。読み込むのは Microsoft 署名済みの GAC アセンブリ（WPF・WinForms）だけ。</li>
 <li>代償と対処：PS class はメソッド呼び出しが C# より遅い（実測: 検索コアは C# の約 2.6 倍だが 50 万行で約 0.6 秒。結果行 <code>HitRow</code> の一括生成は 1 万件で約 10 秒と遅いため、<strong>可視行だけ作る遅延描画</strong>（<code>HitRow.Prepare</code>＋<code>LoadingRow</code>。軽量生成は 1 万件で約 0.56 秒）で回避する）。PS class はプロパティのセッターにロジックを書けないため、列幅・チェック・選択は <code>Set*</code> メソッドやイベントで変える。<code>subst</code> ドライブは実体のパスに解決しない。タスクバーのボタンは PowerShell と同じグループにまとめられる（アイコン自体は tebunko のものが出る。<a href="../common/#表示アクセシビリティ">表示・アクセシビリティ</a>）。</li>
 </ul>
-<h2 id="既存スクリプトへの影響と段階">既存スクリプトへの影響と段階<a class="headerlink" href="#既存スクリプトへの影響と段階" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>段階</th>
-<th>内容</th>
-<th>状態</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>第 1 段階</td>
-<td>3 タブ構成、インデックス作成の起動と状態表示、画面内での検索（結果の表・強調・並べ替え・絞り込み・選択行の詳細・元のファイルを開く・コピー・ファイル出力・正規表現の切り替え）、インデックス作成の進み具合、プロセス停止</td>
-<td><strong>実装済み</strong></td>
-</tr>
-<tr>
-<td>第 2 段階</td>
-<td>画面だけで操作する。インデックス作成は画面のプロセスの中のスレッドで実行し、［中止］・終了後の表示・［ログを開く］・インデックス作成中に閉じるときの確認（止めてから閉じる。3.7）。［インデックス作成を開始］で取り込み対象を数えて、インデックスごとの件数を確認する（3.4。失敗分の再取り込みもここで選ぶ）。画面とインデクサの受け渡しは、メモリ上の受け渡しの口（<code>newIndexerChannel</code>。確認の返事・中止・進み具合・エラー・終了コード 0 / 1 / 2）で行い、ファイルには <code>インデックス作成ログ.txt</code> だけを書く（<a href="../../architecture/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a>）</td>
-<td><strong>実装済み</strong></td>
-</tr>
-<tr>
-<td>第 3 段階</td>
-<td>Word・PowerPoint の該当ページ・スライドへの移動（Word・PowerPoint の COM 操作を追加する）</td>
-<td>検討</td>
-</tr>
-</tbody>
-</table>
-<h2 id="未決事項">未決事項<a class="headerlink" href="#未決事項" title="Permanent link">&para;</a></h2>
-<p>いずれも第 1 段階の実装で決めた。</p>
+<h2 id="今後の検討">今後の検討<a class="headerlink" href="#今後の検討" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Word・PowerPoint の該当ページ・スライドへの移動（今は Excel だけ該当セルを選んで開く。Word・PowerPoint の COM 操作を足す必要がある）</li>
+</ul>
+<h2 id="決めたこと">決めたこと<a class="headerlink" href="#決めたこと" title="Permanent link">&para;</a></h2>
+<p>画面を作ったときに、選択肢から決めたこと。</p>
 <table>
 <thead>
 <tr>
@@ -2840,8 +2636,8 @@
 <tr>
 <td>U1</td>
 <td>入口の名前</td>
-<td><code>0_設定.bat</code> / <code>tebunko.bat</code> / <code>tebunko.bat</code> など</td>
-<td><strong><code>tebunko.bat</code></strong>。画面がすべての操作の入口で <code>.bat</code> もこれ 1 本だけのため、番号を付けない。ツールが増えても入口は 1 つにするため、画面の表題（<code>tebunko</code>）ではなくツール全体の名前（<code>tebunko</code>）にする</td>
+<td><code>0_設定.bat</code> / <code>tebunko.bat</code> など</td>
+<td><strong><code>tebunko.bat</code></strong>。画面がすべての操作の入口で <code>.bat</code> もこれ 1 本だけのため、番号を付けず、ツールの名前にする</td>
 </tr>
 <tr>
 <td>U2</td>
@@ -2894,7 +2690,7 @@
 <tbody>
 <tr>
 <td>1</td>
-<td>元のファイルのパスは、取り込み時に記録したクロール対象フォルダから組み立てる。取り込み後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。4.5.2）</td>
+<td>元のファイルのパスは、取り込み時に記録したクロール対象フォルダから組み立てる。取り込み後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。<a href="../search-tab/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）</td>
 <td>○</td>
 </tr>
 <tr>
@@ -2921,7 +2717,7 @@
 </table>
 <hr />
 <blockquote>
-<p><strong>16. テスト</strong>（16.1 単体テスト・16.2 画面の確認）→ <a href="../../testing/">テスト</a></p>
+<p><strong>16. テスト</strong>（<a href="../../testing/#画面の単体テスト">画面の単体テスト</a> 単体テスト・<a href="../../testing/#画面の確認">画面の確認</a> 画面の確認）→ <a href="../../testing/">テスト</a></p>
 </blockquote>
 
 

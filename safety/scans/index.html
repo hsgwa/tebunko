@@ -2387,7 +2387,7 @@
 
 
 <h1 id="第三者のツールによる検査結果">第三者のツールによる検査結果<a class="headerlink" href="#第三者のツールによる検査結果" title="Permanent link">&para;</a></h1>
-<p>本ツールの作者以外が作ったツールでの検査結果を示す。5.1〜5.4 は誰でも同じコマンドで再現できる。</p>
+<p>本ツールの作者以外が作ったツールでの検査結果を示す。<a href="#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>〜<a href="#実行環境の制約との適合">実行環境の制約との適合</a> は誰でも同じコマンドで再現できる。</p>
 <h2 id="配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）<a class="headerlink" href="#配布物の完全性カタログハッシュ一覧来歴の署名" title="Permanent link">&para;</a></h2>
 <p>GitHub Release の配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）は、<code>v</code> で始まるタグを push したときに <code>.github/workflows/release.yml</code> が作る。作る前に <code>test.yml</code> と同じ検査・テストを通す。展開したときに何を起動すればよいかが分かるよう、zip にはツール本体と README・ライセンスだけを入れ、確認用のファイルは zip と並べてリリースに載せる（<code>tools/new_release_package.ps1</code>）。<code>docs/</code>・<code>tests/</code>・<code>work/</code>・<code>setting.config</code> はどちらにも入れない。SECURITY は README とリリースの説明からリンクする。</p>
 <table>
@@ -2417,7 +2417,7 @@
 <tr>
 <td><code>tebunko-setup-&lt;タグ&gt;.exe</code></td>
 <td>リリース（zip の横）</td>
-<td>インストーラー版（4.6。<code>tools/new_installer.ps1</code> が作る）。中身のスクリプトは zip と同じ</td>
+<td>インストーラー版（<a href="../disclosure/#インストーラー版">インストーラー版</a>。<code>tools/new_installer.ps1</code> が作る）。中身のスクリプトは zip と同じ</td>
 </tr>
 <tr>
 <td><code>tebunko.cat</code>・<code>SHA256SUMS.txt</code></td>
@@ -2443,8 +2443,8 @@
 </thead>
 <tbody>
 <tr>
-<td>対象ファイル数</td>
-<td>63（<code>scripts/</code> 配下すべてと <code>tebunko.bat</code>）</td>
+<td>対象ファイル</td>
+<td><code>scripts/</code> 配下のすべてのファイルと <code>tebunko.bat</code>（2026-09-26 時点で 69）</td>
 </tr>
 <tr>
 <td>検証結果</td>
@@ -2464,7 +2464,7 @@
 <p><strong>来歴の署名</strong>: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は <a href="https://cli.github.com/">GitHub CLI</a> で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。</p>
 <div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
-<p>署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（5.6 の照会に使える）。インストーラー（<code>tebunko-setup-&lt;タグ&gt;.exe</code>）にも同じく来歴の署名を付け、bundle（<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）と SHA256 をリリースに載せる。確かめ方は zip と同じ（<code>gh attestation verify .\tebunko-setup-&lt;タグ&gt;.exe -R hsgwa/tebunko</code>）。</p>
+<p>署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（<a href="#複数エンジンでの検査-virustotal外部へファイルを送信する">複数エンジンでの検査: VirusTotal（外部へファイルを送信する）</a> の照会に使える）。インストーラー（<code>tebunko-setup-&lt;タグ&gt;.exe</code>）にも同じく来歴の署名を付け、bundle（<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）と SHA256 をリリースに載せる。確かめ方は zip と同じ（<code>gh attestation verify .\tebunko-setup-&lt;タグ&gt;.exe -R hsgwa/tebunko</code>）。</p>
 <h2 id="静的解析-psscriptanalyzermicrosoft">静的解析: PSScriptAnalyzer（Microsoft）<a class="headerlink" href="#静的解析-psscriptanalyzermicrosoft" title="Permanent link">&para;</a></h2>
 <p>PowerShell スクリプトの静的解析ツール。Microsoft が公開しているルールで、コードインジェクション・平文パスワードなどを検出する。</p>
 <div class="highlight"><pre><span></span><code><span class="nb">Install-Module</span> <span class="n">PSScriptAnalyzer</span> <span class="n">-RequiredVersion</span> <span class="n">1</span><span class="p">.</span><span class="n">25</span><span class="p">.</span><span class="n">0</span> <span class="n">-Scope</span> <span class="n">CurrentUser</span>   <span class="c"># 未導入の場合</span>
@@ -2697,7 +2697,7 @@
 </tr>
 <tr>
 <td>対象フォルダを読み取り専用にして完走</td>
-<td>原本を書き換えないこと（3.3 手順 B）</td>
+<td>原本を書き換えないこと（<a href="../file-access/#読み取りのみであることの実証">読み取りのみであることの実証</a> 手順 B）</td>
 <td>読み取りの権限だけを与えたアカウントで実行する</td>
 </tr>
 </tbody>
@@ -2708,17 +2708,17 @@
 <h2 id="複数エンジンでの検査-virustotal外部へファイルを送信する">複数エンジンでの検査: VirusTotal（外部へファイルを送信する）<a class="headerlink" href="#複数エンジンでの検査-virustotal外部へファイルを送信する" title="Permanent link">&para;</a></h2>
 <p>約 70 社のエンジンで一度に判定でき、結果が URL として残る。ただし<strong>アップロードしたファイルはセキュリティ各社と共有される</strong>ため、社外に出せないコードを含む場合は実施しない。その場合は次のいずれかで代える。</p>
 <ul>
-<li>5.3 のローカルスキャン（送信なし）で代える。</li>
+<li><a href="#マルウェア検査-microsoft-defender外部への送信なし">マルウェア検査: Microsoft Defender（外部への送信なし）</a> のローカルスキャン（送信なし）で代える。</li>
 <li>ファイルのハッシュだけを照会する（ハッシュは内容を復元できない。ただし過去に誰かが同じファイルを提出していない限り「未登録」となる）。配布 zip の SHA256 はリリースの説明にも書いてある。</li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="nb">Get-FileHash</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-Algorithm</span> <span class="n">SHA256</span>    <span class="c"># この値を VirusTotal の検索欄で照会する</span>
 </code></pre></div>
 <h2 id="同梱の機械検査と品質の指標">同梱の機械検査と品質の指標<a class="headerlink" href="#同梱の機械検査と品質の指標" title="Permanent link">&para;</a></h2>
-<p><a href="../checks/">危険とされる処理の検査結果</a>・<a href="../file-access/">ファイルの読み書きの範囲</a>の主張と 5.2・5.4 の結果は、1 つのコマンドで検査できる（リポジトリを clone して実行する。配布 zip には <code>tests/</code> を入れていない）。</p>
+<p><a href="../checks/">危険とされる処理の検査結果</a>・<a href="../file-access/">ファイルの読み書きの範囲</a>の主張と <a href="#静的解析-psscriptanalyzermicrosoft">静的解析: PSScriptAnalyzer（Microsoft）</a>・<a href="#実行環境の制約との適合">実行環境の制約との適合</a> の結果は、1 つのコマンドで検査できる（リポジトリを clone して実行する。配布 zip には <code>tests/</code> を入れていない）。</p>
 <div class="highlight"><pre><span></span><code><span class="p">.\</span><span class="n">tests</span><span class="p">\</span><span class="n">run</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-Tag</span> <span class="n">Meta</span>     <span class="c"># 安全性・構成の検査だけ</span>
 <span class="p">.\</span><span class="n">tests</span><span class="p">\</span><span class="n">run</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-Ci</span>           <span class="c"># 既定のテストとカバレッジ（CI と同じ）</span>
 </code></pre></div>
-<p><code>tests/meta/safety.Tests.ps1</code>（34 件）は次を検査する。将来の変更でいずれかの前提が崩れれば失敗し、CI の必須チェック <code>test</code> が通らないため main にマージできない。</p>
+<p><code>tests/meta/safety.Tests.ps1</code>（36 件）は次を検査する。将来の変更でいずれかの前提が崩れれば失敗し、CI の必須チェック <code>test</code> が通らないため main にマージできない。</p>
 <ul>
 <li><a href="../checks/">危険とされる処理の検査結果</a>の禁止する処理が 0 件であること、許す処理（<code>Add-Type</code>・<code>Start-Process</code>・<code>Stop-Process</code>）が限定されていること</li>
 <li>Office をマクロ無効・イベント無効・外部リンク更新なし・不可視・読み取り専用で開くこと</li>
@@ -2746,7 +2746,7 @@
 </tr>
 <tr>
 <td>規模</td>
-<td><code>scripts/</code> 配下 48 ファイル・11,306 行（空行を除く）・389 関数</td>
+<td><code>scripts/</code> 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）</td>
 </tr>
 <tr>
 <td>第三者依存</td>
@@ -2754,7 +2754,7 @@
 </tr>
 </tbody>
 </table>
-<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 11,306 行で閉じる。</p>
+<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 12,326 行で閉じる。</p>
 
 
 

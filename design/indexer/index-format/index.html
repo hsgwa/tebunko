@@ -2440,7 +2440,7 @@
 <h1 id="インデックスの形式">インデックスの形式<a class="headerlink" href="#インデックスの形式" title="Permanent link">&para;</a></h1>
 <p>インデックス（集約ファイル・TSV）の置き場所・名前・中身の形式（<a href="./">インデックスの形式</a>）と、実装上の注意点・既知の問題（<a href="../known-issues/">既知の問題</a>）を扱う。</p>
 <h2 id="配置命名規則">配置・命名規則<a class="headerlink" href="#配置命名規則" title="Permanent link">&para;</a></h2>
-<p>インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの<strong>集約ファイル</strong>にする。検索は集約ファイルだけを読む（<a href="../../search/#検索の実装速度">検索の実装（速度）</a> 4.3）。</p>
+<p>インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの<strong>集約ファイル</strong>にする。検索は集約ファイルだけを読む（<a href="../../search/#検索の実装速度">検索の実装（速度）</a> <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</p>
 <div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子（小文字）&gt;.&lt;番号&gt;.tsv                        … 集約ファイル（検索に使う）
 work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名（拡張子あり）&gt;/&lt;encodeIndexPlace(場所)&gt;.tsv … 取り込み中だけの TSV
 </code></pre></div>
@@ -2500,10 +2500,10 @@ work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファ�
 <li>ファイル名と場所の区切りが <code>\</code> になり、名前の中の文字と衝突しない（<code>_</code> の符号化に頼らずに分けられる）。</li>
 <li>取り込み直すときは<strong>フォルダごと入れ替え</strong>ればよく、別のファイルの TSV を巻き込まない（<code>&lt;ファイル名&gt;_*.tsv</code> で消すと、<code>a.xls</code> の取り込みで <code>a.xls_b.xlsx</code> の TSV まで消える）。</li>
 <li><code>&lt;ファイル名&gt;＋&lt;場所&gt;</code> が 255 文字を超えて保存できない、ということが起きない。</li>
-<li><strong>集約ファイルにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。ウイルス対策ソフト（Microsoft Defender）は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイル 1 つ・場所 1 つにつき TSV 1 つだと、TSV が数万件になり、初回の検索が数分〜10 分以上かかった。フォルダ・拡張子ごとにまとめると、読むファイルの数が数百分の 1 になる（実測は <a href="../../search/#検索の実装速度">検索の実装（速度）</a> 4.3）。</li>
+<li><strong>集約ファイルにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。ウイルス対策ソフト（Microsoft Defender）は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイル 1 つ・場所 1 つにつき TSV 1 つだと、TSV が数万件になり、初回の検索が数分〜10 分以上かかった。フォルダ・拡張子ごとにまとめると、読むファイルの数が数百分の 1 になる（実測は <a href="../../search/#検索の実装速度">検索の実装（速度）</a> <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</li>
 </ul>
 <h3 id="集約ファイルの形式pack_formatps1">集約ファイルの形式（<code>pack_format.ps1</code>）<a class="headerlink" href="#集約ファイルの形式pack_formatps1" title="Permanent link">&para;</a></h3>
-<p>集約ファイルは、元のファイルごと・場所（シート・ページ・スライドなど）ごとに、<strong>メタ情報の行</strong>と、その場所の TSV の中身（6.3 など。1 行 = Excel の 1 行・段落 1 つ）を並べたもの。例（<code>␞</code> は RS（U+001E）、<code>→</code> はタブ）:</p>
+<p>集約ファイルは、元のファイルごと・場所（シート・ページ・スライドなど）ごとに、<strong>メタ情報の行</strong>と、その場所の TSV の中身（<a href="../excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a> など。1 行 = Excel の 1 行・段落 1 つ）を並べたもの。例（<code>␞</code> は RS（U+001E）、<code>→</code> はタブ）:</p>
 <div class="highlight"><pre><span></span><code>␞ 版=1
 ␞ ファイル名=(株)山田商事_見積書.xlsx
 ␞ 種類=Excel
@@ -2602,10 +2602,10 @@ B2→確定版
 <ul>
 <li>知らないキーは読み飛ばし、無いキーは既定の値とみなす（後の版でキーを足しても、前の版の読み方で読める）。</li>
 <li>画面・検索結果に出す場所の名前は、メタ情報から TSV のときと同じ形に組み立て直す（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など）。TSV のファイル名（場所の名前）からメタ情報へは <code>convertPlaceToPackMeta</code> で分け、組み立て直して同じ名前にならないもの（番号の桁が違う等）は <code>部分=&lt;名前そのまま&gt;</code> にする。</li>
-<li>メタ情報の行は検索しない（ファイル名・シート名の語には一致しない。<a href="../../search/#検索の実装速度">検索の実装（速度）</a> 4.3）。</li>
+<li>メタ情報の行は検索しない（ファイル名・シート名の語には一致しない。<a href="../../search/#検索の実装速度">検索の実装（速度）</a> <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</li>
 </ul>
 <h3 id="図形コメントの場所excelwordpowerpoint-で共通の決まり">図形・コメントの場所（Excel・Word・PowerPoint で共通の決まり）<a class="headerlink" href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" title="Permanent link">&para;</a></h3>
-<p>本文（セル・段落）以外の文字は、<strong><code>&lt;元の場所&gt;[&lt;種類&gt;]</code></strong> という場所（TSV）に分けて出力する。種類ごとに、検索に含めるかを画面で選べる（［図形も検索］［コメントも検索］。<a href="../../search/">検索</a> 4.1）。</p>
+<p>本文（セル・段落）以外の文字は、<strong><code>&lt;元の場所&gt;[&lt;種類&gt;]</code></strong> という場所（TSV）に分けて出力する。種類ごとに、検索に含めるかを画面で選べる（［図形も検索］［コメントも検索］。<a href="../../search/">検索</a> <a href="../../search/#検索仕様">検索仕様</a>）。</p>
 <table>
 <thead>
 <tr>
@@ -2636,8 +2636,11 @@ B2→確定版
 <p>Excel の SmartArt・グラフ、埋め込みオブジェクト、スライドマスター・レイアウトは読まない。</p>
 </li>
 <li>
-<p><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[処理の流れと取り込み一覧](flow.md)）。今は</code>.xlsx<code></code>.xlsm` と Word・PowerPoint のすべての形式が 2。</p>
+<p><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。</p>
 </li>
+<li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
+<li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「セル」と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。</li>
+<li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../flow/">処理の流れと取り込み一覧</a>）。今は <code>.xlsx</code> <code>.xlsm</code> と Word・PowerPoint のすべての形式が 2。</li>
 </ul>
 <h3 id="インデックスへの入れ替えpublishtsv--publishindexfiles">インデックスへの入れ替え（<code>publishTsv</code> / <code>publishIndexFiles</code>）<a class="headerlink" href="#インデックスへの入れ替えpublishtsv--publishindexfiles" title="Permanent link">&para;</a></h3>
 <p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん <code>work/取り込み出力/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。集約ファイルへは、そのフォルダの取り込みが終わってから入れる（下の「集約ファイルへの書き出し」）。</p>
@@ -2647,7 +2650,7 @@ B2→確定版
 <li>削除は、ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す（<code>removeDirectoryRetry</code>）。</li>
 </ul>
 <h3 id="集約ファイルへの書き出しpublishindexfolders">集約ファイルへの書き出し（<code>publishIndexFolders</code>）<a class="headerlink" href="#集約ファイルへの書き出しpublishindexfolders" title="Permanent link">&para;</a></h3>
-<p>取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（<code>indexer.ps1</code> の <code>addPendingPublish</code>）、<strong>そのフォルダに取り込み中のファイルも、まだ取り込みのスレッドに渡していないファイルも無くなったとき</strong>（結果を 1 つ受け取るたびに調べる。<a href="../../architecture/threads/#インデックス作成の並列化">インデックス作成の並列化</a>）と、<strong>インデックス作成の終わり</strong>（中止したときも。<code>finally</code>）に、それまでのフォルダをまとめて書き出す（<code>flushPendingPublish</code> → <code>publishIndexFolders</code>）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ集約ファイルを書き直すことになるため。フォルダごとに次を続けて行う。</p>
+<p>取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（<code>indexer/indexer_run.ps1</code> の <code>addPendingPublish</code>）、<strong>そのフォルダに取り込み中のファイルも、まだ取り込みのスレッドに渡していないファイルも無くなったとき</strong>（結果を 1 つ受け取るたびに調べる。<a href="../../architecture/threads/#インデックス作成の並列化">インデックス作成の並列化</a>）と、<strong>インデックス作成の終わり</strong>（中止したときも。<code>finally</code>）に、それまでのフォルダをまとめて書き出す（<code>flushPendingPublish</code> → <code>publishIndexFolders</code>）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ集約ファイルを書き直すことになるため。フォルダごとに次を続けて行う。</p>
 <pre class="mermaid"><code>flowchart TD
     P(["書き出し待ちのフォルダ&lt;br&gt;（フォルダ → 無くなった元のファイル名）"]) --&gt; A["1. 集約ファイルを書く（updateIndexFolderPack）&lt;br&gt;TSV のある元のファイル: TSV の中身で入れ替える&lt;br&gt;無くなった元のファイル: 外す&lt;br&gt;それ以外: 前の集約ファイルからそのまま写す"]
     A --&gt; B["拡張子ごとに #lt;名前#gt;.tmp に書いてから置き換える&lt;br&gt;（File.Replace。元のファイルが無くなった拡張子の集約ファイルは消す）"]
@@ -2660,7 +2663,7 @@ B2→確定版
 <li><strong>検索との同時実行</strong>: 集約ファイルは置き換えで書くため、検索は置き換えの前か後のどちらかの中身を読む（読み込みは共有モードで開き、置き換えを妨げない）。</li>
 </ul>
 <h3 id="長いパス260-文字超の扱い">長いパス（260 文字超）の扱い<a class="headerlink" href="#長いパス260-文字超の扱い" title="Permanent link">&para;</a></h3>
-<p>出力 TSV のパスは、元ファイルのパスより <code>&lt;tebunko の場所&gt;\work\index\&lt;インデックス名&gt;\</code> と <code>\&lt;場所&gt;.tsv</code> の分だけ長くなるため（集約ファイルも <code>&lt;tebunko の場所&gt;\work\index\&lt;インデックス名&gt;\</code> の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に <code>\\?\</code> を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには <code>toLongPath</code> で <code>\\?\</code> を付ける。</p>
+<p>出力 TSV のパスは、元ファイルのパスより <code>&lt;ワークスペース&gt;\index\&lt;インデックス名&gt;\</code> と <code>\&lt;場所&gt;.tsv</code> の分だけ長くなるため（集約ファイルも <code>&lt;ワークスペース&gt;\index\&lt;インデックス名&gt;\</code> の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に <code>\\?\</code> を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには <code>toLongPath</code> で <code>\\?\</code> を付ける。</p>
 <table>
 <thead>
 <tr>
@@ -2698,7 +2701,7 @@ B2→確定版
 <li>ファイル名・フォルダ名 1 つの上限（255 文字）は <code>\\?\</code> でも超えられない。</li>
 </ul>
 <h2 id="場所の符号化encodeindexplace--decodeindexplace">場所の符号化（<code>encodeIndexPlace</code> / <code>decodeIndexPlace</code>）<a class="headerlink" href="#場所の符号化encodeindexplace--decodeindexplace" title="Permanent link">&para;</a></h2>
-<p>TSV のファイル名に入れる場所（シート名など）は、次の文字を <code>%</code> と 16 進数 2 桁にする。集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）に <code>decodeIndexPlace</code> で元に戻す。集約ファイルのメタ情報には元のシート名を書き（値の符号化は 6.1「集約ファイルの形式」）、検索結果の「場所」には元のシート名を表示する。</p>
+<p>TSV のファイル名に入れる場所（シート名など）は、次の文字を <code>%</code> と 16 進数 2 桁にする。集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）に <code>decodeIndexPlace</code> で元に戻す。集約ファイルのメタ情報には元のシート名を書き（値の符号化は <a href="#配置命名規則">配置・命名規則</a>「集約ファイルの形式」）、検索結果の「場所」には元のシート名を表示する。</p>
 <table>
 <thead>
 <tr>
@@ -2738,7 +2741,7 @@ B2→確定版
 <ul>
 <li>全角に置き換える方式にしないのは、<code>衝突"</code> と <code>衝突”</code> のように別のシートが同じ TSV 名になり、後のシートで上書きされるため。元に戻せる形にすれば、シート名が違えば TSV 名も必ず違う。</li>
 <li>ファイル名は符号化しない（元ファイルの名前がそのまま TSV のフォルダ名になる。Windows のファイル名なので使えない文字は含まない）。</li>
-<li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a> 5.1）。</li>
+<li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a> <a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a>）。</li>
 <li>インデックス名（<code>work/index</code> 直下のフォルダ名）は符号化せず、<code>toSafeFileName</code>（ファイル名に使えない文字を全角に置き換える）で作る。</li>
 </ul>
 <table>
@@ -2772,10 +2775,10 @@ B2→確定版
 </tbody>
 </table>
 <blockquote>
-<p><strong>6.3 TSV 整形仕様（<code>prettyTsv</code> / <code>formatTsv</code>）</strong> → <a href="../excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a></p>
+<p><strong><a href="../excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a> TSV 整形仕様（<code>prettyTsv</code> / <code>formatTsv</code>）</strong> → <a href="../excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a></p>
 </blockquote>
 <h2 id="システムインデックスsystem_index">システムインデックス（system_index）<a class="headerlink" href="#システムインデックスsystem_index" title="Permanent link">&para;</a></h2>
-<p>高速検索（<a href="../../search/">検索</a> 4.4）のため、インデックス作成は集約ファイルとは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko/index/system_index.ps1</code>。語の決まりは <code>tebunko/search/search_gram.ps1</code>）。</p>
+<p>高速検索（<a href="../../search/">検索</a> <a href="../../search/fast-search/">高速検索（Windows Search）</a>）のため、インデックス作成は集約ファイルとは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko/index/system_index.ps1</code>。語の決まりは <code>tebunko/search/search_gram.ps1</code>）。</p>
 <div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … 集約ファイル
 work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/システムインデックス.txt … システムインデックス
 work/システムインデックスの状態.tsv                                         … その状態
@@ -2810,7 +2813,7 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>作る時機</td>
-<td>集約ファイルを書き出したフォルダは、書き出した直後に、書いた中身から作る（ファイルを読み直さない。6.1「集約ファイルへの書き出し」）。さらにインデックス作成の終わりに、作り直しが要るフォルダ（txt が無い・txt より新しい集約ファイル・TSV がある・反映待ちの日時が txt と合わない・集約ファイルが無くなった）をまとめて作る（<code>updateSystemIndexes</code>）。取り込む対象が 0 件のときも作る。中止したとき・クロール対象フォルダが見えなくなったときは、終わりの作り直しは行わない</td>
+<td>集約ファイルを書き出したフォルダは、書き出した直後に、書いた中身から作る（ファイルを読み直さない。<a href="#配置命名規則">配置・命名規則</a>「集約ファイルへの書き出し」）。さらにインデックス作成の終わりに、作り直しが要るフォルダ（txt が無い・txt より新しい集約ファイル・TSV がある・反映待ちの日時が txt と合わない・集約ファイルが無くなった）をまとめて作る（<code>updateSystemIndexes</code>）。取り込む対象が 0 件のときも作る。中止したとき・クロール対象フォルダが見えなくなったときは、終わりの作り直しは行わない</td>
 </tr>
 <tr>
 <td>負荷</td>

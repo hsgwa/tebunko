@@ -2254,7 +2254,7 @@
 </tr>
 <tr>
 <td>Windows Search</td>
-<td><strong>読み取りだけ</strong>。高速検索（<a href="../design/search/">検索</a> 4.4）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。システムインデックスを作るスレッドの優先度を下げる（BelowNormal。プロセス全体の優先度は変えない）</td>
+<td><strong>読み取りだけ</strong>。高速検索（<a href="../design/search/">検索</a> <a href="../design/search/fast-search/">高速検索（Windows Search）</a>）で、OLE DB（<code>Search.CollatorDSO</code>）に SELECT だけを送る（<code>windows_search.ps1</code> の 1 か所。管理者権限は要らない）。Windows Search の設定（索引の対象など）もファイルのアクセス権も変えない。システムインデックスを作るスレッドの優先度を下げる（BelowNormal。プロセス全体の優先度は変えない）</td>
 <td><code>safety.Tests.ps1</code>「Windows Search への問い合わせは windows_search.ps1 だけで行い、SELECT だけを送る」</td>
 <td><a href="checks/#検査項目と結果">検査項目と結果</a></td>
 </tr>
@@ -2302,7 +2302,7 @@
 </tr>
 <tr>
 <td>規模（監査の目安）</td>
-<td><code>scripts/</code> 配下 48 ファイル・11,306 行（空行を除く）・389 関数。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
+<td><code>scripts/</code> 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
 <td>–</td>
 <td><a href="scans/#同梱の機械検査と品質の指標">同梱の機械検査と品質の指標</a></td>
 </tr>

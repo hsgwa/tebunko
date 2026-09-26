@@ -2334,12 +2334,8 @@
 </thead>
 <tbody>
 <tr>
-<td>状態</td>
-<td><strong>第 1・2 段階を実装済み</strong>（<a href="implementation/#既存スクリプトへの影響と段階">既存スクリプトへの影響と段階</a>）。第 3 段階は未実装</td>
-</tr>
-<tr>
-<td>起動用バッチ</td>
-<td><code>tebunko.bat</code>（名称は <a href="implementation/#未決事項">未決事項</a> U1）。PowerShell の窓を残さずに画面だけを開く（<a href="common/#配布と実行ポリシーmark-of-the-web">配布と実行ポリシー（Mark-of-the-Web）</a>）</td>
+<td>起動</td>
+<td>zip 版は <code>tebunko.bat</code>（名称は <a href="implementation/#決めたこと">決めたこと</a> U1）、インストーラー版は <code>tebunko.exe</code>（<code>installer/tebunko.cs</code>）。どちらも PowerShell の窓を残さずに画面だけを開く（<a href="common/#配布と実行ポリシーmark-of-the-web">配布と実行ポリシー（Mark-of-the-Web）</a>）</td>
 </tr>
 <tr>
 <td>スクリプト</td>
@@ -2403,7 +2399,7 @@
 </table>
 <h3 id="設計方針">設計方針<a class="headerlink" href="#設計方針" title="Permanent link">&para;</a></h3>
 <ol>
-<li><strong>作業単位でタブを分ける</strong>。［1 インデックス管理］［2 検索］［9 プロセス停止］の 3 つとする（番号は、画面を作る前の起動用バッチ <code>1_変換.bat</code>・<code>2_検索.bat</code>・<code>9_Office強制終了.bat</code> に合わせたもの）。</li>
+<li><strong>作業単位でタブを分ける</strong>。［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］の 4 つとする（番号は、画面を作る前の起動用バッチ <code>1_変換.bat</code>・<code>2_検索.bat</code>・<code>9_Office強制終了.bat</code> に合わせたもの。あとから足した［8 設定］は、プロセス停止を最後に置くため 8 にした）。</li>
 <li><strong>検索は 1 ワードずつ、結果は画面に出す</strong>。ワードを入れて Enter で検索し、結果を画面の表で確認する。表から元のファイルを開ける。</li>
 <li><strong>保存を意識させない</strong>。インデックスの追加・編集・削除・チェックの変更、検索オプションはその場で保存する。保存の操作は無い。</li>
 <li><strong>状態を常に見せる</strong>。インデックスの件数・最終取り込み日時・中断や失敗の有無・残っている Office プロセスを表示する。</li>
@@ -2549,7 +2545,7 @@
 <li>インデックス作成は画面のプロセスの中で動くため、画面を開いた時点で動いているインデックス作成は無い（以前の版のように、動いているインデックス作成を見つけて進み具合を出すことはしない）。</li>
 <li>［9 プロセス停止］タブは起動時に開かない。バックグラウンドの Office プロセスが残っていれば、タブ見出しに <code>⚠</code> を付けて知らせる（<a href="process-tab/#タブ見出しの-">タブ見出しの ⚠</a>）。</li>
 <li>取り込みに失敗したファイルが残っているだけの場合は［2 検索］を開き、［1 インデックス管理］タブの見出しに <code>⚠</code> を付ける。</li>
-<li>集約ファイルの有無は、最初の 1 件が見つかった時点で判定を打ち切る（件数は 6.3 のとおり別スレッドで数える）。</li>
+<li>集約ファイルの有無は、最初の 1 件が見つかった時点で判定を打ち切る（件数は <a href="state-flow/#状態を読み直すタイミング">状態を読み直すタイミング</a> のとおり別スレッドで数える）。</li>
 </ul>
 
 

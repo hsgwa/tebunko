@@ -2205,8 +2205,8 @@
 
 
 <h1 id="高速検索windows-search">高速検索（Windows Search）<a class="headerlink" href="#高速検索windows-search" title="Permanent link">&para;</a></h1>
-<p>インデックスが大きいと、すべての集約ファイルを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。4.3）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の集約ファイルだけを 4.3 の方式で照合する（<code>tebunko/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては 4.3 と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての集約ファイルを照合したときと同じ</strong>になる。</p>
-<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下の集約ファイルの中身（メタ情報の行を除く）から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a> 6.8）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
+<p>インデックスが大きいと、すべての集約ファイルを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。<a href="../#検索の実装速度">検索の実装（速度）</a>）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の集約ファイルだけを <a href="../#検索の実装速度">検索の実装（速度）</a> の方式で照合する（<code>tebunko/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては <a href="../#検索の実装速度">検索の実装（速度）</a> と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての集約ファイルを照合したときと同じ</strong>になる。</p>
+<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/index</code> の中のフォルダごとに、直下の集約ファイルの中身（メタ情報の行を除く）から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a> <a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
 <table>
 <thead>
 <tr>
@@ -2217,7 +2217,7 @@
 <tbody>
 <tr>
 <td>使える条件（画面の「高速検索：使用可」）</td>
-<td>Windows Search を開けて <code>work/system_index</code> が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（<code>testFastSearchUsable</code>・<code>getFastSearchView</code>）。使えないときは 4.3 のとおりすべてを照合する</td>
+<td>Windows Search を開けて <code>work/system_index</code> が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（<code>testFastSearchUsable</code>・<code>getFastSearchView</code>）。使えないときは <a href="../#検索の実装速度">検索の実装（速度）</a> のとおりすべてを照合する</td>
 </tr>
 <tr>
 <td>語の作り方</td>
@@ -2254,7 +2254,7 @@
     T --&gt; F["getIndexPackFiles&lt;br&gt;そのフォルダの集約ファイル"]
     ALL --&gt; R["searchPackIndex（4.3 と同じ）"]
     F --&gt; R</code></pre>
-<p><strong><code>work/index</code> を Windows Search の対象から外す（推奨）</strong>: 集約ファイル（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（集約ファイルは 4.3 の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/index</code> を外す（README の「高速検索」）。</p>
+<p><strong><code>work/index</code> を Windows Search の対象から外す（推奨）</strong>: 集約ファイル（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（集約ファイルは <a href="../#検索の実装速度">検索の実装（速度）</a> の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/index</code> を外す（README の「高速検索」）。</p>
 <p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。集約ファイルにする前の版で、TSV を照合したとき。集約ファイルでは、すべてを照合しても初回 38 秒（<a href="../#検索の実装速度">検索の実装（速度）</a>））:</p>
 <table>
 <thead>
@@ -2277,7 +2277,7 @@
 </tr>
 </tbody>
 </table>
-<p>よく出る語はほとんどのフォルダが候補になるため、速くならない（上限の 1 万件で打ち切るのは 4.3 と同じ）。</p>
+<p>よく出る語はほとんどのフォルダが候補になるため、速くならない（上限の 1 万件で打ち切るのは <a href="../#検索の実装速度">検索の実装（速度）</a> と同じ）。</p>
 
 
 

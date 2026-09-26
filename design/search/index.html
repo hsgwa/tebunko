@@ -2298,13 +2298,13 @@
 </tr>
 <tr>
 <td>使用する共通関数</td>
-<td><code>getFastSearchPackFiles</code>（高速検索。4.4）/ <code>getIndexPackFiles</code> / <code>getSearchIndexes</code> / <code>searchPackIndex</code> / <code>writeSearchResult</code>（→ <code>toSearchResultLines</code> → <code>toResultLine</code> / <code>toResultHeader</code>）（<a href="../architecture/modules/">共通モジュール</a>）</td>
+<td><code>getFastSearchPackFiles</code>（高速検索。<a href="fast-search/">高速検索（Windows Search）</a>）/ <code>getIndexPackFiles</code> / <code>getSearchIndexes</code> / <code>searchPackIndex</code> / <code>writeSearchResult</code>（→ <code>toSearchResultLines</code> → <code>toResultLine</code> / <code>toResultHeader</code>）（<a href="../architecture/modules/">共通モジュール</a>）</td>
 </tr>
 </tbody>
 </table>
 <p>全体構成・動作環境・フォルダ構成は <a href="../">設計の概要</a> を参照。インデックス（集約ファイル）の作り方は <a href="../indexer/">インデックス作成（インデクサ）</a> を参照。画面の操作・表示は <a href="../gui/search-tab/">［2 検索］タブ</a> を参照。</p>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面の［2 検索］タブで入力したワードで、<code>work/index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの集約ファイル（<a href="../indexer/index-format/#配置命名規則">配置・命名規則</a> 6.1）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/検索結果.txt</code> の形式を定める。</p>
+<p>画面の［2 検索］タブで入力したワードで、<code>work/index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの集約ファイル（<a href="../indexer/index-format/#配置命名規則">配置・命名規則</a> <a href="../indexer/index-format/#配置命名規則">配置・命名規則</a>）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/検索結果.txt</code> の形式を定める。</p>
 <h2 id="入出力">入出力<a class="headerlink" href="#入出力" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2333,7 +2333,7 @@
 <tr>
 <td>入力</td>
 <td><code>work/system_index/**/システムインデックス*.txt</code>・<code>work/システムインデックスの状態.tsv</code></td>
-<td>高速検索に使う システムインデックスとその状態（4.4。Windows Search に問い合わせる）</td>
+<td>高速検索に使う システムインデックスとその状態（<a href="fast-search/">高速検索（Windows Search）</a>。Windows Search に問い合わせる）</td>
 </tr>
 <tr>
 <td>出力</td>
@@ -2354,7 +2354,7 @@
 <li>1 件を <code>@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }</code> で返す。</li>
 <li>別の場所・PC で作ったインデックスは、そのフォルダを <code>work/index</code> 直下に置けば一覧に並ぶ（<a href="../indexer/flow/">処理の流れと取り込み一覧</a>）。</li>
 <li><code>work/index</code> が無ければ空を返す。<code>setting.config</code> は作成しない。</li>
-<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../gui/search-tab/">［2 検索］タブ</a> 4.8）。選んだ範囲は <code>getIndexPackFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下の集約ファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
+<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../gui/search-tab/">［2 検索］タブ</a> <a href="../gui/search-tab/#検索対象のツリーno13">検索対象のツリー（No.13）</a>）。選んだ範囲は <code>getIndexPackFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下の集約ファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
 <li>チェックを外したフォルダは <code>searchExcludes</code>（<code>@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }</code> の配列）に保存する（<code>readSearchExcludes</code> / <code>writeSearchExcludes</code>）。無ければすべてを検索する。</li>
 </ul>
 <pre class="mermaid"><code>flowchart TD
@@ -2369,7 +2369,7 @@
     G -- "［結果をファイルに出力］" --&gt; W["writeSearchResult&lt;br&gt;work/検索結果.txt に書き出して開く"]</code></pre>
 <ul>
 <li>集約ファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ集約ファイルを二重に検索しない。</li>
-<li>検索は画面の別スレッドで行い、1 つの作業（集約ファイル約 16MB 分。4.3）を照合するたびに進捗を通知する。画面の中止ボタン（<code>shouldStop</code>）で中止でき、件数の上限（<code>limit</code>）に達したら打ち切る（上限・表示は <a href="../gui/search-tab/">［2 検索］タブ</a>）。</li>
+<li>検索は画面の別スレッドで行い、1 つの作業（集約ファイル約 16MB 分。<a href="#検索の実装速度">検索の実装（速度）</a>）を照合するたびに進捗を通知する。画面の中止ボタン（<code>shouldStop</code>）で中止でき、件数の上限（<code>limit</code>）に達したら打ち切る（上限・表示は <a href="../gui/search-tab/">［2 検索］タブ</a>）。</li>
 </ul>
 <h2 id="検索仕様">検索仕様<a class="headerlink" href="#検索仕様" title="Permanent link">&para;</a></h2>
 <table>
@@ -2386,11 +2386,11 @@
 </tr>
 <tr>
 <td>対象ファイル</td>
-<td>画面の「対象ファイル」（<code>setting.config</code> の <code>fileFilter</code>）を指定すると、<strong>元のファイル名</strong>（5.3 の Book。集約ファイルの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（<a href="#検索条件サクラエディタの-grep-にならう">検索条件（サクラエディタの Grep にならう）</a>）。空ならすべて</td>
+<td>画面の「対象ファイル」（<code>setting.config</code> の <code>fileFilter</code>）を指定すると、<strong>元のファイル名</strong>（<a href="output/#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a> の Book。集約ファイルの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（<a href="#検索条件サクラエディタの-grep-にならう">検索条件（サクラエディタの Grep にならう）</a>）。空ならすべて</td>
 </tr>
 <tr>
 <td>図形・コメント</td>
-<td>既定は検索する。画面の［図形も検索］［コメントも検索］（<code>setting.config</code> の <code>includeShapes</code> / <code>includeComments</code>）をオフにすると、場所が <code>&lt;元の場所&gt;[図形]</code> / <code>&lt;元の場所&gt;[コメント]</code>（集約ファイルのメタ情報 <code>対象=図形</code> / <code>対象=コメント</code>）の中を検索しない（<code>newPlaceExclude</code>。Excel・Word・PowerPoint で共通の決まり。<a href="../indexer/index-format/">インデックスの形式</a> 6.1「図形・コメントの場所」）</td>
+<td>既定は検索する。画面の［図形も検索］［コメントも検索］（<code>setting.config</code> の <code>includeShapes</code> / <code>includeComments</code>）をオフにすると、場所が <code>&lt;元の場所&gt;[図形]</code> / <code>&lt;元の場所&gt;[コメント]</code>（集約ファイルのメタ情報 <code>対象=図形</code> / <code>対象=コメント</code>）の中を検索しない（<code>newPlaceExclude</code>。Excel・Word・PowerPoint で共通の決まり。<a href="../indexer/index-format/">インデックスの形式</a> <a href="../indexer/index-format/#配置命名規則">配置・命名規則</a>「図形・コメントの場所」）</td>
 </tr>
 <tr>
 <td>長いパス</td>
@@ -2410,7 +2410,7 @@
 </tr>
 <tr>
 <td>数値のセル</td>
-<td>Excel の数値は、シートで<strong>表示されている形</strong>でインデックスに入る。表示形式が「標準」の 12 桁以上の数値は指数表記（<code>4.90123E+12</code>）、「#,##0」のセルは桁区切り付き（<code>1,234,568</code>）のため、元の番号（<code>4901234567894</code>・<code>1234568</code>）では見つからない（<a href="../indexer/excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a> 4.3）</td>
+<td>Excel の数値は、シートで<strong>表示されている形</strong>でインデックスに入る。表示形式が「標準」の 12 桁以上の数値は指数表記（<code>4.90123E+12</code>）、「#,##0」のセルは桁区切り付き（<code>1,234,568</code>）のため、元の番号（<code>4901234567894</code>・<code>1234568</code>）では見つからない（<a href="../indexer/excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a> <a href="../indexer/excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>）</td>
 </tr>
 <tr>
 <td>セル内改行</td>
@@ -2472,7 +2472,7 @@
 </tbody>
 </table>
 <h2 id="検索の実装速度">検索の実装（速度）<a class="headerlink" href="#検索の実装速度" title="Permanent link">&para;</a></h2>
-<p>集約ファイル（<a href="../indexer/index-format/#配置命名規則">配置・命名規則</a> 6.1）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko/search/pack_search.ps1</code> の <code>searchPackIndex</code>／<code>searchPackFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../gui/implementation/#実行時コンパイルcscexeを使わない">画面の実装</a>。実測: 50 万行で約 0.6 秒）。</p>
+<p>集約ファイル（<a href="../indexer/index-format/#配置命名規則">配置・命名規則</a> <a href="../indexer/index-format/#配置命名規則">配置・命名規則</a>）の読み込みと照合、結果 1 件の作成は PowerShell から .NET を直接呼ぶ（<code>tebunko/search/pack_search.ps1</code> の <code>searchPackIndex</code>／<code>searchPackFiles</code>。<code>FileStream</code>＋<code>StreamReader</code>＋<code>[regex]</code>。<code>Select-String</code> で 1 件ずつ結果を作ると件数が多いときに遅いため）。資産管理・EDR に注目されやすい実行時コンパイル（<code>Add-Type</code>／csc.exe）は使わない（<a href="../gui/implementation/#実行時コンパイルcscexeを使わない">画面の実装</a>。実測: 50 万行で約 0.6 秒）。</p>
 <p>1 行ずつ PowerShell で照合すると、行数に比例して時間がかかる（1 行あたり十数マイクロ秒）。このため集約ファイルを丸ごと読み（改行は書くときに LF にそろえてある）、正規表現を全文に 1 回かける（.NET の中で走る）。<strong>全文で一致しない集約ファイルは、そのまま飛ばす。</strong> 一致したときだけ、メタ情報の行から場所ごとの範囲（元のファイル名・場所の名前・中身の先頭と終わりの位置）の一覧を作り（<code>readPackPlaces</code>）、一致の位置から元のファイル・場所・行番号を求める（<a href="output/#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a>）。全文にかけてよいかは <code>getRegexScanMode</code> が正規表現の書き方から判定する。</p>
 <table>
 <thead>
@@ -2587,7 +2587,7 @@
 <tbody>
 <tr>
 <td>1</td>
-<td>高速検索を使えないとき（<a href="fast-search/">高速検索（Windows Search）</a>）は、検索のたびにすべての集約ファイルを照合するため、インデックス量に比例して時間がかかる（集約ファイル 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。4.3）</td>
+<td>高速検索を使えないとき（<a href="fast-search/">高速検索（Windows Search）</a>）は、検索のたびにすべての集約ファイルを照合するため、インデックス量に比例して時間がかかる（集約ファイル 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。<a href="#検索の実装速度">検索の実装（速度）</a>）</td>
 <td>◎</td>
 </tr>
 <tr>

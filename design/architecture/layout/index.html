@@ -2439,7 +2439,7 @@
 
 <h1 id="フォルダ構成とデータの置き場所">フォルダ構成とデータの置き場所<a class="headerlink" href="#フォルダ構成とデータの置き場所" title="Permanent link">&para;</a></h1>
 <h2 id="フォルダ構成">フォルダ構成<a class="headerlink" href="#フォルダ構成" title="Permanent link">&para;</a></h2>
-<p>スクリプトの場所は <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<code>setting.config</code> と <code>work/</code> は、ふつうは <code>$rootDir</code> の直下に置くが、ツールのフォルダに書き込めないときや、利用者が画面で置き場所を変えたときは別の場所になる（<a href="#データの置き場所settingconfigwork">データの置き場所</a>）。<strong>カレントディレクトリには依存しない。</strong>
+<p>スクリプトの場所は <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<code>setting.config</code> は、ふつうは <code>$rootDir</code> の直下に置く（ツールのフォルダに書き込めないときは利用者ごとの場所）。インデックス・取り込み一覧・ログ（ワークスペース）は、既定で <code>%USERPROFILE%\Documents\tebunko_ws</code> に置き、利用者が画面で置き場所を変えられる（<a href="#データの置き場所settingconfigwork">データの置き場所</a>）。<strong>カレントディレクトリには依存しない。</strong>
 ファイル操作は <code>-LiteralPath</code> または .NET の <code>System.IO</code> を使い、<code>[</code> <code>]</code> を含むファイル名・フォルダ名を扱える。</p>
 <h3 id="利用者が使うもの">利用者が使うもの<a class="headerlink" href="#利用者が使うもの" title="Permanent link">&para;</a></h3>
 <table>
@@ -2454,7 +2454,7 @@
 <tr>
 <td><code>tebunko.bat</code></td>
 <td>起動用バッチ</td>
-<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で 1 回起動し、その中で <code>scripts</code> の中のファイルから Mark-of-the-Web を外して（<code>Unblock-File</code>。<a href="../../../safety/">安全性の要約</a> の 4.2）から <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
+<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>conhost.exe</code> 経由で PowerShell を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で 1 回起動し、その中で <code>scripts</code> の中のファイルから Mark-of-the-Web を外して（<code>Unblock-File</code>。<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>）から <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す</td>
 </tr>
 <tr>
 <td><code>setting.config</code></td>
@@ -2492,7 +2492,7 @@
 <tr>
 <td><code>scripts/shared/office/office_reader.ps1</code></td>
 <td>スクリプト</td>
-<td>Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメントの文字を取り出す（<a href="../../indexer/index-format/">インデックスの形式</a> の 6.4、Word は <a href="../../indexer/word/">Word</a>、PowerPoint は <a href="../../indexer/powerpoint/">PowerPoint</a>）</td>
+<td>Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメントの文字を取り出す（<a href="../../indexer/index-format/">インデックスの形式</a> の <a href="../../indexer/office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>、Word は <a href="../../indexer/word/">Word</a>、PowerPoint は <a href="../../indexer/powerpoint/">PowerPoint</a>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/xaml/</code></td>
@@ -2564,7 +2564,7 @@
 <tr>
 <td><code>installer/tebunko.iss</code></td>
 <td>配布用</td>
-<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を作る Inno Setup 7 のスクリプト。管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れ、スタートメニューとアンインストールに登録する（<a href="../../../safety/">安全性の要約</a> の 4.6）。BOM 付き UTF-8・CRLF</td>
+<td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を作る Inno Setup 7 のスクリプト。管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れ、スタートメニューとアンインストールに登録する（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#インストーラー版">インストーラー版</a>）。BOM 付き UTF-8・CRLF</td>
 </tr>
 <tr>
 <td><code>installer/tebunko.cs</code></td>
@@ -2626,7 +2626,7 @@
 <tr>
 <td><code>tools/new_release_files.ps1</code></td>
 <td>配布用</td>
-<td>配布物のカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を作る（既定の出力先は <code>work/release/</code>）。受け取った側が改ざんの有無を確認できる（<a href="../../../safety/">安全性の要約</a> の 5.1）</td>
+<td>配布物のカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を作る（既定の出力先は <code>work/release/</code>）。受け取った側が改ざんの有無を確認できる（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</td>
 </tr>
 <tr>
 <td><code>tools/new_release_package.ps1</code></td>
@@ -2656,7 +2656,7 @@
 <tr>
 <td><code>.github/workflows/</code></td>
 <td>開発用</td>
-<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../../testing/ci/#ci">CI</a>）</td>
+<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>）、性能の計測（<code>perf.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../../testing/ci/#ci">CI</a>）</td>
 </tr>
 <tr>
 <td><code>.github/codecov.yml</code></td>
@@ -2686,6 +2686,10 @@
 </tbody>
 </table>
 <h3 id="自動生成work">自動生成（<code>work/</code>）<a class="headerlink" href="#自動生成work" title="Permanent link">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">設計書の <code>work/</code> の書き方</p>
+<p>設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を <code>work/</code> と書く。実際の場所は、既定では <code>%USERPROFILE%\Documents\tebunko_ws</code>、［8 設定］で変えたときはその場所である（<a href="#データの置き場所settingconfigwork">データの置き場所</a>）。以前の版はツールのフォルダの <code>work</code> に置いていたため、この書き方を残している。開発用のリポジトリ直下の <code>work/</code>（<code>work/test/</code>・<code>work/release/</code>・<code>work/site/</code> など、git 管理外）は別のもの。</p>
+</div>
 <table>
 <thead>
 <tr>
@@ -2696,7 +2700,7 @@
 <tbody>
 <tr>
 <td><code>work/index/</code></td>
-<td>インデックス。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（<code>content.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> 6.1）</td>
+<td>インデックス。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの集約ファイル（<code>content.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると集約ファイルに入れて消す（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a> <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>）</td>
 </tr>
 <tr>
 <td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
@@ -2704,11 +2708,11 @@
 </tr>
 <tr>
 <td><code>work/system_index/</code></td>
-<td>システムインデックス（高速検索用。<code>work/index</code> の中のフォルダごとの 2-gram の txt。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a> 6.8）。Windows Search に索引させる</td>
+<td>システムインデックス（高速検索用。<code>work/index</code> の中のフォルダごとの 2-gram の txt。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a> <a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）。Windows Search に索引させる</td>
 </tr>
 <tr>
 <td><code>work/システムインデックスの状態.tsv</code></td>
-<td>システムインデックスの状態（対応済み・反映待ち・対象外。同 6.8）</td>
+<td>システムインデックスの状態（対応済み・反映待ち・対象外。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）</td>
 </tr>
 <tr>
 <td><code>work/取り込み一覧.tsv</code></td>
@@ -2854,7 +2858,7 @@
 </table>
 <p>各設定の意味は、使用する処理の設計書に記載する（クロール対象フォルダ → <a href="../../indexer/">インデックス作成（インデクサ）</a>、検索対象インデックス → <a href="../../search/">検索</a>、画面での扱い → <a href="../settings-file/#画面での読み書き">設定ファイル（setting.config）</a>）。</p>
 <h2 id="データの置き場所settingconfigwork">データの置き場所（<code>setting.config</code>・<code>work/</code>）<a class="headerlink" href="#データの置き場所settingconfigwork" title="Permanent link">&para;</a></h2>
-<p>ツールを書き込めない場所（<code>C:\Program Files</code>、読み取り専用の共有フォルダ）に置いても動くよう、また、インデックス（元の文書の本文を持つ。<a href="../../../safety/">安全性の要約</a> の 4.3）をアクセス権を絞ったフォルダや容量のあるドライブに置けるよう、データの置き場所をツールのフォルダと分けられるようにしている。</p>
+<p>ツールを書き込めない場所（<code>C:\Program Files</code>、読み取り専用の共有フォルダ）に置いても動くよう、また、インデックス（元の文書の本文を持つ。<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）をアクセス権を絞ったフォルダや容量のあるドライブに置けるよう、データの置き場所をツールのフォルダと分けられるようにしている。</p>
 <table>
 <thead>
 <tr>
@@ -2877,15 +2881,15 @@
 <tr>
 <td><code>$workspace.Dir</code></td>
 <td><code>setting.config</code> の <code>workspaceFolder</code>（<a href="../settings-file/#形式">形式</a>）。空なら既定の <code>%USERPROFILE%\Documents\tebunko_ws</code>（<code>getDefaultWorkDir</code>。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents）</td>
-<td><code>scripts/tebunko/core/paths.ps1</code>（<code>getWorkDir</code>）</td>
+<td><code>scripts/tebunko/core/settings.ps1</code>（<code>getWorkDir</code>）</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a> 4.4）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>index</code> か <code>取り込み一覧.tsv</code> がある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
-<li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../settings-file/#8-設定タブ">［8 設定］タブ</a>）。</li>
+<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a> <a href="../../search/fast-search/">高速検索（Windows Search）</a>）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>index</code> か <code>取り込み一覧.tsv</code> がある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
+<li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。</li>
 <li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
-<li>置き場所を変えると、今の <code>work/</code> の中身（tebunko が作るファイル・フォルダだけ。<code>Workspace.Entries</code>）を新しい場所へ移す（<code>moveWorkspace</code>）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）も、移した先のインデックスに付け替える（<code>moveSearchExcludes</code>）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（<a href="../settings-file/#8-設定タブ">［8 設定］タブ</a>）。</li>
+<li>置き場所を変えると、今の <code>work/</code> の中身（tebunko が作るファイル・フォルダだけ。<code>Workspace.Entries</code>）を新しい場所へ移す（<code>moveWorkspace</code>）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）も、移した先のインデックスに付け替える（<code>moveSearchExcludes</code>）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。</li>
 <li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workspace.Dir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
 <li><code>$rootDir</code> が書き込めるかは読み込むたびに調べる。書き込めない場所から書き込める場所に戻すと、設定は <code>$rootDir</code> 直下のものに戻る。</li>
 </ul>

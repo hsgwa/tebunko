@@ -2394,8 +2394,8 @@
 <li>パスワード付きの <code>.docx</code> <code>.pptx</code> は暗号化されて ZIP ではなくなるため、この経路で Word・PowerPoint に開かせ、例外として取り込み一覧に「失敗」と記録する。</li>
 </ul>
 <blockquote>
-<p><strong>4.5 Word の旧形式の変換（<code>extractWithWord</code>）</strong> → <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a></p>
-<p><strong>4.6 PowerPoint の旧形式の変換（<code>extractWithPowerPoint</code>）</strong> → <a href="../powerpoint/#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a></p>
+<p><strong><a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a> Word の旧形式の変換（<code>extractWithWord</code>）</strong> → <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a></p>
+<p><strong><a href="../powerpoint/#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a> PowerPoint の旧形式の変換（<code>extractWithPowerPoint</code>）</strong> → <a href="../powerpoint/#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a></p>
 </blockquote>
 <h2 id="wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り（<code>scripts/shared/office/office_reader.ps1</code>）<a class="headerlink" href="#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1" title="Permanent link">&para;</a></h2>
 <p><code>.docx</code> <code>.pptx</code> を ZIP として開き（<code>System.IO.Compression</code>）、XML を <code>XmlReader</code> で先頭から順に読む（<code>readXmlLines</code>）。Word（WordprocessingML、<code>w:</code>）と PowerPoint（DrawingML、<code>a:</code>）で同じ処理を使い、名前空間だけを切り替える。</p>
@@ -2442,9 +2442,9 @@
 <li>どの XML をどの場所（TSV）として読むかは、<a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>（Word）・<a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>（PowerPoint）を参照。</li>
 </ul>
 <blockquote>
-<p><strong>6.5 Word のテキスト読み取りと TSV の場所（<code>readDocxUnits</code>）</strong> → <a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a></p>
-<p><strong>6.6 PowerPoint のテキスト読み取りと TSV の場所（<code>readPptxUnits</code>）</strong> → <a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a></p>
-<p><strong>6.7 Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）</strong> → <a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a></p>
+<p><strong><a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a> Word のテキスト読み取りと TSV の場所（<code>readDocxUnits</code>）</strong> → <a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a></p>
+<p><strong><a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a> PowerPoint のテキスト読み取りと TSV の場所（<code>readPptxUnits</code>）</strong> → <a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a></p>
+<p><strong><a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a> Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）</strong> → <a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a></p>
 </blockquote>
 <h2 id="失敗の原因describeingesterror">失敗の原因（<code>describeIngestError</code>）<a class="headerlink" href="#失敗の原因describeingesterror" title="Permanent link">&para;</a></h2>
 <p>取り込みに失敗したファイルは、取り込み一覧のエラー列に<strong>失敗の原因</strong>を記録する。画面の［1 インデックス管理］タブには、失敗したファイルと原因を一覧で表示する（<a href="../../gui/index-tab/">［1 インデックス管理］タブ</a> No.8）。</p>
@@ -2551,7 +2551,7 @@
 </tr>
 <tr>
 <td>制限時間の監視</td>
-<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>startWatchdog</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>updateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（4.2「強制終了・時間切れからの再開」）。ほかのレーンのアプリは止めない。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> のときだけ終了させる</td>
+<td>監視のスレッドは Excel・Word・PowerPoint のレーンのスレッドごとに 1 つ（<code>startWatchdog</code>。読み取りのスレッドは持たない）。<code>getApp</code> / <code>stopApp</code> のたびに、そのスレッドが自分で起動したアプリの PID を監視スレッドに渡す（<code>updateWatchedPids</code>）。1 ファイルの制限時間を過ぎたら、監視スレッドがそれらを強制終了する（<a href="../flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>「強制終了・時間切れからの再開」）。ほかのレーンのアプリは止めない。PID が別のプロセスに再利用されている場合に備え、プロセス名が <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code> のときだけ終了させる</td>
 </tr>
 <tr>
 <td>PowerPoint</td>

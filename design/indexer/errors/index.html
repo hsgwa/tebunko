@@ -2353,7 +2353,7 @@
 </table>
 <p>メッセージ中の <code>&lt;…&gt;</code> は実行時に埋め込む値。</p>
 <h2 id="続けられないエラー">続けられないエラー<a class="headerlink" href="#続けられないエラー" title="Permanent link">&para;</a></h2>
-<p><code>invokeIndexer</code> が例外を受け、例外のメッセージをそのままログと受け渡しの口の <code>Error</code> に入れて終了コード <code>1</code> で終える（<a href="../flow/">処理の流れと取り込み一覧</a> 4.1）。<code>describeIngestError</code>（<a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）は通さない。画面は終わったインデックス作成の <code>Error</code> を読んで表示する（<code>IndexingSession.GetError</code>）。
+<p><code>invokeIndexer</code> が例外を受け、例外のメッセージをそのままログと受け渡しの口の <code>Error</code> に入れて終了コード <code>1</code> で終える（<a href="../flow/">処理の流れと取り込み一覧</a> <a href="../flow/#メインフロー">メインフロー</a>）。<code>describeIngestError</code>（<a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）は通さない。画面は終わったインデックス作成の <code>Error</code> を読んで表示する（<code>IndexingSession.GetError</code>）。
 インデックス作成中にクロール対象フォルダが見つからなくなった場合だけは、<code>finally</code>（アプリの終了・取り込み一覧の書き直し）を確実に通すため、例外にせずに <code>Error</code> にメッセージを入れて終了コード <code>1</code> で終わる。</p>
 <table>
 <thead>
@@ -2449,7 +2449,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>(2) 例外から <code>describeIngestError</code> が言い換えるもの</strong>（判定条件は 4.7）</p>
+<p><strong>(2) 例外から <code>describeIngestError</code> が言い換えるもの</strong>（判定条件は <a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）</p>
 <table>
 <thead>
 <tr>
@@ -2560,19 +2560,19 @@
 </tr>
 <tr>
 <td><code>取り込み中に &lt;N&gt; 回続けて強制終了したファイルは、失敗としてスキップします: &lt;相対パス&gt;</code></td>
-<td>同じファイルで続けて強制終了した。4.8.2 のメッセージで失敗にする</td>
+<td>同じファイルで続けて強制終了した。<a href="#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）</a> のメッセージで失敗にする</td>
 </tr>
 <tr>
 <td><code>&lt;シート名&gt; の使用範囲を縮められませんでした: &lt;メッセージ&gt;</code></td>
-<td>使用範囲がデータよりずっと広いシートで、一時シートを作れなかった（ブックの構成が保護されている等。<a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a> 4.3）。そのシートはそのまま書き出す（時間切れで失敗することがある）</td>
+<td>使用範囲がデータよりずっと広いシートで、一時シートを作れなかった（ブックの構成が保護されている等。<a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a> <a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>）。そのシートはそのまま書き出す（時間切れで失敗することがある）</td>
 </tr>
 <tr>
 <td><code>図形・コメントを読み取れませんでした: &lt;メッセージ&gt;</code></td>
-<td>新形式（ZIP）のブックの図形・コメントを読めなかった（ZIP・XML が壊れている等。<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a> 6.7）。セルの値は取り込む（図形・コメントの文字は検索できない）</td>
+<td>新形式（ZIP）のブックの図形・コメントを読めなかった（ZIP・XML が壊れている等。<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a> <a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。セルの値は取り込む（図形・コメントの文字は検索できない）</td>
 </tr>
 <tr>
 <td><code>取り込みに失敗しました: &lt;原因&gt;</code></td>
-<td>1 ファイルの取り込みに失敗した（原因は 4.8.2 のメッセージ）</td>
+<td>1 ファイルの取り込みに失敗した（原因は <a href="#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）</a> のメッセージ）</td>
 </tr>
 <tr>
 <td><code>中止の要求を受けたため、インデックス作成を中止します。（残り &lt;N&gt; 件は次回取り込みします）</code></td>
@@ -2580,7 +2580,7 @@
 </tr>
 <tr>
 <td><code>&lt;アプリ名&gt; の終了に失敗しました: &lt;メッセージ&gt;</code></td>
-<td>Excel・Word・PowerPoint を終了できなかった。［9 プロセス停止］で終了する</td>
+<td>Excel・Word・PowerPoint を終了できなかった。［9 プロセス停止］で終了する。<strong>注</strong>: 今の実装（<code>shared/office/office_app.ps1</code> の <code>Write-Host</code>）ではログに残らず、取り込みのスレッドからは表示もされない</td>
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>
