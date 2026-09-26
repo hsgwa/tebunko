@@ -1,5 +1,5 @@
 ﻿# 画面の土台（XAML の読み込み・見た目の共通定義・エラーの記録）。
-# 使う側が themeFile・iconFile・guiErrorLogFile を定義しておくこと。
+# 使う側が themeFile・iconFile と、エラーの記録先を返す関数 getGuiErrorLogFile を定義しておくこと。
 
 # 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
 function loadTheme {
@@ -54,7 +54,7 @@ function themeBrush {
     return (loadTheme)[$key]
 }
 
-# 予期しないエラーを work\画面エラー.txt に残す。画面に出したメッセージだけでは、
+# 予期しないエラーを getGuiErrorLogFile のファイルに残す。画面に出したメッセージだけでは、
 # どこで起きたのかが後から分からないため（利用者に見せるのは従来どおりメッセージだけ）
 function writeErrorLog {
     param (
@@ -63,8 +63,10 @@ function writeErrorLog {
     )
 
     try {
-        if (-not (Test-Path -LiteralPath ${workDir})) {
-            New-Item -ItemType Directory -Force -Path ${workDir} | Out-Null
+        $path = getGuiErrorLogFile
+        $dir = Split-Path -Parent $path
+        if (-not (Test-Path -LiteralPath $dir)) {
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
         }
         $text = @(
             "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ${context} ===="
@@ -74,7 +76,7 @@ function writeErrorLog {
             if ($record.Exception.InnerException) { "内側: $($record.Exception.InnerException)" }
             ""
         ) -join "`r`n"
-        [System.IO.File]::AppendAllText(${guiErrorLogFile}, $text, (New-Object System.Text.UTF8Encoding($true)))
+        [System.IO.File]::AppendAllText($path, $text, (New-Object System.Text.UTF8Encoding($true)))
     } catch {
         # 記録できなくても、画面の動作は止めない
     }

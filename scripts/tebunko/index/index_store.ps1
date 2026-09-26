@@ -4,7 +4,7 @@ function getIndexNameMap {
     # 取り込み一覧に記録したインデックス名 → クロール対象フォルダのパス（大文字・小文字を区別しない）。
     # クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る（取り込み一覧が大きくても時間がかからないように）
     param (
-        [string]$path = ${statusFile}
+        [string]$path = $workspace.StatusFile
     )
 
     $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -77,8 +77,8 @@ function renameIndex {
     param (
         [string]$oldName,
         [string]$newName,
-        [string]$dir = ${indexDir},
-        [string]$statusPath = ${statusFile}
+        [string]$dir = $workspace.IndexDir,
+        [string]$statusPath = $workspace.StatusFile
     )
 
     # 大文字・小文字だけの変更も改名するため、同じ名前かは大文字・小文字を区別して比べる（-ceq）
@@ -111,8 +111,8 @@ function removeIndex {
     # インデックス作成中は呼ばない（画面はインデックス作成中この操作を無効にする）
     param (
         [string]$name,
-        [string]$dir = ${indexDir},
-        [string]$statusPath = ${statusFile}
+        [string]$dir = $workspace.IndexDir,
+        [string]$statusPath = $workspace.StatusFile
     )
 
     if ($name -eq "") {
@@ -137,9 +137,9 @@ function removeSystemIndexOfWorkspace {
         [string]$dir
     )
 
-    $workspace = [System.IO.Path]::GetDirectoryName($dir.TrimEnd("\"))
+    $owner = [Workspace]::new([System.IO.Path]::GetDirectoryName($dir.TrimEnd("\")))
     try {
-        [void](removeSystemIndexOf $name ([System.IO.Path]::Combine($workspace, [System.IO.Path]::GetFileName(${systemIndexDir}))) ([System.IO.Path]::Combine($workspace, [System.IO.Path]::GetFileName(${systemIndexStateFile}))))
+        [void](removeSystemIndexOf $name $owner.SystemIndexDir $owner.SystemIndexStateFile)
     } catch {
     }
 }
@@ -150,8 +150,8 @@ function getSearchIndexes {
     # 並びは［1 インデックス管理］の一覧（targetFolders）と同じにし、その一覧に無いもの
     # （別の場所・PC から work\index にコピーしたインデックスなど）は名前順で後ろに付ける
     param (
-        [string]$dir = ${indexDir},
-        [string]$statusPath = ${statusFile},
+        [string]$dir = $workspace.IndexDir,
+        [string]$statusPath = $workspace.StatusFile,
         [string]$settingsPath = ${settingsFile}
     )
 
@@ -220,7 +220,7 @@ function getIndexTsvCounts {
     # 電源が落ちた場合などに限られ、そのままでは検索しても中身が出てこない。
     # 列挙できないとき（アクセス権が無い等）は $null を返す（呼び出し元は確認しない）
     param (
-        [string]$dir = ${indexDir}
+        [string]$dir = $workspace.IndexDir
     )
 
     $counts = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)

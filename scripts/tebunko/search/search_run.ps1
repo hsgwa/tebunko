@@ -106,17 +106,19 @@ function newSearchRequest {
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
     #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・FastUsed / FastAvailable・Truncated / Cancelled / Error・Finished
+    #   workDir: 高速検索で使うワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
         [bool]$simpleMatch,
         $folders,
         [int]$limit,
         [hashtable]$option = @{},
-        [bool]$useFast = $false
+        [bool]$useFast = $false,
+        [string]$workDir = $workspace.Dir
     )
 
     return [hashtable]::Synchronized(@{
-        Word = $word; SimpleMatch = $simpleMatch; Folders = $folders; Limit = $limit
+        Word = $word; SimpleMatch = $simpleMatch; Folders = $folders; Limit = $limit; WorkDir = $workDir
         CaseSensitive = [bool]$option.CaseSensitive; FileFilter = [string]$option.FileFilter
         IncludeShapes = ($option.IncludeShapes -ne $false); IncludeComments = ($option.IncludeComments -ne $false)
         UseFast = $useFast; FastUsed = $false; FastAvailable = $null
@@ -147,9 +149,11 @@ function invokeSearchRequest {
         # 高速検索が使えるなら、Windows Search で検索語を含みうるフォルダを先に絞る（使えなければ $null で、すべてを集める）
         $index = $null
         if ($request.UseFast) {
-            $request.FastAvailable = testWindowsSearch
+            $own = [Workspace]::new($request.WorkDir)
+            $request.FastAvailable = testWindowsSearch $own.SystemIndexDir
             if ($request.FastAvailable) {
-                $index = getFastSearchPackFiles $word $folders -onProgress { param ($count) $request.Scanned = $count }
+                $index = getFastSearchPackFiles $word $folders -indexRoot $own.IndexDir -systemRoot $own.SystemIndexDir -statePath $own.SystemIndexStateFile `
+                    -onProgress { param ($count) $request.Scanned = $count }
             }
         }
         $request.FastUsed = ($null -ne $index)
@@ -183,7 +187,7 @@ function invokeSearchRequest {
 function testIndexExists {
     # 検索対象インデックスに集約ファイルが1件でもあるか（最初の1件が見つかった時点で打ち切る）
     param (
-        [string[]]$folders = @(${indexDir})
+        [string[]]$folders = @($workspace.IndexDir)
     )
 
     foreach ($dir in $folders) {
@@ -208,7 +212,7 @@ function testIndexExists {
 function getIndexSummary {
     # 検索対象インデックスの集約ファイルの件数と最新の更新日時を返す: @{ Count; LastWrite（無ければ $null）; Missing（存在しないフォルダ） }
     param (
-        [string[]]$folders = @(${indexDir})
+        [string[]]$folders = @($workspace.IndexDir)
     )
 
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)

@@ -407,6 +407,7 @@ Describe "exportResults" -Tag Io {
     It "表示中の行を検索結果.txt に書き出して開く" {
         $workDir = "$TestDrive\export\work"
         $resultFile = "$workDir\検索結果.txt"
+        $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = @{ Word = "りんご" }
         $script:hitCount = 2
         Mock getViewRows { , $hits }
@@ -423,6 +424,7 @@ Describe "exportResults" -Tag Io {
     It "前回の検索結果.txt は追記せずに置き換え、BOM 付き UTF-8 で書く（0 件でも書き出す）" {
         $workDir = "$TestDrive\export_empty\work"
         $resultFile = "$workDir\検索結果.txt"
+        $workspace = newTestWorkspace @{} $workDir
         [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
         [System.IO.File]::WriteAllText($resultFile, "前回の結果`r`n前回の結果`r`n前回の結果`r`n前回の結果`r`n")
         $script:lastSearch = @{ Word = "無い言葉" }
@@ -442,6 +444,7 @@ Describe "exportResults" -Tag Io {
     It "絞り込んでいれば、絞り込み後の件数を知らせる" {
         $workDir = "$TestDrive\export_filtered\work"
         $resultFile = "$workDir\検索結果.txt"
+        $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = @{ Word = "りんご" }
         $script:hitCount = 1234
         Mock getViewRows { , $hits }
@@ -454,6 +457,7 @@ Describe "exportResults" -Tag Io {
     It "検索結果.txt をほかのアプリが開いていれば、閉じるよう知らせる" {
         $workDir = "$TestDrive\export_locked\work"
         $resultFile = "$workDir\検索結果.txt"
+        $workspace = newTestWorkspace @{} $workDir
         [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
         $script:lastSearch = @{ Word = "りんご" }
         Mock getViewRows { , $hits }
@@ -472,6 +476,7 @@ Describe "exportResults" -Tag Io {
     It "検索結果.txt が読み取り専用なら、予期しないエラーにせず、読み取り専用を外すよう知らせる" {
         $workDir = "$TestDrive\export_readonly\work"
         $resultFile = "$workDir\検索結果.txt"
+        $workspace = newTestWorkspace @{} $workDir
         [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
         [System.IO.File]::WriteAllText($resultFile, "前回の結果")
         [System.IO.File]::SetAttributes($resultFile, "ReadOnly")

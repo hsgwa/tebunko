@@ -375,7 +375,7 @@ function testDefaultWorkspace {
         return $result
     }
     $names = @([System.IO.Directory]::EnumerateFileSystemEntries($folder) | Select-Object -First 1000 | ForEach-Object { [System.IO.Path]::GetFileName($_) })
-    if ($names.Count -eq 0 -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName(${statusFile}))) {
+    if ($names.Count -eq 0 -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
         return $result
     }
     $result.Usable = $false
@@ -387,7 +387,7 @@ function getWorkspaceBlockMessage {
     # 今のワークスペースが既定の場所で、そこにほかのファイルが置いてあるなら、その文言（使えるなら空）。
     # インデックスのファイルと混ざるため、インデックス作成を始めず、［8 設定］で別のフォルダを選んでもらう
     param (
-        [string]$current = ${workDir},
+        [string]$current = $workspace.Dir,
         [string]$defaultDir = (getDefaultWorkDir)
     )
 

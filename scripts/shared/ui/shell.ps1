@@ -154,7 +154,7 @@ function safe {
     } catch {
         writeErrorLog "画面の操作中" $_
         setStatus "エラーが発生しました：$($_.Exception.Message)"
-        showMessage "エラーが発生しました。`n$($_.Exception.Message)`n`n詳しい内容は $(Split-Path -Leaf ${guiErrorLogFile}) に残しています。" "OK" "Error" | Out-Null
+        showMessage "エラーが発生しました。`n$($_.Exception.Message)`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。" "OK" "Error" | Out-Null
     }
 }
 

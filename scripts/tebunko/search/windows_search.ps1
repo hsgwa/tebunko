@@ -44,7 +44,7 @@ function invokeWindowsSearch {
 function testWindowsSearch {
     # 高速検索に使えるか: Windows Search を開けて、system_index が索引の対象か（フォルダ自体が SystemIndex に入っている）
     param (
-        [string]$systemRoot = ${systemIndexDir}
+        [string]$systemRoot = $workspace.SystemIndexDir
     )
 
     if (![System.IO.Directory]::Exists((toLongPath $systemRoot))) {
@@ -69,7 +69,7 @@ function testTsvIndexedByWindowsSearch {
     # 本文インデックス（index の TSV）が Windows Search に索引されているか（利用者が対象から外していないか）。
     # 外していなくても結果は正しいが、txt の索引が遅くなるため、画面で案内を出すのに使う
     param (
-        [string]$indexRoot = ${indexDir}
+        [string]$indexRoot = $workspace.IndexDir
     )
 
     $connection = openWindowsSearch
