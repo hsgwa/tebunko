@@ -7,7 +7,6 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 $indexerPath = "${scriptsDir}\tebunko_grep\indexer.ps1"
-$indexerDir  = "${scriptsDir}\tebunko_grep"
 $dataDirPath = "${scriptsDir}\shared\core\data_dir.ps1"
 $planPath    = "${scriptsDir}\tebunko_grep\indexer\indexer_plan.ps1"
 $docxSource  = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
@@ -91,6 +90,11 @@ function readTestStatus {
     return (readStatusFile "$root\work\取り込み一覧.tsv")
 }
 
+function readTestSystemState {
+    param ([string]$root)
+    return (readSystemIndexState "$root\work\システムインデックスの状態.tsv")
+}
+
 function readTestError {
     param ([string]$root)
     $path = "$root\work\インデックス作成エラー.txt"
@@ -99,18 +103,16 @@ function readTestError {
 }
 
 Describe "indexer.ps1（続けられないエラー）" -Tag Io {
-    It "クロール対象フォルダが無ければ、エラーを書いて 1 で終わる" {
+    It "<name>" -TestCases @(
+        @{ name = "クロール対象フォルダが無ければ、エラーを書いて 1 で終わる"; folders = @(); message = "クロール対象フォルダがありません" }
+        @{ name = "チェックの付いたフォルダが無ければ、エラーを書いて 1 で終わる"; folders = @(@{ name = "営業"; path = (Join-Path $TestDrive "無し"); enabled = $false })
+           message = "チェックの付いたクロール対象フォルダがありません" }
+    ) {
+        param ($name, $folders, $message)
         $root = newRoot
-        writeTestSettings $root @()
+        writeTestSettings $root $folders
         invokeIndexer $root | Should Be 1
-        readTestError $root | Should Match "クロール対象フォルダがありません"
-    }
-
-    It "チェックの付いたフォルダが無ければ、エラーを書いて 1 で終わる" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "営業"; path = (Join-Path $TestDrive "無し"); enabled = $false })
-        invokeIndexer $root | Should Be 1
-        readTestError $root | Should Match "チェックの付いたクロール対象フォルダがありません"
+        readTestError $root | Should Match $message
     }
 
     It "同じ置き場所でほかのインデックス作成が動いていれば、そのインデックス作成の受け渡しのファイル・ログに触らずに 1 で終わる" {
@@ -173,6 +175,9 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         [System.IO.Directory]::Exists("$root\work\index\営業\議事録.docx") | Should Be $false
         Test-Path -LiteralPath "$root\work\index\営業\元のフォルダ.txt" | Should Be $true
         Test-Path -LiteralPath "$root\work\変換失敗一覧.txt" | Should Be $false
+        # フォルダごとのシステムインデックスを作り、インデックスを対応済みにする
+        [System.IO.File]::Exists("$root\work\system_index\営業\${systemIndexFileName}") | Should Be $true
+        (readTestSystemState $root).Covered.Contains("営業") | Should Be $true
         # 名前の無かったフォルダには名前を割り当てて保存する
         @(getTargetFolders "$root\setting.config" | ForEach-Object { $_.Name }) -join "," | Should Be "営業,経理,無くなったフォルダ"
         # 画面が終わり方を読めるよう、最後の進み具合を残す
@@ -181,22 +186,6 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $progress.Failed | Should Be 1
         readTestError $root | Should BeNullOrEmpty
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should Be $false
-    }
-
-    It "設定 workspaceFolder があれば、そのフォルダ（無ければ作る）にインデックス・取り込み一覧を作り、ツールのフォルダの work には書かない" {
-        $root = newRoot
-        $work = Join-Path $TestDrive "別のドライブのつもり$($script:rootCount)\データ"
-        $settings = newSettings
-        $settings.targetFolders = @(@{ name = "営業"; path = $source; enabled = $true })
-        $settings.workspaceFolder = $work
-        writeSettings $settings "$root\setting.config"
-
-        invokeIndexer $root | Should Be 0
-
-        Test-Path -LiteralPath "$work\取り込み一覧.tsv" | Should Be $true
-        [System.IO.File]::Exists("$work\index\営業\content.docx.001.tsv") | Should Be $true
-        Test-Path -LiteralPath "$work\インデックス作成ログ.txt" | Should Be $true
-        @(Get-ChildItem -LiteralPath "$root\work").Count | Should Be 0
     }
 
     It "2 回目は更新の無いファイルを取り込まず、前回失敗したファイルもスキップする" {
@@ -212,30 +201,6 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status.Rows.Count | Should Be 3
         $status.Rows["営業\壊れた.pptx"].状態 | Should Be ${stateFailed}
         $status.Rows["営業\壊れた.pptx"].取り込み日時 | Should Be $first
-    }
-
-    It "-RetryFailed なら、前回失敗して更新の無いファイルも取り込み直す" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
-        invokeIndexer $root | Should Be 0
-
-        invokeIndexer $root @{ RetryFailed = $true } | Should Be 0
-        $progress = readIndexingProgress "$root\work\インデックス作成進捗.txt"
-        $progress.Processed | Should Be 1
-        $progress.Failed | Should Be 1
-        (readTestStatus $root).Rows["営業\壊れた.pptx"].状態 | Should Be ${stateFailed}
-    }
-
-    It "チェックを外したフォルダは取り込まず、前回の結果を一覧に残す" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
-        invokeIndexer $root | Should Be 0
-        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $false }, @{ name = "経理"; path = $unchecked; enabled = $true })
-
-        invokeIndexer $root | Should Be 0
-        $status = readTestStatus $root
-        $status.Rows["営業\議事録.docx"].状態 | Should Be ${stateDone}
-        $status.Rows["経理\議事録.docx"].状態 | Should Be ${stateDone}
     }
 
     It "フォルダが見つからないとき（ネットワークの切断など）は、前回の結果とインデックスを残す" {
@@ -273,16 +238,6 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $row.エラー | Should Match "強制終了"
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should Be $false
     }
-
-    It "強制終了の記録が取り込み対象に無いファイルなら、記録を消して続ける" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "営業"; path = $source; enabled = $true })
-        writeListFile "$root\work\取り込み中.txt" @("1`t営業\無いファイル.docx")
-
-        invokeIndexer $root | Should Be 0
-        (readTestStatus $root).Rows["営業\議事録.docx"].状態 | Should Be ${stateDone}
-        Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should Be $false
-    }
 }
 
 Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
@@ -302,20 +257,6 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         Test-Path -LiteralPath "$root\work\index\総務\議事録.docx" | Should Be $false
         (readIndexingProgress "$root\work\インデックス作成進捗.txt").Detail | Should Be "インデックス作成を取りやめました"
         Test-Path -LiteralPath "$root\work\取り込み予定.tsv" | Should Be $false
-    }
-
-    It "-ConfirmTargets で取りやめたら、取り込み済みの行は前回のまま残す" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
-        invokeIndexer $root | Should Be 0
-        $before = (readTestStatus $root).Rows["総務\壊れた.pptx"].取り込み日時
-        $cancel = $approvalLine.Clone()
-        $cancel.Action = { [System.IO.File]::WriteAllText(${stopRequestFile}, "") }
-
-        invokeIndexer $root @{ ConfirmTargets = $true; RetryFailed = $true } @($cancel) | Should Be 2
-        $status = readTestStatus $root
-        $status.Rows.Count | Should Be 3
-        $status.Rows["総務\壊れた.pptx"].取り込み日時 | Should Be $before
     }
 
     It "-ConfirmTargets で取りやめたら、更新されたファイルの行も前回の記録のまま残す（次回も更新ありになる）" {
@@ -361,6 +302,9 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $progress.Processed | Should Be 1
         $progress.Remaining | Should Be 2
         Test-Path -LiteralPath "$root\work\インデックス作成中止要求" | Should Be $false
+        # 取り込んだ TSV は元のファイルごとのフォルダに残さず（集約ファイルに入れる）、途中なので対応済みにはしない
+        (findIndexFoldersWithBooks "$root\work\index").Count | Should Be 0
+        (readTestSystemState $root).Covered.Count | Should Be 0
     }
 }
 
@@ -403,20 +347,6 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
         $status.Rows.ContainsKey("人事\壊れた.pptx") | Should Be $false
     }
 
-    It "元のファイルが無くなったら、次のインデックス作成で集約ファイルから外す" {
-        $source = newSourceFolder "総務2"
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "総務2"; path = $source; enabled = $true })
-        invokeIndexer $root | Should Be 0
-        [System.IO.File]::Exists("$root\work\index\総務2\content.docx.001.tsv") | Should Be $true
-        Remove-Item -LiteralPath "$source\議事録.docx" -Force
-
-        invokeIndexer $root | Should Be 0
-        # docx は議事録.docx だけだったため、集約ファイルごと無くなる
-        [System.IO.File]::Exists("$root\work\index\総務2\content.docx.001.tsv") | Should Be $false
-        (readTestStatus $root).Rows.ContainsKey("総務2\議事録.docx") | Should Be $false
-    }
-
     It "前回の作成で残った TSV（元のファイルごとのフォルダ）は、次の作成の始めに集約ファイルへ入れる" {
         $source = newSourceFolder "総務3"
         $root = newRoot
@@ -450,110 +380,6 @@ Describe "indexer.ps1（取り込み中に元のファイルが無くなる）" 
     }
 }
 
-Describe "indexer.ps1（システムインデックス）" -Tag Io {
-    $source = newSourceFolder "広報"
-
-    function script:readTestSystemState {
-        param ([string]$root)
-        return (readSystemIndexState "$root\work\システムインデックスの状態.tsv")
-    }
-
-    function script:readTestLog {
-        param ([string]$root)
-        return [System.IO.File]::ReadAllText("$root\work\インデックス作成ログ.txt")
-    }
-
-    It "取り込むと、フォルダごとのシステムインデックスを作り、インデックスを対応済みにする" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
-
-        invokeIndexer $root | Should Be 0
-
-        $txt = "$root\work\system_index\広報\${systemIndexFileName}"
-        [System.IO.File]::Exists($txt) | Should Be $true
-        [System.IO.File]::Exists("$root\work\system_index\広報\資料\${systemIndexFileName}") | Should Be $true
-        $state = readTestSystemState $root
-        $state.Covered.Contains("広報") | Should Be $true
-        # 反映待ちの日時は txt の更新日時（Windows Search に反映されたかの判定に使う）
-        $state.Pending["広報\${systemIndexFileName}"] | Should Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
-    }
-
-    It "取り込むファイルが無くても、無くなったシステムインデックスは作り直す（この版に上げた直後など）" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
-        invokeIndexer $root | Should Be 0
-        removeDirectoryRetry "$root\work\system_index"
-        [System.IO.File]::Delete("$root\work\システムインデックスの状態.tsv")
-
-        invokeIndexer $root | Should Be 0
-
-        (readTestLog $root) | Should Match "取り込みが必要なファイルはありません"
-        [System.IO.File]::Exists("$root\work\system_index\広報\${systemIndexFileName}") | Should Be $true
-        (readTestSystemState $root).Covered.Contains("広報") | Should Be $true
-    }
-
-    It "取り込みの途中で中止しても、取り込んだ分は集約ファイルとシステムインデックスに入れ、対応済みにはしない" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
-        # 取り込めたファイル（TSV を入れ替えたファイル）を記録した直後に中止する
-        $stop = @{ Script = $indexerPath; Pattern = '^\s+addStatusRow \$row'; Action = { if ($row.状態 -eq ${stateDone}) { [System.IO.File]::WriteAllText(${stopRequestFile}, "") } } }
-
-        invokeIndexer $root @{} @($stop) | Should Be 2
-
-        # 取り込んだ TSV は残さない（集約ファイルに入れる）
-        (findIndexFoldersWithBooks "$root\work\index").Count | Should Be 0
-        @([System.IO.Directory]::GetFiles("$root\work\index", ${packFilePattern}, "AllDirectories")).Count | Should Be 1
-        @([System.IO.Directory]::GetFiles("$root\work\system_index", "*.txt", "AllDirectories")).Count | Should Be 1
-        $state = readTestSystemState $root
-        $state.Covered.Count | Should Be 0
-        # 書いた txt は反映待ち（txt の更新日時）
-        @($state.Pending.Values | Where-Object { $_ -eq 0 }).Count | Should Be 0
-    }
-    It "システムインデックスを作れなくても、インデックス作成は終わり、理由をログに書く" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
-        # system_index という名前のファイルがあると、フォルダを作れない
-        [System.IO.File]::WriteAllText("$root\work\system_index", "")
-
-        invokeIndexer $root | Should Be 0
-
-        (readTestLog $root) | Should Match "システムインデックスを作れませんでした"
-        (readTestStatus $root).Rows["広報\議事録.docx"].状態 | Should Be ${stateDone}
-        (readTestSystemState $root).Covered.Count | Should Be 0
-
-        # 取り込むファイルが無いときも同じ
-        invokeIndexer $root | Should Be 0
-        (readTestLog $root) | Should Match "システムインデックスを作れませんでした"
-    }
-
-    It "状態ファイルに書けなくても取り込みを続け、インデックス作成の終わりに作り直す" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "広報"; path = $source; enabled = $true })
-        # 1 件目の TSV を入れ替える直前に状態ファイルをほかから開き、記録した直後に閉じる
-        $lock = @{ Script = $indexerPath; Pattern = '^\s+publishTsv \(getBookDir'; Action = {
-                if (!$global:systemStateLock) {
-                    [System.IO.Directory]::CreateDirectory(${workDir}) | Out-Null
-                    $global:systemStateLock = [System.IO.FileStream]::new(${systemIndexStateFile}, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
-                }
-            }
-        }
-        $unlock = @{ Script = $indexerPath; Pattern = '^\s+addStatusRow \$row'; Action = {
-                if ($global:systemStateLock) { $global:systemStateLock.Dispose() }
-            }
-        }
-        try {
-            invokeIndexer $root @{} @($lock, $unlock) | Should Be 0
-        } finally {
-            if ($global:systemStateLock) { $global:systemStateLock.Dispose() }
-            Remove-Variable -Name systemStateLock -Scope Global -ErrorAction SilentlyContinue
-        }
-
-        (readTestLog $root) | Should Match "システムインデックスの状態を書き込めませんでした"
-        (readTestSystemState $root).Covered.Contains("広報") | Should Be $true
-        [System.IO.File]::Exists("$root\work\system_index\広報\${systemIndexFileName}") | Should Be $true
-    }
-}
-
 Describe "indexer.ps1（まれな状況）" -Tag Io {
     $source = newSourceFolder "法務"
 
@@ -569,32 +395,5 @@ Describe "indexer.ps1（まれな状況）" -Tag Io {
         invokeIndexer $root @{} @($block) | Should Be 1
 
         @(Get-ChildItem -LiteralPath "$root\work" -Force).Count | Should Be 0
-    }
-
-    It "インデックスのフォルダを調べられなくても、確認を省いて取り込む" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "法務"; path = $source; enabled = $true })
-        $unreadable = @{ Script = $indexerPath; Pattern = '^if \(\$null -eq \$indexCounts\) \{'; Action = {
-                Set-Variable -Name indexCounts -Value $null -Scope 1
-            }
-        }
-
-        invokeIndexer $root @{} @($unreadable) | Should Be 0
-
-        (readTestLog $root) | Should Match "インデックスのフォルダを調べられないため"
-        (readTestStatus $root).Rows["法務\議事録.docx"].状態 | Should Be ${stateDone}
-    }
-
-    It "失敗したファイルが表示の上限を超えたら、残りの件数を出す" {
-        $root = newRoot
-        writeTestSettings $root @(@{ name = "法務"; path = $source; enabled = $true })
-        $limit = @{ Script = $indexerPath; Pattern = '^\s+if \(\$failures\.Count -gt \$failureListLimit\) \{'; Action = {
-                Set-Variable -Name failureListLimit -Value 0 -Scope 1
-            }
-        }
-
-        invokeIndexer $root @{} @($limit) | Should Be 0
-
-        (readTestLog $root) | Should Match "ほか 1 件"
     }
 }

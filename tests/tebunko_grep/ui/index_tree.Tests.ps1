@@ -70,13 +70,8 @@ function getRoot([string]$name) {
 }
 
 Describe "読み込み" -Tag Unit {
-    It "ツリーに一覧をつなぎ、イベントを登録する" {
+    It "ツリーに一覧をつなぐ" {
         [object]::ReferenceEquals($ui.IndexTree.ItemsSource, $script:indexRoots) | Should Be $true
-        $handlers["IndexTree.Click"] -is [System.Windows.RoutedEventHandler] | Should Be $true
-        $handlers["IndexTree.Expanded"] -is [System.Windows.RoutedEventHandler] | Should Be $true
-        $handlers.ContainsKey("IndexTree.PreviewKeyDown") | Should Be $true
-        $handlers.ContainsKey("CheckAll.Click") | Should Be $true
-        $handlers.ContainsKey("UncheckAll.Click") | Should Be $true
     }
 }
 
@@ -93,14 +88,13 @@ Describe "describeSearchTargets" -Tag Unit {
         describeSearchTargets $targets | Should Be "営業部、総務部\2024（直下のファイル）"
     }
 
-    It "3 件までは並べる" {
-        $targets = @("A", "B", "C" | ForEach-Object { [SearchTarget]@{ RelPath = $_; Recurse = $true } })
-        describeSearchTargets $targets | Should Be "A、B、C"
-    }
-
-    It "4 件以上は先頭の 3 件と残りの数" {
-        $targets = @("A", "B", "C", "D", "E" | ForEach-Object { [SearchTarget]@{ RelPath = $_; Recurse = $true } })
-        describeSearchTargets $targets | Should Be "A、B、C ほか 2 か所"
+    It "<name>" -TestCases @(
+        @{ name = "3 件までは並べる"; names = @("A", "B", "C"); expected = "A、B、C" }
+        @{ name = "4 件以上は先頭の 3 件と残りの数"; names = @("A", "B", "C", "D", "E"); expected = "A、B、C ほか 2 か所" }
+    ) {
+        param ($name, $names, $expected)
+        $targets = @($names | ForEach-Object { [SearchTarget]@{ RelPath = $_; Recurse = $true } })
+        describeSearchTargets $targets | Should Be $expected
     }
 }
 

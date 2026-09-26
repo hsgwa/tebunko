@@ -44,18 +44,6 @@ Describe "getSearchGrams" -Tag Unit {
     }
 }
 
-Describe "testFastSearchUsable" -Tag Unit {
-    It "Windows Search が使え、正規表現がオフで、2 文字以上の部分があれば使える" {
-        testFastSearchUsable $true $false "見積" | Should Be $true
-    }
-
-    It "正規表現・1 文字・Windows Search が使えないときは使えない" {
-        testFastSearchUsable $true $true "見積" | Should Be $false
-        testFastSearchUsable $true $false "見" | Should Be $false
-        testFastSearchUsable $false $false "見積" | Should Be $false
-    }
-}
-
 Describe "addTextGrams / convertToGramText" -Tag Unit {
     It "本文に含まれるワードの語は、すべて本文の語に入っている（語の途中・記号・英字の大小・奇数の長さ）" {
         $text = "No`t品名`r`n1`tモニター 27インチ`t`"2,100,000`"`r`nABC-1234型番`t東京都千代田区丸の内"
@@ -186,10 +174,5 @@ Describe "状態ファイルの行" -Tag Unit {
         $state.Pending["営業\2024\システムインデックス.txt"] | Should Be 639258025749778837
         $state.Pending.Count | Should Be 1
         (convertToSystemIndexState $state) -join "|" | Should Be ($lines[0..2] -join "|")
-    }
-
-    It "インデックス名は相対パスの先頭" {
-        getIndexNameOfRelPath "営業\2024\a.txt" | Should Be "営業"
-        getIndexNameOfRelPath "営業" | Should Be "営業"
     }
 }

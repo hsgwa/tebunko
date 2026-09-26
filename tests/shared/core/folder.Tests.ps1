@@ -2,25 +2,55 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "normalizeFolderPath" -Tag Io {
-    It "前後の空白・引用符と末尾の \ を取り除き、ドライブ直下は \ を残す" {
-        normalizeFolderPath '  "C:\data\"  ' | Should Be "C:\data"
-        normalizeFolderPath "D:\" | Should Be "D:\"
-        normalizeFolderPath "D:" | Should Be "D:\"
-        normalizeFolderPath "\\server\share\" | Should Be "\\server\share"
-    }
-
-    It "/ を \ にそろえ、長いパス用の \\?\ ・ \\?\UNC\ を外す" {
-        normalizeFolderPath "C:/data/見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "//server/share/見積" | Should Be "\\server\share\見積"
-        normalizeFolderPath "\\?\C:\data\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "\\?\UNC\server\share\見積" | Should Be "\\server\share\見積"
-    }
-
-    It "重なった \ ・ . ・ .. を解決する" {
-        normalizeFolderPath "C:\data\\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "C:\data\.\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "C:\data\売上\..\見積" | Should Be "C:\data\見積"
-        normalizeFolderPath "\\server\share\売上\..\見積" | Should Be "\\server\share\見積"
+    # cases = 渡すパス（path）と期待する結果（expected）の組
+    It "<name>" -TestCases @(
+        @{ name = "前後の空白・引用符と末尾の \ を取り除き、ドライブ直下は \ を残す"; cases = @(
+                @{ path = '  "C:\data\"  '; expected = "C:\data" }
+                @{ path = "D:\"; expected = "D:\" }
+                @{ path = "D:"; expected = "D:\" }
+                @{ path = "\\server\share\"; expected = "\\server\share" }
+            )
+        }
+        @{ name = "/ を \ にそろえ、長いパス用の \\?\ ・ \\?\UNC\ を外す"; cases = @(
+                @{ path = "C:/data/見積"; expected = "C:\data\見積" }
+                @{ path = "//server/share/見積"; expected = "\\server\share\見積" }
+                @{ path = "\\?\C:\data\見積"; expected = "C:\data\見積" }
+                @{ path = "\\?\UNC\server\share\見積"; expected = "\\server\share\見積" }
+            )
+        }
+        @{ name = "重なった \ ・ . ・ .. を解決する"; cases = @(
+                @{ path = "C:\data\\見積"; expected = "C:\data\見積" }
+                @{ path = "C:\data\.\見積"; expected = "C:\data\見積" }
+                @{ path = "C:\data\売上\..\見積"; expected = "C:\data\見積" }
+                @{ path = "\\server\share\売上\..\見積"; expected = "\\server\share\見積" }
+            )
+        }
+        @{ name = ".. でドライブ直下まで戻ったら \ を付ける"; cases = @(
+                @{ path = "C:\data\.."; expected = "C:\" }
+            )
+        }
+        @{ name = "\ だけのパスは空にする"; cases = @(
+                @{ path = "\"; expected = "" }
+                @{ path = "\\?\"; expected = "" }
+            )
+        }
+        @{ name = "相対パスは tebunko_grep のフォルダからとみなす"; cases = @(
+                @{ path = "work\index"; expected = "${rootDir}\work\index" }
+                @{ path = ".\work\index"; expected = "${rootDir}\work\index" }
+            )
+        }
+        @{ name = "パスとして解釈できない場合は書かれたとおりに扱う"; cases = @(
+                @{ path = "C:\data*"; expected = "C:\data*" }
+                @{ path = "\\server"; expected = "\\server" }
+                # \ ひとつで始まるパスは、書き間違えた UNC パスのことが多いため、今のドライブのパスに直さない
+                @{ path = "\server\share"; expected = "\server\share" }
+            )
+        }
+    ) {
+        param ($name, $cases)
+        foreach ($case in $cases) {
+            normalizeFolderPath $case.path | Should Be $case.expected
+        }
     }
 
     It "環境変数を展開する" {
@@ -31,18 +61,6 @@ Describe "normalizeFolderPath" -Tag Io {
         } finally {
             Remove-Item Env:\tebunko_grep_TEST_FOLDER
         }
-    }
-
-    It "相対パスは tebunko_grep のフォルダからとみなす" {
-        normalizeFolderPath "work\index" | Should Be "${rootDir}\work\index"
-        normalizeFolderPath ".\work\index" | Should Be "${rootDir}\work\index"
-    }
-
-    It "パスとして解釈できない場合は書かれたとおりに扱う" {
-        normalizeFolderPath "C:\data*" | Should Be "C:\data*"
-        normalizeFolderPath "\\server" | Should Be "\\server"
-        # \ ひとつで始まるパスは、書き間違えた UNC パスのことが多いため、今のドライブのパスに直さない
-        normalizeFolderPath "\server\share" | Should Be "\server\share"
     }
 }
 
@@ -121,27 +139,51 @@ Describe "getFolderPathAliases / testSameFolder" -Tag Io {
 }
 
 Describe "getParentFolderPath" -Tag Io {
-    It "1つ上のフォルダを返す" {
-        getParentFolderPath "C:\data\見積\2025" | Should Be "C:\data\見積"
-        getParentFolderPath "C:\data" | Should Be "C:\"
-        getParentFolderPath "\\server\share\見積\2025" | Should Be "\\server\share\見積"
-        getParentFolderPath "\\server\share\見積" | Should Be "\\server\share"
-    }
-
-    It "これ以上たどれないフォルダ（ドライブ直下・共有フォルダ直下）は空文字列" {
-        getParentFolderPath "C:\" | Should Be ""
-        getParentFolderPath "C:" | Should Be ""
-        getParentFolderPath "\\server\share" | Should Be ""
-        getParentFolderPath "\\server" | Should Be ""
-        getParentFolderPath "" | Should Be ""
+    It "<name>" -TestCases @(
+        @{ name = "1つ上のフォルダを返す"; cases = @(
+                @{ path = "C:\data\見積\2025"; expected = "C:\data\見積" }
+                @{ path = "C:\data"; expected = "C:\" }
+                @{ path = "\\server\share\見積\2025"; expected = "\\server\share\見積" }
+                @{ path = "\\server\share\見積"; expected = "\\server\share" }
+            )
+        }
+        @{ name = "これ以上たどれないフォルダ（ドライブ直下・共有フォルダ直下）は空文字列"; cases = @(
+                @{ path = "C:\"; expected = "" }
+                @{ path = "C:"; expected = "" }
+                @{ path = "\\server\share"; expected = "" }
+                @{ path = "\\server"; expected = "" }
+                @{ path = ""; expected = "" }
+            )
+        }
+        @{ name = "1 つ上の無い相対パスは空文字列"; cases = @(
+                @{ path = "見積"; expected = "" }
+            )
+        }
+    ) {
+        param ($name, $cases)
+        foreach ($case in $cases) {
+            getParentFolderPath $case.path | Should Be $case.expected
+        }
     }
 }
 
 Describe "joinFolderPath" -Tag Io {
-    It "ドライブ直下・共有フォルダ直下でも \ が重ならない" {
-        joinFolderPath "C:\" "data" | Should Be "C:\data"
-        joinFolderPath "C:\data" "見積" | Should Be "C:\data\見積"
-        joinFolderPath "\\server\share" "見積" | Should Be "\\server\share\見積"
+    It "<name>" -TestCases @(
+        @{ name = "ドライブ直下・共有フォルダ直下でも \ が重ならない"; cases = @(
+                @{ folder = "C:\"; leaf = "data"; expected = "C:\data" }
+                @{ folder = "C:\data"; leaf = "見積"; expected = "C:\data\見積" }
+                @{ folder = "\\server\share"; leaf = "見積"; expected = "\\server\share\見積" }
+            )
+        }
+        @{ name = "フォルダが空なら名前だけを返す"; cases = @(
+                @{ folder = ""; leaf = "見積"; expected = "見積" }
+            )
+        }
+    ) {
+        param ($name, $cases)
+        foreach ($case in $cases) {
+            joinFolderPath $case.folder $case.leaf | Should Be $case.expected
+        }
     }
 }
 
@@ -203,8 +245,27 @@ Describe "getFolderEntries / testHasSubFolders" -Tag Io {
         $result.Error | Should Match "見つかりません"
     }
 
+    It "パスとして開けない書き方は、理由を付けて Error に入れる" {
+        $result = getFolderEntries "C:\a<b>"
+        @($result.Entries).Count | Should Be 0
+        $result.Error | Should Match "^フォルダを開けません（"
+    }
+
     It "フォルダを指定しなければ Error を返す" {
         (getFolderEntries "").Error | Should Match "指定してください"
+    }
+
+    It "隠しファイルばかりでも、見た件数が上限の 10 倍を超えたら打ち切る" {
+        $hiddenRoot = "$TestDrive\隠しばかり"
+        [System.IO.Directory]::CreateDirectory($hiddenRoot) | Out-Null
+        for ($i = 0; $i -lt 12; $i++) {
+            $path = "$hiddenRoot\隠し$i.txt"
+            [System.IO.File]::WriteAllText($path, "x")
+            (Get-Item -LiteralPath $path).Attributes = "Hidden"
+        }
+        $result = getFolderEntries $hiddenRoot 1
+        @($result.Entries).Count | Should Be 0
+        $result.Truncated | Should Be $true
     }
 
     It "サブフォルダがあるかを返す（ツリーの ▷ の判定）" {
@@ -219,48 +280,6 @@ Describe "getFolderLeafName" -Tag Io {
         getFolderLeafName "C:\data\見積\" | Should Be "見積"
         getFolderLeafName "D:\" | Should Be "D"
         getFolderLeafName "\server\share" | Should Be "share"
-    }
-}
-
-Describe "normalizeFolderPath（区切りだけ・ドライブ直下に戻るパス）" -Tag Io {
-    It "\ だけのパスは空にする" {
-        normalizeFolderPath "\" | Should Be ""
-        normalizeFolderPath "\\?\" | Should Be ""
-    }
-
-    It ".. でドライブ直下まで戻ったら \ を付ける" {
-        normalizeFolderPath "C:\data\.." | Should Be "C:\"
-    }
-}
-
-Describe "joinFolderPath / getParentFolderPath（フォルダが無い・相対パス）" -Tag Io {
-    It "フォルダが空なら名前だけを返す" {
-        joinFolderPath "" "見積" | Should Be "見積"
-    }
-
-    It "1 つ上の無い相対パスは空文字列" {
-        getParentFolderPath "見積" | Should Be ""
-    }
-}
-
-Describe "getFolderEntries（隠しファイルばかりのフォルダ・開けないパス）" -Tag Io {
-    It "隠しファイルばかりでも、見た件数が上限の 10 倍を超えたら打ち切る" {
-        $root = "$TestDrive\隠しばかり"
-        [System.IO.Directory]::CreateDirectory($root) | Out-Null
-        for ($i = 0; $i -lt 12; $i++) {
-            $path = "$root\隠し$i.txt"
-            [System.IO.File]::WriteAllText($path, "x")
-            (Get-Item -LiteralPath $path).Attributes = "Hidden"
-        }
-        $result = getFolderEntries $root 1
-        @($result.Entries).Count | Should Be 0
-        $result.Truncated | Should Be $true
-    }
-
-    It "パスとして開けない書き方は、理由を付けて Error に入れる" {
-        $result = getFolderEntries "C:\a<b>"
-        @($result.Entries).Count | Should Be 0
-        $result.Error | Should Match "^フォルダを開けません（"
     }
 }
 

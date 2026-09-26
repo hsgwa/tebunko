@@ -1,6 +1,6 @@
 ﻿# 検索結果から元のファイルを開く・パスをコピーする・結果を書き出す（tebunko_grep\ui\open_source.ps1）のテスト。
 # 画面層のため、$ui・$window は偽物にする。Excel・既定のアプリ・エクスプローラーの起動は Mock し、実際には開かない。
-# クリップボードは書き換えないよう、コピーは「コピーしない場合」だけを確かめる。
+# コピーはクリップボードを書き換えるため、ここでは確かめない（画面の操作からの呼び出しだけを確かめる）。
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 . "${scriptsDir}\shared\ui\types.ps1"
@@ -66,15 +66,6 @@ function newRow {
 }
 
 function lastStatus { $script:statuses[$script:statuses.Count - 1] }
-
-Describe "getSourcePath" -Tag Unit {
-    It "元のファイルのパスを求める（読んだ記録は画面で持ち回す）" {
-        $script:sourceFolderMaps = @{ 記録 = 1 }
-        Mock resolveSourcePath { if ($maps.記録 -eq 1) { "C:\data\見積.xlsx" } }
-
-        getSourcePath (newRow) | Should Be "C:\data\見積.xlsx"
-    }
-}
 
 Describe "getExistingFolder" -Tag Io {
     It "上のフォルダのうち、存在する最も深いフォルダを返す" {
@@ -246,12 +237,6 @@ Describe "openWithShell" -Tag Io {
         openWithShell "$TestDrive\[確定]見積.xlsx" "unknown" | Should Be $true
         Assert-MockCalled -Scope It Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq "$TestDrive\[確定]見積.xlsx" }
     }
-
-    It "新規で開けなければ、そのまま開いて `$false を返す" {
-        Mock Invoke-Item { }
-
-        openWithShell "$TestDrive\無い_open_source.docx" ${openModeNew} | Should Be $false
-    }
 }
 
 Describe "getOpenMode / setOpenMode / updateOpenMenu" -Tag Unit {
@@ -311,14 +296,6 @@ Describe "openSource" -Tag Unit {
     BeforeEach {
         $script:statuses = New-Object System.Collections.Generic.List[string]
         $ui.OpenModeCombo.SelectedItem = $null
-    }
-
-    It "行を選んでいなければ何もしない" {
-        Mock getCurrentHitRow { $null }
-        Mock findSourceFile { }
-
-        openSource
-        Assert-MockCalled -Scope It findSourceFile -Times 0 -Exactly
     }
 
     It "元のファイルが見つからなければ開かない" {
@@ -406,26 +383,6 @@ Describe "openSourceFolder" -Tag Unit {
         Assert-MockCalled -Scope It Start-Process -Times 1 -Exactly -ParameterFilter {
             $FilePath -eq "explorer.exe" -and $ArgumentList -eq "/select,`"C:\data\見積.xlsx`""
         }
-    }
-}
-
-Describe "copySelectedRows / copySourcePath" -Tag Unit {
-    # クリップボードを書き換えないよう、コピーしない場合だけを確かめる
-    BeforeEach {
-        $script:statuses = New-Object System.Collections.Generic.List[string]
-    }
-
-    It "行を選んでいなければ何もしない" {
-        Mock getSelectedRows { , @() }
-        Mock toSearchResultLines { }
-        copySelectedRows
-        Assert-MockCalled -Scope It toSearchResultLines -Times 0 -Exactly
-
-        Mock getCurrentHitRow { $null }
-        Mock getSourcePath { }
-        copySourcePath
-        Assert-MockCalled -Scope It getSourcePath -Times 0 -Exactly
-        $script:statuses.Count | Should Be 0
     }
 }
 

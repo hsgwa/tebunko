@@ -240,17 +240,14 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         readTsv "肥大.tsv" | Should Be "元のシート`r`n"
     }
 
-    It "使用範囲とデータの差が小さいシートは、一時シートを使わない" {
-        $excel = newExcel @((newSheet "普通" -1 "a`r`n" @(1, 1, 100, 10) @(90, 10)))
-        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
-
-        [void](extractWorkbook $source)
-        @($log | Where-Object { $_ -eq "AddSheet" }).Count | Should Be 0
-    }
-
-    It "使用範囲が広くても、データがそのほとんどを占めるシートは一時シートを使わない" {
-        # 使用範囲 1,048,576 行 × 2 列、データ 1,000,000 行 × 2 列（差は 10 万セルたらず）
-        $excel = newExcel @((newSheet "大きい" -1 "a`r`n" @(1, 1, 1048576, 2) @(1000000, 2)))
+    # used: 使用範囲（開始行・開始列・行数・列数）、data: データのある範囲（行数・列数）
+    It "<name>" -TestCases @(
+        @{ name = "使用範囲とデータの差が小さいシートは、一時シートを使わない"; used = @(1, 1, 100, 10); data = @(90, 10) }
+        # 差は 10 万セルたらず
+        @{ name = "使用範囲が広くても、データがそのほとんどを占めるシートは一時シートを使わない"; used = @(1, 1, 1048576, 2); data = @(1000000, 2) }
+    ) {
+        param ($name, $used, $data)
+        $excel = newExcel @((newSheet "シート" -1 "a`r`n" $used $data))
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
         extractWorkbook $source | Should Be 1

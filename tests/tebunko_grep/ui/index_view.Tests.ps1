@@ -52,7 +52,7 @@ Describe "testIndexEditInput" -Tag Unit {
     }
 
     It "名前が重複していれば断る" {
-        testIndexEditInput "C:\data\新規" "見積" $items | Should Not Be ""
+        testIndexEditInput "C:\data\新規" "見積" $items | Should Be "「見積」は、ほかのインデックスが使っています。別の名前を付けてください。"
     }
 
     It "問題が無ければ空文字列" {

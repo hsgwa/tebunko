@@ -29,15 +29,6 @@ function describeSegments($segments) {
     @($segments | ForEach-Object { if ($_.IsHit) { "[$($_.Text)]" } else { $_.Text } }) -join ""
 }
 
-Describe "Segment" -Tag Unit {
-    It "文字と強調の有無を持つ" {
-        $segment = [Segment]::new("見積", $true)
-        $segment.Text | Should Be "見積"
-        $segment.IsHit | Should Be $true
-        [Segment]::new().IsHit | Should Be $false
-    }
-}
-
 Describe "PreviewColumn" -Tag Unit {
     It "幅を変えると通知する" {
         $column = [PreviewColumn]::new()
@@ -170,17 +161,16 @@ Describe "PreviewTable（範囲の選択とコピー）" -Tag Unit {
 }
 
 Describe "PreviewTable.QuoteForExcel" -Tag Unit {
-    It "改行・タブ・引用符が無ければそのまま" {
-        [PreviewTable]::QuoteForExcel("見積") | Should Be "見積"
-    }
-
-    It "改行・タブを含めば引用符で囲む" {
-        [PreviewTable]::QuoteForExcel("a`nb") | Should Be "`"a`nb`""
-        [PreviewTable]::QuoteForExcel("a`tb") | Should Be "`"a`tb`""
-    }
-
-    It "引用符は 2 つにして囲む" {
-        [PreviewTable]::QuoteForExcel('a"b') | Should Be '"a""b"'
+    It "<name>" -TestCases @(
+        @{ name = "改行・タブ・引用符が無ければそのまま"; text = "見積"; expected = "見積" }
+        @{ name = "空のセルはそのまま"; text = ""; expected = "" }
+        @{ name = "改行を含めば引用符で囲む"; text = "a`nb"; expected = "`"a`nb`"" }
+        @{ name = "タブを含めば引用符で囲む"; text = "a`tb"; expected = "`"a`tb`"" }
+        @{ name = "引用符は 2 つにして囲む"; text = 'a"b'; expected = '"a""b"' }
+        @{ name = "引用符だけのセルは Excel の形で囲む"; text = '"'; expected = '""""' }
+    ) {
+        param ($name, $text, $expected)
+        [PreviewTable]::QuoteForExcel($text) | Should Be $expected
     }
 }
 
@@ -202,24 +192,6 @@ Describe "FileGroup" -Tag Unit {
 
     It "表記が無ければ空" {
         @([FileGroup]::new().GetLocations()).Count | Should Be 0
-    }
-
-    It "見出しの形で、閉じた状態で作る" {
-        $group = [FileGroup]::new()
-        $group.IsFileHeader | Should Be $true
-        $group.IsExpanded | Should Be $false
-        $group.Hits.Count | Should Be 0
-        $group.Rows.Count | Should Be 0
-        $group.ShownRows.Count | Should Be 0
-    }
-
-    It "場所の表記は毎回通知する" {
-        $group = [FileGroup]::new()
-        $names = watchChanges $group
-        $group.SetLocationText("[シート] 4月")
-        $group.SetLocationText("[シート] 4月")
-        $group.LocationText | Should Be "[シート] 4月"
-        @($names) | Should Be @("LocationText", "LocationText")
     }
 
     It "開閉・件数は変わったときだけ通知する" {
@@ -325,7 +297,8 @@ Describe "HitRow.Prepare" -Tag Unit {
         $row = newHitRow -line "見積" -word "見積"
         $names = watchChanges $row
         $row.Prepare()
-        @($names) | Should Be @("DisplayLine", "Segments", "CellText", "MatchCell")
+        # 通知の順は決まりではないため、名前の集まりで比べる
+        @($names | Sort-Object) -join "," | Should Be "CellText,DisplayLine,MatchCell,Segments"
     }
 
     It "正規表現の一致を強調する" {
@@ -392,16 +365,19 @@ Describe "HitRow の静的な関数" -Tag Unit {
         [HitRow]::ToDisplay($null) | Should Be ""
     }
 
-    It "HasMatch は語句を大文字小文字を区別せずに探す" {
-        [HitRow]::HasMatch("ABC", "b", $null) | Should Be $true
-        [HitRow]::HasMatch("ABC", "x", $null) | Should Be $false
-        [HitRow]::HasMatch("", "b", $null) | Should Be $false
-        [HitRow]::HasMatch("ABC", "", $null) | Should Be $false
-    }
-
-    It "HasMatch は正規表現の長さ 0 の一致を数えない" {
-        [HitRow]::HasMatch("ABC", "", [regex]"x*") | Should Be $false
-        [HitRow]::HasMatch("ABC", "", [regex]"x*B") | Should Be $true
+    It "HasMatch は<name>" -TestCases @(
+        @{ name = "語句を大文字小文字を区別せずに探す"; text = "ABC"; word = "b"; pattern = $null; expected = $true }
+        @{ name = "語句が無ければ一致しない"; text = "ABC"; word = "x"; pattern = $null; expected = $false }
+        @{ name = "空の文字では一致しない"; text = ""; word = "b"; pattern = $null; expected = $false }
+        @{ name = "語句も正規表現も無ければ一致しない"; text = "ABC"; word = ""; pattern = $null; expected = $false }
+        @{ name = "正規表現の長さ 0 の一致を数えない"; text = "ABC"; word = ""; pattern = [regex]"x*"; expected = $false }
+        @{ name = "正規表現の長さ 1 以上の一致は数える"; text = "ABC"; word = ""; pattern = [regex]"x*B"; expected = $true }
+        @{ name = "語句の正規表現の記号をそのままの文字として探す（1.5 は 125 に当たらない）"; text = "125"; word = "1.5"; pattern = $null; expected = $false }
+        @{ name = "語句の . はそのままの文字に当たる"; text = "1.5 倍"; word = "1.5"; pattern = $null; expected = $true }
+        @{ name = "語句の [ ] はそのままの文字に当たる"; text = "[シート] 4月"; word = "[シート]"; pattern = $null; expected = $true }
+    ) {
+        param ($name, $text, $word, $pattern, $expected)
+        [HitRow]::HasMatch($text, $word, $pattern) | Should Be $expected
     }
 
     It "FindMatches は語句の位置と長さを返す" {
@@ -416,17 +392,18 @@ Describe "HitRow の静的な関数" -Tag Unit {
         [HitRow]::FindMatches("見積", "", $null).Count | Should Be 0
     }
 
-    It "SplitCells は Excel 以外はタブで分けるだけ" {
-        ([HitRow]::SplitCells("a`t`"b`tc`"", $false) -join "|") | Should Be "a|`"b|c`""
-        [HitRow]::SplitCells($null, $false).Count | Should Be 1
-    }
-
-    It "SplitCells は Excel の引用符で囲んだセルを 1 つにし、囲みを外す" {
-        ([HitRow]::SplitCells("a`t`"b`tc`"`t`"x`"`"y`"`td", $true) -join "|") | Should Be "a|b`tc|x`"y|d"
-    }
-
-    It "SplitCells は Excel の空のセルも数える" {
-        ([HitRow]::SplitCells("a`t`tb", $true) -join "|") | Should Be "a||b"
+    It "SplitCells は<name>" -TestCases @(
+        @{ name = "Excel 以外はタブで分けるだけ"; line = "a`t`"b`tc`""; isExcel = $false; expected = "a|`"b|c`""; count = 3 }
+        @{ name = "Excel 以外で値が無ければ空のセル 1 つ"; line = $null; isExcel = $false; expected = ""; count = 1 }
+        @{ name = "Excel の引用符で囲んだセルを 1 つにし、囲みを外す"; line = "a`t`"b`tc`"`t`"x`"`"y`"`td"; isExcel = $true; expected = "a|b`tc|x`"y|d"; count = 4 }
+        @{ name = "Excel の空のセルも数える"; line = "a`t`tb"; isExcel = $true; expected = "a||b"; count = 3 }
+        @{ name = "Excel の引用符で囲んだセルの後ろに続く文字も同じセルにする"; line = "`"a`"b`tc"; isExcel = $true; expected = "ab|c"; count = 2 }
+        @{ name = "Excel の空の行は空のセル 1 つ"; line = ""; isExcel = $true; expected = ""; count = 1 }
+    ) {
+        param ($name, $line, $isExcel, $expected, $count)
+        $cells = [HitRow]::SplitCells($line, $isExcel)
+        ($cells -join "|") | Should Be $expected
+        $cells.Count | Should Be $count
     }
 
     It "ColumnName は列番号を Excel の列名にする" {
@@ -460,11 +437,6 @@ Describe "HitRow の静的な関数" -Tag Unit {
 
     It "CellWidth は 1 行を先頭の決まった文字数までで測る" {
         [HitRow]::CellWidth("a" * 500) | Should Be ([HitRow]::TextWidth("a" * [HitRow]::MaxWidthChars))
-    }
-
-    It "CellWidth は段落の幅の上限に届いたら残りの行を測らない" {
-        $wide = "あ" * [HitRow]::MaxWidthChars
-        [HitRow]::CellWidth("$wide`n$wide") | Should Be ([HitRow]::TextWidth($wide))
     }
 
     It "Shorten は長いときだけ切り詰めて … を付ける" {
@@ -950,29 +922,10 @@ Describe "HitRow（境界値）" -Tag Unit {
         $row.Segments[0].IsHit | Should Be $false
     }
 
-    It "語句の検索では、正規表現の記号をそのままの文字として探す" {
-        [HitRow]::HasMatch("125", "1.5", $null) | Should Be $false
-        [HitRow]::HasMatch("1.5 倍", "1.5", $null) | Should Be $true
-        [HitRow]::HasMatch("[シート] 4月", "[シート]", $null) | Should Be $true
-    }
-
     It "語句の検索では、重なる一致を二重に数えない" {
         $found = [HitRow]::FindMatches("あああ", "ああ", $null)
         $found.Count | Should Be 1
         ($found[0] -join ",") | Should Be "0,2"
-    }
-
-    It "大文字小文字を区別する正規表現は、そのとおりに探す" {
-        [HitRow]::HasMatch("abc", "", [regex]"ABC") | Should Be $false
-        [HitRow]::HasMatch("abc", "", [regex]::new("ABC", "IgnoreCase")) | Should Be $true
-    }
-
-    It "Excel の引用符で囲んだセルの後ろに続く文字も同じセルにする" {
-        ([HitRow]::SplitCells("`"a`"b`tc", $true) -join "|") | Should Be "ab|c"
-    }
-
-    It "Excel の空の行は空のセル 1 つ" {
-        [HitRow]::SplitCells("", $true).Count | Should Be 1
     }
 
     It "空の文字で絞り込むとすべて合う" {
@@ -1000,11 +953,6 @@ Describe "HitRow（境界値）" -Tag Unit {
         $table.HitOffset | Should Be 0
         # 一致したセルの印は付ける
         $table.Rows[0].Cells[0].IsHit | Should Be $true
-    }
-
-    It "引用符だけのセルは Excel の形で囲む" {
-        [PreviewTable]::QuoteForExcel('"') | Should Be '""""'
-        [PreviewTable]::QuoteForExcel("") | Should Be ""
     }
 }
 

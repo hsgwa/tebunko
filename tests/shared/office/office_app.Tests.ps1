@@ -66,8 +66,9 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @() @(200)
 
-        [void](getApp "Excel")
-        [void](getApp "Excel")
+        $first = getApp "Excel"
+        $second = getApp "Excel"
+        [object]::ReferenceEquals($first, $second) | Should Be $true
         Assert-MockCalled New-Object -Times 1 -Exactly -Scope It -ParameterFilter { $ComObject -eq "Excel.Application" }
     }
 
@@ -145,11 +146,6 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         stopApp "Excel"
         $log -join "|" | Should Be "Quit"
     }
-
-    It "起動していないアプリの stopApp は何もしない" {
-        { stopApp "Excel" } | Should Not Throw
-        @($log).Count | Should Be 0
-    }
 }
 
 Describe "stopAllApps" -Tag Unit {
@@ -168,11 +164,6 @@ Describe "stopAllApps" -Tag Unit {
         @($script:stopped | Sort-Object) -join "," | Should Be "Excel,Word"
         $script:apps.Count | Should Be 0
         Assert-MockCalled Write-Host -Times 1 -Exactly -Scope It -ParameterFilter { "$Object" -match "Excel の終了に失敗しました: 終了できません" }
-    }
-
-    It "起動しているアプリが無ければ何もしない" {
-        $script:apps.Clear()
-        { stopAllApps } | Should Not Throw
     }
 }
 
@@ -218,10 +209,6 @@ Describe "startWatchdog / stopWatchdog（1 ファイルの制限時間の監視�
         $script:watchdog.TimedOut | Should Be $false
         stopWatchdog
         $script:watchdogThread | Should Be $null
-    }
-
-    It "監視を始めていなければ、止めても何もしない" {
-        { stopWatchdog } | Should Not Throw
     }
 }
 

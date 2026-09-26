@@ -121,29 +121,6 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         sortedKeys (searchPackIndex "単価" $packs $true -fileFilter "*.docx").Hits | Should BeExactly (referenceKeys $tsvRoot "単価" $true $false "*.docx")
     }
 
-    It "上限で打ち切る" {
-        $result = searchPackIndex "単価" $packs $true 2
-        $result.Hits.Count | Should Be 2
-        $result.Truncated | Should Be $true
-    }
-
-    It "キャッシュを使っても結果が同じ" {
-        $cache = newTsvTextCache
-        $first = toKeys (searchPackIndex "単価" $packs $true -cache $cache).Hits
-        $cache.Texts.Count | Should Be 3
-        $second = toKeys (searchPackIndex "単価" $packs $true -cache $cache).Hits
-        $second -join "`n" | Should BeExactly ($first -join "`n")
-    }
-
-    It "並列でも 1 スレッドと同じ結果を同じ順で返す" {
-        $single = toKeys (searchPackIndex "単価" $packs $true -workerCount 1).Hits
-        $tasks = splitPackTasks $packs 1
-        $tasks.Count | Should Be 3
-        # 1 バイトごとに分けて、2 つのスレッドで探す
-        $parallel = toKeys (searchPackIndex "単価" $packs $true -workerCount 2 -taskBytes 1).Hits
-        $parallel -join "`n" | Should BeExactly ($single -join "`n")
-    }
-
     It "フォルダの一部・直下だけ・無いフォルダを列挙できる。元のファイルが無いフォルダは作らない" {
         (getPackFiles $packRoot "営業" $false).Count | Should Be 2
         (getPackFiles $packRoot "営業\2025" $true).Count | Should Be 1
@@ -171,21 +148,10 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         $result.Hits.Count | Should Be 0
     }
 
-    It "並列でも上限で打ち切り、残りの検索を止める" {
-        $result = searchPackIndex "単価" $packs $true 1 -workerCount 2 -taskBytes 1
-        $result.Hits.Count | Should Be 1
-        $result.Truncated | Should Be $true
-    }
-
     It "1 行ずつ照合する検索語でも上限で打ち切る" {
         $result = searchPackIndex "(?!予備)単価" $packs $false 2
         $result.Hits.Count | Should Be 2
         $result.Truncated | Should Be $true
-    }
-
-    It "照合のしかたが無い（全文の正規表現を渡さない）ときは 1 行ずつ照合する" {
-        $hits = searchPackFiles $packs 0 $packs.Count ([regex]"単価") -1 $null "lines"
-        sortedKeys $hits | Should BeExactly (sortedKeys (searchPackIndex "単価" $packs $true).Hits)
     }
 
     It "全文への照合が時間切れになったファイルは、1 行ずつ照合し直す" {

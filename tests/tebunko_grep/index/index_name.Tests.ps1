@@ -2,25 +2,16 @@
 . "$PSScriptRoot\..\..\helpers\load.ps1"
 
 Describe "encodeIndexPlace / decodeIndexPlace" -Tag Unit {
-    It "ファイル名に使えない文字・_・% を %XX にし、元に戻せる" {
-        $place = 'a<b>c\d*e:f?g|h/i"j_k%l'
-        $encoded = encodeIndexPlace $place
-        $encoded | Should Be 'a%3Cb%3Ec%5Cd%2Ae%3Af%3Fg%7Ch%2Fi%22j%5Fk%25l'
+    # PowerShell は ” を " と同じに扱うため、' で囲む
+    It "<name>" -TestCases @(
+        @{ name = "ファイル名に使えない文字・_・% を %XX にし、元に戻せる"; place = 'a<b>c\d*e:f?g|h/i"j_k%l'; encoded = 'a%3Cb%3Ec%5Cd%2Ae%3Af%3Fg%7Ch%2Fi%22j%5Fk%25l' }
+        @{ name = "制御文字も %XX にする"; place = "a`tb"; encoded = 'a%09b' }
+        @{ name = "半角の記号と全角の記号は別の名前になる（衝突しない）"; place = '衝突"'; encoded = '衝突%22' }
+        @{ name = "使える文字（全角記号・空白・&'#() 等）はそのまま返す"; place = 'シート1 (2)&''#＜” 全角　'; encoded = 'シート1 (2)&''#＜” 全角　' }
+    ) {
+        param ($name, $place, $encoded)
+        encodeIndexPlace $place | Should BeExactly $encoded
         decodeIndexPlace $encoded | Should BeExactly $place
-    }
-
-    It "制御文字も %XX にする" {
-        encodeIndexPlace "a`tb" | Should Be 'a%09b'
-        decodeIndexPlace 'a%09b' | Should Be "a`tb"
-    }
-
-    It "半角の記号と全角の記号は別の名前になる（衝突しない）" {
-        encodeIndexPlace '衝突"' | Should Not Be (encodeIndexPlace '衝突”')
-    }
-
-    It "使える文字（全角記号・空白・&'#() 等）はそのまま返す" {
-        # PowerShell は ” を " と同じに扱うため、' で囲む
-        encodeIndexPlace 'シート1 (2)&''#＜” 全角　' | Should Be 'シート1 (2)&''#＜” 全角　'
     }
 
     It "符号化で作らない %XX はそのまま返す（以前の版のシート名 100% 等）" {
@@ -97,12 +88,17 @@ Describe "toIndexFileName" -Tag Unit {
         toIndexFileName "記号<>_1" | Should Be "記号%3C%3E%5F1.tsv"
     }
 
-    It "場所が長くても255文字を超えなければ返す" {
-        (toIndexFileName ("あ" * 251)).Length | Should Be 255
-    }
-
-    It "255文字を超えると、文字数の分かるメッセージで例外にする" {
-        { toIndexFileName ("あ" * 252) } | Should Throw "256 文字。上限 255 文字"
+    It "<name>" -TestCases @(
+        @{ name = "場所が長くても255文字を超えなければ返す"; length = 251; message = "" }
+        @{ name = "255文字を超えると、文字数の分かるメッセージで例外にする"; length = 252; message = "256 文字。上限 255 文字" }
+    ) {
+        param ($name, $length, $message)
+        $place = "あ" * $length
+        if ($message) {
+            { toIndexFileName $place } | Should Throw $message
+        } else {
+            (toIndexFileName $place).Length | Should Be 255
+        }
     }
 }
 
@@ -139,10 +135,6 @@ Describe "splitIndexFileName" -Tag Unit {
         $name = splitIndexFileName "大文字.XLSX_Sheet1.tsv"
         $name.book | Should Be "大文字.XLSX"
         $name.sheet | Should Be "Sheet1"
-    }
-
-    It "xlsm も扱える" {
-        (splitIndexFileName "macro.xlsm_A.tsv").book | Should Be "macro.xlsm"
     }
 
     It "Word・PowerPointのファイル名と場所に分解する" {
@@ -189,6 +181,23 @@ Describe "newIndexName / assignIndexNames" -Tag Unit {
         # 前方一致・大文字小文字違いで取り違えない
         newIndexName "C:\data\見積" @("見積書") | Should Be "見積"
         newIndexName "C:\data\sample" @("SAMPLE") | Should Be "sample(2)"
+    }
+
+    It "フォルダ名が取れなければ「フォルダ」とする" {
+        newIndexName "" | Should Be "フォルダ"
+        newIndexName "" @("フォルダ") | Should Be "フォルダ(2)"
+    }
+
+    It "重複して (2) を付けても、ファイル名の上限（255 文字）を超えない" {
+        $long = "あ" * 255
+        $name = newIndexName "C:\$long" @($long)
+        $name.Length | Should BeLessThan 256
+        $name | Should Match "\(2\)$"
+        testIndexName $name @($long) | Should Be ""
+        # 切り詰めた名前どうしも重複させない
+        $third = newIndexName "C:\$long" @($long, $name)
+        $third | Should Match "\(3\)$"
+        $third.Length | Should BeLessThan 256
     }
 
     It "設定に名前があればそれを使い、フォルダの場所が変わっても同じ名前のままにする" {
@@ -246,77 +255,36 @@ Describe "splitIndexRelPath" -Tag Unit {
 }
 
 Describe "testIndexName" -Tag Unit {
-    It "使える名前なら空文字列を返す" {
-        testIndexName "営業部 2025" | Should Be ""
+    # 使える名前なら空文字列を返す。used はほかのインデックスの名前
+    It "<name>" -TestCases @(
+        @{ name = "使える名前なら空文字列を返す"; value = "営業部 2025" }
+        @{ name = "ちょうど上限の長さなら使える"; value = ("あ" * 255) }
+        @{ name = "予約語を含むだけの名前は使える（CONSOLE）"; value = "CONSOLE" }
+        @{ name = "予約語を含むだけの名前は使える（営業NUL）"; value = "営業NUL" }
+        @{ name = "ほかのインデックスの名前が無い（`$null）場合も使える"; value = "営業"; used = $null }
+    ) {
+        param ($name, $value, $used)
+        testIndexName $value $used | Should Be ""
     }
 
-    It "空なら入力を促す" {
-        testIndexName "" | Should Match "入力してください"
-    }
-
-    It "前後に空白があれば使えない" {
-        testIndexName " 営業" | Should Match "前後に空白"
-        testIndexName "営業 " | Should Match "前後に空白"
-    }
-
-    It "ファイル名に使えない文字があれば使えない" {
-        testIndexName "営業\部" | Should Match "使えない文字"
-        testIndexName "営業:部" | Should Match "使えない文字"
-    }
-
-    It "末尾が . なら使えない" {
-        testIndexName "営業." | Should Match "最後に \."
-    }
-
-    It "Windows の予約語は使えない（大文字・小文字を区別しない）" {
-        testIndexName "con" | Should Match "使えない名前"
-        testIndexName "LPT1" | Should Match "使えない名前"
-    }
-
-    It "ほかのインデックスと同じ名前は使えない（大文字・小文字を区別しない）" {
-        testIndexName "Sales" @("sales", "tech") | Should Match "ほかのインデックスが使っています"
-    }
-
-    It "長すぎる名前は使えない" {
-        testIndexName ("あ" * 256) | Should Match "長すぎます"
-    }
-
-    It "ちょうど上限の長さなら使える" {
-        testIndexName ("あ" * 255) | Should Be ""
-    }
-
-    It "拡張子の付いた予約語・. だけの名前・制御文字も使えない" {
-        testIndexName "CON.txt" | Should Match "使えない名前"
-        testIndexName "com9.backup" | Should Match "使えない名前"
-        testIndexName "." | Should Match "最後に \."
-        testIndexName "営業`t部" | Should Match "使えない文字"
-    }
-
-    It "予約語を含むだけの名前は使える" {
-        testIndexName "CONSOLE" | Should Be ""
-        testIndexName "営業NUL" | Should Be ""
-    }
-
-    It "ほかのインデックスの名前が無い（`$null）場合も使える" {
-        testIndexName "営業" $null | Should Be ""
-    }
-}
-
-Describe "newIndexName（名前にできない・長いフォルダ名）" -Tag Unit {
-    It "フォルダ名が取れなければ「フォルダ」とする" {
-        newIndexName "" | Should Be "フォルダ"
-        newIndexName "" @("フォルダ") | Should Be "フォルダ(2)"
-    }
-
-    It "重複して (2) を付けても、ファイル名の上限（255 文字）を超えない" {
-        $long = "あ" * 255
-        $name = newIndexName "C:\$long" @($long)
-        $name.Length | Should BeLessThan 256
-        $name | Should Match "\(2\)$"
-        testIndexName $name @($long) | Should Be ""
-        # 切り詰めた名前どうしも重複させない
-        $third = newIndexName "C:\$long" @($long, $name)
-        $third | Should Match "\(3\)$"
-        $third.Length | Should BeLessThan 256
+    # 使えない名前なら、理由の分かる文言を返す
+    It "<name>" -TestCases @(
+        @{ name = "空なら入力を促す"; value = ""; pattern = "入力してください" }
+        @{ name = "前後に空白があれば使えない（前）"; value = " 営業"; pattern = "前後に空白" }
+        @{ name = "前後に空白があれば使えない（後）"; value = "営業 "; pattern = "前後に空白" }
+        @{ name = "ファイル名に使えない文字があれば使えない（\）"; value = "営業\部"; pattern = "使えない文字" }
+        @{ name = "ファイル名に使えない文字があれば使えない（:）"; value = "営業:部"; pattern = "使えない文字" }
+        @{ name = "末尾が . なら使えない"; value = "営業."; pattern = "最後に \." }
+        @{ name = "Windows の予約語は使えない（大文字・小文字を区別しない。con）"; value = "con"; pattern = "使えない名前" }
+        @{ name = "Windows の予約語は使えない（大文字・小文字を区別しない。LPT1）"; value = "LPT1"; pattern = "使えない名前" }
+        @{ name = "ほかのインデックスと同じ名前は使えない（大文字・小文字を区別しない）"; value = "Sales"; used = @("sales", "tech"); pattern = "ほかのインデックスが使っています" }
+        @{ name = "長すぎる名前は使えない"; value = ("あ" * 256); pattern = "長すぎます" }
+        @{ name = "拡張子の付いた予約語・. だけの名前・制御文字も使えない（CON.txt）"; value = "CON.txt"; pattern = "使えない名前" }
+        @{ name = "拡張子の付いた予約語・. だけの名前・制御文字も使えない（com9.backup）"; value = "com9.backup"; pattern = "使えない名前" }
+        @{ name = "拡張子の付いた予約語・. だけの名前・制御文字も使えない（.）"; value = "."; pattern = "最後に \." }
+        @{ name = "拡張子の付いた予約語・. だけの名前・制御文字も使えない（タブ）"; value = "営業`t部"; pattern = "使えない文字" }
+    ) {
+        param ($name, $value, $used, $pattern)
+        testIndexName $value $used | Should Match $pattern
     }
 }

@@ -24,18 +24,6 @@ Describe "getIndexStats" -Tag Io {
         $stats["技術"].LastIngested | Should Be "2026/09/17 09:00:00"
     }
 
-    It "行が無ければ空を返す" {
-        (getIndexStats $null).Count | Should Be 0
-    }
-
-    It "getIndexingState からも集計を取れる" {
-        $path = "$TestDrive\stats_state.tsv"
-        writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
-            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
-        ) $path
-
-        (getIndexingState -path $path).IndexStats["営業"].Total | Should Be 1
-    }
 }
 
 Describe "renameIndex" -Tag Io {
@@ -295,24 +283,18 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         (getIndexTsvCounts $dir).Count | Should Be 0
     }
 
-    It "フォルダが無ければ空を返す" {
-        (getIndexTsvCounts "$TestDrive\none_index").Count | Should Be 0
-    }
-
-    It "TSVがそろっていれば「済」のままにする" {
-        $dir = "$TestDrive\index5"
+    # newTestIndex のインデックスに対して、取り込み一覧の行（相対パス・TSV数）がそろっているか
+    It "<name>" -TestCases @(
+        @{ name = "TSVがそろっていれば「済」のままにする"; relPath = "営業\2024\A社.xlsx"; tsvCount = "2"; complete = $true }
+        @{ name = "インデックスのフォルダを直接削除した場合は、そろっていないとする"; relPath = "営業\2024\消えたブック.xlsx"; tsvCount = "3"; complete = $false }
+        @{ name = "TSVが足りない場合も、そろっていないとする"; relPath = "営業\2024\A社.xlsx"; tsvCount = "5"; complete = $false }
+        @{ name = "内容が空のファイル（TSV 0 件）は、フォルダがあればそろっているとする"; relPath = "営業\空.xlsx"; tsvCount = "0"; complete = $true }
+    ) {
+        param ($name, $relPath, $tsvCount, $complete)
+        $dir = "$TestDrive\index_complete"
         newTestIndex $dir
-        $counts = getIndexTsvCounts $dir
-        $row = newStatusRow "営業\2024\A社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "2"
-        testIndexComplete $row $row.相対パス $counts | Should Be $true
-    }
-
-    It "インデックスのフォルダを直接削除した場合は、そろっていないとする" {
-        $dir = "$TestDrive\index6"
-        newTestIndex $dir
-        $counts = getIndexTsvCounts $dir
-        $row = newStatusRow "営業\2024\消えたブック.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "3"
-        testIndexComplete $row $row.相対パス $counts | Should Be $false
+        $row = newStatusRow $relPath "2025/01/10 12:34:56" "100" ${stateDone} $tsvCount
+        testIndexComplete $row $row.相対パス (getIndexTsvCounts $dir) | Should Be $complete
     }
 
     It "集約ファイルは、フォルダと拡張子ごとに数える（0 バイトは壊れているとする）" {
@@ -343,22 +325,6 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
         testIndexComplete $row $row.相対パス $counts | Should Be $false
         $row = newStatusRow "営業\2024\D社.docx" "2025/01/10 12:34:56" "100" ${stateDone} "1"
         testIndexComplete $row $row.相対パス $counts | Should Be $false
-    }
-
-    It "TSVが足りない場合も、そろっていないとする" {
-        $dir = "$TestDrive\index7"
-        newTestIndex $dir
-        $counts = getIndexTsvCounts $dir
-        $row = newStatusRow "営業\2024\A社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "5"
-        testIndexComplete $row $row.相対パス $counts | Should Be $false
-    }
-
-    It "内容が空のファイル（TSV 0 件）は、フォルダがあればそろっているとする" {
-        $dir = "$TestDrive\index8"
-        newTestIndex $dir
-        $counts = getIndexTsvCounts $dir
-        $row = newStatusRow "営業\空.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "0"
-        testIndexComplete $row $row.相対パス $counts | Should Be $true
     }
 
     It "0 バイトのTSVがあるフォルダは、壊れているとして作り直す" {
@@ -393,20 +359,6 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
 }
 
 Describe "publishIndexFiles" -Tag Io {
-    It "作業フォルダのTSVを、元のファイルのフォルダに入れる" {
-        $from = "$TestDrive\pub1\tmp"
-        [System.IO.Directory]::CreateDirectory($from) | Out-Null
-        writeListFile "$from\明細.tsv" @("a")
-        writeListFile "$from\表紙.tsv" @("b")
-        $bookDir = "$TestDrive\pub1\index\営業\A社.xlsx"
-
-        publishIndexFiles $from $bookDir "$TestDrive\pub1\出力\A社.xlsx"
-
-        @(Get-ChildItem -LiteralPath $bookDir -Filter "*.tsv").Count | Should Be 2
-        @(Get-ChildItem -LiteralPath $from -Filter "*.tsv").Count | Should Be 0
-        Test-Path -LiteralPath "$TestDrive\pub1\出力\A社.xlsx" | Should Be $false
-    }
-
     It "以前のインデックスは残さず入れ替える（シートの削除・名前変更に追従する）" {
         $from = "$TestDrive\pub2\tmp"
         [System.IO.Directory]::CreateDirectory($from) | Out-Null

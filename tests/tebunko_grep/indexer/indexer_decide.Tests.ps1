@@ -22,12 +22,6 @@ Describe "getExtractVersion" -Tag Unit {
 }
 
 Describe "getIngestDecision（抽出版）" -Tag Unit {
-    It "前の抽出版で取り込んだ「済」は、更新が無くても取り込み直す（outdated）" {
-        $d = getIngestDecision (newRow ${stateDone} -version "1") "2026/01/01 10:00:00" "1000" $true
-        $d.Ingest | Should Be $true
-        $d.Reason | Should Be "outdated"
-    }
-
     It "抽出版が空（以前の形式の取り込み一覧）は 1 とみなす" {
         (getIngestDecision (newRow ${stateDone} -version "") "2026/01/01 10:00:00" "1000" $true).Reason | Should Be "outdated"
         (getIngestDecision (newRow ${stateDone} -version "" -relPath "売上\a.docx") "2026/01/01 10:00:00" "1000" $true).Reason | Should Be "outdated"
@@ -35,63 +29,28 @@ Describe "getIngestDecision（抽出版）" -Tag Unit {
         (getIngestDecision (newRow ${stateDone} -version "" -relPath "売上\a.xls") "2026/01/01 10:00:00" "1000" $true).Reason | Should Be "done"
     }
 
-    It "前回失敗は、抽出版が古くても failed のまま（再取り込みするかは呼び出し元が決める）" {
-        (getIngestDecision (newRow ${stateFailed} -version "") "2026/01/01 10:00:00" "1000" $true).Reason | Should Be "failed"
-    }
 }
 
 Describe "getIngestDecision" -Tag Unit {
-    It "一覧に無ければ取り込む（new）" {
-        $d = getIngestDecision $null "2026/01/01 10:00:00" "1000" $true
-        $d.Ingest | Should Be $true
-        $d.Reason | Should Be "new"
-    }
-
-    It "更新日時が変わっていれば取り込む（updated）" {
-        $d = getIngestDecision (newRow ${stateDone}) "2026/02/02 09:00:00" "1000" $true
-        $d.Ingest | Should Be $true
-        $d.Reason | Should Be "updated"
-    }
-
-    It "サイズが変わっていれば取り込む（updated）" {
-        $d = getIngestDecision (newRow ${stateDone}) "2026/01/01 10:00:00" "2000" $true
-        $d.Ingest | Should Be $true
-        $d.Reason | Should Be "updated"
-    }
-
-    It "取り込み済みで更新も無ければ取り込まない（done）" {
-        $d = getIngestDecision (newRow ${stateDone}) "2026/01/01 10:00:00" "1000" $true
-        $d.Ingest | Should Be $false
-        $d.Reason | Should Be "done"
-    }
-
-    It "取り込み済みでもインデックスが無ければ取り込み直す（lost）" {
-        $d = getIngestDecision (newRow ${stateDone}) "2026/01/01 10:00:00" "1000" $false
-        $d.Ingest | Should Be $true
-        $d.Reason | Should Be "lost"
-    }
-
-    It "前回失敗し、更新も無ければ取り込まない（failed。再取り込みするかは呼び出し元が決める）" {
-        $d = getIngestDecision (newRow ${stateFailed}) "2026/01/01 10:00:00" "1000" $true
-        $d.Ingest | Should Be $false
-        $d.Reason | Should Be "failed"
-    }
-
-    It "前回失敗でも、更新されていれば取り込む（updated）" {
-        $d = getIngestDecision (newRow ${stateFailed}) "2026/03/03 08:00:00" "1000" $true
-        $d.Ingest | Should Be $true
-        $d.Reason | Should Be "updated"
-    }
-
-    It "前回「未取り込み」で終わっていれば取り込む（pending）" {
-        $d = getIngestDecision (newRow ${stateNew}) "2026/01/01 10:00:00" "1000" $true
-        $d.Ingest | Should Be $true
-        $d.Reason | Should Be "pending"
-    }
-
-    It "前回失敗は、インデックスの有無を見ない（failed のまま）" {
-        $d = getIngestDecision (newRow ${stateFailed}) "2026/01/01 10:00:00" "1000" $false
-        $d.Ingest | Should Be $false
-        $d.Reason | Should Be "failed"
+    # 一覧の行（状態・抽出版。更新日時 2026/01/01 10:00:00・サイズ 1000）と、今のファイル（更新日時・サイズ）・インデックスの有無 → 取り込むか・理由。
+    # state が $null の行は、一覧に無いファイル
+    It "<name>" -TestCases @(
+        @{ name = "一覧に無ければ取り込む（new）"; state = $null; version = "2"; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $true; ingest = $true; reason = "new" }
+        @{ name = "更新日時が変わっていれば取り込む（updated）"; state = $stateDone; version = "2"; updated = "2026/02/02 09:00:00"; size = "1000"; indexed = $true; ingest = $true; reason = "updated" }
+        @{ name = "サイズが変わっていれば取り込む（updated）"; state = $stateDone; version = "2"; updated = "2026/01/01 10:00:00"; size = "2000"; indexed = $true; ingest = $true; reason = "updated" }
+        @{ name = "取り込み済みで更新も無ければ取り込まない（done）"; state = $stateDone; version = "2"; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $true; ingest = $false; reason = "done" }
+        @{ name = "取り込み済みでもインデックスが無ければ取り込み直す（lost）"; state = $stateDone; version = "2"; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $false; ingest = $true; reason = "lost" }
+        @{ name = "前の抽出版で取り込んだ「済」は、更新が無くても取り込み直す（outdated）"; state = $stateDone; version = "1"; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $true; ingest = $true; reason = "outdated" }
+        @{ name = "前回失敗し、更新も無ければ取り込まない（failed。再取り込みするかは呼び出し元が決める）"; state = $stateFailed; version = "2"; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $true; ingest = $false; reason = "failed" }
+        @{ name = "前回失敗でも、更新されていれば取り込む（updated）"; state = $stateFailed; version = "2"; updated = "2026/03/03 08:00:00"; size = "1000"; indexed = $true; ingest = $true; reason = "updated" }
+        @{ name = "前回失敗は、インデックスの有無を見ない（failed のまま）"; state = $stateFailed; version = "2"; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $false; ingest = $false; reason = "failed" }
+        @{ name = "前回失敗は、抽出版が古くても failed のまま（再取り込みするかは呼び出し元が決める）"; state = $stateFailed; version = ""; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $true; ingest = $false; reason = "failed" }
+        @{ name = "前回「未取り込み」で終わっていれば取り込む（pending）"; state = $stateNew; version = "2"; updated = "2026/01/01 10:00:00"; size = "1000"; indexed = $true; ingest = $true; reason = "pending" }
+    ) {
+        param ($name, $state, $version, $updated, $size, $indexed, $ingest, $reason)
+        $row = if ($null -eq $state) { $null } else { newRow $state -version $version }
+        $d = getIngestDecision $row $updated $size $indexed
+        $d.Ingest | Should Be $ingest
+        $d.Reason | Should Be $reason
     }
 }

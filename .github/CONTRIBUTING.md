@@ -88,7 +88,8 @@ From then on, the following checks run on every commit. If a check fails, fix th
 ```
 
 - **When you add a feature or change behavior, write tests in the same pull request.** Test the text shown on screen and the decisions about what is allowed (the decision layer) especially well.
-- **Do not lower the coverage.** CI (`.\tests\run.ps1 -Ci`) fails when the coverage falls below the value in `tests/coverage.baseline`. If it falls, add tests to bring it back. If it rises, raise the baseline in the same pull request. The screen layer is not measured.
+- **Keep the coverage at or above the baseline.** CI (`.\tests\run.ps1 -Ci`) fails when the coverage falls below the value in `tests/coverage.baseline` (90.0). If it falls, add tests to bring it back. Do not change the baseline; only the maintainer does. The screen layer is not measured.
+- **Do not write tests only to raise the number.** Test behavior at the unit level. If several tests differ only in input and expected value, put them in one `It` with `-TestCases`.
 - When you change the screen, start the tool with `tebunko.bat` and check it.
 
 How the tests are organized and what CI does is described in [docs/00_共通_3_テスト.md](../docs/00_共通_3_テスト.md) (Japanese).

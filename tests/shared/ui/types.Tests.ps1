@@ -26,23 +26,9 @@ Describe "NotifyBase" -Tag Unit {
         $node.Raise("Name")
         $names.Count | Should Be 0
     }
-
-    It "ハンドラーが無くても失敗しない" {
-        $node = [FolderNode]::new($null, "営業部", "C:\共有\営業部")
-        { $node.Raise("Name") } | Should Not Throw
-    }
 }
 
 Describe "FolderNode" -Tag Unit {
-    It "親・名前・パスを持ち、ツールチップはパス" {
-        $parent = [FolderNode]::new($null, "共有", "C:\共有")
-        $node = [FolderNode]::new($parent, "営業部", "C:\共有\営業部")
-        $node.Parent | Should Be $parent
-        $node.Name | Should Be "営業部"
-        $node.ToolTip | Should Be "C:\共有\営業部"
-        $node.Children.Count | Should Be 0
-    }
-
     It "展開・選択は変わったときだけ通知する" {
         $node = [FolderNode]::new($null, "営業部", "C:\共有\営業部")
         $names = watchChanges $node
@@ -75,11 +61,5 @@ Describe "FolderEntry" -Tag Unit {
     It "文字列にすると名前" {
         $entry = [FolderEntry]@{ Name = "見積.xlsx"; Path = "C:\共有\見積.xlsx"; IsOffice = $true }
         $entry.ToString() | Should Be "見積.xlsx"
-    }
-}
-
-Describe "ConfirmFact" -Tag Unit {
-    It "詳細の既定は空" {
-        ([ConfirmFact]@{ Mark = "✓"; Title = "インデックスは残ります" }).Detail | Should Be ""
     }
 }

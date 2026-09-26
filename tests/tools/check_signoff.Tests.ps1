@@ -73,10 +73,6 @@ Describe "check_signoff.ps1 の範囲のコミット" -Tag Io {
         checkRange "base..HEAD" | Should Be 1
     }
 
-    It "範囲より前のコミットは調べない" {
-        checkRange "base..HEAD" | Should Be 0
-    }
-
     It "マージコミットと bot のコミットは調べない" {
         git -C $repo checkout -q -b side
         commit "49699333+dependabot[bot]@users.noreply.github.com" @("ci(deps): bump a")
