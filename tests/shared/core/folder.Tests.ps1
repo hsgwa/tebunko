@@ -24,16 +24,16 @@ Describe "normalizeFolderPath" -Tag Io {
     }
 
     It "環境変数を展開する" {
-        $env:tebunko_grep_TEST_FOLDER = "C:\data\見積"
+        $env:tebunko_TEST_FOLDER = "C:\data\見積"
         try {
-            normalizeFolderPath "%tebunko_grep_TEST_FOLDER%" | Should Be "C:\data\見積"
-            normalizeFolderPath "%tebunko_grep_TEST_FOLDER%\2024" | Should Be "C:\data\見積\2024"
+            normalizeFolderPath "%tebunko_TEST_FOLDER%" | Should Be "C:\data\見積"
+            normalizeFolderPath "%tebunko_TEST_FOLDER%\2024" | Should Be "C:\data\見積\2024"
         } finally {
-            Remove-Item Env:\tebunko_grep_TEST_FOLDER
+            Remove-Item Env:\tebunko_TEST_FOLDER
         }
     }
 
-    It "相対パスは tebunko_grep のフォルダからとみなす" {
+    It "相対パスは tebunko のフォルダからとみなす" {
         normalizeFolderPath "work\index" | Should Be "${rootDir}\work\index"
         normalizeFolderPath ".\work\index" | Should Be "${rootDir}\work\index"
     }

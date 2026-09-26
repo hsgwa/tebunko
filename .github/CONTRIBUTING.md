@@ -100,7 +100,7 @@ The tests in `tests/meta/` and the static analysis in CI (PSScriptAnalyzer; no f
 - **Save scripts and XAML as UTF-8 with BOM and CRLF line endings** (required by Windows PowerShell 5.1).
 - **`scripts/shared/` does not know about individual tools.** Tools do not load each other either.
 - **The decision layer** (`*_view.ps1`, `index_name.ps1`, `search_query.ps1`, `text.ps1`) does not touch the screen (WPF). Put the text shown on screen and the decisions about what is allowed here, and write tests for them.
-- Load every file you add from an entry point (`shared/shared.ps1`, `tebunko_grep/lib.ps1`, `gui.ps1`, `indexer.ps1`).
+- Load every file you add from an entry point (`shared/shared.ps1`, `tebunko/lib.ps1`, `gui.ps1`, `indexer.ps1`).
 - **Do not use network access, dynamic code execution, registry changes or third-party libraries.** Users rely on this when they review the tool before introducing it ([docs/04_安全性.md](../docs/04_安全性.md), Japanese).
 
 The structure of the source code is described in [docs/00_index.md](../docs/00_index.md) (Japanese).

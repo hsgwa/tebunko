@@ -18,10 +18,13 @@ function getSourcedFiles {
 }
 
 Describe "依存の向き" -Tag Meta {
-    # shared はどのツールからも使う部品。ツール（tebunko_grep・tebunko_diff）を知っていてはいけない
-    It "shared 配下にツールの名前が出てこない" {
+    # shared はどのツールからも使う部品。ツール（scripts\tebunko など）のフォルダを知っていてはいけない。
+    # 製品の名前 tebunko は shared でも使う（%LOCALAPPDATA%\tebunko など）ため、ツールのフォルダを指す書き方だけを探す
+    It "shared 配下にツールのフォルダが出てこない" {
+        $toolNames = @(Get-ChildItem "${scriptsDir}" -Directory | Where-Object { $_.Name -ne "shared" } | ForEach-Object { [regex]::Escape($_.Name) })
+        $pattern = "\.\.\\(" + ($toolNames -join "|") + ")\\|scripts[\\/](" + ($toolNames -join "|") + ")\b"
         $found = @(Get-ChildItem "${scriptsDir}\shared" -Recurse -Include *.ps1, *.xaml |
-            Select-String -Pattern "tebunko_grep|tebunko_diff" |
+            Select-String -Pattern $pattern |
             ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
         ($found -join ", ") | Should Be ""
     }
@@ -45,7 +48,7 @@ Describe "依存の向き" -Tag Meta {
 Describe "読み込み漏れ" -Tag Meta {
     # 起動口からたどれないファイルは、足したのに読み込み忘れている
     It "すべての .ps1 が起動口からたどれる" {
-        $entries = @("${scriptsDir}\tebunko_grep\gui.ps1", "${scriptsDir}\tebunko_grep\indexer.ps1")
+        $entries = @("${scriptsDir}\tebunko\gui.ps1", "${scriptsDir}\tebunko\indexer.ps1")
         $seen = New-Object 'System.Collections.Generic.HashSet[string]'
         $queue = New-Object System.Collections.Queue
         foreach ($entry in $entries) {
@@ -68,11 +71,11 @@ Describe "判断層" -Tag Meta {
     It "判断層のファイルに画面への依存が無い" {
         $files = @(
             "${scriptsDir}\shared\core\text.ps1"
-            "${scriptsDir}\tebunko_grep\index\index_name.ps1"
-            "${scriptsDir}\tebunko_grep\index\pack_format.ps1"
-            "${scriptsDir}\tebunko_grep\search\search_query.ps1"
-            "${scriptsDir}\tebunko_grep\search\search_gram.ps1"
-            "${scriptsDir}\tebunko_grep\indexer\indexer_decide.ps1"
+            "${scriptsDir}\tebunko\index\index_name.ps1"
+            "${scriptsDir}\tebunko\index\pack_format.ps1"
+            "${scriptsDir}\tebunko\search\search_query.ps1"
+            "${scriptsDir}\tebunko\search\search_gram.ps1"
+            "${scriptsDir}\tebunko\indexer\indexer_decide.ps1"
         ) + @(Get-ChildItem "${scriptsDir}" -Recurse -Filter "*_view.ps1" | ForEach-Object { $_.FullName })
         foreach ($file in $files) {
             $text = [System.IO.File]::ReadAllText($file)
