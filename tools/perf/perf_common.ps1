@@ -52,29 +52,53 @@ $perfTakeSample = {
 }
 
 function startResourceMonitor {
-    # 別のスレッドで sampleMs ごとにリソースを記録し始める。段階は setMonitorPhase で切り替える
+    # 別のスレッドで sampleMs ごとにリソースを記録し始める。段階は setMonitorPhase で切り替える。
+    # phaseChannel（インデクサの受け渡しの口）を渡すと、記録のスレッドが Progress.Phase を短い間隔で読み、
+    # 段階が変わるたびにすぐ記録して、その段階を記録の段階にする（段階の切り替えは setMonitorPhase の代わりにここで行う）
     param (
-        [int]$sampleMs = 200
+        [int]$sampleMs = 200,
+        $phaseChannel = $null
     )
 
     $monitor = [hashtable]::Synchronized(@{
         Stop = $false; Phase = "準備"; Clock = [System.Diagnostics.Stopwatch]::StartNew()
         Samples = [System.Collections.ArrayList]::Synchronized((New-Object System.Collections.ArrayList))
-        Phases = New-Object System.Collections.Generic.List[hashtable]
+        Phases = New-Object System.Collections.Generic.List[hashtable]; PhaseChannel = $phaseChannel
     })
     $sampler = {
-        param ($monitor, $sampleMs, $takeText)
+        param ($monitor, $sampleMs, $takeText, $phaseChannel)
         $take = [scriptblock]::Create($takeText)
         $cpuCounter = $null; $memCounter = $null
         try { $cpuCounter = New-Object System.Diagnostics.PerformanceCounter "Processor", "% Processor Time", "_Total"; [void]$cpuCounter.NextValue() } catch { $cpuCounter = $null }
         try { $memCounter = New-Object System.Diagnostics.PerformanceCounter "Memory", "Available MBytes" } catch { $memCounter = $null }
-        while (!$monitor.Stop) {
+        if ($null -eq $phaseChannel) {
+            while (!$monitor.Stop) {
+                & $take $monitor $cpuCounter $memCounter
+                Start-Sleep -Milliseconds $sampleMs
+            }
+        } else {
+            $sinceSample = [System.Diagnostics.Stopwatch]::StartNew()
             & $take $monitor $cpuCounter $memCounter
-            Start-Sleep -Milliseconds $sampleMs
+            while (!$monitor.Stop) {
+                $changed = $false
+                $progress = $phaseChannel.Progress
+                if ($null -ne $progress -and $progress.Phase -and $progress.Phase -ne $monitor.Phase) {
+                    $now = [int]$monitor.Clock.Elapsed.TotalMilliseconds
+                    if ($monitor.Phases.Count -gt 0) { $monitor.Phases[$monitor.Phases.Count - 1].EndMs = $now }
+                    $monitor.Phases.Add(@{ Name = [string]$progress.Phase; StartMs = $now; EndMs = $null })
+                    $monitor.Phase = [string]$progress.Phase
+                    $changed = $true
+                }
+                if ($changed -or $sinceSample.ElapsedMilliseconds -ge $sampleMs) {
+                    & $take $monitor $cpuCounter $memCounter
+                    $sinceSample.Restart()
+                }
+                Start-Sleep -Milliseconds 10
+            }
         }
     }
     $ps = [powershell]::Create()
-    [void]$ps.AddScript($sampler).AddArgument($monitor).AddArgument($sampleMs).AddArgument($perfTakeSample.ToString())
+    [void]$ps.AddScript($sampler).AddArgument($monitor).AddArgument($sampleMs).AddArgument($perfTakeSample.ToString()).AddArgument($phaseChannel)
     $monitor.PowerShell = $ps
     $monitor.Handle = $ps.BeginInvoke()
     return $monitor
@@ -105,8 +129,17 @@ function stopResourceMonitor {
         $monitor
     )
 
-    setMonitorPhase $monitor ""
-    $monitor.Stop = $true
+    if ($null -eq $monitor.PhaseChannel) {
+        setMonitorPhase $monitor ""
+        $monitor.Stop = $true
+    } else {
+        # 記録のスレッドが段階を切り替えるとき（phaseChannel あり）は、閉じた段階をまた開かないよう、先に止めてから閉じる
+        $monitor.Stop = $true
+        [void]$monitor.PowerShell.EndInvoke($monitor.Handle)
+        setMonitorPhase $monitor ""
+        $monitor.PowerShell.Dispose()
+        return , @($monitor.Samples.ToArray())
+    }
     [void]$monitor.PowerShell.EndInvoke($monitor.Handle)
     $monitor.PowerShell.Dispose()
     return , @($monitor.Samples.ToArray())
