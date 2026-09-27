@@ -2273,10 +2273,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#wordpowerpoint-の起動終了" class="md-nav__link">
+  <a href="#word-の起動終了" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Word・PowerPoint の起動・終了
+        Word の起動・終了
       
     </span>
   </a>
@@ -3897,10 +3897,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#wordpowerpoint-の起動終了" class="md-nav__link">
+  <a href="#word-の起動終了" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Word・PowerPoint の起動・終了
+        Word の起動・終了
       
     </span>
   </a>
@@ -4093,15 +4093,15 @@
 </tr>
 <tr>
 <td>PID の取得</td>
-<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする。同じ種類の Office を起動するのはそのレーンのスレッド 1 つだけのため、ほかのスレッドの起動と取り違えない</td>
+<td>COM 生成の前後でプロセス一覧（<code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）を比べ、新しく増えた 1 つを自分が起動したプロセスとする。比較は自分のセッションのプロセスだけで行う（別の利用者・別の作業フォルダの tebunko など、ほかのセッションのプロセスを自分のものと取り違えない）。同じ種類の Office を起動するのはそのレーンのスレッド 1 つだけのため、ほかのスレッドの起動と取り違えない</td>
 </tr>
 <tr>
 <td>優先度</td>
-<td>自分が起動した Office のプロセスも <code>PriorityClass</code> を変えない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、PowerPoint は利用者と同じプロセスになるため、利用者とプロセスを共有しないと確実には言えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。PID とプロセス名を受け渡しの口の <code>OfficePids</code> に記録する（画面を閉じるときに止まらなければ、これだけを止める。<a href="../../structure/closing/">閉じるときの順番</a>）</td>
+<td>自分が起動した Office のプロセスも <code>PriorityClass</code> を変えない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、利用者とプロセスを共有しないと確実には言えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。PID とプロセス名を受け渡しの口の <code>OfficePids</code> に記録する（画面を閉じるときに止まらなければ、これだけを止める。<a href="../../structure/closing/">閉じるときの順番</a>）</td>
 </tr>
 <tr>
-<td>利用者のアプリとの共用</td>
-<td>新しいプロセスが増えなかった場合は利用者のアプリとみなし、<code>Quit()</code> も強制終了もしない</td>
+<td>利用者のアプリとの共用（Excel・Word）</td>
+<td>新しいプロセスが増えなかった場合は利用者のアプリとみなし、<code>Quit()</code> も強制終了もしない。PowerPoint は、そもそも利用者のアプリに接続しない（下の「PowerPoint」）</td>
 </tr>
 <tr>
 <td>終了</td>
@@ -4109,7 +4109,7 @@
 </tr>
 <tr>
 <td>終了の失敗</td>
-<td>終了処理中のプロセスへの <code>Kill()</code> は「アクセス拒否」になることがあるため無視する。1 つのアプリの終了に失敗しても残りのアプリは終了させる（<code>stopAllApps</code>）</td>
+<td>終了処理中のプロセスへの <code>Kill()</code> は「アクセス拒否」になることがあるため無視する。1 つのアプリの終了に失敗しても残りのアプリは終了させる（<code>stopAllApps</code>）。強制終了しても待ち時間内に終わらなかったプロセスが残っていれば、次の <code>getApp</code> が利用者のアプリとみなす（下の「PowerPoint」。安全な側に倒れる）</td>
 </tr>
 <tr>
 <td>制限時間の監視</td>
@@ -4117,12 +4117,12 @@
 </tr>
 <tr>
 <td>PowerPoint</td>
-<td>PowerPoint のレーンのスレッドが、一度起動したら使い回す（旧形式の変換のたびに起動し直さない）。ほかの Office と同じく、100 ファイルごと・取り込み失敗時・制限時間を過ぎたときに終了し、次に必要になったときに起動し直す。インデックス作成が起動した PowerPoint は、そのスレッドが終わるときに終了する（利用者の PowerPoint は終了しない）</td>
+<td>PowerPoint は 1 つのセッションに 1 つのプロセスしか持てず、接続すると利用者の設定（<code>DisplayAlerts</code>・<code>AutomationSecurity</code>）まで書き換えてしまう。そのため <code>getApp</code> は、起動する前に自分のセッションに <code>POWERPNT</code> が無いかを確かめ、あれば COM を作らずに例外にする。起動した後（COM 生成の前後）に新しいプロセスが増えていなければ、設定を変える前に COM を解放して同じ例外にする。この例外を受けた司令（<code>indexer_run.ps1</code>）は、そのファイルを取り込まずに後回し（Postponed）にする（未取り込みのまま次回のインデックス作成に回す。<a href="../ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。それ以外は他の Office と同じく、一度起動したら使い回し（旧形式の変換のたびに起動し直さない）、100 ファイルごと・取り込み失敗時・制限時間を過ぎたときに終了して次に必要になったときに起動し直す。インデックス作成が起動した PowerPoint は、そのスレッドが終わるときに終了する</td>
 </tr>
 </tbody>
 </table>
-<h3 id="wordpowerpoint-の起動終了">Word・PowerPoint の起動・終了<a class="headerlink" href="#wordpowerpoint-の起動終了" title="Permanent link">&para;</a></h3>
-<p>Word・PowerPoint では、利用者が同じアプリで作業していることがあるため、次の場合は終了させない。</p>
+<h3 id="word-の起動終了">Word の起動・終了<a class="headerlink" href="#word-の起動終了" title="Permanent link">&para;</a></h3>
+<p>Word では、利用者が同じアプリで作業していることがあるため、次の場合は終了させない（PowerPoint は利用者のアプリに接続しないため、この状態にならない。上の「PowerPoint」）。</p>
 <table>
 <thead>
 <tr>
@@ -4133,11 +4133,11 @@
 <tbody>
 <tr>
 <td>起動中のアプリに接続された</td>
-<td>COM 生成の前後で新しいプロセスが増えなかった場合（PowerPoint は起動中のアプリに接続することがある）は利用者のアプリとみなし、<code>Quit()</code> も強制終了もしない</td>
+<td>COM 生成の前後で新しいプロセスが増えなかった場合は利用者のアプリとみなし、<code>Quit()</code> も強制終了もしない</td>
 </tr>
 <tr>
 <td>インデックス作成中に利用者がファイルを開いた</td>
-<td>終了時に Word の <code>Documents.Count</code> / PowerPoint の <code>Presentations.Count</code> が 1 以上なら、利用者が使用中とみなして終了させない</td>
+<td>終了時に <code>Documents.Count</code> が 1 以上なら、利用者が使用中とみなして終了させない</td>
 </tr>
 </tbody>
 </table>

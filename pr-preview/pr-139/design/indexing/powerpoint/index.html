@@ -3864,7 +3864,7 @@
     B -- いいえ --&gt; C["extractWithPowerPoint で&lt;br&gt;.pptx に変換"] --&gt; D
     D --&gt; E["writeUnits で場所ごとの TSV を出力"]</code></pre>
 <h2 id="powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換（<code>extractWithPowerPoint</code>）<a class="headerlink" href="#powerpoint-の旧形式の変換extractwithpowerpoint" title="Permanent link">&para;</a></h2>
-<p><a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>で ZIP ではないと判定したファイル（<code>.ppt</code>、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で <code>.pptx</code> に変換する。</p>
+<p><a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>で ZIP ではないと判定したファイル（<code>.ppt</code>、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で <code>.pptx</code> に変換する。この処理が呼ぶ <code>getApp</code> は、利用者が PowerPoint を開いていれば接続せずに例外にするため、その場合はここに来ず、そのファイルは取り込まずに後回し（Postponed）にする（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリ（Excel・Word・PowerPoint）の管理</a>「PowerPoint」）。</p>
 <table>
 <thead>
 <tr>
