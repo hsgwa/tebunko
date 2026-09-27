@@ -3357,7 +3357,7 @@
 </tr>
 <tr>
 <td>保存</td>
-<td>チェックを変えるたびに、<strong>チェックなし</strong>の一番上のフォルダ（直下のファイルだけ外した場合はその旨）を <code>setting.config</code> の <code>searchExcludes</code> に保存し、次回起動時に戻す（<code>readSearchExcludes</code> / <code>writeSearchExcludes</code>）。チェックなしを保存するため、あとから作成したインデックス・フォルダはチェックありで表示される。存在しないインデックスのフォルダ（ネットワークのドライブが切れているなど）の記録は消さずに残す</td>
+<td>チェックを変えるたびに、<strong>チェックなし</strong>の一番上のフォルダ（直下のファイルだけ外した場合はその旨）を <code>setting.config</code> の <code>searchExcludes</code> に保存し、次回起動時に戻す（<code>readSearchExcludes</code> / <code>writeSearchExcludes</code>）。チェックなしを保存するため、あとから作成したインデックス・フォルダはチェックありで表示される。存在しないインデックスのフォルダ（ネットワークのドライブが切れているなど）の記録は消さずに残す。ただしインデックスの名前を変えたとき・削除したときは、そのインデックスの下の記録を消す（外したフォルダは検索対象に戻る。<a href="../index-tab/#名前を変えたときの処理renameindex">名前を変えたときの処理</a>）</td>
 </tr>
 <tr>
 <td>読み直し</td>

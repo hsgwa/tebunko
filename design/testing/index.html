@@ -2850,11 +2850,11 @@
 </tr>
 <tr>
 <td><code>renameIndex</code></td>
-<td><code>work\index\&lt;旧名&gt;</code> を改名して中身をそのまま残し、取り込み一覧のクロール対象フォルダの行と各行の相対パスの先頭を書き換える。ほかのインデックスの記録は変えない。フォルダがまだ無くても記録は書き換える。同じ名前のフォルダが既にあれば例外</td>
+<td><code>work\index\&lt;旧名&gt;</code> を改名して中身をそのまま残し、取り込み一覧のクロール対象フォルダの行と各行の相対パスの先頭を書き換える。ほかのインデックスの記録は変えない。フォルダがまだ無くても記録は書き換える。同じ名前のフォルダが既にあれば例外。旧名・新名の下の <code>searchExcludes</code> を消し（大文字・小文字だけの変更も）、ほかのインデックス・頭が同じ名前のインデックス（<code>Sales</code> と <code>Sales2</code>）の記録は変えない。記録を消せなくても例外にしない</td>
 </tr>
 <tr>
 <td><code>removeIndex</code></td>
-<td><code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録を削除し、ほかのインデックスは残す。名前が空なら何もしない</td>
+<td><code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録を削除し、ほかのインデックスは残す。名前が空なら何もしない。そのインデックスの下の <code>searchExcludes</code> も消し、ほかのインデックスの記録は変えない</td>
 </tr>
 <tr>
 <td><code>getSearchIndexes</code></td>
