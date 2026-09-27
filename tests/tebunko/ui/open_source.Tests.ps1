@@ -428,7 +428,7 @@ Describe "exportResults" -Tag Io {
         exportResults
         $lines = [System.IO.File]::ReadAllLines($resultFile)
         $lines[0] | Should -Be "【検索文字列　りんご】 2 件"
-        $lines[2] | Should -Be "sub\見積.xlsx`t[シート] Sheet1`tセル`t3`tりんご`t100"
+        $lines[2] | Should -Be "sub\見積.xlsx`t[シート]Sheet1`tセル`t3`tりんご`t100"
         Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq $resultFile }
         lastStatus | Should -Be "検索結果.txt に出力しました（2 件）"
     }

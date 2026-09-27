@@ -1,7 +1,7 @@
 ﻿# 検索結果の組み立て・書き出しと、インデックスの有無・件数（検索そのものは pack_search.ps1）。
 
 function toResultLine {
-    # 検索結果1件を "ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行" に整形する。場所・種別は画面と同じ表示（describePlace）。
+    # 検索結果1件を "ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行" に整形する。場所・種別は場所ごとの表記（describePlace。画面の見出しの要約と同じ）。
     # Excelに貼り付けたとき、該当行の各セルが元の列の順（5列目 = A列）に並ぶようにする
     param (
         [string]$book,

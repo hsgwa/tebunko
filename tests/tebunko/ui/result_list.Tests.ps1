@@ -148,25 +148,25 @@ Describe "getPlace・addFileGroupLocation" -Tag Unit {
     BeforeEach { resetResults }
 
     It "Excel とそれ以外は別の表記にする" {
-        (getPlace "見積.xlsx" "ページ003").Place | Should -Be "[シート] ページ003"
-        (getPlace "議事録.docx" "ページ003").Place | Should -Be "[ページ] 3（目安）"
+        (getPlace "見積.xlsx" "ページ003").Place | Should -Be "[シート]ページ003"
+        (getPlace "議事録.docx" "ページ003").Place | Should -Be "3 ページ（目安）"
         $script:places.Count | Should -Be 2
     }
 
     It "見出しの右端に、ヒットした場所を足していく" {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         addFileGroupLocation $group "見積.xlsx" "4月"
-        $group.LocationText | Should -Be "[シート] 4月"
+        $group.LocationText | Should -Be "[シート]4月"
         addFileGroupLocation $group "見積.xlsx" "5月"
         addFileGroupLocation $group "見積.xlsx" "6月"
-        $group.LocationText | Should -Be "[シート] 4月 ほか 2 か所"
+        $group.LocationText | Should -Be "[シート]4月 ほか 2 か所"
     }
 
     It "図形の場所は元のシートと同じ表記なので増やさない" {
         $group = newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx"
         addFileGroupLocation $group "見積.xlsx" "4月"
         addFileGroupLocation $group "見積.xlsx" "4月[図形]"
-        $group.LocationText | Should -Be "[シート] 4月"
+        $group.LocationText | Should -Be "[シート]4月"
         @($group.GetLocations()).Count | Should -Be 1
     }
 }
@@ -183,7 +183,7 @@ Describe "ensureRows" -Tag Unit {
         $group.Rows.Count | Should -Be 2
         $row = $group.Rows[0]
         $row.IndexName | Should -Be "営業部"
-        $row.PlaceText | Should -Be "[シート] 4月"
+        $row.PlaceText | Should -Be "[シート]4月"
         $row.Kind | Should -Be "セル"
         $row.LineNumber | Should -Be 3
         $row.Order | Should -Be 0
@@ -692,5 +692,67 @@ Describe "イベント" -Tag Unit {
 
         $row.Prepared | Should -Be $true
         $row.MatchCell | Should -Be "B1"
+        $row.PlaceDisplay | Should -Be "[シート]4月!B1"
+    }
+}
+
+Describe "prepareHitRow" -Tag Unit {
+    BeforeEach { resetResults }
+
+    It "<name>" -TestCases @(
+        @{ name = "Excel のセルはセル番地を足す"; book = "見積.xlsx"; location = "4月"; line = "`t見積書"; expected = "[シート]4月!B1" }
+        @{ name = "Excel の図形は左上のセル番地を足す"; book = "見積.xlsx"; location = "4月[図形]"; line = "D5`t見積の注記"; expected = "[シート]4月!D5" }
+        @{ name = "Word は場所ごとの表記のまま"; book = "議事録.docx"; location = "ページ003"; line = "見積の件"; expected = "3 ページ（目安）" }
+    ) {
+        param ($name, $book, $location, $line, $expected)
+        $group = addHit $book $location $line 1
+        ensureRows $group
+        $row = $group.Rows[0]
+
+        prepareHitRow $row
+
+        $row.PlaceDisplay | Should -Be $expected
+    }
+
+    It "作り済みなら作り直さない" {
+        $group = addHit "見積.xlsx" "4月" "`t見積書" 1
+        ensureRows $group
+        $row = $group.Rows[0]
+        prepareHitRow $row
+        $row.PlaceDisplay = "変えた"
+
+        prepareHitRow $row
+
+        $row.PlaceDisplay | Should -Be "変えた"
+    }
+}
+
+Describe "結果の表の定義（tab_search.xaml）" -Tag Unit {
+    BeforeAll {
+        $xaml = [xml](Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\tab_search.xaml" -Raw -Encoding UTF8)
+        $ns = New-Object System.Xml.XmlNamespaceManager($xaml.NameTable)
+        $ns.AddNamespace("p", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
+        $resultGrid = $xaml.SelectSingleNode("//p:DataGrid[@*[local-name()='Name']='ResultGrid']", $ns)
+    }
+
+    It "列は「場所」「種別」「該当行」の 3 つだけにする" {
+        @($resultGrid.SelectSingleNode("p:DataGrid.Columns", $ns).ChildNodes | Where-Object { $_ -is [System.Xml.XmlElement] } | ForEach-Object { $_.GetAttribute("Header") }) -join "," | Should -Be "場所,種別,該当行"
+    }
+
+    It "「場所」の列は、ツールチップで全文を出す" {
+        $column = $resultGrid.SelectSingleNode("p:DataGrid.Columns/p:DataGridTextColumn[@Header='場所']", $ns)
+        $column.GetAttribute("SortMemberPath") | Should -Be "Location"
+        $tip = $column.SelectSingleNode("p:DataGridTextColumn.ElementStyle/p:Style/p:Setter[@Property='ToolTip']", $ns)
+        $tip.GetAttribute("Value") | Should -Be "{Binding PlaceDisplay}"
+    }
+
+    It "行の名前を付ける（見出しはファイル名、ヒットの行は場所）" {
+        $names = @($resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.Name']", $ns) | ForEach-Object { $_.GetAttribute("Value") })
+        $names | Should -Be @("{Binding Book}", "{Binding PlaceDisplay}")
+        $resultGrid.SelectNodes("p:DataGrid.RowStyle//p:Setter[@Property='AutomationProperties.HelpText']", $ns).Count | Should -Be 1
+    }
+
+    It "使わなくなった列（IndexColumn）を参照するコードが無い" {
+        @(Get-ChildItem -LiteralPath $scriptsDir -Recurse -Include *.ps1, *.xaml | Select-String -SimpleMatch "IndexColumn").Count | Should -Be 0
     }
 }
