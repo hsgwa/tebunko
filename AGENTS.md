@@ -88,7 +88,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 ## ソースの分け方
 
-`scripts/` は **文脈**（`shared/` = どのツールからも使う、`tebunko/` = このツール固有）と **層**（判断層・状態層・画面層）で分ける。詳細は [docs/design/index.md「ソースの分け方」](docs/design/index.md) と [docs/design/architecture/modules.md「フォルダの分け方と読み込み口」](docs/design/architecture/modules.md)。
+`scripts/` は **文脈**（`shared/` = どのツールからも使う、`tebunko/` = このツール固有）と **層**（判断層・状態層・画面層）で分ける。詳細は [docs/design/structure/source.md「ソースの分け方」](docs/design/structure/source.md)（フォルダの分け方・読み込み口を含む）。
 
 守ること（`tests/meta/` が機械的に確かめる）:
 
@@ -102,7 +102,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 
 ## テストカバレッジの方針
 
-全体の目標値は決めない。**下限を割らないこと**と、**テストが効く層を厚くすること**を守る。数値の見方と CI での扱いは [docs/design/testing/ci.md](docs/design/testing/ci.md) の「タグと実行」と「CI」にある。
+全体の目標値は決めない。**下限を割らないこと**と、**テストが効く層を厚くすること**を守る。数値の見方は [docs/design/testing/run.md](docs/design/testing/run.md) の「タグと実行」、CI での扱いは [docs/design/testing/ci.md](docs/design/testing/ci.md) の「CI」にある。
 
 - **下限は `tests/coverage.baseline`（90.0）。** `.\tests\run.ps1 -Ci` がこれを下回ると失敗し、CI の必須チェック `test` が通らないためマージできない。
   - 下回ったら、テストを足して戻す。下限の値を下げて通さない。
