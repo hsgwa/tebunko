@@ -77,3 +77,20 @@ Describe "getIndexingConfirmText" -Tag Unit {
         (getIndexingConfirmText 0 5 $true).Button | Should -Be "インデックス作成を開始"
     }
 }
+
+Describe "getReingestConfirm" -Tag Unit {
+    It "しるしがあり content_index が空のときだけ確かめの文言を返す" -TestCases @(
+        @{ hasLegacyIndex = $true;  contentEmpty = $true;  expectConfirm = $true }
+        @{ hasLegacyIndex = $true;  contentEmpty = $false; expectConfirm = $false }
+        @{ hasLegacyIndex = $false; contentEmpty = $true;  expectConfirm = $false }
+        @{ hasLegacyIndex = $false; contentEmpty = $false; expectConfirm = $false }
+    ) {
+        param ($hasLegacyIndex, $contentEmpty, $expectConfirm)
+        $text = getReingestConfirm $hasLegacyIndex $contentEmpty
+        if ($expectConfirm) {
+            $text | Should -Not -BeNullOrEmpty
+        } else {
+            $text | Should -Be ""
+        }
+    }
+}

@@ -56,7 +56,7 @@ function removeStaleProcessDirs {
 }
 
 function removeDroppedFolders {
-    # クロール対象フォルダから削除されたフォルダのインデックス（work\index\<インデックス名>）を削除する。
+    # クロール対象フォルダから削除されたフォルダのインデックス（work\content_index\<インデックス名>）を削除する。
     # チェックを外しただけのフォルダは削除しない
     param (
         [object[]]$folders,          # assignIndexNames の結果

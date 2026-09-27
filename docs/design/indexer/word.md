@@ -40,8 +40,8 @@ TSV の例（配置・命名の規則は [配置・命名規則](index-format.md
 
 | 元ファイル（クロール対象フォルダからの相対パス） | 場所 | 出力 TSV |
 |---|---|---|
-| `報告書.docx` | 2 ページ目 | `work/index/営業/報告書.docx/ページ002.tsv` |
-| `報告書.docx` | ヘッダー・フッター | `work/index/営業/報告書.docx/ヘッダー・フッター.tsv` |
-| `報告書.docx` | 脚注・文末脚注 | `work/index/営業/報告書.docx/脚注.tsv` |
+| `報告書.docx` | 2 ページ目 | `work/content_index/営業/報告書.docx/ページ002.tsv` |
+| `報告書.docx` | ヘッダー・フッター | `work/content_index/営業/報告書.docx/ヘッダー・フッター.tsv` |
+| `報告書.docx` | 脚注・文末脚注 | `work/content_index/営業/報告書.docx/脚注.tsv` |
 
 - ページ番号は 3 桁以上の 0 埋め（ファイル名の順 = ページの順）。

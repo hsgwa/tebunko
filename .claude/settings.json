@@ -8,7 +8,8 @@
       "Read(**/id_rsa*)"
     ],
     "ask": [
-      "Read(work/index/**)"
+      "Read(work/index/**)",
+      "Read(work/content_index/**)"
     ]
   }
 }
