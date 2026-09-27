@@ -215,7 +215,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 | 受け渡しの口 | `Progress.Phase` と、その値 `クロール`・`確認`・`取り込み`・`仕上げ` |
 | 設定 | `setting.config` がツールのフォルダにあること。キー `targetFolders`（`@{ name; path; enabled }` の配列）・`workspaceFolder`・`ingestThreads` |
 | 取り込み一覧 | ワークスペース直下の `取り込み一覧.tsv`。見出しの `相対パス`・`状態`。状態の値 `済`・`失敗` |
-| 取り込んだ結果 | 最後の回のワークスペース（`<作業フォルダ>\ingest\ws`。`measure_ingest.ps1` は次の回の始めまで消さない）の下に、本文インデックスのファイル `content.*.tsv`（[配置・命名規則](../indexer/index-format.md#配置命名規則)の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（`perf_ingest.Tests.ps1`）が、数と合計の大きさを数える |
+| 取り込んだ結果 | 最後の回のワークスペース（`<作業フォルダ>\ingest\ws`。`measure_ingest.ps1` は次の回の始めまで消さない）の下に、本文インデックスのファイル `content_index.*.tsv`（[配置・命名規則](../indexer/index-format.md#配置命名規則)の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（`perf_ingest.Tests.ps1`）が、数と合計の大きさを数える |
 
 **`perf-check.yml`（速さの回帰テスト）**
 

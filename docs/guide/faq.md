@@ -14,7 +14,7 @@
 
 ## インデックスの保存先と容量を教えてください。
 
-ワークスペース（既定：`%USERPROFILE%\Documents\tebunko_ws`）の `index` フォルダと `system_index` フォルダに保存します。容量（`index` フォルダ）は取り込んだファイルの文字量によります。目安は 100 万行で約 70MB です。
+ワークスペース（既定：`%USERPROFILE%\Documents\tebunko_ws`）の `content_index` フォルダと `system_index` フォルダに保存します。容量（`content_index` フォルダ）は取り込んだファイルの文字量によります。目安は 100 万行で約 70MB です。
 
 ## インデックスの取り扱いで注意すべき点はありますか。
 
