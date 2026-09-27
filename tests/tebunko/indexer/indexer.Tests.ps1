@@ -286,9 +286,10 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
 
 }
 
-Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -Tag Io {
+Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -Tag Office {
     # 利用者のPowerPointが起動していることにするため、自分のセッションで実際にPowerPointを起動する
-    # （getApp は自分のセッションの POWERPNT を数えるため、モックではなく実際に起動して確かめる）
+    # （getApp は自分のセッションの POWERPNT を数えるため、モックではなく実際に起動して確かめる。
+    #   実際の PowerPoint が要るため Office タグにする（既定・CI では実行しない。tests/run.ps1 の $defaultExclude）
     It "PowerPointが要るファイルは取り込まずに後回しにする。閉じれば次回のインデックス作成で取り込む" {
         $dir = Join-Path $TestDrive "後回し"
         [System.IO.Directory]::CreateDirectory($dir) | Out-Null
