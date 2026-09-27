@@ -5,6 +5,9 @@ BeforeAll {
     . "${scriptsDir}\shared\office\office_app.ps1"
 
     $log = New-Object System.Collections.ArrayList
+    # 自分のセッションと、ほかの利用者・ほかの作業フォルダの tebunko を想定した別のセッション
+    $ownSession = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
+    $otherSession = $ownSession + 1
 
     # 偽のアプリ。設定されなかったプロパティは「未設定」のまま残る
     function newFakeApp([int]$openDocuments = 0) {
@@ -17,22 +20,44 @@ BeforeAll {
         return $app
     }
 
-    # Get-Process -Name の 1 回目（起動前）と 2 回目（起動後）に返すプロセス ID
-    function setProcesses([int[]]$before, [int[]]$after) {
-        $processes.Calls = 0
-        $processes.Before = $before
-        $processes.After = $after
+    # Get-Process -Name が1回返す並び（自分のセッション・ほかのセッションの両方を混ぜて返せる）
+    function newProcessSet([int[]]$ownIds = @(), [int[]]$otherIds = @()) {
+        $own = @($ownIds | ForEach-Object { [pscustomobject]@{ Id = $_; SessionId = $ownSession } })
+        $other = @($otherIds | ForEach-Object { [pscustomobject]@{ Id = $_; SessionId = $otherSession } })
+        return , @($own + $other)
     }
 
-    $processes = @{ Calls = 0; Before = @(); After = @() }
+    # Get-Process -Name の呼び出しごとに、渡した並びを順に返す
+    function setProcessSequence {
+        param ([object[]]$sequence)
+        $script:processSequence = New-Object 'System.Collections.Generic.Queue[object]'
+        foreach ($item in $sequence) { $script:processSequence.Enqueue($item) }
+    }
+
+    # Excel・Word（起動前・起動後の確認だけ）用: Get-Process -Name を2回呼ぶ
+    function setProcesses {
+        param ([int[]]$before, [int[]]$after, [int[]]$otherBefore = @(), [int[]]$otherAfter = @())
+        setProcessSequence @((newProcessSet $before $otherBefore), (newProcessSet $after $otherAfter))
+    }
+
+    # PowerPoint（起動する前に既に自分のセッションにいないかも確かめる）用: Get-Process -Name を3回呼ぶ
+    # （事前の確認・起動前の確認・起動後の確認。事前の確認と起動前の確認の間には何もしないため同じ値になる）
+    function setSingleInstanceProcesses {
+        param ([int[]]$before, [int[]]$after, [int[]]$otherBefore = @(), [int[]]$otherAfter = @())
+        setProcessSequence @((newProcessSet $before $otherBefore), (newProcessSet $before $otherBefore), (newProcessSet $after $otherAfter))
+    }
+
+    # PowerPoint が事前の確認で例外になり、起動を試さない場合用: Get-Process -Name を1回だけ呼ぶ
+    function setPrecheckProcesses {
+        param ([int[]]$ownIds, [int[]]$otherIds = @())
+        setProcessSequence @((newProcessSet $ownIds $otherIds))
+    }
 }
 
 Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     BeforeAll {
         Mock Get-Process {
-            $processes.Calls++
-            $ids = if ($processes.Calls -eq 1) { $processes.Before } else { $processes.After }
-            return @($ids | ForEach-Object { [pscustomobject]@{ Id = $_ } })
+            return $script:processSequence.Dequeue()
         } -ParameterFilter { $Name }
 
         # 終了待ち（5 秒）で終わらなかったプロセス
@@ -46,7 +71,6 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
     BeforeEach {
         # 前のテストで起動したことになっているアプリを片付ける
-        setProcesses @() @()
         foreach ($name in @("Excel", "Word", "PowerPoint")) { stopApp $name }
         $log.Clear()
     }
@@ -103,7 +127,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
     It "PowerPoint はウィンドウを隠さず（Visible を変えない）、警告なし・マクロ無効で起動する" {
         $fake = newFakeApp
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
-        setProcesses @() @(400)
+        setSingleInstanceProcesses @() @(400)
 
         $app = getApp "PowerPoint"
         $app.Visible | Should -Be "未設定"
@@ -132,15 +156,15 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         $log -join "|" | Should -Be "Quit|WaitForExit:5000|Kill:300"
     }
 
-    It "起動中の利用者のアプリに接続した場合は、終了させない" {
-        # 新しいプロセスが増えない = 既に起動していたアプリに接続した
+    It "新しいプロセスが増えず起動中の利用者のアプリに接続した場合（Excel・Word）は、終了させない" {
+        # 新しいプロセスが増えない = 既に起動していたアプリに接続した（PowerPoint はこの状態にならないよう、下で別に確かめる）
         $fake = newFakeApp
-        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @(500) @(500)
-        [void](getApp "PowerPoint")
+        [void](getApp "Excel")
         @($script:watchdog.Pids).Count | Should -Be 0
 
-        stopApp "PowerPoint"
+        stopApp "Excel"
         @($log).Count | Should -Be 0
     }
 
@@ -164,6 +188,49 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         # 自分で起動したことにはなるため Quit はするが、プロセスを指定した強制終了はしない
         stopApp "Excel"
         $log -join "|" | Should -Be "Quit"
+    }
+
+    It "起動の前後にほかのセッションのプロセスが増えても、自分のものと取り違えない（Pid・見張りの対象に入らない）" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
+        setProcesses @() @() @() @(999)
+        [void](getApp "Word")
+
+        $script:apps["Word"].Pid | Should -Be 0
+        $script:apps["Word"].Shared | Should -Be $true
+        @($script:watchdog.Pids) | Should -Not -Contain 999
+    }
+
+    It "PowerPoint は自分のセッションに既に起動していれば、New-Object を呼ばずに例外を投げる（利用者が開いている・強制終了で終わらずに残った場合を含む）" {
+        Mock New-Object { newFakeApp } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        setPrecheckProcesses @(500)
+
+        { getApp "PowerPoint" } | Should -Throw -ExpectedMessage "*PowerPoint が起動しているため*" -ExceptionType ([System.InvalidOperationException])
+        Should -Invoke New-Object -Times 0 -Exactly -Scope It -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        $script:apps.ContainsKey("PowerPoint") | Should -Be $false
+    }
+
+    It "PowerPoint はほかのセッションにだけ起動していれば、接続せず新しく起動する" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        setSingleInstanceProcesses @() @(410) @(999) @(999)
+
+        $app = getApp "PowerPoint"
+        $app.DisplayAlerts | Should -Be 1
+        Should -Invoke New-Object -Times 1 -Exactly -Scope It -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+    }
+
+    It "PowerPoint は起動後に新しいプロセスが増えなければ、設定を変える前に解放して例外を投げる（`$script:apps に残さない）" {
+        # 事前の確認から New-Object の間に、利用者が先にアプリを起動した場合に当たる
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "PowerPoint.Application" }
+        setSingleInstanceProcesses @() @()
+
+        { getApp "PowerPoint" } | Should -Throw -ExpectedMessage "*PowerPoint が起動しているため*" -ExceptionType ([System.InvalidOperationException])
+        $fake.AutomationSecurity | Should -Be "未設定"
+        $fake.DisplayAlerts | Should -Be "未設定"
+        @($log).Count | Should -Be 0
+        $script:apps.ContainsKey("PowerPoint") | Should -Be $false
     }
 }
 
@@ -245,12 +312,9 @@ Describe "getAppName" -Tag Unit {
 }
 
 Describe "getApp（起動したプロセスの優先度）" -Tag Unit {
-    It "起動した Office の優先度は変えない（利用者とプロセスを共有しうるため）" {
-        $script:started = @{}
+    BeforeAll {
         Mock Get-Process {
-            $processes.Calls++
-            $ids = if ($processes.Calls -eq 1) { $processes.Before } else { $processes.After }
-            return @($ids | ForEach-Object { [pscustomobject]@{ Id = $_ } })
+            return $script:processSequence.Dequeue()
         } -ParameterFilter { $Name }
         Mock Get-Process {
             if (!$script:started.ContainsKey($Id[0])) {
@@ -258,9 +322,13 @@ Describe "getApp（起動したプロセスの優先度）" -Tag Unit {
             }
             return $script:started[$Id[0]]
         } -ParameterFilter { $Id }
+    }
+
+    It "起動した Office の優先度は変えない（利用者とプロセスを共有しうるため）" {
+        $script:started = @{}
         Mock New-Object { newFakeApp } -ParameterFilter { $ComObject -eq "PowerPoint.Application" -or $ComObject -eq "Excel.Application" }
         foreach ($name in @("Excel", "PowerPoint")) { $script:apps.Remove($name) }
-        setProcesses @() @(410)
+        setSingleInstanceProcesses @() @(410)
         [void](getApp "PowerPoint")
         setProcesses @() @(420)
         [void](getApp "Excel")
