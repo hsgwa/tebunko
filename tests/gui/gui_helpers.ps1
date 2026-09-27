@@ -166,7 +166,7 @@ function closeGui {
 }
 
 function getGuiCrashInfo {
-    # 終了コードが 0 でも 1（trap の exit）でもないとき、Windows のイベントログ（Application）からその
+    # 終了コードが 0 でないとき（1 の trap の exit も含む）、Windows のイベントログ（Application）からその
     # プロセス ID に関する直近の記録を探す。原因不明の終了（アクセス違反・COM の例外など）を追う材料にする
     param ([int]$ProcessId)
 

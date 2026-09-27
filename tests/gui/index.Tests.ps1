@@ -59,6 +59,12 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
 
+            # ［作成］のチェックの見た目の初期化（行が表示されたときの Checked）で、二重に保存されないことを確かめる（#16）
+            setGuiStep $S "行が表示された直後に、余計な保存が走らないこと"
+            $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
+            Start-Sleep -Milliseconds 1000
+            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime -Because "行の表示だけでは設定ファイルを書き直さない"
+
             # 編集: キャンセル・名前の変更（#14）
             setGuiStep $S "［編集…］→［キャンセル］"
             selectGui $row
@@ -77,16 +83,18 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
                 if ($r -and ((getGuiRowTexts $r) -contains "資料")) { $r }
             }
 
-            # ［作成］のチェックを切り替える（#16）。
-            # UI オートメーションの Toggle は、チェックの状態を変えるだけで Click イベントを起こさないため、Click で行う設定への保存と
-            # ［インデックス作成を開始］の可否の更新は確かめられない（マウスの操作でだけ動く。docs\design\testing\index.md「画面のスモークテスト」の対象外）
+            # ［作成］のチェックを切り替えると、設定への保存と［インデックス作成を開始］の可否に反映される（#16）
             setGuiStep $S "［作成］のチェックの切り替え"
             $check = findGui $row -Type CheckBox
             getGuiToggleState $check | Should -Be "On"
             toggleGui $check
             waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
+            waitGui $S "設定の enabled が false になる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $false } | Out-Null
+            waitGui $S "［インデックス作成を開始］が押せなくなる" ${guiDefaultTimeout} { !(findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
             toggleGui (findGui $row -Type CheckBox)
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
+            waitGui $S "設定の enabled が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $true } | Out-Null
+            waitGui $S "［インデックス作成を開始］が押せるようになる" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
 
             # 作成: 確認でキャンセルすると取りやめ、もう一度で取り込む（#17）
             setGuiStep $S "［インデックス作成を開始］→ 確認で［キャンセル］"
