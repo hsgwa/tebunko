@@ -4,6 +4,15 @@
 
 ## 実装構成
 
+```mermaid
+flowchart TD
+    BAT["tebunko.bat"] --> GUI["gui.ps1"]
+    GUI --> XAML["xaml/*.xaml"]
+    GUI --> UI["ui/*.ps1（画面層）"]
+    UI --> VIEW["ui/*_view.ps1（判断層）"]
+    GUI --> LIB["tebunko/lib.ps1"] --> SHARED["shared/*"]
+```
+
 | ファイル | 内容 |
 |---|---|
 | `tebunko.bat` | 起動用バッチ。`conhost.exe` を通して `powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "..."` を `start` で起動する。`-Command` の中で `scripts` 配下の Mark-of-the-Web を消してから、`& 'scripts\tebunko\gui.ps1'` で画面を開く（PowerShell の起動は 1 回。`conhost.exe` を通すのは、既定のターミナルが Windows Terminal でも窓を隠すため）。ASCII・CRLF で書き、説明コメントは英語にする（cmd はコードページ・改行に敏感なため）。詳細は [画面の共通仕様](common.md#配布と実行ポリシーmark-of-the-web) |

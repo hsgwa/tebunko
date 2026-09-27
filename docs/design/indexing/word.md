@@ -6,6 +6,14 @@ Word・PowerPoint で共通の処理（抽出の流れ・起動と終了・フ�
 
 Word 文書の旧形式（`.doc` 等）の変換（[Word の旧形式の変換](#word-の旧形式の変換extractwithword)）、本文のページ・ヘッダー/フッター・脚注・図形・コメントごとの読み取り（[Word のテキスト読み取りと TSV の場所](#word-のテキスト読み取りと-tsv-の場所readdocxunits)）、Word に固有の注意点（[Word の注意点・既知の問題](known-issues.md#word-の注意点既知の問題)）を扱う。
 
+```mermaid
+flowchart TD
+    A["extractDocument（共通）"] --> B{"中身が ZIP？"}
+    B -- はい --> D["readDocxUnits で読む"]
+    B -- いいえ --> C["extractWithWord で<br>.docx に変換"] --> D
+    D --> E["writeUnits で場所ごとの TSV を出力"]
+```
+
 ## Word の旧形式の変換（`extractWithWord`）
 
 [Word・PowerPoint の抽出処理](office-apps.md#wordpowerpoint-の抽出処理extractdocument)で ZIP ではないと判定したファイル（`.doc`、パスワード付き、拡張子と中身が異なるもの）を、Word で `.docx` に変換する。

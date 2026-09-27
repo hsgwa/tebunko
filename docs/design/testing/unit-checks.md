@@ -2,6 +2,13 @@
 
 扱うこと: 開発用の道具（`tests/tools/`）・テストデータの個人情報の除去・安全性の検査・インストーラーの検査の単体テストが何を確かめるか。扱わないこと: インデックス・検索・Office のテスト（[単体テスト（インデックスと検索）](unit-index.md)・[単体テスト（Office）](unit-office.md)）。先に読むページ: [テスト](index.md)。
 
+```mermaid
+flowchart LR
+    src["tools/*.ps1"] --> test["tests/tools/*.Tests.ps1"]
+    src2["tests/testdata/scrub_personal.ps1"] --> test2["tests/testdata/scrub_personal.Tests.ps1"]
+    src3["installer/*・shared/office/office_process.ps1 など"] --> test3["tests/meta/safety.Tests.ps1<br>tests/meta/installer.Tests.ps1"]
+```
+
 **開発用の道具（`tests/tools/`）**
 
 | 対象 | 主な確認内容 |

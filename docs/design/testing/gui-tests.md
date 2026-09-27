@@ -4,6 +4,19 @@
 
 判断層（`*_view.ps1`）はそのままテストする。`result_list.ps1`・`open_source.ps1`・`preview.ps1`・`index_tree.ps1` は `$ui`・`$window` を偽物にし、Excel・エクスプローラーの起動は `Mock` して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（`preview.ps1` の `copyPreviewSelection`）だけを確かめる。型（`shared/ui/types.ps1`・`tebunko/ui/types.ps1`）はプロパティの変更通知と各メソッドを確かめる。
 
+```mermaid
+flowchart TD
+    subgraph judge["判断層（$ui に触らない）"]
+        V["*_view.ps1"] --> TV["そのままテスト"]
+    end
+    subgraph parts["画面の部品（$ui を偽物にする）"]
+        P["result_list.ps1・open_source.ps1<br>preview.ps1・index_tree.ps1"] --> TP["$ui・$window を Mock"]
+    end
+    subgraph manual["手で確かめる（対象外）"]
+        M["gui.ps1・*_tab.ps1・shell.ps1・app_host.ps1・*_dialog.ps1"] --> TM["画面の確認（このページの下半分）"]
+    end
+```
+
 ## 画面の単体テスト
 
 画面が使う関数と画面の部品を Pester 5.9.0 で確かめる（実行方法・タグ・カバレッジは [テストの実行と CI](run.md)）。画面の部品（`ui/*.ps1`）のテストは、WPF のコントロール（`$ui.ResultGrid` など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。

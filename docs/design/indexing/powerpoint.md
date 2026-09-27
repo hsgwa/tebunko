@@ -6,6 +6,14 @@ Word・PowerPoint で共通の処理（抽出の流れ・起動と終了・フ�
 
 PowerPoint の旧形式（`.ppt` 等）の変換（[PowerPoint の旧形式の変換](#powerpoint-の旧形式の変換extractwithpowerpoint)）、スライド・ノート・図形・コメントごとの読み取り（[PowerPoint のテキスト読み取りと TSV の場所](#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits)）、PowerPoint に固有の注意点（[PowerPoint の注意点・既知の問題](known-issues.md#powerpoint-の注意点既知の問題)）を扱う。
 
+```mermaid
+flowchart TD
+    A["extractDocument（共通）"] --> B{"中身が ZIP？"}
+    B -- はい --> D["readPptxUnits で読む"]
+    B -- いいえ --> C["extractWithPowerPoint で<br>.pptx に変換"] --> D
+    D --> E["writeUnits で場所ごとの TSV を出力"]
+```
+
 ## PowerPoint の旧形式の変換（`extractWithPowerPoint`）
 
 [Word・PowerPoint の抽出処理](office-apps.md#wordpowerpoint-の抽出処理extractdocument)で ZIP ではないと判定したファイル（`.ppt`、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で `.pptx` に変換する。

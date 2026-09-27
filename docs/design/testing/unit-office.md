@@ -2,6 +2,12 @@
 
 扱うこと: Office ファイルの読み取り（ZIP を直接読む）・COM を使う処理の単体テストが何を確かめるか。扱わないこと: インデックス作成の流れそのもののテスト（[単体テスト（インデックス作成）](unit-indexer.md)）。先に読むページ: [単体テスト（インデックスと検索）](unit-index.md)。
 
+```mermaid
+flowchart LR
+    src["scripts/shared/office/office_reader.ps1"] --> test["tests/shared/office/office_reader.Tests.ps1"]
+    src2["scripts/tebunko/indexer/extract_office.ps1<br>scripts/shared/office/office_app.ps1"] --> test2["tests/tebunko/indexer/extract_office.Tests.ps1<br>tests/shared/office/office_app.Tests.ps1"]
+```
+
 **Office ファイルの読み取り（`tests/shared/office/office_reader`）**
 
 Word・PowerPoint・Excel は使わず、最小限の `.docx` `.pptx` `.xlsx`（ZIP）をテスト内で作成する。

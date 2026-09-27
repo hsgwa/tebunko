@@ -6,6 +6,17 @@
 
 Word に固有のものは [Word の注意点・既知の問題](#word-の注意点既知の問題)（[Word の注意点・既知の問題](#word-の注意点既知の問題)）、PowerPoint に固有のものは [PowerPoint の注意点・既知の問題](#powerpoint-の注意点既知の問題)（[PowerPoint の注意点・既知の問題](#powerpoint-の注意点既知の問題)）にまとめる。
 
+```mermaid
+flowchart LR
+    A["クロール<br>normalizeFolderPath・testSameFolder"] --> B["取り込み対象の決定<br>createTargetList・getIndexTsvCounts"]
+    B --> C["抽出<br>extractWorkbook・prettyTsv"]
+    C --> D["本文インデックス<br>updateIndexFolderPack"]
+    D --> E["検索<br>searchPackIndex"]
+    E --> F["元のファイルを開く<br>openInExcel"]
+```
+
+既知の問題が主に起きる場所を、処理の流れに沿って示す（詳細は各項目の本文）。
+
 ## 共通
 
 | # | 内容 | 確度 |

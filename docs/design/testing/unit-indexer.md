@@ -2,6 +2,13 @@
 
 扱うこと: インデックス作成（`tests/tebunko/indexer/`）・スレッドとプール・元のファイルの特定の単体テストが何を確かめるか。扱わないこと: インデックス名・インデックスの管理・本文インデックスのテスト（[単体テスト（インデックスと検索）](unit-index.md)）、Office のテスト（[単体テスト（Office）](unit-office.md)）。先に読むページ: [単体テスト（インデックスと検索）](unit-index.md)。
 
+```mermaid
+flowchart LR
+    src["scripts/tebunko/indexer/*.ps1"] --> test["tests/tebunko/indexer/*.Tests.ps1"]
+    src2["scripts/shared/core/worker_pool.ps1<br>scripts/tebunko/search/search_service.ps1"] --> test2["tests/shared/core/worker_pool.Tests.ps1<br>tests/tebunko/search/search_service.Tests.ps1"]
+    src3["scripts/tebunko/search/source_map.ps1"] --> test3["tests/tebunko/search/source_map.Tests.ps1"]
+```
+
 **インデックス作成（`tests/tebunko/indexer/`）**
 
 | 対象 | 主な確認内容 |
