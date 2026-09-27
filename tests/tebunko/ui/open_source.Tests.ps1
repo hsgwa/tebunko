@@ -171,9 +171,11 @@ Describe "findSourceFile" -Tag Io {
         Mock findSourceFileState { @{ State = "Unreachable"; Message = "" } }
         Mock showConfirm { "pick" }
         Mock selectFolder { "$TestDrive\moved" }
+        Mock setIndexSourceFolder { }
 
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         $script:foundPaths -join "," | Should -Be "$TestDrive\moved\sub\見積.xlsx"
+        Should -Invoke setIndexSourceFolder -Times 1 -Exactly -ParameterFilter { $name -eq "営業" -and $folder -eq "$TestDrive\moved" }
     }
 
     It "その他の失敗のときは、例外の文面を出す" {
