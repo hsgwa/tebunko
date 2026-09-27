@@ -19,7 +19,7 @@
 
 ## 推奨設定
 
-インデックス作成では、検索用のインデックス（ワークスペースの `index`）とは別に、Windows Search に索引させるデータ（`system_index`）を作成します。ワークスペースの既定の場所（`Documents\tebunko_ws`）は、標準で Windows Search の索引付けの対象です。
+インデックス作成では、検索に使うデータ（ワークスペースの `index`）に加えて、Windows Search に索引させるデータ（`system_index`）を作成します。どちらもインデックスの一部です。ワークスペースの既定の場所（`Documents\tebunko_ws`）は、標準で Windows Search の索引付けの対象です。
 
 ただし、`index` も索引付けの対象に含まれていると、Windows Search がその処理に時間を要し、高速検索が有効になるまで 1 日以上かかる場合があります。次の手順で `index` を対象から除外してください。
 
