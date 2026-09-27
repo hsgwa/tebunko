@@ -32,7 +32,7 @@ flowchart TB
 - **インデックスのデータ**：[インデックスのファイルの形](index-data/format.md)
 - **検索**：[検索](search/index.md)
 - **画面**：[画面](gui/index.md)
-- **テスト**：[テスト](testing/index.md)、[テストの実行と CI](testing/ci.md)
+- **テスト**：[テスト](testing/index.md)、[テストの実行](testing/run.md)、[CI](testing/ci.md)
 - **関数一覧**：[部品から関数一覧を引く](reference/index.md)
 - **安全性**：導入を審査する方向けの説明（何をして何をしないか、その根拠と確かめ方）は、「使い方」の [安全性の要約](../safety/index.md) にある
 
