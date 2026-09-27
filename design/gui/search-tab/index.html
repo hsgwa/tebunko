@@ -2255,6 +2255,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#元のフォルダ元のファイルがネットワークにあるとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        元のフォルダ・元のファイルがネットワークにあるとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#元のフォルダの特定インデックスを別の-pc場所で使う場合" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2710,6 +2721,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#元のフォルダ元のファイルがネットワークにあるとき" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        元のフォルダ・元のファイルがネットワークにあるとき
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#元のフォルダの特定インデックスを別の-pc場所で使う場合" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3049,6 +3071,10 @@
 <td>ファイルが無い・元の場所が分からない</td>
 <td>元のファイルのあるフォルダを選んでもらい、その中から探す（<a href="#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）。選ばなかった場合は、ステータスに <code>元のファイルが見つかりません：&lt;パス&gt;</code> と表示する</td>
 </tr>
+<tr>
+<td>元のフォルダがネットワークにある</td>
+<td>確かめている間・接続できないときの表示は <a href="#元のフォルダ元のファイルがネットワークにあるとき">元のフォルダ・元のファイルがネットワークにあるとき</a></td>
+</tr>
 </tbody>
 </table>
 <p>右クリックメニュー：</p>
@@ -3117,6 +3143,31 @@
 <li>Word・PowerPoint はシェルの動詞で開く。その動詞が登録されていない種類のファイルは、元のファイルをそのまま開き、ステータスに <code>読み取り専用で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> / <code>新規で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> と表示する。<code>ProcessStartInfo.Verbs</code> は <code>New</code> を一覧に含めないため、事前に確かめず実行して例外（<code>Win32Exception</code>）で判断する（<code>openWithShell</code>）。</li>
 <li><code>Start-Process</code> はパスの <code>[</code> <code>]</code> をワイルドカードとして扱うため、<code>ProcessStartInfo</code> で開く。</li>
 <li>［開き方］は、起動時に設定から読み込むときは保存しない（設定していない利用者の <code>setting.config</code> を作らないため。<a href="../../architecture/settings-file/#画面での読み書き">画面での読み書き</a>）。</li>
+</ul>
+<h3 id="元のフォルダ元のファイルがネットワークにあるとき">元のフォルダ・元のファイルがネットワークにあるとき<a class="headerlink" href="#元のフォルダ元のファイルがネットワークにあるとき" title="Permanent link">&para;</a></h3>
+<p>元のフォルダが UNC パス（<code>\\server\share\…</code>）・ネットワークドライブにあると、届かない共有（VPN の切断・サーバーの停止）では <code>Test-Path</code> などの OS の呼び出しが十数秒〜二十秒戻らず、画面のスレッドで確かめると「応答なし」になる（<a href="../../architecture/threads/#スレッドの一覧">画面のスレッドの役目</a>）。このため、ネットワークのパスかどうかを <code>testNetworkPath</code> で共有に接続せずに見分け、ネットワークのパスだけを裏のスレッド（<code>startJob -queue "network"</code>。<a href="../implementation/#待たせ方の方針画面を固まらせない">別スレッドとタイマーの扱い</a>）で <code>findSourceFileState</code> に確かめさせる。ローカルのパスは今までどおり画面のスレッドでその場で確かめ、速さは変わらない。</p>
+<pre class="mermaid"><code>flowchart TD
+    A["元のファイルを開く"] --&gt; N{"元のフォルダは&lt;br&gt;ネットワークのパス？&lt;br&gt;（testNetworkPath）"}
+    N -- いいえ --&gt; L["画面のスレッドでその場で確かめる"]
+    N -- はい --&gt; W["ステータス「元のファイルを確かめています…」&lt;br&gt;裏のスレッドで findSourceFileState"]
+    W --&gt; S{"State"}
+    S -- Found --&gt; O["開く（別名で見つかれば元のフォルダを記録）"]
+    S -- Missing --&gt; M["4.5.2 のフォルダを選ぶ流れへ"]
+    S -- Unreachable --&gt; U["「元のフォルダに接続できません」&lt;br&gt;［フォルダを選ぶ］／［閉じる］"]
+    S -- Other --&gt; T["「元のファイルを確かめられませんでした」&lt;br&gt;（例外の文面）［フォルダを選ぶ］／［閉じる］"]
+    U -- フォルダを選ぶ --&gt; M
+    T -- フォルダを選ぶ --&gt; M</code></pre>
+<ul>
+<li><strong>見つかった・見つからない・接続できない・その他の 4 つに分ける</strong>（<code>getPathState</code>。<code>shared/core/fs.ps1</code>）。<code>Test-Path</code>・<code>File.Exists</code> は届かない共有でも例外を出さず <code>$false</code> を返すことがあり、「見つからない」と区別できないため、例外を投げる <code>[System.IO.File]::GetAttributes</code> で調べる。PowerShell からの呼び出しで包まれる <code>MethodInvocationException</code> は、中の例外の <code>HResult</code> の下位 16 ビット（Win32 のエラー番号）で分ける（<code>getPathErrorKind</code>）。</li>
+<li>接続できない: <code>ERROR_BAD_NETPATH</code>・<code>ERROR_BAD_NET_NAME</code>・<code>ERROR_NETNAME_DELETED</code>・<code>ERROR_SEM_TIMEOUT</code>・<code>ERROR_NETWORK_UNREACHABLE</code>・<code>ERROR_HOST_UNREACHABLE</code>・<code>ERROR_NO_NET_OR_BAD_PATH</code></li>
+<li>その他: アクセス拒否・ログオンの失敗など、上のどれにも当たらないもの</li>
+<li><strong>接続できない・その他のときは、上のフォルダも別名も調べない</strong>（同じサーバーで待たされるか、同じ理由で失敗するだけのため）。見つからないときだけ、<a href="#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>の別名・フォルダを選ぶ流れに進む。</li>
+<li><strong>待っている間に別の行を開く・新しく検索する・ワークスペースを変えると、前の依頼の結果は捨てる</strong>（依頼に番号を付け、最後の依頼だけを反映する。プレビューの <code>previewRequest</code> と同じ形）。同じ行をもう一度開いても、依頼は重ねない。</li>
+<li><strong>待っている間、ステータスに <code>元のファイルを確かめています…：&lt;パス&gt;（共有フォルダに接続できないときは、しばらくかかります）</code> を出し、マウスのカーソルを <code>AppStarting</code> にする。</strong> 画面は操作できる（ほかの行を選ぶ・プレビューを見るなど）。</li>
+<li><strong>接続できないときのダイアログ</strong>: 見出しは <code>&lt;ファイル名&gt; を開けません</code>。知らせは <code>✗ 元のフォルダに接続できません</code>（<code>&lt;元のフォルダ&gt;</code>）＋ <code>→ ネットワーク・VPN の接続を確かめてから、もう一度開いてください</code>。選択肢は［フォルダを選ぶ］（選べば見つからないときと同じ流れに進む）と［閉じる］。ステータスは <code>元のフォルダに接続できません：&lt;元のフォルダ&gt;</code>。</li>
+<li><strong>その他のときのダイアログ</strong>: 知らせは <code>✗ 元のファイルを確かめられませんでした</code>（例外の文面）＋ <code>→ アクセスの権限・サインインを確かめてください</code>。ステータスは <code>元のファイルを確かめられませんでした：&lt;例外の文面&gt;</code>。</li>
+<li><strong>ローカルのパスには別名が無いため、ローカルのときは <code>getDriveTargets</code>（CIM）を呼ばない。</strong> ネットワークのパスで別名（ネットワークドライブ⇔UNC）を調べるときだけ、ドライブの割り当てを照会する（キャッシュが空なら裏のスレッドで照会してよい）。</li>
+<li><strong>取り込みに失敗したファイルのダブルクリック</strong>（<a href="../index-tab/">［1 インデックス管理］タブ</a>の一覧）も同じ形にする。ステータスは <code>元のファイルを確かめています…：&lt;パス&gt;</code>、接続できないときは <code>元のフォルダに接続できません：&lt;パス&gt;</code>（見つからないときの文言とは別にする）。</li>
 </ul>
 <h3 id="元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）<a class="headerlink" href="#元のフォルダの特定インデックスを別の-pc場所で使う場合" title="Permanent link">&para;</a></h3>
 <p>インデクサは元のフォルダの記録（<code>元のフォルダ.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexer/">インデックス作成（インデクサ）</a> の <a href="../../indexer/flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>）を、<strong>各インデックスのフォルダ（<code>work\content_index\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\content_index</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\content_index</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
