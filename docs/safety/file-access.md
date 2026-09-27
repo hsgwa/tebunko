@@ -6,7 +6,7 @@
 
 | 場所 | 内容 | 定義 |
 |---|---|---|
-| `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。利用者が画面で選んだフォルダ（ワークスペース）にも置ける） | TSV インデックス（`work/index/`）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果 | `tebunko/core/paths.ps1`（`$workspace`）、`tebunko/core/workspace.ps1`（`Workspace`） |
+| `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。利用者が画面で選んだフォルダ（ワークスペース）にも置ける） | 本文インデックス（`work/index/`）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果 | `tebunko/core/paths.ps1`（`$workspace`）、`tebunko/core/workspace.ps1`（`Workspace`） |
 | `%TEMP%\tebunko\<PID>` 配下 | 取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする | `tebunko/core/paths.ps1:8` |
 | `setting.config`（ツールを置いたフォルダの直下） | 画面が保存する設定（クロール対象フォルダ・検索対象インデックス・`work` の置き場所など） | `shared/core/data_dir.ps1:40`、`tebunko/core/settings.ps1:5` |
 | `%LOCALAPPDATA%\tebunko\<鍵>` 配下 | ツールを置いたフォルダに書き込めないとき（Program Files・読み取り専用の共有フォルダ）だけ、`setting.config` をここに置く（ワークスペースの既定は `%USERPROFILE%\Documents\tebunko_ws`）。鍵はツールのフォルダのパスから作る 16 文字（[データの置き場所](../design/architecture/layout.md#データの置き場所settingconfigwork)） | `shared/core/data_dir.ps1:31` |
@@ -35,7 +35,7 @@ flowchart LR
     copy["%TEMP%\tebunko\#lt;PID#gt;<br>コピー"]
     office["Excel / Word / PowerPoint<br>読み取り専用・マクロ無効"]
     tsv["%TEMP%\tebunko\#lt;PID#gt;<br>中間 TSV"]
-    idx[("work/index/<br>TSV インデックス")]
+    idx[("work/index/<br>本文インデックス")]
 
     src -- "コピー（読み取りのみ）" --> copy
     copy --> office

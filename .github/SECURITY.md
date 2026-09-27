@@ -49,7 +49,7 @@ Security fixes are made for the latest minor version (the latest `v<major>.<mino
 
 ## What we ask of users
 
-The tool **keeps the text of the original documents in plain text in the index (the TSV files in `work\index\`)**. The access rights of the original files are not carried over. Please note the following (details in [docs/safety/disclosure.md](../docs/safety/disclosure.md), Japanese).
+The tool **keeps the text of the original documents in plain text in the content index (the TSV files in `work\index\`), which is part of the index**. The access rights of the original files are not carried over. Please note the following (details in [docs/safety/disclosure.md](../docs/safety/disclosure.md), Japanese).
 
 - Restrict access to the folder where the tool is placed to at least the same level as the crawled folders.
 - Do not put the index as is in a shared folder that users with different access rights can read.
