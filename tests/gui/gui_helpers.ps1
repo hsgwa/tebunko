@@ -276,10 +276,12 @@ function getGuiOtherWindows {
 }
 
 function getGuiTexts {
-    # 窓の中の文字（Text の Name）の一覧
+    # 窓の中の文字の一覧。WPF の文言は ControlType.Text、OS 標準のメッセージボックスの文言・ボタンは
+    # ControlType.Pane（パターンを持たない Win32 の Static・Button）で出るため、両方から拾う
     param ($Window)
     try {
-        return @(findAllGui $Window -Type Text | ForEach-Object { $_.Current.Name })
+        $found = @(findAllGui $Window -Type Text) + @(findAllGui $Window -Type Pane)
+        return @($found | ForEach-Object { $_.Current.Name } | Where-Object { $_ })
     } catch {
         return @()
     }
@@ -610,4 +612,73 @@ function getGuiRowTexts {
     # 行の中の文字（セルの Text）
     param ($Row)
     return @(findAllGui $Row -Type Text | ForEach-Object { $_.Current.Name })
+}
+
+function waitGuiButtonLike {
+    # 表示の文字（1 行目の動作）がパターンに合うボタンが出るまで待つ。選択肢が 2 つ以上の確認ダイアログのボタンは、
+    # 動作と補足を子の TextBlock 2 つに分けて持ち、ボタン自身の Name は空になる（newChoiceContent）。
+    # そのため、ボタンの Name だけでなく、子の文字（1 行目）でも探す
+    param ($S, $Root, [string]$Pattern, [int]$Timeout = ${guiDefaultTimeout})
+    return waitGui $S "ボタン「$Pattern」" $Timeout {
+        findAllGui $Root -Type Button | Where-Object {
+            $_.Current.Name -like $Pattern -or ((@(findAllGui $_ -Type Text) | Select-Object -First 1).Current.Name -like $Pattern)
+        } | Select-Object -First 1
+    }
+}
+
+function clickGuiByNameLike {
+    param ($S, $Root, [string]$Pattern)
+    $button = waitGuiButtonLike $S $Root $Pattern
+    invokeGui $S $button "［$Pattern］"
+}
+
+function closeGuiMessage {
+    # メッセージボックス（Text に文言が出ている窓）を待って、その文言を返し、［OK］で閉じる。
+    # OS 標準のメッセージボックスの［OK］はパターンを持たないため、OS のフォルダ選択と同じくネイティブのクリックで押す
+    param ($S, [string]$Text, [string]$What)
+    $window = waitGuiWindow $S $What -Text $Text
+    $found = @(getGuiTexts $window) -join " "
+    $button = waitGuiByName $S $window "OK"
+    clickGuiNativeButton $button
+    waitGuiWindowClosed $S $window $What
+    return $found
+}
+
+function closeGuiWindowAsync {
+    # 窓を閉じる操作（WindowPattern.Close）。閉じるときに確認のダイアログが出て戻らないことがあるので、別のスレッドから呼ぶ
+    param ($S, $Window, [string]$What = "窓を閉じる")
+
+    $shell = [powershell]::Create()
+    $shell.RunspacePool = $S.Pool
+    [void]$shell.AddScript({
+        param ($element)
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $element.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close()
+    }).AddArgument($Window)
+    $result = $shell.BeginInvoke()
+    [void]$S.Async.Add(@{ Shell = $shell; Result = $result })
+    if ($result.AsyncWaitHandle.WaitOne(2000)) {
+        try {
+            [void]$shell.EndInvoke($result)
+        } catch {
+            throw "$What ができなかった: $($_.Exception.InnerException.Message)"
+        }
+    }
+}
+
+function startGuiIndexing {
+    # ［1 インデックス管理］の［インデックス作成を開始］を押し、確認のダイアログで［インデックス作成を開始］を押して、取り込みを始める
+    param ($S)
+
+    clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+    $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
+    clickGui $S $confirm "StartButton" "確認の［インデックス作成を開始］"
+    waitGuiWindowClosed $S $confirm "取り込みの確認"
+}
+
+function testGuiIndexing {
+    # 取り込みの最中か（［インデックス作成中…］のボタンが出ている）
+    param ($S)
+    $button = findGui $S.Window -Id "IndexingButton"
+    return ($button -and $button.Current.Name -eq "インデックス作成中…")
 }
