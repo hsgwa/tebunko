@@ -2641,6 +2641,12 @@
 <td>CI の <code>test</code></td>
 </tr>
 <tr>
+<td>検索とインデックス作成の速さ</td>
+<td>検索・pack の作成・取り込み（.docx・.pptx）が、ランナーで測った数字から決めた上限より遅くなること</td>
+<td><code>perf-check.yml</code>（<code>search</code>・<code>ingest</code>）。PR にラベル <code>perf-check</code> を付けたときと main への push で流す。<a href="ci/"><code>perf-check.yml</code></a></td>
+<td>―（流した PR で落ちていればマージしない）</td>
+</tr>
+<tr>
 <td>個人情報・文字コード</td>
 <td>利用者名入りのパス・メールアドレス・Office ファイルの作成者名、BOM・CRLF でないスクリプト</td>
 <td><code>tools/check_commit.ps1</code>。<a href="ci/#公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査</a></td>
@@ -3088,6 +3094,14 @@
 <tr>
 <td><code>measure_perf.ps1</code></td>
 <td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・pack の数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。pack しか無いインデックスでは、作成を測らずに検索だけを測る。<code>-Office</code> の取り込みは、<code>new_ingest_data.ps1</code>（種類ごとの数・50 ファイルごとのフォルダ分け・同じ引数から同じ構成になること）、取り込み一覧の数え方（同じ相対パスは最後の行・成功 + 失敗がファイル数と合わなければ失敗）、段階が読めないときと知らない段階のときの失敗、記録のスレッドが受け渡しの口の段階を読むこと、小さな .docx・.pptx のデータで最後まで動かして <code>result.json</code> の <code>Ingest</code>・<code>metrics.csv</code> の <code>ingest_</code> の行・<code>summary.md</code> の「Office からの取り込み」の表（パスを含まないこと）を確かめる。<code>-Office</code> だけのときは <code>Index</code>・<code>Search</code> を、<code>-Index</code> だけのときは <code>Ingest</code> を、キーを残して <code>null</code> にする（<code>Schema</code> は 1 のまま）。リポジトリの <code>setting.config</code> を作らない・変えないことも確かめる。Office を使う取り込み（.xlsx・.doc・.ppt）は CI では測れないので、手元の Windows で測る（<a href="ci/">CI</a>）</td>
+</tr>
+<tr>
+<td><code>perf_search.Tests.ps1</code>（<code>Slow</code>・<code>Unit</code>）</td>
+<td>検索の語ごとの中央値と pack の作成の秒を上限と比べる（<code>Slow</code>。tebunko-perfdata が要る）。比べる関数（<code>getSearchPerfProblems</code>）は、上限との境目（ちょうどなら通す）、語が欠けたとき、1 回ごとの件数（2 回目以降だけ違う場合を含む）・<code>10000+</code> の打ち切り・照合した pack の数、<code>SearchMode</code> が <code>runspace</code>、pack が無い・作成が遅いときを <code>Unit</code> で確かめる</td>
+</tr>
+<tr>
+<td><code>perf_ingest.Tests.ps1</code>（<code>Slow</code>・<code>Unit</code>）</td>
+<td>取り込み（.docx・.pptx）の 1 ファイルあたりと全体の中央値を上限と比べ、全部取り込まれ、集約ファイルができていることを確かめる（<code>Slow</code>）。比べる関数（<code>getIngestPerfProblems</code>）は、上限との境目、<code>Total</code>・<code>Done</code>・<code>Failed</code>、<code>Ingest</code> が無いとき、集約ファイルが無い・合計の大きさが 0 のときを <code>Unit</code> で確かめる</td>
 </tr>
 </tbody>
 </table>
