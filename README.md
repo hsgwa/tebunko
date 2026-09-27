@@ -167,7 +167,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 
 会社の PC にも安心して入れられるよう、tebunko が何をして何をしないかを公開し、毎回テストで確かめています。
 
-- **中身は PowerShell のスクリプトと画面の定義だけです。** 他者が作ったライブラリは含みません（[部品表](sbom.cdx.json)）。zip 版は実行ファイルも含みません。インストーラー版は、起動用の小さな `tebunko.exe`（ソースは `installer/tebunko.cs`）と、Inno Setup のインストーラー・アンインストーラーが加わります。
+- **中身は PowerShell のスクリプトと画面の定義だけです。** 他者が作ったライブラリは含みません（[部品表の雛形](sbom.cdx.json)。ファイルごとの一覧とハッシュを入れた部品表は、リリースに `sbom.cdx.json` として載せています）。zip 版は実行ファイルも含みません。インストーラー版は、起動用の小さな `tebunko.exe`（ソースは `installer/tebunko.cs`）と、Inno Setup のインストーラー・アンインストーラーが加わります。
 - **通信はしません。** 管理者権限の要求、レジストリの変更、常駐もしません（インストーラー版は、Windows の「アプリ」の一覧に出すためのアンインストールの情報だけを書きます）。
 - **テストで確かめています。** これらは `tests/meta/safety.Tests.ps1` と静的解析（PSScriptAnalyzer・CodeQL）が、変更のたびに CI で確かめます。
 
