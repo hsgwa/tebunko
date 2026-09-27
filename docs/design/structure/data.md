@@ -101,6 +101,7 @@ flowchart LR
 - 別のスレッド（画面の裏の仕事・検索の司令・取り込み）は `lib.ps1` を読み込んだときの `$workspace` を持つ。そのため画面は、場所を引数で渡すか、`Dir`（文字列）を渡してそのスレッドで `Workspace` を作り直す。オブジェクトはスレッドをまたいで渡さない。
 - 取り込みのスレッドは `PublishDir` を、その下の `w<番号>` に差し替える。
 - ワークスペースを変えるときは、今のワークスペースの中身を移す。移すのは `Entries()`（tebunko が作るファイル・フォルダ）だけで、利用者のほかのファイルは移さない。`getWorkspaceEntries`（あるものだけ）・`getWorkspaceMoveConflicts`（移し先に同じ名前があるもの）・`moveWorkspace`（移す。移し先に同じ名前があれば何も移さず、途中で失敗したら移した分を戻す。別のドライブのフォルダは `copyDirectoryTree` で写してから消す）・`moveSearchExcludes`（`searchExcludes` を移した先のインデックスに付け替える）。選んだフォルダにすでにインデックスなどがあれば、`useWorkspaceTargets`（そのワークスペースの取り込み一覧のクロール対象フォルダを、インデックスの一覧にする）で使うか、`removeWorkspaceEntries`（tebunko のファイル・フォルダだけを削除する）で消してから移す。
+- **前の版の `index\` の扱い**（[前の版の index\ の扱い](../index-data/format.md#前の版の-index-の扱いgetlegacyindexstateclearlegacysystemindex)）: `getLegacyIndexState`（dir → `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}`。前の版のしるし・`content_index\` が空か・前の名前の txt が残っているかを調べる）・`testLegacyCleanupNeeded`（`getLegacyIndexState` の結果 → bool。片付けの条件を引数だけで判定する）・`getLegacyIndexMessage`（dir, hasLegacyIndex → 知らせの文言。しるしが無ければ空）・`clearLegacySystemIndex`（dir → `@{Ok; Reason}`。`system_index\` の削除と状態ファイルの初期化。失敗したら理由を返す）。インデクサ（`invokeIndexerBody`）が `content_index\` を作る前に呼び、画面の判断層（`indexing_view.ps1` の `getReingestConfirm`。hasLegacyIndex, contentEmpty → 確かめの文言）は［インデックス作成を開始］で使う（[取り込み直しの確かめ](../gui/indexing-run.md#取り込み直しの確かめ)）。
 
 | プロパティ | 値 |
 |---|---|

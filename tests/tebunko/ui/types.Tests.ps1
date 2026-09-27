@@ -859,9 +859,16 @@ Describe "IndexNode（フォルダの読み込み）" -Tag Io {
         @($root.Children | ForEach-Object { $_.Name }) | Should -Be @("営業部", "総務部")
     }
 
-    It "直下の集約ファイルを探す型は packFilePattern と同じ" {
-        "content_index.xlsx.001.tsv" -like ${packFilePattern} | Should -Be $true
-        "content_index.xlsx.001.tsv" -like "content_index.*.tsv" | Should -Be $true
+    It "IsBookDir・HasFiles が探す集約ファイルの型は packFilePattern と同じ（ui/types.ps1 のソースを読んで確かめる）" {
+        $source = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\types.ps1")
+        # クラスの中からスクリプトの変数（packFilePattern）が見えないため文字列で書いている箇所を、ソースから抜き出して比べる
+        # （直下のブックのフォルダの中を探す "*.tsv" は対象外）
+        $literals = @([regex]::Matches($source, 'EnumerateFiles\([^,]+,\s*"([^"]*\.tsv)"\)') |
+            ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne "*.tsv" })
+        $literals.Count | Should -Be 2
+        foreach ($literal in $literals) {
+            $literal | Should -Be ${packFilePattern}
+        }
     }
 
     It "直下の集約ファイルもファイルとして数える（ほかの .tsv は数えない）" {

@@ -212,7 +212,7 @@ function getPackKeyOf {
         [string]$extension
     )
 
-    $name = "content_index.$extension"
+    $name = "${packFileNamePrefix}.$extension"
     if ($relDir) { return "$relDir\$name" }
     return $name
 }

@@ -124,12 +124,12 @@ function getLegacyIndexMessage {
 }
 
 function clearLegacySystemIndex {
-    # 前の版のシステムインデックス（system_index\ と、システムインデックスの状態ファイルの中身）を片付ける。
+    # 前の版のシステムインデックス（system_index\ と、システムインデックスの状態ファイルの中身）を片付ける: @{ Ok; Reason（失敗のときだけ） }
     # 片付けの順番: (1) updateSystemIndexState の排他の中で、状態ファイルの中身を空にする（ファイルは消さない。
     #     画面の検索（fast_search.ps1）やインデックスの削除（index_store.ps1）が同じ排他で書き換えるため、
     #     消した直後に前のキーを書き戻されないようにする）。
     # (2) system_index\ を removeDirectoryRetry で消す（Windows Search が txt を一時的に開くことがあるため）。
-    # どちらかに失敗したら $false を返す（途中で止まっても、次に呼べば同じ状態から続けられる）
+    # どちらかに失敗したら Ok = $false（途中で止まっても、次に呼べば同じ状態から続けられる）
     param (
         [string]$dir
     )
@@ -142,14 +142,14 @@ function clearLegacySystemIndex {
         $state.Excluded.Clear()
     } $ws.SystemIndexStateFile
     if (!$cleared) {
-        return $false
+        return @{ Ok = $false; Reason = "システムインデックスの状態ファイル（$([System.IO.Path]::GetFileName($ws.SystemIndexStateFile))）を開けませんでした" }
     }
     try {
         removeDirectoryRetry $ws.SystemIndexDir
     } catch {
-        return $false
+        return @{ Ok = $false; Reason = $_.Exception.Message }
     }
-    return $true
+    return @{ Ok = $true; Reason = "" }
 }
 
 function getWorkspaceEntries {

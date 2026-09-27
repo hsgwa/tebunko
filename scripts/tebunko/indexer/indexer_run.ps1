@@ -357,8 +357,9 @@ function invokeIndexerBody {
     }
     if (testLegacyCleanupNeeded $legacyState) {
         writeIndexerLog "前の版のインデックス（高速検索用）を片付けています…"
-        if (!(clearLegacySystemIndex $workspace.Dir)) {
-            throw "前の版のインデックス（高速検索用）を片付けられませんでした。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インデックス作成を行ってください。"
+        $cleanup = clearLegacySystemIndex $workspace.Dir
+        if (!$cleanup.Ok) {
+            throw "前の版のインデックス（高速検索用）を片付けられませんでした（$($cleanup.Reason)）。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インデックス作成を行ってください。"
         }
     }
 
