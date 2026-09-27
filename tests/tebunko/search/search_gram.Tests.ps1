@@ -86,7 +86,7 @@ Describe "getGramPartCount / getSystemIndexFileNames / testSystemIndexPath" -Tag
 
     It "分けないときは 1 つ、分けるときは番号を付ける" {
         (getSystemIndexFileNames 1) -join "," | Should -Be ${systemIndexFileName}
-        (getSystemIndexFileNames 2) -join "," | Should -Be "システムインデックス_1.txt,システムインデックス_2.txt"
+        (getSystemIndexFileNames 2) -join "," | Should -Be "system_index_1.txt,system_index_2.txt"
     }
 
     It "パスが 240 文字以上になるなら作らない" {
@@ -103,7 +103,7 @@ Describe "convertFolderRoot / convertItemUrl / convertToScopeUrl" -Tag Unit {
     }
 
     It "ItemUrl は file: を外して / を \ にするだけ（% は戻さない）" {
-        convertItemUrl "file:C:/ws/system_index/タブ%09あり/システムインデックス.txt" | Should -Be "C:\ws\system_index\タブ%09あり\システムインデックス.txt"
+        convertItemUrl "file:C:/ws/system_index/タブ%09あり/system_index.txt" | Should -Be "C:\ws\system_index\タブ%09あり\system_index.txt"
     }
 
     It "SCOPE の URL は ' を重ねる" {
@@ -124,9 +124,9 @@ Describe "問い合わせ" -Tag Unit {
     It "候補・分けた txt・反映の判定の問い合わせを組み立てる" {
         $sql = newSystemIndexQuery "C:\ws\system_index\営業" @("x61006200", "x62006300")
         $sql | Should -Match "SCOPE='file:C:/ws/system_index/営業'"
-        $sql | Should -Match "System.FileName = 'システムインデックス.txt'"
+        $sql | Should -Match "System.FileName = 'system_index.txt'"
         $sql | Should -Match ([regex]::Escape("CONTAINS(System.Search.Contents, '`"x61006200`" AND `"x62006300`"')"))
-        newSystemIndexSplitQuery "C:\ws\system_index" "x61006200" | Should -Match ([regex]::Escape("LIKE 'システムインデックス[_]%'"))
+        newSystemIndexSplitQuery "C:\ws\system_index" "x61006200" | Should -Match ([regex]::Escape("LIKE 'system[_]index[_]%'"))
         newSystemIndexStateQuery "C:\ws\system_index" | Should -Match "System.Search.GatherTime, System.DateModified"
     }
 }
@@ -167,7 +167,7 @@ Describe "状態ファイルの行" -Tag Unit {
         $lines = @(
             "対応済み`t営業`t",
             "対象外`t営業\長い`t",
-            "反映待ち`t営業\2024\システムインデックス.txt`t639258025749778837",
+            "反映待ち`t営業\2024\system_index.txt`t639258025749778837",
             "反映待ち`t壊れた行`tabc",
             "不明`tx`t",
             ""
@@ -175,7 +175,7 @@ Describe "状態ファイルの行" -Tag Unit {
         $state = convertFromSystemIndexState $lines
         $state.Covered.Contains("営業") | Should -Be $true
         $state.Excluded.Contains("営業\長い") | Should -Be $true
-        $state.Pending["営業\2024\システムインデックス.txt"] | Should -Be 639258025749778837
+        $state.Pending["営業\2024\system_index.txt"] | Should -Be 639258025749778837
         $state.Pending.Count | Should -Be 1
         (convertToSystemIndexState $state) -join "|" | Should -Be ($lines[0..2] -join "|")
     }

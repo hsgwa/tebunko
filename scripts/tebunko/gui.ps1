@@ -460,6 +460,11 @@ $ui.IndexGridPlaceholder.Visibility = "Collapsed"
 # 起動時のタブ：インデックス作成が中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
 $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
 $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
+# 前の版のインデックス（index\）が見つかれば、［1 インデックス管理］のステータスに知らせを出す
+$script:legacyIndexMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
+if ($script:legacyIndexMessage) {
+    setStatus $script:legacyIndexMessage
+}
 # 既定のワークスペースにほかのファイルが置いてあれば、［8 設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
 $script:workspaceBlock = getWorkspaceBlockMessage
 if ($script:workspaceBlock) {

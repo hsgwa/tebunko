@@ -304,23 +304,23 @@ Describe "getIndexTsvCounts / testIndexComplete" -Tag Io {
     It "集約ファイルは、フォルダと拡張子ごとに数える（0 バイトは壊れているとする）" {
         $dir = "$TestDrive\index_pack1"
         newTestIndex $dir
-        writeListFile "$dir\営業\2024\content.xlsx.001.tsv" @("a")
-        [System.IO.File]::WriteAllText("$dir\営業\2024\content.docx.001.tsv", "")
+        writeListFile "$dir\営業\2024\content_index.xlsx.001.tsv" @("a")
+        [System.IO.File]::WriteAllText("$dir\営業\2024\content_index.docx.001.tsv", "")
         $counts = getIndexTsvCounts $dir
-        # 番号を除いた「フォルダ\content.<拡張子>」で数え、どれか 1 つでも 0 バイトなら壊れているとする
-        writeListFile "$dir\営業\2024\content.xlsx.002.tsv" @("b")
-        writeListFile "$dir\営業\2024\content.docx.002.tsv" @("c")
+        # 番号を除いた「フォルダ\content_index.<拡張子>」で数え、どれか 1 つでも 0 バイトなら壊れているとする
+        writeListFile "$dir\営業\2024\content_index.xlsx.002.tsv" @("b")
+        writeListFile "$dir\営業\2024\content_index.docx.002.tsv" @("c")
         $counts = getIndexTsvCounts $dir
-        $counts["営業\2024\content.xlsx"] | Should -Be 1
-        $counts["営業\2024\content.docx"] | Should -Be ${indexBrokenCount}
+        $counts["営業\2024\content_index.xlsx"] | Should -Be 1
+        $counts["営業\2024\content_index.docx"] | Should -Be ${indexBrokenCount}
         # 集約ファイルはフォルダの TSV の数には入れない
         $counts["営業\2024"] | Should -Be 0
     }
 
     It "集約ファイルがあれば、元のファイルごとのフォルダが無くても「済」のままにする" {
         $dir = "$TestDrive\index_pack2"
-        writeListFile "$dir\営業\2024\content.xlsx.001.tsv" @("a")
-        [System.IO.File]::WriteAllText("$dir\営業\2024\content.docx.001.tsv", "")
+        writeListFile "$dir\営業\2024\content_index.xlsx.001.tsv" @("a")
+        [System.IO.File]::WriteAllText("$dir\営業\2024\content_index.docx.001.tsv", "")
         $counts = getIndexTsvCounts $dir
         $row = newStatusRow "営業\2024\B社.xlsx" "2025/01/10 12:34:56" "100" ${stateDone} "3"
         testIndexComplete $row $row.相対パス $counts | Should -Be $true
