@@ -3161,6 +3161,14 @@
 <td>画面（検索対象のツリー）</td>
 </tr>
 <tr>
+<td><code>removeSearchExcludesUnder</code></td>
+<td>folder, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>フォルダとその下の <code>searchExcludes</code> を、大文字・小文字を区別せずに消す（<code>Sales</code> を消しても <code>Sales2</code> は消さない）。設定の書き込みは <code>invokeSettingsLocked</code> の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない）</td>
+<td>同上</td>
+<td><code>renameIndex</code> / <code>removeIndex</code></td>
+</tr>
+<tr>
 <td><code>readVersionFile</code></td>
 <td>path（配布物の <code>VERSION.txt</code> のパス）</td>
 <td><code>@{Tag; Sha}</code> / <code>$null</code></td>
@@ -3662,17 +3670,17 @@
 </tr>
 <tr>
 <td><code>renameIndex</code></td>
-<td>oldName, newName, dir（既定 <code>$workspace.IndexDir</code>）, statusPath</td>
+<td>oldName, newName, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>インデックス名を変える。<code>work\index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外</td>
+<td>インデックス名を変える。<code>work\index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外。旧名・新名の下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）</td>
 <td>同上</td>
 <td>画面（［編集…］）</td>
 </tr>
 <tr>
 <td><code>removeIndex</code></td>
-<td>name, dir（既定 <code>$workspace.IndexDir</code>）, statusPath</td>
+<td>name, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>インデックスを削除する。<code>work\index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）</td>
+<td>インデックスを削除する。<code>work\index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）。そのインデックスの下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>）</td>
 <td>同上</td>
 <td>画面（［削除］）</td>
 </tr>
