@@ -2594,7 +2594,7 @@
 <p>Word・PowerPoint で共通の処理（抽出の流れ・起動と終了・ファイルの読み取り）は <a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a> を参照。</p>
 <p>PowerPoint の旧形式（<code>.ppt</code> 等）の変換（<a href="#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a>）、スライド・ノート・図形・コメントごとの読み取り（<a href="#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>）、PowerPoint に固有の注意点（<a href="../known-issues/#powerpoint-の注意点既知の問題">PowerPoint の注意点・既知の問題</a>）を扱う。</p>
 <h2 id="powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換（<code>extractWithPowerPoint</code>）<a class="headerlink" href="#powerpoint-の旧形式の変換extractwithpowerpoint" title="Permanent link">&para;</a></h2>
-<p><a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>で ZIP ではないと判定したファイル（<code>.ppt</code>、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で <code>.pptx</code> に変換する。</p>
+<p><a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>で ZIP ではないと判定したファイル（<code>.ppt</code>、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で <code>.pptx</code> に変換する。この処理が呼ぶ <code>getApp</code> は、利用者が PowerPoint を開いていれば接続せずに例外にするため、その場合はここに来ず、そのファイルは取り込まずに後回し（Postponed）にする（<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリ（Excel・Word・PowerPoint）の管理</a>「PowerPoint」）。</p>
 <table>
 <thead>
 <tr>

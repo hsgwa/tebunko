@@ -3155,7 +3155,7 @@
 </tr>
 <tr>
 <td><code>shared/office/office_app.ps1</code></td>
-<td><code>getApp</code> / <code>stopApp</code> / <code>stopAllApps</code> / <code>startWatchdog</code> / <code>stopWatchdog</code></td>
+<td><code>getApp</code> / <code>getOwnSessionProcessIds</code> / <code>stopApp</code> / <code>stopAllApps</code> / <code>startWatchdog</code> / <code>stopWatchdog</code></td>
 <td><a href="../../indexer/office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリ（Excel・Word・PowerPoint）の管理</a></td>
 </tr>
 <tr>
@@ -3633,7 +3633,7 @@
 <td><code>newIndexerChannel</code></td>
 <td>retryFailed, confirmTargets, workers（既定 -1）</td>
 <td>受け渡しの口（<code>[hashtable]::Synchronized</code>）</td>
-<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
+<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
 <td><a href="../threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 <td>画面・indexer.ps1</td>
 </tr>
@@ -4515,7 +4515,7 @@
 <td><code>newIndexingSession</code> / <code>IndexingSession</code></td>
 <td>indexerPath, channel</td>
 <td><code>IndexingSession</code></td>
-<td>インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、<code>indexer.ps1 -Channel &lt;channel&gt;</code> を実行する。<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>（終了コードが無ければ 1）・<code>GetError</code>・<code>KillOffice</code>（<code>OfficePids</code> に記録した Office だけを、プロセス名を確かめて止める）・<code>Close</code></td>
+<td>インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、<code>indexer.ps1 -Channel &lt;channel&gt;</code> を実行する。<code>IsRunning</code>・<code>Stop</code>・<code>Wait</code>・<code>GetExitCode</code>（終了コードが無ければ 1）・<code>GetError</code>・<code>GetNotice</code>（終わりの案内。無ければ空）・<code>GetPostponed</code>（後回しにした件数。無ければ 0）・<code>KillOffice</code>（<code>OfficePids</code> に記録した Office だけを、プロセス名を確かめて止める）・<code>Close</code></td>
 <td>画面</td>
 </tr>
 </tbody>
