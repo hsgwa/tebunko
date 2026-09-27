@@ -19,6 +19,33 @@ function getUsedIndexNames {
     return , $used
 }
 
+function getIndexAddedStatus {
+    # インデックスを追加したときのステータス。フォルダの有無によらず同じ文言にする（有無は一覧の列で分かる）
+    param (
+        [string]$name
+    )
+
+    return "インデックス [${name}] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます"
+}
+
+function getFailedFileCheckingStatus {
+    # 取り込みに失敗したファイルのダブルクリックで、元のファイルを確かめている間のステータス
+    param (
+        [string]$path
+    )
+
+    return "元のファイルを確かめています…：${path}"
+}
+
+function getFailedFileUnreachableStatus {
+    # 同じ操作で、接続できないと分かったときのステータス（見つからないときとは別の文言）
+    param (
+        [string]$path
+    )
+
+    return "元のフォルダに接続できません：${path}"
+}
+
 function testIndexEditInput {
     # 追加・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (

@@ -206,6 +206,20 @@ Describe "testNetworkPath" -Tag Unit {
     }
 }
 
+Describe "testAnyNetworkPath" -Tag Unit {
+    It "1 つでもネットワークのパスがあれば `$true" {
+        testAnyNetworkPath @("C:\data", "\\server\share") | Should -Be $true
+    }
+
+    It "すべてローカルなら `$false" {
+        testAnyNetworkPath @("C:\data", "D:\見積") | Should -Be $false
+    }
+
+    It "空の一覧は `$false" {
+        testAnyNetworkPath @() | Should -Be $false
+    }
+}
+
 Describe "setDriveTargets" -Tag Unit {
     AfterEach {
         setDriveTargets $null

@@ -414,10 +414,29 @@ function loadWorkspaceViews {
     refreshIndexSummary
 }
 
+function ensureNetworkDriveCache {
+    # インデックスの一覧・設定にネットワークのパスがあるときだけ、ドライブの割り当て（CIM）をネットワークを調べる列で
+    # 1 回照会し、画面のスレッドのキャッシュに入れる（画面のスレッドで CIM を照会しないようにする。方針 5）。
+    # ローカルだけの利用者には、列も CIM の照会も増えない
+    $paths = @($script:targetItems | ForEach-Object { [string]$_.Path }) + @(readIndexSources | ForEach-Object { [string]$_.Path })
+    if (!(testAnyNetworkPath $paths)) {
+        return
+    }
+    startJob {
+        getDriveTargets
+    } @() {
+        param ($output, $errorText)
+        if (!$errorText -and $output -and $output.Count -gt 0) {
+            setDriveTargets $output[0]
+        }
+    } "network"
+}
+
 function loadStartupData {
     try {
         loadWorkspaceViews
         updateKillBadge
+        ensureNetworkDriveCache
     } finally {
         $script:startupLoaded = $true
     }
@@ -473,7 +492,9 @@ try {
     [void]$window.ShowDialog()
 } finally {
     # インデックス作成のスレッド、検索の司令のスレッドと照合のプール、画面の裏の仕事のスレッドを片づける
-    # （docs/design/architecture/threads.md「閉じるときの順番」）
+    # （docs/design/architecture/threads.md「閉じるときの順番」）。
+    # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）は、止まった仕事（届かない共有の
+    # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon を使う。多重起動の鍵は、すぐに放す
     $script:closeTimer.Stop()
     $script:indexingTimer.Stop()
     if ($script:indexingSession) {
@@ -481,9 +502,12 @@ try {
     }
     $script:searchService.Close()
     $script:jobTimer.Stop()
-    $script:backgroundQueue.Close()
-    $activateTimer.Stop()
-    $activateEvent.Close()
+    $script:backgroundQueue.Abandon()
+    if ($script:networkQueue) {
+        $script:networkQueue.Abandon()
+    }
     $mutex.ReleaseMutex()
     $mutex.Dispose()
+    $activateTimer.Stop()
+    $activateEvent.Close()
 }

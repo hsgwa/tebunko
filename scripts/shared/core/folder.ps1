@@ -77,6 +77,21 @@ function getPathUnderFolder {
 ${driveTargets} = $null
 
 
+function testAnyNetworkPath {
+    # 一覧の中にネットワークのパスが 1 つでもあるか（インデックスの一覧・設定にネットワークのパスがあるときだけ、
+    # 起動時にドライブの割り当てを裏の列で照会するために使う）
+    param (
+        [string[]]$paths
+    )
+
+    foreach ($path in $paths) {
+        if (testNetworkPath $path) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function setDriveTargets {
     # getDriveTargets のキャッシュを外から設定する。ネットワークを調べる列で照会した結果を、
     # 画面のスレッドのキャッシュに入れるために使う（画面のスレッドで CIM を照会しないようにする）

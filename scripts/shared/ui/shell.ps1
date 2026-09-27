@@ -209,22 +209,47 @@ function readTextShared {
 # 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui.ps1）が $script:backgroundQueue に用意する。
 # 仕事のスクリプトでは、そのツールの関数（lib.ps1）をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
 
+# ネットワークのパスだけを調べる専用の列。届かない共有で止まっても、プレビュー・状態の読み直し（$script:backgroundQueue）が
+# 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
+$script:networkQueue = $null
+
+function ensureNetworkQueue {
+    # ネットワークを調べる列を、初めて使うときだけ作って返す。両方のスレッドを空の仕事で温める
+    # （1 回目の［開く］が冷えたスレッドに当たって lib.ps1 の読み込みを待たないようにする）
+    if ($null -ne $script:networkQueue) {
+        return $script:networkQueue
+    }
+    $script:networkQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host)
+    for ($i = 0; $i -lt ${backgroundWorkers}; $i++) {
+        $script:networkQueue.Post('$null', @(), $null)
+    }
+    $script:jobTimer.Start()
+    return $script:networkQueue
+}
+
 function startJob {
-    # scriptBlock を別スレッドで実行し、終わったら画面のスレッドで onDone { param($output, $errorText) } を呼ぶ
+    # scriptBlock を別スレッドで実行し、終わったら画面のスレッドで onDone { param($output, $errorText) } を呼ぶ。
+    #   queue: "default"（既定。今までの列）・"network"（届かない共有を調べる専用の列。無ければここで作る）
     param (
         [scriptblock]$scriptBlock,
         [object[]]$arguments,
-        [scriptblock]$onDone
+        [scriptblock]$onDone,
+        [string]$queue = "default"
     )
 
-    $script:backgroundQueue.Post($scriptBlock.ToString(), $arguments, $onDone)
+    $target = if ($queue -eq "network") { ensureNetworkQueue } else { $script:backgroundQueue }
+    $target.Post($scriptBlock.ToString(), $arguments, $onDone)
     $script:jobTimer.Start()
 }
 
-# 終わった仕事を受け取る間隔。プレビューの読み込みも通るため短くする（仕事が無ければ止める）
+# 終わった仕事を受け取る間隔。プレビューの読み込みも通るため短くする（両方の列に仕事が無ければ止める）
 $script:jobTimer = newTimer 50 {
     safe {
-        if ($script:backgroundQueue.Poll() -eq 0) {
+        $pending = $script:backgroundQueue.Poll()
+        if ($null -ne $script:networkQueue) {
+            $pending += $script:networkQueue.Poll()
+        }
+        if ($pending -eq 0) {
             $script:jobTimer.Stop()
         }
     }
