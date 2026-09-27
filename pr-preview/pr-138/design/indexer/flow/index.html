@@ -2758,7 +2758,13 @@
     M -- いいえ --&gt; PRE["インデックス作成ログ.txt を開く"]
     PRE --&gt; T{"getTargetFolders 成功？&lt;br&gt;チェックの付いたフォルダがある？"}
     T -- 失敗 --&gt; E0["受け渡しの口の Error にメッセージを入れる&lt;br&gt;終了コード 1"]
-    T -- 成功 --&gt; PK["前回本文インデックスに入れていない TSV があれば、&lt;br&gt;先に本文インデックスに書き出す（findIndexFoldersWithBooks）"]
+    T -- 成功 --&gt; LG{"前の版のしるしがある？&lt;br&gt;（getLegacyIndexState）"}
+    LG -- はい --&gt; NOTICE["前の版のインデックスは使えないという知らせを&lt;br&gt;ログに黄色で出す（getLegacyIndexMessage）"] --&gt; CLN{"content_index\ が空で、&lt;br&gt;片付けの条件に当たる？&lt;br&gt;（testLegacyCleanupNeeded）"}
+    LG -- いいえ --&gt; PK
+    CLN -- いいえ --&gt; PK
+    CLN -- はい --&gt; CLR{"前の版のシステムインデックスを&lt;br&gt;片付けられた？（clearLegacySystemIndex）"}
+    CLR -- いいえ --&gt; E0
+    CLR -- はい --&gt; PK["前回本文インデックスに入れていない TSV があれば、&lt;br&gt;先に本文インデックスに書き出す（findIndexFoldersWithBooks）"]
     PK --&gt; L["取り込み対象の決定&lt;br&gt;インデックスごとに件数を数える"]
     L --&gt; CF{"受け渡しの口の ConfirmTargets？"}
     CF -- いいえ --&gt; RF["前回失敗は RetryFailed のときだけ対象に加える"]
