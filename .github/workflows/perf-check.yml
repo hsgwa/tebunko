@@ -16,7 +16,7 @@ on:
   pull_request:
     types: [labeled, synchronize, reopened]
   push:
-    branches: [main, worktree-perf-regression]
+    branches: [main]
     paths:
       - "scripts/**"
       - "tools/measure_perf.ps1"

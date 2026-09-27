@@ -13,8 +13,8 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\tools\perf\perf_common.ps1"
 
-    $script:searchLimitsMs = @{ "0 件" = 10000; "まれ" = 10000; "大量" = 10000; "正規表現" = 10000 }
-    $script:packLimitSeconds = 600
+    $script:searchLimitsMs = @{ "0 件" = 550; "まれ" = 750; "大量" = 2500; "正規表現" = 2300 }
+    $script:packLimitSeconds = 105
 }
 
 Describe "検索と pack の作成の速さ" -Tag Slow {

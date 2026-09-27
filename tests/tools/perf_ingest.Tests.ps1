@@ -14,8 +14,8 @@ BeforeAll {
     . "$PSScriptRoot\..\..\tools\perf\perf_common.ps1"
 
     $script:ingestFiles = 100
-    $script:perFileLimitMs = 5000
-    $script:secondsLimit = 600
+    $script:perFileLimitMs = 1200
+    $script:secondsLimit = 130
 }
 
 Describe "取り込み（.docx・.pptx）の速さ" -Tag Slow {
