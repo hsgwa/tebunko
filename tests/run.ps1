@@ -1,8 +1,8 @@
 ﻿# テストの実行（Pester 5.9.0）
 #
-#   .\tests\run.ps1              既定（Unit・Io・Meta。Office と Slow は除く）
-#   .\tests\run.ps1 -Tag Unit    速い確認だけ
-#   .\tests\run.ps1 -All         Office・Slow も含めて全部（Office が必要）
+#   .\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Gui は除く）
+#   .\tests\run.ps1 -Tag Unit    速い確認だけ（-Tag に明示したタグは、既定で外すタグでも流す。例 -Tag Gui）
+#   .\tests\run.ps1 -All         Office・Slow・Gui も含めて全部（Office が必要。Gui は画面を開くので、操作しないで待つ）
 #   .\tests\run.ps1 -Ci          結果の XML とカバレッジ（Cobertura XML）を出し、カバレッジの下限も確かめる
 #   .\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 #
@@ -12,7 +12,7 @@ param (
     [string[]]$Tag,
     [string[]]$ExcludeTag,
     [string[]]$Path,  # 実行するテストのフォルダ・ファイル（既定は tests 全体）
-    [switch]$All,    # Office・Slow も実行する（Excel・Word・PowerPoint が必要）
+    [switch]$All,    # Office・Slow・Gui も実行する（Excel・Word・PowerPoint が必要）
     [switch]$Ci,     # 結果の XML とカバレッジを出し、失敗数で終了する
     [switch]$Quiet
 )
@@ -37,10 +37,12 @@ $testsDir = $PSScriptRoot
 $rootDir  = Split-Path $testsDir -Parent
 $outDir   = "$rootDir\work\test"
 
-# 既定で外すタグ。Office は COM が要るもの、Slow は時間がかかるもの、Manual は手で確かめるもの
-$defaultExclude = @("Office", "Slow", "Manual")
+# 既定で外すタグ。Office は COM が要るもの、Slow は時間がかかるもの、Gui は本物の画面を開いて操作するもの、Manual は手で確かめるもの。
+# Pester 5 は ExcludeTag を Tag より優先するため、-Tag に明示したタグは外すタグから取り除く（-Tag Gui が 0 件にならないように）
+$defaultExclude = @("Office", "Slow", "Manual", "Gui")
 if (!$PSBoundParameters.ContainsKey("ExcludeTag")) {
-    $ExcludeTag = if ($All) { @("Manual") } else { $defaultExclude }
+    $base = if ($All) { @("Manual") } else { $defaultExclude }
+    $ExcludeTag = @($base | Where-Object { $Tag -notcontains $_ })
 }
 
 $config = New-PesterConfiguration

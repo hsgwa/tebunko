@@ -1,0 +1,56 @@
+# 画面のスモークテスト（GitHub Actions）
+#
+# 本物の画面（WPF）を別のプロセスで起動し、UI オートメーションで、起動・タブの切り替え・検索・「tebunko について」・終了を確かめる
+# （tests\gui\smoke.Tests.ps1。タグ Gui）。
+# test.yml には入れない。test.yml は release.yml から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。
+# 別のワークフローにすれば test と並んで動き、test の時間も延びない。
+# 必須チェックにはしない（必須チェックを変えるのは持ち主。しばらく安定して通ることを見てから諮る）。
+# paths の絞り込みは付けない（あとで必須チェックにしたとき、文書だけの PR で pending のまま残らないように）。
+# tests\run.ps1 -Ci は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、Gui だけを流すと下限を割るため。
+name: gui
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同じブランチに続けて push したときは、古い実行を取り消す
+concurrency:
+  group: gui-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gui-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pester の用意
+        shell: powershell
+        # 版は tests\run.ps1 の Import-Module と同じにする（test.yml と同じ）
+        env:
+          PESTER_VERSION: 5.9.0
+        run: |
+          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+          Get-Module Pester -ListAvailable | Format-Table Name, Version, ModuleBase -AutoSize | Out-String | Write-Host
+
+      - name: 画面のスモークテスト
+        shell: powershell
+        run: .\tests\run.ps1 -Tag Gui
+
+      # 失敗したときの画面の画像とエラーの記録（work\test\gui\）
+      - name: 失敗の材料の保存
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gui-smoke-results
+          path: work/test/gui/
+          if-no-files-found: ignore
