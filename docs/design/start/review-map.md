@@ -25,9 +25,9 @@ flowchart LR
 | `scripts/tebunko/search/` | [search/](../search/index.md) | `tests/tebunko/search/` | 同上 |
 | `scripts/tebunko/ui/`・`scripts/tebunko/xaml/` | [gui/](../gui/index.md) | `tests/tebunko/ui/` | `AGENTS.md`「ソースの分け方」（画面層は判断層・状態層に触らない） |
 | `scripts/shared/`・`scripts/tebunko/core/` | [structure/](../structure/source.md) | `tests/shared/`・`tests/tebunko/core/` | `AGENTS.md`「ソースの分け方」 |
-| `setting.config` の読み書き（`architecture/settings-file.md` の後継） | [structure/settings-file.md](../structure/settings-file.md) | `tests/tebunko/core/` | 前の版と互換が無くなるときは PR タイトルに `!` |
+| `setting.config` の読み書き | [structure/settings-file.md](../structure/settings-file.md) | `tests/tebunko/core/` | 前の版と互換が無くなるときは PR タイトルに `!` |
 | `tests/`・`tools/`・`.github/workflows/` | [testing/](../testing/index.md) | `tests/meta/` | `AGENTS.md`「コミット前の検査と CI」「テストカバレッジの方針」 |
-| 関数を足した・消した | [reference/](../reference/index.md) | — | `docs/design/architecture/modules.md`「関数一覧」の後継（部品ごとのページ） |
+| 関数を足した・消した | [reference/](../reference/index.md)（部品ごとのページ） | — | — |
 
 - 表にない変更（`README.md`・`.github/` の英語版など）は、そのファイルの決まり（`AGENTS.md`「言語」）に従う。
 - 前の版と互換が無くなる変更（設定ファイル・インデックスの形式・起動の仕方・配布物の構成）は、直した設計書に移行の手順も書く（`AGENTS.md`「GitHub の運用」）。
