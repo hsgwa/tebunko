@@ -1,6 +1,6 @@
 # CI
 
-扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（[性能とリソースの計測のしかた](perf.md)）、速さの回帰テスト（[速さの回帰テストと上限の決め方](perf-check.md)）、コミット前のフック（[コミット前に動く検査](pre-commit.md)）。先に読むページ: [テストの実行](run.md)。
+扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（[性能とリソースの計測のしかた](perf.md)）、速さの回帰テスト（[速さの回帰テストと上限の決め方](perf-check.md)）、コミット前のフック（[コミット前に動く検査](pre-commit.md)）。先に読むページ: [テストの実行](run.md)。
 
 ```mermaid
 flowchart TD
@@ -8,6 +8,7 @@ flowchart TD
     C --> TI["title.yml<br>pr-title・issue-title"]
     C --> D["docs.yml<br>docs（ほか changes・publish）"]
     C --> CQ["codeql.yml<br>analyze"]
+    C --> G["gui.yml<br>gui-smoke"]
     M["main への push"] --> SC["scorecard.yml<br>analysis"]
     TAG["v* タグの push"] --> R["release.yml<br>guard → test → release"]
 ```
@@ -22,6 +23,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 | `codeql.yml` | `analyze` | PR、main への push、毎週 1 回 | ワークフローの静的解析 | ○ |
 | `scorecard.yml` | `analysis` | main への push、ブランチ保護の変更、毎週 1 回 | OpenSSF Scorecard の採点 | – |
 | `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
+| `gui.yml` | `gui-smoke` | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](gui-smoke.md)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
 | `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・本文インデックスの作成・検索の速さとリソースの推移を測る | – |
 | `perf-check.yml` | `search`・`ingest` | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
 
@@ -54,6 +56,20 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 - タイトルは誰でも書ける信頼できない入力のため、式で `run` に埋め込まず環境変数で渡す
 - 起動の速い ubuntu のランナーで `pwsh`（PowerShell 7）を使う。そのため `tools/check_commit_message.ps1` は 5.1 と 7 の両方で動くように書く
 - Dependabot の PR も同じ形にする（`.github/dependabot.yml` の `commit-message`。`ci(deps): bump ...` `build(deps): bump ...`）
+
+**`gui.yml`（画面のスモークテスト）**
+
+本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（`tests/gui/*.Tests.ps1`、タグ `Gui`。何を動かすかは [画面のスモークテスト](gui-smoke.md)）。ジョブは `gui-smoke` 1 つで、`.\tests\run.ps1 -Tag Gui` を流す。
+
+- **`test.yml` には入れない。** `test.yml` は `release.yml` から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば `test` と並んで動き、`test` の時間も延びない
+- **必須チェックにしない。** 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、`paths` の絞り込みは付けていない
+- `tests\run.ps1 -Ci` は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、`Gui` だけを流すと下限を割るため
+- 1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。`timeout-minutes` は 20。同じブランチに続けて push したときは、古い実行を取り消す（`concurrency`）
+- 落ちたときの材料（画面の画像・写した先の `画面エラー.txt`・`インデックス作成ログ.txt`・窓の一覧）は、成否にかかわらず成果物 `gui-smoke-results`（`work/test/gui/<場面>/`）として保存する
+- **落ちたときの再実行は 1 回まで。** 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）
+- **CI だけで流す場面がある。** S6（既定のワークスペース）は、利用者の本物のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）を使うため、`GITHUB_ACTIONS` が `true` のときだけ流す。手元では理由を出して飛ばす
+- **手元で飛ばす段階がある。** S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（`GITHUB_ACTIONS` が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す
+- ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、（手元では）`Documents\tebunko_ws` が、流す前後で変わらないことも各場面で確かめる
 
 **`codeql.yml`・`scorecard.yml`（サプライチェーンの安全性）**
 

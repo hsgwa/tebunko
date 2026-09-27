@@ -41,6 +41,7 @@ Describe "run_commit_tests.ps1 の選び方" -Tag Unit {
         @{ name = "テストの無い道具は流さない"; files = @("tools/new_icon.ps1") }
         @{ name = "消したテストは流さない"; files = @("tests/shared/core/none.Tests.ps1") }
         @{ name = "変更が無ければ流さない"; files = @() }
+        @{ name = "画面のテスト（tests/gui/）は選ばない。CI（gui.yml）と手元の -Tag Gui で流す"; files = @("tests/gui/smoke.Tests.ps1", "tests/gui/gui_helpers.ps1") }
     ) {
         param($name, $files)
         @(selectTests $files).Count | Should -Be 0

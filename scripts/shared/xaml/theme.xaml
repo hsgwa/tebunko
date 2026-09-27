@@ -509,7 +509,7 @@
             <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1">
               <TabPanel IsItemsHost="True" Panel.ZIndex="1" Margin="0,0,0,-1" />
             </Border>
-            <ContentPresenter ContentSource="SelectedContent" Margin="0,14,0,0" />
+            <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Margin="0,14,0,0" />
           </DockPanel>
         </ControlTemplate>
       </Setter.Value>

@@ -37,6 +37,7 @@ clone したら 1 回だけ次を実行する。`core.hooksPath` を `tools/hook
 | `tools/<名前>.ps1` | `tests/tools/<名前>.Tests.ps1`（無ければ流さない）。`check_markdown_links.ps1` は `meta/links` も |
 | `tests/testdata/scrub_personal.ps1` | `tests/testdata/scrub_personal.Tests.ps1` |
 | `.md`・`docs/` の中 | `meta/links` |
+| `tests/gui/` の中（画面のスモークテスト） | 流さない（CI の `gui.yml` と、手元の `-Tag Gui` で流す） |
 | 対応するテストが無い・消した `scripts/` の `.ps1`、`tests/` のほかのファイル（`run.ps1`・`helpers/`・`testdata/` など） | 速いテスト（`Unit`・`Meta`）を全部 |
 | それ以外（`.github/`・画像・設定など） | 流さない |
 

@@ -42,7 +42,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 | `encoding` | 全 `.ps1`・`.xaml` が BOM 付き UTF-8 で、改行が CRLF。`.github/codecov.yml` が ASCII の文字だけ |
 | `layers` | `shared/` にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない `.ps1` が無い、判断層（`text.ps1`・`index_name.ps1`・`search_query.ps1`・`indexer_decide.ps1`・`*_view.ps1`）に画面への依存が無い |
 | `links` | git で管理している全 `.md` の相対リンク（画像・参照リンクの定義・HTML の `href`/`src` を含む）の先のファイルがあり（大文字・小文字も区別する）、`.md` のアンカーの見出しがある（`tools/check_markdown_links.ps1`。外部の URL は調べない） |
-| `runner` | `tests/run.ps1` が、実行したテストが 0 件なら失敗にすること、`powershell.exe -File` で渡したカンマ区切りのタグを分けて受け取ること |
+| `runner` | `tests/run.ps1` が、実行したテストが 0 件なら失敗にすること、`powershell.exe -File` で渡したカンマ区切りのタグを分けて受け取ること、`Gui` を既定では流さず `-Tag Gui` と `-All` では流すこと |
 | `safety` | 危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が `work`・`%TEMP%` だけ、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（[単体テスト（検査と道具）](unit-checks.md)、[安全性の要約](../../safety/index.md)） |
 
 ## タグと実行
@@ -55,16 +55,19 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 | `Io` | ファイルの読み書き（`$TestDrive` の中で完結する） | 不要 | する |
 | `Meta` | 構成を守るテスト・安全性の検査 | 不要（PSScriptAnalyzer があれば静的解析も行う） | する |
 | `Office` | Excel・Word・PowerPoint の COM を実際に動かすもの（今は該当するテストが無い。COM は `Mock` で確かめる） | 必要 | しない（`-All` で実行） |
-| `Slow` | 時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。`tests/tools/perf_*.Tests.ps1`。[`perf-check.yml`](perf-check.md)） | 検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る | しない（`-All` または `-Tag Slow -ExcludeTag Manual` で実行） |
+| `Gui` | 本物の画面（`scripts/tebunko/gui.ps1`）を別のプロセスで開いて UI オートメーションで操作するもの（`tests/gui/`。[画面のスモークテスト](gui-smoke.md)） | 不要（Windows の画面が要る。ランナーの Windows で動く） | しない（`-Tag Gui`・`-All` で実行。CI は `gui.yml`） |
+| `Slow` | 時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。`tests/tools/perf_*.Tests.ps1`。[`perf-check.yml`](perf-check.md)） | 検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る | しない（`-All` または `-Tag Slow` で実行） |
 | `Manual` | 手で確かめるもの（今は該当するテストが無い） | – | しない（`-All` でも実行しない） |
 
 実行は `tests/run.ps1` から行う。
 
 ```
-.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Manual は外す）
+.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Gui・Manual は外す）
 .\tests\run.ps1 -Tag Unit    速い確認だけ
-.\tests\run.ps1 -All         Office・Slow も含める（Office と、tebunko-perfdata が必要）
-.\tests\run.ps1 -Tag Slow -ExcludeTag Manual   Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
+.\tests\run.ps1 -All         Office・Slow・Gui も含める（Office と、tebunko-perfdata が必要。Gui は画面を開くので、操作しないで待つ）
+.\tests\run.ps1 -Tag Slow    Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
+.\tests\run.ps1 -Tag Gui     画面のスモークテストだけ（約 4 分。流している間はマウス・キーボードに触らない）
+.\tests\run.ps1 -Tag Gui -Path .\tests\gui\search.Tests.ps1   1 つの場面だけ
 .\tests\run.ps1 -Ci          結果の XML（work\test\results.xml）とカバレッジ（work\test\coverage.xml）を出し、カバレッジの下限を確かめる
 .\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 .\tests\run.ps1 -Quiet       失敗したテストだけを表示する
@@ -72,7 +75,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 
 いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。
 
-`-Tag Slow` だけでは、既定の除外（`Office`・`Slow`・`Manual`）が残って 0 件になる。`-ExcludeTag` を渡すと既定の除外が置き換わるので、`-Tag Slow -ExcludeTag Manual` とする。
+Pester 5 は除外（`ExcludeTag`）をタグ（`Tag`）より優先するため、`-Tag` に明示したタグは既定の除外から取り除く（`-Tag Slow`・`-Tag Gui` が 0 件にならない）。`-ExcludeTag` を渡すと既定の除外が丸ごと置き換わる（`-Tag Slow -ExcludeTag Manual` は今までどおり動く）。
 
 `-Tag`・`-ExcludeTag` はカンマ区切りの文字列でも受け取る。`powershell.exe -File` で呼ぶと `-Tag Unit,Meta` は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。
 

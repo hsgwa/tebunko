@@ -199,6 +199,7 @@ nav:
           - 単体テスト（Office）: design/testing/unit-office.md
           - 単体テスト（検査と道具）: design/testing/unit-checks.md
           - 画面のテストと確認: design/testing/gui-tests.md
+          - 画面のスモークテスト: design/testing/gui-smoke.md
           - 貢献のしかた: https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.ja.md
       - 関数一覧:
           - design/reference/index.md
