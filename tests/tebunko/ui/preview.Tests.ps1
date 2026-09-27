@@ -7,6 +7,7 @@ BeforeAll {
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\preview_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search_view.ps1"
 
     # gui.ps1 で決める値
     ${previewRowHeight}     = 22
@@ -212,7 +213,7 @@ Describe "showDetail" -Tag Io {
         $ui.OpenButton.IsEnabled | Should -Be $true
         $ui.OpenFolderButton.IsEnabled | Should -Be $true
         $ui.OpenButton.Content | Should -Be "Excel で開く"
-        $ui.DetailTitle.Text | Should -Be "営業部\見積.xlsx ・ [シート] 4月 ・ セル ・ セル B3"
+        $ui.DetailTitle.Text | Should -Be "営業部\見積.xlsx ・ [シート]4月!B3 ・ セル"
         $ui.DetailTitle.ToolTip | Should -Be $ui.DetailTitle.Text
         $ui.PreviewNote.Visibility | Should -Be "Collapsed"
         @($ui.PreviewRows.ItemsSource).Count | Should -Be 4
@@ -228,7 +229,7 @@ Describe "showDetail" -Tag Io {
         showDetail
 
         $ui.OpenButton.Content | Should -Be "開く"
-        $ui.DetailTitle.Text | Should -Be "議事録.docx ・ [ページ] 1（目安） ・ 本文 ・ 2 行目"
+        $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
     }
 
     It "読んでいる間に別の行を選んだら、読み終えた古い行の結果は出さない" {
@@ -263,7 +264,7 @@ Describe "showDetail" -Tag Io {
             showDetail
 
             $script:previewTable.Rows.Count | Should -Be 1
-            $ui.DetailTitle.Text | Should -Be "議事録.docx ・ [ページ] 1（目安） ・ 本文 ・ 2 行目"
+            $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
         }
     }
 

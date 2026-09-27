@@ -183,22 +183,37 @@
       <DataGrid.RowStyle>
         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
           <Style.Triggers>
+            <!-- 読み上げに使われるのは行の名前。見出しの行はセルが無いため、ファイル名と、フォルダ・場所・件数を行に付ける -->
             <DataTrigger Binding="{Binding IsFileHeader}" Value="True">
               <Setter Property="Template" Value="{StaticResource FileHeaderRow}" />
+              <Setter Property="AutomationProperties.Name" Value="{Binding Book}" />
+              <Setter Property="AutomationProperties.HelpText">
+                <Setter.Value>
+                  <MultiBinding StringFormat="{}{0}　{1}　{2:N0} 件">
+                    <Binding Path="RelDir" />
+                    <Binding Path="LocationText" />
+                    <Binding Path="ShownCount" />
+                  </MultiBinding>
+                </Setter.Value>
+              </Setter>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsFileHeader}" Value="False">
+              <Setter Property="AutomationProperties.Name" Value="{Binding PlaceDisplay}" />
             </DataTrigger>
           </Style.Triggers>
         </Style>
       </DataGrid.RowStyle>
       <DataGrid.Columns>
-        <DataGridTextColumn x:Name="IndexColumn" Header="インデックス" Binding="{Binding IndexName}" Width="100" Visibility="Collapsed"
-                            ElementStyle="{StaticResource Cell.Meta}" />
-        <DataGridTextColumn Header="フォルダ" Binding="{Binding RelDir}" Width="150" ElementStyle="{StaticResource Cell.Meta}" />
-        <DataGridTextColumn Header="ファイル名" Binding="{Binding Book}" Width="170" ElementStyle="{StaticResource Cell.Key}" />
-        <!-- 場所は表示用の文字（[シート] 売上 など）。並べ替えは元の名前（ページ003 など、桁をそろえてある）で行う -->
-        <DataGridTextColumn Header="場所" Binding="{Binding PlaceText}" SortMemberPath="Location" Width="130" ElementStyle="{StaticResource Cell.Meta}" />
+        <!-- 場所は表示用の文字（[シート]売上!B12・3 ページ（目安） など）。並べ替えは元の名前（ページ003 など、桁をそろえてある）→ 行番号の順。
+             幅より長いときはツールチップで全文を出す -->
+        <DataGridTextColumn Header="場所" Binding="{Binding PlaceDisplay}" SortMemberPath="Location" Width="160">
+          <DataGridTextColumn.ElementStyle>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource Cell.Meta}">
+              <Setter Property="ToolTip" Value="{Binding PlaceDisplay}" />
+            </Style>
+          </DataGridTextColumn.ElementStyle>
+        </DataGridTextColumn>
         <DataGridTextColumn Header="種別" Binding="{Binding Kind}" Width="64" ElementStyle="{StaticResource Cell.Meta}" />
-        <DataGridTextColumn Header="行" Binding="{Binding LineNumber}" Width="50" ElementStyle="{StaticResource Cell.Number}" />
-        <DataGridTextColumn Header="セル" Binding="{Binding CellText}" Width="80" CanUserSort="False" ElementStyle="{StaticResource Cell.Meta}" />
         <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="Line">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>

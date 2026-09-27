@@ -59,31 +59,46 @@ Describe "describePlace" -Tag Unit {
     }
 
     It "Excel はシート名と、セル・図形・コメントの種別にする（検索条件のチェックと同じ言葉）" {
-        described "見積.xlsx" "売上" | Should -Be "[シート] 売上|セル"
-        described "見積.xlsx" "売上[図形]" | Should -Be "[シート] 売上|図形"
-        described "見積.xlsx" "売上[コメント]" | Should -Be "[シート] 売上|コメント"
+        described "見積.xlsx" "売上" | Should -Be "[シート]売上|セル"
+        described "見積.xlsx" "売上[図形]" | Should -Be "[シート]売上|図形"
+        described "見積.xlsx" "売上[コメント]" | Should -Be "[シート]売上|コメント"
         # シート名が「ページ001」でも、Excel ならシートとして出す
-        described "旧.XLS" "ページ001" | Should -Be "[シート] ページ001|セル"
+        described "旧.XLS" "ページ001" | Should -Be "[シート]ページ001|セル"
     }
 
-    It "Word のページは番号にし、目安であることを付ける。番号の無い場所は [ ] で囲む" {
-        described "報告.docx" "ページ003" | Should -Be "[ページ] 3（目安）|本文"
-        described "報告.docx" "ページ120" | Should -Be "[ページ] 120（目安）|本文"
-        described "報告.docx" "ヘッダー・フッター" | Should -Be "[ヘッダー・フッター]|本文"
-        described "報告.docx" "脚注" | Should -Be "[脚注]|本文"
+    It "Word のページは番号にし、目安であることを付ける。番号の無い場所は名前のまま" {
+        described "報告.docx" "ページ003" | Should -Be "3 ページ（目安）|本文"
+        described "報告.docx" "ページ120" | Should -Be "120 ページ（目安）|本文"
+        described "報告.docx" "ヘッダー・フッター" | Should -Be "ヘッダー・フッター|本文"
+        described "報告.docx" "脚注" | Should -Be "脚注|本文"
         # Word のコメント・図形も同じ決まりで出す
-        described "報告.docx" "ページ003[コメント]" | Should -Be "[ページ] 3（目安）|コメント"
+        described "報告.docx" "ページ003[コメント]" | Should -Be "3 ページ（目安）|コメント"
     }
 
     It "PowerPoint はスライド番号にし、非表示はそのまま付け、ノートは種別で分ける" {
-        described "提案.pptx" "スライド001" | Should -Be "[スライド] 1|本文"
-        described "提案.pptx" "スライド002（非表示）" | Should -Be "[スライド] 2（非表示）|本文"
-        described "提案.pptx" "スライド002_ノート" | Should -Be "[スライド] 2|ノート"
-        described "提案.pptx" "スライド002[図形]" | Should -Be "[スライド] 2|図形"
+        described "提案.pptx" "スライド001" | Should -Be "スライド 1|本文"
+        described "提案.pptx" "スライド002（非表示）" | Should -Be "スライド 2（非表示）|本文"
+        described "提案.pptx" "スライド002_ノート" | Should -Be "スライド 2|ノート"
+        described "提案.pptx" "スライド002[図形]" | Should -Be "スライド 2|図形"
     }
 
     It "場所が空なら空" {
         described "a.docx" "" | Should -Be "|本文"
+    }
+}
+
+Describe "describeHitPlace" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "Excel のセルは、場所ごとの表記にセル番地を足す"; place = "[シート]売上"; excel = $true; object = $false; cell = "B12"; count = 1; line = 12; expected = "[シート]売上!B12" }
+        @{ name = "Excel の 1 行に複数のセルが一致したら、ほかの数を足す"; place = "[シート]売上"; excel = $true; object = $false; cell = "B12"; count = 3; line = 12; expected = "[シート]売上!B12 ほか 2" }
+        @{ name = "Excel のセル番地が求まらないときは行番号を足す"; place = "[シート]売上"; excel = $true; object = $false; cell = ""; count = 0; line = 12; expected = "[シート]売上 12 行目" }
+        @{ name = "Excel の図形・コメントは、左上・コメントのセル番地を足す"; place = "[シート]売上"; excel = $true; object = $true; cell = "D5"; count = 1; line = 1; expected = "[シート]売上!D5" }
+        @{ name = "Excel の図形・コメントでセル番地が求まらないときは、通し番号のため行番号を出さない"; place = "[シート]売上"; excel = $true; object = $true; cell = ""; count = 0; line = 2; expected = "[シート]売上" }
+        @{ name = "Word は場所ごとの表記のまま"; place = "3 ページ（目安）"; excel = $false; object = $false; cell = ""; count = 0; line = 5; expected = "3 ページ（目安）" }
+        @{ name = "PowerPoint は場所ごとの表記のまま"; place = "スライド 9（非表示）"; excel = $false; object = $true; cell = ""; count = 0; line = 2; expected = "スライド 9（非表示）" }
+    ) {
+        param ($name, $place, $excel, $object, $cell, $count, $line, $expected)
+        describeHitPlace $place $excel $object $cell $count $line | Should -Be $expected
     }
 }
 

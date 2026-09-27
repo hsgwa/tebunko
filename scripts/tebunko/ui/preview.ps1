@@ -48,8 +48,8 @@ function showDetail {
     $ui.OpenButton.IsEnabled = $true
     $ui.OpenFolderButton.IsEnabled = $true
     # 閉じている見出しを選んだときの先頭の行は、まだ画面に出ていない（LoadingRow で Prepare されていない）ため、
-    # セル番地（MatchCell）が空のままになる。ここで作っておく（作り済みなら何もしない）
-    $row.Prepare()
+    # セル番地（MatchCell）・「場所」の列の表記（PlaceDisplay）が空のままになる。ここで作っておく（作り済みなら何もしない）
+    prepareHitRow $row
     $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
     # 前後の行を集約ファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
@@ -83,10 +83,9 @@ function applyDetail {
         return
     }
     $path = if ($row.RelDir) { "$($row.RelDir)\$($row.Book)" } else { $row.Book }
-    $place = if ($row.MatchCell) { "セル $($row.MatchCell)" } else { "$($row.LineNumber) 行目" }
     $table = $row.BuildPreview([int[]]@($context | ForEach-Object { $_.LineNumber }), [string[]]@($context | ForEach-Object { $_.Line }))
 
-    $title = "${path} ・ $($row.PlaceText) ・ $($row.Kind) ・ ${place}"
+    $title = "${path} ・ $($row.PlaceDisplay) ・ $($row.Kind)"
     $ui.DetailTitle.Text = $title
     $ui.DetailTitle.ToolTip = $title
 
