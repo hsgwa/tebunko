@@ -68,7 +68,7 @@ $sumsPath = Join-Path $OutDir "SHA256SUMS.txt"
 $sha256 = [System.Security.Cryptography.SHA256]::Create()
 try {
     $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add("# tebunko 配布物の SHA256（$($Timestamp.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ')) 時点）")
+    $lines.Add("# tebunko 配布物の SHA256（$($Timestamp.UtcDateTime.ToString('yyyy-MM-ddTHH:mm:ssZ', [System.Globalization.CultureInfo]::InvariantCulture)) 時点）")
     $lines.Add("# 確認: Get-FileHash <ファイル> -Algorithm SHA256")
     # パスは zip を展開した tebunko\ から見た相対パス。zip に入るファイルの後に、zip の横に置く部品表を並べる
     foreach ($path in $Entries.Keys) {

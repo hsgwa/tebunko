@@ -65,7 +65,7 @@ foreach ($property in $template.metadata.component.PSObject.Properties) {
     }
 }
 $metadata = [ordered]@{
-    "timestamp" = $Timestamp.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+    "timestamp" = $Timestamp.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
     "component" = $component
 }
 foreach ($property in $template.metadata.PSObject.Properties) {

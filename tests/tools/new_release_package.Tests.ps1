@@ -90,6 +90,21 @@ Describe "new_release_package.ps1" -Tag Io {
         }
     }
 
+    It "現在のカルチャが th-TH でも、sbom.cdx.json・SHA256SUMS.txt が同じ中身になる" {
+        $original = [System.Threading.Thread]::CurrentThread.CurrentCulture
+        $outDir3 = Join-Path $TestDrive "out3"
+        try {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo("th-TH")
+            & $newReleasePackage -Version "v9.9.9" -OutDir $outDir3 | Out-Null
+        } finally {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = $original
+        }
+        foreach ($name in @("sbom.cdx.json", "SHA256SUMS.txt")) {
+            (Get-FileHash -LiteralPath (Join-Path $outDir3 $name) -Algorithm SHA256).Hash |
+                Should -Be (Get-FileHash -LiteralPath (Join-Path $outDir $name) -Algorithm SHA256).Hash
+        }
+    }
+
     It "部品表の components が zip のエントリーと過不足なく一致し、各 SHA-256 が zip の中身と一致する" {
         $sbom = [System.IO.File]::ReadAllText((Join-Path $outDir "sbom.cdx.json")) | ConvertFrom-Json
         $sbom.bomFormat | Should -Be "CycloneDX"
@@ -97,7 +112,7 @@ Describe "new_release_package.ps1" -Tag Io {
         $sbom.version | Should -Be 1
         $sbom.metadata.component.version | Should -Be "v9.9.9"
         ($sbom.serialNumber -cmatch '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$') | Should -Be $true
-        $sbom.metadata.timestamp | Should -Be $commitTime.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $sbom.metadata.timestamp | Should -Be $commitTime.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
         @($sbom.components | ForEach-Object { "tebunko/" + $_.name }) | Should -Be @($zipEntries | ForEach-Object { $_.FullName })
         foreach ($component in $sbom.components) {
             $path = Join-Path $extractDir ("tebunko\" + $component.name.Replace("/", "\"))
@@ -116,7 +131,7 @@ Describe "new_release_package.ps1" -Tag Io {
             $path = if ($relative -eq "sbom.cdx.json") { Join-Path $outDir $relative } else { Join-Path $extractDir ("tebunko\" + $relative) }
             $line.Substring(0, 64) | Should -Be (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
         }
-        [System.IO.File]::ReadAllText($sumsPath).Contains($commitTime.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ")) | Should -Be $true
+        [System.IO.File]::ReadAllText($sumsPath).Contains($commitTime.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)) | Should -Be $true
     }
 
     It "実行後、リポジトリ直下に VERSION.txt ができていない" {

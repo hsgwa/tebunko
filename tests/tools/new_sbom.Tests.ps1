@@ -46,7 +46,7 @@ Describe "new_sbom.ps1" -Tag Unit {
         $sbom = Get-Sbom "v1.0.0" $sha
         $sbom.bomFormat | Should -Be "CycloneDX"
         $sbom.specVersion | Should -Be "1.6"
-        $sbom.metadata.timestamp | Should -Be $time.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $sbom.metadata.timestamp | Should -Be $time.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
         $sbom.metadata.component.version | Should -Be "v1.0.0"
         $sbom.metadata.component.licenses[0].license.id | Should -Be "MIT"
         @($sbom.metadata.properties | Where-Object { $_.name -eq "tebunko:prerequisite" }).Count -gt 0 | Should -Be $true
@@ -57,6 +57,20 @@ Describe "new_sbom.ps1" -Tag Unit {
         $sbom.components[0].hashes[0].alg | Should -Be "SHA-256"
         # "a" の SHA-256（小文字）
         $sbom.components[0].hashes[0].content | Should -Be "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+    }
+
+    It "現在のカルチャに依らず、timestamp の書式が同じになる（<Culture>）" -TestCases @(
+        @{ Culture = "th-TH" }
+        @{ Culture = "ja-JP" }
+        @{ Culture = "ar-SA" }
+    ) {
+        $original = [System.Threading.Thread]::CurrentThread.CurrentCulture
+        try {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo($Culture)
+            (Get-Sbom "v1.0.0" $sha).metadata.timestamp | Should -Be $time.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
+        } finally {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = $original
+        }
     }
 
     It "第三者の部品（purl を持つもの・group が tebunko 以外）を 1 件も含まない" {
