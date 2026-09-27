@@ -61,8 +61,7 @@ flowchart TD
 | `$maxFileNameLength` | ファイル名 1 つの長さの上限（255） | `shared/core/fs.ps1` |
 | `$officeExtensions` | 取り込み対象の拡張子（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`） | `shared/office/office_files.ps1` |
 | `$officeProcessNames` | 強制終了の対象のプロセス名 → 表示名（`EXCEL` → `Excel`、`WINWORD` → `Word`、`POWERPNT` → `PowerPoint`） | `shared/office/office_process.ps1` |
-| `$appId` | ツールの ID（`tebunko`。ミューテックスの名前に使う） | `tebunko/core/settings.ps1`（起動口が `lib.ps1` より先に `settings.ps1` だけを読み込んで設定を確かめるため、ここで決める） |
-| `$workspace` | 今のワークスペース（`Workspace`。[ワークスペースの中の場所（Workspace）](#ワークスペースの中の場所workspace)）。設定 `workspaceFolder` から決める（`getWorkDir`） | 同上 |
+| `$workspace` | 今のワークスペース（`Workspace`。[ワークスペースの中の場所（Workspace）](#ワークスペースの中の場所workspace)）。設定 `workspaceFolder` から決める（`getWorkDir`） | `tebunko/core/paths.ps1` |
 | `$tmpDir` | `%TEMP%\tebunko\<PID>`（プロセスごと。取り込みのスレッドは、その下の `w<番号>` を使う） | 同上 |
 | `$sourceFolderFileName` | 各インデックスのフォルダに置く対応表のファイル名（`元のフォルダ.txt`） | 同上 |
 | `$indexingPhaseCrawl` / `$indexingPhaseConfirm` / `$indexingPhaseIngest` / `$indexingPhaseFinish` | インデックス作成の進み具合の段階（`クロール` / `確認` / `取り込み` / `仕上げ`） | 同上 |
@@ -71,6 +70,7 @@ flowchart TD
 | `$statusColumns` | 取り込み一覧の列名（`相対パス` `更新日時` `サイズ` `状態` `TSV数` `取り込み日時` `エラー` `抽出版`） | 同上 |
 | `$statusFolderKey` | 取り込み一覧の先頭のクロール対象フォルダの行の見出し（`クロール対象フォルダ`） | 同上 |
 | `$stateNew` / `$stateDone` / `$stateFailed` | 取り込み一覧の状態（`未取り込み` / `済` / `失敗`） | 同上 |
+| `$appId` | ツールの ID（`tebunko`。ミューテックスの名前に使う） | `tebunko/core/settings.ps1`（起動口が `lib.ps1` より先に `settings.ps1` だけを読み込んで設定を確かめるため、ここで決める） |
 | `$settingsFile` | `$dataDir\setting.config`（画面が保存する設定。内容は JSON。[設定ファイル（setting.config）](settings-file.md)） | `tebunko/core/settings.ps1` |
 | `$openModeNormal` / `$openModeReadOnly` / `$openModeNew`・`$openModes` | 元のファイルの開き方（設定 `openMode` の値 `normal` / `readOnly` / `new`）と、その一覧 | 同上 |
 

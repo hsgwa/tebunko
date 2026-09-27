@@ -197,10 +197,10 @@ Describe "repairBrokenSettings / getSettingsRecoveryMessage" -Tag Io {
     }
 
     It "getSettingsRecoveryMessage は、既定に戻ったことと退避したパスを含む" {
-        $message = getSettingsRecoveryMessage "C:	est\setting.config.broken-20260101-000000"
+        $message = getSettingsRecoveryMessage "C:\Users\test\setting.config.broken-20260101-000000"
         $message | Should -BeLike "設定ファイルが壊れていたため、既定の設定で起動しました。*"
         $message | Should -BeLike "*ワークスペースの場所・登録したフォルダなども既定に戻っています。*"
-        $message | Should -BeLike "*tebunko を閉じてから、退避したファイル（C:	est\setting.config.broken-20260101-000000）を直して setting.config に置き換え、開き直してください。"
+        $message | Should -BeLike "*tebunko を閉じてから、退避したファイル（C:\Users\test\setting.config.broken-20260101-000000）を直して setting.config に置き換え、開き直してください。"
     }
 }
 

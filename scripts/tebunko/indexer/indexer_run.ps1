@@ -271,6 +271,10 @@ function invokeIndexer {
         # 空でないフォルダにログを書かないよう、ログを開く前に確かめる（画面は起動する前に同じ確認をする）
         $workspaceBlock = getWorkspaceBlockMessage
         if ($workspaceBlock) {
+            if ($script:settingsRecovery) {
+                writeIndexerLog (getSettingsRecoveryMessage $script:settingsRecovery) "Yellow"
+                $script:settingsRecovery = ""
+            }
             writeIndexerLog $workspaceBlock "Red"
             $channel.Error = $workspaceBlock
             $exitCode = 1
