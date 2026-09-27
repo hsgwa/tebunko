@@ -37,8 +37,10 @@ Describe "Workspace" -Tag Unit {
 Describe "moveWorkspace" -Tag Io {
     BeforeAll {
         function newWorkspaceFiles([string]$dir) {
-            # tebunko のファイル・フォルダと、利用者のファイル（移さない）を置く
-            newTsv "$dir\index\営業\見積\content_index.xlsx.001.tsv" @("a")
+            # tebunko のファイル・フォルダと、利用者のファイル（移さない）を置く。
+            # content_index（今の版）と、前の版の残骸の index の両方を置いて、どちらも移す・消すことを確かめる
+            newTsv "$dir\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
+            newTsv "$dir\index\営業\見積\content.xlsx.001.tsv" @("a-前の版")
             newTsv "$dir\system_index\営業\見積\system_index.txt" @("b")
             newTsv "$dir\取り込み一覧.tsv" @("c")
             newTsv "$dir\インデックス作成ログ.txt" @("d")
@@ -49,9 +51,10 @@ Describe "moveWorkspace" -Tag Io {
     It "tebunko のファイル・フォルダだけを移し、移した数を返す（利用者のファイルは残す）" {
         newWorkspaceFiles "$TestDrive\move\from"
 
-        moveWorkspace "$TestDrive\move\from" "$TestDrive\move\to" | Should -Be 4
+        moveWorkspace "$TestDrive\move\from" "$TestDrive\move\to" | Should -Be 5
 
-        Test-Path -LiteralPath "$TestDrive\move\to\index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\content_index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\index\営業\見積\content.xlsx.001.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\system_index\営業\見積\system_index.txt" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\取り込み一覧.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\インデックス作成ログ.txt" | Should -Be $true
@@ -65,20 +68,20 @@ Describe "moveWorkspace" -Tag Io {
         newTsv "$TestDrive\conflict\to\取り込み一覧.tsv" @("別のワークスペース")
 
         { moveWorkspace "$TestDrive\conflict\from" "$TestDrive\conflict\to" } | Should -Throw "*すでに 取り込み一覧.tsv があります*"
-        @(getWorkspaceEntries "$TestDrive\conflict\from").Count | Should -Be 4
-        Test-Path -LiteralPath "$TestDrive\conflict\to\index" | Should -Be $false
+        @(getWorkspaceEntries "$TestDrive\conflict\from").Count | Should -Be 5
+        Test-Path -LiteralPath "$TestDrive\conflict\to\content_index" | Should -Be $false
     }
 
     It "途中で移せなければ、移した分を戻して例外にする（中身が 2 つに分かれない）" {
         newWorkspaceFiles "$TestDrive\rollback\from"
-        # system_index の中のファイルを開いておき、フォルダを移せなくする（index は先に移る）
+        # system_index の中のファイルを開いておき、フォルダを移せなくする（content_index・index は先に移る）
         $stream = [System.IO.File]::Open("$TestDrive\rollback\from\system_index\営業\見積\system_index.txt", "Open", "Read", "None")
         try {
             { moveWorkspace "$TestDrive\rollback\from" "$TestDrive\rollback\to" } | Should -Throw "*中身は「$TestDrive\rollback\from」に残しています*"
         } finally {
             $stream.Dispose()
         }
-        @(getWorkspaceEntries "$TestDrive\rollback\from").Count | Should -Be 4
+        @(getWorkspaceEntries "$TestDrive\rollback\from").Count | Should -Be 5
         @(getWorkspaceEntries "$TestDrive\rollback\to").Count | Should -Be 0
     }
 
@@ -118,14 +121,17 @@ Describe "moveSearchExcludes" -Tag Io {
 }
 
 Describe "removeWorkspaceEntries" -Tag Io {
-    It "tebunko のファイル・フォルダだけを削除し、削除した数を返す（利用者のファイルは残す）" {
-        newTsv "$TestDrive\remove_ws\index\営業\見積\content_index.xlsx.001.tsv" @("a")
+    It "tebunko のファイル・フォルダだけを削除し、削除した数を返す（content_index・前の版の index も含めて消し、利用者のファイルは残す）" {
+        newTsv "$TestDrive\remove_ws\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
+        newTsv "$TestDrive\remove_ws\index\営業\見積\content.xlsx.001.tsv" @("a-前の版")
         newTsv "$TestDrive\remove_ws\取り込み一覧.tsv" @("b")
         newTsv "$TestDrive\remove_ws\利用者のメモ.txt" @("c")
 
-        removeWorkspaceEntries "$TestDrive\remove_ws" | Should -Be 2
+        removeWorkspaceEntries "$TestDrive\remove_ws" | Should -Be 3
 
         @(getWorkspaceEntries "$TestDrive\remove_ws").Count | Should -Be 0
+        Test-Path -LiteralPath "$TestDrive\remove_ws\content_index" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\remove_ws\index" | Should -Be $false
         Test-Path -LiteralPath "$TestDrive\remove_ws\利用者のメモ.txt" | Should -Be $true
     }
 }
@@ -223,7 +229,7 @@ Describe "getLegacyIndexMessage" -Tag Unit {
 }
 
 Describe "clearLegacySystemIndex" -Tag Io {
-    It "system_index の txt を開いたままだと `$false` を返すが、状態ファイルの中身は空にする。閉じてもう一度で `$true` になる" {
+    It "system_index の txt を開いたままだと Ok=`$false` を理由付きで返すが、状態ファイルの中身は空にする。閉じてもう一度で Ok=`$true` になる" {
         $dir = "$TestDrive\clear1"
         $ws = [Workspace]::new($dir)
         $txt = "$($ws.SystemIndexDir)\営業\システムインデックス.txt"
@@ -232,25 +238,31 @@ Describe "clearLegacySystemIndex" -Tag Io {
 
         $stream = [System.IO.File]::Open($txt, "Open", "Read", "None")
         try {
-            clearLegacySystemIndex $dir | Should -Be $false
+            $result = clearLegacySystemIndex $dir
+            $result.Ok | Should -Be $false
+            $result.Reason | Should -Not -BeNullOrEmpty
         } finally {
             $stream.Dispose()
         }
         (readSystemIndexState $ws.SystemIndexStateFile).Covered.Count | Should -Be 0
         Test-Path -LiteralPath $txt | Should -Be $true
 
-        clearLegacySystemIndex $dir | Should -Be $true
+        $result = clearLegacySystemIndex $dir
+        $result.Ok | Should -Be $true
+        $result.Reason | Should -Be ""
         Test-Path -LiteralPath $ws.SystemIndexDir | Should -Be $false
     }
 
-    It "状態ファイルを開けなければ `$false` を返し、system_index には触らない" {
+    It "状態ファイルを開けなければ Ok=`$false` を理由付きで返し、system_index には触らない" {
         $dir = "$TestDrive\clear2"
         $ws = [Workspace]::new($dir)
         newTsv "$($ws.SystemIndexDir)\営業\システムインデックス.txt" @("x00000000")
         [void](updateSystemIndexState { param ($s) } $ws.SystemIndexStateFile)
         $stream = [System.IO.FileStream]::new($ws.SystemIndexStateFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
         try {
-            clearLegacySystemIndex $dir | Should -Be $false
+            $result = clearLegacySystemIndex $dir
+            $result.Ok | Should -Be $false
+            $result.Reason | Should -Not -BeNullOrEmpty
         } finally {
             $stream.Dispose()
         }

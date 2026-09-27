@@ -44,8 +44,12 @@ Describe "testWorkspaceChoice" -Tag Unit {
         $result.Message | Should -Be "フォルダを選んでください。"
     }
 
-    It "今のインデックスのフォルダの中は選べない" {
-        $result = testWorkspaceChoice "C:\tool\work\content_index\営業" "C:\tool\work" $true @{}
+    It "今のインデックスのフォルダの中は選べない（<sub>）" -TestCases @(
+        @{ sub = "content_index\営業" }
+        @{ sub = "index\営業" }  # 前の版の index\ の中も同じ
+    ) {
+        param ($sub)
+        $result = testWorkspaceChoice "C:\tool\work\$sub" "C:\tool\work" $true @{}
         $result.Kind | Should -Be "error"
         $result.Message | Should -Match "今のインデックスのフォルダの中です"
     }
