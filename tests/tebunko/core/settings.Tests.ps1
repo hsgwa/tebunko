@@ -99,10 +99,108 @@ Describe "readSettings / writeSettings" -Tag Io {
         @($settings.indexSources).Count | Should -Be 0
     }
 
-    It "JSON として読めなければ例外を投げる" {
+    It "JSON として読めなければ「壊れている」と分かる例外（FormatException）を投げ、ファイルは動かさない" {
         $path = "$TestDrive\壊れ.json"
         [System.IO.File]::WriteAllText($path, "{ targetFolders: ", ${utf8Bom})
-        { readSettings $path } | Should -Throw -ExpectedMessage "*読み込めません*"
+        { readSettings $path } | Should -Throw -ExpectedMessage "*読み込めません*" -ExceptionType ([System.FormatException])
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Be "{ targetFolders: "
+        @(Get-ChildItem -LiteralPath $TestDrive -Filter "壊れ.json*").Count | Should -Be 1
+    }
+
+    It "ほかのプログラムが開いていて読めないときは、壊れているとはせず IOException のまま" {
+        $path = "$TestDrive\ロック中.json"
+        [System.IO.File]::WriteAllText($path, '{ "fileFilter": "a" }', ${utf8Bom})
+        $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            # PowerShell は .NET のメソッドの例外を MethodInvocationException に包むため、中身の型を確かめる
+            foreach ($action in @({ readSettings $path }, { repairBrokenSettings $path })) {
+                $thrown = $null
+                try { & $action } catch { $thrown = $_.Exception }
+                $thrown | Should -Not -BeNullOrEmpty
+                $thrown | Should -Not -BeOfType ([System.FormatException])
+                $thrown.InnerException | Should -BeOfType ([System.IO.IOException])
+            }
+        } finally {
+            $stream.Dispose()
+        }
+        @(Get-ChildItem -LiteralPath $TestDrive -Filter "ロック中.json*").Count | Should -Be 1
+    }
+}
+
+Describe "repairBrokenSettings / getSettingsRecoveryMessage" -Tag Io {
+    It "壊れたファイルを中身のまま setting.config.broken-* に移してパスを返し、移した後は既定値で読める" {
+        $dir = "$TestDrive\壊れた設定"
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $path = "$dir\setting.config"
+        [System.IO.File]::WriteAllText($path, '{ "targetFolders": [', ${utf8Bom})
+        $broken = repairBrokenSettings $path
+        $broken | Should -BeLike "$dir\setting.config.broken-*"
+        Test-Path -LiteralPath $path | Should -Be $false
+        [System.IO.File]::ReadAllText($broken, [System.Text.Encoding]::UTF8) | Should -Be '{ "targetFolders": ['
+        @((readSettings $path).targetFolders).Count | Should -Be 0
+    }
+
+    It "退避の後、getWorkDir は既定のワークスペースを返す（本物の setting.config には触れない）" {
+        $dir = "$TestDrive\退避後のワークスペース"
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $path = "$dir\setting.config"
+        [System.IO.File]::WriteAllText($path, '{ "workspaceFolder": ', ${utf8Bom})
+        { getWorkDir $path } | Should -Throw -ExceptionType ([System.FormatException])
+        repairBrokenSettings $path | Should -Not -BeNullOrEmpty
+        getWorkDir $path | Should -Be (getDefaultWorkDir)
+    }
+
+    It "<name> のファイルは何もせず空文字を返す" -TestCases @(
+        @{ name = "壊れていない"; content = '{ "fileFilter": "a" }' }
+        @{ name = "空"; content = "" }
+        @{ name = "空白だけ"; content = "  `r`n" }
+        @{ name = "null だけ"; content = "null" }
+    ) {
+        param ($name, $content)
+        $path = "$TestDrive\何もしない-$name.config"
+        [System.IO.File]::WriteAllText($path, $content, ${utf8Bom})
+        repairBrokenSettings $path | Should -BeNullOrEmpty
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Be $content
+        @(Get-ChildItem -LiteralPath $TestDrive -Filter "何もしない-$name.config*").Count | Should -Be 1
+    }
+
+    It "ファイルが無ければ何もせず空文字を返す" {
+        repairBrokenSettings "$TestDrive\無い\setting.config" | Should -BeNullOrEmpty
+    }
+
+    It "同じ秒に 2 回壊れても、前の退避を上書きしない（連番を付ける）" {
+        $dir = "$TestDrive\連続退避"
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $path = "$dir\setting.config"
+        $brokenPaths = @()
+        foreach ($content in @("{ 1", "{ 2", "{ 3")) {
+            [System.IO.File]::WriteAllText($path, $content, ${utf8Bom})
+            $brokenPaths += repairBrokenSettings $path
+        }
+        @($brokenPaths | Select-Object -Unique).Count | Should -Be 3
+        @($brokenPaths | ForEach-Object { [System.IO.File]::ReadAllText($_, [System.Text.Encoding]::UTF8) } | Sort-Object) | Should -Be @("{ 1", "{ 2", "{ 3")
+    }
+
+    It "移せなかったときは例外にし、壊れたファイルはそのまま残す" {
+        $dir = "$TestDrive\移せない"
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $path = "$dir\setting.config"
+        [System.IO.File]::WriteAllText($path, "{ 壊れ", ${utf8Bom})
+        # 読めるが、移せない（削除を許さない共有で開いている）状態にする
+        $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+        try {
+            { repairBrokenSettings $path } | Should -Throw -ExpectedMessage "*移せませんでした*"
+        } finally {
+            $stream.Dispose()
+        }
+        [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | Should -Be "{ 壊れ"
+    }
+
+    It "getSettingsRecoveryMessage は、既定に戻ったことと退避したパスを含む" {
+        $message = getSettingsRecoveryMessage "C:	est\setting.config.broken-20260101-000000"
+        $message | Should -BeLike "設定ファイルが壊れていたため、既定の設定で起動しました。*"
+        $message | Should -BeLike "*ワークスペースの場所・登録したフォルダなども既定に戻っています。*"
+        $message | Should -BeLike "*tebunko を閉じてから、退避したファイル（C:	est\setting.config.broken-20260101-000000）を直して setting.config に置き換え、開き直してください。"
     }
 }
 

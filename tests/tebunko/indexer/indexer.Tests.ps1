@@ -143,6 +143,36 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         [System.IO.File]::ReadAllText("$root\work\インデックス作成ログ.txt") | Should -Match "クロール対象フォルダがありません"
     }
 
+    It "画面なしで壊れた setting.config のまま起動すると、退避して既定の設定で動き、ログに知らせを残して 1 で終わる" {
+        $root = newRoot
+        [System.IO.File]::WriteAllText("$root\setting.config", '{ "targetFolders": [', ${utf8Bom})
+        # 退避すると既定のワークスペースになるため、利用者の本物の tebunko_ws に書かないよう、既定の場所（プロファイルの位置）もテスト用に差し替える
+        $global:indexerTestRoot = $root
+        $points = @(
+            (Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
+                Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
+            })
+            (Set-PSBreakpoint -Script "${scriptsDir}\tebunko\core\settings.ps1" -Line (findLine "${scriptsDir}\tebunko\core\settings.ps1" 'return Join-Path \$profileDir') -Action {
+                Set-Variable -Name profileDir -Value "$($global:indexerTestRoot)\profile" -Scope 1
+            })
+        )
+        try {
+            $global:LASTEXITCODE = 0
+            & $indexerPath *> $null
+            $LASTEXITCODE | Should -Be 1
+        } finally {
+            foreach ($point in $points) { Remove-PSBreakpoint -Breakpoint $point }
+            Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
+        }
+        $broken = @(Get-ChildItem -LiteralPath $root -Filter "setting.config.broken-*")
+        $broken.Count | Should -Be 1
+        [System.IO.File]::ReadAllText($broken[0].FullName, [System.Text.Encoding]::UTF8) | Should -Be '{ "targetFolders": ['
+        $log = [System.IO.File]::ReadAllText("$root\profile\Documents\tebunko_ws\インデックス作成ログ.txt")
+        $log | Should -Match "設定ファイルが壊れていたため、既定の設定で起動しました"
+        $log | Should -Match ([regex]::Escape($broken[0].FullName))
+        $log | Should -Match "クロール対象フォルダがありません"
+    }
+
     It "同じ置き場所でほかのインデックス作成が動いていれば、そのインデックス作成のログに触らずに 1 で終わる" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "営業"; path = $TestDrive; enabled = $true })

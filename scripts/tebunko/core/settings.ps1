@@ -1,5 +1,9 @@
 ﻿# setting.config の読み書き（tebunko の設定）。
 
+# ツールの ID（多重起動の防止・ミューテックスの名前に使う）。
+# 起動口（gui.ps1・indexer.ps1）が lib.ps1 より先に、このファイルだけを読み込んで設定を確かめる（repairBrokenSettings）ため、ここで決める
+${appId} = "tebunko"
+
 # 設定ファイル（画面が読み書きする。インデクサはクロール対象フォルダと work の置き場所を読む）。内容は JSON。
 # ツールのフォルダに書き込めないときは、利用者ごとの場所に置く（shared\core\data_dir.ps1 の getDataDir）
 ${settingsFile} = "${dataDir}\setting.config"
@@ -38,6 +42,7 @@ function readSettings {
         return $settings
     }
 
+    # ロック・共有違反などの読み込みの失敗（IOException）は、壊れているのではないため、そのまま例外にする
     $json = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
     if ($json.Trim() -eq "") {
         return $settings
@@ -45,7 +50,8 @@ function readSettings {
     try {
         $data = ConvertFrom-Json $json
     } catch {
-        throw "$([System.IO.Path]::GetFileName($path)) を読み込めません。（$($_.Exception.Message)）"
+        # JSON として読めない（壊れている）ときは FormatException にする。ファイルは動かさない（退避は repairBrokenSettings が行う）
+        throw (New-Object System.FormatException("$([System.IO.Path]::GetFileName($path)) を読み込めません。（$($_.Exception.Message)）"))
     }
     # 中身が null だけなら、空のファイルと同じく既定値（配列・数値だけのときと同じ扱い）
     if ($null -eq $data) {
@@ -71,6 +77,57 @@ function readSettings {
         }
     }
     return $settings
+}
+
+function repairBrokenSettings {
+    # 設定ファイルが JSON として読めないとき（ConvertFrom-Json の失敗だけ。空・null だけのファイルは今までどおり既定値で読むため対象外）、
+    # 元の中身のまま setting.config.broken-<yyyyMMdd-HHmmss> に移し（同じ名前があれば -2・-3… を付けて、前の退避を上書きしない）、移したパスを返す。
+    # 移すと設定ファイルが無くなり、既定値で起動できる。壊れていない・無いときは何もせず空文字を返す。
+    # 移せなかったときは例外にする（壊れたファイルを残したまま既定値で上書きしないため）。
+    # readSettings はファイルを動かさない。起動口（gui.ps1・indexer.ps1）が、起動の時に 1 回だけ呼ぶ
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    return invokeSettingsLocked -path $path -action {
+        if (!(Test-Path -LiteralPath $path)) {
+            return ""
+        }
+        $json = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        if ($json.Trim() -eq "") {
+            return ""
+        }
+        try {
+            $null = ConvertFrom-Json $json
+            return ""
+        } catch {
+            # 壊れている。下で退避する
+        }
+
+        $brokenBase = "${path}.broken-" + (Get-Date).ToString("yyyyMMdd-HHmmss")
+        $brokenPath = $brokenBase
+        $serial = 2
+        while (Test-Path -LiteralPath $brokenPath) {
+            $brokenPath = "${brokenBase}-${serial}"
+            $serial++
+        }
+        try {
+            [System.IO.File]::Move($path, $brokenPath)
+        } catch {
+            throw "$([System.IO.Path]::GetFileName($path)) が壊れているため退避しようとしましたが、移せませんでした。tebunko を使っているほかのプログラム（ウイルス対策ソフトなど）を確かめてください。（$($_.Exception.Message)）"
+        }
+        return $brokenPath
+    }
+}
+
+function getSettingsRecoveryMessage {
+    # 壊れた設定ファイルを退避して既定の設定で起動したときの知らせの文言（画面の起動時・画面なしのインデクサで共通）。
+    # brokenPath は repairBrokenSettings が返した、退避したファイルのパス
+    param (
+        [string]$brokenPath
+    )
+
+    return "設定ファイルが壊れていたため、既定の設定で起動しました。ワークスペースの場所・登録したフォルダなども既定に戻っています。`n元に戻すには、tebunko を閉じてから、退避したファイル（${brokenPath}）を直して setting.config に置き換え、開き直してください。"
 }
 
 function toSettingBool {
