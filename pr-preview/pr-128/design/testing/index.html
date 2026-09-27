@@ -2653,6 +2653,12 @@
 <td>フックと CI の <code>test</code></td>
 </tr>
 <tr>
+<td>リリースのタグ</td>
+<td>形が <code>v&lt;メジャー&gt;.&lt;マイナー&gt;.&lt;パッチ&gt;</code> でないタグ、指すコミットが main の履歴に無いタグ</td>
+<td><code>tools/check_release_tag.ps1</code></td>
+<td><code>release.yml</code> の <code>guard</code>（公開前）</td>
+</tr>
+<tr>
 <td>コミット・PR のタイトル</td>
 <td>Conventional Commits の形でないもの</td>
 <td><code>tools/check_commit_message.ps1</code></td>
@@ -2850,11 +2856,11 @@
 </tr>
 <tr>
 <td><code>renameIndex</code></td>
-<td><code>work\index\&lt;旧名&gt;</code> を改名して中身をそのまま残し、取り込み一覧のクロール対象フォルダの行と各行の相対パスの先頭を書き換える。ほかのインデックスの記録は変えない。フォルダがまだ無くても記録は書き換える。同じ名前のフォルダが既にあれば例外</td>
+<td><code>work\index\&lt;旧名&gt;</code> を改名して中身をそのまま残し、取り込み一覧のクロール対象フォルダの行と各行の相対パスの先頭を書き換える。ほかのインデックスの記録は変えない。フォルダがまだ無くても記録は書き換える。同じ名前のフォルダが既にあれば例外。旧名・新名の下の <code>searchExcludes</code> を消し（大文字・小文字だけの変更も）、ほかのインデックス・頭が同じ名前のインデックス（<code>Sales</code> と <code>Sales2</code>）の記録は変えない。記録を消せなくても例外にしない</td>
 </tr>
 <tr>
 <td><code>removeIndex</code></td>
-<td><code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録を削除し、ほかのインデックスは残す。名前が空なら何もしない</td>
+<td><code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録を削除し、ほかのインデックスは残す。名前が空なら何もしない。そのインデックスの下の <code>searchExcludes</code> も消し、ほかのインデックスの記録は変えない</td>
 </tr>
 <tr>
 <td><code>getSearchIndexes</code></td>
@@ -3070,6 +3076,10 @@
 <tr>
 <td><code>check_signoff.ps1</code></td>
 <td>作者の <code>Signed-off-by</code> があれば通す、無い・作者と違うメールアドレスなら止める、コメント行と <code>git commit -v</code> の差分の中は数えない、マージコミット・bot は調べない</td>
+</tr>
+<tr>
+<td><code>check_release_tag.ps1</code></td>
+<td>形が合うタグを通し、形が違うもの（<code>v1.0</code>・<code>V1.0.0</code>・<code>v01.0.0</code>・全角の数字・接尾辞・末尾の改行など）を止める。指すコミットが main にあれば通し、無いときと、参照を解決できないときは、別の理由の文言で止める</td>
 </tr>
 <tr>
 <td><code>check_markdown_links.ps1</code></td>

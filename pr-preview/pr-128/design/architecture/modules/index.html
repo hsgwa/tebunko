@@ -3039,8 +3039,8 @@
 <td>画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/index/index_catalog.ps1</code>（<code>lib.ps1</code>）</td>
-<td><code>index_store.ps1</code>、<code>ui/index_tab.ps1</code> の <code>editIndex</code>・<code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code></td>
-<td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>、<code>元のフォルダ.txt</code>・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>WorkspaceMover</code> と同じもの）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
+<td><code>index_store.ps1</code>、<code>ui/index_tab.ps1</code> の <code>editIndex</code>・<code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code>・<code>removeSearchExcludesUnder</code>（<code>renameIndex</code>・<code>removeIndex</code> から呼ぶ）</td>
+<td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>、<code>元のフォルダ.txt</code>・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
 </tr>
 <tr>
 <td><code>WorkspaceMover</code></td>
@@ -3049,7 +3049,7 @@
 <td>状態層</td>
 <td><code>tebunko/core/workspace_mover.ps1</code>（<code>lib.ps1</code>）</td>
 <td><code>core/workspace.ps1</code>、<code>ui/settings_tab.ps1</code></td>
-<td>設定の読み書きの部品（<code>invokeSettingsLocked</code>）、<code>searchExcludes</code> の読み書きの部品（<code>IndexCatalog</code> と同じもの）、ファイルの移動の部品（<code>fs.ps1</code>）、<code>Workspace</code></td>
+<td>設定の読み書きの部品（<code>invokeSettingsLocked</code>）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>。<code>IndexCatalog</code> と同じものを通す）、ファイルの移動の部品（<code>fs.ps1</code>）、<code>Workspace</code></td>
 </tr>
 <tr>
 <td><code>StatusLedger</code></td>
@@ -3112,7 +3112,7 @@
 <li><strong>目的ごとのクラス（この表の 8 つ）どうしは、互いを直接呼ばない。</strong> 8 つを作ってつなぐのは、使う側の入口だけにする（インデクサでは司令役の <code>invokeIndexerBody</code>、画面では呼ぶ側の <code>editIndex</code> など、取り込みのスレッドでは <code>ingestWorkerScript</code>）。8 つの間はデータ（hashtable・PSCustomObject）で受け渡す。8 つは、ほかの 7 つを自分で作らない・探さない。</li>
 <li>この 8 つの間の例外は 1 つだけにする: <code>IndexCatalog</code> は取り込み一覧を <code>StatusLedger</code> を通して書く。その <code>StatusLedger</code> は、<code>IndexCatalog</code> を作る側（画面・司令）が作ってコンストラクタで渡す（依存の向きは <code>IndexCatalog</code> → <code>StatusLedger</code> の一方向）。</li>
 <li>8 つのほかのクラスは次のように扱う。値だけを持つクラス（<code>Workspace</code>）は、受け取って使ってよい。基盤のクラス（<code>WorkerPool</code> など。今の <code>BackgroundQueue</code> が中で <code>WorkerPool</code> を作るように）は、受け取って使うか、持ち主として作って片づけてよい。</li>
-<li><strong><code>searchExcludes</code> を書き換えるのは <code>IndexCatalog</code>（改名・削除のとき）と <code>WorkspaceMover</code>（切り替えのとき）の 2 つ。どちらも同じ <code>searchExcludes</code> の読み書きの部品を通す</strong>（改名で外れた不具合は、書き換える手順が散っていたことが原因。2 か所で別の書き方をしない）。</li>
+<li><strong><code>searchExcludes</code> を書き換えるのは <code>IndexCatalog</code>（改名・削除のとき）と <code>WorkspaceMover</code>（切り替えのとき）の 2 つ。どちらも同じ <code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>）を通す</strong>（インデックスの改名・削除で <code>searchExcludes</code> の記録が残った不具合（#125）は、書き換える保存先の一覧が散っていて漏れたことが原因。2 か所で別の書き方をしない）。</li>
 <li><strong>画面は <code>IndexCatalog</code>・<code>WorkspaceMover</code> を呼ぶだけ</strong>にし、「呼ぶ → 結果を出す」にする（<code>editIndex</code> などの手順を画面に残さない）。</li>
 <li><strong><code>IndexCatalog</code> は保存先の形式を直接知らない。</strong> 保存先ごとの読み書きは小さな部品（既存の関数でよい）に任せ、<code>IndexCatalog</code> は書き換える手順と順番、途中で失敗したときの扱いだけを持つ。</li>
 <li>取り込みの 1 ファイルごとに司令を通るのは、<code>IngestDispatcher</code> が返した結果（hashtable）を <code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> のメソッドに渡すところだけにする。増えるのはメソッドの呼び出しで、関数の呼び出しの段は増やさない（<a href="../threads/#クラスと関数の使い分け">速さ</a>のとおり）。</li>
@@ -3289,6 +3289,14 @@
 <td>画面の検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）を読み書きする。無ければ空（すべて検索）</td>
 <td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
 <td>画面（検索対象のツリー）</td>
+</tr>
+<tr>
+<td><code>removeSearchExcludesUnder</code></td>
+<td>folder, path（既定 <code>$settingsFile</code>）</td>
+<td>–</td>
+<td>フォルダとその下の <code>searchExcludes</code> を、大文字・小文字を区別せずに消す（<code>Sales</code> を消しても <code>Sales2</code> は消さない）。設定の書き込みは <code>invokeSettingsLocked</code> の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない）</td>
+<td>同上</td>
+<td><code>renameIndex</code> / <code>removeIndex</code></td>
 </tr>
 <tr>
 <td><code>readVersionFile</code></td>
@@ -3792,17 +3800,17 @@
 </tr>
 <tr>
 <td><code>renameIndex</code></td>
-<td>oldName, newName, dir（既定 <code>$workspace.IndexDir</code>）, statusPath</td>
+<td>oldName, newName, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>インデックス名を変える。<code>work\index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外</td>
+<td>インデックス名を変える。<code>work\index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外。旧名・新名の下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）</td>
 <td>同上</td>
 <td>画面（［編集…］）</td>
 </tr>
 <tr>
 <td><code>removeIndex</code></td>
-<td>name, dir（既定 <code>$workspace.IndexDir</code>）, statusPath</td>
+<td>name, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>インデックスを削除する。<code>work\index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）</td>
+<td>インデックスを削除する。<code>work\index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）。そのインデックスの下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>）</td>
 <td>同上</td>
 <td>画面（［削除］）</td>
 </tr>

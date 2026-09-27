@@ -2663,8 +2663,8 @@
 <td><code>searchExcludes</code></td>
 <td><code>{path, subfolders}</code> の配列</td>
 <td>空</td>
-<td>画面の検索対象のツリーでチェックを外したフォルダ（フルパス）。<code>subfolders</code> が <code>false</code> はフォルダ直下のファイルだけを外す。空ならすべてを検索する（<a href="../../search/#インデックスの一覧getsearchindexes">検索</a>）</td>
-<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
+<td>画面の検索対象のツリーでチェックを外したフォルダ（フルパス）。<code>subfolders</code> が <code>false</code> はフォルダ直下のファイルだけを外す。利便性のための一時的な記録で、インデックスの名前を変えたり削除したりするとそのインデックスの下の記録は消える（外したフォルダは検索対象に戻る）。空ならすべてを検索する（<a href="../../search/#インデックスの一覧getsearchindexes">検索</a>）</td>
+<td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code> / <code>removeSearchExcludesUnder</code></td>
 </tr>
 <tr>
 <td><code>useRegex</code></td>
