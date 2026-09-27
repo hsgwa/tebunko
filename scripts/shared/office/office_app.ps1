@@ -142,6 +142,9 @@ function stopApp {
         if ($process -and -not $process.WaitForExit($appInfo[$name].ExitWait)) {
             # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
             try { $process.Kill() } catch {}
+            # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、次の getApp が
+            # 利用者のものとみなして後回しにする（安全な側に倒れる）
+            [void]$process.WaitForExit($appInfo[$name].ExitWait)
         }
     }
     if ($app.Pid -and $script:officePidSink) {

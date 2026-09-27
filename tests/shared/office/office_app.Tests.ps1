@@ -115,12 +115,20 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         }
     }
 
-    It "自分で起動したアプリは、制限時間を過ぎたら強制終了してよいプロセスに入れる" {
+    It "自分で起動したアプリは、制限時間を過ぎたら強制終了してよいプロセスに入れる" -TestCases @(
+        @{ Name = "Word"; Prog = "Word.Application"; SingleInstance = $false }
+        @{ Name = "PowerPoint"; Prog = "PowerPoint.Application"; SingleInstance = $true }
+    ) {
+        param ($Name, $Prog, $SingleInstance)
         $fake = newFakeApp
-        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
-        setProcesses @(100) @(100, 300)
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq $Prog }
+        if ($SingleInstance) {
+            setSingleInstanceProcesses @() @(300)
+        } else {
+            setProcesses @(100) @(100, 300)
+        }
 
-        [void](getApp "Word")
+        [void](getApp $Name)
         $script:watchdog.Pids | Should -Be @(300)
     }
 
@@ -135,7 +143,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         $app.AutomationSecurity | Should -Be 3
     }
 
-    It "自分で起動したアプリは Quit し、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）で終わらなければプロセスを強制終了する" {
+    It "自分で起動したアプリは Quit し、待ち時間（Excel は 1 秒、Word・PowerPoint は 5 秒）で終わらなければプロセスを強制終了し、同じ待ち時間で終わるのを待つ" {
         # Excel は抽出中に取り出した COM オブジェクトが残って Quit では終わらないため、待ち時間を短くしてある（office_app.ps1 の $appInfo）
         $fake = newFakeApp
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
@@ -143,7 +151,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         [void](getApp "Excel")
 
         stopApp "Excel"
-        $log -join "|" | Should -Be "Quit|WaitForExit:1000|Kill:200"
+        $log -join "|" | Should -Be "Quit|WaitForExit:1000|Kill:200|WaitForExit:1000"
         @($script:watchdog.Pids).Count | Should -Be 0
 
         $log.Clear()
@@ -153,7 +161,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         [void](getApp "Word")
 
         stopApp "Word"
-        $log -join "|" | Should -Be "Quit|WaitForExit:5000|Kill:300"
+        $log -join "|" | Should -Be "Quit|WaitForExit:5000|Kill:300|WaitForExit:5000"
     }
 
     It "新しいプロセスが増えず起動中の利用者のアプリに接続した場合（Excel・Word）は、終了させない" {
