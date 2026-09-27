@@ -210,8 +210,17 @@ function readTextShared {
 # 仕事のスクリプトでは、そのツールの関数（lib.ps1）をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
 
 # ネットワークのパスだけを調べる専用の列。届かない共有で止まっても、プレビュー・状態の読み直し（$script:backgroundQueue）が
-# 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
+# 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも lib.ps1 の読み込みも増えない）。
+# 列を作る式（BackgroundQueue の生成）は gui.ps1 が持ち、setNetworkQueueFactory で渡す
+# （shared/ が tebunko/gui.ps1 の変数に直接頼らないようにするため）。
 $script:networkQueue = $null
+$script:networkQueueFactory = $null
+
+function setNetworkQueueFactory {
+    # ネットワークを調べる列を作る式を登録する（gui.ps1 が起動時に 1 回呼ぶ）
+    param ([scriptblock]$factory)
+    $script:networkQueueFactory = $factory
+}
 
 function ensureNetworkQueue {
     # ネットワークを調べる列を、初めて使うときだけ作って返す。両方のスレッドを空の仕事で温める
@@ -219,7 +228,10 @@ function ensureNetworkQueue {
     if ($null -ne $script:networkQueue) {
         return $script:networkQueue
     }
-    $script:networkQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host)
+    if ($null -eq $script:networkQueueFactory) {
+        throw "ensureNetworkQueue: setNetworkQueueFactory が呼ばれていない"
+    }
+    $script:networkQueue = & $script:networkQueueFactory
     for ($i = 0; $i -lt ${backgroundWorkers}; $i++) {
         $script:networkQueue.Post('$null', @(), $null)
     }

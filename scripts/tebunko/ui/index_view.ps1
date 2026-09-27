@@ -46,6 +46,16 @@ function getFailedFileUnreachableStatus {
     return "元のフォルダに接続できません：${path}"
 }
 
+function getFailedFileOtherStatus {
+    # 同じ操作で、接続できる・できないのどちらでもない理由（アクセス拒否・一覧に無いネットワークのエラーなど）で
+    # 確かめられなかったときのステータス。フォルダをたどらず、文言だけ出す
+    param (
+        [string]$message
+    )
+
+    return "元のファイルを確かめられませんでした：${message}"
+}
+
 function testIndexEditInput {
     # 追加・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (

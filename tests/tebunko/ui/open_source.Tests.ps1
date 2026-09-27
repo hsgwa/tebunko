@@ -101,6 +101,7 @@ Describe "findSourceFile" -Tag Io {
         $script:sourceFolderMaps = @{ 記録 = 1 }
         $script:startJobCalls = 0
         $script:foundPaths = New-Object System.Collections.Generic.List[string]
+        $script:openSourcePendingRow = $null
         $fake.BeforeDone = $null
     }
 
@@ -127,6 +128,68 @@ Describe "findSourceFile" -Tag Io {
         Should -Invoke setIndexSourceFolder -Times 1 -Exactly -ParameterFilter { $name -eq "営業" -and $folder -eq "$TestDrive\alias" }
         $script:sourceFolderMaps.Count | Should -Be 0
         lastStatus | Should -Be "インデックス [営業] の元のフォルダを $TestDrive\alias に変えました"
+    }
+
+    It "別の書き方（別名）で見つかっても、インデックス名が分からなければ記録しない" {
+        newTsv "$TestDrive\alias2\sub\見積.xlsx" @("x")
+        Mock getSourceLocation { @{ Name = ""; Folder = "Z:\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $false }
+        Mock findSourceFileState { @{ State = "Found"; Path = "$TestDrive\alias2\sub\見積.xlsx"; Alias = "$TestDrive\alias2" } }
+        Mock setIndexSourceFolder { }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "$TestDrive\alias2\sub\見積.xlsx"
+        Should -Invoke setIndexSourceFolder -Times 0 -Exactly
+    }
+
+    It "ネットワークのパスでは、画面のスレッドから直接 getPathState・Test-Path を呼ばない（呼んだら失敗にする）" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
+        Mock getPathState { throw "画面のスレッドから getPathState を呼んでいる" }
+        Mock Test-Path { throw "画面のスレッドから Test-Path を呼んでいる" }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "\\server\share\営業\sub\見積.xlsx"
+    }
+
+    It "待っている間に同じ行をもう一度開いても、新しい依頼は出さない" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        # 応答が来ない仕事を真似る（onDone を呼ばないため、依頼は待ったままになる）
+        Mock startJob { $script:startJobCalls++ }
+
+        $row = newRow
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 1
+        Should -Invoke getSourceLocation -Times 1 -Exactly
+    }
+
+    It "cancelPendingSourceLookup を呼ぶと、待っていた行をもう一度開いたときに新しい依頼を出す" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock startJob { $script:startJobCalls++ }
+
+        $row = newRow
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        cancelPendingSourceLookup
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 2
+    }
+
+    It "cancelPendingSourceLookup は依頼の番号を進め、カーソルと待っている行を戻す" {
+        $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
+        $script:openSourcePendingRow = "dummy"
+        $before = $script:openSourceRequest.Value
+
+        cancelPendingSourceLookup
+
+        $script:openSourceRequest.Value | Should -Be ($before + 1)
+        $script:openSourcePendingRow | Should -Be $null
+        $window.Cursor | Should -Be $null
     }
 
     It "ネットワークのパスは裏の仕事（'network' の列）で確かめ、届くまで確かめている間のステータスを出す" {

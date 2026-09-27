@@ -201,8 +201,12 @@ ${grayBrush} = themeBrush "Ink.Muted"
 # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
 . "$PSScriptRoot\..\shared\ui\shell.ps1"
 # 画面から頼む短い仕事（startJob）のスレッド。長い仕事（件数の数え上げ等）の間もプレビューが待たないよう 2 つにする。
-# 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/design/architecture/threads.md「スレッドの一覧」）
-$script:backgroundQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host)
+# 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/design/architecture/threads.md「スレッドの一覧」）。
+# 列を作る式は 1 か所にまとめ、既定の列はここで作り、ネットワークの列は shell.ps1 に式（factory）だけ渡して
+# 初めて使うときに作らせる（届かない共有が無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
+$newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host) }
+$script:backgroundQueue = & $newBackgroundQueue
+setNetworkQueueFactory $newBackgroundQueue
 . "$PSScriptRoot\..\shared\ui\folder_dialog.ps1"
 . "$PSScriptRoot\ui\index_view.ps1"
 . "$PSScriptRoot\ui\indexing_view.ps1"
@@ -498,9 +502,9 @@ try {
     [void]$window.ShowDialog()
 } finally {
     # インデックス作成のスレッド、検索の司令のスレッドと照合のプール、画面の裏の仕事のスレッドを片づける
-    # （docs/design/architecture/threads.md「閉じるときの順番」）。
-    # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）は、止まった仕事（届かない共有の
-    # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon を使う。多重起動の鍵は、すぐに放す
+    # （docs/design/architecture/threads.md「閉じるときの順番」）。片づける順番はそのまま変えない。
+    # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）だけ、止まった仕事（届かない共有の
+    # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
     $script:closeTimer.Stop()
     $script:indexingTimer.Stop()
     if ($script:indexingSession) {
@@ -512,8 +516,8 @@ try {
     if ($script:networkQueue) {
         $script:networkQueue.Abandon()
     }
-    $mutex.ReleaseMutex()
-    $mutex.Dispose()
     $activateTimer.Stop()
     $activateEvent.Close()
+    $mutex.ReleaseMutex()
+    $mutex.Dispose()
 }

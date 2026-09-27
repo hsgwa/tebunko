@@ -16,15 +16,30 @@ function getSourcePath {
 $script:openSourceRequest = [ref]0  # 元のファイルを確かめる依頼の番号。増やすたびに前の依頼の結果を捨てる。
 # [ref] のまま閉じ込める（スクリプトブロックの中で $script:openSourceRequest を読むと、遠く離れたスレッド・
 # タイマーから呼ばれたときに増やす前の値のまま固まって読めることがあるため。tests\tebunko\ui\open_source.Tests.ps1 で確かめている）
+$script:openSourcePendingRow = $null  # 裏のスレッドに依頼を出したままの行（$null なら待っている依頼は無い）。
+# 同じ行をもう一度開いても新しい依頼を出さない（届かない共有では、列の 2 つのスレッドが同じ行の依頼で塞がるため）
+
+function cancelPendingSourceLookup {
+    # 待っている元のファイルの確認を打ち切る（新しく検索を始めたとき・ワークスペースを変えたときに呼ぶ）。
+    # 依頼の番号を進めて前の依頼の結果を捨て、待っている行の記録・カーソルを戻す
+    $script:openSourceRequest.Value++
+    $script:openSourcePendingRow = $null
+    $window.Cursor = $null
+}
 
 function findSourceFile {
     # 元のファイルの場所を確かめ、見つかれば onFound { param($path) } を呼ぶ（見つからない・選ばなかったときは呼ばない）。
     # ネットワークにあるときは裏のスレッドで確かめ、結果が届くまで画面のスレッドは待たない（届かない共有で「応答なし」に
-    # しないため）。ローカルならその場で確かめる。待っている間に別の行を開く・新しく検索する等をすると、前の依頼は捨てる
+    # しないため）。ローカルならその場で確かめる。待っている間に同じ行をもう一度開いても、新しい依頼は出さない
     param (
         $row,
         [scriptblock]$onFound
     )
+
+    if ($row -eq $script:openSourcePendingRow) {
+        # この行はもう裏のスレッドに依頼済みで、まだ結果が届いていない
+        return
+    }
 
     $requestBox = $script:openSourceRequest
     $requestBox.Value++
@@ -37,6 +52,9 @@ function findSourceFile {
     $applyState = ${function:applySourceFileState}
     $apply = {
         param ($state)
+        if ($row -eq $script:openSourcePendingRow) {
+            $script:openSourcePendingRow = $null
+        }
         if ($requestId -ne $requestBox.Value) {
             # 待っている間に別の行を開いた・新しく検索した・ワークスペースを変えた。前の依頼は捨てる
             return
@@ -54,6 +72,7 @@ function findSourceFile {
         & $apply (findSourceFileState $location $book)
         return
     }
+    $script:openSourcePendingRow = $row
     setStatus (getSourceCheckingStatus (joinSourcePath $location.Folder $location.Rest $book))
     $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
     # ${pathStateOther} も、外の変数を直に書かず、いったんローカル変数に受けてから閉じ込める（$apply と同じ理由）

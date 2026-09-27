@@ -12,7 +12,8 @@ BeforeAll {
         "Test-Path", "Resolve-Path", "Get-ChildItem", "Get-Item", "Get-Content",
         "Invoke-Item", "Start-Process",
         "New-Item", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Set-Content", "Out-File",
-        "getSearchIndexes", "testIndexExists", "getSourceFolderMap", "getExistingAncestorFolder", "getDriveTargets"
+        "getSearchIndexes", "testIndexExists", "getSourceFolderMap", "getExistingAncestorFolder", "getDriveTargets",
+        "getPathState", "findSourceFileState"
     )
     # 見つける静的メソッドの型（[System.IO.File]::GetAttributes のように、どのメソッドでも見つける）
     ${uiIoStaticTypes} = @("System.IO.File", "System.IO.Directory", "System.IO.DirectoryInfo", "System.IO.FileInfo")
@@ -33,6 +34,7 @@ BeforeAll {
         @{ File = "indexing_tab.ps1"; Function = ""; Call = "Invoke-Item"; Reason = "［ログを開く］でログを開く（ワークスペースの側。分けた PR）" }
 
         # ---- tebunko/ui/open_source.ps1 ----
+        @{ File = "open_source.ps1"; Function = "findSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openSourceFolder"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（元のファイルは確かめ済み。プロセスの起動は待たない）" }
@@ -63,7 +65,7 @@ BeforeAll {
 
         # ---- tebunko/ui/index_tab.ps1 ----
         @{ File = "index_tab.ps1"; Function = "updateIndexSourceFile"; Call = "Test-Path"; Reason = "IndexDir の有無（ワークスペースの側。分けた PR）" }
-        @{ File = "index_tab.ps1"; Function = "applyFailedFileState"; Call = "Test-Path"; Reason = "接続できると分かった直後のフォルダ（findMovedSource と同じ理由）" }
+        @{ File = "index_tab.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_tab.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----

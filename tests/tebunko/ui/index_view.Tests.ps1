@@ -32,7 +32,7 @@ Describe "getUsedIndexNames" -Tag Unit {
     }
 }
 
-Describe "getIndexAddedStatus / getFailedFileCheckingStatus / getFailedFileUnreachableStatus" -Tag Unit {
+Describe "getIndexAddedStatus / getFailedFileCheckingStatus / getFailedFileUnreachableStatus / getFailedFileOtherStatus" -Tag Unit {
     It "追加のときの文言は、フォルダの有無によらず同じにする" {
         getIndexAddedStatus "見積" | Should -Be "インデックス [見積] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます"
     }
@@ -43,6 +43,10 @@ Describe "getIndexAddedStatus / getFailedFileCheckingStatus / getFailedFileUnrea
 
     It "接続できないときの文言（見つからないときとは別）" {
         getFailedFileUnreachableStatus "\\server\share" | Should -Be "元のフォルダに接続できません：\\server\share"
+    }
+
+    It "その他（アクセス拒否など）のときは、例外の文面を出す" {
+        getFailedFileOtherStatus "アクセスが拒否されました。" | Should -Be "元のファイルを確かめられませんでした：アクセスが拒否されました。"
     }
 }
 

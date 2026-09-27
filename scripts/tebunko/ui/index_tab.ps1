@@ -628,38 +628,48 @@ function openFailedFileFolder {
     $requestId = $requestBox.Value
     $applyState = ${function:applyFailedFileState}
     $apply = {
-        param ($state)
+        param ($state, $dirState)
         if ($requestId -ne $requestBox.Value) {
             # 待っている間に別の行を選んだ。前の依頼は捨てる
             return
         }
-        & $applyState $state $path
+        & $applyState $state $path $dirState
     }.GetNewClosure()
 
     if (!(testNetworkPath $path)) {
-        & $apply (getPathState $path)
+        $state = getPathState $path
+        $dirState = if ($state.State -eq ${pathStateMissing}) { getPathState (Split-Path $path -Parent) } else { $null }
+        & $apply $state $dirState
         return
     }
     setStatus (getFailedFileCheckingStatus $path)
     $otherState = ${pathStateOther}
     startJob {
         param ($path)
-        getPathState $path
+        # フォルダの有無も、ファイルが無い（Missing）ときだけ、ここ（裏のスレッド）で調べて返す
+        # （画面のスレッドで Test-Path すると、届かない共有・一覧に無いネットワークのエラーで止まるおそれがあるため）
+        $state = getPathState $path
+        $state
+        if ($state.State -eq ${pathStateMissing}) {
+            getPathState (Split-Path $path -Parent)
+        }
     } @($path) {
         param ($output, $errorText)
         if ($errorText) {
-            & $apply @{ State = $otherState; Message = $errorText }
+            & $apply @{ State = $otherState; Message = $errorText } $null
         } else {
-            & $apply $output[0]
+            & $apply $output[0] $output[1]
         }
     }.GetNewClosure() "network"
 }
 
 function applyFailedFileState {
-    # openFailedFileFolder の続き（getPathState の結果を画面に反映する）
+    # openFailedFileFolder の続き（getPathState の結果を画面に反映する）。
+    #   dirState: ファイルが無い（Missing）ときだけ渡す、フォルダの getPathState の結果。それ以外は $null
     param (
         $state,
-        [string]$path
+        [string]$path,
+        $dirState = $null
     )
 
     if ($state.State -eq ${pathStateFound} -and !$state.IsDirectory) {
@@ -670,15 +680,18 @@ function applyFailedFileState {
         setStatus (getFailedFileUnreachableStatus $path)
         return
     }
-    # ファイルが無い（Missing）・その他のときは、フォルダだけでも開く（フォルダは同じサーバーで接続できると
-    # 分かった直後なので、画面のスレッドで確かめてよい。tests\meta\ui_thread_io.Tests.ps1 の許可の一覧に理由がある）
-    $dir = Split-Path $path -Parent
-    if (Test-Path -LiteralPath $dir -PathType Container) {
-        Start-Process -FilePath "explorer.exe" -ArgumentList "`"${dir}`""
-        setStatus "ファイルが見つからないため、フォルダを開きました（移動・削除された可能性があります）：${path}"
+    if ($state.State -eq ${pathStateMissing}) {
+        # フォルダが見つかったときだけ、フォルダを開く（有無は裏のスレッドで調べてある）
+        if ($dirState -and $dirState.State -eq ${pathStateFound}) {
+            Start-Process -FilePath "explorer.exe" -ArgumentList "`"$(Split-Path $path -Parent)`""
+            setStatus "ファイルが見つからないため、フォルダを開きました（移動・削除された可能性があります）：${path}"
+            return
+        }
+        setStatus "ファイルが見つかりません（移動・削除された可能性があります）：${path}"
         return
     }
-    setStatus "ファイルが見つかりません（移動・削除された可能性があります）：${path}"
+    # その他（Other。アクセス拒否・一覧に無いネットワークのエラーなど）は、フォルダをたどらず文言だけ出す
+    setStatus (getFailedFileOtherStatus $state.Message)
 }
 
 function updateIndexSummaryText {
