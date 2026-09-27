@@ -1,0 +1,554 @@
+﻿# 画面のスモークテストの共通の関数（tests\gui\*.Tests.ps1 の BeforeAll が読み込む）。
+#
+# 本物の画面（scripts\tebunko\gui.ps1）を別のプロセスで起動し、UI オートメーションで操作する。
+#   ・ツールは scripts\ を $TestDrive に写して起動し、設定ファイル・ワークスペースも写した先に置く（利用者の環境に触らない）
+#   ・部品は AutomationId（= x:Name）で探す。名前の無い部品（確認ダイアログの選択肢・メッセージボックスのボタン）は表示の文字（Name）で探す
+#   ・操作はパターン（Invoke・Value・SelectionItem・Toggle・Window）で行い、マウス・キーボードの合成は使わない
+#   ・待ちは 100ms ごとに条件を調べる。上限を超えるか、予定していないエラーの窓が出たら、すぐ失敗にする
+#   ・失敗したら、画面の画像とログを work\test\gui\<場面>\ に残す（CI は成果物に上げる）
+# 詳細は docs\design\testing\index.md「画面のスモークテスト」。
+
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
+
+# ---- 待ちの上限（秒） ----
+${guiStartTimeout}  = 90    # 起動して本体の窓が出るまで
+${guiIndexTimeout}  = 120   # インデックスの取り込みが終わるまで
+${guiDefaultTimeout} = 30   # ほかの待ち
+
+# 予定していない窓（本体が出す異常の窓）の文言。同じプロセスにこれらが出たら、待たずにその文言で失敗にする
+${guiErrorPatterns} = @("予期しないエラー", "エラーが発生しました", "すでに開いています", "起動できません")
+
+function getGuiRepoRoot {
+    return (Resolve-Path "$PSScriptRoot\..\..").Path
+}
+
+# ---- 利用者の環境を変えていないことの確かめ ----
+
+function getGuiEnvSnapshot {
+    # 流す前後で比べる。作業ツリーの setting.config・work\index、%LOCALAPPDATA%\tebunko、利用者の既定のワークスペース、Office のプロセスの数。
+    # 既定のワークスペースは、CI（GITHUB_ACTIONS）では S6 が使うので調べない
+    $root = getGuiRepoRoot
+    $list = {
+        param ([string]$path)
+        if (!(Test-Path -LiteralPath $path)) { return "(無い)" }
+        $item = Get-Item -LiteralPath $path
+        if (!$item.PSIsContainer) { return "$($item.Length):$($item.LastWriteTimeUtc.Ticks)" }
+        return (@(Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { "$($_.FullName.Substring($path.Length)):$($_.Length):$($_.LastWriteTimeUtc.Ticks)" }) -join "`n")
+    }
+    $snapshot = [ordered]@{
+        "作業ツリーの setting.config" = (& $list "$root\setting.config")
+        "作業ツリーの work\index"     = (& $list "$root\work\index")
+        "LOCALAPPDATA\tebunko"       = (& $list (Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "tebunko"))
+        "Office のプロセスの数"       = @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue).Count
+    }
+    if ($env:GITHUB_ACTIONS -ne "true") {
+        $snapshot["既定のワークスペース"] = (& $list (Join-Path ([Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws"))
+    }
+    return $snapshot
+}
+
+function compareGuiEnvSnapshot {
+    # 前後の違いの一覧（無ければ空）
+    param ($Before, $After)
+    return @($Before.Keys | Where-Object { [string]$Before[$_] -ne [string]$After[$_] })
+}
+
+# ---- 起動する ----
+
+function newGuiTool {
+    # scripts\ を $Dir\tool\scripts に写し、設定ファイル（ワークスペースは写した先の work）を書く。
+    #   settings: 設定ファイルに足す項目（既定のワークスペースを使う場面は workspaceFolder に "" を渡す）
+    param (
+        [string]$Dir,
+        [hashtable]$Settings = @{}
+    )
+
+    $tool = Join-Path $Dir "tool"
+    if (!(Test-Path -LiteralPath "$tool\scripts")) {
+        [void][IO.Directory]::CreateDirectory($tool)
+        Copy-Item -LiteralPath "$(getGuiRepoRoot)\scripts" -Destination "$tool\scripts" -Recurse
+    }
+    $work = Join-Path $tool "work"
+    [void][IO.Directory]::CreateDirectory($work)
+    $config = [ordered]@{ workspaceFolder = $work }
+    foreach ($key in $Settings.Keys) { $config[$key] = $Settings[$key] }
+    writeGuiConfig $tool $config
+    return @{ Dir = $tool; Work = $work; Config = "$tool\setting.config"; Gui = "$tool\scripts\tebunko\gui.ps1" }
+}
+
+function writeGuiConfig {
+    param ([string]$Tool, $Config)
+    [IO.File]::WriteAllText("$Tool\setting.config", (ConvertTo-Json -InputObject $Config -Depth 5), (New-Object Text.UTF8Encoding($false)))
+}
+
+function readGuiConfig {
+    param ($Tool)
+    return (Get-Content -LiteralPath $Tool.Config -Raw -Encoding UTF8 | ConvertFrom-Json)
+}
+
+function startGuiProcess {
+    param ($Tool)
+    $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-File", "`"$($Tool.Gui)`"") -PassThru -WindowStyle Hidden
+    $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
+    return $p
+}
+
+function startGui {
+    # 画面を起動し、本体の窓（Tabs を持つ窓）が出るまで待つ。戻り値が以降の操作の「場面」（$S）
+    param (
+        $Tool,
+        [string]$Scene
+    )
+
+    $pool = [runspacefactory]::CreateRunspacePool(1, 4)
+    $pool.Open()
+    $S = @{ Tool = $Tool; Scene = $Scene; Step = "起動"; Async = New-Object System.Collections.ArrayList; Pool = $pool; Window = $null; Timing = [ordered]@{}; Extra = @() }
+    $S.Process = startGuiProcess $Tool
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        $S.Window = waitGui $S "本体の窓（Tabs）" ${guiStartTimeout} {
+            foreach ($w in @(getGuiTopWindows $S)) {
+                if (findGui $w -Id "Tabs") { return $w }
+            }
+        }
+    } catch {
+        throw
+    }
+    $S.Timing["起動"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
+    return $S
+}
+
+function stopGui {
+    # 画面が残っていれば止め、裏の呼び出しを片づける（終了コードは、閉じる操作の側で確かめる）
+    param ($S)
+
+    foreach ($extra in @($S.Extra)) {
+        if ($extra -and !$extra.HasExited) { Stop-Process -Id $extra.Id -Force -ErrorAction SilentlyContinue }
+    }
+    if ($S.Process -and !$S.Process.HasExited) {
+        Stop-Process -Id $S.Process.Id -Force -ErrorAction SilentlyContinue
+        [void]$S.Process.WaitForExit(10000)
+    }
+    foreach ($item in @($S.Async)) {
+        try {
+            if ($item.Result.IsCompleted) { $item.Shell.Dispose() } else { [void]$item.Shell.BeginStop($null, $null) }
+        } catch { }
+    }
+    try { $S.Pool.Close() } catch { }
+}
+
+function closeGui {
+    # 本体を閉じて、終了コード 0 で終わるまで確かめる
+    param ($S, [int]$Timeout = ${guiDefaultTimeout})
+
+    setGuiStep $S "閉じる"
+    $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
+    $pattern.Close()
+    waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
+    if ($S.Process.ExitCode -ne 0) { throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）" }
+}
+
+# ---- 待つ ----
+
+function setGuiStep {
+    param ($S, [string]$Step)
+    $S.Step = $Step
+}
+
+function waitGui {
+    # Condition が $null・$false 以外を返すまで、100ms ごとに調べる。返した値を返す。
+    # 待つ間に、画面のプロセスが終わったとき（AllowExited でなければ）と、予定していないエラーの窓が出たときは、すぐ失敗にする
+    param (
+        $S,
+        [string]$What,
+        [int]$Timeout,
+        [scriptblock]$Condition,
+        [switch]$AllowExited
+    )
+
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($true) {
+        $result = & $Condition
+        if ($result) { return $result }
+        if (!$AllowExited -and $S.Process.HasExited) {
+            throw "画面が終了した（終了コード $($S.Process.ExitCode)）。待っていたもの: $What"
+        }
+        if (!$AllowExited) {
+            $bad = getGuiErrorWindowText $S
+            if ($bad) { throw "予定していない窓が出た: 「$bad」。待っていたもの: $What" }
+        }
+        if ($sw.Elapsed.TotalSeconds -gt $Timeout) {
+            throw "$What が $Timeout 秒以内に見つからなかった"
+        }
+        Start-Sleep -Milliseconds 100
+    }
+}
+
+function getGuiErrorWindowText {
+    # 本体以外の窓に、異常の文言（guiErrorPatterns）があれば、その文字を返す
+    param ($S)
+
+    if (!$S.Window) { return $null }
+    foreach ($w in @(getGuiOtherWindows $S)) {
+        foreach ($text in @(getGuiTexts $w)) {
+            foreach ($pattern in ${guiErrorPatterns}) {
+                if ($text -like "*$pattern*") { return $text }
+            }
+        }
+    }
+    return $null
+}
+
+# ---- 部品を探す ----
+
+function getGuiKey {
+    param ($Element)
+    try { return ($Element.GetRuntimeId() -join ",") } catch { return "" }
+}
+
+function newGuiCondition {
+    param ([string]$Id, [string]$Name, [string]$Type)
+
+    $ae = [Windows.Automation.AutomationElement]
+    $list = New-Object System.Collections.ArrayList
+    if ($Id) { [void]$list.Add((New-Object Windows.Automation.PropertyCondition($ae::AutomationIdProperty, $Id))) }
+    if ($Name) { [void]$list.Add((New-Object Windows.Automation.PropertyCondition($ae::NameProperty, $Name))) }
+    if ($Type) { [void]$list.Add((New-Object Windows.Automation.PropertyCondition($ae::ControlTypeProperty, [Windows.Automation.ControlType]::$Type))) }
+    if ($list.Count -eq 0) { return [Windows.Automation.Condition]::TrueCondition }
+    if ($list.Count -eq 1) { return $list[0] }
+    return New-Object Windows.Automation.AndCondition([Windows.Automation.Condition[]]$list.ToArray())
+}
+
+function findGui {
+    # Root の下（子孫）から、AutomationId・Name・種類（ControlType 名。Button など）に合う最初の部品。無ければ $null
+    param ($Root, [string]$Id, [string]$Name, [string]$Type)
+    try {
+        return $Root.FindFirst("Descendants", (newGuiCondition -Id $Id -Name $Name -Type $Type))
+    } catch {
+        return $null
+    }
+}
+
+function findAllGui {
+    param ($Root, [string]$Id, [string]$Name, [string]$Type)
+    try {
+        return @($Root.FindAll("Descendants", (newGuiCondition -Id $Id -Name $Name -Type $Type)) | ForEach-Object { $_ })
+    } catch {
+        return @()
+    }
+}
+
+function getGuiTopWindows {
+    # 画面のプロセスの、いちばん上の窓（本体・ダイアログ・メッセージボックス・メニュー・OS のフォルダ選択）
+    param ($S)
+    $ae = [Windows.Automation.AutomationElement]
+    $condition = New-Object Windows.Automation.PropertyCondition($ae::ProcessIdProperty, $S.Process.Id)
+    try {
+        return @($ae::RootElement.FindAll("Children", $condition) | ForEach-Object { $_ })
+    } catch {
+        return @()
+    }
+}
+
+function getGuiOtherWindows {
+    # 本体以外の窓（ダイアログ・確認・メッセージボックス・メニュー・OS のフォルダ選択）。
+    # 親（Owner）のある窓は UI オートメーションの木では親の窓の子として出るため、窓の子の窓を順にたどる
+    param ($S)
+    $mainKey = getGuiKey $S.Window
+    $found = New-Object System.Collections.ArrayList
+    $queue = New-Object System.Collections.Queue
+    foreach ($w in @(getGuiTopWindows $S)) { $queue.Enqueue($w) }
+    while ($queue.Count -gt 0) {
+        $w = $queue.Dequeue()
+        if ((getGuiKey $w) -ne $mainKey) { [void]$found.Add($w) }
+        try {
+            foreach ($child in $w.FindAll("Children", (New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Window)))) {
+                $queue.Enqueue($child)
+            }
+        } catch { }
+    }
+    return @($found.ToArray())
+}
+
+function getGuiTexts {
+    # 窓の中の文字（Text の Name）の一覧
+    param ($Window)
+    try {
+        return @(findAllGui $Window -Type Text | ForEach-Object { $_.Current.Name })
+    } catch {
+        return @()
+    }
+}
+
+function waitGuiById {
+    # 部品が出るまで待つ（Root は本体の窓、またはダイアログ）
+    param ($S, $Root, [string]$Id, [int]$Timeout = ${guiDefaultTimeout})
+    return waitGui $S "部品 $Id" $Timeout { findGui $Root -Id $Id }
+}
+
+function waitGuiByName {
+    param ($S, $Root, [string]$Name, [string]$Type = "", [int]$Timeout = ${guiDefaultTimeout})
+    return waitGui $S "部品「$Name」" $Timeout { findGui $Root -Name $Name -Type $Type }
+}
+
+function waitGuiWindow {
+    # 本体以外の窓が出るまで待つ。Id を渡すと、その AutomationId の部品を持つ窓（Text があれば、その文字を含むものだけ）。
+    # Id が無ければ、Text を含む文字のある窓（メッセージボックス・確認ダイアログ）
+    param ($S, [string]$What, [string]$Id = "", [string]$Text = "", [int]$Timeout = ${guiDefaultTimeout})
+
+    return waitGui $S $What $Timeout {
+        foreach ($w in @(getGuiOtherWindows $S)) {
+            if ($Id) {
+                $e = findGui $w -Id $Id
+                if ($e -and (!$Text -or $e.Current.Name -like "*$Text*")) { return $w }
+            } else {
+                foreach ($t in @(getGuiTexts $w)) {
+                    if ($t -like "*$Text*") { return $w }
+                }
+            }
+        }
+    }
+}
+
+function waitGuiWindowClosed {
+    param ($S, $Window, [string]$What, [int]$Timeout = ${guiDefaultTimeout})
+    $key = getGuiKey $Window
+    waitGui $S "$What が閉じる" $Timeout { @(getGuiOtherWindows $S | Where-Object { (getGuiKey $_) -eq $key }).Count -eq 0 } | Out-Null
+}
+
+# ---- 操作する（パターンで行う） ----
+
+function waitGuiEnabled {
+    param ($S, $Element, [string]$What, [int]$Timeout = ${guiDefaultTimeout})
+    waitGui $S "$What が押せる（有効になる）" $Timeout { try { $Element.Current.IsEnabled } catch { $false } } | Out-Null
+}
+
+function invokeGui {
+    # ［ボタン］などを押す（InvokePattern）。ダイアログ・メッセージボックスなどのモーダルを開く操作は、戻らないことがあるので、
+    # 別のスレッド（ランスペース）から呼び、2 秒待って戻らなければ「モーダルが開いた」とみなして先へ進む。呼び出しの失敗はここで例外にする
+    param ($S, $Element, [string]$What, [switch]$NoWait)
+
+    if (!$NoWait) { waitGuiEnabled $S $Element $What }
+    $shell = [powershell]::Create()
+    $shell.RunspacePool = $S.Pool
+    [void]$shell.AddScript({
+        param ($element)
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $element.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    }).AddArgument($Element)
+    $result = $shell.BeginInvoke()
+    [void]$S.Async.Add(@{ Shell = $shell; Result = $result })
+    if ($result.AsyncWaitHandle.WaitOne(2000)) {
+        try {
+            [void]$shell.EndInvoke($result)
+        } catch {
+            throw "$What を押せなかった: $($_.Exception.InnerException.Message)"
+        }
+    }
+}
+
+function clickGui {
+    # AutomationId の部品を探して押す（有効になるまで待つ）
+    param ($S, $Root, [string]$Id, [string]$What = "")
+    if (!$What) { $What = "［$Id］" }
+    $e = waitGuiById $S $Root $Id
+    invokeGui $S $e $What
+}
+
+function clickGuiByName {
+    # 名前の無い部品（確認ダイアログの選択肢・メッセージボックスのボタン）を、表示の文字で探して押す
+    param ($S, $Root, [string]$Name, [string]$Type = "Button")
+    $e = waitGuiByName $S $Root $Name $Type
+    invokeGui $S $e "［$Name］"
+}
+
+function setGuiText {
+    # 文字を入れる欄（TextBox。ValuePattern）
+    param ($S, $Element, [string]$Text)
+    $Element.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue($Text)
+}
+
+function getGuiValue {
+    # 欄の文字（ValuePattern）。無ければ Name
+    param ($Element)
+    $pattern = $null
+    if ($Element.TryGetCurrentPattern([Windows.Automation.ValuePattern]::Pattern, [ref]$pattern)) { return $pattern.Current.Value }
+    return $Element.Current.Name
+}
+
+function selectGui {
+    # タブ・一覧の行を選ぶ（SelectionItemPattern）
+    param ($Element)
+    $Element.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+}
+
+function isGuiSelected {
+    param ($Element)
+    return $Element.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+}
+
+function toggleGui {
+    param ($Element)
+    $Element.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+}
+
+function getGuiToggleState {
+    param ($Element)
+    return [string]$Element.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState
+}
+
+function selectGuiTab {
+    # タブを選び、選ばれるまで待つ。Id は TabItem の AutomationId（IndexTab・SearchTab・SettingsTab・KillTab）
+    param ($S, [string]$Id, [string]$ContentId = "")
+
+    $tab = waitGuiById $S $S.Window $Id
+    selectGui $tab
+    waitGui $S "タブ $Id が選ばれる" ${guiDefaultTimeout} { isGuiSelected $tab } | Out-Null
+    if ($ContentId) { [void](waitGuiById $S $S.Window $ContentId) }
+}
+
+function getGuiSelectedTab {
+    # いま選ばれているタブの AutomationId
+    param ($S)
+    foreach ($id in "IndexTab", "SearchTab", "SettingsTab", "KillTab") {
+        $tab = findGui $S.Window -Id $id
+        if ($tab -and (isGuiSelected $tab)) { return $id }
+    }
+    return ""
+}
+
+function getGuiText {
+    # 部品（TextBlock など）に出ている文字
+    param ($Element)
+    return $Element.Current.Name
+}
+
+# ---- 失敗の材料 ----
+
+function saveGuiEvidence {
+    # 失敗したときの画面の画像と、写した先のログを、作業ツリーの work\test\gui\<場面>\ に置く
+    param ($S)
+
+    try {
+        $dest = Join-Path (getGuiRepoRoot) "work\test\gui\$($S.Scene)"
+        [void][IO.Directory]::CreateDirectory($dest)
+        try {
+            $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bitmap = New-Object Drawing.Bitmap($bounds.Width, $bounds.Height)
+            $graphics = [Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+            $bitmap.Save("$dest\画面.png", [Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose(); $bitmap.Dispose()
+        } catch {
+            "画像を撮れなかった: $($_.Exception.Message)" | Set-Content -LiteralPath "$dest\画像なし.txt" -Encoding UTF8
+        }
+        foreach ($name in "画面エラー.txt", "インデックス作成ログ.txt") {
+            $file = Join-Path $S.Tool.Work $name
+            if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
+        }
+        $tree = New-Object System.Collections.ArrayList
+        foreach ($w in @(getGuiTopWindows $S)) {
+            [void]$tree.Add("[窓] $($w.Current.Name)")
+            foreach ($t in @(getGuiTexts $w)) { [void]$tree.Add("    $t") }
+        }
+        $tree | Set-Content -LiteralPath "$dest\窓の一覧.txt" -Encoding UTF8
+    } catch { }
+}
+
+function invokeGuiScene {
+    # 場面 1 つ分の操作（Body）を実行する。失敗したら、どの手順で止まったかを文言に足し、失敗の材料を残して例外にする。
+    # 終わったら（失敗しても）画面を止める
+    param ($S, [scriptblock]$Body)
+
+    try {
+        & $Body
+    } catch {
+        $message = "[$($S.Scene)・手順: $($S.Step)] $($_.Exception.Message)"
+        saveGuiEvidence $S
+        throw $message
+    } finally {
+        stopGui $S
+    }
+}
+
+# ---- OS のフォルダ選択（Win32 のダイアログ。ボタンと欄は UI オートメーションのパターンを持たないため、窓のメッセージで操作する） ----
+
+if (-not ('TebunkoGuiNative' -as [type])) {
+    Add-Type -Namespace "" -Name TebunkoGuiNative -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+public static extern System.IntPtr SendMessage(System.IntPtr hWnd, uint msg, System.IntPtr wParam, string lParam);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool PostMessage(System.IntPtr hWnd, uint msg, System.IntPtr wParam, System.IntPtr lParam);
+'@
+}
+
+function clickGuiNativeButton {
+    # パターンを持たない Win32 のボタンを、BM_CLICK で押す
+    param ($Element)
+    $handle = [IntPtr]$Element.Current.NativeWindowHandle
+    if ($handle -eq [IntPtr]::Zero) { throw "ボタンの窓のハンドルが取れない（$($Element.Current.Name)）" }
+    [void][TebunkoGuiNative]::PostMessage($handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
+}
+
+function setGuiNativeText {
+    # パターンを持たない Win32 の欄の文字を、WM_SETTEXT で入れる
+    param ($Element, [string]$Text)
+    $handle = [IntPtr]$Element.Current.NativeWindowHandle
+    if ($handle -eq [IntPtr]::Zero) { throw "欄の窓のハンドルが取れない" }
+    [void][TebunkoGuiNative]::SendMessage($handle, 0x000C, [IntPtr]::Zero, $Text)
+}
+
+function findGuiFolderPicker {
+    # OS のフォルダ選択の窓（クラス #32770 で、フォルダ名の欄 1152 を持つ。予備のダイアログは 1148）
+    param ($S)
+    foreach ($w in @(getGuiOtherWindows $S)) {
+        if ($w.Current.ClassName -ne "#32770") { continue }
+        if ((findGui $w -Id "1152") -or (findGui $w -Id "1148")) { return $w }
+    }
+    return $null
+}
+
+function useGuiFolderPicker {
+    # OS のフォルダ選択を、開いて閉じるまで本物で動かす。Path を渡すとその欄に入れて［フォルダーの選択］（ボタン ID 1）、
+    # 渡さないと［キャンセル］（ボタン ID 2）。ボタンと欄は言語に依らない ID で探す（ランナーは英語、手元は日本語）
+    param ($S, [string]$Path = "")
+
+    $picker = waitGui $S "OS のフォルダ選択" ${guiDefaultTimeout} { findGuiFolderPicker $S }
+    if ($Path) {
+        $edit = waitGui $S "フォルダ名の欄" ${guiDefaultTimeout} { $e = findGui $picker -Id "1152"; if (!$e) { $e = findGui $picker -Id "1148" }; $e }
+        setGuiNativeText $edit $Path
+        $button = findGui $picker -Id "1" -Type Pane
+    } else {
+        $button = findGui $picker -Id "2" -Type Pane
+    }
+    if (!$button) { throw "フォルダ選択のボタンが見つからない" }
+    clickGuiNativeButton $button
+    waitGuiWindowClosed $S $picker "OS のフォルダ選択"
+}
+
+# ---- テストデータ ----
+
+function newGuiSampleIndex {
+    # 検索できるインデックス（集約ファイル）を、写した先のワークスペースに作る。Root は TSV の置き場所。
+    # 元のファイル（見積.xlsx・議事録.docx）は実在しない（元のファイルが無い行の確かめに使う）。
+    # 呼び出す側で tests\helpers\load.ps1 を読み込んでおく（newTsv・newPackIndex・toIndexFileName）
+    param ($Tool, [string]$Root, [string]$Name = "営業")
+
+    $tsvRoot = Join-Path $Root "tsv_$Name"
+    newTsv "$tsvRoot\$Name\見積.xlsx\$(toIndexFileName "見積")" @("品名`t数量`t単価", "", "りんご`t10`t100", "ABC`tabc")
+    newTsv "$tsvRoot\$Name\議事録.docx\$(toIndexFileName "ページ001")" @("見積の方針", "単価は据え置き")
+    [void](newPackIndex $tsvRoot "$($Tool.Work)\index")
+}
+
+function findGuiAnywhere {
+    # 本体・本体以外の窓（メニューを含む）のどこかにある部品
+    param ($S, [string]$Id, [string]$Name, [string]$Type)
+
+    $found = findGui $S.Window -Id $Id -Name $Name -Type $Type
+    if ($found) { return $found }
+    foreach ($w in @(getGuiOtherWindows $S)) {
+        $found = findGui $w -Id $Id -Name $Name -Type $Type
+        if ($found) { return $found }
+    }
+    return $null
+}

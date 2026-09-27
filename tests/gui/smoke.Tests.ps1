@@ -1,33 +1,74 @@
-﻿# 画面のスモークテスト（骨組み。ランナーで画面を開けるかの確認用）
+﻿# 画面のスモークテスト S1: 起動・検索・閉じる（本物の画面を UI オートメーションで操作する。共通の関数は gui_helpers.ps1）。
+# 画面遷移の一覧（docs\design\testing\index.md「画面のスモークテスト」）の #1・#2・#6・#7・#8・#9 を確かめる。
 BeforeAll {
-    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-    $script:tool = Join-Path $TestDrive "tool"
-    Copy-Item -LiteralPath (Resolve-Path "$PSScriptRoot\..\..\scripts").Path -Destination "$script:tool\scripts" -Recurse
+    . "$PSScriptRoot\..\helpers\load.ps1"
+    . "$PSScriptRoot\gui_helpers.ps1"
 }
 
-Describe "画面のスモークテスト" -Tag Gui {
-    It "起動して本体のウィンドウが見つかり、閉じると終了する" {
-        $gui = "$script:tool\scripts\tebunko\gui.ps1"
-        $p = Start-Process powershell.exe -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'RemoteSigned', '-File', "`"$gui`"" -PassThru
-        $null = $p.Handle
-        try {
-            $found = $null
-            $sw = [Diagnostics.Stopwatch]::StartNew()
-            while ($sw.Elapsed.TotalSeconds -lt 90 -and !$found -and !$p.HasExited) {
-                $cond = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ProcessIdProperty, $p.Id)
-                foreach ($w in [Windows.Automation.AutomationElement]::RootElement.FindAll("Children", $cond)) {
-                    $tabs = $w.FindFirst("Descendants", (New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::AutomationIdProperty, "Tabs")))
-                    if ($tabs) { $found = $w }
-                }
-                Start-Sleep -Milliseconds 100
+Describe "S1 起動・検索・閉じる" -Tag Gui {
+    BeforeAll {
+        $script:envBefore = getGuiEnvSnapshot
+        $script:tool = newGuiTool $TestDrive
+        newGuiSampleIndex $script:tool $TestDrive
+    }
+
+    It "起動して［2 検索］が選ばれ、4 つのタブ・検索・プレビュー・「tebunko について」・多重起動・閉じるが動く" {
+        $S = startGui $script:tool "S1"
+        invokeGuiScene $S {
+            # 起動・インデックスがあれば［2 検索］が選ばれる（#1・#2）
+            setGuiStep $S "起動時のタブ"
+            getGuiSelectedTab $S | Should -Be "SearchTab"
+
+            # 4 つのタブを選ぶ。タブの中の部品が UI オートメーションに出る（theme.xaml の PART_SelectedContentHost）（#7）
+            foreach ($tab in @(
+                @{ Id = "IndexTab"; Content = "IndexGrid" }, @{ Id = "SettingsTab"; Content = "ChangeWorkspaceButton" },
+                @{ Id = "KillTab"; Content = "ProcessGrid" }, @{ Id = "SearchTab"; Content = "WordBox" })) {
+                setGuiStep $S "タブ $($tab.Id) を選ぶ"
+                selectGuiTab $S $tab.Id $tab.Content
             }
-            Write-Host ("窓が見つかるまで {0} 秒 / 終了済み {1}" -f $sw.Elapsed.TotalSeconds, $p.HasExited)
-            $found | Should -Not -BeNullOrEmpty
-            $found.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close()
-            $p.WaitForExit(30000) | Should -BeTrue
-            $p.ExitCode | Should -Be 0
-        } finally {
-            if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
+
+            # 検索して、結果の行を選ぶとプレビューが出る（#23）
+            setGuiStep $S "検索ワードを入れて［検索］"
+            setGuiText $S (waitGuiById $S $S.Window "WordBox") "単価"
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            clickGui $S $S.Window "SearchButton" "［検索］"
+            setGuiStep $S "検索の結果（該当 2 件）"
+            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "該当 2 件*" } | Out-Null
+            $S.Timing["検索"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
+            clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+            setGuiStep $S "結果の行を選んでプレビュー"
+            $row = waitGui $S "結果の行（HitRow）" ${guiDefaultTimeout} { @(findAllGui (findGui $S.Window -Id "ResultGrid") -Name "HitRow" -Type DataItem) | Select-Object -Last 1 }
+            selectGui $row
+            waitGui $S "プレビュー（りんご）" ${guiDefaultTimeout} {
+                @(findAllGui (findGui $S.Window -Id "PreviewScroll") -Type Text | Where-Object { $_.Current.Name -eq "りんご" }).Count -gt 0
+            } | Out-Null
+            (getGuiText (findGui $S.Window -Id "DetailTitle")) | Should -BeLike "*見積.xlsx*"
+
+            # ［⋯］→「tebunko について」（#8）
+            setGuiStep $S "［⋯］から「tebunko について」を開く"
+            clickGui $S $S.Window "MoreButton" "［⋯］"
+            $item = waitGui $S "メニューの「tebunko について」" ${guiDefaultTimeout} { findGuiAnywhere $S -Id "AboutMenuItem" }
+            invokeGui $S $item "「tebunko について」"
+            $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
+            (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "版: *"
+            clickGui $S $about "CloseButton" "［閉じる］"
+            waitGuiWindowClosed $S $about "「tebunko について」"
+
+            # 同じフォルダのツールをもう一度起動すると、2 つ目はすぐ終わり、1 つ目は残る（#6）
+            setGuiStep $S "多重起動"
+            $second = startGuiProcess $script:tool
+            $S.Extra += $second
+            waitGui $S "2 つ目の起動が終わる" ${guiDefaultTimeout} { $second.HasExited } | Out-Null
+            $second.ExitCode | Should -Be 0
+            $S.Process.HasExited | Should -BeFalse
+
+            # 閉じると終了コード 0（#9）
+            closeGui $S
+            Write-Host ("S1 の秒数: " + (($S.Timing.GetEnumerator() | ForEach-Object { "$($_.Key) $($_.Value)" }) -join "・"))
         }
+    }
+
+    It "利用者の環境（作業ツリーの設定・work\index・LOCALAPPDATA・既定のワークスペース・Office のプロセス）に触っていない" {
+        compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
 }

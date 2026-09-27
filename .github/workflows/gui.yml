@@ -1,7 +1,7 @@
 # 画面のスモークテスト（GitHub Actions）
 #
-# 本物の画面（WPF）を別のプロセスで起動し、UI オートメーションで、起動・タブの切り替え・検索・「tebunko について」・終了を確かめる
-# （tests\gui\smoke.Tests.ps1。タグ Gui）。
+# 本物の画面（WPF）を別のプロセスで起動し、UI オートメーションで、画面遷移（画面遷移の一覧は docs/design/testing/index.md）を確かめる
+# （tests\gui\*.Tests.ps1。タグ Gui。共通の関数は tests\gui\gui_helpers.ps1）。
 # test.yml には入れない。test.yml は release.yml から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。
 # 別のワークフローにすれば test と並んで動き、test の時間も延びない。
 # 必須チェックにはしない（必須チェックを変えるのは持ち主。しばらく安定して通ることを見てから諮る）。
@@ -25,7 +25,7 @@ permissions:
 jobs:
   gui-smoke:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
