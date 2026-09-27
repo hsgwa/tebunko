@@ -1,5 +1,7 @@
 ﻿# 検索結果ファイル
 
+扱うこと: `work/検索結果.txt` の出力フォーマット、ヒット 1 行の組み立て、ヒットから元のファイル名・場所・行番号を求める方法。扱わないこと: 検索の仕様そのもの（[検索](index.md)）。先に読むページ: [検索](index.md)、[インデックスのファイルの形](../index-data/format.md)。
+
 ## 出力フォーマット（`work/検索結果.txt`）
 
 画面の［結果をファイルに出力］で、表示中の結果（絞り込み後）を書き出す。UTF-8（BOM 付き）、改行は CRLF。
@@ -82,8 +84,8 @@ flowchart TD
     D --> E["一致の位置を含む場所を探し、<br>場所の先頭から改行を数えて行番号にする"]
 ```
 
-- 場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない本文インデックスのファイルでは作らない（[検索の実装（速度）](index.md#検索の実装速度)）。
-- 画面の選択行のプレビュー（`readPackContext`）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（[［2 検索］タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/search-tab.md#選択行のプレビュー)）。
+- 場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない本文インデックスのファイルでは作らない（[検索を速くする仕組み](speed.md)）。
+- 画面の選択行のプレビュー（`readPackContext`）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（[検索タブ](../gui/search-tab.md) [選択行のプレビュー](../gui/preview.md)）。
 - 検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（`getIndexFolderBooks`）だけに使う。
 
-場所の付け方は [インデックス作成（インデクサ）](../indexer/index.md) の [配置・命名規則](../indexer/index-format.md#配置命名規則)・[場所の符号化](../indexer/index-format.md#場所の符号化encodeindexplace--decodeindexplace) を参照。
+場所の付け方は [インデックス作成](../indexing/index.md) の [インデックスのファイルの形](../index-data/format.md#配置命名規則)・[場所の符号化](../index-data/format.md#場所の符号化encodeindexplace--decodeindexplace) を参照。
