@@ -101,7 +101,8 @@ Describe "findSourceFile" -Tag Io {
         $script:sourceFolderMaps = @{ 記録 = 1 }
         $script:startJobCalls = 0
         $script:foundPaths = New-Object System.Collections.Generic.List[string]
-        $script:openSourcePendingRow = $null
+        $script:openSourcePendingRow.Value = $null
+        $script:openSourcePendingPath.Value = ""
         $fake.BeforeDone = $null
     }
 
@@ -182,14 +183,50 @@ Describe "findSourceFile" -Tag Io {
 
     It "cancelPendingSourceLookup は依頼の番号を進め、カーソルと待っている行を戻す" {
         $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
-        $script:openSourcePendingRow = "dummy"
+        $script:openSourcePendingRow.Value = "dummy"
         $before = $script:openSourceRequest.Value
 
         cancelPendingSourceLookup
 
         $script:openSourceRequest.Value | Should -Be ($before + 1)
-        $script:openSourcePendingRow | Should -Be $null
+        $script:openSourcePendingRow.Value | Should -Be $null
         $window.Cursor | Should -Be $null
+    }
+
+    It "結果が届いた後、同じ行をもう一度開くと新しい依頼を出す" {
+        # GetNewClosure() の中で待っている行の記録を戻すため、結果が届いた後に片づいていることを確かめる
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
+
+        $row = newRow
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        $script:startJobCalls | Should -Be 1
+
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 2
+        $script:foundPaths.Count | Should -Be 2
+    }
+
+    It "届かない行を待っている間に、別のローカルの行を開いても正しく開ける" {
+        Mock getSourceLocation {
+            param ($hit, $maps)
+            if ($hit.Book -eq "ローカル.xlsx") {
+                return @{ Name = "営業"; Folder = "$TestDrive\local"; Rest = ""; Known = $true }
+            }
+            return @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true }
+        }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
+        Mock findSourceFileState { @{ State = "Found"; Path = "$TestDrive\local\ローカル.xlsx" } }
+        # 応答が来ない仕事を真似る（届かない行の依頼は待ったままになる）
+        Mock startJob { $script:startJobCalls++ }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add("A:$path") }
+        findSourceFile (newRow "ローカル.xlsx") { param ($path) $script:foundPaths.Add("B:$path") }
+
+        $script:foundPaths -join "," | Should -Be "B:$TestDrive\local\ローカル.xlsx"
+        $script:startJobCalls | Should -Be 1
     }
 
     It "ネットワークのパスは裏の仕事（'network' の列）で確かめ、届くまで確かめている間のステータスを出す" {

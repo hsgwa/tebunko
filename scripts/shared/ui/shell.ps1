@@ -232,7 +232,9 @@ function ensureNetworkQueue {
         throw "ensureNetworkQueue: setNetworkQueueFactory が呼ばれていない"
     }
     $script:networkQueue = & $script:networkQueueFactory
-    for ($i = 0; $i -lt ${backgroundWorkers}; $i++) {
+    # 温める回数は、作った列自身のスレッドの数から取る（gui.ps1 の ${backgroundWorkers} に頼らない。
+    # 無いと 0 回になって黙って温めないままになるため）
+    for ($i = 0; $i -lt $script:networkQueue.Pool.Size; $i++) {
         $script:networkQueue.Post('$null', @(), $null)
     }
     $script:jobTimer.Start()
