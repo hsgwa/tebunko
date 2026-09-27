@@ -73,7 +73,7 @@
 
 1. `work\index\<旧名>` を `work\index\<新名>` に改名する（長いパスの本文インデックスのファイル・TSV があっても扱えるよう `\\?\` 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する
 2. 取り込み一覧（`work/取り込み一覧.tsv`）の `クロール対象フォルダ` の行のインデックス名と、各行の相対パスの先頭（`<旧名>\…` → `<新名>\…`）を書き換える（`renameStatusIndexName`。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）
-3. `setting.config` の `targetFolders[].name` を保存し、各インデックスの元のフォルダの記録を書き直す（`updateIndexSourceFile`）
+3. `setting.config` の `targetFolders[].name` を保存し、各インデックスの元のフォルダの記録（`元のフォルダ.txt`）を書き直す（`updateIndexSourceFile`）
 4. 検索対象のツリーでチェックを外していたフォルダの記録（`searchExcludes`）のうち、旧名・新名の下のものを消す（`removeSearchExcludesUnder`）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない
 
 ### 削除したときの処理（`removeIndex`）
