@@ -450,20 +450,24 @@ Describe "indexer.ps1（まれな状況）" -Tag Io {
 
 Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
     function script:newLegacyWorkspace {
-        # 前の版のワークスペース（index\・system_index\・状態ファイル）を root\work に作る（しるしあり）
-        param ([string]$root, [string]$name)
+        # 前の版のワークスペース（index\・system_index\・状態ファイル・取り込み一覧の「済」の行）を root\work に作る（しるしあり）
+        param ([string]$root, [string]$name, [string]$sourcePath)
         $work = "$root\work"
         newTsv "$work\index\$name\議事録.docx\S.tsv" @("旧いインデックス")
         newTsv "$work\index\$name\元のフォルダ.txt" @("# 前の版の記録", "$name`tC:\旧い場所")
         newTsv "$work\system_index\$name\システムインデックス.txt" @("x00000000")
         newTsv "$work\システムインデックスの状態.tsv" @("対応済み`t$name`t")
+        writeStatusFile @([pscustomobject]@{ Path = $sourcePath; Name = $name }) @(
+            (newStatusRow "$name\議事録.docx" "2026/09/01 10:00:00" "100" ${stateDone} "1" "2026/09/01 10:00:00")
+        ) "$work\取り込み一覧.tsv"
     }
 
     It "前の版のインデックスがあれば知らせて片付け、取り込み直す（前の版の index には触らない）" {
         $source = newSourceFolder "旧版"
         $root = newRoot
         writeTestSettings $root @(@{ name = "旧版"; path = $source; enabled = $true })
-        newLegacyWorkspace $root "旧版"
+        newLegacyWorkspace $root "旧版" $source
+        $before = (readTestStatus $root).Rows["旧版\議事録.docx"].取り込み日時
 
         runIndexer $root | Should -Be 0
 
@@ -475,6 +479,10 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
         $stateText = [System.IO.File]::ReadAllText("$root\work\システムインデックスの状態.tsv")
         $stateText | Should -Not -Match "システムインデックス"
         (readTestSystemState $root).Covered.Contains("旧版") | Should -Be $true
+        # 取り込み一覧の「済」の行（前の版の記録）も、本文インデックスが無いため取り込み直す
+        $row = (readTestStatus $root).Rows["旧版\議事録.docx"]
+        $row.状態 | Should -Be ${stateDone}
+        $row.取り込み日時 | Should -Not -Be $before
         # 前の版の index\ は読まず・消さない
         Test-Path -LiteralPath "$root\work\index\旧版\元のフォルダ.txt" | Should -Be $true
         Test-Path -LiteralPath "$root\work\index\旧版\議事録.docx\S.tsv" | Should -Be $true
@@ -484,7 +492,7 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
         $source = newSourceFolder "旧版2"
         $root = newRoot
         writeTestSettings $root @(@{ name = "旧版2"; path = $source; enabled = $true })
-        newLegacyWorkspace $root "旧版2"
+        newLegacyWorkspace $root "旧版2" $source
         $legacyTxt = "$root\work\system_index\旧版2\システムインデックス.txt"
         $stream = [System.IO.File]::Open($legacyTxt, "Open", "Read", "None")
         try {

@@ -16,8 +16,10 @@
 
 # 集約ファイルの名前は「content_index.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content_index.xlsx.001.tsv など）。
 # 1 つの集約ファイルが packFileMaxBytes 以上になったら、それ以上ブックを足さず、次の番号の集約ファイルに足す
-${packFilePattern} = "content_index.*.tsv"
-${packFileNamePattern} = '^content_index\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$'
+# 先頭の語（content_index）は 1 か所の定数にする（index_store.ps1 の getPackKeyOf も使う）
+${packFileNamePrefix} = "content_index"
+${packFilePattern} = "${packFileNamePrefix}.*.tsv"
+${packFileNamePattern} = "^${packFileNamePrefix}\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$"
 ${packFileMaxBytes} = 4MB
 ${packVersion} = 1
 ${packMark} = [char]0x1E
@@ -55,7 +57,7 @@ function getPackFileName {
         [int]$part = 1
     )
 
-    return "content_index.{0}.{1:D3}.tsv" -f $extension, $part
+    return "${packFileNamePrefix}.{0}.{1:D3}.tsv" -f $extension, $part
 }
 
 

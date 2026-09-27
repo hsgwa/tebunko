@@ -44,10 +44,14 @@ Describe "testWorkspaceChoice" -Tag Unit {
         $result.Message | Should -Be "フォルダを選んでください。"
     }
 
-    It "今のインデックスのフォルダの中は選べない" {
+    It "今のインデックスのフォルダの中は選べない（前の版の index\ の中も同じ）" {
         $result = testWorkspaceChoice "C:\tool\work\content_index\営業" "C:\tool\work" $true @{}
         $result.Kind | Should -Be "error"
         $result.Message | Should -Match "今のインデックスのフォルダの中です"
+
+        $legacy = testWorkspaceChoice "C:\tool\work\index\営業" "C:\tool\work" $true @{}
+        $legacy.Kind | Should -Be "error"
+        $legacy.Message | Should -Match "今のインデックスのフォルダの中です"
     }
 
     It "書き込めないフォルダは選べない" {
