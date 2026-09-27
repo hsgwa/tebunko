@@ -2899,14 +2899,9 @@
 <td><code>shared/office/office_process.ps1</code></td>
 </tr>
 <tr>
-<td><code>$appId</code></td>
-<td>ツールの ID（<code>tebunko</code>。ミューテックスの名前に使う）</td>
-<td><code>tebunko/core/paths.ps1</code></td>
-</tr>
-<tr>
 <td><code>$workspace</code></td>
 <td>今のワークスペース（<code>Workspace</code>。<a href="#ワークスペースの中の場所workspace">ワークスペースの中の場所（Workspace）</a>）。設定 <code>workspaceFolder</code> から決める（<code>getWorkDir</code>）</td>
-<td>同上</td>
+<td><code>tebunko/core/paths.ps1</code></td>
 </tr>
 <tr>
 <td><code>$tmpDir</code></td>
@@ -2947,6 +2942,11 @@
 <td><code>$stateNew</code> / <code>$stateDone</code> / <code>$stateFailed</code></td>
 <td>取り込み一覧の状態（<code>未取り込み</code> / <code>済</code> / <code>失敗</code>）</td>
 <td>同上</td>
+</tr>
+<tr>
+<td><code>$appId</code></td>
+<td>ツールの ID（<code>tebunko</code>。ミューテックスの名前に使う）</td>
+<td><code>tebunko/core/settings.ps1</code>（起動口が <code>lib.ps1</code> より先に <code>settings.ps1</code> だけを読み込んで設定を確かめるため、ここで決める）</td>
 </tr>
 <tr>
 <td><code>$settingsFile</code></td>
@@ -3206,7 +3206,7 @@
 <td><code>readSettings</code></td>
 <td>path（既定 <code>$settingsFile</code>）</td>
 <td>ordered hashtable</td>
-<td>設定を読む。記載の無いキーは既定値。ファイルが無ければ既定値（ファイルは作らない）。数値のキーは文字列でも数値にして読む（読めなければ既定値）。JSON として読めなければ例外</td>
+<td>設定を読む。記載の無いキーは既定値。ファイルが無ければ既定値（ファイルは作らない）。数値のキーは文字列でも数値にして読む（読めなければ既定値）。JSON として読めなければ <code>FormatException</code>（ファイルは動かさない）。ロック・共有違反は <code>IOException</code> のまま</td>
 <td>同上</td>
 <td>設定の各関数</td>
 </tr>
@@ -3241,6 +3241,22 @@
 <td>ファイルを読み直し、key の値だけ変えて保存する（<code>invokeSettingsLocked</code> の中）</td>
 <td>同上</td>
 <td>設定の各関数</td>
+</tr>
+<tr>
+<td><code>repairBrokenSettings</code></td>
+<td>path（既定 <code>$settingsFile</code>）</td>
+<td>退避したパス（何もしなければ空文字）</td>
+<td>設定ファイルが JSON として読めないときだけ、<code>setting.config.broken-&lt;yyyyMMdd-HHmmss&gt;</code>（重なれば <code>-2</code>・<code>-3</code>…）に中身のまま移してパスを返す。移せなければ例外。<code>invokeSettingsLocked</code> の中で行う。起動口が起動の時に 1 回だけ呼ぶ</td>
+<td>同上</td>
+<td>gui.ps1, indexer.ps1</td>
+</tr>
+<tr>
+<td><code>getSettingsRecoveryMessage</code></td>
+<td>brokenPath</td>
+<td>文字列</td>
+<td>退避して既定の設定で起動したときの知らせの文言（画面・インデクサで共通）</td>
+<td>同上</td>
+<td>gui.ps1, invokeIndexer</td>
 </tr>
 <tr>
 <td><code>getTargetFolders</code></td>

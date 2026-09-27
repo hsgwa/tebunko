@@ -1591,6 +1591,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#壊れた設定ファイルの退避" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        壊れた設定ファイルの退避
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#画面での読み書き" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2582,6 +2593,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#壊れた設定ファイルの退避" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        壊れた設定ファイルの退避
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#画面での読み書き" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2730,7 +2752,7 @@
     B -- はい --&gt; C{"空？"}
     C -- はい --&gt; D["既定値を返す"]
     C -- いいえ --&gt; E["UTF-8 で読み込み、JSON として解釈"]
-    E -- 解釈できない --&gt; F["例外:&lt;br&gt;『setting.config を読み込めません。（詳細）』"]
+    E -- 解釈できない --&gt; F["FormatException:&lt;br&gt;『setting.config を読み込めません。（詳細）』&lt;br&gt;（ファイルは動かさない）"]
     E --&gt; G["記載のあるキーだけ既定値を上書きして返す"]
     B -- いいえ --&gt; D</code></pre>
 <ul>
@@ -2742,7 +2764,15 @@
 <li>保存は、書き込みの途中で止まっても設定ファイルが壊れないよう、一時ファイル（<code>setting.config.tmp</code>）に書いてから置き換える（<code>writeTextLinesAtomic</code>）。</li>
 <li>「読み直す → 変える → 書く」の一続きは、設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;getFolderKey 設定ファイルのパス&gt;</code>。<code>invokeSettingsLocked</code>）の中で行う。画面・インデクサ（別のプロセスも）が同時に保存しても、互いの変更を消さない。待つのは 5 秒で、過ぎたら例外にする。同じ Windows のセッションの中だけの排他（別のセッションからは排他しない）。</li>
 <li>インデクサが決めたインデックス名は、始めに読んだ一覧を丸ごと書き戻さず、書き戻す直前に読み直した一覧へ、名前が空の項目にだけ足す（<code>saveAssignedIndexNames</code>・<code>mergeAssignedIndexNames</code>。同じ名前をほかの項目が使っていれば付けない）。その間に画面で足した・変えたクロール対象フォルダを消さないため。</li>
-<li>JSON として解釈できないときは例外にする。インデクサでは、例外は <code>invokeIndexer</code> が受け、受け渡しの口の <code>Error</code> に入れて画面が表示する（終了コード 1）。</li>
+<li>JSON として解釈できないときは <code>FormatException</code> にする（<code>readSettings</code> はファイルを動かさない。書き込みも読み直しで同じ例外になり、壊れたファイルは上書きしない）。ロック・共有違反などの <code>IOException</code> は「壊れている」に含めず、そのまま例外にする。インデクサでは、例外は <code>invokeIndexer</code> が受け、受け渡しの口の <code>Error</code> に入れて画面が表示する（終了コード 1）。</li>
+</ul>
+<h2 id="壊れた設定ファイルの退避">壊れた設定ファイルの退避<a class="headerlink" href="#壊れた設定ファイルの退避" title="Permanent link">&para;</a></h2>
+<p><code>setting.config</code> が JSON として読めない（<code>ConvertFrom-Json</code> が失敗する）ときは、起動の時に 1 回だけ、<code>repairBrokenSettings</code> が中身のまま <code>setting.config.broken-&lt;yyyyMMdd-HHmmss&gt;</code> に移し（同じ名前があれば <code>-2</code>・<code>-3</code>… を付け、前の退避を上書きしない）、既定の設定で起動する。空・<code>null</code> だけのファイルは今までどおり既定値で読み、退避しない。移せなかったときは例外にして起動せず、壊れたファイルをそのまま残す。</p>
+<ul>
+<li>呼ぶのは起動口の 2 か所だけ。画面（<code>gui.ps1</code>）は、多重起動の判定の後、<code>lib.ps1</code> を読み込む前に呼ぶ（2 つ目の起動は退避しない）。画面なしで起動した <code>indexer.ps1</code>（<code>-Channel</code> なし）は、<code>indexer_lib.ps1</code> を読み込む前に呼ぶ。画面から <code>-Channel</code> 付きで動くときは、画面が済ませているため呼ばない。<code>lib.ps1</code> の <code>paths.ps1</code> が読み込みの時に設定を読むため、この順にしている（<code>$appId</code> は、<code>lib.ps1</code> より先に読み込む <code>settings.ps1</code> で決める）。</li>
+<li>知らせの文言は <code>getSettingsRecoveryMessage</code>。画面は、メイン画面が出た後にメッセージボックスで 1 回出す。画面なしのインデクサは、<code>invokeIndexer</code> がログを開いた直後にログ（とコンソール）へ書く。</li>
+<li>動いている途中に壊れたとき（画面を開いたまま手で書き損じた等）は退避しない。その操作がエラーで知らせ、次の起動で退避する。画面を開いたまま画面なしの <code>indexer.ps1</code> を起動して壊れていたときは、インデクサが退避し、画面は次にアクティブになった時に既定値の一覧を読み直す（「ほかで変更されたため読み直しました」が出る）。</li>
+<li>退避したファイルは、tebunko を閉じてから直し、<code>setting.config</code> に置き換えて開き直すと戻せる。</li>
 </ul>
 <h2 id="画面での読み書き">画面での読み書き<a class="headerlink" href="#画面での読み書き" title="Permanent link">&para;</a></h2>
 <p>画面は設定を変えたその場で保存する。［8 設定］タブの画面の仕様は <a href="../../gui/settings-tab/">［8 設定］タブ</a> にある。</p>
