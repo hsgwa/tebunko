@@ -52,18 +52,21 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             waitGui $S "フォルダの欄に入る" ${guiDefaultTimeout} { (getGuiValue (findGui $dialog -Id "FolderBox")) -eq $script:source } | Out-Null
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
 
-            # ［OK］で一覧に加わる（#11）
+            # ［OK］で一覧に加わる（#11）。加わった行の［作成］は既定でオン（Enabled=true）で表示されるため、
+            # 行が表示されたときの Checked（見た目の初期化）で二重に保存されないことも、ここで確かめる（#16）
             setGuiStep $S "［OK］で追加"
+            $beforeAddWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
             clickGui $S $dialog "OkButton" "［OK］"
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
-
-            # ［作成］のチェックの見た目の初期化（行が表示されたときの Checked）で、二重に保存されないことを確かめる（#16）
-            setGuiStep $S "行が表示された直後に、余計な保存が走らないこと"
-            $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
+            setGuiStep $S "追加による保存が1回だけ起きていること"
+            $afterAddWriteTime = waitGui $S "追加の保存が起きる" ${guiDefaultTimeout} {
+                $t = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
+                if ($t -ne $beforeAddWriteTime) { $t }
+            }
             Start-Sleep -Milliseconds 1000
-            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime -Because "行の表示だけでは設定ファイルを書き直さない"
+            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $afterAddWriteTime -Because "行が表示されたときの Checked（見た目の初期化）では、設定ファイルを重ねて書き直さない"
 
             # 編集: キャンセル・名前の変更（#14）
             setGuiStep $S "［編集…］→［キャンセル］"

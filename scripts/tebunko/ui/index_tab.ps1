@@ -21,14 +21,19 @@ $script:loadingTargets = $false
 # 状態が変わったときに出るため、どの操作でも保存できる。
 # UI オートメーションの Toggle は IsChecked（表示）を変えるが、TwoWay バインドの先（Enabled。PS class の
 # プレーンなプロパティで PropertyChanged を出さない）へは反映されないことがあるため、ここで明示的に合わせる。
-# 読み込み時（loadTargets が Enabled をセットする間）は $script:loadingTargets を立てて、保存が走らないようにする
+# 読み込み時（loadTargets が Enabled をセットする間）は $script:loadingTargets を立てて、保存が走らないようにするが、
+# DataGrid が行の見た目を作る（描画・仮想化）のは loadTargets の完了後で、その時点では $script:loadingTargets は
+# 既に false に戻っている。行の初期化としての Checked・Unchecked（チェックの付いた行が表示される・［OK］で
+# 追加した行がすぐ表示されるなど）でも出るため、一覧の中身が保存済みの内容と同じときは書き直さない
 $onIndexGridToggled = {
     param ($s, $e)
     safe {
         $cb = $e.OriginalSource
         if ($cb -is [System.Windows.Controls.CheckBox] -and $cb.DataContext -is [FolderItem] -and !$script:loadingTargets) {
             $cb.DataContext.Enabled = [bool]$cb.IsChecked
-            saveTargets
+            if ((getTargetsKey @($script:targetItems)) -ne $script:savedTargets) {
+                saveTargets
+            }
             updateIndexingButton
         }
     }
