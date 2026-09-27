@@ -7,6 +7,7 @@
 #   - scripts/<パス>.ps1 は tests/<パス>.Tests.ps1 と、構成を守るテスト（structure・layers）
 #     scripts/tebunko/indexer.ps1 は tests/tebunko/indexer/indexer.Tests.ps1
 #   - scripts/ の .xaml は structure（XML として読めるか・画面の部品の名前）
+#   - tests/gui/（本物の画面を開くテスト。タグ Gui）は選ばない。CI（gui.yml）と手元の -Tag Gui で流す
 #   - tests/ の *.Tests.ps1 はそのテスト自身
 #   - tools/<名前>.ps1 は tests/tools/<名前>.Tests.ps1（無ければ流さない）。check_markdown_links.ps1 は links も
 #   - tests/testdata/scrub_personal.ps1 は tests/testdata/scrub_personal.Tests.ps1
@@ -51,6 +52,9 @@ function selectCommitTests([string[]]$files, [string]$root) {
             & $add $test
             & $add "tests/meta/structure.Tests.ps1"
             & $add "tests/meta/layers.Tests.ps1"
+            continue
+        }
+        if ($file -match '(?i)^tests/gui/') {
             continue
         }
         if ($file -match '(?i)^tests/.+\.Tests\.ps1$') {
