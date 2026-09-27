@@ -2977,7 +2977,7 @@
 <ol>
 <li><code>work\index\&lt;旧名&gt;</code> を <code>work\index\&lt;新名&gt;</code> に改名する（長いパスの本文インデックスのファイル・TSV があっても扱えるよう <code>\\?\</code> 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する</li>
 <li>取り込み一覧（<code>work/取り込み一覧.tsv</code>）の <code>クロール対象フォルダ</code> の行のインデックス名と、各行の相対パスの先頭（<code>&lt;旧名&gt;\…</code> → <code>&lt;新名&gt;\…</code>）を書き換える（<code>renameStatusIndexName</code>。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）</li>
-<li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの元のフォルダの記録を書き直す（<code>updateIndexSourceFile</code>）</li>
+<li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの元のフォルダの記録（<code>元のフォルダ.txt</code>）を書き直す（<code>updateIndexSourceFile</code>）</li>
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、旧名・新名の下のものを消す（<code>removeSearchExcludesUnder</code>）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない</li>
 </ol>
 <h3 id="削除したときの処理removeindex">削除したときの処理（<code>removeIndex</code>）<a class="headerlink" href="#削除したときの処理removeindex" title="Permanent link">&para;</a></h3>
