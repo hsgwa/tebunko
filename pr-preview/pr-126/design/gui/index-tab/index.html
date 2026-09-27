@@ -2794,7 +2794,7 @@
 <tr>
 <td>1</td>
 <td>インデックス一覧</td>
-<td>見出しは <code>インデックス一覧</code>、その右に <code>チェックを付けたインデックスを取り込みます</code>。1 行 1 インデックス（1 フォルダ）。列は「作成」（チェック）・「インデックス名」・「元のフォルダ」・「フォルダの状態」・「ファイル」・「最終取り込み」（<a href="#一覧の列">一覧の列</a>）。<strong>チェックを付けたインデックスだけを取り込む</strong>（チェックを外したインデックスは、一覧にも <code>work\index</code> にも残したまま取り込まない）。一覧が空なら <code>インデックスがありません。［追加…］で、Office ファイルのあるフォルダを指定してください。</code>。並びは <code>targetFolders</code> の順で、検索対象のツリー（<a href="../search-tab/#検索対象のツリーno13">検索対象のツリー（No.13）</a>）もこの順に並ぶ</td>
+<td>見出しは <code>インデックス一覧</code>、その右に <code>チェックを付けたインデックスを取り込みます</code>。1 行 1 インデックス（1 フォルダ）。列は「作成」（チェック）・「インデックス名」・「元のフォルダ」・「フォルダの状態」・「ファイル」・「最終取り込み」（<a href="#一覧の列">一覧の列</a>）。<strong>チェックを付けたインデックスだけを取り込む</strong>（チェックを外したインデックスは、一覧にも <code>work\content_index</code> にも残したまま取り込まない）。一覧が空なら <code>インデックスがありません。［追加…］で、Office ファイルのあるフォルダを指定してください。</code>。並びは <code>targetFolders</code> の順で、検索対象のツリー（<a href="../search-tab/#検索対象のツリーno13">検索対象のツリー（No.13）</a>）もこの順に並ぶ</td>
 </tr>
 <tr>
 <td>2</td>
@@ -2809,7 +2809,7 @@
 <tr>
 <td>4</td>
 <td>［削除］</td>
-<td>選択中のインデックスを削除する（Delete キーでも同じ）。確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）で確認する。見出しは <code>インデックス「&lt;名前&gt;」を一覧から削除しますか？</code>、結果は <code>✗ tebunko が作ったインデックスが消えます</code>（<code>このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）</code>）／ <code>✓ 元のフォルダと、その中のファイルはそのままです</code>（<code>&lt;パス&gt;</code>）、補足は <code>しばらく検索しないだけなら、削除せずに［作成］のチェックを外してください。インデックスは残ったままです。</code>、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で一覧からすぐ消し、<code>work\index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>removeIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
+<td>選択中のインデックスを削除する（Delete キーでも同じ）。確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）で確認する。見出しは <code>インデックス「&lt;名前&gt;」を一覧から削除しますか？</code>、結果は <code>✗ tebunko が作ったインデックスが消えます</code>（<code>このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）</code>）／ <code>✓ 元のフォルダと、その中のファイルはそのままです</code>（<code>&lt;パス&gt;</code>）、補足は <code>しばらく検索しないだけなら、削除せずに［作成］のチェックを外してください。インデックスは残ったままです。</code>、ボタンは赤い［削除する］（既定は［キャンセル］）。［削除する］で一覧からすぐ消し、<code>work\content_index\&lt;名前&gt;</code> と取り込み一覧の記録の削除（<code>removeIndex</code>）は<strong>別スレッド</strong>で行う（数万フォルダでは数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため）。削除の間はステータスに <code>インデックス [&lt;名前&gt;] を削除しています…（件数によっては少し時間がかかります）</code> と出し、インデックスの操作・インデックス作成の開始はできないようにする。終わったらステータスに <code>インデックス [&lt;名前&gt;] を削除しました</code> と表示する</td>
 </tr>
 <tr>
 <td>5</td>
@@ -2839,7 +2839,7 @@
 <li>［編集…］［削除］は、一覧で 1 件選んでいるときだけ有効にする。</li>
 <li><strong>インデックスを一から作り直すボタンは置かない</strong>。取り込み対象は毎回［インデックス作成を開始］の確認（<a href="#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）で分かるため、ふだんは作り直す必要がない。更新日時が変わらないまま中身が変わった場合など、どうしても作り直したいときは［削除］してから追加し直す。</li>
 </ul>
-<p><strong>インデックス名と場所は分けて持つ</strong>（<code>targetFolders</code> の <code>name</code> と <code>path</code>）。<code>name</code> が <code>work\index</code> 直下のフォルダ名になり、インデックスの同一性を表す。<code>path</code> を書き換えても <code>name</code> は変わらないため、フォルダを移してもインデックスを作り直さない（<a href="../../indexer/flow/#クロール対象フォルダとインデックス名">クロール対象フォルダとインデックス名</a>）。
+<p><strong>インデックス名と場所は分けて持つ</strong>（<code>targetFolders</code> の <code>name</code> と <code>path</code>）。<code>name</code> が <code>work\content_index</code> 直下のフォルダ名になり、インデックスの同一性を表す。<code>path</code> を書き換えても <code>name</code> は変わらないため、フォルダを移してもインデックスを作り直さない（<a href="../../indexer/flow/#クロール対象フォルダとインデックス名">クロール対象フォルダとインデックス名</a>）。
 画面では<strong>追加した時点で名前を決めて保存する</strong>（追加のダイアログの既定値は <code>newIndexName</code>）。名前の無い設定（設定ファイルを直接書き換えた場合など）を読み込んだときは、<code>assignIndexNames</code> で名前を割り当てて保存してから一覧に出す。</p>
 <h2 id="一覧の列">一覧の列<a class="headerlink" href="#一覧の列" title="Permanent link">&para;</a></h2>
 <table>
@@ -2859,7 +2859,7 @@
 <tr>
 <td>インデックス名</td>
 <td>150</td>
-<td><code>work\index</code> 直下のフォルダ名（<code>targetFolders[].name</code>）。検索対象のツリー・検索結果の表示にも使う</td>
+<td><code>work\content_index</code> 直下のフォルダ名（<code>targetFolders[].name</code>）。検索対象のツリー・検索結果の表示にも使う</td>
 </tr>
 <tr>
 <td>元のフォルダ</td>
@@ -2904,7 +2904,7 @@
 </tr>
 <tr>
 <td>インデックス名</td>
-<td>画面では <code>インデックス名</code> とだけ書き、<code>work\index</code> 直下のフォルダ名になることは書かない（利用者が決めるのは検索対象の一覧と検索結果に出る名前のため）。入力欄の下は <code>検索対象の一覧と検索結果に、この名前が出ます。\ / : * ? " &lt; &gt; | は使えません。</code>。<strong>追加では、フォルダを指定すると <code>newIndexName</code> の名前を自動で入れる</strong>（利用者が名前を変えた後は上書きしない）。編集では今の名前を初期値にする</td>
+<td>画面では <code>インデックス名</code> とだけ書き、<code>work\content_index</code> 直下のフォルダ名になることは書かない（利用者が決めるのは検索対象の一覧と検索結果に出る名前のため）。入力欄の下は <code>検索対象の一覧と検索結果に、この名前が出ます。\ / : * ? " &lt; &gt; | は使えません。</code>。<strong>追加では、フォルダを指定すると <code>newIndexName</code> の名前を自動で入れる</strong>（利用者が名前を変えた後は上書きしない）。編集では今の名前を初期値にする</td>
 </tr>
 <tr>
 <td>注意書き（編集のみ）</td>
@@ -2975,14 +2975,14 @@
 <h3 id="名前を変えたときの処理renameindex">名前を変えたときの処理（<code>renameIndex</code>）<a class="headerlink" href="#名前を変えたときの処理renameindex" title="Permanent link">&para;</a></h3>
 <p>名前を変えても<strong>インデックスは作り直さない</strong>。次の順に、名前だけを付け替える。</p>
 <ol>
-<li><code>work\index\&lt;旧名&gt;</code> を <code>work\index\&lt;新名&gt;</code> に改名する（長いパスの本文インデックスのファイル・TSV があっても扱えるよう <code>\\?\</code> 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する</li>
+<li><code>work\content_index\&lt;旧名&gt;</code> を <code>work\content_index\&lt;新名&gt;</code> に改名する（長いパスの本文インデックスのファイル・TSV があっても扱えるよう <code>\\?\</code> 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する</li>
 <li>取り込み一覧（<code>work/取り込み一覧.tsv</code>）の <code>クロール対象フォルダ</code> の行のインデックス名と、各行の相対パスの先頭（<code>&lt;旧名&gt;\…</code> → <code>&lt;新名&gt;\…</code>）を書き換える（<code>renameStatusIndexName</code>。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）</li>
 <li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの元のフォルダの記録（<code>元のフォルダ.txt</code>）を書き直す（<code>updateIndexSourceFile</code>）</li>
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、旧名・新名の下のものを消す（<code>removeSearchExcludesUnder</code>）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない</li>
 </ol>
 <h3 id="削除したときの処理removeindex">削除したときの処理（<code>removeIndex</code>）<a class="headerlink" href="#削除したときの処理removeindex" title="Permanent link">&para;</a></h3>
 <ol>
-<li><code>work\index\&lt;名前&gt;</code> を中身ごと削除する（<code>\\?\</code> 付き）</li>
+<li><code>work\content_index\&lt;名前&gt;</code> を中身ごと削除する（<code>\\?\</code> 付き）</li>
 <li>取り込み一覧から、そのインデックスの <code>クロール対象フォルダ</code> の行と各ファイルの行を取り除く（<code>removeStatusIndexName</code>）</li>
 <li><code>setting.config</code> から外して保存し、元のフォルダの記録を書き直す</li>
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、そのインデックスの下のものを消す（<code>removeSearchExcludesUnder</code>。手順 2 の直後に別スレッドの中で行う。消せなくても削除は止めず、画面にエラーも出さない）</li>

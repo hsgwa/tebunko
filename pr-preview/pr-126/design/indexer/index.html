@@ -2561,7 +2561,7 @@
 <p><strong>例</strong>: <code>C:\共有\営業部\見積\(株)山田商事_見積書.xlsx</code> に「見積」シートがあり、1 行目に <code>品名 数量 単価</code>、2 行目に <code>りんご 10 100</code> と書いてあるとする。</p>
 <pre class="mermaid"><code>flowchart LR
     X["(株)山田商事_見積書.xlsx&lt;br&gt;シート「見積」"] -- "① 取り込み&lt;br&gt;Excel でシートを&lt;br&gt;テキストに書き出す" --&gt; T["場所ごとの TSV&lt;br&gt;（1 行 = Excel の 1 行）"]
-    T -- "② フォルダの取り込みが&lt;br&gt;終わったら本文インデックスに入れる" --&gt; P[("本文インデックス&lt;br&gt;index/営業部/見積/&lt;br&gt;content.xlsx.001.tsv")]
+    T -- "② フォルダの取り込みが&lt;br&gt;終わったら本文インデックスに入れる" --&gt; P[("本文インデックス&lt;br&gt;content_index/営業部/見積/&lt;br&gt;content_index.xlsx.001.tsv")]
     P -- "③ 検索は&lt;br&gt;本文インデックスだけを読む" --&gt; R["結果: (株)山田商事_見積書.xlsx&lt;br&gt;見積・2 行目「りんご…」"]</code></pre>
 <ol>
 <li><strong>取り込み</strong>：元のファイルのコピーを開き、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
@@ -2590,7 +2590,7 @@
 <tbody>
 <tr>
 <td>本文インデックス</td>
-<td><code>work/index/&lt;インデックス名&gt;/&lt;フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/&lt;フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
 <td>検索が読む本体。<strong>インデックス名</strong>は、画面で登録したフォルダ（クロール対象フォルダ）1 つごとの名前</td>
 </tr>
 <tr>
@@ -2649,7 +2649,7 @@
 <li><a href="known-issues/">既知の問題</a></li>
 </ul>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下の Office ファイル（Excel・Word・PowerPoint）を、シート・ページ・スライドごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの本文インデックスにまとめて <code>work/index/&lt;インデックス名&gt;/</code> に保存する（<a href="index-format/#配置命名規則">配置・命名規則</a>）。</p>
+<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下の Office ファイル（Excel・Word・PowerPoint）を、シート・ページ・スライドごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/&lt;インデックス名&gt;/</code> に保存する（<a href="index-format/#配置命名規則">配置・命名規則</a>）。</p>
 <table>
 <thead>
 <tr>
@@ -2756,12 +2756,12 @@
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
 <td>フォルダ・元のファイルの拡張子ごとの本文インデックス（<a href="index-format/">インデックスの形式</a>）。インデックス名はクロール対象フォルダごと。取り込み中だけ、シート・ページ・スライドごとの TSV（<code>&lt;相対フォルダ&gt;/&lt;ファイル名&gt;/*.tsv</code>）を置く</td>
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
 <td>インデックス名とクロール対象フォルダの対応（<a href="flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>）。インデックスを別の PC・場所へコピーしても、検索結果から元のファイルを開けるようにする</td>
 </tr>
 </tbody>
@@ -2772,7 +2772,7 @@
 <li>パスは 1 つの書き方にそろえる（<code>normalizeFolderPath</code>）。エクスプローラーの「パスのコピー」をそのまま貼り付けられる。</li>
 <li>前後の空白・<code>"</code> と末尾の <code>\</code> を取り除く（ドライブ直下は <code>D:\</code> のまま、UNC の共有直下は <code>\\server\share</code>）。</li>
 <li>環境変数（<code>%USERPROFILE%</code> など）を展開し、<code>/</code> を <code>\</code> にそろえ、長いパス用の <code>\\?\</code> ・ <code>\\?\UNC\</code> を外し、重なった <code>\</code> ・ <code>.</code> ・ <code>..</code> を解決する。</li>
-<li>相対パス（<code>work\index</code> など）は tebunko のフォルダからとみなして絶対パスにする。</li>
+<li>相対パス（<code>work\content_index</code> など）は tebunko のフォルダからとみなして絶対パスにする。</li>
 <li>パスとして解釈できない場合（<code>*</code> <code>?</code> を含む・共有名の無い <code>\\server</code> ・ <code>\</code> ひとつで始まる）は、書かれたとおりに扱う（存在しないフォルダになる）。</li>
 <li>同じフォルダ（大文字・小文字、末尾の <code>\</code> の違いを含む）が複数あれば、最初のものだけを使う。
   ネットワークドライブと UNC パス（<code>Z:\見積</code> と <code>\\server\share\見積</code>）、<code>subst</code> のドライブと割り当て元のフォルダのように、
@@ -2804,7 +2804,7 @@
 </tr>
 <tr>
 <td>一覧から削除</td>
-<td><code>work/index/&lt;インデックス名&gt;</code> を丸ごと削除し、取り込み一覧からも除く（<code>クロール対象から削除されたフォルダ（&lt;パス&gt;）のインデックスを削除しました。</code>）</td>
+<td><code>work/content_index/&lt;インデックス名&gt;</code> を丸ごと削除し、取り込み一覧からも除く（<code>クロール対象から削除されたフォルダ（&lt;パス&gt;）のインデックスを削除しました。</code>）</td>
 </tr>
 </tbody>
 </table>
