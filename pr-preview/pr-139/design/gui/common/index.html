@@ -1561,6 +1561,8 @@
       
         
       
+        
+      
     
     
     
@@ -1764,6 +1766,34 @@
     
   
     プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/closing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    閉じるときの順番と GC
   
 
     
@@ -2585,6 +2615,8 @@
       
         
       
+        
+      
     
     
     
@@ -2927,6 +2959,34 @@
     
   
     元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のフォルダ・元のファイルがネットワークにあるとき
   
 
     
@@ -4016,7 +4076,7 @@
 </tr>
 <tr>
 <td>最初に開くフォルダ</td>
-<td>呼び出し元が渡したフォルダ（［参照…］は今の入力値）。無ければその上の、今もあるフォルダ（<code>getExistingAncestorFolder</code>）。どこにも無ければ Windows に任せる（前回開いた場所）</td>
+<td>呼び出し元が渡したフォルダ（［参照…］は今の入力値）。<strong>ネットワークのパスは、画面のスレッドで有無を調べない。</strong> ローカルなら、無ければその上の、今もあるフォルダ（<code>getExistingAncestorFolder</code>）。ネットワークのパスは、直前の「フォルダの状態」の確認で「ある」と分かったフォルダ（編集中のインデックスの元のフォルダで、場所を書き換えていないとき）だけを、調べずにそのまま使う（<code>selectFolder</code> の <code>knownExisting</code>）。それ以外はどこにも無いのと同じ扱いにする。どこにも無ければ Windows に任せる（前回開いた場所）</td>
 </tr>
 <tr>
 <td>親ウィンドウ</td>

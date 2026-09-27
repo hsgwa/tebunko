@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://hsgwa.github.io/tebunko/guide/limitations/">
+        <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/structure/closing/">
       
       
-        <link rel="prev" href="../faq/">
+        <link rel="prev" href="../threads/">
       
       
-        <link rel="next" href="../keyboard/">
+        <link rel="next" href="../classes/">
       
       
         
       
       
-      <link rel="icon" href="../../images/logo.svg">
+      <link rel="icon" href="../../../images/logo.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>制限事項 - tebunko</title>
+        <title>閉じるときの順番と GC - tebunko</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,9 +47,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#制限事項" class="md-skip">
+        <a href="#閉じるときの順番と-gc" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -88,9 +88,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="ヘッダー">
-    <a href="../.." title="tebunko" class="md-header__button md-logo" aria-label="tebunko" data-md-component="logo">
+    <a href="../../.." title="tebunko" class="md-header__button md-logo" aria-label="tebunko" data-md-component="logo">
       
-  <img src="../../images/logo.svg" alt="logo">
+  <img src="../../../images/logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              制限事項
+              閉じるときの順番と GC
             
           </span>
         </div>
@@ -218,7 +218,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href="../../.." class="md-tabs__link">
         
   
   
@@ -235,13 +235,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../guide/" class="md-tabs__link">
           
   
   
@@ -259,11 +257,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../design/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
           
   
   
@@ -299,9 +299,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="ナビゲーション" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="tebunko" class="md-nav__button md-logo" aria-label="tebunko" data-md-component="logo">
+    <a href="../../.." title="tebunko" class="md-nav__button md-logo" aria-label="tebunko" data-md-component="logo">
       
-  <img src="../../images/logo.svg" alt="logo">
+  <img src="../../../images/logo.svg" alt="logo">
 
     </a>
     tebunko
@@ -328,7 +328,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -352,8 +352,6 @@
       
   
   
-    
-  
   
   
     
@@ -375,23 +373,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../../guide/" class="md-nav__link ">
               
   
   
@@ -409,13 +404,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -447,20 +442,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_2" >
         
           
-          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
             
   
   
@@ -496,7 +488,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../about-index/" class="md-nav__link">
+      <a href="../../../guide/about-index/" class="md-nav__link">
         
   
   
@@ -524,7 +516,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../quickstart/" class="md-nav__link">
+      <a href="../../../guide/quickstart/" class="md-nav__link">
         
   
   
@@ -580,20 +572,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" >
         
           
-          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
             
   
   
@@ -629,7 +618,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../indexing/" class="md-nav__link">
+      <a href="../../../guide/indexing/" class="md-nav__link">
         
   
   
@@ -657,7 +646,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../search/" class="md-nav__link">
+      <a href="../../../guide/search/" class="md-nav__link">
         
   
   
@@ -685,7 +674,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../open-files/" class="md-nav__link">
+      <a href="../../../guide/open-files/" class="md-nav__link">
         
   
   
@@ -713,7 +702,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../fast-search/" class="md-nav__link">
+      <a href="../../../guide/fast-search/" class="md-nav__link">
         
   
   
@@ -741,7 +730,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../settings/" class="md-nav__link">
+      <a href="../../../guide/settings/" class="md-nav__link">
         
   
   
@@ -769,7 +758,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../process/" class="md-nav__link">
+      <a href="../../../guide/process/" class="md-nav__link">
         
   
   
@@ -817,20 +806,17 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
         
           
-          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
             
   
   
@@ -899,7 +885,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../safety/" class="md-nav__link ">
+            <a href="../../../safety/" class="md-nav__link ">
               
   
   
@@ -943,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../safety/checks/" class="md-nav__link">
+      <a href="../../../safety/checks/" class="md-nav__link">
         
   
   
@@ -971,7 +957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../safety/file-access/" class="md-nav__link">
+      <a href="../../../safety/file-access/" class="md-nav__link">
         
   
   
@@ -999,7 +985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../safety/disclosure/" class="md-nav__link">
+      <a href="../../../safety/disclosure/" class="md-nav__link">
         
   
   
@@ -1027,7 +1013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../safety/scans/" class="md-nav__link">
+      <a href="../../../safety/scans/" class="md-nav__link">
         
   
   
@@ -1055,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../safety/supply-chain/" class="md-nav__link">
+      <a href="../../../safety/supply-chain/" class="md-nav__link">
         
   
   
@@ -1091,7 +1077,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../update-uninstall/" class="md-nav__link">
+      <a href="../../../guide/update-uninstall/" class="md-nav__link">
         
   
   
@@ -1124,10 +1110,8 @@
                 
   
   
-    
   
   
-  
     
     
       
@@ -1146,21 +1130,18 @@
     
       
       
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
         
           
-          
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
             
   
   
@@ -1178,7 +1159,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1196,7 +1177,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+      <a href="../../../guide/troubleshooting/" class="md-nav__link">
         
   
   
@@ -1224,7 +1205,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../faq/" class="md-nav__link">
+      <a href="../../../guide/faq/" class="md-nav__link">
         
   
   
@@ -1249,37 +1230,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    制限事項
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../guide/limitations/" class="md-nav__link">
         
   
   
@@ -1295,92 +1249,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="目次">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      目次
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#検索対象外の内容" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        検索対象外の内容
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#取り込めないファイル" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        取り込めないファイル
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#検索" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        検索
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#excel-の数値" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Excel の数値
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#word-のページ番号" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Word のページ番号
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#検索結果への反映" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        検索結果への反映
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1393,7 +1261,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keyboard/" class="md-nav__link">
+      <a href="../../../guide/keyboard/" class="md-nav__link">
         
   
   
@@ -1421,7 +1289,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/errors/" class="md-nav__link">
+      <a href="../../indexing/errors/" class="md-nav__link">
         
   
   
@@ -1461,6 +1329,8 @@
       
   
   
+    
+  
   
   
     
@@ -1490,20 +1360,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../design/" class="md-nav__link ">
+            <a href="../../" class="md-nav__link ">
               
   
   
@@ -1521,13 +1394,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1559,17 +1432,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   
@@ -1605,7 +1481,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/start/onboarding/" class="md-nav__link">
+      <a href="../../start/onboarding/" class="md-nav__link">
         
   
   
@@ -1633,7 +1509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/start/review-map/" class="md-nav__link">
+      <a href="../../start/review-map/" class="md-nav__link">
         
   
   
@@ -1666,8 +1542,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1692,18 +1570,21 @@
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   
@@ -1721,7 +1602,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1739,7 +1620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/structure/source/" class="md-nav__link">
+      <a href="../source/" class="md-nav__link">
         
   
   
@@ -1767,7 +1648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/structure/folders/" class="md-nav__link">
+      <a href="../folders/" class="md-nav__link">
         
   
   
@@ -1795,7 +1676,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/structure/data/" class="md-nav__link">
+      <a href="../data/" class="md-nav__link">
         
   
   
@@ -1823,7 +1704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/structure/io-files/" class="md-nav__link">
+      <a href="../io-files/" class="md-nav__link">
         
   
   
@@ -1851,7 +1732,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/structure/settings-file/" class="md-nav__link">
+      <a href="../settings-file/" class="md-nav__link">
         
   
   
@@ -1879,7 +1760,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/structure/threads/" class="md-nav__link">
+      <a href="../threads/" class="md-nav__link">
         
   
   
@@ -1904,10 +1785,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../design/structure/closing/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    閉じるときの順番と GC
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1923,6 +1831,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#閉じるときの順番" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        閉じるときの順番
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gc-とメモリ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GC とメモリ
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1935,7 +1885,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/structure/classes/" class="md-nav__link">
+      <a href="../classes/" class="md-nav__link">
         
   
   
@@ -2005,10 +1955,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -2016,7 +1969,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../design/indexing/" class="md-nav__link ">
+            <a href="../../indexing/" class="md-nav__link ">
               
   
   
@@ -2034,7 +1987,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -2060,7 +2013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/flow/" class="md-nav__link">
+      <a href="../../indexing/flow/" class="md-nav__link">
         
   
   
@@ -2088,7 +2041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/crawl/" class="md-nav__link">
+      <a href="../../indexing/crawl/" class="md-nav__link">
         
   
   
@@ -2116,7 +2069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/target-decision/" class="md-nav__link">
+      <a href="../../indexing/target-decision/" class="md-nav__link">
         
   
   
@@ -2144,7 +2097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/ingest-list/" class="md-nav__link">
+      <a href="../../indexing/ingest-list/" class="md-nav__link">
         
   
   
@@ -2172,7 +2125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/parallel/" class="md-nav__link">
+      <a href="../../indexing/parallel/" class="md-nav__link">
         
   
   
@@ -2200,7 +2153,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/excel/" class="md-nav__link">
+      <a href="../../indexing/excel/" class="md-nav__link">
         
   
   
@@ -2228,7 +2181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/word/" class="md-nav__link">
+      <a href="../../indexing/word/" class="md-nav__link">
         
   
   
@@ -2256,7 +2209,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/powerpoint/" class="md-nav__link">
+      <a href="../../indexing/powerpoint/" class="md-nav__link">
         
   
   
@@ -2284,7 +2237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/office-apps/" class="md-nav__link">
+      <a href="../../indexing/office-apps/" class="md-nav__link">
         
   
   
@@ -2312,7 +2265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/errors/" class="md-nav__link">
+      <a href="../../indexing/errors/" class="md-nav__link">
         
   
   
@@ -2340,7 +2293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/indexing/known-issues/" class="md-nav__link">
+      <a href="../../indexing/known-issues/" class="md-nav__link">
         
   
   
@@ -2390,17 +2343,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
             
   
   
@@ -2436,7 +2392,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/index-data/format/" class="md-nav__link">
+      <a href="../../index-data/format/" class="md-nav__link">
         
   
   
@@ -2464,7 +2420,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/index-data/publish/" class="md-nav__link">
+      <a href="../../index-data/publish/" class="md-nav__link">
         
   
   
@@ -2492,7 +2448,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/index-data/system-index/" class="md-nav__link">
+      <a href="../../index-data/system-index/" class="md-nav__link">
         
   
   
@@ -2546,10 +2502,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -2557,7 +2516,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../design/search/" class="md-nav__link ">
+            <a href="../../search/" class="md-nav__link ">
               
   
   
@@ -2575,7 +2534,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -2601,7 +2560,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/search/speed/" class="md-nav__link">
+      <a href="../../search/speed/" class="md-nav__link">
         
   
   
@@ -2629,7 +2588,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/search/fast-search/" class="md-nav__link">
+      <a href="../../search/fast-search/" class="md-nav__link">
         
   
   
@@ -2657,7 +2616,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/search/output/" class="md-nav__link">
+      <a href="../../search/output/" class="md-nav__link">
         
   
   
@@ -2733,10 +2692,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -2744,7 +2706,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../design/gui/" class="md-nav__link ">
+            <a href="../../gui/" class="md-nav__link ">
               
   
   
@@ -2762,7 +2724,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -2788,7 +2750,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/state-flow/" class="md-nav__link">
+      <a href="../../gui/state-flow/" class="md-nav__link">
         
   
   
@@ -2816,7 +2778,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/common/" class="md-nav__link">
+      <a href="../../gui/common/" class="md-nav__link">
         
   
   
@@ -2844,7 +2806,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/messages/" class="md-nav__link">
+      <a href="../../gui/messages/" class="md-nav__link">
         
   
   
@@ -2872,7 +2834,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/index-tab/" class="md-nav__link">
+      <a href="../../gui/index-tab/" class="md-nav__link">
         
   
   
@@ -2900,7 +2862,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/indexing-run/" class="md-nav__link">
+      <a href="../../gui/indexing-run/" class="md-nav__link">
         
   
   
@@ -2928,7 +2890,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/search-tab/" class="md-nav__link">
+      <a href="../../gui/search-tab/" class="md-nav__link">
         
   
   
@@ -2956,7 +2918,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/open-file/" class="md-nav__link">
+      <a href="../../gui/open-file/" class="md-nav__link">
         
   
   
@@ -2984,7 +2946,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/network/" class="md-nav__link">
+      <a href="../../gui/network/" class="md-nav__link">
         
   
   
@@ -3012,7 +2974,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/preview/" class="md-nav__link">
+      <a href="../../gui/preview/" class="md-nav__link">
         
   
   
@@ -3040,7 +3002,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/search-tree/" class="md-nav__link">
+      <a href="../../gui/search-tree/" class="md-nav__link">
         
   
   
@@ -3068,7 +3030,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/settings-tab/" class="md-nav__link">
+      <a href="../../gui/settings-tab/" class="md-nav__link">
         
   
   
@@ -3096,7 +3058,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/process-tab/" class="md-nav__link">
         
   
   
@@ -3124,7 +3086,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/implementation/" class="md-nav__link">
+      <a href="../../gui/implementation/" class="md-nav__link">
         
   
   
@@ -3152,7 +3114,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/responsiveness/" class="md-nav__link">
+      <a href="../../gui/responsiveness/" class="md-nav__link">
         
   
   
@@ -3224,10 +3186,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -3235,7 +3200,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../design/testing/" class="md-nav__link ">
+            <a href="../../testing/" class="md-nav__link ">
               
   
   
@@ -3253,7 +3218,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_8" id="__nav_3_8_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -3279,7 +3244,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/run/" class="md-nav__link">
+      <a href="../../testing/run/" class="md-nav__link">
         
   
   
@@ -3307,7 +3272,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/ci/" class="md-nav__link">
+      <a href="../../testing/ci/" class="md-nav__link">
         
   
   
@@ -3335,7 +3300,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/perf/" class="md-nav__link">
+      <a href="../../testing/perf/" class="md-nav__link">
         
   
   
@@ -3363,7 +3328,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/perf-check/" class="md-nav__link">
+      <a href="../../testing/perf-check/" class="md-nav__link">
         
   
   
@@ -3391,7 +3356,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/pre-commit/" class="md-nav__link">
+      <a href="../../testing/pre-commit/" class="md-nav__link">
         
   
   
@@ -3419,7 +3384,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/unit-index/" class="md-nav__link">
+      <a href="../../testing/unit-index/" class="md-nav__link">
         
   
   
@@ -3447,7 +3412,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/unit-indexer/" class="md-nav__link">
+      <a href="../../testing/unit-indexer/" class="md-nav__link">
         
   
   
@@ -3475,7 +3440,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/unit-office/" class="md-nav__link">
+      <a href="../../testing/unit-office/" class="md-nav__link">
         
   
   
@@ -3503,7 +3468,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/unit-checks/" class="md-nav__link">
+      <a href="../../testing/unit-checks/" class="md-nav__link">
         
   
   
@@ -3531,7 +3496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/gui-tests/" class="md-nav__link">
+      <a href="../../testing/gui-tests/" class="md-nav__link">
         
   
   
@@ -3559,7 +3524,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/testing/gui-smoke/" class="md-nav__link">
+      <a href="../../testing/gui-smoke/" class="md-nav__link">
         
   
   
@@ -3643,10 +3608,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -3654,7 +3622,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../design/reference/" class="md-nav__link ">
+            <a href="../../reference/" class="md-nav__link ">
               
   
   
@@ -3672,7 +3640,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_9" id="__nav_3_9_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_9" id="__nav_3_9_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -3698,7 +3666,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/reference/settings/" class="md-nav__link">
+      <a href="../../reference/settings/" class="md-nav__link">
         
   
   
@@ -3726,7 +3694,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/reference/indexer/" class="md-nav__link">
+      <a href="../../reference/indexer/" class="md-nav__link">
         
   
   
@@ -3754,7 +3722,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/reference/tsv/" class="md-nav__link">
+      <a href="../../reference/tsv/" class="md-nav__link">
         
   
   
@@ -3782,7 +3750,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/reference/search/" class="md-nav__link">
+      <a href="../../reference/search/" class="md-nav__link">
         
   
   
@@ -3845,10 +3813,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#検索対象外の内容" class="md-nav__link">
+  <a href="#閉じるときの順番" class="md-nav__link">
     <span class="md-ellipsis">
       
-        検索対象外の内容
+        閉じるときの順番
       
     </span>
   </a>
@@ -3856,54 +3824,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#取り込めないファイル" class="md-nav__link">
+  <a href="#gc-とメモリ" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込めないファイル
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#検索" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        検索
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#excel-の数値" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Excel の数値
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#word-のページ番号" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Word のページ番号
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#検索結果への反映" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        検索結果への反映
+        GC とメモリ
       
     </span>
   </a>
@@ -3930,39 +3854,83 @@
   
 
 
-<h1 id="制限事項">制限事項<a class="headerlink" href="#制限事項" title="Permanent link">&para;</a></h1>
-<p>tebunko の検索対象外となる内容と、機能上の制限をまとめます。既知の問題の詳細は、設計書の <a href="../../design/indexing/known-issues/">既知の問題</a> を参照してください。</p>
-<h2 id="検索対象外の内容">検索対象外の内容<a class="headerlink" href="#検索対象外の内容" title="Permanent link">&para;</a></h2>
+<h1 id="閉じるときの順番と-gc">閉じるときの順番と GC<a class="headerlink" href="#閉じるときの順番と-gc" title="Permanent link">&para;</a></h1>
+<p>扱うこと: 画面を閉じるときの手順（インデックス作成中の確認・スレッドの片づけ順）、GC がスレッドを止める問題とその対策。扱わないこと: プロセス・スレッドの一覧・寿命そのもの（<a href="../threads/">プロセスとスレッド</a>）。先に読むページ: <a href="../threads/">プロセスとスレッド</a>。</p>
+<h2 id="閉じるときの順番">閉じるときの順番<a class="headerlink" href="#閉じるときの順番" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant U as 利用者
+    participant G as 画面
+    participant I as インデクサ
+    participant S as 検索・バックグラウンド
+    U-&gt;&gt;G: 閉じる
+    alt インデックス作成中
+        G-&gt;&gt;U: 「まだインデックス作成の途中です。止めてから閉じますか？」
+        U-&gt;&gt;G: ［インデックス作成を止めて閉じる］
+        G-&gt;&gt;I: Stop
+        G-&gt;&gt;G: 閉じるのを保留して「インデックス作成を止めています…」&lt;br&gt;closeTimer（0.5 秒ごと）で終わりを待つ
+        I-&gt;&gt;I: 取り込み中のファイルの区切りで止まる&lt;br&gt;本文インデックスを書き出す・Office を終了
+        I--&gt;&gt;G: 終了
+    end
+    G-&gt;&gt;S: 検索を取り消す
+    G-&gt;&gt;G: closeTimer・インデックス作成のタイマーを止める
+    G-&gt;&gt;I: IndexingSession.Close
+    G-&gt;&gt;S: 検索の司令（照合のプール）を閉じる
+    G-&gt;&gt;S: バックグラウンド・ネットワークを調べる列に Abandon（止まった仕事を待たない）
+    G-&gt;&gt;G: ミューテックスを解放
+    G-&gt;&gt;U: 閉じる</code></pre>
 <ul>
-<li>画像内の文字（スキャンした文書の画像など）</li>
-<li>埋め込みオブジェクト（ブックに埋め込まれた別ファイルなど）内の文字</li>
-<li>Excel の非表示シート・ヘッダー/フッター・グラフ・SmartArt の文字</li>
-<li>PowerPoint のスライドマスターの文字</li>
+<li>確認の選択肢は［インデックス作成を止めて閉じる］と［閉じない］だけである。インデックス作成を続けたまま画面を閉じることはできない。確認している間にインデックス作成が終わっていれば、そのまま閉じる。</li>
+<li>Office が固まってインデクサが戻らないときは、まず監視が制限時間で Office を止める。画面は 60 秒待っても終わらなければ、インデックス作成が起動した Office を PID で止め（<code>IndexingSession.KillOffice</code>）、さらに 15 秒待つ。それでも終わらなければ、そのまま閉じる（スレッドは <code>IndexingSession.Close</code> で止める）。</li>
+<li>止めるのは、インデックス作成が起動して PID を記録した Office（<code>OfficePids</code>）だけである。PID が別のプロセスに使い回されていないよう、記録したプロセス名と同じかも確かめる。利用者が開いていた Office は止めない。</li>
+<li>止めるのを待っている間にもう一度閉じようとしても、何もしない。</li>
+<li><strong>バックグラウンド・ネットワークを調べる列は、<code>Close</code> ではなく <code>BackgroundQueue.Abandon</code> で片づける。</strong> 届かない共有の <code>Test-Path</code> など、OS の呼び出しで戻らない仕事があると、<code>Close</code>（<code>WorkerPool.Cancel</code> → <code>PowerShell.Stop()</code> → <code>Dispose()</code>）は止まるまで待ってしまう。<code>Abandon</code> は、終わった仕事は片づけ、終わっていない仕事には止める依頼（<code>BeginStop</code>）だけを出してすぐ戻る。終わっていない仕事の <code>PowerShell</code> とランスペースのプールは <code>Dispose</code> せず、後始末はプロセスの終わりに任せる。<code>WorkerPool.Cancel</code>・<code>BackgroundQueue.Close</code> 自体の動き（止まるまで待つ）は変えない。中止した検索がその後にヒットや件数を書かないことが、検索の中止（<a href="../../indexing/parallel/">取り込みの並列化</a>ではなく <code>pack_search.ps1</code> の中止）で前提になっているため。</li>
+<li><strong>多重起動の鍵（ミューテックス）は、止まった裏の仕事を待たずにすぐ放す。</strong> 画面はすぐ消え、前のプロセスは止まった呼び出しが戻った後（OS の呼び出しの分だけ）に自分で終わる。次の起動は、鍵が放たれていれば数秒以内にできる。</li>
+<li>閉じる処理の途中で予期しない例外が起きたら、知らせたうえで、インデックス作成中なら確認を出さずに止める流れに入り、そうでなければそのまま閉じる。</li>
 </ul>
-<p>Word・PowerPoint の図形・SmartArt・グラフの文字は、［図形も検索］が有効な場合に検索対象となります。</p>
-<h2 id="取り込めないファイル">取り込めないファイル<a class="headerlink" href="#取り込めないファイル" title="Permanent link">&para;</a></h2>
+<h2 id="gc-とメモリ">GC とメモリ<a class="headerlink" href="#gc-とメモリ" title="Permanent link">&para;</a></h2>
+<p>スレッドは同じプロセスのヒープを使うため、インデクサや検索が大量にメモリを使うと、GC で画面のスレッドも止まる。</p>
+<p>実測（画面の代わりに 5ms ごとに起きるスレッドを動かし、遅れを測った。ヒープ 300MB、20 秒）では、次のとおりだった。</p>
+<table>
+<thead>
+<tr>
+<th>負荷</th>
+<th>遅れの最大</th>
+<th>50ms を超えた回数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>なし</td>
+<td>27.0ms</td>
+<td>0</td>
+</tr>
+<tr>
+<td>同じプロセスのスレッドで本文インデックスの読み書き</td>
+<td>45.0ms</td>
+<td>0</td>
+</tr>
+<tr>
+<td>別のプロセスで同じ負荷</td>
+<td>18.8ms</td>
+<td>0</td>
+</tr>
+<tr>
+<td>同じプロセス＋<code>SustainedLowLatency</code></td>
+<td>33.2ms</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<p>Windows のタイマーの刻み（約 15.6ms）を考えると、どれも画面の操作で気づく止まりではない。そのうえで、次を守る。</p>
 <ul>
-<li>読み取りパスワードが設定されたファイル（パスワードを解除したコピーであれば取り込めます）</li>
-<li>1 ファイルの取り込みに 10 分以上を要するファイル（サイズが極端に大きい、開く際にダイアログが表示される、など）</li>
-<li>破損したファイル、または拡張子と内容の形式が一致しないファイル</li>
+<li>起動時に <code>GCSettings.LatencyMode</code> を <code>SustainedLowLatency</code> にする（重い全体の GC を後回しにする）。</li>
+<li>読んだ内容のキャッシュに予算（文字数）を決め、超えたら使われていないものから追い出す。追い出しは検索の司令のスレッドで、検索の後に行う（<code>trimTsvTextCache</code>）。</li>
+<li>キャッシュの各内容には、最後に使った世代を付ける。世代は検索 1 回ごとに 1 つ進める。</li>
+<li>予算の 90% を超えていたら、今の世代（いま終わった検索）で使わなかったものを、古い世代から追い出す。今の世代で使ったものは残す（毎回同じ本文インデックスのファイルを順に読むため、使った順だけで追い出すと、予算より大きいインデックスでは何も残らない）。</li>
+<li>画面のスレッドで大きな文字列を作らない。プレビューの読み込み（<code>readPackContext</code>）はバックグラウンドのスレッドで行い、表示する分だけを受け取る。</li>
+<li>検索の結果は、時間で区切って少しずつ画面に移す（<code>pumpSearch</code>）。</li>
 </ul>
-<p>取り込めなかったファイルは、［1 インデックス管理］の「取り込みに失敗したファイル」に原因とともに表示されます（<a href="../troubleshooting/#取り込みに失敗したファイルがある場合">トラブルシューティング</a>）。</p>
-<h2 id="検索">検索<a class="headerlink" href="#検索" title="Permanent link">&para;</a></h2>
-<ul>
-<li>1 回の検索で指定できる検索ワードは 1 つ（1 つの文字列）です。複数語の AND・OR 検索には対応していません（［正規表現を使う］を有効にすれば OR 条件を記述できます）。</li>
-<li>表示できる検索結果は 10,000 件までです。</li>
-<li>正規表現による検索で、1 行の照合に 5 秒以上を要する場合は、その照合を打ち切ります。</li>
-</ul>
-<h2 id="excel-の数値">Excel の数値<a class="headerlink" href="#excel-の数値" title="Permanent link">&para;</a></h2>
-<p>Excel のセルは、画面上の表示形式で検索します。</p>
-<ul>
-<li>表示形式により <code>1,234</code> と表示されているセルは <code>1,234</code> で検索でき、<code>1234</code> では検索できません。</li>
-<li>表示形式が「標準」で 12 桁以上の数値は指数表記（<code>4.90123E+12</code>）となるため、元の数値では検索できません。番号などは文字列として入力するか、表示形式を「数値」に設定してください。</li>
-</ul>
-<h2 id="word-のページ番号">Word のページ番号<a class="headerlink" href="#word-のページ番号" title="Permanent link">&para;</a></h2>
-<p>Word の検索結果に表示するページ番号は目安です。取り込み時のページ区切りに基づくため、プリンターや表示の設定により、実際のページと異なる場合があります。</p>
-<h2 id="検索結果への反映">検索結果への反映<a class="headerlink" href="#検索結果への反映" title="Permanent link">&para;</a></h2>
-<p>元のファイルの変更は、次回のインデックス作成後に検索結果へ反映されます。それまでは、前回取り込んだ時点の内容で検索します。</p>
+<p>実装を変えたときは、画面の心拍（画面のスレッドの <code>DispatcherTimer</code> の遅れ）を、インデックス作成と検索を同時に動かして測る。100ms を超える止まりが出るようなら、インデクサだけを別のプロセスに戻すことを検討する。</p>
 
 
 
@@ -3998,7 +3966,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../faq/" class="md-footer__link md-footer__link--prev" aria-label="前: よくある質問">
+          <a href="../threads/" class="md-footer__link md-footer__link--prev" aria-label="前: プロセスとスレッド">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4008,20 +3976,20 @@
                 前
               </span>
               <div class="md-ellipsis">
-                よくある質問
+                プロセスとスレッド
               </div>
             </div>
           </a>
         
         
           
-          <a href="../keyboard/" class="md-footer__link md-footer__link--next" aria-label="次: キーボード操作">
+          <a href="../classes/" class="md-footer__link md-footer__link--next" aria-label="次: クラスと関数の使い分け">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                キーボード操作
+                クラスと関数の使い分け
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -4062,12 +4030,12 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="../../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
+        <script src="../../../assets/external/unpkg.com/mermaid@11.17.2/dist/mermaid.min.js"></script>
       
     
   </body>

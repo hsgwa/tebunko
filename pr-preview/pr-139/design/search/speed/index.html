@@ -1561,6 +1561,8 @@
       
         
       
+        
+      
     
     
     
@@ -1764,6 +1766,34 @@
     
   
     プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/closing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    閉じるときの順番と GC
   
 
     
@@ -2595,6 +2625,8 @@
       
         
       
+        
+      
     
     
     
@@ -2835,6 +2867,34 @@
     
   
     元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のフォルダ・元のファイルがネットワークにあるとき
   
 
     
@@ -3772,7 +3832,7 @@
 </tr>
 <tr>
 <td>読んだ内容の使い回し</td>
-<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ本文インデックスのファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ本文インデックスのファイルはファイルを開かない。書き直した本文インデックスのファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readPackContext</code>）も同じ内容を使う。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../../structure/threads/#gc-とメモリ">GC とメモリ</a>）</td>
+<td>画面は <code>newTsvTextCache</code> を 1 つ持ち、検索で読んだ本文インデックスのファイルの内容と場所の一覧を残す（上限 6,400 万文字＝約 128MB）。次の検索では、更新日時・サイズが列挙したときと同じ本文インデックスのファイルはファイルを開かない。書き直した本文インデックスのファイルは更新日時・サイズが変わるため読み直す。選択行のプレビュー（<code>readPackContext</code>）も同じ内容を使う。検索 1 回が終わるたびに、上限の 9 割を超えていれば、その検索で使わなかった内容を古いものから追い出す（<code>trimTsvTextCache</code>。<a href="../../structure/closing/#gc-とメモリ">GC とメモリ</a>）</td>
 </tr>
 </tbody>
 </table>

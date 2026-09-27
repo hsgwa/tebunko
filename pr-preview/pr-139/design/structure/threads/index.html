@@ -16,7 +16,7 @@
         <link rel="prev" href="../settings-file/">
       
       
-        <link rel="next" href="../classes/">
+        <link rel="next" href="../closing/">
       
       
         
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1861,32 +1863,38 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#閉じるときの順番" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        閉じるときの順番
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gc-とメモリ" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GC とメモリ
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../closing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    閉じるときの順番と GC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2698,6 +2706,8 @@
       
         
       
+        
+      
     
     
     
@@ -2938,6 +2948,34 @@
     
   
     元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のフォルダ・元のファイルがネットワークにあるとき
   
 
     
@@ -3840,28 +3878,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#閉じるときの順番" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        閉じるときの順番
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gc-とメモリ" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GC とメモリ
-      
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -3883,7 +3899,7 @@
 
 
 <h1 id="プロセスとスレッド">プロセスとスレッド<a class="headerlink" href="#プロセスとスレッド" title="Permanent link">&para;</a></h1>
-<p>扱うこと: tebunko がどのプロセス・スレッドで動き、それぞれをいつ作っていつ片づけるか（寿命・優先度・STA と MTA・画面とインデクサの受け渡し・閉じるときの順番・GC とメモリ）。扱わないこと: インデックス作成の並列化そのもの（<a href="../../indexing/parallel/">取り込みの並列化</a>）、クラスと関数の使い分け（<a href="../classes/">クラスと関数の使い分け</a>）。先に読むページ: <a href="../source/">ソースの分け方</a>。検索・インデックス作成・画面の処理を足すときは、ここの決まりに合わせる。</p>
+<p>扱うこと: tebunko がどのプロセス・スレッドで動き、それぞれをいつ作っていつ片づけるか（寿命・優先度・STA と MTA・画面とインデクサの受け渡し）。扱わないこと: インデックス作成の並列化そのもの（<a href="../../indexing/parallel/">取り込みの並列化</a>）、クラスと関数の使い分け（<a href="../classes/">クラスと関数の使い分け</a>）、閉じるときの順番・GC とメモリ（<a href="../closing/">閉じるときの順番と GC</a>）。先に読むページ: <a href="../source/">ソースの分け方</a>。検索・インデックス作成・画面の処理を足すときは、ここの決まりに合わせる。</p>
 <table>
 <thead>
 <tr>
@@ -3909,12 +3925,8 @@
 <td><a href="#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 </tr>
 <tr>
-<td>閉じるときの順番</td>
-<td><a href="#閉じるときの順番">閉じるときの順番</a></td>
-</tr>
-<tr>
-<td>GC で画面を止めないための決まり</td>
-<td><a href="#gc-とメモリ">GC とメモリ</a></td>
+<td>閉じるときの順番・GC とメモリ</td>
+<td><a href="../closing/">閉じるときの順番と GC</a></td>
 </tr>
 </tbody>
 </table>
@@ -3922,12 +3934,29 @@
 <ul>
 <li><strong>画面のプロセス 1 つで動く。</strong> 検索・インデックス作成・画面の裏の読み込みは、どれも画面のプロセスの中のスレッドで行う。</li>
 <li><strong>別のプロセスになるのは Office（Excel・Word・PowerPoint）だけ。</strong> COM で操作するアプリは、COM の仕組みで別のプロセスとして動く。</li>
-<li><strong>画面を閉じたら何も残さない。</strong> インデックス作成中に閉じるときは、作成を中止してから閉じる（<a href="#閉じるときの順番">閉じるときの順番</a>）。作成を続けたまま画面だけを閉じることはできない。</li>
+<li><strong>画面を閉じたら何も残さない。</strong> インデックス作成中に閉じるときは、作成を中止してから閉じる（<a href="../closing/">閉じるときの順番</a>）。作成を続けたまま画面だけを閉じることはできない。</li>
 <li>画面は、インデックス作成 1 回ごとに <code>IndexingSession</code>（<code>newIndexingSession</code>）を作る。<code>IndexingSession</code> はインデクサの司令のスレッドを作り、そこで <code>indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する。</li>
 <li><code>indexer.ps1</code> は、画面を使わずにインデックスを作る入口としても使える（<code>-RetryFailed</code>）。<code>-Channel</code> を付けなければ自分で受け渡しの口を作り、ログをコンソールにも出す。中身は画面から使うものと同じ関数（<code>invokeIndexer</code>）で、コンソールのプロセスの中で同じスレッドの構成で動く。</li>
 <li>ツールが起動する外のプロセスは、エクスプローラー（<code>explorer.exe</code>）だけである。ワークスペースを変えても、画面は起動し直さない（その場で切り替える）。インデックス作成のために <code>powershell.exe</code> を起動することはない。</li>
 </ul>
-<p>分けない理由は、閉じるときに後始末を確実にするためと、受け渡しをファイルで行わずに済ませるためである。スレッドにすると GC で画面が止まるおそれがあるが、実測では画面の止まりが増えなかった（<a href="#gc-とメモリ">GC とメモリ</a>）。</p>
+<p>分けない理由は、閉じるときに後始末を確実にするためと、受け渡しをファイルで行わずに済ませるためである。スレッドにすると GC で画面が止まるおそれがあるが、実測では画面の止まりが増えなかった（<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph GUI["画面のプロセス"]
+        UI["画面 STA"] --&gt; IDX["インデクサ司令"]
+        SS["検索司令"]
+        BG["バックグラウンド ×2"]
+        IDX --&gt; ING["取り込み"]
+        MON["監視"]
+    end
+    EXCEL(["Excel.exe"])
+    WORD(["Word.exe（旧形式）"])
+    PPT(["PowerPoint.exe（旧形式）"])
+    EXP(["explorer.exe"])
+
+    MON -- 超過で PID 停止 --&gt; EXCEL &amp; WORD &amp; PPT
+    ING -- COM --&gt; EXCEL &amp; WORD &amp; PPT
+    UI -- COM --&gt; EXCEL
+    UI --&gt; EXP</code></pre>
 <h2 id="スレッドの一覧">スレッドの一覧<a class="headerlink" href="#スレッドの一覧" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3947,7 +3976,7 @@
 <td>アプリ</td>
 <td>STA</td>
 <td>Normal</td>
-<td>表示と操作の受け付けだけ。ファイルの読み込みなどの重い処理はしない</td>
+<td>表示と操作の受け付けだけ。ファイルの読み込みなどの重い処理はしない。<strong>ネットワークのパス（UNC・ネットワークドライブ）には触らない</strong>（<code>testNetworkPath</code> で見分け、触る処理はネットワークを調べる列に出す）。届かない共有では <code>Test-Path</code> などの OS の呼び出しが十数秒〜二十秒戻らず、そのまま「応答なし」になるため</td>
 </tr>
 <tr>
 <td>検索の司令</td>
@@ -3972,6 +4001,14 @@
 <td>MTA</td>
 <td>Normal</td>
 <td>画面から頼まれる短い仕事（<code>startJob</code>。プレビューの読み込み・状態の読み直し・プロセスの一覧など）。長い仕事の間もプレビューが待たないよう 2 つにする</td>
+</tr>
+<tr>
+<td>ネットワークを調べる</td>
+<td>2</td>
+<td>アプリ</td>
+<td>MTA</td>
+<td>Normal</td>
+<td>元のフォルダ・元のファイルなど、ネットワークのパスに触る仕事（<code>startJob -queue "network"</code>）。届かない共有で OS の呼び出しが戻らなくても、バックグラウンド（プレビュー等）の列が塞がれないよう分ける。ネットワークのパスがある利用者だけが、初めて使うときに作る</td>
 </tr>
 <tr>
 <td>インデクサの司令</td>
@@ -4046,6 +4083,15 @@
 </ul>
 <h2 id="寿命">寿命<a class="headerlink" href="#寿命" title="Permanent link">&para;</a></h2>
 <p>スレッドやランスペースは、作っては捨てるのをやめ、次の 4 つの寿命のどれかに属させる。</p>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; アプリ : 画面を開く
+    アプリ --&gt; [*] : 画面を閉じる
+    [*] --&gt; インデックス作成1回 : ［開始］
+    インデックス作成1回 --&gt; [*] : 完了・中止・エラー
+    [*] --&gt; 検索の要求1回 : 検索の開始
+    検索の要求1回 --&gt; [*] : 完了・取り消し
+    [*] --&gt; 読んだ内容 : 本文インデックスを読む
+    読んだ内容 --&gt; [*] : 予算超過・ファイルが変わる</code></pre>
 <table>
 <thead>
 <tr>
@@ -4078,7 +4124,7 @@
 <td>読んだ内容</td>
 <td>本文インデックスを読む</td>
 <td>キャッシュの予算を超えて追い出される・ファイルが変わる</td>
-<td>本文インデックスのファイルの内容（<a href="#gc-とメモリ">GC とメモリ</a>）</td>
+<td>本文インデックスのファイルの内容（<a href="../closing/#gc-とメモリ">GC とメモリ</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -4089,10 +4135,29 @@
 <li>そのため、これらのスレッドは読み込んだときのワークスペース（<code>$workspace</code>）を持ち続ける。画面は仕事を頼むときにワークスペースの中の場所を渡す（検索の要求は <code>WorkDir</code> を持つ）。ワークスペースを変えてもスレッドは作り直さない（<a href="../data/#ワークスペースの中の場所workspace">ワークスペースの中の場所（Workspace）</a>）。</li>
 <li>照合のプールでは、ランスペースに加えて PowerShell のインスタンスも使い回す（<code>WorkerPool</code>）。</li>
 <li>検索の要求（<code>newSearchRequest</code>。<code>[hashtable]::Synchronized</code>）は、<code>invokeSearchRequest</code> が実行する。要求の <code>Stop</code> が取り消しの札になる。新しい要求を出すと、前の要求の <code>Stop</code> を立てて取り消す。</li>
-<li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="#gc-とメモリ">GC とメモリ</a>）。</li>
+<li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。</li>
 </ul>
 <h2 id="画面とインデクサの受け渡し">画面とインデクサの受け渡し<a class="headerlink" href="#画面とインデクサの受け渡し" title="Permanent link">&para;</a></h2>
 <p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant G as 画面
+    participant C as 受け渡しの口
+    participant I as インデクサ
+
+    G-&gt;&gt;I: newIndexingSession
+    I-&gt;&gt;C: Plan（writeIndexingProgress）
+    C--&gt;&gt;G: readIndexingProgress
+    G-&gt;&gt;C: Answer（answerIndexingPlan）
+    C--&gt;&gt;I: waitForIndexingApproval が検知
+    loop 1 秒ごと
+        I-&gt;&gt;C: Progress
+        C--&gt;&gt;G: readIndexingProgress
+    end
+    opt 中止
+        G-&gt;&gt;C: requestIndexingStop
+    end
+    I-&gt;&gt;C: ExitCode
+    C--&gt;&gt;G: 表示</code></pre>
 <table>
 <thead>
 <tr>
@@ -4149,78 +4214,6 @@
 </ul>
 <p>インデクサのミューテックス（<code>newAppMutex "indexer"</code>。画面と <code>indexer.ps1</code> が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［8 設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（<code>testIndexerRunning</code>）。</p>
 <p>設定ファイル（<code>setting.config</code>）の「読み直す → 変える → 書く」は、画面（UI のスレッド）とインデクサ（別のプロセスの司令のスレッド）が同時に行うことがあるため、設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;鍵&gt;</code>。<code>invokeSettingsLocked</code>）の中で行う。時間（5 秒）を過ぎても取れなければ例外にする。前の持ち主が手放さずに終わっていた（abandoned）ときは、取れたものとして続ける。重い読み込み（取り込み一覧など）はミューテックスの外で済ませ、持つ時間を短くする。</p>
-<h2 id="閉じるときの順番">閉じるときの順番<a class="headerlink" href="#閉じるときの順番" title="Permanent link">&para;</a></h2>
-<pre class="mermaid"><code>sequenceDiagram
-    participant U as 利用者
-    participant G as 画面
-    participant I as インデクサ
-    participant S as 検索・バックグラウンド
-    U-&gt;&gt;G: 閉じる
-    alt インデックス作成中
-        G-&gt;&gt;U: 「まだインデックス作成の途中です。止めてから閉じますか？」
-        U-&gt;&gt;G: ［インデックス作成を止めて閉じる］
-        G-&gt;&gt;I: Stop
-        G-&gt;&gt;G: 閉じるのを保留して「インデックス作成を止めています…」&lt;br&gt;closeTimer（0.5 秒ごと）で終わりを待つ
-        I-&gt;&gt;I: 取り込み中のファイルの区切りで止まる&lt;br&gt;本文インデックスを書き出す・Office を終了
-        I--&gt;&gt;G: 終了
-    end
-    G-&gt;&gt;S: 検索を取り消す
-    G-&gt;&gt;G: closeTimer・インデックス作成のタイマーを止める
-    G-&gt;&gt;I: IndexingSession.Close
-    G-&gt;&gt;S: 検索の司令（照合のプール）・バックグラウンドを閉じる（jobTimer を止める）
-    G-&gt;&gt;G: ミューテックスを解放
-    G-&gt;&gt;U: 閉じる</code></pre>
-<ul>
-<li>確認の選択肢は［インデックス作成を止めて閉じる］と［閉じない］だけである。インデックス作成を続けたまま画面を閉じることはできない。確認している間にインデックス作成が終わっていれば、そのまま閉じる。</li>
-<li>Office が固まってインデクサが戻らないときは、まず監視が制限時間で Office を止める。画面は 60 秒待っても終わらなければ、インデックス作成が起動した Office を PID で止め（<code>IndexingSession.KillOffice</code>）、さらに 15 秒待つ。それでも終わらなければ、そのまま閉じる（スレッドは <code>IndexingSession.Close</code> で止める）。</li>
-<li>止めるのは、インデックス作成が起動して PID を記録した Office（<code>OfficePids</code>）だけである。PID が別のプロセスに使い回されていないよう、記録したプロセス名と同じかも確かめる。利用者が開いていた Office は止めない。</li>
-<li>止めるのを待っている間にもう一度閉じようとしても、何もしない。</li>
-<li>閉じる処理の途中で予期しない例外が起きたら、知らせたうえで、インデックス作成中なら確認を出さずに止める流れに入り、そうでなければそのまま閉じる。</li>
-</ul>
-<h2 id="gc-とメモリ">GC とメモリ<a class="headerlink" href="#gc-とメモリ" title="Permanent link">&para;</a></h2>
-<p>スレッドは同じプロセスのヒープを使うため、インデクサや検索が大量にメモリを使うと、GC で画面のスレッドも止まる。</p>
-<p>実測（画面の代わりに 5ms ごとに起きるスレッドを動かし、遅れを測った。ヒープ 300MB、20 秒）では、次のとおりだった。</p>
-<table>
-<thead>
-<tr>
-<th>負荷</th>
-<th>遅れの最大</th>
-<th>50ms を超えた回数</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>なし</td>
-<td>27.0ms</td>
-<td>0</td>
-</tr>
-<tr>
-<td>同じプロセスのスレッドで本文インデックスの読み書き</td>
-<td>45.0ms</td>
-<td>0</td>
-</tr>
-<tr>
-<td>別のプロセスで同じ負荷</td>
-<td>18.8ms</td>
-<td>0</td>
-</tr>
-<tr>
-<td>同じプロセス＋<code>SustainedLowLatency</code></td>
-<td>33.2ms</td>
-<td>0</td>
-</tr>
-</tbody>
-</table>
-<p>Windows のタイマーの刻み（約 15.6ms）を考えると、どれも画面の操作で気づく止まりではない。そのうえで、次を守る。</p>
-<ul>
-<li>起動時に <code>GCSettings.LatencyMode</code> を <code>SustainedLowLatency</code> にする（重い全体の GC を後回しにする）。</li>
-<li>読んだ内容のキャッシュに予算（文字数）を決め、超えたら使われていないものから追い出す。追い出しは検索の司令のスレッドで、検索の後に行う（<code>trimTsvTextCache</code>）。</li>
-<li>キャッシュの各内容には、最後に使った世代を付ける。世代は検索 1 回ごとに 1 つ進める。</li>
-<li>予算の 90% を超えていたら、今の世代（いま終わった検索）で使わなかったものを、古い世代から追い出す。今の世代で使ったものは残す（毎回同じ本文インデックスのファイルを順に読むため、使った順だけで追い出すと、予算より大きいインデックスでは何も残らない）。</li>
-<li>画面のスレッドで大きな文字列を作らない。プレビューの読み込み（<code>readPackContext</code>）はバックグラウンドのスレッドで行い、表示する分だけを受け取る。</li>
-<li>検索の結果は、時間で区切って少しずつ画面に移す（<code>pumpSearch</code>）。</li>
-</ul>
-<p>実装を変えたときは、画面の心拍（画面のスレッドの <code>DispatcherTimer</code> の遅れ）を、インデックス作成と検索を同時に動かして測る。100ms を超える止まりが出るようなら、インデクサだけを別のプロセスに戻すことを検討する。</p>
 
 
 
@@ -4273,13 +4266,13 @@
         
         
           
-          <a href="../classes/" class="md-footer__link md-footer__link--next" aria-label="次: クラスと関数の使い分け">
+          <a href="../closing/" class="md-footer__link md-footer__link--next" aria-label="次: 閉じるときの順番と GC">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                クラスと関数の使い分け
+                閉じるときの順番と GC
               </div>
             </div>
             <div class="md-footer__button md-icon">
