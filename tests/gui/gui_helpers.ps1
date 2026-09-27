@@ -154,10 +154,29 @@ function closeGui {
     param ($S, [int]$Timeout = ${guiDefaultTimeout})
 
     setGuiStep $S "閉じる"
+    $processId = $S.Process.Id
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     $pattern.Close()
     waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
-    if ($S.Process.ExitCode -ne 0) { throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）" }
+    if ($S.Process.ExitCode -ne 0) {
+        # trap（gui.ps1）を通らない終了（native の障害など）は原因が分からないため、Windows のイベントログを材料に残す
+        $S.CrashInfo = getGuiCrashInfo $processId
+        throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）"
+    }
+}
+
+function getGuiCrashInfo {
+    # 終了コードが 0 でも 1（trap の exit）でもないとき、Windows のイベントログ（Application）からその
+    # プロセス ID に関する直近の記録を探す。原因不明の終了（アクセス違反・COM の例外など）を追う材料にする
+    param ([int]$ProcessId)
+
+    try {
+        $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
+            Where-Object { $_.Message -like "*$ProcessId*" } | Select-Object -First 5
+        return @($events | ForEach-Object { "[$($_.TimeCreated)] $($_.ProviderName)（ID $($_.Id)）: $($_.Message)" })
+    } catch {
+        return @("イベントログを読めなかった: $($_.Exception.Message)")
+    }
 }
 
 # ---- 待つ ----
@@ -315,10 +334,13 @@ function waitGuiByName {
 
 function waitGuiWindow {
     # 本体以外の窓が出るまで待つ。Id を渡すと、その AutomationId の部品を持つ窓（Text があれば、その文字を含むものだけ）。
-    # Id が無ければ、Text を含む文字のある窓（メッセージボックス・確認ダイアログ）
-    param ($S, [string]$What, [string]$Id = "", [string]$Text = "", [int]$Timeout = ${guiDefaultTimeout})
+    # Id が無ければ、Text を含む文字のある窓（メッセージボックス・確認ダイアログ）。
+    # Guard を渡すと、待つたびに呼ぶ（時間に頼る場面で、先に終わってしまったことにすぐ気づいて分かりやすい文言で
+    # 失敗させるため。例: 取り込みが終わってしまい、確認ダイアログが二度と出ない場合）
+    param ($S, [string]$What, [string]$Id = "", [string]$Text = "", [int]$Timeout = ${guiDefaultTimeout}, [scriptblock]$Guard = $null)
 
     return waitGui $S $What $Timeout {
+        if ($Guard) { & $Guard }
         foreach ($w in @(getGuiOtherWindows $S)) {
             if ($Id) {
                 $e = findGui $w -Id $Id
@@ -476,6 +498,9 @@ function saveGuiEvidence {
         foreach ($name in "画面エラー.txt", "インデックス作成ログ.txt") {
             $file = Join-Path $S.Tool.Work $name
             if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
+        }
+        if ($S.CrashInfo) {
+            $S.CrashInfo | Set-Content -LiteralPath "$dest\クラッシュ情報.txt" -Encoding UTF8
         }
         $tree = New-Object System.Collections.ArrayList
         foreach ($w in @(getGuiTopWindows $S)) {
@@ -670,9 +695,10 @@ function answerGuiConfirm {
     # 確認ダイアログ（見出しの文字で探す）が出るのを待ち、選択肢を押して、閉じるまで待つ。
     # 「押す → 確認を待つ → 選択肢を押す → 閉じるのを待つ」の繰り返しをまとめたもの（トリガーの操作は呼び出し側で行う）。
     #   Like を付けると、選択肢は clickGuiByNameLike（1 行目の前方一致）で押す。押した後にダイアログが閉じない場合は使わない
-    param ($S, [string]$What, [string]$Heading, [string]$Choice, [switch]$Like, [int]$Timeout = ${guiDefaultTimeout})
+    #   Guard は waitGuiWindow に渡す（時間に頼る場面で、先に終わってしまったことに早く気づかせるため）
+    param ($S, [string]$What, [string]$Heading, [string]$Choice, [switch]$Like, [int]$Timeout = ${guiDefaultTimeout}, [scriptblock]$Guard = $null)
 
-    $confirm = waitGuiWindow $S $What -Id "HeadingText" -Text $Heading -Timeout $Timeout
+    $confirm = waitGuiWindow $S $What -Id "HeadingText" -Text $Heading -Timeout $Timeout -Guard $Guard
     if ($Like) { clickGuiByNameLike $S $confirm $Choice } else { clickGuiByName $S $confirm $Choice }
     waitGuiWindowClosed $S $confirm $What
 }

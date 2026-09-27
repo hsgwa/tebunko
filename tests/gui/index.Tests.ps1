@@ -149,7 +149,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 Describe "S3 作成中の操作" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
-        $script:s3Copies = 40
+        $script:s3Copies = 100
         $script:tool = newGuiTool $TestDrive @{ ingestThreads = 1 }
         $script:source = Join-Path $TestDrive "元のフォルダ\大量"
         newGuiSourceFolder $script:source -Copies $script:s3Copies
@@ -225,15 +225,16 @@ Describe "S3 作成中の操作" -Tag Gui {
             waitGui $S "取り込み中（［インデックス作成中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
 
             # 取り込み中に閉じる。確認で［閉じない］なら続き、［インデックス作成を止めて閉じる］なら止めてから終了する（#10）
+            $tooFastGuard = { if (!(testGuiIndexing $S)) { throw $tooFast } }
             setGuiStep $S "取り込み中に閉じる → 確認で［閉じない］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             closeGuiWindowAsync $S $S.Window
-            answerGuiConfirm $S "閉じる確認" "止めてから閉じますか" "閉じない"
+            answerGuiConfirm $S "閉じる確認" "止めてから閉じますか" "閉じない" -Guard $tooFastGuard
             $S.Process.HasExited | Should -BeFalse
             if (!(testGuiIndexing $S)) { throw $tooFast }
             setGuiStep $S "取り込み中に閉じる → 確認で［インデックス作成を止めて閉じる］"
             closeGuiWindowAsync $S $S.Window
-            $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか"
+            $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか" -Guard $tooFastGuard
             clickGuiByName $S $confirm "インデックス作成を止めて閉じる"
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
             $S.Process.ExitCode | Should -Be 0
