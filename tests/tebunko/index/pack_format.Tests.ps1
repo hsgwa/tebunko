@@ -57,13 +57,15 @@ Describe "getPackFileName / splitPackBooksByExtension" -Tag Unit {
 
 Describe "getPackFileName / readPackFileName" -Tag Unit {
     It "名前に拡張子と 3 桁の番号を入れ、名前から取り出せる" {
-        getPackFileName "xlsx" | Should -Be "content.xlsx.001.tsv"
-        getPackFileName "docx" 12 | Should -Be "content.docx.012.tsv"
-        $info = readPackFileName "content.XLSX.002.tsv"
+        getPackFileName "xlsx" | Should -Be "content_index.xlsx.001.tsv"
+        getPackFileName "docx" 12 | Should -Be "content_index.docx.012.tsv"
+        $info = readPackFileName "content_index.XLSX.002.tsv"
         $info.Extension | Should -Be "xlsx"
         $info.Part | Should -Be 2
-        readPackFileName "content.xlsx.tsv" | Should -Be $null
+        readPackFileName "content_index.xlsx.tsv" | Should -Be $null
         readPackFileName "見積.xlsx_S.tsv" | Should -Be $null
+        # 前の版の名前（content_index に名前をそろえる前）は読まない
+        readPackFileName "content.xlsx.001.tsv" | Should -Be $null
     }
 }
 

@@ -335,7 +335,7 @@ function invokeIndexerBody {
     $interruptLimit = 2       # 取り込み中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
     $failureListLimit = 50    # 終了時に失敗したファイルと原因を表示する最大件数（残りは取り込み一覧で確認する）
 
-    # 集約ファイル（content.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
+    # 集約ファイル（content_index.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
     # 取り込んだ TSV は元のファイルごとのフォルダに一時的に置き、同じフォルダの取り込みが終わったらまとめて書き出す
     # （元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ書き直すことになるため）
     $script:pendingPublish = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -348,12 +348,26 @@ function invokeIndexerBody {
         throw "チェックの付いたクロール対象フォルダがありません。画面で取り込むフォルダにチェックを付けてください。"
     }
 
+    # 前の版のインデックス（index\）が見つかれば知らせ、取り込み直しを始めるときは前の版のシステムインデックスを片付ける。
+    # content_index\ を作る前に行う（片付けに失敗したら content_index\ を作らずに終わる）
+    $legacyState = getLegacyIndexState $workspace.Dir
+    $legacyMessage = getLegacyIndexMessage $workspace.Dir $legacyState.HasLegacyIndex
+    if ($legacyMessage) {
+        writeIndexerLog $legacyMessage "Yellow"
+    }
+    if (testLegacyCleanupNeeded $legacyState) {
+        writeIndexerLog "前の版のインデックス（高速検索用）を片付けています…"
+        if (!(clearLegacySystemIndex $workspace.Dir)) {
+            throw "前の版のインデックス（高速検索用）を片付けられませんでした。tebunko の画面やエクスプローラーで開いていれば閉じてから、もう一度インデックス作成を行ってください。"
+        }
+    }
+
     [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
     removeStaleTmpDirs
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
-    # クロール対象フォルダごとにインデックス名（work\index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
+    # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
     $status = readStatusFile
     $folders = @(assignIndexNames $targetFolders $status.Folders)
     $previous = $status.Rows
@@ -385,7 +399,7 @@ function invokeIndexerBody {
     writeIndexerLog ""
     writeIndexerLog "クロールしています..."
     # 取り込み一覧の「済」に対してインデックス（TSV）が残っているかを調べるため、今あるTSVの数を数えておく
-    # （利用者が work\index を直接削除した場合に、「済」のまま検索できなくなるのを防ぐ）
+    # （利用者が work\content_index を直接削除した場合に、「済」のまま検索できなくなるのを防ぐ）
     writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "取り込み済みのインデックスを確認しています…"
     $indexCounts = getIndexTsvCounts
     if ($null -eq $indexCounts) {
@@ -740,7 +754,7 @@ function invokeIndexerBody {
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
         writeStatusFile $folders @($rows | Where-Object { $_ -and !$droppedRows.Contains([string]$_.相対パス) })
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
-        # （work\index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
+        # （work\content_index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
         # 高速検索用の システムインデックスを作り直す。中止したとき・フォルダが見えなくなったときは作らない
         # （作り直していないフォルダは反映待ちのままのため、検索ではそのフォルダを照合する）

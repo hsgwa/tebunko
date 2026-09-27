@@ -4,9 +4,9 @@
 # 2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。
 
 # システムインデックスの名前（置き場所は paths.ps1 の $workspace.SystemIndexDir）
-${systemIndexFileName}      = "システムインデックス.txt"
-${systemIndexFileLike}      = "システムインデックス%"      # 問い合わせの LIKE（分けたものも含む）
-${systemIndexSplitLike}     = "システムインデックス[_]%"   # 分けたもの（システムインデックス_1.txt …）だけ
+${systemIndexFileName}      = "system_index.txt"
+${systemIndexFileLike}      = "system[_]index%"      # 問い合わせの LIKE（分けたものも含む）。LIKE の _ は任意の1文字のため [_] と書く
+${systemIndexSplitLike}     = "system[_]index[_]%"   # 分けたもの（system_index_1.txt …）だけ
 
 # 1 つの txt の大きさの上限（これを超えたら語の範囲で分ける。実測では 16MB までは末尾まで索引された）
 ${systemIndexPartBytes} = 8MB
@@ -126,7 +126,7 @@ function getGramPartCount {
 }
 
 function getSystemIndexFileNames {
-    # txt の名前（分けないときは 1 つ。分けるときは システムインデックス_1.txt …）
+    # txt の名前（分けないときは 1 つ。分けるときは system_index_1.txt …）
     param (
         [int]$parts
     )

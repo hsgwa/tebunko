@@ -6,6 +6,9 @@
 class Workspace {
     [string]$Dir
     [string]$IndexDir
+    # 前の版（content_index・system_index に名前をそろえる前）が使っていた本文インデックスのフォルダ。
+    # 新しい版はここを読まず、消しもしない（前の版のしるしの調べ・知らせ・［8 設定］で「移す」「消して最初から」の対象にするために持つ）
+    [string]$LegacyIndexDir
     # システムインデックス（本文インデックスの 2-gram を書いた txt。index と同じ相対パスの構成。Windows Search に索引させる）と、その状態
     [string]$SystemIndexDir
     [string]$SystemIndexStateFile
@@ -23,7 +26,8 @@ class Workspace {
 
     Workspace([string]$dir) {
         $this.Dir = $dir
-        $this.IndexDir = "$dir\index"
+        $this.IndexDir = "$dir\content_index"
+        $this.LegacyIndexDir = "$dir\index"
         $this.SystemIndexDir = "$dir\system_index"
         $this.SystemIndexStateFile = "$dir\システムインデックスの状態.tsv"
         $this.PublishDir = "$dir\取り込み出力\$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
@@ -35,11 +39,117 @@ class Workspace {
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
-    # 取り込み出力はプロセスごとのフォルダ（PublishDir）の親を移す
+    # 取り込み出力はプロセスごとのフォルダ（PublishDir）の親を移す。
+    # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが getWorkspaceEntries で拾われる）
     [string[]] Entries() {
-        return @($this.IndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
+        return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
             $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir))
     }
+}
+
+# 前の版（content_index・system_index に名前をそろえる前）が system_index に置いていた txt の名前の型。
+# 新しい版は system_index.txt を使うため、前の版の txt を見つける・片付けるためだけに使う（読み書きの形式は変えない）
+${legacySystemIndexPattern} = "システムインデックス*.txt"
+
+function getLegacyIndexState {
+    # 前の版のワークスペース（dir）の状態を返す: @{ HasLegacyIndex; ContentEmpty; HasLegacySystemIndex }
+    #   HasLegacyIndex       : 前の版の index\ があり、直下のどれかのフォルダに 元のフォルダ.txt がある（前の版のしるし）。
+    #                          index\ があるだけでは、利用者が選んだフォルダにたまたま index があるときと区別できないため、しるしとしない
+    #   ContentEmpty         : content_index\ が無いか、下のフォルダを含めてファイルが 1 つも無い
+    #   HasLegacySystemIndex : system_index\ の下に前の名前の txt（システムインデックス*.txt）がある。
+    #                          ContentEmpty のときだけ調べる（片付けの条件にしか使わないため）
+    param (
+        [string]$dir
+    )
+
+    $ws = [Workspace]::new($dir)
+    $hasLegacyIndex = $false
+    $longLegacy = toLongPath $ws.LegacyIndexDir
+    if ([System.IO.Directory]::Exists($longLegacy)) {
+        foreach ($sub in [System.IO.Directory]::EnumerateDirectories($longLegacy)) {
+            if ([System.IO.File]::Exists("$sub\${sourceFolderFileName}")) {
+                $hasLegacyIndex = $true
+                break
+            }
+        }
+    }
+
+    $contentEmpty = $true
+    $longContent = toLongPath $ws.IndexDir
+    if ([System.IO.Directory]::Exists($longContent)) {
+        foreach ($file in [System.IO.Directory]::EnumerateFiles($longContent, "*", [System.IO.SearchOption]::AllDirectories)) {
+            $contentEmpty = $false
+            break
+        }
+    }
+
+    $hasLegacySystemIndex = $false
+    if ($contentEmpty) {
+        $longSystem = toLongPath $ws.SystemIndexDir
+        if ([System.IO.Directory]::Exists($longSystem)) {
+            foreach ($file in [System.IO.Directory]::EnumerateFiles($longSystem, ${legacySystemIndexPattern}, [System.IO.SearchOption]::AllDirectories)) {
+                $hasLegacySystemIndex = $true
+                break
+            }
+        }
+    }
+
+    return @{ HasLegacyIndex = $hasLegacyIndex; ContentEmpty = $contentEmpty; HasLegacySystemIndex = $hasLegacySystemIndex }
+}
+
+function testLegacyCleanupNeeded {
+    # 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるかどうか（getLegacyIndexState の結果から決まる）。
+    # content_index\ が空で、かつ、前の版のしるしがあるか、system_index\ に前の名前の txt が残っているときに片付ける
+    # （取り込み直す前に利用者が index\ を消していても、前の名前の txt を残さないため）
+    param (
+        $state
+    )
+
+    return ($state.ContentEmpty -and ($state.HasLegacyIndex -or $state.HasLegacySystemIndex))
+}
+
+function getLegacyIndexMessage {
+    # 前の版のワークスペース（index\。しるしあり）が見つかったときの知らせ。しるしが無ければ空
+    param (
+        [string]$dir,
+        [bool]$hasLegacyIndex
+    )
+
+    if (!$hasLegacyIndex) {
+        return ""
+    }
+    $legacyDir = [Workspace]::new($dir).LegacyIndexDir
+    return "前の版のインデックス（「${legacyDir}」）は、この版では使えません。インデックス作成で、元のファイルをすべて取り込み直します。" +
+        "取り込み直した後、「${legacyDir}」フォルダは削除してかまいません。"
+}
+
+function clearLegacySystemIndex {
+    # 前の版のシステムインデックス（system_index\ と、システムインデックスの状態ファイルの中身）を片付ける。
+    # 片付けの順番: (1) updateSystemIndexState の排他の中で、状態ファイルの中身を空にする（ファイルは消さない。
+    #     画面の検索（fast_search.ps1）やインデックスの削除（index_store.ps1）が同じ排他で書き換えるため、
+    #     消した直後に前のキーを書き戻されないようにする）。
+    # (2) system_index\ を removeDirectoryRetry で消す（Windows Search が txt を一時的に開くことがあるため）。
+    # どちらかに失敗したら $false を返す（途中で止まっても、次に呼べば同じ状態から続けられる）
+    param (
+        [string]$dir
+    )
+
+    $ws = [Workspace]::new($dir)
+    $cleared = updateSystemIndexState {
+        param ($state)
+        $state.Covered.Clear()
+        $state.Pending.Clear()
+        $state.Excluded.Clear()
+    } $ws.SystemIndexStateFile
+    if (!$cleared) {
+        return $false
+    }
+    try {
+        removeDirectoryRetry $ws.SystemIndexDir
+    } catch {
+        return $false
+    }
+    return $true
 }
 
 function getWorkspaceEntries {

@@ -53,7 +53,7 @@ Claude Code に `.claudeignore` は無い。除外は次の 2 か所で行う。
   - `work/`（生成されるインデックス・ログ）、`sample*/`（手元の動作確認用データ）、`.claude/worktrees/`（作業用ツリー。別ツリーの同じコードが検索に二重に出るのを防ぐ）、`setting.config`（利用者ごとの設定）
 - **`.claude/settings.json` の `permissions`** … ファイルを開くこと自体を止める。`Read(<パターン>)` は gitignore と同じ書き方で、`deny` は読み書きとも不可、`ask` は読む前に確認する。
   - `deny`: `sample*/`（大きいバイナリ）、`.env` / `*.pem` / `id_rsa*`（秘密情報の保険）
-  - `ask`: `work/index/`（生成された大量の TSV。調べるときだけ読む）
+  - `ask`: `work/index/`（前の版の生成された大量の TSV）・`work/content_index/`（生成された大量の TSV。調べるときだけ読む）
   - 個人だけの設定は `.claude/settings.local.json`（git 管理外）に書く。
 
 ## 個人情報を書かない
