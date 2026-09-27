@@ -55,16 +55,29 @@ try {
     Get-ChildItem -LiteralPath (Split-Path $PSScriptRoot -Parent) -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
 } catch { }
 
-. "$PSScriptRoot\lib.ps1"
-stepSplash 40
+${appTitle}    = "tebunko"
 
-$ErrorActionPreference = "Stop"
+trap {
+    # 記録できる状態（lib.ps1 の読み込み後）なら、内容をファイルにも残す
+    if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
+        writeErrorLog "起動・実行中" $_
+    }
+    if ($null -ne $script:splash) {
+        $script:splash.Close()
+    }
+    [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($_.Exception.Message)", ${appTitle}, "OK", "Error") | Out-Null
+    exit 1
+}
+
+# 多重起動の判定と、壊れた設定ファイルの退避（下）に要る部品だけを先に読み込む。lib.ps1 は退避の後に読み込む
+# （lib.ps1 の paths.ps1 が読み込みの時に設定を読むため。lib.ps1 がもう一度読むのは差し支えない）
+. "$PSScriptRoot\..\shared\shared.ps1"
+. "$PSScriptRoot\core\settings.ps1"
 
 # 検索・画面の裏の仕事も同じプロセスのスレッドで動くため、画面を止める重い GC（全体の GC）をなるべく後回しにする
 # （docs/design/architecture/threads.md「GC とメモリ」）
 [System.Runtime.GCSettings]::LatencyMode = [System.Runtime.GCLatencyMode]::SustainedLowLatency
 
-${appTitle}    = "tebunko"
 ${searchLimit} = 10000
 # 選択行のプレビューに出す行数は、プレビューの高さ（ドラッグで変わる）に収まるだけ出す（getPreviewContextLines）
 ${previewRowHeight}     = 22   # プレビューの 1 行の高さの目安。高さから出せる行数を求めるのに使う
@@ -91,18 +104,6 @@ function getGuiErrorLogFile {
     return $workspace.GuiErrorLogFile
 }
 
-trap {
-    # 記録できる状態（lib.ps1 の読み込み後）なら、内容をファイルにも残す
-    if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
-        writeErrorLog "起動・実行中" $_
-    }
-    if ($null -ne $script:splash) {
-        $script:splash.Close()
-    }
-    [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($_.Exception.Message)", ${appTitle}, "OK", "Error") | Out-Null
-    exit 1
-}
-
 # ---- 多重起動の防止（ツールの配置フォルダごと） ----
 #
 # すでに開いているときは、その画面のウィンドウを前面に出して終わる（もう一度起動するのは、
@@ -127,6 +128,17 @@ if (!$createdNew) {
     exit
 }
 $activateEvent = New-Object System.Threading.EventWaitHandle($false, [System.Threading.EventResetMode]::AutoReset, $activateName)
+
+# ---- 壊れた設定ファイルの退避 ----
+# setting.config が JSON として読めないときは、別の名前に退避して既定の設定で起動する（画面が出てから知らせる。$script:settingsRecovery）。
+# 退避するのは、ここ（多重起動でない最初の起動）だけ。ほかの読み込みは、壊れたファイルを動かさずに例外にする（readSettings）。
+# 退避は lib.ps1 の読み込みより前に行う（paths.ps1 が読み込みの時に設定を読むため）
+$script:settingsRecovery = repairBrokenSettings
+
+. "$PSScriptRoot\lib.ps1"
+stepSplash 40
+
+$ErrorActionPreference = "Stop"
 
 # ---- 画面で使う型と、画面の土台 ----
 # 型は継承元（shared）を先に読み込む。app_host は XAML の読み込みに使うため、ウィンドウを作る前に読み込む
@@ -369,6 +381,10 @@ $window.Add_Loaded({
     safe {
         if ($ui.Tabs.SelectedItem -eq $ui.SearchTab) {
             $ui.WordBox.Focus() | Out-Null
+        }
+        if ($script:settingsRecovery) {
+            closeSplash
+            showMessage (getSettingsRecoveryMessage $script:settingsRecovery) "OK" "Warning" | Out-Null
         }
         if ($script:workspaceBlock) {
             # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
