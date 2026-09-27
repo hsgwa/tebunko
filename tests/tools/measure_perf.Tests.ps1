@@ -147,6 +147,24 @@ Describe "measure_perf.ps1" -Tag Io {
         @($second.PSObject.Properties | ForEach-Object { $_.Name }) | Should -Contain "Ingest"
         $second.Ingest | Should -BeNullOrEmpty
     }
+
+    It "実行の日時は、現在のカルチャ（暦・時刻の区切り）に左右されず ISO 8601 の形で書く" {
+        # 仏暦（th-TH。年が 543 大きい）で、時刻の区切りも変えたカルチャにする
+        $culture = New-Object System.Globalization.CultureInfo("th-TH", $false)
+        $culture.DateTimeFormat.TimeSeparator = "."
+        $thread = [System.Threading.Thread]::CurrentThread
+        $saved = $thread.CurrentCulture
+        $thread.CurrentCulture = $culture
+        try {
+            & $measure -Index $index -Work (Join-Path $TestDrive "culture") -Words $words -Count 1 -SampleMs 50 6>$null | Out-Null
+        } finally {
+            $thread.CurrentCulture = $saved
+        }
+        $r = [System.IO.File]::ReadAllText("$TestDrive\culture\result\result.json") | ConvertFrom-Json
+        $r.Run.Date | Should -Match '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
+        $year = [int]$r.Run.Date.Substring(0, 4)
+        $year | Should -BeLessThan 2400
+    }
 }
 
 Describe "取り込みの計測の部品（ingest_common.ps1）" -Tag Unit {
