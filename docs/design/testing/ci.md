@@ -232,7 +232,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
   - main への push のうち、速さに効くファイル（`scripts/**`・`tools/measure_perf.ps1`・`tools/perf/**`・`tests/tools/perf_*.Tests.ps1`・`tests/testdata/office/**`・`.github/workflows/perf-check.yml`）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる
   - 手動（`workflow_dispatch`）。main への push と手動は、ラベルを見ずに流す
 - ラベル `perf-check` は、リポジトリに作ってある。付けるのはコンサルタント（メンテナの代わり）。リリースノートの分類（`.github/release.yml`）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）
-- ジョブは `search`（検索と pack の作成）と `ingest`（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも `windows-latest`（4 コア）、`timeout-minutes: 30`。ランナーでかかる時間は `search` が 5 分ほど、`ingest` が 4 分ほど
+- ジョブは `search`（検索と pack の作成）と `ingest`（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも `windows-latest`（4 コア）、`timeout-minutes: 30`。ランナーでかかる時間は `search` が 3〜4 分、`ingest` が 4〜5 分
 - 各ジョブの `if` は、`github.event_name != 'pull_request'`（main への push・手動）、または `labeled` でラベル名が `perf-check`（付けたとき）、または `labeled` 以外（`synchronize`・`reopened`）で PR に `perf-check` が付いているとき。ほかのラベルを付けたときは流し直さない
 - 流れている実行の取り消し（`concurrency`）は、同じ PR に push を足したときと、`perf-check` を付け直したときだけ。グループは `perf-check-<PR の番号（無ければ ref）>` で、`perf-check` 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に `run_id` を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（`enhancement` など）を付けても、流れている `search`・`ingest` は取り消されない
 - 結果は PR の Checks の `search`・`ingest` の合否と、ジョブの Summary（`summary.md` の表）、artifact（`perf-check-search-<実行の番号>-<試行の番号>`・`perf-check-ingest-...`。保存期間は 90 日）で見る。PR にコメントは書かない
@@ -285,7 +285,8 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 - 対象は .xlsx（Excel）・.doc（Word）・.ppt（PowerPoint）の取り込み。ランナーに Office が無く、Office の版・機械・Defender で大きく揺れるので、固定の上限は置かない
 - データは、.xlsx 100・.docx 200・.pptx 200・.doc 20・.ppt 20（`new_ingest_data.ps1 -Xlsx 100 -Docx 200 -Pptx 200 -Doc 20 -Ppt 20 -Books <new_books.ps1 で作ったブックのフォルダ>`）。測るのは `-Threads 2 -Repeat 3`
 - 同じ PC・同じ日に、main → PR のブランチ → main の順に、`measure_perf.ps1 -Office <データ> -Work <作業フォルダ> -Tool <測る版のフォルダ>` で測る
-- 判断: PR のブランチの 1 ファイルあたりの中央値（`Ingest.PerFileMs.Median`）が、前後の main の 2 回のうち大きいほうの 1.2 倍以下で、失敗（`Ingest.Failed`）が 0 件なら合格とする（同じ日・同じ PC の 2 回の差は 2% ほど）。数字は PR 本文に書く
+- 判断: PR のブランチの 1 ファイルあたりの中央値（`Ingest.PerFileMs.Median`）が、前後の main の 2 回のうち大きいほうの 1.2 倍以下で、失敗（`Ingest.Failed`）が 0 件なら合格とする。数字は PR 本文に書く
+  - 同じ日・同じ PC で、ほかの作業が動いていないときの 2 回の差は 2% ほどだが、ほかの作業（ほかのテスト・ビルド）と重なると 2 割ほどぶれることがある（同じコードの main を続けて測って 1.02 倍と 1.17 倍、同じコードの PR のブランチと main で 1.24 倍の回があった）。1.2 倍の境目で落ちたときは、ほかの作業が無い時間に測り直してから判断する。測っている間は、ほかのテストや Office の作業を動かさない
 - 流す時: `perf-check` を付けた PR のうち、取り込みとインデックスの書き出し（`scripts/shared/office/`・`scripts/tebunko/indexer/`・`scripts/tebunko/index/`・`scripts/tebunko/core/`）に触るもの
 
 ## コミット前の検査（pre-commit フック）
