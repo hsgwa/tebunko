@@ -13,61 +13,164 @@ function getSourcePath {
     return resolveSourcePath $row $script:sourceFolderMaps
 }
 
-function getExistingFolder {
-    # path の上のフォルダのうち、存在する最も深いフォルダ（フォルダ選択の初期位置）。無ければ空
-    param (
-        [string]$path
-    )
+$script:openSourceRequest = [ref]0  # 元のファイルを確かめる依頼の番号。増やすたびに前の依頼の結果を捨てる。
+# [ref] のまま閉じ込める（スクリプトブロックの中で $script:openSourceRequest を読むと、遠く離れたスレッド・
+# タイマーから呼ばれたときに増やす前の値のまま固まって読めることがあるため。tests\tebunko\ui\open_source.Tests.ps1 で確かめている）
+$script:openSourcePendingRow = [ref]$null  # 裏のスレッドに依頼を出したままの行（.Value が $null なら待っている依頼は無い）。
+# $script:openSourceRequest と同じ理由で [ref] の箱にする。GetNewClosure() の中で
+# 「$script:openSourcePendingRow = ...」と書き換えても、閉じ込めた側だけの変数になり元の箱には届かない
+# （.Value を書き換えれば、同じ箱を見ている側すべてに届く）。
+# 同じ行をもう一度開いても新しい依頼を出さない（届かない共有では、列の 2 つのスレッドが同じ行の依頼で塞がるため）
+$script:openSourcePendingPath = [ref]""  # 待っている行を、確かめている間の文言に出すためのパス（もう一度開いたときに出し直す）
 
-    $dir = Split-Path $path -Parent
-    while ($dir) {
-        if (Test-Path -LiteralPath $dir -PathType Container) {
-            return $dir
-        }
-        $dir = Split-Path $dir -Parent
-    }
-    return ""
+function cancelPendingSourceLookup {
+    # 待っている元のファイルの確認を打ち切る（新しく検索を始めたとき・ワークスペースを変えたときに呼ぶ）。
+    # 依頼の番号を進めて前の依頼の結果を捨て、待っている行の記録・カーソルを戻す
+    $script:openSourceRequest.Value++
+    $script:openSourcePendingRow.Value = $null
+    $window.Cursor = $null
 }
 
 function findSourceFile {
-    # 元のファイルのパスを返す。見つからなければ、元のファイルのあるフォルダを選んでもらって探し、
-    # 見つかればそのインデックスの元のフォルダ（今の置き場所）として設定に記録する
-    # （インデックス名に対して 1 か所を記録するため、同じインデックスのほかのファイルも次からそのまま開ける）。
-    # 見つからない・選ばなかった場合は $null
+    # 元のファイルの場所を確かめ、見つかれば onFound { param($path) } を呼ぶ（見つからない・選ばなかったときは呼ばない）。
+    # ネットワークにあるときは裏のスレッドで確かめ、結果が届くまで画面のスレッドは待たない（届かない共有で「応答なし」に
+    # しないため）。ローカルならその場で確かめる。待っている間に同じ行をもう一度開いても、新しい依頼は出さない
+    # （確かめている間の文言は出し直す。開き方（通常・読み取り専用・フォルダを開く 等）が違っても、同じ行の待ちは 1 つにまとめる）
     param (
-        $row
+        $row,
+        [scriptblock]$onFound
     )
 
+    $pendingRowBox = $script:openSourcePendingRow
+    if ($row -eq $pendingRowBox.Value) {
+        # この行はもう裏のスレッドに依頼済みで、まだ結果が届いていない。確かめている最中であることを出し直す
+        setStatus (getSourceCheckingStatus $script:openSourcePendingPath.Value)
+        return
+    }
+
+    $requestBox = $script:openSourceRequest
+    $requestBox.Value++
+    $requestId = $requestBox.Value
     $location = getSourceLocation $row $script:sourceFolderMaps
-    $relPath = if ($location.Rest) { "$($location.Rest)\$($row.Book)" } else { $row.Book }
+    $book = $row.Book
+
+    # 呼ぶ関数は変数で捕まえてから閉じ込める（スクリプトブロックの中で名前のまま呼ぶと、遠く離れたスレッド・
+    # タイマーから呼ばれたときに見つからないことがあるため）
+    $applyState = ${function:applySourceFileState}
+    $apply = {
+        param ($state)
+        if ($row -eq $pendingRowBox.Value) {
+            $pendingRowBox.Value = $null
+        }
+        if ($requestId -ne $requestBox.Value) {
+            # 待っている間に別の行を開いた・新しく検索した・ワークスペースを変えた。前の依頼は捨てる
+            return
+        }
+        & $applyState $state $location $book $onFound
+    }.GetNewClosure()
+
+    if (!$location.Known) {
+        # 元のフォルダの記録が無い（Folder が空）。row.Root・row.RelDir（インデックスの中の位置）から知らせる
+        $relPath = if ($row.RelDir) { "$($row.RelDir)\$book" } else { $book }
+        promptSourceMissing $location $book (joinSourcePath $row.Root $row.RelDir $book) $relPath "" $onFound
+        return
+    }
+    if (!(testNetworkPath $location.Folder)) {
+        & $apply (findSourceFileState $location $book)
+        return
+    }
+    $pendingRowBox.Value = $row
+    $checkingPath = joinSourcePath $location.Folder $location.Rest $book
+    $script:openSourcePendingPath.Value = $checkingPath
+    setStatus (getSourceCheckingStatus $checkingPath)
+    $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
+    # ${pathStateOther} も、外の変数を直に書かず、いったんローカル変数に受けてから閉じ込める（$apply と同じ理由）
+    $otherState = ${pathStateOther}
+    startJob {
+        param ($location, $book)
+        findSourceFileState $location $book
+    } @($location, $book) {
+        param ($output, $errorText)
+        if ($errorText) {
+            & $apply @{ State = $otherState; Message = $errorText }
+        } else {
+            & $apply $output[0]
+        }
+    }.GetNewClosure() "network"
+}
+
+function applySourceFileState {
+    # findSourceFileState（または裏の仕事）の結果を画面に反映する。見つかれば onFound を呼ぶ。
+    # 見つからない・接続できない・その他のときは、見つかるまで（またはあきらめるまで）確認・フォルダ選択で進める
+    param (
+        $state,
+        $location,
+        [string]$book,
+        [scriptblock]$onFound
+    )
+
+    $window.Cursor = $null
+    if ($state.State -eq ${pathStateFound}) {
+        if ($state.Alias -and $location.Name) {
+            setIndexSourceFolder $location.Name $state.Alias
+            $script:sourceFolderMaps = @{}
+            setStatus "インデックス [$($location.Name)] の元のフォルダを $($state.Alias) に変えました"
+        }
+        & $onFound $state.Path
+        return
+    }
+    if ($state.State -eq ${pathStateUnreachable} -or $state.State -eq ${pathStateOther}) {
+        promptSourceConnectFailure $state $location $book $onFound
+        return
+    }
+    # State=Missing はここまで来た時点で必ず Known（findSourceFileState は Known のときだけ呼ぶ）
+    $path = joinSourcePath $location.Folder $location.Rest $book
+    $relPath = if ($location.Rest) { "$($location.Rest)\$book" } else { $book }
+    promptSourceMissing $location $book $path $relPath ([string]$state.Initial) $onFound
+}
+
+function promptSourceConnectFailure {
+    # 接続できない・その他のとき。知らせて、［フォルダを選ぶ］を選べば見つからないときと同じ流れに進む
+    param (
+        $state,
+        $location,
+        [string]$book,
+        [scriptblock]$onFound
+    )
+
+    $dialog = getSourceConnectFailureDialog $book $state.State $location.Folder $state.Message
+    setStatus (getSourceConnectFailureStatus $state.State $location.Folder $state.Message)
+    $answer = showConfirm -heading $dialog.Heading `
+        -facts @((factGone $dialog.Title $dialog.Detail), (factNext $dialog.Hint)) `
+        -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })
+    if ($answer -eq "pick") {
+        $path = joinSourcePath $location.Folder $location.Rest $book
+        $relPath = if ($location.Rest) { "$($location.Rest)\$book" } else { $book }
+        promptSourceMissing $location $book $path $relPath "" $onFound
+    }
+}
+
+function promptSourceMissing {
+    # 見つからない・記録が無いとき、フォルダを選んでもらって探す（見つかるまで繰り返す）。
+    # findMovedSource は、選んだ直後のフォルダ（届いている）を調べるため画面のスレッドのままにする。
+    #   path: 知らせに出す（記録されていた・見つからなかった）パス
+    #   relPath: インデックスの中の相対パス（記録が無いときの知らせに使う）
+    #   initial: フォルダ選択の開始フォルダ（findSourceFileState が返した Initial。無ければ空）
+    param (
+        $location,
+        [string]$book,
+        [string]$path,
+        [string]$relPath,
+        [string]$initial,
+        [scriptblock]$onFound
+    )
+
     if ($location.Known) {
-        $path = joinSourcePath $location.Folder $location.Rest $row.Book
-        if (Test-Path -LiteralPath (toLongPath $path) -PathType Leaf) {
-            return $path
-        }
-        # 記録した場所に無くても、書き方が違うだけで同じ場所を指すパスで開けることがある
-        # （ネットワークドライブと UNC パス）。別の PC でドライブの割り当てが違う場合に、聞かずに開けるようにする
-        foreach ($alias in @(getFolderPathAliases $location.Folder | Select-Object -Skip 1)) {
-            $candidate = joinSourcePath $alias $location.Rest $row.Book
-            if (!(Test-Path -LiteralPath (toLongPath $candidate) -PathType Leaf)) {
-                continue
-            }
-            if ($location.Name) {
-                setIndexSourceFolder $location.Name $alias
-                $script:sourceFolderMaps = @{}
-                setStatus "インデックス [$($location.Name)] の元のフォルダを ${alias} に変えました"
-            }
-            return $candidate
-        }
         $missing = factGone "記録されていた場所にありません" $path
-        $description = "「$($location.Folder)」に当たるフォルダ（または $($row.Book) のあるフォルダ）を選んでください"
-        $initial = getExistingFolder $path
+        $description = "「$($location.Folder)」に当たるフォルダ（または $book のあるフォルダ）を選んでください"
     } else {
-        # 相対フォルダが空（インデックスの直下）でも \ が重ならないようにつなぐ
-        $path = joinSourcePath $row.Root $row.RelDir $row.Book
         $missing = factGone "このファイルが今どこにあるか、記録がありません" $relPath
-        $description = "$($row.Book) のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
-        $initial = ""
+        $description = "$book のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
     }
     $facts = @(
         $missing,
@@ -75,18 +178,18 @@ function findSourceFile {
     )
 
     while ($true) {
-        if ((showConfirm -heading "$($row.Book) が見つかりません" -facts $facts `
+        if ((showConfirm -heading "$book が見つかりません" -facts $facts `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
-            setStatus "元のファイルが見つかりません：${path}"
-            return $null
+            setStatus (getSourceNotFoundStatus $path)
+            return
         }
         $picked = selectFolder $description $initial
         if (!$picked) {
-            setStatus "元のファイルが見つかりません：${path}"
-            return $null
+            setStatus (getSourceNotFoundStatus $path)
+            return
         }
 
-        $found = findMovedSource $picked $location.Rest $row.Book
+        $found = findMovedSource $picked $location.Rest $book
         if ($found) {
             if ($found.Root -and $location.Name) {
                 setIndexSourceFolder $location.Name $found.Root
@@ -95,7 +198,8 @@ function findSourceFile {
             } else {
                 setStatus "開きました：$($found.Path)"
             }
-            return $found.Path
+            & $onFound $found.Path
+            return
         }
         $facts = @(
             (factGone "選んだフォルダの中にありませんでした" "選んだフォルダ：${picked}`n探したファイル：${relPath}"),
@@ -252,7 +356,8 @@ function updateOpenMenu {
 }
 
 function openSource {
-    # 選択行の元のファイルを開く。mode で開き方（通常・読み取り専用・新規）を指定する
+    # 選択行の元のファイルを開く。mode で開き方（通常・読み取り専用・新規）を指定する。
+    # 元のファイルがネットワークにあれば、見つかるまで（または見つからない・接続できないと分かるまで）画面のスレッドは待たない
     param (
         [string]$mode = (getOpenMode)
     )
@@ -261,10 +366,22 @@ function openSource {
     if ($null -eq $row) {
         return
     }
-    $path = findSourceFile $row
-    if (!$path) {
-        return
-    }
+    # 呼ぶ関数は変数で捕まえてから閉じ込める（findSourceFile の $apply と同じ理由）
+    $openFound = ${function:openFoundSource}
+    findSourceFile $row {
+        param ($path)
+        & $openFound $path $row $mode
+    }.GetNewClosure()
+}
+
+function openFoundSource {
+    # findSourceFile が見つけたファイルを開く（openSource の続き）
+    param (
+        [string]$path,
+        $row,
+        [string]$mode
+    )
+
     $how = switch ($mode) {
         ${openModeReadOnly} { "読み取り専用で開きました" }
         ${openModeNew}      { "新規で開きました" }
@@ -304,11 +421,10 @@ function openSourceFolder {
     if ($null -eq $row) {
         return
     }
-    $path = findSourceFile $row
-    if (!$path) {
-        return
+    findSourceFile $row {
+        param ($path)
+        Start-Process -FilePath "explorer.exe" -ArgumentList "/select,`"${path}`""
     }
-    Start-Process -FilePath "explorer.exe" -ArgumentList "/select,`"${path}`""
 }
 
 function copySelectedRows {

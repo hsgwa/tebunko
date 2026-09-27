@@ -82,6 +82,9 @@ function refreshFolderStatus {
     }
     $script:folderCheckRunning = $true
     $script:folderCheckAgain = $false
+    # 届かないネットワークのフォルダが 1 つでもあれば、専用の列（network）を使う。
+    # プレビュー等の列（既定。2 スレッド）は、届かない共有の Test-Path で塞がれても待たされないようにする
+    $queue = if (testAnyNetworkPath $paths) { "network" } else { "default" }
     startJob {
         param ($paths)
         $result = @{}
@@ -104,7 +107,7 @@ function refreshFolderStatus {
         if ($script:folderCheckAgain) {
             refreshFolderStatus
         }
-    }
+    } $queue
 }
 
 function applyFolderStatus {
@@ -288,7 +291,10 @@ function showIndexEditDialog {
         safe {
             $d = $script:editDialog
             $initial = normalizeFolderPath $d.Ctrl.FolderBox.Text
-            $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" $initial $d.Window
+            # ネットワークのパスは画面のスレッドで有無を調べない。編集中のインデックスの元のフォルダで、
+            # 場所を書き換えていない（直前の refreshFolderStatus の結果がそのまま使える）ときだけ、調べずに開始フォルダにする
+            $knownExisting = ($null -ne $d.Item) -and ($d.Item.Path -eq $initial) -and $d.Item.StatusChecked -and $d.Item.FolderExists
+            $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" $initial $d.Window $knownExisting
             if ($path) {
                 $d.Ctrl.FolderBox.Text = $path
             }
@@ -348,11 +354,9 @@ function addIndexItem {
     updateIndexSourceFile
     updateIndexListView
     refreshIndexingState
-    if (Test-Path -LiteralPath $path -PathType Container) {
-        setStatus "インデックス [${name}] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます"
-    } else {
-        setStatus "インデックス [${name}] を追加しましたが、フォルダが見つかりません：${path}"
-    }
+    # フォルダの有無は refreshFolderStatus（別スレッド）が調べるので、ここでは Test-Path を呼ばない
+    # （届かないネットワークのフォルダで画面のスレッドが止まらないようにする）。有無は一覧の列で分かる
+    setStatus (getIndexAddedStatus $name)
 }
 
 function newIndex {
@@ -617,8 +621,11 @@ function updateFailedList {
     $ui.FailedPanel.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
 }
 
+$script:failedFileRequest = [ref]0  # 失敗したファイルを確かめる依頼の番号（find SourceFile の $script:openSourceRequest と同じ理由で [ref] のまま閉じ込める）
+
 function openFailedFileFolder {
-    # 失敗したファイルの場所をエクスプローラーで開く（ファイルを選択した状態）
+    # 失敗したファイルの場所をエクスプローラーで開く（ファイルを選択した状態）。
+    # ネットワークにあれば裏のスレッドで確かめ、画面のスレッドは待たない
     $row = $ui.FailedGrid.SelectedItem
     if ($null -eq $row) {
         return
@@ -627,17 +634,76 @@ function openFailedFileFolder {
         setStatus "元のファイルの場所が分かりません（取り込み一覧にクロール対象フォルダの記録がありません）：$($row.RelPath)"
         return
     }
-    if (Test-Path -LiteralPath $row.SourcePath -PathType Leaf) {
-        Start-Process -FilePath "explorer.exe" -ArgumentList "/select,`"$($row.SourcePath)`""
+    $path = $row.SourcePath
+    $requestBox = $script:failedFileRequest
+    $requestBox.Value++
+    $requestId = $requestBox.Value
+    $applyState = ${function:applyFailedFileState}
+    $apply = {
+        param ($state, $dirState)
+        if ($requestId -ne $requestBox.Value) {
+            # 待っている間に別の行を選んだ。前の依頼は捨てる
+            return
+        }
+        & $applyState $state $path $dirState
+    }.GetNewClosure()
+
+    if (!(testNetworkPath $path)) {
+        $state = getPathState $path
+        $dirState = if ($state.State -eq ${pathStateMissing}) { getPathState (Split-Path $path -Parent) } else { $null }
+        & $apply $state $dirState
         return
     }
-    $dir = Split-Path $row.SourcePath -Parent
-    if (Test-Path -LiteralPath $dir -PathType Container) {
-        Start-Process -FilePath "explorer.exe" -ArgumentList "`"${dir}`""
-        setStatus "ファイルが見つからないため、フォルダを開きました（移動・削除された可能性があります）：$($row.SourcePath)"
+    setStatus (getFailedFileCheckingStatus $path)
+    $otherState = ${pathStateOther}
+    startJob {
+        param ($path)
+        # フォルダの有無も、ファイルが無い（Missing）ときだけ、ここ（裏のスレッド）で調べて返す
+        # （画面のスレッドで Test-Path すると、届かない共有・一覧に無いネットワークのエラーで止まるおそれがあるため）
+        $state = getPathState $path
+        $state
+        if ($state.State -eq ${pathStateMissing}) {
+            getPathState (Split-Path $path -Parent)
+        }
+    } @($path) {
+        param ($output, $errorText)
+        if ($errorText) {
+            & $apply @{ State = $otherState; Message = $errorText } $null
+        } else {
+            & $apply $output[0] $output[1]
+        }
+    }.GetNewClosure() "network"
+}
+
+function applyFailedFileState {
+    # openFailedFileFolder の続き（getPathState の結果を画面に反映する）。
+    #   dirState: ファイルが無い（Missing）ときだけ渡す、フォルダの getPathState の結果。それ以外は $null
+    param (
+        $state,
+        [string]$path,
+        $dirState = $null
+    )
+
+    if ($state.State -eq ${pathStateFound} -and !$state.IsDirectory) {
+        Start-Process -FilePath "explorer.exe" -ArgumentList "/select,`"${path}`""
         return
     }
-    setStatus "ファイルが見つかりません（移動・削除された可能性があります）：$($row.SourcePath)"
+    if ($state.State -eq ${pathStateUnreachable}) {
+        setStatus (getFailedFileUnreachableStatus $path)
+        return
+    }
+    if ($state.State -eq ${pathStateMissing}) {
+        # フォルダが見つかったときだけ、フォルダを開く（有無は裏のスレッドで調べてある）
+        if ($dirState -and $dirState.State -eq ${pathStateFound}) {
+            Start-Process -FilePath "explorer.exe" -ArgumentList "`"$(Split-Path $path -Parent)`""
+            setStatus "ファイルが見つからないため、フォルダを開きました（移動・削除された可能性があります）：${path}"
+            return
+        }
+        setStatus "ファイルが見つかりません（移動・削除された可能性があります）：${path}"
+        return
+    }
+    # その他（Other。アクセス拒否・一覧に無いネットワークのエラーなど）は、フォルダをたどらず文言だけ出す
+    setStatus (getFailedFileOtherStatus $state.Message)
 }
 
 function updateIndexSummaryText {

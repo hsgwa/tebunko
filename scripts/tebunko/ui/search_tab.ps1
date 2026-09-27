@@ -135,6 +135,9 @@ function startSearch {
         return
     }
 
+    # 新しく検索を始めるため、待っている元のファイルの確認（別の行）は打ち切る
+    cancelPendingSourceLookup
+
     $useFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable
     $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders ${searchLimit} $option $useFast))
     $script:search = @{
@@ -161,6 +164,8 @@ function cancelSearch {
 
 function clearSearchView {
     # ワークスペースを変えたとき、前のワークスペースの検索を止め、結果・プレビュー・インデックスの対応を捨てる
+    # 待っている元のファイルの確認も打ち切る（前のワークスペースの行は、ここから先は開けない）
+    cancelPendingSourceLookup
     $s = $script:search
     if ($s) {
         # 止めた検索のヒットは画面に移さない（司令のスレッドは止まり次第、次の要求に移る）

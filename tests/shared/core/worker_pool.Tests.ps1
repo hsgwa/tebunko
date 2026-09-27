@@ -138,4 +138,49 @@ Describe "BackgroundQueue" -Tag Unit {
         $script:queue.Poll() | Should -Be 0
         $script:done.Count | Should -Be 0
     }
+
+    It "Abandon は、PowerShell.Stop で割り込めない仕事が止まるのを待たずに、2 秒以内に戻る" {
+        # [System.Threading.Thread]::Sleep は PowerShell.Stop で割り込めない。OS の呼び出しで戻らない届かない共有を真似る。
+        # Start-Sleep（直す前の Close の確かめ方）は Stop で割り込めるため、このテストでは使わない。
+        # $script:queue（BeforeEach・AfterEach で Close する共有の列）は使わない。この専用の列は Abandon の後、
+        # 片づけをプロセスの終わりに任せる決まりのとおり Close しない（Close すると、居座る仕事の分だけ AfterEach が遅くなる）
+        $stuck = [BackgroundQueue]::new(1, "", $null)
+        $stuck.Post('[System.Threading.Thread]::Sleep(30000)', @(), $null)
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $stuck.Abandon()
+        $watch.Stop()
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 2
+
+        # Abandon の後、新しい列を作って使える（片づけていないランスペースが残っていても、新しい列は困らない）
+        $next = [BackgroundQueue]::new(1, "", $null)
+        try {
+            $next.Post('"次の列"', @(), { param ($output, $errorText) $script:done.Add("$($output[0])") })
+            $watch2 = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($next.Poll() -gt 0 -and $watch2.Elapsed.TotalSeconds -lt 10) {
+                Start-Sleep -Milliseconds 20
+            }
+        } finally {
+            $next.Close()
+        }
+        $script:done -join "," | Should -Be "次の列"
+    }
+
+    It "Abandon は、終わっている仕事は片づける（次に使えるように戻す）。onDone は呼ばない" {
+        $script:queue.Post('"終わった仕事"', @(), { param ($output, $errorText) $script:done.Add("$($output[0])") })
+        # Poll は呼ばない（先に片づけてしまうと、Abandon の「終わっている仕事」を片づける分岐を通らないため）。
+        # Handle.IsCompleted を直に見て、Poll を挟まずに仕事が終わるのを待つ
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        while (-not $script:queue.Jobs[0].Handle.IsCompleted -and $watch.Elapsed.TotalSeconds -lt 10) {
+            Start-Sleep -Milliseconds 20
+        }
+        $script:queue.Jobs[0].Handle.IsCompleted | Should -Be $true
+
+        $script:queue.Abandon()
+
+        # 終わっている仕事は Receive で片づけ、次に使えるようインスタンスを戻す（Close の Cancel は使い回さず捨てる）
+        $script:queue.Jobs.Count | Should -Be 0
+        $script:queue.Pool.Idle.Count | Should -Be 1
+        # onDone は Poll の仕事のため、Abandon では呼ばない（画面を閉じている途中で画面のスレッドに触らないため）
+        $script:done.Count | Should -Be 0
+    }
 }
