@@ -3049,6 +3049,8 @@
       
         
       
+        
+      
     
     
     
@@ -3431,6 +3433,34 @@
     
   
     画面のテストと確認
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui-smoke/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のスモークテスト
   
 
     
@@ -3841,7 +3871,7 @@
 </tr>
 <tr>
 <td><code>runner</code></td>
-<td><code>tests/run.ps1</code> が、実行したテストが 0 件なら失敗にすること、<code>powershell.exe -File</code> で渡したカンマ区切りのタグを分けて受け取ること</td>
+<td><code>tests/run.ps1</code> が、実行したテストが 0 件なら失敗にすること、<code>powershell.exe -File</code> で渡したカンマ区切りのタグを分けて受け取ること、<code>Gui</code> を既定では流さず <code>-Tag Gui</code> と <code>-All</code> では流すこと</td>
 </tr>
 <tr>
 <td><code>safety</code></td>
@@ -3886,10 +3916,16 @@
 <td>しない（<code>-All</code> で実行）</td>
 </tr>
 <tr>
+<td><code>Gui</code></td>
+<td>本物の画面（<code>scripts/tebunko/gui.ps1</code>）を別のプロセスで開いて UI オートメーションで操作するもの（<code>tests/gui/</code>。<a href="../gui-smoke/">画面のスモークテスト</a>）</td>
+<td>不要（Windows の画面が要る。ランナーの Windows で動く）</td>
+<td>しない（<code>-Tag Gui</code>・<code>-All</code> で実行。CI は <code>gui.yml</code>）</td>
+</tr>
+<tr>
 <td><code>Slow</code></td>
 <td>時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。<code>tests/tools/perf_*.Tests.ps1</code>。<a href="../perf-check/"><code>perf-check.yml</code></a>）</td>
 <td>検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る</td>
-<td>しない（<code>-All</code> または <code>-Tag Slow -ExcludeTag Manual</code> で実行）</td>
+<td>しない（<code>-All</code> または <code>-Tag Slow</code> で実行）</td>
 </tr>
 <tr>
 <td><code>Manual</code></td>
@@ -3900,16 +3936,18 @@
 </tbody>
 </table>
 <p>実行は <code>tests/run.ps1</code> から行う。</p>
-<div class="highlight"><pre><span></span><code>.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Manual は外す）
+<div class="highlight"><pre><span></span><code>.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Gui・Manual は外す）
 .\tests\run.ps1 -Tag Unit    速い確認だけ
-.\tests\run.ps1 -All         Office・Slow も含める（Office と、tebunko-perfdata が必要）
-.\tests\run.ps1 -Tag Slow -ExcludeTag Manual   Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
+.\tests\run.ps1 -All         Office・Slow・Gui も含める（Office と、tebunko-perfdata が必要。Gui は画面を開くので、操作しないで待つ）
+.\tests\run.ps1 -Tag Slow    Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
+.\tests\run.ps1 -Tag Gui     画面のスモークテストだけ（約 4 分。流している間はマウス・キーボードに触らない）
+.\tests\run.ps1 -Tag Gui -Path .\tests\gui\search.Tests.ps1   1 つの場面だけ
 .\tests\run.ps1 -Ci          結果の XML（work\test\results.xml）とカバレッジ（work\test\coverage.xml）を出し、カバレッジの下限を確かめる
 .\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 .\tests\run.ps1 -Quiet       失敗したテストだけを表示する
 </code></pre></div>
 <p>いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。</p>
-<p><code>-Tag Slow</code> だけでは、既定の除外（<code>Office</code>・<code>Slow</code>・<code>Manual</code>）が残って 0 件になる。<code>-ExcludeTag</code> を渡すと既定の除外が置き換わるので、<code>-Tag Slow -ExcludeTag Manual</code> とする。</p>
+<p>Pester 5 は除外（<code>ExcludeTag</code>）をタグ（<code>Tag</code>）より優先するため、<code>-Tag</code> に明示したタグは既定の除外から取り除く（<code>-Tag Slow</code>・<code>-Tag Gui</code> が 0 件にならない）。<code>-ExcludeTag</code> を渡すと既定の除外が丸ごと置き換わる（<code>-Tag Slow -ExcludeTag Manual</code> は今までどおり動く）。</p>
 <p><code>-Tag</code>・<code>-ExcludeTag</code> はカンマ区切りの文字列でも受け取る。<code>powershell.exe -File</code> で呼ぶと <code>-Tag Unit,Meta</code> は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。</p>
 <p><strong>カバレッジ</strong></p>
 <ul>

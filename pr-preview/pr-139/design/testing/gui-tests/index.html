@@ -16,7 +16,7 @@
         <link rel="prev" href="../unit-checks/">
       
       
-        <link rel="next" href="../../reference/">
+        <link rel="next" href="../gui-smoke/">
       
       
         
@@ -3049,6 +3049,8 @@
       
         
       
+        
+      
     
     
     
@@ -3462,6 +3464,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../gui-smoke/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のスモークテスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.ja.md" class="md-nav__link">
         
   
@@ -3765,7 +3795,7 @@
 
 
 <h1 id="画面のテストと確認">画面のテストと確認<a class="headerlink" href="#画面のテストと確認" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 画面が使う関数・画面の型と判断層・画面の部品の単体テストが何を確かめるか、画面の確認（自動化できた範囲・手動で確かめる範囲）。扱わないこと: 画面以外の単体テスト（<a href="../unit-index/">単体テスト（インデックスと検索）</a> など）。先に読むページ: <a href="../">テスト</a>。</p>
+<p>扱うこと: 画面が使う関数・画面の型と判断層・画面の部品の単体テストが何を確かめるか、画面の確認（自動化できた範囲・手動で確かめる範囲）。扱わないこと: 画面以外の単体テスト（<a href="../unit-index/">単体テスト（インデックスと検索）</a> など）、本物の画面を UI オートメーションで操作するスモークテストの仕組み・場面（<a href="../gui-smoke/">画面のスモークテスト</a>）。先に読むページ: <a href="../">テスト</a>。</p>
 <p>判断層（<code>*_view.ps1</code>）はそのままテストする。<code>result_list.ps1</code>・<code>open_source.ps1</code>・<code>preview.ps1</code>・<code>index_tree.ps1</code> は <code>$ui</code>・<code>$window</code> を偽物にし、Excel・エクスプローラーの起動は <code>Mock</code> して実際には開かない。クリップボードは利用者の PC のものを書き換えるため、「コピーしない場合」（<code>preview.ps1</code> の <code>copyPreviewSelection</code>）だけを確かめる。型（<code>shared/ui/types.ps1</code>・<code>tebunko/ui/types.ps1</code>）はプロパティの変更通知と各メソッドを確かめる。</p>
 <pre class="mermaid"><code>flowchart TD
     subgraph judge["判断層（$ui に触らない）"]
@@ -3775,7 +3805,7 @@
         P["result_list.ps1・open_source.ps1&lt;br&gt;preview.ps1・index_tree.ps1"] --&gt; TP["$ui・$window を Mock"]
     end
     subgraph manual["手で確かめる（対象外）"]
-        M["gui.ps1・*_tab.ps1・shell.ps1・app_host.ps1・*_dialog.ps1"] --&gt; TM["画面の確認（このページの下半分）"]
+        M["gui.ps1・*_tab.ps1・shell.ps1・app_host.ps1・*_dialog.ps1"] --&gt; TM["画面の確認（このページの下半分）&lt;br&gt;画面のスモークテストが自動で確かめる範囲を含む"]
     end</code></pre>
 <h2 id="画面の単体テスト">画面の単体テスト<a class="headerlink" href="#画面の単体テスト" title="Permanent link">&para;</a></h2>
 <p>画面が使う関数と画面の部品を Pester 5.9.0 で確かめる（実行方法・タグ・カバレッジは <a href="../run/">テストの実行と CI</a>）。画面の部品（<code>ui/*.ps1</code>）のテストは、WPF のコントロール（<code>$ui.ResultGrid</code> など）を偽のオブジェクトに差し替え、読み込み時に登録されたイベントの処理を直接呼んで確かめる。画面を開かないため、CI でも動く。</p>
@@ -3894,7 +3924,7 @@
 </tbody>
 </table>
 <h2 id="画面の確認">画面の確認<a class="headerlink" href="#画面の確認" title="Permanent link">&para;</a></h2>
-<p>確認欄：◎ = テスト用のコピー（一時フォルダ）で画面を動かして確認済み、空欄・「要手動」 = 未確認（手動で確認する）。</p>
+<p>確認欄：◎ = テスト用のコピー（一時フォルダ）で画面を動かして確認済み、「自動」 = <a href="../gui-smoke/">画面のスモークテスト</a>が毎回確かめる（S1〜S7 は場面）、空欄・「要手動」 = 未確認（手動で確認する）。</p>
 <table>
 <thead>
 <tr>
@@ -3907,27 +3937,27 @@
 <tr>
 <td>起動時のタブが状態（未作成・中断中・失敗あり・通常）に応じて変わる</td>
 <td><a href="../../gui/#起動時に開くタブ">起動時に開くタブ</a></td>
-<td>◎（中断中）</td>
+<td>◎（中断中）。未作成→S2、通常→S1 は自動。中断中で自動的に切り替わること（#4）は保留（上の「見つかった不具合」）</td>
 </tr>
 <tr>
 <td>インデックス一覧・チェック・存在の判定、ドラッグ＆ドロップ・［参照…］、<code>"</code> 付きのパスの貼り付け</td>
 <td><a href="../../gui/index-tab/">インデックス一覧の管理</a></td>
-<td>一覧・判定は◎</td>
+<td>一覧・判定は◎。追加・編集・削除・［参照…］は自動（S2）</td>
 </tr>
 <tr>
-<td>インデックス一覧の［作成］チェックの切替が保存されること（Click で配線）</td>
+<td>インデックス一覧の［作成］チェックの切替が保存されること（Checked・Unchecked で配線）</td>
 <td><a href="../../gui/index-tab/">インデックス一覧の管理</a></td>
-<td>要手動</td>
+<td>自動（S2）</td>
 </tr>
 <tr>
 <td>フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと）</td>
 <td><a href="../../gui/common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a></td>
-<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動</td>
+<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動。自動（S2・S5。ランナーの英語の Windows でも）</td>
 </tr>
 <tr>
 <td>状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止</td>
 <td><a href="../../gui/index-tab/#一覧の列">一覧の列</a></td>
-<td>◎</td>
+<td>◎。作成中に追加・編集・削除が押せないことは自動（S3）</td>
 </tr>
 <tr>
 <td>インデックス作成の進み具合（件数・失敗・残り時間・取り込み中のファイル・終了後の表示）</td>
@@ -3937,12 +3967,12 @@
 <tr>
 <td>インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］）</td>
 <td><a href="../../gui/indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a></td>
-<td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動</td>
+<td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動。開く・［キャンセル］・開始は自動（S2・S3）</td>
 </tr>
 <tr>
 <td>インデックス作成中に画面を閉じる（止めてから閉じる確認・<code>インデックス作成を止めています…</code>・止まってから閉じる。60 秒で Office を止める）</td>
 <td><a href="../../gui/indexing-run/#中止終了ログ">中止・終了・ログ</a>、<a href="../../gui/state-flow/#閉じる">閉じる</a></td>
-<td>要手動</td>
+<td>要手動。確認・止めてから閉じる・終了コード 0 は自動（S3）。60 秒待って Office を止める段階は手</td>
 </tr>
 <tr>
 <td>検索中の進捗表示・中止、大量ヒット時の打ち切り、検索中も画面を操作できること</td>
@@ -3952,7 +3982,7 @@
 <tr>
 <td><code>(株)</code> <code>1.5</code> <code>C++</code> の文字どおり検索と正規表現検索、不正な正規表現の注意</td>
 <td><a href="../../gui/search-tab/#検索ワードの扱い">検索ワードの扱い</a></td>
-<td>◎</td>
+<td>◎。不正な正規表現の注意は自動（S4）</td>
 </tr>
 <tr>
 <td>一致箇所の強調、並べ替え、絞り込み</td>
@@ -3972,12 +4002,12 @@
 <tr>
 <td>検索対象ツリーの 3 状態チェック（親子伝播）・展開時の子読み込み</td>
 <td><a href="../../gui/search-tree/">検索対象のツリー</a></td>
-<td>3 状態・検索範囲と除外の組み立ては◎（上の「画面の単体テスト」）。クリック操作・展開は要手動</td>
+<td>3 状態・検索範囲と除外の組み立ては◎（上の「画面の単体テスト」）。クリック操作・展開は要手動。［すべて解除］［すべて選択］は自動（S4）</td>
 </tr>
 <tr>
 <td>Excel の該当シート・セルが選択された状態で開くこと、Word・PowerPoint が開くこと、ファイルが無い場合（フォルダを選ぶ確認・フォルダ選択）</td>
 <td><a href="../../gui/open-file/">元のファイルを開く</a></td>
-<td>元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（<code>C3</code>）が選択されることは◎（<code>openInExcel</code> にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動</td>
+<td>元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（<code>C3</code>）が選択されることは◎（<code>openInExcel</code> にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動。ファイルが無い場合の確認と［フォルダを選ぶ］は自動（S4）</td>
 </tr>
 <tr>
 <td>コピーした行を Excel に貼ったときの列の位置、結果ファイルの形式</td>
@@ -3987,7 +4017,7 @@
 <tr>
 <td>Office プロセスの一覧・各終了ボタン・確認ダイアログ・インデックス作成中の警告</td>
 <td><a href="../../gui/process-tab/">［9 プロセス停止］タブ</a></td>
-<td>一覧・ボタンの有効／無効のみ◎</td>
+<td>一覧・ボタンの有効／無効のみ◎。偽のプロセスで一覧・確認・選んで終了は自動（S7）</td>
 </tr>
 <tr>
 <td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko）</td>
@@ -4002,7 +4032,7 @@
 <tr>
 <td>多重起動したときに、2 つ目が終了して既存のウィンドウが前面に出ること</td>
 <td><a href="../../gui/#ウィンドウ">ウィンドウ</a>、<a href="../../gui/responsiveness/">画面を固まらせない待たせ方</a></td>
-<td>最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動）</td>
+<td>最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動）。2 つ目が終わり 1 つ目が残ることは自動（S1）</td>
 </tr>
 <tr>
 <td>zip 展開直後（Mark-of-the-Web 付き）から <code>tebunko.bat</code> で起動でき、印が消えること（<code>Bypass</code> なし・<code>RemoteSigned</code>）</td>
@@ -4078,13 +4108,13 @@
         
         
           
-          <a href="../../reference/" class="md-footer__link md-footer__link--next" aria-label="次: 部品から関数一覧を引く">
+          <a href="../gui-smoke/" class="md-footer__link md-footer__link--next" aria-label="次: 画面のスモークテスト">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                部品から関数一覧を引く
+                画面のスモークテスト
               </div>
             </div>
             <div class="md-footer__button md-icon">

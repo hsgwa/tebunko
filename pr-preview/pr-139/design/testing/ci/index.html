@@ -3049,6 +3049,8 @@
       
         
       
+        
+      
     
     
     
@@ -3403,6 +3405,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../gui-smoke/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のスモークテスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.ja.md" class="md-nav__link">
         
   
@@ -3676,12 +3706,13 @@
 
 
 <h1 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h1>
-<p>扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（<a href="../perf/">性能とリソースの計測のしかた</a>）、速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）、コミット前のフック（<a href="../pre-commit/">コミット前に動く検査</a>）。先に読むページ: <a href="../run/">テストの実行</a>。</p>
+<p>扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（<a href="../perf/">性能とリソースの計測のしかた</a>）、速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）、コミット前のフック（<a href="../pre-commit/">コミット前に動く検査</a>）。先に読むページ: <a href="../run/">テストの実行</a>。</p>
 <pre class="mermaid"><code>flowchart TD
     C["コミット・PR"] --&gt; T["test.yml&lt;br&gt;test"]
     C --&gt; TI["title.yml&lt;br&gt;pr-title・issue-title"]
     C --&gt; D["docs.yml&lt;br&gt;docs（ほか changes・publish）"]
     C --&gt; CQ["codeql.yml&lt;br&gt;analyze"]
+    C --&gt; G["gui.yml&lt;br&gt;gui-smoke"]
     M["main への push"] --&gt; SC["scorecard.yml&lt;br&gt;analysis"]
     TAG["v* タグの push"] --&gt; R["release.yml&lt;br&gt;guard → test → release"]</code></pre>
 <p>GitHub Actions のワークフローは次のとおり。使うアクションは、どのワークフローでもコミットのハッシュで固定する（版はハッシュの後ろのコメントに書き、Dependabot が更新する）。</p>
@@ -3739,6 +3770,13 @@
 <td>–</td>
 </tr>
 <tr>
+<td><code>gui.yml</code></td>
+<td><code>gui-smoke</code></td>
+<td>PR、main への push</td>
+<td>本物の画面を windows ランナーで開き、画面遷移（<a href="../gui-smoke/">画面のスモークテスト</a>）を UI オートメーションで確かめる</td>
+<td>–（必須にしない。しばらく安定して通ることを見てから、持ち主が決める）</td>
+</tr>
+<tr>
 <td><code>perf.yml</code></td>
 <td><code>perf</code></td>
 <td>手動（<code>workflow_dispatch</code>）</td>
@@ -3781,6 +3819,19 @@
 <li>タイトルは誰でも書ける信頼できない入力のため、式で <code>run</code> に埋め込まず環境変数で渡す</li>
 <li>起動の速い ubuntu のランナーで <code>pwsh</code>（PowerShell 7）を使う。そのため <code>tools/check_commit_message.ps1</code> は 5.1 と 7 の両方で動くように書く</li>
 <li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
+</ul>
+<p><strong><code>gui.yml</code>（画面のスモークテスト）</strong></p>
+<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
+<ul>
+<li><strong><code>test.yml</code> には入れない。</strong> <code>test.yml</code> は <code>release.yml</code> から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば <code>test</code> と並んで動き、<code>test</code> の時間も延びない</li>
+<li><strong>必須チェックにしない。</strong> 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、<code>paths</code> の絞り込みは付けていない</li>
+<li><code>tests\run.ps1 -Ci</code> は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、<code>Gui</code> だけを流すと下限を割るため</li>
+<li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
+<li>落ちたときの材料（画面の画像・写した先の <code>画面エラー.txt</code>・<code>インデックス作成ログ.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
+<li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
+<li><strong>CI だけで流す場面がある。</strong> S6（既定のワークスペース）は、利用者の本物のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）を使うため、<code>GITHUB_ACTIONS</code> が <code>true</code> のときだけ流す。手元では理由を出して飛ばす</li>
+<li><strong>手元で飛ばす段階がある。</strong> S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（<code>GITHUB_ACTIONS</code> が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す</li>
+<li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、（手元では）<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
 </ul>
 <p><strong><code>codeql.yml</code>・<code>scorecard.yml</code>（サプライチェーンの安全性）</strong></p>
 <p>CodeQL（<code>analyze</code>）は main の必須チェックで、指摘があるとマージできない。Scorecard は採点するだけで、マージは止めない。</p>
