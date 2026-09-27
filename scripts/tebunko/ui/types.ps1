@@ -154,7 +154,7 @@ class FileGroup : NotifyBase {
     [string]$RelDir
     [string]$FullPath
     [string]$AppKind        # Excel / Word / PowerPoint（アイコンの色と文字を決める。どれでもなければ空）
-    [string]$LocationText   # 見出しの右端（「[シート] 4月 ほか 2 か所」）
+    [string]$LocationText   # 見出しの右端（「[シート]4月 ほか 2 か所」）
     [bool]$IsExpanded       # 見出しの下にヒットした行を並べるか（検索した直後は閉じている）
     [int]$ShownCount        # 見出しに出す件数（絞り込みに合うヒットの数）
     # 検索のヒット（searchPackIndex の結果そのまま。見つかった順）
@@ -203,7 +203,7 @@ class FileGroup : NotifyBase {
     }
 }
 
-# 検索結果の1行。生成時は生データのみ。表示用（DisplayLine・Segments・CellText）は Prepare() で作る（可視行だけ）。
+# 検索結果の1行。生成時は生データのみ。表示用（DisplayLine・Segments・MatchCell・MatchCount）は Prepare() で作る（可視行だけ）。
 # 表示用の各項目は Prepare() 後に PropertyChanged を出す（LoadingRow より前にバインドされても更新されるように）
 class HitRow : NotifyBase {
     static [regex] $CellRegex  = [regex]::new("\t(?:`"(?:[^`"]|`"`")*`"[^\t]*|[^\t]*)")
@@ -231,14 +231,15 @@ class HitRow : NotifyBase {
     [string]$FileName
     [string]$Book
     [string]$Location
-    [string]$PlaceText    # 画面の「場所」（describePlace。例: [シート] 売上）。生成した側が入れる
+    [string]$PlaceText    # 場所ごとの表記（describePlace。例: [シート]売上）。生成した側が入れる
+    [string]$PlaceDisplay # 表の「場所」の列の表記（describeHitPlace。例: [シート]売上!B12）。画面に出るとき SetPlaceDisplay で入れる
     [string]$Kind         # 画面の「種別」（セル・図形・コメント・本文・ノート）
     [int]$LineNumber
     [string]$Line
     [bool]$IsExcel
     [bool]$IsObjectPlace
     [string]$MatchCell
-    [string]$CellText
+    [int]$MatchCount        # 1 行のうち一致したセルの数（Excel のセルの行だけ。図形・コメントは 0 か 1）
     [string]$DisplayLine
     [System.Collections.Generic.List[Segment]]$Segments
     [bool]$Prepared
@@ -271,7 +272,7 @@ class HitRow : NotifyBase {
         return $row
     }
 
-    # 表示用（強調セグメント・DisplayLine・セル列）を作る。可視行になったときに1回だけ呼ぶ（LoadingRow）
+    # 表示用（強調セグメント・DisplayLine・セル番地・一致したセルの数）を作る。可視行になったときに1回だけ呼ぶ（LoadingRow）
     [void] Prepare() {
         if ($this.Prepared) { return }
         $this.Prepared = $true
@@ -279,12 +280,12 @@ class HitRow : NotifyBase {
         $this.DisplayLine = [HitRow]::ToDisplay($text)
         $this.Segments = $this.BuildSegments($text)
         $this.SetMatchCell()
-        $this.Raise("DisplayLine"); $this.Raise("Segments"); $this.Raise("CellText"); $this.Raise("MatchCell")
+        $this.Raise("DisplayLine"); $this.Raise("Segments"); $this.Raise("MatchCell"); $this.Raise("MatchCount")
     }
 
     hidden [void] SetMatchCell() {
         $this.MatchCell = ""
-        $this.CellText = ""
+        $this.MatchCount = 0
         if (-not $this.IsExcel) { return }
         $cells = [HitRow]::SplitCells($this.Line, $true)
         if ($this.IsObjectPlace) {
@@ -292,7 +293,7 @@ class HitRow : NotifyBase {
             $hit = $false
             foreach ($cell in $cells) { if ([HitRow]::HasMatch($cell, $this.word, $this.pattern)) { $hit = $true; break } }
             if ($hit -and $cells.Count -gt 0) { $this.MatchCell = $cells[0] }
-            $this.CellText = $this.MatchCell
+            $this.MatchCount = $(if ($hit) { 1 } else { 0 })
             return
         }
         $count = 0
@@ -301,10 +302,17 @@ class HitRow : NotifyBase {
             if ($count -eq 0) { $this.MatchCell = [HitRow]::ColumnName($i + 1) + $this.LineNumber }
             $count++
         }
-        $this.CellText = $(if ($count -gt 1) { $this.MatchCell + " ほか " + ($count - 1) } else { $this.MatchCell })
+        $this.MatchCount = $count
     }
 
-    # 絞り込み。生データ（相対フォルダ・元ファイル名・場所・行番号・生の行）での部分一致（大文字小文字を区別しない）。
+    # 表の「場所」の列に出す文字を入れる（describeHitPlace の結果）。画面に出るとき 1 回入れる
+    [void] SetPlaceDisplay([string]$value) {
+        if ($this.PlaceDisplay -eq $value) { return }
+        $this.PlaceDisplay = $value
+        $this.Raise("PlaceDisplay")
+    }
+
+    # 絞り込み。生データ（相対フォルダ・元ファイル名・場所・種別・生の行）での部分一致。行番号は列に出さないため対象にしない（大文字小文字を区別しない）。
     # ※以前は表示用（セル番地・タブ表示）も対象にしていたが、遅延生成のため生データのみを対象にした。
     [bool] Contains([string]$text) {
         $ci = [System.StringComparison]::CurrentCultureIgnoreCase
@@ -313,7 +321,6 @@ class HitRow : NotifyBase {
         if (("" + $this.Location).IndexOf($text, $ci) -ge 0) { return $true }
         if (("" + $this.PlaceText).IndexOf($text, $ci) -ge 0) { return $true }
         if (("" + $this.Kind).IndexOf($text, $ci) -ge 0) { return $true }
-        if ($this.LineNumber.ToString().IndexOf($text, $ci) -ge 0) { return $true }
         if ($this.Line.IndexOf($text, $ci) -ge 0) { return $true }
         return $false
     }
@@ -354,7 +361,7 @@ class HitRow : NotifyBase {
         return $list
     }
 
-    # 「該当行」列に出す文字。Excel の図形・コメントの行は、先頭のセル番地を「セル」列に出すため除き、
+    # 「該当行」列に出す文字。Excel の図形・コメントの行は、先頭のセル番地を「場所」列に出すため除き、
     # 囲みの " を外した文字にする（"納期は<改行>別途" → 納期は<改行>別途）。ほかは TSV の行のまま
     hidden [string] ShownText() {
         if (-not ($this.IsExcel -and $this.IsObjectPlace)) { return $this.Line }
@@ -780,12 +787,12 @@ class IndexNode : NotifyBase {
 
     static [bool] IsBookDirPath([string]$dir) {
         # 元のファイルごとのフォルダ（集約する前の TSV・中身が空のファイルのフォルダ）か。名前が .xlsx などで終わる本物のフォルダと
-        # 区別するため、サブフォルダも集約ファイル（content.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
+        # 区別するため、サブフォルダも集約ファイル（content_index.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
         if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($dir.TrimEnd('\')))) { return $false }
         try {
             $long = [IndexNode]::LongPath($dir)
             foreach ($sub in [System.IO.Directory]::EnumerateDirectories($long)) { return $false }
-            foreach ($f in [System.IO.Directory]::EnumerateFiles($long, "content.*.tsv")) { return $false }
+            foreach ($f in [System.IO.Directory]::EnumerateFiles($long, "content_index.*.tsv")) { return $false }
             return $true
         } catch { return $false }
     }
@@ -801,8 +808,8 @@ class IndexNode : NotifyBase {
 
     static [bool] HasFiles([string]$dir) {
         try {
-            # 集約ファイル（content.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、集約する前の TSV があれば、フォルダ直下にファイルがある
-            foreach ($f in [System.IO.Directory]::EnumerateFiles([IndexNode]::LongPath($dir), "content.*.tsv")) { return $true }
+            # 集約ファイル（content_index.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、集約する前の TSV があれば、フォルダ直下にファイルがある
+            foreach ($f in [System.IO.Directory]::EnumerateFiles([IndexNode]::LongPath($dir), "content_index.*.tsv")) { return $true }
             foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
                 if (-not [IndexNode]::IsBookDirPath($sub)) { continue }
                 foreach ($f in [System.IO.Directory]::EnumerateFiles($sub, "*.tsv")) { return $true }

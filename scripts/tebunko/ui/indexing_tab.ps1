@@ -173,6 +173,16 @@ function startIndexing {
         return
     }
 
+    # 前の版のインデックス（index\）があり、まだ取り込み直していなければ、始める前に確かめる
+    $legacyState = getLegacyIndexState $workspace.Dir
+    $reingestConfirm = getReingestConfirm $legacyState.HasLegacyIndex $legacyState.ContentEmpty
+    if ($reingestConfirm) {
+        $answer = showConfirm -heading $reingestConfirm -choices @(@{ Text = "取り込み直す"; Value = "start" })
+        if ($answer -ne "start") {
+            return
+        }
+    }
+
     saveTargets
     # 何件取り込むかは、元のファイルの更新日時とサイズを見ないと分からない。
     # ConfirmTargets にすると、インデクサは数え終えたところで止まって確認の返事（answerIndexingPlan）を待つ。

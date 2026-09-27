@@ -11,7 +11,7 @@ sequenceDiagram
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
     participant T as 作業領域 %TEMP%\tebunko\#lt;PID#gt;
-    participant I as work/index
+    participant I as work/content_index
     participant L as 取り込み一覧（work/取り込み一覧.tsv）
 
     S->>T: 作業領域を空にする
@@ -36,7 +36,7 @@ sequenceDiagram
         S->>T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
     S->>T: 図形・コメント → #lt;シート名#gt;[図形].tsv・#lt;シート名#gt;[コメント].tsv
-    S->>I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）<br>集約ファイルへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
+    S->>I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）<br>本文インデックスへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
     S->>L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
         S->>L: 当該ファイルの行（状態 = 失敗、エラー）を追記
@@ -105,7 +105,7 @@ flowchart LR
 - **場所の名前**: シート名には `[` `]` を使えないため、`売上[図形]` は実在のシートと必ず区別できる（[配置・命名規則](index-format.md#配置命名規則)「図形・コメントの場所」）。
 - **文字の形**: 段落・改行はセル内改行（U+2028）にし、改行・`"`・タブを含むときは `"` で囲む（中の `"` は `""`）。Excel のテキスト保存のセルと同じ形なので、検索結果の出力・画面のセルの分け方はセルと同じ処理で扱える。
 - **並び順**: 上の行から（同じ行は左から）。図形は左上のセル、コメントはそのセルの位置で並べる。
-- **セル番地**: 検索結果の「セル」に出し、元のファイルを開くときにそのセルを選ぶ（[［2 検索］タブ](../gui/search-tab.md) [元のファイルを開く](../gui/search-tab.md#元のファイルを開く)）。位置をセルで持たない図形（`absoluteAnchor`）は `A1` とする。
+- **セル番地**: 検索結果の「場所」（`[シート]売上!D5`）に出し、元のファイルを開くときにそのセルを選ぶ（[［2 検索］タブ](../gui/search-tab.md) [元のファイルを開く](../gui/search-tab.md#元のファイルを開く)）。位置をセルで持たない図形（`absoluteAnchor`）は `A1` とする。
 - グループ化した図形は、まとめて 1 つの図形（1 行）とする。グループの中にテキストボックスとグラフ・SmartArt があれば、テキストボックスの段落 → グラフ・SmartArt の文字（XML の順）の順に並べる。互換用の代替表示（`mc:Fallback`）は読まない。文字の無い図形（画像など）は出さない。
 - スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。
 - コメントのふりがな（`rPh`）と作成者名（`authors`）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。
@@ -115,9 +115,9 @@ flowchart LR
 TSV の例（シート `見積` の F2 に左上があるテキストボックスと、C2 のコメント）:
 
 ```
-work/index/営業/見積.xlsx/見積.tsv            … セルの値
-work/index/営業/見積.xlsx/見積[図形].tsv      … F2<TAB>納期は別途ご相談
-work/index/営業/見積.xlsx/見積[コメント].tsv  … C2<TAB>"test:<U+2028>税抜の金額"
+work/content_index/営業/見積.xlsx/見積.tsv            … セルの値
+work/content_index/営業/見積.xlsx/見積[図形].tsv      … F2<TAB>納期は別途ご相談
+work/content_index/営業/見積.xlsx/見積[コメント].tsv  … C2<TAB>"test:<U+2028>税抜の金額"
 ```
 
 ### グラフ・SmartArt の読み取り

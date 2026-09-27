@@ -44,8 +44,8 @@ Describe "getIndexNameMap / resolveSourcePath" -Tag Io {
     }
 
     It "既定のインデックスは取り込み一覧の記録を使う" {
-        # リポジトリの work\index を作らないよう、既定のインデックスの場所をテスト用のフォルダに向ける
-        $indexDir = "$TestDrive\default_work\index"
+        # リポジトリの work\content_index を作らないよう、既定のインデックスの場所をテスト用のフォルダに向ける
+        $indexDir = "$TestDrive\default_work\content_index"
         $workspace = newTestWorkspace @{} "$TestDrive\default_work"
         [System.IO.Directory]::CreateDirectory($indexDir) | Out-Null
         $status = "$TestDrive\status_default.tsv"

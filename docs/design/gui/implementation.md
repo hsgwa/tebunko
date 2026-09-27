@@ -14,9 +14,9 @@
 | `scripts/tebunko/xaml/dialog_about.xaml` | 「tebunko について」ダイアログ（タブ右上の［⋯］メニュー。[画面構成](index.md#画面構成)）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。`ui/about_dialog.ps1` が開く |
 | `scripts/shared/xaml/dialog_confirm.xaml` | 確認ダイアログ（[確認ダイアログ](common.md#確認ダイアログshowconfirm)）。見出し・結果の一覧（`ItemsControl` に `ConfirmFact` をバインド）・補足だけを定義し、ボタンは場面ごとに違うため `shared/ui/shell.ps1` の `showConfirm` が組み立てて `ButtonPanel` / `ChoicePanel` に入れる |
 | `scripts/shared/xaml/theme.xaml` | 画面の見た目（色・文字・コントロールの形）の共通定義 |
-| `scripts/shared/ui/types.ps1`<br>`scripts/tebunko/ui/types.ps1` | 画面で使う型（PowerShell class。[実行時コンパイル（csc.exe）を使わない](#実行時コンパイルcscexeを使わない)）。継承元（`NotifyBase`）と共通の型（`ConfirmFact`）は shared に置き、先に読み込む（型の解決は読み込む順に依存するため、`tests/meta/structure.Tests.ps1` で確かめる）。主な型は次のとおり。<br>・`FileGroup`：結果の表の、元のファイル 1 つ分の見出し（[ファイルごとにまとめた表示](search-tab.md#ファイルごとにまとめた表示)）。ヒットは生のまま `Hits` に持ち、表の行は開いたとき・絞り込み・並べ替え・出力のときに作る<br>・`HitRow`：結果の 1 行。件数が多いので**生成時は生データのみ**を持ち、表示用（強調セグメント・DisplayLine・「セル」列）は**画面に出た行だけ** `Prepare()` で作る（`ResultGrid` の `LoadingRow` から呼び、`INotifyPropertyChanged` で反映）。選択行のプレビュー（[選択行のプレビュー](search-tab.md#選択行のプレビュー)）の表は `BuildPreview`（`readPackContext` で読んだ行から `PreviewTable` を作る）で組み立てる<br>・`PreviewColumn`：列の幅。列見出しと各行のセルで共有し、見出しの `Thumb` のドラッグで `SetWidth` を呼ぶと列全体に反映する<br>・`IndexNode`：検索対象のツリー（[検索対象のツリー（No.13）](search-tab.md#検索対象のツリーno13)）。展開時のフォルダ読み込み・3 状態のチェック・検索範囲 `SearchTarget`／除外 `SearchExclude` の組み立てを持つ。チェックは OneWay バインドとし、クリック（`Toggle`）・展開（`LoadChildren`）はイベントで駆動する（PS class はプロパティのセッターにロジックを書けないため） |
+| `scripts/shared/ui/types.ps1`<br>`scripts/tebunko/ui/types.ps1` | 画面で使う型（PowerShell class。[実行時コンパイル（csc.exe）を使わない](#実行時コンパイルcscexeを使わない)）。継承元（`NotifyBase`）と共通の型（`ConfirmFact`）は shared に置き、先に読み込む（型の解決は読み込む順に依存するため、`tests/meta/structure.Tests.ps1` で確かめる）。主な型は次のとおり。<br>・`FileGroup`：結果の表の、元のファイル 1 つ分の見出し（[ファイルごとにまとめた表示](search-tab.md#ファイルごとにまとめた表示)）。ヒットは生のまま `Hits` に持ち、表の行は開いたとき・絞り込み・並べ替え・出力のときに作る<br>・`HitRow`：結果の 1 行。件数が多いので**生成時は生データのみ**を持ち、表示用（強調セグメント・DisplayLine・セル番地・一致したセルの数）と「場所」列の表記（`SetPlaceDisplay`。`prepareHitRow` が `describeHitPlace` で作る）は**画面に出た行だけ** `Prepare()` で作る（`ResultGrid` の `LoadingRow` から呼び、`INotifyPropertyChanged` で反映）。選択行のプレビュー（[選択行のプレビュー](search-tab.md#選択行のプレビュー)）の表は `BuildPreview`（`readPackContext` で読んだ行から `PreviewTable` を作る）で組み立てる<br>・`PreviewColumn`：列の幅。列見出しと各行のセルで共有し、見出しの `Thumb` のドラッグで `SetWidth` を呼ぶと列全体に反映する<br>・`IndexNode`：検索対象のツリー（[検索対象のツリー（No.13）](search-tab.md#検索対象のツリーno13)）。展開時のフォルダ読み込み・3 状態のチェック・検索範囲 `SearchTarget`／除外 `SearchExclude` の組み立てを持つ。チェックは OneWay バインドとし、クリック（`Toggle`）・展開（`LoadChildren`）はイベントで駆動する（PS class はプロパティのセッターにロジックを書けないため） |
 | `scripts/shared/ui/app_host.ps1` | 画面の土台。XAML の読み込み（`loadXaml`。`ParserContext.BaseUri` にそのファイルの場所を渡し、`theme.xaml` への相対参照を解決する）、ウィンドウの読み込みとアイコン（`loadWindow`）、色の取得（`themeBrush`）、予期しないエラーの記録（`writeErrorLog`） |
-| `scripts/shared/ui/shell.ps1` | 画面の共通部品。ステータス表示（`setStatus`）、メッセージ（`showMessage`）、確認ダイアログ（`showConfirm`。結果の行は `factGone` / `factKept` / `factNext` で `ConfirmFact` を作り、選択肢のボタンは `newChoiceContent` で 2 行のボタンにする。ボタンの `Click` と `ContentRendered` は `GetNewClosure()` で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う `safe`、タイマー（`newTimer`）、画面の裏の仕事（`startJob`。`gui.ps1` が用意する `BackgroundQueue` に渡す。[待たせ方の方針（画面を固まらせない）](#待たせ方の方針画面を固まらせない)） |
+| `scripts/shared/ui/shell.ps1` | 画面の共通部品。ステータス表示（`setStatus`）、メッセージ（`showMessage`）、確認ダイアログ（`showConfirm`。結果の行は `factGone` / `factKept` / `factNext` で `ConfirmFact` を作り、選択肢のボタンは `newChoiceContent` で 2 行のボタンにする。ボタンの `Click` と `ContentRendered` は `GetNewClosure()` で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う `safe`、予期しないエラーを知らせる `reportUnexpectedError`（`safe` の catch と、画面のスレッドの `Dispatcher` で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを `Dispatcher.UnhandledException` に登録する `registerUnhandledErrorHandler`（`gui.ps1` が起動時に呼ぶ）、タイマー（`newTimer`）、画面の裏の仕事（`startJob`。`gui.ps1` が用意する `BackgroundQueue` に渡す。[待たせ方の方針（画面を固まらせない）](#待たせ方の方針画面を固まらせない)） |
 | `scripts/shared/ui/folder_dialog.ps1` | Windows 標準のフォルダ選択（`selectFolder`。[フォルダ選択ダイアログ（［参照…］）](index-tab.md#フォルダ選択ダイアログ参照)）。WinForms 内部の `IFileDialog` をリフレクションで呼んで開き、開けなければ `OpenFileDialog` でフォルダの中に入って選んでもらう（[実行時コンパイル（csc.exe）を使わない](#実行時コンパイルcscexeを使わない)）。フォルダのドラッグ＆ドロップの判定（`getDroppedFolders`・`onFolderDragOver`）も置く |
 | `scripts/tebunko/ui/index_tab.ps1`<br>`indexing_tab.ps1` | ［1 インデックス管理］タブ（[［1 インデックス管理］タブ](index-tab.md)）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（`IndexingSession`）・中止・進み具合の表示。インデックス一覧のほかでの変更は、`getTargetsKey`（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（[画面での読み書き](../architecture/settings-file.md#画面での読み書き)） |
 | `scripts/tebunko/ui/search_tab.ps1`<br>`result_list.ps1`<br>`preview.ps1`<br>`open_source.ps1`<br>`index_tree.ps1` | ［2 検索］タブ（[［2 検索］タブ](search-tab.md)）。検索の実行（`search_tab.ps1`）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。`result_list.ps1`）、選択行のプレビュー（`preview.ps1`）、元のファイルを開く処理（Excel COM。[元のファイルを開く](search-tab.md#元のファイルを開く)。`open_source.ps1`）、検索対象インデックスのツリー（`index_tree.ps1`） |
@@ -47,7 +47,7 @@
 | 取り込み一覧の読み込み（`readStatusFile`） | 0.32 秒 | 1.4 秒 | 1 行ごとに関数を呼ばない。毎秒は読まず、受け渡しの口の進み具合を読む |
 | 取り込み一覧の書き出し（`writeStatusFile`） | 0.08 秒 | 0.22 秒 | 1 行ごとに関数・パイプラインを使わない（インデックス作成の開始・終了時の待ちに効く） |
 | 状態の集計（`getIndexingState`） | 0.91 秒 | 5.3 秒 | 別スレッドで行う（`refreshIndexingState`）。日時の解析は必要なときだけ行う |
-| 検索対象の数え上げ（集約ファイルにする前の TSV の列挙） | 2.2 秒（TSV 2 万件） | – | .NET で列挙する。検索スレッドで行い、途中の件数を表示する。今は集約ファイル（フォルダ・拡張子ごとに 1 つ）だけを列挙する（`getIndexPackFiles`） |
+| 検索対象の数え上げ（本文インデックスに入れる前の TSV の列挙） | 2.2 秒（TSV 2 万件） | – | .NET で列挙する。検索スレッドで行い、途中の件数を表示する。今は本文インデックスのファイル（フォルダ・拡張子ごとに 1 つ）だけを列挙する（`getIndexPackFiles`） |
 | インデックスの削除 | 6.7 秒（1 万フォルダ） | – | 別スレッドで行う（削除中は操作を止めてステータスに出す） |
 
 > PowerShell 5.1 では**関数呼び出しが 1 回あたり約 50 マイクロ秒**かかる。5 万行で 1 行 1 回呼ぶと、それだけで約 2.7 秒になる。数万件を回すところでは、関数呼び出し・パイプライン（`ForEach-Object` / `Where-Object`）・`$obj.$名前` の動的アクセスを避ける（普通の場所では読みやすさを優先してよい）。
@@ -56,7 +56,7 @@
 
 - スレッドの分け方・寿命・閉じる順番は [プロセスとスレッド](../architecture/threads.md) にまとめる。画面のプロセスの中で、画面・検索・画面の裏の仕事・インデックス作成が別々のスレッドで動く。
 - 検索は検索の司令のスレッド（`SearchService`。画面を開いている間 1 つ）が、要求（`newSearchRequest`）を 1 つずつ実行する。lib.ps1 の読み込みと照合のプールの用意は、スレッドを始めたときに 1 回だけ行う。結果は要求の中のキュー（`ConcurrentQueue`）に入れ、画面の `DispatcherTimer`（0.1 秒間隔）で取り出して表に加える（`pumpSearch`）。1 回に取り出す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が止まる）。中止は要求の `Stop` で伝える。新しい要求を渡すと、前の要求の `Stop` を立てる。
-- 集約ファイルの件数取得・取り込み一覧の集計・インデックスの削除・選択行のプレビューの読み込み・［9 プロセス停止］の定期的な一覧の取り直しとタブ見出しの ⚠ の判定は `startJob`（`shell.ps1`）で実行する。`startJob` は画面の裏の仕事のスレッド（`BackgroundQueue`。2 つ。長い仕事の間もプレビューが待たないため）に渡す。各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む。終わったかは `DispatcherTimer`（`jobTimer`。仕事がある間だけ 0.05 秒間隔）で確かめ、画面のスレッドで `onDone` を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。
+- 本文インデックスのファイルの件数取得・取り込み一覧の集計・インデックスの削除・選択行のプレビューの読み込み・［9 プロセス停止］の定期的な一覧の取り直しとタブ見出しの ⚠ の判定は `startJob`（`shell.ps1`）で実行する。`startJob` は画面の裏の仕事のスレッド（`BackgroundQueue`。2 つ。長い仕事の間もプレビューが待たないため）に渡す。各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む。終わったかは `DispatcherTimer`（`jobTimer`。仕事がある間だけ 0.05 秒間隔）で確かめ、画面のスレッドで `onDone` を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。
 - インデックス作成は `newIndexingSession` で画面のプロセスの中のスレッド（MTA・BelowNormal）で実行し、`DispatcherTimer`（1 秒間隔）で `IsRunning` と受け渡しの口の進み具合（`readIndexingProgress`）を確認する（[インデックス作成の進み具合](index-tab.md#インデックス作成の進み具合)）。終わったら受け渡しの口の終了コード（`GetExitCode`）で表示を分け（[中止・終了・ログ](index-tab.md#中止終了ログ)）、`Close` でスレッドを片づける。
 - 進み具合の段階が `確認` になったら、インデックス作成の確認ダイアログを開く（[インデックス作成の確認ダイアログ](index-tab.md#インデックス作成の確認ダイアログ)）。**ダイアログを開いている間も `DispatcherTimer` は動く**（`ShowDialog` は入れ子のメッセージループのため）。開く前に「開いた」ことにして、二重に開かないようにする。
 - 多重起動は、ツールの配置フォルダごとの名前付き Mutex で防ぐ。2 つ目のプロセスは、同じくフォルダごとの名前付きイベント（`Local\tebunko_gui_activate_<フォルダのハッシュ>`）を合図して終了し、すでに開いている画面が `DispatcherTimer`（0.3 秒間隔）でそれを確認して `Window.Activate()`（＋最小化なら復帰）で前面に出す。別アプリが前面のときはフォーカスを奪えないことがある（OS の制限。P/Invoke の `SetForegroundWindow` は使わない。[実行時コンパイル（csc.exe）を使わない](#実行時コンパイルcscexeを使わない)）。
@@ -68,7 +68,7 @@
 資産管理・EDR は「`powershell.exe` が `csc.exe` を起動して `%TEMP%` の一時 DLL を読み込む」動き（実行時コンパイル。MITRE ATT&CK T1027.004）を、良性でも拾うことがある。tebunko はこれを一切出さない設計にする（`tests/meta/safety.Tests.ps1` の「実行時にコードをコンパイルしない」が確かめる。[危険とされる処理の検査結果](../../safety/checks.md#検査項目と結果)）。
 
 - **画面で使う型は PowerShell class**（`HitRow`・`FileGroup`・`Segment`・`PreviewColumn`／`PreviewCell`／`PreviewRow`／`PreviewTable`・`ProcRow`・`FailRow`・`PlanRow`・`FolderItem`・`SearchTarget`・`SearchExclude`・`IndexNode`・`ConfirmFact`）。PS class はエンジンがメモリ内で用意し、`csc.exe`・一時 DLL を出さない。`INotifyPropertyChanged` は `NotifyBase` を継承して実装する。
-- **検索・集約ファイルの読み取りは .NET を直接呼ぶ**（`searchPackFiles`／`readPackPlaces`／`readPackContext`。`StreamReader`＋`[regex]`）。
+- **検索・本文インデックスの読み取りは .NET を直接呼ぶ**（`searchPackFiles`／`readPackPlaces`／`readPackContext`。`StreamReader`＋`[regex]`）。
 - **Win32 API（P/Invoke）と、インターフェース定義が要る COM を使わない**。代わりに次を使う。
 
   | 目的 | 使うもの | 使わないもの（実行時コンパイルが要る） |
@@ -107,10 +107,10 @@
 | # | 内容 | 確度 |
 |---|---|---|
 | 1 | 元のファイルのパスは、取り込み時に記録したクロール対象フォルダから組み立てる。取り込み後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。[元のファイルが見つからないとき（元のフォルダを設定する）](search-tab.md#元のファイルが見つからないとき元のフォルダを設定する)） | ○ |
-| 2 | `元のフォルダ.txt` の無いインデックス（インデックス作成を 1 回実行すると作られる）を別の場所にコピーした場合は、元の場所が分からないため、開くときにフォルダを選ぶ必要がある | ○ |
+| 2 | 元のフォルダの記録（`元のフォルダ.txt`）の無いインデックス（インデックス作成を 1 回実行すると作られる）を別の場所にコピーした場合は、元の場所が分からないため、開くときにフォルダを選ぶ必要がある | ○ |
 | 3 | バックグラウンドの判定は `MainWindowHandle` による。画面に表示中でも、すべてのウィンドウを閉じた直後などはバックグラウンドと判定される（[プロセスの表](process-tab.md#プロセスの表)） | △ |
 | 4 | フォルダ選択は Windows 標準のダイアログのため、フォルダの中のファイル（Office ファイルがあるか）は一覧に出ない（[フォルダ選択ダイアログ（［参照…］）](index-tab.md#フォルダ選択ダイアログ参照)）。WinForms の内部の型を使うため、Windows PowerShell 5.1（.NET Framework）が前提。内部の型が使えないときは、`OpenFileDialog` でフォルダの中に入って［開く］を押す形になる | ○ |
-| 5 | 集約ファイルが非常に多い場合、件数を数え終わるまで状態表示が `確認中…` になる | △ |
+| 5 | 本文インデックスのファイルが非常に多い場合、件数を数え終わるまで状態表示が `確認中…` になる | △ |
 
 ---
 

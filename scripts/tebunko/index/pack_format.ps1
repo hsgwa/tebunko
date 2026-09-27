@@ -1,4 +1,4 @@
-﻿# 検索用の集約ファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。content.xlsx.001.tsv など）の形式（判断層）。
+﻿# 検索用の集約ファイル（フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。content_index.xlsx.001.tsv など）の形式（判断層）。
 # ファイル（元のファイル）ごと・場所（シート・ページ・スライドなど）ごとに、メタ情報の行と今の TSV の中身を並べる。
 #
 #   ␞ 版=1
@@ -14,10 +14,12 @@
 # ・改行は LF にそろえる。行の分け方は StreamReader.ReadLine と同じ（CRLF・LF・CR）にし、行番号を変えない
 # ・文字コードは UTF-16LE（BOM 付き。pack_store.ps1 が読み書きする）
 
-# 集約ファイルの名前は「content.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content.xlsx.001.tsv など）。
+# 集約ファイルの名前は「content_index.<元のファイルの拡張子（小文字）>.<番号（3 桁以上）>.tsv」（content_index.xlsx.001.tsv など）。
 # 1 つの集約ファイルが packFileMaxBytes 以上になったら、それ以上ブックを足さず、次の番号の集約ファイルに足す
-${packFilePattern} = "content.*.tsv"
-${packFileNamePattern} = '^content\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$'
+# 先頭の語（content_index）は 1 か所の定数にする（index_store.ps1 の getPackKeyOf も使う）
+${packFileNamePrefix} = "content_index"
+${packFilePattern} = "${packFileNamePrefix}.*.tsv"
+${packFileNamePattern} = "^${packFileNamePrefix}\.(?<ext>[^.]+)\.(?<part>\d{3,})\.tsv$"
 ${packFileMaxBytes} = 4MB
 ${packVersion} = 1
 ${packMark} = [char]0x1E
@@ -49,13 +51,13 @@ function getPackExtension {
 
 
 function getPackFileName {
-    # 拡張子・番号の集約ファイルの名前（content.xlsx.001.tsv など）を返す
+    # 拡張子・番号の集約ファイルの名前（content_index.xlsx.001.tsv など）を返す
     param (
         [string]$extension,
         [int]$part = 1
     )
 
-    return "content.{0}.{1:D3}.tsv" -f $extension, $part
+    return "${packFileNamePrefix}.{0}.{1:D3}.tsv" -f $extension, $part
 }
 
 

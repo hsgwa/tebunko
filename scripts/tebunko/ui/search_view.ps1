@@ -109,7 +109,7 @@ function getAppKind {
 
 function describeFileLocations {
     # ファイルの中でヒットした場所（見つかった順・重複なし）を、見出しの右端に出す文字列にする。
-    # 1 か所ならその場所、2 か所以上なら「[シート] 4月 ほか 2 か所」（場所の表記は describePlace）
+    # 1 か所ならその場所、2 か所以上なら「[シート]4月 ほか 2 か所」（場所の表記は describePlace）
     param (
         [string[]]$labels
     )
@@ -184,6 +184,17 @@ function getShownHitRows {
     return , $rows
 }
 
+function prepareHitRow {
+    # 画面に出る行の表示用の値（強調セグメント・セル番地・「場所」の列の表記）を作る。作り済みなら何もしない
+    param (
+        [HitRow]$row
+    )
+
+    $row.Prepare()
+    if ($row.PlaceDisplay) { return }
+    $row.SetPlaceDisplay((describeHitPlace $row.PlaceText $row.IsExcel $row.IsObjectPlace $row.MatchCell $row.MatchCount $row.LineNumber))
+}
+
 function sortFileGroups {
     # 列見出しのクリックでの並べ替え。各ファイルの中の行を property の順に並べ替え、
     # ファイルの順は、並べ替えた後の先頭の行の順にする。同じ値のときは見つかった順（Order）
@@ -193,10 +204,13 @@ function sortFileGroups {
         [bool]$descending
     )
 
-    $byValue = @{ Expression = { $_.$property }; Descending = $descending }
-    $byOrder = @{ Expression = { $_.Order }; Descending = $false }
+    # 鍵は項目の名前で渡す（スクリプトブロックより速い）。「場所」（Location）は同じ場所の中を行番号の順にする
+    # （セル番地の文字の順だと A10 が A9 の前に来るため、番地ではなく行番号で並べる）
+    $byValue = @{ Expression = $property; Descending = $descending }
+    $byOrder = @{ Expression = "Order"; Descending = $false }
+    $rowKeys = if ($property -eq "Location") { @($byValue, @{ Expression = "LineNumber"; Descending = $descending }, $byOrder) } else { @($byValue, $byOrder) }
     foreach ($group in $groups) {
-        $sorted = @($group.Rows | Sort-Object $byValue, $byOrder)
+        $sorted = @($group.Rows | Sort-Object $rowKeys)
         $group.Rows.Clear()
         $group.Rows.AddRange([object[]]$sorted)
     }

@@ -5,9 +5,9 @@ BeforeAll {
 
     # 結果の表の項目のテストに使う、HitRow・FileGroup と同じ項目を持つもの
     function newTestRow {
-        param ([int]$order, [string]$line, [int]$lineNumber = 1)
+        param ([int]$order, [string]$line, [int]$lineNumber = 1, [string]$location = "")
 
-        $row = [pscustomobject]@{ Order = $order; Line = $line; LineNumber = $lineNumber }
+        $row = [pscustomobject]@{ Order = $order; Line = $line; LineNumber = $lineNumber; Location = $location }
         $row | Add-Member -MemberType ScriptMethod -Name Contains -Value { param ($text) $this.Line.Contains($text) }
         return $row
     }
@@ -111,8 +111,8 @@ Describe "getAppKind" -Tag Unit {
 Describe "describeFileLocations" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "場所が無ければ空"; locations = @(); expected = "" }
-        @{ name = "1 か所ならその場所"; locations = @("[シート] 4月"); expected = "[シート] 4月" }
-        @{ name = "2 か所以上なら先頭と、ほかの数"; locations = @("[シート] 4月", "[シート] 5月", "[シート] 6月"); expected = "[シート] 4月 ほか 2 か所" }
+        @{ name = "1 か所ならその場所"; locations = @("[シート]4月"); expected = "[シート]4月" }
+        @{ name = "2 か所以上なら先頭と、ほかの数"; locations = @("[シート]4月", "[シート]5月", "[シート]6月"); expected = "[シート]4月 ほか 2 か所" }
     ) {
         param ($name, $locations, $expected)
         describeFileLocations $locations | Should -Be $expected
@@ -181,6 +181,14 @@ Describe "sortFileGroups" -Tag Unit {
         $sorted = sortFileGroups @($a, $b) "LineNumber" $true
         [object]::ReferenceEquals($sorted[0], $a) | Should -Be $true
         @($a.Rows | ForEach-Object { $_.LineNumber }) -join "," | Should -Be "9,5"
+    }
+
+    It "「場所」（Location）では、同じ場所の中を行番号の順にする（見つかった順と食い違っていても）" {
+        $a = newTestGroup 1 @((newTestRow 0 "a" 10 "売上"), (newTestRow 1 "a" 9 "売上"), (newTestRow 2 "a" 1 "仕入"))
+        $sorted = sortFileGroups @($a) "Location" $false
+        @($a.Rows | ForEach-Object { "$($_.Location)$($_.LineNumber)" }) -join "," | Should -Be "仕入1,売上9,売上10"
+        $sorted = sortFileGroups @($a) "Location" $true
+        @($a.Rows | ForEach-Object { "$($_.Location)$($_.LineNumber)" }) -join "," | Should -Be "売上10,売上9,仕入1"
     }
 
     It "同じ値のときは見つかった順" {

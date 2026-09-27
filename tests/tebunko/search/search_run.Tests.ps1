@@ -5,22 +5,22 @@ BeforeAll {
 
 Describe "toResultLine" -Tag Io {
     It "ブック名・場所・種別・行番号・該当行をタブ区切りにする（場所・種別は画面と同じ表示）" {
-        toResultLine "book.xlsx" "Sheet1" 12 "時刻`t12:34:56" | Should -Be "book.xlsx`t[シート] Sheet1`tセル`t12`t時刻`t12:34:56"
+        toResultLine "book.xlsx" "Sheet1" 12 "時刻`t12:34:56" | Should -Be "book.xlsx`t[シート]Sheet1`tセル`t12`t時刻`t12:34:56"
     }
 
     It "Excelのセル内改行を改行に戻す" {
-        toResultLine "book.xlsx" "Sheet1" 3 "a`t`"1行目${cellNewLine}2行目`"`tb" | Should -Be "book.xlsx`t[シート] Sheet1`tセル`t3`ta`t`"1行目`n2行目`"`tb"
+        toResultLine "book.xlsx" "Sheet1" 3 "a`t`"1行目${cellNewLine}2行目`"`tb" | Should -Be "book.xlsx`t[シート]Sheet1`tセル`t3`ta`t`"1行目`n2行目`"`tb"
     }
 
     It "シート名のタブ・改行はスペースにする（列・行が分かれないようにする）" {
-        toResultLine "book.xlsx" "タブ`tあり" 1 "x" | Should -Be "book.xlsx`t[シート] タブ あり`tセル`t1`tx"
-        toResultLine "book.xlsx" "改行`nあり" 2 "y" | Should -Be "book.xlsx`t[シート] 改行 あり`tセル`t2`ty"
+        toResultLine "book.xlsx" "タブ`tあり" 1 "x" | Should -Be "book.xlsx`t[シート]タブ あり`tセル`t1`tx"
+        toResultLine "book.xlsx" "改行`nあり" 2 "y" | Should -Be "book.xlsx`t[シート]改行 あり`tセル`t2`ty"
     }
 
     It 'Word・PowerPointの行は、" で始まるセルだけを " で囲む' {
-        toResultLine "doc.docx" "ページ001" 1 "`"引用`"と言った" | Should -Be "doc.docx`t[ページ] 1（目安）`t本文`t1`t`"`"`"引用`"`"と言った`""
-        toResultLine "doc.docx" "ページ001" 2 "彼は`"引用`"と言った" | Should -Be "doc.docx`t[ページ] 1（目安）`t本文`t2`t彼は`"引用`"と言った"
-        toResultLine "doc.docx" "ページ001" 3 "表`t`"見出し`"`tx" | Should -Be "doc.docx`t[ページ] 1（目安）`t本文`t3`t表`t`"`"`"見出し`"`"`"`tx"
+        toResultLine "doc.docx" "ページ001" 1 "`"引用`"と言った" | Should -Be "doc.docx`t1 ページ（目安）`t本文`t1`t`"`"`"引用`"`"と言った`""
+        toResultLine "doc.docx" "ページ001" 2 "彼は`"引用`"と言った" | Should -Be "doc.docx`t1 ページ（目安）`t本文`t2`t彼は`"引用`"と言った"
+        toResultLine "doc.docx" "ページ001" 3 "表`t`"見出し`"`tx" | Should -Be "doc.docx`t1 ページ（目安）`t本文`t3`t表`t`"`"`"見出し`"`"`"`tx"
     }
 }
 
@@ -32,7 +32,7 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
             [void][System.IO.Directory]::CreateDirectory($item.Folder)
             writePackFile "$($item.Folder)\$(getPackFileName (getPackExtension $item.Name))" (convertToPackText @(@{ Name = $item.Name; Places = @(@{ Place = "S"; Text = "x" }) }))
         }
-        (Get-Item -LiteralPath "$other\content.docx.001.tsv").LastWriteTime = [datetime]"2030-01-02 03:04:05"
+        (Get-Item -LiteralPath "$other\content_index.docx.001.tsv").LastWriteTime = [datetime]"2030-01-02 03:04:05"
         # 集約する前の TSV（インデックス作成の途中）は数えない
         newTsv "$other\d.xlsx\S.tsv" @("d")
         $missing = Join-Path $TestDrive "missing"
@@ -70,7 +70,7 @@ Describe "検索結果の行（集約ファイルのヒット）" -Tag Io {
         foreach ($folder in (findIndexFoldersWithBooks $index)) { [void](updateIndexFolderPack $folder) }
         $hit = @((searchPackIndex "りんご" (getIndexPackFiles @($index)).Packs $true).Hits)[0]
         $hit.Book | Should -Be "A社.xlsx_old.xlsx"
-        (toSearchResultLines @($hit)).Lines[0] | Should -Be "A社.xlsx_old.xlsx`t[シート] Sheet1`tセル`t1`tりんご`t200"
+        (toSearchResultLines @($hit)).Lines[0] | Should -Be "A社.xlsx_old.xlsx`t[シート]Sheet1`tセル`t1`tりんご`t200"
     }
 
     It "Excel の図形の場所（名前に [ ] を含む）も検索でき、セル内改行を戻して出力する" {
@@ -80,7 +80,7 @@ Describe "検索結果の行（集約ファイルのヒット）" -Tag Io {
         $hit = @((searchPackIndex "納期" (getIndexPackFiles @($objectIndex)).Packs $true).Hits)[0]
         $hit.Book | Should -Be "[確定]見積.xlsx"
         $hit.Location | Should -Be "見積[図形]"
-        (toSearchResultLines @($hit)).Lines[0] | Should -Be "[確定]見積.xlsx`t[シート] 見積`t図形`t1`tF2`t`"納期は`n別途`""
+        (toSearchResultLines @($hit)).Lines[0] | Should -Be "[確定]見積.xlsx`t[シート]見積`t図形`t1`tF2`t`"納期は`n別途`""
     }
 }
 Describe "toSearchResultLines / writeSearchResult" -Tag Io {
@@ -95,8 +95,8 @@ Describe "toSearchResultLines / writeSearchResult" -Tag Io {
     It "相対フォルダ付きのファイル名・場所・行番号・該当行にし、見出しに最大セル数分の列名を付ける" {
         $result = toSearchResultLines $hits
         $result.Header | Should -Be "ファイル名`t場所`t種別`t行`tA`tB`tC"
-        $result.Lines[0] | Should -Be "x\A社.xlsx`t[シート] Sheet1`tセル`t1`ta`t`"りんご`nみかん`"`tc"
-        $result.Lines[1] | Should -Be "文書.docx`t[ページ] 1（目安）`t本文`t1`t`"`"`"引用`"`"で始まる りんご`""
+        $result.Lines[0] | Should -Be "x\A社.xlsx`t[シート]Sheet1`tセル`t1`ta`t`"りんご`nみかん`"`tc"
+        $result.Lines[1] | Should -Be "文書.docx`t1 ページ（目安）`t本文`t1`t`"`"`"引用`"`"で始まる りんご`""
     }
 
     It "検索結果ファイルの形式（02_検索.md）で書き出す" {
