@@ -1,5 +1,6 @@
 ﻿# 画面のスモークテスト S4: 検索の遷移（共通の関数は gui_helpers.ps1）。
-# 画面遷移の一覧（docs\design\testing\index.md「画面のスモークテスト」）の #24・#25・#27・#28・#29 を確かめる。
+# 画面遷移の一覧（docs\design\testing\index.md「画面のスモークテスト」）の #24・#25・#27・#29 を確かめる。
+# #28（右クリックのメニュー・プレビューのメニュー）は対象外（UI オートメーションではメニューを開けない）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"
@@ -75,9 +76,7 @@ Describe "S4 検索の遷移" -Tag Gui {
             waitGuiEnabled $S (findGui $S.Window -Id "OpenButton") "［開く］"
             setGuiStep $S "元のファイルが無い行の［開く］→［キャンセル］"
             clickGui $S $S.Window "OpenButton" "［開く］"
-            $confirm = waitGuiWindow $S "見つからない確認" -Id "HeadingText" -Text "が見つかりません"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "見つからない確認"
+            answerGuiConfirm $S "見つからない確認" "が見つかりません" "キャンセル"
             setGuiStep $S "元のファイルが無い行の［開く］→［フォルダを選ぶ］→ フォルダ選択［キャンセル］"
             clickGui $S $S.Window "OpenButton" "［開く］"
             $confirm = waitGuiWindow $S "見つからない確認" -Id "HeadingText" -Text "が見つかりません"

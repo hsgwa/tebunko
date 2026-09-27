@@ -99,7 +99,9 @@ function startGuiProcess {
 }
 
 function startGui {
-    # 画面を起動し、本体の窓（Tabs を持つ窓）が出るまで待つ。戻り値が以降の操作の「場面」（$S）
+    # 画面を起動する。プロセスを起こしたら、待たずにすぐ $S を返す（以降の操作の「場面」）。
+    # 本体の窓（Tabs を持つ窓）を待つのは invokeGuiScene の中で行う。起動そのものが失敗しても
+    # （XAML の読み込み例外など）、そこで失敗の材料を残してからプロセスを止められるようにするため
     param (
         $Tool,
         [string]$Scene
@@ -109,18 +111,23 @@ function startGui {
     $pool.Open()
     $S = @{ Tool = $Tool; Scene = $Scene; Step = "起動"; Async = New-Object System.Collections.ArrayList; Pool = $pool; Window = $null; Timing = [ordered]@{}; Extra = @() }
     $S.Process = startGuiProcess $Tool
+    return $S
+}
+
+function waitGuiStarted {
+    # 本体の窓（Tabs を持つ窓）が出るまで待つ。invokeGuiScene が Body の前に呼ぶ
+    param ($S)
+
+    if ($S.Window) {
+        return
+    }
     $sw = [Diagnostics.Stopwatch]::StartNew()
-    try {
-        $S.Window = waitGui $S "本体の窓（Tabs）" ${guiStartTimeout} {
-            foreach ($w in @(getGuiTopWindows $S)) {
-                if (findGui $w -Id "Tabs") { return $w }
-            }
+    $S.Window = waitGui $S "本体の窓（Tabs）" ${guiStartTimeout} {
+        foreach ($w in @(getGuiTopWindows $S)) {
+            if (findGui $w -Id "Tabs") { return $w }
         }
-    } catch {
-        throw
     }
     $S.Timing["起動"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
-    return $S
 }
 
 function stopGui {
@@ -190,11 +197,14 @@ function waitGui {
 }
 
 function getGuiErrorWindowText {
-    # 本体以外の窓に、異常の文言（guiErrorPatterns）があれば、その文字を返す
+    # 本体以外の窓に、異常の文言（guiErrorPatterns）があれば、その文字を返す。
+    # 本体の窓がまだ見つかっていない（起動を待っている間）は、そのプロセスのすべての窓（起動中の表示は除く）を調べる。
+    # そうしないと、起動時の XAML の読み込み例外などで trap が出すメッセージボックスに気づけず、90 秒待ってから
+    # 「本体の窓が見つからない」というだけの失敗になり、材料も残らない
     param ($S)
 
-    if (!$S.Window) { return $null }
-    foreach ($w in @(getGuiOtherWindows $S)) {
+    $windows = if ($S.Window) { @(getGuiOtherWindows $S) } else { @(getGuiTopWindows $S | Where-Object { !(findGui $_ -Id "SplashProgress") }) }
+    foreach ($w in $windows) {
         foreach ($text in @(getGuiTexts $w)) {
             foreach ($pattern in ${guiErrorPatterns}) {
                 if ($text -like "*$pattern*") { return $text }
@@ -335,27 +345,36 @@ function waitGuiEnabled {
     waitGui $S "$What が押せる（有効になる）" $Timeout { try { $Element.Current.IsEnabled } catch { $false } } | Out-Null
 }
 
-function invokeGui {
-    # ［ボタン］などを押す（InvokePattern）。ダイアログ・メッセージボックスなどのモーダルを開く操作は、戻らないことがあるので、
-    # 別のスレッド（ランスペース）から呼び、2 秒待って戻らなければ「モーダルが開いた」とみなして先へ進む。呼び出しの失敗はここで例外にする
-    param ($S, $Element, [string]$What, [switch]$NoWait)
+function invokeGuiPatternAsync {
+    # UI オートメーションのパターンの操作（Invoke・Close など）を、別のスレッド（ランスペース）から呼ぶ。
+    # ダイアログ・メッセージボックスなどのモーダルを開く操作は、戻らないことがあるので、2 秒待って戻らなければ
+    # 「モーダルが開いた」とみなして先へ進む（呼び出し自体の失敗はここで例外にする。$ErrorPrefix は「〇〇を押せなかった」など）。
+    # invokeGui（InvokePattern）・closeGuiWindowAsync（WindowPattern.Close）が使う共通の土台
+    param ($S, $Element, [string]$ErrorPrefix, [scriptblock]$Action)
 
-    if (!$NoWait) { waitGuiEnabled $S $Element $What }
     $shell = [powershell]::Create()
     $shell.RunspacePool = $S.Pool
-    [void]$shell.AddScript({
-        param ($element)
-        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-        $element.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
-    }).AddArgument($Element)
+    [void]$shell.AddScript($Action).AddArgument($Element)
     $result = $shell.BeginInvoke()
     [void]$S.Async.Add(@{ Shell = $shell; Result = $result })
     if ($result.AsyncWaitHandle.WaitOne(2000)) {
         try {
             [void]$shell.EndInvoke($result)
         } catch {
-            throw "$What を押せなかった: $($_.Exception.InnerException.Message)"
+            throw "${ErrorPrefix}: $($_.Exception.InnerException.Message)"
         }
+    }
+}
+
+function invokeGui {
+    # ［ボタン］などを押す（InvokePattern）
+    param ($S, $Element, [string]$What, [switch]$NoWait)
+
+    if (!$NoWait) { waitGuiEnabled $S $Element $What }
+    invokeGuiPatternAsync $S $Element "$What を押せなかった" {
+        param ($element)
+        Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+        $element.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     }
 }
 
@@ -468,11 +487,13 @@ function saveGuiEvidence {
 }
 
 function invokeGuiScene {
-    # 場面 1 つ分の操作（Body）を実行する。失敗したら、どの手順で止まったかを文言に足し、失敗の材料を残して例外にする。
+    # 場面 1 つ分の操作（Body）を実行する。まず本体の窓を待ち（waitGuiStarted）、それから Body を実行する。
+    # 失敗したら、どの手順で止まったかを文言に足し、失敗の材料を残して例外にする（起動そのものの失敗も含む）。
     # 終わったら（失敗しても）画面を止める
     param ($S, [scriptblock]$Body)
 
     try {
+        waitGuiStarted $S
         & $Body
     } catch {
         $message = "[$($S.Scene)・手順: $($S.Step)] $($_.Exception.Message)"
@@ -645,6 +666,17 @@ function clickGuiByNameLike {
     invokeGui $S $button "［$Pattern］"
 }
 
+function answerGuiConfirm {
+    # 確認ダイアログ（見出しの文字で探す）が出るのを待ち、選択肢を押して、閉じるまで待つ。
+    # 「押す → 確認を待つ → 選択肢を押す → 閉じるのを待つ」の繰り返しをまとめたもの（トリガーの操作は呼び出し側で行う）。
+    #   Like を付けると、選択肢は clickGuiByNameLike（1 行目の前方一致）で押す。押した後にダイアログが閉じない場合は使わない
+    param ($S, [string]$What, [string]$Heading, [string]$Choice, [switch]$Like, [int]$Timeout = ${guiDefaultTimeout})
+
+    $confirm = waitGuiWindow $S $What -Id "HeadingText" -Text $Heading -Timeout $Timeout
+    if ($Like) { clickGuiByNameLike $S $confirm $Choice } else { clickGuiByName $S $confirm $Choice }
+    waitGuiWindowClosed $S $confirm $What
+}
+
 function closeGuiMessage {
     # メッセージボックス（Text に文言が出ている窓）を待って、その文言を返し、［OK］で閉じる。
     # OS 標準のメッセージボックスの［OK］はパターンを持たないため、OS のフォルダ選択と同じくネイティブのクリックで押す
@@ -661,21 +693,10 @@ function closeGuiWindowAsync {
     # 窓を閉じる操作（WindowPattern.Close）。閉じるときに確認のダイアログが出て戻らないことがあるので、別のスレッドから呼ぶ
     param ($S, $Window, [string]$What = "窓を閉じる")
 
-    $shell = [powershell]::Create()
-    $shell.RunspacePool = $S.Pool
-    [void]$shell.AddScript({
+    invokeGuiPatternAsync $S $Window "$What ができなかった" {
         param ($element)
         Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
         $element.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close()
-    }).AddArgument($Window)
-    $result = $shell.BeginInvoke()
-    [void]$S.Async.Add(@{ Shell = $shell; Result = $result })
-    if ($result.AsyncWaitHandle.WaitOne(2000)) {
-        try {
-            [void]$shell.EndInvoke($result)
-        } catch {
-            throw "$What ができなかった: $($_.Exception.InnerException.Message)"
-        }
     }
 }
 

@@ -125,15 +125,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
             clickGui $S $S.Window "RemoveIndexButton" "［削除］"
-            $confirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "一覧から削除しますか"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "削除の確認"
+            answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "キャンセル"
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1
             setGuiStep $S "［削除］→［削除する］"
             clickGui $S $S.Window "RemoveIndexButton" "［削除］"
-            $confirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "一覧から削除しますか"
-            clickGuiByName $S $confirm "削除する"
-            waitGuiWindowClosed $S $confirm "削除の確認"
+            answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
             waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\index\資料") } | Out-Null
 
@@ -192,15 +188,11 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "［中止］→ 確認で［キャンセル］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             clickGui $S $S.Window "IndexingStopButton" "［中止］"
-            $confirm = waitGuiWindow $S "中止の確認" -Id "HeadingText" -Text "中止しますか"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "中止の確認"
+            answerGuiConfirm $S "中止の確認" "中止しますか" "キャンセル"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             setGuiStep $S "［中止］→ 確認で［中止する］"
             clickGui $S $S.Window "IndexingStopButton" "［中止］"
-            $confirm = waitGuiWindow $S "中止の確認" -Id "HeadingText" -Text "中止しますか"
-            clickGuiByName $S $confirm "中止する"
-            waitGuiWindowClosed $S $confirm "中止の確認"
+            answerGuiConfirm $S "中止の確認" "中止しますか" "中止する"
             waitGui $S "取り込みが止まる（［続きから再開］）" ${guiIndexTimeout} {
                 $b = findGui $S.Window -Id "IndexingButton"
                 $b.Current.IsEnabled -and $b.Current.Name -like "続きから再開*"
@@ -217,7 +209,7 @@ Describe "S3 作成中の操作" -Tag Gui {
     It "中断した取り込みから再開でき、取り込み中に閉じる確認が動く" {
         # #4（取り込みが中断していると起動時に［1 インデックス管理］が選ばれる）は、gui.ps1 の起動時の判定
         # （$script:indexingState が非同期に読み込まれる前に決めているため、Pending の判定が効かない）に見つかった
-        # 不具合により、1 件でも取り込み済みだと ［2 検索］が選ばれる。別の fix（起票予定）で直すまで、ここではタブを
+        # 不具合により、1 件でも取り込み済みだと ［2 検索］が選ばれる。別の fix（起票済み。Backlog）で直すまで、ここではタブを
         # 明示的に選んで続きの確かめ（#10）を行う。IndexingStateText の中断の文言は、選び直した後に出ることを確かめる
         $tooFast = "取り込みが終わってしまい、取り込み中の操作が間に合わなかった。tests\gui\index.Tests.ps1 の s3Copies（ファイルの数）を増やす"
 
@@ -236,9 +228,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "取り込み中に閉じる → 確認で［閉じない］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             closeGuiWindowAsync $S $S.Window
-            $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか"
-            clickGuiByName $S $confirm "閉じない"
-            waitGuiWindowClosed $S $confirm "閉じる確認"
+            answerGuiConfirm $S "閉じる確認" "止めてから閉じますか" "閉じない"
             $S.Process.HasExited | Should -BeFalse
             if (!(testGuiIndexing $S)) { throw $tooFast }
             setGuiStep $S "取り込み中に閉じる → 確認で［インデックス作成を止めて閉じる］"

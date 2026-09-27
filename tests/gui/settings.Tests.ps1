@@ -49,15 +49,11 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             # 空のフォルダ: 確認でキャンセルすると変わらず、実行すると中身が移って切り替わる（#31）
             setGuiStep $S "［変更…］→ 空のフォルダ → 確認で［キャンセル］"
             & $changeWorkspace $script:emptyDir
-            $confirm = waitGuiWindow $S "ワークスペースを変える確認" -Id "HeadingText" -Text "ワークスペースを変えますか"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "ワークスペースを変える確認"
+            answerGuiConfirm $S "ワークスペースを変える確認" "ワークスペースを変えますか" "キャンセル"
             & $workspaceText | Should -Be $script:tool.Work
             setGuiStep $S "［変更…］→ 空のフォルダ → 確認で［ワークスペースを変える］"
             & $changeWorkspace $script:emptyDir
-            $confirm = waitGuiWindow $S "ワークスペースを変える確認" -Id "HeadingText" -Text "ワークスペースを変えますか"
-            clickGuiByNameLike $S $confirm "ワークスペースを変える*"
-            waitGuiWindowClosed $S $confirm "ワークスペースを変える確認"
+            answerGuiConfirm $S "ワークスペースを変える確認" "ワークスペースを変えますか" "ワークスペースを変える*" -Like
             waitGui $S "ワークスペースが空のフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:emptyDir } | Out-Null
             Test-Path -LiteralPath "$($script:emptyDir)\index\営業" | Should -BeTrue -Because "今のワークスペースの中身が移る"
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:emptyDir
@@ -65,30 +61,22 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             # 空でないフォルダ: 確認でキャンセル、中にフォルダを作って切り替わる（#32）
             setGuiStep $S "［変更…］→ 空でないフォルダ → 確認で［キャンセル］"
             & $changeWorkspace $script:nonEmptyDir
-            $confirm = waitGuiWindow $S "空でないフォルダの確認" -Id "HeadingText" -Text "空ではありません"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "空でないフォルダの確認"
+            answerGuiConfirm $S "空でないフォルダの確認" "空ではありません" "キャンセル"
             & $workspaceText | Should -Be $script:emptyDir
             setGuiStep $S "［変更…］→ 空でないフォルダ → 中に「workspace」フォルダを作る"
             & $changeWorkspace $script:nonEmptyDir
-            $confirm = waitGuiWindow $S "空でないフォルダの確認" -Id "HeadingText" -Text "空ではありません"
-            clickGuiByNameLike $S $confirm "中に*"
-            waitGuiWindowClosed $S $confirm "空でないフォルダの確認"
+            answerGuiConfirm $S "空でないフォルダの確認" "空ではありません" "中に*" -Like
             waitGui $S "ワークスペースが中の workspace に変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq "$($script:nonEmptyDir)\workspace" } | Out-Null
             Test-Path -LiteralPath "$($script:nonEmptyDir)\workspace\index\営業" | Should -BeTrue
 
             # インデックスのあるフォルダ: 確認でキャンセル、あるインデックスを使って切り替わる（#33）
             setGuiStep $S "［変更…］→ インデックスのあるフォルダ → 確認で［キャンセル］"
             & $changeWorkspace $script:sharedDir
-            $confirm = waitGuiWindow $S "インデックスのあるフォルダの確認" -Id "HeadingText" -Text "すでにインデックスがあります"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "インデックスのあるフォルダの確認"
+            answerGuiConfirm $S "インデックスのあるフォルダの確認" "すでにインデックスがあります" "キャンセル"
             & $workspaceText | Should -Be "$($script:nonEmptyDir)\workspace"
             setGuiStep $S "［変更…］→ インデックスのあるフォルダ → 確認で［あるインデックスを使う］"
             & $changeWorkspace $script:sharedDir
-            $confirm = waitGuiWindow $S "インデックスのあるフォルダの確認" -Id "HeadingText" -Text "すでにインデックスがあります"
-            clickGuiByNameLike $S $confirm "あるインデックスを使う*"
-            waitGuiWindowClosed $S $confirm "インデックスのあるフォルダの確認"
+            answerGuiConfirm $S "インデックスのあるフォルダの確認" "すでにインデックスがあります" "あるインデックスを使う*" -Like
             waitGui $S "ワークスペースがインデックスのあるフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:sharedDir } | Out-Null
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:sharedDir
 
@@ -153,9 +141,7 @@ Describe "S6 既定のワークスペース（CI だけ）" -Tag Gui {
             setGuiStep $S "空のフォルダに変える"
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
             useGuiFolderPicker $S $script:emptyDir
-            $confirm = waitGuiWindow $S "ワークスペースを変える確認" -Id "HeadingText" -Text "ワークスペースを変えますか"
-            clickGuiByNameLike $S $confirm "ワークスペースを変える*"
-            waitGuiWindowClosed $S $confirm "ワークスペースを変える確認"
+            answerGuiConfirm $S "ワークスペースを変える確認" "ワークスペースを変えますか" "ワークスペースを変える*" -Like
             waitGui $S "［既定に戻す］が出る" ${guiDefaultTimeout} { $b = findGui $S.Window -Id "ResetWorkspaceButton"; $b -and !$b.Current.IsOffscreen } | Out-Null
 
             setGuiStep $S "［既定に戻す］（ほかのファイルがあるので警告）"
@@ -165,13 +151,9 @@ Describe "S6 既定のワークスペース（CI だけ）" -Tag Gui {
             setGuiStep $S "ほかのファイルを消して［既定に戻す］→ 確認"
             Remove-Item -LiteralPath "$($script:defaultWork)\ほかのファイル.txt" -Force
             clickGui $S $S.Window "ResetWorkspaceButton" "［既定に戻す］"
-            $confirm = waitGuiWindow $S "既定に戻す確認" -Id "HeadingText" -Text "ワークスペースを変えますか"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "既定に戻す確認"
+            answerGuiConfirm $S "既定に戻す確認" "ワークスペースを変えますか" "キャンセル"
             clickGui $S $S.Window "ResetWorkspaceButton" "［既定に戻す］"
-            $confirm = waitGuiWindow $S "既定に戻す確認" -Id "HeadingText" -Text "ワークスペースを変えますか"
-            clickGuiByNameLike $S $confirm "ワークスペースを変える*"
-            waitGuiWindowClosed $S $confirm "既定に戻す確認"
+            answerGuiConfirm $S "既定に戻す確認" "ワークスペースを変えますか" "ワークスペースを変える*" -Like
             waitGui $S "ワークスペースが既定に戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceText")) -eq $script:defaultWork } | Out-Null
 
             closeGui $S

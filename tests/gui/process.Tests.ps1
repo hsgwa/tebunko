@@ -51,9 +51,7 @@ Describe "S7 プロセス停止" -Tag Gui {
                 foreach ($id in "KillAllButton", "KillBackgroundButton") {
                     setGuiStep $S "［$id］→ 確認で［キャンセル］"
                     clickGui $S $S.Window $id "［$id］"
-                    $confirm = waitGuiWindow $S "終了の確認（$id）" -Id "HeadingText" -Text "終了しますか"
-                    clickGuiByName $S $confirm "キャンセル"
-                    waitGuiWindowClosed $S $confirm "終了の確認"
+                    answerGuiConfirm $S "終了の確認（$id）" "終了しますか" "キャンセル"
                     $script:fake.Refresh()
                     $script:fake.HasExited | Should -BeFalse -Because "キャンセルしたので偽のプロセスは動いたまま"
                 }
@@ -65,16 +63,12 @@ Describe "S7 プロセス停止" -Tag Gui {
             selectGui $row
             setGuiStep $S "［選択したプロセスを終了］→［キャンセル］"
             clickGui $S $S.Window "KillSelectedButton" "［選択したプロセスを終了］"
-            $confirm = waitGuiWindow $S "終了の確認" -Id "HeadingText" -Text "終了しますか"
-            clickGuiByName $S $confirm "キャンセル"
-            waitGuiWindowClosed $S $confirm "終了の確認"
+            answerGuiConfirm $S "終了の確認" "終了しますか" "キャンセル"
             $script:fake.Refresh()
             $script:fake.HasExited | Should -BeFalse
             setGuiStep $S "［選択したプロセスを終了］→［終了する］"
             clickGui $S $S.Window "KillSelectedButton" "［選択したプロセスを終了］"
-            $confirm = waitGuiWindow $S "終了の確認" -Id "HeadingText" -Text "終了しますか"
-            clickGuiByName $S $confirm "終了する"
-            waitGuiWindowClosed $S $confirm "終了の確認"
+            answerGuiConfirm $S "終了の確認" "終了しますか" "終了する"
             waitGui $S "偽のプロセスが終了する" ${guiDefaultTimeout} { $script:fake.Refresh(); $script:fake.HasExited } | Out-Null
             waitGui $S "一覧から偽のプロセスが消える" ${guiDefaultTimeout} { !(& $findFakeRow) } | Out-Null
 
