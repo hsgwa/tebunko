@@ -46,7 +46,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 | `Io` | ファイルの読み書き（`$TestDrive` の中で完結する） | 不要 | する |
 | `Meta` | 構成を守るテスト・安全性の検査 | 不要（PSScriptAnalyzer があれば静的解析も行う） | する |
 | `Office` | Excel・Word・PowerPoint の COM を実際に動かすもの（今は該当するテストが無い。COM は `Mock` で確かめる） | 必要 | しない（`-All` で実行） |
-| `Slow` | 時間のかかるもの（今は該当するテストが無い） | 不要 | しない（`-All` で実行） |
+| `Slow` | 時間のかかるもの（検索・pack の作成・取り込みの速さの回帰テスト。`tests/tools/perf_*.Tests.ps1`。[`perf-check.yml`](#ci)） | 検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る | しない（`-All` または `-Tag Slow -ExcludeTag Manual` で実行） |
 | `Manual` | 手で確かめるもの（今は該当するテストが無い） | – | しない（`-All` でも実行しない） |
 
 実行は `tests/run.ps1` から行う。
@@ -54,13 +54,16 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 ```
 .\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Manual は外す）
 .\tests\run.ps1 -Tag Unit    速い確認だけ
-.\tests\run.ps1 -All         Office・Slow も含める（Office が必要）
+.\tests\run.ps1 -All         Office・Slow も含める（Office と、tebunko-perfdata が必要）
+.\tests\run.ps1 -Tag Slow -ExcludeTag Manual   Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
 .\tests\run.ps1 -Ci          結果の XML（work\test\results.xml）とカバレッジ（work\test\coverage.xml）を出し、カバレッジの下限を確かめる
 .\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 .\tests\run.ps1 -Quiet       失敗したテストだけを表示する
 ```
 
 いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。
+
+`-Tag Slow` だけでは、既定の除外（`Office`・`Slow`・`Manual`）が残って 0 件になる。`-ExcludeTag` を渡すと既定の除外が置き換わるので、`-Tag Slow -ExcludeTag Manual` とする。
 
 `-Tag`・`-ExcludeTag` はカンマ区切りの文字列でも受け取る。`powershell.exe -File` で呼ぶと `-Tag Unit,Meta` は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。
 
@@ -86,6 +89,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 | `scorecard.yml` | `analysis` | main への push、ブランチ保護の変更、毎週 1 回 | OpenSSF Scorecard の採点 | – |
 | `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
 | `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・pack の作成・検索の速さとリソースの推移を測る | – |
+| `perf-check.yml` | `search`・`ingest` | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・pack の作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
 
 **`test.yml`**
 
@@ -197,7 +201,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 - 測り方（`tools/perf/measure_ingest.ps1`）… `-Repeat` 回（既定 3）、1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）。測る tebunko の `scripts` を作業フォルダに写して `setting.config` を書くので、利用者の設定・既定のワークスペース・リポジトリの `setting.config` には触らない。取り込みは起動口 `indexer.ps1 -Channel` で動かし、記録のスレッドが受け渡しの口の `Progress.Phase` を読んで、段階（クロール・確認・取り込み・仕上げ）ごとの時間とリソースを出す。1 ファイルあたりの ms は、取り込みの段階の秒 ÷ ファイル数
 - 成功・失敗は、ワークスペースの `取り込み一覧.tsv` を計測の側で読んで数える（同じ相対パスは最後の行の状態）。成功 + 失敗がファイル数と合わなければ、終了コードが 0 でなければ、取り込みの段階が読めなかったとき・知らない段階の名前が来たときは、計測を失敗にする。失敗したファイルがあれば `summary.md` に書く
 - リソースの表が測るのは、計測の PowerShell のプロセスだけ。EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）
-- 取り込みの時間に上限を付けた合否のテストは無い。Office の時間は機械・Defender・Office の版で大きく揺れるので、比べるのは同じ機械・同じ日・同じ引数で続けて測った数字どうしにする（Office の版は結果の実行の情報に出す）
+- Office を使う取り込み（.xlsx・.doc・.ppt）の時間に固定の上限を付けた合否のテストは無い。Office の時間は機械・Defender・Office の版で大きく揺れるので、比べるのは同じ機械・同じ日・同じ引数で続けて測った数字どうしにする（Office の版は結果の実行の情報に出す）。比べ方は下の「Office を使う形式の比べ方」。Office を使わずに読む .docx・.pptx は、`perf-check.yml` が固定の上限と比べる
 
 **計測の口（取り込みの計測が頼るもの）**
 
@@ -210,6 +214,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 | 受け渡しの口 | `Progress.Phase` と、その値 `クロール`・`確認`・`取り込み`・`仕上げ` |
 | 設定 | `setting.config` がツールのフォルダにあること。キー `targetFolders`（`@{ name; path; enabled }` の配列）・`workspaceFolder`・`ingestThreads` |
 | 取り込み一覧 | ワークスペース直下の `取り込み一覧.tsv`。見出しの `相対パス`・`状態`。状態の値 `済`・`失敗` |
+| 取り込んだ結果 | 最後の回のワークスペース（`<作業フォルダ>\ingest\ws`。`measure_ingest.ps1` は次の回の始めまで消さない）の下に、集約ファイル `content.*.tsv`（[配置・命名規則](../indexer/index-format.md#配置命名規則)の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（`perf_ingest.Tests.ps1`）が、数と合計の大きさを数える |
 
 ## コミット前の検査（pre-commit フック）
 
