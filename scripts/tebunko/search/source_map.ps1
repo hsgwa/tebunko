@@ -160,6 +160,45 @@ function findMovedSource {
     return $null
 }
 
+function findSourceFileState {
+    # 元のファイルを確かめる（getPathState を使う。Test-Path のまま移さない。届かない共有では例外を出さずに
+    # $false を返すことがあり、「見つからない」と区別できないため）。ネットワークのパスなら裏のスレッドから呼ぶ想定。
+    #   location: getSourceLocation の結果（Folder・Rest・Name を使う。Known は呼ぶ側で見て、$false ならこの関数を呼ばない）
+    #   book: 元のファイル名
+    #   drives: ドライブの割り当て（テストで差し替える・裏のスレッドでは省いてその場で照会させる）。
+    #           ローカルのパスには別名が無いため、ローカルのときはここまで来ない（getDriveTargets を呼ばない）
+    # 返すもの: @{ State（Found・Missing・Unreachable・Other）; Path; Alias; Initial; Message }
+    #   State=Found: Path に見つかった場所（別名で見つかったときは Alias にその新しい元のフォルダ）
+    #   State=Missing: Initial にフォルダ選択の開始フォルダ（無ければ空）
+    #   State=Unreachable・Other: Message に例外の文面（接続できない・その他は、上のフォルダも別名も調べない）
+    param (
+        $location,
+        [string]$book,
+        $drives = $null
+    )
+
+    $path = joinSourcePath $location.Folder $location.Rest $book
+    $state = getPathState $path
+    if ($state.State -eq ${pathStateFound}) {
+        return @{ State = ${pathStateFound}; Path = $path }
+    }
+    if ($state.State -ne ${pathStateMissing}) {
+        return @{ State = $state.State; Message = $state.Message }
+    }
+    if (testNetworkPath $location.Folder) {
+        if ($null -eq $drives) {
+            $drives = getDriveTargets
+        }
+        foreach ($alias in @(getFolderPathAliases $location.Folder $drives | Select-Object -Skip 1)) {
+            $candidate = joinSourcePath $alias $location.Rest $book
+            if ((getPathState $candidate).State -eq ${pathStateFound}) {
+                return @{ State = ${pathStateFound}; Path = $candidate; Alias = $alias }
+            }
+        }
+    }
+    return @{ State = ${pathStateMissing}; Initial = (getExistingAncestorFolder $path) }
+}
+
 function resolveSourcePath {
     # 検索結果の元のファイルのパスを返す（ファイルがあるかは確かめない）。元のフォルダが分からなければ $null
     #   maps: getSourceLocation のキャッシュ

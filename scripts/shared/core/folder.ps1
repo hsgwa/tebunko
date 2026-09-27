@@ -77,6 +77,31 @@ function getPathUnderFolder {
 ${driveTargets} = $null
 
 
+function testAnyNetworkPath {
+    # 一覧の中にネットワークのパスが 1 つでもあるか（インデックスの一覧・設定にネットワークのパスがあるときだけ、
+    # 起動時にドライブの割り当てを裏の列で照会するために使う）
+    param (
+        [string[]]$paths
+    )
+
+    foreach ($path in $paths) {
+        if (testNetworkPath $path) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function setDriveTargets {
+    # getDriveTargets のキャッシュを外から設定する。ネットワークを調べる列で照会した結果を、
+    # 画面のスレッドのキャッシュに入れるために使う（画面のスレッドで CIM を照会しないようにする）
+    param (
+        $targets
+    )
+
+    ${script:driveTargets} = $targets
+}
+
 function getDriveTargets {
     # ドライブ文字（"Z:"）→ 割り当て先（ネットワークドライブは "\\server\share"）を返す。
     # 同じプロセスでは1回だけ調べる（インデックス作成・検索の途中で割り当てが変わることは想定しない）。
@@ -150,6 +175,11 @@ function testSameFolder {
         return $true
     }
     if ($null -eq $drives) {
+        # getDriveTargets（CIM）が返す別名はネットワークドライブ⇔UNCの組しか無いため、
+        # どちらかがローカル（ネットワークでない）なら、別名を調べても一致しえない。CIM を照会しない
+        if (!(testNetworkPath $a) -or !(testNetworkPath $b)) {
+            return $false
+        }
         $drives = getDriveTargets
     }
     foreach ($alias in @(getFolderPathAliases $a $drives)) {
@@ -177,6 +207,10 @@ function testFolderUnder {
         return $true
     }
     if ($null -eq $drives) {
+        # testSameFolder と同じ理由で、どちらかがローカルなら CIM を照会しない
+        if (!(testNetworkPath $path) -or !(testNetworkPath $folder)) {
+            return $false
+        }
         $drives = getDriveTargets
     }
     foreach ($alias in @(getFolderPathAliases $path $drives)) {
@@ -187,16 +221,59 @@ function testFolderUnder {
     return $false
 }
 
+function testNetworkPath {
+    # パス（normalizeFolderPath 済み）がネットワークの場所を指すかを、共有に接続せずに見分ける。
+    #   \\server\share\… ・\\?\UNC\… は UNC（ネットワーク）。
+    #   \\?\C:\…（toLongPath の形）・\\.\… は \\ で始まるが UNC ではないため、ドライブ文字として扱う。
+    #   ドライブ文字なら DriveInfo.DriveType を見る（GetDriveType は共有に接続しない）。
+    #   Fixed・Removable・CDRom・Ram だけをローカルとし、Network と、切断したドライブがそう見えることのある
+    #   NoRootDirectory・Unknown は、安全な側に倒してネットワークとする
+    #   driveType: ドライブの種類を引く関数（テストで差し替える）。既定は実際の DriveInfo
+    param (
+        [string]$path,
+        [scriptblock]$driveType = { param ($drive) ([System.IO.DriveInfo]$drive).DriveType }
+    )
+
+    if ($path -eq "") {
+        return $false
+    }
+    $p = $path.Replace("/", "\")
+    if ($p.StartsWith("\\?\UNC\")) {
+        return $true
+    }
+    $rest = $p
+    if ($p.StartsWith("\\?\") -or $p.StartsWith("\\.\")) {
+        $rest = $p.Substring(4)
+    } elseif ($p.StartsWith("\\")) {
+        return $true  # \\server\share\…（UNC）
+    }
+    if ($rest -notmatch "^[A-Za-z]:") {
+        return $false  # ドライブ文字が無い（相対パスなど）はローカルとみなす
+    }
+    $drive = "$($rest.Substring(0, 1)):\"
+    try {
+        $type = & $driveType $drive
+    } catch {
+        return $true  # 調べられなければ安全な側（ネットワーク）に倒す
+    }
+    return $type -notin @([System.IO.DriveType]::Fixed, [System.IO.DriveType]::Removable, [System.IO.DriveType]::CDRom, [System.IO.DriveType]::Ram)
+}
+
 
 # ---- フォルダ選択の開始フォルダ ----
 
 
 function getExistingAncestorFolder {
-    # folder が今もあればそのまま、無ければその上の今もあるフォルダを返す（フォルダ選択を開く場所）。どこにも無ければ空
+    # folder が今もあればそのまま、無ければその上の今もあるフォルダを返す（フォルダ選択を開く場所）。どこにも無ければ空。
+    #   skipNetwork: $true なら、ネットワークのパスは調べずに空を返す（画面のスレッドで届かない共有に触らないため）
     param (
-        [string]$folder
+        [string]$folder,
+        [bool]$skipNetwork = $false
     )
 
+    if ($skipNetwork -and (testNetworkPath $folder)) {
+        return ""
+    }
     $dir = $folder
     while ($dir) {
         if (Test-Path -LiteralPath (toLongPath $dir) -PathType Container) {
