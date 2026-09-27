@@ -46,22 +46,34 @@ if (!$PSBoundParameters.ContainsKey("Timestamp")) {
     $Timestamp = [DateTimeOffset]::FromUnixTimeSeconds([long]$commitTime)
 }
 
-# 配布物のうち、内容が固定されているもの（work・setting.config は利用者ごとに変わるため含めない）
-$targets = @(
-    (Join-Path $rootDir "scripts"),
-    (Join-Path $rootDir "tebunko.bat")
-)
-
+# カタログは、zip に入れるバイト列（-Entries）から作る。作業ツリーの scripts\ から直接作ると、
+# git で追跡していないファイルや手元で書き換えたファイルが入り、zip の中身と食い違うため。
+# scripts\ と tebunko.bat のバイト列を一時フォルダに書き出し、そこからカタログを作る（work・setting.config は利用者ごとに変わるため含めない）
+$stageDir = Join-Path ([System.IO.Path]::GetTempPath()) ("tebunko-catalog-" + [Guid]::NewGuid().ToString("N"))
 $catalogPath = Join-Path $OutDir "tebunko.cat"
-if (Test-Path -LiteralPath $catalogPath) {
-    Remove-Item -LiteralPath $catalogPath -Force
-}
-# CatalogVersion 2 = SHA256（1 は SHA1 のため使わない）
-New-FileCatalog -Path $targets -CatalogFilePath $catalogPath -CatalogVersion 2 | Out-Null
+try {
+    foreach ($path in $Entries.Keys) {
+        if ($path -ne "tebunko.bat" -and !$path.StartsWith("scripts/")) { continue }
+        $target = Join-Path $stageDir $path.Replace("/", "\")
+        [System.IO.Directory]::CreateDirectory((Split-Path $target -Parent)) | Out-Null
+        [System.IO.File]::WriteAllBytes($target, [byte[]]$Entries[$path])
+    }
+    $targets = @((Join-Path $stageDir "scripts"), (Join-Path $stageDir "tebunko.bat"))
 
-$result = Test-FileCatalog -Path $targets -CatalogFilePath $catalogPath -Detailed
-if ($result.Status -ne "Valid") {
-    throw "作ったカタログの検証に失敗しました（Status: $($result.Status)）。"
+    if (Test-Path -LiteralPath $catalogPath) {
+        Remove-Item -LiteralPath $catalogPath -Force
+    }
+    # CatalogVersion 2 = SHA256（1 は SHA1 のため使わない）
+    New-FileCatalog -Path $targets -CatalogFilePath $catalogPath -CatalogVersion 2 | Out-Null
+
+    $result = Test-FileCatalog -Path $targets -CatalogFilePath $catalogPath -Detailed
+    if ($result.Status -ne "Valid") {
+        throw "作ったカタログの検証に失敗しました（Status: $($result.Status)）。"
+    }
+} finally {
+    if (Test-Path -LiteralPath $stageDir) {
+        Remove-Item -LiteralPath $stageDir -Recurse -Force
+    }
 }
 
 $sumsPath = Join-Path $OutDir "SHA256SUMS.txt"

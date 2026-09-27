@@ -9,6 +9,7 @@
 # zip と並べて、インストーラー（tebunko-setup-<タグ>.exe。Inno Setup で作る。tools\new_installer.ps1）も載せる（docs\safety\disclosure.md「インストーラー版」）。
 # 改ざんの確認用のカタログ（tebunko.cat）・ハッシュ一覧（SHA256SUMS.txt）と部品表（sbom.cdx.json）は、zip と並べてリリースに載せる（docs\safety\scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」）。
 # SECURITY は zip に入れず、README とリリースの説明からリンクする。
+# 公開する前に、zip の中身を tools\check_release_package.ps1 で検査する（docs\safety\scans.md「公開前の検査」）。
 # zip とインストーラーの SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\safety\scans.md「複数エンジンでの検査: VirusTotal（外部へファイルを送信する）」）。
 # zip とインストーラーのビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
 # 署名の bundle（tebunko-<タグ>.zip.sigstore.json・tebunko-setup-<タグ>.exe.sigstore.json）もリリースに載せる（docs\safety\scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」。OpenSSF Scorecard の Signed-Releases）。
@@ -79,6 +80,11 @@ jobs:
       - name: インストーラーを作る
         shell: powershell
         run: .\tools\new_installer.ps1 -Version $env:GITHUB_REF_NAME -Iscc (Join-Path $env:RUNNER_TEMP "inno\ISCC.exe")
+
+      # 公開する前に、zip の中身（ファイルの過不足・読み込みの先・構文・カタログ・ハッシュ一覧・部品表・VERSION.txt）を確かめる。通らなければここで止め、署名も公開もしない
+      - name: 配布物の中身を検査する
+        shell: powershell
+        run: .\tools\check_release_package.ps1 -ZipPath work\release\tebunko-$env:GITHUB_REF_NAME.zip -OutDir work\release -Version $env:GITHUB_REF_NAME
 
       - name: 配布物の来歴に署名する
         id: attest

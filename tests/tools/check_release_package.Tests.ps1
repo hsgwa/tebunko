@@ -1,0 +1,120 @@
+﻿# 配布 zip の検査（tools\check_release_package.ps1）のテスト
+BeforeAll {
+    $rootDir = (Resolve-Path "$PSScriptRoot\..\..").Path
+    $check = "$rootDir\tools\check_release_package.ps1"
+    $newReleasePackage = "$rootDir\tools\new_release_package.ps1"
+    $version = "v9.9.9"
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $outDir = Join-Path $TestDrive "out"
+    & $newReleasePackage -Version $version -OutDir $outDir 3>$null | Out-Null
+    $goodZip = Join-Path $outDir "tebunko-$version.zip"
+
+    # 検査を実行して、終了コードと出力（通らなかった項目）を返す
+    function invokeCheck([string]$zip, [string]$dir = $outDir, [string]$ver = $version) {
+        $output = & $check -ZipPath $zip -OutDir $dir -Version $ver 6>&1 | ForEach-Object { "$_" }
+        [pscustomobject]@{ Code = $LASTEXITCODE; Text = ($output -join "`n") }
+    }
+
+    # 正しい zip をコピーして、指定したエントリーを書き換えた zip を返す。Mutate は byte[]（削除は $null）を返す
+    function newBrokenZip([string]$name, [string]$entry, [scriptblock]$mutate, [switch]$add) {
+        $path = Join-Path $TestDrive "$name.zip"
+        Copy-Item -LiteralPath $goodZip -Destination $path
+        $zip = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Update)
+        try {
+            $existing = $zip.GetEntry($entry)
+            $bytes = $null
+            if ($existing) {
+                $stream = $existing.Open()
+                try {
+                    $ms = New-Object System.IO.MemoryStream
+                    $stream.CopyTo($ms)
+                    $bytes = $ms.ToArray()
+                } finally { $stream.Dispose() }
+                $existing.Delete()
+            }
+            $new = & $mutate $bytes
+            if ($null -ne $new) {
+                $e = $zip.CreateEntry($entry)
+                $w = $e.Open()
+                try { $w.Write([byte[]]$new, 0, $new.Length) } finally { $w.Dispose() }
+            }
+        } finally {
+            $zip.Dispose()
+        }
+        $path
+    }
+}
+
+Describe "check_release_package.ps1" -Tag Io {
+    It "正しい zip では通り、終了コードが 0 になる" {
+        $result = invokeCheck $goodZip
+        $result.Text | Should -Match "通りました"
+        $result.Code | Should -Be 0
+    }
+
+    It "<Name> のとき、通らず、<Expected> を列挙する" -TestCases @(
+        @{ Name = "ファイルが 1 つ無い"; Entry = "tebunko/scripts/tebunko/lib.ps1"; Mutate = { $null }; Expected = "zip に無いファイル: tebunko/scripts/tebunko/lib.ps1" }
+        @{ Name = "余分なファイルがある"; Entry = "tebunko/scripts/extra.ps1"; Mutate = { [byte[]][char[]]"# extra" }; Expected = "zip に余分なファイル: tebunko/scripts/extra.ps1" }
+        @{ Name = "1 バイト書き換わっている"; Entry = "tebunko/tebunko.bat"; Mutate = { param($b) $c = [byte[]]$b.Clone(); $c[$c.Length - 1] = $c[$c.Length - 1] -bxor 1; $c }; Expected = "SHA256SUMS.txt のハッシュと一致しません: tebunko.bat" }
+        @{ Name = "1 バイト書き換わっていて、カタログとも合わない"; Entry = "tebunko/scripts/tebunko/lib.ps1"; Mutate = { param($b) $c = [byte[]]$b.Clone(); $c[$c.Length - 1] = $c[$c.Length - 1] -bxor 1; $c }; Expected = "カタログの検証に失敗しました" }
+        @{ Name = "構文エラーがある"; Entry = "tebunko/scripts/tebunko/core/paths.ps1"; Mutate = { param($b) [byte[]]($b + [System.Text.Encoding]::UTF8.GetBytes("`r`nif (`r`n")) }; Expected = "構文エラー: scripts\tebunko\core\paths.ps1" }
+        @{ Name = "xaml が XML として読めない"; Entry = "tebunko/scripts/shared/xaml/theme.xaml"; Mutate = { param($b) [byte[]]($b + [System.Text.Encoding]::UTF8.GetBytes("<")) }; Expected = "XML として読めません: scripts\shared\xaml\theme.xaml" }
+        @{ Name = "dot-source の先が無い"; Entry = "tebunko/scripts/tebunko/core/settings.ps1"; Mutate = { $null }; Expected = "dot-source の先がありません: scripts\tebunko\lib.ps1 -> scripts\tebunko\core\settings.ps1" }
+        @{ Name = "VERSION.txt の SHA が違う"; Entry = "tebunko/VERSION.txt"; Mutate = { [byte[]]((New-Object System.Text.UTF8Encoding($true)).GetPreamble() + [System.Text.Encoding]::UTF8.GetBytes("v9.9.9`r`n" + ("0" * 40) + "`r`n")) }; Expected = "VERSION.txt がタグ名とコミットの SHA になっていません" }
+    ) {
+        $zip = newBrokenZip "broken" $Entry $Mutate
+        $result = invokeCheck $zip
+        $result.Code | Should -Be 1
+        $result.Text | Should -BeLike "*$Expected*"
+    }
+
+    It "タグ名が VERSION.txt と違うと通らない" {
+        $result = invokeCheck $goodZip $outDir "v9.9.8"
+        $result.Code | Should -Be 1
+        $result.Text | Should -BeLike "*VERSION.txt がタグ名とコミットの SHA になっていません*"
+    }
+
+    It "通らなかった項目を、最初の 1 つで止めずにすべて列挙する" {
+        $zip = newBrokenZip "multi" "tebunko/tebunko.bat" { param($b) [byte[]]($b + 65) }
+        $result = invokeCheck $zip
+        $result.Text | Should -BeLike "*SHA256SUMS.txt のハッシュと一致しません: tebunko.bat*"
+        $result.Text | Should -BeLike "*部品表のハッシュと一致しません: tebunko.bat*"
+        $result.Text | Should -BeLike "*カタログの検証に失敗しました*"
+    }
+
+    It "ハッシュ一覧が無いと通らない" {
+        $emptyOut = Join-Path $TestDrive "noSums"
+        Copy-Item -LiteralPath $outDir -Destination $emptyOut -Recurse
+        Remove-Item -LiteralPath (Join-Path $emptyOut "SHA256SUMS.txt")
+        $result = invokeCheck $goodZip $emptyOut
+        $result.Code | Should -Be 1
+        $result.Text | Should -BeLike "*SHA256SUMS.txt がありません*"
+    }
+}
+
+Describe "new_release_files.ps1 のカタログ" -Tag Io {
+    It "追跡していないファイルが scripts\ にあっても、カタログは zip の中身と一致する（検査が通る）" {
+        $extra = Join-Path $rootDir "scripts\untracked_for_test.ps1"
+        try {
+            Set-Content -LiteralPath $extra -Value "# untracked"
+            $dir = Join-Path $TestDrive "untracked"
+            & $newReleasePackage -Version $version -OutDir $dir 3>$null | Out-Null
+            $result = invokeCheck (Join-Path $dir "tebunko-$version.zip") $dir
+            $result.Code | Should -Be 0
+        } finally {
+            Remove-Item -LiteralPath $extra -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe "new_release_package.ps1 の作業ツリーの検査" -Tag Io {
+    It "追跡しているファイルに変更があると警告し、変更が無ければ警告しない" {
+        $dir = Join-Path $TestDrive "warn"
+        $warnings = @()
+        & $newReleasePackage -Version $version -OutDir $dir -WarningVariable warnings 3>$null | Out-Null
+        $tracked = & git -C $rootDir status --porcelain --untracked-files=no -- scripts tebunko.bat README.md LICENSE
+        @($warnings).Count | Should -Be $(if ($tracked) { 1 } else { 0 })
+    }
+}
