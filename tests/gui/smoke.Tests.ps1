@@ -68,7 +68,7 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
         }
     }
 
-    It "利用者の環境（作業ツリーの設定・work\index・LOCALAPPDATA・既定のワークスペース・Office のプロセス）に触っていない" {
+    It "利用者の環境（作業ツリーの設定・work\content_index・LOCALAPPDATA・既定のワークスペース・Office のプロセス）に触っていない" {
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
 }

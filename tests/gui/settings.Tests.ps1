@@ -42,7 +42,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
 
             # 今のインデックスの中のフォルダは使えない（メッセージボックス）（#34）
             setGuiStep $S "［変更…］→ 使えないフォルダ（今のインデックスの中）"
-            & $changeWorkspace "$($script:tool.Work)\index\営業"
+            & $changeWorkspace "$($script:tool.Work)\content_index\営業"
             closeGuiMessage $S "インデックスのフォルダの中です" "使えないフォルダの警告" | Out-Null
             & $workspaceText | Should -Be $script:tool.Work
 
@@ -55,7 +55,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             & $changeWorkspace $script:emptyDir
             answerGuiConfirm $S "ワークスペースを変える確認" "ワークスペースを変えますか" "ワークスペースを変える*" -Like
             waitGui $S "ワークスペースが空のフォルダに変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq $script:emptyDir } | Out-Null
-            Test-Path -LiteralPath "$($script:emptyDir)\index\営業" | Should -BeTrue -Because "今のワークスペースの中身が移る"
+            Test-Path -LiteralPath "$($script:emptyDir)\content_index\営業" | Should -BeTrue -Because "今のワークスペースの中身が移る"
             (readGuiConfig $script:tool).workspaceFolder | Should -Be $script:emptyDir
 
             # 空でないフォルダ: 確認でキャンセル、中にフォルダを作って切り替わる（#32）
@@ -67,7 +67,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             & $changeWorkspace $script:nonEmptyDir
             answerGuiConfirm $S "空でないフォルダの確認" "空ではありません" "中に*" -Like
             waitGui $S "ワークスペースが中の workspace に変わる" ${guiDefaultTimeout} { (& $workspaceText) -eq "$($script:nonEmptyDir)\workspace" } | Out-Null
-            Test-Path -LiteralPath "$($script:nonEmptyDir)\workspace\index\営業" | Should -BeTrue
+            Test-Path -LiteralPath "$($script:nonEmptyDir)\workspace\content_index\営業" | Should -BeTrue
 
             # インデックスのあるフォルダ: 確認でキャンセル、あるインデックスを使って切り替わる（#33）
             setGuiStep $S "［変更…］→ インデックスのあるフォルダ → 確認で［キャンセル］"

@@ -25,7 +25,7 @@ function getGuiRepoRoot {
 # ---- 利用者の環境を変えていないことの確かめ ----
 
 function getGuiEnvSnapshot {
-    # 流す前後で比べる。作業ツリーの setting.config・work\index、%LOCALAPPDATA%\tebunko、利用者の既定のワークスペース、Office のプロセスの数。
+    # 流す前後で比べる。作業ツリーの setting.config・work\content_index、%LOCALAPPDATA%\tebunko、利用者の既定のワークスペース、Office のプロセスの数。
     # 既定のワークスペースは、CI（GITHUB_ACTIONS）では S6 が使うので調べない
     $root = getGuiRepoRoot
     $list = {
@@ -37,7 +37,7 @@ function getGuiEnvSnapshot {
     }
     $snapshot = [ordered]@{
         "作業ツリーの setting.config" = (& $list "$root\setting.config")
-        "作業ツリーの work\index"     = (& $list "$root\work\index")
+        "作業ツリーの work\content_index" = (& $list "$root\work\content_index")
         "LOCALAPPDATA\tebunko"       = (& $list (Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "tebunko"))
         "Office のプロセスの数"       = @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue).Count
     }
@@ -595,7 +595,7 @@ function newGuiSampleIndex {
     $tsvRoot = Join-Path $Root "tsv_$Name"
     newTsv "$tsvRoot\$Name\見積.xlsx\$(toIndexFileName "見積")" @("品名`t数量`t単価", "", "りんご`t10`t100", "ABC`tabc")
     newTsv "$tsvRoot\$Name\議事録.docx\$(toIndexFileName "ページ001")" @("見積の方針", "単価は据え置き")
-    [void](newPackIndex $tsvRoot "$($Tool.Work)\index")
+    [void](newPackIndex $tsvRoot "$($Tool.Work)\content_index")
 }
 
 function findGuiAnywhere {

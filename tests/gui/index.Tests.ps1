@@ -118,7 +118,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $S.Timing["取り込み"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
             @(getGuiGridRows (findGui $S.Window -Id "FailedGrid")).Count | Should -Be 1
             (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "FailedGrid"))[0]) -join " " | Should -BeLike "*壊れた文書.docx*"
-            Test-Path -LiteralPath "$($script:tool.Work)\index\資料" | Should -BeTrue
+            Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料" | Should -BeTrue
 
             # 削除: キャンセルすると残り、［削除する］で消える（#15）
             setGuiStep $S "［削除］→［キャンセル］"
@@ -131,7 +131,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             clickGui $S $S.Window "RemoveIndexButton" "［削除］"
             answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
-            waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\index\資料") } | Out-Null
+            waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料") } | Out-Null
 
             closeGui $S
             Write-Host ("S2 の秒数: " + (($S.Timing.GetEnumerator() | ForEach-Object { "$($_.Key) $($_.Value)" }) -join "・"))
