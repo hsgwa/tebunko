@@ -84,7 +84,8 @@ Describe "S4 検索の遷移" -Tag Gui {
             clickGuiByName $S $confirm "フォルダを選ぶ"
             useGuiFolderPicker $S
             waitGuiWindowClosed $S $confirm "見つからない確認"
-            @(getGuiOtherWindows $S).Count | Should -Be 0 -Because "フォルダ選択をキャンセルすると、確認に戻らずに終わる"
+            # フォルダ選択のキャンセルの直後は、後片付けが少し遅れて窓の一覧に残ることがあるため、時間で待つ
+            waitGui $S "確認に戻らず、ほかの窓が残らない" ${guiDefaultTimeout} { @(getGuiOtherWindows $S).Count -eq 0 } | Out-Null
 
             closeGui $S
         }

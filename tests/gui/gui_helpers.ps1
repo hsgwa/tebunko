@@ -244,10 +244,13 @@ function findAllGui {
 }
 
 function getGuiTopWindows {
-    # 画面のプロセスの、いちばん上の窓（本体・ダイアログ・メッセージボックス・メニュー・OS のフォルダ選択）
+    # 画面のプロセスの、いちばん上の窓（本体・ダイアログ・メッセージボックス・メニュー・OS のフォルダ選択）。
+    # ツールヒント（ToolTip）は、マウスを動かさなくても UI オートメーションの操作の後に一瞬出ることがあるため対象外にする
     param ($S)
     $ae = [Windows.Automation.AutomationElement]
-    $condition = New-Object Windows.Automation.PropertyCondition($ae::ProcessIdProperty, $S.Process.Id)
+    $condition = New-Object Windows.Automation.AndCondition(
+        (New-Object Windows.Automation.PropertyCondition($ae::ProcessIdProperty, $S.Process.Id)),
+        (New-Object Windows.Automation.NotCondition((New-Object Windows.Automation.PropertyCondition($ae::ControlTypeProperty, [Windows.Automation.ControlType]::ToolTip)))))
     try {
         return @($ae::RootElement.FindAll("Children", $condition) | ForEach-Object { $_ })
     } catch {
