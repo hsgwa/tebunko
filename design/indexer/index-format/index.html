@@ -2738,11 +2738,11 @@
 <p>インデックス（本文インデックス・TSV）の置き場所・名前・中身の形式（<a href="./">インデックスの形式</a>）と、実装上の注意点・既知の問題（<a href="../known-issues/">既知の問題</a>）を扱う。</p>
 <h2 id="配置命名規則">配置・命名規則<a class="headerlink" href="#配置命名規則" title="Permanent link">&para;</a></h2>
 <p>インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの<strong>本文インデックス</strong>にする。検索は本文インデックスだけを読む（<a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</p>
-<div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子（小文字）&gt;.&lt;番号&gt;.tsv                        … 本文インデックス（検索に使う）
-work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名（拡張子あり）&gt;/&lt;encodeIndexPlace(場所)&gt;.tsv … 取り込み中だけの TSV
+<div class="highlight"><pre><span></span><code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子（小文字）&gt;.&lt;番号&gt;.tsv                        … 本文インデックス（検索に使う）
+work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名（拡張子あり）&gt;/&lt;encodeIndexPlace(場所)&gt;.tsv … 取り込み中だけの TSV
 </code></pre></div>
 <ul>
-<li><strong>本文インデックス</strong>（<code>content.xlsx.001.tsv</code> <code>content.docx.001.tsv</code> など）には、そのフォルダ<strong>直下</strong>にある、その拡張子の元のファイルすべての中身を入れる。サブフォルダのファイルは、サブフォルダの本文インデックスに入る。形式は下の「本文インデックスの形式」。</li>
+<li><strong>本文インデックス</strong>（<code>content_index.xlsx.001.tsv</code> <code>content_index.docx.001.tsv</code> など）には、そのフォルダ<strong>直下</strong>にある、その拡張子の元のファイルすべての中身を入れる。サブフォルダのファイルは、サブフォルダの本文インデックスに入る。形式は下の「本文インデックスの形式」。</li>
 <li><strong>TSV</strong>（元のファイル 1 つ・場所 1 つにつき 1 つ）は、取り込んでから本文インデックスに入れるまでの<strong>一時的な置き場所</strong>。フォルダの取り込みが終わると本文インデックスに入れ、TSV のフォルダは消す（下の「本文インデックスへの書き出し」。残すとインデックスの容量が倍になるため）。インデックス作成が途中で止まったときだけ残り、次のインデックス作成の始めに本文インデックスへ入れる。</li>
 </ul>
 <p>TSV は<strong>元のファイル名をフォルダ名</strong>にし、その中に場所ごとの TSV を置く。クロール対象フォルダが <code>C:\data\営業</code>（インデックス名 <code>営業</code>）の場合:</p>
@@ -2759,38 +2759,38 @@ work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファ�
 <tr>
 <td><code>2024/見積/A社.xlsx</code></td>
 <td>シート <code>明細</code></td>
-<td><code>work/index/営業/2024/見積/A社.xlsx/明細.tsv</code></td>
-<td><code>work/index/営業/2024/見積/content.xlsx.001.tsv</code></td>
+<td><code>work/content_index/営業/2024/見積/A社.xlsx/明細.tsv</code></td>
+<td><code>work/content_index/営業/2024/見積/content_index.xlsx.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>売上.xls</code></td>
 <td>シート <code>2024_上期</code></td>
-<td><code>work/index/営業/売上.xls/2024%5F上期.tsv</code></td>
-<td><code>work/index/営業/content.xls.001.tsv</code></td>
+<td><code>work/content_index/営業/売上.xls/2024%5F上期.tsv</code></td>
+<td><code>work/content_index/営業/content_index.xls.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>[確定]見積.xlsx</code></td>
 <td>シート <code>記号&lt;&gt;</code></td>
-<td><code>work/index/営業/[確定]見積.xlsx/記号%3C%3E.tsv</code></td>
-<td><code>work/index/営業/content.xlsx.001.tsv</code></td>
+<td><code>work/content_index/営業/[確定]見積.xlsx/記号%3C%3E.tsv</code></td>
+<td><code>work/content_index/営業/content_index.xlsx.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>コピー.xls_old.xlsx</code></td>
 <td>シート <code>Sheet1</code></td>
-<td><code>work/index/営業/コピー.xls_old.xlsx/Sheet1.tsv</code></td>
-<td><code>work/index/営業/content.xlsx.001.tsv</code></td>
+<td><code>work/content_index/営業/コピー.xls_old.xlsx/Sheet1.tsv</code></td>
+<td><code>work/content_index/営業/content_index.xlsx.001.tsv</code></td>
 </tr>
 <tr>
 <td><code>報告書.DOCX</code></td>
 <td><code>ページ001</code></td>
-<td><code>work/index/営業/報告書.DOCX/ページ001.tsv</code></td>
-<td><code>work/index/営業/content.docx.001.tsv</code></td>
+<td><code>work/content_index/営業/報告書.DOCX/ページ001.tsv</code></td>
+<td><code>work/content_index/営業/content_index.docx.001.tsv</code></td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>クロール対象フォルダのフォルダ構成が <code>work/index/&lt;インデックス名&gt;/</code> 配下にそのまま再現され、各フォルダに<strong>拡張子ごとの本文インデックス</strong>ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。</li>
-<li>本文インデックスの拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content.docx.001.tsv</code> に入る）。</li>
+<li>クロール対象フォルダのフォルダ構成が <code>work/content_index/&lt;インデックス名&gt;/</code> 配下にそのまま再現され、各フォルダに<strong>拡張子ごとの本文インデックス</strong>ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。</li>
+<li>本文インデックスの拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content_index.docx.001.tsv</code> に入る）。</li>
 <li>「場所」は Excel ではシート名と、図形・コメントの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code>（下の「図形・コメントの場所」、<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）、Word ではページ・ヘッダー/フッター・脚注（<a href="../word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>）、PowerPoint ではスライド・ノート（<a href="../powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>）。</li>
 <li>TSV のファイル名は場所だけ（<code>toIndexFileName</code>）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。</li>
 <li><strong>TSV でファイル名をフォルダ名にする理由</strong>（<code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> のように 1 つの名前にしない理由）:</li>
@@ -2847,7 +2847,7 @@ B2→確定版
 </tr>
 <tr>
 <td>名前</td>
-<td><code>content.&lt;元のファイルの拡張子（小文字）&gt;.&lt;番号（3 桁）&gt;.tsv</code>（<code>getPackFileName</code>。例 <code>content.xlsx.001.tsv</code>）。分けていないときも <code>001</code> を付ける</td>
+<td><code>content_index.&lt;元のファイルの拡張子（小文字）&gt;.&lt;番号（3 桁）&gt;.tsv</code>（<code>getPackFileName</code>。例 <code>content_index.xlsx.001.tsv</code>）。分けていないときも <code>001</code> を付ける</td>
 </tr>
 <tr>
 <td>分け方</td>
@@ -2940,7 +2940,7 @@ B2→確定版
 <li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../flow/">処理の流れと取り込み一覧</a>）。今は <code>.xlsx</code> <code>.xlsm</code> と Word・PowerPoint のすべての形式が 2。</li>
 </ul>
 <h3 id="インデックスへの入れ替えpublishtsv--publishindexfiles">インデックスへの入れ替え（<code>publishTsv</code> / <code>publishIndexFiles</code>）<a class="headerlink" href="#インデックスへの入れ替えpublishtsv--publishindexfiles" title="Permanent link">&para;</a></h3>
-<p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん <code>work/取り込み出力/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。本文インデックスへは、そのフォルダの取り込みが終わってから入れる（下の「本文インデックスへの書き出し」）。</p>
+<p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん <code>work/取り込み出力/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/content_index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。本文インデックスへは、そのフォルダの取り込みが終わってから入れる（下の「本文インデックスへの書き出し」）。</p>
 <ul>
 <li>1 件ずつインデックスへ移すと、途中で強制終了されたときに<strong>一部のシートだけが入ったインデックス</strong>が残り、検索しても欠けていることに気付けない。まとめて入れ替えれば、「前回のインデックスがそのまま」か「今回の分がそろった状態」のどちらかになる。</li>
 <li>フォルダごと移す（<code>Directory.Move</code>）には同じドライブである必要があるため、集める場所は <code>work</code> の中に置く（作業領域は <code>%TEMP%</code>）。別のドライブで移せない場合は、1 件ずつ移す方法に切り替える。</li>
@@ -2960,7 +2960,7 @@ B2→確定版
 <li><strong>検索との同時実行</strong>: 本文インデックスは置き換えで書くため、検索は置き換えの前か後のどちらかの中身を読む（読み込みは共有モードで開き、置き換えを妨げない）。</li>
 </ul>
 <h3 id="長いパス260-文字超の扱い">長いパス（260 文字超）の扱い<a class="headerlink" href="#長いパス260-文字超の扱い" title="Permanent link">&para;</a></h3>
-<p>出力 TSV のパスは、元ファイルのパスより <code>&lt;ワークスペース&gt;\index\&lt;インデックス名&gt;\</code> と <code>\&lt;場所&gt;.tsv</code> の分だけ長くなるため（本文インデックスも <code>&lt;ワークスペース&gt;\index\&lt;インデックス名&gt;\</code> の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に <code>\\?\</code> を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには <code>toLongPath</code> で <code>\\?\</code> を付ける。</p>
+<p>出力 TSV のパスは、元ファイルのパスより <code>&lt;ワークスペース&gt;\content_index\&lt;インデックス名&gt;\</code> と <code>\&lt;場所&gt;.tsv</code> の分だけ長くなるため（本文インデックスも <code>&lt;ワークスペース&gt;\content_index\&lt;インデックス名&gt;\</code> の分だけ長くなる）、元ファイルが開けても TSV のパスが 260 文字を超えることがある。Windows PowerShell 5.1（.NET Framework 4.6.2 以降）では、パスの先頭に <code>\\?\</code> を付けると、OS の設定（LongPathsEnabled）や管理者権限なしで 260 文字を超えるパスを扱えるため、ファイル操作に渡すパスには <code>toLongPath</code> で <code>\\?\</code> を付ける。</p>
 <table>
 <thead>
 <tr>
@@ -3039,7 +3039,7 @@ B2→確定版
 <li>全角に置き換える方式にしないのは、<code>衝突"</code> と <code>衝突”</code> のように別のシートが同じ TSV 名になり、後のシートで上書きされるため。元に戻せる形にすれば、シート名が違えば TSV 名も必ず違う。</li>
 <li>ファイル名は符号化しない（元ファイルの名前がそのまま TSV のフォルダ名になる。Windows のファイル名なので使えない文字は含まない）。</li>
 <li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a>）。</li>
-<li>インデックス名（<code>work/index</code> 直下のフォルダ名）は符号化せず、<code>toSafeFileName</code>（ファイル名に使えない文字を全角に置き換える）で作る。</li>
+<li>インデックス名（<code>work/content_index</code> 直下のフォルダ名）は符号化せず、<code>toSafeFileName</code>（ファイル名に使えない文字を全角に置き換える）で作る。</li>
 </ul>
 <table>
 <thead>
@@ -3076,8 +3076,8 @@ B2→確定版
 </blockquote>
 <h2 id="システムインデックスsystem_index">システムインデックス（system_index）<a class="headerlink" href="#システムインデックスsystem_index" title="Permanent link">&para;</a></h2>
 <p>高速検索（<a href="../../search/">検索</a> <a href="../../search/fast-search/">高速検索（Windows Search）</a>）のため、インデックス作成は本文インデックスとは別に、Windows Search に索引させる txt（システムインデックス）を作る（<code>tebunko/index/system_index.ps1</code>。語の決まりは <code>tebunko/search/search_gram.ps1</code>）。</p>
-<div class="highlight"><pre><span></span><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … 本文インデックス
-work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/システムインデックス.txt … システムインデックス
+<div class="highlight"><pre><span></span><code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv              … 本文インデックス
+work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/system_index.txt … システムインデックス
 work/システムインデックスの状態.tsv                                         … その状態
 </code></pre></div>
 <table>
@@ -3090,7 +3090,7 @@ work/システムインデックスの状態.tsv                                
 <tbody>
 <tr>
 <td>単位</td>
-<td><code>work/index</code> の中のフォルダ 1 つにつき 1 つ。中身は、そのフォルダ直下の本文インデックス（拡張子ごとのものすべて）から作る。本文インデックスのメタ情報の行（ファイル名・シート名など）は除く（<code>getPackContentText</code>。入れると、その語で探したときにどのフォルダも候補になるため）。本文インデックスに入れる前の TSV（直下のブックのフォルダ <code>&lt;ファイル名.xlsx&gt;</code> の中の TSV）が残っていれば、それも入れる。サブフォルダのブックは、サブフォルダの txt に入る</td>
+<td><code>work/content_index</code> の中のフォルダ 1 つにつき 1 つ。中身は、そのフォルダ直下の本文インデックス（拡張子ごとのものすべて）から作る。本文インデックスのメタ情報の行（ファイル名・シート名など）は除く（<code>getPackContentText</code>。入れると、その語で探したときにどのフォルダも候補になるため）。本文インデックスに入れる前の TSV（直下のブックのフォルダ <code>&lt;ファイル名.xlsx&gt;</code> の中の TSV）が残っていれば、それも入れる。サブフォルダのブックは、サブフォルダの txt に入る</td>
 </tr>
 <tr>
 <td>中身</td>
@@ -3102,7 +3102,7 @@ work/システムインデックスの状態.tsv                                
 </tr>
 <tr>
 <td>大きいとき</td>
-<td>8MB を超える（語 1 つ 10 バイトで約 84 万語）と、語の値の範囲で <code>システムインデックス_1.txt</code>・<code>_2.txt</code> … に分ける（実測で 16MB までは末尾まで索引された）</td>
+<td>8MB を超える（語 1 つ 10 バイトで約 84 万語）と、語の値の範囲で <code>system_index_1.txt</code>・<code>_2.txt</code> … に分ける（実測で 16MB までは末尾まで索引された）</td>
 </tr>
 <tr>
 <td>パスが長いとき</td>

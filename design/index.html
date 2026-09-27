@@ -2614,7 +2614,7 @@
 <p>2 段階方式を採る。Office ファイルから抽出した文字列を索引データ（<strong>インデックス</strong>）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびに Office でファイルを開く処理を省く。インデックスの中身の具体例は <a href="indexer/#インデックスとははじめて読む方へ">インデックスとは（はじめて読む方へ）</a> にある。</p>
 <ol>
 <li><strong>インデックス作成</strong>（<a href="indexer/">インデックス作成（インデクサ）</a>）
-   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて <code>work/index/</code> に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
+   各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/</code> に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
 <li><strong>検索</strong>（<a href="search/">検索</a>）
    本文インデックスを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは <code>work/検索結果.txt</code> に出力する。</li>
 </ol>
@@ -2668,31 +2668,31 @@
 </tr>
 <tr>
 <td>本文インデックス</td>
-<td>検索が照合する本体。フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。<code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。1 つずつを指すときは「本文インデックスのファイル」</td>
+<td>検索が照合する本体。フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。<code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。1 つずつを指すときは「本文インデックスのファイル」</td>
 <td>出さない</td>
 <td><code>pack</code></td>
 </tr>
 <tr>
 <td>システムインデックス</td>
-<td>高速検索のために Windows Search に索引させる 2-gram の txt。フォルダ 1 つにつき 1 つ。<code>work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/システムインデックス.txt</code>（大きいと <code>システムインデックス_1.txt</code> …）。1 つずつを指すときは「システムインデックスの txt」</td>
+<td>高速検索のために Windows Search に索引させる 2-gram の txt。フォルダ 1 つにつき 1 つ。<code>work/system_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/system_index.txt</code>（大きいと <code>system_index_1.txt</code> …）。1 つずつを指すときは「システムインデックスの txt」</td>
 <td>出さない。区別が要るときは「インデックス（高速検索用）」</td>
 <td><code>systemIndex</code></td>
 </tr>
 <tr>
 <td>本文インデックスに入れる前の TSV</td>
-<td>取り込んでから本文インデックスに入れるまでの一時的な TSV。<code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>。インデックス作成が途中で止まったときだけ残る</td>
+<td>取り込んでから本文インデックスに入れるまでの一時的な TSV。<code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>。インデックス作成が途中で止まったときだけ残る</td>
 <td>出さない</td>
 <td>変えない（無し）</td>
 </tr>
 <tr>
 <td>元のフォルダの記録</td>
-<td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code>（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする）</td>
+<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code>（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする）</td>
 <td>出さない</td>
 <td><code>sourceFolderFileName</code></td>
 </tr>
 <tr>
 <td>本文インデックスのフォルダ／システムインデックスのフォルダ</td>
-<td>ワークスペースの <code>index/</code>／<code>system_index/</code></td>
+<td>ワークスペースの <code>content_index/</code>／<code>system_index/</code></td>
 <td>手引き・README ではフォルダの名前として出す</td>
 <td><code>Workspace.IndexDir</code>／<code>Workspace.SystemIndexDir</code></td>
 </tr>
@@ -2704,7 +2704,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>index/</code> の中身は本文インデックス・入れる前の TSV・元のフォルダの記録の 3 種類で、本文インデックスは <code>index/</code> の中身すべてではない。コードの名前 <code>pack</code>（関数・変数・計測の結果の項目）は、設計書でもそのまま書く。</p>
+<p><code>content_index/</code> の中身は本文インデックス・入れる前の TSV・元のフォルダの記録の 3 種類で、本文インデックスは <code>content_index/</code> の中身すべてではない。コードの名前 <code>pack</code>（関数・変数・計測の結果の項目）は、設計書でもそのまま書く。</p>
 <p>「変換」は、旧形式を新形式に保存し直す処理（<code>.doc</code> → <code>.docx</code> など）のように、形式を変えることだけに使う。検索ワード・件・該当行・元のファイルは検索エンジンの用語に合わせず、そのまま使う。</p>
 <h2 id="全体構成">全体構成<a class="headerlink" href="#全体構成" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
@@ -2728,7 +2728,7 @@
     c1["setting.config&lt;br&gt;画面が保存する設定&lt;br&gt;（クロール対象フォルダ・検索対象インデックスなど）"]
 
     subgraph work["work/（自動生成）"]
-        idx[("index/&lt;br&gt;本文インデックス")]
+        idx[("content_index/&lt;br&gt;本文インデックス")]
         status["取り込み一覧.tsv&lt;br&gt;（更新日時・状態）"]
         ctl["インデックス作成ログ.txt&lt;br&gt;取り込み中.txt"]
         out["検索結果.txt&lt;br&gt;（［結果をファイルに出力］）"]
@@ -2794,7 +2794,7 @@
     actor U as 利用者
     participant G as 画面（tebunko.bat）
     participant CV as インデクサ（tebunko/indexer.ps1）
-    participant W as work/index/
+    participant W as work/content_index/
 
     U-&gt;&gt;G: ［1 インデックス管理］の［追加…］でインデックスを追加
     U-&gt;&gt;G: ［インデックス作成を開始］

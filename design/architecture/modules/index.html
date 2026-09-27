@@ -2982,7 +2982,11 @@
 </tr>
 <tr>
 <td><code>IndexDir</code></td>
-<td><code>&lt;Dir&gt;\index</code></td>
+<td><code>&lt;Dir&gt;\content_index</code></td>
+</tr>
+<tr>
+<td><code>LegacyIndexDir</code></td>
+<td><code>&lt;Dir&gt;\index</code>（前の版が使っていた場所。読まず、消しもしない）</td>
 </tr>
 <tr>
 <td><code>SystemIndexDir</code></td>
@@ -3786,7 +3790,7 @@
 <td><code>splitIndexRelPath</code></td>
 <td>relPath</td>
 <td><code>@{Name; Rest}</code></td>
-<td><code>work\index</code> からの相対パスを、先頭のインデックス名と残りに分ける</td>
+<td><code>work\content_index</code> からの相対パスを、先頭のインデックス名と残りに分ける</td>
 <td>同上</td>
 <td>インデックス作成, resolveSourcePath</td>
 </tr>
@@ -3818,7 +3822,7 @@
 <td><code>renameIndex</code></td>
 <td>oldName, newName, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>インデックス名を変える。<code>work\index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外。旧名・新名の下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）</td>
+<td>インデックス名を変える。<code>work\content_index\&lt;旧名&gt;</code> を改名し、取り込み一覧の記録（<code>renameStatusIndexName</code>）も書き換えるため、<strong>インデックスは作り直さない</strong>。移動先が既にあれば例外。旧名・新名の下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>。付け替えず、外したフォルダは検索対象に戻る）</td>
 <td>同上</td>
 <td>画面（［編集…］）</td>
 </tr>
@@ -3826,7 +3830,7 @@
 <td><code>removeIndex</code></td>
 <td>name, dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>–</td>
-<td>インデックスを削除する。<code>work\index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）。そのインデックスの下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>）</td>
+<td>インデックスを削除する。<code>work\content_index\&lt;名前&gt;</code> を中身ごと削除し、取り込み一覧からもその記録を取り除く（<code>removeStatusIndexName</code>）。そのインデックスの下の <code>searchExcludes</code> も消す（<code>removeSearchExcludesUnder</code>）</td>
 <td>同上</td>
 <td>画面（［削除］）</td>
 </tr>
@@ -3834,7 +3838,7 @@
 <td><code>getSearchIndexes</code></td>
 <td>dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath</td>
 <td><code>@{Name; Path; SourcePath}</code> の配列</td>
-<td>インデックスの一覧（<code>work\index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
+<td>インデックスの一覧（<code>work\content_index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
 <td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
 <td>画面（検索対象のツリー）</td>
 </tr>
@@ -4128,7 +4132,7 @@
 <td><code>getPackExtension</code> / <code>getPackFileName</code> / <code>readPackFileName</code></td>
 <td>book / extension, part / name</td>
 <td>string / <code>@{Extension; Part}</code></td>
-<td>本文インデックスを分ける拡張子（小文字・<code>.</code> なし） / 本文インデックスのファイルの名前（<code>content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>） / 名前から拡張子と番号を取り出す</td>
+<td>本文インデックスを分ける拡張子（小文字・<code>.</code> なし） / 本文インデックスのファイルの名前（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>） / 名前から拡張子と番号を取り出す</td>
 <td>convertIndexFolderToPack, getIndexTsvCounts</td>
 </tr>
 <tr>

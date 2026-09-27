@@ -2892,7 +2892,7 @@
 <h2 id="検索の実行">検索の実行<a class="headerlink" href="#検索の実行" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>検索処理は <code>tebunko/search/pack_search.ps1</code> の関数</strong>（<code>getIndexPackFiles</code> / <code>searchPackIndex</code>、<a href="../implementation/#実装構成">実装構成</a>）で行う。対象・照合・速度の仕様は <a href="../../search/">検索</a> のとおり。</li>
-<li>検索対象は No.13 のツリーでチェックしたインデックス・フォルダ配下の <code>*.tsv</code>（<a href="#検索対象のツリーno13">検索対象のツリー（No.13）</a>）。結果のフォルダ（相対パス）は、選んだフォルダではなくインデックスのフォルダ（<code>work\index</code>）から求めるため、フォルダを絞っても結果の表示・元のファイルを開く動作は変わらない。</li>
+<li>検索対象は No.13 のツリーでチェックしたインデックス・フォルダ配下の <code>*.tsv</code>（<a href="#検索対象のツリーno13">検索対象のツリー（No.13）</a>）。結果のフォルダ（相対パス）は、選んだフォルダではなくインデックスのフォルダ（<code>work\content_index</code>）から求めるため、フォルダを絞っても結果の表示・元のファイルを開く動作は変わらない。</li>
 <li><strong>検索の司令のスレッド（<code>SearchService</code>）で実行</strong>し、検索中も画面を操作できるようにする。司令のスレッドと照合のプールは画面を開いている間使い回し、検索のたびに作らない（<a href="../../architecture/threads/#寿命">寿命</a>）。検索 1 回は要求（<code>newSearchRequest</code>）として渡し、新しい検索を始めると前の検索は取り消す（要求の <code>Stop</code>）。</li>
 <li>高速検索が使えるとき（検索ワードの下の <code>高速検索：使用可</code>）は、Windows Search で検索語を含みうるフォルダを先に絞り、その本文インデックスだけを検索する（<a href="../../search/">検索</a> <a href="../../search/fast-search/">高速検索（Windows Search）</a>）。<code>高速検索：使用可 / 使用不可</code> は、ワード・［正規表現を使う］を変えるとすぐ変わる（<code>getFastSearchView</code>。Windows Search が使えるかは、画面を開いたときと検索のたびに確かめる）。</li>
 <li>本文インデックスを約 16MB ずつ検索し（<a href="../../search/#検索の実装速度">検索の実装（速度）</a>）、そのたびに進捗（No.5 のバーと <code>検索中…　該当 K 件</code>、タスクバーのアイコン）を更新する。結果は 0.1 秒ごとに表へ移し、見つかったファイルの見出しから順に表示する（<a href="#ファイルごとにまとめた表示">ファイルごとにまとめた表示</a>）。</li>
@@ -3119,9 +3119,9 @@
 <li>［開き方］は、起動時に設定から読み込むときは保存しない（設定していない利用者の <code>setting.config</code> を作らないため。<a href="../../architecture/settings-file/#画面での読み書き">画面での読み書き</a>）。</li>
 </ul>
 <h3 id="元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）<a class="headerlink" href="#元のフォルダの特定インデックスを別の-pc場所で使う場合" title="Permanent link">&para;</a></h3>
-<p>インデクサは元のフォルダの記録（<code>元のフォルダ.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexer/">インデックス作成（インデクサ）</a> の <a href="../../indexer/flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>）を、<strong>各インデックスのフォルダ（<code>work\index\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\index</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\index</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
+<p>インデクサは元のフォルダの記録（<code>元のフォルダ.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexer/">インデックス作成（インデクサ）</a> の <a href="../../indexer/flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>）を、<strong>各インデックスのフォルダ（<code>work\content_index\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\content_index</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\content_index</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
 <pre class="mermaid"><code>flowchart TD
-    A["検索結果&lt;br&gt;（Root = 検索対象フォルダ、RelDir）"] --&gt; B{"Root が work\index なら、取り込み一覧・設定に&lt;br&gt;RelDir の先頭のインデックス名がある？"}
+    A["検索結果&lt;br&gt;（Root = 検索対象フォルダ、RelDir）"] --&gt; B{"Root が work\content_index なら、取り込み一覧・設定に&lt;br&gt;RelDir の先頭のインデックス名がある？"}
     B -- はい --&gt; K["元のフォルダ\残りのフォルダ\ファイル名"]
     B -- いいえ --&gt; B2{"Root\#lt;インデックス名#gt; の 元のフォルダの記録 に&lt;br&gt;そのインデックス名がある？&lt;br&gt;（インデックス 1 個をコピーした場合）"}
     B2 -- はい --&gt; K
@@ -3146,7 +3146,7 @@
 <tr>
 <td>2</td>
 <td>取り込み一覧（<code>work\取り込み一覧.tsv</code>）</td>
-<td>既定の本文インデックスのフォルダ（<code>work\index</code>）のときだけ</td>
+<td>既定の本文インデックスのフォルダ（<code>work\content_index</code>）のときだけ</td>
 </tr>
 <tr>
 <td>3</td>
@@ -3309,7 +3309,7 @@
 <tbody>
 <tr>
 <td>一番上の項目</td>
-<td><strong>インデックス 1 件</strong>（<code>getSearchIndexes</code>。<code>work\index</code> 直下のフォルダ）。表示名はインデックス名で、並びは［1 インデックス管理］の一覧と同じ（その一覧に無いもの＝別の場所・PC からコピーしたインデックスは名前順で後ろ）。インデックスが 1 つも無ければ、ツリーに <code>インデックスがありません。［1 インデックス管理］でインデックスを作成してください。</code> と表示する。存在しないフォルダは茶色で表示し、ツールチップに <code>（フォルダが見つかりません。検索時はスキップします）</code> を出す</td>
+<td><strong>インデックス 1 件</strong>（<code>getSearchIndexes</code>。<code>work\content_index</code> 直下のフォルダ）。表示名はインデックス名で、並びは［1 インデックス管理］の一覧と同じ（その一覧に無いもの＝別の場所・PC からコピーしたインデックスは名前順で後ろ）。インデックスが 1 つも無ければ、ツリーに <code>インデックスがありません。［1 インデックス管理］でインデックスを作成してください。</code> と表示する。存在しないフォルダは茶色で表示し、ツールチップに <code>（フォルダが見つかりません。検索時はスキップします）</code> を出す</td>
 </tr>
 <tr>
 <td>下の項目</td>
@@ -3325,7 +3325,7 @@
 </tr>
 <tr>
 <td>直下のファイル</td>
-<td>サブフォルダと本文インデックスのファイル（<code>content.*.tsv</code>）の両方があるフォルダには、先頭に <code>（このフォルダ直下のファイル）</code> の項目を置く（灰色）。サブフォルダの一部だけを選んだとき、そのフォルダ直下のファイルを含めるかをこの項目のチェックで表す（<code>getIndexPackFiles</code> の <code>Recurse</code> が <code>$false</code> のときと同じ）。本文インデックスに入れる前の TSV（元のファイル名のフォルダの中）が残っているフォルダも、直下のファイルがあるものとして扱う（<code>IndexNode.HasFiles</code>）</td>
+<td>サブフォルダと本文インデックスのファイル（<code>content_index.*.tsv</code>）の両方があるフォルダには、先頭に <code>（このフォルダ直下のファイル）</code> の項目を置く（灰色）。サブフォルダの一部だけを選んだとき、そのフォルダ直下のファイルを含めるかをこの項目のチェックで表す（<code>getIndexPackFiles</code> の <code>Recurse</code> が <code>$false</code> のときと同じ）。本文インデックスに入れる前の TSV（元のファイル名のフォルダの中）が残っているフォルダも、直下のファイルがあるものとして扱う（<code>IndexNode.HasFiles</code>）</td>
 </tr>
 <tr>
 <td>チェック</td>
@@ -3333,7 +3333,7 @@
 </tr>
 <tr>
 <td>検索する範囲</td>
-<td>チェックありの一番上のフォルダごとに、その配下（<code>（このフォルダ直下のファイル）</code> は直下だけ）の本文インデックスのファイルを検索する（<code>getIndexPackFiles</code> に Root＝<code>work\index</code>・RelPath＝<code>&lt;インデックス名&gt;</code> からの相対パス・Recurse を渡す）</td>
+<td>チェックありの一番上のフォルダごとに、その配下（<code>（このフォルダ直下のファイル）</code> は直下だけ）の本文インデックスのファイルを検索する（<code>getIndexPackFiles</code> に Root＝<code>work\content_index</code>・RelPath＝<code>&lt;インデックス名&gt;</code> からの相対パス・Recurse を渡す）</td>
 </tr>
 <tr>
 <td>保存</td>

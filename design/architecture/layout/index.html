@@ -3016,16 +3016,16 @@
 </thead>
 <tbody>
 <tr>
-<td><code>work/index/</code></td>
-<td>インデックス。クロール対象フォルダごとに <code>work/index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの本文インデックス（<code>content.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると本文インデックスに入れて消す（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>）</td>
+<td><code>work/content_index/</code></td>
+<td>インデックス。クロール対象フォルダごとに <code>work/content_index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの本文インデックス（<code>content_index.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると本文インデックスに入れて消す（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>）</td>
 </tr>
 <tr>
-<td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
-<td>インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。<code>work/index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける</td>
+<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td>インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。<code>work/content_index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける</td>
 </tr>
 <tr>
 <td><code>work/system_index/</code></td>
-<td>システムインデックス（高速検索用。<code>work/index</code> の中のフォルダごとの 2-gram の txt。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）。Windows Search に索引させる</td>
+<td>システムインデックス（高速検索用。<code>work/content_index</code> の中のフォルダごとの 2-gram の txt。<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）。Windows Search に索引させる</td>
 </tr>
 <tr>
 <td><code>work/システムインデックスの状態.tsv</code></td>
@@ -3070,7 +3070,7 @@
     GUI["画面&lt;br&gt;gui.ps1"]
     IDX["インデクサ&lt;br&gt;indexer.ps1"]
     ST[("取り込み一覧.tsv&lt;br&gt;取り込み中.txt")]
-    IX[("work/index/")]
+    IX[("work/content_index/")]
     GUI -- 読み書き --&gt; CFG
     IDX -- クロール対象フォルダを読む --&gt; CFG
     IDX -- "進捗・取り込み予定・エラー（受け渡しの口）" --&gt; GUI
@@ -3121,7 +3121,7 @@
 <td>インデックス作成</td>
 <td>インデックス作成</td>
 <td>–</td>
-<td>1 ファイル分の TSV（<code>&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>）。集め終わったら <code>work/index</code> の中へフォルダごと移す（<code>publishIndexFiles</code>）</td>
+<td>1 ファイル分の TSV（<code>&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>）。集め終わったら <code>work/content_index</code> の中へフォルダごと移す（<code>publishIndexFiles</code>）</td>
 </tr>
 <tr>
 <td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
@@ -3148,15 +3148,15 @@
 <td>画面で起きた予期しないエラーの内容（<code>writeErrorLog</code>。追記）</td>
 </tr>
 <tr>
-<td><code>work/index/</code></td>
+<td><code>work/content_index/</code></td>
 <td>インデックス</td>
 <td>インデックス作成</td>
 <td>検索</td>
 <td>本文インデックスは UTF-16LE（BOM 付き）、LF。本文インデックスに入れる前の TSV は UTF-8（BOM 付き）、CRLF</td>
-<td>フォルダ・拡張子ごとの本文インデックス（<code>content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメントの TSV（<code>&lt;元の場所&gt;[図形]</code>・<code>&lt;元の場所&gt;[コメント]</code>）</td>
+<td>フォルダ・拡張子ごとの本文インデックス（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメントの TSV（<code>&lt;元の場所&gt;[図形]</code>・<code>&lt;元の場所&gt;[コメント]</code>）</td>
 </tr>
 <tr>
-<td><code>work/index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
 <td>インデックス</td>
 <td>インデックス作成</td>
 <td>画面</td>
@@ -3203,7 +3203,7 @@
 </tbody>
 </table>
 <ul>
-<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a> <a href="../../search/fast-search/">高速検索（Windows Search）</a>）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>index</code> か <code>取り込み一覧.tsv</code> がある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
+<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a> <a href="../../search/fast-search/">高速検索（Windows Search）</a>）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>content_index</code>・前の版の <code>index</code>・<code>取り込み一覧.tsv</code> のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
 <li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。</li>
 <li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
 <li>置き場所を変えると、今の <code>work/</code> の中身（tebunko が作るファイル・フォルダだけ。<code>Workspace.Entries</code>）を新しい場所へ移す（<code>moveWorkspace</code>）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）も、移した先のインデックスに付け替える（<code>moveSearchExcludes</code>）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。</li>
