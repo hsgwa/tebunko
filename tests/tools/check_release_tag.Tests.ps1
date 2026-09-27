@@ -71,12 +71,16 @@ Describe "check_release_tag.ps1 のコミット" -Tag Io {
         checkTag "v0.2.0" $script:onMain | Should -Be 0
     }
 
-    It "main に無いコミットは止める" {
-        checkTag "v0.2.0" $script:offMain | Should -Be 1
-    }
-
-    It "存在しない参照・存在しない基準は、別の理由で止める" {
-        checkTag "v0.2.0" ("0" * 40) | Should -Be 1
-        checkTag "v0.2.0" $script:onMain "origin/nothing" | Should -Be 1
+    # 止めるときは終了コード 1 と、理由の文言を出す。main に無いときと、参照を解決できないときで文言が違う
+    It "<name>は止め、「<reason>」と出す" -TestCases @(
+        @{ name = "main に無いコミット"; sha = "off"; base = "main"; reason = "履歴にありません" }
+        @{ name = "存在しないコミット"; sha = ("0" * 40); base = "main"; reason = "解決できませんでした" }
+        @{ name = "存在しない基準"; sha = "on"; base = "origin/nothing"; reason = "解決できませんでした" }
+    ) {
+        if ($sha -eq "on") { $sha = $script:onMain }
+        if ($sha -eq "off") { $sha = $script:offMain }
+        $out = & $check -Tag "v0.2.0" -Sha $sha -Base $base 6>&1 | Out-String
+        $LASTEXITCODE | Should -Be 1
+        $out | Should -Match $reason
     }
 }
