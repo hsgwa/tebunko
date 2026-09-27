@@ -24,4 +24,4 @@
 | 依存の更新 | GitHub Actions と、設計書のサイトを作る Python パッケージ（`tools/mkdocs/requirements.txt`。ハッシュで固定し、配布物には入らない）は Dependabot が毎月 PR を出す。PowerShell のモジュール（Pester 5.9.0・PSScriptAnalyzer 1.25.0）は Dependabot の対象外のため、`test.yml` で版を固定する | `.github/dependabot.yml` |
 | ワークフローの静的解析 | CodeQL でワークフローを解析する（PR・main への push・毎週）。PowerShell は CodeQL の対象外のため、スクリプトは PSScriptAnalyzer（[静的解析: PSScriptAnalyzer（Microsoft）](scans.md#静的解析-psscriptanalyzermicrosoft)）が受け持つ | `.github/workflows/codeql.yml` |
 | OpenSSF Scorecard | ブランチ保護・依存の固定・危険なワークフローの有無などを採点し、結果を公開する（README のバッジ）。採点だけで、マージは止めない | `.github/workflows/scorecard.yml` |
-| リリース | タグの push で、テストを通してから配布 zip とインストーラーを作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、来歴に署名する（[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)） | `.github/workflows/release.yml` |
+| リリース | タグの push で、タグの形と指すコミットが main の履歴にあることを確かめ、テストを通してから配布 zip とインストーラーを作り、カタログ・ハッシュ一覧・SBOM を zip と並べて載せ、来歴に署名する（[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)） | `.github/workflows/release.yml` |
