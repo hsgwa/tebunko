@@ -373,6 +373,7 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             $status.Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateNew}
             $status.Rows["後回し2\議事録.docx"].状態 | Should -Be ${stateDone}
             $script:lastChannel.Postponed | Should -Be 1
+            $script:lastChannel.Notice | Should -Match "1 件を取り込まずに残しました"
             # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると
             # 100 件ごとの起動し直しの判定が早まって途中でも呼ばれるが、ここでは増えない
             # （RestartInterval を差し替えられる runIngestWorker 単体の It で、数えないことを詳しく確かめている）
