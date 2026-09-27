@@ -613,6 +613,14 @@ function getGuiGridRows {
     return @(findAllGui $Grid -Type DataItem)
 }
 
+function getGuiHitRows {
+    # 検索結果の表（ResultGrid）の、ヒットの行（ファイルごとの見出しの行を除く）。
+    # 見出しの行は AutomationProperties.Name をファイル名にし、セルの Text を持たない（FileHeaderRow のテンプレート）ため、
+    # 中に Text が 1 つ以上ある行をヒットの行とする（読み上げの名前が場所の表示に変わっても壊れないようにする）
+    param ($Grid)
+    return @(getGuiGridRows $Grid | Where-Object { @(findAllGui $_ -Type Text).Count -gt 0 })
+}
+
 function getGuiRowTexts {
     # 行の中の文字（セルの Text）
     param ($Row)

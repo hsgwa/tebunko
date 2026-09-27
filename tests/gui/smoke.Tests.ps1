@@ -37,7 +37,7 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             $S.Timing["検索"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
             clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
             setGuiStep $S "結果の行を選んでプレビュー"
-            $row = waitGui $S "結果の行（HitRow）" ${guiDefaultTimeout} { @(findAllGui (findGui $S.Window -Id "ResultGrid") -Name "HitRow" -Type DataItem) | Select-Object -Last 1 }
+            $row = waitGui $S "結果の行" ${guiDefaultTimeout} { getGuiHitRows (findGui $S.Window -Id "ResultGrid") | Select-Object -Last 1 }
             selectGui $row
             waitGui $S "プレビュー（りんご）" ${guiDefaultTimeout} {
                 @(findAllGui (findGui $S.Window -Id "PreviewScroll") -Type Text | Where-Object { $_.Current.Name -eq "りんご" }).Count -gt 0

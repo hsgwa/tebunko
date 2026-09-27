@@ -17,7 +17,7 @@ Describe "S4 検索の遷移" -Tag Gui {
         $S = startGui $script:tool "S4"
         invokeGuiScene $S {
             $summary = { getGuiText (findGui $S.Window -Id "SummaryText") }
-            $hitRows = { @(findAllGui (findGui $S.Window -Id "ResultGrid") -Name "HitRow" -Type DataItem) }
+            $hitRows = { getGuiHitRows (findGui $S.Window -Id "ResultGrid") }
             $search = {
                 param ($word)
                 setGuiText $S (findGui $S.Window -Id "WordBox") $word
