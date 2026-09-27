@@ -1,0 +1,136 @@
+# 検索・pack の作成・取り込み（.docx・.pptx）の速さの回帰テスト（tests\tools\perf_search.Tests.ps1・perf_ingest.Tests.ps1）。
+#
+# 動く時:
+#   ・PR にラベル perf-check を付けたとき（付けたあとの push・reopen でも流し直す。ラベルが無い PR ではジョブがスキップになり、失敗にはならない）
+#   ・main への push（速さに効くファイルが変わったとき）
+#   ・手動（workflow_dispatch）
+# 必須チェックにはしない。ただし、流した PR で search・ingest が落ちていればマージしない。
+# ジョブは 2 つを別のランナーで並べる（取り込みの後に同じジョブで検索すると遅く出るため）。
+# 数字はジョブの Summary と artifact で見る。PR にコメントは書かない。
+# perf.yml（手動の計測）とは別で、こちらは上限と比べて合否を出す。上限・決め方・落ちたときの扱いは docs/design/testing/ci.md。
+# フォークからの PR でも pull_request のまま動かす（pull_request_target は使わない）。秘密の値は使わない。
+# run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため）。
+name: perf-check
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "tools/measure_perf.ps1"
+      - "tools/perf/**"
+      - "tests/tools/perf_*.Tests.ps1"
+      - "tests/testdata/office/**"
+      - ".github/workflows/perf-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同じ PR に続けて push したとき・perf-check を付け直したときは、古い実行を取り消す。
+# perf-check 以外のラベルを付けて起動した実行（ジョブはスキップになる）は run_id 付きの別のグループに入れ、流れている実行を取り消さない
+concurrency:
+  group: perf-check-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'perf-check' && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+env:
+  # データ生成スクリプトのリポジトリ（https://github.com/hsgwa/tebunko-perfdata）のコミット。perf.yml と同じ値にする
+  PERFDATA_SHA: 2d6c7a60ed9ae9949cc76f8ff00762d45707ee3a
+  # test.yml の PESTER_VERSION・tests/run.ps1 と同じ版
+  PESTER_VERSION: 5.9.0
+
+jobs:
+  search:
+    # main への push と手動はラベルを見ない。PR は、perf-check を付けたとき、または perf-check が付いた PR の push・reopen のときだけ流す
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'perf-check') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'perf-check'))
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: データ生成スクリプトをチェックアウトする
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: hsgwa/tebunko-perfdata
+          ref: ${{ env.PERFDATA_SHA }}
+          path: perfdata
+          persist-credentials: false
+
+      - name: Pester の用意
+        shell: powershell
+        run: |
+          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+
+      - name: 検索と pack の作成の速さを確かめる
+        shell: powershell
+        env:
+          TEBUNKO_PERFDATA: ${{ github.workspace }}\perfdata
+        run: .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1
+
+      - name: 結果を Summary に書き出す
+        if: always()
+        shell: powershell
+        run: |
+          $summary = "work\test\perf-search\summary.md"
+          if (Test-Path -LiteralPath $summary) {
+            [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText((Resolve-Path $summary).Path, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+          }
+
+      - name: 結果を artifact にアップロードする
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-check-search-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/test/perf-search
+          retention-days: 90
+          if-no-files-found: ignore
+
+  ingest:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'perf-check') ||
+      (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'perf-check'))
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pester の用意
+        shell: powershell
+        run: |
+          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+
+      - name: 取り込み（.docx・.pptx）の速さを確かめる
+        shell: powershell
+        run: .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_ingest.Tests.ps1
+
+      - name: 結果を Summary に書き出す
+        if: always()
+        shell: powershell
+        run: |
+          $summary = "work\test\perf-ingest\summary.md"
+          if (Test-Path -LiteralPath $summary) {
+            [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText((Resolve-Path $summary).Path, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+          }
+
+      - name: 結果を artifact にアップロードする
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: perf-check-ingest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/test/perf-ingest
+          retention-days: 90
+          if-no-files-found: ignore

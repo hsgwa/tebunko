@@ -14,7 +14,7 @@ GitHub Release の配布 zip（`tebunko-<タグ>.zip`）は、`v` で始まる�
 | `VERSION.txt` | zip の中 | 版とコミットの記録（タグ名とコミットの SHA の2行。`tools/new_version_text.ps1` が作る。画面の「tebunko について」に出す） |
 | `tebunko-setup-<タグ>.exe` | リリース（zip の横） | インストーラー版（[インストーラー版](disclosure.md#インストーラー版)。`tools/new_installer.ps1` が作る）。中身のスクリプトは zip と同じ |
 | `tebunko.cat`・`SHA256SUMS.txt` | リリース（zip の横） | 改ざんの確認用（`tools/new_release_files.ps1` が作る） |
-| `sbom.cdx.json` | リリース（zip の横） | 部品表 |
+| `sbom.cdx.json` | リリース（zip の横） | 部品表（CycloneDX 1.6）。版・`serialNumber`・`timestamp` と、zip に入る全ファイルのパス・SHA-256 を載せる（`tools/new_sbom.ps1` が、配布物を作るたびに zip の中身から作る。リポジトリの `sbom.cdx.json` は雛形） |
 
 **カタログ（証明書は不要）**: Windows PowerShell 5.1 標準の `New-FileCatalog` で、`scripts/` 配下すべてと `tebunko.bat` の SHA256 を 1 つのカタログにまとめてある。受け取った側は、リリースから `tebunko.cat` もダウンロードし、zip を展開したフォルダで次を実行すれば、配布時点から 1 バイトも変わっていないことを確かめられる。
 
@@ -29,7 +29,9 @@ Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <ダウンロ�
 | 署名 | `NotSigned`（コードサイニング証明書を導入すれば、発行者の保証も付く） |
 | ハッシュ方式 | SHA256（`-CatalogVersion 2`） |
 
-`SHA256SUMS.txt` は、同じファイルと `sbom.cdx.json`・`LICENSE` の SHA256 をテキストで並べたもので、目視・比較に使える（リリースにも単独で載せている）。手元でカタログとハッシュ一覧を作り直すときは `.\tools\new_release_files.ps1`（`work\release\` に出力）を実行する。
+`SHA256SUMS.txt` は、zip に入る全ファイル（`scripts\`・`tebunko.bat`・書き換えた `README.md`・`LICENSE`・`VERSION.txt`。zip に入れたバイト列のハッシュ）と、zip の横に置く `sbom.cdx.json` の SHA256 を、展開した `tebunko\` から見たパスでテキストに並べたもので、目視・比較に使える（リリースにも単独で載せている）。手元でカタログとハッシュ一覧を作り直すときは `.\tools\new_release_package.ps1 -Version <版>`（`work\release\` に出力）を実行する。
+
+**再現の条件**: 同じコミット・同じ版の名前で、Windows PowerShell 5.1 で `.\tools\new_release_package.ps1 -Version <版>` を実行すると、zip の中身（`SHA256SUMS.txt` のハッシュ）・`SHA256SUMS.txt`・`sbom.cdx.json` が一致する。zip のファイルの時刻はコミットの時刻に、`scripts\` の一覧は git で追跡しているものだけにし、並びは序数、`README.md`・`LICENSE` の改行は CRLF にそろえる。zip のバイト列そのものは、.NET の版が同じときに一致する（圧縮の結果が版で変わりうるため、第三者は zip ではなく中身のハッシュで比べる）。`sbom.cdx.json` のバイト列は、JSON の字下げ・エスケープが PowerShell の版で変わるため 5.1 で作ったときに一致する。展開したファイルの時刻は、コミットの時刻の UTC の時計の値になる（日本では 9 時間前に見える。動作には使わない）。`tebunko.cat`（作った時刻を含む）とインストーラーは対象外。
 
 **来歴の署名**: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は [GitHub CLI](https://cli.github.com/) で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。
 
@@ -173,7 +175,7 @@ Get-FileHash .\tebunko-v0.1.0.zip -Algorithm SHA256    # この値を VirusTotal
 - 原本のパスを書き込み・削除の API に渡さないこと、`SaveAs` の保存先が作業フォルダだけであること、原本を読むのは `copyFileShared` の読み取りだけであること
 - 書き込み先が `work` 配下と `%TEMP%` 配下に限られること、異常終了で残った作業フォルダを次回起動時に回収すること（[原本の一時コピーと、その回収](disclosure.md#原本の一時コピーとその回収)）
 - PSScriptAnalyzer の安全性ルール・`Error` 重大度・制限言語モードの指摘が 0 件であること（未導入の環境では飛ばす）
-- 安全性の説明（`docs/safety/`）・[SECURITY.md](../../.github/SECURITY.ja.md)・`tools\new_release_files.ps1`・[sbom.cdx.json](../../sbom.cdx.json)・[LICENSE](../../LICENSE) がそろっており、SBOM が第三者の部品を含まないこと、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること
+- 安全性の説明（`docs/safety/`）・[SECURITY.md](../../.github/SECURITY.ja.md)・`tools\new_release_files.ps1`・[sbom.cdx.json](../../sbom.cdx.json)・[LICENSE](../../LICENSE) がそろっており、SBOM の雛形が本体の説明・ライセンス・前提ソフトウェアを持ち、作った SBOM が第三者の部品を含まず zip の中身と一致すること、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること
 
 テストとコードの指標（安全性の間接的な根拠）:
 

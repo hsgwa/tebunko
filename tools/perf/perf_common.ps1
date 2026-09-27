@@ -278,3 +278,112 @@ function thinOut {
     if ($list[$list.Count - 1] -ne $items[$items.Count - 1]) { $list.Add($items[$items.Count - 1]) }
     return , $list.ToArray()
 }
+
+function getSearchPerfProblems {
+    # 検索と pack の作成の回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
+    #   result      : measure_perf.ps1 の result.json（ConvertFrom-Json したもの）
+    #   rows        : searches.csv の行（Word・Hits・Truncated・Packs）。1 回ごとの値
+    #   limits      : 語の名前 → 検索の中央値の上限（ms）
+    #   expected    : 語の名前 → 期待する件数（数、または "10000+" = 1 万件で打ち切り）
+    #   packLimitSeconds : pack の作成の秒の上限
+    # 失敗のメッセージには、対象の名前・値・上限の数字だけを書く
+    param (
+        $result,
+        [object[]]$rows,
+        [hashtable]$limits,
+        [hashtable]$expected,
+        [double]$packLimitSeconds
+    )
+
+    $problems = New-Object System.Collections.Generic.List[string]
+    $mode = [string]$result.Run.SearchMode
+    if ($mode -ne "service") { $problems.Add("検索の流れが service ではありません（$mode）") }
+
+    $pack = $result.Index.Pack
+    $packCount = 0
+    if ($null -eq $pack -or [int]$pack.Packs -le 0) {
+        $problems.Add("pack がありません")
+    } else {
+        $packCount = [int]$pack.Packs
+        if ([double]$pack.Seconds -gt $packLimitSeconds) {
+            $problems.Add("pack の作成: $($pack.Seconds) 秒（上限 $packLimitSeconds 秒）")
+        }
+    }
+
+    foreach ($name in @($limits.Keys | Sort-Object)) {
+        $entry = @($result.Search | Where-Object { $_.Name -eq $name }) | Select-Object -First 1
+        if ($null -eq $entry -or $null -eq $entry.TotalMs) {
+            $problems.Add("検索 ${name}: 結果がありません")
+            continue
+        }
+        if ([double]$entry.TotalMs.Median -gt [double]$limits[$name]) {
+            $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "検索 {0}: 中央値 {1:N0} ms（上限 {2:N0} ms）", $name, [double]$entry.TotalMs.Median, [double]$limits[$name]))
+        }
+
+        $mine = @($rows | Where-Object { $_.Word -eq $name })
+        if ($mine.Count -eq 0) {
+            $problems.Add("検索 ${name}: 1 回ごとの記録がありません")
+            continue
+        }
+        $want = [string]$expected[$name]
+        if ([string]::IsNullOrWhiteSpace($want)) {
+            $problems.Add("検索 ${name}: 期待する件数がありません")
+            continue
+        }
+        $bad = @($mine | Where-Object {
+            $hits = [int]$_.Hits
+            $truncated = ("$($_.Truncated)" -eq "True")
+            if ($want -eq "10000+") { !($hits -eq 10000 -and $truncated) } else { $hits -ne [int]$want }
+        })
+        if ($bad.Count) {
+            $problems.Add("検索 ${name}: 件数が期待の $want と違う回が $($bad.Count) 回（最初は $($bad[0].Hits) 件）")
+        }
+        $badPacks = @($mine | Where-Object { [int]$_.Packs -le 0 -or [int]$_.Packs -ne $packCount })
+        if ($badPacks.Count) {
+            $problems.Add("検索 ${name}: 照合した pack の数が $packCount と違う回が $($badPacks.Count) 回（最初は $($badPacks[0].Packs)）")
+        }
+    }
+    return , $problems.ToArray()
+}
+
+function getIngestPerfProblems {
+    # 取り込み（.docx・.pptx）の回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
+    #   ingest       : result.json の Ingest（無ければ $null）
+    #   aggregate    : 最後の回のワークスペースにできた集約ファイル（content.*.tsv）の @{ Count; Bytes }
+    #   perFileLimitMs・secondsLimit : 1 ファイルあたりの中央値（ms）・全体の中央値（秒）の上限
+    #   expectedFiles: 取り込むファイルの数
+    param (
+        $ingest,
+        $aggregate,
+        [double]$perFileLimitMs,
+        [double]$secondsLimit,
+        [int]$expectedFiles
+    )
+
+    $problems = New-Object System.Collections.Generic.List[string]
+    if ($null -eq $ingest) {
+        $problems.Add("取り込みの結果がありません")
+        return , $problems.ToArray()
+    }
+    if ([int]$ingest.Total -ne $expectedFiles) { $problems.Add("取り込んだファイルが $($ingest.Total) 件（期待 $expectedFiles 件）") }
+    if ([int]$ingest.Done -ne $expectedFiles) { $problems.Add("取り込みが済んだのは $($ingest.Done) 件（期待 $expectedFiles 件）") }
+    if ([int]$ingest.Failed -ne 0) { $problems.Add("取り込みに失敗したのは $($ingest.Failed) 件") }
+    $perFile = if ($null -ne $ingest.PerFileMs) { $ingest.PerFileMs.Median } else { $null }
+    if ($null -eq $perFile) {
+        $problems.Add("1 ファイルあたりの時間がありません")
+    } elseif ([double]$perFile -gt $perFileLimitMs) {
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "取り込み 1 ファイルあたり: 中央値 {0:N0} ms（上限 {1:N0} ms）", [double]$perFile, $perFileLimitMs))
+    }
+    $seconds = if ($null -ne $ingest.Seconds) { $ingest.Seconds.Median } else { $null }
+    if ($null -eq $seconds) {
+        $problems.Add("全体の時間がありません")
+    } elseif ([double]$seconds -gt $secondsLimit) {
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "取り込み全体: 中央値 {0:N1} 秒（上限 {1:N0} 秒）", [double]$seconds, $secondsLimit))
+    }
+    if ($null -eq $aggregate -or [int]$aggregate.Count -le 0) {
+        $problems.Add("集約ファイルがありません")
+    } elseif ([long]$aggregate.Bytes -le 0) {
+        $problems.Add("集約ファイルの合計の大きさが 0 です")
+    }
+    return , $problems.ToArray()
+}

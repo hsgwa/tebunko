@@ -48,9 +48,14 @@ function getGuiEnvSnapshot {
 }
 
 function compareGuiEnvSnapshot {
-    # 前後の違いの一覧（無ければ空）
+    # 前後の違いの一覧（無ければ空）。
+    # Office のプロセスの数は、流す前に Office が動いていたら比べない（手元で利用者や、ほかのテストが Office を使っていることがあり、数が変わるため。
+    # CI・Office の無い機械では、増えていないことを確かめる）
     param ($Before, $After)
-    return @($Before.Keys | Where-Object { [string]$Before[$_] -ne [string]$After[$_] })
+    return @($Before.Keys | Where-Object {
+        if ($_ -eq "Office のプロセスの数" -and [int]$Before[$_] -gt 0) { return $false }
+        [string]$Before[$_] -ne [string]$After[$_]
+    })
 }
 
 # ---- 起動する ----
@@ -551,4 +556,58 @@ function findGuiAnywhere {
         if ($found) { return $found }
     }
     return $null
+}
+
+function newGuiSourceFolder {
+    # 元のフォルダ（取り込むファイル）。tests\testdata\office\ の .docx・.pptx（Office を使わずに直接読める）を、Copies 組ずつ写す。
+    # .xlsx は Excel が要るので使わない。Broken を付けると、ZIP としては開けるが XML が壊れている .docx（Office を起動せずに失敗になる）も 1 つ置く。
+    # ZIP でないファイル（旧形式・パスワード付きなど）は、Word・PowerPoint に回し直されて Office が動くので使わない
+    param ([string]$Path, [int]$Copies = 1, [switch]$Broken)
+
+    [void][IO.Directory]::CreateDirectory($Path)
+    $office = Join-Path (getGuiRepoRoot) "tests\testdata\office"
+    $files = @("$office\Word\基本.docx", "$office\Word\表.docx", "$office\PowerPoint\基本.pptx")
+    for ($i = 1; $i -le $Copies; $i++) {
+        foreach ($file in $files) {
+            $suffix = if ($Copies -gt 1) { "_$i" } else { "" }
+            $name = [IO.Path]::GetFileNameWithoutExtension($file) + $suffix + [IO.Path]::GetExtension($file)
+            Copy-Item -LiteralPath $file -Destination (Join-Path $Path $name)
+        }
+    }
+    if ($Broken) { newGuiBrokenDocx (Join-Path $Path "壊れた文書.docx") }
+}
+
+function newGuiBrokenDocx {
+    # ZIP としては開けるが、本文の XML（word\document.xml）が壊れている .docx
+    param ([string]$Path)
+
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::Open($Path, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $entries = [ordered]@{
+            "[Content_Types].xml" = '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'
+            "_rels/.rels"         = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'
+            "word/document.xml"   = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>途中で壊れた'
+        }
+        foreach ($name in $entries.Keys) {
+            $entry = $zip.CreateEntry($name)
+            $writer = New-Object IO.StreamWriter($entry.Open(), (New-Object Text.UTF8Encoding($false)))
+            $writer.Write($entries[$name])
+            $writer.Dispose()
+        }
+    } finally {
+        $zip.Dispose()
+    }
+}
+
+function getGuiGridRows {
+    # 表（DataGrid）の行（DataItem）。列見出しは含めない
+    param ($Grid)
+    return @(findAllGui $Grid -Type DataItem)
+}
+
+function getGuiRowTexts {
+    # 行の中の文字（セルの Text）
+    param ($Row)
+    return @(findAllGui $Row -Type Text | ForEach-Object { $_.Current.Name })
 }

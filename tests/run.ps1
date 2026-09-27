@@ -1,8 +1,8 @@
 ﻿# テストの実行（Pester 5.9.0）
 #
 #   .\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Gui は除く）
-#   .\tests\run.ps1 -Tag Unit    速い確認だけ（-Tag に明示したタグは、既定で外すタグでも流す。例 -Tag Gui）
-#   .\tests\run.ps1 -All         Office・Slow・Gui も含めて全部（Office が必要。Gui は画面を開くので、操作しないで待つ）
+#   .\tests\run.ps1 -Tag Unit    速い確認だけ（-Tag に明示したタグは、既定で外すタグでも流す。例 -Tag Gui・-Tag Slow）
+#   .\tests\run.ps1 -All         Office・Slow・Gui も含めて全部（Office と、tebunko-perfdata（性能の回帰テスト）が必要。Gui は画面を開くので、操作しないで待つ）
 #   .\tests\run.ps1 -Ci          結果の XML とカバレッジ（Cobertura XML）を出し、カバレッジの下限も確かめる
 #   .\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 #
@@ -12,7 +12,7 @@ param (
     [string[]]$Tag,
     [string[]]$ExcludeTag,
     [string[]]$Path,  # 実行するテストのフォルダ・ファイル（既定は tests 全体）
-    [switch]$All,    # Office・Slow・Gui も実行する（Excel・Word・PowerPoint が必要）
+    [switch]$All,    # Office・Slow・Gui も実行する（Excel・Word・PowerPoint と、tebunko-perfdata が必要）
     [switch]$Ci,     # 結果の XML とカバレッジを出し、失敗数で終了する
     [switch]$Quiet
 )
