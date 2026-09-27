@@ -44,7 +44,7 @@ function scan { param([string[]]$Pattern)
 
 ## Office ファイルを開くときの設定
 
-インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（`shared/office/office_app.ps1:46-63`）。`tests/meta/safety.Tests.ps1` の「Office ファイルを安全に開くこと」がこれを確かめる。
+インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（`shared/office/office_app.ps1:79-96`）。`tests/meta/safety.Tests.ps1` の「Office ファイルを安全に開くこと」がこれを確かめる。**利用者の PowerPoint には接続しない**（1 つのセッションに 1 つのプロセスしか持てず、接続すると下の設定を利用者のアプリまで書き換えてしまうため）。起動する前に自分のセッションに `POWERPNT` が無いかを確かめ、あれば設定を行わずに例外にする（[Office アプリ（Excel・Word・PowerPoint）の管理](../design/indexer/office-apps.md#office-アプリexcelwordpowerpointの管理)「PowerPoint」）。
 
 | 設定 | 値 | 意味 |
 |---|---|---|
