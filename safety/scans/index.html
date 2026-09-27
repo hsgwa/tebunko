@@ -2780,6 +2780,16 @@
 </table>
 <p><code>SHA256SUMS.txt</code> は、zip に入る全ファイル（<code>scripts\</code>・<code>tebunko.bat</code>・書き換えた <code>README.md</code>・<code>LICENSE</code>・<code>VERSION.txt</code>。zip に入れたバイト列のハッシュ）と、zip の横に置く <code>sbom.cdx.json</code> の SHA256 を、展開した <code>tebunko\</code> から見たパスでテキストに並べたもので、目視・比較に使える（リリースにも単独で載せている）。手元でカタログとハッシュ一覧を作り直すときは <code>.\tools\new_release_package.ps1 -Version &lt;版&gt;</code>（<code>work\release\</code> に出力）を実行する。</p>
 <p><strong>再現の条件</strong>: 同じコミット・同じ版の名前で、Windows PowerShell 5.1 で <code>.\tools\new_release_package.ps1 -Version &lt;版&gt;</code> を実行すると、zip の中身（<code>SHA256SUMS.txt</code> のハッシュ）・<code>SHA256SUMS.txt</code>・<code>sbom.cdx.json</code> が一致する。zip のファイルの時刻はコミットの時刻に、<code>scripts\</code> の一覧は git で追跡しているものだけにし、並びは序数、<code>README.md</code>・<code>LICENSE</code> の改行は CRLF にそろえる。zip のバイト列そのものは、.NET の版が同じときに一致する（圧縮の結果が版で変わりうるため、第三者は zip ではなく中身のハッシュで比べる）。<code>sbom.cdx.json</code> のバイト列は、JSON の字下げ・エスケープが PowerShell の版で変わるため 5.1 で作ったときに一致する。展開したファイルの時刻は、コミットの時刻の UTC の時計の値になる（日本では 9 時間前に見える。動作には使わない）。<code>tebunko.cat</code>（作った時刻を含む）とインストーラーは対象外。</p>
+<p><strong>公開前の検査</strong>: 配布物を作った後、来歴に署名する前に、<code>tools/check_release_package.ps1</code> が zip の中身を確かめる（<code>release.yml</code> の「配布物の中身を検査する」）。通らなかった項目をすべて列挙してから止め、署名も公開もしない。zip を一時フォルダに展開して、次を確かめる。</p>
+<ul>
+<li>zip のファイルが、<code>git ls-files scripts</code> と固定のファイル（<code>tebunko.bat</code>・<code>README.md</code>・<code>LICENSE</code>・<code>VERSION.txt</code>）に過不足なく一致する</li>
+<li>読み込み口（<code>gui.ps1</code>・<code>indexer.ps1</code>）から dot-source でたどれる先がすべて存在する</li>
+<li><code>.ps1</code> が構文エラーなく解析でき、<code>.xaml</code> が XML として読める</li>
+<li><code>Test-FileCatalog -Path .\scripts, .\tebunko.bat</code> が <code>Valid</code> になる</li>
+<li><code>SHA256SUMS.txt</code> と部品表のハッシュが、展開したファイルと一致する</li>
+<li><code>VERSION.txt</code> が、タグ名と HEAD のコミットの SHA になっている</li>
+</ul>
+<p>カタログ（<code>tebunko.cat</code>）は、作業ツリーの <code>scripts\</code> からではなく、zip に入れるバイト列（<code>git ls-files</code> の一覧から読んだもの）から作る。追跡していないファイルがあっても、zip とカタログが食い違わないため。zip の中身は作業ツリーから読むので、追跡しているファイルに未コミットの変更があるまま作ると、<code>VERSION.txt</code> のコミットと違う中身の zip ができる。公開する配布物は、CI の checkout のような変更の無い作業ツリーで作る（手元で作るときに変更があれば、<code>new_release_package.ps1</code> が警告を出す）。</p>
 <p><strong>来歴の署名</strong>: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は <a href="https://cli.github.com/">GitHub CLI</a> で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。</p>
 <div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
