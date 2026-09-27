@@ -199,9 +199,28 @@ function openInExcel {
     if ($null -eq $target) {
         $target = $sameSafeName
     }
+    # ワークシートに無ければ、グラフシート（Charts。Worksheets には含まれない）から探す。セルは選べない
+    $isChartSheet = $false
+    if ($null -eq $target) {
+        $sameSafeChartName = $null
+        foreach ($chart in $book.Charts) {
+            if ($chart.Name -eq $location) {
+                $target = $chart
+                $isChartSheet = $true
+                break
+            }
+            if ($null -eq $sameSafeChartName -and (toSafeFileName $chart.Name) -eq $location) {
+                $sameSafeChartName = $chart
+            }
+        }
+        if ($null -eq $target -and $sameSafeChartName) {
+            $target = $sameSafeChartName
+            $isChartSheet = $true
+        }
+    }
     if ($null -ne $target) {
         $target.Activate()
-        if ($cell) {
+        if ($cell -and -not $isChartSheet) {
             $target.Range($cell).Select()
         }
     }

@@ -21,7 +21,7 @@
 |---|---|---|
 | `scripts/shared/` | スクリプト | どのツールからも使う部品（`core/`・`office/`・`ui/`・`xaml/`） |
 | `scripts/shared/shared.ps1` | スクリプト | 共通基盤の読み込み口 |
-| `scripts/shared/office/office_reader.ps1` | スクリプト | Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメントの文字を取り出す（[インデックスの形式](../indexer/index-format.md) の [Word・PowerPoint のテキスト読み取り](../indexer/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、Word は [Word](../indexer/word.md)、PowerPoint は [PowerPoint](../indexer/powerpoint.md)） |
+| `scripts/shared/office/office_reader.ps1` | スクリプト | Office ファイルを ZIP として直接読み、Word・PowerPoint の本文・図形・コメント・SmartArt・グラフと、Excel の図形・コメント・SmartArt・グラフ（表示のグラフシートを含む）の文字を取り出す（[インデックスの形式](../indexer/index-format.md) の [Word・PowerPoint のテキスト読み取り](../indexer/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、Word は [Word](../indexer/word.md)、PowerPoint は [PowerPoint](../indexer/powerpoint.md)、Excel は [Excel](../indexer/excel.md)） |
 | `scripts/shared/xaml/` | 画面定義 | 共通の画面定義（`theme.xaml`・確認ダイアログ） |
 | `scripts/tebunko/` | スクリプト | tebunko 固有の処理と画面（`core/`・`index/`・`indexer/`・`search/`・`ui/`・`xaml/`） |
 | `scripts/tebunko/gui.ps1` | スクリプト | 画面の起動口（[画面（GUI）](../gui/index.md)）。検索・プロセス停止は画面の中で行う |

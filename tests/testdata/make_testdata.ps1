@@ -811,6 +811,66 @@ try {
         saveBook $wb "Excel\使用範囲肥大.xlsx"
     }
 
+    runCase "TC30 グラフとSmartArt" {
+        $wb = newBook @("表", "非表示グラフ")
+        $ws = $wb.Worksheets.Item(1)
+        setRows $ws "A1" @(
+            @("項目", "数量"),
+            @("TC30 項目1", 10),
+            @("TC30 項目2", 20),
+            @("TC30 項目3", 987654)
+        )
+
+        # 埋め込みグラフ（D3 が左上）。タイトル・軸ラベル・系列名を付ける。数値（987654）はグラフの文字には出ない
+        $topLeft = $ws.Range("D3")
+        $chartObj = $ws.ChartObjects().Add($topLeft.Left, $topLeft.Top, 300, 200)
+        $chartObj.Chart.SetSourceData($ws.Range("A1:B4"))
+        $chartObj.Chart.HasTitle = $true
+        $chartObj.Chart.ChartTitle.Text = "TC30 グラフのタイトル"
+        $chartObj.Chart.Axes(1).HasTitle = $true  # xlCategory
+        $chartObj.Chart.Axes(1).AxisTitle.Text = "TC30 横軸"
+        $chartObj.Chart.Axes(2).HasTitle = $true  # xlValue
+        $chartObj.Chart.Axes(2).AxisTitle.Text = "TC30 縦軸"
+        $chartObj.Chart.SeriesCollection(1).Name = "TC30 系列名"
+
+        # SmartArt（H3 が左上）
+        try {
+            $topLeft2 = $ws.Range("H3")
+            $smartArt = $ws.Shapes.AddSmartArt($excel.SmartArtLayouts.Item(1), $topLeft2.Left, $topLeft2.Top, 300, 200)
+            $smartArt.SmartArt.AllNodes.Item(1).TextFrame2.TextRange.Text = "TC30 SmartArt のテキスト"
+        } catch {
+            Write-Host "  （SmartArt を追加できませんでした）" -ForegroundColor Yellow
+        }
+
+        # グループ化した図形（テキストボックス → グラフの順で 1 行になることを確かめる）
+        $box = $ws.Shapes.AddTextbox(1, 20, 300, 200, 30)
+        $box.TextFrame2.TextRange.Text = "TC30 グループ内のテキストボックス"
+        $groupChartObj = $ws.ChartObjects().Add(20, 340, 200, 150)
+        $groupChartObj.Chart.SetSourceData($ws.Range("A1:B4"))
+        $groupChartObj.Chart.HasTitle = $true
+        $groupChartObj.Chart.ChartTitle.Text = "TC30 グループ内グラフ"
+        [void]$ws.Shapes.Range([object[]]@($box.Name, $groupChartObj.Name)).Group()
+
+        # 非表示シートのグラフ（読まないことの確認用）
+        $ws2 = $wb.Worksheets.Item(2)
+        setRows $ws2 "A1" @(, @("TC30 非表示シートのデータ", 5))
+        $hiddenChartObj = $ws2.ChartObjects().Add(0, 0, 200, 150)
+        $hiddenChartObj.Chart.SetSourceData($ws2.Range("A1:B1"))
+        $hiddenChartObj.Chart.HasTitle = $true
+        $hiddenChartObj.Chart.ChartTitle.Text = "TC30 非表示シートのグラフ"
+        $ws2.Visible = $xlSheetHidden
+
+        # 表示のグラフシート（位置をセルで持たないため、検索結果のセルは A1 になる）
+        $chartSheet = $wb.Charts.Add($missing, $wb.Sheets.Item($wb.Sheets.Count))
+        $chartSheet.SetSourceData($ws.Range("A1:B4"))
+        $chartSheet.HasTitle = $true
+        $chartSheet.ChartTitle.Text = "TC30 グラフシートのタイトル"
+        $chartSheet.Name = "TC30グラフシート"
+
+        $ws.Activate()
+        saveBook $wb "Excel\グラフとSmartArt.xlsx"
+    }
+
     runCase "TC12 空のブック" {
         $wb = newBook @("空")
         saveBook $wb "Excel\空ブック.xlsx"
@@ -1744,9 +1804,25 @@ if (Test-Path -LiteralPath $stageDir) {
     Remove-Item -LiteralPath $stageDir -Recurse -Force
 }
 
-# 実行した人の名前・保存先の絶対パス・アカウント ID が埋め込まれるため取り除く（リポジトリは公開している）
+# 手で作ったテストデータ（COM で作れなかったもの）を office\ の同じ相対パスへ写す。
+# manual\ は、この後の出力フォルダの作り直し（先頭の Remove-Item）では消えない置き場所
+$manualDir = "$PSScriptRoot\manual"
+if (Test-Path -LiteralPath $manualDir) {
+    Write-Host ""
+    Write-Host "[手で作ったテストデータ]" -ForegroundColor Cyan
+    Get-ChildItem -LiteralPath $manualDir -Recurse -File | ForEach-Object {
+        $relPath = $_.FullName.Substring($manualDir.Length + 1)
+        $dest = Join-Path $OutDir $relPath
+        [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($dest)) | Out-Null
+        Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+        Write-Host "  $relPath"
+    }
+}
+
+# 実行した人の名前・保存先の絶対パス・アカウント ID が埋め込まれるため取り除く（リポジトリは公開している）。
+# 既定の対象に manual\ も含む
 Write-Host ""
-& "$PSScriptRoot\scrub_personal.ps1" -Path $OutDir, $ConfigDir
+& "$PSScriptRoot\scrub_personal.ps1" -Path $OutDir, $ConfigDir, $manualDir
 
 Write-Host ""
 if ($failed.Count -gt 0) {

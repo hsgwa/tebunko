@@ -94,22 +94,23 @@ flowchart LR
 
 ## Excel の図形・コメントの読み取り（`readXlsxObjectUnits`）
 
-`.xlsx` `.xlsm` を ZIP として開き（`scripts/shared/office/office_reader.ps1`）、表示シートの図形とコメントの文字を、シートとは別の場所（TSV）にする。Excel は使わない。
+`.xlsx` `.xlsm` を ZIP として開き（`scripts/shared/office/office_reader.ps1`）、表示シート・表示のグラフシートの図形とコメントの文字を、シートとは別の場所（TSV）にする。Excel は使わない。
 
 | 場所 | 読み取り元 | 1 行 |
 |---|---|---|
-| `<シート名>[図形]` | シートのリレーションシップ（種類 `drawing`）が指す `xl/drawings/drawingN.xml` の図形（`xdr:twoCellAnchor` `oneCellAnchor` `absoluteAnchor`）ごとのテキスト（`a:p`。[Word・PowerPoint のテキスト読み取り](office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)の `readXmlLines`） | 図形 1 つ。`<左上のセル番地><TAB><文字>` |
+| `<シート名>[図形]` | シートのリレーションシップ（種類 `drawing`）が指す `xl/drawings/drawingN.xml` の図形（`xdr:twoCellAnchor` `oneCellAnchor` `absoluteAnchor`）ごとのテキスト（`a:p`。[Word・PowerPoint のテキスト読み取り](office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)の `readXmlLines`）と、グラフ（`xdr:graphicFrame` の中の `c:chart`）・SmartArt（`dgm:relIds`）の参照先の文字（`readObjectText`。下の「グラフ・SmartArt の読み取り」） | 図形 1 つ。`<左上のセル番地><TAB><文字>` |
+| `<グラフシート名>[図形]` | ブックのリレーションシップの型が `*/chartsheet` の表示シート自身の `drawing` が指す図形の部品（グラフを `absoluteAnchor` で置いたもの） | 図形 1 つ。`A1<TAB><文字>`（位置をセルで持たないため） |
 | `<シート名>[コメント]` | 種類 `comments` の `xl/commentsN.xml`（メモ）と、種類 `threadedComment` の `xl/threadedComments/*.xml`（スレッド形式のコメント） | セル 1 つ。`<セル番地><TAB><文字>` |
 
 - **場所の名前**: シート名には `[` `]` を使えないため、`売上[図形]` は実在のシートと必ず区別できる（[配置・命名規則](index-format.md#配置命名規則)「図形・コメントの場所」）。
 - **文字の形**: 段落・改行はセル内改行（U+2028）にし、改行・`"`・タブを含むときは `"` で囲む（中の `"` は `""`）。Excel のテキスト保存のセルと同じ形なので、検索結果の出力・画面のセルの分け方はセルと同じ処理で扱える。
 - **並び順**: 上の行から（同じ行は左から）。図形は左上のセル、コメントはそのセルの位置で並べる。
 - **セル番地**: 検索結果の「セル」に出し、元のファイルを開くときにそのセルを選ぶ（[［2 検索］タブ](../gui/search-tab.md) [元のファイルを開く](../gui/search-tab.md#元のファイルを開く)）。位置をセルで持たない図形（`absoluteAnchor`）は `A1` とする。
-- グループ化した図形は、まとめて 1 つの図形（1 行）とする。互換用の代替表示（`mc:Fallback`）は読まない。文字の無い図形（画像・グラフの枠）は出さない。
+- グループ化した図形は、まとめて 1 つの図形（1 行）とする。グループの中にテキストボックスとグラフ・SmartArt があれば、テキストボックスの段落 → グラフ・SmartArt の文字（XML の順）の順に並べる。互換用の代替表示（`mc:Fallback`）は読まない。文字の無い図形（画像など）は出さない。
 - スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。
 - コメントのふりがな（`rPh`）と作成者名（`authors`）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。
-- 非表示・完全に非表示のシート（`state` が `hidden` `veryHidden`）とグラフシートは、セルと同じく読まない。
-- 読まないもの: グラフ内の文字、SmartArt、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。
+- 非表示・完全に非表示のシート（`state` が `hidden` `veryHidden`）は、グラフシートも含めてセルと同じく読まない。
+- 読まないもの: グラフの数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。`cx:chart`）、グラフの中のテキストボックス（`c:userShapes`）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。
 
 TSV の例（シート `見積` の F2 に左上があるテキストボックスと、C2 のコメント）:
 
@@ -118,3 +119,12 @@ work/index/営業/見積.xlsx/見積.tsv            … セルの値
 work/index/営業/見積.xlsx/見積[図形].tsv      … F2<TAB>納期は別途ご相談
 work/index/営業/見積.xlsx/見積[コメント].tsv  … C2<TAB>"test:<U+2028>税抜の金額"
 ```
+
+### グラフ・SmartArt の読み取り
+
+図形の部品（`xl/drawings/drawingN.xml`）の中で、グラフ（`xdr:graphicFrame` の中の `a:graphic`/`a:graphicData` の `c:chart`）・SmartArt（`dgm:relIds`）を見つけたら、その `r:id`（グラフ）・`r:dm`（SmartArt）を、図形の部品自身のリレーションシップ（`xl/drawings/_rels/drawingN.xml.rels`）でたどり、`xl/charts/chartN.xml`・`xl/diagrams/dataN.xml` の文字を `readObjectText`・`readChartText`・`readDiagramText`（Word・PowerPoint と共通。[Word・PowerPoint のテキスト読み取り](office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)）で読む。読むもの・読まないものの決まりは PR #34（Word・PowerPoint）のまま。
+
+- **系列名・項目名も読む**: Excel のグラフはふつう同じブックのセルを参照するため、系列名・項目名（取引先名・商品名など）はセルの行と重なって出ることがある。重なりが邪魔なら［図形も検索］を外せば消える。非表示シートのセルを参照するグラフでも、グラフに見えている文字なので項目名は検索できる。
+- **リレーションシップは、参照が 1 つ以上あるときだけ読む**（グラフ・SmartArt の無い図形の部品では読まない）。
+- **1 つのグラフ・SmartArt が読めなくても、ほかは捨てない**: 参照の先・リレーションシップが無い、部品が読めない（XML が壊れている、「サイズの上限」を超えるなど）ときは、そのグラフ・SmartArt だけを空にして続ける（同じ図形の中のほかの文字、同じシートのほかの図形・コメント・セルの値は出す）。`shared/` はツールを知らないため、読めなかった部品の名前は `readXlsxObjectUnits` の戻り値（`$failures`）で呼び出し元（`extract_office.ps1`）に返し、そこでインデックス作成ログに黄色で記録する（`    グラフ・SmartArt を読み取れませんでした: <部品名>`）。
+- **グラフシート**: グラフ自体を `absoluteAnchor` で置いた図形の部品を、通常のシートと同じ形で読む。検索結果から開くときは、`Worksheets` にグラフシートが無いため `Charts` から同じ名前のものを探して表示する（セルは選ばない。[［2 検索］タブ](../gui/search-tab.md#元のファイルを開く)）。

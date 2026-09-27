@@ -358,6 +358,130 @@ Describe "readXlsxObjectUnits" -Tag Io {
     }
 }
 
+Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -Tag Io {
+    BeforeAll {
+        function xChartFrame([string]$graphic) {
+            return "<xdr:graphicFrame macro=`"`"><xdr:nvGraphicFramePr><xdr:cNvPr id=`"3`" name=`"c`"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>${graphic}</xdr:graphicFrame>"
+        }
+
+        function xAbsoluteAnchor([string]$shapes) {
+            # 位置をセルで持たない図形（グラフシートに置いたグラフなど）
+            return "<xdr:absoluteAnchor><xdr:pos x=`"0`" y=`"0`"/><xdr:ext cx=`"100`" cy=`"100`"/>${shapes}<xdr:clientData/></xdr:absoluteAnchor>"
+        }
+
+        $groupChart = "<xdr:grpSp><xdr:nvGrpSpPr><xdr:cNvPr id=`"9`" name=`"g2`"/><xdr:cNvGrpSpPr/></xdr:nvGrpSpPr><xdr:grpSpPr/>" +
+            (xSp @("グループのテキスト")) + (xChartFrame (chartRef 'rId22')) + "</xdr:grpSp>"
+
+        $chart2Xml = "<c:chartSpace $cNs><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>グループ内グラフ</a:t></a:r></a:p></c:rich></c:tx></c:title>" +
+            "<c:plotArea><c:barChart/></c:plotArea></c:chart></c:chartSpace>"
+        $chart3Xml = "<c:chartSpace $cNs><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>TCg グラフシートのタイトル</a:t></a:r></a:p></c:rich></c:tx></c:title>" +
+            "<c:plotArea><c:barChart/></c:plotArea></c:chart></c:chartSpace>"
+
+        $path = "$TestDrive\charts.xlsx"
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets>" +
+                "<sheet name=`"S`" sheetId=`"1`" r:id=`"rId1`"/>" +
+                "<sheet name=`"隠しグラフ`" sheetId=`"2`" state=`"hidden`" r:id=`"rId2`"/>" +
+                "<sheet name=`"グラフ2ページ`" sheetId=`"3`" r:id=`"rId3`"/>" +
+                "<sheet name=`"隠しグラフシート`" sheetId=`"4`" state=`"hidden`" r:id=`"rId4`"/>" +
+                "</sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/>" +
+                "<Relationship Id=`"rId3`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId4`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet2.xml`"/>" +
+                "</Relationships>"
+
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/comments`" Target=`"../comments1.xml`"/>" +
+                "</Relationships>"
+            "xl/comments1.xml" = "<comments $xNs><authors><author>test</author></authors><commentList>" +
+                "<comment ref=`"D1`" authorId=`"0`"><text><t>コメントは影響を受けない</t></text></comment>" +
+                "</commentList></comments>"
+            # A2: グラフ単体、A6: SmartArt 単体、C9: グループ（テキストボックス→グラフの順）、
+            # A13: 参照先（リレーションシップ）が無いグラフ + テキストボックス、
+            # A16: 部品（XML）が壊れたグラフ + テキストボックス、A19: 通常の図形（グラフ・SmartArt が読めなくても出る）
+            "xl/drawings/drawing1.xml" = "<xdr:wsDr $xdrNs>" +
+                "$(xAnchor 0 1 (xChartFrame (chartRef 'rId20')))" +
+                "$(xAnchor 0 5 (xChartFrame (smartArt 'rId21')))" +
+                "$(xAnchor 2 8 $groupChart)" +
+                "$(xAnchor 0 12 ((xSp @('テキストボックス1')) + (xChartFrame (chartRef 'rIdMissing'))))" +
+                "$(xAnchor 0 15 ((xSp @('テキストボックス2')) + (xChartFrame (chartRef 'rId23'))))" +
+                "$(xAnchor 0 18 (xSp @('通常の図形')))" +
+                "</xdr:wsDr>"
+            "xl/drawings/_rels/drawing1.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId20`" Type=`"$docRel/chart`" Target=`"../charts/chart1.xml`"/>" +
+                "<Relationship Id=`"rId21`" Type=`"$docRel/diagramData`" Target=`"../diagrams/data1.xml`"/>" +
+                "<Relationship Id=`"rId22`" Type=`"$docRel/chart`" Target=`"../charts/chart2.xml`"/>" +
+                "<Relationship Id=`"rId23`" Type=`"$docRel/chart`" Target=`"../charts/broken.xml`"/>" +
+                "</Relationships>"
+            "xl/charts/chart1.xml" = $chartXml
+            "xl/charts/chart2.xml" = $chart2Xml
+            "xl/charts/broken.xml" = "<c:chartSpace $cNs><c:chart>"  # 閉じタグが無い壊れたXML
+            "xl/diagrams/data1.xml" = $diagramXml
+
+            "xl/worksheets/sheet2.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet2.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing2.xml`"/></Relationships>"
+            "xl/drawings/drawing2.xml" = "<xdr:wsDr $xdrNs>$(xAnchor 0 0 (xChartFrame (chartRef 'rId1')))</xdr:wsDr>"
+            "xl/drawings/_rels/drawing2.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$docRel/chart`" Target=`"../charts/chart1.xml`"/></Relationships>"
+
+            "xl/chartsheets/sheet1.xml" = "<chartsheet $xNs/>"
+            "xl/chartsheets/_rels/sheet1.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing3.xml`"/></Relationships>"
+            "xl/drawings/drawing3.xml" = "<xdr:wsDr $xdrNs>$(xAbsoluteAnchor (xChartFrame (chartRef 'rId1')))</xdr:wsDr>"
+            "xl/drawings/_rels/drawing3.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$docRel/chart`" Target=`"../charts/chart3.xml`"/></Relationships>"
+            "xl/charts/chart3.xml" = $chart3Xml
+        }
+
+        $failures = New-Object System.Collections.Generic.List[string]
+        $units = readXlsxObjectUnits $path $failures
+        $ls = [char]0x2028
+    }
+
+    It "グラフはタイトル・系列名・項目名を読み、数値は読まない（1 アンカー 1 行）" {
+        @($units["S[図形]"])[0] | Should -Be "A2`t月別売上 東京支店 4月 5月 大阪支店"
+    }
+
+    It "SmartArt は data の文字を読む（drawing の文字とは重ならない）" {
+        @($units["S[図形]"])[1] | Should -Be "A6`t企画 設計"
+    }
+
+    It "グループの中はテキストボックスの段落 → グラフ・SmartArt の文字の順で 1 行にする" {
+        @($units["S[図形]"])[2] | Should -Be "C9`t`"グループのテキスト${ls}グループ内グラフ`""
+    }
+
+    It "参照先・リレーションシップが無いグラフは空にし、同じアンカーのテキストボックスは出す" {
+        @($units["S[図形]"])[3] | Should -Be "A13`tテキストボックス1"
+    }
+
+    It "部品（XML）が壊れたグラフは空にし、同じアンカーのテキストボックスは出す。読めなかった部品を $failures に返す" {
+        @($units["S[図形]"])[4] | Should -Be "A16`tテキストボックス2"
+        @($failures) | Should -Be @("xl/charts/broken.xml")
+    }
+
+    It "グラフ・SmartArt が読めなくても、同じシートのほかの図形・コメントは出る" {
+        @($units["S[図形]"])[5] | Should -Be "A19`t通常の図形"
+        @($units["S[コメント]"]) -join "|" | Should -Be "D1`tコメントは影響を受けない"
+    }
+
+    It "非表示シートのグラフは出ない" {
+        $units.Contains("隠しグラフ[図形]") | Should -Be $false
+    }
+
+    It "表示のグラフシートは、位置をセルで持たない（absoluteAnchor）ため A1 になる" {
+        @($units["グラフ2ページ[図形]"]) -join "|" | Should -Be "A1`tTCg グラフシートのタイトル"
+    }
+
+    It "非表示のグラフシートは出ない" {
+        $units.Contains("隠しグラフシート[図形]") | Should -Be $false
+    }
+}
+
 Describe "readDocxUnits（図形・コメント）" -Tag Io {
     BeforeAll {
         $path = "$TestDrive\objects.docx"
