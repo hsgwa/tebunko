@@ -374,11 +374,11 @@ function getShownHitCount {
 }
 # ---- イベント ----
 
-# 表示用（強調セグメント・DisplayLine・セル列）は、行が画面に出るときだけ作る（件数が多くても軽い）。
+# 表示用（強調セグメント・DisplayLine・セル番地・「場所」の列の表記）は、行が画面に出るときだけ作る（件数が多くても軽い）。
 # HitRow.Prepare は1回だけ実行し、作った値は PropertyChanged で反映する
 $ui.ResultGrid.Add_LoadingRow({
     param ($s, $e)
-    if ($e.Row.Item -is [HitRow]) { $e.Row.Item.Prepare() }
+    if ($e.Row.Item -is [HitRow]) { prepareHitRow $e.Row.Item }
 })
 
 # 並べ替えは表（DataGrid）に任せず、ファイルごとに行う（任せると見出しと行が混ざって並ぶ）
