@@ -125,6 +125,7 @@ flowchart TD
 
 - 1GB の 2 回目以降は、読んだ内容の使い回しの上限（約 128MB）を超え、物理メモリ 8GB では OS のファイルキャッシュにも収まりきらないため、ディスクの読み込みの速さで決まる。
 - 同じ形のデータを使った pack の作成・検索の速さとリソースの推移は、GitHub Actions の `perf.yml`（手動で起動）でも測れる。計測スクリプトは `tools/measure_perf.ps1`（[テスト](../testing/index.md) の「CI」）。
+- 検索の速さが落ちていないことは、回帰テスト（`tests/tools/perf_search.Tests.ps1`）が語ごとの中央値を上限と比べて確かめる。PR にラベル `perf-check` を付けたときと main への push で `perf-check.yml` が流す（[CI](../testing/ci.md) の `perf-check.yml`）。
 
 ## 実装上の注意点・既知の問題
 
