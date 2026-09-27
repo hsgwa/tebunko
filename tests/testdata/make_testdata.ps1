@@ -814,14 +814,17 @@ try {
     runCase "TC30 グラフとSmartArt" {
         $wb = newBook @("表", "非表示グラフ")
         $ws = $wb.Worksheets.Item(1)
+        # 列見出し（B1）が既定の系列名になる（SetSourceData が見出し行をセル参照の系列名にするため。
+        # 直接 SeriesCollection.Name を設定すると c:tx が c:v の直値になり、readChartText は読まない）
         setRows $ws "A1" @(
-            @("項目", "数量"),
+            @("項目", "TC30 系列名"),
             @("TC30 項目1", 10),
             @("TC30 項目2", 20),
             @("TC30 項目3", 987654)
         )
 
-        # 埋め込みグラフ（D3 が左上）。タイトル・軸ラベル・系列名を付ける。数値（987654）はグラフの文字には出ない
+        # 埋め込みグラフ（D3 が左上）。タイトル・軸ラベル・系列名（B1 のセル参照）を付ける。
+        # 数値（987654）はグラフの文字には出ない
         $topLeft = $ws.Range("D3")
         $chartObj = $ws.ChartObjects().Add($topLeft.Left, $topLeft.Top, 300, 200)
         $chartObj.Chart.SetSourceData($ws.Range("A1:B4"))
@@ -831,7 +834,6 @@ try {
         $chartObj.Chart.Axes(1).AxisTitle.Text = "TC30 横軸"
         $chartObj.Chart.Axes(2).HasTitle = $true  # xlValue
         $chartObj.Chart.Axes(2).AxisTitle.Text = "TC30 縦軸"
-        $chartObj.Chart.SeriesCollection(1).Name = "TC30 系列名"
 
         # SmartArt（H3 が左上）
         try {

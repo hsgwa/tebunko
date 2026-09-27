@@ -482,6 +482,37 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
     }
 }
 
+Describe "readXlsxObjectUnits（実物のブック）" -Tag Io {
+    # Excel で作った実物のブック（tests/testdata/README.md「グラフ・SmartArt」）。
+    # readXlsxObjectUnits 自体は Excel を使わないため、Io のタグで CI でも流れる
+    BeforeAll {
+        $path = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office\Excel\グラフとSmartArt.xlsx")
+        $units = readXlsxObjectUnits $path
+        $ls = [char]0x2028
+    }
+
+    It "埋め込みグラフのタイトル・軸ラベル・系列名・項目名を読み、数値（987654）は読まない" {
+        @($units["表[図形]"])[0] | Should -Be "D3`tTC30 グラフのタイトル TC30 横軸 TC30 縦軸 TC30 系列名 TC30 項目1 TC30 項目2 TC30 項目3"
+        (@($units["表[図形]"]) -join "|") | Should -Not -Match "987654"
+    }
+
+    It "SmartArt の文字を読む" {
+        @($units["表[図形]"])[1] | Should -Be "H3`tTC30 SmartArt のテキスト"
+    }
+
+    It "グループの中はテキストボックス → グラフの順で 1 行になる" {
+        @($units["表[図形]"])[2] | Should -Be "A17`t`"TC30 グループ内のテキストボックス${ls}TC30 グループ内グラフ TC30 系列名 TC30 項目1 TC30 項目2 TC30 項目3`""
+    }
+
+    It "非表示シートに置いたグラフは読まない" {
+        $units.Contains("非表示グラフ[図形]") | Should -Be $false
+    }
+
+    It "表示のグラフシートは A1 で読む" {
+        @($units["TC30グラフシート[図形]"]) -join "|" | Should -Be "A1`tTC30 グラフシートのタイトル TC30 系列名 TC30 項目1 TC30 項目2 TC30 項目3"
+    }
+}
+
 Describe "readDocxUnits（図形・コメント）" -Tag Io {
     BeforeAll {
         $path = "$TestDrive\objects.docx"
