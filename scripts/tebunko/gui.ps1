@@ -200,6 +200,9 @@ ${grayBrush} = themeBrush "Ink.Muted"
 
 # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
 . "$PSScriptRoot\..\shared\ui\shell.ps1"
+# safe で包んでいない処理（Tabs.SelectionChanged の前半・PreviewKeyDown・Closing・活性化のタイマーなど）が
+# 投げた例外や、XAML の描画中に WPF が投げる例外を、画面のスレッドの Dispatcher で受ける
+[void](registerUnhandledErrorHandler $window.Dispatcher)
 # 画面から頼む短い仕事（startJob）のスレッド。長い仕事（件数の数え上げ等）の間もプレビューが待たないよう 2 つにする。
 # 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/design/architecture/threads.md「スレッドの一覧」）
 $script:backgroundQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host)
@@ -332,6 +335,29 @@ $script:closeTimer = newTimer 500 {
     }
 }
 
+function enterIndexingStopFlow {
+    # ふだんの「インデックス作成を止めてから閉じる」流れに入る（すでに入っていれば、足りない手順だけ補う）。
+    # 1 つずつ try で包み、失敗しても残りを進める（finally の IndexingSession.Close の打ち切りに頼らず、
+    # 取り込み中のファイルの区切りで止めるため）。closeDeadline は $null のときだけ決め、
+    # 途中の失敗で入り直しても延ばし直さない。closeTimer も動いていなければ動かす（M1: ここが抜けていると、
+    # 流れの途中の失敗のあとに closeTimer が動かず、外から止める以外に閉じられなくなる）
+    $script:closeWaiting = $true
+    try { $script:indexingTimer.Stop() } catch { }
+    try { $script:indexingSession.Stop() } catch { }
+    try { $ui.IndexingStopButton.IsEnabled = $false } catch { }
+    try { $ui.IndexingProgressText.Text = "インデックス作成を止めています…" } catch { }
+    try { $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。" } catch { }
+    try { setStatus "インデックス作成を止めてから閉じます…" } catch { }
+    try {
+        if ($null -eq $script:closeDeadline) {
+            $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
+        }
+        if (!$script:closeTimer.IsEnabled) {
+            $script:closeTimer.Start()
+        }
+    } catch { }
+}
+
 $window.Add_Closing({
     param ($sender, $e)
     if ($script:closeReady) {
@@ -342,38 +368,51 @@ $window.Add_Closing({
         $e.Cancel = $true
         return
     }
-    # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
-    if (isIndexing) {
-        $answer = showConfirm `
-            -heading "まだインデックス作成の途中です。止めてから閉じますか？" `
-            -facts @(
-                (factNext "いま取り込んでいるファイルが終わったところで止まり、画面を閉じます"),
-                (factKept "ここまで取り込んだ分はそのまま残ります" "次に開いて［インデックス作成を開始］を押すと、続きから再開します")
-            ) `
-            -choices @(@{ Text = "インデックス作成を止めて閉じる"; Value = "stop"; Careful = $true }) `
-            -cancelText "閉じない"
-        $e.Cancel = $true
-        if ($answer -ne "stop" -or !(isIndexing)) {
-            if ($answer -eq "stop") {
-                # 聞いている間に終わった
-                $script:closeReady = $true
-                $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
+    try {
+        # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
+        if (isIndexing) {
+            $answer = showConfirm `
+                -heading "まだインデックス作成の途中です。止めてから閉じますか？" `
+                -facts @(
+                    (factNext "いま取り込んでいるファイルが終わったところで止まり、画面を閉じます"),
+                    (factKept "ここまで取り込んだ分はそのまま残ります" "次に開いて［インデックス作成を開始］を押すと、続きから再開します")
+                ) `
+                -choices @(@{ Text = "インデックス作成を止めて閉じる"; Value = "stop"; Careful = $true }) `
+                -cancelText "閉じない"
+            $e.Cancel = $true
+            if ($answer -ne "stop" -or !(isIndexing)) {
+                if ($answer -eq "stop") {
+                    # 聞いている間に終わった
+                    $script:closeReady = $true
+                    $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
+                }
+                return
             }
+            enterIndexingStopFlow
             return
         }
-        $script:closeWaiting = $true
-        $script:indexingTimer.Stop()
-        $script:indexingSession.Stop()
-        $ui.IndexingStopButton.IsEnabled = $false
-        $ui.IndexingProgressText.Text = "インデックス作成を止めています…"
-        $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。"
-        setStatus "インデックス作成を止めてから閉じます…"
-        $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
-        $script:closeTimer.Start()
-        return
-    }
-    if ($script:search) {
-        cancelSearch
+        if ($script:search) {
+            cancelSearch
+        }
+    } catch {
+        # 知らせる処理自体が失敗しても、閉じ方の分岐へは必ず進む（R1）
+        try { reportUnexpectedError "画面を閉じる途中" $_ } catch { }
+        $stillIndexing = $true
+        try {
+            $stillIndexing = isIndexing
+        } catch {
+            # isIndexing 自体が失敗したときは、安全な側（止める流れ）に倒す
+            $stillIndexing = $true
+        }
+        if (!$stillIndexing -and !$script:closeWaiting) {
+            # インデックス作成中でなく、まだ止める流れにも入っていなければ、閉じるのを止めない
+            $e.Cancel = $false
+            return
+        }
+        # 確認のダイアログは出し直さない。すでに流れの途中（closeWaiting が立っている）で
+        # 失敗したときも、抜けている手順（closeTimer が動いていないなど）を補う
+        $e.Cancel = $true
+        enterIndexingStopFlow
     }
 })
 
