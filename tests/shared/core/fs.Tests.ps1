@@ -227,6 +227,80 @@ Describe "writeTextLinesAtomic" -Tag Io {
     }
 }
 
+Describe "getPathErrorKind" -Tag Unit {
+    BeforeAll {
+        function newWin32Exception {
+            # Win32 のエラー番号を HResult に持つ IOException を作る（0x8007<エラー番号の16進>）
+            param ([string]$message, [int]$win32Code)
+            $hresult = [int]([long]0x80070000 + $win32Code)
+            return New-Object System.IO.IOException($message, $hresult)
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "FileNotFoundException は見つからない"; kind = "FileNotFound"; expected = "Missing" }
+        @{ name = "DirectoryNotFoundException は見つからない"; kind = "DirectoryNotFound"; expected = "Missing" }
+        @{ name = "ERROR_BAD_NETPATH(53) は接続できない"; kind = 53; expected = "Unreachable" }
+        @{ name = "ERROR_SEM_TIMEOUT(121) は接続できない"; kind = 121; expected = "Unreachable" }
+        @{ name = "ERROR_HOST_UNREACHABLE(1232) は接続できない"; kind = 1232; expected = "Unreachable" }
+        @{ name = "アクセス拒否(5) はその他"; kind = "AccessDenied"; expected = "Other" }
+        @{ name = "分類の無い例外はその他"; kind = "Other"; expected = "Other" }
+    ) {
+        param ($name, $kind, $expected)
+        $exception = switch ($kind) {
+            "FileNotFound" { New-Object System.IO.FileNotFoundException("無い", "a.txt") }
+            "DirectoryNotFound" { New-Object System.IO.DirectoryNotFoundException("無い") }
+            "AccessDenied" { New-Object System.UnauthorizedAccessException("拒否") }
+            "Other" { New-Object System.Exception("不明") }
+            default { newWin32Exception "届かない" $kind }
+        }
+        getPathErrorKind $exception | Should -Be $expected
+        # MethodInvocationException に包まれた形でも同じに分かる
+        $wrapped = New-Object System.Management.Automation.MethodInvocationException("呼び出しに失敗しました", $exception)
+        getPathErrorKind $wrapped | Should -Be $expected
+    }
+}
+
+Describe "getPathState" -Tag Io {
+    BeforeAll {
+        $dir = "$TestDrive\pathState\見積"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        [System.IO.File]::WriteAllText("$dir\a.xlsx", "x")
+    }
+
+    It "ファイルが見つかれば State=Found・IsDirectory=`$false" {
+        $state = getPathState "$dir\a.xlsx"
+        $state.State | Should -Be "Found"
+        $state.IsDirectory | Should -Be $false
+        $state.Message | Should -Be ""
+    }
+
+    It "フォルダが見つかれば State=Found・IsDirectory=`$true" {
+        $state = getPathState $dir
+        $state.State | Should -Be "Found"
+        $state.IsDirectory | Should -Be $true
+    }
+
+    It "無いファイルは State=Missing（上のフォルダはある）" {
+        (getPathState "$dir\無い.xlsx").State | Should -Be "Missing"
+    }
+
+    It "上のフォルダも無ければ State=Missing" {
+        (getPathState "$TestDrive\無いフォルダ\無い.xlsx").State | Should -Be "Missing"
+    }
+
+    It "260 文字を超えるパスも \\?\ を付けて調べられる" {
+        $deep = "$TestDrive\pathStateLong\" + ("見積" * 100)
+        [void][System.IO.Directory]::CreateDirectory((toLongPath $deep))
+        try {
+            ($deep.Length) | Should -BeGreaterThan 260
+            (getPathState $deep).State | Should -Be "Found"
+        } finally {
+            removeDirectoryRetry "$TestDrive\pathStateLong"
+        }
+    }
+}
+
 Describe "getFolderKey" -Tag Unit {
     It "SHA-256 の 16 進 64 文字を返す" {
         # "c:\tool" の SHA-256（小文字にしてから UTF-8 で計算する）

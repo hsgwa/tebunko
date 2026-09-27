@@ -138,4 +138,34 @@ Describe "BackgroundQueue" -Tag Unit {
         $script:queue.Poll() | Should -Be 0
         $script:done.Count | Should -Be 0
     }
+
+    It "Abandon は、PowerShell.Stop で割り込めない仕事が止まるのを待たずに、2 秒以内に戻る" {
+        # [System.Threading.Thread]::Sleep は PowerShell.Stop で割り込めない。OS の呼び出しで戻らない届かない共有を真似る。
+        # Start-Sleep（直す前の Close の確かめ方）は Stop で割り込めるため、このテストでは使わない
+        $script:queue.Post('[System.Threading.Thread]::Sleep(30000)', @(), $null)
+        $watch = [System.Diagnostics.Stopwatch]::StartNew()
+        $script:queue.Abandon()
+        $watch.Stop()
+        $watch.Elapsed.TotalSeconds | Should -BeLessThan 2
+
+        # Abandon の後、新しい列を作って使える（片づけていないランスペースが残っていても、新しい列は困らない）
+        $next = [BackgroundQueue]::new(1, "", $null)
+        try {
+            $next.Post('"次の列"', @(), { param ($output, $errorText) $script:done.Add("$($output[0])") })
+            $watch2 = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($next.Poll() -gt 0 -and $watch2.Elapsed.TotalSeconds -lt 10) {
+                Start-Sleep -Milliseconds 20
+            }
+        } finally {
+            $next.Close()
+        }
+        $script:done -join "," | Should -Be "次の列"
+    }
+
+    It "Abandon は、終わっている仕事は Close と同じく片づける" {
+        $script:queue.Post('"終わった仕事"', @(), { param ($output, $errorText) $script:done.Add("$($output[0])") })
+        waitQueue
+        $script:queue.Abandon()
+        $script:done -join "," | Should -Be "終わった仕事"
+    }
 }
