@@ -245,12 +245,14 @@ function findAllGui {
 
 function getGuiTopWindows {
     # 画面のプロセスの、いちばん上の窓（本体・ダイアログ・メッセージボックス・メニュー・OS のフォルダ選択）。
-    # ツールヒント（ToolTip）は、マウスを動かさなくても UI オートメーションの操作の後に一瞬出ることがあるため対象外にする
+    # ツールヒント（結果の見出し行などの ToolTip="{Binding ...}"）は、マウスを動かさなくても、UI オートメーションで
+    # 部品を選ぶ・フォーカスするだけで出ることがある（WPF の既定 ShowsToolTipOnKeyboardFocus）。
+    # クラス名が Popup の窓（WPF の Popup の入れ物。ControlType は Window で、ToolTip では出ない）を対象から外す
     param ($S)
     $ae = [Windows.Automation.AutomationElement]
     $condition = New-Object Windows.Automation.AndCondition(
         (New-Object Windows.Automation.PropertyCondition($ae::ProcessIdProperty, $S.Process.Id)),
-        (New-Object Windows.Automation.NotCondition((New-Object Windows.Automation.PropertyCondition($ae::ControlTypeProperty, [Windows.Automation.ControlType]::ToolTip)))))
+        (New-Object Windows.Automation.NotCondition((New-Object Windows.Automation.PropertyCondition($ae::ClassNameProperty, "Popup")))))
     try {
         return @($ae::RootElement.FindAll("Children", $condition) | ForEach-Object { $_ })
     } catch {
