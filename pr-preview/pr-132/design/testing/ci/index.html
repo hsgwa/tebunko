@@ -3051,7 +3051,7 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <li>main への push のうち、速さに効くファイル（<code>scripts/**</code>・<code>tools/measure_perf.ps1</code>・<code>tools/perf/**</code>・<code>tests/tools/perf_*.Tests.ps1</code>・<code>tests/testdata/office/**</code>・<code>.github/workflows/perf-check.yml</code>）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる</li>
 <li>手動（<code>workflow_dispatch</code>）。main への push と手動は、ラベルを見ずに流す</li>
 <li>ラベル <code>perf-check</code> は、リポジトリに作ってある。付けるのはコンサルタント（メンテナの代わり）。リリースノートの分類（<code>.github/release.yml</code>）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）</li>
-<li>ジョブは <code>search</code>（検索と pack の作成）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 5 分ほど、<code>ingest</code> が 4 分ほど</li>
+<li>ジョブは <code>search</code>（検索と pack の作成）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 3〜4 分、<code>ingest</code> が 4〜5 分</li>
 <li>各ジョブの <code>if</code> は、<code>github.event_name != 'pull_request'</code>（main への push・手動）、または <code>labeled</code> でラベル名が <code>perf-check</code>（付けたとき）、または <code>labeled</code> 以外（<code>synchronize</code>・<code>reopened</code>）で PR に <code>perf-check</code> が付いているとき。ほかのラベルを付けたときは流し直さない</li>
 <li>流れている実行の取り消し（<code>concurrency</code>）は、同じ PR に push を足したときと、<code>perf-check</code> を付け直したときだけ。グループは <code>perf-check-&lt;PR の番号（無ければ ref）&gt;</code> で、<code>perf-check</code> 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に <code>run_id</code> を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（<code>enhancement</code> など）を付けても、流れている <code>search</code>・<code>ingest</code> は取り消されない</li>
 <li>結果は PR の Checks の <code>search</code>・<code>ingest</code> の合否と、ジョブの Summary（<code>summary.md</code> の表）、artifact（<code>perf-check-search-&lt;実行の番号&gt;-&lt;試行の番号&gt;</code>・<code>perf-check-ingest-...</code>。保存期間は 90 日）で見る。PR にコメントは書かない</li>
@@ -3173,7 +3173,8 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <li>対象は .xlsx（Excel）・.doc（Word）・.ppt（PowerPoint）の取り込み。ランナーに Office が無く、Office の版・機械・Defender で大きく揺れるので、固定の上限は置かない</li>
 <li>データは、.xlsx 100・.docx 200・.pptx 200・.doc 20・.ppt 20（<code>new_ingest_data.ps1 -Xlsx 100 -Docx 200 -Pptx 200 -Doc 20 -Ppt 20 -Books &lt;new_books.ps1 で作ったブックのフォルダ&gt;</code>）。測るのは <code>-Threads 2 -Repeat 3</code></li>
 <li>同じ PC・同じ日に、main → PR のブランチ → main の順に、<code>measure_perf.ps1 -Office &lt;データ&gt; -Work &lt;作業フォルダ&gt; -Tool &lt;測る版のフォルダ&gt;</code> で測る</li>
-<li>判断: PR のブランチの 1 ファイルあたりの中央値（<code>Ingest.PerFileMs.Median</code>）が、前後の main の 2 回のうち大きいほうの 1.2 倍以下で、失敗（<code>Ingest.Failed</code>）が 0 件なら合格とする（同じ日・同じ PC の 2 回の差は 2% ほど）。数字は PR 本文に書く</li>
+<li>判断: PR のブランチの 1 ファイルあたりの中央値（<code>Ingest.PerFileMs.Median</code>）が、前後の main の 2 回のうち大きいほうの 1.2 倍以下で、失敗（<code>Ingest.Failed</code>）が 0 件なら合格とする。数字は PR 本文に書く</li>
+<li>同じ日・同じ PC で、ほかの作業が動いていないときの 2 回の差は 2% ほどだが、ほかの作業（ほかのテスト・ビルド）と重なると 2 割ほどぶれることがある（同じコードの main を続けて測って 1.02 倍と 1.17 倍、同じコードの PR のブランチと main で 1.24 倍の回があった）。1.2 倍の境目で落ちたときは、ほかの作業が無い時間に測り直してから判断する。測っている間は、ほかのテストや Office の作業を動かさない</li>
 <li>流す時: <code>perf-check</code> を付けた PR のうち、取り込みとインデックスの書き出し（<code>scripts/shared/office/</code>・<code>scripts/tebunko/indexer/</code>・<code>scripts/tebunko/index/</code>・<code>scripts/tebunko/core/</code>）に触るもの</li>
 </ul>
 <h2 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h2>
