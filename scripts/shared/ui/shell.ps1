@@ -143,6 +143,109 @@ function showConfirm {
     return $chosen.Value
 }
 
+# 予期しない例外を繰り返し知らせないための、同じ例外の見分け（型・メッセージ・発生場所）と抑え方の状態。
+# registerUnhandledErrorHandler から reportUnexpectedError を呼ぶときだけ効かせる（safe・Closing の呼び出しは見ない）
+$script:unhandledErrorTable = [ordered]@{}
+${maxUnhandledErrorKeys} = 100  # メッセージにパスなどが入ると際限なく増えるため、古いものから消す
+$script:unhandledDialogShowing = $false
+# 時刻の取得はここから行う（テストで差し替えて、60 秒の判定を進められるようにする）
+$script:reportUnexpectedErrorNow = { Get-Date }
+
+function reportUnexpectedError {
+    # 予期しない例外を記録・ステータス・ダイアログで知らせる（内容・順は今までの safe の catch と同じ）。
+    # -unhandled のときだけ、同じ例外（型・メッセージ・発生場所が同じ）の繰り返しを抑える。
+    #   ダイアログ：画面を開いている間に 1 回だけ出す。別の例外でも、ダイアログを出している間は重ねない
+    #   記録：60 秒に 1 回まで。飛ばした間の回数を、次に記録するときに添える
+    param (
+        [string]$context,
+        [System.Management.Automation.ErrorRecord]$record,
+        [switch]$unhandled
+    )
+
+    $message = $record.Exception.Message
+    $logContext = $context
+    $skipLog = $false
+    $skipDialog = $false
+    $entry = $null
+
+    if ($unhandled) {
+        $key = "$($record.Exception.GetType().FullName)|$message|$($record.InvocationInfo.PositionMessage)"
+        if (!$script:unhandledErrorTable.Contains($key)) {
+            if ($script:unhandledErrorTable.Count -ge ${maxUnhandledErrorKeys}) {
+                $script:unhandledErrorTable.Remove(@($script:unhandledErrorTable.Keys)[0])
+            }
+            $script:unhandledErrorTable[$key] = @{ DialogShown = $false; LastLogged = $null; Skipped = 0 }
+        }
+        $entry = $script:unhandledErrorTable[$key]
+
+        $now = & $script:reportUnexpectedErrorNow
+        if ($null -eq $entry.LastLogged -or ($now - $entry.LastLogged).TotalSeconds -ge 60) {
+            if ($entry.Skipped -gt 0) {
+                $logContext = "${context}（前の記録の後に同じ例外が$($entry.Skipped)回起きました）"
+            }
+            $entry.LastLogged = $now
+            $entry.Skipped = 0
+        } else {
+            $entry.Skipped++
+            $skipLog = $true
+        }
+        $skipDialog = $entry.DialogShown -or $script:unhandledDialogShowing
+    }
+
+    if (!$skipLog) {
+        writeErrorLog $logContext $record
+    }
+    setStatus "エラーが発生しました：$message"
+    if ($skipDialog) {
+        return
+    }
+    $dialogText = "エラーが発生しました。`n$message`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。"
+    if ($unhandled) {
+        $entry.DialogShown = $true
+        $script:unhandledDialogShowing = $true
+        try {
+            showMessage $dialogText "OK" "Error" | Out-Null
+        } finally {
+            $script:unhandledDialogShowing = $false
+        }
+        return
+    }
+    showMessage $dialogText "OK" "Error" | Out-Null
+}
+
+function registerUnhandledErrorHandler {
+    # 画面のスレッドの Dispatcher で捕まえていない例外を受け、画面を落とさず reportUnexpectedError で知らせる。
+    # 登録した処理（デリゲート）を返す（テストで Remove_UnhandledException するため）
+    param (
+        [System.Windows.Threading.Dispatcher]$dispatcher
+    )
+
+    $handler = {
+        param ($sender, $e)
+        $e.Handled = $true
+        try {
+            $exception = $e.Exception
+            # WPF がハンドラーを Delegate.DynamicInvoke で呼ぶ経路では、これに包まれて届く
+            while ($exception -is [System.Reflection.TargetInvocationException] -and $exception.InnerException) {
+                $exception = $exception.InnerException
+            }
+            if ($exception -is [System.Management.Automation.IContainsErrorRecord]) {
+                # PowerShell のスクリプトブロックが投げた例外は、元の ErrorRecord をそのまま使う
+                $record = $exception.ErrorRecord
+            } else {
+                # WPF が投げた .NET の例外には ErrorRecord が無いため、記録に残せるよう作る
+                $record = New-Object System.Management.Automation.ErrorRecord(
+                    $exception, $exception.GetType().FullName, ([System.Management.Automation.ErrorCategory]::NotSpecified), $null)
+            }
+            reportUnexpectedError "画面の操作中" $record -unhandled
+        } catch {
+            # 知らせる処理そのものが失敗しても、画面は落とさない
+        }
+    }
+    $dispatcher.Add_UnhandledException($handler)
+    return $handler
+}
+
 function safe {
     # イベント処理で例外が起きても画面を落とさず、内容を表示する
     param (
@@ -152,9 +255,7 @@ function safe {
     try {
         & $block
     } catch {
-        writeErrorLog "画面の操作中" $_
-        setStatus "エラーが発生しました：$($_.Exception.Message)"
-        showMessage "エラーが発生しました。`n$($_.Exception.Message)`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。" "OK" "Error" | Out-Null
+        reportUnexpectedError "画面の操作中" $_
     }
 }
 
