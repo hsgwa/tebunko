@@ -2870,6 +2870,7 @@
 <ul>
 <li>1GB の 2 回目以降は、読んだ内容の使い回しの上限（約 128MB）を超え、物理メモリ 8GB では OS のファイルキャッシュにも収まりきらないため、ディスクの読み込みの速さで決まる。</li>
 <li>同じ形のデータを使った pack の作成・検索の速さとリソースの推移は、GitHub Actions の <code>perf.yml</code>（手動で起動）でも測れる。計測スクリプトは <code>tools/measure_perf.ps1</code>（<a href="../testing/">テスト</a> の「CI」）。</li>
+<li>検索の速さが落ちていないことは、回帰テスト（<code>tests/tools/perf_search.Tests.ps1</code>）が語ごとの中央値を上限と比べて確かめる。PR にラベル <code>perf-check</code> を付けたときと main への push で <code>perf-check.yml</code> が流す（<a href="../testing/ci/">CI</a> の <code>perf-check.yml</code>）。</li>
 </ul>
 <h2 id="実装上の注意点既知の問題">実装上の注意点・既知の問題<a class="headerlink" href="#実装上の注意点既知の問題" title="Permanent link">&para;</a></h2>
 <p>確度: ◎ = 動作確認済み、○ = コード上明らか、△ = 推定。</p>
