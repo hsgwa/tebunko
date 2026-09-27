@@ -2623,7 +2623,7 @@
 <ul>
 <li><code>【検索文字列　…】</code> の空白は全角スペース。ブロックの後に空行を 1 行出力する。</li>
 <li>ファイル名は、インデックスフォルダからの相対フォルダ（= クロール対象フォルダからの相対フォルダ）付き。直下のファイルはフォルダ部分なし。</li>
-<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。集約ファイルのメタ情報から組み立てる。<a href="#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a>）を場所ごとの表記にしたもの（<code>describePlace</code>。画面の見出しの要約と同じ）。結果の表の「場所」列は、Excel ではこれにセル番地を足した行ごとの表記（<code>describeHitPlace</code>。<code>[シート]売上!B12</code>）を出すが、この出力にはセル番地を付けない。</li>
+<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。本文インデックスのメタ情報から組み立てる。<a href="#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a>）を場所ごとの表記にしたもの（<code>describePlace</code>。画面の見出しの要約と同じ）。結果の表の「場所」列は、Excel ではこれにセル番地を足した行ごとの表記（<code>describeHitPlace</code>。<code>[シート]売上!B12</code>）を出すが、この出力にはセル番地を付けない。</li>
 </ul>
 <table>
 <thead>
@@ -2726,7 +2726,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 <tbody>
 <tr>
 <td>RelDir</td>
-<td>集約ファイルのあるフォルダの、インデックスのフォルダ（<code>Root</code>）からの相対パス（<code>getPackFiles</code>）</td>
+<td>本文インデックスのファイルのあるフォルダの、インデックスのフォルダ（<code>Root</code>）からの相対パス（<code>getPackFiles</code>）</td>
 </tr>
 <tr>
 <td>Book</td>
@@ -2734,7 +2734,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 </tr>
 <tr>
 <td>Location</td>
-<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「集約ファイルの形式」）</td>
+<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「本文インデックスの形式」）</td>
 </tr>
 <tr>
 <td>LineNumber</td>
@@ -2743,14 +2743,14 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 </tbody>
 </table>
 <pre class="mermaid"><code>flowchart TD
-    A["集約ファイルの全文"] --&gt; B["readPackPlaces&lt;br&gt;先頭が RS の行（メタ情報）を順に読む"]
+    A["本文インデックスの全文"] --&gt; B["readPackPlaces&lt;br&gt;先頭が RS の行（メタ情報）を順に読む"]
     B --&gt; C["ファイル名= で元のファイルが変わる&lt;br&gt;シート= / ページ= / スライド= / 部分= で場所が変わる"]
     C --&gt; D["場所ごとの一覧&lt;br&gt;（Book, Location, 中身の先頭の位置, 終わりの位置）"]
     D --&gt; E["一致の位置を含む場所を探し、&lt;br&gt;場所の先頭から改行を数えて行番号にする"]</code></pre>
 <ul>
-<li>場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない集約ファイルでは作らない（<a href="../#検索の実装速度">検索の実装（速度）</a>）。</li>
+<li>場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない本文インデックスのファイルでは作らない（<a href="../#検索の実装速度">検索の実装（速度）</a>）。</li>
 <li>画面の選択行のプレビュー（<code>readPackContext</code>）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（<a href="../../gui/search-tab/">［2 検索］タブ</a> <a href="../../gui/search-tab/#選択行のプレビュー">選択行のプレビュー</a>）。</li>
-<li>検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、集約ファイルに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
+<li>検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
 </ul>
 <p>場所の付け方は <a href="../../indexer/">インデックス作成（インデクサ）</a> の <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>・<a href="../../indexer/index-format/#場所の符号化encodeindexplace--decodeindexplace">場所の符号化</a> を参照。</p>
 

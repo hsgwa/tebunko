@@ -2775,7 +2775,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/index/</code></td>
-<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・検索用の集約ファイルの形式（<code>pack_format.ps1</code>）と読み書き（<code>pack_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
+<td>インデックス名と TSV の名前の決め方（<code>index_name.ps1</code>）・インデックスの作成と集計（<code>index_store.ps1</code>）・検索用の本文インデックスの形式（<code>pack_format.ps1</code>）と読み書き（<code>pack_store.ps1</code>）・高速検索用の システムインデックスと状態（<code>system_index.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/indexer/</code></td>
@@ -2783,7 +2783,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/search/</code></td>
-<td>検索条件（<code>search_query.ps1</code>）・集約ファイルの検索（<code>pack_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する集約ファイルの収集（<code>fast_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
+<td>検索条件（<code>search_query.ps1</code>）・本文インデックスの検索（<code>pack_search.ps1</code>）・検索結果の組み立てとインデックスの件数（<code>search_run.ps1</code>）・元のファイルの場所（<code>source_map.ps1</code>）・高速検索の決まり（<code>search_gram.ps1</code>）・Windows Search への問い合わせ（<code>windows_search.ps1</code>）・高速検索で照合する本文インデックスの収集（<code>fast_search.ps1</code>）・検索の司令のスレッド（<code>search_service.ps1</code>。<code>SearchService</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/</code></td>
@@ -2910,7 +2910,7 @@
 </tr>
 <tr>
 <td><code>$sourceFolderFileName</code></td>
-<td>各インデックスのフォルダに置く対応表のファイル名（<code>元のフォルダ.txt</code>）</td>
+<td>各インデックスのフォルダに置く元のフォルダの記録のファイル名（<code>元のフォルダ.txt</code>）</td>
 <td>同上</td>
 </tr>
 <tr>
@@ -3035,12 +3035,12 @@
 <tbody>
 <tr>
 <td><code>IndexCatalog</code></td>
-<td>インデックスの追加・改名・削除・名前の割り当て。保存先（<code>targetFolders</code>・取り込み一覧・<code>元のフォルダ.txt</code>・<code>searchExcludes</code>・<code>system_index</code>）を漏れなく書き換える手順と順番、途中で失敗したときの扱い（戻す・残す）だけを持つ。保存先の形式は知らない。<code>Workspace</code> と設定ファイルの場所を受け取って作る（場所を暗黙に使わない）</td>
+<td>インデックスの追加・改名・削除・名前の割り当て。保存先（<code>targetFolders</code>・取り込み一覧・元のフォルダの記録・<code>searchExcludes</code>・<code>system_index</code>）を漏れなく書き換える手順と順番、途中で失敗したときの扱い（戻す・残す）だけを持つ。保存先の形式は知らない。<code>Workspace</code> と設定ファイルの場所を受け取って作る（場所を暗黙に使わない）</td>
 <td>画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/index/index_catalog.ps1</code>（<code>lib.ps1</code>）</td>
 <td><code>index_store.ps1</code>、<code>ui/index_tab.ps1</code> の <code>editIndex</code>・<code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code>・<code>removeSearchExcludesUnder</code>（<code>renameIndex</code>・<code>removeIndex</code> から呼ぶ）</td>
-<td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>、<code>元のフォルダ.txt</code>・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
+<td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>、元のフォルダの記録・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
 </tr>
 <tr>
 <td><code>WorkspaceMover</code></td>
@@ -3062,7 +3062,7 @@
 </tr>
 <tr>
 <td><code>PendingPublish</code></td>
-<td>フォルダごとに取り込みの終わりを数え、集約ファイルに書き出してよいかを決める</td>
+<td>フォルダごとに取り込みの終わりを数え、本文インデックスに書き出してよいかを決める</td>
 <td>司令のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/pending_publish.ps1</code>（<code>indexer_lib.ps1</code>）</td>
@@ -3130,7 +3130,7 @@
 <p>関数は用途ごとに次の 3 つに分けて記載する。</p>
 <ul>
 <li><a href="#設定ファイル取り込み一覧クロール対象フォルダインデックス名">設定ファイル・取り込み一覧・クロール対象フォルダ・インデックス名</a></li>
-<li><a href="#tsv-の作成検索">TSV の作成・検索</a>（インデックスの TSV の名前・作成・配置、集約ファイルの形式・読み書きと、検索。<code>shared/core/fs.ps1</code>・<code>text.ps1</code>、<code>tebunko/index/</code>・<code>search/</code>）</li>
+<li><a href="#tsv-の作成検索">TSV の作成・検索</a>（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書きと、検索。<code>shared/core/fs.ps1</code>・<code>text.ps1</code>、<code>tebunko/index/</code>・<code>search/</code>）</li>
 <li><a href="#元のファイルの特定画面">元のファイルの特定・画面</a>（検索結果から元のファイルを特定する処理と、画面が使う集計・設定・Office プロセスの関数）</li>
 </ul>
 <p><code>lib.ps1</code> から読み込まれない部品の関数は、それぞれの設計書に記載する。</p>
@@ -3383,7 +3383,7 @@
 <td>string[]</td>
 <td>行ファイルの空行以外の行（Trim しない）。無ければ空配列。読めなければ例外（空の一覧と取り違えない）</td>
 <td>–</td>
-<td>取り込み中のファイル・元のフォルダ.txt など</td>
+<td>取り込み中のファイル・元のフォルダの記録 など</td>
 </tr>
 <tr>
 <td><code>writeListFile</code></td>
@@ -3840,7 +3840,7 @@
 </tr>
 </tbody>
 </table>
-<p>TSV の名前・配置、集約ファイル、検索にかかわる関数（<code>index_name.ps1</code> の <code>encodeIndexPlace</code> など、<code>index_store.ps1</code> の <code>getIndexTsvCounts</code> / <code>publishIndexFiles</code> など、<code>pack_format.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>）は <a href="#tsv-の作成検索">TSV の作成・検索</a> に記載する。</p>
+<p>TSV の名前・配置、本文インデックス、検索にかかわる関数（<code>index_name.ps1</code> の <code>encodeIndexPlace</code> など、<code>index_store.ps1</code> の <code>getIndexTsvCounts</code> / <code>publishIndexFiles</code> など、<code>pack_format.ps1</code>・<code>pack_store.ps1</code>・<code>pack_search.ps1</code>）は <a href="#tsv-の作成検索">TSV の作成・検索</a> に記載する。</p>
 <blockquote>
 <p><strong><a href="#tsv-の作成検索">TSV の作成・検索</a> TSV の作成・検索</strong> → <a href="#tsv-の作成検索">TSV の作成・検索</a></p>
 <p><strong><a href="#元のファイルの特定画面">元のファイルの特定・画面</a> 元のファイルの特定・画面</strong> → <a href="#元のファイルの特定画面">元のファイルの特定・画面</a></p>
@@ -3863,7 +3863,7 @@
         RNL["replaceCellNewLine"]
         FT["formatTsv"]
         PT["prettyTsv"]
-        PUB["publishIndexFolders&lt;br&gt;（集約ファイルの書き出し）"]
+        PUB["publishIndexFolders&lt;br&gt;（本文インデックスへの書き出し）"]
         RPP["readPackPlaces"]
         TRL["toResultLine"]
         CTF["countTsvFields"]
@@ -4082,7 +4082,7 @@
 <td><code>getIndexTsvCounts</code></td>
 <td>dir（既定 <code>$workspace.IndexDir</code>）</td>
 <td>相対パス → 数の辞書 / <code>$null</code></td>
-<td>インデックスの中のファイルを 1 回列挙して数える。集約ファイルはそのファイルの相対パス → 1（0 バイトなら -1）、集約する前の TSV は元のファイルのフォルダの相対パス（取り込み一覧の相対パスと同じ）→ TSV の数（0 バイトの TSV があれば -1。TSV の無いフォルダは 0）。列挙できなければ <code>$null</code></td>
+<td>インデックスの中のファイルを 1 回列挙して数える。本文インデックスのファイルはそのファイルの相対パス → 1（0 バイトなら -1）、本文インデックスに入れる前の TSV は元のファイルのフォルダの相対パス（取り込み一覧の相対パスと同じ）→ TSV の数（0 バイトの TSV があれば -1。TSV の無いフォルダは 0）。列挙できなければ <code>$null</code></td>
 <td><a href="../../indexer/flow/#取り込み対象の決定createtargetlist">取り込み対象の決定</a></td>
 <td>インデックス作成（取り込み対象の決定）</td>
 </tr>
@@ -4090,7 +4090,7 @@
 <td><code>testIndexComplete</code></td>
 <td>row, relPath, counts</td>
 <td>bool</td>
-<td>取り込み一覧の「済」の行に対して、インデックスがそろっているかを返す。そのフォルダ・その拡張子の集約ファイルがあれば（0 バイトでなければ）<code>$true</code>。無ければ集約する前の TSV を見て、行の TSV 数より少ない・0 バイトなら <code>$false</code>（取り込み直す）。TSV 数が空・counts が <code>$null</code> のときは確認しない</td>
+<td>取り込み一覧の「済」の行に対して、インデックスがそろっているかを返す。そのフォルダ・その拡張子の本文インデックスのファイルがあれば（0 バイトでなければ）<code>$true</code>。無ければ本文インデックスに入れる前の TSV を見て、行の TSV 数より少ない・0 バイトなら <code>$false</code>（取り込み直す）。TSV 数が空・counts が <code>$null</code> のときは確認しない</td>
 <td>同上</td>
 <td>インデックス作成（取り込み対象の決定）</td>
 </tr>
@@ -4104,8 +4104,8 @@
 </tr>
 </tbody>
 </table>
-<p><strong>集約ファイルの形式（<code>tebunko/index/pack_format.ps1</code>）</strong></p>
-<p>形式は <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「集約ファイルの形式」。判断層のため、ファイルを読み書きしない。</p>
+<p><strong>本文インデックスの形式（<code>tebunko/index/pack_format.ps1</code>）</strong></p>
+<p>形式は <a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>「本文インデックスの形式」。判断層のため、ファイルを読み書きしない。</p>
 <table>
 <thead>
 <tr>
@@ -4128,7 +4128,7 @@
 <td><code>getPackExtension</code> / <code>getPackFileName</code> / <code>readPackFileName</code></td>
 <td>book / extension, part / name</td>
 <td>string / <code>@{Extension; Part}</code></td>
-<td>集約ファイルを分ける拡張子（小文字・<code>.</code> なし） / 集約ファイルの名前（<code>content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>） / 名前から拡張子と番号を取り出す</td>
+<td>本文インデックスを分ける拡張子（小文字・<code>.</code> なし） / 本文インデックスのファイルの名前（<code>content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>） / 名前から拡張子と番号を取り出す</td>
 <td>convertIndexFolderToPack, getIndexTsvCounts</td>
 </tr>
 <tr>
@@ -4163,28 +4163,28 @@
 <td><code>convertToPackBody</code></td>
 <td>text</td>
 <td>string</td>
-<td>TSV の中身を集約ファイルに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く）</td>
+<td>TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く）</td>
 <td>convertToPackText</td>
 </tr>
 <tr>
 <td><code>convertToPackText</code></td>
 <td>books</td>
 <td>string</td>
-<td>元のファイルの並び（TSV から新しく作るもの、または前の集約ファイルから写すまとまり）から、集約ファイルの文字列を作る</td>
+<td>元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る</td>
 <td>convertIndexFolderToPack</td>
 </tr>
 <tr>
 <td><code>readPackPlaces</code></td>
 <td>text</td>
 <td><code>@{Book; Location; Start; End}</code> の並び</td>
-<td>集約ファイルの文字列から、場所ごとの元のファイル名・場所の名前・中身の範囲を先頭から順に返す。版が違えば例外</td>
+<td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・中身の範囲を先頭から順に返す。版が違えば例外</td>
 <td>検索（searchPackFiles）、readPackContext</td>
 </tr>
 <tr>
 <td><code>splitPackTextByBook</code></td>
 <td>text</td>
 <td><code>@{Name; Block}</code> の並び</td>
-<td>集約ファイルの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外</td>
+<td>本文インデックスの文字列を元のファイルごとのまとまりに分ける（入れ替えない元のファイルをそのまま写すため）。版が違えば例外</td>
 <td>convertIndexFolderToPack</td>
 </tr>
 <tr>
@@ -4196,7 +4196,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>集約ファイルの読み書き（<code>tebunko/index/pack_store.ps1</code>）</strong></p>
+<p><strong>本文インデックスの読み書き（<code>tebunko/index/pack_store.ps1</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -4213,7 +4213,7 @@
 <td><code>writePackFile</code> / <code>readPackText</code></td>
 <td>path, text / path</td>
 <td>– / string</td>
-<td>集約ファイルを UTF-16LE（BOM 付き）で書く（<code>&lt;名前&gt;.tmp</code> に書いてから <code>File.Replace</code> で置き換える） / 読む（置き換え・削除を妨げない共有モード）</td>
+<td>本文インデックスのファイルを UTF-16LE（BOM 付き）で書く（<code>&lt;名前&gt;.tmp</code> に書いてから <code>File.Replace</code> で置き換える） / 読む（置き換え・削除を妨げない共有モード）</td>
 <td><a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a></td>
 <td>convertIndexFolderToPack, readPackContext</td>
 </tr>
@@ -4221,7 +4221,7 @@
 <td><code>getIndexFolderBooks</code></td>
 <td>folder</td>
 <td><code>@{Name; Places}</code> の並び</td>
-<td>フォルダ直下の元のファイルごとのフォルダ（<code>&lt;ファイル名.xlsx&gt;\&lt;場所&gt;.tsv</code>）から、集約ファイルに入れる元のファイルと場所の並びを作る</td>
+<td>フォルダ直下の元のファイルごとのフォルダ（<code>&lt;ファイル名.xlsx&gt;\&lt;場所&gt;.tsv</code>）から、本文インデックスに入れる元のファイルと場所の並びを作る</td>
 <td>同上</td>
 <td>convertIndexFolderToPack</td>
 </tr>
@@ -4229,7 +4229,7 @@
 <td><code>convertIndexFolderToPack</code></td>
 <td>folder, destFolder, removeBooks, removeTsv</td>
 <td><code>@{Books; Tsv; Chars; Files; Texts}</code></td>
-<td>フォルダ 1 つの TSV から拡張子ごとの集約ファイルを書く。前の集約ファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の集約ファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身</td>
+<td>フォルダ 1 つの TSV から拡張子ごとの本文インデックスのファイルを書く。前の本文インデックスのファイルとまぜ（TSV のある元のファイルは入れ替え、removeBooks は外し、ほかは写す）、元のファイルが無くなった拡張子の本文インデックスのファイルは消す。removeTsv なら書き終えた後に TSV のフォルダを消す。Texts は書いた中身</td>
 <td>同上</td>
 <td>updateIndexFolderPack</td>
 </tr>
@@ -4245,7 +4245,7 @@
 <td><code>getPackFiles</code></td>
 <td>root, relPath, recurse</td>
 <td><code>@{Path; Root; RelDir; RelPath; Ticks; Size}</code> の配列</td>
-<td>フォルダ以下の集約ファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べる（Path は <code>\\?\</code> 付き。Ticks・Size は読んだ内容を使い回してよいかの判定に使う）</td>
+<td>フォルダ以下の本文インデックスのファイルを列挙し、フォルダの順・フォルダの中は名前の順に並べる（Path は <code>\\?\</code> 付き。Ticks・Size は読んだ内容を使い回してよいかの判定に使う）</td>
 <td><a href="../../search/#検索の実装速度">検索</a></td>
 <td>getIndexPackFiles</td>
 </tr>
@@ -4253,7 +4253,7 @@
 <td><code>findIndexFoldersWithBooks</code></td>
 <td>root</td>
 <td>string[]</td>
-<td>元のファイルごとのフォルダ（集約ファイルに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まったとき）</td>
+<td>元のファイルごとのフォルダ（本文インデックスに入れる前の TSV）が直下にあるフォルダを返す（インデックス作成が途中で止まったとき）</td>
 <td><a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a></td>
 <td>インデックス作成（開始時）</td>
 </tr>
@@ -4261,7 +4261,7 @@
 <td><code>publishIndexFolders</code></td>
 <td>pending（フォルダ → 無くなった元のファイル名）, indexRoot, systemRoot, statePath</td>
 <td>書き出したフォルダの数</td>
-<td>フォルダごとに、集約ファイルを書き（<code>updateIndexFolderPack</code>）、TSV を消し、書いた中身からシステムインデックスの txt を作る（<code>writeSystemIndexFolder</code>）。txt の「反映待ち」はまとめて状態ファイルに書く</td>
+<td>フォルダごとに、本文インデックスに書き（<code>updateIndexFolderPack</code>）、TSV を消し、書いた中身からシステムインデックスの txt を作る（<code>writeSystemIndexFolder</code>）。txt の「反映待ち」はまとめて状態ファイルに書く</td>
 <td>同上</td>
 <td>インデックス作成（flushPendingPublish）</td>
 </tr>
@@ -4269,7 +4269,7 @@
 <td><code>readPackContext</code></td>
 <td>path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache</td>
 <td><code>@{LineNumber; Line}</code> の配列</td>
-<td>集約ファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ集約ファイルの内容があれば読み直さない。読めない・見つからなければ空</td>
+<td>本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。読めない・見つからなければ空</td>
 <td><a href="../../gui/search-tab/">［2 検索］タブ</a> <a href="../../gui/search-tab/#選択行のプレビュー">選択行のプレビュー</a></td>
 <td>画面</td>
 </tr>
@@ -4277,7 +4277,7 @@
 </table>
 <p><strong>検索（<code>tebunko/search/search_query.ps1</code>・<code>pack_search.ps1</code>・<code>search_run.ps1</code>）</strong></p>
 <pre class="mermaid"><code>flowchart LR
-    A["getIndexPackFiles&lt;br&gt;集約ファイルを列挙"] --&gt; B["searchPackIndex"]
+    A["getIndexPackFiles&lt;br&gt;本文インデックスのファイルを列挙"] --&gt; B["searchPackIndex"]
     B --&gt; C["newSearchRegex / newFileFilter / newPlaceExclude&lt;br&gt;条件を正規表現に"]
     B --&gt; T["splitPackTasks&lt;br&gt;約 16MB ずつの作業に分ける"]
     T --&gt; E["searchPackFiles&lt;br&gt;読み込みと照合（作業が 2 つ以上なら並列）"]
@@ -4308,7 +4308,7 @@
 <td><code>newSearchRegex</code></td>
 <td>word, simpleMatch, caseSensitive</td>
 <td><code>@{Regex; SimpleMatch; TextRegex; ScanMode}</code></td>
-<td>検索条件から照合用の正規表現を作る（文字どおりならエスケープ、大文字と小文字を区別しないなら IgnoreCase、正規表現として不正なら文字どおりにする）。1 行の照合は 5 秒で時間切れ。TextRegex は集約ファイルの全文にかける正規表現（Multiline）、ScanMode はそれを全文にかけてよいか（<code>getRegexScanMode</code>）</td>
+<td>検索条件から照合用の正規表現を作る（文字どおりならエスケープ、大文字と小文字を区別しないなら IgnoreCase、正規表現として不正なら文字どおりにする）。1 行の照合は 5 秒で時間切れ。TextRegex は本文インデックスの全文にかける正規表現（Multiline）、ScanMode はそれを全文にかけてよいか（<code>getRegexScanMode</code>）</td>
 <td><a href="../../search/#検索条件サクラエディタの-grep-にならう">検索</a></td>
 <td>検索・画面（一致箇所の強調）</td>
 </tr>
@@ -4316,7 +4316,7 @@
 <td><code>getRegexScanMode</code></td>
 <td>pattern</td>
 <td>string（<code>lines</code> / <code>filter</code> / <code>scan</code>）</td>
-<td>正規表現を全文にかけて、1 行ずつの照合と同じ結果になるかを判定する。<code>lines</code> は全文での一致の位置から行が分かる、<code>filter</code> は全文で一致しない集約ファイルを読み飛ばせる、<code>scan</code> は 1 行ずつ照合する。分からない書き方は安全側（<code>filter</code> か <code>scan</code>）に倒す</td>
+<td>正規表現を全文にかけて、1 行ずつの照合と同じ結果になるかを判定する。<code>lines</code> は全文での一致の位置から行が分かる、<code>filter</code> は全文で一致しない本文インデックスのファイルを読み飛ばせる、<code>scan</code> は 1 行ずつ照合する。分からない書き方は安全側（<code>filter</code> か <code>scan</code>）に倒す</td>
 <td><a href="../../search/#検索の実装速度">検索</a></td>
 <td>newSearchRegex</td>
 </tr>
@@ -4340,7 +4340,7 @@
 <td><code>getIndexPackFiles</code></td>
 <td>folders（既定 <code>$workspace.IndexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに <code>{ param($count) }</code> を呼ぶ）</td>
 <td><code>@{Folders; Packs}</code></td>
-<td>検索対象の集約ファイルを列挙する（<code>getPackFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、Packs は <code>getPackFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
+<td>検索対象の本文インデックスのファイルを列挙する（<code>getPackFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、Packs は <code>getPackFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
 <td><a href="../../search/#検索の実装速度">検索</a></td>
 <td>検索・画面、getFastSearchPackFiles</td>
 </tr>
@@ -4348,7 +4348,7 @@
 <td><code>testIndexExists</code></td>
 <td>folders</td>
 <td>bool</td>
-<td>集約ファイルが 1 件でもあるか（最初の 1 件で打ち切る）</td>
+<td>本文インデックスのファイルが 1 件でもあるか（最初の 1 件で打ち切る）</td>
 <td>–</td>
 <td>画面</td>
 </tr>
@@ -4356,7 +4356,7 @@
 <td><code>getIndexSummary</code></td>
 <td>folders</td>
 <td><code>@{Count; LastWrite; Missing}</code></td>
-<td>集約ファイルの件数・最新の更新日時・存在しないフォルダ</td>
+<td>本文インデックスのファイルの件数・最新の更新日時・存在しないフォルダ</td>
 <td>–</td>
 <td>画面</td>
 </tr>
@@ -4364,7 +4364,7 @@
 <td><code>splitPackTasks</code></td>
 <td>packs, taskBytes（既定 16MB）</td>
 <td><code>@{Start; Count}</code> の並び</td>
-<td>集約ファイルの並びを、大きさの合計がおよそ taskBytes になるまでまとめて、1 つのスレッドに渡す作業に分ける</td>
+<td>本文インデックスのファイルの並びを、大きさの合計がおよそ taskBytes になるまでまとめて、1 つのスレッドに渡す作業に分ける</td>
 <td>同上</td>
 <td>searchPackIndex</td>
 </tr>
@@ -4372,15 +4372,15 @@
 <td><code>searchPackFiles</code></td>
 <td>packs, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace</td>
 <td>ヒットの一覧</td>
-<td>packs の start から count 件を読み、regex に一致する行を返す（1 行に複数一致しても 1 件）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない集約ファイルは飛ばす。一致の位置から場所・行を求める（<code>readPackPlaces</code>）。インデックス作成中の集約ファイルも読めるよう共有して開き、読めないものは飛ばす</td>
+<td>packs の start から count 件を読み、regex に一致する行を返す（1 行に複数一致しても 1 件）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。一致の位置から場所・行を求める（<code>readPackPlaces</code>）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
 <td>同上</td>
 <td>searchPackIndex（並列検索のスレッドでも動く）</td>
 </tr>
 <tr>
 <td><code>searchPackIndex</code></td>
-<td>word, packs, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は集約ファイルの数）, pool（照合のプール <code>newPackWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
+<td>word, packs, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は本文インデックスのファイルの数）, pool（照合のプール <code>newPackWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled}</code></td>
-<td>集約ファイルを検索する（照合は <code>searchPackFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（集約ファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は集約ファイルの数。作業（約 16MB）ごとに進捗を知らせ、上限・中止に対応する。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
+<td>本文インデックスを検索する（照合は <code>searchPackFiles</code>＝.NET の <code>StreamReader</code>＋<code>[regex]</code>）。Hits は PSCustomObject（Root・RelPath（本文インデックスのファイル）・RelDir・FileName・Book・Location・LineNumber・Line）。Total は本文インデックスのファイルの数。作業（約 16MB）ごとに進捗を知らせ、上限・中止に対応する。作業が 2 つ以上なら複数スレッドで並行して検索する（結果の順は変わらない）。照合が時間切れになれば例外にする</td>
 <td><a href="../../search/">検索</a></td>
 <td>検索・画面</td>
 </tr>
@@ -4388,7 +4388,7 @@
 <td><code>newTsvTextCache</code></td>
 <td>maxChars（既定 6,400 万文字）</td>
 <td><code>@{Texts; Chars; MaxChars; Generation}</code></td>
-<td>検索で読んだ集約ファイルの内容と場所の一覧を次の検索・プレビューで使い回す入れ物（パス → 更新日時・サイズ・内容・場所の一覧・最後に使った世代）。更新日時・サイズが変わった集約ファイルは読み直す。追い出しは <code>trimTsvTextCache</code></td>
+<td>検索で読んだ本文インデックスのファイルの内容と場所の一覧を次の検索・プレビューで使い回す入れ物（パス → 更新日時・サイズ・内容・場所の一覧・最後に使った世代）。更新日時・サイズが変わった本文インデックスのファイルは読み直す。追い出しは <code>trimTsvTextCache</code></td>
 <td><a href="../../search/#検索の実装速度">検索</a></td>
 <td>画面</td>
 </tr>
@@ -4396,7 +4396,7 @@
 <td><code>newPackWorkerPool</code></td>
 <td>workers（既定 <code>getWorkerCount</code>）</td>
 <td><code>WorkerPool</code></td>
-<td>集約ファイルの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。優先度は Normal）</td>
+<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。優先度は Normal）</td>
 <td><a href="../threads/#寿命">寿命</a></td>
 <td>検索の司令（<code>SearchService</code>）、searchPackIndex</td>
 </tr>
@@ -4533,7 +4533,7 @@
 <td><code>writeSourceFolderFile</code></td>
 <td>folders（<code>@{Path; Name}</code> の配列）, dir（既定 <code>$workspace.IndexDir</code>）</td>
 <td>–</td>
-<td>各インデックスのフォルダ（<code>dir\&lt;インデックス名&gt;</code>）に <code>元のフォルダ.txt</code>（<code>インデックス名&lt;TAB&gt;クロール対象フォルダ</code>）を書き出す</td>
+<td>各インデックスのフォルダ（<code>dir\&lt;インデックス名&gt;</code>）に元のフォルダの記録（<code>インデックス名&lt;TAB&gt;クロール対象フォルダ</code>）を書き出す</td>
 <td><a href="../../indexer/flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a></td>
 <td>インデックス作成</td>
 </tr>
@@ -4541,7 +4541,7 @@
 <td><code>readSourceFolderFile</code></td>
 <td>dir</td>
 <td>Dictionary（インデックス名 → フォルダパス）</td>
-<td><code>dir</code> 直下の <code>元のフォルダ.txt</code> を読む。無ければ空（<code>dir</code> の下は探さない。インデックスのフォルダの下は元のファイル 1 つにつき 1 フォルダになるため）</td>
+<td><code>dir</code> 直下の元のフォルダの記録を読む。無ければ空（<code>dir</code> の下は探さない。インデックスのフォルダの下は元のファイル 1 つにつき 1 フォルダになるため）</td>
 <td>同上</td>
 <td>getSourceFolderMap</td>
 </tr>
@@ -4549,7 +4549,7 @@
 <td><code>getSourceFolderMap</code></td>
 <td>dir, statusPath（既定 <code>$workspace.StatusFile</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
 <td>Dictionary（インデックス名 → 元のフォルダ）</td>
-<td>インデックス名に対する元のフォルダ。<code>dir</code> 直下の <code>元のフォルダ.txt</code> → （既定のインデックスなら）取り込み一覧 → <strong>設定（<code>targetFolders</code> / <code>indexSources</code>）</strong> の順に上書きするため、設定の「今の置き場所」が最も優先される</td>
+<td>インデックス名に対する元のフォルダ。<code>dir</code> 直下の元のフォルダの記録 → （既定のインデックスなら）取り込み一覧 → <strong>設定（<code>targetFolders</code> / <code>indexSources</code>）</strong> の順に上書きするため、設定の「今の置き場所」が最も優先される</td>
 <td><a href="../../gui/search-tab/#元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）</a></td>
 <td>getSourceLocation</td>
 </tr>

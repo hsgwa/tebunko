@@ -2625,7 +2625,7 @@
 <tbody>
 <tr>
 <td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける）</td>
-<td>TSV インデックス（<code>work/index/</code>）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果</td>
+<td>本文インデックス（<code>work/index/</code>）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果</td>
 <td><code>tebunko/core/paths.ps1</code>（<code>$workspace</code>）、<code>tebunko/core/workspace.ps1</code>（<code>Workspace</code>）</td>
 </tr>
 <tr>
@@ -2664,7 +2664,7 @@
     copy["%TEMP%\tebunko\#lt;PID#gt;&lt;br&gt;コピー"]
     office["Excel / Word / PowerPoint&lt;br&gt;読み取り専用・マクロ無効"]
     tsv["%TEMP%\tebunko\#lt;PID#gt;&lt;br&gt;中間 TSV"]
-    idx[("work/index/&lt;br&gt;TSV インデックス")]
+    idx[("work/index/&lt;br&gt;本文インデックス")]
 
     src -- "コピー（読み取りのみ）" --&gt; copy
     copy --&gt; office

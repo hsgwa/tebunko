@@ -2782,7 +2782,7 @@
 </tr>
 <tr>
 <td><code>Slow</code></td>
-<td>時間のかかるもの（検索・pack の作成・取り込みの速さの回帰テスト。<code>tests/tools/perf_*.Tests.ps1</code>。<a href="#ci"><code>perf-check.yml</code></a>）</td>
+<td>時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。<code>tests/tools/perf_*.Tests.ps1</code>。<a href="#ci"><code>perf-check.yml</code></a>）</td>
 <td>検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る</td>
 <td>しない（<code>-All</code> または <code>-Tag Slow</code> で実行）</td>
 </tr>
@@ -2883,14 +2883,14 @@
 <td><code>perf.yml</code></td>
 <td><code>perf</code></td>
 <td>手動（<code>workflow_dispatch</code>）</td>
-<td>Office からの取り込み（.docx・.pptx）・pack の作成・検索の速さとリソースの推移を測る</td>
+<td>Office からの取り込み（.docx・.pptx）・本文インデックスの作成・検索の速さとリソースの推移を測る</td>
 <td>–</td>
 </tr>
 <tr>
 <td><code>perf-check.yml</code></td>
 <td><code>search</code>・<code>ingest</code></td>
 <td>PR にラベル <code>perf-check</code> を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動</td>
-<td>検索・pack の作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト）</td>
+<td>検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト）</td>
 <td>–（流した PR で落ちていればマージしない）</td>
 </tr>
 </tbody>
@@ -2979,31 +2979,31 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
 <ul>
 <li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）、<code>ingest</code>（取り込みを測る .docx・.pptx のそれぞれの数。<code>0</code> <code>200</code> <code>1000</code>。既定 <code>0</code> は取り込みを測らない。検索だけを測る起動が長くならないようにする）</li>
-<li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（pack 形式より前の版）では、エラーメッセージを出して止まる</li>
+<li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（本文インデックスの形式より前の版）では、エラーメッセージを出して止まる</li>
 <li>データは <a href="https://github.com/hsgwa/tebunko-perfdata">tebunko-perfdata</a> の <code>new_index.ps1</code> で毎回生成する（取り込みの一時置き場と同じ形の TSV）。使う版は <code>perf.yml</code> の <code>PERFDATA_SHA</code> でコミットに固定する。検索する語は同じリポジトリの <code>words.tsv</code>（0 件・まれ（3 件）・大量・正規表現）</li>
 <li>測るもの（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）</li>
 <li>Office からの取り込み … <code>ingest</code> が <code>0</code> でないときだけ。<code>tools/perf/new_ingest_data.ps1</code> でテストデータ（<code>tests/testdata/office</code>）の複製を作り（.docx・.pptx を <code>ingest</code> 個ずつ。50 ファイルごとにフォルダを分ける）、<code>measure_perf.ps1 -Office</code> で測る。ランナーには Office が無いので、Office を使わずに読むファイル（.docx・.pptx。読み取りのスレッド）だけを測り、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は手元の Windows で測る（下の「取り込みの計測」）</li>
-<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、下の取り込みの計測で別に測る。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る</li>
+<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（本文インデックスを書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、下の取り込みの計測で別に測る。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る</li>
 <li>検索 … 語ごとに新しいプロセスを起動し、同じプロセスで <code>count</code> 回続けて検索する（上限 1 万件）。画面と同じく、検索の司令のスレッド（<code>newSearchService</code>）を 1 つ作り、要求（<code>newSearchRequest</code>）を順に送る。<code>lib.ps1</code> の読み込みと照合のスレッドの用意は司令のスレッドが始めに 1 回だけ行うので、1 回目の時間に含まれる。検索のキャッシュも画面と同じくプロセスで 1 つを持ち続ける。語ごとに、検索時間の最小・中央値・平均・最大と、その内訳（列挙・照合）を出す。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。高速検索は、ランナーに Windows Search が無いので使わない<ul>
 <li>司令のスレッドが無い版（#102 より前）は、その版の画面と同じく、検索のたびに新しい Runspace で <code>lib.ps1</code> を読み込んで測る（内訳に読み込みの時間も出す）。どちらで測ったかは結果の <code>SearchMode</code>（<code>service</code> / <code>runspace</code>）に出るので、#102 の前後を同じワークフローで比べられる</li>
 </ul>
 </li>
 <li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）</li>
-<li>OS のファイルキャッシュは空にしない。pack は作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
+<li>OS のファイルキャッシュは空にしない。本文インデックスは作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
 <li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
 <li><code>summary.md</code> … Summary と同じ内容（「Office からの取り込み」の節を含む）</li>
 <li><code>result.json</code> … すべての数字。形式の版（<code>Schema</code>）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む</li>
 <li><code>metrics.csv</code> … 1 行 1 指標の縦長の形（<code>run_id, date, ref, sha, scale, metric, word, stat, value, unit</code>）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）</li>
 <li><code>searches.csv</code>（検索 1 回ごと）・<code>resource-ingest.csv</code>・<code>resource-index.csv</code>・<code>resource-search.csv</code>（リソースの記録）</li>
-<li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、pack の作成の時間は 5 割ほどぶれることがある</li>
-<li>手元でも同じ計測スクリプトで測れる（<code>.\tools\measure_perf.ps1 -Index &lt;TSV のフォルダ&gt; -Work &lt;作業フォルダ&gt; -Words &lt;words.tsv&gt;</code>）。渡した TSV は pack に変換され、元の TSV は削除される</li>
+<li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、本文インデックスの作成の時間は 5 割ほどぶれることがある</li>
+<li>手元でも同じ計測スクリプトで測れる（<code>.\tools\measure_perf.ps1 -Index &lt;TSV のフォルダ&gt; -Work &lt;作業フォルダ&gt; -Words &lt;words.tsv&gt;</code>）。渡した TSV は本文インデックスに変換され、元の TSV は削除される</li>
 </ul>
 <p><strong>取り込みの計測（手元の Windows。Excel・Word・PowerPoint が入った機械で）</strong></p>
 <div class="highlight"><pre><span></span><code>.\tools\perf\new_ingest_data.ps1 -Dest C:\perf\office -Docx 50 -Pptx 50
 .\tools\measure_perf.ps1 -Office C:\perf\office -Work C:\perf\work -Repeat 1
 </code></pre></div>
 <ul>
-<li>データ（<code>new_ingest_data.ps1</code>）… .docx・.pptx（<code>-Docx</code>・<code>-Pptx</code>。既定 200）、.doc・.ppt（<code>-Doc</code>・<code>-Ppt</code>。既定 0）はテストデータの複製、.xlsx（<code>-Xlsx</code>。既定 0）は tebunko-perfdata の <code>new_books.ps1</code> で作ったブック（<code>-Books</code>）の先頭の数冊。50 ファイルごとにフォルダを分ける（フォルダごとの集約ファイルの書き出しも一緒に測るため）。同じ引数からは同じ構成・同じ中身になる。Excel は .xlsx、Word は .doc、PowerPoint は .ppt を読むので、使う Office はデータにある種類で決まる</li>
+<li>データ（<code>new_ingest_data.ps1</code>）… .docx・.pptx（<code>-Docx</code>・<code>-Pptx</code>。既定 200）、.doc・.ppt（<code>-Doc</code>・<code>-Ppt</code>。既定 0）はテストデータの複製、.xlsx（<code>-Xlsx</code>。既定 0）は tebunko-perfdata の <code>new_books.ps1</code> で作ったブック（<code>-Books</code>）の先頭の数冊。50 ファイルごとにフォルダを分ける（フォルダごとの本文インデックスの書き出しも一緒に測るため）。同じ引数からは同じ構成・同じ中身になる。Excel は .xlsx、Word は .doc、PowerPoint は .ppt を読むので、使う Office はデータにある種類で決まる</li>
 <li>測り方（<code>tools/perf/measure_ingest.ps1</code>）… <code>-Repeat</code> 回（既定 3）、1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）。測る tebunko の <code>scripts</code> を作業フォルダに写して <code>setting.config</code> を書くので、利用者の設定・既定のワークスペース・リポジトリの <code>setting.config</code> には触らない。取り込みは起動口 <code>indexer.ps1 -Channel</code> で動かし、記録のスレッドが受け渡しの口の <code>Progress.Phase</code> を読んで、段階（クロール・確認・取り込み・仕上げ）ごとの時間とリソースを出す。1 ファイルあたりの ms は、取り込みの段階の秒 ÷ ファイル数</li>
 <li>成功・失敗は、ワークスペースの <code>取り込み一覧.tsv</code> を計測の側で読んで数える（同じ相対パスは最後の行の状態）。成功 + 失敗がファイル数と合わなければ、終了コードが 0 でなければ、取り込みの段階が読めなかったとき・知らない段階の名前が来たときは、計測を失敗にする。失敗したファイルがあれば <code>summary.md</code> に書く</li>
 <li>リソースの表が測るのは、計測の PowerShell のプロセスだけ。EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）</li>
@@ -3041,12 +3041,12 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 </tr>
 <tr>
 <td>取り込んだ結果</td>
-<td>最後の回のワークスペース（<code>&lt;作業フォルダ&gt;\ingest\ws</code>。<code>measure_ingest.ps1</code> は次の回の始めまで消さない）の下に、集約ファイル <code>content.*.tsv</code>（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（<code>perf_ingest.Tests.ps1</code>）が、数と合計の大きさを数える</td>
+<td>最後の回のワークスペース（<code>&lt;作業フォルダ&gt;\ingest\ws</code>。<code>measure_ingest.ps1</code> は次の回の始めまで消さない）の下に、本文インデックスのファイル <code>content.*.tsv</code>（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（<code>perf_ingest.Tests.ps1</code>）が、数と合計の大きさを数える</td>
 </tr>
 </tbody>
 </table>
 <p><strong><code>perf-check.yml</code>（速さの回帰テスト）</strong></p>
-<p>検索・pack の作成・取り込みの速さが落ちたことを、PR の段階で見つける。<code>measure_perf.ps1</code> で測り、上限と比べて合否を出す（<code>perf.yml</code> は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で <code>search</code>・<code>ingest</code> が落ちていればマージしない。</p>
+<p>検索・本文インデックスの作成・取り込みの速さが落ちたことを、PR の段階で見つける。<code>measure_perf.ps1</code> で測り、上限と比べて合否を出す（<code>perf.yml</code> は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で <code>search</code>・<code>ingest</code> が落ちていればマージしない。</p>
 <table>
 <thead>
 <tr>
@@ -3062,7 +3062,7 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <td><code>.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1</code></td>
 </tr>
 <tr>
-<td>pack の作成</td>
+<td>本文インデックスの作成（段階 <code>pack の作成</code>）</td>
 <td>固定の上限と比べる（<code>search</code>）</td>
 <td>同上</td>
 </tr>
@@ -3084,7 +3084,7 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <li>main への push のうち、速さに効くファイル（<code>scripts/**</code>・<code>tools/measure_perf.ps1</code>・<code>tools/perf/**</code>・<code>tests/tools/perf_*.Tests.ps1</code>・<code>tests/testdata/office/**</code>・<code>.github/workflows/perf-check.yml</code>）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる</li>
 <li>手動（<code>workflow_dispatch</code>）。main への push と手動は、ラベルを見ずに流す</li>
 <li>ラベル <code>perf-check</code> は、リポジトリに作ってある。付けるのはコンサルタント（メンテナの代わり）。リリースノートの分類（<code>.github/release.yml</code>）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）</li>
-<li>ジョブは <code>search</code>（検索と pack の作成）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 3〜4 分、<code>ingest</code> が 4〜5 分</li>
+<li>ジョブは <code>search</code>（検索と本文インデックスの作成）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 3〜4 分、<code>ingest</code> が 4〜5 分</li>
 <li>各ジョブの <code>if</code> は、<code>github.event_name != 'pull_request'</code>（main への push・手動）、または <code>labeled</code> でラベル名が <code>perf-check</code>（付けたとき）、または <code>labeled</code> 以外（<code>synchronize</code>・<code>reopened</code>）で PR に <code>perf-check</code> が付いているとき。ほかのラベルを付けたときは流し直さない</li>
 <li>流れている実行の取り消し（<code>concurrency</code>）は、同じ PR に push を足したときと、<code>perf-check</code> を付け直したときだけ。グループは <code>perf-check-&lt;PR の番号（無ければ ref）&gt;</code> で、<code>perf-check</code> 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に <code>run_id</code> を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（<code>enhancement</code> など）を付けても、流れている <code>search</code>・<code>ingest</code> は取り消されない</li>
 <li>結果は PR の Checks の <code>search</code>・<code>ingest</code> の合否と、ジョブの Summary（<code>summary.md</code> の表）、artifact（<code>perf-check-search-&lt;実行の番号&gt;-&lt;試行の番号&gt;</code>・<code>perf-check-ingest-...</code>。保存期間は 90 日）で見る。PR にコメントは書かない</li>
@@ -3103,10 +3103,10 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 </thead>
 <tbody>
 <tr>
-<td><code>tests/tools/perf_search.Tests.ps1</code>（検索と pack の作成）</td>
-<td>tebunko-perfdata の <code>new_index.ps1 -Scale 0.1</code>（種は既定の 1。ブック 5,361・TSV 16,078 → pack 521・118MB）。語は同じリポジトリの <code>words.tsv</code></td>
+<td><code>tests/tools/perf_search.Tests.ps1</code>（検索と本文インデックスの作成）</td>
+<td>tebunko-perfdata の <code>new_index.ps1 -Scale 0.1</code>（種は既定の 1。ブック 5,361・TSV 16,078 → 本文インデックスのファイル 521・118MB）。語は同じリポジトリの <code>words.tsv</code></td>
 <td><code>measure_perf.ps1 -Index ... -Words ... -Count 20</code>（<code>perf.yml</code> の既定と同じ手順・同じ条件）</td>
-<td>語ごとの検索の中央値（<code>Search[].TotalMs.Median</code>）・pack の作成の秒（<code>Index.Pack.Seconds</code>。1 回の値）</td>
+<td>語ごとの検索の中央値（<code>Search[].TotalMs.Median</code>）・本文インデックスの作成の秒（<code>Index.Pack.Seconds</code>。1 回の値）</td>
 </tr>
 <tr>
 <td><code>tests/tools/perf_ingest.Tests.ps1</code>（取り込み）</td>
@@ -3119,8 +3119,8 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <p>比べる処理は <code>tools/perf/perf_common.ps1</code> の <code>getSearchPerfProblems</code>・<code>getIngestPerfProblems</code> で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの <code>Unit</code> で確かめる。</p>
 <ul>
 <li>「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる</li>
-<li>検索: <code>searches.csv</code> の 20 回すべてで、件数が <code>words.tsv</code> の「件数」と合うこと（数ならその件数、<code>10000+</code> なら 1 万件で打ち切り）、照合した pack の数（<code>Packs</code>）が pack の作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（<code>Run.SearchMode</code>）が <code>service</code> であること（<code>newSearchService</code> が無いと、<code>measure_search.ps1</code> は黙って <code>runspace</code> で測るため）</li>
-<li>取り込み: <code>Total</code>・<code>Done</code> が 100、<code>Failed</code> が 0。最後の回のワークスペースに集約ファイルがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが <code>済</code> になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）</li>
+<li>検索: <code>searches.csv</code> の 20 回すべてで、件数が <code>words.tsv</code> の「件数」と合うこと（数ならその件数、<code>10000+</code> なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（<code>Packs</code>）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（<code>Run.SearchMode</code>）が <code>service</code> であること（<code>newSearchService</code> が無いと、<code>measure_search.ps1</code> は黙って <code>runspace</code> で測るため）</li>
+<li>取り込み: <code>Total</code>・<code>Done</code> が 100、<code>Failed</code> が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが <code>済</code> になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）</li>
 <li>結果（<code>summary.md</code>・<code>result.json</code> など。数字だけでパスは入らない）は <code>work\test\perf-search\</code>・<code>work\test\perf-ingest\</code>（git 管理外）に残る。<code>summary.md</code> の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）</li>
 <li>tebunko-perfdata の場所は、環境変数 <code>TEBUNKO_PERFDATA</code>。無ければリポジトリと並んだ <code>tebunko-perfdata</code>（git worktree のときは、本体のチェックアウトと並んだもの）。どちらにも無いときは、<code>git clone</code> の取り方を示して失敗にする。手元の clone は、<code>PERFDATA_SHA</code> と <code>new_index.ps1</code>・<code>words.tsv</code> が同じであること（違うとデータが変わり、ランナーの数字と比べられない）</li>
 <li><code>-All</code> は <code>Slow</code> も流すので、tebunko-perfdata が要る</li>
@@ -3167,7 +3167,7 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <td>2,300 ms</td>
 </tr>
 <tr>
-<td>pack の作成</td>
+<td>本文インデックスの作成（段階 <code>pack の作成</code>）</td>
 <td>1 回の秒</td>
 <td>39.8〜51.6 秒</td>
 <td>2 倍（5 秒単位）</td>
@@ -3190,7 +3190,7 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 </tbody>
 </table>
 <ul>
-<li>余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。pack の作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする</li>
+<li>余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。本文インデックスの作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする</li>
 <li><code>perf.yml</code> の数字は、構成が違う（取り込みの後に同じジョブで検索すると遅く出た回がある）ので、上限の元にしない。インクリメンタルサーチの目標（7,000 件規模で 0.1 秒前後）も上限にしない。今の main はこのデータで 0.3 秒ほどなので、上限にすると今の main で落ちる</li>
 <li>変え方: 速くした PR では、同じ決め方で下げてよい。上げるのは、ランナーが遅くなったなど、速さを落としていない理由があるときだけにする。理由と数字を PR 本文に書き、メンテナの了承を得る</li>
 <li>上限はランナー（4 コア）に合わせたもの。手元の PC で超えたときは、同じ PC で main を測って比べ、回帰かどうかを見る</li>

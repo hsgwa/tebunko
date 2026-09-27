@@ -2561,12 +2561,12 @@
 <p><strong>例</strong>: <code>C:\共有\営業部\見積\(株)山田商事_見積書.xlsx</code> に「見積」シートがあり、1 行目に <code>品名 数量 単価</code>、2 行目に <code>りんご 10 100</code> と書いてあるとする。</p>
 <pre class="mermaid"><code>flowchart LR
     X["(株)山田商事_見積書.xlsx&lt;br&gt;シート「見積」"] -- "① 取り込み&lt;br&gt;Excel でシートを&lt;br&gt;テキストに書き出す" --&gt; T["場所ごとの TSV&lt;br&gt;（1 行 = Excel の 1 行）"]
-    T -- "② フォルダの取り込みが&lt;br&gt;終わったら集約" --&gt; P[("集約ファイル&lt;br&gt;index/営業部/見積/&lt;br&gt;content.xlsx.001.tsv")]
-    P -- "③ 検索は&lt;br&gt;集約ファイルだけを読む" --&gt; R["結果: (株)山田商事_見積書.xlsx&lt;br&gt;見積・2 行目「りんご…」"]</code></pre>
+    T -- "② フォルダの取り込みが&lt;br&gt;終わったら本文インデックスに入れる" --&gt; P[("本文インデックス&lt;br&gt;index/営業部/見積/&lt;br&gt;content.xlsx.001.tsv")]
+    P -- "③ 検索は&lt;br&gt;本文インデックスだけを読む" --&gt; R["結果: (株)山田商事_見積書.xlsx&lt;br&gt;見積・2 行目「りんご…」"]</code></pre>
 <ol>
 <li><strong>取り込み</strong>：元のファイルのコピーを開き、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
 <li>
-<p><strong>集約</strong>：フォルダの取り込みが終わると、そのフォルダの TSV を、フォルダ・拡張子ごとの<strong>集約ファイル</strong>にまとめる。集約ファイルには、どのファイルのどの場所かを示す行（メタ情報の行）と、TSV の中身が並ぶ。</p>
+<p><strong>本文インデックスに入れる</strong>：フォルダの取り込みが終わると、そのフォルダの TSV を、フォルダ・拡張子ごとの<strong>本文インデックス</strong>にまとめる。本文インデックスには、どのファイルのどの場所かを示す行（メタ情報の行）と、TSV の中身が並ぶ。</p>
 <div class="highlight"><pre><span></span><code>␞ ファイル名=(株)山田商事_見積書.xlsx
 ␞ 種類=Excel
 ␞ シート=見積
@@ -2574,8 +2574,8 @@
 品名→数量→単価
 りんご→10→100
 </code></pre></div>
-<p>（<code>␞</code> はメタ情報の行の印、<code>→</code> はタブ。形式の詳細は <a href="index-format/#集約ファイルの形式pack_formatps1">インデックスの形式</a>）
-3. <strong>検索</strong>：検索は集約ファイルだけを順に読んで照合する。ファイル 1 つにつき 1 回開くのではなく、大きな集約ファイルをまとめて読むので速い（<a href="../search/#検索の実装速度">検索の実装（速度）</a>）。</p>
+<p>（<code>␞</code> はメタ情報の行の印、<code>→</code> はタブ。形式の詳細は <a href="index-format/#本文インデックスの形式pack_formatps1">インデックスの形式</a>）
+3. <strong>検索</strong>：検索は本文インデックスだけを順に読んで照合する。ファイル 1 つにつき 1 回開くのではなく、大きな本文インデックスをまとめて読むので速い（<a href="../search/#検索の実装速度">検索の実装（速度）</a>）。</p>
 </li>
 </ol>
 <p>インデックスは、ワークスペース（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。設計書では <code>work/</code> と書く）に置く次のものでできている。</p>
@@ -2589,7 +2589,7 @@
 </thead>
 <tbody>
 <tr>
-<td>集約ファイル</td>
+<td>本文インデックス</td>
 <td><code>work/index/&lt;インデックス名&gt;/&lt;フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
 <td>検索が読む本体。<strong>インデックス名</strong>は、画面で登録したフォルダ（クロール対象フォルダ）1 つごとの名前</td>
 </tr>
@@ -2649,7 +2649,7 @@
 <li><a href="known-issues/">既知の問題</a></li>
 </ul>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下の Office ファイル（Excel・Word・PowerPoint）を、シート・ページ・スライドごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの集約ファイルにまとめて <code>work/index/&lt;インデックス名&gt;/</code> に保存する（<a href="index-format/#配置命名規則">配置・命名規則</a>）。</p>
+<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下の Office ファイル（Excel・Word・PowerPoint）を、シート・ページ・スライドごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの本文インデックスにまとめて <code>work/index/&lt;インデックス名&gt;/</code> に保存する（<a href="index-format/#配置命名規則">配置・命名規則</a>）。</p>
 <table>
 <thead>
 <tr>
@@ -2700,7 +2700,7 @@
 <li>画面の［中止］で中止した場合、次回は未処理のファイルから再開する。インデクサが強制終了された（PC が停止した等）場合も同様で、強制終了したときに取り込んでいたファイルは最後に回す（<a href="flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>）。</li>
 <li>1 ファイルの取り込みが制限時間（10 分）を超えたら、Office アプリを強制終了してそのファイルを「失敗」とし、次のファイルへ進む（応答しなくなったファイルで止まり続けないため。<a href="flow/#取り込み一覧と取り込み対象の決定差分中断再試行">取り込み一覧と取り込み対象の決定（差分・中断・再試行）</a>）。</li>
 <li>取り込みに失敗したファイルは取り込み一覧の状態を「失敗」とし、更新されない限り次回以降はスキップする（画面で「失敗分も再取り込みする」を選ぶと再取り込みする）。</li>
-<li>元ファイルが無くなったファイルは、インデックス（集約ファイル）から外して取り込み一覧から除く。</li>
+<li>元ファイルが無くなったファイルは、インデックス（本文インデックス）から外して取り込み一覧から除く。</li>
 <li>Excel・Word・PowerPoint は必要になったときだけ起動する（Word・PowerPoint は旧形式などの変換時のみ）。</li>
 <li>1 ファイルの取り込みは、ファイルの種類ごとのレーンで並べて行う。Excel・Word（<code>.doc</code>）・PowerPoint（<code>.ppt</code>）は、それぞれスレッド 1 つが Office を 1 つ持つ。<code>.docx</code>・<code>.pptx</code> などは、Office を使わない読み取りのスレッド（既定はコア数 − 1、最大 4。設定 <code>ingestThreads</code>）で読む（<a href="../architecture/threads/#インデックス作成の並列化">インデックス作成の並列化</a>）。</li>
 </ul>
@@ -2757,7 +2757,7 @@
 <tr>
 <td>出力</td>
 <td><code>work/index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code></td>
-<td>フォルダ・元のファイルの拡張子ごとの集約ファイル（<a href="index-format/">インデックスの形式</a>）。インデックス名はクロール対象フォルダごと。取り込み中だけ、シート・ページ・スライドごとの TSV（<code>&lt;相対フォルダ&gt;/&lt;ファイル名&gt;/*.tsv</code>）を置く</td>
+<td>フォルダ・元のファイルの拡張子ごとの本文インデックス（<a href="index-format/">インデックスの形式</a>）。インデックス名はクロール対象フォルダごと。取り込み中だけ、シート・ページ・スライドごとの TSV（<code>&lt;相対フォルダ&gt;/&lt;ファイル名&gt;/*.tsv</code>）を置く</td>
 </tr>
 <tr>
 <td>出力</td>
