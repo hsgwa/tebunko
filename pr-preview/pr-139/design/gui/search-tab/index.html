@@ -4011,6 +4011,15 @@
 </tbody>
 </table>
 <h2 id="検索の実行">検索の実行<a class="headerlink" href="#検索の実行" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>stateDiagram-v2
+    state "待ち" as Idle
+    state "検索中" as Searching
+    state "結果あり" as Done
+    [*] --&gt; Idle
+    Idle --&gt; Searching : ［検索］
+    Searching --&gt; Done : 完了・上限で打ち切り
+    Searching --&gt; Idle : ［中止］（Esc）
+    Done --&gt; Searching : ［検索］（新しい要求）</code></pre>
 <ul>
 <li><strong>検索処理は <code>tebunko/search/pack_search.ps1</code> の関数</strong>（<code>getIndexPackFiles</code> / <code>searchPackIndex</code>、<a href="../implementation/#実装構成">実装構成</a>）で行う。対象・照合・速度の仕様は <a href="../../search/">検索</a> のとおり。</li>
 <li>検索対象は No.13 のツリーでチェックしたインデックス・フォルダ配下の <code>*.tsv</code>（<a href="../search-tree/">検索対象のツリー</a>）。結果のフォルダ（相対パス）は、選んだフォルダではなくインデックスのフォルダ（<code>work\content_index</code>）から求めるため、フォルダを絞っても結果の表示・元のファイルを開く動作は変わらない。</li>
@@ -4023,6 +4032,12 @@
 <li>インデックス作成中でも検索できる。その場合、ステータスに <code>インデックス作成中のため、作成途中のインデックスを検索しています。</code> と表示する（U4）。</li>
 </ul>
 <h2 id="検索ワードの扱い">検索ワードの扱い<a class="headerlink" href="#検索ワードの扱い" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    W["ワードを入力"] --&gt; R{"正規表現を使う？"}
+    R -- オフ --&gt; E["newSearchRegex でエスケープ&lt;br&gt;文字どおり検索"]
+    R -- オン --&gt; V{"regex::new が成功？"}
+    V -- はい --&gt; Rx["正規表現として検索"]
+    V -- いいえ --&gt; E2["注意を表示し文字どおり検索"]</code></pre>
 <table>
 <thead>
 <tr>

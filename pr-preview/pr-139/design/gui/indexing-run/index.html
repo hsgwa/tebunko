@@ -3963,6 +3963,24 @@
     I--&gt;&gt;G: 終了（ExitCode）
     G-&gt;&gt;U: 終了コードに応じた表示・［ログを開く］</code></pre>
 <h2 id="実行ボタンの表示">実行ボタンの表示<a class="headerlink" href="#実行ボタンの表示" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>stateDiagram-v2
+    state "未作成・通常" as Normal
+    state "中断中" as Interrupted
+    state "失敗あり" as Failed
+    state "インデックス作成中" as Running
+    state "フォルダ無し" as NoFolder
+
+    [*] --&gt; Normal
+    Normal --&gt; Failed : 失敗が残る
+    Normal --&gt; Interrupted : 中断
+    Normal --&gt; Running : ［インデックス作成を開始］
+    Failed --&gt; Running : ［インデックス作成を開始］
+    Interrupted --&gt; Running : ［続きから再開］
+    Running --&gt; Normal : 完了
+    Running --&gt; Failed : 失敗あり
+    Running --&gt; Interrupted : 中止
+    Normal --&gt; NoFolder : 存在するフォルダが無い
+    NoFolder --&gt; Normal : フォルダが戻る</code></pre>
 <table>
 <thead>
 <tr>

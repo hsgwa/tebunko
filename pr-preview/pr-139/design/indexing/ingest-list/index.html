@@ -3947,6 +3947,22 @@
 </tr>
 </tbody>
 </table>
+<pre class="mermaid"><code>sequenceDiagram
+    participant P as 前回の実行
+    participant F as 取り込み中.txt
+    participant N as 次回の実行
+
+    P-&gt;&gt;F: 取り込み前にファイルを記録（writeIngestingFiles）
+    Note over P: PC 停止・プロセス強制終了
+    N-&gt;&gt;F: readIngestingFiles で読む
+    F--&gt;&gt;N: 記録済みのファイル（前回止まったもの）
+    N-&gt;&gt;N: 取り込み対象の最後に回す
+    N-&gt;&gt;N: 取り込み開始時に回数を +1 して記録し直す
+    alt 2 回続けて強制終了
+        N-&gt;&gt;N: 失敗として取り込み対象から除く
+    else 取り込めた
+        N-&gt;&gt;F: 記録を削除
+    end</code></pre>
 <p>次回の実行時（取り込み対象の決定の後、<code>readIngestingFiles</code>）:</p>
 <ul>
 <li><code>work/取り込み中.txt</code> のファイルは、<strong>すべて</strong>「前回止まったファイル」として扱う（どのファイルで止まったかは分からないため）。取り込み対象にあれば、取り込み対象の<strong>最後に回す</strong>（<code>前回、取り込み中に強制終了したファイルは最後に取り込みます: &lt;相対パス&gt;</code>）。他のファイルの取り込みが先に進む。最後に回したファイルは、取り込みを始めるまで記録を残す（その前にまた止まっても、回数が分かるように）。</li>
