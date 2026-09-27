@@ -33,6 +33,17 @@ Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <ダウンロ�
 
 **再現の条件**: 同じコミット・同じ版の名前で、Windows PowerShell 5.1 で `.\tools\new_release_package.ps1 -Version <版>` を実行すると、zip の中身（`SHA256SUMS.txt` のハッシュ）・`SHA256SUMS.txt`・`sbom.cdx.json` が一致する。zip のファイルの時刻はコミットの時刻に、`scripts\` の一覧は git で追跡しているものだけにし、並びは序数、`README.md`・`LICENSE` の改行は CRLF にそろえる。zip のバイト列そのものは、.NET の版が同じときに一致する（圧縮の結果が版で変わりうるため、第三者は zip ではなく中身のハッシュで比べる）。`sbom.cdx.json` のバイト列は、JSON の字下げ・エスケープが PowerShell の版で変わるため 5.1 で作ったときに一致する。展開したファイルの時刻は、コミットの時刻の UTC の時計の値になる（日本では 9 時間前に見える。動作には使わない）。`tebunko.cat`（作った時刻を含む）とインストーラーは対象外。
 
+**公開前の検査**: 配布物を作った後、来歴に署名する前に、`tools/check_release_package.ps1` が zip の中身を確かめる（`release.yml` の「配布物の中身を検査する」）。通らなかった項目をすべて列挙してから止め、署名も公開もしない。zip を一時フォルダに展開して、次を確かめる。
+
+- zip のファイルが、`git ls-files scripts` と固定のファイル（`tebunko.bat`・`README.md`・`LICENSE`・`VERSION.txt`）に過不足なく一致する
+- 読み込み口（`gui.ps1`・`indexer.ps1`）から dot-source でたどれる先がすべて存在する
+- `.ps1` が構文エラーなく解析でき、`.xaml` が XML として読める
+- `Test-FileCatalog -Path .\scripts, .\tebunko.bat` が `Valid` になる
+- `SHA256SUMS.txt` と部品表のハッシュが、展開したファイルと一致する
+- `VERSION.txt` が、タグ名と HEAD のコミットの SHA になっている
+
+カタログ（`tebunko.cat`）は、作業ツリーの `scripts\` からではなく、zip に入れるバイト列（`git ls-files` の一覧から読んだもの）から作る。追跡していないファイルがあっても、zip とカタログが食い違わないため。zip の中身は作業ツリーから読むので、追跡しているファイルに未コミットの変更があるまま作ると、`VERSION.txt` のコミットと違う中身の zip ができる。公開する配布物は、CI の checkout のような変更の無い作業ツリーで作る（手元で作るときに変更があれば、`new_release_package.ps1` が警告を出す）。
+
 **来歴の署名**: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は [GitHub CLI](https://cli.github.com/) で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。
 
 ```powershell
