@@ -432,9 +432,9 @@ function startIndexRemoveJob {
     setStatus "インデックス [${name}] を削除しています…（件数によっては少し時間がかかります）"
     # 裏のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、場所は渡す
     startJob {
-        param ($name, $dir, $statusPath)
-        removeIndex $name $dir $statusPath
-    } @($name, $workspace.IndexDir, $workspace.StatusFile) {
+        param ($name, $dir, $statusPath, $settingsPath)
+        removeIndex $name $dir $statusPath $settingsPath
+    } @($name, $workspace.IndexDir, $workspace.StatusFile, ${settingsFile}) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateIndexingButton

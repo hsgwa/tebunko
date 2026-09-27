@@ -295,12 +295,12 @@ Describe "removeIndex / renameIndex の システムインデックス" -Tag Io 
     It "インデックスを削除・名前変更すると、同じワークスペースの system_index の分を消す" {
         $index = newIndexTree "$TestDrive\ix"
         [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" { $false })
-        renameIndex "営業" "営業2" $index "$TestDrive\ix\取り込み一覧.tsv"
+        renameIndex "営業" "営業2" $index "$TestDrive\ix\取り込み一覧.tsv" "$TestDrive\ix\setting.config"
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業") | Should -Be $false
         (readSystemIndexState "$TestDrive\ix\システムインデックスの状態.tsv").Covered.Count | Should -Be 0
         [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" { $false })
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should -Be $true
-        removeIndex "営業2" $index "$TestDrive\ix\取り込み一覧.tsv"
+        removeIndex "営業2" $index "$TestDrive\ix\取り込み一覧.tsv" "$TestDrive\ix\setting.config"
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should -Be $false
     }
 }
