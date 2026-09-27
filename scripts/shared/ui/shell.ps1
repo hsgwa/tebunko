@@ -310,22 +310,61 @@ function readTextShared {
 # 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui.ps1）が $script:backgroundQueue に用意する。
 # 仕事のスクリプトでは、そのツールの関数（lib.ps1）をそのまま使える（スレッドを始めたときに 1 回だけ読み込む）
 
+# ネットワークのパスだけを調べる専用の列。届かない共有で止まっても、プレビュー・状態の読み直し（$script:backgroundQueue）が
+# 待たされないようにする。初めて使うときにだけ作る（ネットワークのパスが無い利用者には、スレッドも lib.ps1 の読み込みも増えない）。
+# 列を作る式（BackgroundQueue の生成）は gui.ps1 が持ち、setNetworkQueueFactory で渡す
+# （shared/ が tebunko/gui.ps1 の変数に直接頼らないようにするため）。
+$script:networkQueue = $null
+$script:networkQueueFactory = $null
+
+function setNetworkQueueFactory {
+    # ネットワークを調べる列を作る式を登録する（gui.ps1 が起動時に 1 回呼ぶ）
+    param ([scriptblock]$factory)
+    $script:networkQueueFactory = $factory
+}
+
+function ensureNetworkQueue {
+    # ネットワークを調べる列を、初めて使うときだけ作って返す。両方のスレッドを空の仕事で温める
+    # （1 回目の［開く］が冷えたスレッドに当たって lib.ps1 の読み込みを待たないようにする）
+    if ($null -ne $script:networkQueue) {
+        return $script:networkQueue
+    }
+    if ($null -eq $script:networkQueueFactory) {
+        throw "ensureNetworkQueue: setNetworkQueueFactory が呼ばれていない"
+    }
+    $script:networkQueue = & $script:networkQueueFactory
+    # 温める回数は、作った列自身のスレッドの数から取る（gui.ps1 の ${backgroundWorkers} に頼らない。
+    # 無いと 0 回になって黙って温めないままになるため）
+    for ($i = 0; $i -lt $script:networkQueue.Pool.Size; $i++) {
+        $script:networkQueue.Post('$null', @(), $null)
+    }
+    $script:jobTimer.Start()
+    return $script:networkQueue
+}
+
 function startJob {
-    # scriptBlock を別スレッドで実行し、終わったら画面のスレッドで onDone { param($output, $errorText) } を呼ぶ
+    # scriptBlock を別スレッドで実行し、終わったら画面のスレッドで onDone { param($output, $errorText) } を呼ぶ。
+    #   queue: "default"（既定。今までの列）・"network"（届かない共有を調べる専用の列。無ければここで作る）
     param (
         [scriptblock]$scriptBlock,
         [object[]]$arguments,
-        [scriptblock]$onDone
+        [scriptblock]$onDone,
+        [string]$queue = "default"
     )
 
-    $script:backgroundQueue.Post($scriptBlock.ToString(), $arguments, $onDone)
+    $target = if ($queue -eq "network") { ensureNetworkQueue } else { $script:backgroundQueue }
+    $target.Post($scriptBlock.ToString(), $arguments, $onDone)
     $script:jobTimer.Start()
 }
 
-# 終わった仕事を受け取る間隔。プレビューの読み込みも通るため短くする（仕事が無ければ止める）
+# 終わった仕事を受け取る間隔。プレビューの読み込みも通るため短くする（両方の列に仕事が無ければ止める）
 $script:jobTimer = newTimer 50 {
     safe {
-        if ($script:backgroundQueue.Poll() -eq 0) {
+        $pending = $script:backgroundQueue.Poll()
+        if ($null -ne $script:networkQueue) {
+            $pending += $script:networkQueue.Poll()
+        }
+        if ($pending -eq 0) {
             $script:jobTimer.Stop()
         }
     }

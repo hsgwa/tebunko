@@ -204,8 +204,12 @@ ${grayBrush} = themeBrush "Ink.Muted"
 # 投げた例外や、XAML の描画中に WPF が投げる例外を、画面のスレッドの Dispatcher で受ける
 [void](registerUnhandledErrorHandler $window.Dispatcher)
 # 画面から頼む短い仕事（startJob）のスレッド。長い仕事（件数の数え上げ等）の間もプレビューが待たないよう 2 つにする。
-# 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/design/architecture/threads.md「スレッドの一覧」）
-$script:backgroundQueue = [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host)
+# 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/design/architecture/threads.md「スレッドの一覧」）。
+# 列を作る式は 1 か所にまとめ、既定の列はここで作り、ネットワークの列は shell.ps1 に式（factory）だけ渡して
+# 初めて使うときに作らせる（届かない共有が無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
+$newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host) }
+$script:backgroundQueue = & $newBackgroundQueue
+setNetworkQueueFactory $newBackgroundQueue
 . "$PSScriptRoot\..\shared\ui\folder_dialog.ps1"
 . "$PSScriptRoot\ui\index_view.ps1"
 . "$PSScriptRoot\ui\indexing_view.ps1"
@@ -453,10 +457,29 @@ function loadWorkspaceViews {
     refreshIndexSummary
 }
 
+function ensureNetworkDriveCache {
+    # インデックスの一覧・設定にネットワークのパスがあるときだけ、ドライブの割り当て（CIM）をネットワークを調べる列で
+    # 1 回照会し、画面のスレッドのキャッシュに入れる（画面のスレッドで CIM を照会しないようにする。方針 5）。
+    # ローカルだけの利用者には、列も CIM の照会も増えない
+    $paths = @($script:targetItems | ForEach-Object { [string]$_.Path }) + @(readIndexSources | ForEach-Object { [string]$_.Path })
+    if (!(testAnyNetworkPath $paths)) {
+        return
+    }
+    startJob {
+        getDriveTargets
+    } @() {
+        param ($output, $errorText)
+        if (!$errorText -and $output -and $output.Count -gt 0) {
+            setDriveTargets $output[0]
+        }
+    } "network"
+}
+
 function loadStartupData {
     try {
         loadWorkspaceViews
         updateKillBadge
+        ensureNetworkDriveCache
     } finally {
         $script:startupLoaded = $true
     }
@@ -518,7 +541,9 @@ try {
     [void]$window.ShowDialog()
 } finally {
     # インデックス作成のスレッド、検索の司令のスレッドと照合のプール、画面の裏の仕事のスレッドを片づける
-    # （docs/design/architecture/threads.md「閉じるときの順番」）
+    # （docs/design/architecture/threads.md「閉じるときの順番」）。片づける順番はそのまま変えない。
+    # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）だけ、止まった仕事（届かない共有の
+    # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
     $script:closeTimer.Stop()
     $script:indexingTimer.Stop()
     if ($script:indexingSession) {
@@ -526,7 +551,10 @@ try {
     }
     $script:searchService.Close()
     $script:jobTimer.Stop()
-    $script:backgroundQueue.Close()
+    $script:backgroundQueue.Abandon()
+    if ($script:networkQueue) {
+        $script:networkQueue.Abandon()
+    }
     $activateTimer.Stop()
     $activateEvent.Close()
     $mutex.ReleaseMutex()

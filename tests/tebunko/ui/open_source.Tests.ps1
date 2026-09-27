@@ -51,12 +51,31 @@ BeforeAll {
     function getViewRows { }
     function toggleFileGroup { param($group) }
     function showConfirm { param([string]$heading, [object[]]$facts, [object[]]$choices) }
-    function selectFolder { param([string]$description, [string]$initial) }
+    function selectFolder { param([string]$description, [string]$initial, $owner, [bool]$knownExisting) }
     function factGone { param([string]$title, [string]$detail) "✗ ${title}" }
     function factNext { param([string]$title, [string]$detail) "→ ${title}" }
+    function testNetworkPath { param([string]$path) $false }  # 既定はローカル。テストごとに Mock で切り替える
+    function startJob {
+        # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
+        # 返すまでの間に選択が変わった場合を試すため、$fake.BeforeDone があれば結果を渡す前に呼ぶ
+        param ([scriptblock]$scriptBlock, [object[]]$arguments, [scriptblock]$onDone, [string]$queue = "default")
+        $script:startJobCalls++
+        $output = $null
+        $errorText = $null
+        try {
+            $output = @(& $scriptBlock @arguments)
+        } catch {
+            $errorText = $_.Exception.Message
+        }
+        if ($fake.BeforeDone) {
+            & $fake.BeforeDone
+        }
+        & $onDone $output $errorText
+    }
 
     $ui = newFakeUi
     $window = New-Object PSObject -Property @{ Cursor = $null }
+    . "${scriptsDir}\tebunko\ui\search_view.ps1"
     . "${scriptsDir}\tebunko\ui\open_source.ps1"
 
     function newRow {
@@ -72,63 +91,212 @@ BeforeAll {
     }
 
     function lastStatus { $script:statuses[$script:statuses.Count - 1] }
-}
 
-Describe "getExistingFolder" -Tag Io {
-    It "上のフォルダのうち、存在する最も深いフォルダを返す" {
-        [System.IO.Directory]::CreateDirectory("$TestDrive\exist\a") | Out-Null
-        getExistingFolder "$TestDrive\exist\a\b\c\見積.xlsx" | Should -Be "$TestDrive\exist\a"
-    }
-
-    It "フォルダ名に [ ] があっても（ワイルドカードとして扱わず）確かめる" {
-        [System.IO.Directory]::CreateDirectory("$TestDrive\exist\[旧]営業") | Out-Null
-        getExistingFolder "$TestDrive\exist\[旧]営業\無い\見積.xlsx" | Should -Be "$TestDrive\exist\[旧]営業"
-    }
-
-    It "どこも存在しなければ空" {
-        getExistingFolder "無いフォルダ_open_source\見積.xlsx" | Should -Be ""
-    }
+    $fake = @{ BeforeDone = $null }
 }
 
 Describe "findSourceFile" -Tag Io {
     BeforeEach {
         $script:statuses = New-Object System.Collections.Generic.List[string]
         $script:sourceFolderMaps = @{ 記録 = 1 }
+        $script:startJobCalls = 0
+        $script:foundPaths = New-Object System.Collections.Generic.List[string]
+        $script:openSourcePendingRow.Value = $null
+        $script:openSourcePendingPath.Value = ""
+        $fake.BeforeDone = $null
     }
 
-    It "記録した場所にあれば、そのパスを返す" {
+    It "ローカルのパスは、画面のスレッドでその場で確かめて開く（裏の仕事は使わない）" {
         newTsv "$TestDrive\known\sub\見積.xlsx" @("x")
         Mock getSourceLocation { @{ Name = "営業"; Folder = "$TestDrive\known"; Rest = "sub"; Known = $true } }
         Mock showConfirm { }
 
-        findSourceFile (newRow) | Should -Be "$TestDrive\known\sub\見積.xlsx"
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "$TestDrive\known\sub\見積.xlsx"
+        $script:startJobCalls | Should -Be 0
         Should -Invoke showConfirm -Times 0 -Exactly
     }
 
-    It "ファイル名に [ ] があっても（ワイルドカードとして扱わず）見つける" {
-        newTsv "$TestDrive\bracket\[確定]見積.xlsx" @("x")
-        Mock getSourceLocation { @{ Name = "営業"; Folder = "$TestDrive\bracket"; Rest = ""; Known = $true } }
-        Mock showConfirm { }
+    It "記録した場所に無くても、同じ場所を指す別の書き方（別名）で見つかれば、その場所を記録して開く" {
+        newTsv "$TestDrive\alias\sub\見積.xlsx" @("x")
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "Z:\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $false }
+        Mock findSourceFileState { @{ State = "Found"; Path = "$TestDrive\alias\sub\見積.xlsx"; Alias = "$TestDrive\alias" } }
+        Mock setIndexSourceFolder { }
 
-        findSourceFile (newRow "[確定]見積.xlsx") | Should -Be "$TestDrive\bracket\[確定]見積.xlsx"
-        Should -Invoke showConfirm -Times 0 -Exactly
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "$TestDrive\alias\sub\見積.xlsx"
+        Should -Invoke setIndexSourceFolder -Times 1 -Exactly -ParameterFilter { $name -eq "営業" -and $folder -eq "$TestDrive\alias" }
+        $script:sourceFolderMaps.Count | Should -Be 0
+        lastStatus | Should -Be "インデックス [営業] の元のフォルダを $TestDrive\alias に変えました"
     }
 
-    It "260 文字を超えるパスのファイルも見つける" {
-        $deep = "$TestDrive\long\" + ("深いフォルダ" * 10) + "\" + ("もっと深いフォルダ" * 10) + "\" + ("さらに深いフォルダ" * 10)
-        newTsv (toLongPath "$deep\見積.xlsx") @("x")
-        $script:deep = $deep
-        Mock getSourceLocation { @{ Name = "営業"; Folder = $script:deep; Rest = ""; Known = $true } }
-        Mock showConfirm { }
+    It "別の書き方（別名）で見つかっても、インデックス名が分からなければ記録しない" {
+        newTsv "$TestDrive\alias2\sub\見積.xlsx" @("x")
+        Mock getSourceLocation { @{ Name = ""; Folder = "Z:\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $false }
+        Mock findSourceFileState { @{ State = "Found"; Path = "$TestDrive\alias2\sub\見積.xlsx"; Alias = "$TestDrive\alias2" } }
+        Mock setIndexSourceFolder { }
 
-        try {
-            ("$deep\見積.xlsx").Length | Should -BeGreaterThan 260
-            findSourceFile (newRow) | Should -Be "$deep\見積.xlsx"
-            Should -Invoke showConfirm -Times 0 -Exactly
-        } finally {
-            # TestDrive の後片付けは長いパスを消せないため、ここで消す
-            removeDirectoryRetry "$TestDrive\long"
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "$TestDrive\alias2\sub\見積.xlsx"
+        Should -Invoke setIndexSourceFolder -Times 0 -Exactly
+    }
+
+    It "ネットワークのパスでは、画面のスレッドから直接 getPathState・Test-Path を呼ばない（呼んだら失敗にする）" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
+        Mock getPathState { throw "画面のスレッドから getPathState を呼んでいる" }
+        Mock Test-Path { throw "画面のスレッドから Test-Path を呼んでいる" }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "\\server\share\営業\sub\見積.xlsx"
+    }
+
+    It "待っている間に同じ行をもう一度開いても、新しい依頼は出さない" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        # 応答が来ない仕事を真似る（onDone を呼ばないため、依頼は待ったままになる）
+        Mock startJob { $script:startJobCalls++ }
+
+        $row = newRow
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 1
+        Should -Invoke getSourceLocation -Times 1 -Exactly
+    }
+
+    It "cancelPendingSourceLookup を呼ぶと、待っていた行をもう一度開いたときに新しい依頼を出す" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock startJob { $script:startJobCalls++ }
+
+        $row = newRow
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        cancelPendingSourceLookup
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 2
+    }
+
+    It "cancelPendingSourceLookup は依頼の番号を進め、カーソルと待っている行を戻す" {
+        $window.Cursor = [System.Windows.Input.Cursors]::AppStarting
+        $script:openSourcePendingRow.Value = "dummy"
+        $before = $script:openSourceRequest.Value
+
+        cancelPendingSourceLookup
+
+        $script:openSourceRequest.Value | Should -Be ($before + 1)
+        $script:openSourcePendingRow.Value | Should -Be $null
+        $window.Cursor | Should -Be $null
+    }
+
+    It "結果が届いた後、同じ行をもう一度開くと新しい依頼を出す" {
+        # GetNewClosure() の中で待っている行の記録を戻すため、結果が届いた後に片づいていることを確かめる
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
+
+        $row = newRow
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        $script:startJobCalls | Should -Be 1
+
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 2
+        $script:foundPaths.Count | Should -Be 2
+    }
+
+    It "届かない行を待っている間に、別のローカルの行を開いても正しく開ける" {
+        Mock getSourceLocation {
+            param ($hit, $maps)
+            if ($hit.Book -eq "ローカル.xlsx") {
+                return @{ Name = "営業"; Folder = "$TestDrive\local"; Rest = ""; Known = $true }
+            }
+            return @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true }
         }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
+        Mock findSourceFileState { @{ State = "Found"; Path = "$TestDrive\local\ローカル.xlsx" } }
+        # 応答が来ない仕事を真似る（届かない行の依頼は待ったままになる）
+        Mock startJob { $script:startJobCalls++ }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add("A:$path") }
+        findSourceFile (newRow "ローカル.xlsx") { param ($path) $script:foundPaths.Add("B:$path") }
+
+        $script:foundPaths -join "," | Should -Be "B:$TestDrive\local\ローカル.xlsx"
+        $script:startJobCalls | Should -Be 1
+    }
+
+    It "ネットワークのパスは裏の仕事（'network' の列）で確かめ、届くまで確かめている間のステータスを出す" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:startJobCalls | Should -Be 1
+        $script:foundPaths -join "," | Should -Be "\\server\share\営業\sub\見積.xlsx"
+        $script:statuses[0] | Should -Be "元のファイルを確かめています…：\\server\share\営業\sub\見積.xlsx（共有フォルダに接続できないときは、しばらくかかります）"
+        $window.Cursor | Should -Be $null
+    }
+
+    It "待っている間に別の行を開く等をすると、前の依頼の結果は捨てる" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
+        # 結果が届く前に、別の依頼（openSourceRequest が進む）が出たことを真似る
+        $fake.BeforeDone = { $script:openSourceRequest.Value++ }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths.Count | Should -Be 0
+    }
+
+    It "接続できないときは確認のダイアログを出し、ステータスに知らせる" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Unreachable"; Message = "" } }
+        Mock showConfirm { $null }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths.Count | Should -Be 0
+        lastStatus | Should -Be "元のフォルダに接続できません：\\server\share\営業"
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $heading -eq "見積.xlsx を開けません" }
+    }
+
+    It "接続できないダイアログで［フォルダを選ぶ］を選ぶと、見つからないときと同じ流れに進む" {
+        newTsv "$TestDrive\moved\sub\見積.xlsx" @("x")
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Unreachable"; Message = "" } }
+        Mock showConfirm { "pick" }
+        Mock selectFolder { "$TestDrive\moved" }
+        Mock setIndexSourceFolder { }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "$TestDrive\moved\sub\見積.xlsx"
+        Should -Invoke setIndexSourceFolder -Times 1 -Exactly -ParameterFilter { $name -eq "営業" -and $folder -eq "$TestDrive\moved" }
+    }
+
+    It "その他の失敗のときは、例外の文面を出す" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { @{ State = "Other"; Message = "アクセスが拒否されました。" } }
+        Mock showConfirm { $null }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        lastStatus | Should -Be "元のファイルを確かめられませんでした：アクセスが拒否されました。"
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
+    }
+
+    It "裏の仕事が予期せず失敗したときも、その他として知らせる" {
+        Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
+        Mock testNetworkPath { $true }
+        Mock findSourceFileState { throw "バグ" }
+        Mock showConfirm { $null }
+
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        lastStatus | Should -Be "元のファイルを確かめられませんでした：バグ"
     }
 
     It "記録が無く、元のファイルがインデックスの直下（相対フォルダが空）なら、知らせるパスに \ を重ねない" {
@@ -137,62 +305,45 @@ Describe "findSourceFile" -Tag Io {
         $row = newRow
         $row.RelDir = ""
 
-        findSourceFile $row | Should -Be $null
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths.Count | Should -Be 0
         lastStatus | Should -Be "元のファイルが見つかりません：C:\index\見積.xlsx"
     }
 
-    It "記録した場所に無くても、同じ場所を指す別の書き方で見つかれば、その場所を記録して返す" {
-        newTsv "$TestDrive\alias\sub\見積.xlsx" @("x")
-        Mock getSourceLocation { @{ Name = "営業"; Folder = "Z:\営業"; Rest = "sub"; Known = $true } }
-        Mock getFolderPathAliases { @("Z:\営業", "$TestDrive\missing", "$TestDrive\alias") }
-        Mock setIndexSourceFolder { }
-
-        findSourceFile (newRow) | Should -Be "$TestDrive\alias\sub\見積.xlsx"
-        Should -Invoke setIndexSourceFolder -Times 1 -Exactly -ParameterFilter { $name -eq "営業" -and $folder -eq "$TestDrive\alias" }
-        $script:sourceFolderMaps.Count | Should -Be 0
-        lastStatus | Should -Be "インデックス [営業] の元のフォルダを $TestDrive\alias に変えました"
-    }
-
-    It "別の書き方で見つかっても、インデックス名が分からなければ記録しない" {
-        newTsv "$TestDrive\alias2\sub\見積.xlsx" @("x")
-        Mock getSourceLocation { @{ Name = ""; Folder = "Z:\営業"; Rest = "sub"; Known = $true } }
-        Mock getFolderPathAliases { @("Z:\営業", "$TestDrive\alias2") }
-        Mock setIndexSourceFolder { }
-
-        findSourceFile (newRow) | Should -Be "$TestDrive\alias2\sub\見積.xlsx"
-        Should -Invoke setIndexSourceFolder -Times 0 -Exactly
-    }
-
-    It "見つからず、フォルダを選ばなければ `$null（記録した場所の近くを選ぶ画面の初期位置にする）" {
+    It "見つからず、フォルダを選ばなければ開かない（記録した場所の近くを選ぶ画面の初期位置にする）" {
         [System.IO.Directory]::CreateDirectory("$TestDrive\gone") | Out-Null
         Mock getSourceLocation { @{ Name = "営業"; Folder = "$TestDrive\gone"; Rest = "sub"; Known = $true } }
-        Mock getFolderPathAliases { @("$TestDrive\gone") }
+        Mock testNetworkPath { $false }
+        Mock findSourceFileState { @{ State = "Missing"; Initial = "$TestDrive\gone" } }
         Mock showConfirm { "pick" }
         Mock selectFolder { "" }
 
-        findSourceFile (newRow) | Should -Be $null
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths.Count | Should -Be 0
         Should -Invoke selectFolder -Times 1 -Exactly -ParameterFilter { $initial -eq "$TestDrive\gone" }
         lastStatus | Should -Be "元のファイルが見つかりません：$TestDrive\gone\sub\見積.xlsx"
     }
 
-    It "確認で選ぶのをやめれば `$null" {
+    It "確認で選ぶのをやめれば開かない" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = ""; Rest = "sub"; Known = $false } }
         Mock showConfirm { $null }
         Mock selectFolder { }
 
-        findSourceFile (newRow) | Should -Be $null
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths.Count | Should -Be 0
         Should -Invoke selectFolder -Times 0 -Exactly
         lastStatus | Should -Be "元のファイルが見つかりません：C:\index\営業\sub\見積.xlsx"
     }
 
-    It "記録が無くても、選んだフォルダの中で見つかれば、元のフォルダを記録して返す" {
+    It "記録が無くても、選んだフォルダの中で見つかれば、元のフォルダを記録して開く" {
         newTsv "$TestDrive\moved\営業\sub\見積.xlsx" @("x")
         Mock getSourceLocation { @{ Name = "営業"; Folder = ""; Rest = "sub"; Known = $false } }
         Mock showConfirm { "pick" }
         Mock selectFolder { "$TestDrive\moved\営業\sub" }  # ファイルのあるフォルダを選んだ
         Mock setIndexSourceFolder { }
 
-        findSourceFile (newRow) | Should -Be "$TestDrive\moved\営業\sub\見積.xlsx"
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "$TestDrive\moved\営業\sub\見積.xlsx"
         Should -Invoke setIndexSourceFolder -Times 1 -Exactly -ParameterFilter { $name -eq "営業" -and $folder -eq "$TestDrive\moved\営業" }
         $script:sourceFolderMaps.Count | Should -Be 0
     }
@@ -204,7 +355,8 @@ Describe "findSourceFile" -Tag Io {
         Mock selectFolder { "$TestDrive\moved2" }
         Mock setIndexSourceFolder { }
 
-        findSourceFile (newRow) | Should -Be "$TestDrive\moved2\sub\見積.xlsx"
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths -join "," | Should -Be "$TestDrive\moved2\sub\見積.xlsx"
         Should -Invoke setIndexSourceFolder -Times 0 -Exactly
         lastStatus | Should -Be "開きました：$TestDrive\moved2\sub\見積.xlsx"
     }
@@ -216,7 +368,8 @@ Describe "findSourceFile" -Tag Io {
         Mock showConfirm { $script:confirmCount++; if ($script:confirmCount -eq 1) { "pick" } }
         Mock selectFolder { "$TestDrive\empty" }
 
-        findSourceFile (newRow) | Should -Be $null
+        findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
+        $script:foundPaths.Count | Should -Be 0
         Should -Invoke showConfirm -Times 2 -Exactly
         Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
     }
@@ -309,7 +462,7 @@ Describe "openSource" -Tag Unit {
 
     It "元のファイルが見つからなければ開かない" {
         Mock getCurrentHitRow { newRow }
-        Mock findSourceFile { $null }
+        Mock findSourceFile { param ($row, $onFound) }  # 見つからないときは onFound を呼ばない
         Mock openInExcel { }
         Mock openWithShell { $true }
 
@@ -320,7 +473,7 @@ Describe "openSource" -Tag Unit {
 
     It "Excel は該当シート（図形・コメントは元のシート）の該当セルを開く" {
         Mock getCurrentHitRow { newRow }
-        Mock findSourceFile { "C:\data\見積.xlsx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" }
         Mock openInExcel { }
 
         openSource ${openModeReadOnly}
@@ -333,7 +486,7 @@ Describe "openSource" -Tag Unit {
 
     It "Excel を操作できなければ、ファイルを開くだけにする" {
         Mock getCurrentHitRow { newRow }
-        Mock findSourceFile { "C:\data\見積.xlsx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" }
         Mock openInExcel { throw "ダイアログを表示中" }
         Mock openWithShell { $true }
 
@@ -343,7 +496,7 @@ Describe "openSource" -Tag Unit {
 
     It "Excel を操作できず、指定の開き方でも開けなければ、元のファイルを開いたと知らせる" {
         Mock getCurrentHitRow { newRow }
-        Mock findSourceFile { "C:\data\見積.xlsx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" }
         Mock openInExcel { throw "ダイアログを表示中" }
         Mock openWithShell { $false }
 
@@ -353,7 +506,7 @@ Describe "openSource" -Tag Unit {
 
     It "Excel 以外は既定のアプリで開く（開き方は［開き方］の選択）" {
         Mock getCurrentHitRow { newRow "報告.docx" $false }
-        Mock findSourceFile { "C:\data\報告.docx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docx" }
         Mock openWithShell { $true }
         $ui.OpenModeCombo.SelectedItem = [pscustomobject]@{ Tag = ${openModeNew} }
 
@@ -364,7 +517,7 @@ Describe "openSource" -Tag Unit {
 
     It "指定の開き方で開けなければ、元のファイルを開いたと知らせる" {
         Mock getCurrentHitRow { newRow "報告.docx" $false }
-        Mock findSourceFile { "C:\data\報告.docx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docx" }
         Mock openWithShell { $false }
 
         openSource ${openModeNew}
@@ -378,7 +531,7 @@ Describe "openSourceFolder" -Tag Unit {
         Mock getCurrentHitRow { $null }
         openSourceFolder
         Mock getCurrentHitRow { newRow }
-        Mock findSourceFile { $null }
+        Mock findSourceFile { param ($row, $onFound) }
         openSourceFolder
         Should -Invoke Start-Process -Times 0 -Exactly
     }
@@ -386,7 +539,7 @@ Describe "openSourceFolder" -Tag Unit {
     It "エクスプローラーで元のファイルを選んだ状態で開く" {
         Mock Start-Process { }
         Mock getCurrentHitRow { newRow }
-        Mock findSourceFile { "C:\data\見積.xlsx" }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\見積.xlsx" }
 
         openSourceFolder
         Should -Invoke Start-Process -Times 1 -Exactly -ParameterFilter {
