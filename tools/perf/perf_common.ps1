@@ -317,7 +317,7 @@ function getSearchPerfProblems {
             continue
         }
         if ([double]$entry.TotalMs.Median -gt [double]$limits[$name]) {
-            $problems.Add(("検索 {0}: 中央値 {1:N0} ms（上限 {2:N0} ms）" -f $name, [double]$entry.TotalMs.Median, [double]$limits[$name]))
+            $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "検索 {0}: 中央値 {1:N0} ms（上限 {2:N0} ms）", $name, [double]$entry.TotalMs.Median, [double]$limits[$name]))
         }
 
         $mine = @($rows | Where-Object { $_.Word -eq $name })
@@ -326,6 +326,10 @@ function getSearchPerfProblems {
             continue
         }
         $want = [string]$expected[$name]
+        if ([string]::IsNullOrWhiteSpace($want)) {
+            $problems.Add("検索 ${name}: 期待する件数がありません")
+            continue
+        }
         $bad = @($mine | Where-Object {
             $hits = [int]$_.Hits
             $truncated = ("$($_.Truncated)" -eq "True")
@@ -368,13 +372,13 @@ function getIngestPerfProblems {
     if ($null -eq $perFile) {
         $problems.Add("1 ファイルあたりの時間がありません")
     } elseif ([double]$perFile -gt $perFileLimitMs) {
-        $problems.Add(("取り込み 1 ファイルあたり: 中央値 {0:N0} ms（上限 {1:N0} ms）" -f [double]$perFile, $perFileLimitMs))
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "取り込み 1 ファイルあたり: 中央値 {0:N0} ms（上限 {1:N0} ms）", [double]$perFile, $perFileLimitMs))
     }
     $seconds = if ($null -ne $ingest.Seconds) { $ingest.Seconds.Median } else { $null }
     if ($null -eq $seconds) {
         $problems.Add("全体の時間がありません")
     } elseif ([double]$seconds -gt $secondsLimit) {
-        $problems.Add(("取り込み全体: 中央値 {0:N1} 秒（上限 {1:N0} 秒）" -f [double]$seconds, $secondsLimit))
+        $problems.Add([string]::Format([CultureInfo]::InvariantCulture, "取り込み全体: 中央値 {0:N1} 秒（上限 {1:N0} 秒）", [double]$seconds, $secondsLimit))
     }
     if ($null -eq $aggregate -or [int]$aggregate.Count -le 0) {
         $problems.Add("集約ファイルがありません")

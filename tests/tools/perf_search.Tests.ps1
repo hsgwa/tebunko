@@ -4,7 +4,7 @@
 # 無ければリポジトリと並んだ tebunko-perfdata（git worktree のときは、本体のチェックアウトと並んだもの）。
 # CI では perf-check.yml が PERFDATA_SHA のコミットを取り出す。
 #
-#   .\tests\run.ps1 -Tag Slow -Path tests\tools\perf_search.Tests.ps1
+#   .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1
 #
 # 上限は、ランナー（GitHub の windows-latest。4 コア）で perf-check.yml と同じ構成で 5 回測った比べる値の最大に余裕を掛けて決めた。
 # 検索は 1.5 倍を 50 ms 単位、pack の作成は 2 倍を 5 秒単位で切り上げる。決め方と変え方は docs\design\testing\ci.md。
@@ -119,13 +119,30 @@ Describe "検索と pack の作成の判定（getSearchPerfProblems）" -Tag Uni
         @{ name = "照合した pack が 0 の回があれば返す"; change = { param($f) (getRows $f "まれ")[0].Packs = 0 }; expect = "検索 まれ: 照合した pack の数が 521 と違う回が 1 回（最初は 0）" }
         @{ name = "SearchMode が runspace なら返す"; change = { param($f) $f.Result.Run.SearchMode = "runspace" }; expect = "検索の流れが service ではありません（runspace）" }
         @{ name = "pack の作成が上限を超えたら返す"; change = { param($f) $f.Result.Index.Pack.Seconds = 90.5 }; expect = "pack の作成: 90.5 秒（上限 90 秒）" }
+        @{ name = "期待する件数が無ければ返す"; change = { param($f) $script:noExpected = $true }; expect = "検索 まれ: 期待する件数がありません" }
         @{ name = "pack が無ければ返す"; change = { param($f) $f.Result.Index.Pack.Packs = 0 }; expect = "pack がありません" }
         @{ name = "pack の作成を測っていなければ返す"; change = { param($f) $f.Result.Index.Pack = $null }; expect = "pack がありません" }
     ) {
         param ($name, $change, $expect)
         $f = newFixture
+        $exp = $expected.Clone()
+        $script:noExpected = $false
         & $change $f
-        $problems = getSearchPerfProblems $f.Result $f.Rows $limits $expected 90
+        if ($script:noExpected) { $exp.Remove("まれ") }
+        $problems = getSearchPerfProblems $f.Result $f.Rows $limits $exp 90
         $problems | Should -Contain $expect -Because ($problems -join "; ")
+    }
+
+    It "数の書き方は、今のカルチャに左右されない（de-DE でも 2,101 のまま）" {
+        $old = [System.Threading.Thread]::CurrentThread.CurrentCulture
+        try {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo("de-DE")
+            $f = newFixture
+            (getEntry $f "大量").TotalMs.Median = 2101
+            $problems = getSearchPerfProblems $f.Result $f.Rows $limits $expected 90
+            $problems | Should -Contain "検索 大量: 中央値 2,101 ms（上限 2,100 ms）"
+        } finally {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = $old
+        }
     }
 }

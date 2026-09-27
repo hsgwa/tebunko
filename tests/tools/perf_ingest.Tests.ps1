@@ -4,7 +4,7 @@
 # Excel・Word・PowerPoint を使う形式（.xlsx・.doc・.ppt）は、機械・Defender・Office の版で大きく揺れるので固定の上限を置かない。
 # 手元で main と続けて測って比べる（docs\design\testing\ci.md の「Office を使う形式の比べ方」）。
 #
-#   .\tests\run.ps1 -Tag Slow -Path tests\tools\perf_ingest.Tests.ps1
+#   .\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_ingest.Tests.ps1
 #
 # 上限は、ランナー（GitHub の windows-latest。4 コア）で perf-check.yml と同じ構成で 5 回測った比べる値の最大に 1.5 倍の余裕を掛けて決めた。
 # 1 ファイルあたりは 50 ms 単位、全体は 10 秒単位で切り上げる。決め方と変え方は docs\design\testing\ci.md。
@@ -86,6 +86,21 @@ Describe "取り込みの判定（getIngestPerfProblems）" -Tag Unit {
         & $change $ingest
         $problems = getIngestPerfProblems $ingest $aggregate 1200 120 100
         $problems | Should -Contain $expect -Because ($problems -join "; ")
+    }
+
+    It "数の書き方は、今のカルチャに左右されない（de-DE でも 1,201・121.5 のまま）" {
+        $old = [System.Threading.Thread]::CurrentThread.CurrentCulture
+        try {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo("de-DE")
+            $ingest = newIngest
+            $ingest.PerFileMs.Median = 1201
+            $ingest.Seconds.Median = 121.5
+            $problems = getIngestPerfProblems $ingest $goodAggregate 1200 120 100
+            $problems | Should -Contain "取り込み 1 ファイルあたり: 中央値 1,201 ms（上限 1,200 ms）"
+            $problems | Should -Contain "取り込み全体: 中央値 121.5 秒（上限 120 秒）"
+        } finally {
+            [System.Threading.Thread]::CurrentThread.CurrentCulture = $old
+        }
     }
 
     It "Ingest が無ければ返す" {
