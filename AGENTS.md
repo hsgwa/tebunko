@@ -98,7 +98,7 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
 - 足したファイルは、必ず読み込み口（`shared/shared.ps1`・`tebunko/lib.ps1`・`gui.ps1`・`indexer.ps1`）から読み込む。
 - スクリプト・XAML は BOM 付き UTF-8・CRLF で保存する。
 
-テストは `.\tests\run.ps1`（タグ `Unit` / `Io` / `Meta` / `Office` / `Slow`）。コミット前に通す。
+テストは `.\tests\run.ps1`（タグ `Unit` / `Io` / `Meta` / `Office` / `Slow` / `Gui`。`Gui` は本物の画面を開くので、既定では流さず、CI の `gui.yml` と `-Tag Gui` で流す）。コミット前に通す。
 
 ## テストカバレッジの方針
 
