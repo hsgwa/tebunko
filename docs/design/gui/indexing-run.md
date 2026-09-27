@@ -25,6 +25,27 @@ sequenceDiagram
 
 ## 実行ボタンの表示
 
+```mermaid
+stateDiagram-v2
+    state "未作成・通常" as Normal
+    state "中断中" as Interrupted
+    state "失敗あり" as Failed
+    state "インデックス作成中" as Running
+    state "フォルダ無し" as NoFolder
+
+    [*] --> Normal
+    Normal --> Failed : 失敗が残る
+    Normal --> Interrupted : 中断
+    Normal --> Running : ［インデックス作成を開始］
+    Failed --> Running : ［インデックス作成を開始］
+    Interrupted --> Running : ［続きから再開］
+    Running --> Normal : 完了
+    Running --> Failed : 失敗あり
+    Running --> Interrupted : 中止
+    Normal --> NoFolder : 存在するフォルダが無い
+    NoFolder --> Normal : フォルダが戻る
+```
+
 | 状態（[インデックスとインデックス作成の状態](state-flow.md#インデックスとインデックス作成の状態)） | ボタン |
 |---|---|
 | 未作成・通常 | ［インデックス作成を開始］ |

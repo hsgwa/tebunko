@@ -26,6 +26,18 @@
 
 ## 検索の実行
 
+```mermaid
+stateDiagram-v2
+    state "待ち" as Idle
+    state "検索中" as Searching
+    state "結果あり" as Done
+    [*] --> Idle
+    Idle --> Searching : ［検索］
+    Searching --> Done : 完了・上限で打ち切り
+    Searching --> Idle : ［中止］（Esc）
+    Done --> Searching : ［検索］（新しい要求）
+```
+
 - **検索処理は `tebunko/search/pack_search.ps1` の関数**（`getIndexPackFiles` / `searchPackIndex`、[実装構成](implementation.md#実装構成)）で行う。対象・照合・速度の仕様は [検索](../search/index.md) のとおり。
   - 検索対象は No.13 のツリーでチェックしたインデックス・フォルダ配下の `*.tsv`（[検索対象のツリー](search-tree.md)）。結果のフォルダ（相対パス）は、選んだフォルダではなくインデックスのフォルダ（`work\content_index`）から求めるため、フォルダを絞っても結果の表示・元のファイルを開く動作は変わらない。
 - **検索の司令のスレッド（`SearchService`）で実行**し、検索中も画面を操作できるようにする。司令のスレッドと照合のプールは画面を開いている間使い回し、検索のたびに作らない（[寿命](../structure/threads.md#寿命)）。検索 1 回は要求（`newSearchRequest`）として渡し、新しい検索を始めると前の検索は取り消す（要求の `Stop`）。
@@ -37,6 +49,15 @@
 - インデックス作成中でも検索できる。その場合、ステータスに `インデックス作成中のため、作成途中のインデックスを検索しています。` と表示する（U4）。
 
 ## 検索ワードの扱い
+
+```mermaid
+flowchart TD
+    W["ワードを入力"] --> R{"正規表現を使う？"}
+    R -- オフ --> E["newSearchRegex でエスケープ<br>文字どおり検索"]
+    R -- オン --> V{"regex::new が成功？"}
+    V -- はい --> Rx["正規表現として検索"]
+    V -- いいえ --> E2["注意を表示し文字どおり検索"]
+```
 
 | 項目 | 仕様 |
 |---|---|
