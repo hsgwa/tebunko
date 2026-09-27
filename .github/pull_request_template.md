@@ -1,8 +1,12 @@
 <!-- タイトルは「<型>: <説明>」の形にする（例 feat: Excel の図形の文字を検索できるようにする）。squash merge でそのまま main のコミットになる（.github/CONTRIBUTING.ja.md） -->
 
-## 目的
+## 背景・問題
 
-<!-- 何のための変更か。Issue があれば番号をつなぐ（マージすると Issue が閉じる） -->
+<!-- 何が困っているか。直す前の様子 -->
+
+## 目的・解決策
+
+<!-- 何のための変更か、どう解決するか。Issue があれば番号をつなぐ（マージすると Issue が閉じる） -->
 
 Closes #
 
@@ -10,7 +14,7 @@ Closes #
 
 -
 
-## 確認したこと
+## チェックリスト
 
 - [ ] `.\tests\run.ps1` が通る
 - [ ] 画面を変えた場合は、実際に起動して見た
@@ -20,3 +24,7 @@ Closes #
 - [ ] コミットに `Signed-off-by` を付けた（`git commit -s`。.github/CONTRIBUTING.ja.md「Signed-off-by」）
 - [ ] ラベルを 1 つ付けた（`enhancement` / `bug` / `documentation` / `dependencies` / `internal`）
 - [ ] 前の版と互換が無くなる場合は `breaking` も付け、タイトルの型に `!` を付け、「変更点」に移行の手順を書いた
+
+## 備考
+
+<!-- 補足があれば -->
