@@ -98,6 +98,20 @@ function getIndexingStateText {
     return ""
 }
 
+function getReingestConfirm {
+    # ［インデックス作成を開始］の確かめ。前の版のしるしがあり content_index\ が空のときだけ確かめの文言を返し、
+    # ほかの 3 通り（しるしが無い・空でない）では確かめを出さない（空を返す）
+    param (
+        [bool]$hasLegacyIndex,
+        [bool]$contentEmpty
+    )
+
+    if ($hasLegacyIndex -and $contentEmpty) {
+        return "前の版のインデックスは使えないため、元のファイルをすべて取り込み直します。ファイルが多いと時間がかかります。始めますか？"
+    }
+    return ""
+}
+
 function getIndexingConfirmText {
     # 「失敗分も再取り込みする」のチェックに合わせた、合計の文言と主ボタンの文言
     param (

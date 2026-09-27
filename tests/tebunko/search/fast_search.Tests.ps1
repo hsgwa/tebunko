@@ -42,7 +42,7 @@ BeforeAll {
             $unreflected = $script:fakeUnreflected
             $rows = New-Object 'System.Collections.Generic.List[object[]]'
             $scope = convertItemUrl ([regex]::Match($sql, "SCOPE='([^']*)'").Groups[1].Value.Replace("''", "'"))
-            $files = @([System.IO.Directory]::GetFiles($scope, "システムインデックス*.txt", [System.IO.SearchOption]::AllDirectories))
+            $files = @([System.IO.Directory]::GetFiles($scope, "system_index*.txt", [System.IO.SearchOption]::AllDirectories))
             if ($sql -match "GatherTime, System.DateModified") {
                 foreach ($file in $files) {
                     $rel = getRelativePath $file $system
@@ -106,7 +106,7 @@ Describe "getFastSearchPackFiles" -Tag Io {
 
     It "反映されていないフォルダは、候補でなくても照合する" {
         $ws = newFastWorkspace "$TestDrive\f3"
-        $query = newFakeWindowsSearch $ws.System @("営業\2024\2月\システムインデックス.txt")
+        $query = newFakeWindowsSearch $ws.System @("営業\2024\2月\system_index.txt")
         $fast = compareSearch $ws "千代田区" @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true }) $query
         $fast.Fast.Unreflected | Should -Be 1
         @($fast.Packs | Where-Object { $_.RelPath -like "*\2月\*" }).Count | Should -Be 1
@@ -140,7 +140,7 @@ Describe "getFastSearchPackFiles" -Tag Io {
         [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results } $ws.State)
         $folders = @(@{ Root = $ws.Index; RelPath = "営業"; Recurse = $true })
         $fast = compareSearch $ws "保守サービス" $folders (newFakeWindowsSearch $ws.System)
-        @($fast.Packs | Where-Object { $_.RelPath -like "*\2024\content.xlsx.001.tsv" }).Count | Should -Be 1
+        @($fast.Packs | Where-Object { $_.RelPath -like "*\2024\content_index.xlsx.001.tsv" }).Count | Should -Be 1
         [void](compareSearch $ws "丸の内" $folders (newFakeWindowsSearch $ws.System))
     }
 

@@ -11,7 +11,7 @@ sequenceDiagram
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
     participant T as 作業領域 %TEMP%\tebunko\#lt;PID#gt;
-    participant I as work/index
+    participant I as work/content_index
     participant L as 取り込み一覧（work/取り込み一覧.tsv）
 
     S->>T: 作業領域を空にする
@@ -36,7 +36,7 @@ sequenceDiagram
         S->>T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
     S->>T: 図形・コメント → #lt;シート名#gt;[図形].tsv・#lt;シート名#gt;[コメント].tsv
-    S->>I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）<br>集約ファイルへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
+    S->>I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）<br>本文インデックスへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
     S->>L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
         S->>L: 当該ファイルの行（状態 = 失敗、エラー）を追記
@@ -114,7 +114,7 @@ flowchart LR
 TSV の例（シート `見積` の F2 に左上があるテキストボックスと、C2 のコメント）:
 
 ```
-work/index/営業/見積.xlsx/見積.tsv            … セルの値
-work/index/営業/見積.xlsx/見積[図形].tsv      … F2<TAB>納期は別途ご相談
-work/index/営業/見積.xlsx/見積[コメント].tsv  … C2<TAB>"test:<U+2028>税抜の金額"
+work/content_index/営業/見積.xlsx/見積.tsv            … セルの値
+work/content_index/営業/見積.xlsx/見積[図形].tsv      … F2<TAB>納期は別途ご相談
+work/content_index/営業/見積.xlsx/見積[コメント].tsv  … C2<TAB>"test:<U+2028>税抜の金額"
 ```
