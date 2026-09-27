@@ -3912,7 +3912,8 @@
 
 <h1 id="インデックス一覧の管理">インデックス一覧の管理<a class="headerlink" href="#インデックス一覧の管理" title="Permanent link">&para;</a></h1>
 <p>扱うこと: ［1 インデックス管理］タブでのインデックスの追加・一覧・編集・削除、名前を変えた・削除したときの処理。扱わないこと: インデックス作成の実行そのもの（<a href="../indexing-run/">インデックス作成の実行</a>）。先に読むページ: <a href="../">画面</a>。</p>
-<p>インデックスを <strong>追加・一覧・編集・削除</strong> するタブ（実行は <a href="../indexing-run/">インデックス作成の実行</a>）。</p>
+<p>インデックスを <strong>追加・一覧・編集・削除</strong> するタブ。インデックス作成の実行は <a href="../indexing-run/">インデックス作成の実行</a> を参照。
+図は「前回取り込みに失敗したファイルがあり、インデックス作成を実行中」の状態。</p>
 <p><img alt="［1 インデックス管理］タブ" src="../../../images/%E7%94%BB%E9%9D%A2_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96.drawio.png" /></p>
 <table>
 <thead>
@@ -3931,7 +3932,7 @@
 <tr>
 <td>2</td>
 <td>［追加…］</td>
-<td>追加のダイアログ（<a href="#追加編集のダイアログ">追加・編集のダイアログ</a>）を開き、決めた内容でインデックスを 1 件追加する。一覧へのフォルダのドラッグ＆ドロップでも追加できる（このときインデックス名はフォルダ名から自動で決める）。追加するだけでインデックス作成はせず、ステータスに <code>インデックス [&lt;名前&gt;] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます</code> と表示する（有無によらず同じ文言。有無は<a href="#一覧の列">一覧の列</a>「フォルダの状態」で分かる。届かないネットワークのフォルダで画面のスレッドが止まらないよう、<code>Test-Path</code> を呼ばない）。同じフォルダ（表記違い・大文字小文字を含む）は二重に追加しない</td>
+<td>追加のダイアログ（<a href="#追加編集のダイアログ">追加・編集のダイアログ</a>）を開き、決めた内容でインデックスを 1 件追加する。一覧へのフォルダのドラッグ＆ドロップでも追加できる（このときインデックス名はフォルダ名から自動で決める）。追加するだけでインデックス作成はせず、ステータスに <code>インデックス [&lt;名前&gt;] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます</code> と表示する（有無によらず同じ文言。有無は<a href="#一覧の列">一覧の列</a>「フォルダの状態」で分かる。届かないネットワークのフォルダで画面のスレッドが止まらないよう、<code>Test-Path</code> を呼ばない）。同じフォルダ（書き方の違い・大文字小文字を含む）のインデックスは二重に追加しない</td>
 </tr>
 <tr>
 <td>3</td>
@@ -4117,9 +4118,9 @@
 <p>フォルダが見つからない場合も追加・変更できる（一覧の「フォルダの状態」に <code>✗ フォルダが見つかりません</code> と出す）。ネットワークドライブが一時的に切れている場合に登録できなくなるのを避けるため。</p>
 <h3 id="名前を変えたときの処理renameindex">名前を変えたときの処理（<code>renameIndex</code>）<a class="headerlink" href="#名前を変えたときの処理renameindex" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
-    A["work\content_index\旧名 を 新名 に改名&lt;br&gt;（\\?\ 付きで操作）"] --&gt; B["取り込み一覧のインデックス名・相対パスの先頭を書き換え&lt;br&gt;（renameStatusIndexName）"]
-    B --&gt; C["setting.config の targetFolders[].name を保存&lt;br&gt;元のフォルダ.txt を書き直す（updateIndexSourceFile）"]
-    C --&gt; D["旧名・新名の下の searchExcludes を消す&lt;br&gt;（removeSearchExcludesUnder。消えなくても止めない）"]</code></pre>
+    A["work\content_index\旧名→新名 に改名&lt;br&gt;（\\?\ 付き）"] --&gt; B["取り込み一覧の名前・相対パスを書き換え&lt;br&gt;（renameStatusIndexName）"]
+    B --&gt; C["targetFolders[].name を保存・元のフォルダ.txt を書き直す&lt;br&gt;（updateIndexSourceFile）"]
+    C --&gt; D["旧名・新名の下の searchExcludes を消す&lt;br&gt;（removeSearchExcludesUnder）"]</code></pre>
 <p>名前を変えても<strong>インデックスは作り直さない</strong>。次の順に、名前だけを付け替える。</p>
 <ol>
 <li><code>work\content_index\&lt;旧名&gt;</code> を <code>work\content_index\&lt;新名&gt;</code> に改名する（長いパスの本文インデックスのファイル・TSV があっても扱えるよう <code>\\?\</code> 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する</li>
@@ -4129,7 +4130,7 @@
 </ol>
 <h3 id="削除したときの処理removeindex">削除したときの処理（<code>removeIndex</code>）<a class="headerlink" href="#削除したときの処理removeindex" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
-    A["work\content_index\名前 を中身ごと削除&lt;br&gt;（\\?\ 付き。別スレッドで実行）"] --&gt; B["取り込み一覧からそのインデックスの行を除く&lt;br&gt;（removeStatusIndexName）"]
+    A["work\content_index\名前 を中身ごと削除&lt;br&gt;（別スレッド）"] --&gt; B["取り込み一覧から行を除く&lt;br&gt;（removeStatusIndexName）"]
     B --&gt; C["setting.config から外して保存&lt;br&gt;元のフォルダの記録を書き直す"]
     C --&gt; D["そのインデックスの下の searchExcludes を消す&lt;br&gt;（removeSearchExcludesUnder。消えなくても止めない）"]</code></pre>
 <ol>

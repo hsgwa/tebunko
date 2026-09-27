@@ -3909,7 +3909,7 @@
 <td>S3 作成中の操作</td>
 <td><code>index</code></td>
 <td>.docx・.pptx を 100 組（300 ファイル。読み取りのスレッド <code>ingestThreads</code> を 1 にして、中止してもすぐには終わらないようにする）</td>
-<td>作成を開始 → 追加・編集・削除が押せない・警告 → ［中止］（キャンセル・中止する）→ 閉じて起動し直す（中断中。#4 は保留のため、テストの側でタブを選び直す）→ 続きから再開 → 閉じる（［閉じない］・［止めて閉じる］）→ 終了コード 0</td>
+<td>作成を開始 → 追加・編集・削除が押せない・［8］の警告 → ［中止］（キャンセル・中止する）→ 閉じて起動し直す（中断中。#4 は保留のため、テストの側で［1］を選び直す）→ 続きから再開 → 閉じる（［閉じない］・［止めて閉じる］）→ 終了コード 0</td>
 </tr>
 <tr>
 <td>S4 検索の遷移</td>
@@ -4263,7 +4263,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>このテストで見つかった不具合（#4。保留）</strong>: 起動時のタブの決定（<code>gui.ps1</code>）は非同期の読み込み（<code>loadStartupData</code>。<code>ContentRendered</code> の後）の前に決まるため、取り込みが中断していても、1 件でも取り込み済みのファイルがあれば ［2 検索］が選ばれる（中断中でも ［1 インデックス管理］には自動で切り替わらない）。<code>tests/gui/index.Tests.ps1</code>（S3）では、この不具合を踏まえてタブを明示的に選び直したうえで、続きの遷移を確かめている。直しは別の起票で行う。</p>
+<p><strong>このテストで見つかった不具合（#4。保留）</strong>: 起動時のタブの決定（<code>gui.ps1</code>）は <code>$script:indexingState.Pending -gt 0</code> を見るが、この時点では <code>$script:indexingState</code> はまだ非同期の読み込み（<code>loadStartupData</code>。<code>ContentRendered</code> の後）前で常に <code>$null</code>。実質 <code>!(testIndexExists())</code> だけで決まり、1 件でも取り込み済みのファイルがあれば（<code>testIndexExists()</code> が true になる）、中断中でも ［2 検索］が選ばれる。<code>tests/gui/index.Tests.ps1</code>（S3）では、この不具合を踏まえてタブを明示的に選び直したうえで、続きの遷移（#10）を確かめている。直しは別の fix「fix: 取り込みが中断しているときは、起動したときにインデックス管理のタブを開く」（起票済み）で行う。</p>
 <p><strong>画面のスモークテストの対象外</strong>（理由と代わりの確かめ）</p>
 <table>
 <thead>
