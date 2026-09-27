@@ -370,6 +370,40 @@ Describe "readSearchExcludes / writeSearchExcludes" -Tag Io {
     }
 }
 
+Describe "removeSearchExcludesUnder" -Tag Io {
+    It "フォルダとその下だけを、大文字・小文字を区別せずに消す（頭が同じ名前は消さない）" {
+        $path = "$TestDrive\under.json"
+        writeSearchOption @{ UseRegex = $true } $path
+        writeSearchExcludes @(
+            [pscustomobject]@{ Path = "D:\index\Sales"; Subfolders = $false },
+            [pscustomobject]@{ Path = "D:\INDEX\sales\見積"; Subfolders = $true },
+            [pscustomobject]@{ Path = "D:\index\Sales2"; Subfolders = $true },
+            [pscustomobject]@{ Path = "D:\index\技術"; Subfolders = $true }) $path
+
+        removeSearchExcludesUnder "D:\index\Sales\" $path
+
+        @(readSearchExcludes $path | ForEach-Object { $_.Path }) | Should -Be @("D:\index\Sales2", "D:\index\技術")
+        (readSearchOption $path).UseRegex | Should -Be $true
+    }
+
+    It "消す記録が無ければ設定ファイルを書き換えない・作らない" {
+        $path = "$TestDrive\under_none.json"
+        removeSearchExcludesUnder "D:\index\Sales" $path
+        Test-Path -LiteralPath $path | Should -Be $false
+        writeSearchExcludes @([pscustomobject]@{ Path = "D:\index\技術"; Subfolders = $true }) $path
+        $before = (Get-Item -LiteralPath $path).LastWriteTimeUtc
+        Start-Sleep -Milliseconds 50
+        removeSearchExcludesUnder "D:\index\Sales" $path
+        (Get-Item -LiteralPath $path).LastWriteTimeUtc | Should -Be $before
+    }
+
+    It "空のフォルダ名・読み書きの失敗では例外にしない" {
+        { removeSearchExcludesUnder "" "$TestDrive\x.json" } | Should -Not -Throw
+        New-Item -ItemType Directory -Path "$TestDrive\dirsetting" -Force | Out-Null
+        { removeSearchExcludesUnder "D:\a" "$TestDrive\dirsetting" } | Should -Not -Throw
+    }
+}
+
 Describe "readSearchOption / writeSearchOption" -Tag Io {
     # writes: 順に保存する項目、expected: 読み込んだときの値
     It "<name>" -TestCases @(

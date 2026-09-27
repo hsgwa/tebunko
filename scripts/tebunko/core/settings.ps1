@@ -371,6 +371,36 @@ function writeSearchExcludes {
 }
 
 
+function removeSearchExcludesUnder {
+    # 検索対象ツリーでチェックを外した記録のうち、folder（インデックスのフォルダ）とその下のものを消す。
+    # 大文字・小文字は区別せず、folder と "<folder>\" で始まるものだけを対象にする（Sales を消しても Sales2 は残す）。
+    # 記録は利便性のための一時的な情報のため、消せなくても例外にしない（インデックスの改名・削除は止めない）。
+    # 消す記録が無ければ設定ファイルは書き換えない
+    param (
+        [string]$folder,
+        [string]$path = ${settingsFile}
+    )
+
+    $folder = ([string]$folder).Trim().TrimEnd("\")
+    if ($folder -eq "") {
+        return
+    }
+
+    try {
+        invokeSettingsLocked -path $path -action {
+            $excludes = @(readSearchExcludes $path)
+            $kept = @($excludes | Where-Object {
+                -not ($_.Path -ieq $folder -or $_.Path.StartsWith($folder + "\", [System.StringComparison]::OrdinalIgnoreCase))
+            })
+            if ($kept.Count -lt $excludes.Count) {
+                writeSearchExcludes $kept $path
+            }
+        } | Out-Null
+    } catch {
+    }
+}
+
+
 ${searchOptionKeys} = [ordered]@{
     UseRegex = "useRegex"; CaseSensitive = "caseSensitive"; FileFilter = "fileFilter"
     IncludeShapes = "includeShapes"; IncludeComments = "includeComments"
