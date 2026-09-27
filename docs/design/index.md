@@ -6,11 +6,34 @@
 
 ## 設計書の構成
 
-- **構成**：[フォルダ構成とデータの置き場所](architecture/layout.md)、[設定ファイル（setting.config）](architecture/settings-file.md)、[共通モジュール](architecture/modules.md)、[プロセスとスレッド](architecture/threads.md)
-- **インデックス作成**：[インデックス作成（インデクサ）](indexer/index.md)
+初めて読む・変更に取りかかるときの入口は [はじめに](start/onboarding.md)（読む順番・1 周の流れ）と [変更の種類から見る設計書を引く](start/review-map.md) にある。
+
+```mermaid
+flowchart TB
+    top["design/index.md<br>（このページ）"]
+    top --> start["start/ はじめに"]
+    top --> structure["structure/ 全体の構成"]
+    top --> indexing["indexing/ インデックス作成"]
+    top --> data["index-data/ インデックスのデータ"]
+    top --> search["search/ 検索"]
+    top --> gui["gui/ 画面"]
+    top --> testing["testing/ テストと CI"]
+    top --> ref["reference/ 関数一覧"]
+    start -. 読む順番 .-> structure
+    structure -. 流れ .-> indexing
+    indexing -. 作ったものの形 .-> data
+    data -. 読む .-> search
+    search -. 見せる .-> gui
+```
+
+- **はじめに**：[読む順番と 1 周の流れ](start/onboarding.md)、[変更の種類から見る設計書を引く](start/review-map.md)
+- **全体の構成**：[ソースの分け方](structure/source.md)、[配布物と開発用のフォルダ構成](structure/folders.md)、[データの置き場所とパスの決め方](structure/data.md)、[どの処理がどのファイルを読み書きするか](structure/io-files.md)、[設定ファイル（setting.config）](structure/settings-file.md)、[プロセスとスレッド](structure/threads.md)、[クラスと関数の使い分け](structure/classes.md)
+- **インデックス作成**：[インデックス作成](indexing/index.md)
+- **インデックスのデータ**：[インデックスのファイルの形](index-data/format.md)
 - **検索**：[検索](search/index.md)
-- **画面**：[画面（GUI）](gui/index.md)
+- **画面**：[画面](gui/index.md)
 - **テスト**：[テスト](testing/index.md)、[テストの実行と CI](testing/ci.md)
+- **関数一覧**：[部品から関数一覧を引く](reference/index.md)
 - **安全性**：導入を審査する方向けの説明（何をして何をしないか、その根拠と確かめ方）は、「使い方」の [安全性の要約](../safety/index.md) にある
 
 ## 目的
@@ -25,14 +48,14 @@
 
 ## 方式
 
-2 段階方式を採る。Office ファイルから抽出した文字列を索引データ（**インデックス**）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびに Office でファイルを開く処理を省く。インデックスの中身の具体例は [インデックスとは（はじめて読む方へ）](indexer/index.md#インデックスとははじめて読む方へ) にある。
+2 段階方式を採る。Office ファイルから抽出した文字列を索引データ（**インデックス**）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびに Office でファイルを開く処理を省く。インデックスの中身の具体例は [インデックスとは（はじめて読む方へ）](indexing/index.md#インデックスとははじめて読む方へ) にある。
 
-1. **インデックス作成**（[インデックス作成（インデクサ）](indexer/index.md)）
+1. **インデックス作成**（[インデックス作成](indexing/index.md)）
    各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド等）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて `work/content_index/` に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
 2. **検索**（[検索](search/index.md)）
    本文インデックスを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは `work/検索結果.txt` に出力する。
 
-どちらも画面（[画面（GUI）](gui/index.md)）から行う。インデックス作成は画面のプロセスの中のスレッドで動き、進み具合を画面に表示する（[プロセスとスレッド](architecture/threads.md)）。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
+どちらも画面（[画面](gui/index.md)）から行う。インデックス作成は画面のプロセスの中のスレッドで動き、進み具合を画面に表示する（[プロセスとスレッド](structure/threads.md)）。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
 
 用語は検索エンジンにならい、画面・設計書・コードで次のようにそろえる。
 
@@ -115,44 +138,7 @@ flowchart LR
     gui -- "強制終了" --> excel & office
 ```
 
-## ソースの分け方
-
-ソースは**文脈**（どの機能か）と**層**（何をするか）で分ける。今後ツール（`tebunko_diff` など）を増やしても、共通部分を作り直さずに済むようにするため。
-
-| 分け方 | 内容 |
-|---|---|
-| 文脈（上位） | `scripts/shared/`（どのツールからも使う）と `scripts/tebunko/`（このツール固有）。その下はドメイン（`core`・`office`・`index`・`indexer`・`search`・`ui`） |
-| 層（下位） | 判断層（入力は素の値、出力は素の値）・状態層（ファイル・COM を読み書き）・画面層（`$ui` を触る） |
-
-決まりごとは 3 つ。いずれも `tests/meta/` で機械的に確かめる（[テストの実行と CI](testing/ci.md)）。
-
-1. `shared/` はツールを知らない（依存は一方向）。ツール同士も互いを読み込まない。
-2. 判断層は画面に触らない。触らないからテストが書ける。
-3. 足したファイルは、必ずどこかの読み込み口から読み込む。
-
-詳細は [共通モジュール](architecture/modules.md)。
-
-## 処理の流れ（利用者視点）
-
-```mermaid
-sequenceDiagram
-    actor U as 利用者
-    participant G as 画面（tebunko.bat）
-    participant CV as インデクサ（tebunko/indexer.ps1）
-    participant W as work/content_index/
-
-    U->>G: ［1 インデックス管理］の［追加…］でインデックスを追加
-    U->>G: ［インデックス作成を開始］
-    G->>CV: 画面のプロセスのスレッドで実行（受け渡しの口 -Channel）
-    CV->>CV: 取り込み対象を数える（更新日時・サイズを前回と比べる）
-    G->>U: インデックスごとの取り込み対象の件数を確認（更新が無ければ「更新不要」）
-    U->>G: ［インデックス作成を開始］（前回失敗分も再取り込みするかを選べる）／［キャンセル］
-    CV->>W: シート・ページ・スライドごとの TSV を作成し、フォルダごとの本文インデックスに入れる（取り込み済み・更新なしはスキップ）
-    G->>U: 進み具合・失敗したファイルを表示（［中止］で止められる）
-    U->>G: ［2 検索］でワードを入力
-    G->>W: 本文インデックスを検索
-    G->>U: 結果をファイルごとの見出しにまとめて表示（見出しを開くと該当行。行のダブルクリックで元のファイルを開く）
-```
+ソースの分け方（文脈と層）は [ソースの分け方](structure/source.md)、インデックスを作って検索するまでの 1 周の流れは [はじめに](start/onboarding.md) を参照。
 
 ## 動作環境・前提条件
 
