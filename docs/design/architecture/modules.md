@@ -337,7 +337,8 @@ flowchart LR
 | `decodeIndexPlace` | place | string | `encodeIndexPlace` の `%XX` を元に戻す（それ以外の `%` はそのまま） | 同上 | getIndexFolderBooks |
 | `toIndexFileName` | place | string | インデックスの TSV のファイル名 `<場所>.tsv`（場所は `encodeIndexPlace`）。元のファイル名はフォルダ名にするため入れない。`$maxFileNameLength`（255）文字を超えれば例外 | [配置・命名規則](../indexer/index-format.md#配置命名規則) | インデックス作成（Excel・Word・PowerPoint） |
 | `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメントの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [配置・命名規則](../indexer/index-format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
-| `describePlace` | book, place | `@{Place; Kind}` | 画面の「場所」「種別」と検索結果ファイルに出す文字（`[シート] 売上`・図形、`[ページ] 3（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) | 画面・`toResultLine` |
+| `describePlace` | book, place | `@{Place; Kind}` | 場所ごとの表記と種別（見出しの要約・検索結果ファイル・コピーに出す文字。`[シート]売上`・図形、`3 ページ（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットwork検索結果txt) | 画面・`toResultLine` |
+| `describeHitPlace` | place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber | string | 結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。`[シート]売上!B12`・`[シート]売上!B12 ほか 2`・`[シート]売上 12 行目`。図形・コメントは `[シート]売上!D5`。Word・PowerPoint は場所ごとのまま） | [結果の表](../gui/search-tab.md#結果の表) | 画面（`prepareHitRow`） |
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [長いパス（260 文字超）の扱い](../indexer/index-format.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す | – | インデックス作成（インデックス・作業フォルダの削除） |
@@ -423,7 +424,7 @@ flowchart LR
 | `trimTsvTextCache` | cache, keepRatio（既定 0.9） | 追い出した数 | 検索 1 回の後に呼ぶ。上限の keepRatio を超えていたら、今の世代で使わなかったものを古い世代から追い出し、世代を 1 つ進める | [GC とメモリ](threads.md#gc-とメモリ) | 検索の司令 |
 | `newSearchRequest` | word, simpleMatch, folders, limit, option, useFast | 検索の要求（`[hashtable]::Synchronized`） | 検索 1 回分の要求を作る。画面が条件と `Stop`（取り消し）を書き、検索の司令がヒット（`Queue`）・進み具合・`Finished` を書く | [寿命](threads.md#寿命) | 画面 |
 | `invokeSearchRequest` | request, pool, cache | – | 検索の要求を実行し、ヒットと進み具合を要求に少しずつ入れる。例外は投げずに `Error` に入れる。始める前に取り消されていたら何もせずに `Cancelled` にする | 同上 | 検索の司令 |
-| `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表示）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
+| `toResultLine` | book, location, lineNumber, line | string | `ファイル名<TAB>場所<TAB>種別<TAB>行番号<TAB>該当行` を返す（場所・種別は `describePlace` の表記）。Excel はセル内改行を LF に戻し、Word・PowerPoint は `"` で始まるセルを `"` で囲む。場所のタブ・改行（Excel のシート名に付けられる）はスペースにする | [検索結果ファイル](../search/output.md#1-行の組み立て) | 検索 |
 | `toResultHeader` | columnCount | string | 見出し行 `ファイル名<TAB>場所<TAB>種別<TAB>行<TAB>A<TAB>B…` を返す | [検索結果ファイル](../search/output.md#出力フォーマットwork検索結果txt) | 検索 |
 | `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
 | `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |

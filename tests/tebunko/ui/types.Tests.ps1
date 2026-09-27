@@ -15,7 +15,7 @@ BeforeAll {
     function newHitRow {
         param (
             [string]$book = "見積.xlsx",
-            [string]$location = "[シート] 4月",
+            [string]$location = "[シート]4月",
             [int]$lineNumber = 3,
             [string]$line = "",
             [string]$word = "",
@@ -188,10 +188,10 @@ Describe "FileGroup" -Tag Unit {
 
     It "同じ表記は 1 つにし、足した順に返す" {
         $group = [FileGroup]::new()
-        $group.AddLabel("[シート] 4月") | Should -Be $true
-        $group.AddLabel("[シート] 5月") | Should -Be $true
-        $group.AddLabel("[シート] 4月") | Should -Be $false
-        @($group.GetLocations()) | Should -Be @("[シート] 4月", "[シート] 5月")
+        $group.AddLabel("[シート]4月") | Should -Be $true
+        $group.AddLabel("[シート]5月") | Should -Be $true
+        $group.AddLabel("[シート]4月") | Should -Be $false
+        @($group.GetLocations()) | Should -Be @("[シート]4月", "[シート]5月")
     }
 
     It "表記が無ければ空" {
@@ -231,8 +231,8 @@ Describe "HitRow.Create" -Tag Unit {
     }
 
     It "コメントの場所も図形と同じく扱う" {
-        (newHitRow -location "[シート] 4月[コメント]").IsObjectPlace | Should -Be $true
-        (newHitRow -location "[シート] 4月").IsObjectPlace | Should -Be $false
+        (newHitRow -location "[シート]4月[コメント]").IsObjectPlace | Should -Be $true
+        (newHitRow -location "[シート]4月").IsObjectPlace | Should -Be $false
     }
 
     It "空の値は空文字にする" {
@@ -245,27 +245,28 @@ Describe "HitRow.Create" -Tag Unit {
 }
 
 Describe "HitRow.Prepare" -Tag Unit {
-    It "Excel では最初に一致したセルの番地と、ほかの件数を出す" {
+    It "Excel では最初に一致したセルの番地と、一致したセルの数を求める" {
         $row = newHitRow -lineNumber 7 -line "品名`t見積A`t単価`t見積B" -word "見積"
         $row.Prepare()
         $row.Prepared | Should -Be $true
         $row.MatchCell | Should -Be "B7"
-        $row.CellText | Should -Be "B7 ほか 1"
+        $row.MatchCount | Should -Be 2
         $row.DisplayLine | Should -Be "品名 │ 見積A │ 単価 │ 見積B"
         describeSegments $row.Segments | Should -Be "品名`t[見積]A`t単価`t[見積]B".Replace("`t", " │ ")
     }
 
-    It "一致が 1 つなら番地だけ" {
+    It "一致が 1 つなら数は 1" {
         $row = newHitRow -lineNumber 2 -line "品名`t見積" -word "見積"
         $row.Prepare()
-        $row.CellText | Should -Be "B2"
+        $row.MatchCell | Should -Be "B2"
+        $row.MatchCount | Should -Be 1
     }
 
     It "Excel でなければセル番地を出さない" {
         $row = newHitRow -book "議事録.docx" -location "[本文]" -line "見積を送付" -word "見積"
         $row.Prepare()
         $row.MatchCell | Should -Be ""
-        $row.CellText | Should -Be ""
+        $row.MatchCount | Should -Be 0
         describeSegments $row.Segments | Should -Be "[見積]を送付"
     }
 
@@ -273,7 +274,7 @@ Describe "HitRow.Prepare" -Tag Unit {
         $row = newHitRow -location "[シート] 4月[図形]" -line "B3`t`"納期は$([char]0x2028)別途`"" -word "納期"
         $row.Prepare()
         $row.MatchCell | Should -Be "B3"
-        $row.CellText | Should -Be "B3"
+        $row.MatchCount | Should -Be 1
         $row.DisplayLine | Should -Be "納期は$([char]0x21b5)別途"
     }
 
@@ -302,7 +303,7 @@ Describe "HitRow.Prepare" -Tag Unit {
         $names = watchChanges $row
         $row.Prepare()
         # 通知の順は決まりではないため、名前の集まりで比べる
-        @($names | Sort-Object) -join "," | Should -Be "CellText,DisplayLine,MatchCell,Segments"
+        @($names | Sort-Object) -join "," | Should -Be "DisplayLine,MatchCell,MatchCount,Segments"
     }
 
     It "正規表現の一致を強調する" {
@@ -342,8 +343,8 @@ Describe "HitRow.Prepare" -Tag Unit {
 
 Describe "HitRow.Contains" -Tag Unit {
     BeforeAll {
-        $row = newHitRow -relDir "営業部" -book "見積.xlsx" -location "[シート] 4月" -lineNumber 12 -line "品名`tABC"
-        $row.PlaceText = "[シート] 四月"
+        $row = newHitRow -relDir "営業部" -book "見積.xlsx" -location "4月" -lineNumber 12 -line "品名`tABC"
+        $row.PlaceText = "[シート]四月"
         $row.Kind = "セル"
     }
 
@@ -353,7 +354,6 @@ Describe "HitRow.Contains" -Tag Unit {
         @{ name = "場所"; text = "4月" }
         @{ name = "場所の表記"; text = "四月" }
         @{ name = "種別"; text = "セル" }
-        @{ name = "行番号"; text = "12" }
         @{ name = "行（大文字小文字を区別しない）"; text = "abc" }
     ) {
         param ($name, $text)
@@ -362,6 +362,21 @@ Describe "HitRow.Contains" -Tag Unit {
 
     It "どれにも無ければ $false" {
         $row.Contains("請求") | Should -Be $false
+    }
+
+    It "列に出さない行番号では絞り込めない" {
+        $row.Contains("12") | Should -Be $false
+    }
+}
+
+Describe "HitRow.SetPlaceDisplay" -Tag Unit {
+    It "「場所」の列の表記を入れて通知する。同じ値なら通知しない" {
+        $row = newHitRow -line "見積" -word "見積"
+        $names = watchChanges $row
+        $row.SetPlaceDisplay("[シート]4月!B2")
+        $row.SetPlaceDisplay("[シート]4月!B2")
+        $row.PlaceDisplay | Should -Be "[シート]4月!B2"
+        @($names) -join "," | Should -Be "PlaceDisplay"
     }
 }
 
@@ -380,7 +395,7 @@ Describe "HitRow の静的な関数" -Tag Unit {
         @{ name = "正規表現の長さ 1 以上の一致は数える"; text = "ABC"; word = ""; pattern = [regex]"x*B"; expected = $true }
         @{ name = "語句の正規表現の記号をそのままの文字として探す（1.5 は 125 に当たらない）"; text = "125"; word = "1.5"; pattern = $null; expected = $false }
         @{ name = "語句の . はそのままの文字に当たる"; text = "1.5 倍"; word = "1.5"; pattern = $null; expected = $true }
-        @{ name = "語句の [ ] はそのままの文字に当たる"; text = "[シート] 4月"; word = "[シート]"; pattern = $null; expected = $true }
+        @{ name = "語句の [ ] はそのままの文字に当たる"; text = "[シート]4月"; word = "[シート]"; pattern = $null; expected = $true }
     ) {
         param ($name, $text, $word, $pattern, $expected)
         [HitRow]::HasMatch($text, $word, $pattern) | Should -Be $expected
@@ -943,7 +958,7 @@ Describe "HitRow（境界値）" -Tag Unit {
     It "正規表現で Excel のセル番地を決める" {
         $row = newHitRow -lineNumber 4 -line "品名`t第1回`t第2回" -pattern ([regex]"第\d回")
         $row.Prepare()
-        $row.CellText | Should -Be "B4 ほか 1"
+        $row.MatchCount | Should -Be 2
     }
 
     It "27 列目以降の一致は 2 文字の列名で出す" {

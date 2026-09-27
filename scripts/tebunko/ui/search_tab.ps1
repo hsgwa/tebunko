@@ -134,7 +134,6 @@ function startSearch {
         setStatus "検索するフォルダに、左の「検索対象」でチェックを付けてください。"
         return
     }
-    $ui.IndexColumn.Visibility = if (@($folders | ForEach-Object { (splitIndexRelPath ([string]$_.RelPath)).Name } | Sort-Object -Unique).Count -gt 1) { "Visible" } else { "Collapsed" }
 
     $useFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable
     $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders ${searchLimit} $option $useFast))

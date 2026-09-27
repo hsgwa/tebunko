@@ -192,10 +192,11 @@ function splitObjectPlace {
 
 
 function describePlace {
-    # 画面の「場所」「種別」と検索結果ファイルに出す文字を @{ Place; Kind } で返す（TSV の名前は変えず、表示だけを変える）。
-    #   Excel      : "売上" → [シート] 売上・セル / "売上[図形]" → [シート] 売上・図形 / "売上[コメント]" → [シート] 売上・コメント
-    #   Word       : "ページ003" → [ページ] 3（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → [脚注]・本文
-    #   PowerPoint : "スライド002（非表示）" → [スライド] 2（非表示）・本文 / "スライド002_ノート" → [スライド] 2・ノート
+    # 場所ごとの表記と「種別」を @{ Place; Kind } で返す（TSV の名前は変えず、表示だけを変える）。
+    # 画面の見出しの要約・検索結果ファイル・コピーに使う。表の「場所」の列は、これにセル番地を足した describeHitPlace を使う
+    #   Excel      : "売上" → [シート]売上・セル / "売上[図形]" → [シート]売上・図形 / "売上[コメント]" → [シート]売上・コメント
+    #   Word       : "ページ003" → 3 ページ（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → 脚注・本文
+    #   PowerPoint : "スライド002（非表示）" → スライド 2（非表示）・本文 / "スライド002_ノート" → スライド 2・ノート
     # 種別は、図形・コメントなら場所の種類の名前そのまま（検索条件の［図形も検索］［コメントも検索］と同じ言葉）
     param (
         [string]$book,
@@ -207,22 +208,47 @@ function describePlace {
     $kind = $split.Kind
 
     if ($book -match '\.xls[a-z]?$') {
-        return @{ Place = "[シート] $base"; Kind = $(if ($kind) { $kind } else { "セル" }) }
+        return @{ Place = "[シート]$base"; Kind = $(if ($kind) { $kind } else { "セル" }) }
     }
     if ($base -eq "") {
         return @{ Place = ""; Kind = $(if ($kind) { $kind } else { "本文" }) }
     }
     if ($base -match '^ページ(\d+)$') {
-        return @{ Place = "[ページ] $([int]$Matches[1])（目安）"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+        return @{ Place = "$([int]$Matches[1]) ページ（目安）"; Kind = $(if ($kind) { $kind } else { "本文" }) }
     }
     if ($base -match '^スライド(\d+)_ノート$') {
-        return @{ Place = "[スライド] $([int]$Matches[1])"; Kind = $(if ($kind) { $kind } else { "ノート" }) }
+        return @{ Place = "スライド $([int]$Matches[1])"; Kind = $(if ($kind) { $kind } else { "ノート" }) }
     }
     if ($base -match '^スライド(\d+)(（非表示）)?$') {
-        return @{ Place = "[スライド] $([int]$Matches[1])$($Matches[2])"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+        return @{ Place = "スライド $([int]$Matches[1])$($Matches[2])"; Kind = $(if ($kind) { $kind } else { "本文" }) }
     }
     # ヘッダー・フッター・脚注など、番号の無い場所
-    return @{ Place = "[$base]"; Kind = $(if ($kind) { $kind } else { "本文" }) }
+    return @{ Place = $base; Kind = $(if ($kind) { $kind } else { "本文" }) }
+}
+
+
+function describeHitPlace {
+    # 結果の表の「場所」の列とプレビューの題に出す、行ごとの場所の表記を返す（場所ごとの表記にセル番地を足したもの）。
+    # Excel だけ足す（Word・PowerPoint は場所ごとと同じ）。
+    #   セル             : [シート]売上!B12 / 1 行に複数のセルが一致 [シート]売上!B12 ほか 2 / セル番地が求まらないとき [シート]売上 12 行目
+    #   図形・コメント   : [シート]売上!D5 / セル番地が求まらないとき [シート]売上（行番号は通し番号のため出さない）
+    param (
+        [string]$place,
+        [bool]$isExcel,
+        [bool]$isObjectPlace,
+        [string]$matchCell,
+        [int]$matchCount,
+        [int]$lineNumber
+    )
+
+    if (-not $isExcel) { return $place }
+    if ($isObjectPlace) {
+        if ($matchCell) { return "$place!$matchCell" }
+        return $place
+    }
+    if (-not $matchCell) { return "$place $lineNumber 行目" }
+    if ($matchCount -gt 1) { return "$place!$matchCell ほか $($matchCount - 1)" }
+    return "$place!$matchCell"
 }
 
 
