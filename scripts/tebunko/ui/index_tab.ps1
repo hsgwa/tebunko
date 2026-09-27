@@ -16,18 +16,30 @@ function getTargetsKey {
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.IndexGrid.ItemsSource = $script:targetItems
 $script:loadingTargets = $false
-# ［作成］チェックのクリックで保存する（TwoWay バインドで Enabled は更新済み。PS class のプレーンな
-# プロパティは PropertyChanged を出さないため、購読ではなくここで保存する）
-$ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler] {
+# ［作成］チェックの状態が変わったら保存する（Checked・Unchecked。ToggleButton の状態が変わったときに出る、
+# バブルするイベント）。マウスの Click だけでなく、UI オートメーションの TogglePattern（キーボード操作も同様）でも
+# 状態が変わったときに出るため、どの操作でも保存できる。
+# UI オートメーションの Toggle は IsChecked（表示）を変えるが、TwoWay バインドの先（Enabled。PS class の
+# プレーンなプロパティで PropertyChanged を出さない）へは反映されないことがあるため、ここで明示的に合わせる。
+# 読み込み時（loadTargets が Enabled をセットする間）は $script:loadingTargets を立てて、保存が走らないようにするが、
+# DataGrid が行の見た目を作る（描画・仮想化）のは loadTargets の完了後で、その時点では $script:loadingTargets は
+# 既に false に戻っている。行の初期化としての Checked・Unchecked（チェックの付いた行が表示される・［OK］で
+# 追加した行がすぐ表示されるなど）でも出るため、一覧の中身が保存済みの内容と同じときは書き直さない
+$onIndexGridToggled = {
     param ($s, $e)
     safe {
         $cb = $e.OriginalSource
         if ($cb -is [System.Windows.Controls.CheckBox] -and $cb.DataContext -is [FolderItem] -and !$script:loadingTargets) {
-            saveTargets
+            $cb.DataContext.Enabled = [bool]$cb.IsChecked
+            if ((getTargetsKey @($script:targetItems)) -ne $script:savedTargets) {
+                saveTargets
+            }
             updateIndexingButton
         }
     }
-})
+}
+$ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::CheckedEvent, [System.Windows.RoutedEventHandler]$onIndexGridToggled)
+$ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::UncheckedEvent, [System.Windows.RoutedEventHandler]$onIndexGridToggled)
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
 $script:editDialog = $null    # 追加・編集のダイアログ（開いている間だけ）
 $script:indexingSession = $null  # 実行中のインデックス作成（IndexingSession。終わって片づけたら $null）
@@ -134,7 +146,7 @@ function newFolderItem {
     $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
     $item.SetStatus("… フォルダを確認しています", ${grayBrush})
-    # ［作成］チェックの保存は、一覧のチェックボックスの Click（IndexGrid.AddHandler）で行う。
+    # ［作成］チェックの保存は、一覧のチェックボックスの Checked・Unchecked（IndexGrid.AddHandler）で行う。
     # PS class のプレーンなプロパティは TwoWay セットで PropertyChanged を出さないため、購読では拾えない。
     return $item
 }
