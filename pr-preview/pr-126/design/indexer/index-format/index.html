@@ -2936,7 +2936,7 @@ B2→確定版
 <p><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。</p>
 </li>
 <li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
-<li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「セル」と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。</li>
+<li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「場所」に出すセル番地と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。</li>
 <li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../flow/">処理の流れと取り込み一覧</a>）。今は <code>.xlsx</code> <code>.xlsm</code> と Word・PowerPoint のすべての形式が 2。</li>
 </ul>
 <h3 id="インデックスへの入れ替えpublishtsv--publishindexfiles">インデックスへの入れ替え（<code>publishTsv</code> / <code>publishIndexFiles</code>）<a class="headerlink" href="#インデックスへの入れ替えpublishtsv--publishindexfiles" title="Permanent link">&para;</a></h3>

@@ -2623,7 +2623,7 @@
 <ul>
 <li><code>【検索文字列　…】</code> の空白は全角スペース。ブロックの後に空行を 1 行出力する。</li>
 <li>ファイル名は、インデックスフォルダからの相対フォルダ（= クロール対象フォルダからの相対フォルダ）付き。直下のファイルはフォルダ部分なし。</li>
-<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。集約ファイルのメタ情報から組み立てる。<a href="#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a>）を画面と同じ表示にしたもの（<code>describePlace</code>）。</li>
+<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。集約ファイルのメタ情報から組み立てる。<a href="#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a>）を場所ごとの表記にしたもの（<code>describePlace</code>。画面の見出しの要約と同じ）。結果の表の「場所」列は、Excel ではこれにセル番地を足した行ごとの表記（<code>describeHitPlace</code>。<code>[シート]売上!B12</code>）を出すが、この出力にはセル番地を付けない。</li>
 </ul>
 <table>
 <thead>
@@ -2636,52 +2636,52 @@
 <tbody>
 <tr>
 <td><code>売上</code>（Excel のシート）</td>
-<td><code>[シート] 売上</code></td>
+<td><code>[シート]売上</code></td>
 <td>セル</td>
 </tr>
 <tr>
 <td><code>売上[図形]</code></td>
-<td><code>[シート] 売上</code></td>
+<td><code>[シート]売上</code></td>
 <td>図形</td>
 </tr>
 <tr>
 <td><code>売上[コメント]</code></td>
-<td><code>[シート] 売上</code></td>
+<td><code>[シート]売上</code></td>
 <td>コメント</td>
 </tr>
 <tr>
 <td><code>ページ003</code>（Word）</td>
-<td><code>[ページ] 3（目安）</code></td>
+<td><code>3 ページ（目安）</code></td>
 <td>本文</td>
 </tr>
 <tr>
 <td><code>ページ003[図形]</code> <code>ページ003[コメント]</code></td>
-<td><code>[ページ] 3（目安）</code></td>
+<td><code>3 ページ（目安）</code></td>
 <td>図形 / コメント</td>
 </tr>
 <tr>
 <td><code>文書[コメント]</code>（本文に参照の無い Word のコメント）</td>
-<td><code>[文書]</code></td>
+<td><code>文書</code></td>
 <td>コメント</td>
 </tr>
 <tr>
 <td><code>スライド002[図形]</code> <code>スライド002[コメント]</code></td>
-<td><code>[スライド] 2</code></td>
+<td><code>スライド 2</code></td>
 <td>図形 / コメント</td>
 </tr>
 <tr>
 <td><code>ヘッダー・フッター</code> <code>脚注</code></td>
-<td><code>[ヘッダー・フッター]</code> <code>[脚注]</code></td>
+<td><code>ヘッダー・フッター</code> <code>脚注</code></td>
 <td>本文</td>
 </tr>
 <tr>
 <td><code>スライド002（非表示）</code>（PowerPoint）</td>
-<td><code>[スライド] 2（非表示）</code></td>
+<td><code>スライド 2（非表示）</code></td>
 <td>本文</td>
 </tr>
 <tr>
 <td><code>スライド002_ノート</code></td>
-<td><code>[スライド] 2</code></td>
+<td><code>スライド 2</code></td>
 <td>ノート</td>
 </tr>
 </tbody>
@@ -2700,9 +2700,9 @@
 <p>出力例（<code>⏎</code> はセル内改行の LF）:</p>
 <div class="highlight"><pre><span></span><code>【検索文字列　りんご】 3 件
 ファイル名   場所  種別  行   A   B   C   D
-sub dir\old.xls [シート] Sheet1    セル  3   古い形式 りんご
-見積[確定].xlsx [シート] 一覧    セル  12      りんご 100 "青森産⏎ふじ"
-報告書.docx    [ページ] 2（目安） 本文  5   """りんご""の出荷"
+sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
+見積[確定].xlsx [シート]一覧 セル  12      りんご 100 "青森産⏎ふじ"
+報告書.docx    2 ページ（目安）   本文  5   """りんご""の出荷"
 </code></pre></div>
 <h2 id="1-行の組み立て">1 行の組み立て<a class="headerlink" href="#1-行の組み立て" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
