@@ -52,21 +52,12 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             waitGui $S "フォルダの欄に入る" ${guiDefaultTimeout} { (getGuiValue (findGui $dialog -Id "FolderBox")) -eq $script:source } | Out-Null
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
 
-            # ［OK］で一覧に加わる（#11）。加わった行の［作成］は既定でオン（Enabled=true）で表示されるため、
-            # 行が表示されたときの Checked（見た目の初期化）で二重に保存されないことも、ここで確かめる（#16）
+            # ［OK］で一覧に加わる（#11）
             setGuiStep $S "［OK］で追加"
-            $beforeAddWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
             clickGui $S $dialog "OkButton" "［OK］"
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
-            setGuiStep $S "追加による保存が1回だけ起きていること"
-            $afterAddWriteTime = waitGui $S "追加の保存が起きる" ${guiDefaultTimeout} {
-                $t = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
-                if ($t -ne $beforeAddWriteTime) { $t }
-            }
-            Start-Sleep -Milliseconds 1000
-            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $afterAddWriteTime -Because "行が表示されたときの Checked（見た目の初期化）では、設定ファイルを重ねて書き直さない"
 
             # 編集: キャンセル・名前の変更（#14）
             setGuiStep $S "［編集…］→［キャンセル］"
@@ -98,6 +89,19 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
             waitGui $S "設定の enabled が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $true } | Out-Null
             waitGui $S "［インデックス作成を開始］が押せるようになる" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
+
+            # 起動時に、チェックの付いた行が表示されるだけでは、保存が重ねて走らないことを確かめる（#16）。
+            # loadTargets 自体は保存を呼ばないため、起動し直した後の書き込みは 1 件でもあれば不具合（deliberate な保存と混じらず区別できる）
+            setGuiStep $S "閉じて起動し直す"
+            closeGui $S
+            $reloadWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
+            $S.Window = $null
+            $S.Process = startGuiProcess $script:tool
+            waitGuiStarted $S
+            setGuiStep $S "起動時に、チェックの付いた行の表示で余計な保存が走らないこと"
+            waitGui $S "一覧に表示される" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 } | Out-Null
+            Start-Sleep -Milliseconds 1000
+            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $reloadWriteTime -Because "起動時に、チェックの付いた行が表示されるだけでは設定ファイルを書き直さない（loadTargets は保存を呼ばない）"
 
             # 作成: 確認でキャンセルすると取りやめ、もう一度で取り込む（#17）
             setGuiStep $S "［インデックス作成を開始］→ 確認で［キャンセル］"
