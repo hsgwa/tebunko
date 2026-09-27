@@ -53,6 +53,51 @@ function newPlanViewRows {
     return , $rows.ToArray()
 }
 
+function getIndexingEndText {
+    # インデックス作成が完了した（終了コード 0）ときの、進み具合の見出しと説明（@{ Text; Detail }）を返す。
+    # 後回し（利用者のPowerPointが起動していて取り込まなかったファイル）がある場合の文言もここで決める
+    param (
+        [int]$success,
+        [int]$failed,
+        [int]$postponed,
+        [string]$notice = ""
+    )
+
+    $processed = $success + $failed
+    if ($processed -gt 0) {
+        $counts = "成功 ${success} 件 / 失敗 ${failed} 件"
+        if ($postponed -gt 0) {
+            $counts += " / 残り ${postponed} 件"
+        }
+        $parts = New-Object System.Collections.Generic.List[string]
+        if ($failed -gt 0) {
+            $parts.Add("失敗したファイルと原因は「取り込みに失敗したファイル」の一覧で確認できます。")
+        }
+        if ($notice) {
+            $parts.Add($notice)
+        }
+        return @{ Text = "インデックス作成が終わりました（${counts}）"; Detail = ($parts -join " ") }
+    }
+    if ($postponed -gt 0) {
+        return @{ Text = "インデックス作成が終わりました（取り込まずに残したファイル ${postponed} 件）"; Detail = $notice }
+    }
+    return @{ Text = "取り込みが必要なファイルはありませんでした"; Detail = "" }
+}
+
+function getIndexingStateText {
+    # ボタンの上の一言（取り込み一覧の「未取り込み」の残り件数から。中断でも後回しでも同じ状態のため見分けない）。
+    # インデックス作成中は出さない（そのときは別の一言をボタンの下に出す）
+    param (
+        [int]$pending,
+        [bool]$indexing
+    )
+
+    if ($pending -gt 0 -and !$indexing) {
+        return "⏸ まだ取り込んでいないファイルがあります（残り ${pending} 件）"
+    }
+    return ""
+}
+
 function getReingestConfirm {
     # ［インデックス作成を開始］の確かめ。前の版のしるしがあり content_index\ が空のときだけ確かめの文言を返し、
     # ほかの 3 通り（しるしが無い・空でない）では確かめを出さない（空を返す）

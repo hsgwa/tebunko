@@ -348,13 +348,13 @@ function finishIndexing {
         $ui.IndexingProgressText.Text = if ($counts) { "インデックス作成を中止しました（$counts）" } else { "インデックス作成を中止しました" }
         $ui.IndexingProgressDetail.Text = "次回は続きから再開できます。"
         setStatus $ui.IndexingProgressText.Text
-    } elseif ($progress -and $progress.Processed -gt 0) {
-        $ui.IndexingProgressText.Text = "インデックス作成が終わりました（$counts）"
-        $ui.IndexingProgressDetail.Text = if ($progress.Failed -gt 0) { "失敗したファイルと原因は「取り込みに失敗したファイル」の一覧で確認できます。" } else { "" }
-        setStatus $ui.IndexingProgressText.Text
     } else {
-        $ui.IndexingProgressText.Text = "取り込みが必要なファイルはありませんでした"
-        $ui.IndexingProgressDetail.Text = ""
+        # 完了（後回し・失敗の件数に応じた見出しと説明は判断層（indexing_view.ps1）が決める）
+        $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
+        $failed = if ($progress) { $progress.Failed } else { 0 }
+        $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice()
+        $ui.IndexingProgressText.Text = $endText.Text
+        $ui.IndexingProgressDetail.Text = $endText.Detail
         setStatus $ui.IndexingProgressText.Text
     }
     $ui.IndexingProgressEta.Text = ""

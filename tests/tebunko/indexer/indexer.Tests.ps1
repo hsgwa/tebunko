@@ -286,6 +286,109 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
 
 }
 
+Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -Tag Office {
+    # 利用者のPowerPointが起動していることにするため、自分のセッションで実際にPowerPointを起動する
+    # （getApp は自分のセッションの POWERPNT を数えるため、モックではなく実際に起動して確かめる。
+    #   実際の PowerPoint が要るため Office タグにする（既定・CI では実行しない。tests/run.ps1 の $defaultExclude）
+    It "PowerPointが要るファイルは取り込まずに後回しにする。閉じれば次回のインデックス作成で取り込む" {
+        $dir = Join-Path $TestDrive "後回し"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
+        Copy-Item -LiteralPath "${testDataDir}\office\PowerPoint\形式\旧形式.ppt" -Destination "$dir\旧形式.ppt"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "後回し"; path = $dir; enabled = $true })
+
+        # 自分で起動したことが分かるよう、起動前後のプロセスIDの差から新しいプロセスを控える（後で終わるのを待つため）
+        $before = @(Get-Process -Name POWERPNT -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+        $userPpt = New-Object -ComObject PowerPoint.Application
+        $after = @(Get-Process -Name POWERPNT -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+        $userPptId = @($after | Where-Object { $before -notcontains $_ }) | Select-Object -First 1
+        try {
+            runIndexer $root | Should -Be 0
+
+            $status = readTestStatus $root
+            # PowerPointが要るファイルは「未取り込み」のまま残す（失敗にはしない）
+            $status.Rows["後回し\旧形式.ppt"].状態 | Should -Be ${stateNew}
+            # Office を使わないファイルはそのまま取り込む
+            $status.Rows["後回し\議事録.docx"].状態 | Should -Be ${stateDone}
+
+            $progress = readTestProgress
+            $progress.Processed | Should -Be 1
+            $progress.Failed | Should -Be 0
+            $progress.Remaining | Should -Be 1
+            readTestError | Should -BeNullOrEmpty
+            $script:lastChannel.Postponed | Should -Be 1
+            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を取り込まずに残しました"
+            # 利用者のPowerPointは、インデックス作成の間も強制終了されていない（プロセスが残っていることで確かめる）
+            $userPptId | Should -Not -BeNullOrEmpty
+            (Get-Process -Id $userPptId -ErrorAction SilentlyContinue) | Should -Not -BeNullOrEmpty
+        } finally {
+            # 完全に終わるまで待ってから次のインデックス作成に進む（次回は自分のセッションに残っていないようにする）
+            $userPpt.Quit()
+            [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($userPpt)
+            if ($userPptId) {
+                $deadline = [datetime]::Now.AddSeconds(15)
+                while ((Get-Process -Id $userPptId -ErrorAction SilentlyContinue) -and [datetime]::Now -lt $deadline) {
+                    Start-Sleep -Milliseconds 200
+                }
+            }
+        }
+
+        # 利用者がPowerPointを閉じたので、次のインデックス作成で取り込む
+        runIndexer $root | Should -Be 0
+        (readTestStatus $root).Rows["後回し\旧形式.ppt"].状態 | Should -Be ${stateDone}
+    }
+}
+
+Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使わない）" -Tag Io {
+    BeforeAll {
+        . "${scriptsDir}\shared\office\office_app.ps1"
+        . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
+    }
+
+    It "利用者のPowerPointが使用中の例外なら、後回しにして起動し直しを早めない。次回はそのファイルを取り込む" {
+        $dir = Join-Path $TestDrive "後回し2"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
+        Copy-Item -LiteralPath "${testDataDir}\office\PowerPoint\形式\旧形式.ppt" -Destination "$dir\旧形式.ppt"
+        $root = newRoot
+        writeTestSettings $root @(@{ name = "後回し2"; path = $dir; enabled = $true })
+
+        # ingestFile を .ppt だけ差し替える（.docx は本物のまま。getApp が投げるのと同じ型・文言の例外にする）。
+        # 1 回目は例外（利用者の PowerPoint が使用中）、閉じたことにする 2 回目は成功にする
+        $global:testOfficeAppInUseMessage = ${officeAppInUseMessage}
+        $global:testUserPptOpen = $true
+        Mock ingestFile {
+            if ($global:testUserPptOpen) {
+                throw (New-Object System.InvalidOperationException "PowerPoint$global:testOfficeAppInUseMessage")
+            }
+            return 1
+        } -ParameterFilter { $sourcePath -like "*.ppt" }
+        Mock stopAllApps {}
+
+        try {
+            runIndexer $root @{ Workers = 0 } | Should -Be 0
+
+            $status = readTestStatus $root
+            $status.Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateNew}
+            $status.Rows["後回し2\議事録.docx"].状態 | Should -Be ${stateDone}
+            $script:lastChannel.Postponed | Should -Be 1
+            $script:lastChannel.Notice | Should -Match "1 件を取り込まずに残しました"
+            # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると
+            # 100 件ごとの起動し直しの判定が早まって途中でも呼ばれるが、ここでは増えない
+            # （RestartInterval を差し替えられる runIngestWorker 単体の It で、数えないことを詳しく確かめている）
+            Should -Invoke stopAllApps -Times 1 -Exactly -Scope It
+
+            # 利用者が PowerPoint を閉じたことにすると、後回しにしたファイルを取り込む
+            $global:testUserPptOpen = $false
+            runIndexer $root | Should -Be 0
+            (readTestStatus $root).Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateDone}
+        } finally {
+            Remove-Variable -Name testOfficeAppInUseMessage, testUserPptOpen -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
     BeforeAll {
         $source = newSourceFolder "総務"
@@ -674,6 +777,21 @@ Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
         Should -Invoke stopAllApps -Times 0 -Exactly -Scope It
     }
 
+    It "後回し（Postponed）は取り込んだ件数に数えず、起動し直しを早めない" {
+        Mock invokeIngestTask {
+            param ($task)
+            @{ RelPath = $task.RelPath; Ok = $true; Reroute = $false; Postponed = ($task.RelPath -like "後回し*"); TimedOut = $false }
+        }
+        Mock stopAllApps { }
+        $tasks = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        foreach ($path in "後回し1.pptx", "後回し2.pptx", "a.xlsx", "b.xlsx") { $tasks.Add(@{ RelPath = $path }) }
+        $tasks.CompleteAdding()
+        $results = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        runIngestWorker $tasks $results 10 2
+        @($results.ToArray()).Count | Should -Be 4
+        # 後回しを数えると、起動し直し（2件ごと）が早まって2回になる
+        Should -Invoke stopAllApps -Times 1 -Exactly -Scope It
+    }
 }
 
 Describe "invokeIngestTask（Office が要る）" -Tag Io {
@@ -698,6 +816,20 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result = invokeIngestTask @{ RelPath = "営業\中身が旧形式.docx"; SourcePath = "C:\data\中身が旧形式.docx" } 10
         Remove-Variable -Name testOfficeRequiredMessage -Scope Global
         $result.Reroute | Should -Be $true
+        $result.Ok | Should -Be $false
+        $result.Message | Should -BeNullOrEmpty
+        Should -Invoke stopApp -Times 0 -Exactly -Scope It
+    }
+
+    It "利用者のPowerPointが使用中の例外なら、失敗にせず後回し（Postponed）として返し、Office も終了しない" {
+        ${tmpDir} = Join-Path $TestDrive "postponed_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $global:testOfficeAppInUseMessage = ${officeAppInUseMessage}
+        Mock ingestFile { throw (New-Object System.InvalidOperationException "PowerPoint$global:testOfficeAppInUseMessage") }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\発表.ppt"; SourcePath = "C:\data\発表.ppt" } 10
+        Remove-Variable -Name testOfficeAppInUseMessage -Scope Global
+        $result.Postponed | Should -Be $true
         $result.Ok | Should -Be $false
         $result.Message | Should -BeNullOrEmpty
         Should -Invoke stopApp -Times 0 -Exactly -Scope It

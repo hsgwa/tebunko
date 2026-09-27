@@ -233,7 +233,7 @@ Describe "S3 作成中の操作" -Tag Gui {
         invokeGuiScene $S {
             setGuiStep $S "起動時のタブを［1 インデックス管理］にする（#4 は別の fix で直すまでの回避）"
             selectGuiTab $S "IndexTab" "IndexingStateText"
-            waitGui $S "「前回のインデックス作成が中断しています」" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*中断しています*" } | Out-Null
+            waitGui $S "「まだ取り込んでいないファイルがあります」" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*まだ取り込んでいないファイルがあります*" } | Out-Null
 
             setGuiStep $S "続きから再開"
             startGuiIndexing $S

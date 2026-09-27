@@ -146,7 +146,7 @@ refactor で作る予定の設計。作ったら、この節を実装に合わ�
 | ファイル | 主な関数 | 記載先 |
 |---|---|---|
 | `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits` / `writeUnits` | [インデックスの形式](../indexer/index-format.md) の [Word・PowerPoint のテキスト読み取り](../indexer/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexer/excel.md)、[Word](../indexer/word.md)、[PowerPoint](../indexer/powerpoint.md) |
-| `shared/office/office_app.ps1` | `getApp` / `stopApp` / `stopAllApps` / `startWatchdog` / `stopWatchdog` | [Office アプリ（Excel・Word・PowerPoint）の管理](../indexer/office-apps.md#office-アプリexcelwordpowerpointの管理) |
+| `shared/office/office_app.ps1` | `getApp` / `getOwnSessionProcessIds` / `stopApp` / `stopAllApps` / `startWatchdog` / `stopWatchdog` | [Office アプリ（Excel・Word・PowerPoint）の管理](../indexer/office-apps.md#office-アプリexcelwordpowerpointの管理) |
 | `tebunko/indexer/indexer_plan.ps1` | `findOfficeFiles` / `createTargetList` / `waitForIndexingApproval` | [取り込み対象の決定](../indexer/flow.md#取り込み対象の決定createtargetlist)、[メインフロー](../indexer/flow.md#メインフロー) |
 | `tebunko/indexer/extract_office.ps1` | `ingestFile` / `extractWorkbook` / `extractDocument` | [Excel](../indexer/excel.md)、[Word・PowerPoint の抽出処理](../indexer/office-apps.md#wordpowerpoint-の抽出処理extractdocument) |
 | `tebunko/indexer/index_migrate.ps1` | `publishTsv` / `removeStaleTmpDirs` / `removeDroppedFolders` | [処理の流れと取り込み一覧](../indexer/flow.md)、[配置・命名規則](../indexer/index-format.md#配置命名規則) |
@@ -219,7 +219,7 @@ refactor で作る予定の設計。作ったら、この節を実装に合わ�
 | `readIngestingFiles` | path（既定 `$workspace.IngestingFile`） | `@{RelPath; Count}` の配列 | 取り込み中のファイルの記録（1 行に 1 ファイル。相対パスと、続けて取り込みを始めて終わらなかった回数）を読む。無ければ空。壊れた行は読み飛ばす | [強制終了・時間切れからの再開](../indexer/flow.md#強制終了時間切れからの再開) | インデックス作成 |
 | `writeIngestingFiles` | entries（`@{RelPath; Count}` の配列）, path（既定 `$workspace.IngestingFile`） | – | 取り込み中のファイルを 1 行に 1 つ `<回数><TAB><相対パス>` で記録する。無ければ記録を消す | 同上 | インデックス作成 |
 | `removeIngestingFile` | path（既定 `$workspace.IngestingFile`） | – | 取り込み中のファイルの記録を削除する（無くてもエラーにしない） | 同上 | インデックス作成 |
-| `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
+| `newIndexerChannel` | retryFailed, confirmTargets, workers（既定 -1） | 受け渡しの口（`[hashtable]::Synchronized`） | 画面とインデクサの受け渡しの口を作る（`RetryFailed`・`ConfirmTargets`・`Workers`・`Progress`・`Stop`・`Plan`・`Answer`・`Answered`・`Error`・`ExitCode`・`Notice`・`Postponed`・`OfficePids`）。`Workers` は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト） | [画面とインデクサの受け渡し](threads.md#画面とインデクサの受け渡し) | 画面・indexer.ps1 |
 | `writeIndexingProgress` | phase, processed, remaining, failed, detail, channel（既定はいま動いているインデックス作成の口） | – | インデックス作成の進み具合を受け渡しの口の `Progress` に入れる（口が無ければ何もしない） | [メインフロー](../indexer/flow.md#メインフロー) | インデックス作成（1 ファイルにつき 1 回） |
 | `readIndexingProgress` | channel | `@{Phase; Processed; Remaining; Failed; Detail}` / `$null` | インデックス作成の進み具合を受け渡しの口から読む（まだ無ければ `$null`）。画面が 1 秒ごとに呼ぶ（数万行の取り込み一覧を読み直さない） | [インデックス作成の進み具合](../gui/index-tab.md#インデックス作成の進み具合) | 画面 |
 | `requestIndexingStop` | channel | – | 中止を求める（`Stop` を立て、確認を待っていれば取りやめの返事にする） | 同上 | 画面 |
@@ -442,7 +442,7 @@ flowchart LR
 | `WorkerPool` | size, state, host, priority | – | ランスペースと PowerShell のインスタンスを使い回すプール。`Submit`（仕事を始める）・`Receive`（終わりを待って出力を返す）・`Cancel`・`Close`。`Priority` は仕事を始めるたびにスレッドに設定する。`Prelude` は各スレッドで最初の仕事の前に 1 回だけ実行する | 照合のプール・システムインデックスのプール・BackgroundQueue |
 | `BackgroundQueue` | size, prelude, host | – | 画面から頼まれる短い仕事のスレッド（画面は 2 つで作る）。`Post`（仕事を始める）・`Poll`（終わった仕事の onDone を画面のスレッドで呼び、残りの数を返す）・`Close` | startJob（`shell.ps1`） |
 | `newSearchService` / `SearchService` | libPath, cache, workers | `SearchService` | 検索の司令のスレッド（画面を開いている間 1 つ）。`Request`（前の要求を取り消して新しい要求を渡す。スレッドが止まっていれば作り直す）・`Cancel`・`IsRunning`・`GetFailure`・`Close`（5 秒待って止まらなければスレッドを止める） | 画面 |
-| `newIndexingSession` / `IndexingSession` | indexerPath, channel | `IndexingSession` | インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、`indexer.ps1 -Channel <channel>` を実行する。`IsRunning`・`Stop`・`Wait`・`GetExitCode`（終了コードが無ければ 1）・`GetError`・`KillOffice`（`OfficePids` に記録した Office だけを、プロセス名を確かめて止める）・`Close` | 画面 |
+| `newIndexingSession` / `IndexingSession` | indexerPath, channel | `IndexingSession` | インデックス作成 1 回分のスレッド（MTA・BelowNormal）を作り、`indexer.ps1 -Channel <channel>` を実行する。`IsRunning`・`Stop`・`Wait`・`GetExitCode`（終了コードが無ければ 1）・`GetError`・`GetNotice`（終わりの案内。無ければ空）・`GetPostponed`（後回しにした件数。無ければ 0）・`KillOffice`（`OfficePids` に記録した Office だけを、プロセス名を確かめて止める）・`Close` | 画面 |
 
 ### 元のファイルの特定・画面
 

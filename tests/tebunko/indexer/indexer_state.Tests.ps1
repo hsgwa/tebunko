@@ -240,6 +240,8 @@ Describe "newIndexerChannel / writeIndexingProgress / readIndexingProgress" -Tag
         $channel.IsSynchronized | Should -Be $true
         $channel.Stop | Should -Be $false
         $channel.ExitCode | Should -BeNullOrEmpty
+        $channel.Notice | Should -Be ""
+        $channel.Postponed | Should -Be 0
         $channel.OfficePids.Count | Should -Be 0
     }
 

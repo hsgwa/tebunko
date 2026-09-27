@@ -6,7 +6,7 @@ PowerPoint の旧形式（`.ppt` 等）の変換（[PowerPoint の旧形式の�
 
 ## PowerPoint の旧形式の変換（`extractWithPowerPoint`）
 
-[Word・PowerPoint の抽出処理](office-apps.md#wordpowerpoint-の抽出処理extractdocument)で ZIP ではないと判定したファイル（`.ppt`、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で `.pptx` に変換する。
+[Word・PowerPoint の抽出処理](office-apps.md#wordpowerpoint-の抽出処理extractdocument)で ZIP ではないと判定したファイル（`.ppt`、パスワード付き、拡張子と中身が異なるもの）を、PowerPoint で `.pptx` に変換する。この処理が呼ぶ `getApp` は、利用者が PowerPoint を開いていれば接続せずに例外にするため、その場合はここに来ず、そのファイルは取り込まずに後回し（Postponed）にする（[Office アプリ（Excel・Word・PowerPoint）の管理](office-apps.md#office-アプリexcelwordpowerpointの管理)「PowerPoint」）。
 
 | 項目 | 仕様 |
 |---|---|
