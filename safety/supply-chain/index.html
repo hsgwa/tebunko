@@ -2501,7 +2501,7 @@
 
 
 <h1 id="供給網サプライチェーンとライセンス">供給網（サプライチェーン）とライセンス<a class="headerlink" href="#供給網サプライチェーンとライセンス" title="Permanent link">&para;</a></h1>
-<p>第三者の部品を 1 つも使わないため、実行時の供給網に関する論点は次のように閉じる。部品表は <a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>（CycloneDX 1.6 形式）にある。</p>
+<p>第三者の部品を 1 つも使わないため、実行時の供給網に関する論点は次のように閉じる。部品表の雛形は <a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>（CycloneDX 1.6 形式）にある。ファイルごとの一覧とハッシュを入れた部品表は、配布物を作るたびに zip の中身から作り、リリースに <code>sbom.cdx.json</code> として載せる。</p>
 <table>
 <thead>
 <tr>
@@ -2516,7 +2516,7 @@
 </tr>
 <tr>
 <td>部品表（SBOM）</td>
-<td>CycloneDX 1.6 形式で、配布 zip と並べてリリースに載せる。構成物は本ツール自身のファイルのみで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>safety.Tests.ps1</code> が確かめる）</td>
+<td>CycloneDX 1.6 形式で、配布 zip と並べてリリースに載せる。構成物は本ツール自身のファイルのみで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>new_sbom.Tests.ps1</code> が確かめる）。同じコミット・同じ版から作ると同じ中身になる（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">再現の条件</a>）</td>
 </tr>
 <tr>
 <td>前提ソフトウェア</td>

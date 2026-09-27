@@ -2745,7 +2745,7 @@
 <tr>
 <td><code>sbom.cdx.json</code></td>
 <td>リリース（zip の横）</td>
-<td>部品表</td>
+<td>部品表（CycloneDX 1.6）。版・<code>serialNumber</code>・<code>timestamp</code> と、zip に入る全ファイルのパス・SHA-256 を載せる（<code>tools/new_sbom.ps1</code> が、配布物を作るたびに zip の中身から作る。リポジトリの <code>sbom.cdx.json</code> は雛形）</td>
 </tr>
 </tbody>
 </table>
@@ -2778,7 +2778,8 @@
 </tr>
 </tbody>
 </table>
-<p><code>SHA256SUMS.txt</code> は、同じファイルと <code>sbom.cdx.json</code>・<code>LICENSE</code> の SHA256 をテキストで並べたもので、目視・比較に使える（リリースにも単独で載せている）。手元でカタログとハッシュ一覧を作り直すときは <code>.\tools\new_release_files.ps1</code>（<code>work\release\</code> に出力）を実行する。</p>
+<p><code>SHA256SUMS.txt</code> は、zip に入る全ファイル（<code>scripts\</code>・<code>tebunko.bat</code>・書き換えた <code>README.md</code>・<code>LICENSE</code>・<code>VERSION.txt</code>。zip に入れたバイト列のハッシュ）と、zip の横に置く <code>sbom.cdx.json</code> の SHA256 を、展開した <code>tebunko\</code> から見たパスでテキストに並べたもので、目視・比較に使える（リリースにも単独で載せている）。手元でカタログとハッシュ一覧を作り直すときは <code>.\tools\new_release_package.ps1 -Version &lt;版&gt;</code>（<code>work\release\</code> に出力）を実行する。</p>
+<p><strong>再現の条件</strong>: 同じコミット・同じ版の名前で、Windows PowerShell 5.1 で <code>.\tools\new_release_package.ps1 -Version &lt;版&gt;</code> を実行すると、zip の中身（<code>SHA256SUMS.txt</code> のハッシュ）・<code>SHA256SUMS.txt</code>・<code>sbom.cdx.json</code> が一致する。zip のファイルの時刻はコミットの時刻に、<code>scripts\</code> の一覧は git で追跡しているものだけにし、並びは序数、<code>README.md</code>・<code>LICENSE</code> の改行は CRLF にそろえる。zip のバイト列そのものは、.NET の版が同じときに一致する（圧縮の結果が版で変わりうるため、第三者は zip ではなく中身のハッシュで比べる）。<code>sbom.cdx.json</code> のバイト列は、JSON の字下げ・エスケープが PowerShell の版で変わるため 5.1 で作ったときに一致する。展開したファイルの時刻は、コミットの時刻の UTC の時計の値になる（日本では 9 時間前に見える。動作には使わない）。<code>tebunko.cat</code>（作った時刻を含む）とインストーラーは対象外。</p>
 <p><strong>来歴の署名</strong>: 配布 zip には、ビルドの来歴（どのコミットから、どのワークフローで作ったか）の署名を付ける（GitHub の Artifact Attestations。Sigstore の証明書で署名し、コードサイニング証明書は要らない）。受け取った側は <a href="https://cli.github.com/">GitHub CLI</a> で、zip が本リポジトリのワークフローで作られ、その後変わっていないことを確かめられる。</p>
 <div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
@@ -3043,7 +3044,7 @@
 <li>原本のパスを書き込み・削除の API に渡さないこと、<code>SaveAs</code> の保存先が作業フォルダだけであること、原本を読むのは <code>copyFileShared</code> の読み取りだけであること</li>
 <li>書き込み先が <code>work</code> 配下と <code>%TEMP%</code> 配下に限られること、異常終了で残った作業フォルダを次回起動時に回収すること（<a href="../disclosure/#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>）</li>
 <li>PSScriptAnalyzer の安全性ルール・<code>Error</code> 重大度・制限言語モードの指摘が 0 件であること（未導入の環境では飛ばす）</li>
-<li>安全性の説明（<code>docs/safety/</code>）・<a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM が第三者の部品を含まないこと、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
+<li>安全性の説明（<code>docs/safety/</code>）・<a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM の雛形が本体の説明・ライセンス・前提ソフトウェアを持ち、作った SBOM が第三者の部品を含まず zip の中身と一致すること、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
 </ul>
 <p>テストとコードの指標（安全性の間接的な根拠）:</p>
 <table>

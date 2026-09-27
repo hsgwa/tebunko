@@ -2856,7 +2856,7 @@
 <tr>
 <td><code>sbom.cdx.json</code></td>
 <td>配布用</td>
-<td>部品表（CycloneDX 1.6）。第三者の部品を 1 件も含まないことを示す（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/supply-chain/">供給網（サプライチェーン）とライセンス</a>）。配布 zip と並べてリリースに載せる</td>
+<td>部品表（CycloneDX 1.6）の雛形。本体の説明・ライセンス・前提ソフトウェア・注記だけを持つ。ファイルごとの一覧とハッシュは、配布物を作るときに <code>tools/new_sbom.ps1</code> が足す。第三者の部品を 1 件も含まないことを示す（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/supply-chain/">供給網（サプライチェーン）とライセンス</a>）。配布 zip と並べてリリースに載せる</td>
 </tr>
 <tr>
 <td><code>installer/tebunko.iss</code></td>
@@ -2923,12 +2923,17 @@
 <tr>
 <td><code>tools/new_release_files.ps1</code></td>
 <td>配布用</td>
-<td>配布物のカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を作る（既定の出力先は <code>work/release/</code>）。受け取った側が改ざんの有無を確認できる（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</td>
+<td>配布物のカタログ（<code>tebunko.cat</code>）とハッシュ一覧（<code>SHA256SUMS.txt</code>）を作る（既定の出力先は <code>work/release/</code>）。ハッシュ一覧は zip に入れたバイト列から計算し、見出しの時刻はコミットの時刻にする。受け取った側が改ざんの有無を確認できる（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</td>
+</tr>
+<tr>
+<td><code>tools/new_sbom.ps1</code></td>
+<td>配布用</td>
+<td>配布物の部品表（CycloneDX 1.6）を作る。雛形の <code>sbom.cdx.json</code> に、版・<code>serialNumber</code>・<code>timestamp</code>・zip に入る全ファイルのパスと SHA-256 を足す</td>
 </tr>
 <tr>
 <td><code>tools/new_release_package.ps1</code></td>
 <td>配布用</td>
-<td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE・VERSION.txt）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../../testing/ci/#ci">CI</a>）</td>
+<td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE・VERSION.txt）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。同じコミット・同じ版の名前なら、zip の中身・ハッシュ一覧・部品表が同じになる（ファイルの時刻はコミットの時刻、一覧は <code>git ls-files</code>、改行は CRLF）。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../../testing/ci/#ci">CI</a>）</td>
 </tr>
 <tr>
 <td><code>tools/check_release_tag.ps1</code></td>
