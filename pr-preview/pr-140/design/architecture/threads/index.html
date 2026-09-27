@@ -2795,7 +2795,7 @@
 <td>アプリ</td>
 <td>STA</td>
 <td>Normal</td>
-<td>表示と操作の受け付けだけ。ファイルの読み込みなどの重い処理はしない</td>
+<td>表示と操作の受け付けだけ。ファイルの読み込みなどの重い処理はしない。<strong>ネットワークのパス（UNC・ネットワークドライブ）には触らない</strong>（<code>testNetworkPath</code> で見分け、触る処理はネットワークを調べる列に出す）。届かない共有では <code>Test-Path</code> などの OS の呼び出しが十数秒〜二十秒戻らず、そのまま「応答なし」になるため</td>
 </tr>
 <tr>
 <td>検索の司令</td>
@@ -2820,6 +2820,14 @@
 <td>MTA</td>
 <td>Normal</td>
 <td>画面から頼まれる短い仕事（<code>startJob</code>。プレビューの読み込み・状態の読み直し・プロセスの一覧など）。長い仕事の間もプレビューが待たないよう 2 つにする</td>
+</tr>
+<tr>
+<td>ネットワークを調べる</td>
+<td>2</td>
+<td>アプリ</td>
+<td>MTA</td>
+<td>Normal</td>
+<td>元のフォルダ・元のファイルなど、ネットワークのパスに触る仕事（<code>startJob -queue "network"</code>）。届かない共有で OS の呼び出しが戻らなくても、バックグラウンド（プレビュー等）の列が塞がれないよう分ける。ネットワークのパスがある利用者だけが、初めて使うときに作る</td>
 </tr>
 <tr>
 <td>インデクサの司令</td>
@@ -3093,7 +3101,8 @@
     G-&gt;&gt;S: 検索を取り消す
     G-&gt;&gt;G: closeTimer・インデックス作成のタイマーを止める
     G-&gt;&gt;I: IndexingSession.Close
-    G-&gt;&gt;S: 検索の司令（照合のプール）・バックグラウンドを閉じる（jobTimer を止める）
+    G-&gt;&gt;S: 検索の司令（照合のプール）を閉じる
+    G-&gt;&gt;S: バックグラウンド・ネットワークを調べる列に Abandon（止まった仕事を待たない）
     G-&gt;&gt;G: ミューテックスを解放
     G-&gt;&gt;U: 閉じる</code></pre>
 <ul>
@@ -3101,6 +3110,9 @@
 <li>Office が固まってインデクサが戻らないときは、まず監視が制限時間で Office を止める。画面は 60 秒待っても終わらなければ、インデックス作成が起動した Office を PID で止め（<code>IndexingSession.KillOffice</code>）、さらに 15 秒待つ。それでも終わらなければ、そのまま閉じる（スレッドは <code>IndexingSession.Close</code> で止める）。</li>
 <li>止めるのは、インデックス作成が起動して PID を記録した Office（<code>OfficePids</code>）だけである。PID が別のプロセスに使い回されていないよう、記録したプロセス名と同じかも確かめる。利用者が開いていた Office は止めない。</li>
 <li>止めるのを待っている間にもう一度閉じようとしても、何もしない。</li>
+<li><strong>バックグラウンド・ネットワークを調べる列は、<code>Close</code> ではなく <code>BackgroundQueue.Abandon</code> で片づける。</strong> 届かない共有の <code>Test-Path</code> など、OS の呼び出しで戻らない仕事があると、<code>Close</code>（<code>WorkerPool.Cancel</code> → <code>PowerShell.Stop()</code> → <code>Dispose()</code>）は止まるまで待ってしまう。<code>Abandon</code> は、終わった仕事は片づけ、終わっていない仕事には止める依頼（<code>BeginStop</code>）だけを出してすぐ戻る。終わっていない仕事の <code>PowerShell</code> とランスペースのプールは <code>Dispose</code> せず、後始末はプロセスの終わりに任せる。<code>WorkerPool.Cancel</code>・<code>BackgroundQueue.Close</code> 自体の動き（止まるまで待つ）は変えない。中止した検索がその後にヒットや件数を書かないことが、検索の中止（<a href="#インデックス作成の並列化">インデックス作成の並列化</a>ではなく <code>pack_search.ps1</code> の中止）で前提になっているため。</li>
+<li><strong>多重起動の鍵（ミューテックス）は、止まった裏の仕事を待たずにすぐ放す。</strong> 画面はすぐ消え、前のプロセスは止まった呼び出しが戻った後（OS の呼び出しの分だけ）に自分で終わる。次の起動は、鍵が放たれていれば数秒以内にできる。</li>
+<li>閉じる処理の途中で予期しない例外が起きたら、知らせたうえで、インデックス作成中なら確認を出さずに止める流れに入り、そうでなければそのまま閉じる。</li>
 </ul>
 <h2 id="gc-とメモリ">GC とメモリ<a class="headerlink" href="#gc-とメモリ" title="Permanent link">&para;</a></h2>
 <p>スレッドは同じプロセスのヒープを使うため、インデクサや検索が大量にメモリを使うと、GC で画面のスレッドも止まる。</p>

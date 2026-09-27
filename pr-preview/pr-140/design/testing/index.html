@@ -2524,6 +2524,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#画面のスモークテスト" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画面のスモークテスト
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#画面の確認" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2633,6 +2644,12 @@
 <td>層の決まり（判断層・状態層が画面に触らないこと、画面以外の読み込み口が <code>ui/</code> を読み込まないこと）・文字コード・危険な処理（<code>Invoke-Expression</code>・通信・実行時コンパイルなど）の混入</td>
 <td><code>tests/meta/</code>。<a href="ci/">テストの実行と CI</a></td>
 <td>CI の <code>test</code></td>
+</tr>
+<tr>
+<td>画面のスモークテスト</td>
+<td>画面の起動・タブ・検索・インデックスの作成・ワークスペースの変更・プロセス停止・閉じるの流れが壊れること（XAML の読み込み・イベントの配線・ダイアログの開閉・後片付けの例外）</td>
+<td><code>gui.yml</code>（<code>gui-smoke</code>。<code>tests/gui/</code>・タグ <code>Gui</code>）。手元は <code>.\tests\run.ps1 -Tag Gui</code>。<a href="#画面のスモークテスト">画面のスモークテスト</a></td>
+<td>–（必須にしない）</td>
 </tr>
 <tr>
 <td>静的解析</td>
@@ -3449,8 +3466,479 @@
 </tr>
 </tbody>
 </table>
+<h2 id="画面のスモークテスト">画面のスモークテスト<a class="headerlink" href="#画面のスモークテスト" title="Permanent link">&para;</a></h2>
+<p>本物の画面（<code>scripts/tebunko/gui.ps1</code>）を別のプロセスとして開き、UI オートメーションで操作して、<strong>画面遷移が壊れていないこと</strong>を毎回機械で確かめる。XAML の読み込みの例外・読み込む順の誤り・イベントの配線の誤り・ダイアログの開閉と戻り方の誤り・閉じるときの後片付けの例外は、<a href="#画面の単体テスト">画面の単体テスト</a>（<code>$ui</code> を偽物にして WPF を動かさない）では見つからず、手で動かすまで分からなかった。画面を足すたびに手で確かめる代わりに、このテストが通ることを見る。</p>
+<ul>
+<li>置き場所は <code>tests/gui/</code>、タグは <code>Gui</code>。共通の関数は <code>gui_helpers.ps1</code>、場面ごとのテストは <code>smoke</code>・<code>index</code>・<code>search</code>・<code>settings</code>・<code>process</code> の <code>*.Tests.ps1</code></li>
+<li>流し方は、CI が <code>gui.yml</code>（ジョブ <code>gui-smoke</code>。<a href="ci/#ci"><code>gui.yml</code></a>）、手元が <code>.\tests\run.ps1 -Tag Gui</code>。既定の実行（<code>.\tests\run.ps1</code>）とコミット前のフックでは流さない。手元で流している間（約 4 分）は、マウス・キーボードに触らない</li>
+<li>起動・検索・取り込みの秒数は出力に出すだけで、合否には使わない（性能は <a href="ci/#ci"><code>perf-check.yml</code></a> の回帰テストが見る）</li>
+</ul>
+<p><strong>仕組み</strong></p>
+<table>
+<thead>
+<tr>
+<th>決まり</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>隔離</td>
+<td>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイル（<code>setting.config</code>）とワークスペースも写した先に置く（<code>workspaceFolder</code> を写した先の <code>work</code> にする。空にすると利用者の本物のワークスペース <code>Documents\tebunko_ws</code> を使うため）。流す前後で、作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、（手元では）<code>Documents\tebunko_ws</code>、Office のプロセスの数が変わらないことも確かめる。多重起動の防止は配置フォルダごとなので、手元で開いている tebunko と重ならない</td>
+</tr>
+<tr>
+<td>探す</td>
+<td>部品は <code>AutomationId</code>（<code>x:Name</code>）で探す。名前の無い部品（確認ダイアログの選択肢・メッセージボックスのボタン）は表示の文字で探す。ダイアログ・確認・メッセージボックス・メニューは、UI オートメーションの木では本体の窓の子の窓として出る</td>
+</tr>
+<tr>
+<td>操作</td>
+<td>パターン（<code>InvokePattern</code>・<code>ValuePattern</code>・<code>SelectionItemPattern</code>・<code>TogglePattern</code>・<code>WindowPattern.Close</code>）で行い、マウス・キーボードの合成は使わない。モーダルを開く操作は別のスレッドから呼ぶ。Win32 のダイアログ（OS のフォルダ選択）のボタンと欄はパターンを持たないため、窓のメッセージ（<code>BM_CLICK</code>・<code>WM_SETTEXT</code>）で操作する</td>
+</tr>
+<tr>
+<td>待つ</td>
+<td>100 ms ごとに状態を調べる（時間では待たない）。上限は起動 90 秒・取り込みの完了 120 秒・ほかは 30 秒。待つ間に、予定していないエラーの窓（<code>予期しないエラー</code>・<code>エラーが発生しました</code> など）が出たら、その文言で失敗にする</td>
+</tr>
+<tr>
+<td>OS のフォルダ選択</td>
+<td>差し替えずに、開いて閉じるまで本物で動かす（<code>selectFolder</code> のリフレクションで開く部分を確かめるため）。ボタンと欄は言語に依らない ID（［フォルダーの選択］は <code>1</code>、［キャンセル］は <code>2</code>、フォルダ名の欄は <code>1152</code>）で探す（ランナーは英語、手元は日本語）</td>
+</tr>
+<tr>
+<td>失敗したとき</td>
+<td>失敗した手順の名前を文言に入れ、画面の画像・写した先の <code>画面エラー.txt</code>・<code>インデックス作成ログ.txt</code>・窓の一覧を <code>work\test\gui\&lt;場面&gt;\</code> に置く（CI は成果物 <code>gui-smoke-results</code> に上げる）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>場面</strong>（1 場面 = 1 回の起動。1 つのプロセスを長く操作すると、途中で失敗したときに後ろが続けて落ち、原因も追いにくいため。場面ごとに別の <code>Describe</code> にして、前の場面の失敗が後ろに響かないようにする）</p>
+<table>
+<thead>
+<tr>
+<th>場面</th>
+<th>ファイル</th>
+<th>前提のデータ</th>
+<th>流れ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>S1 起動・検索・閉じる</td>
+<td><code>smoke</code></td>
+<td>インデックス 1 つ</td>
+<td>起動 → 4 つのタブ → 検索・プレビュー → 「tebunko について」 → 多重起動 → 閉じる</td>
+</tr>
+<tr>
+<td>S2 インデックスの管理と作成</td>
+<td><code>index</code></td>
+<td>インデックス無し。元のフォルダに .docx・.pptx と、壊れた .docx 1 つ</td>
+<td>起動（［1］）→［2 検索］の［インデックスを作成する］→ 追加（キャンセル・注意・参照・OK）→ 編集 → ［作成］の切り替え → 作成（確認でキャンセル → 開始 → 完了・失敗一覧）→ 削除（キャンセル・削除する）→ 閉じる</td>
+</tr>
+<tr>
+<td>S3 作成中の操作</td>
+<td><code>index</code></td>
+<td>.docx・.pptx を 100 組（300 ファイル。読み取りのスレッド <code>ingestThreads</code> を 1 にして、中止してもすぐには終わらないようにする）</td>
+<td>作成を開始 → 追加・編集・削除が押せない・［8］の警告 → ［中止］（キャンセル・中止する）→ 閉じて起動し直す（中断中。#4 は保留のため、テストの側で［1］を選び直す）→ 続きから再開 → 閉じる（［閉じない］・［止めて閉じる］）→ 終了コード 0</td>
+</tr>
+<tr>
+<td>S4 検索の遷移</td>
+<td><code>search</code></td>
+<td>インデックス 1 つ（元のファイルが無い行）</td>
+<td>不正な正規表現 → ［すべて解除］［すべて選択］→ 検索 → 開閉・絞り込み → 見つからないファイル（キャンセル・フォルダを選ぶ → キャンセル）→ 閉じる</td>
+</tr>
+<tr>
+<td>S5 ワークスペースの変更</td>
+<td><code>settings</code></td>
+<td>インデックス 1 つ。空のフォルダ・空でないフォルダ・インデックスのあるフォルダ</td>
+<td>［変更…］（キャンセル・使えないフォルダ・空のフォルダ・空でないフォルダ・インデックスのあるフォルダ）→ 閉じる</td>
+</tr>
+<tr>
+<td>S6 既定のワークスペース（CI だけ）</td>
+<td><code>settings</code></td>
+<td><code>workspaceFolder</code> を空にし、既定のワークスペースにほかのファイルを置く</td>
+<td>起動時の警告 → 作成の開始で警告 → ［既定に戻す］→ 閉じる</td>
+</tr>
+<tr>
+<td>S7 プロセス停止</td>
+<td><code>process</code></td>
+<td>偽の Office プロセス</td>
+<td>［9］→ 一覧に出る → ［すべて終了］［バックグラウンドのみ終了］でキャンセル → 選んで終了 → 閉じる</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>取り込むファイルは <code>tests/testdata/office/</code> の .docx・.pptx（Office を使わずに直接読める）を写す。.xlsx は Excel が要るので使わない。失敗させるファイルは、ZIP としては開けるが <code>word/document.xml</code> の XML が壊れている .docx をテストの中で作る（ZIP でない旧形式・パスワード付きは、Word・PowerPoint に回し直されて Office が動くので使わない）</li>
+<li><strong>偽の Office プロセス</strong>（S7）は、<code>%windir%\System32\PING.EXE</code> を <code>EXCEL.EXE</code> の名前で写して動かしたもの（窓が無いのでバックグラウンドの扱い）。本物の Office を止めないよう、［すべて終了］［バックグラウンドのみ終了］は確認で［キャンセル］だけを押し、実際に止めるのは偽のプロセスを選んだ［選択したプロセスを終了］だけにする。手元で偽のほかに Excel・Word・PowerPoint が動いているときは、［すべて終了］［バックグラウンドのみ終了］の段階だけを飛ばして理由をログに出す（確認を出す作りが壊れていると本物の Office が保存されずに止まるため）</li>
+<li>S3 の取り込みは時間に頼る。取り込みが終わってしまったときは「間に合わなかった」という文言で失敗にする（ファイルの数を増やして直す）</li>
+<li>S6 は CI だけで流す（手元では理由を出して飛ばす）。既定のワークスペースは利用者の本物のワークスペースだから</li>
+</ul>
+<p><strong>画面遷移の一覧</strong></p>
+<p>「扱い」は、上の場面か、対象外（下の表）。</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>起点</th>
+<th>操作</th>
+<th>行き先</th>
+<th>戻り方</th>
+<th>扱い</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>起動</td>
+<td><code>gui.ps1</code> を起動</td>
+<td>起動中の表示 → 本体</td>
+<td>–</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>起動</td>
+<td>インデックスがある</td>
+<td>［2 検索］が選ばれる</td>
+<td>–</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>3</td>
+<td>起動</td>
+<td>インデックスが無い</td>
+<td>［1 インデックス管理］が選ばれる</td>
+<td>–</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>4</td>
+<td>起動</td>
+<td>取り込みが中断している</td>
+<td>［1 インデックス管理］が選ばれる</td>
+<td>–</td>
+<td>S3（保留。下の「見つかった不具合」）</td>
+</tr>
+<tr>
+<td>5</td>
+<td>起動</td>
+<td>既定のワークスペースにほかのファイルがある</td>
+<td>メッセージボックス（警告）→［8 設定］が選ばれる</td>
+<td>［OK］</td>
+<td>S6</td>
+</tr>
+<tr>
+<td>6</td>
+<td>起動</td>
+<td>同じフォルダのツールをもう一度起動</td>
+<td>2 つ目はすぐ終わり、1 つ目が残る</td>
+<td>–</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>7</td>
+<td>本体</td>
+<td>4 つのタブを選ぶ</td>
+<td>各タブ</td>
+<td>–</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>8</td>
+<td>本体</td>
+<td>［⋯］→「tebunko について」</td>
+<td>ダイアログ（版）</td>
+<td>［閉じる］</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>9</td>
+<td>本体</td>
+<td>閉じる（作成中でない）</td>
+<td>終了（終了コード 0）</td>
+<td>–</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>10</td>
+<td>本体</td>
+<td>閉じる（作成中）</td>
+<td>確認「止めてから閉じますか」</td>
+<td>［閉じない］で戻る／［インデックス作成を止めて閉じる］で止めてから終了</td>
+<td>S3</td>
+</tr>
+<tr>
+<td>11</td>
+<td>［1］</td>
+<td>［追加…］</td>
+<td>インデックスの追加のダイアログ</td>
+<td>［キャンセル］／［OK］</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>12</td>
+<td>追加・編集</td>
+<td>入力が足りないまま［OK］</td>
+<td>ダイアログの中に注意（<code>ErrorText</code>）</td>
+<td>直して［OK］</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>13</td>
+<td>追加・編集</td>
+<td>［参照…］</td>
+<td>OS のフォルダ選択</td>
+<td>［キャンセル］で変わらない／フォルダを選ぶと欄に入る</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>14</td>
+<td>［1］</td>
+<td>［編集…］</td>
+<td>インデックスの編集のダイアログ</td>
+<td>［キャンセル］／［OK］</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>15</td>
+<td>［1］</td>
+<td>［削除］</td>
+<td>確認「一覧から削除しますか」</td>
+<td>［キャンセル］／［削除する］</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>16</td>
+<td>［1］</td>
+<td>［作成］のチェックを切り替える</td>
+<td>チェックの状態が変わり、設定に保存され、［インデックス作成を開始］の可否に反映される</td>
+<td>–</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>17</td>
+<td>［1］</td>
+<td>［インデックス作成を開始］</td>
+<td>クロール → 確認ダイアログ（件数・失敗分の取り込み直し）</td>
+<td>［キャンセル］で取りやめ／［インデックス作成を開始］で取り込み</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>18</td>
+<td>［1］</td>
+<td>取り込みが終わる</td>
+<td>完了の表示、失敗したファイルの一覧</td>
+<td>–</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>19</td>
+<td>［1］</td>
+<td>作成中に［中止］</td>
+<td>確認「中止しますか」</td>
+<td>［キャンセル］で続く／［中止する］で止まる</td>
+<td>S3</td>
+</tr>
+<tr>
+<td>20</td>
+<td>［1］</td>
+<td>作成中の［追加…］［編集…］［削除］</td>
+<td>3 つのボタンが押せない。作成が終わると、また押せる</td>
+<td>–</td>
+<td>S3</td>
+</tr>
+<tr>
+<td>21</td>
+<td>［8］</td>
+<td>作成中に［変更…］</td>
+<td>メッセージボックス「作成中は変えられません」</td>
+<td>［OK］</td>
+<td>S3</td>
+</tr>
+<tr>
+<td>22</td>
+<td>［1］</td>
+<td>［インデックス作成を開始］（既定のワークスペースが使えない）</td>
+<td>メッセージボックス →［8 設定］</td>
+<td>［OK］</td>
+<td>S6</td>
+</tr>
+<tr>
+<td>23</td>
+<td>［2］</td>
+<td>［検索］</td>
+<td>結果の表・件数・行を選ぶとプレビュー</td>
+<td>–</td>
+<td>S1</td>
+</tr>
+<tr>
+<td>24</td>
+<td>［2］</td>
+<td>正規表現で不正な式を入れる</td>
+<td>注意（<code>WordNotice</code>）。文字どおり検索にフォールバックするため［検索］は押せたまま</td>
+<td>式を直す</td>
+<td>S4</td>
+</tr>
+<tr>
+<td>25</td>
+<td>［2］</td>
+<td>検索対象のツリーで［すべて解除］／［すべて選択］</td>
+<td>検索できない注意／元に戻る</td>
+<td>–</td>
+<td>S4</td>
+</tr>
+<tr>
+<td>26</td>
+<td>［2］</td>
+<td>インデックスが無いときの［インデックスを作成する］</td>
+<td>［1 インデックス管理］</td>
+<td>–</td>
+<td>S2</td>
+</tr>
+<tr>
+<td>27</td>
+<td>［2］</td>
+<td>結果の［すべて展開］［すべて折りたたむ］・絞り込み</td>
+<td>表の見出しの開閉・絞り込んだ件数</td>
+<td>絞り込みを消す</td>
+<td>S4</td>
+</tr>
+<tr>
+<td>28</td>
+<td>［2］</td>
+<td>結果の右クリックのメニュー［コピー］［パスをコピー］、プレビューのメニュー</td>
+<td>クリップボードに入る</td>
+<td>–</td>
+<td>対象外</td>
+</tr>
+<tr>
+<td>29</td>
+<td>［2］</td>
+<td>元のファイルが無い行で［… で開く］</td>
+<td>確認「… が見つかりません」</td>
+<td>［キャンセル］／［フォルダを選ぶ］→ フォルダ選択 →［キャンセル］で確認に戻らず終わる</td>
+<td>S4</td>
+</tr>
+<tr>
+<td>30</td>
+<td>［8］</td>
+<td>［変更…］</td>
+<td>OS のフォルダ選択</td>
+<td>［キャンセル］で変わらない</td>
+<td>S5</td>
+</tr>
+<tr>
+<td>31</td>
+<td>［8］</td>
+<td>［変更…］で空のフォルダ</td>
+<td>確認「ワークスペースを変える」</td>
+<td>［キャンセル］／実行で中身が移り、画面が切り替わる</td>
+<td>S5</td>
+</tr>
+<tr>
+<td>32</td>
+<td>［8］</td>
+<td>［変更…］で空でないフォルダ</td>
+<td>確認（中にフォルダを作る／そのまま使う）</td>
+<td>［キャンセル］／中にフォルダを作って切り替わる</td>
+<td>S5</td>
+</tr>
+<tr>
+<td>33</td>
+<td>［8］</td>
+<td>［変更…］でインデックスのあるフォルダ</td>
+<td>確認（あるインデックスを使う／消してやり直す）</td>
+<td>［キャンセル］／［あるインデックスを使う］で切り替わる</td>
+<td>S5</td>
+</tr>
+<tr>
+<td>34</td>
+<td>［8］</td>
+<td>［変更…］で使えないフォルダ（今のインデックスの中）</td>
+<td>メッセージボックス（警告）</td>
+<td>［OK］</td>
+<td>S5</td>
+</tr>
+<tr>
+<td>35</td>
+<td>［8］</td>
+<td>［既定に戻す］</td>
+<td>確認 → 既定のワークスペースに切り替わる</td>
+<td>［キャンセル］／実行</td>
+<td>S6</td>
+</tr>
+<tr>
+<td>36</td>
+<td>［9］</td>
+<td>［更新］</td>
+<td>一覧（偽の Office プロセスが出る）</td>
+<td>–</td>
+<td>S7</td>
+</tr>
+<tr>
+<td>37</td>
+<td>［9］</td>
+<td>［すべて終了］［バックグラウンドのみ終了］</td>
+<td>確認「… 件終了しますか」</td>
+<td>［キャンセル］だけ。手元で偽のほかに Office が動いていれば飛ばす</td>
+<td>S7</td>
+</tr>
+<tr>
+<td>38</td>
+<td>［9］</td>
+<td>偽のプロセスを選んで［選択したプロセスを終了］</td>
+<td>確認 → ［終了する］で一覧から消える</td>
+<td>［キャンセル］／［終了する］</td>
+<td>S7</td>
+</tr>
+</tbody>
+</table>
+<p><strong>このテストで見つかった不具合（#4。保留）</strong>: 起動時のタブの決定（<code>gui.ps1</code>）は <code>$script:indexingState.Pending -gt 0</code> を見るが、この時点では <code>$script:indexingState</code> はまだ非同期の読み込み（<code>loadStartupData</code>。<code>ContentRendered</code> の後）前で常に <code>$null</code>。実質 <code>!(testIndexExists())</code> だけで決まり、1 件でも取り込み済みのファイルがあれば（<code>testIndexExists()</code> が true になる）、中断中でも ［2 検索］が選ばれる。<code>tests/gui/index.Tests.ps1</code>（S3）では、この不具合を踏まえてタブを明示的に選び直したうえで、続きの遷移（#10）を確かめている。直しは別の fix「fix: 取り込みが中断しているときは、起動したときにインデックス管理のタブを開く」（起票済み）で行う。</p>
+<p><strong>画面のスモークテストの対象外</strong>（理由と代わりの確かめ）</p>
+<table>
+<thead>
+<tr>
+<th>遷移</th>
+<th>理由</th>
+<th>代わり</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>元のファイルを開く（通常・読み取り専用・新規）、フォルダを開く、ログを開く、結果をファイルに出力、失敗したファイルのフォルダを開く</td>
+<td>行き先が外のアプリ（Office・エクスプローラー・メモ帳）。ランナーに Office が無く、手元では利用者の窓と区別しにくい</td>
+<td><code>tests/tebunko/ui/open_source.Tests.ps1</code>（<code>Invoke-Item</code>・<code>Start-Process</code> を偽物にして確かめている）。<a href="#画面の確認">画面の確認</a>の手の確かめ</td>
+</tr>
+<tr>
+<td>フォルダを選び直して元のファイルが見つかる（#29 の先）</td>
+<td>見つかると Office で開く（外のアプリ）</td>
+<td>同上（<code>findMovedSource</code>・<code>resolveSourcePath</code> のテスト）</td>
+</tr>
+<tr>
+<td>ドラッグ＆ドロップ、一覧のダブルクリック</td>
+<td>UI オートメーションに合成のマウスの操作が無い（行き先は［追加…］［編集…］［開く］と同じ）</td>
+<td>行き先はボタンから通す。手の確かめ</td>
+</tr>
+<tr>
+<td>キーボードのショートカット（Ctrl+F・Ctrl+Shift+F・F5・Esc・Enter）</td>
+<td>キーの合成はフォーカスに頼り、壊れやすい</td>
+<td>手の確かめ（後で足す候補）</td>
+</tr>
+<tr>
+<td>右クリックのメニュー［コピー］［パスをコピー］、プレビューのメニュー（#28）</td>
+<td>UI オートメーションでは右クリックのメニューを開けない（行き先は結果の行の選択・プレビューと同じ）</td>
+<td><code>tests/tebunko/ui/open_source.Tests.ps1</code>（コピーの内容の単体テスト）。リリース前の手の確かめ</td>
+</tr>
+<tr>
+<td>予期しない例外のメッセージボックス（<code>safe</code>・<code>trap</code>）、インデクサが続けられないエラー（終了コード 1）、閉じるときに 60 秒待って Office を止める</td>
+<td>異常を起こすには本体に仕掛けが要る</td>
+<td><code>indexer.Tests.ps1</code>・<code>indexing_session.Tests.ps1</code>。スモークテストでは、これらの窓が出たらその文言で失敗にする</td>
+</tr>
+<tr>
+<td>表示倍率ごとの見た目、アイコン</td>
+<td>見た目の確かめ</td>
+<td>手の確かめ</td>
+</tr>
+</tbody>
+</table>
 <h2 id="画面の確認">画面の確認<a class="headerlink" href="#画面の確認" title="Permanent link">&para;</a></h2>
-<p>確認欄：◎ = テスト用のコピー（一時フォルダ）で画面を動かして確認済み、空欄・「要手動」 = 未確認（手動で確認する）。</p>
+<p>確認欄：◎ = テスト用のコピー（一時フォルダ）で画面を動かして確認済み、「自動」 = <a href="#画面のスモークテスト">画面のスモークテスト</a>が毎回確かめる（S1〜S7 は場面）、空欄・「要手動」 = 未確認（手動で確認する）。</p>
 <table>
 <thead>
 <tr>
@@ -3463,27 +3951,27 @@
 <tr>
 <td>起動時のタブが状態（未作成・中断中・失敗あり・通常）に応じて変わる</td>
 <td><a href="../gui/#起動時に開くタブ">起動時に開くタブ</a></td>
-<td>◎（中断中）</td>
+<td>◎（中断中）。未作成→S2、通常→S1 は自動。中断中で自動的に切り替わること（#4）は保留（下の「見つかった不具合」）</td>
 </tr>
 <tr>
 <td>インデックス一覧・チェック・存在の判定、ドラッグ＆ドロップ・［参照…］、<code>"</code> 付きのパスの貼り付け</td>
 <td><a href="../gui/index-tab/">［1 インデックス管理］タブ</a></td>
-<td>一覧・判定は◎</td>
+<td>一覧・判定は◎。追加・編集・削除・［参照…］は自動（S2）</td>
 </tr>
 <tr>
-<td>インデックス一覧の［作成］チェックの切替が保存されること（Click で配線）</td>
+<td>インデックス一覧の［作成］チェックの切替が保存されること（Checked・Unchecked で配線）</td>
 <td><a href="../gui/index-tab/">［1 インデックス管理］タブ</a></td>
-<td>要手動</td>
+<td>自動（S2）</td>
 </tr>
 <tr>
 <td>フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと）</td>
 <td><a href="../gui/index-tab/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a></td>
-<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動</td>
+<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動。自動（S2・S5。ランナーの英語の Windows でも）</td>
 </tr>
 <tr>
 <td>状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止</td>
 <td><a href="../gui/index-tab/#一覧の列">一覧の列</a></td>
-<td>◎</td>
+<td>◎。作成中に追加・編集・削除が押せないことは自動（S3）</td>
 </tr>
 <tr>
 <td>インデックス作成の進み具合（件数・失敗・残り時間・取り込み中のファイル・終了後の表示）</td>
@@ -3493,12 +3981,12 @@
 <tr>
 <td>インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］）</td>
 <td><a href="../gui/index-tab/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a></td>
-<td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動</td>
+<td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動。開く・［キャンセル］・開始は自動（S2・S3）</td>
 </tr>
 <tr>
 <td>インデックス作成中に画面を閉じる（止めてから閉じる確認・<code>インデックス作成を止めています…</code>・止まってから閉じる。60 秒で Office を止める）</td>
 <td><a href="../gui/index-tab/#中止終了ログ">中止・終了・ログ</a>、<a href="../gui/state-flow/#閉じる">閉じる</a></td>
-<td>要手動</td>
+<td>要手動。確認・止めてから閉じる・終了コード 0 は自動（S3）。60 秒待って Office を止める段階は手</td>
 </tr>
 <tr>
 <td>検索中の進捗表示・中止、大量ヒット時の打ち切り、検索中も画面を操作できること</td>
@@ -3508,7 +3996,7 @@
 <tr>
 <td><code>(株)</code> <code>1.5</code> <code>C++</code> の文字どおり検索と正規表現検索、不正な正規表現の注意</td>
 <td><a href="../gui/search-tab/#検索ワードの扱い">検索ワードの扱い</a></td>
-<td>◎</td>
+<td>◎。不正な正規表現の注意は自動（S4）</td>
 </tr>
 <tr>
 <td>一致箇所の強調、並べ替え、絞り込み</td>
@@ -3528,12 +4016,12 @@
 <tr>
 <td>検索対象ツリーの 3 状態チェック（親子伝播）・展開時の子読み込み</td>
 <td><a href="../gui/search-tab/#検索対象のツリーno13">検索対象のツリー（No.13）</a></td>
-<td>3 状態・検索範囲と除外の組み立ては◎（<a href="#画面の単体テスト">画面の単体テスト</a>）。クリック操作・展開は要手動</td>
+<td>3 状態・検索範囲と除外の組み立ては◎（<a href="#画面の単体テスト">画面の単体テスト</a>）。クリック操作・展開は要手動。［すべて解除］［すべて選択］は自動（S4）</td>
 </tr>
 <tr>
 <td>Excel の該当シート・セルが選択された状態で開くこと、Word・PowerPoint が開くこと、ファイルが無い場合（フォルダを選ぶ確認・フォルダ選択）</td>
 <td><a href="../gui/search-tab/#元のファイルを開く">元のファイルを開く</a></td>
-<td>元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（<code>C3</code>）が選択されることは◎（<code>openInExcel</code> にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動</td>
+<td>元のファイルのパスの特定・コピーしたインデックスからの特定・選んだフォルダからの探索と置き換え、Excel を「通常」で開いたときに該当シート・セル（<code>C3</code>）が選択されることは◎（<code>openInExcel</code> にテストデータのブックを渡して確認）。読み取り専用・新規、Word・PowerPoint、ファイルが無い場合は要手動。ファイルが無い場合の確認と［フォルダを選ぶ］は自動（S4）</td>
 </tr>
 <tr>
 <td>コピーした行を Excel に貼ったときの列の位置、結果ファイルの形式</td>
@@ -3543,7 +4031,7 @@
 <tr>
 <td>Office プロセスの一覧・各終了ボタン・確認ダイアログ・インデックス作成中の警告</td>
 <td><a href="../gui/process-tab/">［9 プロセス停止］タブ</a></td>
-<td>一覧・ボタンの有効／無効のみ◎</td>
+<td>一覧・ボタンの有効／無効のみ◎。偽のプロセスで一覧・確認・選んで終了は自動（S7）</td>
 </tr>
 <tr>
 <td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko）</td>
@@ -3558,7 +4046,7 @@
 <tr>
 <td>多重起動したときに、2 つ目が終了して既存のウィンドウが前面に出ること</td>
 <td><a href="../gui/#ウィンドウ">ウィンドウ</a>、<a href="../gui/implementation/#待たせ方の方針画面を固まらせない">待たせ方の方針（画面を固まらせない）</a></td>
-<td>最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動）</td>
+<td>最小化からの復帰は◎。別アプリが前面のときのフォーカス奪取は OS の制限で不確実（要手動）。2 つ目が終わり 1 つ目が残ることは自動（S1）</td>
 </tr>
 <tr>
 <td>zip 展開直後（Mark-of-the-Web 付き）から <code>tebunko.bat</code> で起動でき、印が消えること（<code>Bypass</code> なし・<code>RemoteSigned</code>）</td>

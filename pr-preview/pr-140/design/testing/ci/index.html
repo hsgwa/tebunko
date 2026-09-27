@@ -2679,6 +2679,10 @@
 <td>画面の判断層（<code>index_view</code>・<code>indexing_view</code>・<code>search_view</code>・<code>preview_view</code>・<code>settings_view</code>）と、<code>$ui</code> を偽物にした画面の部品（<code>result_list</code>・<code>open_source</code>・<code>preview</code>・<code>index_tree</code>）・型（<code>types</code>）</td>
 </tr>
 <tr>
+<td><code>tests/gui/</code></td>
+<td>画面のスモークテスト（<code>gui_helpers</code>＝共通の関数、<code>smoke</code>・<code>index</code>・<code>search</code>・<code>settings</code>・<code>process</code>＝場面。タグ <code>Gui</code>。<a href="../#画面のスモークテスト">画面のスモークテスト</a>）</td>
+</tr>
+<tr>
 <td><code>tests/tools/</code></td>
 <td>開発用の道具（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_release_tag</code>・<code>check_markdown_links</code>・<code>measure_perf</code>・<code>run_commit_tests</code>）</td>
 </tr>
@@ -2726,7 +2730,7 @@
 </tr>
 <tr>
 <td><code>runner</code></td>
-<td><code>tests/run.ps1</code> が、実行したテストが 0 件なら失敗にすること、<code>powershell.exe -File</code> で渡したカンマ区切りのタグを分けて受け取ること</td>
+<td><code>tests/run.ps1</code> が、実行したテストが 0 件なら失敗にすること、<code>powershell.exe -File</code> で渡したカンマ区切りのタグを分けて受け取ること、<code>Gui</code> を既定では流さず <code>-Tag Gui</code> と <code>-All</code> では流すこと</td>
 </tr>
 <tr>
 <td><code>safety</code></td>
@@ -2771,10 +2775,16 @@
 <td>しない（<code>-All</code> で実行）</td>
 </tr>
 <tr>
+<td><code>Gui</code></td>
+<td>本物の画面（<code>scripts/tebunko/gui.ps1</code>）を別のプロセスで開いて UI オートメーションで操作するもの（<code>tests/gui/</code>。<a href="../#画面のスモークテスト">画面のスモークテスト</a>）</td>
+<td>不要（Windows の画面が要る。ランナーの Windows で動く）</td>
+<td>しない（<code>-Tag Gui</code>・<code>-All</code> で実行。CI は <code>gui.yml</code>）</td>
+</tr>
+<tr>
 <td><code>Slow</code></td>
 <td>時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。<code>tests/tools/perf_*.Tests.ps1</code>。<a href="#ci"><code>perf-check.yml</code></a>）</td>
 <td>検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る</td>
-<td>しない（<code>-All</code> または <code>-Tag Slow -ExcludeTag Manual</code> で実行）</td>
+<td>しない（<code>-All</code> または <code>-Tag Slow</code> で実行）</td>
 </tr>
 <tr>
 <td><code>Manual</code></td>
@@ -2785,16 +2795,18 @@
 </tbody>
 </table>
 <p>実行は <code>tests/run.ps1</code> から行う。</p>
-<div class="highlight"><pre><span></span><code>.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Manual は外す）
+<div class="highlight"><pre><span></span><code>.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Gui・Manual は外す）
 .\tests\run.ps1 -Tag Unit    速い確認だけ
-.\tests\run.ps1 -All         Office・Slow も含める（Office と、tebunko-perfdata が必要）
-.\tests\run.ps1 -Tag Slow -ExcludeTag Manual   Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
+.\tests\run.ps1 -All         Office・Slow・Gui も含める（Office と、tebunko-perfdata が必要。Gui は画面を開くので、操作しないで待つ）
+.\tests\run.ps1 -Tag Slow    Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
+.\tests\run.ps1 -Tag Gui     画面のスモークテストだけ（約 4 分。流している間はマウス・キーボードに触らない）
+.\tests\run.ps1 -Tag Gui -Path .\tests\gui\search.Tests.ps1   1 つの場面だけ
 .\tests\run.ps1 -Ci          結果の XML（work\test\results.xml）とカバレッジ（work\test\coverage.xml）を出し、カバレッジの下限を確かめる
 .\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
 .\tests\run.ps1 -Quiet       失敗したテストだけを表示する
 </code></pre></div>
 <p>いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。</p>
-<p><code>-Tag Slow</code> だけでは、既定の除外（<code>Office</code>・<code>Slow</code>・<code>Manual</code>）が残って 0 件になる。<code>-ExcludeTag</code> を渡すと既定の除外が置き換わるので、<code>-Tag Slow -ExcludeTag Manual</code> とする。</p>
+<p>Pester 5 は除外（<code>ExcludeTag</code>）をタグ（<code>Tag</code>）より優先するため、<code>-Tag</code> に明示したタグは既定の除外から取り除く（<code>-Tag Slow</code>・<code>-Tag Gui</code> が 0 件にならない）。<code>-ExcludeTag</code> を渡すと既定の除外が丸ごと置き換わる（<code>-Tag Slow -ExcludeTag Manual</code> は今までどおり動く）。</p>
 <p><code>-Tag</code>・<code>-ExcludeTag</code> はカンマ区切りの文字列でも受け取る。<code>powershell.exe -File</code> で呼ぶと <code>-Tag Unit,Meta</code> は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。</p>
 <p><strong>カバレッジ</strong></p>
 <ul>
@@ -2861,6 +2873,13 @@
 <td>–</td>
 </tr>
 <tr>
+<td><code>gui.yml</code></td>
+<td><code>gui-smoke</code></td>
+<td>PR、main への push</td>
+<td>本物の画面を windows ランナーで開き、画面遷移（<a href="../#画面のスモークテスト">画面のスモークテスト</a>）を UI オートメーションで確かめる</td>
+<td>–（必須にしない。しばらく安定して通ることを見てから、持ち主が決める）</td>
+</tr>
+<tr>
 <td><code>perf.yml</code></td>
 <td><code>perf</code></td>
 <td>手動（<code>workflow_dispatch</code>）</td>
@@ -2894,6 +2913,19 @@
 <li>送れなくても CI は失敗にしない。Codecov の判定（<code>.github/codecov.yml</code>）も参考表示だけにする。下限の確認は <code>tests/coverage.baseline</code> が受け持つ</li>
 <li><code>.github/codecov.yml</code> には ASCII の文字だけを書き、コメントも書かない。Windows で動く Codecov の CLI がこのファイルを cp1252 として読み、日本語があると <code>UnicodeDecodeError</code> で止まるため。<code>tests/meta/encoding.Tests.ps1</code> が確かめる</li>
 <li>タグの push（<code>release.yml</code> から呼ばれたとき）では送らない</li>
+</ul>
+<p><strong><code>gui.yml</code>（画面のスモークテスト）</strong></p>
+<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../#画面のスモークテスト">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
+<ul>
+<li><strong><code>test.yml</code> には入れない。</strong> <code>test.yml</code> は <code>release.yml</code> から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば <code>test</code> と並んで動き、<code>test</code> の時間も延びない</li>
+<li><strong>必須チェックにしない。</strong> 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、<code>paths</code> の絞り込みは付けていない</li>
+<li><code>tests\run.ps1 -Ci</code> は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、<code>Gui</code> だけを流すと下限を割るため</li>
+<li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
+<li>落ちたときの材料（画面の画像・写した先の <code>画面エラー.txt</code>・<code>インデックス作成ログ.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
+<li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
+<li><strong>CI だけで流す場面がある。</strong> S6（既定のワークスペース）は、利用者の本物のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）を使うため、<code>GITHUB_ACTIONS</code> が <code>true</code> のときだけ流す。手元では理由を出して飛ばす</li>
+<li><strong>手元で飛ばす段階がある。</strong> S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（<code>GITHUB_ACTIONS</code> が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す</li>
+<li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、（手元では）<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
 </ul>
 <p><strong><code>title.yml</code></strong></p>
 <p>PR と Issue のタイトルを <code>tools/check_commit_message.ps1 -Title</code> で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。</p>
@@ -3251,6 +3283,10 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
 <tr>
 <td><code>.md</code>・<code>docs/</code> の中</td>
 <td><code>meta/links</code></td>
+</tr>
+<tr>
+<td><code>tests/gui/</code> の中（画面のスモークテスト）</td>
+<td>流さない（CI の <code>gui.yml</code> と、手元の <code>-Tag Gui</code> で流す）</td>
 </tr>
 <tr>
 <td>対応するテストが無い・消した <code>scripts/</code> の <code>.ps1</code>、<code>tests/</code> のほかのファイル（<code>run.ps1</code>・<code>helpers/</code>・<code>testdata/</code> など）</td>
