@@ -3039,7 +3039,7 @@
 </tr>
 <tr>
 <td>Excel</td>
-<td>起動中の Excel があればそれを使い、無ければ起動する（COM）。ブックを開き（「読み取り専用」は <code>Workbooks.Open(&lt;元のファイル&gt;, , ReadOnly:=True)</code>、「新規」は <code>Workbooks.Add(&lt;元のファイル&gt;)</code>。そのブックが既に開いていれば、開き方によらずそのブックを使う）、<strong>該当シートを表示して、一致したセル（最初に一致したセル。<a href="#結果の表">結果の表</a> の「セル」列）を選択する</strong>。該当シートは「場所」と名前が同じシートとし（図形・コメントの場所 <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code> は、<code>[…]</code> を除いたシート名。<code>splitObjectPlace</code> の Base。選ぶセルは図形の左上・コメントのセル）、無ければ名前を <code>toSafeFileName</code> で全角に置き換えて一致するシートとする（以前の版のインデックスは、シート名の記号を全角に置き換えてあるため。<code>衝突"</code> と <code>衝突”</code> のように置き換えると重なるシートがあるので、名前が同じものを先に選ぶ）。COM で失敗したら、ファイルを既定のアプリで開くだけにする（「新規」ならエクスプローラーの［新規］と同じ動作）</td>
+<td>起動中の Excel があればそれを使い、無ければ起動する（COM）。ブックを開き（「読み取り専用」は <code>Workbooks.Open(&lt;元のファイル&gt;, , ReadOnly:=True)</code>、「新規」は <code>Workbooks.Add(&lt;元のファイル&gt;)</code>。そのブックが既に開いていれば、開き方によらずそのブックを使う）、<strong>該当シートを表示して、一致したセル（最初に一致したセル。<a href="#結果の表">結果の表</a> の「場所」列に出るセル番地）を選択する</strong>。該当シートは「場所」と名前が同じシートとし（図形・コメントの場所 <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code> は、<code>[…]</code> を除いたシート名。<code>splitObjectPlace</code> の Base。選ぶセルは図形の左上・コメントのセル）、無ければ名前を <code>toSafeFileName</code> で全角に置き換えて一致するシートとする（以前の版のインデックスは、シート名の記号を全角に置き換えてあるため。<code>衝突"</code> と <code>衝突”</code> のように置き換えると重なるシートがあるので、名前が同じものを先に選ぶ）。COM で失敗したら、ファイルを既定のアプリで開くだけにする（「新規」ならエクスプローラーの［新規］と同じ動作）</td>
 </tr>
 <tr>
 <td>Word・PowerPoint</td>
@@ -3402,7 +3402,7 @@
 <li>開閉・絞り込み・並べ替えで多くの行を出し入れするときは、1 件ずつではなく表の中身をまとめて入れ替える（<code>rebuildResults</code>）。</li>
 <li>WPF の DataGrid のグループ化（<code>GroupStyle</code>）は使わない。グループ化は 1 件ごとに振り分けるため遅く（実測: 10,000 件・504 ファイルで、行ごとの一覧 約 3 秒 → グループ化 約 8〜9 秒。最初に閉じておいても速くならない）、列の幅が決まらない不具合もあったため。</li>
 <li>実測（10,000 件・504 ファイル。検索スレッドが結果を出し終えたあと、画面が取り込み終えるまでの待ちが検索時間の大半を占める）: 検索中に行を作ると 約 4.0 秒（うち待ち 約 2.4 秒）、行を後で作ると 約 2.6〜2.9 秒（うち待ち 約 1.1〜1.3 秒）。代わりに［すべて展開］は、そのとき 10,000 行を作るため 約 1.1〜1.5 秒かかる（1 ファイルを開くときは、そのファイルの分だけ）。</li>
-<li>判断（アプリの種類 <code>getAppKind</code>・場所の要約 <code>describeFileLocations</code>・表に並べる項目 <code>getResultItems</code>・絞り込み <code>selectShownRows</code>・並べ替え <code>sortFileGroups</code>）は判断層の <code>search_view.ps1</code> に置き、テストする。</li>
+<li>判断（アプリの種類 <code>getAppKind</code>・場所の要約 <code>describeFileLocations</code>・表に並べる項目 <code>getResultItems</code>・絞り込み <code>selectShownRows</code>・並べ替え <code>sortFileGroups</code>・行を画面に出す準備 <code>prepareHitRow</code>）は判断層の <code>search_view.ps1</code> に置き、テストする。</li>
 </ul>
 
 

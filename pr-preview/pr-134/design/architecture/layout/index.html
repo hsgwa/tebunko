@@ -2936,6 +2936,11 @@
 <td>配布する zip（<code>tebunko-&lt;バージョン&gt;.zip</code>。本体・README・LICENSE・VERSION.txt）と、zip と並べてリリースに載せるカタログ・ハッシュ一覧・SBOM を <code>work/release/</code> に作る。同じコミット・同じ版の名前なら、zip の中身・ハッシュ一覧・部品表が同じになる（ファイルの時刻はコミットの時刻、一覧は <code>git ls-files</code>、改行は CRLF）。<code>v</code> で始まるタグを push すると <code>.github/workflows/release.yml</code> が実行し、GitHub Release に載せる（<a href="../../testing/ci/#ci">CI</a>）</td>
 </tr>
 <tr>
+<td><code>tools/check_release_package.ps1</code></td>
+<td>開発用</td>
+<td>公開する前に、配布 zip の中身を検査する。zip のファイルが <code>git ls-files scripts</code> と固定のファイルに過不足なく一致するか・読み込み口から dot-source でたどれる先が存在するか・<code>.ps1</code> の構文と <code>.xaml</code> の XML・カタログ（<code>Test-FileCatalog</code>）・<code>SHA256SUMS.txt</code> と部品表のハッシュ・<code>VERSION.txt</code> のタグ名と SHA を確かめ、通らなかった項目をすべて列挙して止める。<code>release.yml</code> が、インストーラーを作った後・来歴に署名する前に実行する（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</td>
+</tr>
+<tr>
 <td><code>tools/check_release_tag.ps1</code></td>
 <td>開発用</td>
 <td>リリースのタグの検査。タグが <code>v&lt;メジャー&gt;.&lt;マイナー&gt;.&lt;パッチ&gt;</code> の形で、指すコミットが <code>origin/main</code> の履歴にあるかを確かめる。<code>release.yml</code> の最初の <code>guard</code> ジョブが実行する</td>
