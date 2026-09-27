@@ -440,7 +440,8 @@ function loadStartupData {
     } finally {
         $script:startupLoaded = $true
     }
-    setStatus ""
+    # 起動時に出した知らせ（既定のワークスペースが使えない・前の版のインデックスがある）は、読み込みが終わっても消さない
+    setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } elseif ($script:legacyIndexMessage) { $script:legacyIndexMessage } else { "" })
 }
 
 # ---- 起動 ----
