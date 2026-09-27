@@ -140,6 +140,68 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
     }
 }
 
+Describe "findSourceFileState" -Tag Io {
+    BeforeAll {
+        $dir = "$TestDrive\fsState\見積"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        [System.IO.File]::WriteAllText("$dir\a.xlsx", "x")
+    }
+
+    It "見つかれば State=Found・Path" {
+        $location = @{ Folder = $dir; Rest = "" }
+        $state = findSourceFileState $location "a.xlsx"
+        $state.State | Should -Be "Found"
+        $state.Path | Should -Be "$dir\a.xlsx"
+    }
+
+    It "記録した場所に無くても、別名（ネットワークドライブ⇔UNC）で見つかれば State=Found・Alias" {
+        $drives = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $drives["Z:"] = "\\server\share"
+        $moved = "$TestDrive\fsStateAlias\見積"
+        [System.IO.Directory]::CreateDirectory($moved) | Out-Null
+        [System.IO.File]::WriteAllText("$moved\a.xlsx", "x")
+        Mock getFolderPathAliases { @("Z:\見積", $moved) }
+        Mock testNetworkPath { $true }
+
+        $location = @{ Folder = "Z:\見積"; Rest = "" }
+        $state = findSourceFileState $location "a.xlsx" $drives
+        $state.State | Should -Be "Found"
+        $state.Path | Should -Be "$moved\a.xlsx"
+        $state.Alias | Should -Be $moved
+    }
+
+    It "見つからなければ State=Missing・Initial に上の今もあるフォルダ" {
+        $location = @{ Folder = "$dir\無い"; Rest = "" }
+        $state = findSourceFileState $location "a.xlsx"
+        $state.State | Should -Be "Missing"
+        $state.Initial | Should -Be $dir
+    }
+
+    It "接続できない・その他のときは、上のフォルダも別名も調べない（getPathState は 1 回だけ呼ぶ）" -TestCases @(
+        @{ name = "接続できない"; state = "Unreachable" }
+        @{ name = "その他"; state = "Other" }
+    ) {
+        param ($name, $state)
+        Mock getPathState { @{ State = $state; Message = "テストの失敗" } }
+        Mock getFolderPathAliases { throw "調べた" }
+        Mock getExistingAncestorFolder { throw "調べた" }
+
+        $location = @{ Folder = "\\server\share\見積"; Rest = "" }
+        $result = findSourceFileState $location "a.xlsx"
+        $result.State | Should -Be $state
+        $result.Message | Should -Be "テストの失敗"
+        Should -Invoke getPathState -Times 1 -Exactly
+    }
+
+    It "ローカルのパスでは別名を求めない（getDriveTargets を呼ばない）" {
+        Mock getDriveTargets { throw "CIM を照会した" }
+        $location = @{ Folder = "$dir\無い"; Rest = "" }
+
+        findSourceFileState $location "a.xlsx" | Out-Null
+        Should -Invoke getDriveTargets -Times 0 -Exactly
+    }
+}
+
 Describe "joinSourcePath" -Tag Io {
     It "フォルダ・相対フォルダ・ファイル名をつなぐ" {
         joinSourcePath "C:\data\" "2024\見積" "a.xlsx" | Should -Be "C:\data\2024\見積\a.xlsx"

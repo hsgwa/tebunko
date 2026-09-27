@@ -145,6 +145,94 @@ Describe "getFolderPathAliases / testSameFolder" -Tag Io {
         testFolderUnder "C:\data\見積\2024" "C:\data\見積" | Should -Be $true
         Should -Invoke getDriveTargets -Times 0 -Exactly
     }
+
+    It "どちらかがローカルなら、別名で一致しえないため CIM を照会しない（`$drives を渡さないとき）" {
+        # getDriveTargets（CIM）が返す別名はネットワークドライブ⇔UNCの組しか無いため、
+        # ローカルとネットワークの組は、別名をたどっても一致しない
+        Mock getDriveTargets { throw "ドライブの割り当てを調べた" }
+        testSameFolder "C:\data\見積" "\\server\share\見積" | Should -Be $false
+        testSameFolder "\\server\share\見積" "C:\data\見積" | Should -Be $false
+        testFolderUnder "C:\data\見積\2024" "\\server\share\見積" | Should -Be $false
+        testFolderUnder "\\server\share\見積\2024" "C:\data\見積" | Should -Be $false
+        Should -Invoke getDriveTargets -Times 0 -Exactly
+    }
+
+    It "`$drives を渡したとき（テスト用の割り当て）は、ローカルどうしの別名（subst）も今のとおり調べる" {
+        testSameFolder "X:\見積" "C:\data\見積" $drives | Should -Be $true
+        testFolderUnder "C:\data\見積\2024" "X:\見積" $drives | Should -Be $true
+    }
+}
+
+Describe "testNetworkPath" -Tag Unit {
+    BeforeAll {
+        $driveTypes = @{
+            "C:\" = [System.IO.DriveType]::Fixed
+            "D:\" = [System.IO.DriveType]::Removable
+            "E:\" = [System.IO.DriveType]::CDRom
+            "R:\" = [System.IO.DriveType]::Ram
+            "Z:\" = [System.IO.DriveType]::Network
+            "Y:\" = [System.IO.DriveType]::NoRootDirectory  # 切断されたドライブがこう見えることがある
+            "U:\" = [System.IO.DriveType]::Unknown
+        }
+        $driveType = { param ($drive) $driveTypes[$drive] }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "空はローカル扱い"; path = ""; expected = $false }
+        @{ name = "UNC はネットワーク"; path = "\\server\share\見積"; expected = $true }
+        @{ name = "\\?\UNC\ もネットワーク"; path = "\\?\UNC\server\share\見積"; expected = $true }
+        @{ name = "\\?\C:\ はドライブ文字として扱う（Fixed はローカル）"; path = "\\?\C:\data\見積"; expected = $false }
+        @{ name = "\\.\ もドライブ文字として扱う"; path = "\\.\C:\data\見積"; expected = $false }
+        @{ name = "Fixed はローカル"; path = "C:\data\見積"; expected = $false }
+        @{ name = "Removable はローカル"; path = "D:\見積"; expected = $false }
+        @{ name = "CDRom はローカル"; path = "E:\見積"; expected = $false }
+        @{ name = "Ram はローカル"; path = "R:\見積"; expected = $false }
+        @{ name = "Network はネットワーク"; path = "Z:\見積"; expected = $true }
+        @{ name = "NoRootDirectory（切断したドライブ）は安全な側でネットワーク"; path = "Y:\見積"; expected = $true }
+        @{ name = "Unknown も安全な側でネットワーク"; path = "U:\見積"; expected = $true }
+        @{ name = "ドライブ文字の無い相対パスはローカル扱い"; path = "見積\2024"; expected = $false }
+        @{ name = "/ を \ にそろえて調べる"; path = "//server/share/見積"; expected = $true }
+    ) {
+        param ($name, $path, $expected)
+        testNetworkPath $path $driveType | Should -Be $expected
+    }
+
+    It "ドライブの種類が調べられなければ安全な側（ネットワーク）にする" {
+        testNetworkPath "Q:\見積" { param ($drive) throw "調べられない" } | Should -Be $true
+    }
+
+    It "既定はこの PC の実際のドライブの種類を見る（C: は通常 Fixed）" {
+        testNetworkPath "${rootDir}\work" | Should -Be $false
+    }
+}
+
+Describe "testAnyNetworkPath" -Tag Unit {
+    It "1 つでもネットワークのパスがあれば `$true" {
+        testAnyNetworkPath @("C:\data", "\\server\share") | Should -Be $true
+    }
+
+    It "すべてローカルなら `$false" {
+        testAnyNetworkPath @("C:\data", "D:\見積") | Should -Be $false
+    }
+
+    It "空の一覧は `$false" {
+        testAnyNetworkPath @() | Should -Be $false
+    }
+}
+
+Describe "setDriveTargets" -Tag Unit {
+    AfterEach {
+        setDriveTargets $null
+    }
+
+    It "getDriveTargets のキャッシュを外から設定できる（CIM を照会しない）" {
+        Mock Get-CimInstance { throw "CIM を照会した" }
+        $custom = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $custom["Q:"] = "\\server\share"
+        setDriveTargets $custom
+        (getDriveTargets)["Q:"] | Should -Be "\\server\share"
+        Should -Invoke Get-CimInstance -Times 0 -Exactly
+    }
 }
 
 Describe "getFolderLeafName" -Tag Io {
@@ -181,4 +269,15 @@ Describe "getExistingAncestorFolder" -Tag Io {
     It "空のパスは空を返す" {
         getExistingAncestorFolder "" | Should -Be ""
     }
+
+    It "skipNetwork が `$true でも、ローカルのパスは今どおり調べる" {
+        getExistingAncestorFolder "$root\営業部\2024\見積" $true | Should -Be "$root\営業部"
+    }
+
+    It "skipNetwork が `$true なら、ネットワークのパスは調べずに空を返す" {
+        Mock Test-Path { throw "調べた" }
+        getExistingAncestorFolder "\\server\share\営業部" $true | Should -Be ""
+        Should -Invoke Test-Path -Times 0 -Exactly
+    }
+
 }

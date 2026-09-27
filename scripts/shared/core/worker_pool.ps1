@@ -176,4 +176,26 @@ class BackgroundQueue {
         $this.Jobs.Clear()
         $this.Pool.Close()
     }
+
+    [void] Abandon() {
+        # 画面を閉じるときだけに使う。Close と違い、止まった仕事（OS の呼び出しで戻らない届かない共有など）を待たずに戻る。
+        # 終わった仕事は Close と同じく片づける（待たされないため）。終わっていない仕事には止める依頼（BeginStop）だけを出し、
+        # その PowerShell のインスタンスと、この列のプール（RunspacePool）は Dispose しない
+        # （PowerShell.Dispose() は動いている間は中で Stop を呼んで待ち、RunspacePool.Dispose() も止まったランスペースを待つため）。
+        # 後始末はプロセスの終わりに任せる
+        foreach ($job in $this.Jobs.ToArray()) {
+            if ($job.Handle.IsCompleted) {
+                try {
+                    [void]$this.Pool.Receive($job)
+                } catch {
+                }
+            } else {
+                try {
+                    [void]$job.PowerShell.BeginStop($null, $null)
+                } catch {
+                }
+            }
+        }
+        $this.Jobs.Clear()
+    }
 }

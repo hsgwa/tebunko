@@ -1,5 +1,21 @@
 ﻿# ファイルの読み書き（行ファイル・原子的な書き込み・長いパス・排他）。
 
+
+# ---- パスの状態（見つかった・見つからない・接続できない・その他） ----
+#
+# Test-Path・File.Exists・Directory.Exists は、届かない共有でも多くの場合に例外を出さず $false を返す
+# （「見つからない」と区別できない）。getPathState は、例外を投げる呼び出し（File.GetAttributes）で調べる。
+
+${pathStateFound}       = "Found"
+${pathStateMissing}     = "Missing"
+${pathStateUnreachable} = "Unreachable"
+${pathStateOther}       = "Other"
+
+# 接続できない（届かない共有・ネットワークの問題）を表す Win32 のエラー番号
+# ERROR_BAD_NETPATH(53)・ERROR_BAD_NET_NAME(67)・ERROR_NETNAME_DELETED(64)・ERROR_SEM_TIMEOUT(121)・
+# ERROR_NETWORK_UNREACHABLE(1231)・ERROR_HOST_UNREACHABLE(1232)・ERROR_NO_NET_OR_BAD_PATH(1222)
+${unreachableWin32Codes} = @(53, 67, 64, 121, 1231, 1232, 1222)
+
 function readListFile {
     # 1行1件のファイルを読み込む（空行を除く）。ファイルが無ければ空配列。
     # 読めない（ほかが書き込み中など）ときは例外にする。呼び出し側の $ErrorActionPreference が既定の Continue でも
@@ -205,6 +221,43 @@ function newAppMutex {
     $createdNew = $false
     $mutex = New-Object System.Threading.Mutex($true, "Local\${appId}_${name}_${key}", [ref]$createdNew)
     return @{ Mutex = $mutex; Acquired = $createdNew }
+}
+
+function getPathErrorKind {
+    # File.GetAttributes などが投げた例外（PowerShell から呼ぶと MethodInvocationException に包まれる）を、
+    # 見つからない（FileNotFoundException・DirectoryNotFoundException）・接続できない（Win32 のエラー番号）・
+    # その他（アクセス拒否・ログオンの失敗など上のどれにも当たらないもの）に分ける。純粋な関数（例外を受け取って値を返すだけ）
+    param (
+        $exception  # System.Exception（MethodInvocationException でもそのままでもよい）
+    )
+
+    $inner = $exception
+    while ($inner -is [System.Management.Automation.MethodInvocationException] -and $null -ne $inner.InnerException) {
+        $inner = $inner.InnerException
+    }
+    if ($inner -is [System.IO.FileNotFoundException] -or $inner -is [System.IO.DirectoryNotFoundException]) {
+        return ${pathStateMissing}
+    }
+    $code = $inner.HResult -band 0xFFFF
+    if (${unreachableWin32Codes} -contains $code) {
+        return ${pathStateUnreachable}
+    }
+    return ${pathStateOther}
+}
+
+function getPathState {
+    # パスの状態を、例外を投げる呼び出し（File.GetAttributes）で調べる。260 文字を超えるパスも扱えるよう \\?\ を付けて渡す。
+    # 返すもの: @{ State（上の定数）; IsDirectory; Message（見つかったとき以外の例外の文面） }
+    param (
+        [string]$path
+    )
+
+    try {
+        $attributes = [System.IO.File]::GetAttributes((toLongPath $path))
+        return @{ State = ${pathStateFound}; IsDirectory = [bool]($attributes -band [System.IO.FileAttributes]::Directory); Message = "" }
+    } catch {
+        return @{ State = (getPathErrorKind $_.Exception); IsDirectory = $false; Message = $_.Exception.Message }
+    }
 }
 
 function invokeWithNamedMutex {

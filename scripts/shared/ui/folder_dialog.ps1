@@ -6,7 +6,10 @@ ${folderPickFileName} = "フォルダーの選択"          # 予備のダイア
 
 function selectFolder {
     # Windows 標準のエクスプローラー形式のダイアログでフォルダを選んでもらい、選んだフォルダを返す（キャンセルなら $null）。
-    #   description はタイトルバーに出す。initialPath が無ければ、その上の今もあるフォルダから開く。
+    #   description はタイトルバーに出す。initialPath が無ければ、その上の今もあるフォルダから開く
+    #   （ネットワークのパスは、画面のスレッドで有無を調べない。knownExisting が $true のときだけ、
+    #    調べずにそのまま開始フォルダにする。それ以外は OS の既定の場所で開く）。
+    #   knownExisting: initialPath が今もあると分かっているとき（直前の refreshFolderStatus の結果など）に $true にする。
     # ※エクスプローラー形式のダイアログ（COM の IFileOpenDialog）をフォルダ選択で開くには、
     #   インターフェースの定義が要る。自分で定義すると実行時コンパイル（csc.exe）が要るため（12.2）、
     #   WinForms（読み込み済み）が内部に持つ定義 FileDialogNative+IFileDialog をリフレクションで呼ぶ。
@@ -15,10 +18,12 @@ function selectFolder {
     param (
         [string]$description,
         [string]$initialPath,
-        [System.Windows.Window]$owner = $window
+        [System.Windows.Window]$owner = $window,
+        [bool]$knownExisting = $false
     )
 
-    $start = getExistingAncestorFolder (normalizeFolderPath $initialPath)
+    $normalized = normalizeFolderPath $initialPath
+    $start = if ($knownExisting -and $normalized -ne "") { $normalized } else { getExistingAncestorFolder $normalized $true }
     $hwnd = [IntPtr]::Zero
     if ($owner) {
         $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $owner).Handle
