@@ -1897,6 +1897,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#前の版の-index-の扱いgetlegacyindexstateclearlegacysystemindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        前の版の index\ の扱い（getLegacyIndexState・clearLegacySystemIndex）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#本文インデックスの形式pack_formatps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2633,6 +2644,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#前の版の-index-の扱いgetlegacyindexstateclearlegacysystemindex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        前の版の index\ の扱い（getLegacyIndexState・clearLegacySystemIndex）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#本文インデックスの形式pack_formatps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2798,6 +2820,14 @@ work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;
 <li>取り込み直すときは<strong>フォルダごと入れ替え</strong>ればよく、別のファイルの TSV を巻き込まない（<code>&lt;ファイル名&gt;_*.tsv</code> で消すと、<code>a.xls</code> の取り込みで <code>a.xls_b.xlsx</code> の TSV まで消える）。</li>
 <li><code>&lt;ファイル名&gt;＋&lt;場所&gt;</code> が 255 文字を超えて保存できない、ということが起きない。</li>
 <li><strong>本文インデックスにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。ウイルス対策ソフト（Microsoft Defender）は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイル 1 つ・場所 1 つにつき TSV 1 つだと、TSV が数万件になり、初回の検索が数分〜10 分以上かかった。フォルダ・拡張子ごとにまとめると、読むファイルの数が数百分の 1 になる（実測は <a href="../../search/#検索の実装速度">検索の実装（速度）</a>）。</li>
+</ul>
+<h3 id="前の版の-index-の扱いgetlegacyindexstateclearlegacysystemindex">前の版の index\ の扱い（<code>getLegacyIndexState</code>・<code>clearLegacySystemIndex</code>）<a class="headerlink" href="#前の版の-index-の扱いgetlegacyindexstateclearlegacysystemindex" title="Permanent link">&para;</a></h3>
+<p>フォルダ名・ファイル名を <code>content_index</code>・<code>system_index</code> にそろえる前の版が使っていた <code>index\</code> は、そのままでは読めない（フォルダ名・ファイル名が違う）。新しい版はここを読まず、消しもしない。</p>
+<ul>
+<li><strong>前の版のしるし</strong>: <code>index\</code> があり、その直下のどれかのフォルダに <code>元のフォルダ.txt</code> がある（<code>getLegacyIndexState</code> の <code>HasLegacyIndex</code>）。<code>index\</code> があるだけでは、利用者が選んだフォルダにたまたま <code>index</code> があるときと区別できないため、しるしとしない。</li>
+<li><strong>知らせ</strong>: インデクサは <code>content_index\</code> を作る前に前の版のしるしを調べ、見つかれば <code>前の版のインデックス（「&lt;index\ のパス&gt;」）は、この版では使えません。インデックス作成で、元のファイルをすべて取り込み直します。取り込み直した後、「&lt;index\ のパス&gt;」フォルダは削除してかまいません。</code> をログに黄色で出す（<code>getLegacyIndexMessage</code>）。</li>
+<li><strong>片付けの条件</strong>: <code>content_index\</code> が空（無いか、下のフォルダを含めてファイルが 1 つも無い）で、かつ、前の版のしるしがあるか、<code>system_index\</code> に前の名前の txt（<code>システムインデックス*.txt</code>）が残っている（<code>testLegacyCleanupNeeded</code>）。取り込み直す前に利用者が <code>index\</code> を消していても、前の名前の txt を残さないための条件。</li>
+<li><strong>片付け</strong>: 条件に当たれば、取り込み直しを始める前に前の版のシステムインデックスを片付ける（<code>clearLegacySystemIndex</code>）。順番は (1) 状態ファイル（<code>システムインデックスの状態.tsv</code>）の中身を排他の中で空にする（ファイルは消さない） (2) <code>system_index\</code> を <code>removeDirectoryRetry</code> で消す（Windows Search が txt を一時的に開くことがあるため）。どちらかに失敗したら、<code>content_index\</code> を作らず、失敗の理由をログと <code>channel.Error</code> に入れて終了コード 1 で終わる。途中で止まっても、次の開始で同じ条件に当たり、やり直せる。</li>
 </ul>
 <h3 id="本文インデックスの形式pack_formatps1">本文インデックスの形式（<code>pack_format.ps1</code>）<a class="headerlink" href="#本文インデックスの形式pack_formatps1" title="Permanent link">&para;</a></h3>
 <p>本文インデックスは、元のファイルごと・場所（シート・ページ・スライドなど）ごとに、<strong>メタ情報の行</strong>と、その場所の TSV の中身（<a href="../excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a> など。1 行 = Excel の 1 行・段落 1 つ）を並べたもの。例（<code>␞</code> は RS（U+001E）、<code>→</code> はタブ）:</p>
@@ -3107,6 +3137,10 @@ work/システムインデックスの状態.tsv                                
 <tr>
 <td>パスが長いとき</td>
 <td>txt のパスが 240 文字以上になるフォルダは作らず、状態ファイルに「対象外」と書く（検索のたびにそのフォルダを照合する）</td>
+</tr>
+<tr>
+<td>Windows Search への問い合わせ</td>
+<td>候補（分けていない txt）は <code>System.FileName = 'system_index.txt'</code>、分けた txt を探すのは <code>LIKE 'system[_]index[_]%'</code>、反映の判定は <code>LIKE 'system[_]index%'</code>（分けた txt も候補も含む）。SQL の <code>LIKE</code> では <code>_</code> が「任意の 1 文字」になるため、名前の中の <code>_</code> は <code>[_]</code> と書く（<code>newSystemIndexQuery</code>・<code>newSystemIndexSplitQuery</code>・<code>newSystemIndexStateQuery</code>）</td>
 </tr>
 <tr>
 <td>作る時機</td>

@@ -2243,6 +2243,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#取り込み直しの確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        取り込み直しの確かめ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#インデックス作成の確認ダイアログ" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2715,6 +2726,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#取り込み直しの確かめ" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        取り込み直しの確かめ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#インデックス作成の確認ダイアログ" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3065,6 +3087,14 @@
 <li>インデックス作成は、画面のプロセスの中のスレッドで実行する（<code>newIndexingSession</code>。インデクサの司令のスレッドが <code>scripts\tebunko\indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する）。受け渡しの口（<code>newIndexerChannel -confirmTargets $true</code>）の <code>ConfirmTargets</code> で、取り込み対象を数えたところでいったん止まって画面の確認（<a href="#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）を待つ。別の <code>powershell.exe</code> は起動しない（<a href="../../architecture/threads/">プロセスとスレッド</a>）。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが終わるまでとする（<code>isIndexing</code>）。インデックス作成の二重起動を防ぐ。</li>
 <li>画面を使わずに起動した <code>indexer.ps1</code> と重なった場合は、インデクサがミューテックスで止め、<code>ほかのインデックス作成が実行中です。…</code> のエラーで終わる（<a href="#中止終了ログ">中止・終了・ログ</a>）。</li>
+</ul>
+<h2 id="取り込み直しの確かめ">取り込み直しの確かめ<a class="headerlink" href="#取り込み直しの確かめ" title="Permanent link">&para;</a></h2>
+<p>前の版のインデックス（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま［インデックス作成を開始］を押すと、取り込み対象を数える前に確かめのダイアログを出す（<code>getReingestConfirm</code>。<code>tebunko/ui/indexing_view.ps1</code>）。</p>
+<ul>
+<li>判定は <code>hasLegacyIndex</code>（前の版のしるしがある）と <code>contentEmpty</code>（<code>content_index\</code> が空）の 2 つの引数だけで決まる（判断層。画面には触らない）。両方が真のときだけ文言を返し、ほかの 3 通りでは確かめを出さない。</li>
+<li>確かめは共通の確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）を使う。見出しは <code>前の版のインデックスは使えないため、元のファイルをすべて取り込み直します。ファイルが多いと時間がかかります。始めますか？</code>、選択肢は［取り込み直す］の 1 つ（＋既定の［キャンセル］）。</li>
+<li>［キャンセル］（または閉じる）を選ぶと、インデックス作成は始めない。［取り込み直す］を選ぶと、通常の流れ（取り込み対象を数え、<a href="#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>を出す）に進む。</li>
+<li>前の版のしるしが無い・<code>content_index\</code> が空でない（すでに取り込み直した後など）のときは、この確かめを出さずに通常の流れに進む。</li>
 </ul>
 <h2 id="インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ<a class="headerlink" href="#インデックス作成の確認ダイアログ" title="Permanent link">&para;</a></h2>
 <p><code>tebunko/xaml/dialog_indexing_confirm.xaml</code>。［インデックス作成を開始］を押すと、インデクサはまず<strong>取り込み対象を数えるだけ</strong>行って止まり（受け渡しの口の <code>ConfirmTargets</code>）、インデックスごとの件数を受け渡しの口の <code>Plan</code> に入れる（<a href="../../indexer/flow/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>）。
