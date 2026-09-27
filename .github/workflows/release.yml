@@ -1,6 +1,6 @@
 # 配布物の公開（GitHub Actions）
 #
-# v で始まるタグを push すると、テストを通したうえで配布 zip を作り、GitHub Release に載せる。
+# v で始まるタグを push すると、タグの形と指すコミットを確かめ（guard）、テストを通したうえで配布 zip を作り、GitHub Release に載せる。
 #
 #   git tag v1.0.0
 #   git push origin v1.0.0
@@ -22,11 +22,28 @@ permissions:
   contents: read
 
 jobs:
+  # 形が v<メジャー>.<マイナー>.<パッチ> でないタグや、main の履歴に無いコミットに付けたタグからは公開しない（tools\check_release_tag.ps1）
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: タグを確かめる
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: ./tools/check_release_tag.ps1 -Tag $env:TAG -Sha $env:SHA -Base origin/main
+
   test:
+    needs: guard
     uses: ./.github/workflows/test.yml
 
   release:
-    needs: test
+    needs: [guard, test]
     runs-on: windows-latest
     permissions:
       # Release を作るため
