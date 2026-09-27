@@ -199,17 +199,18 @@ function reportUnexpectedError {
     if ($skipDialog) {
         return
     }
+    $dialogText = "エラーが発生しました。`n$message`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。"
     if ($unhandled) {
         $entry.DialogShown = $true
         $script:unhandledDialogShowing = $true
         try {
-            showMessage "エラーが発生しました。`n$message`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。" "OK" "Error" | Out-Null
+            showMessage $dialogText "OK" "Error" | Out-Null
         } finally {
             $script:unhandledDialogShowing = $false
         }
         return
     }
-    showMessage "エラーが発生しました。`n$message`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。" "OK" "Error" | Out-Null
+    showMessage $dialogText "OK" "Error" | Out-Null
 }
 
 function registerUnhandledErrorHandler {

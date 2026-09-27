@@ -335,6 +335,29 @@ $script:closeTimer = newTimer 500 {
     }
 }
 
+function enterIndexingStopFlow {
+    # ふだんの「インデックス作成を止めてから閉じる」流れに入る（すでに入っていれば、足りない手順だけ補う）。
+    # 1 つずつ try で包み、失敗しても残りを進める（finally の IndexingSession.Close の打ち切りに頼らず、
+    # 取り込み中のファイルの区切りで止めるため）。closeDeadline は $null のときだけ決め、
+    # 途中の失敗で入り直しても延ばし直さない。closeTimer も動いていなければ動かす（M1: ここが抜けていると、
+    # 流れの途中の失敗のあとに closeTimer が動かず、外から止める以外に閉じられなくなる）
+    $script:closeWaiting = $true
+    try { $script:indexingTimer.Stop() } catch { }
+    try { $script:indexingSession.Stop() } catch { }
+    try { $ui.IndexingStopButton.IsEnabled = $false } catch { }
+    try { $ui.IndexingProgressText.Text = "インデックス作成を止めています…" } catch { }
+    try { $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。" } catch { }
+    try { setStatus "インデックス作成を止めてから閉じます…" } catch { }
+    try {
+        if ($null -eq $script:closeDeadline) {
+            $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
+        }
+        if (!$script:closeTimer.IsEnabled) {
+            $script:closeTimer.Start()
+        }
+    } catch { }
+}
+
 $window.Add_Closing({
     param ($sender, $e)
     if ($script:closeReady) {
@@ -365,27 +388,15 @@ $window.Add_Closing({
                 }
                 return
             }
-            $script:closeWaiting = $true
-            $script:indexingTimer.Stop()
-            $script:indexingSession.Stop()
-            $ui.IndexingStopButton.IsEnabled = $false
-            $ui.IndexingProgressText.Text = "インデックス作成を止めています…"
-            $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。"
-            setStatus "インデックス作成を止めてから閉じます…"
-            $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
-            $script:closeTimer.Start()
+            enterIndexingStopFlow
             return
         }
         if ($script:search) {
             cancelSearch
         }
     } catch {
-        reportUnexpectedError "画面を閉じる途中" $_
-        if ($script:closeWaiting) {
-            # すでに止める流れに入った後にもう一度起きた。closeDeadline は延ばし直さない
-            $e.Cancel = $true
-            return
-        }
+        # 知らせる処理自体が失敗しても、閉じ方の分岐へは必ず進む（R1）
+        try { reportUnexpectedError "画面を閉じる途中" $_ } catch { }
         $stillIndexing = $true
         try {
             $stillIndexing = isIndexing
@@ -393,25 +404,15 @@ $window.Add_Closing({
             # isIndexing 自体が失敗したときは、安全な側（止める流れ）に倒す
             $stillIndexing = $true
         }
-        if (!$stillIndexing) {
-            # インデックス作成中でなければ、閉じるのを止めない
+        if (!$stillIndexing -and !$script:closeWaiting) {
+            # インデックス作成中でなく、まだ止める流れにも入っていなければ、閉じるのを止めない
             $e.Cancel = $false
             return
         }
-        # ふだんの「止めてから閉じる」の流れに入る。確認のダイアログは出し直さない。
-        # 1 つずつ try で包み、失敗しても残りを進める（finally の IndexingSession.Close の打ち切りに頼らないため）
+        # 確認のダイアログは出し直さない。すでに流れの途中（closeWaiting が立っている）で
+        # 失敗したときも、抜けている手順（closeTimer が動いていないなど）を補う
         $e.Cancel = $true
-        $script:closeWaiting = $true
-        try { $script:indexingTimer.Stop() } catch { }
-        try { $script:indexingSession.Stop() } catch { }
-        try { $ui.IndexingStopButton.IsEnabled = $false } catch { }
-        try { $ui.IndexingProgressText.Text = "インデックス作成を止めています…" } catch { }
-        try { $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。" } catch { }
-        try { setStatus "インデックス作成を止めてから閉じます…" } catch { }
-        try {
-            $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
-            $script:closeTimer.Start()
-        } catch { }
+        enterIndexingStopFlow
     }
 })
 

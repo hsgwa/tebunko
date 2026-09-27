@@ -157,6 +157,27 @@ Describe "shell.ps1" -Tag Unit {
             Should -Invoke showMessage -Times 1 -Exactly
         }
 
+        It "見分けの表は 100 件まで。古いキーが消えたら、その例外はまた 1 回だけダイアログを出す" {
+            Mock showMessage { }
+
+            function raiseNumberedException([int]$n) {
+                try { throw "例外$n" } catch {
+                    & $handler $null (newFakeUnhandledArgs $_.Exception)
+                }
+            }
+
+            raiseNumberedException 0
+            for ($i = 1; $i -le 100; $i++) {
+                raiseNumberedException $i
+            }
+            # ここまでで 101 種類の例外。上限は 100 件のため、最初の「例外0」のキーはすでに消えている
+            Should -Invoke showMessage -Times 101 -Exactly
+
+            raiseNumberedException 0
+
+            Should -Invoke showMessage -Times 102 -Exactly
+        }
+
         It "知らせる処理（ダイアログの表示）が例外を投げても、Dispatcher の外へ例外が出ない" {
             Mock showMessage { throw "showMessage 自体の例外" }
 
