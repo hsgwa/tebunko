@@ -43,7 +43,7 @@ Describe "renameIndex" -Tag Io {
             (newStatusRow "技術\d.pptx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
 
-        renameIndex "営業" "営業部" $dir $path
+        renameIndex "営業" "営業部" $dir $path "$TestDrive\settings.json"
 
         Test-Path "$dir\営業" | Should -Be $false
         Get-Content -LiteralPath "$dir\営業部\a.xlsx\Sheet1.tsv" | Should -Be "本文"
@@ -66,7 +66,7 @@ Describe "renameIndex" -Tag Io {
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
 
-        renameIndex "営業" "営業部" $dir $path
+        renameIndex "営業" "営業部" $dir $path "$TestDrive\settings.json"
 
         (readStatusFile $path).Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
     }
@@ -77,7 +77,7 @@ Describe "renameIndex" -Tag Io {
         New-Item -ItemType Directory -Path "$dir\営業" -Force | Out-Null
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
 
-        { renameIndex "営業" "技術" $dir $path } | Should -Throw
+        { renameIndex "営業" "技術" $dir $path "$TestDrive\settings.json" } | Should -Throw
     }
 
     It "大文字・小文字だけを変えられる（フォルダ・記録とも新しい書き方になる）" {
@@ -88,7 +88,7 @@ Describe "renameIndex" -Tag Io {
             (newStatusRow "sales\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
         ) $path
 
-        renameIndex "sales" "Sales" $dir $path
+        renameIndex "sales" "Sales" $dir $path "$TestDrive\settings.json"
 
         @(Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { $_.Name }) -join "," | Should -BeExactly "Sales"
         Get-Content -LiteralPath "$dir\Sales\a.xlsx\Sheet1.tsv" -Encoding UTF8 | Should -Be "本文"
@@ -103,9 +103,9 @@ Describe "renameIndex" -Tag Io {
         New-Item -ItemType Directory -Path "$dir\営業" -Force | Out-Null
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @() $path
 
-        renameIndex "" "技術" $dir $path
-        renameIndex "営業" "" $dir $path
-        renameIndex "営業" "営業" $dir $path
+        renameIndex "" "技術" $dir $path "$TestDrive\settings.json"
+        renameIndex "営業" "" $dir $path "$TestDrive\settings.json"
+        renameIndex "営業" "営業" $dir $path "$TestDrive\settings.json"
 
         Test-Path -LiteralPath "$dir\営業" | Should -Be $true
         (readStatusFile $path).Folders[0].Name | Should -Be "営業"
@@ -127,7 +127,7 @@ Describe "removeIndex" -Tag Io {
             (newStatusRow "技術\d.pptx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
 
-        removeIndex "営業" $dir $path
+        removeIndex "営業" $dir $path "$TestDrive\settings.json"
 
         Test-Path "$dir\営業" | Should -Be $false
         Test-Path "$dir\技術" | Should -Be $true
@@ -145,7 +145,7 @@ Describe "removeIndex" -Tag Io {
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
 
-        removeIndex "" "$TestDrive\remove2\index" $path
+        removeIndex "" "$TestDrive\remove2\index" $path "$TestDrive\settings.json"
 
         (readStatusFile $path).Rows.Count | Should -Be 1
     }
@@ -163,7 +163,7 @@ Describe "removeIndex" -Tag Io {
         try {
             & {
                 $ErrorActionPreference = "Continue"
-                { removeIndex "営業" $dir $path } | Should -Throw
+                { removeIndex "営業" $dir $path "$TestDrive\settings.json" } | Should -Throw
             }
         } finally {
             $stream.Dispose()
@@ -455,5 +455,54 @@ Describe "publishIndexFiles / getIndexTsvCounts（まれな状況）" -Tag Io {
             [void]$acl.RemoveAccessRule($deny)
             $locked.SetAccessControl($acl)
         }
+    }
+}
+
+Describe "renameIndex / removeIndex の外したフォルダの記録（searchExcludes）" -Tag Io {
+    BeforeEach {
+        $script:settings = "$TestDrive\excl\setting.config"
+        $script:dir = "$TestDrive\excl\index"
+        $script:status = "$TestDrive\excl\取り込み一覧.tsv"
+        # It ごとに作り直す（前の It の改名が残らないように）
+        Remove-Item -LiteralPath "$TestDrive\excl" -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path "$($script:dir)\Sales", "$($script:dir)\Sales2", "$($script:dir)\技術" -Force | Out-Null
+        writeSearchExcludes @(
+            [pscustomobject]@{ Path = "$($script:dir)\Sales\見積"; Subfolders = $true },
+            [pscustomobject]@{ Path = "$($script:dir)\Sales"; Subfolders = $false },
+            [pscustomobject]@{ Path = "$($script:dir)\Sales2\見積"; Subfolders = $true },
+            [pscustomobject]@{ Path = "$($script:dir)\技術\図面"; Subfolders = $true }) $script:settings
+    }
+
+    It "名前を変えると、旧名の下の記録を消し、ほかのインデックス（頭が同じ名前も）の記録は残す: <old> → <new>" -TestCases @(
+        @{ old = "Sales"; new = "営業" },
+        @{ old = "Sales"; new = "sales" }
+    ) {
+        param ($old, $new)
+        renameIndex $old $new $script:dir $script:status $script:settings
+
+        $paths = @(readSearchExcludes $script:settings | ForEach-Object { $_.Path })
+        $paths | Should -Be @("$($script:dir)\Sales2\見積", "$($script:dir)\技術\図面")
+    }
+
+    It "新名の下に記録が残っていても消す" {
+        writeSearchExcludes @([pscustomobject]@{ Path = "$($script:dir)\営業\古い"; Subfolders = $true }) $script:settings
+        renameIndex "Sales" "営業" $script:dir $script:status $script:settings
+        @(readSearchExcludes $script:settings).Count | Should -Be 0
+    }
+
+    It "インデックスを削除すると、その下の記録を消し、ほかのインデックスの記録は残す" {
+        removeIndex "Sales" $script:dir $script:status $script:settings
+
+        $paths = @(readSearchExcludes $script:settings | ForEach-Object { $_.Path })
+        $paths | Should -Be @("$($script:dir)\Sales2\見積", "$($script:dir)\技術\図面")
+    }
+
+    It "記録を消せなくても、名前の変更・削除は例外にならない" {
+        # 設定ファイルの場所をフォルダにして、読み書きを失敗させる
+        $bad = "$TestDrive\excl\badsetting"
+        New-Item -ItemType Directory -Path $bad -Force | Out-Null
+        { renameIndex "Sales" "営業" $script:dir $script:status $bad } | Should -Not -Throw
+        { removeIndex "営業" $script:dir $script:status $bad } | Should -Not -Throw
+        Test-Path -LiteralPath "$($script:dir)\営業" | Should -Be $false
     }
 }
