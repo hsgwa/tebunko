@@ -2638,7 +2638,7 @@
 <li>Windows Search を利用できない場合（Windows Search サービスが停止している、ワークスペースの <code>system_index</code> の索引付けが完了していない、など）</li>
 </ul>
 <h2 id="推奨設定">推奨設定<a class="headerlink" href="#推奨設定" title="Permanent link">&para;</a></h2>
-<p>インデックス作成では、検索用のインデックス（ワークスペースの <code>index</code>）とは別に、Windows Search に索引させるデータ（<code>system_index</code>）を作成します。ワークスペースの既定の場所（<code>Documents\tebunko_ws</code>）は、標準で Windows Search の索引付けの対象です。</p>
+<p>インデックス作成では、検索に使うデータ（ワークスペースの <code>index</code>）に加えて、Windows Search に索引させるデータ（<code>system_index</code>）を作成します。どちらもインデックスの一部です。ワークスペースの既定の場所（<code>Documents\tebunko_ws</code>）は、標準で Windows Search の索引付けの対象です。</p>
 <p>ただし、<code>index</code> も索引付けの対象に含まれていると、Windows Search がその処理に時間を要し、高速検索が有効になるまで 1 日以上かかる場合があります。次の手順で <code>index</code> を対象から除外してください。</p>
 <ol>
 <li>［スタート］から「インデックスのオプション」を開きます。</li>

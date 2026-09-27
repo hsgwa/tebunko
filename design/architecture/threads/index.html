@@ -2811,7 +2811,7 @@
 <td>アプリ</td>
 <td>MTA</td>
 <td>Normal</td>
-<td>集約ファイルを読み、正規表現で照合する</td>
+<td>本文インデックスを読み、正規表現で照合する</td>
 </tr>
 <tr>
 <td>バックグラウンド</td>
@@ -2827,7 +2827,7 @@
 <td>インデックス作成 1 回</td>
 <td>MTA</td>
 <td>BelowNormal</td>
-<td>クロール・確認・取り込みの振り分け・取り込み一覧・集約ファイルとシステムインデックスの書き出し</td>
+<td>クロール・確認・取り込みの振り分け・取り込み一覧・本文インデックスとシステムインデックスの書き出し</td>
 </tr>
 <tr>
 <td>取り込み（Excel）</td>
@@ -2924,9 +2924,9 @@
 </tr>
 <tr>
 <td>読んだ内容</td>
-<td>集約ファイルを読む</td>
+<td>本文インデックスを読む</td>
 <td>キャッシュの予算を超えて追い出される・ファイルが変わる</td>
-<td>集約ファイルの内容（<a href="#gc-とメモリ">GC とメモリ</a>）</td>
+<td>本文インデックスのファイルの内容（<a href="#gc-とメモリ">GC とメモリ</a>）</td>
 </tr>
 </tbody>
 </table>
@@ -2990,18 +2990,18 @@
     R --&gt; C
     C -- "Office が要る（回し直し）" --&gt; QW
     C -- "Office が要る（回し直し）" --&gt; QP
-    C -- フォルダが揃ったら --&gt; P["集約ファイル&lt;br&gt;システムインデックス"]</code></pre>
+    C -- フォルダが揃ったら --&gt; P["本文インデックス&lt;br&gt;システムインデックス"]</code></pre>
 <ul>
 <li><strong>レーンは拡張子で決める</strong>（<code>getIngestLane</code>。判断層の <code>indexer_decide.ps1</code>）。Excel のファイルはセルの表示値を読むため、すべて Excel のレーンにする。Word・PowerPoint は、旧形式（<code>.doc</code>・<code>.ppt</code>）だけ Office のレーンにし、新形式は読み取りのレーンにする。</li>
 <li><strong>Office は種類ごとに 1 つだけ起動する。</strong> Excel・Word・PowerPoint のレーンは、それぞれスレッド 1 つが自分の Office を 1 つ持つ。インデックス作成が起動する Office は、Excel・Word・PowerPoint がそれぞれ最大 1 つになる。3 つのレーンは互いに並べて動く。PowerPoint も、自分のスレッドが一度起動したら使い回す（変換のたびに起動し直さない）。同じ種類の Office を複数のスレッドが同時に起動しないため、起動の前後のプロセスの一覧の差で PID を取り違えない。起動した Office の優先度は変えない（<a href="#スレッドの一覧">スレッドの一覧</a>）。起動した Office の PID は受け渡しの口（<code>OfficePids</code>）に記録する。</li>
 <li><strong>レーンのスレッドは、そのレーンのファイルを初めて渡すときに始める</strong>（<code>addIngestTask</code>）。渡すファイルが無いレーンは、スレッドも Office も作らない。列は <code>newIngestPool</code> がレーンごとに作る（<code>BlockingCollection</code>）。</li>
 <li><strong>読み取りのスレッドは Office を使わない。</strong> <code>.docx</code>・<code>.pptx</code> などの ZIP（XML）の形式を <code>office_reader</code> で直接読む。監視も持たない。</li>
 <li><strong>Office が要ると分かったファイルは、Office のレーンに回し直す。</strong> 新形式の拡張子でも、中身が ZIP でない（パスワード付き・中身が旧形式）ことがある。読み取りのスレッドでは、<code>extractDocument</code> が <code>${officeRequiredMessage}</code>（<code>このファイルの取り込みには Word・PowerPoint が要ります。</code>）の例外を投げ、<code>invokeIngestTask</code> が <code>Reroute</code> を返す。司令は同じファイルを Word または PowerPoint のレーン（<code>getOfficeLane</code>）に渡し直す。回し直す間も取り込み中のまま扱う。ZIP でも旧形式でもない PowerPoint のファイル（壊れている）は、回し直さずに失敗にする。</li>
-<li><strong>並びの先を見て、空いているレーンに渡す。</strong> 司令は、まだ渡していない最初のファイルから <code>${ingestLookAhead}</code>（200 件）先までを見て、レーンに空きがあるファイルを渡す。レーンに渡しておける数（<code>getIngestLaneCapacity</code>）は、Office のレーンが 2（取り込み中の 1 件と次の 1 件）、読み取りのレーンが読み取りのスレッドの数 × 2 である。Excel のファイルが続いても、読み取りのスレッドを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・集約ファイル）は同じになる。</li>
+<li><strong>並びの先を見て、空いているレーンに渡す。</strong> 司令は、まだ渡していない最初のファイルから <code>${ingestLookAhead}</code>（200 件）先までを見て、レーンに空きがあるファイルを渡す。レーンに渡しておける数（<code>getIngestLaneCapacity</code>）は、Office のレーンが 2（取り込み中の 1 件と次の 1 件）、読み取りのレーンが読み取りのスレッドの数 × 2 である。Excel のファイルが続いても、読み取りのスレッドを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・本文インデックス）は同じになる。</li>
 <li><strong>監視は Office のスレッドごとに持つ。</strong> Office のレーンのスレッドは、始めるときに自分の監視のスレッドを作る（<code>startWatchdog</code>）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。</li>
 <li><strong>Office の起動し直しと制限時間は、Office のスレッドごとに数える。</strong> スレッドごとに 100 ファイルで起動し直す。1 ファイルの制限時間は 10 分。</li>
 <li><strong>一時フォルダはスレッドごとに分ける。</strong> <code>%TEMP%\tebunko\&lt;PID&gt;\w&lt;番号&gt;</code> と、取り込み出力の <code>w&lt;番号&gt;</code> を使う。</li>
-<li><strong>集約ファイルはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を数えておき、取り込み中の数（<code>folderBusy</code>）と、まだ渡していない数（<code>folderPending</code>）を持つ。結果を受け取るたびに、どちらも 0 になったフォルダの集約ファイルとシステムインデックスを書き出す（<code>flushPendingPublish</code> に、まだ書き出さないフォルダを渡す）。</li>
+<li><strong>本文インデックスはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を数えておき、取り込み中の数（<code>folderBusy</code>）と、まだ渡していない数（<code>folderPending</code>）を持つ。結果を受け取るたびに、どちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（<code>flushPendingPublish</code> に、まだ書き出さないフォルダを渡す）。</li>
 <li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
 <li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>取り込み中.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
 <li><strong>中止。</strong> 司令は振り分けをやめ、取り込み中のファイル（回し直したものを含む）が終わるのを待ってから、書き出しと Office の片づけを行う。各レーンのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>stopIngestWorkers</code>）。</li>
@@ -3009,7 +3009,7 @@
 </ul>
 <p><code>setting.config</code> の <code>ingestThreads</code> で変えられるのは、読み取りのスレッドの数だけである。Excel・Word・PowerPoint のレーンは、いつもスレッド 1 つ・Office 1 つにする。</p>
 <p>取り込みのスレッドを使うときは、はじめにログに <code>N 件のファイルを取り込みます。（Excel・Word・PowerPoint はそれぞれ 1 つずつ、Office を使わずに読むファイルは R 個のスレッドで並べて取り込みます。…）</code> と出す。</p>
-<p>テストでは受け渡しの口の <code>Workers</code> を 0 にし、すべてのファイルの取り込みを司令のスレッドで行う（途中に割り込むため）。テストデータ（300 ファイル）で、スレッド 1 つと 4 つの結果（集約ファイルと取り込み一覧）が同じになることを確かめた。</p>
+<p>テストでは受け渡しの口の <code>Workers</code> を 0 にし、すべてのファイルの取り込みを司令のスレッドで行う（途中に割り込むため）。テストデータ（300 ファイル）で、スレッド 1 つと 4 つの結果（本文インデックスと取り込み一覧）が同じになることを確かめた。</p>
 <p>速さは、空いている CPU の量で決まる。1 ファイルの取り込みには、Excel と PowerShell で約 1 コアを使う。スレッドと Office の両方の優先度を下げていたときは、ほかのアプリが約 2 コアを使っている PC で、変更前より 1〜2 割遅くなった（性能データ 1,080 ファイル。変更前 414 秒、取り込みのスレッド 1 つ 518 秒、3 つ 456 秒。両方 Normal では 398 秒）。PowerPoint を変換のたびに起動し直していたときは、旧形式 1 件に約 7 秒かかった（使い回すと約 0.25 秒）。</p>
 <h2 id="画面とインデクサの受け渡し">画面とインデクサの受け渡し<a class="headerlink" href="#画面とインデクサの受け渡し" title="Permanent link">&para;</a></h2>
 <p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。</p>
@@ -3081,7 +3081,7 @@
         U-&gt;&gt;G: ［インデックス作成を止めて閉じる］
         G-&gt;&gt;I: Stop
         G-&gt;&gt;G: 閉じるのを保留して「インデックス作成を止めています…」&lt;br&gt;closeTimer（0.5 秒ごと）で終わりを待つ
-        I-&gt;&gt;I: 取り込み中のファイルの区切りで止まる&lt;br&gt;集約ファイルを書き出す・Office を終了
+        I-&gt;&gt;I: 取り込み中のファイルの区切りで止まる&lt;br&gt;本文インデックスを書き出す・Office を終了
         I--&gt;&gt;G: 終了
     end
     G-&gt;&gt;S: 検索を取り消す
@@ -3114,7 +3114,7 @@
 <td>0</td>
 </tr>
 <tr>
-<td>同じプロセスのスレッドで集約ファイルの読み書き</td>
+<td>同じプロセスのスレッドで本文インデックスの読み書き</td>
 <td>45.0ms</td>
 <td>0</td>
 </tr>
@@ -3135,7 +3135,7 @@
 <li>起動時に <code>GCSettings.LatencyMode</code> を <code>SustainedLowLatency</code> にする（重い全体の GC を後回しにする）。</li>
 <li>読んだ内容のキャッシュに予算（文字数）を決め、超えたら使われていないものから追い出す。追い出しは検索の司令のスレッドで、検索の後に行う（<code>trimTsvTextCache</code>）。</li>
 <li>キャッシュの各内容には、最後に使った世代を付ける。世代は検索 1 回ごとに 1 つ進める。</li>
-<li>予算の 90% を超えていたら、今の世代（いま終わった検索）で使わなかったものを、古い世代から追い出す。今の世代で使ったものは残す（毎回同じ集約ファイルを順に読むため、使った順だけで追い出すと、予算より大きいインデックスでは何も残らない）。</li>
+<li>予算の 90% を超えていたら、今の世代（いま終わった検索）で使わなかったものを、古い世代から追い出す。今の世代で使ったものは残す（毎回同じ本文インデックスのファイルを順に読むため、使った順だけで追い出すと、予算より大きいインデックスでは何も残らない）。</li>
 <li>画面のスレッドで大きな文字列を作らない。プレビューの読み込み（<code>readPackContext</code>）はバックグラウンドのスレッドで行い、表示する分だけを受け取る。</li>
 <li>検索の結果は、時間で区切って少しずつ画面に移す（<code>pumpSearch</code>）。</li>
 </ul>
