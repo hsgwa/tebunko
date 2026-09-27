@@ -15,7 +15,7 @@ BeforeAll {
     function newHitRow {
         param (
             [string]$book = "見積.xlsx",
-            [string]$location = "[シート] 4月",
+            [string]$location = "[シート]4月",
             [int]$lineNumber = 3,
             [string]$line = "",
             [string]$word = "",
@@ -188,10 +188,10 @@ Describe "FileGroup" -Tag Unit {
 
     It "同じ表記は 1 つにし、足した順に返す" {
         $group = [FileGroup]::new()
-        $group.AddLabel("[シート] 4月") | Should -Be $true
-        $group.AddLabel("[シート] 5月") | Should -Be $true
-        $group.AddLabel("[シート] 4月") | Should -Be $false
-        @($group.GetLocations()) | Should -Be @("[シート] 4月", "[シート] 5月")
+        $group.AddLabel("[シート]4月") | Should -Be $true
+        $group.AddLabel("[シート]5月") | Should -Be $true
+        $group.AddLabel("[シート]4月") | Should -Be $false
+        @($group.GetLocations()) | Should -Be @("[シート]4月", "[シート]5月")
     }
 
     It "表記が無ければ空" {
@@ -231,8 +231,8 @@ Describe "HitRow.Create" -Tag Unit {
     }
 
     It "コメントの場所も図形と同じく扱う" {
-        (newHitRow -location "[シート] 4月[コメント]").IsObjectPlace | Should -Be $true
-        (newHitRow -location "[シート] 4月").IsObjectPlace | Should -Be $false
+        (newHitRow -location "[シート]4月[コメント]").IsObjectPlace | Should -Be $true
+        (newHitRow -location "[シート]4月").IsObjectPlace | Should -Be $false
     }
 
     It "空の値は空文字にする" {
@@ -395,7 +395,7 @@ Describe "HitRow の静的な関数" -Tag Unit {
         @{ name = "正規表現の長さ 1 以上の一致は数える"; text = "ABC"; word = ""; pattern = [regex]"x*B"; expected = $true }
         @{ name = "語句の正規表現の記号をそのままの文字として探す（1.5 は 125 に当たらない）"; text = "125"; word = "1.5"; pattern = $null; expected = $false }
         @{ name = "語句の . はそのままの文字に当たる"; text = "1.5 倍"; word = "1.5"; pattern = $null; expected = $true }
-        @{ name = "語句の [ ] はそのままの文字に当たる"; text = "[シート] 4月"; word = "[シート]"; pattern = $null; expected = $true }
+        @{ name = "語句の [ ] はそのままの文字に当たる"; text = "[シート]4月"; word = "[シート]"; pattern = $null; expected = $true }
     ) {
         param ($name, $text, $word, $pattern, $expected)
         [HitRow]::HasMatch($text, $word, $pattern) | Should -Be $expected
