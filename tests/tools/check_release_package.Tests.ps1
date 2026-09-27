@@ -29,7 +29,8 @@ BeforeAll {
         }
         try {
             $dest = Join-Path $TestDrive $destName
-            & git clone -q --local $rootDir $dest
+            # --no-hardlinks: $TestDrive が別のドライブのとき、既定のハードリンクは失敗する（CI のランナーで実際に起きた）
+            & git clone -q --no-hardlinks --local $rootDir $dest
             return $dest
         } finally {
             foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
