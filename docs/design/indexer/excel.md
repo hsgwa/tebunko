@@ -110,7 +110,7 @@ flowchart LR
 - スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。
 - コメントのふりがな（`rPh`）と作成者名（`authors`）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。
 - 非表示・完全に非表示のシート（`state` が `hidden` `veryHidden`）は、グラフシートも含めてセルと同じく読まない。
-- 読まないもの: グラフの数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。`cx:chart`）、グラフの中のテキストボックス（`c:userShapes`）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。
+- 読まないもの: グラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。`cx:chart`）、グラフの中のテキストボックス（`c:userShapes`）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。
 
 TSV の例（シート `見積` の F2 に左上があるテキストボックスと、C2 のコメント）:
 
@@ -122,9 +122,9 @@ work/content_index/営業/見積.xlsx/見積[コメント].tsv  … C2<TAB>"test
 
 ### グラフ・SmartArt の読み取り
 
-図形の部品（`xl/drawings/drawingN.xml`）の中で、グラフ（`xdr:graphicFrame` の中の `a:graphic`/`a:graphicData` の `c:chart`）・SmartArt（`dgm:relIds`）を見つけたら、その `r:id`（グラフ）・`r:dm`（SmartArt）を、図形の部品自身のリレーションシップ（`xl/drawings/_rels/drawingN.xml.rels`）でたどり、`xl/charts/chartN.xml`・`xl/diagrams/dataN.xml` の文字を `readObjectText`・`readChartText`・`readDiagramText`（Word・PowerPoint と共通。[Word・PowerPoint のテキスト読み取り](office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)）で読む。読むもの・読まないものの決まりは PR #34（Word・PowerPoint）のまま。
+図形の部品（`xl/drawings/drawingN.xml`）の中で、グラフ（`xdr:graphicFrame` の中の `a:graphic`/`a:graphicData` の `c:chart`）・SmartArt（`dgm:relIds`）を見つけたら、その `r:id`（グラフ）・`r:dm`（SmartArt）を、図形の部品自身のリレーションシップ（`xl/drawings/_rels/drawingN.xml.rels`）でたどり、`xl/charts/chartN.xml`・`xl/diagrams/dataN.xml` の文字を `readObjectText`・`readChartText`・`readDiagramText`（Word・PowerPoint と共通。[Word・PowerPoint のテキスト読み取り](office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)）で読む。
 
-- **系列名・項目名も読む**: Excel のグラフはふつう同じブックのセルを参照するため、系列名・項目名（取引先名・商品名など）はセルの行と重なって出ることがある。重なりが邪魔なら［図形も検索］を外せば消える。非表示シートのセルを参照するグラフでも、グラフに見えている文字なので項目名は検索できる。
+- **グラフはタイトル・軸ラベル・系列名だけを読む**（Word・PowerPoint と共通の決まり。2026-09-28 にメンテナが見直した）。項目名（横軸に並ぶ文字。点の数だけある）と数値は読まない。項目名はセルの値としては検索できるが、グラフだけにある項目名（グラフの元データが無い・非表示シートにある等）は検索できない。系列名はふつう同じブックのセルを参照するため、セルの行と重なって出ることがある（重なりが邪魔なら［図形も検索］を外せば消える）。
 - **リレーションシップは、参照が 1 つ以上あるときだけ読む**（グラフ・SmartArt の無い図形の部品では読まない）。
 - **1 つのグラフ・SmartArt が読めなくても、ほかは捨てない**: 参照の先・リレーションシップが無い、部品が読めない（XML が壊れている、「サイズの上限」を超えるなど）ときは、そのグラフ・SmartArt だけを空にして続ける（同じ図形の中のほかの文字、同じシートのほかの図形・コメント・セルの値は出す）。`shared/` はツールを知らないため、読めなかった部品の名前は `readXlsxObjectUnits` の戻り値（`$failures`）で呼び出し元（`extract_office.ps1`）に返し、そこでインデックス作成ログに黄色で記録する（`    グラフ・SmartArt を読み取れませんでした: <部品名>`）。
 - **グラフシート**: グラフ自体を `absoluteAnchor` で置いた図形の部品を、通常のシートと同じ形で読む。検索結果から開くときは、`Worksheets` にグラフシートが無いため `Charts` から同じ名前のものを探して表示する（セルは選ばない。[［2 検索］タブ](../gui/search-tab.md#元のファイルを開く)）。

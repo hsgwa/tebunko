@@ -233,7 +233,7 @@ refactor で作る予定の設計。作ったら、この節を実装に合わ�
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `getExtractVersion` | path | int | ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。Excel の `.xlsx` `.xlsm` はグラフ・SmartArt も読む 3、Word・PowerPoint など図形・コメントを読む形式は 2、ほかは 1） | [取り込み対象の決定](../indexer/flow.md#取り込み対象の決定createtargetlist) | testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列） |
+| `getExtractVersion` | path | int | ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。`.xlsx` `.xlsm` `.docx` `.docm` `.pptx` `.pptm` はグラフの項目名を読まない・Excel はグラフ・SmartArt も読む 3、旧形式（`.doc` `.ppt`）など図形・コメントを読む形式は 2、ほかは 1） | [取り込み対象の決定](../indexer/flow.md#取り込み対象の決定createtargetlist) | testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列） |
 | `testExtractOutdated` | row | bool | 取り込み一覧の行が、今の抽出版より前の版で取り込んだものか（抽出版の列が空なら 1） | 同上 | getIngestDecision |
 | `getIngestDecision` | old（前回の行 / `$null`）, updated, size, indexComplete | `@{Ingest; Reason}` | 取り込むかどうかと理由（`done` / `failed` / `new` / `updated` / `pending` / `lost` / `outdated`）。更新日時・サイズが同じでも、TSV が欠けていれば `lost`、前の抽出版なら `outdated` で取り込み直す | 同上 | createTargetList |
 | `getIngestLane` | relPath | string | 取り込むレーン（`.xls*` は `Excel`、`.doc` は `Word`、`.ppt` は `PowerPoint`、それ以外（`.docx`・`.docm`・`.pptx`・`.pptm`）は `Reader`） | [インデックス作成の並列化](threads.md#インデックス作成の並列化) | インデックス作成（司令） |

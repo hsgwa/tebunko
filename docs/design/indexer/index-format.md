@@ -103,7 +103,7 @@ B2→確定版
 - **重ならない理由**: Excel のシート名には `[` `]` を使えない。Word・PowerPoint の場所（`ページNNN` `スライドNNN` `ヘッダー・フッター` 等）には `[` が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。
 - **定義の場所**: 種類の名前は `index_name.ps1` の `$placeKindShape` / `$placeKindComment` と `objectPlacePattern`（分けるのは `splitObjectPlace`）。書き出す側（`office_reader.ps1`）と画面（`types.ps1` の `HitRow`）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（`index_name.Tests.ps1`）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。
 - **1 行の形**: Excel は `<セル番地><TAB><文字>`（検索結果の「場所」に出すセル番地と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。
-- **読み取る内容を増やしたとき**: `indexer_decide.ps1` の `$extractVersions` で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（[処理の流れと取り込み一覧](flow.md)）。今は `.xlsx` `.xlsm` が 3、Word・PowerPoint のすべての形式が 2。
+- **読み取る内容を増やしたとき**: `indexer_decide.ps1` の `$extractVersions` で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（[処理の流れと取り込み一覧](flow.md)）。今は `.xlsx` `.xlsm` `.docx` `.docm` `.pptx` `.pptm` が 3、`.doc` `.ppt` が 2。
 
 ### インデックスへの入れ替え（`publishTsv` / `publishIndexFiles`）
 

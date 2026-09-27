@@ -26,7 +26,7 @@ Word 文書の旧形式（`.doc` 等）の変換（[Word の旧形式の変換](
 | `ページNNN` | `word/document.xml`（本文） |
 | `ヘッダー・フッター` | `word/header*.xml` → `word/footer*.xml` の順。セクションごとに同じ内容が並ぶため、重複する行は除く |
 | `脚注` | `word/footnotes.xml`・`word/endnotes.xml`（区切り線は文字が無いため出力されない） |
-| `ページNNN[図形]` | 本文のテキストボックス・図形内の文字（`w:txbxContent`）、SmartArt（`dgm:relIds` の `r:dm` が指す `word/diagrams/dataN.xml`）、グラフ（`c:chart` の `r:id` が指す `word/charts/chartN.xml` のタイトル・軸ラベル・系列名・項目名。数値は読まない）。図形 1 つを 1 行にし、段落はスペースでつなぐ。ページは図形を置いた段落のページ |
+| `ページNNN[図形]` | 本文のテキストボックス・図形内の文字（`w:txbxContent`）、SmartArt（`dgm:relIds` の `r:dm` が指す `word/diagrams/dataN.xml`）、グラフ（`c:chart` の `r:id` が指す `word/charts/chartN.xml` のタイトル・軸ラベル・系列名。項目名・数値は読まない）。図形 1 つを 1 行にし、段落はスペースでつなぐ。ページは図形を置いた段落のページ |
 | `ページNNN[コメント]` | `word/comments.xml` のコメント（返信も 1 件ずつ）。ページは本文の `w:commentReference` の位置。本文に参照の無いコメント（ヘッダー・脚注に付けたもの等）は `文書[コメント]` にまとめる。作成者名は読まない |
 
 - 図形・コメントの場所の決まりは [配置・命名規則](index-format.md#配置命名規則)の「図形・コメントの場所」。SmartArt は描画用の `diagrams/drawingN.xml` に同じ文字があるが、重複するため読まない。

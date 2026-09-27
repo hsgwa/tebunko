@@ -414,27 +414,33 @@ function readDiagramText {
 }
 
 function readChartText {
-    # グラフ（charts/chartN.xml）の文字（タイトル・軸ラベル・系列名・項目名）を、スペースでつないで 1 つにする。
-    # 数値（numCache）は読まない。同じ文字は 1 回だけにする
+    # グラフ（charts/chartN.xml）の文字（タイトル・軸ラベル・系列名）を、スペースでつないで 1 つにする。
+    # 項目名（横軸の項目。c:cat。点の数だけある）と数値（c:val）は読まない。同じ文字は 1 回だけにする。
+    # 系列（c:ser）の数だけ調べるため、項目の点数が多いグラフでも遅くならない
     param (
         [string]$xml
     )
 
     $texts = New-Object System.Collections.Generic.List[string]
     $seen = New-Object System.Collections.Generic.HashSet[string]
-    # タイトル・軸ラベル（c:rich の a:p）
+    # タイトル・軸ラベル（c:rich の a:p。手で直したデータラベルの文字も同じ形のため、ここで読む）
     foreach ($line in (readXmlLines $xml ${nsDrawing})) {
         if ($seen.Add($line.Text)) { $texts.Add($line.Text) }
     }
-    # 系列名・項目名（c:strCache / c:multiLvlStrCache の c:pt/c:v）
+    # 系列名（c:ser/c:tx の文字。セル参照なら c:strRef/c:strCache/c:pt/c:v、直値なら c:v）
     $doc = New-Object System.Xml.XmlDocument
     $doc.LoadXml($xml)
-    foreach ($v in $doc.GetElementsByTagName("v", ${nsChart})) {
-        $cache = $v.ParentNode.ParentNode
-        if ($cache.LocalName -eq "lvl") { $cache = $cache.ParentNode }
-        if ($cache.LocalName -notin @("strCache", "multiLvlStrCache")) { continue }
-        $text = $v.InnerText.Trim()
-        if ($text -ne "" -and $seen.Add($text)) { $texts.Add($text) }
+    foreach ($ser in $doc.GetElementsByTagName("ser", ${nsChart})) {
+        foreach ($child in $ser.ChildNodes) {
+            if ($child.LocalName -ne "tx") {
+                continue
+            }
+            foreach ($v in $child.GetElementsByTagName("v", ${nsChart})) {
+                $text = $v.InnerText.Trim()
+                if ($text -ne "" -and $seen.Add($text)) { $texts.Add($text) }
+            }
+            break
+        }
     }
     return ($texts -join " ")
 }

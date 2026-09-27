@@ -443,8 +443,8 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
         $ls = [char]0x2028
     }
 
-    It "グラフはタイトル・系列名・項目名を読み、数値は読まない（1 アンカー 1 行）" {
-        @($units["S[図形]"])[0] | Should -Be "A2`t月別売上 東京支店 4月 5月 大阪支店"
+    It "グラフはタイトル・系列名を読み、項目名・数値は読まない（1 アンカー 1 行）" {
+        @($units["S[図形]"])[0] | Should -Be "A2`t月別売上 東京支店 大阪支店"
     }
 
     It "SmartArt は data の文字を読む（drawing の文字とは重ならない）" {
@@ -491,9 +491,9 @@ Describe "readXlsxObjectUnits（実物のブック）" -Tag Io {
         $ls = [char]0x2028
     }
 
-    It "埋め込みグラフのタイトル・軸ラベル・系列名・項目名を読み、数値（987654）は読まない" {
-        @($units["表[図形]"])[0] | Should -Be "D3`tTC30 グラフのタイトル TC30 横軸 TC30 縦軸 TC30 系列名 TC30 項目1 TC30 項目2 TC30 項目3"
-        (@($units["表[図形]"]) -join "|") | Should -Not -Match "987654"
+    It "埋め込みグラフのタイトル・軸ラベル・系列名を読み、項目名・数値（987654）は読まない" {
+        @($units["表[図形]"])[0] | Should -Be "D3`tTC30 グラフのタイトル TC30 横軸 TC30 縦軸 TC30 系列名"
+        (@($units["表[図形]"]) -join "|") | Should -Not -Match "987654|TC30 項目"
     }
 
     It "SmartArt の文字を読む" {
@@ -501,7 +501,7 @@ Describe "readXlsxObjectUnits（実物のブック）" -Tag Io {
     }
 
     It "グループの中はテキストボックス → グラフの順で 1 行になる" {
-        @($units["表[図形]"])[2] | Should -Be "A17`t`"TC30 グループ内のテキストボックス${ls}TC30 グループ内グラフ TC30 系列名 TC30 項目1 TC30 項目2 TC30 項目3`""
+        @($units["表[図形]"])[2] | Should -Be "A17`t`"TC30 グループ内のテキストボックス${ls}TC30 グループ内グラフ TC30 系列名`""
     }
 
     It "非表示シートに置いたグラフは読まない" {
@@ -509,7 +509,7 @@ Describe "readXlsxObjectUnits（実物のブック）" -Tag Io {
     }
 
     It "表示のグラフシートは A1 で読む" {
-        @($units["TC30グラフシート[図形]"]) -join "|" | Should -Be "A1`tTC30 グラフシートのタイトル TC30 系列名 TC30 項目1 TC30 項目2 TC30 項目3"
+        @($units["TC30グラフシート[図形]"]) -join "|" | Should -Be "A1`tTC30 グラフシートのタイトル TC30 系列名"
     }
 }
 
@@ -544,8 +544,8 @@ Describe "readDocxUnits（図形・コメント）" -Tag Io {
         @($units["ページ001[図形]"]) -join "|" | Should -Be "箱の1段落目 箱の2段落目|セルの中の箱|箱の表A`t箱の表B"
     }
 
-    It "SmartArt・グラフの文字は、そのページの図形にする（グラフはタイトル・系列名・項目名。数値と重複は読まない）" {
-        @($units["ページ002[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 4月 5月 大阪支店"
+    It "SmartArt・グラフの文字は、そのページの図形にする（グラフはタイトル・系列名。項目名・数値は読まず、重複も読まない）" {
+        @($units["ページ002[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 大阪支店"
     }
 
     It "コメントは付けた所のページに、返信も 1 件ずつ入れる。本文に参照の無いコメントは「文書」にまとめる" {
@@ -582,7 +582,7 @@ Describe "readPptxUnits（図形・コメント）" -Tag Io {
 
     It "テキストボックス・図形はスライドの本文のまま、SmartArt・グラフの文字はスライドの図形にする" {
         @($units["スライド001"]) -join "|" | Should -Be "スライドの本文"
-        @($units["スライド001[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 4月 5月 大阪支店"
+        @($units["スライド001[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 大阪支店"
     }
 
     It "旧形式・新形式のコメントを読み、コメントの後に返信を 1 件ずつ入れる（非表示のスライドは場所の名前に付く）" {
@@ -643,14 +643,41 @@ Describe "readObjectText / readChartText" -Tag Io {
         }
     }
 
-    It "多段の項目名（multiLvlStrCache）も読み、数値は読まない" {
+    It "項目名（c:cat。多段の multiLvlStrCache を含む）は読まない。系列名（c:ser/c:tx）は読み、数値も読まない" {
         $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser>" +
+            "<c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC 系列名</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
             "<c:cat><c:multiLvlStrRef><c:multiLvlStrCache><c:ptCount val=`"1`"/>" +
             "<c:lvl><c:pt idx=`"0`"><c:v>上期</c:v></c:pt></c:lvl><c:lvl><c:pt idx=`"0`"><c:v>2024年</c:v></c:pt></c:lvl>" +
             "</c:multiLvlStrCache></c:multiLvlStrRef></c:cat>" +
             "<c:val><c:numRef><c:numCache><c:pt idx=`"0`"><c:v>100</c:v></c:pt></c:numCache></c:numRef></c:val>" +
             "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
-        readChartText $xml | Should -Be "上期 2024年"
+        readChartText $xml | Should -Be "TC 系列名"
+    }
+
+    It "系列名は、セル参照ではない直値（c:tx の直下の c:v）でも読む" {
+        $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser><c:tx><c:v>直値の系列名</c:v></c:tx>" +
+            "<c:cat><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>項目A</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
+            "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+        readChartText $xml | Should -Be "直値の系列名"
+    }
+
+    It "項目の点数が多いグラフでも、項目名を読まないため速く終わる（回帰の確かめ）" {
+        # 項目名を辿って祖先を確かめる古い実装は、点数の多いグラフで二次関数的に遅くなっていた（実測: 5 万点で約 230 秒）。
+        # 系列（c:ser）の数だけ調べる今の実装は、点数に関係なく速く終わる
+        $pts = New-Object System.Text.StringBuilder
+        for ($i = 0; $i -lt 20000; $i++) {
+            [void]$pts.Append("<c:pt idx=`"$i`"><c:v>項目$i</c:v></c:pt>")
+        }
+        $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser>" +
+            "<c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC 大きい系列名</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
+            "<c:cat><c:strRef><c:strCache><c:ptCount val=`"20000`"/>$($pts.ToString())</c:strCache></c:strRef></c:cat>" +
+            "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+        $result = $null
+        $elapsed = (Measure-Command { $result = readChartText $xml }).TotalSeconds
+        $result | Should -Be "TC 大きい系列名"
+        # カバレッジ計測（-Ci）や機械の負荷でも安定して通るよう、余裕を大きく取る
+        # （古い実装なら 2 万点でも数十秒〜数分かかる見込み。5 万点の実測は約 230 秒）
+        $elapsed | Should -BeLessThan 30
     }
 }
 

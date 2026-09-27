@@ -26,7 +26,7 @@ PowerPoint の旧形式（`.ppt` 等）の変換（[PowerPoint の旧形式の�
 | `スライドNNN（非表示）` | 非表示スライド（`<p:sld show="0">`。`show="false"` も同じ） |
 | `スライドNNN_ノート` | スライドのリレーションシップ（種類 `notesSlide`）が指すノートの XML |
 | `ヘッダー・フッター` | 各スライドのフッターのプレースホルダー（`p:ph` の `type` が `ftr`）。各スライドに同じ内容が並ぶため、全スライド分をまとめて重複する行は除く（Word の `ヘッダー・フッター` と同じ扱い） |
-| `スライドNNN[図形]` | SmartArt（`dgm:relIds` の `r:dm` が指す `ppt/diagrams/dataN.xml`）とグラフ（`c:chart` の `r:id` が指す `ppt/charts/chartN.xml` のタイトル・軸ラベル・系列名・項目名。数値は読まない）。図形 1 つを 1 行にし、段落はスペースでつなぐ |
+| `スライドNNN[図形]` | SmartArt（`dgm:relIds` の `r:dm` が指す `ppt/diagrams/dataN.xml`）とグラフ（`c:chart` の `r:id` が指す `ppt/charts/chartN.xml` のタイトル・軸ラベル・系列名。項目名・数値は読まない）。図形 1 つを 1 行にし、段落はスペースでつなぐ |
 | `スライドNNN[コメント]` | スライドのリレーションシップ（種類が `comments` で終わるもの）が指すコメント。旧形式（`ppt/comments/commentN.xml` の `p:cm` の `p:text`）と新形式（`ppt/comments/modernComment_*.xml` の `p188:cm` の本文と返信）。コメントの後に返信を 1 件ずつ並べる。作成者名は読まない |
 
 - 図形・グループ内の図形・表のテキストを読む。スライド番号・日付・ヘッダー・フッター・スライド画像のプレースホルダー（`p:ph` の `type` が `sldNum` `dt` `hdr` `ftr` `sldImg`）は、スライドの場所には含めない（フッターは上の `ヘッダー・フッター` にまとめる）。
