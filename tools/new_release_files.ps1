@@ -47,7 +47,7 @@ if (!$PSBoundParameters.ContainsKey("Timestamp")) {
 }
 
 # カタログは、zip に入れるバイト列（-Entries）から作る。作業ツリーの scripts\ から直接作ると、
-# git で追跡していないファイルや手元で書き換えたファイルが入り、zip の中身と食い違うため。
+# git で追跡していないファイルが入り、zip の中身と食い違うため。
 # scripts\ と tebunko.bat のバイト列を一時フォルダに書き出し、そこからカタログを作る（work・setting.config は利用者ごとに変わるため含めない）
 $stageDir = Join-Path ([System.IO.Path]::GetTempPath()) ("tebunko-catalog-" + [Guid]::NewGuid().ToString("N"))
 $catalogPath = Join-Path $OutDir "tebunko.cat"

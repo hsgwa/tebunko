@@ -17,6 +17,25 @@ BeforeAll {
         [pscustomobject]@{ Code = $LASTEXITCODE; Text = ($output -join "`n") }
     }
 
+    # 本物の作業ツリーを汚さずに確かめるための clone を作る。
+    # コミット前のフックから動くときは、GIT_DIR などがフックを動かしたリポジトリ（このコミット）を指している。
+    # 外さずに git clone すると、そちらを向いてしまい、コミット中の索引を壊す（tests\tools\check_release_tag.Tests.ps1 と同じ理由）。
+    # clone する間だけ外し、終わったら戻す
+    function newIsolatedClone([string]$destName) {
+        $saved = @{}
+        foreach ($name in @("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX", "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR")) {
+            $saved[$name] = [Environment]::GetEnvironmentVariable($name)
+            [Environment]::SetEnvironmentVariable($name, $null)
+        }
+        try {
+            $dest = Join-Path $TestDrive $destName
+            & git clone -q --local $rootDir $dest
+            return $dest
+        } finally {
+            foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
+        }
+    }
+
     # 正しい zip をコピーして、指定したエントリーを書き換えた zip を返す。Mutate は byte[]（削除は $null）を返す
     function newBrokenZip([string]$name, [string]$entry, [scriptblock]$mutate, [switch]$add) {
         $path = Join-Path $TestDrive "$name.zip"
@@ -76,9 +95,10 @@ Describe "check_release_package.ps1" -Tag Io {
         $result.Text | Should -BeLike "*VERSION.txt がタグ名とコミットの SHA になっていません*"
     }
 
-    It "通らなかった項目を、最初の 1 つで止めずにすべて列挙する" {
+    It "通らなかった項目を、最初の 1 つで止めずにすべて列挙し、終了コードが 1 になる" {
         $zip = newBrokenZip "multi" "tebunko/tebunko.bat" { param($b) [byte[]]($b + 65) }
         $result = invokeCheck $zip
+        $result.Code | Should -Be 1
         $result.Text | Should -BeLike "*SHA256SUMS.txt のハッシュと一致しません: tebunko.bat*"
         $result.Text | Should -BeLike "*部品表のハッシュと一致しません: tebunko.bat*"
         $result.Text | Should -BeLike "*カタログの検証に失敗しました*"
@@ -96,16 +116,13 @@ Describe "check_release_package.ps1" -Tag Io {
 
 Describe "new_release_files.ps1 のカタログ" -Tag Io {
     It "追跡していないファイルが scripts\ にあっても、カタログは zip の中身と一致する（検査が通る）" {
-        $extra = Join-Path $rootDir "scripts\untracked_for_test.ps1"
-        try {
-            Set-Content -LiteralPath $extra -Value "# untracked"
-            $dir = Join-Path $TestDrive "untracked"
-            & $newReleasePackage -Version $version -OutDir $dir 3>$null | Out-Null
-            $result = invokeCheck (Join-Path $dir "tebunko-$version.zip") $dir
-            $result.Code | Should -Be 0
-        } finally {
-            Remove-Item -LiteralPath $extra -Force -ErrorAction SilentlyContinue
-        }
+        # 本物の作業ツリーを汚さないよう、clone した先に追跡していないファイルを置く
+        $cloneDir = newIsolatedClone "clone-untracked"
+        Set-Content -LiteralPath (Join-Path $cloneDir "scripts\untracked_for_test.ps1") -Value "# untracked"
+        $dir = Join-Path $TestDrive "untracked"
+        & "$cloneDir\tools\new_release_package.ps1" -Version $version -OutDir $dir 3>$null | Out-Null
+        $result = invokeCheck (Join-Path $dir "tebunko-$version.zip") $dir
+        $result.Code | Should -Be 0
     }
 }
 
@@ -116,5 +133,16 @@ Describe "new_release_package.ps1 の作業ツリーの検査" -Tag Io {
         & $newReleasePackage -Version $version -OutDir $dir -WarningVariable warnings 3>$null | Out-Null
         $tracked = & git -C $rootDir status --porcelain --untracked-files=no -- scripts tebunko.bat README.md LICENSE
         @($warnings).Count | Should -Be $(if ($tracked) { 1 } else { 0 })
+    }
+
+    It "追跡しているファイルに変更があると、変えたファイルの名前を含む警告を 1 件出す" {
+        # 本物の作業ツリーを汚さないよう、clone した先で書き換える
+        $cloneDir = newIsolatedClone "clone-warn"
+        Add-Content -LiteralPath (Join-Path $cloneDir "tebunko.bat") -Value "rem test"
+        $dir = Join-Path $TestDrive "warn-changed"
+        $warnings = @()
+        & "$cloneDir\tools\new_release_package.ps1" -Version $version -OutDir $dir -WarningVariable warnings 3>$null | Out-Null
+        @($warnings).Count | Should -Be 1
+        "$($warnings[0])" | Should -BeLike "*tebunko.bat*"
     }
 }
