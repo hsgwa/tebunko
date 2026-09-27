@@ -352,8 +352,7 @@ function finishIndexing {
         # 完了（後回し・失敗の件数に応じた見出しと説明は判断層（indexing_view.ps1）が決める）
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
         $failed = if ($progress) { $progress.Failed } else { 0 }
-        $postponed = if ($progress) { $progress.Remaining } else { 0 }
-        $endText = getIndexingEndText $success $failed $postponed $session.GetNotice()
+        $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail
         setStatus $ui.IndexingProgressText.Text
