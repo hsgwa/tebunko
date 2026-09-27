@@ -303,7 +303,7 @@ Describe "第三者が検証するための資料がそろっていること（d
         ($license -like "*hsgwa*") | Should -Be $true
     }
 
-    It "部品表（SBOM）があり、第三者の部品を 1 件も含まない" {
+    It "部品表の雛形（sbom.cdx.json）があり、本体の説明・ライセンス・前提ソフトウェアを持ち、部品は持たない" {
         $sbomPath = "$rootDir\sbom.cdx.json"
         (Test-Path -LiteralPath $sbomPath) | Should -Be $true
         $sbom = [System.IO.File]::ReadAllText($sbomPath) | ConvertFrom-Json
@@ -311,10 +311,9 @@ Describe "第三者が検証するための資料がそろっていること（d
         $sbom.specVersion | Should -Be "1.6"
         # 本ツール自身のライセンスは SPDX の識別子で記載する（LICENSE と一致させる）
         $sbom.metadata.component.licenses[0].license.id | Should -Be "MIT"
-        # 構成物は本ツール自身のファイルだけ。パッケージマネージャー由来の部品（purl を持つ）は無い
-        (@($sbom.components).Count -gt 0) | Should -Be $true
-        @($sbom.components | Where-Object { $_.group -ne "tebunko" }).Count | Should -Be 0
-        @($sbom.components | Where-Object { $_.purl }).Count | Should -Be 0
+        # ファイルごとの一覧とハッシュは、配布物を作るときに tools\new_sbom.ps1 が zip の中身から作る。雛形には書かない
+        $sbom.PSObject.Properties.Name -contains "components" | Should -Be $false
+        $sbom.PSObject.Properties.Name -contains "dependencies" | Should -Be $false
         # 前提ソフトウェア（同梱しないもの）は metadata.properties に記載する
         @($sbom.metadata.properties | Where-Object { $_.name -eq "tebunko:prerequisite" }).Count -gt 0 | Should -Be $true
     }

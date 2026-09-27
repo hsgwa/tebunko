@@ -212,7 +212,7 @@ Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流
 | 原本の保護 | 原本のパスを書き込み・削除の API に渡さない、`SaveAs` の保存先は作業フォルダのパスだけ、原本を読むのは `copyFileShared`（`FileAccess::Read`）だけ |
 | 書き込み先 | `$workspace`（`Workspace` の `IndexDir`・`PublishDir`）・`${tmpDir}`・`${settingsFile}` の定義が `work` 配下・`%TEMP%` 配下・`setting.config` だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（`removeStaleTmpDirs`） |
 | 静的解析（PSScriptAnalyzer） | 安全性にかかわるルール（`tests/meta/PSScriptAnalyzer.security.psd1` の 14 件）・`Error` 重大度・制限言語モード（`PSUseConstrainedLanguageMode`）の指摘が 0 件、設定ファイルから当該ルールが削られていないこと |
-| 審査用の資料 | `docs/safety/index.md`・`.github/SECURITY.md`・`tools/new_release_files.ps1`・`sbom.cdx.json` がそろっており、SBOM が第三者の部品（`purl` を持つ部品）を含まないこと |
+| 審査用の資料 | `docs/safety/index.md`・`.github/SECURITY.md`・`tools/new_release_files.ps1`・`sbom.cdx.json`（雛形）がそろっており、雛形が本体の説明・ライセンス・前提ソフトウェアを持ち部品を持たないこと（`safety.Tests.ps1`）。作った部品表が第三者の部品（`purl` を持つ部品）を含まず、zip の中身と一致すること（`new_sbom.Tests.ps1`・`new_release_package.Tests.ps1`） |
 
 PSScriptAnalyzer は Windows PowerShell 5.1 に標準では入っていないため、未導入の環境では静的解析の 3 件を自動的に飛ばす（`It -Skip`）。導入は `Install-Module PSScriptAnalyzer -Scope CurrentUser`。CI では必ず入れて実行する。安全性にかかわるルールの選定と、全ルールで出る指摘の内訳は [安全性の要約](../../safety/index.md) の [静的解析: PSScriptAnalyzer（Microsoft）](../../safety/scans.md#静的解析-psscriptanalyzermicrosoft) に記載している。
 
