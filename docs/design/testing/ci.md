@@ -48,7 +48,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 | `Meta` | 構成を守るテスト・安全性の検査 | 不要（PSScriptAnalyzer があれば静的解析も行う） | する |
 | `Office` | Excel・Word・PowerPoint の COM を実際に動かすもの（今は該当するテストが無い。COM は `Mock` で確かめる） | 必要 | しない（`-All` で実行） |
 | `Gui` | 本物の画面（`scripts/tebunko/gui.ps1`）を別のプロセスで開いて UI オートメーションで操作するもの（`tests/gui/`。[画面のスモークテスト](index.md#画面のスモークテスト)） | 不要（Windows の画面が要る。ランナーの Windows で動く） | しない（`-Tag Gui`・`-All` で実行。CI は `gui.yml`） |
-| `Slow` | 時間のかかるもの（検索・pack の作成・取り込みの速さの回帰テスト。`tests/tools/perf_*.Tests.ps1`。[`perf-check.yml`](#ci)） | 検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る | しない（`-All` または `-Tag Slow` で実行） |
+| `Slow` | 時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。`tests/tools/perf_*.Tests.ps1`。[`perf-check.yml`](#ci)） | 検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る | しない（`-All` または `-Tag Slow` で実行） |
 | `Manual` | 手で確かめるもの（今は該当するテストが無い） | – | しない（`-All` でも実行しない） |
 
 実行は `tests/run.ps1` から行う。
@@ -93,8 +93,8 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 | `scorecard.yml` | `analysis` | main への push、ブランチ保護の変更、毎週 1 回 | OpenSSF Scorecard の採点 | – |
 | `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
 | `gui.yml` | `gui-smoke` | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](index.md#画面のスモークテスト)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
-| `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・pack の作成・検索の速さとリソースの推移を測る | – |
-| `perf-check.yml` | `search`・`ingest` | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・pack の作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
+| `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・本文インデックスの作成・検索の速さとリソースの推移を測る | – |
+| `perf-check.yml` | `search`・`ingest` | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
 
 **`test.yml`**
 
@@ -193,22 +193,22 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 ```
 
 - 入力: `ref`（測る ref。作業中のブランチも測れる）、`scale`（データの量。`1` でブック 5.4 万・TSV 16 万・約 1GB）、`count`（語ごとに続けて検索する回数。既定 20）、`ingest`（取り込みを測る .docx・.pptx のそれぞれの数。`0` `200` `1000`。既定 `0` は取り込みを測らない。検索だけを測る起動が長くならないようにする）
-- 計測スクリプト（`tools/measure_perf.ps1` と `tools/perf/`）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（`publishIndexFolders`・`getIndexPackFiles`・`searchPackIndex`）が無い ref（pack 形式より前の版）では、エラーメッセージを出して止まる
+- 計測スクリプト（`tools/measure_perf.ps1` と `tools/perf/`）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（`publishIndexFolders`・`getIndexPackFiles`・`searchPackIndex`）が無い ref（本文インデックスの形式より前の版）では、エラーメッセージを出して止まる
 - データは [tebunko-perfdata](https://github.com/hsgwa/tebunko-perfdata) の `new_index.ps1` で毎回生成する（取り込みの一時置き場と同じ形の TSV）。使う版は `perf.yml` の `PERFDATA_SHA` でコミットに固定する。検索する語は同じリポジトリの `words.tsv`（0 件・まれ（3 件）・大量・正規表現）
 - 測るもの（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）
   - Office からの取り込み … `ingest` が `0` でないときだけ。`tools/perf/new_ingest_data.ps1` でテストデータ（`tests/testdata/office`）の複製を作り（.docx・.pptx を `ingest` 個ずつ。50 ファイルごとにフォルダを分ける）、`measure_perf.ps1 -Office` で測る。ランナーには Office が無いので、Office を使わずに読むファイル（.docx・.pptx。読み取りのスレッド）だけを測り、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は手元の Windows で測る（下の「取り込みの計測」）
-  - インデックス作成 … インデクサと同じ `publishIndexFolders`（pack を書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、下の取り込みの計測で別に測る。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る
+  - インデックス作成 … インデクサと同じ `publishIndexFolders`（本文インデックスを書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、下の取り込みの計測で別に測る。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る
   - 検索 … 語ごとに新しいプロセスを起動し、同じプロセスで `count` 回続けて検索する（上限 1 万件）。画面と同じく、検索の司令のスレッド（`newSearchService`）を 1 つ作り、要求（`newSearchRequest`）を順に送る。`lib.ps1` の読み込みと照合のスレッドの用意は司令のスレッドが始めに 1 回だけ行うので、1 回目の時間に含まれる。検索のキャッシュも画面と同じくプロセスで 1 つを持ち続ける。語ごとに、検索時間の最小・中央値・平均・最大と、その内訳（列挙・照合）を出す。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。高速検索は、ランナーに Windows Search が無いので使わない
     - 司令のスレッドが無い版（#102 より前）は、その版の画面と同じく、検索のたびに新しい Runspace で `lib.ps1` を読み込んで測る（内訳に読み込みの時間も出す）。どちらで測ったかは結果の `SearchMode`（`service` / `runspace`）に出るので、#102 の前後を同じワークフローで比べられる
   - リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）
-- OS のファイルキャッシュは空にしない。pack は作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う
+- OS のファイルキャッシュは空にしない。本文インデックスは作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う
 - 結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact `perf-<実行の番号>`（保存期間は 90 日）に出力する。パスやファイル名は出力しない
   - `summary.md` … Summary と同じ内容（「Office からの取り込み」の節を含む）
   - `result.json` … すべての数字。形式の版（`Schema`）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む
   - `metrics.csv` … 1 行 1 指標の縦長の形（`run_id, date, ref, sha, scale, metric, word, stat, value, unit`）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）
   - `searches.csv`（検索 1 回ごと）・`resource-ingest.csv`・`resource-index.csv`・`resource-search.csv`（リソースの記録）
-- ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、pack の作成の時間は 5 割ほどぶれることがある
-- 手元でも同じ計測スクリプトで測れる（`.\tools\measure_perf.ps1 -Index <TSV のフォルダ> -Work <作業フォルダ> -Words <words.tsv>`）。渡した TSV は pack に変換され、元の TSV は削除される
+- ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、本文インデックスの作成の時間は 5 割ほどぶれることがある
+- 手元でも同じ計測スクリプトで測れる（`.\tools\measure_perf.ps1 -Index <TSV のフォルダ> -Work <作業フォルダ> -Words <words.tsv>`）。渡した TSV は本文インデックスに変換され、元の TSV は削除される
 
 **取り込みの計測（手元の Windows。Excel・Word・PowerPoint が入った機械で）**
 
@@ -217,7 +217,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 .\tools\measure_perf.ps1 -Office C:\perf\office -Work C:\perf\work -Repeat 1
 ```
 
-- データ（`new_ingest_data.ps1`）… .docx・.pptx（`-Docx`・`-Pptx`。既定 200）、.doc・.ppt（`-Doc`・`-Ppt`。既定 0）はテストデータの複製、.xlsx（`-Xlsx`。既定 0）は tebunko-perfdata の `new_books.ps1` で作ったブック（`-Books`）の先頭の数冊。50 ファイルごとにフォルダを分ける（フォルダごとの集約ファイルの書き出しも一緒に測るため）。同じ引数からは同じ構成・同じ中身になる。Excel は .xlsx、Word は .doc、PowerPoint は .ppt を読むので、使う Office はデータにある種類で決まる
+- データ（`new_ingest_data.ps1`）… .docx・.pptx（`-Docx`・`-Pptx`。既定 200）、.doc・.ppt（`-Doc`・`-Ppt`。既定 0）はテストデータの複製、.xlsx（`-Xlsx`。既定 0）は tebunko-perfdata の `new_books.ps1` で作ったブック（`-Books`）の先頭の数冊。50 ファイルごとにフォルダを分ける（フォルダごとの本文インデックスの書き出しも一緒に測るため）。同じ引数からは同じ構成・同じ中身になる。Excel は .xlsx、Word は .doc、PowerPoint は .ppt を読むので、使う Office はデータにある種類で決まる
 - 測り方（`tools/perf/measure_ingest.ps1`）… `-Repeat` 回（既定 3）、1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）。測る tebunko の `scripts` を作業フォルダに写して `setting.config` を書くので、利用者の設定・既定のワークスペース・リポジトリの `setting.config` には触らない。取り込みは起動口 `indexer.ps1 -Channel` で動かし、記録のスレッドが受け渡しの口の `Progress.Phase` を読んで、段階（クロール・確認・取り込み・仕上げ）ごとの時間とリソースを出す。1 ファイルあたりの ms は、取り込みの段階の秒 ÷ ファイル数
 - 成功・失敗は、ワークスペースの `取り込み一覧.tsv` を計測の側で読んで数える（同じ相対パスは最後の行の状態）。成功 + 失敗がファイル数と合わなければ、終了コードが 0 でなければ、取り込みの段階が読めなかったとき・知らない段階の名前が来たときは、計測を失敗にする。失敗したファイルがあれば `summary.md` に書く
 - リソースの表が測るのは、計測の PowerShell のプロセスだけ。EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）
@@ -234,16 +234,16 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 | 受け渡しの口 | `Progress.Phase` と、その値 `クロール`・`確認`・`取り込み`・`仕上げ` |
 | 設定 | `setting.config` がツールのフォルダにあること。キー `targetFolders`（`@{ name; path; enabled }` の配列）・`workspaceFolder`・`ingestThreads` |
 | 取り込み一覧 | ワークスペース直下の `取り込み一覧.tsv`。見出しの `相対パス`・`状態`。状態の値 `済`・`失敗` |
-| 取り込んだ結果 | 最後の回のワークスペース（`<作業フォルダ>\ingest\ws`。`measure_ingest.ps1` は次の回の始めまで消さない）の下に、集約ファイル `content.*.tsv`（[配置・命名規則](../indexer/index-format.md#配置命名規則)の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（`perf_ingest.Tests.ps1`）が、数と合計の大きさを数える |
+| 取り込んだ結果 | 最後の回のワークスペース（`<作業フォルダ>\ingest\ws`。`measure_ingest.ps1` は次の回の始めまで消さない）の下に、本文インデックスのファイル `content.*.tsv`（[配置・命名規則](../indexer/index-format.md#配置命名規則)の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（`perf_ingest.Tests.ps1`）が、数と合計の大きさを数える |
 
 **`perf-check.yml`（速さの回帰テスト）**
 
-検索・pack の作成・取り込みの速さが落ちたことを、PR の段階で見つける。`measure_perf.ps1` で測り、上限と比べて合否を出す（`perf.yml` は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で `search`・`ingest` が落ちていればマージしない。
+検索・本文インデックスの作成・取り込みの速さが落ちたことを、PR の段階で見つける。`measure_perf.ps1` で測り、上限と比べて合否を出す（`perf.yml` は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で `search`・`ingest` が落ちていればマージしない。
 
 | 何を | ランナー（`perf-check.yml`） | Windows 機の手元 |
 |---|---|---|
 | 検索（4 語） | 固定の上限と比べる（`search`） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1` |
-| pack の作成 | 固定の上限と比べる（`search`） | 同上 |
+| 本文インデックスの作成（段階 `pack の作成`） | 固定の上限と比べる（`search`） | 同上 |
 | 取り込み（.docx・.pptx。読み取りのスレッド） | 固定の上限と比べる（`ingest`） | `.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_ingest.Tests.ps1` |
 | 取り込み（.xlsx・.doc・.ppt。Excel・Word・PowerPoint） | 測らない（ランナーに Office が無い） | main と PR のブランチを同じ日に続けて測り、比で判断する（下の「Office を使う形式の比べ方」） |
 
@@ -252,7 +252,7 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
   - main への push のうち、速さに効くファイル（`scripts/**`・`tools/measure_perf.ps1`・`tools/perf/**`・`tests/tools/perf_*.Tests.ps1`・`tests/testdata/office/**`・`.github/workflows/perf-check.yml`）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる
   - 手動（`workflow_dispatch`）。main への push と手動は、ラベルを見ずに流す
 - ラベル `perf-check` は、リポジトリに作ってある。付けるのはコンサルタント（メンテナの代わり）。リリースノートの分類（`.github/release.yml`）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）
-- ジョブは `search`（検索と pack の作成）と `ingest`（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも `windows-latest`（4 コア）、`timeout-minutes: 30`。ランナーでかかる時間は `search` が 3〜4 分、`ingest` が 4〜5 分
+- ジョブは `search`（検索と本文インデックスの作成）と `ingest`（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも `windows-latest`（4 コア）、`timeout-minutes: 30`。ランナーでかかる時間は `search` が 3〜4 分、`ingest` が 4〜5 分
 - 各ジョブの `if` は、`github.event_name != 'pull_request'`（main への push・手動）、または `labeled` でラベル名が `perf-check`（付けたとき）、または `labeled` 以外（`synchronize`・`reopened`）で PR に `perf-check` が付いているとき。ほかのラベルを付けたときは流し直さない
 - 流れている実行の取り消し（`concurrency`）は、同じ PR に push を足したときと、`perf-check` を付け直したときだけ。グループは `perf-check-<PR の番号（無ければ ref）>` で、`perf-check` 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に `run_id` を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（`enhancement` など）を付けても、流れている `search`・`ingest` は取り消されない
 - 結果は PR の Checks の `search`・`ingest` の合否と、ジョブの Summary（`summary.md` の表）、artifact（`perf-check-search-<実行の番号>-<試行の番号>`・`perf-check-ingest-...`。保存期間は 90 日）で見る。PR にコメントは書かない
@@ -263,14 +263,14 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 
 | テスト | データ | 測り方 | 比べる値 |
 |---|---|---|---|
-| `tests/tools/perf_search.Tests.ps1`（検索と pack の作成） | tebunko-perfdata の `new_index.ps1 -Scale 0.1`（種は既定の 1。ブック 5,361・TSV 16,078 → pack 521・118MB）。語は同じリポジトリの `words.tsv` | `measure_perf.ps1 -Index ... -Words ... -Count 20`（`perf.yml` の既定と同じ手順・同じ条件） | 語ごとの検索の中央値（`Search[].TotalMs.Median`）・pack の作成の秒（`Index.Pack.Seconds`。1 回の値） |
+| `tests/tools/perf_search.Tests.ps1`（検索と本文インデックスの作成） | tebunko-perfdata の `new_index.ps1 -Scale 0.1`（種は既定の 1。ブック 5,361・TSV 16,078 → 本文インデックスのファイル 521・118MB）。語は同じリポジトリの `words.tsv` | `measure_perf.ps1 -Index ... -Words ... -Count 20`（`perf.yml` の既定と同じ手順・同じ条件） | 語ごとの検索の中央値（`Search[].TotalMs.Median`）・本文インデックスの作成の秒（`Index.Pack.Seconds`。1 回の値） |
 | `tests/tools/perf_ingest.Tests.ps1`（取り込み） | `new_ingest_data.ps1 -Docx 50 -Pptx 50`（テストデータの複製。計 100 ファイル） | `measure_perf.ps1 -Office ... -Threads 2 -Repeat 3`（1 回ごとに新しいプロセス・空のワークスペース） | 1 ファイルあたりの ms の中央値（`Ingest.PerFileMs.Median`）・全体の秒の中央値（`Ingest.Seconds.Median`） |
 
 比べる処理は `tools/perf/perf_common.ps1` の `getSearchPerfProblems`・`getIngestPerfProblems` で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの `Unit` で確かめる。
 
 - 「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる
-  - 検索: `searches.csv` の 20 回すべてで、件数が `words.tsv` の「件数」と合うこと（数ならその件数、`10000+` なら 1 万件で打ち切り）、照合した pack の数（`Packs`）が pack の作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（`Run.SearchMode`）が `service` であること（`newSearchService` が無いと、`measure_search.ps1` は黙って `runspace` で測るため）
-  - 取り込み: `Total`・`Done` が 100、`Failed` が 0。最後の回のワークスペースに集約ファイルがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが `済` になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）
+  - 検索: `searches.csv` の 20 回すべてで、件数が `words.tsv` の「件数」と合うこと（数ならその件数、`10000+` なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（`Packs`）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（`Run.SearchMode`）が `service` であること（`newSearchService` が無いと、`measure_search.ps1` は黙って `runspace` で測るため）
+  - 取り込み: `Total`・`Done` が 100、`Failed` が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが `済` になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）
 - 結果（`summary.md`・`result.json` など。数字だけでパスは入らない）は `work\test\perf-search\`・`work\test\perf-ingest\`（git 管理外）に残る。`summary.md` の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）
 - tebunko-perfdata の場所は、環境変数 `TEBUNKO_PERFDATA`。無ければリポジトリと並んだ `tebunko-perfdata`（git worktree のときは、本体のチェックアウトと並んだもの）。どちらにも無いときは、`git clone` の取り方を示して失敗にする。手元の clone は、`PERFDATA_SHA` と `new_index.ps1`・`words.tsv` が同じであること（違うとデータが変わり、ランナーの数字と比べられない）
 - `-All` は `Slow` も流すので、tebunko-perfdata が要る
@@ -285,11 +285,11 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 | 検索 まれ | 中央値 | 353〜500 ms | 1.5 倍（50 ms 単位） | 750 ms |
 | 検索 大量 | 中央値 | 1,290〜1,634 ms | 1.5 倍（50 ms 単位） | 2,500 ms |
 | 検索 正規表現 | 中央値 | 1,458〜1,517 ms | 1.5 倍（50 ms 単位） | 2,300 ms |
-| pack の作成 | 1 回の秒 | 39.8〜51.6 秒 | 2 倍（5 秒単位） | 105 秒 |
+| 本文インデックスの作成（段階 `pack の作成`） | 1 回の秒 | 39.8〜51.6 秒 | 2 倍（5 秒単位） | 105 秒 |
 | 取り込み 1 ファイルあたり | 中央値 | 723〜793 ms | 1.5 倍（50 ms 単位） | 1,200 ms |
 | 取り込み 全体 | 中央値 | 73.2〜80.5 秒 | 1.5 倍（10 秒単位） | 130 秒 |
 
-- 余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。pack の作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする
+- 余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。本文インデックスの作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする
 - `perf.yml` の数字は、構成が違う（取り込みの後に同じジョブで検索すると遅く出た回がある）ので、上限の元にしない。インクリメンタルサーチの目標（7,000 件規模で 0.1 秒前後）も上限にしない。今の main はこのデータで 0.3 秒ほどなので、上限にすると今の main で落ちる
 - 変え方: 速くした PR では、同じ決め方で下げてよい。上げるのは、ランナーが遅くなったなど、速さを落としていない理由があるときだけにする。理由と数字を PR 本文に書き、メンテナの了承を得る
 - 上限はランナー（4 コア）に合わせたもの。手元の PC で超えたときは、同じ PC で main を測って比べ、回帰かどうかを見る
