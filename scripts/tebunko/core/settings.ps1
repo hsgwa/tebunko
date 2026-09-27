@@ -483,7 +483,7 @@ function getDefaultWorkspaceError {
 
 function testDefaultWorkspace {
     # 既定のワークスペースを使えるか: @{ Usable; Folder; Message }。
-    # 使える: 無い（使うときに作る）・空・前から使っているワークスペース（index か 取り込み一覧.tsv がある）。
+    # 使える: 無い（使うときに作る）・空・前から使っているワークスペース（content_index・前の版の index・取り込み一覧.tsv がある）。
     # それ以外（ほかのファイルが置いてある）は、インデックスのファイルと混ざるため使わせない
     param (
         [string]$folder = (getDefaultWorkDir)
@@ -494,7 +494,7 @@ function testDefaultWorkspace {
         return $result
     }
     $names = @([System.IO.Directory]::EnumerateFileSystemEntries($folder) | Select-Object -First 1000 | ForEach-Object { [System.IO.Path]::GetFileName($_) })
-    if ($names.Count -eq 0 -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
+    if ($names.Count -eq 0 -or ($names -contains "content_index") -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
         return $result
     }
     $result.Usable = $false

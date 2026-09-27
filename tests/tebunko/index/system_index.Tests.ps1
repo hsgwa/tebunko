@@ -33,8 +33,8 @@ Describe "writeSystemIndexFolder" -Tag Io {
         $result.Rel | Should -Be "営業\2024"
         $result.Excluded | Should -Be $false
         $result.Files.Count | Should -Be 1
-        $result.Files[0].Rel | Should -Be "営業\2024\システムインデックス.txt"
-        $txt = "$system\営業\2024\システムインデックス.txt"
+        $result.Files[0].Rel | Should -Be "営業\2024\system_index.txt"
+        $txt = "$system\営業\2024\system_index.txt"
         $result.Files[0].Ticks | Should -Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
         $tokens = readTokens $txt
         foreach ($word in @("ニター", "見積", "サービス", "以前の形式")) {
@@ -54,7 +54,7 @@ Describe "writeSystemIndexFolder" -Tag Io {
         $systemIndexPartBytes = 100   # 10 語ごとに分ける
         $result = writeSystemIndexFolder "$index\営業\2024" $index $system
         $result.Files.Count | Should -BeGreaterThan 1
-        [System.IO.File]::Exists("$system\営業\2024\システムインデックス.txt") | Should -Be $false
+        [System.IO.File]::Exists("$system\営業\2024\system_index.txt") | Should -Be $false
         $all = New-Object System.Collections.Generic.HashSet[string]
         foreach ($file in $result.Files) {
             $all.UnionWith((readTokens "$system\$($file.Rel)"))
@@ -82,11 +82,11 @@ Describe "writeSystemIndexFolder" -Tag Io {
     It "集約ファイルからは、メタ情報の行（ファイル名・シート名）を除いて txt を作る" {
         $index = "$TestDrive\w5\index"
         [System.IO.Directory]::CreateDirectory("$index\営業") | Out-Null
-        writePackFile "$index\営業\content.xlsx.001.tsv" (convertToPackText @(@{ Name = "山田商事.xlsx"; Places = @(@{ Place = "見積"; Text = "保守サービス`r`n" }) }))
+        writePackFile "$index\営業\content_index.xlsx.001.tsv" (convertToPackText @(@{ Name = "山田商事.xlsx"; Places = @(@{ Place = "見積"; Text = "保守サービス`r`n" }) }))
         $system = "$TestDrive\w5\system_index"
         $result = writeSystemIndexFolder "$index\営業" $index $system
         $result.Files.Count | Should -Be 1
-        $tokens = readTokens "$system\営業\システムインデックス.txt"
+        $tokens = readTokens "$system\営業\system_index.txt"
         foreach ($gram in (getSearchGrams "サービス")) {
             $tokens.Contains($gram) | Should -Be $true
         }
@@ -100,7 +100,7 @@ Describe "writeSystemIndexFolder" -Tag Io {
         $system = "$TestDrive\w6\system_index"
         $text = convertToPackText @(@{ Name = "E社.xlsx"; Places = @(@{ Place = "S"; Text = "渡した中身`r`n" }) })
         [void](writeSystemIndexFolder "$index\営業\2024" $index $system @($text))
-        $tokens = readTokens "$system\営業\2024\システムインデックス.txt"
+        $tokens = readTokens "$system\営業\2024\system_index.txt"
         foreach ($gram in (getSearchGrams "渡した中身")) {
             $tokens.Contains($gram) | Should -Be $true
         }
@@ -108,7 +108,7 @@ Describe "writeSystemIndexFolder" -Tag Io {
         @((getSearchGrams "見積") | Where-Object { $tokens.Contains($_) }).Count | Should -Be 0
         $result = writeSystemIndexFolder "$index\営業\2024" $index $system @()
         $result.Files.Count | Should -Be 0
-        [System.IO.File]::Exists("$system\営業\2024\システムインデックス.txt") | Should -Be $false
+        [System.IO.File]::Exists("$system\営業\2024\system_index.txt") | Should -Be $false
     }
 
     It "TSV が無くなったフォルダは txt を消す" {
@@ -118,7 +118,7 @@ Describe "writeSystemIndexFolder" -Tag Io {
         Remove-Item -LiteralPath "$index\営業\2024\2月\C社.xlsx" -Recurse
         $result = writeSystemIndexFolder "$index\営業\2024\2月" $index $system
         $result.Files.Count | Should -Be 0
-        [System.IO.File]::Exists("$system\営業\2024\2月\システムインデックス.txt") | Should -Be $false
+        [System.IO.File]::Exists("$system\営業\2024\2月\system_index.txt") | Should -Be $false
     }
 }
 
@@ -152,10 +152,10 @@ Describe "readSystemIndexState / updateSystemIndexState" -Tag Io {
     It "無ければ空。書き換えて読み直せる" {
         $path = "$TestDrive\state\システムインデックスの状態.tsv"
         (readSystemIndexState $path).Pending.Count | Should -Be 0
-        updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業"); $s.Pending["営業\a\システムインデックス.txt"] = 5 } $path | Should -Be $true
+        updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業"); $s.Pending["営業\a\system_index.txt"] = 5 } $path | Should -Be $true
         $state = readSystemIndexState $path
         $state.Covered.Contains("営業") | Should -Be $true
-        $state.Pending["営業\a\システムインデックス.txt"] | Should -Be 5
+        $state.Pending["営業\a\system_index.txt"] | Should -Be 5
         [System.IO.File]::ReadAllBytes($path)[0] | Should -Be 0xEF
     }
 
@@ -174,11 +174,11 @@ Describe "readSystemIndexState / updateSystemIndexState" -Tag Io {
 
 Describe "setSystemIndexResults / markSystemIndexChanged / removeSystemIndexEntries" -Tag Io {
     It "作り直した結果で、そのフォルダの行だけを置き換える" {
-        $state = convertFromSystemIndexState @("反映待ち`t営業\a\システムインデックス_1.txt`t1", "反映待ち`t営業\a\b\システムインデックス.txt`t2", "対象外`t営業\a`t")
-        setSystemIndexResults $state @(@{ Rel = "営業\a"; Files = @(@{ Rel = "営業\a\システムインデックス.txt"; Ticks = 3 }); Excluded = $false })
-        $state.Pending.ContainsKey("営業\a\システムインデックス_1.txt") | Should -Be $false
-        $state.Pending["営業\a\システムインデックス.txt"] | Should -Be 3
-        $state.Pending["営業\a\b\システムインデックス.txt"] | Should -Be 2
+        $state = convertFromSystemIndexState @("反映待ち`t営業\a\system_index_1.txt`t1", "反映待ち`t営業\a\b\system_index.txt`t2", "対象外`t営業\a`t")
+        setSystemIndexResults $state @(@{ Rel = "営業\a"; Files = @(@{ Rel = "営業\a\system_index.txt"; Ticks = 3 }); Excluded = $false })
+        $state.Pending.ContainsKey("営業\a\system_index_1.txt") | Should -Be $false
+        $state.Pending["営業\a\system_index.txt"] | Should -Be 3
+        $state.Pending["営業\a\b\system_index.txt"] | Should -Be 2
         $state.Excluded.Count | Should -Be 0
         setSystemIndexResults $state @(@{ Rel = "営業\c"; Files = @(); Excluded = $true })
         $state.Excluded.Contains("営業\c") | Should -Be $true
@@ -187,15 +187,15 @@ Describe "setSystemIndexResults / markSystemIndexChanged / removeSystemIndexEntr
     It "TSV を入れ替えたフォルダを、日時 0 で反映待ちにする" {
         $path = "$TestDrive\mark.tsv"
         markSystemIndexChanged @("営業\a") $path | Should -Be $true
-        (readSystemIndexState $path).Pending["営業\a\システムインデックス.txt"] | Should -Be 0
+        (readSystemIndexState $path).Pending["営業\a\system_index.txt"] | Should -Be 0
     }
 
     It "フォルダとその中の行、インデックスの対応済みを消す" {
-        $state = convertFromSystemIndexState @("対応済み`t営業`t", "反映待ち`t営業\a\システムインデックス.txt`t1", "反映待ち`t営業2\a\システムインデックス.txt`t1", "対象外`t営業\b`t")
+        $state = convertFromSystemIndexState @("対応済み`t営業`t", "反映待ち`t営業\a\system_index.txt`t1", "反映待ち`t営業2\a\system_index.txt`t1", "対象外`t営業\b`t")
         removeSystemIndexEntries $state "営業" "営業"
         $state.Covered.Count | Should -Be 0
         $state.Excluded.Count | Should -Be 0
-        @($state.Pending.Keys) -join "|" | Should -Be "営業2\a\システムインデックス.txt"
+        @($state.Pending.Keys) -join "|" | Should -Be "営業2\a\system_index.txt"
     }
 }
 
@@ -215,7 +215,7 @@ Describe "getSystemIndexStaleFolders" -Tag Io {
         [System.IO.File]::SetLastWriteTimeUtc("$index\営業\2024\A社.xlsx\表紙.tsv", [datetime]::UtcNow.AddMinutes(-5))
         (getSystemIndexStaleFolders $index $system $state).Count | Should -Be 0
         # 取り込みの途中で止まった（反映待ちの日時が txt と合わない）
-        $state.Pending["営業\2024\2月\システムインデックス.txt"] = 1
+        $state.Pending["営業\2024\2月\system_index.txt"] = 1
         (getSystemIndexStaleFolders $index $system $state) -join "|" | Should -Be "$index\営業\2024\2月"
         # TSV が無くなった
         setSystemIndexResults $state (writeSystemIndexFolders @("$index\営業\2024\2月") $index $system 1)
@@ -328,6 +328,6 @@ Describe "removeSystemIndexOf" -Tag Io {
         removeSystemIndexOf "営業\2024\2月" $system $path | Should -Be $true
         $state = readSystemIndexState $path
         $state.Covered.Contains("営業") | Should -Be $true
-        @($state.Pending.Keys) -join "|" | Should -Be "営業\2024\システムインデックス.txt"
+        @($state.Pending.Keys) -join "|" | Should -Be "営業\2024\system_index.txt"
     }
 }

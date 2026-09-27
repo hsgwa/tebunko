@@ -112,7 +112,7 @@ Describe "長いパス（260文字超）" -Tag Io {
             $index = getIndexPackFiles @($root)
             $index.Folders[0].Count | Should -Be 2
             $rel = @($index.Packs | ForEach-Object { $_.RelPath } | Sort-Object)
-            $rel | Should -Be @("$deepRel\content.xlsx.001.tsv", "content.xlsx.001.tsv")
+            $rel | Should -Be @("$deepRel\content_index.xlsx.001.tsv", "content_index.xlsx.001.tsv")
 
             $hits = @((searchPackIndex "hello" $index.Packs).Hits)
             $hits.Count | Should -Be 2

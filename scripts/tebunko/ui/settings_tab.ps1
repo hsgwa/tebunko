@@ -171,7 +171,12 @@ function switchWorkspace {
     $ui.IndexingProgressPanel.Visibility = "Collapsed"
     updateSettingsView
     loadWorkspaceViews
-    setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
+    $legacyMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
+    if ($legacyMessage) {
+        setStatus $legacyMessage
+    } else {
+        setStatus "ワークスペースを「$($workspace.Dir)」に切り替えました"
+    }
 }
 
 # ---- イベント ----

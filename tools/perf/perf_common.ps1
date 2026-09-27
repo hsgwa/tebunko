@@ -349,7 +349,7 @@ function getSearchPerfProblems {
 function getIngestPerfProblems {
     # 取り込み（.docx・.pptx）の回帰テストの判定。合わないものの一覧（文字列の配列）を返す。空なら合格。
     #   ingest       : result.json の Ingest（無ければ $null）
-    #   aggregate    : 最後の回のワークスペースにできた集約ファイル（content.*.tsv）の @{ Count; Bytes }
+    #   aggregate    : 最後の回のワークスペースにできた集約ファイル（content_index.*.tsv）の @{ Count; Bytes }
     #   perFileLimitMs・secondsLimit : 1 ファイルあたりの中央値（ms）・全体の中央値（秒）の上限
     #   expectedFiles: 取り込むファイルの数
     param (

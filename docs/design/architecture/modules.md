@@ -86,7 +86,8 @@ flowchart TD
 | プロパティ | 値 |
 |---|---|
 | `Dir` | ワークスペースのフォルダ |
-| `IndexDir` | `<Dir>\index` |
+| `IndexDir` | `<Dir>\content_index` |
+| `LegacyIndexDir` | `<Dir>\index`（前の版が使っていた場所。読まず、消しもしない） |
 | `SystemIndexDir` | `<Dir>\system_index`（システムインデックス） |
 | `SystemIndexStateFile` | `<Dir>\システムインデックスの状態.tsv` |
 | `PublishDir` | `<Dir>\取り込み出力\<PID>`（TSV をインデックスに入れる直前に集めるフォルダ） |
@@ -243,13 +244,13 @@ refactor で作る予定の設計。作ったら、この節を実装に合わ�
 |---|---|---|---|---|---|
 | `newIndexName` | folderPath, usedNames（HashSet・配列・文字列・`$null`） | string | インデックス名（フォルダ名・ドライブ名・共有名。重複すれば `名前(2)`…） | [取り込み一覧と取り込み対象の決定（差分・中断・再試行）](../indexer/flow.md#取り込み一覧と取り込み対象の決定差分中断再試行) | assignIndexNames |
 | `assignIndexNames` | targetFolders, previousFolders（readStatusFile の Folders） | `@{Path; Enabled; Name}` の配列 | 設定の名前（getTargetFolders の Name）をそのまま使う。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る | 同上 | インデックス作成 |
-| `splitIndexRelPath` | relPath | `@{Name; Rest}` | `work\index` からの相対パスを、先頭のインデックス名と残りに分ける | 同上 | インデックス作成, resolveSourcePath |
+| `splitIndexRelPath` | relPath | `@{Name; Rest}` | `work\content_index` からの相対パスを、先頭のインデックス名と残りに分ける | 同上 | インデックス作成, resolveSourcePath |
 | `testIndexName` | name, usedNames | string（使えれば空） | インデックス名として使えるか調べ、使えない理由を返す（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語・ほかと重複） | [追加・編集のダイアログ](../gui/index-tab.md#追加編集のダイアログ) | 画面 |
 | `getIndexNameMap` | path（既定 `$workspace.StatusFile`） | Dictionary（インデックス名 → フォルダパス） | 取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る | 同上 | resolveSourcePath, 画面 |
 | `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
-| `renameIndex` | oldName, newName, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックス名を変える。`work\index\<旧名>` を改名し、取り込み一覧の記録（`renameStatusIndexName`）も書き換えるため、**インデックスは作り直さない**。移動先が既にあれば例外。旧名・新名の下の `searchExcludes` も消す（`removeSearchExcludesUnder`。付け替えず、外したフォルダは検索対象に戻る） | 同上 | 画面（［編集…］） |
-| `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックスを削除する。`work\index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`）。そのインデックスの下の `searchExcludes` も消す（`removeSearchExcludesUnder`） | 同上 | 画面（［削除］） |
-| `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
+| `renameIndex` | oldName, newName, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックス名を変える。`work\content_index\<旧名>` を改名し、取り込み一覧の記録（`renameStatusIndexName`）も書き換えるため、**インデックスは作り直さない**。移動先が既にあれば例外。旧名・新名の下の `searchExcludes` も消す（`removeSearchExcludesUnder`。付け替えず、外したフォルダは検索対象に戻る） | 同上 | 画面（［編集…］） |
+| `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックスを削除する。`work\content_index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`）。そのインデックスの下の `searchExcludes` も消す（`removeSearchExcludesUnder`） | 同上 | 画面（［削除］） |
+| `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\content_index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
 
 TSV の名前・配置、本文インデックス、検索にかかわる関数（`index_name.ps1` の `encodeIndexPlace` など、`index_store.ps1` の `getIndexTsvCounts` / `publishIndexFiles` など、`pack_format.ps1`・`pack_store.ps1`・`pack_search.ps1`）は [TSV の作成・検索](#tsv-の作成検索) に記載する。
 
@@ -369,7 +370,7 @@ flowchart LR
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `getPackFileKind` | book | string | 元のファイル名から種類（`Excel` / `Word` / `PowerPoint`。分からなければ空） | convertToPackText, convertPlaceToPackMeta |
-| `getPackExtension` / `getPackFileName` / `readPackFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertIndexFolderToPack, getIndexTsvCounts |
+| `getPackExtension` / `getPackFileName` / `readPackFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content_index.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertIndexFolderToPack, getIndexTsvCounts |
 | `splitPackBooksByExtension` | books | [ordered] 拡張子 → 並び | 元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない） | convertIndexFolderToPack |
 | `encodePackValue` / `decodePackValue` | value | string | メタ情報の値の制御文字（タブを除く）と `%` を `%XX` にする / 戻す | convertToPackText, readPackPlaces |
 | `convertPlaceToPackMeta` | book, place | [ordered] キー → 値 | 場所の名前（TSV のファイル名。`見積[図形]`・`ページ001` など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは `部分=<名前>`・`対象=本文` | convertToPackText |
