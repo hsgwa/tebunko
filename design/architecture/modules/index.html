@@ -1636,6 +1636,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#目的ごとのクラス" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的ごとのクラス
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#関数一覧" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2655,6 +2666,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#目的ごとのクラス" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的ごとのクラス
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#関数一覧" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2996,6 +3018,114 @@
 </tr>
 </tbody>
 </table>
+<h2 id="目的ごとのクラス">目的ごとのクラス<a class="headerlink" href="#目的ごとのクラス" title="Permanent link">&para;</a></h2>
+<p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。クラスの使い分けの決まりは <a href="../threads/#クラスと関数の使い分け">クラスと関数の使い分け</a>。</p>
+<table>
+<thead>
+<tr>
+<th>クラス</th>
+<th>目的（1 つに絞る。凝集）</th>
+<th>作って使うスレッド</th>
+<th>層</th>
+<th>置くファイル（案）</th>
+<th>今ある場所</th>
+<th>依存してよい相手</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IndexCatalog</code></td>
+<td>インデックスの追加・改名・削除・名前の割り当て。保存先（<code>targetFolders</code>・取り込み一覧・<code>元のフォルダ.txt</code>・<code>searchExcludes</code>・<code>system_index</code>）を漏れなく書き換える手順と順番、途中で失敗したときの扱い（戻す・残す）だけを持つ。保存先の形式は知らない。<code>Workspace</code> と設定ファイルの場所を受け取って作る（場所を暗黙に使わない）</td>
+<td>画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る</td>
+<td>状態層</td>
+<td><code>tebunko/index/index_catalog.ps1</code>（<code>lib.ps1</code>）</td>
+<td><code>index_store.ps1</code>、<code>ui/index_tab.ps1</code> の <code>editIndex</code>・<code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code>・<code>removeSearchExcludesUnder</code>（<code>renameIndex</code>・<code>removeIndex</code> から呼ぶ）</td>
+<td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>、<code>元のフォルダ.txt</code>・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
+</tr>
+<tr>
+<td><code>WorkspaceMover</code></td>
+<td>ワークスペースの切り替え（移す・<code>searchExcludes</code> の付け替え・保存・失敗したら戻す）</td>
+<td>画面のスレッド</td>
+<td>状態層</td>
+<td><code>tebunko/core/workspace_mover.ps1</code>（<code>lib.ps1</code>）</td>
+<td><code>core/workspace.ps1</code>、<code>ui/settings_tab.ps1</code></td>
+<td>設定の読み書きの部品（<code>invokeSettingsLocked</code>）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>。<code>IndexCatalog</code> と同じものを通す）、ファイルの移動の部品（<code>fs.ps1</code>）、<code>Workspace</code></td>
+</tr>
+<tr>
+<td><code>StatusLedger</code></td>
+<td>取り込み一覧・取り込み中のファイル・失敗と消えたファイルの記録。列と状態の定義もここへ</td>
+<td>インデクサの司令のスレッド。画面が取り込み一覧を読むときは画面のスレッドで別に作る</td>
+<td>状態層</td>
+<td><code>tebunko/indexer/indexer_state.ps1</code>（<code>lib.ps1</code>）</td>
+<td><code>indexer_state.ps1</code>、<code>core/paths.ps1</code> の列と状態、<code>invokeIndexerBody</code> の <code>$failures</code>・<code>$droppedRows</code></td>
+<td>取り込み一覧・状態ファイルの読み書きの部品（<code>indexer_state.ps1</code> の関数）、<code>Workspace</code></td>
+</tr>
+<tr>
+<td><code>PendingPublish</code></td>
+<td>フォルダごとに取り込みの終わりを数え、集約ファイルに書き出してよいかを決める</td>
+<td>司令のスレッド</td>
+<td>状態層</td>
+<td><code>tebunko/indexer/pending_publish.ps1</code>（<code>indexer_lib.ps1</code>）</td>
+<td><code>$script:pendingPublish</code>、<code>addPendingPublish</code>・<code>flushPendingPublish</code></td>
+<td>無い（数えて、書き出してよいフォルダを返すだけ）。取り込みの終わりは司令からデータで受け取り、書き出し（<code>publishIndexFiles</code>）は返した結果を見て司令が呼ぶ</td>
+</tr>
+<tr>
+<td><code>IndexingReporter</code></td>
+<td>進み具合・ログ・画面の確認を待つこと。受け渡しの口（hashtable のまま）を持って書く</td>
+<td>司令のスレッド</td>
+<td>状態層</td>
+<td><code>tebunko/indexer/indexing_reporter.ps1</code>（<code>indexer_lib.ps1</code>）</td>
+<td><code>writeIndexingProgress</code>、<code>$script:indexerLog</code>、確認待ち</td>
+<td>受け渡しの口（hashtable）、ログの書き込みの部品</td>
+</tr>
+<tr>
+<td><code>IngestPlanner</code></td>
+<td>対象フォルダ・名前・クロール・前回失敗・強制終了の回数から、取り込む順番を決める。取り込み直すかの判断は <code>indexer_decide.ps1</code>（判断層の関数）のまま呼ぶ</td>
+<td>司令のスレッド</td>
+<td>状態層</td>
+<td><code>tebunko/indexer/indexer_plan.ps1</code>（<code>indexer_lib.ps1</code>）</td>
+<td><code>invokeIndexerBody</code> の前半、<code>indexer_plan.ps1</code>・<code>indexer_decide.ps1</code></td>
+<td><code>indexer_decide.ps1</code>（判断層）、クロールの部品。前回の失敗・強制終了の回数は、司令が <code>StatusLedger</code> から取り出したデータで受け取る</td>
+</tr>
+<tr>
+<td><code>OfficeWatchdog</code></td>
+<td>Office の制限時間を見張り、止まったら止める。見張りのスレッド（<code>startWatchdog</code> が <code>[PowerShell]::Create()</code> で作る別のランスペース）へは、今のまま <code>[hashtable]::Synchronized</code> を渡す（クラスにしない）。Office が使えなくなったこと（<code>$script:officeUnavailable</code>）はツールの判断なので、クラスには入れず今の場所に残す</td>
+<td>取り込みのスレッド（Office のレーンごとに、そのスレッドで作る）</td>
+<td>状態層（<code>shared/</code>）</td>
+<td><code>shared/office/office_app.ps1</code>（<code>indexer_lib.ps1</code> から今と同じく読む）。どのツールからも使う Office の部品なので <code>shared/</code> に置き、ツールを知らない</td>
+<td><code>shared/office/office_app.ps1</code> の <code>$script:watchdog</code>・<code>$script:watchdogThread</code>・<code>startWatchdog</code>・<code>stopWatchdog</code>・<code>updateWatchedPids</code>（<code>ingestWorkerScript</code> は呼ぶだけ）。<code>$script:officeUnavailable</code> は <code>tebunko/indexer/extract_office.ps1</code>・<code>indexer_run.ps1</code></td>
+<td><code>shared/office/</code> の部品（<code>office_process.ps1</code> など）だけ。ツールのものに依存しない</td>
+</tr>
+<tr>
+<td><code>IngestDispatcher</code></td>
+<td>プール・レーン・先読み・取り込み中の管理（性能に効く経路）。取り込みのスレッドとは今までどおり hashtable と .NET のコレクションで受け渡す</td>
+<td>司令のスレッド</td>
+<td>状態層</td>
+<td><code>tebunko/indexer/indexer_run.ps1</code>（<code>indexer_lib.ps1</code>）</td>
+<td><code>invokeIndexerBody</code> の取り込みの繰り返し、<code>newIngestPool</code> など</td>
+<td>取り込みのスレッド（レーンごとに <code>CreateRunspace</code> で作る STA・MTA のランスペース。今の <code>newIngestPool</code>・<code>addIngestTask</code>）と <code>BlockingCollection</code>、取り込みのスレッドのスクリプト。<code>WorkerPool</code> には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す</td>
+</tr>
+</tbody>
+</table>
+<p><strong>クラスのつなぎ方</strong></p>
+<ul>
+<li><strong>目的ごとのクラス（この表の 8 つ）どうしは、互いを直接呼ばない。</strong> 8 つを作ってつなぐのは、使う側の入口だけにする（インデクサでは司令役の <code>invokeIndexerBody</code>、画面では呼ぶ側の <code>editIndex</code> など、取り込みのスレッドでは <code>ingestWorkerScript</code>）。8 つの間はデータ（hashtable・PSCustomObject）で受け渡す。8 つは、ほかの 7 つを自分で作らない・探さない。</li>
+<li>この 8 つの間の例外は 1 つだけにする: <code>IndexCatalog</code> は取り込み一覧を <code>StatusLedger</code> を通して書く。その <code>StatusLedger</code> は、<code>IndexCatalog</code> を作る側（画面・司令）が作ってコンストラクタで渡す（依存の向きは <code>IndexCatalog</code> → <code>StatusLedger</code> の一方向）。</li>
+<li>8 つのほかのクラスは次のように扱う。値だけを持つクラス（<code>Workspace</code>）は、受け取って使ってよい。基盤のクラス（<code>WorkerPool</code> など。今の <code>BackgroundQueue</code> が中で <code>WorkerPool</code> を作るように）は、受け取って使うか、持ち主として作って片づけてよい。</li>
+<li><strong><code>searchExcludes</code> を書き換えるのは <code>IndexCatalog</code>（改名・削除のとき）と <code>WorkspaceMover</code>（切り替えのとき）の 2 つ。どちらも同じ <code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>）を通す</strong>（インデックスの改名・削除で <code>searchExcludes</code> の記録が残った不具合（#125）は、書き換える保存先の一覧が散っていて漏れたことが原因。2 か所で別の書き方をしない）。</li>
+<li><strong>画面は <code>IndexCatalog</code>・<code>WorkspaceMover</code> を呼ぶだけ</strong>にし、「呼ぶ → 結果を出す」にする（<code>editIndex</code> などの手順を画面に残さない）。</li>
+<li><strong><code>IndexCatalog</code> は保存先の形式を直接知らない。</strong> 保存先ごとの読み書きは小さな部品（既存の関数でよい）に任せ、<code>IndexCatalog</code> は書き換える手順と順番、途中で失敗したときの扱いだけを持つ。</li>
+<li>取り込みの 1 ファイルごとに司令を通るのは、<code>IngestDispatcher</code> が返した結果（hashtable）を <code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> のメソッドに渡すところだけにする。増えるのはメソッドの呼び出しで、関数の呼び出しの段は増やさない（<a href="../threads/#クラスと関数の使い分け">速さ</a>のとおり）。</li>
+</ul>
+<p>置くファイルは案。refactor で変えたときは、この表と <a href="#フォルダの分け方と読み込み口">フォルダの分け方と読み込み口</a> の表・図を同じ PR で直す。</p>
+<p><strong>refactor で守ること</strong></p>
+<ul>
+<li>スレッドをまたいでクラスのインスタンスを渡さない（<a href="../threads/#クラスと関数の使い分け">クラスと関数の使い分け</a> の決まり）。</li>
+<li><strong>計測の口を変えない。</strong> 変えるなら先に計測を直し、main で測り直す。口の一覧は <a href="../../testing/ci/#ci">CI</a> の「計測の口」の表を正とする（<code>StatusLedger</code> の列と状態、<code>IndexingReporter</code> の段階の値は、この口に含まれる。名前と値は変えない）。</li>
+<li>設定ファイルの読む → 変える → 書くは、<code>core/settings.ps1</code> の <code>invokeSettingsLocked</code> の中で行う。<code>IndexCatalog</code>・<code>WorkspaceMover</code> の書き込みもそうする（名前の割り当ての保存は <code>saveAssignedIndexNames</code> を使う）。</li>
+<li>性能は、同じ PC・同じデータ・同じ引数で、同じ日に main → refactor のブランチ → main と続けて測った数字どうしで比べる。</li>
+<li>取り込みの 1 ファイルごとの経路で、関数の呼び出しの段を増やさない。</li>
+</ul>
 <h2 id="関数一覧">関数一覧<a class="headerlink" href="#関数一覧" title="Permanent link">&para;</a></h2>
 <p>関数は用途ごとに次の 3 つに分けて記載する。</p>
 <ul>
@@ -4305,7 +4435,7 @@
 </tbody>
 </table>
 <p><strong>スレッドとプール（<code>shared/core/worker_pool.ps1</code>・<code>tebunko/search/search_service.ps1</code>・<code>tebunko/indexer/indexing_session.ps1</code>）</strong></p>
-<p>設計は <a href="../threads/">プロセスとスレッド</a>。クラスは画面のスレッド（作ったランスペースのスレッド）だけから呼ぶ（<a href="../threads/#クラスと関数の使い分け">クラスと関数の使い分け</a>）。</p>
+<p>設計は <a href="../threads/">プロセスとスレッド</a>。クラスは作ったランスペースのスレッドだけから呼ぶ（<code>SearchService</code>・<code>BackgroundQueue</code>・<code>IndexingSession</code> は画面のスレッドで作る。<code>WorkerPool</code> はプールを持つ側のスレッドで作る。<code>Workspace</code> は各スレッドで作り直す）（<a href="../threads/#クラスと関数の使い分け">クラスと関数の使い分け</a>）。</p>
 <table>
 <thead>
 <tr>
