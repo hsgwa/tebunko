@@ -21,11 +21,18 @@ Describe "検索と pack の作成の速さ" -Tag Slow {
     BeforeAll {
         $repo = (Resolve-Path "$PSScriptRoot\..\..").ProviderPath
 
+        # git が使えない・リポジトリでないときも失敗にしない（標準エラーが例外になるのを避ける）
+        function tryGit {
+            $saved = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            try { $out = & git @args 2>$null; if ($LASTEXITCODE) { return $null }; return $out } catch { return $null } finally { $ErrorActionPreference = $saved }
+        }
+
         # tebunko-perfdata の場所を探す
         $candidates = New-Object System.Collections.Generic.List[string]
         if ($env:TEBUNKO_PERFDATA) { $candidates.Add($env:TEBUNKO_PERFDATA) }
         $candidates.Add((Join-Path (Split-Path $repo -Parent) "tebunko-perfdata"))
-        $common = & git -C $repo rev-parse --path-format=absolute --git-common-dir 2>$null
+        $common = tryGit -C $repo rev-parse --path-format=absolute --git-common-dir
         if ($common) { $candidates.Add((Join-Path (Split-Path (Split-Path ([string]$common) -Parent) -Parent) "tebunko-perfdata")) }
         $perfdata = $candidates | Where-Object { Test-Path -LiteralPath (Join-Path $_ "tools\new_index.ps1") } | Select-Object -First 1
         if (!$perfdata) {
@@ -33,8 +40,8 @@ Describe "検索と pack の作成の速さ" -Tag Slow {
                 "  git clone https://github.com/hsgwa/tebunko-perfdata `"$(Join-Path (Split-Path $repo -Parent) 'tebunko-perfdata')`"")
         }
         $perfdata = (Resolve-Path -LiteralPath $perfdata).ProviderPath
-        $commit = & git -C $perfdata rev-parse HEAD 2>$null
-        if ($LASTEXITCODE -or !$commit) { $commit = "不明" }
+        $commit = tryGit -C $perfdata rev-parse HEAD
+        if (!$commit) { $commit = "不明" }
 
         # スクリプトは同じプロセスで動かす（Windows PowerShell 5.1 は -File で起動すると、param の既定値の $PSScriptRoot が空になるため）
         $global:LASTEXITCODE = 0
