@@ -1,8 +1,5 @@
 ﻿# tebunko が使うファイルの場所と、そこに書く値の定義。
 
-# ツールの ID（多重起動の防止・ミューテックスの名前に使う）
-${appId} = "tebunko"
-
 # Excelは [ ] を含むパスに保存できないため TEMP を使う。
 # インデックス作成を同時に複数実行しても互いのTSVを削除・移動しないよう、プロセスごとに分ける
 ${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko\${PID}"

@@ -91,7 +91,7 @@ function readJson([string]$path) { [System.IO.File]::ReadAllText($path, [System.
 
 # 実行の情報
 $run = [ordered]@{
-    RunId = $RunId; Date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"); Ref = $Ref; Sha = $Sha; Scale = $Scale; Label = $Label
+    RunId = $RunId; Date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture); Ref = $Ref; Sha = $Sha; Scale = $Scale; Label = $Label
     PowerShell = $PSVersionTable.PSVersion.ToString(); OS = [Environment]::OSVersion.VersionString; Cores = $cores
     Count = $Count; Threads = $(if ($Office) { $Threads } else { $null }); Repeat = $(if ($Office) { $Repeat } else { $null }); DataSeconds = $(if ($DataSeconds -ge 0) { [Math]::Round($DataSeconds, 1) } else { $null })
 }

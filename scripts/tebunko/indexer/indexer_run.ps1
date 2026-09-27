@@ -271,6 +271,10 @@ function invokeIndexer {
         # 空でないフォルダにログを書かないよう、ログを開く前に確かめる（画面は起動する前に同じ確認をする）
         $workspaceBlock = getWorkspaceBlockMessage
         if ($workspaceBlock) {
+            if ($script:settingsRecovery) {
+                writeIndexerLog (getSettingsRecoveryMessage $script:settingsRecovery) "Yellow"
+                $script:settingsRecovery = ""
+            }
             writeIndexerLog $workspaceBlock "Red"
             $channel.Error = $workspaceBlock
             $exitCode = 1
@@ -285,6 +289,11 @@ function invokeIndexer {
             $writer = New-Object System.IO.StreamWriter($workspace.IndexingLogFile, $false, ${utf8Bom})
             $writer.AutoFlush = $true
             $script:indexerLog = $writer
+            if ($script:settingsRecovery) {
+                # 画面なしで起動したとき、起動口が壊れた設定ファイルを退避している。ログの先頭に知らせる
+                writeIndexerLog (getSettingsRecoveryMessage $script:settingsRecovery) "Yellow"
+                $script:settingsRecovery = ""
+            }
             # 途中の処理が出力した値が混ざらないよう、最後の値（return した終了コード）を使う
             $exitCode = [int]@(invokeIndexerBody $channel)[-1]
         }
