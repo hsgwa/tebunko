@@ -458,7 +458,7 @@ function saveGuiEvidence {
         }
         $tree = New-Object System.Collections.ArrayList
         foreach ($w in @(getGuiTopWindows $S)) {
-            [void]$tree.Add("[窓] $($w.Current.Name)")
+            [void]$tree.Add("[窓] $($w.Current.Name) | class=$($w.Current.ClassName) | type=$($w.Current.ControlType.ProgrammaticName) | offscreen=$($w.Current.IsOffscreen)")
             foreach ($t in @(getGuiTexts $w)) { [void]$tree.Add("    $t") }
         }
         $tree | Set-Content -LiteralPath "$dest\窓の一覧.txt" -Encoding UTF8
