@@ -23,6 +23,15 @@ param (
     $Channel = $null
 )
 
+# 画面なしで起動したときは、壊れた設定ファイルを退避して既定の設定で続ける（知らせは invokeIndexer がログを開いた直後に出す）。
+# 画面から -Channel 付きで動くときは、画面が起動時に退避済み。indexer_lib.ps1（lib.ps1）が設定を読む前に行う
+$script:settingsRecovery = ""
+if ($null -eq $Channel) {
+    . "$PSScriptRoot\..\shared\shared.ps1"
+    . "$PSScriptRoot\core\settings.ps1"
+    $script:settingsRecovery = repairBrokenSettings
+}
+
 . "$PSScriptRoot\indexer\indexer_lib.ps1"
 
 $ErrorActionPreference = "Stop"
