@@ -19,6 +19,7 @@
 #   ファイルの時刻はコミットの時刻（UTC の時計の値）、ファイルの一覧は git で追跡しているものだけを序数の順、
 #   テキストの改行は CRLF にそろえる。tebunko.cat・インストーラーは時刻を埋め込むため対象外。
 #
+# 公開する配布物は、変更の無い作業ツリーで作る（zip の中身は作業ツリーから読むため、追跡しているファイルに差分があれば警告する）。
 # work\・setting.config は利用者ごとに作られるため入れない。docs\・tests\ も配布しない。
 param (
     [Parameter(Mandatory = $true)]
@@ -48,6 +49,13 @@ if ($LASTEXITCODE -ne 0 -or $commitTime -notmatch '^[0-9]+$') {
 # オフセット 0 の値。zip の時刻（DOS 時刻）は時差を持たず、この時計の値がそのまま書かれる（手元の時差で値が変わらない）
 $timestamp = [DateTimeOffset]::FromUnixTimeSeconds([long]$commitTime)
 $sha = (& git -C $rootDir rev-parse HEAD).Trim()
+
+# zip に入れる中身は作業ツリーから読むため、追跡しているファイルを手元で書き換えたままだと、VERSION.txt の SHA と違う中身の zip ができる。
+# 公開する zip は、変更の無い作業ツリー（CI のきれいな checkout）で作る。差分があれば警告する（止めない。手元での試し作りに使うため）
+$changed = @(& git -C $rootDir -c core.quotepath=false status --porcelain --untracked-files=no -- scripts tebunko.bat README.md LICENSE)
+if ($changed.Count -gt 0) {
+    Write-Warning ("追跡しているファイルに未コミットの変更があります。この zip の中身は VERSION.txt のコミット ($sha) と一致しません。公開する配布物は、変更の無い作業ツリーで作ってください: " + (($changed | ForEach-Object { $_.Substring(3) }) -join ", "))
+}
 
 # VERSION.txt の中身を先に作る（git の SHA が取れないときは、ここで止めて何も作らない）。
 # リポジトリの作業ツリーには書かず、下の zip のエントリーへバイト列のまま直接書く
