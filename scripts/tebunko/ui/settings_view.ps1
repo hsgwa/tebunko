@@ -49,7 +49,7 @@ function testWorkspaceChoice {
         return @{ Kind = "same"; Message = "" }
     }
     # 今のインデックスの中に置くと、ワークスペースの中身がインデックスとして検索される
-    if (testFolderUnder $folder (Join-Path $current "index") $drives) {
+    if (testFolderUnder $folder (Join-Path $current "content_index") $drives) {
         return @{ Kind = "error"; Message = "「${folder}」は今のインデックスのフォルダの中です。インデックスの外のフォルダを選んでください。" }
     }
     if (-not $writable) {

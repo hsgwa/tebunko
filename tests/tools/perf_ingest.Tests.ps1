@@ -36,7 +36,7 @@ Describe "取り込み（.docx・.pptx）の速さ" -Tag Slow {
 
         $result = [System.IO.File]::ReadAllText((Join-Path $out "result.json"), [System.Text.Encoding]::UTF8) | ConvertFrom-Json
         # 最後の回のワークスペース（measure_ingest.ps1 は次の回の始めまで消さない）にできた集約ファイル。サブフォルダの下にもできる
-        $files = @(Get-ChildItem -LiteralPath (Join-Path $work "ingest\ws") -Recurse -File -Filter "content.*.tsv" -ErrorAction SilentlyContinue)
+        $files = @(Get-ChildItem -LiteralPath (Join-Path $work "ingest\ws") -Recurse -File -Filter "content_index.*.tsv" -ErrorAction SilentlyContinue)
         $aggregate = @{ Count = $files.Count; Bytes = [long](($files | Measure-Object Length -Sum).Sum) }
     }
 

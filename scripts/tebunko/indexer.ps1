@@ -1,7 +1,7 @@
 ﻿# Office → TSV インデックス作成の起動口
 #
 # 画面で設定したクロール対象フォルダ（setting.config。チェックなしのフォルダは取り込まない）配下の
-# Excel・Word・PowerPoint ファイルを取り込み、work\index のフォルダごと・拡張子ごとの集約ファイルに入れる。
+# Excel・Word・PowerPoint ファイルを取り込み、work\content_index のフォルダごと・拡張子ごとの集約ファイルに入れる。
 # 本体は indexer\indexer_run.ps1 の invokeIndexer（流れは docs/design/indexer/flow.md、
 # スレッドの分け方は docs/design/architecture/threads.md）。
 #

@@ -1,5 +1,5 @@
 ﻿# 検索用の集約ファイル（pack_format.ps1）の読み書き（状態層）。
-# 集約ファイルは work\index の中のフォルダごと・元のファイルの拡張子ごとに、大きさで分けて置く（content.xlsx.001.tsv など）。UTF-16LE（BOM 付き）で書く
+# 集約ファイルは work\content_index の中のフォルダごと・元のファイルの拡張子ごとに、大きさで分けて置く（content_index.xlsx.001.tsv など）。UTF-16LE（BOM 付き）で書く
 # （UTF-8 より文字列への変換が速い。日本語が多いと大きさはほとんど変わらない）。
 
 function writePackFile {
@@ -42,7 +42,7 @@ function testIndexBookDir {
     # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。集約ファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
     #   ・名前が Office の拡張子で終わる（indexBookDirPattern）
-    #   ・サブフォルダも集約ファイル（content.<拡張子>.tsv）も無い
+    #   ・サブフォルダも集約ファイル（content_index.<拡張子>.tsv）も無い
     #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、集約ファイルに入れるものが無い）
     # 読めないフォルダは $false（集約ファイルに入れる・消す対象にしない）
     param (
@@ -105,7 +105,7 @@ function getIndexFolderBooks {
 
 function convertIndexFolderToPack {
     # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、拡張子ごと・番号ごとの集約ファイル
-    # （destFolder\content.xlsx.001.tsv など）を書く。destFolder に前の集約ファイルがあれば、それとまぜる（planPackParts）:
+    # （destFolder\content_index.xlsx.001.tsv など）を書く。destFolder に前の集約ファイルがあれば、それとまぜる（planPackParts）:
     #   ・TSV のある元のファイルは、TSV の中身で入れ替える（前の集約ファイルに無ければ、最後の番号の集約ファイルに足す。
     #     packFileMaxBytes 以上なら次の番号の集約ファイルを作る）
     #   ・removeBooks に挙げた元のファイルは外す（元のファイルが無くなった）

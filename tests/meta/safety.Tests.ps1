@@ -218,7 +218,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths 'GetFolderPath\("LocalApplicationData"\)') | Should -Not -Be ""
         # ワークスペースは設定から決め、中の場所はワークスペースのフォルダから組み立てる
         (findPattern $paths '\$\{workspace\}\s*=\s*\[Workspace\]::new\(\(getWorkDir\)\)') | Should -Not -Be ""
-        (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\index"') | Should -Not -Be ""
+        (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\content_index"') | Should -Not -Be ""
         (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko\\\$\{PID\}"') | Should -Not -Be ""
         (findPattern $paths '\$this\.PublishDir\s*=\s*"\$dir\\') | Should -Not -Be ""
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should -Not -Be ""
