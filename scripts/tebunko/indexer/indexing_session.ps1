@@ -68,6 +68,22 @@ class IndexingSession {
         return $this.Failure
     }
 
+    [string] GetNotice() {
+        # 終わりの一言（利用者のPowerPointが起動していて後回しにしたファイルがあるとき）。無ければ空
+        if ($this.Channel.Notice) {
+            return [string]$this.Channel.Notice
+        }
+        return ""
+    }
+
+    [int] GetPostponed() {
+        # 利用者のPowerPointが起動していて後回しにした（未取り込みのまま残した）件数。無ければ 0
+        if ($null -ne $this.Channel.Postponed) {
+            return [int]$this.Channel.Postponed
+        }
+        return 0
+    }
+
     hidden [string]$Failure = ""
     hidden [bool]$Ended = $false
 

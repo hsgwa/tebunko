@@ -579,7 +579,7 @@ function applyIndexingState {
     $script:indexingState = $state
 
     # 失敗したファイルは下の一覧に原因とともに表示する
-    $ui.IndexingStateText.Text = if ($state.Pending -gt 0 -and !(isIndexing)) { "⏸ 前回のインデックス作成が中断しています（残り $($state.Pending) 件）" } else { "" }
+    $ui.IndexingStateText.Text = getIndexingStateText $state.Pending (isIndexing)
     $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 インデックス管理" } else { "1 インデックス管理" }
     applyIndexStats $state.IndexStats
     updateFailedList $state

@@ -15,8 +15,15 @@ $script:apps = @{}
 $appInfo = @{
     Excel      = @{ ProgId = "Excel.Application";      Process = "EXCEL";    ExitWait = 1000 }
     Word       = @{ ProgId = "Word.Application";       Process = "WINWORD";  ExitWait = 5000 }
-    PowerPoint = @{ ProgId = "PowerPoint.Application"; Process = "POWERPNT"; ExitWait = 5000 }
+    # SingleInstance: 1つのセッションに1つのプロセスしか持てないアプリ（PowerPointだけ）。
+    # 既に起動している（利用者が開いている）ときは、接続せずに使わない（下の getApp）
+    PowerPoint = @{ ProgId = "PowerPoint.Application"; Process = "POWERPNT"; ExitWait = 5000; SingleInstance = $true }
 }
+
+# SingleInstance のアプリが、既に自分のセッションで起動している（利用者が使用中の）ときに投げる例外の文言。
+# 呼ぶ側は "<アプリ名>${officeAppInUseMessage}" の形で使う。Reroute（extract_office.ps1 の officeRequiredMessage・
+# OperationCanceledException）と取り違えないよう、型（InvalidOperationException）でも区別する
+${officeAppInUseMessage} = " が起動しているため、取り込みに使用できません"
 
 # 起動した Office のプロセスの優先度は下げない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、
 # PowerPoint は 1 つのプロセスしか持てないため、利用者とプロセスを共有しないと確実には言えない。利用者の操作を遅くしないよう、
@@ -25,20 +32,46 @@ $appInfo = @{
 # 画面が閉じるときに、インデックス作成が起動した Office を PID で止めるために使う
 $script:officePidSink = $null
 
+function getOwnSessionProcessIds {
+    # 自分のセッションで動いている、指定した名前のプロセスのIDの一覧。
+    # ほかのセッション（同じPCの別の利用者・別の作業フォルダの tebunko 等）のプロセスは、自分のものと取り違えないため数えない
+    param (
+        [string]$processName,
+        [int]$sessionId
+    )
+
+    return @(Get-Process -Name $processName -ErrorAction SilentlyContinue |
+        Where-Object { $_.SessionId -eq $sessionId } | ForEach-Object { $_.Id })
+}
+
 function getApp {
-    # アプリのCOMオブジェクトを返す。起動していなければ起動する
+    # アプリのCOMオブジェクトを返す。起動していなければ起動する。
+    # SingleInstance のアプリ（PowerPoint）が既に自分のセッションで起動しているときは、新しいプロセスができず
+    # 利用者のアプリに接続することになるため、接続せずに例外を投げる（呼ぶ側は後回しにする）
     param (
         [string]$name
     )
 
     if (-not $script:apps.ContainsKey($name)) {
         $info = $appInfo[$name]
+        $sessionId = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
+
+        if ($info.SingleInstance -and (getOwnSessionProcessIds $info.Process $sessionId).Count -gt 0) {
+            throw (New-Object System.InvalidOperationException "${name}${officeAppInUseMessage}")
+        }
 
         # 終了できなかった場合に強制終了するため、新しく起動したプロセスのIDを控えておく
-        $before = @(Get-Process -Name $info.Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+        $before = getOwnSessionProcessIds $info.Process $sessionId
         $com = New-Object -ComObject $info.ProgId
-        $after = @(Get-Process -Name $info.Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+        $after = getOwnSessionProcessIds $info.Process $sessionId
         $newIds = @($after | Where-Object { $before -notcontains $_ })
+
+        if ($info.SingleInstance -and $newIds.Count -eq 0) {
+            # 事前の確認から New-Object の間に、利用者が先にアプリを起動した（先に接続した）。
+            # DisplayAlerts・AutomationSecurity などの設定を変える前に解放し、利用者のアプリに触らない
+            try { releaseComObject $com } catch {}
+            throw (New-Object System.InvalidOperationException "${name}${officeAppInUseMessage}")
+        }
         if ($newIds.Count -eq 1 -and $script:officePidSink) {
             $script:officePidSink[[int]$newIds[0]] = $info.Process
         }
@@ -62,7 +95,8 @@ function getApp {
         }
         $com.AutomationSecurity = 3  # msoAutomationSecurityForceDisable（マクロ無効）
 
-        # PowerPoint等は起動中のアプリに接続することがある。その場合は利用者のものなので終了させない
+        # Excel・Word は起動中のアプリに接続することがある（新しいプロセスができない場合。PowerPoint は上で防いでいるため
+        # ここには来ない）。その場合は利用者のものなので終了させない
         $script:apps[$name] = @{
             Com    = $com
             Pid    = $(if ($newIds.Count -eq 1) { $newIds[0] } else { 0 })
@@ -108,6 +142,9 @@ function stopApp {
         if ($process -and -not $process.WaitForExit($appInfo[$name].ExitWait)) {
             # 終了処理中のプロセスは Kill() が「アクセス拒否」で失敗することがあるが、そのまま終了するため無視する
             try { $process.Kill() } catch {}
+            # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、次の getApp が
+            # 利用者のものとみなして後回しにする（安全な側に倒れる）
+            [void]$process.WaitForExit($appInfo[$name].ExitWait)
         }
     }
     if ($app.Pid -and $script:officePidSink) {

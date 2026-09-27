@@ -59,6 +59,11 @@ function runIngestWorker {
     foreach ($task in $tasks.GetConsumingEnumerable()) {
         $result = invokeIngestTask $task $fileTimeoutMinutes
         $results.Add($result)
+        if ($result.Postponed) {
+            # 後回し（利用者のPowerPointが起動していて使えなかった）は、取り込んだ件数に数えない
+            # （件数が変わらないまま後回しが続いたときに、起動し直しを早めないため）
+            continue
+        }
         $done++
         if (!$script:officeUnavailable -and ($result.TimedOut -or ($done % $restartInterval) -eq 0)) {
             # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
@@ -110,7 +115,8 @@ function invokeIngestTask {
     )
 
     # Reroute: Office を使わずに読めなかった（中身が旧形式・パスワード付き）。司令が Word・PowerPoint のレーンに回し直す
-    $result = @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
+    # Postponed: 利用者のPowerPointが起動していて使えなかった。司令が「未取り込み」のまま次回に回す
+    $result = @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; Postponed = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
     $log = New-Object System.IO.StringWriter
     $previousLog = $script:indexerLog
     $script:indexerLog = $log
@@ -130,6 +136,11 @@ function invokeIngestTask {
         $base = $_.Exception.GetBaseException()
         if ($base -is [System.OperationCanceledException] -and $base.Message -eq ${officeRequiredMessage}) {
             $result.Reroute = $true
+            return $result
+        }
+        if ($base -is [System.InvalidOperationException] -and $base.Message.EndsWith(${officeAppInUseMessage})) {
+            # getApp が投げた例外。$script:apps に入っていないため stopApp は呼ばない
+            $result.Postponed = $true
             return $result
         }
         $message = describeIngestError $_.Exception
@@ -549,6 +560,7 @@ function invokeIndexerBody {
     }
 
     $successCount = 0
+    $postponedCount = 0  # 利用者のPowerPointが起動していて後回しにした件数（未取り込みのまま次回に回す）
     $stopped = $false
     $failures = New-Object System.Collections.Generic.List[object]  # 今回失敗したファイル: @{ RelPath; Message }
     # 取り込みの直前に元のファイルが無くなっていたファイルの相対パス。取り込み一覧から除く
@@ -689,6 +701,20 @@ function invokeIndexerBody {
                 addIngestTask $pool $entry.Lane $entry.Task
                 continue
             }
+            if ($result.Postponed) {
+                # 利用者のPowerPointが起動していて使えなかった。取り込まず「未取り込み」のまま残し、次回のインデックス作成で取り込む
+                # （取り込み一覧・インデックスは変えない。addStatusRow・addPendingPublish はしない）
+                [void]$inflight.Remove($result.RelPath)
+                $laneBusy[$entry.Lane] = $laneBusy[$entry.Lane] - 1
+                $folderBusy[$entry.Folder] = $folderBusy[$entry.Folder] - 1
+                $postponedCount++
+                writeIndexerLog ("[{0}/{1}] {2}" -f $entry.Number, $total, $result.RelPath)
+                writeIndexerLog "    PowerPoint が起動しているため、取り込まずに残しました（次のインデックス作成で取り込みます）。" "Yellow"
+                writeIngestingFiles (getIngestingEntries $inflight $carried)
+                writeIndexingProgress ${indexingPhaseIngest} ($successCount + $failures.Count) ($total - $successCount - $failures.Count - $postponedCount) $failures.Count $currentPath
+                flushPendingPublish (@($folderBusy.Keys | Where-Object { $folderBusy[$_] -gt 0 }) + @($folderPending.Keys | Where-Object { $folderPending[$_] -gt 0 }))
+                continue
+            }
             [void]$inflight.Remove($result.RelPath)
             $laneBusy[$entry.Lane] = $laneBusy[$entry.Lane] - 1
             $row = $entry.Row
@@ -767,8 +793,9 @@ function invokeIndexerBody {
                 writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
             }
         }
-        # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す
-        writeIndexingProgress ${indexingPhaseFinish} $processed $remaining $failures.Count ""
+        # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す。
+        # 「残り」には後回しにした件数も足す（未取り込みのまま残っているため）
+        writeIndexingProgress ${indexingPhaseFinish} $processed ($remaining + $postponedCount) $failures.Count ""
     }
 
     if ($folderLost) {
@@ -790,6 +817,13 @@ function invokeIndexerBody {
     if ($droppedRows.Count -gt 0) {
         writeIndexerLog "取り込みの直前に元のファイルが無くなった $($droppedRows.Count) 件は、取り込まずに一覧から除きました。" "Yellow"
     }
+    if ($postponedCount -gt 0) {
+        # 利用者のPowerPointを閉じれば、次のインデックス作成で取り込む（未取り込みのまま残したファイル）
+        $notice = "PowerPoint が起動していたため、${postponedCount} 件を取り込まずに残しました。PowerPoint を閉じてから、もう一度インデックス作成を始めると取り込みます。"
+        writeIndexerLog $notice "Yellow"
+        $channel.Notice = $notice
+    }
+    $channel.Postponed = $postponedCount
     writeIndexerLog "各ファイルの状態・更新日時は $(Split-Path $workspace.StatusFile -Leaf) で確認できます。"
     if ($failures.Count -gt 0) {
         # インデックス作成中の表示は流れて見えなくなるため、失敗したファイルと原因を最後にまとめて表示する
