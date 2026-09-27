@@ -78,7 +78,8 @@ function renameIndex {
         [string]$oldName,
         [string]$newName,
         [string]$dir = $workspace.IndexDir,
-        [string]$statusPath = $workspace.StatusFile
+        [string]$statusPath = $workspace.StatusFile,
+        [string]$settingsPath = ${settingsFile}
     )
 
     # 大文字・小文字だけの変更も改名するため、同じ名前かは大文字・小文字を区別して比べる（-ceq）
@@ -104,6 +105,9 @@ function renameIndex {
     renameStatusIndexName $oldName $newName $statusPath
     # 高速検索の システムインデックス（同じワークスペースの system_index）は古い名前の分を消す。次のインデックス作成で作り直す
     removeSystemIndexOfWorkspace $oldName $dir
+    # 外したフォルダの記録（searchExcludes）は旧名・新名の下のものを消す（付け替えず、検索対象に戻す）
+    removeSearchExcludesUnder $from $settingsPath
+    removeSearchExcludesUnder $to $settingsPath
 }
 
 function removeIndex {
@@ -112,7 +116,8 @@ function removeIndex {
     param (
         [string]$name,
         [string]$dir = $workspace.IndexDir,
-        [string]$statusPath = $workspace.StatusFile
+        [string]$statusPath = $workspace.StatusFile,
+        [string]$settingsPath = ${settingsFile}
     )
 
     if ($name -eq "") {
@@ -127,6 +132,8 @@ function removeIndex {
     }
     removeStatusIndexName $name $statusPath
     removeSystemIndexOfWorkspace $name $dir
+    # 外したフォルダの記録（searchExcludes）も消す
+    removeSearchExcludesUnder $target $settingsPath
 }
 
 function removeSystemIndexOfWorkspace {

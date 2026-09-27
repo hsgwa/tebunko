@@ -14,7 +14,7 @@
 
 - **main へは PR 経由でだけ入れる。** main への直接 push はブランチ保護（ruleset）で禁止し、必須チェック（`test.yml` の `test`・`title.yml` の `pr-title`・`docs.yml` の `docs`・`codeql.yml` の `analyze`）が通らないとマージできない。PR のブランチが最新の main を取り込んでいないときもマージできない。
 - **1 つの PR には 1 つの目的だけを入れる。** 目的と関係のない修正は別の PR にする。
-- **PR 本文は `.github/pull_request_template.md` に沿って書く。** Issue があれば `Closes #<番号>` でつなぐ（マージすると Issue が自動で閉じる）。無ければ目的を PR 本文に書く。
+- **PR 本文は `.github/pull_request_template.md` に沿って書く。** Issue があれば `Closes #<番号>` でつなぐ（マージすると Issue が自動で閉じる）。無ければ「目的・解決策」に目的を書く。
 - **前の版と互換が無くなる PR は、タイトルの型に `!` を付ける**（下の Conventional Commits）。設定ファイル（`setting.config`）・インデックスの形式、起動の仕方、配布物のファイル構成が変わり、前の版のものがそのまま使えなくなるときがこれに当たる。PR 本文に移行の手順を書く。
 - **PR を出す前に最新の main を取り込む。** 取り込みは merge で行い、push 済みのブランチを rebase して force push しない。
 

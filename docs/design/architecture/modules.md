@@ -61,8 +61,7 @@ flowchart TD
 | `$maxFileNameLength` | ファイル名 1 つの長さの上限（255） | `shared/core/fs.ps1` |
 | `$officeExtensions` | 取り込み対象の拡張子（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`） | `shared/office/office_files.ps1` |
 | `$officeProcessNames` | 強制終了の対象のプロセス名 → 表示名（`EXCEL` → `Excel`、`WINWORD` → `Word`、`POWERPNT` → `PowerPoint`） | `shared/office/office_process.ps1` |
-| `$appId` | ツールの ID（`tebunko`。ミューテックスの名前に使う） | `tebunko/core/paths.ps1` |
-| `$workspace` | 今のワークスペース（`Workspace`。[ワークスペースの中の場所（Workspace）](#ワークスペースの中の場所workspace)）。設定 `workspaceFolder` から決める（`getWorkDir`） | 同上 |
+| `$workspace` | 今のワークスペース（`Workspace`。[ワークスペースの中の場所（Workspace）](#ワークスペースの中の場所workspace)）。設定 `workspaceFolder` から決める（`getWorkDir`） | `tebunko/core/paths.ps1` |
 | `$tmpDir` | `%TEMP%\tebunko\<PID>`（プロセスごと。取り込みのスレッドは、その下の `w<番号>` を使う） | 同上 |
 | `$sourceFolderFileName` | 各インデックスのフォルダに置く対応表のファイル名（`元のフォルダ.txt`） | 同上 |
 | `$indexingPhaseCrawl` / `$indexingPhaseConfirm` / `$indexingPhaseIngest` / `$indexingPhaseFinish` | インデックス作成の進み具合の段階（`クロール` / `確認` / `取り込み` / `仕上げ`） | 同上 |
@@ -71,6 +70,7 @@ flowchart TD
 | `$statusColumns` | 取り込み一覧の列名（`相対パス` `更新日時` `サイズ` `状態` `TSV数` `取り込み日時` `エラー` `抽出版`） | 同上 |
 | `$statusFolderKey` | 取り込み一覧の先頭のクロール対象フォルダの行の見出し（`クロール対象フォルダ`） | 同上 |
 | `$stateNew` / `$stateDone` / `$stateFailed` | 取り込み一覧の状態（`未取り込み` / `済` / `失敗`） | 同上 |
+| `$appId` | ツールの ID（`tebunko`。ミューテックスの名前に使う） | `tebunko/core/settings.ps1`（起動口が `lib.ps1` より先に `settings.ps1` だけを読み込んで設定を確かめるため、ここで決める） |
 | `$settingsFile` | `$dataDir\setting.config`（画面が保存する設定。内容は JSON。[設定ファイル（setting.config）](settings-file.md)） | `tebunko/core/settings.ps1` |
 | `$openModeNormal` / `$openModeReadOnly` / `$openModeNew`・`$openModes` | 元のファイルの開き方（設定 `openMode` の値 `normal` / `readOnly` / `new`）と、その一覧 | 同上 |
 
@@ -95,6 +95,41 @@ flowchart TD
 | `ResultFile` | `<Dir>\検索結果.txt` |
 | `IndexingLogFile` | `<Dir>\インデックス作成ログ.txt`（インデクサの表示内容の記録。実行ごとに上書き） |
 | `GuiErrorLogFile` | `<Dir>\画面エラー.txt`（画面で起きた予期しないエラーの記録。追記。共通基盤の `writeErrorLog` は、画面が定義する `getGuiErrorLogFile` からこの場所を得る） |
+
+## 目的ごとのクラス
+
+refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。クラスの使い分けの決まりは [クラスと関数の使い分け](threads.md#クラスと関数の使い分け)。
+
+| クラス | 目的（1 つに絞る。凝集） | 作って使うスレッド | 層 | 置くファイル（案） | 今ある場所 | 依存してよい相手 |
+|---|---|---|---|---|---|---|
+| `IndexCatalog` | インデックスの追加・改名・削除・名前の割り当て。保存先（`targetFolders`・取り込み一覧・`元のフォルダ.txt`・`searchExcludes`・`system_index`）を漏れなく書き換える手順と順番、途中で失敗したときの扱い（戻す・残す）だけを持つ。保存先の形式は知らない。`Workspace` と設定ファイルの場所を受け取って作る（場所を暗黙に使わない） | 画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る | 状態層 | `tebunko/index/index_catalog.ps1`（`lib.ps1`） | `index_store.ps1`、`ui/index_tab.ps1` の `editIndex`・`loadTargets`・`saveTargets`・`updateIndexSourceFile`、`core/settings.ps1` の `saveAssignedIndexNames`・`removeSearchExcludesUnder`（`renameIndex`・`removeIndex` から呼ぶ） | 保存先ごとの読み書きの部品（既存の関数でよい。設定は `invokeSettingsLocked`・`saveAssignedIndexNames`、`元のフォルダ.txt`・`system_index` はその読み書きの関数）、`searchExcludes` の読み書きの部品（`core/settings.ps1` の `readSearchExcludes`・`writeSearchExcludes`・`removeSearchExcludesUnder`。`WorkspaceMover` と同じものを通す）、取り込み一覧は作る側から渡された `StatusLedger`、`index_name.ps1`（判断層）、`Workspace` |
+| `WorkspaceMover` | ワークスペースの切り替え（移す・`searchExcludes` の付け替え・保存・失敗したら戻す） | 画面のスレッド | 状態層 | `tebunko/core/workspace_mover.ps1`（`lib.ps1`） | `core/workspace.ps1`、`ui/settings_tab.ps1` | 設定の読み書きの部品（`invokeSettingsLocked`）、`searchExcludes` の読み書きの部品（`core/settings.ps1` の `readSearchExcludes`・`writeSearchExcludes`。`IndexCatalog` と同じものを通す）、ファイルの移動の部品（`fs.ps1`）、`Workspace` |
+| `StatusLedger` | 取り込み一覧・取り込み中のファイル・失敗と消えたファイルの記録。列と状態の定義もここへ | インデクサの司令のスレッド。画面が取り込み一覧を読むときは画面のスレッドで別に作る | 状態層 | `tebunko/indexer/indexer_state.ps1`（`lib.ps1`） | `indexer_state.ps1`、`core/paths.ps1` の列と状態、`invokeIndexerBody` の `$failures`・`$droppedRows` | 取り込み一覧・状態ファイルの読み書きの部品（`indexer_state.ps1` の関数）、`Workspace` |
+| `PendingPublish` | フォルダごとに取り込みの終わりを数え、集約ファイルに書き出してよいかを決める | 司令のスレッド | 状態層 | `tebunko/indexer/pending_publish.ps1`（`indexer_lib.ps1`） | `$script:pendingPublish`、`addPendingPublish`・`flushPendingPublish` | 無い（数えて、書き出してよいフォルダを返すだけ）。取り込みの終わりは司令からデータで受け取り、書き出し（`publishIndexFiles`）は返した結果を見て司令が呼ぶ |
+| `IndexingReporter` | 進み具合・ログ・画面の確認を待つこと。受け渡しの口（hashtable のまま）を持って書く | 司令のスレッド | 状態層 | `tebunko/indexer/indexing_reporter.ps1`（`indexer_lib.ps1`） | `writeIndexingProgress`、`$script:indexerLog`、確認待ち | 受け渡しの口（hashtable）、ログの書き込みの部品 |
+| `IngestPlanner` | 対象フォルダ・名前・クロール・前回失敗・強制終了の回数から、取り込む順番を決める。取り込み直すかの判断は `indexer_decide.ps1`（判断層の関数）のまま呼ぶ | 司令のスレッド | 状態層 | `tebunko/indexer/indexer_plan.ps1`（`indexer_lib.ps1`） | `invokeIndexerBody` の前半、`indexer_plan.ps1`・`indexer_decide.ps1` | `indexer_decide.ps1`（判断層）、クロールの部品。前回の失敗・強制終了の回数は、司令が `StatusLedger` から取り出したデータで受け取る |
+| `OfficeWatchdog` | Office の制限時間を見張り、止まったら止める。見張りのスレッド（`startWatchdog` が `[PowerShell]::Create()` で作る別のランスペース）へは、今のまま `[hashtable]::Synchronized` を渡す（クラスにしない）。Office が使えなくなったこと（`$script:officeUnavailable`）はツールの判断なので、クラスには入れず今の場所に残す | 取り込みのスレッド（Office のレーンごとに、そのスレッドで作る） | 状態層（`shared/`） | `shared/office/office_app.ps1`（`indexer_lib.ps1` から今と同じく読む）。どのツールからも使う Office の部品なので `shared/` に置き、ツールを知らない | `shared/office/office_app.ps1` の `$script:watchdog`・`$script:watchdogThread`・`startWatchdog`・`stopWatchdog`・`updateWatchedPids`（`ingestWorkerScript` は呼ぶだけ）。`$script:officeUnavailable` は `tebunko/indexer/extract_office.ps1`・`indexer_run.ps1` | `shared/office/` の部品（`office_process.ps1` など）だけ。ツールのものに依存しない |
+| `IngestDispatcher` | プール・レーン・先読み・取り込み中の管理（性能に効く経路）。取り込みのスレッドとは今までどおり hashtable と .NET のコレクションで受け渡す | 司令のスレッド | 状態層 | `tebunko/indexer/indexer_run.ps1`（`indexer_lib.ps1`） | `invokeIndexerBody` の取り込みの繰り返し、`newIngestPool` など | 取り込みのスレッド（レーンごとに `CreateRunspace` で作る STA・MTA のランスペース。今の `newIngestPool`・`addIngestTask`）と `BlockingCollection`、取り込みのスレッドのスクリプト。`WorkerPool` には寄せない（今の形を変えない）。終わった取り込みの結果は hashtable で司令に返す |
+
+**クラスのつなぎ方**
+
+- **目的ごとのクラス（この表の 8 つ）どうしは、互いを直接呼ばない。** 8 つを作ってつなぐのは、使う側の入口だけにする（インデクサでは司令役の `invokeIndexerBody`、画面では呼ぶ側の `editIndex` など、取り込みのスレッドでは `ingestWorkerScript`）。8 つの間はデータ（hashtable・PSCustomObject）で受け渡す。8 つは、ほかの 7 つを自分で作らない・探さない。
+- この 8 つの間の例外は 1 つだけにする: `IndexCatalog` は取り込み一覧を `StatusLedger` を通して書く。その `StatusLedger` は、`IndexCatalog` を作る側（画面・司令）が作ってコンストラクタで渡す（依存の向きは `IndexCatalog` → `StatusLedger` の一方向）。
+- 8 つのほかのクラスは次のように扱う。値だけを持つクラス（`Workspace`）は、受け取って使ってよい。基盤のクラス（`WorkerPool` など。今の `BackgroundQueue` が中で `WorkerPool` を作るように）は、受け取って使うか、持ち主として作って片づけてよい。
+- **`searchExcludes` を書き換えるのは `IndexCatalog`（改名・削除のとき）と `WorkspaceMover`（切り替えのとき）の 2 つ。どちらも同じ `searchExcludes` の読み書きの部品（`core/settings.ps1` の `readSearchExcludes`・`writeSearchExcludes`・`removeSearchExcludesUnder`）を通す**（インデックスの改名・削除で `searchExcludes` の記録が残った不具合（#125）は、書き換える保存先の一覧が散っていて漏れたことが原因。2 か所で別の書き方をしない）。
+- **画面は `IndexCatalog`・`WorkspaceMover` を呼ぶだけ**にし、「呼ぶ → 結果を出す」にする（`editIndex` などの手順を画面に残さない）。
+- **`IndexCatalog` は保存先の形式を直接知らない。** 保存先ごとの読み書きは小さな部品（既存の関数でよい）に任せ、`IndexCatalog` は書き換える手順と順番、途中で失敗したときの扱いだけを持つ。
+- 取り込みの 1 ファイルごとに司令を通るのは、`IngestDispatcher` が返した結果（hashtable）を `StatusLedger`・`PendingPublish`・`IndexingReporter` のメソッドに渡すところだけにする。増えるのはメソッドの呼び出しで、関数の呼び出しの段は増やさない（[速さ](threads.md#クラスと関数の使い分け)のとおり）。
+
+置くファイルは案。refactor で変えたときは、この表と [フォルダの分け方と読み込み口](#フォルダの分け方と読み込み口) の表・図を同じ PR で直す。
+
+**refactor で守ること**
+
+- スレッドをまたいでクラスのインスタンスを渡さない（[クラスと関数の使い分け](threads.md#クラスと関数の使い分け) の決まり）。
+- **計測の口を変えない。** 変えるなら先に計測を直し、main で測り直す。口の一覧は [CI](../testing/ci.md#ci) の「計測の口」の表を正とする（`StatusLedger` の列と状態、`IndexingReporter` の段階の値は、この口に含まれる。名前と値は変えない）。
+- 設定ファイルの読む → 変える → 書くは、`core/settings.ps1` の `invokeSettingsLocked` の中で行う。`IndexCatalog`・`WorkspaceMover` の書き込みもそうする（名前の割り当ての保存は `saveAssignedIndexNames` を使う）。
+- 性能は、同じ PC・同じデータ・同じ引数で、同じ日に main → refactor のブランチ → main と続けて測った数字どうしで比べる。
+- 取り込みの 1 ファイルごとの経路で、関数の呼び出しの段を増やさない。
 
 ## 関数一覧
 
@@ -123,17 +158,20 @@ flowchart TD
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
 | `newSettings` | – | ordered hashtable | 設定の既定値（`targetFolders` `indexSources` `searchExcludes` `useRegex` `caseSensitive` `fileFilter` `includeShapes` `includeComments` `openMode` `workspaceFolder` `ingestThreads`） | [設定ファイル（setting.config）](settings-file.md) | readSettings |
-| `readSettings` | path（既定 `$settingsFile`） | ordered hashtable | 設定を読む。記載の無いキーは既定値。ファイルが無ければ既定値（ファイルは作らない）。数値のキーは文字列でも数値にして読む（読めなければ既定値）。JSON として読めなければ例外 | 同上 | 設定の各関数 |
+| `readSettings` | path（既定 `$settingsFile`） | ordered hashtable | 設定を読む。記載の無いキーは既定値。ファイルが無ければ既定値（ファイルは作らない）。数値のキーは文字列でも数値にして読む（読めなければ既定値）。JSON として読めなければ `FormatException`（ファイルは動かさない）。ロック・共有違反は `IOException` のまま | 同上 | 設定の各関数 |
 | `toSettingBool` | value, default | bool | 設定ファイルの真偽値を読む。文字列の `"true"` / `"false"` も読み、読めなければ default | 同上 | readSettings, readSearchExcludes |
 | `writeSettings` | settings, path（既定 `$settingsFile`） | – | 設定を JSON（UTF-8 BOM なし）で保存。一時ファイルに書いてから置き換える（`writeTextLinesAtomic`） | 同上 | updateSettings |
 | `invokeSettingsLocked` | path, action, timeout（既定 5000 ミリ秒） | action の出力 | 設定ファイルごとの名前付きミューテックス（`Local\tebunko_settings_<getFolderKey の鍵>`）の中で action を実行する。設定の「読む → 変える → 書く」の一続きを囲む。引数の順は path, action, timeout（`-action` は名前で渡す） | [設定ファイル（setting.config）](settings-file.md) | updateSettings など |
 | `updateSettings` | key, value, path（既定 `$settingsFile`） | – | ファイルを読み直し、key の値だけ変えて保存する（`invokeSettingsLocked` の中） | 同上 | 設定の各関数 |
+| `repairBrokenSettings` | path（既定 `$settingsFile`） | 退避したパス（何もしなければ空文字） | 設定ファイルが JSON として読めないときだけ、`setting.config.broken-<yyyyMMdd-HHmmss>`（重なれば `-2`・`-3`…）に中身のまま移してパスを返す。移せなければ例外。`invokeSettingsLocked` の中で行う。起動口が起動の時に 1 回だけ呼ぶ | 同上 | gui.ps1, indexer.ps1 |
+| `getSettingsRecoveryMessage` | brokenPath | 文字列 | 退避して既定の設定で起動したときの知らせの文言（画面・インデクサで共通） | 同上 | gui.ps1, invokeIndexer |
 | `getTargetFolders` | path（既定 `$settingsFile`） | `@{Name; Path; Enabled}` の配列 | クロール対象フォルダ（`targetFolders`。記載順）。Name はインデックス名、Path は今の置き場所（分けて持つ）。`enabled` が `false` はチェックなし（Enabled = `$false`）。同じフォルダ・同じ名前は最初のものだけ（書き方が違うだけで同じフォルダも `testSameFolder` で同一とみなす。重複した名前は空にして割り当て直す） | [クロール対象フォルダ](../indexer/index.md#クロール対象フォルダgettargetfolders) | インデックス作成・画面 |
 | `writeTargetFolders` | folders（`@{Name; Path; Enabled}` の配列）, path（既定 `$settingsFile`） | – | クロール対象フォルダを `targetFolders` に保存（名前も保存する） | 同上 | インデックス作成・画面 |
 | `mergeAssignedIndexNames` / `saveAssignedIndexNames` | current, assigned / assigned, path | 一覧 / 一覧 | 割り当てたインデックス名（assigned）を、読み直した今の一覧（current）の名前が空の項目にだけ、パスで突き合わせて足す（同じ名前をほかの項目が使っていれば付けない）/ 排他の中で読み直して足して保存し、保存した一覧を返す | [設定ファイル（setting.config）](settings-file.md) | インデクサ・画面（loadTargets） |
 | `readIndexSources` / `writeIndexSources` | path（既定 `$settingsFile`） / sources, path | `@{Name; Path}` の配列 / – | インデックス作成の対象にしないインデックスの元のフォルダ（`indexSources`）を読み書きする | [設定ファイル（setting.config）](settings-file.md) | getSourceFolderMap, 画面 |
 | `setIndexSourceFolder` | name, folder, path（既定 `$settingsFile`） | – | インデックス名に対する元のフォルダを記録する。クロール対象フォルダにある名前ならそのフォルダの Path を書き換え、無ければ `indexSources` に記録する | [元のファイルが見つからないとき（元のフォルダを設定する）](../gui/search-tab.md#元のファイルが見つからないとき元のフォルダを設定する) | 画面 |
 | `readSearchExcludes` / `writeSearchExcludes` | path（既定 `$settingsFile`） / excludes, path | `@{Path; Subfolders}` の配列 / – | 画面の検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）を読み書きする。無ければ空（すべて検索） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
+| `removeSearchExcludesUnder` | folder, path（既定 `$settingsFile`） | – | フォルダとその下の `searchExcludes` を、大文字・小文字を区別せずに消す（`Sales` を消しても `Sales2` は消さない）。設定の書き込みは `invokeSettingsLocked` の中で行い、消せなくても例外にしない（インデックスの改名・削除を止めない） | 同上 | `renameIndex` / `removeIndex` |
 | `readVersionFile` | path（配布物の `VERSION.txt` のパス） | `@{Tag; Sha}` / `$null` | 版とコミットの記録を読む。無い・読めない・2行でない・形が違えば `$null`（画面は「開発版」と表示する。`about_view.ps1` の `getAboutView`） | [画面構成](../gui/index.md#画面構成) | 画面 |
 | `readSearchOption` / `writeSearchOption` | path / option, path | `@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}` / – | 画面の検索条件。[元のファイルの特定・画面](#元のファイルの特定画面) を参照 | [続き](#元のファイルの特定画面) | 画面 |
 | `readOpenMode` / `writeOpenMode` | path（既定 `$settingsFile`） / mode, path | string / – | 元のファイルの開き方（`openMode`）を読み書きする。無い・知らない値なら `normal` | [元のファイルを開く](../gui/search-tab.md#元のファイルを開く) | 画面 |
@@ -209,8 +247,8 @@ flowchart TD
 | `testIndexName` | name, usedNames | string（使えれば空） | インデックス名として使えるか調べ、使えない理由を返す（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語・ほかと重複） | [追加・編集のダイアログ](../gui/index-tab.md#追加編集のダイアログ) | 画面 |
 | `getIndexNameMap` | path（既定 `$workspace.StatusFile`） | Dictionary（インデックス名 → フォルダパス） | 取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る | 同上 | resolveSourcePath, 画面 |
 | `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
-| `renameIndex` | oldName, newName, dir（既定 `$workspace.IndexDir`）, statusPath | – | インデックス名を変える。`work\index\<旧名>` を改名し、取り込み一覧の記録（`renameStatusIndexName`）も書き換えるため、**インデックスは作り直さない**。移動先が既にあれば例外 | 同上 | 画面（［編集…］） |
-| `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath | – | インデックスを削除する。`work\index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`） | 同上 | 画面（［削除］） |
+| `renameIndex` | oldName, newName, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックス名を変える。`work\index\<旧名>` を改名し、取り込み一覧の記録（`renameStatusIndexName`）も書き換えるため、**インデックスは作り直さない**。移動先が既にあれば例外。旧名・新名の下の `searchExcludes` も消す（`removeSearchExcludesUnder`。付け替えず、外したフォルダは検索対象に戻る） | 同上 | 画面（［編集…］） |
+| `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックスを削除する。`work\index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`）。そのインデックスの下の `searchExcludes` も消す（`removeSearchExcludesUnder`） | 同上 | 画面（［削除］） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
 
 TSV の名前・配置、集約ファイル、検索にかかわる関数（`index_name.ps1` の `encodeIndexPlace` など、`index_store.ps1` の `getIndexTsvCounts` / `publishIndexFiles` など、`pack_format.ps1`・`pack_store.ps1`・`pack_search.ps1`）は [TSV の作成・検索](#tsv-の作成検索) に記載する。
@@ -392,7 +430,7 @@ flowchart LR
 
 **スレッドとプール（`shared/core/worker_pool.ps1`・`tebunko/search/search_service.ps1`・`tebunko/indexer/indexing_session.ps1`）**
 
-設計は [プロセスとスレッド](threads.md)。クラスは画面のスレッド（作ったランスペースのスレッド）だけから呼ぶ（[クラスと関数の使い分け](threads.md#クラスと関数の使い分け)）。
+設計は [プロセスとスレッド](threads.md)。クラスは作ったランスペースのスレッドだけから呼ぶ（`SearchService`・`BackgroundQueue`・`IndexingSession` は画面のスレッドで作る。`WorkerPool` はプールを持つ側のスレッドで作る。`Workspace` は各スレッドで作り直す）（[クラスと関数の使い分け](threads.md#クラスと関数の使い分け)）。
 
 | 関数・クラス | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
