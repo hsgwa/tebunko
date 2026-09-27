@@ -450,15 +450,22 @@ Describe "indexer.ps1（まれな状況）" -Tag Io {
 
 Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
     function script:newLegacyWorkspace {
-        # 前の版のワークスペース（index\・system_index\・状態ファイル・取り込み一覧の「済」の行）を root\work に作る（しるしあり）
+        # 前の版のワークスペース（index\・system_index\・状態ファイル・取り込み一覧の「済」の行）を root\work に作る（しるしあり）。
+        # 取り込み一覧の行は、元のファイルの実際の更新日時・サイズ・今の抽出版にする。
+        # そうしないと getIngestDecision の sameFile が偽になり、本文インデックスが無いこと（lost）とは別の理由
+        # （updated・outdated）で取り込み直す判定になってしまい、このテストが確かめたいことと違う経路を通ってしまう
         param ([string]$root, [string]$name, [string]$sourcePath)
         $work = "$root\work"
         newTsv "$work\index\$name\議事録.docx\S.tsv" @("旧いインデックス")
         newTsv "$work\index\$name\元のフォルダ.txt" @("# 前の版の記録", "$name`tC:\旧い場所")
         newTsv "$work\system_index\$name\システムインデックス.txt" @("x00000000")
         newTsv "$work\システムインデックスの状態.tsv" @("対応済み`t$name`t")
+        $docxFile = Get-Item -LiteralPath "$sourcePath\議事録.docx"
+        $updated = formatFileTime $docxFile.LastWriteTime
+        $size = [string]$docxFile.Length
+        $extractVersion = [string]$extractVersions[".docx"]
         writeStatusFile @([pscustomobject]@{ Path = $sourcePath; Name = $name }) @(
-            (newStatusRow "$name\議事録.docx" "2026/09/01 10:00:00" "100" ${stateDone} "1" "2026/09/01 10:00:00")
+            (newStatusRow "$name\議事録.docx" $updated $size ${stateDone} "1" "2026/09/01 10:00:00" "" $extractVersion)
         ) "$work\取り込み一覧.tsv"
     }
 
@@ -473,6 +480,8 @@ Describe "indexer.ps1（前の版のインデックス）" -Tag Io {
 
         $log = [System.IO.File]::ReadAllText("$root\work\インデックス作成ログ.txt")
         $log | Should -Match "前の版のインデックス"
+        # 「済」の行が取り込み直された理由が、本文インデックスが無いこと（lost）であることをログで確かめる
+        $log | Should -Match "インデックスが無い・壊れている 1 件"
         [System.IO.File]::Exists("$root\work\content_index\旧版\content_index.docx.001.tsv") | Should -Be $true
         [System.IO.File]::Exists("$root\work\system_index\旧版\system_index.txt") | Should -Be $true
         @([System.IO.Directory]::GetFiles("$root\work\system_index", "システムインデックス*.txt", "AllDirectories")).Count | Should -Be 0
