@@ -57,11 +57,29 @@ BeforeAll {
         $marker = Join-Path $Tool.Temp "opened_marker.txt"
         $openerStub = "`$opener = { param(`$target) Set-Content -LiteralPath '$marker' -Value `$target -Encoding UTF8 }"
         $script = $script:launcherCommand.Replace("`$opener='notepad.exe'", $openerStub)
+        if ($script -eq $script:launcherCommand) {
+            # bat の書き方が変わって置き換わらないと、本物の notepad.exe が開いたまま残ってしまう
+            throw "tebunko.bat に `$opener='notepad.exe' が見つからない（書き方が変わった？）"
+        }
+        $beforeRoot = $script
         $script = $script.Replace("`$root='%~dp0'", "`$root='$($Tool.Root)\'")
+        if ($script -eq $beforeRoot) {
+            throw "tebunko.bat に `$root='%~dp0' が見つからない（書き方が変わった？）"
+        }
         if ($LanguageMode) {
             $script = "`$ExecutionContext.SessionState.LanguageMode = '$LanguageMode'`r`n" + $script
         }
         return $script
+    }
+
+    function getConstrainedLanguageAddTypeMessage {
+        # 制限言語モードで Add-Type -AssemblyName が失敗したときの、このマシン・ロケールでの
+        # 実際のメッセージ（英語・日本語などで文言が変わるため、決め打ちにせずその場で再現して得る）
+        $script = "`$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; try { Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms } catch { Write-Output `$_.Exception.Message }"
+        $bytes = [System.Text.Encoding]::Unicode.GetBytes($script)
+        $encoded = [Convert]::ToBase64String($bytes)
+        $output = & powershell.exe -NoProfile -EncodedCommand $encoded
+        return (@($output) -join "`n").Trim()
     }
 
     function invokeLauncher {
@@ -123,6 +141,11 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
         ($record -join "`n") | Should -Match "ConstrainedLanguage"
         ($record -join "`n") | Should -Match "Scope\s+ExecutionPolicy"
         (@($record | Where-Object { $_ -match "^====" })).Count | Should -Be 1
+        # 言語モードだけでなく、gui.ps1 の trap から投げ直された元の例外（Add-Type の失敗）が
+        # 実際に記録されていることも確かめる（別の理由で落ちても言語モードだけでは区別できないため）
+        $expectedMessage = getConstrainedLanguageAddTypeMessage
+        $expectedMessage | Should -Not -BeNullOrEmpty
+        ($record -join "`n") | Should -Match ([regex]::Escape($expectedMessage))
         (getLauncherOpenedTarget $tool) | Should -Be (Join-Path $tool.LocalAppData "tebunko\startup_error.txt")
     }
 

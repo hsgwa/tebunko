@@ -83,7 +83,7 @@
 |---|---|
 | `インデックス作成ログ.txt` | インデックス作成の経過と、取り込みに失敗したファイルの原因。インデックス作成ごとに上書きされます。［ログを開く］で表示できます |
 | `画面エラー.txt` | 画面で発生した予期しないエラーの記録。追記されます |
-| `startup_error.txt`（`%LOCALAPPDATA%\tebunko\startup_error.txt`。書き込めない場合は `%TEMP%\tebunko_startup_error.txt`） | 画面が表示される前に起動が失敗したときの記録。起動のたびに上書きされます。ワークスペースの外（固定の場所）にあります |
+| `startup_error.txt`（`%LOCALAPPDATA%\tebunko\startup_error.txt`。書き込めない場合は `%TEMP%\tebunko_startup_error.txt`） | 画面が表示される前に起動が失敗したときの記録。起動に失敗するたびに書き直されます。ワークスペースの外（固定の場所）にあります |
 
 ## サポート
 
