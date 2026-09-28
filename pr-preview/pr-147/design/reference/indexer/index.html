@@ -4200,10 +4200,40 @@
 <td>前回のインデックス作成で本文インデックスに入れていないフォルダを、無くなったファイルの記録無しで書き出し待ちにする</td>
 </tr>
 <tr>
+<td><code>AddPending</code></td>
+<td>folder</td>
+<td>–</td>
+<td>取り込み対象を数えるとき、そのファイルの分だけ「まだ渡していない数」を 1 つ足す</td>
+</tr>
+<tr>
+<td><code>Dispatch</code></td>
+<td>folder</td>
+<td>–</td>
+<td>ファイルを 1 つ渡す（まだ渡していない数を 1 減らし、取り込み中の数を 1 増やす）</td>
+</tr>
+<tr>
+<td><code>Skip</code></td>
+<td>folder</td>
+<td>–</td>
+<td>ファイルを 1 つ、渡さずに済ませる（元のファイルが無くなった等。まだ渡していない数だけ減らす）</td>
+</tr>
+<tr>
+<td><code>Complete</code></td>
+<td>folder</td>
+<td>–</td>
+<td>取り込み中のファイルが 1 つ終わる（成功・失敗・後回しのどれでも。取り込み中の数を 1 減らす）</td>
+</tr>
+<tr>
 <td><code>TakeFlushable</code></td>
-<td>keepFolders</td>
-<td>フォルダ → 無くなったファイル名の集まり（<code>hashtable</code>）</td>
-<td><code>keepFolders</code>（まだ取り込みが続くフォルダ）に無いものを書き出し待ちから取り出して返す</td>
+<td>–</td>
+<td>フォルダ → 無くなったファイル名の集まり（<code>Dictionary[string,object]</code>）</td>
+<td>取り込み中・まだ渡していない数がどちらも 0 のフォルダを、書き出し待ちから取り出して返す</td>
+</tr>
+<tr>
+<td><code>TakeAll</code></td>
+<td>–</td>
+<td>同上</td>
+<td>取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて取り出す（インデックス作成の終わり）</td>
 </tr>
 </tbody>
 </table>

@@ -3863,7 +3863,7 @@
 <li>a. クラスのメソッドから、同じランスペースのスクリプトの関数・<code>$script:</code> 変数が見えるか。ランスペースの無い .NET のスレッドからクラスのメソッドを呼べるか</li>
 <li>b. 関数の呼び出し・インスタンスのメソッドの呼び出し・静的メソッドの呼び出し・<code>$script:</code> 変数の読み・クラスのプロパティの読み・hashtable の読みの、1 回あたりの速さ（下の「速さ」）</li>
 <li>c. <code>CreateRunspace</code> で作ったランスペースの中でクラスを dot-source して使えるか。別のランスペースへ渡したインスタンスのメソッドは、どちらのランスペースの関数を呼ぶか</li>
-<li>d.（refactor の PR 1 で追加）Pester の <code>BeforeAll</code> で <code>lib.ps1</code> を dot-source したとき、テストファイルのトップレベルで定義したクラスのメソッドから、<code>lib.ps1</code> の関数と <code>$script:</code> 変数が見えるか</li>
+<li>d.（#147 で追加）Pester の <code>BeforeAll</code> で <code>lib.ps1</code> を dot-source したとき、テストファイルのトップレベルで定義したクラスのメソッドから、<code>lib.ps1</code> の関数と <code>$script:</code> 変数が見えるか</li>
 </ul>
 <pre class="mermaid"><code>flowchart TD
     A["別のランスペースへ&lt;br&gt;インスタンスを渡す"] --&gt; B{"そのインスタンスの&lt;br&gt;メソッドを呼ぶ"}
@@ -3912,11 +3912,11 @@
 </tr>
 <tr>
 <td>メソッドの中のローカル変数の名前は、プロパティの名前と大文字・小文字だけの違いにしない（<code>$Channel</code> プロパティがあれば <code>$channel</code> をローカル変数に使わない）</td>
-<td>PS のクラスは、プロパティと同名（大文字・小文字を区別しない）のローカル変数への代入を、<code>$this.</code> を付けないプロパティへの代入と見なし、パースエラーになる（<code>Cannot assign property, use '$this.Xxx'.</code>。refactor の PR 1 で見つかった）</td>
+<td>PS のクラスは、プロパティと同名（大文字・小文字を区別しない）のローカル変数への代入を、<code>$this.</code> を付けないプロパティへの代入と見なし、パースエラーになる（<code>Cannot assign property, use '$this.Xxx'.</code>。#147 で見つかった）</td>
 </tr>
 <tr>
 <td>メソッドのパラメータに既定値（<code>$x = 60</code> など）を書いても、呼ぶ側が省略するとエラーになる（関数と違い、既定値は使われない）</td>
-<td><code>[T]::new().M(1)</code> が <code>Cannot find an overload</code> になった（refactor の PR 1 で確かめた）。呼ぶ側で必ず全部の引数を渡す</td>
+<td><code>[T]::new().M(1)</code> が <code>Cannot find an overload</code> になった（#147 で確かめた）。呼ぶ側で必ず全部の引数を渡す</td>
 </tr>
 <tr>
 <td>スレッドやプールの寿命を持つクラスは <code>Open</code>（または最初の使用）でスレッドを作り、<code>Close</code> で止めて片づける。<code>Close</code> は何度呼んでもよい</td>
@@ -3989,7 +3989,7 @@
 <li>性能を落としていないかの判断は、この表ではなく取り込みの計測（<a href="../../testing/perf/">性能とリソースの計測のしかた</a> の「計測の口」）で、同じ日に main と比べて行う。</li>
 </ul>
 <h2 id="目的ごとのクラス">目的ごとのクラス<a class="headerlink" href="#目的ごとのクラス" title="Permanent link">&para;</a></h2>
-<p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。<code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> は実装ずみ（PR 1）。残り 5 つは予定のまま。</p>
+<p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。<code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> は実装ずみ（#147）。残り 5 つは予定のまま。</p>
 <pre class="mermaid"><code>classDiagram
     class IndexCatalog
     class WorkspaceMover
@@ -4043,12 +4043,12 @@
 </tr>
 <tr>
 <td><code>PendingPublish</code></td>
-<td>フォルダごとに取り込みの終わりを数え、本文インデックスに書き出してよいかを決める</td>
+<td>フォルダごとの取り込み中の数（Busy）とまだ渡していない数（Pending）を数え、どちらも 0 になったフォルダを本文インデックスに書き出してよいと決める</td>
 <td>司令のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/pending_publish.ps1</code>（<code>indexer_lib.ps1</code>）</td>
-<td>実装ずみ。<code>Add</code>・<code>MarkFolder</code>・<code>TakeFlushable</code></td>
-<td>無い（数えて、書き出してよいフォルダを返すだけ）。取り込みの終わりは司令からデータで受け取り、書き出し（<code>publishIndexFolders</code>）は <code>TakeFlushable</code> が返した結果を見て司令（<code>invokeIndexerBody</code> の中の <code>flushPending</code>）が呼ぶ</td>
+<td>実装ずみ。<code>Add</code>・<code>MarkFolder</code>（書き出し待ちの記録）・<code>AddPending</code>・<code>Dispatch</code>・<code>Skip</code>・<code>Complete</code>（数える）・<code>TakeFlushable</code>・<code>TakeAll</code>（取り出す）</td>
+<td>ファイルの相対パスからフォルダを決める <code>getBookDir</code>（<code>indexer_plan.ps1</code>）。書き出し（<code>publishIndexFolders</code>）は <code>TakeFlushable</code> / <code>TakeAll</code> が返した結果を見て司令（<code>invokeIndexerBody</code> の中の <code>flushPending</code>）が呼ぶ</td>
 </tr>
 <tr>
 <td><code>IndexingReporter</code></td>
