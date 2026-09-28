@@ -240,12 +240,14 @@ Describe "measure_perf.ps1" -Tag Io {
     }
 
     It "<name>は失敗にする" -TestCases @(
-        @{ name = "-Typing 1"; extraArgs = @("-Typing", 1) }
-        @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @("-Typing", 2, "-TypingFast") }
+        @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
+        @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*content_index*" }
     ) {
-        param ($extraArgs)
+        param ($extraArgs, $expectedMessage)
         $w = Join-Path $TestDrive ("typing-bad-" + [guid]::NewGuid().ToString("N"))
-        { & $measure -Index $index -Work $w -Words $words -Count 1 -SampleMs 50 @extraArgs 6>$null | Out-Null } | Should -Throw
+        { & $measure -Index $index -Work $w -Words $words -Count 1 -SampleMs 50 @extraArgs 6>$null | Out-Null } | Should -Throw -ExpectedMessage $expectedMessage
+        # 始める前（インデックス作成・検索の前）に失敗するため、結果のフォルダは作られない
+        (Test-Path -LiteralPath (Join-Path $w "result")) | Should -Be $false
     }
 
     It "-TypingFast は、-Index を <Work>\content_index にすれば最後まで動く" {

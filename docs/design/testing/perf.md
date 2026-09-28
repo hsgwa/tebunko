@@ -45,13 +45,13 @@ gh workflow run perf.yml -f ref=<測る ref> -f scale=0.1 -f ingest=200
 `-Scale 1`（16 万件規模）の「最初のヒットまで 0.5 秒以内」の条件は、高速検索（Windows Search）を使わないと確かめられないため、Windows Search のある手元の PC で測る（ランナーには無いので `perf.yml` では測れない）。
 
 ```
-.\perfdata\tools\new_index.ps1 -Dest C:\perf\s1\content_index -Scale 1
-.\tools\measure_perf.ps1 -Index C:\perf\s1\content_index -Work C:\perf\s1 -Words perfdata\words.tsv -Count 1
+.\perfdata\tools\new_index.ps1 -Dest $env:USERPROFILE\perf\s1\content_index -Scale 1
+.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\content_index -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 1
 # ここで Windows Search がシステムインデックスを反映するのを待つ
-.\tools\measure_perf.ps1 -Index C:\perf\s1\content_index -Work C:\perf\s1 -Words perfdata\words.tsv -Count 5 -Typing 10 -TypingFast
+.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\content_index -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 5 -Typing 10 -TypingFast
 ```
 
-1. `<Work>`（例 `C:\perf\s1`）を、Windows Search の索引の対象になる場所（既定では利用者のフォルダの下）にする。`new_index.ps1 -Dest <Work>\content_index -Scale 1` でデータを作る
+1. `<Work>`（例 `$env:USERPROFILE\perf\s1`。既定で Windows Search の索引の対象になる、利用者のフォルダの下にする）でデータを作る。`C:\perf` のような索引の対象外の場所では、高速検索が使えず測れない。`new_index.ps1 -Dest <Work>\content_index -Scale 1` でデータを作る
 2. `measure_perf.ps1 -Index <Work>\content_index -Work <Work> -Words <words.tsv> -Count 1` を 1 回流し、pack とシステムインデックスを作る（検索は 1 回だけにして時間を縮める）。`-TypingFast` では `-Index` を `<Work>\content_index`（ワークスペースの本文インデックスのフォルダ、`Workspace.IndexDir` と同じ）にする必要がある
 3. Windows Search がシステムインデックスを反映するのを待ち、`measure_perf.ps1 -Index <Work>\content_index -Work <Work> -Words <words.tsv> -Count 5 -Typing 10 -TypingFast` を流す（pack だけのインデックスなので、作成は測らない）
 4. `summary.md` の「照合した pack」が、まれの語で全体の数より十分に少なければ、反映が済んでいる。全体の数と同じなら、反映を待って流し直す

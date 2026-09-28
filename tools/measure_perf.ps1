@@ -70,6 +70,12 @@ if ($Index) { $Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("
 if ($Office) { $Office = (Resolve-Path -LiteralPath $Office).ProviderPath.TrimEnd("\") }
 [void][System.IO.Directory]::CreateDirectory($Work)
 $Work = (Resolve-Path -LiteralPath $Work).ProviderPath.TrimEnd("\")
+if ($TypingFast) {
+    $wantIndex = (Join-Path $Work "content_index").TrimEnd("\")
+    if (!$Index -or !$Index.Equals($wantIndex, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "-TypingFast では、-Index を <Work>\content_index にしてください。"
+    }
+}
 if (!$Out) { $Out = Join-Path $Work "result" }
 [void][System.IO.Directory]::CreateDirectory($Out)
 $raw = Join-Path $Work "raw"

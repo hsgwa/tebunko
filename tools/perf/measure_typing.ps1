@@ -94,7 +94,13 @@ function invokeTypingAttempt {
         $isLast = ($k -eq $steps.Count - 1)
         if ($isLast) { $zeroMs = $watch.Elapsed.TotalMilliseconds }
         $sendWatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $req = $service.Request((newSearchRequest $steps[$k] (!$isRegex) @($index) 10000 @{} $useFast $workDir))
+        # 古い版（#102〜#107）の newSearchRequest には workDir が無いため、-Fast でないときは今までどおり 4 引数だけで呼ぶ
+        $request = if ($useFast) {
+            newSearchRequest -word $steps[$k] -simpleMatch (!$isRegex) -folders @($index) -limit 10000 -useFast $true -workDir $workDir
+        } else {
+            newSearchRequest $steps[$k] (!$isRegex) @($index) 10000
+        }
+        $req = $service.Request($request)
         $reqTimes.Add($sendWatch.Elapsed.TotalMilliseconds)
         $sendMs = $watch.Elapsed.TotalMilliseconds
         $lags.Add($sendMs - $planned)
