@@ -39,9 +39,9 @@ rem Step 2: clear Mark-of-the-Web from the scripts folder (see the comment above
 set "PSCMD=%PSCMD%Get-ChildItem -LiteralPath (Join-Path $root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "
 rem Step 3: run the GUI script, catching a failure from before its own window opens.
 set "PSCMD=%PSCMD%try { & $gui } catch { $err = $_; "
-rem Step 4: in the catch, pick the reason (Constrained Language Mode, missing
-rem gui.ps1, execution policy, or something else) and its text file.
-set "PSCMD=%PSCMD%if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { $reason = Join-Path $startup 'constrained_language.txt' } elseif (-not (Test-Path -LiteralPath $gui)) { $reason = Join-Path $startup 'missing_files.txt' } elseif ($err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { $reason = Join-Path $startup 'execution_policy.txt' } else { $reason = Join-Path $startup 'failed.txt' }; $reasonLines = @(if (Test-Path -LiteralPath $reason) { Get-Content -LiteralPath $reason -Encoding UTF8 } else { @('tebunko could not start.') }); "
+rem Step 4: in the catch, pick the reason (missing gui.ps1, Constrained Language
+rem Mode, execution policy, or something else) and its text file.
+set "PSCMD=%PSCMD%if (-not (Test-Path -LiteralPath $gui)) { $reason = Join-Path $startup 'missing_files.txt' } elseif ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { $reason = Join-Path $startup 'constrained_language.txt' } elseif ($err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { $reason = Join-Path $startup 'execution_policy.txt' } else { $reason = Join-Path $startup 'failed.txt' }; $reasonLines = @(if (Test-Path -LiteralPath $reason) { Get-Content -LiteralPath $reason -Encoding UTF8 } else { @('tebunko could not start.') }); "
 rem Step 5: build the record's detail lines (date, tool path, language mode,
 rem PowerShell version, execution policy, and the error message).
 set "PSCMD=%PSCMD%$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f $root), ('LanguageMode: {0}' -f $ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f $PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f $err.Exception.Message)); $allLines = $reasonLines + '' + $detailLines; "

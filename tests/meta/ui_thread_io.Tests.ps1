@@ -27,6 +27,7 @@ BeforeAll {
         @{ File = "gui.ps1"; Function = ""; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml。ツールのフォルダの中）" }
         @{ File = "gui.ps1"; Function = ""; Call = "Get-ChildItem"; Reason = "Mark-of-the-Web を消す（ツールのフォルダの中。Unblock-File）" }
         @{ File = "gui.ps1"; Function = ""; Call = "testIndexExists"; Reason = "起動時のタブ選び（ワークスペースの側。分けた PR で直す）" }
+        @{ File = "gui.ps1"; Function = ""; Call = "Test-Path"; Reason = "起動そのものに失敗したときの trap が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
         @{ File = "gui.ps1"; Function = "writeStartupErrorFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
         @{ File = "gui.ps1"; Function = "writeStartupErrorFile"; Call = "New-Item"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
 

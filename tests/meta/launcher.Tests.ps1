@@ -1,4 +1,4 @@
-﻿# tebunko.bat の起動失敗の知らせ（「fix: 起動に失敗したときにエラーを表示する」）のテスト。
+﻿# tebunko.bat の起動失敗の知らせ（docs/safety/disclosure.md「起動に失敗したときの知らせ（tebunko.bat）」）のテスト。
 # tebunko.bat の -Command はファイルに出来ない（ファイルにすると実行ポリシーの対象になり、
 # 止まる場面で動かせない）ため、bat から中身を取り出し、子プロセス（powershell.exe）で動かして確かめる。
 #   ・$opener（notepad.exe を開く指定）は、開いた対象をファイルに書くだけのものに差し替える
@@ -76,16 +76,6 @@ BeforeAll {
         return $script
     }
 
-    function getConstrainedLanguageAddTypeMessage {
-        # 制限言語モードで Add-Type -AssemblyName が失敗したときの、このマシン・ロケールでの
-        # 実際のメッセージ（英語・日本語などで文言が変わるため、決め打ちにせずその場で再現して得る）
-        $script = "`$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; try { Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms } catch { Write-Output `$_.Exception.Message }"
-        $bytes = [System.Text.Encoding]::Unicode.GetBytes($script)
-        $encoded = [Convert]::ToBase64String($bytes)
-        $output = & powershell.exe -NoProfile -EncodedCommand $encoded
-        return (@($output) -join "`n").Trim()
-    }
-
     function invokeLauncher {
         # 子プロセスで動かす。LOCALAPPDATA・TEMP は Tool のサンドボックスに差し替える
         param ($Tool, [string]$Script, [string]$ExecutionPolicy = "Bypass", [int]$TimeoutMs = 20000)
@@ -114,6 +104,19 @@ BeforeAll {
         return $process
     }
 
+    function getConstrainedLanguageAddTypeMessage {
+        # 制限言語モードで Add-Type -AssemblyName が失敗したときの、このマシン・ロケールでの
+        # 実際のメッセージ（英語・日本語などで文言が変わるため、決め打ちにせずその場で再現して得る）。
+        # 記録を作る側と同じ起動のしかた（invokeLauncher）で動かし、結果はファイルに書かせて読む
+        # （コンソールを引き継ぐ起動では、UI の言語が変わってメッセージの文言が食い違うことがある）
+        param ($Tool)
+        $out = Join-Path $Tool.Temp "addtype_message.txt"
+        $script = "`$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; try { Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms } catch { Set-Content -LiteralPath '$out' -Value `$_.Exception.Message -Encoding UTF8 }"
+        invokeLauncher $Tool $script | Out-Null
+        if (-not (Test-Path -LiteralPath $out)) { return "" }
+        return ((Get-Content -LiteralPath $out -Encoding UTF8) -join "`n").Trim()
+    }
+
     function getLauncherRecord {
         # LOCALAPPDATA 側の記録（無ければ $null）
         param ($Tool)
@@ -131,7 +134,7 @@ BeforeAll {
     }
 }
 
-Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）" -Tag Meta {
+Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）" -Tag Io {
     It "制限言語モードでは、窓を出さずに終わり、記録に制限言語モードの文言・言語モード・実行ポリシーの一覧と、Add-Type の失敗が1件だけ書かれ、メモ帳を開く指定に進む" {
         $tool = newLauncherTool
         useRealScripts $tool
@@ -147,7 +150,7 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
         (@($record | Where-Object { $_ -match "^====" })).Count | Should -Be 1
         # 言語モードだけでなく、gui.ps1 の trap から投げ直された元の例外（Add-Type の失敗）が
         # 実際に記録されていることも確かめる（別の理由で落ちても言語モードだけでは区別できないため）
-        $expectedMessage = getConstrainedLanguageAddTypeMessage
+        $expectedMessage = getConstrainedLanguageAddTypeMessage $tool
         $expectedMessage | Should -Not -BeNullOrEmpty
         ($record -join "`n") | Should -Match ([regex]::Escape($expectedMessage))
         (getLauncherOpenedTarget $tool) | Should -Be (Join-Path $tool.LocalAppData "tebunko\startup_error.txt")
@@ -167,13 +170,14 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
     }
 
     It "<name>" -TestCases @(
-        @{ name = "gui.ps1 が無いと「ファイルが足りない」の文言"; hasGui = $false; guiContent = ""; expect = "ファイルが足りない" }
-        @{ name = "gui.ps1 が例外を投げるとそのメッセージ"; hasGui = $true; guiContent = "throw 'テスト用の例外'"; expect = "テスト用の例外" }
+        @{ name = "gui.ps1 が無いと「ファイルが足りない」の文言"; hasGui = $false; guiContent = ""; languageMode = ""; expect = "ファイルが足りない" }
+        @{ name = "制限言語モードでも gui.ps1 が無ければ、許可の相談ではなく「ファイルが足りない」の文言"; hasGui = $false; guiContent = ""; languageMode = "ConstrainedLanguage"; expect = "ファイルが足りない" }
+        @{ name = "gui.ps1 が例外を投げるとそのメッセージ"; hasGui = $true; guiContent = "throw 'テスト用の例外'"; languageMode = ""; expect = "テスト用の例外" }
     ) {
-        param ($name, $hasGui, $guiContent, $expect)
+        param ($name, $hasGui, $guiContent, $languageMode, $expect)
         $tool = newLauncherTool
         if ($hasGui) { setFakeGui $tool $guiContent }
-        $script = buildLauncherScript $tool
+        $script = buildLauncherScript $tool -LanguageMode $languageMode
         invokeLauncher $tool $script | Out-Null
 
         ((getLauncherRecord $tool) -join "`n") | Should -Match ([regex]::Escape($expect))
@@ -246,13 +250,22 @@ Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部�
         $script:batText | Should -Match ([regex]::Escape('start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "%PSCMD%"'))
     }
 
+    It "docs/safety/disclosure.md のコードブロックに、bat の set ""PS1=（PowerShell の場所）から start 行までがそのまま入っている" {
+        # 安全性の開示に載せた bat の全文の写しが、bat とずれていないことを確かめる
+        $batBody = [regex]::Match($script:batText, '(?s)set "PS1=.*?\r?\nstart "" conhost\.exe[^\r\n]*').Value
+        $batBody | Should -Not -BeNullOrEmpty
+        $disclosure = [System.IO.File]::ReadAllText("$rootDir\docs\safety\disclosure.md")
+        $normalize = { param ($text) ($text -replace "`r`n", "`n") }
+        (& $normalize $disclosure).Contains((& $normalize $batBody)) | Should -Be $true
+    }
+
     It "set ""PSCMD=...""（意味のまとまりごと）を順につなぐと、想定した -Command の中身とちょうど一致する" {
         # bat の 6 つの rem（準備・印の解除・try で gui.ps1・catch で理由の選び方・記録の中身・
         # 記録の書き込みと表示）と同じ区切りで書く。ここが変わったら、この期待値も同じ PR で直す
         $step1Prepare = "`$opener='notepad.exe';`$root='%~dp0';`$startup=Join-Path `$root 'scripts\tebunko\startup';`$gui=Join-Path `$root 'scripts\tebunko\gui.ps1';"
         $step2Unblock = "Get-ChildItem -LiteralPath (Join-Path `$root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "
         $step3TryGui = "try { & `$gui } catch { `$err = `$_; "
-        $step4PickReason = "if (`$ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { `$reason = Join-Path `$startup 'constrained_language.txt' } elseif (-not (Test-Path -LiteralPath `$gui)) { `$reason = Join-Path `$startup 'missing_files.txt' } elseif (`$err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { `$reason = Join-Path `$startup 'execution_policy.txt' } else { `$reason = Join-Path `$startup 'failed.txt' }; `$reasonLines = @(if (Test-Path -LiteralPath `$reason) { Get-Content -LiteralPath `$reason -Encoding UTF8 } else { @('tebunko could not start.') }); "
+        $step4PickReason = "if (-not (Test-Path -LiteralPath `$gui)) { `$reason = Join-Path `$startup 'missing_files.txt' } elseif (`$ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { `$reason = Join-Path `$startup 'constrained_language.txt' } elseif (`$err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { `$reason = Join-Path `$startup 'execution_policy.txt' } else { `$reason = Join-Path `$startup 'failed.txt' }; `$reasonLines = @(if (Test-Path -LiteralPath `$reason) { Get-Content -LiteralPath `$reason -Encoding UTF8 } else { @('tebunko could not start.') }); "
         $step5Detail = "`$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f `$root), ('LanguageMode: {0}' -f `$ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f `$PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f `$err.Exception.Message)); `$allLines = `$reasonLines + '' + `$detailLines; "
         $step6WriteShow = "`$openTarget = `$reason; foreach (`$candidate in @((Join-Path `$env:LOCALAPPDATA 'tebunko\startup_error.txt'), (Join-Path `$env:TEMP 'tebunko_startup_error.txt'))) { try { `$dir = Split-Path -Parent `$candidate; if (-not (Test-Path -LiteralPath `$dir)) { New-Item -ItemType Directory -Force -Path `$dir -ErrorAction Stop | Out-Null }; Set-Content -LiteralPath `$candidate -Value `$allLines -Encoding UTF8 -ErrorAction Stop; `$openTarget = `$candidate; break } catch { } }; & `$opener `$openTarget }"
 
