@@ -159,10 +159,10 @@ CodeQL（`analyze`）は main の必須チェックで、指摘があるとマ�
 - zip とインストーラーのビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（`tebunko-<タグ>.zip.sigstore.json`・`tebunko-setup-<タグ>.exe.sigstore.json`）もリリースに載せる（同 [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](../../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）
 - リリースノートは GitHub が PR から作り、`.github/release.yml` で PR のラベルごとに分ける
 - 版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける
-- **タグを打たずに手動（`workflow_dispatch`）でも起動できる。** 配布物を作る・検査するところまでは同じに動かすが、`guard` のタグの形の確認と、来歴への署名・GitHub Release への公開は行わない（起動したブランチの名は版の形にならないため）。代わりに、作った zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact `release-dry-run-<実行の番号>`（保存期間 14 日）に置く
+- **タグを打たずに手動（`workflow_dispatch`）でも起動できる。** 配布物を作る・検査するところまでは同じに動かすが、`guard` のタグの形の確認と、来歴への署名・GitHub Release への公開は行わない（起動したブランチの名は版の形にならないため）。代わりに、作った zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact `release-dry-run-<実行の番号>`（保存期間 14 日）に置く。`new_release_package.ps1`・`new_installer.ps1` は `-Version`（ここではブランチ名）を `^[A-Za-z0-9._-]+$` で確かめるため、`/` を含むブランチ（`dependabot/...` など）からは起動できない
 
   ```
-  gh workflow run release.yml --ref <試すブランチ>
+  gh workflow run release.yml --ref <試すブランチ（/ を含まないもの）>
   ```
 
 ```

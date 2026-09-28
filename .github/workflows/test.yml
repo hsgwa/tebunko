@@ -83,11 +83,11 @@ jobs:
         # ランナーに別の版が入っていることがあるため、読み込むときも版を指定する
         env:
           PSSA_VERSION: 1.25.0
+        # TypeNotFound は、継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの。
+        # 読み込む順で解決できることは tests\meta\structure.Tests.ps1 の「型の読み込み」で確かめている
         run: |
           Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
           Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
-          # TypeNotFound は、継承元の型が別ファイルにあるため 1 ファイルだけでは解決できないもの。
-          # 読み込む順で解決できることは tests\meta\structure.Tests.ps1 の「型の読み込み」で確かめている
           $found = @(Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error | Where-Object { $_.RuleName -ne "TypeNotFound" })
           $found | Format-Table -AutoSize | Out-String | Write-Host
           if ($found) { exit 1 }
