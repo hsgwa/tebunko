@@ -5,7 +5,7 @@
 ## 困ったときは
 
 1. **使い方の「[トラブルシューティング](../docs/guide/troubleshooting.md)」と「[制限事項](../docs/guide/limitations.md)」を確認する。** 主な症状と対処方法、検索対象外の内容・取り込めないファイルの一覧があります。
-2. **ログを見る。** インデックス作成の経過と、取り込みに失敗したファイルの理由は、ワークスペース（既定は `%USERPROFILE%\Documents\tebunko_ws`）の `インデックス作成ログ.txt` に出ます。インデックス作成を続けられなかったときのエラーは、画面に出るほか、同じログにも出ます。エラーの意味は [docs/design/indexer/errors.md](../docs/design/indexer/errors.md) にあります。
+2. **ログを見る。** インデックス作成の経過と、取り込みに失敗したファイルの理由は、ワークスペース（既定は `%USERPROFILE%\Documents\tebunko_ws`）の `インデックス作成ログ.txt` に出ます。インデックス作成を続けられなかったときのエラーは、画面に出るほか、同じログにも出ます。エラーの意味は [docs/design/indexing/errors.md](../docs/design/indexing/errors.md) にあります。
 3. **設計書を見る。** 画面・インデックス作成・検索の細かい動きは [docs/](../docs/design/index.md) にあります。
 4. **既存の Issue を探す。** 同じ現象がすでに報告されていないか、[Issue](https://github.com/hsgwa/tebunko/issues?q=is%3Aissue) を検索してください。
 

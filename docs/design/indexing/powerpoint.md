@@ -1,8 +1,18 @@
 ﻿# PowerPoint
 
+扱うこと: PowerPoint の旧形式（`.ppt` 等）の変換、スライド・ノート・図形・コメントごとの読み取りと TSV の場所。扱わないこと: Word・PowerPoint に共通の処理（[Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)）、Word 固有の処理（[Word](word.md)）。先に読むページ: [Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)。
+
 Word・PowerPoint で共通の処理（抽出の流れ・起動と終了・ファイルの読み取り）は [Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md) を参照。
 
 PowerPoint の旧形式（`.ppt` 等）の変換（[PowerPoint の旧形式の変換](#powerpoint-の旧形式の変換extractwithpowerpoint)）、スライド・ノート・図形・コメントごとの読み取り（[PowerPoint のテキスト読み取りと TSV の場所](#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits)）、PowerPoint に固有の注意点（[PowerPoint の注意点・既知の問題](known-issues.md#powerpoint-の注意点既知の問題)）を扱う。
+
+```mermaid
+flowchart TD
+    A["extractDocument（共通）"] --> B{"中身が ZIP？"}
+    B -- はい --> D["readPptxUnits で読む"]
+    B -- いいえ --> C["extractWithPowerPoint で<br>.pptx に変換"] --> D
+    D --> E["writeUnits で場所ごとの TSV を出力"]
+```
 
 ## PowerPoint の旧形式の変換（`extractWithPowerPoint`）
 
@@ -35,7 +45,7 @@ PowerPoint の旧形式（`.ppt` 等）の変換（[PowerPoint の旧形式の�
 - 非表示スライドの図形・コメントは `スライドNNN（非表示）[図形]` のように、非表示と分かる名前にする。
 - スライドマスター・レイアウトのテキスト、埋め込みオブジェクトは読まない。
 
-TSV の例（配置・命名の規則は [配置・命名規則](index-format.md#配置命名規則) の [配置・命名規則](index-format.md#配置命名規則)。クロール対象フォルダが `C:\data\営業`（インデックス名 `営業`）の場合）:
+TSV の例（配置・命名の規則は [インデックスのファイルの形](../index-data/format.md#配置命名規則)。クロール対象フォルダが `C:\data\営業`（インデックス名 `営業`）の場合）:
 
 | 元ファイル（クロール対象フォルダからの相対パス） | 場所 | 出力 TSV |
 |---|---|---|
