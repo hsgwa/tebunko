@@ -13,8 +13,10 @@
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/testing/ci/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../run/">
       
+      
+        <link rel="next" href="../perf/">
       
       
         
@@ -25,7 +27,7 @@
     
     
       
-        <title>テストの実行と CI - tebunko</title>
+        <title>CI - tebunko</title>
       
     
     
@@ -72,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#テストの実行と-ci" class="md-skip">
+        <a href="#ci" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -105,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              テストの実行と CI
+              CI
             
           </span>
         </div>
@@ -1287,7 +1289,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/errors/" class="md-nav__link">
+      <a href="../../indexing/errors/" class="md-nav__link">
         
   
   
@@ -1336,6 +1338,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1418,10 +1426,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -1448,7 +1452,7 @@
   <span class="md-ellipsis">
     
   
-    全体像
+    はじめに
   
 
     
@@ -1464,7 +1468,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    全体像
+    はじめに
   
 
           </label>
@@ -1477,14 +1481,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/layout/" class="md-nav__link">
+      <a href="../../start/onboarding/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    フォルダ構成とデータの置き場所
+    読む順番と 1 周の流れ
   
 
     
@@ -1505,7 +1509,228 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/settings-file/" class="md-nav__link">
+      <a href="../../start/review-map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    変更の種類から見る設計書を引く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    全体の構成
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    全体の構成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ソースの分け方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/folders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    配布物と開発用のフォルダ構成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    データの置き場所とパスの決め方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/io-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    どの処理がどのファイルを読み書きするか
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/settings-file/" class="md-nav__link">
         
   
   
@@ -1533,14 +1758,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/modules/" class="md-nav__link">
+      <a href="../../structure/threads/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    共通モジュール
+    プロセスとスレッド
   
 
     
@@ -1561,14 +1786,42 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/threads/" class="md-nav__link">
+      <a href="../../structure/closing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    プロセスとスレッド
+    閉じるときの順番と GC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/classes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    クラスと関数の使い分け
   
 
     
@@ -1617,6 +1870,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1633,11 +1894,11 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../indexer/" class="md-nav__link ">
+            <a href="../../indexing/" class="md-nav__link ">
               
   
   
@@ -1655,14 +1916,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_3">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1681,14 +1942,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/flow/" class="md-nav__link">
+      <a href="../../indexing/flow/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    処理の流れと取り込み一覧
+    インデックス作成のメインフロー
   
 
     
@@ -1709,7 +1970,119 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/excel/" class="md-nav__link">
+      <a href="../../indexing/crawl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    クロール対象フォルダと取り込み対象
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/target-decision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    取り込み対象の決定
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/ingest-list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    取り込み一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/parallel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    取り込みの並列化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/excel/" class="md-nav__link">
         
   
   
@@ -1737,7 +2110,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/word/" class="md-nav__link">
+      <a href="../../indexing/word/" class="md-nav__link">
         
   
   
@@ -1765,7 +2138,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/powerpoint/" class="md-nav__link">
+      <a href="../../indexing/powerpoint/" class="md-nav__link">
         
   
   
@@ -1793,14 +2166,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/office-apps/" class="md-nav__link">
+      <a href="../../indexing/office-apps/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    共通処理と Office アプリの管理
+    Word・PowerPoint の共通処理と Office アプリの管理
   
 
     
@@ -1821,14 +2194,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/index-format/" class="md-nav__link">
+      <a href="../../indexing/errors/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    インデックスの形式
+    エラーメッセージ一覧
   
 
     
@@ -1849,7 +2222,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/known-issues/" class="md-nav__link">
+      <a href="../../indexing/known-issues/" class="md-nav__link">
         
   
   
@@ -1888,7 +2261,164 @@
     
       
         
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
           
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスのデータ
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックスのデータ
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index-data/format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスのファイルの形
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index-data/publish/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入れ替えと書き出し
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index-data/system-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    システムインデックス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
         
       
         
@@ -1911,7 +2441,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1933,14 +2463,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1959,6 +2489,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../search/speed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索を速くする仕組み
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../search/fast-search/" class="md-nav__link">
         
   
@@ -1966,7 +2524,7 @@
   <span class="md-ellipsis">
     
   
-    高速検索
+    高速検索（Windows Search）
   
 
     
@@ -2043,6 +2601,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2059,7 +2631,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2081,14 +2653,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2107,6 +2679,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../../gui/state-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    状態と操作の流れ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面の共通の決まり
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../gui/index-tab/" class="md-nav__link">
         
   
@@ -2114,7 +2770,35 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    インデックス一覧の管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/indexing-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成の実行
   
 
     
@@ -2142,7 +2826,119 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    検索タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/open-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のフォルダ・元のファイルがネットワークにあるとき
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/preview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    選択行のプレビュー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/search-tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索対象のツリー
   
 
     
@@ -2219,62 +3015,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/state-flow/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    状態と操作の流れ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/common/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    共通仕様
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../gui/implementation/" class="md-nav__link">
         
   
@@ -2282,7 +3022,35 @@
   <span class="md-ellipsis">
     
   
-    実装
+    画面の実装構成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/responsiveness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面を固まらせない待たせ方
   
 
     
@@ -2323,6 +3091,26 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2339,7 +3127,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2361,14 +3149,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_8" id="__nav_3_8_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2378,6 +3166,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テストの実行
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -2396,24 +3212,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    テストの実行と CI
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2421,7 +3219,7 @@
   <span class="md-ellipsis">
     
   
-    テストの実行と CI
+    CI
   
 
     
@@ -2431,69 +3229,258 @@
 
       </a>
       
-        
+    </li>
+  
 
-<nav class="md-nav md-nav--secondary" aria-label="目次">
+              
+            
+              
+                
   
   
   
+  
+    <li class="md-nav__item">
+      <a href="../perf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
     
   
+    性能とリソースの計測のしかた
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      目次
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#タグと実行" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        タグと実行
-      
-    </span>
-  </a>
+
+    
+  </span>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ci" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI
-      
-    </span>
-  </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#コミット前の検査pre-commit-フック" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        コミット前の検査（pre-commit フック）
-      
-    </span>
-  </a>
+
+      </a>
+    </li>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#公開してはいけない内容の検査toolscheck_commitps1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        公開してはいけない内容の検査（tools/check_commit.ps1）
-      
-    </span>
-  </a>
+
+              
+            
+              
+                
   
-</li>
-      
-    </ul>
   
-</nav>
-      
+  
+  
+    <li class="md-nav__item">
+      <a href="../perf-check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    速さの回帰テストと上限の決め方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pre-commit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    コミット前に動く検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unit-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（インデックスと検索）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unit-indexer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（インデックス作成）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unit-office/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（Office）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unit-checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（検査と道具）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のテストと確認
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui-smoke/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のスモークテスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2514,6 +3501,204 @@
     
   
     貢献のしかた
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    関数一覧
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_9" id="__nav_3_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    関数一覧
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（設定・ファイル）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/indexer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（インデックス作成）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/tsv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（TSV と本文インデックス）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（検索・スレッド・元のファイル・画面）
   
 
     
@@ -2562,58 +3747,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      目次
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#タグと実行" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        タグと実行
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ci" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#コミット前の検査pre-commit-フック" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        コミット前の検査（pre-commit フック）
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#公開してはいけない内容の検査toolscheck_commitps1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        公開してはいけない内容の検査（tools/check_commit.ps1）
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -2632,192 +3765,16 @@
   
 
 
-<h1 id="テストの実行と-ci">テストの実行と CI<a class="headerlink" href="#テストの実行と-ci" title="Permanent link">&para;</a></h1>
-<p>テストは <code>scripts/</code> と同じ構成に並べる。どのモジュールのテストがどこにあるか、たどらなくても分かるようにするため。</p>
-<table>
-<thead>
-<tr>
-<th>フォルダ</th>
-<th>内容</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>tests/helpers/</code></td>
-<td>共通の準備（<code>load.ps1</code>。<code>$here</code>・<code>${scriptsDir}</code>・<code>${testDataDir}</code> を決めて <code>tebunko/lib.ps1</code> を読み込む）とテスト用の TSV 作成（<code>tsv.ps1</code>）</td>
-</tr>
-<tr>
-<td><code>tests/shared/core/</code></td>
-<td><code>fs</code>・<code>text</code>・<code>folder</code>・<code>worker_pool</code>・<code>data_dir</code></td>
-</tr>
-<tr>
-<td><code>tests/shared/office/</code></td>
-<td><code>office_process</code>・<code>office_reader</code>・<code>office_app</code></td>
-</tr>
-<tr>
-<td><code>tests/shared/ui/</code></td>
-<td>画面の型（<code>types</code>）</td>
-</tr>
-<tr>
-<td><code>tests/tebunko/core/</code></td>
-<td><code>settings</code>（<code>setting.config</code>）・<code>workspace</code></td>
-</tr>
-<tr>
-<td><code>tests/tebunko/index/</code></td>
-<td><code>index_name</code>・<code>index_store</code>・<code>pack_format</code>・<code>system_index</code></td>
-</tr>
-<tr>
-<td><code>tests/tebunko/indexer/</code></td>
-<td><code>indexer_state</code>・<code>indexer_decide</code>・<code>indexer_plan</code>・<code>extract_office</code>・<code>index_migrate</code>・<code>indexing_session</code>、起動口の通しのテスト（<code>indexer</code>）</td>
-</tr>
-<tr>
-<td><code>tests/tebunko/search/</code></td>
-<td><code>search_query</code>・<code>search_run</code>・<code>pack_search</code>・<code>search_service</code>・<code>source_map</code>・高速検索（<code>search_gram</code>・<code>fast_search</code>・<code>windows_search</code>）</td>
-</tr>
-<tr>
-<td><code>tests/tebunko/ui/</code></td>
-<td>画面の判断層（<code>index_view</code>・<code>indexing_view</code>・<code>search_view</code>・<code>preview_view</code>・<code>settings_view</code>）と、<code>$ui</code> を偽物にした画面の部品（<code>result_list</code>・<code>open_source</code>・<code>preview</code>・<code>index_tree</code>）・型（<code>types</code>）</td>
-</tr>
-<tr>
-<td><code>tests/gui/</code></td>
-<td>画面のスモークテスト（<code>gui_helpers</code>＝共通の関数、<code>smoke</code>・<code>index</code>・<code>search</code>・<code>settings</code>・<code>process</code>＝場面。タグ <code>Gui</code>。<a href="../#画面のスモークテスト">画面のスモークテスト</a>）</td>
-</tr>
-<tr>
-<td><code>tests/tools/</code></td>
-<td>開発用の道具（<code>check_commit_message</code>・<code>check_signoff</code>・<code>check_release_tag</code>・<code>check_markdown_links</code>・<code>measure_perf</code>・<code>run_commit_tests</code>）</td>
-</tr>
-<tr>
-<td><code>tests/meta/</code></td>
-<td>構成を守るテスト（<code>structure</code>・<code>encoding</code>・<code>layers</code>・<code>links</code>・<code>runner</code>・<code>classes</code>）と安全性の検査（<code>safety</code>・<code>installer</code>）</td>
-</tr>
-<tr>
-<td><code>tests/testdata/</code></td>
-<td>手動の結合テスト用のデータ（<a href="../#結合テスト手動">結合テスト（手動）</a>）と、その生成（<code>make_testdata.ps1</code>）・個人情報の除去（<code>scrub_personal</code>）</td>
-</tr>
-</tbody>
-</table>
-<p>入力と期待値だけが違うテストは、<code>-TestCases</code> の 1 つの <code>It</code> にまとめる（例: <code>tests/tebunko/ui/types.Tests.ps1</code> の <code>HitRow.Contains</code>）。表は <code>It</code> の中にそのまま書き、計算で作らない。キーには <code>input</code>・<code>args</code>・<code>_</code>・<code>Matches</code> など PowerShell の自動変数の名前を使わない。各行に <code>name</code> を持たせ、<code>It "&lt;name&gt;"</code> で失敗した行が分かるようにする。表の中で変数（<code>$stateDone</code> など）を使うときは、<code>BeforeDiscovery</code> で用意する（表はテストを探す段階で作られ、<code>BeforeAll</code> より先に評価されるため）。</p>
-<p>Pester 5 はテストを「探す段階」と「流す段階」に分けて動かす。探す段階では <code>Describe</code> の中身がそのまま実行され、<code>BeforeAll</code> の中身は流す段階まで実行されない。そのため次のように書く。</p>
-<ul>
-<li>ファイルの先頭の読み込み（<code>. "$PSScriptRoot\..\helpers\load.ps1"</code>・<code>Add-Type</code>）と、テスト用の関数・偽物のオブジェクトは、いちばん外の <code>BeforeAll { }</code> に書く。</li>
-<li><code>Describe</code> の準備（<code>$TestDrive</code> へのファイル作成・変数・<code>Mock</code>）は、その <code>Describe</code> の <code>BeforeAll</code> / <code>BeforeEach</code> に書く。探す段階では <code>$TestDrive</code> が空のため、<code>Describe</code> の中に直接書くとドライブ直下を指してしまう。</li>
-<li><code>Mock</code> はそれを書いたブロック（<code>It</code>・<code>Describe</code>）の中だけで効く。呼ばれたかは <code>Should -Invoke</code> で確かめる。</li>
-</ul>
-<p><code>tests/meta/</code> は、直し忘れると気づきにくい決まりごとを機械的に確かめる。</p>
-<table>
-<thead>
-<tr>
-<th>テスト</th>
-<th>確かめること</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>structure</code></td>
-<td><code>$rootDir</code> などのパス定義、全 <code>.ps1</code> の構文、<code>ui/</code> のスクリプトで <code>$PSScriptRoot</code> を使わない、<code>gui.ps1</code> が指すインデクサのファイルがある、XAML が XML として読める・<code>gui.ps1</code> が使う <code>x:Name</code> がある、型を読み込む順で継承が解決できる</td>
-</tr>
-<tr>
-<td><code>encoding</code></td>
-<td>全 <code>.ps1</code>・<code>.xaml</code> が BOM 付き UTF-8 で、改行が CRLF。<code>.github/codecov.yml</code> が ASCII の文字だけ</td>
-</tr>
-<tr>
-<td><code>layers</code></td>
-<td><code>shared/</code> にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない <code>.ps1</code> が無い、判断層（<code>text.ps1</code>・<code>index_name.ps1</code>・<code>search_query.ps1</code>・<code>indexer_decide.ps1</code>・<code>*_view.ps1</code>）に画面への依存が無い</td>
-</tr>
-<tr>
-<td><code>links</code></td>
-<td>git で管理している全 <code>.md</code> の相対リンク（画像・参照リンクの定義・HTML の <code>href</code>/<code>src</code> を含む）の先のファイルがあり（大文字・小文字も区別する）、<code>.md</code> のアンカーの見出しがある（<code>tools/check_markdown_links.ps1</code>。外部の URL は調べない）</td>
-</tr>
-<tr>
-<td><code>runner</code></td>
-<td><code>tests/run.ps1</code> が、実行したテストが 0 件なら失敗にすること、<code>powershell.exe -File</code> で渡したカンマ区切りのタグを分けて受け取ること、<code>Gui</code> を既定では流さず <code>-Tag Gui</code> と <code>-All</code> では流すこと</td>
-</tr>
-<tr>
-<td><code>safety</code></td>
-<td>危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が <code>work</code>・<code>%TEMP%</code> だけ、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（<a href="../#単体テスト">単体テスト</a>、<a href="../../../safety/">安全性の要約</a>）</td>
-</tr>
-</tbody>
-</table>
-<h2 id="タグと実行">タグと実行<a class="headerlink" href="#タグと実行" title="Permanent link">&para;</a></h2>
-<p><code>Describe</code> にタグを付け、実行するものを選べるようにする。</p>
-<table>
-<thead>
-<tr>
-<th>タグ</th>
-<th>内容</th>
-<th>外部ソフト</th>
-<th>既定で実行</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Unit</code></td>
-<td>ファイルに触らないもの（判断層、画面の部品を偽物にしたもの）</td>
-<td>不要</td>
-<td>する</td>
-</tr>
-<tr>
-<td><code>Io</code></td>
-<td>ファイルの読み書き（<code>$TestDrive</code> の中で完結する）</td>
-<td>不要</td>
-<td>する</td>
-</tr>
-<tr>
-<td><code>Meta</code></td>
-<td>構成を守るテスト・安全性の検査</td>
-<td>不要（PSScriptAnalyzer があれば静的解析も行う）</td>
-<td>する</td>
-</tr>
-<tr>
-<td><code>Office</code></td>
-<td>Excel・Word・PowerPoint の COM を実際に動かすもの（<code>indexer.Tests.ps1</code> の「利用者のPowerPointが起動している場合」。ほかは <code>Mock</code> で確かめる）</td>
-<td>必要</td>
-<td>しない（<code>-All</code> で実行）</td>
-</tr>
-<tr>
-<td><code>Gui</code></td>
-<td>本物の画面（<code>scripts/tebunko/gui.ps1</code>）を別のプロセスで開いて UI オートメーションで操作するもの（<code>tests/gui/</code>。<a href="../#画面のスモークテスト">画面のスモークテスト</a>）</td>
-<td>不要（Windows の画面が要る。ランナーの Windows で動く）</td>
-<td>しない（<code>-Tag Gui</code>・<code>-All</code> で実行。CI は <code>gui.yml</code>）</td>
-</tr>
-<tr>
-<td><code>Slow</code></td>
-<td>時間のかかるもの（検索・本文インデックスの作成・取り込みの速さの回帰テスト。<code>tests/tools/perf_*.Tests.ps1</code>。<a href="#ci"><code>perf-check.yml</code></a>）</td>
-<td>検索の側は tebunko-perfdata（データを作るスクリプトのリポジトリ）が要る</td>
-<td>しない（<code>-All</code> または <code>-Tag Slow</code> で実行）</td>
-</tr>
-<tr>
-<td><code>Manual</code></td>
-<td>手で確かめるもの（今は該当するテストが無い）</td>
-<td>–</td>
-<td>しない（<code>-All</code> でも実行しない）</td>
-</tr>
-</tbody>
-</table>
-<p>実行は <code>tests/run.ps1</code> から行う。</p>
-<div class="highlight"><pre><span></span><code>.\tests\run.ps1              既定（Unit・Io・Meta。Office・Slow・Gui・Manual は外す）
-.\tests\run.ps1 -Tag Unit    速い確認だけ
-.\tests\run.ps1 -All         Office・Slow・Gui も含める（Office と、tebunko-perfdata が必要。Gui は画面を開くので、操作しないで待つ）
-.\tests\run.ps1 -Tag Slow    Slow だけ（手元で 3〜4 分ずつ。下の「`perf-check.yml`」）
-.\tests\run.ps1 -Tag Gui     画面のスモークテストだけ（約 4 分。流している間はマウス・キーボードに触らない）
-.\tests\run.ps1 -Tag Gui -Path .\tests\gui\search.Tests.ps1   1 つの場面だけ
-.\tests\run.ps1 -Ci          結果の XML（work\test\results.xml）とカバレッジ（work\test\coverage.xml）を出し、カバレッジの下限を確かめる
-.\tests\run.ps1 -Path .\tests\shared\core   指定したフォルダ・ファイルのテストだけ
-.\tests\run.ps1 -Quiet       失敗したテストだけを表示する
-</code></pre></div>
-<p>いずれも失敗したテストの数を終了コードにする（フックと CI が見る）。1 件も実行しなかったときも失敗にする（終了コード 1）。タグの打ち間違いで、何も確かめないまま通るのを防ぐため。</p>
-<p>Pester 5 は除外（<code>ExcludeTag</code>）をタグ（<code>Tag</code>）より優先するため、<code>-Tag</code> に明示したタグは既定の除外から取り除く（<code>-Tag Slow</code>・<code>-Tag Gui</code> が 0 件にならない）。<code>-ExcludeTag</code> を渡すと既定の除外が丸ごと置き換わる（<code>-Tag Slow -ExcludeTag Manual</code> は今までどおり動く）。</p>
-<p><code>-Tag</code>・<code>-ExcludeTag</code> はカンマ区切りの文字列でも受け取る。<code>powershell.exe -File</code> で呼ぶと <code>-Tag Unit,Meta</code> は配列にならず 1 つの文字列で渡るため（pre-commit フックがこの呼び方）。</p>
-<p><strong>カバレッジ</strong></p>
-<ul>
-<li>対象は <code>scripts/</code> の <code>.ps1</code> のうち、画面層の <code>gui.ps1</code>・<code>*_tab.ps1</code>・<code>shell.ps1</code>・<code>app_host.ps1</code>・<code>*_dialog.ps1</code> を除いたもの（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。除いたものは自動テストの対象外で、手で確かめる。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。</li>
-<li>値は Pester のコマンド単位（実行されたコマンドの数 ÷ 全コマンドの数。小数点以下 1 桁）。</li>
-<li><strong>下限は <code>tests/coverage.baseline</code>（90.0）。</strong> <code>-Ci</code> はこれを下回ると失敗し、CI の必須チェック <code>test</code> が通らない。下回ったらテストを足して戻し、下限は下げない。実測が上がっても下限は上げない（変えるのはメンテナだけ）。</li>
-<li>全体の目標値は決めない。判断層は 95% 以上を保ち、数字を上げるためだけのテスト（結果を確かめないもの）は書かない（AGENTS.md「テストカバレッジの方針」）。</li>
-<li>カバレッジはブレークポイントを使わない計測（Pester の Profiler。<code>CodeCoverage.UseBreakpoints = $false</code>）で取る。ブレークポイントを使う計測より速い。</li>
-<li><code>-Ci</code> はカバレッジを Cobertura 形式の XML（<code>work\test\coverage.xml</code>）にも書き出す。Pester が書き出す XML には利用者名を含む絶対パスが入るため使わず、<code>tests/run.ps1</code> が結果（コマンド単位）から行単位に組み立てる。1 行に実行されたコマンドが 1 つでもあれば、その行は通ったものとする。そのため、行単位の値（Codecov の表示）はコマンド単位の値と少し違う。ファイル名はリポジトリからの相対パスで書き、利用者名を含む絶対パスは入れない。</li>
-</ul>
-<h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
+<h1 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h1>
+<p>扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（<a href="../perf/">性能とリソースの計測のしかた</a>）、速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）、コミット前のフック（<a href="../pre-commit/">コミット前に動く検査</a>）。先に読むページ: <a href="../run/">テストの実行</a>。</p>
+<pre class="mermaid"><code>flowchart TD
+    C["コミット・PR"] --&gt; T["test.yml&lt;br&gt;test"]
+    C --&gt; TI["title.yml&lt;br&gt;pr-title・issue-title"]
+    C --&gt; D["docs.yml&lt;br&gt;docs（ほか changes・publish）"]
+    C --&gt; CQ["codeql.yml&lt;br&gt;analyze"]
+    C --&gt; G["gui.yml&lt;br&gt;gui-smoke"]
+    M["main への push"] --&gt; SC["scorecard.yml&lt;br&gt;analysis"]
+    TAG["v* タグの push"] --&gt; R["release.yml&lt;br&gt;guard → test → release"]</code></pre>
 <p>GitHub Actions のワークフローは次のとおり。使うアクションは、どのワークフローでもコミットのハッシュで固定する（版はハッシュの後ろのコメントに書き、Dependabot が更新する）。</p>
 <table>
 <thead>
@@ -2876,7 +3833,7 @@
 <td><code>gui.yml</code></td>
 <td><code>gui-smoke</code></td>
 <td>PR、main への push</td>
-<td>本物の画面を windows ランナーで開き、画面遷移（<a href="../#画面のスモークテスト">画面のスモークテスト</a>）を UI オートメーションで確かめる</td>
+<td>本物の画面を windows ランナーで開き、画面遷移（<a href="../gui-smoke/">画面のスモークテスト</a>）を UI オートメーションで確かめる</td>
 <td>–（必須にしない。しばらく安定して通ることを見てから、持ち主が決める）</td>
 </tr>
 <tr>
@@ -2914,8 +3871,17 @@
 <li><code>.github/codecov.yml</code> には ASCII の文字だけを書き、コメントも書かない。Windows で動く Codecov の CLI がこのファイルを cp1252 として読み、日本語があると <code>UnicodeDecodeError</code> で止まるため。<code>tests/meta/encoding.Tests.ps1</code> が確かめる</li>
 <li>タグの push（<code>release.yml</code> から呼ばれたとき）では送らない</li>
 </ul>
+<p><strong><code>title.yml</code></strong></p>
+<p>PR と Issue のタイトルを <code>tools/check_commit_message.ps1 -Title</code> で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。</p>
+<ul>
+<li>PR（ジョブ <code>pr-title</code>）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす</li>
+<li>Issue（ジョブ <code>issue-title</code>）… 作成は止められないため、形が違えば <code>.github/title_comment.md</code> の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）</li>
+<li>タイトルは誰でも書ける信頼できない入力のため、式で <code>run</code> に埋め込まず環境変数で渡す</li>
+<li>起動の速い ubuntu のランナーで <code>pwsh</code>（PowerShell 7）を使う。そのため <code>tools/check_commit_message.ps1</code> は 5.1 と 7 の両方で動くように書く</li>
+<li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
+</ul>
 <p><strong><code>gui.yml</code>（画面のスモークテスト）</strong></p>
-<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../#画面のスモークテスト">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
+<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
 <ul>
 <li><strong><code>test.yml</code> には入れない。</strong> <code>test.yml</code> は <code>release.yml</code> から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば <code>test</code> と並んで動き、<code>test</code> の時間も延びない</li>
 <li><strong>必須チェックにしない。</strong> 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、<code>paths</code> の絞り込みは付けていない</li>
@@ -2927,15 +3893,6 @@
 <li><strong>手元で飛ばす段階がある。</strong> S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（<code>GITHUB_ACTIONS</code> が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す</li>
 <li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、（手元では）<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
 </ul>
-<p><strong><code>title.yml</code></strong></p>
-<p>PR と Issue のタイトルを <code>tools/check_commit_message.ps1 -Title</code> で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。</p>
-<ul>
-<li>PR（ジョブ <code>pr-title</code>）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす</li>
-<li>Issue（ジョブ <code>issue-title</code>）… 作成は止められないため、形が違えば <code>.github/title_comment.md</code> の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）</li>
-<li>タイトルは誰でも書ける信頼できない入力のため、式で <code>run</code> に埋め込まず環境変数で渡す</li>
-<li>起動の速い ubuntu のランナーで <code>pwsh</code>（PowerShell 7）を使う。そのため <code>tools/check_commit_message.ps1</code> は 5.1 と 7 の両方で動くように書く</li>
-<li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
-</ul>
 <p><strong><code>codeql.yml</code>・<code>scorecard.yml</code>（サプライチェーンの安全性）</strong></p>
 <p>CodeQL（<code>analyze</code>）は main の必須チェックで、指摘があるとマージできない。Scorecard は採点するだけで、マージは止めない。</p>
 <ul>
@@ -2944,6 +3901,18 @@
 <li>Scorecard はリポジトリを Linux で展開する。名前が UTF-8 で 255 バイト（日本語で 85 字）を超えるファイルがあると展開できず、ほとんどの項目が採点できなくなる。そのため <code>tools/check_commit.ps1</code> がこの長さを超える名前を止める</li>
 </ul>
 <p><strong><code>release.yml</code>（配布物の公開）</strong></p>
+<pre class="mermaid"><code>sequenceDiagram
+    actor M as メンテナ
+    participant GH as GitHub
+    participant W as release.yml
+
+    M-&gt;&gt;GH: git push origin v&lt;タグ&gt;
+    GH-&gt;&gt;W: guard: check_release_tag.ps1
+    W-&gt;&gt;W: test.yml と同じ検査・テスト
+    W-&gt;&gt;W: new_release_package.ps1（zip）・new_installer.ps1（インストーラー）
+    W-&gt;&gt;W: check_release_package.ps1 で中身を確認
+    W-&gt;&gt;W: Sigstore で来歴に署名
+    W-&gt;&gt;GH: GitHub Release に zip・インストーラー・カタログ・SBOM・署名を載せる</code></pre>
 <p><code>v</code> で始まるタグを push すると動く。最初の <code>guard</code> が <code>tools/check_release_tag.ps1</code> で、タグが <code>v&lt;メジャー&gt;.&lt;マイナー&gt;.&lt;パッチ&gt;</code> の形（大文字の <code>V</code>・全角の数字・0 始まり・<code>-rc1</code> などの接尾辞は不可）で、指すコミットが <code>origin/main</code> の履歴にあることを確かめる（満たさないタグからは、テストにも公開にも進まない）。続けて <code>test.yml</code> と同じ検査・テストを通したうえで、<code>tools/new_release_package.ps1</code> で配布 zip（<code>tebunko-&lt;タグ&gt;.zip</code>）を、<code>tools/new_installer.ps1</code> でインストーラー（<code>tebunko-setup-&lt;タグ&gt;.exe</code>）を作って GitHub Release に載せる。</p>
 <ul>
 <li>zip にはツール本体（<code>tebunko.bat</code>・<code>scripts/</code>）と <code>README.md</code>・<code>LICENSE</code>・<code>VERSION.txt</code>（版とコミットの記録）だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（<code>tebunko.cat</code>）・ハッシュ一覧（<code>SHA256SUMS.txt</code>）・部品表（<code>sbom.cdx.json</code>。配布物を作るたびに zip の中身から作る）は zip と並べてリリースに載せ（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 <a href="../../../safety/scans/#複数エンジンでの検査-virustotal外部へファイルを送信する">複数エンジンでの検査: VirusTotal（外部へファイルを送信する）</a> の VirusTotal での照会用）</li>
@@ -2959,7 +3928,7 @@ git push origin v0.1.0
 <p><strong><code>docs.yml</code>（設計書のサイト）</strong></p>
 <p>設計書（<code>docs/</code>）は <a href="https://www.mkdocs.org/">MkDocs</a>（テーマは Material for MkDocs）で Web サイトにし、main で <code>docs/</code>・<code>tools/mkdocs/</code> が変わるたびに <a href="https://hsgwa.github.io/tebunko/">GitHub Pages</a> に公開する。</p>
 <ul>
-<li>設定は <code>tools/mkdocs/mkdocs.yml</code>。サイトはどれもリポジトリの直下で <code>mkdocs build --strict -f tools/mkdocs/mkdocs.yml</code> を実行して作る。リンク先のファイルや見出し（アンカー）が無いと失敗する。<code>docs/</code> の外の Markdown と、<code>docs/</code> から外へのリンクはここでは調べないため、<code>tests/meta/</code> の <code>links</code>（<a href="./">テストの実行と CI</a>）が調べる</li>
+<li>設定は <code>tools/mkdocs/mkdocs.yml</code>。サイトはどれもリポジトリの直下で <code>mkdocs build --strict -f tools/mkdocs/mkdocs.yml</code> を実行して作る。リンク先のファイルや見出し（アンカー）が無いと失敗する。<code>docs/</code> の外の Markdown と、<code>docs/</code> から外へのリンクはここでは調べないため、<code>tests/meta/</code> の <code>links</code>（<a href="../run/">テストの実行</a>）が調べる</li>
 <li>サイトを作るジョブ（チェックの名前は <code>docs</code>）は main の必須チェックにしている。必須のチェックはワークフローが動かないと待ったままになるため、PR では変えたファイルで絞らず、どの PR でもサイトを作る</li>
 <li>GitHub Pages は <code>gh-pages</code> ブランチの内容をそのまま公開する。main のサイトはその直下に置く</li>
 <li><code>docs/</code>・<code>tools/mkdocs/</code> を変えた PR では（変えたかどうかは <code>changes</code> のジョブが PR のファイルの一覧で調べる）、サイトのプレビューを <code>gh-pages</code> の <code>pr-preview/pr-&lt;PR の番号&gt;/</code> に置き、URL を PR にコメントする（<code>rossjrw/pr-preview-action</code>）。push のたびに更新し、PR を閉じたら消す。fork からの PR ではプレビューを作らず、サイトを作れることだけを確かめる</li>
@@ -2973,382 +3942,6 @@ git push origin v0.1.0
 <div class="highlight"><pre><span></span><code>pip install --require-hashes -r tools/mkdocs/requirements.txt
 mkdocs serve -f tools/mkdocs/mkdocs.yml
 </code></pre></div>
-<p><strong><code>perf.yml</code>（性能とリソースの計測）</strong></p>
-<p>手動で起動し、決まった量のデータで、Office からの取り込み、インデックス作成、検索の速さ、およびその間のリソース（メモリ・CPU・スレッド・ハンドル・GC）を測る。大きな変更の前後で数字を比べるときなどに使う。必須のチェックではない。</p>
-<div class="highlight"><pre><span></span><code>gh workflow run perf.yml -f ref=&lt;測る ref&gt; -f scale=0.1 -f ingest=200
-</code></pre></div>
-<ul>
-<li>入力: <code>ref</code>（測る ref。作業中のブランチも測れる）、<code>scale</code>（データの量。<code>1</code> でブック 5.4 万・TSV 16 万・約 1GB）、<code>count</code>（語ごとに続けて検索する回数。既定 20）、<code>ingest</code>（取り込みを測る .docx・.pptx のそれぞれの数。<code>0</code> <code>200</code> <code>1000</code>。既定 <code>0</code> は取り込みを測らない。検索だけを測る起動が長くならないようにする）</li>
-<li>計測スクリプト（<code>tools/measure_perf.ps1</code> と <code>tools/perf/</code>）はワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする。計測スクリプトが呼ぶ関数（<code>publishIndexFolders</code>・<code>getIndexPackFiles</code>・<code>searchPackIndex</code>）が無い ref（本文インデックスの形式より前の版）では、エラーメッセージを出して止まる</li>
-<li>データは <a href="https://github.com/hsgwa/tebunko-perfdata">tebunko-perfdata</a> の <code>new_index.ps1</code> で毎回生成する（取り込みの一時置き場と同じ形の TSV）。使う版は <code>perf.yml</code> の <code>PERFDATA_SHA</code> でコミットに固定する。検索する語は同じリポジトリの <code>words.tsv</code>（0 件・まれ（3 件）・大量・正規表現）</li>
-<li>測るもの（それぞれ別のプロセスで動かし、リソースが混ざらないようにする）</li>
-<li>Office からの取り込み … <code>ingest</code> が <code>0</code> でないときだけ。<code>tools/perf/new_ingest_data.ps1</code> でテストデータ（<code>tests/testdata/office</code>）の複製を作り（.docx・.pptx を <code>ingest</code> 個ずつ。50 ファイルごとにフォルダを分ける）、<code>measure_perf.ps1 -Office</code> で測る。ランナーには Office が無いので、Office を使わずに読むファイル（.docx・.pptx。読み取りのスレッド）だけを測り、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は手元の Windows で測る（下の「取り込みの計測」）</li>
-<li>インデックス作成 … インデクサと同じ <code>publishIndexFolders</code>（本文インデックスを書く・TSV を消す・システムインデックスを作る）。Office からの取り込みは、下の取り込みの計測で別に測る。画面ではインデックス作成のスレッドの優先度を下げている（BelowNormal）が、計測ではほかに動くものが無いので、優先度は下げずに測る</li>
-<li>検索 … 語ごとに新しいプロセスを起動し、同じプロセスで <code>count</code> 回続けて検索する（上限 1 万件）。画面と同じく、検索の司令のスレッド（<code>newSearchService</code>）を 1 つ作り、要求（<code>newSearchRequest</code>）を順に送る。<code>lib.ps1</code> の読み込みと照合のスレッドの用意は司令のスレッドが始めに 1 回だけ行うので、1 回目の時間に含まれる。検索のキャッシュも画面と同じくプロセスで 1 つを持ち続ける。語ごとに、検索時間の最小・中央値・平均・最大と、その内訳（列挙・照合）を出す。1 回目は画面を開き直した直後の検索に当たり、たいてい最大の値になる。高速検索は、ランナーに Windows Search が無いので使わない<ul>
-<li>司令のスレッドが無い版（#102 より前）は、その版の画面と同じく、検索のたびに新しい Runspace で <code>lib.ps1</code> を読み込んで測る（内訳に読み込みの時間も出す）。どちらで測ったかは結果の <code>SearchMode</code>（<code>service</code> / <code>runspace</code>）に出るので、#102 の前後を同じワークフローで比べられる</li>
-</ul>
-</li>
-<li>リソース … 別のスレッドで 0.2 秒ごと（および段階の切り替わり）に、プロセスのワーキングセット・プライベート・マネージドヒープ、CPU 時間、スレッド・ハンドルの数、GC の回数と、PC 全体の CPU・空きメモリを記録する。検索では、検索 1 回ごとのメモリも記録し、10 回あたりの増え方（最小二乗の傾き）を出す（検索を続けたときにメモリが増え続けないかを見るため）</li>
-<li>OS のファイルキャッシュは空にしない。本文インデックスは作成の直後なので OS のキャッシュに載っており、PC を起動した直後の検索（ディスクから読む）とは違う</li>
-<li>結果は、ジョブの Summary（表と Mermaid のグラフ）と、artifact <code>perf-&lt;実行の番号&gt;</code>（保存期間は 90 日）に出力する。パスやファイル名は出力しない</li>
-<li><code>summary.md</code> … Summary と同じ内容（「Office からの取り込み」の節を含む）</li>
-<li><code>result.json</code> … すべての数字。形式の版（<code>Schema</code>）と実行の情報（実行の番号・ref・コミット・scale・日時・ランナーの CPU）を含む</li>
-<li><code>metrics.csv</code> … 1 行 1 指標の縦長の形（<code>run_id, date, ref, sha, scale, metric, word, stat, value, unit</code>）。実行をまたいで数字を貯め、Grafana などで見るときに使う（貯める仕組みはまだ無い）</li>
-<li><code>searches.csv</code>（検索 1 回ごと）・<code>resource-ingest.csv</code>・<code>resource-index.csv</code>・<code>resource-search.csv</code>（リソースの記録）</li>
-<li>ランナー（4 コア）は手元の PC と条件が違う。Defender のリアルタイム保護の状態は、結果の「環境」に出力する。比べるときは、同じワークフローで測った数字どうしで比べる。同じ条件でも、本文インデックスの作成の時間は 5 割ほどぶれることがある</li>
-<li>手元でも同じ計測スクリプトで測れる（<code>.\tools\measure_perf.ps1 -Index &lt;TSV のフォルダ&gt; -Work &lt;作業フォルダ&gt; -Words &lt;words.tsv&gt;</code>）。渡した TSV は本文インデックスに変換され、元の TSV は削除される</li>
-</ul>
-<p><strong>取り込みの計測（手元の Windows。Excel・Word・PowerPoint が入った機械で）</strong></p>
-<div class="highlight"><pre><span></span><code>.\tools\perf\new_ingest_data.ps1 -Dest C:\perf\office -Docx 50 -Pptx 50
-.\tools\measure_perf.ps1 -Office C:\perf\office -Work C:\perf\work -Repeat 1
-</code></pre></div>
-<ul>
-<li>データ（<code>new_ingest_data.ps1</code>）… .docx・.pptx（<code>-Docx</code>・<code>-Pptx</code>。既定 200）、.doc・.ppt（<code>-Doc</code>・<code>-Ppt</code>。既定 0）はテストデータの複製、.xlsx（<code>-Xlsx</code>。既定 0）は tebunko-perfdata の <code>new_books.ps1</code> で作ったブック（<code>-Books</code>）の先頭の数冊。50 ファイルごとにフォルダを分ける（フォルダごとの本文インデックスの書き出しも一緒に測るため）。同じ引数からは同じ構成・同じ中身になる。Excel は .xlsx、Word は .doc、PowerPoint は .ppt を読むので、使う Office はデータにある種類で決まる</li>
-<li>測り方（<code>tools/perf/measure_ingest.ps1</code>）… <code>-Repeat</code> 回（既定 3）、1 回ごとに新しいプロセス・空のワークスペースで流す（Office の起動を含む、初めての取り込みの時間）。測る tebunko の <code>scripts</code> を作業フォルダに写して <code>setting.config</code> を書くので、利用者の設定・既定のワークスペース・リポジトリの <code>setting.config</code> には触らない。取り込みは起動口 <code>indexer.ps1 -Channel</code> で動かし、記録のスレッドが受け渡しの口の <code>Progress.Phase</code> を読んで、段階（クロール・確認・取り込み・仕上げ）ごとの時間とリソースを出す。1 ファイルあたりの ms は、取り込みの段階の秒 ÷ ファイル数</li>
-<li>成功・失敗は、ワークスペースの <code>取り込み一覧.tsv</code> を計測の側で読んで数える（同じ相対パスは最後の行の状態）。成功 + 失敗がファイル数と合わなければ、終了コードが 0 でなければ、取り込みの段階が読めなかったとき・知らない段階の名前が来たときは、計測を失敗にする。失敗したファイルがあれば <code>summary.md</code> に書く</li>
-<li>リソースの表が測るのは、計測の PowerShell のプロセスだけ。EXCEL・WINWORD・POWERPNT のプロセスは含まない（「PC の CPU」には含む）</li>
-<li>Office を使う取り込み（.xlsx・.doc・.ppt）の時間に固定の上限を付けた合否のテストは無い。Office の時間は機械・Defender・Office の版で大きく揺れるので、比べるのは同じ機械・同じ日・同じ引数で続けて測った数字どうしにする（Office の版は結果の実行の情報に出す）。比べ方は下の「Office を使う形式の比べ方」。Office を使わずに読む .docx・.pptx は、<code>perf-check.yml</code> が固定の上限と比べる</li>
-</ul>
-<p><strong>計測の口（取り込みの計測が頼るもの）</strong></p>
-<p>取り込みのコードを書き直すときは、この口を変えない。変えるときは、先に計測（<code>measure_ingest.ps1</code>）を直し、変える前の版を測り直してから比べる。</p>
-<table>
-<thead>
-<tr>
-<th>口</th>
-<th>中身</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>起動口</td>
-<td><code>scripts\tebunko\indexer.ps1 -Channel &lt;口&gt;</code>。終了コード 0 = 完了</td>
-</tr>
-<tr>
-<td>読み込み口</td>
-<td><code>scripts\tebunko\lib.ps1</code>（<code>resolveTebunkoLib</code> が頼っている）の <code>newIndexerChannel</code>（引数 <code>retryFailed</code>・<code>confirmTargets</code>・<code>workers</code>）</td>
-</tr>
-<tr>
-<td>受け渡しの口</td>
-<td><code>Progress.Phase</code> と、その値 <code>クロール</code>・<code>確認</code>・<code>取り込み</code>・<code>仕上げ</code></td>
-</tr>
-<tr>
-<td>設定</td>
-<td><code>setting.config</code> がツールのフォルダにあること。キー <code>targetFolders</code>（<code>@{ name; path; enabled }</code> の配列）・<code>workspaceFolder</code>・<code>ingestThreads</code></td>
-</tr>
-<tr>
-<td>取り込み一覧</td>
-<td>ワークスペース直下の <code>取り込み一覧.tsv</code>。見出しの <code>相対パス</code>・<code>状態</code>。状態の値 <code>済</code>・<code>失敗</code></td>
-</tr>
-<tr>
-<td>取り込んだ結果</td>
-<td>最後の回のワークスペース（<code>&lt;作業フォルダ&gt;\ingest\ws</code>。<code>measure_ingest.ps1</code> は次の回の始めまで消さない）の下に、本文インデックスのファイル <code>content_index.*.tsv</code>（<a href="../../indexer/index-format/#配置命名規則">配置・命名規則</a>の形。サブフォルダの下にもできる）があること。取り込みの回帰テスト（<code>perf_ingest.Tests.ps1</code>）が、数と合計の大きさを数える</td>
-</tr>
-</tbody>
-</table>
-<p><strong><code>perf-check.yml</code>（速さの回帰テスト）</strong></p>
-<p>検索・本文インデックスの作成・取り込みの速さが落ちたことを、PR の段階で見つける。<code>measure_perf.ps1</code> で測り、上限と比べて合否を出す（<code>perf.yml</code> は数字を見るだけで、合否は出さない）。必須のチェックにはしないが、流した PR で <code>search</code>・<code>ingest</code> が落ちていればマージしない。</p>
-<table>
-<thead>
-<tr>
-<th>何を</th>
-<th>ランナー（<code>perf-check.yml</code>）</th>
-<th>Windows 機の手元</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>検索（4 語）</td>
-<td>固定の上限と比べる（<code>search</code>）</td>
-<td><code>.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_search.Tests.ps1</code></td>
-</tr>
-<tr>
-<td>本文インデックスの作成（段階 <code>pack の作成</code>）</td>
-<td>固定の上限と比べる（<code>search</code>）</td>
-<td>同上</td>
-</tr>
-<tr>
-<td>取り込み（.docx・.pptx。読み取りのスレッド）</td>
-<td>固定の上限と比べる（<code>ingest</code>）</td>
-<td><code>.\tests\run.ps1 -Tag Slow -ExcludeTag Manual -Path tests\tools\perf_ingest.Tests.ps1</code></td>
-</tr>
-<tr>
-<td>取り込み（.xlsx・.doc・.ppt。Excel・Word・PowerPoint）</td>
-<td>測らない（ランナーに Office が無い）</td>
-<td>main と PR のブランチを同じ日に続けて測り、比で判断する（下の「Office を使う形式の比べ方」）</td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li>動く時</li>
-<li>PR にラベル <code>perf-check</code> を付けたとき。付けたあとの push・reopen でも流し直す。ラベルが無い PR では、ジョブが「スキップ」になり、失敗にはならない</li>
-<li>main への push のうち、速さに効くファイル（<code>scripts/**</code>・<code>tools/measure_perf.ps1</code>・<code>tools/perf/**</code>・<code>tests/tools/perf_*.Tests.ps1</code>・<code>tests/testdata/office/**</code>・<code>.github/workflows/perf-check.yml</code>）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる</li>
-<li>手動（<code>workflow_dispatch</code>）。main への push と手動は、ラベルを見ずに流す</li>
-<li>ラベル <code>perf-check</code> は、リポジトリに作ってある。付けるのはコンサルタント（メンテナの代わり）。リリースノートの分類（<code>.github/release.yml</code>）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）</li>
-<li>ジョブは <code>search</code>（検索と本文インデックスの作成）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 3〜4 分、<code>ingest</code> が 4〜5 分</li>
-<li>各ジョブの <code>if</code> は、<code>github.event_name != 'pull_request'</code>（main への push・手動）、または <code>labeled</code> でラベル名が <code>perf-check</code>（付けたとき）、または <code>labeled</code> 以外（<code>synchronize</code>・<code>reopened</code>）で PR に <code>perf-check</code> が付いているとき。ほかのラベルを付けたときは流し直さない</li>
-<li>流れている実行の取り消し（<code>concurrency</code>）は、同じ PR に push を足したときと、<code>perf-check</code> を付け直したときだけ。グループは <code>perf-check-&lt;PR の番号（無ければ ref）&gt;</code> で、<code>perf-check</code> 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に <code>run_id</code> を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（<code>enhancement</code> など）を付けても、流れている <code>search</code>・<code>ingest</code> は取り消されない</li>
-<li>結果は PR の Checks の <code>search</code>・<code>ingest</code> の合否と、ジョブの Summary（<code>summary.md</code> の表）、artifact（<code>perf-check-search-&lt;実行の番号&gt;-&lt;試行の番号&gt;</code>・<code>perf-check-ingest-...</code>。保存期間は 90 日）で見る。PR にコメントは書かない</li>
-<li>フォークからの PR でも <code>pull_request</code> のまま動かす（<code>pull_request_target</code> は使わない）。読み取りだけのトークンで動き、秘密の値は使わない（tebunko-perfdata は公開）。フォークの作者はラベルを付けられないので、流すかどうかはメンテナの側が決める。初めての貢献者の PR は、GitHub の設定どおり実行の承認が要る</li>
-<li>アクションはハッシュで固定する。<code>PERFDATA_SHA</code>（tebunko-perfdata のコミット）は <code>perf.yml</code> と同じ値にする（<code>PESTER_VERSION</code> と同じく、2 か所を手で同じにする）。<code>run</code> の中は ASCII だけで書く</li>
-</ul>
-<p><strong>回帰テストの中身</strong></p>
-<table>
-<thead>
-<tr>
-<th>テスト</th>
-<th>データ</th>
-<th>測り方</th>
-<th>比べる値</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>tests/tools/perf_search.Tests.ps1</code>（検索と本文インデックスの作成）</td>
-<td>tebunko-perfdata の <code>new_index.ps1 -Scale 0.1</code>（種は既定の 1。ブック 5,361・TSV 16,078 → 本文インデックスのファイル 521・118MB）。語は同じリポジトリの <code>words.tsv</code></td>
-<td><code>measure_perf.ps1 -Index ... -Words ... -Count 20</code>（<code>perf.yml</code> の既定と同じ手順・同じ条件）</td>
-<td>語ごとの検索の中央値（<code>Search[].TotalMs.Median</code>）・本文インデックスの作成の秒（<code>Index.Pack.Seconds</code>。1 回の値）</td>
-</tr>
-<tr>
-<td><code>tests/tools/perf_ingest.Tests.ps1</code>（取り込み）</td>
-<td><code>new_ingest_data.ps1 -Docx 50 -Pptx 50</code>（テストデータの複製。計 100 ファイル）</td>
-<td><code>measure_perf.ps1 -Office ... -Threads 2 -Repeat 3</code>（1 回ごとに新しいプロセス・空のワークスペース）</td>
-<td>1 ファイルあたりの ms の中央値（<code>Ingest.PerFileMs.Median</code>）・全体の秒の中央値（<code>Ingest.Seconds.Median</code>）</td>
-</tr>
-</tbody>
-</table>
-<p>比べる処理は <code>tools/perf/perf_common.ps1</code> の <code>getSearchPerfProblems</code>・<code>getIngestPerfProblems</code> で、合わないものの一覧を返す（空なら合格）。失敗のメッセージには、対象の名前・値・上限の数字だけを書く。上限との境目・欠けた語・件数などは、各テストファイルの <code>Unit</code> で確かめる。</p>
-<ul>
-<li>「速く終わっても、何もしていない」誤りを通さないため、時間のほかに次も確かめる</li>
-<li>検索: <code>searches.csv</code> の 20 回すべてで、件数が <code>words.tsv</code> の「件数」と合うこと（数ならその件数、<code>10000+</code> なら 1 万件で打ち切り）、照合した本文インデックスのファイルの数（<code>Packs</code>）が本文インデックスの作成の数（521）と同じで 0 より大きいこと。件数は scale 0.1・種 1 のときの値。検索の流れ（<code>Run.SearchMode</code>）が <code>service</code> であること（<code>newSearchService</code> が無いと、<code>measure_search.ps1</code> は黙って <code>runspace</code> で測るため）</li>
-<li>取り込み: <code>Total</code>・<code>Done</code> が 100、<code>Failed</code> が 0。最後の回のワークスペースに本文インデックスがあり、合計の大きさが 0 より大きいこと（取り込み一覧の状態だけが <code>済</code> になり、中身を書かずに終わる誤りを通さないため。この形に頼ることは、下の「計測の口」の表にある）</li>
-<li>結果（<code>summary.md</code>・<code>result.json</code> など。数字だけでパスは入らない）は <code>work\test\perf-search\</code>・<code>work\test\perf-ingest\</code>（git 管理外）に残る。<code>summary.md</code> の見出しに、tebunko-perfdata のコミットが入る（取れなければ「不明」）</li>
-<li>tebunko-perfdata の場所は、環境変数 <code>TEBUNKO_PERFDATA</code>。無ければリポジトリと並んだ <code>tebunko-perfdata</code>（git worktree のときは、本体のチェックアウトと並んだもの）。どちらにも無いときは、<code>git clone</code> の取り方を示して失敗にする。手元の clone は、<code>PERFDATA_SHA</code> と <code>new_index.ps1</code>・<code>words.tsv</code> が同じであること（違うとデータが変わり、ランナーの数字と比べられない）</li>
-<li><code>-All</code> は <code>Slow</code> も流すので、tebunko-perfdata が要る</li>
-</ul>
-<p><strong>上限</strong></p>
-<p>上限は、ランナー（<code>windows-latest</code>）で、<code>perf-check.yml</code> と同じ構成（同じジョブ）で 5 回測った比べる値の最大に余裕を掛け、切り上げて決める。各テストファイルの先頭の表（<code>searchLimitsMs</code>・<code>packLimitSeconds</code>・<code>perFileLimitMs</code>・<code>secondsLimit</code>）に置く。</p>
-<table>
-<thead>
-<tr>
-<th>対象</th>
-<th>比べる値</th>
-<th>5 回の実測（最小〜最大）</th>
-<th>余裕</th>
-<th>上限</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>検索 0 件</td>
-<td>中央値</td>
-<td>298〜337 ms</td>
-<td>1.5 倍（50 ms 単位）</td>
-<td>550 ms</td>
-</tr>
-<tr>
-<td>検索 まれ</td>
-<td>中央値</td>
-<td>353〜500 ms</td>
-<td>1.5 倍（50 ms 単位）</td>
-<td>750 ms</td>
-</tr>
-<tr>
-<td>検索 大量</td>
-<td>中央値</td>
-<td>1,290〜1,634 ms</td>
-<td>1.5 倍（50 ms 単位）</td>
-<td>2,500 ms</td>
-</tr>
-<tr>
-<td>検索 正規表現</td>
-<td>中央値</td>
-<td>1,458〜1,517 ms</td>
-<td>1.5 倍（50 ms 単位）</td>
-<td>2,300 ms</td>
-</tr>
-<tr>
-<td>本文インデックスの作成（段階 <code>pack の作成</code>）</td>
-<td>1 回の秒</td>
-<td>39.8〜51.6 秒</td>
-<td>2 倍（5 秒単位）</td>
-<td>105 秒</td>
-</tr>
-<tr>
-<td>取り込み 1 ファイルあたり</td>
-<td>中央値</td>
-<td>723〜793 ms</td>
-<td>1.5 倍（50 ms 単位）</td>
-<td>1,200 ms</td>
-</tr>
-<tr>
-<td>取り込み 全体</td>
-<td>中央値</td>
-<td>73.2〜80.5 秒</td>
-<td>1.5 倍（10 秒単位）</td>
-<td>130 秒</td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li>余裕: 検索の同じ条件の 2 回の差は 7% ほど、取り込みの 3 回の差は 2% ほど。ランナーの機械の違いを見込んで 1.5 倍を取りつつ、流れが崩れたときに出る数倍の遅れは確実に止める。本文インデックスの作成は 1 回の値で、5 割ほどぶれることがあるため 2 倍にする</li>
-<li><code>perf.yml</code> の数字は、構成が違う（取り込みの後に同じジョブで検索すると遅く出た回がある）ので、上限の元にしない。インクリメンタルサーチの目標（7,000 件規模で 0.1 秒前後）も上限にしない。今の main はこのデータで 0.3 秒ほどなので、上限にすると今の main で落ちる</li>
-<li>変え方: 速くした PR では、同じ決め方で下げてよい。上げるのは、ランナーが遅くなったなど、速さを落としていない理由があるときだけにする。理由と数字を PR 本文に書き、メンテナの了承を得る</li>
-<li>上限はランナー（4 コア）に合わせたもの。手元の PC で超えたときは、同じ PC で main を測って比べ、回帰かどうかを見る</li>
-</ul>
-<p><strong>誤って落ちたとき</strong></p>
-<ul>
-<li>ジョブを 1 回だけ再実行する。続けて落ちたら、<code>perf-check.yml</code> を main で <code>workflow_dispatch</code> で流して比べる</li>
-<li>main も同じくらい遅ければ、ランナーの問題として扱う。上限を上げるかは、メンテナが決める</li>
-<li>main が通って PR だけが落ちれば、回帰として直す</li>
-</ul>
-<p><strong>Office を使う形式の比べ方（手元の Windows。Excel・Word・PowerPoint が入った機械で）</strong></p>
-<ul>
-<li>対象は .xlsx（Excel）・.doc（Word）・.ppt（PowerPoint）の取り込み。ランナーに Office が無く、Office の版・機械・Defender で大きく揺れるので、固定の上限は置かない</li>
-<li>データは、.xlsx 100・.docx 200・.pptx 200・.doc 20・.ppt 20（<code>new_ingest_data.ps1 -Xlsx 100 -Docx 200 -Pptx 200 -Doc 20 -Ppt 20 -Books &lt;new_books.ps1 で作ったブックのフォルダ&gt;</code>）。測るのは <code>-Threads 2 -Repeat 3</code></li>
-<li>同じ PC・同じ日に、main → PR のブランチ → main の順に、<code>measure_perf.ps1 -Office &lt;データ&gt; -Work &lt;作業フォルダ&gt; -Tool &lt;測る版のフォルダ&gt;</code> で測る</li>
-<li>判断: PR のブランチの 1 ファイルあたりの中央値（<code>Ingest.PerFileMs.Median</code>）が、前後の main の 2 回のうち大きいほうの 1.2 倍以下で、失敗（<code>Ingest.Failed</code>）が 0 件なら合格とする。数字は PR 本文に書く</li>
-<li>同じ日・同じ PC で、ほかの作業が動いていないときの 2 回の差は 2% ほどだが、ほかの作業（ほかのテスト・ビルド）と重なると 2 割ほどぶれることがある（同じコードの main を続けて測って 1.02 倍と 1.17 倍、同じコードの PR のブランチと main で 1.24 倍の回があった）。1.2 倍の境目で落ちたときは、ほかの作業が無い時間に測り直してから判断する。測っている間は、ほかのテストや Office の作業を動かさない</li>
-<li>流す時: <code>perf-check</code> を付けた PR のうち、取り込みとインデックスの書き出し（<code>scripts/shared/office/</code>・<code>scripts/tebunko/indexer/</code>・<code>scripts/tebunko/index/</code>・<code>scripts/tebunko/core/</code>）に触るもの</li>
-</ul>
-<h2 id="コミット前の検査pre-commit-フック">コミット前の検査（pre-commit フック）<a class="headerlink" href="#コミット前の検査pre-commit-フック" title="Permanent link">&para;</a></h2>
-<p>clone したら 1 回だけ次を実行する。<code>core.hooksPath</code> を <code>tools/hooks</code> にし、コミットのたびに <code>tools/hooks/pre-commit</code> と <code>tools/hooks/commit-msg</code> が動く（git worktree で作ったツリーでも、そのツリーのフックが動く）。</p>
-<div class="highlight"><pre><span></span><code>.\tools\install_hooks.ps1              有効にする
-.\tools\install_hooks.ps1 -Uninstall   やめる
-</code></pre></div>
-<table>
-<thead>
-<tr>
-<th>フック</th>
-<th>順</th>
-<th>内容</th>
-<th>所要時間の目安</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>pre-commit</code></td>
-<td>1</td>
-<td><code>tools/check_commit.ps1 -Staged</code>：ステージした内容と、これから作るコミットの作者を検査する</td>
-<td>数秒</td>
-</tr>
-<tr>
-<td><code>pre-commit</code></td>
-<td>2</td>
-<td><code>tools/run_commit_tests.ps1</code>：ステージした変更に対応するテストだけを、既定のタグ（<code>Unit</code>・<code>Io</code>・<code>Meta</code>）で流す。失敗したテストだけを表示する。選び方は下の表。全テストと静的解析は CI で行う</td>
-<td>変更による（文書だけなら 20 秒ほど、全部流すと 1 分半ほど）</td>
-</tr>
-<tr>
-<td><code>commit-msg</code></td>
-<td>1</td>
-<td><code>tools/check_commit_message.ps1 -Path &lt;メッセージのファイル&gt;</code>：1 行目が Conventional Commits の形（<code>feat: ...</code> など。AGENTS.md「GitHub の運用」）か。<code>#</code> で始まる行と空行は飛ばし、git が自動で作るメッセージ（<code>Merge ...</code> <code>Revert "..."</code> <code>fixup! ...</code> など）は調べない</td>
-<td>–</td>
-</tr>
-<tr>
-<td><code>commit-msg</code></td>
-<td>2</td>
-<td><code>tools/check_signoff.ps1 -Path &lt;メッセージのファイル&gt;</code>：作者（<code>git var GIT_AUTHOR_IDENT</code>）のメールアドレスの <code>Signed-off-by:</code> 行があるか（<code>git commit -s</code> で付く。大文字・小文字は区別しない）。<code>#</code> で始まる行と、<code>git commit -v</code> の切り取り線より後ろ（差分）は数えない。マージコミット（1 行目が <code>Merge</code>）と bot の作者は調べない</td>
-<td>–</td>
-</tr>
-</tbody>
-</table>
-<p><code>run_commit_tests.ps1</code> は、ステージした変更（名前の変更は、消したファイルと足したファイルに分ける）から流すテストを選ぶ。<code>-List -Files &lt;パス&gt;</code> で、選んだテストを流さずに出せる。</p>
-<table>
-<thead>
-<tr>
-<th>変更したファイル</th>
-<th>流すテスト</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>scripts/&lt;パス&gt;.ps1</code></td>
-<td><code>tests/&lt;パス&gt;.Tests.ps1</code> と <code>meta/structure</code>・<code>meta/layers</code>（<code>scripts/tebunko/indexer.ps1</code> は <code>tests/tebunko/indexer/indexer.Tests.ps1</code>）</td>
-</tr>
-<tr>
-<td><code>scripts/</code> の <code>.xaml</code></td>
-<td><code>meta/structure</code></td>
-</tr>
-<tr>
-<td><code>tests/</code> の <code>*.Tests.ps1</code></td>
-<td>そのテスト</td>
-</tr>
-<tr>
-<td><code>tools/&lt;名前&gt;.ps1</code></td>
-<td><code>tests/tools/&lt;名前&gt;.Tests.ps1</code>（無ければ流さない）。<code>check_markdown_links.ps1</code> は <code>meta/links</code> も</td>
-</tr>
-<tr>
-<td><code>tests/testdata/scrub_personal.ps1</code></td>
-<td><code>tests/testdata/scrub_personal.Tests.ps1</code></td>
-</tr>
-<tr>
-<td><code>.md</code>・<code>docs/</code> の中</td>
-<td><code>meta/links</code></td>
-</tr>
-<tr>
-<td><code>tests/gui/</code> の中（画面のスモークテスト）</td>
-<td>流さない（CI の <code>gui.yml</code> と、手元の <code>-Tag Gui</code> で流す）</td>
-</tr>
-<tr>
-<td>対応するテストが無い・消した <code>scripts/</code> の <code>.ps1</code>、<code>tests/</code> のほかのファイル（<code>run.ps1</code>・<code>helpers/</code>・<code>testdata/</code> など）</td>
-<td>速いテスト（<code>Unit</code>・<code>Meta</code>）を全部</td>
-</tr>
-<tr>
-<td>それ以外（<code>.github/</code>・画像・設定など）</td>
-<td>流さない</td>
-</tr>
-</tbody>
-</table>
-<p>文字コードは <code>check_commit.ps1 -Staged</code> が確かめるため、<code>meta/encoding</code> はフックでは流さない。</p>
-<p>引っかかったら内容を直す。<code>git commit --no-verify</code> で飛ばしても、CI で同じ検査が走る（コミットメッセージは、squash merge で main のコミットになる PR のタイトルを CI が確かめる）。フックは git for Windows の sh が読むため LF で保存する（<code>.gitattributes</code> で固定）。</p>
-<h2 id="公開してはいけない内容の検査toolscheck_commitps1">公開してはいけない内容の検査（<code>tools/check_commit.ps1</code>）<a class="headerlink" href="#公開してはいけない内容の検査toolscheck_commitps1" title="Permanent link">&para;</a></h2>
-<p>リポジトリは公開しているため、履歴に一度でも入れたら公開されたのと同じになる（AGENTS.md「個人情報を書かない」）。これを機械的に止める。手元では <code>-Staged</code> でステージした内容を、CI では追跡している全ファイルと全コミットを調べる。</p>
-<table>
-<thead>
-<tr>
-<th>対象</th>
-<th>見つけたら失敗にするもの</th>
-<th>例示用として通すもの</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>絶対パス</td>
-<td><code>C:\Users\&lt;名前&gt;</code>（<code>/</code> 区切り・<code>\\</code> のエスケープも）</td>
-<td><code>test</code>（<code>test_</code> のように長さを揃えたものも）・<code>a</code>・<code>Public</code>・<code>Default</code>・<code>%USERNAME%</code> <code>&lt;利用者名&gt;</code> のような置き換え用の表記</td>
-</tr>
-<tr>
-<td>メールアドレス</td>
-<td>すべて</td>
-<td><code>example.com</code> などの例示用のドメイン、GitHub の noreply</td>
-</tr>
-<tr>
-<td>Office ファイル</td>
-<td>作成者・最終更新者（<code>docProps/core.xml</code>・ODF の <code>meta.xml</code>・PDF の <code>/Author</code>）、コメント・変更履歴の作成者に付くアカウント ID（<code>userId</code>）</td>
-<td><code>test</code>、空、<code>0</code> だけの ID</td>
-</tr>
-<tr>
-<td>手元で実行したとき</td>
-<td>Windows のユーザー名そのもの（CI では調べない）</td>
-<td>—</td>
-</tr>
-<tr>
-<td><code>.ps1</code>・<code>.xaml</code></td>
-<td>BOM 付き UTF-8 でない、改行が CRLF でない</td>
-<td>—</td>
-</tr>
-<tr>
-<td>ファイル名・フォルダ名</td>
-<td>UTF-8 で 255 バイトを超えるもの（上の Scorecard の制約）</td>
-<td>—</td>
-</tr>
-<tr>
-<td>コミットの作者・コミッター</td>
-<td>GitHub の noreply 以外のメールアドレス</td>
-<td><code>noreply@github.com</code>（GitHub 上でマージしたときのコミッター）</td>
-</tr>
-</tbody>
-</table>
-<p>Office ファイル（ZIP）は展開して中の XML・バイナリを 1 つずつ調べる。旧形式（<code>.doc</code> <code>.xls</code> <code>.ppt</code>）・PDF などはバイト列を UTF-8 と UTF-16LE の両方で読んで調べる。中身は作業ツリーではなく git に記録される内容を読む（改行だけは、git が LF にして記録するため作業ツリーのファイルで調べる）。例示用として通す名前・ドメインを増やすときは <code>tools/check_commit.ps1</code> の先頭で行う。</p>
 
 
 
@@ -3384,7 +3977,7 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="前: テスト">
+          <a href="../run/" class="md-footer__link md-footer__link--prev" aria-label="前: テストの実行">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3394,11 +3987,27 @@ mkdocs serve -f tools/mkdocs/mkdocs.yml
                 前
               </span>
               <div class="md-ellipsis">
-                テスト
+                テストの実行
               </div>
             </div>
           </a>
         
+        
+          
+          <a href="../perf/" class="md-footer__link md-footer__link--next" aria-label="次: 性能とリソースの計測のしかた">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                次
+              </span>
+              <div class="md-ellipsis">
+                性能とリソースの計測のしかた
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
         
       </nav>
     
