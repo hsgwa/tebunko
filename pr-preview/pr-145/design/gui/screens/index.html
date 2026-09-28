@@ -4061,7 +4061,7 @@
 <li>Windows の通知を止めている（集中モード・応答不可。撮る途中で通知が重なるのを防ぐ）。</li>
 <li>道具と tebunko は、管理者でない同じ利用者の権限で動かす。</li>
 <li><strong>架空のデータを使う。</strong> 道具は一時フォルダを、空いているドライブの文字（<code>Z:</code> から下へ探す）に <code>subst</code> で割り当て、その下でツール・ワークスペース・元のフォルダを動かす。終わったら（失敗しても）<code>subst /D</code> で外す。インデックス名・ファイル名・中身は、<a href="https://github.com/hsgwa/tebunko/blob/main/AGENTS.md#個人情報を書かない">個人情報を書かない</a>の架空の名前を使う。</li>
-<li><strong>利用者名が出る部品を塗りつぶす。</strong> ［8 設定］の「既定の場所は「<code>C:\Users\&lt;利用者名&gt;\Documents\tebunko_ws</code>」です。」のように、OS から取る利用者のフォルダの場所は差し替えられない。道具は撮るたびに、窓の中の部品の UI オートメーションの <code>Name</code> と、入力欄（<code>ValuePattern</code>）の <code>Value</code> を調べ、利用者名・コンピューター名・利用者のフォルダのパスを含む部品の範囲を塗りつぶし、その上に <code>C:\Users\test\...</code> に置き換えた文字を描き直す。</li>
+<li><strong>利用者名が出る部品を塗りつぶす。</strong> ［8 設定］の「既定の場所は「<code>C:\Users\&lt;利用者名&gt;\Documents\tebunko_ws</code>」です。」のように、OS から取る利用者のフォルダの場所は差し替えられない。道具は撮るたびに、窓の中の部品の UI オートメーションの <code>Name</code> と、入力欄（<code>ValuePattern</code>）の <code>Value</code> を調べ、利用者名・コンピューター名・利用者のフォルダのパスを含む部品の範囲を塗りつぶし、その上に置き換えた文字を描き直す。利用者のフォルダのパスは <code>C:\Users\test\...</code>、利用者名は <code>test</code>、コンピューター名は <code>TEST-PC</code> に置き換える。</li>
 <li><strong>本体・ダイアログ・メニューの窓の外</strong>（デスクトップ・後ろの窓・通知）は無地の色で塗る（<code>CopyFromScreen</code> は画面に出ているものをそのまま撮るため）。</li>
 <li>撮る間はマウス・キーボードに触らない（<a href="../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ。共通の関数 <code>tests/gui/gui_helpers.ps1</code> を使い回す）。</li>
 </ul>
