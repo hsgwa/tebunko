@@ -2617,6 +2617,8 @@
       
         
       
+        
+      
     
     
     
@@ -3071,6 +3073,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3768,6 +3995,7 @@
 <h1 id="8-設定タブ">［8 設定］タブ<a class="headerlink" href="#8-設定タブ" title="Permanent link">&para;</a></h1>
 <p>扱うこと: ワークスペース（インデックス・取り込み一覧・ログの置き場所）の表示・変更、設定ファイルの場所の表示。扱わないこと: 設定ファイルの中身そのもの（<a href="../../structure/settings-file/">設定ファイル（setting.config）</a>）。先に読むページ: <a href="../">画面</a>、<a href="../../structure/data/">データの置き場所とパスの決め方</a>。</p>
 <p>［8 設定］タブ（<code>tab_settings.xaml</code>・<code>settings_tab.ps1</code>）には、「ワークスペース」と「設定ファイル」の 2 つの枠を置く。［9 プロセス停止］の前に置き、プロセス停止を最後のタブのままにする。</p>
+<p>今の画面の写真は<a href="../screens/settings-tab/">画面設計（現行）</a>にある。</p>
 <p><strong>ワークスペース</strong>は、インデックス・取り込み一覧・ログ（<code>work</code> の中身。<a href="../../structure/folders/">配布物と開発用のフォルダ構成</a>）を置くフォルダ。既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>（高速検索のため、Windows Search の索引の対象になる場所。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。</p>
 <pre class="mermaid"><code>stateDiagram-v2
     state "既定の場所" as DefaultLoc
