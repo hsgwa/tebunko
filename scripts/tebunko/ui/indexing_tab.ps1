@@ -186,7 +186,7 @@ function startIndexing {
     saveTargets
     # 何件取り込むかは、元のファイルの更新日時とサイズを見ないと分からない。
     # ConfirmTargets にすると、インデクサは数え終えたところで止まって確認の返事（answerIndexingPlan）を待つ。
-    # インデクサは画面のプロセスのスレッドで動く（docs/design/architecture/threads.md「プロセス」）
+    # インデクサは画面のプロセスのスレッドで動く（docs/design/structure/threads.md「プロセス」）
     $script:indexingStart = Get-Date
     $script:indexingRate = $null
     $script:indexingConfirmed = $false
