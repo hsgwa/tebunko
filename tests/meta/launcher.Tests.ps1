@@ -12,11 +12,15 @@ BeforeAll {
     $startupSourceDir = "$rootDir\scripts\tebunko\startup"
     $realScriptsDir = "$rootDir\scripts"
 
+    # -Command の中身は 1 行に書かず、読みやすいよう set "PSCMD=...";set "PSCMD=%PSCMD%...") で
+    # 意味のまとまりごとに組み立てる（bat の中のコメント参照）。各行の中身を順につないで取り出す
+    # （1 行目は PSCMD=<中身>、2 行目以降は PSCMD=%PSCMD%<足す中身> の形）
     $script:batText = [System.IO.File]::ReadAllText($launcherPath)
-    if ($script:batText -notmatch '(?s)-Command "(.+)"\r\n') {
-        throw "tebunko.bat から -Command の中身を取り出せない"
+    $setLines = @([regex]::Matches($script:batText, '(?m)^set "PSCMD=(?:%PSCMD%)?(.*)"\r?$'))
+    if ($setLines.Count -eq 0) {
+        throw "tebunko.bat から PSCMD を組み立てる set 行が見つからない"
     }
-    $script:launcherCommand = $matches[1]
+    $script:launcherCommand = ($setLines | ForEach-Object { $_.Groups[1].Value }) -join ""
 
     $script:toolCount = 0
     function newLauncherTool {
@@ -234,6 +238,20 @@ Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部�
     It "PowerShell が無いときは、実行せずにメモ帳で理由を示して終わる" {
         $script:batText | Should -Match "if not exist ""%PS1%"""
         $script:batText | Should -Match ([regex]::Escape('notepad.exe "%~dp0scripts\tebunko\startup\no_powershell.txt"'))
+    }
+
+    It "set ""PSCMD=...""（意味のまとまりごと）を順につなぐと、想定した -Command の中身とちょうど一致する" {
+        # bat の 6 つの rem（準備・印の解除・try で gui.ps1・catch で理由の選び方・記録の中身・
+        # 記録の書き込みと表示）と同じ区切りで書く。ここが変わったら、この期待値も同じ PR で直す
+        $step1Prepare = "`$opener='notepad.exe';`$root='%~dp0';`$startup=Join-Path `$root 'scripts\tebunko\startup';`$gui=Join-Path `$root 'scripts\tebunko\gui.ps1';"
+        $step2Unblock = "Get-ChildItem -LiteralPath (Join-Path `$root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; "
+        $step3TryGui = "try { & `$gui } catch { `$err = `$_; "
+        $step4PickReason = "if (`$ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { `$reason = Join-Path `$startup 'constrained_language.txt' } elseif (-not (Test-Path -LiteralPath `$gui)) { `$reason = Join-Path `$startup 'missing_files.txt' } elseif (`$err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { `$reason = Join-Path `$startup 'execution_policy.txt' } else { `$reason = Join-Path `$startup 'failed.txt' }; `$reasonLines = @(if (Test-Path -LiteralPath `$reason) { Get-Content -LiteralPath `$reason -Encoding UTF8 } else { @('tebunko could not start.') }); "
+        $step5Detail = "`$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f `$root), ('LanguageMode: {0}' -f `$ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f `$PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f `$err.Exception.Message)); `$allLines = `$reasonLines + '' + `$detailLines; "
+        $step6WriteShow = "`$openTarget = `$reason; foreach (`$candidate in @((Join-Path `$env:LOCALAPPDATA 'tebunko\startup_error.txt'), (Join-Path `$env:TEMP 'tebunko_startup_error.txt'))) { try { `$dir = Split-Path -Parent `$candidate; if (-not (Test-Path -LiteralPath `$dir)) { New-Item -ItemType Directory -Force -Path `$dir -ErrorAction Stop | Out-Null }; Set-Content -LiteralPath `$candidate -Value `$allLines -Encoding UTF8 -ErrorAction Stop; `$openTarget = `$candidate; break } catch { } }; & `$opener `$openTarget }"
+
+        $expected = $step1Prepare + $step2Unblock + $step3TryGui + $step4PickReason + $step5Detail + $step6WriteShow
+        $script:launcherCommand | Should -Be $expected
     }
 }
 
