@@ -1,5 +1,5 @@
 ﻿# 画面のスモークテスト S4: 検索の遷移（共通の関数は gui_helpers.ps1）。
-# 画面遷移の一覧（docs\design\testing\index.md「画面のスモークテスト」）の #24・#25・#27・#29 を確かめる。
+# 画面遷移の一覧（docs\design\testing\gui-smoke.md「画面のスモークテスト」）の #24・#25・#27・#29 を確かめる。
 # #28（右クリックのメニュー・プレビューのメニュー）は対象外（UI オートメーションではメニューを開けない）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"

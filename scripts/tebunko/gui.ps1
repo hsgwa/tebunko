@@ -119,7 +119,7 @@ trap {
 . "$PSScriptRoot\core\settings.ps1"
 
 # 検索・画面の裏の仕事も同じプロセスのスレッドで動くため、画面を止める重い GC（全体の GC）をなるべく後回しにする
-# （docs/design/architecture/threads.md「GC とメモリ」）
+# （docs/design/structure/closing.md「GC とメモリ」）
 [System.Runtime.GCSettings]::LatencyMode = [System.Runtime.GCLatencyMode]::SustainedLowLatency
 
 ${searchLimit} = 10000
@@ -248,7 +248,7 @@ ${grayBrush} = themeBrush "Ink.Muted"
 # 投げた例外や、XAML の描画中に WPF が投げる例外を、画面のスレッドの Dispatcher で受ける
 [void](registerUnhandledErrorHandler $window.Dispatcher)
 # 画面から頼む短い仕事（startJob）のスレッド。長い仕事（件数の数え上げ等）の間もプレビューが待たないよう 2 つにする。
-# 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/design/architecture/threads.md「スレッドの一覧」）。
+# 各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む（docs/design/structure/threads.md「スレッドの一覧」）。
 # 列を作る式は 1 か所にまとめ、既定の列はここで作り、ネットワークの列は shell.ps1 に式（factory）だけ渡して
 # 初めて使うときに作らせる（届かない共有が無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
 $newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, ". '$(${libPath}.Replace("'", "''"))'", $Host) }
@@ -353,7 +353,7 @@ $window.Add_PreviewKeyDown({
     }
 })
 
-# 閉じるときの順番（docs/design/architecture/threads.md「閉じるときの順番」）。インデックス作成は画面のプロセスのスレッドで動くため、
+# 閉じるときの順番（docs/design/structure/closing.md「閉じるときの順番」）。インデックス作成は画面のプロセスのスレッドで動くため、
 # 止めてから閉じる。止め終わるまで閉じるのを保留し、closeTimer が終わりを待ってから閉じ直す
 $script:closeWaiting = $false   # インデックス作成が止まるのを待っている
 $script:closeDeadline = $null   # これを過ぎたら、インデックス作成が起動した Office を止める
@@ -585,7 +585,7 @@ try {
     [void]$window.ShowDialog()
 } finally {
     # インデックス作成のスレッド、検索の司令のスレッドと照合のプール、画面の裏の仕事のスレッドを片づける
-    # （docs/design/architecture/threads.md「閉じるときの順番」）。片づける順番はそのまま変えない。
+    # （docs/design/structure/closing.md「閉じるときの順番」）。片づける順番はそのまま変えない。
     # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）だけ、止まった仕事（届かない共有の
     # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
     $script:closeTimer.Stop()

@@ -40,11 +40,11 @@ function scan { param([string[]]$Pattern)
 
 実行時コンパイル（`csc.exe` の起動）を使わないのは設計方針である。検索処理・画面の型定義などは C# を使わず PowerShell と .NET の直接呼び出しで書いている（[画面の実装](../design/gui/implementation.md#実行時コンパイルcscexeを使わない)）。実行時に一時フォルダへコンパイル結果を書き出す動作が無いため、EDR やアプリケーション制御（AppLocker・WDAC）との衝突も避けられる。`tests/meta/safety.Tests.ps1` の「実行時にコードをコンパイルしない」が、`Add-Type` は標準アセンブリの読み込み（`-AssemblyName`）だけであることを確かめる。
 
-**内部の型のリフレクション（14）**：フォルダ選択（`shared/ui/folder_dialog.ps1` の `showFolderPicker`）だけが、WinForms が内部に持つ `IFileOpenDialog` の定義（`FileDialogNative+IFileDialog`）をリフレクション（`BindingFlags` の `NonPublic`）で呼ぶ。Windows 標準のエクスプローラー形式のダイアログを、実行時コンパイルなしで開くためである（[フォルダ選択ダイアログ（［参照…］）](../design/gui/index-tab.md#フォルダ選択ダイアログ参照)）。呼ぶのは .NET Framework に署名付きで入っている WinForms のダイアログの処理だけで、メモリの書き換えや AMSI などの検査の仕組みには触れない。開いている間に `csc.exe` などの子プロセスと一時フォルダへの DLL の書き出しが無いことを実機で確かめた。なお、Windows PowerShell 5.1 は `Add-Type`・`BindingFlags`・`NonPublic`・`GetMethod`・`IntPtr`・`InteropServices` などの語を含むスクリプトを、ログの設定に関わらずイベントログ（Microsoft-Windows-PowerShell/Operational の 4104、警告）に自動で記録する。本ツールはこの変更の前から `Add-Type` などで記録の対象である。`tests/meta/safety.Tests.ps1` が、`NonPublic` を使うのがこの 1 か所だけであることを確かめる。
+**内部の型のリフレクション（14）**：フォルダ選択（`shared/ui/folder_dialog.ps1` の `showFolderPicker`）だけが、WinForms が内部に持つ `IFileOpenDialog` の定義（`FileDialogNative+IFileDialog`）をリフレクション（`BindingFlags` の `NonPublic`）で呼ぶ。Windows 標準のエクスプローラー形式のダイアログを、実行時コンパイルなしで開くためである（[フォルダ選択ダイアログ（［参照…］）](../design/gui/common.md#フォルダ選択ダイアログ参照)）。呼ぶのは .NET Framework に署名付きで入っている WinForms のダイアログの処理だけで、メモリの書き換えや AMSI などの検査の仕組みには触れない。開いている間に `csc.exe` などの子プロセスと一時フォルダへの DLL の書き出しが無いことを実機で確かめた。なお、Windows PowerShell 5.1 は `Add-Type`・`BindingFlags`・`NonPublic`・`GetMethod`・`IntPtr`・`InteropServices` などの語を含むスクリプトを、ログの設定に関わらずイベントログ（Microsoft-Windows-PowerShell/Operational の 4104、警告）に自動で記録する。本ツールはこの変更の前から `Add-Type` などで記録の対象である。`tests/meta/safety.Tests.ps1` が、`NonPublic` を使うのがこの 1 か所だけであることを確かめる。
 
 ## Office ファイルを開くときの設定
 
-インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（`shared/office/office_app.ps1:79-96`）。`tests/meta/safety.Tests.ps1` の「Office ファイルを安全に開くこと」がこれを確かめる。**利用者の PowerPoint には接続しない**（1 つのセッションに 1 つのプロセスしか持てず、接続すると下の設定を利用者のアプリまで書き換えてしまうため）。起動する前に自分のセッションに `POWERPNT` が無いかを確かめ、あれば設定を行わずに例外にする（[Office アプリ（Excel・Word・PowerPoint）の管理](../design/indexer/office-apps.md#office-アプリexcelwordpowerpointの管理)「PowerPoint」）。
+インデックス作成のために Excel・Word・PowerPoint を COM で操作するが、アプリを起動したときに次の設定を行う（`shared/office/office_app.ps1:79-96`）。`tests/meta/safety.Tests.ps1` の「Office ファイルを安全に開くこと」がこれを確かめる。**利用者の PowerPoint には接続しない**（1 つのセッションに 1 つのプロセスしか持てず、接続すると下の設定を利用者のアプリまで書き換えてしまうため）。起動する前に自分のセッションに `POWERPNT` が無いかを確かめ、あれば設定を行わずに例外にする（[Office アプリ（Excel・Word・PowerPoint）の管理](../design/indexing/office-apps.md#office-アプリexcelwordpowerpointの管理)「PowerPoint」）。
 
 | 設定 | 値 | 意味 |
 |---|---|---|
@@ -67,7 +67,7 @@ Excel は、セルの値をテキストに書き出すために、すべての�
 |---|---|---|
 | `tebunko/ui/index_tab.ps1:618`・`623`、`tebunko/ui/open_source.ps1:311` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
 
-インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/architecture/threads.md#プロセス)）。
+インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/structure/threads.md#プロセス)）。
 
 元のファイルを開く操作（`tebunko/ui/open_source.ps1:125`）では、`Start-Process` ではなく `ProcessStartInfo` を使う（`Start-Process` は `[` `]` を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。
 

@@ -92,7 +92,7 @@ From then on, the following checks run on every commit. If a check fails, fix th
 - **Do not write tests only to raise the number.** Test behavior at the unit level. If several tests differ only in input and expected value, put them in one `It` with `-TestCases`.
 - When you change the screen, start the tool with `tebunko.bat` and check it.
 
-How the tests are organized and what CI does is described in [docs/design/testing/index.md](../docs/design/testing/index.md) (Japanese).
+How the tests are organized is described in [docs/design/testing/run.md](../docs/design/testing/run.md), and what CI does is described in [docs/design/testing/ci.md](../docs/design/testing/ci.md) (Japanese).
 
 ## Coding rules
 
