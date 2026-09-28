@@ -473,7 +473,9 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
 
     It "部品（XML）が壊れたグラフは空にし、同じアンカーのテキストボックスは出す。読めなかった部品を $failures に返す" {
         @($units["S[図形]"])[4] | Should -Be "A16`tテキストボックス2"
-        @($failures) | Should -Contain "xl/charts/broken.xml"
+        # $failures はこのフィクスチャー全体（シート S と 壊れたrels）で読めなかった部品を集めたもの。
+        # 期待する失敗の一覧を全部並べて比べる（一部だけの確かめだと、ほかの失敗が紛れ込んでも気付けない）
+        @($failures) | Should -Be @("xl/charts/broken.xml", "xl/drawings/drawing4.xml")
     }
 
     It "グラフ・SmartArt が読めなくても、同じシートのほかの図形・コメントは出る" {
@@ -495,7 +497,7 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
 
     It "図形の部品自身のリレーションシップ（drawingN.xml.rels）が壊れていても、そのグラフだけを空にし、ほかの図形は出す" {
         @($units["壊れたrels[図形]"]) -join "|" | Should -Be "A6`t壊れたrelsでも出る図形"
-        @($failures) | Should -Contain "rId1"
+        @($failures) | Should -Be @("xl/charts/broken.xml", "xl/drawings/drawing4.xml")
     }
 }
 

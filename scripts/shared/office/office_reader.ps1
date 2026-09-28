@@ -775,8 +775,14 @@ function readXlsxShapeRows {
                 $text = readObjectText $zip $rels $object
             } catch {
                 if ($null -ne $failures) {
-                    $rel = $(if ($rels) { $rels[[string]$object.RelId] } else { $null })
-                    $failures.Add($(if ($rel) { $rel.Target } else { [string]$object.RelId }))
+                    if ($null -eq $rels -and $drawingPath) {
+                        # リレーションシップ自体（drawingN.xml.rels）が読めなかった場合は、図形の部品の名前を記録する
+                        # （$object.RelId だけでは、どの部品が壊れているのか分からないため）
+                        $failures.Add($drawingPath)
+                    } else {
+                        $rel = $(if ($rels) { $rels[[string]$object.RelId] } else { $null })
+                        $failures.Add($(if ($rel) { $rel.Target } else { [string]$object.RelId }))
+                    }
                 }
             }
             if ($text -ne "") {
