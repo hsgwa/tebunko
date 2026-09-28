@@ -573,26 +573,35 @@ function showIndexImportDialog {
     $ctrl.NameBox.Text = $suggestedName
     $ctrl.NoticeText.Visibility = "Collapsed"
 
+    # 追加・編集のダイアログ（editIndex の $script:editDialog）と同じく、ボタンの Click からは
+    # script スコープの入れ物を参照する。GetNewClosure() でこの関数のローカル変数（$ctrl・$dialog）を
+    # 取り込むと、tebunko.bat の起動（powershell -Command "...; & gui.ps1"）のように呼び出しが
+    # 入れ子になっている実機では、閉じ込めたスクリプトブロックから名前で関数を解決できなくなるため
+    # （continueImportIndex で見つかった不具合と同じ原因。PR 本文の「再発防止」を参照）、ここでは使わない
+    $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl }
+
     $ctrl.BrowseButton.Add_Click({
         safe {
-            $initial = normalizeFolderPath $ctrl.FolderBox.Text
-            $path = selectFolder "インポートしたインデックスの、今の元のフォルダを選んでください" $initial $dialog $false
+            $d = $script:importDialog
+            $initial = normalizeFolderPath $d.Ctrl.FolderBox.Text
+            $path = selectFolder "インポートしたインデックスの、今の元のフォルダを選んでください" $initial $d.Window $false
             if ($path) {
-                $ctrl.FolderBox.Text = $path
+                $d.Ctrl.FolderBox.Text = $path
             }
         }
-    }.GetNewClosure())
+    })
     $ctrl.OkButton.Add_Click({
         safe {
-            $message = testIndexImportInput $ctrl.FolderBox.Text $ctrl.NameBox.Text
+            $d = $script:importDialog
+            $message = testIndexImportInput $d.Ctrl.FolderBox.Text $d.Ctrl.NameBox.Text
             if ($message -ne "") {
-                $ctrl.ErrorText.Text = $message
-                $ctrl.ErrorText.Visibility = "Visible"
+                $d.Ctrl.ErrorText.Text = $message
+                $d.Ctrl.ErrorText.Visibility = "Visible"
                 return
             }
-            $dialog.DialogResult = $true
+            $d.Window.DialogResult = $true
         }
-    }.GetNewClosure())
+    })
 
     $result = $null
     if ($dialog.ShowDialog()) {
@@ -612,13 +621,18 @@ function newImportIndex {
     }
 
     # onSuccess は別のスレッドの完了を受けて、あとから（別の呼び出しの流れで）実行される。
-    # $zipPath（この関数のローカル変数）を参照するため、GetNewClosure() で今の値を取り込む
+    # $zipPath（この関数のローカル変数）を参照するため、GetNewClosure() で今の値を取り込む。
+    # continueImportIndex は名前のまま呼ばず、openFailedFileFolder と同じく ${function:...} で先に
+    # 関数の実体を変数に取り込んでから & で呼ぶ（GetNewClosure() したスクリプトブロックは、
+    # tebunko.bat の起動（powershell -Command "...; & gui.ps1"）のように呼び出しが入れ子になっていると、
+    # 名前による関数の解決ができないため）
+    $continueImport = ${function:continueImportIndex}
     startIndexArchiveJob "インポート" {
         param ($zipPath)
         readIndexArchiveInfo $zipPath
     } @($zipPath) {
         param ($info)
-        continueImportIndex $zipPath $info
+        & $continueImport $zipPath $info
     }.GetNewClosure()
 }
 

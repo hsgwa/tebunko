@@ -92,8 +92,13 @@ function readGuiConfig {
 }
 
 function startGuiProcess {
+    # tebunko.bat と同じ、呼び出し演算子 & での起動にする（-File で直接起動すると、実物の tebunko.bat
+    # （powershell -Command "...; & 'gui.ps1'"）より入れ子が 1 段浅くなり、その 1 段の違いで
+    # .GetNewClosure() したスクリプトブロックが関数を名前で解決できなくなる不具合（#149 で見つかった）を
+    # このテストがすり抜けてしまうため）
     param ($Tool)
-    $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-File", "`"$($Tool.Gui)`"") -PassThru -WindowStyle Hidden
+    $command = "& '$($Tool.Gui.Replace("'", "''"))'"
+    $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", $command) -PassThru -WindowStyle Hidden
     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
     return $p
 }
