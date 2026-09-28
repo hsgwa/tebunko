@@ -68,8 +68,17 @@ Describe "getIndexJobBlockedMessage" -Tag Unit {
         getIndexJobBlockedMessage "" "エクスポート" | Should -Be ""
     }
 
-    It "blocker があれば、終わるまで待つよう伝える" {
-        getIndexJobBlockedMessage "インデックス作成中" "エクスポート" | Should -Be "インデックス作成中はエクスポートできません。終わるまでお待ちください。"
+    It "<blocker> のとき、<operation> の案内を返す" -TestCases @(
+        @{ blocker = "インデックス作成中"; operation = "エクスポート"; expected = "インデックス作成中はインデックスをエクスポートできません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" }
+        @{ blocker = "インデックス作成中"; operation = "追加"; expected = "インデックス作成中はインデックスを追加できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" }
+        @{ blocker = "削除中"; operation = "インポート"; expected = "削除中はインポートできません。終わるまでお待ちください。" }
+        @{ blocker = "エクスポート・インポート中"; operation = "削除"; expected = "エクスポート・インポート中は削除できません。終わるまでお待ちください。" }
+        @{ blocker = "インデックス作成中"; operation = "ワークスペースの変更"; expected = "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" }
+        @{ blocker = "削除中"; operation = "ワークスペースの変更"; expected = "前のインデックスの削除が終わるまでお待ちください。" }
+        @{ blocker = "エクスポート・インポート中"; operation = "ワークスペースの変更"; expected = "エクスポート・インポートが終わるまでお待ちください。" }
+    ) {
+        param ($blocker, $operation, $expected)
+        getIndexJobBlockedMessage $blocker $operation | Should -Be $expected
     }
 }
 
@@ -77,29 +86,27 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "何も動いておらず、選んでいる: すべて有効"
            blocker = ""; hasSelection = $true
-           new = $true; edit = $true; remove = $true; indexing = $true; export = $true; import = $true; changeWorkspace = $true }
-        @{ label = "何も動いていないが、選んでいない: 追加・作成・インポート・ワークスペースの変更だけ有効"
+           new = $true; edit = $true; remove = $true; export = $true; import = $true }
+        @{ label = "何も動いていないが、選んでいない: 追加・インポートだけ有効"
            blocker = ""; hasSelection = $false
-           new = $true; edit = $false; remove = $false; indexing = $true; export = $false; import = $true; changeWorkspace = $true }
-        @{ label = "インデックス作成中: すべて無効（エクスポート・インポート・ワークスペースの変更を含む）"
+           new = $true; edit = $false; remove = $false; export = $false; import = $true }
+        @{ label = "インデックス作成中: すべて無効（エクスポート・インポートを含む）"
            blocker = "インデックス作成中"; hasSelection = $true
-           new = $false; edit = $false; remove = $false; indexing = $false; export = $false; import = $false; changeWorkspace = $false }
-        @{ label = "削除中: すべて無効（エクスポート・インポート・ワークスペースの変更を含む）"
+           new = $false; edit = $false; remove = $false; export = $false; import = $false }
+        @{ label = "削除中: すべて無効（エクスポート・インポートを含む）"
            blocker = "削除中"; hasSelection = $true
-           new = $false; edit = $false; remove = $false; indexing = $false; export = $false; import = $false; changeWorkspace = $false }
-        @{ label = "エクスポート・インポート中: すべて無効（追加・編集・削除・作成・ワークスペースの変更を含む）"
+           new = $false; edit = $false; remove = $false; export = $false; import = $false }
+        @{ label = "エクスポート・インポート中: すべて無効（追加・編集・削除を含む）"
            blocker = "エクスポート・インポート中"; hasSelection = $true
-           new = $false; edit = $false; remove = $false; indexing = $false; export = $false; import = $false; changeWorkspace = $false }
+           new = $false; edit = $false; remove = $false; export = $false; import = $false }
     ) {
-        param ($label, $blocker, $hasSelection, $new, $edit, $remove, $indexing, $export, $import, $changeWorkspace)
+        param ($label, $blocker, $hasSelection, $new, $edit, $remove, $export, $import)
         $result = getIndexTabButtonsEnabled $blocker $hasSelection
         $result.New | Should -Be $new
         $result.Edit | Should -Be $edit
         $result.Remove | Should -Be $remove
-        $result.Indexing | Should -Be $indexing
         $result.Export | Should -Be $export
         $result.Import | Should -Be $import
-        $result.ChangeWorkspace | Should -Be $changeWorkspace
     }
 }
 

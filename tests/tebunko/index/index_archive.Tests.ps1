@@ -33,6 +33,17 @@ BeforeAll {
         return @{ Workspace = $ws; SettingsPath = $settingsPath; RelPath = $relPath; Text = $text; PackPath = $packPath }
     }
 
+    function getStatusRowArray {
+        # 取り込み一覧の行（readStatusFile の Rows）を配列にする（値の集合を @() に渡すと型の不一致になる環境があるため、1 件ずつ足す）
+        param ($status)
+
+        $list = New-Object System.Collections.Generic.List[object]
+        foreach ($row in $status.Rows.Values) {
+            $list.Add($row)
+        }
+        return , $list.ToArray()
+    }
+
     function readSearchWord {
         # ワークスペース ws のインデックスから word を検索し、当たった行を返す（pack_search.ps1）
         param ($ws, [string]$word)
@@ -89,6 +100,7 @@ Describe "exportIndex" -Tag Io {
 
         $result = exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath
 
+        $result.Name | Should -Be "営業"
         $result.Path | Should -Be $dest
         $result.Files | Should -Be 2
         Test-Path -LiteralPath $dest | Should -Be $true
@@ -200,6 +212,136 @@ Describe "importIndex" -Tag Io {
         $location.Known | Should -Be $true
         $location.Folder | Should -Be "D:\別の場所\営業部"
         (Join-Path $location.Folder (Join-Path $location.Rest "A社.xlsx")) | Should -Be "D:\別の場所\営業部\見積\A社.xlsx"
+    }
+
+    It "取り込み一覧の形: <label>。見出しの行があり、クロール対象フォルダの行は見出しの前にあり、getIndexNameMap が名前を返す" -TestCases @(
+        @{ label = "空のワークスペースへ"; others = @() }
+        @{ label = "ほかのインデックスがあるワークスペースへ"; others = @("経理", "総務") }
+    ) {
+        param ($label, $others)
+        $fixtureA = newIndexFixture "$TestDrive\shape_a_$($others.Count)" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\shape_$($others.Count).zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $dirB = "$TestDrive\shape_b_$($others.Count)"
+        $wsB = [Workspace]::new($dirB)
+        $settingsB = "$dirB\setting.config"
+        if ($others.Count -gt 0) {
+            $first = newIndexFixture $dirB $others[0] "C:\$($others[0])" "見積\B社.xlsx"
+            $rows = @(getStatusRowArray (readStatusFile $wsB.StatusFile))
+            $extra = newIndexFixture "$TestDrive\shape_x_$($others.Count)" $others[1] "C:\$($others[1])" "見積\C社.xlsx"
+            $folders = @((readStatusFile $wsB.StatusFile).Folders.ToArray()) + @([pscustomobject]@{ Path = "C:\$($others[1])"; Name = $others[1] })
+            $rows += @(getStatusRowArray (readStatusFile $extra.Workspace.StatusFile))
+            writeStatusFile $folders $rows $wsB.StatusFile
+        }
+
+        importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB $settingsB | Out-Null
+
+        $lines = @(readStatusLines $wsB.StatusFile)
+        $header = ${statusColumns} -join "`t"
+        $headerIndex = [array]::IndexOf($lines, $header)
+        $headerIndex | Should -BeGreaterOrEqual 0
+        @($lines | Select-Object -First $headerIndex | Where-Object { $_.StartsWith(${statusFolderKey} + "`t") }).Count | Should -Be (1 + $others.Count)
+        @($lines | Select-Object -Skip ($headerIndex + 1) | Where-Object { $_.StartsWith(${statusFolderKey} + "`t") }).Count | Should -Be 0
+
+        $map = getIndexNameMap $wsB.StatusFile
+        $map["営業"] | Should -Be "D:\別の場所\営業部"
+        foreach ($other in $others) {
+            $map[$other] | Should -Be "C:\$other"
+        }
+        (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
+    }
+
+    It "取り込み一覧の形: 上書きでは前の行・前のクロール対象フォルダの行が残らず、ほかのインデックスの行は残る" {
+        $fixtureA = newIndexFixture "$TestDrive\shape_ow_a" "営業" "C:\共有\営業部" "見積\A社.xlsx"
+        $dest = "$TestDrive\shape_ow.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\shape_ow_b" "営業" "C:\前の場所" "前の資料\旧.xlsx"
+        $status = readStatusFile $fixtureB.Workspace.StatusFile
+        $rows = @(getStatusRowArray $status) + @(newStatusRow "経理\月次.xlsx" "2024/01/01 00:00:00" "10" ${stateDone} "1" "2024/01/01 00:00:00" "" "")
+        $folders = @($status.Folders.ToArray()) + @([pscustomobject]@{ Path = "C:\経理"; Name = "経理" })
+        writeStatusFile $folders $rows $fixtureB.Workspace.StatusFile
+
+        importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $fixtureB.Workspace $fixtureB.SettingsPath | Out-Null
+
+        $after = readStatusFile $fixtureB.Workspace.StatusFile
+        @($after.Rows.Keys | Sort-Object) | Should -Be @("営業\見積\A社.xlsx", "経理\月次.xlsx")
+        @($after.Folders | ForEach-Object { "$($_.Name)|$($_.Path)" } | Sort-Object) | Should -Be @("営業|C:\新しい場所", "経理|C:\経理")
+    }
+
+    It "取り込み一覧の形: 取り込み一覧のエラー列にタブ・改行があっても 1 行 1 件を保つ" {
+        $fixtureA = newIndexFixture "$TestDrive\shape_err_a" "営業" "C:\共有\営業部"
+        $status = readStatusFile $fixtureA.Workspace.StatusFile
+        $status.Rows["営業\見積\A社.xlsx"].エラー = "開けません`tまたは`r`n壊れています"
+        $status.Rows["営業\見積\A社.xlsx"].状態 = ${stateFailed}
+        writeStatusFile $status.Folders.ToArray() (getStatusRowArray $status) $fixtureA.Workspace.StatusFile
+        $dest = "$TestDrive\shape_err.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $wsB = [Workspace]::new("$TestDrive\shape_err_b")
+        importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB "$($wsB.Dir)\setting.config" | Out-Null
+
+        $row = (readStatusFile $wsB.StatusFile).Rows["営業\見積\A社.xlsx"]
+        $row.状態 | Should -Be ${stateFailed}
+        $row.エラー | Should -Be "開けません または 壊れています"
+    }
+
+    It "その後 B でインデクサが動かすシステムインデックスの更新で、system_index の txt ができ、対応済みになる" {
+        $fixtureA = newIndexFixture "$TestDrive\sysidx_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\sysidx.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+        $wsB = [Workspace]::new("$TestDrive\sysidx_b")
+        importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$($wsB.Dir)\setting.config" | Out-Null
+        Test-Path -LiteralPath $wsB.SystemIndexDir | Should -Be $false
+
+        $result = updateSystemIndexes $wsB.IndexDir $wsB.SystemIndexDir $wsB.SystemIndexStateFile { $false }
+
+        $result.Built | Should -BeGreaterThan 0
+        $result.Unfinished | Should -Be 0
+        @(Get-ChildItem -LiteralPath $wsB.SystemIndexDir -Recurse -Filter "*.txt").Count | Should -BeGreaterThan 0
+        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Contains("営業") | Should -Be $true
+    }
+
+    It "上書き: 前の行・前のシステムインデックスが残らず、設定の並びが変わらない" {
+        $fixtureA = newIndexFixture "$TestDrive\ow_a" "営業" "C:\共有\営業部" "見積\A社.xlsx"
+        $dest = "$TestDrive\ow.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\ow_b" "営業" "C:\前の場所" "前の資料\旧.xlsx"
+        $wsB = $fixtureB.Workspace
+        writeTargetFolders @(
+            [pscustomobject]@{ Name = "経理"; Path = "C:\経理"; Enabled = $true }
+            [pscustomobject]@{ Name = "営業"; Path = "C:\前の場所"; Enabled = $true }
+            [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $true }
+        ) $fixtureB.SettingsPath
+        # 前のシステムインデックス（営業の txt と、対応済みの記録）
+        [void](updateSystemIndexes $wsB.IndexDir $wsB.SystemIndexDir $wsB.SystemIndexStateFile { $false })
+        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $true
+
+        importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $fixtureB.SettingsPath | Out-Null
+
+        (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\前の資料\旧.xlsx") | Should -Be $false
+        (readStatusFile $wsB.StatusFile).Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\前の資料") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $false
+        (readSystemIndexState $wsB.SystemIndexStateFile).Covered.Contains("営業") | Should -Be $false
+        @(getTargetFolders $fixtureB.SettingsPath | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("経理|C:\経理", "営業|C:\新しい場所", "総務|C:\総務")
+    }
+
+    It "空き容量: 調べられないとき（UNC・例外・`$null）は確かめを飛ばしてインポートできる" -TestCases @(
+        @{ label = "`$null を返す"; getFreeSpace = { param ($root) $null } }
+        @{ label = "例外になる"; getFreeSpace = { param ($root) throw "調べられない" } }
+    ) {
+        param ($label, $getFreeSpace)
+        $fixtureA = newIndexFixture "$TestDrive\freeunknown_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
+        $dest = "$($fixtureA.Workspace.Dir)\freeunknown.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+        $wsB = [Workspace]::new("$TestDrive\freeunknown_b_$([Guid]::NewGuid().ToString('N'))")
+
+        $result = importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB "$($wsB.Dir)\setting.config" $getFreeSpace
+
+        $result.Name | Should -Be "営業"
     }
 
     It "差分だけ: 元のフォルダが同じファイル（更新日時・サイズが同じ）は取り込み対象が 0 件になる" {
@@ -466,7 +608,7 @@ Describe "importIndex" -Tag Io {
         Test-Path -LiteralPath $wsB.IndexDir | Should -Be $false
     }
 
-    It "戻す: 取り込み一覧を書けなければ、上書きの前の状態に戻り、設定のほかの項目は消えない" {
+    It "戻す: 取り込み一覧を書けなければ、上書きの前の状態に戻る（フォルダ・取り込み一覧・設定の並びとほかの項目・検索から外した記録）" {
         $fixtureA = newIndexFixture "$TestDrive\revert_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\revert.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
@@ -474,21 +616,70 @@ Describe "importIndex" -Tag Io {
         $fixtureB = newIndexFixture "$TestDrive\revert_b" "営業" "C:\前の場所"
         $wsB = $fixtureB.Workspace
         $settingsB = $fixtureB.SettingsPath
+        writeTargetFolders @(
+            [pscustomobject]@{ Name = "経理"; Path = "C:\経理"; Enabled = $false }
+            [pscustomobject]@{ Name = "営業"; Path = "C:\前の場所"; Enabled = $true }
+            [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $true }
+        ) $settingsB
         writeSearchOption @{ UseRegex = $true } $settingsB
+        writeSearchExcludes @([pscustomobject]@{ Path = (Join-Path $wsB.IndexDir "営業\見積"); Subfolders = $true }) $settingsB
+        $packBefore = [System.IO.File]::ReadAllBytes($fixtureB.PackPath)
+        $statusBefore = [System.IO.File]::ReadAllText($wsB.StatusFile)
 
-        # 取り込み一覧を開いたままにして writeTextLinesAtomic を失敗させる
-        $stream = [System.IO.File]::Open($wsB.StatusFile, "Open", "Read", "None")
-        try {
-            { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw
-        } finally {
-            $stream.Dispose()
-        }
+        # 取り込み一覧の書き込みだけを失敗させる（設定の登録と content_index の入れ替えまでは進む）
+        Mock writeTextLinesAtomic { throw "取り込み一覧を書けない" } -ParameterFilter { $path -eq $wsB.StatusFile }
+        { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*取り込み一覧を書けない*"
 
-        $targets = @(getTargetFolders $settingsB)
-        $targets.Count | Should -Be 1
-        $targets[0].Path | Should -Be "C:\前の場所"
-        (readSearchOption $settingsB).UseRegex | Should -Be $true
+        # content_index\営業 は前の中身のまま
+        [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\元のフォルダ.txt") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
+        # 取り込み一覧は変わらない
+        [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
+        # 設定の並びと、ほかの項目・検索から外した記録が元に戻る
+        $targets = @(getTargetFolders $settingsB)
+        @($targets | ForEach-Object { "$($_.Name)|$($_.Path)|$($_.Enabled)" }) | Should -Be @("経理|C:\経理|False", "営業|C:\前の場所|True", "総務|C:\総務|True")
+        (readSearchOption $settingsB).UseRegex | Should -Be $true
+        @(readSearchExcludes $settingsB).Count | Should -Be 1
+    }
+
+    It "戻す: 設定に書けなければ、何も変えずに終わり、作業フォルダも残らない" {
+        $fixtureA = newIndexFixture "$TestDrive\revert_set_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\revert_set.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\revert_set_b" "営業" "C:\前の場所"
+        $wsB = $fixtureB.Workspace
+        $settingsB = $fixtureB.SettingsPath
+        $packBefore = [System.IO.File]::ReadAllBytes($fixtureB.PackPath)
+        $statusBefore = [System.IO.File]::ReadAllText($wsB.StatusFile)
+
+        Mock writeTargetFolders { throw "設定を書けない" }
+        { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*設定を書けない*"
+
+        [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
+        [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
+        @(getTargetFolders $settingsB)[0].Path | Should -Be "C:\前の場所"
+    }
+
+    It "戻す: content_index を入れ替えられなければ、前のフォルダを戻し、設定も元に戻る" {
+        $fixtureA = newIndexFixture "$TestDrive\revert_swap_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\revert_swap.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\revert_swap_b" "営業" "C:\前の場所"
+        $wsB = $fixtureB.Workspace
+        $settingsB = $fixtureB.SettingsPath
+        $packBefore = [System.IO.File]::ReadAllBytes($fixtureB.PackPath)
+
+        # 設定の登録の後の、content_index の入れ替えを失敗させる
+        Mock swapInImportedIndexDir { throw "入れ替えられない" }
+        { importIndex $dest ${importCollisionOverwrite} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*入れ替えられない*"
+
+        [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
+        @(getTargetFolders $settingsB)[0].Path | Should -Be "C:\前の場所"
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
     }
 
     It "パス: 260 文字を超えるパスの本文インデックスで往復できる" {
@@ -524,24 +715,57 @@ Describe "importIndex" -Tag Io {
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir "[確定]見積\見積\content_index.xlsx.001.tsv") | Should -Be $true
     }
 
-    It "壊れた行: 本文インデックスの中身（版の行）が壊れていても、大きさと SHA-256 が合っていればインポート自体は止まらない" {
-        # インポートは本文インデックスのファイルの中身の形（pack_format.ps1 の版など）を確かめない
-        # （大きさと SHA-256 で、作ったときのままであることだけを見る）。検索側での扱いはこの PR の範囲外
-        $fixtureA = newIndexFixture "$TestDrive\brokenpack_a" "営業" "C:\共有\営業部"
+    It "壊れた行: <label> でも、インポートは止まらず、検索も例外にならない" -TestCases @(
+        @{ label = "メタ情報の行に = が無い"; broken = { param ($t) $t.Replace("シート=Sheet1", "シート") } }
+        @{ label = "中身の行が途中で切れている（末尾が欠けた）"; broken = { param ($t) $t.Substring(0, $t.IndexOf("鉛筆") + 1) } }
+        @{ label = "メタ情報の行だけで中身が無い"; broken = { param ($t) $t.Substring(0, $t.IndexOf("品名")) } }
+    ) {
+        param ($label, $broken)
+        # インポートは本文インデックスのファイルの中身の形を確かめない（大きさと SHA-256 で、作ったときのままであることだけを見る）。
+        # 壊れた行があっても、検索が例外で止まらないことをここで確かめる
+        $fixtureA = newIndexFixture "$TestDrive\brokenpack_a_$([Guid]::NewGuid().ToString('N'))" "営業" "C:\共有\営業部"
         $original = [System.IO.File]::ReadAllText($fixtureA.PackPath)
-        $broken = $original -replace "版=1", "版=9"
-        [System.IO.File]::WriteAllText($fixtureA.PackPath, $broken, (New-Object System.Text.UTF8Encoding($true)))
+        [System.IO.File]::WriteAllText($fixtureA.PackPath, (& $broken $original), (New-Object System.Text.UTF8Encoding($true)))
 
-        $dest = "$TestDrive\brokenpack.zip"
+        $dest = "$($fixtureA.Workspace.Dir)\brokenpack.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
 
-        $wsB = [Workspace]::new("$TestDrive\brokenpack_b")
-        $settingsB = "$TestDrive\brokenpack_b\setting.config"
-        $result = importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB
+        $wsB = [Workspace]::new("$TestDrive\brokenpack_b_$([Guid]::NewGuid().ToString('N'))")
+        $result = importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB "$($wsB.Dir)\setting.config"
 
         $result.Files | Should -Be 2
-        $importedPath = Join-Path $wsB.IndexDir "営業\見積\content_index.xlsx.001.tsv"
-        Test-Path -LiteralPath $importedPath | Should -Be $true
-        [System.IO.File]::ReadAllText($importedPath) | Should -Match "版=9"
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\見積\content_index.xlsx.001.tsv") | Should -Be $true
+        { readSearchWord $wsB "鉛筆" } | Should -Not -Throw
+    }
+}
+
+Describe "getWorkspaceFreeSpace" -Tag Io {
+    It "ドライブのルートなら空き容量（バイト）を返す" {
+        $root = [System.IO.Path]::GetPathRoot($TestDrive)
+
+        getWorkspaceFreeSpace $root | Should -BeGreaterThan 0
+    }
+
+    It "UNC（ドライブとして扱えないパス）は `$null を返す（例外にしない）" -TestCases @(
+        @{ root = "\\server\share\" }
+        @{ root = "\\server\share" }
+    ) {
+        param ($root)
+        getWorkspaceFreeSpace $root | Should -Be $null
+    }
+}
+
+Describe "testImportFreeSpace" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "足りていれば空文字列"; free = 5GB; total = 100MB; expectEmpty = $true }
+        @{ label = "「合計 + 1GB」に足りなければ理由を返す"; free = 1GB; total = 100MB; expectEmpty = $false }
+        @{ label = "調べられなければ（`$null）確かめない"; free = $null; total = 100MB; expectEmpty = $true }
+    ) {
+        param ($label, $free, $total, $expectEmpty)
+        $block = { param ($root) $free }.GetNewClosure()
+
+        $reason = testImportFreeSpace ([long]$total) "C:\" $block
+
+        if ($expectEmpty) { $reason | Should -Be "" } else { $reason | Should -BeLike "*空き容量*" }
     }
 }

@@ -233,26 +233,8 @@ function updateIndexListView {
 }
 
 function testIndexOperable {
-    # インデックス作成・削除・エクスポート・インポートが動いている間はインデックスの追加・編集・削除をしない
+    # インデックス作成・削除・エクスポート・インポートが動いている間はインデックスの追加・編集・削除・エクスポート・インポートをしない
     # （インデックスのフォルダ・取り込み一覧を使っているため）
-    param (
-        [string]$operation
-    )
-
-    $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
-    if ($blocker -ne "") {
-        $message = getIndexJobBlockedMessage $blocker $operation
-        if ($blocker -eq "インデックス作成中") {
-            $message = "インデックス作成中はインデックスを${operation}できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。"
-        }
-        showMessage $message "OK" "Warning" | Out-Null
-        return $false
-    }
-    return $true
-}
-
-function testIndexArchiveOperable {
-    # エクスポート・インポートも、上と同じ排他で動いている間はしない
     param (
         [string]$operation
     )
@@ -550,7 +532,7 @@ function startIndexArchiveJob {
 function newExportIndex {
     # ［エクスポート…］。選んだインデックスを 1 つの zip に書き出す
     $item = $ui.IndexGrid.SelectedItem
-    if ($null -eq $item -or !(testIndexArchiveOperable "エクスポート")) {
+    if ($null -eq $item -or !(testIndexOperable "エクスポート")) {
         return
     }
     $folder = selectFolder "エクスポート先のフォルダを選んでください" $workspace.Dir
@@ -621,7 +603,7 @@ function showIndexImportDialog {
 
 function newImportIndex {
     # ［インポート…］。zip を選ぶ。目録を読むのは別スレッド（届かないネットワークの zip で画面が止まらないように）
-    if (!(testIndexArchiveOperable "インポート")) {
+    if (!(testIndexOperable "インポート")) {
         return
     }
     $zipPath = selectZipFile "インポートする zip を選んでください"
@@ -651,6 +633,7 @@ function continueImportIndex {
     $suggestedName = if ($usedNames -contains $info.IndexName) { newIndexName $info.IndexName $usedNames } else { $info.IndexName }
     $result = showIndexImportDialog $suggestedName $info
     if ($null -eq $result) {
+        setStatus "インポートを取りやめました"
         return
     }
 
@@ -663,6 +646,7 @@ function continueImportIndex {
                 @{ Text = "別名で入れる"; Value = "rename" }
             )
         if ($null -eq $answer) {
+            setStatus "インポートを取りやめました"
             return
         }
         $collisionMode = if ($answer -eq "overwrite") { ${importCollisionOverwrite} } else { ${importCollisionRename} }

@@ -81,20 +81,33 @@ function getIndexJobBlockedMessage {
     # 排他で操作をできないときのメッセージ（blocker は getIndexJobBlocker の結果。空なら空文字列）
     param (
         [string]$blocker,
-        [string]$operation   # "追加" "編集" "削除" "エクスポート" "インポート" "インデックス作成" "ワークスペースの変更" など
+        [string]$operation   # "追加" "編集" "削除" "エクスポート" "インポート" "ワークスペースの変更"
     )
 
     if ($blocker -eq "") {
         return ""
+    }
+    if ($operation -eq "ワークスペースの変更") {
+        if ($blocker -eq "インデックス作成中") {
+            return "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。"
+        }
+        if ($blocker -eq "削除中") {
+            return "前のインデックスの削除が終わるまでお待ちください。"
+        }
+        return "エクスポート・インポートが終わるまでお待ちください。"
+    }
+    if ($blocker -eq "インデックス作成中") {
+        return "インデックス作成中はインデックスを${operation}できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。"
     }
     return "${blocker}は${operation}できません。終わるまでお待ちください。"
 }
 
 function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［1 インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove: ［追加…］［編集…］［削除］/ Indexing: ［インデックス作成を開始］
-    #   Export/Import: ［エクスポート…］［インポート…］/ ChangeWorkspace: ［8 設定］の［変更…］
-    # ［エクスポート…］は、ほかに 1 件選んでいるときだけ有効
+    #   New/Edit/Remove: ［追加…］［編集…］［削除］/ Export/Import: ［エクスポート…］［インポート…］
+    # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
+    # （［インデックス作成を開始］は updateIndexingButton が、［8 設定］の［変更…］は押したときに testWorkspaceChangeable が、
+    # 同じ getIndexJobBlocker の結果で止める）
     param (
         [string]$blocker,
         [bool]$hasSelection
@@ -103,7 +116,7 @@ function getIndexTabButtonsEnabled {
     $free = ($blocker -eq "")
     return @{
         New = $free; Edit = ($free -and $hasSelection); Remove = ($free -and $hasSelection)
-        Indexing = $free; Export = ($free -and $hasSelection); Import = $free; ChangeWorkspace = $free
+        Export = ($free -and $hasSelection); Import = $free
     }
 }
 

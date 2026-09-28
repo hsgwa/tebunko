@@ -57,9 +57,12 @@
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `exportIndex` | name, destPath, ws（既定 `$workspace`）, settingsPath（既定 `$settingsFile`） | `@{Path; Files; Bytes}` | 1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。`<destPath>.tmp` に書いてから置き換える | 同上 | 画面（［エクスポート…］） |
+| `exportIndex` | name, destPath, ws（既定 `$workspace`）, settingsPath（既定 `$settingsFile`） | `@{Name; Path; Files; Bytes}` | 1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。`<destPath>.tmp` に書いてから置き換える | 同上 | 画面（［エクスポート…］） |
 | `readIndexArchiveInfo` | zipPath | `@{IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion}` | zip の目録を読んで確かめる（インポートはしない）。インポートの確認ダイアログの既定値に使う | 同上 | 画面（［インポート…］） |
 | `importIndex` | zipPath, collisionMode（`Rename`/`Overwrite`/`Cancel`）, name, sourceFolder, ws, settingsPath | `@{Name; SourcePath; Enabled; Files; Bytes; Warnings}`（`Cancel` は `$null`） | zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ・設定への登録・`content_index\<名前>\` の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す | 同上 | 画面（［インポート…］） |
+| `getWorkspaceFreeSpace` | root | long（調べられなければ `$null`） | ドライブのルートの空き容量。UNC など `DriveInfo` にできないパスは例外にせず `$null` | 同上 | importIndex |
+| `testImportFreeSpace` | totalBytes, root, getFreeSpace | string（足りていれば空） | 空き容量が「合計 + 1GB」に足りなければ理由を返す。調べられない（`$null`・例外）ときは確かめない | 同上 | importIndexCore |
+| `expandImportArchive` / `registerImportedIndexInSettings` / `swapInImportedIndexDir` / `rewriteStatusForImport` | 同上（`importIndexCore` の手順 6〜9） | – | インポートの手順を 1 つずつ。失敗したら自分で戻す（`restoreImportedSettings`・`restoreSwappedIndexDir`）。取り込み一覧は `readStatusFile` → `writeStatusFile` で書く | 同上 | importIndexCore |
 | `getImportIndexName` | suggestedName, usedNames, collisionMode | string（`$null` は Cancel） | 同じ名前のインデックスがあるときの扱いから、インポートで使う名前を決める（`Rename` は `newIndexName` と同じ決まり） | 同上 | importIndex, 画面 |
 | `getExportFileName` | indexName, usedNames（保存先フォルダの既存のファイル名）, now | string | エクスポートの既定のファイル名（`<インデックス名>_インデックス_<yyyyMMdd>.zip`。重なれば `(2)`…） | 同上 | 画面（［エクスポート…］） |
 | `testIndexArchiveManifest` | manifest, entryNames, manifestBytes | string（受け付けられれば空） | zip の目録・エントリーが受け付けられるかを調べる（形式の版・zip slip・重なり・大きさ） | 同上 | openIndexArchive |

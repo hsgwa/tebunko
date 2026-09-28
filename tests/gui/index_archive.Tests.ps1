@@ -35,8 +35,10 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             waitGui $S "書き出しの完了" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*書き出しました*"
             } | Out-Null
+            (getGuiText (findGui $S.Window -Id "StatusText")).Contains("インデックス [営業] を") | Should -BeTrue -Because "書き出したインデックスの名前がステータスに出る"
             $zip = @(Get-ChildItem -LiteralPath $script:exportDest -Filter "*.zip")
             $zip.Count | Should -Be 1
+            $script:zipPath = $zip[0].FullName
 
             setGuiStep $S "一覧から削除（インポートし直すため）"
             clickGui $S $S.Window "RemoveIndexButton" "［削除］"
@@ -59,6 +61,41 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             $row = waitGui $S "一覧に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
             Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業" | Should -BeTrue
+
+            closeGui $S
+        }
+    }
+
+    It "別のワークスペース: ［8 設定］で空のフォルダに切り替えてから、書き出した zip をインポートすると、その中にインデックスができる" {
+        $tool2 = newGuiTool (Join-Path $TestDrive "別のPC")
+        $workspaceB = Join-Path $TestDrive "別のワークスペース"
+        [void][IO.Directory]::CreateDirectory($workspaceB)
+
+        $S = startGui $tool2 "S2c"
+        invokeGuiScene $S {
+            setGuiStep $S "［8 設定］で空のフォルダに切り替える"
+            selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
+            clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
+            useGuiFolderPicker $S $workspaceB
+            answerGuiConfirm $S "ワークスペースを変える確認" "ワークスペースを変えますか" "ワークスペースを変える*" -Like
+            waitGui $S "ワークスペースが切り替わる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceText")) -eq $workspaceB } | Out-Null
+
+            setGuiStep $S "［インポート…］"
+            selectGuiTab $S "IndexTab" "ImportIndexButton"
+            clickGui $S $S.Window "ImportIndexButton" "［インポート…］"
+            useGuiFileOpenPicker $S $script:zipPath
+            $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
+            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
+            clickGui $S $dialog "OkButton" "［OK］"
+            waitGuiWindowClosed $S $dialog "インポートのダイアログ"
+
+            waitGui $S "インポートの完了" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "StatusText")).Contains("インデックス [営業] をインポートしました")
+            } | Out-Null
+            $row = waitGui $S "一覧に出る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
+            (getGuiRowTexts $row) | Should -Contain "営業"
+            Test-Path -LiteralPath "$workspaceB\content_index\営業" | Should -BeTrue -Because "切り替えた先のワークスペースに入る"
+            Test-Path -LiteralPath "$($tool2.Work)\content_index\営業" | Should -BeFalse -Because "切り替える前のワークスペースには入らない"
 
             closeGui $S
         }

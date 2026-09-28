@@ -71,7 +71,7 @@ function writeArchiveFile {
 }
 
 function exportIndex {
-    # 1 つのインデックスを 1 つの zip に書き出す: @{ Path; Files; Bytes }。画面にも利用者にも問い合わせない。
+    # 1 つのインデックスを 1 つの zip に書き出す: @{ Name; Path; Files; Bytes }。画面にも利用者にも問い合わせない。
     # インデックス作成のロックを取れなければ例外（ほかで実行中）
     param (
         [string]$name,
@@ -204,7 +204,7 @@ function exportIndexCore {
         }
         throw
     }
-    return @{ Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes }
+    return @{ Name = $name; Path = $destPath; Files = $manifestFiles.Count; Bytes = $totalBytes }
 }
 
 function openIndexArchive {
@@ -343,14 +343,28 @@ function extractArchiveEntryToFile {
         } finally {
             $dest.Dispose()
         }
+        [void]$sha.TransformFinalBlock([byte[]]@(), 0, 0)
+        $actualHash = [BitConverter]::ToString($sha.Hash).Replace("-", "")
     } finally {
         $source.Dispose()
+        $sha.Dispose()
     }
-    [void]$sha.TransformFinalBlock([byte[]]@(), 0, 0)
-    $actualHash = [BitConverter]::ToString($sha.Hash).Replace("-", "")
-    $sha.Dispose()
     if ($total -ne $expectedSize -or $actualHash -ne $expectedSha256) {
         throw "エントリー「$($entry.FullName)」の大きさか内容が目録と違います。"
+    }
+}
+
+function getWorkspaceFreeSpace {
+    # root（ドライブのルート）の空き容量（バイト）を返す。UNC（\\server\share）など、ドライブとして扱えず調べられないときは $null
+    # （調べられないだけでインポートを止めない。呼び出し側が確かめを飛ばす）
+    param (
+        [string]$root
+    )
+
+    try {
+        return ([System.IO.DriveInfo]$root).AvailableFreeSpace
+    } catch {
+        return $null
     }
 }
 
@@ -365,7 +379,7 @@ function importIndex {
         [string]$sourceFolder = "",
         $ws = $workspace,
         [string]$settingsPath = ${settingsFile},
-        [scriptblock]$getFreeSpace = { param ($root) ([System.IO.DriveInfo]$root).AvailableFreeSpace }
+        [scriptblock]$getFreeSpace = { param ($root) getWorkspaceFreeSpace $root }
     )
 
     $lock = newAppMutex "indexer" $ws.Dir
@@ -379,6 +393,230 @@ function importIndex {
         $lock.Mutex.ReleaseMutex()
         $lock.Mutex.Dispose()
     }
+}
+
+function testImportFreeSpace {
+    # 空き容量が「目録の合計 + 余裕」に足りなければ、理由を返す（足りていれば空文字列）。
+    # 空き容量を調べられないとき（getFreeSpace が $null を返す・例外になる。UNC のワークスペースなど）は確かめない
+    param (
+        [long]$totalBytes,
+        [string]$root,
+        [scriptblock]$getFreeSpace
+    )
+
+    $freeSpace = $null
+    try {
+        $freeSpace = & $getFreeSpace $root
+    } catch {
+    }
+    if ($null -eq $freeSpace) {
+        return ""
+    }
+    $needed = $totalBytes + ${indexArchiveFreeSpaceMargin}
+    if ($freeSpace -lt $needed) {
+        return "保存先の空き容量が足りません（必要 約 $([Math]::Ceiling($needed / 1MB)) MB）。"
+    }
+    return ""
+}
+
+function expandImportArchive {
+    # 7. 目録にあるエントリーを作業フォルダ（<workDir>\new）に展開する（目録のパスからだけ作る。エントリーの名前からは作らない）。
+    # 書き込む前に、大きさと SHA-256 を目録と比べる。元のフォルダ.txt もここで作る。
+    # 返すもの: @{ NewDir; Rows }（Rows は取り込み一覧に足す行。相対パスの先頭にインデックス名を付けたもの）。
+    # 途中で失敗したら、作業フォルダを消して例外にする
+    param (
+        $archive,
+        $fileEntries,
+        [string]$workDir,
+        [string]$finalName,
+        [string]$folder
+    )
+
+    $newDir = Join-Path $workDir "new"
+    removeDirectoryRetry $workDir
+    [System.IO.Directory]::CreateDirectory((toLongPath $newDir)) | Out-Null
+    try {
+        $statusTmpPath = Join-Path $workDir ${indexArchiveStatusEntryName}
+        $statusLines = $null
+        foreach ($file in $fileEntries) {
+            $path = [string]$file.path
+            $entry = $archive.GetEntry($path)
+            if ($null -eq $entry) {
+                throw "目録にあるのに zip に無いエントリーがあります: ${path}"
+            }
+            $size = [long]$file.size
+            $sha256 = [string]$file.sha256
+            if ($path -ceq ${indexArchiveStatusEntryName}) {
+                extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath
+                $bytes = [System.IO.File]::ReadAllBytes((toLongPath $statusTmpPath))
+                $text = ${utf8Bom}.GetString($bytes)
+                $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
+                $reason = testImportedStatusLines $statusLines
+                if ($reason) {
+                    throw "取り込み一覧.tsv を読み込めません（${reason}）"
+                }
+            } else {
+                $rel = $path.Substring("content_index/".Length).Replace("/", "\")
+                extractArchiveEntryToFile $entry $size $sha256 (Join-Path $newDir $rel)
+            }
+        }
+        if ($null -eq $statusLines) {
+            throw "目録に ${indexArchiveStatusEntryName} がありません。"
+        }
+
+        $rows = New-Object System.Collections.Generic.List[object]
+        foreach ($line in @($statusLines | Select-Object -Skip 1)) {
+            $fields = $line.Split("`t")
+            $rows.Add((newStatusRow "${finalName}\$($fields[0])" $fields[1] $fields[2] $fields[3] $fields[4] $fields[5] $fields[6] $fields[7]))
+        }
+
+        $header = "# 検索結果から元のファイルを開くときに使う、インデックス名とクロール対象フォルダの対応です（インデックス作成のたびに作り直します）"
+        writeListFile (Join-Path $newDir ${sourceFolderFileName}) @($header, "${finalName}`t${folder}")
+        return @{ NewDir = $newDir; Rows = $rows.ToArray() }
+    } catch {
+        removeDirectoryRetry $workDir
+        throw
+    }
+}
+
+function restoreImportedSettings {
+    # registerImportedIndexInSettings で変える前の内容（before）に、設定の 3 つの項目（クロール対象・検索だけのインデックス・検索から外したフォルダ）を戻す。
+    # ほかの項目には触らない
+    param (
+        $before,
+        [string]$settingsPath
+    )
+
+    invokeSettingsLocked -path $settingsPath -action {
+        writeTargetFolders $before.Targets $settingsPath
+        if ($before.SourcesChanged) {
+            writeIndexSources $before.Sources $settingsPath
+        }
+        if ($before.ExcludesChanged) {
+            writeSearchExcludes $before.Excludes $settingsPath
+        }
+    } | Out-Null
+}
+
+function registerImportedIndexInSettings {
+    # 8. 設定にインデックスを登録する（クロール対象に名前と元のフォルダを入れる。同じ名前があれば置き換え、同じ名前の検索だけのインデックスは外す。
+    # 上書きなら、前のインデックスの検索から外したフォルダの記録も消す）。
+    # 途中で失敗したら、変える前に戻して例外にする。成功したら、戻すための @{ Targets; Sources; Excludes; SourcesChanged; ExcludesChanged } を返す
+    param (
+        [string]$finalName,
+        [string]$folder,
+        [bool]$overwrite,
+        [string]$indexDir,
+        [string]$settingsPath
+    )
+
+    $before = invokeSettingsLocked -path $settingsPath -action {
+        return @{
+            Targets = @(getTargetFolders $settingsPath); Sources = @(readIndexSources $settingsPath)
+            Excludes = @(readSearchExcludes $settingsPath); SourcesChanged = $false; ExcludesChanged = $false
+        }
+    }
+    try {
+        invokeSettingsLocked -path $settingsPath -action {
+            $enabled = [System.IO.Directory]::Exists((toLongPath $folder))
+            $entry = [pscustomobject]@{ Name = $finalName; Path = $folder; Enabled = $enabled }
+            $targets = New-Object System.Collections.Generic.List[object]
+            $found = $false
+            foreach ($target in $before.Targets) {
+                if ($target.Name -ieq $finalName) {
+                    $targets.Add($entry)
+                    $found = $true
+                } else {
+                    $targets.Add($target)
+                }
+            }
+            if (!$found) {
+                $targets.Add($entry)
+            }
+            writeTargetFolders $targets.ToArray() $settingsPath
+            if (@($before.Sources | Where-Object { $_.Name -ieq $finalName }).Count -gt 0) {
+                $before.SourcesChanged = $true
+                writeIndexSources @($before.Sources | Where-Object { $_.Name -ine $finalName }) $settingsPath
+            }
+            if ($overwrite) {
+                $before.ExcludesChanged = $true
+                [void](removeSearchExcludesUnder $indexDir $settingsPath)
+            }
+        } | Out-Null
+    } catch {
+        restoreImportedSettings $before $settingsPath
+        throw
+    }
+    return $before
+}
+
+function swapInImportedIndexDir {
+    # 9. content_index\<名前> を展開したフォルダ（newDir）に入れ替える。前のフォルダは previous に退避する。
+    # 失敗したら、退避したフォルダを戻して例外にする。成功したら、戻すための @{ TargetDir; PreviousDir; HadPrevious } を返す
+    param (
+        [string]$newDir,
+        [string]$targetDir,
+        [string]$previousDir,
+        [string]$indexRoot
+    )
+
+    $hadPrevious = Test-Path -LiteralPath (toLongPath $targetDir) -PathType Container
+    if ($hadPrevious) {
+        [System.IO.Directory]::Move((toLongPath $targetDir), (toLongPath $previousDir))
+    }
+    try {
+        [System.IO.Directory]::CreateDirectory((toLongPath $indexRoot)) | Out-Null
+        [System.IO.Directory]::Move((toLongPath $newDir), (toLongPath $targetDir))
+    } catch {
+        if ($hadPrevious) {
+            [System.IO.Directory]::Move((toLongPath $previousDir), (toLongPath $targetDir))
+        }
+        throw
+    }
+    return @{ TargetDir = $targetDir; PreviousDir = $previousDir; HadPrevious = $hadPrevious }
+}
+
+function restoreSwappedIndexDir {
+    # swapInImportedIndexDir で入れ替えたフォルダを、入れ替える前に戻す（入れたものを消し、退避した前のフォルダを戻す）
+    param (
+        $swap
+    )
+
+    removeDirectoryRetry $swap.TargetDir
+    if ($swap.HadPrevious) {
+        [System.IO.Directory]::Move((toLongPath $swap.PreviousDir), (toLongPath $swap.TargetDir))
+    }
+}
+
+function rewriteStatusForImport {
+    # 10. 取り込み一覧を書き直す（このインデックスの前のクロール対象フォルダの行と各行を消し、新しい行を足す）。
+    # ほかのインデックスの行は残す。見出しの行を含め、インデクサが書くのと同じ形（writeStatusFile）で書く
+    param (
+        [string]$statusPath,
+        [string]$finalName,
+        [string]$folder,
+        $importedRows
+    )
+
+    $status = readStatusFile $statusPath
+    $folders = New-Object System.Collections.Generic.List[object]
+    foreach ($other in $status.Folders) {
+        if (![string]::Equals($other.Name, $finalName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $folders.Add($other)
+        }
+    }
+    $folders.Add([pscustomobject]@{ Path = $folder; Name = $finalName })
+
+    $rows = New-Object System.Collections.Generic.List[object]
+    foreach ($row in $status.Rows.Values) {
+        if (![string]::Equals((splitIndexRelPath $row.相対パス).Name, $finalName, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $rows.Add($row)
+        }
+    }
+    foreach ($row in $importedRows) {
+        $rows.Add($row)
+    }
+    writeStatusFile $folders.ToArray() $rows.ToArray() $statusPath
 }
 
 function importIndexCore {
@@ -428,9 +666,9 @@ function importIndexCore {
         foreach ($file in $fileEntries) {
             $totalBytes += [long]$file.size
         }
-        $freeSpace = & $getFreeSpace ([System.IO.Path]::GetPathRoot($ws.Dir))
-        if ($freeSpace -lt ($totalBytes + ${indexArchiveFreeSpaceMargin})) {
-            throw "保存先の空き容量が足りません（必要 約 $([Math]::Ceiling(($totalBytes + ${indexArchiveFreeSpaceMargin}) / 1MB)) MB）。"
+        $spaceReason = testImportFreeSpace $totalBytes ([System.IO.Path]::GetPathRoot($ws.Dir)) $getFreeSpace
+        if ($spaceReason) {
+            throw $spaceReason
         }
 
         # 同じ元のフォルダが、別の名前で既に登録されていないか（止めないが知らせる）
@@ -443,146 +681,31 @@ function importIndexCore {
             }
         }
 
-        # 7. 展開する（目録のパスからだけ作る。エントリーの名前からは作らない）
         $workDir = Join-Path $ws.PublishDir "import"
-        $newDir = Join-Path $workDir "new"
-        removeDirectoryRetry $workDir
-        [System.IO.Directory]::CreateDirectory((toLongPath $newDir)) | Out-Null
+        $expanded = expandImportArchive $archive $fileEntries $workDir $finalName $folder
+        $targetIndexDir = Join-Path $ws.IndexDir $finalName
         try {
-            $statusTmpPath = Join-Path $workDir ${indexArchiveStatusEntryName}
-            $statusLines = $null
-            foreach ($file in $fileEntries) {
-                $path = [string]$file.path
-                $entry = $archive.GetEntry($path)
-                if ($null -eq $entry) {
-                    throw "目録にあるのに zip に無いエントリーがあります: ${path}"
+            $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
+            try {
+                $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir
+                try {
+                    rewriteStatusForImport $ws.StatusFile $finalName $folder $expanded.Rows
+                } catch {
+                    restoreSwappedIndexDir $swap
+                    throw
                 }
-                $size = [long]$file.size
-                $sha256 = [string]$file.sha256
-                if ($path -ceq ${indexArchiveStatusEntryName}) {
-                    extractArchiveEntryToFile $entry $size $sha256 $statusTmpPath
-                    $bytes = [System.IO.File]::ReadAllBytes((toLongPath $statusTmpPath))
-                    $text = ${utf8Bom}.GetString($bytes)
-                    $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
-                    $reason = testImportedStatusLines $statusLines
-                    if ($reason) {
-                        throw "取り込み一覧.tsv を読み込めません（${reason}）"
-                    }
-                } else {
-                    $rel = $path.Substring("content_index/".Length).Replace("/", "\")
-                    extractArchiveEntryToFile $entry $size $sha256 (Join-Path $newDir $rel)
-                }
+            } catch {
+                restoreImportedSettings $before $settingsPath
+                throw
             }
-            if ($null -eq $statusLines) {
-                throw "目録に ${indexArchiveStatusEntryName} がありません。"
-            }
-            $importedLines = @($statusLines | Select-Object -Skip 1)
-
-            $header = "# 検索結果から元のファイルを開くときに使う、インデックス名とクロール対象フォルダの対応です（インデックス作成のたびに作り直します）"
-            writeListFile (Join-Path $newDir ${sourceFolderFileName}) @($header, "${finalName}`t${folder}")
         } catch {
             removeDirectoryRetry $workDir
             throw
         }
 
-        # 8. 設定に登録する（逆の操作で戻せるよう、変える前の内容を覚えておく）
-        $before = invokeSettingsLocked -path $settingsPath -action {
-            $targets = @(getTargetFolders $settingsPath)
-            $existingTarget = @($targets | Where-Object { $_.Name -ieq $finalName }) | Select-Object -First 1
-            $sources = @(readIndexSources $settingsPath)
-            $existingSource = @($sources | Where-Object { $_.Name -ieq $finalName }) | Select-Object -First 1
-            $enabled = [System.IO.Directory]::Exists((toLongPath $folder))
-            if ($existingTarget) {
-                writeTargetFolders (@($targets | ForEach-Object {
-                    if ($_.Name -ieq $finalName) { [pscustomobject]@{ Name = $finalName; Path = $folder; Enabled = $enabled } } else { $_ }
-                })) $settingsPath
-            } else {
-                writeTargetFolders (@($targets) + @([pscustomobject]@{ Name = $finalName; Path = $folder; Enabled = $enabled })) $settingsPath
-            }
-            if ($existingSource) {
-                writeIndexSources (@($sources | Where-Object { $_.Name -ine $finalName })) $settingsPath
-            }
-            return @{ HadTarget = ($null -ne $existingTarget); Target = $existingTarget; Source = $existingSource }
-        }
+        # 11. 上書きなら、前のシステムインデックスを消す（消せなくても続ける。次のインデックス作成で整理される）
         if ($overwrite) {
-            [void](removeSearchExcludesUnder (Join-Path $ws.IndexDir $finalName) $settingsPath)
-        }
-
-        try {
-            # 9. content_index\<名前> を入れ替える
-            $targetIndexDir = Join-Path $ws.IndexDir $finalName
-            $previousDir = Join-Path $workDir "previous"
-            $hadPrevious = Test-Path -LiteralPath (toLongPath $targetIndexDir) -PathType Container
-            if ($hadPrevious) {
-                [System.IO.Directory]::Move((toLongPath $targetIndexDir), (toLongPath $previousDir))
-            }
-            try {
-                [System.IO.Directory]::CreateDirectory((toLongPath $ws.IndexDir)) | Out-Null
-                [System.IO.Directory]::Move((toLongPath $newDir), (toLongPath $targetIndexDir))
-            } catch {
-                if ($hadPrevious) {
-                    [System.IO.Directory]::Move((toLongPath $previousDir), (toLongPath $targetIndexDir))
-                }
-                throw
-            }
-
-            try {
-                # 10. 取り込み一覧を書き直す（このインデックスの前の行を消し、新しい行を足す）
-                $existingLines = @(readStatusLines $ws.StatusFile)
-                $kept = New-Object System.Collections.Generic.List[string]
-                foreach ($line in $existingLines) {
-                    $fields = $line.Split("`t")
-                    if ($fields[0] -eq ${statusFolderKey} -and $fields.Count -eq 3 -and [string]::Equals($fields[2], $finalName, [System.StringComparison]::OrdinalIgnoreCase)) {
-                        continue
-                    }
-                    if ($fields.Count -eq ${statusColumns}.Count -and $fields[0] -ne "") {
-                        $split = splitIndexRelPath $fields[0]
-                        if ($split.Rest -ne "" -and [string]::Equals($split.Name, $finalName, [System.StringComparison]::OrdinalIgnoreCase)) {
-                            continue
-                        }
-                    }
-                    $kept.Add($line)
-                }
-                $kept.Add("${statusFolderKey}`t${folder}`t${finalName}")
-                foreach ($line in $importedLines) {
-                    $fields = $line.Split("`t")
-                    $fields[0] = "${finalName}\$($fields[0])"
-                    $kept.Add(($fields -join "`t"))
-                }
-                writeTextLinesAtomic $ws.StatusFile $kept
-            } catch {
-                # 9 を戻す
-                removeDirectoryRetry $targetIndexDir
-                if ($hadPrevious) {
-                    [System.IO.Directory]::Move((toLongPath $previousDir), (toLongPath $targetIndexDir))
-                }
-                throw
-            }
-        } catch {
-            # 8 を戻す
-            invokeSettingsLocked -path $settingsPath -action {
-                $targets = @(getTargetFolders $settingsPath)
-                if ($before.HadTarget) {
-                    writeTargetFolders (@($targets | ForEach-Object {
-                        if ($_.Name -ieq $finalName) { $before.Target } else { $_ }
-                    })) $settingsPath
-                } else {
-                    writeTargetFolders (@($targets | Where-Object { $_.Name -ine $finalName })) $settingsPath
-                }
-                if ($null -ne $before.Source) {
-                    writeIndexSources ((@(readIndexSources $settingsPath)) + @($before.Source)) $settingsPath
-                }
-            } | Out-Null
-            removeDirectoryRetry $workDir
-            throw
-        }
-
-        # 11. 上書きなら、前のシステムインデックスを消す（失敗しても続ける。次のインデックス作成で整理される）
-        if ($overwrite) {
-            try {
-                [void](removeSystemIndexOf $finalName $ws.SystemIndexDir $ws.SystemIndexStateFile)
-            } catch {
-            }
+            removeSystemIndexOfWorkspace $finalName $ws.IndexDir
         }
         # 12. 作業フォルダを消す
         removeDirectoryRetry $workDir
