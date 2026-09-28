@@ -245,7 +245,7 @@ function removeIngestingFile {
 }
 
 # ----------------------------------------------------------------------------
-# 画面（または indexer.ps1）とインデクサの受け渡しの口（docs/design/architecture/threads.md「画面とインデクサの受け渡し」）
+# 画面（または indexer.ps1）とインデクサの受け渡しの口（docs/design/structure/threads.md「画面とインデクサの受け渡し」）
 # ----------------------------------------------------------------------------
 
 function newIndexerChannel {

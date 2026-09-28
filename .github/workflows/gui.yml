@@ -1,6 +1,6 @@
 # 画面のスモークテスト（GitHub Actions）
 #
-# 本物の画面（WPF）を別のプロセスで起動し、UI オートメーションで、画面遷移（画面遷移の一覧は docs/design/testing/index.md）を確かめる
+# 本物の画面（WPF）を別のプロセスで起動し、UI オートメーションで、画面遷移（画面遷移の一覧は docs/design/testing/gui-smoke.md）を確かめる
 # （tests\gui\*.Tests.ps1。タグ Gui。共通の関数は tests\gui\gui_helpers.ps1）。
 # test.yml には入れない。test.yml は release.yml から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。
 # 別のワークフローにすれば test と並んで動き、test の時間も延びない。

@@ -188,7 +188,7 @@ ${packWorkerScript} = {
 
 function newPackWorkerPool {
     # 集約ファイルの照合のプール（WorkerPool）を作る。各スレッドには照合に要る関数と値だけを読み込む。
-    # 利用者が結果を待つ処理のため、優先度は下げない（docs/design/architecture/threads.md「スレッドの一覧」）
+    # 利用者が結果を待つ処理のため、優先度は下げない（docs/design/structure/threads.md「スレッドの一覧」）
     param (
         [int]$workers = (getWorkerCount)
     )

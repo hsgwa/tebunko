@@ -161,7 +161,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 - **Excel の数値：** セルに表示されている形で検索します。表示形式が「標準」で 12 桁以上の数値は指数表記（`4.90123E+12`）になるため、元の番号では見つかりません
 - **反映のタイミング：** 元のファイルを変更した内容は、次にインデックスを作成したときに反映されます
 
-制限事項の一覧は [設計書](docs/design/indexer/known-issues.md) にあります。
+制限事項の一覧は [設計書](docs/design/indexing/known-issues.md) にあります。
 
 ## 安全性
 

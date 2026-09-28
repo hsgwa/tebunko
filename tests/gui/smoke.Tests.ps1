@@ -1,5 +1,5 @@
 ﻿# 画面のスモークテスト S1: 起動・検索・閉じる（本物の画面を UI オートメーションで操作する。共通の関数は gui_helpers.ps1）。
-# 画面遷移の一覧（docs\design\testing\index.md「画面のスモークテスト」）の #1・#2・#6・#7・#8・#9 を確かめる。
+# 画面遷移の一覧（docs\design\testing\gui-smoke.md「画面のスモークテスト」）の #1・#2・#6・#7・#8・#9 を確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"

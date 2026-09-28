@@ -1,5 +1,5 @@
 ﻿# 画面のスモークテスト S5: ワークスペースの変更、S6: 既定のワークスペース（CI だけ）（共通の関数は gui_helpers.ps1）。
-# 画面遷移の一覧（docs\design\testing\index.md「画面のスモークテスト」）の #30〜#34 を S5 で、#5・#22・#35 を S6 で確かめる。
+# 画面遷移の一覧（docs\design\testing\gui-smoke.md「画面のスモークテスト」）の #30〜#34 を S5 で、#5・#22・#35 を S6 で確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"
