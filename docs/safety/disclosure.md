@@ -18,14 +18,32 @@
 `tebunko.bat` は PowerShell を 1 回起動し、その中で配布フォルダの `scripts` 配下の Mark-of-the-Web を解除してから、画面のスクリプトを実行する。
 
 ```bat
-start "" conhost.exe powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "Get-ChildItem -LiteralPath '%~dp0scripts' -Recurse -File | Unblock-File -ErrorAction SilentlyContinue; & '%~dp0scripts\tebunko\gui.ps1'"
+set "PS1=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+if not exist "%PS1%" (
+    start "" notepad.exe "%~dp0scripts\tebunko\startup\no_powershell.txt"
+    exit /b 1
+)
+start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "$opener='notepad.exe';$root='%~dp0';$startup=Join-Path $root 'scripts\tebunko\startup';$gui=Join-Path $root 'scripts\tebunko\gui.ps1';Get-ChildItem -LiteralPath (Join-Path $root 'scripts') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue; try { & $gui } catch { $err = $_; if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') { $reason = Join-Path $startup 'constrained_language.txt' } elseif (-not (Test-Path -LiteralPath $gui)) { $reason = Join-Path $startup 'missing_files.txt' } elseif ($err.FullyQualifiedErrorId -like 'UnauthorizedAccess*') { $reason = Join-Path $startup 'execution_policy.txt' } else { $reason = Join-Path $startup 'failed.txt' }; $reasonLines = @(if (Test-Path -LiteralPath $reason) { Get-Content -LiteralPath $reason -Encoding UTF8 } else { @('tebunko could not start.') }); $detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f $root), ('LanguageMode: {0}' -f $ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f $PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f $err.Exception.Message)); $allLines = $reasonLines + '' + $detailLines; $openTarget = $reason; foreach ($candidate in @((Join-Path $env:LOCALAPPDATA 'tebunko\startup_error.txt'), (Join-Path $env:TEMP 'tebunko_startup_error.txt'))) { try { $dir = Split-Path -Parent $candidate; if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null }; Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate; break } catch { } }; & $opener $openTarget }"
 ```
+
+（`try`/`catch` の中身は、次の「起動に失敗したときの知らせ」で説明する。）
 
 - **理由**: zip で配布したものを展開すると全ファイルに Mark-of-the-Web が付き、実行ポリシー `RemoteSigned` では未署名スクリプトが実行できないため。
 - **範囲**: `%~dp0scripts`（`tebunko.bat` があるフォルダの `scripts`）配下のみ。実行するスクリプトはすべてここにある。インデックス（`work`）には触らない。システム全体やユーザーのドキュメントには影響しない。画面（`gui.ps1`）も起動時に同じ `scripts` 配下に対して同じ解除を行う（ショートカットから直接起動したときのため）。
 - **実行ポリシー**: `Bypass` は使わず `RemoteSigned` で起動する。恒久的な設定変更（`Set-ExecutionPolicy`）も行わない。`-ExecutionPolicy` はこのプロセスだけに効く。理由は次の「`RemoteSigned` で起動する理由」を参照。
 - **`conhost.exe` を通す理由**: 既定のターミナルが Windows Terminal の場合でも `-WindowStyle Hidden` で PowerShell の窓を隠すため（[画面の共通仕様](../design/gui/common.md#配布と実行ポリシーmark-of-the-web)）。
 - **恒久的な解消策**: 配布物のカタログ（[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）にコードサイニング証明書で署名すれば、この `Unblock-File` は不要になり、`AllSigned` でも動作する。
+
+## 起動に失敗したときの知らせ（`tebunko.bat`）
+
+制限の強い環境（実行ポリシー・制限言語モード）ほど、`gui.ps1` の画面が開く前に起動が止まり、利用者から見て「ダブルクリックしても何も起きない」ことになりやすい。`tebunko.bat` は、`& $gui`（画面の起動）を `try`/`catch` で包み、失敗したときは理由と記録のファイルの名前を Notepad で示す。インラインの `-Command` は実行ポリシーの対象外で、制限言語モードでも動くため、この知らせの処理自体は止まらない。
+
+- **PowerShell が無い**: `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`（PATH からは探さない。`installer\tebunko.cs` と同じ）が無ければ、PowerShell を起動せずに Notepad で理由を示す。この場面だけは記録が残らない（PowerShell 自体が使えないため）。
+- **理由の見分け方**: `catch` は、その場の言語モード（`$ExecutionContext.SessionState.LanguageMode`）が `FullLanguage` でなければ制限言語モード、`gui.ps1` が無ければファイル不足、`FullyQualifiedErrorId` が `UnauthorizedAccess` なら実行ポリシー、それ以外は起動できなかったと分ける。言語モードを先に見るのは、許可されていない制限言語モードでは `gui.ps1` の 1 行目（`Add-Type`）で失敗するためで、ツールのフォルダを AppLocker・WDAC で許可している PC では `gui.ps1` は `FullLanguage` で動き、この `catch` には来ない（画面が開く）。
+- **理由の文言**: 日本語の文言は ASCII で書く決まりの `tebunko.bat` に書けないため、`scripts\tebunko\startup\*.txt`（BOM 付き UTF-8・CRLF）に分けて置き、`Get-Content -Encoding UTF8` で読む。
+- **記録**: 理由の文言と、詳しい情報（日時・エラーの内容・言語モード・`Get-ExecutionPolicy -List`・PowerShell の版・ツールの場所）を、`%LOCALAPPDATA%\tebunko\startup_error.txt`（書き込めなければ `%TEMP%\tebunko_startup_error.txt`）に上書きする。起動の前はワークスペースを決められない（設定を読むには `RemoteSigned` で止まる場面がある）ため、固定の場所にする。ツールの場所（利用者名を含むパス）が記録に入るため、公開の Issue に貼る前に確かめるよう[トラブルシューティング](../guide/troubleshooting.md)に書いている。
+- **`gui.ps1` の `trap` との関係**: `gui.ps1` の `trap` は、`lib.ps1` の読み込みより前（`writeErrorLog` がまだ無い）に起きた失敗を、同じ場所に記録してからメッセージボックスを出そうとする。制限言語モード・WPF が読めない場面ではメッセージボックスも出せないため、`trap` は元の例外を投げ直し、上の `catch` が受けて記録のファイルを上書きする（1 か所に記録が 1 件残る）。メッセージボックスを出せたとき（`trap` が `exit 1` で終わったとき）は、`catch` には来ない（二重に知らせない）。インストーラー版 `tebunko.exe` から起動したときは、`trap` の記録に加えて、`tebunko.exe` がエラー出力（元の例外の内容）をメッセージで出す。
+- **AppLocker の実行ファイルの規則で `powershell.exe` 自体が止められた場合**: `start` は起動の失敗を待たないため、`tebunko.bat` は気づけず、何も知らせない（Windows 自身の知らせと、イベントログ（AppLocker）だけが残る）。`start` を起動の失敗を待つ形にすると、画面を閉じるまで `tebunko.bat` の窓が残ってしまうため、この場面は扱わない。
 
 ### `RemoteSigned` で起動する理由
 
