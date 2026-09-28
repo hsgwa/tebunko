@@ -413,10 +413,31 @@ function readDiagramText {
     return (@(readXmlLines $xml ${nsDrawing} | ForEach-Object { $_.Text }) -join " ")
 }
 
+function readChartTxText {
+    # c:tx（グラフのタイトル・軸ラベル・系列名で使う、文字を持つ要素）の文字を返す。
+    # セル参照（c:strRef/c:strCache/c:pt/c:v）と直値（c:v）の両方を読む。c:rich（a:p）は呼び出し元が別に読む
+    param (
+        [System.Xml.XmlElement]$parent
+    )
+
+    $found = New-Object System.Collections.Generic.List[string]
+    foreach ($child in $parent.ChildNodes) {
+        if ($child.LocalName -ne "tx") {
+            continue
+        }
+        foreach ($v in $child.GetElementsByTagName("v", ${nsChart})) {
+            $text = $v.InnerText.Trim()
+            if ($text -ne "") { $found.Add($text) }
+        }
+        break
+    }
+    return $found
+}
+
 function readChartText {
     # グラフ（charts/chartN.xml）の文字（タイトル・軸ラベル・系列名）を、スペースでつないで 1 つにする。
     # 項目名（横軸の項目。c:cat。点の数だけある）と数値（c:val）は読まない。同じ文字は 1 回だけにする。
-    # 系列（c:ser）の数だけ調べるため、項目の点数が多いグラフでも遅くならない
+    # 系列（c:ser）とタイトル・軸（c:title）の数だけ調べるため、項目の点数が多いグラフでも遅くならない
     param (
         [string]$xml
     )
@@ -427,19 +448,18 @@ function readChartText {
     foreach ($line in (readXmlLines $xml ${nsDrawing})) {
         if ($seen.Add($line.Text)) { $texts.Add($line.Text) }
     }
-    # 系列名（c:ser/c:tx の文字。セル参照なら c:strRef/c:strCache/c:pt/c:v、直値なら c:v）
     $doc = New-Object System.Xml.XmlDocument
     $doc.LoadXml($xml)
+    # タイトル・軸ラベルのうち、セル参照の文字（c:title/c:tx/c:strRef/c:strCache/c:pt/c:v。直値の c:rich は上で読み済み）
+    foreach ($title in $doc.GetElementsByTagName("title", ${nsChart})) {
+        foreach ($text in (readChartTxText $title)) {
+            if ($seen.Add($text)) { $texts.Add($text) }
+        }
+    }
+    # 系列名（c:ser/c:tx の文字。セル参照なら c:strRef/c:strCache/c:pt/c:v、直値なら c:v）
     foreach ($ser in $doc.GetElementsByTagName("ser", ${nsChart})) {
-        foreach ($child in $ser.ChildNodes) {
-            if ($child.LocalName -ne "tx") {
-                continue
-            }
-            foreach ($v in $child.GetElementsByTagName("v", ${nsChart})) {
-                $text = $v.InnerText.Trim()
-                if ($text -ne "" -and $seen.Add($text)) { $texts.Add($text) }
-            }
-            break
+        foreach ($text in (readChartTxText $ser)) {
+            if ($seen.Add($text)) { $texts.Add($text) }
         }
     }
     return ($texts -join " ")
@@ -746,15 +766,16 @@ function readXlsxShapeRows {
         }
         # グラフ（c:chart）・SmartArt（dgm:relIds）の文字を、テキストボックスの段落の後、XML の順に並べる
         foreach ($object in @($objects | Where-Object { $_.Kind -eq "chart" -or $_.Kind -eq "diagram" })) {
-            if ($null -eq $rels) {
-                $rels = $(if ($zip -and $drawingPath) { readRelationships $zip $drawingPath } else { @{} })
-            }
             $text = ""
             try {
+                # リレーションシップ自体（drawingN.xml.rels）が壊れていても、この図形だけを空にしてほかは捨てない
+                if ($null -eq $rels) {
+                    $rels = $(if ($zip -and $drawingPath) { readRelationships $zip $drawingPath } else { @{} })
+                }
                 $text = readObjectText $zip $rels $object
             } catch {
                 if ($null -ne $failures) {
-                    $rel = $rels[[string]$object.RelId]
+                    $rel = $(if ($rels) { $rels[[string]$object.RelId] } else { $null })
                     $failures.Add($(if ($rel) { $rel.Target } else { [string]$object.RelId }))
                 }
             }

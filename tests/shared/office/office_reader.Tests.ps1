@@ -384,12 +384,14 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
                 "<sheet name=`"隠しグラフ`" sheetId=`"2`" state=`"hidden`" r:id=`"rId2`"/>" +
                 "<sheet name=`"グラフ2ページ`" sheetId=`"3`" r:id=`"rId3`"/>" +
                 "<sheet name=`"隠しグラフシート`" sheetId=`"4`" state=`"hidden`" r:id=`"rId4`"/>" +
+                "<sheet name=`"壊れたrels`" sheetId=`"5`" r:id=`"rId5`"/>" +
                 "</sheets></workbook>"
             "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
                 "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
                 "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/>" +
                 "<Relationship Id=`"rId3`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet1.xml`"/>" +
                 "<Relationship Id=`"rId4`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet2.xml`"/>" +
+                "<Relationship Id=`"rId5`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet3.xml`"/>" +
                 "</Relationships>"
 
             "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
@@ -436,6 +438,16 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
             "xl/drawings/_rels/drawing3.xml.rels" = "<Relationships $relNs>" +
                 "<Relationship Id=`"rId1`" Type=`"$docRel/chart`" Target=`"../charts/chart3.xml`"/></Relationships>"
             "xl/charts/chart3.xml" = $chart3Xml
+
+            # 図形の部品自身のリレーションシップ（drawingN.xml.rels）の XML が壊れている場合
+            "xl/worksheets/sheet3.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet3.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing4.xml`"/></Relationships>"
+            "xl/drawings/drawing4.xml" = "<xdr:wsDr $xdrNs>" +
+                "$(xAnchor 0 1 (xChartFrame (chartRef 'rId1')))" +
+                "$(xAnchor 0 5 (xSp @('壊れたrelsでも出る図形')))" +
+                "</xdr:wsDr>"
+            "xl/drawings/_rels/drawing4.xml.rels" = "<Relationships $relNs><Relationship"  # 閉じタグの無い壊れたXML
         }
 
         $failures = New-Object System.Collections.Generic.List[string]
@@ -461,7 +473,7 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
 
     It "部品（XML）が壊れたグラフは空にし、同じアンカーのテキストボックスは出す。読めなかった部品を $failures に返す" {
         @($units["S[図形]"])[4] | Should -Be "A16`tテキストボックス2"
-        @($failures) | Should -Be @("xl/charts/broken.xml")
+        @($failures) | Should -Contain "xl/charts/broken.xml"
     }
 
     It "グラフ・SmartArt が読めなくても、同じシートのほかの図形・コメントは出る" {
@@ -479,6 +491,11 @@ Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -T
 
     It "非表示のグラフシートは出ない" {
         $units.Contains("隠しグラフシート[図形]") | Should -Be $false
+    }
+
+    It "図形の部品自身のリレーションシップ（drawingN.xml.rels）が壊れていても、そのグラフだけを空にし、ほかの図形は出す" {
+        @($units["壊れたrels[図形]"]) -join "|" | Should -Be "A6`t壊れたrelsでも出る図形"
+        @($failures) | Should -Contain "rId1"
     }
 }
 
@@ -661,23 +678,34 @@ Describe "readObjectText / readChartText" -Tag Io {
         readChartText $xml | Should -Be "直値の系列名"
     }
 
+    It "タイトル・軸の名前は、セル参照（c:title/c:tx/c:strRef/c:strCache/c:v）でも読む" {
+        # 直値のタイトル（c:rich の a:p）は readXmlLines 側で読めるが、セル参照（Excel の「=Sheet1!\$A\$1」のような
+        # タイトル）は c:rich を持たず、系列名と同じ形（c:tx/c:strRef/c:strCache/c:pt/c:v）になる
+        $xml = "<c:chartSpace $cNs><c:chart>" +
+            "<c:title><c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC セル参照のタイトル</c:v></c:pt></c:strCache></c:strRef></c:tx></c:title>" +
+            "<c:plotArea><c:barChart><c:ser><c:tx><c:v>TC 系列名</c:v></c:tx></c:ser></c:barChart>" +
+            "<c:catAx><c:title><c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC セル参照の軸の名前</c:v></c:pt></c:strCache></c:strRef></c:tx></c:title></c:catAx>" +
+            "</c:plotArea></c:chart></c:chartSpace>"
+        readChartText $xml | Should -Be "TC セル参照のタイトル TC セル参照の軸の名前 TC 系列名"
+    }
+
     It "項目の点数が多いグラフでも、項目名を読まないため速く終わる（回帰の確かめ）" {
-        # 項目名を辿って祖先を確かめる古い実装は、点数の多いグラフで二次関数的に遅くなっていた（実測: 5 万点で約 230 秒）。
-        # 系列（c:ser）の数だけ調べる今の実装は、点数に関係なく速く終わる
+        # 項目名を辿って祖先を確かめる古い実装は、点数の多いグラフで二次関数的に遅くなっていた
+        # （実測: 2 万点で約 46 秒、5 万点で約 230 秒）。系列（c:ser）の数だけ調べる今の実装は、点数に関係なく速く終わる。
+        # 古い実装に戻ってもしきい値ぎりぎりで通ってしまわないよう、点数を 5 万に増やし、しきい値も 10 秒に絞る
+        # （古い実装なら 5 万点で約 230 秒かかる見込みで、10 秒には遠く及ばない）
         $pts = New-Object System.Text.StringBuilder
-        for ($i = 0; $i -lt 20000; $i++) {
+        for ($i = 0; $i -lt 50000; $i++) {
             [void]$pts.Append("<c:pt idx=`"$i`"><c:v>項目$i</c:v></c:pt>")
         }
         $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser>" +
             "<c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC 大きい系列名</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
-            "<c:cat><c:strRef><c:strCache><c:ptCount val=`"20000`"/>$($pts.ToString())</c:strCache></c:strRef></c:cat>" +
+            "<c:cat><c:strRef><c:strCache><c:ptCount val=`"50000`"/>$($pts.ToString())</c:strCache></c:strRef></c:cat>" +
             "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
         $result = $null
         $elapsed = (Measure-Command { $result = readChartText $xml }).TotalSeconds
         $result | Should -Be "TC 大きい系列名"
-        # カバレッジ計測（-Ci）や機械の負荷でも安定して通るよう、余裕を大きく取る
-        # （古い実装なら 2 万点でも数十秒〜数分かかる見込み。5 万点の実測は約 230 秒）
-        $elapsed | Should -BeLessThan 30
+        $elapsed | Should -BeLessThan 10
     }
 }
 

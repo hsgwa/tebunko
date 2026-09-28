@@ -286,41 +286,30 @@ function openInExcel {
     }
     $book.Activate()
 
-    # 場所はシート名。名前が同じシートを選ぶ。
+    # 場所はシート名（ワークシート・グラフシートの両方）。名前が同じシートを選ぶ。
     # 以前の版のインデックスは、ファイル名に使えない文字を全角に置き換えてあるため、同じ名前のシートが無ければ
-    # 全角に置き換えて一致するシートを選ぶ（`衝突"` と `衝突”` のように、置き換えると重なるシートがあるため、同じ名前を優先する）
+    # 全角に置き換えて一致するシートを選ぶ（`衝突"` と `衝突”` のように、置き換えると重なるシートがあるため、同じ名前を優先する）。
+    # `Sheets` はワークシート・グラフシートを表示順のまま 1 つの列で回せるため、同じ名前の一致が
+    # 全角に置き換えた一致より先に見つかるよう、両方の種類を 1 回のループで調べる（グラフシートはセルを選べない）
     $target = $null
     $sameSafeName = $null
-    foreach ($sheet in $book.Worksheets) {
+    $isChartSheet = $false
+    $sameSafeIsChartSheet = $false
+    foreach ($sheet in $book.Sheets) {
+        $isChart = ($sheet.Type -eq -4109)  # xlChart（グラフシート）
         if ($sheet.Name -eq $location) {
             $target = $sheet
+            $isChartSheet = $isChart
             break
         }
         if ($null -eq $sameSafeName -and (toSafeFileName $sheet.Name) -eq $location) {
             $sameSafeName = $sheet
+            $sameSafeIsChartSheet = $isChart
         }
     }
-    if ($null -eq $target) {
+    if ($null -eq $target -and $null -ne $sameSafeName) {
         $target = $sameSafeName
-    }
-    # ワークシートに無ければ、グラフシート（Charts。Worksheets には含まれない）から探す。セルは選べない
-    $isChartSheet = $false
-    if ($null -eq $target) {
-        $sameSafeChartName = $null
-        foreach ($chart in $book.Charts) {
-            if ($chart.Name -eq $location) {
-                $target = $chart
-                $isChartSheet = $true
-                break
-            }
-            if ($null -eq $sameSafeChartName -and (toSafeFileName $chart.Name) -eq $location) {
-                $sameSafeChartName = $chart
-            }
-        }
-        if ($null -eq $target -and $sameSafeChartName) {
-            $target = $sameSafeChartName
-            $isChartSheet = $true
-        }
+        $isChartSheet = $sameSafeIsChartSheet
     }
     if ($null -ne $target) {
         $target.Activate()

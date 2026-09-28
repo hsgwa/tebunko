@@ -814,8 +814,7 @@ try {
     runCase "TC30 グラフとSmartArt" {
         $wb = newBook @("表", "非表示グラフ")
         $ws = $wb.Worksheets.Item(1)
-        # 列見出し（B1）が既定の系列名になる（SetSourceData が見出し行をセル参照の系列名にするため。
-        # 直接 SeriesCollection.Name を設定すると c:tx が c:v の直値になり、readChartText は読まない）
+        # 列見出し（B1）が既定の系列名になる（SetSourceData が見出し行をセル参照の系列名にするため）
         setRows $ws "A1" @(
             @("項目", "TC30 系列名"),
             @("TC30 項目1", 10),
