@@ -186,22 +186,6 @@ function captureGuiState {
     }
 }
 
-# ---- ツールヒントが消えるまで待つ ----
-
-function waitGuiTooltipGone {
-    # 部品を選ぶ・フォーカスするだけで出るツールヒントは、本体以外の窓（ネイティブの EnumWindows でだけ見える。
-    # UI オートメーション経由の getGuiOtherWindows は ClassName=Popup を対象から外している）として現れる。
-    # 撮る前に、本体の窓 1 つだけになるまで待つ（既定 3 秒。消えなければ、それ以上は待たずに進める）
-    param ($S, [int]$Timeout = 3)
-
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    while ($sw.Elapsed.TotalSeconds -lt $Timeout) {
-        $count = @(getGuiNativeProcessWindows $S.Process.Id).Count
-        if ($count -le 1) { return }
-        Start-Sleep -Milliseconds 200
-    }
-}
-
 # ---- 起動中の表示（本体の窓が出る前）を撮る ----
 
 function captureStartupSplash {
@@ -582,9 +566,8 @@ function captureSearchScene {
             @(findAllGui (findGui $S.Window -Id "PreviewScroll") -Type Text | Where-Object { $_.Current.Name -eq "りんご" }).Count -gt 0
         } | Out-Null
         # 行を選ぶと、部品を選ぶだけで出るツールヒント（元のファイルのパス）が重なって写ることがある。
-        # フォーカスを移しても消えなかったため、ツールヒントの窓（本体以外の、ネイティブの EnumWindows でだけ見える窓）が
-        # 無くなるまで待つ（消えなければ、それ以上は待たずに撮る）
-        waitGuiTooltipGone $S
+        # フォーカスを移す・ツールヒントの窓が消えるまで待つ、の両方を試したが消えなかった（架空の subst ドライブの
+        # パスで個人情報ではないため、写り込んだまま撮る）
         captureGuiState -S $S -Id "search-tab/results" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
