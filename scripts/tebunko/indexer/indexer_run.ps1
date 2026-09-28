@@ -333,23 +333,40 @@ function invokeIndexer {
 }
 
 function invokeIndexerBody {
-    # invokeIndexer の本体（鍵を取り、ログを開いた後）。終了コードを返す。続けられないエラーは例外にする
+    # invokeIndexer の本体（鍵を取り、ログを開いた後）。終了コードを返す。続けられないエラーは例外にする。
+    # 取り込み一覧・取り込み中のファイル・今回の失敗と消えた行は StatusLedger（$ledger）、
+    # 本文インデックスへの書き出し待ちは PendingPublish（$pending）、進み具合・画面の確認待ちは IndexingReporter（$reporter）にまとめる。
+    # 3 つは互いを呼ばず、ここ（司令）がつなぐ（docs/design/structure/classes.md「クラスのつなぎ方」）
     param (
         $channel
     )
 
-    writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "インデックス作成の準備をしています…"
+    $ledger = [StatusLedger]::new($workspace)
+    $pending = [PendingPublish]::new()
+    $reporter = [IndexingReporter]::new($channel)
+
+    # 書き出し待ちのフォルダを本文インデックスへまとめる（書き出しは司令であるここが呼ぶ。PendingPublish は決めて返すだけ）
+    function flushPending {
+        param ([string[]]$keepFolders = @())
+
+        $flush = $pending.TakeFlushable($keepFolders)
+        if ($flush.Count -eq 0) {
+            return
+        }
+        try {
+            [void](publishIndexFolders $flush)
+        } catch {
+            writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
+        }
+    }
+
+    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "インデックス作成の準備をしています…")
 
     $restartInterval = 100  # Officeアプリを再起動する間隔（取り込みのスレッドごとのファイル数）。メモリ肥大化対策（再起動 1 回で約 2 秒かかるため、間隔を詰めすぎない）
     $fileTimeoutMinutes = 10  # 1ファイルの取り込みの制限時間（分）。超えたらOfficeアプリを強制終了し、そのファイルは失敗とする
     $approvalTimeoutMinutes = 60  # 画面の返事を待つ制限時間（分）。画面が返事をしない場合に待ち続けないよう打ち切る
     $interruptLimit = 2       # 取り込み中に続けて強制終了した回数がこれに達したファイルは、失敗として以降スキップする
     $failureListLimit = 50    # 終了時に失敗したファイルと原因を表示する最大件数（残りは取り込み一覧で確認する）
-
-    # 集約ファイル（content_index.<拡張子>.tsv）に書き出す前のフォルダ: フォルダ（フルパス）→ 無くなった元のファイル名の集まり。
-    # 取り込んだ TSV は元のファイルごとのフォルダに一時的に置き、同じフォルダの取り込みが終わったらまとめて書き出す
-    # （元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ書き直すことになるため）
-    $script:pendingPublish = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
 
     $targetFolders = @(getTargetFolders)
     if ($targetFolders.Count -eq 0) {
@@ -380,7 +397,7 @@ function invokeIndexerBody {
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
     # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
-    $status = readStatusFile
+    $status = $ledger.ReadStatus()
     $folders = @(assignIndexNames $targetFolders $status.Folders)
     $previous = $status.Rows
     removeDroppedFolders $folders $status.Folders
@@ -388,11 +405,11 @@ function invokeIndexerBody {
     $leftover = findIndexFoldersWithBooks $workspace.IndexDir
     if ($leftover.Count -gt 0) {
         writeIndexerLog "集約ファイルに入れていないインデックス（$($leftover.Count) フォルダ）をまとめています…"
-        writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "集約ファイルに入れていないインデックスをまとめています…"
+        $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "集約ファイルに入れていないインデックスをまとめています…")
         foreach ($folder in $leftover) {
-            $script:pendingPublish[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+            $pending.MarkFolder($folder)
         }
-        flushPendingPublish
+        flushPending
     }
 
     # 新しく割り当てたインデックス名を設定に保存する（インデックスの「名前」と「置き場所」を設定で分けて持つため。
@@ -412,7 +429,7 @@ function invokeIndexerBody {
     writeIndexerLog "クロールしています..."
     # 取り込み一覧の「済」に対してインデックス（TSV）が残っているかを調べるため、今あるTSVの数を数えておく
     # （利用者が work\content_index を直接削除した場合に、「済」のまま検索できなくなるのを防ぐ）
-    writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "取り込み済みのインデックスを確認しています…"
+    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "取り込み済みのインデックスを確認しています…")
     $indexCounts = getIndexTsvCounts
     if ($null -eq $indexCounts) {
         writeIndexerLog "  インデックスのフォルダを調べられないため、インデックスが残っているかの確認は行いません。" "Yellow"
@@ -431,14 +448,14 @@ function invokeIndexerBody {
         } else {
             writeIndexerLog "  [$($folder.Name)] $($folder.Path)"
             # 大きいフォルダ・ネットワーク越しでは時間がかかるため、どのフォルダを見ているかを画面に伝える
-            writeIndexingProgress ${indexingPhaseCrawl} 0 0 0 "[$($folder.Name)] のOfficeファイルを探しています… $($folder.Path)"
+            $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "[$($folder.Name)] のOfficeファイルを探しています… $($folder.Path)")
             $list = createTargetList $folder $previous $indexCounts
             $rows.AddRange($list.Rows)
             $targets.AddRange($list.Targets)
             $failed.AddRange($list.Failed)
             $plan.Add($list.Plan)
             foreach ($removedPath in $list.Removed) {
-                addPendingPublish $removedPath $true
+                $pending.Add($removedPath, $true)
             }
             continue
         }
@@ -456,7 +473,7 @@ function invokeIndexerBody {
     # 「更新不要」かどうかも、この件数を見て画面が知らせる（取り込み対象が 0 件でも、前回失敗の再取り込みを選べる）
     $retryTargets = [bool]$channel.RetryFailed
     if ($channel.ConfirmTargets) {
-        $answer = waitForIndexingApproval $channel $plan.ToArray() $targets.Count $failed.Count $approvalTimeoutMinutes
+        $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan.ToArray(), $targets.Count, $failed.Count, $approvalTimeoutMinutes)
         if ($null -eq $answer) {
             # 取りやめ。1件も取り込んでいないため、取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
             # 「未取り込み」で記録すると、次回［インデックス作成を開始］が［続きから再開］になり、中断したように見えるため。
@@ -478,9 +495,9 @@ function invokeIndexerBody {
             }
             writeIndexerLog ""
             writeIndexerLog "画面で取りやめたため、取り込みません。（取り込み一覧は前回のままです）" "Yellow"
-            writeStatusFile $folders $keep
+            $ledger.WriteStatus($folders, $keep)
             writeSourceFolderFile $folders
-            writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "インデックス作成を取りやめました"
+            $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "インデックス作成を取りやめました")
             removeTmpDir
             return 2
         }
@@ -501,7 +518,7 @@ function invokeIndexerBody {
     # 続けて $interruptLimit 回強制終了したファイルは、応答しなくなるファイルとみなして失敗とする。
     # 最後に回したファイルは、取り込みを始めるまで記録を残す（その前にまた止まっても、回数が分かるように）
     $carried = New-Object 'System.Collections.Generic.Dictionary[string,int]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($entry in (readIngestingFiles)) {
+    foreach ($entry in ($ledger.ReadIngestingFiles())) {
         $row = @($targets | Where-Object { $_.相対パス -eq $entry.RelPath }) | Select-Object -First 1
         if (!$row) {
             continue
@@ -521,9 +538,9 @@ function invokeIndexerBody {
             writeIndexerLog "前回、取り込み中に強制終了したファイルは最後に取り込みます: $($row.相対パス)" "Yellow"
         }
     }
-    writeIngestingFiles @($carried.Keys | ForEach-Object { @{ RelPath = $_; Count = $carried[$_] } })
-    writeIndexingProgress ${indexingPhaseCrawl} 0 $targets.Count 0 "取り込み一覧を書き出しています…"
-    writeStatusFile $folders $rows
+    $ledger.WriteIngestingFiles(@($carried.Keys | ForEach-Object { @{ RelPath = $_; Count = $carried[$_] } }))
+    $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "取り込み一覧を書き出しています…")
+    $ledger.WriteStatus($folders, $rows)
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders
 
@@ -537,15 +554,15 @@ function invokeIndexerBody {
         writeIndexerLog ""
         writeIndexerLog "取り込みが必要なファイルはありません。（一覧: $(Split-Path $workspace.StatusFile -Leaf)）" "Green"
         # 元のファイルが無くなったフォルダは、集約ファイルから外す
-        flushPendingPublish
+        flushPending
         # 取り込むファイルが無くても、システムインデックスがまだ無いフォルダ（この版に上げた直後など）は作る
-        writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "システムインデックス（高速検索用）を確かめています…"
+        $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "システムインデックス（高速検索用）を確かめています…")
         try {
             [void](updateSystemIndexes -shouldStop { $channel.Stop })
         } catch {
             writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
         }
-        writeIndexingProgress ${indexingPhaseFinish} 0 0 0 "取り込みが必要なファイルはありませんでした"
+        $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "取り込みが必要なファイルはありませんでした")
         removeTmpDir
         return 0
     }
@@ -562,9 +579,8 @@ function invokeIndexerBody {
     $successCount = 0
     $postponedCount = 0  # 利用者のPowerPointが起動していて後回しにした件数（未取り込みのまま次回に回す）
     $stopped = $false
-    $failures = New-Object System.Collections.Generic.List[object]  # 今回失敗したファイル: @{ RelPath; Message }
-    # 取り込みの直前に元のファイルが無くなっていたファイルの相対パス。取り込み一覧から除く
-    $droppedRows = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    # 今回失敗したファイル（$ledger.Failures。@{ RelPath; Message } の並び）・
+    # 取り込みの直前に元のファイルが無くなっていた相対パス（$ledger.DroppedRows。取り込み一覧から除く）は StatusLedger が持つ
     $folderLost = ""  # インデックス作成中に見えなくなったクロール対象フォルダ（見つかったら中止する）
     $remaining = 0
     # 取り込み中のファイル: 相対パス → @{ Row; Count; Folder; Number; Lane; Task }
@@ -646,8 +662,8 @@ function invokeIndexerBody {
                     writeIndexerLog ("[{0}/{1}] {2}" -f ($i + 1), $total, $relPath)
                     writeIndexerLog "    元のファイルが無くなったため、取り込まずに一覧から除きます。（移動・削除・名前変更された）" "Yellow"
                     removeBookDir (getBookDir $relPath)
-                    addPendingPublish $relPath $true
-                    [void]$droppedRows.Add($relPath)
+                    $pending.Add($relPath, $true)
+                    $ledger.AddDropped($relPath)
                     continue
                 }
 
@@ -664,10 +680,10 @@ function invokeIndexerBody {
                 $inflight[$relPath] = @{ Row = $row; Count = $count; Folder = $bookFolder; Number = $i + 1; Lane = $lane; Task = $task }
                 $folderBusy[$bookFolder] = [int]$folderBusy[$bookFolder] + 1
                 $laneBusy[$lane] = [int]$laneBusy[$lane] + 1
-                writeIngestingFiles (getIngestingEntries $inflight $carried)
+                $ledger.WriteIngestingFiles((getIngestingEntries $inflight $carried))
                 # 画面はこの 1 行から進み具合を作る（取り込み一覧は読まない）
                 $currentPath = $relPath
-                writeIndexingProgress ${indexingPhaseIngest} ($successCount + $failures.Count) ($total - $successCount - $failures.Count) $failures.Count $currentPath
+                $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
                 if ($pool) {
                     addIngestTask $pool $lane $task
                 } else {
@@ -703,16 +719,16 @@ function invokeIndexerBody {
             }
             if ($result.Postponed) {
                 # 利用者のPowerPointが起動していて使えなかった。取り込まず「未取り込み」のまま残し、次回のインデックス作成で取り込む
-                # （取り込み一覧・インデックスは変えない。addStatusRow・addPendingPublish はしない）
+                # （取り込み一覧・インデックスは変えない。$ledger.AddRow・$pending.Add はしない）
                 [void]$inflight.Remove($result.RelPath)
                 $laneBusy[$entry.Lane] = $laneBusy[$entry.Lane] - 1
                 $folderBusy[$entry.Folder] = $folderBusy[$entry.Folder] - 1
                 $postponedCount++
                 writeIndexerLog ("[{0}/{1}] {2}" -f $entry.Number, $total, $result.RelPath)
                 writeIndexerLog "    PowerPoint が起動しているため、取り込まずに残しました（次のインデックス作成で取り込みます）。" "Yellow"
-                writeIngestingFiles (getIngestingEntries $inflight $carried)
-                writeIndexingProgress ${indexingPhaseIngest} ($successCount + $failures.Count) ($total - $successCount - $failures.Count - $postponedCount) $failures.Count $currentPath
-                flushPendingPublish (@($folderBusy.Keys | Where-Object { $folderBusy[$_] -gt 0 }) + @($folderPending.Keys | Where-Object { $folderPending[$_] -gt 0 }))
+                $ledger.WriteIngestingFiles((getIngestingEntries $inflight $carried))
+                $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count - $postponedCount), $ledger.Failures.Count, $currentPath)
+                flushPending (@($folderBusy.Keys | Where-Object { $folderBusy[$_] -gt 0 }) + @($folderPending.Keys | Where-Object { $folderPending[$_] -gt 0 }))
                 continue
             }
             [void]$inflight.Remove($result.RelPath)
@@ -725,7 +741,7 @@ function invokeIndexerBody {
                 }
             }
             if ($result.Ok) {
-                addPendingPublish $result.RelPath
+                $pending.Add($result.RelPath, $false)
                 # 高速検索: このフォルダの システムインデックスを作り直すまで、検索ではこのフォルダを必ず照合させる
                 if (!(markSystemIndexChanged @([System.IO.Path]::GetDirectoryName($result.RelPath)))) {
                     writeIndexerLog "    システムインデックスの状態を書き込めませんでした（インデックス作成の終わりに作り直します）。" "Yellow"
@@ -742,29 +758,29 @@ function invokeIndexerBody {
                 $row.TSV数 = ""
                 $row.エラー = $result.Message
                 $row.抽出版 = ""
-                $failures.Add(@{ RelPath = $result.RelPath; Message = $result.Message })
+                $ledger.AddFailure($result.RelPath, $result.Message)
             }
 
             # 中断しても結果が残るよう、1件ごとに取り込み一覧へ追記する（最後に1ファイル1行にまとめ直す）
             $row.取り込み日時 = formatFileTime (Get-Date)
-            addStatusRow $row
-            writeIngestingFiles (getIngestingEntries $inflight $carried)
+            $ledger.AddRow($row)
+            $ledger.WriteIngestingFiles((getIngestingEntries $inflight $carried))
             $folderBusy[$entry.Folder] = $folderBusy[$entry.Folder] - 1
-            writeIndexingProgress ${indexingPhaseIngest} ($successCount + $failures.Count) ($total - $successCount - $failures.Count) $failures.Count $currentPath
+            $reporter.Progress(${indexingPhaseIngest}, ($successCount + $ledger.Failures.Count), ($total - $successCount - $ledger.Failures.Count), $ledger.Failures.Count, $currentPath)
 
-            if (!$pool -and ($result.TimedOut -or (($successCount + $failures.Count) % $restartInterval) -eq 0)) {
+            if (!$pool -and ($result.TimedOut -or (($successCount + $ledger.Failures.Count) % $restartInterval) -eq 0)) {
                 # 制限時間を過ぎて強制終了したアプリは使えないため、すべて終了して次に必要になったときに起動し直す
                 stopAllApps
             }
             # 取り込みが揃ったフォルダ（取り込み中が無く、まだ渡していないファイルも無い）を、集約ファイルに書き出す
-            flushPendingPublish (@($folderBusy.Keys | Where-Object { $folderBusy[$_] -gt 0 }) + @($folderPending.Keys | Where-Object { $folderPending[$_] -gt 0 }))
+            flushPending (@($folderBusy.Keys | Where-Object { $folderBusy[$_] -gt 0 }) + @($folderPending.Keys | Where-Object { $folderPending[$_] -gt 0 }))
         }
     } finally {
         # 中止・続けられないエラーの場合もここは実行される。
         # 後片付けも数十秒かかることがあるため、何をしているかを画面に伝える（進み具合の数はそのまま残す）
         # 画面は「成功 = 処理済み - 失敗」と出すため、取り込まなかった（元ファイルが無くなった）分は数に入れない
-        $processed = $successCount + $failures.Count
-        writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "Officeアプリを終了しています…"
+        $processed = $successCount + $ledger.Failures.Count
+        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "Officeアプリを終了しています…")
         if ($pool) {
             stopIngestWorkers $pool
         } else {
@@ -773,20 +789,20 @@ function invokeIndexerBody {
         }
         $script:officePidSink = $null
         removeTmpDir
-        removeIngestingFile
+        $ledger.RemoveIngestingFile()
         # 取り込んだ TSV は、中止したときも残さず集約ファイルに入れる（残すとインデックスの容量が倍になる）
-        writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "インデックスをまとめています…"
-        flushPendingPublish
-        writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "取り込み一覧を書き直しています…"
+        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "インデックスをまとめています…")
+        flushPending
+        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "取り込み一覧を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
-        writeStatusFile $folders @($rows | Where-Object { $_ -and !$droppedRows.Contains([string]$_.相対パス) })
+        $ledger.WriteStatus($folders, @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }))
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
         # 高速検索用の システムインデックスを作り直す。中止したとき・フォルダが見えなくなったときは作らない
         # （作り直していないフォルダは反映待ちのままのため、検索ではそのフォルダを照合する）
         if (!$stopped -and !$folderLost) {
-            writeIndexingProgress ${indexingPhaseFinish} $processed 0 $failures.Count "システムインデックス（高速検索用）を作っています…"
+            $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "システムインデックス（高速検索用）を作っています…")
             try {
                 [void](updateSystemIndexes -shouldStop { $channel.Stop })
             } catch {
@@ -795,7 +811,7 @@ function invokeIndexerBody {
         }
         # 画面が終わり方（成功・失敗の件数）を読めるよう、進み具合は消さずに最後の状態を残す。
         # 「残り」には後回しにした件数も足す（未取り込みのまま残っているため）
-        writeIndexingProgress ${indexingPhaseFinish} $processed ($remaining + $postponedCount) $failures.Count ""
+        $reporter.Progress(${indexingPhaseFinish}, $processed, ($remaining + $postponedCount), $ledger.Failures.Count, "")
     }
 
     if ($folderLost) {
@@ -810,12 +826,12 @@ function invokeIndexerBody {
 
     writeIndexerLog ""
     if ($stopped) {
-        writeIndexerLog "インデックス作成を中止しました。（成功: ${successCount} 件 / 失敗: $($failures.Count) 件）" "Yellow"
+        writeIndexerLog "インデックス作成を中止しました。（成功: ${successCount} 件 / 失敗: $($ledger.Failures.Count) 件）" "Yellow"
     } else {
-        writeIndexerLog "インデックス作成が完了しました。（成功: ${successCount} 件 / 失敗: $($failures.Count) 件）" "Green"
+        writeIndexerLog "インデックス作成が完了しました。（成功: ${successCount} 件 / 失敗: $($ledger.Failures.Count) 件）" "Green"
     }
-    if ($droppedRows.Count -gt 0) {
-        writeIndexerLog "取り込みの直前に元のファイルが無くなった $($droppedRows.Count) 件は、取り込まずに一覧から除きました。" "Yellow"
+    if ($ledger.DroppedRows.Count -gt 0) {
+        writeIndexerLog "取り込みの直前に元のファイルが無くなった $($ledger.DroppedRows.Count) 件は、取り込まずに一覧から除きました。" "Yellow"
     }
     if ($postponedCount -gt 0) {
         # 利用者のPowerPointを閉じれば、次のインデックス作成で取り込む（未取り込みのまま残したファイル）
@@ -825,16 +841,16 @@ function invokeIndexerBody {
     }
     $channel.Postponed = $postponedCount
     writeIndexerLog "各ファイルの状態・更新日時は $(Split-Path $workspace.StatusFile -Leaf) で確認できます。"
-    if ($failures.Count -gt 0) {
+    if ($ledger.Failures.Count -gt 0) {
         # インデックス作成中の表示は流れて見えなくなるため、失敗したファイルと原因を最後にまとめて表示する
         writeIndexerLog ""
         writeIndexerLog "＜取り込みに失敗したファイルと原因＞" "Yellow"
-        foreach ($failure in @($failures | Select-Object -First $failureListLimit)) {
+        foreach ($failure in @($ledger.Failures | Select-Object -First $failureListLimit)) {
             writeIndexerLog "  $($failure.RelPath)"
             writeIndexerLog "    → $($failure.Message)" "Red"
         }
-        if ($failures.Count -gt $failureListLimit) {
-            writeIndexerLog "  ほか $($failures.Count - $failureListLimit) 件（一覧の「状態」が「${stateFailed}」の行。原因は「エラー」列）"
+        if ($ledger.Failures.Count -gt $failureListLimit) {
+            writeIndexerLog "  ほか $($ledger.Failures.Count - $failureListLimit) 件（一覧の「状態」が「${stateFailed}」の行。原因は「エラー」列）"
         }
         writeIndexerLog ""
         writeIndexerLog "失敗したファイルは、画面で「失敗分も再取り込みする」を選んで取り込むと再取り込みします。" "Yellow"
@@ -861,51 +877,4 @@ function getIngestingEntries {
         $entries.Add(@{ RelPath = $key; Count = $carried[$key] })
     }
     return , $entries.ToArray()
-}
-
-function addPendingPublish {
-    # 取り込んだ・無くなった元のファイルのフォルダを、書き出し待ちにする
-    param (
-        [string]$relPath,
-        [bool]$removed = $false
-    )
-
-    $folder = [System.IO.Path]::GetDirectoryName((getBookDir $relPath))
-    if (!$script:pendingPublish.ContainsKey($folder)) {
-        $script:pendingPublish[$folder] = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    }
-    if ($removed) {
-        [void]$script:pendingPublish[$folder].Add([System.IO.Path]::GetFileName($relPath))
-    }
-}
-
-function flushPendingPublish {
-    # 書き出し待ちのフォルダを、集約ファイル・システムインデックスに書き出す。keepFolders は、まだ取り込みが続くため除く
-    # （取り込み中のファイルがあるフォルダと、まだ取り込みのスレッドに渡していないファイルがあるフォルダ）。
-    # 書き出せなかったフォルダは TSV が残るため、次のインデックス作成の始めに書き出す
-    param (
-        [string[]]$keepFolders = @()
-    )
-
-    $keep = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($folder in @($keepFolders)) {
-        if ($folder) {
-            [void]$keep.Add($folder)
-        }
-    }
-    $flush = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($folder in @($script:pendingPublish.Keys)) {
-        if (!$keep.Contains($folder)) {
-            $flush[$folder] = $script:pendingPublish[$folder]
-            [void]$script:pendingPublish.Remove($folder)
-        }
-    }
-    if ($flush.Count -eq 0) {
-        return
-    }
-    try {
-        [void](publishIndexFolders $flush)
-    } catch {
-        writeIndexerLog "    インデックスをまとめられませんでした（次のインデックス作成でまとめ直します）: $($_.Exception.Message)" "Yellow"
-    }
 }

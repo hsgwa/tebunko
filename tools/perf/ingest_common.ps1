@@ -4,7 +4,8 @@
 # 受け渡しの口（Progress.Phase）の値（計測の口。tebunko の core\paths.ps1 の ${indexingPhase*} と同じ）
 $ingestPhaseNames = @("クロール", "確認", "取り込み", "仕上げ")
 $ingestPhaseIngest = "取り込み"
-# 取り込み一覧の状態の値とファイル名（計測の口）
+# 取り込み一覧の状態の値とファイル名（計測の口。tebunko の core\paths.ps1 の ${stateDone}・${stateFailed} と同じ。
+# インデクサ側で StatusLedger（indexer\indexer_state.ps1）を通しても、この値は変えない）
 $ingestStateDone = "済"
 $ingestStateFailed = "失敗"
 $ingestStatusFileName = "取り込み一覧.tsv"

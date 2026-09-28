@@ -526,3 +526,71 @@ function getIndexingState {
     $state.FailedRows = @($failedRows | Sort-Object -Property @{ Expression = { [string]$_.取り込み日時 }; Descending = $true }, @{ Expression = { $_.相対パス } })
     return $state
 }
+
+# 取り込み一覧・取り込み中のファイルの読み書きと、今回の取り込みでの失敗・元ファイルが無くなった行の記録をまとめる（StatusLedger）。
+# 列と状態の定義（core/paths.ps1 の ${statusColumns} など）は判断層（indexer_decide.ps1）・index_store.ps1 なども読むため、
+# 今の場所（paths.ps1 の変数）のまま動かさない（docs/design/structure/classes.md）。
+# 保存先（取り込み一覧・取り込み中のファイル）は、コンストラクタで受け取った $workspace（Workspace のインスタンス。
+# 場所を暗黙に使わないため、メソッドの中で ${workspace} を読まない）の StatusFile・IngestingFile から決める
+class StatusLedger {
+    hidden $Workspace
+    # 今回の取り込みで失敗したファイル（@{ RelPath; Message } の並び）
+    [System.Collections.Generic.List[object]]$Failures
+    # 取り込みの直前に元のファイルが無くなっていた相対パス（取り込み一覧から除く）
+    [System.Collections.Generic.HashSet[string]]$DroppedRows
+
+    StatusLedger($workspace) {
+        $this.Workspace = $workspace
+        $this.Failures = New-Object System.Collections.Generic.List[object]
+        $this.DroppedRows = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    }
+
+    [hashtable] ReadStatus() {
+        # 取り込み一覧を読み込む（readStatusFile と同じ形。@{ Folders; Rows }）
+        return readStatusFile $this.Workspace.StatusFile
+    }
+
+    [void] WriteStatus($folders, $rows) {
+        # 取り込み一覧を書き出す（1ファイル1行）
+        writeStatusFile $folders $rows $this.Workspace.StatusFile
+    }
+
+    [void] AddRow($row) {
+        # 取り込み一覧の末尾に1行追記する
+        addStatusRow $row $this.Workspace.StatusFile
+    }
+
+    [object[]] ReadIngestingFiles() {
+        # 取り込み中のファイルの記録を読む（@{ RelPath; Count } の並び）
+        return readIngestingFiles $this.Workspace.IngestingFile
+    }
+
+    [void] WriteIngestingFiles([object[]]$entries) {
+        # 取り込み中のファイルの記録を書く（無ければ記録を消す）
+        writeIngestingFiles $entries $this.Workspace.IngestingFile
+    }
+
+    [void] RemoveIngestingFile() {
+        removeIngestingFile $this.Workspace.IngestingFile
+    }
+
+    [void] RenameIndexName([string]$oldName, [string]$newName) {
+        # 取り込み一覧に記録したインデックス名を書き換える（クロール対象フォルダの行と、各行の相対パスの先頭）
+        renameStatusIndexName $oldName $newName $this.Workspace.StatusFile
+    }
+
+    [void] RemoveIndexName([string]$name) {
+        # 取り込み一覧から、あるインデックスの記録（クロール対象フォルダの行と、そのインデックスの各行）を取り除く
+        removeStatusIndexName $name $this.Workspace.StatusFile
+    }
+
+    [void] AddFailure([string]$relPath, [string]$message) {
+        # 今回の取り込みで失敗したファイルを記録する
+        $this.Failures.Add(@{ RelPath = $relPath; Message = $message })
+    }
+
+    [void] AddDropped([string]$relPath) {
+        # 取り込みの直前に元のファイルが無くなっていた（取り込み一覧・インデックスから除く）ファイルを記録する
+        [void]$this.DroppedRows.Add($relPath)
+    }
+}
