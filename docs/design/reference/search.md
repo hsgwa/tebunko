@@ -38,6 +38,21 @@ flowchart LR
 | `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
 | `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |
 
+## 高速検索の状態（`tebunko/search/windows_search.ps1`・`fast_search.ps1`・`ui/search_view.ps1`）
+
+仕様は [高速検索（Windows Search）](../search/fast-search.md)。
+
+| 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
+|---|---|---|---|---|---|
+| `getWindowsSearchState` | systemRoot, workspaceDir（空なら systemRoot の 1 つ上）, connection（開いた接続。無ければ自分で開く） | `NoFolder` / `NoConnection` / `NotInScope` / `NotYet` / `Ok` | 高速検索に使えるかと、使えない理由 | [高速検索](../search/fast-search.md) | 検索・画面 |
+| `testWindowsSearch` | systemRoot | bool | `getWindowsSearchState` が `Ok` か | 同上 | 検索 |
+| `testTsvIndexedByWindowsSearch` | indexRoot, connection | bool | 本文インデックス（index の TSV）が Windows Search に索引されているか | 同上 | `getSystemIndexProgress` |
+| `getSystemIndexProgress` | query, indexRoot, systemRoot, statePath, connection | `@{Folders; Waiting; ContentIndexed}` / `$null` | 高速検索用のインデックスが Windows Search にどこまで反映されたかを数える（状態ファイルは書き換えない。検索では呼ばない） | 同上 | 画面 |
+| `getReflectedSystemIndexEntries` | state, systemRootPath, ask | `@{Reflected; Unreflected}` | 状態ファイルの反映待ちの行を、Windows Search の索引と照らして、反映済みになったものと、まだのフォルダに分ける | 同上 | `getFastSearchPackFiles`・`getSystemIndexProgress` |
+| `getFastSearchView` | status（`@{Reason; Progress}`）, useRegex, word, checking | `@{Usable; Text}` | 検索ワードの下の短い表示と、高速検索を使うか（判断層） | [［2 検索］タブ](../gui/search-tab.md) | 画面 |
+| `getFastSearchDetail` | status, useRegex, word | `@{Title; Message}` | 表示を押したときの詳しい画面（状態・進み具合・直し方・確かめた時刻） | 同上 | 画面 |
+| `testFastSearchPreparing` | status | bool | 準備中か（画面が 5 分おきの確かめ直しを続けるかの判断） | 同上 | 画面 |
+
 ## スレッドとプール（`shared/core/worker_pool.ps1`・`tebunko/search/search_service.ps1`・`tebunko/indexer/indexing_session.ps1`）
 
 設計は [プロセスとスレッド](../structure/threads.md)。クラスは作ったランスペースのスレッドだけから呼ぶ（`SearchService`・`BackgroundQueue`・`IndexingSession` は画面のスレッドで作る。`WorkerPool` はプールを持つ側のスレッドで作る。`Workspace` は各スレッドで作り直す）（[クラスと関数の使い分け](../structure/classes.md)）。

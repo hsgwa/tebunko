@@ -9,6 +9,9 @@
 | 項目 | 仕様 |
 |---|---|
 | 使える条件（画面の「高速検索：使用可」） | Windows Search を開けて `work/system_index` が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（`testFastSearchUsable`・`getFastSearchView`）。使えないときは [検索を速くする仕組み](speed.md) のとおりすべてを照合する |
+| 使えない理由の区別 | `getWindowsSearchState`（`windows_search.ps1`）が、`NoFolder`（`system_index` が無い）・`NoConnection`（Windows Search を開けない・問い合わせの失敗。時間切れを含む）・`NotInScope`（`system_index` が 0 件で、ワークスペースの中も 0 件）・`NotYet`（`system_index` は 0 件だが、ワークスペースの中のほかのものは索引されている）・`Ok` のどれかを返す。管理者の権限なしに Windows Search の対象の一覧を読む方法が無いため、`NotInScope` と `NotYet` はワークスペース（`SCOPE`）の中の様子で見分ける（作ったばかりのワークスペースでは、対象でも `NotInScope` になることがある）。`testWindowsSearch` は `Ok` かどうかだけを返す |
+| 反映の進み具合 | `getSystemIndexProgress`（`fast_search.ps1`）が `@{ Folders; Waiting; ContentIndexed }` を返す。`Folders` は txt があるフォルダと状態ファイルの「反映待ち」のフォルダを合わせた数（分けた txt は 1 フォルダ）、`Waiting` は反映待ちのうち Windows Search でまだ反映済みでないフォルダの数（検索と同じ判定。`getReflectedSystemIndexEntries`）、`ContentIndexed` は本文インデックス（`content_index` の TSV）も索引の対象か（`testTsvIndexedByWindowsSearch`）。状態ファイルは書き換えず（反映済みの行を消すのは検索）、読めない・問い合わせに失敗したときは `$null`。検索では呼ばない（画面が確かめるときだけ） |
+| 画面の表示と確かめ直す時機 | `getFastSearchView` が短い表示（理由・`使用可（反映 N%）`・`確認中…`。ワードの理由（正規表現・1 文字）を Windows Search の理由より先に出す）、`getFastSearchDetail` が押したときの詳しい画面（状態・進み具合・理由ごとの直し方・確かめた時刻）を返す。確かめ直すのは、画面を開いたとき・ワークスペースを変えたとき・インデックス作成が終わったとき・表示を押したとき、準備中（`NotYet` か反映待ちがある。`testFastSearchPreparing`）の間の 5 分おき。検索のたびの確かめは理由（`FastReason`）だけを差し替える。1 回の確かめは Windows Search への接続を 1 つだけ開いて共有する |
 | 語の作り方 | ワードを空白で区切り、2 文字以上の部分の隣り合う 2 文字を小文字にし、UTF-16LE の 4 バイトを 16 進にした語（`x` ＋ 8 桁）にする（`getSearchGrams`）。最大 16 個（多いときは均等に間引く。間引いても候補が増えるだけ） |
 | 候補 | `CONTAINS(System.Search.Contents, '"x…" AND "x…"')` で、検索対象のフォルダの中の txt を探す。語の範囲で分けた txt（`system_index_1.txt` …）は語ごとに問い合わせ、すべての語がどれかで見つかったフォルダを候補にする |
 | 反映の判定 | txt が Windows Search に反映済み ⇔ `System.Search.GatherTime` が空でない（本文を読み終えた）かつ `System.DateModified` が txt の更新日時（UTC）を秒で切り捨てた値と同じ（Windows Search は秒未満を切り捨てて持つ。`testSystemIndexReflected`） |

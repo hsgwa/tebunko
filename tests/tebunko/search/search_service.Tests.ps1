@@ -283,14 +283,35 @@ Describe "invokeSearchRequest（高速検索）" -Tag Io {
         $packs = newPackIndex $tsvRoot $packRoot
     }
 
-    It "Windows Search が使えれば、候補の集約ファイルだけを照合する" {
-        Mock testWindowsSearch { $true }
+    It "Windows Search が使えれば、候補の集約ファイルだけを照合する（使えないときの理由は FastReason に入る）" {
+        Mock getWindowsSearchState { "Ok" }
         Mock getFastSearchPackFiles { @{ Folders = @(); Packs = $packs } }
         $request = newSearchRequest "単価" $true @($packRoot) 0 @{} $true
         invokeSearchRequest $request
+        $request.FastReason | Should -Be "Ok"
         $request.FastAvailable | Should -Be $true
         $request.FastUsed | Should -Be $true
         (takeHits $request).Count | Should -Be 1
         Should -Invoke getFastSearchPackFiles -Times 1 -Exactly
+    }
+
+    It "Windows Search が使えなければ、理由を FastReason に入れて、すべてを照合する" {
+        Mock getWindowsSearchState { "NotInScope" }
+        Mock getFastSearchPackFiles { throw "呼ばれない" }
+        $request = newSearchRequest "単価" $true @($packRoot) 0 @{} $true
+        invokeSearchRequest $request
+        $request.FastReason | Should -Be "NotInScope"
+        $request.FastAvailable | Should -Be $false
+        $request.FastUsed | Should -Be $false
+        (takeHits $request).Count | Should -Be 1
+        Should -Invoke getFastSearchPackFiles -Times 0 -Exactly
+    }
+
+    It "高速検索を求めなかった要求は、Windows Search を確かめない（FastReason は入らない）" {
+        Mock getWindowsSearchState { "Ok" }
+        $request = newSearchRequest "単価" $true @($packRoot) 0 @{} $false
+        invokeSearchRequest $request
+        $request.FastReason | Should -Be $null
+        Should -Invoke getWindowsSearchState -Times 0 -Exactly
     }
 }

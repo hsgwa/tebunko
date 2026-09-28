@@ -164,7 +164,7 @@ $tabs = @(
         "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
     @{ Tab = "SearchTab"; File = "tab_search.xaml"; Names = @(
         "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "FileFilterBox", "FileFilterPlaceholder",
-        "WordNotice", "SearchTargetText", "GoIndexTabButton", "FastSearchText",
+        "WordNotice", "SearchTargetText", "GoIndexTabButton", "FastSearchButton",
         "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
         "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ResultGrid",
         "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath",

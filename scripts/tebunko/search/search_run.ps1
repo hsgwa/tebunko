@@ -105,7 +105,7 @@ function newSearchRequest {
     # 検索の要求 1 つを作る（画面が作り、検索の司令のスレッド（SearchService）が invokeSearchRequest で実行する）。
     # 画面と司令のスレッドの両方から読み書きするため、Synchronized の hashtable にする。
     #   画面が書く: 検索条件・Stop（取り消し）
-    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・FastUsed / FastAvailable・Truncated / Cancelled / Error・Finished
+    #   司令が書く: Queue（ヒット）・Done / Total / IndexTotal / Scanned（進み具合）・Folders・FastUsed / FastAvailable / FastReason・Truncated / Cancelled / Error・Finished
     #   workDir: 高速検索で使うワークスペース（司令のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、画面から渡す）
     param (
         [string]$word,
@@ -121,7 +121,7 @@ function newSearchRequest {
         Word = $word; SimpleMatch = $simpleMatch; Folders = $folders; Limit = $limit; WorkDir = $workDir
         CaseSensitive = [bool]$option.CaseSensitive; FileFilter = [string]$option.FileFilter
         IncludeShapes = ($option.IncludeShapes -ne $false); IncludeComments = ($option.IncludeComments -ne $false)
-        UseFast = $useFast; FastUsed = $false; FastAvailable = $null
+        UseFast = $useFast; FastUsed = $false; FastAvailable = $null; FastReason = $null
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
         Stop = $false; Finished = $false; Done = 0; Total = -1; IndexTotal = -1; Scanned = 0
         Truncated = $false; Cancelled = $false; Error = $null
@@ -150,7 +150,9 @@ function invokeSearchRequest {
         $index = $null
         if ($request.UseFast) {
             $own = [Workspace]::new($request.WorkDir)
-            $request.FastAvailable = testWindowsSearch $own.SystemIndexDir
+            # 使えない理由（getWindowsSearchState の値）は、画面が表示の理由だけを差し替えるのに使う（進み具合は数えない）
+            $request.FastReason = getWindowsSearchState $own.SystemIndexDir $own.Dir
+            $request.FastAvailable = $request.FastReason -eq "Ok"
             if ($request.FastAvailable) {
                 $index = getFastSearchPackFiles $word $folders -indexRoot $own.IndexDir -systemRoot $own.SystemIndexDir -statePath $own.SystemIndexStateFile `
                     -onProgress { param ($count) $request.Scanned = $count }

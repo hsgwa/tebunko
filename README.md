@@ -141,7 +141,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 
 ### 高速検索とワークスペース
 
-インデックス作成は、検索に使うデータ（ワークスペースの `content_index`）に加えて、Windows Search に索引させる txt（`system_index`）を作ります。検索するときは、Windows Search で検索語を含みうるフォルダを先に絞り、その中だけを探します。結果は、すべてを探したときと同じです。検索ワードの下に `高速検索：使用可` / `使用不可` を表示します（正規表現・1 文字のワード・Windows Search が使えないときは使用不可で、すべてを探します）。
+インデックス作成は、検索に使うデータ（ワークスペースの `content_index`）に加えて、Windows Search に索引させる txt（`system_index`）を作ります。検索するときは、Windows Search で検索語を含みうるフォルダを先に絞り、その中だけを探します。結果は、すべてを探したときと同じです。検索ワードの下に `高速検索：使用可` / `使用不可（理由）` を表示します（正規表現・1 文字のワード・Windows Search が使えないときは使用不可で、すべてを探します）。表示を押すと、Windows Search の状態を確かめ直し、今の状態・インデックスが Windows Search に反映された数・使用不可のときの直し方を詳しく表示します（理由ごとの直し方は [docs/guide/fast-search.md](docs/guide/fast-search.md#使用不可の理由と直し方)）。
 
 高速検索を早く効かせるには、ワークスペースの `content_index` を Windows Search の対象から外してください（外さなくても結果は同じですが、Windows Search が `content_index` の中のファイルの処理に時間を取られ、効くまで 1 日以上かかることがあります）。
 

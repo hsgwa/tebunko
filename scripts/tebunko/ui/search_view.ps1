@@ -37,17 +37,137 @@ function getWordNotice {
     return ""
 }
 
-function getFastSearchView {
-    # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否。
-    #   available: Windows Search が使えるか（testWindowsSearch）。$null はまだ確かめていない（使えるものとして扱う）
+function getFastSearchReason {
+    # 高速検索の状態（getFastSearchView の status）から、Windows Search の理由（getWindowsSearchState の値）を取り出す。
+    # まだ確かめていない（$null）ときは Ok（使えるものとして扱う）
     param (
-        $available,
+        $status
+    )
+
+    if ($status -and $status.Reason) {
+        return [string]$status.Reason
+    }
+    return "Ok"
+}
+
+function getFastSearchView {
+    # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否と短い表示。
+    #   status  : @{ Reason（getWindowsSearchState の値）; Progress（getSystemIndexProgress の値。$null は数えていない） }。
+    #             $null はまだ確かめていない（使えるものとして扱う）
+    #   checking: 確かめている間（表示を押した後など）。表示だけを「確認中…」にする（Usable は変えない）
+    # 詳しいことは、押したときの画面（getFastSearchDetail）に出す。ワードの理由（正規表現・1 文字）は利用者がその場で直せるため、Windows Search の理由より先に出す
+    param (
+        $status,
+        [bool]$useRegex,
+        [string]$word,
+        [bool]$checking = $false
+    )
+
+    $reason = getFastSearchReason $status
+    $usable = testFastSearchUsable ($reason -eq "Ok") $useRegex $word
+    if ($checking) {
+        return @{ Usable = $usable; Text = "高速検索：確認中…" }
+    }
+    # ワードが空のときは、まだ入力していないだけなので、1 文字とは言わない
+    if ($useRegex) {
+        $text = "高速検索：使用不可（正規表現）"
+    } elseif ($word -ne "" -and (getSearchGrams $word).Count -eq 0) {
+        $text = "高速検索：使用不可（1 文字）"
+    } elseif ($reason -eq "Ok") {
+        $text = "高速検索：使用可"
+        $progress = if ($status) { $status.Progress } else { $null }
+        if ($progress -and $progress.Folders -gt 0 -and $progress.Waiting -gt 0) {
+            # 反映待ちがあるうちは、進み具合を百分率で添える（数そのものは詳しい画面に出す）
+            $percent = [int][Math]::Floor(($progress.Folders - $progress.Waiting) * 100 / $progress.Folders)
+            $text = "高速検索：使用可（反映 ${percent}%）"
+        }
+    } else {
+        $labels = @{
+            NoFolder     = "インデックスがありません"
+            NoConnection = "Windows Search に接続できません"
+            NotInScope   = "Windows Search の対象外"
+            NotYet       = "Windows Search の準備中"
+        }
+        $label = $labels[$reason]
+        $text = if ($label) { "高速検索：使用不可（$label）" } else { "高速検索：使用不可" }
+    }
+    return @{ Usable = $usable; Text = $text }
+}
+
+function testFastSearchPreparing {
+    # 高速検索が準備中か（画面が、準備中の間だけ確かめ直す（5 分おき）かどうかを決める）。
+    # Windows Search がまだ索引していない（NotYet）か、反映待ちのフォルダがあるとき。準備が終われば偽になり、確かめ直しを止める
+    param (
+        $status
+    )
+
+    if ($null -eq $status) {
+        return $false
+    }
+    if ($status.Reason -eq "NotYet") {
+        return $true
+    }
+    return [bool]($status.Progress -and $status.Progress.Waiting -gt 0)
+}
+
+function getFastSearchDetail {
+    # 高速検索の表示を押したときに出す詳しい画面の中身。@{ Title; Message } を返す（getSourceConnectFailureDialog と同じ形）。
+    # 今の状態と理由・反映の進み具合・理由ごとの直し方・確かめた時刻を書く。
+    # 画面には、内部の言葉（システムインデックス・集約ファイル・本文インデックス）を書かない（区別が要るときは「インデックス（高速検索用）」）。
+    # フォルダの名前 system_index・content_index は、直し方の中でだけ書く
+    #   status: getFastSearchView と同じ（Reason・Progress に加えて、確かめた時刻 CheckedAt があれば書く）
+    param (
+        $status,
         [bool]$useRegex,
         [string]$word
     )
 
-    $usable = testFastSearchUsable ($available -ne $false) $useRegex $word
-    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" } }
+    $reason = getFastSearchReason $status
+    $progress = if ($status) { $status.Progress } else { $null }
+    $lines = New-Object System.Collections.Generic.List[string]
+
+    $states = @{
+        Ok           = "Windows Search：使えます"
+        NoFolder     = "Windows Search：インデックス（高速検索用）がありません"
+        NoConnection = "Windows Search：接続できません"
+        NotInScope   = "Windows Search：インデックス（高速検索用）が索引の対象外のようです"
+        NotYet       = "Windows Search：インデックス（高速検索用）をまだ索引していません（準備中）"
+    }
+    $state = $states[$reason]
+    $lines.Add($(if ($state) { $state } else { "Windows Search：使えません" }))
+    if ($useRegex) {
+        $lines.Add("［正規表現を使う］がオンのため、今の検索ではすべてを検索します。")
+    } elseif ($word -ne "" -and (getSearchGrams $word).Count -eq 0) {
+        $lines.Add("検索ワードに 2 文字以上の部分が無いため、今の検索ではすべてを検索します。")
+    }
+    if ($progress) {
+        $folders = [int]$progress.Folders
+        $waiting = [int]$progress.Waiting
+        $lines.Add("インデックス（高速検索用）の反映：反映済み $(($folders - $waiting).ToString('N0')) / $($folders.ToString('N0')) フォルダ（反映待ち $($waiting.ToString('N0'))）")
+    }
+
+    $lines.Add("")
+    $fixes = @{
+        NoFolder     = "［1 インデックス管理］でインデックスを作成してください。作成が終わると、高速検索用のインデックスも作られます。ワークスペースを変えたときは、そのワークスペースにインデックスがあるかも確かめてください。"
+        NoConnection = "Windows Search のサービス（WSearch）が動いているかを確かめてください。止まっているときは、サービスの管理画面で開始してください。"
+        NotInScope   = "Windows の［インデックスのオプション］で、ワークスペースの system_index フォルダを索引の対象に加えてください。管理者の権限が要り変えられない PC では、PC の管理者に頼んでください。作ったばかりのワークスペースでは、対象でも「対象外」と出ることがあります。その場合は、しばらくしてからもう一度押してください。"
+        NotYet       = "Windows Search が索引し終えるのを待ってください。終われば使えるようになります（この表示は 5 分おきに確かめ直します）。"
+    }
+    if ($fixes[$reason]) {
+        $lines.Add("直し方：$($fixes[$reason])")
+    } elseif ($progress -and $progress.Waiting -gt 0) {
+        $lines.Add("反映待ちのフォルダは、Windows Search が索引し終えるまで、すべてを検索します。待てば使えるようになります。")
+    }
+    # 反映が終わっていない間だけ、遅い理由の案内を出す
+    if ($progress -and $progress.ContentIndexed -and ($reason -eq "NotYet" -or ($reason -eq "Ok" -and $progress.Waiting -gt 0))) {
+        $lines.Add("ワークスペースの content_index フォルダも Windows Search の索引の対象になっているため、反映が遅くなっています。［インデックスのオプション］で content_index フォルダを対象から外すと、早くなります。")
+    }
+    $lines.Add("高速検索が使えなくても、検索の結果は同じです。時間だけが違います。")
+    if ($status -and $status.CheckedAt) {
+        $lines.Add("")
+        $lines.Add("確かめた時刻：$(([datetime]$status.CheckedAt).ToString('yyyy/MM/dd HH:mm:ss'))")
+    }
+    return @{ Title = "高速検索の状態"; Message = ($lines -join "`n") }
 }
 
 function getSearchProgressText {

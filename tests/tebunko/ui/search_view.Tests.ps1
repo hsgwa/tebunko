@@ -42,15 +42,143 @@ Describe "describeSearchOption" -Tag Unit {
 }
 
 Describe "getFastSearchView" -Tag Unit {
-    It "Windows Search が使え（またはまだ確かめていない）、正規表現がオフで、2 文字以上の部分があれば使用可" {
-        (getFastSearchView $true $false "見積").Text | Should -Be "高速検索：使用可"
-        (getFastSearchView $null $false "見積").Usable | Should -Be $true
+    BeforeAll {
+        function script:newFastStatus {
+            param ([string]$reason, $progress = $null)
+            return @{ Reason = $reason; Progress = $progress }
+        }
     }
 
-    It "正規表現をオンにした・1 文字・Windows Search が使えないときは使用不可" {
-        (getFastSearchView $true $true "見積").Text | Should -Be "高速検索：使用不可"
-        (getFastSearchView $true $false "見").Usable | Should -Be $false
-        (getFastSearchView $false $false "見積").Usable | Should -Be $false
+    It "<name>" -TestCases @(
+        @{ name = "まだ確かめていない（null）は使用可"; status = $null; useRegex = $false; word = "見積"; text = "高速検索：使用可"; usable = $true }
+        @{ name = "Windows Search が使え、反映待ちが無ければ使用可"; status = @{ Reason = "Ok"; Progress = @{ Folders = 150; Waiting = 0; ContentIndexed = $false } }; useRegex = $false; word = "見積"; text = "高速検索：使用可"; usable = $true }
+        @{ name = "進み具合がまだ無ければ使用可"; status = @{ Reason = "Ok" }; useRegex = $false; word = "見積"; text = "高速検索：使用可"; usable = $true }
+        @{ name = "反映待ちがあれば、反映の百分率を添える"; status = @{ Reason = "Ok"; Progress = @{ Folders = 150; Waiting = 30; ContentIndexed = $false } }; useRegex = $false; word = "見積"; text = "高速検索：使用可（反映 80%）"; usable = $true }
+        @{ name = "百分率は切り捨て（99.3% は 99%）"; status = @{ Reason = "Ok"; Progress = @{ Folders = 150; Waiting = 1; ContentIndexed = $false } }; useRegex = $false; word = "見積"; text = "高速検索：使用可（反映 99%）"; usable = $true }
+        @{ name = "正規表現がオン"; status = @{ Reason = "Ok" }; useRegex = $true; word = "見積"; text = "高速検索：使用不可（正規表現）"; usable = $false }
+        @{ name = "2 文字以上の部分が無い"; status = @{ Reason = "Ok" }; useRegex = $false; word = "見"; text = "高速検索：使用不可（1 文字）"; usable = $false }
+        @{ name = "NoFolder"; status = @{ Reason = "NoFolder" }; useRegex = $false; word = "見積"; text = "高速検索：使用不可（インデックスがありません）"; usable = $false }
+        @{ name = "NoConnection"; status = @{ Reason = "NoConnection" }; useRegex = $false; word = "見積"; text = "高速検索：使用不可（Windows Search に接続できません）"; usable = $false }
+        @{ name = "NotInScope"; status = @{ Reason = "NotInScope" }; useRegex = $false; word = "見積"; text = "高速検索：使用不可（Windows Search の対象外）"; usable = $false }
+        @{ name = "NotYet"; status = @{ Reason = "NotYet"; Progress = @{ Folders = 150; Waiting = 150; ContentIndexed = $false } }; useRegex = $false; word = "見積"; text = "高速検索：使用不可（Windows Search の準備中）"; usable = $false }
+        @{ name = "ワードの理由（正規表現）は Windows Search の理由より先に出す"; status = @{ Reason = "NotInScope" }; useRegex = $true; word = "見積"; text = "高速検索：使用不可（正規表現）"; usable = $false }
+        @{ name = "ワードの理由（1 文字）は Windows Search の理由より先に出す"; status = @{ Reason = "NoConnection" }; useRegex = $false; word = "見"; text = "高速検索：使用不可（1 文字）"; usable = $false }
+        @{ name = "ワードが空のときは、1 文字とは言わず、Windows Search の理由を出す"; status = @{ Reason = "NotInScope" }; useRegex = $false; word = ""; text = "高速検索：使用不可（Windows Search の対象外）"; usable = $false }
+        @{ name = "ワードが空でも、Windows Search が使えれば使用可と出す（検索はワードを入れてから）"; status = $null; useRegex = $false; word = ""; text = "高速検索：使用可"; usable = $false }
+        @{ name = "知らない理由は、理由なしの使用不可"; status = @{ Reason = "Other" }; useRegex = $false; word = "見積"; text = "高速検索：使用不可"; usable = $false }
+    ) {
+        param ($name, $status, $useRegex, $word, $text, $usable)
+        $view = getFastSearchView $status $useRegex $word
+        $view.Text | Should -Be $text
+        $view.Usable | Should -Be $usable
+    }
+
+    It "確かめている間は、表示だけを「確認中…」にする（使えるかは変えない）" {
+        $view = getFastSearchView (newFastStatus "Ok") $false "見積" $true
+        $view.Text | Should -Be "高速検索：確認中…"
+        $view.Usable | Should -Be $true
+        (getFastSearchView (newFastStatus "NotInScope") $false "見積" $true).Usable | Should -Be $false
+    }
+}
+
+Describe "testFastSearchPreparing" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "まだ確かめていない"; status = $null; expected = $false }
+        @{ name = "NotYet は準備中"; status = @{ Reason = "NotYet"; Progress = $null }; expected = $true }
+        @{ name = "反映待ちがあれば準備中"; status = @{ Reason = "Ok"; Progress = @{ Folders = 10; Waiting = 1 } }; expected = $true }
+        @{ name = "反映待ちが無ければ準備は終わり"; status = @{ Reason = "Ok"; Progress = @{ Folders = 10; Waiting = 0 } }; expected = $false }
+        @{ name = "進み具合が無ければ準備中ではない"; status = @{ Reason = "Ok"; Progress = $null }; expected = $false }
+        @{ name = "対象外は、待っても変わらないため準備中ではない"; status = @{ Reason = "NotInScope"; Progress = $null }; expected = $false }
+    ) {
+        param ($name, $status, $expected)
+        testFastSearchPreparing $status | Should -Be $expected
+    }
+}
+
+Describe "getFastSearchDetail" -Tag Unit {
+    BeforeAll {
+        function script:newFastStatus {
+            param ([string]$reason, $progress = $null, $checkedAt = $null)
+            return @{ Reason = $reason; Progress = $progress; CheckedAt = $checkedAt }
+        }
+    }
+
+    It "<reason>: 今の状態と直し方を含む" -TestCases @(
+        @{ reason = "NoFolder"; expected = @("インデックス（高速検索用）がありません", "［1 インデックス管理］でインデックスを作成") }
+        @{ reason = "NoConnection"; expected = @("接続できません", "Windows Search のサービス（WSearch）") }
+        @{ reason = "NotInScope"; expected = @("索引の対象外", "［インデックスのオプション］", "system_index フォルダを索引の対象に加えて", "PC の管理者に頼んでください") }
+        @{ reason = "NotYet"; expected = @("まだ索引していません", "索引し終えるのを待って") }
+    ) {
+        param ($reason, $expected)
+        $detail = getFastSearchDetail (newFastStatus $reason) $false "見積"
+        $detail.Title | Should -Not -BeNullOrEmpty
+        foreach ($text in $expected) {
+            $detail.Message | Should -BeLike "*$text*"
+        }
+        $detail.Message | Should -BeLike "*検索の結果は同じです*"
+    }
+
+    It "使えるときは、反映の進み具合と、待てば使えることを書く" {
+        $detail = getFastSearchDetail (newFastStatus "Ok" @{ Folders = 150; Waiting = 30; ContentIndexed = $false }) $false "見積"
+        $detail.Message | Should -BeLike "*Windows Search：使えます*"
+        $detail.Message | Should -BeLike "*反映済み 120 / 150 フォルダ（反映待ち 30）*"
+        $detail.Message | Should -BeLike "*待てば使えるようになります*"
+    }
+
+    It "反映待ちが無ければ、待つ案内は出さない" {
+        $detail = getFastSearchDetail (newFastStatus "Ok" @{ Folders = 150; Waiting = 0; ContentIndexed = $false }) $false "見積"
+        $detail.Message | Should -BeLike "*反映済み 150 / 150 フォルダ（反映待ち 0）*"
+        $detail.Message | Should -Not -BeLike "*待てば*"
+    }
+
+    It "反映が終わっていない間、本文の索引が対象のままのときだけ、対象から外す案内（content_index）を出す" -TestCases @(
+        @{ name = "反映待ちがあり、対象のまま"; reason = "Ok"; progress = @{ Folders = 150; Waiting = 30; ContentIndexed = $true }; shown = $true }
+        @{ name = "準備中（NotYet）で、対象のまま"; reason = "NotYet"; progress = @{ Folders = 150; Waiting = 150; ContentIndexed = $true }; shown = $true }
+        @{ name = "対象から外している"; reason = "Ok"; progress = @{ Folders = 150; Waiting = 30; ContentIndexed = $false }; shown = $false }
+        @{ name = "対象のままでも、反映が終わっていれば出さない"; reason = "Ok"; progress = @{ Folders = 150; Waiting = 0; ContentIndexed = $true }; shown = $false }
+        @{ name = "進み具合を数えていない（NoFolder）"; reason = "NoFolder"; progress = $null; shown = $false }
+    ) {
+        param ($name, $reason, $progress, $shown)
+        $message = (getFastSearchDetail (newFastStatus $reason $progress) $false "見積").Message
+        if ($shown) {
+            $message | Should -BeLike "*content_index フォルダを対象から外すと*"
+        } else {
+            $message | Should -Not -BeLike "*content_index*"
+        }
+    }
+
+    It "正規表現・1 文字のときは、今の検索ですべてを検索することも書く" {
+        (getFastSearchDetail (newFastStatus "Ok") $true "見積").Message | Should -BeLike "*［正規表現を使う］がオン*"
+        (getFastSearchDetail (newFastStatus "Ok") $false "見").Message | Should -BeLike "*2 文字以上の部分が無い*"
+        (getFastSearchDetail (newFastStatus "Ok") $false "見積").Message | Should -Not -BeLike "*今の検索ではすべてを検索*"
+    }
+
+    It "確かめた時刻があれば書く" {
+        $detail = getFastSearchDetail (newFastStatus "Ok" $null ([datetime]"2026-09-29 00:10:05")) $false "見積"
+        $detail.Message | Should -BeLike "*確かめた時刻：2026/09/29 00:10:05*"
+        (getFastSearchDetail (newFastStatus "Ok") $false "見積").Message | Should -Not -BeLike "*確かめた時刻*"
+    }
+
+    It "まだ確かめていなくても（null）、こわれずに書く" {
+        (getFastSearchDetail $null $false "見積").Message | Should -BeLike "*Windows Search：使えます*"
+    }
+
+    It "画面の文言に、内部の言葉を書かない" -TestCases @(
+        @{ reason = "Ok"; progress = @{ Folders = 150; Waiting = 30; ContentIndexed = $true } }
+        @{ reason = "NoFolder"; progress = $null }
+        @{ reason = "NoConnection"; progress = $null }
+        @{ reason = "NotInScope"; progress = $null }
+        @{ reason = "NotYet"; progress = @{ Folders = 150; Waiting = 150; ContentIndexed = $true } }
+    ) {
+        param ($reason, $progress)
+        $status = newFastStatus $reason $progress ([datetime]"2026-09-29 00:10:05")
+        $detail = getFastSearchDetail $status $false "見積"
+        $shown = @($detail.Title, $detail.Message, (getFastSearchView $status $false "見積").Text)
+        foreach ($word in @("システムインデックス", "集約ファイル", "本文インデックス")) {
+            foreach ($text in $shown) {
+                $text | Should -Not -BeLike "*$word*"
+            }
+        }
     }
 }
 

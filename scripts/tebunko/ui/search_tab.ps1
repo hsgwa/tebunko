@@ -13,8 +13,15 @@ $script:filterText = ""
 $script:tsvCache = newTsvTextCache
 # 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）
 $script:searchService = newSearchService ${libPath} $script:tsvCache
-# Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
-$script:fastAvailable = $null
+# 高速検索の状態（@{ Reason; Progress; CheckedAt }。高速検索の使用可否と表示に使う。$null はまだ確かめていない）
+$script:fastStatus = $null
+# 確かめている間の状態（checkFastSearchAvailable）。Root: 確かめているワークスペースの system_index（無ければ確かめていない）
+$script:fastCheckingRoot = $null
+$script:fastShowDetail = $false     # 終わったら詳しい画面を出すか（表示を押したときだけ）
+$script:fastChecking = $false       # 表示を「確認中…」にしてボタンを押せなくする（表示を押したとき）
+$script:fastRecheck = $false        # 確かめの途中で、確かめ直しを頼まれた（終わったらもう一度確かめる）
+# 準備中（testFastSearchPreparing）の間だけ、5 分おきに確かめ直す
+$script:fastRecheckTimer = newTimer 300000 { safe { checkFastSearchAvailable } }
 
 # 検索ワード（前後の空白を除く）
 function getWordText {
@@ -45,24 +52,85 @@ function setSearchOptionToUi {
 }
 
 function updateFastSearchView {
-    # 高速検索の使用可否（ワード・［正規表現を使う］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）
-    $ui.FastSearchText.Text = (getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)).Text
+    # 高速検索の表示（ワード・［正規表現を使う］を変えたらすぐ、Windows Search の状態は確かめたときに変わる）
+    $ui.FastSearchButton.Content = (getFastSearchView $script:fastStatus ([bool]$ui.RegexCheck.IsChecked) (getWordText) $script:fastChecking).Text
+}
+
+function updateFastRecheckTimer {
+    # 準備中の間だけ 5 分おきに確かめ直す。準備が終われば止める（Windows Search に問い合わせ続けない）
+    if (testFastSearchPreparing $script:fastStatus) {
+        if (!$script:fastRecheckTimer.IsEnabled) {
+            $script:fastRecheckTimer.Start()
+        }
+    } else {
+        $script:fastRecheckTimer.Stop()
+    }
 }
 
 function checkFastSearchAvailable {
-    # Windows Search が使えるか（system_index が索引の対象か）を別スレッドで確かめる（画面を固めないように）
+    # Windows Search の状態（使えない理由・反映の進み具合）を別スレッドで確かめる（画面を固めないように）。
+    # showDetail（表示を押したとき）は、確かめている間は表示を「確認中…」にしてボタンを押せなくし、終わったら詳しい画面を出す。
+    # 確かめている間に呼ばれたら、確かめを重ねない（押したときは、その確かめが終わったときに詳しい画面を出す。ほかは終わったらもう一度確かめる）
+    param (
+        [switch]$showDetail
+    )
+
+    if ($showDetail) {
+        $script:fastShowDetail = $true
+        $script:fastChecking = $true
+        $ui.FastSearchButton.IsEnabled = $false
+        updateFastSearchView
+    }
+    if ($script:fastCheckingRoot -eq $workspace.SystemIndexDir) {
+        if (!$showDetail) {
+            $script:fastRecheck = $true
+        }
+        return
+    }
+    $script:fastCheckingRoot = $workspace.SystemIndexDir
     startJob {
-        param ($systemRoot)
-        @{ Root = $systemRoot; Available = (testWindowsSearch $systemRoot) }
-    } @($workspace.SystemIndexDir) {
+        param ($systemRoot, $workspaceDir, $indexRoot, $statePath)
+        # 1 回の確かめで、Windows Search への接続は 1 つだけ開く（使えない理由・反映の進み具合・本文の索引で共有する）
+        $connection = openWindowsSearch
+        try {
+            $reason = getWindowsSearchState $systemRoot $workspaceDir $connection
+            $progress = $null
+            if ($connection -and ($reason -eq "Ok" -or $reason -eq "NotYet")) {
+                $progress = getSystemIndexProgress -indexRoot $indexRoot -systemRoot $systemRoot -statePath $statePath -connection $connection
+            }
+            @{ Root = $systemRoot; Reason = $reason; Progress = $progress; CheckedAt = (Get-Date) }
+        } finally {
+            if ($connection) {
+                $connection.Dispose()
+            }
+        }
+    } @($workspace.SystemIndexDir, $workspace.Dir, $workspace.IndexDir, $workspace.SystemIndexStateFile) {
         param ($output, $errorText)
         $result = if (!$errorText -and $output.Count -gt 0) { $output[0] } else { $null }
         if ($result -and $result.Root -ne $workspace.SystemIndexDir) {
-            # 確かめている間にワークスペースを変えた（切り替えたときに確かめ直している）
+            # 確かめている間にワークスペースを変えた（切り替えたときに確かめ直している。詳しい画面も出さない）
             return
         }
-        $script:fastAvailable = if ($result) { [bool]$result.Available } else { $false }
+        $script:fastCheckingRoot = $null
+        $script:fastStatus = if ($result) {
+            @{ Reason = $result.Reason; Progress = $result.Progress; CheckedAt = $result.CheckedAt }
+        } else {
+            @{ Reason = "NoConnection"; Progress = $null; CheckedAt = (Get-Date) }
+        }
+        $detail = $script:fastShowDetail
+        $script:fastShowDetail = $false
+        $script:fastChecking = $false
+        $ui.FastSearchButton.IsEnabled = $true
         updateFastSearchView
+        updateFastRecheckTimer
+        if ($detail) {
+            $text = getFastSearchDetail $script:fastStatus ([bool]$ui.RegexCheck.IsChecked) (getWordText)
+            showMessage "$($text.Title)`n`n$($text.Message)" | Out-Null
+        }
+        if ($script:fastRecheck) {
+            $script:fastRecheck = $false
+            checkFastSearchAvailable
+        }
     }
 }
 
@@ -138,7 +206,7 @@ function startSearch {
     # 新しく検索を始めるため、待っている元のファイルの確認（別の行）は打ち切る
     cancelPendingSourceLookup
 
-    $useFast = (getFastSearchView $script:fastAvailable $useRegex $word).Usable
+    $useFast = (getFastSearchView $script:fastStatus $useRegex $word).Usable
     $shared = $script:searchService.Request((newSearchRequest $word $simpleMatch $folders ${searchLimit} $option $useFast))
     $script:search = @{
         Shared = $shared
@@ -177,7 +245,14 @@ function clearSearchView {
     }
     $script:lastSearch = $null
     $script:sourceFolderMaps = @{}
-    $script:fastAvailable = $null
+    # 前のワークスペースの Windows Search の状態・確かめている途中のものは捨てる（続けて確かめ直す）
+    $script:fastStatus = $null
+    $script:fastCheckingRoot = $null
+    $script:fastShowDetail = $false
+    $script:fastChecking = $false
+    $script:fastRecheck = $false
+    $script:fastRecheckTimer.Stop()
+    $ui.FastSearchButton.IsEnabled = $true
     $ui.FilterBox.Text = ""
     $script:filterText = ""
     clearResults "" $null
@@ -265,9 +340,16 @@ function finishSearch {
 
     $count = $script:hitCount
     $files = $script:fileGroups
-    if ($null -ne $shared.FastAvailable) {
-        $script:fastAvailable = [bool]$shared.FastAvailable
+    if ($null -ne $shared.FastReason) {
+        # 検索のたびに確かめた理由だけを差し替える（反映の進み具合・確かめた時刻は、前の値を残す）
+        $before = $script:fastStatus
+        $script:fastStatus = @{
+            Reason = $shared.FastReason
+            Progress = if ($before) { $before.Progress } else { $null }
+            CheckedAt = if ($before) { $before.CheckedAt } else { $null }
+        }
         updateFastSearchView
+        updateFastRecheckTimer
     }
 
     # 高速検索では、候補の無いフォルダの集約ファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
@@ -377,6 +459,7 @@ $ui.FileFilterBox.Add_KeyDown({
 })
 
 $ui.GoIndexTabButton.Add_Click({ $ui.Tabs.SelectedItem = $ui.IndexTab })
+$ui.FastSearchButton.Add_Click({ safe { checkFastSearchAvailable -showDetail } })
 $ui.FilterBox.Add_TextChanged({
     $ui.FilterPlaceholder.Visibility = if ($ui.FilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
     $script:filterTimer.Stop()
