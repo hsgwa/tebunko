@@ -1,5 +1,7 @@
 ﻿# Excel
 
+扱うこと: Excel ブックのセルの表示値の抽出（COM）、TSV への整形仕様、図形・コメントの文字の読み取り（ファイルを直接読む）。扱わないこと: Word・PowerPoint の抽出（[Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)・[Word](word.md)・[PowerPoint](powerpoint.md)）。先に読むページ: [インデックス作成](index.md)。
+
 Excel ブックから、セルの表示値（Excel の COM で書き出す）と図形・コメントの文字（ファイルを直接読む）を抽出して TSV にする処理（[Excel の抽出処理](#excel-の抽出処理extractworkbook)・[Excel の図形・コメントの読み取り](#excel-の図形コメントの読み取りreadxlsxobjectunits)）と、Excel が書き出したテキストの整形仕様（[TSV 整形仕様](#tsv-整形仕様prettytsv--formattsv)）を扱う。
 
 ## Excel の抽出処理（`extractWorkbook`）
@@ -101,10 +103,10 @@ flowchart LR
 | `<シート名>[図形]` | シートのリレーションシップ（種類 `drawing`）が指す `xl/drawings/drawingN.xml` の図形（`xdr:twoCellAnchor` `oneCellAnchor` `absoluteAnchor`）ごとのテキスト（`a:p`。[Word・PowerPoint のテキスト読み取り](office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)の `readXmlLines`） | 図形 1 つ。`<左上のセル番地><TAB><文字>` |
 | `<シート名>[コメント]` | 種類 `comments` の `xl/commentsN.xml`（メモ）と、種類 `threadedComment` の `xl/threadedComments/*.xml`（スレッド形式のコメント） | セル 1 つ。`<セル番地><TAB><文字>` |
 
-- **場所の名前**: シート名には `[` `]` を使えないため、`売上[図形]` は実在のシートと必ず区別できる（[配置・命名規則](index-format.md#配置命名規則)「図形・コメントの場所」）。
+- **場所の名前**: シート名には `[` `]` を使えないため、`売上[図形]` は実在のシートと必ず区別できる（[インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」）。
 - **文字の形**: 段落・改行はセル内改行（U+2028）にし、改行・`"`・タブを含むときは `"` で囲む（中の `"` は `""`）。Excel のテキスト保存のセルと同じ形なので、検索結果の出力・画面のセルの分け方はセルと同じ処理で扱える。
 - **並び順**: 上の行から（同じ行は左から）。図形は左上のセル、コメントはそのセルの位置で並べる。
-- **セル番地**: 検索結果の「場所」（`[シート]売上!D5`）に出し、元のファイルを開くときにそのセルを選ぶ（[［2 検索］タブ](../gui/search-tab.md) [元のファイルを開く](../gui/search-tab.md#元のファイルを開く)）。位置をセルで持たない図形（`absoluteAnchor`）は `A1` とする。
+- **セル番地**: 検索結果の「場所」（`[シート]売上!D5`）に出し、元のファイルを開くときにそのセルを選ぶ（[元のファイルを開く](../gui/open-file.md)）。位置をセルで持たない図形（`absoluteAnchor`）は `A1` とする。
 - グループ化した図形は、まとめて 1 つの図形（1 行）とする。互換用の代替表示（`mc:Fallback`）は読まない。文字の無い図形（画像・グラフの枠）は出さない。
 - スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。
 - コメントのふりがな（`rPh`）と作成者名（`authors`）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。

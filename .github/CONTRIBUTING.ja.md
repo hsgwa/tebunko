@@ -92,7 +92,7 @@ clone したら、コミット前の検査を有効にします（1 回だけ）
 - **数字を上げるためだけのテストは書きません。** 動きは単体テストで確かめます。入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめてください。
 - 画面を変えたときは、`tebunko.bat` で実際に起動して確かめてください。
 
-テストの分け方と CI の中身は [docs/design/testing/index.md](../docs/design/testing/index.md) にあります。
+テストの分け方は [docs/design/testing/run.md](../docs/design/testing/run.md)、CI の中身は [docs/design/testing/ci.md](../docs/design/testing/ci.md) にあります。
 
 ## コードの決まり
 
