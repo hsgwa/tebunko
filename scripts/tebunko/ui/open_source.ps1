@@ -290,13 +290,18 @@ function openInExcel {
     # 以前の版のインデックスは、ファイル名に使えない文字を全角に置き換えてあるため、同じ名前のシートが無ければ
     # 全角に置き換えて一致するシートを選ぶ（`衝突"` と `衝突”` のように、置き換えると重なるシートがあるため、同じ名前を優先する）。
     # `Sheets` はワークシート・グラフシートを表示順のまま 1 つの列で回せるため、同じ名前の一致が
-    # 全角に置き換えた一致より先に見つかるよう、両方の種類を 1 回のループで調べる（グラフシートはセルを選べない）
+    # 全角に置き換えた一致より先に見つかるよう、両方の種類を 1 回のループで調べる（グラフシートはセルを選べない）。
+    # グラフシートかどうかは `Charts` コレクションの名前で判定する（`Sheets` の要素の `Type` は、グラフシートでは
+    # 期待どおりの値（xlChart）にならない。実機で確かめると、既定のグラフの種類の値が返ることがある）
+    $chartNames = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($chart in $book.Charts) { [void]$chartNames.Add($chart.Name) }
+
     $target = $null
     $sameSafeName = $null
     $isChartSheet = $false
     $sameSafeIsChartSheet = $false
     foreach ($sheet in $book.Sheets) {
-        $isChart = ($sheet.Type -eq -4109)  # xlChart（グラフシート）
+        $isChart = $chartNames.Contains($sheet.Name)
         if ($sheet.Name -eq $location) {
             $target = $sheet
             $isChartSheet = $isChart
