@@ -18,12 +18,17 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # タグを打たずに配布物を作る手順を試す（公開はしない。下の release ジョブで作った zip とインストーラーを artifact に置く）。
+  # 起動したブランチの GITHUB_REF_NAME は v<メジャー>.<マイナー>.<パッチ> の形にならないため、guard のタグの形の確認は
+  # この起動のときだけ省く（下の guard ジョブ）
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  # 形が v<メジャー>.<マイナー>.<パッチ> でないタグや、main の履歴に無いコミットに付けたタグからは公開しない（tools\check_release_tag.ps1）
+  # 形が v<メジャー>.<マイナー>.<パッチ> でないタグや、main の履歴に無いコミットに付けたタグからは公開しない（tools\check_release_tag.ps1）。
+  # 手動（workflow_dispatch）で試すときは、タグではないので確かめない
   guard:
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +38,7 @@ jobs:
           persist-credentials: false
 
       - name: タグを確かめる
+        if: github.event_name == 'push'
         shell: pwsh
         env:
           TAG: ${{ github.ref_name }}
@@ -62,20 +68,14 @@ jobs:
         run: .\tools\new_release_package.ps1 -Version $env:GITHUB_REF_NAME
 
       # Inno Setup は、版を決めて公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。
-      # 版を上げるときは、URL と SHA256 を一緒に直す。6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため、7.1.0 にした
+      # 版を上げるときは、URL と SHA256 を一緒に直す。6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため、7.1.0 にした。
+      # shell: powershell（Windows PowerShell 5.1）の run は ASCII だけで書く決まりのため、手順は tools\install_inno_setup.ps1 に置く
       - name: Inno Setup を入れる
         shell: powershell
         env:
           INNO_URL: https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe
           INNO_SHA256: 0362A383ED217D4C4239B5933866DD96D3EB2102737DA92F80F6057A4B40DF2F
-        run: |
-          $installer = Join-Path $env:RUNNER_TEMP "innosetup.exe"
-          $dir = Join-Path $env:RUNNER_TEMP "inno"
-          Invoke-WebRequest -Uri $env:INNO_URL -OutFile $installer -UseBasicParsing
-          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
-          if ($hash -ne $env:INNO_SHA256) { throw "Inno Setup の SHA256 が違います: $hash" }
-          $p = Start-Process -FilePath $installer -ArgumentList "/CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOICONS /PORTABLE=1 /TASKS=`"`" /DIR=`"$dir`"" -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "Inno Setup を入れられませんでした（終了コード $($p.ExitCode)）" }
+        run: .\tools\install_inno_setup.ps1 -Url $env:INNO_URL -Sha256 $env:INNO_SHA256 -Installer (Join-Path $env:RUNNER_TEMP "innosetup.exe") -Dir (Join-Path $env:RUNNER_TEMP "inno")
 
       - name: インストーラーを作る
         shell: powershell
@@ -86,13 +86,16 @@ jobs:
         shell: powershell
         run: .\tools\check_release_package.ps1 -ZipPath work\release\tebunko-$env:GITHUB_REF_NAME.zip -OutDir work\release -Version $env:GITHUB_REF_NAME
 
+      # 手動（workflow_dispatch）で試すときは、タグではないので署名・公開までは行わない（下の「試した配布物を artifact に置く」で確かめる）
       - name: 配布物の来歴に署名する
+        if: github.event_name == 'push'
         id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: work/release/tebunko-${{ github.ref_name }}.zip
 
       - name: インストーラーの来歴に署名する
+        if: github.event_name == 'push'
         id: attest-setup
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -101,6 +104,7 @@ jobs:
       # pwsh（PowerShell 7）で動かす。ランナーは run の内容を BOM なしの UTF-8 のファイルにして実行するが、
       # Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため、説明に書く日本語が化ける
       - name: GitHub Release に公開
+        if: github.event_name == 'push'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -134,3 +138,12 @@ jobs:
           ) -join "`n"
           gh release create $env:GITHUB_REF_NAME $zip $bundle $setup $setupBundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # 手動（workflow_dispatch）で試したときは、公開の代わりに zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact に置く
+      - name: 試した配布物を artifact に置く
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-dry-run-${{ github.run_id }}
+          path: work/release
+          retention-days: 14

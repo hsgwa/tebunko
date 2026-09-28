@@ -91,7 +91,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 | `docs.yml` | `docs`（ほかに `changes`・`publish`） | PR、main で設計書が変わったとき | 設計書のサイトを作り、GitHub Pages に公開する | ○ |
 | `codeql.yml` | `analyze` | PR、main への push、毎週 1 回 | ワークフローの静的解析 | ○ |
 | `scorecard.yml` | `analysis` | main への push、ブランチ保護の変更、毎週 1 回 | OpenSSF Scorecard の採点 | – |
-| `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
+| `release.yml` | `guard`・`test`・`release` | `v` で始まるタグの push、手動（`workflow_dispatch`。タグを打たずに配布物を作る手順だけ試す） | テストのうえ、配布 zip とインストーラーを GitHub Release に載せる | – |
 | `gui.yml` | `gui-smoke` | PR、main への push | 本物の画面を windows ランナーで開き、画面遷移（[画面のスモークテスト](index.md#画面のスモークテスト)）を UI オートメーションで確かめる | –（必須にしない。しばらく安定して通ることを見てから、持ち主が決める） |
 | `perf.yml` | `perf` | 手動（`workflow_dispatch`） | Office からの取り込み（.docx・.pptx）・本文インデックスの作成・検索の速さとリソースの推移を測る | – |
 | `perf-check.yml` | `search`・`ingest` | PR にラベル `perf-check` を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動 | 検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト） | –（流した PR で落ちていればマージしない） |
@@ -101,6 +101,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。
 
 - Windows PowerShell 5.1 はランナーに最初から入っている（`shell: powershell` を明示する。`pwsh`（PowerShell 7）では COM と文字コードの扱いが変わる）
+- **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
 - ランナーには Windows に最初から入っている Pester 3.4 もある。`tests/run.ps1` は `Import-Module Pester -RequiredVersion 5.9.0` で版を指定し、CI は 5.9.0 が無ければ入れる（版は `test.yml` の `PESTER_VERSION` と `tests/run.ps1` の 2 か所で同じにする）
 - スクリプトの改行はランナーの `core.autocrlf` に左右されないよう、`.gitattributes` で `.ps1`・`.xaml`・`.bat` を CRLF に固定している
 - ランナーに Office は入っていないため、タグ `Office` のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（[結合テスト（手動）](index.md#結合テスト手動)）
@@ -154,10 +155,15 @@ CodeQL（`analyze`）は main の必須チェックで、指摘があるとマ�
 
 - zip にはツール本体（`tebunko.bat`・`scripts/`）と `README.md`・`LICENSE`・`VERSION.txt`（版とコミットの記録）だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（`tebunko.cat`）・ハッシュ一覧（`SHA256SUMS.txt`）・部品表（`sbom.cdx.json`。配布物を作るたびに zip の中身から作る）は zip と並べてリリースに載せ（[安全性の要約](../../safety/index.md) の [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](../../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 [複数エンジンでの検査: VirusTotal（外部へファイルを送信する）](../../safety/scans.md#複数エンジンでの検査-virustotal外部へファイルを送信する) の VirusTotal での照会用）
 - 配布物を作った後、来歴に署名する前に、`tools/check_release_package.ps1` が zip の中身（ファイルの過不足・dot-source の先・構文・カタログ・ハッシュ一覧・部品表・`VERSION.txt`）を確かめる。通らなければ、署名も公開も行わない。公開する zip は変更の無い作業ツリーで作る（CI の checkout はそうなっている）
-- インストーラーは Inno Setup 7 で作る（6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため 7.1.0 にした）。Inno Setup は版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。版を上げるときは `release.yml` の URL と SHA256 を一緒に直す（Dependabot の対象外）。インストーラーの SHA256 もリリースの説明に書く
+- インストーラーは Inno Setup 7 で作る（6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため 7.1.0 にした）。Inno Setup は版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる（`tools/install_inno_setup.ps1`。日本語のメッセージが要るため、`shell: powershell` の `run` から呼ぶ tools の側に置く。上の「ASCII だけで書く」）。版を上げるときは `release.yml` の URL と SHA256 を一緒に直す（Dependabot の対象外）。インストーラーの SHA256 もリリースの説明に書く
 - zip とインストーラーのビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（`tebunko-<タグ>.zip.sigstore.json`・`tebunko-setup-<タグ>.exe.sigstore.json`）もリリースに載せる（同 [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](../../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）
 - リリースノートは GitHub が PR から作り、`.github/release.yml` で PR のラベルごとに分ける
 - 版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける
+- **タグを打たずに手動（`workflow_dispatch`）でも起動できる。** 配布物を作る・検査するところまでは同じに動かすが、`guard` のタグの形の確認と、来歴への署名・GitHub Release への公開は行わない（起動したブランチの名は版の形にならないため）。代わりに、作った zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact `release-dry-run-<実行の番号>`（保存期間 14 日）に置く
+
+  ```
+  gh workflow run release.yml --ref <試すブランチ>
+  ```
 
 ```
 git tag v0.1.0 origin/main
