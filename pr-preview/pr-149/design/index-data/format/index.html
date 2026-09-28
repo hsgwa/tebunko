@@ -4419,15 +4419,15 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <li><strong>zip を開き、目録を確かめる</strong>（<code>testIndexArchiveManifest</code>。下の「受け取ったファイルを信用しない」）。</li>
 <li><strong>名前を決める</strong>（<code>getImportIndexName</code>）。同じ名前のインデックスがあるときの扱い（<code>Rename</code>・<code>Overwrite</code>・<code>Cancel</code>）を呼ぶ側が指定する。<code>Rename</code> は <code>名前(2)</code>・<code>名前(3)</code> …（<code>newIndexName</code> と同じ決まり）、<code>Overwrite</code> は置き換え、<code>Cancel</code> は何もしない。</li>
 <li><strong>元のフォルダを決める</strong>（呼ぶ側の指定、無ければ目録の <code>sourceFolder</code>）。空なら止める。</li>
-<li><strong>空き容量</strong>（ワークスペースのドライブ）が「目録の合計 + 1GB」より少なければ止める（zip bomb 対策）。</li>
-<li><strong>展開する</strong>: <code>&lt;ワークスペース&gt;\取り込み出力\&lt;PID&gt;\import\new\</code> に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。<code>元のフォルダ.txt</code> もここに書く。</li>
-<li><strong>設定に登録する</strong>: <code>targetFolders</code> に <code>{ name, path, enabled }</code> を足す（上書きなら既存の項目を書き換え、並びは変えない）。<code>enabled</code> は元のフォルダがあれば <code>true</code>。同じ名前の <code>indexSources</code> は消す。<strong><code>targetFolders</code> に入れる理由</strong>は、取り込み一覧の行を持ち込むので、次のインデックス作成で差分だけを取り込め、<code>removeDroppedFolders</code>（<a href="../../indexing/ingest-list/">取り込み一覧</a>）に消されないため。</li>
-<li><strong><code>content_index\&lt;名前&gt;\</code> を入れ替える</strong>（上書きなら今のフォルダを <code>previous\</code> へ退避してから）。</li>
-<li><strong>取り込み一覧を書き直す</strong>: そのインデックスの前の行を消し、新しい <code>クロール対象フォルダ</code> の行とデータ行を足す（<code>writeTextLinesAtomic</code>）。</li>
+<li><strong>空き容量</strong>（ワークスペースのドライブ。<code>getWorkspaceFreeSpace</code>）が「目録の合計 + 1GB」より少なければ止める（zip bomb 対策。<code>testImportFreeSpace</code>）。UNC（<code>\\server\share\…</code>）のワークスペースなど、ドライブとして空き容量を調べられないときは確かめずに進める（調べられないことでインポートを止めない。展開の途中で足りなくなれば、書き込みの失敗として 6 以降の戻しに入る）。</li>
+<li><strong>展開する</strong>（<code>expandImportArchive</code>）: <code>&lt;ワークスペース&gt;\取り込み出力\&lt;PID&gt;\import\new\</code> に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。<code>元のフォルダ.txt</code> もここに書く。</li>
+<li><strong>設定に登録する</strong>（<code>registerImportedIndexInSettings</code>）: <code>targetFolders</code> に <code>{ name, path, enabled }</code> を足す（上書きなら既存の項目を書き換え、並びは変えない）。<code>enabled</code> は元のフォルダがあれば <code>true</code>。同じ名前の <code>indexSources</code> は消す。<strong><code>targetFolders</code> に入れる理由</strong>は、取り込み一覧の行を持ち込むので、次のインデックス作成で差分だけを取り込め、<code>removeDroppedFolders</code>（<a href="../../indexing/ingest-list/">取り込み一覧</a>）に消されないため。</li>
+<li><strong><code>content_index\&lt;名前&gt;\</code> を入れ替える</strong>（<code>swapInImportedIndexDir</code>。上書きなら今のフォルダを <code>previous\</code> へ退避してから）。</li>
+<li><strong>取り込み一覧を書き直す</strong>（<code>rewriteStatusForImport</code>）: <code>readStatusFile</code> で読み、そのインデックスの前の <code>クロール対象フォルダ</code> の行とデータ行を除いて、新しい <code>クロール対象フォルダ</code> の行とデータ行を足し、インデクサと同じ <code>writeStatusFile</code> で書く。<code>クロール対象フォルダ</code> の行は見出しの行の前、見出しの行は必ずある形になる（<code>getIndexNameMap</code> は見出しの行で読むのをやめるため、行が見出しの後ろにあると名前を見つけられず、［8 設定］の［あるインデックスを使う］で一覧から落ちて <code>removeDroppedFolders</code> に消される）。空のワークスペースでも、ほかのインデックスがあるワークスペースでも同じ。</li>
 <li>上書きなら、前のシステムインデックスを消す（失敗しても続ける。次のインデックス作成で整理される）。<strong>システムインデックスはインポートでは作らない</strong>（下の「システムインデックスを作る時機」）。</li>
 <li>作業フォルダを消す。</li>
 </ol>
-<p><strong>戻し方</strong>: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする。設定は、読んだときの内容に書き戻さず、足した項目を外す・上書きした項目を前の値に戻す（その間に画面が保存したほかの設定を消さないため）。<code>content_index\&lt;名前&gt;\</code> は退避した <code>previous\</code> を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。外したフォルダの記録（<code>searchExcludes</code>）は戻さない（上書きのときの記録は前のインデックスのもので、戻っても当たるとは限らないため）。</p>
+<p><strong>戻し方</strong>: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 <code>restoreImportedSettings</code>・<code>restoreSwappedIndexDir</code> が行い、<code>importIndexCore</code> は入れ子の <code>try</code> の順に呼ぶ）。設定は、変える 3 つの項目（<code>targetFolders</code>・<code>indexSources</code>・<code>searchExcludes</code>）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。<code>content_index\&lt;名前&gt;\</code> は退避した <code>previous\</code> を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（<code>import\</code>）は消す。<code>tests/tebunko/index/index_archive.Tests.ps1</code> の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれを確かめている。</p>
 <p><strong>強制終了したとき</strong>:</p>
 <ul>
 <li>6 の途中: 作業フォルダだけが残り、次のインデックス作成の <code>removeStaleTmpDirs</code>（終了済みのプロセスの <code>取り込み出力\&lt;PID&gt;</code>）で消える。ワークスペースは変わらない。</li>
@@ -4442,7 +4442,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <li><strong>zip slip</strong>: 絶対パス（<code>/</code>・ドライブ文字・UNC）、<code>..</code>・<code>.</code>・空の区切り、<code>:</code>（代替データストリーム）、ファイル名に使えない文字、予約名（拡張子付きも含む。<code>index_name.ps1</code> の <code>$reservedFileNames</code> と同じ決まり）、末尾の空白・<code>.</code>、1 つの区切りが 255 文字を超えるもの。区切りは <code>/</code> だけを認め、<code>\</code> を含む名前は受け付けない。</li>
 <li><strong>置き場所</strong>: <code>tebunko-index.json</code>・<code>取り込み一覧.tsv</code>・<code>content_index/…/&lt;本文インデックスのファイル名の型&gt;</code> 以外は受け付けない（本文インデックスのファイル名の型は <code>pack_format.ps1</code> の型を使う）。</li>
 <li><strong>重なり</strong>: 目録の <code>files</code> に同じパスが 2 つ（大文字・小文字を区別しない）、zip の中に同じ名前のエントリーが 2 つ（<code>ZipArchive</code> は許すため数えて確かめる）、目録に無いエントリー、目録にあるのに zip に無いエントリー。</li>
-<li><strong>大きさ</strong>: 目録（<code>tebunko-index.json</code>）自体が 64MB 超、エントリーの展開後の大きさ・SHA-256 が目録と違う。書き込みは目録の大きさで打ち切る。空き容量に「合計 + 1GB」の余裕を求める（上の「インポート」の 5）。</li>
+<li><strong>大きさ</strong>: 目録（<code>tebunko-index.json</code>）自体が 64MB 超、エントリーの展開後の大きさ・SHA-256 が目録と違う。書き込みは目録の大きさで打ち切る。空き容量に「合計 + 1GB」の余裕を求める（上の「インポート」の 5。調べられないときは確かめない）。</li>
 <li><strong>目録の値</strong>: <code>indexName</code> が <code>testIndexName</code> を通らない、<code>sourceFolder</code> が絶対パス・UNC でない・制御文字を含む（そのときは空とみなし、呼ぶ側に指定させる）。</li>
 <li><strong>取り込み一覧の行</strong>: 列の数が違う、<code>状態</code> が <code>未取り込み</code>・<code>済</code>・<code>失敗</code> 以外、相対パスが zip slip と同じ決まりを通らない、同じ相対パスが 2 つ。</li>
 <li>zip は <code>ZipFile::ExtractToDirectory</code>・<code>ExtractToFile</code> にエントリーの名前を渡して展開しない（確かめた目録のパスからだけファイル名を組み立てる）。</li>

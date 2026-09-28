@@ -4234,7 +4234,7 @@
 <tr>
 <td><code>exportIndex</code></td>
 <td>name, destPath, ws（既定 <code>$workspace</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
-<td><code>@{Path; Files; Bytes}</code></td>
+<td><code>@{Name; Path; Files; Bytes}</code></td>
 <td>1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。<code>&lt;destPath&gt;.tmp</code> に書いてから置き換える</td>
 <td>同上</td>
 <td>画面（［エクスポート…］）</td>
@@ -4254,6 +4254,30 @@
 <td>zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ・設定への登録・<code>content_index\&lt;名前&gt;\</code> の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す</td>
 <td>同上</td>
 <td>画面（［インポート…］）</td>
+</tr>
+<tr>
+<td><code>getWorkspaceFreeSpace</code></td>
+<td>root</td>
+<td>long（調べられなければ <code>$null</code>）</td>
+<td>ドライブのルートの空き容量。UNC など <code>DriveInfo</code> にできないパスは例外にせず <code>$null</code></td>
+<td>同上</td>
+<td>importIndex</td>
+</tr>
+<tr>
+<td><code>testImportFreeSpace</code></td>
+<td>totalBytes, root, getFreeSpace</td>
+<td>string（足りていれば空）</td>
+<td>空き容量が「合計 + 1GB」に足りなければ理由を返す。調べられない（<code>$null</code>・例外）ときは確かめない</td>
+<td>同上</td>
+<td>importIndexCore</td>
+</tr>
+<tr>
+<td><code>expandImportArchive</code> / <code>registerImportedIndexInSettings</code> / <code>swapInImportedIndexDir</code> / <code>rewriteStatusForImport</code></td>
+<td>同上（<code>importIndexCore</code> の手順 6〜9）</td>
+<td>–</td>
+<td>インポートの手順を 1 つずつ。失敗したら自分で戻す（<code>restoreImportedSettings</code>・<code>restoreSwappedIndexDir</code>）。取り込み一覧は <code>readStatusFile</code> → <code>writeStatusFile</code> で書く</td>
+<td>同上</td>
+<td>importIndexCore</td>
 </tr>
 <tr>
 <td><code>getImportIndexName</code></td>
