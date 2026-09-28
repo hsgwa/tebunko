@@ -3825,7 +3825,7 @@
 <tr>
 <td><code>release.yml</code></td>
 <td><code>guard</code>・<code>test</code>・<code>release</code></td>
-<td><code>v</code> で始まるタグの push</td>
+<td><code>v</code> で始まるタグの push、手動（<code>workflow_dispatch</code>。タグを打たずに配布物を作る手順だけ試す）</td>
 <td>テストのうえ、配布 zip とインストーラーを GitHub Release に載せる</td>
 <td>–</td>
 </tr>
@@ -3856,6 +3856,7 @@
 <p>pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
 <ul>
 <li>Windows PowerShell 5.1 はランナーに最初から入っている（<code>shell: powershell</code> を明示する。<code>pwsh</code>（PowerShell 7）では COM と文字コードの扱いが変わる）</li>
+<li><strong>どのワークフローも、<code>shell: powershell</code> の <code>run</code> は ASCII だけで書く。</strong> Actions は <code>run</code> の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは <code>tools/</code> の BOM 付き UTF-8 のスクリプトに移して呼び出す（<code>shell: pwsh</code> はこの制限を受けない）。<code>tests/meta/encoding.Tests.ps1</code> の「shell: powershell の run は ASCII だけ」が確かめる</li>
 <li>ランナーには Windows に最初から入っている Pester 3.4 もある。<code>tests/run.ps1</code> は <code>Import-Module Pester -RequiredVersion 5.9.0</code> で版を指定し、CI は 5.9.0 が無ければ入れる（版は <code>test.yml</code> の <code>PESTER_VERSION</code> と <code>tests/run.ps1</code> の 2 か所で同じにする）</li>
 <li>スクリプトの改行はランナーの <code>core.autocrlf</code> に左右されないよう、<code>.gitattributes</code> で <code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF に固定している</li>
 <li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（<a href="../#結合テスト手動">結合テスト（手動）</a>）</li>
@@ -3917,11 +3918,14 @@
 <ul>
 <li>zip にはツール本体（<code>tebunko.bat</code>・<code>scripts/</code>）と <code>README.md</code>・<code>LICENSE</code>・<code>VERSION.txt</code>（版とコミットの記録）だけを入れる。README の相対リンクと画像は、その版の GitHub の URL に書き換える。カタログ（<code>tebunko.cat</code>）・ハッシュ一覧（<code>SHA256SUMS.txt</code>）・部品表（<code>sbom.cdx.json</code>。配布物を作るたびに zip の中身から作る）は zip と並べてリリースに載せ（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）、SECURITY は README とリリースの説明からリンクする。zip 自体の SHA256 はリリースの説明に書く（同 <a href="../../../safety/scans/#複数エンジンでの検査-virustotal外部へファイルを送信する">複数エンジンでの検査: VirusTotal（外部へファイルを送信する）</a> の VirusTotal での照会用）</li>
 <li>配布物を作った後、来歴に署名する前に、<code>tools/check_release_package.ps1</code> が zip の中身（ファイルの過不足・dot-source の先・構文・カタログ・ハッシュ一覧・部品表・<code>VERSION.txt</code>）を確かめる。通らなければ、署名も公開も行わない。公開する zip は変更の無い作業ツリーで作る（CI の checkout はそうなっている）</li>
-<li>インストーラーは Inno Setup 7 で作る（6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため 7.1.0 にした）。Inno Setup は版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。版を上げるときは <code>release.yml</code> の URL と SHA256 を一緒に直す（Dependabot の対象外）。インストーラーの SHA256 もリリースの説明に書く</li>
+<li>インストーラーは Inno Setup 7 で作る（6.7.1 は、Program Files に入れたものを消すとアンインストーラーが残ったため 7.1.0 にした）。Inno Setup は版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる（<code>tools/install_inno_setup.ps1</code>。日本語のメッセージが要るため、<code>shell: powershell</code> の <code>run</code> から呼ぶ tools の側に置く。上の「ASCII だけで書く」）。版を上げるときは <code>release.yml</code> の URL と SHA256 を一緒に直す（Dependabot の対象外）。インストーラーの SHA256 もリリースの説明に書く</li>
 <li>zip とインストーラーのビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>・<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）もリリースに載せる（同 <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</li>
 <li>リリースノートは GitHub が PR から作り、<code>.github/release.yml</code> で PR のラベルごとに分ける</li>
 <li>版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける</li>
+<li><strong>タグを打たずに手動（<code>workflow_dispatch</code>）でも起動できる。</strong> 配布物を作る・検査するところまでは同じに動かすが、<code>guard</code> のタグの形の確認と、来歴への署名・GitHub Release への公開は行わない（起動したブランチの名は版の形にならないため）。代わりに、作った zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact <code>release-dry-run-&lt;実行の番号&gt;</code>（保存期間 14 日）に置く。<code>new_release_package.ps1</code>・<code>new_installer.ps1</code> は <code>-Version</code>（ここではブランチ名）を <code>^[A-Za-z0-9._-]+$</code> で確かめるため、<code>/</code> を含むブランチ（<code>dependabot/...</code> など）からは起動できない</li>
 </ul>
+<div class="highlight"><pre><span></span><code>gh workflow run release.yml --ref &lt;試すブランチ（/ を含まないもの）&gt;
+</code></pre></div>
 <div class="highlight"><pre><span></span><code>git tag v0.1.0 origin/main
 git push origin v0.1.0
 </code></pre></div>
