@@ -6,7 +6,7 @@
 #   ・操作はパターン（Invoke・Value・SelectionItem・Toggle・Window）で行い、マウス・キーボードの合成は使わない
 #   ・待ちは 100ms ごとに条件を調べる。上限を超えるか、予定していないエラーの窓が出たら、すぐ失敗にする
 #   ・失敗したら、画面の画像とログを work\test\gui\<場面>\ に残す（CI は成果物に上げる）
-# 詳細は docs\design\testing\index.md「画面のスモークテスト」。
+# 詳細は docs\design\testing\gui-smoke.md「画面のスモークテスト」。
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 

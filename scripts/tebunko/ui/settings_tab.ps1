@@ -162,7 +162,7 @@ function applyWorkspace {
 function switchWorkspace {
     # 設定のワークスペースに切り替える。画面は開き直さない。
     # 関数は既定値で $workspace の場所を使い、裏のスレッドには場所を渡しているため、$workspace を差し替えれば新しい場所を使う
-    # （docs/design/architecture/modules.md「ワークスペースの中の場所（Workspace）」）。インデックス作成中・削除中は testWorkspaceChangeable が止めている
+    # （docs/design/structure/data.md「ワークスペースの中の場所（Workspace）」）。インデックス作成中・削除中は testWorkspaceChangeable が止めている
     clearSearchView
     $script:workspace = [Workspace]::new((getWorkDir))
     $script:workspaceBlock = getWorkspaceBlockMessage
