@@ -12,7 +12,7 @@ BeforeAll {
     $startupSourceDir = "$rootDir\scripts\tebunko\startup"
     $realScriptsDir = "$rootDir\scripts"
 
-    # -Command の中身は 1 行に書かず、読みやすいよう set "PSCMD=...";set "PSCMD=%PSCMD%...") で
+    # -Command の中身は 1 行に書かず、読みやすいよう set "PSCMD=..." と set "PSCMD=%PSCMD%..." で
     # 意味のまとまりごとに組み立てる（bat の中のコメント参照）。各行の中身を順につないで取り出す
     # （1 行目は PSCMD=<中身>、2 行目以降は PSCMD=%PSCMD%<足す中身> の形）
     $script:batText = [System.IO.File]::ReadAllText($launcherPath)
@@ -238,6 +238,12 @@ Describe "tebunko.bat の書式（ASCII・CRLF・PowerShell の場所・外部�
     It "PowerShell が無いときは、実行せずにメモ帳で理由を示して終わる" {
         $script:batText | Should -Match "if not exist ""%PS1%"""
         $script:batText | Should -Match ([regex]::Escape('notepad.exe "%~dp0scripts\tebunko\startup\no_powershell.txt"'))
+    }
+
+    It "start 行が、組み立てた PSCMD を -Command に渡して conhost.exe 経由で起動する" {
+        # set "PSCMD=..." を積み重ねるだけで、実際に渡す先（start 行）が壊れていないことを確かめる
+        # （start 行だけを壊しても、上の一致のテストは通ってしまうため）
+        $script:batText | Should -Match ([regex]::Escape('start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "%PSCMD%"'))
     }
 
     It "set ""PSCMD=...""（意味のまとまりごと）を順につなぐと、想定した -Command の中身とちょうど一致する" {
