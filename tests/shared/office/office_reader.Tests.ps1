@@ -691,9 +691,12 @@ Describe "readObjectText / readChartText" -Tag Io {
 
     It "項目の点数が多いグラフでも、項目名を読まないため速く終わる（回帰の確かめ）" {
         # 項目名を辿って祖先を確かめる古い実装は、点数の多いグラフで二次関数的に遅くなっていた
-        # （実測: 2 万点で約 46 秒、5 万点で約 230 秒）。系列（c:ser）の数だけ調べる今の実装は、点数に関係なく速く終わる。
-        # 古い実装に戻ってもしきい値ぎりぎりで通ってしまわないよう、点数を 5 万に増やし、しきい値も 10 秒に絞る
-        # （古い実装なら 5 万点で約 230 秒かかる見込みで、10 秒には遠く及ばない）
+        # （実測: 2 万点で約 46 秒、5 万点で約 230 秒）。系列（c:ser）の数だけ調べる今の実装は、項目名の祖先をたどる
+        # 処理が無いため二次関数的には遅くならないが、XML 自体は点の数だけ大きくなるので読み込みの時間は点数にほぼ比例して増える
+        # （実測: -Ci のカバレッジ計測下で 2 万点は約 7 秒、5 万点は約 19 秒）。
+        # 古い実装に戻ってもしきい値ぎりぎりで通ってしまわないよう、点数を 5 万に増やす。
+        # しきい値は、今の実装の実測（約 19 秒）に機械の負荷やカバレッジ計測の変動の余裕を持たせつつ、
+        # 古い実装（5 万点で約 230 秒）とは十分に区別できる 60 秒とする
         $pts = New-Object System.Text.StringBuilder
         for ($i = 0; $i -lt 50000; $i++) {
             [void]$pts.Append("<c:pt idx=`"$i`"><c:v>項目$i</c:v></c:pt>")
@@ -705,7 +708,7 @@ Describe "readObjectText / readChartText" -Tag Io {
         $result = $null
         $elapsed = (Measure-Command { $result = readChartText $xml }).TotalSeconds
         $result | Should -Be "TC 大きい系列名"
-        $elapsed | Should -BeLessThan 10
+        $elapsed | Should -BeLessThan 60
     }
 }
 
