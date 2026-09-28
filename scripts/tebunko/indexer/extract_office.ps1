@@ -108,10 +108,16 @@ function extractWorkbook {
     # 読めなくてもセルの値は取り込めるため、インデックス作成ログに記録して続ける
     $objectUnits = $null
     if (isZipFile $copyPath) {
+        $chartFailures = New-Object System.Collections.Generic.List[string]
         try {
-            $objectUnits = readXlsxObjectUnits $copyPath
+            $objectUnits = readXlsxObjectUnits $copyPath $chartFailures
         } catch {
             writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
+        }
+        # 1つのグラフ・SmartArtが読めなくても、そこだけを空にしてほかの図形・コメントは読む（readXlsxObjectUnits）。
+        # shared/ はツールを知らないため、読めなかった部品の名前をここでログに書く
+        foreach ($failure in $chartFailures) {
+            writeIndexerLog "    グラフ・SmartArt を読み取れませんでした: $failure" "Yellow"
         }
     }
 
