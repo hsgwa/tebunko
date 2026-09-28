@@ -7,6 +7,18 @@
 
 ${appTitle} = "tebunko"
 
+# trap（下）が呼ぶ。実際に書けた記録のファイルだけを返す（writeErrorLog は書けなくても例外を出さないため）
+function getExistingRecordFile {
+    param (
+        [string]$path
+    )
+
+    if ($path -and (Test-Path -LiteralPath $path)) {
+        return $path
+    }
+    return $null
+}
+
 # trap（下）が呼ぶ。Add-Type（次の行）が制限言語モードなどで失敗しても呼べるよう、その前に定義しておく
 # （関数は trap と違って、実行がその行を通るまで定義されない）
 function writeStartupErrorFile {
@@ -95,8 +107,8 @@ trap {
     if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
         writeErrorLog "起動・実行中" $original
         $recordFile = getGuiErrorLogFile
-        # writeErrorLog は書けなくても例外を出さないため、実際に書けたときだけ、メッセージボックスに名前を添える
-        if (-not $recordFile -or -not (Test-Path -LiteralPath $recordFile)) { $recordFile = $null }
+        # 実際に書けたときだけ、メッセージボックスに名前を添える
+        $recordFile = getExistingRecordFile $recordFile
     } else {
         $detail = "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') 起動・実行中 ====`r`nLanguageMode: $($ExecutionContext.SessionState.LanguageMode)`r`n$($original.Exception.Message)`r`n$($original.InvocationInfo.PositionMessage)`r`n`r`n"
         $recordFile = writeStartupErrorFile $detail
