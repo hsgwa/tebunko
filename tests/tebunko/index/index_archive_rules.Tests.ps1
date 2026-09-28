@@ -73,10 +73,16 @@ Describe "getManifestSourceFolder" -Tag Unit {
         @{ folder = "\\server\share\営業部"; expected = "\\server\share\営業部" }
         @{ folder = ""; expected = "" }
         @{ folder = "営業部"; expected = "" }
-        @{ folder = ("C:\" + [string][char]1); expected = "" }
     ) {
         param ($folder, $expected)
         getManifestSourceFolder ([pscustomobject]@{ sourceFolder = $folder }) | Should -Be $expected
+    }
+
+    It "制御文字を含むパスは空にする" {
+        # 制御文字は結果の XML に書けないので、表（テスト名に値が入る）ではなく本体で組み立てる
+        $folder = "C:\" + [string][char]1
+
+        getManifestSourceFolder ([pscustomobject]@{ sourceFolder = $folder }) | Should -Be ""
     }
 }
 
