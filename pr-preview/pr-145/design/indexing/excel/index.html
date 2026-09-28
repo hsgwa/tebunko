@@ -2174,6 +2174,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Excel の図形・コメントの読み取り（readXlsxObjectUnits）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#グラフsmartart-の読み取り" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        グラフ・SmartArt の読み取り
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4081,6 +4098,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Excel の図形・コメントの読み取り（readXlsxObjectUnits）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#グラフsmartart-の読み取り" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        グラフ・SmartArt の読み取り
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4186,7 +4220,7 @@
 出力:  \r\n\ta\tb\r\n\r\n\r\n\t"x&lt;LS&gt;y"\tz\r\n
 </code></pre></div>
 <h2 id="excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）<a class="headerlink" href="#excel-の図形コメントの読み取りreadxlsxobjectunits" title="Permanent link">&para;</a></h2>
-<p><code>.xlsx</code> <code>.xlsm</code> を ZIP として開き（<code>scripts/shared/office/office_reader.ps1</code>）、表示シートの図形とコメントの文字を、シートとは別の場所（TSV）にする。Excel は使わない。</p>
+<p><code>.xlsx</code> <code>.xlsm</code> を ZIP として開き（<code>scripts/shared/office/office_reader.ps1</code>）、表示シート・表示のグラフシートの図形とコメントの文字を、シートとは別の場所（TSV）にする。Excel は使わない。</p>
 <table>
 <thead>
 <tr>
@@ -4198,8 +4232,13 @@
 <tbody>
 <tr>
 <td><code>&lt;シート名&gt;[図形]</code></td>
-<td>シートのリレーションシップ（種類 <code>drawing</code>）が指す <code>xl/drawings/drawingN.xml</code> の図形（<code>xdr:twoCellAnchor</code> <code>oneCellAnchor</code> <code>absoluteAnchor</code>）ごとのテキスト（<code>a:p</code>。<a href="../office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>の <code>readXmlLines</code>）</td>
+<td>シートのリレーションシップ（種類 <code>drawing</code>）が指す <code>xl/drawings/drawingN.xml</code> の図形（<code>xdr:twoCellAnchor</code> <code>oneCellAnchor</code> <code>absoluteAnchor</code>）ごとのテキスト（<code>a:p</code>。<a href="../office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>の <code>readXmlLines</code>）と、グラフ（<code>xdr:graphicFrame</code> の中の <code>c:chart</code>）・SmartArt（<code>dgm:relIds</code>）の参照先の文字（<code>readObjectText</code>。下の「グラフ・SmartArt の読み取り」）</td>
 <td>図形 1 つ。<code>&lt;左上のセル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code></td>
+</tr>
+<tr>
+<td><code>&lt;グラフシート名&gt;[図形]</code></td>
+<td>ブックのリレーションシップの型が <code>*/chartsheet</code> の表示シート自身の <code>drawing</code> が指す図形の部品（グラフを <code>absoluteAnchor</code> で置いたもの）</td>
+<td>図形 1 つ。<code>A1&lt;TAB&gt;&lt;文字&gt;</code>（位置をセルで持たないため）</td>
 </tr>
 <tr>
 <td><code>&lt;シート名&gt;[コメント]</code></td>
@@ -4213,17 +4252,25 @@
 <li><strong>文字の形</strong>: 段落・改行はセル内改行（U+2028）にし、改行・<code>"</code>・タブを含むときは <code>"</code> で囲む（中の <code>"</code> は <code>""</code>）。Excel のテキスト保存のセルと同じ形なので、検索結果の出力・画面のセルの分け方はセルと同じ処理で扱える。</li>
 <li><strong>並び順</strong>: 上の行から（同じ行は左から）。図形は左上のセル、コメントはそのセルの位置で並べる。</li>
 <li><strong>セル番地</strong>: 検索結果の「場所」（<code>[シート]売上!D5</code>）に出し、元のファイルを開くときにそのセルを選ぶ（<a href="../../gui/open-file/">元のファイルを開く</a>）。位置をセルで持たない図形（<code>absoluteAnchor</code>）は <code>A1</code> とする。</li>
-<li>グループ化した図形は、まとめて 1 つの図形（1 行）とする。互換用の代替表示（<code>mc:Fallback</code>）は読まない。文字の無い図形（画像・グラフの枠）は出さない。</li>
+<li>グループ化した図形は、まとめて 1 つの図形（1 行）とする。グループの中にテキストボックスとグラフ・SmartArt があれば、テキストボックスの段落 → グラフ・SmartArt の文字（XML の順）の順に並べる。互換用の代替表示（<code>mc:Fallback</code>）は読まない。文字の無い図形（画像など）は出さない。</li>
 <li>スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。</li>
 <li>コメントのふりがな（<code>rPh</code>）と作成者名（<code>authors</code>）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。</li>
-<li>非表示・完全に非表示のシート（<code>state</code> が <code>hidden</code> <code>veryHidden</code>）とグラフシートは、セルと同じく読まない。</li>
-<li>読まないもの: グラフ内の文字、SmartArt、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。</li>
+<li>非表示・完全に非表示のシート（<code>state</code> が <code>hidden</code> <code>veryHidden</code>）は、グラフシートも含めてセルと同じく読まない。</li>
+<li>読まないもの: グラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。<code>cx:chart</code>）、グラフの中のテキストボックス（<code>c:userShapes</code>）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。</li>
 </ul>
 <p>TSV の例（シート <code>見積</code> の F2 に左上があるテキストボックスと、C2 のコメント）:</p>
 <div class="highlight"><pre><span></span><code>work/content_index/営業/見積.xlsx/見積.tsv            … セルの値
 work/content_index/営業/見積.xlsx/見積[図形].tsv      … F2&lt;TAB&gt;納期は別途ご相談
 work/content_index/営業/見積.xlsx/見積[コメント].tsv  … C2&lt;TAB&gt;"test:&lt;U+2028&gt;税抜の金額"
 </code></pre></div>
+<h3 id="グラフsmartart-の読み取り">グラフ・SmartArt の読み取り<a class="headerlink" href="#グラフsmartart-の読み取り" title="Permanent link">&para;</a></h3>
+<p>図形の部品（<code>xl/drawings/drawingN.xml</code>）の中で、グラフ（<code>xdr:graphicFrame</code> の中の <code>a:graphic</code>/<code>a:graphicData</code> の <code>c:chart</code>）・SmartArt（<code>dgm:relIds</code>）を見つけたら、その <code>r:id</code>（グラフ）・<code>r:dm</code>（SmartArt）を、図形の部品自身のリレーションシップ（<code>xl/drawings/_rels/drawingN.xml.rels</code>）でたどり、<code>xl/charts/chartN.xml</code>・<code>xl/diagrams/dataN.xml</code> の文字を <code>readObjectText</code>・<code>readChartText</code>・<code>readDiagramText</code>（Word・PowerPoint と共通。<a href="../office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>）で読む。</p>
+<ul>
+<li><strong>グラフはタイトル・軸ラベル・系列名だけを読む</strong>（Word・PowerPoint と共通の決まり。2026-09-28 にメンテナが見直した）。項目名（横軸に並ぶ文字。点の数だけある）と数値は読まない。項目名はセルの値としては検索できるが、グラフだけにある項目名（グラフの元データが無い・非表示シートにある等）は検索できない。系列名はふつう同じブックのセルを参照するため、セルの行と重なって出ることがある（重なりが邪魔なら［図形も検索］を外せば消える）。</li>
+<li><strong>リレーションシップは、参照が 1 つ以上あるときだけ読む</strong>（グラフ・SmartArt の無い図形の部品では読まない）。</li>
+<li><strong>1 つのグラフ・SmartArt が読めなくても、ほかは捨てない</strong>: 参照の先・リレーションシップが無い、部品が読めない（XML が壊れている、「サイズの上限」を超えるなど）ときは、そのグラフ・SmartArt だけを空にして続ける（同じ図形の中のほかの文字、同じシートのほかの図形・コメント・セルの値は出す）。<code>shared/</code> はツールを知らないため、読めなかった部品の名前は <code>readXlsxObjectUnits</code> の戻り値（<code>$failures</code>）で呼び出し元（<code>extract_office.ps1</code>）に返し、そこでインデックス作成ログに黄色で記録する（<code>グラフ・SmartArt を読み取れませんでした: &lt;部品名&gt;</code>）。</li>
+<li><strong>グラフシート</strong>: グラフ自体を <code>absoluteAnchor</code> で置いた図形の部品を、通常のシートと同じ形で読む。検索結果から開くときは、<code>Worksheets</code> にグラフシートが無いため <code>Charts</code> から同じ名前のものを探して表示する（セルは選ばない。<a href="../../gui/open-file/">元のファイルを開く</a>）。</li>
+</ul>
 
 
 

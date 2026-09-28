@@ -4229,6 +4229,21 @@
 <td>取り込みはファイルの種類ごとのレーンで並べて行い、Excel・Word・PowerPoint を同時に 1 つずつ動かすため、メモリを多く使う（同じ種類の Office を複数は起動しない）。Office を使わずに読むスレッド（既定はコア数 − 1、最大 4）もメモリを使う。メモリの少ない PC でメモリが足りなくなるときは、<code>setting.config</code> の <code>ingestThreads</code> を減らす（<a href="../../structure/settings-file/#形式">形式</a>）</td>
 <td>○</td>
 </tr>
+<tr>
+<td>22</td>
+<td>Excel のグラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。<code>cx:chart</code>）、グラフの中のテキストボックス（<code>c:userShapes</code>）は検索対象にならない。グラフのタイトル・軸ラベル・系列名、SmartArt の文字は <code>[図形]</code> の場所で検索できる（Word・PowerPoint と同じ決まり。<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）</td>
+<td>○</td>
+</tr>
+<tr>
+<td>23</td>
+<td>1 つのグラフ・SmartArt の部品が壊れている（または「サイズの上限」を超える）ときは、そのグラフ・SmartArt だけを空のままにして続ける。読めなかった部品はインデックス作成ログに黄色で記録される（同じシートのほかの図形・コメント・セルの値は取り込まれる）</td>
+<td>○</td>
+</tr>
+<tr>
+<td>24</td>
+<td>更新後の最初のインデックス作成では、抽出版が上がった <code>.xlsx</code> <code>.xlsm</code>（グラフ・SmartArt を読むようになった分）と <code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code>（グラフの項目名を読まなくなった分）を取り込み直す。<code>.xlsx</code> <code>.xlsm</code> はすべて Excel で開き直すため、通常よりも時間がかかる（1 回だけ。<a href="../flow/">インデックス作成のメインフロー</a>）</td>
+<td>○</td>
+</tr>
 </tbody>
 </table>
 <h2 id="word-の注意点既知の問題">Word の注意点・既知の問題<a class="headerlink" href="#word-の注意点既知の問題" title="Permanent link">&para;</a></h2>
@@ -4254,7 +4269,7 @@
 </tr>
 <tr>
 <td>3</td>
-<td>埋め込みオブジェクト（Excel の表など）、グラフの数値、変更履歴で削除した文字は検索対象にならない。コメント・SmartArt・グラフの文字は <code>[コメント]</code> <code>[図形]</code> の場所で検索できる</td>
+<td>埋め込みオブジェクト（Excel の表など）、グラフの項目名（データは埋め込みのブックにあり、セルとしては取り込まないため検索できない）・数値、変更履歴で削除した文字は検索対象にならない。コメント・SmartArt・グラフのタイトル・軸ラベル・系列名は <code>[コメント]</code> <code>[図形]</code> の場所で検索できる</td>
 <td>○</td>
 </tr>
 <tr>
@@ -4282,7 +4297,7 @@
 </tr>
 <tr>
 <td>2</td>
-<td>スライドマスター・レイアウトのテキスト、埋め込みオブジェクト（Excel の表など）、グラフの数値は検索対象にならない。コメント・SmartArt・グラフの文字は <code>[コメント]</code> <code>[図形]</code> の場所で検索できる</td>
+<td>スライドマスター・レイアウトのテキスト、埋め込みオブジェクト（Excel の表など）、グラフの項目名（データは埋め込みのブックにあり、セルとしては取り込まないため検索できない）・数値は検索対象にならない。コメント・SmartArt・グラフのタイトル・軸ラベル・系列名は <code>[コメント]</code> <code>[図形]</code> の場所で検索できる</td>
 <td>○</td>
 </tr>
 <tr>
