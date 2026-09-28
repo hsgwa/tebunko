@@ -682,6 +682,45 @@ Describe "importIndex" -Tag Io {
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
     }
 
+    It "検索だけのインデックスと同じ名前: 上書きでインポートすると indexSources から外れ、targetFolders に入る" {
+        $fixtureA = newIndexFixture "$TestDrive\src_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\src.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $wsB = [Workspace]::new("$TestDrive\src_b")
+        $settingsB = "$($wsB.Dir)\setting.config"
+        writeIndexSources @(
+            [pscustomobject]@{ Name = "営業"; Path = "C:\別のPCの営業部" }
+            [pscustomobject]@{ Name = "経理"; Path = "C:\別のPCの経理部" }
+        ) $settingsB
+
+        $result = importIndex $dest ${importCollisionOverwrite} "" "D:\別の場所\営業部" $wsB $settingsB
+
+        $result.Name | Should -Be "営業"
+        @(readIndexSources $settingsB | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("経理|C:\別のPCの経理部")
+        @(getTargetFolders $settingsB | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("営業|D:\別の場所\営業部")
+    }
+
+    It "戻す: 検索だけのインデックスと同じ名前でインポートして失敗すると、indexSources も元に戻る" {
+        $fixtureA = newIndexFixture "$TestDrive\src_rev_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\src_rev.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $wsB = [Workspace]::new("$TestDrive\src_rev_b")
+        $settingsB = "$($wsB.Dir)\setting.config"
+        writeIndexSources @(
+            [pscustomobject]@{ Name = "経理"; Path = "C:\別のPCの経理部" }
+            [pscustomobject]@{ Name = "営業"; Path = "C:\別のPCの営業部" }
+        ) $settingsB
+
+        Mock writeTextLinesAtomic { throw "取り込み一覧を書けない" } -ParameterFilter { $path -eq $wsB.StatusFile }
+        { importIndex $dest ${importCollisionOverwrite} "" "D:\別の場所\営業部" $wsB $settingsB } | Should -Throw "*取り込み一覧を書けない*"
+
+        @(readIndexSources $settingsB | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("経理|C:\別のPCの経理部", "営業|C:\別のPCの営業部")
+        @(getTargetFolders $settingsB).Count | Should -Be 0
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業") | Should -Be $false
+    }
+
     It "パス: 260 文字を超えるパスの本文インデックスで往復できる" {
         $long = "とても長いフォルダ名" * 15
         $fixtureA = newIndexFixture "$TestDrive\longpath_a" "営業" "C:\共有\営業部" "$long\A社.xlsx"
