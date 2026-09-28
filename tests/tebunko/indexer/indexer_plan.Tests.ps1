@@ -41,13 +41,13 @@ Describe "createTargetList" -Tag Io {
     # 一覧の行（state が $null なら一覧に無い。modified は元のファイルが更新されたか、version は抽出版）と
     # TSV の数え上げ（tsv が $null なら数えない・0 なら数え上げに無い）→ 取り込み対象・失敗の数と、取り込み予定のどの件数に数えるか
     It "<name>" -TestCases @(
-        @{ name = "一覧に無いファイルは取り込み対象になる（新規）"; state = $null; modified = $false; version = "2"; tsv = $null; targets = 1; failed = 0; field = "新規" }
-        @{ name = "取り込み済みで更新が無ければ取り込まない"; state = $stateDone; modified = $false; version = "2"; tsv = 1; targets = 0; failed = 0; field = "" }
+        @{ name = "一覧に無いファイルは取り込み対象になる（新規）"; state = $null; modified = $false; version = "3"; tsv = $null; targets = 1; failed = 0; field = "新規" }
+        @{ name = "取り込み済みで更新が無ければ取り込まない"; state = $stateDone; modified = $false; version = "3"; tsv = 1; targets = 0; failed = 0; field = "" }
         @{ name = "前の抽出版で取り込んだファイルは、更新が無くても取り込み直す（更新ありに数える）"; state = $stateDone; modified = $false; version = ""; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
-        @{ name = "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）"; state = $stateDone; modified = $false; version = "2"; tsv = 0; targets = 1; failed = 0; field = "インデックスなし" }
-        @{ name = "更新されていれば取り込み対象になる（更新あり）"; state = $stateDone; modified = $true; version = "2"; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
-        @{ name = "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す"; state = $stateFailed; modified = $false; version = "2"; tsv = 1; targets = 0; failed = 1; field = "前回失敗" }
-        @{ name = "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）"; state = $stateNew; modified = $false; version = "2"; tsv = 1; targets = 1; failed = 0; field = "前回未完了" }
+        @{ name = "取り込み済みでも TSV が無ければ取り込み直す（インデックスなし）"; state = $stateDone; modified = $false; version = "3"; tsv = 0; targets = 1; failed = 0; field = "インデックスなし" }
+        @{ name = "更新されていれば取り込み対象になる（更新あり）"; state = $stateDone; modified = $true; version = "3"; tsv = 1; targets = 1; failed = 0; field = "更新あり" }
+        @{ name = "前回失敗して更新が無ければ、取り込み対象ではなく失敗として返す"; state = $stateFailed; modified = $false; version = "3"; tsv = 1; targets = 0; failed = 1; field = "前回失敗" }
+        @{ name = "前回「未取り込み」で終わっていれば取り込み対象になる（前回未完了）"; state = $stateNew; modified = $false; version = "3"; tsv = 1; targets = 1; failed = 0; field = "前回未完了" }
     ) {
         param ($name, $state, $modified, $version, $tsv, $targets, $failed, $field)
         $rows = @()

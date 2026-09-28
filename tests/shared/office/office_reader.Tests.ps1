@@ -358,6 +358,180 @@ Describe "readXlsxObjectUnits" -Tag Io {
     }
 }
 
+Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -Tag Io {
+    BeforeAll {
+        function xChartFrame([string]$graphic) {
+            return "<xdr:graphicFrame macro=`"`"><xdr:nvGraphicFramePr><xdr:cNvPr id=`"3`" name=`"c`"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>${graphic}</xdr:graphicFrame>"
+        }
+
+        function xAbsoluteAnchor([string]$shapes) {
+            # 位置をセルで持たない図形（グラフシートに置いたグラフなど）
+            return "<xdr:absoluteAnchor><xdr:pos x=`"0`" y=`"0`"/><xdr:ext cx=`"100`" cy=`"100`"/>${shapes}<xdr:clientData/></xdr:absoluteAnchor>"
+        }
+
+        $groupChart = "<xdr:grpSp><xdr:nvGrpSpPr><xdr:cNvPr id=`"9`" name=`"g2`"/><xdr:cNvGrpSpPr/></xdr:nvGrpSpPr><xdr:grpSpPr/>" +
+            (xSp @("グループのテキスト")) + (xChartFrame (chartRef 'rId22')) + "</xdr:grpSp>"
+
+        $chart2Xml = "<c:chartSpace $cNs><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>グループ内グラフ</a:t></a:r></a:p></c:rich></c:tx></c:title>" +
+            "<c:plotArea><c:barChart/></c:plotArea></c:chart></c:chartSpace>"
+        $chart3Xml = "<c:chartSpace $cNs><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>TCg グラフシートのタイトル</a:t></a:r></a:p></c:rich></c:tx></c:title>" +
+            "<c:plotArea><c:barChart/></c:plotArea></c:chart></c:chartSpace>"
+
+        $path = "$TestDrive\charts.xlsx"
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets>" +
+                "<sheet name=`"S`" sheetId=`"1`" r:id=`"rId1`"/>" +
+                "<sheet name=`"隠しグラフ`" sheetId=`"2`" state=`"hidden`" r:id=`"rId2`"/>" +
+                "<sheet name=`"グラフ2ページ`" sheetId=`"3`" r:id=`"rId3`"/>" +
+                "<sheet name=`"隠しグラフシート`" sheetId=`"4`" state=`"hidden`" r:id=`"rId4`"/>" +
+                "<sheet name=`"壊れたrels`" sheetId=`"5`" r:id=`"rId5`"/>" +
+                "</sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/>" +
+                "<Relationship Id=`"rId3`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet1.xml`"/>" +
+                "<Relationship Id=`"rId4`" Type=`"$officeRel/chartsheet`" Target=`"chartsheets/sheet2.xml`"/>" +
+                "<Relationship Id=`"rId5`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet3.xml`"/>" +
+                "</Relationships>"
+
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/comments`" Target=`"../comments1.xml`"/>" +
+                "</Relationships>"
+            "xl/comments1.xml" = "<comments $xNs><authors><author>test</author></authors><commentList>" +
+                "<comment ref=`"D1`" authorId=`"0`"><text><t>コメントは影響を受けない</t></text></comment>" +
+                "</commentList></comments>"
+            # A2: グラフ単体、A6: SmartArt 単体、C9: グループ（テキストボックス→グラフの順）、
+            # A13: 参照先（リレーションシップ）が無いグラフ + テキストボックス、
+            # A16: 部品（XML）が壊れたグラフ + テキストボックス、A19: 通常の図形（グラフ・SmartArt が読めなくても出る）
+            "xl/drawings/drawing1.xml" = "<xdr:wsDr $xdrNs>" +
+                "$(xAnchor 0 1 (xChartFrame (chartRef 'rId20')))" +
+                "$(xAnchor 0 5 (xChartFrame (smartArt 'rId21')))" +
+                "$(xAnchor 2 8 $groupChart)" +
+                "$(xAnchor 0 12 ((xSp @('テキストボックス1')) + (xChartFrame (chartRef 'rIdMissing'))))" +
+                "$(xAnchor 0 15 ((xSp @('テキストボックス2')) + (xChartFrame (chartRef 'rId23'))))" +
+                "$(xAnchor 0 18 (xSp @('通常の図形')))" +
+                "</xdr:wsDr>"
+            "xl/drawings/_rels/drawing1.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId20`" Type=`"$docRel/chart`" Target=`"../charts/chart1.xml`"/>" +
+                "<Relationship Id=`"rId21`" Type=`"$docRel/diagramData`" Target=`"../diagrams/data1.xml`"/>" +
+                "<Relationship Id=`"rId22`" Type=`"$docRel/chart`" Target=`"../charts/chart2.xml`"/>" +
+                "<Relationship Id=`"rId23`" Type=`"$docRel/chart`" Target=`"../charts/broken.xml`"/>" +
+                "</Relationships>"
+            "xl/charts/chart1.xml" = $chartXml
+            "xl/charts/chart2.xml" = $chart2Xml
+            "xl/charts/broken.xml" = "<c:chartSpace $cNs><c:chart>"  # 閉じタグが無い壊れたXML
+            "xl/diagrams/data1.xml" = $diagramXml
+
+            "xl/worksheets/sheet2.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet2.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing2.xml`"/></Relationships>"
+            "xl/drawings/drawing2.xml" = "<xdr:wsDr $xdrNs>$(xAnchor 0 0 (xChartFrame (chartRef 'rId1')))</xdr:wsDr>"
+            "xl/drawings/_rels/drawing2.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$docRel/chart`" Target=`"../charts/chart1.xml`"/></Relationships>"
+
+            "xl/chartsheets/sheet1.xml" = "<chartsheet $xNs/>"
+            "xl/chartsheets/_rels/sheet1.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing3.xml`"/></Relationships>"
+            "xl/drawings/drawing3.xml" = "<xdr:wsDr $xdrNs>$(xAbsoluteAnchor (xChartFrame (chartRef 'rId1')))</xdr:wsDr>"
+            "xl/drawings/_rels/drawing3.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$docRel/chart`" Target=`"../charts/chart3.xml`"/></Relationships>"
+            "xl/charts/chart3.xml" = $chart3Xml
+
+            # 図形の部品自身のリレーションシップ（drawingN.xml.rels）の XML が壊れている場合
+            "xl/worksheets/sheet3.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet3.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing4.xml`"/></Relationships>"
+            "xl/drawings/drawing4.xml" = "<xdr:wsDr $xdrNs>" +
+                "$(xAnchor 0 1 (xChartFrame (chartRef 'rId1')))" +
+                "$(xAnchor 0 5 (xSp @('壊れたrelsでも出る図形')))" +
+                "</xdr:wsDr>"
+            "xl/drawings/_rels/drawing4.xml.rels" = "<Relationships $relNs><Relationship"  # 閉じタグの無い壊れたXML
+        }
+
+        $failures = New-Object System.Collections.Generic.List[string]
+        $units = readXlsxObjectUnits $path $failures
+        $ls = [char]0x2028
+    }
+
+    It "グラフはタイトル・系列名を読み、項目名・数値は読まない（1 アンカー 1 行）" {
+        @($units["S[図形]"])[0] | Should -Be "A2`t月別売上 東京支店 大阪支店"
+    }
+
+    It "SmartArt は data の文字を読む（drawing の文字とは重ならない）" {
+        @($units["S[図形]"])[1] | Should -Be "A6`t企画 設計"
+    }
+
+    It "グループの中はテキストボックスの段落 → グラフ・SmartArt の文字の順で 1 行にする" {
+        @($units["S[図形]"])[2] | Should -Be "C9`t`"グループのテキスト${ls}グループ内グラフ`""
+    }
+
+    It "参照先・リレーションシップが無いグラフは空にし、同じアンカーのテキストボックスは出す" {
+        @($units["S[図形]"])[3] | Should -Be "A13`tテキストボックス1"
+    }
+
+    It "部品（XML）が壊れたグラフは空にし、同じアンカーのテキストボックスは出す。読めなかった部品を $failures に返す" {
+        @($units["S[図形]"])[4] | Should -Be "A16`tテキストボックス2"
+        # $failures はこのフィクスチャー全体（シート S と 壊れたrels）で読めなかった部品を集めたもの。
+        # 期待する失敗の一覧を全部並べて比べる（一部だけの確かめだと、ほかの失敗が紛れ込んでも気付けない）
+        @($failures) | Should -Be @("xl/charts/broken.xml", "xl/drawings/drawing4.xml")
+    }
+
+    It "グラフ・SmartArt が読めなくても、同じシートのほかの図形・コメントは出る" {
+        @($units["S[図形]"])[5] | Should -Be "A19`t通常の図形"
+        @($units["S[コメント]"]) -join "|" | Should -Be "D1`tコメントは影響を受けない"
+    }
+
+    It "非表示シートのグラフは出ない" {
+        $units.Contains("隠しグラフ[図形]") | Should -Be $false
+    }
+
+    It "表示のグラフシートは、位置をセルで持たない（absoluteAnchor）ため A1 になる" {
+        @($units["グラフ2ページ[図形]"]) -join "|" | Should -Be "A1`tTCg グラフシートのタイトル"
+    }
+
+    It "非表示のグラフシートは出ない" {
+        $units.Contains("隠しグラフシート[図形]") | Should -Be $false
+    }
+
+    It "図形の部品自身のリレーションシップ（drawingN.xml.rels）が壊れていても、そのグラフだけを空にし、ほかの図形は出す" {
+        @($units["壊れたrels[図形]"]) -join "|" | Should -Be "A6`t壊れたrelsでも出る図形"
+        @($failures) | Should -Be @("xl/charts/broken.xml", "xl/drawings/drawing4.xml")
+    }
+}
+
+Describe "readXlsxObjectUnits（実物のブック）" -Tag Io {
+    # Excel で作った実物のブック（tests/testdata/README.md「グラフ・SmartArt」）。
+    # readXlsxObjectUnits 自体は Excel を使わないため、Io のタグで CI でも流れる
+    BeforeAll {
+        $path = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office\Excel\グラフとSmartArt.xlsx")
+        $units = readXlsxObjectUnits $path
+        $ls = [char]0x2028
+    }
+
+    It "埋め込みグラフのタイトル・軸ラベル・系列名を読み、項目名・数値（987654）は読まない" {
+        @($units["表[図形]"])[0] | Should -Be "D3`tTC30 グラフのタイトル TC30 横軸 TC30 縦軸 TC30 系列名"
+        (@($units["表[図形]"]) -join "|") | Should -Not -Match "987654|TC30 項目"
+    }
+
+    It "SmartArt の文字を読む" {
+        @($units["表[図形]"])[1] | Should -Be "H3`tTC30 SmartArt のテキスト"
+    }
+
+    It "グループの中はテキストボックス → グラフの順で 1 行になる" {
+        @($units["表[図形]"])[2] | Should -Be "A17`t`"TC30 グループ内のテキストボックス${ls}TC30 グループ内グラフ TC30 系列名`""
+    }
+
+    It "非表示シートに置いたグラフは読まない" {
+        $units.Contains("非表示グラフ[図形]") | Should -Be $false
+    }
+
+    It "表示のグラフシートは A1 で読む" {
+        @($units["TC30グラフシート[図形]"]) -join "|" | Should -Be "A1`tTC30 グラフシートのタイトル TC30 系列名"
+    }
+}
+
 Describe "readDocxUnits（図形・コメント）" -Tag Io {
     BeforeAll {
         $path = "$TestDrive\objects.docx"
@@ -389,8 +563,8 @@ Describe "readDocxUnits（図形・コメント）" -Tag Io {
         @($units["ページ001[図形]"]) -join "|" | Should -Be "箱の1段落目 箱の2段落目|セルの中の箱|箱の表A`t箱の表B"
     }
 
-    It "SmartArt・グラフの文字は、そのページの図形にする（グラフはタイトル・系列名・項目名。数値と重複は読まない）" {
-        @($units["ページ002[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 4月 5月 大阪支店"
+    It "SmartArt・グラフの文字は、そのページの図形にする（グラフはタイトル・系列名。項目名・数値は読まず、重複も読まない）" {
+        @($units["ページ002[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 大阪支店"
     }
 
     It "コメントは付けた所のページに、返信も 1 件ずつ入れる。本文に参照の無いコメントは「文書」にまとめる" {
@@ -427,7 +601,7 @@ Describe "readPptxUnits（図形・コメント）" -Tag Io {
 
     It "テキストボックス・図形はスライドの本文のまま、SmartArt・グラフの文字はスライドの図形にする" {
         @($units["スライド001"]) -join "|" | Should -Be "スライドの本文"
-        @($units["スライド001[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 4月 5月 大阪支店"
+        @($units["スライド001[図形]"]) -join "|" | Should -Be "企画 設計|月別売上 東京支店 大阪支店"
     }
 
     It "旧形式・新形式のコメントを読み、コメントの後に返信を 1 件ずつ入れる（非表示のスライドは場所の名前に付く）" {
@@ -488,14 +662,55 @@ Describe "readObjectText / readChartText" -Tag Io {
         }
     }
 
-    It "多段の項目名（multiLvlStrCache）も読み、数値は読まない" {
+    It "項目名（c:cat。多段の multiLvlStrCache を含む）は読まない。系列名（c:ser/c:tx）は読み、数値も読まない" {
         $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser>" +
+            "<c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC 系列名</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
             "<c:cat><c:multiLvlStrRef><c:multiLvlStrCache><c:ptCount val=`"1`"/>" +
             "<c:lvl><c:pt idx=`"0`"><c:v>上期</c:v></c:pt></c:lvl><c:lvl><c:pt idx=`"0`"><c:v>2024年</c:v></c:pt></c:lvl>" +
             "</c:multiLvlStrCache></c:multiLvlStrRef></c:cat>" +
             "<c:val><c:numRef><c:numCache><c:pt idx=`"0`"><c:v>100</c:v></c:pt></c:numCache></c:numRef></c:val>" +
             "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
-        readChartText $xml | Should -Be "上期 2024年"
+        readChartText $xml | Should -Be "TC 系列名"
+    }
+
+    It "系列名は、セル参照ではない直値（c:tx の直下の c:v）でも読む" {
+        $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser><c:tx><c:v>直値の系列名</c:v></c:tx>" +
+            "<c:cat><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>項目A</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
+            "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+        readChartText $xml | Should -Be "直値の系列名"
+    }
+
+    It "タイトル・軸の名前は、セル参照（c:title/c:tx/c:strRef/c:strCache/c:v）でも読む" {
+        # 直値のタイトル（c:rich の a:p）は readXmlLines 側で読めるが、セル参照（Excel の「=Sheet1!\$A\$1」のような
+        # タイトル）は c:rich を持たず、系列名と同じ形（c:tx/c:strRef/c:strCache/c:pt/c:v）になる
+        $xml = "<c:chartSpace $cNs><c:chart>" +
+            "<c:title><c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC セル参照のタイトル</c:v></c:pt></c:strCache></c:strRef></c:tx></c:title>" +
+            "<c:plotArea><c:barChart><c:ser><c:tx><c:v>TC 系列名</c:v></c:tx></c:ser></c:barChart>" +
+            "<c:catAx><c:title><c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC セル参照の軸の名前</c:v></c:pt></c:strCache></c:strRef></c:tx></c:title></c:catAx>" +
+            "</c:plotArea></c:chart></c:chartSpace>"
+        readChartText $xml | Should -Be "TC セル参照のタイトル TC セル参照の軸の名前 TC 系列名"
+    }
+
+    It "項目の点数が多いグラフでも、項目名を読まないため速く終わる（回帰の確かめ）" {
+        # 項目名を辿って祖先を確かめる古い実装は、点数の多いグラフで二次関数的に遅くなっていた
+        # （実測: 2 万点で約 46 秒、5 万点で約 230 秒）。系列（c:ser）の数だけ調べる今の実装は、項目名の祖先をたどる
+        # 処理が無いため二次関数的には遅くならないが、XML 自体は点の数だけ大きくなるので読み込みの時間は点数にほぼ比例して増える
+        # （実測: -Ci のカバレッジ計測下で 2 万点は約 7 秒、5 万点は約 19 秒）。
+        # 古い実装に戻ってもしきい値ぎりぎりで通ってしまわないよう、点数を 5 万に増やす。
+        # しきい値は、今の実装の実測（約 19 秒）に機械の負荷やカバレッジ計測の変動の余裕を持たせつつ、
+        # 古い実装（5 万点で約 230 秒）とは十分に区別できる 60 秒とする
+        $pts = New-Object System.Text.StringBuilder
+        for ($i = 0; $i -lt 50000; $i++) {
+            [void]$pts.Append("<c:pt idx=`"$i`"><c:v>項目$i</c:v></c:pt>")
+        }
+        $xml = "<c:chartSpace $cNs><c:chart><c:plotArea><c:barChart><c:ser>" +
+            "<c:tx><c:strRef><c:strCache><c:pt idx=`"0`"><c:v>TC 大きい系列名</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
+            "<c:cat><c:strRef><c:strCache><c:ptCount val=`"50000`"/>$($pts.ToString())</c:strCache></c:strRef></c:cat>" +
+            "</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>"
+        $result = $null
+        $elapsed = (Measure-Command { $result = readChartText $xml }).TotalSeconds
+        $result | Should -Be "TC 大きい系列名"
+        $elapsed | Should -BeLessThan 60
     }
 }
 

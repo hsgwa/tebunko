@@ -23,7 +23,7 @@
 #     レコード長やオフセットが崩れるため、バイト長を変えずに置き換える（test_ のように _ で長さを揃える）
 #   - テキスト（.txt など）: そのまま test に置き換える
 param (
-    [string[]]$Path = @("$PSScriptRoot\office", "$PSScriptRoot\設定例"),
+    [string[]]$Path = @("$PSScriptRoot\office", "$PSScriptRoot\設定例", "$PSScriptRoot\manual"),
     [string[]]$Names = @(),
     [switch]$NoAutoNames   # 自動で名前を集めない（テスト用）
 )

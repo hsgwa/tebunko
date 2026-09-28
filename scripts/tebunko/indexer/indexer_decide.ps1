@@ -6,10 +6,14 @@
 #   2: Excel（.xlsx / .xlsm）の図形・コメントを読む。
 #      Word・PowerPoint のコメント・SmartArt・グラフを読み、Word のテキストボックスを本文から図形に分ける
 #      （Word・PowerPoint は旧形式も新形式に変換してから読むため、.doc / .ppt も上げる）
+#   3: Excel のグラフ・SmartArt（表示のグラフシートを含む）を読む。
+#      グラフの読み方を、タイトル・軸ラベル・系列名だけにし、項目名は読まないようにする
+#      （.xlsx / .xlsm はグラフ・SmartArt を読むようになった分で 3。.docx / .docm / .pptx / .pptm は
+#      項目名を読まなくなった分だけ上げる。.doc / .ppt はこのアイテムでは上げない）
 ${extractVersions} = @{
-    ".xlsx" = 2; ".xlsm" = 2
-    ".docx" = 2; ".docm" = 2; ".doc" = 2
-    ".pptx" = 2; ".pptm" = 2; ".ppt" = 2
+    ".xlsx" = 3; ".xlsm" = 3
+    ".docx" = 3; ".docm" = 3; ".doc" = 2
+    ".pptx" = 3; ".pptm" = 3; ".ppt" = 2
 }
 
 function getExtractVersion {
