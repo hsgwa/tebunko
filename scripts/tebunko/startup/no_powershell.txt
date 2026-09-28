@@ -1,0 +1,4 @@
+﻿tebunko could not start. Windows PowerShell was not found.
+
+tebunko を起動できませんでした。Windows PowerShell が見つかりません。
+Windows PowerShell 5.1 を有効にしてください。組織のパソコンの場合は、情報システム部門に相談してください。
