@@ -4265,6 +4265,11 @@
 <td>インストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を <code>work/release/</code> に作る。起動口 <code>tebunko.exe</code> を Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドし、<code>scripts/</code>・<code>LICENSE</code>・<code>VERSION.txt</code> と並べて Inno Setup 7 の <code>ISCC.exe</code> に渡す。<code>release.yml</code> が実行する。手元で作るときは Inno Setup 7 を入れておく（<code>-Iscc</code> で場所を指定できる）</td>
 </tr>
 <tr>
+<td><code>tools/install_inno_setup.ps1</code></td>
+<td>配布用</td>
+<td>Inno Setup 7 を、版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。<code>release.yml</code> の <code>shell: powershell</code> の <code>run</code> は ASCII だけで書く決まりのため、日本語のメッセージが要るこの手順だけを分けている</td>
+</tr>
+<tr>
 <td><code>tools/new_version_text.ps1</code></td>
 <td>配布用</td>
 <td>配布物に入れる <code>VERSION.txt</code> の中身（タグ名とコミットの SHA の2行。BOM 付き UTF-8・CRLF）を作る。<code>new_release_package.ps1</code>・<code>new_installer.ps1</code> が共通で呼ぶ。<code>VERSION.txt</code> は zip のエントリー・インストーラーのステージにだけ作り、リポジトリの作業ツリーには書かない（開発中に git のチェックアウトから起動すると「開発版」と出る）</td>
