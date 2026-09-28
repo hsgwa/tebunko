@@ -50,3 +50,16 @@
 | `renameIndex` | oldName, newName, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックス名を変える。`work\content_index\<旧名>` を改名し、取り込み一覧の記録（`renameStatusIndexName`）も書き換えるため、**インデックスは作り直さない**。移動先が既にあれば例外。旧名・新名の下の `searchExcludes` も消す（`removeSearchExcludesUnder`。付け替えず、外したフォルダは検索対象に戻る） | 同上 | 画面（［編集…］） |
 | `removeIndex` | name, dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath（既定 `$settingsFile`） | – | インデックスを削除する。`work\content_index\<名前>` を中身ごと削除し、取り込み一覧からもその記録を取り除く（`removeStatusIndexName`）。そのインデックスの下の `searchExcludes` も消す（`removeSearchExcludesUnder`） | 同上 | 画面（［削除］） |
 | `getSearchIndexes` | dir（既定 `$workspace.IndexDir`）, statusPath, settingsPath | `@{Name; Path; SourcePath}` の配列 | インデックスの一覧（`work\content_index` 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。`SourcePath` は元のフォルダ（分からなければ空） | [インデックスの一覧](../search/index.md#インデックスの一覧getsearchindexes) | 画面（検索対象のツリー） |
+
+## インデックスのエクスポート・インポート（`tebunko/index/index_archive_rules.ps1`・`index_archive.ps1`）
+
+詳細は [インデックスのエクスポート・インポート](../index-data/format.md#インデックスのエクスポートインポート)。
+
+| 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
+|---|---|---|---|---|---|
+| `exportIndex` | name, destPath, ws（既定 `$workspace`）, settingsPath（既定 `$settingsFile`） | `@{Path; Files; Bytes}` | 1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。`<destPath>.tmp` に書いてから置き換える | 同上 | 画面（［エクスポート…］） |
+| `readIndexArchiveInfo` | zipPath | `@{IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion}` | zip の目録を読んで確かめる（インポートはしない）。インポートの確認ダイアログの既定値に使う | 同上 | 画面（［インポート…］） |
+| `importIndex` | zipPath, collisionMode（`Rename`/`Overwrite`/`Cancel`）, name, sourceFolder, ws, settingsPath | `@{Name; SourcePath; Enabled; Files; Bytes; Warnings}`（`Cancel` は `$null`） | zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ・設定への登録・`content_index\<名前>\` の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す | 同上 | 画面（［インポート…］） |
+| `getImportIndexName` | suggestedName, usedNames, collisionMode | string（`$null` は Cancel） | 同じ名前のインデックスがあるときの扱いから、インポートで使う名前を決める（`Rename` は `newIndexName` と同じ決まり） | 同上 | importIndex, 画面 |
+| `getExportFileName` | indexName, usedNames（保存先フォルダの既存のファイル名）, now | string | エクスポートの既定のファイル名（`<インデックス名>_インデックス_<yyyyMMdd>.zip`。重なれば `(2)`…） | 同上 | 画面（［エクスポート…］） |
+| `testIndexArchiveManifest` | manifest, entryNames, manifestBytes | string（受け付けられれば空） | zip の目録・エントリーが受け付けられるかを調べる（形式の版・zip slip・重なり・大きさ） | 同上 | openIndexArchive |

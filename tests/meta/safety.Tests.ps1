@@ -235,6 +235,14 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         # インデックス作成の始め（invokeIndexer の本体）で呼ぶ
         (findPattern $code '^\s+removeStaleTmpDirs$') | Should -Not -Be ""
     }
+
+    It "エクスポートは利用者が選んだ保存先と、その .tmp だけに書き込む" {
+        # ［結果をファイルに出力］（利用者が指定した出力先）と同じ扱い
+        $archive = @($code | Where-Object { $_.File -eq "index_archive.ps1" })
+        (findPattern $archive '\$tmpPath\s*=\s*"\$\{destPath\}\.tmp"') | Should -Not -Be ""
+        (findPattern $archive '\[System\.IO\.Compression\.ZipFile\]::Open\(\$tmpPath') | Should -Not -Be ""
+        (findPattern $archive '\[System\.IO\.File\]::Move\(\(toLongPath \$tmpPath\), \(toLongPath \$destPath\)\)') | Should -Not -Be ""
+    }
 }
 
 Describe "サードパーティの静的解析（docs/safety/scans.md「静的解析: PSScriptAnalyzer（Microsoft）」）" -Tag Meta {
