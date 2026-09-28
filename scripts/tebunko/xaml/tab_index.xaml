@@ -54,6 +54,8 @@
           <Button x:Name="NewIndexButton" Content="追加…" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
           <Button x:Name="EditIndexButton" Content="編集…" Margin="0,8,0,0" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスはそのまま使います）" />
           <Button x:Name="RemoveIndexButton" Style="{StaticResource Danger}" Content="削除" Margin="0,8,0,0" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
+          <Button x:Name="ExportIndexButton" Content="エクスポート…" Margin="0,16,0,0" ToolTip="選んだインデックスを 1 つの zip に書き出します（別の PC・ワークスペースで使えます）" />
+          <Button x:Name="ImportIndexButton" Content="インポート…" Margin="0,8,0,0" ToolTip="エクスポートした zip を読み込み、一覧に加えます" />
           <TextBlock Style="{StaticResource Micro}" Margin="2,14,0,0"
                      Text="一覧にフォルダをドラッグ＆ドロップしても追加できます。" />
         </StackPanel>

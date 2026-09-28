@@ -24,6 +24,11 @@ function testWorkspaceChangeable {
         showMessage "前のインデックスの削除が終わるまでお待ちください。" "OK" "Warning" | Out-Null
         return $false
     }
+    if ($script:archiveBusy) {
+        # エクスポート・インポート中（別スレッド）も、今のワークスペースの content_index・取り込み一覧・設定を使っている
+        showMessage "エクスポート・インポートが終わるまでお待ちください。" "OK" "Warning" | Out-Null
+        return $false
+    }
     return $true
 }
 

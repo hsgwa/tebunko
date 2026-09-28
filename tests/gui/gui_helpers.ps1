@@ -584,6 +584,20 @@ function useGuiFolderPicker {
     waitGuiWindowClosed $S $picker "OS のフォルダ選択"
 }
 
+function useGuiFileOpenPicker {
+    # OS のファイルを開くダイアログ（OpenFileDialog。selectZipFile）を、開いて閉じるまで本物で動かす。
+    # フォルダ選択と同じクラス（#32770）・ファイル名の欄（1148）・［開く］ボタン（1）を使う
+    param ($S, [string]$Path)
+
+    $picker = waitGui $S "OS のファイルを開くダイアログ" ${guiDefaultTimeout} { findGuiFolderPicker $S }
+    $edit = waitGui $S "ファイル名の欄" ${guiDefaultTimeout} { findGui $picker -Id "1148" }
+    setGuiNativeText $edit $Path
+    $button = findGui $picker -Id "1" -Type Pane
+    if (!$button) { throw "［開く］ボタンが見つからない" }
+    clickGuiNativeButton $button
+    waitGuiWindowClosed $S $picker "OS のファイルを開くダイアログ"
+}
+
 # ---- テストデータ ----
 
 function newGuiSampleIndex {
