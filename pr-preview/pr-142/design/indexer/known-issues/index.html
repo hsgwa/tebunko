@@ -2697,7 +2697,7 @@
 </tr>
 <tr>
 <td>15</td>
-<td>制限時間（10 分）で強制終了できるのは自分で起動した Office アプリだけ。利用者の PowerPoint に接続して変換している場合や、<code>.docx</code> <code>.pptx</code> を直接読む処理（Office を使わない）が長引いた場合は止められない。画面の［中止］もファイルの切れ目まで効かない。画面を閉じるときは 60 秒待ってインデックス作成が起動した Office を止め、さらに 15 秒待っても終わらなければそのまま閉じる（<a href="../../architecture/threads/#閉じるときの順番">閉じるときの順番</a>）。画面（<code>powershell.exe</code>）を強制終了した場合も、次回はそのファイルを最後に回し、続けて 2 回なら失敗にする</td>
+<td>制限時間（10 分）で強制終了できるのは自分で起動した Office アプリだけ。利用者の Word に接続して変換している場合や、<code>.docx</code> <code>.pptx</code> を直接読む処理（Office を使わない）が長引いた場合は止められない（PowerPoint は利用者のアプリに接続しないため、この問題に当たらない。直した。<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Word・PowerPoint の起動・終了</a>「PowerPoint」）。画面の［中止］もファイルの切れ目まで効かない。画面を閉じるときは 60 秒待ってインデックス作成が起動した Office を止め、さらに 15 秒待っても終わらなければそのまま閉じる（<a href="../../architecture/threads/#閉じるときの順番">閉じるときの順番</a>）。画面（<code>powershell.exe</code>）を強制終了した場合も、次回はそのファイルを最後に回し、続けて 2 回なら失敗にする</td>
 <td>○</td>
 </tr>
 <tr>
@@ -2803,8 +2803,8 @@
 </tr>
 <tr>
 <td>3</td>
-<td>PowerPoint を利用者が使用中の場合、旧形式の変換にはそのアプリが使われる（終了はさせない。<a href="../office-apps/#wordpowerpoint-の起動終了">Word・PowerPoint の起動・終了</a>）</td>
-<td>△</td>
+<td>PowerPoint を利用者が使用中の場合、旧形式（<code>.ppt</code>）・パスワード付きのファイルは接続せず、取り込まずに後回し（未取り込みのまま次回のインデックス作成で取り込む）にする（利用者の PowerPoint には触らない。<a href="../office-apps/#office-アプリexcelwordpowerpointの管理">Office アプリ（Excel・Word・PowerPoint）の管理</a>「PowerPoint」）</td>
+<td>◎</td>
 </tr>
 </tbody>
 </table>
