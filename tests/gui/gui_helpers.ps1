@@ -537,12 +537,158 @@ function invokeGuiScene {
 # ---- OS のフォルダ選択（Win32 のダイアログ。ボタンと欄は UI オートメーションのパターンを持たないため、窓のメッセージで操作する） ----
 
 if (-not ('TebunkoGuiNative' -as [type])) {
-    Add-Type -Namespace "" -Name TebunkoGuiNative -MemberDefinition @'
-[System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
-public static extern System.IntPtr SendMessage(System.IntPtr hWnd, uint msg, System.IntPtr wParam, string lParam);
-[System.Runtime.InteropServices.DllImport("user32.dll")]
-public static extern bool PostMessage(System.IntPtr hWnd, uint msg, System.IntPtr wParam, System.IntPtr lParam);
+    # RECT の構造体と P/Invoke の宣言を 1 つの Add-Type にまとめる（別々の Add-Type にすると、
+    # -MemberDefinition の側から前に定義した構造体の型が見えない）
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public struct TebunkoGuiRect {
+    public int Left;
+    public int Top;
+    public int Right;
+    public int Bottom;
+}
+public delegate bool TebunkoEnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+public static class TebunkoGuiNative {
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, string lParam);
+    [DllImport("user32.dll")]
+    public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out TebunkoGuiRect rect);
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(TebunkoEnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr hwnd, uint dwAttribute, out TebunkoGuiRect pvAttribute, int cbAttribute);
+    [DllImport("user32.dll")]
+    public static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, uint flags);
+}
 '@
+}
+
+# DWMWA_EXTENDED_FRAME_BOUNDS。GetWindowRect は、見えない大きさ調整用の枠（DWM の影）を含めて少し大きく返すことがあり、
+# そのまま撮ると窓の外側が数ピクセル写り込む。DwmGetWindowAttribute のこの属性は、実際に見えている枠を返す
+${dwmwaExtendedFrameBounds} = 9
+
+# ---- 写真を撮る道具（tools\capture_screens.ps1）が使う、窓を動かす関数 ----
+
+function getGuiRect {
+    # 部品の画面上の範囲（BoundingRectangle）を System.Drawing.Rectangle にして返す。
+    # 塗りつぶす部品（本体・ダイアログの中の部品）に使う
+    param ($Element)
+    $r = $Element.Current.BoundingRectangle
+    return New-Object Drawing.Rectangle([int][Math]::Round($r.X), [int][Math]::Round($r.Y), [int][Math]::Round($r.Width), [int][Math]::Round($r.Height))
+}
+
+function getGuiWindowRect {
+    # 窓（本体・ダイアログ・メニュー・起動中の表示）の画面上の範囲を、ネイティブの呼び出しで返す。
+    # UI オートメーションの BoundingRectangle は、窓がまだ IsOffscreen（描画が済んでいない）の間 0 x 0 になることがあり、
+    # 起動中の表示（一瞬で消える）はそのまま消えてしまうことがあるため、窓そのものの範囲はこちらを使う。
+    # DwmGetWindowAttribute（見えている枠）を優先し、失敗したら GetWindowRect（見えない調整用の枠を含むことがある）
+    param ($Element)
+    $handle = [IntPtr]$Element.Current.NativeWindowHandle
+    if ($handle -eq [IntPtr]::Zero) {
+        return New-Object Drawing.Rectangle(0, 0, 0, 0)
+    }
+    $rect = New-Object TebunkoGuiRect
+    if ([TebunkoGuiNative]::DwmGetWindowAttribute($handle, ${dwmwaExtendedFrameBounds}, [ref]$rect, 16) -eq 0) {
+        return New-Object Drawing.Rectangle($rect.Left, $rect.Top, ($rect.Right - $rect.Left), ($rect.Bottom - $rect.Top))
+    }
+    if (!([TebunkoGuiNative]::GetWindowRect($handle, [ref]$rect))) {
+        return New-Object Drawing.Rectangle(0, 0, 0, 0)
+    }
+    return New-Object Drawing.Rectangle($rect.Left, $rect.Top, ($rect.Right - $rect.Left), ($rect.Bottom - $rect.Top))
+}
+
+function redrawGuiWindow {
+    # 窓を、子の部品も含めて強制的に描き直す（RedrawWindow。RDW_INVALIDATE・RDW_ERASE・RDW_FRAME・
+    # RDW_ALLCHILDREN・RDW_UPDATENOW = 0x585）。確認が続けて出るときなど、前の窓の絵の一部が残って
+    # 見えることがあるため、撮る直前に呼ぶ
+    param ($Window)
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
+    if ($handle -ne [IntPtr]::Zero) {
+        [void][TebunkoGuiNative]::RedrawWindow($handle, [IntPtr]::Zero, [IntPtr]::Zero, 0x585)
+    }
+}
+
+function getGuiNativeProcessWindows {
+    # プロセスの、目に見える窓のハンドルと範囲の一覧（Win32 の EnumWindows・GetWindowRect・IsWindowVisible だけで調べる）。
+    # 起動中の表示（SplashProgress）は、出てから一瞬で閉じる一方、UI オートメーションの provider がまだこの窓を
+    # 認識していないことがあり、AutomationElement 経由（getGuiTopWindows・BoundingRectangle）では見つからない・
+    # 大きさが 0 x 0 のままのことがある。ネイティブの Win32 の呼び出しだけなら、窓ができた直後から正しい範囲が取れる
+    param ([int]$ProcessId)
+
+    $found = New-Object System.Collections.Generic.List[PSObject]
+    $callback = [TebunkoEnumWindowsProc] {
+        param ($hWnd, $lParam)
+        $pid2 = 0
+        [void][TebunkoGuiNative]::GetWindowThreadProcessId($hWnd, [ref]$pid2)
+        if ($pid2 -eq $ProcessId -and [TebunkoGuiNative]::IsWindowVisible($hWnd)) {
+            $rect = New-Object TebunkoGuiRect
+            if ([TebunkoGuiNative]::GetWindowRect($hWnd, [ref]$rect)) {
+                $w = $rect.Right - $rect.Left
+                $h = $rect.Bottom - $rect.Top
+                if ($w -gt 0 -and $h -gt 0) {
+                    $found.Add([PSCustomObject]@{ Handle = $hWnd; Rect = (New-Object Drawing.Rectangle($rect.Left, $rect.Top, $w, $h)) })
+                }
+            }
+        }
+        return $true
+    }
+    [void][TebunkoGuiNative]::EnumWindows($callback, [IntPtr]::Zero)
+    return @($found.ToArray())
+}
+
+function activateGuiWindow {
+    # 窓を前に出す（撮る前に呼ぶ。Window を渡さなければ本体の窓。SetForegroundWindow はネイティブの窓、
+    # SetFocus は UI オートメーションの部品に効く。起動中の表示（$S.Window がまだ無い）にも使えるよう Window を渡せる）
+    param ($S, $Window = $null)
+    if (!$Window) { $Window = $S.Window }
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
+    [void][TebunkoGuiNative]::SetForegroundWindow($handle)
+    try { $Window.SetFocus() } catch { }
+    Start-Sleep -Milliseconds 200
+}
+
+function pressGuiEnterKey {
+    # 窓に Enter キー（既定のボタンを押す）を、WM_KEYDOWN・WM_KEYUP（VK_RETURN = 13）のメッセージだけで送る
+    # （マウス・キーボードの合成はしない。SendInput・keybd_event は使わない）。
+    # OS 標準のメッセージボックスの一部は、ボタンへの BM_CLICK（clickGuiNativeButton）では閉じないことがあるため、
+    # そのときはこちらを使う（起動時にごく早く出るメッセージボックスなど）
+    param ($Window)
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
+    [void][TebunkoGuiNative]::PostMessage($handle, 0x0100, [IntPtr]13, [IntPtr]::Zero)
+    [void][TebunkoGuiNative]::PostMessage($handle, 0x0101, [IntPtr]13, [IntPtr]::Zero)
+}
+
+function closeGuiNativeMessage {
+    # OK だけの OS 標準のメッセージボックスを、確実に閉じるまで閉じ続ける。
+    # ボタンへの BM_CLICK（clickGuiNativeButton）だけでは閉じないことがあるため、Enter キー（pressGuiEnterKey）も
+    # 合わせて送り、閉じるまで両方を送り直す（写真を撮る道具が、実機で BM_CLICK だけでは閉じなかった場面があったため）
+    param ($S, $Window, [string]$What, [int]$Timeout = ${guiDefaultTimeout})
+    $key = getGuiKey $Window
+    waitGui $S "$What が閉じる" $Timeout {
+        try {
+            $ok = findGui $Window -Name "OK"
+            if ($ok) { clickGuiNativeButton $ok }
+            pressGuiEnterKey $Window
+        } catch { }
+        Start-Sleep -Milliseconds 300
+        !(@(getGuiOtherWindows $S) | Where-Object { (getGuiKey $_) -eq $key })
+    } | Out-Null
+}
+
+function resizeGuiWindow {
+    # 本体の窓の大きさを変える（TransformPattern.Resize）
+    param ($S, [int]$Width, [int]$Height)
+    $pattern = $S.Window.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern)
+    $pattern.Resize($Width, $Height)
 }
 
 function clickGuiNativeButton {

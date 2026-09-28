@@ -189,6 +189,13 @@ nav:
           - ［9 プロセス停止］タブ: design/gui/process-tab.md
           - 画面の実装構成: design/gui/implementation.md
           - 画面を固まらせない待たせ方: design/gui/responsiveness.md
+          - 画面設計（現行）:
+              - design/gui/screens/index.md
+              - 本体・共通の状態: design/gui/screens/window.md
+              - ［1 インデックス管理］タブ: design/gui/screens/index-tab.md
+              - ［2 検索］タブ: design/gui/screens/search-tab.md
+              - ［8 設定］タブ: design/gui/screens/settings-tab.md
+              - ［9 プロセス停止］タブ: design/gui/screens/process-tab.md
       - 開発の進め方:
           - design/testing/index.md
           - テストの実行: design/testing/run.md
