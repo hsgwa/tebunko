@@ -560,16 +560,19 @@ function swapInImportedIndexDir {
         [string]$indexRoot
     )
 
+    # ウイルス対策ソフトが、作ったばかり・書いたばかりのフォルダ（$targetDir は前の取り込みで、$newDir はこの
+    # インポートの展開で、それぞれ書いたばかり）を一時的に掴んでいることがあるため、moveDirectoryRetry で試し直す
+    # （removeDirectoryRetry と同じ理由。docs/design/index-data/format.md「インポート」を参照）
     $hadPrevious = Test-Path -LiteralPath (toLongPath $targetDir) -PathType Container
     if ($hadPrevious) {
-        [System.IO.Directory]::Move((toLongPath $targetDir), (toLongPath $previousDir))
+        moveDirectoryRetry $targetDir $previousDir
     }
     try {
         [System.IO.Directory]::CreateDirectory((toLongPath $indexRoot)) | Out-Null
-        [System.IO.Directory]::Move((toLongPath $newDir), (toLongPath $targetDir))
+        moveDirectoryRetry $newDir $targetDir
     } catch {
         if ($hadPrevious) {
-            [System.IO.Directory]::Move((toLongPath $previousDir), (toLongPath $targetDir))
+            moveDirectoryRetry $previousDir $targetDir
         }
         throw
     }
@@ -584,7 +587,7 @@ function restoreSwappedIndexDir {
 
     removeDirectoryRetry $swap.TargetDir
     if ($swap.HadPrevious) {
-        [System.IO.Directory]::Move((toLongPath $swap.PreviousDir), (toLongPath $swap.TargetDir))
+        moveDirectoryRetry $swap.PreviousDir $swap.TargetDir
     }
 }
 

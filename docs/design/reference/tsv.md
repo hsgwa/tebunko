@@ -16,6 +16,7 @@
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [入れ替えと書き出し](../index-data/publish.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す | – | インデックス作成（インデックス・作業フォルダの削除） |
+| `moveDirectoryRetry` | source, destination, tries（既定 5）, waitMilliseconds（既定 200。試すたびに倍にする） | – | フォルダを移動する。`removeDirectoryRetry` と同じ理由で、待つ時間を倍にしながら数回試す | [インポート](../index-data/format.md#インポートimportindex) | インデックスのインポート（`swapInImportedIndexDir`・`restoreSwappedIndexDir`） |
 
 ## TSV の整形（`shared/core/text.ps1`）
 

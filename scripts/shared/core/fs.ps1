@@ -191,6 +191,34 @@ function removeDirectoryRetry {
     }
 }
 
+function moveDirectoryRetry {
+    # フォルダを移動する。removeDirectoryRetry と同じ理由（ウイルス対策ソフト・エクスプローラーが、
+    # 作ったばかり・書いたばかりのフォルダを一時的に掴んでいることがある）で、待つ時間を倍にしながら数回試す
+    # （削除より、掴まれている時間が長くかかることがあるため、既定の回数・最初の待ち時間を大きくしている）
+    param (
+        [string]$source,
+        [string]$destination,
+        [int]$tries = 5,
+        [int]$waitMilliseconds = 200
+    )
+
+    $longSource = toLongPath $source
+    $longDestination = toLongPath $destination
+    $wait = $waitMilliseconds
+    for ($i = 1; $true; $i++) {
+        try {
+            [System.IO.Directory]::Move($longSource, $longDestination)
+            return
+        } catch {
+            if ($i -ge $tries) {
+                throw
+            }
+            Start-Sleep -Milliseconds $wait
+            $wait *= 2
+        }
+    }
+}
+
 function getFolderKey {
     # フォルダのパスから、名前付きミューテックス・イベントの名前に使う鍵（16 進 64 文字）を作る。大文字と小文字は区別しない。
     # 安全性のためではなく、パスを名前に使える長さと文字にするためのハッシュ。
