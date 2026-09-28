@@ -56,8 +56,8 @@
 |---|---|
 | `ingestThreads` | Office を使用せずに読み込むファイル（.docx・.pptx など）の読み取りスレッド数。1〜4 を指定します。0 の場合は CPU のコア数から自動的に決定します（既定：0）。メモリが少ない環境で動作が重い場合は 1 を指定します |
 
-設定ファイルを直接編集する場合は、tebunko を終了してから行ってください。JSON として読み込めない状態になると、インデックス作成が「setting.config を読み込めません」というエラーで停止します。キーの一覧は設計書の [設定ファイル](../design/architecture/settings-file.md) を参照してください。
+設定ファイルを直接編集する場合は、tebunko を終了してから行ってください。JSON として読み込めない状態になると、インデックス作成が「setting.config を読み込めません」というエラーで停止します。キーの一覧は設計書の [設定ファイル](../design/structure/settings-file.md) を参照してください。
 
 ## 関連する設計書
 
-画面の仕様は [［8 設定］タブ](../design/gui/settings-tab.md)、ワークスペースの構成は [フォルダ構成とデータの置き場所](../design/architecture/layout.md) を参照してください。
+画面の仕様は [［8 設定］タブ](../design/gui/settings-tab.md)、ワークスペースの構成は [データの置き場所とパスの決め方](../design/structure/data.md) を参照してください。

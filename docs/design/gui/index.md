@@ -1,24 +1,44 @@
-﻿# 画面（GUI）
+﻿# 画面
+
+扱うこと: 画面全体の目的・設計方針・実装方式・ウィンドウとタブの構成、起動時にどのタブを開くか。扱わないこと: 各タブの詳しい仕様（この区分の各ページ）、画面の実装構成そのもの（[画面の実装構成](implementation.md)）。先に読むページ: [設計の概要](../index.md)。
 
 | 項目 | 内容 |
 |---|---|
 | 起動 | zip 版は `tebunko.bat`（名称は [決めたこと](implementation.md#決めたこと) U1）、インストーラー版は `tebunko.exe`（`installer/tebunko.cs`）。どちらも PowerShell の窓を残さずに画面だけを開く（[配布と実行ポリシー（Mark-of-the-Web）](common.md#配布と実行ポリシーmark-of-the-web)） |
 | スクリプト | `scripts/tebunko/gui.ps1`（処理）/ `scripts/tebunko/xaml/tebunko.xaml`（画面定義） |
-| 使用する共通関数 | `writeListFile` / `readStatusFile` / `getSearchIndexes` / `readPackContext` / `toResultLine` / `toResultHeader`（[共通モジュール](../architecture/modules.md)）、および画面で追加する関数（[実装構成](implementation.md#実装構成)） |
-| 起動する処理 | `scripts/tebunko/indexer.ps1`（[インデックス作成（インデクサ）](../indexer/index.md)）を、画面のプロセスの中のスレッドで実行する（別のプロセスは起動しない。[プロセスとスレッド](../architecture/threads.md)）。検索（[検索](../search/index.md)）とプロセス停止（[［9 プロセス停止］タブ](process-tab.md)）は画面内で実行する |
+| 使用する共通関数 | `writeListFile` / `readStatusFile` / `getSearchIndexes` / `readPackContext` / `toResultLine` / `toResultHeader`（[部品ごとの関数](../reference/index.md)）、および画面で追加する関数（[実装構成](implementation.md#実装構成)） |
+| 起動する処理 | `scripts/tebunko/indexer.ps1`（[インデックス作成](../indexing/index.md)）を、画面のプロセスの中のスレッドで実行する（別のプロセスは起動しない。[プロセスとスレッド](../structure/threads.md)）。検索（[検索](../search/index.md)）とプロセス停止（[［9 プロセス停止］タブ](process-tab.md)）は画面内で実行する |
 
 全体構成・動作環境・フォルダ構成は [設計の概要](../index.md) を参照。
+
+## タブの一覧
+
+```mermaid
+flowchart TB
+    win["1 ウィンドウ<br>（tebunko）"]
+    win --> t1["1 インデックス管理<br>index-tab.md"]
+    win --> t2["2 検索<br>search-tab.md"]
+    win --> t8["8 設定<br>settings-tab.md"]
+    win --> t9["9 プロセス停止<br>process-tab.md"]
+    win -. "右上の［⋯］" .-> about["tebunko について"]
+```
 
 ## この区分のページ
 
 - [画面設計（現行。写真）](screens/index.md)
-- [［1 インデックス管理］タブ](index-tab.md)
-- [［2 検索］タブ](search-tab.md)
+- [状態と操作の流れ](state-flow.md)
+- [画面の共通の決まり](common.md)
+- [画面に出すメッセージの一覧](messages.md)
+- [インデックス一覧の管理](index-tab.md)
+- [インデックス作成の実行](indexing-run.md)
+- [検索タブ](search-tab.md)
+- [元のファイルを開く](open-file.md)
+- [選択行のプレビュー](preview.md)
+- [検索対象のツリー](search-tree.md)
 - [［8 設定］タブ](settings-tab.md)
 - [［9 プロセス停止］タブ](process-tab.md)
-- [状態と操作の流れ](state-flow.md)
-- [画面の共通仕様](common.md)
-- [画面の実装](implementation.md)
+- [画面の実装構成](implementation.md)
+- [画面を固まらせない待たせ方](responsiveness.md)
 
 ## 概要
 
@@ -42,7 +62,7 @@
 3. **保存を意識させない**。インデックスの追加・編集・削除・チェックの変更、検索オプションはその場で保存する。保存の操作は無い。
 4. **状態を常に見せる**。インデックスの件数・最終取り込み日時・中断や失敗の有無・残っている Office プロセスを表示する。
 5. **入力の誤りはその場で、文章で知らせる**。ダイアログではなく、入力欄の下に表示する。ダイアログは確認が必要な操作に限る。
-6. **操作はすべて画面で行う**。設定ファイル（`setting.config`。[画面での読み書き](../architecture/settings-file.md#画面での読み書き)）は画面が読み書きするため、直接編集する必要は無い。
+6. **操作はすべて画面で行う**。設定ファイル（`setting.config`。[画面での読み書き](../structure/settings-file.md#画面での読み書き)）は画面が読み書きするため、直接編集する必要は無い。
 
 ### 実装方式
 
@@ -63,7 +83,7 @@
 
 | 機能 | 実行場所 | 備考 |
 |---|---|---|
-| インデックス作成 | **画面のプロセスの中のスレッド**（`IndexingSession` が `tebunko/indexer.ps1 -Channel` を実行する） | 時間がかかるため、画面のスレッドとは別のスレッド（優先度 BelowNormal）で実行する。1 ファイルの取り込みは取り込みのスレッドで並べて行う。進み具合・［中止］・ログは画面に表示する（[［1 インデックス管理］タブ](index-tab.md)）。スレッドの分け方は [プロセスとスレッド](../architecture/threads.md) |
+| インデックス作成 | **画面のプロセスの中のスレッド**（`IndexingSession` が `tebunko/indexer.ps1 -Channel` を実行する） | 時間がかかるため、画面のスレッドとは別のスレッド（優先度 BelowNormal）で実行する。1 ファイルの取り込みは取り込みのスレッドで並べて行う。進み具合・［中止］・ログは画面に表示する（[［1 インデックス管理］タブ](index-tab.md)）。スレッドの分け方は [プロセスとスレッド](../structure/threads.md) |
 | 検索 | **画面内**（検索の司令のスレッド `SearchService` と照合のプール） | `tebunko/lib.ps1` の検索関数を使う（[検索の実行](search-tab.md#検索の実行)）。スレッドは画面を開いている間使い回す。結果ファイルへの出力は必要なときだけ行う（[結果をファイルに出力](search-tab.md#結果をファイルに出力)） |
 | プロセス停止 | **画面内** | `shared/office/office_process.ps1` の関数（`tebunko/lib.ps1` から読み込む）でプロセスを取得・終了する（[［9 プロセス停止］タブ](process-tab.md)） |
 
@@ -80,8 +100,8 @@
 | 起動中の表示 | スクリプトの読み込みに数秒かかるため、起動するとすぐに小さなウィンドウ（`tebunko`・「起動しています…」と進み具合の棒）を出す。画面を描き終わったら閉じる。多重起動の判定より前に出すため、2 つ目の起動でも一瞬出る |
 | 起動時の読み込み | インデックス一覧・検索対象のツリーの読み込みと、別スレッドでの集計（取り込み状況・件数・高速検索の可否・残っている Office）は、画面を描き終わってから始める。それまで一覧は空で、下部に「読み込んでいます…」と出る。どのタブを開くか（[起動時に開くタブ](#起動時に開くタブ)）と、設定から戻す検索のオプション・開き方は、画面を出す前に決める |
 | 多重起動 | 名前付き Mutex で 1 つに制限する。2 つ目は、すでに開いている画面のウィンドウを前面に出して（最小化していれば元に戻して）終了する |
-| 起動時の知らせ（設定が壊れていたとき） | 最初の起動で `setting.config` が JSON として読めなければ、`setting.config.broken-<日時>` に退避して既定の設定で起動し、メイン画面が出た後にメッセージボックスで 1 回知らせる（[壊れた設定ファイルの退避](../architecture/settings-file.md#壊れた設定ファイルの退避)）。多重起動の 2 つ目は退避しない |
-| インデックス作成の開始 | ［インデックス作成を開始］は、まず取り込み対象を数え、インデックスごとの件数を確認するダイアログを出す（[インデックス作成の確認ダイアログ](index-tab.md#インデックス作成の確認ダイアログ)）。更新が無いインデックスは `更新不要` と出る |
+| 起動時の知らせ（設定が壊れていたとき） | 最初の起動で `setting.config` が JSON として読めなければ、`setting.config.broken-<日時>` に退避して既定の設定で起動し、メイン画面が出た後にメッセージボックスで 1 回知らせる（[壊れた設定ファイルの退避](../structure/settings-file.md#壊れた設定ファイルの退避)）。多重起動の 2 つ目は退避しない |
+| インデックス作成の開始 | ［インデックス作成を開始］は、まず取り込み対象を数え、インデックスごとの件数を確認するダイアログを出す（[インデックス作成の確認ダイアログ](indexing-run.md#インデックス作成の確認ダイアログ)）。更新が無いインデックスは `更新不要` と出る |
 | インデックス作成の実行後 | インデックス作成は画面のプロセスの中のスレッドで実行し、画面は閉じない。インデックス作成中も検索・強制終了のタブを使える。インデックス作成中に画面を閉じるときは、インデックス作成を止めてから閉じる（[閉じる](state-flow.md#閉じる)） |
 
 ### 起動時に開くタブ

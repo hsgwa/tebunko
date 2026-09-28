@@ -136,36 +136,59 @@ nav:
           - 制限事項: guide/limitations.md
           - キーボード操作: guide/keyboard.md
           # 利用者が見るメッセージの一覧。ファイルはインデクサの設計書の隣に置く
-          - エラーメッセージ一覧: design/indexer/errors.md
+          - エラーメッセージ一覧: design/indexing/errors.md
   - 開発者向け:
       - design/index.md
-      - 全体像:
-          - フォルダ構成とデータの置き場所: design/architecture/layout.md
-          - 設定ファイル: design/architecture/settings-file.md
-          - 共通モジュール: design/architecture/modules.md
-          - プロセスとスレッド: design/architecture/threads.md
+      - はじめに:
+          - 読む順番と 1 周の流れ: design/start/onboarding.md
+          - 変更の種類から見る設計書を引く: design/start/review-map.md
+      - 全体の構成:
+          - ソースの分け方: design/structure/source.md
+          - 配布物と開発用のフォルダ構成: design/structure/folders.md
+          - データの置き場所とパスの決め方: design/structure/data.md
+          - どの処理がどのファイルを読み書きするか: design/structure/io-files.md
+          - 設定ファイル: design/structure/settings-file.md
+          - プロセスとスレッド: design/structure/threads.md
+          - 閉じるときの順番と GC: design/structure/closing.md
+          - クラスと関数の使い分け: design/structure/classes.md
       - インデックス作成:
-          - design/indexer/index.md
-          - 処理の流れと取り込み一覧: design/indexer/flow.md
-          - Excel: design/indexer/excel.md
-          - Word: design/indexer/word.md
-          - PowerPoint: design/indexer/powerpoint.md
-          - 共通処理と Office アプリの管理: design/indexer/office-apps.md
-          - インデックスの形式: design/indexer/index-format.md
-          - 既知の問題: design/indexer/known-issues.md
+          - design/indexing/index.md
+          - インデックス作成のメインフロー: design/indexing/flow.md
+          - クロール対象フォルダと取り込み対象: design/indexing/crawl.md
+          - 取り込み対象の決定: design/indexing/target-decision.md
+          - 取り込み一覧: design/indexing/ingest-list.md
+          - 取り込みの並列化: design/indexing/parallel.md
+          - Excel: design/indexing/excel.md
+          - Word: design/indexing/word.md
+          - PowerPoint: design/indexing/powerpoint.md
+          - Word・PowerPoint の共通処理と Office アプリの管理: design/indexing/office-apps.md
+          - エラーメッセージ一覧: design/indexing/errors.md
+          - 既知の問題: design/indexing/known-issues.md
+      - インデックスのデータ:
+          - インデックスのファイルの形: design/index-data/format.md
+          - 入れ替えと書き出し: design/index-data/publish.md
+          - システムインデックス: design/index-data/system-index.md
       - 検索:
           - design/search/index.md
-          - 高速検索: design/search/fast-search.md
+          - 検索を速くする仕組み: design/search/speed.md
+          - 高速検索（Windows Search）: design/search/fast-search.md
           - 検索結果ファイル: design/search/output.md
       - 画面:
           - design/gui/index.md
-          - ［1 インデックス管理］タブ: design/gui/index-tab.md
-          - ［2 検索］タブ: design/gui/search-tab.md
+          - 状態と操作の流れ: design/gui/state-flow.md
+          - 画面の共通の決まり: design/gui/common.md
+          - 画面に出すメッセージの一覧: design/gui/messages.md
+          - インデックス一覧の管理: design/gui/index-tab.md
+          - インデックス作成の実行: design/gui/indexing-run.md
+          - 検索タブ: design/gui/search-tab.md
+          - 元のファイルを開く: design/gui/open-file.md
+          - 元のフォルダ・元のファイルがネットワークにあるとき: design/gui/network.md
+          - 選択行のプレビュー: design/gui/preview.md
+          - 検索対象のツリー: design/gui/search-tree.md
           - ［8 設定］タブ: design/gui/settings-tab.md
           - ［9 プロセス停止］タブ: design/gui/process-tab.md
-          - 状態と操作の流れ: design/gui/state-flow.md
-          - 共通仕様: design/gui/common.md
-          - 実装: design/gui/implementation.md
+          - 画面の実装構成: design/gui/implementation.md
+          - 画面を固まらせない待たせ方: design/gui/responsiveness.md
           - 画面設計（現行）:
               - design/gui/screens/index.md
               - 本体・共通の状態: design/gui/screens/window.md
@@ -174,6 +197,22 @@ nav:
               - ［8 設定］タブ: design/gui/screens/settings-tab.md
               - ［9 プロセス停止］タブ: design/gui/screens/process-tab.md
       - 開発の進め方:
-          - テスト: design/testing/index.md
-          - テストの実行と CI: design/testing/ci.md
+          - design/testing/index.md
+          - テストの実行: design/testing/run.md
+          - CI: design/testing/ci.md
+          - 性能とリソースの計測のしかた: design/testing/perf.md
+          - 速さの回帰テストと上限の決め方: design/testing/perf-check.md
+          - コミット前に動く検査: design/testing/pre-commit.md
+          - 単体テスト（インデックスと検索）: design/testing/unit-index.md
+          - 単体テスト（インデックス作成）: design/testing/unit-indexer.md
+          - 単体テスト（Office）: design/testing/unit-office.md
+          - 単体テスト（検査と道具）: design/testing/unit-checks.md
+          - 画面のテストと確認: design/testing/gui-tests.md
+          - 画面のスモークテスト: design/testing/gui-smoke.md
           - 貢献のしかた: https://github.com/hsgwa/tebunko/blob/main/.github/CONTRIBUTING.ja.md
+      - 関数一覧:
+          - design/reference/index.md
+          - 部品ごとの関数（設定・ファイル）: design/reference/settings.md
+          - 部品ごとの関数（インデックス作成）: design/reference/indexer.md
+          - 部品ごとの関数（TSV と本文インデックス）: design/reference/tsv.md
+          - 部品ごとの関数（検索・スレッド・元のファイル・画面）: design/reference/search.md

@@ -69,4 +69,4 @@
 
 ## 関連する設計書
 
-画面の仕様は [［1 インデックス管理］タブ](../design/gui/index-tab.md)、取り込みの処理は [処理の流れと取り込み一覧](../design/indexer/flow.md) を参照してください。
+画面の仕様は [インデックス一覧の管理](../design/gui/index-tab.md)・[インデックス作成の実行](../design/gui/indexing-run.md)、取り込みの処理は [インデックス作成のメインフロー](../design/indexing/flow.md) を参照してください。
