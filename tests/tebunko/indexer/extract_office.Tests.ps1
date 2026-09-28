@@ -332,6 +332,45 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         readTsv "売上[コメント].tsv" | Should -Be "B2`t税抜`r`n"
     }
 
+    It "グラフ・SmartArt の部品が壊れていても、そのグラフだけを空にしてログに書き、ほかの図形・セルは取り込む" {
+        $zipSource = Join-Path $TestDrive "グラフ壊れ.xlsx"
+        $xNs = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $xdrNs = 'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+        $cNs = 'xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $relNs = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"'
+        $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        $anchor = "<xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>" +
+            "<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>" +
+            "<xdr:graphicFrame macro=`"`"><xdr:nvGraphicFramePr><xdr:cNvPr id=`"3`" name=`"c`"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>" +
+            "<a:graphic><a:graphicData><c:chart $cNs r:id=`"rId1`"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>"
+        $entries = [ordered]@{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/></Relationships>"
+            "xl/drawings/drawing1.xml" = "<xdr:wsDr $xdrNs>$anchor</xdr:wsDr>"
+            "xl/drawings/_rels/drawing1.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/chart`" Target=`"../charts/chart1.xml`"/></Relationships>"
+            "xl/charts/chart1.xml" = "<c:chartSpace $cNs><c:chart>"  # 閉じタグが無い壊れたXML
+        }
+        $stream = [System.IO.File]::Create($zipSource)
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+        foreach ($name in $entries.Keys) {
+            $writer = New-Object System.IO.StreamWriter($zip.CreateEntry($name).Open(), (New-Object System.Text.UTF8Encoding($false)))
+            $writer.Write($entries[$name])
+            $writer.Dispose()
+        }
+        $zip.Dispose()
+        $stream.Dispose()
+
+        $excel = newExcel @((newSheet "売上" -1 "品名`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock writeIndexerLog {}
+
+        extractWorkbook $zipSource | Should -Be 1
+        listTmp | Should -Be @("売上.tsv")
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "グラフ・SmartArt を読み取れませんでした.*xl/charts/chart1\.xml" }
+    }
+
     It "図形・コメントを読めなくても、セルの値は取り込む" {
         $broken = Join-Path $TestDrive "壊れたZIP.xlsx"
         [System.IO.File]::WriteAllBytes($broken, [byte[]](0x50, 0x4B, 0x03, 0x04, 0x00))

@@ -5,7 +5,8 @@
 # 読み出した結果は「場所 → 行の一覧」の順序付き辞書（ユニット）で返す。
 #   Word      : ページ001, ページ001[図形], ページ001[コメント], ページ002, ..., ヘッダー・フッター, 脚注
 #   PowerPoint: スライド001, スライド001[図形], スライド001[コメント], スライド001_ノート, スライド002（非表示）, ..., ヘッダー・フッター
-#   Excel     : <シート名>[図形], <シート名>[コメント]（セルの値はインデクサが Excel で読む）
+#   Excel     : <シート名>[図形]（グラフ・SmartArt の文字を含む。表示のグラフシートも含む）, <シート名>[コメント]
+#              （セルの値はインデクサが Excel で読む）
 # 1行は段落1つ、または表の1行（セルをタブ区切り）。図形・コメントの場所は図形・コメント1つ
 # （Word・PowerPoint は文字だけ、Excel は "<セル番地><TAB><文字>"）。
 
@@ -412,28 +413,54 @@ function readDiagramText {
     return (@(readXmlLines $xml ${nsDrawing} | ForEach-Object { $_.Text }) -join " ")
 }
 
+function readChartTxText {
+    # c:tx（グラフのタイトル・軸ラベル・系列名で使う、文字を持つ要素）の文字を返す。
+    # セル参照（c:strRef/c:strCache/c:pt/c:v）と直値（c:v）の両方を読む。c:rich（a:p）は呼び出し元が別に読む
+    param (
+        [System.Xml.XmlElement]$parent
+    )
+
+    $found = New-Object System.Collections.Generic.List[string]
+    foreach ($child in $parent.ChildNodes) {
+        if ($child.LocalName -ne "tx") {
+            continue
+        }
+        foreach ($v in $child.GetElementsByTagName("v", ${nsChart})) {
+            $text = $v.InnerText.Trim()
+            if ($text -ne "") { $found.Add($text) }
+        }
+        break
+    }
+    return $found
+}
+
 function readChartText {
-    # グラフ（charts/chartN.xml）の文字（タイトル・軸ラベル・系列名・項目名）を、スペースでつないで 1 つにする。
-    # 数値（numCache）は読まない。同じ文字は 1 回だけにする
+    # グラフ（charts/chartN.xml）の文字（タイトル・軸ラベル・系列名）を、スペースでつないで 1 つにする。
+    # 項目名（横軸の項目。c:cat。点の数だけある）と数値（c:val）は読まない。同じ文字は 1 回だけにする。
+    # 系列（c:ser）とタイトル・軸（c:title）の数だけ調べるため、項目の点数が多いグラフでも遅くならない
     param (
         [string]$xml
     )
 
     $texts = New-Object System.Collections.Generic.List[string]
     $seen = New-Object System.Collections.Generic.HashSet[string]
-    # タイトル・軸ラベル（c:rich の a:p）
+    # タイトル・軸ラベル（c:rich の a:p。手で直したデータラベルの文字も同じ形のため、ここで読む）
     foreach ($line in (readXmlLines $xml ${nsDrawing})) {
         if ($seen.Add($line.Text)) { $texts.Add($line.Text) }
     }
-    # 系列名・項目名（c:strCache / c:multiLvlStrCache の c:pt/c:v）
     $doc = New-Object System.Xml.XmlDocument
     $doc.LoadXml($xml)
-    foreach ($v in $doc.GetElementsByTagName("v", ${nsChart})) {
-        $cache = $v.ParentNode.ParentNode
-        if ($cache.LocalName -eq "lvl") { $cache = $cache.ParentNode }
-        if ($cache.LocalName -notin @("strCache", "multiLvlStrCache")) { continue }
-        $text = $v.InnerText.Trim()
-        if ($text -ne "" -and $seen.Add($text)) { $texts.Add($text) }
+    # タイトル・軸ラベルのうち、セル参照の文字（c:title/c:tx/c:strRef/c:strCache/c:pt/c:v。直値の c:rich は上で読み済み）
+    foreach ($title in $doc.GetElementsByTagName("title", ${nsChart})) {
+        foreach ($text in (readChartTxText $title)) {
+            if ($seen.Add($text)) { $texts.Add($text) }
+        }
+    }
+    # 系列名（c:ser/c:tx の文字。セル参照なら c:strRef/c:strCache/c:pt/c:v、直値なら c:v）
+    foreach ($ser in $doc.GetElementsByTagName("ser", ${nsChart})) {
+        foreach ($text in (readChartTxText $ser)) {
+            if ($seen.Add($text)) { $texts.Add($text) }
+        }
     }
     return ($texts -join " ")
 }
@@ -700,15 +727,24 @@ function toObjectCellText {
 
 function readXlsxShapeRows {
     # 図形（xl/drawings/drawingN.xml）ごとの文字を @{ Row; Column; Text } の配列で返す。
-    # 行・列は図形の左上のセル（1 から数える）。グループ化した図形は、まとめて 1 つの図形とする
+    # 行・列は図形の左上のセル（1 から数える）。グループ化した図形は、まとめて 1 つの図形とする。
+    # $zip・$drawingPath（この図形の部品自身の ZIP 内のパス）を渡すと、グラフ（c:chart）・SmartArt（dgm:relIds）の
+    # 参照も解決し、テキストボックスの段落 → グラフ・SmartArt の文字（XML の順）の順に 1 つの図形（1 行）にする。
+    # リレーションシップ（_rels）は、参照が 1 つ以上あるときだけ読む。
+    # 参照の先・リレーションシップが無い、部品が読めない（XML が壊れているなど）ときは、そのグラフ・SmartArt だけを
+    # 空にして続ける（同じ図形の中のほかの文字、ほかの図形は出す）。$failures を渡すと、読めなかった部品の名前を追加する
     param (
-        [string]$xml
+        [string]$xml,
+        [System.IO.Compression.ZipArchive]$zip = $null,
+        [string]$drawingPath = $null,
+        [System.Collections.Generic.List[string]]$failures = $null
     )
 
     $nsSheetDrawing = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
     $doc = New-Object System.Xml.XmlDocument
     $doc.LoadXml($xml)
     $rows = New-Object System.Collections.Generic.List[object]
+    $rels = $null  # この図形の部品（drawingN.xml）自身のリレーションシップ。参照が1つ以上あるときだけ読む
     foreach ($anchor in @($doc.DocumentElement.SelectNodes("//*")) | Where-Object {
             $_.NamespaceURI -eq $nsSheetDrawing -and $_.LocalName -in @("twoCellAnchor", "oneCellAnchor", "absoluteAnchor") }) {
         # 互換用の代替表示（mc:Fallback）の中は、mc:Choice と同じ図形なので読まない
@@ -723,7 +759,36 @@ function readXlsxShapeRows {
             continue
         }
 
-        $lines = @(readXmlLines $anchor.OuterXml ${nsDrawing} | ForEach-Object { $_.Text })
+        $objects = New-Object System.Collections.Generic.List[object]
+        $lines = New-Object System.Collections.Generic.List[string]
+        foreach ($line in (readXmlLines $anchor.OuterXml ${nsDrawing} "none" $null $objects)) {
+            $lines.Add($line.Text)
+        }
+        # グラフ（c:chart）・SmartArt（dgm:relIds）の文字を、テキストボックスの段落の後、XML の順に並べる
+        foreach ($object in @($objects | Where-Object { $_.Kind -eq "chart" -or $_.Kind -eq "diagram" })) {
+            $text = ""
+            try {
+                # リレーションシップ自体（drawingN.xml.rels）が壊れていても、この図形だけを空にしてほかは捨てない
+                if ($null -eq $rels) {
+                    $rels = $(if ($zip -and $drawingPath) { readRelationships $zip $drawingPath } else { @{} })
+                }
+                $text = readObjectText $zip $rels $object
+            } catch {
+                if ($null -ne $failures) {
+                    if ($null -eq $rels -and $drawingPath) {
+                        # リレーションシップ自体（drawingN.xml.rels）が読めなかった場合は、図形の部品の名前を記録する
+                        # （$object.RelId だけでは、どの部品が壊れているのか分からないため）
+                        $failures.Add($drawingPath)
+                    } else {
+                        $rel = $(if ($rels) { $rels[[string]$object.RelId] } else { $null })
+                        $failures.Add($(if ($rel) { $rel.Target } else { [string]$object.RelId }))
+                    }
+                }
+            }
+            if ($text -ne "") {
+                $lines.Add($text)
+            }
+        }
         if ($lines.Count -eq 0) {
             continue
         }
@@ -735,7 +800,7 @@ function readXlsxShapeRows {
             $row = 1 + [int]$from[0].GetElementsByTagName("row", $nsSheetDrawing)[0].InnerText
             $column = 1 + [int]$from[0].GetElementsByTagName("col", $nsSheetDrawing)[0].InnerText
         }
-        $rows.Add(@{ Row = $row; Column = $column; Text = (toObjectCellText $lines) })
+        $rows.Add(@{ Row = $row; Column = $column; Text = (toObjectCellText $lines.ToArray()) })
     }
     return $rows.ToArray()
 }
@@ -806,14 +871,37 @@ function getCellPosition {
     return @([int]$m.Groups[2].Value, $column)
 }
 
+function addSortedShapeLines {
+    # 図形の一覧を、上の行から（同じ行は左から、同じセルは XML の順に）並べてユニットに加える。
+    # Sort-Object は同じキーの順を保たない（インデックス作成のたびに順が変わる）ため、XML の順もキーにする
+    param (
+        [System.Collections.Specialized.OrderedDictionary]$units,
+        [string]$unitName,
+        [System.Collections.Generic.List[object]]$shapes
+    )
+
+    for ($i = 0; $i -lt $shapes.Count; $i++) {
+        $shapes[$i].Order = $i
+    }
+    $lines = @($shapes | Sort-Object { $_.Row }, { $_.Column }, { $_.Order } |
+        ForEach-Object { "$(toColumnName $_.Column)$($_.Row)`t$($_.Text)" })
+    if ($lines.Count -gt 0) {
+        addUnitLines $units $unitName $lines
+    }
+}
+
 function readXlsxObjectUnits {
-    # Excel（.xlsx / .xlsm）の表示シートにある図形（テキストボックス・グループ・WordArt を含む）とコメントの文字を、
-    # "<シート名>[図形]" "<シート名>[コメント]" の場所ごとに返す（シート名には [ ] を使えないため、実在のシートと重ならない）。
+    # Excel（.xlsx / .xlsm）の表示シート・表示のグラフシートにある図形（テキストボックス・グループ・WordArt・
+    # グラフ・SmartArt を含む）とコメントの文字を、"<シート名>[図形]" "<シート名>[コメント]" の場所ごとに返す
+    # （シート名には [ ] を使えないため、実在のシートと重ならない）。
     # 1 行は "<セル番地><TAB><文字>"。セル番地は図形の左上・コメントのセルで、シートの上の行から順に並べる。
     # セルの値は Excel のテキスト保存で読むため、ここでは読まない。
-    # ZIP の中身が Excel のブック（xl/workbook.xml）でなければ（.xlsb など）、何も返さない
+    # ZIP の中身が Excel のブック（xl/workbook.xml）でなければ（.xlsb など）、何も返さない。
+    # $failures を渡すと、読めなかったグラフ・SmartArt の部品の名前を追加する（呼び出し元でログに書く。
+    # shared/ はツールを知らないため、ここでは書かない）
     param (
-        [string]$path
+        [string]$path,
+        [System.Collections.Generic.List[string]]$failures = $null
     )
 
     $units = New-Object System.Collections.Specialized.OrderedDictionary
@@ -834,10 +922,34 @@ function readXlsxObjectUnits {
                 continue
             }
             $rel = $workbookRels[$sheet.GetAttribute("id", ${nsRel})]
-            if ($null -eq $rel -or $rel.Type -notlike "*/worksheet") {
-                continue  # グラフシートなど
+            if ($null -eq $rel) {
+                continue
             }
             $sheetName = $sheet.GetAttribute("name")
+
+            if ($rel.Type -like "*/chartsheet") {
+                # 表示のグラフシート: グラフ自体を absoluteAnchor で置いた図形の部品を、通常のシートと同じ形で読む。
+                # 位置をセルで持たないため、セル番地は今の決まりどおり A1 になる
+                $chartsheetXml = readZipEntry $zip $rel.Target
+                if ($null -eq $chartsheetXml) {
+                    continue
+                }
+                $shapes = New-Object System.Collections.Generic.List[object]
+                foreach ($csRel in (readRelationships $zip $rel.Target).Values) {
+                    if ($csRel.Type -notlike "*/drawing") {
+                        continue
+                    }
+                    $xml = readZipEntry $zip $csRel.Target
+                    if ($null -ne $xml) {
+                        $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $csRel.Target $failures))
+                    }
+                }
+                addSortedShapeLines $units "${sheetName}[図形]" $shapes
+                continue
+            }
+            if ($rel.Type -notlike "*/worksheet") {
+                continue  # ダイアログシートなど
+            }
 
             $shapes = New-Object System.Collections.Generic.List[object]
             $commentsXml = $null
@@ -848,24 +960,14 @@ function readXlsxObjectUnits {
                     continue
                 }
                 if ($sheetRel.Type -like "*/drawing") {
-                    $shapes.AddRange([object[]]@(readXlsxShapeRows $xml))
+                    $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $sheetRel.Target $failures))
                 } elseif ($sheetRel.Type -like "*/comments") {
                     $commentsXml = $xml
                 } elseif ($sheetRel.Type -like "*/threadedComment") {
                     $threadedXmls.Add($xml)
                 }
             }
-
-            # 上の行から順に（同じ行は左から、同じセルは XML の順に）並べる。
-            # Sort-Object は同じキーの順を保たない（インデックス作成のたびに順が変わる）ため、XML の順もキーにする
-            for ($i = 0; $i -lt $shapes.Count; $i++) {
-                $shapes[$i].Order = $i
-            }
-            $lines = @($shapes | Sort-Object { $_.Row }, { $_.Column }, { $_.Order } |
-                ForEach-Object { "$(toColumnName $_.Column)$($_.Row)`t$($_.Text)" })
-            if ($lines.Count -gt 0) {
-                addUnitLines $units "${sheetName}[図形]" $lines
-            }
+            addSortedShapeLines $units "${sheetName}[図形]" $shapes
 
             $comments = readXlsxCommentRows $commentsXml $threadedXmls.ToArray()
             $lines = @($comments.Keys | Sort-Object { (getCellPosition $_)[0] }, { (getCellPosition $_)[1] } |
