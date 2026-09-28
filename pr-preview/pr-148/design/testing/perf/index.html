@@ -3936,13 +3936,13 @@
 </ul>
 <h2 id="入力しながらの検索の計測手元の-windows高速検索を使う-16-万件規模">入力しながらの検索の計測（手元の Windows。高速検索を使う 16 万件規模）<a class="headerlink" href="#入力しながらの検索の計測手元の-windows高速検索を使う-16-万件規模" title="Permanent link">&para;</a></h2>
 <p><code>-Scale 1</code>（16 万件規模）の「最初のヒットまで 0.5 秒以内」の条件は、高速検索（Windows Search）を使わないと確かめられないため、Windows Search のある手元の PC で測る（ランナーには無いので <code>perf.yml</code> では測れない）。</p>
-<div class="highlight"><pre><span></span><code>.\perfdata\tools\new_index.ps1 -Dest C:\perf\s1\content_index -Scale 1
-.\tools\measure_perf.ps1 -Index C:\perf\s1\content_index -Work C:\perf\s1 -Words perfdata\words.tsv -Count 1
+<div class="highlight"><pre><span></span><code>.\perfdata\tools\new_index.ps1 -Dest $env:USERPROFILE\perf\s1\content_index -Scale 1
+.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\content_index -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 1
 # ここで Windows Search がシステムインデックスを反映するのを待つ
-.\tools\measure_perf.ps1 -Index C:\perf\s1\content_index -Work C:\perf\s1 -Words perfdata\words.tsv -Count 5 -Typing 10 -TypingFast
+.\tools\measure_perf.ps1 -Index $env:USERPROFILE\perf\s1\content_index -Work $env:USERPROFILE\perf\s1 -Words perfdata\words.tsv -Count 5 -Typing 10 -TypingFast
 </code></pre></div>
 <ol>
-<li><code>&lt;Work&gt;</code>（例 <code>C:\perf\s1</code>）を、Windows Search の索引の対象になる場所（既定では利用者のフォルダの下）にする。<code>new_index.ps1 -Dest &lt;Work&gt;\content_index -Scale 1</code> でデータを作る</li>
+<li><code>&lt;Work&gt;</code>（例 <code>$env:USERPROFILE\perf\s1</code>。既定で Windows Search の索引の対象になる、利用者のフォルダの下にする）でデータを作る。<code>C:\perf</code> のような索引の対象外の場所では、高速検索が使えず測れない。<code>new_index.ps1 -Dest &lt;Work&gt;\content_index -Scale 1</code> でデータを作る</li>
 <li><code>measure_perf.ps1 -Index &lt;Work&gt;\content_index -Work &lt;Work&gt; -Words &lt;words.tsv&gt; -Count 1</code> を 1 回流し、pack とシステムインデックスを作る（検索は 1 回だけにして時間を縮める）。<code>-TypingFast</code> では <code>-Index</code> を <code>&lt;Work&gt;\content_index</code>（ワークスペースの本文インデックスのフォルダ、<code>Workspace.IndexDir</code> と同じ）にする必要がある</li>
 <li>Windows Search がシステムインデックスを反映するのを待ち、<code>measure_perf.ps1 -Index &lt;Work&gt;\content_index -Work &lt;Work&gt; -Words &lt;words.tsv&gt; -Count 5 -Typing 10 -TypingFast</code> を流す（pack だけのインデックスなので、作成は測らない）</li>
 <li><code>summary.md</code> の「照合した pack」が、まれの語で全体の数より十分に少なければ、反映が済んでいる。全体の数と同じなら、反映を待って流し直す</li>
