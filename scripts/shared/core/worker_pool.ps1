@@ -1,5 +1,5 @@
 ﻿# スレッドのプール（WorkerPool）。ランスペースと PowerShell のインスタンスを使い回し、仕事のたびに作って捨てない。
-# 設計は docs/design/architecture/threads.md「寿命」「クラスと関数の使い分け」。
+# 設計は docs/design/structure/threads.md「寿命」、docs/design/structure/classes.md「クラスと関数の使い分け」。
 #
 # WorkerPool は、作ったランスペースのスレッドだけから呼ぶ（PowerShell 5.1 のクラスのメソッドは、クラスを定義したランスペースで動くため）。
 # 仕事のスクリプトは文字列で渡す（スクリプトブロックのまま渡すと、作ったランスペースに結び付いたまま別のスレッドで動いてしまう）。

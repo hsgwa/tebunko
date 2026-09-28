@@ -1,5 +1,5 @@
 ﻿# 画面のスモークテスト S2: インデックスの管理と作成、S3: 作成中の操作（共通の関数は gui_helpers.ps1）。
-# 画面遷移の一覧（docs\design\testing\index.md「画面のスモークテスト」）の #3・#11〜#18・#26 を S2 で確かめる。
+# 画面遷移の一覧（docs\design\testing\gui-smoke.md「画面のスモークテスト」）の #3・#11〜#18・#26 を S2 で確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"
