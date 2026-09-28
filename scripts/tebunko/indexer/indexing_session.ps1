@@ -1,5 +1,5 @@
 ﻿# 画面のインデックス作成 1 回分（IndexingSession）。インデクサの司令のスレッドを作り、indexer.ps1 を受け渡しの口（newIndexerChannel）付きで実行する。
-# 設計は docs/design/architecture/threads.md「スレッドの一覧」「画面とインデクサの受け渡し」「閉じるときの順番」。
+# 設計は docs/design/structure/threads.md「スレッドの一覧」「画面とインデクサの受け渡し」、docs/design/structure/closing.md「閉じるときの順番」。
 #
 # IndexingSession は画面のスレッドだけから呼ぶ（PowerShell 5.1 のクラスのメソッドは、定義したランスペースで動くため）。
 # 画面とインデクサのやり取りは、すべて受け渡しの口で行う（中止・確認の返事・進み具合・終了コード）
