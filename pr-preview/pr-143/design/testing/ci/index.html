@@ -2953,9 +2953,9 @@
 <li>zip とインストーラーのビルドの来歴を Sigstore で署名して GitHub に登録し、署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>・<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）もリリースに載せる（同 <a href="../../../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）</li>
 <li>リリースノートは GitHub が PR から作り、<code>.github/release.yml</code> で PR のラベルごとに分ける</li>
 <li>版の付け方とリリースの時機は AGENTS.md の「リリース」に従う。タグは main のコミットに付ける</li>
-<li><strong>タグを打たずに手動（<code>workflow_dispatch</code>）でも起動できる。</strong> 配布物を作る・検査するところまでは同じに動かすが、<code>guard</code> のタグの形の確認と、来歴への署名・GitHub Release への公開は行わない（起動したブランチの名は版の形にならないため）。代わりに、作った zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact <code>release-dry-run-&lt;実行の番号&gt;</code>（保存期間 14 日）に置く</li>
+<li><strong>タグを打たずに手動（<code>workflow_dispatch</code>）でも起動できる。</strong> 配布物を作る・検査するところまでは同じに動かすが、<code>guard</code> のタグの形の確認と、来歴への署名・GitHub Release への公開は行わない（起動したブランチの名は版の形にならないため）。代わりに、作った zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact <code>release-dry-run-&lt;実行の番号&gt;</code>（保存期間 14 日）に置く。<code>new_release_package.ps1</code>・<code>new_installer.ps1</code> は <code>-Version</code>（ここではブランチ名）を <code>^[A-Za-z0-9._-]+$</code> で確かめるため、<code>/</code> を含むブランチ（<code>dependabot/...</code> など）からは起動できない</li>
 </ul>
-<div class="highlight"><pre><span></span><code>gh workflow run release.yml --ref &lt;試すブランチ&gt;
+<div class="highlight"><pre><span></span><code>gh workflow run release.yml --ref &lt;試すブランチ（/ を含まないもの）&gt;
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>git tag v0.1.0 origin/main
 git push origin v0.1.0
