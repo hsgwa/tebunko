@@ -49,6 +49,7 @@ flowchart LR
 | `testTsvIndexedByWindowsSearch` | indexRoot, connection | bool | 本文インデックス（index の TSV）が Windows Search に索引されているか | 同上 | `getSystemIndexProgress` |
 | `getSystemIndexProgress` | query, indexRoot, systemRoot, statePath, connection | `@{Folders; Waiting; ContentIndexed}` / `$null` | 高速検索用のインデックスが Windows Search にどこまで反映されたかを数える（状態ファイルは書き換えない。検索では呼ばない） | 同上 | 画面 |
 | `getReflectedSystemIndexEntries` | state, systemRootPath, ask | `@{Reflected; Unreflected}` | 状態ファイルの反映待ちの行を、Windows Search の索引と照らして、反映済みになったものと、まだのフォルダに分ける | 同上 | `getFastSearchPackFiles`・`getSystemIndexProgress` |
+| `getFastSearchWordReason` | useRegex, word | `Regex` / `OneChar` / `$null` | 高速検索を使えないワード側の理由（正規表現がオン・2 文字以上の部分が無い。空のワードは無し）。表示と詳しい画面で同じ判定を使う | 同上 | 画面 |
 | `getFastSearchView` | status（`@{Reason; Progress}`）, useRegex, word, checking | `@{Usable; Text}` | 検索ワードの下の短い表示と、高速検索を使うか（判断層） | [［2 検索］タブ](../gui/search-tab.md) | 画面 |
 | `getFastSearchDetail` | status, useRegex, word | `@{Title; Message}` | 表示を押したときの詳しい画面（状態・進み具合・直し方・確かめた時刻） | 同上 | 画面 |
 | `testFastSearchPreparing` | status | bool | 準備中か（画面が 5 分おきの確かめ直しを続けるかの判断） | 同上 | 画面 |

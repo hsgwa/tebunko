@@ -81,6 +81,20 @@ Describe "getFastSearchView" -Tag Unit {
     }
 }
 
+Describe "getFastSearchWordReason" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "正規表現がオンなら Regex（ワードに関わらず）"; useRegex = $true; word = "見積"; expected = "Regex" }
+        @{ name = "正規表現がオンで 1 文字でも Regex"; useRegex = $true; word = "見"; expected = "Regex" }
+        @{ name = "2 文字以上の部分が無ければ OneChar"; useRegex = $false; word = "見"; expected = "OneChar" }
+        @{ name = "空白で区切った 1 文字どうしも OneChar"; useRegex = $false; word = "見 積"; expected = "OneChar" }
+        @{ name = "2 文字以上の部分があれば無し"; useRegex = $false; word = "見積"; expected = $null }
+        @{ name = "ワードが空なら無し（まだ入力していない）"; useRegex = $false; word = ""; expected = $null }
+    ) {
+        param ($name, $useRegex, $word, $expected)
+        getFastSearchWordReason $useRegex $word | Should -Be $expected
+    }
+}
+
 Describe "testFastSearchPreparing" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "まだ確かめていない"; status = $null; expected = $false }

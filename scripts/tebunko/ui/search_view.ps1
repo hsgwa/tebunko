@@ -50,6 +50,23 @@ function getFastSearchReason {
     return "Ok"
 }
 
+function getFastSearchWordReason {
+    # 高速検索を使えないワード側の理由（利用者がその場で直せる）。Regex（正規表現がオン）・OneChar（2 文字以上の部分が無い）・$null（無い）。
+    # ワードが空のときは、まだ入力していないだけなので OneChar にしない（表示と詳しい画面で同じ判定を使う）
+    param (
+        [bool]$useRegex,
+        [string]$word
+    )
+
+    if ($useRegex) {
+        return "Regex"
+    }
+    if ($word -ne "" -and (getSearchGrams $word).Count -eq 0) {
+        return "OneChar"
+    }
+    return $null
+}
+
 function getFastSearchView {
     # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否と短い表示。
     #   status  : @{ Reason（getWindowsSearchState の値）; Progress（getSystemIndexProgress の値。$null は数えていない） }。
@@ -68,10 +85,10 @@ function getFastSearchView {
     if ($checking) {
         return @{ Usable = $usable; Text = "高速検索：確認中…" }
     }
-    # ワードが空のときは、まだ入力していないだけなので、1 文字とは言わない
-    if ($useRegex) {
+    $wordReason = getFastSearchWordReason $useRegex $word
+    if ($wordReason -eq "Regex") {
         $text = "高速検索：使用不可（正規表現）"
-    } elseif ($word -ne "" -and (getSearchGrams $word).Count -eq 0) {
+    } elseif ($wordReason -eq "OneChar") {
         $text = "高速検索：使用不可（1 文字）"
     } elseif ($reason -eq "Ok") {
         $text = "高速検索：使用可"
@@ -135,9 +152,10 @@ function getFastSearchDetail {
     }
     $state = $states[$reason]
     $lines.Add($(if ($state) { $state } else { "Windows Search：使えません" }))
-    if ($useRegex) {
+    $wordReason = getFastSearchWordReason $useRegex $word
+    if ($wordReason -eq "Regex") {
         $lines.Add("［正規表現を使う］がオンのため、今の検索ではすべてを検索します。")
-    } elseif ($word -ne "" -and (getSearchGrams $word).Count -eq 0) {
+    } elseif ($wordReason -eq "OneChar") {
         $lines.Add("検索ワードに 2 文字以上の部分が無いため、今の検索ではすべてを検索します。")
     }
     if ($progress) {
