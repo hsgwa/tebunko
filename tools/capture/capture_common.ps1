@@ -104,17 +104,32 @@ function testCaptureSensitiveText {
 }
 
 function getCaptureRedactedText {
-    # 利用者のフォルダのパスを、塗った上に描く文字（C:\Users\test\...）に置き換える
+    # 利用者のフォルダのパス・利用者名・コンピューター名を、塗った上に描く架空の文字に置き換える。
+    # 長い文字から先に置き換える（例えばコンピューター名が「<利用者名>-PC」のように利用者名を含むとき、
+    # 利用者名を先に置き換えると、コンピューター名のほうが一部書き換わって一致しなくなるため）
     param (
         [string]$Text,
         [string]$UserProfile,
-        [string]$Replacement = "C:\Users\test"
+        [string]$UserName,
+        [string]$ComputerName,
+        [string]$UserProfileReplacement = "C:\Users\test",
+        [string]$UserNameReplacement = "test",
+        [string]$ComputerNameReplacement = "TEST-PC"
     )
 
-    if ([string]::IsNullOrEmpty($Text) -or [string]::IsNullOrEmpty($UserProfile)) {
+    if ([string]::IsNullOrEmpty($Text)) {
         return $Text
     }
-    return [regex]::Replace($Text, [regex]::Escape($UserProfile), { param ($m) $Replacement }, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $result = $Text
+    $pairs = @(
+        @{ Needle = $UserProfile; Replacement = $UserProfileReplacement },
+        @{ Needle = $UserName; Replacement = $UserNameReplacement },
+        @{ Needle = $ComputerName; Replacement = $ComputerNameReplacement }
+    ) | Where-Object { ![string]::IsNullOrEmpty($_.Needle) } | Sort-Object { $_.Needle.Length } -Descending
+    foreach ($pair in $pairs) {
+        $result = [regex]::Replace($result, [regex]::Escape($pair.Needle), { param ($m) $pair.Replacement }, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    }
+    return $result
 }
 
 function testCaptureImageSize {

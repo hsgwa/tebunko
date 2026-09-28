@@ -1,4 +1,4 @@
-﻿# 現行の画面を、状態ごとに全部（42 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
+﻿# 現行の画面を、状態ごとに全部（40 枚）自動で撮る道具。GUI を直す前の記録として docs\images\screens\ に置き、
 # docs\design\gui\screens\ の写真として載せる。詳しい経緯・撮る状態の一覧・撮らないものは docs\design\gui\screens\index.md。
 #
 #   .\tools\capture_screens.ps1                 すべての状態を撮り直す
@@ -85,6 +85,26 @@ function removeCaptureDrive {
 $script:captureFont = New-Object Drawing.Font("Segoe UI", 9)
 $script:captureBg = [Drawing.Color]::FromArgb(235, 235, 235)
 
+function saveCaptureBitmap {
+    # 撮った Bitmap を PNG で保存し、大きさを確かめて Sizes に足し、結果を 1 行ログに出す
+    # （captureGuiState・captureStartupSplash の両方が使う）
+    param ($Bitmap, [string]$Id, [string]$OutDir, [System.Collections.Generic.List[long]]$Sizes, [string[]]$Painted = @())
+
+    $path = getCaptureImagePath -Id $Id -OutDir $OutDir
+    [void][IO.Directory]::CreateDirectory((Split-Path $path -Parent))
+    $Bitmap.Save($path, [Drawing.Imaging.ImageFormat]::Png)
+    $bytes = (Get-Item -LiteralPath $path).Length
+    if (!(testCaptureImageSize -Bytes $bytes)) {
+        throw "写真が 200 KB を超えました（$Id・$([Math]::Round($bytes / 1KB)) KB）"
+    }
+    [void]$Sizes.Add($bytes)
+    if ($Painted.Count -gt 0) {
+        Write-Host "  [$Id] 塗った: $($Painted -join '・')"
+    } else {
+        Write-Host "  [$Id]"
+    }
+}
+
 function captureGuiState {
     # 状態 1 つ分を撮る。Ids に Id が含まれないときは何もしない（-Only で絞ったとき、遷移の途中の操作はそのまま行う）。
     # Primary を渡さなければ本体の窓（$S.Window）。Extra はダイアログ・メニューなど、本体と重ねて撮るほかの窓
@@ -134,10 +154,11 @@ function captureGuiState {
 
         # 窓の外（デスクトップ・後ろの窓・通知）を無地で塗る
         $region = New-Object Drawing.Region((New-Object Drawing.Rectangle(0, 0, $width, $height)))
+        $bgBrush = New-Object Drawing.SolidBrush($script:captureBg)
         foreach ($r in $rects) {
             $region.Exclude((New-Object Drawing.Rectangle(($r.Left - $left), ($r.Top - $top), $r.Width, $r.Height)))
         }
-        $graphics.FillRegion((New-Object Drawing.SolidBrush($script:captureBg)), $region)
+        $graphics.FillRegion($bgBrush, $region)
 
         # 利用者名・コンピューター名・利用者のフォルダのパスを含む部品を塗りつぶして描き直す
         $painted = New-Object System.Collections.ArrayList
@@ -150,28 +171,34 @@ function captureGuiState {
                 if ($er.Width -le 0 -or $er.Height -le 0) { continue }
                 $local = New-Object Drawing.Rectangle(($er.Left - $left), ($er.Top - $top), $er.Width, $er.Height)
                 $graphics.FillRectangle([Drawing.Brushes]::White, $local)
-                $redacted = getCaptureRedactedText -Text $text -UserProfile $UserProfile
+                $redacted = getCaptureRedactedText -Text $text -UserProfile $UserProfile -UserName $UserName -ComputerName $ComputerName
                 $graphics.DrawString($redacted, $script:captureFont, [Drawing.Brushes]::Black, [float]$local.X, [float]($local.Y + 1))
                 [void]$painted.Add($redacted)
             }
         }
 
-        $path = getCaptureImagePath -Id $Id -OutDir $OutDir
-        [void][IO.Directory]::CreateDirectory((Split-Path $path -Parent))
-        $bitmap.Save($path, [Drawing.Imaging.ImageFormat]::Png)
-        $bytes = (Get-Item -LiteralPath $path).Length
-        if (!(testCaptureImageSize -Bytes $bytes)) {
-            throw "写真が 200 KB を超えました（$Id・$([Math]::Round($bytes / 1KB)) KB）"
-        }
-        [void]$Sizes.Add($bytes)
-        if ($painted.Count -gt 0) {
-            Write-Host "  [$Id] 塗った: $($painted -join '・')"
-        } else {
-            Write-Host "  [$Id]"
-        }
+        saveCaptureBitmap -Bitmap $bitmap -Id $Id -OutDir $OutDir -Sizes $Sizes -Painted @($painted)
     } finally {
+        if ($region) { $region.Dispose() }
+        if ($bgBrush) { $bgBrush.Dispose() }
         $graphics.Dispose()
         $bitmap.Dispose()
+    }
+}
+
+# ---- ツールヒントが消えるまで待つ ----
+
+function waitGuiTooltipGone {
+    # 部品を選ぶ・フォーカスするだけで出るツールヒントは、本体以外の窓（ネイティブの EnumWindows でだけ見える。
+    # UI オートメーション経由の getGuiOtherWindows は ClassName=Popup を対象から外している）として現れる。
+    # 撮る前に、本体の窓 1 つだけになるまで待つ（既定 3 秒。消えなければ、それ以上は待たずに進める）
+    param ($S, [int]$Timeout = 3)
+
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $Timeout) {
+        $count = @(getGuiNativeProcessWindows $S.Process.Id).Count
+        if ($count -le 1) { return }
+        Start-Sleep -Milliseconds 200
     }
 }
 
@@ -210,15 +237,7 @@ function captureStartupSplash {
     $graphics = [Drawing.Graphics]::FromImage($bitmap)
     try {
         $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object Drawing.Size($rect.Width, $rect.Height)))
-        $path = getCaptureImagePath -Id $Id -OutDir $OutDir
-        [void][IO.Directory]::CreateDirectory((Split-Path $path -Parent))
-        $bitmap.Save($path, [Drawing.Imaging.ImageFormat]::Png)
-        $bytes = (Get-Item -LiteralPath $path).Length
-        if (!(testCaptureImageSize -Bytes $bytes)) {
-            throw "写真が 200 KB を超えました（$Id・$([Math]::Round($bytes / 1KB)) KB）"
-        }
-        [void]$Sizes.Add($bytes)
-        Write-Host "  [$Id]"
+        saveCaptureBitmap -Bitmap $bitmap -Id $Id -OutDir $OutDir -Sizes $Sizes
     } finally {
         $graphics.Dispose()
         $bitmap.Dispose()
@@ -239,8 +258,11 @@ function captureBrokenConfigScene {
     invokeGuiScene $S {
         setGuiStep $S "壊れた設定ファイルの知らせ"
         $window = waitGuiWindow $S "壊れた設定ファイルの知らせ" -Text "設定ファイルが壊れていた"
+        # 設定が既定に戻るため、本体の窓は既定のワークスペース（Documents\tebunko_ws）の中身で変わる
+        # （利用者名を含まないため塗りつぶしでも消えない。計画で 5・22・35 を撮らないものにした理由と同じ）。
+        # メッセージボックスの窓だけを撮り、本体は重ねない
         captureGuiState -S $S -Id "window/settings-broken" -Ids $Ids -OutDir $OutDir `
-            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($window)
+            -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Primary $window
         # 起動のごく早い段階で出るこのメッセージボックスは、OK への BM_CLICK だけ・Enter キーだけでは閉じないことがある
         # （手元では、両方を送ってようやく閉じた）。閉じるまで両方を送り直す
         waitGui $S "壊れた設定ファイルの知らせが閉じる" ${guiDefaultTimeout} {
@@ -559,6 +581,10 @@ function captureSearchScene {
         waitGui $S "プレビューが出る" ${guiDefaultTimeout} {
             @(findAllGui (findGui $S.Window -Id "PreviewScroll") -Type Text | Where-Object { $_.Current.Name -eq "りんご" }).Count -gt 0
         } | Out-Null
+        # 行を選ぶと、部品を選ぶだけで出るツールヒント（元のファイルのパス）が重なって写ることがある。
+        # フォーカスを移しても消えなかったため、ツールヒントの窓（本体以外の、ネイティブの EnumWindows でだけ見える窓）が
+        # 無くなるまで待つ（消えなければ、それ以上は待たずに撮る）
+        waitGuiTooltipGone $S
         captureGuiState -S $S -Id "search-tab/results" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 

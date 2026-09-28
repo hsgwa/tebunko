@@ -98,6 +98,20 @@ Describe "getCaptureRedactedText" -Tag Unit {
         getCaptureRedactedText -Text "既定の場所（ドキュメントの tebunko）です。" -UserProfile "C:\Users\a" |
             Should -Be "既定の場所（ドキュメントの tebunko）です。"
     }
+
+    It "利用者のフォルダのパスの外に出た利用者名だけも置き換える" {
+        getCaptureRedactedText -Text "共有: \\山田太郎-PC\共有" -UserName "山田太郎" -ComputerName "山田太郎-PC" |
+            Should -Be "共有: \\TEST-PC\共有"
+    }
+
+    It "コンピューター名だけを含む部品も置き換える" {
+        getCaptureRedactedText -Text "\\yamada-pc\営業部" -ComputerName "yamada-pc" | Should -Be "\\TEST-PC\営業部"
+    }
+
+    It "利用者のフォルダのパスと、パスの外の利用者名の両方を置き換える" {
+        getCaptureRedactedText -Text "C:\Users\a\Documents（a の共有）" -UserProfile "C:\Users\a" -UserName "a" |
+            Should -Be "C:\Users\test\Documents（test の共有）"
+    }
 }
 
 Describe "testCaptureImageSize" -Tag Unit {
