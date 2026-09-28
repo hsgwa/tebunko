@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/search/fast-search/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../speed/">
       
       
         <link rel="next" href="../output/">
@@ -27,7 +27,7 @@
     
     
       
-        <title>高速検索 - tebunko</title>
+        <title>高速検索（Windows Search） - tebunko</title>
       
     
     
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              高速検索
+              高速検索（Windows Search）
             
           </span>
         </div>
@@ -1289,7 +1289,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/errors/" class="md-nav__link">
+      <a href="../../indexing/errors/" class="md-nav__link">
         
   
   
@@ -1338,6 +1338,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -1420,10 +1426,6 @@
       
         
       
-        
-      
-        
-      
     
     
     
@@ -1450,7 +1452,7 @@
   <span class="md-ellipsis">
     
   
-    全体像
+    はじめに
   
 
     
@@ -1466,7 +1468,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    全体像
+    はじめに
   
 
           </label>
@@ -1479,14 +1481,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/layout/" class="md-nav__link">
+      <a href="../../start/onboarding/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    フォルダ構成とデータの置き場所
+    読む順番と 1 周の流れ
   
 
     
@@ -1507,70 +1509,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/settings-file/" class="md-nav__link">
+      <a href="../../start/review-map/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    設定ファイル
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/modules/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    共通モジュール
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/threads/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    プロセスとスレッド
+    変更の種類から見る設計書を引く
   
 
     
@@ -1601,8 +1547,6 @@
     
     
       
-        
-          
         
       
         
@@ -1638,15 +1582,14 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
         
           
-          <div class="md-nav__link md-nav__container">
-            <a href="../../indexer/" class="md-nav__link ">
-              
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
   
   
   <span class="md-ellipsis">
     
   
-    インデックス作成
+    全体の構成
   
 
     
@@ -1654,27 +1597,19 @@
   
   
 
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_3_3" id="__nav_3_3_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
+            <span class="md-nav__icon md-icon"></span>
+          </label>
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    インデックス作成
+    全体の構成
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
-            
-              
             
               
                 
@@ -1683,14 +1618,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/flow/" class="md-nav__link">
+      <a href="../../structure/source/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    処理の流れと取り込み一覧
+    ソースの分け方
   
 
     
@@ -1711,7 +1646,443 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/excel/" class="md-nav__link">
+      <a href="../../structure/folders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    配布物と開発用のフォルダ構成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    データの置き場所とパスの決め方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/io-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    どの処理がどのファイルを読み書きするか
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/settings-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    設定ファイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/threads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プロセスとスレッド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/closing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    閉じるときの順番と GC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/classes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../indexing/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックス作成
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成のメインフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/crawl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    クロール対象フォルダと取り込み対象
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/target-decision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    取り込み対象の決定
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/ingest-list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    取り込み一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/parallel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    取り込みの並列化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/excel/" class="md-nav__link">
         
   
   
@@ -1739,7 +2110,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/word/" class="md-nav__link">
+      <a href="../../indexing/word/" class="md-nav__link">
         
   
   
@@ -1767,7 +2138,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/powerpoint/" class="md-nav__link">
+      <a href="../../indexing/powerpoint/" class="md-nav__link">
         
   
   
@@ -1795,14 +2166,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/office-apps/" class="md-nav__link">
+      <a href="../../indexing/office-apps/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    共通処理と Office アプリの管理
+    Word・PowerPoint の共通処理と Office アプリの管理
   
 
     
@@ -1823,14 +2194,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/index-format/" class="md-nav__link">
+      <a href="../../indexing/errors/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    インデックスの形式
+    エラーメッセージ一覧
   
 
     
@@ -1851,7 +2222,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../indexer/known-issues/" class="md-nav__link">
+      <a href="../../indexing/known-issues/" class="md-nav__link">
         
   
   
@@ -1859,6 +2230,161 @@
     
   
     既知の問題
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスのデータ
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    インデックスのデータ
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index-data/format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックスのファイルの形
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index-data/publish/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    入れ替えと書き出し
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../index-data/system-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    システムインデックス
   
 
     
@@ -1899,6 +2425,8 @@
       
         
       
+        
+      
     
     
     
@@ -1915,7 +2443,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -1937,14 +2465,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1954,6 +2482,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../speed/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索を速くする仕組み
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -1979,7 +2535,7 @@
   <span class="md-ellipsis">
     
   
-    高速検索
+    高速検索（Windows Search）
   
 
     
@@ -2059,6 +2615,20 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2075,7 +2645,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2097,14 +2667,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_7" id="__nav_3_7_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2123,6 +2693,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../../gui/state-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    状態と操作の流れ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/common/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面の共通の決まり
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/messages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面に出すメッセージの一覧
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../gui/index-tab/" class="md-nav__link">
         
   
@@ -2130,7 +2784,35 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    インデックス一覧の管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/indexing-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インデックス作成の実行
   
 
     
@@ -2158,7 +2840,119 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    検索タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/open-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のファイルを開く
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/network/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    元のフォルダ・元のファイルがネットワークにあるとき
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/preview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    選択行のプレビュー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/search-tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    検索対象のツリー
   
 
     
@@ -2235,62 +3029,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/state-flow/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    状態と操作の流れ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/common/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    共通仕様
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../gui/implementation/" class="md-nav__link">
         
   
@@ -2298,7 +3036,35 @@
   <span class="md-ellipsis">
     
   
-    実装
+    画面の実装構成
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/responsiveness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面を固まらせない待たせ方
   
 
     
@@ -2348,7 +3114,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2370,14 +3136,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_5_9" id="__nav_3_5_9_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_5_9">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2562,6 +3328,26 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2578,7 +3364,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2600,14 +3386,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_8" id="__nav_3_8_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2626,6 +3412,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../testing/run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テストの実行
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../testing/ci/" class="md-nav__link">
         
   
@@ -2633,7 +3447,259 @@
   <span class="md-ellipsis">
     
   
-    テストの実行と CI
+    CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/perf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    性能とリソースの計測のしかた
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/perf-check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    速さの回帰テストと上限の決め方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/pre-commit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    コミット前に動く検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/unit-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（インデックスと検索）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/unit-indexer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（インデックス作成）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/unit-office/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（Office）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/unit-checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単体テスト（検査と道具）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/gui-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のテストと確認
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../testing/gui-smoke/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面のスモークテスト
   
 
     
@@ -2662,6 +3728,204 @@
     
   
     貢献のしかた
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    関数一覧
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_9" id="__nav_3_9_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    関数一覧
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（設定・ファイル）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/indexer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（インデックス作成）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/tsv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（TSV と本文インデックス）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    部品ごとの関数（検索・スレッド・元のファイル・画面）
   
 
     
@@ -2729,8 +3993,9 @@
 
 
 <h1 id="高速検索windows-search">高速検索（Windows Search）<a class="headerlink" href="#高速検索windows-search" title="Permanent link">&para;</a></h1>
-<p>インデックスが大きいと、すべての本文インデックスを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。<a href="../#検索の実装速度">検索の実装（速度）</a>）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の本文インデックスだけを <a href="../#検索の実装速度">検索の実装（速度）</a> の方式で照合する（<code>tebunko/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては <a href="../#検索の実装速度">検索の実装（速度）</a> と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての本文インデックスを照合したときと同じ</strong>になる。</p>
-<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/content_index</code> の中のフォルダごとに、直下の本文インデックスの中身（メタ情報の行を除く）から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../../indexer/index-format/#システムインデックスsystem_index">システムインデックス（system_index）</a>）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
+<p>扱うこと: Windows Search に検索語を含みうるフォルダを先に絞らせる仕組み、システムインデックス（2-gram）の使い道、使える条件と使えないときの扱い、実測。扱わないこと: 本文インデックスそのものの照合の速さ（<a href="../speed/">検索を速くする仕組み</a>）、システムインデックスの作り方（<a href="../../index-data/system-index/">システムインデックス</a>）。先に読むページ: <a href="../">検索</a>、<a href="../speed/">検索を速くする仕組み</a>。</p>
+<p>インデックスが大きいと、すべての本文インデックスを読んで照合するのに時間がかかる（1GB で初回 38 秒・2 回目以降 16〜18 秒。<a href="../speed/">検索を速くする仕組み</a>）。そこで、Windows Search に「検索語を含みうるフォルダ」を先に絞らせ、その中の本文インデックスだけを <a href="../speed/">検索を速くする仕組み</a> の方式で照合する（<code>tebunko/search/fast_search.ps1</code> の <code>getFastSearchPackFiles</code>）。照合と結果の組み立ては <a href="../speed/">検索を速くする仕組み</a> と同じため、<strong>結果（行・行番号・順番・上限で切る位置）は、すべての本文インデックスを照合したときと同じ</strong>になる。</p>
+<p><strong>システムインデックス</strong>: インデックス作成が、<code>work/content_index</code> の中のフォルダごとに、直下の本文インデックスの中身（メタ情報の行を除く）から、文字の 2-gram を英数字の語にした txt を <code>work/system_index</code> の同じ相対パスに作る（<a href="../../index-data/system-index/">システムインデックス</a>）。Windows Search は語単位でしか一致を取らないため、本文をそのまま索引させると語の途中からの一致（<code>ニター</code> など）を落とす。2-gram の語なら、ワードを含む本文の txt には、ワードのすべての 2-gram が必ず入っている。</p>
 <table>
 <thead>
 <tr>
@@ -2741,7 +4006,7 @@
 <tbody>
 <tr>
 <td>使える条件（画面の「高速検索：使用可」）</td>
-<td>Windows Search を開けて <code>work/system_index</code> が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（<code>testFastSearchUsable</code>・<code>getFastSearchView</code>）。使えないときは <a href="../#検索の実装速度">検索の実装（速度）</a> のとおりすべてを照合する</td>
+<td>Windows Search を開けて <code>work/system_index</code> が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（<code>testFastSearchUsable</code>・<code>getFastSearchView</code>）。使えないときは <a href="../speed/">検索を速くする仕組み</a> のとおりすべてを照合する</td>
 </tr>
 <tr>
 <td>語の作り方</td>
@@ -2778,8 +4043,8 @@
     T --&gt; F["getIndexPackFiles&lt;br&gt;そのフォルダの本文インデックス"]
     ALL --&gt; R["searchPackIndex（4.3 と同じ）"]
     F --&gt; R</code></pre>
-<p><strong><code>work/content_index</code> を Windows Search の対象から外す（推奨）</strong>: 本文インデックス（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（本文インデックスは <a href="../#検索の実装速度">検索の実装（速度）</a> の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/content_index</code> を外す（README の「高速検索」）。</p>
-<p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。本文インデックスにする前の版で、TSV を照合したとき。本文インデックスでは、すべてを照合しても初回 38 秒（<a href="../#検索の実装速度">検索の実装（速度）</a>））:</p>
+<p><strong><code>work/content_index</code> を Windows Search の対象から外す（推奨）</strong>: 本文インデックス（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（本文インデックスは <a href="../speed/">検索を速くする仕組み</a> の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/content_index</code> を外す（README の「高速検索」）。</p>
+<p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。本文インデックスにする前の版で、TSV を照合したとき。本文インデックスでは、すべてを照合しても初回 38 秒（<a href="../speed/">検索を速くする仕組み</a>））:</p>
 <table>
 <thead>
 <tr>
@@ -2801,7 +4066,7 @@
 </tr>
 </tbody>
 </table>
-<p>よく出る語はほとんどのフォルダが候補になるため、速くならない（上限の 1 万件で打ち切るのは <a href="../#検索の実装速度">検索の実装（速度）</a> と同じ）。</p>
+<p>よく出る語はほとんどのフォルダが候補になるため、速くならない（上限の 1 万件で打ち切るのは <a href="../speed/">検索を速くする仕組み</a> と同じ）。</p>
 
 
 
@@ -2837,7 +4102,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="前: 検索">
+          <a href="../speed/" class="md-footer__link md-footer__link--prev" aria-label="前: 検索を速くする仕組み">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2847,7 +4112,7 @@
                 前
               </span>
               <div class="md-ellipsis">
-                検索
+                検索を速くする仕組み
               </div>
             </div>
           </a>
