@@ -82,6 +82,8 @@ git config user.email <ID>+<アカウント名>@users.noreply.github.com
   - 例: `![全体構成](images/全体構成.drawio.png)`
   - draw.io で再編集できるよう、「図のコピーを含める」を有効にして書き出す。
 
+画面の写真（スクリーンショット）は図ではない。`docs/images/screens/` に置き、`tools/capture_screens.ps1` で撮る。
+
 入出力の書式例・メッセージ例・ファイル名規則などの**図ではないテキスト**は、従来どおりコードブロックで書いてよい。
 
 `docs/` は MkDocs で Web サイトにして GitHub Pages に公開する（`tools/mkdocs/mkdocs.yml`・`.github/workflows/docs.yml`）。設計書を足したら `tools/mkdocs/mkdocs.yml` の `nav` にも足す。リンク先のファイルや見出しが無いと CI（`docs`）が失敗するので、見出しを変えたらリンクも直す。`docs/` の外（`README.md`・`AGENTS.md`・`.github/` など）を含む全 Markdown のリンクは `tests/meta/links.Tests.ps1`（`tools/check_markdown_links.ps1`）が確かめ、切れているとコミット前のフックと CI（`test`）が失敗する。
