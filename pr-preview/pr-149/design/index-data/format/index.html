@@ -2797,6 +2797,8 @@
       
         
       
+        
+      
     
     
     
@@ -3241,6 +3243,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -4422,7 +4649,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <li><strong>空き容量</strong>（ワークスペースのドライブ。<code>getWorkspaceFreeSpace</code>）が「目録の合計 + 1GB」より少なければ止める（zip bomb 対策。<code>testImportFreeSpace</code>）。UNC（<code>\\server\share\…</code>）のワークスペースなど、ドライブとして空き容量を調べられないときは確かめずに進める（調べられないことでインポートを止めない。展開の途中で足りなくなれば、書き込みの失敗として 6 以降の戻しに入る）。</li>
 <li><strong>展開する</strong>（<code>expandImportArchive</code>）: <code>&lt;ワークスペース&gt;\取り込み出力\&lt;PID&gt;\import\new\</code> に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。<code>元のフォルダ.txt</code> もここに書く。</li>
 <li><strong>設定に登録する</strong>（<code>registerImportedIndexInSettings</code>）: <code>targetFolders</code> に <code>{ name, path, enabled }</code> を足す（上書きなら既存の項目を書き換え、並びは変えない）。<code>enabled</code> は元のフォルダがあれば <code>true</code>。同じ名前の <code>indexSources</code> は消す。<strong><code>targetFolders</code> に入れる理由</strong>は、取り込み一覧の行を持ち込むので、次のインデックス作成で差分だけを取り込め、<code>removeDroppedFolders</code>（<a href="../../indexing/ingest-list/">取り込み一覧</a>）に消されないため。</li>
-<li><strong><code>content_index\&lt;名前&gt;\</code> を入れ替える</strong>（<code>swapInImportedIndexDir</code>。上書きなら今のフォルダを <code>previous\</code> へ退避してから）。</li>
+<li><strong><code>content_index\&lt;名前&gt;\</code> を入れ替える</strong>（<code>swapInImportedIndexDir</code>。上書きなら今のフォルダを <code>previous\</code> へ退避してから）。作ったばかり・書いたばかりのフォルダはウイルス対策ソフトに一時的に掴まれることがあるため、<code>removeDirectoryRetry</code> と同じ <code>moveDirectoryRetry</code>（<code>shared/core/fs.ps1</code>）で少し待って数回試す。</li>
 <li><strong>取り込み一覧を書き直す</strong>（<code>rewriteStatusForImport</code>）: <code>readStatusFile</code> で読み、そのインデックスの前の <code>クロール対象フォルダ</code> の行とデータ行を除いて、新しい <code>クロール対象フォルダ</code> の行とデータ行を足し、インデクサと同じ <code>writeStatusFile</code> で書く。<code>クロール対象フォルダ</code> の行は見出しの行の前、見出しの行は必ずある形になる（<code>getIndexNameMap</code> は見出しの行で読むのをやめるため、行が見出しの後ろにあると名前を見つけられず、［8 設定］の［あるインデックスを使う］で一覧から落ちて <code>removeDroppedFolders</code> に消される）。空のワークスペースでも、ほかのインデックスがあるワークスペースでも同じ。</li>
 <li>上書きなら、前のシステムインデックスを消す（失敗しても続ける。次のインデックス作成で整理される）。<strong>システムインデックスはインポートでは作らない</strong>（下の「システムインデックスを作る時機」）。</li>
 <li>作業フォルダを消す。</li>
