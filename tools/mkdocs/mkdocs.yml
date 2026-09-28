@@ -166,6 +166,13 @@ nav:
           - 状態と操作の流れ: design/gui/state-flow.md
           - 共通仕様: design/gui/common.md
           - 実装: design/gui/implementation.md
+          - 画面設計（現行）:
+              - design/gui/screens/index.md
+              - 本体・共通の状態: design/gui/screens/window.md
+              - ［1 インデックス管理］タブ: design/gui/screens/index-tab.md
+              - ［2 検索］タブ: design/gui/screens/search-tab.md
+              - ［8 設定］タブ: design/gui/screens/settings-tab.md
+              - ［9 プロセス停止］タブ: design/gui/screens/process-tab.md
       - 開発の進め方:
           - テスト: design/testing/index.md
           - テストの実行と CI: design/testing/ci.md

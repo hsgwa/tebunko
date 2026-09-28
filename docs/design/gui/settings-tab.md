@@ -2,6 +2,8 @@
 
 ［8 設定］タブ（`tab_settings.xaml`・`settings_tab.ps1`）には、「ワークスペース」と「設定ファイル」の 2 つの枠を置く。［9 プロセス停止］の前に置き、プロセス停止を最後のタブのままにする。
 
+今の画面の写真は[画面設計（現行）](screens/settings-tab.md)にある。
+
 **ワークスペース**は、インデックス・取り込み一覧・ログ（`work` の中身。[フォルダ構成](../architecture/layout.md#フォルダ構成)）を置くフォルダ。既定は `%USERPROFILE%\Documents\tebunko_ws`（高速検索のため、Windows Search の索引の対象になる場所。[データの置き場所](../architecture/layout.md#データの置き場所settingconfigwork)）。
 
 「ワークスペース」の枠には、今のワークスペースのフォルダを出し、その下に補足を出す。既定の場所なら `既定の場所（ドキュメントの tebunko）です。`、既定でなければ `既定の場所は「<既定の場所>」です。`。「設定ファイル」の枠には `setting.config` の場所を出し（表示だけ）、ツールのフォルダにあれば `ツールのフォルダに置いています。`、利用者ごとの場所なら `ツールのフォルダ（<ツールのフォルダ>）に書き込めないため、利用者ごとの場所に置いています。` と補足する。文言は判断層の `getWorkspaceView`・`getSettingsFileView`（`settings_view.ps1`）が決める。
