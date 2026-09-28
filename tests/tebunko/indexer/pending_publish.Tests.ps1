@@ -38,7 +38,7 @@ Describe "PendingPublish" -Tag Unit {
         $flush["C:\work\content_index\営業"].Count | Should -Be 0
     }
 
-    It "戻り値は大文字・小文字を区別しない Dictionary のまま（Hashtable に変わって順序・比較が変わらない）" {
+    It "戻り値は大文字・小文字を区別しない Dictionary のまま（Hashtable に変わって比較が変わらない）" {
         $pending = [PendingPublish]::new()
         $pending.Add("Zz\a.xlsx", $false)
         $pending.Add("aa\b.xlsx", $false)
