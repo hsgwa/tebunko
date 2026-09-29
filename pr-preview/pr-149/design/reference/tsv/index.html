@@ -4250,6 +4250,14 @@
 <td><a href="../../index-data/format/#インポートimportindex">インポート</a></td>
 <td>インデックスのインポート（<code>swapInImportedIndexDir</code>・<code>restoreSwappedIndexDir</code>）</td>
 </tr>
+<tr>
+<td><code>testAnyEntry</code></td>
+<td>entries（<code>EnumerateFiles</code> などの列挙）, predicate（省略可）</td>
+<td>真偽値</td>
+<td>条件に合うものが 1 つでもあるか。見つけたところで列挙をやめ、列挙子を必ず Dispose する（<code>foreach</code> を途中で抜けると下のフォルダを掴んだまま残り、そのフォルダを移動・削除できなくなるため）</td>
+<td>–</td>
+<td>前の版のワークスペースの状態（<code>getLegacyIndexState</code>）</td>
+</tr>
 </tbody>
 </table>
 <h2 id="tsv-の整形sharedcoretextps1">TSV の整形（<code>shared/core/text.ps1</code>）<a class="headerlink" href="#tsv-の整形sharedcoretextps1" title="Permanent link">&para;</a></h2>
