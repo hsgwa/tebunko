@@ -835,6 +835,27 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Message | Should -BeNullOrEmpty
         Should -Invoke stopApp -Times 0 -Exactly -Scope It
     }
+
+    It "暗号化の判定でOfficeにまだ触れていない失敗（throwProtectionFailure）なら、失敗にするがOfficeは終了しない" {
+        ${tmpDir} = Join-Path $TestDrive "protection_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { throwProtectionFailure "テスト用の失敗" }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\irm.docx"; SourcePath = "C:\data\irm.docx" } 10
+        $result.Ok | Should -Be $false
+        $result.Message | Should -Be "テスト用の失敗"
+        Should -Invoke stopApp -Times 0 -Exactly -Scope It
+    }
+
+    It "ふつうの失敗では、今までどおりOfficeを終了する" {
+        ${tmpDir} = Join-Path $TestDrive "ordinary_fail_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { throw "ふつうの失敗です。" }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\ふつう.docx"; SourcePath = "C:\data\ふつう.docx" } 10
+        $result.Ok | Should -Be $false
+        Should -Invoke stopApp -Times 1 -Exactly -Scope It
+    }
 }
 
 Describe "getIngestLaneCapacity" -Tag Unit {
