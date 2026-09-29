@@ -196,6 +196,62 @@ Describe "removeDirectoryRetry" -Tag Io {
     }
 }
 
+Describe "moveDirectoryRetry" -Tag Io {
+    It "フォルダを中身ごと移動する" {
+        $source = "$TestDrive\移動元フォルダ"
+        $destination = "$TestDrive\移動先フォルダ"
+        [System.IO.Directory]::CreateDirectory("$source\中") | Out-Null
+        writeListFile "$source\中\a.tsv" @("a")
+        moveDirectoryRetry $source $destination
+        Test-Path -LiteralPath $source | Should -Be $false
+        Test-Path -LiteralPath "$destination\中\a.tsv" | Should -Be $true
+    }
+
+    It "中のファイルがほかから開かれていて移動できなければ、決めた回数だけ試してから例外にし、移動元が残る" {
+        Mock Start-Sleep {}
+        $source = "$TestDrive\使用中の移動元"
+        $destination = "$TestDrive\使用中の移動先"
+        writeListFile "$source\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$source\a.tsv", "Open", "Read", "None")
+        try {
+            { moveDirectoryRetry $source $destination 3 1 } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+        Test-Path -LiteralPath $source | Should -Be $true
+        Test-Path -LiteralPath $destination | Should -Be $false
+    }
+
+    It "待っている間に掴んでいたファイルが閉じられれば、次の試しで移動できる" {
+        $source = "$TestDrive\途中で解放される移動元"
+        $destination = "$TestDrive\途中で解放される移動先"
+        writeListFile "$source\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$source\a.tsv", "Open", "Read", "None")
+        Mock Start-Sleep { $stream.Dispose() }
+        moveDirectoryRetry $source $destination 3 1
+        Test-Path -LiteralPath $source | Should -Be $false
+        Test-Path -LiteralPath "$destination\a.tsv" | Should -Be $true
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It
+    }
+
+    It "試すたびに待つ時間が倍になる" {
+        Mock Start-Sleep {}
+        $source = "$TestDrive\待ち時間が倍になる移動元"
+        $destination = "$TestDrive\待ち時間が倍になる移動先"
+        writeListFile "$source\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$source\a.tsv", "Open", "Read", "None")
+        try {
+            { moveDirectoryRetry $source $destination 4 10 } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 10 }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 20 }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 40 }
+    }
+}
+
 Describe "writeTextLinesAtomic" -Tag Io {
     It "新しいファイルを作り、一時ファイルを残さない" {
         $path = "$TestDrive\atomic\新規.txt"
