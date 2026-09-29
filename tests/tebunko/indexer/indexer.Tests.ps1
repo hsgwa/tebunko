@@ -224,6 +224,14 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         # フォルダごとのシステムインデックスを作り、インデックスを対応済みにする
         [System.IO.File]::Exists("$root\work\system_index\営業\${systemIndexFileName}") | Should -Be $true
         (readTestSystemState $root).Covered.Contains("営業") | Should -Be $true
+        # content_index（フォルダ・集約ファイル・元のフォルダ.txt）は Windows Search の対象から外れ、
+        # system_index はそのまま索引され続ける
+        ([System.IO.File]::GetAttributes("$root\work\content_index") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$root\work\content_index\営業") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$root\work\content_index\営業\content_index.docx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$root\work\content_index\営業\元のフォルダ.txt") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$root\work\system_index") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
+        ([System.IO.File]::GetAttributes("$root\work\system_index\営業\${systemIndexFileName}") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
         # 名前の無かったフォルダには名前を割り当てて保存する
         @(getTargetFolders "$root\setting.config" | ForEach-Object { $_.Name }) -join "," | Should -Be "営業,経理,無くなったフォルダ"
         # 画面が終わり方を読めるよう、最後の進み具合を残す
