@@ -4274,6 +4274,11 @@
 <td>更新後の最初のインデックス作成では、抽出版が上がった <code>.xlsx</code> <code>.xlsm</code>（グラフ・SmartArt を読むようになった分）と <code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code>（グラフの項目名を読まなくなった分）を取り込み直す。<code>.xlsx</code> <code>.xlsm</code> はすべて Excel で開き直すため、通常よりも時間がかかる（1 回だけ。<a href="../flow/">インデックス作成のメインフロー</a>）</td>
 <td>○</td>
 </tr>
+<tr>
+<td>25</td>
+<td>透過暗号化の製品（IRM・秘密度ラベルとは別の、社内のファイル暗号化ソフトなど）で暗号化されたファイルは、製品と設定によって動きが違う。Officeがその製品に許可されたアプリなら平文で開けて読める見込みがあるが、そうでなければ <code>暗号化されているか壊れているため取り込めません。</code> になる。Officeが開くのは、PowerShell（製品に許可されていないアプリ）が作業領域に作ったコピーのため、ファイルの先頭の印で見分ける製品なら平文を見せる見込みがあるが、フォルダや場所で決める製品では、コピーが平文にならず失敗になることがある（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>。未確認）</td>
+<td>△</td>
+</tr>
 </tbody>
 </table>
 <h2 id="word-の注意点既知の問題">Word の注意点・既知の問題<a class="headerlink" href="#word-の注意点既知の問題" title="Permanent link">&para;</a></h2>
@@ -4294,7 +4299,7 @@
 </tr>
 <tr>
 <td>2</td>
-<td>旧形式（<code>.doc</code>）・パスワード付きの Word ファイルの取り込みには Word が必要。インストールされていない場合は取り込み一覧に「失敗」と記録される</td>
+<td>旧形式（<code>.doc</code>）の取り込みには Word が必要（インストールされていない場合は取り込み一覧に「失敗」と記録される）。パスワード付き（新形式）は、<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>でWordを起動せずに判定するため、Word が無くても同じ文言で失敗と記録される</td>
 <td>○</td>
 </tr>
 <tr>
@@ -4306,6 +4311,11 @@
 <td>4</td>
 <td>ページ割りが済む前に保存された文書（プログラムから作成・保存した文書など）は、保存時のページ区切りが記録されていないため、手動の改ページが無ければ全体が <code>ページ001</code> になる（例: テストデータの <code>Word\長文.docx</code> は 3000 段落あるが、<code>w:lastRenderedPageBreak</code> が 0 個で <code>docProps/app.xml</code> のページ数も 1）</td>
 <td>◎</td>
+</tr>
+<tr>
+<td>5</td>
+<td>透過暗号化の製品による暗号化で「形式の分からないバイナリ」になった <code>.doc</code> の中身が、実は RTF・HTML（透過暗号化前は Word がそのまま読めていた形式）だった場合、予備で開くときに <code>Format</code> を拡張子（<code>.doc</code>）に合わせて固定するため開けず、<code>暗号化されているか壊れているため取り込めません。</code> になる（<a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a>）。まれなため対応しない</td>
+<td>△</td>
 </tr>
 </tbody>
 </table>
@@ -4322,7 +4332,7 @@
 <tbody>
 <tr>
 <td>1</td>
-<td>旧形式（<code>.ppt</code>）・パスワード付きの PowerPoint ファイルの取り込みには PowerPoint が必要。インストールされていない場合は取り込み一覧に「失敗」と記録される</td>
+<td>旧形式（<code>.ppt</code>）の取り込みには PowerPoint が必要（インストールされていない場合は取り込み一覧に「失敗」と記録される）。パスワード付き（新形式）は、<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>でPowerPointを起動せずに判定するため、PowerPoint が無くても同じ文言で失敗と記録される</td>
 <td>○</td>
 </tr>
 <tr>

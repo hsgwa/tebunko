@@ -4121,7 +4121,7 @@
     B -- いいえ --&gt; C["extractWithWord で&lt;br&gt;.docx に変換"] --&gt; D
     D --&gt; E["writeUnits で場所ごとの TSV を出力"]</code></pre>
 <h2 id="word-の旧形式の変換extractwithword">Word の旧形式の変換（<code>extractWithWord</code>）<a class="headerlink" href="#word-の旧形式の変換extractwithword" title="Permanent link">&para;</a></h2>
-<p><a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>で ZIP ではないと判定したファイル（<code>.doc</code>、パスワード付き、拡張子と中身が異なるもの）を、Word で <code>.docx</code> に変換する。</p>
+<p><a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>で ZIP ではないと判定したファイル（<code>.doc</code>、パスワード付き（Word は開かせずに失敗）、拡張子と中身が異なるもの、暗号化の種類が「形式の分からないバイナリ」（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）で予備を使うもの）を、Word で <code>.docx</code> に変換する。</p>
 <table>
 <thead>
 <tr>
@@ -4132,15 +4132,19 @@
 <tbody>
 <tr>
 <td>開き方</td>
-<td><code>Documents.Open(パス, ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False, パスワード類="dummy", ..., Visible=False)</code></td>
+<td><code>Documents.Open(パス, ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False, パスワード類="dummy", ..., Format=省略時は自動判定, ..., Visible=False)</code></td>
 </tr>
 <tr>
-<td>パスワード付きファイル</td>
-<td>ダミーのパスワードにより、ダイアログを出さずに「パスワードが正しくありません」の例外</td>
+<td>パスワード付きファイル（新形式）</td>
+<td><a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>で判定し、開かずに失敗にする（今までの「ダミーのパスワードで開いて失敗」はしない）。旧形式（<code>.doc</code>）のパスワード付きは今までどおりダミーのパスワードにより「パスワードが正しくありません」の例外</td>
+</tr>
+<tr>
+<td><code>Format</code>（「形式の分からないバイナリ」のときだけ）</td>
+<td>拡張子に合う <code>WdOpenFormat</code> の値に固定する（<code>getWordOpenFormat</code>。例: <code>.docx</code> → 9 = <code>wdOpenFormatXMLDocument</code>、<code>.doc</code> → 1 = <code>wdOpenFormatDocument</code>）。自動判定（既定値）に任せると、文字コードを選ぶダイアログが出たり、暗号文をテキストとして読んだりすることがあるため</td>
 </tr>
 <tr>
 <td>保存</td>
-<td><code>Repaginate()</code> でページ割りを確定させてから <code>SaveAs2(converted.docx, 12 = wdFormatXMLDocument)</code></td>
+<td><code>Repaginate()</code> でページ割りを確定させてから <code>SaveAs2(converted.docx, 12 = wdFormatXMLDocument)</code>。保存した <code>.docx</code> の先頭が ZIP でなければ「一時ファイルを暗号化した」に失敗にする（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
 </tr>
 <tr>
 <td>アプリの設定</td>
@@ -4150,6 +4154,7 @@
 </table>
 <ul>
 <li><code>Repaginate()</code> を呼ぶのは、保存時に記録されるページ区切り（<a href="#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a> のページの目安）を確定させるため。呼ばないと、同じ内容の文書でも変換のたびにページ区切りの位置が変わることがある（◎）。</li>
+<li>「形式の分からないバイナリ」は、コピーの拡張子を元のまま開く（旧形式のように <code>source.doc</code> へ付け替えない）。開けなかったとき・保存の出力が ZIP でないときは、元の例外をインデックス作成ログに書き、<code>暗号化されているか壊れているため取り込めません。</code> に言い換える。</li>
 </ul>
 <h2 id="word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所（<code>readDocxUnits</code>）<a class="headerlink" href="#word-のテキスト読み取りと-tsv-の場所readdocxunits" title="Permanent link">&para;</a></h2>
 <p><code>.docx</code> は <a href="../office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>の共通の読み取り（<code>readXmlLines</code>、WordprocessingML の名前空間 <code>w:</code>）で読み、次の場所ごとに TSV にする。</p>

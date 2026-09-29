@@ -4151,7 +4151,8 @@
 </ul>
 <h2 id="推奨設定">推奨設定<a class="headerlink" href="#推奨設定" title="Permanent link">&para;</a></h2>
 <p>インデックス作成では、検索に使うデータ（ワークスペースの <code>content_index</code>）に加えて、Windows Search に索引させるデータ（<code>system_index</code>）を作成します。どちらもインデックスの一部です。ワークスペースの既定の場所（<code>Documents\tebunko_ws</code>）は、標準で Windows Search の索引付けの対象です。</p>
-<p>ただし、<code>content_index</code> も索引付けの対象に含まれていると、Windows Search がその処理に時間を要し、高速検索が有効になるまで 1 日以上かかる場合があります。次の手順で <code>content_index</code> を対象から除外してください。</p>
+<p><code>content_index</code> は、インデックス作成のときに tebunko がフォルダの属性（内容のインデックスを作成しない）を付けるため、Windows Search の索引付けの対象から自動で外れます。利用者が「インデックスのオプション」で手で外す必要はありません。<code>system_index</code> のチェックは有効のままにしてください。</p>
+<p>自動で外れないとき（ワークスペースが FAT のドライブなど）は、次の手順で <code>content_index</code> を対象から除外してください。</p>
 <ol>
 <li>［スタート］から「インデックスのオプション」を開きます。</li>
 <li>［変更］を選択します。</li>

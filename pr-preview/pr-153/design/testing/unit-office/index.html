@@ -4026,7 +4026,8 @@
 <p>扱うこと: Office ファイルの読み取り（ZIP を直接読む）・COM を使う処理の単体テストが何を確かめるか。扱わないこと: インデックス作成の流れそのもののテスト（<a href="../unit-indexer/">単体テスト（インデックス作成）</a>）。先に読むページ: <a href="../unit-index/">単体テスト（インデックスと検索）</a>。</p>
 <pre class="mermaid"><code>flowchart LR
     src["scripts/shared/office/office_reader.ps1"] --&gt; test["tests/shared/office/office_reader.Tests.ps1"]
-    src2["scripts/tebunko/indexer/extract_office.ps1&lt;br&gt;scripts/shared/office/office_app.ps1"] --&gt; test2["tests/tebunko/indexer/extract_office.Tests.ps1&lt;br&gt;tests/shared/office/office_app.Tests.ps1"]</code></pre>
+    src2["scripts/tebunko/indexer/extract_office.ps1&lt;br&gt;scripts/shared/office/office_app.ps1"] --&gt; test2["tests/tebunko/indexer/extract_office.Tests.ps1&lt;br&gt;tests/shared/office/office_app.Tests.ps1"]
+    src3["scripts/shared/office/office_protection_view.ps1&lt;br&gt;scripts/shared/office/office_protection.ps1"] --&gt; test3["tests/shared/office/office_protection_view.Tests.ps1&lt;br&gt;tests/shared/office/office_protection.Tests.ps1"]</code></pre>
 <p><strong>Office ファイルの読み取り（<code>tests/shared/office/office_reader</code>）</strong></p>
 <p>Word・PowerPoint・Excel は使わず、最小限の <code>.docx</code> <code>.pptx</code> <code>.xlsx</code>（ZIP）をテスト内で作成する。</p>
 <table>
@@ -4071,6 +4072,30 @@
 </tr>
 </tbody>
 </table>
+<p><strong>暗号化されたファイルの判定（<code>tests/shared/office/office_protection_view</code>・<code>office_protection</code>）</strong></p>
+<p>判断層（<code>office_protection_view.ps1</code>）はファイル・COM に触らないため、先頭バイト列とCFBのエントリ名の組だけで種類（<code>Zip</code>・<code>Password</code>・<code>Rights</code>・<code>Legacy</code>・<code>Text</code>・<code>Unknown</code>）を確かめる。状態層（<code>office_protection.ps1</code>）は、テストの中で組み立てた最小限のCFB（<code>tests/helpers/cfb.ps1</code> の <code>newCompoundFile</code>）と、既存のテストデータ（パスワード付き・旧形式・HTML/RTFの <code>Text</code>）で確かめる。</p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getOfficeProtectionKind</code></td>
+<td>ZIP・空/null・CFBのエントリ名の組み合わせ（新旧形式の権限保護・データスペースはあるが名前を取りこぼした安全側の判定・パスワード・権限保護と分からないCFB）・UTF-16(BOM)/RTF/UTF-8のテキスト・NULを含むバイナリ</td>
+</tr>
+<tr>
+<td><code>getProtectionFailureText</code> / <code>testOfficeOutput</code> / <code>testWorkbookFormat</code> / <code>getWordOpenFormat</code></td>
+<td>種類ごとの文言の有無、Zip/UnicodeTextの出力の確かめ、ブックの形式（テキスト・HTML・CSV）の判定、拡張子ごとの<code>WdOpenFormat</code>の値</td>
+</tr>
+<tr>
+<td><code>readFileHead</code> / <code>readCompoundEntryNames</code> / <code>getOfficeFileProtection</code></td>
+<td>ファイルの先頭の読み取り（無い・短いファイルでも例外にしない）、CFBのディレクトリのエントリ名の読み取り（複数セクターの鎖をたどる、FATの鎖が輪になる・範囲外のセクター・ディレクトリが途中で切れても例外を出さず速く戻る）、既存のテストデータ（パスワード付き・旧形式・HTML/RTFの <code>Text</code>）の判定が変わらない</td>
+</tr>
+</tbody>
+</table>
 <p><strong>COM を使う処理（<code>tests/tebunko/indexer/extract_office</code>・<code>tests/shared/office/office_app</code>）</strong></p>
 <p>Excel・Word・PowerPoint の COM を呼ぶ処理は、Office を使わずに流れを検証する。COM の入口は <code>getApp</code>（アプリの取得）と <code>New-Object -ComObject</code> だけなので、ここを Pester の <code>Mock</code> で差し替え、本物と同じ呼び方ができる偽のオブジェクト（呼ばれたメソッドと引数を記録し、保存では本物と同じ形式のファイルを書く）を返す。実機での動作は <a href="../#結合テスト手動">結合テスト（手動）</a> の手動の結合テストで確かめる。</p>
 <table>
@@ -4083,7 +4108,7 @@
 <tbody>
 <tr>
 <td><code>tests/tebunko/indexer/extract_office.Tests.ps1</code></td>
-<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、グラフ・SmartArt の部品が壊れていてもそのグラフだけを空にしてインデックス作成ログに記録し、ほかの図形・セルの値は取り込む、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、読み取りのスレッドでは中身が旧形式の <code>.docx</code> を Office を使わずに「Office が要る」の例外にし（<code>getApp</code> を呼ばない）、壊れた <code>.pptx</code> は回し直さずに失敗にする、失敗しても文書を閉じて作業ファイルを消す</td>
+<td>表示しているシートだけを書き出す、作業フォルダのコピーを読み取り専用・ダミーのパスワードで開いて保存せずに閉じる、使用範囲の左上を A1 からの位置に戻す、使用範囲が膨らんだシートは一時シートにコピーして書き出して消す（構成が保護されていれば元のシートのまま）、新形式のブックの図形・コメントを別の場所の TSV にする（読めなくてもセルの値は取り込む）、グラフ・SmartArt の部品が壊れていてもそのグラフだけを空にしてインデックス作成ログに記録し、ほかの図形・セルの値は取り込む、新形式の Word は Word を使わずに読む、旧形式の Word・PowerPoint を新形式に保存してから読む、壊れた <code>.pptx</code> を PowerPoint に渡さない、読み取りのスレッドでは中身が旧形式の <code>.docx</code> を Office を使わずに「Office が要る」の例外にし（<code>getApp</code> を呼ばない）、壊れた <code>.pptx</code> は回し直さずに失敗にする、失敗しても文書を閉じて作業ファイルを消す。<strong>暗号化されたファイル</strong>: パスワード付き（新形式）・IRMはWord・PowerPointを起動せずに失敗にする（Excelのパスワード付きは今までどおり<code>Open</code>を呼ぶ）、読み取りのスレッドではパスワード付き・IRMは回さずその場で失敗にし「形式の分からないバイナリ」だけ回し直す、「形式の分からないバイナリ」は拡張子を変えず（Wordは<code>Format</code>も固定して）予備で開く・予備が無効なアプリは開かずに失敗にする・予備が失敗したら元の例外をログに書いて言い換える、変換結果・Excelのテキスト保存の出力がZIP/UnicodeTextでなければ「一時ファイルを暗号化した」に失敗にする、ExcelのFileFormatの確かめは「形式の分からないバイナリ」のときだけで<code>Text</code>の種類（HTMLの<code>.xls</code>等）には当てない</td>
 </tr>
 <tr>
 <td><code>tests/shared/office/office_app.Tests.ps1</code></td>

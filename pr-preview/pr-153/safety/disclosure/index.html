@@ -1135,6 +1135,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#透過暗号化の製品が平文で見せたファイルの扱い" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        透過暗号化の製品が平文で見せたファイルの扱い
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#検索結果から開くと-excel-が前面に出る" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4204,6 +4215,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#透過暗号化の製品が平文で見せたファイルの扱い" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        透過暗号化の製品が平文で見せたファイルの扱い
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#検索結果から開くと-excel-が前面に出る" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4246,7 +4268,7 @@
 
 
 <h1 id="開示事項">開示事項<a class="headerlink" href="#開示事項" title="Permanent link">&para;</a></h1>
-<p>次の 6 点は審査で論点になるため、本ツールの側から先に開示する。<a href="#office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）</a>・<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>・<a href="#検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る</a> は利用者の操作に紐づく動作、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>・<a href="#原本の一時コピーとその回収">原本の一時コピーと、その回収</a> はツールの性質上避けられない情報の扱い、<a href="#インストーラー版">インストーラー版</a> はインストーラー版だけに当てはまる動作である。</p>
+<p>次の 7 点は審査で論点になるため、本ツールの側から先に開示する。<a href="#office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）</a>・<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>・<a href="#検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る</a> は利用者の操作に紐づく動作、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>・<a href="#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>・<a href="#透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い</a> はツールの性質上避けられない情報の扱い、<a href="#インストーラー版">インストーラー版</a> はインストーラー版だけに当てはまる動作である。</p>
 <h2 id="office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）<a class="headerlink" href="#office-プロセスの強制終了9-プロセス停止タブ" title="Permanent link">&para;</a></h2>
 <p>インデックス作成が異常終了すると、画面の無い Excel・Word・PowerPoint のプロセスが残り、メモリを占有し続けることがある。これを止めるために、画面の［9 プロセス停止］タブから <code>Stop-Process -Force</code> を実行する（<code>shared/office/office_process.ps1:43</code>。<code>safety.Tests.ps1</code> がこの 1 か所だけであることを確かめる）。</p>
 <ul>
@@ -4370,6 +4392,14 @@
 <li><strong>通常終了時</strong>: ファイルごとに、読み終えたコピーを削除する。インデックス作成の完了時に作業フォルダごと空にする（<code>removeTmpDir</code>）。</li>
 <li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko/indexer/indexer_run.ps1:343</code> でインデックス作成の開始時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
 <li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>%TEMP%\tebunko</code> を手で削除してよい（動作に影響しない）。</li>
+</ul>
+<h2 id="透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い<a class="headerlink" href="#透過暗号化の製品が平文で見せたファイルの扱い" title="Permanent link">&para;</a></h2>
+<p>社内のファイル暗号化製品（透過型。IRM・秘密度ラベルの暗号化とは別の仕組み）が導入されている環境では、その製品が Office を「許可されたアプリ」として登録していることがある。その場合、本ツールが作業領域に作ったコピーを Office が開くと、製品が復号した<strong>平文</strong>を Office に渡す（<a href="../../design/indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の「形式の分からないバイナリ」の予備）。</p>
+<ul>
+<li><strong>本文はインデックスに平文で入る</strong>。これは「<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>」と同じ性質で、透過暗号化を導入した目的（暗号化されていない経路での漏えい防止）と、本文インデックスに平文で保持することは緊張関係にある。</li>
+<li><strong>本ツールは製品を判別しない</strong>。製品に許可されたアプリかどうかを問い合わせる手段を持たず、結果（読めた・読めなかった）でしか分からない。</li>
+<li><strong>読めなかった場合は理由付きで失敗にする</strong>（<code>暗号化されているか壊れているため取り込めません。</code>）。中身の分からない暗号文をインデックスに書き込むことはない。</li>
+<li><strong>運用での対策</strong>: 透過暗号化を導入している環境では、対象フォルダを取り込み対象にするかどうかを、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>の対策と合わせて判断する。</li>
 </ul>
 <h2 id="検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る<a class="headerlink" href="#検索結果から開くと-excel-が前面に出る" title="Permanent link">&para;</a></h2>
 <p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は常に不可視で動作する（<a href="../checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> にしか無いことを確かめる）。</p>
