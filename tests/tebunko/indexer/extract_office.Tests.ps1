@@ -576,37 +576,26 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
         [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     }
 
-    It "新形式の権限保護（IRM・秘密度ラベル）は、Wordを起動せずに失敗にする" {
-        $source = Join-Path $TestDrive "irm-new.docx"
-        newCompoundFile $source @(@(([char]6 + "DataSpaces"), "DRMEncryptedDataSpace", "DRMEncryptedTransform"))
-        Mock getApp { throw "Word を起動してはいけない" }
+    It "<name>" -TestCases @(
+        @{ name = "新形式の権限保護（IRM・秘密度ラベル）は、Wordを起動せずに失敗にする"
+           extension = ".docx"; entries = @(([char]6 + "DataSpaces"), "DRMEncryptedDataSpace", "DRMEncryptedTransform")
+           pattern = "*IRM・秘密度ラベルで暗号化されているため取り込めません*" }
+        @{ name = "旧形式の権限保護（IRM）は、PowerPointを起動せずに失敗にする"
+           extension = ".ppt"; entries = @(([char]9 + "DRMContent"), ([char]9 + "DRMDataSpace"))
+           pattern = "*IRM・秘密度ラベルで暗号化されているため取り込めません*" }
+        @{ name = "パスワード付き（新形式）は、Wordを起動せずに、今と同じ文言で失敗にする"
+           extension = ".docx"; entries = @(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo")
+           pattern = "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）*" }
+        @{ name = "パスワード付き（新形式）は、PowerPointでも起動せずに失敗にする"
+           extension = ".pptx"; entries = @(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo")
+           pattern = "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）*" }
+    ) {
+        param ($name, $extension, $entries, $pattern)
+        $source = Join-Path $TestDrive ("protected" + $extension)
+        newCompoundFile $source @($entries)
+        Mock getApp { throw "Officeを起動してはいけない" }
 
-        { extractDocument $source } | Should -Throw -ExpectedMessage "*IRM・秘密度ラベルで暗号化されているため取り込めません*"
-        Should -Invoke getApp -Times 0 -Exactly -Scope It
-    }
-
-    It "旧形式の権限保護（IRM）は、PowerPointを起動せずに失敗にする" {
-        $source = Join-Path $TestDrive "irm-legacy.ppt"
-        newCompoundFile $source @(@(([char]9 + "DRMContent"), ([char]9 + "DRMDataSpace")))
-        Mock getApp { throw "PowerPoint を起動してはいけない" }
-
-        { extractDocument $source } | Should -Throw -ExpectedMessage "*IRM・秘密度ラベルで暗号化されているため取り込めません*"
-        Should -Invoke getApp -Times 0 -Exactly -Scope It
-    }
-
-    It "パスワード付き（新形式）は、Word・PowerPointを起動せずに、今と同じ文言で失敗にする" {
-        $wordSource = Join-Path $TestDrive "password-new.docx"
-        newCompoundFile $wordSource @(@(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo"))
-        Mock getApp { throw "Word を起動してはいけない" }
-        { extractDocument $wordSource } | Should -Throw -ExpectedMessage "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）*"
-        Should -Invoke getApp -Times 0 -Exactly -Scope It
-    }
-
-    It "パスワード付き（新形式）は、PowerPointでも起動せずに失敗にする" {
-        $pptSource = Join-Path $TestDrive "password-new.pptx"
-        newCompoundFile $pptSource @(@(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo"))
-        Mock getApp { throw "PowerPoint を起動してはいけない" }
-        { extractDocument $pptSource } | Should -Throw -ExpectedMessage "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）*"
+        { extractDocument $source } | Should -Throw -ExpectedMessage $pattern
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
