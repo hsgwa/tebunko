@@ -250,6 +250,22 @@ Describe "moveDirectoryRetry" -Tag Io {
         Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 20 }
         Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 40 }
     }
+
+    It "待つ時間は maxWaitMilliseconds で頭打ちにする" {
+        Mock Start-Sleep {}
+        $source = "$TestDrive\待ち時間が頭打ちになる移動元"
+        $destination = "$TestDrive\待ち時間が頭打ちになる移動先"
+        writeListFile "$source\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$source\a.tsv", "Open", "Read", "None")
+        try {
+            { moveDirectoryRetry $source $destination 5 10 30 } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 10 }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 20 }
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 30 }
+    }
 }
 
 Describe "writeTextLinesAtomic" -Tag Io {
