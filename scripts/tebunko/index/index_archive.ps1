@@ -114,7 +114,8 @@ function exportIndexCore {
     $longIndexDir = toLongPath $indexDir
     $prefixLength = $indexDir.TrimEnd("\").Length + 1
     $packFiles = New-Object System.Collections.Generic.List[string]
-    foreach ($file in [System.IO.Directory]::EnumerateFiles($longIndexDir, "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
+    # 途中で throw して抜けても下のフォルダを掴んだまま残らないよう、列挙子（EnumerateFiles）でなく配列（GetFiles）で受ける
+    foreach ($file in [System.IO.Directory]::GetFiles($longIndexDir, "*.tsv", [System.IO.SearchOption]::AllDirectories)) {
         $rel = (fromLongPath $file).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readPackFileName $fileName)) {

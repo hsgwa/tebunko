@@ -252,6 +252,26 @@ Describe "moveDirectoryRetry" -Tag Io {
     }
 }
 
+Describe "testAnyEntry" -Tag Io {
+    It "<name>" -TestCases @(
+        @{ name = "条件なし: 1 つでもあれば true"; pattern = "*"; predicate = $null; expected = $true }
+        @{ name = "条件なし: 無ければ false"; pattern = "*.xlsx"; predicate = $null; expected = $false }
+        @{ name = "条件あり: 合うものがあれば true"; pattern = "*"; predicate = { param ($p) $p.EndsWith("b.tsv") }; expected = $true }
+        @{ name = "条件あり: 合うものが無ければ false"; pattern = "*"; predicate = { param ($p) $p.EndsWith("c.tsv") }; expected = $false }
+    ) {
+        param ($name, $pattern, $predicate, $expected)
+        $dir = "$TestDrive\any_$([Guid]::NewGuid().ToString('N'))"
+        [System.IO.Directory]::CreateDirectory("$dir\営業\見積") | Out-Null
+        [System.IO.File]::WriteAllText("$dir\営業\見積\a.tsv", "a")
+        [System.IO.File]::WriteAllText("$dir\営業\見積\b.tsv", "b")
+
+        testAnyEntry ([System.IO.Directory]::EnumerateFiles((toLongPath $dir), $pattern, [System.IO.SearchOption]::AllDirectories)) $predicate | Should -Be $expected
+
+        # 途中でやめても、調べていた下のフォルダを掴んだまま残さない（すぐに移動できる）
+        { [System.IO.Directory]::Move("$dir\営業", "$dir\moved") } | Should -Not -Throw
+    }
+}
+
 Describe "writeTextLinesAtomic" -Tag Io {
     It "新しいファイルを作り、一時ファイルを残さない" {
         $path = "$TestDrive\atomic\新規.txt"
