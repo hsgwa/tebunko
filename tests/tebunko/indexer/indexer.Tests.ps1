@@ -13,6 +13,7 @@ BeforeAll {
     $runPath     = "${scriptsDir}\tebunko\indexer\indexer_run.ps1"
     $dataDirPath = "${scriptsDir}\shared\core\data_dir.ps1"
     $planPath    = "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
+    $reporterPath = "${scriptsDir}\tebunko\indexer\indexing_reporter.ps1"
     $docxSource  = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
     $pptxSource  = "${testDataDir}\office\PowerPoint\基本.pptx"
 
@@ -392,8 +393,8 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
 Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
     BeforeAll {
         $source = newSourceFolder "総務"
-        # 確認待ち（waitForIndexingApproval）の中で、画面の返事を置く
-        $approvalLine = @{ Script = $planPath; Pattern = '^\s+if \(!\$channel\.Answered\.WaitOne' }
+        # 確認待ち（IndexingReporter.WaitForApproval）の中で、画面の返事を置く
+        $approvalLine = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne' }
     }
 
     It "確認を待つとき（ConfirmTargets）、取りやめたら、取り込まずに 2 で終わる" {
@@ -442,7 +443,7 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @(@{ name = "総務"; path = $source; enabled = $true })
         # 1 件目を記録した直後に、画面が中止要求を作る
-        $stop = @{ Script = $runPath; Pattern = '^\s+addStatusRow \$row'; Action = { $channel.Stop = $true } }
+        $stop = @{ Script = $runPath; Pattern = '^\s+\$ledger\.AddRow\(\$row\)'; Action = { $channel.Stop = $true } }
 
         runIndexer $root @{} @($stop) | Should -Be 2
         $rows = @((readTestStatus $root).Rows.Values)

@@ -3,6 +3,8 @@
 . "$PSScriptRoot\..\lib.ps1"
 . "$PSScriptRoot\..\..\shared\office\office_reader.ps1"
 . "$PSScriptRoot\..\..\shared\office\office_app.ps1"
+. "$PSScriptRoot\pending_publish.ps1"
+. "$PSScriptRoot\indexing_reporter.ps1"
 . "$PSScriptRoot\indexer_plan.ps1"
 . "$PSScriptRoot\extract_office.ps1"
 . "$PSScriptRoot\index_migrate.ps1"

@@ -25,6 +25,7 @@ flowchart TB
 
 ## この区分のページ
 
+- [画面設計（現行。写真）](screens/index.md)
 - [状態と操作の流れ](state-flow.md)
 - [画面の共通の決まり](common.md)
 - [画面に出すメッセージの一覧](messages.md)

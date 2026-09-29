@@ -391,3 +391,74 @@ Describe "renameStatusIndexName / removeStatusIndexName" -Tag Io {
         @($status.Rows.Keys) -join "," | Should -Be "技術\b.docx"
     }
 }
+
+Describe "StatusLedger" -Tag Io {
+    BeforeAll {
+        # 場所を暗黙に使わないため、コンストラクタで渡す保存先（Workspace の代わりに、同じプロパティを持つ値で差し替える）
+        function newTestWorkspace([string]$dir) {
+            [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+            return [pscustomobject]@{ StatusFile = "$dir\取り込み一覧.tsv"; IngestingFile = "$dir\取り込み中.txt" }
+        }
+    }
+
+    It "ReadStatus / WriteStatus / AddRow は、渡した保存先（Workspace の StatusFile）を読み書きする" {
+        $ws = newTestWorkspace "$TestDrive\ledger1"
+        $ledger = [StatusLedger]::new($ws)
+        $ledger.WriteStatus(@([pscustomobject]@{ Path = "C:\data"; Name = "data" }), @((newStatusRow "data\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)))
+        $ledger.AddRow((newStatusRow "data\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"))
+
+        $status = $ledger.ReadStatus()
+        $status.Rows.Count | Should -Be 2
+        $status.Rows["data\b.xlsx"].状態 | Should -Be $stateDone
+        # 生の関数で読んでも同じ場所を指す
+        (readStatusFile $ws.StatusFile).Rows.Count | Should -Be 2
+    }
+
+    It "ReadIngestingFiles / WriteIngestingFiles / RemoveIngestingFile は、渡した保存先（IngestingFile）を読み書きする" {
+        $ws = newTestWorkspace "$TestDrive\ledger2"
+        $ledger = [StatusLedger]::new($ws)
+        $ledger.WriteIngestingFiles(@(@{ RelPath = "a.xlsx"; Count = 1 }))
+        $ledger.ReadIngestingFiles().Count | Should -Be 1
+        $ledger.RemoveIngestingFile()
+        Test-Path -LiteralPath $ws.IngestingFile | Should -Be $false
+        $ledger.ReadIngestingFiles().Count | Should -Be 0
+    }
+
+    It "RenameIndexName / RemoveIndexName は、renameStatusIndexName / removeStatusIndexName と同じ結果になる" {
+        $ws = newTestWorkspace "$TestDrive\ledger3"
+        $ledger = [StatusLedger]::new($ws)
+        $ledger.WriteStatus(@(
+            [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
+            [pscustomobject]@{ Path = "D:\tech"; Name = "技術" }
+        ), @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1"),
+            (newStatusRow "技術\b.docx" "2025/01/10 12:34:56" "1" $stateDone "1")
+        ))
+
+        $ledger.RenameIndexName("営業", "営業部")
+        $status = $ledger.ReadStatus()
+        $status.Folders[0].Name | Should -Be "営業部"
+        $status.Rows.ContainsKey("営業部\a.xlsx") | Should -Be $true
+
+        $ledger.RemoveIndexName("技術")
+        $status = $ledger.ReadStatus()
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Be @("営業部")
+    }
+
+    It "AddFailure / AddDropped は、今回の失敗・元ファイルが無くなった行を記録する（新しく作ったときは空）" {
+        $ws = newTestWorkspace "$TestDrive\ledger4"
+        $ledger = [StatusLedger]::new($ws)
+        $ledger.Failures.Count | Should -Be 0
+        $ledger.DroppedRows.Count | Should -Be 0
+
+        $ledger.AddFailure("営業\壊れた.pptx", "取り込みに失敗しました")
+        $ledger.Failures.Count | Should -Be 1
+        $ledger.Failures[0].RelPath | Should -Be "営業\壊れた.pptx"
+        $ledger.Failures[0].Message | Should -Be "取り込みに失敗しました"
+
+        $ledger.AddDropped("営業\消えた.xlsx")
+        $ledger.DroppedRows.Contains("営業\消えた.xlsx") | Should -Be $true
+        # 相対パスの大文字・小文字は区別しない（取り込み一覧と同じ比べ方）
+        $ledger.DroppedRows.Contains("営業\消えた.XLSX") | Should -Be $true
+    }
+}
