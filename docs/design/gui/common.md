@@ -53,6 +53,7 @@ flowchart TD
 - **コンソールの窓を残さない**：`tebunko.bat` は `start "" conhost.exe powershell ... -WindowStyle Hidden -Command "..."` で起動する。Windows 11 で既定のターミナルが Windows Terminal のとき（「Windows に任せる」の場合も含む）、コンソールの窓は Windows Terminal に渡され、Windows Terminal は `-WindowStyle Hidden` を無視する。そのため `conhost.exe` を通さないと、画面を閉じるまで PowerShell の窓（Windows Terminal のタブ）が開いたままになる。`conhost.exe` を通すと従来のコンソールで動き、`-WindowStyle Hidden` で窓が隠れる（起動の瞬間に一度だけ窓が見えることがある）。インデクサは画面のプロセスの中のスレッドで動くため（[プロセスとスレッド](../structure/threads.md)）、別の窓は開かない。
 - **インストーラー版**：`tebunko.exe` は `powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File <gui.ps1>` を、窓を作らずに（`CreateNoWindow`）起動する。インストーラーで入れたファイルには Mark-of-the-Web が付かないため、`tebunko.bat` の `Unblock-File` にあたる処理は要らない（`gui.ps1` も起動時に同じ解除を行う）。
 - **バッチの書式**：`tebunko.bat` は ASCII・CRLF で書く。cmd はコードページ（日本語環境は CP932）と改行に敏感で、UTF-8 の日本語コメントや LF 改行だと行が結合して起動の行がコメントに飲み込まれる不具合が出るため。説明コメントは英語にし、日本語の説明はこのページに置く。
+- **起動の失敗の知らせ方**：`gui.ps1` の画面が出る前に起動が失敗したとき（制限言語モード・実行ポリシー・ファイル不足など）、`tebunko.bat` は `& $gui` を `try`/`catch` で包んで理由を分け、Notepad で示す（WPF・WinForms のメッセージボックスが出せない場面があるため）。詳しくは安全性の[起動に失敗したときの知らせ](../../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)を参照。
 
 ## 確認ダイアログ（`showConfirm`）
 
@@ -84,7 +85,6 @@ sequenceDiagram
 - **文言の決まり**: 画面に出ない言葉（`TSV`・`work\content_index`・`取り込み一覧`）は書かない。利用者から見て何が消えて何が残るかだけを書く。「〜の場合は〜してください」という手順の説明は、結果ではなく補足に置く。
 - **使っている場面**: インデックスの［削除］（[［1 インデックス管理］タブ](index-tab.md)）、インデックス作成の中止・インデックス作成中に閉じる（[中止・終了・ログ](indexing-run.md#中止終了ログ)）、元のファイルが見つからないとき（[元のファイルが見つからないとき（元のフォルダを設定する）](open-file.md#元のファイルが見つからないとき元のフォルダを設定する)）、プロセスの終了（[終了の確認](process-tab.md#終了の確認)）。インデックス作成の確認（[インデックス作成の確認ダイアログ](indexing-run.md#インデックス作成の確認ダイアログ)）は、インデックスごとの件数を一覧で見せるため専用のダイアログにする。
 - 伝えるだけのダイアログ（エラー・警告・`OK` だけのもの）は、これまでどおり `showMessage`（`MessageBox`）で出す。
-
 
 ## フォルダ選択ダイアログ（［参照…］）
 
