@@ -6,6 +6,8 @@
 # インストーラー（Inno Setup のスクリプトと、起動口 tebunko.exe のソース）も Windows の道具が読むため CRLF にする
 *.iss text eol=crlf
 *.cs text eol=crlf
+# 起動に失敗したときの文言（tebunko.bat が読み込む）も同じ理由で CRLF にする
+scripts/tebunko/startup/*.txt text eol=crlf
 
 # git のフックは git for Windows の sh が読むため、LF で取り出す
 tools/hooks/* text eol=lf

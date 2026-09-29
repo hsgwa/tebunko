@@ -5,6 +5,50 @@
 #
 # このファイルは起動口。画面の中身は ui\ 配下と ..\shared\ui\ 配下に分けてある（下の読み込みの順に意味がある）。
 
+${appTitle} = "tebunko"
+
+# trap（下）が呼ぶ。実際に書けた記録のファイルだけを返す（writeErrorLog は書けなくても例外を出さないため）
+function getExistingRecordFile {
+    param (
+        [string]$path
+    )
+
+    if ($path -and (Test-Path -LiteralPath $path)) {
+        return $path
+    }
+    return $null
+}
+
+# trap（下）が呼ぶ。Add-Type（次の行）が制限言語モードなどで失敗しても呼べるよう、その前に定義しておく
+# （関数は trap と違って、実行がその行を通るまで定義されない）
+function writeStartupErrorFile {
+    # writeErrorLog がまだ使えない（app_host.ps1 を読み込む前）ときに起きた失敗を、固定の場所に追記する
+    # （置き場所は tebunko.bat と同じ。docs/safety/disclosure.md「起動に失敗したときの知らせ（tebunko.bat）」）。
+    # 制限言語モードでも動くよう、コマンドレットだけで書く（.NET のメソッドを呼ばない）。
+    # 書けなければ次の候補へ。すべて書けなければ $null を返す（そのときはメッセージボックスにファイル名を添えない）
+    param (
+        [string]$text
+    )
+
+    $candidates = @(
+        (Join-Path $env:LOCALAPPDATA "tebunko\startup_error.txt"),
+        (Join-Path $env:TEMP "tebunko_startup_error.txt")
+    )
+    foreach ($candidate in $candidates) {
+        try {
+            $dir = Split-Path -Parent $candidate
+            if (-not (Test-Path -LiteralPath $dir)) {
+                New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null
+            }
+            Add-Content -LiteralPath $candidate -Value $text -Encoding UTF8 -ErrorAction Stop
+            return $candidate
+        } catch {
+            continue
+        }
+    }
+    return $null
+}
+
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
 # ---- 起動中の表示 ----
@@ -55,18 +99,32 @@ try {
     Get-ChildItem -LiteralPath (Split-Path $PSScriptRoot -Parent) -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
 } catch { }
 
-${appTitle}    = "tebunko"
-
 trap {
-    # 記録できる状態（lib.ps1 の読み込み後）なら、内容をファイルにも残す
+    # 起きた例外は、この trap 自身の失敗（制限言語モードで MessageBox が出せない等）に備えて先に控えておく
+    $original = $_
+    $recordFile = $null
+    # 記録できる状態（app_host.ps1 の読み込み後で、writeErrorLog が使える）なら今までどおり画面エラー.txt に、無ければ固定の場所に記録する
     if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
-        writeErrorLog "起動・実行中" $_
+        writeErrorLog "起動・実行中" $original
+        $recordFile = getGuiErrorLogFile
+        # 実際に書けたときだけ、メッセージボックスに名前を添える
+        $recordFile = getExistingRecordFile $recordFile
+    } else {
+        $detail = "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') 起動・実行中 ====`r`nLanguageMode: $($ExecutionContext.SessionState.LanguageMode)`r`n$($original.Exception.Message)`r`n$($original.InvocationInfo.PositionMessage)`r`n`r`n"
+        $recordFile = writeStartupErrorFile $detail
     }
     if ($null -ne $script:splash) {
         $script:splash.Close()
     }
-    [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($_.Exception.Message)", ${appTitle}, "OK", "Error") | Out-Null
-    exit 1
+    $suffix = if ($recordFile) { "`n`n詳しい内容は $(Split-Path -Leaf $recordFile) に残しています。" } else { "" }
+    try {
+        [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($original.Exception.Message)${suffix}", ${appTitle}, "OK", "Error") | Out-Null
+        exit 1
+    } catch {
+        # メッセージボックスも出せない（制限言語モード・WPF が読めない）ときは、元の例外を投げ直す。
+        # tebunko.bat の catch か、tebunko.exe のエラー出力が受けて知らせる
+        throw $original
+    }
 }
 
 # 多重起動の判定と、壊れた設定ファイルの退避（下）に要る部品だけを先に読み込む。lib.ps1 は退避の後に読み込む
