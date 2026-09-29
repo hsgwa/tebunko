@@ -18,18 +18,6 @@ Describe "S5 テキストファイルの検索と表示" -Tag Gui {
         $script:tool = newGuiTool $TestDrive @{ targetFolders = @(@{ name = "資料"; path = $script:source; enabled = $true }) }
     }
 
-    AfterAll {
-        # ［開く］は利用者の既定のアプリ（メモ帳・サクラエディタ等）で実際にファイルを開く。プロセス名は環境で変わるため、
-        # ウィンドウの表題にファイル名が入っているものを探して閉じ、$TestDrive のファイルを掴んだままにしない
-        $opened = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like "*メモ.txt*" })
-        foreach ($p in $opened) {
-            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-        }
-        if ($opened.Count -gt 0) {
-            Start-Sleep -Milliseconds 500
-        }
-    }
-
     It "取り込み・検索結果の表示（行番号）・プレビュー・実在するファイルを開くが実機で動く" {
         $S = startGui $script:tool "S5"
         invokeGuiScene $S {
@@ -65,9 +53,16 @@ Describe "S5 テキストファイルの検索と表示" -Tag Gui {
             } | Out-Null
 
             setGuiStep $S "実在する元のファイルを開く"
+            # ［開く］は利用者の既定のアプリ（メモ帳・サクラエディタ等。環境で変わる）で実際に開く。名前・題名では
+            # ほかの利用者のアプリまで止めかねないため、押す前後の PID の差だけで新しく起動したものを見つける
+            # （既存のプロセスに開かれた場合は閉じない。閉じなくても $TestDrive の片付けは困らない）
+            $pidsBefore = @(Get-Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
             waitGuiEnabled $S (findGui $S.Window -Id "OpenButton") "［開く］"
             clickGui $S $S.Window "OpenButton" "［開く］"
             waitGui $S "ステータスが「開きました」になる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "開きました*" } | Out-Null
+            foreach ($p in @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $pidsBefore -notcontains $_.Id })) {
+                $S.Extra += $p
+            }
 
             setGuiStep $S "1 行が長いファイルの語を検索し、選んでも固まらない"
             & $search "ロングヒット"
