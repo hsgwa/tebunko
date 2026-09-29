@@ -577,7 +577,8 @@ function showIndexImportDialog {
     # script スコープの入れ物を参照する。GetNewClosure() でこの関数のローカル変数（$ctrl・$dialog）を
     # 取り込むと、tebunko.bat の起動（powershell -Command "...; & gui.ps1"）のように呼び出しが
     # 入れ子になっている実機では、閉じ込めたスクリプトブロックから名前で関数を解決できなくなるため
-    # （continueImportIndex で見つかった不具合と同じ原因。PR 本文の「再発防止」を参照）、ここでは使わない
+    # （continueImportIndex で見つかった不具合と同じ原因。docs\design\gui\responsiveness.md の
+    # 「画面を固まらせない待たせ方」の注意（PowerShell 5.1）を参照）、ここでは使わない
     $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl }
 
     $ctrl.BrowseButton.Add_Click({
