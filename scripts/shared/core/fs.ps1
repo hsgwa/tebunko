@@ -194,15 +194,12 @@ function removeDirectoryRetry {
 function moveDirectoryRetry {
     # フォルダを移動する。removeDirectoryRetry と同じ理由（ウイルス対策ソフト・エクスプローラーが、
     # 作ったばかり・書いたばかりのフォルダを一時的に掴んでいることがある）で、待つ時間を倍にしながら数回試す
-    # （削除より、掴まれている時間が長くかかることがあるため、既定の回数・最初の待ち時間を大きくしている）。
-    # 待つ時間は maxWaitMilliseconds で頭打ちにする（GitHub Actions の Windows ランナーは、手元の PC よりウイルス対策ソフトの
-    # 掴む時間が長いことがあり、倍にし続けるだけだと既定の回数では足りずに失敗することがあったため）
+    # （削除より、掴まれている時間が長くかかることがあるため、既定の回数・最初の待ち時間を大きくしている）
     param (
         [string]$source,
         [string]$destination,
-        [int]$tries = 10,
-        [int]$waitMilliseconds = 200,
-        [int]$maxWaitMilliseconds = 5000
+        [int]$tries = 5,
+        [int]$waitMilliseconds = 200
     )
 
     $longSource = toLongPath $source
@@ -217,7 +214,7 @@ function moveDirectoryRetry {
                 throw
             }
             Start-Sleep -Milliseconds $wait
-            $wait = [Math]::Min($wait * 2, $maxWaitMilliseconds)
+            $wait *= 2
         }
     }
 }
