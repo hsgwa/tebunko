@@ -4090,6 +4090,7 @@
 <li>a. クラスのメソッドから、同じランスペースのスクリプトの関数・<code>$script:</code> 変数が見えるか。ランスペースの無い .NET のスレッドからクラスのメソッドを呼べるか</li>
 <li>b. 関数の呼び出し・インスタンスのメソッドの呼び出し・静的メソッドの呼び出し・<code>$script:</code> 変数の読み・クラスのプロパティの読み・hashtable の読みの、1 回あたりの速さ（下の「速さ」）</li>
 <li>c. <code>CreateRunspace</code> で作ったランスペースの中でクラスを dot-source して使えるか。別のランスペースへ渡したインスタンスのメソッドは、どちらのランスペースの関数を呼ぶか</li>
+<li>d.（#147 で追加）Pester の <code>BeforeAll</code> で <code>lib.ps1</code> を dot-source したとき、テストファイルのトップレベルで定義したクラスのメソッドから、<code>lib.ps1</code> の関数と <code>$script:</code> 変数が見えるか</li>
 </ul>
 <pre class="mermaid"><code>flowchart TD
     A["別のランスペースへ&lt;br&gt;インスタンスを渡す"] --&gt; B{"そのインスタンスの&lt;br&gt;メソッドを呼ぶ"}
@@ -4121,6 +4122,10 @@
 <td>見えた（a）。試したのはスクリプトのトップで dot-source した場合だけ。PS のクラスのメソッドは、呼んだ側ではなく定義したスコープから関数を引くので、関数やスクリプトブロックの中（Pester の <code>BeforeAll</code>・<code>It</code> を含む）で定義した関数・変数、<code>Mock</code> で差し替えた関数はメソッドから見えないことがある（<code>tests/tebunko/indexer/extract_office.Tests.ps1</code> の先頭のコメントはこの場合に当たる）。関数の中で dot-source した場合・テストでの差し替えは試していない</td>
 </tr>
 <tr>
+<td><strong>クラスのメソッドの本体で、<code>$script:</code> 変数（<code>${stateDone}</code> などの定数）を直接読まない。</strong> 必要なら、その値を（司令などの普通の関数から）引数かコンストラクタで渡す。関数の呼び出し（引数の既定値が <code>$script:</code> 変数を読むものを含む）はそのまま使ってよい</td>
+<td>Pester の <code>BeforeAll</code> で <code>. lib.ps1</code> した場合、テストファイルのトップレベルのクラスのメソッドから<strong>関数は呼べた</strong>が、<strong><code>$script:</code> 変数の読みは空になった</strong>（<code>$script:stateDone</code> と書いても、<code>BeforeAll</code> の外の <code>$stateDone</code> とは値が食い違う。d）。関数の呼び出しなら、その関数自身のスコープ（呼んだ側ではなく定義側）で <code>$script:</code> 変数を読むため問題ない（<code>newStatusRow</code> の既定値 <code>${stateNew}</code> は読めた）。本番（<code>indexer.ps1</code> がトップレベルで <code>indexer_lib.ps1</code> を dot-source する経路）では問題にならないと見られるが、テストと本番で動きが食い違う原因になるため、クラスの本体では読まない決まりにする</td>
+</tr>
+<tr>
 <td>テストで差し替えたいもの（ファイル・COM・時刻などの I/O）は、メソッドの中で関数を呼んで <code>Mock</code> で差し替える形にせず、コンストラクタの引数かプロパティで受け取る（スクリプトブロックや部品のオブジェクト）</td>
 <td>上の行のとおり、メソッドの中の関数は <code>Mock</code> で差し替えられるとは限らない</td>
 </tr>
@@ -4131,6 +4136,14 @@
 <tr>
 <td>引数なしで作れるクラスは、既定のコンストラクタを明示する</td>
 <td><code>tests/meta/classes.Tests.ps1</code>（既にある決まり。ここから参照する）</td>
+</tr>
+<tr>
+<td>メソッドの中のローカル変数の名前は、プロパティの名前と大文字・小文字だけの違いにしない（<code>$Channel</code> プロパティがあれば <code>$channel</code> をローカル変数に使わない）</td>
+<td>PS のクラスは、プロパティと同名（大文字・小文字を区別しない）のローカル変数への代入を、<code>$this.</code> を付けないプロパティへの代入と見なし、パースエラーになる（<code>Cannot assign property, use '$this.Xxx'.</code>。#147 で見つかった）</td>
+</tr>
+<tr>
+<td>メソッドのパラメータに既定値（<code>$x = 60</code> など）を書いても、呼ぶ側が省略するとエラーになる（関数と違い、既定値は使われない）</td>
+<td><code>[T]::new().M(1)</code> が <code>Cannot find an overload</code> になった（#147 で確かめた）。呼ぶ側で必ず全部の引数を渡す</td>
 </tr>
 <tr>
 <td>スレッドやプールの寿命を持つクラスは <code>Open</code>（または最初の使用）でスレッドを作り、<code>Close</code> で止めて片づける。<code>Close</code> は何度呼んでもよい</td>
@@ -4203,7 +4216,7 @@
 <li>性能を落としていないかの判断は、この表ではなく取り込みの計測（<a href="../../testing/perf/">性能とリソースの計測のしかた</a> の「計測の口」）で、同じ日に main と比べて行う。</li>
 </ul>
 <h2 id="目的ごとのクラス">目的ごとのクラス<a class="headerlink" href="#目的ごとのクラス" title="Permanent link">&para;</a></h2>
-<p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。</p>
+<p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。<code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> は実装ずみ（#147）。残り 5 つは予定のまま。</p>
 <pre class="mermaid"><code>classDiagram
     class IndexCatalog
     class WorkspaceMover
@@ -4248,29 +4261,29 @@
 </tr>
 <tr>
 <td><code>StatusLedger</code></td>
-<td>取り込み一覧・取り込み中のファイル・失敗と消えたファイルの記録。列と状態の定義もここへ</td>
+<td>取り込み一覧・取り込み中のファイル・今回の失敗と消えたファイルの記録。改名・削除の書き換えもラップする。列と状態の定義（<code>core/paths.ps1</code>）は判断層・<code>index_store.ps1</code> なども読むため動かさない</td>
 <td>インデクサの司令のスレッド。画面が取り込み一覧を読むときは画面のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/indexer_state.ps1</code>（<code>lib.ps1</code>）</td>
-<td><code>indexer_state.ps1</code>、<code>core/paths.ps1</code> の列と状態、<code>invokeIndexerBody</code> の <code>$failures</code>・<code>$droppedRows</code></td>
-<td>取り込み一覧・状態ファイルの読み書きの部品（<code>indexer_state.ps1</code> の関数）、<code>Workspace</code></td>
+<td>実装ずみ。<code>ReadStatus</code>・<code>WriteStatus</code>・<code>AddRow</code>・<code>ReadIngestingFiles</code>・<code>WriteIngestingFiles</code>・<code>RemoveIngestingFile</code>・<code>RenameIndexName</code>・<code>RemoveIndexName</code>・<code>Failures</code>（プロパティ）・<code>DroppedRows</code>（プロパティ）。<code>getIndexNameMap</code>・<code>getIndexStats</code>（<code>index_store.ps1</code>）は読むだけの部品として外に残す</td>
+<td>取り込み一覧・状態ファイルの読み書きの部品（<code>indexer_state.ps1</code> の関数）、コンストラクタで受け取った <code>Workspace</code>（場所を暗黙に使わない）</td>
 </tr>
 <tr>
 <td><code>PendingPublish</code></td>
-<td>フォルダごとに取り込みの終わりを数え、本文インデックスに書き出してよいかを決める</td>
+<td>フォルダごとの取り込み中の数（Busy）とまだ渡していない数（Pending）を数え、どちらも 0 になったフォルダを本文インデックスに書き出してよいと決める</td>
 <td>司令のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/pending_publish.ps1</code>（<code>indexer_lib.ps1</code>）</td>
-<td><code>$script:pendingPublish</code>、<code>addPendingPublish</code>・<code>flushPendingPublish</code></td>
-<td>無い（数えて、書き出してよいフォルダを返すだけ）。取り込みの終わりは司令からデータで受け取り、書き出し（<code>publishIndexFiles</code>）は返した結果を見て司令が呼ぶ</td>
+<td>実装ずみ。<code>Add</code>・<code>MarkFolder</code>（書き出し待ちの記録）・<code>AddPending</code>・<code>Dispatch</code>・<code>Skip</code>・<code>Complete</code>（数える）・<code>TakeFlushable</code>・<code>TakeAll</code>（取り出す）</td>
+<td>ファイルの相対パスからフォルダを決める <code>getBookDir</code>（<code>indexer_plan.ps1</code>）。書き出し（<code>publishIndexFolders</code>）は <code>TakeFlushable</code> / <code>TakeAll</code> が返した結果を見て司令（<code>invokeIndexerBody</code> の中の <code>flushPending</code>）が呼ぶ</td>
 </tr>
 <tr>
 <td><code>IndexingReporter</code></td>
-<td>進み具合・ログ・画面の確認を待つこと。受け渡しの口（hashtable のまま）を持って書く</td>
+<td>進み具合の書き込みと、画面の確認を待つこと。受け渡しの口（hashtable のまま）を持って書く</td>
 <td>司令のスレッド</td>
 <td>状態層</td>
 <td><code>tebunko/indexer/indexing_reporter.ps1</code>（<code>indexer_lib.ps1</code>）</td>
-<td><code>writeIndexingProgress</code>、<code>$script:indexerLog</code>、確認待ち</td>
+<td>実装ずみ。<code>Progress</code>・<code>WaitForApproval</code>（<code>waitForIndexingApproval</code> だった処理）。段階（<code>${indexingPhase*}</code>）はクラスの本体で読まず、呼び出し元（司令）から引数で受け取る。ログ（<code>writeIndexerLog</code>・<code>$script:indexerLog</code>）は部品のまま、<code>IndexingReporter</code> には入れない</td>
 <td>受け渡しの口（hashtable）、ログの書き込みの部品</td>
 </tr>
 <tr>

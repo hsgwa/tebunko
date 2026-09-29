@@ -4118,7 +4118,7 @@
 <li>インデックス作成中は <code>[i/N] &lt;インデックス名&gt;\&lt;相対パス&gt;</code> を表示する。元ファイルのパスは、相対パスの先頭のインデックス名からクロール対象フォルダを引いて求める。</li>
 </ul>
 <h2 id="取り込み予定画面の確認に出す件数">取り込み予定（画面の確認に出す件数）<a class="headerlink" href="#取り込み予定画面の確認に出す件数" title="Permanent link">&para;</a></h2>
-<p>受け渡しの口の <code>ConfirmTargets</code>（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（<code>newIngestPlanRow</code>）、受け渡しの口の <code>Plan</code> に入れる（<code>waitForIndexingApproval</code>）。
+<p>受け渡しの口の <code>ConfirmTargets</code>（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（<code>newIngestPlanRow</code>）、受け渡しの口の <code>Plan</code> に入れる（<code>IndexingReporter.WaitForApproval</code>）。
 画面はこれを読んで確認のダイアログを出す（<a href="../../gui/indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。返事を受け取ったら <code>Plan</code> を外す。次の例は、1 行を列の順にタブで区切って並べたものである。</p>
 <div class="highlight"><pre><span></span><code>インデックス名 元のフォルダ  区分  ファイル数   取り込み対象  新規  更新あり    前回未完了   インデックスなし    前回失敗
 営業  C:\data\営業  取り込み    1234    12  5   7   0   0   3
