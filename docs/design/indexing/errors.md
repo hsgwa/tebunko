@@ -52,6 +52,10 @@ flowchart LR
 | `Word文書の本文（word/document.xml）がありません。` | `.docx` 等の ZIP の中に本文が無い（壊れている） | 同上 |
 | `PowerPointのプレゼンテーション情報（ppt/presentation.xml）がありません。` | `.pptx` 等の ZIP の中にプレゼンテーション情報が無い（壊れている） | 同上 |
 | `インデックスのファイル名が長すぎるため保存できません（<N> 文字。上限 255 文字）: <ファイル名>` | インデックスのファイル名 `<場所>.tsv`（場所は符号化する）が 255 文字を超える（`toIndexFileName`） | シート名・スライド名を短くする |
+| `読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）` | ◎ パスワード付きの `.xlsx` `.docx` `.doc` `.pptx` `.ppt`。新形式（`.docx` `.pptx`）は Word・PowerPoint を起動せずに判定して記録する（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）。Excel はパスワード付きでも Office に開かせ、下の (2) の言い換えで同じ文言になる | 取り込めない。パスワードを外したコピーを置けば取り込める |
+| `IRM・秘密度ラベルで暗号化されているため取り込めません。` | IRM・秘密度ラベルの暗号化（[[MS-OFFCRYPTO]](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/) の IRMDS）を検出し、Officeを起動せずに判定した（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)。ライセンス取得・サインイン画面が見えないまま出て止まりうるため開かない） | 取り込めない。保護を外したコピーを置けば取り込める |
+| `暗号化されているか壊れているため取り込めません。` | ZIPでもCFBでもなく、先頭4KBにNULを含む「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）。アプリごとの予備が無効・開けない・出力の確かめに失敗した場合 | 透過暗号化の製品でファイルを復号してから取り込む。製品の設定でPowerShellを許可アプリにできれば取り込めることがある |
+| `ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。` | Officeが保存した一時ファイル（変換した `.docx`・`.pptx`、[Excel](excel.md) のテキスト保存）まで透過暗号化の製品が暗号化した（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)の `testOfficeOutput`） | 同上 |
 
 **(2) 例外から `describeIngestError` が言い換えるもの**（判定条件は [失敗の原因](office-apps.md#失敗の原因describeingesterror)）
 
@@ -91,6 +95,8 @@ flowchart LR
 | `    <シート名> の使用範囲を縮められませんでした: <メッセージ>` | 使用範囲がデータよりずっと広いシートで、一時シートを作れなかった（ブックの構成が保護されている等。[Excel の抽出処理](excel.md#excel-の抽出処理extractworkbook)）。そのシートはそのまま書き出す（時間切れで失敗することがある） |
 | `    図形・コメントを読み取れませんでした: <メッセージ>` | 新形式（ZIP）のブックの図形・コメントを読めなかった（ZIP・XML が壊れている等。[Excel の図形・コメントの読み取り](excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）。セルの値は取り込む（図形・コメントの文字は検索できない） |
 | `    グラフ・SmartArt を読み取れませんでした: <部品名>` | 図形の中の 1 つのグラフ・SmartArt の部品（`xl/charts/chartN.xml`・`xl/diagrams/dataN.xml`）を読めなかった（XML が壊れている、「サイズの上限」を超える等。[グラフ・SmartArt の読み取り](excel.md#グラフsmartart-の読み取り)）。そのグラフ・SmartArt だけを空にし、同じ図形の中のほかの文字・ほかの図形・コメント・セルの値は取り込む |
+| `    予備の読み取りに失敗しました: <元のメッセージ>` | 「形式の分からないバイナリ」（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）を予備でWord・PowerPointに開かせたが失敗した。取り込み一覧には `暗号化されているか壊れているため取り込めません。` に言い換えて記録する |
+| `    暗号化の判定: <種類>` | 暗号化されたファイルの判定（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）で、`Password`（パスワード付き。新形式）・`Rights`（IRM・秘密度ラベル）・`Unknown`（形式の分からないバイナリ）のいずれかと判定した（`logProtectionKind`）。旧形式・ふつうのテキストとして開くもの（`Legacy`・`Text`）は書かない |
 | `    取り込みに失敗しました: <原因>` | 1 ファイルの取り込みに失敗した（原因は [ファイルごとの失敗（取り込み一覧のエラー列）](#ファイルごとの失敗取り込み一覧のエラー列) のメッセージ） |
 | `中止の要求を受けたため、インデックス作成を中止します。（残り <N> 件は次回取り込みします）` | 画面の［中止］が押された（終了コード `2`） |
 | `    <アプリ名> の終了に失敗しました: <メッセージ>` | Excel・Word・PowerPoint を終了できなかった。［9 プロセス停止］で終了する。**注**: 今の実装（`shared/office/office_app.ps1` の `Write-Host`）ではログに残らず、取り込みのスレッドからは表示もされない |

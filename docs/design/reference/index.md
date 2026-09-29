@@ -24,6 +24,8 @@ flowchart LR
 | ファイル | 主な関数 | 記載先 |
 |---|---|---|
 | `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits` / `writeUnits` | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexing/excel.md)、[Word](../indexing/word.md)、[PowerPoint](../indexing/powerpoint.md) |
+| `shared/office/office_protection_view.ps1`（判断層） | `getOfficeProtectionKind` / `getProtectionFailureText` / `testOfficeOutput` / `testWorkbookFormat` / `getWordOpenFormat` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
+| `shared/office/office_protection.ps1` | `readFileHead` / `readCompoundEntryNames` / `getOfficeFileProtection` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_app.ps1` | `getApp` / `getOwnSessionProcessIds` / `stopApp` / `stopAllApps` / `startWatchdog` / `stopWatchdog` | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#office-アプリexcelwordpowerpointの管理) |
 | `tebunko/indexer/indexer_plan.ps1` | `findOfficeFiles` / `createTargetList` | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist)、[インデックス作成のメインフロー](../indexing/flow.md) |
 | `tebunko/indexer/extract_office.ps1` | `ingestFile` / `extractWorkbook` / `extractDocument` | [Excel](../indexing/excel.md)、[Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-の抽出処理extractdocument) |

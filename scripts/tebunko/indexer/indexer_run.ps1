@@ -134,11 +134,11 @@ function invokeIngestTask {
         $result.Ok = $true
     } catch {
         $base = $_.Exception.GetBaseException()
-        if ($base -is [System.OperationCanceledException] -and $base.Message -eq ${officeRequiredMessage}) {
+        if (isOfficeRequiredException $_.Exception) {
             $result.Reroute = $true
             return $result
         }
-        if ($base -is [System.InvalidOperationException] -and $base.Message.EndsWith(${officeAppInUseMessage})) {
+        if (isOfficeAppInUseException $_.Exception) {
             # getApp が投げた例外。$script:apps に入っていないため stopApp は呼ばない
             $result.Postponed = $true
             return $result
@@ -148,8 +148,10 @@ function invokeIngestTask {
             $message = "${fileTimeoutMinutes} 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）"
         }
         $result.Message = $message
-        # アプリが不安定になっている可能性があるため終了する（次に必要になったときに起動し直す）
-        if (!$script:officeUnavailable) {
+        # アプリが不安定になっている可能性があるため終了する（次に必要になったときに起動し直す）。
+        # 暗号化の判定でOfficeにまだ触れていない失敗（throwProtectionFailure）は、終了させない
+        # （IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直さないため）
+        if (!$script:officeUnavailable -and !$base.Data.Contains("OfficeUntouched")) {
             try { stopApp (getAppName $task.RelPath) } catch {}
         }
     } finally {

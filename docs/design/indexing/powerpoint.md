@@ -20,11 +20,13 @@ flowchart TD
 
 | 項目 | 仕様 |
 |---|---|
-| 開く前の確認 | ファイルの先頭が複合ドキュメント形式（旧形式・パスワード付きの Office ファイル。`D0 CF 11 E0 A1 B1 1A E1`、`isCompoundFile`）でなければ、PowerPoint で開かずに失敗とする（`ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。`）。PowerPoint はテキストなどのファイルもアウトラインとして開いてしまい、文字化けした内容になるため（◎ テストデータの `PowerPoint\異常系\壊れたファイル.pptx`）。Word はテキスト・HTML・RTF も正しく読めるため、この確認はしない |
-| 開き方 | `Presentations.Open("パス::dummy::", ReadOnly=True, Untitled=False, WithWindow=False)` |
-| パスワード付きファイル | ファイル名末尾の `::<パスワード>::` により、ダイアログを出さずに例外 |
-| 保存 | `SaveAs(converted.pptx, 24 = ppSaveAsOpenXMLPresentation)` |
+| 開く前の確認 | 暗号化の種類（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）を判定する。パスワード付き（新形式）・IRM は、PowerPoint を起動せずに失敗にする。「Legacy」（旧形式・判定できないCFB）・「Text」（空・テキスト等）は、先頭が複合ドキュメント形式（`D0 CF 11 E0 A1 B1 1A E1`、`isCompoundFile`）でなければ、PowerPoint で開かずに失敗とする（`ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。`）。PowerPoint はテキストなどのファイルもアウトラインとして開いてしまい、文字化けした内容になるため（◎ テストデータの `PowerPoint\異常系\壊れたファイル.pptx`）。Word はテキスト・HTML・RTF も正しく読めるため、この確認はしない。「形式の分からないバイナリ」（`Unknown`）は、アプリごとの予備の切り替えが有効なときだけ、この確認をせずに開かせる |
+| 開き方 | `Presentations.Open("パス::dummy::", ReadOnly=True, Untitled=False, WithWindow=False)`。「形式の分からないバイナリ」も含め、拡張子は元のまま変えない（`.ppt` に付け替えるとアウトラインとして読むため） |
+| パスワード付きファイル（新形式） | [暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)で判定し、開かずに失敗にする。旧形式（`.ppt`）のパスワード付きは今までどおり、ファイル名末尾の `::<パスワード>::` により、ダイアログを出さずに例外 |
+| 保存 | `SaveAs(converted.pptx, 24 = ppSaveAsOpenXMLPresentation)`。保存した `.pptx` の先頭が ZIP でなければ「一時ファイルを暗号化した」に失敗にする（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)の `testOfficeOutput`） |
 | アプリの設定 | `DisplayAlerts = 1`（ppAlertsNone）、`AutomationSecurity = 3`。PowerPoint はウィンドウを隠せないため、ファイルをウィンドウ無しで開く |
+
+「形式の分からないバイナリ」で PowerPoint が数秒で例外にならない・ダイアログが出るとメンテナが判断した場合は、`${officeFallbackEnabled}` でこのアプリの予備を無効にする（[PowerPoint の注意点・既知の問題](known-issues.md#powerpoint-の注意点既知の問題)）。無効なときは、PowerPoint を起動せずに `暗号化されているか壊れているため取り込めません。` にする。
 
 ## PowerPoint のテキスト読み取りと TSV の場所（`readPptxUnits`）
 

@@ -806,13 +806,31 @@ Describe "runIngestWorker・invokeIngestTask（レーン）" -Tag Io {
 Describe "invokeIngestTask（Office が要る）" -Tag Io {
     # invokeIngestTask そのものを確かめるため、invokeIngestTask を Mock する上の Describe と分ける
     BeforeAll {
+        . "${scriptsDir}\shared\office\office_reader.ps1"
         . "${scriptsDir}\shared\office\office_app.ps1"
         . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
         . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
         . $runPath
+        . "$PSScriptRoot\..\..\helpers\cfb.ps1"
     }
 
     AfterEach { $script:officeUnavailable = $false }
+
+    It "読み取りのスレッドでIRMのファイルは、ingestFile を Mock せずに、回さず失敗として返す" {
+        ${tmpDir} = Join-Path $TestDrive "irm_reader_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $irmSource = Join-Path $TestDrive "irm-reader.docx"
+        newCompoundFile $irmSource @(@(([char]6 + "DataSpaces"), "DRMEncryptedDataSpace", "DRMEncryptedTransform"))
+        Mock getApp { throw "Office は使わない" }
+        $script:officeUnavailable = $true
+
+        $result = invokeIngestTask @{ RelPath = "資料\irm-reader.docx"; SourcePath = $irmSource } 10
+        $result.Ok | Should -Be $false
+        $result.Reroute | Should -Be $false
+        $result.Postponed | Should -Be $false
+        $result.Message | Should -Be "IRM・秘密度ラベルで暗号化されているため取り込めません。"
+        Should -Invoke getApp -Times 0 -Exactly -Scope It
+    }
 
     It "「Office が要る」の例外なら、失敗にせず回し直し（Reroute）として返し、Office も終了しない" {
         ${tmpDir} = Join-Path $TestDrive "reroute_tmp"
@@ -842,6 +860,27 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Message | Should -BeNullOrEmpty
         Should -Invoke stopApp -Times 0 -Exactly -Scope It
+    }
+
+    It "暗号化の判定でOfficeにまだ触れていない失敗（throwProtectionFailure）なら、失敗にするがOfficeは終了しない" {
+        ${tmpDir} = Join-Path $TestDrive "protection_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { throwProtectionFailure "テスト用の失敗" }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\irm.docx"; SourcePath = "C:\data\irm.docx" } 10
+        $result.Ok | Should -Be $false
+        $result.Message | Should -Be "テスト用の失敗"
+        Should -Invoke stopApp -Times 0 -Exactly -Scope It
+    }
+
+    It "ふつうの失敗では、今までどおりOfficeを終了する" {
+        ${tmpDir} = Join-Path $TestDrive "ordinary_fail_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { throw "ふつうの失敗です。" }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\ふつう.docx"; SourcePath = "C:\data\ふつう.docx" } 10
+        $result.Ok | Should -Be $false
+        Should -Invoke stopApp -Times 1 -Exactly -Scope It
     }
 }
 
