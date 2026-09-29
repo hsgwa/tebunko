@@ -358,6 +358,46 @@ Describe "setNotContentIndexed" -Tag Io {
         (setNotContentIndexed $dir -Recurse).Changed | Should -Be 0
     }
 
+    It "根に付いていれば、下に付いていないものがあっても変えない（下はたどらない）" {
+        $dir = "$TestDrive\nci\根に付いている"
+        writeListFile "$dir\a.tsv" @("a")
+        setNotContentIndexed $dir -Recurse | Out-Null
+        (hasAttr $dir) | Should -Be $true
+
+        # 新しく作った（WriteAllLines で作った）ものは根の属性を継ぐため、Move で入れて属性を継がせない
+        # （実装が「入れた直後にそれぞれの場所で付ける」ことに頼らず、根の属性だけで判断することを確かめる）
+        $src = "$TestDrive\nci\移す元\b.tsv"
+        writeListFile $src @("b")
+        [System.IO.File]::Move($src, "$dir\b.tsv")
+        (hasAttr "$dir\b.tsv") | Should -Be $false
+
+        $result = setNotContentIndexed $dir -Recurse
+        $result.Ok | Should -Be $true
+        $result.Changed | Should -Be 0
+        (hasAttr "$dir\b.tsv") | Should -Be $false
+    }
+
+    It "途中で失敗した回は根に付けない（次回また下からたどれるようにする）" {
+        $dir = "$TestDrive\nci\失敗した回"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
+        $locked.Create()
+        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
+        $acl = $locked.GetAccessControl("Access")
+        $acl.AddAccessRule($deny)
+        $locked.SetAccessControl($acl)
+        try {
+            $result = setNotContentIndexed $dir -Recurse
+            $result.Ok | Should -Be $false
+            (hasAttr $dir) | Should -Be $false
+        } finally {
+            $acl = $locked.GetAccessControl("Access")
+            [void]$acl.RemoveAccessRule($deny)
+            $locked.SetAccessControl($acl)
+        }
+    }
+
     It "隣のフォルダには付かない" {
         $dir = "$TestDrive\nci\隣"
         [System.IO.Directory]::CreateDirectory("$dir\対象") | Out-Null

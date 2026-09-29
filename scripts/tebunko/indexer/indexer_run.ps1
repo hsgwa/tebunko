@@ -394,7 +394,9 @@ function invokeIndexerBody {
 
     [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
     # 前の版から続けて使うワークスペース・別のドライブへ写したワークスペース・取り込んだワークスペースもここで付く
-    # （継ぐかどうかに頼らず、ここで一度だけ content_index 全体に付ける。入れた直後にはそれぞれの場所でも付ける）
+    # （継ぐかどうかに頼らず、ここで一度だけ content_index 全体に付ける。入れた直後にはそれぞれの場所でも付ける）。
+    # 根フォルダに未だ付いていない回（主に初回）は下をすべてたどるため時間がかかるので、先に 1 行残しておく
+    writeIndexerLog "content_index を Windows Search の対象から外しています…"
     $nci = setNotContentIndexed $workspace.IndexDir -Recurse
     if (!$nci.Ok) {
         writeIndexerLog "content_index を Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"

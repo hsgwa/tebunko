@@ -42,9 +42,9 @@ flowchart TD
 
 ## Windows Search の対象から外す（`NotContentIndexed`）
 
-`work/content_index` は、Windows Search の索引の対象から自動で外す（[高速検索（Windows Search）](../search/fast-search.md)）。フォルダ・ファイルに「内容のインデックスを作成しない」属性（`NotContentIndexed`）を `setNotContentIndexed`（`shared/core/fs.ps1`）で付ける。属性は継がない（`Directory.Move`・`File.Move` で入れたものは、親フォルダの属性を継がない）ため、継ぐかどうかに頼らず、次の 2 段構えで付ける。
+`work/content_index` は、Windows Search の索引の対象から自動で外す（[高速検索（Windows Search）](../search/fast-search.md)）。フォルダ・ファイルに「内容のインデックスを作成しない」属性（`NotContentIndexed`）を `setNotContentIndexed`（`shared/core/fs.ps1`）で付ける。新しく作った（`File.WriteAllText`・`Directory.CreateDirectory` など）ものは親フォルダの属性を継ぐが、`Directory.Move`・`File.Move` で入れたものは継がない（実測で確かめた）。継ぐかどうかに頼らず、次の 2 段構えで付ける。
 
-- **インデックス作成の始め（1 回・`-Recurse`）**: `content_index` を作った直後（`indexer_run.ps1`）に、フォルダ全体へ付ける。前の版から続けて使うワークスペース・別のドライブへ写したワークスペース（`copyDirectoryTree` は属性を写さない）・取り込んだワークスペースも、ここで付く。
+- **インデックス作成の始め（1 回・`-Recurse`）**: `content_index` を作った直後（`indexer_run.ps1`）に、フォルダ全体へ付ける。根フォルダに既に付いていれば（前回すべて付け終えて根まで付いたとみなし）下はたどらず、`GetAttributes` 1 回だけで終える。付いていなければ下のすべてに付け、すべて成功したときにだけ最後に根へ付ける（列挙・付与の途中で失敗した回は根に付けず、次回もう一度下からたどり直す）。前の版から続けて使うワークスペース・別のドライブへ写したワークスペース（`copyDirectoryTree` は属性を写さない）・取り込んだワークスペースも、ここで付く。
 - **入れた直後（そのつど・`-Recurse` なし）**: 元のファイルごとのフォルダを入れたとき（`publishIndexFiles`）・本文インデックスを書いたとき（`publishIndexFolders`。フォルダごと）・`元のフォルダ.txt` を書いたとき（`writeSourceFolderFile`。画面からインデックス一覧を保存したときも含む）に、その分だけへ付ける。始めの 1 回だけでは、初回の大きな取り込みの途中で入れたものが Windows Search に索引されてしまうため。
 
 `system_index`・ワークスペースのほかのファイル・クロール対象フォルダには付けない。付けられなかったとき（共有フォルダでアクセス権が無いなど）は、インデックス作成を止めず、始めの 1 回だけログに 1 行残す（`content_index を Windows Search の対象から外せませんでした（…）。高速検索が効くまで時間がかかることがあります。`）。入れた直後の 3 か所は、件数が多くログがあふれるため、失敗してもログに出さない。
