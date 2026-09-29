@@ -529,11 +529,10 @@ Describe "openSource" -Tag Unit {
         Mock getCurrentHitRow { newRow "議事メモ.txt" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\議事メモ.txt" }
         Mock openWithShell { $false }
-        Mock Invoke-Item { }
 
         openSource ${openModeReadOnly}
-        Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq "C:\data\議事メモ.txt" }
-        Should -Invoke openWithShell -Times 0 -Exactly
+        # 選んだ開き方（読み取り専用）ではなく、常に通常の開き方で openWithShell を呼ぶ（動詞を試さない）
+        Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\議事メモ.txt" -and $mode -eq ${openModeNormal} }
         lastStatus | Should -Be "開きました：C:\data\議事メモ.txt"
     }
 }

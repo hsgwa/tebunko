@@ -110,10 +110,17 @@ function findTargetFiles {
     $scanned = @(Get-ChildItem -LiteralPath (toLongPath $root) -Recurse -File -ErrorAction SilentlyContinue -ErrorVariable scanErrors |
         Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
 
-    # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）
-    $excludeDirPrefixes = @(getTebunkoExcludeDirs $scanned | ForEach-Object { (toLongPath $_).TrimEnd("\") })
+    # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）。
+    # このクロール対象フォルダの外にあるものは、どのファイルにも当たらないため先に落とす（比べる数を減らす）
+    $longRootPrefix = (toLongPath $root).TrimEnd("\")
+    $excludeDirPrefixes = @(getTebunkoExcludeDirs $scanned | ForEach-Object { (toLongPath $_).TrimEnd("\") } | Where-Object {
+        $_.Equals($longRootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or $_.StartsWith("$longRootPrefix\", [System.StringComparison]::OrdinalIgnoreCase)
+    })
     $files = @($scanned | Where-Object {
-        -not (testUnderAnyDir $_.FullName $excludeDirPrefixes) -and -not (testTebunkoOwnFileName $_.Name)
+        if ($excludeDirPrefixes.Count -gt 0 -and (testUnderAnyDir $_.FullName $excludeDirPrefixes)) { return $false }
+        # 名前で分かる tebunko のファイル（content_index.*.tsv 等）は、テキストの拡張子にしか当たらないため、それだけ調べる
+        if ((testTextExtension $_.Name) -and (testTebunkoOwnFileName $_.Name)) { return $false }
+        return $true
     })
 
     return @{ Root = $root; Files = $files; HasError = (@($scanErrors).Count -gt 0) }

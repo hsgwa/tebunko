@@ -29,16 +29,6 @@ function searchPackFiles {
     $mark = [char]0x1E
     $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
     $mode = if ($null -eq $textRegex) { "scan" } else { $scanMode }
-    # 元のファイル名ごとに、テキストの拡張子（ヒットの行を切る対象）かどうかを覚えておく（同じ本の中で何度も調べ直さない）
-    $textKindCache = New-Object 'System.Collections.Generic.Dictionary[string,bool]' ([System.StringComparer]::OrdinalIgnoreCase)
-    function testHitLineBook([string]$book) {
-        $isText = $false
-        if (!$textKindCache.TryGetValue($book, [ref]$isText)) {
-            $isText = ((getPackFileKind $book) -eq "テキスト")
-            $textKindCache[$book] = $isText
-        }
-        return $isText
-    }
     for ($i = $start; $i -lt $end; $i++) {
         $pack = $packs[$i]
         $text = $null
@@ -104,6 +94,8 @@ function searchPackFiles {
                 $p = 0            # 今の場所（places の番号）
                 $number = 0       # 今の場所で、pos までに数えた行の数
                 $pos = -1         # 行を数え終えた位置（-1 は場所が変わったので数え直し）
+                $lastP = -1       # 直前に判定した場所の番号（isTextBook を場所が変わったときだけ判定し直す）
+                $isTextBook = $false
                 $m = $textRegex.Match($text)
                 while ($m.Success) {
                     $index = $m.Index
@@ -120,6 +112,10 @@ function searchPackFiles {
                     while ($p -lt $places.Count -and $places[$p].End -le $lineStart) { $p++; $pos = -1 }
                     if ($p -ge $places.Count) { break }
                     $place = $places[$p]
+                    if ($p -ne $lastP) {
+                        $isTextBook = ((getPackFileKind $place.Book) -eq "テキスト")
+                        $lastP = $p
+                    }
                     $skip = ($include -and !$include.IsMatch($place.Book)) -or ($exclude -and $exclude.IsMatch($place.Book)) -or
                         ($excludePlace -and $excludePlace.IsMatch($place.Location))
                     if ($skip) {
@@ -137,7 +133,7 @@ function searchPackFiles {
                     }
                     $pos = $lineStart
                     $line = $text.Substring($lineStart, $lineEnd - $lineStart)
-                    if (testHitLineBook $place.Book) {
+                    if ($isTextBook) {
                         $line = truncateHitLine $line ($index - $lineStart)
                     }
                     $hits.Add([pscustomobject]@{
@@ -159,7 +155,7 @@ function searchPackFiles {
             if ($include -and !$include.IsMatch($place.Book)) { continue }
             if ($exclude -and $exclude.IsMatch($place.Book)) { continue }
             if ($excludePlace -and $excludePlace.IsMatch($place.Location)) { continue }
-            $isTextBook = testHitLineBook $place.Book
+            $isTextBook = ((getPackFileKind $place.Book) -eq "テキスト")
             $number = 0
             $pos = $place.Start
             while ($pos -lt $place.End) {

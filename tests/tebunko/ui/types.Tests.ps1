@@ -618,18 +618,25 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         [IndexNode]::LongPath("\\?\C:\index") | Should -Be "\\?\C:\index"
     }
 
-    It "IsBookDir は Office ファイルのインデックスのフォルダ名を見分ける" -TestCases @(
+    It "IsBookDir は Office・テキストのファイルのインデックスのフォルダ名を見分ける" -TestCases @(
         @{ name = "見積.xlsx"; expected = $true }
         @{ name = "見積.XLS"; expected = $true }
         @{ name = "議事録.docx"; expected = $true }
         @{ name = "資料.pptm"; expected = $true }
         @{ name = "営業部"; expected = $false }
-        @{ name = "memo.txt"; expected = $false }
+        @{ name = "memo.txt"; expected = $true }
+        @{ name = "memo.MD"; expected = $true }
+        @{ name = "memo.json"; expected = $true }
         @{ name = "a.xlsxx"; expected = $false }
         @{ name = "a.xl"; expected = $false }
+        @{ name = "a.pdf"; expected = $false }
     ) {
         param ($name, $expected)
         [IndexNode]::IsBookDir($name) | Should -Be $expected
+    }
+
+    It "IsBookDir のテキストの拡張子の一覧は textExtensions と同じ" {
+        (@([IndexNode]::TextExtensions) | Sort-Object) -join "," | Should -Be ((@(${textExtensions}) | Sort-Object) -join ",")
     }
 
     It "IsBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（集約ファイル・サブフォルダがある）を見分ける" {

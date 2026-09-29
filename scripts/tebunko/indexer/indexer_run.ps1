@@ -449,7 +449,7 @@ function invokeIndexerBody {
         } else {
             writeIndexerLog "  [$($folder.Name)] $($folder.Path)"
             # 大きいフォルダ・ネットワーク越しでは時間がかかるため、どのフォルダを見ているかを画面に伝える
-            $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "[$($folder.Name)] のOfficeファイルを探しています… $($folder.Path)")
+            $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "[$($folder.Name)] の対象ファイルを探しています… $($folder.Path)")
             $list = createTargetList $folder $previous $indexCounts
             $rows.AddRange($list.Rows)
             $targets.AddRange($list.Targets)

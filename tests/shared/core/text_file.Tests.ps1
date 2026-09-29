@@ -48,6 +48,27 @@ BeforeAll {
     function toShiftJisBytes([string]$text) {
         return , ([System.Text.Encoding]::GetEncoding(932).GetBytes($text))
     }
+
+    function newNulPairBytes {
+        param (
+            [int]$pairs,
+            [int]$evenNul,
+            [int]$oddNul
+        )
+
+        $bytes = New-Object byte[] ($pairs * 2)
+        for ($i = 0; $i -lt $pairs; $i++) {
+            $bytes[$i * 2] = if ($i -lt $evenNul) { 0 } else { 0x41 }
+            $bytes[$i * 2 + 1] = if ($i -lt $oddNul) { 0 } else { 0x42 }
+        }
+        return , $bytes
+    }
+
+    function toUtf8Bytes([string]$text, [bool]$bom = $false) {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+        if ($bom) { return , (@(0xEF, 0xBB, 0xBF) + $bytes) }
+        return , $bytes
+    }
 }
 
 Describe "testTextExtension" -Tag Unit {
@@ -94,6 +115,72 @@ Describe "detectTextEncoding" -Tag Unit {
     It "壊れた UTF-8（不正なバイト列。NUL は無い）→ Shift_JIS" {
         $bytes = toShiftJisBytes "日本語のテスト"
         detectTextEncoding $bytes | Should -Be "ShiftJIS"
+    }
+}
+
+Describe "decodeTextBytes" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "UTF-8（BOM 無し）"; bytes = (toUtf8Bytes "あ"); encodingName = "UTF8"; expected = "あ" }
+        @{ name = "UTF-8（BOM 付き。BOM を取り除く）"; bytes = (toUtf8Bytes "あ" $true); encodingName = "UTF8"; expected = "あ" }
+        @{ name = "UTF-16LE（BOM 付き。BOM を取り除く）"; bytes = (toUtf16LeBytes "あ" $true); encodingName = "UTF16LE"; expected = "あ" }
+        @{ name = "UTF-16LE（BOM 無し）"; bytes = (toUtf16LeBytes "あ"); encodingName = "UTF16LE"; expected = "あ" }
+        @{ name = "UTF-16BE（BOM 付き。BOM を取り除く）"; bytes = (toUtf16BeBytes "あ" $true); encodingName = "UTF16BE"; expected = "あ" }
+        @{ name = "UTF-16BE（BOM 無し）"; bytes = (toUtf16BeBytes "あ"); encodingName = "UTF16BE"; expected = "あ" }
+    ) {
+        param ($name, $bytes, $encodingName, $expected)
+        $text = decodeTextBytes $bytes $encodingName
+        $text | Should -Be $expected
+        ([int][char]$text[0]) | Should -Not -Be 0xFEFF
+    }
+
+    It "Shift_JIS" {
+        (decodeTextBytes (toShiftJisBytes "あ") "ShiftJIS") | Should -Be "あ"
+    }
+}
+
+Describe "readTextFile" -Tag Io {
+    BeforeAll {
+        function writeBytesFile([byte[]]$bytes) {
+            $path = Join-Path $TestDrive ("f_" + [guid]::NewGuid().ToString("N") + ".txt")
+            [System.IO.File]::WriteAllBytes($path, $bytes)
+            return $path
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "UTF-8（BOM 無し）"; bytes = (toUtf8Bytes "1行目`r`n2行目`r`n") }
+        @{ name = "UTF-8（BOM 付き。BOM が先頭行に残らない）"; bytes = (toUtf8Bytes "1行目`r`n2行目`r`n" $true) }
+        @{ name = "UTF-16LE（BOM 付き。BOM が先頭行に残らない）"; bytes = (toUtf16LeBytes "1行目`r`n2行目`r`n" $true) }
+        @{ name = "UTF-16LE（BOM 無し。ASCII を含む）"; bytes = (toUtf16LeBytes "1line`r`n2line`r`n") }
+        @{ name = "UTF-16BE（BOM 付き。BOM が先頭行に残らない）"; bytes = (toUtf16BeBytes "1行目`r`n2行目`r`n" $true) }
+        @{ name = "UTF-16BE（BOM 無し。ASCII を含む）"; bytes = (toUtf16BeBytes "1line`r`n2line`r`n") }
+    ) {
+        param ($name, $bytes)
+        $lines = readTextFile (writeBytesFile $bytes)
+        $lines.Count | Should -Be 2
+        $lines[0] | Should -BeIn @("1行目", "1line")
+        $lines[1] | Should -BeIn @("2行目", "2line")
+        ([int][char]$lines[0][0]) | Should -Not -Be 0xFEFF
+    }
+
+    It "Shift_JIS のファイルを行の並びとして読める" {
+        $lines = readTextFile (writeBytesFile (toShiftJisBytes "1行目`r`n2行目`r`n"))
+        $lines | Should -Be @("1行目", "2行目")
+    }
+
+    It "CRLF・LF・CR が混ざったファイルの N 行目が、元の N 行目のまま読める（途中の空行も残る）" {
+        $lines = readTextFile (writeBytesFile (toUtf8Bytes "1行目`r`n2行目`n3行目`r4行目`n`n6行目`n"))
+        $lines | Should -Be @("1行目", "2行目", "3行目", "4行目", "", "6行目")
+    }
+
+    It "大きさの上限（差し替えた小さい値）を超えるファイルは、決めた文言で失敗にする" {
+        $path = writeBytesFile (toUtf8Bytes "12345678")
+        { readTextFile $path 4 } | Should -Throw "ファイルサイズが大きすぎるため取り込めません。"
+    }
+
+    It "バイナリと判定したファイルは、決めた文言で失敗にする" {
+        $path = writeBytesFile (newNulPairBytes 10 5 5)
+        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
     }
 }
 

@@ -41,7 +41,7 @@ function readPackText {
 function testIndexBookDir {
     # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。集約ファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
-    #   ・名前が Office の拡張子で終わる（indexBookDirPattern）
+    #   ・名前が Office・テキストの拡張子で終わる（indexBookDirPattern）
     #   ・サブフォルダも集約ファイル（content_index.<拡張子>.tsv）も無い
     #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、集約ファイルに入れるものが無い）
     # 読めないフォルダは $false（集約ファイルに入れる・消す対象にしない）
