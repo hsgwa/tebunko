@@ -3920,6 +3920,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="取り込み一覧・状態ファイル・画面との受け渡しの口（tebunko/indexer/indexer_state.ps1）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#statusledgerindexer_stateps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StatusLedger（indexer_state.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pendingpublish新規-tebunkoindexerpending_publishps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PendingPublish（新規 tebunko/indexer/pending_publish.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#indexingreporter新規-tebunkoindexerindexing_reporterps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IndexingReporter（新規 tebunko/indexer/indexing_reporter.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4058,6 +4097,45 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="取り込み一覧・状態ファイル・画面との受け渡しの口（tebunko/indexer/indexer_state.ps1）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#statusledgerindexer_stateps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StatusLedger（indexer_state.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pendingpublish新規-tebunkoindexerpending_publishps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PendingPublish（新規 tebunko/indexer/pending_publish.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#indexingreporter新規-tebunkoindexerindexing_reporterps1司令のスレッドで作る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IndexingReporter（新規 tebunko/indexer/indexing_reporter.ps1。司令のスレッドで作る）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -4277,6 +4355,138 @@
 <td>取り込み一覧の状態ごとの件数など</td>
 <td><a href="../search/#元のファイルの特定画面">続き</a></td>
 <td>画面</td>
+</tr>
+</tbody>
+</table>
+<h3 id="statusledgerindexer_stateps1司令のスレッドで作る">StatusLedger（<code>indexer_state.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#statusledgerindexer_stateps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
+<p>インデクサの司令（<code>invokeIndexerBody</code>）が、コンストラクタで受け取った <code>Workspace</code> の <code>StatusFile</code>・<code>IngestingFile</code> を読み書きする。メソッドは、上の表の同じ処理をする関数をそのまま呼ぶ（列と状態の定義は <code>core/paths.ps1</code> のまま動かさない）。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド／プロパティ</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ReadStatus</code> / <code>WriteStatus</code> / <code>AddRow</code></td>
+<td>– / folders, rows / row</td>
+<td><code>readStatusFile</code> と同じ / – / –</td>
+<td><code>readStatusFile</code>・<code>writeStatusFile</code>・<code>addStatusRow</code> を呼ぶ</td>
+</tr>
+<tr>
+<td><code>ReadIngestingFiles</code> / <code>WriteIngestingFiles</code> / <code>RemoveIngestingFile</code></td>
+<td>– / entries / –</td>
+<td><code>readIngestingFiles</code> と同じ / – / –</td>
+<td>取り込み中のファイルの記録を読み書き・削除する</td>
+</tr>
+<tr>
+<td><code>RenameIndexName</code> / <code>RemoveIndexName</code></td>
+<td>oldName, newName / name</td>
+<td>–</td>
+<td><code>renameStatusIndexName</code> / <code>removeStatusIndexName</code> を呼ぶ</td>
+</tr>
+<tr>
+<td><code>Failures</code>（プロパティ）・<code>AddFailure</code></td>
+<td>relPath, message</td>
+<td>–</td>
+<td>今回の取り込みで失敗したファイル（<code>@{RelPath; Message}</code> の並び）を集める</td>
+</tr>
+<tr>
+<td><code>DroppedRows</code>（プロパティ）・<code>AddDropped</code></td>
+<td>relPath</td>
+<td>–</td>
+<td>取り込みの直前に元のファイルが無くなった相対パスを集める</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pendingpublish新規-tebunkoindexerpending_publishps1司令のスレッドで作る">PendingPublish（新規 <code>tebunko/indexer/pending_publish.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#pendingpublish新規-tebunkoindexerpending_publishps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
+<p>フォルダごとの取り込み中の数とまだ渡していない数を数え、本文インデックスに書き出してよいフォルダを決めて返すだけ（書き出し <code>publishIndexFolders</code> は司令が呼ぶ）。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Add</code></td>
+<td>relPath, removed</td>
+<td>–</td>
+<td>取り込んだ・無くなった元のファイルのフォルダを書き出し待ちにする（<code>removed</code> なら、そのファイル名も記録する）</td>
+</tr>
+<tr>
+<td><code>MarkFolder</code></td>
+<td>folder</td>
+<td>–</td>
+<td>前回のインデックス作成で本文インデックスに入れていないフォルダを、無くなったファイルの記録無しで書き出し待ちにする</td>
+</tr>
+<tr>
+<td><code>AddPending</code></td>
+<td>folder</td>
+<td>–</td>
+<td>取り込み対象を数えるとき、そのファイルの分だけ「まだ渡していない数」を 1 つ足す</td>
+</tr>
+<tr>
+<td><code>Dispatch</code></td>
+<td>folder</td>
+<td>–</td>
+<td>ファイルを 1 つ渡す（まだ渡していない数を 1 減らし、取り込み中の数を 1 増やす）</td>
+</tr>
+<tr>
+<td><code>Skip</code></td>
+<td>folder</td>
+<td>–</td>
+<td>ファイルを 1 つ、渡さずに済ませる（元のファイルが無くなった等。まだ渡していない数だけ減らす）</td>
+</tr>
+<tr>
+<td><code>Complete</code></td>
+<td>folder</td>
+<td>–</td>
+<td>取り込み中のファイルが 1 つ終わる（成功・失敗・後回しのどれでも。取り込み中の数を 1 減らす）</td>
+</tr>
+<tr>
+<td><code>TakeFlushable</code></td>
+<td>–</td>
+<td>フォルダ → 無くなったファイル名の集まり（<code>Dictionary[string,object]</code>）</td>
+<td>取り込み中・まだ渡していない数がどちらも 0 のフォルダを、書き出し待ちから取り出して返す</td>
+</tr>
+<tr>
+<td><code>TakeAll</code></td>
+<td>–</td>
+<td>同上</td>
+<td>取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて取り出す（インデックス作成の終わり）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="indexingreporter新規-tebunkoindexerindexing_reporterps1司令のスレッドで作る">IndexingReporter（新規 <code>tebunko/indexer/indexing_reporter.ps1</code>。司令のスレッドで作る）<a class="headerlink" href="#indexingreporter新規-tebunkoindexerindexing_reporterps1司令のスレッドで作る" title="Permanent link">&para;</a></h3>
+<p>受け渡しの口（<code>newIndexerChannel</code>）を持ち、進み具合を書く・画面の確認を待つ。段階（<code>${indexingPhase*}</code>）はメソッドの中で読まず、呼び出し元（司令）から引数で受け取る。ログ（<code>writeIndexerLog</code>・<code>$script:indexerLog</code>）は部品のまま、このクラスには入れない。</p>
+<table>
+<thead>
+<tr>
+<th>メソッド</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Progress</code></td>
+<td>phase, processed, remaining, failed, detail</td>
+<td>–</td>
+<td><code>writeIndexingProgress</code> を呼ぶ</td>
+</tr>
+<tr>
+<td><code>WaitForApproval</code></td>
+<td>phase, plan, targetCount, failedCount, timeoutMinutes</td>
+<td><code>@{RetryFailed}</code> / <code>$null</code></td>
+<td>取り込む内容を画面に渡し、開始の返事を待つ（旧 <code>indexer_plan.ps1</code> の <code>waitForIndexingApproval</code>）</td>
 </tr>
 </tbody>
 </table>

@@ -4049,7 +4049,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_plan.ps1</code></td>
-<td><code>findOfficeFiles</code> / <code>createTargetList</code> / <code>waitForIndexingApproval</code></td>
+<td><code>findOfficeFiles</code> / <code>createTargetList</code></td>
 <td><a href="../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>、<a href="../indexing/flow/">インデックス作成のメインフロー</a></td>
 </tr>
 <tr>
@@ -4063,8 +4063,18 @@
 <td><a href="../indexing/crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
 </tr>
 <tr>
+<td><code>tebunko/indexer/pending_publish.ps1</code></td>
+<td><code>PendingPublish</code>（<code>Add</code> / <code>MarkFolder</code> / <code>AddPending</code> / <code>Dispatch</code> / <code>Skip</code> / <code>Complete</code> / <code>TakeFlushable</code> / <code>TakeAll</code>）</td>
+<td><a href="../index-data/publish/">入れ替えと書き出し</a>「本文インデックスへの書き出し」、<a href="../indexing/parallel/">取り込みの並列化</a></td>
+</tr>
+<tr>
+<td><code>tebunko/indexer/indexing_reporter.ps1</code></td>
+<td><code>IndexingReporter</code>（<code>Progress</code> / <code>WaitForApproval</code>）</td>
+<td><a href="../indexing/flow/">インデックス作成のメインフロー</a>、<a href="../indexing/target-decision/#取り込み予定画面の確認に出す件数">取り込み対象の決定</a></td>
+</tr>
+<tr>
 <td><code>tebunko/indexer/indexer_run.ps1</code></td>
-<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>getIngestLaneCapacity</code> / <code>newIngestPool</code> / <code>addIngestTask</code> / <code>receiveIngestResult</code> / <code>stopIngestWorkers</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>flushPendingPublish</code></td>
+<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>getIngestLaneCapacity</code> / <code>newIngestPool</code> / <code>addIngestTask</code> / <code>receiveIngestResult</code> / <code>stopIngestWorkers</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>flushPending</code></td>
 <td><a href="../indexing/flow/">インデックス作成のメインフロー</a>、<a href="../indexing/parallel/">取り込みの並列化</a></td>
 </tr>
 <tr>

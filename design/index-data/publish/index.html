@@ -4123,7 +4123,7 @@
 <li>削除は、ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す（<code>removeDirectoryRetry</code>）。</li>
 </ul>
 <h2 id="本文インデックスへの書き出しpublishindexfolders">本文インデックスへの書き出し（<code>publishIndexFolders</code>）<a class="headerlink" href="#本文インデックスへの書き出しpublishindexfolders" title="Permanent link">&para;</a></h2>
-<p>取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（<code>indexer/indexer_run.ps1</code> の <code>addPendingPublish</code>）、<strong>そのフォルダに取り込み中のファイルも、まだ取り込みのスレッドに渡していないファイルも無くなったとき</strong>（結果を 1 つ受け取るたびに調べる。<a href="../../indexing/parallel/">取り込みの並列化</a>）と、<strong>インデックス作成の終わり</strong>（中止したときも。<code>finally</code>）に、それまでのフォルダをまとめて書き出す（<code>flushPendingPublish</code> → <code>publishIndexFolders</code>）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ本文インデックスのファイルを書き直すことになるため。フォルダごとに次を続けて行う。</p>
+<p>取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（<code>indexer/pending_publish.ps1</code> の <code>PendingPublish.Add</code>）、<strong>そのフォルダに取り込み中のファイルも、まだ取り込みのスレッドに渡していないファイルも無くなったとき</strong>（結果を 1 つ受け取るたびに調べる。<a href="../../indexing/parallel/">取り込みの並列化</a>）と、<strong>インデックス作成の終わり</strong>（中止したときも。<code>finally</code>）に、それまでのフォルダをまとめて書き出す（<code>indexer_run.ps1</code> の <code>flushPending</code>（<code>PendingPublish.TakeFlushable</code> / <code>TakeAll</code>）→ <code>publishIndexFolders</code>）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ本文インデックスのファイルを書き直すことになるため。フォルダごとに次を続けて行う。</p>
 <pre class="mermaid"><code>flowchart TD
     P(["書き出し待ちのフォルダ&lt;br&gt;（フォルダ → 無くなった元のファイル名）"]) --&gt; A["1. 本文インデックスを書く（updateIndexFolderPack）&lt;br&gt;TSV のある元のファイル: TSV の中身で入れ替える&lt;br&gt;無くなった元のファイル: 外す&lt;br&gt;それ以外: 前の本文インデックスからそのまま写す"]
     A --&gt; B["拡張子ごとに #lt;名前#gt;.tmp に書いてから置き換える&lt;br&gt;（File.Replace。元のファイルが無くなった拡張子の本文インデックスのファイルは消す）"]

@@ -4375,7 +4375,7 @@
     I-&gt;&gt;C: Plan（writeIndexingProgress）
     C--&gt;&gt;G: readIndexingProgress
     G-&gt;&gt;C: Answer（answerIndexingPlan）
-    C--&gt;&gt;I: waitForIndexingApproval が検知
+    C--&gt;&gt;I: IndexingReporter.WaitForApproval が検知
     loop 1 秒ごと
         I-&gt;&gt;C: Progress
         C--&gt;&gt;G: readIndexingProgress
@@ -4417,7 +4417,7 @@
 <td>Plan・Answer・Answered</td>
 <td>インデクサ → 画面（<code>answerIndexingPlan</code>） → インデクサ</td>
 <td>両方</td>
-<td>取り込み予定と、利用者の返事。インデクサは <code>Answered</code>（<code>ManualResetEvent</code>）で待つ（<code>waitForIndexingApproval</code>。60 分で取りやめる）</td>
+<td>取り込み予定と、利用者の返事。インデクサは <code>Answered</code>（<code>ManualResetEvent</code>）で待つ（<code>IndexingReporter.WaitForApproval</code>。60 分で取りやめる）</td>
 </tr>
 <tr>
 <td>Error・ExitCode</td>
