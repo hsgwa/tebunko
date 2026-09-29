@@ -1,0 +1,5 @@
+﻿tebunko could not start. Constrained Language Mode.
+
+この PC では、許可されていないスクリプトが制限されている（制限言語モード）ため、tebunko は動きません。
+情報システム部門に、tebunko を置いたフォルダを許可するよう相談してください。相談には、次の資料を添えてください。
+https://hsgwa.github.io/tebunko/safety/

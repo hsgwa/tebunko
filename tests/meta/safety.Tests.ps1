@@ -140,6 +140,13 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
+    It "tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ（起動に失敗したときだけ notepad.exe を開く）" {
+        $bat = [System.IO.File]::ReadAllText($launcher)
+        $names = @([regex]::Matches($bat, '\b[A-Za-z0-9_]+\.exe\b') | ForEach-Object { $_.Value.ToLowerInvariant() } | Sort-Object -Unique)
+        (@($names | Where-Object { $_ -notin @("conhost.exe", "powershell.exe", "notepad.exe") }) -join ", ") | Should -Be ""
+        ($names -contains "notepad.exe") | Should -Be $true
+    }
+
     It "プロセスの強制終了は office_process.ps1 の 1 か所だけ（画面の［9 プロセス停止］）" {
         $stops = @($code | Where-Object { $_.Text -match 'Stop-Process' })
         $stops.Count | Should -Be 1
@@ -222,6 +229,15 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko\\\$\{PID\}"') | Should -Not -Be ""
         (findPattern $paths '\$this\.PublishDir\s*=\s*"\$dir\\') | Should -Not -Be ""
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should -Not -Be ""
+    }
+
+    It "起動に失敗したときの記録の置き場所は、固定の %LOCALAPPDATA%\tebunko・%TEMP% 配下だけ（gui.ps1・tebunko.bat）" {
+        $guiCode = @($code | Where-Object { $_.File -eq "gui.ps1" })
+        (findPattern $guiCode 'Join-Path\s+\$env:LOCALAPPDATA\s+"tebunko\\startup_error\.txt"') | Should -Not -Be ""
+        (findPattern $guiCode 'Join-Path\s+\$env:TEMP\s+"tebunko_startup_error\.txt"') | Should -Not -Be ""
+        $bat = [System.IO.File]::ReadAllText($launcher)
+        ($bat -match "Join-Path\s+\`$env:LOCALAPPDATA\s+'tebunko\\startup_error\.txt'") | Should -Be $true
+        ($bat -match "Join-Path\s+\`$env:TEMP\s+'tebunko_startup_error\.txt'") | Should -Be $true
     }
 
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {

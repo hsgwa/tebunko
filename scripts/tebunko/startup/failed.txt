@@ -1,0 +1,4 @@
+﻿tebunko could not start.
+
+tebunko を起動できませんでした。
+この記録を添えて、問い合わせてください。
