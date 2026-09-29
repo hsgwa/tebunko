@@ -2615,6 +2615,8 @@
       
         
       
+        
+      
     
     
     
@@ -3059,6 +3061,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3822,7 +4049,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_plan.ps1</code></td>
-<td><code>findOfficeFiles</code> / <code>createTargetList</code> / <code>waitForIndexingApproval</code></td>
+<td><code>findOfficeFiles</code> / <code>createTargetList</code></td>
 <td><a href="../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>、<a href="../indexing/flow/">インデックス作成のメインフロー</a></td>
 </tr>
 <tr>
@@ -3836,8 +4063,18 @@
 <td><a href="../indexing/crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
 </tr>
 <tr>
+<td><code>tebunko/indexer/pending_publish.ps1</code></td>
+<td><code>PendingPublish</code>（<code>Add</code> / <code>MarkFolder</code> / <code>AddPending</code> / <code>Dispatch</code> / <code>Skip</code> / <code>Complete</code> / <code>TakeFlushable</code> / <code>TakeAll</code>）</td>
+<td><a href="../index-data/publish/">入れ替えと書き出し</a>「本文インデックスへの書き出し」、<a href="../indexing/parallel/">取り込みの並列化</a></td>
+</tr>
+<tr>
+<td><code>tebunko/indexer/indexing_reporter.ps1</code></td>
+<td><code>IndexingReporter</code>（<code>Progress</code> / <code>WaitForApproval</code>）</td>
+<td><a href="../indexing/flow/">インデックス作成のメインフロー</a>、<a href="../indexing/target-decision/#取り込み予定画面の確認に出す件数">取り込み対象の決定</a></td>
+</tr>
+<tr>
 <td><code>tebunko/indexer/indexer_run.ps1</code></td>
-<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>getIngestLaneCapacity</code> / <code>newIngestPool</code> / <code>addIngestTask</code> / <code>receiveIngestResult</code> / <code>stopIngestWorkers</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>flushPendingPublish</code></td>
+<td><code>invokeIndexer</code> / <code>invokeIndexerBody</code> / <code>getIngestWorkerCount</code> / <code>getIngestLaneCapacity</code> / <code>newIngestPool</code> / <code>addIngestTask</code> / <code>receiveIngestResult</code> / <code>stopIngestWorkers</code> / <code>runIngestWorker</code> / <code>invokeIngestTask</code> / <code>flushPending</code></td>
 <td><a href="../indexing/flow/">インデックス作成のメインフロー</a>、<a href="../indexing/parallel/">取り込みの並列化</a></td>
 </tr>
 <tr>

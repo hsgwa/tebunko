@@ -2615,6 +2615,8 @@
       
         
       
+        
+      
     
     
     
@@ -3059,6 +3061,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3825,8 +4052,20 @@
 <td>Excel はすべて Excel のレーン、旧形式の Word・PowerPoint は Office のレーン、新形式は読み取りのレーン。読み取りのレーンから回し直すときは、PowerPoint のファイルは PowerPoint、それ以外は Word のレーン</td>
 </tr>
 <tr>
-<td><code>createTargetList</code> / <code>findOfficeFiles</code> / <code>waitForIndexingApproval</code></td>
-<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（本文インデックスから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む）</td>
+<td><code>createTargetList</code> / <code>findOfficeFiles</code></td>
+<td>新規・更新あり・前回未完了・インデックスなし・前の抽出版は取り込み対象、更新の無い取り込み済み・前回失敗は対象外、元のファイルが無くなったらインデックスと行を消す（本文インデックスから外すよう <code>Removed</code> で返す）、アクセスできないフォルダがあったときは行とインデックスを残す</td>
+</tr>
+<tr>
+<td><code>StatusLedger</code>（<code>indexer_state.Tests.ps1</code>）</td>
+<td>コンストラクタで渡した <code>Workspace</code> の場所を読み書きする（既存の関数と同じ結果）、今回の失敗・元ファイルが無くなった行を集める</td>
+</tr>
+<tr>
+<td><code>PendingPublish</code>（<code>pending_publish.Tests.ps1</code>）</td>
+<td>取り込んだ・無くなったファイルの記録、取り込み中・まだ渡していないファイルが 1 つでもあるフォルダは取り出さない、無くなれば取り出せる、一度取り出したフォルダは消える</td>
+</tr>
+<tr>
+<td><code>IndexingReporter</code>（<code>indexing_reporter.Tests.ps1</code>）</td>
+<td>進み具合を受け渡しの口に書く、画面の返事を受け渡しの口で待つ（返事は別のスレッドから渡す。中止・前に残った返事・制限時間を含む）</td>
 </tr>
 <tr>
 <td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>removeDroppedFolders</code></td>
