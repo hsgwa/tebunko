@@ -11,7 +11,9 @@ Describe "S5 テキストファイルの検索と表示" -Tag Gui {
         $script:envBefore = getGuiEnvSnapshot
         $script:source = Join-Path $TestDrive "元のフォルダ\資料"
         [void][System.IO.Directory]::CreateDirectory($script:source)
-        [System.IO.File]::WriteAllText("$($script:source)\メモ.txt", "1行目`r`n検索語のある行`r`n3行目`r`n", (New-Object System.Text.UTF8Encoding($false)))
+        # ファイル名に他と重ならない GUID を入れる（既定のアプリで開いたときのウィンドウの題名で見分けるため）
+        $script:memoName = "メモ-$([Guid]::NewGuid().ToString("N")).txt"
+        [System.IO.File]::WriteAllText("$($script:source)\$($script:memoName)", "1行目`r`n検索語のある行`r`n3行目`r`n", (New-Object System.Text.UTF8Encoding($false)))
         # 1 行が長い .json（1,000 文字を超え、切って表示する対象になる長さ）
         $filler = "a" * 2000
         [System.IO.File]::WriteAllText("$($script:source)\big.json", ('{"k":"' + $filler + 'ロングヒット' + $filler + '"}'), (New-Object System.Text.UTF8Encoding($false)))
@@ -53,14 +55,26 @@ Describe "S5 テキストファイルの検索と表示" -Tag Gui {
             } | Out-Null
 
             setGuiStep $S "実在する元のファイルを開く"
-            # ［開く］は利用者の既定のアプリ（メモ帳・サクラエディタ等。環境で変わる）で実際に開く。名前・題名では
-            # ほかの利用者のアプリまで止めかねないため、押す前後の PID の差だけで新しく起動したものを見つける
-            # （既存のプロセスに開かれた場合は閉じない。閉じなくても $TestDrive の片付けは困らない）
+            # ［開く］は利用者の既定のアプリ（メモ帳・サクラエディタ等。環境で変わる）で実際に開く。「自分が起動した
+            # ものだけを止める」ため、押す前後で増えた PID であることと、ウィンドウの題名に他と重ならないファイル名
+            # （GUID 入り）が入っていることの両方が揃うものだけを $S.Extra に入れる（既存のプロセスで開かれた・
+            # 当たるものが無い場合は閉じない。メモ帳はファイルを掴まないので $TestDrive の片付けは困らない）
             $pidsBefore = @(Get-Process -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
             waitGuiEnabled $S (findGui $S.Window -Id "OpenButton") "［開く］"
             clickGui $S $S.Window "OpenButton" "［開く］"
             waitGui $S "ステータスが「開きました」になる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "開きました*" } | Out-Null
-            foreach ($p in @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $pidsBefore -notcontains $_.Id })) {
+            # 起動したアプリがウィンドウの題名を設定するまで少し掛かるので、当たるものが出るまで数秒だけ調べ直す
+            # （タイムアウトしても失敗にはしない。当たるものが無ければ、そのまま閉じずに次へ進んでよい）
+            $matchSw = [Diagnostics.Stopwatch]::StartNew()
+            $matched = @()
+            while ($matchSw.Elapsed.TotalSeconds -lt 5) {
+                $matched = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+                    ($pidsBefore -notcontains $_.Id) -and ($_.MainWindowTitle -like "*$($script:memoName)*")
+                })
+                if ($matched.Count -gt 0) { break }
+                Start-Sleep -Milliseconds 200
+            }
+            foreach ($p in $matched) {
                 $S.Extra += $p
             }
 
