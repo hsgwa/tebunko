@@ -635,10 +635,6 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         [IndexNode]::IsBookDir($name) | Should -Be $expected
     }
 
-    It "IsBookDir のテキストの拡張子の一覧は textExtensions と同じ" {
-        (@([IndexNode]::TextExtensions) | Sort-Object) -join "," | Should -Be ((@(${textExtensions}) | Sort-Object) -join ",")
-    }
-
     It "IsBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（集約ファイル・サブフォルダがある）を見分ける" {
         $dir = "$TestDrive\bookdir_path"
         newTsv "$dir\資料.xlsx\content_index.docx.001.tsv" @("x")

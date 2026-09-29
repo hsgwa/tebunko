@@ -13,20 +13,65 @@ flowchart TD
     A["extractDocument(パス)"] --> CP["作業領域に source.#lt;拡張子#gt; としてコピー<br>（copyFileShared。元のファイルを占有しない）"]
     CP --> Z{"コピーの先頭が<br>ZIP のシグネチャ（PK）？"}
     Z -- はい --> R["コピーをそのまま読む（6.4〜6.6）<br>readDocxUnits / readPptxUnits"]
-    Z -- "いいえ<br>（旧形式・パスワード付き・<br>拡張子と中身が異なる）" --> PC{"PowerPoint で、先頭が<br>複合ドキュメント形式でない？"}
+    Z -- いいえ --> K{"暗号化の種類<br>（下の「暗号化されたファイルの判定」）"}
+    K -- "Password・Rights" --> ERR2["Officeを使わずに失敗<br>（throwProtectionFailure）"]
+    K -- "Unknown（形式の分からないバイナリ）" --> FB{"アプリごとの<br>予備の切り替えが有効？"}
+    FB -- いいえ --> ERR2
+    FB -- はい --> C2["拡張子は変えず、Wordは形式を固定して開く<br>（Format はテキスト自動判定にしない）"]
+    C2 --> O2{"開けた？"}
+    O2 -- いいえ --> ERR3["元の例外をログに書き、<br>『暗号化されているか壊れている』に言い換えて失敗"]
+    O2 -- はい --> S2["converted.docx / converted.pptx として保存"]
+    K -- "Legacy・Text（旧形式・空・RTF・HTML等）" --> PC{"PowerPoint で、先頭が<br>複合ドキュメント形式でない？"}
     PC -- はい --> ERR
     PC -- いいえ --> C["コピーの名前を source.doc / source.ppt に変える"]
     C --> O{"Word / PowerPoint で開く<br>（4.5 / 4.6）"}
     O -- "開けない<br>（パスワード付き等）" --> ERR["例外 → 取り込み一覧に『失敗』と記録"]
     O -- 開けた --> S["converted.docx / converted.pptx として保存"]
-    S --> R2["保存したファイルを読む（6.4〜6.6）"]
+    S & S2 --> OC{"出力の先頭がZIP？<br>（testOfficeOutput）"}
+    OC -- いいえ --> ERR4["『ファイルを暗号化する製品が<br>一時ファイルを暗号化した』に失敗"]
+    OC -- はい --> R2["保存したファイルを読む（6.4〜6.6）"]
     R & R2 --> W["writeUnits: 場所ごとに<br>#lt;場所#gt;.tsv を作業領域に出力<br>（空の場所は出力しない）"]
     W --> D["作業領域のコピー・変換したファイルを削除（finally）"]
 ```
 
 - 元のファイルは直接読まず、先に作業領域へコピーする（Excel と同じく `copyFileShared`。[Excel](excel.md) の補足）。ZIP を直接開くと、読んでいる間ほかのアプリの書き込みを拒否するうえ、利用者が編集中（書き込みで開いている）のファイルは共有違反で読めないため。
-- コピーに旧形式の拡張子を付けてから開くのは、Word・PowerPoint が拡張子と中身が異なるファイル（中身が `.doc` の `.docx` 等）を開けないため。
-- パスワード付きの `.docx` `.pptx` は暗号化されて ZIP ではなくなるため、この経路で Word・PowerPoint に開かせ、例外として取り込み一覧に「失敗」と記録する。
+- ZIP でないコピーは、開く前に**暗号化の種類**を判定する（下の「暗号化されたファイルの判定」）。パスワード付き（新形式）・IRM は Word・PowerPoint を起動せずに失敗にする。旧形式・テキストらしい内容は今までどおり開く。
+- コピーに旧形式の拡張子を付けてから開くのは、Word・PowerPoint が拡張子と中身が異なるファイル（中身が `.doc` の `.docx` 等）を開けないため。「形式の分からないバイナリ」（下記）は拡張子を変えない。
+- パスワード付きの `.docx` `.pptx` は、Word・PowerPointを起動せずに失敗にする（下記）。Excel はパスワード付きでもそのまま `Workbooks.Open` に任せる（[Excel](excel.md) の判定）。
+
+## 暗号化されたファイルの判定（`office_protection.ps1`・`office_protection_view.ps1`）
+
+直接読み（ZIP）が開けないファイルを Office で開く前に、ファイルを開かず（Office を使わず）先頭バイト列と、複合ドキュメント形式（CFB。[[MS-CFB]](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cfb/)）のディレクトリのエントリ名だけで種類を見分ける。パスワード付き・IRM・秘密度ラベルの暗号化は、Office を起動するとダイアログ・サインイン画面が見えないまま出て止まりうるため、開く前に見分けて避ける。
+
+判断層（`scripts/shared/office/office_protection_view.ps1`）が種類・文言を決め、状態層（`scripts/shared/office/office_protection.ps1`）がファイルの先頭バイト列（`readFileHead`）と CFB のディレクトリのエントリ名（`readCompoundEntryNames`）を読む。判断層はファイル・COM に触らないためテストが書ける（[単体テスト（Officeまわり）](../testing/unit-office.md)）。
+
+| 種類 | 見分け方（開かずに） | 扱い | 取り込み一覧のエラー列 |
+|---|---|---|---|
+| `Zip` | 先頭が ZIP のシグネチャ（`PK 03 04`） | 直接読む（今と同じ） | – |
+| `Password` | CFB で `StrongEncryptionDataSpace`・`EncryptionInfo` のいずれかを持つ | **Word・PowerPointはOfficeを起動せずに失敗**（Excel は今までどおり `Workbooks.Open` に任せる。既定のパスワードで暗号化されたブックを開けなくしないため） | `読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）` |
+| `Rights` | CFB で権限保護の名前（下表）のいずれかを持つ。または `\x06DataSpaces`（データスペース）はあるが、権限保護・パスワードの名前を1つも取りこぼした場合（安全側に倒す） | **Officeを起動せずに失敗**（ライセンス取得・サインイン画面を防ぐ） | `IRM・秘密度ラベルで暗号化されているため取り込めません。` |
+| `Legacy` | CFB で、上のどれでもない（旧形式 `.doc` `.xls` `.ppt`、CFB のディレクトリが読めなかった壊れたファイルを含む） | 今と同じ（Officeで開く。ダミーのパスワードで失敗） | 今と同じ |
+| `Text` | ZIPでもCFBでもなく、先頭4KBにNUL（`0x00`）を含まない（空・RTF・HTML・UTF-8・UTF-16のBOM付きを含む） | 今と同じ（Officeで開く） | – |
+| `Unknown` | ZIPでもCFBでもなく、先頭4KBにNULを含む（透過暗号化の製品の暗号文の見込み） | **予備**: アプリごとの切り替え（`${officeFallbackEnabled}`）が有効なら、拡張子を変えずに（Wordは`Format`も拡張子に合わせて固定して）Officeに開かせる。無効・開けない・出力の確かめに失敗したら、Officeを使わず（または使ってしまった分は元の例外をログに書いて）失敗にする | `暗号化されているか壊れているため取り込めません。` |
+
+権限保護（IRM・秘密度ラベル）の CFB のエントリ名（[[MS-OFFCRYPTO]](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/) の IRMDS）:
+
+| 形式 | 名前 |
+|---|---|
+| 新形式 | `DRMEncryptedDataSpace`・`DRMEncryptedTransform`（`\x06DataSpaces` の配下） |
+| 旧形式 | `\x09DRMContent`（必須）・`\x09DRMDataSpace`・`\x09DRMTransform`（任意で `\x09DRMViewerContent`・`\x09LZXDRMDataSpace`・`\x09LZXTransform`） |
+
+（`\x06`・`\x09` は制御文字 0x06・0x09 で始まる名前を表す）
+
+- **CFBのディレクトリの読み取り（`readCompoundEntryNames`）は、壊れたファイルでも例外を出さず、決まった時間で戻る**。FATの鎖が輪になる・範囲外のセクターを指す・ディレクトリが途中で切れる、のいずれでも、たどった鎖を打ち切って読めた分だけを返す（読めなければ `$null`。判断層は `$null` を `Legacy` として扱う）。ミニFAT・ストリームの中身は読まない（エントリ名だけが目的のため）。
+- **Officeの出力も確かめる**（`testOfficeOutput`）。透過暗号化の製品が、Officeの保存した一時ファイル（変換した `.docx`・`.pptx`、[Excel](excel.md) のテキスト保存）まで暗号化することがあるため、種類によらずすべての出力で先頭バイト列（ZIP・UTF-16のBOM）を確かめる。合わなければ `ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。` にする。
+- **予備で開くときの守り**（`Unknown` のときだけ。固まらない・暗号文を索引に入れない）:
+  - Word: `Documents.Open` の `Format` を拡張子に合う `WdOpenFormat` の値に固定する（`getWordOpenFormat`。自動判定に任せると文字コードを選ぶダイアログが出ることがある）。
+  - Excel: 開いた後の `Workbook.FileFormat` がテキスト・HTML・CSV等でないことを確かめる（`testWorkbookFormat`）。`Text`（中身がHTMLの `.xls` 等）には当てない。
+  - PowerPoint: 拡張子を変えずに開く（`.ppt` に変えるとアウトラインとして読むため）。
+  - 実機で数秒以内に例外にならない・ダイアログが出るアプリは、`${officeFallbackEnabled}` でそのアプリの予備を無効にする（[Word・PowerPointの注意点・既知の問題](known-issues.md)）。
+- **判定で失敗にしたときは、Officeの起動し直し（`stopApp`）を呼ばない**（`throwProtectionFailure` が例外の `Data` に印を付け、`invokeIngestTask` がそれを見る）。IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直さないため。Officeを一度使ってから失敗にしたとき（予備で開けた後に出力が合わない等）は、今までどおり起動し直す。
+- Excel は、コピーが ZIP でないときにこの判定を呼ぶ（[Excel の抽出処理](excel.md#excel-の抽出処理extractworkbook)）。読み取りのスレッド（Office を持たない）では、`Password`・`Rights` はその場で失敗にし、`Unknown`（予備が有効なとき）は今の旧形式と同じく Office のレーンに回し直す。
 
 > **[Word の旧形式の変換](word.md#word-の旧形式の変換extractwithword) Word の旧形式の変換（`extractWithWord`）** → [Word の旧形式の変換](word.md#word-の旧形式の変換extractwithword)
 

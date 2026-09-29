@@ -208,6 +208,12 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         $txt = "$work\system_index\人事\2025\${systemIndexFileName}"
         [System.IO.File]::Exists($txt) | Should -Be $true
         (readSystemIndexState $state).Pending["人事\2025\${systemIndexFileName}"] | Should -Be ([System.IO.File]::GetLastWriteTimeUtc($txt).Ticks)
+        # 書き出したフォルダと集約ファイルに NotContentIndexed が付く（システムインデックス側には付けない）
+        ([System.IO.File]::GetAttributes("$index\人事") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$index\人事\content_index.xlsx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$index\人事\2025") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$index\人事\2025\content_index.docx.001.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes($txt) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
     }
 
     It "名前が .xlsx などで終わる本物のフォルダ・中身が空のファイルのフォルダは、集約する前の TSV と取り違えない" {

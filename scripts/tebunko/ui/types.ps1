@@ -604,10 +604,6 @@ class SearchExclude {
 # 検索対象インデックスのツリーの1項目。3状態チェック（true/false/null）は子・親の状態から決まる。
 # チェックはツリーのチェックボックスの Click で Toggle() を呼んで変える（TwoWay バインドはしない）
 class IndexNode : NotifyBase {
-    # 元のファイルごとのフォルダと分かる、テキストの拡張子の一覧（shared\core\text_file.ps1 の $textExtensions と同じ）。
-    # クラスのメソッドからはスクリプトの変数が見えないため、ここに直接持つ（テストでそろっていることを確かめる）
-    static [string[]] $TextExtensions = @(".txt", ".csv", ".tsv", ".md", ".log", ".json", ".xml")
-
     [string]$Name
     [string]$Root
     [string]$RelPath
@@ -786,13 +782,13 @@ class IndexNode : NotifyBase {
 
     static [bool] IsBookDir([string]$name) {
         # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4〜5 文字）で見分け、
-        # テキストは決まった拡張子の一覧（TextExtensions）で見分ける
+        # テキストは対象の拡張子の一覧（shared\core\text_file.ps1 の testTextExtension。一覧はそこにだけある）で見分ける
         $ext = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
         if ($ext.Length -ge 4 -and $ext.Length -le 5 -and
             ($ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt"))) {
             return $true
         }
-        return [IndexNode]::TextExtensions -contains $ext
+        return (testTextExtension $name)
     }
 
     static [bool] IsBookDirPath([string]$dir) {

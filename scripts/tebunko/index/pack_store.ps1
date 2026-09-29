@@ -272,6 +272,8 @@ function publishIndexFolders {
     $results = New-Object System.Collections.Generic.List[hashtable]
     foreach ($folder in @($pending.Keys)) {
         $pack = updateIndexFolderPack $folder ([string[]]@($pending[$folder]))
+        # 書いた集約ファイルは、フォルダごとに書いた直後にここで NotContentIndexed を付ける（件数が多いため失敗してもログに出さない）
+        [void](setNotContentIndexed $folder)
         $results.Add((writeSystemIndexFolder $folder $indexRoot $systemRoot $pack.Texts))
     }
     if ($results.Count -gt 0) {
