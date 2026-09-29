@@ -422,6 +422,11 @@ function openFoundSource {
         } finally {
             $window.Cursor = $null
         }
+    } elseif ($row.IsText) {
+        # テキストは既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
+        # 動詞を試さずにそのまま開く。行への移動はしない
+        Invoke-Item -LiteralPath $path
+        setStatus "開きました：${path}"
     } elseif (openWithShell $path $mode) {
         setStatus "${how}：${path}"
     } else {

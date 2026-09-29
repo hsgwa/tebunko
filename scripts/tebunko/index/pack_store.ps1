@@ -323,6 +323,7 @@ function readPackContext {
     } catch [System.UnauthorizedAccessException] {
         return @()
     }
+    $isTextBook = (getPackFileKind $book) -eq "テキスト"
     foreach ($place in $places) {
         if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
         $number = 0
@@ -333,7 +334,12 @@ function readPackContext {
             $number++
             if ($number -gt $last) { break }
             if ($number -ge $first) {
-                $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $text.Substring($pos, $n - $pos) })
+                $line = $text.Substring($pos, $n - $pos)
+                if ($isTextBook) {
+                    # 前後の行はどこが一致したかが分からないため、先頭から切る
+                    $line = truncateHitLine $line -1
+                }
+                $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $line })
             }
             $pos = $n + 1
         }

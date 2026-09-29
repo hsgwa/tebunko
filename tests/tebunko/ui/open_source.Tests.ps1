@@ -81,12 +81,13 @@ BeforeAll {
     function newRow {
         param (
             [string]$book = "見積.xlsx",
-            [bool]$isExcel = $true
+            [bool]$isExcel = $true,
+            [bool]$isText = $false
         )
 
         [pscustomobject]@{
             Root = "C:\index"; RelDir = "営業\sub"; RelPath = "営業\sub\$book"; Book = $book
-            Location = "見積[図形]"; MatchCell = "B2"; IsExcel = $isExcel
+            Location = "見積[図形]"; MatchCell = "B2"; IsExcel = $isExcel; IsText = $isText
         }
     }
 
@@ -522,6 +523,18 @@ Describe "openSource" -Tag Unit {
 
         openSource ${openModeNew}
         lastStatus | Should -Be "新規で開けなかったため、元のファイルを開きました：C:\data\報告.docx"
+    }
+
+    It "テキストは開き方の動詞を試さず、そのまま開いて「開きました」と出す（読み取り専用・新規を選んでいても）" {
+        Mock getCurrentHitRow { newRow "議事メモ.txt" $false $true }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\議事メモ.txt" }
+        Mock openWithShell { $false }
+        Mock Invoke-Item { }
+
+        openSource ${openModeReadOnly}
+        Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq "C:\data\議事メモ.txt" }
+        Should -Invoke openWithShell -Times 0 -Exactly
+        lastStatus | Should -Be "開きました：C:\data\議事メモ.txt"
     }
 }
 

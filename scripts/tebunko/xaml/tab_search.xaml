@@ -177,6 +177,10 @@
               <Setter TargetName="Badge" Property="Background" Value="#C43E1C" />
               <Setter TargetName="BadgeText" Property="Text" Value="P" />
             </DataTrigger>
+            <DataTrigger Binding="{Binding AppKind}" Value="テキスト">
+              <Setter TargetName="Badge" Property="Background" Value="{StaticResource Ink.Muted}" />
+              <Setter TargetName="BadgeText" Property="Text" Value="T" />
+            </DataTrigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </DataGrid.Resources>

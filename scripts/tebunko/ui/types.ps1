@@ -237,6 +237,7 @@ class HitRow : NotifyBase {
     [int]$LineNumber
     [string]$Line
     [bool]$IsExcel
+    [bool]$IsText          # テキストの拡張子（.txt 等）の行か（describeHitPlace・open_source.ps1 が使う。呼び出し側が入れる）
     [bool]$IsObjectPlace
     [string]$MatchCell
     [int]$MatchCount        # 1 行のうち一致したセルの数（Excel のセルの行だけ。図形・コメントは 0 か 1）

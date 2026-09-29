@@ -103,3 +103,45 @@ Describe "newFileFilter" -Tag Unit {
         $filter.Include.IsMatch("見積1.xlsx") | Should -Be $false
     }
 }
+
+Describe "truncateHitLine" -Tag Unit {
+    BeforeAll {
+        # 一致の位置を testIndex 文字目とする、長さ 3000 の行（先頭からの通し番号を並べて作り、切った範囲が分かるようにする）
+        $longLine = (0..2999 | ForEach-Object { [string]([char](0x30 + ($_ % 10))) }) -join ""
+    }
+
+    It "hitLineMaxChars（1000文字）以下ならそのまま返す" {
+        $line = "a" * 1000
+        truncateHitLine $line 500 | Should -Be $line
+        (truncateHitLine $line -1) | Should -Be $line
+    }
+
+    It "一致の位置が分からない（-1）ときは先頭から1000文字取り、末尾に … を付ける" {
+        $result = truncateHitLine $longLine -1
+        $result.Length | Should -Be 1001
+        $result.Substring(0, 1000) | Should -Be $longLine.Substring(0, 1000)
+        $result.Substring(1000) | Should -Be "…"
+    }
+
+    It "一致の位置が先頭付近なら、先頭から1000文字（先頭に … は付かず、末尾に付く）" {
+        $result = truncateHitLine $longLine 10
+        $result.Substring(0, 1000) | Should -Be $longLine.Substring(0, 1000)
+        $result.EndsWith("…") | Should -Be $true
+        $result.StartsWith("…") | Should -Be $false
+    }
+
+    It "一致の位置が中ほどなら、200文字前から1000文字取り、両端に … を付ける" {
+        $result = truncateHitLine $longLine 1500
+        $result.Length | Should -Be 1002
+        $result.Substring(0, 1) | Should -Be "…"
+        $result.Substring(1, 1000) | Should -Be $longLine.Substring(1300, 1000)
+        $result.Substring(1001, 1) | Should -Be "…"
+    }
+
+    It "一致の位置が末尾付近なら、切り取った範囲が行の末尾に届き、末尾には … が付かない（届いた範囲は1000文字に満たないことがある）" {
+        $result = truncateHitLine $longLine 2990
+        $start = 2990 - 200  # 2790（200文字前）
+        $expectedCore = $longLine.Substring($start, $longLine.Length - $start)  # 末尾まで（210文字）
+        $result | Should -Be ("…" + $expectedCore)
+    }
+}

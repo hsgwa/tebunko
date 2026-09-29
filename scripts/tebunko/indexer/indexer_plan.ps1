@@ -1,6 +1,33 @@
 ﻿# クロール（どのファイルを取り込むかを数え、画面の返事を待つ）。
 
-$targetExtensions = ${officeExtensions}  # 取り込み対象の拡張子（shared\office\office_files.ps1）
+# 取り込み対象の拡張子（Office は shared\office\office_files.ps1、テキストは shared\core\text_file.ps1）
+$targetExtensions = @(${officeExtensions}) + @(${textExtensions})
+
+# tebunko が作ったファイルを、名前だけで見分けるパターン（テキストの拡張子のものだけに当たる。どこにあっても外す）。
+#   ・今の版の本文インデックス（content_index.xlsx.001.tsv 等。packFileNamePattern と同じ組み立て）
+#   ・前の版（名前をそろえる前）の集約ファイル（content.xlsx.001.tsv 等）
+#   ・システムインデックス（今の版 system_index*.txt・前の版 システムインデックス*.txt。search_gram.ps1 の systemIndexFileName・
+#     workspace.ps1 の legacySystemIndexPattern と同じ組み立て）
+${tebunkoOwnFileNamePatterns} = @(
+    "${packFileNamePrefix}.*.tsv",
+    "content.*.tsv",
+    "$([System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName}))*.txt",
+    ${legacySystemIndexPattern}
+)
+
+function testTebunkoOwnFileName {
+    # ファイル名（拡張子を含む）が、上のパターンのどれかに当たるか
+    param (
+        [string]$name
+    )
+
+    foreach ($pattern in ${tebunkoOwnFileNamePatterns}) {
+        if ($name -like $pattern) {
+            return $true
+        }
+    }
+    return $false
+}
 
 # ----------------------------------------------------------------------------
 # 取り込み対象
@@ -27,10 +54,51 @@ function removeBookDir {
     removeDirectoryRetry $bookDir
 }
 
-function findOfficeFiles {
-    # クロール対象フォルダ配下のOfficeファイルを検索し、@{ Root; Files; HasError（アクセスできないフォルダがあった） } を返す。
+function getTebunkoExcludeDirs {
+    # 除外するフォルダ（tebunko が作ったワークスペース）の一覧を返す。
+    #   ・今のワークスペース（$workspace.Entries()。content_index・前の版の index・system_index・取り込み一覧 等）
+    #   ・スキャンで見つけたファイルの中に取り込み一覧（$workspace.StatusFile と同じ名前）があれば、
+    #     そのフォルダをほかのワークスペースとみなし、その Entries() も外す
+    #     （以前の既定の場所・切り替える前のワークスペース・ほかの人のワークスペースを、テキストの拡張子（.tsv 等）で拾わないため）
+    param (
+        [object[]]$scannedFiles
+    )
+
+    $statusFileName = [System.IO.Path]::GetFileName($workspace.StatusFile)
+    $dirs = New-Object System.Collections.Generic.List[string]
+    $dirs.AddRange([string[]]$workspace.Entries())
+    foreach ($file in $scannedFiles) {
+        if ($file.Name -eq $statusFileName) {
+            $otherDir = [System.IO.Path]::GetDirectoryName((fromLongPath $file.FullName))
+            $dirs.AddRange([string[]]([Workspace]::new($otherDir).Entries()))
+        }
+    }
+    return @($dirs | Where-Object { $_ } | Select-Object -Unique)
+}
+
+function testUnderAnyDir {
+    # \\?\ 付きのフルパス（またはそのもの）が、dirs（\\?\ の付かない通常のパス）のどれかの下・そのものかを返す。
+    #   dirPrefixes: dirs を toLongPath して末尾の \ を外したもの（呼び出し側で 1 回だけ作り、ファイルごとに作り直さない）
+    param (
+        [string]$fullName,
+        [string[]]$dirPrefixes
+    )
+
+    foreach ($prefix in $dirPrefixes) {
+        if ($fullName.Equals($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+            $fullName.StartsWith("$prefix\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function findTargetFiles {
+    # クロール対象フォルダ配下の、取り込み対象（Office・テキストの拡張子）のファイルを検索し、
+    # @{ Root; Files; HasError（アクセスできないフォルダがあった） } を返す。
     # Root は実際に列挙したフォルダ（\\?\ の付かない通常のパス）。相対パスはこの Root から求める
-    # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）
+    # （設定に書かれたパスは、末尾の \ ・ドライブ文字と UNC パスなど書き方が違うことがあるため、文字数で切り出さない）。
+    # tebunko が作ったファイル（getTebunkoExcludeDirs のフォルダの下・名前で分かるファイル）は対象に含めない
     param (
         [string]$targetFolder
     )
@@ -39,8 +107,14 @@ function findOfficeFiles {
     # 見つかったファイルの FullName は \\?\ 付きになる（fromLongPath で戻す）
     $scanErrors = $null
     $root = (Resolve-Path -LiteralPath $targetFolder).ProviderPath
-    $files = @(Get-ChildItem -LiteralPath (toLongPath $root) -Recurse -File -ErrorAction SilentlyContinue -ErrorVariable scanErrors |
+    $scanned = @(Get-ChildItem -LiteralPath (toLongPath $root) -Recurse -File -ErrorAction SilentlyContinue -ErrorVariable scanErrors |
         Where-Object { ($targetExtensions -contains $_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') })
+
+    # 除外するフォルダの \\?\ 付きの前方一致の文字列を先に作る（ファイルごとにドライブの割り当てをたどる処理は呼ばない）
+    $excludeDirPrefixes = @(getTebunkoExcludeDirs $scanned | ForEach-Object { (toLongPath $_).TrimEnd("\") })
+    $files = @($scanned | Where-Object {
+        -not (testUnderAnyDir $_.FullName $excludeDirPrefixes) -and -not (testTebunkoOwnFileName $_.Name)
+    })
 
     return @{ Root = $root; Files = $files; HasError = (@($scanErrors).Count -gt 0) }
 }
@@ -61,7 +135,7 @@ function createTargetList {
     )
 
     $prefix = "$($folder.Name)\"
-    $scan = findOfficeFiles $folder.Path
+    $scan = findTargetFiles $folder.Path
     $rows = New-Object System.Collections.Generic.List[object]
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
@@ -137,7 +211,7 @@ function createTargetList {
         # インデックスを直接削除された場合など。ふだんは 0 件のため、あるときだけ表示する
         $detail += " / インデックスが無い・壊れている $($count.Lost) 件"
     }
-    writeIndexerLog ("  [{0}] Officeファイル {1} 件（{2}）" -f $folder.Name, $scan.Files.Count, $detail)
+    writeIndexerLog ("  [{0}] 対象ファイル {1} 件（{2}）" -f $folder.Name, $scan.Files.Count, $detail)
     if ($count.Lost -gt 0) {
         writeIndexerLog "    インデックス（TSV）が無くなった・壊れている $($count.Lost) 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）" "Yellow"
     }

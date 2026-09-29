@@ -40,6 +40,7 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "findSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "openFoundSource"; Call = "Invoke-Item"; Reason = "テキストは開き方の動詞を試さずそのまま開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openSourceFolder"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "exportResults"; Call = "[System.IO.Directory]"; Reason = "検索結果.txt の出力先（ワークスペースの側。分けた PR）" }
         @{ File = "open_source.ps1"; Function = "exportResults"; Call = "Invoke-Item"; Reason = "検索結果.txt を開く（プロセスの起動は待たない）" }
