@@ -301,6 +301,116 @@ Describe "getPathState" -Tag Io {
     }
 }
 
+Describe "setNotContentIndexed" -Tag Io {
+    BeforeAll {
+        function script:hasAttr {
+            param ([string]$path)
+            $attrs = [System.IO.File]::GetAttributes((toLongPath $path))
+            return [bool]($attrs -band [System.IO.FileAttributes]::NotContentIndexed)
+        }
+    }
+
+    It "-Recurse ありで、フォルダ自身・下のフォルダ・ファイル（長いパスを含む）に付く" {
+        $dir = "$TestDrive\nci\付ける"
+        $sub1 = "$dir\下"
+        $sub2 = "$sub1\" + ("永" * 200)
+        $long = "$sub2\long.tsv"
+        [void][System.IO.Directory]::CreateDirectory((toLongPath $sub2))
+        [System.IO.File]::WriteAllText((toLongPath $long), "x")
+        ($long.Length) | Should -BeGreaterThan 260
+        writeListFile "$dir\a.tsv" @("a")
+
+        try {
+            $result = setNotContentIndexed $dir -Recurse
+            $result.Ok | Should -Be $true
+            $result.Changed | Should -Be 5   # dir・a.tsv・下・長い名前のフォルダ・long.tsv
+            (hasAttr $dir) | Should -Be $true
+            (hasAttr "$dir\a.tsv") | Should -Be $true
+            (hasAttr $sub1) | Should -Be $true
+            (hasAttr $sub2) | Should -Be $true
+            (hasAttr $long) | Should -Be $true
+        } finally {
+            # Pester の TestDrive の後始末は \\?\ を付けずに消すため、260 文字超のパスを自分で先に消しておく
+            Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force
+        }
+    }
+
+    It "-Recurse なしでは、フォルダ自身と直下のファイルだけに付き、下のフォルダには付かない" {
+        $dir = "$TestDrive\nci\直下だけ"
+        [System.IO.Directory]::CreateDirectory("$dir\下") | Out-Null
+        writeListFile "$dir\a.tsv" @("a")
+        writeListFile "$dir\下\b.tsv" @("b")
+
+        $result = setNotContentIndexed $dir
+        $result.Ok | Should -Be $true
+        $result.Changed | Should -Be 2   # dir・a.tsv だけ
+        (hasAttr $dir) | Should -Be $true
+        (hasAttr "$dir\a.tsv") | Should -Be $true
+        (hasAttr "$dir\下") | Should -Be $false
+        (hasAttr "$dir\下\b.tsv") | Should -Be $false
+    }
+
+    It "既に付いているものは Changed に数えない（2 回目は 0）" {
+        $dir = "$TestDrive\nci\2回目"
+        writeListFile "$dir\a.tsv" @("a")
+
+        (setNotContentIndexed $dir -Recurse).Changed | Should -Be 2
+        (setNotContentIndexed $dir -Recurse).Changed | Should -Be 0
+    }
+
+    It "隣のフォルダには付かない" {
+        $dir = "$TestDrive\nci\隣"
+        [System.IO.Directory]::CreateDirectory("$dir\対象") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$dir\隣のフォルダ") | Out-Null
+
+        setNotContentIndexed "$dir\対象" -Recurse | Out-Null
+        (hasAttr "$dir\隣のフォルダ") | Should -Be $false
+    }
+
+    It "ほかの属性（読み取り専用など）は変えない" {
+        $dir = "$TestDrive\nci\属性"
+        $path = "$dir\a.tsv"
+        writeListFile $path @("a")
+        [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::ReadOnly)
+        try {
+            setNotContentIndexed $dir -Recurse | Out-Null
+            $attrs = [System.IO.File]::GetAttributes($path)
+            ($attrs -band [System.IO.FileAttributes]::ReadOnly) | Should -Not -Be 0
+            ($attrs -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        } finally {
+            [System.IO.File]::SetAttributes($path, [System.IO.FileAttributes]::Normal)
+        }
+    }
+
+    It "無いパスは例外にならず Ok=`$false・Reason を返す" {
+        $result = setNotContentIndexed "$TestDrive\nci\無いフォルダ"
+        $result.Ok | Should -Be $false
+        $result.Changed | Should -Be 0
+        $result.Reason | Should -Not -BeNullOrEmpty
+    }
+
+    It "列挙の途中で読めなくなるフォルダがあっても例外にならず Ok=`$false・Reason を返す" {
+        $dir = "$TestDrive\nci\読めない親"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $locked = New-Object System.IO.DirectoryInfo "$dir\読めない"
+        $locked.Create()
+        $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $deny = New-Object System.Security.AccessControl.FileSystemAccessRule($user, "ListDirectory", "Deny")
+        $acl = $locked.GetAccessControl("Access")
+        $acl.AddAccessRule($deny)
+        $locked.SetAccessControl($acl)
+        try {
+            $result = setNotContentIndexed $dir -Recurse
+            $result.Ok | Should -Be $false
+            $result.Reason | Should -Not -BeNullOrEmpty
+        } finally {
+            $acl = $locked.GetAccessControl("Access")
+            [void]$acl.RemoveAccessRule($deny)
+            $locked.SetAccessControl($acl)
+        }
+    }
+}
+
 Describe "getFolderKey" -Tag Unit {
     It "SHA-256 の 16 進 64 文字を返す" {
         # "c:\tool" の SHA-256（小文字にしてから UTF-8 で計算する）

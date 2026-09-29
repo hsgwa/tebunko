@@ -393,6 +393,12 @@ function invokeIndexerBody {
     }
 
     [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
+    # 前の版から続けて使うワークスペース・別のドライブへ写したワークスペース・取り込んだワークスペースもここで付く
+    # （継ぐかどうかに頼らず、ここで一度だけ content_index 全体に付ける。入れた直後にはそれぞれの場所でも付ける）
+    $nci = setNotContentIndexed $workspace.IndexDir -Recurse
+    if (!$nci.Ok) {
+        writeIndexerLog "content_index を Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
+    }
     removeStaleTmpDirs
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null

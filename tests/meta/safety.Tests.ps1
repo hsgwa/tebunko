@@ -229,6 +229,22 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should -Be ""
     }
 
+    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 4 ファイルだけ" {
+        # NotContentIndexed 属性を直接書くのは setNotContentIndexed（fs.ps1）だけ
+        $writes = @($code | Where-Object { $_.Text -match "(?<!set)NotContentIndexed" -and $_.File -ne "fs.ps1" })
+        (@($writes | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        (findPattern $code 'function setNotContentIndexed') | Should -Not -Be ""
+
+        # 呼ぶのは全体に付ける indexer_run.ps1・入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1 の 4 ファイルだけ
+        $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
+        $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
+        $callerFiles.Count | Should -Be 4
+        ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
+        ($callerFiles -contains "index_store.ps1") | Should -Be $true
+        ($callerFiles -contains "pack_store.ps1") | Should -Be $true
+        ($callerFiles -contains "source_map.ps1") | Should -Be $true
+    }
+
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
         # %TEMP%\tebunko\<PID> に原本のコピーが残り続けないこと（docs/safety/disclosure.md「原本の一時コピーと、その回収」）
         (findPattern $code 'function removeStaleTmpDirs') | Should -Not -Be ""
