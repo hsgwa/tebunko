@@ -4126,6 +4126,11 @@
 <td><code>shared/core/data_dir.ps1:31</code></td>
 </tr>
 <tr>
+<td><code>%LOCALAPPDATA%\tebunko\startup_error.txt</code>（書き込めなければ <code>%TEMP%\tebunko_startup_error.txt</code>）</td>
+<td>起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため固定の場所に置く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）</td>
+<td><code>tebunko.bat</code>、<code>tebunko/gui.ps1</code> の <code>writeStartupErrorFile</code></td>
+</tr>
+<tr>
 <td>利用者が指定した出力先</td>
 <td>［結果をファイルに出力］の保存先（既定は <code>work\検索結果.txt</code>）</td>
 <td>画面のダイアログで利用者が指定</td>

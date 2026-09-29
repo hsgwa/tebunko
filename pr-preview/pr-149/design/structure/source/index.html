@@ -4291,6 +4291,11 @@
 <td>tebunko の画面定義（<code>tebunko.xaml</code>・タブ・ダイアログ）</td>
 </tr>
 <tr>
+<td><code>scripts/tebunko/startup/*.txt</code></td>
+<td>文言</td>
+<td><code>tebunko.bat</code> が起動に失敗したときに読む、場面ごとの文言（BOM 付き UTF-8・CRLF）。<code>tebunko.bat</code> は ASCII で書く決まりのため、日本語の文言はここに分ける。読み込み口からは読まない（スクリプトではない）（<a href="../../../safety/disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）</td>
+</tr>
+<tr>
 <td><code>scripts/tebunko/tebunko.ico</code></td>
 <td>画像</td>
 <td>画面のアイコン（<a href="../../gui/common/">画面の共通の決まり</a>）。元データは <code>docs/images/logo.svg</code>（リポジトリの管理者が作成）で、<code>tools/new_icon.ps1</code> で作る。手で編集しない</td>
