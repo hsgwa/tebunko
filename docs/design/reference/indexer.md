@@ -27,6 +27,42 @@
 | `newIngestPlanRow` | name, path, kind, total, targets, new, updated, pending, lost, failed | 取り込み予定の 1 行（`[pscustomobject]`） | インデックス 1 件分の取り込み対象の件数を作る（`$ingestPlanColumns` と同じ列） | [取り込み対象の決定](../indexing/target-decision.md#取り込み予定画面の確認に出す件数) | インデックス作成 |
 | `getIndexingState` | since, path | [元のファイルの特定・画面](search.md#元のファイルの特定画面) を参照 | 取り込み一覧の状態ごとの件数など | [続き](search.md#元のファイルの特定画面) | 画面 |
 
+### StatusLedger（`indexer_state.ps1`。司令のスレッドで作る）
+
+インデクサの司令（`invokeIndexerBody`）が、コンストラクタで受け取った `Workspace` の `StatusFile`・`IngestingFile` を読み書きする。メソッドは、上の表の同じ処理をする関数をそのまま呼ぶ（列と状態の定義は `core/paths.ps1` のまま動かさない）。
+
+| メソッド／プロパティ | 入力 | 出力 | 概要 |
+|---|---|---|---|
+| `ReadStatus` / `WriteStatus` / `AddRow` | – / folders, rows / row | `readStatusFile` と同じ / – / – | `readStatusFile`・`writeStatusFile`・`addStatusRow` を呼ぶ |
+| `ReadIngestingFiles` / `WriteIngestingFiles` / `RemoveIngestingFile` | – / entries / – | `readIngestingFiles` と同じ / – / – | 取り込み中のファイルの記録を読み書き・削除する |
+| `RenameIndexName` / `RemoveIndexName` | oldName, newName / name | – | `renameStatusIndexName` / `removeStatusIndexName` を呼ぶ |
+| `Failures`（プロパティ）・`AddFailure` | relPath, message | – | 今回の取り込みで失敗したファイル（`@{RelPath; Message}` の並び）を集める |
+| `DroppedRows`（プロパティ）・`AddDropped` | relPath | – | 取り込みの直前に元のファイルが無くなった相対パスを集める |
+
+### PendingPublish（新規 `tebunko/indexer/pending_publish.ps1`。司令のスレッドで作る）
+
+フォルダごとの取り込み中の数とまだ渡していない数を数え、本文インデックスに書き出してよいフォルダを決めて返すだけ（書き出し `publishIndexFolders` は司令が呼ぶ）。
+
+| メソッド | 入力 | 出力 | 概要 |
+|---|---|---|---|
+| `Add` | relPath, removed | – | 取り込んだ・無くなった元のファイルのフォルダを書き出し待ちにする（`removed` なら、そのファイル名も記録する） |
+| `MarkFolder` | folder | – | 前回のインデックス作成で本文インデックスに入れていないフォルダを、無くなったファイルの記録無しで書き出し待ちにする |
+| `AddPending` | folder | – | 取り込み対象を数えるとき、そのファイルの分だけ「まだ渡していない数」を 1 つ足す |
+| `Dispatch` | folder | – | ファイルを 1 つ渡す（まだ渡していない数を 1 減らし、取り込み中の数を 1 増やす） |
+| `Skip` | folder | – | ファイルを 1 つ、渡さずに済ませる（元のファイルが無くなった等。まだ渡していない数だけ減らす） |
+| `Complete` | folder | – | 取り込み中のファイルが 1 つ終わる（成功・失敗・後回しのどれでも。取り込み中の数を 1 減らす） |
+| `TakeFlushable` | – | フォルダ → 無くなったファイル名の集まり（`Dictionary[string,object]`） | 取り込み中・まだ渡していない数がどちらも 0 のフォルダを、書き出し待ちから取り出して返す |
+| `TakeAll` | – | 同上 | 取り込み中・まだ渡していない数を見ずに、書き出し待ちのフォルダをすべて取り出す（インデックス作成の終わり） |
+
+### IndexingReporter（新規 `tebunko/indexer/indexing_reporter.ps1`。司令のスレッドで作る）
+
+受け渡しの口（`newIndexerChannel`）を持ち、進み具合を書く・画面の確認を待つ。段階（`${indexingPhase*}`）はメソッドの中で読まず、呼び出し元（司令）から引数で受け取る。ログ（`writeIndexerLog`・`$script:indexerLog`）は部品のまま、このクラスには入れない。
+
+| メソッド | 入力 | 出力 | 概要 |
+|---|---|---|---|
+| `Progress` | phase, processed, remaining, failed, detail | – | `writeIndexingProgress` を呼ぶ |
+| `WaitForApproval` | phase, plan, targetCount, failedCount, timeoutMinutes | `@{RetryFailed}` / `$null` | 取り込む内容を画面に渡し、開始の返事を待つ（旧 `indexer_plan.ps1` の `waitForIndexingApproval`） |
+
 ## 取り込み直すかの判断（`tebunko/indexer/indexer_decide.ps1`）
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
