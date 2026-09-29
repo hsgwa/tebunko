@@ -259,6 +259,14 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         ($callerFiles -contains "index_store.ps1") | Should -Be $true
         ($callerFiles -contains "pack_store.ps1") | Should -Be $true
         ($callerFiles -contains "source_map.ps1") | Should -Be $true
+
+        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_store.ps1 は $bookDir、pack_store.ps1 は $folder）。
+        # -Recurse で content_index 全体をたどるのは indexer_run.ps1 だけ（入れた直後に付ける 3 ファイルは 1 か所ずつなので要らない）
+        (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
+        (findPattern $callers 'setNotContentIndexed\s+\$bookDir\)') | Should -Not -Be ""
+        (findPattern $callers 'setNotContentIndexed\s+\$folder\)') | Should -Not -Be ""
+        $recurseCallers = @($callers | Where-Object { $_.Text -match "-Recurse" } | ForEach-Object { $_.File } | Sort-Object -Unique)
+        ($recurseCallers -join ", ") | Should -Be "indexer_run.ps1"
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
