@@ -4321,6 +4321,26 @@
 <td>インデックスのファイル名 <code>&lt;場所&gt;.tsv</code>（場所は符号化する）が 255 文字を超える（<code>toIndexFileName</code>）</td>
 <td>シート名・スライド名を短くする</td>
 </tr>
+<tr>
+<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）</code></td>
+<td>◎ パスワード付きの <code>.xlsx</code> <code>.docx</code> <code>.doc</code> <code>.pptx</code> <code>.ppt</code>。新形式（<code>.docx</code> <code>.pptx</code>）は Word・PowerPoint を起動せずに判定して記録する（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）。Excel はパスワード付きでも Office に開かせ、下の (2) の言い換えで同じ文言になる</td>
+<td>取り込めない。パスワードを外したコピーを置けば取り込める</td>
+</tr>
+<tr>
+<td><code>IRM・秘密度ラベルで暗号化されているため取り込めません。</code></td>
+<td>IRM・秘密度ラベルの暗号化（<a href="https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/">[MS-OFFCRYPTO]</a> の IRMDS）を検出し、Officeを起動せずに判定した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>。ライセンス取得・サインイン画面が見えないまま出て止まりうるため開かない）</td>
+<td>取り込めない。保護を外したコピーを置けば取り込める</td>
+</tr>
+<tr>
+<td><code>暗号化されているか壊れているため取り込めません。</code></td>
+<td>ZIPでもCFBでもなく、先頭4KBにNULを含む「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）。アプリごとの予備が無効・開けない・出力の確かめに失敗した場合</td>
+<td>透過暗号化の製品でファイルを復号してから取り込む。製品の設定でPowerShellを許可アプリにできれば取り込めることがある</td>
+</tr>
+<tr>
+<td><code>ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。</code></td>
+<td>Officeが保存した一時ファイル（変換した <code>.docx</code>・<code>.pptx</code>、<a href="../excel/">Excel</a> のテキスト保存）まで透過暗号化の製品が暗号化した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
+<td>同上</td>
+</tr>
 </tbody>
 </table>
 <p><strong>(2) 例外から <code>describeIngestError</code> が言い換えるもの</strong>（判定条件は <a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）</p>
@@ -4447,6 +4467,14 @@
 <tr>
 <td><code>グラフ・SmartArt を読み取れませんでした: &lt;部品名&gt;</code></td>
 <td>図形の中の 1 つのグラフ・SmartArt の部品（<code>xl/charts/chartN.xml</code>・<code>xl/diagrams/dataN.xml</code>）を読めなかった（XML が壊れている、「サイズの上限」を超える等。<a href="../excel/#グラフsmartart-の読み取り">グラフ・SmartArt の読み取り</a>）。そのグラフ・SmartArt だけを空にし、同じ図形の中のほかの文字・ほかの図形・コメント・セルの値は取り込む</td>
+</tr>
+<tr>
+<td><code>予備の読み取りに失敗しました: &lt;元のメッセージ&gt;</code></td>
+<td>「形式の分からないバイナリ」（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）を予備でWord・PowerPointに開かせたが失敗した。取り込み一覧には <code>暗号化されているか壊れているため取り込めません。</code> に言い換えて記録する</td>
+</tr>
+<tr>
+<td><code>暗号化の判定: &lt;種類&gt;</code></td>
+<td>暗号化されたファイルの判定（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）で、<code>Password</code>（パスワード付き。新形式）・<code>Rights</code>（IRM・秘密度ラベル）・<code>Unknown</code>（形式の分からないバイナリ）のいずれかと判定した（<code>logProtectionKind</code>）。旧形式・ふつうのテキストとして開くもの（<code>Legacy</code>・<code>Text</code>）は書かない</td>
 </tr>
 <tr>
 <td><code>取り込みに失敗しました: &lt;原因&gt;</code></td>

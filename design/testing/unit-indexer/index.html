@@ -4089,7 +4089,7 @@
 </tr>
 <tr>
 <td><code>runIngestWorker</code> / <code>invokeIngestTask</code>（レーン）</td>
-<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（<code>Postponed</code>）として返し、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない</td>
+<td>列の順に取り込み、結果を 1 件に 1 つ返して、列が閉じられたら終わる、読み取りのスレッドは Office を起動し直さない。「Office が要る」の例外なら、失敗にせず回し直し（<code>Reroute</code>）として返し、Office も終了しない。利用者の PowerPoint が使用中の例外なら、失敗にせず後回し（<code>Postponed</code>）として返し、Office も終了しない。後回しは取り込んだ件数に数えず、起動し直しを早めない。<strong>暗号化の判定でOfficeにまだ触れていない失敗</strong>（<a href="../../indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の<code>throwProtectionFailure</code>）は失敗にするがOfficeは終了しない。ふつうの失敗は今までどおりOfficeを終了する</td>
 </tr>
 <tr>
 <td><code>IndexingSession</code>（<code>indexing_session</code>）</td>
