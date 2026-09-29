@@ -4287,6 +4287,7 @@
 </table>
 <p>インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために <code>powershell.exe</code> を起動することはない（<a href="../../design/structure/threads/#プロセス">プロセス</a>）。</p>
 <p>元のファイルを開く操作（<code>tebunko/ui/open_source.ps1:125</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。</p>
+<p><code>tebunko.bat</code> は、上の 3 か所とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
 
 
 

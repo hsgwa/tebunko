@@ -4178,7 +4178,7 @@
 <tbody>
 <tr>
 <td><code>tebunko.bat</code></td>
-<td>起動用バッチ。<code>conhost.exe</code> を通して <code>powershell -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "..."</code> を <code>start</code> で起動する。<code>-Command</code> の中で <code>scripts</code> 配下の Mark-of-the-Web を消してから、<code>&amp; 'scripts\tebunko\gui.ps1'</code> で画面を開く（PowerShell の起動は 1 回。<code>conhost.exe</code> を通すのは、既定のターミナルが Windows Terminal でも窓を隠すため）。ASCII・CRLF で書き、説明コメントは英語にする（cmd はコードページ・改行に敏感なため）。詳細は <a href="../common/#配布と実行ポリシーmark-of-the-web">画面の共通仕様</a></td>
+<td>起動用バッチ。PowerShell は PATH からではなく <code>%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe</code> を指す（無ければ Notepad で理由を示して終わる）。<code>conhost.exe</code> を通して <code>-NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "..."</code> を <code>start</code> で起動する。<code>-Command</code> の中で <code>scripts</code> 配下の Mark-of-the-Web を消してから、<code>try</code>/<code>catch</code> で包んだ <code>&amp; 'scripts\tebunko\gui.ps1'</code> で画面を開く（PowerShell の起動は 1 回。<code>conhost.exe</code> を通すのは、既定のターミナルが Windows Terminal でも窓を隠すため）。画面が開く前に失敗したときは、<code>scripts\tebunko\startup\*.txt</code> の文言を Notepad で示し、記録を残す。ASCII・CRLF で書き、説明コメントは英語にする（cmd はコードページ・改行に敏感なため）。詳細は <a href="../common/#配布と実行ポリシーmark-of-the-web">画面の共通仕様</a>・安全性の<a href="../../../safety/disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a></td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/gui.ps1</code></td>
