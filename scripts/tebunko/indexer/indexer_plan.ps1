@@ -152,36 +152,3 @@ function createTargetList {
         $count.New $count.Updated $count.Pending $count.Lost $failed.Count
     return @{ Rows = $rows; Targets = $targets; Failed = $failed; Plan = $plan; Removed = $removed.ToArray() }
 }
-
-function waitForIndexingApproval {
-    # 取り込み対象の件数を受け渡しの口（newIndexerChannel）で画面に渡し、［インデックス作成を開始］か［キャンセル］の返事を待つ。
-    #   取り込む → @{ RetryFailed } / 取りやめ（中止を求められた場合を含む） → $null
-    # 画面が返事をしないまま待ち続けないよう、timeoutMinutes で打ち切って取りやめる
-    param (
-        $channel,
-        $plan,               # newIngestPlanRow の配列（インデックスごと）
-        [int]$targetCount,   # 取り込み対象の合計（画面の進み具合に出す）
-        [int]$failedCount,   # 前回失敗の合計（画面で再取り込みするかを選ぶ）
-        [int]$timeoutMinutes = 60
-    )
-
-    [void]$channel.Answered.Reset()
-    $channel.Answer = $null
-    $channel.Plan = @($plan)
-    writeIndexingProgress ${indexingPhaseConfirm} 0 $targetCount $failedCount "取り込む内容を画面で確認しています…" $channel
-    writeIndexerLog ""
-    writeIndexerLog "取り込み対象を画面に表示しました。［インデックス作成を開始］が押されるまで待ちます。（${timeoutMinutes} 分待っても返事が無ければ取りやめます）"
-
-    try {
-        if (!$channel.Answered.WaitOne([TimeSpan]::FromMinutes($timeoutMinutes))) {
-            writeIndexerLog "画面からの返事が ${timeoutMinutes} 分ありませんでした。インデックス作成を取りやめます。" "Yellow"
-            return $null
-        }
-        if ($channel.Stop) {
-            return $null
-        }
-        return $channel.Answer
-    } finally {
-        $channel.Plan = $null
-    }
-}

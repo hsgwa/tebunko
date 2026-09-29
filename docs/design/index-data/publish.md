@@ -25,7 +25,7 @@ sequenceDiagram
 
 ## 本文インデックスへの書き出し（`publishIndexFolders`）
 
-取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（`indexer/indexer_run.ps1` の `addPendingPublish`）、**そのフォルダに取り込み中のファイルも、まだ取り込みのスレッドに渡していないファイルも無くなったとき**（結果を 1 つ受け取るたびに調べる。[取り込みの並列化](../indexing/parallel.md)）と、**インデックス作成の終わり**（中止したときも。`finally`）に、それまでのフォルダをまとめて書き出す（`flushPendingPublish` → `publishIndexFolders`）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ本文インデックスのファイルを書き直すことになるため。フォルダごとに次を続けて行う。
+取り込んだファイルのフォルダは「書き出し待ち」として覚えておき（`indexer/pending_publish.ps1` の `PendingPublish.Add`）、**そのフォルダに取り込み中のファイルも、まだ取り込みのスレッドに渡していないファイルも無くなったとき**（結果を 1 つ受け取るたびに調べる。[取り込みの並列化](../indexing/parallel.md)）と、**インデックス作成の終わり**（中止したときも。`finally`）に、それまでのフォルダをまとめて書き出す（`indexer_run.ps1` の `flushPending`（`PendingPublish.TakeFlushable` / `TakeAll`）→ `publishIndexFolders`）。元のファイル 1 つごとに書き出すと、フォルダの大きさ × ファイルの数だけ本文インデックスのファイルを書き直すことになるため。フォルダごとに次を続けて行う。
 
 ```mermaid
 flowchart TD

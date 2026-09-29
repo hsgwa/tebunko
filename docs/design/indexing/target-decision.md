@@ -41,7 +41,7 @@ flowchart TD
 
 ## 取り込み予定（画面の確認に出す件数）
 
-受け渡しの口の `ConfirmTargets`（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（`newIngestPlanRow`）、受け渡しの口の `Plan` に入れる（`waitForIndexingApproval`）。
+受け渡しの口の `ConfirmTargets`（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（`newIngestPlanRow`）、受け渡しの口の `Plan` に入れる（`IndexingReporter.WaitForApproval`）。
 画面はこれを読んで確認のダイアログを出す（[インデックス作成の確認ダイアログ](../gui/indexing-run.md#インデックス作成の確認ダイアログ)）。返事を受け取ったら `Plan` を外す。次の例は、1 行を列の順にタブで区切って並べたものである。
 
 ```
