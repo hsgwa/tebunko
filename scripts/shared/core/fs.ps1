@@ -245,6 +245,28 @@ function testAnyEntry {
     }
 }
 
+function selectFirstEntries {
+    # 列挙（[System.IO.Directory]::EnumerateFileSystemEntries などの結果）の先頭から count 件までを配列にして返す。
+    # count 件で列挙をやめ、列挙子を必ず Dispose する（testAnyEntry と同じ理由。Select-Object -First で途中でやめる形にしない）
+    param (
+        [System.Collections.IEnumerable]$entries,
+        [int]$count
+    )
+
+    $list = New-Object System.Collections.Generic.List[object]
+    $enumerator = $entries.GetEnumerator()
+    try {
+        while ($list.Count -lt $count -and $enumerator.MoveNext()) {
+            $list.Add($enumerator.Current)
+        }
+    } finally {
+        if ($enumerator -is [System.IDisposable]) {
+            $enumerator.Dispose()
+        }
+    }
+    return , $list.ToArray()
+}
+
 function getFolderKey {
     # フォルダのパスから、名前付きミューテックス・イベントの名前に使う鍵（16 進 64 文字）を作る。大文字と小文字は区別しない。
     # 安全性のためではなく、パスを名前に使える長さと文字にするためのハッシュ。

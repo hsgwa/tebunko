@@ -195,8 +195,9 @@ function testIndexExists {
             continue
         }
         try {
-            $enumerator = [System.IO.Directory]::EnumerateFiles((toLongPath (Resolve-Path -LiteralPath $dir).ProviderPath), ${packFilePattern}, [System.IO.SearchOption]::AllDirectories).GetEnumerator()
-            if ($enumerator.MoveNext()) {
+            # 1 件見つけたらやめる。列挙子を閉じずに戻ると content_index の下のフォルダを掴んだまま残り、
+            # 続くインポートの上書きで移動できなくなるため testAnyEntry を通す
+            if (testAnyEntry ([System.IO.Directory]::EnumerateFiles((toLongPath (Resolve-Path -LiteralPath $dir).ProviderPath), ${packFilePattern}, [System.IO.SearchOption]::AllDirectories))) {
                 return $true
             }
         } catch {

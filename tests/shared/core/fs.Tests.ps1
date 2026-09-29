@@ -272,6 +272,27 @@ Describe "testAnyEntry" -Tag Io {
     }
 }
 
+Describe "selectFirstEntries" -Tag Io {
+    It "先頭から count 件（足りなければあるだけ）を返し、途中でやめても下のフォルダを掴んだまま残さない: <count> 件" -TestCases @(
+        @{ count = 0; expected = 0 }
+        @{ count = 2; expected = 2 }
+        @{ count = 10; expected = 3 }
+    ) {
+        param ($count, $expected)
+        $dir = "$TestDrive\first_$([Guid]::NewGuid().ToString('N'))"
+        [System.IO.Directory]::CreateDirectory("$dir\営業\見積") | Out-Null
+        foreach ($name in @("a.tsv", "b.tsv", "c.tsv")) {
+            [System.IO.File]::WriteAllText("$dir\営業\見積\$name", "x")
+        }
+
+        $entries = selectFirstEntries ([System.IO.Directory]::EnumerateFiles((toLongPath $dir), "*", [System.IO.SearchOption]::AllDirectories)) $count
+        $entries.Count | Should -Be $expected
+        @($entries | Where-Object { $_ -notlike "*\営業\見積\*.tsv" }).Count | Should -Be 0
+
+        { [System.IO.Directory]::Move("$dir\営業", "$dir\moved") } | Should -Not -Throw
+    }
+}
+
 Describe "writeTextLinesAtomic" -Tag Io {
     It "新しいファイルを作り、一時ファイルを残さない" {
         $path = "$TestDrive\atomic\新規.txt"

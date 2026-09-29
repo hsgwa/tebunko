@@ -692,7 +692,7 @@ class IndexNode : NotifyBase {
         $dir = $this.FullPath()
         $names = New-Object System.Collections.Generic.List[string]
         try {
-            foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
+            foreach ($sub in [System.IO.Directory]::GetDirectories([IndexNode]::LongPath($dir))) {
                 $n = [System.IO.Path]::GetFileName($sub)
                 if ([IndexNode]::IsBookDirPath($sub)) { continue }
                 $names.Add($n)
@@ -790,16 +790,18 @@ class IndexNode : NotifyBase {
         # 区別するため、サブフォルダも集約ファイル（content_index.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
         if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($dir.TrimEnd('\')))) { return $false }
         try {
+            # 列挙子（Enumerate*）を途中で抜けると、GC まで調べたフォルダを掴んだまま残り、インポートの上書きで
+            # content_index\<名前> を移動できなくなる。直下だけなので配列（Get*）で受ける（HasSubfolders・HasFiles・LoadChildren も同じ）
             $long = [IndexNode]::LongPath($dir)
-            foreach ($sub in [System.IO.Directory]::EnumerateDirectories($long)) { return $false }
-            foreach ($f in [System.IO.Directory]::EnumerateFiles($long, "content_index.*.tsv")) { return $false }
+            if ([System.IO.Directory]::GetDirectories($long).Length -gt 0) { return $false }
+            if ([System.IO.Directory]::GetFiles($long, "content_index.*.tsv").Length -gt 0) { return $false }
             return $true
         } catch { return $false }
     }
 
     static [bool] HasSubfolders([string]$dir) {
         try {
-            foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
+            foreach ($sub in [System.IO.Directory]::GetDirectories([IndexNode]::LongPath($dir))) {
                 if (-not [IndexNode]::IsBookDirPath($sub)) { return $true }
             }
             return $false
@@ -809,10 +811,10 @@ class IndexNode : NotifyBase {
     static [bool] HasFiles([string]$dir) {
         try {
             # 集約ファイル（content_index.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、集約する前の TSV があれば、フォルダ直下にファイルがある
-            foreach ($f in [System.IO.Directory]::EnumerateFiles([IndexNode]::LongPath($dir), "content_index.*.tsv")) { return $true }
-            foreach ($sub in [System.IO.Directory]::EnumerateDirectories([IndexNode]::LongPath($dir))) {
+            if ([System.IO.Directory]::GetFiles([IndexNode]::LongPath($dir), "content_index.*.tsv").Length -gt 0) { return $true }
+            foreach ($sub in [System.IO.Directory]::GetDirectories([IndexNode]::LongPath($dir))) {
                 if (-not [IndexNode]::IsBookDirPath($sub)) { continue }
-                foreach ($f in [System.IO.Directory]::EnumerateFiles($sub, "*.tsv")) { return $true }
+                if ([System.IO.Directory]::GetFiles($sub, "*.tsv").Length -gt 0) { return $true }
             }
             return $false
         } catch { return $false }

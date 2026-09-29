@@ -43,6 +43,20 @@ Describe "testIndexExists / getIndexSummary" -Tag Io {
         testIndexExists @($missing) | Should -Be $false
     }
 
+    It "有無を調べた直後に、下のフォルダを移動できる（起動直後の上書きのインポート）" {
+        # 1 件見つけたところでやめても、下のフォルダを掴んだまま残さないこと（残るとインポートの上書きで移動できない）
+        $root = Join-Path $TestDrive "exists_handle"
+        foreach ($name in @("a.xlsx", "b.xlsx")) {
+            [void][System.IO.Directory]::CreateDirectory("$root\営業\見積")
+            writePackFile "$root\営業\見積\$(getPackFileName (getPackExtension $name))" (convertToPackText @(@{ Name = $name; Places = @(@{ Place = "S"; Text = "x" }) }))
+        }
+        newTsv "$root\営業\見積\c.xlsx\S.tsv" @("c")
+
+        testIndexExists @($root) | Should -Be $true
+
+        { [System.IO.Directory]::Move("$root\営業", "$TestDrive\exists_handle_moved") } | Should -Not -Throw
+    }
+
     It "集約ファイルの件数・最新の更新日時・存在しないフォルダを返す" {
         $summary = getIndexSummary @($index, $other, $missing, $index)
         $summary.Count | Should -Be 3

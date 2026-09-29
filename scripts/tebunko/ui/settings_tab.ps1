@@ -63,16 +63,11 @@ function getFolderEntrySample {
         [string]$folder
     )
 
-    $count = 0
+    $entries = selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries((toLongPath $folder))) ${workspaceCountLimit}
+    $count = $entries.Count
     $names = New-Object System.Collections.Generic.List[string]
-    foreach ($entry in [System.IO.Directory]::EnumerateFileSystemEntries((toLongPath $folder))) {
-        $count++
-        if ($names.Count -lt ${workspaceSampleCount}) {
-            $names.Add([System.IO.Path]::GetFileName($entry))
-        }
-        if ($count -ge ${workspaceCountLimit}) {
-            break
-        }
+    for ($i = 0; $i -lt [Math]::Min($count, ${workspaceSampleCount}); $i++) {
+        $names.Add([System.IO.Path]::GetFileName($entries[$i]))
     }
     return @{ Count = $count; Names = $names.ToArray(); Capped = ($count -ge ${workspaceCountLimit}) }
 }
