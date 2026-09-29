@@ -134,11 +134,11 @@ function invokeIngestTask {
         $result.Ok = $true
     } catch {
         $base = $_.Exception.GetBaseException()
-        if ($base -is [System.OperationCanceledException] -and $base.Message -eq ${officeRequiredMessage}) {
+        if (isOfficeRequiredException $_.Exception) {
             $result.Reroute = $true
             return $result
         }
-        if ($base -is [System.InvalidOperationException] -and $base.Message.EndsWith(${officeAppInUseMessage})) {
+        if (isOfficeAppInUseException $_.Exception) {
             # getApp が投げた例外。$script:apps に入っていないため stopApp は呼ばない
             $result.Postponed = $true
             return $result

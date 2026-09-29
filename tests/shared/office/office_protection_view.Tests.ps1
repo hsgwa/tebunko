@@ -83,20 +83,18 @@ Describe "getProtectionFailureText" -Tag Unit {
 }
 
 Describe "testOfficeOutput" -Tag Unit {
-    It "Zip を期待し、ZIPの先頭バイト列なら `$true" {
-        testOfficeOutput ${zipHead} "Zip" | Should -Be $true
-    }
-
-    It "Zip を期待し、ZIPでなければ `$false" {
-        testOfficeOutput (bytesOf "12 34 00 56") "Zip" | Should -Be $false
-    }
-
-    It "UnicodeText を期待し、BOM（FF FE）なら `$true" {
-        testOfficeOutput (bytesOf "FF FE 41 00") "UnicodeText" | Should -Be $true
-    }
-
-    It "UnicodeText を期待し、BOMが無ければ `$false" {
-        testOfficeOutput (bytesOf "41 00 42 00") "UnicodeText" | Should -Be $false
+    It "<name>" -TestCases @(
+        @{ name = "Zip を期待し、ZIPの先頭バイト列なら true"; hex = "50 4B 03 04 00 00"; expectedKind = "Zip"; expected = $true }
+        @{ name = "Zip を期待し、ZIPでなければ false"; hex = "12 34 00 56"; expectedKind = "Zip"; expected = $false }
+        @{ name = "UnicodeText を期待し、BOM（FF FE）なら true"; hex = "FF FE 41 00"; expectedKind = "UnicodeText"; expected = $true }
+        @{ name = "UnicodeText を期待し、BOMが無ければ false"; hex = "41 00 42 00"; expectedKind = "UnicodeText"; expected = $false }
+        @{ name = "0バイトはZipを期待してもfalse"; hex = ""; expectedKind = "Zip"; expected = $false }
+        @{ name = "0バイトはUnicodeTextを期待してもfalse"; hex = ""; expectedKind = "UnicodeText"; expected = $false }
+        @{ name = "知らないexpectedKindはfalse"; hex = "50 4B 03 04"; expectedKind = "Text"; expected = $false }
+    ) {
+        param ($name, $hex, $expectedKind, $expected)
+        $head = if ($hex -eq "") { [byte[]]@() } else { bytesOf $hex }
+        testOfficeOutput $head $expectedKind | Should -Be $expected
     }
 }
 

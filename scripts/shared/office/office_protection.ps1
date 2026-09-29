@@ -84,9 +84,10 @@ function readCfbSector {
     }
 }
 
-function buildCfbFatMap {
-    # セクター番号 → 次のセクター番号（FATの鎖） の対応表を作る。
-    # DIFAT（ヘッダーの109件 + DIFATセクターの鎖）をたどってFATセクターの並びを求め、その並びの順に読む
+function getCfbFatSectorIds {
+    # FATセクターの並び（順番が、その並びのk番目が担当するセクター番号の範囲を決める索引）を返す。
+    # DIFAT（ヘッダーの109件 + DIFATセクターの鎖）だけをたどり、FATセクターの中身はまだ読まない
+    # （中身は、ディレクトリの鎖をたどるときに要る分だけ readCfbFatEntry が読む）
     param (
         $stream,
         [byte[]]$header,
@@ -121,25 +122,36 @@ function buildCfbFatMap {
         $difatSec = readUInt32LE $buffer ($entriesInSector * 4)
         $steps++
     }
+    return $fatSectorIds
+}
 
-    $fatMap = New-Object 'System.Collections.Generic.Dictionary[uint32,uint32]'
-    $seenFat = New-Object 'System.Collections.Generic.HashSet[uint32]'
-    $sectorIndex = 0
-    foreach ($fatSecId in $fatSectorIds) {
-        if ($sectorIndex -ge ${cfbMaxChainSectors}) {
-            break
-        }
-        if ($seenFat.Add($fatSecId)) {
-            $buffer = readCfbSector $stream $sectorSize $fileLength $fatSecId
-            if ($null -ne $buffer) {
-                for ($i = 0; $i -lt $entriesPerSector; $i++) {
-                    $fatMap[[uint32]($sectorIndex + $i)] = (readUInt32LE $buffer ($i * 4))
-                }
-            }
-        }
-        $sectorIndex += $entriesPerSector
+function readCfbFatEntry {
+    # セクター番号1つ分の、FATの次のセクター番号を返す。
+    # そのセクター番号を持つFATセクター（$fatSectorIds の何番目か）だけを読み、$fatCache に貯めて使い回す
+    # （旧形式のふつうのファイルでもディレクトリの判定のたびに動くため、FAT全体を毎回読まない）
+    param (
+        $stream,
+        [double]$sectorSize,
+        [long]$fileLength,
+        [System.Collections.Generic.List[uint32]]$fatSectorIds,
+        [System.Collections.Generic.Dictionary[int, byte[]]]$fatCache,
+        [uint32]$secId
+    )
+
+    $entriesPerSector = [int]($sectorSize / 4)
+    $position = [int]([Math]::Floor([double]$secId / $entriesPerSector))
+    if ($position -lt 0 -or $position -ge $fatSectorIds.Count) {
+        return ${cfbFreeSect}
     }
-    return $fatMap
+    if (!$fatCache.ContainsKey($position)) {
+        $fatCache[$position] = readCfbSector $stream $sectorSize $fileLength $fatSectorIds[$position]
+    }
+    $buffer = $fatCache[$position]
+    if ($null -eq $buffer) {
+        return ${cfbFreeSect}
+    }
+    $offset = ([int]($secId % $entriesPerSector)) * 4
+    return readUInt32LE $buffer $offset
 }
 
 function readCfbDirectoryEntryNames {
@@ -148,12 +160,13 @@ function readCfbDirectoryEntryNames {
         $stream,
         [double]$sectorSize,
         [long]$fileLength,
-        [System.Collections.Generic.Dictionary[uint32, uint32]]$fatMap,
+        [System.Collections.Generic.List[uint32]]$fatSectorIds,
         [uint32]$firstDirSector
     )
 
     $names = New-Object 'System.Collections.Generic.List[string]'
     $entriesPerSector = [int]($sectorSize / 128)
+    $fatCache = New-Object 'System.Collections.Generic.Dictionary[int, byte[]]'
     $seen = New-Object 'System.Collections.Generic.HashSet[uint32]'
     $sec = $firstDirSector
     $steps = 0
@@ -172,10 +185,7 @@ function readCfbDirectoryEntryNames {
                 }
             }
         }
-        if (!$fatMap.ContainsKey($sec)) {
-            break
-        }
-        $sec = $fatMap[$sec]
+        $sec = readCfbFatEntry $stream $sectorSize $fileLength $fatSectorIds $fatCache $sec
         $steps++
     }
     return $names
@@ -216,8 +226,8 @@ function readCompoundEntryNames {
         $sectorSize = [double][Math]::Pow(2, $sectorShift)
         $firstDirSector = readUInt32LE $header 48
 
-        $fatMap = buildCfbFatMap $stream $header $sectorSize $fileLength
-        return @(readCfbDirectoryEntryNames $stream $sectorSize $fileLength $fatMap $firstDirSector)
+        $fatSectorIds = getCfbFatSectorIds $stream $header $sectorSize $fileLength
+        return @(readCfbDirectoryEntryNames $stream $sectorSize $fileLength $fatSectorIds $firstDirSector)
     } catch {
         return $null
     } finally {

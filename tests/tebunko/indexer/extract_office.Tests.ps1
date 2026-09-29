@@ -670,6 +670,61 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
 
         { extractDocument $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません*"
     }
+
+    It "<name>" -TestCases @(
+        @{ name = "IRM（新形式）の判定をログに書く"; buildSource = { param($path) newCompoundFile $path @(@(([char]6 + "DataSpaces"), "DRMEncryptedDataSpace", "DRMEncryptedTransform")) }; pattern = "暗号化の判定: Rights" }
+        @{ name = "パスワード付き（新形式）の判定をログに書く"; buildSource = { param($path) newCompoundFile $path @(@(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo")) }; pattern = "暗号化の判定: Password" }
+        @{ name = "「形式の分からないバイナリ」の判定をログに書く"; buildSource = { param($path) writeUnknownBinary $path }; pattern = "暗号化の判定: Unknown" }
+    ) {
+        param ($name, $buildSource, $pattern)
+        $source = Join-Path $TestDrive "logkind.docx"
+        & $buildSource $source
+        $word = newWord "本文"
+        Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
+        Mock writeIndexerLog {}
+
+        try { [void](extractDocument $source) } catch {}
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match $pattern }
+    }
+
+    It "予備の読み取り中に「Officeが要る」の例外が起きても、暗号化の失敗に言い換えずそのまま通す" {
+        $source = Join-Path $TestDrive "unknown-passthrough-required.docx"
+        writeUnknownBinary $source
+        $word = newWord ""
+        $requiredException = New-Object System.OperationCanceledException ${officeRequiredMessage}
+        $word.Documents.Doc | Add-Member -MemberType ScriptMethod -Name Repaginate -Value { throw $requiredException } -Force
+        Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
+
+        $caught = $null
+        try { [void](extractDocument $source) } catch { $caught = $_.Exception.GetBaseException() }
+        $caught -is [System.OperationCanceledException] | Should -Be $true
+        $caught.Message | Should -Be ${officeRequiredMessage}
+    }
+
+    It "予備の読み取り中に「利用者のOfficeが使用中」の例外が起きても、そのまま通す" {
+        $source = Join-Path $TestDrive "unknown-passthrough-inuse.docx"
+        writeUnknownBinary $source
+        Mock getApp { throw (New-Object System.InvalidOperationException "Word${officeAppInUseMessage}") } -ParameterFilter { $name -eq "Word" }
+
+        $caught = $null
+        try { [void](extractDocument $source) } catch { $caught = $_.Exception.GetBaseException() }
+        $caught -is [System.InvalidOperationException] | Should -Be $true
+        $caught.Message | Should -Be "Word${officeAppInUseMessage}"
+    }
+
+    It "予備の読み取り中に見張りが時間切れにしても、暗号化の失敗に言い換えずそのまま通す" {
+        $source = Join-Path $TestDrive "unknown-passthrough-timeout.docx"
+        writeUnknownBinary $source
+        $word = newWord ""
+        $word.Documents.Doc | Add-Member -MemberType ScriptMethod -Name Repaginate -Value { throw "強制終了されました。" } -Force
+        Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
+        $script:watchdog.TimedOut = $true
+        try {
+            { extractDocument $source } | Should -Throw -ExpectedMessage "*強制終了されました。*"
+        } finally {
+            $script:watchdog.TimedOut = $false
+        }
+    }
 }
 
 Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
@@ -730,6 +785,44 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         $log -join "|" | Should -Be "Open|Close:False"
     }
 
+    It "「形式の分からないバイナリ」でExcelのOpenが失敗したら、元の例外をログに書いて言い換える" {
+        $source = Join-Path $TestDrive "unknown-openfail.xlsx"
+        writeUnknownBinary $source
+        $workbooks = newFake @{} @{ Open = { throw "予期しないエラーです。" } }
+        $excel = newFake @{ Workbooks = $workbooks } @{}
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock writeIndexerLog {}
+
+        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため取り込めません*"
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "予備の読み取りに失敗しました" }
+    }
+
+    It "パスワード付きのExcelのOpenが失敗しても、今までどおり元の例外をそのまま投げる（言い換えない）" {
+        $source = Join-Path $TestDrive "password-openfail.xlsx"
+        newCompoundFile $source @(@(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo"))
+        $workbooks = newFake @{} @{ Open = { throw "パスワードが正しくありません。" } }
+        $excel = newFake @{ Workbooks = $workbooks } @{}
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+
+        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*パスワードが正しくありません。*"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "IRMの判定をログに書く"; buildSource = { param($path) newCompoundFile $path @(@(([char]6 + "DataSpaces"), "DRMEncryptedDataSpace", "DRMEncryptedTransform")) }; pattern = "暗号化の判定: Rights" }
+        @{ name = "パスワード付き（新形式）の判定をログに書く"; buildSource = { param($path) newCompoundFile $path @(@(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo")) }; pattern = "暗号化の判定: Password" }
+        @{ name = "「形式の分からないバイナリ」の判定をログに書く"; buildSource = { param($path) writeUnknownBinary $path }; pattern = "暗号化の判定: Unknown" }
+    ) {
+        param ($name, $buildSource, $pattern)
+        $source = Join-Path $TestDrive "logkind.xlsx"
+        & $buildSource $source
+        $excel = newExcel @((newSheet "Sheet1" -1 "a`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock writeIndexerLog {}
+
+        try { [void](extractWorkbook $source) } catch {}
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match $pattern }
+    }
+
     It "「形式の分からないバイナリ」でも、ブックとして開ければ（FileFormatがふつうの値なら）取り込む" {
         $source = Join-Path $TestDrive "unknown-ok.xlsx"
         writeUnknownBinary $source
@@ -740,19 +833,25 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
     }
 
     It "中身がHTMLの.xls（Textの種類）には、ブックの形式の確かめを当てない" {
-        # HTMLとして読み込まれたブックはFileFormatがxlHtml(44)になるが、Textの種類なので確かめの対象にしない
+        # HTMLとして読み込まれたブックはFileFormatがxlHtml(44)になるが、Textの種類なので確かめの対象にしない。
+        # 確かめの対象にすると、この後の xlHtml のシートまで「暗号化されているか壊れている」で失敗するはず
         $source = Join-Path $TestDrive "html.xls"
         [System.IO.File]::WriteAllText($source, "<html><body>表</body></html>")
-        $workbook = newFake @{ Worksheets = (New-Object FakeSheets); FileFormat = 44 } @{
+        $sheet = newSheet "Sheet1" -1 "見出し`r`n"
+        $worksheets = New-Object FakeSheets
+        $sheet.Index = 1
+        $worksheets.Items.Add($sheet)
+        $worksheets.Temp = newSheet "一時" -1 ""
+        $worksheets.Log = $log
+        $workbook = newFake @{ Worksheets = $worksheets; FileFormat = 44 } @{
             Close = { [void]$log.Add("Close:$($args[0])") }
         }
-        $workbook.Worksheets.Temp = newSheet "一時" -1 ""
-        $workbook.Worksheets.Log = $log
         $workbooks = newFake @{ Book = $workbook } @{ Open = { return $this.Book } }
         $excel = newFake @{ Workbooks = $workbooks } @{}
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        { extractWorkbook $source } | Should -Not -Throw
+        extractWorkbook $source | Should -Be 1
+        readTsv "Sheet1.tsv" | Should -Be "見出し`r`n"
     }
 
     It "Excelが保存した一時ファイル（テキスト保存）まで暗号化されていたら『一時ファイルを暗号化した』に失敗にする" {

@@ -58,28 +58,45 @@ Describe "readCompoundEntryNames" -Tag Io {
         @(readCompoundEntryNames $path) | Should -Be @("Root Entry", "a", "b", "c", "d", "e")
     }
 
-    It "FATの鎖が輪になっていても、例外を出さず速く戻る" {
+    It "FATの鎖が輪になっていても、例外を出さず速く戻り、読めた分だけ返す" {
         $path = Join-Path $dir "loop.cfb"
         newCompoundFile $path @(@("a"), @("b")) @{ 2 = 1 }   # セクター2 → 1 → 2 → ... の輪
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        { readCompoundEntryNames $path } | Should -Not -Throw
+        $names = @(readCompoundEntryNames $path)
         $sw.Stop()
         $sw.Elapsed.TotalSeconds | Should -BeLessThan 10
+        $names | Should -Be @("Root Entry", "a", "b")
     }
 
-    It "FATが範囲外のセクターを指していても、例外を出さない" {
+    It "FATが範囲外のセクターを指していても、例外を出さず、そこまでに読めた分だけ返す" {
         $path = Join-Path $dir "outofrange.cfb"
         newCompoundFile $path @(@("a")) @{ 1 = 999999 }
-        { readCompoundEntryNames $path } | Should -Not -Throw
+        $names = @(readCompoundEntryNames $path)
+        $names | Should -Be @("Root Entry", "a")
     }
 
     It "ディレクトリの鎖が途中で切れていても、読めた分だけ返す" {
-        $path = Join-Path $dir "truncated.cfb"
-        newCompoundFile $path @(@("a", "b"), @("c", "d"))
         # セクター1（1つ目のディレクトリセクター）の次を、どこも指していない値にする
-        $path2 = Join-Path $dir "truncated2.cfb"
-        newCompoundFile $path2 @(@("a", "b"), @("c", "d")) @{ 1 = 5 }
-        @(readCompoundEntryNames $path2) | Should -Be @("Root Entry", "a", "b")
+        $path = Join-Path $dir "truncated.cfb"
+        newCompoundFile $path @(@("a", "b"), @("c", "d")) @{ 1 = 5 }
+        @(readCompoundEntryNames $path) | Should -Be @("Root Entry", "a", "b")
+    }
+
+    It "DIFATセクターの先にあるFATから、次のセクターの名前を読める" {
+        $path = Join-Path $dir "difat.cfb"
+        newCompoundFileWithDifat $path @(@("a", "b", "c"), @("d", "e"))
+        @(readCompoundEntryNames $path) | Should -Be @("Root Entry", "a", "b", "c", "d", "e")
+    }
+
+    It "DIFATの鎖が輪になっていても、例外を出さず速く戻る" {
+        $path = Join-Path $dir "difat-loop.cfb"
+        newCompoundFileWithDifat $path @(@("a", "b", "c"), @("d", "e")) -loopDifat
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $names = @(readCompoundEntryNames $path)
+        $sw.Stop()
+        $sw.Elapsed.TotalSeconds | Should -BeLessThan 10
+        # DIFATが輪でも、FATセクターの並び自体（セクター0）は読めているため、ディレクトリの鎖はふつうにたどれる
+        $names | Should -Be @("Root Entry", "a", "b", "c", "d", "e")
     }
 }
 

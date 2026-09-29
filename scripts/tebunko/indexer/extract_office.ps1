@@ -32,6 +32,26 @@ function throwProtectionFailure {
     throw $exception
 }
 
+function isOfficeRequiredException {
+    # invokeIngestTask（indexer_run.ps1）と見分け方をそろえる（重複させない）
+    param (
+        [System.Exception]$exception
+    )
+
+    $base = $exception.GetBaseException()
+    return ($base -is [System.OperationCanceledException] -and $base.Message -eq ${officeRequiredMessage})
+}
+
+function isOfficeAppInUseException {
+    # invokeIngestTask（indexer_run.ps1）と見分け方をそろえる（重複させない）
+    param (
+        [System.Exception]$exception
+    )
+
+    $base = $exception.GetBaseException()
+    return ($base -is [System.InvalidOperationException] -and $base.Message.EndsWith(${officeAppInUseMessage}))
+}
+
 function isPassthroughIngestException {
     # 見張りの時間切れ・「Officeが要る」・「利用者のOfficeが使用中」の例外は、暗号化の失敗として包み直さずそのまま通す
     param (
@@ -41,14 +61,35 @@ function isPassthroughIngestException {
     if ($script:watchdog.TimedOut) {
         return $true
     }
-    $base = $exception.GetBaseException()
-    if ($base -is [System.OperationCanceledException] -and $base.Message -eq ${officeRequiredMessage}) {
+    if (isOfficeRequiredException $exception) {
         return $true
     }
-    if ($base -is [System.InvalidOperationException] -and $base.Message.EndsWith(${officeAppInUseMessage})) {
+    if (isOfficeAppInUseException $exception) {
         return $true
     }
     return $false
+}
+
+function failProtectionCheck {
+    # 暗号化の判定で、Officeを開く前に作業フォルダのコピーを消してから失敗にする（throwProtectionFailure）
+    param (
+        [string]$copyPath,
+        [string]$message
+    )
+
+    Remove-Item -LiteralPath $copyPath -Force
+    throwProtectionFailure $message
+}
+
+function logProtectionKind {
+    # 暗号化の判定の結果をインデックス作成ログに書く（Password・Rights・Unknownだけ。旧形式・ふつうのテキストは書かない）
+    param (
+        [string]$kind
+    )
+
+    if ($kind -eq "Password" -or $kind -eq "Rights" -or $kind -eq "Unknown") {
+        writeIndexerLog "    暗号化の判定: $kind" "Yellow"
+    }
 }
 
 # ----------------------------------------------------------------------------
@@ -174,21 +215,30 @@ function extractWorkbook {
         # 「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）は、アプリごとの切り替えが $false なら
         # Excelを起動せずに失敗にする
         $protection = getOfficeFileProtection $copyPath
+        logProtectionKind $protection
         if ($protection -eq "Rights") {
-            Remove-Item -LiteralPath $copyPath -Force
-            throwProtectionFailure (getProtectionFailureText "Rights")
+            failProtectionCheck $copyPath (getProtectionFailureText "Rights")
         }
         if ($protection -eq "Unknown" -and !(testOfficeFallbackEnabled "Excel")) {
-            Remove-Item -LiteralPath $copyPath -Force
-            throwProtectionFailure (getProtectionFailureText "Unknown")
+            failProtectionCheck $copyPath (getProtectionFailureText "Unknown")
         }
     }
 
     # 読み取り専用・リンク更新なしで開く。
-    # パスワード付きのファイルは、ダイアログを出さずにエラーとするためダミーのパスワードを渡す
+    # パスワード付きのファイルは、ダイアログを出さずにエラーとするためダミーのパスワードを渡す。
+    # 「形式の分からないバイナリ」で開けなかったときは、元の例外をログに書いて文言を言い換える
+    # （見張りの時間切れ・「Officeが要る」・「利用者のOfficeが使用中」の例外はそのまま通す）
     $workbooks = (getApp "Excel").Workbooks
     try {
-        $wb = $workbooks.Open($openPath, 0, $true, [Type]::Missing, "dummy", "dummy", $true)
+        try {
+            $wb = $workbooks.Open($openPath, 0, $true, [Type]::Missing, "dummy", "dummy", $true)
+        } catch {
+            if ($protection -ne "Unknown" -or (isPassthroughIngestException $_.Exception)) {
+                throw
+            }
+            writeIndexerLog "    予備の読み取りに失敗しました: $(describeIngestError $_.Exception)" "Yellow"
+            throw (getProtectionFailureText "Unknown")
+        }
     } finally {
         releaseComObject $workbooks
     }
@@ -329,6 +379,35 @@ $script:officeUnavailable = $false
 # Office が要るときの例外の文言（invokeIngestTask が見分けて、司令に回し直しを頼む）
 ${officeRequiredMessage} = "このファイルの取り込みには Word・PowerPoint が要ります。"
 
+function extractWithOffice {
+    # Word・PowerPointどちらかで新形式に変換する（呼び分けをまとめる）。
+    # $wordFormat を渡すと、Wordはその形式に固定して開く（「形式の分からないバイナリ」のときだけ渡す）
+    param (
+        [bool]$isWord,
+        [string]$copyPath,
+        [string]$readPath,
+        $wordFormat = [Type]::Missing
+    )
+
+    if ($isWord) {
+        extractWithWord $copyPath $readPath $wordFormat
+    } else {
+        extractWithPowerPoint $copyPath $readPath
+    }
+}
+
+function verifyOfficeOutputIsZip {
+    # Officeが保存した出力（$readPath）の先頭がZIPかを確かめる。
+    # 透過暗号化の製品がこの一時ファイルまで暗号化していないか（ふつうのファイルでも起こりうる）
+    param (
+        [string]$readPath
+    )
+
+    if (!(testOfficeOutput (readFileHead $readPath) "Zip")) {
+        throw ${officeOutputEncryptedMessage}
+    }
+}
+
 function extractDocument {
     # Word・PowerPointのファイルを場所（ページ・スライド）ごとに作業フォルダへTSV出力し、出力した数を返す
     param (
@@ -348,6 +427,7 @@ function extractDocument {
         copyFileShared $sourcePath $copyPath
         if (!(isZipFile $copyPath)) {
             $protection = getOfficeFileProtection $copyPath
+            logProtectionKind $protection
 
             # パスワード付き（新形式）・IRM・秘密度ラベルの暗号化は、Office を使わずに失敗にする
             # （Word・PowerPointはサインイン画面が出ないようにするため。Excelは別処理で今のまま）
@@ -370,12 +450,9 @@ function extractDocument {
                 # 開くことがあるため）。Wordは形式を拡張子に合わせて固定し、自動判定に任せない
                 $readPath = Join-Path $tmpDir $(if ($isWord) { "converted.docx" } else { "converted.pptx" })
                 $workFiles = @($copyPath, $readPath)
+                $wordFormat = getWordOpenFormat ([System.IO.Path]::GetExtension($copyPath))
                 try {
-                    if ($isWord) {
-                        extractWithWord $copyPath $readPath (getWordOpenFormat ([System.IO.Path]::GetExtension($copyPath)))
-                    } else {
-                        extractWithPowerPoint $copyPath $readPath
-                    }
+                    extractWithOffice $isWord $copyPath $readPath $wordFormat
                 } catch {
                     if (isPassthroughIngestException $_.Exception) {
                         throw
@@ -383,9 +460,7 @@ function extractDocument {
                     writeIndexerLog "    予備の読み取りに失敗しました: $(describeIngestError $_.Exception)" "Yellow"
                     throw (getProtectionFailureText "Unknown")
                 }
-                if (!(testOfficeOutput (readFileHead $readPath) "Zip")) {
-                    throw ${officeOutputEncryptedMessage}
-                }
+                verifyOfficeOutputIsZip $readPath
             } else {
                 # Legacy（旧形式・権限保護と分からないCFB）・Text（空・RTF・HTML・UTF-8・UTF-16等）は今と同じ
 
@@ -416,15 +491,8 @@ function extractDocument {
                 }
                 $workFiles = @($copyPath, $readPath)
 
-                if ($isWord) {
-                    extractWithWord $copyPath $readPath
-                } else {
-                    extractWithPowerPoint $copyPath $readPath
-                }
-                # 透過暗号化の製品が、この一時ファイルまで暗号化していないかを確かめる（ふつうのファイルでも起こりうる）
-                if (!(testOfficeOutput (readFileHead $readPath) "Zip")) {
-                    throw ${officeOutputEncryptedMessage}
-                }
+                extractWithOffice $isWord $copyPath $readPath
+                verifyOfficeOutputIsZip $readPath
             }
         }
 
