@@ -1,0 +1,4 @@
+﻿tebunko could not start. Required files are missing.
+
+tebunko のファイルが足りないため起動できませんでした。zip を展開し直してください。
+直らない場合は、この記録を添えて問い合わせてください。

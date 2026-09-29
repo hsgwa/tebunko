@@ -10,6 +10,7 @@
 | `%TEMP%\tebunko\<PID>` 配下 | 取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする | `tebunko/core/paths.ps1:8` |
 | `setting.config`（ツールを置いたフォルダの直下） | 画面が保存する設定（クロール対象フォルダ・検索対象インデックス・`work` の置き場所など） | `shared/core/data_dir.ps1:40`、`tebunko/core/settings.ps1:5` |
 | `%LOCALAPPDATA%\tebunko\<鍵>` 配下 | ツールを置いたフォルダに書き込めないとき（Program Files・読み取り専用の共有フォルダ）だけ、`setting.config` をここに置く（ワークスペースの既定は `%USERPROFILE%\Documents\tebunko_ws`）。鍵はツールのフォルダのパスから作る 16 文字（[データの置き場所とパスの決め方](../design/structure/data.md)） | `shared/core/data_dir.ps1:31` |
+| `%LOCALAPPDATA%\tebunko\startup_error.txt`（書き込めなければ `%TEMP%\tebunko_startup_error.txt`） | 起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため固定の場所に置く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)） | `tebunko.bat`、`tebunko/gui.ps1` の `writeStartupErrorFile` |
 | 利用者が指定した出力先 | ［結果をファイルに出力］の保存先（既定は `work\検索結果.txt`） | 画面のダイアログで利用者が指定 |
 
 削除（`Remove-Item`・`[System.IO.File]::Delete` など）の対象はすべてワークスペース配下または `%TEMP%\tebunko\<PID>` 配下、すなわち**本ツールが自分で作ったファイル**である。クロール対象フォルダ内のファイルを削除する処理は無い。
