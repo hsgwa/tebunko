@@ -5,6 +5,7 @@
 . "$PSScriptRoot\core\worker_pool.ps1"
 . "$PSScriptRoot\core\data_dir.ps1"
 . "$PSScriptRoot\core\text.ps1"
+. "$PSScriptRoot\core\text_file.ps1"
 . "$PSScriptRoot\core\folder.ps1"
 . "$PSScriptRoot\core\version.ps1"
 . "$PSScriptRoot\office\office_files.ps1"

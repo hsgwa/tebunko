@@ -108,6 +108,7 @@ function ensureRows {
         $described = getPlace $hit.Book $hit.Location
         $row.PlaceText = $described.Place
         $row.Kind = $described.Kind
+        $row.IsText = testTextExtension $hit.Book
         $row.Order = $i
         $row.FileGroup = $group
         $group.Rows.Add($row)

@@ -30,6 +30,7 @@
   | `ヘッダー・フッター` `脚注` | `ヘッダー・フッター` `脚注` | 本文 |
   | `スライド002（非表示）`（PowerPoint） | `スライド 2（非表示）` | 本文 |
   | `スライド002_ノート` | `スライド 2` | ノート |
+  | `本文`（テキストファイル。場所は 1 つだけ） | （空） | 本文 |
 
   - Word のページは、Word が保存したときのページ区切りから数えた目安のため「（目安）」を付ける（[Word](../indexing/word.md)・[既知の問題](../indexing/known-issues.md#word-の注意点既知の問題)）。
   - Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（[Excel の図形・コメントの読み取り](../indexing/excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）。
@@ -89,3 +90,12 @@ flowchart TD
 - 検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（`getIndexFolderBooks`）だけに使う。
 
 場所の付け方は [インデックス作成](../indexing/index.md) の [インデックスのファイルの形](../index-data/format.md#配置命名規則)・[場所の符号化](../index-data/format.md#場所の符号化encodeindexplace--decodeindexplace) を参照。
+
+## 長い行を切る
+
+テキストファイル（`.txt` 等）は、1 行に数 MB の内容が入ることがある（`.json` `.xml` `.log` など）。取り込み・検索の一致そのものは行を切らずに行う（行番号と検索の一致がずれないため）が、結果の表・プレビュー・この検索結果ファイル・画面の［コピー］に出す行は、`search_query.ps1` の `truncateHitLine` で `${hitLineMaxChars}`（1,000 文字）に切る。
+
+- 一致した行（結果の表・検索結果ファイル）は、一致の位置の `${hitLineBeforeMatchChars}`（200）文字前から 1,000 文字を取る（一致の位置が分からない図形・コメント等では先頭から）。
+- 選択行のプレビューの前後の行（`readPackContext`）は、一致していないため常に先頭から 1,000 文字を取る。
+- 切った側に `…` を付ける（先頭・末尾のどちらか、または両方）。
+- Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は [テキストファイルの読み取り](../indexing/text.md)）。`pack_search.ps1` の `searchPackFiles` は、元のファイル名の拡張子（`getPackFileKind`）がテキストのときだけ切る。

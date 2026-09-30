@@ -237,6 +237,7 @@ class HitRow : NotifyBase {
     [int]$LineNumber
     [string]$Line
     [bool]$IsExcel
+    [bool]$IsText          # テキストの拡張子（.txt 等）の行か（describeHitPlace・open_source.ps1 が使う。呼び出し側が入れる）
     [bool]$IsObjectPlace
     [string]$MatchCell
     [int]$MatchCount        # 1 行のうち一致したセルの数（Excel のセルの行だけ。図形・コメントは 0 か 1）
@@ -780,9 +781,14 @@ class IndexNode : NotifyBase {
     }
 
     static [bool] IsBookDir([string]$name) {
+        # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4〜5 文字）で見分け、
+        # テキストは対象の拡張子の一覧（shared\core\text_file.ps1 の testTextExtension。一覧はそこにだけある）で見分ける
         $ext = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
-        if ($ext.Length -lt 4 -or $ext.Length -gt 5) { return $false }
-        return $ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt")
+        if ($ext.Length -ge 4 -and $ext.Length -le 5 -and
+            ($ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt"))) {
+            return $true
+        }
+        return (testTextExtension $name)
     }
 
     static [bool] IsBookDirPath([string]$dir) {

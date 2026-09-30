@@ -129,7 +129,7 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
     }
 
     It "アクセスできないフォルダがあったときは、見つからなかったファイルの行とインデックスを残す" {
-        Mock findOfficeFiles { @{ Root = $source; Files = @(Get-Item -LiteralPath $file); HasError = $true } }
+        Mock findTargetFiles { @{ Root = $source; Files = @(Get-Item -LiteralPath $file); HasError = $true } }
         $gone = Join-Path ${indexDir} "経理\読めない\d.xlsx"
         [System.IO.Directory]::CreateDirectory($gone) | Out-Null
         $previous = newPrevious @((newStatusRow "経理\読めない\d.xlsx" "2024/01/01 00:00:00" "10" ${stateDone} 1 "2024/01/01 00:00:00"))
@@ -141,24 +141,86 @@ Describe "createTargetList（サブフォルダ・無くなったファイル）
     }
 }
 
-Describe "findOfficeFiles" -Tag Io {
+Describe "findTargetFiles" -Tag Io {
     BeforeAll {
         $source = Join-Path $TestDrive "scan"
         [System.IO.Directory]::CreateDirectory("$source\下\さらに下") | Out-Null
         foreach ($name in @("a.xlsx", "下\b.DOCX", "下\さらに下\c.pptm", "d.txt", "e.pdf", ('~$' + "a.xlsx"), "f.xls", "g.ppt")) {
             [System.IO.File]::WriteAllText((Join-Path $source $name), "dummy")
         }
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree")
     }
 
-    It "サブフォルダも含めて Office の拡張子のファイルだけを返す（大文字の拡張子も含め、~$ で始まるロックファイルは除く）" {
-        $scan = findOfficeFiles $source
-        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "a.xlsx,b.DOCX,c.pptm,f.xls,g.ppt"
+    It "サブフォルダも含めて Office・テキストの拡張子のファイルだけを返す（大文字の拡張子も含め、~$ で始まるロックファイルは除く）" {
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "a.xlsx,b.DOCX,c.pptm,d.txt,f.xls,g.ppt"
         $scan.HasError | Should -Be $false
     }
 
     It "末尾に \ を付けたフォルダでも同じフォルダを列挙する" {
-        $scan = findOfficeFiles "$source\"
+        $scan = findTargetFiles "$source\"
         $scan.Root.TrimEnd("\") | Should -Be $source
-        $scan.Files.Count | Should -Be 5
+        $scan.Files.Count | Should -Be 6
+    }
+}
+
+Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
+    BeforeEach {
+        # It ごとに別のフォルダにする（前の It で作ったファイルが残って混ざらないように）
+        $source = Join-Path $TestDrive "scan2-$(New-Guid)"
+        [System.IO.Directory]::CreateDirectory($source) | Out-Null
+
+        function newFile([string]$relPath, [string]$content = "dummy") {
+            $path = Join-Path $source $relPath
+            [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($path)) | Out-Null
+            [System.IO.File]::WriteAllText($path, $content)
+        }
+    }
+
+    It "今のワークスペース（クロール対象フォルダの中）の本文インデックス・システムインデックス・取り込み一覧は外れ、利用者が置いた .xlsx・.txt は取り込む" {
+        $wsDir = Join-Path $source "ws"
+        $workspace = newTestWorkspace @{} $wsDir
+        newFile "ws\content_index\sheet.tsv"
+        newFile "ws\system_index\system_index.txt"
+        newFile "ws\取り込み一覧.tsv"
+        newFile "ws\my.xlsx"
+        newFile "ws\my.txt"
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "my.txt,my.xlsx"
+    }
+
+    It "取り込み一覧.tsv のある別のフォルダ（ほかのワークスペース）の content_index の下は外れる" {
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree2")
+        newFile "other-ws\取り込み一覧.tsv"
+        newFile "other-ws\content_index\sheet.tsv"
+        newFile "other-ws\my-file.txt"
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) | Should -Contain "my-file.txt"
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "sheet.tsv"
+    }
+
+    It "名前で分かる本文インデックス・前の版の集約ファイル・システムインデックスは、どこにあっても外れる" {
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree3")
+        newFile "content_index.txt.001.tsv"
+        newFile "content.xlsx.001.tsv"
+        newFile "システムインデックス.txt"
+        newFile "system_index.001.txt"
+        newFile "keep.txt"
+
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "content_index.txt.001.tsv"
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "content.xlsx.001.tsv"
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "システムインデックス.txt"
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain "system_index.001.txt"
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Contain "keep.txt"
+    }
+
+    It "~`$ で始まる一時ファイルは除外する" {
+        $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree4")
+        newFile ('~$locked.txt')
+        $scan = findTargetFiles $source
+        @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain '~$locked.txt'
     }
 }

@@ -293,6 +293,28 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should -Be $false
     }
 
+    It "Office に加えてテキスト（Shift_JIS の .txt）も取り込み、その語で検索すると正しい行番号でヒットする" {
+        $root = newRoot
+        $dir = Join-Path $TestDrive "テキスト混在"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        Copy-Item -LiteralPath $docxSource -Destination "$dir\議事録.docx"
+        $sjisBytes = [System.Text.Encoding]::GetEncoding(932).GetBytes("1行目`r`n検索語がある2行目`r`n3行目`r`n")
+        [System.IO.File]::WriteAllBytes("$dir\メモ.txt", $sjisBytes)
+        writeTestSettings $root @(@{ name = ""; path = $dir; enabled = $true })
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows["テキスト混在\メモ.txt"].状態 | Should -Be ${stateDone}
+        $status.Rows["テキスト混在\議事録.docx"].状態 | Should -Be ${stateDone}
+
+        $packs = (getIndexPackFiles @("$root\work\content_index")).Packs
+        $hits = @((searchPackIndex "検索語" $packs $true).Hits)
+        $hits.Count | Should -Be 1
+        $hits[0].Book | Should -Be "メモ.txt"
+        $hits[0].LineNumber | Should -Be 2
+        $hits[0].Line | Should -Be "検索語がある2行目"
+    }
 }
 
 Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -Tag Office {

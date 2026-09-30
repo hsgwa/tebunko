@@ -197,11 +197,16 @@ function describePlace {
     #   Excel      : "売上" → [シート]売上・セル / "売上[図形]" → [シート]売上・図形 / "売上[コメント]" → [シート]売上・コメント
     #   Word       : "ページ003" → 3 ページ（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → 脚注・本文
     #   PowerPoint : "スライド002（非表示）" → スライド 2（非表示）・本文 / "スライド002_ノート" → スライド 2・ノート
+    #   テキスト   : "本文" → 空・本文（場所は 1 つだけのため、表の「場所」の列は describeHitPlace の "N 行目" だけで足りる）
     # 種別は、図形・コメントなら場所の種類の名前そのまま（検索条件の［図形も検索］［コメントも検索］と同じ言葉）
     param (
         [string]$book,
         [string]$place
     )
+
+    if (testTextExtension $book) {
+        return @{ Place = ""; Kind = "本文" }
+    }
 
     $split = splitObjectPlace $place
     $base = $split.Base
@@ -229,18 +234,21 @@ function describePlace {
 
 function describeHitPlace {
     # 結果の表の「場所」の列とプレビューの題に出す、行ごとの場所の表記を返す（場所ごとの表記にセル番地を足したもの）。
-    # Excel だけ足す（Word・PowerPoint は場所ごとと同じ）。
+    # Excel だけ足す（Word・PowerPoint は場所ごとと同じ）。テキストは行番号だけ（"N 行目"）を返す（場所は 1 つしかないため）。
     #   セル             : [シート]売上!B12 / 1 行に複数のセルが一致 [シート]売上!B12 ほか 2 / セル番地が求まらないとき [シート]売上 12 行目
     #   図形・コメント   : [シート]売上!D5 / セル番地が求まらないとき [シート]売上（行番号は通し番号のため出さない）
+    #   テキスト         : 12 行目
     param (
         [string]$place,
         [bool]$isExcel,
         [bool]$isObjectPlace,
         [string]$matchCell,
         [int]$matchCount,
-        [int]$lineNumber
+        [int]$lineNumber,
+        [bool]$isText = $false
     )
 
+    if ($isText) { return "$lineNumber 行目" }
     if (-not $isExcel) { return $place }
     if ($isObjectPlace) {
         if ($matchCell) { return "$place!$matchCell" }
@@ -252,5 +260,5 @@ function describeHitPlace {
 }
 
 
-# インデックスの「元のファイル名のフォルダ」と分かる名前（Officeファイルの拡張子で終わる）
-${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$"
+# インデックスの「元のファイル名のフォルダ」と分かる名前（Office・テキストの拡張子で終わる）
+${indexBookDirPattern} = "\.(?:xls|doc|ppt)[a-z]?$|(?:$((${textExtensions} | ForEach-Object { [regex]::Escape($_) }) -join '|'))$"

@@ -77,7 +77,9 @@ Describe "getIngestLane・getOfficeLane" -Tag Unit {
             @("営業\a.xlsx", ${laneExcel}), @("a.xlsm", ${laneExcel}), @("a.xls", ${laneExcel}), @("a.xlsb", ${laneExcel}), @("A.XLSX", ${laneExcel}),
             @("a.doc", ${laneWord}), @("B.DOC", ${laneWord}),
             @("a.ppt", ${lanePowerPoint}), @("B.PPT", ${lanePowerPoint}),
-            @("a.docx", ${laneReader}), @("a.docm", ${laneReader}), @("a.pptx", ${laneReader}), @("a.pptm", ${laneReader}), @("大文字.DOCX", ${laneReader})
+            @("a.docx", ${laneReader}), @("a.docm", ${laneReader}), @("a.pptx", ${laneReader}), @("a.pptm", ${laneReader}), @("大文字.DOCX", ${laneReader}),
+            # テキストの拡張子は、どの分岐にも当たらないため既定の読み取りのレーンになる
+            @("a.txt", ${laneReader}), @("a.log", ${laneReader})
         )
         foreach ($case in $expected) {
             getIngestLane $case[0] | Should -Be $case[1]

@@ -94,6 +94,8 @@ function searchPackFiles {
                 $p = 0            # 今の場所（places の番号）
                 $number = 0       # 今の場所で、pos までに数えた行の数
                 $pos = -1         # 行を数え終えた位置（-1 は場所が変わったので数え直し）
+                $lastP = -1       # 直前に判定した場所の番号（isTextBook を場所が変わったときだけ判定し直す）
+                $isTextBook = $false
                 $m = $textRegex.Match($text)
                 while ($m.Success) {
                     $index = $m.Index
@@ -110,6 +112,10 @@ function searchPackFiles {
                     while ($p -lt $places.Count -and $places[$p].End -le $lineStart) { $p++; $pos = -1 }
                     if ($p -ge $places.Count) { break }
                     $place = $places[$p]
+                    if ($p -ne $lastP) {
+                        $isTextBook = ((getPackFileKind $place.Book) -eq "テキスト")
+                        $lastP = $p
+                    }
                     $skip = ($include -and !$include.IsMatch($place.Book)) -or ($exclude -and $exclude.IsMatch($place.Book)) -or
                         ($excludePlace -and $excludePlace.IsMatch($place.Location))
                     if ($skip) {
@@ -126,9 +132,13 @@ function searchPackFiles {
                         $pos = $n + 1
                     }
                     $pos = $lineStart
+                    $line = $text.Substring($lineStart, $lineEnd - $lineStart)
+                    if ($isTextBook) {
+                        $line = truncateHitLine $line ($index - $lineStart)
+                    }
                     $hits.Add([pscustomobject]@{
                         Root = $pack.Root; RelPath = $pack.RelPath; RelDir = $pack.RelDir; FileName = $place.Book
-                        Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $text.Substring($lineStart, $lineEnd - $lineStart)
+                        Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
                     })
                     if ($max -ge 0 -and $hits.Count -gt $max) { return , $hits }
                     if ($lineEnd -ge $length) { break }
@@ -145,6 +155,7 @@ function searchPackFiles {
             if ($include -and !$include.IsMatch($place.Book)) { continue }
             if ($exclude -and $exclude.IsMatch($place.Book)) { continue }
             if ($excludePlace -and $excludePlace.IsMatch($place.Location)) { continue }
+            $isTextBook = ((getPackFileKind $place.Book) -eq "テキスト")
             $number = 0
             $pos = $place.Start
             while ($pos -lt $place.End) {
@@ -153,7 +164,11 @@ function searchPackFiles {
                 $number++
                 $line = $text.Substring($pos, $n - $pos)
                 $pos = $n + 1
-                if (!$regex.IsMatch($line)) { continue }
+                $lineMatch = $regex.Match($line)
+                if (!$lineMatch.Success) { continue }
+                if ($isTextBook) {
+                    $line = truncateHitLine $line $lineMatch.Index
+                }
                 $hits.Add([pscustomobject]@{
                     Root = $pack.Root; RelPath = $pack.RelPath; RelDir = $pack.RelDir; FileName = $place.Book
                     Book = $place.Book; Location = $place.Location; LineNumber = $number; Line = $line
@@ -193,8 +208,8 @@ function newPackWorkerPool {
         [int]$workers = (getWorkerCount)
     )
 
-    $state = newWorkerState @("searchPackFiles", "readPackPlaces", "convertPackMetaToPlace", "decodePackValue") `
-        @("packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment")
+    $state = newWorkerState @("searchPackFiles", "readPackPlaces", "convertPackMetaToPlace", "decodePackValue", "getPackFileKind", "testTextExtension", "truncateHitLine") `
+        @("packMark", "packVersion", "packPlaceKeys", "placeKindShape", "placeKindComment", "textExtensions", "hitLineMaxChars", "hitLineBeforeMatchChars")
     return [WorkerPool]::new($workers, $state, $Host, "Normal")
 }
 

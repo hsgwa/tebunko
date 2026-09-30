@@ -225,12 +225,15 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         # 取り込んだが中身が空のファイル（フォルダだけ残る）と、集約する前の TSV
         [void][System.IO.Directory]::CreateDirectory("$folder\空.xlsx")
         newTsv "$folder\B.xlsx\$(toIndexFileName "S")" @("B の中身")
+        # 名前が x.log で終わる本物のフォルダ（テキストの拡張子を足したことで当たりやすくなった名前。中身（サブフォルダ）で見分ける）
+        [void][System.IO.Directory]::CreateDirectory("$folder\x.log\サブ")
 
         testIndexBookDir "$folder\資料.xlsx" | Should -Be $false
         testIndexBookDir "$folder\空.xlsx" | Should -Be $false
         testIndexBookDir "$folder\空.xlsx" $false | Should -Be $true
         testIndexBookDir "$folder\B.xlsx" | Should -Be $true
         testIndexBookDir "$folder\無い.xlsx" | Should -Be $false
+        testIndexBookDir "$folder\x.log" | Should -Be $false
         @((findIndexFoldersWithBooks $index) | ForEach-Object { $_.Substring($index.Length) }) -join "," | Should -Be "\営業"
 
         $result = updateIndexFolderPack $folder
@@ -282,6 +285,36 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         writePackFile $path "b"
         readPackText $path | Should -BeExactly "b"
         [System.IO.File]::Exists("$path.tmp") | Should -Be $false
+    }
+}
+
+Describe "searchPackIndex（テキストの長い行を切る。search_query.ps1 の truncateHitLine）" -Tag Io {
+    BeforeAll {
+        $tsvRoot = Join-Path $TestDrive "tsv-long"
+        $packRoot = Join-Path $TestDrive "pack-long"
+        $idx = "$tsvRoot\長い行"
+
+        # 20万文字ほどの1行の中ほどに検索語を1つ置く（テキストは切る対象、Excel は切らない対象）
+        $filler = "あ" * 100000
+        $longLine = $filler + "TARGET" + $filler
+        newTsv "$idx\資料.log\$(toIndexFileName "本文")" @($longLine)
+        newTsv "$idx\資料.xlsx\$(toIndexFileName "シート1")" @($longLine)
+        $packs = newPackIndex $tsvRoot $packRoot
+    }
+
+    It "テキスト（.log）のヒットの行は1,000文字＋…以下に切られ、一致した語は残る" {
+        $hits = @((searchPackIndex "TARGET" $packs $true).Hits | Where-Object { $_.Book -eq "資料.log" })
+        $hits.Count | Should -Be 1
+        $hits[0].Line.Length | Should -BeLessOrEqual 1002
+        $hits[0].Line | Should -Match "TARGET"
+        $hits[0].Line.StartsWith("…") | Should -Be $true
+        $hits[0].Line.EndsWith("…") | Should -Be $true
+    }
+
+    It "Excel のヒットの行は切られない（列の位置が変わるため）" {
+        $hits = @((searchPackIndex "TARGET" $packs $true).Hits | Where-Object { $_.Book -eq "資料.xlsx" })
+        $hits.Count | Should -Be 1
+        $hits[0].Line.Length | Should -Be $longLine.Length
     }
 }
 
@@ -559,6 +592,18 @@ Describe "readPackContext" -Tag Io {
         $entry = $cache.Texts[$packs[0].Path]
         $entry[2] = $entry[2].Replace("t1", "c1")
         formatContext (readPackContext $path "A.xlsx" "T" 1 0 0 $cache) | Should -Be "1:c1"
+    }
+
+    It "テキストの前後の行は、一致の位置が分からないため先頭から1,000文字に切る（Excel は切らない）" {
+        $textPath = "$folder\content_index.log.001.tsv"
+        $longLine = "x" * 2000
+        writePackFile $textPath (convertToPackText @(@{ Name = "長い.log"; Places = @(@{ Place = "本文"; Text = "短い`r`n${longLine}`r`n短い2`r`n" }) }))
+        $rows = readPackContext $textPath "長い.log" "本文" 2 1 1
+        $rows[0].Line | Should -Be "短い"
+        $rows[1].Line.Length | Should -Be 1001
+        $rows[1].Line.Substring(0, 1000) | Should -Be $longLine.Substring(0, 1000)
+        $rows[1].Line.EndsWith("…") | Should -Be $true
+        $rows[2].Line | Should -Be "短い2"
     }
 }
 

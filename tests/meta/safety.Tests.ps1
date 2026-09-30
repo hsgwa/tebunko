@@ -217,6 +217,24 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
     }
 }
 
+Describe "取り込み対象の拡張子が固定であること（docs/safety/checks.md「検査項目と結果」）" -Tag Meta {
+    BeforeAll {
+        . "$here\helpers\load.ps1"
+    }
+
+    It "テキストの拡張子がちょうど 7 つで、Office と合わせて決めた一覧ちょうどである" {
+        # 足したら必ずここが落ち、docs/safety/checks.md の見直し（開くと実行される種類を含まないか）を促す
+        @(${textExtensions}).Count | Should -Be 7
+        $expected = @(
+            ".xlsx", ".xlsm", ".xls", ".xlsb",
+            ".docx", ".docm", ".doc",
+            ".pptx", ".pptm", ".ppt",
+            ".txt", ".csv", ".tsv", ".md", ".log", ".json", ".xml"
+        )
+        (@(${officeExtensions} + ${textExtensions}) | Sort-Object) -join "," | Should -Be (($expected | Sort-Object) -join ",")
+    }
+}
+
 Describe "書き込み先が限られていること（docs/safety/file-access.md「書き込み・削除する場所」）" -Tag Meta {
     It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と TEMP 配下だけ" {
         $paths = @($code | Where-Object { $_.File -in @("paths.ps1", "workspace.ps1", "data_dir.ps1", "settings.ps1") })

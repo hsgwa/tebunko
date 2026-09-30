@@ -142,10 +142,11 @@ Describe "getAppKind" -Tag Unit {
         getAppKind "報告書.docx" | Should -Be "Word"
         getAppKind "報告書.doc" | Should -Be "Word"
         getAppKind "提案.pptx" | Should -Be "PowerPoint"
+        getAppKind "議事メモ.txt" | Should -Be "テキスト"
     }
 
-    It "Office のファイルでなければ空" {
-        getAppKind "メモ.txt" | Should -Be ""
+    It "Office・テキストのファイルでなければ空" {
+        getAppKind "資料.pdf" | Should -Be ""
         getAppKind "" | Should -Be ""
     }
 }
