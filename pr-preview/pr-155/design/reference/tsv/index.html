@@ -4294,6 +4294,30 @@
 <td>–</td>
 <td>インデックス作成（インデックス・作業フォルダの削除）</td>
 </tr>
+<tr>
+<td><code>moveDirectoryRetry</code></td>
+<td>source, destination, tries（既定 5）, waitMilliseconds（既定 200。試すたびに倍にする）</td>
+<td>–</td>
+<td>フォルダを移動する。<code>removeDirectoryRetry</code> と同じ理由で、待つ時間を倍にしながら数回試す</td>
+<td><a href="../../index-data/format/#インポートimportindex">インポート</a></td>
+<td>インデックスのインポート（<code>swapInImportedIndexDir</code>・<code>restoreSwappedIndexDir</code>）</td>
+</tr>
+<tr>
+<td><code>testAnyEntry</code></td>
+<td>entries（<code>EnumerateFiles</code> などの列挙）, predicate（省略可）</td>
+<td>真偽値</td>
+<td>条件に合うものが 1 つでもあるか。見つけたところで列挙をやめ、列挙子を必ず Dispose する（<code>foreach</code> を途中で抜けると下のフォルダを掴んだまま残り、そのフォルダを移動・削除できなくなるため）</td>
+<td>–</td>
+<td>前の版のワークスペースの状態（<code>getLegacyIndexState</code>）・インデックスの有無（<code>testIndexExists</code>）・元のファイルごとのフォルダの判定（<code>testIndexBookDir</code>）</td>
+</tr>
+<tr>
+<td><code>selectFirstEntries</code></td>
+<td>entries（<code>EnumerateFileSystemEntries</code> などの列挙）, count</td>
+<td>配列</td>
+<td>列挙の先頭から count 件までを配列にして返す。count 件で列挙をやめ、列挙子を必ず Dispose する（<code>testAnyEntry</code> と同じ理由）</td>
+<td>–</td>
+<td>作業フォルダに選べるかの判定（<code>testDefaultWorkspace</code>・<code>getFolderEntrySample</code>）</td>
+</tr>
 </tbody>
 </table>
 <h2 id="tsv-の整形sharedcoretextps1">TSV の整形（<code>shared/core/text.ps1</code>）<a class="headerlink" href="#tsv-の整形sharedcoretextps1" title="Permanent link">&para;</a></h2>

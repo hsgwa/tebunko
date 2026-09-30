@@ -4013,6 +4013,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#インデックスのエクスポートインポートtebunkoindexindex_archive_rulesps1index_archiveps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックスのエクスポート・インポート（tebunko/index/index_archive_rules.ps1・index_archive.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4185,6 +4196,17 @@
     <span class="md-ellipsis">
       
         インデックス名とインデックスの管理（tebunko/index/index_name.ps1・index_store.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデックスのエクスポートインポートtebunkoindexindex_archive_rulesps1index_archiveps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックスのエクスポート・インポート（tebunko/index/index_archive_rules.ps1・index_archive.ps1）
       
     </span>
   </a>
@@ -4659,6 +4681,94 @@
 <td>インデックスの一覧（<code>work\content_index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
 <td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
 <td>画面（検索対象のツリー）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="インデックスのエクスポートインポートtebunkoindexindex_archive_rulesps1index_archiveps1">インデックスのエクスポート・インポート（<code>tebunko/index/index_archive_rules.ps1</code>・<code>index_archive.ps1</code>）<a class="headerlink" href="#インデックスのエクスポートインポートtebunkoindexindex_archive_rulesps1index_archiveps1" title="Permanent link">&para;</a></h2>
+<p>詳細は <a href="../../index-data/format/#インデックスのエクスポートインポート">インデックスのエクスポート・インポート</a>。</p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>詳細</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>exportIndex</code></td>
+<td>name, destPath, ws（既定 <code>$workspace</code>）, settingsPath（既定 <code>$settingsFile</code>）</td>
+<td><code>@{Name; Path; Files; Bytes}</code></td>
+<td>1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。<code>&lt;destPath&gt;.tmp</code> に書いてから置き換える</td>
+<td>同上</td>
+<td>画面（［エクスポート…］）</td>
+</tr>
+<tr>
+<td><code>readIndexArchiveInfo</code></td>
+<td>zipPath</td>
+<td><code>@{IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion}</code></td>
+<td>zip の目録を読んで確かめる（インポートはしない）。インポートの確認ダイアログの既定値に使う</td>
+<td>同上</td>
+<td>画面（［インポート…］）</td>
+</tr>
+<tr>
+<td><code>importIndex</code></td>
+<td>zipPath, collisionMode（<code>Rename</code>/<code>Overwrite</code>/<code>Cancel</code>）, name, sourceFolder, ws, settingsPath</td>
+<td><code>@{Name; SourcePath; Enabled; Files; Bytes; Warnings}</code>（<code>Cancel</code> は <code>$null</code>）</td>
+<td>zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ・設定への登録・<code>content_index\&lt;名前&gt;\</code> の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す</td>
+<td>同上</td>
+<td>画面（［インポート…］）</td>
+</tr>
+<tr>
+<td><code>getWorkspaceFreeSpace</code></td>
+<td>root</td>
+<td>long（調べられなければ <code>$null</code>）</td>
+<td>ドライブのルートの空き容量。UNC など <code>DriveInfo</code> にできないパスは例外にせず <code>$null</code></td>
+<td>同上</td>
+<td>importIndex</td>
+</tr>
+<tr>
+<td><code>testImportFreeSpace</code></td>
+<td>totalBytes, root, getFreeSpace</td>
+<td>string（足りていれば空）</td>
+<td>空き容量が「合計 + 1GB」に足りなければ理由を返す。調べられない（<code>$null</code>・例外）ときは確かめない</td>
+<td>同上</td>
+<td>importIndexCore</td>
+</tr>
+<tr>
+<td><code>expandImportArchive</code> / <code>registerImportedIndexInSettings</code> / <code>swapInImportedIndexDir</code> / <code>rewriteStatusForImport</code></td>
+<td>同上（<code>importIndexCore</code> の手順 6〜9）</td>
+<td>–</td>
+<td>インポートの手順を 1 つずつ。失敗したら自分で戻す（<code>restoreImportedSettings</code>・<code>restoreSwappedIndexDir</code>）。取り込み一覧は <code>readStatusFile</code> → <code>writeStatusFile</code> で書く</td>
+<td>同上</td>
+<td>importIndexCore</td>
+</tr>
+<tr>
+<td><code>getImportIndexName</code></td>
+<td>suggestedName, usedNames, collisionMode</td>
+<td>string（<code>$null</code> は Cancel）</td>
+<td>同じ名前のインデックスがあるときの扱いから、インポートで使う名前を決める（<code>Rename</code> は <code>newIndexName</code> と同じ決まり）</td>
+<td>同上</td>
+<td>importIndex, 画面</td>
+</tr>
+<tr>
+<td><code>getExportFileName</code></td>
+<td>indexName, usedNames（保存先フォルダの既存のファイル名）, now</td>
+<td>string</td>
+<td>エクスポートの既定のファイル名（<code>&lt;インデックス名&gt;_インデックス_&lt;yyyyMMdd&gt;.zip</code>。重なれば <code>(2)</code>…）</td>
+<td>同上</td>
+<td>画面（［エクスポート…］）</td>
+</tr>
+<tr>
+<td><code>testIndexArchiveManifest</code></td>
+<td>manifest, entryNames, manifestBytes</td>
+<td>string（受け付けられれば空）</td>
+<td>zip の目録・エントリーが受け付けられるかを調べる（形式の版・zip slip・重なり・大きさ）</td>
+<td>同上</td>
+<td>openIndexArchive</td>
 </tr>
 </tbody>
 </table>

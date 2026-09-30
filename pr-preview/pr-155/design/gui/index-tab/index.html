@@ -2906,6 +2906,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#エクスポートインポート" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エクスポート・インポート
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4147,6 +4158,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#エクスポートインポート" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エクスポート・インポート
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4398,6 +4420,46 @@
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、そのインデックスの下のものを消す（<code>removeSearchExcludesUnder</code>。手順 2 の直後に別スレッドの中で行う。消せなくても削除は止めず、画面にエラーも出さない）</li>
 </ol>
 <p>インデクサの <code>removeDroppedFolders</code>（<a href="../../indexing/crawl/#クロール対象フォルダとインデックス名">クロール対象フォルダと取り込み対象</a>）は、画面を通さずに設定を書き換えた場合の後始末として残す。画面から削除した場合は、その場で消えているため何もしない。</p>
+<h2 id="エクスポートインポート">エクスポート・インポート<a class="headerlink" href="#エクスポートインポート" title="Permanent link">&para;</a></h2>
+<p>インデックス一覧の右の操作ボタンに ［エクスポート…］［インポート…］を置く（画面はこの最小限の 2 ボタンにし、GUI の刷新のときに作り直す）。中身の zip の形式・<code>exportIndex</code>・<code>importIndex</code> の手順は <a href="../../index-data/format/#インデックスのエクスポートインポート">インデックスのエクスポート・インポート</a> を参照。</p>
+<table>
+<thead>
+<tr>
+<th>部品</th>
+<th>仕様</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>［エクスポート…］</td>
+<td>一覧で 1 件選んでいるときだけ有効。押すと保存先のフォルダを選ぶダイアログを出し、<code>&lt;インデックス名&gt;_インデックス_&lt;yyyyMMdd&gt;.zip</code>（保存先フォルダに同名があれば <code>(2)</code> …）で書き出す（<code>getExportFileName</code>）。書き出しは別スレッド（<code>exportIndex</code>）で行い、終わるまでステータスに <code>エクスポートしています…</code> と出す。終わったら <code>インデックス [&lt;名前&gt;] を「&lt;保存先&gt;」に書き出しました（&lt;件数&gt; ファイル）</code>（<code>&lt;名前&gt;</code> は <code>exportIndex</code> の戻り値の <code>Name</code>。<code>tests/gui/index_archive.Tests.ps1</code> で名前まで確かめる）</td>
+</tr>
+<tr>
+<td>［インポート…］</td>
+<td>zip を選ぶダイアログ（Windows 標準のファイルを開くダイアログ）を出し、目録を読んで確かめる（<code>readIndexArchiveInfo</code>）。壊れている・別の版なら、その場でエラーを表示して終える。読めれば、追加・編集と同じ見た目のダイアログを「インデックスのインポート」の表題で開き、名前（既にあれば重ならない名前を提案）・元のフォルダ（目録の値）・ファイル数と大きさの説明を出す。名前を既にあるインデックスと同じにして［OK］を押すと、上書き・別名・取りやめの確認ダイアログを出す。決まったら別スレッド（<code>importIndex</code>）でインポートし、終わったら一覧を読み直し、ステータスに件数と <code>高速検索は次のインデックス作成の後に効きます。</code>、<code>Warnings</code>（同じ元のフォルダが別の名前で登録されているときなど）を出す（<code>getImportResultStatus</code>）。名前・元のフォルダのダイアログや上書きの確認を取りやめたときは、ステータスを <code>インポートを取りやめました</code> に書き換える</td>
+</tr>
+</tbody>
+</table>
+<p><strong>排他</strong>: インデックス作成のロックで防げるのはインデクサだけで、一覧の名前の変更・削除・［8 設定］のワークスペースの切り替えは、このロックを取らずに <code>content_index\</code>・取り込み一覧・設定を書き換える。そこでエクスポート・インポートを別スレッドで行っている間と、次のものが動いている間は、互いに操作できないようにする。可否と押せなかったときの文言は、判断層の <code>getIndexJobBlocker</code>（動いているもの）・<code>getIndexJobBlockedMessage</code>（文言）・<code>getIndexTabButtonsEnabled</code>（表のボタン）だけで決め、画面の側（<code>testIndexOperable</code>・<code>testWorkspaceChangeable</code>・<code>updateIndexingButton</code>）は結果を使うだけにする（<code>index_view.Tests.ps1</code> の表のテスト）。</p>
+<table>
+<thead>
+<tr>
+<th>動いているもの</th>
+<th>無効にするもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>エクスポート・インポート</td>
+<td>［追加…］［編集…］［削除］［インデックス作成を開始］・もう一方の［エクスポート…］［インポート…］・［8 設定］のワークスペースの［変更…］</td>
+</tr>
+<tr>
+<td>インデックス作成・削除</td>
+<td>［エクスポート…］［インポート…］</td>
+</tr>
+</tbody>
+</table>
+<p>［8 設定］の［変更…］は、押した時点で <code>testWorkspaceChangeable</code> が <code>getIndexJobBlocker</code> でインデックス作成中・削除中・エクスポート・インポート中かどうかを確かめ、動いていれば <code>getIndexJobBlockedMessage</code>（<code>エクスポート・インポートが終わるまでお待ちください。</code> など）を出して何もしない。別のセッション（別のプロセスの画面・将来の CUI）の名前の変更・削除との排他は扱わない。</p>
 
 
 
