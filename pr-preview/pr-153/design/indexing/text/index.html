@@ -4303,6 +4303,7 @@
 <p>片方だけ当たればその文字コード。両方当たるときは、Shift_JIS として読むと半角カナばかりになる（EUC-JP のかなの見え方）なら EUC-JP、そうでなければ取り込まない。どちらも当たらなければ取り込まない。読んだ結果の数え（半角カナの割合）は最初の ASCII 以外の文字から <code>${textLegacySampleChars}</code> 文字だけで行い、大きなファイルで遅くならないようにしている。NUL の無いバイナリは制御文字が出るため、ここで取り込まない。</p>
 <h3 id="分かっている限界">分かっている限界<a class="headerlink" href="#分かっている限界" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>対象の言語は日本語と英語</strong>（主な文字コードは Shift_JIS と UTF-8）。GBK・Big5・EUC-KR は対象外で、誤って取り込まれるのは既知の限界。誤判定を減らすための判定は足さない。</li>
 <li><strong>取り込まないもの</strong>: UTF-32・GBK・Big5・EUC-KR・かなの無い EUC-JP・NUL の無いバイナリ・NUL が偏らない UTF-16 などは、文字コードを判定できないとして取り込まない（<code>テキストファイルではないため取り込めません。</code>）。UTF-8・Shift_JIS・UTF-16 で保存し直せば取り込める。</li>
 <li><strong>短い Shift_JIS の並び</strong>（半角カナの一部など。例: <code>ﾃｽ</code> = <code>C3 BD</code>）は、UTF-8 としても正しく読めることがあり、その場合は UTF-8 と判定されて化ける。</li>
 <li><strong>BOM の無い UTF-16 で、かなが 20% に届かないもの</strong>（漢字だけの文章など）は、バイナリと見分けが付かないため取り込まない。</li>
