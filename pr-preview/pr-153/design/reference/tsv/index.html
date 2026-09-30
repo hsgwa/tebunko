@@ -4394,10 +4394,10 @@
 <td>detectTextEncoding</td>
 </tr>
 <tr>
-<td><code>testIso2022JpBytes</code></td>
+<td><code>getIso2022JpVerdict</code></td>
 <td>bytes</td>
-<td>bool</td>
-<td>ISO-2022-JP か（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり）</td>
+<td>string</td>
+<td>ISO-2022-JP かの判定（<code>yes</code> / <code>broken</code>（ESC $ B があるが 8 ビット・規格外の ESC がある）/ <code>none</code>）</td>
 <td>detectTextEncoding</td>
 </tr>
 <tr>
@@ -4406,6 +4406,13 @@
 <td>string / <code>$null</code></td>
 <td>UTF-8 として読めなかったバイト列が Shift_JIS か EUC-JP か。決まらなければ <code>$null</code></td>
 <td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>testHalfWidthKanaNatural</code></td>
+<td>text</td>
+<td>bool</td>
+<td>半角カナの多い文字列が、濁点・半濁点の位置など半角カナの並びとして自然か</td>
+<td>detectLegacyJapaneseEncoding</td>
 </tr>
 <tr>
 <td><code>tryDecodeStrict</code></td>
