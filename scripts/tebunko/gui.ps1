@@ -216,6 +216,7 @@ stepSplash 55
 $tabs = @(
     @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
         "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
+        "ExportIndexButton", "ImportIndexButton",
         "IndexSummaryText", "IndexingStateText", "IndexingButton", "IndexingHint",
         "FailedPanel", "FailedHeading", "FailedGrid",
         "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",

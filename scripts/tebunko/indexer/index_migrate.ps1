@@ -60,13 +60,14 @@ function removeDroppedFolders {
     # チェックを外しただけのフォルダは削除しない
     param (
         [object[]]$folders,          # assignIndexNames の結果
-        [object[]]$previousFolders   # readStatusFile の Folders
+        [object[]]$previousFolders,  # readStatusFile の Folders
+        $ws = $workspace             # 対象のワークスペース（テストが差し替える）
     )
 
     # インデックス名で比べる。フォルダを移動して登録し直した場合は、同じ名前を引き継ぐため削除しない（assignIndexNames）
     $current = @($folders | ForEach-Object { $_.Name })
     foreach ($previous in @($previousFolders | Where-Object { $_.Name -and $current -notcontains $_.Name })) {
-        $dir = Join-Path $workspace.IndexDir $previous.Name
+        $dir = Join-Path $ws.IndexDir $previous.Name
         if (Test-Path -LiteralPath $dir) {
             # 中に長いパス（260文字超）のTSVがあっても削除できるよう \\?\ 付きで削除する
             Remove-Item -LiteralPath (toLongPath $dir) -Recurse -Force

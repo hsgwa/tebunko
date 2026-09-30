@@ -123,6 +123,37 @@ function showFolderByFileDialog {
     return normalizeFolderPath ([System.IO.Path]::GetDirectoryName($dialog.FileName))
 }
 
+function selectZipFile {
+    # インデックスのエクスポートの zip を選んでもらう（Windows 標準のファイルを開くダイアログ）。選んだファイルを返す（キャンセルは $null）
+    param (
+        [string]$description,
+        [System.Windows.Window]$owner = $window
+    )
+
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = $description
+    $dialog.Filter = "インデックスの zip (*.zip)|*.zip|すべてのファイル (*.*)|*.*"
+    $dialog.CheckFileExists = $true
+    $hwnd = [IntPtr]::Zero
+    if ($owner) {
+        $hwnd = (New-Object System.Windows.Interop.WindowInteropHelper $owner).Handle
+    }
+    $ownerWindow = New-Object System.Windows.Forms.NativeWindow
+    if ($hwnd -ne [IntPtr]::Zero) {
+        $ownerWindow.AssignHandle($hwnd)
+    }
+    try {
+        $result = $dialog.ShowDialog($ownerWindow)
+    } finally {
+        $ownerWindow.ReleaseHandle()
+        $dialog.Dispose()
+    }
+    if ($result -ne [System.Windows.Forms.DialogResult]::OK) {
+        return $null
+    }
+    return $dialog.FileName
+}
+
 function getDroppedFolders {
     param (
         [System.Windows.DragEventArgs]$e

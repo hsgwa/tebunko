@@ -288,6 +288,82 @@ function removeDirectoryRetry {
     }
 }
 
+function moveDirectoryRetry {
+    # フォルダを移動する。removeDirectoryRetry と同じ理由（ウイルス対策ソフト・エクスプローラーが、
+    # 作ったばかり・書いたばかりのフォルダを一時的に掴んでいることがある）で、待つ時間を倍にしながら数回試す
+    # （削除より、掴まれている時間が長くかかることがあるため、既定の回数・最初の待ち時間を大きくしている）
+    param (
+        [string]$source,
+        [string]$destination,
+        [int]$tries = 5,
+        [int]$waitMilliseconds = 200
+    )
+
+    $longSource = toLongPath $source
+    $longDestination = toLongPath $destination
+    $wait = $waitMilliseconds
+    for ($i = 1; $true; $i++) {
+        try {
+            [System.IO.Directory]::Move($longSource, $longDestination)
+            return
+        } catch {
+            if ($i -ge $tries) {
+                throw
+            }
+            Start-Sleep -Milliseconds $wait
+            $wait *= 2
+        }
+    }
+}
+
+function testAnyEntry {
+    # 列挙（[System.IO.Directory]::EnumerateFiles などの結果）に、predicate が $true を返すもの（省略したら何でも）が
+    # 1 つでもあるか。見つけたところで列挙をやめ、列挙子を必ず Dispose する。
+    # foreach を break・return・throw で途中で抜けると列挙子が Dispose されず、調べていた下のフォルダを開いたまま残る。
+    # GC されるまで、そのフォルダと上のフォルダを移動・削除できなくなる（Directory.Move がアクセス拒否になる）ため、
+    # 途中でやめる列挙はこの関数を通す
+    param (
+        [System.Collections.IEnumerable]$entries,
+        [scriptblock]$predicate
+    )
+
+    $enumerator = $entries.GetEnumerator()
+    try {
+        while ($enumerator.MoveNext()) {
+            if ($null -eq $predicate -or (& $predicate $enumerator.Current)) {
+                return $true
+            }
+        }
+        return $false
+    } finally {
+        if ($enumerator -is [System.IDisposable]) {
+            $enumerator.Dispose()
+        }
+    }
+}
+
+function selectFirstEntries {
+    # 列挙（[System.IO.Directory]::EnumerateFileSystemEntries などの結果）の先頭から count 件までを配列にして返す。
+    # count 件で列挙をやめ、列挙子を必ず Dispose する（testAnyEntry と同じ理由。Select-Object -First で途中でやめる形にしない）
+    param (
+        [System.Collections.IEnumerable]$entries,
+        [int]$count
+    )
+
+    $list = New-Object System.Collections.Generic.List[object]
+    $enumerator = $entries.GetEnumerator()
+    try {
+        while ($list.Count -lt $count -and $enumerator.MoveNext()) {
+            $list.Add($enumerator.Current)
+        }
+    } finally {
+        if ($enumerator -is [System.IDisposable]) {
+            $enumerator.Dispose()
+        }
+    }
+    return , $list.ToArray()
+}
+
 function getFolderKey {
     # フォルダのパスから、名前付きミューテックス・イベントの名前に使う鍵（16 進 64 文字）を作る。大文字と小文字は区別しない。
     # 安全性のためではなく、パスを名前に使える長さと文字にするためのハッシュ。
