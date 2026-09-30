@@ -4358,8 +4358,8 @@
 </tr>
 <tr>
 <td><code>テキストファイルではないため取り込めません。</code></td>
-<td>テキストの拡張子だが、文字コードを判定できない（バイナリと見分けが付かない）（<code>detectTextEncoding</code>。<a href="../text/#文字コードの判定detecttextencoding">テキストファイルの読み取り</a>）</td>
-<td>拡張子を確かめる。正しいテキストファイルなら、文字コードを UTF-8・Shift_JIS のどちらかで保存し直す</td>
+<td>テキストの拡張子だが、文字コードを判定できない（バイナリ・UTF-32・GBK など、判定できないもの・あいまいなもの）（<code>detectTextEncoding</code>。<a href="../text/#文字コードの判定detecttextencoding">テキストファイルの読み取り</a>）</td>
+<td>拡張子を確かめる。正しいテキストファイルなら、文字コードを UTF-8・Shift_JIS・UTF-16 のどれかで保存し直す</td>
 </tr>
 <tr>
 <td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）</code></td>

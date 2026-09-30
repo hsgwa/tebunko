@@ -4383,8 +4383,43 @@
 <td><code>detectTextEncoding</code></td>
 <td>bytes</td>
 <td>string / <code>$null</code></td>
-<td>バイト列だけから文字コード（<code>UTF8</code> / <code>UTF16LE</code> / <code>UTF16BE</code> / <code>ShiftJIS</code>）を判定する。判定できなければ <code>$null</code>（バイナリ）</td>
+<td>バイト列だけから文字コード（<code>UTF8</code> / <code>UTF16LE</code> / <code>UTF16BE</code> / <code>ShiftJIS</code> / <code>EUCJP</code> / <code>ISO2022JP</code>）を判定する。判定できない・あいまいなものは <code>$null</code>（取り込まない）</td>
 <td>readTextFile</td>
+</tr>
+<tr>
+<td><code>detectJapaneseUtf16WithoutNul</code></td>
+<td>bytes</td>
+<td>string / <code>$null</code></td>
+<td>NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（<code>UTF16LE</code> / <code>UTF16BE</code>）</td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>testIso2022JpBytes</code></td>
+<td>bytes</td>
+<td>bool</td>
+<td>ISO-2022-JP か（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり）</td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>detectLegacyJapaneseEncoding</code></td>
+<td>bytes</td>
+<td>string / <code>$null</code></td>
+<td>UTF-8 として読めなかったバイト列が Shift_JIS か EUC-JP か。決まらなければ <code>$null</code></td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>tryDecodeStrict</code></td>
+<td>bytes, codePage</td>
+<td>string / <code>$null</code></td>
+<td>読めないバイト列があれば <code>$null</code>、読めれば文字列</td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>testTextPlausible</code></td>
+<td>text</td>
+<td>bool</td>
+<td>制御文字・私用領域・U+FFFD を含まない（テキストとして自然）か</td>
+<td>detectLegacyJapaneseEncoding</td>
 </tr>
 <tr>
 <td><code>decodeTextBytes</code></td>
