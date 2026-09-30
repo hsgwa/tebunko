@@ -260,6 +260,33 @@ function testImportedStatusLines {
 }
 
 
+function getIndexFolderConflict {
+    # 元のフォルダが、ほかのクロール対象のインデックスと重なるかを調べ、直してほしい内容を返す（問題なければ空文字列）。
+    # 画面の追加・編集（testIndexEditInput）とインポート（importIndex）の両方が使う、1 つの決まり。
+    # 同じフォルダは、getTargetFolders が 2 つ目以降を読まないため設定に残らない。入れ子のフォルダは、
+    # 同じファイルが 2 つのインデックスに入り、取り込みも検索結果も二重になる
+    param (
+        [string]$folder,   # 正規化済みの元のフォルダ
+        $others            # 比べる相手（Name・Path を持つ行。置き換える・編集中の行は呼び出し側で外しておく）
+    )
+
+    foreach ($other in @($others)) {
+        if (testSameFolder $other.Path $folder) {
+            return "「${folder}」のインデックス [$($other.Name)] が既にあります。"
+        }
+        if (testFolderUnder $folder $other.Path) {
+            return "「${folder}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。" +
+                "同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
+        }
+        if (testFolderUnder $other.Path $folder) {
+            return "「${folder}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。" +
+                "同じファイルが二重に取り込まれるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
+        }
+    }
+    return ""
+}
+
+
 function getImportIndexName {
     # 同じ名前のインデックスがあったときの扱い（collisionMode）から、インポートで使う名前を決める。
     #   Rename    : usedNames と重ならない名前にする（今の newIndexName の決まり「名前(2)」「名前(3)」…）

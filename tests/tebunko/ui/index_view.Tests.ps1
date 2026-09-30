@@ -122,6 +122,39 @@ Describe "getImportResultStatus" -Tag Unit {
     }
 }
 
+Describe "getImportSuggestedName / testImportNameCollision" -Tag Unit {
+    # continueImportIndex は getUsedIndexNames の結果を変数に受けて渡す。0・1・2 件以上のどれでも、重なりを見落とさない
+    BeforeAll {
+        function newUsed([string[]]$names) {
+            $items = @($names | ForEach-Object { newItem $_ "C:\data\$_" })
+            $used = getUsedIndexNames $items
+            return , $used
+        }
+    }
+
+    It "<label>: 提案する名前は <expected>、確認が要るかは <collision>" -TestCases @(
+        @{ label = "0 件"; names = @(); name = "営業"; expected = "営業"; collision = $false }
+        @{ label = "1 件で重ならない"; names = @("経理"); name = "営業"; expected = "営業"; collision = $false }
+        @{ label = "1 件で重なる"; names = @("営業"); name = "営業"; expected = "営業(2)"; collision = $true }
+        @{ label = "2 件以上で重なる"; names = @("経理", "営業", "総務"); name = "営業"; expected = "営業(2)"; collision = $true }
+        @{ label = "2 件以上で重ならない"; names = @("経理", "総務"); name = "営業"; expected = "営業"; collision = $false }
+        @{ label = "(2) も使われている"; names = @("営業", "営業(2)"); name = "営業"; expected = "営業(3)"; collision = $true }
+        @{ label = "大文字・小文字は区別しない"; names = @("Sales", "経理"); name = "sales"; expected = "sales(2)"; collision = $true }
+    ) {
+        param ($label, $names, $name, $expected, $collision)
+        $used = newUsed $names
+        getImportSuggestedName $name $used | Should -Be $expected
+        testImportNameCollision $name $used | Should -Be $collision
+    }
+
+    It "集合が 1 要素の配列に入っていても（@(...) で受けた場合）、同じ答えを返す" {
+        $used = @(newUsed @("経理", "営業"))
+        testImportNameCollision "営業" $used | Should -BeTrue
+        getImportSuggestedName "営業" $used | Should -Be "営業(2)"
+    }
+}
+
+
 Describe "testIndexImportInput" -Tag Unit {
     It "フォルダが空なら、指定するよう伝える" {
         testIndexImportInput "" "営業" | Should -Be "元のフォルダを指定してください。"
@@ -179,5 +212,24 @@ Describe "testIndexEditInput" -Tag Unit {
 
     It "問題が無ければ空文字列" {
         testIndexEditInput "C:\data\新規" "新規" $items | Should -Be ""
+    }
+}
+
+Describe "testIndexImportInput（元のフォルダの重なり）" -Tag Unit {
+    BeforeAll {
+        $items = @((newItem "売上" "C:\data\売上"), (newItem "見積" "C:\data\見積"))
+    }
+
+    It "<label>: 別のインデックスと重なれば断る（追加・編集と同じ決まり）" -TestCases @(
+        @{ label = "同じフォルダ"; folder = "C:\data\売上"; expected = "インデックス \[売上\] が既にあります" }
+        @{ label = "中のフォルダ"; folder = "C:\data\売上\2024"; expected = "の中のフォルダです" }
+        @{ label = "含むフォルダ"; folder = "C:\data"; expected = "があります" }
+    ) {
+        param ($label, $folder, $expected)
+        testIndexImportInput $folder "新しい名前" $items | Should -Match $expected
+    }
+
+    It "同じ名前の行の元のフォルダは、上書きで置き換わるため断らない" {
+        testIndexImportInput "C:\data\売上" "売上" $items | Should -Be ""
     }
 }

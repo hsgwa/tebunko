@@ -137,16 +137,55 @@ function getImportResultStatus {
 
 function testIndexImportInput {
     # インポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
-    # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）
+    # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）。
+    # 元のフォルダは、追加・編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
+    # （別名なら残る）ため、ここでは比べる相手から外す（別名で入れて重なったときは、インポートの側で止める）
     param (
         [string]$folder,   # 入力された元のフォルダ
-        [string]$name      # 入力されたインデックス名
+        [string]$name,     # 入力されたインデックス名
+        $items = @()       # 今の一覧（Name・Path を持つ行）
     )
 
-    if ((normalizeFolderPath $folder) -eq "") {
+    $normalized = normalizeFolderPath $folder
+    if ($normalized -eq "") {
         return "元のフォルダを指定してください。"
     }
-    return (testIndexName $name.Trim() @())
+    $nameMessage = testIndexName $name.Trim() @()
+    if ($nameMessage -ne "") {
+        return $nameMessage
+    }
+    return (getIndexFolderConflict $normalized @($items | Where-Object { $_.Name -ine $name.Trim() }))
+}
+
+function getImportSuggestedName {
+    # インポートのダイアログに初めに入れる名前。zip の名前が今の一覧に無ければそのまま、あれば「名前(2)」…にする。
+    # usedNames は getUsedIndexNames の結果（集合。@(...) に入った 1 要素の配列でも、配列でもよい）
+    param (
+        [string]$indexName,
+        $usedNames = $null
+    )
+
+    if (testImportNameCollision $indexName $usedNames) {
+        return (newIndexName $indexName $usedNames)
+    }
+    return $indexName
+}
+
+function testImportNameCollision {
+    # 入力された名前が今の一覧にあり、上書き・別名・取りやめの確認が要るか（大文字・小文字は区別しない）
+    param (
+        [string]$name,
+        $usedNames = $null   # getUsedIndexNames の結果（集合・配列・文字列・$null。入れ子の集合でもよい）
+    )
+
+    foreach ($entry in @($usedNames)) {
+        foreach ($used in @($entry)) {
+            if ($used -and $used -ieq $name) {
+                return $true
+            }
+        }
+    }
+    return $false
 }
 
 function getIndexImportNotice {
@@ -182,22 +221,9 @@ function testIndexEditInput {
     if ($folder -eq "") {
         return "元のフォルダを指定してください。"
     }
-    foreach ($other in $items) {
-        if ($other -eq $current) {
-            continue
-        }
-        if (testSameFolder $other.Path $folder) {
-            return "「${folder}」のインデックス [$($other.Name)] が既にあります。"
-        }
-        # 入れ子のフォルダは、同じファイルが2つのインデックスに入り、取り込みも検索結果も二重になるため登録しない
-        if (testFolderUnder $folder $other.Path) {
-            return "「${folder}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。" +
-                "同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
-        }
-        if (testFolderUnder $other.Path $folder) {
-            return "「${folder}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。" +
-                "同じファイルが二重に取り込まれるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
-        }
+    $conflict = getIndexFolderConflict $folder @($items | Where-Object { $_ -ne $current })
+    if ($conflict -ne "") {
+        return $conflict
     }
     # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
     $usedNames = getUsedIndexNames $items $current

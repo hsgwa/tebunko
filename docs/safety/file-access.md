@@ -1,4 +1,4 @@
-﻿# ファイルの読み書きの範囲
+# ファイルの読み書きの範囲
 
 ## 書き込み・削除する場所
 
@@ -22,7 +22,7 @@
 
 インデックスのインポート（`importIndex`）の書き込みは、ワークスペースの中（`取り込み出力\<PID>\import\`・`content_index\<名前>\`・取り込み一覧・`setting.config`）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成のロック（`newAppMutex "indexer"`）を取り、ほかの操作と同時に走らせない。
 
-`content_index\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setNotContentIndexed`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`content_index` を作った直後・入れた直後）と、画面がインデックス一覧を保存したとき（`元のフォルダ.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
+`content_index\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setNotContentIndexed`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`content_index` を作った直後・入れた直後）と、インデックスをインポートした直後（入れたフォルダ全体）と、画面がインデックス一覧を保存したとき（`元のフォルダ.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
 
 確認コマンド（[検査項目と結果](checks.md#検査項目と結果) の `scan` を使う）:
 

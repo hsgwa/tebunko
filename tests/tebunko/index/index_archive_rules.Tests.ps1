@@ -275,3 +275,24 @@ Describe "getExportFileName" -Tag Unit {
         getExportFileName "A/B" @() $now | Should -Be "A／B_インデックス_20260927.zip"
     }
 }
+
+Describe "getIndexFolderConflict" -Tag Unit {
+    BeforeAll {
+        $others = @([pscustomobject]@{ Name = "売上"; Path = "C:\data\売上" })
+    }
+
+    It "<label>: <expected>" -TestCases @(
+        @{ label = "重ならない"; folder = "C:\data\見積"; expected = "" }
+        @{ label = "同じフォルダ"; folder = "C:\data\売上"; expected = "既にあります" }
+        @{ label = "中のフォルダ"; folder = "C:\data\売上\2024"; expected = "中のフォルダです" }
+        @{ label = "含むフォルダ"; folder = "C:\data"; expected = "があります" }
+    ) {
+        param ($label, $folder, $expected)
+        $message = getIndexFolderConflict $folder $others
+        if ($expected -eq "") { $message | Should -Be "" } else { $message | Should -Match $expected }
+    }
+
+    It "比べる相手が無ければ空文字列" {
+        getIndexFolderConflict "C:\data\売上" @() | Should -Be ""
+    }
+}

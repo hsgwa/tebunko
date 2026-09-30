@@ -594,7 +594,7 @@ function showIndexImportDialog {
     $ctrl.OkButton.Add_Click({
         safe {
             $d = $script:importDialog
-            $message = testIndexImportInput $d.Ctrl.FolderBox.Text $d.Ctrl.NameBox.Text
+            $message = testIndexImportInput $d.Ctrl.FolderBox.Text $d.Ctrl.NameBox.Text $script:targetItems
             if ($message -ne "") {
                 $d.Ctrl.ErrorText.Text = $message
                 $d.Ctrl.ErrorText.Visibility = "Visible"
@@ -644,8 +644,9 @@ function continueImportIndex {
         $info   # readIndexArchiveInfo の結果
     )
 
-    $usedNames = @(getUsedIndexNames $script:targetItems)
-    $suggestedName = if ($usedNames -contains $info.IndexName) { newIndexName $info.IndexName $usedNames } else { $info.IndexName }
+    # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけで、名前の重なりを見落とす。変数に受けてから使う
+    $usedNames = getUsedIndexNames $script:targetItems
+    $suggestedName = getImportSuggestedName $info.IndexName $usedNames
     $result = showIndexImportDialog $suggestedName $info
     if ($null -eq $result) {
         setStatus "インポートを取りやめました"
@@ -653,7 +654,7 @@ function continueImportIndex {
     }
 
     $collisionMode = ${importCollisionRename}
-    if ($usedNames -contains $result.Name) {
+    if (testImportNameCollision $result.Name $usedNames) {
         $answer = showConfirm `
             -heading (getIndexImportOverwriteConfirmMessage $result.Name) `
             -choices @(

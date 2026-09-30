@@ -677,13 +677,12 @@ function importIndexCore {
             throw $spaceReason
         }
 
-        # 同じ元のフォルダが、別の名前のクロール対象フォルダに既にあれば止める（getTargetFolders は同じフォルダの 2 つ目以降を読まないため、
-        # 登録しても設定に残らず、次のインデックス作成で removeDroppedFolders がこのインデックスを消す。画面の追加・編集と同じ決まり）。
+        # 同じ元のフォルダが、別の名前のクロール対象フォルダに既にある・入れ子になっていれば止める（getTargetFolders は同じフォルダの 2 つ目以降を読まないため、
+        # 登録しても設定に残らず、次のインデックス作成で removeDroppedFolders がこのインデックスを消す。画面の追加・編集と同じ getIndexFolderConflict の決まり）。
         # 検索だけのインデックス（indexSources）の元のフォルダと同じなら、止めずに知らせる
-        foreach ($other in @(getTargetFolders $settingsPath | Where-Object { $_.Name -ine $finalName })) {
-            if (testSameFolder $other.Path $folder) {
-                throw "「${folder}」のインデックス [$($other.Name)] が既にあります。別のフォルダを指定してください。"
-            }
+        $conflict = getIndexFolderConflict $folder @(getTargetFolders $settingsPath | Where-Object { $_.Name -ine $finalName })
+        if ($conflict -ne "") {
+            throw $conflict
         }
         $warnings = New-Object System.Collections.Generic.List[string]
         foreach ($other in @(readIndexSources $settingsPath | Where-Object { $_.Name -ine $finalName })) {
@@ -700,6 +699,9 @@ function importIndexCore {
             $before = registerImportedIndexInSettings $finalName $folder $overwrite $targetIndexDir $settingsPath
             try {
                 $swap = swapInImportedIndexDir $expanded.NewDir $targetIndexDir (Join-Path $workDir "previous") $ws.IndexDir
+                # Directory.Move で入れたフォルダは、work\content_index の NotContentIndexed を受け継がない。
+                # 根に付いたあとの -Recurse は中へ降りないため（publish.md）、入れた直後に付ける（失敗しても止めない）
+                setNotContentIndexed $targetIndexDir -Recurse | Out-Null
                 try {
                     rewriteStatusForImport $ws.StatusFile $finalName $folder $expanded.Rows
                 } catch {

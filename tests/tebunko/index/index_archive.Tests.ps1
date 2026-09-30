@@ -215,6 +215,27 @@ Describe "importIndex" -Tag Io {
         (Join-Path $location.Folder (Join-Path $location.Rest "A社.xlsx")) | Should -Be "D:\別の場所\営業部\見積\A社.xlsx"
     }
 
+    It "インポートしたインデックスに NotContentIndexed が付く（Directory.Move は親の属性を継がず、根に付いたあとの -Recurse は下へ降りないため）" {
+        $fixtureA = newIndexFixture "$TestDrive\attr_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\attr.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        # 一度インデックス作成を通った作業フォルダ（content_index の根に属性が付いている）へ入れる
+        $wsB = [Workspace]::new("$TestDrive\attr_b")
+        [System.IO.Directory]::CreateDirectory($wsB.IndexDir) | Out-Null
+        (setNotContentIndexed $wsB.IndexDir -Recurse).Ok | Should -BeTrue
+        $result = importIndex $dest ${importCollisionRename} "" "D:\別の場所\営業部" $wsB "$TestDrive\attr_b\setting.config"
+
+        $flag = [System.IO.FileAttributes]::NotContentIndexed
+        $importedDir = Join-Path $wsB.IndexDir $result.Name
+        ([System.IO.File]::GetAttributes($importedDir) -band $flag) | Should -Not -Be 0
+        $files = @(Get-ChildItem -LiteralPath $importedDir -Recurse -Force)
+        $files.Count | Should -BeGreaterThan 0
+        foreach ($file in $files) {
+            ([System.IO.File]::GetAttributes($file.FullName) -band $flag) | Should -Not -Be 0
+        }
+    }
+
     It "取り込み一覧の形: <label>。見出しの行があり、クロール対象フォルダの行は見出しの前にあり、getIndexNameMap が名前を返す" -TestCases @(
         @{ label = "空のワークスペースへ"; others = @() }
         @{ label = "ほかのインデックスがあるワークスペースへ"; others = @("経理", "総務") }
@@ -729,11 +750,12 @@ Describe "importIndex" -Tag Io {
 
         # インデックス作成の始めと同じ手順: 名前の割り当て・消えたフォルダの整理。今の設定にあるインデックスは消えない
         $folders = @(assignIndexNames $targets (readStatusFile $wsB.StatusFile).Folders)
-        $workspace = $wsB
         function writeIndexerLog { param ($m, $c) }
-        removeDroppedFolders $folders (readStatusFile $wsB.StatusFile).Folders
+        removeDroppedFolders $folders (readStatusFile $wsB.StatusFile).Folders $wsB
         foreach ($name in $expected) {
             $folders.Name | Should -Contain $name
+            # 名前の割り当てだけでなく、removeDroppedFolders が実際に何も消していないこと
+            Test-Path -LiteralPath (Join-Path $wsB.IndexDir $name) -PathType Container | Should -Be $true
         }
         Test-Path -LiteralPath (Join-Path $wsB.IndexDir $result.Name) | Should -Be $true
         # 取り込み一覧・content_index が設定の名前と一致する
@@ -743,6 +765,11 @@ Describe "importIndex" -Tag Io {
         (readSearchWord $wsB "新規").Count | Should -BeGreaterThan 0
         if ($mode -eq "Overwrite") {
             (readSearchWord $wsB "鉛筆").Count | Should -Be 0
+        } else {
+            # 別名では、元の 営業 は場所も中身もそのまま残る
+            @(getTargetFolders $settingsB | Where-Object { $_.Name -eq "営業" })[0].Path | Should -Be "C:\前の場所"
+            @($statusAfter.Folders | Where-Object { $_.Name -eq "営業" })[0].Path | Should -Be "C:\前の場所"
+            (readSearchWord $wsB "鉛筆").Count | Should -BeGreaterThan 0
         }
     }
 
