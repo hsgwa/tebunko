@@ -1880,6 +1880,8 @@
       
         
       
+        
+      
     
     
     
@@ -2186,6 +2188,34 @@
     
   
     Word・PowerPoint の共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキストファイルの読み取り
   
 
     
@@ -4065,7 +4095,7 @@
     end
     C-&gt;&gt;C: PendingPublish で取り込み中・まだ渡していない数を更新&lt;br&gt;0 になったら本文インデックスを書き出す</code></pre>
 <ul>
-<li><strong>レーンは拡張子で決める</strong>（<code>getIngestLane</code>。判断層の <code>indexer_decide.ps1</code>）。Excel のファイルはセルの表示値を読むため、すべて Excel のレーンにする。Word・PowerPoint は、旧形式（<code>.doc</code>・<code>.ppt</code>）だけ Office のレーンにし、新形式は読み取りのレーンにする。</li>
+<li><strong>レーンは拡張子で決める</strong>（<code>getIngestLane</code>。判断層の <code>indexer_decide.ps1</code>）。Excel のファイルはセルの表示値を読むため、すべて Excel のレーンにする。Word・PowerPoint は、旧形式（<code>.doc</code>・<code>.ppt</code>）だけ Office のレーンにし、新形式は読み取りのレーンにする。テキストの拡張子（<code>.txt</code> 等）は、どの分岐にも当たらないため既定の読み取りのレーンになる（Office を使わずに読む。<a href="../text/">テキストファイルの読み取り</a>）。</li>
 <li><strong>Office は種類ごとに 1 つだけ起動する。</strong> Excel・Word・PowerPoint のレーンは、それぞれスレッド 1 つが自分の Office を 1 つ持つ。インデックス作成が起動する Office は、Excel・Word・PowerPoint がそれぞれ最大 1 つになる。3 つのレーンは互いに並べて動く。PowerPoint も、自分のスレッドが一度起動したら使い回す（変換のたびに起動し直さない）。同じ種類の Office を複数のスレッドが同時に起動しないため、起動の前後のプロセスの一覧の差で PID を取り違えない。起動した Office の優先度は変えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。起動した Office の PID は受け渡しの口（<code>OfficePids</code>）に記録する。</li>
 <li><strong>レーンのスレッドは、そのレーンのファイルを初めて渡すときに始める</strong>（<code>addIngestTask</code>）。渡すファイルが無いレーンは、スレッドも Office も作らない。列は <code>newIngestPool</code> がレーンごとに作る（<code>BlockingCollection</code>）。</li>
 <li><strong>読み取りのスレッドは Office を使わない。</strong> <code>.docx</code>・<code>.pptx</code> などの ZIP（XML）の形式を <code>office_reader</code> で直接読む。監視も持たない。</li>

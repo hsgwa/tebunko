@@ -1878,6 +1878,8 @@
       
         
       
+        
+      
     
     
     
@@ -2174,6 +2176,34 @@
     
   
     Word・PowerPoint の共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indexing/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキストファイルの読み取り
   
 
     
@@ -4018,13 +4048,13 @@
 <ul>
 <li><a href="settings/">部品ごとの関数（設定・ファイル）</a>（設定ファイル・ファイルとフォルダの操作）</li>
 <li><a href="indexer/">部品ごとの関数（インデックス作成）</a>（取り込み一覧・状態ファイル・取り込み直すかの判断・インデックス名とインデックスの管理）</li>
-<li><a href="tsv/">部品ごとの関数（TSV と本文インデックス）</a>（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き。<code>shared/core/fs.ps1</code>・<code>text.ps1</code>、<code>tebunko/index/</code>）</li>
+<li><a href="tsv/">部品ごとの関数（TSV と本文インデックス）</a>（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き、テキストファイルの読み取り。<code>shared/core/fs.ps1</code>・<code>text.ps1</code>・<code>text_file.ps1</code>、<code>tebunko/index/</code>）</li>
 <li><a href="search/">部品ごとの関数（検索・スレッド・元のファイル・画面）</a>（検索、スレッドとプール、検索結果から元のファイルを特定する処理、画面が使う集計・設定・Office プロセスの関数。<code>tebunko/search/</code>）</li>
 </ul>
 <pre class="mermaid"><code>flowchart LR
     settings["core/settings.ps1&lt;br&gt;core/fs.ps1・folder.ps1"] --&gt; P1["settings.md"]
     indexer["indexer/indexer_state.ps1&lt;br&gt;indexer_decide.ps1・index/index_name.ps1・index_store.ps1&lt;br&gt;index_archive_rules.ps1・index_archive.ps1"] --&gt; P2["indexer.md"]
-    tsv["core/fs.ps1・text.ps1&lt;br&gt;index/index_name.ps1・index_store.ps1・pack_format.ps1・pack_store.ps1"] --&gt; P3["tsv.md"]
+    tsv["core/fs.ps1・text.ps1・text_file.ps1&lt;br&gt;index/index_name.ps1・index_store.ps1・pack_format.ps1・pack_store.ps1"] --&gt; P3["tsv.md"]
     search["search/search_query.ps1・pack_search.ps1&lt;br&gt;search_run.ps1・search_service.ps1・source_map.ps1"] --&gt; P4["search.md"]</code></pre>
 <h2 id="libps1-から読み込まれない部品">lib.ps1 から読み込まれない部品<a class="headerlink" href="#libps1-から読み込まれない部品" title="Permanent link">&para;</a></h2>
 <p><code>lib.ps1</code> から読み込まれない部品の関数は、それぞれの設計書に記載する。</p>
@@ -4059,13 +4089,18 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_plan.ps1</code></td>
-<td><code>findOfficeFiles</code> / <code>createTargetList</code></td>
+<td><code>findTargetFiles</code> / <code>createTargetList</code></td>
 <td><a href="../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>、<a href="../indexing/flow/">インデックス作成のメインフロー</a></td>
 </tr>
 <tr>
 <td><code>tebunko/indexer/extract_office.ps1</code></td>
 <td><code>ingestFile</code> / <code>extractWorkbook</code> / <code>extractDocument</code></td>
 <td><a href="../indexing/excel/">Excel</a>、<a href="../indexing/office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の共通処理と Office アプリの管理</a></td>
+</tr>
+<tr>
+<td><code>tebunko/indexer/extract_text.ps1</code></td>
+<td><code>extractTextFile</code></td>
+<td><a href="../indexing/text/#テキストファイルの抽出処理extracttextfile">テキストファイルの読み取り</a></td>
 </tr>
 <tr>
 <td><code>tebunko/indexer/index_migrate.ps1</code></td>

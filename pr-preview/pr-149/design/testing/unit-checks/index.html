@@ -1878,6 +1878,8 @@
       
         
       
+        
+      
     
     
     
@@ -2174,6 +2176,34 @@
     
   
     Word・PowerPoint の共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキストファイルの読み取り
   
 
     
@@ -4025,7 +4055,7 @@
 </tr>
 <tr>
 <td><code>measure_perf.ps1</code></td>
-<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・本文インデックスのファイルの数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。本文インデックスしか無いインデックスでは、作成を測らずに検索だけを測る。<code>-Office</code> の取り込みは、<code>new_ingest_data.ps1</code>（種類ごとの数・50 ファイルごとのフォルダ分け・同じ引数から同じ構成になること）、取り込み一覧の数え方（同じ相対パスは最後の行・成功 + 失敗がファイル数と合わなければ失敗）、段階が読めないときと知らない段階のときの失敗、記録のスレッドが受け渡しの口の段階を読むこと、小さな .docx・.pptx のデータで最後まで動かして <code>result.json</code> の <code>Ingest</code>・<code>metrics.csv</code> の <code>ingest_</code> の行・<code>summary.md</code> の「Office からの取り込み」の表（パスを含まないこと）を確かめる。<code>-Office</code> だけのときは <code>Index</code>・<code>Search</code> を、<code>-Index</code> だけのときは <code>Ingest</code> を、キーを残して <code>null</code> にする（<code>Schema</code> は 1 のまま）。リポジトリの <code>setting.config</code> を作らない・変えないことも確かめる。Office を使う取り込み（.xlsx・.doc・.ppt）は CI では測れないので、手元の Windows で測る（<a href="../ci/">CI</a>）</td>
+<td>統計値（最小・中央値・平均・最大）と最小二乗の傾きの計算、点の間引き、グラフの行の書き方。小さなインデックスで最後まで動かし、フォルダ・ブック・TSV・本文インデックスのファイルの数、語ごとのヒット件数と検索時間の統計値、検索の流れ（<code>SearchMode</code>）、<code>result.json</code> の形式の版と実行の情報、<code>metrics.csv</code> の列と行、<code>summary.md</code> の表とグラフ（パスを含まないこと）を確かめる。本文インデックスしか無いインデックスでは、作成を測らずに検索だけを測る。<code>-Office</code> の取り込みは、<code>new_ingest_data.ps1</code>（種類ごとの数・50 ファイルごとのフォルダ分け・同じ引数から同じ構成になること）、取り込み一覧の数え方（同じ相対パスは最後の行・成功 + 失敗がファイル数と合わなければ失敗）、段階が読めないときと知らない段階のときの失敗、記録のスレッドが受け渡しの口の段階を読むこと、小さな .docx・.pptx のデータで最後まで動かして <code>result.json</code> の <code>Ingest</code>・<code>metrics.csv</code> の <code>ingest_</code> の行・<code>summary.md</code> の「Office からの取り込み」の表（パスを含まないこと）を確かめる。<code>-Office</code> だけのときは <code>Index</code>・<code>Search</code> を、<code>-Index</code> だけのときは <code>Ingest</code> を、キーを残して <code>null</code> にする（<code>Schema</code> は 1 のまま）。リポジトリの <code>setting.config</code> を作らない・変えないことも確かめる。Office を使う取り込み（.xlsx・.doc・.ppt）は CI では測れないので、手元の Windows で測る（<a href="../ci/">CI</a>）。<code>-Typing</code>（入力しながらの検索）は、送る語の並びを作る <code>getTypingSteps</code>（最初に送る長さ・語より短いとき・サロゲートペアの途中で切れる長さを飛ばすこと・正規表現として不正な文字列と空の文字列に一致する文字列を飛ばすこと）と、1 回ごとの記録から語ごとの値を作る <code>newTypingWordResult</code>（統計に 1 回目が入らないこと・ヒットの無い語は <code>FirstHitMs</code> が null になること・高速検索を使った回数と取り消された要求の合計）を <code>Unit</code> で確かめる。小さなインデックスで <code>-Typing 2</code> を流し、<code>result.json</code> の <code>Typing</code>（<code>Mode</code>・<code>MinLength</code>・語ごとの値）、<code>typing.csv</code>・<code>metrics.csv</code> の <code>typing_</code> の行、<code>summary.md</code> の「入力しながらの検索」の節を確かめる。<code>-Typing</code> を渡さないときは <code>Typing</code> のキーを残して <code>null</code> にする。<code>-Typing 1</code>・<code>-TypingFast</code> で <code>-Index</code> が <code>&lt;Work&gt;\content_index</code> でないときは、始める前に失敗にする（<a href="../perf/">性能とリソースの計測のしかた</a>）</td>
 </tr>
 <tr>
 <td><code>perf_search.Tests.ps1</code>（<code>Slow</code>・<code>Unit</code>）</td>
