@@ -5,7 +5,8 @@
 # 変数に受けてから使う（$set = 関数名 ...; @($set)）。
 #
 # 見つけるもの: `return , ...` を持つ関数（scripts の全体で集める）を、単独のコマンドとして @(...) の中で呼ぶ書き方。
-# パイプラインに流す `@(関数名 ... | Where-Object ...)` は、パイプラインが中身を展開するため対象にしない。
+# パイプラインに流す `@(関数名 ... | Where-Object ...)` も、集合が 1 つのまま渡るため同じ問題を持つが、今は対象にしない
+# （既にある書き方まで広げると落ちる箇所があり、別の起票で直してから対象に加える）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
@@ -89,7 +90,7 @@ Describe "return , で返す関数を @() で包まない" -Tag Meta {
 
     It "見つけない: <name>" -TestCases @(
         @{ name = "変数に受ける"; code = 'function f { return , $s }; $set = f $x; $u = @($set)' }
-        @{ name = "パイプラインに流す"; code = 'function f { return , $s }; $u = @(f $x | Where-Object { $_ })' }
+        @{ name = "パイプラインに流す（今は対象外。広げるのは別の起票）"; code = 'function f { return , $s }; $u = @(f $x | Where-Object { $_ })' }
         @{ name = "return , の無い関数"; code = 'function f { return $s }; $u = @(f $x)' }
         @{ name = "別の関数"; code = 'function f { return , $s }; $u = @(g $x)' }
     ) {
