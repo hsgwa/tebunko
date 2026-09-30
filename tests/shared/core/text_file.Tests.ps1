@@ -133,7 +133,17 @@ Describe "detectTextEncoding" -Tag Unit {
         @{ name = "色つきのログ（ESC [ の並び。ISO-2022-JP ではない）→ UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes("$([char]27)[31mred$([char]27)[0m`
 ")); expected = "UTF8" }
         @{ name = "ESC ( B だけ（漢字への切り替えが無い）→ ISO-2022-JP ではなく UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes("abc$([char]27)(Bdef")); expected = "UTF8" }
-        @{ name = "ESC の並びが規格外の 7 ビット（ESC $ B の後に ESC x）→ JIS ではなく、端末の制御の並びとして UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes("$([char]27)`$Babc$([char]27)xdef")); expected = "UTF8" }
+        @{ name = "ESC $ B があるのに規格外の ESC を含む 7 ビット → JIS のつもりの壊れたものとして取り込まない（UTF-8 として化けさせない）"; bytes = ([System.Text.Encoding]::ASCII.GetBytes("$([char]27)`$Babc$([char]27)xdef")); expected = $null }
+        @{ name = "ESC $ B と ESC ( I（半角カナ）→ ISO-2022-JP"; bytes = (toCodePageBytes 50221 "ﾃｽﾄと日本語"); expected = "ISO2022JP" }
+        @{ name = "半角カナの多い Shift_JIS の CSV（濁点・半濁点が正しい並び）→ Shift_JIS"; bytes = (toCodePageBytes 932 "顧客名,ﾌﾘｶﾞﾅ`r`n山田太郎,ﾔﾏﾀﾞﾀﾛｳ`r`n佐藤花子,ｻﾄｳﾊﾅｺ"); expected = "ShiftJIS" }
+        @{ name = "半角カナだけの Shift_JIS（全銀の形）→ Shift_JIS"; bytes = (toCodePageBytes 932 "ﾔﾏﾀﾞ ﾀﾛｳ ﾊﾟﾝ ﾄｳｷﾖｳ ｶ)ﾔﾏﾀﾞｼﾖｳｼﾞ"); expected = "ShiftJIS" }
+        @{ name = "半角カナ 1 文字だけの Shift_JIS → Shift_JIS"; bytes = (toCodePageBytes 932 "ｱ"); expected = "ShiftJIS" }
+        @{ name = "濁点だけが単独で現れる半角カナ（GBK などを読み違えた並び）→ 取り込まない"; bytes = (toCodePageBytes 932 "ﾞﾟｱｲｳｴｵ"); expected = $null }
+        @{ name = "Shift_JIS の外字（F040〜。私用領域に読まれる）→ 取り込まない（限界）"; bytes = ([byte[]]((toCodePageBytes 932 "日本語") + [byte[]]@(0xF0, 0x40))); expected = $null }
+        @{ name = "改行（CRLF）を含む日本語の BOM 無し UTF-16LE（NUL が改行の分しか無い）→ UTF-16LE"; bytes = (toUtf16LeBytes ((("これは日本語のテストです。ひらがなとカタカナと漢字です。" + "`r`n") * 20))); expected = "UTF16LE" }
+        @{ name = "改行（CRLF）を含む日本語の BOM 無し UTF-16BE（NUL が改行の分しか無い）→ UTF-16BE"; bytes = (toUtf16BeBytes ((("これは日本語のテストです。ひらがなとカタカナと漢字です。" + "`r`n") * 20))); expected = "UTF16BE" }
+        @{ name = "NUL が片側にしか無いが、かなの無い（漢字だけ）UTF-16LE → 取り込まない"; bytes = (toUtf16LeBytes ((("日本語漢字統計調査資料" + "`r`n") * 20))); expected = $null }
+        @{ name = "ASCII だけの入力（0a の並び + hello）は UTF-16BE と見間違えず UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes(("0a" * 10) + "hello")); expected = "UTF8" }
         @{ name = "8 ビットが混ざる ESC $ B → 取り込まない"; bytes = (@(0x1B, 0x24, 0x42, 0xC3, 0xBD, 0x80)); expected = $null }
     ) {
         param ($name, $bytes, $expected)

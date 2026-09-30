@@ -37,8 +37,9 @@
 | `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getPackFileKind, describePlace, getAppKind, findTargetFiles（`$targetExtensions`） |
 | `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |
 | `detectJapaneseUtf16WithoutNul` | bytes | string / `$null` | NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（`UTF16LE` / `UTF16BE`） | detectTextEncoding |
-| `testIso2022JpBytes` | bytes | bool | ISO-2022-JP か（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり） | detectTextEncoding |
+| `getIso2022JpVerdict` | bytes | string | ISO-2022-JP かの判定（`yes` / `broken`（ESC $ B があるが 8 ビット・規格外の ESC がある）/ `none`） | detectTextEncoding |
 | `detectLegacyJapaneseEncoding` | bytes | string / `$null` | UTF-8 として読めなかったバイト列が Shift_JIS か EUC-JP か。決まらなければ `$null` | detectTextEncoding |
+| `testHalfWidthKanaNatural` | text | bool | 半角カナの多い文字列が、濁点・半濁点の位置など半角カナの並びとして自然か | detectLegacyJapaneseEncoding |
 | `tryDecodeStrict` | bytes, codePage | string / `$null` | 読めないバイト列があれば `$null`、読めれば文字列 | detectTextEncoding |
 | `testTextPlausible` | text | bool | 制御文字・私用領域・U+FFFD を含まない（テキストとして自然）か | detectLegacyJapaneseEncoding |
 | `decodeTextBytes` | bytes, encodingName | string | `detectTextEncoding` が返した文字コードで、バイト列を文字列にする（BOM は取り除く） | readTextFile |
