@@ -4251,8 +4251,7 @@
     N -- はい --&gt; S{"奇数位置・偶数位置の NUL の割合"}
     S --&gt;|"奇数側が 20% 以上 かつ 偶数側が 奇数側の 1/10 以下"| L16
     S --&gt;|"偶数側が 20% 以上 かつ 奇数側が 偶数側の 1/10 以下"| B16
-    S --&gt;|"片側にしか NUL が無い"| J
-    S --&gt;|"両側にある"| BIN
+    S --&gt;|"NUL が 20% に届かない"| J
     N -- いいえ --&gt; J{"UTF-16 として読むと日本語の文章になる？&lt;br&gt;（かな 20% 以上・それ以外の文字 5% 以下。LE・BE の片方だけ）"}
     J -- はい --&gt; JU["UTF-16LE / UTF-16BE"]
     J -- いいえ --&gt; I{"ISO-2022-JP？&lt;br&gt;（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり）"}
@@ -4268,8 +4267,7 @@
 <li><strong>NUL の偏りによる BOM の無い UTF-16 の判定</strong>: 先頭 64KB（偶数バイトに切り詰める）を 2 バイトの組として数え、組の数を N、偶数の位置（0, 2, …）の NUL の数を E、奇数の位置（1, 3, …）の NUL の数を O とする。ASCII の文字は UTF-16LE で奇数の位置が NUL になるため、O が多ければ LE、E が多ければ BE と判定する。</li>
 <li><code>O ≥ N × 20%</code> かつ <code>E ≤ O ÷ 10</code> → UTF-16LE</li>
 <li><code>E ≥ N × 20%</code> かつ <code>O ≤ E ÷ 10</code> → UTF-16BE</li>
-<li>それ以外で、NUL が偶数・奇数の片側にしか無い → 次の「NUL の無い日本語の UTF-16」と同じ判定に回す（日本語の UTF-16 は、改行（CRLF）だけが NUL になるため）</li>
-<li>それ以外（NUL が両側にある） → 取り込まない（バイナリ。BOM の無い UTF-32 もここ）</li>
+<li>それ以外（NUL が 20% に届かない） → 次の「NUL の無い日本語の UTF-16」と同じ判定に回す（日本語の UTF-16 は、改行（CRLF）や全角スペース・「一」など下位バイトが 00 の文字だけが NUL になり、偶数・奇数の両側に NUL が出ることもあるため）</li>
 <li>閾値（20%・1/10）は <code>${textUtf16NulRatioThreshold}</code>・<code>${textUtf16NulSkewDivisor}</code> の定数</li>
 <li><strong>NUL の無い（または改行の分しか無い）日本語の UTF-16</strong>（<code>detectJapaneseUtf16WithoutNul</code>）: ひらがな・カタカナ・漢字は NUL を含まないため、上の判定に掛からない。先頭 64KB（8 バイト以上）を LE・BE それぞれで読み、<strong>ひらがな・カタカナが 20% 以上</strong>で、日本語の文章に出る文字（ASCII・句読点・かな・漢字・全角）<strong>以外が 5% 以下</strong>のとき、その向きの UTF-16 とする。LE・BE の両方が当たるときは判定しない。7 ビットだけ（ASCII の範囲）のバイト列は、ひらがなの UTF-16 と ASCII の文字列（<code>0a0a…</code> など）の見分けが付きにくいため、かなの割合を 90% 以上にする。閾値は <code>${textJpUtf16KanaRatio}</code>・<code>${textJpUtf16AsciiKanaRatio}</code>・<code>${textJpUtf16OtherRatio}</code>・<code>${textJpUtf16MinBytes}</code>。</li>
 <li><strong>ISO-2022-JP</strong>（<code>testIso2022JpBytes</code>）: 7 ビットだけのバイト列で、漢字への切り替え（<code>ESC $ B</code>・<code>ESC $ @</code>）を含み、ESC の並びがすべて規格のもの（<code>ESC $ B</code>・<code>ESC $ @</code>・<code>ESC ( B</code>・<code>ESC ( J</code>・<code>ESC ( I</code>（半角カナ。コードページ 50221 で読む））のとき。<code>ESC $ B</code> があるのに 8 ビットのバイトや規格外の ESC の並びがあるものは、JIS のつもりの壊れたものとして取り込まない（UTF-8 として読むと化ける）。ASCII だけで表せるため UTF-8 として読めてしまう（化ける）ので、UTF-8 より先に確かめる。<code>ESC [</code> などの端末の制御の並び（色つきのログ）や <code>ESC ( B</code> だけのものは対象にせず、UTF-8 になる。</li>
@@ -4302,14 +4300,15 @@
 </tr>
 </tbody>
 </table>
-<p>片方だけ当たればその文字コード。両方当たるときは、Shift_JIS として読むと半角カナばかりになる（EUC-JP のかなの見え方）なら EUC-JP、そうでなければ取り込まない。どちらも当たらなければ取り込まない。読んだ結果の数え（半角カナの割合）は先頭 <code>${textLegacySampleChars}</code> 文字だけで行い、大きなファイルで遅くならないようにしている。NUL の無いバイナリは制御文字が出るため、ここで取り込まない。</p>
+<p>片方だけ当たればその文字コード。両方当たるときは、Shift_JIS として読むと半角カナばかりになる（EUC-JP のかなの見え方）なら EUC-JP、そうでなければ取り込まない。どちらも当たらなければ取り込まない。読んだ結果の数え（半角カナの割合）は最初の ASCII 以外の文字から <code>${textLegacySampleChars}</code> 文字だけで行い、大きなファイルで遅くならないようにしている。NUL の無いバイナリは制御文字が出るため、ここで取り込まない。</p>
 <h3 id="分かっている限界">分かっている限界<a class="headerlink" href="#分かっている限界" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>取り込まないもの</strong>: UTF-32・GBK・Big5・EUC-KR・かなの無い EUC-JP・NUL の無いバイナリ・NUL が偏らない UTF-16 などは、文字コードを判定できないとして取り込まない（<code>テキストファイルではないため取り込めません。</code>）。UTF-8・Shift_JIS・UTF-16 で保存し直せば取り込める。</li>
 <li><strong>短い Shift_JIS の並び</strong>（半角カナの一部など。例: <code>ﾃｽ</code> = <code>C3 BD</code>）は、UTF-8 としても正しく読めることがあり、その場合は UTF-8 と判定されて化ける。</li>
-<li><strong>ASCII と日本語が混ざる BOM 無し UTF-16 で、NUL が両側にあるもの</strong>は、バイナリとなり取り込まない。</li>
+<li><strong>BOM の無い UTF-16 で、かなが 20% に届かないもの</strong>（漢字だけの文章など）は、バイナリと見分けが付かないため取り込まない。</li>
 <li><strong>Shift_JIS の外字（F040〜F9FC）を含むファイル</strong>は、外字が私用領域に読まれるため取り込まない。</li>
-<li><strong>半角カナの Shift_JIS と GBK・Big5</strong>は、構造だけでは完全には見分けられない。半角カナの並びとして自然か（濁点・半濁点の位置）で見分けるため、濁点・半濁点を含まない短い GBK・Big5 が半角カナの Shift_JIS として誤って取り込まれることがある。</li>
+<li><strong>半角カナの Shift_JIS と GBK・Big5</strong>は、構造だけでは完全には見分けられない。半角カナの並びとして自然か（濁点・半濁点の位置）で見分けるため、濁点・半濁点を含まない短い GBK・Big5・EUC-KR が半角カナの Shift_JIS として誤って取り込まれ、半角カナの化けとして索引に入る（害は検索の雑音）。誤って取り込まれるのは、Big5・EUC-KR は 20 文字前後まで、GBK は 10 文字未満のとき（測定: Big5 8 文字で 71%・16 文字で 57%・32 文字で 7%、EUC-KR 8 文字で 66%・24 文字で 18%・32 文字で 0%、GBK 2 文字で 56%・8 文字で 5%・12 文字以上で 0%）。</li>
+<li><strong>半角カナだけの行で、･ や ､ を含み、半角カナの並びがすべて偶数の長さのもの</strong>（例 <code>ﾔﾏﾀﾞ･ﾀﾛｳ</code>）は、EUC-JP としても正しく読めるため EUC-JP と判定され、化ける。</li>
 <li><strong>かなをほとんど含まない BOM 無し UTF-16（漢字だけ・ASCII だけの短い文）</strong>は、UTF-16 とは判定しない（漢字だけの文は、ほかの文字コードとの区別が付かないため）。</li>
 <li>GBK・EUC-KR などがたまたま Shift_JIS・EUC-JP の条件を満たす偶然（ごく短い文や、かなに当たる並びを含む場合）は、判定の対象外で、誤って取り込まれうる。</li>
 </ul>
