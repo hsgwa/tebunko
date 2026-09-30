@@ -1,11 +1,12 @@
-# 性能とリソースを手動で測る（Office からの取り込み・インデックス作成・検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
+# 性能とリソースを手動で測る（Office からの取り込み・インデックス作成・検索・入力しながらの検索を、それぞれ別のプロセスで）。結果はジョブの Summary と artifact に出力する。
 # 数字は result.json と metrics.csv（1 行 1 指標。後で Grafana などに入れるため）にも書く。
 #
-# Actions の画面か `gh workflow run perf.yml -f ref=<ref> -f scale=0.1 -f ingest=200` で起動する。
+# Actions の画面か `gh workflow run perf.yml -f ref=<ref> -f scale=0.1 -f ingest=200 -f typing=10` で起動する。
 # 計測スクリプト（tools/measure_perf.ps1）はこのワークフローの ref から、計測対象のコードは入力の ref からチェックアウトする（作業中のブランチも測れる）。
 # データ（場所ごとの TSV）は、tebunko-perfdata の new_index.ps1 で毎回生成する。
 # 取り込み（入力 ingest が 0 でないとき）は、Office を使わずに読む .docx・.pptx だけを測る（テストデータの複製を new_ingest_data.ps1 で作る）。
 # ランナーには Office が無いので、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は測らない。
+# 入力しながらの検索（入力 typing が 0 でないとき）は、語を typing_min_length 文字目から 1 文字ずつ、決まった間隔で検索の司令のスレッドへ送って測る。
 # ランナーは手元の PC と条件が違う（コア数、Defender の設定。Windows Search も無いので高速検索は使わない）。比べるときは、このワークフローで測った数字どうしで比べる。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため。日本語は計測スクリプトの側で出力する）。
 name: perf
@@ -18,9 +19,9 @@ on:
         required: true
         default: main
       scale:
-        description: データの量（1 でブック 5.4 万・TSV 16 万・約 1GB）
+        description: データの量（1 でブック 5.4 万・TSV 16 万・約 1GB。0.04 は入力しながらの検索の 7,000 件規模）
         type: choice
-        options: ["0.1", "0.3", "1"]
+        options: ["0.04", "0.1", "0.3", "1"]
         default: "0.1"
       count:
         description: 語ごとに続けて検索する回数（最小・中央値・平均・最大を出す）
@@ -30,6 +31,16 @@ on:
         type: choice
         options: ["0", "200", "1000"]
         default: "0"
+      typing:
+        description: 入力しながらの検索を測る、語ごとの入力の繰り返し回数（0 は測らない）
+        type: choice
+        options: ["0", "10", "20"]
+        default: "0"
+      typing_min_length:
+        description: 入力しながらの検索で最初に送る語の長さ（3 が画面と同じで合否を決める。1 は短い語の取り消しを多く含む厳しめの参考値）
+        type: choice
+        options: ["3", "1"]
+        default: "3"
 
 permissions:
   contents: read
@@ -99,6 +110,8 @@ jobs:
           REF: ${{ inputs.ref }}
           SCALE: ${{ inputs.scale }}
           COUNT: ${{ inputs.count }}
+          TYPING: ${{ inputs.typing }}
+          TYPING_MIN_LENGTH: ${{ inputs.typing_min_length }}
           RUN_ID: ${{ github.run_id }}
         run: |
           $ErrorActionPreference = "Stop"
@@ -108,7 +121,9 @@ jobs:
           $data = [double]::Parse([System.IO.File]::ReadAllText((Join-Path $work "data_seconds.txt")), [System.Globalization.CultureInfo]::InvariantCulture)
           $office = @{}
           if ($env:INGEST -ne "0") { $office.Office = Join-Path $work "office" }
-          & .\tool\tools\measure_perf.ps1 @office -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
+          $typing = @{}
+          if ($env:TYPING -ne "0") { $typing.Typing = [int]$env:TYPING; $typing.TypingMinLength = [int]$env:TYPING_MIN_LENGTH }
+          & .\tool\tools\measure_perf.ps1 @office @typing -Index (Join-Path $work "index") -Work $work -Tool target -Words perfdata\words.tsv -Count ([int]$env:COUNT) -Label "$env:REF ($short) scale $env:SCALE" -RunId $env:RUN_ID -Ref $env:REF -Sha $sha -Scale $env:SCALE -DataSeconds $data -Out (Join-Path $work "result")
 
       - name: 結果を Summary に書き出す
         if: always()

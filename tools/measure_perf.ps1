@@ -13,6 +13,10 @@
 #   -Tool     … 測る tebunko のフォルダ。既定はこのスクリプトのリポジトリ
 #   -Words    … 検索する語の表（名前・語・正規表現・件数。tebunko-perfdata の words.tsv）。省略すると、ヒットしない語 1 つだけを検索する
 #   -Count    … 語ごとに、同じプロセスで続けて検索する回数
+#   -Typing   … 入力しながらの検索を測る、語ごとの入力の繰り返し回数（既定 0 は測らない。1 は受け付けない）
+#   -TypingIntervalMs … 入力しながらの検索の、要求の間隔（ミリ秒。既定 150。画面の入力しながらの検索の待ち時間と同じ）
+#   -TypingMinLength  … 入力しながらの検索で最初に送る語の長さ（既定 3。画面と同じ。合否はこの既定で決める）
+#   -TypingFast … 入力しながらの検索で高速検索（Windows Search）を使う。-Index を <Work>\content_index にしておくこと
 #   -SampleMs … リソースを記録する間隔（ミリ秒）
 #   -Label    … 結果の見出しに出す名前
 #   -RunId・-Ref・-Sha・-Scale・-DataSeconds … 実行の情報（result.json と metrics.csv に書く。-DataSeconds はデータの生成にかかった秒数）
@@ -22,6 +26,7 @@
 #   1. 取り込み        … tools\perf\measure_ingest.ps1（起動口の indexer.ps1 で Office ファイルを取り込む。-Repeat 回）
 #   2. インデックス作成 … tools\perf\measure_index.ps1（インデクサと同じ publishIndexFolders。Office からの取り込みは含まない）
 #   3. 検索            … 語ごとに tools\perf\measure_search.ps1 を起動し、同じプロセスで -Count 回続けて検索する
+#   4. 入力しながらの検索 … -Typing が 0 でないときだけ。語ごとに tools\perf\measure_typing.ps1 を起動する
 # OS のファイルキャッシュは空にしない（pack は作成の直後なので、OS のキャッシュに載っている）。
 #
 # 書くもの:
@@ -29,7 +34,8 @@
 #   result.json         … すべての数字（形式の版 Schema と実行の情報つき）
 #   metrics.csv         … 1 行 1 指標の縦長の形（run_id, date, ref, sha, scale, metric, word, stat, value, unit）。後で Grafana などに入れるため
 #   searches.csv        … 検索 1 回ごとの時間・ヒット件数・メモリ
-#   resource-ingest.csv・resource-index.csv・resource-search.csv … リソースの記録（-SampleMs ごと。取り込みは段階が変わるたびにも記録する）
+#   typing.csv          … 入力しながらの検索の、1 回の入力ごとの時間・ヒット件数・メモリ（-Typing のときだけ）
+#   resource-ingest.csv・resource-index.csv・resource-search.csv・resource-typing.csv … リソースの記録（-SampleMs ごと。取り込みは段階が変わるたびにも記録する）
 param (
     [string]$Index,
     [string]$Office,
@@ -39,6 +45,10 @@ param (
     [int]$Count = 20,
     [int]$Threads = 2,
     [int]$Repeat = 3,
+    [int]$Typing = 0,
+    [int]$TypingIntervalMs = 150,
+    [int]$TypingMinLength = 3,
+    [switch]$TypingFast,
     [int]$SampleMs = 200,
     [string]$Label = "",
     [string]$RunId = "",
@@ -53,12 +63,19 @@ $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\perf\perf_common.ps1"
 . "$PSScriptRoot\perf\ingest_common.ps1"
 if (!$Index -and !$Office) { throw "-Index と -Office の少なくとも一方を指定してください。" }
+if ($Typing -eq 1) { throw "-Typing は 0 か 2 以上にしてください。" }
 $Tool = (Resolve-Path -LiteralPath $Tool).ProviderPath
 [void](resolveTebunkoLib $Tool)
 if ($Index) { $Index = (Resolve-Path -LiteralPath $Index).ProviderPath.TrimEnd("\") }
 if ($Office) { $Office = (Resolve-Path -LiteralPath $Office).ProviderPath.TrimEnd("\") }
 [void][System.IO.Directory]::CreateDirectory($Work)
 $Work = (Resolve-Path -LiteralPath $Work).ProviderPath.TrimEnd("\")
+if ($TypingFast) {
+    $wantIndex = (Join-Path $Work "content_index").TrimEnd("\")
+    if (!$Index -or !$Index.Equals($wantIndex, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "-TypingFast では、-Index を <Work>\content_index にしてください。"
+    }
+}
 if (!$Out) { $Out = Join-Path $Work "result" }
 [void][System.IO.Directory]::CreateDirectory($Out)
 $raw = Join-Path $Work "raw"
@@ -162,9 +179,39 @@ for ($w = 0; $w -lt $wordList.Count; $w++) {
     })
 }
 
+# 4. 入力しながらの検索（語ごとに別のプロセス）。-Index が無い・-Typing が 0 のときは測らない
+$typingWords = New-Object System.Collections.Generic.List[object]
+$typingRaw = New-Object System.Collections.Generic.List[object]
+if ($Index -and $Typing -gt 0) {
+    for ($w = 0; $w -lt $wordList.Count; $w++) {
+        $spec = $wordList[$w]
+        Write-Host "入力しながらの検索を測ります（$($spec.Name)）。"
+        $wordFile = Join-Path $raw "typing-word-$w.json"
+        [System.IO.File]::WriteAllText($wordFile, ([pscustomobject]$spec | ConvertTo-Json), $utf8)
+        $typingJson = Join-Path $raw "typing-$w.json"
+        $typingArgs = @("-Tool", $Tool, "-Index", $Index, "-WordFile", $wordFile, "-Count", $Typing, "-IntervalMs", $TypingIntervalMs,
+            "-MinLength", $TypingMinLength, "-Work", $Work, "-Out", $typingJson, "-SampleMs", $SampleMs)
+        if ($TypingFast) { $typingArgs += "-Fast" }
+        invokeChild "measure_typing.ps1" $typingArgs
+        $r = readJson $typingJson
+        $typingRaw.Add($r)
+        $res = @(getPhaseResources @($r.Samples) $cores | Where-Object { $_.Phase -eq "入力しながらの検索" })
+        $entry = newTypingWordResult -name $r.Name -regex ([bool]$r.Regex) -steps ([int]$r.Steps) -attempts @($r.Attempts) -skipped $r.Skipped `
+            -workingSetMaxMB $(if ($r.Attempts.Count) { ($r.Attempts | Measure-Object WorkingSetMB -Maximum).Maximum } else { $null }) `
+            -cpuSeconds $(if ($res.Count) { $res[0].CpuSeconds } else { $null }) -gc0 $(if ($res.Count) { $res[0].Gc0 } else { $null }) `
+            -gc1 $(if ($res.Count) { $res[0].Gc1 } else { $null }) -gc2 $(if ($res.Count) { $res[0].Gc2 } else { $null }) -peakWorkingSetMB $r.PeakWorkingSetMB
+        $typingWords.Add($entry)
+    }
+}
+
 # result.json（形式の版 1）
 $run.SearchMode = (@($search | ForEach-Object { $_.Mode } | Select-Object -Unique) -join ",")
-$result = [ordered]@{ Schema = 1; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult }
+$result = [ordered]@{ Schema = 1; Run = $run; Index = $indexResult; Search = $(if ($Index) { $search.ToArray() } else { $null }); Ingest = $ingestResult
+    Typing = $(if ($Index -and $Typing -gt 0) { [ordered]@{
+        Mode = [string]$typingRaw[0].Mode; Count = $Typing; IntervalMs = $TypingIntervalMs; MinLength = $TypingMinLength; Fast = [bool]$TypingFast
+        Words = $typingWords.ToArray()
+    } } else { $null })
+}
 [System.IO.File]::WriteAllText((Join-Path $Out "result.json"), ($result | ConvertTo-Json -Depth 6), $utf8)
 
 # metrics.csv（1 行 1 指標）
@@ -211,6 +258,15 @@ foreach ($s in $search) {
     addMetric "search_cpu_seconds" $s.Name "value" $s.CpuSeconds "s"
     addMetric "search_gc2" $s.Name "value" $s.Gc2 "count"
 }
+foreach ($t in $typingWords) {
+    if ($t.Skipped) { continue }
+    foreach ($part in @(@("typing_first_hit_ms", $t.FirstHitMs), @("typing_finish_ms", $t.FinishMs), @("typing_wait_prev_ms", $t.WaitPrevMs),
+        @("typing_interval_ms", $t.IntervalMs), @("typing_lag_ms", $t.LagMs), @("typing_request_ms", $t.RequestMs))) {
+        if ($null -eq $part[1]) { continue }
+        foreach ($stat in @("Min", "Median", "Mean", "Max")) { addMetric $part[0] $t.Name $stat.ToLower() $part[1][$stat] "ms" }
+    }
+    addMetric "typing_hits" $t.Name "value" $t.Hits "count"
+}
 [System.IO.File]::WriteAllLines((Join-Path $Out "metrics.csv"), [string[]]@($metrics | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 
 # searches.csv・resource-*.csv
@@ -224,6 +280,22 @@ $searchRows = foreach ($r in $searchRaw) { foreach ($row in @($r.Searches)) { $o
 [System.IO.File]::WriteAllLines((Join-Path $Out "resource-index.csv"), [string[]]@($indexSamples | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 $searchSamples = foreach ($r in $searchRaw) { foreach ($sm in @($r.Samples)) { $o = [ordered]@{ Word = $r.Name }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
 [System.IO.File]::WriteAllLines((Join-Path $Out "resource-search.csv"), [string[]]@($searchSamples | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+}
+if ($Index -and $Typing -gt 0) {
+    function arrMax($values) { if (!$values -or @($values).Count -eq 0) { return $null }; return (@($values) | Measure-Object -Maximum).Maximum }
+    $typingRows = foreach ($r in $typingRaw) {
+        foreach ($a in @($r.Attempts)) {
+            [pscustomobject][ordered]@{
+                Word = $r.Name; N = $a.N; Steps = $a.Steps; FirstHitMs = $a.FirstHitMs; FinishMs = $a.FinishMs; WaitPrevMs = $a.WaitPrevMs
+                IntervalMaxMs = (arrMax $a.IntervalMs); LagMaxMs = (arrMax $a.LagMs); RequestMaxMs = (arrMax $a.RequestMs)
+                Hits = $a.Hits; Truncated = $a.Truncated; Packs = $a.Packs; FastUsed = $a.FastUsed; CancelledSteps = $a.CancelledSteps
+                WorkingSetMB = $a.WorkingSetMB; ManagedMB = $a.ManagedMB; Handles = $a.Handles; Threads = $a.Threads
+            }
+        }
+    }
+    [System.IO.File]::WriteAllLines((Join-Path $Out "typing.csv"), [string[]]@($typingRows | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
+    $typingSamples = foreach ($r in $typingRaw) { foreach ($sm in @($r.Samples)) { $o = [ordered]@{ Word = $r.Name }; foreach ($p in $sm.PSObject.Properties) { $o[$p.Name] = $p.Value }; [pscustomobject]$o } }
+    [System.IO.File]::WriteAllLines((Join-Path $Out "resource-typing.csv"), [string[]]@($typingSamples | ConvertTo-Csv -NoTypeInformation), $utf8Bom)
 }
 
 # summary.md
@@ -362,6 +434,52 @@ if ($Count -ge 2) {
     foreach ($l in (newLineChart "検索 1 回ごとの時間" "回" $xs "ms" @($searchRaw | ForEach-Object { , @(@($_.Searches) | ForEach-Object { $_.TotalMs }) }) $colors)) { add $l }
     add
     foreach ($l in (newLineChart "検索 1 回ごとのワーキングセット" "回" $xs "MB" @($searchRaw | ForEach-Object { , @(@($_.Searches) | ForEach-Object { $_.WorkingSetMB }) }) $colors)) { add $l }
+}
+}
+
+if ($Index -and $Typing -gt 0) {
+function msOf($stats, [string]$key) { if ($null -eq $stats) { return "–" }; return ("{0:N0}" -f $stats[$key]) }
+add
+add "## 入力しながらの検索"
+add
+$typingMode = [string]$typingRaw[0].Mode
+if ($typingMode -ne "service") {
+    add "測った版には検索の司令のスレッド（SearchService）が無いため、入力しながらの検索は測っていない。"
+} else {
+    add "語を $TypingMinLength 文字目から 1 文字ずつ、$TypingIntervalMs ms おきに、画面と同じ検索の司令のスレッド（SearchService）へ要求した（新しい要求は前の要求を取り消す）。これを 1 回の入力として $Typing 回繰り返した。時間は最後の要求を渡した時点（要求を渡す時間を含む）から数え、画面に描くまでは含まない。統計は 2 回目以降（読んだ内容が残った状態）で取り、1 回目は画面を開き直した直後の入力に当たる。時刻は Windows のタイマーの細かさの分、大きく出る側に最大で約 16 ms の誤差がある。画面はヒットを 100 ms ごとに取り込むため、画面に出るまでは最大で約 100 ms 長くなる。$(if ($TypingFast) { "高速検索（Windows Search）を使った。" } else { "高速検索は使っていない。" })"
+    $skippedWords = @($typingWords | Where-Object { $_.Skipped })
+    add
+    add "| 語 | 送った語の数 | ヒット件数 | 最初のヒットまで（中央値／最大） | 終わるまで（中央値／最大） | 前の検索が止まるまで（中央値／最大） | 1 回目（最初のヒット／終わり） | 照合した pack | 高速検索（使った回数／回数） |"
+    add "|---|---|---|---|---|---|---|---|---|"
+    foreach ($t in $typingWords) {
+        if ($t.Skipped) {
+            add ("| {0} | – | – | – | – | – | – | – | – |" -f $t.Name)
+            continue
+        }
+        add ("| {0} | {1} | {2}{3} | {4}／{5} ms | {6}／{7} ms | {8}／{9} ms | {10}／{11} ms | {12} | {13}／{14} |" -f $t.Name, $t.Steps, $t.Hits, $(if ($t.Truncated) { "+" } else { "" }),
+            (msOf $t.FirstHitMs "Median"), (msOf $t.FirstHitMs "Max"), (msOf $t.FinishMs "Median"), (msOf $t.FinishMs "Max"), (msOf $t.WaitPrevMs "Median"), (msOf $t.WaitPrevMs "Max"),
+            $(if ($null -ne $t.First.FirstHitMs) { "{0:N0}" -f $t.First.FirstHitMs } else { "–" }), $(if ($null -ne $t.First.FinishMs) { "{0:N0}" -f $t.First.FinishMs } else { "–" }),
+            $t.Packs, $t.FastUsed, $Typing)
+    }
+    add
+    add "### 入力しながらの検索のリソース"
+    add
+    add "語ごとのプロセスの値。「予定からの遅れ」は、要求の間隔が待ちの細かさで指定より短くなることがあるため、指定どおりかは遅れの小ささで見る。"
+    add
+    add "| 語 | 要求の間隔（中央値／最大） | 予定からの遅れ（中央値／最大） | 要求を渡す時間（中央値／最大） | 取り消された前の要求 | ワーキングセットの最大 | CPU 時間 | GC 回数（0/1/2 世代） |"
+    add "|---|---|---|---|---|---|---|---|"
+    foreach ($t in $typingWords) {
+        if ($t.Skipped) {
+            add ("| {0} | – | – | – | – | – | – | – |" -f $t.Name)
+            continue
+        }
+        add ("| {0} | {1}／{2} ms | {3}／{4} ms | {5}／{6} ms | {7} | {8:N0} MB | {9} 秒 | {10}/{11}/{12} |" -f $t.Name, (msOf $t.IntervalMs "Median"), (msOf $t.IntervalMs "Max"),
+            (msOf $t.LagMs "Median"), (msOf $t.LagMs "Max"), (msOf $t.RequestMs "Median"), (msOf $t.RequestMs "Max"), $t.CancelledSteps, $t.WorkingSetMaxMB, $t.CpuSeconds, $t.Gc0, $t.Gc1, $t.Gc2)
+    }
+    if ($skippedWords.Count -gt 0) {
+        add
+        add "測っていない語（送る語が無い）: $((@($skippedWords | ForEach-Object { "$($_.Name)（$($_.Skipped)）" })) -join "、")"
+    }
 }
 }
 [System.IO.File]::WriteAllLines((Join-Path $Out "summary.md"), [string[]]$md, $utf8)

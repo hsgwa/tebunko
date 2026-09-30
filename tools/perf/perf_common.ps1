@@ -387,3 +387,104 @@ function getIngestPerfProblems {
     }
     return , $problems.ToArray()
 }
+
+function getTypingSteps {
+    # 入力しながらの検索で送る語の並びを作る（画面の入力しながらの検索と同じ、3 文字目から 1 文字ずつ伸ばす）。
+    # tools\perf\measure_typing.ps1 が使う。
+    #   word     : 検索する語
+    #   isRegex  : 正規表現として送るか（words.tsv の 正規表現 列）
+    #   minLength: 最初に送る語の長さ。語の長さがこれより短ければ、語そのものだけを返す
+    # 文字数は String.Length（UTF-16 のコード単位）で数え、サロゲートペアの途中で切れる長さは飛ばす。
+    # 正規表現のときは、正規表現として不正な文字列と、空の文字列に一致する文字列（画面が自動では検索しないもの）も飛ばす。
+    # 送れる長さが 1 つも無ければ、空の配列を返す（呼び出し側は Skipped として扱う）
+    param (
+        [string]$word,
+        [bool]$isRegex,
+        [int]$minLength = 3
+    )
+
+    $len = $word.Length
+    $lengths = if ($len -le $minLength) { @($len) } else { @($minLength..$len) }
+    $steps = New-Object System.Collections.Generic.List[string]
+    foreach ($length in $lengths) {
+        if ($length -lt 1) { continue }
+        if ($length -lt $len -and [char]::IsHighSurrogate($word[$length - 1])) {
+            continue  # サロゲートペアの途中で切れる長さは飛ばす
+        }
+        $step = $word.Substring(0, $length)
+        if ($isRegex) {
+            $re = $null
+            try { $re = [regex]::new($step) } catch { continue }
+            if ($re.Match("").Success) { continue }  # 空の文字列に一致する語は、画面が自動では検索しない
+        }
+        $steps.Add($step)
+    }
+    return $steps.ToArray()
+}
+
+function newTypingWordResult {
+    # 入力しながらの検索を、語ごとに 1 回ごとの記録（measure_typing.ps1 の Attempts）から result.json の Typing.Words の 1 件にまとめる。
+    #   attempts: 1 回目が先頭の配列。1 回ごとに @{ FirstHitMs; FinishMs; WaitPrevMs（すべて 1 回目は含めても除いても呼び出し側が扱う）；
+    #             IntervalMs; LagMs; RequestMs（要求ごとの値の配列）; Hits; Truncated; Packs; FastUsed; CancelledSteps }
+    #   steps   : 送った語の数（getTypingSteps の結果の数）。並びが空だった語は 0
+    #   skipped : 測らなかった理由（並びが空の語）。$null なら測った
+    # 統計（Min・Median・Mean・Max・Count）は getStats を使う。FirstHitMs・FinishMs・WaitPrevMs は 2 回目以降（attempts の 2 件目から）、
+    # IntervalMs・LagMs・RequestMs は全回（1 回目を含む）から作る。CancelledSteps は 2 回目以降の合計、FastUsed は全回の合計（回数）。
+    param (
+        [string]$name,
+        [bool]$regex,
+        [int]$steps,
+        [object[]]$attempts = @(),
+        [string]$skipped = $null,
+        $workingSetMaxMB = $null,
+        $cpuSeconds = $null,
+        $gc0 = $null,
+        $gc1 = $null,
+        $gc2 = $null,
+        $peakWorkingSetMB = $null
+    )
+
+    if ($skipped -or $attempts.Count -eq 0) {
+        return [ordered]@{
+            Name = $name; Regex = $regex; Steps = $steps
+            Hits = $null; Truncated = $null; Packs = $null; FastUsed = $null; CancelledSteps = $null
+            FirstHitMs = $null; FinishMs = $null; WaitPrevMs = $null; IntervalMs = $null; LagMs = $null; RequestMs = $null
+            First = $null
+            WorkingSetMaxMB = $null; CpuSeconds = $null; Gc0 = $null; Gc1 = $null; Gc2 = $null
+            PeakWorkingSetMB = $peakWorkingSetMB
+            Skipped = $(if ($skipped) { $skipped } else { "送る語がありません（すべて正規表現として不正、または空の文字列に一致する）" })
+        }
+    }
+
+    function flattenTypingValues($rows, [string]$key) {
+        $list = New-Object System.Collections.Generic.List[double]
+        foreach ($row in $rows) {
+            foreach ($x in @($row.$key)) {
+                if ($null -ne $x) { [void]$list.Add([double]$x) }
+            }
+        }
+        return , $list.ToArray()
+    }
+
+    $first = $attempts[0]
+    $rest = @($attempts | Select-Object -Skip 1)
+    $last = $attempts[$attempts.Count - 1]
+
+    return [ordered]@{
+        Name = $name; Regex = $regex; Steps = $steps
+        Hits = [int]$last.Hits; Truncated = [bool]$last.Truncated; Packs = [int]$last.Packs
+        FastUsed = @($attempts | Where-Object { $_.FastUsed }).Count
+        CancelledSteps = [int]((@($rest | ForEach-Object { [int]$_.CancelledSteps }) | Measure-Object -Sum).Sum)
+        FirstHitMs = getStats (flattenTypingValues $rest "FirstHitMs")
+        FinishMs = getStats (flattenTypingValues $rest "FinishMs")
+        WaitPrevMs = getStats (flattenTypingValues $rest "WaitPrevMs")
+        IntervalMs = getStats (flattenTypingValues $attempts "IntervalMs")
+        LagMs = getStats (flattenTypingValues $attempts "LagMs")
+        RequestMs = getStats (flattenTypingValues $attempts "RequestMs")
+        First = [ordered]@{ FirstHitMs = $first.FirstHitMs; FinishMs = $first.FinishMs; WaitPrevMs = $first.WaitPrevMs }
+        WorkingSetMaxMB = $workingSetMaxMB
+        CpuSeconds = $cpuSeconds; Gc0 = $gc0; Gc1 = $gc1; Gc2 = $gc2
+        PeakWorkingSetMB = $peakWorkingSetMB
+        Skipped = $null
+    }
+}
