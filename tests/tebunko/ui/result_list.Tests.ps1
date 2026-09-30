@@ -702,6 +702,7 @@ Describe "prepareHitRow" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "Excel のセルはセル番地を足す"; book = "見積.xlsx"; location = "4月"; line = "`t見積書"; expected = "[シート]4月!B1" }
         @{ name = "Excel の図形は左上のセル番地を足す"; book = "見積.xlsx"; location = "4月[図形]"; line = "D5`t見積の注記"; expected = "[シート]4月!D5" }
+        @{ name = "Excel のヘッダー・フッターはセル番地が無く、シート名だけ"; book = "見積.xlsx"; location = "4月[ヘッダー・フッター]"; line = "社外秘"; expected = "[シート]4月" }
         @{ name = "Word は場所ごとの表記のまま"; book = "議事録.docx"; location = "ページ003"; line = "見積の件"; expected = "3 ページ（目安）" }
     ) {
         param ($name, $book, $location, $line, $expected)

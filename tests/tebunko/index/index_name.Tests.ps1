@@ -47,19 +47,8 @@ Describe "splitObjectPlace" -Tag Unit {
             $reader.Contains("[$kind]") | Should -Be $true
         }
         $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter})\]") | Should -Be $true
-    }
-}
-
-Describe "testCellPrefixedPlace" -Tag Unit {
-    It "<place> は <expected>" -TestCases @(
-        @{ place = "売上[図形]"; expected = $true }
-        @{ place = "売上[コメント]"; expected = $true }
-        @{ place = "売上[ヘッダー・フッター]"; expected = $false }
-        @{ place = "売上"; expected = $false }
-        @{ place = "ヘッダー・フッター"; expected = $false }
-    ) {
-        param ($place, $expected)
-        testCellPrefixedPlace $place | Should -Be $expected
+        # セル番地が無い場所（ヘッダー・フッター）の判定（IsCelllessPlace）も、同じ種類の名前で書く
+        $hitRow.Contains("CelllessPlaceRegex = [regex]::new(`"\[${placeKindHeaderFooter}\]") | Should -Be $true
     }
 }
 
@@ -98,6 +87,10 @@ Describe "describePlace" -Tag Unit {
     It "場所が空なら空" {
         described "a.docx" "" | Should -Be "|本文"
     }
+
+    It "テキストは場所が「本文」だけなので、表記は空・種別は本文" {
+        described "議事メモ.txt" "本文" | Should -Be "|本文"
+    }
 }
 
 Describe "describeHitPlace" -Tag Unit {
@@ -110,9 +103,10 @@ Describe "describeHitPlace" -Tag Unit {
         @{ name = "Excel のヘッダー・フッターは、セル番地が無いのでシート名だけ"; place = "[シート]売上"; excel = $true; object = $true; cell = ""; count = 1; line = 3; expected = "[シート]売上" }
         @{ name = "Word は場所ごとの表記のまま"; place = "3 ページ（目安）"; excel = $false; object = $false; cell = ""; count = 0; line = 5; expected = "3 ページ（目安）" }
         @{ name = "PowerPoint は場所ごとの表記のまま"; place = "スライド 9（非表示）"; excel = $false; object = $true; cell = ""; count = 0; line = 2; expected = "スライド 9（非表示）" }
+        @{ name = "テキストは行番号だけ（場所は 1 つしかないため）"; place = ""; excel = $false; object = $false; cell = ""; count = 0; line = 12; expected = "12 行目"; text = $true }
     ) {
-        param ($name, $place, $excel, $object, $cell, $count, $line, $expected)
-        describeHitPlace $place $excel $object $cell $count $line | Should -Be $expected
+        param ($name, $place, $excel, $object, $cell, $count, $line, $expected, [bool]$text = $false)
+        describeHitPlace $place $excel $object $cell $count $line $text | Should -Be $expected
     }
 }
 

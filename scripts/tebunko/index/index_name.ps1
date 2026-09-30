@@ -176,8 +176,6 @@ ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordAr
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
 ${placeKindHeaderFooter} = "ヘッダー・フッター"  # Excel のヘッダー・フッター（Word・PowerPoint の "ヘッダー・フッター" は場所の名前で、種類ではない）。いつも検索する（除外の選択肢は無い）
 ${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter})\]$"
-# 行が "<セル番地><TAB><文字>" の形になる種類（Excel の図形・コメント）。ヘッダー・フッターの行は文字だけ（セル番地が無い）
-${cellPrefixedPlaceKinds} = @(${placeKindShape}, ${placeKindComment})
 
 
 function splitObjectPlace {
@@ -191,17 +189,6 @@ function splitObjectPlace {
         return @{ Base = $Matches.base; Kind = $Matches.kind }
     }
     return @{ Base = $place; Kind = "" }
-}
-
-
-function testCellPrefixedPlace {
-    # 場所（"売上[図形]" など）の行が、セル番地で始まる形（"<セル番地><TAB><文字>"）か。図形・コメントは真、
-    # ヘッダー・フッター・セル・Word・PowerPoint の場所は偽
-    param (
-        [string]$place
-    )
-
-    return (${cellPrefixedPlaceKinds} -contains (splitObjectPlace $place).Kind)
 }
 
 
