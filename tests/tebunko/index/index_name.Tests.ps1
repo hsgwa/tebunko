@@ -259,3 +259,11 @@ Describe "testIndexName" -Tag Unit {
         testIndexName $value $used | Should -Match $pattern
     }
 }
+
+Describe "newIndexName（入れ子の集合）" -Tag Unit {
+    It "集合が 1 要素の配列に入って渡されても、使用済みの名前を見落とさない" {
+        $set = New-Object 'System.Collections.Generic.HashSet[string]'
+        [void]$set.Add("営業"); [void]$set.Add("経理")
+        newIndexName "C:\data\営業" @(, $set) | Should -Be "営業(2)"
+    }
+}

@@ -196,6 +196,103 @@ Describe "removeDirectoryRetry" -Tag Io {
     }
 }
 
+Describe "moveDirectoryRetry" -Tag Io {
+    It "フォルダを中身ごと移動する" {
+        $source = "$TestDrive\移動元フォルダ"
+        $destination = "$TestDrive\移動先フォルダ"
+        [System.IO.Directory]::CreateDirectory("$source\中") | Out-Null
+        writeListFile "$source\中\a.tsv" @("a")
+        moveDirectoryRetry $source $destination
+        Test-Path -LiteralPath $source | Should -Be $false
+        Test-Path -LiteralPath "$destination\中\a.tsv" | Should -Be $true
+    }
+
+    It "中のファイルがほかから開かれていて移動できなければ、決めた回数だけ試してから例外にし、移動元が残る" {
+        Mock Start-Sleep {}
+        $source = "$TestDrive\使用中の移動元"
+        $destination = "$TestDrive\使用中の移動先"
+        writeListFile "$source\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$source\a.tsv", "Open", "Read", "None")
+        try {
+            { moveDirectoryRetry $source $destination 3 1 } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Should -Invoke Start-Sleep -Times 2 -Exactly -Scope It
+        Test-Path -LiteralPath $source | Should -Be $true
+        Test-Path -LiteralPath $destination | Should -Be $false
+    }
+
+    It "待っている間に掴んでいたファイルが閉じられれば、次の試しで移動できる" {
+        $source = "$TestDrive\途中で解放される移動元"
+        $destination = "$TestDrive\途中で解放される移動先"
+        writeListFile "$source\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$source\a.tsv", "Open", "Read", "None")
+        Mock Start-Sleep { $stream.Dispose() }
+        moveDirectoryRetry $source $destination 3 1
+        Test-Path -LiteralPath $source | Should -Be $false
+        Test-Path -LiteralPath "$destination\a.tsv" | Should -Be $true
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It
+    }
+
+    It "試すたびに待つ時間が倍になる" {
+        Mock Start-Sleep {}
+        $source = "$TestDrive\待ち時間が倍になる移動元"
+        $destination = "$TestDrive\待ち時間が倍になる移動先"
+        writeListFile "$source\a.tsv" @("a")
+        $stream = [System.IO.File]::Open("$source\a.tsv", "Open", "Read", "None")
+        try {
+            { moveDirectoryRetry $source $destination 4 10 } | Should -Throw
+        } finally {
+            $stream.Dispose()
+        }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 10 }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 20 }
+        Should -Invoke Start-Sleep -Times 1 -Exactly -Scope It -ParameterFilter { $Milliseconds -eq 40 }
+    }
+}
+
+Describe "testAnyEntry" -Tag Io {
+    It "<name>" -TestCases @(
+        @{ name = "条件なし: 1 つでもあれば true"; pattern = "*"; predicate = $null; expected = $true }
+        @{ name = "条件なし: 無ければ false"; pattern = "*.xlsx"; predicate = $null; expected = $false }
+        @{ name = "条件あり: 合うものがあれば true"; pattern = "*"; predicate = { param ($p) $p.EndsWith("b.tsv") }; expected = $true }
+        @{ name = "条件あり: 合うものが無ければ false"; pattern = "*"; predicate = { param ($p) $p.EndsWith("c.tsv") }; expected = $false }
+    ) {
+        param ($name, $pattern, $predicate, $expected)
+        $dir = "$TestDrive\any_$([Guid]::NewGuid().ToString('N'))"
+        [System.IO.Directory]::CreateDirectory("$dir\営業\見積") | Out-Null
+        [System.IO.File]::WriteAllText("$dir\営業\見積\a.tsv", "a")
+        [System.IO.File]::WriteAllText("$dir\営業\見積\b.tsv", "b")
+
+        testAnyEntry ([System.IO.Directory]::EnumerateFiles((toLongPath $dir), $pattern, [System.IO.SearchOption]::AllDirectories)) $predicate | Should -Be $expected
+
+        # 途中でやめても、調べていた下のフォルダを掴んだまま残さない（すぐに移動できる）
+        { [System.IO.Directory]::Move("$dir\営業", "$dir\moved") } | Should -Not -Throw
+    }
+}
+
+Describe "selectFirstEntries" -Tag Io {
+    It "先頭から count 件（足りなければあるだけ）を返し、途中でやめても下のフォルダを掴んだまま残さない: <count> 件" -TestCases @(
+        @{ count = 0; expected = 0 }
+        @{ count = 2; expected = 2 }
+        @{ count = 10; expected = 3 }
+    ) {
+        param ($count, $expected)
+        $dir = "$TestDrive\first_$([Guid]::NewGuid().ToString('N'))"
+        [System.IO.Directory]::CreateDirectory("$dir\営業\見積") | Out-Null
+        foreach ($name in @("a.tsv", "b.tsv", "c.tsv")) {
+            [System.IO.File]::WriteAllText("$dir\営業\見積\$name", "x")
+        }
+
+        $entries = selectFirstEntries ([System.IO.Directory]::EnumerateFiles((toLongPath $dir), "*", [System.IO.SearchOption]::AllDirectories)) $count
+        $entries.Count | Should -Be $expected
+        @($entries | Where-Object { $_ -notlike "*\営業\見積\*.tsv" }).Count | Should -Be 0
+
+        { [System.IO.Directory]::Move("$dir\営業", "$dir\moved") } | Should -Not -Throw
+    }
+}
+
 Describe "writeTextLinesAtomic" -Tag Io {
     It "新しいファイルを作り、一時ファイルを残さない" {
         $path = "$TestDrive\atomic\新規.txt"

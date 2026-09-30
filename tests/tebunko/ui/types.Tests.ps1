@@ -682,6 +682,23 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         # 本物のフォルダはツリーに出し、元のファイルごとのフォルダは出さない
         [IndexNode]::HasSubfolders($dir) | Should -Be $true
     }
+
+    It "IsBookDirPath・HasSubfolders・HasFiles で調べた直後に、そのフォルダを移動できる（ツリーを開いた後の上書きのインポート）" {
+        # 見つけたところで戻っても、調べたフォルダを掴んだまま残さないこと
+        $dir = "$TestDrive\node_handle\営業"
+        newTsv "$dir\content_index.xlsx.001.tsv" @("x")
+        newTsv "$dir\見積\content_index.xlsx.001.tsv" @("x")
+        newTsv "$dir\見積\B.xlsx\S.tsv" @("x")
+        newTsv "$dir\見積\C.xlsx\S.tsv" @("x")
+        [void][System.IO.Directory]::CreateDirectory("$dir\見積\親.xlsx\子")
+
+        [IndexNode]::IsBookDirPath("$dir\見積\親.xlsx") | Should -Be $false
+        [IndexNode]::HasSubfolders($dir) | Should -Be $true
+        [IndexNode]::HasFiles($dir) | Should -Be $true
+        [IndexNode]::HasFiles("$dir\見積") | Should -Be $true
+
+        { [System.IO.Directory]::Move($dir, "$TestDrive\node_handle\moved") } | Should -Not -Throw
+    }
 }
 
 Describe "IndexNode（チェック）" -Tag Unit {
@@ -899,7 +916,7 @@ Describe "IndexNode（フォルダの読み込み）" -Tag Io {
         $source = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\types.ps1")
         # クラスの中からスクリプトの変数（packFilePattern）が見えないため文字列で書いている箇所を、ソースから抜き出して比べる
         # （直下のブックのフォルダの中を探す "*.tsv" は対象外）
-        $literals = @([regex]::Matches($source, 'EnumerateFiles\([^,]+,\s*"([^"]*\.tsv)"\)') |
+        $literals = @([regex]::Matches($source, 'GetFiles\([^,]+,\s*"([^"]*\.tsv)"\)') |
             ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne "*.tsv" })
         $literals.Count | Should -Be 2
         foreach ($literal in $literals) {
