@@ -120,20 +120,11 @@ function getIso2022JpVerdict {
     )
 
     if ([Array]::IndexOf($bytes, [byte]0x1B) -lt 0) { return "none" }
-    $hasKanjiShift = $false
-    $broken = $false
-    for ($i = 0; $i -lt $bytes.Length; $i++) {
-        if ($bytes[$i] -ge 0x80) { $broken = $true; continue }
-        if ($bytes[$i] -ne 0x1B) { continue }
-        if ($i + 2 -ge $bytes.Length) { $broken = $true; continue }
-        $seq = [string][char]$bytes[$i + 1] + [string][char]$bytes[$i + 2]
-        if ($seq -eq '$B' -or $seq -eq '$@') {
-            $hasKanjiShift = $true
-        } elseif ($seq -ne '(B' -and $seq -ne '(J' -and $seq -ne '(I') {
-            $broken = $true
-        }
-    }
-    if (-not $hasKanjiShift) { return "none" }
+    # 1 バイトを 1 文字に読み（Latin-1）、正規表現で確かめる（バイトを 1 つずつ回さない。色つきのログなど ESC が多いだけのファイルを速く抜ける）
+    $latin1 = [System.Text.Encoding]::GetEncoding(28591).GetString($bytes)
+    if (-not [regex]::IsMatch($latin1, '\x1B\$[B@]')) { return "none" }
+    # 規格外の ESC の並び（末尾で切れたものを含む）か、8 ビットのバイトがあれば、壊れたもの
+    $broken = [regex]::IsMatch($latin1, '\x1B(?!\$[B@]|\([BJI])') -or [regex]::IsMatch($latin1, '[\x80-\xFF]')
     if ($broken) { return "broken" }
     return "yes"
 }
@@ -165,11 +156,13 @@ function detectLegacyJapaneseEncoding {
     $sjisOk = $false
     $sjisHalfKanaHeavy = $false
     if ($null -ne $sjis -and (testTextPlausible $sjis)) {
-        $sample = if ($sjis.Length -gt ${textLegacySampleChars}) { $sjis.Substring(0, [int]${textLegacySampleChars}) } else { $sjis }
+        # 半角カナの数えは、最初の ASCII 以外の文字から一定の長さだけ（先頭が長い ASCII だけの行でも判定が変わらないように）
+        $first = [regex]::Match($sjis, '[^\u0000-\u007F]').Index
+        $sample = if ($sjis.Length - $first -gt ${textLegacySampleChars}) { $sjis.Substring($first, [int]${textLegacySampleChars}) } else { $sjis.Substring($first) }
         $nonAscii = [regex]::Matches($sample, '[^\u0000-\u007F]').Count
         $halfKana = [regex]::Matches($sample, '[\uFF61-\uFF9F]').Count
         $sjisHalfKanaHeavy = ($halfKana -gt ($nonAscii * ${textLegacyHalfKanaRatio}))
-        $sjisOk = (-not $sjisHalfKanaHeavy) -or (testHalfWidthKanaNatural $sample)
+        $sjisOk = (-not $sjisHalfKanaHeavy) -or (testHalfWidthKanaNatural $sjis)
     }
 
     $euc = tryDecodeStrict $bytes 51932
@@ -224,12 +217,9 @@ function detectTextEncoding {
             return "UTF16BE"
         }
         if ($even -gt 0 -or $odd -gt 0) {
-            # NUL が 20% に届かない。片側にしか無ければ、日本語の UTF-16 の改行（CRLF）だけが NUL のものかを確かめる。
-            # それ以外（両側にある・かなが足りない）はバイナリ（UTF-32 もここ）
-            if ($even -eq 0 -or $odd -eq 0) {
-                return (detectJapaneseUtf16WithoutNul $bytes)
-            }
-            return $null
+            # NUL が 20% に届かない。改行（CRLF）や全角スペース・「一」など下位バイトが 00 の文字だけが NUL の
+            # 日本語の UTF-16 かを確かめる（偶数・奇数の両側に NUL があってよい）。それ以外はバイナリ（UTF-32 もここ）
+            return (detectJapaneseUtf16WithoutNul $bytes)
         }
     }
 

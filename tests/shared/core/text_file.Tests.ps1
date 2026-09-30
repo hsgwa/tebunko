@@ -144,6 +144,12 @@ Describe "detectTextEncoding" -Tag Unit {
         @{ name = "改行（CRLF）を含む日本語の BOM 無し UTF-16BE（NUL が改行の分しか無い）→ UTF-16BE"; bytes = (toUtf16BeBytes ((("これは日本語のテストです。ひらがなとカタカナと漢字です。" + "`r`n") * 20))); expected = "UTF16BE" }
         @{ name = "NUL が片側にしか無いが、かなの無い（漢字だけ）UTF-16LE → 取り込まない"; bytes = (toUtf16LeBytes ((("日本語漢字統計調査資料" + "`r`n") * 20))); expected = $null }
         @{ name = "ASCII だけの入力（0a の並び + hello）は UTF-16BE と見間違えず UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes(("0a" * 10) + "hello")); expected = "UTF8" }
+        @{ name = "先頭に長い ASCII のログ行があり、その後に EUC-JP のかな → EUC-JP（半角カナの数えが標本の外で効かなくならない）"; bytes = ([byte[]]([System.Text.Encoding]::ASCII.GetBytes(("INFO start`n" * 4000))) + [byte[]](toCodePageBytes 51932 "あいうえおかきくけこ")); expected = "EUCJP" }
+        @{ name = "先頭に長い ASCII のログ行があり、その後に濁点だけが単独の半角カナ（GBK を読み違えた並び）→ 取り込まない"; bytes = ([byte[]]([System.Text.Encoding]::ASCII.GetBytes(("INFO start`n" * 4000))) + [byte[]](toCodePageBytes 932 "ﾞﾟｱｲｳｴｵ")); expected = $null }
+        @{ name = "全角スペース・「一」など下位バイトが 00 の文字と CRLF を含む日本語の UTF-16LE（NUL が偶数・奇数の両側）→ UTF-16LE"; bytes = (toUtf16LeBytes ((("これは一番最初のテストです。　ひらがなとカタカナです。" + "`r`n") * 20))); expected = "UTF16LE" }
+        @{ name = "全角スペース・「一」など下位バイトが 00 の文字と CRLF を含む日本語の UTF-16BE → UTF-16BE"; bytes = (toUtf16BeBytes ((("これは一番最初のテストです。　ひらがなとカタカナです。" + "`r`n") * 20))); expected = "UTF16BE" }
+        @{ name = "全角スペースと LF を含む日本語の UTF-16LE → UTF-16LE"; bytes = (toUtf16LeBytes ((("　ひらがなのぶんしょうです。" + "`n") * 20))); expected = "UTF16LE" }
+        @{ name = "色つきのログ（ESC [ だけ）の UTF-8 → UTF-8（ISO-2022-JP と見間違えない）"; bytes = (toUtf8Bytes ((([string][char]27 + "[31m赤い文字" + [string][char]27 + "[0m`n") * 50))); expected = "UTF8" }
         @{ name = "8 ビットが混ざる ESC $ B → 取り込まない"; bytes = (@(0x1B, 0x24, 0x42, 0xC3, 0xBD, 0x80)); expected = $null }
     ) {
         param ($name, $bytes, $expected)
