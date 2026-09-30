@@ -4131,6 +4131,22 @@
 <td>UTF-8（BOM 付き）、CRLF</td>
 <td>検索結果（<a href="../../search/output/">検索結果ファイル</a>）</td>
 </tr>
+<tr>
+<td>利用者が選んだ保存先（既定 <code>&lt;インデックス名&gt;_インデックス_&lt;yyyyMMdd&gt;.zip</code>）と <code>&lt;保存先&gt;.tmp</code></td>
+<td>出力</td>
+<td>画面（<code>exportIndex</code>）</td>
+<td>利用者</td>
+<td>zip（エントリー名は UTF-8）</td>
+<td>1 つのインデックスの目録（<code>tebunko-index.json</code>）・取り込み一覧の行・本文インデックスのファイル（<a href="../../index-data/format/#インデックスのエクスポートインポート">インデックスのエクスポート・インポート</a>）</td>
+</tr>
+<tr>
+<td><code>work/取り込み出力/&lt;PID&gt;/import/</code></td>
+<td>作業領域</td>
+<td>画面（<code>importIndex</code>）</td>
+<td>画面</td>
+<td>–</td>
+<td>インポートで zip を展開する作業フォルダ（<code>new/</code>）と、上書きのとき前のインデックスを一時的に退避する <code>previous/</code>。インポートが終われば消す</td>
+</tr>
 </tbody>
 </table>
 <p>各設定の意味は、使用する処理の設計書に記載する（クロール対象フォルダ → <a href="../../indexing/">インデックス作成</a>、検索対象インデックス → <a href="../../search/">検索</a>、画面での扱い → <a href="../settings-file/#画面での読み書き">設定ファイル（setting.config）</a>）。</p>

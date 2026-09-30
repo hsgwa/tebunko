@@ -4053,7 +4053,7 @@
 </ul>
 <pre class="mermaid"><code>flowchart LR
     settings["core/settings.ps1&lt;br&gt;core/fs.ps1・folder.ps1"] --&gt; P1["settings.md"]
-    indexer["indexer/indexer_state.ps1&lt;br&gt;indexer_decide.ps1・index/index_name.ps1・index_store.ps1"] --&gt; P2["indexer.md"]
+    indexer["indexer/indexer_state.ps1&lt;br&gt;indexer_decide.ps1・index/index_name.ps1・index_store.ps1&lt;br&gt;index_archive_rules.ps1・index_archive.ps1"] --&gt; P2["indexer.md"]
     tsv["core/fs.ps1・text.ps1・text_file.ps1&lt;br&gt;index/index_name.ps1・index_store.ps1・pack_format.ps1・pack_store.ps1"] --&gt; P3["tsv.md"]
     search["search/search_query.ps1・pack_search.ps1&lt;br&gt;search_run.ps1・search_service.ps1・source_map.ps1"] --&gt; P4["search.md"]</code></pre>
 <h2 id="libps1-から読み込まれない部品">lib.ps1 から読み込まれない部品<a class="headerlink" href="#libps1-から読み込まれない部品" title="Permanent link">&para;</a></h2>
