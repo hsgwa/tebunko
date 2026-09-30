@@ -87,9 +87,37 @@ Describe "testTextExtension" -Tag Unit {
         @{ name = "csv も対象"; path = "a.csv"; expected = $true }
         @{ name = "対象外の拡張子"; path = "a.pdf"; expected = $false }
         @{ name = "Office の拡張子は対象外（testTextExtension としては）"; path = "a.xlsx"; expected = $false }
+        @{ name = "新しく足したソースコードの拡張子（.py）も対象"; path = "a.py"; expected = $true }
+        @{ name = "実行・登録になる拡張子（.ps1）も対象（メモ帳で開く）"; path = "a.ps1"; expected = $true }
+        @{ name = "実行ファイルの拡張子（.exe）は対象外"; path = "a.exe"; expected = $false }
+        @{ name = "TypeScript（.ts）は対象外（範囲外）"; path = "a.ts"; expected = $false }
+        @{ name = "圧縮ファイルの拡張子（.zip）は対象外"; path = "a.zip"; expected = $false }
     ) {
         param ($name, $path, $expected)
         testTextExtension $path | Should -Be $expected
+    }
+}
+
+Describe "testTextOpenWithNotepad" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "大文字・小文字を区別しない（.PS1）"; path = "a.PS1"; expected = $true }
+        @{ name = ".bat はメモ帳（実行になるため）"; path = "a.bat"; expected = $true }
+        @{ name = ".cmd はメモ帳（実行になるため）"; path = "a.cmd"; expected = $true }
+        @{ name = ".vbs はメモ帳（実行になるため）"; path = "a.vbs"; expected = $true }
+        @{ name = ".js はメモ帳（実行になるため）"; path = "a.js"; expected = $true }
+        @{ name = ".reg はメモ帳（登録になるため）"; path = "a.reg"; expected = $true }
+        @{ name = ".sh はメモ帳（実行になるため）"; path = "a.sh"; expected = $true }
+        @{ name = ".py は既定のアプリ"; path = "a.py"; expected = $false }
+        @{ name = ".java は既定のアプリ"; path = "a.java"; expected = $false }
+        @{ name = ".cpp は既定のアプリ"; path = "a.cpp"; expected = $false }
+        @{ name = ".txt は既定のアプリ"; path = "a.txt"; expected = $false }
+        @{ name = ".vb（Visual Basic のソース）は既定のアプリ（.vbs と混同しない）"; path = "a.vb"; expected = $false }
+        @{ name = ".psm1（PowerShell モジュール）は既定のアプリ（.ps1 と混同しない）"; path = "a.psm1"; expected = $false }
+        @{ name = ".mjs（JavaScript モジュール）は既定のアプリ（.js と混同しない）"; path = "a.mjs"; expected = $false }
+        @{ name = ".jsx は既定のアプリ（.js と混同しない）"; path = "a.jsx"; expected = $false }
+    ) {
+        param ($name, $path, $expected)
+        testTextOpenWithNotepad $path | Should -Be $expected
     }
 }
 
@@ -165,6 +193,13 @@ Describe "detectTextEncoding" -Tag Unit {
     It "壊れた UTF-8（不正なバイト列。NUL は無い）→ Shift_JIS" {
         $bytes = toShiftJisBytes "日本語のテスト"
         detectTextEncoding $bytes | Should -Be "ShiftJIS"
+    }
+
+    It "先頭 64KB（UTF-16 の判定の標本）の外にだけ NUL があっても、ファイル全体で見てバイナリと判定する" {
+        $bytes = [byte[]]::new(70000)
+        for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0x41 }
+        $bytes[69999] = 0
+        detectTextEncoding $bytes | Should -Be $null
     }
 }
 
@@ -250,6 +285,14 @@ Describe "readTextFile" -Tag Io {
 
     It "バイナリと判定したファイルは、決めた文言で失敗にする" {
         $path = writeBytesFile (newNulPairBytes 10 5 5)
+        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+    }
+
+    It "先頭 64KB の外にだけ NUL がある大きいファイルも、決めた文言で失敗にする" {
+        $bytes = [byte[]]::new(70000)
+        for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0x41 }
+        $bytes[69999] = 0
+        $path = writeBytesFile $bytes
         { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
     }
 }

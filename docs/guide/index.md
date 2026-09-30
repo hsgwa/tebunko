@@ -21,7 +21,7 @@ tebunko は、Excel・Word・PowerPoint のファイルを内容の文字列で�
 | Excel | .xlsx / .xlsm / .xls / .xlsb | シート（行・セル） |
 | Word | .docx / .docm / .doc | ページ（目安）・ヘッダー/フッター・脚注 |
 | PowerPoint | .pptx / .pptm / .ppt | スライド・ノート・フッター |
-| テキスト | .txt / .csv / .tsv / .md / .log / .json / .xml | 行番号 |
+| テキスト | .txt / .csv / .md / .py / .java / .html 等、75 種類の拡張子（[対応するテキストの拡張子](limitations.md#対応するテキストの拡張子)） | 行番号 |
 
 テキストファイルの文字コードの判定・大きさの上限・長い行の扱いなど、詳しい仕様は [制限事項](limitations.md) を参照してください。
 
