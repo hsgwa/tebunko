@@ -493,7 +493,7 @@ function testDefaultWorkspace {
     if (![System.IO.Directory]::Exists($folder)) {
         return $result
     }
-    $names = @([System.IO.Directory]::EnumerateFileSystemEntries($folder) | Select-Object -First 1000 | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+    $names = @(foreach ($entry in (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries($folder)) 1000)) { [System.IO.Path]::GetFileName($entry) })
     if ($names.Count -eq 0 -or ($names -contains "content_index") -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
         return $result
     }

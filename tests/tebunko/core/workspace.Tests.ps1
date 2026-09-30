@@ -201,6 +201,31 @@ Describe "getLegacyIndexState" -Tag Io {
         $state.ContentEmpty | Should -Be $contentEmpty
         $state.HasLegacySystemIndex | Should -Be $hasLegacyTxt
     }
+
+    It "調べ終えたら、下のフォルダを掴んだままにしない（すぐに移動できる）" {
+        # 見つけたところで列挙をやめても、列挙子が下のフォルダを開いたまま残らないこと（残るとインポートの上書きで移動できない）
+        $dir = "$TestDrive\legacy_handle"
+        [System.IO.Directory]::CreateDirectory("$dir\index\営業") | Out-Null
+        newTsv "$dir\index\営業\元のフォルダ.txt" @("営業`tC:\元")
+        newTsv "$dir\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
+        newTsv "$dir\content_index\営業\見積\content_index.xlsx.002.tsv" @("b")
+        newTsv "$dir\system_index\営業\システムインデックス.txt" @("x00000000")
+
+        $state = getLegacyIndexState $dir
+        $state.ContentEmpty | Should -Be $false
+
+        { [System.IO.Directory]::Move("$dir\content_index\営業", "$dir\moved_content") } | Should -Not -Throw
+        { [System.IO.Directory]::Move("$dir\index\営業", "$dir\moved_index") } | Should -Not -Throw
+
+        # content_index が空のときに調べる system_index も同じ
+        $empty = "$TestDrive\legacy_handle_empty"
+        newTsv "$empty\system_index\営業\見積\システムインデックス.txt" @("x00000000")
+        newTsv "$empty\system_index\営業\見積\システムインデックス2.txt" @("x00000001")
+
+        (getLegacyIndexState $empty).HasLegacySystemIndex | Should -Be $true
+
+        { [System.IO.Directory]::Move("$empty\system_index\営業", "$empty\moved_system") } | Should -Not -Throw
+    }
 }
 
 Describe "testLegacyCleanupNeeded" -Tag Unit {

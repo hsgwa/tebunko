@@ -103,19 +103,26 @@ BeforeAll {
     }
 
     function getStartJobExcludedRanges {
-        # startJob の 1 つ目の引数（裏で動く仕事のスクリプトブロック）の範囲を返す。この中は見ない
+        # startJob（と、それを包む startIndexArchiveJob）の、裏で動く仕事のスクリプトブロックの範囲を返す。この中は見ない。
+        #   startJob            : 1 つ目の引数（CommandElements[1]）
+        #   startIndexArchiveJob: 2 つ目の引数（CommandElements[2]。1 つ目は表示用の operation の文字列）
         param ($fileAst)
 
         $ranges = New-Object System.Collections.Generic.List[object]
         $commands = $fileAst.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)
         foreach ($command in $commands) {
-            if ($command.GetCommandName() -ne "startJob") {
+            $name = $command.GetCommandName()
+            $index = switch ($name) {
+                "startJob" { 1 }
+                "startIndexArchiveJob" { 2 }
+                default { -1 }
+            }
+            if ($index -lt 0) {
                 continue
             }
-            # CommandElements[0] はコマンド名。最初の引数（インデックス 1）が裏で動く仕事
-            if ($command.CommandElements.Count -gt 1) {
-                $first = $command.CommandElements[1]
-                $ranges.Add(@{ Start = $first.Extent.StartOffset; End = $first.Extent.EndOffset })
+            if ($command.CommandElements.Count -gt $index) {
+                $target = $command.CommandElements[$index]
+                $ranges.Add(@{ Start = $target.Extent.StartOffset; End = $target.Extent.EndOffset })
             }
         }
         return $ranges

@@ -15,9 +15,12 @@ function newIndexName {
 
     # 呼び出し側から $null や文字列の配列で渡されても落ちないよう、ここで集合に直す（大文字・小文字は区別しない）
     $used = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($usedName in @($usedNames)) {
-        if ($usedName) {
-            [void]$used.Add([string]$usedName)
+    # 集合が 1 要素の配列に入って渡されても（@(関数) で受けた場合など）、中身を 1 つずつ取り出す
+    foreach ($entry in @($usedNames)) {
+        foreach ($usedName in @($entry)) {
+            if ($usedName) {
+                [void]$used.Add([string]$usedName)
+            }
         }
     }
 

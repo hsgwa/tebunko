@@ -263,28 +263,30 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should -Be ""
     }
 
-    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 4 ファイルだけ" {
+    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 5 ファイルだけ" {
         # NotContentIndexed 属性を直接書くのは setNotContentIndexed（fs.ps1）だけ
         $writes = @($code | Where-Object { $_.Text -match "(?<!set)NotContentIndexed" -and $_.File -ne "fs.ps1" })
         (@($writes | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         (findPattern $code 'function setNotContentIndexed') | Should -Not -Be ""
 
-        # 呼ぶのは全体に付ける indexer_run.ps1・入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1 の 4 ファイルだけ
+        # 呼ぶのは全体に付ける indexer_run.ps1・入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 5 ファイルだけ
         $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
         $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
-        $callerFiles.Count | Should -Be 4
+        $callerFiles.Count | Should -Be 5
         ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
         ($callerFiles -contains "index_store.ps1") | Should -Be $true
         ($callerFiles -contains "pack_store.ps1") | Should -Be $true
         ($callerFiles -contains "source_map.ps1") | Should -Be $true
+        ($callerFiles -contains "index_archive.ps1") | Should -Be $true
 
-        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_store.ps1 は $bookDir、pack_store.ps1 は $folder）。
-        # -Recurse で content_index 全体をたどるのは indexer_run.ps1 だけ（入れた直後に付ける 3 ファイルは 1 か所ずつなので要らない）
+        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_store.ps1 は $bookDir、pack_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
+        # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（入れた直後に付ける 3 ファイルは 1 か所ずつなので要らない）
         (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
         (findPattern $callers 'setNotContentIndexed\s+\$bookDir\)') | Should -Not -Be ""
         (findPattern $callers 'setNotContentIndexed\s+\$folder\)') | Should -Not -Be ""
+        (findPattern $callers 'setNotContentIndexed\s+\$targetIndexDir\s+-Recurse') | Should -Not -Be ""
         $recurseCallers = @($callers | Where-Object { $_.Text -match "-Recurse" } | ForEach-Object { $_.File } | Sort-Object -Unique)
-        ($recurseCallers -join ", ") | Should -Be "indexer_run.ps1"
+        ($recurseCallers -join ", ") | Should -Be "index_archive.ps1, indexer_run.ps1"
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
@@ -292,6 +294,14 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $code 'function removeStaleTmpDirs') | Should -Not -Be ""
         # インデックス作成の始め（invokeIndexer の本体）で呼ぶ
         (findPattern $code '^\s+removeStaleTmpDirs$') | Should -Not -Be ""
+    }
+
+    It "エクスポートは利用者が選んだ保存先と、その .tmp だけに書き込む" {
+        # ［結果をファイルに出力］（利用者が指定した出力先）と同じ扱い
+        $archive = @($code | Where-Object { $_.File -eq "index_archive.ps1" })
+        (findPattern $archive '\$tmpPath\s*=\s*"\$\{destPath\}\.tmp"') | Should -Not -Be ""
+        (findPattern $archive '\[System\.IO\.Compression\.ZipFile\]::Open\(\$tmpPath') | Should -Not -Be ""
+        (findPattern $archive '\[System\.IO\.File\]::Move\(\(toLongPath \$tmpPath\), \(toLongPath \$destPath\)\)') | Should -Not -Be ""
     }
 }
 

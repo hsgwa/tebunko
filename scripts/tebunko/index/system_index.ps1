@@ -127,7 +127,7 @@ function writeSystemIndexFolders {
     # 各スレッドには必要な関数・値だけを読み込む（lib.ps1 全体を読み込むと、スレッドを用意するだけで時間がかかるため）。
     # インデックス作成の処理のため、スレッドの優先度を下げる（画面・検索を先に動かす。docs/design/structure/threads.md「スレッドの一覧」）
     $state = newWorkerState @("writeSystemIndexFolder", "getSystemIndexFolderTsvPaths", "addTextGrams", "convertToGramText",
-        "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getPackContentText", "testIndexBookDir") `
+        "getGramPartCount", "getSystemIndexFileNames", "testSystemIndexPath", "toLongPath", "getPackContentText", "testIndexBookDir", "testAnyEntry") `
         @("systemIndexFileName", "systemIndexPartBytes", "systemIndexPathMax", "indexBookDirPattern", "packFilePattern")
     $pool = [WorkerPool]::new($workers, $state, $Host, "BelowNormal")
     $pending = New-Object System.Collections.Generic.Queue[hashtable]

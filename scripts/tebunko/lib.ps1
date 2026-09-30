@@ -21,3 +21,5 @@
 . "$PSScriptRoot\search\pack_search.ps1"
 . "$PSScriptRoot\search\search_service.ps1"
 . "$PSScriptRoot\search\source_map.ps1"
+. "$PSScriptRoot\index\index_archive_rules.ps1"
+. "$PSScriptRoot\index\index_archive.ps1"
