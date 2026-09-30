@@ -35,7 +35,12 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getPackFileKind, describePlace, getAppKind, findTargetFiles（`$targetExtensions`） |
-| `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS`）を判定する。判定できなければ `$null`（バイナリ） | readTextFile |
+| `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |
+| `detectJapaneseUtf16WithoutNul` | bytes | string / `$null` | NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（`UTF16LE` / `UTF16BE`） | detectTextEncoding |
+| `testIso2022JpBytes` | bytes | bool | ISO-2022-JP か（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり） | detectTextEncoding |
+| `detectLegacyJapaneseEncoding` | bytes | string / `$null` | UTF-8 として読めなかったバイト列が Shift_JIS か EUC-JP か。決まらなければ `$null` | detectTextEncoding |
+| `tryDecodeStrict` | bytes, codePage | string / `$null` | 読めないバイト列があれば `$null`、読めれば文字列 | detectTextEncoding |
+| `testTextPlausible` | text | bool | 制御文字・私用領域・U+FFFD を含まない（テキストとして自然）か | detectLegacyJapaneseEncoding |
 | `decodeTextBytes` | bytes, encodingName | string | `detectTextEncoding` が返した文字コードで、バイト列を文字列にする（BOM は取り除く） | readTextFile |
 | `splitTextLines` | text | string[] | `StreamReader.ReadLine` と同じ分け方（CRLF・LF・CR）で行に分ける。途中の空の行は残し、行末の空白は取り除き、末尾の空の行は捨てる | readTextFile |
 | `readTextFile` | path, maxBytes（既定 `$textFileMaxBytes`） | string[] | ファイルを読み取り専用の共有で開き、大きさの上限・文字コードを確かめてから行の並びにする。上限超え・バイナリは例外（[エラーメッセージ一覧](../indexing/errors.md#ファイルごとの失敗取り込み一覧のエラー列)） | extractTextFile |

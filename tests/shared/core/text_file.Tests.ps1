@@ -18,6 +18,10 @@ BeforeDiscovery {
         return , $bytes
     }
 
+    function toCodePageBytes([int]$codePage, [string]$text) {
+        return , ([System.Text.Encoding]::GetEncoding($codePage).GetBytes($text))
+    }
+
     function toShiftJisBytes([string]$text) {
         return , ([System.Text.Encoding]::GetEncoding(932).GetBytes($text))
     }
@@ -32,6 +36,11 @@ BeforeDiscovery {
         $bytes = [System.Text.Encoding]::BigEndianUnicode.GetBytes($text)
         if ($bom) { return , (@(0xFE, 0xFF) + $bytes) }
         return , $bytes
+    }
+
+    function newBinaryBytes {
+        # NUL を含まない、0x01〜0xFF を繰り返したバイナリ（制御文字と高位のバイトが混ざる）
+        return , ([byte[]](1..255 | ForEach-Object { [byte]$_ }))
     }
 
     function toUtf8Bytes([string]$text, [bool]$bom = $false) {
@@ -106,6 +115,31 @@ Describe "detectTextEncoding" -Tag Unit {
         detectTextEncoding $bytes | Should -Be $expected
     }
 
+    It "<name>" -TestCases @(
+        @{ name = "Shift_JIS（日本語）→ Shift_JIS"; bytes = (toCodePageBytes 932 "これは日本語のテストです。ひらがなとカタカナと漢字が入っています。"); expected = "ShiftJIS" }
+        @{ name = "EUC-JP（かなを含む日本語）→ EUC-JP（Shift_JIS 扱いで化けない）"; bytes = (toCodePageBytes 51932 "これは日本語のテストです。ひらがなとカタカナと漢字が入っています。"); expected = "EUCJP" }
+        @{ name = "EUC-JP（かなの無い漢字だけ）→ 取り込まない（GBK・EUC-KR と見分けが付かない）"; bytes = (toCodePageBytes 51932 "日本語漢字"); expected = $null }
+        @{ name = "かなだけの EUC-JP（Shift_JIS としても正しく読めるが半角カナばかりになるので採らない）→ EUC-JP"; bytes = (toCodePageBytes 51932 "あいうえおかきくけこ"); expected = "EUCJP" }
+        @{ name = "ISO-2022-JP（ESC で漢字に切り替わる）→ ISO-2022-JP"; bytes = (toCodePageBytes 50220 "これは日本語のテストです。ひらがなとカタカナと漢字が入っています。"); expected = "ISO2022JP" }
+        @{ name = "日本語だけの BOM 無し UTF-16LE（NUL が無い）→ UTF-16LE"; bytes = (toUtf16LeBytes "これは日本語のテストです。ひらがなとカタカナと漢字が入っています。"); expected = "UTF16LE" }
+        @{ name = "日本語だけの BOM 無し UTF-16BE（NUL が無い）→ UTF-16BE"; bytes = (toUtf16BeBytes "これは日本語のテストです。ひらがなとカタカナと漢字が入っています。"); expected = "UTF16BE" }
+        @{ name = "UTF-32LE の BOM → 取り込まない（UTF-16LE の BOM と見間違えない）"; bytes = (@(0xFF, 0xFE, 0, 0) + [byte[]](toCodePageBytes 12000 "あいう")); expected = $null }
+        @{ name = "UTF-32BE の BOM → 取り込まない"; bytes = (@(0, 0, 0xFE, 0xFF) + [byte[]](toCodePageBytes 12001 "あいう")); expected = $null }
+        @{ name = "BOM の無い UTF-32 → 取り込まない"; bytes = (toCodePageBytes 12000 "これは日本語のテストです。ひらがなとカタカナと漢字が入っています。"); expected = $null }
+        @{ name = "GBK（簡体字）→ 取り込まない"; bytes = (toCodePageBytes 936 "这是一个中文测试文件，用于检查编码判断。"); expected = $null }
+        @{ name = "Big5（繁体字）→ 取り込まない"; bytes = (toCodePageBytes 950 "這是一個中文測試檔案，用於檢查編碼判斷。"); expected = $null }
+        @{ name = "EUC-KR（ハングル）→ 取り込まない"; bytes = (toCodePageBytes 51949 "이것은 한국어 테스트 파일입니다."); expected = $null }
+        @{ name = "NUL の無いバイナリ（制御文字が混ざる）→ 取り込まない"; bytes = (newBinaryBytes); expected = $null }
+        @{ name = "色つきのログ（ESC [ の並び。ISO-2022-JP ではない）→ UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes("$([char]27)[31mred$([char]27)[0m`
+")); expected = "UTF8" }
+        @{ name = "ESC ( B だけ（漢字への切り替えが無い）→ ISO-2022-JP ではなく UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes("abc$([char]27)(Bdef")); expected = "UTF8" }
+        @{ name = "ESC の並びが規格外の 7 ビット（ESC $ B の後に ESC x）→ JIS ではなく、端末の制御の並びとして UTF-8"; bytes = ([System.Text.Encoding]::ASCII.GetBytes("$([char]27)`$Babc$([char]27)xdef")); expected = "UTF8" }
+        @{ name = "8 ビットが混ざる ESC $ B → 取り込まない"; bytes = (@(0x1B, 0x24, 0x42, 0xC3, 0xBD, 0x80)); expected = $null }
+    ) {
+        param ($name, $bytes, $expected)
+        detectTextEncoding $bytes | Should -Be $expected
+    }
+
     It "短い Shift_JIS の半角カナ（例: ﾃｽ = C3 BD）は UTF-8 としても正しく読めるため UTF-8 と判定される（限界。判定の順が変わったら気付けるようにする）" {
         $bytes = toShiftJisBytes "ﾃｽ"
         ([BitConverter]::ToString($bytes)) | Should -Be "C3-BD"
@@ -126,6 +160,8 @@ Describe "decodeTextBytes" -Tag Unit {
         @{ name = "UTF-16LE（BOM 無し）"; bytes = (toUtf16LeBytes "あ"); encodingName = "UTF16LE"; expected = "あ" }
         @{ name = "UTF-16BE（BOM 付き。BOM を取り除く）"; bytes = (toUtf16BeBytes "あ" $true); encodingName = "UTF16BE"; expected = "あ" }
         @{ name = "UTF-16BE（BOM 無し）"; bytes = (toUtf16BeBytes "あ"); encodingName = "UTF16BE"; expected = "あ" }
+        @{ name = "EUC-JP"; bytes = (toCodePageBytes 51932 "あ日本"); encodingName = "EUCJP"; expected = "あ日本" }
+        @{ name = "ISO-2022-JP"; bytes = (toCodePageBytes 50220 "あ日本"); encodingName = "ISO2022JP"; expected = "あ日本" }
     ) {
         param ($name, $bytes, $encodingName, $expected)
         $text = decodeTextBytes $bytes $encodingName
@@ -161,6 +197,24 @@ Describe "readTextFile" -Tag Io {
         $lines[0] | Should -BeIn @("1行目", "1line")
         $lines[1] | Should -BeIn @("2行目", "2line")
         ([int][char]$lines[0][0]) | Should -Not -Be 0xFEFF
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "EUC-JP"; bytes = (toCodePageBytes 51932 "1行目のかな`r`n2行目のかな`r`n") }
+        @{ name = "ISO-2022-JP"; bytes = (toCodePageBytes 50220 "1行目のかな`r`n2行目のかな`r`n") }
+        @{ name = "日本語だけの BOM 無し UTF-16LE"; bytes = (toUtf16LeBytes "1行目のかな`r`n2行目のかな`r`n") }
+    ) {
+        param ($name, $bytes)
+        readTextFile (writeBytesFile $bytes) | Should -Be @("1行目のかな", "2行目のかな")
+    }
+
+    It "<name> は、テキストファイルではないため取り込めない失敗にする" -TestCases @(
+        @{ name = "NUL の無いバイナリ"; bytes = (newBinaryBytes) }
+        @{ name = "GBK"; bytes = (toCodePageBytes 936 "这是一个中文测试文件，用于检查编码判断。") }
+        @{ name = "UTF-32"; bytes = (toCodePageBytes 12000 "これは日本語のテストです。") }
+    ) {
+        param ($name, $bytes)
+        { readTextFile (writeBytesFile $bytes) } | Should -Throw "テキストファイルではないため取り込めません。"
     }
 
     It "Shift_JIS のファイルを行の並びとして読める" {
