@@ -375,6 +375,9 @@ Describe "publishIndexFiles" -Tag Io {
 
         Test-Path -LiteralPath "$bookDir\前のシート.tsv" | Should -Be $false
         Test-Path -LiteralPath "$bookDir\新しいシート.tsv" | Should -Be $true
+        # 入れた bookDir とその TSV は、親から属性を継がないため、ここで NotContentIndexed が付く
+        ([System.IO.File]::GetAttributes($bookDir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        ([System.IO.File]::GetAttributes("$bookDir\新しいシート.tsv") -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
     }
 
     It "TSVが1件も無ければ、空のフォルダにする（内容が空のファイル）" {

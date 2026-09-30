@@ -16,7 +16,10 @@ function writeSourceFolderFile {
         # インデックスのフォルダがまだ無い（1件も取り込んでいない）場合は作らない
         $indexPath = Join-Path $dir $folder.Name
         if (Test-Path -LiteralPath (toLongPath $indexPath) -PathType Container) {
-            writeListFile (Join-Path $indexPath ${sourceFolderFileName}) @($header, "$($folder.Name)`t$($folder.Path)")
+            $sourceFilePath = Join-Path $indexPath ${sourceFolderFileName}
+            writeListFile $sourceFilePath @($header, "$($folder.Name)`t$($folder.Path)")
+            # 画面（インデックス一覧の保存）からも呼ばれるため、書いたファイルだけに付ける（件数が多いため失敗してもログに出さない）
+            [void](setNotContentIndexed $sourceFilePath)
         }
     }
 }

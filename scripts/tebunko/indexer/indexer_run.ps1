@@ -134,11 +134,11 @@ function invokeIngestTask {
         $result.Ok = $true
     } catch {
         $base = $_.Exception.GetBaseException()
-        if ($base -is [System.OperationCanceledException] -and $base.Message -eq ${officeRequiredMessage}) {
+        if (isOfficeRequiredException $_.Exception) {
             $result.Reroute = $true
             return $result
         }
-        if ($base -is [System.InvalidOperationException] -and $base.Message.EndsWith(${officeAppInUseMessage})) {
+        if (isOfficeAppInUseException $_.Exception) {
             # getApp が投げた例外。$script:apps に入っていないため stopApp は呼ばない
             $result.Postponed = $true
             return $result
@@ -148,8 +148,10 @@ function invokeIngestTask {
             $message = "${fileTimeoutMinutes} 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）"
         }
         $result.Message = $message
-        # アプリが不安定になっている可能性があるため終了する（次に必要になったときに起動し直す）
-        if (!$script:officeUnavailable) {
+        # アプリが不安定になっている可能性があるため終了する（次に必要になったときに起動し直す）。
+        # 暗号化の判定でOfficeにまだ触れていない失敗（throwProtectionFailure）は、終了させない
+        # （IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直さないため）
+        if (!$script:officeUnavailable -and !$base.Data.Contains("OfficeUntouched")) {
             try { stopApp (getAppName $task.RelPath) } catch {}
         }
     } finally {
@@ -393,6 +395,14 @@ function invokeIndexerBody {
     }
 
     [System.IO.Directory]::CreateDirectory($workspace.IndexDir) | Out-Null
+    # 前の版から続けて使うワークスペース・別のドライブへ写したワークスペース・取り込んだワークスペースもここで付く
+    # （継ぐかどうかに頼らず、ここで一度だけ content_index 全体に付ける。入れた直後にはそれぞれの場所でも付ける）。
+    # 根フォルダに未だ付いていない回（主に初回）は下をすべてたどるため時間がかかるので、先に 1 行残しておく
+    writeIndexerLog "content_index を Windows Search の対象から外しています…"
+    $nci = setNotContentIndexed $workspace.IndexDir -Recurse
+    if (!$nci.Ok) {
+        writeIndexerLog "content_index を Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
+    }
     removeStaleTmpDirs
     [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null

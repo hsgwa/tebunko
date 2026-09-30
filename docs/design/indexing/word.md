@@ -16,16 +16,18 @@ flowchart TD
 
 ## Word の旧形式の変換（`extractWithWord`）
 
-[Word・PowerPoint の抽出処理](office-apps.md#wordpowerpoint-の抽出処理extractdocument)で ZIP ではないと判定したファイル（`.doc`、パスワード付き、拡張子と中身が異なるもの）を、Word で `.docx` に変換する。
+[Word・PowerPoint の抽出処理](office-apps.md#wordpowerpoint-の抽出処理extractdocument)で ZIP ではないと判定したファイル（`.doc`、パスワード付き（Word は開かせずに失敗）、拡張子と中身が異なるもの、暗号化の種類が「形式の分からないバイナリ」（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）で予備を使うもの）を、Word で `.docx` に変換する。
 
 | 項目 | 仕様 |
 |---|---|
-| 開き方 | `Documents.Open(パス, ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False, パスワード類="dummy", ..., Visible=False)` |
-| パスワード付きファイル | ダミーのパスワードにより、ダイアログを出さずに「パスワードが正しくありません」の例外 |
-| 保存 | `Repaginate()` でページ割りを確定させてから `SaveAs2(converted.docx, 12 = wdFormatXMLDocument)` |
+| 開き方 | `Documents.Open(パス, ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False, パスワード類="dummy", ..., Format=省略時は自動判定, ..., Visible=False)` |
+| パスワード付きファイル（新形式） | [暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)で判定し、開かずに失敗にする（今までの「ダミーのパスワードで開いて失敗」はしない）。旧形式（`.doc`）のパスワード付きは今までどおりダミーのパスワードにより「パスワードが正しくありません」の例外 |
+| `Format`（「形式の分からないバイナリ」のときだけ） | 拡張子に合う `WdOpenFormat` の値に固定する（`getWordOpenFormat`。例: `.docx` → 9 = `wdOpenFormatXMLDocument`、`.doc` → 1 = `wdOpenFormatDocument`）。自動判定（既定値）に任せると、文字コードを選ぶダイアログが出たり、暗号文をテキストとして読んだりすることがあるため |
+| 保存 | `Repaginate()` でページ割りを確定させてから `SaveAs2(converted.docx, 12 = wdFormatXMLDocument)`。保存した `.docx` の先頭が ZIP でなければ「一時ファイルを暗号化した」に失敗にする（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)の `testOfficeOutput`） |
 | アプリの設定 | `Visible = False`、`DisplayAlerts = 0`（wdAlertsNone）、`AutomationSecurity = 3` |
 
 - `Repaginate()` を呼ぶのは、保存時に記録されるページ区切り（[Word のテキスト読み取りと TSV の場所](#word-のテキスト読み取りと-tsv-の場所readdocxunits) のページの目安）を確定させるため。呼ばないと、同じ内容の文書でも変換のたびにページ区切りの位置が変わることがある（◎）。
+- 「形式の分からないバイナリ」は、コピーの拡張子を元のまま開く（旧形式のように `source.doc` へ付け替えない）。開けなかったとき・保存の出力が ZIP でないときは、元の例外をインデックス作成ログに書き、`暗号化されているか壊れているため取り込めません。` に言い換える。
 
 ## Word のテキスト読み取りと TSV の場所（`readDocxUnits`）
 
