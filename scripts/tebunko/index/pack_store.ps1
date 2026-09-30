@@ -41,7 +41,7 @@ function readPackText {
 function testIndexBookDir {
     # インデックスの中のフォルダが、元のファイルごとのフォルダ（<ファイル名.xlsx>\<場所>.tsv。集約ファイルに入れる前の TSV の置き場所）か。
     # 名前だけでは、名前が .xlsx などで終わる本物のフォルダ（元のフォルダの名前をそのまま使う）と区別できないため、中身も見る:
-    #   ・名前が Office の拡張子で終わる（indexBookDirPattern）
+    #   ・名前が Office・テキストの拡張子で終わる（indexBookDirPattern）
     #   ・サブフォルダも集約ファイル（content_index.<拡張子>.tsv）も無い
     #   ・withTsv なら、TSV が 1 つ以上ある（取り込んだが中身が空のファイルのフォルダは、集約ファイルに入れるものが無い）
     # 読めないフォルダは $false（集約ファイルに入れる・消す対象にしない）
@@ -323,6 +323,7 @@ function readPackContext {
     } catch [System.UnauthorizedAccessException] {
         return @()
     }
+    $isTextBook = (getPackFileKind $book) -eq "テキスト"
     foreach ($place in $places) {
         if ($place.Book -ne $book -or $place.Location -ne $location) { continue }
         $number = 0
@@ -333,7 +334,12 @@ function readPackContext {
             $number++
             if ($number -gt $last) { break }
             if ($number -ge $first) {
-                $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $text.Substring($pos, $n - $pos) })
+                $line = $text.Substring($pos, $n - $pos)
+                if ($isTextBook) {
+                    # 前後の行はどこが一致したかが分からないため、先頭から切る
+                    $line = truncateHitLine $line -1
+                }
+                $rows.Add([pscustomobject]@{ LineNumber = $number; Line = $line })
             }
             $pos = $n + 1
         }

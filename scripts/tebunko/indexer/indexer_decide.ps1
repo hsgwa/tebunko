@@ -88,7 +88,8 @@ ${laneReader}     = "Reader"
 function getIngestLane {
     # 取り込むファイルのレーンを拡張子で決める。Excel はセルの表示値を読むため、すべて Excel のレーン。
     # Word・PowerPoint は、旧形式（.doc / .ppt）だけ Office のレーン、新形式は読み取りのレーン
-    # （中身が旧形式・パスワード付きと分かったら、読み取りのスレッドが Office のレーンに回し直す。getOfficeLane）
+    # （中身が旧形式・パスワード付きと分かったら、読み取りのスレッドが Office のレーンに回し直す。getOfficeLane）。
+    # テキストの拡張子（.txt 等）は、どの分岐にも当たらないため既定の読み取りのレーンになる（Office を使わずに読むため）
     param (
         [string]$relPath
     )

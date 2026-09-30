@@ -65,7 +65,7 @@ flowchart TD
 
 | 場面 | `\\?\` を付けない場合（実測） | 対応 |
 |---|---|---|
-| クロール（`findOfficeFiles`） | パスが約 248 文字を超えるフォルダの中を検索できず、アクセスできないフォルダ扱いになる（そのファイルは取り込まれない） | `\\?\` 付きで検索し、`FullName` から相対パスを求めるときは `fromLongPath` で外す |
+| クロール（`findTargetFiles`） | パスが約 248 文字を超えるフォルダの中を検索できず、アクセスできないフォルダ扱いになる（そのファイルは取り込まれない） | `\\?\` 付きで検索し、`FullName` から相対パスを求めるときは `fromLongPath` で外す |
 | TSV・本文インデックスの保存・移動・削除（`prettyTsv` / `writeUnits` / `publishTsv` / `writePackFile` / `updateIndexFolderPack`） | 260 文字を超えるパスは「パスの一部が見つかりません」で失敗する。`Test-Path` は `$false` を返す | `\\?\` 付きで操作する |
 | 設定から削除したフォルダのインデックスの削除（`removeDroppedFolders`） | 中に長いパスがあると `Remove-Item -Recurse` が失敗する | `\\?\` 付きで削除する |
 | Excel で開く | 約 256 文字以上（古い版は 218 文字以上）のパスは開けない。`\\?\` 付きのパスも開けない | [Excel の取り込み](../indexing/excel.md#excel-の抽出処理extractworkbook)（常に作業フォルダにコピーしてから開く。コピーは短いパスになる） |

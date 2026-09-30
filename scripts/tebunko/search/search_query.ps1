@@ -141,6 +141,31 @@ function newPlaceExclude {
     return [regex]::new("\[(?:$($kinds -join '|'))\]$")
 }
 
+# テキストのヒットの行・プレビューの前後の行を切る長さ（文字）と、一致の位置から遡る長さ（文字）。
+# 1 行が数 MB になりうる .json・.xml・.log の描画で画面が固まらないよう、取り込みでは切らず、表示・出力の直前だけ切る
+${hitLineMaxChars} = 1000
+${hitLineBeforeMatchChars} = 200
+
+function truncateHitLine {
+    # 長い行（テキストのヒットの行・前後の行）を、一致の位置を中心に hitLineMaxChars 文字に切る。
+    # 一致の位置（matchIndex。行の中の位置。分からなければ -1）の hitLineBeforeMatchChars 文字前から hitLineMaxChars 文字を取り、
+    # 省いた側に "…" を付ける。hitLineMaxChars 以下ならそのまま返す
+    param (
+        [string]$line,
+        [int]$matchIndex = -1
+    )
+
+    if ($line.Length -le ${hitLineMaxChars}) {
+        return $line
+    }
+    $start = if ($matchIndex -lt 0) { 0 } else { [Math]::Max(0, $matchIndex - ${hitLineBeforeMatchChars}) }
+    $end = [Math]::Min($line.Length, $start + ${hitLineMaxChars})
+    $result = $line.Substring($start, $end - $start)
+    if ($start -gt 0) { $result = "…" + $result }
+    if ($end -lt $line.Length) { $result = $result + "…" }
+    return $result
+}
+
 function newFileFilter {
     # 対象ファイルの指定（例: "*.xlsx;見積*;!*old*"）を、元のファイル名に対する正規表現 @{ Include; Exclude } にする（無い側は $null）。
     #   ; で区切る（全角の ； も可）。! で始まるものは除外。* は任意の文字列、? は任意の1文字。大文字・小文字を区別しない

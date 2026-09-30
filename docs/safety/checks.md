@@ -59,6 +59,14 @@ function scan { param([string[]]$Pattern)
 
 Excel は、セルの値をテキストに書き出すために、すべてのブックを上の設定で開く。Word・PowerPoint で開くのは、ZIP 形式でない旧形式（`.doc` / `.ppt`）などを新形式に変換するときだけである。新形式（`.xlsx` / `.docx` / `.pptx`）の図形・コメント・本文・SmartArt・グラフの文字は、Office を使わずに ZIP の中の XML を直接読む（`shared/office/office_reader.ps1`）。いずれも作業フォルダのコピーを読む（[取り込み対象のファイルは書き換えない](file-access.md#取り込み対象のファイルは書き換えない)）。
 
+## 取り込み対象の拡張子
+
+Office に加えてテキストファイルも取り込むが、対象の拡張子は `shared/office/office_files.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（`.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml` の 7 個）を合わせた、**固定の 17 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)）。設定ファイルで拡張子を足す仕組みは無い。
+
+危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する `.bat` `.js` `.vbs` `.ps1` `.hta` 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため `tests/meta/safety.Tests.ps1` は「対象の拡張子が固定であること」として、`$textExtensions` がちょうど 7 個であること、`$officeExtensions` と `$textExtensions` を合わせた一覧がこの 17 個ちょうどであることを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。
+
+`.xml` は、既定のアプリ（Windows の「XML エディター」）が先頭の `<?mso-application progid=…?>` を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。
+
 ## 外部プロセスの起動（3 か所）
 
 `tests/meta/safety.Tests.ps1` の「外部プロセスの起動は explorer.exe だけ」が確かめる。

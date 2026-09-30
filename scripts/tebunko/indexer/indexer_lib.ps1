@@ -7,5 +7,6 @@
 . "$PSScriptRoot\indexing_reporter.ps1"
 . "$PSScriptRoot\indexer_plan.ps1"
 . "$PSScriptRoot\extract_office.ps1"
+. "$PSScriptRoot\extract_text.ps1"
 . "$PSScriptRoot\index_migrate.ps1"
 . "$PSScriptRoot\indexer_run.ps1"

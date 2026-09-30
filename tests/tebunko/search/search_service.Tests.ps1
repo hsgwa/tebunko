@@ -68,6 +68,28 @@ Describe "invokeSearchRequest" -Tag Io {
         }
     }
 
+    It "照合のプールの別スレッドでも、テキストの長い行を切る（newPackWorkerPool に渡す関数・変数が揃っている）" {
+        $poolTsvRoot = Join-Path $TestDrive "pool_text_tsv"
+        $longLine = ("あ" * 100000) + "対象語" + ("あ" * 100000)
+        newTsv "$poolTsvRoot\長い.log\$(toIndexFileName "本文")" @($longLine)
+        $poolPacks = newPackIndex $poolTsvRoot (Join-Path $TestDrive "pool_text_pack")
+
+        $pool = newPackWorkerPool 2
+        try {
+            # searchPackIndex のタスク分けを経由せず、プールのスレッドに直接照合させる（pack_search.ps1 と同じ呼び方）
+            $search = newSearchRegex "対象語" $true
+            $job = $pool.Submit(${packWorkerScript}.ToString(), @($poolPacks, 0, $poolPacks.Count, $search.Regex, -1, $search.TextRegex, $search.ScanMode, $null, $null, $null, $null))
+            $output = $pool.Receive($job)
+            $output[0].Timeout | Should -Be $false
+            $hits = @($output[0].Hits)
+            $hits.Count | Should -Be 1
+            $hits[0].Line.Length | Should -BeLessOrEqual 1002
+            $hits[0].Line | Should -Match "対象語"
+        } finally {
+            $pool.Close()
+        }
+    }
+
     It "始める前に取り消されていたら、検索せずに終える" {
         $request = newSearchRequest "単価" $true @($packRoot) 0
         $request.Stop = $true

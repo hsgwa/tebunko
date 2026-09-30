@@ -162,6 +162,7 @@ nav:
           - Word: design/indexing/word.md
           - PowerPoint: design/indexing/powerpoint.md
           - Word・PowerPoint の共通処理と Office アプリの管理: design/indexing/office-apps.md
+          - テキストファイルの読み取り: design/indexing/text.md
           - エラーメッセージ一覧: design/indexing/errors.md
           - 既知の問題: design/indexing/known-issues.md
       - インデックスのデータ:

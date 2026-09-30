@@ -29,8 +29,8 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
     }
 
     It "種類の分からないファイルは、部分に場所の名前を持つ" {
-        getPackFileKind "メモ.txt" | Should -Be ""
-        $meta = convertPlaceToPackMeta "メモ.txt" "本文[図形]"
+        getPackFileKind "メモ.pdf" | Should -Be ""
+        $meta = convertPlaceToPackMeta "メモ.pdf" "本文[図形]"
         (($meta.Keys | ForEach-Object { "$_=$($meta[$_])" }) -join "|") | Should -Be "部分=本文|対象=図形"
         convertPackMetaToPlace $meta | Should -BeExactly "本文[図形]"
     }
@@ -39,6 +39,13 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
         $meta = convertPlaceToPackMeta "議事録.docx" "ページ1"
         $meta["部分"] | Should -Be "ページ1"
         convertPackMetaToPlace $meta | Should -BeExactly "ページ1"
+    }
+
+    It "テキストの拡張子は「テキスト」、場所は「本文」だけ（部分=本文・対象=本文）で、そのまま元の名前に戻る" {
+        getPackFileKind "議事メモ.txt" | Should -Be "テキスト"
+        $meta = convertPlaceToPackMeta "議事メモ.txt" "本文"
+        (($meta.Keys | ForEach-Object { "$_=$($meta[$_])" }) -join "|") | Should -Be "部分=本文|対象=本文"
+        convertPackMetaToPlace $meta | Should -BeExactly "本文"
     }
 }
 

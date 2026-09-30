@@ -29,7 +29,7 @@ ${packPlaceKeys} = @("シート", "ページ", "スライド", "部分")
 
 
 function getPackFileKind {
-    # 元のファイル名から種類（Excel・Word・PowerPoint）を返す。分からなければ空
+    # 元のファイル名から種類（Excel・Word・PowerPoint・テキスト）を返す。分からなければ空
     param (
         [string]$book
     )
@@ -37,6 +37,7 @@ function getPackFileKind {
     if ($book -match '\.xls[a-z]?$') { return "Excel" }
     if ($book -match '\.doc[a-z]?$') { return "Word" }
     if ($book -match '\.ppt[a-z]?$') { return "PowerPoint" }
+    if (testTextExtension $book) { return "テキスト" }
     return ""
 }
 

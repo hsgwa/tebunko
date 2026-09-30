@@ -64,6 +64,73 @@ Describe "perf_common.ps1 の統計値" -Tag Unit {
     }
 }
 
+Describe "perf_common.ps1 の入力しながらの検索の部品" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "該当無し を -MinLength 1 で（4 つ）"; word = "該当無し"; isRegex = $false; minLength = 1; steps = @("該", "該当", "該当無", "該当無し") }
+        @{ name = "該当無し を既定の 3 で（2 つ）"; word = "該当無し"; isRegex = $false; minLength = 3; steps = @("該当無", "該当無し") }
+        @{ name = "見積書 を既定で（1 つ）"; word = "見積書"; isRegex = $false; minLength = 3; steps = @("見積書") }
+        @{ name = "-MinLength より短い語は、語そのものだけ"; word = "の"; isRegex = $false; minLength = 3; steps = @("の") }
+        @{ name = "正規表現 ^\d{5}\t を -MinLength 1 で（^・^\・^\d{5}\ を飛ばす）"; word = '^\d{5}\t'; isRegex = $true; minLength = 1
+            steps = @('^\d', '^\d{', '^\d{5', '^\d{5}', '^\d{5}\t') }
+        @{ name = "すべて飛ばす正規表現（空）"; word = "^"; isRegex = $true; minLength = 3; steps = @() }
+    ) {
+        param ($word, $isRegex, $minLength, $steps)
+        @(getTypingSteps $word $isRegex $minLength) | Should -Be $steps
+    }
+
+    It "サロゲートペアを含む語は、途中で切れる長さを飛ばす" {
+        $pair = [char]::ConvertFromUtf32(0x1F600)
+        $word = "見" + $pair + "書"
+        $withPair = "見" + $pair
+        $result = @(getTypingSteps $word $false 1)
+        $result.Count | Should -Be 3
+        $result | Should -Be @("見", $withPair, $word)
+    }
+
+    It "測らなかった語は、Steps 0・Skipped ありで、ほかは null にする" {
+        $r = newTypingWordResult -name "無い" -regex $false -steps 0 -attempts @() -skipped "送る語がありません" -peakWorkingSetMB 12.0
+        $r.Name | Should -Be "無い"
+        $r.Steps | Should -Be 0
+        $r.Skipped | Should -Be "送る語がありません"
+        $r.Hits | Should -BeNullOrEmpty
+        $r.FirstHitMs | Should -BeNullOrEmpty
+        $r.PeakWorkingSetMB | Should -Be 12.0
+    }
+
+    It "1 回ごとの記録から、2 回目以降の統計・全回の統計・1 回目の値・回数の合計を作る" {
+        $attempts = @(
+            @{ FirstHitMs = 50; FinishMs = 80; WaitPrevMs = 5; IntervalMs = @(140); LagMs = @(2, 10); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; FastUsed = $false; CancelledSteps = 1 }
+            @{ FirstHitMs = $null; FinishMs = 60; WaitPrevMs = 0; IntervalMs = @(145); LagMs = @(1, 3); RequestMs = @(1, 1); Hits = 0; Truncated = $false; Packs = 5; FastUsed = $true; CancelledSteps = 0 }
+            @{ FirstHitMs = 40; FinishMs = 70; WaitPrevMs = 2; IntervalMs = @(150); LagMs = @(0, 5); RequestMs = @(1, 2); Hits = 1; Truncated = $false; Packs = 5; FastUsed = $true; CancelledSteps = 2 }
+        )
+        $r = newTypingWordResult -name "まれ" -regex $false -steps 2 -attempts $attempts
+        $r.Skipped | Should -BeNullOrEmpty
+        $r.Hits | Should -Be 1   # 最後（3 回目）の要求の結果
+        $r.FastUsed | Should -Be 2   # 全回のうち高速検索を使った回数
+        $r.CancelledSteps | Should -Be 2   # 2 回目以降（0 + 2）の合計
+        $r.FirstHitMs.Median | Should -Be 40   # 2 回目以降（$null を除く）
+        $r.FirstHitMs.Count | Should -Be 1
+        $r.FinishMs.Median | Should -Be 65   # 2 回目以降（60, 70）
+        $r.WaitPrevMs.Median | Should -Be 1   # 2 回目以降（0, 2）
+        $r.IntervalMs.Count | Should -Be 3   # 全回（140, 145, 150）
+        $r.IntervalMs.Median | Should -Be 145
+        $r.LagMs.Count | Should -Be 6   # 全回・要求ごと
+        $r.RequestMs.Count | Should -Be 6
+        $r.First.FirstHitMs | Should -Be 50   # 1 回目の値そのもの（統計には入らない）
+        $r.First.FinishMs | Should -Be 80
+    }
+
+    It "ヒットの無い語（2 回目以降すべて null）は、FirstHitMs の統計が null になる" {
+        $attempts = @(
+            @{ FirstHitMs = $null; FinishMs = 20; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; FastUsed = $false; CancelledSteps = 0 }
+            @{ FirstHitMs = $null; FinishMs = 18; WaitPrevMs = 0; IntervalMs = @(); LagMs = @(0); RequestMs = @(1); Hits = 0; Truncated = $false; Packs = 3; FastUsed = $false; CancelledSteps = 0 }
+        )
+        $r = newTypingWordResult -name "無い" -regex $false -steps 1 -attempts $attempts
+        $r.Hits | Should -Be 0
+        $r.FirstHitMs | Should -BeNullOrEmpty
+    }
+}
+
 Describe "measure_perf.ps1" -Tag Io {
     # 取り込みの一時置き場の形（<フォルダ>\<ファイル名.xlsx>\<場所>.tsv）の小さなインデックスと、検索する語の表
     BeforeAll {
@@ -74,7 +141,9 @@ Describe "measure_perf.ps1" -Tag Io {
         $words = Join-Path $TestDrive "words.tsv"
         writeTsv $words @("名前`t語`t正規表現`t件数", "無い`t該当無し`tfalse`t0", "まれ`t見積書`tfalse`t1", "数字`t^\d{2}\t`ttrue`t2")
         $out = Join-Path $TestDrive "work\result"
-        & $measure -Index $index -Work (Join-Path $TestDrive "work") -Words $words -Count 3 -SampleMs 50 -Label "テスト" -RunId "1" -Ref "main" -Sha "abc1234" -Scale "0.1" -DataSeconds 1.5 6>$null | Out-Null
+        # -Typing 2 -TypingIntervalMs 50 -TypingMinLength 1 は、取り消しの起きる並びで流すため（既定の 3 文字からでは、この words.tsv の語は取り消しが起きない）
+        & $measure -Index $index -Work (Join-Path $TestDrive "work") -Words $words -Count 3 -SampleMs 50 -Label "テスト" -RunId "1" -Ref "main" -Sha "abc1234" -Scale "0.1" -DataSeconds 1.5 `
+            -Typing 2 -TypingIntervalMs 50 -TypingMinLength 1 6>$null | Out-Null
         $result = [System.IO.File]::ReadAllText("$out\result.json") | ConvertFrom-Json
     }
 
@@ -134,7 +203,26 @@ Describe "measure_perf.ps1" -Tag Io {
         $md | Should -Match "## 検索"
         $md | Should -Match "検索 1 回ごとの時間"
         $md | Should -Match "検索 1 回ごとのワーキングセット"
+        $md | Should -Match "## 入力しながらの検索"
         $md.Contains($TestDrive) | Should -Be $false
+    }
+
+    It "-Typing を付けると、語ごとの入力しながらの検索の値が出る" {
+        $result.Typing.Mode | Should -Be "service"
+        $result.Typing.MinLength | Should -Be 1
+        $byName = @{}
+        foreach ($t in $result.Typing.Words) { $byName[$t.Name] = $t }
+        foreach ($t in $result.Typing.Words) {
+            $t.FinishMs.Count | Should -Be 1   # 2 回目以降（-Typing 2 なので 1 回分）
+            $t.LagMs.Min | Should -Not -BeLessThan 0   # 予定より早く渡さない
+        }
+        $byName["まれ"].Hits | Should -Be 1   # 一発の検索と同じ
+        $byName["数字"].Hits | Should -Be 2
+        $byName["無い"].FirstHitMs | Should -BeNullOrEmpty   # ヒットが無い語
+        $byName["まれ"].FirstHitMs.Max | Should -Not -BeGreaterThan $byName["まれ"].FinishMs.Max
+        @(Import-Csv "$out\typing.csv").Count | Should -Be 6   # 語の数（3）× -Typing（2）
+        $metrics = @(Import-Csv "$out\metrics.csv")
+        @($metrics | Where-Object { $_.metric -eq "typing_finish_ms" -and $_.stat -eq "median" }).Count | Should -Be 3
     }
 
     It "pack だけのインデックスは、作成を測らずに検索だけを測る" {
@@ -146,6 +234,33 @@ Describe "measure_perf.ps1" -Tag Io {
         # -Index だけのときは、取り込みは測らず Ingest を null にする（キーは残す）
         @($second.PSObject.Properties | ForEach-Object { $_.Name }) | Should -Contain "Ingest"
         $second.Ingest | Should -BeNullOrEmpty
+        # -Typing を渡さなかったときも、Typing のキーは残して null にする
+        @($second.PSObject.Properties | ForEach-Object { $_.Name }) | Should -Contain "Typing"
+        $second.Typing | Should -BeNullOrEmpty
+    }
+
+    It "<name>は失敗にする" -TestCases @(
+        @{ name = "-Typing 1"; extraArgs = @{ Typing = 1 }; expectedMessage = "*-Typing は 0 か 2 以上*" }
+        @{ name = "-TypingFast で -Index が <Work>\content_index でないとき"; extraArgs = @{ Typing = 2; TypingFast = $true }; expectedMessage = "*content_index*" }
+    ) {
+        param ($extraArgs, $expectedMessage)
+        $w = Join-Path $TestDrive ("typing-bad-" + [guid]::NewGuid().ToString("N"))
+        { & $measure -Index $index -Work $w -Words $words -Count 1 -SampleMs 50 @extraArgs 6>$null | Out-Null } | Should -Throw -ExpectedMessage $expectedMessage
+        # 始める前（インデックス作成・検索の前）に失敗するため、結果のフォルダは作られない
+        (Test-Path -LiteralPath (Join-Path $w "result")) | Should -Be $false
+    }
+
+    It "-TypingFast は、-Index を <Work>\content_index にすれば最後まで動く" {
+        $w = Join-Path $TestDrive "typing-fast"
+        $fastIndex = Join-Path $w "content_index"
+        writeTsv "$fastIndex\営業\見積.xlsx\シート1.tsv" @("1`t見積書`t山田")
+        & $measure -Index $fastIndex -Work $w -Words $words -Count 1 -SampleMs 50 -Typing 2 -TypingIntervalMs 50 -TypingFast 6>$null | Out-Null
+        $r = [System.IO.File]::ReadAllText("$w\result\result.json") | ConvertFrom-Json
+        $r.Typing.Fast | Should -Be $true
+        $byName = @{}
+        foreach ($t in $r.Typing.Words) { $byName[$t.Name] = $t }
+        # ランナーには Windows Search が無いことがあるので、高速検索を使えたか（FastUsed）は比べない
+        $byName["まれ"].Hits | Should -Be 1
     }
 
     It "実行の日時は、現在のカルチャ（暦・時刻の区切り）に左右されず ISO 8601 の形で書く" {

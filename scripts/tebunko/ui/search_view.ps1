@@ -162,7 +162,7 @@ function getSourceConnectFailureDialog {
 # ---- ファイルごとにまとめた表示 ----
 
 function getAppKind {
-    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint。どれでもなければ空）を返す
+    # 元のファイル名の拡張子から、アプリの種類（Excel / Word / PowerPoint / テキスト。どれでもなければ空）を返す
     param (
         [string]$book
     )
@@ -176,6 +176,9 @@ function getAppKind {
     }
     if ($extension -match '^\.ppt') {
         return "PowerPoint"
+    }
+    if (testTextExtension $book) {
+        return "テキスト"
     }
     return ""
 }
@@ -265,7 +268,7 @@ function prepareHitRow {
 
     $row.Prepare()
     if ($row.PlaceDisplay) { return }
-    $row.SetPlaceDisplay((describeHitPlace $row.PlaceText $row.IsExcel $row.IsObjectPlace $row.MatchCell $row.MatchCount $row.LineNumber))
+    $row.SetPlaceDisplay((describeHitPlace $row.PlaceText $row.IsExcel $row.IsObjectPlace $row.MatchCell $row.MatchCount $row.LineNumber $row.IsText))
 }
 
 function sortFileGroups {

@@ -55,6 +55,8 @@ flowchart LR
 
 Office の `SaveAs` は 3 か所あるが、保存先は常に作業フォルダ内のパス（`$tmpPath` / `$destPath`）である（`extract_office.ps1:156`・`210`・`234`）。原本のパスを `SaveAs` に渡す経路は無い。
 
+テキストファイル（`.txt` 等）は Office を使わないため、コピーも作らない。原本を読み取り専用の共有（`copyFileShared` と同じ `FileShare.ReadWrite | Delete`）で直接開いて読み、閉じるだけである（`shared/core/text_file.ps1` の `readTextFile`）。書き込みの API には渡さない。
+
 `tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
 
 ## 読み取りのみであることの実証
