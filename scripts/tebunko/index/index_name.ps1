@@ -174,7 +174,10 @@ function toIndexFileName {
 # 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types.ps1 の HitRow.ObjectPlaceRegex）をそろえる
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
-${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment})\]$"
+${placeKindHeaderFooter} = "ヘッダー・フッター"  # Excel のヘッダー・フッター（Word・PowerPoint の "ヘッダー・フッター" は場所の名前で、種類ではない）。いつも検索する（除外の選択肢は無い）
+${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter})\]$"
+# 行が "<セル番地><TAB><文字>" の形になる種類（Excel の図形・コメント）。ヘッダー・フッターの行は文字だけ（セル番地が無い）
+${cellPrefixedPlaceKinds} = @(${placeKindShape}, ${placeKindComment})
 
 
 function splitObjectPlace {
@@ -191,10 +194,22 @@ function splitObjectPlace {
 }
 
 
+function testCellPrefixedPlace {
+    # 場所（"売上[図形]" など）の行が、セル番地で始まる形（"<セル番地><TAB><文字>"）か。図形・コメントは真、
+    # ヘッダー・フッター・セル・Word・PowerPoint の場所は偽
+    param (
+        [string]$place
+    )
+
+    return (${cellPrefixedPlaceKinds} -contains (splitObjectPlace $place).Kind)
+}
+
+
 function describePlace {
     # 場所ごとの表記と「種別」を @{ Place; Kind } で返す（TSV の名前は変えず、表示だけを変える）。
     # 画面の見出しの要約・検索結果ファイル・コピーに使う。表の「場所」の列は、これにセル番地を足した describeHitPlace を使う
     #   Excel      : "売上" → [シート]売上・セル / "売上[図形]" → [シート]売上・図形 / "売上[コメント]" → [シート]売上・コメント
+    #                / "売上[ヘッダー・フッター]" → [シート]売上・ヘッダー・フッター
     #   Word       : "ページ003" → 3 ページ（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → 脚注・本文
     #   PowerPoint : "スライド002（非表示）" → スライド 2（非表示）・本文 / "スライド002_ノート" → スライド 2・ノート
     #   テキスト   : "本文" → 空・本文（場所は 1 つだけのため、表の「場所」の列は describeHitPlace の "N 行目" だけで足りる）
@@ -237,6 +252,7 @@ function describeHitPlace {
     # Excel だけ足す（Word・PowerPoint は場所ごとと同じ）。テキストは行番号だけ（"N 行目"）を返す（場所は 1 つしかないため）。
     #   セル             : [シート]売上!B12 / 1 行に複数のセルが一致 [シート]売上!B12 ほか 2 / セル番地が求まらないとき [シート]売上 12 行目
     #   図形・コメント   : [シート]売上!D5 / セル番地が求まらないとき [シート]売上（行番号は通し番号のため出さない）
+    #   ヘッダー・フッター: [シート]売上（行にセル番地が無く、matchCell が空のため）
     #   テキスト         : 12 行目
     param (
         [string]$place,

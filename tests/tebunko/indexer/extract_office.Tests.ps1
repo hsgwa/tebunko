@@ -379,7 +379,38 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
 
         extractWorkbook $zipSource | Should -Be 1
         listTmp | Should -Be @("売上.tsv")
-        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "グラフ・SmartArt を読み取れませんでした.*xl/charts/chart1\.xml" }
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "一部を読み取れませんでした.*xl/charts/chart1\.xml" }
+    }
+
+    It "ヘッダー・フッターの文字は、別の場所の TSV（文字だけの行）にする。壊れていればそのシートの分だけ読まずにログへ書く" {
+        $zipSource = Join-Path $TestDrive "ヘッダーあり.xlsx"
+        $xNs = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+        $relNs = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"'
+        $officeRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        $entries = [ordered]@{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"壊れ`" sheetId=`"2`" r:id=`"rId2`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/><Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData/><headerFooter><oddHeader>&amp;L社外秘&amp;R&amp;P</oddHeader></headerFooter></worksheet>"
+            "xl/worksheets/sheet2.xml" = "<worksheet $xNs><sheetData/><headerFooter><oddHeader>&amp;C壊れ"  # 閉じタグが無い壊れたXML
+        }
+        $stream = [System.IO.File]::Create($zipSource)
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+        foreach ($name in $entries.Keys) {
+            $writer = New-Object System.IO.StreamWriter($zip.CreateEntry($name).Open(), (New-Object System.Text.UTF8Encoding($false)))
+            $writer.Write($entries[$name])
+            $writer.Dispose()
+        }
+        $zip.Dispose()
+        $stream.Dispose()
+
+        $excel = newExcel @((newSheet "売上" -1 "品名`r`n"), (newSheet "壊れ" -1 "見出し`r`n"))
+        Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
+        Mock writeIndexerLog {}
+
+        extractWorkbook $zipSource | Should -Be 3
+        listTmp | Should -Be @("壊れ.tsv", "売上.tsv", "売上[ヘッダー・フッター].tsv")
+        readTsv "売上[ヘッダー・フッター].tsv" | Should -Be "社外秘`r`n"
+        Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "一部を読み取れませんでした.*xl/worksheets/sheet2\.xml" }
     }
 
     It "図形・コメントを読めなくても、セルの値は取り込む" {

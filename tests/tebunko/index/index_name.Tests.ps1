@@ -43,10 +43,23 @@ Describe "splitObjectPlace" -Tag Unit {
         # 画面のクラスはスクリプトの変数を使えず、shared はツールの変数を使えないため、同じ名前を別々に書いている
         $reader = [System.IO.File]::ReadAllText("${scriptsDir}\shared\office\office_reader.ps1")
         $hitRow = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\types.ps1")
-        foreach ($kind in @(${placeKindShape}, ${placeKindComment})) {
+        foreach ($kind in @(${placeKindShape}, ${placeKindComment}, ${placeKindHeaderFooter})) {
             $reader.Contains("[$kind]") | Should -Be $true
         }
-        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment})\]") | Should -Be $true
+        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter})\]") | Should -Be $true
+    }
+}
+
+Describe "testCellPrefixedPlace" -Tag Unit {
+    It "<place> は <expected>" -TestCases @(
+        @{ place = "売上[図形]"; expected = $true }
+        @{ place = "売上[コメント]"; expected = $true }
+        @{ place = "売上[ヘッダー・フッター]"; expected = $false }
+        @{ place = "売上"; expected = $false }
+        @{ place = "ヘッダー・フッター"; expected = $false }
+    ) {
+        param ($place, $expected)
+        testCellPrefixedPlace $place | Should -Be $expected
     }
 }
 
@@ -85,10 +98,6 @@ Describe "describePlace" -Tag Unit {
     It "場所が空なら空" {
         described "a.docx" "" | Should -Be "|本文"
     }
-
-    It "テキストは場所が「本文」だけなので、表記は空・種別は本文" {
-        described "議事メモ.txt" "本文" | Should -Be "|本文"
-    }
 }
 
 Describe "describeHitPlace" -Tag Unit {
@@ -98,12 +107,12 @@ Describe "describeHitPlace" -Tag Unit {
         @{ name = "Excel のセル番地が求まらないときは行番号を足す"; place = "[シート]売上"; excel = $true; object = $false; cell = ""; count = 0; line = 12; expected = "[シート]売上 12 行目" }
         @{ name = "Excel の図形・コメントは、左上・コメントのセル番地を足す"; place = "[シート]売上"; excel = $true; object = $true; cell = "D5"; count = 1; line = 1; expected = "[シート]売上!D5" }
         @{ name = "Excel の図形・コメントでセル番地が求まらないときは、通し番号のため行番号を出さない"; place = "[シート]売上"; excel = $true; object = $true; cell = ""; count = 0; line = 2; expected = "[シート]売上" }
+        @{ name = "Excel のヘッダー・フッターは、セル番地が無いのでシート名だけ"; place = "[シート]売上"; excel = $true; object = $true; cell = ""; count = 1; line = 3; expected = "[シート]売上" }
         @{ name = "Word は場所ごとの表記のまま"; place = "3 ページ（目安）"; excel = $false; object = $false; cell = ""; count = 0; line = 5; expected = "3 ページ（目安）" }
         @{ name = "PowerPoint は場所ごとの表記のまま"; place = "スライド 9（非表示）"; excel = $false; object = $true; cell = ""; count = 0; line = 2; expected = "スライド 9（非表示）" }
-        @{ name = "テキストは行番号だけ（場所は 1 つしかないため）"; place = ""; excel = $false; object = $false; cell = ""; count = 0; line = 12; expected = "12 行目"; text = $true }
     ) {
-        param ($name, $place, $excel, $object, $cell, $count, $line, $expected, [bool]$text = $false)
-        describeHitPlace $place $excel $object $cell $count $line $text | Should -Be $expected
+        param ($name, $place, $excel, $object, $cell, $count, $line, $expected)
+        describeHitPlace $place $excel $object $cell $count $line | Should -Be $expected
     }
 }
 

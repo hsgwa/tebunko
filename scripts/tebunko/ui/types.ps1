@@ -210,8 +210,9 @@ class HitRow : NotifyBase {
     static [regex] $QuoteRegex = [regex]::new("^`"((?:[^`"]|`"`")*)`"(.*)`$", [System.Text.RegularExpressions.RegexOptions]::Singleline)
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     # 図形・コメントの場所 "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern と同じ形。クラスからはスクリプトの変数が見えないため、ここにも書く）。
-    # Excel の 1 行は "<セル番地><TAB><文字>"
-    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント)\]`$")
+    # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
+    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント|ヘッダー・フッター)\]`$")
+    static [regex] $CelllessPlaceRegex = [regex]::new("\[ヘッダー・フッター\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40
     static [int] $MaxDisplay = 600
@@ -239,6 +240,7 @@ class HitRow : NotifyBase {
     [bool]$IsExcel
     [bool]$IsText          # テキストの拡張子（.txt 等）の行か（describeHitPlace・open_source.ps1 が使う。呼び出し側が入れる）
     [bool]$IsObjectPlace
+    [bool]$IsCelllessPlace  # 行にセル番地が無い場所（ヘッダー・フッター）か（$IsObjectPlace の一種）
     [string]$MatchCell
     [int]$MatchCount        # 1 行のうち一致したセルの数（Excel のセルの行だけ。図形・コメントは 0 か 1）
     [string]$DisplayLine
@@ -270,6 +272,7 @@ class HitRow : NotifyBase {
         $row.pattern = $pattern
         $row.IsExcel = [HitRow]::ExcelRegex.IsMatch($(if ($null -eq $book) { "" } else { $book }))
         $row.IsObjectPlace = [HitRow]::ObjectPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
+        $row.IsCelllessPlace = [HitRow]::CelllessPlaceRegex.IsMatch($(if ($null -eq $location) { "" } else { $location }))
         return $row
     }
 
@@ -293,7 +296,8 @@ class HitRow : NotifyBase {
             # Excel の図形・コメントの行は、先頭のセルが図形の左上・コメントのセルの番地
             $hit = $false
             foreach ($cell in $cells) { if ([HitRow]::HasMatch($cell, $this.word, $this.pattern)) { $hit = $true; break } }
-            if ($hit -and $cells.Count -gt 0) { $this.MatchCell = $cells[0] }
+            # ヘッダー・フッターの行は文字だけでセル番地が無い（MatchCell は空のまま。場所は [シート]<名前> になる）
+            if ($hit -and $cells.Count -gt 0 -and -not $this.IsCelllessPlace) { $this.MatchCell = $cells[0] }
             $this.MatchCount = $(if ($hit) { 1 } else { 0 })
             return
         }
@@ -367,6 +371,7 @@ class HitRow : NotifyBase {
     hidden [string] ShownText() {
         if (-not ($this.IsExcel -and $this.IsObjectPlace)) { return $this.Line }
         $cells = [HitRow]::SplitCells($this.Line, $true)
+        if ($this.IsCelllessPlace) { return ($cells -join "`t") }
         if ($cells.Count -lt 2) { return $this.Line }
         return ($cells.GetRange(1, $cells.Count - 1) -join "`t")
     }
@@ -508,6 +513,7 @@ class HitRow : NotifyBase {
     }
 
     hidden [string] ColumnLabel([int]$number) {
+        if ($this.IsExcel -and $this.IsCelllessPlace -and $number -eq 1) { return "文字" }
         if ($this.IsExcel -and $this.IsObjectPlace) {
             return $(switch ($number) { 1 { "セル" } 2 { "文字" } default { $number.ToString() } })
         }
