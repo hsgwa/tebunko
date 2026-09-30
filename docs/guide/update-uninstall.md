@@ -40,5 +40,5 @@ tebunko を終了し、`tebunko` フォルダを削除します。レジスト�
 | 場所 | 内容 |
 |---|---|
 | ワークスペース（既定：`%USERPROFILE%\Documents\tebunko_ws`。変更した場合はその場所） | インデックス・取り込み一覧・ログ |
-| `%LOCALAPPDATA%\tebunko` | tebunko を書き込み不可の場所に配置した場合の設定ファイル（存在しない場合は未使用です） |
+| `%LOCALAPPDATA%\tebunko` | tebunko を書き込み不可の場所に配置した場合の設定ファイルと、起動が失敗したときの記録 `startup_error.txt`（存在しない場合は未使用です） |
 | Windows Search の「インデックスのオプション」 | ワークスペースを索引付けの対象に追加していた場合は、対象から除外します |

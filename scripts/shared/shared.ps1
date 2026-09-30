@@ -9,3 +9,5 @@
 . "$PSScriptRoot\core\version.ps1"
 . "$PSScriptRoot\office\office_files.ps1"
 . "$PSScriptRoot\office\office_process.ps1"
+. "$PSScriptRoot\office\office_protection_view.ps1"
+. "$PSScriptRoot\office\office_protection.ps1"

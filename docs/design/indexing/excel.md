@@ -21,8 +21,19 @@ sequenceDiagram
     opt コピーが新形式（ZIP）
         S->>T: 図形・コメントの文字を ZIP から直接読む（readXlsxObjectUnits）
     end
+    opt コピーが新形式（ZIP）でない
+        S->>S: 暗号化の種類を判定する（getOfficeFileProtection）
+        alt IRM・秘密度ラベルの暗号化（Rights）
+            S->>L: Excelを起動せずに失敗（throwProtectionFailure）
+        else 形式の分からないバイナリ（Unknown）で予備が無効
+            S->>L: Excelを起動せずに失敗
+        end
+    end
     S->>X: Workbooks.Open(コピーのパス, UpdateLinks=0, ReadOnly=True, Password="dummy", ...)
     X-->>S: ブック（コピー）
+    opt Unknown（形式の分からないバイナリ）で予備が有効
+        S->>S: Workbook.FileFormat がテキスト・HTML・CSV等でないことを確かめる（testWorkbookFormat）
+    end
     loop Visible = -1（表示）の各ワークシート
         S->>WB: 使用範囲と、値・数式のある最後の行・列を調べる<br>（copyDataRangeToTempSheet）
         alt 余分なセルが $excelExtraCells（100 万）以上
@@ -50,7 +61,7 @@ sequenceDiagram
 補足:
 
 - Excel は `Visible` / `DisplayAlerts` / `EnableEvents` / `ScreenUpdating` / `AskToUpdateLinks` を無効にし、`AutomationSecurity = 3`（マクロ無効）で起動する。
-- パスワード付きブックはダミーのパスワードを渡して開くため、ダイアログを出さずに例外となり、取り込み一覧に「失敗」と記録される。
+- **暗号化されたファイルの判定**（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）: コピーが ZIP でないとき、開く前に種類を判定する。IRM・秘密度ラベルの暗号化（`Rights`）は Excel を起動せずに失敗にする（サインイン画面を防ぐ）。パスワード付き（`Password`。既定のパスワード（`VelvetSweatshop`）で暗号化されたブックを含む）は、今までどおりダミーのパスワードで `Workbooks.Open` に任せる（Word・PowerPointと違い、Excelは開かせずに失敗にしない。既定のパスワードのブックを開けなくしないため）。「形式の分からないバイナリ」（`Unknown`）は、アプリごとの予備の切り替え（`${officeFallbackEnabled}`）が無効なら Excel を起動せずに失敗にし、有効なら開いた後の `Workbook.FileFormat` がテキスト・HTML・CSV等でないことを確かめる（`testWorkbookFormat`。中身がHTMLの `.xls` 等、`Text` の種類には当てない）。パスワード付きブックはダミーのパスワードを渡して開くため、ダイアログを出さずに例外となり、取り込み一覧に「失敗」と記録される。
 - **元のファイルを占有しない**: 元のブックは開かず、常に作業領域へコピーしてからコピーを開く。Excel で開いている間（大きなブックでは数分）、元のファイルを利用者が上書き保存・移動・削除できなくなるのを防ぐため。コピーは `copyFileShared`（`scripts/shared/core/fs.ps1`）で行い、元のファイルを読み取りだけ・共有モード `ReadWrite | Delete` で開く。`File.Copy` と違い、コピー中もほかのアプリ・利用者の書き込みを妨げず、利用者が編集中（書き込みで開いている）のファイルもコピーできる。コピーは通常の属性（読み取り専用を付けない）で作り、ブックを閉じた後に削除する。
 - コピーのファイル名は、ファイル名を参照する数式（`CELL("filename")` 等）の表示値が変わらないよう元のブック名と同じにする。Excel は長いパスのファイルを開けない（Microsoft 365 で約 256 文字以上、古い版は 218 文字以上。`\\?\` 付きのパスも不可。いずれも実測では「Workbooks クラスの Open プロパティを取得できません」）ため、作業領域＋ブック名が `$excelMaxPath`（218）文字以上になるときだけ `source.<拡張子>` とする。元のパスが長いファイルも、コピーは短いパスになるため開ける。TSV のファイル名は元のブック名で作る。
 - 取り込み中に元のファイルが更新された場合も、抽出はコピー時点の内容で行う。取り込み一覧の更新日時はクロール時点の値を記録するため、次回の取り込みで更新ありとして取り込み直す。
@@ -65,6 +76,7 @@ sequenceDiagram
   - ブックの構成が保護されているなど、一時シートを作れない場合は元のシートをそのまま書き出し、`    <シート名> の使用範囲を縮められませんでした: <メッセージ>` をインデックス作成ログに記録する（[エラーメッセージ一覧](errors.md) [警告・お知らせ（インデックス作成ログ）](errors.md#警告お知らせインデックス作成ログ)）。
   - 一時シートは書き出した直後に削除する（次のシートの `Index` がずれないようにするため。ブックは保存せずに閉じる）。
 - Excel のテキスト保存は A1 からではなく **使用範囲（`UsedRange`）の左上のセルから** 出力する（例: 使用範囲が C3 から始まるシートは、1 行目の 1 列目が C3 になる）。TSV の行・列をシートの行・列と一致させるため、保存前に `UsedRange.Row` / `UsedRange.Column` を控えて `prettyTsv` に渡す（[TSV 整形仕様](#tsv-整形仕様prettytsv--formattsv)）。
+- **保存した一時ファイルの先頭（UTF-16LEのBOM `FF FE`）も確かめる**（`testOfficeOutput`。[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）。透過暗号化の製品が、この一時ファイルまで暗号化することがあるため、シートの種類によらずすべての保存で確かめる。合わなければ `ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。` にする。**この確かめはブックを閉じた後（`prettyTsv` の直前）に行う**。保存した一時ファイルはブックを閉じるまで Excel がロックしており、閉じる前に読もうとすると（開いているだけの正常なファイルでも）読めずに失敗するため（◎ 実機で確認済み）。
 - インデックスはファイルごとのフォルダを丸ごと入れ替えるため、シートの削除・名前変更がインデックスに反映される（Word・PowerPoint も同じ）。
 - テキスト保存はセルの値しか出さないため、**図形・コメントの文字は、コピーを ZIP として直接読む**（[Excel の図形・コメントの読み取り](#excel-の図形コメントの読み取りreadxlsxobjectunits)）。Excel で開く前に読む。旧形式（`.xls`）・パスワード付き・`.xlsb` は読まない（セルの値だけになる）。読み取りに失敗しても（ZIP が壊れている等）セルの値は取り込み、`    図形・コメントを読み取れませんでした: <メッセージ>` をインデックス作成ログに記録する。
 

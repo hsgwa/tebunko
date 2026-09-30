@@ -140,6 +140,13 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
+    It "tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ（起動に失敗したときだけ notepad.exe を開く）" {
+        $bat = [System.IO.File]::ReadAllText($launcher)
+        $names = @([regex]::Matches($bat, '\b[A-Za-z0-9_]+\.exe\b') | ForEach-Object { $_.Value.ToLowerInvariant() } | Sort-Object -Unique)
+        (@($names | Where-Object { $_ -notin @("conhost.exe", "powershell.exe", "notepad.exe") }) -join ", ") | Should -Be ""
+        ($names -contains "notepad.exe") | Should -Be $true
+    }
+
     It "プロセスの強制終了は office_process.ps1 の 1 か所だけ（画面の［9 プロセス停止］）" {
         $stops = @($code | Where-Object { $_.Text -match 'Stop-Process' })
         $stops.Count | Should -Be 1
@@ -224,9 +231,42 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should -Not -Be ""
     }
 
+    It "起動に失敗したときの記録の置き場所は、固定の %LOCALAPPDATA%\tebunko・%TEMP% 配下だけ（gui.ps1・tebunko.bat）" {
+        $guiCode = @($code | Where-Object { $_.File -eq "gui.ps1" })
+        (findPattern $guiCode 'Join-Path\s+\$env:LOCALAPPDATA\s+"tebunko\\startup_error\.txt"') | Should -Not -Be ""
+        (findPattern $guiCode 'Join-Path\s+\$env:TEMP\s+"tebunko_startup_error\.txt"') | Should -Not -Be ""
+        $bat = [System.IO.File]::ReadAllText($launcher)
+        ($bat -match "Join-Path\s+\`$env:LOCALAPPDATA\s+'tebunko\\startup_error\.txt'") | Should -Be $true
+        ($bat -match "Join-Path\s+\`$env:TEMP\s+'tebunko_startup_error\.txt'") | Should -Be $true
+    }
+
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {
         (findPattern $code '"[A-Za-z]:\\(Windows|Program Files|Users)') | Should -Be ""
         (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should -Be ""
+    }
+
+    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 4 ファイルだけ" {
+        # NotContentIndexed 属性を直接書くのは setNotContentIndexed（fs.ps1）だけ
+        $writes = @($code | Where-Object { $_.Text -match "(?<!set)NotContentIndexed" -and $_.File -ne "fs.ps1" })
+        (@($writes | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        (findPattern $code 'function setNotContentIndexed') | Should -Not -Be ""
+
+        # 呼ぶのは全体に付ける indexer_run.ps1・入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1 の 4 ファイルだけ
+        $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
+        $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
+        $callerFiles.Count | Should -Be 4
+        ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
+        ($callerFiles -contains "index_store.ps1") | Should -Be $true
+        ($callerFiles -contains "pack_store.ps1") | Should -Be $true
+        ($callerFiles -contains "source_map.ps1") | Should -Be $true
+
+        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_store.ps1 は $bookDir、pack_store.ps1 は $folder）。
+        # -Recurse で content_index 全体をたどるのは indexer_run.ps1 だけ（入れた直後に付ける 3 ファイルは 1 か所ずつなので要らない）
+        (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
+        (findPattern $callers 'setNotContentIndexed\s+\$bookDir\)') | Should -Not -Be ""
+        (findPattern $callers 'setNotContentIndexed\s+\$folder\)') | Should -Not -Be ""
+        $recurseCallers = @($callers | Where-Object { $_.Text -match "-Recurse" } | ForEach-Object { $_.File } | Sort-Object -Unique)
+        ($recurseCallers -join ", ") | Should -Be "indexer_run.ps1"
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {

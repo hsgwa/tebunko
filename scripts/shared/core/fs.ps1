@@ -163,6 +163,103 @@ function fromLongPath {
     return $path
 }
 
+function setNotContentIndexed {
+    # フォルダ（またはファイル）に「内容のインデックスを作成しない」属性（NotContentIndexed）を付ける。
+    # 既に付いているものには付け直さない（Changed に数えない）ので、ほかの属性（読み取り専用など）は変えない。
+    #   Recurse 無し: path 自身と、フォルダなら直下のファイルに付ける（下のフォルダには付けない）
+    #   Recurse あり: path 自身と、下のすべてのフォルダ・ファイルに付ける
+    # Recurse でフォルダを渡したときは、根フォルダの属性を下より先に確かめる。既に付いていれば
+    # （前回すべて付け終えて根に付けたということなので）下はたどらず、GetAttributes 1 回だけで終える。
+    # 根の属性は、下をすべて付け終えて成功したときにだけ最後に付ける（列挙・付与の途中で失敗した回は
+    # 根に付けない。次回もう一度下からたどり直せるようにするため）。
+    # 1件ずつの失敗（アクセス拒否など）も、列挙そのものの失敗（無いパス・列挙の途中で読めなくなったフォルダなど）も
+    # 例外にせず、@{ Ok; Changed; Reason }（最初に見つかった理由を Reason に）を返す。
+    # 呼び出し元（インデックス作成）は、Ok が $false でも処理を止めず、ログに 1 行残すだけにする
+    param (
+        [string]$path,
+        [switch]$Recurse
+    )
+
+    $flag = [System.IO.FileAttributes]::NotContentIndexed
+    $state = getPathState $path
+    if ($state.State -ne ${pathStateFound}) {
+        $reason = if ($state.Message) { $state.Message } else { "パスが見つかりません（${path}）" }
+        return @{ Ok = $false; Changed = 0; Reason = $reason }
+    }
+
+    $long = toLongPath $path
+    $deferRoot = [bool]($Recurse -and $state.IsDirectory)
+    if ($deferRoot) {
+        try {
+            $rootAttrs = [System.IO.File]::GetAttributes($long)
+        } catch {
+            return @{ Ok = $false; Changed = 0; Reason = $_.Exception.Message }
+        }
+        if ($rootAttrs -band $flag) {
+            return @{ Ok = $true; Changed = 0; Reason = "" }
+        }
+    }
+
+    # 先に対象（path 自身と、必要なら中身）をすべて列挙してから属性を付ける。deferRoot のときは
+    # 根自身をここでは含めず、下だけを集める（根は下がすべて終わったあとに付ける）。
+    # 列挙そのものが例外になったら（途中で消えた・読めないフォルダがあるなど）、途中まで集めた分は捨てて Ok=$false にする
+    $items = New-Object System.Collections.Generic.List[object]
+    if (!$deferRoot) {
+        $items.Add(@{ Path = $path; IsDirectory = $state.IsDirectory })
+    }
+    try {
+        if ($state.IsDirectory) {
+            $dirInfo = New-Object System.IO.DirectoryInfo $long
+            if ($Recurse) {
+                foreach ($entry in $dirInfo.EnumerateFileSystemInfos("*", [System.IO.SearchOption]::AllDirectories)) {
+                    $items.Add(@{ Path = (fromLongPath $entry.FullName); IsDirectory = ($entry -is [System.IO.DirectoryInfo]) })
+                }
+            } else {
+                foreach ($file in $dirInfo.EnumerateFiles("*", [System.IO.SearchOption]::TopDirectoryOnly)) {
+                    $items.Add(@{ Path = (fromLongPath $file.FullName); IsDirectory = $false })
+                }
+            }
+        }
+    } catch {
+        return @{ Ok = $false; Changed = 0; Reason = $_.Exception.Message }
+    }
+
+    $changed = 0
+    $ok = $true
+    $reason = ""
+    foreach ($item in $items) {
+        try {
+            # フォルダ・ファイルどちらも [System.IO.File]::Get/SetAttributes で扱う（Directory クラスには同名のメソッドが無い）
+            $itemLong = toLongPath $item.Path
+            $attrs = [System.IO.File]::GetAttributes($itemLong)
+            if ($attrs -band $flag) {
+                continue
+            }
+            [System.IO.File]::SetAttributes($itemLong, ($attrs -bor $flag))
+            $changed++
+        } catch {
+            $ok = $false
+            if (!$reason) {
+                $reason = $_.Exception.Message
+            }
+        }
+    }
+
+    if ($deferRoot -and $ok) {
+        try {
+            [System.IO.File]::SetAttributes($long, ($rootAttrs -bor $flag))
+            $changed++
+        } catch {
+            $ok = $false
+            if (!$reason) {
+                $reason = $_.Exception.Message
+            }
+        }
+    }
+
+    return @{ Ok = $ok; Changed = $changed; Reason = $reason }
+}
+
 function removeDirectoryRetry {
     # フォルダを中身ごと削除する。ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
     param (
