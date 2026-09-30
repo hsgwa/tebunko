@@ -2239,6 +2239,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#暗号化されたファイルの判定office_protectionps1office_protection_viewps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        暗号化されたファイルの判定（office_protection.ps1・office_protection_view.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2725,6 +2736,8 @@
       
         
       
+        
+      
     
     
     
@@ -3169,6 +3182,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3863,6 +4101,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#暗号化されたファイルの判定office_protectionps1office_protection_viewps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        暗号化されたファイルの判定（office_protection.ps1・office_protection_view.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3941,19 +4190,112 @@
     A["extractDocument(パス)"] --&gt; CP["作業領域に source.#lt;拡張子#gt; としてコピー&lt;br&gt;（copyFileShared。元のファイルを占有しない）"]
     CP --&gt; Z{"コピーの先頭が&lt;br&gt;ZIP のシグネチャ（PK）？"}
     Z -- はい --&gt; R["コピーをそのまま読む（6.4〜6.6）&lt;br&gt;readDocxUnits / readPptxUnits"]
-    Z -- "いいえ&lt;br&gt;（旧形式・パスワード付き・&lt;br&gt;拡張子と中身が異なる）" --&gt; PC{"PowerPoint で、先頭が&lt;br&gt;複合ドキュメント形式でない？"}
+    Z -- いいえ --&gt; K{"暗号化の種類&lt;br&gt;（下の「暗号化されたファイルの判定」）"}
+    K -- "Password・Rights" --&gt; ERR2["Officeを使わずに失敗&lt;br&gt;（throwProtectionFailure）"]
+    K -- "Unknown（形式の分からないバイナリ）" --&gt; FB{"アプリごとの&lt;br&gt;予備の切り替えが有効？"}
+    FB -- いいえ --&gt; ERR2
+    FB -- はい --&gt; C2["拡張子は変えず、Wordは形式を固定して開く&lt;br&gt;（Format はテキスト自動判定にしない）"]
+    C2 --&gt; O2{"開けた？"}
+    O2 -- いいえ --&gt; ERR3["元の例外をログに書き、&lt;br&gt;『暗号化されているか壊れている』に言い換えて失敗"]
+    O2 -- はい --&gt; S2["converted.docx / converted.pptx として保存"]
+    K -- "Legacy・Text（旧形式・空・RTF・HTML等）" --&gt; PC{"PowerPoint で、先頭が&lt;br&gt;複合ドキュメント形式でない？"}
     PC -- はい --&gt; ERR
     PC -- いいえ --&gt; C["コピーの名前を source.doc / source.ppt に変える"]
     C --&gt; O{"Word / PowerPoint で開く&lt;br&gt;（4.5 / 4.6）"}
     O -- "開けない&lt;br&gt;（パスワード付き等）" --&gt; ERR["例外 → 取り込み一覧に『失敗』と記録"]
     O -- 開けた --&gt; S["converted.docx / converted.pptx として保存"]
-    S --&gt; R2["保存したファイルを読む（6.4〜6.6）"]
+    S &amp; S2 --&gt; OC{"出力の先頭がZIP？&lt;br&gt;（testOfficeOutput）"}
+    OC -- いいえ --&gt; ERR4["『ファイルを暗号化する製品が&lt;br&gt;一時ファイルを暗号化した』に失敗"]
+    OC -- はい --&gt; R2["保存したファイルを読む（6.4〜6.6）"]
     R &amp; R2 --&gt; W["writeUnits: 場所ごとに&lt;br&gt;#lt;場所#gt;.tsv を作業領域に出力&lt;br&gt;（空の場所は出力しない）"]
     W --&gt; D["作業領域のコピー・変換したファイルを削除（finally）"]</code></pre>
 <ul>
 <li>元のファイルは直接読まず、先に作業領域へコピーする（Excel と同じく <code>copyFileShared</code>。<a href="../excel/">Excel</a> の補足）。ZIP を直接開くと、読んでいる間ほかのアプリの書き込みを拒否するうえ、利用者が編集中（書き込みで開いている）のファイルは共有違反で読めないため。</li>
-<li>コピーに旧形式の拡張子を付けてから開くのは、Word・PowerPoint が拡張子と中身が異なるファイル（中身が <code>.doc</code> の <code>.docx</code> 等）を開けないため。</li>
-<li>パスワード付きの <code>.docx</code> <code>.pptx</code> は暗号化されて ZIP ではなくなるため、この経路で Word・PowerPoint に開かせ、例外として取り込み一覧に「失敗」と記録する。</li>
+<li>ZIP でないコピーは、開く前に<strong>暗号化の種類</strong>を判定する（下の「暗号化されたファイルの判定」）。パスワード付き（新形式）・IRM は Word・PowerPoint を起動せずに失敗にする。旧形式・テキストらしい内容は今までどおり開く。</li>
+<li>コピーに旧形式の拡張子を付けてから開くのは、Word・PowerPoint が拡張子と中身が異なるファイル（中身が <code>.doc</code> の <code>.docx</code> 等）を開けないため。「形式の分からないバイナリ」（下記）は拡張子を変えない。</li>
+<li>パスワード付きの <code>.docx</code> <code>.pptx</code> は、Word・PowerPointを起動せずに失敗にする（下記）。Excel はパスワード付きでもそのまま <code>Workbooks.Open</code> に任せる（<a href="../excel/">Excel</a> の判定）。</li>
+</ul>
+<h2 id="暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定（<code>office_protection.ps1</code>・<code>office_protection_view.ps1</code>）<a class="headerlink" href="#暗号化されたファイルの判定office_protectionps1office_protection_viewps1" title="Permanent link">&para;</a></h2>
+<p>直接読み（ZIP）が開けないファイルを Office で開く前に、ファイルを開かず（Office を使わず）先頭バイト列と、複合ドキュメント形式（CFB。<a href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cfb/">[MS-CFB]</a>）のディレクトリのエントリ名だけで種類を見分ける。パスワード付き・IRM・秘密度ラベルの暗号化は、Office を起動するとダイアログ・サインイン画面が見えないまま出て止まりうるため、開く前に見分けて避ける。</p>
+<p>判断層（<code>scripts/shared/office/office_protection_view.ps1</code>）が種類・文言を決め、状態層（<code>scripts/shared/office/office_protection.ps1</code>）がファイルの先頭バイト列（<code>readFileHead</code>）と CFB のディレクトリのエントリ名（<code>readCompoundEntryNames</code>）を読む。判断層はファイル・COM に触らないためテストが書ける（<a href="../../testing/unit-office/">単体テスト（Officeまわり）</a>）。</p>
+<table>
+<thead>
+<tr>
+<th>種類</th>
+<th>見分け方（開かずに）</th>
+<th>扱い</th>
+<th>取り込み一覧のエラー列</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Zip</code></td>
+<td>先頭が ZIP のシグネチャ（<code>PK 03 04</code>）</td>
+<td>直接読む（今と同じ）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>Password</code></td>
+<td>CFB で <code>StrongEncryptionDataSpace</code>・<code>EncryptionInfo</code> のいずれかを持つ</td>
+<td><strong>Word・PowerPointはOfficeを起動せずに失敗</strong>（Excel は今までどおり <code>Workbooks.Open</code> に任せる。既定のパスワードで暗号化されたブックを開けなくしないため）</td>
+<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）</code></td>
+</tr>
+<tr>
+<td><code>Rights</code></td>
+<td>CFB で権限保護の名前（下表）のいずれかを持つ。または <code>\x06DataSpaces</code>（データスペース）はあるが、権限保護・パスワードの名前を1つも取りこぼした場合（安全側に倒す）</td>
+<td><strong>Officeを起動せずに失敗</strong>（ライセンス取得・サインイン画面を防ぐ）</td>
+<td><code>IRM・秘密度ラベルで暗号化されているため取り込めません。</code></td>
+</tr>
+<tr>
+<td><code>Legacy</code></td>
+<td>CFB で、上のどれでもない（旧形式 <code>.doc</code> <code>.xls</code> <code>.ppt</code>、CFB のディレクトリが読めなかった壊れたファイルを含む）</td>
+<td>今と同じ（Officeで開く。ダミーのパスワードで失敗）</td>
+<td>今と同じ</td>
+</tr>
+<tr>
+<td><code>Text</code></td>
+<td>ZIPでもCFBでもなく、先頭4KBにNUL（<code>0x00</code>）を含まない（空・RTF・HTML・UTF-8・UTF-16のBOM付きを含む）</td>
+<td>今と同じ（Officeで開く）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>Unknown</code></td>
+<td>ZIPでもCFBでもなく、先頭4KBにNULを含む（透過暗号化の製品の暗号文の見込み）</td>
+<td><strong>予備</strong>: アプリごとの切り替え（<code>${officeFallbackEnabled}</code>）が有効なら、拡張子を変えずに（Wordは<code>Format</code>も拡張子に合わせて固定して）Officeに開かせる。無効・開けない・出力の確かめに失敗したら、Officeを使わず（または使ってしまった分は元の例外をログに書いて）失敗にする</td>
+<td><code>暗号化されているか壊れているため取り込めません。</code></td>
+</tr>
+</tbody>
+</table>
+<p>権限保護（IRM・秘密度ラベル）の CFB のエントリ名（<a href="https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/">[MS-OFFCRYPTO]</a> の IRMDS）:</p>
+<table>
+<thead>
+<tr>
+<th>形式</th>
+<th>名前</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>新形式</td>
+<td><code>DRMEncryptedDataSpace</code>・<code>DRMEncryptedTransform</code>（<code>\x06DataSpaces</code> の配下）</td>
+</tr>
+<tr>
+<td>旧形式</td>
+<td><code>\x09DRMContent</code>（必須）・<code>\x09DRMDataSpace</code>・<code>\x09DRMTransform</code>（任意で <code>\x09DRMViewerContent</code>・<code>\x09LZXDRMDataSpace</code>・<code>\x09LZXTransform</code>）</td>
+</tr>
+</tbody>
+</table>
+<p>（<code>\x06</code>・<code>\x09</code> は制御文字 0x06・0x09 で始まる名前を表す）</p>
+<ul>
+<li><strong>CFBのディレクトリの読み取り（<code>readCompoundEntryNames</code>）は、壊れたファイルでも例外を出さず、決まった時間で戻る</strong>。FATの鎖が輪になる・範囲外のセクターを指す・ディレクトリが途中で切れる、のいずれでも、たどった鎖を打ち切って読めた分だけを返す（読めなければ <code>$null</code>。判断層は <code>$null</code> を <code>Legacy</code> として扱う）。ミニFAT・ストリームの中身は読まない（エントリ名だけが目的のため）。</li>
+<li><strong>Officeの出力も確かめる</strong>（<code>testOfficeOutput</code>）。透過暗号化の製品が、Officeの保存した一時ファイル（変換した <code>.docx</code>・<code>.pptx</code>、<a href="../excel/">Excel</a> のテキスト保存）まで暗号化することがあるため、種類によらずすべての出力で先頭バイト列（ZIP・UTF-16のBOM）を確かめる。合わなければ <code>ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。</code> にする。</li>
+<li><strong>予備で開くときの守り</strong>（<code>Unknown</code> のときだけ。固まらない・暗号文を索引に入れない）:</li>
+<li>Word: <code>Documents.Open</code> の <code>Format</code> を拡張子に合う <code>WdOpenFormat</code> の値に固定する（<code>getWordOpenFormat</code>。自動判定に任せると文字コードを選ぶダイアログが出ることがある）。</li>
+<li>Excel: 開いた後の <code>Workbook.FileFormat</code> がテキスト・HTML・CSV等でないことを確かめる（<code>testWorkbookFormat</code>）。<code>Text</code>（中身がHTMLの <code>.xls</code> 等）には当てない。</li>
+<li>PowerPoint: 拡張子を変えずに開く（<code>.ppt</code> に変えるとアウトラインとして読むため）。</li>
+<li>実機で数秒以内に例外にならない・ダイアログが出るアプリは、<code>${officeFallbackEnabled}</code> でそのアプリの予備を無効にする（<a href="../known-issues/">Word・PowerPointの注意点・既知の問題</a>）。</li>
+<li><strong>判定で失敗にしたときは、Officeの起動し直し（<code>stopApp</code>）を呼ばない</strong>（<code>throwProtectionFailure</code> が例外の <code>Data</code> に印を付け、<code>invokeIngestTask</code> がそれを見る）。IRM・パスワード付きのファイルが並んでも、そのたびにOfficeを起動し直さないため。Officeを一度使ってから失敗にしたとき（予備で開けた後に出力が合わない等）は、今までどおり起動し直す。</li>
+<li>Excel は、コピーが ZIP でないときにこの判定を呼ぶ（<a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>）。読み取りのスレッド（Office を持たない）では、<code>Password</code>・<code>Rights</code> はその場で失敗にし、<code>Unknown</code>（予備が有効なとき）は今の旧形式と同じく Office のレーンに回し直す。</li>
 </ul>
 <blockquote>
 <p><strong><a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a> Word の旧形式の変換（<code>extractWithWord</code>）</strong> → <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a></p>

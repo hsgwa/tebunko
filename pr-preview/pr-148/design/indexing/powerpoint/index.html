@@ -2686,6 +2686,8 @@
       
         
       
+        
+      
     
     
     
@@ -3130,6 +3132,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3875,19 +4102,19 @@
 <tbody>
 <tr>
 <td>開く前の確認</td>
-<td>ファイルの先頭が複合ドキュメント形式（旧形式・パスワード付きの Office ファイル。<code>D0 CF 11 E0 A1 B1 1A E1</code>、<code>isCompoundFile</code>）でなければ、PowerPoint で開かずに失敗とする（<code>ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。</code>）。PowerPoint はテキストなどのファイルもアウトラインとして開いてしまい、文字化けした内容になるため（◎ テストデータの <code>PowerPoint\異常系\壊れたファイル.pptx</code>）。Word はテキスト・HTML・RTF も正しく読めるため、この確認はしない</td>
+<td>暗号化の種類（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）を判定する。パスワード付き（新形式）・IRM は、PowerPoint を起動せずに失敗にする。「Legacy」（旧形式・判定できないCFB）・「Text」（空・テキスト等）は、先頭が複合ドキュメント形式（<code>D0 CF 11 E0 A1 B1 1A E1</code>、<code>isCompoundFile</code>）でなければ、PowerPoint で開かずに失敗とする（<code>ファイルが壊れているか、PowerPointのファイルではありません（新形式（ZIP）でも旧形式でもない内容です）。</code>）。PowerPoint はテキストなどのファイルもアウトラインとして開いてしまい、文字化けした内容になるため（◎ テストデータの <code>PowerPoint\異常系\壊れたファイル.pptx</code>）。Word はテキスト・HTML・RTF も正しく読めるため、この確認はしない。「形式の分からないバイナリ」（<code>Unknown</code>）は、アプリごとの予備の切り替えが有効なときだけ、この確認をせずに開かせる</td>
 </tr>
 <tr>
 <td>開き方</td>
-<td><code>Presentations.Open("パス::dummy::", ReadOnly=True, Untitled=False, WithWindow=False)</code></td>
+<td><code>Presentations.Open("パス::dummy::", ReadOnly=True, Untitled=False, WithWindow=False)</code>。「形式の分からないバイナリ」も含め、拡張子は元のまま変えない（<code>.ppt</code> に付け替えるとアウトラインとして読むため）</td>
 </tr>
 <tr>
-<td>パスワード付きファイル</td>
-<td>ファイル名末尾の <code>::&lt;パスワード&gt;::</code> により、ダイアログを出さずに例外</td>
+<td>パスワード付きファイル（新形式）</td>
+<td><a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>で判定し、開かずに失敗にする。旧形式（<code>.ppt</code>）のパスワード付きは今までどおり、ファイル名末尾の <code>::&lt;パスワード&gt;::</code> により、ダイアログを出さずに例外</td>
 </tr>
 <tr>
 <td>保存</td>
-<td><code>SaveAs(converted.pptx, 24 = ppSaveAsOpenXMLPresentation)</code></td>
+<td><code>SaveAs(converted.pptx, 24 = ppSaveAsOpenXMLPresentation)</code>。保存した <code>.pptx</code> の先頭が ZIP でなければ「一時ファイルを暗号化した」に失敗にする（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
 </tr>
 <tr>
 <td>アプリの設定</td>
@@ -3895,6 +4122,7 @@
 </tr>
 </tbody>
 </table>
+<p>「形式の分からないバイナリ」で PowerPoint が数秒で例外にならない・ダイアログが出るとメンテナが判断した場合は、<code>${officeFallbackEnabled}</code> でこのアプリの予備を無効にする（<a href="../known-issues/#powerpoint-の注意点既知の問題">PowerPoint の注意点・既知の問題</a>）。無効なときは、PowerPoint を起動せずに <code>暗号化されているか壊れているため取り込めません。</code> にする。</p>
 <h2 id="powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所（<code>readPptxUnits</code>）<a class="headerlink" href="#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits" title="Permanent link">&para;</a></h2>
 <p><code>.pptx</code> は <a href="../office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>の共通の読み取り（<code>readXmlLines</code>、DrawingML の名前空間 <code>a:</code>）で読み、次の場所ごとに TSV にする。</p>
 <table>

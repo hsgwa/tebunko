@@ -2615,6 +2615,8 @@
       
         
       
+        
+      
     
     
     
@@ -3059,6 +3061,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -4091,6 +4318,14 @@
 <td>元のファイルを読み取りだけで開いてコピーする（ほかのアプリの読み書き・削除を妨げない）。インデックス作成は、このコピーを開く</td>
 <td><a href="../../../safety/file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a></td>
 <td>インデックス作成</td>
+</tr>
+<tr>
+<td><code>setNotContentIndexed</code></td>
+<td>path, Recurse（スイッチ）</td>
+<td><code>@{Ok; Changed; Reason}</code></td>
+<td>フォルダ（またはファイル）に「内容のインデックスを作成しない」属性を付ける。Recurse 無しは path 自身と直下のファイルだけ、あれば下のすべてに付ける。既に付いているものは Changed に数えない。Recurse でフォルダを渡したときは、根フォルダに既に付いていれば（前回すべて付け終えたとみなし）下はたどらず <code>GetAttributes</code> 1 回で終え、付いていなければ下をすべて付け終えて成功したときにだけ最後に根へ付ける（途中で失敗した回は根に付けない）。1 件ずつの失敗・列挙そのものの失敗も例外にせず Ok=<code>$false</code>・Reason を返す</td>
+<td><a href="../../index-data/publish/#windows-search-の対象から外すnotcontentindexed">Windows Search の対象から外す（<code>NotContentIndexed</code>）</a></td>
+<td>インデックス作成（<code>indexer_run.ps1</code>・<code>index_store.ps1</code>・<code>pack_store.ps1</code>・<code>source_map.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>getFolderKey</code></td>

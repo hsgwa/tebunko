@@ -2627,6 +2627,8 @@
       
         
       
+        
+      
     
     
     
@@ -3071,6 +3073,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -3816,7 +4043,7 @@
     T --&gt; F["getIndexPackFiles&lt;br&gt;そのフォルダの本文インデックス"]
     ALL --&gt; R["searchPackIndex（4.3 と同じ）"]
     F --&gt; R</code></pre>
-<p><strong><code>work/content_index</code> を Windows Search の対象から外す（推奨）</strong>: 本文インデックス（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（本文インデックスは <a href="../speed/">検索を速くする仕組み</a> の方式で読む）。ツールは Windows Search の設定を変えないため、利用者が［インデックスのオプション］で <code>work/content_index</code> を外す（README の「高速検索」）。</p>
+<p><strong><code>work/content_index</code> を Windows Search の対象から外す（自動）</strong>: 本文インデックス（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（本文インデックスは <a href="../speed/">検索を速くする仕組み</a> の方式で読む）。ツールは Windows Search の設定そのものは変えないが、<code>content_index</code> に入れたフォルダ・ファイルに「内容のインデックスを作成しない」属性（<code>NotContentIndexed</code>）を自分で付け、管理者の権限なしに索引の対象から外す（<a href="../../index-data/publish/">入出力先とワークスペース</a>）。管理者の権限が要る方法（検索の設定の API・グループポリシー）は採らない。属性で外れない環境（ワークスペースが FAT のドライブなど）では、利用者が［インデックスのオプション］で手で外す（README の「高速検索」）。</p>
 <p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。本文インデックスにする前の版で、TSV を照合したとき。本文インデックスでは、すべてを照合しても初回 38 秒（<a href="../speed/">検索を速くする仕組み</a>））:</p>
 <table>
 <thead>

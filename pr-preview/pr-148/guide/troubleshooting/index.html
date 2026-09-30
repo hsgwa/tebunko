@@ -2760,6 +2760,8 @@
       
         
       
+        
+      
     
     
     
@@ -3201,6 +3203,231 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../design/gui/screens/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画面設計（現行）
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_7_16" id="__nav_3_7_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_7_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    画面設計（現行）
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/gui/screens/window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    本体・共通の状態
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/gui/screens/index-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［1 インデックス管理］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/gui/screens/search-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［2 検索］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/gui/screens/settings-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［8 設定］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ［9 プロセス停止］タブ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -4017,7 +4244,7 @@
 </tr>
 <tr>
 <td>起動操作をしても画面が表示されない</td>
-<td>tebunko が既に起動していないか確認してください（既に起動している場合は、既存のウィンドウが前面に表示されます）。組織のポリシーで PowerShell の実行が制限されている場合は、<a href="../../safety/">安全性</a> の資料を添えて情報システム部門に確認してください</td>
+<td>tebunko が既に起動していないか確認してください（既に起動している場合は、既存のウィンドウが前面に表示されます）。組織のポリシーで PowerShell の実行が制限されている場合や、制限言語モード（AppLocker・WDAC）で許可されていない場合は、メモ帳（Notepad）に理由が表示されます。表示された案内に従い、<a href="../../safety/">安全性</a> の資料を添えて情報システム部門に確認するか、zip の展開し直しなどの対処をしてください。メモ帳が出ない場合（PowerShell 自体が見つからない・AppLocker の実行ファイルの規則で PowerShell の起動自体が止められている場合）は、Windows PowerShell 5.1 が有効か、Windows 自身が出す知らせが無いかを確認してください</td>
 </tr>
 <tr>
 <td>起動時に［8 設定］が表示される</td>
@@ -4105,6 +4332,18 @@
 <tr>
 <td>読み取りパスワードが設定されているため開けません</td>
 <td>取り込めません。パスワードを解除したコピーであれば取り込めます</td>
+</tr>
+<tr>
+<td>IRM・秘密度ラベルで暗号化されているため取り込めません</td>
+<td>取り込めません。保護を解除したコピーであれば取り込めます</td>
+</tr>
+<tr>
+<td>暗号化されているか壊れているため取り込めません</td>
+<td>透過型のファイル暗号化製品で暗号化されたファイルの見込みがあります。製品の設定で Office がそのファイルを平文で開けるようにするか、暗号化を解除したコピーを取り込んでください</td>
+</tr>
+<tr>
+<td>ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません</td>
+<td>上と同じ製品が、変換の途中でできる一時ファイルまで暗号化しています。同上の対処をしてください</td>
 </tr>
 <tr>
 <td>ファイルが壊れているか、拡張子と中身の形式が一致していません</td>
@@ -4203,10 +4442,14 @@
 <td><code>画面エラー.txt</code></td>
 <td>画面で発生した予期しないエラーの記録。追記されます</td>
 </tr>
+<tr>
+<td><code>startup_error.txt</code>（<code>%LOCALAPPDATA%\tebunko\startup_error.txt</code>。書き込めない場合は <code>%TEMP%\tebunko_startup_error.txt</code>）</td>
+<td>画面が表示される前に起動が失敗したときの記録。起動に失敗するたびに書き直されます。ワークスペースの外（固定の場所）にあります</td>
+</tr>
 </tbody>
 </table>
 <h2 id="サポート">サポート<a class="headerlink" href="#サポート" title="Permanent link">&para;</a></h2>
-<p><a href="https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md">サポート</a> を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。tebunko のバージョンは、画面右上の［⋯］→［tebunko について］で確認できます。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。</p>
+<p><a href="https://github.com/hsgwa/tebunko/blob/main/.github/SUPPORT.ja.md">サポート</a> を参照のうえ、GitHub の Issue でお問い合わせください。報告の際は、tebunko・Windows・Office のバージョンと、ログの該当部分を添えてください。tebunko のバージョンは、画面右上の［⋯］→［tebunko について］で確認できます。ログやファイル名に機密情報が含まれていないことを、事前に確認してください。<strong><code>startup_error.txt</code> にはツールを置いた場所（利用者名を含むパス）が入るため、公開の Issue に貼る前に書き換えるか確認してください。</strong></p>
 
 
 
