@@ -1880,6 +1880,8 @@
       
         
       
+        
+      
     
     
     
@@ -2245,6 +2247,34 @@
     
   
     Word・PowerPoint の共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキストファイルの読み取り
   
 
     
@@ -4114,7 +4144,7 @@
 <li>1 ファイルずつ調べると件数の分だけ時間がかかるため、取り込み対象を調べる前に、インデックスのフォルダとファイルをそれぞれ 1 回ずつ列挙して数える（<code>getIndexTsvCounts</code>。本文インデックスのファイルはそのファイルの相対パス → 1（0 バイトなら壊れている印）、本文インデックスに入れる前の TSV はフォルダの相対パス → TSV の数。大きさは列挙のときに分かる）。列挙できない場合（アクセス権が無い等）は確認しない。TSV 数を記録していない行も、本文インデックスのファイルが無ければ確認しない。</li>
 <li>本文インデックスのファイルの<strong>中身の書き換え・一部の欠け</strong>（手で編集した等、0 バイトでないもの）までは分からない（本文インデックスのファイルの中の元のファイルごとの場所の数は数えない）。その場合は画面でインデックスを［削除］してから作成し直す（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）。</li>
 <li><strong>元ファイルが無くなったファイル</strong>（削除・名前変更・移動）は、そのファイルのインデックスのフォルダ（<code>work/content_index/&lt;相対パス&gt;</code>。本文インデックスに入れる前の TSV）があれば削除して一覧から除き、相対パスを <code>Removed</code> で返す。インデクサはそのフォルダを書き出し待ちにし、本文インデックスから外す（<a href="../../index-data/publish/">入れ替えと書き出し</a>「本文インデックスへの書き出し」）。<code>元ファイルが無くなった N 件は、インデックスから除きます。</code> を表示する。ただし、クロール中にアクセスできないフォルダがあった場合は、見つからないだけの可能性があるため削除せず一覧に残し、その旨を表示する。</li>
-<li>フォルダごとに <code>[&lt;インデックス名&gt;] &lt;パス&gt;</code> と、クロール後に <code>[&lt;インデックス名&gt;] Officeファイル N 件（取り込み済み A 件 / 新規 B 件 / 更新あり C 件 / 前回未完了 D 件 / 前回失敗 E 件）</code> を表示する。インデックスが無くなった・壊れているファイルがあるときだけ <code>/ インデックスが無い・壊れている F 件</code> を付け、続けて <code>インデックス（TSV）が無くなった・壊れている F 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）</code> を表示する。チェックなしのフォルダは <code>… チェックなしのため取り込みません（インデックスはそのまま残します）</code> と表示する。</li>
+<li>フォルダごとに <code>[&lt;インデックス名&gt;] &lt;パス&gt;</code> と、クロール後に <code>[&lt;インデックス名&gt;] 対象ファイル N 件（取り込み済み A 件 / 新規 B 件 / 更新あり C 件 / 前回未完了 D 件 / 前回失敗 E 件）</code> を表示する。インデックスが無くなった・壊れているファイルがあるときだけ <code>/ インデックスが無い・壊れている F 件</code> を付け、続けて <code>インデックス（TSV）が無くなった・壊れている F 件は取り込み直します。（インデックスを直接削除した・0 バイトのTSVが残っている）</code> を表示する。チェックなしのフォルダは <code>… チェックなしのため取り込みません（インデックスはそのまま残します）</code> と表示する。</li>
 <li>インデックス作成中は <code>[i/N] &lt;インデックス名&gt;\&lt;相対パス&gt;</code> を表示する。元ファイルのパスは、相対パスの先頭のインデックス名からクロール対象フォルダを引いて求める。</li>
 </ul>
 <h2 id="取り込み予定画面の確認に出す件数">取り込み予定（画面の確認に出す件数）<a class="headerlink" href="#取り込み予定画面の確認に出す件数" title="Permanent link">&para;</a></h2>
@@ -4144,15 +4174,16 @@
     Done --&gt; [*] : 元ファイルが無くなった（本文インデックスから外す）
     Failed --&gt; [*] : 元ファイルが無くなった
     New --&gt; [*] : 元ファイルが無くなった（取り込みの直前に無くなった場合を含む）</code></pre>
-<p>クロールで列挙するファイルの条件（<code>findOfficeFiles</code>）:</p>
+<p>クロールで列挙するファイルの条件（<code>findTargetFiles</code>）:</p>
 <ul>
-<li>拡張子が <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>（大文字・小文字を区別しない）。テンプレート（<code>.xltx</code> <code>.dotx</code> <code>.potx</code> 等）は対象外</li>
+<li>拡張子が <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>（Office）または <code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code>（テキスト。<a href="../text/">テキストファイルの読み取り</a>）（大文字・小文字を区別しない）。テンプレート（<code>.xltx</code> <code>.dotx</code> <code>.potx</code> 等）は対象外</li>
 <li>ファイル名が <code>~$</code> で始まるもの（Office のロックファイル）は除外</li>
 <li>アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）</li>
-<li>相対パスは、実際に列挙したフォルダ（<code>Resolve-Path</code> で解決した <code>Root</code>。<code>findOfficeFiles</code> が返す）から求める。列挙したファイルのパスが <code>\\?\</code> 付きの <code>Root</code> で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ <code>getPathUnderFolder</code> で求める。
+<li>相対パスは、実際に列挙したフォルダ（<code>Resolve-Path</code> で解決した <code>Root</code>。<code>findTargetFiles</code> が返す）から求める。列挙したファイルのパスが <code>\\?\</code> 付きの <code>Root</code> で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ <code>getPathUnderFolder</code> で求める。
   設定に書かれたパスとは書き方が違うことがあるため（末尾の <code>\</code>、<code>\\?\</code> 付き、<code>.</code> ・ <code>..</code> を含む、<code>/</code> 区切り）、設定のパスの文字数では切り出さない</li>
+<li>tebunko が作ったファイル（今のワークスペースの中身・<code>取り込み一覧.tsv</code> の印があるほかのワークスペースの中身・名前で分かる本文インデックスやシステムインデックス）は対象に含めない（テキストの拡張子（<code>.tsv</code> 等）でこれらを拾わないため。詳細は <a href="../text/#tebunko-が作ったファイルの除外">テキストファイルの読み取り</a>）</li>
 </ul>
-<p>各ファイルは拡張子で抽出方法を振り分ける（<code>ingestFile</code>）。<code>.xls*</code> は <a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>（Excel、<a href="../excel/">Excel</a>）、<code>.doc*</code> <code>.ppt*</code> は <a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>（Word・PowerPoint 共通、<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>）と <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a>（Word、<a href="../word/">Word</a>）・<a href="../powerpoint/#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a>（PowerPoint、<a href="../powerpoint/">PowerPoint</a>）。
+<p>各ファイルは拡張子で抽出方法を振り分ける（<code>ingestFile</code>）。<code>.xls*</code> は <a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>（Excel、<a href="../excel/">Excel</a>）、<code>.doc*</code> <code>.ppt*</code> は <a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>（Word・PowerPoint 共通、<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>）と <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a>（Word、<a href="../word/">Word</a>）・<a href="../powerpoint/#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a>（PowerPoint、<a href="../powerpoint/">PowerPoint</a>）。テキストの拡張子は <a href="../text/#テキストファイルの抽出処理extracttextfile">テキストファイルの抽出処理</a>（<code>extractTextFile</code>）。
 成功時は <code>TSV N 件を作成しました。</code> を表示する。</p>
 
 

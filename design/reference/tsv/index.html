@@ -1878,6 +1878,8 @@
       
         
       
+        
+      
     
     
     
@@ -2174,6 +2176,34 @@
     
   
     Word・PowerPoint の共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキストファイルの読み取り
   
 
     
@@ -3962,6 +3992,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#テキストファイルの読み取りsharedcoretext_fileps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストファイルの読み取り（shared/core/text_file.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#インデックスへの配置tebunkoindexindex_storeps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4095,6 +4136,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#テキストファイルの読み取りsharedcoretext_fileps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストファイルの読み取り（shared/core/text_file.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#インデックスへの配置tebunkoindexindex_storeps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4212,9 +4264,9 @@
 </tr>
 <tr>
 <td><code>describeHitPlace</code></td>
-<td>place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber</td>
+<td>place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber, isText（既定 <code>$false</code>）</td>
 <td>string</td>
-<td>結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。<code>[シート]売上!B12</code>・<code>[シート]売上!B12 ほか 2</code>・<code>[シート]売上 12 行目</code>。図形・コメントは <code>[シート]売上!D5</code>。Word・PowerPoint は場所ごとのまま）</td>
+<td>結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。<code>[シート]売上!B12</code>・<code>[シート]売上!B12 ほか 2</code>・<code>[シート]売上 12 行目</code>。図形・コメントは <code>[シート]売上!D5</code>。Word・PowerPoint は場所ごとのまま。テキストは <code>isText</code> が真なら行番号だけ <code>12 行目</code>）</td>
 <td><a href="../../gui/search-tab/#結果の表">結果の表</a></td>
 <td>画面（<code>prepareHitRow</code>）</td>
 </tr>
@@ -4307,6 +4359,98 @@
 </tr>
 </tbody>
 </table>
+<h2 id="テキストファイルの読み取りsharedcoretext_fileps1">テキストファイルの読み取り（<code>shared/core/text_file.ps1</code>）<a class="headerlink" href="#テキストファイルの読み取りsharedcoretext_fileps1" title="Permanent link">&para;</a></h2>
+<p>詳細は <a href="../../indexing/text/">テキストファイルの読み取り</a>。バイト列から判定する関数はファイルを読み書きしない（<code>readTextFile</code> だけがファイルに触る）。</p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>testTextExtension</code></td>
+<td>path</td>
+<td>bool</td>
+<td>拡張子が対象のテキストの拡張子（<code>$textExtensions</code>。大文字・小文字を区別しない）か</td>
+<td>ingestFile, getPackFileKind, describePlace, getAppKind, findTargetFiles（<code>$targetExtensions</code>）</td>
+</tr>
+<tr>
+<td><code>detectTextEncoding</code></td>
+<td>bytes</td>
+<td>string / <code>$null</code></td>
+<td>バイト列だけから文字コード（<code>UTF8</code> / <code>UTF16LE</code> / <code>UTF16BE</code> / <code>ShiftJIS</code> / <code>EUCJP</code> / <code>ISO2022JP</code>）を判定する。判定できない・あいまいなものは <code>$null</code>（取り込まない）</td>
+<td>readTextFile</td>
+</tr>
+<tr>
+<td><code>detectJapaneseUtf16WithoutNul</code></td>
+<td>bytes</td>
+<td>string / <code>$null</code></td>
+<td>NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（<code>UTF16LE</code> / <code>UTF16BE</code>）</td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>getIso2022JpVerdict</code></td>
+<td>bytes</td>
+<td>string</td>
+<td>ISO-2022-JP かの判定（<code>yes</code> / <code>broken</code>（ESC $ B があるが 8 ビット・規格外の ESC がある）/ <code>none</code>）</td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>detectLegacyJapaneseEncoding</code></td>
+<td>bytes</td>
+<td>string / <code>$null</code></td>
+<td>UTF-8 として読めなかったバイト列が Shift_JIS か EUC-JP か。決まらなければ <code>$null</code></td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>testHalfWidthKanaNatural</code></td>
+<td>text</td>
+<td>bool</td>
+<td>半角カナの多い文字列が、濁点・半濁点の位置など半角カナの並びとして自然か</td>
+<td>detectLegacyJapaneseEncoding</td>
+</tr>
+<tr>
+<td><code>tryDecodeStrict</code></td>
+<td>bytes, codePage</td>
+<td>string / <code>$null</code></td>
+<td>読めないバイト列があれば <code>$null</code>、読めれば文字列</td>
+<td>detectTextEncoding</td>
+</tr>
+<tr>
+<td><code>testTextPlausible</code></td>
+<td>text</td>
+<td>bool</td>
+<td>制御文字・私用領域・U+FFFD を含まない（テキストとして自然）か</td>
+<td>detectLegacyJapaneseEncoding</td>
+</tr>
+<tr>
+<td><code>decodeTextBytes</code></td>
+<td>bytes, encodingName</td>
+<td>string</td>
+<td><code>detectTextEncoding</code> が返した文字コードで、バイト列を文字列にする（BOM は取り除く）</td>
+<td>readTextFile</td>
+</tr>
+<tr>
+<td><code>splitTextLines</code></td>
+<td>text</td>
+<td>string[]</td>
+<td><code>StreamReader.ReadLine</code> と同じ分け方（CRLF・LF・CR）で行に分ける。途中の空の行は残し、行末の空白は取り除き、末尾の空の行は捨てる</td>
+<td>readTextFile</td>
+</tr>
+<tr>
+<td><code>readTextFile</code></td>
+<td>path, maxBytes（既定 <code>$textFileMaxBytes</code>）</td>
+<td>string[]</td>
+<td>ファイルを読み取り専用の共有で開き、大きさの上限・文字コードを確かめてから行の並びにする。上限超え・バイナリは例外（<a href="../../indexing/errors/#ファイルごとの失敗取り込み一覧のエラー列">エラーメッセージ一覧</a>）</td>
+<td>extractTextFile</td>
+</tr>
+</tbody>
+</table>
 <h2 id="インデックスへの配置tebunkoindexindex_storeps1">インデックスへの配置（<code>tebunko/index/index_store.ps1</code>）<a class="headerlink" href="#インデックスへの配置tebunkoindexindex_storeps1" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4363,8 +4507,8 @@
 <td><code>getPackFileKind</code></td>
 <td>book</td>
 <td>string</td>
-<td>元のファイル名から種類（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code>。分からなければ空）</td>
-<td>convertToPackText, convertPlaceToPackMeta</td>
+<td>元のファイル名から種類（<code>Excel</code> / <code>Word</code> / <code>PowerPoint</code> / <code>テキスト</code>。分からなければ空）</td>
+<td>convertToPackText, convertPlaceToPackMeta, describePlace, getAppKind, searchPackFiles（長い行を切るかの判定）, readPackContext</td>
 </tr>
 <tr>
 <td><code>getPackExtension</code> / <code>getPackFileName</code> / <code>readPackFileName</code></td>

@@ -1878,6 +1878,8 @@
       
         
       
+        
+      
     
     
     
@@ -2174,6 +2176,34 @@
     
   
     Word・PowerPoint の共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキストファイルの読み取り
   
 
     
@@ -4353,12 +4383,12 @@ B2→確定版
 </tr>
 <tr>
 <td><code>種類</code></td>
-<td><code>Excel</code> / <code>Word</code> / <code>PowerPoint</code></td>
+<td><code>Excel</code> / <code>Word</code> / <code>PowerPoint</code> / <code>テキスト</code></td>
 <td>元のファイルの種類（拡張子から決める）</td>
 </tr>
 <tr>
 <td><code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code></td>
-<td>シート名 / ページ番号 / スライド番号 / それ以外の場所の名前（<code>ヘッダー・フッター</code> など）</td>
+<td>シート名 / ページ番号 / スライド番号 / それ以外の場所の名前（<code>ヘッダー・フッター</code> など。テキストは場所が 1 つだけのため常に <code>本文</code>）</td>
 <td>ここから新しい場所が始まる</td>
 </tr>
 <tr>
@@ -4377,6 +4407,7 @@ B2→確定版
 <li>知らないキーは読み飛ばし、無いキーは既定の値とみなす（後の版でキーを足しても、前の版の読み方で読める）。</li>
 <li>画面・検索結果に出す場所の名前は、メタ情報から TSV のときと同じ形に組み立て直す（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など）。TSV のファイル名（場所の名前）からメタ情報へは <code>convertPlaceToPackMeta</code> で分け、組み立て直して同じ名前にならないもの（番号の桁が違う等）は <code>部分=&lt;名前そのまま&gt;</code> にする。</li>
 <li>メタ情報の行は検索しない（ファイル名・シート名の語には一致しない。<a href="../../search/speed/">検索を速くする仕組み</a>）。</li>
+<li><strong>テキストファイル</strong>（<code>.txt</code> 等）は、場所が「本文」の 1 つだけ（<code>部分=本文</code>・<code>対象=本文</code>）。行番号がそのまま元のファイルの行番号になる（<a href="../../indexing/text/">テキストファイルの読み取り</a>）。</li>
 </ul>
 <h3 id="図形コメントの場所excelwordpowerpoint-で共通の決まり">図形・コメントの場所（Excel・Word・PowerPoint で共通の決まり）<a class="headerlink" href="#図形コメントの場所excelwordpowerpoint-で共通の決まり" title="Permanent link">&para;</a></h3>
 <p>本文（セル・段落）以外の文字は、<strong><code>&lt;元の場所&gt;[&lt;種類&gt;]</code></strong> という場所（TSV）に分けて出力する。種類ごとに、検索に含めるかを画面で選べる（［図形も検索］［コメントも検索］。<a href="../../search/">検索</a> の検索仕様）。</p>

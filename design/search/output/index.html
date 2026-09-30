@@ -1878,6 +1878,8 @@
       
         
       
+        
+      
     
     
     
@@ -2174,6 +2176,34 @@
     
   
     Word・PowerPoint の共通処理と Office アプリの管理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../indexing/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキストファイルの読み取り
   
 
     
@@ -2633,6 +2663,17 @@
     <span class="md-ellipsis">
       
         ファイル名・場所の求め方（readPackPlaces）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#長い行を切る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        長い行を切る
       
     </span>
   </a>
@@ -4083,6 +4124,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#長い行を切る" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        長い行を切る
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4176,6 +4228,11 @@
 <td><code>スライド 2</code></td>
 <td>ノート</td>
 </tr>
+<tr>
+<td><code>本文</code>（テキストファイル。場所は 1 つだけ）</td>
+<td>（空）</td>
+<td>本文</td>
+</tr>
 </tbody>
 </table>
 <ul>
@@ -4245,6 +4302,14 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 <li>検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
 </ul>
 <p>場所の付け方は <a href="../../indexing/">インデックス作成</a> の <a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>・<a href="../../index-data/format/#場所の符号化encodeindexplace--decodeindexplace">場所の符号化</a> を参照。</p>
+<h2 id="長い行を切る">長い行を切る<a class="headerlink" href="#長い行を切る" title="Permanent link">&para;</a></h2>
+<p>テキストファイル（<code>.txt</code> 等）は、1 行に数 MB の内容が入ることがある（<code>.json</code> <code>.xml</code> <code>.log</code> など）。取り込み・検索の一致そのものは行を切らずに行う（行番号と検索の一致がずれないため）が、結果の表・プレビュー・この検索結果ファイル・画面の［コピー］に出す行は、<code>search_query.ps1</code> の <code>truncateHitLine</code> で <code>${hitLineMaxChars}</code>（1,000 文字）に切る。</p>
+<ul>
+<li>一致した行（結果の表・検索結果ファイル）は、一致の位置の <code>${hitLineBeforeMatchChars}</code>（200）文字前から 1,000 文字を取る（一致の位置が分からない図形・コメント等では先頭から）。</li>
+<li>選択行のプレビューの前後の行（<code>readPackContext</code>）は、一致していないため常に先頭から 1,000 文字を取る。</li>
+<li>切った側に <code>…</code> を付ける（先頭・末尾のどちらか、または両方）。</li>
+<li>Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は <a href="../../indexing/text/">テキストファイルの読み取り</a>）。<code>pack_search.ps1</code> の <code>searchPackFiles</code> は、元のファイル名の拡張子（<code>getPackFileKind</code>）がテキストのときだけ切る。</li>
+</ul>
 
 
 
