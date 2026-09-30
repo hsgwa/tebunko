@@ -649,7 +649,9 @@ function importIndexCore {
     try {
         $manifest = $opened.Manifest
         $suggestedName = if ($name) { $name } else { [string]$manifest.indexName }
-        $usedNames = @(getImportUsedIndexNames $ws $settingsPath)
+        # 集合を返す関数なので、@() で包まない（包むと集合が 1 要素の配列になり、newIndexName が名前を突き合わせられず、
+        # 「別名」でも同じ名前のインデックスを上書きしてしまう）
+        $usedNames = getImportUsedIndexNames $ws $settingsPath
         $finalName = getImportIndexName $suggestedName $usedNames $collisionMode
         if ($null -eq $finalName) {
             return $null
@@ -675,10 +677,16 @@ function importIndexCore {
             throw $spaceReason
         }
 
-        # 同じ元のフォルダが、別の名前で既に登録されていないか（止めないが知らせる）
+        # 同じ元のフォルダが、別の名前のクロール対象フォルダに既にあれば止める（getTargetFolders は同じフォルダの 2 つ目以降を読まないため、
+        # 登録しても設定に残らず、次のインデックス作成で removeDroppedFolders がこのインデックスを消す。画面の追加・編集と同じ決まり）。
+        # 検索だけのインデックス（indexSources）の元のフォルダと同じなら、止めずに知らせる
+        foreach ($other in @(getTargetFolders $settingsPath | Where-Object { $_.Name -ine $finalName })) {
+            if (testSameFolder $other.Path $folder) {
+                throw "「${folder}」のインデックス [$($other.Name)] が既にあります。別のフォルダを指定してください。"
+            }
+        }
         $warnings = New-Object System.Collections.Generic.List[string]
-        $otherFolders = @(@(getTargetFolders $settingsPath) + @(readIndexSources $settingsPath) | Where-Object { $_.Name -ine $finalName })
-        foreach ($other in $otherFolders) {
+        foreach ($other in @(readIndexSources $settingsPath | Where-Object { $_.Name -ine $finalName })) {
             if (testSameFolder $other.Path $folder) {
                 $warnings.Add("元のフォルダ「${folder}」は、インデックス [$($other.Name)] としても登録されています。")
                 break

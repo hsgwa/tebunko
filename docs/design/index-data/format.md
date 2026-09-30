@@ -1,4 +1,4 @@
-# インデックスのファイルの形
+﻿# インデックスのファイルの形
 
 扱うこと: インデックスの配置・命名規則、本文インデックスの形式（メタ情報の行・中身の行）、図形・コメントの場所の決まり、場所の符号化。扱わないこと: 作った TSV を本文インデックスへ入れ替え・書き出す手順（[入れ替えと書き出し](publish.md)）、システムインデックス（[システムインデックス](system-index.md)）。先に読むページ: [インデックス作成](../indexing/index.md)。
 
@@ -197,7 +197,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 1. **前の版のワークスペースの片付け**: `getLegacyIndexState`・`testLegacyCleanupNeeded` で調べ、必要なら `clearLegacySystemIndex` を先に行う（`content_index\` にこのインポートの分を足す前）。前の版の `index\` そのものには触らない。片付けられなければ止める。
 2. **zip を開き、目録を確かめる**（`testIndexArchiveManifest`。下の「受け取ったファイルを信用しない」）。
 3. **名前を決める**（`getImportIndexName`）。同じ名前のインデックスがあるときの扱い（`Rename`・`Overwrite`・`Cancel`）を呼ぶ側が指定する。`Rename` は `名前(2)`・`名前(3)` …（`newIndexName` と同じ決まり）、`Overwrite` は置き換え、`Cancel` は何もしない。
-4. **元のフォルダを決める**（呼ぶ側の指定、無ければ目録の `sourceFolder`）。空なら止める。
+4. **元のフォルダを決める**（呼ぶ側の指定、無ければ目録の `sourceFolder`）。空なら止める。同じフォルダが別の名前のクロール対象フォルダにあれば止める（`getTargetFolders` は同じフォルダの 2 つ目以降を読まないため、登録しても次のインデックス作成で `removeDroppedFolders` に消される。画面の追加・編集と同じ決まり）。検索だけのインデックスと同じフォルダなら、止めずに `Warnings` で知らせる。
 5. **空き容量**（ワークスペースのドライブ。`getWorkspaceFreeSpace`）が「目録の合計 + 1GB」より少なければ止める（zip bomb 対策。`testImportFreeSpace`）。UNC（`\\server\share\…`）のワークスペースなど、ドライブとして空き容量を調べられないときは確かめずに進める（調べられないことでインポートを止めない。展開の途中で足りなくなれば、書き込みの失敗として 6 以降の戻しに入る）。
 6. **展開する**（`expandImportArchive`）: `<ワークスペース>\取り込み出力\<PID>\import\new\` に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。`元のフォルダ.txt` もここに書く。
 7. **設定に登録する**（`registerImportedIndexInSettings`）: `targetFolders` に `{ name, path, enabled }` を足す（上書きなら既存の項目を書き換え、並びは変えない）。`enabled` は元のフォルダがあれば `true`。同じ名前の `indexSources` は消す。**`targetFolders` に入れる理由**は、取り込み一覧の行を持ち込むので、次のインデックス作成で差分だけを取り込め、`removeDroppedFolders`（[取り込み一覧](../indexing/ingest-list.md)）に消されないため。

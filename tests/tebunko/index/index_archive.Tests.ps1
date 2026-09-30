@@ -2,6 +2,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
+    . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
 
     function newIndexFixture {
         # ワークスペース dir にインデックス name を1つ作る（本文インデックスのファイル1つ・取り込み一覧の行・設定への登録）。
@@ -466,14 +467,14 @@ Describe "importIndex" -Tag Io {
         }
     }
 
-    It "同じ元のフォルダが別の名前で既に登録されていれば Warnings に入る（止めない）" {
+    It "同じ元のフォルダが検索だけのインデックス（別の名前）にあれば Warnings に入る（止めない）" {
         $fixtureA = newIndexFixture "$TestDrive\warn_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\warn.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
 
         $wsB = [Workspace]::new("$TestDrive\warn_b")
         $settingsB = "$TestDrive\warn_b\setting.config"
-        writeTargetFolders @([pscustomobject]@{ Name = "既存"; Path = "C:\共有\営業部"; Enabled = $true }) $settingsB
+        writeIndexSources @([pscustomobject]@{ Name = "既存"; Path = "C:\共有\営業部" }) $settingsB
 
         $result = importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $settingsB
 
@@ -679,6 +680,83 @@ Describe "importIndex" -Tag Io {
 
         [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
         @(getTargetFolders $settingsB)[0].Path | Should -Be "C:\前の場所"
+        Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
+    }
+
+    It "インポート後にインデックス作成の名前の割り当てを通しても、<label>: どのインデックスも消えず、設定・取り込み一覧・content_index が一致する" -TestCases @(
+        @{ label = "上書き"; mode = "Overwrite"; expected = @("経理", "営業", "総務") }
+        @{ label = "別名（別のフォルダ）"; mode = "Rename"; expected = @("経理", "営業", "総務", "営業(2)") }
+    ) {
+        param ($label, $mode, $expected)
+        $fixtureA = newIndexFixture "$TestDrive\assign_a_$mode" "営業" "C:\共有\営業部" "見積\A社.xlsx" "品名`tX`n新規`t1`n"
+        $dest = "$TestDrive\assign_$mode.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+
+        $fixtureB = newIndexFixture "$TestDrive\assign_b_$mode" "営業" "C:\前の場所" "前の資料\旧.xlsx"
+        $wsB = $fixtureB.Workspace
+        $settingsB = $fixtureB.SettingsPath
+        foreach ($other in @("経理", "総務")) {
+            [System.IO.Directory]::CreateDirectory((Join-Path $wsB.IndexDir $other)) | Out-Null
+        }
+        writeTargetFolders @(
+            [pscustomobject]@{ Name = "経理"; Path = "C:\経理"; Enabled = $true }
+            [pscustomobject]@{ Name = "営業"; Path = "C:\前の場所"; Enabled = $false }
+            [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $true }
+        ) $settingsB
+        updateSettings "caseSensitive" $true $settingsB
+        updateSettings "fileFilter" "*.xlsx" $settingsB
+        $status = readStatusFile $wsB.StatusFile
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "C:\経理"; Name = "経理" }
+            [pscustomobject]@{ Path = "C:\前の場所"; Name = "営業" }
+            [pscustomobject]@{ Path = "C:\総務"; Name = "総務" }
+        ) (getStatusRowArray $status) $wsB.StatusFile
+
+        $newFolder = if ($mode -eq "Overwrite") { "D:\新しい場所" } else { "D:\別の場所" }
+        $result = importIndex $dest $mode "" $newFolder $wsB $settingsB
+
+        # 設定: 並び・path・enabled・ほかの項目
+        $targets = @(getTargetFolders $settingsB)
+        @($targets | ForEach-Object { $_.Name }) | Should -Be $expected
+        $imported = @($targets | Where-Object { $_.Name -eq $result.Name })
+        $imported.Count | Should -Be 1
+        $imported[0].Path | Should -Be $newFolder
+        $imported[0].Enabled | Should -Be $false   # D: の元のフォルダは無い
+        @($targets | Where-Object { $_.Name -eq "経理" })[0].Path | Should -Be "C:\経理"
+        $settings = readSettings $settingsB
+        $settings.caseSensitive | Should -Be $true
+        $settings.fileFilter | Should -Be "*.xlsx"
+
+        # インデックス作成の始めと同じ手順: 名前の割り当て・消えたフォルダの整理。今の設定にあるインデックスは消えない
+        $folders = @(assignIndexNames $targets (readStatusFile $wsB.StatusFile).Folders)
+        $workspace = $wsB
+        function writeIndexerLog { param ($m, $c) }
+        removeDroppedFolders $folders (readStatusFile $wsB.StatusFile).Folders
+        foreach ($name in $expected) {
+            $folders.Name | Should -Contain $name
+        }
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir $result.Name) | Should -Be $true
+        # 取り込み一覧・content_index が設定の名前と一致する
+        $statusAfter = readStatusFile $wsB.StatusFile
+        @($statusAfter.Folders | ForEach-Object { $_.Name }) | Should -Contain $result.Name
+        @($statusAfter.Rows.Keys | Where-Object { $_ -like "$($result.Name)\*" }).Count | Should -Be 1
+        (readSearchWord $wsB "新規").Count | Should -BeGreaterThan 0
+        if ($mode -eq "Overwrite") {
+            (readSearchWord $wsB "鉛筆").Count | Should -Be 0
+        }
+    }
+
+    It "止める: 同じ元のフォルダが別の名前のクロール対象フォルダにあれば、別名でも例外にし、設定・content_index を変えない（getTargetFolders は同じフォルダの 2 つ目以降を読まず、登録するとインデックス作成で消えるため）" {
+        $fixtureA = newIndexFixture "$TestDrive\samefolder_a" "営業" "C:\共有\営業部"
+        $dest = "$TestDrive\samefolder.zip"
+        exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
+        $fixtureB = newIndexFixture "$TestDrive\samefolder_b" "営業" "C:\共有\営業部"
+        $wsB = $fixtureB.Workspace
+
+        { importIndex $dest ${importCollisionRename} "" "C:\共有\営業部" $wsB $fixtureB.SettingsPath } | Should -Throw "*[営業]*が既にあります*"
+
+        @(getTargetFolders $fixtureB.SettingsPath | ForEach-Object { "$($_.Name)|$($_.Path)" }) | Should -Be @("営業|C:\共有\営業部")
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業(2)") | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
     }
 
