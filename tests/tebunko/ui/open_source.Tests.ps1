@@ -418,6 +418,18 @@ Describe "openWithNotepad" -Tag Io {
             $ArgumentList -eq "`"$TestDrive\[確定] 起動 スクリプト.js`""
         }
     }
+
+    It "開けたときは true を返す" {
+        Mock Start-Process { }
+
+        openWithNotepad "$TestDrive\起動.bat" | Should -Be $true
+    }
+
+    It "メモ帳が無い等で起動できないときは、例外を投げずに false を返す（既定のアプリには戻さない）" {
+        Mock Start-Process { throw "指定されたファイルが見つかりません。" }
+
+        openWithNotepad "$TestDrive\起動.bat" | Should -Be $false
+    }
 }
 
 Describe "getOpenMode / setOpenMode / updateOpenMenu" -Tag Unit {
@@ -559,13 +571,24 @@ Describe "openSource" -Tag Unit {
     It "開くと実行・登録になる拡張子（.bat など）のテキストは、既定のアプリではなくメモ帳で開く" {
         Mock getCurrentHitRow { newRow "起動.bat" $false $true }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
-        Mock openWithNotepad { }
+        Mock openWithNotepad { $true }
         Mock openWithShell { $true }
 
         openSource ${openModeReadOnly}
         Should -Invoke openWithNotepad -Times 1 -Exactly -ParameterFilter { $path -eq "C:\data\起動.bat" }
         Should -Invoke openWithShell -Times 0 -Exactly
         lastStatus | Should -Be "メモ帳で開きました：C:\data\起動.bat"
+    }
+
+    It "メモ帳で開けなかったときは、既定のアプリには戻さず失敗を伝える" {
+        Mock getCurrentHitRow { newRow "起動.bat" $false $true }
+        Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\起動.bat" }
+        Mock openWithNotepad { $false }
+        Mock openWithShell { $true }
+
+        openSource ${openModeReadOnly}
+        Should -Invoke openWithShell -Times 0 -Exactly
+        lastStatus | Should -Be "メモ帳で開けませんでした：C:\data\起動.bat"
     }
 
     It "既定のアプリで開くテキスト（.py など）は、openWithNotepad を呼ばない" {

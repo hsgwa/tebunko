@@ -78,6 +78,11 @@ BeforeAll {
         if ($bom) { return , (@(0xEF, 0xBB, 0xBF) + $bytes) }
         return , $bytes
     }
+
+    function newLargeNulTailBytes {
+        # 先頭 64KB（UTF-16 の判定の標本）の外にだけ NUL が 1 つある、70000 バイトのテキストらしいバイト列
+        return , ([byte[]][System.Text.Encoding]::ASCII.GetBytes("A" * 69999) + [byte]0)
+    }
 }
 
 Describe "testTextExtension" -Tag Unit {
@@ -88,6 +93,8 @@ Describe "testTextExtension" -Tag Unit {
         @{ name = "対象外の拡張子"; path = "a.pdf"; expected = $false }
         @{ name = "Office の拡張子は対象外（testTextExtension としては）"; path = "a.xlsx"; expected = $false }
         @{ name = "新しく足したソースコードの拡張子（.py）も対象"; path = "a.py"; expected = $true }
+        @{ name = "大文字の拡張子（.CPP）も対象（大文字・小文字を区別しない）"; path = "a.CPP"; expected = $true }
+        @{ name = "新しく足した設定ファイルの拡張子（.yml）も対象"; path = "a.yml"; expected = $true }
         @{ name = "実行・登録になる拡張子（.ps1）も対象（メモ帳で開く）"; path = "a.ps1"; expected = $true }
         @{ name = "実行ファイルの拡張子（.exe）は対象外"; path = "a.exe"; expected = $false }
         @{ name = "TypeScript（.ts）は対象外（範囲外）"; path = "a.ts"; expected = $false }
@@ -196,10 +203,7 @@ Describe "detectTextEncoding" -Tag Unit {
     }
 
     It "先頭 64KB（UTF-16 の判定の標本）の外にだけ NUL があっても、ファイル全体で見てバイナリと判定する" {
-        $bytes = [byte[]]::new(70000)
-        for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0x41 }
-        $bytes[69999] = 0
-        detectTextEncoding $bytes | Should -Be $null
+        detectTextEncoding (newLargeNulTailBytes) | Should -Be $null
     }
 }
 
@@ -289,10 +293,7 @@ Describe "readTextFile" -Tag Io {
     }
 
     It "先頭 64KB の外にだけ NUL がある大きいファイルも、決めた文言で失敗にする" {
-        $bytes = [byte[]]::new(70000)
-        for ($i = 0; $i -lt $bytes.Length; $i++) { $bytes[$i] = 0x41 }
-        $bytes[69999] = 0
-        $path = writeBytesFile $bytes
+        $path = writeBytesFile (newLargeNulTailBytes)
         { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
     }
 }
