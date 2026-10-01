@@ -22,6 +22,7 @@ Word・PowerPoint・Excel は使わず、最小限の `.docx` `.pptx` `.xlsx`（
 | `readXlsxObjectUnits` / `getCellPosition` | 表示シートの図形・コメントだけをシートごとの場所にする、図形は左上のセル番地の順、グループ化した図形は 1 つ、互換用の代替表示は読まない、スレッド形式のコメント（返信を含む）、ふりがなは読まない、Excel のブックでない ZIP は何も返さない、グラフ・SmartArt の文字を読む（数値は読まない）、テキストボックスの段落 → グラフ・SmartArt の順に 1 つの図形にする、参照先・リレーションシップ（図形の部品自身のものを含む）が無い・部品が壊れたグラフは空にしてほかの図形・コメントは出す（読めなかった部品を `$failures` に返す）、表示のグラフシートは `A1` で読み非表示のグラフシートは読まない |
 | `readObjectText` / `readChartText` | 参照先が無ければ空、グラフはタイトル・軸ラベル・系列名を読み（セル参照・直値のどちらでも読む）、項目名（多段の `multiLvlStrCache` を含む）・数値は読まない、項目の点数が多くても速く終わる |
 | `readDocxUnits` / `readPptxUnits`（壊れた ZIP） | 本文・プレゼンテーション情報が無ければ、分かるメッセージで例外にする |
+| `readZipEntry`（サイズの上限） / `newXmlDocument`（DTD） | 部品 1 つの展開後の大きさ・1 ファイルで読む合計が、それぞれの上限を超えると簡潔なメッセージで例外にする、ヘッダーの大きさを偽って小さく見せた部品も検知する、`readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits` が呼ぶたびに合計を数え直す、DTD（`<!DOCTYPE>`）宣言を含む XML は例外にする（実体参照を入れ子にして膨張させる攻撃を防ぐ）、既存の BOM 判定・文字コードの扱いは変わらない |
 | `writeUnits` | 場所ごとの TSV 出力、空の場所は出力しない、`[` `]` を含むパス |
 
 **暗号化されたファイルの判定（`tests/shared/office/office_protection_view`・`office_protection`）**

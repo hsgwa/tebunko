@@ -59,6 +59,15 @@ function scan { param([string[]]$Pattern)
 
 Excel は、セルの値をテキストに書き出すために、すべてのブックを上の設定で開く。Word・PowerPoint で開くのは、ZIP 形式でない旧形式（`.doc` / `.ppt`）などを新形式に変換するときだけである。新形式（`.xlsx` / `.docx` / `.pptx`）の図形・コメント・本文・SmartArt・グラフの文字は、Office を使わずに ZIP の中の XML を直接読む（`shared/office/office_reader.ps1`）。いずれも作業フォルダのコピーを読む（[取り込み対象のファイルは書き換えない](file-access.md#取り込み対象のファイルは書き換えない)）。
 
+### 細工した Office ファイルから身を守ること
+
+ZIP（`.xlsx` / `.docx` / `.pptx`）を直接読む処理は、細工したファイルで時間・メモリを使い切らせる攻撃（ZIP 爆弾・DTD の実体参照を入れ子にして膨張させる攻撃 等）を想定し、次の 2 つを行う。`tests/meta/safety.Tests.ps1` の「細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること」がこれを確かめる。
+
+- **ZIP の部品のサイズの上限**: ZIP 内の 1 部品を読む `readZipEntry`（`shared/office/office_reader.ps1`）だけが ZIP の中身を読み、展開後の大きさに**部品 1 つにつき 100MB**・**1 ファイルで読む合計 300MB** の上限を設ける。超えたら、部品名・大きさ・部品ごとか合計かの区別を出さない簡潔な文言（`ファイルサイズが大きすぎるため取り込めません。`）で例外にする。ZIP のヘッダー（中央ディレクトリ）が実際より小さい大きさを偽って書いてあるものも、`Length + 1` バイトの入れ物を作って読み切ることで検知する。上限の値は `setting.config` に出しておらず、変えるには `shared/office/office_reader.ps1` の `$script:zipPartMaxBytes`・`$script:zipTotalMaxBytes` を直す（[既知の問題](../design/indexing/known-issues.md#共通)）。
+- **DTD（`<!DOCTYPE>`）の処理を禁止**: `XmlDocument` を作るところ（`LoadXml` を直接呼ばず、すべて `newXmlDocument` を通す）は `XmlReaderSettings.DtdProcessing` を `Prohibit` にし、DTD 宣言を含む XML を例外にする。
+
+いずれも、見つからなかった部品があるときと同じ扱い（ファイル全体を失敗にするか、1 つの図形・グラフ・SmartArt だけを空にして続けるか）は、読んだ関数の呼び出し元の決まりに従う（[Word・PowerPoint のテキスト読み取り](../design/indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)・[Excel の図形・コメントの読み取り](../design/indexing/excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）。
+
 ## 取り込み対象の拡張子
 
 Office に加えてテキストファイルも取り込むが、対象の拡張子は `shared/office/office_files.ps1` の `$officeExtensions`（10 個）と `shared/core/text_file.ps1` の `$textExtensions`（`.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml` の 7 個）を合わせた、**固定の 17 個の一覧**である（[テキストファイルの読み取り](../design/indexing/text.md)）。設定ファイルで拡張子を足す仕組みは無い。
