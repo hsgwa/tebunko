@@ -22,7 +22,7 @@ powershell -ExecutionPolicy Bypass -File poc\wpf-figma\compare.ps1
 
 - `theme.xaml`・`xaml/*.xaml`（21 状態＋部品）・`dummy.ps1`・`show.ps1` を作り込み、`show.ps1` で 26 枚すべてを原寸表示できる。できたのは Figma に近づけた WPF の画面であり、ピクセル単位の一致や色の同値を確かめたものではない。
 - 作業中は `compare.ps1` の `diff.png` を 26 枚すべて見て、色・レイアウト・文言の食い違いを洗い出し、直せるものは直した（吹き出しの背景色、プレビュー表の欠けていた行、高速検索の表示の外枠カード、H フレームの開いたドロップダウン、`探す範囲` の部品が中央寄せになっていた崩れ、`フルパスのツールチップ` の行が中央寄せになっていた崩れ、H 系フレームが共有する検索結果一覧の文言の欠け・誤字（「本文（常に対象）」の欠け、議事録メモの文末の「る」の欠けなど）など）。
-- 直したあとに残る差分は、`compare.ps1` の `diff.png` を見ながら 1 枚ずつ中身を見て、文字・アイコンの描画エンジンの違いによるアンチエイリアシングなど、この作り方では埋まらないとみられるものに絞った。±1px・色の同値まで詰める検証はしていない。個別の内容は下の「再現できなかったところ」に書く。
+- 直したあとも色・配置の差が残っている（下の「再現できなかったところ」）。±1px・色の同値まで詰める検証はしていない。
 
 ## フレームの一覧（段 1・26 枚）
 
@@ -65,7 +65,7 @@ Figma は Variables・Styles を使っておらず、値を直接指定してい
 
 | 種類 | 件数 | キーの形 | 備考 |
 |---|---|---|---|
-| 色（`SolidColorBrush`） | 31 | `Ink.*`・`Accent.*`・`Bg.*`・`Select.*`・`Line.*`・`Border.*`・`Ok.*`・`Warn.*`・`Danger.*`・`Chip.*`・`Hit.*`・`Folder.*`・`Excel.*`・`Disabled.*`・`White`（例 `Ink.202124`＝`#202124`） | Figma の 16 進の RGB をそのまま書き写した |
+| 色（`SolidColorBrush`） | 31 | `Ink.*`・`Accent.*`・`Bg.*`・`Select.*`・`Line.*`・`Border.*`・`Ok.*`・`Warn.*`・`Danger.*`・`Chip.*`・`Hit.*`・`Folder.*`・`Excel.*`・`Disabled.*`・`White`（例 `Ink.202124`＝`#202124`） | Figma の 16 進の RGB を書き写したつもりだが、取り違えが残っている（横の欄の背景は Figma `#F0F2F4` に対し `Bg.F9FAFA` を使っている） |
 | 余白・間隔（`Thickness`・`sys:Double`） | 7 | `Pad.*`・`Gap.*`（例 `Pad.Button`＝`16,7,16,7`） | Figma のピクセル値をそのまま書き写した |
 | 角丸（`CornerRadius`） | 2 | `Radius.3`・`Radius.4` | Figma の値をそのまま書き写した |
 | 影（`DropShadowEffect`） | 3 | `Shadow.Card`・`Shadow.Dialog`・`Shadow.Small` | Figma のぼかしの値を `BlurRadius` にそのまま当てているが、ぼかしの計算の仕方が Figma（レイヤーぼかし）と WPF（`DropShadowEffect`）で違うため、広がり方は一致しない（下の「再現できなかったところ」） |
