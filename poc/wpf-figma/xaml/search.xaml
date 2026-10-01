@@ -237,11 +237,16 @@
       </Grid.RowDefinitions>
 
       <!-- 検索ワード -->
-      <DockPanel Grid.Row="0" Margin="16,10,16,8">
-        <TextBlock Text="検索ワード" VerticalAlignment="Center" Width="68" Style="{StaticResource Text.12}" />
-        <Button x:Name="SearchButton" DockPanel.Dock="Right" Width="80" Style="{StaticResource Btn.Primary}" Content="検索" Margin="8,0,0,0" />
-        <TextBox x:Name="SearchWordBox" Text="（株）山田商事" Height="30" VerticalAlignment="Center" />
-      </DockPanel>
+      <StackPanel Grid.Row="0">
+        <DockPanel Margin="16,10,16,8">
+          <TextBlock Text="検索ワード" VerticalAlignment="Center" Width="68" Style="{StaticResource Text.12}" />
+          <Button x:Name="SearchButton" DockPanel.Dock="Right" Width="80" Style="{StaticResource Btn.Primary}" Content="検索" Margin="8,0,0,0" />
+          <TextBox x:Name="SearchWordBox" Text="（株）山田商事" Height="30" VerticalAlignment="Center" />
+        </DockPanel>
+        <TextBlock x:Name="SearchWordError" Visibility="Collapsed" Margin="84,0,16,8" Style="{StaticResource Text.11}"
+                   Foreground="{StaticResource Danger.D13438}" TextWrapping="Wrap"
+                   Text="⚠ 正規表現が正しくありません（閉じていない括弧があります）" />
+      </StackPanel>
 
       <!-- 絞り込み -->
       <WrapPanel Grid.Row="1" Margin="16,0,16,8" VerticalAlignment="Center">
@@ -440,7 +445,8 @@
               <Path Data="{StaticResource Icon.FileSearch}" Width="26" Height="26" Stretch="Uniform" Stroke="{StaticResource Disabled.9AA0A6}" StrokeThickness="1.4" />
             </Border>
             <TextBlock x:Name="ResultsEmptyTitle" Text="検索できるフォルダがありません" Style="{StaticResource Text.16}" Margin="0,12,0,4" HorizontalAlignment="Center" />
-            <TextBlock x:Name="ResultsEmptyBody" Text="検索対象でフォルダを選んでください" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" />
+            <TextBlock x:Name="ResultsEmptyBody" Text="検索対象でフォルダを選んでください" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+            <TextBlock x:Name="ResultsEmptyNote" Visibility="Collapsed" Text="正規表現で検索しています" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" Margin="0,4,0,0" />
             <Button x:Name="ResultsEmptyCta" Style="{StaticResource Btn.Primary}" Content="フォルダを追加" Width="120" Margin="0,16,0,0" HorizontalAlignment="Center" />
           </StackPanel>
         </Grid>
