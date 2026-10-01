@@ -45,6 +45,31 @@ function Get-FigmaFrame([string]$Name) {
     return $script:FigmaFrames | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
 }
 
+# ---- 欧文フォントをインストールせずに実物へ差し替える ----
+#
+# theme.xaml の Font.UI（DynamicResource）をあとから書き換えようとすると、
+# 画面にすでに結び付いた要素への通知が WPF の検査にひっかかり
+# 「file:///...が FontFamily として正しくない」という例外になる（原因不明の挙動。
+# 直接プロパティへ代入する分には問題が起きない）。そのため、ここでは
+# ツリーの各要素に直接 FontFamily を上書きする（ローカル値はスタイルの設定より優先される）。
+function Set-RealFont($Root, [System.Windows.Media.FontFamily]$FontFamily) {
+    $stack = New-Object System.Collections.Generic.Stack[object]
+    $stack.Push($Root)
+    while ($stack.Count -gt 0) {
+        $node = $stack.Pop()
+        if ($node -isnot [System.Windows.DependencyObject]) { continue }
+        try {
+            $node.SetValue([System.Windows.Documents.TextElement]::FontFamilyProperty, $FontFamily)
+        } catch {
+            # FontFamily を持たない要素型は無視する。
+        }
+        $children = [System.Windows.LogicalTreeHelper]::GetChildren($node)
+        foreach ($child in $children) {
+            if ($child -is [System.Windows.DependencyObject]) { $stack.Push($child) }
+        }
+    }
+}
+
 # ---- 要素を操作する小さな道具（見つからない名前は黙って無視する。見本 4 種には無い名前もあるため） ----
 
 function Find-Named($Root, [string]$Name) {
