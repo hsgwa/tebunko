@@ -479,6 +479,7 @@
             <RowDefinition Height="24" />
             <RowDefinition Height="24" />
             <RowDefinition Height="24" />
+            <RowDefinition Height="24" />
           </Grid.RowDefinitions>
           <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Bg.F3F3F4}" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1" />
           <TextBlock Grid.Row="0" Grid.Column="1" Text="A" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -491,8 +492,9 @@
           <TextBlock Grid.Row="2" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewHighlightText1" Grid.Row="2" Grid.Column="1" Text="見積先：（株）山田商事（御中）" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewHighlightText2" Grid.Row="2" Grid.Column="2" Text="見積番号：12-2324-0143" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
-          <TextBlock Grid.Row="2" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" />
-          <TextBlock Grid.Row="2" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="3" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="3" Grid.Column="1" Text="件名：基幹システム導入一式" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="3" Grid.Column="2" Text="発行日：2024/10/15" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,1,0,0" />
         </Grid>
         <StackPanel x:Name="PreviewParagraphView" Visibility="Collapsed" Margin="8">
