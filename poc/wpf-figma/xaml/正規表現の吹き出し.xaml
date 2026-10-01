@@ -9,7 +9,7 @@
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Grid.Resources>
-  <Border Style="{StaticResource Bubble}" HorizontalAlignment="Left" VerticalAlignment="Top">
-    <TextBlock Text="正規表現をオフにすると速く検索できます" Style="{StaticResource Text.Bubble}" />
+  <Border Style="{StaticResource Bubble}" Width="300" Height="28">
+    <TextBlock Text="正規表現をオフにすると速く検索できます" Style="{StaticResource Text.Bubble}" HorizontalAlignment="Center" VerticalAlignment="Center" />
   </Border>
 </Grid>

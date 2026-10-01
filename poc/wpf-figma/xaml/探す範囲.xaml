@@ -18,10 +18,10 @@
 
   <!-- 正規表現のチェックと吹き出し -->
   <StackPanel Grid.Column="0" Margin="8">
-    <TextBlock Text="[正規表現] にカーソルを当てたとき" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
-    <CheckBox Content="正規表現" IsChecked="True" FontFamily="{DynamicResource Font.UI}" FontSize="11" Margin="0,0,0,8" />
+    <TextBlock Text="[正規表現] のツールチップ" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
+    <CheckBox Content="正規表現" IsChecked="False" FontFamily="{DynamicResource Font.UI}" FontSize="11" Margin="0,0,0,8" />
     <Border Style="{StaticResource Bubble}" HorizontalAlignment="Left" MaxWidth="220">
-      <TextBlock Text="正規表現をオフにすると速く検索できます" Style="{StaticResource Text.Bubble}" />
+      <TextBlock Text="正規表現を使う&#10;オンにすると高速検索は使えません" Style="{StaticResource Text.Bubble}" />
     </Border>
   </StackPanel>
 
@@ -31,12 +31,18 @@
     <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left">
       <TextBlock Text="探す範囲 ▾" Style="{StaticResource Text.11}" />
     </Button>
-    <Border Width="230" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
+    <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
+         親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
+         HorizontalAlignment="Left" を明示する。 -->
+    <Border Width="230" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12" Margin="0,4,0,0">
       <StackPanel>
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
-          <TextBlock Text="本文" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
+            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.202124}" />
+            <Run Text="　（常に対象）" FontSize="11" Foreground="{StaticResource Ink.6B737D}" />
+          </TextBlock>
         </DockPanel>
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" />
@@ -51,7 +57,7 @@
           <TextBlock Text="ノート（PowerPoint）" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
         <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
-        <TextBlock Text="Excel・Word・PowerPointのファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
+        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
       </StackPanel>
     </Border>
   </StackPanel>
@@ -62,12 +68,18 @@
     <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left">
       <TextBlock Text="探す範囲：本文・図形 ▾" Style="{StaticResource Text.11}" />
     </Button>
-    <Border Width="230" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
+    <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
+         親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
+         HorizontalAlignment="Left" を明示する。 -->
+    <Border Width="230" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12" Margin="0,4,0,0">
       <StackPanel>
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
-          <TextBlock Text="本文" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
+            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.202124}" />
+            <Run Text="　（常に対象）" FontSize="11" Foreground="{StaticResource Ink.6B737D}" />
+          </TextBlock>
         </DockPanel>
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" />
@@ -82,7 +94,7 @@
           <TextBlock Text="ノート（PowerPoint）" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
         <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
-        <TextBlock Text="Excel・Word・PowerPointのファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
+        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
       </StackPanel>
     </Border>
   </StackPanel>

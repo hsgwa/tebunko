@@ -13,14 +13,19 @@
   <StackPanel Margin="4">
     <TextBlock Text="長い名前は「…」で省き、カーソルを当てるとフルパスを吹き出しで出す（見本。H-T1 のツリーと同じ部品）"
                Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" Margin="0,0,0,10" />
-    <Border Width="260" Height="26" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1">
+    <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
+         親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
+         HorizontalAlignment="Left" を明示する。 -->
+    <Border Width="260" Height="26" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1">
       <DockPanel Margin="4,0">
         <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" VerticalAlignment="Center" Margin="0,0,6,0" />
         <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform" Fill="{StaticResource Folder.E8A020}" Margin="0,0,5,0" VerticalAlignment="Center" />
         <TextBlock Text="提案書_2024年度下期_大口顧客向け.xlsx" Style="{StaticResource Text.12}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </DockPanel>
     </Border>
-    <Border Style="{StaticResource Bubble}" Margin="0,6,0,0" HorizontalAlignment="Left" MaxWidth="540">
+    <!-- 吹き出しは行の左端に揃えず、カーソルを当てた位置（アイコンのあたり）に寄せて出る。
+         左の余白 156 は参照画像の吹き出しの位置に合わせた実測値。 -->
+    <Border Style="{StaticResource Bubble}" Margin="156,6,0,0" HorizontalAlignment="Left" MaxWidth="540">
       <TextBlock Text="C:\Share\営業部\2024\見積もり\提案書_2024年度下期_大口顧客向け.xlsx" Style="{StaticResource Text.Bubble}" TextWrapping="NoWrap" />
     </Border>
   </StackPanel>
