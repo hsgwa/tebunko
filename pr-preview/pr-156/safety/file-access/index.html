@@ -4141,7 +4141,7 @@
 <td><code>tebunko/core/paths.ps1</code>（<code>$workspace</code>）、<code>tebunko/core/workspace.ps1</code>（<code>Workspace</code>）</td>
 </tr>
 <tr>
-<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code> 配下（ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは作らない。一時ファイルが要る取り込みはすべてスキップする）</td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code> 配下（ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは作らない。どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みをスキップする）</td>
 <td>取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする</td>
 <td><code>tebunko/indexer/index_migrate.ps1</code> の <code>initTmpDir</code></td>
 </tr>
