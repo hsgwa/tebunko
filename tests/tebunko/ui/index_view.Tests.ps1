@@ -7,6 +7,21 @@ BeforeAll {
         param ([string]$name, [string]$path)
         return [pscustomobject]@{ Name = $name; Path = $path }
     }
+
+    function newFastProgress {
+        param ([hashtable]$byIndex, [bool]$contentIndexed = $false)
+        $dict = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($key in $byIndex.Keys) { $dict[$key] = $byIndex[$key] }
+        return @{ Folders = 0; Waiting = 0; ContentIndexed = $contentIndexed; ByIndex = $dict }
+    }
+}
+
+# -TestCases は Discovery の時点で評価されるため（上の BeforeAll の中は Run まで定義されない）、同じ中身をここにも置く
+function newFastProgress {
+    param ([hashtable]$byIndex, [bool]$contentIndexed = $false)
+    $dict = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($key in $byIndex.Keys) { $dict[$key] = $byIndex[$key] }
+    return @{ Folders = 0; Waiting = 0; ContentIndexed = $contentIndexed; ByIndex = $dict }
 }
 
 Describe "getUsedIndexNames" -Tag Unit {
@@ -212,6 +227,165 @@ Describe "testIndexEditInput" -Tag Unit {
 
     It "問題が無ければ空文字列" {
         testIndexEditInput "C:\data\新規" "新規" $items | Should -Be ""
+    }
+}
+
+Describe "getIndexRowView" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "作成中・チェックあり: 作成中（Pending があっても優先）"
+           stat = @{ Total = 10; Done = 3; Pending = 7; Failed = 0 }; indexing = $true; enabled = $true
+           text = "作成中"; level = "Wait" }
+        @{ label = "未集計（null）: 未作成"
+           stat = $null; indexing = $false; enabled = $true
+           text = "未作成"; level = "None" }
+        @{ label = "Total が 0: 未作成"
+           stat = @{ Total = 0; Done = 0; Pending = 0; Failed = 0 }; indexing = $false; enabled = $true
+           text = "未作成"; level = "None" }
+        @{ label = "Pending・Failed とも 1 以上: 途中（Pending が優先）"
+           stat = @{ Total = 10; Done = 5; Pending = 2; Failed = 3 }; indexing = $false; enabled = $true
+           text = "途中"; level = "Wait" }
+        @{ label = "Failed のみ 1 以上: 一部失敗"
+           stat = @{ Total = 10; Done = 9; Pending = 0; Failed = 1 }; indexing = $false; enabled = $true
+           text = "一部失敗"; level = "Ng" }
+        @{ label = "それ以外: 取り込み済"
+           stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; indexing = $false; enabled = $true
+           text = "取り込み済"; level = "Ok" }
+    ) {
+        param ($label, $stat, $indexing, $enabled, $text, $level)
+        $view = getIndexRowView $stat $indexing $enabled
+        $view.Text | Should -Be $text
+        $view.Level | Should -Be $level
+    }
+
+    It "enabled が偽なら、作成中以外のツールヒントにチェックの案内を足す（作成中の行には足さない）" {
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $false).ToolTip | Should -Match "チェックが外れている"
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "チェックが外れている"
+    }
+
+    It "ツールヒントに前の版・内部の言葉を含めない" {
+        $views = @(
+            (getIndexRowView $null $false $true)
+            (getIndexRowView @{ Total = 10; Done = 5; Pending = 2; Failed = 3 } $false $true)
+            (getIndexRowView @{ Total = 10; Done = 9; Pending = 0; Failed = 1 } $false $true)
+            (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $true)
+        )
+        foreach ($view in $views) {
+            $view.Text | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
+        }
+    }
+}
+
+Describe "getFastSearchRowView" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "確かめる前: 確認中…"
+           reason = $null; progress = $null; name = "営業"; hasContent = $true
+           text = "確認中…"; level = "None" }
+        @{ label = "NoFolder で本文も無い: －"
+           reason = "NoFolder"; progress = $null; name = "営業"; hasContent = $false
+           text = "－"; level = "None" }
+        @{ label = "NoConnection: 不可"
+           reason = "NoConnection"; progress = $null; name = "営業"; hasContent = $false
+           text = "不可"; level = "Ng" }
+        @{ label = "NotInScope: 不可"
+           reason = "NotInScope"; progress = $null; name = "営業"; hasContent = $false
+           text = "不可"; level = "Ng" }
+        @{ label = "Ok で進み具合を確かめられない: －"
+           reason = "Ok"; progress = $null; name = "営業"; hasContent = $true
+           text = "－"; level = "None" }
+        @{ label = "Ok で ByIndex に無く本文がある（インポートなど）: 不可"
+           reason = "Ok"; progress = (newFastProgress @{}); name = "営業"; hasContent = $true
+           text = "不可"; level = "Ng" }
+        @{ label = "Ok で ByIndex に無く本文も無い: －"
+           reason = "Ok"; progress = (newFastProgress @{}); name = "営業"; hasContent = $false
+           text = "－"; level = "None" }
+        @{ label = "NotYet: 反映待ち"
+           reason = "NotYet"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 4 } }); name = "営業"; hasContent = $true
+           text = "反映待ち"; level = "Wait" }
+        @{ label = "Ok で反映済みが 0: 反映待ち（反映中 0% にしない）"
+           reason = "Ok"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 4 } }); name = "営業"; hasContent = $true
+           text = "反映待ち"; level = "Wait" }
+        @{ label = "Ok で反映待ちが 1 以上: 反映中 N%"
+           reason = "Ok"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 2 } }); name = "営業"; hasContent = $true
+           text = "反映中 50%"; level = "Wait" }
+        @{ label = "Ok で反映待ちが 0: 可"
+           reason = "Ok"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 0 } }); name = "営業"; hasContent = $true
+           text = "可"; level = "Ok" }
+    ) {
+        param ($label, $reason, $progress, $name, $hasContent, $text, $level)
+        $view = getFastSearchRowView $reason $progress $name $hasContent $null
+        $view.Text | Should -Be $text
+        $view.Level | Should -Be $level
+    }
+
+    It "Text は 可・反映中 N%・反映待ち・不可・－・確認中… のどれかだけ" {
+        $texts = @(
+            (getFastSearchRowView $null $null "営業" $false $null).Text
+            (getFastSearchRowView "NoFolder" $null "営業" $false $null).Text
+            (getFastSearchRowView "NoConnection" $null "営業" $false $null).Text
+            (getFastSearchRowView "NotInScope" $null "営業" $false $null).Text
+            (getFastSearchRowView "NotYet" (newFastProgress @{ "営業" = @{ Folders = 2; Waiting = 1 } }) "営業" $true $null).Text
+            (getFastSearchRowView "Ok" (newFastProgress @{ "営業" = @{ Folders = 2; Waiting = 1 } }) "営業" $true $null).Text
+            (getFastSearchRowView "Ok" (newFastProgress @{ "営業" = @{ Folders = 2; Waiting = 0 } }) "営業" $true $null).Text
+        )
+        foreach ($text in $texts) {
+            $text | Should -BeIn @("可", "反映中 50%", "反映待ち", "不可", "－", "確認中…")
+        }
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "F=3 W=1 → 66%"; folders = 3; waiting = 1; expected = "反映中 66%" }
+        @{ label = "F=200 W=199 → 1%（切り捨てで 0 のとき 1）"; folders = 200; waiting = 199; expected = "反映中 1%" }
+        @{ label = "F=1000 W=1 → 99%（100% にしない）"; folders = 1000; waiting = 1; expected = "反映中 99%" }
+        @{ label = "F=5 W=5 → 反映待ち（反映中 0% にしない）"; folders = 5; waiting = 5; expected = "反映待ち" }
+        @{ label = "F=5 W=0 → 可"; folders = 5; waiting = 0; expected = "可" }
+    ) {
+        param ($label, $folders, $waiting, $expected)
+        $progress = newFastProgress @{ "営業" = @{ Folders = $folders; Waiting = $waiting } }
+        (getFastSearchRowView "Ok" $progress "営業" $true $null).Text | Should -Be $expected
+    }
+
+    It "NotInScope のツールヒントに「管理者」を含む" {
+        (getFastSearchRowView "NotInScope" $null "営業" $false $null).ToolTip | Should -Match "管理者"
+    }
+
+    It "ContentIndexed が真のときだけ「自動で外れなかった」を含む" {
+        $progressOn = newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 2 } } $true
+        $progressOff = newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 2 } } $false
+        (getFastSearchRowView "Ok" $progressOn "営業" $true $null).ToolTip | Should -Match "自動で外れなかった"
+        (getFastSearchRowView "Ok" $progressOff "営業" $true $null).ToolTip | Should -Not -Match "自動で外れなかった"
+    }
+
+    It "checkedAt があれば、確認中…以外のツールヒントに最終確認を含む" {
+        $checkedAt = [DateTime]::new(2026, 10, 1, 9, 30, 0)
+        (getFastSearchRowView $null $null "営業" $false $checkedAt).ToolTip | Should -Not -Match "最終確認"
+        (getFastSearchRowView "NoFolder" $null "営業" $false $checkedAt).ToolTip | Should -Match "最終確認 09:30"
+        (getFastSearchRowView "NoConnection" $null "営業" $false $checkedAt).ToolTip | Should -Match "最終確認 09:30"
+        (getFastSearchRowView "Ok" $null "営業" $true $checkedAt).ToolTip | Should -Match "最終確認 09:30"
+        $progress = newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 0 } }
+        (getFastSearchRowView "Ok" $progress "営業" $true $checkedAt).ToolTip | Should -Match "最終確認 09:30"
+    }
+
+    It "本文はあるが高速検索用のデータが無い行のツールヒントは、メンテナへの確認 2 の答えの文と同じ" {
+        $progress = newFastProgress @{}
+        (getFastSearchRowView "Ok" $progress "営業" $true $null).ToolTip | Should -Match "このインデックスには高速検索用のデータがありません。"
+    }
+
+    It "ツールヒントに前の版・内部の言葉を含めない" {
+        $progress = newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 2 } } $true
+        $views = @(
+            (getFastSearchRowView $null $null "営業" $false $null)
+            (getFastSearchRowView "NoFolder" $null "営業" $false $null)
+            (getFastSearchRowView "NoConnection" $null "営業" $false $null)
+            (getFastSearchRowView "NotInScope" $null "営業" $false $null)
+            (getFastSearchRowView "NotYet" $progress "営業" $true $null)
+            (getFastSearchRowView "Ok" $progress "営業" $true $null)
+            (getFastSearchRowView "Ok" (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 0 } }) "営業" $true $null)
+            (getFastSearchRowView "Ok" (newFastProgress @{}) "営業" $true $null)
+        )
+        foreach ($view in $views) {
+            $view.Text | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
+            $view.ToolTip | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明|反映中 0%"
+        }
     }
 }
 

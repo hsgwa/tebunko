@@ -608,6 +608,20 @@ Describe "FolderItem" -Tag Unit {
         $item.LastIngestedText | Should -Be "2026/09/01"
         @($names) | Should -Be @("StatusText", "StatusBrush", "FileCountText", "FileCountToolTip", "LastIngestedText")
     }
+
+    It "ステータス・高速検索の列をまとめて変えて通知する" {
+        $item = [FolderItem]::new()
+        $names = watchChanges $item
+        $item.SetIndexState("取り込み済み", "済 10 件", "Ok")
+        $item.SetFast("可", "すぐ検索できます", "Ok")
+        $item.IndexText | Should -Be "取り込み済み"
+        $item.IndexToolTip | Should -Be "済 10 件"
+        $item.IndexLevel | Should -Be "Ok"
+        $item.FastText | Should -Be "可"
+        $item.FastToolTip | Should -Be "すぐ検索できます"
+        $item.FastLevel | Should -Be "Ok"
+        @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "FastText", "FastToolTip", "FastLevel")
+    }
 }
 
 Describe "IndexNode（静的な関数）" -Tag Unit {

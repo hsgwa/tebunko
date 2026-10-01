@@ -329,6 +329,10 @@ $window.Add_Activated({
         refreshFolderStatus
         if (!(isIndexing)) {
             refreshIndexingState
+            # 高速検索の列は、前の確かめから 60 秒たっていなければ飛ばす（ウィンドウを前に出すたびに問い合わせない）
+            if ($null -eq $script:fastSearchCheckedAt -or ((Get-Date) - $script:fastSearchCheckedAt).TotalSeconds -ge 60) {
+                refreshFastSearchStatus
+            }
         }
         updateSearchTarget
         if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {

@@ -575,6 +575,14 @@ class FolderItem : NotifyBase {
     [string]$LastIngestedText
     [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
     [bool]$FolderExists    # 調べた結果、フォルダがあったか
+    # 一覧の「ステータス」列（本文の取り込みの状態。getIndexRowView）。色は XAML で Level から選ぶ（Ok/Wait/Ng/None）
+    [string]$IndexText = "－"
+    [string]$IndexToolTip
+    [string]$IndexLevel = "None"
+    # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
+    [string]$FastText = "確認中…"
+    [string]$FastToolTip
+    [string]$FastLevel = "None"
 
     FolderItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
@@ -585,6 +593,14 @@ class FolderItem : NotifyBase {
     [void] SetStats([string]$countText, [string]$toolTip, [string]$lastIngested) {
         $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
         $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
+    }
+    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level) {
+        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level
+        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel")
+    }
+    [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
+        $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level
+        $this.Raise("FastText"); $this.Raise("FastToolTip"); $this.Raise("FastLevel")
     }
 }
 

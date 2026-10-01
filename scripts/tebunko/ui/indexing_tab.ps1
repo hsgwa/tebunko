@@ -365,6 +365,7 @@ function finishIndexing {
     refreshIndexingState
     refreshIndexSummary
     loadIndexTree  # 新しいインデックス・フォルダをツリーに出す
+    refreshFastSearchStatus  # インデックス作成が終わったので、一覧の「高速検索」列を確かめ直す
     updateKillBadge
 }
 

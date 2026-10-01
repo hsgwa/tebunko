@@ -208,6 +208,128 @@ function getIndexImportOverwriteConfirmMessage {
     return "インデックス「${name}」は既にあります。上書きしますか？（前のインデックスは置き換わります。別名で入れることもできます）"
 }
 
+function getIndexRowView {
+    # 一覧の「ステータス」列（本文の取り込みの状態）の文言・ツールヒント・色の区分を返す。@{ Text; ToolTip; Level }
+    #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
+    #   indexing : インデックス作成中か
+    #   enabled  : 一覧でチェックが付いているか（インデックス作成で取り込む対象か）
+    param (
+        $stat,
+        [bool]$indexing = $false,
+        [bool]$enabled = $true
+    )
+
+    $notice = if (!$enabled) { "チェックが外れているため、インデックス作成では取り込まない（インデックスは残っている）" } else { "" }
+    if ($indexing -and $enabled) {
+        return @{ Text = "作成中"; Level = "Wait"; ToolTip = "インデックス作成中。終わると状態を表示する" }
+    }
+    if ($null -eq $stat -or $stat.Total -eq 0) {
+        return @{ Text = "未作成"; Level = "None"; ToolTip = addIndexRowNotice "まだ取り込んでいない。チェックを付けて［インデックス作成を開始］を押すと作る" $notice }
+    }
+    if ($stat.Pending -ge 1) {
+        return @{ Text = "途中"; Level = "Wait"; ToolTip = addIndexRowNotice "未取り込み $($stat.Pending) 件。次の［インデックス作成を開始］で続きから取り込む" $notice }
+    }
+    if ($stat.Failed -ge 1) {
+        return @{ Text = "一部失敗"; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件。原因は下の「取り込みに失敗したファイル」で見られる。失敗したファイル以外は検索できる" $notice }
+    }
+    return @{ Text = "取り込み済"; Level = "Ok"; ToolTip = addIndexRowNotice "取り込み済み $($stat.Total) 件" $notice }
+}
+
+function addIndexRowNotice {
+    # getIndexRowView のツールヒントに、チェックが外れているときの案内を改行で足す（無ければそのまま）
+    param ([string]$text, [string]$notice)
+
+    if ($notice -eq "") {
+        return $text
+    }
+    return "${text}`n${notice}"
+}
+
+function getFastSearchRowView {
+    # 一覧の「高速検索」列（システムインデックスが Windows Search にどこまで反映されたか）の
+    # 文言・ツールヒント・色の区分を返す。@{ Text; ToolTip; Level }
+    #   reason     : getWindowsSearchState の値（NoFolder; NoConnection; NotInScope; NotYet; Ok）。$null ならまだ確かめていない
+    #   progress   : getSystemIndexProgress の値（$null なら読めなかった・問い合わせに失敗した）
+    #   name       : インデックス名（progress.ByIndex を引く）
+    #   hasContent : そのインデックスの getIndexStats の Done が 1 以上か
+    #   checkedAt  : 最後に確かめ終えた時刻（DateTime。$null ならまだ）
+    param (
+        $reason,
+        $progress,
+        [string]$name,
+        [bool]$hasContent = $false,
+        $checkedAt = $null
+    )
+
+    if ($null -eq $reason) {
+        return @{ Text = "確認中…"; Level = "None"; ToolTip = "Windows Search の状態を確かめている" }
+    }
+    if ($reason -eq "NoFolder" -and !$hasContent) {
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。インデックス作成が終わると状態を表示する" $checkedAt) }
+    }
+    if ($reason -eq "NoConnection") {
+        return newFastSearchRowResult "不可" "Ng" @("Windows Search に接続できない。Windows Search のサービスが動いているかを確かめる") $true $checkedAt $progress
+    }
+    if ($reason -eq "NotInScope") {
+        return newFastSearchRowResult "不可" "Ng" @("ワークスペースが Windows Search の索引の対象外。［インデックスのオプション］でワークスペースの system_index を対象に加える（管理者の権限が要る PC では、PC の管理者に頼む）") $true $checkedAt $progress
+    }
+    if (($reason -eq "Ok" -or $reason -eq "NotYet") -and $null -eq $progress) {
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "反映の進み具合を確かめられなかった。画面を前に出し直すと、もう一度確かめる" $checkedAt) }
+    }
+    $entry = $null
+    if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($name)) {
+        $entry = $progress.ByIndex[$name]
+    }
+    if ($null -eq $entry -or $entry.Folders -eq 0) {
+        if ($hasContent) {
+            return newFastSearchRowResult "不可" "Ng" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
+        }
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。インデックス作成が終わると状態を表示する" $checkedAt) }
+    }
+    if ($reason -eq "NotYet") {
+        return newFastSearchRowResult "反映待ち" "Wait" @("Windows Search がまだ索引していない。対象に入っていれば、待つと使えるようになる（対象外のときは［インデックスのオプション］で加える）") $true $checkedAt $progress
+    }
+    # ここから reason は Ok
+    if ($entry.Waiting -eq $entry.Folders) {
+        return newFastSearchRowResult "反映待ち" "Wait" @("反映済み 0 / $($entry.Folders) フォルダ。Windows Search が索引すると反映中 N% に進む") $true $checkedAt $progress
+    }
+    if ($entry.Waiting -ge 1) {
+        $percent = [Math]::Floor((($entry.Folders - $entry.Waiting) / [double]$entry.Folders) * 100)
+        if ($percent -eq 0) { $percent = 1 }
+        return newFastSearchRowResult "反映中 ${percent}%" "Wait" @("反映済み $($entry.Folders - $entry.Waiting) / $($entry.Folders) フォルダ（反映待ち $($entry.Waiting)）。反映済みのフォルダは高速検索で、反映待ちのフォルダはふつうの検索で調べる") $true $checkedAt $progress
+    }
+    return @{
+        Text = "可"; Level = "Ok"
+        ToolTip = addFastSearchCheckedAt "反映済み $($entry.Folders) / $($entry.Folders) フォルダ。高速検索に使える" $checkedAt
+    }
+}
+
+function newFastSearchRowResult {
+    # getFastSearchRowView の共通の組み立て: 理由の行＋（使っても結果は同じという注記）＋ ContentIndexed の案内＋最終確認
+    param ([string]$text, [string]$level, [string[]]$lines, [bool]$withUsageNotice, $checkedAt, $progress)
+
+    $all = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($line in $lines) { [void]$all.Add($line) }
+    if ($withUsageNotice) {
+        [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違う")
+        if ($progress -and $progress.ContentIndexed) {
+            [void]$all.Add("content_index が Windows Search の対象から自動で外れなかった。対象から外すと反映が早くなる")
+        }
+    }
+    $tooltip = addFastSearchCheckedAt ($all -join "`n") $checkedAt
+    return @{ Text = $text; Level = $level; ToolTip = $tooltip }
+}
+
+function addFastSearchCheckedAt {
+    # ツールヒントの最後に「最終確認 HH:mm」を足す（checkedAt が無ければそのまま）
+    param ([string]$text, $checkedAt)
+
+    if ($null -eq $checkedAt) {
+        return $text
+    }
+    return "${text}`n最終確認 $($checkedAt.ToString('HH:mm'))"
+}
+
 function testIndexEditInput {
     # 追加・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (
