@@ -65,6 +65,7 @@
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
+        <RowDefinition x:Name="NavNoticeRow" Height="0" />
         <RowDefinition Height="1" />
         <RowDefinition Height="28" />
       </Grid.RowDefinitions>
@@ -206,8 +207,13 @@
         </ScrollViewer>
       </Grid>
 
-      <Rectangle Grid.Row="5" Fill="{StaticResource Line.E0E2E5}" />
-      <DockPanel Grid.Row="6" Margin="21,0,12,0">
+      <DockPanel x:Name="NavNotice" Grid.Row="5" Margin="21,0,12,8" Visibility="Collapsed">
+        <Path Data="{StaticResource Icon.Info}" Width="11" Height="11" Stretch="Uniform" Stroke="{StaticResource Disabled.9AA0A6}" StrokeThickness="1.4" Margin="0,0,5,0" VerticalAlignment="Center" />
+        <TextBlock Text="検索するフォルダを選んでください" VerticalAlignment="Center" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
+      </DockPanel>
+
+      <Rectangle Grid.Row="6" Fill="{StaticResource Line.E0E2E5}" />
+      <DockPanel Grid.Row="7" Margin="21,0,12,0">
         <Path Data="{StaticResource Icon.Info}" Width="11" Height="11" Stretch="Uniform" Stroke="{StaticResource Disabled.9AA0A6}" StrokeThickness="1.4" Margin="0,0,5,0" VerticalAlignment="Center" />
         <TextBlock Text="バージョン情報" VerticalAlignment="Center" Style="{StaticResource Text.11.Muted}" />
       </DockPanel>
@@ -221,6 +227,7 @@
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="1" />
+        <RowDefinition x:Name="ContentBannerRow" Height="0" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
         <RowDefinition Height="8" />
@@ -267,8 +274,19 @@
 
       <Rectangle Grid.Row="2" Fill="{StaticResource Line.E0E2E5}" />
 
+      <!-- 状態のお知らせ（検索を中止した・保存したなど。中止＝青、保存成功＝緑） -->
+      <Border x:Name="ContentBanner" Grid.Row="3" Margin="16,8,16,0" Padding="10,6,10,6" BorderThickness="1"
+              CornerRadius="{StaticResource Radius.4}" Background="{StaticResource Select.E1F2FF}" BorderBrush="{StaticResource Accent.0078D4}"
+              Visibility="Collapsed">
+        <DockPanel>
+          <Button x:Name="ContentBannerButton" DockPanel.Dock="Right" Style="{StaticResource Btn.Outline}" Content="フォルダを開く" Visibility="Collapsed" />
+          <Path x:Name="ContentBannerIcon" Data="{StaticResource Icon.Info}" Width="12" Height="12" Stretch="Uniform" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="1.4" Margin="0,0,6,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="ContentBannerText" Text="検索を中止しました（見つかった 5 件を表示しています）" Style="{StaticResource Text.12}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+
       <!-- 結果の見出し -->
-      <DockPanel Grid.Row="3" Margin="16,8,16,8">
+      <DockPanel Grid.Row="4" Margin="16,8,16,8">
         <Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{StaticResource Btn.Outline}" Width="70">
           <StackPanel Orientation="Horizontal">
             <Path Data="{StaticResource Icon.Save}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="1.4" Margin="0,0,4,0" />
@@ -284,7 +302,7 @@
       </DockPanel>
 
       <!-- 結果の一覧 -->
-      <Grid Grid.Row="4">
+      <Grid Grid.Row="5">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
         <Grid>
           <StackPanel x:Name="ResultsPanel" Margin="16,0,16,8">
@@ -430,12 +448,12 @@
       </Grid>
 
       <!-- 横の仕切り -->
-      <Border Grid.Row="5" Background="{StaticResource Bg.F3F3F4}">
+      <Border Grid.Row="6" Background="{StaticResource Bg.F3F3F4}">
         <Rectangle Width="32" Height="3" Fill="{StaticResource Border.D0D4D9}" RadiusX="1.5" RadiusY="1.5" />
       </Border>
 
       <!-- プレビュー -->
-      <DockPanel Grid.Row="6" Margin="16,8,16,8">
+      <DockPanel Grid.Row="7" Margin="16,8,16,8">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
           <Button x:Name="PreviewOpenBody" Style="{StaticResource Btn.OpenSplitBody}" Content="開く" />
           <Button x:Name="PreviewOpenArrow" Style="{StaticResource Btn.OpenSplitArrow}" Content="▾" />
@@ -443,7 +461,7 @@
         </StackPanel>
         <TextBlock x:Name="PreviewBreadcrumbText" Text="A社_見積書.xlsx &gt; [シート] 見積書 &gt; セル A3" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </DockPanel>
-      <Grid x:Name="PreviewContentHost" Grid.Row="7" Margin="16,0,16,8">
+      <Grid x:Name="PreviewContentHost" Grid.Row="8" Margin="16,0,16,8">
         <Grid x:Name="PreviewSheetGrid" Background="{StaticResource Bg.FFFFFF}">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="30" />
@@ -476,7 +494,7 @@
         </StackPanel>
       </Grid>
 
-      <Border Grid.Row="8" Background="{StaticResource Bg.F0F0F0}">
+      <Border Grid.Row="9" Background="{StaticResource Bg.F0F0F0}">
         <TextBlock x:Name="StatusBarText" Text="検索しました：（株）山田商事 14件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="16,0,0,0" />
       </Border>
     </Grid>
@@ -484,7 +502,7 @@
 
   <!-- ===== 重ねの層（ポップオーバー・吹き出し・メニュー。Canvas で絶対位置に置く） ===== -->
   <Canvas x:Name="OverlayLayer" Grid.RowSpan="3" IsHitTestVisible="False">
-    <Border x:Name="RangePopup" Visibility="Collapsed" Canvas.Left="820" Canvas.Top="104" Width="230"
+    <Border x:Name="RangePopup" Visibility="Collapsed" Canvas.Left="790" Canvas.Top="120" Width="230"
             Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12">
       <StackPanel>
@@ -517,14 +535,13 @@
       <TextBlock x:Name="FullPathTooltipText" Text="C:\Share\営業部\2024\見積もり\提案書_2024年度下期_大口顧客向け.xlsx" Style="{StaticResource Text.Bubble}" />
     </Border>
 
-    <Border x:Name="ContextMenuPopup" Visibility="Collapsed" Canvas.Left="420" Canvas.Top="300" Width="180"
+    <Border x:Name="ContextMenuPopup" Visibility="Collapsed" Canvas.Left="1000" Canvas.Top="645" Width="180"
             Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="4">
       <StackPanel>
         <TextBlock Text="開く" Style="{StaticResource Text.12}" Padding="8,6" />
-        <TextBlock Text="フォルダを開く" Style="{StaticResource Text.12}" Padding="8,6" />
-        <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="4,2" />
-        <TextBlock Text="パスをコピー" Style="{StaticResource Text.12}" Padding="8,6" />
+        <TextBlock Text="新規で開く" Style="{StaticResource Text.12}" Padding="8,6" />
+        <TextBlock Text="読み取り専用で開く" Style="{StaticResource Text.12}" Padding="8,6" />
       </StackPanel>
     </Border>
   </Canvas>
