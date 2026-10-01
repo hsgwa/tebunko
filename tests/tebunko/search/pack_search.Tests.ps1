@@ -33,7 +33,7 @@ BeforeAll {
         foreach ($path in [System.IO.Directory]::GetFiles($tsvRoot, "*.tsv", "AllDirectories")) {
             $bookDir = [System.IO.Path]::GetDirectoryName($path)
             $book = [System.IO.Path]::GetFileName($bookDir)
-            $place = decodeIndexPlace ([System.IO.Path]::GetFileNameWithoutExtension($path))
+            $place = convertIndexFileNameToPlace ([System.IO.Path]::GetFileNameWithoutExtension($path))
             if ($filter.Include -and !$filter.Include.IsMatch($book)) { continue }
             if ($filter.Exclude -and $filter.Exclude.IsMatch($book)) { continue }
             if ($exclude -and $exclude.IsMatch($place)) { continue }
@@ -89,6 +89,15 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         $packs[0].RelPath | Should -Be "営業\content_index.docx.001.tsv"
         $packs[1].RelPath | Should -Be "営業\content_index.xlsx.001.tsv"
         $packs[2].RelPath | Should -Be "営業\2025\content_index.pptx.001.tsv"
+    }
+
+    It "ブックの中の場所の並びは、前の名前の付け方（encodeIndexPlace）で並べたときと同じになる（検索結果の順を変えないため）" {
+        $books = getIndexFolderBooks $idx
+        $book = $books | Where-Object { $_.Name -eq "見積.xlsx" }
+        $places = @("見積", "見積[図形]", "50%引き")
+        $keys = @($places | ForEach-Object { "{0}.tsv" -f (encodeIndexPlace $_) })
+        [System.Array]::Sort($keys, $places, [System.StringComparer]::CurrentCultureIgnoreCase)
+        @($book.Places.Place) -join "|" | Should -Be ($places -join "|")
     }
 
     It "元のファイルが無くなった拡張子の集約ファイルは、変換し直すときに消す" {
@@ -200,7 +209,7 @@ Describe "集約ファイルの作成と検索" -Tag Io {
 
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
         foreach ($folder in $found) { $pending[$folder] = @() }
-        $state = "$work\システムインデックスの状態.tsv"
+        $state = "$work\system_index_state.tsv"
         publishIndexFolders $pending $index "$work\system_index" $state | Should -Be 2
         (findIndexFoldersWithBooks $index).Count | Should -Be 0
         [System.IO.File]::Exists("$index\人事\content_index.xlsx.001.tsv") | Should -Be $true

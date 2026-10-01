@@ -43,7 +43,7 @@ BeforeAll {
     $safeDir = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko_index_tree_test_$([guid]::NewGuid())"
     $indexDir = "$safeDir\index"
     $settingsFile = "$safeDir\setting.config"
-    $statusFile = "$safeDir\取り込み一覧.tsv"
+    $statusFile = "$safeDir\ingest_status.tsv"
     $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
 
     # ---- テストの準備 ----
@@ -105,7 +105,7 @@ Describe "loadIndexTree" -Tag Io {
     BeforeAll {
         $indexDir = "$TestDrive\index"
         $settingsFile = "$TestDrive\setting.config"
-        $statusFile = "$TestDrive\取り込み一覧.tsv"
+        $statusFile = "$TestDrive\ingest_status.tsv"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
     }
 
@@ -210,7 +210,7 @@ Describe "saveSearchExcludes・setAllIndexChecked" -Tag Io {
     BeforeAll {
         $indexDir = "$TestDrive\index"
         $settingsFile = "$TestDrive\setting.config"
-        $statusFile = "$TestDrive\取り込み一覧.tsv"
+        $statusFile = "$TestDrive\ingest_status.tsv"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
     }
 
@@ -291,7 +291,7 @@ Describe "イベント" -Tag Io {
     BeforeAll {
         $indexDir = "$TestDrive\index"
         $settingsFile = "$TestDrive\setting.config"
-        $statusFile = "$TestDrive\取り込み一覧.tsv"
+        $statusFile = "$TestDrive\ingest_status.tsv"
         $workspace = newTestWorkspace @{ IndexDir = $indexDir; StatusFile = $statusFile }
     }
 

@@ -124,6 +124,45 @@ Describe "toIndexFileName" -Tag Unit {
             (toIndexFileName $place).Length | Should -Be 255
         }
     }
+
+    It "<name>" -TestCases @(
+        @{ name = "ページは page_<番号>"; place = "ページ001"; fileName = "page_001.tsv"; ascii = $true }
+        @{ name = "桁数の多いページ番号もそのまま写す"; place = "ページ12345"; fileName = "page_12345.tsv"; ascii = $true }
+        @{ name = "非表示のスライドは slide_<番号>_hidden"; place = "スライド002（非表示）"; fileName = "slide_002_hidden.tsv"; ascii = $true }
+        @{ name = "スライドのノートは slide_<番号>_notes"; place = "スライド002_ノート"; fileName = "slide_002_notes.tsv"; ascii = $true }
+        @{ name = "ふつうのスライドは slide_<番号>"; place = "スライド002"; fileName = "slide_002.tsv"; ascii = $true }
+        @{ name = "ヘッダー・フッターは header_footer"; place = "ヘッダー・フッター"; fileName = "header_footer.tsv"; ascii = $true }
+        @{ name = "脚注は doc_footnotes"; place = "脚注"; fileName = "doc_footnotes.tsv"; ascii = $true }
+        @{ name = "文書は doc_whole"; place = "文書"; fileName = "doc_whole.tsv"; ascii = $true }
+        @{ name = "本文は doc_body"; place = "本文"; fileName = "doc_body.tsv"; ascii = $true }
+        @{ name = "固定名の場所の図形は末尾に [shape]"; place = "スライド002[図形]"; fileName = "slide_002[shape].tsv"; ascii = $true }
+        @{ name = "固定名の場所のコメントは末尾に [comment]"; place = "ページ001[コメント]"; fileName = "page_001[comment].tsv"; ascii = $true }
+        @{ name = "非表示のスライドの図形も末尾に [shape]"; place = "スライド002（非表示）[図形]"; fileName = "slide_002_hidden[shape].tsv"; ascii = $true }
+        @{ name = "文書のコメントは doc_whole[comment]"; place = "文書[コメント]"; fileName = "doc_whole[comment].tsv"; ascii = $true }
+        @{ name = "Excel の任意のシート名は符号化する（固定名に当てはまらない）"; place = "売上"; fileName = "売上.tsv"; ascii = $false }
+        @{ name = "シート名の図形は末尾に [shape]"; place = "売上[図形]"; fileName = "売上[shape].tsv"; ascii = $false }
+        @{ name = "シート名の _ は %5F にする（固定名と区別するため）"; place = "2024_上期"; fileName = "2024%5F上期.tsv"; ascii = $false }
+        @{ name = "シート名の % は %25 にする"; place = "50%引き"; fileName = "50%25引き.tsv"; ascii = $false }
+        @{ name = "シート名のファイル名禁止文字は符号化する"; place = "記号<>"; fileName = "記号%3C%3E.tsv"; ascii = $false }
+    ) {
+        param ($name, $place, $fileName, $ascii)
+        toIndexFileName $place | Should -Be $fileName
+        # convertIndexFileNameToPlace で元の場所へ一意に戻せる（往復できる）
+        convertIndexFileNameToPlace ([System.IO.Path]::GetFileNameWithoutExtension($fileName)) | Should -Be $place
+        if ($ascii) {
+            $fileName | Should -Match "^[\x00-\x7F]+$"
+        }
+    }
+}
+
+Describe "placeKindFileNames" -Tag Unit {
+    It "キーが objectPlacePattern の種類（図形・コメント）とそろっている" {
+        ${placeKindFileNames}.Keys.Count | Should -Be 2
+        foreach ($kind in ${placeKindFileNames}.Keys) {
+            "売上[$kind]" | Should -Match ${objectPlacePattern}
+        }
+        "売上[未知の種類]" | Should -Not -Match ${objectPlacePattern}
+    }
 }
 
 Describe "newIndexName / assignIndexNames" -Tag Unit {
