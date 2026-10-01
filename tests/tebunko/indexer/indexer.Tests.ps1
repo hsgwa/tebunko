@@ -76,6 +76,7 @@ BeforeAll {
         $script:lastChannel = $channel
         $global:indexerTestRoot = $root
         $global:capturedTmpDir = $null
+        $global:capturedLegacyTmpParent = $null
         $points = New-Object System.Collections.Generic.List[object]
         try {
             # ${dataDir} を決める行で、その前に ${rootDir} を差し替える（テスト用のフォルダには書き込めるため、setting.config・work もそこになる）。
@@ -89,9 +90,13 @@ BeforeAll {
                 Set-Variable -Name legacyTmpParent -Value (Join-Path $global:indexerTestRoot "legacy_tmp") -Scope 1
             }))
             # 取り込みの作業フォルダ（$tmpDir）が決まった直後の行で、その値を控える
-            # （終わったあとはワークスペースの場所・代わりの場所のどちらも後片付けで消えるため、途中でしか確かめられない）
+            # （終わったあとはワークスペースの場所・代わりの場所のどちらも後片付けで消えるため、途中でしか確かめられない）。
+            # ${legacyTmpParent} の差し替え（上のブレークポイント）が実際に initTmpDir まで効いていることも、
+            # 同じ場所で控えて確かめる（差し替えの行自体が paths.ps1 の無関係な行に依存しているため、
+            # ここで使われた値を見ないと、行順が変わって差し替えが上書きされても気付けない）
             $points.Add((Set-PSBreakpoint -Script $runPath -Line ((findLine $runPath '\$script:tmpDir = \(initTmpDir\)\.Dir') + 1) -Action {
                 Set-Variable -Name capturedTmpDir -Value (Get-Variable -Name tmpDir -ValueOnly) -Scope Global
+                Set-Variable -Name capturedLegacyTmpParent -Value (Get-Variable -Name legacyTmpParent -ValueOnly) -Scope Global
             }))
             foreach ($break in $breaks) {
                 $points.Add((Set-PSBreakpoint -Script $break.Script -Line (findLine $break.Script $break.Pattern) -Action $break.Action))
@@ -258,6 +263,8 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         # 取り込み中は、代わりの場所（%TEMP%）ではなくワークスペースの tmp の下を使う
         $global:capturedTmpDir | Should -Not -BeNullOrEmpty
         $global:capturedTmpDir.StartsWith("$root\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
+        $global:capturedLegacyTmpParent | Should -Be (Join-Path $root "legacy_tmp")
         Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
     }
 
@@ -714,6 +721,8 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         # 取り込み中は、代わりの場所（%TEMP%）ではなくワークスペースの tmp の下を使う
         $global:capturedTmpDir | Should -Not -BeNullOrEmpty
         $global:capturedTmpDir.StartsWith("$parallel\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
+        $global:capturedLegacyTmpParent | Should -Be (Join-Path $parallel "legacy_tmp")
         Test-Path -LiteralPath (Join-Path "$parallel\legacy_tmp" "$PID") | Should -Be $false
         $progress = readTestProgress
         $progress.Processed | Should -Be 5
