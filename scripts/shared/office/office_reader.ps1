@@ -37,9 +37,24 @@ $script:zipTotalMaxBytes = 300MB
 $script:zipTotalReadBytes = 0
 
 # サイズの上限を超えた（ZIP爆弾・巨大なXML等の見込み）ときに投げる、利用者向けの短い文言。
-# 部品ごとか合計かの区別、部品名・大きさは画面に出さない（インデックス作成ログにも出さない。
-# 分かると悪用のヒントになるため）
+# 画面には部品ごとか合計かの区別・部品名・大きさを出さない（分かると悪用のヒントになるため）。
+# インデックス作成のログには書く（2026-09-27 メンテナの回答）。shared/ はツール（インデックス作成のログ）を
+# 知らないため、ここでは書かず、ZipSizeLimitException のプロパティで呼び出し元（tebunko/indexer）に伝える
 $script:zipTooLargeMessage = "ファイルサイズが大きすぎるため取り込めません。"
+
+class ZipSizeLimitException : System.Exception {
+    # .Message は今までどおり利用者向けの簡潔な文言のまま（$script:zipTooLargeMessage）。
+    # 部品名・大きさ・部品ごとか合計かは、ここのプロパティにだけ持ち、呼び出し元がインデックス作成のログに書く
+    [string]$PartName     # ZIP内のパス（例: "word/document.xml"）
+    [long]$MeasuredBytes  # 超えたと分かった時点の大きさ（バイト）。偽りのヘッダーのときは、実際の大きさまでは分からないため、検出できた時点の値
+    [string]$LimitKind    # "Part"（部品ごとの上限。偽りのヘッダーを含む）または "Total"（1ファイルの合計の上限）
+
+    ZipSizeLimitException([string]$message, [string]$partName, [long]$measuredBytes, [string]$limitKind) : base($message) {
+        $this.PartName = $partName
+        $this.MeasuredBytes = $measuredBytes
+        $this.LimitKind = $limitKind
+    }
+}
 
 function isZipFile {
     # ファイルの先頭がZIPのシグネチャ（PK\x03\x04）かどうか。
@@ -109,11 +124,11 @@ function readZipEntry {
 
     $length = $entry.Length
     if ($length -gt $script:zipPartMaxBytes) {
-        throw $script:zipTooLargeMessage
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $length, "Part")
     }
     $script:zipTotalReadBytes += $length
     if ($script:zipTotalReadBytes -gt $script:zipTotalMaxBytes) {
-        throw $script:zipTooLargeMessage
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $script:zipTotalReadBytes, "Total")
     }
 
     $buffer = New-Object byte[] ($length + 1)
@@ -131,7 +146,8 @@ function readZipEntry {
         $stream.Dispose()
     }
     if ($filled -gt $length) {
-        throw $script:zipTooLargeMessage  # 中身がヘッダーの値より長い（偽りのヘッダー）
+        # 中身がヘッダーの値より長い（偽りのヘッダー）。実際の大きさは分からないため、検出できた時点の $filled を記録する
+        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $filled, "Part")
     }
 
     $memory = New-Object System.IO.MemoryStream($buffer, 0, $filled)

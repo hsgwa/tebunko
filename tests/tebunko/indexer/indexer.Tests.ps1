@@ -926,9 +926,23 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
             $result.Reroute | Should -Be $false
             $result.Message | Should -Be "ファイルサイズが大きすぎるため取り込めません。"
             Should -Invoke getApp -Times 0 -Exactly -Scope It
+            # 画面・取り込み一覧には出さない部品名・大きさ・部品ごとか合計かは、インデックス作成のログにだけ書く（2026-09-27 メンテナの回答）
+            $result.Log | Should -Match "word/document\.xml"
+            $result.Log | Should -Match "部品ごと"
         } finally {
             $script:zipPartMaxBytes = $orig
         }
+    }
+
+    It "ふつうの失敗（ZipSizeLimitException ではない例外）では、サイズの上限の詳細をログに書かず、今までどおりの表示にする" {
+        ${tmpDir} = Join-Path $TestDrive "ordinary_fail_log_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { throw "ふつうの失敗です。" }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\ふつう2.docx"; SourcePath = "C:\data\ふつう2.docx" } 10
+        $result.Ok | Should -Be $false
+        $result.Message | Should -Be "ふつうの失敗です。"
+        $result.Log | Should -Not -Match "サイズの上限"
     }
 }
 
