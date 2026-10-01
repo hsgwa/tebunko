@@ -84,6 +84,27 @@ Describe "clearTmpDir" -Tag Io {
     }
 }
 
+Describe "removeEmptyDir" -Tag Io {
+    It "削除の権限が無いフォルダ（共有フォルダで他の利用者のものなど）でも、例外にならずそのまま残す" {
+        $parent = "$TestDrive\denied"
+        $dir = "$parent\child"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+        foreach ($target in @($parent, $dir)) {
+            $acl = Get-Acl -LiteralPath $target
+            $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($identity, "FullControl", "Deny")))
+            Set-Acl -LiteralPath $target -AclObject $acl
+        }
+        try {
+            { removeEmptyDir $dir } | Should -Not -Throw
+        } finally {
+            # 後片付け（TestDrive の削除）が行えるよう、権限を元に戻す
+            icacls $parent /reset /t /c 2>&1 | Out-Null
+        }
+        Test-Path -LiteralPath $dir | Should -Be $true
+    }
+}
+
 Describe "removeTmpDir" -Tag Io {
     It "作業フォルダと出力用のフォルダを削除する" {
         $tmpDir = "$TestDrive\remove\tmp"

@@ -23,8 +23,8 @@ function removeEmptyDir {
     )
     try {
         [System.IO.Directory]::Delete($dir, $false)
-    } catch [System.IO.IOException] {
-        # 空でない、または既に無い
+    } catch {
+        # 空でない・既に無い・アクセス権が無い（共有フォルダで他の利用者のフォルダなど）
     }
 }
 

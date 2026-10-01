@@ -12,6 +12,7 @@ BeforeAll {
     $indexerPath = "${scriptsDir}\tebunko\indexer.ps1"
     $runPath     = "${scriptsDir}\tebunko\indexer\indexer_run.ps1"
     $dataDirPath = "${scriptsDir}\shared\core\data_dir.ps1"
+    $pathsPath   = "${scriptsDir}\tebunko\core\paths.ps1"
     $planPath    = "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
     $reporterPath = "${scriptsDir}\tebunko\indexer\indexing_reporter.ps1"
     $docxSource  = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
@@ -74,12 +75,23 @@ BeforeAll {
         $channel = newIndexerChannel ([bool]$options.RetryFailed) ([bool]$options.ConfirmTargets) $workers
         $script:lastChannel = $channel
         $global:indexerTestRoot = $root
+        $global:capturedTmpDir = $null
         $points = New-Object System.Collections.Generic.List[object]
         try {
             # ${dataDir} を決める行で、その前に ${rootDir} を差し替える（テスト用のフォルダには書き込めるため、setting.config・work もそこになる）。
             # Action は止まった場所の子のスコープで動く
             $points.Add((Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
                 Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
+            }))
+            # ${legacyTmpParent}（代わりの場所 %TEMP%\tebunko）の既定値を決めた直後の行で差し替え、
+            # テストが利用者の本物の %TEMP%\tebunko に触れないようにする
+            $points.Add((Set-PSBreakpoint -Script $pathsPath -Line (findLine $pathsPath '^\$excelMaxPath = 218') -Action {
+                Set-Variable -Name legacyTmpParent -Value (Join-Path $global:indexerTestRoot "legacy_tmp") -Scope 1
+            }))
+            # 取り込みの作業フォルダ（$tmpDir）が決まった直後の行で、その値を控える
+            # （終わったあとはワークスペースの場所・代わりの場所のどちらも後片付けで消えるため、途中でしか確かめられない）
+            $points.Add((Set-PSBreakpoint -Script $runPath -Line ((findLine $runPath '\$script:tmpDir = \(initTmpDir\)\.Dir') + 1) -Action {
+                Set-Variable -Name capturedTmpDir -Value (Get-Variable -Name tmpDir -ValueOnly) -Scope Global
             }))
             foreach ($break in $breaks) {
                 $points.Add((Set-PSBreakpoint -Script $break.Script -Line (findLine $break.Script $break.Pattern) -Action $break.Action))
@@ -90,6 +102,7 @@ BeforeAll {
             foreach ($point in $points) { Remove-PSBreakpoint -Breakpoint $point }
             Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
         }
+        # $global:capturedTmpDir は呼び出し側が結果を確かめられるよう、次の runIndexer まで残す
     }
 
     function readTestStatus {
@@ -242,6 +255,10 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should -Be $false
         # 取り込みの作業フォルダ（work\tmp\<PC の鍵>\<PID>）も削除する
         Test-Path -LiteralPath (Join-Path "$root\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
+        # 取り込み中は、代わりの場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        $global:capturedTmpDir | Should -Not -BeNullOrEmpty
+        $global:capturedTmpDir.StartsWith("$root\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
     }
 
     It "2 回目は更新の無いファイルを取り込まず、前回失敗したファイルもスキップする" {
@@ -694,6 +711,10 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         Test-Path -LiteralPath "$parallel\work\取り込み中.txt" | Should -Be $false
         @(Get-ChildItem -LiteralPath "$parallel\work\取り込み出力" -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
         Test-Path -LiteralPath (Join-Path "$parallel\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
+        # 取り込み中は、代わりの場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        $global:capturedTmpDir | Should -Not -BeNullOrEmpty
+        $global:capturedTmpDir.StartsWith("$parallel\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        Test-Path -LiteralPath (Join-Path "$parallel\legacy_tmp" "$PID") | Should -Be $false
         $progress = readTestProgress
         $progress.Processed | Should -Be 5
         $progress.Failed | Should -Be 1
