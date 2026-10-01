@@ -4259,7 +4259,7 @@
 </tr>
 <tr>
 <td>作業領域</td>
-<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code>（代わりの場所は <code>%TEMP%\tebunko\&lt;PID&gt;\</code>）</td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code>（パスに <code>[</code> <code>]</code> を含む・長すぎて置けないときは、一時ファイルが要る取り込みをすべてスキップする）</td>
 <td>取り込み途中のファイル（元のファイルのコピー・変換したファイル・TSV）。取り込みのスレッドごとに <code>w&lt;番号&gt;</code> に分ける。終了時に削除する</td>
 </tr>
 <tr>

@@ -4115,7 +4115,7 @@
 </tr>
 <tr>
 <td>書き込み先</td>
-<td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける。取り込みの作業領域 <code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code> を含む。ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは代わりに <code>%TEMP%\tebunko\&lt;PID&gt;</code>）、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先、起動に失敗したときの記録（<code>%LOCALAPPDATA%\tebunko\startup_error.txt</code>。書き込めなければ <code>%TEMP%\tebunko_startup_error.txt</code>）のみ</td>
+<td><code>work/</code> 配下（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。利用者が画面で選んだフォルダ（ワークスペース）にも置ける。取り込みの作業領域 <code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code> を含む。ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは作らず、一時ファイルが要る取り込みをすべてスキップする。<code>%TEMP%</code> には逃がさない）、<code>setting.config</code>（ツールのフォルダに書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>）、利用者が指定した検索結果の出力先、起動に失敗したときの記録（<code>%LOCALAPPDATA%\tebunko\startup_error.txt</code>。書き込めなければ <code>%TEMP%\tebunko_startup_error.txt</code>）のみ</td>
 <td><code>safety.Tests.ps1</code></td>
 <td><a href="file-access/#書き込み削除する場所">書き込み・削除する場所</a></td>
 </tr>
