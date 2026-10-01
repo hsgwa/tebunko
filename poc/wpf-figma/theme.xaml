@@ -78,6 +78,9 @@
   <Geometry x:Key="Icon.Search">M11 3a8 8 0 1 0 0.0001 0Z M16.6 16.6 L21 21</Geometry>
   <Geometry x:Key="Icon.AppBook">M4 6a2 2 0 0 1 2-2h5.5v14H6a2 2 0 0 1-2-2Z M20 6a2 2 0 0 0-2-2h-5.5v14H18a2 2 0 0 0 2-2Z</Geometry>
   <Geometry x:Key="Icon.AppMag">M17.3 20a2.7 2.7 0 1 0 0.0001 0Z M19.3 19.3 L23 23</Geometry>
+  <Geometry x:Key="Icon.Bolt">M13 2 L4 14h6l-1 8 9-12h-6Z</Geometry>
+  <Geometry x:Key="Icon.Info">M12 2a10 10 0 1 0 0.0001 0Z M12 8v0.01 M12 11v6</Geometry>
+  <Geometry x:Key="Icon.Dots3">M5 12a1.2 1.2 0 1 0 0.0001 0Z M12 12a1.2 1.2 0 1 0 0.0001 0Z M19 12a1.2 1.2 0 1 0 0.0001 0Z</Geometry>
 
   <!-- ============ 文字（Figma のサイズをそのまま。太さは Regular/Medium/Bold） ============ -->
   <Style x:Key="Text.10" TargetType="TextBlock">
