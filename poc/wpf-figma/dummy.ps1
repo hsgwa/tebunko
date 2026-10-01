@@ -114,6 +114,19 @@ function Set-ElBrushKey($Root, [string]$Name, [string]$Property, [string]$BrushK
     if ($null -ne $el) { $el.$Property = $Root.FindResource($BrushKey) }
 }
 
+# 検索結果の行の文字列（ヒット語だけ黄色の背景）を差し替える。
+# $Parts は @(@{ Text = "見積先："}, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "（御中）" }) の形。
+function Set-ElRuns($Root, [string]$Name, [array]$Parts) {
+    $el = Find-Named $Root $Name
+    if ($null -eq $el) { return }
+    $el.Inlines.Clear()
+    foreach ($part in $Parts) {
+        $run = New-Object System.Windows.Documents.Run($part.Text)
+        if ($part.Hit) { $run.Background = $Root.FindResource("Hit.FFF176") }
+        $el.Inlines.Add($run)
+    }
+}
+
 # ---- 高速検索の表示（6 状態） ----
 # $State: "unavailable-connect" / "unavailable-regex" / "unavailable-short" / "unavailable-pending" / "partial" / "ok" / "hidden"
 function Set-FastSearchState($Root, [string]$State) {
@@ -198,9 +211,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "ResultsEmptyState" $true
             $title = Find-Named $Root "ResultsEmptyTitle"
             if ($title) { $title.Text = "インデックスが作成されていません"; $title.FontSize = 18; $title.FontWeight = "Bold" }
-            Set-ElText $Root "ResultsEmptyBody" "検索するフォルダを選び、インデックスを作成してください。"
+            Set-ElText $Root "ResultsEmptyBody" "検索を行うには、まずインデックス管理からフォルダを登録し、インデックスを作成してください。"
             $cta = Find-Named $Root "ResultsEmptyCta"
-            if ($cta) { $cta.Content = "インデックス管理を開く" }
+            if ($cta) { $cta.Content = "インデックス管理を開く"; $cta.Width = 176 }
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
             Set-ElVisible $Root "SaveButton" $false
@@ -258,17 +271,23 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-S" {
-            # 検索中（中止できる）。
+            # 検索中（中止できる）。まだ 5 件しか見つかっていないため、
+            # 先頭の A社_見積書.xlsx のグループだけを出し、ほかのファイルの行は出さない。
             Set-ElText $Root "ResultsSummaryText" "検索中… 該当 5 件"
             $btn = Find-Named $Root "SearchButton"
             if ($btn) { $btn.Content = "中止"; $btn.Style = $Root.FindResource("Btn.Danger") }
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
             Set-ElVisible $Root "SaveButton" $false
+            Set-ElVisible $Root "FileListRow1" $false
+            Set-ElVisible $Root "FileListRow2" $false
+            Set-ElVisible $Root "FileListRow3" $false
+            Set-ElVisible $Root "FileListRow4" $false
         }
 
         "E16" {
             # 中止した（見つかった分だけ表示。青の帯で知らせる）。
+            # H-S と同じく、見つかった A社_見積書.xlsx のグループだけを出す。
             Set-ElHeight $Root "ContentBannerRow" "Auto"
             Set-ElVisible $Root "ContentBanner" $true
             Set-ElText $Root "ContentBannerText" "検索を中止しました（見つかった 5 件を表示しています）"
@@ -276,6 +295,10 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
             Set-ElVisible $Root "SaveButton" $false
+            Set-ElVisible $Root "FileListRow1" $false
+            Set-ElVisible $Root "FileListRow2" $false
+            Set-ElVisible $Root "FileListRow3" $false
+            Set-ElVisible $Root "FileListRow4" $false
         }
 
         "E14" {
@@ -319,10 +342,13 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
 
         "E12" {
             # 正規表現の構文エラー（直前の結果は残したまま、赤枠＋赤文字で知らせる）。
+            Set-ElText $Root "SearchWordBox" "(株)山田(商事"
             Set-ElChecked $Root "RegexCheck" $true
             Set-ElStyleKey $Root "SearchWordBox" "TextBox.Error"
             Set-ElVisible $Root "SearchWordError" $true
             Set-FastSearchState $Root "unavailable-regex"
+            Set-ElEnabled $Root "SearchButton" $false
+            Set-ElText $Root "ResultsSummaryText" "14件（5ファイル）・0.8秒・通常の検索"
         }
 
         "H-saved" {
@@ -338,19 +364,37 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-row3" {
+            # ヒットした行が検索結果の 3 件目（セル A41）。プレビューは前後の行（40・42行目）
+            # を含めて表示し、ヒット行（41行目）だけ列 A の内容を出す（列 B・C は空）。
             Set-ElChecked $Root "ResultRow1Check" $false
             Set-ElChecked $Root "ResultRow41Check" $true
             Set-ElText $Root "PreviewBreadcrumbText" "A社_見積書.xlsx > [シート] 見積書 > セル A41"
+            Set-ElText $Root "PreviewTopRowNum" "40"
+            Set-ElText $Root "PreviewTopText1" ""
+            Set-ElText $Root "PreviewTopText2" ""
+            Set-ElText $Root "PreviewHighlightRowNum" "41"
             Set-ElText $Root "PreviewHighlightText1" "納品場所：（株）山田商事 本社ビル"
             Set-ElText $Root "PreviewHighlightText2" ""
+            Set-ElText $Root "PreviewBottomRowNum" "42"
+            Set-ElText $Root "PreviewBottomText1" ""
+            Set-ElText $Root "PreviewBottomText2" ""
         }
 
         "H-row4" {
+            # ヒットした行が検索結果の 4 件目（セル A5）。プレビューは前後の行（4・6行目）
+            # を含めて表示し、ヒット行（5行目）だけ列 A の内容を出す（列 B・C は空）。
             Set-ElChecked $Root "ResultRow1Check" $false
             Set-ElChecked $Root "ResultRow5Check" $true
             Set-ElText $Root "PreviewBreadcrumbText" "A社_見積書.xlsx > [シート] 見積書 > セル A5"
+            Set-ElText $Root "PreviewTopRowNum" "4"
+            Set-ElText $Root "PreviewTopText1" ""
+            Set-ElText $Root "PreviewTopText2" ""
+            Set-ElText $Root "PreviewHighlightRowNum" "5"
             Set-ElText $Root "PreviewHighlightText1" "83 納品場所：（株）山田商事 本社4F"
             Set-ElText $Root "PreviewHighlightText2" ""
+            Set-ElText $Root "PreviewBottomRowNum" "6"
+            Set-ElText $Root "PreviewBottomText1" ""
+            Set-ElText $Root "PreviewBottomText2" ""
         }
 
         "open-menu" {
@@ -362,11 +406,53 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-R" {
-            # 検索中に別の画面（インデックス管理）へ移っても続く……という場面向けの予備。
-            # 参照画像は H とほぼ同じ構図のため、既定のまま。
+            # 正規表現で検索した状態。ヒット件数が増え（議事録メモ.md が加わる）、
+            # 高速検索は正規表現では使えないため「使用不可」になる。
+            Set-ElChecked $Root "RegexCheck" $true
+            Set-FastSearchState $Root "unavailable-regex"
+            Set-ElText $Root "ResultsSummaryText" "16件（6ファイル）・0.8秒・通常の検索"
+
+            Set-ElVisible $Root "MinutesGroupHeader" $true
+            Set-ElVisible $Root "MinutesSubHeader" $true
+            Set-ElVisible $Root "MinutesRow1" $true
+            Set-ElVisible $Root "MinutesRow2" $true
         }
 
         "H-W" {
+            # Word ファイル（基本契約書.docx）が一覧の先頭に展開された状態。
+            # 先頭グループが Excel から Word に替わるため、見出し・列名・3 行の中身・
+            # ファイル一覧の並び（基本契約書.docx が一覧から抜け、代わりに A社_見積書.xlsx が入る）
+            # をすべて書き換える。
+            $icon = Find-Named $Root "TopGroupIcon"
+            if ($icon) { $icon.Data = $Root.FindResource("Icon.FileText"); $icon.Stroke = $Root.FindResource("Accent.0078D4") }
+            Set-ElText $Root "TopGroupFileName" "基本契約書.docx"
+            Set-ElText $Root "TopGroupLocation" "　総務/契約"
+            Set-ElText $Root "TopGroupCount" "3件"
+            Set-ElText $Root "TopSubHeaderCol1" "ページ"
+            Set-ElText $Root "TopSubHeaderCol2" "段落"
+
+            Set-ElText $Root "TopRow1Col1" "p.1"
+            Set-ElText $Root "TopRow1Col2" "4"
+            Set-ElRuns $Root "TopRow1Col3" @(
+                @{ Text = "甲：" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "（以下「甲」という）" }
+            )
+            Set-ElText $Root "TopRow2Col1" "p.2"
+            Set-ElText $Root "TopRow2Col2" "12"
+            Set-ElRuns $Root "TopRow2Col3" @(
+                @{ Text = "第3条" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "は毎月末日までに支払う" }
+            )
+            Set-ElText $Root "TopRow3Col1" "p.5"
+            Set-ElText $Root "TopRow3Col2" "31"
+            Set-ElRuns $Root "TopRow3Col3" @(
+                @{ Text = "署名欄：" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = " 代表取締役 山田 太郎" }
+            )
+            Set-ElVisible $Root "TopRow4" $false
+
+            $fIcon = Find-Named $Root "FileListItem3Icon"
+            if ($fIcon) { $fIcon.Data = $Root.FindResource("Icon.FileSpreadsheet"); $fIcon.Stroke = $Root.FindResource("Excel.107C41") }
+            Set-ElText $Root "FileListItem3Name" "A社_見積書.xlsx"
+            Set-ElText $Root "FileListItem3Count" "5件"
+
             # 1 件しか選べない Word の段落プレビュー。「開く」は分割せず単独ボタン。
             Set-ElVisible $Root "PreviewOpenArrow" $false
             Set-ElStyleKey $Root "PreviewOpenBody" "Btn.OpenPlain"
@@ -402,6 +488,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
 
         "E13" {
             # 検索対象 0/4（ツリーはすべて外す。案内の一行を出す）。
+            # フォルダを 1 つも選んでいないため、検索の実行に関わる操作は不可にする。
             Set-ElText $Root "SearchTargetCountText" "0 / 4"
             foreach ($n in @("TreeCheck_営業部","TreeCheck_A社","TreeCheck_B社","TreeCheck_提案書",
                              "TreeCheck_顧客","TreeCheck_取引先台帳","TreeCheck_契約書",
@@ -414,6 +501,12 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "Dot_アーカイブ" $false
             Set-ElHeight $Root "NavNoticeRow" "Auto"
             Set-ElVisible $Root "NavNotice" $true
+
+            Set-ElEnabled $Root "SearchButton" $false
+            Set-ElEnabled $Root "FileNameBox" $false
+            Set-ElEnabled $Root "RangeButton" $false
+            Set-ElEnabled $Root "CaseCheck" $false
+            Set-ElEnabled $Root "RegexCheck" $false
         }
 
         "H-T1" {
