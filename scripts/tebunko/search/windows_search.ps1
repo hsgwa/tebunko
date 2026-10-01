@@ -42,7 +42,7 @@ function invokeWindowsSearch {
 }
 
 function getWindowsSearchState {
-    # 高速検索に使えるかと、使えない理由。次のどれかの文字列を返す（画面の文言は search_view.ps1 の getFastSearchView）。
+    # 高速検索に使えるかと、使えない理由。次のどれかの文字列を返す（画面の文言は index_view.ps1 の getFastSearchRowView）。
     #   NoFolder     : system_index のフォルダが無い（インデックスを作っていない・ワークスペースが違う）
     #   NoConnection : Windows Search を開けない、または問い合わせに失敗した（時間切れを含む）
     #   NotInScope   : system_index が 0 件で、ワークスペースの中も 1 件も索引されていない（索引の対象外とみなす）

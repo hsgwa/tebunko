@@ -191,6 +191,9 @@ function refreshFastSearchStatus {
             $script:fastSearchAgain = $true
         } elseif ($output -and $output.Count -gt 0) {
             applyFastSearchStatus $output[0]
+        } elseif ($errorText) {
+            # 確かめの途中で例外が起きたときも、接続できなかったときと同じ扱いにする（バッジが固まったままにしない）
+            applyFastSearchStatus @{ Reason = "NoConnection"; Progress = $null }
         }
         if ($script:fastSearchAgain) {
             refreshFastSearchStatus
@@ -230,7 +233,7 @@ function updateFastSearchRows {
         }
         $row = getFastSearchRowView $script:fastSearchReason $script:fastSearchProgress $item.Name $hasContent $script:fastSearchCheckedAt
         $item.SetFast($row.Text, $row.ToolTip, $row.Level)
-        if ($row.Text -eq "反映待ち" -or $row.Text.StartsWith("反映中 ")) {
+        if ($row.Level -eq "Wait") {
             $waiting = $true
         }
     }
