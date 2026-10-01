@@ -94,7 +94,7 @@ BeforeAll {
             # ${legacyTmpParent} の差し替え（上のブレークポイント）が実際に initTmpDir まで効いていることも、
             # 同じ場所で控えて確かめる（差し替えの行自体が paths.ps1 の無関係な行に依存しているため、
             # ここで使われた値を見ないと、行順が変わって差し替えが上書きされても気付けない）
-            $points.Add((Set-PSBreakpoint -Script $runPath -Line ((findLine $runPath '\$script:tmpDir = \(initTmpDir\)\.Dir') + 1) -Action {
+            $points.Add((Set-PSBreakpoint -Script $runPath -Line ((findLine $runPath '\$script:tmpDirReason = \$selected\.Reason') + 1) -Action {
                 Set-Variable -Name capturedTmpDir -Value (Get-Variable -Name tmpDir -ValueOnly) -Scope Global
                 Set-Variable -Name capturedLegacyTmpParent -Value (Get-Variable -Name legacyTmpParent -ValueOnly) -Scope Global
             }))
@@ -295,6 +295,27 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status.Rows.Count | Should -Be 3
         $status.Rows["一時\議事録.docx"].状態 | Should -Be ${stateDone}
         [System.IO.File]::Exists("$root\work\content_index\一時\content_index.docx.001.tsv") | Should -Be $true
+    }
+
+    It "ワークスペースのパスに [ ] があれば、一時ファイルが要る取り込みをすべて失敗として記録し、%TEMP% には書き込まない" {
+        $root = Join-Path $TestDrive "[共有]tool"
+        [System.IO.Directory]::CreateDirectory("$root\work") | Out-Null
+        writeTestSettings $root @(@{ name = ""; path = $source; enabled = $true })
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows.Count | Should -Be 3
+        foreach ($row in $status.Rows.Values) {
+            $row.状態 | Should -Be ${stateFailed}
+            $row.エラー | Should -Match "\[ \]"
+        }
+        $progress = readTestProgress
+        $progress.Failed | Should -Be 3
+        # 取り込み中も、置けない代わりに %TEMP% には書き込まない
+        $global:capturedTmpDir | Should -BeNullOrEmpty
+        Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
+        (Get-Content -LiteralPath "$root\work\インデックス作成ログ.txt" -Raw) | Should -Match "スキップ"
     }
 
     It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {

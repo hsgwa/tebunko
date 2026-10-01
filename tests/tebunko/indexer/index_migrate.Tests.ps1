@@ -164,7 +164,7 @@ Describe "removeTmpDir" -Tag Io {
         Test-Path -LiteralPath "$TestDrive\remove_parent_kept\tmp" | Should -Be $true
     }
 
-    It "`$tmpDir が空（決める前）でも例外にならず、出力用のフォルダも消さない" {
+    It "`$tmpDir が空（決める前・置けなかった）でも例外にならず、出力用のフォルダは消す" {
         $tmpDir = ""
         $publishDir = "$TestDrive\remove_untouched\出力\$PID"
         $workspace = newTestWorkspace @{ PublishDir = $publishDir; TmpRoot = "$TestDrive\remove_untouched\tmp" }
@@ -172,7 +172,7 @@ Describe "removeTmpDir" -Tag Io {
 
         { removeTmpDir } | Should -Not -Throw
 
-        Test-Path -LiteralPath $publishDir | Should -Be $true
+        Test-Path -LiteralPath $publishDir | Should -Be $false
     }
 }
 
@@ -276,7 +276,7 @@ Describe "initTmpDir" -Tag Io {
         }
     }
 
-    It "ワークスペースのパスに [ ] があれば、前の版までの場所（%TEMP%\tebunko\<PID>）を作り、NotContentIndexed は付けず、理由をログに書く" {
+    It "ワークスペースのパスに [ ] があれば、作業フォルダを作らず、理由とスキップすることをログに書く" {
         $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\init_brackets\[共有]\tmp" }
         ${legacyTmpParent} = "$TestDrive\init_brackets\legacy"
         $log = New-Object System.IO.StringWriter
@@ -284,11 +284,12 @@ Describe "initTmpDir" -Tag Io {
 
         $result = initTmpDir
 
-        $result.Dir | Should -Be (Join-Path ${legacyTmpParent} $PID)
+        $result.Dir | Should -BeNullOrEmpty
         $result.Reason | Should -Be "Brackets"
-        Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
-        ([System.IO.File]::GetAttributes($result.Dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
+        Test-Path -LiteralPath "$TestDrive\init_brackets\[共有]\tmp" | Should -Be $false
+        Test-Path -LiteralPath ${legacyTmpParent} | Should -Be $false
         $log.ToString() | Should -Match "\[ \]"
+        $log.ToString() | Should -Match "スキップ"
     }
 
     It "強制終了などで残った、ほかのプロセスの作業フォルダを、場所を決める前に片付ける" {
@@ -316,14 +317,19 @@ Describe "newWorkerTmpDir" -Tag Io {
         ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
     }
 
-    It "親フォルダに NotContentIndexed が付いていなければ（代わりの場所）、作業フォルダにも付けない" {
-        $parent = "$TestDrive\worker_legacy\5678"
+    It "親フォルダに NotContentIndexed が付いていなければ、作業フォルダにも付けない" {
+        $parent = "$TestDrive\worker_plain\5678"
         [System.IO.Directory]::CreateDirectory($parent) | Out-Null
 
         $dir = newWorkerTmpDir $parent 1
 
         $dir | Should -Be "$parent\w1"
         ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
+    }
+
+    It "親フォルダが空（置けなかった）なら、何も作らず空文字を返す" {
+        { newWorkerTmpDir "" 1 } | Should -Not -Throw
+        newWorkerTmpDir "" 1 | Should -BeNullOrEmpty
     }
 }
 

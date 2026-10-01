@@ -29,23 +29,19 @@ function removeEmptyDir {
 }
 
 function removeTmpDir {
-    # 作業フォルダ（既定は work\tmp\<PC の鍵>\<PID>、代わりの場所は %TEMP%\tebunko\<PID>）と
-    # 出力用のフォルダ（work\取り込み出力\<PID>）を削除する。終了時に呼ぶ。
-    # ${tmpDir} が決まる前（空・未設定）に呼ばれても、作業フォルダを消さずに何もしない
-    # （空の値から親やワークスペースを消さないため）
-    if (!${tmpDir}) {
-        return
-    }
-    foreach ($dir in @(${tmpDir}, $workspace.PublishDir)) {
+    # 作業フォルダ（work\tmp\<PC の鍵>\<PID>）と出力用のフォルダ（work\取り込み出力\<PID>）を削除する。終了時に呼ぶ。
+    # ${tmpDir} が決まっていなくても（置けなかった・決める前）、出力用のフォルダは消す
+    # （$workspace.PublishDir は ${tmpDir} が置けないときも作られるため）
+    foreach ($dir in @(${tmpDir}, $workspace.PublishDir) | Where-Object { $_ }) {
         try {
             removeDirectoryRetry $dir
         } catch {
             writeIndexerLog "    作業フォルダを削除できませんでした: ${dir}" "Yellow"
         }
     }
-    # 空になった tmp\<PC の鍵>・tmp も消す（ワークスペースの tmp を使ったときだけ。
-    # 代わりの場所（%TEMP%）のときや、ほかのプロセスのフォルダが残っているときは消えない）
-    if (${tmpDir}.StartsWith($workspace.TmpRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    # 空になった tmp\<PC の鍵>・tmp も消す（ワークスペースの tmp を使えたときだけ。
+    # ほかのプロセスのフォルダが残っているときは消えない）
+    if (${tmpDir} -and ${tmpDir}.StartsWith($workspace.TmpRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
         removeEmptyDir (Split-Path ${tmpDir} -Parent)
         removeEmptyDir $workspace.TmpRoot
     }
@@ -63,36 +59,37 @@ function removeStaleTmpDirs {
 }
 
 function initTmpDir {
-    # インデックス作成の始めに、取り込みの作業フォルダの片付けと用意をまとめて行う: @{ Dir; Reason（代わりの場所にしたときだけ） }
+    # インデックス作成の始めに、取り込みの作業フォルダの片付けと用意をまとめて行う: @{ Dir; Reason（置けなかったときだけ） }
     #   1. 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダを片付ける（決めた場所を巻き込まないよう、場所を決める前に行う）
-    #   2. selectTmpDir で置き場所を決めてフォルダを作る
-    #   3. 代わりの場所（%TEMP%）でなければ、tmp・tmp\<PC の鍵>・<PID> に NotContentIndexed を付ける
-    #      （%TEMP% は Windows の既定で検索の対象から外れているため付けない）
-    #   4. 代わりの場所にしたら、理由をインデックス作成ログに 1 行書く
+    #   2. selectTmpDir で置き場所を決める
+    #   3. 置けたら、フォルダを作って tmp・tmp\<PC の鍵>・<PID> に NotContentIndexed を付ける
+    #   4. 置けなければ（Dir が空）、フォルダは作らず、理由と「一時ファイルの要る取り込みをすべてスキップする」ことをログに 1 行書く
+    #      （1 ファイルごとのスキップは invokeIngestTask が取り込みの失敗として記録する）
     removeStaleTmpDirs
     $selected = selectTmpDir $workspace
+    if (!$selected.Dir) {
+        writeIndexerLog "$(getTmpDirUnavailableMessage $selected.Reason)一時ファイルの要る取り込みをすべてスキップします。" "Yellow"
+        return $selected
+    }
     [System.IO.Directory]::CreateDirectory($selected.Dir) | Out-Null
-    if (!$selected.Reason) {
-        foreach ($dir in @($workspace.TmpRoot, (Split-Path $selected.Dir -Parent), $selected.Dir)) {
-            [void](setNotContentIndexed $dir)
-        }
-    } elseif ($selected.Reason -eq "Brackets") {
-        writeIndexerLog "ワークスペースのパスに [ ] が含まれるため、取り込みの作業フォルダを %TEMP% に置きます。" "Yellow"
-    } else {
-        writeIndexerLog "ワークスペースのパスが長いため、取り込みの作業フォルダを %TEMP% に置きます。" "Yellow"
+    foreach ($dir in @($workspace.TmpRoot, (Split-Path $selected.Dir -Parent), $selected.Dir)) {
+        [void](setNotContentIndexed $dir)
     }
     return $selected
 }
 
 function newWorkerTmpDir {
     # 取り込みのスレッドの作業フォルダ（parentDir\w<番号>）を作り、パスを返す。
-    # 親（parentDir。司令のスレッドの作業フォルダ）に NotContentIndexed が付いていれば、同じ属性を付ける
-    # （代わりの場所（%TEMP%）には付けていないため、付いていなければ何もしない）
+    # 親（parentDir。司令のスレッドの作業フォルダ）に NotContentIndexed が付いていれば、同じ属性を付ける。
+    # 親が無い（置けなかった）ときは、何も作らず空文字を返す
     param (
         [string]$parentDir,
         [int]$number
     )
 
+    if (!$parentDir) {
+        return ""
+    }
     $dir = Join-Path $parentDir "w$number"
     [System.IO.Directory]::CreateDirectory($dir) | Out-Null
     if (testNotContentIndexed $parentDir) {

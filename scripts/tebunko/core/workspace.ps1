@@ -71,26 +71,42 @@ function getWorkspaceTmpDir {
 }
 
 function selectTmpDir {
-    # 取り込みの作業フォルダの置き場所を決める: @{ Dir; Reason（代わりの場所にしたときだけ） }
+    # 取り込みの作業フォルダの置き場所を決める: @{ Dir; Reason（置けないときだけ） }
     #   候補: getWorkspaceTmpDir（ワークスペースの tmp\ の下）
-    #   候補のパスに [ ] があれば、代わりの場所（${legacyTmpParent}\<PID>。前の版までの %TEMP% の置き場所）にする（Reason = Brackets）。
-    #     Excel は [ ] を含むパスに保存できないため
+    #   候補のパスに [ ] があれば、置けない（Dir = ""、Reason = Brackets）。Excel は [ ] を含むパスに保存できないため
     #   候補の長さ + 取り込みのスレッドが下に作る最も長い名前の分（${tmpNameReserve}）が $excelMaxPath 以上でも、
-    #     同じ代わりの場所にする（Reason = TooLong）。Office は長すぎるパスを開けないため
+    #     置けない（Dir = ""、Reason = TooLong）。Office は長すぎるパスを開けないため
+    #   一時ファイルもワークスペースの下にしか置かない（%TEMP% には逃がさない）。
+    #   置けないときは、呼び出し側（initTmpDir）が一時ファイルの要る取り込みをすべてスキップする
     #   どちらでもなければ候補のまま（Reason = ""）
     param (
         [Workspace]$workspace
     )
 
     $candidate = getWorkspaceTmpDir $workspace
-    $fallback = Join-Path ${legacyTmpParent} $PID
     if ($candidate.IndexOfAny([char[]]@("[", "]")) -ge 0) {
-        return @{ Dir = $fallback; Reason = "Brackets" }
+        return @{ Dir = ""; Reason = "Brackets" }
     }
     if (($candidate.Length + ${tmpNameReserve}) -ge $excelMaxPath) {
-        return @{ Dir = $fallback; Reason = "TooLong" }
+        return @{ Dir = ""; Reason = "TooLong" }
     }
     return @{ Dir = $candidate; Reason = "" }
+}
+
+function getTmpDirUnavailableMessage {
+    # 取り込みの作業フォルダを置けない理由（selectTmpDir の Reason）を、利用者向けの1文にする。
+    # initTmpDir のログと、invokeIngestTask が1ファイルごとに書くエラーの両方で使う
+    param (
+        [string]$reason
+    )
+
+    if ($reason -eq "Brackets") {
+        return "ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。"
+    }
+    if ($reason -eq "TooLong") {
+        return "ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。"
+    }
+    return "取り込みの作業フォルダを置けません。"
 }
 
 function getLegacyIndexState {

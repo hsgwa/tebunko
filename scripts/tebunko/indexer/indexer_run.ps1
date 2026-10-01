@@ -23,6 +23,7 @@ ${ingestWorkerScript} = {
     $own.PublishDir = Join-Path $settings.PublishDir "w$number"
     Set-Variable -Name workspace -Value $own
     Set-Variable -Name tmpDir -Value (newWorkerTmpDir $settings.TmpDir $number)
+    Set-Variable -Name tmpDirReason -Value $settings.TmpDirReason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
@@ -116,6 +117,12 @@ function invokeIngestTask {
     # Reroute: Office を使わずに読めなかった（中身が旧形式・パスワード付き）。司令が Word・PowerPoint のレーンに回し直す
     # Postponed: 利用者のPowerPointが起動していて使えなかった。司令が「未取り込み」のまま次回に回す
     $result = @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; Postponed = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
+    if (!$tmpDir) {
+        # 取り込みの作業フォルダを置けない（selectTmpDir の Brackets・TooLong）ときは、
+        # 一時ファイルが要るこのファイルの取り込みをスキップし、取り込みの失敗として記録する
+        $result.Message = "$(getTmpDirUnavailableMessage $tmpDirReason)このファイルの取り込みをスキップしました。"
+        return $result
+    }
     $log = New-Object System.IO.StringWriter
     $previousLog = $script:indexerLog
     $script:indexerLog = $log
@@ -402,7 +409,9 @@ function invokeIndexerBody {
     if (!$nci.Ok) {
         writeIndexerLog "content_index を Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
     }
-    $script:tmpDir = (initTmpDir).Dir
+    $selected = initTmpDir
+    $script:tmpDir = $selected.Dir
+    $script:tmpDirReason = $selected.Reason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
     # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
@@ -615,7 +624,7 @@ function invokeIndexerBody {
         if ($readers -gt 0) {
             $pool = newIngestPool $readers @{
                 Lib = ${indexerLibPath}
-                WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; PublishDir = $workspace.PublishDir
+                WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; TmpDirReason = ${tmpDirReason}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
             }
         } else {

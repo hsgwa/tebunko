@@ -66,11 +66,11 @@ Describe "selectTmpDir" -Tag Unit {
 
     It "<name>" -TestCases @(
         @{ name = "[ ] を含まず、長さも十分短ければ、そのまま使う"; kind = "path"; dir = "C:\Users\test\ws"; expectedReason = "" }
-        @{ name = "候補のパスに [ と ] の両方があれば、前の版の場所（%TEMP%\tebunko\<PID>）を使う"; kind = "path"; dir = "C:\Users\test\[共有]フォルダ"; expectedReason = "Brackets" }
-        @{ name = "候補のパスに [ だけあっても、前の版の場所を使う"; kind = "path"; dir = "C:\Users\test\[共有フォルダ"; expectedReason = "Brackets" }
-        @{ name = "候補のパスに ] だけあっても、前の版の場所を使う"; kind = "path"; dir = "C:\Users\test\共有]フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補のパスに [ と ] の両方があれば、置けない（Dir は空）"; kind = "path"; dir = "C:\Users\test\[共有]フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補のパスに [ だけあっても、置けない"; kind = "path"; dir = "C:\Users\test\[共有フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補のパスに ] だけあっても、置けない"; kind = "path"; dir = "C:\Users\test\共有]フォルダ"; expectedReason = "Brackets" }
         @{ name = "候補の長さが境目より短ければ、そのまま使う"; kind = "length"; offset = -1; expectedReason = "" }
-        @{ name = "候補の長さが境目以上なら、前の版の場所（%TEMP%\tebunko\<PID>）を使う"; kind = "length"; offset = 0; expectedReason = "TooLong" }
+        @{ name = "候補の長さが境目以上なら、置けない（Dir は空）"; kind = "length"; offset = 0; expectedReason = "TooLong" }
     ) {
         param ($name, $kind, $dir, $offset, $expectedReason)
         $workspace = if ($kind -eq "length") {
@@ -81,11 +81,25 @@ Describe "selectTmpDir" -Tag Unit {
 
         $result = selectTmpDir $workspace
         if ($expectedReason) {
-            $result.Dir | Should -Be (Join-Path ${legacyTmpParent} $PID)
+            $result.Dir | Should -BeNullOrEmpty
         } else {
             $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
         }
         $result.Reason | Should -Be $expectedReason
+    }
+}
+
+Describe "getTmpDirUnavailableMessage" -Tag Unit {
+    It "<reason> なら [ ]・長さに触れた文にする" -TestCases @(
+        @{ reason = "Brackets"; expected = "\[ \]" }
+        @{ reason = "TooLong"; expected = "長すぎる" }
+    ) {
+        param ($reason, $expected)
+        getTmpDirUnavailableMessage $reason | Should -Match $expected
+    }
+
+    It "置けない理由を書く" {
+        getTmpDirUnavailableMessage "Brackets" | Should -Match "置けません"
     }
 }
 
