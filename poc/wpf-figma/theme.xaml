@@ -213,6 +213,8 @@
       </Setter.Value>
     </Setter>
   </Style>
+  <!-- 「開く」単独ボタン（▾ なし。H-W など分割にしない見本で使う） -->
+  <Style x:Key="Btn.OpenPlain" TargetType="Button" BasedOn="{StaticResource Btn.Primary}" />
   <Style x:Key="Btn.OpenSplitArrow" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
     <Setter Property="Background" Value="{StaticResource Accent.0078D4}" />
     <Setter Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
