@@ -176,6 +176,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
 
         "H" {
             # ベースライン。xaml の既定値がそのまま H（既定の 14 件・1 行目選択・使用可）になっている。
+            # 参照画像は「開く ▾」のドロップダウンが開いた状態のため、合わせる。
+            Set-ElVisible $Root "ContextMenuPopup" $true
         }
 
         "H0" {
