@@ -1,0 +1,91 @@
+﻿<!-- 高速検索の表示 758x296。Fast Search Indicator の 6 状態（上から優先順）をまとめた見本。 -->
+<Grid x:Name="Root" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Width="758" Height="296" Background="#FFFFFF">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <StackPanel Margin="8">
+    <TextBlock Text="高速検索の表示（上から順に、最初に当てはまるもの）" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="0,0,0,10" />
+
+    <!-- 1. Windows Search に接続できません -->
+    <DockPanel Margin="0,0,0,10">
+      <Border Style="{StaticResource StatusBadge}" Background="{StaticResource Bg.F3F3F4}" BorderBrush="{StaticResource Disabled.9AA0A6}" DockPanel.Dock="Left">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Bolt}" Width="10" Height="10" Stretch="Uniform" Fill="{StaticResource Disabled.9AA0A6}" Margin="0,0,4,0" />
+          <TextBlock Text="高速検索：使用不可（Windows Search に接続できません）" Style="{StaticResource Text.11}" Foreground="{StaticResource Disabled.8C949E}" />
+          <Path Data="{StaticResource Icon.Info}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Disabled.9AA0A6}" StrokeThickness="1.3" Margin="4,0,0,0" />
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource Bubble}" Margin="12,0,0,0">
+        <TextBlock Text="検索はできますが時間がかかります　［インデックス管理で確認］" Style="{StaticResource Text.Bubble}" />
+      </Border>
+    </DockPanel>
+
+    <!-- 2. 正規表現では使えません -->
+    <DockPanel Margin="0,0,0,10">
+      <Border Style="{StaticResource StatusBadge}" Background="{StaticResource Bg.F3F3F4}" BorderBrush="{StaticResource Disabled.9AA0A6}" DockPanel.Dock="Left">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Bolt}" Width="10" Height="10" Stretch="Uniform" Fill="{StaticResource Disabled.9AA0A6}" Margin="0,0,4,0" />
+          <TextBlock Text="高速検索：使用不可（正規表現では使えません）" Style="{StaticResource Text.11}" Foreground="{StaticResource Disabled.8C949E}" />
+          <Path Data="{StaticResource Icon.Info}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Disabled.9AA0A6}" StrokeThickness="1.3" Margin="4,0,0,0" />
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource Bubble}" Margin="12,0,0,0">
+        <TextBlock Text="正規表現をオフにすると速く検索できます" Style="{StaticResource Text.Bubble}" />
+      </Border>
+    </DockPanel>
+
+    <!-- 3. 2文字以上で使えます（(i) なし） -->
+    <DockPanel Margin="0,0,0,10">
+      <Border Style="{StaticResource StatusBadge}" Background="{StaticResource Bg.F3F3F4}" BorderBrush="{StaticResource Disabled.9AA0A6}" DockPanel.Dock="Left">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Bolt}" Width="10" Height="10" Stretch="Uniform" Fill="{StaticResource Disabled.9AA0A6}" Margin="0,0,4,0" />
+          <TextBlock Text="高速検索：使用不可（2文字以上で使えます）" Style="{StaticResource Text.11}" Foreground="{StaticResource Disabled.8C949E}" />
+        </StackPanel>
+      </Border>
+    </DockPanel>
+
+    <!-- 4. 反映待ちです -->
+    <DockPanel Margin="0,0,0,10">
+      <Border Style="{StaticResource StatusBadge}" Background="{StaticResource Bg.F3F3F4}" BorderBrush="{StaticResource Disabled.9AA0A6}" DockPanel.Dock="Left">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Bolt}" Width="10" Height="10" Stretch="Uniform" Fill="{StaticResource Disabled.9AA0A6}" Margin="0,0,4,0" />
+          <TextBlock Text="高速検索：使用不可（反映待ちです）" Style="{StaticResource Text.11}" Foreground="{StaticResource Disabled.8C949E}" />
+          <Path Data="{StaticResource Icon.Info}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Disabled.9AA0A6}" StrokeThickness="1.3" Margin="4,0,0,0" />
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource Bubble}" Margin="12,0,0,0">
+        <TextBlock Text="インデックスの更新が終わると使えます　［インデックス管理で確認］" Style="{StaticResource Text.Bubble}" />
+      </Border>
+    </DockPanel>
+
+    <!-- 5. 一部で使用可（オレンジ） -->
+    <DockPanel Margin="0,0,0,10">
+      <Border Style="{StaticResource StatusBadge}" Background="{StaticResource Warn.FFF5E0}" BorderBrush="{StaticResource Warn.BA7D00}" DockPanel.Dock="Left">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Bolt}" Width="10" Height="10" Stretch="Uniform" Fill="{StaticResource Warn.BA7D00}" Margin="0,0,4,0" />
+          <TextBlock Text="高速検索：一部で使用可" Style="{StaticResource Text.11}" Foreground="{StaticResource Warn.BA7D00}" />
+          <Path Data="{StaticResource Icon.Info}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Warn.BA7D00}" StrokeThickness="1.3" Margin="4,0,0,0" />
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource Bubble}" Margin="12,0,0,0">
+        <TextBlock Text="2フォルダはパスが長いため、通常の検索で調べます（検索結果は変わりません）" Style="{StaticResource Text.Bubble}" />
+      </Border>
+    </DockPanel>
+
+    <!-- 6. 使用可（緑。(i) なし） -->
+    <DockPanel Margin="0,0,0,0">
+      <Border Style="{StaticResource StatusBadge}" Background="{StaticResource Ok.E0F7E0}" BorderBrush="{StaticResource Ok.218A21}" DockPanel.Dock="Left">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Bolt}" Width="10" Height="10" Stretch="Uniform" Fill="{StaticResource Ok.218A21}" Margin="0,0,4,0" />
+          <TextBlock Text="高速検索：使用可" Style="{StaticResource Text.11}" Foreground="{StaticResource Ok.218A21}" />
+        </StackPanel>
+      </Border>
+    </DockPanel>
+  </StackPanel>
+</Grid>
