@@ -6,18 +6,18 @@ Figma の ToBe（決定の記録の面 106:50・プロトタイプ 148:50）の�
 
 ## 動かし方
 
-準備中（材料の PNG がそろい次第、XAML・ツールを作り込む）。
-
 ```
 powershell -ExecutionPolicy Bypass -File poc\wpf-figma\show.ps1
 powershell -ExecutionPolicy Bypass -File poc\wpf-figma\compare.ps1
 ```
 
+`show.ps1` はフレームを選んで原寸表示する道具、`compare.ps1` は 26 枚すべてを `reference/*.png` と比べ、`out/<フレーム名>.diff.png` と差分率の表を出す道具。
+
 ## 状態（2026-10-01）
 
-- フォルダ構成・フォント（Rethink Sans、OFL）を用意した。
-- 材料の PNG（`reference/*.png`）がまだ無い。Figma を読む手段が無いため、別の経路で書き出した PNG を受け取る必要がある。材料がそろい次第、`theme.xaml`・`xaml/*.xaml`・`dummy.ps1`・`show.ps1`・`compare.ps1` を作り込む。
-- Figma の色・余白・影・フォントサイズの代表値は分かっているが、部品ごとの正確な対応は PNG と合わせて最終化する。
+- `theme.xaml`・`xaml/*.xaml`（21 状態＋部品）・`dummy.ps1`・`show.ps1`・`compare.ps1` を作り込み、26 枚すべてをレンダリングして `reference/*.png` と比べられる。
+- 既知の色・レイアウトの食い違いは見つけ次第直した（吹き出しの背景色、プレビュー表の欠けていた行、高速検索の表示の外枠カード、H フレームの開いたドロップダウンなど）。
+- 「比べた結果」「再現できなかったところ」は、残りの確認が終わり次第埋める。
 
 ## フレームの一覧（段 1・26 枚）
 
