@@ -63,12 +63,13 @@ function initTmpDir {
     #   1. 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダを片付ける（決めた場所を巻き込まないよう、場所を決める前に行う）
     #   2. selectTmpDir で置き場所を決める
     #   3. 置けたら、フォルダを作って tmp・tmp\<PC の鍵>・<PID> に NotContentIndexed を付ける
-    #   4. 置けなければ（Dir が空）、フォルダは作らず、理由と「一時ファイルの要る取り込みをすべてスキップする」ことをログに 1 行書く
+    #   4. 置けなければ（Dir が空）、フォルダは作らず、理由と「取り込みをすべてスキップする」ことをログに 1 行書く
+    #      （どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みが対象になる）
     #      （1 ファイルごとのスキップは invokeIngestTask が取り込みの失敗として記録する）
     removeStaleTmpDirs
     $selected = selectTmpDir $workspace
     if (!$selected.Dir) {
-        writeIndexerLog "$(getTmpDirUnavailableMessage $selected.Reason)一時ファイルの要る取り込みをすべてスキップします。" "Yellow"
+        writeIndexerLog "$(getTmpDirUnavailableMessage $selected.Reason)取り込みをすべてスキップします。" "Yellow"
         return $selected
     }
     [System.IO.Directory]::CreateDirectory($selected.Dir) | Out-Null

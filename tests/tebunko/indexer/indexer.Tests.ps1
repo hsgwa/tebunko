@@ -297,21 +297,24 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         [System.IO.File]::Exists("$root\work\content_index\一時\content_index.docx.001.tsv") | Should -Be $true
     }
 
-    It "ワークスペースのパスに [ ] があれば、一時ファイルが要る取り込みをすべて失敗として記録し、%TEMP% には書き込まない" {
+    It "ワークスペースのパスに [ ] があれば、テキストファイルを含むすべての取り込みを失敗として記録し、%TEMP% には書き込まない" {
+        # テキストファイルも中間 TSV を $tmpDir に作るため、docx・pptx と同じくスキップの対象になることを確かめる
+        $bracketSource = newSourceFolder "角かっこ用"
+        [System.IO.File]::WriteAllText("$bracketSource\メモ.txt", "テキストファイルの内容", [System.Text.Encoding]::UTF8)
         $root = Join-Path $TestDrive "[共有]tool"
         [System.IO.Directory]::CreateDirectory("$root\work") | Out-Null
-        writeTestSettings $root @(@{ name = ""; path = $source; enabled = $true })
+        writeTestSettings $root @(@{ name = ""; path = $bracketSource; enabled = $true })
 
         runIndexer $root | Should -Be 0
 
         $status = readTestStatus $root
-        $status.Rows.Count | Should -Be 3
+        $status.Rows.Count | Should -Be 4
         foreach ($row in $status.Rows.Values) {
             $row.状態 | Should -Be ${stateFailed}
             $row.エラー | Should -Match "\[ \]"
         }
         $progress = readTestProgress
-        $progress.Failed | Should -Be 3
+        $progress.Failed | Should -Be 4
         # 取り込み中も、置けない代わりに %TEMP% には書き込まない
         $global:capturedTmpDir | Should -BeNullOrEmpty
         Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false

@@ -77,7 +77,8 @@ function selectTmpDir {
     #   候補の長さ + 取り込みのスレッドが下に作る最も長い名前の分（${tmpNameReserve}）が $excelMaxPath 以上でも、
     #     置けない（Dir = ""、Reason = TooLong）。Office は長すぎるパスを開けないため
     #   一時ファイルもワークスペースの下にしか置かない（%TEMP% には逃がさない）。
-    #   置けないときは、呼び出し側（initTmpDir）が一時ファイルの要る取り込みをすべてスキップする
+    #   置けないときは、呼び出し側（initTmpDir）が取り込みをすべてスキップする
+    #   （どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みが対象になる）
     #   どちらでもなければ候補のまま（Reason = ""）
     param (
         [Workspace]$workspace

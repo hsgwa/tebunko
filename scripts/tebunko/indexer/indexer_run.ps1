@@ -119,7 +119,7 @@ function invokeIngestTask {
     $result = @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; Postponed = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
     if (!$tmpDir) {
         # 取り込みの作業フォルダを置けない（selectTmpDir の Brackets・TooLong）ときは、
-        # 一時ファイルが要るこのファイルの取り込みをスキップし、取り込みの失敗として記録する
+        # どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めこのファイルの取り込みをスキップし、取り込みの失敗として記録する
         $result.Message = "$(getTmpDirUnavailableMessage $tmpDirReason)このファイルの取り込みをスキップしました。"
         return $result
     }
