@@ -30,6 +30,8 @@
         <Setter Property="FontSize" Value="11" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Style.Triggers>
           <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
             <Setter Property="Foreground" Value="{StaticResource Badge.Ok.Text}" />
@@ -142,7 +144,7 @@
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="ステータス" Width="88">
+              <DataGridTemplateColumn Header="ステータス" Width="108">
                 <DataGridTemplateColumn.HeaderStyle>
                   <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                     <Setter Property="ToolTip" Value="検索に使うインデックスの状態（取り込み一覧から）" />
@@ -156,7 +158,7 @@
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="高速検索" Width="96">
+              <DataGridTemplateColumn Header="高速検索" Width="118">
                 <DataGridTemplateColumn.HeaderStyle>
                   <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                     <Setter Property="ToolTip" Value="インデックス（高速検索用）が Windows Search にどこまで反映されたか" />
