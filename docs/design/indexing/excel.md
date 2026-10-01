@@ -14,7 +14,7 @@ sequenceDiagram
     participant WB as ブック（作業領域のコピー。読み取り専用）
     participant T as 作業領域 %TEMP%\tebunko\#lt;PID#gt;
     participant I as work/content_index
-    participant L as 取り込み一覧（work/取り込み一覧.tsv）
+    participant L as 取り込み一覧（work/ingest_status.tsv）
 
     S->>T: 作業領域を空にする
     S->>T: 元ブックを同じファイル名（長すぎれば source.#lt;拡張子#gt;）でコピー<br>（copyFileShared。ほかのアプリの読み書きを妨げない共有モードで読む）
@@ -49,7 +49,7 @@ sequenceDiagram
         S->>T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
     S->>T: 図形・コメント → #lt;シート名#gt;[図形].tsv・#lt;シート名#gt;[コメント].tsv
-    S->>I: 作業領域の *.tsv を work/取り込み出力/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）<br>本文インデックスへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
+    S->>I: 作業領域の *.tsv を work/publish/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）<br>本文インデックスへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
     S->>L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
         S->>L: 当該ファイルの行（状態 = 失敗、エラー）を追記
