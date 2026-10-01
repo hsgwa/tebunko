@@ -38,8 +38,9 @@ $script:zipTotalReadBytes = 0
 
 # サイズの上限を超えた（ZIP爆弾・巨大なXML等の見込み）ときに投げる、利用者向けの短い文言。
 # 画面には部品ごとか合計かの区別・部品名・大きさを出さない（分かると悪用のヒントになるため）。
-# インデックス作成のログには書く（2026-09-27 メンテナの回答）。shared/ はツール（インデックス作成のログ）を
-# 知らないため、ここでは書かず、ZipSizeLimitException のプロパティで呼び出し元（tebunko/indexer）に伝える
+# 原因を調べられるよう、部品名・大きさ・部品ごとか合計かはインデックス作成のログにだけ書く。
+# shared/ はツール（インデックス作成のログ）を知らないため、ここでは書かず、
+# ZipSizeLimitException のプロパティで呼び出し元（tebunko/indexer）に伝える
 $script:zipTooLargeMessage = "ファイルサイズが大きすぎるため取り込めません。"
 
 class ZipSizeLimitException : System.Exception {
@@ -831,12 +832,15 @@ function readXlsxShapeRows {
     # 参照も解決し、テキストボックスの段落 → グラフ・SmartArt の文字（XML の順）の順に 1 つの図形（1 行）にする。
     # リレーションシップ（_rels）は、参照が 1 つ以上あるときだけ読む。
     # 参照の先・リレーションシップが無い、部品が読めない（XML が壊れているなど）ときは、そのグラフ・SmartArt だけを
-    # 空にして続ける（同じ図形の中のほかの文字、ほかの図形は出す）。$failures を渡すと、読めなかった部品の名前を追加する
+    # 空にして続ける（同じ図形の中のほかの文字、ほかの図形は出す）。$failures を渡すと、読めなかった部品の名前を追加する。
+    # サイズの上限（ZipSizeLimitException）で読めなかったときは、原因を調べられるよう、その例外自体を
+    # $sizeFailures に追加する（呼び出し元がインデックス作成のログに部品名・大きさ・部品ごとか合計かを書く）
     param (
         [string]$xml,
         [System.IO.Compression.ZipArchive]$zip = $null,
         [string]$drawingPath = $null,
-        [System.Collections.Generic.List[string]]$failures = $null
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
     )
 
     $nsSheetDrawing = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
@@ -872,6 +876,10 @@ function readXlsxShapeRows {
                 }
                 $text = readObjectText $zip $rels $object
             } catch {
+                if ($null -ne $sizeFailures -and $_.Exception -is [ZipSizeLimitException]) {
+                    # サイズの上限を超えたときは、例外自体を渡す（部品名は例外の PartName に入っている）
+                    $sizeFailures.Add($_.Exception)
+                }
                 if ($null -ne $failures) {
                     if ($null -eq $rels -and $drawingPath) {
                         # リレーションシップ自体（drawingN.xml.rels）が読めなかった場合は、図形の部品の名前を記録する
@@ -994,10 +1002,13 @@ function readXlsxObjectUnits {
     # セルの値は Excel のテキスト保存で読むため、ここでは読まない。
     # ZIP の中身が Excel のブック（xl/workbook.xml）でなければ（.xlsb など）、何も返さない。
     # $failures を渡すと、読めなかったグラフ・SmartArt の部品の名前を追加する（呼び出し元でログに書く。
-    # shared/ はツールを知らないため、ここでは書かない）
+    # shared/ はツールを知らないため、ここでは書かない）。
+    # $sizeFailures を渡すと、サイズの上限（ZipSizeLimitException）で読めなかったグラフ・SmartArt の
+    # 例外自体を追加する（呼び出し元が部品名・大きさ・部品ごとか合計かをログに書く）
     param (
         [string]$path,
-        [System.Collections.Generic.List[string]]$failures = $null
+        [System.Collections.Generic.List[string]]$failures = $null,
+        [System.Collections.Generic.List[object]]$sizeFailures = $null
     )
 
     $script:zipTotalReadBytes = 0  # このファイル1つ分の、readZipEntryが読む合計（zipTotalMaxBytes）を0から数え直す
@@ -1037,7 +1048,7 @@ function readXlsxObjectUnits {
                     }
                     $xml = readZipEntry $zip $csRel.Target
                     if ($null -ne $xml) {
-                        $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $csRel.Target $failures))
+                        $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $csRel.Target $failures $sizeFailures))
                     }
                 }
                 addSortedShapeLines $units "${sheetName}[図形]" $shapes
@@ -1056,7 +1067,7 @@ function readXlsxObjectUnits {
                     continue
                 }
                 if ($sheetRel.Type -like "*/drawing") {
-                    $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $sheetRel.Target $failures))
+                    $shapes.AddRange([object[]]@(readXlsxShapeRows $xml $zip $sheetRel.Target $failures $sizeFailures))
                 } elseif ($sheetRel.Type -like "*/comments") {
                     $commentsXml = $xml
                 } elseif ($sheetRel.Type -like "*/threadedComment") {

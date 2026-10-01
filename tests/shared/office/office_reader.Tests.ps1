@@ -25,6 +25,54 @@ BeforeAll {
         }
     }
 
+    function newRawZip {
+        # 複数の部品にバイト列をそのまま書き込むZIPを作る（無圧縮）。部品の fakeSize を渡すと、
+        # 中央ディレクトリの「展開後の大きさ」フィールドだけを書き換え、偽りのヘッダー（実際の大きさと異なる申告）を作る。
+        # entries: 名前 -> @{ bytes = [byte[]]; fakeSize = [uint32]（省略可） }
+        param (
+            [string]$path,
+            [hashtable]$entries
+        )
+
+        $stream = [System.IO.File]::Create($path)
+        $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+        foreach ($name in $entries.Keys) {
+            $entry = $zip.CreateEntry($name, [System.IO.Compression.CompressionLevel]::NoCompression)
+            $entryStream = $entry.Open()
+            $bytes = $entries[$name].bytes
+            $entryStream.Write($bytes, 0, $bytes.Length)
+            $entryStream.Dispose()
+        }
+        $zip.Dispose()
+        $stream.Dispose()
+
+        $fakeNames = @($entries.Keys | Where-Object { $entries[$_].ContainsKey("fakeSize") -and $null -ne $entries[$_].fakeSize })
+        if ($fakeNames.Count -eq 0) {
+            return
+        }
+        $raw = [System.IO.File]::ReadAllBytes($path)
+        foreach ($name in $fakeNames) {
+            $fakeSize = [uint32]$entries[$name].fakeSize
+            $nameBytes = [System.Text.Encoding]::UTF8.GetBytes($name)
+            for ($i = 0; $i -le $raw.Length - 46; $i++) {
+                if ($raw[$i] -eq 0x50 -and $raw[$i + 1] -eq 0x4b -and $raw[$i + 2] -eq 0x01 -and $raw[$i + 3] -eq 0x02) {
+                    $nameLen = [BitConverter]::ToUInt16($raw, $i + 28)
+                    if ($nameLen -eq $nameBytes.Length) {
+                        $match = $true
+                        for ($j = 0; $j -lt $nameLen; $j++) {
+                            if ($raw[$i + 46 + $j] -ne $nameBytes[$j]) { $match = $false; break }
+                        }
+                        if ($match) {
+                            [Array]::Copy([BitConverter]::GetBytes($fakeSize), 0, $raw, $i + 24, 4)
+                            break
+                        }
+                    }
+                }
+            }
+        }
+        [System.IO.File]::WriteAllBytes($path, $raw)
+    }
+
     $wNs = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"'
     $pNs = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
     $relNs = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"'
@@ -72,6 +120,10 @@ BeforeAll {
 
     function chartRef([string]$relId) {
         return "<a:graphic xmlns:a=`"http://schemas.openxmlformats.org/drawingml/2006/main`"><a:graphicData><c:chart $cNs r:id=`"$relId`"/></a:graphicData></a:graphic>"
+    }
+
+    function xChartFrame([string]$graphic) {
+        return "<xdr:graphicFrame macro=`"`"><xdr:nvGraphicFramePr><xdr:cNvPr id=`"3`" name=`"c`"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>${graphic}</xdr:graphicFrame>"
     }
 
     $diagramXml = "<dgm:dataModel $dgmNs xmlns:a=`"http://schemas.openxmlformats.org/drawingml/2006/main`"><dgm:ptLst>" +
@@ -360,10 +412,6 @@ Describe "readXlsxObjectUnits" -Tag Io {
 
 Describe "readXlsxObjectUnits（グラフ・SmartArt・グラフシート）" -Tag Io {
     BeforeAll {
-        function xChartFrame([string]$graphic) {
-            return "<xdr:graphicFrame macro=`"`"><xdr:nvGraphicFramePr><xdr:cNvPr id=`"3`" name=`"c`"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>${graphic}</xdr:graphicFrame>"
-        }
-
         function xAbsoluteAnchor([string]$shapes) {
             # 位置をセルで持たない図形（グラフシートに置いたグラフなど）
             return "<xdr:absoluteAnchor><xdr:pos x=`"0`" y=`"0`"/><xdr:ext cx=`"100`" cy=`"100`"/>${shapes}<xdr:clientData/></xdr:absoluteAnchor>"
@@ -729,64 +777,30 @@ Describe "getCellPosition" -Tag Unit {
 }
 
 Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッダー）" -Tag Io {
-    BeforeAll {
-        function newRawZip {
-            # 1つの部品にバイト列をそのまま書き込むZIPを作る（無圧縮）。$fakeSize を渡すと、
-            # 中央ディレクトリの「展開後の大きさ」フィールドだけを書き換え、偽りのヘッダー（実際より小さい申告）を作る
-            param (
-                [string]$path,
-                [string]$entryName,
-                [byte[]]$bytes,
-                $fakeSize = $null
-            )
-
-            $stream = [System.IO.File]::Create($path)
-            $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
-            $entry = $zip.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::NoCompression)
-            $entryStream = $entry.Open()
-            $entryStream.Write($bytes, 0, $bytes.Length)
-            $entryStream.Dispose()
-            $zip.Dispose()
-            $stream.Dispose()
-
-            if ($null -ne $fakeSize) {
-                $raw = [System.IO.File]::ReadAllBytes($path)
-                $nameBytes = [System.Text.Encoding]::UTF8.GetBytes($entryName)
-                for ($i = 0; $i -le $raw.Length - 46; $i++) {
-                    if ($raw[$i] -eq 0x50 -and $raw[$i + 1] -eq 0x4b -and $raw[$i + 2] -eq 0x01 -and $raw[$i + 3] -eq 0x02) {
-                        $nameLen = [BitConverter]::ToUInt16($raw, $i + 28)
-                        if ($nameLen -eq $nameBytes.Length) {
-                            $match = $true
-                            for ($j = 0; $j -lt $nameLen; $j++) {
-                                if ($raw[$i + 46 + $j] -ne $nameBytes[$j]) { $match = $false; break }
-                            }
-                            if ($match) {
-                                [Array]::Copy([BitConverter]::GetBytes([uint32]$fakeSize), 0, $raw, $i + 24, 4)
-                                break
-                            }
-                        }
-                    }
-                }
-                [System.IO.File]::WriteAllBytes($path, $raw)
-            }
-        }
-    }
-
     BeforeEach {
         # 1ファイル分の合計を数える $script:zipTotalReadBytes は、readDocxUnits 等ではなくここでは
         # readZipEntry を直接呼ぶため、テストごとに 0 から数え直す
         $script:zipTotalReadBytes = 0
     }
 
-    It "部品1つの展開後の大きさ（entry.Length）が上限を超えたら、大きすぎるという例外にする" {
+    It "部品1つの展開後の大きさ（entry.Length）が上限を超えたら、ZipSizeLimitException（部品名・大きさ・Part）にする" {
         $orig = $script:zipPartMaxBytes
         $script:zipPartMaxBytes = 5
         try {
             $path = "$TestDrive\part_over.zip"
-            newRawZip $path "a.xml" ([System.Text.Encoding]::UTF8.GetBytes("123456"))
+            newRawZip $path @{ "a.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("123456") } }
             $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
             try {
                 { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+                $caught = $null
+                try { readZipEntry $zip "a.xml" } catch { $caught = $_.Exception }
+                # [ZipSizeLimitException] の型リテラルは、Pester の It ブロックからは解決できない
+                # （BeforeAll で dot-source したクラスでも、実行スコープが分かれるため）ため、
+                # GetType().Name で型名を確かめる
+                $caught.GetType().Name | Should -Be "ZipSizeLimitException"
+                $caught.PartName | Should -Be "a.xml"
+                $caught.MeasuredBytes | Should -Be 6
+                $caught.LimitKind | Should -Be "Part"
             } finally {
                 $zip.Dispose()
             }
@@ -795,7 +809,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
         }
     }
 
-    It "1ファイルの中で読む合計（複数の部品の展開後の大きさの和）が上限を超えたら例外にする" {
+    It "1ファイルの中で読む合計（複数の部品の展開後の大きさの和）が上限を超えたら、ZipSizeLimitException（Total）にする" {
         $orig = $script:zipTotalMaxBytes
         $script:zipTotalMaxBytes = 8
         try {
@@ -804,7 +818,14 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
             $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
             try {
                 readZipEntry $zip "a.xml" | Out-Null  # 5バイト。まだ上限(8)以下
-                { readZipEntry $zip "b.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"  # 合計10 > 8
+                $caught = $null
+                try { readZipEntry $zip "b.xml" } catch { $caught = $_.Exception }  # 合計10 > 8
+                $caught.GetType().Name | Should -Be "ZipSizeLimitException"
+                $caught.Message | Should -BeLike "*大きすぎるため取り込めません*"
+                $caught.PartName | Should -Be "b.xml"
+                # MeasuredBytes は Total のときは超えた時点の「申告の合計」（b.xml 自身の大きさ5ではなく、a.xml と合わせた10）
+                $caught.MeasuredBytes | Should -Be 10
+                $caught.LimitKind | Should -Be "Total"
             } finally {
                 $zip.Dispose()
             }
@@ -813,12 +834,19 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
         }
     }
 
-    It "ヘッダーに書かれた大きさより実際の中身が大きい（偽りのヘッダー）ときは例外にする" {
+    It "ヘッダーに書かれた大きさより実際の中身が大きい（偽りのヘッダー）ときは、ZipSizeLimitException（Part）にする" {
         $path = "$TestDrive\fake_header.zip"
-        newRawZip $path "a.xml" ([System.Text.Encoding]::UTF8.GetBytes("0123456789")) -fakeSize 3  # 実際は10バイトだが3バイトと偽る
+        newRawZip $path @{ "a.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("0123456789"); fakeSize = 3 } }  # 実際は10バイトだが3バイトと偽る
         $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
         try {
             { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            $caught = $null
+            try { readZipEntry $zip "a.xml" } catch { $caught = $_.Exception }
+            $caught.GetType().Name | Should -Be "ZipSizeLimitException"
+            $caught.PartName | Should -Be "a.xml"
+            # 実際の大きさまでは分からないため、検出できた時点（申告の3バイト + 1）の値になる
+            $caught.MeasuredBytes | Should -Be 4
+            $caught.LimitKind | Should -Be "Part"
         } finally {
             $zip.Dispose()
         }
@@ -836,7 +864,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
         $path = "$TestDrive\fake_header_$([guid]::NewGuid()).zip"
         # 実際の大きさより1バイト少なく申告する（多バイト文字の途中で境界が来ても見つけられることを確かめる。
         # 文字単位で数えていると、最後の文字が丸ごと余分と判定され、この1バイト差の偽りを見逃すおそれがある）
-        newRawZip $path "a.xml" $bytes -fakeSize ($bytes.Length - 1)
+        newRawZip $path @{ "a.xml" = @{ bytes = $bytes; fakeSize = ($bytes.Length - 1) } }
         $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
         try {
             { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
@@ -853,7 +881,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
     ) {
         param ($name, $bytes)
         $path = "$TestDrive\bom_$([guid]::NewGuid()).zip"
-        newRawZip $path "a.xml" $bytes
+        newRawZip $path @{ "a.xml" = @{ bytes = $bytes } }
         $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
         try {
             readZipEntry $zip "a.xml" | Should -Be "あ"
@@ -886,51 +914,6 @@ Describe "newXmlDocument" -Tag Unit {
 }
 
 Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイズの上限を超えたZIP）" -Tag Io {
-    BeforeAll {
-        function newRawZipMultiFakeSize {
-            # 複数の部品に実際のバイト列を書き込みつつ、各部品の中央ディレクトリの「展開後の大きさ」フィールドだけを
-            # entries[名前].fakeSize に書き換える（実際の中身は小さいまま、申告だけ膨らませる）
-            param (
-                [string]$path,
-                [hashtable]$entries  # 名前 -> @{ bytes = [byte[]]; fakeSize = [uint32] }
-            )
-
-            $stream = [System.IO.File]::Create($path)
-            $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
-            foreach ($name in $entries.Keys) {
-                $entry = $zip.CreateEntry($name, [System.IO.Compression.CompressionLevel]::NoCompression)
-                $entryStream = $entry.Open()
-                $bytes = $entries[$name].bytes
-                $entryStream.Write($bytes, 0, $bytes.Length)
-                $entryStream.Dispose()
-            }
-            $zip.Dispose()
-            $stream.Dispose()
-
-            $raw = [System.IO.File]::ReadAllBytes($path)
-            foreach ($name in $entries.Keys) {
-                $fakeSize = [uint32]$entries[$name].fakeSize
-                $nameBytes = [System.Text.Encoding]::UTF8.GetBytes($name)
-                for ($i = 0; $i -le $raw.Length - 46; $i++) {
-                    if ($raw[$i] -eq 0x50 -and $raw[$i + 1] -eq 0x4b -and $raw[$i + 2] -eq 0x01 -and $raw[$i + 3] -eq 0x02) {
-                        $nameLen = [BitConverter]::ToUInt16($raw, $i + 28)
-                        if ($nameLen -eq $nameBytes.Length) {
-                            $match = $true
-                            for ($j = 0; $j -lt $nameLen; $j++) {
-                                if ($raw[$i + 46 + $j] -ne $nameBytes[$j]) { $match = $false; break }
-                            }
-                            if ($match) {
-                                [Array]::Copy([BitConverter]::GetBytes($fakeSize), 0, $raw, $i + 24, 4)
-                                break
-                            }
-                        }
-                    }
-                }
-            }
-            [System.IO.File]::WriteAllBytes($path, $raw)
-        }
-    }
-
     It "readDocxUnits: 本文（word/document.xml）が部品の上限を超えたら、大きすぎるという例外にする" {
         $orig = $script:zipPartMaxBytes
         $script:zipPartMaxBytes = 10
@@ -987,6 +970,53 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
         }
     }
 
+    It "readXlsxObjectUnits: グラフ（xl/charts/chart1.xml）だけが部品の上限を超えても、そのグラフだけを空にしてほかは読む。超えた部品は `$sizeFailures に ZipSizeLimitException として返す" {
+        # chart1.xml だけが上限を超えるように、ほかの部品の大きさから上限を決める（上の drawing1.xml のテストと同じやり方）
+        $workbookXml = "<workbook ${xNs}><sheets><sheet name=`"S`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+        $workbookRelsXml = "<Relationships ${relNs}><Relationship Id=`"rId1`" Type=`"${officeRel}/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+        $sheetXml = "<worksheet ${xNs}/>"
+        $sheetRelsXml = "<Relationships ${relNs}><Relationship Id=`"rId1`" Type=`"${officeRel}/drawing`" Target=`"../drawings/drawing1.xml`"/></Relationships>"
+        $drawingXml = "<xdr:wsDr ${xdrNs}>$(xAnchor 0 0 (xChartFrame (chartRef 'rId1')))</xdr:wsDr>"
+        $drawingRelsXml = "<Relationships ${relNs}><Relationship Id=`"rId1`" Type=`"${docRel}/chart`" Target=`"../charts/chart1.xml`"/></Relationships>"
+        $chartXml = "<c:chartSpace ${cNs}>$('<!-- big -->' * 100)</c:chartSpace>"
+
+        $otherParts = @($workbookXml, $workbookRelsXml, $sheetXml, $sheetRelsXml, $drawingXml, $drawingRelsXml)
+        $maxOtherBytes = ($otherParts | ForEach-Object { [System.Text.Encoding]::UTF8.GetByteCount($_) } | Measure-Object -Maximum).Maximum
+        $chartBytes = [System.Text.Encoding]::UTF8.GetByteCount($chartXml)
+        $chartBytes | Should -BeGreaterThan $maxOtherBytes  # テストの前提（chart1.xml がほかの部品より大きい）
+
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = $maxOtherBytes + 1
+        try {
+            $path = "$TestDrive\big_chart.xlsx"
+            newZip $path @{
+                "xl/workbook.xml" = $workbookXml
+                "xl/_rels/workbook.xml.rels" = $workbookRelsXml
+                "xl/worksheets/sheet1.xml" = $sheetXml
+                "xl/worksheets/_rels/sheet1.xml.rels" = $sheetRelsXml
+                "xl/drawings/drawing1.xml" = $drawingXml
+                "xl/drawings/_rels/drawing1.xml.rels" = $drawingRelsXml
+                "xl/charts/chart1.xml" = $chartXml
+            }
+            $failures = New-Object System.Collections.Generic.List[string]
+            $sizeFailures = New-Object System.Collections.Generic.List[object]
+            $units = readXlsxObjectUnits $path $failures $sizeFailures
+
+            # グラフだけが空になり、ブック自体は読める（例外にならない）
+            $units.Contains("S[図形]") | Should -Be $false
+            @($failures) | Should -Be @("xl/charts/chart1.xml")
+
+            # $sizeFailures に、原因を調べるための部品名・大きさ・部品ごとか合計かを持つ例外が入る
+            $sizeFailures.Count | Should -Be 1
+            $sizeFailures[0].GetType().Name | Should -Be "ZipSizeLimitException"
+            $sizeFailures[0].PartName | Should -Be "xl/charts/chart1.xml"
+            $sizeFailures[0].LimitKind | Should -Be "Part"
+            $sizeFailures[0].MeasuredBytes | Should -BeGreaterThan $maxOtherBytes
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
     It "部品ごとは上限以下でも、申告した大きさ（展開後の大きさ）の合計が上限を超えたら例外にする（実際の中身は小さいまま）" {
         $origPart = $script:zipPartMaxBytes
         $origTotal = $script:zipTotalMaxBytes
@@ -998,7 +1028,7 @@ Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイ�
             # 部品ごとの中身は1バイトで小さいが、申告する大きさ（8バイト）は part の上限(10)以下。
             # 2部品分の申告の合計(16)が total の上限(15)を超える（ZIP爆弾のように、申告だけ大きく中身は小さい部品が
             # 複数集まっても、合計の上限で止めることを確かめる）
-            newRawZipMultiFakeSize $path @{
+            newRawZip $path @{
                 "a.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("1"); fakeSize = 8 }
                 "b.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("2"); fakeSize = 8 }
             }

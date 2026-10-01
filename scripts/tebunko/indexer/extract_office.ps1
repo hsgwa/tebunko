@@ -199,18 +199,20 @@ function extractWorkbook {
     $protection = $null
     if (isZipFile $copyPath) {
         $chartFailures = New-Object System.Collections.Generic.List[string]
+        $chartSizeFailures = New-Object System.Collections.Generic.List[object]
         try {
-            $objectUnits = readXlsxObjectUnits $copyPath $chartFailures
+            $objectUnits = readXlsxObjectUnits $copyPath $chartFailures $chartSizeFailures
         } catch {
-            # サイズの上限を超えたとき（ZipSizeLimitException）は、部品名・大きさ・部品ごとか合計かを
-            # インデックス作成のログに書く（2026-09-27 メンテナの回答）。画面には出さない（悪用のヒントになるため）
-            if ($_.Exception -is [ZipSizeLimitException]) {
-                writeZipSizeLimitLog $_.Exception.PartName $_.Exception.MeasuredBytes $_.Exception.LimitKind
-            }
+            # サイズの上限を超えたとき（ZipSizeLimitException）は、原因を調べられるよう部品名・大きさ・
+            # 部品ごとか合計かをインデックス作成のログに書く。画面には出さない（悪用のヒントになるため）
+            writeZipSizeLimitLog $_.Exception
             writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
         }
         # 1つのグラフ・SmartArtが読めなくても、そこだけを空にしてほかの図形・コメントは読む（readXlsxObjectUnits）。
-        # shared/ はツールを知らないため、読めなかった部品の名前をここでログに書く
+        # shared/ はツールを知らないため、読めなかった部品の名前・サイズの上限の詳細はここでログに書く
+        foreach ($sizeFailure in $chartSizeFailures) {
+            writeZipSizeLimitLog $sizeFailure
+        }
         foreach ($failure in $chartFailures) {
             writeIndexerLog "    グラフ・SmartArt を読み取れませんでした: $failure" "Yellow"
         }

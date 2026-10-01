@@ -143,12 +143,10 @@ function invokeIngestTask {
             $result.Postponed = $true
             return $result
         }
-        # .docx・.pptx を直接読んでサイズの上限を超えたとき（ZipSizeLimitException）は、部品名・大きさ・
-        # 部品ごとか合計かをインデックス作成のログに書く（2026-09-27 メンテナの回答）。画面・取り込み一覧の
+        # .docx・.pptx を直接読んでサイズの上限を超えたとき（ZipSizeLimitException）は、原因を調べられるよう
+        # 部品名・大きさ・部品ごとか合計かをインデックス作成のログに書く。画面・取り込み一覧の
         # $result.Message は今までどおり簡潔な文言のまま（describeIngestError がそのまま通す）
-        if ($base -is [ZipSizeLimitException]) {
-            writeZipSizeLimitLog $base.PartName $base.MeasuredBytes $base.LimitKind
-        }
+        writeZipSizeLimitLog $base
         $message = describeIngestError $_.Exception
         if ($script:watchdog.TimedOut) {
             $message = "${fileTimeoutMinutes} 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）"

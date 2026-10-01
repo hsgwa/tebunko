@@ -24,6 +24,7 @@
 | `answerIndexingPlan` | channel, answer（`@{RetryFailed}` / `$null`） | – | 確認のダイアログの返事をインデクサに伝える。`$null` は取りやめ（`Stop` も立てる） | [インデックス作成の実行](../gui/indexing-run.md#インデックス作成の確認ダイアログ) | 画面 |
 | `testIndexerRunning` | dir（既定 `$workspace.Dir`） | bool | この `work` でインデックス作成が動いているか（インデクサのミューテックスを取れるかで調べ、取れたらすぐ放す）。画面を使わずに起動したものも分かる | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面（［8 設定］） |
 | `writeIndexerLog` | text, color | – | インデックス作成の表示内容をログ（`インデックス作成ログ.txt`）に書く。画面を使わずに実行したときはコンソールにも出す（color はそのときの色）。取り込みのスレッドでは 1 ファイル分を貯め、司令がまとめて書く | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成 |
+| `writeZipSizeLimitLog` | exception | – | .docx・.pptx・.xlsx を直接読んでサイズの上限を超えたときの詳細（部品名・大きさ・部品ごとか合計か）をインデックス作成のログにだけ書く（画面・取り込み一覧には出さない）。渡した例外が `ZipSizeLimitException`（`shared/office/office_reader.ps1`）でなければ何もしない | [失敗の原因](../indexing/office-apps.md#失敗の原因describeingesterror) | インデックス作成（extract_office.ps1, indexer_run.ps1） |
 | `newIngestPlanRow` | name, path, kind, total, targets, new, updated, pending, lost, failed | 取り込み予定の 1 行（`[pscustomobject]`） | インデックス 1 件分の取り込み対象の件数を作る（`$ingestPlanColumns` と同じ列） | [取り込み対象の決定](../indexing/target-decision.md#取り込み予定画面の確認に出す件数) | インデックス作成 |
 | `getIndexingState` | since, path | [元のファイルの特定・画面](search.md#元のファイルの特定画面) を参照 | 取り込み一覧の状態ごとの件数など | [続き](search.md#元のファイルの特定画面) | 画面 |
 

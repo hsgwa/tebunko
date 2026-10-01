@@ -926,7 +926,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
             $result.Reroute | Should -Be $false
             $result.Message | Should -Be "ファイルサイズが大きすぎるため取り込めません。"
             Should -Invoke getApp -Times 0 -Exactly -Scope It
-            # 画面・取り込み一覧には出さない部品名・大きさ・部品ごとか合計かは、インデックス作成のログにだけ書く（2026-09-27 メンテナの回答）
+            # 原因を調べられるよう、画面・取り込み一覧には出さない部品名・大きさ・部品ごとか合計かを、インデックス作成のログにだけ書く
             $result.Log | Should -Match "word/document\.xml"
             $result.Log | Should -Match "部品ごと"
         } finally {

@@ -372,18 +372,22 @@ function writeIndexerLog {
 
 function writeZipSizeLimitLog {
     # .docx・.pptx・.xlsx の部品がサイズの上限を超えたときの詳細をログに書く（画面には出さない）。
-    # 部品名・大きさ・部品ごとか合計かは、ここだけに書く（2026-09-27 メンテナの回答）。
-    # 呼び出し元（extract_office.ps1・indexer_run.ps1）が、office_reader.ps1 の ZipSizeLimitException から値を渡す
-    # （ここで型を [ZipSizeLimitException] に指定しないのは、indexer_state.ps1 が office_reader.ps1 より先に
+    # 原因を調べられるよう、部品名・大きさ・部品ごとか合計かはここだけに書く。
+    # 呼び出し元（extract_office.ps1・indexer_run.ps1・office_reader.ps1 のグラフ・SmartArt 読み取り）は、
+    # 捕まえた例外をそのまま渡せばよい。ZipSizeLimitException かどうかはここで確かめ、違えば何もしない
+    # （param の型を [ZipSizeLimitException] にしないのは、indexer_state.ps1 が office_reader.ps1 より先に
     # 読み込まれ、その時点ではクラスがまだ無いため）
     param (
-        [string]$partName,
-        [long]$measuredBytes,
-        [string]$limitKind
+        [System.Exception]$exception
     )
 
-    $kindText = if ($limitKind -eq "Total") { "1ファイルの合計" } else { "部品ごと" }
-    writeIndexerLog "    サイズの上限（${kindText}）を超えました: ${partName}（${measuredBytes} バイト）" "Yellow"
+    if ($exception -isnot [ZipSizeLimitException]) {
+        return
+    }
+
+    $kindText = if ($exception.LimitKind -eq "Total") { "1ファイルの合計" } else { "部品ごと" }
+    $mb = [math]::Round($exception.MeasuredBytes / 1MB, 1)
+    writeIndexerLog "    サイズの上限（${kindText}）を超えました: $($exception.PartName)（$($exception.MeasuredBytes) バイト、約${mb}MB）" "Yellow"
 }
 
 function newIngestPlanRow {
