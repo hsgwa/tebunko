@@ -59,6 +59,8 @@ $script:fastSearchJobDir = $null
 $script:fastSearchReason = $null      # 最後に届いた getWindowsSearchState の値（まだなら $null）
 $script:fastSearchProgress = $null    # 最後に届いた getSystemIndexProgress の値
 $script:fastSearchCheckedAt = $null   # 最後に確かめ終えた時刻（DateTime）
+$script:fastSearchResultDir = $null   # 上の 3 つを確かめたときのワークスペース（$workspace.Dir）。ワークスペースを切り替えた後、
+                                       # 新しい確かめが終わるまでは古いワークスペースの結果なので、更新のたびに確かめて捨てる
 # 反映待ち・反映中の行がある間だけ動かす（無くなったら止める。画面を閉じれば、ほかのタイマーと同じく動かなくなる）
 $script:fastSearchTimer = newTimer (5 * 60 * 1000) { safe { refreshFastSearchStatus } }
 
@@ -205,13 +207,20 @@ function applyFastSearchStatus {
     $script:fastSearchReason = $result.Reason
     $script:fastSearchProgress = $result.Progress
     $script:fastSearchCheckedAt = Get-Date
+    $script:fastSearchResultDir = $workspace.Dir
     updateFastSearchRows
 }
 
 function updateFastSearchRows {
     # 一覧の各行の「高速検索」列を getFastSearchRowView で置き直す（確かめの結果が届いたときと、
     # applyIndexStats で本文の集計が届いたときの両方から呼ぶ。ここでは I/O をせず判断層を呼ぶだけ）。
-    # $hasContent は、そのときの getIndexStats の値（Done が 1 以上か）から渡す
+    # $hasContent は、そのときの getIndexStats の値（Done が 1 以上か）から渡す。
+    # 覚えている結果が今のワークスペースのものでなければ（切り替えた直後）、古い可否を出さないよう捨てて「確認中…」に戻す
+    if ($script:fastSearchResultDir -ne $workspace.Dir) {
+        $script:fastSearchReason = $null
+        $script:fastSearchProgress = $null
+        $script:fastSearchCheckedAt = $null
+    }
     $stats = if ($script:indexingState) { $script:indexingState.IndexStats } else { $null }
     $waiting = $false
     foreach ($item in $script:targetItems) {
