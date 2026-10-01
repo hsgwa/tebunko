@@ -374,7 +374,7 @@ Describe "getFastSearchRowView" -Tag Unit {
         $progress = newFastProgress @{}
         $toolTip = (getFastSearchRowView "Ok" $progress "営業" $true $null).ToolTip
         $toolTip | Should -Match "このインデックスには高速検索用のデータがありません。"
-        # 直し方の案内（［インデックスのオプション］など）や、使っても結果は同じという注記は出さない（メンテナの答え「ださない」）
+        # 直し方の案内（［インデックスのオプション］など）や、使っても結果は同じという注記は出さない仕様（理由の文だけを出す）
         $toolTip | Should -Not -Match "インデックスのオプション|system_index|時間だけが違う"
     }
 
