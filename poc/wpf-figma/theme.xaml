@@ -298,7 +298,7 @@
 
   <!-- ============ 吹き出し（ツールチップ風。ダーク地） ============ -->
   <Style x:Key="Bubble" TargetType="Border">
-    <Setter Property="Background" Value="#1F2937" />
+    <Setter Property="Background" Value="#333840" />
     <Setter Property="CornerRadius" Value="{StaticResource Radius.4}" />
     <Setter Property="Padding" Value="10,7,10,7" />
     <Setter Property="Effect" Value="{StaticResource Shadow.Small}" />
