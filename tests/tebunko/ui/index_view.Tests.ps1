@@ -265,12 +265,14 @@ Describe "getIndexRowView" -Tag Unit {
     It "ツールヒントに前の版・内部の言葉を含めない" {
         $views = @(
             (getIndexRowView $null $false $true)
+            (getIndexRowView @{ Total = 10; Done = 3; Pending = 7; Failed = 0 } $true $true)
             (getIndexRowView @{ Total = 10; Done = 5; Pending = 2; Failed = 3 } $false $true)
             (getIndexRowView @{ Total = 10; Done = 9; Pending = 0; Failed = 1 } $false $true)
             (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $true)
         )
         foreach ($view in $views) {
             $view.Text | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
+            $view.ToolTip | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
         }
     }
 }
@@ -283,6 +285,9 @@ Describe "getFastSearchRowView" -Tag Unit {
         @{ label = "NoFolder で本文も無い: －"
            reason = "NoFolder"; progress = $null; name = "営業"; hasContent = $false
            text = "－"; level = "None" }
+        @{ label = "NoFolder だが本文がある（インポートなど）: 不可"
+           reason = "NoFolder"; progress = $null; name = "営業"; hasContent = $true
+           text = "不可"; level = "Ng" }
         @{ label = "NoConnection: 不可"
            reason = "NoConnection"; progress = $null; name = "営業"; hasContent = $false
            text = "不可"; level = "Ng" }
@@ -365,9 +370,16 @@ Describe "getFastSearchRowView" -Tag Unit {
         (getFastSearchRowView "Ok" $progress "営業" $true $checkedAt).ToolTip | Should -Match "最終確認 09:30"
     }
 
-    It "本文はあるが高速検索用のデータが無い行のツールヒントは、メンテナへの確認 2 の答えの文と同じ" {
+    It "本文はあるが高速検索用のデータが無い行は、理由の文だけを出す" {
         $progress = newFastProgress @{}
-        (getFastSearchRowView "Ok" $progress "営業" $true $null).ToolTip | Should -Match "このインデックスには高速検索用のデータがありません。"
+        $toolTip = (getFastSearchRowView "Ok" $progress "営業" $true $null).ToolTip
+        $toolTip | Should -Match "このインデックスには高速検索用のデータがありません。"
+        # 直し方の案内（［インデックスのオプション］など）や、使っても結果は同じという注記は出さない（メンテナの答え「ださない」）
+        $toolTip | Should -Not -Match "インデックスのオプション|system_index|時間だけが違う"
+    }
+
+    It "進み具合を確かめられないときのツールヒントに「確かめられなかった」を含む" {
+        (getFastSearchRowView "Ok" $null "営業" $true $null).ToolTip | Should -Match "確かめられなかった"
     }
 
     It "ツールヒントに前の版・内部の言葉を含めない" {
