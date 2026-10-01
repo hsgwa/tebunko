@@ -22,8 +22,7 @@ ${ingestWorkerScript} = {
     $own = [Workspace]::new($settings.WorkDir)
     $own.PublishDir = Join-Path $settings.PublishDir "w$number"
     Set-Variable -Name workspace -Value $own
-    Set-Variable -Name tmpDir -Value (Join-Path $settings.TmpDir "w$number")
-    [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
+    Set-Variable -Name tmpDir -Value (newWorkerTmpDir $settings.TmpDir $number)
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
@@ -403,8 +402,7 @@ function invokeIndexerBody {
     if (!$nci.Ok) {
         writeIndexerLog "content_index を Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
     }
-    removeStaleTmpDirs
-    [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
+    $script:tmpDir = (initTmpDir).Dir
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
     # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う

@@ -18,6 +18,7 @@ Describe "Workspace" -Tag Unit {
         $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\検索結果.txt"
         $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\インデックス作成ログ.txt"
         $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\画面エラー.txt"
+        $target.TmpRoot | Should -Be "C:\Users\test\Documents\tebunko_ws\tmp"
     }
 
     It "関数は呼んだときの `$workspace の場所を使う（差し替えれば、読み込み直さずに別のワークスペースを使う）" {
@@ -26,11 +27,73 @@ Describe "Workspace" -Tag Unit {
         @((getIndexSummary).Missing) | Should -Be @("$TestDrive\別\content_index")
     }
 
-    It "Entries() が前の版の index（LegacyIndexDir）を含む" {
+    It "Entries() が前の版の index（LegacyIndexDir）と一時フォルダ（TmpRoot）を含む" {
         $target = [Workspace]::new("$TestDrive\entries")
 
         @($target.Entries()) | Should -Contain $target.LegacyIndexDir
         @($target.Entries()) | Should -Contain $target.IndexDir
+        @($target.Entries()) | Should -Contain $target.TmpRoot
+    }
+}
+
+Describe "getMachineKey" -Tag Unit {
+    It "この PC の鍵（getFolderKey の先頭 8 文字）を返す" {
+        getMachineKey | Should -Be (getFolderKey ([Environment]::MachineName)).Substring(0, 8)
+    }
+}
+
+Describe "getWorkspaceTmpDir" -Tag Unit {
+    It "ワークスペースの tmp の下に、PC の鍵とプロセスIDで組み立てる" {
+        $workspace = newTestWorkspace @{} "$TestDrive\getwtd"
+
+        getWorkspaceTmpDir $workspace | Should -Be "$TestDrive\getwtd\tmp\$(getMachineKey)\$PID"
+    }
+}
+
+Describe "selectTmpDir" -Tag Unit {
+    BeforeAll {
+        # 候補（ワークスペースの tmp の下）の長さと、取り込みのスレッドが下に作る最も長い名前の分（tmpNameReserve）から、
+        # ちょうど境目の長さのワークスペースを組み立てるための下ごしらえ
+        $suffix = "\tmp\$(getMachineKey)\$PID"
+        $thresholdLen = $excelMaxPath - ${tmpNameReserve}
+
+        function newWorkspaceOfCandidateLength([int]$candidateLen) {
+            $dirLen = $candidateLen - $suffix.Length
+            $dir = "C:\" + ("あ" * ($dirLen - 3))
+            return (newTestWorkspace @{} $dir)
+        }
+    }
+
+    It "[ ] を含まず、長さも十分短ければ、そのまま使う" {
+        $workspace = newTestWorkspace @{} "C:\Users\test\ws"
+
+        $result = selectTmpDir $workspace
+        $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
+        $result.Reason | Should -Be ""
+    }
+
+    It "候補のパスに [ ] があれば、前の版の場所（%TEMP%\tebunko\<PID>）を使う" {
+        $workspace = newTestWorkspace @{} "C:\Users\test\[共有]フォルダ"
+
+        $result = selectTmpDir $workspace
+        $result.Dir | Should -Be (Join-Path ${legacyTmpParent} $PID)
+        $result.Reason | Should -Be "Brackets"
+    }
+
+    It "候補の長さが境目より短ければ、そのまま使う" {
+        $workspace = newWorkspaceOfCandidateLength ($thresholdLen - 1)
+
+        $result = selectTmpDir $workspace
+        $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
+        $result.Reason | Should -Be ""
+    }
+
+    It "候補の長さが境目以上なら、前の版の場所（%TEMP%\tebunko\<PID>）を使う" {
+        $workspace = newWorkspaceOfCandidateLength $thresholdLen
+
+        $result = selectTmpDir $workspace
+        $result.Dir | Should -Be (Join-Path ${legacyTmpParent} $PID)
+        $result.Reason | Should -Be "TooLong"
     }
 }
 

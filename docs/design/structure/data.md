@@ -16,14 +16,17 @@
 | `work/取り込み一覧.tsv` | 取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗） |
 | `work/取り込み中.txt` | 取り込み中のファイル（取り込みのスレッドごとに 1 行）。取り込み中に強制終了したときだけ残る |
 | `work/取り込み出力/<PID>/` | 1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ（インデックス作成の終了時に削除する） |
+| `work/tmp/<PC の鍵>/<PID>/` | 取り込みの作業領域（下の説明） |
 | `work/インデックス作成ログ.txt` | インデクサの表示内容の記録（実行ごとに上書き） |
 | `work/画面エラー.txt` | 画面で起きた予期しないエラーの記録（追記） |
 | `work/検索結果.txt` | 画面の［結果をファイルに出力］で書き出す検索結果 |
 | `work/test/`・`work/release/`・`work/site/`・`work/cache/` | 開発用の出力（テスト結果とカバレッジ・配布物・設計書のサイト・サイトを作るときのキャッシュ） |
 
-取り込みの作業領域は `%TEMP%\tebunko\<PID>` に置く。Excel は `[` `]` を含むパスに保存できないため、ツールの配置場所に依存させない。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。その下は、取り込みのスレッド（Excel・Word・PowerPoint・読み取りのレーンのスレッド）ごとに `w<番号>` のフォルダに分ける（`work/取り込み出力/<PID>` も同じ。[取り込みの並列化](../indexing/parallel.md)）。
+取り込みの作業領域は、既定では `work/tmp/<PC の鍵>/<PID>/` に置く（`Workspace` の `TmpRoot`。`tebunko/core/workspace.ps1` の `selectTmpDir`）。`<PC の鍵>` はコンピューター名から作る 8 文字の鍵（`getMachineKey`）で、ワークスペースを複数の PC から共有しても、互いの作業フォルダを衝突・削除させない（プロセス ID だけでは PC をまたいで重なりうるため）。その下は、取り込みのスレッド（Excel・Word・PowerPoint・読み取りのレーンのスレッド）ごとに `w<番号>` のフォルダに分ける（`newWorkerTmpDir`。`work/取り込み出力/<PID>` も同じ。[取り込みの並列化](../indexing/parallel.md)）。
 
-できた TSV をインデックス（本文インデックスに入れる前の置き場所）に入れるときは、`work/取り込み出力/<PID>` にいったん集めてからフォルダごと入れ替える（`publishIndexFiles`）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域（`%TEMP%`）とは別に `work` の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。
+ワークスペースのパスに `[` `]` が含まれる（Excel が保存できない）・パスが長すぎる（Office が開けない）ときは、代わりに前の版までの置き場所 `%TEMP%\tebunko\<PID>` を使う（`${legacyTmpParent}`。ログに 1 行残す）。インデックス作成の始め（`initTmpDir`）に、強制終了などで残った前回までの作業フォルダ（`work/tmp/` 配下・`work/取り込み出力/` 配下・`%TEMP%\tebunko\` 配下のいずれも）を片付けてから、今回の場所を決めて作る。代わりの場所（`%TEMP%`）でなければ、Windows Search の索引対象から外す属性（`NotContentIndexed`）も付ける（`%TEMP%` は既定で対象外のため付けない）。
+
+できた TSV をインデックス（本文インデックスに入れる前の置き場所）に入れるときは、`work/取り込み出力/<PID>` にいったん集めてからフォルダごと入れ替える（`publishIndexFiles`）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域とは別に `work` の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。
 
 ## データの置き場所（`setting.config`・`work/`）
 
@@ -67,7 +70,8 @@ flowchart TD
 | `$officeExtensions` | 取り込み対象の拡張子（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`） | `shared/office/office_files.ps1` |
 | `$officeProcessNames` | 強制終了の対象のプロセス名 → 表示名（`EXCEL` → `Excel`、`WINWORD` → `Word`、`POWERPNT` → `PowerPoint`） | `shared/office/office_process.ps1` |
 | `$workspace` | 今のワークスペース（`Workspace`。下の「ワークスペースの中の場所」）。設定 `workspaceFolder` から決める（`getWorkDir`） | `tebunko/core/paths.ps1` |
-| `$tmpDir` | `%TEMP%\tebunko\<PID>`（プロセスごと。取り込みのスレッドは、その下の `w<番号>` を使う） | 同上 |
+| `$tmpDir` | 取り込みの作業フォルダ（既定は `work/tmp/<PC の鍵>/<PID>`、代わりの場所は `%TEMP%\tebunko\<PID>`。`initTmpDir` が決める。取り込みのスレッドは、その下の `w<番号>` を使う） | 同上 |
+| `${legacyTmpParent}` | 代わりの場所（`%TEMP%\tebunko`）の親 | `tebunko/core/paths.ps1` |
 | `$sourceFolderFileName` | 各インデックスのフォルダに置く元のフォルダの記録のファイル名（`元のフォルダ.txt`） | 同上 |
 | `$indexingPhaseCrawl` / `$indexingPhaseConfirm` / `$indexingPhaseIngest` / `$indexingPhaseFinish` | インデックス作成の進み具合の段階（`クロール` / `確認` / `取り込み` / `仕上げ`） | 同上 |
 | `$ingestPlanColumns` | 取り込み予定の列名（`インデックス名` `元のフォルダ` `区分` `ファイル数` `取り込み対象` `新規` `更新あり` `前回未完了` `インデックスなし` `前回失敗`） | 同上 |

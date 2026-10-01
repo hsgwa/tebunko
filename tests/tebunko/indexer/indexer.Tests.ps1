@@ -240,6 +240,8 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $progress.Failed | Should -Be 1
         readTestError | Should -BeNullOrEmpty
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should -Be $false
+        # 取り込みの作業フォルダ（work\tmp\<PC の鍵>\<PID>）も削除する
+        Test-Path -LiteralPath (Join-Path "$root\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
     }
 
     It "2 回目は更新の無いファイルを取り込まず、前回失敗したファイルもスキップする" {
@@ -691,6 +693,7 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         (findIndexFoldersWithBooks "$parallel\work\content_index").Count | Should -Be 0
         Test-Path -LiteralPath "$parallel\work\取り込み中.txt" | Should -Be $false
         @(Get-ChildItem -LiteralPath "$parallel\work\取り込み出力" -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+        Test-Path -LiteralPath (Join-Path "$parallel\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
         $progress = readTestProgress
         $progress.Processed | Should -Be 5
         $progress.Failed | Should -Be 1

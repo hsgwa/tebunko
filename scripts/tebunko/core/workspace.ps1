@@ -23,6 +23,9 @@ class Workspace {
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
     [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
+    # 取り込みの作業フォルダの置き場所（下は <PC の鍵>\<PID>\w<番号> と分かれる。selectTmpDir・getWorkspaceTmpDir）。
+    # 前の版までの %TEMP%\tebunko\<PID> の代わりに、ワークスペースの中に置く（共有フォルダでも 1 か所にまとまる）
+    [string]$TmpRoot
 
     Workspace([string]$dir) {
         $this.Dir = $dir
@@ -36,6 +39,7 @@ class Workspace {
         $this.ResultFile = "$dir\検索結果.txt"
         $this.IndexingLogFile = "$dir\インデックス作成ログ.txt"
         $this.GuiErrorLogFile = "$dir\画面エラー.txt"
+        $this.TmpRoot = "$dir\tmp"
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
@@ -43,13 +47,51 @@ class Workspace {
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが getWorkspaceEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir))
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot)
     }
 }
 
 # 前の版（content_index・system_index に名前をそろえる前）が system_index に置いていた txt の名前の型。
 # 新しい版は system_index.txt を使うため、前の版の txt を見つける・片付けるためだけに使う（読み書きの形式は変えない）
 ${legacySystemIndexPattern} = "システムインデックス*.txt"
+
+function getMachineKey {
+    # この PC を識別する短い鍵（getFolderKey の先頭 8 文字）。
+    # 共有フォルダのワークスペースを複数の PC から使うとき、一時フォルダを PC ごとに分けるために使う（getWorkspaceTmpDir）
+    return (getFolderKey ([Environment]::MachineName)).Substring(0, 8)
+}
+
+function getWorkspaceTmpDir {
+    # 取り込みの作業フォルダの候補（$workspace.TmpRoot\<PC の鍵>\<PID>）を返す。副作用は無い（selectTmpDir が使う）
+    param (
+        [Workspace]$workspace
+    )
+
+    return Join-Path $workspace.TmpRoot (Join-Path (getMachineKey) $PID)
+}
+
+function selectTmpDir {
+    # 取り込みの作業フォルダの置き場所を決める: @{ Dir; Reason（代わりの場所にしたときだけ） }
+    #   候補: getWorkspaceTmpDir（ワークスペースの tmp\ の下）
+    #   候補のパスに [ ] があれば、代わりの場所（${legacyTmpParent}\<PID>。前の版までの %TEMP% の置き場所）にする（Reason = Brackets）。
+    #     Excel は [ ] を含むパスに保存できないため
+    #   候補の長さ + 取り込みのスレッドが下に作る最も長い名前の分（${tmpNameReserve}）が $excelMaxPath 以上でも、
+    #     同じ代わりの場所にする（Reason = TooLong）。Office は長すぎるパスを開けないため
+    #   どちらでもなければ候補のまま（Reason = ""）
+    param (
+        [Workspace]$workspace
+    )
+
+    $candidate = getWorkspaceTmpDir $workspace
+    $fallback = Join-Path ${legacyTmpParent} $PID
+    if ($candidate.IndexOfAny([char[]]@("[", "]")) -ge 0) {
+        return @{ Dir = $fallback; Reason = "Brackets" }
+    }
+    if (($candidate.Length + ${tmpNameReserve}) -ge $excelMaxPath) {
+        return @{ Dir = $fallback; Reason = "TooLong" }
+    }
+    return @{ Dir = $candidate; Reason = "" }
+}
 
 function getLegacyIndexState {
     # 前の版のワークスペース（dir）の状態を返す: @{ HasLegacyIndex; ContentEmpty; HasLegacySystemIndex }

@@ -114,6 +114,45 @@ Describe "removeTmpDir" -Tag Io {
         }
         Test-Path -LiteralPath $publishDir | Should -Be $false
     }
+
+    It "空になった tmp\PC の鍵・tmp も消す" {
+        $key = getMachineKey
+        $tmpDir = "$TestDrive\remove_parent\tmp\$key\$PID"
+        $publishDir = "$TestDrive\remove_parent\出力\$PID"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; TmpRoot = "$TestDrive\remove_parent\tmp" }
+        newTsv "$tmpDir\a.tsv" @("a")
+        newTsv "$publishDir\b.xlsx\b.tsv" @("b")
+
+        removeTmpDir
+
+        Test-Path -LiteralPath "$TestDrive\remove_parent\tmp\$key" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\remove_parent\tmp" | Should -Be $false
+    }
+
+    It "tmp\PC の鍵 にほかのフォルダが残っていれば、tmp\PC の鍵・tmp は消えない" {
+        $key = getMachineKey
+        $tmpDir = "$TestDrive\remove_parent_kept\tmp\$key\$PID"
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\remove_parent_kept\出力\$PID"; TmpRoot = "$TestDrive\remove_parent_kept\tmp" }
+        newTsv "$tmpDir\a.tsv" @("a")
+        [System.IO.Directory]::CreateDirectory("$TestDrive\remove_parent_kept\tmp\$key\ほかのプロセス") | Out-Null
+
+        removeTmpDir
+
+        Test-Path -LiteralPath $tmpDir | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\remove_parent_kept\tmp\$key" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\remove_parent_kept\tmp" | Should -Be $true
+    }
+
+    It "`$tmpDir が空（決める前）でも例外にならず、出力用のフォルダも消さない" {
+        $tmpDir = ""
+        $publishDir = "$TestDrive\remove_untouched\出力\$PID"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; TmpRoot = "$TestDrive\remove_untouched\tmp" }
+        newTsv "$publishDir\a.xlsx\a.tsv" @("a")
+
+        { removeTmpDir } | Should -Not -Throw
+
+        Test-Path -LiteralPath $publishDir | Should -Be $true
+    }
 }
 
 Describe "removeStaleProcessDirs" -Tag Io {
@@ -144,17 +183,126 @@ Describe "removeStaleProcessDirs" -Tag Io {
 }
 
 Describe "removeStaleTmpDirs" -Tag Io {
-    It "作業フォルダと出力用のフォルダの、それぞれの親フォルダを片付ける" {
-        $tmpDir = "$TestDrive\stale_both\temp\$PID"
+    It "作業フォルダ（ワークスペースの tmp）・出力用のフォルダ・前の版までの %TEMP% の、それぞれの親フォルダを片付ける" {
         $publishDir = "$TestDrive\stale_both\出力\$PID"
-        $workspace = newTestWorkspace @{ PublishDir = $publishDir }
-        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_both\temp\$deadPid") | Out-Null
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; TmpRoot = "$TestDrive\stale_both\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_both\legacy"
+        $key = getMachineKey
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_both\tmp\$key\$deadPid") | Out-Null
         [System.IO.Directory]::CreateDirectory("$TestDrive\stale_both\出力\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_both\legacy\$deadPid") | Out-Null
 
         removeStaleTmpDirs
 
-        Test-Path -LiteralPath "$TestDrive\stale_both\temp\$deadPid" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_both\tmp\$key\$deadPid" | Should -Be $false
         Test-Path -LiteralPath "$TestDrive\stale_both\出力\$deadPid" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_both\legacy\$deadPid" | Should -Be $false
+    }
+
+    It "`$tmpDir が空（決める前）でも例外にならない" {
+        $tmpDir = ""
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_untouched\出力\$PID"; TmpRoot = "$TestDrive\stale_untouched\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_untouched\legacy"
+
+        { removeStaleTmpDirs } | Should -Not -Throw
+    }
+
+    It "空になった親（tmp\PC の鍵・tmp・出力用のフォルダ・前の版までの `$TEMP`\tebunko）も消す" {
+        $publishDir = "$TestDrive\stale_parent\出力\$PID"
+        $workspace = newTestWorkspace @{ PublishDir = $publishDir; TmpRoot = "$TestDrive\stale_parent\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_parent\legacy"
+        $key = getMachineKey
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_parent\tmp\$key\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_parent\出力\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_parent\legacy\$deadPid") | Out-Null
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$TestDrive\stale_parent\tmp\$key" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_parent\tmp" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_parent\出力" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_parent\legacy" | Should -Be $false
+    }
+
+    It "ほかのプロセス（動いている PID）のフォルダが残っていれば、tmp\PC の鍵・tmp は残る" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\stale_kept\出力\$PID"; TmpRoot = "$TestDrive\stale_kept\tmp" }
+        ${legacyTmpParent} = "$TestDrive\stale_kept\legacy"
+        $key = getMachineKey
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_kept\tmp\$key\$deadPid") | Out-Null
+        [System.IO.Directory]::CreateDirectory("$TestDrive\stale_kept\tmp\$key\$PID") | Out-Null
+
+        removeStaleTmpDirs
+
+        Test-Path -LiteralPath "$TestDrive\stale_kept\tmp\$key\$deadPid" | Should -Be $false
+        Test-Path -LiteralPath "$TestDrive\stale_kept\tmp\$key\$PID" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\stale_kept\tmp\$key" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\stale_kept\tmp" | Should -Be $true
+    }
+}
+
+Describe "initTmpDir" -Tag Io {
+    It "ワークスペースの tmp の下にフォルダを作り、tmp・tmp\鍵・<PID> に NotContentIndexed を付ける" {
+        $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\init_normal\tmp" }
+        ${legacyTmpParent} = "$TestDrive\init_normal\legacy"
+
+        $result = initTmpDir
+
+        $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
+        $result.Reason | Should -Be ""
+        Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
+        foreach ($dir in @($workspace.TmpRoot, (Split-Path $result.Dir -Parent), $result.Dir)) {
+            ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+        }
+    }
+
+    It "ワークスペースのパスに [ ] があれば、前の版までの場所（%TEMP%\tebunko\<PID>）を作り、NotContentIndexed は付けず、理由をログに書く" {
+        $workspace = newTestWorkspace @{ TmpRoot = "$TestDrive\init_brackets\[共有]\tmp" }
+        ${legacyTmpParent} = "$TestDrive\init_brackets\legacy"
+        $log = New-Object System.IO.StringWriter
+        $script:indexerLog = $log
+
+        $result = initTmpDir
+
+        $result.Dir | Should -Be (Join-Path ${legacyTmpParent} $PID)
+        $result.Reason | Should -Be "Brackets"
+        Test-Path -LiteralPath $result.Dir -PathType Container | Should -Be $true
+        ([System.IO.File]::GetAttributes($result.Dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
+        $log.ToString() | Should -Match "\[ \]"
+    }
+
+    It "強制終了などで残った、ほかのプロセスの作業フォルダを、場所を決める前に片付ける" {
+        $workspace = newTestWorkspace @{ PublishDir = "$TestDrive\init_stale\出力\$PID"; TmpRoot = "$TestDrive\init_stale\tmp" }
+        ${legacyTmpParent} = "$TestDrive\init_stale\legacy"
+        $key = getMachineKey
+        [System.IO.Directory]::CreateDirectory("$TestDrive\init_stale\tmp\$key\$deadPid") | Out-Null
+
+        [void](initTmpDir)
+
+        Test-Path -LiteralPath "$TestDrive\init_stale\tmp\$key\$deadPid" | Should -Be $false
+    }
+}
+
+Describe "newWorkerTmpDir" -Tag Io {
+    It "親フォルダに NotContentIndexed が付いていれば、作業フォルダ（w<番号>）にも同じ属性を付ける" {
+        $parent = "$TestDrive\worker_nci\1234"
+        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+        [System.IO.File]::SetAttributes($parent, [System.IO.File]::GetAttributes($parent) -bor [System.IO.FileAttributes]::NotContentIndexed)
+
+        $dir = newWorkerTmpDir $parent 2
+
+        $dir | Should -Be "$parent\w2"
+        Test-Path -LiteralPath $dir -PathType Container | Should -Be $true
+        ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Not -Be 0
+    }
+
+    It "親フォルダに NotContentIndexed が付いていなければ（代わりの場所）、作業フォルダにも付けない" {
+        $parent = "$TestDrive\worker_legacy\5678"
+        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+
+        $dir = newWorkerTmpDir $parent 1
+
+        $dir | Should -Be "$parent\w1"
+        ([System.IO.File]::GetAttributes($dir) -band [System.IO.FileAttributes]::NotContentIndexed) | Should -Be 0
     }
 }
 
