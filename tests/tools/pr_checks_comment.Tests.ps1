@@ -159,9 +159,29 @@ Describe "formatChecksComment" -Tag Unit {
     }
 }
 
-Describe "getCommentBodyArg" -Tag Unit {
-    It "-F（--field）で渡す「body=@<ファイル>」を作る" {
-        getCommentBodyArg "C:\temp\abc.txt" | Should -Be "body=@C:\temp\abc.txt"
+Describe "getCommentWriteArgs" -Tag Unit {
+    It "<action> なら <note>" -TestCases @(
+        @{ action = "post"; prNumber = 42; commentId = $null; note = "issues/<PR番号>/comments に POST する" }
+        @{ action = "patch"; prNumber = 42; commentId = 999; note = "issues/comments/<ID> に PATCH する" }
+    ) {
+        param ($action, $prNumber, $commentId, $note)
+        $args = getCommentWriteArgs "hsgwa/tebunko" $action $prNumber $commentId "C:\temp\abc.txt"
+
+        # 本文は -F（--field）で渡す。-f（--raw-field）は @ をファイル読み込みと解釈しないため、
+        # ここが -f に戻ると PR のコメント本文が一時ファイルのパスの文字列になってしまう
+        # （-Contain は大小を区別しないため、大文字小文字を区別する -ceq で確かめる）
+        @($args -ceq "-F").Count | Should -Be 1
+        @($args -ceq "-f").Count | Should -Be 0
+        $args | Should -Contain "body=@C:\temp\abc.txt"
+
+        if ($action -eq "patch") {
+            $args | Should -Contain "-X"
+            $args | Should -Contain "PATCH"
+            $args | Should -Contain "repos/hsgwa/tebunko/issues/comments/999"
+        } else {
+            $args | Should -Not -Contain "-X"
+            $args | Should -Contain "repos/hsgwa/tebunko/issues/42/comments"
+        }
     }
 }
 

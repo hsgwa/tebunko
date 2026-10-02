@@ -153,13 +153,20 @@ function getApiItems {
     return @($lines | ForEach-Object { $_ | ConvertFrom-Json })
 }
 
-# gh api に渡す「本文はファイルの中身」の引数を作る。
-# -f（--raw-field）は @ をファイル読み込みと解釈しないため、ここは必ず -F（--field）で渡す
-# （-f のままだと、コメント本文が一時ファイルのパスそのものの文字列になる）。
-function getCommentBodyArg {
-    param ([string]$tmpFile)
+# gh api に渡す引数の配列そのものを作る（post なら新しいコメントを POST、patch なら既存のコメントを PATCH）。
+# 本文はファイルの中身を -F（--field）の @<ファイル> で渡す（-f/--raw-field は @ をファイル読み込みと
+# 解釈しないため、ここを -f にすると、コメント本文が一時ファイルのパスそのものの文字列になる）。
+# 実際に gh を呼ぶのはこの関数が返した配列をそのまま渡すだけにし、"-F"（フラグそのもの）を
+# Unit テストで確かめられるようにする（文字列 "body=@<ファイル>" だけを返す関数だと、フラグの
+# 間違いを呼び出し側でしか再現できず、直す前の版でもテストが通ってしまう）。
+function getCommentWriteArgs {
+    param ([string]$repo, [string]$action, [int]$prNumber, $commentId, [string]$tmpFile)
 
-    return "body=@$tmpFile"
+    $bodyArg = "body=@$tmpFile"
+    if ($action -eq "patch") {
+        return @("api", "repos/$repo/issues/comments/$commentId", "-X", "PATCH", "-F", $bodyArg)
+    }
+    return @("api", "repos/$repo/issues/$prNumber/comments", "-F", $bodyArg)
 }
 
 # PR を探し、対象ワークフローの結果をまとめてコメントに書く・書かないを決めて実行する。
@@ -224,12 +231,8 @@ if ($MyInvocation.InvocationName -ne ".") {
         $tmpFile = [System.IO.Path]::GetTempFileName()
         try {
             [System.IO.File]::WriteAllText($tmpFile, $body, (New-Object System.Text.UTF8Encoding($false)))
-            $bodyArg = getCommentBodyArg $tmpFile
-            if ($action -eq "patch") {
-                & gh api "repos/$Repo/issues/comments/$commentId" -X PATCH -F $bodyArg | Out-Null
-            } else {
-                & gh api "repos/$Repo/issues/$prNumber/comments" -F $bodyArg | Out-Null
-            }
+            $ghArgs = getCommentWriteArgs $Repo $action $prNumber $commentId $tmpFile
+            & gh @ghArgs | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "PR へのコメントの書き込みに失敗しました（終了コード $LASTEXITCODE）。" }
         } finally {
             Remove-Item -LiteralPath $tmpFile -ErrorAction SilentlyContinue
