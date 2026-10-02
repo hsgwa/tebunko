@@ -642,10 +642,10 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
 }
 
 Describe "readXlsxObjectUnits（実物のブック・ヘッダー）" -Tag Io {
-    It "Excel で付けた中央ヘッダー（オブジェクトのシート）を読む" {
+    It "Excel で付けたヘッダー・フッター（オブジェクトのシート。左・中央・右、ページ番号の差し込みを含む）を読む" {
         $path = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office\Excel\セル内容.xlsx")
         $units = readXlsxObjectUnits $path
-        @($units["オブジェクト[ヘッダー・フッター]"]) -join "|" | Should -Be "TC10 ヘッダーのテキスト"
+        @($units["オブジェクト[ヘッダー・フッター]"]) -join "|" | Should -Be "TC10-O05 左ヘッダー|TC10 ヘッダーのテキスト|TC10-O05 右ヘッダー|TC10-O05 左フッター|TC10-O05 通常フッター|/  ページ"
     }
 }
 
