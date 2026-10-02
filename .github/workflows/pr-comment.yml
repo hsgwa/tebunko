@@ -29,6 +29,7 @@ jobs:
       github.event.workflow_run.actor.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       actions: read
       pull-requests: write
     steps:

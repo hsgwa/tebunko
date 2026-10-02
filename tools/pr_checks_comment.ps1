@@ -153,6 +153,55 @@ function getApiItems {
     return @($lines | ForEach-Object { $_ | ConvertFrom-Json })
 }
 
+# gh api に渡す「本文はファイルの中身」の引数を作る。
+# -f（--raw-field）は @ をファイル読み込みと解釈しないため、ここは必ず -F（--field）で渡す
+# （-f のままだと、コメント本文が一時ファイルのパスそのものの文字列になる）。
+function getCommentBodyArg {
+    param ([string]$tmpFile)
+
+    return "body=@$tmpFile"
+}
+
+# PR を探し、対象ワークフローの結果をまとめてコメントに書く・書かないを決めて実行する。
+# gh を呼ぶ部分（$getPulls・$getRuns・$getComments・$writeComment）は引数で渡す関数に閉じ込め、
+# Unit テストでは偽物に差し替えて、実際に gh を呼ばずに分岐（書かない・PATCH・POST）を確かめる。
+function invokePrChecksComment {
+    param (
+        [string]$repo,
+        [string]$headSha,
+        [switch]$dryRun,
+        [scriptblock]$getPulls,
+        [scriptblock]$getRuns,
+        [scriptblock]$getComments,
+        [scriptblock]$writeComment
+    )
+
+    $pulls = & $getPulls
+    $pr = selectPullRequestBySha $pulls $headSha
+    if ($null -eq $pr) {
+        return [pscustomobject]@{ Action = "none"; Reason = "pr-not-found"; PullRequest = $null; Body = $null }
+    }
+
+    $runs = & $getRuns
+    $rows = buildChecksRows $runs $repo
+    $body = formatChecksComment $rows $headSha
+
+    if ($dryRun) {
+        return [pscustomobject]@{ Action = "none"; Reason = "dry-run"; PullRequest = $pr; Body = $body }
+    }
+
+    $comments = & $getComments $pr.number
+    $existing = selectExistingComment $comments
+
+    if ($existing) {
+        & $writeComment "patch" $pr.number $existing.id $body
+        return [pscustomobject]@{ Action = "patch"; Reason = $null; PullRequest = $pr; Body = $body }
+    }
+
+    & $writeComment "post" $pr.number $null $body
+    return [pscustomobject]@{ Action = "post"; Reason = $null; PullRequest = $pr; Body = $body }
+}
+
 # -Repo・-HeadSha を渡して実行したときだけ動く（dot-source のときは $MyInvocation.InvocationName が "."）
 if ($MyInvocation.InvocationName -ne ".") {
     $ErrorActionPreference = "Stop"
@@ -162,37 +211,38 @@ if ($MyInvocation.InvocationName -ne ".") {
     }
 
     $encodedSha = [uri]::EscapeDataString($HeadSha)
-    $pulls = getApiItems "repos/$Repo/pulls?state=open&per_page=100"
-    $pr = selectPullRequestBySha $pulls $HeadSha
 
-    if ($null -eq $pr) {
-        Write-Host "PR が見つかりません（head の SHA: $HeadSha）。コメントは書きません。"
-        exit 0
+    $getPulls = { getApiItems "repos/$Repo/pulls?state=open&per_page=100" }
+    $getRuns = { getApiItems "repos/$Repo/actions/runs?head_sha=$encodedSha&per_page=100" "workflow_runs" }
+    $getComments = {
+        param ($prNumber)
+        getApiItems "repos/$Repo/issues/$prNumber/comments?per_page=100"
     }
+    $writeComment = {
+        param ($action, $prNumber, $commentId, $body)
 
-    $runs = getApiItems "repos/$Repo/actions/runs?head_sha=$encodedSha&per_page=100" "workflow_runs"
-    $rows = buildChecksRows $runs $Repo
-    $body = formatChecksComment $rows $HeadSha
-
-    if ($DryRun) {
-        Write-Host "PR #$($pr.number)"
-        Write-Host $body
-        exit 0
-    }
-
-    $comments = getApiItems "repos/$Repo/issues/$($pr.number)/comments?per_page=100"
-    $existing = selectExistingComment $comments
-
-    $tmpFile = [System.IO.Path]::GetTempFileName()
-    try {
-        [System.IO.File]::WriteAllText($tmpFile, $body, (New-Object System.Text.UTF8Encoding($false)))
-        if ($existing) {
-            & gh api "repos/$Repo/issues/comments/$($existing.id)" -X PATCH -f "body=@$tmpFile" | Out-Null
-        } else {
-            & gh api "repos/$Repo/issues/$($pr.number)/comments" -f "body=@$tmpFile" | Out-Null
+        $tmpFile = [System.IO.Path]::GetTempFileName()
+        try {
+            [System.IO.File]::WriteAllText($tmpFile, $body, (New-Object System.Text.UTF8Encoding($false)))
+            $bodyArg = getCommentBodyArg $tmpFile
+            if ($action -eq "patch") {
+                & gh api "repos/$Repo/issues/comments/$commentId" -X PATCH -F $bodyArg | Out-Null
+            } else {
+                & gh api "repos/$Repo/issues/$prNumber/comments" -F $bodyArg | Out-Null
+            }
+            if ($LASTEXITCODE -ne 0) { throw "PR へのコメントの書き込みに失敗しました（終了コード $LASTEXITCODE）。" }
+        } finally {
+            Remove-Item -LiteralPath $tmpFile -ErrorAction SilentlyContinue
         }
-        if ($LASTEXITCODE -ne 0) { throw "PR へのコメントの書き込みに失敗しました（終了コード $LASTEXITCODE）。" }
-    } finally {
-        Remove-Item -LiteralPath $tmpFile -ErrorAction SilentlyContinue
+    }
+
+    $result = invokePrChecksComment -repo $Repo -headSha $HeadSha -dryRun:$DryRun `
+        -getPulls $getPulls -getRuns $getRuns -getComments $getComments -writeComment $writeComment
+
+    if ($result.Reason -eq "pr-not-found") {
+        Write-Host "PR が見つかりません（head の SHA: $HeadSha）。コメントは書きません。"
+    } elseif ($result.Reason -eq "dry-run") {
+        Write-Host "PR #$($result.PullRequest.number)"
+        Write-Host $result.Body
     }
 }

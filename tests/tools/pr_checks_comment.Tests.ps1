@@ -159,6 +159,76 @@ Describe "formatChecksComment" -Tag Unit {
     }
 }
 
+Describe "getCommentBodyArg" -Tag Unit {
+    It "-F（--field）で渡す「body=@<ファイル>」を作る" {
+        getCommentBodyArg "C:\temp\abc.txt" | Should -Be "body=@C:\temp\abc.txt"
+    }
+}
+
+Describe "invokePrChecksComment" -Tag Unit {
+    BeforeEach {
+        $script:writeCalls = @()
+        $script:fakeWriteComment = {
+            param ($action, $prNumber, $commentId, $body)
+            $script:writeCalls += [pscustomobject]@{ Action = $action; PrNumber = $prNumber; CommentId = $commentId; Body = $body }
+        }
+        $script:openPr = [pscustomobject]@{ number = 42; state = "open"; head = [pscustomobject]@{ sha = "abc123" } }
+        $script:fakeGetPulls = { @($script:openPr) }
+        $script:fakeGetRuns = { @() }
+    }
+
+    It "PR が見つからないときは書かない" {
+        $getPulls = { @() }
+        $getComments = { param ($n) @() }
+
+        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "zzz" `
+            -getPulls $getPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
+
+        $result.Action | Should -Be "none"
+        $result.Reason | Should -Be "pr-not-found"
+        $writeCalls.Count | Should -Be 0
+    }
+
+    It "-DryRun のときは PR があっても書かない" {
+        $getComments = { param ($n) throw "呼ばれてはいけない" }
+
+        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "abc123" -dryRun `
+            -getPulls $fakeGetPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
+
+        $result.Action | Should -Be "none"
+        $result.Reason | Should -Be "dry-run"
+        $result.PullRequest.number | Should -Be 42
+        $writeCalls.Count | Should -Be 0
+    }
+
+    It "書き換える対象のコメントが無ければ post で書く" {
+        $getComments = { param ($n) @() }
+
+        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "abc123" `
+            -getPulls $fakeGetPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
+
+        $result.Action | Should -Be "post"
+        $writeCalls.Count | Should -Be 1
+        $writeCalls[0].Action | Should -Be "post"
+        $writeCalls[0].PrNumber | Should -Be 42
+        $writeCalls[0].CommentId | Should -Be $null
+    }
+
+    It "書き換える対象のコメントがあれば patch で書く" {
+        $existing = [pscustomobject]@{ id = 999; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "<!-- pr-checks -->`n前の表" }
+        $getComments = { param ($n) @($existing) }
+
+        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "abc123" `
+            -getPulls $fakeGetPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
+
+        $result.Action | Should -Be "patch"
+        $writeCalls.Count | Should -Be 1
+        $writeCalls[0].Action | Should -Be "patch"
+        $writeCalls[0].PrNumber | Should -Be 42
+        $writeCalls[0].CommentId | Should -Be 999
+    }
+}
+
 Describe "pr-comment.yml・各ワークフローの name: との一覧のずれ" -Tag Meta {
     BeforeAll {
         $root = Resolve-Path "$PSScriptRoot\..\.."
