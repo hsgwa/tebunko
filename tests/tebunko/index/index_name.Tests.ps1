@@ -64,6 +64,9 @@ Describe "describePlace" -Tag Unit {
         described "見積.xlsx" "売上[コメント]" | Should -Be "[シート]売上|コメント"
         # シート名が「ページ001」でも、Excel ならシートとして出す
         described "旧.XLS" "ページ001" | Should -Be "[シート]ページ001|セル"
+        # シート名が固定名のファイル名（page_001）・Word の固定の場所（ヘッダー・フッター）と同じ文字列でも、Excel ならシートとして出す
+        described "旧.XLS" "page_001" | Should -Be "[シート]page_001|セル"
+        described "旧.XLS" "ヘッダー・フッター" | Should -Be "[シート]ヘッダー・フッター|セル"
     }
 
     It "Word のページは番号にし、目安であることを付ける。番号の無い場所は名前のまま" {
@@ -142,6 +145,7 @@ Describe "toIndexFileName" -Tag Unit {
         @{ name = "Excel の任意のシート名は符号化する（固定名に当てはまらない）"; place = "売上"; fileName = "売上.tsv"; ascii = $false }
         @{ name = "シート名の図形は末尾に [shape]"; place = "売上[図形]"; fileName = "売上[shape].tsv"; ascii = $false }
         @{ name = "シート名の _ は %5F にする（固定名と区別するため）"; place = "2024_上期"; fileName = "2024%5F上期.tsv"; ascii = $false }
+        @{ name = "シート名が固定名のファイル名（page_001）と同じでも、_ を %5F にするため区別できる"; place = "page_001"; fileName = "page%5F001.tsv"; ascii = $true }
         @{ name = "シート名の % は %25 にする"; place = "50%引き"; fileName = "50%25引き.tsv"; ascii = $false }
         @{ name = "シート名のファイル名禁止文字は符号化する"; place = "記号<>"; fileName = "記号%3C%3E.tsv"; ascii = $false }
     ) {
@@ -156,8 +160,16 @@ Describe "toIndexFileName" -Tag Unit {
 }
 
 Describe "placeKindFileNames" -Tag Unit {
-    It "キーが objectPlacePattern の種類（図形・コメント）とそろっている" {
-        ${placeKindFileNames}.Keys.Count | Should -Be 2
+    It "objectPlacePattern の種類の選択肢が、表（placeKindFileNames）のキーと集合として同じ（足し忘れを防ぐ）" {
+        $marker = "(?<kind>"
+        $start = ${objectPlacePattern}.IndexOf($marker) + $marker.Length
+        $end = ${objectPlacePattern}.IndexOf(")\]`$")
+        $alt = ${objectPlacePattern}.Substring($start, $end - $start)
+        $patternKinds = $alt -split '\|' | ForEach-Object { [regex]::Unescape($_) }
+        ($patternKinds | Sort-Object) | Should -Be (${placeKindFileNames}.Keys | Sort-Object)
+    }
+
+    It "表のキーだけが objectPlacePattern に一致し、知らない種類は一致しない" {
         foreach ($kind in ${placeKindFileNames}.Keys) {
             "売上[$kind]" | Should -Match ${objectPlacePattern}
         }

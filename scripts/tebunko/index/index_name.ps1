@@ -247,10 +247,13 @@ function convertIndexFileNameToPlace {
 # 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types.ps1 の HitRow.ObjectPlaceRegex）をそろえる
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
-${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment})\]$"
 
 # 種類ごとの、TSVのファイル名に付ける英語の名前（toIndexFileName・convertIndexFileNameToPlace で使う）
 ${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "comment" }
+
+# ${objectPlacePattern} の種類の選択肢は ${placeKindFileNames} のキーから組み立てる（足し忘れを防ぐ）
+${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | ForEach-Object { [regex]::Escape($_) }) -join "|"
+${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${objectPlaceKindAlternation})\]$"
 
 
 function splitObjectPlace {
