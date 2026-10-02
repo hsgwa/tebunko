@@ -6,7 +6,7 @@
 #   ・手動（workflow_dispatch）
 # 必須チェックにはしない。ただし、流した PR で search・ingest が落ちていればマージしない。
 # ジョブは 2 つを別のランナーで並べる（取り込みの後に同じジョブで検索すると遅く出るため）。
-# 数字はジョブの Summary と artifact で見る。PR にコメントは書かない。
+# 数字はジョブの Summary と artifact で見る。pr-comment.yml が合否とジョブへのリンクを PR のコメントに出すが、数字は書き写さない。
 # perf.yml（手動の計測）とは別で、こちらは上限と比べて合否を出す。上限・決め方・落ちたときの扱いは docs/design/testing/ci.md。
 # フォークからの PR でも pull_request のまま動かす（pull_request_target は使わない）。秘密の値は使わない。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため）。

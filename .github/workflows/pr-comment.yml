@@ -1,0 +1,48 @@
+# PR で動いた test・title・docs・codeql・gui・perf-check の結果を、PR のコメント 1 件にまとめて書く（tools/pr_checks_comment.ps1）。
+#
+# workflow_run で動かす（pull_request_target は使わない）。workflow_run はベースリポジトリの権限で動くため、
+# フォークの PR でも安全にコメントを書ける。ただし workflow_run.pull_requests はフォークの PR で空になるため、
+# PR は常に終わった実行の head の SHA から探す（ツールの中で行う）。
+#
+# PR のコードは取り出さない（checkout は既定のブランチだけ、persist-credentials も false）。
+# 他のワークフローの artifact も読まない（perf-check の数字はリンクだけにし、ツールの中で書き写さない）。
+# secrets は使わず GH_TOKEN は github.token だけを使う。
+name: pr-comment
+
+on:
+  workflow_run:
+    workflows: [test, title, docs, codeql, gui, perf-check]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: pr-comment-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    # pull_request から動いた実行だけを対象にする（push など他の起こり方は対象にしない）。
+    # Dependabot の PR にはコメントしない
+    if: |
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            tools/pr_checks_comment.ps1
+          sparse-checkout-cone-mode: false
+
+      - name: PR にコメントを書く
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: ./tools/pr_checks_comment.ps1 -Repo $env:REPO -HeadSha $env:HEAD_SHA
