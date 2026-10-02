@@ -92,8 +92,13 @@ function readGuiConfig {
 }
 
 function startGuiProcess {
+    # tebunko.bat と同じ、呼び出し演算子 & での起動にする（-File で直接起動すると、実物の tebunko.bat
+    # （powershell -Command "...; & 'gui.ps1'"）より入れ子が 1 段浅くなり、その 1 段の違いで
+    # .GetNewClosure() したスクリプトブロックが関数を名前で解決できなくなる不具合（#149 で見つかった）を
+    # このテストがすり抜けてしまうため）
     param ($Tool)
-    $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-File", "`"$($Tool.Gui)`"") -PassThru -WindowStyle Hidden
+    $command = "& '$($Tool.Gui.Replace("'", "''"))'"
+    $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", $command) -PassThru -WindowStyle Hidden
     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
     return $p
 }
@@ -728,6 +733,20 @@ function useGuiFolderPicker {
     if (!$button) { throw "フォルダ選択のボタンが見つからない" }
     clickGuiNativeButton $button
     waitGuiWindowClosed $S $picker "OS のフォルダ選択"
+}
+
+function useGuiFileOpenPicker {
+    # OS のファイルを開くダイアログ（OpenFileDialog。selectZipFile）を、開いて閉じるまで本物で動かす。
+    # フォルダ選択と同じクラス（#32770）・ファイル名の欄（1148）・［開く］ボタン（1）を使う
+    param ($S, [string]$Path)
+
+    $picker = waitGui $S "OS のファイルを開くダイアログ" ${guiDefaultTimeout} { findGuiFolderPicker $S }
+    $edit = waitGui $S "ファイル名の欄" ${guiDefaultTimeout} { findGui $picker -Id "1148" }
+    setGuiNativeText $edit $Path
+    $button = findGui $picker -Id "1" -Type Pane
+    if (!$button) { throw "［開く］ボタンが見つからない" }
+    clickGuiNativeButton $button
+    waitGuiWindowClosed $S $picker "OS のファイルを開くダイアログ"
 }
 
 # ---- テストデータ ----

@@ -12,6 +12,7 @@
 | `%LOCALAPPDATA%\tebunko\<鍵>` 配下 | ツールを置いたフォルダに書き込めないとき（Program Files・読み取り専用の共有フォルダ）だけ、`setting.config` をここに置く（ワークスペースの既定は `%USERPROFILE%\Documents\tebunko_ws`）。鍵はツールのフォルダのパスから作る 16 文字（[データの置き場所とパスの決め方](../design/structure/data.md)） | `shared/core/data_dir.ps1:31` |
 | `%LOCALAPPDATA%\tebunko\startup_error.txt`（書き込めなければ `%TEMP%\tebunko_startup_error.txt`） | 起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため固定の場所に置く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)） | `tebunko.bat`、`tebunko/gui.ps1` の `writeStartupErrorFile` |
 | 利用者が指定した出力先 | ［結果をファイルに出力］の保存先（既定は `work\検索結果.txt`） | 画面のダイアログで利用者が指定 |
+| 利用者が指定したエクスポート先 | インデックスのエクスポート（`exportIndex`）の保存先の zip と、書き終えてから置き換えるまでの間だけ残る `<保存先>.tmp`（強制終了すると残ることがある） | 画面のダイアログで利用者が指定 |
 
 削除（`Remove-Item`・`[System.IO.File]::Delete` など）の対象はすべてワークスペース配下または `%TEMP%\tebunko\<PID>` 配下、すなわち**本ツールが自分で作ったファイル**である。クロール対象フォルダ内のファイルを削除する処理は無い。
 
@@ -19,7 +20,9 @@
 
 前の版のワークスペース（`index\`。しるしあり）が見つかり、`content_index\` が空のまま取り込み直しを始めるときは、インデクサが `system_index\`（本ツールが自分で作ったフォルダ）を削除し、`システムインデックスの状態.tsv`（本ツールが自分で作ったファイル）の中身を空にする（`clearLegacySystemIndex`）。前の版の `index\` そのものは読まず、削除しない（利用者が消す）。
 
-`content_index\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setNotContentIndexed`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`content_index` を作った直後・入れた直後）と、画面がインデックス一覧を保存したとき（`元のフォルダ.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
+インデックスのインポート（`importIndex`）の書き込みは、ワークスペースの中（`取り込み出力\<PID>\import\`・`content_index\<名前>\`・取り込み一覧・`setting.config`）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成のロック（`newAppMutex "indexer"`）を取り、ほかの操作と同時に走らせない。
+
+`content_index\` の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（`NotContentIndexed`）を付ける（`setNotContentIndexed`。[入れ替えと書き出し](../design/index-data/publish.md#windows-search-の対象から外すnotcontentindexed)）。インデックス作成のとき（`content_index` を作った直後・入れた直後）と、インデックスをインポートした直後（入れたフォルダ全体）と、画面がインデックス一覧を保存したとき（`元のフォルダ.txt` 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。
 
 確認コマンド（[検査項目と結果](checks.md#検査項目と結果) の `scan` を使う）:
 

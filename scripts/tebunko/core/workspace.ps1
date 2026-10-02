@@ -63,34 +63,28 @@ function getLegacyIndexState {
     )
 
     $ws = [Workspace]::new($dir)
+    # 見つけたところで列挙をやめるため、testAnyEntry で調べる（foreach を break で抜けると、調べていたフォルダを
+    # 掴んだまま残り、続くインポートの上書きで content_index\<名前> を移動できなくなる）
     $hasLegacyIndex = $false
     $longLegacy = toLongPath $ws.LegacyIndexDir
     if ([System.IO.Directory]::Exists($longLegacy)) {
-        foreach ($sub in [System.IO.Directory]::EnumerateDirectories($longLegacy)) {
-            if ([System.IO.File]::Exists("$sub\${sourceFolderFileName}")) {
-                $hasLegacyIndex = $true
-                break
-            }
+        $hasLegacyIndex = testAnyEntry ([System.IO.Directory]::EnumerateDirectories($longLegacy)) {
+            param ($sub)
+            [System.IO.File]::Exists("$sub\${sourceFolderFileName}")
         }
     }
 
     $contentEmpty = $true
     $longContent = toLongPath $ws.IndexDir
     if ([System.IO.Directory]::Exists($longContent)) {
-        foreach ($file in [System.IO.Directory]::EnumerateFiles($longContent, "*", [System.IO.SearchOption]::AllDirectories)) {
-            $contentEmpty = $false
-            break
-        }
+        $contentEmpty = !(testAnyEntry ([System.IO.Directory]::EnumerateFiles($longContent, "*", [System.IO.SearchOption]::AllDirectories)))
     }
 
     $hasLegacySystemIndex = $false
     if ($contentEmpty) {
         $longSystem = toLongPath $ws.SystemIndexDir
         if ([System.IO.Directory]::Exists($longSystem)) {
-            foreach ($file in [System.IO.Directory]::EnumerateFiles($longSystem, ${legacySystemIndexPattern}, [System.IO.SearchOption]::AllDirectories)) {
-                $hasLegacySystemIndex = $true
-                break
-            }
+            $hasLegacySystemIndex = testAnyEntry ([System.IO.Directory]::EnumerateFiles($longSystem, ${legacySystemIndexPattern}, [System.IO.SearchOption]::AllDirectories))
         }
     }
 

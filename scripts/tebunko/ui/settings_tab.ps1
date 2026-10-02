@@ -15,13 +15,12 @@ function updateSettingsView {
 }
 
 function testWorkspaceChangeable {
-    # インデックス作成中はワークスペースを変えない（インデクサが今のワークスペースに書いている。画面を使わずに起動したものも含む）
-    if ((isIndexing) -or (testIndexerRunning)) {
-        showMessage "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" "OK" "Warning" | Out-Null
-        return $false
-    }
-    if ($script:indexBusy) {
-        showMessage "前のインデックスの削除が終わるまでお待ちください。" "OK" "Warning" | Out-Null
+    # インデックス作成中（インデクサが今のワークスペースに書いている。画面を使わずに起動したものも含む）・
+    # 前のインデックスの削除中・エクスポート・インポート中（別スレッド。今のワークスペースの content_index・取り込み一覧・設定を使っている）は、
+    # ワークスペースを変えない。可否と文言は、［1 インデックス管理］の操作と同じ判断層（getIndexJobBlocker・getIndexJobBlockedMessage）で決める
+    $blocker = getIndexJobBlocker ((isIndexing) -or (testIndexerRunning)) $script:indexBusy $script:archiveBusy
+    if ($blocker -ne "") {
+        showMessage (getIndexJobBlockedMessage $blocker "ワークスペースの変更") "OK" "Warning" | Out-Null
         return $false
     }
     return $true
@@ -64,16 +63,11 @@ function getFolderEntrySample {
         [string]$folder
     )
 
-    $count = 0
+    $entries = selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries((toLongPath $folder))) ${workspaceCountLimit}
+    $count = $entries.Count
     $names = New-Object System.Collections.Generic.List[string]
-    foreach ($entry in [System.IO.Directory]::EnumerateFileSystemEntries((toLongPath $folder))) {
-        $count++
-        if ($names.Count -lt ${workspaceSampleCount}) {
-            $names.Add([System.IO.Path]::GetFileName($entry))
-        }
-        if ($count -ge ${workspaceCountLimit}) {
-            break
-        }
+    for ($i = 0; $i -lt [Math]::Min($count, ${workspaceSampleCount}); $i++) {
+        $names.Add([System.IO.Path]::GetFileName($entries[$i]))
     }
     return @{ Count = $count; Names = $names.ToArray(); Capped = ($count -ge ${workspaceCountLimit}) }
 }

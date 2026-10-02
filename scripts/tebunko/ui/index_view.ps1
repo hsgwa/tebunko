@@ -56,6 +56,158 @@ function getFailedFileOtherStatus {
     return "元のファイルを確かめられませんでした：${message}"
 }
 
+function getIndexJobBlocker {
+    # インデックス作成・削除・エクスポート・インポート・ワークスペースの変更は互いに排他（画面の可否の表）。
+    # 動いているものがあれば、その名前を返す（無ければ空文字列。空なら操作してよい）
+    param (
+        [bool]$isIndexing,   # インデックス作成中
+        [bool]$indexBusy,    # 前のインデックスの削除中
+        [bool]$archiveBusy   # エクスポート・インポート中
+    )
+
+    if ($isIndexing) {
+        return "インデックス作成中"
+    }
+    if ($indexBusy) {
+        return "削除中"
+    }
+    if ($archiveBusy) {
+        return "エクスポート・インポート中"
+    }
+    return ""
+}
+
+function getIndexJobBlockedMessage {
+    # 排他で操作をできないときのメッセージ（blocker は getIndexJobBlocker の結果。空なら空文字列）
+    param (
+        [string]$blocker,
+        [string]$operation   # "追加" "編集" "削除" "エクスポート" "インポート" "ワークスペースの変更"
+    )
+
+    if ($blocker -eq "") {
+        return ""
+    }
+    if ($operation -eq "ワークスペースの変更") {
+        if ($blocker -eq "インデックス作成中") {
+            return "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。"
+        }
+        if ($blocker -eq "削除中") {
+            return "前のインデックスの削除が終わるまでお待ちください。"
+        }
+        return "エクスポート・インポートが終わるまでお待ちください。"
+    }
+    if ($blocker -eq "インデックス作成中") {
+        return "インデックス作成中はインデックスを${operation}できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。"
+    }
+    return "${blocker}は${operation}できません。終わるまでお待ちください。"
+}
+
+function getIndexTabButtonsEnabled {
+    # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［1 インデックス管理］の各ボタンの可否を返す。
+    #   New/Edit/Remove: ［追加…］［編集…］［削除］/ Export/Import: ［エクスポート…］［インポート…］
+    # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
+    # （［インデックス作成を開始］は updateIndexingButton が、［8 設定］の［変更…］は押したときに testWorkspaceChangeable が、
+    # 同じ getIndexJobBlocker の結果で止める）
+    param (
+        [string]$blocker,
+        [bool]$hasSelection
+    )
+
+    $free = ($blocker -eq "")
+    return @{
+        New = $free; Edit = ($free -and $hasSelection); Remove = ($free -and $hasSelection)
+        Export = ($free -and $hasSelection); Import = $free
+    }
+}
+
+function getImportResultStatus {
+    # インポートの結果（importIndex の戻り値）から、ステータスに出す文言を返す。
+    # Warnings（同じ元のフォルダが別の名前で既に登録されている等）と、高速検索が次のインデックス作成の後に効くことを添える
+    param (
+        $result
+    )
+
+    $text = "インデックス [$($result.Name)] をインポートしました（$($result.Files) ファイル）。" +
+        "高速検索は次のインデックス作成の後に効きます。"
+    foreach ($warning in @($result.Warnings)) {
+        $text += " ${warning}"
+    }
+    return $text
+}
+
+function testIndexImportInput {
+    # インポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
+    # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）。
+    # 元のフォルダは、追加・編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
+    # （別名なら残る）ため、ここでは比べる相手から外す（別名で入れて重なったときは、インポートの側で止める）
+    param (
+        [string]$folder,   # 入力された元のフォルダ
+        [string]$name,     # 入力されたインデックス名
+        $items = @()       # 今の一覧（Name・Path を持つ行）
+    )
+
+    $normalized = normalizeFolderPath $folder
+    if ($normalized -eq "") {
+        return "元のフォルダを指定してください。"
+    }
+    $nameMessage = testIndexName $name.Trim() @()
+    if ($nameMessage -ne "") {
+        return $nameMessage
+    }
+    return (getIndexFolderConflict $normalized @($items | Where-Object { $_.Name -ine $name.Trim() }))
+}
+
+function getImportSuggestedName {
+    # インポートのダイアログに初めに入れる名前。zip の名前が今の一覧に無ければそのまま、あれば「名前(2)」…にする。
+    # usedNames は getUsedIndexNames の結果（集合。@(...) に入った 1 要素の配列でも、配列でもよい）
+    param (
+        [string]$indexName,
+        $usedNames = $null
+    )
+
+    if (testImportNameCollision $indexName $usedNames) {
+        return (newIndexName $indexName $usedNames)
+    }
+    return $indexName
+}
+
+function testImportNameCollision {
+    # 入力された名前が今の一覧にあり、上書き・別名・取りやめの確認が要るか（大文字・小文字は区別しない）
+    param (
+        [string]$name,
+        $usedNames = $null   # getUsedIndexNames の結果（集合・配列・文字列・$null。入れ子の集合でもよい）
+    )
+
+    foreach ($entry in @($usedNames)) {
+        foreach ($used in @($entry)) {
+            if ($used -and $used -ieq $name) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+function getIndexImportNotice {
+    # インポートのダイアログの説明（目録から読んだ合計の大きさ・ファイル数を添える）
+    param (
+        $info   # readIndexArchiveInfo の結果
+    )
+
+    $mb = [Math]::Max(0.1, [Math]::Round($info.Bytes / 1MB, 1))
+    return "エクスポートされたインデックスを読み込みます（$($info.Files) ファイル・約 ${mb} MB）。" +
+        "名前と、元のフォルダの場所を変えられます。同じ名前のインデックスが既にあるときは、後で上書き・別名・取りやめを選べます。"
+}
+
+function getIndexImportOverwriteConfirmMessage {
+    # 名前が既にあるインデックスと重なったときの確認（choices は showConfirm に渡す。上書き・別名・取りやめ）
+    param (
+        [string]$name
+    )
+
+    return "インデックス「${name}」は既にあります。上書きしますか？（前のインデックスは置き換わります。別名で入れることもできます）"
+}
+
 function testIndexEditInput {
     # 追加・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (
@@ -69,22 +221,9 @@ function testIndexEditInput {
     if ($folder -eq "") {
         return "元のフォルダを指定してください。"
     }
-    foreach ($other in $items) {
-        if ($other -eq $current) {
-            continue
-        }
-        if (testSameFolder $other.Path $folder) {
-            return "「${folder}」のインデックス [$($other.Name)] が既にあります。"
-        }
-        # 入れ子のフォルダは、同じファイルが2つのインデックスに入り、取り込みも検索結果も二重になるため登録しない
-        if (testFolderUnder $folder $other.Path) {
-            return "「${folder}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。" +
-                "同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
-        }
-        if (testFolderUnder $other.Path $folder) {
-            return "「${folder}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。" +
-                "同じファイルが二重に取り込まれるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
-        }
+    $conflict = getIndexFolderConflict $folder @($items | Where-Object { $_ -ne $current })
+    if ($conflict -ne "") {
+        return $conflict
     }
     # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
     $usedNames = getUsedIndexNames $items $current

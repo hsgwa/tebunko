@@ -55,11 +55,12 @@ function testIndexBookDir {
     }
     $long = toLongPath $dir
     try {
-        foreach ($sub in [System.IO.Directory]::EnumerateDirectories($long)) {
+        # 途中で戻っても、調べたフォルダを掴んだまま残さない（testAnyEntry・配列で受ける GetFiles）
+        if (testAnyEntry ([System.IO.Directory]::EnumerateDirectories($long))) {
             return $false
         }
         $hasTsv = $false
-        foreach ($file in [System.IO.Directory]::EnumerateFiles($long, "*.tsv")) {
+        foreach ($file in [System.IO.Directory]::GetFiles($long, "*.tsv")) {
             if ([System.IO.Path]::GetFileName($file) -like ${packFilePattern}) {
                 return $false
             }
@@ -244,11 +245,8 @@ function findIndexFoldersWithBooks {
     $dirs = @($longRoot) + @([System.IO.Directory]::GetDirectories($longRoot, "*", [System.IO.SearchOption]::AllDirectories))
     foreach ($dir in $dirs) {
         if ($dir -ne $longRoot -and (testIndexBookDir $dir $false)) { continue }
-        foreach ($sub in [System.IO.Directory]::EnumerateDirectories($dir)) {
-            if (testIndexBookDir $sub) {
-                $found.Add((fromLongPath $dir))
-                break
-            }
+        if (testAnyEntry ([System.IO.Directory]::EnumerateDirectories($dir)) { param ($sub) testIndexBookDir $sub }) {
+            $found.Add((fromLongPath $dir))
         }
     }
     return , $found.ToArray()
