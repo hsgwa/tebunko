@@ -61,6 +61,10 @@ $script:fastSearchProgress = $null    # 最後に届いた getSystemIndexProgres
 $script:fastSearchCheckedAt = $null   # 最後に確かめ終えた時刻（DateTime）
 $script:fastSearchResultDir = $null   # 上の 3 つを確かめたときのワークスペース（$workspace.Dir）。ワークスペースを切り替えた後、
                                        # 新しい確かめが終わるまでは古いワークスペースの結果なので、更新のたびに確かめて捨てる
+$script:fastSearchGeneration = 0      # インデックス作成が終わるたびに finishIndexing が 1 増やす世代番号。
+                                       # 作成前から走っていた確かめジョブ（fastSearchJobGeneration が古いまま）が
+                                       # 作成後に結果を届けても、世代が合わなければ古い結果として捨て、確かめ直す
+$script:fastSearchJobGeneration = $null  # 今走っている確かめジョブを始めたときの世代番号（fastSearchJobDir と同じ使い方）
 # 反映待ち・反映中の行がある間だけ動かす（無くなったら止める。画面を閉じれば、ほかのタイマーと同じく動かなくなる）
 $script:fastSearchTimer = newTimer (5 * 60 * 1000) { safe { refreshFastSearchStatus } }
 
@@ -168,6 +172,7 @@ function refreshFastSearchStatus {
     $script:fastSearchChecking = $true
     $script:fastSearchAgain = $false
     $script:fastSearchJobDir = $workspace.Dir
+    $script:fastSearchJobGeneration = $script:fastSearchGeneration
     # 届かないネットワークのワークスペースでは、フォルダの有無と同じ専用の列（network）を使う
     $queue = if (testAnyNetworkPath @($workspace.Dir)) { "network" } else { "default" }
     startJob {
@@ -191,8 +196,9 @@ function refreshFastSearchStatus {
     } @($workspace.SystemIndexDir, $workspace.IndexDir, $workspace.SystemIndexStateFile) {
         param ($output, $errorText)
         $script:fastSearchChecking = $false
-        if ($script:fastSearchJobDir -ne $workspace.Dir) {
-            # 確かめている間にワークスペースを変えた。前のワークスペースの結果は出さず、確かめ直す
+        if ($script:fastSearchJobDir -ne $workspace.Dir -or $script:fastSearchJobGeneration -ne $script:fastSearchGeneration) {
+            # 確かめている間にワークスペースを変えた、またはインデックス作成が終わって世代が変わった。
+            # 古い結果は出さず、確かめ直す
             $script:fastSearchAgain = $true
         } elseif ($output -and $output.Count -gt 0) {
             applyFastSearchStatus $output[0]
