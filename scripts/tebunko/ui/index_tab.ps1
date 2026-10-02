@@ -68,6 +68,11 @@ function isIndexing {
     return ($null -ne $script:indexingSession) -and $script:indexingSession.IsRunning()
 }
 
+function shouldRefreshFastSearchStatus {
+    # 高速検索の列は、前の確かめから 60 秒たっていなければ飛ばす（ウィンドウを前に出すたびに問い合わせない）
+    return ($null -eq $script:fastSearchCheckedAt) -or ((Get-Date) - $script:fastSearchCheckedAt).TotalSeconds -ge 60
+}
+
 $script:folderCheckRunning = $false
 $script:folderCheckAgain = $false
 
@@ -218,6 +223,8 @@ function updateFastSearchRows {
     # 一覧の各行の「高速検索」列を getFastSearchRowView で置き直す（確かめの結果が届いたときと、
     # applyIndexStats で本文の集計が届いたときの両方から呼ぶ。ここでは I/O をせず判断層を呼ぶだけ）。
     # $hasContent は、そのときの getIndexStats の値（Done が 1 以上か）から渡す。
+    # isIndexing も渡し、作成中に hasContent が真へ変わっても（高速検索の確かめは作成中は走らない
+    # ため）前の確かめの結果のまま「不可」にしない（getFastSearchRowView の indexing 引数）。
     # 覚えている結果が今のワークスペースのものでなければ（切り替えた直後）、古い可否を出さないよう捨てて「確認中…」に戻す
     if ($script:fastSearchResultDir -ne $workspace.Dir) {
         $script:fastSearchReason = $null
@@ -231,7 +238,7 @@ function updateFastSearchRows {
         if ($item.Name -and $null -ne $stats -and $stats.ContainsKey($item.Name)) {
             $hasContent = ($stats[$item.Name].Done -ge 1)
         }
-        $row = getFastSearchRowView $script:fastSearchReason $script:fastSearchProgress $item.Name $hasContent $script:fastSearchCheckedAt
+        $row = getFastSearchRowView $script:fastSearchReason $script:fastSearchProgress $item.Name $hasContent $script:fastSearchCheckedAt (isIndexing)
         $item.SetFast($row.Text, $row.ToolTip, $row.Level)
         if ($row.Level -eq "Wait") {
             $waiting = $true

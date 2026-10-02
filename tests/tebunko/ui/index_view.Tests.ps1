@@ -16,14 +16,6 @@ BeforeAll {
     }
 }
 
-# -TestCases は Discovery の時点で評価されるため（上の BeforeAll の中は Run まで定義されない）、同じ中身をここにも置く
-function newFastProgress {
-    param ([hashtable]$byIndex, [bool]$contentIndexed = $false)
-    $dict = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($key in $byIndex.Keys) { $dict[$key] = $byIndex[$key] }
-    return @{ Folders = 0; Waiting = 0; ContentIndexed = $contentIndexed; ByIndex = $dict }
-}
-
 Describe "getUsedIndexNames" -Tag Unit {
     BeforeAll {
         $items = @((newItem "売上" "C:\data\売上"), (newItem "見積" "C:\data\見積"), (newItem "" "C:\data\新規"))
@@ -278,46 +270,55 @@ Describe "getIndexRowView" -Tag Unit {
 }
 
 Describe "getFastSearchRowView" -Tag Unit {
+    # progress は newFastProgress（BeforeAll で定義）で、Run のとき（It の中）に byIndex から組み立てる。
+    # -TestCases は Discovery の時点で評価されるため、ここでは組み立てずハッシュテーブルのデータだけを置く
     It "<label>" -TestCases @(
         @{ label = "確かめる前: 確認中…"
-           reason = $null; progress = $null; name = "営業"; hasContent = $true
+           reason = $null; byIndex = $null; name = "営業"; hasContent = $true
            text = "確認中…"; level = "None" }
         @{ label = "NoFolder で本文も無い: －"
-           reason = "NoFolder"; progress = $null; name = "営業"; hasContent = $false
+           reason = "NoFolder"; byIndex = $null; name = "営業"; hasContent = $false
            text = "－"; level = "None" }
         @{ label = "NoFolder だが本文がある（インポートなど）: 不可"
-           reason = "NoFolder"; progress = $null; name = "営業"; hasContent = $true
+           reason = "NoFolder"; byIndex = $null; name = "営業"; hasContent = $true
            text = "不可"; level = "Ng" }
+        @{ label = "NoFolder だが本文がある・インデックス作成中: 不可にせず－（作成中は前の結果のままにしない）"
+           reason = "NoFolder"; byIndex = $null; name = "営業"; hasContent = $true; indexing = $true
+           text = "－"; level = "None" }
         @{ label = "NoConnection: 不可"
-           reason = "NoConnection"; progress = $null; name = "営業"; hasContent = $false
+           reason = "NoConnection"; byIndex = $null; name = "営業"; hasContent = $false
            text = "不可"; level = "Ng" }
         @{ label = "NotInScope: 不可"
-           reason = "NotInScope"; progress = $null; name = "営業"; hasContent = $false
+           reason = "NotInScope"; byIndex = $null; name = "営業"; hasContent = $false
            text = "不可"; level = "Ng" }
         @{ label = "Ok で進み具合を確かめられない: －"
-           reason = "Ok"; progress = $null; name = "営業"; hasContent = $true
+           reason = "Ok"; byIndex = $null; name = "営業"; hasContent = $true
            text = "－"; level = "None" }
         @{ label = "Ok で ByIndex に無く本文がある（インポートなど）: 不可"
-           reason = "Ok"; progress = (newFastProgress @{}); name = "営業"; hasContent = $true
+           reason = "Ok"; byIndex = @{}; name = "営業"; hasContent = $true
            text = "不可"; level = "Ng" }
+        @{ label = "Ok で ByIndex に無く本文がある・インデックス作成中: 不可にせず－"
+           reason = "Ok"; byIndex = @{}; name = "営業"; hasContent = $true; indexing = $true
+           text = "－"; level = "None" }
         @{ label = "Ok で ByIndex に無く本文も無い: －"
-           reason = "Ok"; progress = (newFastProgress @{}); name = "営業"; hasContent = $false
+           reason = "Ok"; byIndex = @{}; name = "営業"; hasContent = $false
            text = "－"; level = "None" }
         @{ label = "NotYet: 反映待ち"
-           reason = "NotYet"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 4 } }); name = "営業"; hasContent = $true
+           reason = "NotYet"; byIndex = @{ "営業" = @{ Folders = 4; Waiting = 4 } }; name = "営業"; hasContent = $true
            text = "反映待ち"; level = "Wait" }
         @{ label = "Ok で反映済みが 0: 反映待ち（反映中 0% にしない）"
-           reason = "Ok"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 4 } }); name = "営業"; hasContent = $true
+           reason = "Ok"; byIndex = @{ "営業" = @{ Folders = 4; Waiting = 4 } }; name = "営業"; hasContent = $true
            text = "反映待ち"; level = "Wait" }
         @{ label = "Ok で反映待ちが 1 以上: 反映中 N%"
-           reason = "Ok"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 2 } }); name = "営業"; hasContent = $true
+           reason = "Ok"; byIndex = @{ "営業" = @{ Folders = 4; Waiting = 2 } }; name = "営業"; hasContent = $true
            text = "反映中 50%"; level = "Wait" }
         @{ label = "Ok で反映待ちが 0: 可"
-           reason = "Ok"; progress = (newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 0 } }); name = "営業"; hasContent = $true
+           reason = "Ok"; byIndex = @{ "営業" = @{ Folders = 4; Waiting = 0 } }; name = "営業"; hasContent = $true
            text = "可"; level = "Ok" }
     ) {
-        param ($label, $reason, $progress, $name, $hasContent, $text, $level)
-        $view = getFastSearchRowView $reason $progress $name $hasContent $null
+        param ($label, $reason, $byIndex, $name, $hasContent, $text, $level, $indexing = $false)
+        $progress = if ($null -eq $byIndex) { $null } else { newFastProgress $byIndex }
+        $view = getFastSearchRowView $reason $progress $name $hasContent $null $indexing
         $view.Text | Should -Be $text
         $view.Level | Should -Be $level
     }

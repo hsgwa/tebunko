@@ -253,12 +253,15 @@ function getFastSearchRowView {
     #   name       : インデックス名（progress.ByIndex を引く）
     #   hasContent : そのインデックスの getIndexStats の Done が 1 以上か
     #   checkedAt  : 最後に確かめ終えた時刻（DateTime。$null ならまだ）
+    #   indexing   : インデックス作成中か。作成中に hasContent が真へ変わっても（高速検索の確かめは
+    #                作成中は走らないため）、前の確かめの結果（NoFolder など）から「不可」にしない
     param (
         $reason,
         $progress,
         [string]$name,
         [bool]$hasContent = $false,
-        $checkedAt = $null
+        $checkedAt = $null,
+        [bool]$indexing = $false
     )
 
     if ($null -eq $reason) {
@@ -281,6 +284,9 @@ function getFastSearchRowView {
         $entry = $progress.ByIndex[$name]
     }
     if ($null -eq $entry -or $entry.Folders -eq 0) {
+        if ($hasContent -and $indexing) {
+            return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "インデックス作成中。終わると状態を表示する" $checkedAt) }
+        }
         if ($hasContent) {
             return newFastSearchRowResult "不可" "Ng" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
         }
