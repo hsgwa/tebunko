@@ -58,7 +58,8 @@ flowchart LR
 | `tools/new_icon.ps1` | 開発用 | 画面のアイコン（`tebunko.ico`）を元データの `docs/images/logo.svg` から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の `System.Drawing` で 16〜256 px の 8 サイズに縮小して、PNG 形式の `.ico` にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と `.ico` を同じコミットに入れる |
 | `tools/make_social_preview.ps1` | 開発用 | GitHub の social preview 用の画像（`docs/images/social_preview.png`）を作る。登録はリポジトリの設定から手で行う |
 | `tools/mkdocs/` | 開発用 | 設計書の Web サイトを作る設定（`mkdocs.yml`）・フック（`hooks.py`）・使うパッケージ（`requirements.txt`）（[CI](../testing/ci.md)） |
-| `.github/workflows/` | 開発用 | CI（`test.yml`・`title.yml`・`docs.yml`・`codeql.yml`・`scorecard.yml`）、性能の計測（`perf.yml`）と配布物の公開（`release.yml`）（[CI](../testing/ci.md)） |
+| `tools/pr_checks_comment.ps1` | 開発用 | `test`・`title`・`docs`・`codeql`・`gui`・`perf-check` の結果（成功・失敗など）と実行へのリンクを、PR のコメント 1 件にまとめて書く・書き換える。`pr-comment.yml` が実行する（[CI](../testing/ci.md)） |
+| `.github/workflows/` | 開発用 | CI（`test.yml`・`title.yml`・`docs.yml`・`codeql.yml`・`scorecard.yml`・`pr-comment.yml`）、性能の計測（`perf.yml`）と配布物の公開（`release.yml`）（[CI](../testing/ci.md)） |
 | `.github/codecov.yml` | 開発用 | Codecov の設定。ASCII の文字だけで書く（[CI](../testing/ci.md)） |
 | `.github/dependabot.yml`・`.github/release.yml` | 開発用 | 依存（GitHub Actions・MkDocs のパッケージ）の更新 PR の設定と、リリースノートを PR のラベルで分ける設定 |
 | `.github/ISSUE_TEMPLATE/`・`.github/pull_request_template.md`・`.github/title_comment.md` | 開発用 | Issue・PR のテンプレートと、形の違う Issue のタイトルに付けるコメント |
