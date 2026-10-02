@@ -362,6 +362,14 @@ function finishIndexing {
     $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath $workspace.IndexingLogFile) { "Visible" } else { "Collapsed" }
 
     $script:sourceFolderMaps = @{}
+    # 高速検索の列の前の確かめ結果（古い reason）を捨てて「確認中…」に戻す。ここで捨てずに
+    # refreshIndexingState を呼ぶと、その集計（本文の取り込みは済んだと分かる）が
+    # refreshFastSearchStatus の確かめ直しより先に終わったとき、古い reason のまま
+    # updateFastSearchRows が呼ばれ、「不可」が一瞬出てしまう（isIndexing は既に偽になっており、
+    # getFastSearchRowView の indexing 引数による作成中ガードが効かないため）
+    $script:fastSearchReason = $null
+    $script:fastSearchProgress = $null
+    $script:fastSearchCheckedAt = $null
     refreshIndexingState
     refreshIndexSummary
     loadIndexTree  # 新しいインデックス・フォルダをツリーに出す
