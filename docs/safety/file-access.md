@@ -33,6 +33,33 @@ scan 'Remove-Item','WriteAllText','WriteAllLines','StreamWriter','\.SaveAs','::M
 scan 'NotContentIndexed'
 ```
 
+### 取り込みの作業フォルダに置くもの（前の版との対応）
+
+取り込みの作業フォルダ（既定 `work\tmp\<PC の鍵>\<PID>\w<番号>\`）には、原本のコピー・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。前の版（`%TEMP%\tebunko\<PID>\`）から、置き場所だけをワークスペースの下に変えた（中身は変えていない）。
+
+| 内容 | 前の版の置き場所 | 今の置き場所 | 定義 |
+|---|---|---|---|
+| 原本のコピー（Excel・Word・PowerPoint が開く対象） | `%TEMP%\tebunko\<PID>\<元のファイル名>`（または `source<拡張子>`） | `work\tmp\<PC の鍵>\<PID>\w<番号>\<元のファイル名>`（同上） | `extract_office.ps1` の `copyFileShared` 呼び出し |
+| Excel のシートごとの一時保存（`sheet<番号>.tmp`） | 同上の下 | 同上の下 | `extract_office.ps1` の `extractWorkbook` |
+| 旧形式・不明な形式から変換した一時ファイル（`converted.docx`・`converted.pptx`、リネームした `source.doc`・`source.ppt`） | 同上の下 | 同上の下 | `extract_office.ps1` の `extractDocument` |
+| 公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの「本文.tsv」を含む） | 同上の下 | 同上の下 | `index_migrate.ps1` の `publishTsv`、`extract_text.ps1` の `extractTextFile` |
+
+ワークスペースのパスに `[` `]` を含む・長すぎて置けないときは、前の版は `%TEMP%\tebunko\<PID>\` に逃がしていたが、今の版は作業フォルダを作らず、取り込みをすべてスキップする（`selectTmpDir`・`initTmpDir`。[データの置き場所とパスの決め方](../design/structure/data.md)）。
+
+### ワークスペースの外に、まだ書くもの
+
+上の作業フォルダをワークスペースの下に寄せた後も、次のものはワークスペースの外（または、そもそもディスクに書かない）のままである。
+
+| 種類 | 置く場所 | 中身 | 外に置く理由 |
+|---|---|---|---|
+| 利用者ごとの設定データ | `%LOCALAPPDATA%\tebunko\<鍵>\`（ツールのフォルダに書き込めないときだけ） | `setting.config` | ツールを置いたフォルダ（`Program Files`・読み取り専用の共有フォルダ）に書けないときの代わりの場所。ワークスペースより先に（設定を読む前に）決まる必要がある |
+| 起動失敗の記録 | `%LOCALAPPDATA%\tebunko\startup_error.txt`（書けなければ `%TEMP%\tebunko_startup_error.txt`） | 起動に失敗した理由・日時・実行環境の情報 | 画面が開く前（ワークスペースも設定も読めないことがある）に書くため、固定の場所にする |
+| Office アプリの PID | ディスクには書かない（プロセス内のメモリ上の `OfficePids` だけ） | 起動した Office の PID → プロセス名 | 画面を閉じるときに、応答の無い Office だけを PID で止めるため。プロセスの生存中だけ要る情報で、ファイルに残す必要が無い |
+| 書き込み中の一時ファイル（`<保存先>.tmp`。置き換えたら消える） | 書く先のすぐ隣（`setting.config.tmp`・取り込み一覧などの TSV の隣・利用者が指定したエクスポート/インポート先の隣 など） | 書き込み中の内容 | 途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（`writeTextLinesAtomic` など）。置き換え（`File.Replace`）は同じフォルダ内でしか使えない |
+| 書き込みテストの確認用 | ツールのフォルダ直下 `.tebunko_write_test_<GUID>.tmp` | 空（`DeleteOnClose` でファイルを閉じた瞬間に消える） | 起動のたびに、ツールのフォルダに書き込めるかを確かめるため（`testWritableFolder`） |
+| Office・PowerShell が自分で書く一時ファイル | `%TEMP%` 配下（本ツールは関与しない） | Office のロックファイル（`~$<ファイル名>`）・自動回復用のファイルなど、PowerShell・.NET ランタイムが内部で使う一時ファイル | tebunko が選べる場所ではなく、Office・PowerShell・.NET 自身の既定の動きのため |
+| 開発用の出力 | リポジトリ直下 `work/test/`・`work/release/`・`work/site/`・`work/cache/`（配布物には含めない） | テスト結果・カバレッジ・配布 zip・設計書のサイト・サイトのビルドキャッシュ | 開発・CI の道具（`tests/run.ps1`・`tools/`）が使う出力で、配布した tebunko 自体は書かない |
+
 ## 取り込み対象のファイルは書き換えない
 
 本ツールは、クロール対象フォルダのファイルを**直接開かない**。作業フォルダへコピーし、そのコピーだけを開く（`tebunko/indexer/extract_office.ps1:103`・`261` の `copyFileShared`）。コピー元は読み取り専用で開く（`shared/core/fs.ps1:121`。`FileAccess::Read` で開き、ほかのアプリの読み書き・削除を妨げない）。
