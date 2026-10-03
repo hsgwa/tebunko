@@ -262,7 +262,7 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
 }
 
 Describe "書き込み先が限られていること（docs/safety/file-access.md「書き込み・削除する場所」）" -Tag Meta {
-    It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と TEMP 配下だけ" {
+    It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と前の版の片付け先（TEMP）だけ" {
         $paths = @($code | Where-Object { $_.File -in @("paths.ps1", "workspace.ps1", "data_dir.ps1", "settings.ps1") })
         # データの置き場所は、ツールのフォルダか、書き込めないときの %LOCALAPPDATA%\tebunko\<鍵>
         (findPattern $paths '\$\{dataDir\}\s*=\s*getDataDir') | Should -Not -Be ""
@@ -270,7 +270,8 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         # ワークスペースは設定から決め、中の場所はワークスペースのフォルダから組み立てる
         (findPattern $paths '\$\{workspace\}\s*=\s*\[Workspace\]::new\(\(getWorkDir\)\)') | Should -Not -Be ""
         (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\content_index"') | Should -Not -Be ""
-        (findPattern $paths '\$\{tmpDir\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko\\\$\{PID\}"') | Should -Not -Be ""
+        (findPattern $paths '\$\{legacyTmpParent\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko"') | Should -Not -Be ""
+        (findPattern $paths '\$this\.TmpRoot\s*=\s*"\$dir\\tmp"') | Should -Not -Be ""
         (findPattern $paths '\$this\.PublishDir\s*=\s*"\$dir\\') | Should -Not -Be ""
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should -Not -Be ""
     }
@@ -289,25 +290,35 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $code 'GetFolderPath\("?(System|Windows|ProgramFiles|Startup)') | Should -Be ""
     }
 
-    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 5 ファイルだけ" {
-        # NotContentIndexed 属性を直接書くのは setNotContentIndexed（fs.ps1）だけ
-        $writes = @($code | Where-Object { $_.Text -match "(?<!set)NotContentIndexed" -and $_.File -ne "fs.ps1" })
+    It "content_index を Windows Search の対象から外す属性は、fs.ps1 の setNotContentIndexed だけが書き、呼ぶのは決まった 6 ファイルだけ" {
+        # NotContentIndexed 属性を直接書くのは setNotContentIndexed（fs.ps1）だけ。
+        # 読むだけの testNotContentIndexed（fs.ps1。親フォルダの属性を見て引き継ぐか決める）は除く
+        $writes = @($code | Where-Object { $_.Text -match "(?<!set)(?<!test)NotContentIndexed" -and $_.File -ne "fs.ps1" })
         (@($writes | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         (findPattern $code 'function setNotContentIndexed') | Should -Not -Be ""
+        (findPattern $code 'function testNotContentIndexed') | Should -Not -Be ""
 
-        # 呼ぶのは全体に付ける indexer_run.ps1・入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 5 ファイルだけ
+        # testNotContentIndexed を呼ぶのは newWorkerTmpDir（index_migrate.ps1）だけ
+        $testCallers = @($code | Where-Object { $_.Text -match "testNotContentIndexed" -and $_.Text -notmatch "function testNotContentIndexed" })
+        (@($testCallers | ForEach-Object { $_.File } | Sort-Object -Unique) -join ", ") | Should -Be "index_migrate.ps1"
+
+        # 呼ぶのは全体に付ける indexer_run.ps1・取り込みの作業フォルダに付ける index_migrate.ps1・
+        # 入れた直後に付ける index_store.ps1・pack_store.ps1・source_map.ps1・インポートで入れたフォルダ全体に付ける index_archive.ps1 の 6 ファイルだけ
         $callers = @($code | Where-Object { $_.Text -match "setNotContentIndexed" -and $_.Text -notmatch "function setNotContentIndexed" })
         $callerFiles = @($callers | ForEach-Object { $_.File } | Sort-Object -Unique)
-        $callerFiles.Count | Should -Be 5
+        $callerFiles.Count | Should -Be 6
         ($callerFiles -contains "indexer_run.ps1") | Should -Be $true
+        ($callerFiles -contains "index_migrate.ps1") | Should -Be $true
         ($callerFiles -contains "index_store.ps1") | Should -Be $true
         ($callerFiles -contains "pack_store.ps1") | Should -Be $true
         ($callerFiles -contains "source_map.ps1") | Should -Be $true
         ($callerFiles -contains "index_archive.ps1") | Should -Be $true
 
-        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_store.ps1 は $bookDir、pack_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
-        # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（入れた直後に付ける 3 ファイルは 1 か所ずつなので要らない）
+        # 渡す引数まで確かめる（indexer_run.ps1 は $workspace.IndexDir、index_migrate.ps1 は取り込みの作業フォルダ（$dir）、
+        # index_store.ps1 は $bookDir、pack_store.ps1 は $folder、index_archive.ps1 は $targetIndexDir）。
+        # -Recurse で下をたどるのは indexer_run.ps1（content_index 全体）と index_archive.ps1（インポートで入れた 1 つのインデックス。Directory.Move で入るため）だけ（ほかは 1 か所ずつなので要らない）
         (findPattern $callers 'setNotContentIndexed\s+\$workspace\.IndexDir\s+-Recurse') | Should -Not -Be ""
+        (findPattern $callers 'setNotContentIndexed\s+\$dir\)') | Should -Not -Be ""
         (findPattern $callers 'setNotContentIndexed\s+\$bookDir\)') | Should -Not -Be ""
         (findPattern $callers 'setNotContentIndexed\s+\$folder\)') | Should -Not -Be ""
         (findPattern $callers 'setNotContentIndexed\s+\$targetIndexDir\s+-Recurse') | Should -Not -Be ""
@@ -315,8 +326,18 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         ($recurseCallers -join ", ") | Should -Be "index_archive.ps1, indexer_run.ps1"
     }
 
+    It "%TEMP% を指す書き方は決めた所だけ（取り込みの作業フォルダはワークスペースの tmp\\の下を使う）" {
+        # %TEMP% を直接指すのは、前の版の片付けだけに使う場所（${legacyTmpParent}。paths.ps1）と、
+        # まだ書き込み口が整う前の起動失敗を記録する writeStartupErrorFile（gui.ps1）だけ
+        $tempRefs = @($code | Where-Object { $_.Text -match 'GetTempPath|env:TEMP\b|env:TMP\b|New-TemporaryFile|GetTempFileName' })
+        $tempFiles = @($tempRefs | ForEach-Object { $_.File } | Sort-Object -Unique)
+        ($tempFiles -join ", ") | Should -Be "gui.ps1, paths.ps1"
+        (@($tempRefs | Where-Object { $_.File -eq "paths.ps1" }).Count) | Should -Be 1
+        (@($tempRefs | Where-Object { $_.File -eq "gui.ps1" }).Count) | Should -Be 1
+    }
+
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
-        # %TEMP%\tebunko\<PID> に原本のコピーが残り続けないこと（docs/safety/disclosure.md「原本の一時コピーと、その回収」）
+        # %TEMP%\tebunko\<PID>（前の版が残した作業フォルダ）に原本のコピーが残り続けないこと（docs/safety/disclosure.md「原本の一時コピーと、その回収」）
         (findPattern $code 'function removeStaleTmpDirs') | Should -Not -Be ""
         # インデックス作成の始め（invokeIndexer の本体）で呼ぶ
         (findPattern $code '^\s+removeStaleTmpDirs$') | Should -Not -Be ""

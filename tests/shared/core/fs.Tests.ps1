@@ -548,6 +548,27 @@ Describe "setNotContentIndexed" -Tag Io {
     }
 }
 
+Describe "testNotContentIndexed" -Tag Io {
+    It "属性が付いていれば `$true" {
+        $dir = "$TestDrive\nci-test\付いている"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        setNotContentIndexed $dir | Out-Null
+
+        testNotContentIndexed $dir | Should -Be $true
+    }
+
+    It "属性が付いていなければ `$false" {
+        $dir = "$TestDrive\nci-test\付いていない"
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+
+        testNotContentIndexed $dir | Should -Be $false
+    }
+
+    It "無いパスは例外にならず `$false" {
+        testNotContentIndexed "$TestDrive\nci-test\無いフォルダ" | Should -Be $false
+    }
+}
+
 Describe "getFolderKey" -Tag Unit {
     It "SHA-256 の 16 進 64 文字を返す" {
         # "c:\tool" の SHA-256（小文字にしてから UTF-8 で計算する）
