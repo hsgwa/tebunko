@@ -2180,6 +2180,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#ヘッダーフッターの読み取り" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ヘッダー・フッターの読み取り
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#グラフsmartart-の読み取り" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4132,6 +4143,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#ヘッダーフッターの読み取り" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ヘッダー・フッターの読み取り
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#グラフsmartart-の読み取り" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4168,8 +4190,8 @@
 
 
 <h1 id="excel">Excel<a class="headerlink" href="#excel" title="Permanent link">&para;</a></h1>
-<p>扱うこと: Excel ブックのセルの表示値の抽出（COM）、TSV への整形仕様、図形・コメントの文字の読み取り（ファイルを直接読む）。扱わないこと: Word・PowerPoint の抽出（<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>・<a href="../word/">Word</a>・<a href="../powerpoint/">PowerPoint</a>）。先に読むページ: <a href="../">インデックス作成</a>。</p>
-<p>Excel ブックから、セルの表示値（Excel の COM で書き出す）と図形・コメントの文字（ファイルを直接読む）を抽出して TSV にする処理（<a href="#excel-の抽出処理extractworkbook">Excel の抽出処理</a>・<a href="#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）と、Excel が書き出したテキストの整形仕様（<a href="#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a>）を扱う。</p>
+<p>扱うこと: Excel ブックのセルの表示値の抽出（COM）、TSV への整形仕様、図形・コメント・ヘッダー・フッターの文字の読み取り（ファイルを直接読む）。扱わないこと: Word・PowerPoint の抽出（<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>・<a href="../word/">Word</a>・<a href="../powerpoint/">PowerPoint</a>）。先に読むページ: <a href="../">インデックス作成</a>。</p>
+<p>Excel ブックから、セルの表示値（Excel の COM で書き出す）と図形・コメント・ヘッダー・フッターの文字（ファイルを直接読む）を抽出して TSV にする処理（<a href="#excel-の抽出処理extractworkbook">Excel の抽出処理</a>・<a href="#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）と、Excel が書き出したテキストの整形仕様（<a href="#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a>）を扱う。</p>
 <h2 id="excel-の抽出処理extractworkbook">Excel の抽出処理（<code>extractWorkbook</code>）<a class="headerlink" href="#excel-の抽出処理extractworkbook" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
     autonumber
@@ -4183,7 +4205,7 @@
     S-&gt;&gt;T: 作業領域を空にする
     S-&gt;&gt;T: 元ブックを同じファイル名（長すぎれば source.#lt;拡張子#gt;）でコピー&lt;br&gt;（copyFileShared。ほかのアプリの読み書きを妨げない共有モードで読む）
     opt コピーが新形式（ZIP）
-        S-&gt;&gt;T: 図形・コメントの文字を ZIP から直接読む（readXlsxObjectUnits）
+        S-&gt;&gt;T: 図形・コメント・ヘッダー・フッターの文字を ZIP から直接読む（readXlsxObjectUnits）
     end
     opt コピーが新形式（ZIP）でない
         S-&gt;&gt;S: 暗号化の種類を判定する（getOfficeFileProtection）
@@ -4212,7 +4234,7 @@
     loop 保存した各シート
         S-&gt;&gt;T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
-    S-&gt;&gt;T: 図形・コメント → #lt;シート名#gt;[shape].tsv・#lt;シート名#gt;[comment].tsv
+    S-&gt;&gt;T: 図形・コメント・ヘッダー・フッター → #lt;シート名#gt;[shape].tsv・#lt;シート名#gt;[comment].tsv・#lt;シート名#gt;[header_footer].tsv
     S-&gt;&gt;I: 作業領域の *.tsv を work/publish/#lt;PID#gt; に集め、&lt;br&gt;インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）&lt;br&gt;本文インデックスへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
     S-&gt;&gt;L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
@@ -4240,7 +4262,7 @@
 <li>Excel のテキスト保存は A1 からではなく <strong>使用範囲（<code>UsedRange</code>）の左上のセルから</strong> 出力する（例: 使用範囲が C3 から始まるシートは、1 行目の 1 列目が C3 になる）。TSV の行・列をシートの行・列と一致させるため、保存前に <code>UsedRange.Row</code> / <code>UsedRange.Column</code> を控えて <code>prettyTsv</code> に渡す（<a href="#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a>）。</li>
 <li><strong>保存した一時ファイルの先頭（UTF-16LEのBOM <code>FF FE</code>）も確かめる</strong>（<code>testOfficeOutput</code>。<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）。透過暗号化の製品が、この一時ファイルまで暗号化することがあるため、シートの種類によらずすべての保存で確かめる。合わなければ <code>ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。</code> にする。<strong>この確かめはブックを閉じた後（<code>prettyTsv</code> の直前）に行う</strong>。保存した一時ファイルはブックを閉じるまで Excel がロックしており、閉じる前に読もうとすると（開いているだけの正常なファイルでも）読めずに失敗するため（◎ 実機で確認済み）。</li>
 <li>インデックスはファイルごとのフォルダを丸ごと入れ替えるため、シートの削除・名前変更がインデックスに反映される（Word・PowerPoint も同じ）。</li>
-<li>テキスト保存はセルの値しか出さないため、<strong>図形・コメントの文字は、コピーを ZIP として直接読む</strong>（<a href="#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。Excel で開く前に読む。旧形式（<code>.xls</code>）・パスワード付き・<code>.xlsb</code> は読まない（セルの値だけになる）。読み取りに失敗しても（ZIP が壊れている等）セルの値は取り込み、<code>図形・コメントを読み取れませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する。</li>
+<li>テキスト保存はセルの値しか出さないため、<strong>図形・コメント・ヘッダー・フッターの文字は、コピーを ZIP として直接読む</strong>（<a href="#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。Excel で開く前に読む。旧形式（<code>.xls</code>）・パスワード付き・<code>.xlsb</code> は読まない（セルの値だけになる）。読み取りに失敗しても（ZIP が壊れている等）セルの値は取り込み、<code>図形・コメントを読み取れませんでした: &lt;メッセージ&gt;</code> をインデックス作成ログに記録する（このときはヘッダー・フッターも読めない）。</li>
 </ul>
 <h2 id="tsv-整形仕様prettytsv--formattsv">TSV 整形仕様（<code>prettyTsv</code> / <code>formatTsv</code>）<a class="headerlink" href="#tsv-整形仕様prettytsv--formattsv" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
@@ -4262,7 +4284,7 @@
 出力:  \r\n\ta\tb\r\n\r\n\r\n\t"x&lt;LS&gt;y"\tz\r\n
 </code></pre></div>
 <h2 id="excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）<a class="headerlink" href="#excel-の図形コメントの読み取りreadxlsxobjectunits" title="Permanent link">&para;</a></h2>
-<p><code>.xlsx</code> <code>.xlsm</code> を ZIP として開き（<code>scripts/shared/office/office_reader.ps1</code>）、表示シート・表示のグラフシートの図形とコメントの文字を、シートとは別の場所（TSV）にする。Excel は使わない。</p>
+<p><code>.xlsx</code> <code>.xlsm</code> を ZIP として開き（<code>scripts/shared/office/office_reader.ps1</code>）、表示シート・表示のグラフシートの図形・コメント・ヘッダー・フッターの文字を、シートとは別の場所（TSV）にする。Excel は使わない。</p>
 <table>
 <thead>
 <tr>
@@ -4287,6 +4309,11 @@
 <td>種類 <code>comments</code> の <code>xl/commentsN.xml</code>（メモ）と、種類 <code>threadedComment</code> の <code>xl/threadedComments/*.xml</code>（スレッド形式のコメント）</td>
 <td>セル 1 つ。<code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code></td>
 </tr>
+<tr>
+<td><code>&lt;シート名&gt;[ヘッダー・フッター]</code>（グラフシートも同じ）</td>
+<td>シート（ワークシート・グラフシート）の XML の <code>headerFooter</code>（下の「ヘッダー・フッターの読み取り」）</td>
+<td>文字の 1 行。<code>&lt;文字&gt;</code>（セル番地は付けない）</td>
+</tr>
 </tbody>
 </table>
 <ul>
@@ -4298,19 +4325,32 @@
 <li>スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。</li>
 <li>コメントのふりがな（<code>rPh</code>）と作成者名（<code>authors</code>）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。</li>
 <li>非表示・完全に非表示のシート（<code>state</code> が <code>hidden</code> <code>veryHidden</code>）は、グラフシートも含めてセルと同じく読まない。</li>
-<li>読まないもの: グラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。<code>cx:chart</code>）、グラフの中のテキストボックス（<code>c:userShapes</code>）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。</li>
+<li>読まないもの: グラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。<code>cx:chart</code>）、グラフの中のテキストボックス（<code>c:userShapes</code>）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッターの画像（<code>&amp;G</code>）、ハイパーリンクの URL、入力規則のメッセージ。</li>
 </ul>
 <p>TSV の例（シート <code>見積</code> の F2 に左上があるテキストボックスと、C2 のコメント）:</p>
 <div class="highlight"><pre><span></span><code>work/content_index/営業/見積.xlsx/見積.tsv            … セルの値
 work/content_index/営業/見積.xlsx/見積[shape].tsv     … F2&lt;TAB&gt;納期は別途ご相談
 work/content_index/営業/見積.xlsx/見積[comment].tsv   … C2&lt;TAB&gt;"test:&lt;U+2028&gt;税抜の金額"
+work/content_index/営業/見積.xlsx/見積[header_footer].tsv … 社外秘
 </code></pre></div>
+<h3 id="ヘッダーフッターの読み取り">ヘッダー・フッターの読み取り<a class="headerlink" href="#ヘッダーフッターの読み取り" title="Permanent link">&para;</a></h3>
+<p><code>readXlsxSheetHeaderFooter</code> が、シート（ワークシート・グラフシート）の XML にある <code>headerFooter</code> の文字を読む（<code>readXlsxHeaderFooterLines</code>・<code>getHeaderFooterLines</code>。<code>scripts/shared/office/office_reader.ps1</code>）。</p>
+<ul>
+<li><strong>読み方</strong>: <code>XmlReader</code>（DTD は禁止）でシートの XML を先頭から読み、<code>sheetData</code>（セルの値。大きい）は <code>Skip()</code> で飛ばし、<code>headerFooter</code> を読んだところで止める（<code>sheetData</code> を文字列にも DOM にも読み込まない）。グラフシートは、すでに読み込んだ文字列から読む。要素は名前とスプレッドシートの名前空間で見るため、接頭辞付き（<code>x:headerFooter</code>）でも読める。</li>
+<li><strong>読む要素と順</strong>: ヘッダー → フッターの順に、それぞれ 先頭ページ（<code>firstHeader</code> / <code>firstFooter</code>。<code>differentFirst</code> が <code>1</code>・<code>true</code> のときだけ）→ 奇数ページ（<code>oddHeader</code> / <code>oddFooter</code>）→ 偶数ページ（<code>evenHeader</code> / <code>evenFooter</code>。<code>differentOddEven</code> が <code>1</code>・<code>true</code> のときだけ）。使われない設定の文字（<code>differentFirst</code> が無いのに書かれた <code>firstHeader</code> など）は、画面にも印刷にも出ないため読まない。それぞれの中は 左 → 中央 → 右。</li>
+<li><strong>書式コード</strong>: <code>&amp;L</code> <code>&amp;C</code> <code>&amp;R</code> は左・中央・右の切り替え、<code>&amp;&amp;</code> は <code>&amp;</code> 1 文字。<code>&amp;P</code>（<code>+</code>・<code>-</code> と数字が続くもの）・<code>&amp;N</code> <code>&amp;D</code> <code>&amp;T</code> <code>&amp;Z</code> <code>&amp;F</code> <code>&amp;A</code> <code>&amp;G</code>（ページ番号・日付・ファイル名・シート名・画像などの差し込み。文字ではない）、<code>&amp;"フォント,スタイル"</code>、<code>&amp;</code> + 1〜3 桁の数字（文字の大きさ）、<code>&amp;K</code> + 16 進 6 桁・<code>&amp;K</code> + 2 桁 + <code>+</code>/<code>-</code> + 3 桁（色）、<code>&amp;B</code> <code>&amp;I</code> <code>&amp;U</code> <code>&amp;E</code> <code>&amp;S</code> <code>&amp;X</code> <code>&amp;Y</code> <code>&amp;O</code> <code>&amp;H</code>（太字などの書式）は取り除く。ほかの <code>&amp;</code> + 文字は、そのまま残す。</li>
+<li><strong>1 行の作り方</strong>: 部分（左・中央・右）ごとに改行で分け、タブは空白 1 つにし、前後の空白を削り、空の行は出さない。同じシートで同じ文字の行は 1 つにする（先頭ページと奇数ページで同じ文字を出す設定が多いため）。文字は「文字の形」（<code>toObjectCellText</code>。改行・<code>"</code>・タブを含むときは <code>"</code> で囲む）で 1 行にする。</li>
+<li><strong>場所とセル番地</strong>: 場所は <code>&lt;シート名&gt;[ヘッダー・フッター]</code>、種別は「ヘッダー・フッター」。行にセル番地を持たないため、検索結果の「場所」は <code>[シート]売上</code>（番地なし）で、元のファイルを開くときはそのシートを開くだけでセルは選ばない（グラフシートと同じ）。［図形も検索］［コメントも検索］の選択肢は作らず、いつも検索する。</li>
+<li><strong>読めなかったとき</strong>: そのシートのヘッダー・フッターだけを読まずに続ける（ほかの図形・コメント・セルの値は出す）。読めなかった部品の名前は <code>readXlsxObjectUnits</code> の戻り値（<code>$failures</code>）に足し、ほかの部品と同じく <code>一部を読み取れませんでした: &lt;部品名&gt;</code> をインデックス作成ログに記録する。</li>
+<li><strong>名前の重なり</strong>: Word・PowerPoint の場所の名前 <code>ヘッダー・フッター</code> は、種類ではなく場所の名前（<code>[</code> <code>]</code> で囲まない）で、Excel の種類とは区別できる（<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。</li>
+<li><strong>抽出版</strong>: この読み取りを足したため、<code>.xlsx</code> <code>.xlsm</code> の抽出版を 3 → 4 に上げた（<a href="../ingest-list/">取り込み一覧</a>）。更新後の最初のインデックス作成で、これらのブックが取り込み直しになる。</li>
+</ul>
 <h3 id="グラフsmartart-の読み取り">グラフ・SmartArt の読み取り<a class="headerlink" href="#グラフsmartart-の読み取り" title="Permanent link">&para;</a></h3>
 <p>図形の部品（<code>xl/drawings/drawingN.xml</code>）の中で、グラフ（<code>xdr:graphicFrame</code> の中の <code>a:graphic</code>/<code>a:graphicData</code> の <code>c:chart</code>）・SmartArt（<code>dgm:relIds</code>）を見つけたら、その <code>r:id</code>（グラフ）・<code>r:dm</code>（SmartArt）を、図形の部品自身のリレーションシップ（<code>xl/drawings/_rels/drawingN.xml.rels</code>）でたどり、<code>xl/charts/chartN.xml</code>・<code>xl/diagrams/dataN.xml</code> の文字を <code>readObjectText</code>・<code>readChartText</code>・<code>readDiagramText</code>（Word・PowerPoint と共通。<a href="../office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>）で読む。</p>
 <ul>
 <li><strong>グラフはタイトル・軸ラベル・系列名だけを読む</strong>（Word・PowerPoint と共通の決まり。2026-09-28 にメンテナが見直した）。項目名（横軸に並ぶ文字。点の数だけある）と数値は読まない。項目名はセルの値としては検索できるが、グラフだけにある項目名（グラフの元データが無い・非表示シートにある等）は検索できない。系列名はふつう同じブックのセルを参照するため、セルの行と重なって出ることがある（重なりが邪魔なら［図形も検索］を外せば消える）。</li>
 <li><strong>リレーションシップは、参照が 1 つ以上あるときだけ読む</strong>（グラフ・SmartArt の無い図形の部品では読まない）。</li>
-<li><strong>1 つのグラフ・SmartArt が読めなくても、ほかは捨てない</strong>: 参照の先・リレーションシップが無い、部品が読めない（XML が壊れている、「サイズの上限」を超えるなど）ときは、そのグラフ・SmartArt だけを空にして続ける（同じ図形の中のほかの文字、同じシートのほかの図形・コメント・セルの値は出す）。<code>shared/</code> はツールを知らないため、読めなかった部品の名前は <code>readXlsxObjectUnits</code> の戻り値（<code>$failures</code>）で呼び出し元（<code>extract_office.ps1</code>）に返し、そこでインデックス作成ログに黄色で記録する（<code>グラフ・SmartArt を読み取れませんでした: &lt;部品名&gt;</code>）。</li>
+<li><strong>1 つのグラフ・SmartArt が読めなくても、ほかは捨てない</strong>: 参照の先・リレーションシップが無い、部品が読めない（XML が壊れている、「サイズの上限」を超えるなど）ときは、そのグラフ・SmartArt だけを空にして続ける（同じ図形の中のほかの文字、同じシートのほかの図形・コメント・セルの値は出す）。<code>shared/</code> はツールを知らないため、読めなかった部品の名前は <code>readXlsxObjectUnits</code> の戻り値（<code>$failures</code>）で呼び出し元（<code>extract_office.ps1</code>）に返し、そこでインデックス作成ログに黄色で記録する（<code>一部を読み取れませんでした: &lt;部品名&gt;</code>）。</li>
 <li><strong>グラフシート</strong>: グラフ自体を <code>absoluteAnchor</code> で置いた図形の部品を、通常のシートと同じ形で読む。検索結果から開くときは、<code>Worksheets</code> にグラフシートが無いため <code>Charts</code> から同じ名前のものを探して表示する（セルは選ばない。<a href="../../gui/open-file/">元のファイルを開く</a>）。</li>
 </ul>
 

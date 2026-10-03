@@ -4158,15 +4158,15 @@
 </tr>
 <tr>
 <td><code>splitObjectPlace</code> / <code>describePlace</code> / <code>describeHitPlace</code></td>
-<td>図形・コメントの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号）</td>
+<td>図形・コメント・ヘッダー・フッターの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号）</td>
 </tr>
 <tr>
 <td><code>toIndexFileName</code> / <code>convertIndexFileNameToPlace</code></td>
-<td>決まった種類の場所は英語の固定名（ページ・スライド・見出し等）との往復、図形・コメントの <code>[shape]</code> <code>[comment]</code>、決まった種類でない場所（Excel の任意のシート名）は符号化との往復、固定名と符号化がぶつからないこと、255 文字の上限</td>
+<td>決まった種類の場所は英語の固定名（ページ・スライド・見出し等）との往復、図形・コメント・ヘッダー・フッターの <code>[shape]</code> <code>[comment]</code> <code>[header_footer]</code>、決まった種類でない場所（Excel の任意のシート名）は符号化との往復、固定名と符号化がぶつからないこと、255 文字の上限</td>
 </tr>
 <tr>
 <td><code>placeKindFileNames</code></td>
-<td>図形・コメントの種類と <code>objectPlacePattern</code> がそろっていること</td>
+<td>図形・コメント・ヘッダー・フッターの種類と <code>objectPlacePattern</code> がそろっていること</td>
 </tr>
 <tr>
 <td><code>newIndexName</code> / <code>assignIndexNames</code></td>
@@ -4232,7 +4232,7 @@
 <tbody>
 <tr>
 <td><code>convertPlaceToPackMeta</code> / <code>convertPackMetaToPlace</code></td>
-<td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
+<td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
 </tr>
 <tr>
 <td><code>getPackFileName</code> / <code>readPackFileName</code> / <code>planPackParts</code> / <code>splitPackBooksByExtension</code> / <code>encodePackValue</code> / <code>decodePackValue</code> / <code>convertToPackBody</code></td>
