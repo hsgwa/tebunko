@@ -29,7 +29,10 @@
   <StackPanel Grid.Column="1" Margin="8">
     <TextBlock Text="[探す範囲 ▾] を開いたとき" Style="{StaticResource Text.11.Muted}" Margin="0,0,0,8" />
     <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left">
-      <TextBlock Text="探す範囲 ▾" Style="{StaticResource Text.11}" />
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="探す範囲" Style="{StaticResource Text.11}" />
+        <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="4,0,0,0" VerticalAlignment="Center" />
+      </StackPanel>
     </Button>
     <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
          親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
@@ -66,7 +69,10 @@
   <StackPanel Grid.Column="2" Margin="8">
     <TextBlock Text="本文以外を外したとき（ボタンの文字が変わる）" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
     <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left">
-      <TextBlock Text="探す範囲：本文・図形 ▾" Style="{StaticResource Text.11}" />
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="探す範囲：本文・図形" Style="{StaticResource Text.11}" />
+        <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="4,0,0,0" VerticalAlignment="Center" />
+      </StackPanel>
     </Button>
     <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
          親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため

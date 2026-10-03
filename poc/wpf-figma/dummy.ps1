@@ -370,7 +370,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElBrushKey $Root "ContentBanner" "BorderBrush" "Ok.218A21"
             Set-ElBrushKey $Root "ContentBannerIcon" "Fill" "Ok.218A21"
             Set-ElGeometryKey $Root "ContentBannerGlyph" "Icon.BadgeGlyphOk"
-            Set-ElText $Root "ContentBannerText" "✓ 検索結果を保存しました"
+            Set-ElText $Root "ContentBannerText" "検索結果を保存しました"
             Set-ElBrushKey $Root "ContentBannerText" "Foreground" "Ok.218A21"
             Set-ElVisible $Root "ContentBannerButton" $true
         }
@@ -432,7 +432,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # ファイル一覧の並び（基本契約書.docx が一覧から抜け、代わりに A社_見積書.xlsx が入る）
             # をすべて書き換える。
             $icon = Find-Named $Root "TopGroupIcon"
-            if ($icon) { $icon.Data = $Root.FindResource("Icon.FileText"); $icon.Stroke = $Root.FindResource("Accent.0078D4") }
+            if ($icon) { $icon.Data = $Root.FindResource("Icon.FileText"); $icon.Stroke = $Root.FindResource("Word.185ABD") }
             Set-ElText $Root "TopGroupFileName" "基本契約書.docx"
             Set-ElText $Root "TopGroupLocation" "　総務/契約"
             Set-ElText $Root "TopGroupCount" "1 ページ（目安） ほか 2 か所 ・ 3 件"
@@ -530,7 +530,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "RangePopup" $true
             Set-ElChecked $Root "RangeCheck_Comment" $false
             Set-ElChecked $Root "RangeCheck_Note" $false
-            Set-ElText $Root "RangeButtonText" "探す範囲：本文・図形 ▾"
+            Set-ElText $Root "RangeButtonText" "探す範囲：本文・図形"
         }
 
         "H-絞り込み中" {
