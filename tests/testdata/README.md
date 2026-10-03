@@ -326,6 +326,27 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 **見本は足すだけ。** 既にある見本を変える・消すのは、PR タイトルに `!` を付けたときだけできる（CI の `pr-title` が `tools\check_compat_golden.ps1` で確かめる）。`!` の PR で見本を消したときは、どれを・どの PR で・なぜ消したかを [前の版との互換](../../docs/design/index-data/format.md#前の版との互換) の表に 1 行残す。
 
+### 設定ファイル（`compat\settings\`）
+
+前の版が作った `setting.config` を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/structure/settings-file.md#前の版との互換) も参照。
+
+一覧（`tests\testdata\compat\settings\<見本の名前>\`。今は `v0.3.1` の 1 つ）:
+
+| 中身 | 内容 |
+|---|---|
+| `setting.config` | 既定値ではない値をすべてのキーに書いた設定ファイル（`tests\helpers\settings_golden.ps1` の `writeGoldenSettings` が書く） |
+| `expected.json` | `setting.config` を今のコードで読んだときに返る値（`readSettings` のキーと同じ形。手で書く） |
+
+**作り方**（`tools\make_settings_golden.ps1`）:
+
+1. 見本にしたい版をチェックアウトした別のツリーを用意する（例: `git worktree add --detach <場所> <タグ>`）。
+2. `tools\make_settings_golden.ps1 -Tree <そのツリー> -Name <見本の名前>` を動かす。別の Windows PowerShell 5.1 プロセスで、そのツリーの `shared.ps1`・`settings.ps1` と、今のツリーの `tests\helpers\settings_golden.ps1` を読み込み、`writeGoldenSettings` を呼んで `tests\testdata\compat\settings\<見本の名前>\setting.config` に書く。
+3. `expected.json` は手で書く（このスクリプトは作らない）。
+
+`tests\helpers\settings_golden.ps1` は `tests\helpers\load.ps1` に頼らず、`settings.ps1` が公開する書く関数（`writeTargetFolders`・`writeIndexSources`・`writeSearchExcludes`・`writeSearchOption`・`writeOpenMode`・`writeWorkspaceFolder`・`updateSettings`）だけを呼ぶ。見本にしたい版の `settings.ps1` がそれらの関数を持ってさえいれば、そのまま上で動く。
+
+**見本は足すだけ。** 既にある見本を変える・消すのは、PR タイトルに `!` を付けたときだけできる（上の index の見本と同じ検査が確かめる）。
+
 ## 検索ワードと件数（`設定例\検索ワード.txt`）
 
 | 検索ワード | 件数 | 確認していること |

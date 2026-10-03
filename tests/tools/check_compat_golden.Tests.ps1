@@ -29,6 +29,7 @@ Describe "check_compat_golden.ps1" -Tag Unit {
         @{ label = "R で ! なし"; title = "test: 見本を改名する"; lines = @("R100`ttests/testdata/compat/index/v1/a.txt`ttests/testdata/compat/index/v1/b.txt") }
         @{ label = "日本語を含むパスの M（core.quotepath=off の出力の形）"; title = "test: 見本を直す"; lines = @("M`ttests/testdata/compat/index/v1/資料・案内[確定].txt") }
         @{ label = "A と M が混ざる（1 つでも A 以外があれば ! が要る）"; title = "test: 見本を足す・直す"; lines = @("A`ttests/testdata/compat/index/v1/new.txt", "M`ttests/testdata/compat/index/v1/a.txt") }
+        @{ label = "compat/settings/ の M で ! なし"; title = "test: 見本を直す"; lines = @("M`ttests/testdata/compat/settings/v0.3.1/setting.config") }
     ) {
         param($title, $lines)
         checkDiff $title $lines | Should -Be 1
