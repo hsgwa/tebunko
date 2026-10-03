@@ -12,7 +12,7 @@
   </Grid.Resources>
   <Grid.ColumnDefinitions>
     <ColumnDefinition Width="260" />
-    <ColumnDefinition Width="260" />
+    <ColumnDefinition Width="300" />
     <ColumnDefinition Width="*" />
   </Grid.ColumnDefinitions>
 
@@ -37,13 +37,13 @@
     <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
          親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
          HorizontalAlignment="Left" を明示する。 -->
-    <Border Width="230" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
+    <Border Width="270" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12" Margin="0,4,0,0">
       <StackPanel>
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
           <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
-            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.202124}" />
+            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.6B737D}" />
             <Run Text="　（常に対象）" FontSize="11" Foreground="{StaticResource Ink.6B737D}" />
           </TextBlock>
         </DockPanel>
@@ -60,7 +60,7 @@
           <TextBlock Text="ノート（PowerPoint）" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
         <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
-        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
+        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="NoWrap" />
       </StackPanel>
     </Border>
   </StackPanel>
@@ -77,13 +77,13 @@
     <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
          親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
          HorizontalAlignment="Left" を明示する。 -->
-    <Border Width="230" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
+    <Border Width="270" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12" Margin="0,4,0,0">
       <StackPanel>
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
           <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
-            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.202124}" />
+            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.6B737D}" />
             <Run Text="　（常に対象）" FontSize="11" Foreground="{StaticResource Ink.6B737D}" />
           </TextBlock>
         </DockPanel>
@@ -100,7 +100,7 @@
           <TextBlock Text="ノート（PowerPoint）" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
         <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
-        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
+        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="NoWrap" />
       </StackPanel>
     </Border>
   </StackPanel>

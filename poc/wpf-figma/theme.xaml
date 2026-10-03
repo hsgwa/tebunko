@@ -55,6 +55,9 @@
   <SolidColorBrush x:Key="Disabled.99A1AB" Color="#99A1AB" />
   <SolidColorBrush x:Key="Disabled.9AA0A6" Color="#9AA0A6" />
   <SolidColorBrush x:Key="Disabled.8C949E" Color="#8C949E" />
+  <!-- 使えないボタンの地・文字（diff_round3.md 7。使えない［検索］は地 #E8EAED、文字 #9FA4AA） -->
+  <SolidColorBrush x:Key="Disabled.E8EAED" Color="#E8EAED" />
+  <SolidColorBrush x:Key="Disabled.9FA4AA" Color="#9FA4AA" />
   <SolidColorBrush x:Key="White" Color="#FFFFFF" />
 
   <!-- ============ 余白・間隔・角丸 ============ -->
@@ -108,7 +111,8 @@
   <Geometry x:Key="Icon.CircleQuestionMark">M12 2a10 10 0 1 0 0.0001 0Z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01</Geometry>
   <!-- チェックボックスのチェック本体（Lucide の check） -->
   <Geometry x:Key="Icon.Check">M20 6 L9 17 L4 12</Geometry>
-  <Geometry x:Key="Icon.AppBook">M4 6a2 2 0 0 1 2-2h5.5v14H6a2 2 0 0 1-2-2Z M20 6a2 2 0 0 0-2-2h-5.5v14H18a2 2 0 0 0 2-2Z</Geometry>
+  <!-- SP の見本 png/SP.png に合わせた開いた本の形（diff_round3.md 10。Lucide の book-open） -->
+  <Geometry x:Key="Icon.AppBook">M12 7v14 M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z</Geometry>
   <Geometry x:Key="Icon.AppMag">M17.3 20a2.7 2.7 0 1 0 0.0001 0Z M19.3 19.3 L23 23</Geometry>
   <!-- 高速検索バッジの絵文字（⚡）を置き換えた Lucide の zap（lucide-static v1.50.0・ISC）。
        塗りつぶしではなく線（Stroke）で使う（使う側で Width/Height=12、StrokeThickness=1.5、
@@ -216,11 +220,12 @@
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
             </Trigger>
-            <!-- 無効時は薄い色ではなく灰色の地にする（diff_round2.md 2 回目指摘。H-E・E12 の検索ボタンなど） -->
+            <!-- 使えないときは地 #E8EAED、文字 #9FA4AA にする（diff_round3.md 7。H-E・E12 の検索ボタンなど） -->
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Disabled.99A1AB}" />
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Disabled.99A1AB}" />
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Disabled.E8EAED}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Disabled.E8EAED}" />
               <Setter TargetName="Bd" Property="Opacity" Value="1" />
+              <Setter Property="Foreground" Value="{StaticResource Disabled.9FA4AA}" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -328,15 +333,17 @@
               <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
               <Setter TargetName="Mid" Property="Visibility" Value="Visible" />
             </Trigger>
-            <!-- 塗りつぶしチェックボックス（Figma node 108:572）。チェック済み・操作不可の行（本文など）。 -->
+            <!-- 薄い青地にチェックを残す（Figma node 108:572）。チェック済み・操作不可の行（本文など。
+                 diff_round3.md 12・小） -->
             <MultiTrigger>
               <MultiTrigger.Conditions>
                 <Condition Property="IsChecked" Value="True" />
                 <Condition Property="IsEnabled" Value="False" />
               </MultiTrigger.Conditions>
-              <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent.0078D4}" />
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Select.E5F1FB}" />
               <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
-              <Setter TargetName="Check" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+              <Setter TargetName="Check" Property="Stroke" Value="{StaticResource Accent.0078D4}" />
             </MultiTrigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>

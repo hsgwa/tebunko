@@ -37,8 +37,10 @@
       <TextBlock Text="&#x2015;" Width="45" TextAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Text.13}" />
       <TextBlock Text="&#x25A1;" Width="45" TextAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Text.13}" />
       <Border Width="45">
-        <Path Data="{StaticResource Icon.CircleX}" Width="13" Height="13" Stretch="Uniform"
-              Stroke="{StaticResource Ink.212126}" StrokeThickness="1.08" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        <!-- 赤の x（丸囲みにしない。diff_round3.md 7） -->
+        <Path Data="{StaticResource Icon.Close}" Width="13" Height="13" Stretch="Uniform"
+              Stroke="{StaticResource Danger.D13438}" StrokeThickness="1.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+              HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Border>
     </StackPanel>
     <!-- タイトルバーの下の線（diff_round2.md 2 回目指摘） -->
@@ -70,26 +72,30 @@
 
       <StackPanel Grid.Row="0">
         <Border x:Name="NavItem_Search" Height="40" Background="{StaticResource Select.E5F1FB}" BorderThickness="3,0,0,0" BorderBrush="{StaticResource Accent.0078D4}">
-          <DockPanel Margin="21,0,12,0">
+          <!-- 文字の開始位置 x=34（diff_round3.md 12・小） -->
+          <DockPanel Margin="31,0,12,0">
             <TextBlock Text="検索" VerticalAlignment="Center" Style="{StaticResource Text.13}" Foreground="{StaticResource Accent.0078D4}" FontWeight="Bold" />
           </DockPanel>
         </Border>
         <Border x:Name="NavItem_Index" Height="40" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
-          <DockPanel Margin="21,0,12,0">
+          <DockPanel Margin="31,0,12,0">
             <StackPanel x:Name="NavBadge_Index" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center">
               <Ellipse x:Name="NavBadge_IndexDot" Width="6" Height="6" Fill="{StaticResource Accent.0078D4}" Margin="0,0,4,0" />
-              <TextBlock x:Name="NavBadge_IndexText" Text="58%" Style="{StaticResource Text.11.Bold}" Foreground="{StaticResource Accent.0078D4}" />
+              <!-- 既定は地なし。「中断」のときだけ橙の pill にする（diff_round3.md 4。H-P） -->
+              <Border x:Name="NavBadge_IndexPill" CornerRadius="8" Padding="6,1,6,1" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                <TextBlock x:Name="NavBadge_IndexText" Text="58%" Style="{StaticResource Text.11.Bold}" Foreground="{StaticResource Accent.0078D4}" />
+              </Border>
             </StackPanel>
             <TextBlock Text="インデックス管理" VerticalAlignment="Center" Style="{StaticResource Text.13.Medium}" />
           </DockPanel>
         </Border>
         <Border x:Name="NavItem_Settings" Height="40" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
-          <DockPanel Margin="21,0,12,0">
+          <DockPanel Margin="31,0,12,0">
             <TextBlock Text="設定" VerticalAlignment="Center" Style="{StaticResource Text.13.Medium}" />
           </DockPanel>
         </Border>
         <Border x:Name="NavItem_OfficeStop" Height="40" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
-          <DockPanel Margin="21,0,12,0">
+          <DockPanel Margin="31,0,12,0">
             <TextBlock Text="Office の終了" VerticalAlignment="Center" Style="{StaticResource Text.13.Medium}" />
           </DockPanel>
         </Border>
@@ -97,15 +103,16 @@
 
       <Rectangle Grid.Row="1" Fill="{StaticResource Line.E0E2E5}" />
 
+      <!-- 「すべて／解除」は見出しと同じ行の右側に置く（diff_round3.md 12・小） -->
       <DockPanel Grid.Row="2" Margin="21,10,12,4">
+        <StackPanel x:Name="SearchTargetLinksRow" DockPanel.Dock="Right" Orientation="Horizontal">
+          <TextBlock x:Name="SelectAllLink" Text="すべて" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" />
+          <TextBlock Text="　" Style="{StaticResource Text.11}" />
+          <TextBlock x:Name="ClearAllLink" Text="解除" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" />
+        </StackPanel>
         <TextBlock Text="検索対象" Style="{StaticResource Text.12}" FontWeight="Bold" />
-        <TextBlock x:Name="SearchTargetCountText" Text="3 / 4" Margin="6,0,0,0" Style="{StaticResource Text.11.Muted}" />
+        <TextBlock x:Name="SearchTargetCountText" Text="3 / 4" FontWeight="Bold" Margin="6,0,0,0" Style="{StaticResource Text.11.Muted}" />
       </DockPanel>
-      <StackPanel x:Name="SearchTargetLinksRow" Grid.Row="3" Orientation="Horizontal" Margin="21,0,12,8">
-        <TextBlock x:Name="SelectAllLink" Text="すべて" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" />
-        <TextBlock Text="　" Style="{StaticResource Text.11}" />
-        <TextBlock x:Name="ClearAllLink" Text="解除" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" />
-      </StackPanel>
 
       <Grid Grid.Row="4" Margin="21,0,12,0">
         <Grid.RowDefinitions>
@@ -122,28 +129,28 @@
           <Grid>
             <StackPanel x:Name="TreePanel">
               <!-- 営業部 -->
-              <Border Height="26"><DockPanel Margin="0,0,0,0">
+              <Border Height="24"><DockPanel Margin="0,0,0,0">
                 <ToggleButton Style="{StaticResource TreeChevron}" IsChecked="True" />
                 <CheckBox x:Name="TreeCheck_営業部" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="営業部" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
               </DockPanel></Border>
-              <Border Height="26" Margin="16,0,0,0"><DockPanel>
+              <Border Height="24" Margin="16,0,0,0"><DockPanel>
                 <Border Width="16" />
                 <CheckBox x:Name="TreeCheck_A社" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="A社" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
               </DockPanel></Border>
-              <Border Height="26" Margin="16,0,0,0"><DockPanel>
+              <Border Height="24" Margin="16,0,0,0"><DockPanel>
                 <Border Width="16" />
                 <CheckBox x:Name="TreeCheck_B社" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="B社" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
               </DockPanel></Border>
-              <Border Height="26" Margin="16,0,0,0"><DockPanel>
+              <Border Height="24" Margin="16,0,0,0"><DockPanel>
                 <Border Width="16" />
                 <CheckBox x:Name="TreeCheck_提案書" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
@@ -151,22 +158,23 @@
                 <TextBlock Text="提案書_2024年度…" VerticalAlignment="Center" Style="{StaticResource Text.12}" TextTrimming="CharacterEllipsis" />
               </DockPanel></Border>
               <!-- 顧客 -->
-              <Border Height="26"><DockPanel>
+              <Border Height="24"><DockPanel>
                 <ToggleButton Style="{StaticResource TreeChevron}" IsChecked="True" />
                 <CheckBox x:Name="TreeCheck_顧客" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="顧客" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
-                <Ellipse x:Name="Dot_顧客" Width="6" Height="6" Fill="{StaticResource Folder.E8A020}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                <!-- 名前のすぐ右に置く。決まった列にそろえない（diff_round3.md 9） -->
+                <Ellipse x:Name="Dot_顧客" Width="6" Height="6" Fill="{StaticResource Folder.E8A020}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="4,0,0,0" />
               </DockPanel></Border>
-              <Border Height="26" Margin="16,0,0,0"><DockPanel>
+              <Border Height="24" Margin="16,0,0,0"><DockPanel>
                 <Border Width="16" />
                 <CheckBox x:Name="TreeCheck_取引先台帳" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="取引先台帳" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
               </DockPanel></Border>
-              <Border Height="26" Margin="16,0,0,0"><DockPanel>
+              <Border Height="24" Margin="16,0,0,0"><DockPanel>
                 <Border Width="16" />
                 <CheckBox x:Name="TreeCheck_契約書" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
@@ -174,22 +182,22 @@
                 <TextBlock Text="契約書" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
               </DockPanel></Border>
               <!-- 営業部2025 -->
-              <Border Height="26"><DockPanel>
+              <Border Height="24"><DockPanel>
                 <ToggleButton Style="{StaticResource TreeChevron}" IsChecked="True" />
                 <CheckBox x:Name="TreeCheck_営業部2025" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="営業部2025" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
-                <Ellipse x:Name="Dot_営業部2025" Width="6" Height="6" Fill="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                <Ellipse x:Name="Dot_営業部2025" Width="6" Height="6" Fill="{StaticResource Accent.0078D4}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="4,0,0,0" />
               </DockPanel></Border>
-              <Border Height="26" Margin="16,0,0,0"><DockPanel>
+              <Border Height="24" Margin="16,0,0,0"><DockPanel>
                 <Border Width="16" />
                 <CheckBox x:Name="TreeCheck_見積もり" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="見積もり" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
               </DockPanel></Border>
-              <Border Height="26" Margin="16,0,0,0"><DockPanel>
+              <Border Height="24" Margin="16,0,0,0"><DockPanel>
                 <Border Width="16" />
                 <CheckBox x:Name="TreeCheck_請求書" Style="{StaticResource CheckBox.Tree}" IsChecked="True" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
@@ -197,13 +205,13 @@
                 <TextBlock Text="請求書" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
               </DockPanel></Border>
               <!-- アーカイブ（折りたたみ・未選択） -->
-              <Border Height="26"><DockPanel>
+              <Border Height="24"><DockPanel>
                 <ToggleButton Style="{StaticResource TreeChevron}" IsChecked="False" />
                 <CheckBox x:Name="TreeCheck_アーカイブ" Style="{StaticResource CheckBox.Tree}" IsChecked="False" Margin="2,0,6,0" />
                 <Path Data="{StaticResource Icon.FolderClosed}" Width="14" Height="14" Stretch="Uniform"
                       Stroke="{StaticResource Folder.E8A020}" StrokeThickness="1.6" StrokeLineJoin="Round" Margin="0,0,5,0" />
                 <TextBlock Text="アーカイブ" VerticalAlignment="Center" Style="{StaticResource Text.12}" />
-                <Ellipse x:Name="Dot_アーカイブ" Width="6" Height="6" Fill="{StaticResource Danger.D13438}" VerticalAlignment="Center" Margin="4,0,0,0" />
+                <Ellipse x:Name="Dot_アーカイブ" Width="6" Height="6" Fill="{StaticResource Danger.D13438}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="4,0,0,0" />
               </DockPanel></Border>
             </StackPanel>
             <StackPanel x:Name="EmptyTreeState" Visibility="Collapsed" HorizontalAlignment="Center" Margin="0,40,0,0">
@@ -240,16 +248,17 @@
         <RowDefinition Height="Auto" />
         <!-- 結果一覧。窓が低くても最小の高さ 120 を保つ（figma_wpf_map.md「レイアウトとリサイズ」） -->
         <RowDefinition Height="*" MinHeight="120" />
-        <RowDefinition Height="8" />
+        <RowDefinition x:Name="PreviewDividerRow" Height="8" />
         <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" MinHeight="120" />
+        <RowDefinition x:Name="PreviewContentRow" Height="Auto" MinHeight="120" />
         <RowDefinition Height="28" />
       </Grid.RowDefinitions>
 
       <!-- バナー（更新中・中断・検索結果の状態のお知らせ）。既定は高さ 0 で非表示。
-           主な領域の幅（ナビの右側だけ）で検索バーより上に置く。角は四角、左に 4px の色の帯（diff_round2.md 2 回目指摘） -->
-      <Border x:Name="Banner" Grid.Row="0" BorderThickness="0,0,0,1"
-              Background="{StaticResource Select.E1F2FF}" BorderBrush="{StaticResource Border.D9DEE3}">
+           主な領域の幅（ナビの右側だけ）で検索バーより上に置く。角は四角、左に 4px の色の帯（diff_round2.md 2 回目指摘）。
+           高さ 40、下の線は無し（diff_round3.md 7） -->
+      <Border x:Name="Banner" Grid.Row="0" Height="40" BorderThickness="0"
+              Background="{StaticResource Select.E1F2FF}">
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="4" />
@@ -259,10 +268,11 @@
           <DockPanel Grid.Column="1" Margin="12,8,12,8">
             <Button x:Name="BannerButton" DockPanel.Dock="Right" Style="{StaticResource Btn.BannerAccent}" Content="進み具合を見る" />
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <!-- 印は線の info（塗りの円にしない。diff_round3.md 7）。丸は線だけ、中の印は状態で差し替える -->
               <Grid Width="14" Height="14" Margin="0,0,8,0">
-                <Ellipse x:Name="BannerIcon" Fill="{StaticResource Accent.0078D4}" />
+                <Ellipse x:Name="BannerIcon" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="1.2" />
                 <Path x:Name="BannerGlyph" Data="{StaticResource Icon.BadgeGlyphInfo}" Width="8.4" Height="8.4" Stretch="Uniform"
-                      Stroke="{StaticResource White}" StrokeThickness="0.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                      Stroke="{StaticResource Accent.0078D4}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
               </Grid>
               <TextBlock x:Name="BannerText" Text="インデックスを更新しています（営業部 1,200 / 2,075 件）" Style="{StaticResource Text.12}" />
             </StackPanel>
@@ -273,9 +283,13 @@
       <!-- 検索ワード -->
       <StackPanel Grid.Row="1">
         <DockPanel Margin="16,10,16,8">
-          <TextBlock Text="検索ワード" VerticalAlignment="Center" Width="68" Style="{StaticResource Text.12}" />
+          <TextBlock x:Name="SearchWordLabel" Text="検索ワード" VerticalAlignment="Center" Width="68" Style="{StaticResource Text.12}" />
           <Button x:Name="SearchButton" DockPanel.Dock="Right" Width="80" Style="{StaticResource Btn.Primary}" Content="検索" FontWeight="Bold" Margin="8,0,0,0" />
-          <TextBox x:Name="SearchWordBox" Text="（株）山田商事" Height="30" VerticalAlignment="Center" />
+          <Grid>
+            <TextBox x:Name="SearchWordBox" Text="(株)山田商事" Height="30" VerticalAlignment="Center" />
+            <!-- 検索欄が空のときの薄い文字（diff_round3.md 8。H0）。既定は隠す -->
+            <TextBlock x:Name="SearchWordPlaceholder" Text="検索ワードを入力" Style="{StaticResource Text.12.Muted}" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed" />
+          </Grid>
         </DockPanel>
         <DockPanel x:Name="SearchWordError" Visibility="Collapsed" Margin="84,0,16,8" LastChildFill="True">
           <!-- Figma の赤い circle-alert（diff_round2.md 2 回目指摘。前回は三角だった） -->
@@ -289,18 +303,9 @@
         </DockPanel>
       </StackPanel>
 
-      <!-- 絞り込み -->
-      <DockPanel x:Name="FilterRow" Grid.Row="2" Margin="16,0,16,8" VerticalAlignment="Center" LastChildFill="False">
-        <Border x:Name="FastSearchBadge" DockPanel.Dock="Right" Style="{StaticResource StatusBadge}" Background="{StaticResource Ok.E0F7E0}" BorderBrush="{StaticResource Ok.218A21}">
-          <StackPanel Orientation="Horizontal">
-            <Path x:Name="FastSearchIcon" Data="{StaticResource Icon.Zap}" Width="12" Height="12" Stretch="Uniform"
-                  Stroke="{StaticResource Ok.218A21}" StrokeThickness="1.0" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,4,0" />
-            <TextBlock x:Name="FastSearchText" Text="高速検索：使用可" Style="{StaticResource Text.11}" Foreground="{StaticResource Ok.218A21}" />
-            <Path x:Name="FastSearchInfo" Data="{StaticResource Icon.Info}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ok.218A21}" StrokeThickness="0.83" Margin="4,0,0,0" Visibility="Collapsed" />
-          </StackPanel>
-        </Border>
-        <CheckBox x:Name="RegexCheck" Style="{StaticResource CheckBox.Label}" DockPanel.Dock="Right" Content="正規表現" VerticalAlignment="Center" Margin="0,0,16,0" />
-        <CheckBox x:Name="CaseCheck" Style="{StaticResource CheckBox.Label}" DockPanel.Dock="Right" Content="大文字・小文字を区別" VerticalAlignment="Center" Margin="0,0,16,0" />
+      <!-- 絞り込み。右側（大文字小文字・正規表現・高速検索）は WrapPanel にし、
+           幅が足りない 1024px では折り返して次の行に送る（diff_round3.md 11） -->
+      <DockPanel x:Name="FilterRow" Grid.Row="2" Margin="16,0,16,8" VerticalAlignment="Center">
         <Border x:Name="FilterChip_Excel" DockPanel.Dock="Left" Style="{StaticResource Chip}" Background="{StaticResource Select.E5F1FB}" BorderBrush="{StaticResource Accent.0078D4}" Margin="0,0,6,0">
           <StackPanel Orientation="Horizontal">
             <Path Data="{StaticResource Icon.Check}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,3,0" />
@@ -331,6 +336,18 @@
             <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="4,0,0,0" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
+        <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+          <CheckBox x:Name="CaseCheck" Style="{StaticResource CheckBox.Label}" Content="大文字・小文字を区別" VerticalAlignment="Center" Margin="0,0,16,0" />
+          <CheckBox x:Name="RegexCheck" Style="{StaticResource CheckBox.Label}" Content="正規表現" VerticalAlignment="Center" Margin="0,0,16,0" />
+          <Border x:Name="FastSearchBadge" Style="{StaticResource StatusBadge}" Background="{StaticResource Ok.E0F7E0}" BorderThickness="0">
+            <StackPanel Orientation="Horizontal">
+              <Path x:Name="FastSearchIcon" Data="{StaticResource Icon.Zap}" Width="12" Height="12" Stretch="Uniform"
+                    Stroke="{StaticResource Ok.218A21}" StrokeThickness="1.0" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,4,0" />
+              <TextBlock x:Name="FastSearchText" Text="高速検索：使用可" Style="{StaticResource Text.11}" Foreground="{StaticResource Ok.218A21}" />
+              <Path x:Name="FastSearchInfo" Data="{StaticResource Icon.Info}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ok.218A21}" StrokeThickness="0.83" Margin="4,0,0,0" />
+            </StackPanel>
+          </Border>
+        </WrapPanel>
       </DockPanel>
 
       <Rectangle Grid.Row="3" Fill="{StaticResource Line.E0E2E5}" />
@@ -343,14 +360,15 @@
             <TextBlock Text="保存" Style="{StaticResource Text.11}" />
           </StackPanel>
         </Button>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+        <StackPanel x:Name="ResultsFilterRow" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
           <TextBlock Text="絞り込み" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
           <TextBox x:Name="ResultsFilterBox" Width="220" Height="24" VerticalAlignment="Center" Foreground="{StaticResource Ink.6B737D}" Text="ファイル名・場所・中身で絞り込む" />
         </StackPanel>
+        <!-- 下線と区切りの縦線を付ける（diff_round3.md 10） -->
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
-          <TextBlock x:Name="ExpandAllLink" Text="すべて開く" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" />
-          <TextBlock Text="　" Style="{StaticResource Text.11}" />
-          <TextBlock x:Name="CollapseAllLink" Text="すべて折りたたむ" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" />
+          <TextBlock x:Name="ExpandAllLink" Text="すべて開く" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" TextDecorations="Underline" VerticalAlignment="Center" />
+          <Rectangle Width="1" Height="11" Margin="8,0" Fill="{StaticResource Line.E0E2E5}" />
+          <TextBlock x:Name="CollapseAllLink" Text="すべて折りたたむ" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" TextDecorations="Underline" VerticalAlignment="Center" />
         </StackPanel>
         <TextBlock x:Name="ResultsSummaryText" Text="14 件（5 ファイル）・0.8 秒・高速検索" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
       </DockPanel>
@@ -358,10 +376,12 @@
       <!-- 結果の列見出し。一覧の上に 1 本だけ、全幅で出す（ファイルごとには出さない。diff_round2.md 2 回目指摘） -->
       <Grid Grid.Row="5">
         <Grid.RowDefinitions>
-          <RowDefinition Height="24" />
+          <RowDefinition x:Name="ResultsColumnHeaderRow" Height="24" />
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0" Margin="16,0,16,0">
+        <!-- 全幅（左右の余白無し）・地は Bg.F9FAFA。列は一致した行（TopRowN）と同じ幅にそろえる。
+             結果の無い状態では出さない（diff_round3.md 4 ★・1） -->
+        <Grid x:Name="ResultsColumnHeader" Grid.Row="0" Background="{StaticResource Bg.F9FAFA}">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="32" />
             <ColumnDefinition Width="140" />
@@ -374,7 +394,8 @@
         </Grid>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
         <Grid>
-          <StackPanel x:Name="ResultsPanel" Margin="16,0,16,8">
+          <!-- 全幅（diff_round3.md 1）。左右の余白は取り、下だけ 8 残す -->
+          <StackPanel x:Name="ResultsPanel" Margin="0,0,0,8">
             <!-- ファイルの行（開いた）。地は Bg.F5F7FA、chevron は下向き（diff_round2.md 2 回目指摘） -->
             <Grid Height="36" Background="{StaticResource Bg.F5F7FA}">
               <Grid.ColumnDefinitions>
@@ -393,10 +414,12 @@
                   <TextBlock x:Name="TopGroupLocation" Text="営業部/2024/見積もり" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
                 </Border>
               </StackPanel>
-              <TextBlock x:Name="TopGroupCount" Grid.Column="4" Text="[シート]見積書 ・ 5 件" Style="{StaticResource Text.11.Muted}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock x:Name="TopGroupCount" Grid.Column="4" Text="[シート]見積書 ほか 1 か所 ・ 5 件" Style="{StaticResource Text.11.Muted}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
-            <!-- 一致した行。高さ 30px、1 行おきに地の色（Bg.FAFBFC）、該当行の区切りは「｜」（diff_round2.md 2 回目指摘） -->
-            <Grid Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FAFBFC}">
+            <!-- 一致した行。高さ 30px、1 行おきに地の色（Bg.FAFBFC）。「｜」は列の間には置かず、
+                 該当の文の中の区切りだけに使う（diff_round3.md 1）。
+                 選んでいる行は Select.E1F2FF（diff_round3.md 1。H は TopRow1 が選択中の既定） -->
+            <Grid x:Name="TopRow1" Height="30" Margin="32,0,8,0" Background="{StaticResource Select.E1F2FF}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="140" />
                 <ColumnDefinition Width="Auto" />
@@ -405,14 +428,12 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <TextBlock x:Name="TopRow1Col1" Grid.Column="0" Text="[シート]見積書!A3" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock x:Name="TopRow1Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock x:Name="TopRow1Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="見積先：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text="（御中）" />
+                <Run Text="見積先：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text="（御中）" />
               </TextBlock>
             </Grid>
-            <Grid Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FFFFFF}">
+            <Grid x:Name="TopRow2" Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FFFFFF}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="140" />
                 <ColumnDefinition Width="Auto" />
@@ -420,12 +441,10 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="TopRow2Col1" Grid.Column="0" Text="[シート]見積書!A18" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
-              <TextBlock x:Name="TopRow2Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
+              <TextBlock x:Name="TopRow2Col1" Grid.Column="0" Text="[シート]見積書!B18 ほか 1" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow2Col2" Grid.Column="2" Text="図形" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
               <TextBlock x:Name="TopRow2Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="4月4日 値引き：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 特別割引あり" />
+                <Run Text="4月4日 値引き：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 特別割引あり" />
               </TextBlock>
             </Grid>
             <Grid x:Name="TopRow3" Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FAFBFC}">
@@ -437,11 +456,9 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <TextBlock x:Name="TopRow3Col1" Grid.Column="0" Text="[シート]見積書!A41" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock x:Name="TopRow3Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock x:Name="TopRow3Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="納品場所：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 本社ビル" />
+                <Run Text="納品場所：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 本社ビル" />
               </TextBlock>
             </Grid>
             <Grid x:Name="TopRow4" Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FFFFFF}">
@@ -452,16 +469,16 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="TopRow4Col1" Grid.Column="0" Text="[シート]見積書!A5" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
-              <TextBlock x:Name="TopRow4Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
+              <TextBlock x:Name="TopRow4Col1" Grid.Column="0" Text="[シート]見積書!D5" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow4Col2" Grid.Column="2" Text="図形" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
               <TextBlock x:Name="TopRow4Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="納品場所：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 本社4F" />
+                <Run Text="納品場所：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 本社4F" />
               </TextBlock>
             </Grid>
 
-            <Grid x:Name="MinutesGroupHeader" Height="36" Margin="0,4,0,0" Background="{StaticResource Bg.F5F7FA}" Visibility="Collapsed">
+            <!-- ファイルの行の間の線（diff_round3.md 1） -->
+            <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
+            <Grid x:Name="MinutesGroupHeader" Height="36" Background="{StaticResource Bg.F5F7FA}" Visibility="Collapsed">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="4" />
                 <ColumnDefinition Width="28" />
@@ -489,11 +506,9 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="0" Text="行 12" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock Grid.Column="2" Text="本文" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="定例会の出席：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 佐藤様・山田" />
+                <Run Text="定例会の出席：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 佐藤様・山田" />
               </TextBlock>
             </Grid>
             <Grid x:Name="MinutesRow2" Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FFFFFF}" Visibility="Collapsed">
@@ -505,15 +520,15 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <TextBlock Grid.Column="0" Text="行 30" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock Grid.Column="2" Text="本文" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="｜" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" Margin="4,0,4,0" />
               <TextBlock Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="次回までに" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 向けの見積を送る" />
+                <Run Text="次回までに" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 向けの見積を送る" />
               </TextBlock>
             </Grid>
+            <!-- ファイルの行の間の線（diff_round3.md 1） -->
+            <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <!-- ファイルの行（畳んだ）。地は Bg.F9FAFA、chevron は右向き（diff_round2.md 2 回目指摘） -->
-            <Grid x:Name="FileListRow1" Height="36" Margin="0,4,0,0" Background="{StaticResource Bg.F9FAFA}">
+            <Grid x:Name="FileListRow1" Height="36" Background="{StaticResource Bg.F9FAFA}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="4" />
                 <ColumnDefinition Width="28" />
@@ -524,8 +539,9 @@
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
               <Path Grid.Column="2" Data="{StaticResource Icon.ChartColumn}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Excel.107C41}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
               <TextBlock Grid.Column="3" Text="A社_見積書_改訂.xlsx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="3件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock Grid.Column="4" Text="3 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
+            <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="FileListRow2" Height="36" Background="{StaticResource Bg.F9FAFA}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="4" />
@@ -537,8 +553,9 @@
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
               <Path Grid.Column="2" Data="{StaticResource Icon.Presentation}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource PowerPoint.C43E1C}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
               <TextBlock Grid.Column="3" Text="2025年4月.pptx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="1件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock Grid.Column="4" Text="1 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
+            <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="FileListRow3" Height="36" Background="{StaticResource Bg.F9FAFA}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="4" />
@@ -550,8 +567,9 @@
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
               <Path x:Name="FileListItem3Icon" Grid.Column="2" Data="{StaticResource Icon.FileText}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Word.185ABD}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
               <TextBlock x:Name="FileListItem3Name" Grid.Column="3" Text="基本契約書.docx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="FileListItem3Count" Grid.Column="4" Text="3件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock x:Name="FileListItem3Count" Grid.Column="4" Text="3 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
+            <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="FileListRow4" Height="36" Background="{StaticResource Bg.F9FAFA}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="4" />
@@ -563,7 +581,7 @@
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
               <Path Grid.Column="2" Data="{StaticResource Icon.FileSpreadsheet}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Excel.107C41}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
               <TextBlock Grid.Column="3" Text="顧客一覧.xlsx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="2件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock Grid.Column="4" Text="2 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
           </StackPanel>
           <!-- H0（インデックス未作成）のイラスト。lucide/folder-search.svg・色は figma_wpf_map.md の Illust.Line。
@@ -581,74 +599,104 @@
       </Grid>
 
       <!-- 横の仕切り -->
-      <Border Grid.Row="6" Background="{StaticResource Bg.F3F3F4}">
+      <Border x:Name="PreviewDivider" Grid.Row="6" Background="{StaticResource Bg.F3F3F4}">
         <Rectangle Width="32" Height="3" Fill="{StaticResource Border.D0D4D9}" RadiusX="1.5" RadiusY="1.5" />
       </Border>
 
       <!-- プレビュー -->
-      <DockPanel Grid.Row="7" Margin="16,8,16,8">
+      <DockPanel x:Name="PreviewToolbar" Grid.Row="7" Margin="16,8,16,8">
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
           <Button x:Name="PreviewOpenBody" Style="{StaticResource Btn.OpenSplitBody}" Content="開く" />
           <Button x:Name="PreviewOpenArrow" Style="{StaticResource Btn.OpenSplitArrow}">
-            <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource White}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+            <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
           </Button>
-          <TextBlock x:Name="PreviewOpenFolderLink" Text="フォルダを開く" Style="{StaticResource Text.12}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="12,0,0,0" />
+          <TextBlock x:Name="PreviewOpenFolderLink" Text="フォルダを開く" TextDecorations="Underline" Style="{StaticResource Text.12}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="12,0,0,0" />
         </StackPanel>
         <TextBlock x:Name="PreviewBreadcrumbText" Text="営業部\A社_見積書.xlsx ・ [シート]見積書!A3 ・ セル" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </DockPanel>
       <Grid x:Name="PreviewContentHost" Grid.Row="8" Margin="16,0,16,8">
-        <Grid x:Name="PreviewSheetGrid" Background="{StaticResource Bg.FFFFFF}">
+        <!-- Excel のような罫線の格子。列幅は固定（約 220）で A〜D を出し、入らなければ横にスクロールする
+             （全幅には引き伸ばさない。diff_round3.md 2） -->
+        <ScrollViewer x:Name="PreviewSheetScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <Grid x:Name="PreviewSheetGrid" Background="{StaticResource Bg.FFFFFF}" HorizontalAlignment="Left">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="30" />
-            <ColumnDefinition Width="280" />
-            <ColumnDefinition Width="280" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="220" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
             <RowDefinition Height="24" />
             <RowDefinition Height="24" />
             <RowDefinition Height="24" />
             <RowDefinition Height="24" />
+            <RowDefinition Height="24" />
           </Grid.RowDefinitions>
-          <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Bg.F3F3F4}" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1" />
+
+          <!-- 列見出し行（地 Bg.F3F3F4） -->
+          <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5" Background="{StaticResource Bg.F3F3F4}" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1" />
           <TextBlock Grid.Row="0" Grid.Column="1" Text="A" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="0" Grid.Column="2" Text="B" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="0" Grid.Column="3" Text="C" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <TextBlock Grid.Row="0" Grid.Column="4" Text="D" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+          <!-- 罫線の格子（セルごとに右と下に線を引く。行番号の列も含む） -->
+          <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1" />
+          <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1" />
+          <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1" />
+          <Border Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1" />
+          <Border Grid.Row="0" Grid.RowSpan="5" Grid.Column="1" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,1,0" />
+          <Border Grid.Row="0" Grid.RowSpan="5" Grid.Column="2" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,1,0" />
+          <Border Grid.Row="0" Grid.RowSpan="5" Grid.Column="3" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,1,0" />
+          <Border Grid.Row="0" Grid.RowSpan="5" Grid.Column="4" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,1,0" />
+
           <TextBlock x:Name="PreviewTopRowNum" Grid.Row="1" Grid.Column="0" Text="1" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewTopText1" Grid.Row="1" Grid.Column="1" Text="取引規模" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewTopText2" Grid.Row="1" Grid.Column="2" Text="Aクラス" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
-          <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+
+          <!-- 一致した行。選んだ行は Select.E1F2FF、一致したセルの地は Match.FFF3CD（diff_round3.md 2） -->
+          <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Background="{StaticResource Select.E1F2FF}" />
+          <Border x:Name="PreviewHighlightCellA" Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
+          <Border x:Name="PreviewHighlightCellD" Grid.Row="2" Grid.Column="4" Background="{StaticResource Match.FFF3CD}" Visibility="Collapsed" />
           <TextBlock x:Name="PreviewHighlightRowNum" Grid.Row="2" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewHighlightText1" Grid.Row="2" Grid.Column="1" Text="見積先：（株）山田商事（御中）" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewHighlightText1" Grid.Row="2" Grid.Column="1" Text="見積先：(株)山田商事（御中）" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewHighlightText2" Grid.Row="2" Grid.Column="2" Text="見積番号：12-2324-0143" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewHighlightTextD" Grid.Row="2" Grid.Column="4" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
+
           <TextBlock x:Name="PreviewBottomRowNum" Grid.Row="3" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewBottomText1" Grid.Row="3" Grid.Column="1" Text="件名：基幹システム導入一式" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewBottomText2" Grid.Row="3" Grid.Column="2" Text="発行日：2024/10/15" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
-          <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,1,0,0" />
+
+          <!-- 空の行（続きがあることを示す） -->
+          <TextBlock x:Name="PreviewExtraRowNum" Grid.Row="4" Grid.Column="0" Text="5" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
+        </ScrollViewer>
+        <!-- H-W の本文。見出しは太字、2 行目に「2 振込手数料…」を足す（diff_round3.md 10） -->
         <StackPanel x:Name="PreviewParagraphView" Visibility="Collapsed" Margin="8">
+          <TextBlock x:Name="PreviewParagraphHeading" Style="{StaticResource Text.13}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8" />
           <TextBlock x:Name="PreviewParagraphText" Style="{StaticResource Text.13}" TextWrapping="Wrap" />
+          <TextBlock x:Name="PreviewParagraphText2" Style="{StaticResource Text.13}" TextWrapping="Wrap" Margin="0,4,0,0" />
         </StackPanel>
         <TextBlock x:Name="PreviewEmptyState" Visibility="Collapsed" Text="結果の表で行を選ぶと、ここにその前後の行を表示します。" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Grid>
 
       <Border Grid.Row="9" Background="{StaticResource Bg.F3F3F4}">
-        <TextBlock x:Name="StatusBarText" Text="検索しました：（株）山田商事 14件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="16,0,0,0" />
+        <TextBlock x:Name="StatusBarText" Text="検索しました：(株)山田商事 14 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="16,0,0,0" />
       </Border>
     </Grid>
   </Grid>
 
   <!-- ===== 重ねの層（ポップオーバー・吹き出し・メニュー。Canvas で絶対位置に置く） ===== -->
   <Canvas x:Name="OverlayLayer" Grid.RowSpan="3" IsHitTestVisible="False">
-    <Border x:Name="RangePopup" Visibility="Collapsed" Canvas.Left="790" Canvas.Top="120" Width="230"
+    <Border x:Name="RangePopup" Visibility="Collapsed" Canvas.Left="790" Canvas.Top="120" Width="270"
             Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12">
       <StackPanel>
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
           <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
-            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.202124}" />
+            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.6B737D}" />
             <Run Text="　（常に対象）" FontSize="11" Foreground="{StaticResource Ink.6B737D}" />
           </TextBlock>
         </DockPanel>
@@ -665,7 +713,8 @@
           <TextBlock Text="ノート（PowerPoint）" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
         <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
-        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" />
+        <!-- 1 行に収める（diff_round3.md 12・小） -->
+        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="NoWrap" />
       </StackPanel>
     </Border>
 
@@ -677,14 +726,27 @@
       <TextBlock x:Name="FullPathTooltipText" Text="C:\Share\営業部\2024\見積もり\提案書_2024年度下期_大口顧客向け.xlsx" Style="{StaticResource Text.Bubble}" />
     </Border>
 
-    <Border x:Name="ContextMenuPopup" Visibility="Collapsed" Canvas.Left="1000" Canvas.Top="645" Width="180"
-            Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
-            CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="4">
+  </Canvas>
+
+  <!-- 開くメニュー。Popup にし、PlacementTarget をボタン（PreviewOpenArrow）にして、
+       その下に付けて出す（今はどの窓幅でも正しい位置に出る。diff_round3.md 3 ★） -->
+  <Popup x:Name="ContextMenuPopup" IsOpen="False" AllowsTransparency="True" PopupAnimation="None" StaysOpen="True"
+         PlacementTarget="{Binding ElementName=PreviewOpenArrow}" Placement="Bottom" HorizontalOffset="-140" VerticalOffset="2">
+    <Border Width="180" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
+            CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}">
       <StackPanel>
-        <TextBlock Text="開く" Style="{StaticResource Text.12}" Padding="8,6" />
-        <TextBlock Text="新規で開く" Style="{StaticResource Text.12}" Padding="8,6" />
-        <TextBlock Text="読み取り専用で開く" Style="{StaticResource Text.12}" Padding="8,6" />
+        <Border Height="24" Padding="8,0">
+          <TextBlock Text="開く" FontSize="11" VerticalAlignment="Center" />
+        </Border>
+        <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
+        <Border Height="24" Padding="8,0">
+          <TextBlock Text="新規で開く" FontSize="11" VerticalAlignment="Center" />
+        </Border>
+        <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
+        <Border Height="24" Padding="8,0">
+          <TextBlock Text="読み取り専用で開く" FontSize="11" VerticalAlignment="Center" />
+        </Border>
       </StackPanel>
     </Border>
-  </Canvas>
+  </Popup>
 </Grid>

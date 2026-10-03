@@ -87,6 +87,47 @@ function Set-ElVisible($Root, [string]$Name, [bool]$Visible) {
     }
 }
 
+function Set-ElOpen($Root, [string]$Name, [bool]$Open) {
+    # Popup は Visibility ではなく IsOpen で出し入れする（diff_round3.md 3 ★）。
+    # IsOpen は PresentationSource（実際の窓）が無いと WPF 側で false に戻される
+    # （ヘッドレスの show/compare/screenshots では実物の窓を開かないため）。
+    # show.ps1（実物の窓）では IsOpen がそのまま効くので両方とも設定し、
+    # ヘッドレスの合成（Merge-PopupOverlay）は Tag を目印に見る。
+    $el = Find-Named $Root $Name
+    if ($null -ne $el) {
+        $el.IsOpen = $Open
+        $el.Tag = if ($Open) { "open" } else { $null }
+    }
+}
+
+function Set-ElMinHeight($Root, [string]$Name, $MinHeight) {
+    $el = Find-Named $Root $Name
+    if ($null -ne $el) { $el.MinHeight = $MinHeight }
+}
+
+# 要素の Grid.Row を書き換える（E16 の帯を、検索バーの上の行から件数の行の位置へ動かす。
+# diff_round3.md 4 ★）。
+function Set-ElGridRow($Root, [string]$Name, [int]$Row) {
+    $el = Find-Named $Root $Name
+    if ($null -ne $el) { [System.Windows.Controls.Grid]::SetRow($el, $Row) }
+}
+
+# 結果の無い状態（H0・H-E・H-E2・H-S・E14・E16）向けに、プレビューの欄・境目・
+# 列の見出しの行をまとめて隠す（diff_round3.md 4）。
+function Hide-ResultsColumnHeader($Root) {
+    Set-ElVisible $Root "ResultsColumnHeader" $false
+    Set-ElHeight $Root "ResultsColumnHeaderRow" 0
+}
+
+function Hide-PreviewPane($Root) {
+    Set-ElHeight $Root "PreviewDividerRow" 0
+    Set-ElVisible $Root "PreviewDivider" $false
+    Set-ElVisible $Root "PreviewToolbar" $false
+    Set-ElVisible $Root "PreviewContentHost" $false
+    Set-ElMinHeight $Root "PreviewContentRow" 0
+    Set-ElHeight $Root "PreviewContentRow" 0
+}
+
 function Set-ElText($Root, [string]$Name, [string]$Text) {
     $el = Find-Named $Root $Name
     if ($null -ne $el) { $el.Text = $Text }
@@ -126,7 +167,7 @@ function Set-ElGeometryKey($Root, [string]$Name, [string]$GeometryKey) {
 }
 
 # 検索結果の行の文字列（ヒット語だけ黄色の背景）を差し替える。
-# $Parts は @(@{ Text = "見積先："}, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "（御中）" }) の形。
+# $Parts は @(@{ Text = "見積先："}, @{ Text = "(株)山田商事"; Hit = $true }, @{ Text = "（御中）" }) の形。
 function Set-ElRuns($Root, [string]$Name, [array]$Parts) {
     $el = Find-Named $Root $Name
     if ($null -eq $el) { return }
@@ -171,7 +212,7 @@ function Set-FastSearchState($Root, [string]$State) {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
             $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
             $text.Text = "高速検索：使用不可（2文字以上で使えます）"
-            $info.Visibility = [System.Windows.Visibility]::Collapsed
+            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
         }
         "unavailable-pending" {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
@@ -189,7 +230,7 @@ function Set-FastSearchState($Root, [string]$State) {
             $badge.Background = $Root.FindResource("Ok.E0F7E0"); $badge.BorderBrush = $Root.FindResource("Ok.218A21")
             $icon.Stroke = $Root.FindResource("Ok.218A21"); $text.Foreground = $Root.FindResource("Ok.218A21")
             $text.Text = "高速検索：使用可"
-            $info.Visibility = [System.Windows.Visibility]::Collapsed
+            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ok.218A21")
         }
     }
 }
@@ -202,7 +243,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         "H" {
             # ベースライン。xaml の既定値がそのまま H（既定の 14 件・1 行目選択・使用可）になっている。
             # 参照画像は「開く ▾」のドロップダウンが開いた状態のため、合わせる。
-            Set-ElVisible $Root "ContextMenuPopup" $true
+            Set-ElOpen $Root "ContextMenuPopup" $true
         }
 
         "H0" {
@@ -214,8 +255,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "EmptyTreeState" $true
 
             Set-ElText $Root "SearchWordBox" ""
-            $swb = Find-Named $Root "SearchWordBox"
-            if ($swb) { $swb.Tag = "検索ワードを入力" }
+            # 検索欄が空のとき薄い文字を出し、ラベルは灰色にする（diff_round3.md 8）
+            Set-ElVisible $Root "SearchWordPlaceholder" $true
+            Set-ElBrushKey $Root "SearchWordLabel" "Foreground" "Ink.5F6368"
             Set-ElEnabled $Root "SearchButton" $false
             Set-FastSearchState $Root "hidden"
 
@@ -223,7 +265,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "ResultsEmptyState" $true
             $title = Find-Named $Root "ResultsEmptyTitle"
             if ($title) { $title.Text = "インデックスが作成されていません"; $title.FontSize = 18; $title.FontWeight = "Bold" }
-            Set-ElText $Root "ResultsEmptyBody" "検索を行うには、まずインデックス管理からフォルダを登録し、インデックスを作成してください。"
+            # 2 行で、Figma と同じ位置で折る（diff_round3.md 8）
+            Set-ElText $Root "ResultsEmptyBody" "検索を行うには、まずインデックス管理からフォルダを登録し`r`nインデックスを作成してください。"
             $cta = Find-Named $Root "ResultsEmptyCta"
             if ($cta) { $cta.Content = "インデックス管理を開く"; $cta.Width = 176 }
             Set-ElVisible $Root "ExpandAllLink" $false
@@ -237,6 +280,11 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "PreviewBreadcrumbText" ""
             Set-ElVisible $Root "PreviewContentHost" $false
             Set-ElText $Root "StatusBarText" "インデックスが未作成です"
+
+            # 結果の無い状態。プレビューの欄・境目・絞り込みの欄・列の見出しの行を出さない（diff_round3.md 4 ★）
+            Hide-PreviewPane $Root
+            Hide-ResultsColumnHeader $Root
+            Set-ElVisible $Root "ResultsFilterRow" $false
         }
 
         "H-E" {
@@ -245,11 +293,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElEnabled $Root "SearchButton" $false
             Set-FastSearchState $Root "hidden"
             Set-ElVisible $Root "ResultsPanel" $false
-            Set-ElVisible $Root "ResultsEmptyState" $true
-            Set-ElVisible $Root "ResultsEmptyIcon" $false
-            Set-ElText $Root "ResultsEmptyTitle" "検索ワードを入力してください"
-            Set-ElText $Root "ResultsEmptyBody" "検索ワードを入力し、［検索］を押してください。"
-            Set-ElVisible $Root "ResultsEmptyCta" $false
+            # 検索ワードが無いときは、主要エリアに何も出さない（diff_round3.md 4）
+            Set-ElVisible $Root "ResultsEmptyState" $false
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
             Set-ElVisible $Root "SaveButton" $false
@@ -260,11 +305,15 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "PreviewBreadcrumbText" ""
             Set-ElVisible $Root "PreviewContentHost" $false
             Set-ElText $Root "StatusBarText" ""
+
+            Hide-PreviewPane $Root
+            Hide-ResultsColumnHeader $Root
+            Set-ElVisible $Root "ResultsFilterRow" $false
         }
 
         "H-E2" {
             # 検索ワードは入っているが、まだ検索していない（検索ボタンは押せる）。
-            Set-ElText $Root "SearchWordBox" "（株）山田商事"
+            Set-ElText $Root "SearchWordBox" "(株)山田商事"
             Set-ElEnabled $Root "SearchButton" $true
             Set-ElVisible $Root "ResultsPanel" $false
             Set-ElVisible $Root "ResultsEmptyState" $true
@@ -282,6 +331,10 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "PreviewBreadcrumbText" ""
             Set-ElVisible $Root "PreviewContentHost" $false
             Set-ElText $Root "StatusBarText" ""
+
+            Hide-PreviewPane $Root
+            Hide-ResultsColumnHeader $Root
+            Set-ElVisible $Root "ResultsFilterRow" $false
         }
 
         "H-S" {
@@ -298,12 +351,15 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "FileListRow2" $false
             Set-ElVisible $Root "FileListRow3" $false
             Set-ElVisible $Root "FileListRow4" $false
+            Set-ElText $Root "StatusBarText" ""
+
+            Hide-PreviewPane $Root
         }
 
         "E16" {
-            # 中止した（見つかった分だけ表示。青の帯で知らせる）。
-            # H-S と同じく、見つかった A社_見積書.xlsx のグループだけを出す。
-            Set-ElHeight $Root "TopBannerRow" "Auto"
+            # 中止した（見つかった分だけ表示。帯は検索バーの上ではなく、件数行の位置に出す
+            # ★ diff_round3.md 4。ほかの帯フレームは検索バーの上の行のまま）。
+            Set-ElGridRow $Root "Banner" 4
             Set-ElText $Root "BannerText" "検索を中止しました（見つかった 5 件を表示しています）"
             Set-ElVisible $Root "BannerButton" $false
             Set-ElVisible $Root "ResultsSummaryText" $false
@@ -314,6 +370,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "FileListRow2" $false
             Set-ElVisible $Root "FileListRow3" $false
             Set-ElVisible $Root "FileListRow4" $false
+
+            Hide-PreviewPane $Root
+            Set-ElVisible $Root "ResultsFilterRow" $false
         }
 
         "E14" {
@@ -332,12 +391,18 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
             Set-ElVisible $Root "SaveButton" $false
-            Set-ElText $Root "ResultsSummaryText" "0 件"
+            # 件数の行には「0件」を出さない。状態バーには出す（diff_round3.md 4）
+            Set-ElVisible $Root "ResultsSummaryText" $false
             Set-ElVisible $Root "PreviewOpenBody" $false
             Set-ElVisible $Root "PreviewOpenArrow" $false
             Set-ElVisible $Root "PreviewOpenFolderLink" $false
             Set-ElText $Root "PreviewBreadcrumbText" ""
             Set-ElVisible $Root "PreviewContentHost" $false
+            Set-ElText $Root "StatusBarText" "0 件"
+
+            Hide-PreviewPane $Root
+            Hide-ResultsColumnHeader $Root
+            Set-ElVisible $Root "ResultsFilterRow" $false
         }
 
         "H-1" {
@@ -356,6 +421,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "PreviewBreadcrumbText" ""
             Set-ElVisible $Root "PreviewContentHost" $false
             Set-ElText $Root "StatusBarText" ""
+
+            Hide-ResultsColumnHeader $Root
         }
 
         "E12" {
@@ -375,7 +442,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElBrushKey $Root "Banner" "Background" "Ok.E0F7E0"
             Set-ElBrushKey $Root "Banner" "BorderBrush" "Ok.218A21"
             Set-ElBrushKey $Root "BannerAccent" "Fill" "Ok.218A21"
-            Set-ElBrushKey $Root "BannerIcon" "Fill" "Ok.218A21"
+            Set-ElBrushKey $Root "BannerIcon" "Stroke" "Ok.218A21"
+            Set-ElBrushKey $Root "BannerGlyph" "Stroke" "Ok.218A21"
             Set-ElGeometryKey $Root "BannerGlyph" "Icon.BadgeGlyphOk"
             Set-ElText $Root "BannerText" "検索結果を保存しました"
             $bb = Find-Named $Root "BannerButton"
@@ -383,33 +451,44 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-row3" {
-            # ヒットした行が検索結果の 3 件目（セル A41）。プレビューは前後の行（40・42行目）
-            # を含めて表示し、ヒット行（41行目）だけ列 A の内容を出す（列 B・C は空）。
+            # ヒットした行が検索結果の 3 件目（セル A41）。選んでいる行は TopRow3（diff_round3.md 1）。
+            # プレビューは前後の行（40・42行目）を含めて表示し、ヒット行（41行目）だけ列 A の内容を出す
+            # （列 B・C は空）。
+            Set-ElBrushKey $Root "TopRow1" "Background" "Bg.FAFBFC"
+            Set-ElBrushKey $Root "TopRow3" "Background" "Select.E1F2FF"
             Set-ElText $Root "PreviewBreadcrumbText" "営業部\A社_見積書.xlsx ・ [シート]見積書!A41 ・ セル"
             Set-ElText $Root "PreviewTopRowNum" "40"
             Set-ElText $Root "PreviewTopText1" ""
             Set-ElText $Root "PreviewTopText2" ""
             Set-ElText $Root "PreviewHighlightRowNum" "41"
-            Set-ElText $Root "PreviewHighlightText1" "納品場所：（株）山田商事 本社ビル"
+            Set-ElText $Root "PreviewHighlightText1" "納品場所：(株)山田商事 本社ビル"
             Set-ElText $Root "PreviewHighlightText2" ""
             Set-ElText $Root "PreviewBottomRowNum" "42"
             Set-ElText $Root "PreviewBottomText1" ""
             Set-ElText $Root "PreviewBottomText2" ""
+            Set-ElText $Root "PreviewExtraRowNum" "43"
         }
 
         "H-row4" {
-            # ヒットした行が検索結果の 4 件目（セル A5）。プレビューは前後の行（4・6行目）
-            # を含めて表示し、ヒット行（5行目）だけ列 A の内容を出す（列 B・C は空）。
-            Set-ElText $Root "PreviewBreadcrumbText" "営業部\A社_見積書.xlsx ・ [シート]見積書!A5 ・ セル"
+            # ヒットした行が検索結果の 4 件目（セル D5・図形）。選んでいる行は TopRow4（diff_round3.md 1）。
+            # プレビューは前後の行（4・6行目）を含めて表示し、ヒット行（5行目）は D 列を光らせる
+            # （列 A・B・C は空。diff_round3.md 10）。
+            Set-ElBrushKey $Root "TopRow1" "Background" "Bg.FAFBFC"
+            Set-ElBrushKey $Root "TopRow4" "Background" "Select.E1F2FF"
+            Set-ElText $Root "PreviewBreadcrumbText" "営業部\A社_見積書.xlsx ・ [シート]見積書!D5 ・ 図形"
             Set-ElText $Root "PreviewTopRowNum" "4"
             Set-ElText $Root "PreviewTopText1" ""
             Set-ElText $Root "PreviewTopText2" ""
             Set-ElText $Root "PreviewHighlightRowNum" "5"
-            Set-ElText $Root "PreviewHighlightText1" "納品場所：（株）山田商事 本社4F"
+            Set-ElText $Root "PreviewHighlightText1" ""
             Set-ElText $Root "PreviewHighlightText2" ""
+            Set-ElVisible $Root "PreviewHighlightCellA" $false
+            Set-ElVisible $Root "PreviewHighlightCellD" $true
+            Set-ElText $Root "PreviewHighlightTextD" "納品場所：(株)山田商事 本社4F"
             Set-ElText $Root "PreviewBottomRowNum" "6"
             Set-ElText $Root "PreviewBottomText1" ""
             Set-ElText $Root "PreviewBottomText2" ""
+            Set-ElText $Root "PreviewExtraRowNum" "7"
         }
 
         "open-menu" {
@@ -417,7 +496,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # 画面の飾り（タイトルバー・本体）をすべて隠し、メニューだけを出す。
             Set-ElVisible $Root "TitleBarGrid" $false
             Set-ElVisible $Root "BodyGrid" $false
-            Set-ElVisible $Root "ContextMenuPopup" $true
+            Set-ElOpen $Root "ContextMenuPopup" $true
         }
 
         "H-R" {
@@ -425,7 +504,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # 高速検索は正規表現では使えないため「使用不可」になる。
             Set-ElChecked $Root "RegexCheck" $true
             Set-FastSearchState $Root "unavailable-regex"
-            Set-ElText $Root "ResultsSummaryText" "16件（6ファイル）・0.8秒・通常の検索"
+            Set-ElText $Root "ResultsSummaryText" "16 件（6 ファイル）・0.8 秒・通常の検索"
+            # H-R はステータスバーを 16 件にする（diff_round3.md 4）
+            Set-ElText $Root "StatusBarText" "16 件"
 
             Set-ElVisible $Root "MinutesGroupHeader" $true
             Set-ElVisible $Root "MinutesSubHeader" $true
@@ -447,17 +528,17 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "TopRow1Col1" "1 ページ（目安）"
             Set-ElText $Root "TopRow1Col2" "本文"
             Set-ElRuns $Root "TopRow1Col3" @(
-                @{ Text = "甲：" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "（以下「甲」という）" }
+                @{ Text = "甲：" }, @{ Text = "(株)山田商事"; Hit = $true }, @{ Text = "（以下「甲」という）" }
             )
             Set-ElText $Root "TopRow2Col1" "2 ページ（目安）"
             Set-ElText $Root "TopRow2Col2" "本文"
             Set-ElRuns $Root "TopRow2Col3" @(
-                @{ Text = "第3条" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "は毎月末日までに支払う" }
+                @{ Text = "第3条" }, @{ Text = "(株)山田商事"; Hit = $true }, @{ Text = "は毎月末日までに支払う" }
             )
             Set-ElText $Root "TopRow3Col1" "5 ページ（目安）"
             Set-ElText $Root "TopRow3Col2" "本文"
             Set-ElRuns $Root "TopRow3Col3" @(
-                @{ Text = "署名欄：" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = " 代表取締役 山田 太郎" }
+                @{ Text = "署名欄：" }, @{ Text = "(株)山田商事"; Hit = $true }, @{ Text = " 代表取締役 山田 太郎" }
             )
             Set-ElVisible $Root "TopRow4" $false
 
@@ -471,7 +552,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElStyleKey $Root "PreviewOpenBody" "Btn.OpenPlain"
             Set-ElVisible $Root "PreviewSheetGrid" $false
             Set-ElVisible $Root "PreviewParagraphView" $true
-            Set-ElText $Root "PreviewParagraphText" "第3条（支払条件）`r`n`r`n甲は乙に対し、本契約に基づく対価を、検収完了日の属する月の翌月末日までに、乙が指定する銀行口座へ振り込む方法により支払う。"
+            Set-ElText $Root "PreviewParagraphHeading" "第3条（支払条件）"
+            Set-ElText $Root "PreviewParagraphText" "1 甲は乙に対し、本契約に基づく対価を、検収完了日の属する月の翌月末日までに、乙が指定する銀行口座へ振り込む方法により支払う。"
+            Set-ElText $Root "PreviewParagraphText2" "2 振込手数料は甲の負担とする。"
             Set-ElText $Root "PreviewBreadcrumbText" "総務\契約\基本契約書.docx ・ 1 ページ（目安） ・ 本文"
         }
 
@@ -483,6 +566,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "NavBadge_Index" $true
             Set-ElVisible $Root "NavBadge_IndexDot" $true
             Set-ElText $Root "NavBadge_IndexText" "58%"
+            # 「58%」は pill にする（diff_round3.md 12・小）
+            Set-ElBrushKey $Root "NavBadge_IndexPill" "Background" "Select.E5F1FB"
+            Set-ElBrushKey $Root "NavBadge_IndexPill" "BorderBrush" "Accent.0078D4"
             Set-FastSearchState $Root "hidden"
             Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）・0.8 秒"
         }
@@ -491,17 +577,25 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # インデックス更新が中断している。
             Set-ElHeight $Root "TopBannerRow" "Auto"
             $icon = Find-Named $Root "BannerIcon"
-            if ($icon) { $icon.Fill = $Root.FindResource("Warn.BA7D00") }
+            if ($icon) { $icon.Stroke = $Root.FindResource("Warn.BA7D00") }
+            $glyph = Find-Named $Root "BannerGlyph"
+            if ($glyph) { $glyph.Stroke = $Root.FindResource("Warn.BA7D00") }
             $banner = Find-Named $Root "Banner"
             if ($banner) { $banner.Background = $Root.FindResource("Warn.FFF5E0"); $banner.BorderBrush = $Root.FindResource("Warn.BA7D00") }
             Set-ElGeometryKey $Root "BannerGlyph" "Icon.BadgeGlyphWarn"
             # バナーの文言とボタンは「前回の更新が途中です」「続きから再開」にする（diff_round2.md 2 回目指摘）
             Set-ElText $Root "BannerText" "前回の更新が途中です（残り 875 件）"
+            # H-P のボタンは橙にする（diff_round3.md 7）
             $bb = Find-Named $Root "BannerButton"
-            if ($bb) { $bb.Content = "続きから再開" }
+            if ($bb) { $bb.Content = "続きから再開"; $bb.BorderBrush = $Root.FindResource("Warn.BA7D00"); $bb.Foreground = $Root.FindResource("Warn.BA7D00") }
             Set-ElVisible $Root "NavBadge_Index" $true
             Set-ElVisible $Root "NavBadge_IndexDot" $false
             Set-ElText $Root "NavBadge_IndexText" "中断"
+            # H-P は高速検索のバッジを出さない。ナビの「中断」は橙の pill にする（diff_round3.md 4）
+            Set-FastSearchState $Root "hidden"
+            Set-ElBrushKey $Root "NavBadge_IndexPill" "Background" "Warn.FFF5E0"
+            Set-ElBrushKey $Root "NavBadge_IndexPill" "BorderBrush" "Warn.BA7D00"
+            Set-ElBrushKey $Root "NavBadge_IndexText" "Foreground" "Warn.BA7D00"
         }
 
         "E13" {
@@ -514,8 +608,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
                              "TreeCheck_アーカイブ")) {
                 Set-ElChecked $Root $n $false
             }
-            Set-ElVisible $Root "Dot_顧客" $false
-            Set-ElVisible $Root "Dot_営業部2025" $false
+            # 3 つの点（顧客＝橙・営業部2025＝青・アーカイブ＝赤）はすべて出す（diff_round3.md 9）
             Set-ElHeight $Root "NavNoticeRow" "Auto"
             Set-ElVisible $Root "NavNotice" $true
 
@@ -548,7 +641,15 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # メンテナ指摘（2026-10-03・追加の 1）: 絞り込み中は件数を「N件中K件を表示」にする見本。
             $filterBox = Find-Named $Root "ResultsFilterBox"
             if ($filterBox) { $filterBox.Text = "山田"; $filterBox.Foreground = $Root.FindResource("Ink.202124") }
-            Set-ElText $Root "ResultsSummaryText" "14件中3件を表示"
+            Set-ElText $Root "ResultsSummaryText" "14 件中 3 件を表示"
+            # 絞り込み中は、合うものだけを並べる（diff_round3.md 10）。
+            # 「山田」に合う A社_見積書.xlsx の 3 行だけ残し、ほかのファイルの行は隠す。
+            Set-ElVisible $Root "FileListRow1" $false
+            Set-ElVisible $Root "FileListRow2" $false
+            Set-ElVisible $Root "FileListRow3" $false
+            Set-ElVisible $Root "FileListRow4" $false
+            Set-ElVisible $Root "TopRow4" $false
+            Set-ElText $Root "TopGroupCount" "[シート]見積書 ・ 3 件"
         }
 
         default {

@@ -27,6 +27,46 @@ $realFont = New-Object System.Windows.Media.FontFamily($fontUri)
 
 $Tolerance = 8
 
+# Popup（開くメニュー）は RenderTargetBitmap に写らないため、Save-Shot（screenshots.ps1）と
+# 同じやり方で Child を別に描いて重ねる（diff_round3.md 3 ★）。
+function Merge-PopupOverlay($visual, $rtb, [int]$Width, [int]$Height) {
+    $popup = $visual.FindName("ContextMenuPopup")
+    if ($null -eq $popup -or $popup.Tag -ne "open") { return $rtb }
+    $child = $popup.Child
+    if ($null -eq $child) { return $rtb }
+
+    $child.Measure((New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity)))
+    $cw = [Math]::Max(1, [Math]::Ceiling($child.DesiredSize.Width))
+    $ch = [Math]::Max(1, [Math]::Ceiling($child.DesiredSize.Height))
+    $child.Arrange((New-Object System.Windows.Rect(0, 0, $cw, $ch)))
+    $child.UpdateLayout()
+
+    $childRtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap(
+        $cw, $ch, 96, 96, [System.Windows.Media.PixelFormats]::Pbgra32)
+    $childRtb.Render($child)
+
+    $target = $popup.PlacementTarget
+    if ($null -ne $target -and $target.ActualWidth -gt 0 -and $target.ActualHeight -gt 0) {
+        $topLeft = $target.TransformToAncestor($visual).Transform((New-Object System.Windows.Point(0, 0)))
+        $posX = $topLeft.X + $popup.HorizontalOffset
+        $posY = $topLeft.Y + $target.ActualHeight + $popup.VerticalOffset
+    } else {
+        $posX = 1000
+        $posY = 645
+    }
+
+    $dv = New-Object System.Windows.Media.DrawingVisual
+    $ctx = $dv.RenderOpen()
+    $ctx.DrawImage($rtb, (New-Object System.Windows.Rect(0, 0, $Width, $Height)))
+    $ctx.DrawImage($childRtb, (New-Object System.Windows.Rect($posX, $posY, $cw, $ch)))
+    $ctx.Close()
+
+    $finalRtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap(
+        $Width, $Height, 96, 96, [System.Windows.Media.PixelFormats]::Pbgra32)
+    $finalRtb.Render($dv)
+    return $finalRtb
+}
+
 function Render-Frame($Frame) {
     $xamlPath = Join-Path $root $Frame.Xaml
     $reader = [System.Xml.XmlReader]::Create($xamlPath)
@@ -45,6 +85,12 @@ function Render-Frame($Frame) {
     $rtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap(
         $Frame.Width, $Frame.Height, 96, 96, [System.Windows.Media.PixelFormats]::Pbgra32)
     $rtb.Render($visual)
+
+    if ($Frame.Xaml -eq "xaml\search.xaml") {
+        $popupEl = $visual.FindName("ContextMenuPopup")
+        if ($null -ne $popupEl) { $popupEl.PlacementTarget = $visual.FindName("PreviewOpenArrow") }
+        $rtb = Merge-PopupOverlay $visual $rtb $Frame.Width $Frame.Height
+    }
     $rtb.Freeze()
     return $rtb
 }

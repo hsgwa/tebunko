@@ -24,7 +24,7 @@
         <TextBlock Text="Excel・セル" Style="{StaticResource Text.11}" FontWeight="Bold" Margin="8,6,0,4" />
         <Grid Margin="8,0,8,8">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" />
+            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
             <RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" />
@@ -37,10 +37,10 @@
           <TextBlock Grid.Row="1" Grid.Column="1" Text="取引規模" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="2" Text="Aクラス" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
-            <Run Text="見積先：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="（御中）" />
+            <Run Text="見積先：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="（御中）" />
           </TextBlock>
           <TextBlock Grid.Row="2" Grid.Column="2" Text="見積番号：12-2324-0143" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="3" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -55,7 +55,7 @@
         <TextBlock Text="Excel・図形（場所の表記は図形の左上のセル）" Style="{StaticResource Text.11}" FontWeight="Bold" Margin="8,6,0,4" />
         <Grid Margin="8,0,8,8">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" />
+            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
             <RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" />
@@ -66,7 +66,7 @@
           <TextBlock Grid.Row="0" Grid.Column="3" Text="C" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="5" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
             <Run Text="（図形）納期は" /><Run Text="別途ご相談" Background="{StaticResource Hit.FFF176}" />
@@ -82,7 +82,7 @@
         <TextBlock Text="Excel・コメント（場所の表記はコメントのセル）" Style="{StaticResource Text.11}" FontWeight="Bold" Margin="8,6,0,4" />
         <Grid Margin="8,0,8,8">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" />
+            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
             <RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" />
@@ -93,7 +93,7 @@
           <TextBlock Grid.Row="0" Grid.Column="3" Text="C" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="0" Text="11" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="12" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
             <Run Text="（コメント）要確認：" /><Run Text="単価" Background="{StaticResource Hit.FFF176}" /><Run Text="を見直す" />
@@ -119,10 +119,10 @@
           <TextBlock Grid.Row="1" Grid.Column="0" Text="14" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="1" Text="第3条（支払条件）" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="15" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
-            <Run Text="甲：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="は毎月末日までに支払う" />
+            <Run Text="甲：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="は毎月末日までに支払う" />
           </TextBlock>
           <TextBlock Grid.Row="3" Grid.Column="0" Text="16" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="3" Grid.Column="1" Text="（以下、振込先を記載）" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
@@ -145,7 +145,7 @@
           <TextBlock Grid.Row="0" Grid.Column="1" Text="1" Style="{StaticResource Text.11.Muted}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
             <Run Text="（ノート）" /><Run Text="顧客名" Background="{StaticResource Hit.FFF176}" /><Run Text="の表記はカタカナ不要" />
@@ -171,10 +171,10 @@
           <TextBlock Grid.Row="1" Grid.Column="0" Text="1" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="1" Text="導入事例のご紹介" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="2" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
-            <Run Text="導入効果：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="様の事例" />
+            <Run Text="導入効果：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="様の事例" />
           </TextBlock>
           <TextBlock Grid.Row="3" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
@@ -196,7 +196,7 @@
           <TextBlock Grid.Row="0" Grid.Column="1" Text="1" Style="{StaticResource Text.11.Muted}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="0" Text="1" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="2" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
             <Run Text="（ノート）次回更新予定：" /><Run Text="単価" Background="{StaticResource Hit.FFF176}" /><Run Text="の数値" />
@@ -222,10 +222,10 @@
           <TextBlock Grid.Row="1" Grid.Column="0" Text="29" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="1" Text="定例会の出席：佐藤様・山田" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="30" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
-            <Run Text="次回までに" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="向けの見積を送る" />
+            <Run Text="次回までに" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="向けの見積を送る" />
           </TextBlock>
           <TextBlock Grid.Row="3" Grid.Column="0" Text="31" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="3" Grid.Column="1" Text="（以上）" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
@@ -239,7 +239,7 @@
         <TextBlock Text="テキスト（tsv。タブ区切りのため列見出しは 1・2・3）" Style="{StaticResource Text.11}" FontWeight="Bold" Margin="8,6,0,4" />
         <Grid Margin="8,0,8,8">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" />
+            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
             <RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" />
@@ -253,11 +253,11 @@
           <TextBlock Grid.Row="1" Grid.Column="2" Text="B社" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="3" Text="見積送付" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="2" Grid.Column="2" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="2" Grid.Column="2" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="2" Grid.Column="0" Text="9" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="1" Text="2024-10-15" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="2" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
-            <Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" />
+            <Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" />
           </TextBlock>
           <TextBlock Grid.Row="2" Grid.Column="3" Text="見積送付" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="3" Grid.Column="0" Text="10" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -287,10 +287,10 @@
             <ColumnDefinition Width="28" /><ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <Border Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Select.E1F2FF}" Height="20" VerticalAlignment="Top" />
-          <Border Grid.Column="1" Background="{StaticResource Hit.FFF176}" Height="20" VerticalAlignment="Top" />
+          <Border Grid.Column="1" Background="{StaticResource Match.FFF3CD}" Height="20" VerticalAlignment="Top" />
           <TextBlock Grid.Column="0" Text="41" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" Height="20" VerticalAlignment="Top" TextAlignment="Center" />
           <TextBlock Grid.Column="1" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" Height="20" VerticalAlignment="Top">
-            <Run Text="納品場所：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="本社ビル" />
+            <Run Text="納品場所：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="本社ビル" />
           </TextBlock>
         </Grid>
         <TextBlock Text="（前後の行は読み込めませんでした。選択した行だけを表示しています）" Style="{StaticResource Text.11.Muted}" Margin="8,4,8,8" />
@@ -303,7 +303,7 @@
         <TextBlock Text="列を省いた（横に長い行。一度に表示する列は 200 列まで）" Style="{StaticResource Text.11}" FontWeight="Bold" Margin="8,6,0,4" />
         <Grid Margin="8,0,8,8">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="*" />
+            <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" /><ColumnDefinition Width="160" />
           </Grid.ColumnDefinitions>
           <Grid.RowDefinitions>
             <RowDefinition Height="20" /><RowDefinition Height="20" /><RowDefinition Height="20" />
@@ -313,11 +313,11 @@
           <TextBlock Grid.Row="0" Grid.Column="2" Text="D" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="0" Grid.Column="3" Text="…" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Select.E1F2FF}" />
-          <Border Grid.Row="1" Grid.Column="2" Background="{StaticResource Hit.FFF176}" />
+          <Border Grid.Row="1" Grid.Column="2" Background="{StaticResource Match.FFF3CD}" />
           <TextBlock Grid.Row="1" Grid.Column="0" Text="1" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="1" Text="A社" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="1" Grid.Column="2" FontWeight="Bold" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center">
-            <Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" />
+            <Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" />
           </TextBlock>
           <TextBlock Grid.Row="1" Grid.Column="3" Text="…" Style="{StaticResource Text.12.Muted}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Text="表示は C〜GR の 200 列（全 2,000 列）" Style="{StaticResource Text.11.Muted}" Margin="4,0" VerticalAlignment="Center" />

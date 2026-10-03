@@ -16,11 +16,13 @@
     <!-- Width を明示した要素は、既定の HorizontalAlignment（Stretch）のままだと
          親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
          HorizontalAlignment="Left" を明示する。 -->
-    <Border Width="260" Height="26" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1">
+    <!-- 乗っているときは灰色の地にし、枠を付けない。項目は「提案書_2024年度…」で切る
+         （自動の省略記号だと拡張子の手前で切れて「.xls」が残ることがあるため、文字列で切る。diff_round3.md 9） -->
+    <Border Width="260" Height="24" HorizontalAlignment="Left" Background="{StaticResource Bg.F3F3F4}" BorderThickness="0">
       <DockPanel Margin="4,0">
         <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" VerticalAlignment="Center" Margin="0,0,6,0" />
         <Path Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform" Fill="{StaticResource Folder.E8A020}" Margin="0,0,5,0" VerticalAlignment="Center" />
-        <TextBlock Text="提案書_2024年度下期_大口顧客向け.xlsx" Style="{StaticResource Text.12}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="提案書_2024年度…" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
       </DockPanel>
     </Border>
     <!-- 吹き出しは行の左端に揃えず、カーソルを当てた位置（アイコンのあたり）に寄せて出る。
