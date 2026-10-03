@@ -3,6 +3,35 @@
 #   反映済みの システムインデックスには、そのフォルダの集約ファイルのすべての 2-gram が入っていて、検索語の語はその一部のため、
 #   当たる集約ファイルのフォルダは必ず候補に入る。反映済みでない・対象外・対応済みでないものは、候補に関係なく照合する。
 
+function getReflectedSystemIndexEntries {
+    # 状態ファイルの反映待ちの行を、Windows Search の索引と照らして、反映済みになったものとまだのものに分ける。
+    # @{ Reflected（反映済みになった行の相対パス）; Unreflected（まだ反映されていない行があるフォルダの相対パス） } を返す。
+    # 反映待ちが無ければ、Windows Search には問い合わせない。問い合わせに失敗したら例外のまま投げる
+    #   ask: { param($sql) 行（object[]）の一覧 }（呼び出し元の $query・$connection を見る。& で呼ぶと呼び出し元の変数が見える）
+    param (
+        $state,
+        [string]$systemRootPath,
+        [scriptblock]$ask
+    )
+
+    $reflected = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    $unreflected = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    if ($state.Pending.Count -gt 0) {
+        foreach ($row in (& $ask (newSystemIndexStateQuery $systemRootPath))) {
+            $rel = getRelativePath (convertItemUrl ([string]$row[0])) $systemRootPath
+            if ($rel -and $state.Pending.ContainsKey($rel) -and (testSystemIndexReflected $row[1] $row[2] $state.Pending[$rel])) {
+                [void]$reflected.Add($rel)
+            }
+        }
+        foreach ($rel in $state.Pending.Keys) {
+            if (!$reflected.Contains($rel)) {
+                [void]$unreflected.Add([System.IO.Path]::GetDirectoryName($rel))
+            }
+        }
+    }
+    return @{ Reflected = $reflected; Unreflected = $unreflected }
+}
+
 function getFastSearchPackFiles {
     # 高速検索で照合する集約ファイルを、getIndexPackFiles と同じ形（@{ Folders; Packs }）に Fast（@{ Candidates; Unreflected }）を足して返す。
     # 高速検索を使えないとき（検索語から語を作れない・状態ファイルを読めない・Windows Search に問い合わせられない）は $null
@@ -42,25 +71,13 @@ function getFastSearchPackFiles {
 
     $indexRootPath = $indexRoot.TrimEnd("\")
     $systemRootPath = $systemRoot.TrimEnd("\")
-    $reflected = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
-    $unreflected = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
     $targets = New-Object System.Collections.Generic.List[object]
     $candidates = 0
     try {
         # 反映の判定（状態ファイルに反映待ちがあるものだけ。反映済みになった行は、この後で状態から消す）
-        if ($state.Pending.Count -gt 0) {
-            foreach ($row in (& $ask (newSystemIndexStateQuery $systemRootPath))) {
-                $rel = getRelativePath (convertItemUrl ([string]$row[0])) $systemRootPath
-                if ($rel -and $state.Pending.ContainsKey($rel) -and (testSystemIndexReflected $row[1] $row[2] $state.Pending[$rel])) {
-                    [void]$reflected.Add($rel)
-                }
-            }
-            foreach ($rel in $state.Pending.Keys) {
-                if (!$reflected.Contains($rel)) {
-                    [void]$unreflected.Add([System.IO.Path]::GetDirectoryName($rel))
-                }
-            }
-        }
+        $entries = getReflectedSystemIndexEntries $state $systemRootPath $ask
+        $reflected = $entries.Reflected
+        $unreflected = $entries.Unreflected
 
         foreach ($folder in $folders) {
             if ($folder -is [string]) {
@@ -129,4 +146,79 @@ function getFastSearchPackFiles {
     }
     $index.Fast = @{ Candidates = $candidates; Unreflected = $unreflected.Count }
     return $index
+}
+
+function getSystemIndexProgress {
+    # システムインデックス（高速検索用の txt）が Windows Search にどこまで反映されたかを数える。画面が「確かめるとき」だけ呼ぶ（検索では呼ばない）。
+    # @{ Folders; Waiting; ContentIndexed; ByIndex } を返す。状態ファイルを読めない・Windows Search に問い合わせられないときは $null。
+    #   Folders       : txt があるフォルダと、状態ファイルの反映待ちのフォルダを合わせた数（分けた txt は 1 つのフォルダに数える）
+    #   Waiting       : 反映待ちのうち、Windows Search でまだ反映済みでないフォルダの数（getFastSearchPackFiles と同じ判定）
+    #   ContentIndexed: 本文インデックス（index の TSV）も Windows Search に索引されているか（反映が遅い理由の案内に使う）
+    #   ByIndex       : インデックス名（system_index からの相対パスの先頭のフォルダ名） → @{ Folders; Waiting } の辞書（OrdinalIgnoreCase）
+    #   query         : getFastSearchPackFiles と同じ。$null なら Windows Search を開いて問い合わせる（テストで差し替える）
+    #   connection    : 開いた接続（渡したら呼び出し側が閉じる）。$null なら query が無いときだけ自分で開いて閉じる
+    param (
+        [scriptblock]$query = $null,
+        [string]$indexRoot = $workspace.IndexDir,
+        [string]$systemRoot = $workspace.SystemIndexDir,
+        [string]$statePath = $workspace.SystemIndexStateFile,
+        $connection = $null
+    )
+
+    $state = readSystemIndexState $statePath
+    if ($null -eq $state) {
+        return $null
+    }
+    $own = $false
+    if ($null -eq $query -and $null -eq $connection) {
+        $connection = openWindowsSearch
+        if ($null -eq $connection) {
+            return $null
+        }
+        $own = $true
+    }
+    # 問い合わせ（差し替えが無ければ開いた接続で）。& で呼ぶと、この関数の $query・$connection が見える
+    $ask = {
+        param ($sql)
+        if ($query) { & $query $sql } else { invokeWindowsSearch $connection $sql }
+    }
+
+    $systemRootPath = $systemRoot.TrimEnd("\")
+    try {
+        $entries = getReflectedSystemIndexEntries $state $systemRootPath $ask
+        $folders = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+        $longRoot = toLongPath $systemRootPath
+        if ([System.IO.Directory]::Exists($longRoot)) {
+            $pattern = "$([System.IO.Path]::GetFileNameWithoutExtension(${systemIndexFileName}))*.txt"
+            foreach ($file in [System.IO.Directory]::EnumerateFiles($longRoot, $pattern, [System.IO.SearchOption]::AllDirectories)) {
+                $rel = getRelativePath (fromLongPath ([System.IO.Path]::GetDirectoryName($file))) $systemRootPath
+                if ($rel) { [void]$folders.Add($rel) }
+            }
+        }
+        foreach ($key in $state.Pending.Keys) {
+            [void]$folders.Add([System.IO.Path]::GetDirectoryName($key))
+        }
+        $contentIndexed = testTsvIndexedByWindowsSearch $indexRoot $connection
+    } catch {
+        return $null
+    } finally {
+        if ($own) {
+            $connection.Dispose()
+        }
+    }
+    $byIndex = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($rel in $folders) {
+        $name = $rel.Split([char[]]"\")[0]
+        if (!$byIndex.ContainsKey($name)) {
+            $byIndex[$name] = @{ Folders = 0; Waiting = 0 }
+        }
+        $byIndex[$name].Folders++
+    }
+    foreach ($rel in $entries.Unreflected) {
+        $name = $rel.Split([char[]]"\")[0]
+        if ($byIndex.ContainsKey($name)) {
+            $byIndex[$name].Waiting++
+        }
+    }
+    return @{ Folders = $folders.Count; Waiting = $entries.Unreflected.Count; ContentIndexed = $contentIndexed; ByIndex = $byIndex }
 }

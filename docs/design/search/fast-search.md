@@ -9,6 +9,7 @@
 | 項目 | 仕様 |
 |---|---|
 | 使える条件（画面の「高速検索：使用可」） | Windows Search を開けて `work/system_index` が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（`testFastSearchUsable`・`getFastSearchView`）。使えないときは [検索を速くする仕組み](speed.md) のとおりすべてを照合する |
+| インデックスごとの反映の進み具合 | ［1 インデックス管理］の一覧の「高速検索」列で、インデックスごとに Windows Search への反映がどこまで進んだかを確かめられる（`確認中…` / `－` / `不可` / `反映待ち` / `反映中 N%` / `可`。[一覧の列](../gui/index-tab.md#一覧の列)）。`不可` のときは、接続できない・ワークスペースが索引の対象外・そのインデックスに高速検索用のデータが無い、のいずれかで、理由をツールヒントに出す（`getFastSearchRowView`） |
 | 語の作り方 | ワードを空白で区切り、2 文字以上の部分の隣り合う 2 文字を小文字にし、UTF-16LE の 4 バイトを 16 進にした語（`x` ＋ 8 桁）にする（`getSearchGrams`）。最大 16 個（多いときは均等に間引く。間引いても候補が増えるだけ） |
 | 候補 | `CONTAINS(System.Search.Contents, '"x…" AND "x…"')` で、検索対象のフォルダの中の txt を探す。語の範囲で分けた txt（`system_index_1.txt` …）は語ごとに問い合わせ、すべての語がどれかで見つかったフォルダを候補にする |
 | 反映の判定 | txt が Windows Search に反映済み ⇔ `System.Search.GatherTime` が空でない（本文を読み終えた）かつ `System.DateModified` が txt の更新日時（UTC）を秒で切り捨てた値と同じ（Windows Search は秒未満を切り捨てて持つ。`testSystemIndexReflected`） |

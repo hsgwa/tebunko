@@ -196,6 +196,9 @@ function startGui {
             refreshFolderStatus
             if (!(isIndexing)) {
                 refreshIndexingState
+                if (shouldRefreshFastSearchStatus) {
+                    refreshFastSearchStatus
+                }
             }
             updateSearchTarget
             if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {

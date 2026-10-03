@@ -81,6 +81,30 @@ function newGuiTool {
     return @{ Dir = $tool; Work = $work; Config = "$tool\setting.config"; Gui = "$tool\scripts\tebunko\gui.ps1" }
 }
 
+function newGuiSingleScriptTool {
+    # 展開せずに動く単一 .ps1 版（試験版）を $Dir\tool に組み立て、同じフォルダに設定ファイル（ワークスペースは
+    # 同じフォルダの work）を書く。scripts\ の写しは使わず、tools\new_single_script.ps1 でその場で作る
+    # （${rootDir} が .ps1 自身の置き場所になるため、setting.config・work もそこにできる。shared/core/paths.ps1）。
+    #   settings: 設定ファイルに足す項目
+    param (
+        [string]$Dir,
+        [hashtable]$Settings = @{}
+    )
+
+    $tool = Join-Path $Dir "tool"
+    [void][IO.Directory]::CreateDirectory($tool)
+    $scriptPath = Join-Path $tool "tebunko-test.ps1"
+    if (!(Test-Path -LiteralPath $scriptPath)) {
+        & "$(getGuiRepoRoot)\tools\new_single_script.ps1" -Version "v0.0.0-test" -OutFile $scriptPath | Out-Null
+    }
+    $work = Join-Path $tool "work"
+    [void][IO.Directory]::CreateDirectory($work)
+    $config = [ordered]@{ workspaceFolder = $work }
+    foreach ($key in $Settings.Keys) { $config[$key] = $Settings[$key] }
+    writeGuiConfig $tool $config
+    return @{ Dir = $tool; Work = $work; Config = "$tool\setting.config"; Gui = $scriptPath }
+}
+
 function writeGuiConfig {
     param ([string]$Tool, $Config)
     [IO.File]::WriteAllText("$Tool\setting.config", (ConvertTo-Json -InputObject $Config -Depth 5), (New-Object Text.UTF8Encoding($false)))

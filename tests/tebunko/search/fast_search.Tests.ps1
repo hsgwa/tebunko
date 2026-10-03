@@ -174,3 +174,93 @@ Describe "getFastSearchPackFiles" -Tag Io {
         getFastSearchPackFiles "見積" $folders $null $ws.Index $ws.System $ws.State | Should -Be $null
     }
 }
+
+Describe "getSystemIndexProgress" -Tag Io {
+    It "すべて反映済みなら、フォルダの数と、反映待ち 0 を返す" {
+        Mock testTsvIndexedByWindowsSearch { $false }
+        $ws = newFastWorkspace "$TestDrive\p1"
+        $progress = getSystemIndexProgress (newFakeWindowsSearch $ws.System) $ws.Index $ws.System $ws.State
+        $progress.Folders | Should -Be 4   # 営業\2024・営業\2024\2月・営業\2025・総務
+        $progress.Waiting | Should -Be 0
+        $progress.ContentIndexed | Should -Be $false
+        $progress.ByIndex["営業"].Folders | Should -Be 3
+        $progress.ByIndex["営業"].Waiting | Should -Be 0
+        $progress.ByIndex["総務"].Folders | Should -Be 1
+        $progress.ByIndex["総務"].Waiting | Should -Be 0
+    }
+
+    It "一部が反映待ちなら、その数を数える（本文の索引が対象のままなら ContentIndexed が真）" {
+        Mock testTsvIndexedByWindowsSearch { $true }
+        $ws = newFastWorkspace "$TestDrive\p2"
+        $query = newFakeWindowsSearch $ws.System @("営業\2024\2月\system_index.txt", "総務\system_index.txt")
+        $progress = getSystemIndexProgress $query $ws.Index $ws.System $ws.State
+        $progress.Folders | Should -Be 4
+        $progress.Waiting | Should -Be 2
+        $progress.ContentIndexed | Should -Be $true
+        $progress.ByIndex["営業"].Folders | Should -Be 3
+        $progress.ByIndex["営業"].Waiting | Should -Be 1
+        $progress.ByIndex["総務"].Folders | Should -Be 1
+        $progress.ByIndex["総務"].Waiting | Should -Be 1
+    }
+
+    It "分けた txt（system_index_1.txt …）のフォルダは 1 つに数え、インデックスごとの数にも反映する" {
+        Mock testTsvIndexedByWindowsSearch { $false }
+        $ws = newFastWorkspace "$TestDrive\p3"
+        $systemIndexPartBytes = 100
+        $results = writeSystemIndexFolders @("$($ws.Index)\営業\2024") $ws.Index $ws.System 1
+        $results[0].Files.Count | Should -BeGreaterThan 1
+        [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results } $ws.State)
+        $progress = getSystemIndexProgress (newFakeWindowsSearch $ws.System) $ws.Index $ws.System $ws.State
+        $progress.Folders | Should -Be 4
+        $progress.Waiting | Should -Be 0
+        $progress.ByIndex["営業"].Folders | Should -Be 3
+    }
+
+    It "日時 0 の反映待ち（txt がまだ無い）も、フォルダと反映待ちに数える（インデックスごとの数にも反映する）" {
+        Mock testTsvIndexedByWindowsSearch { $false }
+        $ws = newFastWorkspace "$TestDrive\p4"
+        [void](markSystemIndexChanged @("営業\新規") $ws.State)
+        $progress = getSystemIndexProgress (newFakeWindowsSearch $ws.System) $ws.Index $ws.System $ws.State
+        $progress.Folders | Should -Be 5
+        $progress.Waiting | Should -Be 1
+        $progress.ByIndex["営業"].Folders | Should -Be 4
+        $progress.ByIndex["営業"].Waiting | Should -Be 1
+    }
+
+    It "ByIndex のキーは大文字・小文字を区別しない（system_index の下のフォルダ名が一覧の名前と大文字・小文字だけ違っても引ける）" {
+        Mock testTsvIndexedByWindowsSearch { $false }
+        $ws = newFastWorkspace "$TestDrive\p7"
+        [System.IO.Directory]::CreateDirectory("$($ws.Index)\Sales\2026") | Out-Null
+        [System.IO.File]::WriteAllText("$($ws.Index)\Sales\2026\一覧.tsv", "見積`r`n", ${utf8Bom})
+        foreach ($folder in (findIndexFoldersWithBooks "$($ws.Index)\Sales")) {
+            [void](updateIndexFolderPack $folder)
+        }
+        $results = writeSystemIndexFolders @("$($ws.Index)\Sales\2026") $ws.Index $ws.System 1
+        [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results; [void]$s.Covered.Add("Sales") } $ws.State)
+        $progress = getSystemIndexProgress (newFakeWindowsSearch $ws.System) $ws.Index $ws.System $ws.State
+        $progress.ByIndex["sales"].Folders | Should -Be 1
+    }
+
+    It "状態を読むだけで、状態ファイルは書き換えない（検索と違い、反映済みの行を消さない）" {
+        Mock testTsvIndexedByWindowsSearch { $false }
+        $ws = newFastWorkspace "$TestDrive\p5"
+        $before = (readSystemIndexState $ws.State).Pending.Count
+        $before | Should -BeGreaterThan 0
+        [void](getSystemIndexProgress (newFakeWindowsSearch $ws.System) $ws.Index $ws.System $ws.State)
+        (readSystemIndexState $ws.State).Pending.Count | Should -Be $before
+    }
+
+    It "数えられないとき（状態ファイルを読めない・問い合わせの失敗・Windows Search を開けない）は null" {
+        $ws = newFastWorkspace "$TestDrive\p6"
+        getSystemIndexProgress { throw "失敗" } $ws.Index $ws.System $ws.State | Should -Be $null
+        Mock openWindowsSearch { $null }
+        getSystemIndexProgress $null $ws.Index $ws.System $ws.State | Should -Be $null
+        Mock testTsvIndexedByWindowsSearch { $false }
+        $stream = [System.IO.FileStream]::new($ws.State, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            getSystemIndexProgress (newFakeWindowsSearch $ws.System) $ws.Index $ws.System $ws.State | Should -Be $null
+        } finally {
+            $stream.Dispose()
+        }
+    }
+}
