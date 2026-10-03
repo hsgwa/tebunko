@@ -1,16 +1,17 @@
 ﻿# テキストファイルの読み取り
 
-扱うこと: テキストファイル（`.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml`）の対象の拡張子、文字コードの判定、行への分け方、大きさの上限、tebunko が作ったファイルの除外。扱わないこと: Office ファイルの取り込み（[クロール対象フォルダと取り込み対象](crawl.md)・[Excel](excel.md)・[Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)）、検索時の長い行の扱い（[検索結果の出力](../search/output.md#長い行を切る)）。先に読むページ: [クロール対象フォルダと取り込み対象](crawl.md)、[取り込み対象の決定](target-decision.md)。
+扱うこと: テキストファイル（`.txt` `.py` `.java` など）の対象の拡張子、既定のアプリで開くかメモ帳で開くかの判定、文字コードの判定、行への分け方、大きさの上限、tebunko が作ったファイルの除外。扱わないこと: Office ファイルの取り込み（[クロール対象フォルダと取り込み対象](crawl.md)・[Excel](excel.md)・[Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)）、検索時の長い行の扱い（[検索結果の出力](../search/output.md#長い行を切る)）。先に読むページ: [クロール対象フォルダと取り込み対象](crawl.md)、[取り込み対象の決定](target-decision.md)。
 
 ## 対象の拡張子
 
-`${textExtensions}`（`shared/core/text_file.ps1`）に固定する 7 つ。大文字・小文字は区別しない。
+`${textExtensions}`（`shared/core/text_file.ps1`）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。`setting.config` で拡張子を足す仕組みは無い（`tests/meta/safety.Tests.ps1` が、Office の拡張子と合わせて 85 個の固定の一覧ちょうどであることを確かめる）。PDF・RTF（表示用の解釈が要る形式）など読み方が別に要る形式、`.exe` `.com` `.scr` `.hta` `.wsf` `.wsh` `.jse` `.vbe` `.lnk` `.url` `.msi` `.cpl` `.inf`（実行・登録に使われるファイル）・`.ts` は対象外。`.html` `.htm` は対象（下の `${textOpenExtensions}`。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。
 
-```
-.txt  .csv  .tsv  .md  .log  .json  .xml
-```
+`${textExtensions}` は次の 2 つを合わせたもの。
 
-`setting.config` で拡張子を足す仕組みは無い（`tests/meta/safety.Tests.ps1` が、Office の拡張子と合わせて 1 つの固定の一覧ちょうどであることを確かめる。開くと実行される種類（`.bat` `.js` `.vbs` 等）を対象に入れないための歯止め）。PDF・RTF・HTML など読み方が別に要る形式は対象外。
+- **`${textOpenExtensions}`（68 個。既定のアプリで開く）**: `.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml` に加え、`.c` `.h` `.cpp` `.cc` `.cxx` `.hpp` `.cs` `.java` `.kt` `.kts` `.go` `.rs` `.swift` `.scala` `.dart` `.vb` `.bas` `.pas` `.asm` `.m` `.r` `.jl` `.hs` `.ex` `.exs` `.erl` `.clj` `.groovy` `.lua` `.py` `.rb` `.pl` `.php` `.psm1` `.psd1` `.jsx` `.tsx` `.mjs` `.vue` `.sql` `.yaml` `.yml` `.toml` `.ini` `.cfg` `.conf` `.properties` `.gradle` `.cmake` `.proto` `.graphql` `.tf` `.html` `.htm` `.css` `.scss` `.less` `.rst` `.tex` `.diff` `.patch`。
+- **`${textNotepadExtensions}`（7 個。メモ帳で開く）**: `.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh`。既定のアプリで開くと実行・登録になるため、検索結果から［開く］で開くときは既定のアプリではなくメモ帳（固定のパス `%SystemRoot%\System32\notepad.exe`）で開く（[検索結果からファイルを開く](../gui/open-file.md)）。取り込み・検索の対象かどうかの判定（`testTextExtension`）はこの 7 個も含める。
+
+拡張子だけが対象の判定基準で、拡張子の無いファイル・除外リストの仕組みは無い。
 
 ## 文字コードの判定（`detectTextEncoding`）
 
@@ -29,7 +30,9 @@ flowchart TD
     S -->|"NUL が 20% に届かない"| J
     N -- いいえ --> J{"UTF-16 として読むと日本語の文章になる？<br>（かな 20% 以上・それ以外の文字 5% 以下。LE・BE の片方だけ）"}
     J -- はい --> JU["UTF-16LE / UTF-16BE"]
-    J -- いいえ --> I{"ISO-2022-JP？<br>（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり）"}
+    J -- いいえ --> NUL{"ファイル全体のどこかに NUL（0x00）がある？"}
+    NUL -- はい --> BIN
+    NUL -- いいえ --> I{"ISO-2022-JP？<br>（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり）"}
     I -- はい --> IJ["ISO-2022-JP"]
     I -- "ESC $ B があるが規格外の並び・8 ビット" --> BIN
     I -- いいえ --> D{"全体が UTF-8 として正しく読める？"}
@@ -46,6 +49,7 @@ flowchart TD
   - それ以外（NUL が 20% に届かない） → 次の「NUL の無い日本語の UTF-16」と同じ判定に回す（日本語の UTF-16 は、改行（CRLF）や全角スペース・「一」など下位バイトが 00 の文字だけが NUL になり、偶数・奇数の両側に NUL が出ることもあるため）
   - 閾値（20%・1/10）は `${textUtf16NulRatioThreshold}`・`${textUtf16NulSkewDivisor}` の定数
 - **NUL の無い（または改行の分しか無い）日本語の UTF-16**（`detectJapaneseUtf16WithoutNul`）: ひらがな・カタカナ・漢字は NUL を含まないため、上の判定に掛からない。先頭 64KB（8 バイト以上）を LE・BE それぞれで読み、**ひらがな・カタカナが 20% 以上**で、日本語の文章に出る文字（ASCII・句読点・かな・漢字・全角）**以外が 5% 以下**のとき、その向きの UTF-16 とする。LE・BE の両方が当たるときは判定しない。7 ビットだけ（ASCII の範囲）のバイト列は、ひらがなの UTF-16 と ASCII の文字列（`0a0a…` など）の見分けが付きにくいため、かなの割合を 90% 以上にする。閾値は `${textJpUtf16KanaRatio}`・`${textJpUtf16AsciiKanaRatio}`・`${textJpUtf16OtherRatio}`・`${textJpUtf16MinBytes}`。
+- **NUL（0x00）を含むか**: ここまでで BOM の無い UTF-16 とは判定できなかったもののうち、ファイル全体（先頭 64KB に限らない）のどこかに NUL が 1 つでもあれば、バイナリとして取り込まない（`[Array]::IndexOf`。1 バイトずつループしない）。UTF-8・Shift_JIS・EUC-JP・ISO-2022-JP はいずれも文字の表現に NUL を使わないため、先頭 64KB より後ろに NUL が現れるファイル（例: 先頭がテキストで途中からバイナリが続くもの）もここで取り込まない。
 - **ISO-2022-JP**（`testIso2022JpBytes`）: 7 ビットだけのバイト列で、漢字への切り替え（`ESC $ B`・`ESC $ @`）を含み、ESC の並びがすべて規格のもの（`ESC $ B`・`ESC $ @`・`ESC ( B`・`ESC ( J`・`ESC ( I`（半角カナ。コードページ 50221 で読む））のとき。`ESC $ B` があるのに 8 ビットのバイトや規格外の ESC の並びがあるものは、JIS のつもりの壊れたものとして取り込まない（UTF-8 として読むと化ける）。ASCII だけで表せるため UTF-8 として読めてしまう（化ける）ので、UTF-8 より先に確かめる。`ESC [` などの端末の制御の並び（色つきのログ）や `ESC ( B` だけのものは対象にせず、UTF-8 になる。
 - **UTF-8**: 不正なバイト列で例外にするデコーダー（`DecoderExceptionFallback`）で全体を読めれば UTF-8（ASCII だけのファイルもここに当たる）。
 - **Shift_JIS・EUC-JP**（`detectLegacyJapaneseEncoding`）: 上のどれにも当たらなければ、次の条件で決める。決まらなければ取り込まない。
@@ -61,6 +65,7 @@ flowchart TD
 ### 分かっている限界
 
 - **対象の言語は日本語と英語**（主な文字コードは Shift_JIS と UTF-8）。GBK・Big5・EUC-KR は対象外で、誤って取り込まれるのは既知の限界。誤判定を減らすための判定は足さない。
+- **末尾が NUL で埋まった大きい `.log` など**: アプリの強制終了などでファイルの途中から NUL（0x00）で埋まったまま残ったファイルは、その NUL が先頭 64KB より後ろにあっても取り込まない（上の「NUL（0x00）を含むか」）。以前の版は先頭 64KB だけを見ていたため、64KB を超えた位置の NUL は見逃され、NUL の手前までの内容で取り込めていた。これからは全体を見るため、同じファイルが「テキストファイルではないため取り込めません。」の失敗になる（[分かっている限界（利用の手引き）](../../guide/limitations.md)）。
 - **取り込まないもの**: UTF-32・GBK・Big5・EUC-KR・かなの無い EUC-JP・NUL の無いバイナリ・NUL が偏らない UTF-16 などは、文字コードを判定できないとして取り込まない（`テキストファイルではないため取り込めません。`）。UTF-8・Shift_JIS・UTF-16 で保存し直せば取り込める。
 - **短い Shift_JIS の並び**（半角カナの一部など。例: `ﾃｽ` = `C3 BD`）は、UTF-8 としても正しく読めることがあり、その場合は UTF-8 と判定されて化ける。
 - **BOM の無い UTF-16 で、かなが 20% に届かないもの**（漢字だけの文章など）は、バイナリと見分けが付かないため取り込まない。

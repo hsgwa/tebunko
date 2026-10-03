@@ -195,7 +195,7 @@ function toIndexFileName {
     # インデックスのTSVのファイル名 "<場所>.tsv" を返す。
     #   ・決まった場所（ページ・スライド・ヘッダー/フッター・脚注・文書・本文）は ASCII の固定名にする
     #   ・それ以外（Excelのシート名）は encodeIndexPlace で符号化する
-    #   ・図形・コメントは、末尾に英語の種類 "[shape]" "[comment]" を付ける（placeKindFileNames）
+    #   ・図形・コメント・ヘッダー・フッターは、末尾に英語の種類 "[shape]" "[comment]" "[header_footer]" を付ける（placeKindFileNames）
     # 元のファイル名はフォルダ名（= 元のファイル名そのもの）にするため、ファイル名には入れない。
     # ファイル名の上限（255文字）は長いパスの対応（toLongPath）でも超えられないため、超える場合は分かるメッセージで例外にする
     param (
@@ -215,17 +215,19 @@ function toIndexFileName {
 
 function convertIndexFileNameToPlace {
     # toIndexFileName の逆変換。ファイル名（拡張子 .tsv を除いたもの）から場所を復元する。
-    #   戻す順番: (1) 末尾の "[shape]"・"[comment]" を外す → (2) 残りに "_" があれば固定の場所の表で戻し、
-    #             無ければ decodeIndexPlace で戻す → (3) (1) で外した種類を日本語（[図形]・[コメント]）で付け直す
+    #   戻す順番: (1) 末尾の "[shape]"・"[comment]"・"[header_footer]"（placeKindFileNames の値）を外す →
+    #             (2) 残りに "_" があれば固定の場所の表で戻し、無ければ decodeIndexPlace で戻す →
+    #             (3) (1) で外した種類を日本語（[図形]・[コメント]・[ヘッダー・フッター]）で付け直す
     param (
         [string]$fileNameWithoutExtension
     )
 
     $kind = ""
     $body = $fileNameWithoutExtension
-    if ($fileNameWithoutExtension -match '^(?<base>.+)\[(?<kind>shape|comment)\]$') {
+    $fileKindAlternation = (${placeKindFileNames}.Values | ForEach-Object { [regex]::Escape($_) }) -join "|"
+    if ($fileNameWithoutExtension -match "^(?<base>.+)\[(?<kind>$fileKindAlternation)\]`$") {
         $body = $Matches.base
-        $kind = if ($Matches.kind -eq "shape") { ${placeKindShape} } else { ${placeKindComment} }
+        $kind = (${placeKindFileNames}.GetEnumerator() | Where-Object { $_.Value -eq $Matches.kind } | Select-Object -First 1).Key
     }
 
     if ($body.IndexOf("_") -ge 0) {
@@ -247,9 +249,10 @@ function convertIndexFileNameToPlace {
 # 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types.ps1 の HitRow.ObjectPlaceRegex）をそろえる
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
+${placeKindHeaderFooter} = "ヘッダー・フッター"  # Excel のヘッダー・フッター（Word・PowerPoint の "ヘッダー・フッター" は場所の名前で、種類ではない）。いつも検索する（除外の選択肢は無い）
 
 # 種類ごとの、TSVのファイル名に付ける英語の名前（toIndexFileName・convertIndexFileNameToPlace で使う）
-${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "comment" }
+${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "comment"; ${placeKindHeaderFooter} = "header_footer" }
 
 # ${objectPlacePattern} の種類の選択肢は ${placeKindFileNames} のキーから組み立てる（足し忘れを防ぐ）
 ${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | ForEach-Object { [regex]::Escape($_) }) -join "|"
@@ -274,6 +277,7 @@ function describePlace {
     # 場所ごとの表記と「種別」を @{ Place; Kind } で返す（TSV の名前は変えず、表示だけを変える）。
     # 画面の見出しの要約・検索結果ファイル・コピーに使う。表の「場所」の列は、これにセル番地を足した describeHitPlace を使う
     #   Excel      : "売上" → [シート]売上・セル / "売上[図形]" → [シート]売上・図形 / "売上[コメント]" → [シート]売上・コメント
+    #                / "売上[ヘッダー・フッター]" → [シート]売上・ヘッダー・フッター
     #   Word       : "ページ003" → 3 ページ（目安）・本文（ページは保存時の区切りから数えた目安のため）/ "脚注" → 脚注・本文
     #   PowerPoint : "スライド002（非表示）" → スライド 2（非表示）・本文 / "スライド002_ノート" → スライド 2・ノート
     #   テキスト   : "本文" → 空・本文（場所は 1 つだけのため、表の「場所」の列は describeHitPlace の "N 行目" だけで足りる）
@@ -316,6 +320,7 @@ function describeHitPlace {
     # Excel だけ足す（Word・PowerPoint は場所ごとと同じ）。テキストは行番号だけ（"N 行目"）を返す（場所は 1 つしかないため）。
     #   セル             : [シート]売上!B12 / 1 行に複数のセルが一致 [シート]売上!B12 ほか 2 / セル番地が求まらないとき [シート]売上 12 行目
     #   図形・コメント   : [シート]売上!D5 / セル番地が求まらないとき [シート]売上（行番号は通し番号のため出さない）
+    #   ヘッダー・フッター: [シート]売上（行にセル番地が無く、matchCell が空のため）
     #   テキスト         : 12 行目
     param (
         [string]$place,

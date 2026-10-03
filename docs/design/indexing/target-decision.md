@@ -75,7 +75,7 @@ stateDiagram-v2
 
 クロールで列挙するファイルの条件（`findTargetFiles`）:
 
-- 拡張子が `.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`（Office）または `.txt` `.csv` `.tsv` `.md` `.log` `.json` `.xml`（テキスト。[テキストファイルの読み取り](text.md)）（大文字・小文字を区別しない）。テンプレート（`.xltx` `.dotx` `.potx` 等）は対象外
+- 拡張子が `.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt`（Office、10 個）または [対象の拡張子](text.md#対象の拡張子)（テキスト、75 個）（大文字・小文字を区別しない）。テンプレート（`.xltx` `.dotx` `.potx` 等）は対象外
 - ファイル名が `~$` で始まるもの（Office のロックファイル）は除外
 - アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）
 - 相対パスは、実際に列挙したフォルダ（`Resolve-Path` で解決した `Root`。`findTargetFiles` が返す）から求める。列挙したファイルのパスが `\\?\` 付きの `Root` で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ `getPathUnderFolder` で求める。

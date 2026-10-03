@@ -9,6 +9,7 @@ Describe "convertPlaceToPackMeta / convertPackMetaToPlace" -Tag Unit {
             @("見積.xlsx", "見積", "シート=見積|対象=本文"),
             @("見積.xlsx", "見積[図形]", "シート=見積|対象=図形"),
             @("見積.xlsx", "見積[コメント]", "シート=見積|対象=コメント"),
+            @("見積.xlsx", "見積[ヘッダー・フッター]", "シート=見積|対象=ヘッダー・フッター"),
             @("見積.xlsx", "ページ001", "シート=ページ001|対象=本文"),
             @("議事録.docx", "ページ001", "ページ=1|対象=本文"),
             @("議事録.docx", "ページ012[図形]", "ページ=12|対象=図形"),
@@ -185,5 +186,12 @@ Describe "convertToPackText / readPackPlaces" -Tag Unit {
         $places = readPackPlaces "$mark 版=1`n$mark ファイル名=a.xlsx`n$mark シート=S`n$mark 対象=図形"
         $places.Count | Should -Be 1
         $places[0].Location | Should -Be "S[図形]"
+    }
+
+    It "Excel のヘッダー・フッターの場所（シート名 + 対象）を、場所の名前に戻して読む" {
+        $mark = [string][char]0x1E
+        $places = readPackPlaces "$mark 版=1`n$mark ファイル名=a.xlsx`n$mark シート=S`n$mark 対象=ヘッダー・フッター`n中央`n"
+        $places.Count | Should -Be 1
+        $places[0].Location | Should -Be "S[ヘッダー・フッター]"
     }
 }

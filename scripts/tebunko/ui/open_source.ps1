@@ -240,6 +240,22 @@ function openWithShell {
     return (-not $verb)
 }
 
+function openWithNotepad {
+    # ファイルをメモ帳（固定のパス）で開く。.bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はこちらを使う
+    # （openWithShell・Invoke-Item は使わない。既定のアプリの登録がどうなっていても実行されない）。
+    # メモ帳が無い（Windows 11 の「オプション機能」で外された等）・起動できないときは、既定のアプリには戻さずに $false を返す
+    param (
+        [string]$path
+    )
+
+    try {
+        Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe" -ArgumentList "`"${path}`""
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 function openInExcel {
     # 表示中の Excel（無ければ新しく起動）でブックを開き、該当シートの該当セルを選択する。
     # 開き方（mode）: 通常 = そのまま開く / 読み取り専用 = ReadOnly で開く /
@@ -424,9 +440,18 @@ function openFoundSource {
         }
     } elseif ($row.IsText) {
         # テキストは既定のアプリに開き方（読み取り専用・新規）の動詞が無いことが多く、毎回「開けなかったため…」と出るのを避けるため、
-        # 動詞を試さずにそのまま開く（openWithShell に通常の開き方を渡すと動詞を試さない）。行への移動はしない
-        [void](openWithShell $path ${openModeNormal})
-        setStatus "開きました：${path}"
+        # 動詞を試さずにそのまま開く（openWithShell に通常の開き方を渡すと動詞を試さない）。行への移動はしない。
+        # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子はメモ帳で開く
+        if (testTextOpenWithNotepad $path) {
+            if (openWithNotepad $path) {
+                setStatus "メモ帳で開きました：${path}"
+            } else {
+                setStatus "メモ帳で開けませんでした：${path}"
+            }
+        } else {
+            [void](openWithShell $path ${openModeNormal})
+            setStatus "開きました：${path}"
+        }
     } elseif (openWithShell $path $mode) {
         setStatus "${how}：${path}"
     } else {
