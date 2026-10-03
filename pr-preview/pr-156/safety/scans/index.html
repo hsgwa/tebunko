@@ -4518,7 +4518,7 @@
 <tbody>
 <tr>
 <td>Process Monitor（Sysinternals）または Sysmon</td>
-<td>ファイル・レジストリ・ネットワーク・プロセス生成の<strong>全アクセス</strong>。「<code>work</code> と <code>%TEMP%</code> 以外に書いていない」「通信していない」を実測で示せる</td>
+<td>ファイル・レジストリ・ネットワーク・プロセス生成の<strong>全アクセス</strong>。「<code>work</code> 配下以外に書いていない（起動に失敗したときの記録と、前の版が残した作業フォルダの片付けだけ <code>%TEMP%</code> に触れる）」「通信していない」を実測で示せる</td>
 <td>Procmon でプロセス名 <code>powershell.exe</code> / <code>EXCEL.EXE</code> を絞り込み、インデックス作成を 1 回実行して保存する</td>
 </tr>
 <tr>
@@ -4564,7 +4564,7 @@
 <li><a href="../checks/">危険とされる処理の検査結果</a>の禁止する処理が 0 件であること、許す処理（<code>Add-Type</code>・<code>Start-Process</code>・<code>Stop-Process</code>）が限定されていること</li>
 <li>Office をマクロ無効・イベント無効・外部リンク更新なし・不可視・読み取り専用で開くこと</li>
 <li>原本のパスを書き込み・削除の API に渡さないこと、<code>SaveAs</code> の保存先が作業フォルダだけであること、原本を読むのは <code>copyFileShared</code> の読み取りだけであること</li>
-<li>書き込み先が <code>work</code> 配下と <code>%TEMP%</code> 配下に限られること、異常終了で残った作業フォルダを次回起動時に回収すること（<a href="../disclosure/#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>）</li>
+<li>書き込み先が <code>work</code> 配下に限られること（起動に失敗したときの記録と、前の版が残した作業フォルダの片付けだけ <code>%TEMP%</code> 配下に触れる）、異常終了で残った作業フォルダを次回起動時に回収すること（<a href="../disclosure/#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>）</li>
 <li>PSScriptAnalyzer の安全性ルール・<code>Error</code> 重大度・制限言語モードの指摘が 0 件であること（未導入の環境では飛ばす）</li>
 <li>安全性の説明（<code>docs/safety/</code>）・<a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM の雛形が本体の説明・ライセンス・前提ソフトウェアを持ち、作った SBOM が第三者の部品を含まず zip の中身と一致すること、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
 </ul>
