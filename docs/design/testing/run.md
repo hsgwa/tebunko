@@ -23,7 +23,7 @@ flowchart LR
 | `tests/tebunko/search/` | `search_query`・`search_run`・`pack_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
 | `tests/tebunko/ui/` | 画面の判断層（`index_view`・`indexing_view`・`search_view`・`preview_view`・`settings_view`）と、`$ui` を偽物にした画面の部品（`result_list`・`open_source`・`preview`・`index_tree`）・型（`types`） |
 | `tests/gui/` | 画面のスモークテスト（`gui_helpers`＝共通の関数、`smoke`・`index`・`search`・`settings`・`process`＝場面。タグ `Gui`。[画面のスモークテスト](gui-smoke.md)） |
-| `tests/tools/` | 開発用の道具（`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`） |
+| `tests/tools/` | 開発用の道具（`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`・`pr_checks_comment`） |
 | `tests/meta/` | 構成を守るテスト（`structure`・`encoding`・`layers`・`links`・`runner`・`classes`）と安全性の検査（`safety`・`installer`） |
 | `tests/testdata/` | 手動の結合テスト用のデータ（[結合テスト（手動）](index.md#結合テスト手動)）と、その生成（`make_testdata.ps1`）・個人情報の除去（`scrub_personal`） |
 

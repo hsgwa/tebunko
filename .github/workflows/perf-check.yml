@@ -6,7 +6,8 @@
 #   ・手動（workflow_dispatch）
 # 必須チェックにはしない。ただし、流した PR で search・ingest が落ちていればマージしない。
 # ジョブは 2 つを別のランナーで並べる（取り込みの後に同じジョブで検索すると遅く出るため）。
-# 数字はジョブの Summary と artifact で見る。PR にコメントは書かない。
+# 数字はジョブの Summary と artifact で見る。このワークフロー自身（下の pr-comment ジョブ）が合否と
+# 実行へのリンクを PR のコメントに出すが、数字は書き写さない。
 # perf.yml（手動の計測）とは別で、こちらは上限と比べて合否を出す。上限・決め方・落ちたときの扱いは docs/design/testing/ci.md。
 # フォークからの PR でも pull_request のまま動かす（pull_request_target は使わない）。秘密の値は使わない。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため）。
@@ -134,3 +135,34 @@ jobs:
           path: work/test/perf-ingest
           retention-days: 90
           if-no-files-found: ignore
+
+  # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
+  # search・ingest の 2 つの結果を合わせて 1 件のコメントにする（悪いほうを採用する）。
+  # perf-check のラベルが無く search・ingest がスキップのときも、スキップしたことをコメントに出す。
+  # ただし perf-check 以外のラベルを付けて起動した実行では書かない（前の結果を「スキップ」で消さないため。concurrency と同じ条件）。
+  # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
+  pr-comment:
+    needs: [search, ingest]
+    if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && (github.event.action != 'labeled' || github.event.label.name == 'perf-check') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: 既定のブランチの内容を取り出す（PR のコードは使わない）
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            tools/pr_checks_comment.ps1
+            .github/actions/pr-comment/
+          sparse-checkout-cone-mode: false
+
+      - name: 結果を書く
+        uses: ./.github/actions/pr-comment
+        with:
+          workflow-key: perf-check
+          display-name: 速さの回帰テスト（perf-check）
+          result: ${{ needs.search.result }},${{ needs.ingest.result }}
+          note: 数字（検索・pack の作成・取り込みの速さ）はジョブの Summary で見る。ここには書き写さない。

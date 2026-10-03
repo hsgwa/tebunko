@@ -1,0 +1,51 @@
+﻿# 動いたワークフロー自身の結果（success・failure・cancelled・skipped）を、tools/pr_checks_comment.ps1 で
+# PR のコメントに書く・書き換える複合アクション。
+#
+# 呼び出し側のジョブに要るのは pull-requests: write だけ（このアクション自身は permissions を持てないため、
+# 呼び出し側のジョブに最小の権限を付ける。ワークフロー全体には広げない）。
+# フォークの PR などで書き込みの権限が無いときは、警告を出すだけでジョブを失敗にしない
+# （結果は Actions の Summary に残す）。
+#
+# 呼び出す前に、既定のブランチの内容で tools/pr_checks_comment.ps1 と、このアクション自身
+# （.github/actions/pr-comment/）を checkout しておくこと（PR のブランチの内容を、書き込みの
+# 権限を持つこの処理で動かさないため。pull_request_target は使わない）。
+name: PR に結果をコメントする
+description: >-
+  動いたワークフロー自身の結果を PR のコメント（ワークフローごとに 1 件）に書く・書き換える。
+inputs:
+  workflow-key:
+    description: コメントの目印・表に使う短い id（例 test・title・docs・codeql・gui・perf-check）
+    required: true
+  display-name:
+    description: PR のコメントに出す表示名（省略すると workflow-key と同じ）
+    required: false
+    default: ""
+  result:
+    description: >-
+      needs.<job>.result の値（success・failure・cancelled・skipped）。
+      1 つのワークフローに複数のジョブがあるときは、カンマ区切りで並べて渡す（悪いほうを採用する）
+    required: true
+  note:
+    description: コメントに添える補足の 1 行（任意。perf-check の Summary への案内など）
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: 結果を PR のコメントに書く
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        WORKFLOW_KEY: ${{ inputs.workflow-key }}
+        DISPLAY_NAME: ${{ inputs.display-name || inputs.workflow-key }}
+        RESULT: ${{ inputs.result }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        NOTE: ${{ inputs.note }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      # 呼び出し側が checkout した作業ツリー（既定のブランチの内容）の tools/pr_checks_comment.ps1 を使う
+      run: >-
+        ./tools/pr_checks_comment.ps1
+        -Repo $env:REPO -PrNumber ([int]$env:PR_NUMBER) -WorkflowKey $env:WORKFLOW_KEY
+        -DisplayName $env:DISPLAY_NAME -Result $env:RESULT -RunUrl $env:RUN_URL -Note $env:NOTE -HeadSha $env:HEAD_SHA
