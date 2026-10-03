@@ -67,16 +67,46 @@ $script:bannedCodePatterns = [ordered]@{
     Remote               = 'Invoke-Command|New-PSSession|Enter-PSSession|WinRM'
 }
 
-# 禁止の語のどれかに当たった行を "名前: 行" の一覧（文字列）で返す。1 件も無ければ空文字列
+# 1 行からコメントを取り除く（行全体がコメントなら空文字列）。引用符の中の # は残す
+# （tests/meta/safety.Tests.ps1 の getCodeLines と同じ考え方。「以前は csc.exe で…」のような説明のコメントを
+# 禁止の語の検査に含めないため）
+function stripLineComment {
+    param (
+        [string]$line
+    )
+
+    if ($line.TrimStart().StartsWith("#")) {
+        return ""
+    }
+    $sharp = $line.IndexOf("#")
+    while ($sharp -gt 0) {
+        $before = $line.Substring(0, $sharp)
+        $quotes = @($before.ToCharArray() | Where-Object { $_ -eq '"' }).Count
+        $singles = @($before.ToCharArray() | Where-Object { $_ -eq "'" }).Count
+        if (($quotes % 2) -eq 0 -and ($singles % 2) -eq 0) {
+            return $before
+        }
+        $sharp = $line.IndexOf("#", $sharp + 1)
+    }
+    return $line
+}
+
+# 禁止の語のどれかに当たった行を "名前: 行" の一覧（文字列）で返す。1 件も無ければ空文字列。
+# コメントは除く（説明のための言及を誤検知しないため。stripLineComment）
 function findBannedCode {
     param (
         [string]$text
     )
 
     $hits = New-Object System.Collections.Generic.List[string]
-    foreach ($name in $script:bannedCodePatterns.Keys) {
-        foreach ($match in [regex]::Matches($text, $script:bannedCodePatterns[$name])) {
-            $hits.Add("${name}: $($match.Value)")
+    $lines = $text -split "`r`n|`n"
+    foreach ($line in $lines) {
+        $code = stripLineComment $line
+        if (!$code) { continue }
+        foreach ($name in $script:bannedCodePatterns.Keys) {
+            foreach ($match in [regex]::Matches($code, $script:bannedCodePatterns[$name])) {
+                $hits.Add("${name}: $($match.Value)")
+            }
         }
     }
     return ($hits -join ", ")
