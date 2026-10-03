@@ -594,8 +594,18 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # バナーの文言とボタンは「前回の更新が途中です」「続きから再開」にする（diff_round2.md 2 回目指摘）
             Set-ElText $Root "BannerText" "前回の更新が途中です（残り 875 件）"
             # H-P のボタンは橙にする（diff_round3.md 7）
+            # 高さ 24 のまま文字が上下で切れないよう、Padding を縮め文字を 11px にする
+            # （round6 の［保存］と同じ原因・直し方。diff_round7.md 1・★）
             $bb = Find-Named $Root "BannerButton"
-            if ($bb) { $bb.Content = "続きから再開"; $bb.BorderBrush = $Root.FindResource("Warn.BA7D00"); $bb.Foreground = $Root.FindResource("Warn.BA7D00"); $bb.Height = 24 }
+            if ($bb) {
+                $bb.Content = "続きから再開"
+                $bb.BorderBrush = $Root.FindResource("Warn.BA7D00")
+                $bb.Foreground = $Root.FindResource("Warn.BA7D00")
+                $bb.Height = 24
+                $bb.Padding = [System.Windows.Thickness]::new(8, 0, 8, 0)
+                $bb.VerticalContentAlignment = "Center"
+                $bb.FontSize = 11
+            }
             Set-ElVisible $Root "NavBadge_Index" $true
             Set-ElVisible $Root "NavBadge_IndexDot" $false
             Set-ElText $Root "NavBadge_IndexText" "中断"

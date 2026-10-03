@@ -707,8 +707,9 @@
         </Grid>
         </ScrollViewer>
         <!-- H-W の本文。見出しは太字、2 行目に「2 振込手数料…」を足す（diff_round3.md 10）。
-             余白は左 24・上 24（diff_round6.md 3） -->
-        <StackPanel x:Name="PreviewParagraphView" Visibility="Collapsed" Margin="24">
+             左右・下の余白は 24（diff_round6.md 3）。上は TextBlock の行送りの分だけ
+             縮め、見出しの線から本文 1 行目まで実測で 24 に近づける（diff_round7.md 2） -->
+        <StackPanel x:Name="PreviewParagraphView" Visibility="Collapsed" Margin="24,20,24,24">
           <TextBlock x:Name="PreviewParagraphHeading" Style="{StaticResource Text.13}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8" />
           <TextBlock x:Name="PreviewParagraphText" Style="{StaticResource Text.13}" TextWrapping="Wrap" />
           <TextBlock x:Name="PreviewParagraphText2" Style="{StaticResource Text.13}" TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -764,9 +765,10 @@
   </Canvas>
 
   <!-- 開くメニュー。Popup にし、PlacementTarget をボタン（PreviewOpenArrow）にして、
-       その下に付けて出す（今はどの窓幅でも正しい位置に出る。diff_round3.md 3 ★） -->
+       その下に付けて出す（今はどの窓幅でも正しい位置に出る。diff_round3.md 3 ★）。
+       メニューの右端を chevron（PreviewOpenArrow）の右端にそろえる（diff_round7.md 3・小） -->
   <Popup x:Name="ContextMenuPopup" IsOpen="False" AllowsTransparency="True" PopupAnimation="None" StaysOpen="True"
-         PlacementTarget="{Binding ElementName=PreviewOpenArrow}" Placement="Bottom" HorizontalOffset="-140" VerticalOffset="2">
+         PlacementTarget="{Binding ElementName=PreviewOpenArrow}" Placement="Bottom" HorizontalOffset="-151" VerticalOffset="2">
     <Border Width="180" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
             CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}">
       <StackPanel>
