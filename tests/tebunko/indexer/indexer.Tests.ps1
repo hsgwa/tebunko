@@ -12,6 +12,7 @@ BeforeAll {
     $indexerPath = "${scriptsDir}\tebunko\indexer.ps1"
     $runPath     = "${scriptsDir}\tebunko\indexer\indexer_run.ps1"
     $dataDirPath = "${scriptsDir}\shared\core\data_dir.ps1"
+    $pathsPath   = "${scriptsDir}\tebunko\core\paths.ps1"
     $planPath    = "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
     $reporterPath = "${scriptsDir}\tebunko\indexer\indexing_reporter.ps1"
     $docxSource  = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
@@ -74,12 +75,28 @@ BeforeAll {
         $channel = newIndexerChannel ([bool]$options.RetryFailed) ([bool]$options.ConfirmTargets) $workers
         $script:lastChannel = $channel
         $global:indexerTestRoot = $root
+        $global:capturedTmpDir = $null
+        $global:capturedLegacyTmpParent = $null
         $points = New-Object System.Collections.Generic.List[object]
         try {
             # ${dataDir} を決める行で、その前に ${rootDir} を差し替える（テスト用のフォルダには書き込めるため、setting.config・work もそこになる）。
             # Action は止まった場所の子のスコープで動く
             $points.Add((Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
                 Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
+            }))
+            # ${legacyTmpParent}（前の版の片付けだけに使う場所 %TEMP%\tebunko）の既定値を決めた直後の行で差し替え、
+            # テストが利用者の本物の %TEMP%\tebunko に触れないようにする
+            $points.Add((Set-PSBreakpoint -Script $pathsPath -Line (findLine $pathsPath '^\$excelMaxPath = 218') -Action {
+                Set-Variable -Name legacyTmpParent -Value (Join-Path $global:indexerTestRoot "legacy_tmp") -Scope 1
+            }))
+            # 取り込みの作業フォルダ（$tmpDir）が決まった直後の行で、その値を控える
+            # （終わったあとはワークスペースの場所・前の版の片付けだけに使う場所のどちらも後片付けで消えるため、途中でしか確かめられない）。
+            # ${legacyTmpParent} の差し替え（上のブレークポイント）が実際に initTmpDir まで効いていることも、
+            # 同じ場所で控えて確かめる（差し替えの行自体が paths.ps1 の無関係な行に依存しているため、
+            # ここで使われた値を見ないと、行順が変わって差し替えが上書きされても気付けない）
+            $points.Add((Set-PSBreakpoint -Script $runPath -Line ((findLine $runPath '\$script:tmpDirReason = \$selected\.Reason') + 1) -Action {
+                Set-Variable -Name capturedTmpDir -Value (Get-Variable -Name tmpDir -ValueOnly) -Scope Global
+                Set-Variable -Name capturedLegacyTmpParent -Value (Get-Variable -Name legacyTmpParent -ValueOnly) -Scope Global
             }))
             foreach ($break in $breaks) {
                 $points.Add((Set-PSBreakpoint -Script $break.Script -Line (findLine $break.Script $break.Pattern) -Action $break.Action))
@@ -90,6 +107,7 @@ BeforeAll {
             foreach ($point in $points) { Remove-PSBreakpoint -Breakpoint $point }
             Remove-Variable -Name indexerTestRoot -Scope Global -ErrorAction SilentlyContinue
         }
+        # $global:capturedTmpDir は呼び出し側が結果を確かめられるよう、次の runIndexer まで残す
     }
 
     function readTestStatus {
@@ -240,6 +258,14 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $progress.Failed | Should -Be 1
         readTestError | Should -BeNullOrEmpty
         Test-Path -LiteralPath "$root\work\ingesting.txt" | Should -Be $false
+        # 取り込みの作業フォルダ（work\tmp\<PC の鍵>\<PID>）も削除する
+        Test-Path -LiteralPath (Join-Path "$root\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
+        # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        $global:capturedTmpDir | Should -Not -BeNullOrEmpty
+        $global:capturedTmpDir.StartsWith("$root\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
+        $global:capturedLegacyTmpParent | Should -Be (Join-Path $root "legacy_tmp")
+        Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
         # ワークスペースの直下・content_index\<名前>\ の直下のファイル名はすべて英語にする（再発防止）
         foreach ($entry in @(Get-ChildItem -LiteralPath "$root\work")) {
             $entry.Name | Should -Match "^[\x20-\x7E]+$"
@@ -276,6 +302,30 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         $status.Rows.Count | Should -Be 3
         $status.Rows["一時\議事録.docx"].状態 | Should -Be ${stateDone}
         [System.IO.File]::Exists("$root\work\content_index\一時\content_index.docx.001.tsv") | Should -Be $true
+    }
+
+    It "ワークスペースのパスに [ ] があれば、テキストファイルを含むすべての取り込みを失敗として記録し、%TEMP% には書き込まない" {
+        # テキストファイルも中間 TSV を $tmpDir に作るため、docx・pptx と同じくスキップの対象になることを確かめる
+        $bracketSource = newSourceFolder "角かっこ用"
+        [System.IO.File]::WriteAllText("$bracketSource\メモ.txt", "テキストファイルの内容", [System.Text.Encoding]::UTF8)
+        $root = Join-Path $TestDrive "[共有]tool"
+        [System.IO.Directory]::CreateDirectory("$root\work") | Out-Null
+        writeTestSettings $root @(@{ name = ""; path = $bracketSource; enabled = $true })
+
+        runIndexer $root | Should -Be 0
+
+        $status = readTestStatus $root
+        $status.Rows.Count | Should -Be 4
+        foreach ($row in $status.Rows.Values) {
+            $row.状態 | Should -Be ${stateFailed}
+            $row.エラー | Should -Match "\[ \]"
+        }
+        $progress = readTestProgress
+        $progress.Failed | Should -Be 4
+        # 取り込み中も、置けない代わりに %TEMP% には書き込まない
+        $global:capturedTmpDir | Should -BeNullOrEmpty
+        Test-Path -LiteralPath (Join-Path "$root\legacy_tmp" "$PID") | Should -Be $false
+        (Get-Content -LiteralPath "$root\work\indexing_log.txt" -Raw) | Should -Match "スキップ"
     }
 
     It "前回取り込み中に強制終了したファイルは最後に回して取り込む" {
@@ -698,6 +748,13 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         (findIndexFoldersWithBooks "$parallel\work\content_index").Count | Should -Be 0
         Test-Path -LiteralPath "$parallel\work\ingesting.txt" | Should -Be $false
         @(Get-ChildItem -LiteralPath "$parallel\work\publish" -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
+        Test-Path -LiteralPath (Join-Path "$parallel\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
+        # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        $global:capturedTmpDir | Should -Not -BeNullOrEmpty
+        $global:capturedTmpDir.StartsWith("$parallel\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
+        $global:capturedLegacyTmpParent | Should -Be (Join-Path $parallel "legacy_tmp")
+        Test-Path -LiteralPath (Join-Path "$parallel\legacy_tmp" "$PID") | Should -Be $false
         $progress = readTestProgress
         $progress.Processed | Should -Be 5
         $progress.Failed | Should -Be 1

@@ -68,6 +68,25 @@ Describe "invokeSearchRequest" -Tag Io {
         }
     }
 
+    It "Excel のヘッダー・フッターの行は、プールの別スレッドでも、図形・コメントを除いた検索でも場所つきでヒットする" {
+        $hfTsvRoot = Join-Path $TestDrive "pool_hf_tsv"
+        newTsv "$hfTsvRoot\B社.xlsx\$(toIndexFileName "4月[ヘッダー・フッター]")" @("社外秘")
+        newTsv "$hfTsvRoot\B社.xlsx\$(toIndexFileName "4月[図形]")" @("A1`t社外秘の図")
+        $hfPackRoot = Join-Path $TestDrive "pool_hf_pack"
+        [void](newPackIndex $hfTsvRoot $hfPackRoot)
+
+        $pool = newPackWorkerPool 2
+        try {
+            $request = newSearchRequest "社外秘" $true @($hfPackRoot) 0 @{ IncludeShapes = $false; IncludeComments = $false }
+            invokeSearchRequest $request $pool
+            $hits = @(takeHits $request)
+            $hits.Count | Should -Be 1
+            $hits[0].Location | Should -Be "4月[ヘッダー・フッター]"
+        } finally {
+            $pool.Close()
+        }
+    }
+
     It "照合のプールの別スレッドでも、テキストの長い行を切る（newPackWorkerPool に渡す関数・変数が揃っている）" {
         $poolTsvRoot = Join-Path $TestDrive "pool_text_tsv"
         $longLine = ("あ" * 100000) + "対象語" + ("あ" * 100000)

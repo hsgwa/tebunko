@@ -11,11 +11,11 @@
 | `decodeIndexPlace` | place | string | `encodeIndexPlace` の `%XX` を元に戻す（それ以外の `%` はそのまま） | 同上 | convertIndexFileNameToPlace |
 | `convertPlaceBaseToFixedFileName` | base | string（固定名 / 空） | 場所の元の名前（`ページ001` など）が決まった種類なら、固定の英語のファイル名（`page_001` など）を返す。決まった種類でなければ空文字列 | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | toIndexFileName |
 | `convertFixedFileNameToPlaceBase` | fileBase | string（元の名前 / 空） | `convertPlaceBaseToFixedFileName` の逆（`page_001` → `ページ001`）。固定名でなければ空文字列 | 同上 | convertIndexFileNameToPlace |
-| `toIndexFileName` | place | string | インデックスの TSV のファイル名 `<場所>.tsv`（場所は `convertPlaceBaseToFixedFileName` の固定名、無ければ `encodeIndexPlace`）。元のファイル名はフォルダ名にするため入れない。`$maxFileNameLength`（255）文字を超えれば例外 | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | インデックス作成（Excel・Word・PowerPoint） |
-| `convertIndexFileNameToPlace` | fileNameWithoutExtension | string | `toIndexFileName` の逆。図形・コメントの種類（`[shape]` `[comment]`）を外してから、固定名なら `convertFixedFileNameToPlaceBase`、そうでなければ `decodeIndexPlace` で場所の元の名前に戻す | 同上 | getIndexFolderBooks |
-| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメントの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
+| `toIndexFileName` | place | string | インデックスの TSV のファイル名 `<場所>.tsv`（場所は `convertPlaceBaseToFixedFileName` の固定名、無ければ `encodeIndexPlace`）。図形・コメント・ヘッダー・フッターは、末尾に英語の種類 `[shape]` `[comment]` `[header_footer]` を付ける。元のファイル名はフォルダ名にするため入れない。`$maxFileNameLength`（255）文字を超えれば例外 | [インデックスのファイルの形](../index-data/format.md#配置命名規則) | インデックス作成（Excel・Word・PowerPoint） |
+| `convertIndexFileNameToPlace` | fileNameWithoutExtension | string | `toIndexFileName` の逆。図形・コメント・ヘッダー・フッターの種類（`[shape]` `[comment]` `[header_footer]`）を外してから、固定名なら `convertFixedFileNameToPlaceBase`、そうでなければ `decodeIndexPlace` で場所の元の名前に戻す | 同上 | getIndexFolderBooks |
+| `splitObjectPlace` | place | `@{Base; Kind}` | 図形・コメント・ヘッダー・フッターの場所（`<元の場所>[図形]` 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空 | [インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」 | 元のファイルを開く、convertPlaceToPackMeta |
 | `describePlace` | book, place | `@{Place; Kind}` | 場所ごとの表記と種別（見出しの要約・検索結果ファイル・コピーに出す文字。`[シート]売上`・図形、`3 ページ（目安）`・本文 など） | [出力フォーマット](../search/output.md#出力フォーマットworksearch_resultstxt) | 画面・`toResultLine` |
-| `describeHitPlace` | place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber, isText（既定 `$false`） | string | 結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。`[シート]売上!B12`・`[シート]売上!B12 ほか 2`・`[シート]売上 12 行目`。図形・コメントは `[シート]売上!D5`。Word・PowerPoint は場所ごとのまま。テキストは `isText` が真なら行番号だけ `12 行目`） | [結果の表](../gui/search-tab.md#結果の表) | 画面（`prepareHitRow`） |
+| `describeHitPlace` | place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber, isText（既定 `$false`） | string | 結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。`[シート]売上!B12`・`[シート]売上!B12 ほか 2`・`[シート]売上 12 行目`。図形・コメントは `[シート]売上!D5`。ヘッダー・フッターはセル番地が無く `[シート]売上`。Word・PowerPoint は場所ごとのまま。テキストは `isText` が真なら行番号だけ `12 行目`） | [結果の表](../gui/search-tab.md#結果の表) | 画面（`prepareHitRow`） |
 | `toLongPath` | path | string | ファイル操作に渡すパスの先頭に `\\?\`（ネットワークのパスは `\\?\UNC\`）を付け、260 文字を超えるパスも扱えるようにする。付いていればそのまま | [入れ替えと書き出し](../index-data/publish.md#長いパス260-文字超の扱い) | インデックス作成・検索 |
 | `fromLongPath` | path | string | `toLongPath` で付けた `\\?\` を外す（`Get-ChildItem` の `FullName` から相対パスを求めるため） | 同上 | インデックス作成・検索 |
 | `removeDirectoryRetry` | path, tries（既定 3）, waitMilliseconds（既定 200） | – | フォルダを中身ごと削除する。ほかのアプリが一時的に掴んでいることがあるため、少し待って数回試す | – | インデックス作成（インデックス・作業フォルダの削除） |
@@ -41,6 +41,7 @@
 | 関数 | 入力 | 出力 | 概要 | 使用元 |
 |---|---|---|---|---|
 | `testTextExtension` | path | bool | 拡張子が対象のテキストの拡張子（`$textExtensions`。大文字・小文字を区別しない）か | ingestFile, getPackFileKind, describePlace, getAppKind, findTargetFiles（`$targetExtensions`） |
+| `testTextOpenWithNotepad` | path | bool | 拡張子が、既定のアプリではなくメモ帳で開く拡張子（`$textNotepadExtensions`。開くと実行・登録になるもの。大文字・小文字を区別しない）か | openFoundSource（[元のファイルを開く](../gui/open-file.md)） |
 | `detectTextEncoding` | bytes | string / `$null` | バイト列だけから文字コード（`UTF8` / `UTF16LE` / `UTF16BE` / `ShiftJIS` / `EUCJP` / `ISO2022JP`）を判定する。判定できない・あいまいなものは `$null`（取り込まない） | readTextFile |
 | `detectJapaneseUtf16WithoutNul` | bytes | string / `$null` | NUL の無い BOM 無し UTF-16（日本語だけの文章）を、かなの割合と日本語の文章に出る文字の割合で判定する（`UTF16LE` / `UTF16BE`） | detectTextEncoding |
 | `getIso2022JpVerdict` | bytes | string | ISO-2022-JP かの判定（`yes` / `broken`（ESC $ B があるが 8 ビット・規格外の ESC がある）/ `none`） | detectTextEncoding |
@@ -70,7 +71,7 @@
 | `getPackExtension` / `getPackFileName` / `readPackFileName` | book / extension, part / name | string / `@{Extension; Part}` | 本文インデックスを分ける拡張子（小文字・`.` なし） / 本文インデックスのファイルの名前（`content_index.<拡張子>.<番号>.tsv`） / 名前から拡張子と番号を取り出す | convertIndexFolderToPack, getIndexTsvCounts |
 | `splitPackBooksByExtension` | books | [ordered] 拡張子 → 並び | 元のファイルの並びを拡張子ごとに分ける（各並びの中の順は変えない） | convertIndexFolderToPack |
 | `encodePackValue` / `decodePackValue` | value | string | メタ情報の値の制御文字（タブを除く）と `%` を `%XX` にする / 戻す | convertToPackText, readPackPlaces |
-| `convertPlaceToPackMeta` | book, place | [ordered] キー → 値 | 場所の名前（TSV のファイル名。`見積[図形]`・`ページ001` など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは `部分=<名前>`・`対象=本文` | convertToPackText |
+| `convertPlaceToPackMeta` | book, place | [ordered] キー → 値 | 場所の名前（TSV のファイル名。`見積[図形]`・`見積[ヘッダー・フッター]`・`ページ001` など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは `部分=<名前>`・`対象=本文` | convertToPackText |
 | `convertPackMetaToPlace` | meta | string | 場所のメタ情報から場所の名前を組み立てる（画面の表示・図形とコメントの除外・元のファイルを開く処理が使う形） | readPackPlaces |
 | `convertToPackBody` | text | string | TSV の中身を本文インデックスに入れる形にする（改行を LF に、末尾に LF、U+001C〜U+001F を除く） | convertToPackText |
 | `convertToPackText` | books | string | 元のファイルの並び（TSV から新しく作るもの、または前の本文インデックスから写すまとまり）から、本文インデックスの文字列を作る | convertIndexFolderToPack |

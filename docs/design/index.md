@@ -111,7 +111,7 @@ flowchart LR
         out["search_results.txt<br>（［結果をファイルに出力］）"]
     end
 
-    tmp[("%TEMP%\tebunko\#lt;PID#gt;<br>取り込みの作業領域")]
+    tmp[("work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;<br>取り込みの作業領域<br>（置けないときはスキップ）")]
     src[("クロール対象フォルダ<br>Excel・Word・PowerPoint ファイル群")]
     excel["Microsoft Excel<br>（COM）"]
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]

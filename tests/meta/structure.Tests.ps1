@@ -14,6 +14,7 @@ Describe "パス定義" -Tag Meta {
         $workspace.Dir | Should -Be (getWorkDir $settingsFile)
         $workspace.IndexDir | Should -Be "$($workspace.Dir)\content_index"
         $workspace.LegacyIndexDir | Should -Be "$($workspace.Dir)\index"
+        $workspace.TmpRoot | Should -Be "$($workspace.Dir)\tmp"
         $workspace.PublishDir | Should -Be "$($workspace.Dir)\publish\$PID"
         $workspace.ResultFile | Should -Be "$($workspace.Dir)\search_results.txt"
     }
