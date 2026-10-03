@@ -15,8 +15,10 @@ function showSplash {
 
     try {
         $bundled = Get-Variable -Name bundledXaml -ErrorAction SilentlyContinue
-        $text = if ($null -ne $bundled -and $bundled.Value -and $bundled.Value.ContainsKey($path)) {
-            $bundled.Value[$path]
+        # shared/ui/app_host.ps1 の getXamlText と同じく GetFullPath で正規化してから探す（鍵の決め方をそろえる）
+        $fullPath = [System.IO.Path]::GetFullPath($path)
+        $text = if ($null -ne $bundled -and $bundled.Value -and $bundled.Value.ContainsKey($fullPath)) {
+            $bundled.Value[$fullPath]
         } else {
             [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($true)))
         }

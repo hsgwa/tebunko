@@ -11,15 +11,20 @@ function loadTheme {
 
 # XAML の中身を文字列で返す。単一 .ps1 版（展開せずに動く試験版。結合の道具 tools/new_single_script.ps1 が
 # xaml の中身を ${bundledXaml}[<このファイルを指す絶対パス>] に埋め込む）はそこから返し、
-# 無ければ（zip 版）ファイルから読む
+# 無ければ（zip 版）ファイルから読む。
+# 探す前に GetFullPath で正規化する（".." を含む書き方でも、結合の道具が埋めた鍵と一致させるため。
+# ファイルが実在しなくても使える＝単一 .ps1 版で theme.xaml が無くても引ける）
 function getXamlText {
     param (
         [string]$path
     )
 
     $bundled = Get-Variable -Name bundledXaml -ErrorAction SilentlyContinue
-    if ($null -ne $bundled -and $bundled.Value -and $bundled.Value.ContainsKey($path)) {
-        return $bundled.Value[$path]
+    if ($null -ne $bundled -and $bundled.Value) {
+        $full = [System.IO.Path]::GetFullPath($path)
+        if ($bundled.Value.ContainsKey($full)) {
+            return $bundled.Value[$full]
+        }
     }
     return [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($true)))
 }
@@ -34,7 +39,9 @@ function inlineMergedDictionaries {
     )
 
     foreach ($node in @($xml.SelectNodes("//*[local-name()='ResourceDictionary' and @Source]"))) {
-        $refPath = (Resolve-Path (Join-Path (Split-Path -Parent $basePath) $node.Attributes["Source"].Value)).Path
+        # GetFullPath は実在しないファイルでも正規化できる（Resolve-Path と違い、単一 .ps1 版で theme.xaml が
+        # 実在しなくても働く）
+        $refPath = [System.IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $basePath) $node.Attributes["Source"].Value))
         $refXml = New-Object System.Xml.XmlDocument
         $refXml.LoadXml((getXamlText $refPath))
         inlineMergedDictionaries $refXml $refPath

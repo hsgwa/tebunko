@@ -52,7 +52,6 @@ BeforeAll {
         # ---- tebunko/ui/about_dialog.ps1・shared/ui/app_host.ps1（アイコン・XAML。ツールのフォルダの中） ----
         @{ File = "about_dialog.ps1"; Function = "showAboutDialog"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "getXamlText"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
-        @{ File = "app_host.ps1"; Function = "inlineMergedDictionaries"; Call = "Resolve-Path"; Reason = "theme.xaml への参照先の解決（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "loadWindow"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "New-Item"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
