@@ -1,4 +1,4 @@
-# PR と Issue のタイトルが Conventional Commits の形（feat: ... など）かを確かめる（tools/check_commit_message.ps1。AGENTS.md「GitHub の運用」）。
+﻿# PR と Issue のタイトルが Conventional Commits の形（feat: ... など）かを確かめる（tools/check_commit_message.ps1。AGENTS.md「GitHub の運用」）。
 #
 # - PR … squash merge では PR のタイトルが main のコミットのタイトルになる。形が違えば失敗にし、マージを止める（ブランチ保護の必須のチェック）。
 #         必須のチェックは head のコミットごとに要るため、push（synchronize）でも動かす
@@ -31,6 +31,32 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: ./tools/check_commit_message.ps1 -Title $env:TITLE
+
+  # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
+  # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
+  pr-comment:
+    needs: [pr-title]
+    if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: 既定のブランチの内容を取り出す（PR のコードは使わない）
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            tools/pr_checks_comment.ps1
+            .github/actions/pr-comment/
+          sparse-checkout-cone-mode: false
+
+      - name: 結果を書く
+        uses: ./.github/actions/pr-comment
+        with:
+          workflow-key: title
+          result: ${{ needs['pr-title'].result }}
 
   issue-title:
     if: github.event_name == 'issues'

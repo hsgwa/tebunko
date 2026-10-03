@@ -1,31 +1,34 @@
-﻿# PR のコメントに結果をまとめるスクリプト（tools\pr_checks_comment.ps1）のテスト
+﻿# 動いたワークフロー自身の結果を PR のコメントに書くスクリプト（tools\pr_checks_comment.ps1）のテスト
 # gh api は呼ばない（純粋な関数だけを dot-source して確かめる）。
-# $targetWorkflows を -TestCases（発見の段階で評価する）で使うため、ここでも dot-source する
-# （実行の段階ではトップレベルの文は動かないため、BeforeAll でも dot-source し直す）。
-. "$PSScriptRoot\..\..\tools\pr_checks_comment.ps1"
-
 BeforeAll {
     . "$PSScriptRoot\..\..\tools\pr_checks_comment.ps1"
 }
 
-Describe "getRunResultLabel" -Tag Unit {
-    It "<conclusion>/<status> なら <expected>" -TestCases @(
-        @{ status = "completed"; conclusion = "success"; expected = "成功" }
-        @{ status = "completed"; conclusion = "failure"; expected = "失敗" }
-        @{ status = "completed"; conclusion = "cancelled"; expected = "取り消し" }
-        @{ status = "completed"; conclusion = "skipped"; expected = "スキップ" }
-        @{ status = "completed"; conclusion = "timed_out"; expected = "時間切れ" }
-        @{ status = "completed"; conclusion = "action_required"; expected = "承認待ち" }
-        @{ status = "completed"; conclusion = "neutral"; expected = "その他" }
-        @{ status = "completed"; conclusion = "stale"; expected = "その他" }
-        @{ status = "completed"; conclusion = "startup_failure"; expected = "その他" }
-        @{ status = "queued"; conclusion = $null; expected = "実行中" }
-        @{ status = "in_progress"; conclusion = $null; expected = "実行中" }
-        @{ status = "waiting"; conclusion = $null; expected = "その他" }
-        @{ status = "completed"; conclusion = ""; expected = "その他" }
+Describe "getResultLabel" -Tag Unit {
+    It "<result> なら <expected>" -TestCases @(
+        @{ result = "success"; expected = "成功" }
+        @{ result = "failure"; expected = "失敗" }
+        @{ result = "cancelled"; expected = "取り消し" }
+        @{ result = "skipped"; expected = "スキップ" }
+        @{ result = "neutral"; expected = "その他" }
+        @{ result = ""; expected = "その他" }
     ) {
-        param ($status, $conclusion, $expected)
-        getRunResultLabel $status $conclusion | Should -Be $expected
+        param ($result, $expected)
+        getResultLabel $result | Should -Be $expected
+    }
+}
+
+Describe "combineJobResults" -Tag Unit {
+    It "<reason> なら <expected>" -TestCases @(
+        @{ reason = "1 つだけ"; results = @("success"); expected = "success" }
+        @{ reason = "failure がどれかにあれば failure"; results = @("success", "failure"); expected = "failure" }
+        @{ reason = "cancelled は skipped より悪い"; results = @("skipped", "cancelled"); expected = "cancelled" }
+        @{ reason = "skipped は success より悪い"; results = @("success", "skipped"); expected = "skipped" }
+        @{ reason = "全部 success なら success"; results = @("success", "success"); expected = "success" }
+        @{ reason = "知らない値は failure と同じ扱い"; results = @("success", "neutral"); expected = "neutral" }
+    ) {
+        param ($reason, $results, $expected)
+        combineJobResults $results | Should -Be $expected
     }
 }
 
@@ -39,7 +42,7 @@ Describe "getRunLink" -Tag Unit {
         @{ reason = "実行の番号でない"; url = "https://github.com/hsgwa/tebunko/actions/runs/abc" }
         @{ reason = "ドメインが違う"; url = "https://evil.example.com/hsgwa/tebunko/actions/runs/12345" }
         @{ reason = "末尾に余計な文字がある"; url = "https://github.com/hsgwa/tebunko/actions/runs/12345/jobs/1" }
-        @{ reason = "空" ; url = "" }
+        @{ reason = "空"; url = "" }
         @{ reason = "null"; url = $null }
     ) {
         param ($reason, $url)
@@ -47,115 +50,58 @@ Describe "getRunLink" -Tag Unit {
     }
 }
 
-Describe "selectLatestRun" -Tag Unit {
-    It "実行が無ければ null" {
-        selectLatestRun @() | Should -Be $null
-        selectLatestRun $null | Should -Be $null
-    }
-
-    It "最新の実行を選ぶ（スキップは避ける）" {
-        $runs = @(
-            [pscustomobject]@{ created_at = "2026-01-01T00:00:00Z"; conclusion = "failure" }
-            [pscustomobject]@{ created_at = "2026-01-02T00:00:00Z"; conclusion = "skipped" }
-            [pscustomobject]@{ created_at = "2026-01-01T12:00:00Z"; conclusion = "success" }
-        )
-        (selectLatestRun $runs).conclusion | Should -Be "success"
-    }
-
-    It "全部スキップなら、その中の最新を選ぶ" {
-        $runs = @(
-            [pscustomobject]@{ created_at = "2026-01-01T00:00:00Z"; conclusion = "skipped" }
-            [pscustomobject]@{ created_at = "2026-01-02T00:00:00Z"; conclusion = "skipped" }
-        )
-        (selectLatestRun $runs).created_at | Should -Be "2026-01-02T00:00:00Z"
-    }
-}
-
-Describe "selectPullRequestBySha" -Tag Unit {
-    BeforeAll {
-        $script:pulls = @(
-            [pscustomobject]@{ number = 1; state = "open"; head = [pscustomobject]@{ sha = "aaa" } }
-            [pscustomobject]@{ number = 2; state = "open"; head = [pscustomobject]@{ sha = "bbb" } }
-            [pscustomobject]@{ number = 3; state = "closed"; head = [pscustomobject]@{ sha = "ccc" } }
-        )
-    }
-
-    It "head の SHA が一致する開いた PR を選ぶ" {
-        (selectPullRequestBySha $pulls "bbb").number | Should -Be 2
-    }
-
-    It "閉じた PR の SHA には一致しない" {
-        selectPullRequestBySha $pulls "ccc" | Should -Be $null
-    }
-
-    It "どれにも一致しなければ null（古い・進んだ SHA）" {
-        selectPullRequestBySha $pulls "zzz" | Should -Be $null
+Describe "getCommentMarker" -Tag Unit {
+    It "ワークフローの id ごとに違う目印になる" {
+        getCommentMarker "test" | Should -Be "<!-- pr-check:test -->"
+        getCommentMarker "perf-check" | Should -Be "<!-- pr-check:perf-check -->"
     }
 }
 
 Describe "selectExistingComment" -Tag Unit {
-    It "github-actions[bot] の、1 行目が目印のコメントを選ぶ" {
+    It "github-actions[bot] の、1 行目がその目印のコメントを選ぶ" {
+        $marker = getCommentMarker "test"
         $comments = @(
             [pscustomobject]@{ id = 1; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "関係ない自動コメント" }
-            [pscustomobject]@{ id = 2; user = [pscustomobject]@{ login = "someone" }; body = "<!-- pr-checks -->`n表" }
-            [pscustomobject]@{ id = 3; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "<!-- pr-checks -->`n前の表" }
+            [pscustomobject]@{ id = 2; user = [pscustomobject]@{ login = "someone" }; body = "$marker`n表" }
+            [pscustomobject]@{ id = 3; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "$marker`n前の結果" }
+            [pscustomobject]@{ id = 4; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "$(getCommentMarker 'gui')`n別のワークフローの結果" }
         )
-        (selectExistingComment $comments).id | Should -Be 3
+        (selectExistingComment $comments $marker).id | Should -Be 3
     }
 
-    It "目印の行が無い・作者が違うときは null" {
+    It "目印の行が無い・作者が違う・ほかのワークフローの目印のときは null" {
+        $marker = getCommentMarker "test"
         $comments = @(
             [pscustomobject]@{ id = 1; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "目印なし" }
-            [pscustomobject]@{ id = 2; user = [pscustomobject]@{ login = "someone" }; body = "<!-- pr-checks -->`n表" }
+            [pscustomobject]@{ id = 2; user = [pscustomobject]@{ login = "someone" }; body = "$marker`n表" }
+            [pscustomobject]@{ id = 3; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "$(getCommentMarker 'gui')`n結果" }
         )
-        selectExistingComment $comments | Should -Be $null
-        selectExistingComment @() | Should -Be $null
+        selectExistingComment $comments $marker | Should -Be $null
+        selectExistingComment @() $marker | Should -Be $null
     }
 }
 
-Describe "buildChecksRows" -Tag Unit {
-    It "対象の 6 つのワークフローだけの行を作り、関係ない実行は無視する" {
-        $runs = @(
-            [pscustomobject]@{ path = ".github/workflows/test.yml"; status = "completed"; conclusion = "success"; html_url = "https://github.com/hsgwa/tebunko/actions/runs/1"; created_at = "2026-01-01T00:00:00Z" }
-            [pscustomobject]@{ path = ".github/workflows/scorecard.yml"; status = "completed"; conclusion = "success"; html_url = "https://github.com/hsgwa/tebunko/actions/runs/2"; created_at = "2026-01-01T00:00:00Z" }
-        )
-        $rows = buildChecksRows $runs "hsgwa/tebunko"
-        $rows.Count | Should -Be 6
-        ($rows | Where-Object { $_.Path -eq "test.yml" }).Result | Should -Be "成功"
-        ($rows | Where-Object { $_.Path -eq "title.yml" }).Result | Should -Be "まだ実行がありません"
-        $rows.Path | Should -Not -Contain "scorecard.yml"
-    }
-
-    It "perf-check.yml の表示名は読み替える" {
-        $rows = buildChecksRows @() "hsgwa/tebunko"
-        ($rows | Where-Object { $_.Path -eq "perf-check.yml" }).Name | Should -Be "速さの回帰テスト（perf-check）"
-    }
-}
-
-Describe "formatChecksComment" -Tag Unit {
-    BeforeAll {
-        $script:rows = @(
-            [pscustomobject]@{ Path = "test.yml"; Name = "test"; Result = "成功"; Link = "https://github.com/hsgwa/tebunko/actions/runs/1" }
-            [pscustomobject]@{ Path = "title.yml"; Name = "title"; Result = "まだ実行がありません"; Link = $null }
-        )
-    }
-
-    It "1 行目が目印で、表にリンクが入る" {
-        $body = formatChecksComment $rows "0123456789abcdef"
-        ($body -split "`n")[0] | Should -Be "<!-- pr-checks -->"
+Describe "formatCheckComment" -Tag Unit {
+    It "1 行目が目印で、結果とリンクが入る" {
+        $body = formatCheckComment "test" "test" "success" "https://github.com/hsgwa/tebunko/actions/runs/1" "hsgwa/tebunko" ""
+        ($body -split "`n")[0] | Should -Be "<!-- pr-check:test -->"
+        $body | Should -Match "成功"
         $body | Should -Match "\[実行\]\(https://github.com/hsgwa/tebunko/actions/runs/1\)"
-        $body | Should -Match "0123456"
     }
 
-    It "perf-check の数字を書き写さない（リンクだけ）" {
-        $body = formatChecksComment $rows "0123456789abcdef"
-        $body | Should -Not -Match "ms|秒"
-        $body | Should -Match "ここには書き写していません"
+    It "複数のジョブの結果（カンマ区切り）は悪いほうを採用する" {
+        $body = formatCheckComment "perf-check" "速さの回帰テスト（perf-check）" "success,failure" "" "hsgwa/tebunko" ""
+        $body | Should -Match "失敗"
     }
 
-    It "リンクが無い行は「-」にする" {
-        $body = formatChecksComment $rows "0123456789abcdef"
-        $body | Should -Match "\| まだ実行がありません \| - \|"
+    It "補足（note）があれば添える" {
+        $body = formatCheckComment "perf-check" "perf-check" "skipped" "" "hsgwa/tebunko" "数字はジョブの Summary で見る。"
+        $body | Should -Match "数字はジョブの Summary で見る。"
+    }
+
+    It "実行へのリンクが無ければ、その旨を書く" {
+        $body = formatCheckComment "test" "test" "success" "" "hsgwa/tebunko" ""
+        $body | Should -Match "実行へのリンクなし"
     }
 }
 
@@ -185,47 +131,20 @@ Describe "getCommentWriteArgs" -Tag Unit {
     }
 }
 
-Describe "invokePrChecksComment" -Tag Unit {
+Describe "invokePrCheckComment" -Tag Unit {
     BeforeEach {
         $script:writeCalls = @()
         $script:fakeWriteComment = {
             param ($action, $prNumber, $commentId, $body)
             $script:writeCalls += [pscustomobject]@{ Action = $action; PrNumber = $prNumber; CommentId = $commentId; Body = $body }
         }
-        $script:openPr = [pscustomobject]@{ number = 42; state = "open"; head = [pscustomobject]@{ sha = "abc123" } }
-        $script:fakeGetPulls = { @($script:openPr) }
-        $script:fakeGetRuns = { @() }
-    }
-
-    It "PR が見つからないときは書かない" {
-        $getPulls = { @() }
-        $getComments = { param ($n) @() }
-
-        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "zzz" `
-            -getPulls $getPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
-
-        $result.Action | Should -Be "none"
-        $result.Reason | Should -Be "pr-not-found"
-        $writeCalls.Count | Should -Be 0
-    }
-
-    It "-DryRun のときは PR があっても書かない" {
-        $getComments = { param ($n) throw "呼ばれてはいけない" }
-
-        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "abc123" -dryRun `
-            -getPulls $fakeGetPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
-
-        $result.Action | Should -Be "none"
-        $result.Reason | Should -Be "dry-run"
-        $result.PullRequest.number | Should -Be 42
-        $writeCalls.Count | Should -Be 0
     }
 
     It "書き換える対象のコメントが無ければ post で書く" {
         $getComments = { param ($n) @() }
 
-        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "abc123" `
-            -getPulls $fakeGetPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
+        $result = invokePrCheckComment -repo "hsgwa/tebunko" -prNumber 42 -workflowKey "test" -displayName "test" `
+            -result "success" -runUrl "" -note "" -getComments $getComments -writeComment $fakeWriteComment
 
         $result.Action | Should -Be "post"
         $writeCalls.Count | Should -Be 1
@@ -235,40 +154,57 @@ Describe "invokePrChecksComment" -Tag Unit {
     }
 
     It "書き換える対象のコメントがあれば patch で書く" {
-        $existing = [pscustomobject]@{ id = 999; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "<!-- pr-checks -->`n前の表" }
+        $marker = getCommentMarker "test"
+        $existing = [pscustomobject]@{ id = 999; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "$marker`n前の結果" }
         $getComments = { param ($n) @($existing) }
 
-        $result = invokePrChecksComment -repo "hsgwa/tebunko" -headSha "abc123" `
-            -getPulls $fakeGetPulls -getRuns $fakeGetRuns -getComments $getComments -writeComment $fakeWriteComment
+        $result = invokePrCheckComment -repo "hsgwa/tebunko" -prNumber 42 -workflowKey "test" -displayName "test" `
+            -result "failure" -runUrl "" -note "" -getComments $getComments -writeComment $fakeWriteComment
 
         $result.Action | Should -Be "patch"
         $writeCalls.Count | Should -Be 1
         $writeCalls[0].Action | Should -Be "patch"
-        $writeCalls[0].PrNumber | Should -Be 42
         $writeCalls[0].CommentId | Should -Be 999
+    }
+
+    It "ほかのワークフローのコメントがあっても、そちらは書き換えない" {
+        $otherMarker = getCommentMarker "gui"
+        $other = [pscustomobject]@{ id = 111; user = [pscustomobject]@{ login = "github-actions[bot]" }; body = "$otherMarker`n別の結果" }
+        $getComments = { param ($n) @($other) }
+
+        $result = invokePrCheckComment -repo "hsgwa/tebunko" -prNumber 42 -workflowKey "test" -displayName "test" `
+            -result "success" -runUrl "" -note "" -getComments $getComments -writeComment $fakeWriteComment
+
+        $result.Action | Should -Be "post"
+        $writeCalls[0].CommentId | Should -Be $null
     }
 }
 
-Describe "pr-comment.yml・各ワークフローの name: との一覧のずれ" -Tag Meta {
+Describe "各ワークフローが、自分の結果を pr-comment の複合アクションに渡している" -Tag Meta {
     BeforeAll {
         $root = Resolve-Path "$PSScriptRoot\..\.."
+        $actionPath = Join-Path $root ".github\actions\pr-comment\action.yml"
     }
 
-    It "pr-comment.yml の workflow_run.workflows: が対象の一覧と同じ" {
-        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\pr-comment.yml"))
-        $match = [regex]::Match($yml, "workflows:\s*\[([^\]]*)\]")
-        $match.Success | Should -BeTrue
-        $listed = @($match.Groups[1].Value -split "," | ForEach-Object { $_.Trim() })
-        $listed | Should -Be @($targetWorkflows.Values)
+    It "複合アクション（.github/actions/pr-comment）がある" {
+        Test-Path -LiteralPath $actionPath | Should -BeTrue
     }
 
-    It "対象の各ファイルの name: が一覧のとおり: <path>" -TestCases @(
-        $targetWorkflows.Keys | ForEach-Object { @{ path = $_; name = $targetWorkflows[$_] } }
+    It "集約ワークフロー（pr-comment.yml）は無い（各ワークフローが自分で書く方式のため）" {
+        Test-Path -LiteralPath (Join-Path $root ".github\workflows\pr-comment.yml") | Should -BeFalse
+    }
+
+    It "<path> が pr-comment ジョブで workflow-key: <key> を渡している" -TestCases @(
+        @{ path = "test.yml"; key = "test" }
+        @{ path = "title.yml"; key = "title" }
+        @{ path = "docs.yml"; key = "docs" }
+        @{ path = "codeql.yml"; key = "codeql" }
+        @{ path = "gui.yml"; key = "gui" }
+        @{ path = "perf-check.yml"; key = "perf-check" }
     ) {
-        param ($path, $name)
+        param ($path, $key)
         $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\$path"))
-        $m = [regex]::Match($yml, "(?m)^name:\s*(\S+)")
-        $m.Success | Should -BeTrue
-        $m.Groups[1].Value | Should -Be $name
+        $yml | Should -Match ([regex]::Escape("uses: ./.github/actions/pr-comment"))
+        $yml | Should -Match ([regex]::Escape("workflow-key: $key"))
     }
 }
