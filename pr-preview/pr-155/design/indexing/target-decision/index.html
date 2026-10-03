@@ -4130,7 +4130,7 @@
     Q -- はい --&gt; Q1{"RetryFailed？&lt;br&gt;（画面で「失敗分も再取り込みする」を選んだ・-RetryFailed）"}
     Q1 -- はい --&gt; ADD["前回失敗も取り込み対象に加える"] --&gt; INT
     Q1 -- いいえ --&gt; INT
-    Q -- いいえ --&gt; INT{"取り込み中.txt のファイル（すべて）が取り込み対象にある？&lt;br&gt;（前回、取り込み中に強制終了した）"}
+    Q -- いいえ --&gt; INT{"ingesting.txt のファイル（すべて）が取り込み対象にある？&lt;br&gt;（前回、取り込み中に強制終了した）"}
     INT -- "はい（1 回目）" --&gt; LAST["取り込み対象の最後に回す"] --&gt; W
     INT -- "はい（続けて 2 回目）" --&gt; FAIL2["『失敗』にして取り込み対象から除く"] --&gt; W
     INT -- いいえ --&gt; W["取り込み一覧を書き出す（writeStatusFile）"]</code></pre>
@@ -4181,7 +4181,7 @@
 <li>アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）</li>
 <li>相対パスは、実際に列挙したフォルダ（<code>Resolve-Path</code> で解決した <code>Root</code>。<code>findTargetFiles</code> が返す）から求める。列挙したファイルのパスが <code>\\?\</code> 付きの <code>Root</code> で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ <code>getPathUnderFolder</code> で求める。
   設定に書かれたパスとは書き方が違うことがあるため（末尾の <code>\</code>、<code>\\?\</code> 付き、<code>.</code> ・ <code>..</code> を含む、<code>/</code> 区切り）、設定のパスの文字数では切り出さない</li>
-<li>tebunko が作ったファイル（今のワークスペースの中身・<code>取り込み一覧.tsv</code> の印があるほかのワークスペースの中身・名前で分かる本文インデックスやシステムインデックス）は対象に含めない（テキストの拡張子（<code>.tsv</code> 等）でこれらを拾わないため。詳細は <a href="../text/#tebunko-が作ったファイルの除外">テキストファイルの読み取り</a>）</li>
+<li>tebunko が作ったファイル（今のワークスペースの中身・<code>ingest_status.tsv</code> の印があるほかのワークスペースの中身・名前で分かる本文インデックスやシステムインデックス）は対象に含めない（テキストの拡張子（<code>.tsv</code> 等）でこれらを拾わないため。詳細は <a href="../text/#tebunko-が作ったファイルの除外">テキストファイルの読み取り</a>）</li>
 </ul>
 <p>各ファイルは拡張子で抽出方法を振り分ける（<code>ingestFile</code>）。<code>.xls*</code> は <a href="../excel/#excel-の抽出処理extractworkbook">Excel の抽出処理</a>（Excel、<a href="../excel/">Excel</a>）、<code>.doc*</code> <code>.ppt*</code> は <a href="../office-apps/#wordpowerpoint-の抽出処理extractdocument">Word・PowerPoint の抽出処理</a>（Word・PowerPoint 共通、<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>）と <a href="../word/#word-の旧形式の変換extractwithword">Word の旧形式の変換</a>（Word、<a href="../word/">Word</a>）・<a href="../powerpoint/#powerpoint-の旧形式の変換extractwithpowerpoint">PowerPoint の旧形式の変換</a>（PowerPoint、<a href="../powerpoint/">PowerPoint</a>）。テキストの拡張子は <a href="../text/#テキストファイルの抽出処理extracttextfile">テキストファイルの抽出処理</a>（<code>extractTextFile</code>）。
 成功時は <code>TSV N 件を作成しました。</code> を表示する。</p>
