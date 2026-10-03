@@ -31,10 +31,14 @@ $script:FigmaFrames = @(
     [pscustomobject]@{ Name = "H-T1";              Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-範囲";             Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-範囲2";            Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
+    [pscustomobject]@{ Name = "H-絞り込み中";        Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "探す範囲";            Xaml = "xaml\探す範囲.xaml";            Width = 817;  Height = 202 }
     [pscustomobject]@{ Name = "フルパスのツールチップ"; Xaml = "xaml\フルパスのツールチップ.xaml"; Width = 571;  Height = 100 }
     [pscustomobject]@{ Name = "正規表現の吹き出し";   Xaml = "xaml\正規表現の吹き出し.xaml";    Width = 300;  Height = 28 }
     [pscustomobject]@{ Name = "高速検索の表示";      Xaml = "xaml\高速検索の表示.xaml";        Width = 758;  Height = 296 }
+    # 下の「プレビューの種類ごと見本」は Figma のフレームではなく、メンテナ指摘
+    # （2026-10-03・追加の 3）向けに新規に作った参考シート。26 枚には含まれず、参照 PNG も無い。
+    [pscustomobject]@{ Name = "プレビューの種類ごと見本"; Xaml = "xaml\プレビューの種類ごと見本.xaml"; Width = 820; Height = 1450 }
 )
 
 function Get-FigmaFrames {
@@ -145,37 +149,37 @@ function Set-FastSearchState($Root, [string]$State) {
     switch ($State) {
         "unavailable-connect" {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Fill = $Root.FindResource("Disabled.9AA0A6"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
             $text.Text = "高速検索：使用不可（Windows Search に接続できません）"
             $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Disabled.9AA0A6")
         }
         "unavailable-regex" {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Fill = $Root.FindResource("Disabled.9AA0A6"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
             $text.Text = "高速検索：使用不可（正規表現では使えません）"
             $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Disabled.9AA0A6")
         }
         "unavailable-short" {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Fill = $Root.FindResource("Disabled.9AA0A6"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
             $text.Text = "高速検索：使用不可（2文字以上で使えます）"
             $info.Visibility = [System.Windows.Visibility]::Collapsed
         }
         "unavailable-pending" {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Fill = $Root.FindResource("Disabled.9AA0A6"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
             $text.Text = "高速検索：使用不可（反映待ちです）"
             $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Disabled.9AA0A6")
         }
         "partial" {
             $badge.Background = $Root.FindResource("Warn.FFF5E0"); $badge.BorderBrush = $Root.FindResource("Warn.BA7D00")
-            $icon.Fill = $Root.FindResource("Warn.BA7D00"); $text.Foreground = $Root.FindResource("Warn.BA7D00")
+            $icon.Stroke = $Root.FindResource("Warn.BA7D00"); $text.Foreground = $Root.FindResource("Warn.BA7D00")
             $text.Text = "高速検索：一部で使用可"
             $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Warn.BA7D00")
         }
         "ok" {
             $badge.Background = $Root.FindResource("Ok.E0F7E0"); $badge.BorderBrush = $Root.FindResource("Ok.218A21")
-            $icon.Fill = $Root.FindResource("Ok.218A21"); $text.Foreground = $Root.FindResource("Ok.218A21")
+            $icon.Stroke = $Root.FindResource("Ok.218A21"); $text.Foreground = $Root.FindResource("Ok.218A21")
             $text.Text = "高速検索：使用可"
             $info.Visibility = [System.Windows.Visibility]::Collapsed
         }
@@ -518,6 +522,13 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElChecked $Root "RangeCheck_Comment" $false
             Set-ElChecked $Root "RangeCheck_Note" $false
             Set-ElText $Root "RangeButtonText" "探す範囲：本文・図形 ▾"
+        }
+
+        "H-絞り込み中" {
+            # メンテナ指摘（2026-10-03・追加の 1）: 絞り込み中は件数を「N件中K件を表示」にする見本。
+            $filterBox = Find-Named $Root "ResultsFilterBox"
+            if ($filterBox) { $filterBox.Text = "山田"; $filterBox.Foreground = $Root.FindResource("Ink.202124") }
+            Set-ElText $Root "ResultsSummaryText" "14件中3件を表示"
         }
 
         default {

@@ -258,7 +258,8 @@
       <DockPanel Grid.Row="1" Margin="16,0,16,8" VerticalAlignment="Center" LastChildFill="False">
         <Border x:Name="FastSearchBadge" DockPanel.Dock="Right" Style="{StaticResource StatusBadge}" Background="{StaticResource Ok.E0F7E0}" BorderBrush="{StaticResource Ok.218A21}">
           <StackPanel Orientation="Horizontal">
-            <Path x:Name="FastSearchIcon" Data="{StaticResource Icon.Bolt}" Width="10" Height="10" Stretch="Uniform" Fill="{StaticResource Ok.218A21}" Margin="0,0,4,0" />
+            <Path x:Name="FastSearchIcon" Data="{StaticResource Icon.Zap}" Width="12" Height="12" Stretch="Uniform"
+                  Stroke="{StaticResource Ok.218A21}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,4,0" />
             <TextBlock x:Name="FastSearchText" Text="高速検索：使用可" Style="{StaticResource Text.11}" Foreground="{StaticResource Ok.218A21}" />
             <Path x:Name="FastSearchInfo" Data="{StaticResource Icon.Info}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ok.218A21}" StrokeThickness="1" Margin="4,0,0,0" Visibility="Collapsed" />
           </StackPanel>
@@ -309,7 +310,7 @@
         </Button>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
           <TextBlock Text="絞り込み" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
-          <TextBox x:Name="ResultsFilterBox" Width="200" Height="24" VerticalAlignment="Center" Foreground="{StaticResource Ink.6B737D}" Text="ファイル名・場所・中身で絞り込む" />
+          <TextBox x:Name="ResultsFilterBox" Width="220" Height="24" VerticalAlignment="Center" Foreground="{StaticResource Ink.6B737D}" Text="ファイル名・場所・中身で絞り込む" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
           <TextBlock x:Name="ExpandAllLink" Text="すべて開く" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" />
