@@ -6,6 +6,8 @@ BeforeAll {
     $rootDir = (Resolve-Path "$here\..").Path
     $scriptsDir = "$rootDir\scripts"
     $launcher = "$rootDir\tebunko.bat"
+    # 禁止の語の一覧は tools\script_rules.ps1 と共有する（check_release_package.ps1・new_single_script.ps1 も同じ一覧を見る）
+    . "$rootDir\tools\script_rules.ps1"
 
     function getCodeLines {
         # 検査対象のコード行を @{ File; Line; Text } で返す。
@@ -71,19 +73,19 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
     }
 
     It "文字列を式として実行しない（Invoke-Expression・iex・ScriptBlock の生成）" {
-        (findPattern $code 'Invoke-Expression|[^-\w]iex[ (]|ScriptBlock\]::Create') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.InvokeExpression) | Should -Be ""
     }
 
     It "難読化したコマンドを実行しない（Base64・EncodedCommand）" {
-        (findPattern $code 'FromBase64String|EncodedCommand') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.EncodedCommand) | Should -Be ""
     }
 
     It "ネットワーク通信を行わない" {
-        (findPattern $code 'Invoke-WebRequest|Invoke-RestMethod|WebClient|HttpClient|Net\.Sockets|Start-BitsTransfer|DownloadFile|DownloadString|System\.Net\.') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.Network) | Should -Be ""
     }
 
     It "Windows API を直接呼び出さない（P/Invoke）" {
-        (findPattern $code 'DllImport|GetDelegateForFunctionPointer') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.PInvoke) | Should -Be ""
     }
 
     It "内部の型（NonPublic）をリフレクションで呼ぶのは、フォルダ選択の 1 か所だけ" {
@@ -106,16 +108,16 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
     }
 
     It "レジストリを読み書きしない" {
-        (findPattern $code 'HKLM|HKCU|HKEY_|Set-ItemProperty|New-ItemProperty|Registry::') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.Registry) | Should -Be ""
     }
 
     It "権限・サービス・自動起動を変更しない" {
-        (findPattern $code 'Set-Acl|icacls|schtasks|New-Service|Start-Service|sc\.exe|-Verb\s+RunAs') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.PrivilegeService) | Should -Be ""
     }
 
     It "実行ポリシーを恒久変更せず、Bypass も使わない" {
-        (findPattern $code 'Set-ExecutionPolicy') | Should -Be ""
-        (findPattern $code 'ExecutionPolicy\s+Bypass') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.ExecutionPolicySet) | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.ExecutionPolicyBypass) | Should -Be ""
         # 起動用 .bat も同じ（RemoteSigned で起動する）
         $bat = [System.IO.File]::ReadAllText($launcher)
         ($bat -match 'Bypass') | Should -Be $false
@@ -123,16 +125,16 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
     }
 
     It "資格情報を入力要求・保存しない" {
-        (findPattern $code 'Get-Credential|ConvertTo-SecureString|PSCredential') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.Credential) | Should -Be ""
     }
 
     It "壊れたハッシュ（MD5・SHA-1）と、FIPS 準拠でないハッシュの実装を使わない" {
         # FIPS モードの Windows では、FIPS 準拠でない実装（MD5・*Managed）を作ると例外になり起動できなくなる
-        (findPattern $code 'MD5|SHA1|RIPEMD|SHA(256|384|512)Managed|HashAlgorithm\]::Create') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.WeakHash) | Should -Be ""
     }
 
     It "リモート実行を行わない" {
-        (findPattern $code 'Invoke-Command|New-PSSession|Enter-PSSession|WinRM') | Should -Be ""
+        (findPattern $code $script:bannedCodePatterns.Remote) | Should -Be ""
     }
 
     It "外部プロセスの起動は explorer.exe・notepad.exe だけ" {

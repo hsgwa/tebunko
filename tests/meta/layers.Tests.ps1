@@ -1,41 +1,15 @@
 ﻿# フォルダ構成の決まりごとのテスト（文脈と層の分け方を保つ）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
+    # 読み込み口からのたどり方は tools\script_rules.ps1 と共有する（check_release_package.ps1・
+    # new_single_script.ps1 も同じたどり方を使う）
+    . "$PSScriptRoot\..\..\tools\script_rules.ps1"
 
-    # ファイルが dot-source している相手を返す（. "$PSScriptRoot\..." の形と、
-    # ui\ 配下のファイルが使う . "$TebunkoDir\..." の形（起動口 gui.ps1 から渡される tebunko\ 直下）を見る）
+    # getSourcedFiles は getDotSourceTargets（存在しない先も返す）の、このテスト向けの薄い別名。
+    # ui\ 配下の "$TebunkoDir\..." の形は、起動口 gui.ps1 から渡される tebunko\ 直下を指す
     function getSourcedFiles {
         param ([string]$path)
-
-        $dir = Split-Path $path -Parent
-        $text = [System.IO.File]::ReadAllText($path)
-        $result = @()
-        foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"')) {
-            $base = if ($match.Groups[1].Value -eq "TebunkoDir") { "${scriptsDir}\tebunko" } else { $dir }
-            $full = Join-Path $base $match.Groups[2].Value
-            if (Test-Path -LiteralPath $full) {
-                $result += (Resolve-Path -LiteralPath $full).Path
-            }
-        }
-        return $result
-    }
-
-    # 起点のファイルから dot-source でたどれるファイルを全部返す（幅優先）
-    function getReachableFiles {
-        param ([string[]]$entries)
-
-        $seen = New-Object 'System.Collections.Generic.HashSet[string]'
-        $queue = New-Object System.Collections.Queue
-        foreach ($entry in $entries) {
-            $full = (Resolve-Path -LiteralPath $entry).Path
-            if ($seen.Add($full)) { $queue.Enqueue($full) }
-        }
-        while ($queue.Count -gt 0) {
-            foreach ($next in (getSourcedFiles $queue.Dequeue())) {
-                if ($seen.Add($next)) { $queue.Enqueue($next) }
-            }
-        }
-        return $seen
+        return @(getDotSourceTargets $path "${scriptsDir}\tebunko" | Where-Object { Test-Path -LiteralPath $_ })
     }
 }
 
@@ -71,7 +45,7 @@ Describe "読み込み漏れ" -Tag Meta {
     # 起動口からたどれないファイルは、足したのに読み込み忘れている
     It "すべての .ps1 が起動口からたどれる" {
         $entries = @("${scriptsDir}\tebunko\gui.ps1", "${scriptsDir}\tebunko\indexer.ps1")
-        $seen = getReachableFiles $entries
+        $seen = getReachableFiles $entries "${scriptsDir}\tebunko"
         $all = @(Get-ChildItem "${scriptsDir}" -Recurse -Filter "*.ps1" | ForEach-Object { $_.FullName })
         $missing = @($all | Where-Object { !$seen.Contains($_) } | ForEach-Object { Split-Path $_ -Leaf })
         ($missing -join ", ") | Should -Be ""
@@ -122,7 +96,7 @@ Describe "状態層と読み込み口" -Tag Meta {
             "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
             "${scriptsDir}\tebunko\indexer.ps1"
         )
-        $reached = getReachableFiles $entries
+        $reached = getReachableFiles $entries "${scriptsDir}\tebunko"
         $ui = @($reached | Where-Object { $_ -like "*\ui\*" } | ForEach-Object { Split-Path $_ -Leaf })
         ($ui -join ", ") | Should -Be ""
     }

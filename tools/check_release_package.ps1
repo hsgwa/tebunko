@@ -31,16 +31,12 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $rootDir = Split-Path $PSScriptRoot -Parent
 $failures = New-Object System.Collections.Generic.List[string]
 
-# ファイルが dot-source している先を返す（. "$PSScriptRoot\..." の形と、ui\ 配下のファイルが使う
-# . "$TebunkoDir\..." の形（起動口 gui.ps1 から渡される tebunko\ 直下）を見る）。存在しない先も返す
-# （tests\meta\layers.Tests.ps1 の getSourcedFiles は、存在するものだけを返し、tools から tests を読み込まないため、ここに持つ）
+# 読み込み口からのたどり方は tools\script_rules.ps1 と共有する（tests\meta\layers.Tests.ps1・
+# tests\meta\safety.Tests.ps1・tools\new_single_script.ps1 も同じ場所を読む）
+. "$PSScriptRoot\script_rules.ps1"
+
 function Get-DotSourceTargets([string]$Path, [string]$TebunkoDir) {
-    $dir = Split-Path $Path -Parent
-    $text = [System.IO.File]::ReadAllText($Path)
-    foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"')) {
-        $base = if ($match.Groups[1].Value -eq "TebunkoDir") { $TebunkoDir } else { $dir }
-        [System.IO.Path]::GetFullPath((Join-Path $base $match.Groups[2].Value))
-    }
+    return getDotSourceTargets $Path $TebunkoDir
 }
 
 function Get-Sha256Hex([byte[]]$Bytes) {
