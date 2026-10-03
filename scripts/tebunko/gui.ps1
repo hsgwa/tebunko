@@ -22,9 +22,13 @@ try {
     # RemoteSigned でスクリプトの読み込みがブロックされるため。通常は tebunko.bat が起動前に消すが、
     # ショートカットから直接起動したときや、あとでファイルを差し替えたときのために、ここでも消しておく。
     # （この gui.ps1 自身が印付きだと、この行に来る前にブロックされる。その場合は tebunko.bat から起動する）
-    try {
-        Get-ChildItem -LiteralPath (Split-Path $PSScriptRoot -Parent) -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
-    } catch { }
+    # 単一 .ps1 版（${bundledScriptPath} あり）ではしない。動き始めた後に自分の印を消しても起動には効かず、
+    # EDR からは防御の回避に見えるため
+    if ($null -eq (Get-Variable -Name bundledScriptPath -ErrorAction SilentlyContinue)) {
+        try {
+            Get-ChildItem -LiteralPath (Split-Path $PSScriptRoot -Parent) -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+        } catch { }
+    }
 
     . "$PSScriptRoot\..\shared\shared.ps1"
     . "$PSScriptRoot\core\settings.ps1"
