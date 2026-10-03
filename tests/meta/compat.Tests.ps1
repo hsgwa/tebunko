@@ -4,6 +4,7 @@
 # zip の中の content_index/ という決め打ちの文字列は、index_compat.Tests.ps1 の check i が確かめる（ここでは見ない）
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
+    . "$PSScriptRoot\..\helpers\compat.ps1"
 
     ${compatIndexRoot} = "${testDataDir}\compat\index"
     ${requiredEntries} = @("source", "ws", "export.zip", "file_times.tsv", "expected.json")
@@ -22,85 +23,73 @@ Describe "前の版のファイル（compat\index）" -Tag Meta {
         ($problems -join "`n") | Should -Be ""
     }
 
-    It "今のコードの形式の目印が、見本のどれかに残っている" {
+    It "今のコードの形式の目印が、1 つの見本にすべて残っている（見本ごとに調べ、どれか 1 つがそろっていればよい）" {
         $samples = @(Get-ChildItem -LiteralPath ${compatIndexRoot} -Directory)
         $samples.Count | Should -BeGreaterThan 0 -Because "見本が 1 つも無い"
-        $problems = New-Object System.Collections.Generic.List[string]
+        $problemsBySample = [ordered]@{}
 
-        # packVersion: 集約ファイル（content_index\...\content_index.*.tsv）の先頭行 "版=<packVersion>"
-        $packFile = @($samples | ForEach-Object { Get-ChildItem -LiteralPath "$($_.FullName)\ws\content_index" -Recurse -File -Filter "${packFileNamePrefix}.*.tsv" -ErrorAction SilentlyContinue } | Select-Object -First 1)
-        if ($packFile.Count -eq 0) {
-            $problems.Add("packFileNamePrefix（${packFileNamePrefix}）に当たる集約ファイルが見本に無い")
-        } else {
-            $text = [System.IO.File]::ReadAllText($packFile[0].FullName, [System.Text.Encoding]::Unicode)
-            $m = [regex]::Match($text, "版=(\d+)")
-            if (!$m.Success -or $m.Groups[1].Value -ne [string]${packVersion}) {
-                $problems.Add("packVersion（${packVersion}）が $($packFile[0].FullName) に見つからない")
-            }
-        }
-
-        # sourceFolderFileName・systemIndexFileName
-        $sourceFolderHit = @($samples | ForEach-Object { Get-ChildItem -LiteralPath "$($_.FullName)\ws\content_index" -Recurse -File -Filter ${sourceFolderFileName} -ErrorAction SilentlyContinue })
-        if ($sourceFolderHit.Count -eq 0) {
-            $problems.Add("sourceFolderFileName（${sourceFolderFileName}）が見本に無い")
-        }
-        $systemIndexHit = @($samples | ForEach-Object { Get-ChildItem -LiteralPath "$($_.FullName)\ws\system_index" -Recurse -File -Filter ${systemIndexFileName} -ErrorAction SilentlyContinue })
-        if ($systemIndexHit.Count -eq 0) {
-            $problems.Add("systemIndexFileName（${systemIndexFileName}）が見本に無い")
-        }
-
-        # Workspace クラスの葉の名前（content_index・system_index・system_index_state.tsv・ingest_status.tsv）
         foreach ($sample in $samples) {
-            $ws = [Workspace]::new("$($sample.FullName)\ws")
+            $problems = New-Object System.Collections.Generic.List[string]
+            $wsDir = "$($sample.FullName)\ws"
+
+            # packVersion: 集約ファイル（content_index\...\content_index.*.tsv）の先頭行 "版=<packVersion>"
+            $packFile = @(Get-ChildItem -LiteralPath "$wsDir\content_index" -Recurse -File -Filter "${packFileNamePrefix}.*.tsv" -ErrorAction SilentlyContinue | Select-Object -First 1)
+            if ($packFile.Count -eq 0) {
+                $problems.Add("packFileNamePrefix（${packFileNamePrefix}）に当たる集約ファイルが無い")
+            } else {
+                $text = [System.IO.File]::ReadAllText($packFile[0].FullName, [System.Text.Encoding]::Unicode)
+                $m = [regex]::Match($text, "版=(\d+)")
+                if (!$m.Success -or $m.Groups[1].Value -ne [string]${packVersion}) {
+                    $problems.Add("packVersion（${packVersion}）が $($packFile[0].Name) に見つからない")
+                }
+            }
+
+            # sourceFolderFileName・systemIndexFileName
+            if (@(Get-ChildItem -LiteralPath "$wsDir\content_index" -Recurse -File -Filter ${sourceFolderFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
+                $problems.Add("sourceFolderFileName（${sourceFolderFileName}）が無い")
+            }
+            if (@(Get-ChildItem -LiteralPath "$wsDir\system_index" -Recurse -File -Filter ${systemIndexFileName} -ErrorAction SilentlyContinue).Count -eq 0) {
+                $problems.Add("systemIndexFileName（${systemIndexFileName}）が無い")
+            }
+
+            # Workspace クラスの葉の名前（content_index・system_index・system_index_state.tsv・ingest_status.tsv）
+            $ws = [Workspace]::new($wsDir)
             foreach ($leaf in @($ws.IndexDir, $ws.SystemIndexDir, $ws.SystemIndexStateFile, $ws.StatusFile)) {
                 if (!(Test-Path -LiteralPath $leaf)) {
-                    $problems.Add("$($sample.Name) に Workspace の $([System.IO.Path]::GetFileName($leaf)) が無い")
+                    $problems.Add("Workspace の $([System.IO.Path]::GetFileName($leaf)) が無い")
                 }
             }
-        }
 
-        # statusColumns: ingest_status.tsv の見出し行
-        foreach ($sample in $samples) {
-            $statusPath = "$($sample.FullName)\ws\ingest_status.tsv"
-            if (Test-Path -LiteralPath $statusPath) {
-                $lines = [System.IO.File]::ReadAllLines($statusPath, [System.Text.Encoding]::UTF8)
+            # statusColumns: ingest_status.tsv の見出し行
+            if (Test-Path -LiteralPath $ws.StatusFile) {
+                $lines = [System.IO.File]::ReadAllLines($ws.StatusFile, [System.Text.Encoding]::UTF8)
                 $headerLine = @($lines | Where-Object { $_ -ne "" -and $_ -notmatch "^クロール対象フォルダ`t" } | Select-Object -First 1)
                 if ($headerLine.Count -eq 0 -or $headerLine[0] -ne (${statusColumns} -join "`t")) {
-                    $problems.Add("$($sample.Name) の ingest_status.tsv の見出しが statusColumns と違う")
+                    $problems.Add("ingest_status.tsv の見出しが statusColumns と違う")
                 }
             }
-        }
 
-        # indexArchiveFormatVersion・indexArchiveManifestFileName・indexArchiveStatusEntryName: export.zip の目録
-        foreach ($sample in $samples) {
+            # indexArchiveFormatVersion・indexArchiveManifestFileName・indexArchiveStatusEntryName: export.zip の目録
             $zipPath = "$($sample.FullName)\export.zip"
-            if (!(Test-Path -LiteralPath $zipPath)) { continue }
-            $archive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-            try {
-                $manifestEntry = $archive.Entries | Where-Object { $_.FullName -ceq ${indexArchiveManifestFileName} } | Select-Object -First 1
-                if (!$manifestEntry) {
-                    $problems.Add("$($sample.Name) の export.zip に indexArchiveManifestFileName（${indexArchiveManifestFileName}）が無い")
-                } else {
-                    $stream = $manifestEntry.Open()
-                    try {
-                        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
-                        $manifest = $reader.ReadToEnd() | ConvertFrom-Json
-                    } finally {
-                        $stream.Dispose()
-                    }
-                    if ([int]$manifest.formatVersion -ne ${indexArchiveFormatVersion}) {
-                        $problems.Add("$($sample.Name) の export.zip の formatVersion が indexArchiveFormatVersion（${indexArchiveFormatVersion}）と違う")
-                    }
+            if (Test-Path -LiteralPath $zipPath) {
+                $manifestText = readZipEntryText $zipPath ${indexArchiveManifestFileName}
+                if ($null -eq $manifestText) {
+                    $problems.Add("export.zip に indexArchiveManifestFileName（${indexArchiveManifestFileName}）が無い")
+                } elseif ([int]($manifestText | ConvertFrom-Json).formatVersion -ne ${indexArchiveFormatVersion}) {
+                    $problems.Add("export.zip の formatVersion が indexArchiveFormatVersion（${indexArchiveFormatVersion}）と違う")
                 }
-                $statusEntry = $archive.Entries | Where-Object { $_.FullName -ceq ${indexArchiveStatusEntryName} } | Select-Object -First 1
-                if (!$statusEntry) {
-                    $problems.Add("$($sample.Name) の export.zip に indexArchiveStatusEntryName（${indexArchiveStatusEntryName}）が無い")
+                if ((getZipEntryNames $zipPath) -cnotcontains ${indexArchiveStatusEntryName}) {
+                    $problems.Add("export.zip に indexArchiveStatusEntryName（${indexArchiveStatusEntryName}）が無い")
                 }
-            } finally {
-                $archive.Dispose()
+            } else {
+                $problems.Add("export.zip が無い")
             }
+
+            $problemsBySample[$sample.Name] = $problems
         }
 
-        ($problems -join "`n") | Should -Be ""
+        $complete = @($problemsBySample.Keys | Where-Object { $problemsBySample[$_].Count -eq 0 })
+        $report = ($problemsBySample.Keys | ForEach-Object { "${_}: " + ($problemsBySample[$_] -join " / ") }) -join "`n"
+        $complete.Count | Should -BeGreaterThan 0 -Because "目印がすべてそろった見本が無い`n$report"
     }
 }

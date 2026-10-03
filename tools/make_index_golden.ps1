@@ -12,13 +12,13 @@
 #      system_index_state.tsv・ingest_status.tsv）と zip を見本へコピーし、file_times.tsv を作る
 #   5. expected.json は手で書く（このスクリプトは作らない）
 #
-# file_times.tsv: source/ のファイルの更新日時を、ingest_status.tsv に記録された文字列（秒まで・タイムゾーンの情報なし）
-# から作った Ticks で保存する。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、
-# tests/tebunko/indexer/index_compat.Tests.ps1 がこのファイルを読み、source/ を写した先でファイルの更新日時を
-# この Ticks に戻す（File.SetLastWriteTime。Ticks は DateTimeKind を持たないため、実行する PC のタイムゾーンに関わらず
-# 同じ文字列になる＝タイムゾーンに依存しない）。indexer が取り込み済みと判断する条件
-# （indexer_decide.ps1 の getIngestDecision）が、記録した更新日時の文字列と、そのとき実際にファイルから読んだ
-# 更新日時の文字列が等しいことのため、Ticks の値そのもの（UTC かどうか）ではなく、文字列を再現できることが要る
+# file_times.tsv: 見本のファイルの更新日時の記録。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、
+# tests/tebunko/indexer/index_compat.Tests.ps1 がこのファイルを読み、source/・ws/ を写した先でファイルの更新日時を戻す。
+#   source/ … ingest_status.tsv に記録された文字列（秒まで・タイムゾーンの情報なし）から作った Ticks。File.SetLastWriteTime で戻す
+#             （Ticks は DateTimeKind を持たないため、実行する PC のタイムゾーンに関わらず同じ文字列になる）。
+#             indexer が取り込み済みと判断する条件（indexer_decide.ps1 の getIngestDecision）が、記録した更新日時の文字列と
+#             実際にファイルから読んだ更新日時の文字列が等しいことのため、文字列を再現できることが要る
+#   ws/     … content_index\・system_index\ のファイルの実際の更新日時（UTC の Ticks）。File.SetLastWriteTimeUtc で戻す
 param (
     [Parameter(Mandatory = $true)]
     [string]$WorkspaceDir,
@@ -99,10 +99,24 @@ Copy-Item -LiteralPath $ExportZip -Destination (Join-Path $SampleDir "export.zip
 
 $times = readIngestStatusTimes $statusPath
 $timesLines = New-Object System.Collections.Generic.List[string]
-$timesLines.Add("# source/ からの相対パス（/ 区切り）<TAB>Ticks（DateTimeKind なし。更新日時の文字列をそのまま解いた値）")
+$timesLines.Add("# 見本のフォルダからの相対パス（/ 区切り）<TAB>Ticks。source/ は DateTimeKind なし（更新日時の文字列をそのまま解いた値）、ws/ は UTC")
 foreach ($relative in $times.Keys) {
     $parsed = [datetime]::ParseExact($times[$relative], "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture)
-    $timesLines.Add("${relative}`t$($parsed.Ticks)")
+    $timesLines.Add("source/${relative}`t$($parsed.Ticks)")
+}
+# ws/ の content_index\・system_index\ のファイルは、実際の更新日時（UTC の Ticks）を残す。
+# システムインデックスの作り直しの判定（system_index.ps1）が、content_index の TSV と system_index.txt の更新日時の前後と、
+# system_index_state.tsv の「反映待ち」に書いた system_index.txt の更新日時（UTC の Ticks）を見るため、取り出した直後の日時のままでは
+# 「古い」と見なして作り直してしまう
+$wsFileCount = 0
+foreach ($sub in @("content_index", "system_index")) {
+    $subDir = Join-Path $wsDest $sub
+    if (!(Test-Path -LiteralPath $subDir)) { continue }
+    foreach ($file in @(Get-ChildItem -LiteralPath $subDir -Recurse -File | Sort-Object FullName)) {
+        $relative = $file.FullName.Substring($wsDest.Length + 1).Replace("\", "/")
+        $timesLines.Add("ws/${relative}`t$($file.LastWriteTimeUtc.Ticks)")
+        $wsFileCount++
+    }
 }
 $timesPath = Join-Path $SampleDir "file_times.tsv"
 [System.IO.File]::WriteAllText($timesPath, (($timesLines -join "`r`n") + "`r`n"), (New-Object System.Text.UTF8Encoding($true)))
@@ -110,4 +124,4 @@ $timesPath = Join-Path $SampleDir "file_times.tsv"
 Write-Host "見本を作りました: ${SampleDir}"
 Write-Host "  ws\ … $((Get-ChildItem -LiteralPath $wsDest -Recurse -File).Count) ファイル"
 Write-Host "  export.zip"
-Write-Host "  file_times.tsv … $($times.Count) 件"
+Write-Host "  file_times.tsv … source $($times.Count) 件・ws ${wsFileCount} 件"
