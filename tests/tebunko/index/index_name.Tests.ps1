@@ -152,6 +152,8 @@ Describe "toIndexFileName" -Tag Unit {
         @{ name = "シート名が固定名のファイル名（page_001）と同じでも、_ を %5F にするため区別できる"; place = "page_001"; fileName = "page%5F001.tsv"; ascii = $true }
         @{ name = "シート名の % は %25 にする"; place = "50%引き"; fileName = "50%25引き.tsv"; ascii = $false }
         @{ name = "シート名のファイル名禁止文字は符号化する"; place = "記号<>"; fileName = "記号%3C%3E.tsv"; ascii = $false }
+        @{ name = "Excel のシート名のヘッダー・フッターは末尾に [header_footer]"; place = "売上[ヘッダー・フッター]"; fileName = "売上[header_footer].tsv"; ascii = $false }
+        @{ name = "固定名のヘッダー・フッター（Word・PowerPoint）に、同名のシートの種類の [header_footer] が付いても戻せる"; place = "ヘッダー・フッター[ヘッダー・フッター]"; fileName = "header_footer[header_footer].tsv"; ascii = $true }
     ) {
         param ($name, $place, $fileName, $ascii)
         toIndexFileName $place | Should -Be $fileName
