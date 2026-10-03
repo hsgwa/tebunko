@@ -4039,6 +4039,10 @@
 <td>Windows Search を開けて <code>work/system_index</code> が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（<code>testFastSearchUsable</code>・<code>getFastSearchView</code>）。使えないときは <a href="../speed/">検索を速くする仕組み</a> のとおりすべてを照合する</td>
 </tr>
 <tr>
+<td>インデックスごとの反映の進み具合</td>
+<td>［1 インデックス管理］の一覧の「高速検索」列で、インデックスごとに Windows Search への反映がどこまで進んだかを確かめられる（<code>確認中…</code> / <code>－</code> / <code>不可</code> / <code>反映待ち</code> / <code>反映中 N%</code> / <code>可</code>。<a href="../../gui/index-tab/#一覧の列">一覧の列</a>）。<code>不可</code> のときは、接続できない・ワークスペースが索引の対象外・そのインデックスに高速検索用のデータが無い、のいずれかで、理由をツールヒントに出す（<code>getFastSearchRowView</code>）</td>
+</tr>
+<tr>
 <td>語の作り方</td>
 <td>ワードを空白で区切り、2 文字以上の部分の隣り合う 2 文字を小文字にし、UTF-16LE の 4 バイトを 16 進にした語（<code>x</code> ＋ 8 桁）にする（<code>getSearchGrams</code>）。最大 16 個（多いときは均等に間引く。間引いても候補が増えるだけ）</td>
 </tr>
