@@ -422,7 +422,7 @@ function testImportFreeSpace {
 
 function expandImportArchive {
     # 7. 目録にあるエントリーを作業フォルダ（<workDir>\new）に展開する（目録のパスからだけ作る。エントリーの名前からは作らない）。
-    # 書き込む前に、大きさと SHA-256 を目録と比べる。元のフォルダ.txt もここで作る。
+    # 書き込む前に、大きさと SHA-256 を目録と比べる。source_folder.txt もここで作る。
     # 返すもの: @{ NewDir; Rows }（Rows は取り込み一覧に足す行。相対パスの先頭にインデックス名を付けたもの）。
     # 途中で失敗したら、作業フォルダを消して例外にする
     param (
@@ -454,7 +454,7 @@ function expandImportArchive {
                 $statusLines = @($text -split "\r?\n" | Where-Object { $_ -ne "" })
                 $reason = testImportedStatusLines $statusLines
                 if ($reason) {
-                    throw "取り込み一覧.tsv を読み込めません（${reason}）"
+                    throw "ingest_status.tsv を読み込めません（${reason}）"
                 }
             } else {
                 $rel = $path.Substring("content_index/".Length).Replace("/", "\")

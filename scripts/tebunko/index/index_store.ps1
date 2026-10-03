@@ -182,7 +182,7 @@ function getSearchIndexes {
         $path = (fromLongPath $sub.FullName)
         if (!$sources.ContainsKey($name)) {
             # 取り込み一覧にも設定にも無いインデックス（別の場所・PC からコピーしたものなど）は、
-            # そのフォルダの中の 元のフォルダ.txt から元のフォルダを読む
+            # そのフォルダの中の source_folder.txt から元のフォルダを読む
             $own = readSourceFolderFile $path
             if ($own.ContainsKey($name)) {
                 $sources[$name] = $own[$name]

@@ -1,11 +1,11 @@
-# Support
+﻿# Support
 
 English | [日本語](SUPPORT.ja.md)
 
 ## When you have a problem
 
 1. **Read "[トラブルシューティング](../docs/guide/troubleshooting.md)" (troubleshooting) and "[制限事項](../docs/guide/limitations.md)" (limitations) in the user guide (Japanese).** They list common problems and what to do, the characters that cannot be searched and the files that cannot be read.
-2. **Read the logs.** The progress of indexing and the reasons why files could not be read are written to `インデックス作成ログ.txt` in the workspace (by default `%USERPROFILE%\Documents\tebunko_ws`). Errors that stopped indexing are shown on the screen and are also written to the same log. The meaning of each error is described in [docs/design/indexing/errors.md](../docs/design/indexing/errors.md) (Japanese).
+2. **Read the logs.** The progress of indexing and the reasons why files could not be read are written to `indexing_log.txt` in the workspace (by default `%USERPROFILE%\Documents\tebunko_ws`). Errors that stopped indexing are shown on the screen and are also written to the same log. The meaning of each error is described in [docs/design/indexing/errors.md](../docs/design/indexing/errors.md) (Japanese).
 3. **Read the design documents.** How the screen, indexing and search work in detail is described in [docs/](../docs/design/index.md) (Japanese).
 4. **Search the existing issues.** Check whether the same problem has already been reported in the [issues](https://github.com/hsgwa/tebunko/issues?q=is%3Aissue).
 
