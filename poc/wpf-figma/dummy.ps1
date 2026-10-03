@@ -590,6 +590,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             if ($glyph) { $glyph.Stroke = $Root.FindResource("Warn.BA7D00") }
             $banner = Find-Named $Root "Banner"
             if ($banner) { $banner.Background = $Root.FindResource("Warn.FFF5E0"); $banner.BorderBrush = $Root.FindResource("Warn.BA7D00") }
+            # 左の縦の帯もバナーの種類（注意）に合わせて橙にする（今は情報の青のまま残っていた。diff_round8.md 1）
+            Set-ElBrushKey $Root "BannerAccent" "Fill" "Warn.BA7D00"
             Set-ElGeometryKey $Root "BannerGlyph" "Icon.BadgeGlyphWarn"
             # バナーの文言とボタンは「前回の更新が途中です」「続きから再開」にする（diff_round2.md 2 回目指摘）
             Set-ElText $Root "BannerText" "前回の更新が途中です（残り 875 件）"
