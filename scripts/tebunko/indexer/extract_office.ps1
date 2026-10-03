@@ -204,10 +204,10 @@ function extractWorkbook {
         } catch {
             writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
         }
-        # 1つのグラフ・SmartArtが読めなくても、そこだけを空にしてほかの図形・コメントは読む（readXlsxObjectUnits）。
+        # 1つのグラフ・SmartArt・シートのヘッダー/フッターが読めなくても、そこだけを空にしてほかは読む（readXlsxObjectUnits）。
         # shared/ はツールを知らないため、読めなかった部品の名前をここでログに書く
         foreach ($failure in $chartFailures) {
-            writeIndexerLog "    グラフ・SmartArt を読み取れませんでした: $failure" "Yellow"
+            writeIndexerLog "    一部を読み取れませんでした: $failure" "Yellow"
         }
     } else {
         # IRM・秘密度ラベルの暗号化は、Excelを起動せずに失敗にする（サインイン画面を防ぐ）。
