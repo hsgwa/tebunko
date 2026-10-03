@@ -24,6 +24,10 @@
   <SolidColorBrush x:Key="Bg.EDF0F2" Color="#EDF0F2" />
   <SolidColorBrush x:Key="Bg.F5F7FA" Color="#F5F7FA" />
   <SolidColorBrush x:Key="Bg.FAFBFC" Color="#FAFBFC" />
+  <!-- 結果一覧のファイルの行（畳んだ）の地。開いた行は Bg.F5F7FA（diff_round2.md 2 回目指摘） -->
+  <SolidColorBrush x:Key="Bg.F9FAFA" Color="#F9FAFA" />
+  <!-- 結果一覧の、場所のバッジ（パス表示）の灰色の地（diff_round2.md 2 回目指摘） -->
+  <SolidColorBrush x:Key="Bg.PathBadge" Color="#EEF0F2" />
   <SolidColorBrush x:Key="Select.E1F2FF" Color="#E1F2FF" />
   <SolidColorBrush x:Key="Select.E5F1FB" Color="#E5F1FB" />
   <SolidColorBrush x:Key="Line.E0E2E5" Color="#E0E2E5" />
@@ -37,6 +41,10 @@
   <SolidColorBrush x:Key="Danger.FFE6E6" Color="#FFE6E6" />
   <SolidColorBrush x:Key="Chip.0B5CAD" Color="#0B5CAD" />
   <SolidColorBrush x:Key="Hit.FFF176" Color="#FFF176" />
+  <!-- プレビューの一致セルの地色（一覧側の一致ハイライト Hit.FFF176 とは別の値。diff_round2.md 2 回目指摘） -->
+  <SolidColorBrush x:Key="Match.FFF3CD" Color="#FFF3CD" />
+  <!-- タイトルバー下・ステータスバー地などの枠色（diff_round2.md 2 回目指摘） -->
+  <SolidColorBrush x:Key="Border.Window" Color="#999999" />
   <SolidColorBrush x:Key="Folder.E8A020" Color="#E8A020" />
   <SolidColorBrush x:Key="Excel.107C41" Color="#107C41" />
   <!-- figma_theme_tokens.md の File/Word・File/PowerPoint に合わせて追加（前は Accent.0078D4・直書きの #B7472A を仮で使っていた） -->
@@ -75,8 +83,8 @@
        Figma 書き出し（folder-search）が結果一覧側の H0 イラスト用に限られるため、手近似のまま残している） ============ -->
   <Geometry x:Key="Icon.Folder">M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z</Geometry>
   <Geometry x:Key="Icon.FolderClosed">M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z M2 10h20</Geometry>
-  <!-- ナビの空状態は、folder-search の Figma 書き出しが H0 イラスト用のため、手近似の形のまま残す -->
-  <Geometry x:Key="Icon.FolderEmptyState">M3 7a2 2 0 0 1 2-2h4.2l1.8 2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z</Geometry>
+  <!-- ナビの空状態（橙の線の folder-open。lucide-static v1.50.0・ISC の folder-open.svg） -->
+  <Geometry x:Key="Icon.FolderEmptyState">m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2</Geometry>
   <Geometry x:Key="Icon.ChevronDown">M6 9 L12 15 L18 9</Geometry>
   <Geometry x:Key="Icon.ChevronRight">M9 18 L15 12 L9 6</Geometry>
   <Geometry x:Key="Icon.RefreshCw">M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8 M21 3v5h-5 M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16 M8 16H3v5</Geometry>
@@ -151,6 +159,10 @@
     <Setter Property="FontSize" Value="13" />
     <Setter Property="Foreground" Value="{StaticResource Ink.212126}" />
   </Style>
+  <!-- ナビの項目・検索ボタンの文字など（diff_round2.md 2 回目指摘。太さを Medium にそろえる） -->
+  <Style x:Key="Text.13.Medium" TargetType="TextBlock" BasedOn="{StaticResource Text.13}">
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
   <Style x:Key="Text.14.Bold" TargetType="TextBlock">
     <Setter Property="FontFamily" Value="{DynamicResource Font.UI}" />
     <Setter Property="FontSize" Value="14" />
@@ -204,8 +216,11 @@
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
             </Trigger>
+            <!-- 無効時は薄い色ではなく灰色の地にする（diff_round2.md 2 回目指摘。H-E・E12 の検索ボタンなど） -->
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Disabled.99A1AB}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Disabled.99A1AB}" />
+              <Setter TargetName="Bd" Property="Opacity" Value="1" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -227,11 +242,20 @@
     <Setter Property="BorderBrush" Value="{StaticResource Border.D9DEE3}" />
     <Setter Property="Foreground" Value="{StaticResource Ink.202124}" />
   </Style>
-  <!-- 「開く ▾」分割ボタン。本体を押すと開く、▾ で候補（本体の枠線を共有する 1 つの Border にする） -->
-  <Style x:Key="Btn.OpenSplitBody" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
-    <Setter Property="Background" Value="{StaticResource Accent.0078D4}" />
+  <!-- バナーの中のボタン。帯の色の枠と、帯の色の太字にする（diff_round2.md 2 回目指摘） -->
+  <Style x:Key="Btn.BannerAccent" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
+    <Setter Property="Background" Value="{StaticResource Bg.FFFFFF}" />
     <Setter Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
-    <Setter Property="Foreground" Value="{StaticResource White}" />
+    <Setter Property="Foreground" Value="{StaticResource Accent.0078D4}" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <!-- 「開く ▾」分割ボタン。本体を押すと開く、▾ で候補（本体の枠線を共有する 1 つの Border にする）。
+       白地に青い枠・青い文字にする（diff_round2.md 2 回目指摘。前回は塗りの青だった） -->
+  <Style x:Key="Btn.OpenSplitBody" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
+    <Setter Property="Background" Value="{StaticResource Bg.FFFFFF}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
+    <Setter Property="Foreground" Value="{StaticResource Accent.0078D4}" />
     <Setter Property="Padding" Value="16,7,10,7" />
     <Setter Property="Template">
       <Setter.Value>
@@ -249,12 +273,15 @@
       </Setter.Value>
     </Setter>
   </Style>
-  <!-- 「開く」単独ボタン（▾ なし。H-W など分割にしない見本で使う） -->
-  <Style x:Key="Btn.OpenPlain" TargetType="Button" BasedOn="{StaticResource Btn.Primary}" />
-  <Style x:Key="Btn.OpenSplitArrow" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
-    <Setter Property="Background" Value="{StaticResource Accent.0078D4}" />
+  <!-- 「開く」単独ボタン（▾ なし。H-W など分割にしない見本で使う）。split なしは青い枠だけ -->
+  <Style x:Key="Btn.OpenPlain" TargetType="Button" BasedOn="{StaticResource Btn.Outline}">
     <Setter Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
-    <Setter Property="Foreground" Value="{StaticResource White}" />
+    <Setter Property="Foreground" Value="{StaticResource Accent.0078D4}" />
+  </Style>
+  <Style x:Key="Btn.OpenSplitArrow" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
+    <Setter Property="Background" Value="{StaticResource Bg.FFFFFF}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
+    <Setter Property="Foreground" Value="{StaticResource Accent.0078D4}" />
     <Setter Property="Padding" Value="7,7,10,7" />
     <Setter Property="Template">
       <Setter.Value>
@@ -317,9 +344,43 @@
     </Setter>
   </Style>
 
+  <!-- ============ ラベル付きチェックボックス（正規表現・大文字小文字など）。
+       オンのとき地を青く塗り白い check、文字も青にする（diff_round2.md 2 回目指摘） ============ -->
+  <Style x:Key="CheckBox.Label" TargetType="CheckBox">
+    <Setter Property="FontFamily" Value="{DynamicResource Font.UI}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.202124}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <StackPanel Orientation="Horizontal">
+            <Border x:Name="Box" Width="14" Height="14" CornerRadius="{StaticResource Radius.3}" Margin="0,0,5,0"
+                    Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D0D4D9}" BorderThickness="1">
+              <Path x:Name="Check" Visibility="Collapsed" Stretch="Uniform" Margin="2.5"
+                    Stroke="{StaticResource White}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                    Data="{StaticResource Icon.Check}" />
+            </Border>
+            <ContentPresenter x:Name="Cp" VerticalAlignment="Center" />
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent.0078D4}" />
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
+              <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+              <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{StaticResource Accent.0078D4}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- ============ File Kind Chip（ファイルの種類の絞り込み） ============ -->
+  <!-- 丸い pill にする（diff_round2.md 2 回目指摘。前回は角丸 4px の四角だった） -->
+  <CornerRadius x:Key="Radius.Pill">12</CornerRadius>
   <Style x:Key="Chip" TargetType="Border">
-    <Setter Property="CornerRadius" Value="{StaticResource Radius.4}" />
+    <Setter Property="CornerRadius" Value="{StaticResource Radius.Pill}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="8,4,8,4" />
   </Style>

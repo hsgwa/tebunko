@@ -29,6 +29,8 @@ powershell -ExecutionPolicy Bypass -File poc\wpf-figma\compare.ps1
 - メンテナの追加指摘（2026-10-03）を受けて、次の4点を直した。(1) 絞り込み欄の幅を 220 にし、絞り込み中は件数表示を `docs/design/gui/search-tab.md` どおり「N件中K件を表示」の形にした（見本フレーム `H-絞り込み中`）。(2) 高速検索バッジの絵文字を [Lucide](https://lucide.dev/) の zap（`lucide-static` v1.50.0、ISC）の Path に置き換えた。塗りつぶしではなく線（12px・`StrokeThickness=1.5`・線端と角は Round）にし、色は状態の文字色と同じにした（使用可 `#218A21`・一部で使用可 `#BA7D00`・使用不可 4 状態は `#5F6368`）。`theme.xaml`・`search.xaml`・`高速検索の表示.xaml`・`dummy.ps1` を直した。(3) `docs/design/gui/preview.md`「選択行のプレビュー」の種類ごとの見本（Excel のセル・図形・コメント／Word の本文・ノート／PowerPoint の本文・ノート／テキスト〈txt・md・csv・log〉／テキスト〈tsv〉／未選択／読めない／列を省いた、計 12 種）をまとめた参考シート `xaml\プレビューの種類ごと見本.xaml` を新規に作った。Figma のフレームではないため「フレームの一覧」の 26 枚には含めず、参照 PNG も無い。いずれも headless の WPF レンダリング（`show.ps1` と同じ `XamlReader.Load`＋`RenderTargetBitmap` の手法）で見た目を確かめた。
 - メンテナの指摘（2026-10-03・Figma 再現方針の見直し）を受けて、次の7点を直した。(1) 行のフォルダ・「⋯」・外部リンク・更新の各アイコンを Lucide の folder・ellipsis・external-link・refresh-cw に揃え、「?」「⋯」「×」「!」「✓」を文字でそのまま出す箇所を無くした（`SearchWordError` の「⚠ 」を取り `Icon.TriangleAlert` に、`FilterChip_*`・`ContentBannerText` の「✓ 」を `Icon.Check` に、`RangeButton`・`探す範囲.xaml`・`PreviewOpenArrow` の「▾」を `Icon.ChevronDown` に差し替え）。(2) 線の太さを「表示の大きさ×2/24」の 1 つの式にそろえた（`search.xaml`・`探す範囲.xaml`・`高速検索の表示.xaml`・`splash.xaml` の `Path` の `StrokeThickness` を式どおりの値に直した。例外は空の状態のイラスト〈後述〉とチェックボックス）。(3) ファイルの種類のアイコンを直した（Word＝`Icon.FileText`→色は `Word.185ABD`、PowerPoint＝ハードコードの `#B7472A`→`PowerPoint.C43E1C`、テキスト（.md）＝`Icon.FileText`〈青〉→`Icon.File`＋`Ink.5F6368`〈灰〉。Excel・フォルダは元から合っていたため変えていない）。(4) `theme.xaml` に `Word.185ABD`・`PowerPoint.C43E1C`・`Illust.D1D6DE` のキーを足した（足りないキーを足すだけで、既存のキー名のリネームはしていない）。(5) チェックボックス・コンボは元から WPF 標準部品（`CheckBox`・`Button`＋`ComboBox` 風の `StackPanel`）を使っており、変更無し。(6) `ResultsEmptyState`（H0 のイラスト）を `Icon.FileSearch`（仮）から `Icon.FolderSearch`（lucide の folder-search、線色 `Illust.D1D6DE`）に差し替えた。ナビ側の小さい空アイコン（`Icon.FolderEmptyState`）は対象外として手近似のまま残した。(7) 領域ごとの XAML 分割は、PoC の範囲では現状の 1 ファイル構成（`search.xaml` 内で x:Name により領域を識別できる形）のまま変えていない（本体に移すときに領域ごとへ分けやすいよう、`figma_wpf_map.md` の x:Name は維持）。実機で `show.ps1` を起動して見た目を確かめた。
 - メンテナの動作確認指摘（2026-10-03・動作確認で）を受けて、次の2点を直した。(1) Figma の Banner（塗り丸のバッジ＋文言）は、追加前からすでに `H-B`（インデックス更新中・青・「i」）・`H-P`（更新が中断・オレンジ）・`E16`（検索を中止・青・「i」）・`H-saved`（保存成功・緑）の 4 フレームで `Banner`／`ContentBanner` として出ていたが、どの状態も同じ「i」の線のままだった。`lucide-static` v1.50.0（ISC）の circle-alert／circle-check から内側の線だけを取った `Icon.BadgeGlyphWarn`／`Icon.BadgeGlyphOk` を `theme.xaml` に足し、`H-P` は「!」、`H-saved` は「✓」に差し替えた（`search.xaml` の該当 `Path` に `x:Name` を足し、`dummy.ps1` の新しい `Set-ElGeometryKey` で状態ごとに切り替える）。赤（エラー）色の Banner を使うフレームは今の 26 枚に無いため、`Icon.BadgeGlyphError` は対応表の完備のため Geometry だけ用意し、使う場所は作っていない。(2) `show.ps1` の表示窓で、OS の枠のタイトルバーと、`search.xaml` が自前で描く 32px のタイトルバー（「tebunko」の文字＋最小化／最大化／閉じるの絵）が縦に二重に見えていた不具合を直した。原因は `show.ps1` の `Show-Frame` が窓の `WindowStyle` を既定のまま（OS の枠あり）にしていたこと。`search.xaml` を使うフレームの表示窓だけ `WindowStyle="None"` にして OS の枠を消し、自前のバーの上でのドラッグ移動は `TitleBarGrid` の `MouseLeftButtonDown` から `DragMove()` を呼んで補った。自前のバーを持たない見本（`splash.xaml` など）は OS の枠のバーのままで変えていない。実機で `show.ps1` を起動した窓を Windows の画面キャプチャで撮り、窓の高さがフレームの高さ（例 H は 820px）どおりで OS のバーの分が足されていないこと、タイトルバーが自前の 1 本だけであることを確かめた（2026-10-03）。
+- Figma との 2 回目の見比べ（2026-10-03、メンテナ提供の `diff_round2.md`）の指摘のうち「直す」印のものを直した。主なもの: (1) 結果一覧を、列見出し 1 本・全幅の行・1 行おきの地・選んだ行 `#E1F2FF`・ファイル行の開閉 chevron・地の色分け（開 `#F5F7FA`／畳 `#F9FAFA`）・パスのバッジ・「｜」区切り・右端「[シート]見積書 ・ 3 件」の形に作り直した。(2) プレビューの表を Excel 風の罫線の格子にし、一致セルの地を `Match.FFF3CD`（文字の印の `Hit.FFF176` とは別キー）にした。(3) バナーをナビの右側（主な領域の幅）だけに置き、左 4px の色の帯・四角い角にした。(4) ナビの空状態のフォルダの印を手近似から Lucide の folder-open（橙の線、`Folder.E8A020`）に差し替えた（下の「アイコンの対応表」「書き出し待ち」も更新）。(5) ナビの項目・検索ボタン・空状態のボタン・件数要約・一致文字などの太さを Bold に揃えた。(6) 「14 件（5 ファイル）・0.8 秒」「(株)」など数字・単位・括弧の前後の半角空白を直した。(7) 種別チップの地を `Select.E5F1FB`（ナビの選択色 `#E1F2FF` と別キー）に、高速検索バッジを枠無しの pill＋右に info アイコンにし、使用不可は灰色の地に濃い灰色の文字（無効には見せない）にした。(8) タイトルバー下線 `Border.Window`・左欄境界 `Border.D0D4D9`・ステータスバー地 `Bg.F3F3F4` を直した。(9) 左欄の木に、顧客＝橙・営業部2025＝青・アーカイブ＝赤の目印の点（`Dot_*`）を名前のすぐ右に付けた（E13 でも消さない）。(10) 画面ごとの指摘のうち、H-P のバナー文言「前回の更新が途中です（残り 875 件）」とボタン「続きから再開」、H-S の［中止］ボタンの色（`Btn.Primary`。赤にしない）、E13 の「探す範囲」を無効にしないことなどを直した。実機で `show.ps1`／`screenshots.ps1` を起動して見た目を確かめた。「小」印の項目（H のリンクの下線・SP の進捗線の細さなど）と、`H-W` のプレビュー本文の行構成の細部は今回手を付けていない。「許」印（窓の 1px 枠を OS 任せにする・open-menu の地の色の差など）は直していない。
+- `figma_wpf_map.md`「レイアウトとリサイズ」（2026-10-03）の指摘を受け、窓のリサイズに最小限対応した。`Root` の `Grid` は `Width`/`Height` の固定をやめ `MinWidth="1024" MinHeight="640"` だけにし、左のナビ列に `MinWidth="180" MaxWidth="360"`、結果一覧の行に `MinHeight="120"` を付けた（ドラッグでの列幅変更や、フィルタ行・件数行を折り返しに変える改修は今回の範囲に含めていない。1024px 幅でも中身が収まる計算のうえで、DockPanel の左右寄せを崩さない方を優先した）。確かめ用に `screenshots.ps1` を新規に作り、`H`・`H0`・`H-row3` の 3 画面を 1024×640・1280×820・1600×1000 の 3 つの大きさで、そのほか 23 画面は既定の大きさで `out\screens\*.png`（`.gitignore` 済み）に書き出して見た目を確かめた。インデックス管理（X）・設定（C）・確認ダイアログは、この PoC の対象（段 1＝共通＋起動画面＋検索画面）に無いため、今回のリサイズ対応の対象外にした。
 
 ## フレームの一覧（段 1・26 枚）
 
@@ -93,6 +95,7 @@ Figma は Variables・Styles を使っておらず、値を直接指定してい
 | `Icon.RefreshCw` | refresh-cw | 1.5 | Stage 1 では使用箇所なし（用意のみ） |
 | `Icon.Search` | search | 1.4 | |
 | `Icon.FolderSearch` | folder-search | 2.17 | `ResultsEmptyState`（H0 のイラスト）。メンテナ指摘（2026-10-03・Figma 再現方針の見直し）で `Icon.FileSearch`（仮）から差し替え、これを確定の形とする |
+| `Icon.FolderEmptyState` | folder-open | 1.8 | `EmptyTreeState`（左ナビの「検索できるフォルダがありません」）。2 回目の見比べ（`diff_round2.md`）の指摘で手近似から差し替え、橙の線（`Folder.E8A020`）にした |
 | `Icon.TriangleAlert` | triangle-alert | 0.92 | `SearchWordError`（正規表現エラーの文の頭）。文字の「⚠」から差し替え |
 | `Icon.File` | file | 1.17 | テキスト（.txt・.md）のファイル種別アイコン。色は `Ink.5F6368`（灰） |
 | `Icon.FileText` | file-text | 1.5 | |
@@ -120,14 +123,13 @@ Figma は Variables・Styles を使っておらず、値を直接指定してい
 
 ### Figma からの書き出し待ち（実装側では作らない）
 
-次の 3 つは実物の Figma ベクターが要るため、SVG から作る必要がある。実装側では作らず、書き出しを待つ。
+次の 1 つは実物の Figma ベクターが要るため、SVG から作る必要がある。実装側では作らず、書き出しを待つ。
 
 | 部品 | Figma ノード | 大きさ | 用途・使用箇所 |
 |---|---|---|---|
-| アプリのアイコン | 108:144 | 56×56（内側は本＝40×40 と虫眼鏡＝26×26 の重ね） | `splash.xaml` の起動画面ロゴ（`Icon.AppBook`＋`Icon.AppMag`） |
-| 空のナビアイコン | 未確認（結果一覧側の H0 イラストと同じ絵の可能性あり） | 18×18 | `search.xaml` の `EmptyTreeState`（左ナビの「検索できるフォルダがありません」のフォルダ形アイコン。今は `Icon.FolderEmptyState` として差し替え前の手近似の形のまま） |
+| アプリのアイコン | 108:144 | 56×56（内側は本＝40×40 と虫眼鏡＝26×26 の重ね） | `splash.xaml` の起動画面ロゴ（`Icon.AppBook`＋`Icon.AppMag`）。タイトルバーの印（40×32 の青い地に白い印）も同じく未着手 |
 
-結果一覧側の H0 のイラスト（`ResultsEmptyState`、旧「空画面のイラスト」）は、メンテナ指摘（2026-10-03・Figma 再現方針の見直し）で Lucide の folder-search（`Icon.FolderSearch`）を確定の形とし、この書き出し待ちの一覧からは外した。
+結果一覧側の H0 のイラスト（`ResultsEmptyState`、旧「空画面のイラスト」）は、メンテナ指摘（2026-10-03・Figma 再現方針の見直し）で Lucide の folder-search（`Icon.FolderSearch`）を確定の形とし、この書き出し待ちの一覧からは外した。左ナビの空状態アイコン（`EmptyTreeState`）も、2 回目の見比べ（`diff_round2.md`）の指摘どおり Lucide の folder-open（橙の線、`Folder.E8A020`）に差し替え、書き出し待ちの一覧から外した（2026-10-03）。
 
 ## 比べた結果（参考。使わなくてよい）
 

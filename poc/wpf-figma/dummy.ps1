@@ -153,30 +153,31 @@ function Set-FastSearchState($Root, [string]$State) {
     }
     $badge.Visibility = [System.Windows.Visibility]::Visible
 
+    # unavailable-* はボーダーレス（枠なし）・くすんだ薄い色ではなく濃い灰色の文字にする（diff_round2.md 2 回目指摘）
     switch ($State) {
         "unavailable-connect" {
-            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
             $text.Text = "高速検索：使用不可（Windows Search に接続できません）"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Disabled.9AA0A6")
+            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
         }
         "unavailable-regex" {
-            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
             $text.Text = "高速検索：使用不可（正規表現では使えません）"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Disabled.9AA0A6")
+            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
         }
         "unavailable-short" {
-            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
             $text.Text = "高速検索：使用不可（2文字以上で使えます）"
             $info.Visibility = [System.Windows.Visibility]::Collapsed
         }
         "unavailable-pending" {
-            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = $Root.FindResource("Disabled.9AA0A6")
-            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Disabled.8C949E")
+            $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
+            $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
             $text.Text = "高速検索：使用不可（反映待ちです）"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Disabled.9AA0A6")
+            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
         }
         "partial" {
             $badge.Background = $Root.FindResource("Warn.FFF5E0"); $badge.BorderBrush = $Root.FindResource("Warn.BA7D00")
@@ -245,6 +246,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-FastSearchState $Root "hidden"
             Set-ElVisible $Root "ResultsPanel" $false
             Set-ElVisible $Root "ResultsEmptyState" $true
+            Set-ElVisible $Root "ResultsEmptyIcon" $false
             Set-ElText $Root "ResultsEmptyTitle" "検索ワードを入力してください"
             Set-ElText $Root "ResultsEmptyBody" "検索ワードを入力し、［検索］を押してください。"
             Set-ElVisible $Root "ResultsEmptyCta" $false
@@ -266,6 +268,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElEnabled $Root "SearchButton" $true
             Set-ElVisible $Root "ResultsPanel" $false
             Set-ElVisible $Root "ResultsEmptyState" $true
+            Set-ElVisible $Root "ResultsEmptyIcon" $false
             Set-ElText $Root "ResultsEmptyTitle" "検索ワードを入力してください"
             Set-ElText $Root "ResultsEmptyBody" "［検索］を押すと、検索を始めます。"
             Set-ElVisible $Root "ResultsEmptyCta" $false
@@ -285,8 +288,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # 検索中（中止できる）。まだ 5 件しか見つかっていないため、
             # 先頭の A社_見積書.xlsx のグループだけを出し、ほかのファイルの行は出さない。
             Set-ElText $Root "ResultsSummaryText" "検索中… 該当 5 件"
+            # 中止ボタンは赤ではなく青（Btn.Primary のまま。diff_round2.md 2 回目指摘）
             $btn = Find-Named $Root "SearchButton"
-            if ($btn) { $btn.Content = "中止"; $btn.Style = $Root.FindResource("Btn.Danger") }
+            if ($btn) { $btn.Content = "中止" }
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
             Set-ElVisible $Root "SaveButton" $false
@@ -299,9 +303,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         "E16" {
             # 中止した（見つかった分だけ表示。青の帯で知らせる）。
             # H-S と同じく、見つかった A社_見積書.xlsx のグループだけを出す。
-            Set-ElHeight $Root "ContentBannerRow" "Auto"
-            Set-ElVisible $Root "ContentBanner" $true
-            Set-ElText $Root "ContentBannerText" "検索を中止しました（見つかった 5 件を表示しています）"
+            Set-ElHeight $Root "TopBannerRow" "Auto"
+            Set-ElText $Root "BannerText" "検索を中止しました（見つかった 5 件を表示しています）"
+            Set-ElVisible $Root "BannerButton" $false
             Set-ElVisible $Root "ResultsSummaryText" $false
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
@@ -314,18 +318,21 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
 
         "E14" {
             # 見つからなかった。
+            Set-ElText $Root "SearchWordBox" "(株)山田商店"
             Set-ElVisible $Root "ResultsPanel" $false
             Set-ElVisible $Root "ResultsEmptyState" $true
+            Set-ElVisible $Root "ResultsEmptyIcon" $false
             $title = Find-Named $Root "ResultsEmptyTitle"
             if ($title) { $title.Text = "見つかりませんでした"; $title.FontSize = 16; $title.FontWeight = "Bold" }
             Set-ElText $Root "ResultsEmptyBody" "検索対象のフォルダ・［探す範囲］・［正規表現］を見直してください。"
             Set-ElVisible $Root "ResultsEmptyNote" $true
             Set-ElVisible $Root "ResultsEmptyCta" $false
             Set-ElChecked $Root "RegexCheck" $true
+            Set-FastSearchState $Root "unavailable-regex"
             Set-ElVisible $Root "ExpandAllLink" $false
             Set-ElVisible $Root "CollapseAllLink" $false
             Set-ElVisible $Root "SaveButton" $false
-            Set-ElText $Root "ResultsSummaryText" ""
+            Set-ElText $Root "ResultsSummaryText" "0 件"
             Set-ElVisible $Root "PreviewOpenBody" $false
             Set-ElVisible $Root "PreviewOpenArrow" $false
             Set-ElVisible $Root "PreviewOpenFolderLink" $false
@@ -364,15 +371,15 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
 
         "H-saved" {
             # 保存に成功した（緑の帯）。
-            Set-ElHeight $Root "ContentBannerRow" "Auto"
-            Set-ElVisible $Root "ContentBanner" $true
-            Set-ElBrushKey $Root "ContentBanner" "Background" "Ok.E0F7E0"
-            Set-ElBrushKey $Root "ContentBanner" "BorderBrush" "Ok.218A21"
-            Set-ElBrushKey $Root "ContentBannerIcon" "Fill" "Ok.218A21"
-            Set-ElGeometryKey $Root "ContentBannerGlyph" "Icon.BadgeGlyphOk"
-            Set-ElText $Root "ContentBannerText" "検索結果を保存しました"
-            Set-ElBrushKey $Root "ContentBannerText" "Foreground" "Ok.218A21"
-            Set-ElVisible $Root "ContentBannerButton" $true
+            Set-ElHeight $Root "TopBannerRow" "Auto"
+            Set-ElBrushKey $Root "Banner" "Background" "Ok.E0F7E0"
+            Set-ElBrushKey $Root "Banner" "BorderBrush" "Ok.218A21"
+            Set-ElBrushKey $Root "BannerAccent" "Fill" "Ok.218A21"
+            Set-ElBrushKey $Root "BannerIcon" "Fill" "Ok.218A21"
+            Set-ElGeometryKey $Root "BannerGlyph" "Icon.BadgeGlyphOk"
+            Set-ElText $Root "BannerText" "検索結果を保存しました"
+            $bb = Find-Named $Root "BannerButton"
+            if ($bb) { $bb.Content = "フォルダを開く"; $bb.BorderBrush = $Root.FindResource("Ok.218A21"); $bb.Foreground = $Root.FindResource("Ok.218A21") }
         }
 
         "H-row3" {
@@ -469,25 +476,29 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-B" {
-            # インデックス更新中（進み具合）。
-            Set-ElHeight $Root "BannerRow" "Auto"
+            # インデックス更新中（進み具合）。更新中は高速検索が使えないため、バッジを隠し、
+            # 件数の末尾の「・高速検索」も外す（diff_round2.md 2 回目指摘）。
+            Set-ElHeight $Root "TopBannerRow" "Auto"
             Set-ElText $Root "BannerText" "インデックスを更新しています（営業部 1,200 / 2,075 件）"
             Set-ElVisible $Root "NavBadge_Index" $true
             Set-ElVisible $Root "NavBadge_IndexDot" $true
             Set-ElText $Root "NavBadge_IndexText" "58%"
+            Set-FastSearchState $Root "hidden"
+            Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）・0.8 秒"
         }
 
         "H-P" {
             # インデックス更新が中断している。
-            Set-ElHeight $Root "BannerRow" "Auto"
+            Set-ElHeight $Root "TopBannerRow" "Auto"
             $icon = Find-Named $Root "BannerIcon"
             if ($icon) { $icon.Fill = $Root.FindResource("Warn.BA7D00") }
             $banner = Find-Named $Root "Banner"
             if ($banner) { $banner.Background = $Root.FindResource("Warn.FFF5E0"); $banner.BorderBrush = $Root.FindResource("Warn.BA7D00") }
             Set-ElGeometryKey $Root "BannerGlyph" "Icon.BadgeGlyphWarn"
-            Set-ElText $Root "BannerText" "インデックスの更新が中断しました"
+            # バナーの文言とボタンは「前回の更新が途中です」「続きから再開」にする（diff_round2.md 2 回目指摘）
+            Set-ElText $Root "BannerText" "前回の更新が途中です（残り 875 件）"
             $bb = Find-Named $Root "BannerButton"
-            if ($bb) { $bb.Content = "続ける" }
+            if ($bb) { $bb.Content = "続きから再開" }
             Set-ElVisible $Root "NavBadge_Index" $true
             Set-ElVisible $Root "NavBadge_IndexDot" $false
             Set-ElText $Root "NavBadge_IndexText" "中断"
@@ -505,13 +516,12 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             }
             Set-ElVisible $Root "Dot_顧客" $false
             Set-ElVisible $Root "Dot_営業部2025" $false
-            Set-ElVisible $Root "Dot_アーカイブ" $false
             Set-ElHeight $Root "NavNoticeRow" "Auto"
             Set-ElVisible $Root "NavNotice" $true
 
+            # 「探す範囲」は検索対象 0 件でも消さない・無効にしない（diff_round2.md 2 回目指摘）
             Set-ElEnabled $Root "SearchButton" $false
             Set-ElEnabled $Root "ResultsFilterBox" $false
-            Set-ElEnabled $Root "RangeButton" $false
             Set-ElEnabled $Root "CaseCheck" $false
             Set-ElEnabled $Root "RegexCheck" $false
         }
@@ -520,6 +530,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # 顧客フォルダが中間状態（契約書だけ外した）。
             Set-ElChecked $Root "TreeCheck_契約書" $false
             Set-ElChecked $Root "TreeCheck_顧客" $null
+            Set-ElText $Root "SearchTargetCountText" "2 / 4"
         }
 
         "H-範囲" {
