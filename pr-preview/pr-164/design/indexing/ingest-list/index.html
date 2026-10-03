@@ -2120,10 +2120,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#取り込み一覧-work取り込み一覧tsv" class="md-nav__link">
+  <a href="#取り込み一覧-workingest_statustsv" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込み一覧 work/取り込み一覧.tsv
+        取り込み一覧 work/ingest_status.tsv
       
     </span>
   </a>
@@ -4100,10 +4100,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#取り込み一覧-work取り込み一覧tsv" class="md-nav__link">
+  <a href="#取り込み一覧-workingest_statustsv" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込み一覧 work/取り込み一覧.tsv
+        取り込み一覧 work/ingest_status.tsv
       
     </span>
   </a>
@@ -4142,8 +4142,8 @@
 
 
 <h1 id="取り込み一覧">取り込み一覧<a class="headerlink" href="#取り込み一覧" title="Permanent link">&para;</a></h1>
-<p>扱うこと: <code>work/取り込み一覧.tsv</code> の形式と書き込み方、強制終了・時間切れからの再開の仕組み。扱わないこと: インデックス作成全体の流れ（<a href="../flow/">インデックス作成のメインフロー</a>）、取り込み対象をどう決めるか（<a href="../target-decision/">取り込み対象の決定</a>）。先に読むページ: <a href="../">インデックス作成</a>、<a href="../flow/">インデックス作成のメインフロー</a>。</p>
-<h2 id="取り込み一覧-work取り込み一覧tsv">取り込み一覧 <code>work/取り込み一覧.tsv</code><a class="headerlink" href="#取り込み一覧-work取り込み一覧tsv" title="Permanent link">&para;</a></h2>
+<p>扱うこと: <code>work/ingest_status.tsv</code> の形式と書き込み方、強制終了・時間切れからの再開の仕組み。扱わないこと: インデックス作成全体の流れ（<a href="../flow/">インデックス作成のメインフロー</a>）、取り込み対象をどう決めるか（<a href="../target-decision/">取り込み対象の決定</a>）。先に読むページ: <a href="../">インデックス作成</a>、<a href="../flow/">インデックス作成のメインフロー</a>。</p>
+<h2 id="取り込み一覧-workingest_statustsv">取り込み一覧 <code>work/ingest_status.tsv</code><a class="headerlink" href="#取り込み一覧-workingest_statustsv" title="Permanent link">&para;</a></h2>
 <p>クロール対象フォルダ配下の Office ファイルを 1 ファイル 1 行で記録する。UTF-8（BOM 付き）・タブ区切りで、Excel でそのまま開ける。</p>
 <div class="highlight"><pre><span></span><code>クロール対象フォルダ  C:\data\営業  営業
 クロール対象フォルダ  D:\old\2019年度   2019年度
@@ -4197,7 +4197,7 @@
 </table>
 <p>書き込み方（<code>writeStatusFile</code> / <code>addStatusRow</code> / <code>readStatusFile</code>）:</p>
 <ul>
-<li>クロールの後に全ファイルを書き出す（一時ファイル <code>取り込み一覧.tsv.tmp</code> に書いてから置き換える）。</li>
+<li>クロールの後に全ファイルを書き出す（一時ファイル <code>ingest_status.tsv.tmp</code> に書いてから置き換える）。</li>
 <li>インデックス作成中は 1 件ごとに結果の行を<strong>末尾に追記</strong>する。読み込み時は同じ相対パスの後の行を優先するため、途中で中断しても取り込み済みの結果は失われない。列数の合わない行（書き込み途中で強制終了した行）は無視する。</li>
 <li>終了時（<code>finally</code>）に 1 ファイル 1 行に書き直す。インデクサが強制終了された場合は追記した行が重複して残るが、次回のクロール時に書き直される。</li>
 </ul>
@@ -4206,7 +4206,7 @@
 <pre class="mermaid"><code>stateDiagram-v2
     direction LR
     state "取り込み中" as Ingesting
-    state "取り込み中.txt に記録" as Recorded
+    state "ingesting.txt に記録" as Recorded
     state "制限時間 10 分" as Timeout
     state "済 / 失敗" as Done
 
@@ -4229,7 +4229,7 @@
 <td>Excel・Word・PowerPoint のレーンのスレッドごとに、別のスレッド（監視。<code>startWatchdog</code>）で制限時刻を監視する。制限時間を過ぎたら、そのスレッドが自分で起動した Office アプリ（<code>getApp</code> で PID を控えたもの。利用者のアプリ・ほかのレーンのアプリは除く）を強制終了する。COM の呼び出しが例外で戻るため、そのファイルは <code>失敗</code>（エラー: <code>10 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）</code>）とし、次のファイルへ進む。強制終了したアプリはすべて終了扱いにし、次に必要になったときに起動し直す</td>
 </tr>
 <tr>
-<td>取り込み中のファイルの記録（<code>work/取り込み中.txt</code>）</td>
+<td>取り込み中のファイルの記録（<code>work/ingesting.txt</code>）</td>
 <td>取り込み中のファイルを 1 行に 1 つ <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> で書く（<code>writeIngestingFiles</code>。取り込みを複数のスレッドで行うため、取り込み中のものすべて）。ファイルを取り込みのスレッドに渡す前に加え、結果を取り込み一覧に追記した後に除く。インデックス作成の終わりには、中止・続けられないエラーの場合も <code>finally</code> で削除する（<code>removeIngestingFile</code>。回数に数えない）。PC が停止した・プロセスが強制終了された等の場合だけ残る</td>
 </tr>
 <tr>
@@ -4240,7 +4240,7 @@
 </table>
 <pre class="mermaid"><code>sequenceDiagram
     participant P as 前回の実行
-    participant F as 取り込み中.txt
+    participant F as ingesting.txt
     participant N as 次回の実行
 
     P-&gt;&gt;F: 取り込み前にファイルを記録（writeIngestingFiles）
@@ -4256,7 +4256,7 @@
     end</code></pre>
 <p>次回の実行時（取り込み対象の決定の後、<code>readIngestingFiles</code>）:</p>
 <ul>
-<li><code>work/取り込み中.txt</code> のファイルは、<strong>すべて</strong>「前回止まったファイル」として扱う（どのファイルで止まったかは分からないため）。取り込み対象にあれば、取り込み対象の<strong>最後に回す</strong>（<code>前回、取り込み中に強制終了したファイルは最後に取り込みます: &lt;相対パス&gt;</code>）。他のファイルの取り込みが先に進む。最後に回したファイルは、取り込みを始めるまで記録を残す（その前にまた止まっても、回数が分かるように）。</li>
+<li><code>work/ingesting.txt</code> のファイルは、<strong>すべて</strong>「前回止まったファイル」として扱う（どのファイルで止まったかは分からないため）。取り込み対象にあれば、取り込み対象の<strong>最後に回す</strong>（<code>前回、取り込み中に強制終了したファイルは最後に取り込みます: &lt;相対パス&gt;</code>）。他のファイルの取り込みが先に進む。最後に回したファイルは、取り込みを始めるまで記録を残す（その前にまた止まっても、回数が分かるように）。</li>
 <li>そのファイルの取り込みを始めるときは、回数を 1 増やして記録する。続けて <code>$interruptLimit</code>（2）回強制終了したファイルは、応答しなくなるファイルとみなして <code>失敗</code>（エラー: <code>取り込み中に 2 回続けて強制終了されたため、取り込みを中止しました（…）</code>）とし、取り込み対象から除く。以降は他の失敗と同じく、画面で「失敗分も再取り込みする」を選ぶ（<code>-RetryFailed</code>）か元ファイルが更新されたときに取り込み直す。</li>
 <li>記録のファイルが取り込み対象に無い（取り込み済み・削除された等）場合は、記録を削除する。</li>
 </ul>

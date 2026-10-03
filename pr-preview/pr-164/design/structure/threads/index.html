@@ -4501,9 +4501,9 @@
 </table>
 <p>ファイルに残すのは次のものだけである。</p>
 <ul>
-<li><code>取り込み一覧.tsv</code></li>
-<li><code>取り込み中.txt</code>（強制終了からの再開）</li>
-<li><code>インデックス作成ログ.txt</code>（<code>writeIndexerLog</code> で書く。実行ごとに上書き）</li>
+<li><code>ingest_status.tsv</code></li>
+<li><code>ingesting.txt</code>（強制終了からの再開）</li>
+<li><code>indexing_log.txt</code>（<code>writeIndexerLog</code> で書く。実行ごとに上書き）</li>
 </ul>
 <p>インデクサのミューテックス（<code>newAppMutex "indexer"</code>。画面と <code>indexer.ps1</code> が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［8 設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（<code>testIndexerRunning</code>）。</p>
 <p>設定ファイル（<code>setting.config</code>）の「読み直す → 変える → 書く」は、画面（UI のスレッド）とインデクサ（別のプロセスの司令のスレッド）が同時に行うことがあるため、設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;鍵&gt;</code>。<code>invokeSettingsLocked</code>）の中で行う。時間（5 秒）を過ぎても取れなければ例外にする。前の持ち主が手放さずに終わっていた（abandoned）ときは、取れたものとして続ける。重い読み込み（取り込み一覧など）はミューテックスの外で済ませ、持つ時間を短くする。</p>

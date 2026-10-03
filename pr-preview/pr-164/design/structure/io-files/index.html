@@ -4059,7 +4059,7 @@
     CFG[("setting.config")]
     GUI["画面&lt;br&gt;gui.ps1"]
     IDX["インデクサ&lt;br&gt;indexer.ps1"]
-    ST[("取り込み一覧.tsv&lt;br&gt;取り込み中.txt")]
+    ST[("ingest_status.tsv&lt;br&gt;ingesting.txt")]
     IX[("work/content_index/")]
     GUI -- 読み書き --&gt; CFG
     IDX -- クロール対象フォルダを読む --&gt; CFG
@@ -4090,7 +4090,7 @@
 <td>クロール対象フォルダ・検索対象のツリーでチェックを外したフォルダ・元のフォルダ・検索条件・開き方（<a href="../settings-file/">設定ファイル（setting.config）</a>）。PC ごとの設定</td>
 </tr>
 <tr>
-<td><code>work/取り込み一覧.tsv</code></td>
+<td><code>work/ingest_status.tsv</code></td>
 <td>インデックス作成の状態</td>
 <td>インデックス作成</td>
 <td>インデックス作成・画面</td>
@@ -4098,7 +4098,7 @@
 <td>先頭にクロール対象フォルダの行、以降 1 ファイル 1 行で相対パス・更新日時・サイズ・状態・TSV 数・取り込み日時・エラー・抽出版（<a href="../../indexing/ingest-list/">取り込み一覧</a>）</td>
 </tr>
 <tr>
-<td><code>work/取り込み中.txt</code></td>
+<td><code>work/ingesting.txt</code></td>
 <td>インデックス作成の状態</td>
 <td>インデックス作成</td>
 <td>インデックス作成</td>
@@ -4106,7 +4106,7 @@
 <td>取り込み中のファイルごとに <code>&lt;回数&gt;&lt;TAB&gt;&lt;相対パス&gt;</code> の 1 行（取り込みを複数のスレッドで行うため、取り込み中のものすべて。<code>readIngestingFiles</code> / <code>writeIngestingFiles</code> / <code>removeIngestingFile</code>）。取り込みが終わったファイルの行は消し、インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（<a href="../../indexing/ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）</td>
 </tr>
 <tr>
-<td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
+<td><code>work/publish/&lt;PID&gt;/</code></td>
 <td>作業領域</td>
 <td>インデックス作成</td>
 <td>インデックス作成</td>
@@ -4122,7 +4122,7 @@
 <td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。元のファイルを占有しないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code></td>
 </tr>
 <tr>
-<td><code>work/インデックス作成ログ.txt</code></td>
+<td><code>work/indexing_log.txt</code></td>
 <td>記録</td>
 <td>インデックス作成</td>
 <td>利用者</td>
@@ -4130,7 +4130,7 @@
 <td>インデクサの表示内容（<code>writeIndexerLog</code>。実行ごとに上書き）</td>
 </tr>
 <tr>
-<td><code>work/画面エラー.txt</code></td>
+<td><code>work/gui_error_log.txt</code></td>
 <td>記録</td>
 <td>画面</td>
 <td>利用者</td>
@@ -4143,10 +4143,10 @@
 <td>インデックス作成</td>
 <td>検索</td>
 <td>本文インデックスは UTF-16LE（BOM 付き）、LF。本文インデックスに入れる前の TSV は UTF-8（BOM 付き）、CRLF</td>
-<td>フォルダ・拡張子ごとの本文インデックス（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメントの TSV（<code>&lt;元の場所&gt;[図形]</code>・<code>&lt;元の場所&gt;[コメント]</code>）</td>
+<td>フォルダ・拡張子ごとの本文インデックス（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメントの TSV（<code>&lt;元の場所&gt;[shape]</code>・<code>&lt;元の場所&gt;[comment]</code>）</td>
 </tr>
 <tr>
-<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code></td>
 <td>インデックス</td>
 <td>インデックス作成</td>
 <td>画面</td>
@@ -4154,7 +4154,7 @@
 <td>1 行目は説明、2 行目は <code>&lt;インデックス名&gt;&lt;TAB&gt;&lt;元のフォルダ&gt;</code>（<a href="../../indexing/crawl/#クロール対象フォルダとインデックス名">クロール対象フォルダと取り込み対象</a>）。<code>.tsv</code> にすると検索対象になるため <code>.txt</code></td>
 </tr>
 <tr>
-<td><code>work/検索結果.txt</code></td>
+<td><code>work/search_results.txt</code></td>
 <td>出力</td>
 <td>画面</td>
 <td>利用者</td>
@@ -4170,7 +4170,7 @@
 <td>1 つのインデックスの目録（<code>tebunko-index.json</code>）・取り込み一覧の行・本文インデックスのファイル（<a href="../../index-data/format/#インデックスのエクスポートインポート">インデックスのエクスポート・インポート</a>）</td>
 </tr>
 <tr>
-<td><code>work/取り込み出力/&lt;PID&gt;/import/</code></td>
+<td><code>work/publish/&lt;PID&gt;/import/</code></td>
 <td>作業領域</td>
 <td>画面（<code>importIndex</code>）</td>
 <td>画面</td>

@@ -4266,15 +4266,39 @@
 <td>string</td>
 <td><code>encodeIndexPlace</code> の <code>%XX</code> を元に戻す（それ以外の <code>%</code> はそのまま）</td>
 <td>同上</td>
-<td>getIndexFolderBooks</td>
+<td>convertIndexFileNameToPlace</td>
+</tr>
+<tr>
+<td><code>convertPlaceBaseToFixedFileName</code></td>
+<td>base</td>
+<td>string（固定名 / 空）</td>
+<td>場所の元の名前（<code>ページ001</code> など）が決まった種類なら、固定の英語のファイル名（<code>page_001</code> など）を返す。決まった種類でなければ空文字列</td>
+<td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
+<td>toIndexFileName</td>
+</tr>
+<tr>
+<td><code>convertFixedFileNameToPlaceBase</code></td>
+<td>fileBase</td>
+<td>string（元の名前 / 空）</td>
+<td><code>convertPlaceBaseToFixedFileName</code> の逆（<code>page_001</code> → <code>ページ001</code>）。固定名でなければ空文字列</td>
+<td>同上</td>
+<td>convertIndexFileNameToPlace</td>
 </tr>
 <tr>
 <td><code>toIndexFileName</code></td>
 <td>place</td>
 <td>string</td>
-<td>インデックスの TSV のファイル名 <code>&lt;場所&gt;.tsv</code>（場所は <code>encodeIndexPlace</code>）。元のファイル名はフォルダ名にするため入れない。<code>$maxFileNameLength</code>（255）文字を超えれば例外</td>
+<td>インデックスの TSV のファイル名 <code>&lt;場所&gt;.tsv</code>（場所は <code>convertPlaceBaseToFixedFileName</code> の固定名、無ければ <code>encodeIndexPlace</code>）。元のファイル名はフォルダ名にするため入れない。<code>$maxFileNameLength</code>（255）文字を超えれば例外</td>
 <td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
 <td>インデックス作成（Excel・Word・PowerPoint）</td>
+</tr>
+<tr>
+<td><code>convertIndexFileNameToPlace</code></td>
+<td>fileNameWithoutExtension</td>
+<td>string</td>
+<td><code>toIndexFileName</code> の逆。図形・コメントの種類（<code>[shape]</code> <code>[comment]</code>）を外してから、固定名なら <code>convertFixedFileNameToPlaceBase</code>、そうでなければ <code>decodeIndexPlace</code> で場所の元の名前に戻す</td>
+<td>同上</td>
+<td>getIndexFolderBooks</td>
 </tr>
 <tr>
 <td><code>splitObjectPlace</code></td>
@@ -4289,7 +4313,7 @@
 <td>book, place</td>
 <td><code>@{Place; Kind}</code></td>
 <td>場所ごとの表記と種別（見出しの要約・検索結果ファイル・コピーに出す文字。<code>[シート]売上</code>・図形、<code>3 ページ（目安）</code>・本文 など）</td>
-<td><a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a></td>
+<td><a href="../../search/output/#出力フォーマットworksearch_resultstxt">出力フォーマット</a></td>
 <td>画面・<code>toResultLine</code></td>
 </tr>
 <tr>
@@ -4661,7 +4685,7 @@
 <td><code>getIndexFolderBooks</code></td>
 <td>folder</td>
 <td><code>@{Name; Places}</code> の並び</td>
-<td>フォルダ直下の元のファイルごとのフォルダ（<code>&lt;ファイル名.xlsx&gt;\&lt;場所&gt;.tsv</code>）から、本文インデックスに入れる元のファイルと場所の並びを作る</td>
+<td>フォルダ直下の元のファイルごとのフォルダ（<code>&lt;ファイル名.xlsx&gt;\&lt;場所&gt;.tsv</code>）から、本文インデックスに入れる元のファイルと場所の並びを作る（ファイル名は <code>convertIndexFileNameToPlace</code> で場所に戻す。並びは前の版と同じになるよう、戻した場所を符号化し直したキーで並べ替える）</td>
 <td>同上</td>
 <td>convertIndexFolderToPack</td>
 </tr>

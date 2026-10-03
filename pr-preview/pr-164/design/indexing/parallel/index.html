@@ -4134,10 +4134,10 @@
 <li><strong>並びの先を見て、空いているレーンに渡す。</strong> 司令は、まだ渡していない最初のファイルから <code>${ingestLookAhead}</code>（200 件）先までを見て、レーンに空きがあるファイルを渡す。レーンに渡しておける数（<code>getIngestLaneCapacity</code>）は、Office のレーンが 2（取り込み中の 1 件と次の 1 件）、読み取りのレーンが読み取りのスレッドの数 × 2 である。Excel のファイルが続いても、読み取りのスレッドを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・本文インデックス）は同じになる。</li>
 <li><strong>監視は Office のスレッドごとに持つ。</strong> Office のレーンのスレッドは、始めるときに自分の監視のスレッドを作る（<code>startWatchdog</code>）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。</li>
 <li><strong>Office の起動し直しと制限時間は、Office のスレッドごとに数える。</strong> スレッドごとに 100 ファイルで起動し直す。1 ファイルの制限時間は 10 分。</li>
-<li><strong>一時フォルダはスレッドごとに分ける。</strong> <code>%TEMP%\tebunko\&lt;PID&gt;\w&lt;番号&gt;</code> と、取り込み出力の <code>w&lt;番号&gt;</code> を使う。</li>
+<li><strong>一時フォルダはスレッドごとに分ける。</strong> <code>%TEMP%\tebunko\&lt;PID&gt;\w&lt;番号&gt;</code> と、<code>publish</code> の <code>w&lt;番号&gt;</code> を使う。</li>
 <li><strong>本文インデックスはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を <code>PendingPublish.AddPending</code> で数えておき、ファイルを渡すたびに <code>Dispatch</code>、結果を受け取るたびに <code>Complete</code>（または渡さずに済ませるとき <code>Skip</code>）を呼ぶ。結果を受け取るたびに、取り込み中の数・まだ渡していない数がどちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（<code>indexer_run.ps1</code> の <code>flushPending</code> が <code>PendingPublish.TakeFlushable</code> を呼ぶ）。</li>
 <li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
-<li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>取り込み中.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
+<li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>ingesting.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
 <li><strong>中止。</strong> 司令は振り分けをやめ、取り込み中のファイル（回し直したものを含む）が終わるのを待ってから、書き出しと Office の片づけを行う。各レーンのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>stopIngestWorkers</code>）。</li>
 <li><strong>取り込みスレッドが止まったら。</strong> 取り込みスレッドが途中で止まった（読み込めない等）ときは、インデックス作成を続けられないエラー <code>取り込みのスレッドが止まりました：&lt;理由&gt;</code> にする。</li>
 </ul>

@@ -4415,7 +4415,7 @@
 </table>
 <h3 id="起動時に開くタブ">起動時に開くタブ<a class="headerlink" href="#起動時に開くタブ" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
-    S(["起動"]) --&gt; A{"work/取り込み一覧.tsv に『未取り込み』の行がある？&lt;br&gt;（前回のインデックス作成が中断中）"}
+    S(["起動"]) --&gt; A{"work/ingest_status.tsv に『未取り込み』の行がある？&lt;br&gt;（前回のインデックス作成が中断中）"}
     A -- はい --&gt; T1["［1 インデックス管理］を開く"]
     A -- いいえ --&gt; B{"検索対象インデックスに&lt;br&gt;本文インデックスのファイルが 1 件以上ある？"}
     B -- いいえ --&gt; T1
