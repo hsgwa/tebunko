@@ -56,7 +56,7 @@ flowchart TB
 1. **インデックス作成**（[インデックス作成](indexing/index.md)）
    各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて `work/content_index/` に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（[テキストファイルの読み取り](indexing/text.md)）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
 2. **検索**（[検索](search/index.md)）
-   本文インデックスを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは `work/検索結果.txt` に出力する。
+   本文インデックスを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは `work/search_results.txt` に出力する。
 
 どちらも画面（[画面](gui/index.md)）から行う。インデックス作成は画面のプロセスの中のスレッドで動き、進み具合を画面に表示する（[プロセスとスレッド](structure/threads.md)）。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。
 
@@ -73,7 +73,7 @@ flowchart TB
 | 本文インデックス | 検索が照合する本体。フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。`work/content_index/<インデックス名>/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv`。1 つずつを指すときは「本文インデックスのファイル」 | 出さない | `pack` |
 | システムインデックス | 高速検索のために Windows Search に索引させる 2-gram の txt。フォルダ 1 つにつき 1 つ。`work/system_index/<インデックス名>/<相対フォルダ>/system_index.txt`（大きいと `system_index_1.txt` …）。1 つずつを指すときは「システムインデックスの txt」 | 出さない。区別が要るときは「インデックス（高速検索用）」 | `systemIndex` |
 | 本文インデックスに入れる前の TSV | 取り込んでから本文インデックスに入れるまでの一時的な TSV。`work/content_index/<インデックス名>/<相対フォルダ>/<元のファイル名>/<場所>.tsv`。インデックス作成が途中で止まったときだけ残る | 出さない | 変えない（無し） |
-| 元のフォルダの記録 | `work/content_index/<インデックス名>/元のフォルダ.txt`（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする） | 出さない | `sourceFolderFileName` |
+| 元のフォルダの記録 | `work/content_index/<インデックス名>/source_folder.txt`（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする） | 出さない | `sourceFolderFileName` |
 | 本文インデックスのフォルダ／システムインデックスのフォルダ | ワークスペースの `content_index/`／`system_index/` | 手引き・README ではフォルダの名前として出す | `Workspace.IndexDir`／`Workspace.SystemIndexDir` |
 | インデックスの追加 | フォルダをインデックスとして一覧に登録する（中身は取り込まない） | 出す | `newIndex` |
 
@@ -106,12 +106,12 @@ flowchart LR
 
     subgraph work["work/（自動生成）"]
         idx[("content_index/<br>本文インデックス")]
-        status["取り込み一覧.tsv<br>（更新日時・状態）"]
-        ctl["インデックス作成ログ.txt<br>取り込み中.txt"]
-        out["検索結果.txt<br>（［結果をファイルに出力］）"]
+        status["ingest_status.tsv<br>（更新日時・状態）"]
+        ctl["indexing_log.txt<br>ingesting.txt"]
+        out["search_results.txt<br>（［結果をファイルに出力］）"]
     end
 
-    tmp[("%TEMP%\tebunko\#lt;PID#gt;<br>取り込みの作業領域")]
+    tmp[("work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;<br>取り込みの作業領域<br>（置けないときはスキップ）")]
     src[("クロール対象フォルダ<br>Excel・Word・PowerPoint ファイル群")]
     excel["Microsoft Excel<br>（COM）"]
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]

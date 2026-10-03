@@ -470,7 +470,7 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
         [System.IO.Directory]::CreateDirectory("$TestDrive\前から2\content_index") | Out-Null
         (testDefaultWorkspace "$TestDrive\前から2").Usable | Should -Be $true
         [System.IO.Directory]::CreateDirectory("$TestDrive\一覧だけ") | Out-Null
-        [System.IO.File]::WriteAllText("$TestDrive\一覧だけ\取り込み一覧.tsv", "")
+        [System.IO.File]::WriteAllText("$TestDrive\一覧だけ\ingest_status.tsv", "")
         (testDefaultWorkspace "$TestDrive\一覧だけ").Usable | Should -Be $true
     }
 

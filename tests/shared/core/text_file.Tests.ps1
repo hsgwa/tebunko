@@ -78,6 +78,11 @@ BeforeAll {
         if ($bom) { return , (@(0xEF, 0xBB, 0xBF) + $bytes) }
         return , $bytes
     }
+
+    function newLargeNulTailBytes {
+        # 先頭 64KB（UTF-16 の判定の標本）の外にだけ NUL が 1 つある、70000 バイトのテキストらしいバイト列
+        return , ([byte[]][System.Text.Encoding]::ASCII.GetBytes("A" * 69999) + [byte]0)
+    }
 }
 
 Describe "testTextExtension" -Tag Unit {
@@ -87,9 +92,39 @@ Describe "testTextExtension" -Tag Unit {
         @{ name = "csv も対象"; path = "a.csv"; expected = $true }
         @{ name = "対象外の拡張子"; path = "a.pdf"; expected = $false }
         @{ name = "Office の拡張子は対象外（testTextExtension としては）"; path = "a.xlsx"; expected = $false }
+        @{ name = "新しく足したソースコードの拡張子（.py）も対象"; path = "a.py"; expected = $true }
+        @{ name = "大文字の拡張子（.CPP）も対象（大文字・小文字を区別しない）"; path = "a.CPP"; expected = $true }
+        @{ name = "新しく足した設定ファイルの拡張子（.yml）も対象"; path = "a.yml"; expected = $true }
+        @{ name = "実行・登録になる拡張子（.ps1）も対象（メモ帳で開く）"; path = "a.ps1"; expected = $true }
+        @{ name = "実行ファイルの拡張子（.exe）は対象外"; path = "a.exe"; expected = $false }
+        @{ name = "TypeScript（.ts）は対象外（範囲外）"; path = "a.ts"; expected = $false }
+        @{ name = "圧縮ファイルの拡張子（.zip）は対象外"; path = "a.zip"; expected = $false }
     ) {
         param ($name, $path, $expected)
         testTextExtension $path | Should -Be $expected
+    }
+}
+
+Describe "testTextOpenWithNotepad" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "大文字・小文字を区別しない（.PS1）"; path = "a.PS1"; expected = $true }
+        @{ name = ".bat はメモ帳（実行になるため）"; path = "a.bat"; expected = $true }
+        @{ name = ".cmd はメモ帳（実行になるため）"; path = "a.cmd"; expected = $true }
+        @{ name = ".vbs はメモ帳（実行になるため）"; path = "a.vbs"; expected = $true }
+        @{ name = ".js はメモ帳（実行になるため）"; path = "a.js"; expected = $true }
+        @{ name = ".reg はメモ帳（登録になるため）"; path = "a.reg"; expected = $true }
+        @{ name = ".sh はメモ帳（実行になるため）"; path = "a.sh"; expected = $true }
+        @{ name = ".py は既定のアプリ"; path = "a.py"; expected = $false }
+        @{ name = ".java は既定のアプリ"; path = "a.java"; expected = $false }
+        @{ name = ".cpp は既定のアプリ"; path = "a.cpp"; expected = $false }
+        @{ name = ".txt は既定のアプリ"; path = "a.txt"; expected = $false }
+        @{ name = ".vb（Visual Basic のソース）は既定のアプリ（.vbs と混同しない）"; path = "a.vb"; expected = $false }
+        @{ name = ".psm1（PowerShell モジュール）は既定のアプリ（.ps1 と混同しない）"; path = "a.psm1"; expected = $false }
+        @{ name = ".mjs（JavaScript モジュール）は既定のアプリ（.js と混同しない）"; path = "a.mjs"; expected = $false }
+        @{ name = ".jsx は既定のアプリ（.js と混同しない）"; path = "a.jsx"; expected = $false }
+    ) {
+        param ($name, $path, $expected)
+        testTextOpenWithNotepad $path | Should -Be $expected
     }
 }
 
@@ -165,6 +200,10 @@ Describe "detectTextEncoding" -Tag Unit {
     It "壊れた UTF-8（不正なバイト列。NUL は無い）→ Shift_JIS" {
         $bytes = toShiftJisBytes "日本語のテスト"
         detectTextEncoding $bytes | Should -Be "ShiftJIS"
+    }
+
+    It "先頭 64KB（UTF-16 の判定の標本）の外にだけ NUL があっても、ファイル全体で見てバイナリと判定する" {
+        detectTextEncoding (newLargeNulTailBytes) | Should -Be $null
     }
 }
 
@@ -251,6 +290,57 @@ Describe "readTextFile" -Tag Io {
     It "バイナリと判定したファイルは、決めた文言で失敗にする" {
         $path = writeBytesFile (newNulPairBytes 10 5 5)
         { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+    }
+
+    It "先頭 64KB の外にだけ NUL がある大きいファイルも、決めた文言で失敗にする" {
+        $path = writeBytesFile (newLargeNulTailBytes)
+        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+    }
+}
+
+Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）" -Tag Io {
+    BeforeDiscovery {
+        ${textSampleDir} = (Resolve-Path "$PSScriptRoot\..\..\testdata\text").Path
+        ${notepadExtSet} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+        ${sampleFiles} = Get-ChildItem ${textSampleDir} -File |
+            Where-Object { $_.Name -notin @("make_testdata.ps1", "大きいテキスト.log") }
+        ${sampleCases} = ${sampleFiles} | ForEach-Object {
+            $ext = $_.Extension.ToLowerInvariant()
+            @{ Name = $_.Name; Path = $_.FullName; Ext = $ext; ExpectNotepad = (${notepadExtSet} -contains $ext) }
+        }
+    }
+
+    BeforeAll {
+        # Run 段階の It（-TestCases の表を使わないもの）でも使うため、BeforeDiscovery と同じものをここにも置く
+        ${textSampleDir} = (Resolve-Path "$PSScriptRoot\..\..\testdata\text").Path
+        ${sampleFiles} = Get-ChildItem ${textSampleDir} -File |
+            Where-Object { $_.Name -notin @("make_testdata.ps1", "大きいテキスト.log") }
+    }
+
+    It "対象の拡張子（75個）のサンプルを 1 つずつ用意してある" {
+        ${sampleFiles}.Count | Should -Be 75
+    }
+
+    It "<Name> は対象の拡張子で、メモ帳で開くかどうかも拡張子どおりで、中身を読める" -TestCases ${sampleCases} {
+        param ($Name, $Path, $Ext, $ExpectNotepad)
+        testTextExtension $Path | Should -BeTrue
+        testTextOpenWithNotepad $Path | Should -Be $ExpectNotepad
+        (readTextFile $Path) -join "`n" | Should -Match "山田"
+    }
+
+    It "異常系\<Name> は、テキストファイルではないため取り込めない失敗にする" -TestCases @(
+        @{ Name = "バイナリ.log" }
+        @{ Name = "末尾NUL.log" }
+    ) {
+        param ($Name)
+        $path = Join-Path "${textSampleDir}\異常系" $Name
+        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+    }
+
+    It "大きいテキスト.log は 64KB を超えるが、NUL を含まない普通のテキストとして読める" {
+        $path = Join-Path ${textSampleDir} "大きいテキスト.log"
+        (Get-Item $path).Length | Should -BeGreaterThan 64KB
+        (readTextFile $path) -join "`n" | Should -Match "山田"
     }
 }
 

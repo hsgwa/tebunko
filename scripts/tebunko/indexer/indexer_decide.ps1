@@ -10,8 +10,9 @@
 #      グラフの読み方を、タイトル・軸ラベル・系列名だけにし、項目名は読まないようにする
 #      （.xlsx / .xlsm はグラフ・SmartArt を読むようになった分で 3。.docx / .docm / .pptx / .pptm は
 #      項目名を読まなくなった分だけ上げる。.doc / .ppt はこのアイテムでは上げない）
+#   4: Excel（.xlsx / .xlsm）のヘッダー・フッター（表示のワークシート・グラフシート）を読む。
 ${extractVersions} = @{
-    ".xlsx" = 3; ".xlsm" = 3
+    ".xlsx" = 4; ".xlsm" = 4
     ".docx" = 3; ".docm" = 3; ".doc" = 2
     ".pptx" = 3; ".pptm" = 3; ".ppt" = 2
 }

@@ -500,7 +500,7 @@ function saveGuiEvidence {
         } catch {
             "画像を撮れなかった: $($_.Exception.Message)" | Set-Content -LiteralPath "$dest\画像なし.txt" -Encoding UTF8
         }
-        foreach ($name in "画面エラー.txt", "インデックス作成ログ.txt") {
+        foreach ($name in "gui_error_log.txt", "indexing_log.txt") {
             $file = Join-Path $S.Tool.Work $name
             if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
         }

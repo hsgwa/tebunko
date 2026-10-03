@@ -11,13 +11,14 @@ Describe "Workspace" -Tag Unit {
         $target.IndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\content_index"
         $target.LegacyIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\index"
         $target.SystemIndexDir | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index"
-        $target.SystemIndexStateFile | Should -Be "C:\Users\test\Documents\tebunko_ws\システムインデックスの状態.tsv"
-        $target.PublishDir | Should -Be "C:\Users\test\Documents\tebunko_ws\取り込み出力\$PID"
-        $target.StatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\取り込み一覧.tsv"
-        $target.IngestingFile | Should -Be "C:\Users\test\Documents\tebunko_ws\取り込み中.txt"
-        $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\検索結果.txt"
-        $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\インデックス作成ログ.txt"
-        $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\画面エラー.txt"
+        $target.SystemIndexStateFile | Should -Be "C:\Users\test\Documents\tebunko_ws\system_index_state.tsv"
+        $target.PublishDir | Should -Be "C:\Users\test\Documents\tebunko_ws\publish\$PID"
+        $target.StatusFile | Should -Be "C:\Users\test\Documents\tebunko_ws\ingest_status.tsv"
+        $target.IngestingFile | Should -Be "C:\Users\test\Documents\tebunko_ws\ingesting.txt"
+        $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\search_results.txt"
+        $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log.txt"
+        $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log.txt"
+        $target.TmpRoot | Should -Be "C:\Users\test\Documents\tebunko_ws\tmp"
     }
 
     It "関数は呼んだときの `$workspace の場所を使う（差し替えれば、読み込み直さずに別のワークスペースを使う）" {
@@ -26,11 +27,95 @@ Describe "Workspace" -Tag Unit {
         @((getIndexSummary).Missing) | Should -Be @("$TestDrive\別\content_index")
     }
 
-    It "Entries() が前の版の index（LegacyIndexDir）を含む" {
+    It "Entries() が前の版の index（LegacyIndexDir）と一時フォルダ（TmpRoot）を含む" {
         $target = [Workspace]::new("$TestDrive\entries")
 
         @($target.Entries()) | Should -Contain $target.LegacyIndexDir
         @($target.Entries()) | Should -Contain $target.IndexDir
+        @($target.Entries()) | Should -Contain $target.TmpRoot
+    }
+
+    It "文字列のプロパティ（Dir・Legacy で始まるものを除く）は、Dir より後ろが ASCII（再発防止。後から足したプロパティも捕まえる）" {
+        $target = [Workspace]::new("C:\Users\test\Documents\tebunko_ws")
+        $names = $target.PSObject.Properties |
+            Where-Object { $_.TypeNameOfValue -eq "System.String" -and $_.Name -ne "Dir" -and $_.Name -notlike "Legacy*" } |
+            ForEach-Object { $_.Name }
+
+        $names.Count | Should -BeGreaterThan 0
+        foreach ($name in $names) {
+            $value = $target.$name
+            $rest = $value.Substring($target.Dir.Length)
+            $rest | Should -Match "^[\x20-\x7E]+$"
+        }
+
+        ${sourceFolderFileName} | Should -Match "^[\x20-\x7E]+$"
+    }
+}
+
+Describe "getMachineKey" -Tag Unit {
+    It "この PC の鍵（getFolderKey の先頭 8 文字）を返す" {
+        getMachineKey | Should -Be (getFolderKey ([Environment]::MachineName)).Substring(0, 8)
+    }
+}
+
+Describe "getWorkspaceTmpDir" -Tag Unit {
+    It "ワークスペースの tmp の下に、PC の鍵とプロセスIDで組み立てる" {
+        $workspace = newTestWorkspace @{} "$TestDrive\getwtd"
+
+        getWorkspaceTmpDir $workspace | Should -Be "$TestDrive\getwtd\tmp\$(getMachineKey)\$PID"
+    }
+}
+
+Describe "selectTmpDir" -Tag Unit {
+    BeforeAll {
+        # 候補（ワークスペースの tmp の下）の長さと、取り込みのスレッドが下に作る最も長い名前の分（tmpNameReserve）から、
+        # ちょうど境目の長さのワークスペースを組み立てるための下ごしらえ
+        $suffix = "\tmp\$(getMachineKey)\$PID"
+        $thresholdLen = $excelMaxPath - ${tmpNameReserve}
+
+        function newWorkspaceOfCandidateLength([int]$candidateLen) {
+            $dirLen = $candidateLen - $suffix.Length
+            $dir = "C:\" + ("あ" * ($dirLen - 3))
+            return (newTestWorkspace @{} $dir)
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "[ ] を含まず、長さも十分短ければ、そのまま使う"; kind = "path"; dir = "C:\Users\test\ws"; expectedReason = "" }
+        @{ name = "候補のパスに [ と ] の両方があれば、置けない（Dir は空）"; kind = "path"; dir = "C:\Users\test\[共有]フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補のパスに [ だけあっても、置けない"; kind = "path"; dir = "C:\Users\test\[共有フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補のパスに ] だけあっても、置けない"; kind = "path"; dir = "C:\Users\test\共有]フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補の長さが境目より短ければ、そのまま使う"; kind = "length"; offset = -1; expectedReason = "" }
+        @{ name = "候補の長さが境目以上なら、置けない（Dir は空）"; kind = "length"; offset = 0; expectedReason = "TooLong" }
+    ) {
+        param ($name, $kind, $dir, $offset, $expectedReason)
+        $workspace = if ($kind -eq "length") {
+            newWorkspaceOfCandidateLength ($thresholdLen + $offset)
+        } else {
+            newTestWorkspace @{} $dir
+        }
+
+        $result = selectTmpDir $workspace
+        if ($expectedReason) {
+            $result.Dir | Should -BeNullOrEmpty
+        } else {
+            $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
+        }
+        $result.Reason | Should -Be $expectedReason
+    }
+}
+
+Describe "getTmpDirUnavailableMessage" -Tag Unit {
+    It "<reason> なら [ ]・長さに触れた文にする" -TestCases @(
+        @{ reason = "Brackets"; expected = "\[ \]" }
+        @{ reason = "TooLong"; expected = "長すぎる" }
+    ) {
+        param ($reason, $expected)
+        getTmpDirUnavailableMessage $reason | Should -Match $expected
+    }
+
+    It "置けない理由を書く" {
+        getTmpDirUnavailableMessage "Brackets" | Should -Match "置けません"
     }
 }
 
@@ -42,8 +127,8 @@ Describe "moveWorkspace" -Tag Io {
             newTsv "$dir\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
             newTsv "$dir\index\営業\見積\content.xlsx.001.tsv" @("a-前の版")
             newTsv "$dir\system_index\営業\見積\system_index.txt" @("b")
-            newTsv "$dir\取り込み一覧.tsv" @("c")
-            newTsv "$dir\インデックス作成ログ.txt" @("d")
+            newTsv "$dir\ingest_status.tsv" @("c")
+            newTsv "$dir\indexing_log.txt" @("d")
             newTsv "$dir\利用者のメモ.txt" @("e")
         }
     }
@@ -56,8 +141,8 @@ Describe "moveWorkspace" -Tag Io {
         Test-Path -LiteralPath "$TestDrive\move\to\content_index\営業\見積\content_index.xlsx.001.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\index\営業\見積\content.xlsx.001.tsv" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\system_index\営業\見積\system_index.txt" | Should -Be $true
-        Test-Path -LiteralPath "$TestDrive\move\to\取り込み一覧.tsv" | Should -Be $true
-        Test-Path -LiteralPath "$TestDrive\move\to\インデックス作成ログ.txt" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\ingest_status.tsv" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\move\to\indexing_log.txt" | Should -Be $true
         @(getWorkspaceEntries "$TestDrive\move\from").Count | Should -Be 0
         Test-Path -LiteralPath "$TestDrive\move\from\利用者のメモ.txt" | Should -Be $true
         Test-Path -LiteralPath "$TestDrive\move\to\利用者のメモ.txt" | Should -Be $false
@@ -65,9 +150,9 @@ Describe "moveWorkspace" -Tag Io {
 
     It "移し先に同じ名前があれば、何も移さずに例外にする" {
         newWorkspaceFiles "$TestDrive\conflict\from"
-        newTsv "$TestDrive\conflict\to\取り込み一覧.tsv" @("別のワークスペース")
+        newTsv "$TestDrive\conflict\to\ingest_status.tsv" @("別のワークスペース")
 
-        { moveWorkspace "$TestDrive\conflict\from" "$TestDrive\conflict\to" } | Should -Throw "*すでに 取り込み一覧.tsv があります*"
+        { moveWorkspace "$TestDrive\conflict\from" "$TestDrive\conflict\to" } | Should -Throw "*すでに ingest_status.tsv があります*"
         @(getWorkspaceEntries "$TestDrive\conflict\from").Count | Should -Be 5
         Test-Path -LiteralPath "$TestDrive\conflict\to\content_index" | Should -Be $false
     }
@@ -124,7 +209,7 @@ Describe "removeWorkspaceEntries" -Tag Io {
     It "tebunko のファイル・フォルダだけを削除し、削除した数を返す（content_index・前の版の index も含めて消し、利用者のファイルは残す）" {
         newTsv "$TestDrive\remove_ws\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
         newTsv "$TestDrive\remove_ws\index\営業\見積\content.xlsx.001.tsv" @("a-前の版")
-        newTsv "$TestDrive\remove_ws\取り込み一覧.tsv" @("b")
+        newTsv "$TestDrive\remove_ws\ingest_status.tsv" @("b")
         newTsv "$TestDrive\remove_ws\利用者のメモ.txt" @("c")
 
         removeWorkspaceEntries "$TestDrive\remove_ws" | Should -Be 3
@@ -143,7 +228,7 @@ Describe "useWorkspaceTargets" -Tag Io {
         writeStatusFile @(
             [pscustomobject]@{ Path = "\\server\共有\営業部"; Name = "営業" },
             [pscustomobject]@{ Path = "\\server\共有\技術部"; Name = "技術" }
-        ) @() "$TestDrive\use\ws\取り込み一覧.tsv"
+        ) @() "$TestDrive\use\ws\ingest_status.tsv"
 
         useWorkspaceTargets "$TestDrive\use\ws" $settings | Should -Be 2
 

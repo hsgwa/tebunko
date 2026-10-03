@@ -1,4 +1,4 @@
-# 部品ごとの関数（インデックス作成）
+﻿# 部品ごとの関数（インデックス作成）
 
 扱うこと: 取り込み一覧・状態ファイル・画面との受け渡しの口（`indexer_state.ps1`）、取り込み直すかの判断（`indexer_decide.ps1`）、インデックス名とインデックスの管理（`index_name.ps1`・`index_store.ps1`）の関数一覧。扱わないこと: 設定・ファイル操作（[部品ごとの関数（設定・ファイル）](settings.md)）、TSV・本文インデックス（[部品ごとの関数（TSV と本文インデックス）](tsv.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
@@ -23,7 +23,7 @@
 | `requestIndexingStop` | channel | – | 中止を求める（`Stop` を立て、確認を待っていれば取りやめの返事にする） | 同上 | 画面 |
 | `answerIndexingPlan` | channel, answer（`@{RetryFailed}` / `$null`） | – | 確認のダイアログの返事をインデクサに伝える。`$null` は取りやめ（`Stop` も立てる） | [インデックス作成の実行](../gui/indexing-run.md#インデックス作成の確認ダイアログ) | 画面 |
 | `testIndexerRunning` | dir（既定 `$workspace.Dir`） | bool | この `work` でインデックス作成が動いているか（インデクサのミューテックスを取れるかで調べ、取れたらすぐ放す）。画面を使わずに起動したものも分かる | [画面とインデクサの受け渡し](../structure/threads.md#画面とインデクサの受け渡し) | 画面（［8 設定］） |
-| `writeIndexerLog` | text, color | – | インデックス作成の表示内容をログ（`インデックス作成ログ.txt`）に書く。画面を使わずに実行したときはコンソールにも出す（color はそのときの色）。取り込みのスレッドでは 1 ファイル分を貯め、司令がまとめて書く | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成 |
+| `writeIndexerLog` | text, color | – | インデックス作成の表示内容をログ（`indexing_log.txt`）に書く。画面を使わずに実行したときはコンソールにも出す（color はそのときの色）。取り込みのスレッドでは 1 ファイル分を貯め、司令がまとめて書く | [インデックス作成のメインフロー](../indexing/flow.md) | インデックス作成 |
 | `newIngestPlanRow` | name, path, kind, total, targets, new, updated, pending, lost, failed | 取り込み予定の 1 行（`[pscustomobject]`） | インデックス 1 件分の取り込み対象の件数を作る（`$ingestPlanColumns` と同じ列） | [取り込み対象の決定](../indexing/target-decision.md#取り込み予定画面の確認に出す件数) | インデックス作成 |
 | `getIndexingState` | since, path | [元のファイルの特定・画面](search.md#元のファイルの特定画面) を参照 | 取り込み一覧の状態ごとの件数など | [続き](search.md#元のファイルの特定画面) | 画面 |
 
@@ -67,7 +67,7 @@
 
 | 関数 | 入力 | 出力 | 概要 | 詳細 | 使用元 |
 |---|---|---|---|---|---|
-| `getExtractVersion` | path | int | ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。`.xlsx` `.xlsm` `.docx` `.docm` `.pptx` `.pptm` はグラフの項目名を読まない・Excel はグラフ・SmartArt も読む 3、旧形式（`.doc` `.ppt`）など図形・コメントを読む形式は 2、ほかは 1） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist) | testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列） |
+| `getExtractVersion` | path | int | ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。`.xlsx` `.xlsm` はグラフの項目名を読まず、グラフ・SmartArt・ヘッダー・フッターを読む 4、`.docx` `.docm` `.pptx` `.pptm` はグラフの項目名を読まない 3、旧形式（`.doc` `.ppt`）など図形・コメントを読む形式は 2、ほかは 1） | [取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist) | testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列） |
 | `testExtractOutdated` | row | bool | 取り込み一覧の行が、今の抽出版より前の版で取り込んだものか（抽出版の列が空なら 1） | 同上 | getIngestDecision |
 | `getIngestDecision` | old（前回の行 / `$null`）, updated, size, indexComplete | `@{Ingest; Reason}` | 取り込むかどうかと理由（`done` / `failed` / `new` / `updated` / `pending` / `lost` / `outdated`）。更新日時・サイズが同じでも、TSV が欠けていれば `lost`、前の抽出版なら `outdated` で取り込み直す | 同上 | createTargetList |
 | `getIngestLane` | relPath | string | 取り込むレーン（`.xls*` は `Excel`、`.doc` は `Word`、`.ppt` は `PowerPoint`、それ以外（`.docx`・`.docm`・`.pptx`・`.pptm`、テキストの拡張子）は既定の `Reader`） | [取り込みの並列化](../indexing/parallel.md) | インデックス作成（司令） |

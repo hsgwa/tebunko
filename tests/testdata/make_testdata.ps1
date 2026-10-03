@@ -734,7 +734,8 @@ try {
             @("TC10-O01", "コメント付きセル", "コメントがあるセル"),
             @("TC10-O02", "テキストボックス", "右にテキストボックス"),
             @("TC10-O03", "ハイパーリンク", ""),
-            @("TC10-O04", "入力規則", "選択肢A")
+            @("TC10-O04", "入力規則", "選択肢A"),
+            @("TC10-O05", "ヘッダー・フッター", "")
         )
         [void]$ws.Range("C2").AddComment("TC10 コメント内のテキスト")
         $box = $ws.Shapes.AddTextbox(1, 300, 20, 220, 40)
@@ -742,9 +743,19 @@ try {
         [void]$ws.Hyperlinks.Add($ws.Range("C4"), "https://example.com/TC10-hidden-url", $missing, $missing, "リンクの表示文字列")
         [void]$ws.Range("C5").Validation.Add(3, 1, 1, "選択肢A,選択肢B")
         try {
-            $ws.PageSetup.CenterHeader = "TC10 ヘッダーのテキスト"
+            # 左・中央・右のヘッダーとフッターをそれぞれ別の文字にし、フッターにページ番号の差し込み（&P &N）を入れる
+            # PrintCommunication を止め、プリンタ未設定環境でも PageSetup の変更が失敗しないようにする
+            $excel.PrintCommunication = $false
+            $ps = $ws.PageSetup
+            $ps.LeftHeader = "TC10-O05 左ヘッダー"
+            $ps.CenterHeader = "TC10 ヘッダーのテキスト"
+            $ps.RightHeader = "TC10-O05 右ヘッダー"
+            $ps.LeftFooter = "TC10-O05 左フッター"
+            $ps.CenterFooter = "TC10-O05 通常フッター"
+            $ps.RightFooter = "&P / &N ページ"
+            $excel.PrintCommunication = $true
         } catch {
-            Write-Host "  （プリンタが無いためヘッダーは設定できませんでした）" -ForegroundColor Yellow
+            Write-Host "  （プリンタが無いためヘッダー・フッターは設定できませんでした）" -ForegroundColor Yellow
         }
 
         saveBook $wb "Excel\セル内容.xlsx"

@@ -5,7 +5,7 @@
 #   Office の COM には触らない
 # ・1 ファイルの取り込み（Office で開いて TSV にする）は、取り込みのスレッド（STA）が行う。スレッドごとに自分の Office を持つ。
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
-# ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は インデックス作成ログ.txt に書く
+# ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
 # 取り込みのスレッドが読み込む部品（indexer_lib.ps1）
 ${indexerLibPath} = "$PSScriptRoot\indexer_lib.ps1"
@@ -22,8 +22,8 @@ ${ingestWorkerScript} = {
     $own = [Workspace]::new($settings.WorkDir)
     $own.PublishDir = Join-Path $settings.PublishDir "w$number"
     Set-Variable -Name workspace -Value $own
-    Set-Variable -Name tmpDir -Value (Join-Path $settings.TmpDir "w$number")
-    [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
+    Set-Variable -Name tmpDir -Value (newWorkerTmpDir $settings.TmpDir $number)
+    Set-Variable -Name tmpDirReason -Value $settings.TmpDirReason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
@@ -117,6 +117,12 @@ function invokeIngestTask {
     # Reroute: Office を使わずに読めなかった（中身が旧形式・パスワード付き）。司令が Word・PowerPoint のレーンに回し直す
     # Postponed: 利用者のPowerPointが起動していて使えなかった。司令が「未取り込み」のまま次回に回す
     $result = @{ RelPath = $task.RelPath; Ok = $false; Reroute = $false; Postponed = $false; TsvCount = 0; Message = ""; TimedOut = $false; ExtractVersion = ""; Log = "" }
+    if (!$tmpDir) {
+        # 取り込みの作業フォルダを置けない（selectTmpDir の Brackets・TooLong）ときは、
+        # どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めこのファイルの取り込みをスキップし、取り込みの失敗として記録する
+        $result.Message = "$(getTmpDirUnavailableMessage $tmpDirReason)このファイルの取り込みをスキップしました。"
+        return $result
+    }
     $log = New-Object System.IO.StringWriter
     $previousLog = $script:indexerLog
     $script:indexerLog = $log
@@ -403,8 +409,9 @@ function invokeIndexerBody {
     if (!$nci.Ok) {
         writeIndexerLog "content_index を Windows Search の対象から外せませんでした（$($nci.Reason)）。高速検索が効くまで時間がかかることがあります。" "Yellow"
     }
-    removeStaleTmpDirs
-    [System.IO.Directory]::CreateDirectory($tmpDir) | Out-Null
+    $selected = initTmpDir
+    $script:tmpDir = $selected.Dir
+    $script:tmpDirReason = $selected.Reason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
 
     # クロール対象フォルダごとにインデックス名（work\content_index 直下のフォルダ名）を決める。前回と同じフォルダは同じ名前を使う
@@ -617,7 +624,7 @@ function invokeIndexerBody {
         if ($readers -gt 0) {
             $pool = newIngestPool $readers @{
                 Lib = ${indexerLibPath}
-                WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; PublishDir = $workspace.PublishDir
+                WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; TmpDirReason = ${tmpDirReason}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
             }
         } else {
@@ -805,7 +812,7 @@ function invokeIndexerBody {
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
         $ledger.WriteStatus($folders, @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }))
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
-        # （work\content_index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
+        # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
         # 高速検索用の システムインデックスを作り直す。中止したとき・フォルダが見えなくなったときは作らない
         # （作り直していないフォルダは反映待ちのままのため、検索ではそのフォルダを照合する）

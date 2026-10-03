@@ -235,6 +235,16 @@ Describe "HitRow.Create" -Tag Unit {
         (newHitRow -location "[シート]4月").IsObjectPlace | Should -Be $false
     }
 
+    It "Excel のヘッダー・フッターの場所は、図形の場所の一種で、行にセル番地が無い場所として決める" {
+        $row = newHitRow -location "[シート]4月[ヘッダー・フッター]"
+        $row.IsObjectPlace | Should -Be $true
+        $row.IsCelllessPlace | Should -Be $true
+        (newHitRow -location "[シート]4月[図形]").IsCelllessPlace | Should -Be $false
+        (newHitRow -location "[シート]4月").IsCelllessPlace | Should -Be $false
+        # Word・PowerPoint の場所の名前 ヘッダー・フッター は、種類ではない
+        (newHitRow -book "議事録.docx" -location "ヘッダー・フッター").IsObjectPlace | Should -Be $false
+    }
+
     It "空の値は空文字にする" {
         $row = [HitRow]::Create("営業", "C:\index\営業", "見積.xlsx", $null, "見積.xlsx.tsv", $null, $null, 1, $null, "見積", $null)
         $row.RelDir | Should -Be ""
@@ -288,6 +298,21 @@ Describe "HitRow.Prepare" -Tag Unit {
         $row = newHitRow -location "[シート] 4月[図形]" -line "納期" -word "納期"
         $row.Prepare()
         $row.DisplayLine | Should -Be "納期"
+    }
+
+    It "Excel のヘッダー・フッターの行は、セル番地を出さず（一致は 1 つ）、囲みの引用符を外した文字を表示する" {
+        $row = newHitRow -location "[シート]4月[ヘッダー・フッター]" -line "`"`"`"至急`"`" と `"`"確認`"`"`"" -word "至急"
+        $row.Prepare()
+        $row.MatchCell | Should -Be ""
+        $row.MatchCount | Should -Be 1
+        $row.DisplayLine | Should -Be "`"至急`" と `"確認`""
+    }
+
+    It "Excel のヘッダー・フッターの行の一致しない語は、一致 0 で番地も空" {
+        $row = newHitRow -location "[シート]4月[ヘッダー・フッター]" -line "社外秘" -word "見積"
+        $row.Prepare()
+        $row.MatchCell | Should -Be ""
+        $row.MatchCount | Should -Be 0
     }
 
     It "2 回目は作り直さない" {
@@ -487,6 +512,14 @@ Describe "HitRow.BuildPreview" -Tag Unit {
         $table.Rows[2].Cells[1].ToolTip | Should -BeNullOrEmpty
     }
 
+    It "Excel のヘッダー・フッターは、1 行が文字だけの 1 列なので、見出しを「文字」にする" {
+        $row = newHitRow -location "[シート]4月[ヘッダー・フッター]" -lineNumber 2 -line "社外秘" -word "社外秘"
+        $table = $row.BuildPreview(@(1, 2), @("月次報告", "社外秘"))
+        @($table.Columns | ForEach-Object { $_.Label }) | Should -Be @("文字")
+        $table.RangeLabel | Should -Be "文字〜文字"
+        $table.Rows[1].Cells[0].IsHit | Should -Be $true
+    }
+
     It "列の幅は下限と上限の間に収める" {
         $row = newHitRow -lineNumber 1 -line "a`t$("あ" * 80)" -word "a"
         $table = $row.BuildPreview(@(1), @("a`t$("あ" * 80)"))
@@ -641,9 +674,12 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         @{ name = "memo.txt"; expected = $true }
         @{ name = "memo.MD"; expected = $true }
         @{ name = "memo.json"; expected = $true }
+        @{ name = "chart.js"; expected = $true }
+        @{ name = "app.py"; expected = $true }
         @{ name = "a.xlsxx"; expected = $false }
         @{ name = "a.xl"; expected = $false }
         @{ name = "a.pdf"; expected = $false }
+        @{ name = "a.exe"; expected = $false }
     ) {
         param ($name, $expected)
         [IndexNode]::IsBookDir($name) | Should -Be $expected
@@ -662,6 +698,15 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         [IndexNode]::IsBookDirPath("$dir\営業部") | Should -Be $false
         # 本物のフォルダはツリーに出し、元のファイルごとのフォルダは出さない
         [IndexNode]::HasSubfolders($dir) | Should -Be $true
+    }
+
+    It "IsBookDirPath は、chart.js のような名前の本物のフォルダ（.js が対象の拡張子に加わっても）を誤判定しない" {
+        # .js は取り込み対象のテキストの拡張子だが、中にファイル・サブフォルダがある本物のフォルダは元のファイルごとのフォルダではない
+        $dir = "$TestDrive\bookdir_path_js"
+        [void][System.IO.Directory]::CreateDirectory("$dir\chart.js\lib")
+        [System.IO.File]::WriteAllText("$dir\chart.js\index.js", "dummy")
+        [IndexNode]::IsBookDir("chart.js") | Should -Be $true
+        [IndexNode]::IsBookDirPath("$dir\chart.js") | Should -Be $false
     }
 
     It "IsBookDirPath・HasSubfolders・HasFiles で調べた直後に、そのフォルダを移動できる（ツリーを開いた後の上書きのインポート）" {

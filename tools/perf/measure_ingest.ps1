@@ -9,7 +9,7 @@
 #   読み込み口   … scripts\tebunko\lib.ps1 の newIndexerChannel（引数 retryFailed・confirmTargets・workers）
 #   受け渡しの口 … Progress.Phase と、その値 クロール・確認・取り込み・仕上げ
 #   設定         … setting.config がツールのフォルダにあること。キー targetFolders（@{ name; path; enabled } の配列）・workspaceFolder・ingestThreads
-#   取り込み一覧 … ワークスペース直下の 取り込み一覧.tsv。見出しの 相対パス・状態。状態の値 済・失敗
+#   取り込み一覧 … ワークスペース直下の ingest_status.tsv。見出しの 相対パス・状態。状態の値 済・失敗
 param (
     [Parameter(Mandatory = $true)][string]$Tool,
     [Parameter(Mandatory = $true)][string]$Data,

@@ -12,7 +12,7 @@
 
 ## 概要
 
-画面の［2 検索］タブで入力したワードで、`work/content_index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/検索結果.txt` の形式を定める。
+画面の［2 検索］タブで入力したワードで、`work/content_index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/search_results.txt` の形式を定める。
 
 ## 入出力
 
@@ -21,8 +21,8 @@
 | 入力 | 画面で入力したワード | 1 回の検索で 1 ワード |
 | 入力 | `setting.config` の `searchExcludes` | 画面の検索対象のツリーでチェックを外したフォルダ（[インデックスの一覧](#インデックスの一覧getsearchindexes)、省略可） |
 | 入力 | `work/content_index/**/content_index.*.tsv` | インデックス作成で書き出した本文インデックス（フォルダ・元のファイルの拡張子ごとに 1 つ） |
-| 入力 | `work/system_index/**/system_index*.txt`・`work/システムインデックスの状態.tsv` | 高速検索に使う システムインデックスとその状態（[高速検索（Windows Search）](fast-search.md)。Windows Search に問い合わせる） |
-| 出力 | `work/検索結果.txt` | 画面の［結果をファイルに出力］で書き出す検索結果（[検索結果ファイル](output.md)）。出力ごとに上書き |
+| 入力 | `work/system_index/**/system_index*.txt`・`work/system_index_state.tsv` | 高速検索に使う システムインデックスとその状態（[高速検索（Windows Search）](fast-search.md)。Windows Search に問い合わせる） |
+| 出力 | `work/search_results.txt` | 画面の［結果をファイルに出力］で書き出す検索結果（[検索結果ファイル](output.md)）。出力ごとに上書き |
 
 ## インデックスの一覧（`getSearchIndexes`）
 
@@ -53,7 +53,7 @@ flowchart TD
     F --> SS["searchPackIndex<br>本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合<br>（進捗を画面に通知、上限・中止を確認）"]
     SS --> R["ヒット: Root・RelPath・RelDir・FileName・<br>Book・Location・LineNumber・Line"]
     R --> G["画面の表に表示"]
-    G -- "［結果をファイルに出力］" --> W["writeSearchResult<br>work/検索結果.txt に書き出して開く"]
+    G -- "［結果をファイルに出力］" --> W["writeSearchResult<br>work/search_results.txt に書き出して開く"]
 ```
 
 - 本文インデックスのファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ本文インデックスのファイルを二重に検索しない。
@@ -98,4 +98,4 @@ flowchart TD
 | 1 | 高速検索を使えないとき（[高速検索（Windows Search）](fast-search.md)）は、検索のたびにすべての本文インデックスを照合するため、インデックス量に比例して時間がかかる（本文インデックス 46MB で初回 2.1 秒・2 回目以降 0.29 秒、1.1GB で初回 38 秒・2 回目以降 16〜18 秒。読んだ内容の使い回しは約 128MB まで。[検索を速くする仕組み](speed.md)） | ◎ |
 | 1-2 | 初めて作った大きなインデックスは、Windows Search が システムインデックスを索引し終えるまで高速検索が効かない（その間は反映待ちのフォルダを照合するため、結果は欠けない）。`work/content_index` は自動で Windows Search の対象から外れ、早く終わる（[高速検索（Windows Search）](fast-search.md)） | ◎ |
 | 1-3 | ワードによく出る 2-gram しか無いときは、ほとんどのフォルダが候補になり、高速検索でも速くならない（[高速検索（Windows Search）](fast-search.md)） | ◎ |
-| 2 | 結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に `検索結果.txt に書き込めません。…` と表示する） | ◎ |
+| 2 | 結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に `search_results.txt に書き込めません。…` と表示する） | ◎ |

@@ -23,7 +23,7 @@ BeforeAll {
             [void](updateIndexFolderPack $folder)
         }
         $system = "$root\system_index"
-        $statePath = "$root\システムインデックスの状態.tsv"
+        $statePath = "$root\system_index_state.tsv"
         $state = newSystemIndexState
         $results = writeSystemIndexFolders (getSystemIndexStaleFolders $index $system $state) $index $system 1
         [void](updateSystemIndexState { param ($s) setSystemIndexResults $s $results; [void]$s.Covered.Add("営業"); [void]$s.Covered.Add("総務") } $statePath)
