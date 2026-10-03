@@ -57,7 +57,7 @@ tebunko は、フォルダの中の Office ファイルから文字を取り出�
 | Excel | .xlsx / .xlsm / .xls / .xlsb | シート（行・セル。.xlsx / .xlsm はヘッダー/フッターも） |
 | Word | .docx / .docm / .doc | ページ（目安）・ヘッダー/フッター・脚注 |
 | PowerPoint | .pptx / .pptm / .ppt | スライド・ノート・フッター |
-| テキスト | .txt / .csv / .tsv / .md / .log / .json / .xml | 行番号 |
+| テキスト | .txt / .csv / .md / .py / .java / .html 等、75 種類の拡張子（[一覧](docs/guide/limitations.md#対応するテキストの拡張子)） | 行番号 |
 
 ## 動作環境
 

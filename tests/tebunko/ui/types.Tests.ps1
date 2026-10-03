@@ -660,9 +660,12 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         @{ name = "memo.txt"; expected = $true }
         @{ name = "memo.MD"; expected = $true }
         @{ name = "memo.json"; expected = $true }
+        @{ name = "chart.js"; expected = $true }
+        @{ name = "app.py"; expected = $true }
         @{ name = "a.xlsxx"; expected = $false }
         @{ name = "a.xl"; expected = $false }
         @{ name = "a.pdf"; expected = $false }
+        @{ name = "a.exe"; expected = $false }
     ) {
         param ($name, $expected)
         [IndexNode]::IsBookDir($name) | Should -Be $expected
@@ -681,6 +684,15 @@ Describe "IndexNode（静的な関数）" -Tag Unit {
         [IndexNode]::IsBookDirPath("$dir\営業部") | Should -Be $false
         # 本物のフォルダはツリーに出し、元のファイルごとのフォルダは出さない
         [IndexNode]::HasSubfolders($dir) | Should -Be $true
+    }
+
+    It "IsBookDirPath は、chart.js のような名前の本物のフォルダ（.js が対象の拡張子に加わっても）を誤判定しない" {
+        # .js は取り込み対象のテキストの拡張子だが、中にファイル・サブフォルダがある本物のフォルダは元のファイルごとのフォルダではない
+        $dir = "$TestDrive\bookdir_path_js"
+        [void][System.IO.Directory]::CreateDirectory("$dir\chart.js\lib")
+        [System.IO.File]::WriteAllText("$dir\chart.js\index.js", "dummy")
+        [IndexNode]::IsBookDir("chart.js") | Should -Be $true
+        [IndexNode]::IsBookDirPath("$dir\chart.js") | Should -Be $false
     }
 
     It "IsBookDirPath・HasSubfolders・HasFiles で調べた直後に、そのフォルダを移動できる（ツリーを開いた後の上書きのインポート）" {
