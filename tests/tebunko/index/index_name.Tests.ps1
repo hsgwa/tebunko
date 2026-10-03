@@ -64,6 +64,7 @@ Describe "describePlace" -Tag Unit {
         described "見積.xlsx" "売上" | Should -Be "[シート]売上|セル"
         described "見積.xlsx" "売上[図形]" | Should -Be "[シート]売上|図形"
         described "見積.xlsx" "売上[コメント]" | Should -Be "[シート]売上|コメント"
+        described "見積.xlsx" "売上[ヘッダー・フッター]" | Should -Be "[シート]売上|ヘッダー・フッター"
         # シート名が「ページ001」でも、Excel ならシートとして出す
         described "旧.XLS" "ページ001" | Should -Be "[シート]ページ001|セル"
     }
