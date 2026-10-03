@@ -4270,7 +4270,7 @@
 <td><code>extract_office.ps1</code> の <code>extractDocument</code></td>
 </tr>
 <tr>
-<td>公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの「本文.tsv」を含む）</td>
+<td>公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの <code>doc_body.tsv</code> を含む）</td>
 <td>同上の下</td>
 <td>同上の下</td>
 <td><code>index_migrate.ps1</code> の <code>publishTsv</code>、<code>extract_text.ps1</code> の <code>extractTextFile</code></td>
@@ -4310,7 +4310,7 @@
 </tr>
 <tr>
 <td>書き込み中の一時ファイル（<code>&lt;保存先&gt;.tmp</code>。置き換えたら消える）</td>
-<td>書く先のすぐ隣（<code>setting.config.tmp</code>・取り込み一覧などの TSV の隣・利用者が指定したエクスポート/インポート先の隣 など）</td>
+<td>書く先のすぐ隣（<code>setting.config.tmp</code>・<code>ingest_status.tsv.tmp</code> などの TSV の隣・利用者が指定したエクスポート/インポート先の隣 など）</td>
 <td>書き込み中の内容</td>
 <td>途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（<code>writeTextLinesAtomic</code> など）。置き換え（<code>File.Replace</code>）は同じフォルダ内でしか使えない</td>
 </tr>
