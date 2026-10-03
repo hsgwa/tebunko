@@ -528,6 +528,32 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+    <Style.Triggers>
+      <!-- 横向き（プレビューの表の下など）は幅いっぱいに伸ばし、高さだけ 10 にする -->
+      <Trigger Property="Orientation" Value="Horizontal">
+        <Setter Property="Width" Value="Auto" />
+        <Setter Property="Height" Value="10" />
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="ScrollBar">
+              <Grid Background="Transparent">
+                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                  <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource ScrollHidden}" Command="ScrollBar.PageLeftCommand" />
+                  </Track.DecreaseRepeatButton>
+                  <Track.Thumb>
+                    <Thumb Style="{StaticResource ScrollThumb}" />
+                  </Track.Thumb>
+                  <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource ScrollHidden}" Command="ScrollBar.PageRightCommand" />
+                  </Track.IncreaseRepeatButton>
+                </Track>
+              </Grid>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Trigger>
+    </Style.Triggers>
   </Style>
 
 </ResourceDictionary>

@@ -265,7 +265,8 @@
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <Rectangle x:Name="BannerAccent" Grid.Column="0" Fill="{StaticResource Accent.0078D4}" />
-          <DockPanel Grid.Column="1" Margin="12,8,12,8">
+          <!-- ボタンの高さ 30 がバナー高さ 40 に収まるよう、上下の余白を 5 にする（diff_round4.md 6・H-P） -->
+          <DockPanel Grid.Column="1" Margin="12,5,12,5">
             <Button x:Name="BannerButton" DockPanel.Dock="Right" Style="{StaticResource Btn.BannerAccent}" Content="進み具合を見る" />
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
               <!-- 印は線の info（塗りの円にしない。diff_round3.md 7）。丸は線だけ、中の印は状態で差し替える -->
@@ -364,8 +365,8 @@
           <TextBlock Text="絞り込み" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
           <TextBox x:Name="ResultsFilterBox" Width="220" Height="24" VerticalAlignment="Center" Foreground="{StaticResource Ink.6B737D}" Text="ファイル名・場所・中身で絞り込む" />
         </StackPanel>
-        <!-- 下線と区切りの縦線を付ける（diff_round3.md 10） -->
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
+        <!-- 下線と区切りの縦線を付ける（diff_round3.md 10）。隠すときは行全体（区切り線を含む）を隠す（diff_round4.md 7） -->
+        <StackPanel x:Name="ExpandCollapseLinksRow" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
           <TextBlock x:Name="ExpandAllLink" Text="すべて開く" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" TextDecorations="Underline" VerticalAlignment="Center" />
           <Rectangle Width="1" Height="11" Margin="8,0" Fill="{StaticResource Line.E0E2E5}" />
           <TextBlock x:Name="CollapseAllLink" Text="すべて折りたたむ" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" TextDecorations="Underline" VerticalAlignment="Center" />
@@ -384,22 +385,22 @@
         <Grid x:Name="ResultsColumnHeader" Grid.Row="0" Background="{StaticResource Bg.F9FAFA}">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="32" />
-            <ColumnDefinition Width="140" />
-            <ColumnDefinition Width="60" />
+            <ColumnDefinition Width="202" />
+            <ColumnDefinition Width="33" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
           <TextBlock Grid.Column="1" Text="場所" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
           <TextBlock Grid.Column="2" Text="種別" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
           <TextBlock Grid.Column="3" Text="該当行" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
         </Grid>
+        <!-- 列の位置は diff_round4.md 2（場所 140→202、種別 60→33。窓 1280 のとき場所 x≈455、種別 x≈488 に合わせる） -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-        <Grid>
           <!-- 全幅（diff_round3.md 1）。左右の余白は取り、下だけ 8 残す -->
           <StackPanel x:Name="ResultsPanel" Margin="0,0,0,8">
             <!-- ファイルの行（開いた）。地は Bg.F5F7FA、chevron は下向き（diff_round2.md 2 回目指摘） -->
             <Grid Height="36" Background="{StaticResource Bg.F5F7FA}">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="3" />
                 <ColumnDefinition Width="28" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -421,58 +422,58 @@
                  選んでいる行は Select.E1F2FF（diff_round3.md 1。H は TopRow1 が選択中の既定） -->
             <Grid x:Name="TopRow1" Height="30" Margin="32,0,8,0" Background="{StaticResource Select.E1F2FF}">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="202" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="33" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="TopRow1Col1" Grid.Column="0" Text="[シート]見積書!A3" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow1Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow1Col1" Grid.Column="0" Text="[シート]見積書!A3" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow1Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
               <TextBlock x:Name="TopRow1Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="見積先：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text="（御中）" />
+                <Run Text="見積先：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text="(御中) ｜ 見積番号：12-2324-0143" />
               </TextBlock>
             </Grid>
             <Grid x:Name="TopRow2" Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FFFFFF}">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="202" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="33" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="TopRow2Col1" Grid.Column="0" Text="[シート]見積書!B18 ほか 1" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow2Col2" Grid.Column="2" Text="図形" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow2Col1" Grid.Column="0" Text="[シート]見積書!B18 ほか 1" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow2Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
               <TextBlock x:Name="TopRow2Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="4月4日 値引き：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 特別割引あり" />
+                <Run Text="4月4日 ｜ 値引き：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 特別割引あり" />
               </TextBlock>
             </Grid>
             <Grid x:Name="TopRow3" Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FAFBFC}">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="202" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="33" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="TopRow3Col1" Grid.Column="0" Text="[シート]見積書!A41" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow3Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow3Col1" Grid.Column="0" Text="[シート]見積書!A41" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow3Col2" Grid.Column="2" Text="セル" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
               <TextBlock x:Name="TopRow3Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="納品場所：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 本社ビル" />
+                <Run Text="納品場所：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" ｜ 本社ビル" />
               </TextBlock>
             </Grid>
             <Grid x:Name="TopRow4" Height="30" Margin="32,0,8,0" Background="{StaticResource Bg.FFFFFF}">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="202" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="33" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="TopRow4Col1" Grid.Column="0" Text="[シート]見積書!D5" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow4Col2" Grid.Column="2" Text="図形" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow4Col1" Grid.Column="0" Text="[シート]見積書!D5" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow4Col2" Grid.Column="2" Text="図形" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
               <TextBlock x:Name="TopRow4Col3" Grid.Column="4" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="納品場所：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 本社4F" />
+                <Run Text="納品場所：" /><Run Text="(株)山田商事" Background="{StaticResource Hit.FFF176}" FontWeight="Bold" /><Run Text=" 本社 4F" />
               </TextBlock>
             </Grid>
 
@@ -480,7 +481,7 @@
             <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="MinutesGroupHeader" Height="36" Background="{StaticResource Bg.F5F7FA}" Visibility="Collapsed">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="3" />
                 <ColumnDefinition Width="28" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -538,8 +539,8 @@
               </Grid.ColumnDefinitions>
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
               <Path Grid.Column="2" Data="{StaticResource Icon.ChartColumn}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Excel.107C41}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="A社_見積書_改訂.xlsx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="3 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock Grid.Column="3" Text="A社_見積書_改訂.xlsx" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="[シート]見積書 ・ 3 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
             <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="FileListRow2" Height="36" Background="{StaticResource Bg.F9FAFA}">
@@ -552,8 +553,8 @@
               </Grid.ColumnDefinitions>
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
               <Path Grid.Column="2" Data="{StaticResource Icon.Presentation}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource PowerPoint.C43E1C}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="2025年4月.pptx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="1 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock Grid.Column="3" Text="2025年4月.pptx" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="スライド 2 ・ 1 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
             <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="FileListRow3" Height="36" Background="{StaticResource Bg.F9FAFA}">
@@ -566,8 +567,8 @@
               </Grid.ColumnDefinitions>
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
               <Path x:Name="FileListItem3Icon" Grid.Column="2" Data="{StaticResource Icon.FileText}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Word.185ABD}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
-              <TextBlock x:Name="FileListItem3Name" Grid.Column="3" Text="基本契約書.docx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="FileListItem3Count" Grid.Column="4" Text="3 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock x:Name="FileListItem3Name" Grid.Column="3" Text="基本契約書.docx" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
+              <TextBlock x:Name="FileListItem3Count" Grid.Column="4" Text="1 ページ（目安） ・ 3 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
             <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="FileListRow4" Height="36" Background="{StaticResource Bg.F9FAFA}">
@@ -579,23 +580,24 @@
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <Path Grid.Column="2" Data="{StaticResource Icon.FileSpreadsheet}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Excel.107C41}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="顧客一覧.xlsx" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="2 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <Path Grid.Column="2" Data="{StaticResource Icon.ChartColumn}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Excel.107C41}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="3" Text="顧客一覧.xlsx" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="4" Text="[シート]顧客 ・ 2 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
           </StackPanel>
-          <!-- H0（インデックス未作成）のイラスト。lucide/folder-search.svg・色は figma_wpf_map.md の Illust.Line。
-               灰色の丸の地は付けない。イラストは H0 だけに出し、H-E・H-E2・E14 では隠す（diff_round2.md 2 回目指摘） -->
-          <StackPanel x:Name="ResultsEmptyState" Visibility="Collapsed" HorizontalAlignment="Center" Margin="0,60,0,0">
-            <Path x:Name="ResultsEmptyIcon" Data="{StaticResource Icon.FolderSearch}" Width="48" Height="48" Stretch="Uniform"
-                  Stroke="{StaticResource Illust.D1D6DE}" StrokeThickness="1.6" HorizontalAlignment="Center" />
-            <TextBlock x:Name="ResultsEmptyTitle" Text="検索できるフォルダがありません" Style="{StaticResource Text.16}" Margin="0,12,0,4" HorizontalAlignment="Center" />
-            <TextBlock x:Name="ResultsEmptyBody" Text="検索対象でフォルダを選んでください" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="380" />
-            <TextBlock x:Name="ResultsEmptyNote" Visibility="Collapsed" Text="正規表現で検索しています" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" Margin="0,4,0,0" />
-            <Button x:Name="ResultsEmptyCta" Style="{StaticResource Btn.Primary}" Content="フォルダを追加" FontWeight="Bold" Width="120" Margin="0,16,0,0" HorizontalAlignment="Center" />
-          </StackPanel>
-        </Grid>
         </ScrollViewer>
+        <!-- H0（インデックス未作成）のイラスト。lucide/folder-search.svg・色は figma_wpf_map.md の Illust.Line。
+             灰色の丸の地は付けない。イラストは H0 だけに出し、H-E・H-E2・E14 では隠す（diff_round2.md 2 回目指摘）。
+             ScrollViewer の兄弟として Grid.Row="1" に直接置き、結果欄の上下中央に置く（diff_round4.md 4）。
+             間隔はイラスト→見出し 24・見出し→説明 16・説明の行の高さ 23・説明→ボタン 20 -->
+        <StackPanel x:Name="ResultsEmptyState" Grid.Row="1" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Path x:Name="ResultsEmptyIcon" Data="{StaticResource Icon.FolderSearch}" Width="48" Height="48" Stretch="Uniform"
+                Stroke="{StaticResource Illust.D1D6DE}" StrokeThickness="1.6" HorizontalAlignment="Center" />
+          <TextBlock x:Name="ResultsEmptyTitle" Text="検索できるフォルダがありません" Style="{StaticResource Text.16}" Margin="0,24,0,0" HorizontalAlignment="Center" />
+          <TextBlock x:Name="ResultsEmptyBody" Text="検索対象でフォルダを選んでください" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="380" Margin="0,16,0,0" LineHeight="23" LineStackingStrategy="BlockLineHeight" />
+          <TextBlock x:Name="ResultsEmptyNote" Visibility="Collapsed" Text="正規表現で検索しています" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+          <Button x:Name="ResultsEmptyCta" Style="{StaticResource Btn.Primary}" Content="フォルダを追加" FontWeight="Bold" Width="120" Height="30" Margin="0,20,0,0" HorizontalAlignment="Center" />
+        </StackPanel>
       </Grid>
 
       <!-- 横の仕切り -->
@@ -626,12 +628,13 @@
             <ColumnDefinition Width="220" />
             <ColumnDefinition Width="220" />
           </Grid.ColumnDefinitions>
+          <!-- 行の高さ 22、セルの文字 10〜11px（diff_round4.md 5） -->
           <Grid.RowDefinitions>
-            <RowDefinition Height="24" />
-            <RowDefinition Height="24" />
-            <RowDefinition Height="24" />
-            <RowDefinition Height="24" />
-            <RowDefinition Height="24" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
           </Grid.RowDefinitions>
 
           <!-- 列見出し行（地 Bg.F3F3F4） -->
@@ -652,21 +655,21 @@
           <Border Grid.Row="0" Grid.RowSpan="5" Grid.Column="4" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,1,0" />
 
           <TextBlock x:Name="PreviewTopRowNum" Grid.Row="1" Grid.Column="0" Text="1" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewTopText1" Grid.Row="1" Grid.Column="1" Text="取引規模" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewTopText2" Grid.Row="1" Grid.Column="2" Text="Aクラス" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewTopText1" Grid.Row="1" Grid.Column="1" Text="取引規模" Style="{StaticResource Text.11}" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewTopText2" Grid.Row="1" Grid.Column="2" Text="Aクラス" Style="{StaticResource Text.11}" Margin="4,0" VerticalAlignment="Center" />
 
           <!-- 一致した行。選んだ行は Select.E1F2FF、一致したセルの地は Match.FFF3CD（diff_round3.md 2） -->
           <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Background="{StaticResource Select.E1F2FF}" />
           <Border x:Name="PreviewHighlightCellA" Grid.Row="2" Grid.Column="1" Background="{StaticResource Match.FFF3CD}" />
           <Border x:Name="PreviewHighlightCellD" Grid.Row="2" Grid.Column="4" Background="{StaticResource Match.FFF3CD}" Visibility="Collapsed" />
           <TextBlock x:Name="PreviewHighlightRowNum" Grid.Row="2" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewHighlightText1" Grid.Row="2" Grid.Column="1" Text="見積先：(株)山田商事（御中）" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewHighlightText2" Grid.Row="2" Grid.Column="2" Text="見積番号：12-2324-0143" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewHighlightTextD" Grid.Row="2" Grid.Column="4" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewHighlightText1" Grid.Row="2" Grid.Column="1" Text="見積先：(株)山田商事(御中)" Style="{StaticResource Text.11}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewHighlightText2" Grid.Row="2" Grid.Column="2" Text="見積番号：12-2324-0143" Style="{StaticResource Text.11}" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewHighlightTextD" Grid.Row="2" Grid.Column="4" Style="{StaticResource Text.11}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
 
           <TextBlock x:Name="PreviewBottomRowNum" Grid.Row="3" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewBottomText1" Grid.Row="3" Grid.Column="1" Text="件名：基幹システム導入一式" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
-          <TextBlock x:Name="PreviewBottomText2" Grid.Row="3" Grid.Column="2" Text="発行日：2024/10/15" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewBottomText1" Grid.Row="3" Grid.Column="1" Text="件名：基幹システム導入一式" Style="{StaticResource Text.11}" Margin="4,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="PreviewBottomText2" Grid.Row="3" Grid.Column="2" Text="発行日：2024/10/15" Style="{StaticResource Text.11}" Margin="4,0" VerticalAlignment="Center" />
 
           <!-- 空の行（続きがあることを示す） -->
           <TextBlock x:Name="PreviewExtraRowNum" Grid.Row="4" Grid.Column="0" Text="5" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />

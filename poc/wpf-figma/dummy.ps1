@@ -175,6 +175,7 @@ function Set-ElRuns($Root, [string]$Name, [array]$Parts) {
     foreach ($part in $Parts) {
         $run = New-Object System.Windows.Documents.Run($part.Text)
         if ($part.Hit) { $run.Background = $Root.FindResource("Hit.FFF176") }
+        if ($part.Bold) { $run.FontWeight = "Bold" }
         $el.Inlines.Add($run)
     }
 }
@@ -266,11 +267,10 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             $title = Find-Named $Root "ResultsEmptyTitle"
             if ($title) { $title.Text = "インデックスが作成されていません"; $title.FontSize = 18; $title.FontWeight = "Bold" }
             # 2 行で、Figma と同じ位置で折る（diff_round3.md 8）
-            Set-ElText $Root "ResultsEmptyBody" "検索を行うには、まずインデックス管理からフォルダを登録し`r`nインデックスを作成してください。"
+            Set-ElText $Root "ResultsEmptyBody" "検索を行うには、まずインデックス管理からフォルダを登録し、`r`nインデックスを作成してください。"
             $cta = Find-Named $Root "ResultsEmptyCta"
             if ($cta) { $cta.Content = "インデックス管理を開く"; $cta.Width = 176 }
-            Set-ElVisible $Root "ExpandAllLink" $false
-            Set-ElVisible $Root "CollapseAllLink" $false
+            Set-ElVisible $Root "ExpandCollapseLinksRow" $false
             Set-ElVisible $Root "SaveButton" $false
             Set-ElText $Root "ResultsSummaryText" ""
 
@@ -288,15 +288,14 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-E" {
-            # 検索前（検索ワードが空、検索ボタンは不可）。
+            # 検索前（検索ワードが空、検索ボタンは不可）。高速検索バッジは「使用可」を出す（diff_round4.md 6）。
             Set-ElText $Root "SearchWordBox" ""
             Set-ElEnabled $Root "SearchButton" $false
-            Set-FastSearchState $Root "hidden"
+            Set-FastSearchState $Root "ok"
             Set-ElVisible $Root "ResultsPanel" $false
             # 検索ワードが無いときは、主要エリアに何も出さない（diff_round3.md 4）
             Set-ElVisible $Root "ResultsEmptyState" $false
-            Set-ElVisible $Root "ExpandAllLink" $false
-            Set-ElVisible $Root "CollapseAllLink" $false
+            Set-ElVisible $Root "ExpandCollapseLinksRow" $false
             Set-ElVisible $Root "SaveButton" $false
             Set-ElText $Root "ResultsSummaryText" ""
             Set-ElVisible $Root "PreviewOpenBody" $false
@@ -321,8 +320,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "ResultsEmptyTitle" "検索ワードを入力してください"
             Set-ElText $Root "ResultsEmptyBody" "［検索］を押すと、検索を始めます。"
             Set-ElVisible $Root "ResultsEmptyCta" $false
-            Set-ElVisible $Root "ExpandAllLink" $false
-            Set-ElVisible $Root "CollapseAllLink" $false
+            Set-ElVisible $Root "ExpandCollapseLinksRow" $false
             Set-ElVisible $Root "SaveButton" $false
             Set-ElText $Root "ResultsSummaryText" ""
             Set-ElVisible $Root "PreviewOpenBody" $false
@@ -344,8 +342,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # 中止ボタンは赤ではなく青（Btn.Primary のまま。diff_round2.md 2 回目指摘）
             $btn = Find-Named $Root "SearchButton"
             if ($btn) { $btn.Content = "中止" }
-            Set-ElVisible $Root "ExpandAllLink" $false
-            Set-ElVisible $Root "CollapseAllLink" $false
+            Set-ElVisible $Root "ExpandCollapseLinksRow" $false
             Set-ElVisible $Root "SaveButton" $false
             Set-ElVisible $Root "FileListRow1" $false
             Set-ElVisible $Root "FileListRow2" $false
@@ -363,13 +360,14 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "BannerText" "検索を中止しました（見つかった 5 件を表示しています）"
             Set-ElVisible $Root "BannerButton" $false
             Set-ElVisible $Root "ResultsSummaryText" $false
-            Set-ElVisible $Root "ExpandAllLink" $false
-            Set-ElVisible $Root "CollapseAllLink" $false
+            Set-ElVisible $Root "ExpandCollapseLinksRow" $false
             Set-ElVisible $Root "SaveButton" $false
             Set-ElVisible $Root "FileListRow1" $false
             Set-ElVisible $Root "FileListRow2" $false
             Set-ElVisible $Root "FileListRow3" $false
             Set-ElVisible $Root "FileListRow4" $false
+            # ステータスバーは空にする（diff_round4.md 6・E16）
+            Set-ElText $Root "StatusBarText" ""
 
             Hide-PreviewPane $Root
             Set-ElVisible $Root "ResultsFilterRow" $false
@@ -388,8 +386,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "ResultsEmptyCta" $false
             Set-ElChecked $Root "RegexCheck" $true
             Set-FastSearchState $Root "unavailable-regex"
-            Set-ElVisible $Root "ExpandAllLink" $false
-            Set-ElVisible $Root "CollapseAllLink" $false
+            Set-ElVisible $Root "ExpandCollapseLinksRow" $false
             Set-ElVisible $Root "SaveButton" $false
             # 件数の行には「0件」を出さない。状態バーには出す（diff_round3.md 4）
             Set-ElVisible $Root "ResultsSummaryText" $false
@@ -398,7 +395,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "PreviewOpenFolderLink" $false
             Set-ElText $Root "PreviewBreadcrumbText" ""
             Set-ElVisible $Root "PreviewContentHost" $false
-            Set-ElText $Root "StatusBarText" "0 件"
+            Set-ElText $Root "StatusBarText" "検索しました：(株)山田商店 0 件"
 
             Hide-PreviewPane $Root
             Hide-ResultsColumnHeader $Root
@@ -411,8 +408,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-FastSearchState $Root "unavailable-short"
             Set-ElVisible $Root "ResultsPanel" $false
             Set-ElVisible $Root "ResultsEmptyState" $false
-            Set-ElVisible $Root "ExpandAllLink" $false
-            Set-ElVisible $Root "CollapseAllLink" $false
+            Set-ElVisible $Root "ExpandCollapseLinksRow" $false
             Set-ElVisible $Root "SaveButton" $false
             Set-ElText $Root "ResultsSummaryText" ""
             Set-ElVisible $Root "PreviewOpenBody" $false
@@ -461,8 +457,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "PreviewTopText1" ""
             Set-ElText $Root "PreviewTopText2" ""
             Set-ElText $Root "PreviewHighlightRowNum" "41"
-            Set-ElText $Root "PreviewHighlightText1" "納品場所：(株)山田商事 本社ビル"
-            Set-ElText $Root "PreviewHighlightText2" ""
+            Set-ElText $Root "PreviewHighlightText1" "納品場所：(株)山田商事"
+            Set-ElText $Root "PreviewHighlightText2" "本社ビル"
             Set-ElText $Root "PreviewBottomRowNum" "42"
             Set-ElText $Root "PreviewBottomText1" ""
             Set-ElText $Root "PreviewBottomText2" ""
@@ -484,7 +480,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "PreviewHighlightText2" ""
             Set-ElVisible $Root "PreviewHighlightCellA" $false
             Set-ElVisible $Root "PreviewHighlightCellD" $true
-            Set-ElText $Root "PreviewHighlightTextD" "納品場所：(株)山田商事 本社4F"
+            Set-ElText $Root "PreviewHighlightTextD" "納品場所：(株)山田商事 本社 4F"
             Set-ElText $Root "PreviewBottomRowNum" "6"
             Set-ElText $Root "PreviewBottomText1" ""
             Set-ElText $Root "PreviewBottomText2" ""
@@ -535,7 +531,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElRuns $Root "TopRow2Col3" @(
                 @{ Text = "第3条" }, @{ Text = "(株)山田商事"; Hit = $true }, @{ Text = "は毎月末日までに支払う" }
             )
-            Set-ElText $Root "TopRow3Col1" "5 ページ（目安）"
+            Set-ElText $Root "TopRow3Col1" "3 ページ（目安）"
             Set-ElText $Root "TopRow3Col2" "本文"
             Set-ElRuns $Root "TopRow3Col3" @(
                 @{ Text = "署名欄：" }, @{ Text = "(株)山田商事"; Hit = $true }, @{ Text = " 代表取締役 山田 太郎" }
@@ -545,7 +541,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             $fIcon = Find-Named $Root "FileListItem3Icon"
             if ($fIcon) { $fIcon.Data = $Root.FindResource("Icon.FileSpreadsheet"); $fIcon.Stroke = $Root.FindResource("Excel.107C41") }
             Set-ElText $Root "FileListItem3Name" "A社_見積書.xlsx"
-            Set-ElText $Root "FileListItem3Count" "5件"
+            Set-ElText $Root "FileListItem3Count" "[シート]見積書 ほか 1 か所 ・ 5 件"
 
             # 1 件しか選べない Word の段落プレビュー。「開く」は分割せず単独ボタン。
             Set-ElVisible $Root "PreviewOpenArrow" $false
@@ -554,7 +550,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "PreviewParagraphView" $true
             Set-ElText $Root "PreviewParagraphHeading" "第3条（支払条件）"
             Set-ElText $Root "PreviewParagraphText" "1 甲は乙に対し、本契約に基づく対価を、検収完了日の属する月の翌月末日までに、乙が指定する銀行口座へ振り込む方法により支払う。"
-            Set-ElText $Root "PreviewParagraphText2" "2 振込手数料は甲の負担とする。"
+            Set-ElRuns $Root "PreviewParagraphText2" @(
+                @{ Text = "(株)山田商事"; Bold = $true }, @{ Text = "（以下「甲」という）は、本契約に基づく代金を、毎月末日までに乙の指定する口座に振り込む。" }
+            )
             Set-ElText $Root "PreviewBreadcrumbText" "総務\契約\基本契約書.docx ・ 1 ページ（目安） ・ 本文"
         }
 
@@ -596,6 +594,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElBrushKey $Root "NavBadge_IndexPill" "Background" "Warn.FFF5E0"
             Set-ElBrushKey $Root "NavBadge_IndexPill" "BorderBrush" "Warn.BA7D00"
             Set-ElBrushKey $Root "NavBadge_IndexText" "Foreground" "Warn.BA7D00"
+            # 件数行は「・高速検索」を付けない（diff_round4.md 6）
+            Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）・0.8 秒"
         }
 
         "E13" {
