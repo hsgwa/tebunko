@@ -34,6 +34,22 @@ Describe "Workspace" -Tag Unit {
         @($target.Entries()) | Should -Contain $target.IndexDir
         @($target.Entries()) | Should -Contain $target.TmpRoot
     }
+
+    It "文字列のプロパティ（Dir・Legacy で始まるものを除く）は、Dir より後ろが ASCII（再発防止。後から足したプロパティも捕まえる）" {
+        $target = [Workspace]::new("C:\Users\test\Documents\tebunko_ws")
+        $names = $target.PSObject.Properties |
+            Where-Object { $_.TypeNameOfValue -eq "System.String" -and $_.Name -ne "Dir" -and $_.Name -notlike "Legacy*" } |
+            ForEach-Object { $_.Name }
+
+        $names.Count | Should -BeGreaterThan 0
+        foreach ($name in $names) {
+            $value = $target.$name
+            $rest = $value.Substring($target.Dir.Length)
+            $rest | Should -Match "^[\x20-\x7E]+$"
+        }
+
+        ${sourceFolderFileName} | Should -Match "^[\x20-\x7E]+$"
+    }
 }
 
 Describe "getMachineKey" -Tag Unit {
@@ -100,22 +116,6 @@ Describe "getTmpDirUnavailableMessage" -Tag Unit {
 
     It "置けない理由を書く" {
         getTmpDirUnavailableMessage "Brackets" | Should -Match "置けません"
-    }
-
-    It "文字列のプロパティ（Dir・Legacy で始まるものを除く）は、Dir より後ろが ASCII（再発防止。後から足したプロパティも捕まえる）" {
-        $target = [Workspace]::new("C:\Users\test\Documents\tebunko_ws")
-        $names = $target.PSObject.Properties |
-            Where-Object { $_.TypeNameOfValue -eq "System.String" -and $_.Name -ne "Dir" -and $_.Name -notlike "Legacy*" } |
-            ForEach-Object { $_.Name }
-
-        $names.Count | Should -BeGreaterThan 0
-        foreach ($name in $names) {
-            $value = $target.$name
-            $rest = $value.Substring($target.Dir.Length)
-            $rest | Should -Match "^[\x20-\x7E]+$"
-        }
-
-        ${sourceFolderFileName} | Should -Match "^[\x20-\x7E]+$"
     }
 }
 
