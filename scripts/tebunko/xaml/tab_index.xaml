@@ -6,6 +6,44 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
+
+      <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / None）を入れて、色だけ切り替える -->
+      <Style x:Key="LevelBadge" TargetType="Border">
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Background" Value="{StaticResource Badge.None.Bg}" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
+            <Setter Property="Background" Value="{StaticResource Badge.Ok.Bg}" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
+            <Setter Property="Background" Value="{StaticResource Badge.Wait.Bg}" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
+            <Setter Property="Background" Value="{StaticResource Badge.Ng.Bg}" />
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="LevelBadgeText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
+            <Setter Property="Foreground" Value="{StaticResource Badge.Ok.Text}" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
+            <Setter Property="Foreground" Value="{StaticResource Badge.Wait.Text}" />
+          </DataTrigger>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
+            <Setter Property="Foreground" Value="{StaticResource Badge.Ng.Text}" />
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
     </ResourceDictionary>
   </DockPanel.Resources>
   <!-- 下部：インデックス作成の開始と進捗 -->
@@ -103,6 +141,34 @@
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding LastIngestedText}" />
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="ステータス" Width="108">
+                <DataGridTemplateColumn.HeaderStyle>
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                    <Setter Property="ToolTip" Value="検索に使うインデックスの状態（取り込み一覧から）" />
+                  </Style>
+                </DataGridTemplateColumn.HeaderStyle>
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border Style="{StaticResource LevelBadge}" Tag="{Binding IndexLevel}" ToolTip="{Binding IndexToolTip}">
+                      <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding IndexLevel}" Text="{Binding IndexText}" />
+                    </Border>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="高速検索" Width="118">
+                <DataGridTemplateColumn.HeaderStyle>
+                  <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                    <Setter Property="ToolTip" Value="インデックス（高速検索用）が Windows Search にどこまで反映されたか" />
+                  </Style>
+                </DataGridTemplateColumn.HeaderStyle>
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Border Style="{StaticResource LevelBadge}" Tag="{Binding FastLevel}" ToolTip="{Binding FastToolTip}">
+                      <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding FastLevel}" Text="{Binding FastText}" />
+                    </Border>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>

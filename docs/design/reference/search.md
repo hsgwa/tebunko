@@ -39,6 +39,16 @@ flowchart LR
 | `toSearchResultLines` | hits | `@{Header; Lines}` | 検索結果ファイルの見出し行と各行（相対フォルダ付き `toResultLine`、最大セル数の `toResultHeader`） | 同上 | 検索・画面 |
 | `writeSearchResult` | writer, word, hits | – | 1 ワード分の `【検索文字列　X】 N 件`・見出し行・各行・空行を書き出す | 同上 | 検索・画面 |
 
+## 高速検索（Windows Search）の状態（`tebunko/search/windows_search.ps1`・`fast_search.ps1`）
+
+詳細は [高速検索（Windows Search）](../search/fast-search.md)。
+
+| 関数 | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `openWindowsSearch` | – | `OleDbConnection` / `$null` | Windows Search への接続を開く（開けなければ `$null`） | getWindowsSearchState, getSystemIndexProgress, 検索（高速検索） |
+| `getWindowsSearchState` | systemRoot（既定 `$workspace.SystemIndexDir`）, workspaceDir, connection | string（`NoFolder` / `NoConnection` / `NotInScope` / `NotYet` / `Ok`） | 高速検索に使えるかと、使えない理由。`system_index` のフォルダの有無・Windows Search への接続・ワークスペースが索引の対象かを順に確かめる | 画面（一覧の「高速検索」列）、testWindowsSearch |
+| `getSystemIndexProgress` | query（既定 `$null` で自分で問い合わせる）, indexRoot, systemRoot, statePath, connection | `@{Folders; Waiting; ContentIndexed; ByIndex}` / `$null` | システムインデックスが Windows Search にどこまで反映されたかを数える。`ByIndex` はインデックス名 → `@{Folders; Waiting}` の辞書（OrdinalIgnoreCase）。状態ファイルを読めない・問い合わせられないときは `$null` | 画面（一覧の「高速検索」列） |
+
 ## スレッドとプール（`shared/core/worker_pool.ps1`・`tebunko/search/search_service.ps1`・`tebunko/indexer/indexing_session.ps1`）
 
 設計は [プロセスとスレッド](../structure/threads.md)。クラスは作ったランスペースのスレッドだけから呼ぶ（`SearchService`・`BackgroundQueue`・`IndexingSession` は画面のスレッドで作る。`WorkerPool` はプールを持つ側のスレッドで作る。`Workspace` は各スレッドで作り直す）（[クラスと関数の使い分け](../structure/classes.md)）。

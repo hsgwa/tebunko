@@ -39,6 +39,72 @@ Describe "testWindowsSearch" -Tag Io {
     }
 }
 
+Describe "getWindowsSearchState" -Tag Io {
+    BeforeAll {
+        # system_index への問い合わせ（SCOPE が system_index で終わる）とワークスペースへの問い合わせで、返す行の有無を変える
+        function script:mockWindowsSearch {
+            param ([bool]$systemHits, [bool]$workspaceHits)
+            $script:systemHits = $systemHits
+            $script:workspaceHits = $workspaceHits
+            Mock openWindowsSearch { [pscustomobject]@{} | Add-Member -MemberType ScriptMethod -Name Dispose -Value {} -PassThru }
+            Mock invokeWindowsSearch {
+                $rows = New-Object 'System.Collections.Generic.List[object[]]'
+                if ($script:systemHits) { $rows.Add(@("file:C:/x")) }
+                , $rows
+            } -ParameterFilter { $sql -like "*system_index'" }
+            Mock invokeWindowsSearch {
+                $rows = New-Object 'System.Collections.Generic.List[object[]]'
+                if ($script:workspaceHits) { $rows.Add(@("file:C:/x")) }
+                , $rows
+            } -ParameterFilter { $sql -notlike "*system_index'" }
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "system_index が索引されていれば Ok"; system = $true; workspace = $true; expected = "Ok" }
+        @{ name = "system_index が索引されていれば、ワークスペースの様子に関わらず Ok"; system = $true; workspace = $false; expected = "Ok" }
+        @{ name = "system_index が 0 件でも、ワークスペースのほかのものが索引されていれば NotYet（対象だが、まだ索引していない）"; system = $false; workspace = $true; expected = "NotYet" }
+        @{ name = "system_index もワークスペースも 0 件なら NotInScope（索引の対象外）"; system = $false; workspace = $false; expected = "NotInScope" }
+    ) {
+        param ($name, $system, $workspace, $expected)
+        mockWindowsSearch $system $workspace
+        $root = "$TestDrive\state_$expected$system$workspace\ws"
+        [System.IO.Directory]::CreateDirectory("$root\system_index") | Out-Null
+        getWindowsSearchState "$root\system_index" | Should -Be $expected
+        getWindowsSearchState "$root\system_index" $root | Should -Be $expected
+        # ワークスペースは systemRoot の 1 つ上（省略時）
+        if ($expected -ne "Ok") {
+            Should -Invoke invokeWindowsSearch -Times 2 -Exactly -ParameterFilter { $sql -like "*state_*/ws'" }
+        }
+    }
+
+    It "system_index のフォルダが無ければ NoFolder（Windows Search には問い合わせない）" {
+        mockWindowsSearch $true $true
+        getWindowsSearchState "$TestDrive\無い\system_index" | Should -Be "NoFolder"
+        Should -Invoke openWindowsSearch -Times 0 -Exactly
+    }
+
+    It "Windows Search を開けない・問い合わせに失敗したら NoConnection（例外にしない）" {
+        [System.IO.Directory]::CreateDirectory("$TestDrive\conn\system_index") | Out-Null
+        Mock openWindowsSearch { $null }
+        getWindowsSearchState "$TestDrive\conn\system_index" | Should -Be "NoConnection"
+        Mock openWindowsSearch { [pscustomobject]@{} | Add-Member -MemberType ScriptMethod -Name Dispose -Value {} -PassThru }
+        Mock invokeWindowsSearch { throw "時間切れ" }
+        getWindowsSearchState "$TestDrive\conn\system_index" | Should -Be "NoConnection"
+    }
+
+    It "開いた接続を渡せば、それを使い、閉じない" {
+        [System.IO.Directory]::CreateDirectory("$TestDrive\shared\system_index") | Out-Null
+        mockWindowsSearch $true $true
+        $script:disposed = 0
+        $connection = [pscustomobject]@{} | Add-Member -MemberType ScriptMethod -Name Dispose -Value { $script:disposed++ } -PassThru
+        getWindowsSearchState "$TestDrive\shared\system_index" "" $connection | Should -Be "Ok"
+        testTsvIndexedByWindowsSearch "$TestDrive\shared\index" $connection | Should -Be $true
+        $script:disposed | Should -Be 0
+        Should -Invoke openWindowsSearch -Times 0 -Exactly
+    }
+}
+
 Describe "Windows Search（本物）" -Tag Io {
     BeforeAll {
         $connection = openWindowsSearch

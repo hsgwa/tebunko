@@ -362,9 +362,20 @@ function finishIndexing {
     $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath $workspace.IndexingLogFile) { "Visible" } else { "Collapsed" }
 
     $script:sourceFolderMaps = @{}
+    # 高速検索の列の前の確かめ結果（古い reason）を捨てて「確認中…」に戻す。ここで捨てずに
+    # refreshIndexingState を呼ぶと、その集計（本文の取り込みは済んだと分かる）が
+    # refreshFastSearchStatus の確かめ直しより先に終わったとき、古い reason のまま
+    # updateFastSearchRows が呼ばれ、「不可」が一瞬出てしまう（isIndexing は既に偽になっており、
+    # getFastSearchRowView の indexing 引数による作成中ガードが効かないため）。
+    # fastSearchResultDir を null にするだけで、updateFastSearchRows 側の「今のワークスペースの結果
+    # でなければ捨てる」ガード（index_tab.ps1）が reason・progress・checkedAt を確認中…に戻してくれる。
+    # 世代番号も進め、作成前から走っていた確かめジョブが後から古い結果を届けても捨てて確かめ直すようにする
+    $script:fastSearchGeneration++
+    $script:fastSearchResultDir = $null
     refreshIndexingState
     refreshIndexSummary
     loadIndexTree  # 新しいインデックス・フォルダをツリーに出す
+    refreshFastSearchStatus  # インデックス作成が終わったので、一覧の「高速検索」列を確かめ直す
     updateKillBadge
 }
 

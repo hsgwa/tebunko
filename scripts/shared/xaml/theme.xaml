@@ -40,6 +40,16 @@
   <SolidColorBrush x:Key="Hit"           Color="#FDE68A" />
   <SolidColorBrush x:Key="Select.Soft"   Color="#DBEAFE" />
 
+  <!-- 一覧の状態バッジ（4 段階）の色。背景と文字の組で、どの画面の状態表示にも使えるようにする -->
+  <SolidColorBrush x:Key="Badge.Ok.Bg"     Color="#E0F7E0" />
+  <SolidColorBrush x:Key="Badge.Ok.Text"   Color="#218A21" />
+  <SolidColorBrush x:Key="Badge.Wait.Bg"   Color="#FFF5E0" />
+  <SolidColorBrush x:Key="Badge.Wait.Text" Color="#BA7D00" />
+  <SolidColorBrush x:Key="Badge.Ng.Bg"     Color="#FFE6E6" />
+  <SolidColorBrush x:Key="Badge.Ng.Text"   Color="#D13438" />
+  <SolidColorBrush x:Key="Badge.None.Bg"   Color="#F1F3F4" />
+  <SolidColorBrush x:Key="Badge.None.Text" Color="#5F6368" />
+
   <CornerRadius x:Key="Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Radius.Card">10</CornerRadius>
 
