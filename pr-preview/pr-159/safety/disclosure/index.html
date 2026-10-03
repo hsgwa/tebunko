@@ -4366,7 +4366,7 @@
 </tr>
 <tr>
 <td>検索結果ファイル</td>
-<td>［結果をファイルに出力］で書き出す <code>work\検索結果.txt</code> にも本文（該当行）が入る</td>
+<td>［結果をファイルに出力］で書き出す <code>work\search_results.txt</code> にも本文（該当行）が入る</td>
 </tr>
 <tr>
 <td>持ち出し経路</td>
@@ -4387,11 +4387,11 @@
 </ul>
 <p>本ツール側では、インデックスの場所をワークスペース配下に限定し、アクセス権の変更（<code>Set-Acl</code> 等）を一切行わない。したがって<strong>インデックスの保護はワークスペースのアクセス権で決まる</strong>。</p>
 <h2 id="原本の一時コピーとその回収">原本の一時コピーと、その回収<a class="headerlink" href="#原本の一時コピーとその回収" title="Permanent link">&para;</a></h2>
-<p>インデックス作成中は、原本のコピーを <code>%TEMP%\tebunko\&lt;PID&gt;</code> に作る（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。機密文書のコピーが一時的に <code>%TEMP%</code> に存在することになるため、扱いを明記する。</p>
+<p>インデックス作成中は、原本のコピーを作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に作る（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。作業領域はワークスペース（本文インデックスと同じ置き場所）の下に<strong>限る</strong>。機密文書のコピーがシステムの <code>%TEMP%</code> へ出ることは無い。ワークスペースのパスに <code>[</code> <code>]</code> が含まれる・長すぎるなど、作業フォルダをワークスペースの下に置けないときは、取り込みをすべてスキップする（どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みが対象になる。取り込み一覧に失敗として残る。<a href="../../design/indexing/errors/">エラーメッセージ</a>）。</p>
 <ul>
 <li><strong>通常終了時</strong>: ファイルごとに、読み終えたコピーを削除する。インデックス作成の完了時に作業フォルダごと空にする（<code>removeTmpDir</code>）。</li>
-<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko/indexer/indexer_run.ps1:343</code> でインデックス作成の開始時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
-<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>%TEMP%\tebunko</code> を手で削除してよい（動作に影響しない）。</li>
+<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1</code> の <code>removeStaleTmpDirs</code>。インデックス作成の開始時に <code>initTmpDir</code> が呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残したものがあれば、同時に片付ける。</li>
+<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>work/tmp</code> を手で削除してよい（動作に影響しない）。</li>
 </ul>
 <h2 id="透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い<a class="headerlink" href="#透過暗号化の製品が平文で見せたファイルの扱い" title="Permanent link">&para;</a></h2>
 <p>社内のファイル暗号化製品（透過型。IRM・秘密度ラベルの暗号化とは別の仕組み）が導入されている環境では、その製品が Office を「許可されたアプリ」として登録していることがある。その場合、本ツールが作業領域に作ったコピーを Office が開くと、製品が復号した<strong>平文</strong>を Office に渡す（<a href="../../design/indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の「形式の分からないバイナリ」の予備）。</p>

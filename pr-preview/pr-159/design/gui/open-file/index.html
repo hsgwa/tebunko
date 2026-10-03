@@ -4133,15 +4133,15 @@
 </tr>
 <tr>
 <td>Excel</td>
-<td>起動中の Excel があればそれを使い、無ければ起動する（COM）。ブックを開き（「読み取り専用」は <code>Workbooks.Open(&lt;元のファイル&gt;, , ReadOnly:=True)</code>、「新規」は <code>Workbooks.Add(&lt;元のファイル&gt;)</code>。そのブックが既に開いていれば、開き方によらずそのブックを使う）、<strong>該当シートを表示して、一致したセル（最初に一致したセル。<a href="../search-tab/#結果の表">結果の表</a> の「場所」列に出るセル番地）を選択する</strong>。該当シートは「場所」と名前が同じシートとし（図形・コメントの場所 <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code> は、<code>[…]</code> を除いたシート名。<code>splitObjectPlace</code> の Base。選ぶセルは図形の左上・コメントのセル）、無ければ名前を <code>toSafeFileName</code> で全角に置き換えて一致するシートとする（以前の版のインデックスは、シート名の記号を全角に置き換えてあるため。<code>衝突"</code> と <code>衝突”</code> のように置き換えると重なるシートがあるので、名前が同じものを先に選ぶ）。<strong><code>Worksheets</code> に同じ名前のシートが無ければ、グラフシート（<code>Charts</code>）から同じ名前・全角に置き換えて一致するものを探して表示する（セルは選ばない）</strong>。COM で失敗したら、ファイルを既定のアプリで開くだけにする（「新規」ならエクスプローラーの［新規］と同じ動作）</td>
+<td>起動中の Excel があればそれを使い、無ければ起動する（COM）。ブックを開き（「読み取り専用」は <code>Workbooks.Open(&lt;元のファイル&gt;, , ReadOnly:=True)</code>、「新規」は <code>Workbooks.Add(&lt;元のファイル&gt;)</code>。そのブックが既に開いていれば、開き方によらずそのブックを使う）、<strong>該当シートを表示して、一致したセル（最初に一致したセル。<a href="../search-tab/#結果の表">結果の表</a> の「場所」列に出るセル番地）を選択する</strong>。該当シートは「場所」と名前が同じシートとし（図形・コメント・ヘッダー・フッターの場所 <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code> <code>&lt;シート名&gt;[ヘッダー・フッター]</code> は、<code>[…]</code> を除いたシート名。<code>splitObjectPlace</code> の Base。選ぶセルは図形の左上・コメントのセルで、ヘッダー・フッターは行にセル番地が無いためセルを選ばない）、無ければ名前を <code>toSafeFileName</code> で全角に置き換えて一致するシートとする（以前の版のインデックスは、シート名の記号を全角に置き換えてあるため。<code>衝突"</code> と <code>衝突”</code> のように置き換えると重なるシートがあるので、名前が同じものを先に選ぶ）。<strong><code>Worksheets</code> に同じ名前のシートが無ければ、グラフシート（<code>Charts</code>）から同じ名前・全角に置き換えて一致するものを探して表示する（セルは選ばない）</strong>。COM で失敗したら、ファイルを既定のアプリで開くだけにする（「新規」ならエクスプローラーの［新規］と同じ動作）</td>
 </tr>
 <tr>
 <td>Word・PowerPoint</td>
 <td>ファイルを既定のアプリで開く。エクスプローラーの右クリックメニューと同じシェルの動詞を使う（「読み取り専用」は <code>OpenAsReadOnly</code>、「新規」は <code>New</code>）。該当ページ・スライドへの移動はしない（<a href="../implementation/#今後の検討">今後の検討</a>）</td>
 </tr>
 <tr>
-<td>テキスト（<code>.txt</code> 等）</td>
-<td>ファイルを既定のアプリで開く。動詞は試さず、常にそのまま開く（開き方の指定にかかわらない）。テキストの既定のアプリの多くには「読み取り専用」「新規」の動詞が無く、毎回「開けなかったため元のファイルを開きました」と出るのを避けるため。該当行への移動はしない</td>
+<td>テキスト（対象の拡張子は <a href="../../indexing/text/#対象の拡張子">対応するテキストの拡張子</a>）</td>
+<td><code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code>（開くと実行・登録になる拡張子）以外は、ファイルを既定のアプリで開く。動詞は試さず、常にそのまま開く（開き方の指定にかかわらない）。テキストの既定のアプリの多くには「読み取り専用」「新規」の動詞が無く、毎回「開けなかったため元のファイルを開きました」と出るのを避けるため。上記の 7 個の拡張子は、既定のアプリではなく固定のパス（<code>%SystemRoot%\System32\notepad.exe</code>）のメモ帳で開く（<code>openWithNotepad</code>。既定のアプリの登録に関わらず実行されない）。いずれも該当行への移動はしない</td>
 </tr>
 <tr>
 <td>ファイルが無い・元の場所が分からない</td>
@@ -4180,7 +4180,7 @@
 </tr>
 <tr>
 <td>選択行をコピー（Ctrl+C）</td>
-<td>選択行を <code>work/検索結果.txt</code> と同じ形式（<code>toResultHeader</code> の見出し＋<code>toResultLine</code> の各行）でクリップボードに入れる。Excel に貼るとセルが元の列の位置に並ぶ。場所の文字は場所ごとの表記（<code>describePlace</code>。<code>[シート]売上</code> など。セル番地は付けない）で、ファイル名と行番号の列は残す</td>
+<td>選択行を <code>work/search_results.txt</code> と同じ形式（<code>toResultHeader</code> の見出し＋<code>toResultLine</code> の各行）でクリップボードに入れる。Excel に貼るとセルが元の列の位置に並ぶ。場所の文字は場所ごとの表記（<code>describePlace</code>。<code>[シート]売上</code> など。セル番地は付けない）で、ファイル名と行番号の列は残す</td>
 </tr>
 <tr>
 <td>ファイルのパスをコピー</td>
@@ -4217,11 +4217,11 @@
 </table>
 <ul>
 <li>Word・PowerPoint はシェルの動詞で開く。その動詞が登録されていない種類のファイルは、元のファイルをそのまま開き、ステータスに <code>読み取り専用で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> / <code>新規で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> と表示する。<code>ProcessStartInfo.Verbs</code> は <code>New</code> を一覧に含めないため、事前に確かめず実行して例外（<code>Win32Exception</code>）で判断する（<code>openWithShell</code>）。</li>
-<li><code>Start-Process</code> はパスの <code>[</code> <code>]</code> をワイルドカードとして扱うため、<code>ProcessStartInfo</code> で開く。</li>
+<li><code>Start-Process</code> はパスの <code>[</code> <code>]</code> をワイルドカードとして扱うため、<code>ProcessStartInfo</code> で開く。メモ帳を開く <code>openWithNotepad</code> は、開くパス（固定）とは別に引数（元のファイルのパス）を <code>-ArgumentList</code> で渡すため、この問題は起きない（<code>[</code> <code>]</code> を含むパスでも開ける）。</li>
 <li>［開き方］は、起動時に設定から読み込むときは保存しない（設定していない利用者の <code>setting.config</code> を作らないため。<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）。</li>
 </ul>
 <h2 id="元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）<a class="headerlink" href="#元のフォルダの特定インデックスを別の-pc場所で使う場合" title="Permanent link">&para;</a></h2>
-<p>インデクサは元のフォルダの記録（<code>元のフォルダ.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexing/crawl/">クロール対象フォルダと取り込み対象</a>）を、<strong>各インデックスのフォルダ（<code>work\content_index\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\content_index</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\content_index</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
+<p>インデクサは元のフォルダの記録（<code>source_folder.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexing/crawl/">クロール対象フォルダと取り込み対象</a>）を、<strong>各インデックスのフォルダ（<code>work\content_index\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\content_index</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\content_index</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
 <pre class="mermaid"><code>flowchart TD
     A["検索結果&lt;br&gt;（Root = 検索対象フォルダ、RelDir）"] --&gt; B{"Root が work\content_index なら、取り込み一覧・設定に&lt;br&gt;RelDir の先頭のインデックス名がある？"}
     B -- はい --&gt; K["元のフォルダ\残りのフォルダ\ファイル名"]
@@ -4242,12 +4242,12 @@
 <tbody>
 <tr>
 <td>1</td>
-<td>インデックスの元のフォルダの記録（<code>元のフォルダ.txt</code>。<code>&lt;インデックス名&gt;</code> のフォルダの中。検索対象フォルダにインデックス名のフォルダを直接指定した場合は、その直下）</td>
+<td>インデックスの元のフォルダの記録（<code>source_folder.txt</code>。<code>&lt;インデックス名&gt;</code> のフォルダの中。検索対象フォルダにインデックス名のフォルダを直接指定した場合は、その直下）</td>
 <td>インデックスを作ったときの場所。インデックスをコピーしても付いてくる</td>
 </tr>
 <tr>
 <td>2</td>
-<td>取り込み一覧（<code>work\取り込み一覧.tsv</code>）</td>
+<td>取り込み一覧（<code>work\ingest_status.tsv</code>）</td>
 <td>既定の本文インデックスのフォルダ（<code>work\content_index</code>）のときだけ</td>
 </tr>
 <tr>

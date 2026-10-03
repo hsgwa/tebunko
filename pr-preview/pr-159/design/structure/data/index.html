@@ -4175,7 +4175,7 @@
 <td>インデックス。クロール対象フォルダごとに <code>work/content_index/&lt;インデックス名&gt;/</code> に分かれ、その下はクロール対象フォルダと同じフォルダ構成で、各フォルダに元のファイルの拡張子ごとの本文インデックス（<code>content_index.xlsx.001.tsv</code> など）を置く。取り込み中だけ、元のファイル 1 つにつき 1 フォルダの TSV（<code>&lt;ファイル名.xlsx&gt;/&lt;場所&gt;.tsv</code>）ができ、フォルダの取り込みが終わると本文インデックスに入れて消す（<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）</td>
 </tr>
 <tr>
-<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code></td>
 <td>インデックス名と元のフォルダ（クロール対象フォルダ）の対応。インデックス 1 件につき 1 ファイル。<code>work/content_index</code> ごとでも <code>&lt;インデックス名&gt;</code> のフォルダだけでも、別の PC・場所へコピーすれば検索結果から元のファイルを開ける</td>
 </tr>
 <tr>
@@ -4183,31 +4183,35 @@
 <td>システムインデックス（高速検索用。<code>work/content_index</code> の中のフォルダごとの 2-gram の txt。<a href="../../index-data/system-index/">システムインデックス</a>）。Windows Search に索引させる</td>
 </tr>
 <tr>
-<td><code>work/システムインデックスの状態.tsv</code></td>
+<td><code>work/system_index_state.tsv</code></td>
 <td>システムインデックスの状態（対応済み・反映待ち・対象外。<a href="../../index-data/system-index/">システムインデックス</a>）</td>
 </tr>
 <tr>
-<td><code>work/取り込み一覧.tsv</code></td>
+<td><code>work/ingest_status.tsv</code></td>
 <td>取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗）</td>
 </tr>
 <tr>
-<td><code>work/取り込み中.txt</code></td>
+<td><code>work/ingesting.txt</code></td>
 <td>取り込み中のファイル（取り込みのスレッドごとに 1 行）。取り込み中に強制終了したときだけ残る</td>
 </tr>
 <tr>
-<td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
+<td><code>work/publish/&lt;PID&gt;/</code></td>
 <td>1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ（インデックス作成の終了時に削除する）</td>
 </tr>
 <tr>
-<td><code>work/インデックス作成ログ.txt</code></td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code></td>
+<td>取り込みの作業領域（下の説明）</td>
+</tr>
+<tr>
+<td><code>work/indexing_log.txt</code></td>
 <td>インデクサの表示内容の記録（実行ごとに上書き）</td>
 </tr>
 <tr>
-<td><code>work/画面エラー.txt</code></td>
+<td><code>work/gui_error_log.txt</code></td>
 <td>画面で起きた予期しないエラーの記録（追記）</td>
 </tr>
 <tr>
-<td><code>work/検索結果.txt</code></td>
+<td><code>work/search_results.txt</code></td>
 <td>画面の［結果をファイルに出力］で書き出す検索結果</td>
 </tr>
 <tr>
@@ -4216,8 +4220,9 @@
 </tr>
 </tbody>
 </table>
-<p>取り込みの作業領域は <code>%TEMP%\tebunko\&lt;PID&gt;</code> に置く。Excel は <code>[</code> <code>]</code> を含むパスに保存できないため、ツールの配置場所に依存させない。インデックス作成を同時に複数実行しても互いの作業ファイルを削除・移動しないよう、プロセス ID ごとのフォルダにする。その下は、取り込みのスレッド（Excel・Word・PowerPoint・読み取りのレーンのスレッド）ごとに <code>w&lt;番号&gt;</code> のフォルダに分ける（<code>work/取り込み出力/&lt;PID&gt;</code> も同じ。<a href="../../indexing/parallel/">取り込みの並列化</a>）。</p>
-<p>できた TSV をインデックス（本文インデックスに入れる前の置き場所）に入れるときは、<code>work/取り込み出力/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域（<code>%TEMP%</code>）とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
+<p>取り込みの作業領域は、既定では <code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code> に置く（<code>Workspace</code> の <code>TmpRoot</code>。<code>tebunko/core/workspace.ps1</code> の <code>selectTmpDir</code>）。<code>&lt;PC の鍵&gt;</code> はコンピューター名から作る 8 文字の鍵（<code>getMachineKey</code>）で、ワークスペースを複数の PC から共有しても、互いの作業フォルダを衝突・削除させない（プロセス ID だけでは PC をまたいで重なりうるため）。その下は、取り込みのスレッド（Excel・Word・PowerPoint・読み取りのレーンのスレッド）ごとに <code>w&lt;番号&gt;</code> のフォルダに分ける（<code>newWorkerTmpDir</code>。<code>work/publish/&lt;PID&gt;</code> も同じ。<a href="../../indexing/parallel/">取り込みの並列化</a>）。</p>
+<p>ワークスペースのパスに <code>[</code> <code>]</code> が含まれる（Excel が保存できない）・パスが長すぎる（Office が開けない）ときは、作業フォルダを作らず、取り込みをすべてスキップする（どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みが対象になる。<code>%TEMP%</code> には逃がさない。理由をログに 1 行残し、スキップした各ファイルは取り込みの失敗として取り込み一覧に残る。<a href="../../indexing/errors/">エラーメッセージ</a>）。インデックス作成の始め（<code>initTmpDir</code>）に、強制終了などで残った前回までの作業フォルダ（<code>work/tmp/</code> 配下・<code>work/publish/</code> 配下・前の版（<code>%TEMP%\tebunko\</code>）が残したものがあればそれも）を片付けてから、今回の場所を決める。作れたときは、Windows Search の索引対象から外す属性（<code>NotContentIndexed</code>）も付ける。</p>
+<p>できた TSV をインデックス（本文インデックスに入れる前の置き場所）に入れるときは、<code>work/publish/&lt;PID&gt;</code> にいったん集めてからフォルダごと入れ替える（<code>publishIndexFiles</code>）。途中で強制終了しても作りかけのインデックスが残らない。フォルダごと移すには同じドライブである必要があるため、作業領域とは別に <code>work</code> の中に置く。どちらのフォルダも、終了時と次回の開始時（終了済みのプロセスの分）に削除する。</p>
 <h2 id="データの置き場所settingconfigwork">データの置き場所（<code>setting.config</code>・<code>work/</code>）<a class="headerlink" href="#データの置き場所settingconfigwork" title="Permanent link">&para;</a></h2>
 <p>ツールを書き込めない場所（<code>C:\Program Files</code>、読み取り専用の共有フォルダ）に置いても動くよう、また、インデックス（元の文書の本文を持つ。<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）をアクセス権を絞ったフォルダや容量のあるドライブに置けるよう、データの置き場所をツールのフォルダと分けられるようにしている。</p>
 <pre class="mermaid"><code>flowchart TD
@@ -4255,9 +4260,9 @@
 </tbody>
 </table>
 <ul>
-<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a>・<a href="../../search/fast-search/">高速検索（Windows Search）</a>）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>content_index</code>・前の版の <code>index</code>・<code>取り込み一覧.tsv</code> のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
+<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a>・<a href="../../search/fast-search/">高速検索（Windows Search）</a>）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>content_index</code>・前の版の <code>index</code>・<code>ingest_status.tsv</code> のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。</li>
 <li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。</li>
-<li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/取り込み出力/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
+<li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/publish/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
 <li>置き場所を変えると、今の <code>work/</code> の中身（tebunko が作るファイル・フォルダだけ。<code>Workspace.Entries</code>）を新しい場所へ移す（<code>moveWorkspace</code>）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）も、移した先のインデックスに付け替える（<code>moveSearchExcludes</code>）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。</li>
 <li>同じ <code>work</code> を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を <code>$workspace.Dir</code> から作るため、別のツールのフォルダから同じ <code>work</code> を指しても二重には動かない。</li>
 <li><code>$rootDir</code> が書き込めるかは読み込むたびに調べる。書き込めない場所から書き込める場所に戻すと、設定は <code>$rootDir</code> 直下のものに戻る。</li>
@@ -4315,12 +4320,22 @@
 </tr>
 <tr>
 <td><code>$tmpDir</code></td>
-<td><code>%TEMP%\tebunko\&lt;PID&gt;</code>（プロセスごと。取り込みのスレッドは、その下の <code>w&lt;番号&gt;</code> を使う）</td>
+<td>取り込みの作業フォルダ（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>。<code>initTmpDir</code> が決める。置けないときは空で、取り込みのスレッドは、その下の <code>w&lt;番号&gt;</code> を使う）</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>$tmpDirReason</code></td>
+<td><code>$tmpDir</code> を置けなかった理由（<code>Brackets</code> / <code>TooLong</code>）。置けたときは空</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>${legacyTmpParent}</code></td>
+<td>前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残した作業フォルダの片付け専用。今の版はここに書き込まない</td>
 <td>同上</td>
 </tr>
 <tr>
 <td><code>$sourceFolderFileName</code></td>
-<td>各インデックスのフォルダに置く元のフォルダの記録のファイル名（<code>元のフォルダ.txt</code>）</td>
+<td>各インデックスのフォルダに置く元のフォルダの記録のファイル名（<code>source_folder.txt</code>）</td>
 <td>同上</td>
 </tr>
 <tr>
@@ -4376,13 +4391,13 @@
     W["Workspace（Dir）"] --&gt; IX["IndexDir&lt;br&gt;Dir\content_index"]
     W --&gt; LI["LegacyIndexDir&lt;br&gt;Dir\index（前の版。読まず消さない）"]
     W --&gt; SI["SystemIndexDir&lt;br&gt;Dir\system_index"]
-    W --&gt; SS["SystemIndexStateFile&lt;br&gt;Dir\システムインデックスの状態.tsv"]
-    W --&gt; PB["PublishDir&lt;br&gt;Dir\取り込み出力\&lt;PID&gt;"]
-    W --&gt; ST["StatusFile&lt;br&gt;Dir\取り込み一覧.tsv"]
-    W --&gt; IG["IngestingFile&lt;br&gt;Dir\取り込み中.txt"]
-    W --&gt; RS["ResultFile&lt;br&gt;Dir\検索結果.txt"]
-    W --&gt; IL["IndexingLogFile&lt;br&gt;Dir\インデックス作成ログ.txt"]
-    W --&gt; GE["GuiErrorLogFile&lt;br&gt;Dir\画面エラー.txt"]</code></pre>
+    W --&gt; SS["SystemIndexStateFile&lt;br&gt;Dir\system_index_state.tsv"]
+    W --&gt; PB["PublishDir&lt;br&gt;Dir\publish\&lt;PID&gt;"]
+    W --&gt; ST["StatusFile&lt;br&gt;Dir\ingest_status.tsv"]
+    W --&gt; IG["IngestingFile&lt;br&gt;Dir\ingesting.txt"]
+    W --&gt; RS["ResultFile&lt;br&gt;Dir\search_results.txt"]
+    W --&gt; IL["IndexingLogFile&lt;br&gt;Dir\indexing_log.txt"]
+    W --&gt; GE["GuiErrorLogFile&lt;br&gt;Dir\gui_error_log.txt"]</code></pre>
 <ul>
 <li>関数は、ワークスペースの中の場所を既定値で <code>$workspace</code> から取る（例 <code>[string]$path = $workspace.StatusFile</code>）。既定値は呼んだときに決まるため、<code>$workspace</code> を差し替えれば、読み込み直さずに別のワークスペースを使う。</li>
 <li>別のスレッド（画面の裏の仕事・検索の司令・取り込み）は <code>lib.ps1</code> を読み込んだときの <code>$workspace</code> を持つ。そのため画面は、場所を引数で渡すか、<code>Dir</code>（文字列）を渡してそのスレッドで <code>Workspace</code> を作り直す。オブジェクトはスレッドをまたいで渡さない。</li>
@@ -4416,31 +4431,31 @@
 </tr>
 <tr>
 <td><code>SystemIndexStateFile</code></td>
-<td><code>&lt;Dir&gt;\システムインデックスの状態.tsv</code></td>
+<td><code>&lt;Dir&gt;\system_index_state.tsv</code></td>
 </tr>
 <tr>
 <td><code>PublishDir</code></td>
-<td><code>&lt;Dir&gt;\取り込み出力\&lt;PID&gt;</code>（TSV をインデックスに入れる直前に集めるフォルダ）</td>
+<td><code>&lt;Dir&gt;\publish\&lt;PID&gt;</code>（TSV をインデックスに入れる直前に集めるフォルダ）</td>
 </tr>
 <tr>
 <td><code>StatusFile</code></td>
-<td><code>&lt;Dir&gt;\取り込み一覧.tsv</code></td>
+<td><code>&lt;Dir&gt;\ingest_status.tsv</code></td>
 </tr>
 <tr>
 <td><code>IngestingFile</code></td>
-<td><code>&lt;Dir&gt;\取り込み中.txt</code></td>
+<td><code>&lt;Dir&gt;\ingesting.txt</code></td>
 </tr>
 <tr>
 <td><code>ResultFile</code></td>
-<td><code>&lt;Dir&gt;\検索結果.txt</code></td>
+<td><code>&lt;Dir&gt;\search_results.txt</code></td>
 </tr>
 <tr>
 <td><code>IndexingLogFile</code></td>
-<td><code>&lt;Dir&gt;\インデックス作成ログ.txt</code>（インデクサの表示内容の記録。実行ごとに上書き）</td>
+<td><code>&lt;Dir&gt;\indexing_log.txt</code>（インデクサの表示内容の記録。実行ごとに上書き）</td>
 </tr>
 <tr>
 <td><code>GuiErrorLogFile</code></td>
-<td><code>&lt;Dir&gt;\画面エラー.txt</code>（画面で起きた予期しないエラーの記録。追記。共通基盤の <code>writeErrorLog</code> は、画面が定義する <code>getGuiErrorLogFile</code> からこの場所を得る）</td>
+<td><code>&lt;Dir&gt;\gui_error_log.txt</code>（画面で起きた予期しないエラーの記録。追記。共通基盤の <code>writeErrorLog</code> は、画面が定義する <code>getGuiErrorLogFile</code> からこの場所を得る）</td>
 </tr>
 </tbody>
 </table>

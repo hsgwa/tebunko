@@ -4105,7 +4105,7 @@
 </tr>
 <tr>
 <td>取り込み一覧</td>
-<td><code>work/取り込み一覧.tsv</code></td>
+<td><code>work/ingest_status.tsv</code></td>
 <td>どのファイルを、いつ、どの版で取り込んだか。2 回目からは、ここと比べて新しいファイル・変わったファイルだけを取り込む（差分取り込み）</td>
 </tr>
 <tr>
@@ -4205,10 +4205,10 @@
 </tr>
 </tbody>
 </table>
-<p>いずれも元のファイルは直接開かず、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。インデックス作成中も、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
+<p>いずれも元のファイルは直接開かず、作業領域（既定は <code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>。<a href="../structure/data/">データの置き場所とパスの決め方</a>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。インデックス作成中も、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
 <ul>
 <li>クロール対象フォルダは複数登録でき、チェックを付けたフォルダだけを取り込む。チェックを外したフォルダは取り込まないが、インデックスは残す。</li>
-<li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/取り込み一覧.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
+<li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/ingest_status.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
 <li>利用者に入力を求めない（コンソールで確認・キー入力を待たない）。画面から実行した場合（受け渡しの口の <code>ConfirmTargets</code>）は、<strong>取り込み対象を数えたところでいったん止まり、インデックスごとの件数を画面に出して取り込むかどうかの返事を待つ</strong>（<a href="target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>）。前回失敗したファイルを再取り込みするかも、この確認で受け取る（コンソールから直接実行する場合は <code>-RetryFailed</code> で渡す）。</li>
 <li>画面の［中止］で中止した場合、次回は未処理のファイルから再開する。インデクサが強制終了された（PC が停止した等）場合も同様で、強制終了したときに取り込んでいたファイルは最後に回す（<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。</li>
 <li>1 ファイルの取り込みが制限時間（10 分）を超えたら、Office アプリを強制終了してそのファイルを「失敗」とし、次のファイルへ進む（応答しなくなったファイルで止まり続けないため。<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。</li>
@@ -4239,12 +4239,12 @@
 </tr>
 <tr>
 <td>入出力</td>
-<td><code>work/取り込み一覧.tsv</code></td>
+<td><code>work/ingest_status.tsv</code></td>
 <td>全ファイルの更新日時・サイズ・状態（<a href="ingest-list/">取り込み一覧</a>）</td>
 </tr>
 <tr>
 <td>入出力</td>
-<td><code>work/取り込み中.txt</code></td>
+<td><code>work/ingesting.txt</code></td>
 <td>取り込み中のファイル（1 行に 1 ファイル。レーンに渡したものすべて）。インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）</td>
 </tr>
 <tr>
@@ -4254,17 +4254,17 @@
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/インデックス作成ログ.txt</code></td>
+<td><code>work/indexing_log.txt</code></td>
 <td>表示内容の記録（<code>writeIndexerLog</code>。実行ごとに上書き）</td>
 </tr>
 <tr>
 <td>作業領域</td>
-<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code>（パスに <code>[</code> <code>]</code> を含む・長すぎて置けないときは、取り込みをすべてスキップする。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべて対象になる）</td>
 <td>取り込み途中のファイル（元のファイルのコピー・変換したファイル・TSV）。取り込みのスレッドごとに <code>w&lt;番号&gt;</code> に分ける。終了時に削除する</td>
 </tr>
 <tr>
 <td>作業領域</td>
-<td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
+<td><code>work/publish/&lt;PID&gt;/</code></td>
 <td>1 ファイル分の TSV を集めてからインデックスのフォルダと入れ替えるための場所（<a href="../index-data/publish/">入れ替えと書き出し</a>）。終了時に削除する</td>
 </tr>
 <tr>
@@ -4274,7 +4274,7 @@
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code></td>
 <td>インデックス名とクロール対象フォルダの対応（<a href="crawl/">クロール対象フォルダと取り込み対象</a>）。インデックスを別の PC・場所へコピーしても、検索結果から元のファイルを開けるようにする</td>
 </tr>
 </tbody>
