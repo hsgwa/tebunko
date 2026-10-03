@@ -4218,8 +4218,8 @@
 <p>インデクサ（<code>tebunko/indexer.ps1</code>・<code>indexer/indexer_run.ps1</code>）が利用者に示すエラー・警告の一覧。メッセージは種類によって記録先と画面での表示が異なる。</p>
 <pre class="mermaid"><code>flowchart LR
     E{"発生したエラー"} -- "インデックス作成を続けられない&lt;br&gt;（4.8.1）" --&gt; F["受け渡しの口の Error&lt;br&gt;終了コード 1"] --&gt; G1["画面: 進み具合欄とエラーのダイアログ"]
-    E -- "1 ファイルの取り込みに失敗&lt;br&gt;（4.8.2）" --&gt; S["work/取り込み一覧.tsv のエラー列&lt;br&gt;状態は『失敗』"] --&gt; G2["画面: 「取り込みに失敗したファイル」の一覧"]
-    E -- "警告・お知らせ&lt;br&gt;（4.8.3）" --&gt; L["work/インデックス作成ログ.txt"] --&gt; G3["画面: ［ログを開く］"]</code></pre>
+    E -- "1 ファイルの取り込みに失敗&lt;br&gt;（4.8.2）" --&gt; S["work/ingest_status.tsv のエラー列&lt;br&gt;状態は『失敗』"] --&gt; G2["画面: 「取り込みに失敗したファイル」の一覧"]
+    E -- "警告・お知らせ&lt;br&gt;（4.8.3）" --&gt; L["work/indexing_log.txt"] --&gt; G3["画面: ［ログを開く］"]</code></pre>
 <table>
 <thead>
 <tr>
@@ -4232,19 +4232,19 @@
 <tbody>
 <tr>
 <td>続けられないエラー（<a href="#続けられないエラー">続けられないエラー</a>）</td>
-<td>受け渡しの口の <code>Error</code>（終了コード <code>1</code>）と <code>work/インデックス作成ログ.txt</code></td>
+<td>受け渡しの口の <code>Error</code>（終了コード <code>1</code>）と <code>work/indexing_log.txt</code></td>
 <td>進み具合欄に <code>インデックスを作成できませんでした</code> とメッセージ。エラーのダイアログ <code>インデックスを作成できませんでした。</code>＋メッセージ</td>
 <td>中止する</td>
 </tr>
 <tr>
 <td>ファイルごとの失敗（<a href="#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）</a>）</td>
-<td><code>work/取り込み一覧.tsv</code> のエラー列（状態は <code>失敗</code>）</td>
+<td><code>work/ingest_status.tsv</code> のエラー列（状態は <code>失敗</code>）</td>
 <td>［1 インデックス管理］タブの「取り込みに失敗したファイル」の一覧（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）</td>
 <td>次のファイルへ進む</td>
 </tr>
 <tr>
 <td>警告・お知らせ（<a href="#警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）</a>）</td>
-<td><code>work/インデックス作成ログ.txt</code></td>
+<td><code>work/indexing_log.txt</code></td>
 <td>［ログを開く］で確認する</td>
 <td>続ける</td>
 </tr>
@@ -4300,7 +4300,7 @@
 </tr>
 <tr>
 <td>（例外のメッセージそのまま）</td>
-<td>上記以外の予期しない例外。例: <code>work/取り込み一覧.tsv</code> をほかのアプリが開いていて書き込めない</td>
+<td>上記以外の予期しない例外。例: <code>work/ingest_status.tsv</code> をほかのアプリが開いていて書き込めない</td>
 <td>メッセージと［ログを開く］の内容から原因を取り除き、もう一度インデックス作成を始める</td>
 </tr>
 </tbody>
@@ -4461,7 +4461,7 @@
 <li>エラー列が空の <code>失敗</code> の行は、画面の一覧では <code>（原因は記録されていません）</code> と表示する。</li>
 </ul>
 <h2 id="警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）<a class="headerlink" href="#警告お知らせインデックス作成ログ" title="Permanent link">&para;</a></h2>
-<p>インデックス作成は続けるが、利用者が知っておくべき内容。<code>work/インデックス作成ログ.txt</code> に記録する（画面の［ログを開く］で開く）。</p>
+<p>インデックス作成は続けるが、利用者が知っておくべき内容。<code>work/indexing_log.txt</code> に記録する（画面の［ログを開く］で開く）。</p>
 <table>
 <thead>
 <tr>
@@ -4540,7 +4540,7 @@
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>
-<td>終了時に作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）または <code>work/取り込み出力/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+<td>終了時に作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）または <code>work/publish/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
 </tr>
 <tr>
 <td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code> / <code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code></td>

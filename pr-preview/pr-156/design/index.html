@@ -4139,7 +4139,7 @@
 <li><strong>インデックス作成</strong>（<a href="indexing/">インデックス作成</a>）
    各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/</code> に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（<a href="indexing/text/">テキストファイルの読み取り</a>）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。</li>
 <li><strong>検索</strong>（<a href="search/">検索</a>）
-   本文インデックスを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは <code>work/検索結果.txt</code> に出力する。</li>
+   本文インデックスを検索し（大文字と小文字の区別・正規表現・対象ファイルの条件はサクラエディタの Grep にならう）、ヒットした「ファイル名（相対フォルダ付き）・場所・該当行」を、元のファイルごとの見出しにまとめて画面の表に表示する。必要なときは <code>work/search_results.txt</code> に出力する。</li>
 </ol>
 <p>どちらも画面（<a href="gui/">画面</a>）から行う。インデックス作成は画面のプロセスの中のスレッドで動き、進み具合を画面に表示する（<a href="structure/threads/">プロセスとスレッド</a>）。画面には、インデックス作成を異常終了させた際に残る Excel・Word・PowerPoint のプロセスを強制終了する機能もある。</p>
 <p>用語は検索エンジンにならい、画面・設計書・コードで次のようにそろえる。</p>
@@ -4209,7 +4209,7 @@
 </tr>
 <tr>
 <td>元のフォルダの記録</td>
-<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code>（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする）</td>
+<td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code>（インデックス名と登録したフォルダの対応。インデックスを写しても元の場所が分かるようにする）</td>
 <td>出さない</td>
 <td><code>sourceFolderFileName</code></td>
 </tr>
@@ -4252,9 +4252,9 @@
 
     subgraph work["work/（自動生成）"]
         idx[("content_index/&lt;br&gt;本文インデックス")]
-        status["取り込み一覧.tsv&lt;br&gt;（更新日時・状態）"]
-        ctl["インデックス作成ログ.txt&lt;br&gt;取り込み中.txt"]
-        out["検索結果.txt&lt;br&gt;（［結果をファイルに出力］）"]
+        status["ingest_status.tsv&lt;br&gt;（更新日時・状態）"]
+        ctl["indexing_log.txt&lt;br&gt;ingesting.txt"]
+        out["search_results.txt&lt;br&gt;（［結果をファイルに出力］）"]
     end
 
     tmp[("work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;&lt;br&gt;取り込みの作業領域&lt;br&gt;（置けないときはスキップ）")]
