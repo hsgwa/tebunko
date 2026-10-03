@@ -157,6 +157,33 @@ BeforeAll {
         return (Split-Path -Parent $key)
     }
 
+    function script:getFileHashes {
+        # フォルダの下の本文インデックス（content_index.*.tsv）の内容の SHA256。@{ フォルダからの相対パス = ハッシュ }
+        param ([string]$root)
+        $hashes = @{}
+        foreach ($file in @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter "${packFileNamePrefix}.*.tsv")) {
+            $hashes[$file.FullName.Substring($root.Length + 1)] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+        }
+        return $hashes
+    }
+
+    function script:assertContentIndexUnchanged {
+        # 取り込み直したファイル（reingestKeys）の本文インデックス（content_index.<拡張子>.*.tsv）のほかは、内容が変わっていないことを確かめる
+        param ([hashtable]$before, [string]$workDir, [string[]]$reingestKeys)
+        $after = getFileHashes "$workDir\content_index"
+        $before.Count | Should -BeGreaterThan 0
+        $after.Count | Should -Be $before.Count
+        $exempt = @($reingestKeys | ForEach-Object {
+            $folder = Split-Path -Parent $_
+            $ext = [System.IO.Path]::GetExtension($_).TrimStart(".").ToLowerInvariant()
+            "$folder\${packFileNamePrefix}.$ext."
+        })
+        foreach ($path in $before.Keys) {
+            if (@($exempt | Where-Object { $path.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0) { continue }
+            $after[$path] | Should -Be $before[$path] -Because "$path の内容が変わってはいけない"
+        }
+    }
+
     function script:findIngestKey {
         # 見本の取り込み一覧から、指定した拡張子の最初のファイルのキーを返す（無ければ $null）
         param ($s, [string[]]$extensions)
@@ -240,23 +267,36 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
+        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
+        $stateBefore = [System.IO.File]::ReadAllText("$($compat.WorkDir)\system_index_state.tsv")
         $outdated = @(getOutdatedKeys $s)
 
-        runIndexer $compat.Root | Should -Be 0
-
         if ($outdated.Count -eq 0) {
+            runIndexer $compat.Root | Should -Be 0
             (readTestProgress).Detail | Should -Be "取り込みが必要なファイルはありませんでした"
+        } else {
+            # 抽出版を上げた後は、取り込み直しに Office を使うことがある（xlsx など）。Office の無い環境でも流せるよう、
+            # 取り込みの計画を確かめて取りやめる（実際に取り込み直す場面は e・g）
+            $global:compatPlanSeen = $null
+            $cancel = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne'; Action = { $global:compatPlanSeen = @($channel.Plan); answerIndexingPlan $channel $null } }
+            runIndexer $compat.Root @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+            $plan = @($global:compatPlanSeen)
+            $plan.Count | Should -Be 1
+            $plan[0].更新あり | Should -Be $outdated.Count
+            $plan[0].新規 | Should -Be 0
+            $plan[0].前回未完了 | Should -Be 0
+            $plan[0].インデックスなし | Should -Be 0
+            $plan[0].取り込み対象 | Should -Be $outdated.Count
         }
         $after = readTestStatus $compat.Root
+        $after.Rows.Count | Should -Be $before.Rows.Count
         foreach ($key in $before.Rows.Keys) {
-            if ($outdated -contains $key) {
-                $after.Rows[$key].抽出版 | Should -Be ([string](getExtractVersion $after.Rows[$key].相対パス)) -Because $key
-            } else {
-                $after.Rows[$key].取り込み日時 | Should -Be $before.Rows[$key].取り込み日時 -Because $key
-                $after.Rows[$key].抽出版 | Should -Be $before.Rows[$key].抽出版 -Because $key
-            }
+            $after.Rows[$key].取り込み日時 | Should -Be $before.Rows[$key].取り込み日時 -Because $key
+            $after.Rows[$key].抽出版 | Should -Be $before.Rows[$key].抽出版 -Because $key
         }
-        assertSystemIndexNotRebuilt $ticksBefore $compat.WorkDir @($outdated | ForEach-Object { getFolderOfKey $_ })
+        assertSystemIndexNotRebuilt $ticksBefore $compat.WorkDir @()
+        assertContentIndexUnchanged $contentBefore $compat.WorkDir @()
+        [System.IO.File]::ReadAllText("$($compat.WorkDir)\system_index_state.tsv") | Should -Be $stateBefore
     }
 
     It "<Sample> e: 1 つの docx の更新日時を進めると、その 1 件だけを取り込み直し、ほかのフォルダのシステムインデックスは作り直さない" -TestCases $samples {
@@ -268,10 +308,14 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
+        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
         $relative = $key.Substring($s.IndexName.Length + 1)
         (Get-Item -LiteralPath "$($compat.SourceDir)\$relative").LastWriteTime = (Get-Date).AddDays(1)
 
         runIndexer $compat.Root | Should -Be 0
+
+        assertContentIndexUnchanged $contentBefore $compat.WorkDir @($key)
+        assertSearchHitsMatchExpected $s $compat.WorkDir
 
         $after = readTestStatus $compat.Root
         foreach ($rowKey in $before.Rows.Keys) {
@@ -296,9 +340,12 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $beforeProcesses = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue).Count
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
+        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
         $cancel = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne'; Action = { answerIndexingPlan $channel $null } }
 
         runIndexer $compat.Root @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+
+        assertContentIndexUnchanged $contentBefore $compat.WorkDir @()
 
         (@(Get-Process -Name EXCEL -ErrorAction SilentlyContinue).Count) | Should -Be $beforeProcesses
         (readTestStatus $compat.Root).Rows[$key].抽出版 | Should -Be ([string]$downgraded)
@@ -316,9 +363,11 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
         writeTestSettings $compat.Root @(@{ name = $s.IndexName; path = $compat.SourceDir; enabled = $true })
         $before = readTestStatus $compat.Root
         $ticksBefore = getSystemIndexTicks $compat.WorkDir
+        $contentBefore = getFileHashes "$($compat.WorkDir)\content_index"
 
         runIndexer $compat.Root | Should -Be 0
 
+        assertContentIndexUnchanged $contentBefore $compat.WorkDir @($key)
         $after = readTestStatus $compat.Root
         foreach ($rowKey in $before.Rows.Keys) {
             if ($rowKey -eq $key) {
