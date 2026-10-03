@@ -18,12 +18,13 @@ powershell -ExecutionPolicy Bypass -File poc\wpf-figma\show.ps1
 powershell -ExecutionPolicy Bypass -File poc\wpf-figma\compare.ps1
 ```
 
-## 状態（2026-10-02）
+## 状態（2026-10-03）
 
 - `theme.xaml`・`xaml/*.xaml`（21 状態＋部品）・`dummy.ps1`・`show.ps1` を作り込み、`show.ps1` で 26 枚すべてを原寸表示できる。できたのは Figma に近づけた WPF の画面であり、ピクセル単位の一致や色の同値を確かめたものではない。
 - 作業中は `compare.ps1` の `diff.png` を 26 枚すべて見て、色・レイアウト・文言の食い違いを洗い出し、直せるものは直した（吹き出しの背景色、プレビュー表の欠けていた行、高速検索の表示の外枠カード、H フレームの開いたドロップダウン、`探す範囲` の部品が中央寄せになっていた崩れ、`フルパスのツールチップ` の行が中央寄せになっていた崩れ、H 系フレームが共有する検索結果一覧の文言の欠け・誤字（「本文（常に対象）」の欠け、議事録メモの文末の「る」の欠けなど）など）。
 - 直したあとも色・配置の差が残っている（下の「再現できなかったところ」）。±1px・色の同値まで詰める検証はしていない。
 - `powershell -ExecutionPolicy Bypass -File poc\wpf-figma\show.ps1` を実機で起動し、一覧の窓と、一覧から選んだフレーム（SP・H）の表示窓がどちらも正常に開くことを確かめた（2026-10-02）。表示窓には WPF の画面だけが出て、見本（参照 PNG）は表示・並べ・重ねのどれも行わないことを確かめた（2026-10-03）。
+- アイコンの形を手の近似から [Lucide](https://lucide.dev/)（`lucide-icons/lucide`、配布物 `lucide-static` v1.50.0、ISC ライセンス。SVG の形だけを取り込み、配布物自体は同梱していない）の公式パスに置き換え、色・塗り・不透明度・大きさ・位置は変えていない。対応表は下の「アイコンの対応表」。塗り丸のバッジ（Banner・状態のお知らせ）と塗りつぶしチェックボックスを Ellipse／Border＋Path の組み合わせで作り直し、実機で `show.ps1` を起動して見た目を確かめた（2026-10-03）。
 
 ## フレームの一覧（段 1・26 枚）
 
@@ -70,11 +71,56 @@ Figma は Variables・Styles を使っておらず、値を直接指定してい
 | 余白・間隔（`Thickness`・`sys:Double`） | 7 | `Pad.*`・`Gap.*`（例 `Pad.Button`＝`16,7,16,7`） | Figma のピクセル値をそのまま書き写した |
 | 角丸（`CornerRadius`） | 2 | `Radius.3`・`Radius.4` | Figma の値をそのまま書き写した |
 | 影（`DropShadowEffect`） | 3 | `Shadow.Card`・`Shadow.Dialog`・`Shadow.Small` | Figma のぼかしの値を `BlurRadius` にそのまま当てているが、ぼかしの計算の仕方が Figma（レイヤーぼかし）と WPF（`DropShadowEffect`）で違うため、広がり方は一致しない（下の「再現できなかったところ」） |
-| アイコン（`Geometry`） | 18 | `Icon.*`（例 `Icon.Folder`・`Icon.Search`） | Figma のベクターを手で近似した簡易パス。SVG そのものは書き出していないため、厳密な形の一致は確かめていない（下の「再現できなかったところ」） |
+| アイコン（`Geometry`） | 21 | `Icon.*`（例 `Icon.Folder`・`Icon.Search`） | 大半は [Lucide](https://lucide.dev/)（`lucide-static` v1.50.0、ISC）の公式パスをそのまま使う。手の近似のまま残したものと理由は下の「アイコンの対応表」 |
 | 文字サイズ・太さ（`Style TargetType="TextBlock"`） | 15 | `Text.10`〜`Text.28`（`.Muted`・`.Bold`・`.Medium` の派生を含む） | `FontSize` は Figma の値のまま。書体は下の「フォント」のとおり Rethink Sans＋Yu Gothic UI の組み合わせのため、字形・字間は完全一致しない |
 | 部品のスタイル（`Style TargetType="Button"` ほか） | 20 | `Btn.*`・`CheckBox.Tree`・`Chip`・`NavBadge`・`StatusBadge`・`Bubble`・`Banner`・`TextBox`・`EmptyIconRing`・`TreeChevron`・`ScrollBar` 系 | 色・余白・角丸は上の色／余白／角丸のトークンを組み合わせて使う。`ControlTemplate` は Figma のレイヤー構成を見ながら手で組んだもの |
 
-内訳は `theme.xaml` 本体（419 行）を参照。
+内訳は `theme.xaml` 本体を参照。
+
+## アイコンの対応表
+
+形は [Lucide](https://lucide.dev/)（`lucide-icons/lucide`。配布物 `lucide-static` v1.50.0、[ISC ライセンス](https://opensource.org/license/isc-license-txt)。各 SVG の先頭コメント `@license lucide-static v1.50.0 - ISC` のとおりで、MIT ではない）の公式 SVG から Path Data（Geometry）を取り出した。24x24 の viewBox・線の太さ 2 の座標をそのまま使い、色・塗り・不透明度・大きさ・位置は使う側（`xaml/*.xaml`）のままで変えていない。線の太さ（`StrokeThickness`）だけは使う場所ごとに元の見た目に近い値へ調整した。
+
+| 今の `theme.xaml` のキー | Lucide の名前 | 線の太さ | 備考 |
+|---|---|---|---|
+| `Icon.Folder` | folder | 1.5 | |
+| `Icon.FolderClosed` | folder-closed | 2.4 | 使用箇所は「アーカイブ」行の折りたたみ時の 1 か所のみ確認できた（下の「限界」） |
+| `Icon.ChevronDown`・`Icon.ChevronRight` | chevron-down・chevron-right | 1.6 | `TreeChevron` の 1 つの `Path` が開閉で切り替える実装のため、対応表にある「2・1.5 の2箇所」を別々のコードに対応づけられなかった（下の「限界」） |
+| `Icon.RefreshCw` | refresh-cw | 1.5 | Stage 1 では使用箇所なし（用意のみ） |
+| `Icon.Search` | search | 1.4 | |
+| `Icon.FileSearch` | file-search | 2 | `ResultsEmptyState`（空画面のイラスト）での使用は仮。下の「Figma からの書き出し待ち」参照 |
+| `Icon.FileText` | file-text | 1.5 | |
+| `Icon.FileSpreadsheet` | file-spreadsheet | 1.5 | |
+| `Icon.Presentation` | presentation | 1.5 | |
+| `Icon.ChartColumn` | chart-column | 1.5 | |
+| `Icon.Save`（キー名は維持） | download | 1.5 | 見た目は保存ボタンのままで、形だけ Lucide の download（下矢印）にした |
+| `Icon.StopCircle` | circle-stop | 1.5 | |
+| `Icon.Close` | x | 1.5 | |
+| `Icon.Info` | info | 2・1.2・1 | `search.xaml` の NavNotice＝2、バージョン情報＝1.2、FastSearchInfo＝1。`高速検索の表示.xaml` の同種アイコンも 1 に揃えた |
+| `Icon.Check` | check | 1.6〜1.8（実装は 1.7） | `CheckBox.Tree` のチェック本体 |
+| `Icon.CircleQuestionMark` | circle-question-mark | 1.2 | Stage 1 では使用箇所なし（用意のみ） |
+| タイトルバーの閉じる文字「×」→`Icon.CircleX` | x（丸囲み。circle-x への差し替え） | 1.5 | `control-close` の差し替え。対応表の「1.28・1.96 の2箇所」の「文字の×」は、コード内に該当する文字のアイコンが見つからず対応づけられなかった（下の「限界」） |
+| 「⋯」→`Icon.Dots3` | ellipsis | - | Stage 1 では使用箇所が見つからず、Geometry の座標だけ直した（y 座標の誤りを修正）。見つかった「…」はすべて文字の省略記号で、アイコンのボタンではない |
+| 塗り丸のバッジの「i」→`Icon.BadgeGlyphInfo` | info の内側の線だけ | 1.6 | Banner・ContentBanner。`Ellipse`（塗り）＋`Path`（白い「i」線）の組み合わせで実装 |
+| 塗りつぶしチェックボックス | check（本体は `Icon.Check` と共通） | - | `CheckBox.Tree` に `IsChecked=True` と `IsEnabled=False` が重なるときのトリガーを追加し、チェックの折れ線を隠して塗りつぶしの箱だけにした（Figma node 108:572） |
+
+**替えない（Lucide 化しない）対象**: 塗った円の中の i・!・×・✓ のうち上の「塗り丸のバッジ」に当たらないもの、アプリのアイコン（`Icon.AppBook`・`Icon.AppMag`、起動画面のロゴ）、空の画面の絵・空のナビアイコン（`Icon.FolderEmptyState`）、塗ったチェックボックス（上の「塗りつぶしチェックボックス」で対応済み）。
+
+### 限界（確信が持てず、そのまま報告する判断）
+
+- **folder-closed の使用箇所**: コード中に「folder」系アイコンを使う箇所は 1 種類の `Icon.Folder` リソースしかなく、12 か所すべてが同じ色違いで使われていた。対応表の folder-closed を「アーカイブ」行（`ToggleButton` が閉じた状態）に当てたのは実装者の判断で、Figma 側の確定ではない。
+- **chevron の「2・1.5 の2箇所」**: `TreeChevron` の矢印は 1 つの `Path` が開閉で向きを切り替える実装で、別々の太さを持つ 2 か所を見つけられなかった。太さは変えず 1.6 のまま残した。
+- **文字の「×」（1.28・1.96 の2箇所）**: コード中に該当する「×」の文字アイコンは見つからなかった（タイトルバーの×はすでに `Icon.CircleX` へ差し替え済み）。対応づけ不能として報告する。
+
+### Figma からの書き出し待ち（実装側では作らない）
+
+次の 3 つは実物の Figma ベクターが要るため、SVG から作る必要がある。実装側では作らず、書き出しを待つ。
+
+| 部品 | Figma ノード | 大きさ | 用途・使用箇所 |
+|---|---|---|---|
+| アプリのアイコン | 108:144 | 56×56（内側は本＝40×40 と虫眼鏡＝26×26 の重ね） | `splash.xaml` の起動画面ロゴ（`Icon.AppBook`＋`Icon.AppMag`） |
+| 空画面のイラスト | 108:127 | 26×26 | `search.xaml` の `ResultsEmptyState`（検索結果が無いときの中央のイラスト。今は暫定で Lucide の file-search 形のまま） |
+| 空のナビアイコン | 未確認（上と同じ絵の可能性あり） | 18×18 | `search.xaml` の `EmptyTreeState`（左ナビの「検索できるフォルダがありません」のフォルダ形アイコン。今は `Icon.FolderEmptyState` として差し替え前の手近似の形のまま） |
 
 ## 比べた結果（参考。使わなくてよい）
 
@@ -105,7 +151,7 @@ Figma は Variables・Styles を使っておらず、値を直接指定してい
 - **H・H0**: 横の欄の背景が Figma の `#F0F2F4` でなく `#F9FAFA` になっている。H0 の空の案内の位置が約 150px 上にある。検索ボタンの無効の色が違う。結果の行の高さが 30px でなく 24px。区切り線と灰色の地が無い。
 - **そのほか**: `探す範囲` の行の間隔が 28px でなく 24px で、本文の無効の見た目が無い。`SP` の棒の幅が違う。`正規表現の吹き出し` の文字が中央寄せになっている。`高速検索の表示` は、印が灰色の塗りでなく白地に枠線になっており、吹き出しが右端まで伸び、見出しが約 8px ずれている。`フルパスのツールチップ` は、行の灰色の地と、名前を「…」で切る見た目が無い。
 - **影のぼかしの広がり方**: Figma のぼかしの値をそのまま `DropShadowEffect` の `BlurRadius` に当てているが、計算の仕方が Figma と違うため、広がり方は厳密には一致しない（`theme.xaml` にも記載）。
-- **アイコンの形**: Figma のベクターを手で近似した簡易パスを使っている。SVG そのものを書き出していないため、厳密な一致は確かめていない。
+- **アイコンの形**: 大半は Lucide の公式パスに差し替え済み（上の「アイコンの対応表」）。Lucide 化しない対象（アプリのアイコン・空の画面の絵・空のナビアイコン・塗った円の中の一部の記号）は手で近似した簡易パスのまま。アプリのアイコン・空画面のイラスト・空のナビアイコンの 3 つは、実物の Figma ベクターの書き出し待ち（上の表）。
 - **H 系フレームの個別の内容確認**: `H` と `H-R` は検索結果一覧の文言を参照画像と 1 行ずつ突き合わせ、見つかった誤字・欠け（「本文」の「（常に対象）」の欠け、議事録メモの行の文末の「る」の欠けなど）を直した。`H-T1`・`H-B` は「開く」のドロップダウンが開いていないことを個別に確認した。一方 `H-W`・`H-P`・`E13`・`H-範囲`・`H-範囲2`・`H-row3`・`H-row4`・`H-saved` は計画の設計の記述から dummy の状態を作ったもので、件数・ファイル名など内容の細部まで 1 行ずつ参照画像と突き合わせてはいない（`xaml/search.xaml` の `Width` 指定は総点検したが、レイアウトの崩れが無いことまでは確かめていない）。
 
 ## フォント

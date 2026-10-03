@@ -357,7 +357,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "ContentBanner" $true
             Set-ElBrushKey $Root "ContentBanner" "Background" "Ok.E0F7E0"
             Set-ElBrushKey $Root "ContentBanner" "BorderBrush" "Ok.218A21"
-            Set-ElBrushKey $Root "ContentBannerIcon" "Stroke" "Ok.218A21"
+            Set-ElBrushKey $Root "ContentBannerIcon" "Fill" "Ok.218A21"
             Set-ElText $Root "ContentBannerText" "✓ 検索結果を保存しました"
             Set-ElBrushKey $Root "ContentBannerText" "Foreground" "Ok.218A21"
             Set-ElVisible $Root "ContentBannerButton" $true
@@ -475,7 +475,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # インデックス更新が中断している。
             Set-ElHeight $Root "BannerRow" "Auto"
             $icon = Find-Named $Root "BannerIcon"
-            if ($icon) { $icon.Stroke = $Root.FindResource("Warn.BA7D00") }
+            if ($icon) { $icon.Fill = $Root.FindResource("Warn.BA7D00") }
             $banner = Find-Named $Root "Banner"
             if ($banner) { $banner.Background = $Root.FindResource("Warn.FFF5E0"); $banner.BorderBrush = $Root.FindResource("Warn.BA7D00") }
             Set-ElText $Root "BannerText" "インデックスの更新が中断しました"
