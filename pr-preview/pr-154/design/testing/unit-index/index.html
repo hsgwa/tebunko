@@ -4135,7 +4135,7 @@
 </tr>
 <tr>
 <td><code>readIndexSources</code> / <code>setIndexSourceFolder</code></td>
-<td>インデックス名に対する元のフォルダの記録（<code>元のフォルダ.txt</code>）と読み込み、同じ名前は 1 か所（上書き）、クロール対象フォルダにある名前ならその <code>path</code> を書き換える（<code>indexSources</code> には入れない）、名前・フォルダが空なら何もしない</td>
+<td>インデックス名に対する元のフォルダの記録（<code>source_folder.txt</code>）と読み込み、同じ名前は 1 か所（上書き）、クロール対象フォルダにある名前ならその <code>path</code> を書き換える（<code>indexSources</code> には入れない）、名前・フォルダが空なら何もしない</td>
 </tr>
 <tr>
 <td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
@@ -4161,8 +4161,12 @@
 <td>図形・コメント・ヘッダー・フッターの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号）</td>
 </tr>
 <tr>
-<td><code>toIndexFileName</code></td>
-<td>場所の符号化、255 文字の上限</td>
+<td><code>toIndexFileName</code> / <code>convertIndexFileNameToPlace</code></td>
+<td>決まった種類の場所は英語の固定名（ページ・スライド・見出し等）との往復、図形・コメント・ヘッダー・フッターの <code>[shape]</code> <code>[comment]</code> <code>[header_footer]</code>、決まった種類でない場所（Excel の任意のシート名）は符号化との往復、固定名と符号化がぶつからないこと、255 文字の上限</td>
+</tr>
+<tr>
+<td><code>placeKindFileNames</code></td>
+<td>図形・コメント・ヘッダー・フッターの種類と <code>objectPlacePattern</code> がそろっていること</td>
 </tr>
 <tr>
 <td><code>newIndexName</code> / <code>assignIndexNames</code></td>

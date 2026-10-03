@@ -4296,7 +4296,7 @@
 </tr>
 </tbody>
 </table>
-<p>「ファイル」「最終取り込み」は取り込み一覧（<code>work/取り込み一覧.tsv</code>）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。</p>
+<p>「ファイル」「最終取り込み」は取り込み一覧（<code>work/ingest_status.tsv</code>）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。</p>
 <h2 id="追加編集のダイアログ">追加・編集のダイアログ<a class="headerlink" href="#追加編集のダイアログ" title="Permanent link">&para;</a></h2>
 <p><code>tebunko/xaml/dialog_index_edit.xaml</code>。追加と編集で同じダイアログを使い、表題と説明を変える。</p>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -4399,13 +4399,13 @@
 <h3 id="名前を変えたときの処理renameindex">名前を変えたときの処理（<code>renameIndex</code>）<a class="headerlink" href="#名前を変えたときの処理renameindex" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>flowchart TD
     A["work\content_index\旧名→新名 に改名&lt;br&gt;（\\?\ 付き）"] --&gt; B["取り込み一覧の名前・相対パスを書き換え&lt;br&gt;（renameStatusIndexName）"]
-    B --&gt; C["targetFolders[].name を保存・元のフォルダ.txt を書き直す&lt;br&gt;（updateIndexSourceFile）"]
+    B --&gt; C["targetFolders[].name を保存・source_folder.txt を書き直す&lt;br&gt;（updateIndexSourceFile）"]
     C --&gt; D["旧名・新名の下の searchExcludes を消す&lt;br&gt;（removeSearchExcludesUnder）"]</code></pre>
 <p>名前を変えても<strong>インデックスは作り直さない</strong>。次の順に、名前だけを付け替える。</p>
 <ol>
 <li><code>work\content_index\&lt;旧名&gt;</code> を <code>work\content_index\&lt;新名&gt;</code> に改名する（長いパスの本文インデックスのファイル・TSV があっても扱えるよう <code>\\?\</code> 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する</li>
-<li>取り込み一覧（<code>work/取り込み一覧.tsv</code>）の <code>クロール対象フォルダ</code> の行のインデックス名と、各行の相対パスの先頭（<code>&lt;旧名&gt;\…</code> → <code>&lt;新名&gt;\…</code>）を書き換える（<code>renameStatusIndexName</code>。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）</li>
-<li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの元のフォルダの記録（<code>元のフォルダ.txt</code>）を書き直す（<code>updateIndexSourceFile</code>）</li>
+<li>取り込み一覧（<code>work/ingest_status.tsv</code>）の <code>クロール対象フォルダ</code> の行のインデックス名と、各行の相対パスの先頭（<code>&lt;旧名&gt;\…</code> → <code>&lt;新名&gt;\…</code>）を書き換える（<code>renameStatusIndexName</code>。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）</li>
+<li><code>setting.config</code> の <code>targetFolders[].name</code> を保存し、各インデックスの元のフォルダの記録（<code>source_folder.txt</code>）を書き直す（<code>updateIndexSourceFile</code>）</li>
 <li>検索対象のツリーでチェックを外していたフォルダの記録（<code>searchExcludes</code>）のうち、旧名・新名の下のものを消す（<code>removeSearchExcludesUnder</code>）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない</li>
 </ol>
 <h3 id="削除したときの処理removeindex">削除したときの処理（<code>removeIndex</code>）<a class="headerlink" href="#削除したときの処理removeindex" title="Permanent link">&para;</a></h3>

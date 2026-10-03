@@ -4145,7 +4145,7 @@
 <li><strong>必須チェックにしない。</strong> 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、<code>paths</code> の絞り込みは付けていない</li>
 <li><code>tests\run.ps1 -Ci</code> は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、<code>Gui</code> だけを流すと下限を割るため</li>
 <li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
-<li>落ちたときの材料（画面の画像・写した先の <code>画面エラー.txt</code>・<code>インデックス作成ログ.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
+<li>落ちたときの材料（画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
 <li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
 <li><strong>CI だけで流す場面がある。</strong> S6（既定のワークスペース）は、利用者の本物のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）を使うため、<code>GITHUB_ACTIONS</code> が <code>true</code> のときだけ流す。手元では理由を出して飛ばす</li>
 <li><strong>手元で飛ばす段階がある。</strong> S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（<code>GITHUB_ACTIONS</code> が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す</li>
