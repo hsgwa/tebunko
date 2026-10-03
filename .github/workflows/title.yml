@@ -25,12 +25,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: PR のタイトル
         shell: pwsh
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: ./tools/check_commit_message.ps1 -Title $env:TITLE
+
+      - name: 見本（tests/testdata/compat/）の変更
+        shell: pwsh
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: ./tools/check_compat_golden.ps1 -Title $env:TITLE -Base $env:BASE_SHA
 
   issue-title:
     if: github.event_name == 'issues'
