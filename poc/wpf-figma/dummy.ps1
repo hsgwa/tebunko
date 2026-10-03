@@ -366,9 +366,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         "H-row3" {
             # ヒットした行が検索結果の 3 件目（セル A41）。プレビューは前後の行（40・42行目）
             # を含めて表示し、ヒット行（41行目）だけ列 A の内容を出す（列 B・C は空）。
-            Set-ElChecked $Root "ResultRow1Check" $false
-            Set-ElChecked $Root "ResultRow41Check" $true
-            Set-ElText $Root "PreviewBreadcrumbText" "A社_見積書.xlsx > [シート] 見積書 > セル A41"
+            Set-ElText $Root "PreviewBreadcrumbText" "営業部\A社_見積書.xlsx ・ [シート]見積書!A41 ・ セル"
             Set-ElText $Root "PreviewTopRowNum" "40"
             Set-ElText $Root "PreviewTopText1" ""
             Set-ElText $Root "PreviewTopText2" ""
@@ -383,14 +381,12 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         "H-row4" {
             # ヒットした行が検索結果の 4 件目（セル A5）。プレビューは前後の行（4・6行目）
             # を含めて表示し、ヒット行（5行目）だけ列 A の内容を出す（列 B・C は空）。
-            Set-ElChecked $Root "ResultRow1Check" $false
-            Set-ElChecked $Root "ResultRow5Check" $true
-            Set-ElText $Root "PreviewBreadcrumbText" "A社_見積書.xlsx > [シート] 見積書 > セル A5"
+            Set-ElText $Root "PreviewBreadcrumbText" "営業部\A社_見積書.xlsx ・ [シート]見積書!A5 ・ セル"
             Set-ElText $Root "PreviewTopRowNum" "4"
             Set-ElText $Root "PreviewTopText1" ""
             Set-ElText $Root "PreviewTopText2" ""
             Set-ElText $Root "PreviewHighlightRowNum" "5"
-            Set-ElText $Root "PreviewHighlightText1" "83 納品場所：（株）山田商事 本社4F"
+            Set-ElText $Root "PreviewHighlightText1" "納品場所：（株）山田商事 本社4F"
             Set-ElText $Root "PreviewHighlightText2" ""
             Set-ElText $Root "PreviewBottomRowNum" "6"
             Set-ElText $Root "PreviewBottomText1" ""
@@ -427,22 +423,20 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             if ($icon) { $icon.Data = $Root.FindResource("Icon.FileText"); $icon.Stroke = $Root.FindResource("Accent.0078D4") }
             Set-ElText $Root "TopGroupFileName" "基本契約書.docx"
             Set-ElText $Root "TopGroupLocation" "　総務/契約"
-            Set-ElText $Root "TopGroupCount" "3件"
-            Set-ElText $Root "TopSubHeaderCol1" "ページ"
-            Set-ElText $Root "TopSubHeaderCol2" "段落"
+            Set-ElText $Root "TopGroupCount" "1 ページ（目安） ほか 2 か所 ・ 3 件"
 
-            Set-ElText $Root "TopRow1Col1" "p.1"
-            Set-ElText $Root "TopRow1Col2" "4"
+            Set-ElText $Root "TopRow1Col1" "1 ページ（目安）"
+            Set-ElText $Root "TopRow1Col2" "本文"
             Set-ElRuns $Root "TopRow1Col3" @(
                 @{ Text = "甲：" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "（以下「甲」という）" }
             )
-            Set-ElText $Root "TopRow2Col1" "p.2"
-            Set-ElText $Root "TopRow2Col2" "12"
+            Set-ElText $Root "TopRow2Col1" "2 ページ（目安）"
+            Set-ElText $Root "TopRow2Col2" "本文"
             Set-ElRuns $Root "TopRow2Col3" @(
                 @{ Text = "第3条" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "は毎月末日までに支払う" }
             )
-            Set-ElText $Root "TopRow3Col1" "p.5"
-            Set-ElText $Root "TopRow3Col2" "31"
+            Set-ElText $Root "TopRow3Col1" "5 ページ（目安）"
+            Set-ElText $Root "TopRow3Col2" "本文"
             Set-ElRuns $Root "TopRow3Col3" @(
                 @{ Text = "署名欄：" }, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = " 代表取締役 山田 太郎" }
             )
@@ -459,7 +453,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "PreviewSheetGrid" $false
             Set-ElVisible $Root "PreviewParagraphView" $true
             Set-ElText $Root "PreviewParagraphText" "第3条（支払条件）`r`n`r`n甲は乙に対し、本契約に基づく対価を、検収完了日の属する月の翌月末日までに、乙が指定する銀行口座へ振り込む方法により支払う。"
-            Set-ElText $Root "PreviewBreadcrumbText" "基本契約書.docx > p.1 段落4"
+            Set-ElText $Root "PreviewBreadcrumbText" "総務\契約\基本契約書.docx ・ 1 ページ（目安） ・ 本文"
         }
 
         "H-B" {
@@ -503,7 +497,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "NavNotice" $true
 
             Set-ElEnabled $Root "SearchButton" $false
-            Set-ElEnabled $Root "FileNameBox" $false
+            Set-ElEnabled $Root "ResultsFilterBox" $false
             Set-ElEnabled $Root "RangeButton" $false
             Set-ElEnabled $Root "CaseCheck" $false
             Set-ElEnabled $Root "RegexCheck" $false

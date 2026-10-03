@@ -98,7 +98,7 @@
         </Border>
         <Border x:Name="NavItem_OfficeStop" Height="40" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
           <DockPanel Margin="21,0,12,0">
-            <TextBlock Text="Office の停止" VerticalAlignment="Center" Style="{StaticResource Text.13}" />
+            <TextBlock Text="Office の終了" VerticalAlignment="Center" Style="{StaticResource Text.13}" />
           </DockPanel>
         </Border>
       </StackPanel>
@@ -277,7 +277,6 @@
         <Border x:Name="FilterChip_Text" DockPanel.Dock="Left" Style="{StaticResource Chip}" Background="{StaticResource Select.E1F2FF}" BorderBrush="{StaticResource Accent.0078D4}" Margin="0,0,12,0">
           <TextBlock Text="✓ テキスト" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" />
         </Border>
-        <TextBox x:Name="FileNameBox" DockPanel.Dock="Left" Width="86" Height="26" Margin="0,0,8,0" Tag="ファイル名" />
         <Button x:Name="RangeButton" DockPanel.Dock="Left" Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" Margin="0,0,16,0">
           <TextBlock x:Name="RangeButtonText" Text="探す範囲 ▾" Style="{StaticResource Text.11}" />
         </Button>
@@ -308,6 +307,10 @@
             <TextBlock Text="保存" Style="{StaticResource Text.11}" />
           </StackPanel>
         </Button>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0" VerticalAlignment="Center">
+          <TextBlock Text="絞り込み" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <TextBox x:Name="ResultsFilterBox" Width="200" Height="24" VerticalAlignment="Center" Foreground="{StaticResource Ink.6B737D}" Text="ファイル名・場所・中身で絞り込む" />
+        </StackPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
           <TextBlock x:Name="ExpandAllLink" Text="すべて開く" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" />
           <TextBlock Text="　" Style="{StaticResource Text.11}" />
@@ -335,73 +338,64 @@
                 <TextBlock x:Name="TopGroupFileName" Text="A社_見積書.xlsx" Style="{StaticResource Text.12}" FontWeight="Bold" />
                 <TextBlock x:Name="TopGroupLocation" Text="　営業部/2024/見積もり" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
               </StackPanel>
-              <TextBlock x:Name="TopGroupCount" Grid.Column="4" Text="5件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock x:Name="TopGroupCount" Grid.Column="4" Text="[シート]見積書 ほか 1 か所 ・ 5 件" Style="{StaticResource Text.11.Muted}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
             <Grid Height="20" Margin="28,2,8,2">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock x:Name="TopSubHeaderCol1" Grid.Column="1" Text="シート / 場所" Style="{StaticResource Text.11.Muted}" />
-              <TextBlock x:Name="TopSubHeaderCol2" Grid.Column="2" Text="行" Style="{StaticResource Text.11.Muted}" />
-              <TextBlock Grid.Column="3" Text="該当行の内容" Style="{StaticResource Text.11.Muted}" />
+              <TextBlock x:Name="TopSubHeaderCol1" Grid.Column="0" Text="場所" Style="{StaticResource Text.11.Muted}" />
+              <TextBlock x:Name="TopSubHeaderCol2" Grid.Column="1" Text="種別" Style="{StaticResource Text.11.Muted}" />
+              <TextBlock Grid.Column="2" Text="該当行" Style="{StaticResource Text.11.Muted}" />
             </Grid>
             <Grid Height="24" Margin="28,0,8,0">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <CheckBox x:Name="ResultRow1Check" Grid.Column="0" Style="{StaticResource CheckBox.Tree}" IsChecked="True" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow1Col1" Grid.Column="1" Text="見積書" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow1Col2" Grid.Column="2" Text="18" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow1Col3" Grid.Column="3" Style="{StaticResource Text.12}" VerticalAlignment="Center">
+              <TextBlock x:Name="TopRow1Col1" Grid.Column="0" Text="[シート]見積書!A3" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow1Col2" Grid.Column="1" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow1Col3" Grid.Column="2" Style="{StaticResource Text.12}" VerticalAlignment="Center">
                 <Run Text="見積先：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text="（御中）" />
               </TextBlock>
             </Grid>
             <Grid Height="24" Margin="28,0,8,0">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <CheckBox x:Name="ResultRow2Check" Grid.Column="0" Style="{StaticResource CheckBox.Tree}" IsChecked="False" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow2Col1" Grid.Column="1" Text="見積書" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow2Col2" Grid.Column="2" Text="18" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow2Col3" Grid.Column="3" Style="{StaticResource Text.12}" VerticalAlignment="Center">
+              <TextBlock x:Name="TopRow2Col1" Grid.Column="0" Text="[シート]見積書!A18" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow2Col2" Grid.Column="1" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow2Col3" Grid.Column="2" Style="{StaticResource Text.12}" VerticalAlignment="Center">
                 <Run Text="4月4日 値引き：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text=" 特別割引あり" />
               </TextBlock>
             </Grid>
             <Grid x:Name="TopRow3" Height="24" Margin="28,0,8,0">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <CheckBox x:Name="ResultRow41Check" Grid.Column="0" Style="{StaticResource CheckBox.Tree}" IsChecked="False" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow3Col1" Grid.Column="1" Text="見積書" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow3Col2" Grid.Column="2" Text="41" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow3Col3" Grid.Column="3" Style="{StaticResource Text.12}" VerticalAlignment="Center">
+              <TextBlock x:Name="TopRow3Col1" Grid.Column="0" Text="[シート]見積書!A41" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow3Col2" Grid.Column="1" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow3Col3" Grid.Column="2" Style="{StaticResource Text.12}" VerticalAlignment="Center">
                 <Run Text="納品場所：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text=" 本社ビル" />
               </TextBlock>
             </Grid>
             <Grid x:Name="TopRow4" Height="24" Margin="28,0,8,0">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <CheckBox x:Name="ResultRow5Check" Grid.Column="0" Style="{StaticResource CheckBox.Tree}" IsChecked="False" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow4Col1" Grid.Column="1" Text="見積書" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow4Col2" Grid.Column="2" Text="5" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock x:Name="TopRow4Col3" Grid.Column="3" Style="{StaticResource Text.12}" VerticalAlignment="Center">
-                <Run Text="83 納品場所：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text=" 本社4F" />
+              <TextBlock x:Name="TopRow4Col1" Grid.Column="0" Text="[シート]見積書!A5" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow4Col2" Grid.Column="1" Text="セル" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock x:Name="TopRow4Col3" Grid.Column="2" Style="{StaticResource Text.12}" VerticalAlignment="Center">
+                <Run Text="納品場所：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text=" 本社4F" />
               </TextBlock>
             </Grid>
 
@@ -419,39 +413,39 @@
                 <TextBlock Text="議事録メモ.md" Style="{StaticResource Text.12}" FontWeight="Bold" />
                 <TextBlock Text="　営業部/2024/会議" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
               </StackPanel>
-              <TextBlock Grid.Column="4" Text="2件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <TextBlock Grid.Column="4" Text="行 12 ほか 1 か所 ・ 2 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
             <Grid x:Name="MinutesSubHeader" Height="20" Margin="28,2,8,2" Visibility="Collapsed">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="2" Text="行" Style="{StaticResource Text.11.Muted}" />
-              <TextBlock Grid.Column="3" Text="該当行の内容" Style="{StaticResource Text.11.Muted}" />
+              <TextBlock Grid.Column="0" Text="場所" Style="{StaticResource Text.11.Muted}" />
+              <TextBlock Grid.Column="1" Text="種別" Style="{StaticResource Text.11.Muted}" />
+              <TextBlock Grid.Column="2" Text="該当行" Style="{StaticResource Text.11.Muted}" />
             </Grid>
             <Grid x:Name="MinutesRow1" Height="24" Margin="28,0,8,0" Visibility="Collapsed">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="2" Text="12" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Style="{StaticResource Text.12}" VerticalAlignment="Center">
+              <TextBlock Grid.Column="0" Text="行 12" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="本文" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Style="{StaticResource Text.12}" VerticalAlignment="Center">
                 <Run Text="定例会の出席：" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text=" 佐藤様・山田" />
               </TextBlock>
             </Grid>
             <Grid x:Name="MinutesRow2" Height="24" Margin="28,0,8,0" Visibility="Collapsed">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="24" />
-                <ColumnDefinition Width="100" />
-                <ColumnDefinition Width="40" />
+                <ColumnDefinition Width="140" />
+                <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="2" Text="30" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Style="{StaticResource Text.12}" VerticalAlignment="Center">
+              <TextBlock Grid.Column="0" Text="行 30" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="本文" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Style="{StaticResource Text.12}" VerticalAlignment="Center">
                 <Run Text="次回までに" /><Run Text="（株）山田商事" Background="{StaticResource Hit.FFF176}" /><Run Text=" 向けの見積を送る" />
               </TextBlock>
             </Grid>
@@ -525,7 +519,7 @@
           <Button x:Name="PreviewOpenArrow" Style="{StaticResource Btn.OpenSplitArrow}" Content="▾" />
           <TextBlock x:Name="PreviewOpenFolderLink" Text="フォルダを開く" Style="{StaticResource Text.12}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="12,0,0,0" />
         </StackPanel>
-        <TextBlock x:Name="PreviewBreadcrumbText" Text="A社_見積書.xlsx &gt; [シート] 見積書 &gt; セル A3" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="PreviewBreadcrumbText" Text="営業部\A社_見積書.xlsx ・ [シート]見積書!A3 ・ セル" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </DockPanel>
       <Grid x:Name="PreviewContentHost" Grid.Row="8" Margin="16,0,16,8">
         <Grid x:Name="PreviewSheetGrid" Background="{StaticResource Bg.FFFFFF}">
@@ -548,8 +542,9 @@
           <TextBlock x:Name="PreviewTopRowNum" Grid.Row="1" Grid.Column="0" Text="1" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewTopText1" Grid.Row="1" Grid.Column="1" Text="取引規模" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewTopText2" Grid.Row="1" Grid.Column="2" Text="Aクラス" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
-          <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Background="#FFEFD1" />
-          <TextBlock x:Name="PreviewHighlightRowNum" Grid.Row="2" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Background="{StaticResource Select.E1F2FF}" />
+          <Border Grid.Row="2" Grid.Column="1" Background="{StaticResource Hit.FFF176}" />
+          <TextBlock x:Name="PreviewHighlightRowNum" Grid.Row="2" Grid.Column="0" Text="3" Style="{StaticResource Text.11.Muted}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewHighlightText1" Grid.Row="2" Grid.Column="1" Text="見積先：（株）山田商事（御中）" Style="{StaticResource Text.12}" FontWeight="Bold" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewHighlightText2" Grid.Row="2" Grid.Column="2" Text="見積番号：12-2324-0143" Style="{StaticResource Text.12}" Margin="4,0" VerticalAlignment="Center" />
           <TextBlock x:Name="PreviewBottomRowNum" Grid.Row="3" Grid.Column="0" Text="4" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -560,6 +555,7 @@
         <StackPanel x:Name="PreviewParagraphView" Visibility="Collapsed" Margin="8">
           <TextBlock x:Name="PreviewParagraphText" Style="{StaticResource Text.13}" TextWrapping="Wrap" />
         </StackPanel>
+        <TextBlock x:Name="PreviewEmptyState" Visibility="Collapsed" Text="結果の表で行を選ぶと、ここにその前後の行を表示します。" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Grid>
 
       <Border Grid.Row="9" Background="{StaticResource Bg.F0F0F0}">
