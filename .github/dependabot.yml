@@ -13,6 +13,12 @@ updates:
     commit-message:
       prefix: "ci"
       include: scope
+    groups:
+      # init・analyze（・upload-sarif）が別々の PR になり、片方だけ取り込まれて
+      # バージョンの不一致で analyze が落ちることを防ぐため、1 つの PR にまとめる。
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
 
   # 設計書のサイトを作るパッケージ（tools/mkdocs/requirements.txt。docs.yml が使う）
   - package-ecosystem: pip
