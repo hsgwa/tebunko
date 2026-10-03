@@ -177,7 +177,7 @@ Describe "ensureRows" -Tag Unit {
     It "ヒットを表の行にし、場所・種別・見出しを入れる" {
         $group = addHit "見積.xlsx" "4月" "`t見積書" 3
         [void](addHit "見積.xlsx" "4月[図形]" "B2`t見積の注記" 5)
-        [void](addHit "見積.xlsx" "4月[ヘッダー・フッター]" "`t見積の件" 1)
+        [void](addHit "見積.xlsx" "4月[ヘッダー・フッター]" "見積の件" 1)
 
         ensureRows $group
 
