@@ -298,6 +298,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 
 確かめ方は `tests\shared\core\text_file.Tests.ps1` の `Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）"`（タグ `Io`）。全 75 個が対象の拡張子であること、メモ帳固定かどうかが拡張子どおりであること、`readTextFile` で「山田」を読み込めること、異常系 2 個が失敗すること、大きいテキスト.log が 64KB を超えて成功することを確かめる。
 
+## 前の版のファイル（`compat\`）
+
+前の版が作った本文インデックス・システムインデックス・取り込み一覧・エクスポートの zip を、今のコードがそのまま読めることを確かめるための見本（golden）。[前の版との互換](../../docs/design/index-data/format.md#前の版との互換) も参照。
+
+一覧（`tests\testdata\compat\index\<見本の名前>\`。今は `v0.3.1+english-names` の 1 つ）:
+
+| 中身 | 内容 |
+|---|---|
+| `source\` | クロール対象フォルダに置くファイル（Excel・Word・PowerPoint・`.txt`・`.md`。サブフォルダ・`(株)`・`[確定]` を含むファイル名もある） |
+| `ws\` | ワークスペースのうち、版が上がっても残る部分だけ（`content_index\`・`system_index\`・`system_index_state.tsv`・`ingest_status.tsv`）。フォルダ名を `work` ではなく `ws` にしているのは、`.gitignore` の `work/` に引っかからないようにするため |
+| `export.zip` | `exportIndex` で書き出したインデックスの zip |
+| `file_times.tsv` | `source\` の各ファイルの更新日時（Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す |
+| `expected.json` | インデックス名・取り込み一覧の行・検索語ごとのヒットという、見本に対する期待（手で書く。中身は日本語のまま） |
+
+`ws\`・`export.zip` には `tmp\`・`publish\`・`ingesting.txt`・`indexing_log.txt`・`gui_error_log.txt`・`search_results.txt`・`setting.config` を含めない（取り込み中・画面の動作ログで、前の版との互換の確かめには要らないため）。
+
+**作り方**（`tools\make_index_golden.ps1`）:
+
+1. `source\` に見本のファイルを手で置く（このスクリプトは触らない）。
+2. `setting.config` のクロール対象フォルダに `source\` を指したフォルダ（利用者名を含まない固定のパス）を登録し、`indexer.ps1` を 1 回動かして固定のパスのワークスペースを作る。
+3. `exportIndex` でそのワークスペースを zip に書き出す。
+4. `tools\make_index_golden.ps1 -WorkspaceDir <ワークスペース> -ExportZip <zip> -SampleDir tests\testdata\compat\index\<見本の名前>` で、`ws\`・`export.zip`・`file_times.tsv` を見本へコピー・作成する。
+5. `expected.json` は手で書く（このスクリプトは作らない）。
+
+**`source\` の `.md` ファイルに相対リンクを書かない。** `tests\meta\links.Tests.ps1` がリポジトリ内の全 Markdown のリンクを確かめるため、見本の中の壊れたリンク（見本どうしを指すリンクなど）があると、関係のない変更でもテストが落ちる。
+
+**見本は足すだけ。** 既にある見本を変える・消すのは、PR タイトルに `!` を付けたときだけできる（CI の `pr-title` が `tools\check_compat_golden.ps1` で確かめる）。`!` の PR で見本を消したときは、どれを・どの PR で・なぜ消したかを [前の版との互換](../../docs/design/index-data/format.md#前の版との互換) の表に 1 行残す。
+
 ## 検索ワードと件数（`設定例\検索ワード.txt`）
 
 | 検索ワード | 件数 | 確認していること |

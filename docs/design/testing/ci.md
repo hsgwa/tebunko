@@ -53,6 +53,7 @@ pull request と main への push のたびに windows ランナーで実行す�
 PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。
 
 - PR（ジョブ `pr-title`）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす
+- `pr-title` は `tools/check_compat_golden.ps1` も呼び、前の版との互換の見本（`tests/testdata/compat/`。[前の版との互換](../index-data/format.md#前の版との互換)）を `!` 無しで変える・消す PR を落とす
 - Issue（ジョブ `issue-title`）… 作成は止められないため、形が違えば `.github/title_comment.md` の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）
 - タイトルは誰でも書ける信頼できない入力のため、式で `run` に埋め込まず環境変数で渡す
 - 起動の速い ubuntu のランナーで `pwsh`（PowerShell 7）を使う。そのため `tools/check_commit_message.ps1` は 5.1 と 7 の両方で動くように書く
