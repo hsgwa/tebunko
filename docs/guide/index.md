@@ -18,7 +18,7 @@ tebunko は、Excel・Word・PowerPoint のファイルを内容の文字列で�
 
 | 種類 | 拡張子 | 検索結果に表示する場所 |
 |---|---|---|
-| Excel | .xlsx / .xlsm / .xls / .xlsb | シート（行・セル） |
+| Excel | .xlsx / .xlsm / .xls / .xlsb | シート（行・セル。.xlsx / .xlsm はヘッダー/フッターも） |
 | Word | .docx / .docm / .doc | ページ（目安）・ヘッダー/フッター・脚注 |
 | PowerPoint | .pptx / .pptm / .ppt | スライド・ノート・フッター |
 | テキスト | .txt / .csv / .md / .py / .java / .html 等、75 種類の拡張子（[対応するテキストの拡張子](limitations.md#対応するテキストの拡張子)） | 行番号 |

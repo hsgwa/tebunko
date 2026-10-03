@@ -76,6 +76,7 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         $idx = "$tsvRoot\営業"
         newTsv "$idx\見積.xlsx\$(toIndexFileName "見積")" @("品名`t数量`t単価", "", "りんご`t10`t100", "ABC`tabc")
         newTsv "$idx\見積.xlsx\$(toIndexFileName "見積[図形]")" @("E2`t承認済み 単価")
+        newTsv "$idx\見積.xlsx\$(toIndexFileName "見積[ヘッダー・フッター]")" @("単価表", "社外秘")
         newTsv "$idx\見積.xlsx\$(toIndexFileName "50%引き")" @("単価は税抜")
         newTsv "$idx\議事録.docx\$(toIndexFileName "ページ001")" @("見積の方針", "単価は据え置き")
         newTsv "$idx\議事録.docx\$(toIndexFileName "ページ001[コメント]")" @("単価の確認")
@@ -94,7 +95,7 @@ Describe "集約ファイルの作成と検索" -Tag Io {
     It "ブックの中の場所の並びは、前の名前の付け方（encodeIndexPlace）で並べたときと同じになる（検索結果の順を変えないため）" {
         $books = getIndexFolderBooks $idx
         $book = $books | Where-Object { $_.Name -eq "見積.xlsx" }
-        $places = @("見積", "見積[図形]", "50%引き")
+        $places = @("見積", "見積[図形]", "見積[ヘッダー・フッター]", "50%引き")
         $keys = @($places | ForEach-Object { "{0}.tsv" -f (encodeIndexPlace $_) })
         [System.Array]::Sort($keys, $places, [System.StringComparer]::CurrentCultureIgnoreCase)
         @($book.Places.Place) -join "|" | Should -Be ($places -join "|")
@@ -160,6 +161,11 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         sortedKeys (searchPackIndex "単価" $packs $true -fileFilter "*.docx").Hits | Should -BeExactly (referenceKeys $tsvRoot "単価" $true $false "*.docx")
     }
 
+    It "Excel のヘッダー・フッターは、図形・コメントを除いた検索でも、場所の名前つきでヒットする" {
+        $hits = (searchPackIndex "社外秘" $packs $true -includeShapes $false -includeComments $false).Hits
+        toKeys $hits | Should -Be @("営業|見積.xlsx|見積[ヘッダー・フッター]|2|社外秘")
+    }
+
     It "フォルダの一部・直下だけ・無いフォルダを列挙できる。元のファイルが無いフォルダは作らない" {
         (getPackFiles $packRoot "営業" $false).Count | Should -Be 2
         (getPackFiles $packRoot "営業\2025" $true).Count | Should -Be 1
@@ -175,7 +181,7 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         [void](searchPackIndex "単価" $packs $true -cache $cache)
         $chars = $cache.Chars[0]
         $changed = @($packs | ForEach-Object { $copy = $_.Clone(); $copy.Ticks = $_.Ticks + 1; $copy })
-        (toKeys (searchPackIndex "単価" $changed $true -cache $cache).Hits).Count | Should -Be 7
+        (toKeys (searchPackIndex "単価" $changed $true -cache $cache).Hits).Count | Should -Be 8
         $cache.Texts.Count | Should -Be 3
         $cache.Chars[0] | Should -Be $chars
         $cache.Texts[$packs[0].Path][0] | Should -Be ($packs[0].Ticks + 1)

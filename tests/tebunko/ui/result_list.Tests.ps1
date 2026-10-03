@@ -177,10 +177,11 @@ Describe "ensureRows" -Tag Unit {
     It "ヒットを表の行にし、場所・種別・見出しを入れる" {
         $group = addHit "見積.xlsx" "4月" "`t見積書" 3
         [void](addHit "見積.xlsx" "4月[図形]" "B2`t見積の注記" 5)
+        [void](addHit "見積.xlsx" "4月[ヘッダー・フッター]" "見積の件" 1)
 
         ensureRows $group
 
-        $group.Rows.Count | Should -Be 2
+        $group.Rows.Count | Should -Be 3
         $row = $group.Rows[0]
         $row.IndexName | Should -Be "営業部"
         $row.PlaceText | Should -Be "[シート]4月"
@@ -190,7 +191,9 @@ Describe "ensureRows" -Tag Unit {
         $row.FileGroup | Should -Be $group
         $group.Rows[1].Kind | Should -Be "図形"
         $group.Rows[1].Order | Should -Be 1
-        $group.ShownRows.Count | Should -Be 2
+        $group.Rows[2].Kind | Should -Be "ヘッダー・フッター"
+        $group.Rows[2].Order | Should -Be 2
+        $group.ShownRows.Count | Should -Be 3
     }
 
     It "相対フォルダが空・無いときは、インデックス名も空にする" {
@@ -702,6 +705,7 @@ Describe "prepareHitRow" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "Excel のセルはセル番地を足す"; book = "見積.xlsx"; location = "4月"; line = "`t見積書"; expected = "[シート]4月!B1" }
         @{ name = "Excel の図形は左上のセル番地を足す"; book = "見積.xlsx"; location = "4月[図形]"; line = "D5`t見積の注記"; expected = "[シート]4月!D5" }
+        @{ name = "Excel のヘッダー・フッターはセル番地が無く、シート名だけ"; book = "見積.xlsx"; location = "4月[ヘッダー・フッター]"; line = "社外秘"; expected = "[シート]4月" }
         @{ name = "Word は場所ごとの表記のまま"; book = "議事録.docx"; location = "ページ003"; line = "見積の件"; expected = "3 ページ（目安）" }
     ) {
         param ($name, $book, $location, $line, $expected)
