@@ -1342,6 +1342,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="テキストファイル">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#対応するテキストの拡張子" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        対応するテキストの拡張子
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4143,6 +4160,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="テキストファイル">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#対応するテキストの拡張子" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        対応するテキストの拡張子
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4231,12 +4265,23 @@
 </ul>
 <p>取り込めなかったファイルは、［1 インデックス管理］の「取り込みに失敗したファイル」に原因とともに表示されます（<a href="../troubleshooting/#取り込みに失敗したファイルがある場合">トラブルシューティング</a>）。</p>
 <h2 id="テキストファイル">テキストファイル<a class="headerlink" href="#テキストファイル" title="Permanent link">&para;</a></h2>
-<p>対象は <code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code>（大文字・小文字を区別しない）です。文字コードは BOM・UTF-8・Shift_JIS・EUC-JP・ISO-2022-JP（JIS）・BOM の無い UTF-16 を自動で判定します。設定で対象の拡張子を増やすことはできません。</p>
+<h3 id="対応するテキストの拡張子">対応するテキストの拡張子<a class="headerlink" href="#対応するテキストの拡張子" title="Permanent link">&para;</a></h3>
+<p>文字コードを適切に選べれば読める、次の 75 個の拡張子が対象です（大文字・小文字を区別しない）。設定で対象の拡張子を増やすことはできません。</p>
 <ul>
-<li><strong>文字コードの判定の限界</strong>: 対象の言語は日本語と英語です（GBK・Big5・EUC-KR は対象外）。判定できないもの・あいまいなものは、化けたまま検索対象にしないよう「文字コードを判定できないテキストファイル」として取り込みません（UTF-32・GBK・Big5・EUC-KR・かなの無い EUC-JP・Shift_JIS の外字（F040〜）を含むもの・バイナリなど）。UTF-8・Shift_JIS・UTF-16 で保存し直すと取り込めます。GBK・Big5・EUC-KR の 20 文字前後までの短い文字列は、半角カナの Shift_JIS と見分けが付かず、化けたまま取り込まれることがあります。Shift_JIS の短い文字列（半角カナの一部など）が、たまたま UTF-8 として正しく読めることがあり、その場合は文字化けします。</li>
+<li><code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code></li>
+<li>ソースコード: <code>.c</code> <code>.h</code> <code>.cpp</code> <code>.cc</code> <code>.cxx</code> <code>.hpp</code> <code>.cs</code> <code>.java</code> <code>.kt</code> <code>.kts</code> <code>.go</code> <code>.rs</code> <code>.swift</code> <code>.scala</code> <code>.dart</code> <code>.vb</code> <code>.bas</code> <code>.pas</code> <code>.asm</code> <code>.m</code> <code>.r</code> <code>.jl</code> <code>.hs</code> <code>.ex</code> <code>.exs</code> <code>.erl</code> <code>.clj</code> <code>.groovy</code> <code>.lua</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.psm1</code> <code>.psd1</code> <code>.jsx</code> <code>.tsx</code> <code>.mjs</code> <code>.vue</code></li>
+<li>設定・マークアップ・その他: <code>.sql</code> <code>.yaml</code> <code>.yml</code> <code>.toml</code> <code>.ini</code> <code>.cfg</code> <code>.conf</code> <code>.properties</code> <code>.gradle</code> <code>.cmake</code> <code>.proto</code> <code>.graphql</code> <code>.tf</code> <code>.html</code> <code>.htm</code> <code>.css</code> <code>.scss</code> <code>.less</code> <code>.rst</code> <code>.tex</code> <code>.diff</code> <code>.patch</code></li>
+<li>開くと実行・登録になるため、［開く］を押すと既定のアプリではなく<strong>メモ帳</strong>で開くもの（<a href="../open-files/">ファイルを開く</a>）: <code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code></li>
+</ul>
+<p><code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code>（実行・登録に使われるファイル）・<code>.ts</code>・<code>.pdf</code> など、上に無い拡張子は対象外です。</p>
+<p>文字コードは BOM・UTF-8・Shift_JIS・EUC-JP・ISO-2022-JP（JIS）・BOM の無い UTF-16 を自動で判定します。</p>
+<ul>
+<li><strong>文字コードの判定の限界</strong>: 対象の言語は日本語と英語です（GBK・Big5・EUC-KR は対象外）。判定できないもの・あいまいなものは、化けたまま検索対象にしないよう「文字コードを判定できないテキストファイル」として取り込みません（UTF-32・GBK・Big5・EUC-KR・かなの無い EUC-JP・Shift_JIS の外字（F040〜）を含むもの・バイナリなど）。UTF-8・Shift_JIS・UTF-16 で保存し直すと取り込めます。GBK・Big5・EUC-KR の 20 文字前後までの短い文字列は、半角カナの Shift_JIS と見分けが付かず、化けたまま取り込まれることがあります。Shift_JIS の短い文字列（半角カナの一部など）が、たまたま UTF-8 として正しく読めることがあり、その場合は文字化けします。UTF-16・BOM 付き UTF-8 と判定したもの以外は、ファイルのどこかに NUL（0x00）が 1 つでもあれば、バイナリとして取り込みません。</li>
+<li><strong>末尾が NUL で埋まった大きいファイル</strong>: アプリの強制終了などでファイルの途中から NUL（0x00）で埋まったまま残った <code>.log</code> などは、先頭 64KB を超えた位置に NUL があっても取り込みません（UTF-16・BOM 付き UTF-8 と判定したものを除く）。以前の版は先頭 64KB だけを見ていたため、NUL の手前までの内容で取り込めていましたが、これからは同じファイルが取り込みに失敗します。</li>
+<li><strong><code>node_modules</code> やビルドの出力を含むフォルダ</strong>: 対象の拡張子が広がったため、これらのフォルダをクロール対象に含めると、取り込む件数・インデックス作成にかかる時間・インデックスの大きさが増えます。</li>
 <li><strong>長い行</strong>: 1 行が 1,000 文字を超えるとき、検索結果の該当行とプレビューの前後の行は 1,000 文字に切って表示します（<code>.json</code> <code>.xml</code> <code>.log</code> などで、1 行に数 MB の内容が入っている場合に、画面の描画が固まるのを防ぐため）。取り込み・検索の一致そのものは行を切らずに行うため、ヒットするかどうかや行番号は変わりません。切った行は、検索結果ファイルへの出力・コピーでも同じように切られます。切った行の中の結果の絞り込み（表の上の「絞り込み」欄）は、切った後の文字列だけを対象にするため、1,000 文字より外にある語では絞り込めません。まれに、切った位置がサロゲートペア（絵文字など、2 文字分で 1 文字を表す並び）の途中に当たり、その 1 文字が欠けて見えることがあります。</li>
 <li><strong>書き込み中のログファイル</strong>: 更新のたびに内容全体を取り込み直します（差分だけを読む仕組みはありません）。頻繁に追記される <code>.log</code> ファイルがあると、インデックス作成のたびに読み込みが発生します。</li>
-<li><strong>行への移動をしない</strong>: テキストファイルを開くと、既定のアプリでファイル全体を開きます（<a href="../open-files/">ファイルを開く</a>）。該当の行へは移動しません。</li>
+<li><strong>行への移動をしない</strong>: テキストファイルを開くと、既定のアプリ（<code>.bat</code> 等は固定のパスのメモ帳）でファイル全体を開きます（<a href="../open-files/">ファイルを開く</a>）。該当の行へは移動しません。</li>
 </ul>
 <h2 id="検索">検索<a class="headerlink" href="#検索" title="Permanent link">&para;</a></h2>
 <ul>

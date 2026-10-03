@@ -1040,10 +1040,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#外部プロセスの起動3-か所" class="md-nav__link">
+  <a href="#外部プロセスの起動4-か所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        外部プロセスの起動（3 か所）
+        外部プロセスの起動（4 か所）
       
     </span>
   </a>
@@ -4115,10 +4115,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#外部プロセスの起動3-か所" class="md-nav__link">
+  <a href="#外部プロセスの起動4-か所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        外部プロセスの起動（3 か所）
+        外部プロセスの起動（4 か所）
       
     </span>
   </a>
@@ -4226,7 +4226,7 @@
 <tr>
 <td>11</td>
 <td>外部プロセスの起動</td>
-<td>3 か所のみ（<a href="#外部プロセスの起動3-か所">外部プロセスの起動（3 か所）</a>）</td>
+<td>4 か所のみ（<a href="#外部プロセスの起動4-か所">外部プロセスの起動（4 か所）</a>）</td>
 <td><code>scan 'Start-Process'</code></td>
 </tr>
 <tr>
@@ -4320,11 +4320,12 @@
 <p>パスワード付きファイルは、開くときに固定文字列 <code>"dummy"</code> をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、<strong>パスワード入力ダイアログを出さずに確実に失敗させる</strong>ための指定である。パスワード付きファイルは取り込まれず、<code>work\ingest_status.tsv</code> に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。</p>
 <p>Excel は、セルの値をテキストに書き出すために、すべてのブックを上の設定で開く。Word・PowerPoint で開くのは、ZIP 形式でない旧形式（<code>.doc</code> / <code>.ppt</code>）などを新形式に変換するときだけである。新形式（<code>.xlsx</code> / <code>.docx</code> / <code>.pptx</code>）の図形・コメント・本文・SmartArt・グラフの文字は、Office を使わずに ZIP の中の XML を直接読む（<code>shared/office/office_reader.ps1</code>）。いずれも作業フォルダのコピーを読む（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。</p>
 <h2 id="取り込み対象の拡張子">取り込み対象の拡張子<a class="headerlink" href="#取り込み対象の拡張子" title="Permanent link">&para;</a></h2>
-<p>Office に加えてテキストファイルも取り込むが、対象の拡張子は <code>shared/office/office_files.ps1</code> の <code>$officeExtensions</code>（10 個）と <code>shared/core/text_file.ps1</code> の <code>$textExtensions</code>（<code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code> の 7 個）を合わせた、<strong>固定の 17 個の一覧</strong>である（<a href="../../design/indexing/text/">テキストファイルの読み取り</a>）。設定ファイルで拡張子を足す仕組みは無い。</p>
-<p>危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する <code>.bat</code> <code>.js</code> <code>.vbs</code> <code>.ps1</code> <code>.hta</code> 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため <code>tests/meta/safety.Tests.ps1</code> は「対象の拡張子が固定であること」として、<code>$textExtensions</code> がちょうど 7 個であること、<code>$officeExtensions</code> と <code>$textExtensions</code> を合わせた一覧がこの 17 個ちょうどであることを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。</p>
+<p>Office に加えてテキストファイルも取り込むが、対象の拡張子は <code>shared/office/office_files.ps1</code> の <code>$officeExtensions</code>（10 個）と <code>shared/core/text_file.ps1</code> の <code>$textExtensions</code>（75 個。既定のアプリで開く <code>$textOpenExtensions</code> 68 個 + メモ帳で開く <code>$textNotepadExtensions</code> 7 個）を合わせた、<strong>固定の 85 個の一覧</strong>である（<a href="../../design/indexing/text/">テキストファイルの読み取り</a>）。設定ファイルで拡張子を足す仕組みは無い。</p>
+<p>危険な種類のファイル（実行される・既定のアプリがスクリプトを実行する <code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code> 等）を、実行される種類を並べて弾く形にすると、一覧から漏れて対象に紛れ込む恐れがある。そのため <code>tests/meta/safety.Tests.ps1</code> は「対象の拡張子が固定であること」として、<code>$textExtensions</code> がちょうど 75 個（内 <code>$textNotepadExtensions</code> が 7 個）であること、<code>$officeExtensions</code> と <code>$textExtensions</code> を合わせた一覧がこの 85 個ちょうどであること、上に挙げた危険な種類の拡張子がどちらの一覧にも含まれないことを確かめる。対象の拡張子を足す変更は必ずこのテストを落とし、この一覧の見直しを促す。</p>
+<p><code>$textNotepadExtensions</code>（<code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code>）は、既定のアプリで開くと実行・登録になるため取り込みの対象ではあるが、検索結果から開くときは既定のアプリではなくメモ帳で開く（下の「外部プロセスの起動」）。</p>
 <p><code>.xml</code> は、既定のアプリ（Windows の「XML エディター」）が先頭の <code>&lt;?mso-application progid=…?&gt;</code> を見て Excel・Word で開くことがあるが、マクロは既定で無効（上の「Office ファイルを開くときの設定」）であるため、開くこと自体の害は小さい。</p>
-<h2 id="外部プロセスの起動3-か所">外部プロセスの起動（3 か所）<a class="headerlink" href="#外部プロセスの起動3-か所" title="Permanent link">&para;</a></h2>
-<p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe だけ」が確かめる。</p>
+<h2 id="外部プロセスの起動4-か所">外部プロセスの起動（4 か所）<a class="headerlink" href="#外部プロセスの起動4-か所" title="Permanent link">&para;</a></h2>
+<p><code>tests/meta/safety.Tests.ps1</code> の「外部プロセスの起動は explorer.exe・notepad.exe だけ」が確かめる。</p>
 <table>
 <thead>
 <tr>
@@ -4335,14 +4336,19 @@
 </thead>
 <tbody>
 <tr>
-<td><code>tebunko/ui/index_tab.ps1:618</code>・<code>623</code>、<code>tebunko/ui/open_source.ps1:311</code></td>
+<td><code>tebunko/ui/index_tab.ps1:688</code>・<code>698</code>、<code>tebunko/ui/open_source.ps1:460</code></td>
 <td><code>explorer.exe</code></td>
 <td>一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ）</td>
+</tr>
+<tr>
+<td><code>tebunko/ui/open_source.ps1:250</code>（<code>openWithNotepad</code>）</td>
+<td><code>notepad.exe</code>（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）</td>
+<td>検索結果から、既定のアプリで開くと実行・登録になる拡張子（<code>$textNotepadExtensions</code>）のテキストファイルを開く（利用者の操作時のみ）</td>
 </tr>
 </tbody>
 </table>
 <p>インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために <code>powershell.exe</code> を起動することはない（<a href="../../design/structure/threads/#プロセス">プロセス</a>）。</p>
-<p>元のファイルを開く操作（<code>tebunko/ui/open_source.ps1:125</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。</p>
+<p>元のファイルを既定のアプリで開く操作（<code>tebunko/ui/open_source.ps1</code> の <code>openWithShell</code>）では、<code>Start-Process</code> ではなく <code>ProcessStartInfo</code> を使う（<code>Start-Process</code> は <code>[</code> <code>]</code> を含むパスをワイルドカードとして解釈するため）。起動対象は、利用者が選んだ行のファイルと、それに関連付けられたアプリケーションである。<code>ProcessStartInfo</code>・<code>[System.Diagnostics.Process]::Start</code> を使うのはこの 1 か所だけであることを <code>tests/meta/safety.Tests.ps1</code> が確かめる。</p>
 <p><code>tebunko.bat</code> は、上の 3 か所とは別に、<strong>起動そのものに失敗したとき（画面が開く前）だけ</strong> <code>notepad.exe</code> を開く（<a href="../disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）。制限言語モード・実行ポリシーでスクリプトの読み込みが止まる場面では WPF・WinForms のメッセージボックスを出せないため、失敗の理由と記録のファイルの名前をメモ帳で示す。<code>tests/meta/safety.Tests.ps1</code> の「tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ」が、<code>tebunko.bat</code> が起動する外部のプログラムをこの 3 つに限る。</p>
 
 
