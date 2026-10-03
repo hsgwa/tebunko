@@ -4158,10 +4158,10 @@
 <h1 id="入れ替えと書き出し">入れ替えと書き出し<a class="headerlink" href="#入れ替えと書き出し" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 取り込んだ TSV をインデックスの一時的な置き場所へ入れ替える手順、フォルダ単位で本文インデックスへ書き出す手順、260 文字を超える長いパスの扱い。扱わないこと: インデックスのファイルの形そのもの（<a href="../format/">インデックスのファイルの形</a>）。先に読むページ: <a href="../format/">インデックスのファイルの形</a>、<a href="../../indexing/ingest-list/">取り込み一覧</a>。</p>
 <h2 id="インデックスへの入れ替えpublishtsv--publishindexfiles">インデックスへの入れ替え（<code>publishTsv</code> / <code>publishIndexFiles</code>）<a class="headerlink" href="#インデックスへの入れ替えpublishtsv--publishindexfiles" title="Permanent link">&para;</a></h2>
-<p>1 ファイルの抽出が終わったら、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん <code>work/publish/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/content_index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。本文インデックスへは、そのフォルダの取り込みが終わってから入れる（下の「本文インデックスへの書き出し」）。</p>
+<p>1 ファイルの抽出が終わったら、作業領域（既定は <code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）にできた TSV をインデックスの一時的な置き場所（元のファイル名のフォルダ）へ入れる。このとき、TSV をいったん <code>work/publish/&lt;PID&gt;/&lt;元のファイル名&gt;</code> に集め、<strong>集め終わってから</strong>古い <code>work/content_index/…/&lt;元のファイル名&gt;</code> を削除してフォルダごと入れ替える。本文インデックスへは、そのフォルダの取り込みが終わってから入れる（下の「本文インデックスへの書き出し」）。</p>
 <pre class="mermaid"><code>sequenceDiagram
     participant EX as 抽出（1 ファイル）
-    participant TMP as %TEMP%\tebunko\&lt;PID&gt;
+    participant TMP as 作業領域（work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;）
     participant OUT as work/publish/&lt;PID&gt;/&lt;元のファイル名&gt;
     participant IDX as work/content_index/…/&lt;元のファイル名&gt;
 
@@ -4171,7 +4171,7 @@
     OUT-&gt;&gt;IDX: 古いフォルダを削除してから Directory.Move</code></pre>
 <ul>
 <li>1 件ずつインデックスへ移すと、途中で強制終了されたときに<strong>一部のシートだけが入ったインデックス</strong>が残り、検索しても欠けていることに気付けない。まとめて入れ替えれば、「前回のインデックスがそのまま」か「今回の分がそろった状態」のどちらかになる。</li>
-<li>フォルダごと移す（<code>Directory.Move</code>）には同じドライブである必要があるため、集める場所は <code>work</code> の中に置く（作業領域は <code>%TEMP%</code>）。別のドライブで移せない場合は、1 件ずつ移す方法に切り替える。</li>
+<li>フォルダごと移す（<code>Directory.Move</code>）には同じドライブである必要があるため、集める場所は作業領域とは別に <code>work</code> の中に置く。別のドライブで移せない場合は、1 件ずつ移す方法に切り替える。</li>
 <li>削除は、ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す（<code>removeDirectoryRetry</code>）。</li>
 </ul>
 <h2 id="本文インデックスへの書き出しpublishindexfolders">本文インデックスへの書き出し（<code>publishIndexFolders</code>）<a class="headerlink" href="#本文インデックスへの書き出しpublishindexfolders" title="Permanent link">&para;</a></h2>

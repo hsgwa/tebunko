@@ -4381,6 +4381,16 @@
 <td>Officeが保存した一時ファイル（変換した <code>.docx</code>・<code>.pptx</code>、<a href="../excel/">Excel</a> のテキスト保存）まで透過暗号化の製品が暗号化した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
 <td>同上</td>
 </tr>
+<tr>
+<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td>ワークスペースのパス（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に <code>[</code> <code>]</code> が含まれ、Excel が保存できない（<code>selectTmpDir</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）</td>
+<td>ワークスペースのフォルダ名・その親フォルダ名から <code>[</code> <code>]</code> を外す</td>
+</tr>
+<tr>
+<td><code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td>ワークスペースのパスが長く、Office が開けない（<code>selectTmpDir</code>）</td>
+<td>ワークスペースをより浅い場所に移す</td>
+</tr>
 </tbody>
 </table>
 <p><strong>(2) 例外から <code>describeIngestError</code> が言い換えるもの</strong>（判定条件は <a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）</p>
@@ -4530,7 +4540,11 @@
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>
-<td>終了時に <code>%TEMP%\tebunko\&lt;PID&gt;</code> または <code>work/publish/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+<td>終了時に作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）または <code>work/publish/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+</tr>
+<tr>
+<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code> / <code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code></td>
+<td>インデックス作成の始め（<code>initTmpDir</code>）に、作業フォルダ（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）を置けないと分かった（<code>selectTmpDir</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めこの回のファイルをすべてスキップし、ファイルごとに上の (1) のメッセージで失敗にする</td>
 </tr>
 <tr>
 <td><code>画面からの返事が 60 分ありませんでした。インデックス作成を取りやめます。</code></td>

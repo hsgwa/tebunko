@@ -4084,12 +4084,12 @@
 <td>1 ファイル分の TSV（<code>&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>）。集め終わったら <code>work/content_index</code> の中へフォルダごと移す（<code>publishIndexFiles</code>）</td>
 </tr>
 <tr>
-<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code>（ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは作らない。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みをスキップする）</td>
 <td>作業領域</td>
 <td>インデックス作成</td>
 <td>インデックス作成</td>
 <td>–</td>
-<td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。元のファイルを占有しないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code></td>
+<td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。元のファイルを占有しないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code>（<a href="../data/">データの置き場所とパスの決め方</a>「自動生成（<code>work/</code>）」）</td>
 </tr>
 <tr>
 <td><code>work/indexing_log.txt</code></td>
