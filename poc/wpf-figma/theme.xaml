@@ -18,7 +18,7 @@
   <SolidColorBrush x:Key="Ink.6B737D" Color="#6B737D" />
   <SolidColorBrush x:Key="Accent.0078D4" Color="#0078D4" />
   <SolidColorBrush x:Key="Bg.FFFFFF" Color="#FFFFFF" />
-  <SolidColorBrush x:Key="Bg.F9FAFA" Color="#F9FAFA" />
+  <SolidColorBrush x:Key="Bg.F0F2F4" Color="#F0F2F4" />
   <SolidColorBrush x:Key="Bg.F3F3F4" Color="#F3F3F4" />
   <SolidColorBrush x:Key="Bg.F0F0F0" Color="#F0F0F0" />
   <SolidColorBrush x:Key="Bg.EDF0F2" Color="#EDF0F2" />
