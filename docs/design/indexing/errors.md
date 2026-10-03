@@ -52,7 +52,7 @@ flowchart LR
 | `Word文書の本文（word/document.xml）がありません。` | `.docx` 等の ZIP の中に本文が無い（壊れている） | 同上 |
 | `PowerPointのプレゼンテーション情報（ppt/presentation.xml）がありません。` | `.pptx` 等の ZIP の中にプレゼンテーション情報が無い（壊れている） | 同上 |
 | `インデックスのファイル名が長すぎるため保存できません（<N> 文字。上限 255 文字）: <ファイル名>` | インデックスのファイル名 `<場所>.tsv`（場所は符号化する）が 255 文字を超える（`toIndexFileName`） | シート名・スライド名を短くする |
-| `ファイルサイズが大きすぎるため取り込めません。` | テキストファイル（`.txt` 等）が大きさの上限（10MB）を超える（`readTextFile`。[テキストファイルの読み取り](text.md#大きさの上限)） | ファイルを分割する。取り込めなくてよいなら、そのままにする |
+| `ファイルサイズが大きすぎるため取り込めません。` | テキストファイル（`.txt` 等）が大きさの上限（10MB）を超える（`readTextFile`。[テキストファイルの読み取り](text.md#大きさの上限)）。または `.docx` `.pptx` `.xlsx` を直接読むとき（Office を使わない）、ZIP の部品 1 つ（展開後）が上限（100MB）、または 1 ファイルで読む合計が上限（300MB）を超える（`readZipEntry`。[Office ファイルを開くときの設定](../../safety/checks.md#office-ファイルを開くときの設定)） | ファイルを分割する。取り込めなくてよいなら、そのままにする |
 | `テキストファイルではないため取り込めません。` | テキストの拡張子だが、文字コードを判定できない（バイナリ・UTF-32・GBK など、判定できないもの・あいまいなもの）（`detectTextEncoding`。[テキストファイルの読み取り](text.md#文字コードの判定detecttextencoding)） | 拡張子を確かめる。正しいテキストファイルなら、文字コードを UTF-8・Shift_JIS・UTF-16 のどれかで保存し直す |
 | `読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）` | ◎ パスワード付きの `.xlsx` `.docx` `.doc` `.pptx` `.ppt`。新形式（`.docx` `.pptx`）は Word・PowerPoint を起動せずに判定して記録する（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）。Excel はパスワード付きでも Office に開かせ、下の (2) の言い換えで同じ文言になる | 取り込めない。パスワードを外したコピーを置けば取り込める |
 | `IRM・秘密度ラベルで暗号化されているため取り込めません。` | IRM・秘密度ラベルの暗号化（[[MS-OFFCRYPTO]](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/) の IRMDS）を検出し、Officeを起動せずに判定した（[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)。ライセンス取得・サインイン画面が見えないまま出て止まりうるため開かない） | 取り込めない。保護を外したコピーを置けば取り込める |

@@ -904,6 +904,46 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         Should -Invoke stopApp -Times 1 -Exactly -Scope It
     }
+
+    It "本文（word/document.xml）が部品のサイズの上限を超えた .docx は、Office を使わず簡潔なメッセージで失敗にする" {
+        ${tmpDir} = Join-Path $TestDrive "big_for_indexer_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 10
+        try {
+            $path = Join-Path $TestDrive "big_for_indexer.docx"
+            $stream = [System.IO.File]::Create($path)
+            $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+            $writer = New-Object System.IO.StreamWriter($zip.CreateEntry("word/document.xml").Open(), (New-Object System.Text.UTF8Encoding($false)))
+            $writer.Write('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + ("あ" * 20) + "</w:body></w:document>")
+            $writer.Dispose()
+            $zip.Dispose()
+            $stream.Dispose()
+
+            Mock getApp { throw "Office は使わない" }
+            $result = invokeIngestTask @{ RelPath = "資料\big_for_indexer.docx"; SourcePath = $path } 10
+            $result.Ok | Should -Be $false
+            $result.Reroute | Should -Be $false
+            $result.Message | Should -Be "ファイルサイズが大きすぎるため取り込めません。"
+            Should -Invoke getApp -Times 0 -Exactly -Scope It
+            # 画面・取り込み一覧には出さない部品名・大きさ・部品ごとか合計かは、インデックス作成のログにだけ書く（2026-09-27 メンテナの回答）
+            $result.Log | Should -Match "word/document\.xml"
+            $result.Log | Should -Match "部品ごと"
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
+    It "ふつうの失敗（ZipSizeLimitException ではない例外）では、サイズの上限の詳細をログに書かず、今までどおりの表示にする" {
+        ${tmpDir} = Join-Path $TestDrive "ordinary_fail_log_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        Mock ingestFile { throw "ふつうの失敗です。" }
+        Mock stopApp { }
+        $result = invokeIngestTask @{ RelPath = "資料\ふつう2.docx"; SourcePath = "C:\data\ふつう2.docx" } 10
+        $result.Ok | Should -Be $false
+        $result.Message | Should -Be "ふつうの失敗です。"
+        $result.Log | Should -Not -Match "サイズの上限"
+    }
 }
 
 Describe "getIngestLaneCapacity" -Tag Unit {

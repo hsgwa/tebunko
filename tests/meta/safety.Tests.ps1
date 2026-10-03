@@ -182,6 +182,69 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
     }
 }
 
+Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること（docs/safety/checks.md「Office ファイルを開くときの設定」）" -Tag Meta {
+    It "XmlDocument への読み込みは newXmlDocument 関数だけで行う（LoadXml を直接呼ばない）" {
+        (findPattern $code '\.LoadXml\(') | Should -Be ""
+    }
+
+    It "XmlDocument は newXmlDocument 経由でだけ作る（New-Object System.Xml.XmlDocument は office_reader.ps1 の中だけ）" {
+        $news = @($code | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlDocument' })
+        (@($news | Where-Object { $_.File -ne "office_reader.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    }
+
+    It "[xml] への型変換で XML を読み込まない（DTD 無効化を回避できてしまうため）" {
+        (findPattern $code '\[xml\]') | Should -Be ""
+    }
+
+    It "XmlReaderSettings を作るところは、すべて DTD の処理を禁止する（DtdProcessing = Prohibit）" {
+        $settingsFiles = @($code | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlReaderSettings' } | ForEach-Object { $_.File } | Sort-Object -Unique)
+        foreach ($file in $settingsFiles) {
+            $fileLines = @($code | Where-Object { $_.File -eq $file })
+            (findPattern $fileLines 'DtdProcessing\s*=\s*\[System\.Xml\.DtdProcessing\]::Prohibit') | Should -Not -Be ""
+        }
+        ($settingsFiles.Count -gt 0) | Should -Be $true
+    }
+
+    It "ZIP の部品・1ファイルの合計のサイズに上限があり、読むのは readZipEntry だけ" {
+        (findPattern $code 'zipPartMaxBytes') | Should -Not -Be ""
+        (findPattern $code 'zipTotalMaxBytes') | Should -Not -Be ""
+        $reads = @($code | Where-Object { $_.Text -match 'function readZipEntry' } | ForEach-Object { $_.File } | Sort-Object -Unique)
+        ($reads -join ", ") | Should -Be "office_reader.ps1"
+    }
+
+    It "ZIP の部品の中身を実際に読む（entry.Open()・ReadToEnd）のは readZipEntry 関数の中だけ" {
+        # 上限の判定（zipPartMaxBytes・zipTotalMaxBytes）を迂回して、office_reader.ps1 のほかの関数が
+        # 直接 ZIP の中身を読んでしまわないことを、関数の行範囲で確かめる
+        $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
+        $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        $start = ($funcStarts | Where-Object { $_.Text -match 'function\s+readZipEntry\b' }).Line
+        $start | Should -Not -BeNullOrEmpty
+        $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+        if (-not $end) { $end = [int]::MaxValue }
+
+        $targets = @($officeReaderLines | Where-Object { $_.Text -match '\.Open\(\)|ReadToEnd\(\)' })
+        $outside = @($targets | Where-Object { $_.Line -lt $start -or $_.Line -ge $end })
+        (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        ($targets.Count -gt 0) | Should -Be $true  # 検査の取りこぼし（対象0件で通る）を防ぐ
+    }
+
+    It "XmlDocument を作る（New-Object System.Xml.XmlDocument）のは newXmlDocument 関数の中だけ" {
+        # ファイル単位の確かめ（上の「newXmlDocument 経由でだけ作る」）に加え、office_reader.ps1 の
+        # ほかの関数が newXmlDocument を経由せずに直接 XmlDocument を作っていないことを、関数の行範囲で確かめる
+        $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
+        $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
+        $start = ($funcStarts | Where-Object { $_.Text -match 'function\s+newXmlDocument\b' }).Line
+        $start | Should -Not -BeNullOrEmpty
+        $end = ($funcStarts | Where-Object { $_.Line -gt $start } | Sort-Object Line | Select-Object -First 1).Line
+        if (-not $end) { $end = [int]::MaxValue }
+
+        $targets = @($officeReaderLines | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlDocument' })
+        $outside = @($targets | Where-Object { $_.Line -lt $start -or $_.Line -ge $end })
+        (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        ($targets.Count -gt 0) | Should -Be $true
+    }
+}
+
 Describe "取り込み対象のファイルを書き換えないこと（docs/safety/file-access.md「取り込み対象のファイルは書き換えない」）" -Tag Meta {
     It "元のファイルのパスを書き込み・削除の API に渡さない" {
         # 書き込み・削除の呼び出し行に、取り込み対象（原本）を指す変数が現れないこと。

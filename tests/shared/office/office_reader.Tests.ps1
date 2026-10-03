@@ -727,3 +727,315 @@ Describe "getCellPosition" -Tag Unit {
         (getCellPosition "A1:B2") -join "," | Should -Be "0,0"
     }
 }
+
+Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッダー）" -Tag Io {
+    BeforeAll {
+        function newRawZip {
+            # 1つの部品にバイト列をそのまま書き込むZIPを作る（無圧縮）。$fakeSize を渡すと、
+            # 中央ディレクトリの「展開後の大きさ」フィールドだけを書き換え、偽りのヘッダー（実際より小さい申告）を作る
+            param (
+                [string]$path,
+                [string]$entryName,
+                [byte[]]$bytes,
+                $fakeSize = $null
+            )
+
+            $stream = [System.IO.File]::Create($path)
+            $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+            $entry = $zip.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::NoCompression)
+            $entryStream = $entry.Open()
+            $entryStream.Write($bytes, 0, $bytes.Length)
+            $entryStream.Dispose()
+            $zip.Dispose()
+            $stream.Dispose()
+
+            if ($null -ne $fakeSize) {
+                $raw = [System.IO.File]::ReadAllBytes($path)
+                $nameBytes = [System.Text.Encoding]::UTF8.GetBytes($entryName)
+                for ($i = 0; $i -le $raw.Length - 46; $i++) {
+                    if ($raw[$i] -eq 0x50 -and $raw[$i + 1] -eq 0x4b -and $raw[$i + 2] -eq 0x01 -and $raw[$i + 3] -eq 0x02) {
+                        $nameLen = [BitConverter]::ToUInt16($raw, $i + 28)
+                        if ($nameLen -eq $nameBytes.Length) {
+                            $match = $true
+                            for ($j = 0; $j -lt $nameLen; $j++) {
+                                if ($raw[$i + 46 + $j] -ne $nameBytes[$j]) { $match = $false; break }
+                            }
+                            if ($match) {
+                                [Array]::Copy([BitConverter]::GetBytes([uint32]$fakeSize), 0, $raw, $i + 24, 4)
+                                break
+                            }
+                        }
+                    }
+                }
+                [System.IO.File]::WriteAllBytes($path, $raw)
+            }
+        }
+    }
+
+    BeforeEach {
+        # 1ファイル分の合計を数える $script:zipTotalReadBytes は、readDocxUnits 等ではなくここでは
+        # readZipEntry を直接呼ぶため、テストごとに 0 から数え直す
+        $script:zipTotalReadBytes = 0
+    }
+
+    It "部品1つの展開後の大きさ（entry.Length）が上限を超えたら、大きすぎるという例外にする" {
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 5
+        try {
+            $path = "$TestDrive\part_over.zip"
+            newRawZip $path "a.xml" ([System.Text.Encoding]::UTF8.GetBytes("123456"))
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            } finally {
+                $zip.Dispose()
+            }
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
+    It "1ファイルの中で読む合計（複数の部品の展開後の大きさの和）が上限を超えたら例外にする" {
+        $orig = $script:zipTotalMaxBytes
+        $script:zipTotalMaxBytes = 8
+        try {
+            $path = "$TestDrive\total_over.zip"
+            newZip $path @{ "a.xml" = "12345"; "b.xml" = "12345" }  # 1つ5バイト、合計10バイト
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                readZipEntry $zip "a.xml" | Out-Null  # 5バイト。まだ上限(8)以下
+                { readZipEntry $zip "b.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"  # 合計10 > 8
+            } finally {
+                $zip.Dispose()
+            }
+        } finally {
+            $script:zipTotalMaxBytes = $orig
+        }
+    }
+
+    It "ヘッダーに書かれた大きさより実際の中身が大きい（偽りのヘッダー）ときは例外にする" {
+        $path = "$TestDrive\fake_header.zip"
+        newRawZip $path "a.xml" ([System.Text.Encoding]::UTF8.GetBytes("0123456789")) -fakeSize 3  # 実際は10バイトだが3バイトと偽る
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "<name>: 多バイト文字の途中に境界が来ても、文字単位ではなくバイト単位で偽りのヘッダーと見分ける" -TestCases @(
+        @{ name = "1バイト文字（ASCII）" ; char = "9" }
+        @{ name = "3バイト文字" ; char = "あ" }
+        @{ name = "4バイト文字（サロゲートペア）" ; char = "😀" }
+    ) {
+        param ($name, $char)
+        $prefix = [System.Text.Encoding]::UTF8.GetBytes("0123456789")
+        $charBytes = [System.Text.Encoding]::UTF8.GetBytes($char)
+        $bytes = $prefix + $charBytes
+        $path = "$TestDrive\fake_header_$([guid]::NewGuid()).zip"
+        # 実際の大きさより1バイト少なく申告する（多バイト文字の途中で境界が来ても見つけられることを確かめる。
+        # 文字単位で数えていると、最後の文字が丸ごと余分と判定され、この1バイト差の偽りを見逃すおそれがある）
+        newRawZip $path "a.xml" $bytes -fakeSize ($bytes.Length - 1)
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "<name>（宣言どおりの大きさ）は今までどおり読める（回帰）" -TestCases @(
+        @{ name = "BOM付きUTF-8"; bytes = [byte[]](0xEF, 0xBB, 0xBF) + [System.Text.Encoding]::UTF8.GetBytes("あ") }
+        @{ name = "UTF-16 LE（BOM付き）"; bytes = [System.Text.Encoding]::Unicode.GetPreamble() + [System.Text.Encoding]::Unicode.GetBytes("あ") }
+        @{ name = "UTF-16 BE（BOM付き）"; bytes = [System.Text.Encoding]::BigEndianUnicode.GetPreamble() + [System.Text.Encoding]::BigEndianUnicode.GetBytes("あ") }
+        @{ name = "BOM無し（UTF-8として読む）"; bytes = [System.Text.Encoding]::UTF8.GetBytes("あ") }
+    ) {
+        param ($name, $bytes)
+        $path = "$TestDrive\bom_$([guid]::NewGuid()).zip"
+        newRawZip $path "a.xml" $bytes
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            readZipEntry $zip "a.xml" | Should -Be "あ"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+}
+
+Describe "newXmlDocument" -Tag Unit {
+    It "名前空間付きのXMLを、今までどおりXmlDocumentとして読める" {
+        $doc = newXmlDocument '<a:x xmlns:a="urn:test"><a:y>value</a:y></a:x>'
+        $doc | Should -BeOfType ([System.Xml.XmlDocument])
+        $doc.DocumentElement.LocalName | Should -Be "x"
+        $doc.DocumentElement.FirstChild.InnerText | Should -Be "value"
+    }
+
+    It "制御文字（&#x1;）を含む文字も、空白を挟んでも今までどおり読める（回帰。文字の検査はしない）" {
+        $doc = newXmlDocument "<a>x&#x1; y</a>"
+        $doc.DocumentElement.InnerText | Should -Be "x$([char]1) y"
+    }
+
+    It "DTD宣言（DOCTYPE）を含むXMLは例外にする（実体参照を入れ子にして膨張させる攻撃を防ぐ）" {
+        { newXmlDocument '<?xml version="1.0"?><!DOCTYPE a [<!ENTITY x "y">]><a>&x;</a>' } | Should -Throw
+    }
+
+    It "readXmlLines も、今までどおりDTDを拒否する（LoadXml経由だけでなく両方の読み込みで防ぐ）" {
+        { readXmlLines '<?xml version="1.0"?><!DOCTYPE a [<!ENTITY x "y">]><a>&x;</a>' $wNs } | Should -Throw
+    }
+}
+
+Describe "readDocxUnits・readPptxUnits・readXlsxObjectUnits（部品がサイズの上限を超えたZIP）" -Tag Io {
+    BeforeAll {
+        function newRawZipMultiFakeSize {
+            # 複数の部品に実際のバイト列を書き込みつつ、各部品の中央ディレクトリの「展開後の大きさ」フィールドだけを
+            # entries[名前].fakeSize に書き換える（実際の中身は小さいまま、申告だけ膨らませる）
+            param (
+                [string]$path,
+                [hashtable]$entries  # 名前 -> @{ bytes = [byte[]]; fakeSize = [uint32] }
+            )
+
+            $stream = [System.IO.File]::Create($path)
+            $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
+            foreach ($name in $entries.Keys) {
+                $entry = $zip.CreateEntry($name, [System.IO.Compression.CompressionLevel]::NoCompression)
+                $entryStream = $entry.Open()
+                $bytes = $entries[$name].bytes
+                $entryStream.Write($bytes, 0, $bytes.Length)
+                $entryStream.Dispose()
+            }
+            $zip.Dispose()
+            $stream.Dispose()
+
+            $raw = [System.IO.File]::ReadAllBytes($path)
+            foreach ($name in $entries.Keys) {
+                $fakeSize = [uint32]$entries[$name].fakeSize
+                $nameBytes = [System.Text.Encoding]::UTF8.GetBytes($name)
+                for ($i = 0; $i -le $raw.Length - 46; $i++) {
+                    if ($raw[$i] -eq 0x50 -and $raw[$i + 1] -eq 0x4b -and $raw[$i + 2] -eq 0x01 -and $raw[$i + 3] -eq 0x02) {
+                        $nameLen = [BitConverter]::ToUInt16($raw, $i + 28)
+                        if ($nameLen -eq $nameBytes.Length) {
+                            $match = $true
+                            for ($j = 0; $j -lt $nameLen; $j++) {
+                                if ($raw[$i + 46 + $j] -ne $nameBytes[$j]) { $match = $false; break }
+                            }
+                            if ($match) {
+                                [Array]::Copy([BitConverter]::GetBytes($fakeSize), 0, $raw, $i + 24, 4)
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+            [System.IO.File]::WriteAllBytes($path, $raw)
+        }
+    }
+
+    It "readDocxUnits: 本文（word/document.xml）が部品の上限を超えたら、大きすぎるという例外にする" {
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 10
+        try {
+            $path = "$TestDrive\big.docx"
+            newZip $path @{ "word/document.xml" = "<w:document ${wNs}><w:body>$('あ' * 20)</w:body></w:document>" }
+            { readDocxUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
+    It "readPptxUnits: プレゼンテーション情報（ppt/presentation.xml）が部品の上限を超えたら例外にする" {
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 10
+        try {
+            $path = "$TestDrive\big.pptx"
+            newZip $path @{ "ppt/presentation.xml" = "<p:presentation ${pNs}><p:sldIdLst>$('<!-- big -->' * 5)</p:sldIdLst></p:presentation>" }
+            { readPptxUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
+    It "readXlsxObjectUnits: 図形（drawingN.xml）が部品の上限を超えたら例外にする（Excelのセルの取り込みは、呼び出し元のextract_office.ps1が別に続ける）" {
+        # drawing1.xml だけが上限を超えるように、ほかの部品（workbook.xml 等）の大きさから上限を決める
+        # （上限を固定の小さい値にすると、drawing1.xml の前に読む workbook.xml 等が先に超えてしまい、
+        # 「図形が超えた」ことを確かめられない）
+        $workbookXml = "<workbook ${xNs}><sheets><sheet name=`"S`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+        $workbookRelsXml = "<Relationships ${relNs}><Relationship Id=`"rId1`" Type=`"${officeRel}/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+        $sheetXml = "<worksheet ${xNs}/>"
+        $sheetRelsXml = "<Relationships ${relNs}><Relationship Id=`"rId1`" Type=`"${officeRel}/drawing`" Target=`"../drawings/drawing1.xml`"/></Relationships>"
+        $drawingXml = "<xdr:wsDr ${xdrNs}>$('<!-- big -->' * 50)</xdr:wsDr>"
+
+        $otherParts = @($workbookXml, $workbookRelsXml, $sheetXml, $sheetRelsXml)
+        $maxOtherBytes = ($otherParts | ForEach-Object { [System.Text.Encoding]::UTF8.GetByteCount($_) } | Measure-Object -Maximum).Maximum
+        $drawingBytes = [System.Text.Encoding]::UTF8.GetByteCount($drawingXml)
+        $drawingBytes | Should -BeGreaterThan $maxOtherBytes  # テストの前提（drawing1.xml がほかの部品より大きい）
+
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = $maxOtherBytes + 1
+        try {
+            $path = "$TestDrive\big.xlsx"
+            newZip $path @{
+                "xl/workbook.xml" = $workbookXml
+                "xl/_rels/workbook.xml.rels" = $workbookRelsXml
+                "xl/worksheets/sheet1.xml" = $sheetXml
+                "xl/worksheets/_rels/sheet1.xml.rels" = $sheetRelsXml
+                "xl/drawings/drawing1.xml" = $drawingXml
+            }
+            { readXlsxObjectUnits $path } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+        } finally {
+            $script:zipPartMaxBytes = $orig
+        }
+    }
+
+    It "部品ごとは上限以下でも、申告した大きさ（展開後の大きさ）の合計が上限を超えたら例外にする（実際の中身は小さいまま）" {
+        $origPart = $script:zipPartMaxBytes
+        $origTotal = $script:zipTotalMaxBytes
+        $script:zipPartMaxBytes = 10
+        $script:zipTotalMaxBytes = 15
+        $script:zipTotalReadBytes = 0
+        try {
+            $path = "$TestDrive\inflated_total.zip"
+            # 部品ごとの中身は1バイトで小さいが、申告する大きさ（8バイト）は part の上限(10)以下。
+            # 2部品分の申告の合計(16)が total の上限(15)を超える（ZIP爆弾のように、申告だけ大きく中身は小さい部品が
+            # 複数集まっても、合計の上限で止めることを確かめる）
+            newRawZipMultiFakeSize $path @{
+                "a.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("1"); fakeSize = 8 }
+                "b.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("2"); fakeSize = 8 }
+            }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                readZipEntry $zip "a.xml" | Out-Null  # 申告8バイト。まだ上限(15)以下
+                { readZipEntry $zip "b.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"  # 申告の合計16 > 15
+            } finally {
+                $zip.Dispose()
+            }
+        } finally {
+            $script:zipPartMaxBytes = $origPart
+            $script:zipTotalMaxBytes = $origTotal
+        }
+    }
+
+    It "合計の上限を超えて失敗した後も、別のファイルを読むときは合計のカウントが1ファイルごとに0から数え直される" {
+        $orig = $script:zipTotalMaxBytes
+        try {
+            # 1つ目: 上限を1バイトにして、必ず合計の上限超過で失敗させる（$script:zipTotalReadBytes がリセットされず
+            # 残ったままだと、2つ目のファイルの判定に混ざってしまうことを確かめるため、残り値をわざと作る）
+            $firstXml = "<w:document ${wNs}><w:body>$('x' * 10)</w:body></w:document>"
+            $overPath = "$TestDrive\total_over_first.docx"
+            newZip $overPath @{ "word/document.xml" = $firstXml }
+            $script:zipTotalMaxBytes = 1
+            { readDocxUnits $overPath } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+
+            # 2つ目: この内容だけなら収まるが、1つ目の残り（10バイト超）が足されたままだと超えてしまう上限にする。
+            # readDocxUnits が呼び出しのたびに $script:zipTotalReadBytes を0から数え直していれば、収まって読める
+            $secondXml = "<w:document ${wNs}><w:body>$(wPara '小さい本文')</w:body></w:document>"
+            $secondBytes = [System.Text.Encoding]::UTF8.GetByteCount($secondXml)
+            $smallPath = "$TestDrive\small_after_total_over.docx"
+            newZip $smallPath @{ "word/document.xml" = $secondXml }
+            $script:zipTotalMaxBytes = $secondBytes + 1
+            { readDocxUnits $smallPath } | Should -Not -Throw
+        } finally {
+            $script:zipTotalMaxBytes = $orig
+        }
+    }
+}

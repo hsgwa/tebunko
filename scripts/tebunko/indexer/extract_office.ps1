@@ -202,6 +202,11 @@ function extractWorkbook {
         try {
             $objectUnits = readXlsxObjectUnits $copyPath $chartFailures
         } catch {
+            # サイズの上限を超えたとき（ZipSizeLimitException）は、部品名・大きさ・部品ごとか合計かを
+            # インデックス作成のログに書く（2026-09-27 メンテナの回答）。画面には出さない（悪用のヒントになるため）
+            if ($_.Exception -is [ZipSizeLimitException]) {
+                writeZipSizeLimitLog $_.Exception.PartName $_.Exception.MeasuredBytes $_.Exception.LimitKind
+            }
             writeIndexerLog "    図形・コメントを読み取れませんでした: $($_.Exception.Message)" "Yellow"
         }
         # 1つのグラフ・SmartArtが読めなくても、そこだけを空にしてほかの図形・コメントは読む（readXlsxObjectUnits）。
