@@ -148,7 +148,7 @@ $cache = newTsvTextCache
 $service = $null
 try {
     setMonitorPhase $monitor "入力しながらの検索"
-    $service = newSearchService $lib $cache
+    $service = newSearchService $cache
     for ($n = 1; $n -le $Count; $n++) {
         $attempts.Add((invokeTypingAttempt $service $steps $Regex $IntervalMs $Index ([bool]$Fast) $Work $n))
         Write-Host ("  ${Name} 入力 {0} / {1} 回目" -f $n, $Count)

@@ -2,15 +2,17 @@
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
 
-    # ファイルが dot-source している相手を返す（. "$PSScriptRoot\..." の形だけを見る）
+    # ファイルが dot-source している相手を返す（. "$PSScriptRoot\..." の形と、
+    # ui\ 配下のファイルが使う . "$TebunkoDir\..." の形（起動口 gui.ps1 から渡される tebunko\ 直下）を見る）
     function getSourcedFiles {
         param ([string]$path)
 
         $dir = Split-Path $path -Parent
         $text = [System.IO.File]::ReadAllText($path)
         $result = @()
-        foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$PSScriptRoot\\([^"]+)"')) {
-            $full = Join-Path $dir $match.Groups[1].Value
+        foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"')) {
+            $base = if ($match.Groups[1].Value -eq "TebunkoDir") { "${scriptsDir}\tebunko" } else { $dir }
+            $full = Join-Path $base $match.Groups[2].Value
             if (Test-Path -LiteralPath $full) {
                 $result += (Resolve-Path -LiteralPath $full).Path
             }

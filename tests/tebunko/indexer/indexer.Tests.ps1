@@ -764,9 +764,9 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
     It "取り込みのスレッドが始められなければ、続けられないエラーで 1 を返す" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "並列"; path = $source; enabled = $true })
-        # 取り込みのスレッドが読み込む部品の場所を、無い場所にする
+        # 取り込みのスレッドが読み込む部品の場所を、無い場所にする（getPartLoad が見る bundledScriptPath を差し替える）
         $broken = @{ Script = $runPath; Pattern = '^\s+\$pool = newIngestPool'; Action = {
-                Set-Variable -Name indexerLibPath -Value (Join-Path $TestDrive "無い.ps1") -Scope 1
+                Set-Variable -Name bundledScriptPath -Value (Join-Path $TestDrive "無い.ps1") -Scope 1
             }
         }
         runIndexer $root @{ Workers = 2 } @($broken) | Should -Be 1
@@ -810,7 +810,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $tasks.Add(@{ RelPath = "営業\無い.docx"; SourcePath = (Join-Path $TestDrive "無い.docx") })
         $tasks.CompleteAdding()
         $settings = @{
-            Lib = "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
+            Lib = @{ Path = "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"; Args = @{} }
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'

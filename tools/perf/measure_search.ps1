@@ -76,7 +76,7 @@ try {
     $cache = newTsvTextCache
     setMonitorPhase $monitor "検索"
     # 画面を開いたときに当たる（司令のスレッドを始める。lib.ps1 の読み込みは司令のスレッドで行われ、1 回目の検索の時間に含まれる）
-    if ($mode -eq "service") { $service = newSearchService $lib $cache }
+    if ($mode -eq "service") { $service = newSearchService $cache }
     for ($i = 1; $i -le $Count; $i++) {
         $r = if ($mode -eq "service") { invokeServiceSearch $service } else { invokeRunspaceSearch $cache }
         $row = [ordered]@{ N = $i; TotalMs = (roundMs $r.TotalMs); LoadMs = (roundMs $r.LoadMs); ListMs = (roundMs $r.ListMs)

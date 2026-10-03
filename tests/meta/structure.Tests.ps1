@@ -25,17 +25,19 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
     # "${PSScriptRoot}\tebunko\indexer.ps1" のように起動口からの相対パスを書くと存在しないパスになる
     # （［インデックス作成を開始］でインデクサが起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
     It "ui 配下のスクリプトで `$PSScriptRoot を使っていない" {
+        # コードで使っているかだけを見る（コメントで説明に触れているだけの行は対象外）
         $found = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1" |
             Where-Object { $_.DirectoryName -match '\\ui$' } |
             Select-String -Pattern '\$\{?PSScriptRoot\}?' |
+            Where-Object { $_.Line.TrimStart() -notmatch '^#' } |
             ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
         ($found -join ", ") | Should -Be ""
     }
 
-    It "gui.ps1 が指すインデクサのファイルがある" {
-        $line =@(Select-String -Path "$here\..\scripts\tebunko\gui.ps1" -Pattern '^\$\{indexerScriptPath\}\s*=\s*"\$PSScriptRoot\\(.+)"')
-        $line.Count | Should -Be 1
-        Test-Path -LiteralPath "$here\..\scripts\tebunko\$($line[0].Matches[0].Groups[1].Value)" | Should -Be $true
+    It "getPartLoad が indexer を指すファイルがある" {
+        $load = getPartLoad indexer
+        Test-Path -LiteralPath $load.Path | Should -Be $true
+        (Split-Path -Leaf $load.Path) | Should -Be "indexer.ps1"
     }
 }
 
@@ -83,11 +85,11 @@ Describe "型の読み込み" -Tag Meta {
 }
 
 Describe "画面の部品の名前" -Tag Meta {
-    # gui.ps1 が FindName で取る名前が、XAML に実在すること。
+    # gui_main.ps1（startGui）が FindName で取る名前が、XAML に実在すること。
     # タブの中身を別ファイルに分けているため、名前を足したり動かしたりすると気づきにくい
     BeforeAll {
         $xamlNs = "http://schemas.microsoft.com/winfx/2006/xaml"
-        $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\gui.ps1")
+        $gui = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\ui\gui_main.ps1")
 
         function getXamlNames {
             param ([string]$path)

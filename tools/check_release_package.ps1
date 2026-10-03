@@ -31,13 +31,15 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $rootDir = Split-Path $PSScriptRoot -Parent
 $failures = New-Object System.Collections.Generic.List[string]
 
-# ファイルが dot-source している先を返す（. "$PSScriptRoot\..." の形だけを見る）。存在しない先も返す
+# ファイルが dot-source している先を返す（. "$PSScriptRoot\..." の形と、ui\ 配下のファイルが使う
+# . "$TebunkoDir\..." の形（起動口 gui.ps1 から渡される tebunko\ 直下）を見る）。存在しない先も返す
 # （tests\meta\layers.Tests.ps1 の getSourcedFiles は、存在するものだけを返し、tools から tests を読み込まないため、ここに持つ）
-function Get-DotSourceTargets([string]$Path) {
+function Get-DotSourceTargets([string]$Path, [string]$TebunkoDir) {
     $dir = Split-Path $Path -Parent
     $text = [System.IO.File]::ReadAllText($Path)
-    foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$PSScriptRoot\\([^"]+)"')) {
-        [System.IO.Path]::GetFullPath((Join-Path $dir $match.Groups[1].Value))
+    foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$(PSScriptRoot|TebunkoDir)\\([^"]+)"')) {
+        $base = if ($match.Groups[1].Value -eq "TebunkoDir") { $TebunkoDir } else { $dir }
+        [System.IO.Path]::GetFullPath((Join-Path $base $match.Groups[2].Value))
     }
 }
 
@@ -77,6 +79,7 @@ try {
 
     [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path -LiteralPath $ZipPath).Path, $extractDir)
     $pkgDir = Join-Path $extractDir "tebunko"
+    $tebunkoDir = Join-Path $pkgDir "scripts\tebunko"
 
     # --- 2. dot-source の先 ---
     $seen = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -91,7 +94,7 @@ try {
     }
     while ($queue.Count -gt 0) {
         $file = $queue.Dequeue()
-        foreach ($target in @(Get-DotSourceTargets $file)) {
+        foreach ($target in @(Get-DotSourceTargets $file $tebunkoDir)) {
             if (!(Test-Path -LiteralPath $target)) {
                 $failures.Add("dot-source の先がありません: $($file.Substring($pkgDir.Length + 1)) -> $($target.Substring($pkgDir.Length + 1))")
             } elseif ($seen.Add($target)) {

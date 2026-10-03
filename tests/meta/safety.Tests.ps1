@@ -268,7 +268,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths '\$\{dataDir\}\s*=\s*getDataDir') | Should -Not -Be ""
         (findPattern $paths 'GetFolderPath\("LocalApplicationData"\)') | Should -Not -Be ""
         # ワークスペースは設定から決め、中の場所はワークスペースのフォルダから組み立てる
-        (findPattern $paths '\$\{workspace\}\s*=\s*\[Workspace\]::new\(\(getWorkDir\)\)') | Should -Not -Be ""
+        (findPattern $paths '\$\{script:workspace\}\s*=\s*\[Workspace\]::new\(\(getWorkDir\)\)') | Should -Not -Be ""
         (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\content_index"') | Should -Not -Be ""
         (findPattern $paths '\$\{legacyTmpParent\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko"') | Should -Not -Be ""
         (findPattern $paths '\$this\.TmpRoot\s*=\s*"\$dir\\tmp"') | Should -Not -Be ""
@@ -276,8 +276,8 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should -Not -Be ""
     }
 
-    It "起動に失敗したときの記録の置き場所は、固定の %LOCALAPPDATA%\tebunko・%TEMP% 配下だけ（gui.ps1・tebunko.bat）" {
-        $guiCode = @($code | Where-Object { $_.File -eq "gui.ps1" })
+    It "起動に失敗したときの記録の置き場所は、固定の %LOCALAPPDATA%\tebunko・%TEMP% 配下だけ（startup_error.ps1・tebunko.bat）" {
+        $guiCode = @($code | Where-Object { $_.File -eq "startup_error.ps1" })
         (findPattern $guiCode 'Join-Path\s+\$env:LOCALAPPDATA\s+"tebunko\\startup_error\.txt"') | Should -Not -Be ""
         (findPattern $guiCode 'Join-Path\s+\$env:TEMP\s+"tebunko_startup_error\.txt"') | Should -Not -Be ""
         $bat = [System.IO.File]::ReadAllText($launcher)
@@ -328,12 +328,12 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
 
     It "%TEMP% を指す書き方は決めた所だけ（取り込みの作業フォルダはワークスペースの tmp\\の下を使う）" {
         # %TEMP% を直接指すのは、前の版の片付けだけに使う場所（${legacyTmpParent}。paths.ps1）と、
-        # まだ書き込み口が整う前の起動失敗を記録する writeStartupErrorFile（gui.ps1）だけ
+        # まだ書き込み口が整う前の起動失敗を記録する writeStartupErrorFile（startup_error.ps1）だけ
         $tempRefs = @($code | Where-Object { $_.Text -match 'GetTempPath|env:TEMP\b|env:TMP\b|New-TemporaryFile|GetTempFileName' })
         $tempFiles = @($tempRefs | ForEach-Object { $_.File } | Sort-Object -Unique)
-        ($tempFiles -join ", ") | Should -Be "gui.ps1, paths.ps1"
+        ($tempFiles -join ", ") | Should -Be "paths.ps1, startup_error.ps1"
         (@($tempRefs | Where-Object { $_.File -eq "paths.ps1" }).Count) | Should -Be 1
-        (@($tempRefs | Where-Object { $_.File -eq "gui.ps1" }).Count) | Should -Be 1
+        (@($tempRefs | Where-Object { $_.File -eq "startup_error.ps1" }).Count) | Should -Be 1
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {

@@ -8,6 +8,12 @@ BeforeAll {
         [System.IO.File]::WriteAllText($path, "param (`$Channel)`r`n$body", $utf8Bom)
         return $path
     }
+
+    # newIndexingSession は getPartLoad indexer（本物の indexer.ps1）を使うため、
+    # 偽のインデクサを使うテストでは IndexingSession を直接作る
+    function newFakeIndexingSession([string]$path, [hashtable]$channel) {
+        return [IndexingSession]::new(${indexingSessionScript}.ToString(), @{ Path = $path; Args = @{} }, $channel)
+    }
 }
 
 Describe "IndexingSession" -Tag Io {
@@ -16,7 +22,7 @@ Describe "IndexingSession" -Tag Io {
 $Channel.Seen = @{ Thread = [System.Threading.Thread]::CurrentThread.ManagedThreadId; Priority = [string][System.Threading.Thread]::CurrentThread.Priority; Apartment = [string][System.Threading.Thread]::CurrentThread.GetApartmentState() }
 $Channel.ExitCode = 0
 '@
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         try {
             $session.Wait(30000) | Should -Be $true
             $session.IsRunning() | Should -Be $false
@@ -34,7 +40,7 @@ $Channel.ExitCode = 0
 while (!$Channel.Answered.WaitOne(20)) { }
 $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
 '@
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         try {
             $session.IsRunning() | Should -Be $true
             $session.Stop()
@@ -47,7 +53,7 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
 
     It "終了コードを入れずに止まったら 1 とし、止まった理由を返す" {
         $fake = newFakeIndexer "throw" 'throw "読み込めませんでした"'
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         try {
             $session.Wait(30000) | Should -Be $true
             $session.GetExitCode() | Should -Be 1
@@ -59,7 +65,7 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
 
     It "インデクサが入れたエラーの内容を返す" {
         $fake = newFakeIndexer "error" '$Channel.Error = "クロール対象フォルダがありません。"; $Channel.ExitCode = 1'
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
             $session.GetError() | Should -Be "クロール対象フォルダがありません。"
@@ -74,7 +80,7 @@ $Channel.Started = $true
 while (!$Channel.Stop) { Start-Sleep -Milliseconds 20 }
 $Channel.ExitCode = 2
 '@
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         # インデクサが動き始めてから閉じる（PC が混んでいると、スレッドが動き始めるまでに時間がかかる）
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         while (!$session.Channel.Started -and $watch.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 20 }
@@ -87,7 +93,7 @@ $Channel.ExitCode = 2
 
     It "KillOffice は、記録した PID のうちプロセス名が同じものだけを止める" {
         $fake = newFakeIndexer "office" '$Channel.ExitCode = 0'
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         # Office の代わりに、このテストが起動したプロセスを使う
         $target = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
         $other = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
@@ -107,7 +113,7 @@ $Channel.ExitCode = 2
 
     It "GetNotice・GetPostponed は受け渡しの口の値を返す。入っていなければ空・0" {
         $fake = newFakeIndexer "notice" '$Channel.Notice = "PowerPoint が起動していたため、2 件を取り込まずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0'
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
             $session.GetNotice() | Should -Be "PowerPoint が起動していたため、2 件を取り込まずに残しました。"
@@ -117,7 +123,7 @@ $Channel.ExitCode = 2
         }
 
         $emptyFake = newFakeIndexer "noticeempty" '$Channel.ExitCode = 0'
-        $emptySession = newIndexingSession $emptyFake (newIndexerChannel)
+        $emptySession = newFakeIndexingSession $emptyFake (newIndexerChannel)
         try {
             [void]$emptySession.Wait(30000)
             $emptySession.GetNotice() | Should -Be ""
@@ -129,7 +135,7 @@ $Channel.ExitCode = 2
 
     It "インデクサが止まらずにエラーだけを書いて終わったら、その内容を理由として返す" {
         $fake = newFakeIndexer "writeerror" 'Write-Error "読み込めないファイルがありました"'
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
             $session.GetExitCode() | Should -Be 1
@@ -142,7 +148,7 @@ $Channel.ExitCode = 2
     It "Close で中止を求めても終わらなければ、スレッドを止めて片づける" {
         # 中止の要求を見ないインデクサ（Office が応答しないまま、など）
         $fake = newFakeIndexer "hang" 'Start-Sleep -Seconds 60'
-        $session = newIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $fake (newIndexerChannel)
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         $session.Close()
         $watch.Elapsed.TotalSeconds | Should -BeLessThan 30
@@ -156,7 +162,7 @@ Describe "インデクサの司令のスクリプト（indexingSessionScript）"
         $channel = newIndexerChannel
         $priority = [System.Threading.Thread]::CurrentThread.Priority
         try {
-            & ${indexingSessionScript} $fake $channel
+            & ${indexingSessionScript} @{ Path = $fake; Args = @{} } $channel
         } finally {
             [System.Threading.Thread]::CurrentThread.Priority = $priority
         }

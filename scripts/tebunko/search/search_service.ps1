@@ -7,10 +7,12 @@
 
 # 司令のスレッドで動かすスクリプト。要求の列が閉じられる（Close）まで、要求を 1 つずつ実行する
 ${searchServiceScript} = {
-    param ($libPath, $requests, $cache, $workers)
+    param ($libLoad, $requests, $cache, $workers)
     # 読み込めなければスレッドを終える（画面は IsRunning・GetFailure で知り、次の要求で作り直す）
     $ErrorActionPreference = "Stop"
-    . $libPath
+    $partArgs = $libLoad.Args
+    . $libLoad.Path @partArgs
+    initWorkspace
     $ErrorActionPreference = "Continue"
     $pool = if ($workers -gt 1) { newPackWorkerPool $workers } else { $null }
     try {
@@ -34,7 +36,7 @@ class SearchService {
     # 照合のプールのスレッドの数
     [int]$Workers
     hidden [string]$Script
-    hidden [string]$LibPath
+    hidden [hashtable]$LibLoad
     hidden $Cache
     hidden [int]$CloseMilliseconds
     hidden [System.Collections.Concurrent.BlockingCollection[hashtable]]$Requests
@@ -43,9 +45,9 @@ class SearchService {
     # いま実行している（最後に渡した）要求
     hidden [hashtable]$Current
 
-    SearchService([string]$script, [string]$libPath, $cache, [int]$workers, [int]$closeMilliseconds) {
+    SearchService([string]$script, [hashtable]$libLoad, $cache, [int]$workers, [int]$closeMilliseconds) {
         $this.Script = $script
-        $this.LibPath = $libPath
+        $this.LibLoad = $libLoad
         $this.Cache = $cache
         $this.Workers = [Math]::Max(1, $workers)
         $this.CloseMilliseconds = $closeMilliseconds
@@ -55,7 +57,7 @@ class SearchService {
     hidden [void] Start() {
         $this.Requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
         $ps = [powershell]::Create()
-        [void]$ps.AddScript($this.Script).AddArgument($this.LibPath).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers)
+        [void]$ps.AddScript($this.Script).AddArgument($this.LibLoad).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers)
         $this.PowerShell = $ps
         $this.Handle = $ps.BeginInvoke()
     }
@@ -126,10 +128,10 @@ class SearchService {
 function newSearchService {
     # 検索の司令のスレッドを始める（画面を開いたときに 1 回）。閉じるときは Close を呼ぶ
     param (
-        [string]$libPath,
         $cache = $null,
         [int]$workers = (getWorkerCount)
     )
 
-    return [SearchService]::new(${searchServiceScript}.ToString(), $libPath, $cache, $workers, ${searchServiceCloseMilliseconds})
+    $libLoad = getPartLoad lib
+    return [SearchService]::new(${searchServiceScript}.ToString(), $libLoad, $cache, $workers, ${searchServiceCloseMilliseconds})
 }
