@@ -4757,7 +4757,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 </tr>
 </tbody>
 </table>
-<p><strong>抽出版を上げたときの扱い</strong>（<a href="../../indexing/ingest-list/">取り込み一覧</a> の <code>$extractVersions</code>）: 見本の取り込み一覧（<code>ingest_status.tsv</code>）に記録した <code>抽出版</code> の列は、見本を作った時点のコードの <code>$extractVersions</code> を表す。今の版が持つ <code>$extractVersions</code> を見本の値と比べ、上げるには <code>!</code> と <code>breaking</code> を要る、という決まりにする（見本の投入時の値を <code>extract_versions.json</code> のような形で見本に残す案）。<strong>この決まりは、ここに書くだけで今回は実装しない。</strong> 実装は別のアイテムで行う。</p>
+<p><strong>抽出版を上げたときの扱い</strong>（<a href="../../indexing/ingest-list/">取り込み一覧</a> の <code>$extractVersions</code>）: 見本の取り込み一覧（<code>ingest_status.tsv</code>）の <code>抽出版</code> の列は、見本を作った時点のコードの <code>$extractVersions</code> を表す。今のコードの <code>$extractVersions</code> を上げると、見本の行は「前の抽出版で取り込んだ」ことになり、更新が無くても取り込み直しになる（これは仕様どおりの動き）。互換テスト（<code>index_compat.Tests.ps1</code>）は、見本の <code>expected.json</code> に書いた抽出版と今のコードの <code>getExtractVersion</code> を比べて、取り込み直しになるはずのファイルを求めて確かめる。そのため、抽出版を上げても見本を作り直す必要はなく、テストが落ちることもない。<strong>抽出版を上げるときに <code>!</code> を付けるか、見本にそのときの値を記録するかは、まだ決めていない。</strong> 今は、見本に抽出版の記録の仕組みを足さず、上のとおりテストが今のコードの値から期待を求める形にしておく。</p>
 <p><strong>取り込み一覧の列を足すときも <code>!</code> が要る</strong>: <code>readStatusFile</code> は列の数が見出しと違う行を読み捨てる（<a href="../../indexing/ingest-list/">取り込み一覧</a>）。列を足すと、前の版が書いた行（列数が足りない）を新しい版が読めなくなるため、列を足す変更も「見本を変える」と同じ扱いにし、<code>!</code> を付ける。</p>
 
 
