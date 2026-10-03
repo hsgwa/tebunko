@@ -269,6 +269,35 @@ Word・PowerPoint のインデックス作成の確認用。
 - `Excel\大量データ.xlsx`（20,001 行、横長シートは 2,000 セル）、`Excel\特殊文字.xlsx`（32,767 文字のセル）
 - `フォルダ\ファイル数が多い\`（200 ファイル）… ファイル数が多いとき
 
+## テキストファイル（`text\`）
+
+`.txt` 検索の対象拡張子（既定のアプリで開く 68 個・メモ帳固定の 7 個。合わせて 75 個）ごとに、取り込み・検索を確かめる小さなサンプル。
+対象の拡張子は `scripts\shared\core\text_file.ps1` の `${textOpenExtensions}`・`${textNotepadExtensions}` にある。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_testdata.ps1
+```
+
+- `${textOpenExtensions} + ${textNotepadExtensions}` を 1 つずつ、足した順番の番号を付けた `TXT<NN>.<拡張子>`（`TXT01.txt` 〜 `TXT75.sh`）にする。中身はどれも「山田 太郎」を含む（既定は UTF-8・BOM 無し）。
+- 実行・登録が既定の動作になる 7 個（`.bat` `.cmd` `.ps1` `.vbs` `.js` `.reg` `.sh`）は、実行・登録しても何も起きない中身（コメントだけ）にする。`.reg` には `Windows Registry Editor Version 5.00` の見出しを付けず、レジストリ編集として成立しないようにする。
+- 文字コードの違いは一部のファイルで作り分ける（下表）。それ以外は既定の UTF-8（BOM 無し）。
+- `異常系\バイナリ.log`（NUL を含む 0x00〜0xFF の並び）、`異常系\末尾NUL.log`（先頭 64KB の外、約 70000 バイト目に NUL が 1 つだけある UTF-8 のログ）は、どちらもテキストとして取り込めない（ファイル全体を見て NUL を検出するため）。
+- `大きいテキスト.log`（約 90KB。NUL を含まない日本語＋英数字のログ 1500 行）は、64KB を超えるが普通に取り込める。
+
+文字コードを作り分けたファイル:
+
+| ファイル | 拡張子 | 文字コード |
+|---|---|---|
+| `TXT01.txt` | `.txt` | UTF-8（BOM 付き） |
+| `TXT02.csv` | `.csv` | EUC-JP（かなを含む） |
+| `TXT49.yml` | `.yml` | UTF-16LE（BOM 付き） |
+| `TXT50.toml` | `.toml` | UTF-16LE（BOM 無し。かなの割合で判定） |
+| `TXT51.ini` | `.ini` | Shift_JIS |
+| `TXT54.properties` | `.properties` | UTF-16BE（BOM 付き） |
+| `TXT58.graphql` | `.graphql` | ISO-2022-JP |
+
+確かめ方は `tests\shared\core\text_file.Tests.ps1` の `Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）"`（タグ `Io`）。全 75 個が対象の拡張子であること、メモ帳固定かどうかが拡張子どおりであること、`readTextFile` で「山田」を読み込めること、異常系 2 個が失敗すること、大きいテキスト.log が 64KB を超えて成功することを確かめる。
+
 ## 検索ワードと件数（`設定例\検索ワード.txt`）
 
 | 検索ワード | 件数 | 確認していること |

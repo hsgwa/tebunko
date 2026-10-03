@@ -135,9 +135,17 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         (findPattern $code 'Invoke-Command|New-PSSession|Enter-PSSession|WinRM') | Should -Be ""
     }
 
-    It "外部プロセスの起動は explorer.exe だけ" {
+    It "外部プロセスの起動は explorer.exe・notepad.exe だけ" {
+        # notepad.exe は固定のパス（$env:SystemRoot\System32\notepad.exe）だけを許す（既定のアプリの登録に頼らない）
         $starts = @($code | Where-Object { $_.Text -match 'Start-Process' })
-        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        (@($starts | Where-Object { $_.Text -notmatch 'explorer\.exe' -and $_.Text -notmatch 'SystemRoot.*System32\\notepad\.exe' } |
+            ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+    }
+
+    It "ProcessStartInfo・[System.Diagnostics.Process]::Start を使うのは open_source.ps1 の openWithShell だけ（1 か所）" {
+        $starts = @($code | Where-Object { $_.Text -match 'ProcessStartInfo|\[System\.Diagnostics\.Process\]::Start\(' })
+        $starts.Count | Should -Be 2
+        (@($starts | Where-Object { $_.File -ne "open_source.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
     It "tebunko.bat が起動する外部のプログラムは conhost.exe・powershell.exe・notepad.exe だけ（起動に失敗したときだけ notepad.exe を開く）" {
@@ -222,16 +230,34 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
         . "$here\helpers\load.ps1"
     }
 
-    It "テキストの拡張子がちょうど 7 つで、Office と合わせて決めた一覧ちょうどである" {
+    It "テキストの拡張子がちょうど 75（既定のアプリで開く 68＋メモ帳で開く 7）で、Office と合わせて 85 ちょうどである" {
         # 足したら必ずここが落ち、docs/safety/checks.md の見直し（開くと実行される種類を含まないか）を促す
-        @(${textExtensions}).Count | Should -Be 7
-        $expected = @(
-            ".xlsx", ".xlsm", ".xls", ".xlsb",
-            ".docx", ".docm", ".doc",
-            ".pptx", ".pptm", ".ppt",
-            ".txt", ".csv", ".tsv", ".md", ".log", ".json", ".xml"
+        @(${textExtensions}).Count | Should -Be 75
+        @(${textNotepadExtensions}).Count | Should -Be 7
+        $expectedNotepad = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+        (@(${textNotepadExtensions}) | Sort-Object) -join "," | Should -Be (($expectedNotepad | Sort-Object) -join ",")
+        # メモ帳で開く拡張子はテキストの拡張子に含まれ、既定のアプリで開く拡張子とは重ならない
+        (@(${textNotepadExtensions}) | Where-Object { ${textExtensions} -notcontains $_ }) | Should -BeNullOrEmpty
+        (@(${textNotepadExtensions}) | Where-Object { ${textOpenExtensions} -contains $_ }) | Should -BeNullOrEmpty
+
+        @(${officeExtensions} + ${textExtensions}).Count | Should -Be 85
+
+        # 開くと実行・登録になる、または安全性の理由で対象外にした拡張子は、どちらの一覧にも含まれない
+        $forbidden = @(
+            ".exe", ".com", ".scr", ".hta", ".wsf", ".wsh", ".jse", ".vbe",
+            ".lnk", ".url", ".msi", ".cpl", ".inf", ".ts"
         )
-        (@(${officeExtensions} + ${textExtensions}) | Sort-Object) -join "," | Should -Be (($expected | Sort-Object) -join ",")
+        foreach ($ext in $forbidden) {
+            (${officeExtensions} -contains $ext) | Should -Be $false
+            (${textExtensions} -contains $ext) | Should -Be $false
+        }
+    }
+
+    It "実行されうるテキストの拡張子は既定のアプリで開かない" {
+        foreach ($ext in @(${textNotepadExtensions})) {
+            (testTextOpenWithNotepad "a${ext}") | Should -Be $true -Because "拡張子 ${ext} はメモ帳で開く一覧のはず"
+        }
+        (@(${textNotepadExtensions}) | Where-Object { ${textOpenExtensions} -contains $_ }) | Should -BeNullOrEmpty
     }
 }
 
