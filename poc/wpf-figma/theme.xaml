@@ -99,8 +99,15 @@
        StrokeStartLineCap/StrokeEndLineCap/StrokeLineJoin=Round、色は文字と同じにする）。 -->
   <Geometry x:Key="Icon.Zap">M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z</Geometry>
   <Geometry x:Key="Icon.Info">M12 2a10 10 0 1 0 0.0001 0Z M12 16v-4 M12 8h.01</Geometry>
-  <!-- 塗り丸のバッジ（Banner・状態のお知らせ）の中に白で描く「i」。外側の丸は Ellipse で塗って表す -->
+  <!-- 塗り丸のバッジ（Banner・ContentBanner）の中に白で描く 4 種の線（lucide-static v1.50.0・ISC の
+       circle-info／circle-alert／circle-x／circle-check から、外側の丸を除いた内側の線だけを取った）。
+       外側の丸は Ellipse で塗って表す。メンテナ指摘（2026-10-03・動作確認で）の i・!・×・✓ に対応。 -->
   <Geometry x:Key="Icon.BadgeGlyphInfo">M12 16v-4 M12 8h.01</Geometry>
+  <Geometry x:Key="Icon.BadgeGlyphWarn">M12 8v4 M12 16h.01</Geometry>
+  <!-- Stage 1 の 26 枚には赤（エラー）色の Banner・ContentBanner を使うフレームが無く、今は出番が無い。
+       対応表の完全性のため Geometry だけ用意しておく（Icon.CircleQuestionMark と同じ扱い）。 -->
+  <Geometry x:Key="Icon.BadgeGlyphError">M15 9 L9 15 M9 9 L15 15</Geometry>
+  <Geometry x:Key="Icon.BadgeGlyphOk">M9 12 L11 14 L15 10</Geometry>
   <Geometry x:Key="Icon.Dots3">M12 12a1 1 0 1 0 0.0001 0Z M19 12a1 1 0 1 0 0.0001 0Z M5 12a1 1 0 1 0 0.0001 0Z</Geometry>
 
   <!-- ============ 文字（Figma のサイズをそのまま。太さは Regular/Medium/Bold） ============ -->

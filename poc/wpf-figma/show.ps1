@@ -71,6 +71,26 @@ function Show-Frame([string]$FrameName) {
     $win.ResizeMode = "CanMinimize"
     $win.Content = $visual
 
+    # search.xaml は画面の中に自前のタイトルバー（TitleBarGrid。32px・「tebunko」の文字と
+    # 最小化／最大化／閉じるの絵）を描いている。既定の WindowStyle のままだと、OS の枠のバーと
+    # この自前のバーが縦に二重に並んで見える（メンテナ指摘 2026-10-03・動作確認で）。
+    # search.xaml を使うフレームだけ OS の枠を消し、自前のバーだけを見せる。
+    # 自前のバーを持たない見本（splash.xaml など）は、従来どおり OS の枠のバーのままにする。
+    if ($frame.Xaml -eq "xaml\search.xaml") {
+        $win.WindowStyle = "None"
+        $win.ResizeMode = "NoResize"
+        $titleBar = $visual.FindName("TitleBarGrid")
+        if ($null -ne $titleBar) {
+            # OS の枠を消すとドラッグでの移動もできなくなるため、自前のバーの上で
+            # 左ボタンを押したときだけ DragMove で移動できるようにする。
+            $titleBar.Add_MouseLeftButtonDown({
+                param($sender, $e)
+                $w = [System.Windows.Window]::GetWindow($sender)
+                if ($null -ne $w) { $w.DragMove() }
+            })
+        }
+    }
+
     $win.Show()
     $script:viewerWindow = $win
 }

@@ -47,8 +47,8 @@
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <Grid Width="14" Height="14" Margin="0,0,8,0">
           <Ellipse x:Name="BannerIcon" Fill="{StaticResource Accent.0078D4}" />
-          <Path Data="{StaticResource Icon.BadgeGlyphInfo}" Width="8.4" Height="8.4" Stretch="Uniform"
-                Stroke="{StaticResource White}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+          <Path x:Name="BannerGlyph" Data="{StaticResource Icon.BadgeGlyphInfo}" Width="8.4" Height="8.4" Stretch="Uniform"
+                Stroke="{StaticResource White}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
         </Grid>
         <TextBlock x:Name="BannerText" Text="インデックスを更新しています（営業部 1,200 / 2,075 件）" Style="{StaticResource Text.12}" />
       </StackPanel>
@@ -293,8 +293,8 @@
           <Button x:Name="ContentBannerButton" DockPanel.Dock="Right" Style="{StaticResource Btn.Outline}" Content="フォルダを開く" Visibility="Collapsed" />
           <Grid Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
             <Ellipse x:Name="ContentBannerIcon" Fill="{StaticResource Accent.0078D4}" />
-            <Path Data="{StaticResource Icon.BadgeGlyphInfo}" Width="7.2" Height="7.2" Stretch="Uniform"
-                  Stroke="{StaticResource White}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            <Path x:Name="ContentBannerGlyph" Data="{StaticResource Icon.BadgeGlyphInfo}" Width="7.2" Height="7.2" Stretch="Uniform"
+                  Stroke="{StaticResource White}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
           </Grid>
           <TextBlock x:Name="ContentBannerText" Text="検索を中止しました（見つかった 5 件を表示しています）" Style="{StaticResource Text.12}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" TextWrapping="Wrap" />
         </DockPanel>

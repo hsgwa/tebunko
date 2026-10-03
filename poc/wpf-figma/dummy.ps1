@@ -118,6 +118,13 @@ function Set-ElBrushKey($Root, [string]$Name, [string]$Property, [string]$BrushK
     if ($null -ne $el) { $el.$Property = $Root.FindResource($BrushKey) }
 }
 
+# Banner・ContentBanner のバッジの中の線（Path の Data）を、お知らせの種類に合わせて差し替える
+# （既定は Icon.BadgeGlyphInfo の「i」。メンテナ指摘 2026-10-03・動作確認で の i・!・×・✓ に対応）。
+function Set-ElGeometryKey($Root, [string]$Name, [string]$GeometryKey) {
+    $el = Find-Named $Root $Name
+    if ($null -ne $el) { $el.Data = $Root.FindResource($GeometryKey) }
+}
+
 # 検索結果の行の文字列（ヒット語だけ黄色の背景）を差し替える。
 # $Parts は @(@{ Text = "見積先："}, @{ Text = "（株）山田商事"; Hit = $true }, @{ Text = "（御中）" }) の形。
 function Set-ElRuns($Root, [string]$Name, [array]$Parts) {
@@ -362,6 +369,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElBrushKey $Root "ContentBanner" "Background" "Ok.E0F7E0"
             Set-ElBrushKey $Root "ContentBanner" "BorderBrush" "Ok.218A21"
             Set-ElBrushKey $Root "ContentBannerIcon" "Fill" "Ok.218A21"
+            Set-ElGeometryKey $Root "ContentBannerGlyph" "Icon.BadgeGlyphOk"
             Set-ElText $Root "ContentBannerText" "✓ 検索結果を保存しました"
             Set-ElBrushKey $Root "ContentBannerText" "Foreground" "Ok.218A21"
             Set-ElVisible $Root "ContentBannerButton" $true
@@ -476,6 +484,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             if ($icon) { $icon.Fill = $Root.FindResource("Warn.BA7D00") }
             $banner = Find-Named $Root "Banner"
             if ($banner) { $banner.Background = $Root.FindResource("Warn.FFF5E0"); $banner.BorderBrush = $Root.FindResource("Warn.BA7D00") }
+            Set-ElGeometryKey $Root "BannerGlyph" "Icon.BadgeGlyphWarn"
             Set-ElText $Root "BannerText" "インデックスの更新が中断しました"
             $bb = Find-Named $Root "BannerButton"
             if ($bb) { $bb.Content = "続ける" }
