@@ -508,8 +508,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElChecked $Root "RegexCheck" $true
             Set-FastSearchState $Root "unavailable-regex"
             Set-ElText $Root "ResultsSummaryText" "16 件（6 ファイル）・0.8 秒・通常の検索"
-            # H-R はステータスバーを 16 件にする（diff_round3.md 4）
-            Set-ElText $Root "StatusBarText" "16 件"
+            # H-R のステータスバー（diff_round3.md 4 は Figma の読み違いだった。diff_round6.md 5 で訂正）
+            Set-ElText $Root "StatusBarText" "検索しました：(株)山田商事 16 件"
 
             Set-ElVisible $Root "MinutesGroupHeader" $true
             Set-ElVisible $Root "MinutesSubHeader" $true
@@ -545,8 +545,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             )
             Set-ElVisible $Root "TopRow4" $false
 
+            # 閉じた Excel は chart-column（diff_round6.md の訂正 a059c9d で file-spreadsheet から戻した）
             $fIcon = Find-Named $Root "FileListItem3Icon"
-            if ($fIcon) { $fIcon.Data = $Root.FindResource("Icon.FileSpreadsheet"); $fIcon.Stroke = $Root.FindResource("Excel.107C41") }
+            if ($fIcon) { $fIcon.Data = $Root.FindResource("Icon.ChartColumn"); $fIcon.Stroke = $Root.FindResource("Excel.107C41") }
             Set-ElText $Root "FileListItem3Name" "A社_見積書.xlsx"
             Set-ElText $Root "FileListItem3Count" "[シート]見積書 ほか 1 か所 ・ 5 件"
 
@@ -594,14 +595,16 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElText $Root "BannerText" "前回の更新が途中です（残り 875 件）"
             # H-P のボタンは橙にする（diff_round3.md 7）
             $bb = Find-Named $Root "BannerButton"
-            if ($bb) { $bb.Content = "続きから再開"; $bb.BorderBrush = $Root.FindResource("Warn.BA7D00"); $bb.Foreground = $Root.FindResource("Warn.BA7D00") }
+            if ($bb) { $bb.Content = "続きから再開"; $bb.BorderBrush = $Root.FindResource("Warn.BA7D00"); $bb.Foreground = $Root.FindResource("Warn.BA7D00"); $bb.Height = 24 }
             Set-ElVisible $Root "NavBadge_Index" $true
             Set-ElVisible $Root "NavBadge_IndexDot" $false
             Set-ElText $Root "NavBadge_IndexText" "中断"
-            # H-P は高速検索のバッジを出さない。ナビの「中断」は橙の pill にする（diff_round3.md 4）
+            # H-P は高速検索のバッジを出さない。ナビの「中断」は枠の無い橙の pill にする
+            # （diff_round3.md 4、diff_round6.md 6・小で枠を外した）
             Set-FastSearchState $Root "hidden"
             Set-ElBrushKey $Root "NavBadge_IndexPill" "Background" "Warn.FFF5E0"
-            Set-ElBrushKey $Root "NavBadge_IndexPill" "BorderBrush" "Warn.BA7D00"
+            $pill = Find-Named $Root "NavBadge_IndexPill"
+            if ($pill) { $pill.BorderBrush = [System.Windows.Media.Brushes]::Transparent }
             Set-ElBrushKey $Root "NavBadge_IndexText" "Foreground" "Warn.BA7D00"
             # 件数行は「・高速検索」を付けない（diff_round4.md 6）
             Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）・0.8 秒"

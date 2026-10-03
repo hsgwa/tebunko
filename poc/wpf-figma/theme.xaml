@@ -31,6 +31,8 @@
   <SolidColorBrush x:Key="Select.E1F2FF" Color="#E1F2FF" />
   <SolidColorBrush x:Key="Select.E5F1FB" Color="#E5F1FB" />
   <SolidColorBrush x:Key="Line.E0E2E5" Color="#E0E2E5" />
+  <!-- プレビュー見出しの下線（diff_round6.md 2） -->
+  <SolidColorBrush x:Key="Line.E8EAED" Color="#E8EAED" />
   <SolidColorBrush x:Key="Border.D9DEE3" Color="#D9DEE3" />
   <SolidColorBrush x:Key="Border.D0D4D9" Color="#D0D4D9" />
   <SolidColorBrush x:Key="Ok.218A21" Color="#218A21" />
@@ -261,9 +263,9 @@
   </Style>
 
   <!-- 「開く ▾」分割ボタン。本体を押すと開く、▾ で候補（本体の枠線を共有する 1 つの Border にする）。
-       白地に青い枠・青い文字にする（diff_round2.md 2 回目指摘。前回は塗りの青だった） -->
+       左半分（本体）は薄い青の地、青い枠・青い文字にする（diff_round6.md 6・小） -->
   <Style x:Key="Btn.OpenSplitBody" TargetType="Button" BasedOn="{StaticResource Btn.Base}">
-    <Setter Property="Background" Value="{StaticResource Bg.FFFFFF}" />
+    <Setter Property="Background" Value="{StaticResource Select.E5F1FB}" />
     <Setter Property="BorderBrush" Value="{StaticResource Accent.0078D4}" />
     <Setter Property="Foreground" Value="{StaticResource Accent.0078D4}" />
     <!-- 高さ 24（diff_round5.md 2） -->

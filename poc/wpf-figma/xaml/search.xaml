@@ -70,14 +70,15 @@
         <RowDefinition Height="28" />
       </Grid.RowDefinitions>
 
+      <!-- ナビの項目の間隔 37（Figma の y 57・94・131・168。diff_round6.md 6・小） -->
       <StackPanel Grid.Row="0">
-        <Border x:Name="NavItem_Search" Height="40" Background="{StaticResource Select.E5F1FB}" BorderThickness="3,0,0,0" BorderBrush="{StaticResource Accent.0078D4}">
+        <Border x:Name="NavItem_Search" Height="37" Background="{StaticResource Select.E5F1FB}" BorderThickness="3,0,0,0" BorderBrush="{StaticResource Accent.0078D4}">
           <!-- 文字の開始位置 x=34（diff_round3.md 12・小） -->
           <DockPanel Margin="31,0,12,0">
             <TextBlock Text="検索" VerticalAlignment="Center" Style="{StaticResource Text.13}" Foreground="{StaticResource Accent.0078D4}" FontWeight="Bold" />
           </DockPanel>
         </Border>
-        <Border x:Name="NavItem_Index" Height="40" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+        <Border x:Name="NavItem_Index" Height="37" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
           <DockPanel Margin="31,0,12,0">
             <StackPanel x:Name="NavBadge_Index" DockPanel.Dock="Right" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center">
               <Ellipse x:Name="NavBadge_IndexDot" Width="6" Height="6" Fill="{StaticResource Accent.0078D4}" Margin="0,0,4,0" />
@@ -89,12 +90,12 @@
             <TextBlock Text="インデックス管理" VerticalAlignment="Center" Style="{StaticResource Text.13.Medium}" />
           </DockPanel>
         </Border>
-        <Border x:Name="NavItem_Settings" Height="40" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+        <Border x:Name="NavItem_Settings" Height="37" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
           <DockPanel Margin="31,0,12,0">
             <TextBlock Text="設定" VerticalAlignment="Center" Style="{StaticResource Text.13.Medium}" />
           </DockPanel>
         </Border>
-        <Border x:Name="NavItem_OfficeStop" Height="40" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
+        <Border x:Name="NavItem_OfficeStop" Height="37" Background="Transparent" BorderThickness="3,0,0,0" BorderBrush="Transparent">
           <DockPanel Margin="31,0,12,0">
             <TextBlock Text="Office の終了" VerticalAlignment="Center" Style="{StaticResource Text.13.Medium}" />
           </DockPanel>
@@ -355,9 +356,11 @@
 
       <!-- 結果の見出し。高さ約 31・地 Bg.F9FAFA にする（diff_round5.md 6） -->
       <DockPanel Grid.Row="4" Margin="16,4,16,3" Background="{StaticResource Bg.F9FAFA}">
-        <Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{StaticResource Btn.Outline}" Width="70" Height="24">
+        <!-- 高さ 24 のまま、文字が上下で切れないように Padding を縮め縦中央にする（diff_round6.md 1） -->
+        <Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{StaticResource Btn.Outline}" Width="70" Height="24"
+                Padding="8,0" VerticalContentAlignment="Center">
           <StackPanel Orientation="Horizontal">
-            <Path Data="{StaticResource Icon.Save}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="0.83" Margin="0,0,4,0" />
+            <Path Data="{StaticResource Icon.Save}" Width="12" Height="12" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="1" Margin="0,0,4,0" />
             <TextBlock Text="保存" Style="{StaticResource Text.11}" />
           </StackPanel>
         </Button>
@@ -611,29 +614,34 @@
         <Rectangle Width="32" Height="3" Fill="{StaticResource Border.D0D4D9}" RadiusX="1.5" RadiusY="1.5" />
       </Border>
 
-      <!-- プレビュー。ツールバーの地は Bg.F5F7FA（diff_round5.md 2） -->
-      <DockPanel x:Name="PreviewToolbar" Grid.Row="7" Margin="16,8,16,8" Background="{StaticResource Bg.F5F7FA}">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="PreviewOpenBody" Style="{StaticResource Btn.OpenSplitBody}" Content="開く" />
-          <Button x:Name="PreviewOpenArrow" Style="{StaticResource Btn.OpenSplitArrow}">
-            <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
-          </Button>
-          <TextBlock x:Name="PreviewOpenFolderLink" Text="フォルダを開く" TextDecorations="Underline" Style="{StaticResource Text.12}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="12,0,0,0" />
-        </StackPanel>
-        <TextBlock x:Name="PreviewBreadcrumbText" Text="営業部\A社_見積書.xlsx ・ [シート]見積書!A3 ・ セル" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-      </DockPanel>
+      <!-- プレビューの見出しの行。境目（グリップ）のすぐ下から全幅（枠いっぱい）に地 Bg.F5F7FA を敷き、
+           高さ 46、下に線 Line.E8EAED を引く（diff_round6.md 2。4 回目までは x 236 からの帯で、
+           上に白い隙間があった） -->
+      <Border Grid.Row="7" Height="46" Background="{StaticResource Bg.F5F7FA}" BorderBrush="{StaticResource Line.E8EAED}" BorderThickness="0,0,0,1">
+        <DockPanel x:Name="PreviewToolbar" Margin="16,0,16,0">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button x:Name="PreviewOpenBody" Style="{StaticResource Btn.OpenSplitBody}" Content="開く" />
+            <Button x:Name="PreviewOpenArrow" Style="{StaticResource Btn.OpenSplitArrow}">
+              <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+            </Button>
+            <TextBlock x:Name="PreviewOpenFolderLink" Text="フォルダを開く" TextDecorations="Underline" Style="{StaticResource Text.12}" Foreground="{StaticResource Accent.0078D4}" VerticalAlignment="Center" Margin="12,0,0,0" />
+          </StackPanel>
+          <TextBlock x:Name="PreviewBreadcrumbText" Text="営業部\A社_見積書.xlsx ・ [シート]見積書!A3 ・ セル" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+      </Border>
       <!-- 表の左端は枠に付ける（左の余白を 0 にする。diff_round5.md 2） -->
       <Grid x:Name="PreviewContentHost" Grid.Row="8" Margin="0,0,16,8">
         <!-- Excel のような罫線の格子。列幅は固定（約 220）で A〜D を出し、入らなければ横にスクロールする
              （全幅には引き伸ばさない。diff_round3.md 2） -->
         <ScrollViewer x:Name="PreviewSheetScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <Grid x:Name="PreviewSheetGrid" Background="{StaticResource Bg.FFFFFF}" HorizontalAlignment="Left">
+          <!-- 列幅: A は 220、B〜D は 200（diff_round6.md 4） -->
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="30" />
             <ColumnDefinition Width="220" />
-            <ColumnDefinition Width="220" />
-            <ColumnDefinition Width="220" />
-            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="200" />
+            <ColumnDefinition Width="200" />
+            <ColumnDefinition Width="200" />
           </Grid.ColumnDefinitions>
           <!-- 行の高さ 22、セルの文字 10〜11px（diff_round4.md 5）。
                選んだ行を真ん中にして、前後 2 行ずつの 5 行を出す（diff_round5.md 1） -->
@@ -698,8 +706,9 @@
           <TextBlock x:Name="PreviewExtraRowNum" Grid.Row="5" Grid.Column="0" Text="5" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
         </ScrollViewer>
-        <!-- H-W の本文。見出しは太字、2 行目に「2 振込手数料…」を足す（diff_round3.md 10） -->
-        <StackPanel x:Name="PreviewParagraphView" Visibility="Collapsed" Margin="8">
+        <!-- H-W の本文。見出しは太字、2 行目に「2 振込手数料…」を足す（diff_round3.md 10）。
+             余白は左 24・上 24（diff_round6.md 3） -->
+        <StackPanel x:Name="PreviewParagraphView" Visibility="Collapsed" Margin="24">
           <TextBlock x:Name="PreviewParagraphHeading" Style="{StaticResource Text.13}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,8" />
           <TextBlock x:Name="PreviewParagraphText" Style="{StaticResource Text.13}" TextWrapping="Wrap" />
           <TextBlock x:Name="PreviewParagraphText2" Style="{StaticResource Text.13}" TextWrapping="Wrap" Margin="0,4,0,0" />
