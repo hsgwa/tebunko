@@ -48,9 +48,9 @@ flowchart LR
 | 対象 | 主な確認内容 |
 |---|---|
 | `encodeIndexPlace` / `decodeIndexPlace` | 禁止文字・`_`・`%`・制御文字の `%XX` 化と往復、`衝突"` と `衝突”` が別の名前になる、使用可能文字（全角記号・空白・`&'#()`）は不変、符号化で作らない `%XX`（`100%` 等）は戻さない |
-| `splitObjectPlace` / `describePlace` / `describeHitPlace` | 図形・コメントの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号） |
-| `toIndexFileName` / `convertIndexFileNameToPlace` | 決まった種類の場所は英語の固定名（ページ・スライド・見出し等）との往復、図形・コメントの `[shape]` `[comment]`、決まった種類でない場所（Excel の任意のシート名）は符号化との往復、固定名と符号化がぶつからないこと、255 文字の上限 |
-| `placeKindFileNames` | 図形・コメントの種類と `objectPlacePattern` がそろっていること |
+| `splitObjectPlace` / `describePlace` / `describeHitPlace` | 図形・コメント・ヘッダー・フッターの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号） |
+| `toIndexFileName` / `convertIndexFileNameToPlace` | 決まった種類の場所は英語の固定名（ページ・スライド・見出し等）との往復、図形・コメント・ヘッダー・フッターの `[shape]` `[comment]` `[header_footer]`、決まった種類でない場所（Excel の任意のシート名）は符号化との往復、固定名と符号化がぶつからないこと、255 文字の上限 |
+| `placeKindFileNames` | 図形・コメント・ヘッダー・フッターの種類と `objectPlacePattern` がそろっていること |
 | `newIndexName` / `assignIndexNames` | フォルダ名・ドライブ名・共有名、重複時の `(2)` `(3)`、設定の名前をそのまま使う（フォルダの場所が変わっても同じ名前）、名前が無ければ前回の取り込み一覧の名前・フォルダ名から作る、設定にある名前はほかのフォルダに使わない、名前にできない・長いフォルダ名 |
 | `splitIndexRelPath` | 先頭のインデックス名と残り（深い階層、数字を含む名前）、`\` が無い場合 |
 | `testIndexName` | 使える名前は空文字列、空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語（大文字小文字を区別しない）・ほかのインデックスと重複、それぞれの理由を返す |
@@ -71,7 +71,7 @@ flowchart LR
 
 | 対象 | 主な確認内容 |
 |---|---|
-| `convertPlaceToPackMeta` / `convertPackMetaToPlace` | 場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ |
+| `convertPlaceToPackMeta` / `convertPackMetaToPlace` | 場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ |
 | `getPackFileName` / `readPackFileName` / `planPackParts` / `splitPackBooksByExtension` / `encodePackValue` / `decodePackValue` / `convertToPackBody` | 本文インデックスのファイルの名前、拡張子ごとの分け方、値の `%XX` の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く |
 | `convertToPackText` / `readPackPlaces` | 文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、版の無い・違う本文インデックスのファイルは例外 |
 | `convertIndexFolderToPack` / `updateIndexFolderPack` / `findIndexFoldersWithBooks` / `publishIndexFolders` | フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる |

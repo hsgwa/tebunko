@@ -177,7 +177,7 @@ function convertPackMetaToPlace {
     )
 
     $target = [string]$meta["対象"]
-    $suffix = if ($target -eq ${placeKindShape} -or $target -eq ${placeKindComment}) { "[$target]" } else { "" }
+    $suffix = if ($target -eq ${placeKindShape} -or $target -eq ${placeKindComment} -or $target -eq ${placeKindHeaderFooter}) { "[$target]" } else { "" }
     if ($meta.Contains("シート")) {
         return [string]$meta["シート"] + $suffix
     }

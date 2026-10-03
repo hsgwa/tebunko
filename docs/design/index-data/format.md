@@ -51,7 +51,7 @@ TSV は**元のファイル名をフォルダ名**にし、その中に場所ご
 
 - クロール対象フォルダのフォルダ構成が `work/content_index/<インデックス名>/` 配下にそのまま再現され、各フォルダに**拡張子ごとの本文インデックス**ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。
 - 本文インデックスの拡張子は小文字にそろえる（`報告書.DOCX` は `content_index.docx.001.tsv` に入る）。
-- 「場所」は Excel ではシート名と、図形・コメントの `<シート名>[図形]` `<シート名>[コメント]`（下の「図形・コメントの場所」、[Excel の図形・コメントの読み取り](../indexing/excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）、Word ではページ・ヘッダー/フッター・脚注（[Word のテキスト読み取りと TSV の場所](../indexing/word.md#word-のテキスト読み取りと-tsv-の場所readdocxunits)）、PowerPoint ではスライド・ノート（[PowerPoint のテキスト読み取りと TSV の場所](../indexing/powerpoint.md#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits)）。
+- 「場所」は Excel ではシート名と、図形・コメント・ヘッダー・フッターの `<シート名>[図形]` `<シート名>[コメント]` `<シート名>[ヘッダー・フッター]`（下の「図形・コメントの場所」、[Excel の図形・コメントの読み取り](../indexing/excel.md#excel-の図形コメントの読み取りreadxlsxobjectunits)）、Word ではページ・ヘッダー/フッター・脚注（[Word のテキスト読み取りと TSV の場所](../indexing/word.md#word-のテキスト読み取りと-tsv-の場所readdocxunits)）、PowerPoint ではスライド・ノート（[PowerPoint のテキスト読み取りと TSV の場所](../indexing/powerpoint.md#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits)）。
 - TSV のファイル名は場所だけ（`toIndexFileName`）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。
 - **ファイル名は英字にそろえる。** ページ・スライド・ヘッダー/フッター・脚注・文書・本文といった、あらかじめ決まっている場所は、固定の英語のファイル名（`page_<番号>` `slide_<番号>` `slide_<番号>_hidden` `slide_<番号>_notes` `header_footer` `doc_footnotes` `doc_whole` `doc_body` など。`convertPlaceBaseToFixedFileName`）にする。Excel のシート名のように利用者が付けた任意の文字列は、下の「場所の符号化」で符号化する。符号化は `_` を必ず `%5F` にするため、ファイル名の本体に英字と `_` だけの固定名（`page_1` など）は符号化した名前と衝突せず、`convertIndexFileNameToPlace` で元の場所へ一意に戻せる。
 - **TSV でファイル名をフォルダ名にする理由**（`<ファイル名>_<場所>.tsv` のように 1 つの名前にしない理由）:
@@ -124,13 +124,15 @@ B2→確定版
 |---|---|---|---|
 | `図形` | 図形・テキストボックス・WordArt、SmartArt、グラフ（`売上[図形]`。表示のグラフシートも `<グラフシート名>[図形]` で含む） | 本文のテキストボックス・図形内の文字、SmartArt、グラフ（`ページ003[図形]`） | SmartArt、グラフ（`スライド002[図形]`）。テキストボックス・図形の文字はスライドの本文 |
 | `コメント` | メモ・スレッド形式のコメントと返信（`売上[コメント]`） | コメントと返信（`ページ003[コメント]`。本文に参照の無いものは `文書[コメント]`） | 旧形式・新形式のコメントと返信（`スライド002[コメント]`） |
+| `ヘッダー・フッター` | 印刷のヘッダー・フッター（`売上[ヘッダー・フッター]`。表示のグラフシートも含む。検索の選択肢は無く、いつも検索する） | 種類ではない（場所の名前 `ヘッダー・フッター`） | 種類ではない（場所の名前 `ヘッダー・フッター`） |
 
 - PowerPoint のテキストボックス・図形を本文のままにする理由は [PowerPoint のテキスト読み取りと TSV の場所](../indexing/powerpoint.md#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits)。Word の本文のテキストボックスは Excel とそろえて図形にするため、［図形も検索］をオフにすると検索されない。
 - Excel の新しい種類のグラフ（じょうご・ツリーマップ・滝など。`cx:chart`）とグラフの中のテキストボックス（`c:userShapes`）、埋め込みオブジェクト、スライドマスター・レイアウトは読まない（[Excel の図形・コメントの読み取り](../indexing/excel.md)）。
-- **重ならない理由**: Excel のシート名には `[` `]` を使えない。Word・PowerPoint の場所（`ページNNN` `スライドNNN` `ヘッダー・フッター` 等）には `[` が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。
-- **定義の場所**: 種類の名前は `index_name.ps1` の `$placeKindShape` / `$placeKindComment` と `objectPlacePattern`（分けるのは `splitObjectPlace`）。書き出す側（`office_reader.ps1`）と画面（`types.ps1` の `HitRow`）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（`index_name.Tests.ps1`）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。
-- **1 行の形**: Excel は `<セル番地><TAB><文字>`（検索結果の「場所」に出すセル番地と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。
-- **読み取る内容を増やしたとき**: `indexer_decide.ps1` の `$extractVersions` で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（[取り込み一覧](../indexing/ingest-list.md)）。今は `.xlsx` `.xlsm` `.docx` `.docm` `.pptx` `.pptm` が 3、`.doc` `.ppt` が 2。
+- **重ならない理由**: Excel のシート名には `[` `]` を使えない。Word・PowerPoint の場所（`ページNNN` `スライドNNN` `ヘッダー・フッター` 等）には `[` が付かない。このため、ふつうの場所と図形・コメント・ヘッダー・フッターの場所は必ず見分けられる（Word・PowerPoint の `ヘッダー・フッター` は `[` `]` で囲まない場所の名前で、Excel の種類 `[ヘッダー・フッター]` とは別。集約ファイルでは Excel が `シート=売上` `対象=ヘッダー・フッター`、Word・PowerPoint が `部分=ヘッダー・フッター` `対象=本文`）。
+- **定義の場所**: 種類の名前は `index_name.ps1` の `$placeKindShape` / `$placeKindComment` / `$placeKindHeaderFooter` と `objectPlacePattern`（分けるのは `splitObjectPlace`）。書き出す側（`office_reader.ps1`）と画面（`types.ps1` の `HitRow`）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（`index_name.Tests.ps1`）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。
+- **1 行の形**: Excel の図形・コメントは `<セル番地><TAB><文字>`（検索結果の「場所」に出すセル番地と、開くときに選ぶセルに使う）。Excel のヘッダー・フッターは文字だけ（セル番地が無いため、検索結果の「場所」はシート名だけで、開くときもセルは選ばない。画面は `HitRow.IsCelllessPlace` で判定する。正規表現の種類の名前は `index_name.ps1` の `$placeKindHeaderFooter` と同じで、テストでそろっていることを確かめる）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。
+- **読み取る内容を増やしたとき**: `indexer_decide.ps1` の `$extractVersions` で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（[取り込み一覧](../indexing/ingest-list.md)）。今は `.xlsx` `.xlsm` が 4、`.docx` `.docm` `.pptx` `.pptm` が 3、`.doc` `.ppt` が 2。
+  - 前の版の tebunko で新しいインデックスを検索してもエラーにはならない。前の版はヘッダー・フッターの行を、そのシートのセルの行（種別「セル」・場所 `[シート]売上!A1`）として出す（種類を知らないため。実機で確かめた）。
 
 ## 場所の符号化（`encodeIndexPlace` / `decodeIndexPlace`）
 
