@@ -102,10 +102,10 @@ Describe "newWorkspaceConfirm" -Tag Unit {
     }
 
     It "インデックスなどがあれば、使うか、消して最初からやり直すかを選ばせる（消すほうは赤いボタンで、キャンセルを既定にする）" {
-        $confirm = newWorkspaceConfirm "D:\共有\tebunko_ws" "C:\tool\work" 3 @("index", "取り込み一覧.tsv", "memo.txt") $false @("index", "取り込み一覧.tsv")
+        $confirm = newWorkspaceConfirm "D:\共有\tebunko_ws" "C:\tool\work" 3 @("index", "ingest_status.tsv", "memo.txt") $false @("index", "ingest_status.tsv")
         $confirm.Heading | Should -Be "選んだフォルダには、すでにインデックスがあります。どうしますか？"
         @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "kept,next"
-        $confirm.Facts[0].Detail | Should -Be "index、取り込み一覧.tsv"
+        $confirm.Facts[0].Detail | Should -Be "index、ingest_status.tsv"
         $confirm.Facts[1].Detail | Should -Be "今のワークスペースの中身は移さず、元の場所に残します：C:\tool\work"
         @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "use,reset"
         @($confirm.Choices | ForEach-Object { $_.Text }) -join "," | Should -Be "あるインデックスを使う,消して、最初からやり直す"

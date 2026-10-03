@@ -140,9 +140,9 @@ sequenceDiagram
 
 ファイルに残すのは次のものだけである。
 
-- `取り込み一覧.tsv`
-- `取り込み中.txt`（強制終了からの再開）
-- `インデックス作成ログ.txt`（`writeIndexerLog` で書く。実行ごとに上書き）
+- `ingest_status.tsv`
+- `ingesting.txt`（強制終了からの再開）
+- `indexing_log.txt`（`writeIndexerLog` で書く。実行ごとに上書き）
 
 インデクサのミューテックス（`newAppMutex "indexer"`。画面と `indexer.ps1` が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［8 設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（`testIndexerRunning`）。
 

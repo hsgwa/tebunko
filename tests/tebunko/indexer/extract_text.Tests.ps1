@@ -19,7 +19,7 @@ Describe "extractTextFile" -Tag Io {
     It "本文の TSV を 1 つ書き出し、途中の空の行も捨てない" {
         $source = newSourceFile "a.txt" ([System.Text.Encoding]::UTF8.GetBytes("1行目`r`n`r`n3行目`r`n"))
         (extractTextFile $source $outDir) | Should -Be 1
-        $path = Join-Path $outDir "本文.tsv"
+        $path = Join-Path $outDir "doc_body.tsv"
         Test-Path -LiteralPath $path | Should -Be $true
         $lines = [System.IO.File]::ReadAllLines($path)
         ($lines -join "|") | Should -Be "1行目||3行目"
