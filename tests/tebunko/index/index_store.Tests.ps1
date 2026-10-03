@@ -31,7 +31,7 @@ Describe "getIndexStats" -Tag Io {
 Describe "renameIndex" -Tag Io {
     It "インデックスのフォルダと取り込み一覧の記録の名前を変え、中身はそのまま残す" {
         $dir = "$TestDrive\rename\index"
-        $path = "$TestDrive\rename\取り込み一覧.tsv"
+        $path = "$TestDrive\rename\ingest_status.tsv"
         New-Item -ItemType Directory -Path "$dir\営業\a.xlsx" -Force | Out-Null
         Set-Content -LiteralPath "$dir\営業\a.xlsx\Sheet1.tsv" -Value "本文" -Encoding UTF8
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
@@ -60,7 +60,7 @@ Describe "renameIndex" -Tag Io {
 
     It "インデックスのフォルダがまだ無くても、取り込み一覧の記録は変える" {
         $dir = "$TestDrive\rename2\index"
-        $path = "$TestDrive\rename2\取り込み一覧.tsv"
+        $path = "$TestDrive\rename2\ingest_status.tsv"
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
@@ -73,7 +73,7 @@ Describe "renameIndex" -Tag Io {
 
     It "同じ名前のフォルダが既にあれば例外にする" {
         $dir = "$TestDrive\rename3\index"
-        $path = "$TestDrive\rename3\取り込み一覧.tsv"
+        $path = "$TestDrive\rename3\ingest_status.tsv"
         New-Item -ItemType Directory -Path "$dir\営業" -Force | Out-Null
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
 
@@ -82,7 +82,7 @@ Describe "renameIndex" -Tag Io {
 
     It "大文字・小文字だけを変えられる（フォルダ・記録とも新しい書き方になる）" {
         $dir = "$TestDrive\rename4\index"
-        $path = "$TestDrive\rename4\取り込み一覧.tsv"
+        $path = "$TestDrive\rename4\ingest_status.tsv"
         writeListFile "$dir\sales\a.xlsx\Sheet1.tsv" @("本文")
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "sales" }) @(
             (newStatusRow "sales\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
@@ -99,7 +99,7 @@ Describe "renameIndex" -Tag Io {
 
     It "名前が空・同じなら何もしない" {
         $dir = "$TestDrive\rename5\index"
-        $path = "$TestDrive\rename5\取り込み一覧.tsv"
+        $path = "$TestDrive\rename5\ingest_status.tsv"
         New-Item -ItemType Directory -Path "$dir\営業" -Force | Out-Null
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @() $path
 
@@ -115,7 +115,7 @@ Describe "renameIndex" -Tag Io {
 Describe "removeIndex" -Tag Io {
     It "インデックスのフォルダと取り込み一覧の記録を削除し、ほかのインデックスは残す" {
         $dir = "$TestDrive\remove\index"
-        $path = "$TestDrive\remove\取り込み一覧.tsv"
+        $path = "$TestDrive\remove\ingest_status.tsv"
         New-Item -ItemType Directory -Path "$dir\営業\a.xlsx" -Force | Out-Null
         Set-Content -LiteralPath "$dir\営業\a.xlsx\Sheet1.tsv" -Value "本文" -Encoding UTF8
         New-Item -ItemType Directory -Path "$dir\技術" -Force | Out-Null
@@ -140,7 +140,7 @@ Describe "removeIndex" -Tag Io {
     }
 
     It "名前が空なら何もしない" {
-        $path = "$TestDrive\remove2\取り込み一覧.tsv"
+        $path = "$TestDrive\remove2\ingest_status.tsv"
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateNew)
         ) $path
@@ -153,7 +153,7 @@ Describe "removeIndex" -Tag Io {
     It "フォルダを消せなければ（TSV を開いている等）例外にし、取り込み一覧の記録は残す" {
         # 画面は別スレッド（$ErrorActionPreference が既定の Continue）で呼ぶため、消せなかったことを例外で知らせる必要がある
         $dir = "$TestDrive\remove3\index"
-        $path = "$TestDrive\remove3\取り込み一覧.tsv"
+        $path = "$TestDrive\remove3\ingest_status.tsv"
         writeListFile "$dir\営業\a.xlsx\Sheet1.tsv" @("本文")
         writeStatusFile @([pscustomobject]@{ Path = "C:\data"; Name = "営業" }) @(
             (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
@@ -214,7 +214,7 @@ Describe "getSearchIndexes" -Tag Io {
         $indexes[1].SourcePath | Should -Be ""
     }
 
-    It "一覧にも取り込み一覧にも無いインデックスは、そのフォルダの 元のフォルダ.txt から元のフォルダを読む" {
+    It "一覧にも取り込み一覧にも無いインデックスは、そのフォルダの source_folder.txt から元のフォルダを読む" {
         $dir = "$TestDrive\コピー2\index"
         $settings = "$TestDrive\コピー2\setting.config"
         [void](New-Item -ItemType Directory -Path "$dir\営業" -Force)
@@ -465,7 +465,7 @@ Describe "renameIndex / removeIndex の外したフォルダの記録（searchEx
     BeforeEach {
         $script:settings = "$TestDrive\excl\setting.config"
         $script:dir = "$TestDrive\excl\index"
-        $script:status = "$TestDrive\excl\取り込み一覧.tsv"
+        $script:status = "$TestDrive\excl\ingest_status.tsv"
         # It ごとに作り直す（前の It の改名が残らないように）
         Remove-Item -LiteralPath "$TestDrive\excl" -Recurse -Force -ErrorAction SilentlyContinue
         New-Item -ItemType Directory -Path "$($script:dir)\Sales", "$($script:dir)\Sales2", "$($script:dir)\技術" -Force | Out-Null

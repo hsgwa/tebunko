@@ -153,19 +153,89 @@ function decodeIndexPlace {
     return [regex]::Replace($place, '%(?:[01][0-9A-F]|2[25AF]|3[ACEF]|5[CF]|7C)', { param($m) [string][char][Convert]::ToInt32($m.Value.Substring(1), 16) })
 }
 
+# 決まった場所（ページ・スライド・ヘッダー/フッター・脚注・文書・本文）は、ファイル名を ASCII の固定名にする。
+# 符号化した場所（encodeIndexPlace）には "_" が出ないため（"_" は "%5F" にする）、固定名に "_" を使っても
+# シート名由来のファイル名と重ならない（convertIndexFileNameToPlace で戻すときの手掛かりにする）。
+function convertPlaceBaseToFixedFileName {
+    # 場所の元の部分（種類を除いた部分）を、決まったASCIIのファイル名にする（当てはまらなければ空文字列）。
+    #   数字はそのまま桁を写す（int にしない。"001" は "001" のまま）
+    param (
+        [string]$base
+    )
+
+    if ($base -match '^ページ(\d+)$') { return "page_$($Matches[1])" }
+    if ($base -match '^スライド(\d+)（非表示）$') { return "slide_$($Matches[1])_hidden" }
+    if ($base -match '^スライド(\d+)_ノート$') { return "slide_$($Matches[1])_notes" }
+    if ($base -match '^スライド(\d+)$') { return "slide_$($Matches[1])" }
+    if ($base -eq "ヘッダー・フッター") { return "header_footer" }
+    if ($base -eq "脚注") { return "doc_footnotes" }
+    if ($base -eq "文書") { return "doc_whole" }
+    if ($base -eq "本文") { return "doc_body" }
+    return ""
+}
+
+function convertFixedFileNameToPlaceBase {
+    # convertPlaceBaseToFixedFileName の逆変換（当てはまらなければ空文字列）
+    param (
+        [string]$fileBase
+    )
+
+    if ($fileBase -match '^page_(\d+)$') { return "ページ$($Matches[1])" }
+    if ($fileBase -match '^slide_(\d+)_hidden$') { return "スライド$($Matches[1])（非表示）" }
+    if ($fileBase -match '^slide_(\d+)_notes$') { return "スライド$($Matches[1])_ノート" }
+    if ($fileBase -match '^slide_(\d+)$') { return "スライド$($Matches[1])" }
+    if ($fileBase -eq "header_footer") { return "ヘッダー・フッター" }
+    if ($fileBase -eq "doc_footnotes") { return "脚注" }
+    if ($fileBase -eq "doc_whole") { return "文書" }
+    if ($fileBase -eq "doc_body") { return "本文" }
+    return ""
+}
+
 function toIndexFileName {
-    # インデックスのTSVのファイル名 "<場所>.tsv" を返す（場所は encodeIndexPlace で符号化する）。
+    # インデックスのTSVのファイル名 "<場所>.tsv" を返す。
+    #   ・決まった場所（ページ・スライド・ヘッダー/フッター・脚注・文書・本文）は ASCII の固定名にする
+    #   ・それ以外（Excelのシート名）は encodeIndexPlace で符号化する
+    #   ・図形・コメントは、末尾に英語の種類 "[shape]" "[comment]" を付ける（placeKindFileNames）
     # 元のファイル名はフォルダ名（= 元のファイル名そのもの）にするため、ファイル名には入れない。
     # ファイル名の上限（255文字）は長いパスの対応（toLongPath）でも超えられないため、超える場合は分かるメッセージで例外にする
     param (
         [string]$place
     )
 
-    $name = "{0}.tsv" -f (encodeIndexPlace $place)
+    $split = splitObjectPlace $place
+    $fixedName = convertPlaceBaseToFixedFileName $split.Base
+    $base = if ($fixedName) { $fixedName } else { encodeIndexPlace $split.Base }
+    $suffix = if ($split.Kind) { "[$(${placeKindFileNames}[$split.Kind])]" } else { "" }
+    $name = "{0}{1}.tsv" -f $base, $suffix
     if ($name.Length -gt ${maxFileNameLength}) {
         throw "インデックスのファイル名が長すぎるため保存できません（$($name.Length) 文字。上限 ${maxFileNameLength} 文字）: ${name}"
     }
     return $name
+}
+
+function convertIndexFileNameToPlace {
+    # toIndexFileName の逆変換。ファイル名（拡張子 .tsv を除いたもの）から場所を復元する。
+    #   戻す順番: (1) 末尾の "[shape]"・"[comment]" を外す → (2) 残りに "_" があれば固定の場所の表で戻し、
+    #             無ければ decodeIndexPlace で戻す → (3) (1) で外した種類を日本語（[図形]・[コメント]）で付け直す
+    param (
+        [string]$fileNameWithoutExtension
+    )
+
+    $kind = ""
+    $body = $fileNameWithoutExtension
+    if ($fileNameWithoutExtension -match '^(?<base>.+)\[(?<kind>shape|comment)\]$') {
+        $body = $Matches.base
+        $kind = if ($Matches.kind -eq "shape") { ${placeKindShape} } else { ${placeKindComment} }
+    }
+
+    if ($body.IndexOf("_") -ge 0) {
+        $base = convertFixedFileNameToPlaceBase $body
+    } else {
+        $base = decodeIndexPlace $body
+    }
+
+    if ($kind) { return "$base[$kind]" }
+    return $base
 }
 
 
@@ -177,7 +247,13 @@ function toIndexFileName {
 # 種類を足すときは、ここ・書き出す側（office_reader.ps1）・画面（types.ps1 の HitRow.ObjectPlaceRegex）をそろえる
 ${placeKindShape}   = "図形"      # 図形・テキストボックス・WordArt・SmartArt・グラフ（PowerPoint のテキストボックス・図形はスライドの本文）
 ${placeKindComment} = "コメント"  # コメント（メモ・スレッド形式のコメント）
-${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${placeKindShape}|${placeKindComment})\]$"
+
+# 種類ごとの、TSVのファイル名に付ける英語の名前（toIndexFileName・convertIndexFileNameToPlace で使う）
+${placeKindFileNames} = @{ ${placeKindShape} = "shape"; ${placeKindComment} = "comment" }
+
+# ${objectPlacePattern} の種類の選択肢は ${placeKindFileNames} のキーから組み立てる（足し忘れを防ぐ）
+${objectPlaceKindAlternation} = (${placeKindFileNames}.Keys | ForEach-Object { [regex]::Escape($_) }) -join "|"
+${objectPlacePattern} = "^(?<base>.*)\[(?<kind>${objectPlaceKindAlternation})\]$"
 
 
 function splitObjectPlace {

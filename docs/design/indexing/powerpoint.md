@@ -51,9 +51,9 @@ TSV の例（配置・命名の規則は [インデックスのファイルの�
 
 | 元ファイル（クロール対象フォルダからの相対パス） | 場所 | 出力 TSV |
 |---|---|---|
-| `提案.pptx` | 3 枚目のスライド | `work/content_index/営業/提案.pptx/スライド003.tsv` |
-| `提案.pptx` | 3 枚目（非表示スライド） | `work/content_index/営業/提案.pptx/スライド003（非表示）.tsv` |
-| `提案.pptx` | 3 枚目の発表者ノート | `work/content_index/営業/提案.pptx/スライド003%5Fノート.tsv` |
-| `提案.pptx` | スライドのフッター | `work/content_index/営業/提案.pptx/ヘッダー・フッター.tsv` |
+| `提案.pptx` | 3 枚目のスライド | `work/content_index/営業/提案.pptx/slide_003.tsv` |
+| `提案.pptx` | 3 枚目（非表示スライド） | `work/content_index/営業/提案.pptx/slide_003_hidden.tsv` |
+| `提案.pptx` | 3 枚目の発表者ノート | `work/content_index/営業/提案.pptx/slide_003_notes.tsv` |
+| `提案.pptx` | スライドのフッター | `work/content_index/営業/提案.pptx/header_footer.tsv` |
 
 - スライドの番号は 3 桁以上の 0 埋め（ファイル名の順 = スライドの表示順）。

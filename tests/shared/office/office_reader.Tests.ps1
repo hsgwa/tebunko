@@ -259,10 +259,39 @@ Describe "writeUnits" -Tag Io {
 
         # ファイル名はフォルダ名（インデクサが作業フォルダから移す先）になるため、TSVの名前は場所だけ
         writeUnits $units $outDir | Should -Be 2
-        [System.IO.File]::ReadAllText("$outDir\ページ001.tsv") | Should -Be "a`tb`r`n"
-        Test-Path -LiteralPath "$outDir\ページ002.tsv" | Should -Be $false
-        # 場所の _ は符号化する（toIndexFileName）
-        Test-Path -LiteralPath "$outDir\スライド001%5Fノート.tsv" | Should -Be $true
+        [System.IO.File]::ReadAllText("$outDir\page_001.tsv") | Should -Be "a`tb`r`n"
+        Test-Path -LiteralPath "$outDir\page_002.tsv" | Should -Be $false
+        # 固定名に当てはまる場所は英語の固定名にする（toIndexFileName）
+        Test-Path -LiteralPath "$outDir\slide_001_notes.tsv" | Should -Be $true
+    }
+
+    It "testdata の docx・pptx すべてで、出力するファイル名がASCIIになる（再発防止。場所や種類を足して英語の名前を忘れると、ここで落ちる）" {
+        $root = [System.IO.Path]::GetFullPath("$PSScriptRoot\..\..\testdata\office")
+        $files = @(Get-ChildItem -Path $root -Recurse -File -Include "*.docx", "*.pptx")
+        $files.Count | Should -BeGreaterThan 0
+
+        $checked = 0
+        foreach ($file in $files) {
+            $units = $null
+            try {
+                $units = $(if ($file.Extension -ieq ".docx") { readDocxUnits $file.FullName } else { readPptxUnits $file.FullName })
+            } catch {
+                continue
+            }
+            if ($null -eq $units -or $units.Count -eq 0) {
+                continue
+            }
+
+            $sweepDir = "$TestDrive\ascii_sweep\$([Guid]::NewGuid().ToString('N'))"
+            [System.IO.Directory]::CreateDirectory($sweepDir) | Out-Null
+            writeUnits $units $sweepDir | Out-Null
+            foreach ($written in Get-ChildItem -Path $sweepDir -File) {
+                $written.Name | Should -Match "^[\x20-\x7E]+$"
+            }
+            $checked++
+        }
+
+        $checked | Should -BeGreaterThan 0
     }
 }
 

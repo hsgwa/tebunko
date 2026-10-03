@@ -31,7 +31,7 @@ try {
 
         setMonitorPhase $monitor "pack の作成"
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
-        [void](publishIndexFolders $pending $Index (Join-Path $Work "system_index") (Join-Path $Work "システムインデックスの状態.tsv"))
+        [void](publishIndexFolders $pending $Index (Join-Path $Work "system_index") (Join-Path $Work "system_index_state.tsv"))
         $seconds = $watch.Elapsed.TotalSeconds
 
         setMonitorPhase $monitor "集計"

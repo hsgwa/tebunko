@@ -150,7 +150,7 @@ Describe "writeSystemIndexFolders" -Tag Io {
 
 Describe "readSystemIndexState / updateSystemIndexState" -Tag Io {
     It "無ければ空。書き換えて読み直せる" {
-        $path = "$TestDrive\state\システムインデックスの状態.tsv"
+        $path = "$TestDrive\state\system_index_state.tsv"
         (readSystemIndexState $path).Pending.Count | Should -Be 0
         updateSystemIndexState { param ($s) [void]$s.Covered.Add("営業"); $s.Pending["営業\a\system_index.txt"] = 5 } $path | Should -Be $true
         $state = readSystemIndexState $path
@@ -294,13 +294,13 @@ Describe "updateSystemIndexes" -Tag Io {
 Describe "removeIndex / renameIndex の システムインデックス" -Tag Io {
     It "インデックスを削除・名前変更すると、同じワークスペースの system_index の分を消す" {
         $index = newIndexTree "$TestDrive\ix"
-        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" { $false })
-        renameIndex "営業" "営業2" $index "$TestDrive\ix\取り込み一覧.tsv" "$TestDrive\ix\setting.config"
+        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\system_index_state.tsv" { $false })
+        renameIndex "営業" "営業2" $index "$TestDrive\ix\ingest_status.tsv" "$TestDrive\ix\setting.config"
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業") | Should -Be $false
-        (readSystemIndexState "$TestDrive\ix\システムインデックスの状態.tsv").Covered.Count | Should -Be 0
-        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\システムインデックスの状態.tsv" { $false })
+        (readSystemIndexState "$TestDrive\ix\system_index_state.tsv").Covered.Count | Should -Be 0
+        [void](updateSystemIndexes $index "$TestDrive\ix\system_index" "$TestDrive\ix\system_index_state.tsv" { $false })
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should -Be $true
-        removeIndex "営業2" $index "$TestDrive\ix\取り込み一覧.tsv" "$TestDrive\ix\setting.config"
+        removeIndex "営業2" $index "$TestDrive\ix\ingest_status.tsv" "$TestDrive\ix\setting.config"
         [System.IO.Directory]::Exists("$TestDrive\ix\system_index\営業2") | Should -Be $false
     }
 }

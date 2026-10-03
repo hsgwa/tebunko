@@ -483,7 +483,7 @@ function getDefaultWorkspaceError {
 
 function testDefaultWorkspace {
     # 既定のワークスペースを使えるか: @{ Usable; Folder; Message }。
-    # 使える: 無い（使うときに作る）・空・前から使っているワークスペース（content_index・前の版の index・取り込み一覧.tsv がある）。
+    # 使える: 無い（使うときに作る）・空・前から使っているワークスペース（content_index・前の版の index・ingest_status.tsv がある）。
     # それ以外（ほかのファイルが置いてある）は、インデックスのファイルと混ざるため使わせない
     param (
         [string]$folder = (getDefaultWorkDir)

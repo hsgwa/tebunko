@@ -3,7 +3,7 @@
 function publishTsv {
     # 作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移動する。
     # 途中で強制終了されても一部のシートだけのインデックスが残らないよう、
-    # 出力用のフォルダ（work\取り込み出力\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
+    # 出力用のフォルダ（work\publish\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
     param (
         [string]$bookDir
     )
@@ -16,7 +16,7 @@ function clearTmpDir {
 }
 
 function removeTmpDir {
-    # 作業フォルダ（%TEMP%\tebunko\<PID>）と出力用のフォルダ（work\取り込み出力\<PID>）を削除する。終了時に呼ぶ
+    # 作業フォルダ（%TEMP%\tebunko\<PID>）と出力用のフォルダ（work\publish\<PID>）を削除する。終了時に呼ぶ
     foreach ($dir in @(${tmpDir}, $workspace.PublishDir)) {
         try {
             removeDirectoryRetry $dir
@@ -28,7 +28,7 @@ function removeTmpDir {
 
 function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
-    # （%TEMP%\tebunko\<PID>・work\取り込み出力\<PID>）を削除する
+    # （%TEMP%\tebunko\<PID>・work\publish\<PID>）を削除する
     foreach ($parent in @((Split-Path ${tmpDir} -Parent), (Split-Path $workspace.PublishDir -Parent))) {
         removeStaleProcessDirs $parent
     }

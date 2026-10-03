@@ -25,7 +25,7 @@ Describe "getIndexNameMap / resolveSourcePath" -Tag Io {
         resolveSourcePath $hit @{} | Should -Be $null
     }
 
-    It "設定のインデックス名の場所を、元のフォルダ.txt・取り込み一覧より優先する" {
+    It "設定のインデックス名の場所を、source_folder.txt・取り込み一覧より優先する" {
         # 「名前」と「今の置き場所」を設定で分けて持つため、フォルダを移したら設定の場所だけを見る
         $dir = "$TestDrive\優先\index"
         $settings = "$TestDrive\優先\setting.config"
@@ -72,7 +72,7 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
         (readSourceFolderFile "$TestDrive\none_dir").Count | Should -Be 0
     }
 
-    It "別の場所にコピーしたインデックスでも、元のフォルダ.txt から元の場所が分かる" {
+    It "別の場所にコピーしたインデックスでも、source_folder.txt から元の場所が分かる" {
         $dir = "$TestDrive\別PC\index"
         [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
@@ -84,7 +84,7 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
         resolveSourcePath $hit @{} | Should -Be "C:\data\見積\2024\A社.xlsx"
     }
 
-    It "インデックスのフォルダの中に 元のフォルダ.txt を書き、そのフォルダだけをコピーしても元の場所が分かる" {
+    It "インデックスのフォルダの中に source_folder.txt を書き、そのフォルダだけをコピーしても元の場所が分かる" {
         $dir = "$TestDrive\作った PC\index"
         [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         [void][System.IO.Directory]::CreateDirectory("$dir\営業")
@@ -108,7 +108,7 @@ Describe "writeSourceFolderFile / readSourceFolderFile / getSourceLocation" -Tag
         (readSourceFolderFile $dir).Count | Should -Be 0
     }
 
-    It "インデックス名のフォルダを検索対象にした場合は、そのフォルダの 元のフォルダ.txt を使う" {
+    It "インデックス名のフォルダを検索対象にした場合は、そのフォルダの source_folder.txt を使う" {
         $dir = "$TestDrive\別PC2\index"
         [void][System.IO.Directory]::CreateDirectory("$dir\見積")
         writeSourceFolderFile @([pscustomobject]@{ Path = "C:\data\見積"; Name = "見積" }) $dir
