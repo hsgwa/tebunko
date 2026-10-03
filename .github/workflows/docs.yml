@@ -1,4 +1,4 @@
-﻿# 設計書のサイト（MkDocs）を作り、GitHub Pages に公開する（GitHub Actions）
+# 設計書のサイト（MkDocs）を作り、GitHub Pages に公開する（GitHub Actions）
 #
 # GitHub Pages は gh-pages ブランチの内容をそのまま公開する（Pages の設定で、ソースを gh-pages ブランチの / にする）。
 #   - main が更新されたら、サイトを gh-pages の直下に置く（https://hsgwa.github.io/tebunko/）

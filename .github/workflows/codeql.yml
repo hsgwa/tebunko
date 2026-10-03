@@ -1,4 +1,4 @@
-﻿# ワークフローの静的解析（CodeQL）
+# ワークフローの静的解析（CodeQL）
 #
 # GitHub Actions のワークフロー（.github/workflows/）を CodeQL で解析し、結果を GitHub の Security タブ（Code scanning）に載せる。
 # 信頼できない入力（PR のタイトル・ブランチ名など）をそのまま run に埋め込む、権限が広すぎる、といった書き方を見つける。

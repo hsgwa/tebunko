@@ -1,4 +1,4 @@
-﻿# 検索・pack の作成・取り込み（.docx・.pptx）の速さの回帰テスト（tests\tools\perf_search.Tests.ps1・perf_ingest.Tests.ps1）。
+# 検索・pack の作成・取り込み（.docx・.pptx）の速さの回帰テスト（tests\tools\perf_search.Tests.ps1・perf_ingest.Tests.ps1）。
 #
 # 動く時:
 #   ・PR にラベル perf-check を付けたとき（付けたあとの push・reopen でも流し直す。ラベルが無い PR ではジョブがスキップになり、失敗にはならない）
@@ -138,11 +138,12 @@ jobs:
 
   # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
   # search・ingest の 2 つの結果を合わせて 1 件のコメントにする（悪いほうを採用する）。
-  # ラベルが無く search・ingest がスキップのときも、スキップしたことをコメントに出す。
+  # perf-check のラベルが無く search・ingest がスキップのときも、スキップしたことをコメントに出す。
+  # ただし perf-check 以外のラベルを付けて起動した実行では書かない（前の結果を「スキップ」で消さないため。concurrency と同じ条件）。
   # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
   pr-comment:
     needs: [search, ingest]
-    if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
+    if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && (github.event.action != 'labeled' || github.event.label.name == 'perf-check') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

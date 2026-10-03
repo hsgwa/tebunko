@@ -99,6 +99,17 @@ Describe "formatCheckComment" -Tag Unit {
         $body | Should -Match "数字はジョブの Summary で見る。"
     }
 
+    It "headSha があれば、短い形で添える（形が違えば添えない）" -TestCases @(
+        @{ sha = "0123456789abcdef0123456789abcdef01234567"; expected = '対象のコミット: `0123456`' }
+        @{ sha = ""; expected = $null }
+        @{ sha = "zzzz"; expected = $null }
+    ) {
+        param ($sha, $expected)
+        $body = formatCheckComment "test" "test" "success" "" "hsgwa/tebunko" "" $sha
+        if ($expected) { $body | Should -Match ([regex]::Escape($expected)) }
+        else { $body | Should -Not -Match "対象のコミット" }
+    }
+
     It "実行へのリンクが無ければ、その旨を書く" {
         $body = formatCheckComment "test" "test" "success" "" "hsgwa/tebunko" ""
         $body | Should -Match "実行へのリンクなし"
@@ -180,6 +191,41 @@ Describe "invokePrCheckComment" -Tag Unit {
     }
 }
 
+Describe "tryInvokePrCheckComment" -Tag Unit {
+    It "書き込みで例外が出ても投げず、Warning に理由を入れて返す（フォークの PR で 403 になるとき）" {
+        $getComments = { param ($n) @() }
+        $throwingWrite = { param ($action, $prNumber, $commentId, $body) throw "gh api に失敗しました（終了コード 1）。" }
+
+        $r = tryInvokePrCheckComment -repo "hsgwa/tebunko" -prNumber 42 -workflowKey "test" -displayName "test" `
+            -result "success" -runUrl "" -note "" -getComments $getComments -writeComment $throwingWrite
+
+        $r.Warning | Should -Match "gh api に失敗しました"
+        $r.Action | Should -Be $null
+    }
+
+    It "コメントの一覧を読む段階で例外が出ても、投げずに Warning を返す" {
+        $throwingGet = { param ($n) throw "403" }
+        $noWrite = { param ($action, $prNumber, $commentId, $body) }
+
+        $r = tryInvokePrCheckComment -repo "hsgwa/tebunko" -prNumber 42 -workflowKey "test" -displayName "test" `
+            -result "success" -runUrl "" -note "" -getComments $throwingGet -writeComment $noWrite
+
+        $r.Warning | Should -Be "403"
+    }
+
+    It "書けたときは Warning が無く、Action を返す" {
+        $getComments = { param ($n) @() }
+        $okWrite = { param ($action, $prNumber, $commentId, $body) }
+
+        $r = tryInvokePrCheckComment -repo "hsgwa/tebunko" -prNumber 42 -workflowKey "test" -displayName "test" `
+            -result "success" -runUrl "" -note "" -headSha "0123456789abcdef" -getComments $getComments -writeComment $okWrite
+
+        $r.Warning | Should -Be $null
+        $r.Action | Should -Be "post"
+        $r.Body | Should -Match "対象のコミット"
+    }
+}
+
 Describe "各ワークフローが、自分の結果を pr-comment の複合アクションに渡している" -Tag Meta {
     BeforeAll {
         $root = Resolve-Path "$PSScriptRoot\..\.."
@@ -190,11 +236,8 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         Test-Path -LiteralPath $actionPath | Should -BeTrue
     }
 
-    It "集約ワークフロー（pr-comment.yml）は無い（各ワークフローが自分で書く方式のため）" {
-        Test-Path -LiteralPath (Join-Path $root ".github\workflows\pr-comment.yml") | Should -BeFalse
-    }
-
-    It "<path> が pr-comment ジョブで workflow-key: <key> を渡している" -TestCases @(
+    # 6 か所に同じ形で写したジョブの肝（権限を pr-comment ジョブだけに絞る・既定のブランチの内容で動かす）が食い違わないことを確かめる
+    It "<path> の pr-comment ジョブは workflow-key: <key> で複合アクションを呼び、権限と checkout の肝を守っている" -TestCases @(
         @{ path = "test.yml"; key = "test" }
         @{ path = "title.yml"; key = "title" }
         @{ path = "docs.yml"; key = "docs" }
@@ -203,8 +246,36 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         @{ path = "perf-check.yml"; key = "perf-check" }
     ) {
         param ($path, $key)
-        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\$path"))
-        $yml | Should -Match ([regex]::Escape("uses: ./.github/actions/pr-comment"))
-        $yml | Should -Match ([regex]::Escape("workflow-key: $key"))
+        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\$path")) -replace "`r`n", "`n"
+
+        # ワークフロー全体の permissions（jobs: より前）は pull-requests を持たない
+        $header = ($yml -split "(?m)^jobs:", 2)[0]
+        $header | Should -Not -Match "pull-requests"
+
+        # pr-comment ジョブの本文（次のジョブか末尾まで）
+        $m = [regex]::Match($yml, "(?ms)^  pr-comment:\n(.*?)(?=^  [A-Za-z0-9_-]+:[ ]*\n|\z)")
+        $m.Success | Should -BeTrue
+        $job = $m.Groups[1].Value
+
+        # 書き込みの権限は、このジョブだけが持つ
+        $job | Should -Match "(?m)^      pull-requests: write$"
+
+        # 複合アクションを呼ぶ前に、既定のブランチの内容を checkout している（PR のコードを書き込み権限で動かさない）
+        $usesIndex = $job.IndexOf("uses: ./.github/actions/pr-comment")
+        $usesIndex | Should -BeGreaterThan 0
+        $before = $job.Substring(0, $usesIndex)
+        $before | Should -Match ([regex]::Escape('ref: ${{ github.event.repository.default_branch }}'))
+        $before | Should -Match "persist-credentials: false"
+        $job | Should -Match ([regex]::Escape("workflow-key: $key"))
+    }
+
+    It "release.yml は test.yml を呼ぶジョブに pull-requests: write を許している（足りないと release が起動しない）" {
+        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\release.yml")) -replace "`r`n", "`n"
+        $yml | Should -Match "(?ms)^  test:\n.*?uses: \./\.github/workflows/test\.yml\n.*?^      pull-requests: write$"
+    }
+
+    It "perf-check.yml の pr-comment は、perf-check 以外のラベルを付けたときには書かない" {
+        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\perf-check.yml")) -replace "`r`n", "`n"
+        $yml | Should -Match ([regex]::Escape("(github.event.action != 'labeled' || github.event.label.name == 'perf-check')"))
     }
 }

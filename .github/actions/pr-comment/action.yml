@@ -43,8 +43,9 @@ runs:
         RESULT: ${{ inputs.result }}
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         NOTE: ${{ inputs.note }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       # 呼び出し側が checkout した作業ツリー（既定のブランチの内容）の tools/pr_checks_comment.ps1 を使う
       run: >-
         ./tools/pr_checks_comment.ps1
         -Repo $env:REPO -PrNumber ([int]$env:PR_NUMBER) -WorkflowKey $env:WORKFLOW_KEY
-        -DisplayName $env:DISPLAY_NAME -Result $env:RESULT -RunUrl $env:RUN_URL -Note $env:NOTE
+        -DisplayName $env:DISPLAY_NAME -Result $env:RESULT -RunUrl $env:RUN_URL -Note $env:NOTE -HeadSha $env:HEAD_SHA

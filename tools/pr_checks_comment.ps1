@@ -4,7 +4,7 @@
 # そのワークフロー自身のコメントだけが書き換わる）。
 #
 #   pwsh -File tools\pr_checks_comment.ps1 -Repo <持ち主/名前> -PrNumber <番号> -WorkflowKey <id> -Result <結果>
-#     -RunUrl <実行への URL> [-DisplayName <表示名>] [-Note <補足の 1 行>]
+#     -RunUrl <実行への URL> [-DisplayName <表示名>] [-Note <補足の 1 行>] [-HeadSha <PR の head のコミット>]
 #         実際にコメントを書く・書き換える
 #   同じ引数に -DryRun を足す
 #         書かずに、組み立てたコメントの本文だけを標準出力に出す（gh を呼ばない）
@@ -28,6 +28,7 @@ param (
     [string]$Result = "",
     [string]$RunUrl = "",
     [string]$Note = "",
+    [string]$HeadSha = "",
     [switch]$DryRun
 )
 
@@ -93,15 +94,19 @@ function selectExistingComment {
     return $null
 }
 
-# コメント本文を作る（1 行目が目印）。result はカンマ区切りで複数渡ってもよい
+# コメント本文を作る（1 行目が目印）。result はカンマ区切りで複数渡ってもよい。
+# headSha（PR の head のコミット）があれば短い形で添える（遅れて終わった古い実行が上書きしても見分けるため）
 function formatCheckComment {
-    param ([string]$workflowKey, [string]$displayName, [string]$result, [string]$runUrl, [string]$repo, [string]$note)
+    param ([string]$workflowKey, [string]$displayName, [string]$result, [string]$runUrl, [string]$repo, [string]$note, [string]$headSha = "")
 
     $combined = combineJobResults ($result -split ",")
     $label = getResultLabel $combined
     $link = getRunLink $repo $runUrl
     $linkText = if ($link) { "[実行]($link)" } else { "実行へのリンクなし" }
     $lines = @((getCommentMarker $workflowKey), "**$displayName** の結果: $label（$linkText）")
+    if ($headSha -match '^[0-9a-fA-F]{7,40}$') {
+        $lines += ('対象のコミット: `' + $headSha.Substring(0, 7).ToLowerInvariant() + '`')
+    }
     if (![string]::IsNullOrEmpty($note)) {
         $lines += ""
         $lines += $note
@@ -144,11 +149,12 @@ function invokePrCheckComment {
         [string]$result,
         [string]$runUrl,
         [string]$note,
+        [string]$headSha = "",
         [scriptblock]$getComments,
         [scriptblock]$writeComment
     )
 
-    $body = formatCheckComment $workflowKey $displayName $result $runUrl $repo $note
+    $body = formatCheckComment $workflowKey $displayName $result $runUrl $repo $note $headSha
     $marker = getCommentMarker $workflowKey
     $comments = & $getComments $prNumber
     $existing = selectExistingComment $comments $marker
@@ -162,6 +168,32 @@ function invokePrCheckComment {
     return [pscustomobject]@{ Action = "post"; Body = $body }
 }
 
+# invokePrCheckComment を呼び、書き込みで例外が出ても（権限の無いフォークの PR で 403 になるときなど）
+# 外に投げず、Warning に理由を入れて返す（呼び出し元のジョブを失敗にしないため）。書けたときは Warning が $null
+function tryInvokePrCheckComment {
+    param (
+        [string]$repo,
+        [int]$prNumber,
+        [string]$workflowKey,
+        [string]$displayName,
+        [string]$result,
+        [string]$runUrl,
+        [string]$note,
+        [string]$headSha = "",
+        [scriptblock]$getComments,
+        [scriptblock]$writeComment
+    )
+
+    try {
+        $written = invokePrCheckComment -repo $repo -prNumber $prNumber -workflowKey $workflowKey `
+            -displayName $displayName -result $result -runUrl $runUrl -note $note -headSha $headSha `
+            -getComments $getComments -writeComment $writeComment
+        return [pscustomobject]@{ Action = $written.Action; Body = $written.Body; Warning = $null }
+    } catch {
+        return [pscustomobject]@{ Action = $null; Body = $null; Warning = $_.Exception.Message }
+    }
+}
+
 # -Repo・-PrNumber などを渡して実行したときだけ動く（dot-source のときは $MyInvocation.InvocationName が "."）
 if ($MyInvocation.InvocationName -ne ".") {
     if ([string]::IsNullOrEmpty($Repo) -or $PrNumber -le 0 -or [string]::IsNullOrEmpty($WorkflowKey) -or [string]::IsNullOrEmpty($Result)) {
@@ -169,7 +201,7 @@ if ($MyInvocation.InvocationName -ne ".") {
     }
     $effectiveDisplayName = if ([string]::IsNullOrEmpty($DisplayName)) { $WorkflowKey } else { $DisplayName }
 
-    $body = formatCheckComment $WorkflowKey $effectiveDisplayName $Result $RunUrl $Repo $Note
+    $body = formatCheckComment $WorkflowKey $effectiveDisplayName $Result $RunUrl $Repo $Note $HeadSha
 
     # Actions の Summary には、コメントが書けたかどうかに関わらず結果を残す
     if ($env:GITHUB_STEP_SUMMARY) {
@@ -198,14 +230,14 @@ if ($MyInvocation.InvocationName -ne ".") {
             }
         }
 
-        try {
-            $result = invokePrCheckComment -repo $Repo -prNumber $PrNumber -workflowKey $WorkflowKey `
-                -displayName $effectiveDisplayName -result $Result -runUrl $RunUrl -note $Note `
-                -getComments $getComments -writeComment $writeComment
-            Write-Host "PR #$PrNumber へ $($result.Action) しました。"
-        } catch {
+        $written = tryInvokePrCheckComment -repo $Repo -prNumber $PrNumber -workflowKey $WorkflowKey `
+            -displayName $effectiveDisplayName -result $Result -runUrl $RunUrl -note $Note -headSha $HeadSha `
+            -getComments $getComments -writeComment $writeComment
+        if ($written.Warning) {
             # フォークの PR など、書き込みの権限が無いときもジョブは失敗にしない（結果は上で Summary に書いた）
-            Write-Warning "PR へのコメントの書き込みに失敗しました（権限の無いフォークの PR など）: $($_.Exception.Message)"
+            Write-Warning "PR へのコメントの書き込みに失敗しました（権限の無いフォークの PR など）: $($written.Warning)"
+        } else {
+            Write-Host "PR #$PrNumber へ $($written.Action) しました。"
         }
     }
 }

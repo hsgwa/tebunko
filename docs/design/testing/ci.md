@@ -79,13 +79,17 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 
 test・title・docs・codeql・gui・perf-check の 6 つのワークフローは、どれも自分の確認のジョブに続けて `pr-comment` ジョブを持つ。共有の複合アクション `.github/actions/pr-comment`（中身は `tools/pr_checks_comment.ps1` を呼ぶだけ）を使い、**そのワークフロー自身の結果**（成功・失敗・取り消し・スキップ）と実行へのリンクを PR のコメントに書く・書き換える。結果を 1 つのコメントにまとめる集約ワークフローは無い。個別のワークフローをやり直しても、そのワークフロー自身のコメントだけが書き換わる。
 
-- **`pull_request_target` は使わない。** `pr-comment` ジョブは、ほかのジョブと同じ `pull_request` のワークフロー実行の中にある。PR のコードを動かすジョブ（`test`・`build` など）とは分け、複合アクションを呼ぶ前に、既定のブランチ（`github.event.repository.default_branch`）の内容で `tools/pr_checks_comment.ps1` と `.github/actions/pr-comment/` だけを改めて checkout する。ローカルの複合アクションは、呼ぶ時点で作業ツリーに置かれている内容で動くため、PR のブランチの内容のままにしておくと、フォークの PR がこのアクション自身を書き換え、`pull-requests: write` の権限で動かせてしまう（`pull_request_target` を使わないのと同じ安全性を、既定のブランチの checkout で保つ）
+- **`pull_request_target` は使わない。** `pr-comment` ジョブは、ほかのジョブと同じ `pull_request` のワークフロー実行の中にある。PR のコードを動かすジョブ（`test`・`build` など）とは分け、複合アクションを呼ぶ前に、既定のブランチ（`github.event.repository.default_branch`）の内容で `tools/pr_checks_comment.ps1` と `.github/actions/pr-comment/` だけを改めて checkout する。ローカルの複合アクションは、呼ぶ時点で作業ツリーに置かれている内容で動くため、PR のブランチの内容のままにしておくと、PR で書き換えた道具・アクションが `pull-requests: write` の権限で動いてしまう。これを避けるための守りで、効く範囲は限られる（フォークの PR のトークンはそもそも読み取りだけで、同じリポジトリのブランチからの PR はワークフローの YAML 自体を書き換えられるため）。権限をジョブ単位に絞ることなどと重ねた多重の守りの 1 つ
+- **この道具・複合アクションを変える PR では、その PR の CI で動くのは既定のブランチ（main）の版になる。** 新しく作った PR では main にまだ無いため `pr-comment` ジョブが「Can't find 'action.yml'」で失敗する（必須チェックではないのでマージは止まらない）。入力を足したときも、main に入るまでその PR の CI では効かない
 - **`pull-requests: write` は `pr-comment` ジョブだけに付ける。** ワークフロー全体には広げず、ほかのジョブ・ステップは今までどおり読み取りだけにする
 - **フォークの PR では書けないことがある。** `pull_request` イベントはフォークからの PR では読み取り専用のトークンになり、コメントの作成・書き換えが 403 になる。`tools/pr_checks_comment.ps1` はこれを例外にせず、警告を出すだけでジョブを失敗にしない。結果は常に（書けたかどうかに関わらず）Actions の Summary に書くため、フォークの PR でも結果は見える
 - **PR の番号は `github.event.pull_request.number` からそのまま取る。** `pull_request` イベントの中で動くため、`workflow_run` のときのように head の SHA から開いている PR を探し直す必要が無い
 - **書き換えるコメントは、作者が `github-actions[bot]` で、1 行目がそのワークフロー専用の目印（`<!-- pr-check:<id> -->`。`id` は `test`・`title`・`docs`・`codeql`・`gui`・`perf-check`）のものだけ。** 無ければ新しく書く。目印がワークフローごとに違うため、ほかのワークフローが書いたコメントは書き換えない
 - **perf-check は `search`・`ingest` の 2 つのジョブの結果をまとめる。** カンマ区切りで両方の結果を渡し、悪いほうの結果（`failure` > `cancelled` > `skipped` > `success`）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る
+- **perf-check は、perf-check 以外のラベルを付けて起動した実行では書かない。** その実行は `search`・`ingest` がスキップになり、書くと前の結果（失敗など）が「スキップ」に書き換わるため（`concurrency` と同じ条件）
+- **コメントには、PR の head のコミットを短い形で添える。** 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため
 - **Dependabot の PR にはコメントしない。** PR の作者（`github.event.pull_request.user.login`）が `dependabot[bot]` の実行は対象から外す
+- `release.yml` は `test.yml` を `workflow_call` で呼ぶ。呼ばれる側の `pr-comment` ジョブが `pull-requests: write` を求めるため、呼ぶ側の `test` ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では `pr-comment` 自体はスキップされる
 - 手元・CI 上からの確かめ方は `-DryRun`（`gh` を呼ばず、組み立てたコメントの本文だけを標準出力に出す）
 
 **`codeql.yml`・`scorecard.yml`（サプライチェーンの安全性）**
