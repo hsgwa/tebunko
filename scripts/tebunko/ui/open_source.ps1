@@ -510,18 +510,18 @@ function exportResults {
             $writer.Close()
         }
     } catch [System.IO.IOException] {
-        setStatus "検索結果.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        setStatus "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
         return
     } catch [System.UnauthorizedAccessException] {
         # 読み取り専用・書き込み権限が無いときは、アプリを閉じても直らないため別の文言にする
-        setStatus "検索結果.txt に書き込む権限がありません（読み取り専用など）。$($workspace.ResultFile) を確かめてから、もう一度出力してください。"
+        setStatus "search_results.txt に書き込む権限がありません（読み取り専用など）。$($workspace.ResultFile) を確かめてから、もう一度出力してください。"
         return
     }
     Invoke-Item -LiteralPath $workspace.ResultFile
     if ($rows.Count -lt $script:hitCount) {
-        setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を検索結果.txt に出力しました"
+        setStatus "絞り込み後の $($rows.Count.ToString('N0')) 件を search_results.txt に出力しました"
     } else {
-        setStatus "検索結果.txt に出力しました（$($rows.Count.ToString('N0')) 件）"
+        setStatus "search_results.txt に出力しました（$($rows.Count.ToString('N0')) 件）"
     }
 }
 

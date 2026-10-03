@@ -16,7 +16,7 @@ BeforeAll {
 
 Describe "testIndexArchiveEntryPath" -Tag Unit {
     It "安全なパスは空文字列を返す" -TestCases @(
-        @{ path = "取り込み一覧.tsv" }
+        @{ path = "ingest_status.tsv" }
         @{ path = "content_index/content_index.xlsx.001.tsv" }
         @{ path = "content_index/2024/見積/content_index.xlsx.001.tsv" }
         @{ path = "content_index/[かっこ]/content_index.xlsx.001.tsv" }
@@ -46,7 +46,7 @@ Describe "testIndexArchiveEntryPath" -Tag Unit {
 
 Describe "testIndexArchiveEntryLocation" -Tag Unit {
     It "許される場所は `$true" -TestCases @(
-        @{ path = "取り込み一覧.tsv" }
+        @{ path = "ingest_status.tsv" }
         @{ path = "content_index/content_index.xlsx.001.tsv" }
         @{ path = "content_index/2024/見積/content_index.docx.012.tsv" }
     ) {
@@ -56,8 +56,8 @@ Describe "testIndexArchiveEntryLocation" -Tag Unit {
 
     It "許されない場所は `$false" -TestCases @(
         @{ path = "tebunko-index.json" }
-        @{ path = "元のフォルダ.txt" }
-        @{ path = "content_index/2024/元のフォルダ.txt" }
+        @{ path = "source_folder.txt" }
+        @{ path = "content_index/2024/source_folder.txt" }
         @{ path = "content_index/content.xlsx.001.tsv"; label = "前の版の名前" }
         @{ path = "content_index/content_index.xlsx.tsv"; label = "番号が無い" }
         @{ path = "system_index/content_index.xlsx.001.tsv" }
@@ -88,9 +88,9 @@ Describe "getManifestSourceFolder" -Tag Unit {
 
 Describe "testIndexArchiveManifest" -Tag Unit {
     It "正しい目録は空文字列を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"), (newManifestFile "content_index/content_index.xlsx.001.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"), (newManifestFile "content_index/content_index.xlsx.001.tsv"))
         $manifest = newManifest $files
-        $entryNames = @("tebunko-index.json", "取り込み一覧.tsv", "content_index/content_index.xlsx.001.tsv")
+        $entryNames = @("tebunko-index.json", "ingest_status.tsv", "content_index/content_index.xlsx.001.tsv")
 
         testIndexArchiveManifest $manifest $entryNames 100 | Should -Be ""
     }
@@ -104,10 +104,10 @@ Describe "testIndexArchiveManifest" -Tag Unit {
     }
 
     It "format が違うと理由を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files
         $manifest.format = "other"
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 
     It "formatVersion が整数でない・1未満なら理由を返す" -TestCases @(
@@ -116,32 +116,32 @@ Describe "testIndexArchiveManifest" -Tag Unit {
         @{ version = "-1" }
     ) {
         param ($version)
-        $files = @((newManifestFile "取り込み一覧.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files
         $manifest.formatVersion = $version
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 
     It "formatVersion が今の版より大きければ「新しい版」の理由を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files -formatVersion 2
 
-        $reason = testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv") 10
+        $reason = testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10
         $reason | Should -Match "新しい版"
     }
 
     It "インデックス名が testIndexName を通らなければ理由を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files -indexName "a\..\b"
 
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 
     It "zip の中に同じ名前のエントリーが 2 つあれば理由を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files
 
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv", "取り込み一覧.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv", "ingest_status.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 
     It "目録に危ない・許されない場所のパスがあれば理由を返す" -TestCases @(
@@ -149,17 +149,17 @@ Describe "testIndexArchiveManifest" -Tag Unit {
         @{ path = "system_index/x.tsv" }
     ) {
         param ($path)
-        $files = @((newManifestFile "取り込み一覧.tsv"), (newManifestFile $path))
+        $files = @((newManifestFile "ingest_status.tsv"), (newManifestFile $path))
         $manifest = newManifest $files
 
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv", $path) 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv", $path) 10 | Should -Not -BeNullOrEmpty
     }
 
     It "目録に同じパスが2つあれば理由を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"), (newManifestFile "取り込み一覧.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"), (newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files
 
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 
     It "大きさが数値でない・SHA-256 が無ければ理由を返す" -TestCases @(
@@ -168,13 +168,13 @@ Describe "testIndexArchiveManifest" -Tag Unit {
         @{ size = 10; sha = "" }
     ) {
         param ($size, $sha)
-        $files = @((newManifestFile "取り込み一覧.tsv" $size $sha))
+        $files = @((newManifestFile "ingest_status.tsv" $size $sha))
         $manifest = newManifest $files
 
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 
-    It "取り込み一覧.tsv が目録に無ければ理由を返す" {
+    It "ingest_status.tsv が目録に無ければ理由を返す" {
         $files = @((newManifestFile "content_index/content_index.xlsx.001.tsv"))
         $manifest = newManifest $files
 
@@ -182,17 +182,17 @@ Describe "testIndexArchiveManifest" -Tag Unit {
     }
 
     It "目録に無いエントリーが zip にあれば理由を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"))
         $manifest = newManifest $files
 
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv", "content_index/content_index.xlsx.001.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv", "content_index/content_index.xlsx.001.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 
     It "目録にあるのに zip に無いエントリーがあれば理由を返す" {
-        $files = @((newManifestFile "取り込み一覧.tsv"), (newManifestFile "content_index/content_index.xlsx.001.tsv"))
+        $files = @((newManifestFile "ingest_status.tsv"), (newManifestFile "content_index/content_index.xlsx.001.tsv"))
         $manifest = newManifest $files
 
-        testIndexArchiveManifest $manifest @("tebunko-index.json", "取り込み一覧.tsv") 10 | Should -Not -BeNullOrEmpty
+        testIndexArchiveManifest $manifest @("tebunko-index.json", "ingest_status.tsv") 10 | Should -Not -BeNullOrEmpty
     }
 }
 

@@ -5,7 +5,7 @@
 #   Office の COM には触らない
 # ・1 ファイルの取り込み（Office で開いて TSV にする）は、取り込みのスレッド（STA）が行う。スレッドごとに自分の Office を持つ。
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
-# ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は インデックス作成ログ.txt に書く
+# ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
 # 取り込みのスレッドが読み込む部品（indexer_lib.ps1）
 ${indexerLibPath} = "$PSScriptRoot\indexer_lib.ps1"
@@ -805,7 +805,7 @@ function invokeIndexerBody {
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
         $ledger.WriteStatus($folders, @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }))
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
-        # （work\content_index\<インデックス名>\元のフォルダ.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
+        # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders
         # 高速検索用の システムインデックスを作り直す。中止したとき・フォルダが見えなくなったときは作らない
         # （作り直していないフォルダは反映待ちのままのため、検索ではそのフォルダを照合する）

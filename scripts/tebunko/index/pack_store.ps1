@@ -74,31 +74,45 @@ function testIndexBookDir {
 
 function getIndexFolderBooks {
     # 今の形式のインデックスのフォルダ 1 つ（直下の <ファイル名.xlsx>\<場所>.tsv）から、集約ファイルに入れる元のファイルの並びを作る。
-    # 並びは今の検索結果と同じ順（TSV のパスを現在のカルチャ・大文字と小文字を区別しない順に並べたもの）。
+    # 並びは今の検索結果と同じ順（前の名前の付け方（フォルダのパス + encodeIndexPlace 場所 + ".tsv"）で並べたときと同じ順に
+    # なるよう、実際のファイル名（英語の固定名・符号化したシート名）から場所を戻し、その前の名前の付け方の文字列を並べ替えの鍵にする）。
     # @{ Name; Places（@{ Place; Path } の並び） } の並びを返す
     param (
         [string]$folder
     )
 
     $longDir = toLongPath $folder
-    $paths = New-Object System.Collections.Generic.List[string]
+    $entries = New-Object System.Collections.Generic.List[hashtable]
+    $keys = New-Object System.Collections.Generic.List[string]
     foreach ($sub in [System.IO.Directory]::EnumerateDirectories($longDir)) {
         if (!(testIndexBookDir $sub)) {
             continue
         }
-        $paths.AddRange([System.IO.Directory]::GetFiles($sub, "*.tsv", [System.IO.SearchOption]::TopDirectoryOnly))
+        $name = [System.IO.Path]::GetFileName($sub)
+        foreach ($path in [System.IO.Directory]::GetFiles($sub, "*.tsv", [System.IO.SearchOption]::TopDirectoryOnly)) {
+            # 長いパス（\\?\ 付き）は [System.IO.Path]::GetDirectoryName で崩れることがあるため、
+            # ここで分かっている $sub・$name をそのまま使い、$path から作り直さない。
+            $place = convertIndexFileNameToPlace ([System.IO.Path]::GetFileNameWithoutExtension($path))
+            $legacyName = "{0}.tsv" -f (encodeIndexPlace $place)
+            # Join-Path は \\?\ 付きの長いパスで「drive」が null というエラーになるため、
+            # プロバイダーを介さない [System.IO.Path]::Combine で組み立てる。
+            $key = [System.IO.Path]::Combine($sub, $legacyName)
+            $entries.Add(@{ Name = $name; Place = $place; Path = $path })
+            $keys.Add($key)
+        }
     }
-    $sorted = $paths.ToArray()
-    [System.Array]::Sort($sorted, [System.StringComparer]::CurrentCultureIgnoreCase)
+    $keyArray = $keys.ToArray()
+    $entryArray = $entries.ToArray()
+    [System.Array]::Sort($keyArray, $entryArray, [System.StringComparer]::CurrentCultureIgnoreCase)
+
     $books = New-Object System.Collections.Generic.List[hashtable]
     $current = $null
-    foreach ($path in $sorted) {
-        $name = [System.IO.Path]::GetFileName([System.IO.Path]::GetDirectoryName($path))
-        if (!$current -or $current.Name -ne $name) {
-            $current = @{ Name = $name; Places = New-Object System.Collections.Generic.List[hashtable] }
+    foreach ($entry in $entryArray) {
+        if (!$current -or $current.Name -ne $entry.Name) {
+            $current = @{ Name = $entry.Name; Places = New-Object System.Collections.Generic.List[hashtable] }
             $books.Add($current)
         }
-        $current.Places.Add(@{ Place = (decodeIndexPlace ([System.IO.Path]::GetFileNameWithoutExtension($path))); Path = $path })
+        $current.Places.Add(@{ Place = $entry.Place; Path = $entry.Path })
     }
     return , $books
 }

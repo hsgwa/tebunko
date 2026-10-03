@@ -39,7 +39,7 @@
 | ファイル | 76 | 取り込み一覧に記録されているこのインデックスのファイル数（`getIndexStats`。3 桁区切り）。まだ取り込んでいなければ `－`（ツールチップは `まだ取り込んでいません`）。ツールチップは `済 N 件 ・ 未取り込み M 件 ・ 失敗 K 件` |
 | 最終取り込み | 100 | このインデックスの最も新しい取り込み日時（当日は `H:mm`、それ以外は `M/d H:mm`）。まだ取り込んでいなければ空 |
 
-「ファイル」「最終取り込み」は取り込み一覧（`work/取り込み一覧.tsv`）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。
+「ファイル」「最終取り込み」は取り込み一覧（`work/ingest_status.tsv`）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。
 
 ## 追加・編集のダイアログ
 
@@ -90,15 +90,15 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
     A["work\content_index\旧名→新名 に改名<br>（\\?\ 付き）"] --> B["取り込み一覧の名前・相対パスを書き換え<br>（renameStatusIndexName）"]
-    B --> C["targetFolders[].name を保存・元のフォルダ.txt を書き直す<br>（updateIndexSourceFile）"]
+    B --> C["targetFolders[].name を保存・source_folder.txt を書き直す<br>（updateIndexSourceFile）"]
     C --> D["旧名・新名の下の searchExcludes を消す<br>（removeSearchExcludesUnder）"]
 ```
 
 名前を変えても**インデックスは作り直さない**。次の順に、名前だけを付け替える。
 
 1. `work\content_index\<旧名>` を `work\content_index\<新名>` に改名する（長いパスの本文インデックスのファイル・TSV があっても扱えるよう `\\?\` 付きで操作する）。移動先が既にあれば例外にして何もしない。大文字・小文字だけを変える場合は一時名を経由する
-2. 取り込み一覧（`work/取り込み一覧.tsv`）の `クロール対象フォルダ` の行のインデックス名と、各行の相対パスの先頭（`<旧名>\…` → `<新名>\…`）を書き換える（`renameStatusIndexName`。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）
-3. `setting.config` の `targetFolders[].name` を保存し、各インデックスの元のフォルダの記録（`元のフォルダ.txt`）を書き直す（`updateIndexSourceFile`）
+2. 取り込み一覧（`work/ingest_status.tsv`）の `クロール対象フォルダ` の行のインデックス名と、各行の相対パスの先頭（`<旧名>\…` → `<新名>\…`）を書き換える（`renameStatusIndexName`。行の順序と内容はそのまま保ち、一時ファイルに書いてから置き換える）
+3. `setting.config` の `targetFolders[].name` を保存し、各インデックスの元のフォルダの記録（`source_folder.txt`）を書き直す（`updateIndexSourceFile`）
 4. 検索対象のツリーでチェックを外していたフォルダの記録（`searchExcludes`）のうち、旧名・新名の下のものを消す（`removeSearchExcludesUnder`）。付け替えないため、外していたフォルダは検索対象に戻る。消せなくても改名は止めず、画面にエラーも出さない
 
 ### 削除したときの処理（`removeIndex`）

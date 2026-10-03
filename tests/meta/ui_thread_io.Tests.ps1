@@ -42,8 +42,8 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openSourceFolder"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithNotepad"; Call = "Start-Process"; Reason = "固定のパスのメモ帳で開く（実行・登録になる拡張子。元のファイルは確かめ済み。プロセスの起動は待たない）" }
-        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "[System.IO.Directory]"; Reason = "検索結果.txt の出力先（ワークスペースの側。分けた PR）" }
-        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "Invoke-Item"; Reason = "検索結果.txt を開く（プロセスの起動は待たない）" }
+        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "[System.IO.Directory]"; Reason = "search_results.txt の出力先（ワークスペースの側。分けた PR）" }
+        @{ File = "open_source.ps1"; Function = "exportResults"; Call = "Invoke-Item"; Reason = "search_results.txt を開く（プロセスの起動は待たない）" }
 
         # ---- tebunko/ui/about_dialog.ps1・shared/ui/app_host.ps1（アイコン・XAML。ツールのフォルダの中） ----
         @{ File = "about_dialog.ps1"; Function = "showAboutDialog"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }

@@ -8,7 +8,7 @@ $ingestPhaseIngest = "取り込み"
 # インデクサ側で StatusLedger（indexer\indexer_state.ps1）を通しても、この値は変えない）
 $ingestStateDone = "済"
 $ingestStateFailed = "失敗"
-$ingestStatusFileName = "取り込み一覧.tsv"
+$ingestStatusFileName = "ingest_status.tsv"
 
 function getIngestKindCounts {
     # データのフォルダにあるファイルを、種類（拡張子）ごとに数える。@{ xlsx; docx; pptx; doc; ppt; Total }
