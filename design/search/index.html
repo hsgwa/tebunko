@@ -4112,7 +4112,7 @@
 </table>
 <p>全体構成・動作環境・フォルダ構成は <a href="../">設計の概要</a> を参照。インデックス（本文インデックス）の作り方は <a href="../indexing/">インデックス作成</a> を参照。画面の操作・表示は <a href="../gui/search-tab/">検索タブ</a> を参照。</p>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面の［2 検索］タブで入力したワードで、<code>work/content_index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/検索結果.txt</code> の形式を定める。</p>
+<p>画面の［2 検索］タブで入力したワードで、<code>work/content_index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/search_results.txt</code> の形式を定める。</p>
 <h2 id="入出力">入出力<a class="headerlink" href="#入出力" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4140,12 +4140,12 @@
 </tr>
 <tr>
 <td>入力</td>
-<td><code>work/system_index/**/system_index*.txt</code>・<code>work/システムインデックスの状態.tsv</code></td>
+<td><code>work/system_index/**/system_index*.txt</code>・<code>work/system_index_state.tsv</code></td>
 <td>高速検索に使う システムインデックスとその状態（<a href="fast-search/">高速検索（Windows Search）</a>。Windows Search に問い合わせる）</td>
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/検索結果.txt</code></td>
+<td><code>work/search_results.txt</code></td>
 <td>画面の［結果をファイルに出力］で書き出す検索結果（<a href="output/">検索結果ファイル</a>）。出力ごとに上書き</td>
 </tr>
 </tbody>
@@ -4174,7 +4174,7 @@
     F --&gt; SS["searchPackIndex&lt;br&gt;本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合&lt;br&gt;（進捗を画面に通知、上限・中止を確認）"]
     SS --&gt; R["ヒット: Root・RelPath・RelDir・FileName・&lt;br&gt;Book・Location・LineNumber・Line"]
     R --&gt; G["画面の表に表示"]
-    G -- "［結果をファイルに出力］" --&gt; W["writeSearchResult&lt;br&gt;work/検索結果.txt に書き出して開く"]</code></pre>
+    G -- "［結果をファイルに出力］" --&gt; W["writeSearchResult&lt;br&gt;work/search_results.txt に書き出して開く"]</code></pre>
 <ul>
 <li>本文インデックスのファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ本文インデックスのファイルを二重に検索しない。</li>
 <li>検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。<a href="speed/">検索を速くする仕組み</a>）を照合するたびに進捗を通知する。画面の中止ボタン（<code>shouldStop</code>）で中止でき、件数の上限（<code>limit</code>）に達したら打ち切る（上限・表示は <a href="../gui/search-tab/">［2 検索］タブ</a>）。</li>
@@ -4307,7 +4307,7 @@
 </tr>
 <tr>
 <td>2</td>
-<td>結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に <code>検索結果.txt に書き込めません。…</code> と表示する）</td>
+<td>結果ファイルを Excel で開いたまま［結果をファイルに出力］すると、ファイルがロックされて書き込めない（画面に <code>search_results.txt に書き込めません。…</code> と表示する）</td>
 <td>◎</td>
 </tr>
 </tbody>

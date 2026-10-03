@@ -4317,7 +4317,7 @@
 </tr>
 </tbody>
 </table>
-<p>パスワード付きファイルは、開くときに固定文字列 <code>"dummy"</code> をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、<strong>パスワード入力ダイアログを出さずに確実に失敗させる</strong>ための指定である。パスワード付きファイルは取り込まれず、<code>work\取り込み一覧.tsv</code> に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。</p>
+<p>パスワード付きファイルは、開くときに固定文字列 <code>"dummy"</code> をパスワードとして渡す（同じ 3 行）。これはパスワードを破るための処理ではなく、<strong>パスワード入力ダイアログを出さずに確実に失敗させる</strong>ための指定である。パスワード付きファイルは取り込まれず、<code>work\ingest_status.tsv</code> に失敗として記録される。本ツールがパスワードを入力・保存・送信することはない。</p>
 <p>Excel は、セルの値をテキストに書き出すために、すべてのブックを上の設定で開く。Word・PowerPoint で開くのは、ZIP 形式でない旧形式（<code>.doc</code> / <code>.ppt</code>）などを新形式に変換するときだけである。新形式（<code>.xlsx</code> / <code>.docx</code> / <code>.pptx</code>）の図形・コメント・本文・SmartArt・グラフの文字は、Office を使わずに ZIP の中の XML を直接読む（<code>shared/office/office_reader.ps1</code>）。いずれも作業フォルダのコピーを読む（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。</p>
 <h2 id="取り込み対象の拡張子">取り込み対象の拡張子<a class="headerlink" href="#取り込み対象の拡張子" title="Permanent link">&para;</a></h2>
 <p>Office に加えてテキストファイルも取り込むが、対象の拡張子は <code>shared/office/office_files.ps1</code> の <code>$officeExtensions</code>（10 個）と <code>shared/core/text_file.ps1</code> の <code>$textExtensions</code>（<code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code> の 7 個）を合わせた、<strong>固定の 17 個の一覧</strong>である（<a href="../../design/indexing/text/">テキストファイルの読み取り</a>）。設定ファイルで拡張子を足す仕組みは無い。</p>

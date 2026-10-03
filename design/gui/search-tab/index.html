@@ -4239,7 +4239,7 @@
 <tr>
 <td>10</td>
 <td>［結果をファイルに出力］</td>
-<td>表示中の結果を <code>work/検索結果.txt</code>（<a href="../../search/">検索</a> と同じ形式）に出力して開く（<a href="#結果をファイルに出力">結果をファイルに出力</a>）</td>
+<td>表示中の結果を <code>work/search_results.txt</code>（<a href="../../search/">検索</a> と同じ形式）に出力して開く（<a href="#結果をファイルに出力">結果をファイルに出力</a>）</td>
 </tr>
 <tr>
 <td>11</td>
@@ -4381,7 +4381,7 @@
 <tbody>
 <tr>
 <td>場所</td>
-<td>行ごとの場所の表記（<code>describeHitPlace</code>）。Excel は場所ごとの表記にセル番地を足し（<code>[シート]売上!B12</code>。1 行の中で複数のセルが一致したときは、ほかの数を <code>ほか N</code> で付ける。セル番地が求まらないときは <code>[シート]売上 12 行目</code>）、図形・コメントは図形の左上・コメントのセルを足す（<code>[シート]売上!D5</code>。求まらないときは通し番号のため行番号を出さず <code>[シート]売上</code>）。Word・PowerPoint は場所ごとの表記のまま（<code>describePlace</code>。<a href="../../search/">検索</a> <a href="../../search/output/#出力フォーマットwork検索結果txt">出力フォーマット</a>。種類の見出しは付けない）。Word のページは目安のため「（目安）」を付ける。幅より長いときはツールチップで全文を出す。並べ替えは TSV の名前（<code>Location</code>。<code>ページ003</code> のように桁をそろえてある）→ 行番号の順で行う</td>
+<td>行ごとの場所の表記（<code>describeHitPlace</code>）。Excel は場所ごとの表記にセル番地を足し（<code>[シート]売上!B12</code>。1 行の中で複数のセルが一致したときは、ほかの数を <code>ほか N</code> で付ける。セル番地が求まらないときは <code>[シート]売上 12 行目</code>）、図形・コメントは図形の左上・コメントのセルを足す（<code>[シート]売上!D5</code>。求まらないときは通し番号のため行番号を出さず <code>[シート]売上</code>）。Word・PowerPoint は場所ごとの表記のまま（<code>describePlace</code>。<a href="../../search/">検索</a> <a href="../../search/output/#出力フォーマットworksearch_resultstxt">出力フォーマット</a>。種類の見出しは付けない）。Word のページは目安のため「（目安）」を付ける。幅より長いときはツールチップで全文を出す。並べ替えは TSV の名前（<code>Location</code>。<code>ページ003</code> のように桁をそろえてある）→ 行番号の順で行う</td>
 <td><code>[シート]売上!B12</code> / <code>[シート]売上!B12 ほか 2</code> / <code>[シート]売上!D5</code> / <code>3 ページ（目安）</code> / <code>スライド 2（非表示）</code></td>
 </tr>
 <tr>
@@ -4411,10 +4411,10 @@
 </ul>
 <h2 id="結果をファイルに出力">結果をファイルに出力<a class="headerlink" href="#結果をファイルに出力" title="Permanent link">&para;</a></h2>
 <ul>
-<li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を <code>work/検索結果.txt</code> に出力し、既定のアプリで開く。ステータスには <code>検索結果.txt に出力しました（N 件）</code> と表示する。</li>
+<li>表示中の結果（絞り込み後。閉じているファイルの行も含む）を <code>work/search_results.txt</code> に出力し、既定のアプリで開く。ステータスには <code>search_results.txt に出力しました（N 件）</code> と表示する。</li>
 <li>形式は <a href="../../search/output/">検索結果ファイル</a> のとおり。出力は <code>tebunko/search/search_run.ps1</code> の関数（<code>toSearchResultLines</code> / <code>writeSearchResult</code>、<a href="../implementation/#実装構成">実装構成</a>）で行う。</li>
-<li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を検索結果.txt に出力しました</code> と表示する（U7）。</li>
-<li>書き込めないときはステータスに表示する。ファイルが開かれているときは <code>検索結果.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>検索結果.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
+<li>絞り込み中は、見出しの件数を表示中の件数とし、ステータスに <code>絞り込み後の K 件を search_results.txt に出力しました</code> と表示する（U7）。</li>
+<li>書き込めないときはステータスに表示する。ファイルが開かれているときは <code>search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。</code>、読み取り専用・権限が無いときは <code>search_results.txt に書き込む権限がありません（読み取り専用など）。&lt;パス&gt; を確かめてから、もう一度出力してください。</code>。</li>
 <li>まだ検索していなければ <code>先に検索してください。</code> と表示する。</li>
 </ul>
 
