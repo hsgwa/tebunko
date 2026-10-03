@@ -453,9 +453,12 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElBrushKey $Root "TopRow1" "Background" "Bg.FAFBFC"
             Set-ElBrushKey $Root "TopRow3" "Background" "Select.E1F2FF"
             Set-ElText $Root "PreviewBreadcrumbText" "営業部\A社_見積書.xlsx ・ [シート]見積書!A41 ・ セル"
-            Set-ElText $Root "PreviewTopRowNum" "40"
+            Set-ElText $Root "PreviewTopRowNum" "39"
             Set-ElText $Root "PreviewTopText1" ""
             Set-ElText $Root "PreviewTopText2" ""
+            Set-ElText $Root "PreviewMidRowNum" "40"
+            Set-ElText $Root "PreviewMidText1" ""
+            Set-ElText $Root "PreviewMidText2" ""
             Set-ElText $Root "PreviewHighlightRowNum" "41"
             Set-ElText $Root "PreviewHighlightText1" "納品場所：(株)山田商事"
             Set-ElText $Root "PreviewHighlightText2" "本社ビル"
@@ -472,9 +475,13 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElBrushKey $Root "TopRow1" "Background" "Bg.FAFBFC"
             Set-ElBrushKey $Root "TopRow4" "Background" "Select.E1F2FF"
             Set-ElText $Root "PreviewBreadcrumbText" "営業部\A社_見積書.xlsx ・ [シート]見積書!D5 ・ 図形"
-            Set-ElText $Root "PreviewTopRowNum" "4"
-            Set-ElText $Root "PreviewTopText1" ""
-            Set-ElText $Root "PreviewTopText2" ""
+            # 同じシートの 3・4 行目は、既定（H）の 3・4 行目と同じ中身（diff_round5.md 1）
+            Set-ElText $Root "PreviewTopRowNum" "3"
+            Set-ElText $Root "PreviewTopText1" "見積先：(株)山田商事(御中)"
+            Set-ElText $Root "PreviewTopText2" "見積番号：12-2324-0143"
+            Set-ElText $Root "PreviewMidRowNum" "4"
+            Set-ElText $Root "PreviewMidText1" "件名：基幹システム導入一式"
+            Set-ElText $Root "PreviewMidText2" "発行日：2024/10/15"
             Set-ElText $Root "PreviewHighlightRowNum" "5"
             Set-ElText $Root "PreviewHighlightText1" ""
             Set-ElText $Root "PreviewHighlightText2" ""
@@ -518,7 +525,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             $icon = Find-Named $Root "TopGroupIcon"
             if ($icon) { $icon.Data = $Root.FindResource("Icon.FileText"); $icon.Stroke = $Root.FindResource("Word.185ABD") }
             Set-ElText $Root "TopGroupFileName" "基本契約書.docx"
-            Set-ElText $Root "TopGroupLocation" "　総務/契約"
+            Set-ElText $Root "TopGroupLocation" "　顧客/契約書"
             Set-ElText $Root "TopGroupCount" "1 ページ（目安） ほか 2 か所 ・ 3 件"
 
             Set-ElText $Root "TopRow1Col1" "1 ページ（目安）"
@@ -549,11 +556,13 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "PreviewSheetGrid" $false
             Set-ElVisible $Root "PreviewParagraphView" $true
             Set-ElText $Root "PreviewParagraphHeading" "第3条（支払条件）"
-            Set-ElText $Root "PreviewParagraphText" "1 甲は乙に対し、本契約に基づく対価を、検収完了日の属する月の翌月末日までに、乙が指定する銀行口座へ振り込む方法により支払う。"
-            Set-ElRuns $Root "PreviewParagraphText2" @(
+            # Figma の 2 行（diff_round5.md 4）。間にあった「1 甲は乙に対し…」の行は無く、
+            # 「2 振込手数料は甲の負担とする。」の行がある
+            Set-ElRuns $Root "PreviewParagraphText" @(
                 @{ Text = "(株)山田商事"; Bold = $true }, @{ Text = "（以下「甲」という）は、本契約に基づく代金を、毎月末日までに乙の指定する口座に振り込む。" }
             )
-            Set-ElText $Root "PreviewBreadcrumbText" "総務\契約\基本契約書.docx ・ 1 ページ（目安） ・ 本文"
+            Set-ElText $Root "PreviewParagraphText2" "2 振込手数料は甲の負担とする。"
+            Set-ElText $Root "PreviewBreadcrumbText" "顧客\契約書\基本契約書.docx ・ 1 ページ（目安） ・ 本文"
         }
 
         "H-B" {
