@@ -32,18 +32,18 @@ class Workspace {
         $this.IndexDir = "$dir\content_index"
         $this.LegacyIndexDir = "$dir\index"
         $this.SystemIndexDir = "$dir\system_index"
-        $this.SystemIndexStateFile = "$dir\システムインデックスの状態.tsv"
-        $this.PublishDir = "$dir\取り込み出力\$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
-        $this.StatusFile = "$dir\取り込み一覧.tsv"
-        $this.IngestingFile = "$dir\取り込み中.txt"
-        $this.ResultFile = "$dir\検索結果.txt"
-        $this.IndexingLogFile = "$dir\インデックス作成ログ.txt"
-        $this.GuiErrorLogFile = "$dir\画面エラー.txt"
+        $this.SystemIndexStateFile = "$dir\system_index_state.tsv"
+        $this.PublishDir = "$dir\publish\$([System.Diagnostics.Process]::GetCurrentProcess().Id)"
+        $this.StatusFile = "$dir\ingest_status.tsv"
+        $this.IngestingFile = "$dir\ingesting.txt"
+        $this.ResultFile = "$dir\search_results.txt"
+        $this.IndexingLogFile = "$dir\indexing_log.txt"
+        $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
         $this.TmpRoot = "$dir\tmp"
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
-    # 取り込み出力はプロセスごとのフォルダ（PublishDir）の親を移す。
+    # 取り込みの出力（publish）はプロセスごとのフォルダ（PublishDir）の親を移す。
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが getWorkspaceEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
@@ -112,7 +112,7 @@ function getTmpDirUnavailableMessage {
 
 function getLegacyIndexState {
     # 前の版のワークスペース（dir）の状態を返す: @{ HasLegacyIndex; ContentEmpty; HasLegacySystemIndex }
-    #   HasLegacyIndex       : 前の版の index\ があり、直下のどれかのフォルダに 元のフォルダ.txt がある（前の版のしるし）。
+    #   HasLegacyIndex       : 前の版の index\ があり、直下のどれかのフォルダに legacySourceFolderFileName（元のフォルダ.txt）がある（前の版のしるし）。
     #                          index\ があるだけでは、利用者が選んだフォルダにたまたま index があるときと区別できないため、しるしとしない
     #   ContentEmpty         : content_index\ が無いか、下のフォルダを含めてファイルが 1 つも無い
     #   HasLegacySystemIndex : system_index\ の下に前の名前の txt（システムインデックス*.txt）がある。
@@ -129,7 +129,7 @@ function getLegacyIndexState {
     if ([System.IO.Directory]::Exists($longLegacy)) {
         $hasLegacyIndex = testAnyEntry ([System.IO.Directory]::EnumerateDirectories($longLegacy)) {
             param ($sub)
-            [System.IO.File]::Exists("$sub\${sourceFolderFileName}")
+            [System.IO.File]::Exists("$sub\${legacySourceFolderFileName}")
         }
     }
 

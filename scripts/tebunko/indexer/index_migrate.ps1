@@ -3,7 +3,7 @@
 function publishTsv {
     # 作業フォルダのTSVを、そのファイルのインデックスのフォルダへ移動する。
     # 途中で強制終了されても一部のシートだけのインデックスが残らないよう、
-    # 出力用のフォルダ（work\取り込み出力\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
+    # 出力用のフォルダ（work\publish\<PID>）に集めてからフォルダごと入れ替える（publishIndexFiles）
     param (
         [string]$bookDir
     )
@@ -29,7 +29,7 @@ function removeEmptyDir {
 }
 
 function removeTmpDir {
-    # 作業フォルダ（work\tmp\<PC の鍵>\<PID>）と出力用のフォルダ（work\取り込み出力\<PID>）を削除する。終了時に呼ぶ。
+    # 作業フォルダ（work\tmp\<PC の鍵>\<PID>）と出力用のフォルダ（work\publish\<PID>）を削除する。終了時に呼ぶ。
     # ${tmpDir} が決まっていなくても（置けなかった・決める前）、出力用のフォルダは消す
     # （$workspace.PublishDir は ${tmpDir} が置けないときも作られるため）
     foreach ($dir in @(${tmpDir}, $workspace.PublishDir) | Where-Object { $_ }) {
@@ -49,8 +49,8 @@ function removeTmpDir {
 
 function removeStaleTmpDirs {
     # 強制終了などで残った、ほかの（終了済みの）プロセスの作業フォルダ
-    # （ワークスペースの tmp\<PC の鍵>\<PID>・work\取り込み出力\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
-    # 空になった親（tmp\<PC の鍵>・取り込み出力・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
+    # （ワークスペースの tmp\<PC の鍵>\<PID>・work\publish\<PID>・前の版までの %TEMP%\tebunko\<PID>）を削除する。
+    # 空になった親（tmp\<PC の鍵>・publish・${legacyTmpParent}。tmp\<PC の鍵> はさらに tmp 自体も）も消す
     foreach ($parent in @((Split-Path (getWorkspaceTmpDir $workspace) -Parent), (Split-Path $workspace.PublishDir -Parent), ${legacyTmpParent})) {
         removeStaleProcessDirs $parent
         removeEmptyDir $parent

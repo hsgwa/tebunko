@@ -25,7 +25,11 @@ ${workspace} = [Workspace]::new((getWorkDir))
 # インデックスのフォルダに置く、インデックス名とクロール対象フォルダの対応（インデクサが作成する）。
 # インデックスのフォルダごと別の場所・PCへコピーしても、検索結果から元のファイルの場所が分かるようにする。
 # 拡張子を .tsv にすると検索対象になるため .txt にする
-${sourceFolderFileName} = "元のフォルダ.txt"
+${sourceFolderFileName} = "source_folder.txt"
+
+# 前の版(ワークスペースのファイル名を英語化する前)の元のフォルダの記録。
+# getLegacyIndexState が旧版の index\ フォルダを見分けるためだけに使う。読み取り専用。
+${legacySourceFolderFileName} = "元のフォルダ.txt"
 
 # インデックス作成の進み具合の段階（writeIndexingProgress の phase）
 ${indexingPhaseCrawl}   = "クロール"  # 取り込み対象のファイルを探している（件数はまだ分からない）

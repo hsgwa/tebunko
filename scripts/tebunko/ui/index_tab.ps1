@@ -185,7 +185,7 @@ function saveTargets {
 }
 
 function updateIndexSourceFile {
-    # インデックスのフォルダの 元のフォルダ.txt を今の一覧に合わせて書き直す。
+    # インデックスのフォルダの source_folder.txt を今の一覧に合わせて書き直す。
     # 次のインデックス作成を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無ければ何もしない）
     if (!(Test-Path -LiteralPath $workspace.IndexDir -PathType Container)) {
         return
