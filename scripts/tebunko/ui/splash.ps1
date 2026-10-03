@@ -5,14 +5,22 @@
 
 $script:splash = $null
 
-# 出せなくても起動は続ける（$null を返す）
+# 出せなくても起動は続ける（$null を返す）。
+# shared/ui/app_host.ps1（getXamlText）はこの時点でまだ読み込んでいない（早く出すため）ので、
+# 単一 .ps1 かどうかの見分け方（${bundledXaml}）だけをここでも行う
 function showSplash {
     param (
         [string]$path
     )
 
     try {
-        $stream = [System.IO.File]::OpenRead($path)
+        $bundled = Get-Variable -Name bundledXaml -ErrorAction SilentlyContinue
+        $text = if ($null -ne $bundled -and $bundled.Value -and $bundled.Value.ContainsKey($path)) {
+            $bundled.Value[$path]
+        } else {
+            [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($true)))
+        }
+        $stream = New-Object System.IO.MemoryStream([System.Text.Encoding]::UTF8.GetBytes($text))
         try {
             $script:splash = [System.Windows.Markup.XamlReader]::Load($stream)
         } finally {
