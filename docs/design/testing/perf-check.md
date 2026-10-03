@@ -33,7 +33,7 @@ flowchart TD
 - ジョブは `search`（検索と本文インデックスの作成）と `ingest`（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも `windows-latest`（4 コア）、`timeout-minutes: 30`。ランナーでかかる時間は `search` が 3〜4 分、`ingest` が 4〜5 分
 - 各ジョブの `if` は、`github.event_name != 'pull_request'`（main への push・手動）、または `labeled` でラベル名が `perf-check`（付けたとき）、または `labeled` 以外（`synchronize`・`reopened`）で PR に `perf-check` が付いているとき。ほかのラベルを付けたときは流し直さない
 - 流れている実行の取り消し（`concurrency`）は、同じ PR に push を足したときと、`perf-check` を付け直したときだけ。グループは `perf-check-<PR の番号（無ければ ref）>` で、`perf-check` 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に `run_id` を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（`enhancement` など）を付けても、流れている `search`・`ingest` は取り消されない
-- 結果は PR の Checks の `search`・`ingest` の合否と、ジョブの Summary（`summary.md` の表）、artifact（`perf-check-search-<実行の番号>-<試行の番号>`・`perf-check-ingest-...`。保存期間は 90 日）で見る。`pr-comment.yml`（[CI](ci.md) の「pr-comment.yml（PR のコメントにまとめる）」）が、ほかのワークフローとあわせて合否と実行へのリンクを PR のコメントに出すが、数字（Summary の表）はそこには書き写さない
+- 結果は PR の Checks の `search`・`ingest` の合否と、ジョブの Summary（`summary.md` の表）、artifact（`perf-check-search-<実行の番号>-<試行の番号>`・`perf-check-ingest-...`。保存期間は 90 日）で見る。このワークフロー自身の `pr-comment` ジョブ（[CI](ci.md) の「結果を PR のコメントに書く（`pr-comment` ジョブ）」）が、`search`・`ingest` のうち悪いほうの結果と実行へのリンクを PR のコメントに出すが、数字（Summary の表）はそこには書き写さない
 - フォークからの PR でも `pull_request` のまま動かす（`pull_request_target` は使わない）。読み取りだけのトークンで動き、秘密の値は使わない（tebunko-perfdata は公開）。フォークの作者はラベルを付けられないので、流すかどうかはメンテナの側が決める。初めての貢献者の PR は、GitHub の設定どおり実行の承認が要る
 - アクションはハッシュで固定する。`PERFDATA_SHA`（tebunko-perfdata のコミット）は `perf.yml` と同じ値にする（`PESTER_VERSION` と同じく、2 か所を手で同じにする）。`run` の中は ASCII だけで書く
 
