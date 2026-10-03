@@ -4258,7 +4258,7 @@
 <td><code>toIndexFileName</code></td>
 <td>place</td>
 <td>string</td>
-<td>インデックスの TSV のファイル名 <code>&lt;場所&gt;.tsv</code>（場所は <code>convertPlaceBaseToFixedFileName</code> の固定名、無ければ <code>encodeIndexPlace</code>）。元のファイル名はフォルダ名にするため入れない。<code>$maxFileNameLength</code>（255）文字を超えれば例外</td>
+<td>インデックスの TSV のファイル名 <code>&lt;場所&gt;.tsv</code>（場所は <code>convertPlaceBaseToFixedFileName</code> の固定名、無ければ <code>encodeIndexPlace</code>）。図形・コメント・ヘッダー・フッターは、末尾に英語の種類 <code>[shape]</code> <code>[comment]</code> <code>[header_footer]</code> を付ける。元のファイル名はフォルダ名にするため入れない。<code>$maxFileNameLength</code>（255）文字を超えれば例外</td>
 <td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
 <td>インデックス作成（Excel・Word・PowerPoint）</td>
 </tr>
@@ -4266,7 +4266,7 @@
 <td><code>convertIndexFileNameToPlace</code></td>
 <td>fileNameWithoutExtension</td>
 <td>string</td>
-<td><code>toIndexFileName</code> の逆。図形・コメントの種類（<code>[shape]</code> <code>[comment]</code>）を外してから、固定名なら <code>convertFixedFileNameToPlaceBase</code>、そうでなければ <code>decodeIndexPlace</code> で場所の元の名前に戻す</td>
+<td><code>toIndexFileName</code> の逆。図形・コメント・ヘッダー・フッターの種類（<code>[shape]</code> <code>[comment]</code> <code>[header_footer]</code>）を外してから、固定名なら <code>convertFixedFileNameToPlaceBase</code>、そうでなければ <code>decodeIndexPlace</code> で場所の元の名前に戻す</td>
 <td>同上</td>
 <td>getIndexFolderBooks</td>
 </tr>
@@ -4274,7 +4274,7 @@
 <td><code>splitObjectPlace</code></td>
 <td>place</td>
 <td><code>@{Base; Kind}</code></td>
-<td>図形・コメントの場所（<code>&lt;元の場所&gt;[図形]</code> 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空</td>
+<td>図形・コメント・ヘッダー・フッターの場所（<code>&lt;元の場所&gt;[図形]</code> 等）を、元の場所と種類に分ける。ふつうの場所は Kind が空</td>
 <td><a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>「図形・コメントの場所」</td>
 <td>元のファイルを開く、convertPlaceToPackMeta</td>
 </tr>
@@ -4290,7 +4290,7 @@
 <td><code>describeHitPlace</code></td>
 <td>place, isExcel, isObjectPlace, matchCell, matchCount, lineNumber, isText（既定 <code>$false</code>）</td>
 <td>string</td>
-<td>結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。<code>[シート]売上!B12</code>・<code>[シート]売上!B12 ほか 2</code>・<code>[シート]売上 12 行目</code>。図形・コメントは <code>[シート]売上!D5</code>。Word・PowerPoint は場所ごとのまま。テキストは <code>isText</code> が真なら行番号だけ <code>12 行目</code>）</td>
+<td>結果の表の「場所」列・プレビューの題に出す、行ごとの表記（Excel は場所ごとの表記にセル番地を足す。<code>[シート]売上!B12</code>・<code>[シート]売上!B12 ほか 2</code>・<code>[シート]売上 12 行目</code>。図形・コメントは <code>[シート]売上!D5</code>。ヘッダー・フッターはセル番地が無く <code>[シート]売上</code>。Word・PowerPoint は場所ごとのまま。テキストは <code>isText</code> が真なら行番号だけ <code>12 行目</code>）</td>
 <td><a href="../../gui/search-tab/#結果の表">結果の表</a></td>
 <td>画面（<code>prepareHitRow</code>）</td>
 </tr>
@@ -4590,7 +4590,7 @@
 <td><code>convertPlaceToPackMeta</code></td>
 <td>book, place</td>
 <td>[ordered] キー → 値</td>
-<td>場所の名前（TSV のファイル名。<code>見積[図形]</code>・<code>ページ001</code> など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは <code>部分=&lt;名前&gt;</code>・<code>対象=本文</code></td>
+<td>場所の名前（TSV のファイル名。<code>見積[図形]</code>・<code>見積[ヘッダー・フッター]</code>・<code>ページ001</code> など）を場所のメタ情報にする。組み立て直して同じ名前にならないものは <code>部分=&lt;名前&gt;</code>・<code>対象=本文</code></td>
 <td>convertToPackText</td>
 </tr>
 <tr>
