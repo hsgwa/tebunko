@@ -581,9 +581,9 @@ Describe "exportResults" -Tag Io {
         Should -Invoke Invoke-Item -Times 0 -Exactly
     }
 
-    It "表示中の行を検索結果.txt に書き出して開く" {
+    It "表示中の行を search_results.txt に書き出して開く" {
         $workDir = "$TestDrive\export\work"
-        $resultFile = "$workDir\検索結果.txt"
+        $resultFile = "$workDir\search_results.txt"
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = @{ Word = "りんご" }
         $script:hitCount = 2
@@ -595,12 +595,12 @@ Describe "exportResults" -Tag Io {
         $lines[0] | Should -Be "【検索文字列　りんご】 2 件"
         $lines[2] | Should -Be "sub\見積.xlsx`t[シート]Sheet1`tセル`t3`tりんご`t100"
         Should -Invoke Invoke-Item -Times 1 -Exactly -ParameterFilter { $LiteralPath -eq $resultFile }
-        lastStatus | Should -Be "検索結果.txt に出力しました（2 件）"
+        lastStatus | Should -Be "search_results.txt に出力しました（2 件）"
     }
 
-    It "前回の検索結果.txt は追記せずに置き換え、BOM 付き UTF-8 で書く（0 件でも書き出す）" {
+    It "前回の search_results.txt は追記せずに置き換え、BOM 付き UTF-8 で書く（0 件でも書き出す）" {
         $workDir = "$TestDrive\export_empty\work"
-        $resultFile = "$workDir\検索結果.txt"
+        $resultFile = "$workDir\search_results.txt"
         $workspace = newTestWorkspace @{} $workDir
         [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
         [System.IO.File]::WriteAllText($resultFile, "前回の結果`r`n前回の結果`r`n前回の結果`r`n前回の結果`r`n")
@@ -615,12 +615,12 @@ Describe "exportResults" -Tag Io {
         $lines = [System.IO.File]::ReadAllLines($resultFile)
         $lines[0] | Should -Be "【検索文字列　無い言葉】 0 件"
         $lines -contains "前回の結果" | Should -Be $false
-        lastStatus | Should -Be "検索結果.txt に出力しました（0 件）"
+        lastStatus | Should -Be "search_results.txt に出力しました（0 件）"
     }
 
     It "絞り込んでいれば、絞り込み後の件数を知らせる" {
         $workDir = "$TestDrive\export_filtered\work"
-        $resultFile = "$workDir\検索結果.txt"
+        $resultFile = "$workDir\search_results.txt"
         $workspace = newTestWorkspace @{} $workDir
         $script:lastSearch = @{ Word = "りんご" }
         $script:hitCount = 1234
@@ -628,12 +628,12 @@ Describe "exportResults" -Tag Io {
         Mock Invoke-Item { }
 
         exportResults
-        lastStatus | Should -Be "絞り込み後の 2 件を検索結果.txt に出力しました"
+        lastStatus | Should -Be "絞り込み後の 2 件を search_results.txt に出力しました"
     }
 
-    It "検索結果.txt をほかのアプリが開いていれば、閉じるよう知らせる" {
+    It "search_results.txt をほかのアプリが開いていれば、閉じるよう知らせる" {
         $workDir = "$TestDrive\export_locked\work"
-        $resultFile = "$workDir\検索結果.txt"
+        $resultFile = "$workDir\search_results.txt"
         $workspace = newTestWorkspace @{} $workDir
         [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
         $script:lastSearch = @{ Word = "りんご" }
@@ -646,13 +646,13 @@ Describe "exportResults" -Tag Io {
         } finally {
             $lock.Dispose()
         }
-        lastStatus | Should -Be "検索結果.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
+        lastStatus | Should -Be "search_results.txt に書き込めません。開いているアプリを閉じてから、もう一度出力してください。"
         Should -Invoke Invoke-Item -Times 0 -Exactly
     }
 
-    It "検索結果.txt が読み取り専用なら、予期しないエラーにせず、読み取り専用を外すよう知らせる" {
+    It "search_results.txt が読み取り専用なら、予期しないエラーにせず、読み取り専用を外すよう知らせる" {
         $workDir = "$TestDrive\export_readonly\work"
-        $resultFile = "$workDir\検索結果.txt"
+        $resultFile = "$workDir\search_results.txt"
         $workspace = newTestWorkspace @{} $workDir
         [System.IO.Directory]::CreateDirectory($workDir) | Out-Null
         [System.IO.File]::WriteAllText($resultFile, "前回の結果")
@@ -666,7 +666,7 @@ Describe "exportResults" -Tag Io {
         } finally {
             [System.IO.File]::SetAttributes($resultFile, "Normal")
         }
-        lastStatus | Should -Be "検索結果.txt に書き込む権限がありません（読み取り専用など）。$resultFile を確かめてから、もう一度出力してください。"
+        lastStatus | Should -Be "search_results.txt に書き込む権限がありません（読み取り専用など）。$resultFile を確かめてから、もう一度出力してください。"
         [System.IO.File]::ReadAllText($resultFile) | Should -Be "前回の結果"
         Should -Invoke Invoke-Item -Times 0 -Exactly
     }

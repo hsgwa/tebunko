@@ -339,8 +339,8 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
         extractWorkbook $zipSource | Should -Be 2
-        listTmp | Should -Be @("売上.tsv", "売上[コメント].tsv")
-        readTsv "売上[コメント].tsv" | Should -Be "B2`t税抜`r`n"
+        listTmp | Should -Be @("売上.tsv", "売上[comment].tsv")
+        readTsv "売上[comment].tsv" | Should -Be "B2`t税抜`r`n"
     }
 
     It "グラフ・SmartArt の部品が壊れていても、そのグラフだけを空にしてログに書き、ほかの図形・セルは取り込む" {
@@ -408,8 +408,8 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         Mock writeIndexerLog {}
 
         extractWorkbook $zipSource | Should -Be 3
-        listTmp | Should -Be @("壊れ.tsv", "売上.tsv", "売上[ヘッダー・フッター].tsv")
-        readTsv "売上[ヘッダー・フッター].tsv" | Should -Be "社外秘`r`n"
+        listTmp | Should -Be @("壊れ.tsv", "売上.tsv", "売上[header_footer].tsv")
+        readTsv "売上[header_footer].tsv" | Should -Be "社外秘`r`n"
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "一部を読み取れませんでした.*xl/worksheets/sheet2\.xml" }
     }
 
@@ -451,7 +451,7 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         Mock getApp { throw "Word を起動してはいけない" }
 
         extractDocument $source | Should -Be 1
-        (readTsv "ページ001.tsv").Trim() | Should -Be "新形式の本文"
+        (readTsv "page_001.tsv").Trim() | Should -Be "新形式の本文"
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
@@ -462,10 +462,10 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
 
         extractDocument $source | Should -Be 1
-        (readTsv "ページ001.tsv").Trim() | Should -Be "旧形式の本文"
+        (readTsv "page_001.tsv").Trim() | Should -Be "旧形式の本文"
         $log -join "|" | Should -Be "Open:source.doc:ReadOnly=True:Password=dummy:Visible=False:Format=Auto|Repaginate|SaveAs2:converted.docx:12|Close:0"
         # 作業ファイル（コピーと TSV）は消す
-        listTmp | Should -Be @("ページ001.tsv")
+        listTmp | Should -Be @("page_001.tsv")
     }
 
     It "拡張子と中身が違うファイル（中身が旧形式の .docx）は、旧形式の拡張子を付け直して Word で開く" {
@@ -485,10 +485,10 @@ Describe "extractDocument（偽の Word・PowerPoint）" -Tag Io {
         Mock getApp { $ppt } -ParameterFilter { $name -eq "PowerPoint" }
 
         extractDocument $source | Should -Be 1
-        (readTsv "スライド001.tsv").Trim() | Should -Be "旧形式のスライド"
+        (readTsv "slide_001.tsv").Trim() | Should -Be "旧形式のスライド"
         # ファイル名の後ろの ::dummy:: で、パスワード付きのファイルはダイアログを出さずにエラーになる
         $log -join "|" | Should -Be "Open:source.ppt::dummy:::-1,0,0|SaveAs:converted.pptx:24|Close"
-        listTmp | Should -Be @("スライド001.tsv")
+        listTmp | Should -Be @("slide_001.tsv")
     }
 
     It "新形式でも旧形式でもない .pptx は、PowerPoint に渡さずに失敗にする（作業ファイルは消す）" {
@@ -637,7 +637,7 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
 
         extractDocument $source | Should -Be 1
-        (readTsv "ページ001.tsv").Trim() | Should -Be "予備で読めた本文"
+        (readTsv "page_001.tsv").Trim() | Should -Be "予備で読めた本文"
         # 拡張子は元のまま（source.doc に付け替えない）、Format は拡張子（.docx）に合わせて固定する（9 = wdOpenFormatXMLDocument）
         $log[0] | Should -Be "Open:source.docx:ReadOnly=True:Password=dummy:Visible=False:Format=9"
     }
@@ -649,7 +649,7 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
         Mock getApp { $ppt } -ParameterFilter { $name -eq "PowerPoint" }
 
         extractDocument $source | Should -Be 1
-        (readTsv "スライド001.tsv").Trim() | Should -Be "予備で読めたスライド"
+        (readTsv "slide_001.tsv").Trim() | Should -Be "予備で読めたスライド"
         $log[0] | Should -BeLike "Open:source.pptx::dummy::*"
     }
 

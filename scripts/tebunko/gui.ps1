@@ -103,7 +103,7 @@ trap {
     # 起きた例外は、この trap 自身の失敗（制限言語モードで MessageBox が出せない等）に備えて先に控えておく
     $original = $_
     $recordFile = $null
-    # 記録できる状態（app_host.ps1 の読み込み後で、writeErrorLog が使える）なら今までどおり画面エラー.txt に、無ければ固定の場所に記録する
+    # 記録できる状態（app_host.ps1 の読み込み後で、writeErrorLog が使える）なら今までどおり gui_error_log.txt に、無ければ固定の場所に記録する
     if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
         writeErrorLog "起動・実行中" $original
         $recordFile = getGuiErrorLogFile

@@ -5,7 +5,7 @@
 ${indexArchiveFormat}            = "tebunko-index"
 ${indexArchiveFormatVersion}     = 1  # この版が読める形式の版（本文インデックスのファイルの形・zip の中の配置・目録・取り込み一覧の列を変えたら上げる）
 ${indexArchiveManifestFileName}  = "tebunko-index.json"
-${indexArchiveStatusEntryName}   = "取り込み一覧.tsv"
+${indexArchiveStatusEntryName}   = "ingest_status.tsv"
 ${indexArchiveMaxManifestBytes}  = 64MB   # 目録（tebunko-index.json）自体の大きさの上限（zip bomb 対策）
 ${indexArchiveFreeSpaceMargin}   = 1GB    # インポートに求める空き容量の余裕（目録の合計 + この量）
 
@@ -73,7 +73,7 @@ function testIndexArchiveEntryPath {
 
 function testIndexArchiveEntryLocation {
     # zip のエントリー名（testIndexArchiveEntryPath を通ったもの）が、持ち出すファイルの置き場所として
-    # 許されているか（取り込み一覧.tsv、または content_index/ の下の本文インデックスのファイルの名前の型）を返す
+    # 許されているか（ingest_status.tsv、または content_index/ の下の本文インデックスのファイルの名前の型）を返す
     param (
         [string]$path
     )
@@ -202,7 +202,7 @@ function testIndexArchiveManifest {
 
 
 function testImportedStatusRelPath {
-    # 取り込み一覧.tsv の1行の相対パス（\ 区切り。インデックス名は付いていない）が安全に使えるかを返す（使えれば空文字列）
+    # ingest_status.tsv の1行の相対パス（\ 区切り。インデックス名は付いていない）が安全に使えるかを返す（使えれば空文字列）
     param (
         [string]$relPath
     )
@@ -215,7 +215,7 @@ function testImportedStatusRelPath {
 
 
 function testImportedStatusRow {
-    # 取り込み一覧.tsv の1行（列は statusColumns と同じ）が受け付けられるかを返す（使えれば空文字列）
+    # ingest_status.tsv の1行（列は statusColumns と同じ）が受け付けられるかを返す（使えれば空文字列）
     param (
         [string]$line
     )
@@ -232,14 +232,14 @@ function testImportedStatusRow {
 
 
 function testImportedStatusLines {
-    # 取り込み一覧.tsv 全体（見出し行 + データ行）が受け付けられるかを返す（使えれば空文字列）。
+    # ingest_status.tsv 全体（見出し行 + データ行）が受け付けられるかを返す（使えれば空文字列）。
     # 見出しが違う・列や状態や相対パスがおかしい行がある・同じ相対パスが2つある、のいずれかで止める
     param (
         [string[]]$lines
     )
 
     if ($lines.Count -eq 0 -or $lines[0] -ne (${statusColumns} -join "`t")) {
-        return "取り込み一覧.tsv の見出しが違います。"
+        return "ingest_status.tsv の見出しが違います。"
     }
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     for ($i = 1; $i -lt $lines.Count; $i++) {
@@ -249,11 +249,11 @@ function testImportedStatusLines {
         }
         $reason = testImportedStatusRow $line
         if ($reason) {
-            return "取り込み一覧.tsv の $($i + 1) 行目が読めません（${reason}）"
+            return "ingest_status.tsv の $($i + 1) 行目が読めません（${reason}）"
         }
         $relPath = $line.Split("`t")[0]
         if (!$seen.Add($relPath)) {
-            return "取り込み一覧.tsv に同じ相対パスが 2 つあります: ${relPath}"
+            return "ingest_status.tsv に同じ相対パスが 2 つあります: ${relPath}"
         }
     }
     return ""

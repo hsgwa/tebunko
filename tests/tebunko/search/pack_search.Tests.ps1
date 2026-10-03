@@ -33,7 +33,7 @@ BeforeAll {
         foreach ($path in [System.IO.Directory]::GetFiles($tsvRoot, "*.tsv", "AllDirectories")) {
             $bookDir = [System.IO.Path]::GetDirectoryName($path)
             $book = [System.IO.Path]::GetFileName($bookDir)
-            $place = decodeIndexPlace ([System.IO.Path]::GetFileNameWithoutExtension($path))
+            $place = convertIndexFileNameToPlace ([System.IO.Path]::GetFileNameWithoutExtension($path))
             if ($filter.Include -and !$filter.Include.IsMatch($book)) { continue }
             if ($filter.Exclude -and $filter.Exclude.IsMatch($book)) { continue }
             if ($exclude -and $exclude.IsMatch($place)) { continue }
@@ -90,6 +90,49 @@ Describe "集約ファイルの作成と検索" -Tag Io {
         $packs[0].RelPath | Should -Be "営業\content_index.docx.001.tsv"
         $packs[1].RelPath | Should -Be "営業\content_index.xlsx.001.tsv"
         $packs[2].RelPath | Should -Be "営業\2025\content_index.pptx.001.tsv"
+    }
+
+    It "ブックの中の場所の並びは、前の名前の付け方（encodeIndexPlace）で並べたときと同じになる（検索結果の順を変えないため）" {
+        $books = getIndexFolderBooks $idx
+        $book = $books | Where-Object { $_.Name -eq "見積.xlsx" }
+        $places = @("見積", "見積[図形]", "見積[ヘッダー・フッター]", "50%引き")
+        $keys = @($places | ForEach-Object { "{0}.tsv" -f (encodeIndexPlace $_) })
+        [System.Array]::Sort($keys, $places, [System.StringComparer]::CurrentCultureIgnoreCase)
+        @($book.Places.Place) -join "|" | Should -Be ($places -join "|")
+    }
+
+    It "<Name> は、実際のファイル名（英語の固定名）の順ではなく、前の名前の付け方（encodeIndexPlace）の順で並ぶ" -TestCases @(
+        @{
+            Name = "Word の固定の場所（新しい名前では doc_footnotes が先頭になる組み合わせ）"
+            Book = "議事録2.docx"
+            Places = @("ページ001", "ヘッダー・フッター", "脚注", "文書[コメント]")
+        }
+        @{
+            Name = "PowerPoint の非表示・ノート（_hidden と _notes の順が逆になる組み合わせ）"
+            Book = "提案2.pptx"
+            Places = @("スライド001", "スライド001（非表示）", "スライド001_ノート")
+        }
+    ) {
+        param ($Name, $Book, $Places)
+
+        $root = Join-Path $TestDrive "order-$($Book -replace '\.', '-')"
+        foreach ($place in $Places) {
+            newTsv "$root\$Book\$(toIndexFileName $place)" @("ダミー")
+        }
+
+        $legacyOrder = [string[]]$Places.Clone()
+        $legacyKeys = [string[]]@($Places | ForEach-Object { "{0}.tsv" -f (encodeIndexPlace $_) })
+        [System.Array]::Sort($legacyKeys, $legacyOrder, [System.StringComparer]::CurrentCultureIgnoreCase)
+
+        $realOrder = [string[]]$Places.Clone()
+        $realKeys = [string[]]@($Places | ForEach-Object { toIndexFileName $_ })
+        [System.Array]::Sort($realKeys, $realOrder, [System.StringComparer]::CurrentCultureIgnoreCase)
+
+        # この組み合わせでは、実際のファイル名の順と前の名前の付け方の順が異なる（そうでないと並べ替えの鍵の取り違えを見逃す）
+        ($realOrder -join "|") | Should -Not -Be ($legacyOrder -join "|")
+
+        $book = (getIndexFolderBooks $root) | Where-Object { $_.Name -eq $Book }
+        @($book.Places.Place) -join "|" | Should -Be ($legacyOrder -join "|")
     }
 
     It "元のファイルが無くなった拡張子の集約ファイルは、変換し直すときに消す" {
@@ -206,7 +249,7 @@ Describe "集約ファイルの作成と検索" -Tag Io {
 
         $pending = New-Object 'System.Collections.Generic.Dictionary[string,object]'
         foreach ($folder in $found) { $pending[$folder] = @() }
-        $state = "$work\システムインデックスの状態.tsv"
+        $state = "$work\system_index_state.tsv"
         publishIndexFolders $pending $index "$work\system_index" $state | Should -Be 2
         (findIndexFoldersWithBooks $index).Count | Should -Be 0
         [System.IO.File]::Exists("$index\人事\content_index.xlsx.001.tsv") | Should -Be $true

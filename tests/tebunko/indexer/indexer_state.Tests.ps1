@@ -397,7 +397,7 @@ Describe "StatusLedger" -Tag Io {
         # 場所を暗黙に使わないため、コンストラクタで渡す保存先（Workspace の代わりに、同じプロパティを持つ値で差し替える）
         function newTestWorkspace([string]$dir) {
             [System.IO.Directory]::CreateDirectory($dir) | Out-Null
-            return [pscustomobject]@{ StatusFile = "$dir\取り込み一覧.tsv"; IngestingFile = "$dir\取り込み中.txt" }
+            return [pscustomobject]@{ StatusFile = "$dir\ingest_status.tsv"; IngestingFile = "$dir\ingesting.txt" }
         }
     }
 

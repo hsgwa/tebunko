@@ -182,7 +182,7 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         $workspace = newTestWorkspace @{} $wsDir
         newFile "ws\content_index\sheet.tsv"
         newFile "ws\system_index\system_index.txt"
-        newFile "ws\取り込み一覧.tsv"
+        newFile "ws\ingest_status.tsv"
         newFile "ws\my.xlsx"
         newFile "ws\my.txt"
 
@@ -190,9 +190,9 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name } | Sort-Object) -join "," | Should -Be "my.txt,my.xlsx"
     }
 
-    It "取り込み一覧.tsv のある別のフォルダ（ほかのワークスペース）の content_index の下は外れる" {
+    It "ingest_status.tsv のある別のフォルダ（ほかのワークスペース）の content_index の下は外れる" {
         $workspace = newTestWorkspace @{} (Join-Path $TestDrive "ws-out-of-tree2")
-        newFile "other-ws\取り込み一覧.tsv"
+        newFile "other-ws\ingest_status.tsv"
         newFile "other-ws\content_index\sheet.tsv"
         newFile "other-ws\my-file.txt"
 

@@ -348,7 +348,7 @@ $script:indexerLog = $null
 $script:indexerEcho = $false
 
 function writeIndexerLog {
-    # インデックス作成の表示内容をログ（インデックス作成ログ.txt）に書く。color はコンソールに出すときの色
+    # インデックス作成の表示内容をログ（indexing_log.txt）に書く。color はコンソールに出すときの色
     param (
         [string]$text = "",
         [string]$color = ""

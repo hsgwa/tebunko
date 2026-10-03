@@ -110,7 +110,7 @@ Describe "exportIndex" -Tag Io {
         $archive = [System.IO.Compression.ZipFile]::Open($dest, [System.IO.Compression.ZipArchiveMode]::Read, [System.Text.Encoding]::UTF8)
         try {
             @($archive.Entries | ForEach-Object { $_.FullName }) | Sort-Object | Should -Be @(
-                "content_index/見積/content_index.xlsx.001.tsv", "tebunko-index.json", "取り込み一覧.tsv"
+                "content_index/見積/content_index.xlsx.001.tsv", "ingest_status.tsv", "tebunko-index.json"
             )
             $manifestEntry = $archive.GetEntry("tebunko-index.json")
             $reader = New-Object System.IO.StreamReader($manifestEntry.Open())
@@ -120,7 +120,7 @@ Describe "exportIndex" -Tag Io {
             $manifest.sourceFolder | Should -Be "C:\共有\営業部"
             $manifest.formatVersion | Should -Be 1
 
-            $statusEntry = $archive.GetEntry("取り込み一覧.tsv")
+            $statusEntry = $archive.GetEntry("ingest_status.tsv")
             $statusReader = New-Object System.IO.StreamReader($statusEntry.Open(), [System.Text.Encoding]::UTF8)
             $statusText = $statusReader.ReadToEnd()
             $statusReader.Dispose()
@@ -388,7 +388,7 @@ Describe "importIndex" -Tag Io {
         $plan.Rows.Count | Should -Be 1
     }
 
-    It "登録: targetFolders に名前・場所が入り、元のフォルダが無ければ Enabled が `$false。取り込み一覧・元のフォルダ.txt もできる" {
+    It "登録: targetFolders に名前・場所が入り、元のフォルダが無ければ Enabled が `$false。取り込み一覧・source_folder.txt もできる" {
         $fixtureA = newIndexFixture "$TestDrive\register_a" "営業" "C:\共有\営業部"
         $dest = "$TestDrive\register.zip"
         exportIndex "営業" $dest $fixtureA.Workspace $fixtureA.SettingsPath | Out-Null
@@ -407,7 +407,7 @@ Describe "importIndex" -Tag Io {
         $status = readStatusFile $wsB.StatusFile
         @($status.Folders | Where-Object { $_.Name -eq "営業" }).Count | Should -Be 1
         $status.Rows.ContainsKey("営業\見積\A社.xlsx") | Should -Be $true
-        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\元のフォルダ.txt") | Should -Be $true
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $true
         Test-Path -LiteralPath (Join-Path $wsB.SystemIndexDir "営業") | Should -Be $false
     }
 
@@ -654,7 +654,7 @@ Describe "importIndex" -Tag Io {
 
         # content_index\営業 は前の中身のまま
         [System.IO.File]::ReadAllBytes($fixtureB.PackPath) | Should -Be $packBefore
-        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\元のフォルダ.txt") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $wsB.IndexDir "営業\source_folder.txt") | Should -Be $false
         Test-Path -LiteralPath (Join-Path $wsB.PublishDir "import") | Should -Be $false
         # 取り込み一覧は変わらない
         [System.IO.File]::ReadAllText($wsB.StatusFile) | Should -Be $statusBefore

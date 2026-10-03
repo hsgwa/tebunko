@@ -17,7 +17,7 @@ Describe "shell.ps1" -Tag Unit {
         $ui = @{ StatusText = [pscustomobject]@{ Text = ""; ToolTip = "" } }
 
         function getGuiErrorLogFile {
-            Join-Path $TestDrive "画面エラー.txt"
+            Join-Path $TestDrive "gui_error_log.txt"
         }
 
         # Dispatcher に積んだ action を実行させ、終わるまで待つ（保険の 5 秒で必ず抜ける。入れ子でも使う）。
@@ -85,7 +85,7 @@ Describe "shell.ps1" -Tag Unit {
             (Get-Content (getGuiErrorLogFile) -Raw) | Should -Match "テストの例外"
             $ui.StatusText.Text | Should -Be "エラーが発生しました：テストの例外"
             Should -Invoke showMessage -Times 1 -Exactly -ParameterFilter {
-                $message -eq "エラーが発生しました。`nテストの例外`n`n詳しい内容は 画面エラー.txt に残しています。"
+                $message -eq "エラーが発生しました。`nテストの例外`n`n詳しい内容は gui_error_log.txt に残しています。"
             }
         }
 
@@ -197,7 +197,7 @@ Describe "shell.ps1" -Tag Unit {
             getErrorLogHeadingCount | Should -Be 2
             $ui.StatusText.Text | Should -Be "エラーが発生しました：x"
             Should -Invoke showMessage -Times 2 -Exactly -ParameterFilter {
-                $message -eq "エラーが発生しました。`nx`n`n詳しい内容は 画面エラー.txt に残しています。"
+                $message -eq "エラーが発生しました。`nx`n`n詳しい内容は gui_error_log.txt に残しています。"
             }
         }
     }
