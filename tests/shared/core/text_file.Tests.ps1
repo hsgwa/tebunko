@@ -298,6 +298,52 @@ Describe "readTextFile" -Tag Io {
     }
 }
 
+Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\testdata\text）" -Tag Io {
+    BeforeDiscovery {
+        ${textSampleDir} = (Resolve-Path "$PSScriptRoot\..\..\testdata\text").Path
+        ${notepadExtSet} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+        ${sampleFiles} = Get-ChildItem ${textSampleDir} -File |
+            Where-Object { $_.Name -notin @("make_testdata.ps1", "大きいテキスト.log") }
+        ${sampleCases} = ${sampleFiles} | ForEach-Object {
+            $ext = $_.Extension.ToLowerInvariant()
+            @{ Name = $_.Name; Path = $_.FullName; Ext = $ext; ExpectNotepad = (${notepadExtSet} -contains $ext) }
+        }
+    }
+
+    BeforeAll {
+        # Run 段階の It（-TestCases の表を使わないもの）でも使うため、BeforeDiscovery と同じものをここにも置く
+        ${textSampleDir} = (Resolve-Path "$PSScriptRoot\..\..\testdata\text").Path
+        ${sampleFiles} = Get-ChildItem ${textSampleDir} -File |
+            Where-Object { $_.Name -notin @("make_testdata.ps1", "大きいテキスト.log") }
+    }
+
+    It "対象の拡張子（75個）のサンプルを 1 つずつ用意してある" {
+        ${sampleFiles}.Count | Should -Be 75
+    }
+
+    It "<Name> は対象の拡張子で、メモ帳で開くかどうかも拡張子どおりで、中身を読める" -TestCases ${sampleCases} {
+        param ($Name, $Path, $Ext, $ExpectNotepad)
+        testTextExtension $Path | Should -BeTrue
+        testTextOpenWithNotepad $Path | Should -Be $ExpectNotepad
+        (readTextFile $Path) -join "`n" | Should -Match "山田"
+    }
+
+    It "異常系\<Name> は、テキストファイルではないため取り込めない失敗にする" -TestCases @(
+        @{ Name = "バイナリ.log" }
+        @{ Name = "末尾NUL.log" }
+    ) {
+        param ($Name)
+        $path = Join-Path "${textSampleDir}\異常系" $Name
+        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+    }
+
+    It "大きいテキスト.log は 64KB を超えるが、NUL を含まない普通のテキストとして読める" {
+        $path = Join-Path ${textSampleDir} "大きいテキスト.log"
+        (Get-Item $path).Length | Should -BeGreaterThan 64KB
+        (readTextFile $path) -join "`n" | Should -Match "山田"
+    }
+}
+
 Describe "splitTextLines" -Tag Unit {
     It "CRLF・LF・CR のどれでも1行にし、途中の空行を残し、行末の空白を取り除き、末尾の空行は捨てる" {
         # "a " CRLF "b" LF "c" CR "d" LF LF "e " CRLF CRLF
