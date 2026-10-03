@@ -84,13 +84,13 @@ BeforeAll {
             $points.Add((Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
                 Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
             }))
-            # ${legacyTmpParent}（代わりの場所 %TEMP%\tebunko）の既定値を決めた直後の行で差し替え、
+            # ${legacyTmpParent}（前の版の片付けだけに使う場所 %TEMP%\tebunko）の既定値を決めた直後の行で差し替え、
             # テストが利用者の本物の %TEMP%\tebunko に触れないようにする
             $points.Add((Set-PSBreakpoint -Script $pathsPath -Line (findLine $pathsPath '^\$excelMaxPath = 218') -Action {
                 Set-Variable -Name legacyTmpParent -Value (Join-Path $global:indexerTestRoot "legacy_tmp") -Scope 1
             }))
             # 取り込みの作業フォルダ（$tmpDir）が決まった直後の行で、その値を控える
-            # （終わったあとはワークスペースの場所・代わりの場所のどちらも後片付けで消えるため、途中でしか確かめられない）。
+            # （終わったあとはワークスペースの場所・前の版の片付けだけに使う場所のどちらも後片付けで消えるため、途中でしか確かめられない）。
             # ${legacyTmpParent} の差し替え（上のブレークポイント）が実際に initTmpDir まで効いていることも、
             # 同じ場所で控えて確かめる（差し替えの行自体が paths.ps1 の無関係な行に依存しているため、
             # ここで使われた値を見ないと、行順が変わって差し替えが上書きされても気付けない）
@@ -260,7 +260,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
         Test-Path -LiteralPath "$root\work\取り込み中.txt" | Should -Be $false
         # 取り込みの作業フォルダ（work\tmp\<PC の鍵>\<PID>）も削除する
         Test-Path -LiteralPath (Join-Path "$root\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
-        # 取り込み中は、代わりの場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
         $global:capturedTmpDir | Should -Not -BeNullOrEmpty
         $global:capturedTmpDir.StartsWith("$root\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
         # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる
@@ -742,7 +742,7 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         Test-Path -LiteralPath "$parallel\work\取り込み中.txt" | Should -Be $false
         @(Get-ChildItem -LiteralPath "$parallel\work\取り込み出力" -Force -ErrorAction SilentlyContinue).Count | Should -Be 0
         Test-Path -LiteralPath (Join-Path "$parallel\work\tmp\$(getMachineKey)" "$PID") | Should -Be $false
-        # 取り込み中は、代わりの場所（%TEMP%）ではなくワークスペースの tmp の下を使う
+        # 取り込み中は、前の版の片付けだけに使う場所（%TEMP%）ではなくワークスペースの tmp の下を使う
         $global:capturedTmpDir | Should -Not -BeNullOrEmpty
         $global:capturedTmpDir.StartsWith("$parallel\work\tmp", [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
         # ${legacyTmpParent} の差し替えが取り込み中も効いていた（本物の %TEMP%\tebunko を指していない）ことを確かめる

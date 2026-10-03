@@ -236,7 +236,7 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
 }
 
 Describe "書き込み先が限られていること（docs/safety/file-access.md「書き込み・削除する場所」）" -Tag Meta {
-    It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と TEMP 配下だけ" {
+    It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と前の版の片付け先（TEMP）だけ" {
         $paths = @($code | Where-Object { $_.File -in @("paths.ps1", "workspace.ps1", "data_dir.ps1", "settings.ps1") })
         # データの置き場所は、ツールのフォルダか、書き込めないときの %LOCALAPPDATA%\tebunko\<鍵>
         (findPattern $paths '\$\{dataDir\}\s*=\s*getDataDir') | Should -Not -Be ""
@@ -301,7 +301,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
     }
 
     It "%TEMP% を指す書き方は決めた所だけ（取り込みの作業フォルダはワークスペースの tmp\\の下を使う）" {
-        # %TEMP% を直接指すのは、代わりの場所（${legacyTmpParent}。paths.ps1）と、
+        # %TEMP% を直接指すのは、前の版の片付けだけに使う場所（${legacyTmpParent}。paths.ps1）と、
         # まだ書き込み口が整う前の起動失敗を記録する writeStartupErrorFile（gui.ps1）だけ
         $tempRefs = @($code | Where-Object { $_.Text -match 'GetTempPath|env:TEMP\b|env:TMP\b|New-TemporaryFile|GetTempFileName' })
         $tempFiles = @($tempRefs | ForEach-Object { $_.File } | Sort-Object -Unique)
@@ -311,7 +311,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {
-        # %TEMP%\tebunko\<PID> に原本のコピーが残り続けないこと（docs/safety/disclosure.md「原本の一時コピーと、その回収」）
+        # %TEMP%\tebunko\<PID>（前の版が残した作業フォルダ）に原本のコピーが残り続けないこと（docs/safety/disclosure.md「原本の一時コピーと、その回収」）
         (findPattern $code 'function removeStaleTmpDirs') | Should -Not -Be ""
         # インデックス作成の始め（invokeIndexer の本体）で呼ぶ
         (findPattern $code '^\s+removeStaleTmpDirs$') | Should -Not -Be ""
