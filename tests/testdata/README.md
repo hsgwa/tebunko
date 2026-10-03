@@ -309,7 +309,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 | `source\` | クロール対象フォルダに置くファイル（Excel・Word・PowerPoint・`.txt`・`.md`。サブフォルダ・`(株)`・`[確定]` を含むファイル名もある） |
 | `ws\` | ワークスペースのうち、版が上がっても残る部分だけ（`content_index\`・`system_index\`・`system_index_state.tsv`・`ingest_status.tsv`）。フォルダ名を `work` ではなく `ws` にしているのは、`.gitignore` の `work/` に引っかからないようにするため |
 | `export.zip` | `exportIndex` で書き出したインデックスの zip |
-| `file_times.tsv` | `source\` の各ファイルの更新日時（Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す |
+| `file_times.tsv` | `source\` の各ファイルの更新日時（秒まで・タイムゾーンなしの Ticks）と、`ws\` の `content_index\`・`system_index\` の各ファイルの更新日時（UTC の Ticks）。git は取り出すときにファイルの更新日時を今の日時にしてしまうため、テストがこの値で書き戻す。`ws\` の分は、システムインデックスを作り直すかの判定（`content_index` の TSV と `system_index.txt` の更新日時の前後、`system_index_state.tsv` の「反映待ち」に書いた更新日時）を再現するのに要る |
 | `expected.json` | インデックス名・取り込み一覧の行・検索語ごとのヒットという、見本に対する期待（手で書く。中身は日本語のまま） |
 
 `ws\`・`export.zip` には `tmp\`・`publish\`・`ingesting.txt`・`indexing_log.txt`・`gui_error_log.txt`・`search_results.txt`・`setting.config` を含めない（取り込み中・画面の動作ログで、前の版との互換の確かめには要らないため）。
@@ -319,7 +319,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests\testdata\text\make_tes
 1. `source\` に見本のファイルを手で置く（このスクリプトは触らない）。
 2. `setting.config` のクロール対象フォルダに `source\` を指したフォルダ（利用者名を含まない固定のパス）を登録し、`indexer.ps1` を 1 回動かして固定のパスのワークスペースを作る。
 3. `exportIndex` でそのワークスペースを zip に書き出す。
-4. `tools\make_index_golden.ps1 -WorkspaceDir <ワークスペース> -ExportZip <zip> -SampleDir tests\testdata\compat\index\<見本の名前>` で、`ws\`・`export.zip`・`file_times.tsv` を見本へコピー・作成する。
+4. `tools\make_index_golden.ps1 -WorkspaceDir <ワークスペース> -ExportZip <zip> -SampleDir tests\testdata\compat\index\<見本の名前>` で、`ws\`・`export.zip`・`file_times.tsv` を見本へコピー・作成する（ワークスペースは `C:\tebunko_golden\ws`）。
 5. `expected.json` は手で書く（このスクリプトは作らない）。
 
 **`source\` の `.md` ファイルに相対リンクを書かない。** `tests\meta\links.Tests.ps1` がリポジトリ内の全 Markdown のリンクを確かめるため、見本の中の壊れたリンク（見本どうしを指すリンクなど）があると、関係のない変更でもテストが落ちる。
