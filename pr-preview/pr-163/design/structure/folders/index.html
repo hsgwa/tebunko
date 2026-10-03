@@ -4322,12 +4322,17 @@
 <tr>
 <td><code>tools/pr_checks_comment.ps1</code></td>
 <td>開発用</td>
-<td><code>test</code>・<code>title</code>・<code>docs</code>・<code>codeql</code>・<code>gui</code>・<code>perf-check</code> の結果（成功・失敗など）と実行へのリンクを、PR のコメント 1 件にまとめて書く・書き換える。<code>pr-comment.yml</code> が実行する（<a href="../../testing/ci/">CI</a>）</td>
+<td>動いたワークフロー自身の結果（成功・失敗など）と実行へのリンクを、そのワークフローの PR コメント（ワークフローごとに 1 件）に書く・書き換える。<code>.github/actions/pr-comment</code>（複合アクション）から、test・title・docs・codeql・gui・perf-check の各ワークフローの <code>pr-comment</code> ジョブが呼ぶ（<a href="../../testing/ci/">CI</a>）</td>
+</tr>
+<tr>
+<td><code>.github/actions/pr-comment/</code></td>
+<td>開発用</td>
+<td>上の <code>tools/pr_checks_comment.ps1</code> を呼ぶ共有の複合アクション。呼び出し側のジョブ（<code>pr-comment</code>）だけに <code>pull-requests: write</code> を持たせる（<a href="../../testing/ci/">CI</a>）</td>
 </tr>
 <tr>
 <td><code>.github/workflows/</code></td>
 <td>開発用</td>
-<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>・<code>pr-comment.yml</code>）、性能の計測（<code>perf.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../../testing/ci/">CI</a>）</td>
+<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>）、画面のスモークテスト（<code>gui.yml</code>）、性能の計測（<code>perf.yml</code>）・速さの回帰テスト（<code>perf-check.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../../testing/ci/">CI</a>）</td>
 </tr>
 <tr>
 <td><code>.github/codecov.yml</code></td>

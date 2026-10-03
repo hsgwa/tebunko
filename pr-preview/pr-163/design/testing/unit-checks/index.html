@@ -4055,7 +4055,7 @@
 </tr>
 <tr>
 <td><code>pr_checks_comment.ps1</code></td>
-<td>結果（<code>conclusion</code>・<code>status</code>）から表示文字への読み替え、実行へのリンクが自分のリポジトリの形のときだけ通る、同じワークフローの実行が複数あるときスキップでない最新を選ぶ（全部スキップならその中の最新）、開いた PR の一覧から head の SHA が一致するものを選ぶ（閉じた PR・一致しないものは選ばない）、書き換える対象のコメントを作者（<code>github-actions[bot]</code>）と 1 行目の目印で選ぶ、対象の 6 つのワークフローだけの表の行を作る（perf-check の数字は書き写さず、リンクだけにする）。<code>pr-comment.yml</code> の <code>workflow_run.workflows:</code> と各ワークフローの <code>name:</code> が対象の一覧とずれていないかは <code>Meta</code> で確かめる</td>
+<td>結果（<code>success</code>・<code>failure</code>・<code>cancelled</code>・<code>skipped</code> など）から表示文字への読み替え、複数のジョブの結果（カンマ区切り）から悪いほうを選ぶ（<code>combineJobResults</code>）、実行へのリンクが自分のリポジトリの形のときだけ通る、書き換える対象のコメントを作者（<code>github-actions[bot]</code>）と 1 行目のワークフローごとの目印（<code>&lt;!-- pr-check:&lt;id&gt; --&gt;</code>）で選ぶ（ほかのワークフローの目印のコメントは選ばない）。各ワークフローが複合アクション（<code>.github/actions/pr-comment</code>）を <code>workflow-key</code> 付きで呼んでいるか、集約ワークフロー（<code>pr-comment.yml</code>）が無いことは <code>Meta</code> で確かめる</td>
 </tr>
 <tr>
 <td><code>measure_perf.ps1</code></td>
