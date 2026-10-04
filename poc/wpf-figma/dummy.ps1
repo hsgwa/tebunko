@@ -27,6 +27,9 @@ $script:FigmaFrames = @(
     [pscustomobject]@{ Name = "H-W";               Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-PP";              Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-TX";              Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
+    [pscustomobject]@{ Name = "H-fold";            Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
+    [pscustomobject]@{ Name = "H-open";            Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
+    [pscustomobject]@{ Name = "H-ctx";             Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-多";               Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-多-上限";           Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "X-多";               Xaml = "xaml\index\index_list.xaml"; Width = 1280; Height = 820 }
@@ -41,7 +44,7 @@ $script:FigmaFrames = @(
     [pscustomobject]@{ Name = "H-範囲";             Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-範囲2";            Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
     [pscustomobject]@{ Name = "H-絞り込み中";        Xaml = "xaml\search.xaml";            Width = 1280; Height = 820 }
-    [pscustomobject]@{ Name = "探す範囲";            Xaml = "xaml\探す範囲.xaml";            Width = 817;  Height = 202 }
+    [pscustomobject]@{ Name = "探す範囲";            Xaml = "xaml\探す範囲.xaml";            Width = 1150; Height = 292 }
     [pscustomobject]@{ Name = "フルパスのツールチップ"; Xaml = "xaml\フルパスのツールチップ.xaml"; Width = 571;  Height = 100 }
     [pscustomobject]@{ Name = "正規表現の吹き出し";   Xaml = "xaml\正規表現の吹き出し.xaml";    Width = 300;  Height = 28 }
     [pscustomobject]@{ Name = "高速検索の表示";      Xaml = "xaml\高速検索の表示.xaml";        Width = 758;  Height = 296 }
@@ -140,6 +143,12 @@ function Hide-PreviewPane($Root) {
 function Set-ElText($Root, [string]$Name, [string]$Text) {
     $el = Find-Named $Root $Name
     if ($null -ne $el) { $el.Text = $Text }
+    # round11 項目3。ステータスバーのツールチップは同じ文の全文（決定。overlays.md）。
+    # StatusBarText を書き換えるたびに、ツールチップの文も合わせる。
+    if ($Name -eq "StatusBarText") {
+        $tip = Find-Named $Root "StatusBarTextTip"
+        if ($null -ne $tip) { $tip.Text = $Text }
+    }
 }
 
 function Set-ElChecked($Root, [string]$Name, $Checked) {
@@ -166,6 +175,15 @@ function Set-ElStyleKey($Root, [string]$Name, [string]$StyleKey) {
 function Set-ElBrushKey($Root, [string]$Name, [string]$Property, [string]$BrushKey) {
     $el = Find-Named $Root $Name
     if ($null -ne $el) { $el.$Property = $Root.FindResource($BrushKey) }
+}
+
+# ⓘ（info）は丸と「i」を重ねた 2 枚の Path を持つ Grid（README 9・Icon.InfoCircle.S##／
+# Icon.InfoGlyph.S##.Style）。状態で色を差し替えるときは、Grid の子の Path 2 枚とも Stroke を合わせる。
+function Set-InfoIconStroke($Root, [string]$Name, [string]$BrushKey) {
+    $el = Find-Named $Root $Name
+    if ($null -eq $el) { return }
+    $brush = $Root.FindResource($BrushKey)
+    foreach ($child in $el.Children) { $child.Stroke = $brush }
 }
 
 # Banner・ContentBanner のバッジの中の線（Path の Data）を、お知らせの種類に合わせて差し替える
@@ -463,6 +481,16 @@ function Add-IndexColumns($grid) {
 
 # 1 行分の Border（中に Grid）を組み立てる。$Data は Name・Path・Files・Updated・
 # StatusText・StatusLevel・StatusSub・FastText・FastLevel・ActionText を持つ hashtable。
+# round11 項目3。コードで組む行から、暗い地のツールチップ（theme.xaml の Tooltip.Dark）を作る。
+function New-DarkToolTip($Root, [string]$Text) {
+    $tip = New-Object System.Windows.Controls.ToolTip
+    $tip.Style = $Root.FindResource("Tooltip.Dark")
+    $tb = New-Object System.Windows.Controls.TextBlock
+    $tb.Text = $Text
+    $tip.Content = $tb
+    return $tip
+}
+
 function New-IndexRowBorder($Root, [hashtable]$Data, [bool]$Alternate) {
     $border = New-Object System.Windows.Controls.Border
     $border.Height = 36
@@ -495,6 +523,8 @@ function New-IndexRowBorder($Root, [hashtable]$Data, [bool]$Alternate) {
     $nameTb.Text = $Data.Name
     $nameTb.Style = $Root.FindResource("Text.12"); $nameTb.FontWeight = "SemiBold"
     $nameTb.TextTrimming = "CharacterEllipsis"
+    # round11 項目3。名前は省略されることがあるため、全文をツールチップで出す（決定。overlays.md）。
+    $nameTb.ToolTip = New-DarkToolTip $Root $Data.Name
     $nameStack.Children.Add($nameTb) | Out-Null
     [System.Windows.Controls.Grid]::SetColumn($nameStack, 2)
     $grid.Children.Add($nameStack) | Out-Null
@@ -503,6 +533,8 @@ function New-IndexRowBorder($Root, [hashtable]$Data, [bool]$Alternate) {
     $pathTb.Text = $Data.Path
     $pathTb.Style = $Root.FindResource("Text.11.Body"); $pathTb.VerticalAlignment = "Center"
     $pathTb.TextTrimming = "CharacterEllipsis"
+    # round11 項目3。パスも同じく全文をツールチップで出す（決定。overlays.md）。
+    $pathTb.ToolTip = New-DarkToolTip $Root $Data.Path
     [System.Windows.Controls.Grid]::SetColumn($pathTb, 4)
     $grid.Children.Add($pathTb) | Out-Null
 
@@ -529,6 +561,7 @@ function New-IndexRowBorder($Root, [hashtable]$Data, [bool]$Alternate) {
     $statusText.Text = $Data.StatusText; $statusText.Style = $Root.FindResource("Text.11.Medium")
     $statusText.Foreground = $statusColors.Fg
     $statusBadge.Child = $statusText
+    if ($Data.StatusTip) { $statusBadge.ToolTip = New-DarkToolTip $Root $Data.StatusTip }
     $statusStack.Children.Add($statusBadge) | Out-Null
     if ($Data.StatusSub) {
         $subTb = New-Object System.Windows.Controls.TextBlock
@@ -547,6 +580,7 @@ function New-IndexRowBorder($Root, [hashtable]$Data, [bool]$Alternate) {
     $fastText.Text = $Data.FastText; $fastText.Style = $Root.FindResource("Text.11.Medium")
     $fastText.Foreground = $fastColors.Fg
     $fastBadge.Child = $fastText
+    if ($Data.FastTip) { $fastBadge.ToolTip = New-DarkToolTip $Root $Data.FastTip }
     [System.Windows.Controls.Grid]::SetColumn($fastBadge, 12)
     $grid.Children.Add($fastBadge) | Out-Null
 
@@ -563,6 +597,9 @@ function New-IndexRowBorder($Root, [hashtable]$Data, [bool]$Alternate) {
     $actionBorder.Child = $actionTb
     $actionStack.Children.Add($actionBorder) | Out-Null
 
+    # ［⋯］は行のメニュー（index_list.md 4 章・7 章）を開く。更新中（ActionText が「中止」）は
+    # 「削除」を無効にし、ツールチップ「更新中は削除できません」を出す（index_list.md 5 章）。
+    $isUpdating = ($Data.ActionText -eq "中止")
     $moreBorder = New-Object System.Windows.Controls.Border
     $moreBorder.Width = 26; $moreBorder.Height = 24; $moreBorder.Margin = "8,0,0,0"
     $moreBorder.Background = $Root.FindResource("Bg.FFFFFF"); $moreBorder.BorderBrush = $Root.FindResource("Border.D9DEE3")
@@ -571,6 +608,30 @@ function New-IndexRowBorder($Root, [hashtable]$Data, [bool]$Alternate) {
     $moreTb.Text = [char]0x22EF; $moreTb.Style = $Root.FindResource("Text.11.Medium")
     $moreTb.HorizontalAlignment = "Center"; $moreTb.VerticalAlignment = "Center"
     $moreBorder.Child = $moreTb
+
+    $rowMenu = New-Object System.Windows.Controls.ContextMenu
+    $rowMenu.Style = $Root.FindResource("RowMenu.ContextMenu")
+
+    $exportItem = New-Object System.Windows.Controls.MenuItem
+    $exportItem.Style = $Root.FindResource("RowMenu.Item")
+    $exportItem.Header = "エクスポート…"
+    $rowMenu.Items.Add($exportItem) | Out-Null
+
+    $deleteItem = New-Object System.Windows.Controls.MenuItem
+    $deleteItem.Style = $Root.FindResource("RowMenu.Item")
+    $deleteItem.Header = "削除"
+    $deleteItem.Foreground = $Root.FindResource("Danger.Strong")
+    if ($isUpdating) {
+        $deleteItem.IsEnabled = $false
+        $deleteItem.ToolTip = "更新中は削除できません"
+    }
+    $rowMenu.Items.Add($deleteItem) | Out-Null
+
+    $moreBorder.ContextMenu = $rowMenu
+    $moreBorder.Add_MouseLeftButtonUp({
+        param($s, $e)
+        $s.ContextMenu.IsOpen = $true
+    })
     $actionStack.Children.Add($moreBorder) | Out-Null
 
     [System.Windows.Controls.Grid]::SetColumn($actionStack, 14)
@@ -588,22 +649,36 @@ function Add-IndexRows($Root, [bool]$SelectCustomer) {
     $rows = @(
         @{ Name = "営業部"; Path = "C:\共有\営業部"; Files = "245"; Updated = "2024/10/14 15:30"
            StatusText = "最新"; StatusLevel = "Ok"; StatusSub = ""
-           FastText = "可"; FastLevel = "Ok"; ActionText = "更新" }
+           StatusTip = "取り込み済み 245 件"
+           FastText = "可"; FastLevel = "Ok"; FastTip = "反映済み。高速検索に使える"
+           ActionText = "更新" }
         @{ Name = "顧客"; Path = "C:\共有\顧客"; Files = "1,830"; Updated = "2024/10/14 15:28"
            StatusText = "要更新"; StatusLevel = "Warn"; StatusSub = ""
-           FastText = "反映中 62%"; FastLevel = "Warn"; ActionText = "更新" }
+           StatusTip = "未取り込みのファイルがあります。次の［インデックス作成を開始］で続きから取り込む"
+           FastText = "反映中 62%"; FastLevel = "Warn"
+           FastTip = "反映済みのフォルダは高速検索で、反映待ちのフォルダはふつうの検索で調べる"
+           ActionText = "更新" }
         @{ Name = "営業部2025"; Path = "C:\共有\営業部2025"; Files = "455"; Updated = "2024/10/13 09:00"
            StatusText = "更新中 45%"; StatusLevel = "Busy"; StatusSub = ""
-           FastText = "反映待ち"; FastLevel = "Warn"; ActionText = "中止" }
+           StatusTip = "インデックス作成中。終わると状態を表示する"
+           FastText = "反映待ち"; FastLevel = "Warn"
+           FastTip = "Windows Search がまだ索引していない。対象に入っていれば、待つと使えるようになる（対象外のときは［インデックスのオプション］で加える）"
+           ActionText = "中止" }
         @{ Name = "アーカイブ"; Path = "C:\共有\アーカイブ"; Files = "0"; Updated = "-"
            StatusText = "エラー"; StatusLevel = "Ng"; StatusSub = ""
-           FastText = "－"; FastLevel = "None"; ActionText = "再設定" }
+           StatusTip = "フォルダが見つかりません。フォルダの場所を直すか、再設定してください"
+           FastText = "－"; FastLevel = "None"
+           FastTip = "まだ作っていない。インデックス作成が終わると状態を表示する"
+           ActionText = "再設定" }
     )
     for ($i = 1; $i -le 24; $i++) {
+        $files = "{0}" -f ($i * 13 % 900 + 10)
         $rows += @{ Name = "フォルダ_{0:D2}" -f $i; Path = "C:\共有\フォルダ_{0:D2}" -f $i
-                    Files = "{0}" -f ($i * 13 % 900 + 10); Updated = "2024/10/1{0} 0{1}:00" -f ($i % 10), ($i % 9 + 1)
+                    Files = $files; Updated = "2024/10/1{0} 0{1}:00" -f ($i % 10), ($i % 9 + 1)
                     StatusText = "最新"; StatusLevel = "Ok"; StatusSub = ""
-                    FastText = "可"; FastLevel = "Ok"; ActionText = "更新" }
+                    StatusTip = "取り込み済み $files 件"
+                    FastText = "可"; FastLevel = "Ok"; FastTip = "反映済み。高速検索に使える"
+                    ActionText = "更新" }
     }
     for ($i = 0; $i -lt $rows.Count; $i++) {
         $rowBorder = New-IndexRowBorder $Root $rows[$i] ([bool]($i % 2))
@@ -715,6 +790,8 @@ function Set-FastSearchState($Root, [string]$State) {
     $icon = Find-Named $Root "FastSearchIcon"
     $text = Find-Named $Root "FastSearchText"
     $info = Find-Named $Root "FastSearchInfo"
+    # round11 項目3・round12 項目6。ⓘ のツールチップの文（search_bar.md「search.fast.*.tip」）。
+    $infoTip = Find-Named $Root "FastSearchInfoTipText"
     if ($null -eq $badge) { return }
 
     if ($State -eq "hidden") {
@@ -726,42 +803,122 @@ function Set-FastSearchState($Root, [string]$State) {
     # unavailable-* はボーダーレス（枠なし）・くすんだ薄い色ではなく濃い灰色の文字にする（diff_round2.md 2 回目指摘）
     switch ($State) {
         "unavailable-connect" {
+            # design 更新（062eae1）。バッジの文言は理由を問わず「高速検索：使用不可」のみにし、
+            # 理由は info の吹き出しの先頭に書く（カッコ書きの理由はバッジに付けない）。
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
             $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
-            $text.Text = "高速検索：使用不可（Windows Search に接続できません）"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
+            $text.Text = "高速検索：使用不可"
+            $info.Visibility = [System.Windows.Visibility]::Visible; Set-InfoIconStroke $Root "FastSearchInfo" "Ink.5F6368"
+            if ($infoTip) { $infoTip.Text = "Windows Search に接続できません。検索はできますが時間がかかります　［インデックス管理で確認］" }
         }
         "unavailable-regex" {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
             $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
-            $text.Text = "高速検索：使用不可（正規表現では使えません）"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
+            $text.Text = "高速検索：使用不可"
+            $info.Visibility = [System.Windows.Visibility]::Visible; Set-InfoIconStroke $Root "FastSearchInfo" "Ink.5F6368"
+            if ($infoTip) { $infoTip.Text = "正規表現では使えません。正規表現をオフにすると速く検索できます" }
         }
         "unavailable-short" {
+            # design 更新（062eae1）。2 文字未満でも info を出し、吹き出しは「2文字以上で使えます」のみにする。
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
             $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
-            $text.Text = "高速検索：使用不可（2文字以上で使えます）"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
+            $text.Text = "高速検索：使用不可"
+            $info.Visibility = [System.Windows.Visibility]::Visible; Set-InfoIconStroke $Root "FastSearchInfo" "Ink.5F6368"
+            if ($infoTip) { $infoTip.Text = "2文字以上で使えます" }
         }
         "unavailable-pending" {
             $badge.Background = $Root.FindResource("Bg.F3F3F4"); $badge.BorderBrush = [System.Windows.Media.Brushes]::Transparent
             $icon.Stroke = $Root.FindResource("Ink.5F6368"); $text.Foreground = $Root.FindResource("Ink.5F6368")
-            $text.Text = "高速検索：使用不可（反映待ちです）"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ink.5F6368")
+            $text.Text = "高速検索：使用不可"
+            $info.Visibility = [System.Windows.Visibility]::Visible; Set-InfoIconStroke $Root "FastSearchInfo" "Ink.5F6368"
+            if ($infoTip) { $infoTip.Text = "反映待ちです。インデックスの更新が終わると使えます　［インデックス管理で確認］" }
         }
         "partial" {
             $badge.Background = $Root.FindResource("Warn.FFF5E0"); $badge.BorderBrush = $Root.FindResource("Warn.BA7D00")
             $icon.Stroke = $Root.FindResource("Warn.BA7D00"); $text.Foreground = $Root.FindResource("Warn.BA7D00")
             $text.Text = "高速検索：一部で使用可"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Warn.BA7D00")
+            $info.Visibility = [System.Windows.Visibility]::Visible; Set-InfoIconStroke $Root "FastSearchInfo" "Warn.BA7D00"
+            if ($infoTip) { $infoTip.Text = "2 フォルダはパスが長いため、通常の検索で調べます（検索結果は変わりません）" }
         }
         "ok" {
             $badge.Background = $Root.FindResource("Ok.E0F7E0"); $badge.BorderBrush = $Root.FindResource("Ok.218A21")
             $icon.Stroke = $Root.FindResource("Ok.218A21"); $text.Foreground = $Root.FindResource("Ok.218A21")
             $text.Text = "高速検索：使用可"
-            $info.Visibility = [System.Windows.Visibility]::Visible; $info.Stroke = $Root.FindResource("Ok.218A21")
+            # search_bar.md の表では、この状態も ⓘ を出さない。round11 項目3ではツールチップの文だけ空にする。
+            $info.Visibility = [System.Windows.Visibility]::Visible; Set-InfoIconStroke $Root "FastSearchInfo" "Ok.218A21"
+            if ($infoTip) { $infoTip.Text = "" }
         }
     }
+}
+
+# ---- すべて折りたたむ・すべて開く・行のメニュー（result_list.md 5・7 章。H-fold・H-open・H-ctx） ----
+
+# ファイルの見出し 1 つを、折りたたんだ（右向きの chevron・Bg.F9FAFA・青い棒なし）見た目にする。
+function Set-GroupHeaderFolded($Root, $Header, [bool]$Folded) {
+    $bar = $Header.Children | Where-Object { $_ -is [System.Windows.Shapes.Rectangle] } | Select-Object -First 1
+    if ($null -ne $bar) { $bar.Visibility = if ($Folded) { "Hidden" } else { "Visible" } }
+    $chev = $Header.Children | Where-Object { $_ -is [System.Windows.Shapes.Path] } | Select-Object -First 1
+    if ($null -ne $chev) { $chev.Data = $Root.FindResource($(if ($Folded) { "Icon.ChevronRight" } else { "Icon.ChevronDown" })) }
+    $w = if ($Folded) { 4 } else { 16 }
+    $Header.ColumnDefinitions[0].Width = New-Object System.Windows.GridLength($w)
+    $Header.Background = $Root.FindResource($(if ($Folded) { "Bg.F9FAFA" } else { "Bg.F5F7FA" }))
+}
+
+# 該当行 1 行（場所・種別・文章）。TopRowN と同じ列の幅・文字の形。
+function New-FillerHitRow($Root, [string]$Place, [string]$Kind, [string]$Before, [string]$Hit, [string]$After, [string]$BgKey) {
+    $grid = New-Object System.Windows.Controls.Grid
+    $grid.Height = 30
+    $grid.Background = $Root.FindResource($BgKey)
+    foreach ($w in @(234, "Auto", 33, "Auto", "*")) {
+        $cd = New-Object System.Windows.Controls.ColumnDefinition
+        if ($w -eq "Auto") { $cd.Width = [System.Windows.GridLength]::Auto }
+        elseif ($w -eq "*") { $cd.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star) }
+        else { $cd.Width = New-Object System.Windows.GridLength($w) }
+        $grid.ColumnDefinitions.Add($cd)
+    }
+    $t1 = New-Object System.Windows.Controls.TextBlock
+    $t1.Text = $Place; $t1.Style = $Root.FindResource("Text.11.Body"); $t1.Margin = "16,0,0,0"; $t1.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($t1, 0); $grid.Children.Add($t1) | Out-Null
+    $t2 = New-Object System.Windows.Controls.TextBlock
+    $t2.Text = $Kind; $t2.Style = $Root.FindResource("Text.11.Body"); $t2.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($t2, 2); $grid.Children.Add($t2) | Out-Null
+    $t3 = New-Object System.Windows.Controls.TextBlock
+    $t3.Style = $Root.FindResource("Text.12"); $t3.VerticalAlignment = "Center"
+    $r1 = New-Object System.Windows.Documents.Run($Before)
+    $r2 = New-Object System.Windows.Documents.Run($Hit)
+    $r2.Background = $Root.FindResource("Hit.FFF176"); $r2.FontWeight = "Bold"
+    $r3 = New-Object System.Windows.Documents.Run($After)
+    $t3.Inlines.Add($r1); $t3.Inlines.Add($r2); $t3.Inlines.Add($r3)
+    [System.Windows.Controls.Grid]::SetColumn($t3, 4); $grid.Children.Add($t3) | Out-Null
+    return $grid
+}
+
+# 行のメニュー（コピー・パスをコピー・区切り線・開く・フォルダを開く）。開くメニューの Popup を流用し、
+# 項目を差し替えて、行の押した位置に出す（H-ctx）。
+function Set-RowContextMenu($Root, $TargetName, [double]$X, [double]$FromBottom) {
+    $popup = Find-Named $Root "ContextMenuPopup"
+    if ($null -eq $popup) { return }
+    $stack = $popup.Child.Child
+    $stack.Children.Clear()
+    foreach ($label in @("コピー", "パスをコピー", "-", "開く", "フォルダを開く")) {
+        if ($label -eq "-") {
+            $line = New-Object System.Windows.Shapes.Rectangle
+            $line.Height = 1; $line.Fill = $Root.FindResource("Line.E0E2E5")
+            $stack.Children.Add($line) | Out-Null
+            continue
+        }
+        $b = New-Object System.Windows.Controls.Border
+        $b.Height = 24; $b.Padding = "8,0"
+        $tb = New-Object System.Windows.Controls.TextBlock
+        $tb.Text = $label; $tb.Style = $Root.FindResource("Text.11"); $tb.VerticalAlignment = "Center"
+        $b.Child = $tb
+        $stack.Children.Add($b) | Out-Null
+    }
+    $popup.PlacementTarget = Find-Named $Root $TargetName
+    $popup.Placement = "Bottom"
+    $popup.HorizontalOffset = $X
+    $popup.VerticalOffset = - $FromBottom
+    Set-ElOpen $Root "ContextMenuPopup" $true
 }
 
 # ---- フレームごとの違い ----
@@ -773,6 +930,49 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # ベースライン。xaml の既定値がそのまま H（既定の 14 件・1 行目選択・使用可）になっている。
             # 参照画像は「開く ▾」のドロップダウンが開いた状態のため、合わせる。
             Set-ElOpen $Root "ContextMenuPopup" $true
+        }
+
+        "H-fold" {
+            # すべて折りたたんだ。ファイルの見出しだけ（行は出さない）。プレビューは前に選んでいた行のまま。
+            $topHeader = (Find-Named $Root "TopGroupIcon").Parent
+            Set-GroupHeaderFolded $Root $topHeader $true
+            foreach ($n in 1..4) { Set-ElVisible $Root "TopRow$n" $false }
+        }
+
+        "H-open" {
+            # すべて開いた。6 つのファイルの下に、見本の該当行を足す。入りきらない分は縦にスクロール。
+            $panel = Find-Named $Root "ResultsPanel"
+            $samples = @(
+                @{ Row = "FileListRow1"; Hits = @(
+                    @("[シート]見積書!A3", "セル", "見積先：", "(株)山田商事", "(御中)"),
+                    @("[シート]見積書!B18", "セル", "値引き：", "(株)山田商事", " 特別割引あり"),
+                    @("[シート]見積書!A41", "セル", "納品場所：", "(株)山田商事", " │ 本社ビル")) }
+                @{ Row = "FileListRow2"; Hits = @(
+                    ,@("スライド 2", "本文", "提案先：", "(株)山田商事", " 様")) }
+                @{ Row = "FileListRow3"; Hits = @(
+                    @("1 ページ（目安）", "本文", "甲：", "(株)山田商事", " 乙：山田"),
+                    @("1 ページ（目安）", "本文", "契約先 ", "(株)山田商事", " 御中")) }
+                @{ Row = "FileListRow4"; Hits = @(
+                    @("[シート]顧客!B2", "セル", "", "(株)山田商事", " 東京本社"),
+                    @("[シート]顧客!B9", "セル", "", "(株)山田商事", " 大阪支店")) }
+            )
+            # 末尾から差し込むので、先の差し込みで位置がずれない。
+            foreach ($s in @($samples)[($samples.Count - 1)..0]) {
+                $hdr = Find-Named $Root $s.Row
+                Set-GroupHeaderFolded $Root $hdr $false
+                $at = $panel.Children.IndexOf($hdr) + 1
+                $i = 0
+                foreach ($h in $s.Hits) {
+                    $bg = if ($i % 2 -eq 0) { "Bg.FAFBFC" } else { "Bg.FFFFFF" }
+                    $panel.Children.Insert($at + $i, (New-FillerHitRow $Root $h[0] $h[1] $h[2] $h[3] $h[4] $bg))
+                    $i++
+                }
+            }
+        }
+
+        "H-ctx" {
+            # 行のメニュー。2 行目の右クリックの位置に出す（Figma には右クリックのきっかけが無く、見本として出す）。
+            Set-RowContextMenu $Root "TopRow2" 420 15
         }
 
         "H0" {
@@ -957,7 +1157,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElVisible $Root "SearchWordError" $true
             Set-FastSearchState $Root "unavailable-regex"
             Set-ElEnabled $Root "SearchButton" $false
-            Set-ElText $Root "ResultsSummaryText" "14件（5ファイル）・0.8秒・通常の検索"
+            # round11 項目2。秒数・方式は出さない（result_list.md の result.summary）
+            Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）"
         }
 
         "H-saved" {
@@ -1035,7 +1236,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # 高速検索は正規表現では使えないため「使用不可」になる。
             Set-ElChecked $Root "RegexCheck" $true
             Set-FastSearchState $Root "unavailable-regex"
-            Set-ElText $Root "ResultsSummaryText" "16 件（6 ファイル）・0.8 秒・通常の検索"
+            # round11 項目2。秒数・方式は出さない（result_list.md の result.summary）
+            Set-ElText $Root "ResultsSummaryText" "16 件（6 ファイル）"
             # H-R のステータスバー（diff_round3.md 4 は Figma の読み違いだった。diff_round6.md 5 で訂正）
             Set-ElText $Root "StatusBarText" "検索しました：(株)山田商事 16 件"
 
@@ -1152,7 +1354,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # C社_見積書_2024.xlsx を開いて A3 を選んでいる（scroll.md の見本）。
             # TopGroup（既存の展開済みファイル）の中身はそのまま A3 選択済みなので、
             # ファイル名・場所だけ差し替え、前後にダミーの畳んだ行を差し込んでスクロールさせる。
-            Set-ElText $Root "ResultsSummaryText" "1,248 件（312 ファイル）・2.6 秒・高速検索"
+            # round11 項目2。秒数・方式は出さない（result_list.md の result.summary）
+            Set-ElText $Root "ResultsSummaryText" "1,248 件（312 ファイル）"
             Set-ElText $Root "TopGroupFileName" "C社_見積書_2024.xlsx"
             Set-ElText $Root "TopGroupLocation" "営業部/2024/見積もり"
             Add-FillerResultRows $Root 20 20
@@ -1166,7 +1369,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             # 件数が上限（今のコードは 10,000 件。result_list.md の「決めること」8）に達して
             # 打ち切ったとき。打ち切りを示す印を件数の行に出すかは scroll.md の「決めること」3 で
             # 未定のため、ここでは印を足さず、件数だけ上限の値にする。
-            Set-ElText $Root "ResultsSummaryText" "10,000 件（500 ファイル以上）・4.1 秒・高速検索"
+            # round11 項目2。秒数・方式は出さない（result_list.md の result.summary）
+            Set-ElText $Root "ResultsSummaryText" "10,000 件（500 ファイル以上）"
             Set-ElText $Root "TopGroupFileName" "C社_見積書_2024.xlsx"
             Set-ElText $Root "TopGroupLocation" "営業部/2024/見積もり"
             Add-FillerResultRows $Root 20 20
@@ -1194,8 +1398,9 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-B" {
-            # インデックス更新中（進み具合）。更新中は高速検索が使えないため、バッジを隠し、
-            # 件数の末尾の「・高速検索」も外す（diff_round2.md 2 回目指摘）。
+            # インデックス更新中（進み具合）。更新中は高速検索が使えないため、バッジを隠す
+            # （diff_round2.md 2 回目指摘）。件数は round11 項目2 で秒数・方式とも出さなくなった
+            # （result_list.md の result.summary）。
             Set-ElHeight $Root "TopBannerRow" "Auto"
             Set-ElText $Root "BannerText" "インデックスを更新しています（営業部 1,200 / 2,075 件）"
             Set-ElVisible $Root "NavBadge_Index" $true
@@ -1205,7 +1410,7 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             Set-ElBrushKey $Root "NavBadge_IndexPill" "Background" "Select.E5F1FB"
             Set-ElBrushKey $Root "NavBadge_IndexPill" "BorderBrush" "Accent.0078D4"
             Set-FastSearchState $Root "hidden"
-            Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）・0.8 秒"
+            Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）"
         }
 
         "H-P" {
@@ -1245,8 +1450,8 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
             $pill = Find-Named $Root "NavBadge_IndexPill"
             if ($pill) { $pill.BorderBrush = [System.Windows.Media.Brushes]::Transparent }
             Set-ElBrushKey $Root "NavBadge_IndexText" "Foreground" "Warn.BA7D00"
-            # 件数行は「・高速検索」を付けない（diff_round4.md 6）
-            Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）・0.8 秒"
+            # 件数行は秒数・方式を付けない（diff_round4.md 6・round11 項目2）
+            Set-ElText $Root "ResultsSummaryText" "14 件（5 ファイル）"
         }
 
         "E13" {
@@ -1278,14 +1483,23 @@ function Set-FigmaFrameState($Root, [string]$FrameName) {
         }
 
         "H-範囲" {
-            Set-ElVisible $Root "RangePopup" $true
+            Set-ElVisible $Root "ScopeMenuPopup" $true
         }
 
         "H-範囲2" {
-            Set-ElVisible $Root "RangePopup" $true
-            Set-ElChecked $Root "RangeCheck_Comment" $false
-            Set-ElChecked $Root "RangeCheck_Note" $false
-            Set-ElText $Root "RangeButtonText" "探す範囲：本文・図形"
+            # round11 項目1。既定から変えると、ボタンの文言が「ファイル内の対象・N件変更」になり
+            # 字と枠が Accent 色になる（search_bar.md の search.scope.button.partial）。
+            # 「既定に戻す」も押せる見た目（Accent・下線）にする。
+            Set-ElVisible $Root "ScopeMenuPopup" $true
+            Set-ElChecked $Root "ScopeCheck_Comment" $false
+            Set-ElChecked $Root "ScopeCheck_Note" $false
+            Set-ElText $Root "ScopeButtonText" "ファイル内の対象・2 件変更"
+            Set-ElStyleKey $Root "ScopeButtonText" "Text.11.Medium"
+            Set-ElBrushKey $Root "ScopeButtonText" "Foreground" "Chip.0B5CAD"
+            Set-ElBrushKey $Root "ScopeButton" "BorderBrush" "Accent.0078D4"
+            Set-ElBrushKey $Root "ScopeResetText" "Foreground" "Accent.0078D4"
+            $resetText = Find-Named $Root "ScopeResetText"
+            if ($null -ne $resetText) { $resetText.TextDecorations = [System.Windows.TextDecorations]::Underline }
         }
 
         "H-絞り込み中" {

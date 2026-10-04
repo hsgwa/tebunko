@@ -11,6 +11,11 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 $root = $PSScriptRoot
 . (Join-Path $root "dummy.ps1")
 
+# round10 項目2: 窓・タスクバーの印を新しいロゴ（theme.xaml の Logo.AppLogo）にする。
+$themeDict = [System.Windows.Markup.XamlReader]::Load(
+    [System.Xml.XmlReader]::Create((Join-Path $root "theme.xaml")))
+$appLogoIcon = $themeDict["Logo.AppLogo"]
+
 # ---- フォント: Rethink Sans をインストールせずにファイルから使う ----
 $fontsDir = (Join-Path $root "fonts") -replace "\\","/"
 $fontUri = "file:///$fontsDir/#Rethink Sans, Yu Gothic UI"
@@ -44,6 +49,7 @@ $picker.Height = 640
 $picker.WindowStartupLocation = "Manual"
 $picker.Left = 20
 $picker.Top = 40
+$picker.Icon = $appLogoIcon
 
 $dock = New-Object System.Windows.Controls.DockPanel
 $picker.Content = $dock
@@ -69,6 +75,7 @@ function Show-Frame([string]$FrameName) {
     $win.Top = 40
     $win.SizeToContent = "WidthAndHeight"
     $win.ResizeMode = "CanMinimize"
+    $win.Icon = $appLogoIcon
     $win.Content = $visual
 
     # search.xaml は画面の中に自前のタイトルバー（TitleBarGrid。32px・「tebunko」の文字と

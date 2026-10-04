@@ -88,7 +88,7 @@ function Render-Frame($Frame) {
 
     if ($Frame.Xaml -eq "xaml\search.xaml") {
         $popupEl = $visual.FindName("ContextMenuPopup")
-        if ($null -ne $popupEl) { $popupEl.PlacementTarget = $visual.FindName("PreviewOpenArrow") }
+        if ($null -ne $popupEl -and $Frame.Name -ne "H-ctx") { $popupEl.PlacementTarget = $visual.FindName("PreviewOpenArrow") }
         $rtb = Merge-PopupOverlay $visual $rtb $Frame.Width $Frame.Height
     }
     $rtb.Freeze()

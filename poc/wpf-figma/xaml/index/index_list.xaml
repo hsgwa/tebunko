@@ -34,12 +34,34 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,16,0">
-          <TextBlock Text="インデックス管理" Style="{StaticResource Text.16}" FontWeight="Bold" />
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="インデックス管理" Style="{StaticResource Text.16}" FontWeight="Bold" />
+            <!-- round11 項目3。題の横の help-icon。文言は未定（案。overlays.md「ツールチップをすべて出した見本」）。 -->
+            <Grid Width="14" Height="14" Margin="6,0,0,0" VerticalAlignment="Center" SnapsToDevicePixels="True" UseLayoutRounding="True">
+              <Grid.ToolTip>
+                <ToolTip Style="{StaticResource Tooltip.Dark}">
+                  <StackPanel>
+                    <TextBlock Text="検索するフォルダを登録する画面です。" />
+                    <TextBlock Text="登録したフォルダは、インデックスを更新すると検索できます。" />
+                  </StackPanel>
+                </ToolTip>
+              </Grid.ToolTip>
+              <Path Style="{StaticResource Icon.InfoCircle.S14}" Stroke="{StaticResource Disabled.9AA0A6}" />
+              <Path Style="{StaticResource Icon.InfoGlyph.S14.Style}" Stroke="{StaticResource Disabled.9AA0A6}" />
+            </Grid>
+          </StackPanel>
           <TextBlock Text="検索するフォルダとインデックスを管理します。ファイルを変更したら［更新］でインデックスを最新にします。"
                      Style="{StaticResource Text.12.Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-          <Button Content="インポート…" Style="{StaticResource Btn.Outline}" Height="32" Padding="14,0" />
+          <!-- round11 項目3。更新中はエクスポート・インポートが終わるまで押せない想定だが、この PoC には
+               その状態の見本（フレーム）が無いため、ツールチップの文だけ用意する（決定。index_list.md
+               「index.list.busy」）。IsEnabled を切り替える見本は作っていない。 -->
+          <Button Content="インポート…" Style="{StaticResource Btn.Outline}" Height="32" Padding="14,0">
+            <Button.ToolTip>
+              <ToolTip Style="{StaticResource Tooltip.Dark}"><TextBlock Text="エクスポート・インポートが終わるまでお待ちください。" /></ToolTip>
+            </Button.ToolTip>
+          </Button>
           <Button Content="＋ フォルダを追加" Style="{StaticResource Btn.Primary}" Margin="8,0,0,0" Padding="16,7" />
         </StackPanel>
       </Grid>
@@ -63,7 +85,25 @@
         <TextBlock Grid.Column="4" Text="パス" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
         <TextBlock Grid.Column="6" Text="ファイル数" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right" />
         <TextBlock Grid.Column="8" Text="最終更新" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
-        <TextBlock Grid.Column="10" Text="ステータス" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
+        <!-- round11 項目3。「ステータス」の help-icon（決定。index_list.md「index.list.col.status.help」）。 -->
+        <StackPanel Grid.Column="10" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="ステータス" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
+          <Grid Width="12" Height="12" Margin="4,0,0,0" SnapsToDevicePixels="True" UseLayoutRounding="True">
+            <Grid.ToolTip>
+              <ToolTip Style="{StaticResource Tooltip.Dark}">
+                <StackPanel>
+                  <TextBlock Text="各フォルダのインデックスの状態です。" />
+                  <TextBlock Text="・最新: インデックスは最新です" />
+                  <TextBlock Text="・要更新: 前回の更新のあとにファイルが変更されています" />
+                  <TextBlock Text="・更新中: インデックスを更新しています" />
+                  <TextBlock Text="・エラー: フォルダが見つかりません" />
+                </StackPanel>
+              </ToolTip>
+            </Grid.ToolTip>
+            <Path Style="{StaticResource Icon.InfoCircle.S12}" Stroke="{StaticResource Disabled.9AA0A6}" />
+            <Path Style="{StaticResource Icon.InfoGlyph.S12.Style}" Stroke="{StaticResource Disabled.9AA0A6}" />
+          </Grid>
+        </StackPanel>
         <TextBlock Grid.Column="12" Text="高速検索" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
         <TextBlock Grid.Column="14" Text="操作" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right" />
       </Grid>

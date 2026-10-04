@@ -1,8 +1,9 @@
-﻿<!-- 探す範囲 817x202。「探す範囲」ドロップダウンの見本を 3 枚並べる。
-     既定（閉じている）／開いたとき（すべて選択）／本文以外を外したとき（ボタンの文字が変わる）。 -->
+﻿<!-- 探す範囲 1150x292。「ファイル内の対象」ドロップダウンの見本を 4 枚並べる（round11 項目1で改名・改装）。
+     既定（閉じている）／開いたとき（すべて選択）／本文以外を外したとき（ボタンの文字が変わる）／
+     種類のチップで PowerPoint を外したとき（メニューの組が薄くなる）。 -->
 <Grid x:Name="Root" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      Width="817" Height="202" Background="#FFFFFF">
+      Width="1150" Height="292" Background="#FFFFFF">
   <Grid.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
@@ -12,6 +13,7 @@
   </Grid.Resources>
   <Grid.ColumnDefinitions>
     <ColumnDefinition Width="260" />
+    <ColumnDefinition Width="300" />
     <ColumnDefinition Width="300" />
     <ColumnDefinition Width="*" />
   </Grid.ColumnDefinitions>
@@ -25,12 +27,12 @@
     </Border>
   </StackPanel>
 
-  <!-- 探す範囲（すべて選択） -->
+  <!-- ファイル内の対象（すべて選択） -->
   <StackPanel Grid.Column="1" Margin="8">
-    <TextBlock Text="[探す範囲 ▾] を開いたとき" Style="{StaticResource Text.11.Muted}" Margin="0,0,0,8" />
+    <TextBlock Text="[ファイル内の対象 ▾] を開いたとき" Style="{StaticResource Text.11.Muted}" Margin="0,0,0,8" />
     <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left">
       <StackPanel Orientation="Horizontal">
-        <TextBlock Text="探す範囲" Style="{StaticResource Text.11}" />
+        <TextBlock Text="ファイル内の対象" Style="{StaticResource Text.11}" />
         <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="4,0,0,0" VerticalAlignment="Center" />
       </StackPanel>
     </Button>
@@ -38,8 +40,9 @@
          親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
          HorizontalAlignment="Left" を明示する。 -->
     <Border Width="270" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
-            CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12" Margin="0,4,0,0">
+            CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12,10,12,10" Margin="0,4,0,0">
       <StackPanel>
+        <TextBlock Text="共通" Style="{StaticResource Text.10}" Margin="0,0,0,4" />
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
           <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
@@ -55,22 +58,24 @@
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" />
           <TextBlock Text="コメント" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
+        <TextBlock Text="PowerPoint" Style="{StaticResource Text.10}" Margin="0,2,0,4" />
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" />
-          <TextBlock Text="ノート（PowerPoint）" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+          <TextBlock Text="ノート" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
         <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
-        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="NoWrap" />
+        <!-- 既定のままは灰色で押せない（search_bar.md の search.scope.reset） -->
+        <TextBlock Text="既定に戻す" Style="{StaticResource Text.11}" Foreground="{StaticResource Disabled.9AA0A6}" />
       </StackPanel>
     </Border>
   </StackPanel>
 
-  <!-- 探す範囲（本文以外を外したとき） -->
+  <!-- ファイル内の対象（本文以外を外したとき） -->
   <StackPanel Grid.Column="2" Margin="8">
-    <TextBlock Text="本文以外を外したとき（ボタンの文字が変わる）" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
-    <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left">
+    <TextBlock Text="本文以外を外したとき（ボタンの文字・既定に戻すが変わる）" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
+    <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left" BorderBrush="{StaticResource Accent.0078D4}">
       <StackPanel Orientation="Horizontal">
-        <TextBlock Text="探す範囲：本文・図形" Style="{StaticResource Text.11}" />
+        <TextBlock Text="ファイル内の対象・2 件変更" Style="{StaticResource Text.11.Medium}" Foreground="{StaticResource Chip.0B5CAD}" />
         <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="4,0,0,0" VerticalAlignment="Center" />
       </StackPanel>
     </Button>
@@ -78,8 +83,9 @@
          親の StackPanel の幅の中で中央寄せになってしまう（WPF の仕様）。左端に揃えるため
          HorizontalAlignment="Left" を明示する。 -->
     <Border Width="270" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
-            CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12" Margin="0,4,0,0">
+            CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12,10,12,10" Margin="0,4,0,0">
       <StackPanel>
+        <TextBlock Text="共通" Style="{StaticResource Text.10}" Margin="0,0,0,4" />
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
           <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
@@ -95,12 +101,68 @@
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="False" />
           <TextBlock Text="コメント" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
+        <TextBlock Text="PowerPoint" Style="{StaticResource Text.10}" Margin="0,2,0,4" />
         <DockPanel Margin="0,0,0,8">
           <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="False" />
-          <TextBlock Text="ノート（PowerPoint）" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+          <TextBlock Text="ノート" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
         </DockPanel>
         <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
-        <TextBlock Text="Excel・Word・PowerPoint のファイルが対象です" Style="{StaticResource Text.11.Muted}" TextWrapping="NoWrap" />
+        <!-- 既定から変えたら押せる見た目（Accent・下線）にする -->
+        <TextBlock Text="既定に戻す" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" TextDecorations="Underline" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+
+  <!-- 種類のチップで PowerPoint を外したとき（メニューの組が薄くなる。overlays.md「種類のチップで
+       外したアプリの組は、見出しと項目を薄くする」。チップのオフの見た目・項目の薄さの値は
+       Figma に無く、この PoC での案（判断待ち）。round11 項目1 -->
+  <StackPanel Grid.Column="3" Margin="8">
+    <TextBlock Text="種類のチップで PowerPoint を外したとき（メニューの組が薄くなる・案）" Style="{StaticResource Text.11.Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+      <Border Style="{StaticResource Chip}" Background="{StaticResource Select.E5F1FB}" BorderBrush="{StaticResource Accent.0078D4}" Margin="0,0,6,0">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Check}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,3,0" />
+          <TextBlock Text="Word" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" />
+        </StackPanel>
+      </Border>
+      <!-- PowerPoint のチップはオフ（案: 白地・灰色の枠と文字、check 無し） -->
+      <Border Style="{StaticResource Chip}" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}">
+        <TextBlock Text="PowerPoint" Style="{StaticResource Text.11}" Foreground="{StaticResource Disabled.9AA0A6}" />
+      </Border>
+    </StackPanel>
+    <Button Style="{StaticResource Btn.Outline}" Height="26" Padding="10,2,10,2" HorizontalAlignment="Left">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="ファイル内の対象" Style="{StaticResource Text.11}" />
+        <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.202124}" StrokeThickness="0.83" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="4,0,0,0" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
+    <Border Width="270" HorizontalAlignment="Left" Background="{StaticResource Bg.FFFFFF}" BorderBrush="{StaticResource Border.D9DEE3}" BorderThickness="1"
+            CornerRadius="{StaticResource Radius.4}" Effect="{StaticResource Shadow.Small}" Padding="12,10,12,10" Margin="0,4,0,0">
+      <StackPanel>
+        <TextBlock Text="共通" Style="{StaticResource Text.10}" Margin="0,0,0,4" />
+        <DockPanel Margin="0,0,0,8">
+          <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
+          <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="{DynamicResource Font.UI}">
+            <Run Text="本文" FontSize="12" Foreground="{StaticResource Ink.6B737D}" />
+            <Run Text="　（常に対象）" FontSize="11" Foreground="{StaticResource Ink.6B737D}" />
+          </TextBlock>
+        </DockPanel>
+        <DockPanel Margin="0,0,0,8">
+          <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" />
+          <TextBlock Text="図形" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+        </DockPanel>
+        <DockPanel Margin="0,0,0,8">
+          <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" />
+          <TextBlock Text="コメント" Margin="8,0,0,0" Style="{StaticResource Text.12}" VerticalAlignment="Center" />
+        </DockPanel>
+        <!-- PowerPoint のチップがオフなので、この組は薄く・使えない -->
+        <TextBlock Text="PowerPoint" Style="{StaticResource Text.10}" Foreground="{StaticResource Disabled.9AA0A6}" Margin="0,2,0,4" />
+        <DockPanel Margin="0,0,0,8">
+          <CheckBox Style="{StaticResource CheckBox.Tree}" IsChecked="True" IsEnabled="False" />
+          <TextBlock Text="ノート" Margin="8,0,0,0" Style="{StaticResource Text.12}" Foreground="{StaticResource Disabled.9AA0A6}" VerticalAlignment="Center" />
+        </DockPanel>
+        <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" Margin="0,2,0,8" />
+        <TextBlock Text="既定に戻す" Style="{StaticResource Text.11}" Foreground="{StaticResource Disabled.9AA0A6}" />
       </StackPanel>
     </Border>
   </StackPanel>

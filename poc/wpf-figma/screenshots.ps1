@@ -105,7 +105,7 @@ function Save-Shot([string]$XamlPath, [string]$FrameName, [int]$Width, [int]$Hei
 
     if ($XamlPath -like "*xaml\search.xaml") {
         $popupEl = $visual.FindName("ContextMenuPopup")
-        if ($null -ne $popupEl) { $popupEl.PlacementTarget = $visual.FindName("PreviewOpenArrow") }
+        if ($null -ne $popupEl -and $FrameName -ne "H-ctx") { $popupEl.PlacementTarget = $visual.FindName("PreviewOpenArrow") }
         $rtb = Merge-PopupOverlay $visual $rtb $Width $Height
     }
     $rtb.Freeze()

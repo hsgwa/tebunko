@@ -20,14 +20,8 @@
 
       <Grid Grid.Row="1">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-20,0,0">
-          <Grid Width="56" Height="56" HorizontalAlignment="Center">
-            <Path Data="{StaticResource Icon.AppBook}" Width="40" Height="40" Stretch="Uniform"
-                  Fill="#E5F1FB" Stroke="{StaticResource Accent.0078D4}" StrokeThickness="3.33"
-                  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="2,6,0,0" />
-            <Path Data="{StaticResource Icon.AppMag}" Width="22" Height="22" Stretch="Uniform"
-                  Stroke="{StaticResource Accent.0078D4}" StrokeThickness="2.3"
-                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,0,0" />
-          </Grid>
+          <!-- round10 項目2。起動画面のロゴを新しい app_logo.svg に差し替え、48x48 で中央に置く（README の 10） -->
+          <Image Source="{StaticResource Logo.AppLogo}" Width="48" Height="48" Stretch="Uniform" HorizontalAlignment="Center" />
           <TextBlock Text="tebunko" Style="{StaticResource Text.22}" HorizontalAlignment="Center" Margin="0,10,0,0" />
           <!-- 幅 240 で細く（diff_round3.md 12・小） -->
           <Grid Width="240" Height="4" Margin="0,18,0,0">
