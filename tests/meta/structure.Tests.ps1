@@ -33,12 +33,6 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
             ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
         ($found -join ", ") | Should -Be ""
     }
-
-    It "getPartLoad が indexer を指すファイルがある" {
-        $load = getPartLoad indexer
-        Test-Path -LiteralPath $load.Path | Should -Be $true
-        (Split-Path -Leaf $load.Path) | Should -Be "indexer.ps1"
-    }
 }
 
 Describe "スクリプトの構文" -Tag Meta {
@@ -105,22 +99,6 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
                 $first -is [System.Management.Automation.Language.StringConstantExpressionAst]
         }
 
-        function isSanctionedDotSource {
-            # . $<member チェーン>.Path @partArgs の形だけを認める
-            param ($commandAst)
-            if ($commandAst.InvocationOperator -ne "Dot") { return $false }
-            if ($commandAst.CommandElements.Count -ne 2) { return $false }
-            $first = $commandAst.CommandElements[0]
-            $second = $commandAst.CommandElements[1]
-            $firstOk = $first -is [System.Management.Automation.Language.MemberExpressionAst] -and
-                $first.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
-                $first.Member.Value -eq "Path"
-            $secondOk = $second -is [System.Management.Automation.Language.VariableExpressionAst] -and
-                $second.Splatted -and
-                $second.VariablePath.UserPath -eq "partArgs"
-            return $firstOk -and $secondOk
-        }
-
         function commandOf {
             # 文（PipelineAst）の中の、唯一の要素（CommandAst）を取り出す。それ以外はそのまま返す
             param ($stmt)
@@ -165,14 +143,15 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M2(i): .ps1 で終わる文字列は、読み込み口の行・parts.ps1 だけに書く" {
+    It "M2(i): パス区切りを含み .ps1 で終わる文字列は、読み込み口の行・parts.ps1 だけに書く" {
+        # text_file.ps1 の ".ps1"（拡張子だけの一覧）のような、パスではない文字列は対象外にする
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
             if ($f.Name -eq "parts.ps1") { continue }
             $ast = $parsedAsts[$f.FullName]
             $strs = $ast.FindAll({
                 ($args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -or $args[0] -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) -and
-                $args[0].Value -match '\.ps1$' -and $args[0].Value -ne ".ps1"
+                $args[0].Value -match '\.ps1$' -and $args[0].Value -match '[\\/]'
             }, $true)
             foreach ($s in $strs) {
                 $cmd = $s
@@ -184,31 +163,29 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M2(ii): ドットソース（.）は、読み込み口の行か、`. `$<member>.Path @partArgs` の形だけ" {
+    It "M2(ii): ドットソース（.）は、読み込み口の行だけ（変数・パスでの dot-source は認めない）" {
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
             $ast = $parsedAsts[$f.FullName]
             $cmds = $ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] -and $args[0].InvocationOperator -eq "Dot" }, $true)
             foreach ($c in $cmds) {
                 if (isLoaderLine $c) { continue }
-                if (isSanctionedDotSource $c) { continue }
                 $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$($c.Extent.Text)")
             }
         }
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M2(ii) の例: 試作で漏れた形（. `$libPath・. `$x.Path だけ）は認めない形として検出する" {
+    It "M2(ii) の例: 試作で漏れた形（. `$libPath・. `$x.Path）は読み込み口の行として検出しない" {
         $badSamples = @('. $libPath', '. $x.Path')
         foreach ($sample in $badSamples) {
             $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
             $cmd = @($fixtureAst.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true))[0]
             (isLoaderLine $cmd) | Should -Be $false -Because "形: $sample"
-            (isSanctionedDotSource $cmd) | Should -Be $false -Because "形: $sample"
         }
     }
 
-    It "M2(iii): & での .Path 呼び出しは、@partArgs を渡す形だけ" {
+    It "M2(iii): `&` での `.Path` 呼び出し・`-Part` を付けた呼び出しは書かない（自己起動を禁じる）" {
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
             $ast = $parsedAsts[$f.FullName]
@@ -218,11 +195,10 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
                 $isPathCall = $first -is [System.Management.Automation.Language.MemberExpressionAst] -and
                     $first.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
                     $first.Member.Value -eq "Path"
-                if (-not $isPathCall) { continue }
-                $hasPartArgs = @($c.CommandElements | Where-Object {
-                    $_ -is [System.Management.Automation.Language.VariableExpressionAst] -and $_.Splatted -and $_.VariablePath.UserPath -eq "partArgs"
+                $hasPartFlag = @($c.CommandElements | Where-Object {
+                    $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -eq "Part"
                 }).Count -gt 0
-                if (-not $hasPartArgs) {
+                if ($isPathCall -or $hasPartFlag) {
                     $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$($c.Extent.Text)")
                 }
             }
@@ -230,17 +206,50 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M2(iv): 文字列で組み立てたドットソース（. '...）が書けるのは parts.ps1 だけ" {
+    It "M2(iii) の例: `-Part` を含む文字列は自己起動（Start-Process の引数など）に書かない" {
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($f in $allScriptFiles) {
+            $ast = $parsedAsts[$f.FullName]
+            $strs = $ast.FindAll({
+                ($args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -or $args[0] -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) -and
+                $args[0].Value -match '-Part\b'
+            }, $true)
+            foreach ($s in $strs) {
+                $bad.Add("$(getRelPath $f.FullName):$($s.Extent.StartLineNumber):$($s.Extent.Text)")
+            }
+        }
+        ($bad -join ", ") | Should -Be ""
+    }
+
+    It "M2(iv): `. ` で始まる文字列・importTebunkoPart の名前が書けるのは parts.ps1 だけ" {
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($f in $allScriptFiles) {
             if ($f.Name -eq "parts.ps1") { continue }
             $ast = $parsedAsts[$f.FullName]
             $strs = $ast.FindAll({
                 ($args[0] -is [System.Management.Automation.Language.StringConstantExpressionAst] -or $args[0] -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) -and
-                $args[0].Value -like ". '*"
+                ($args[0].Value -like ". *" -or $args[0].Value -like "*importTebunkoPart*")
             }, $true)
             foreach ($s in $strs) {
-                $bad.Add("$(getRelPath $f.FullName):$($s.Extent.StartLineNumber)")
+                $bad.Add("$(getRelPath $f.FullName):$($s.Extent.StartLineNumber):$($s.Extent.Text)")
+            }
+        }
+        ($bad -join ", ") | Should -Be ""
+    }
+
+    It "M2(v): `${bundledScriptPath}`（単一 .ps1 自身のパス）を dot-source・& での呼び出しに使わない" {
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($f in $allScriptFiles) {
+            $ast = $parsedAsts[$f.FullName]
+            $cmds = $ast.FindAll({
+                $args[0] -is [System.Management.Automation.Language.CommandAst] -and
+                ($args[0].InvocationOperator -eq "Dot" -or $args[0].InvocationOperator -eq "Ampersand")
+            }, $true)
+            foreach ($c in $cmds) {
+                $hit = @($c.FindAll({ $args[0] -is [System.Management.Automation.Language.VariableExpressionAst] -and $args[0].VariablePath.UserPath -eq "bundledScriptPath" }, $true)).Count -gt 0
+                if ($hit) {
+                    $bad.Add("$(getRelPath $f.FullName):$($c.Extent.StartLineNumber):$($c.Extent.Text)")
+                }
             }
         }
         ($bad -join ", ") | Should -Be ""

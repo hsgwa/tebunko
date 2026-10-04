@@ -4,12 +4,13 @@
 # IndexingSession は画面のスレッドだけから呼ぶ（PowerShell 5.1 のクラスのメソッドは、定義したランスペースで動くため）。
 # 画面とインデクサのやり取りは、すべて受け渡しの口で行う（中止・確認の返事・進み具合・終了コード）
 
-# インデクサの司令のスレッドで動かすスクリプト。インデックス作成の処理のため、スレッドの優先度を下げる
+# インデクサの司令のスレッドで動かすスクリプト。インデックス作成の処理のため、スレッドの優先度を下げる。
+# indexerLib の部品（Prelude）は IndexingSession のコンストラクタが、この本体の param ブロックの
+# あとにつなぐ（joinWorkerScript）。invokeIndexerMain は indexer\indexer_main.ps1 の関数
 ${indexingSessionScript} = {
-    param ($indexerLoad, $channel)
+    param ($channel)
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
-    $partArgs = $indexerLoad.Args
-    & $indexerLoad.Path @partArgs -Channel $channel
+    invokeIndexerMain -Channel $channel
 }
 
 class IndexingSession {
@@ -25,12 +26,13 @@ class IndexingSession {
         $this.Channel = $channel
         $this.Started = Get-Date
         # 司令のスレッドは COM に触らないため MTA（Office は取り込みのスレッド（STA）が扱う）
-        $this.Runspace = [runspacefactory]::CreateRunspace()
+        $this.Runspace = [runspacefactory]::CreateRunspace($indexerLoad.State)
         $this.Runspace.ApartmentState = [System.Threading.ApartmentState]::MTA
         $this.Runspace.Open()
         $this.PowerShell = [powershell]::Create()
         $this.PowerShell.Runspace = $this.Runspace
-        [void]$this.PowerShell.AddScript($script).AddArgument($indexerLoad).AddArgument($channel)
+        $joined = if ($indexerLoad.Prelude) { joinWorkerScript $indexerLoad.Prelude $script } else { $script }
+        [void]$this.PowerShell.AddScript($joined).AddArgument($channel)
         $this.Handle = $this.PowerShell.BeginInvoke()
     }
 
@@ -153,6 +155,6 @@ function newIndexingSession {
         [hashtable]$channel
     )
 
-    $indexerLoad = getPartLoad indexer
+    $indexerLoad = getPartLoad indexerLib
     return [IndexingSession]::new(${indexingSessionScript}.ToString(), $indexerLoad, $channel)
 }

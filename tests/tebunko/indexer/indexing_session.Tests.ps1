@@ -1,28 +1,33 @@
 ﻿# 画面のインデックス作成 1 回分（tebunko\indexer\indexing_session.ps1 の IndexingSession）のテスト。
-# indexer.ps1 の代わりに、受け渡しの口（newIndexerChannel）だけを使う偽のスクリプトを動かす
+# invokeIndexerMain（本物は indexer_main.ps1）の代わりに、受け渡しの口（newIndexerChannel）だけを使う偽の本体を動かす
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
+    # Mock invokeIndexerMain で差し替えるため、本物の関数（呼ばなければ依存の indexer_lib.ps1 は要らない）を読み込んでおく
+    . "${scriptsDir}\tebunko\indexer\indexer_main.ps1"
 
-    function newFakeIndexer([string]$name, [string]$body) {
-        $path = Join-Path $TestDrive "$name.ps1"
-        [System.IO.File]::WriteAllText($path, "param (`$Channel)`r`n$body", $utf8Bom)
-        return $path
+    # 本物の invokeIndexerMain（indexer_main.ps1）の代わりに、受け渡しの口（$Channel）だけを使う偽の本体を
+    # 関数として State に登録する（indexerLib の部品の読み込み方と同じしくみ。tebunko\core\parts.ps1）。
+    # newIndexingSession は getPartLoad indexerLib（本物の indexerLib）を使うため、
+    # 偽のインデクサを使うテストでは IndexingSession を直接作る
+    function newFakeIndexerLoad([string]$body) {
+        $state = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+        $entry = New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry("invokeIndexerMain", "param (`$Channel)`r`n$body")
+        $state.Commands.Add($entry)
+        return @{ State = $state; Prelude = "" }
     }
 
-    # newIndexingSession は getPartLoad indexer（本物の indexer.ps1）を使うため、
-    # 偽のインデクサを使うテストでは IndexingSession を直接作る
-    function newFakeIndexingSession([string]$path, [hashtable]$channel) {
-        return [IndexingSession]::new(${indexingSessionScript}.ToString(), @{ Path = $path; Args = @{} }, $channel)
+    function newFakeIndexingSession([string]$body, [hashtable]$channel) {
+        return [IndexingSession]::new(${indexingSessionScript}.ToString(), (newFakeIndexerLoad $body), $channel)
     }
 }
 
 Describe "IndexingSession" -Tag Io {
     It "インデクサを別のスレッド（MTA・優先度を下げる）で動かし、終わったら終了コードを返す" {
-        $fake = newFakeIndexer "done" @'
+        $body = @'
 $Channel.Seen = @{ Thread = [System.Threading.Thread]::CurrentThread.ManagedThreadId; Priority = [string][System.Threading.Thread]::CurrentThread.Priority; Apartment = [string][System.Threading.Thread]::CurrentThread.GetApartmentState() }
 $Channel.ExitCode = 0
 '@
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $body (newIndexerChannel)
         try {
             $session.Wait(30000) | Should -Be $true
             $session.IsRunning() | Should -Be $false
@@ -36,11 +41,11 @@ $Channel.ExitCode = 0
     }
 
     It "中止を求めると、受け渡しの口の Stop を立てて返事を待つのをやめさせる" {
-        $fake = newFakeIndexer "wait" @'
+        $body = @'
 while (!$Channel.Answered.WaitOne(20)) { }
 $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
 '@
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $body (newIndexerChannel)
         try {
             $session.IsRunning() | Should -Be $true
             $session.Stop()
@@ -52,8 +57,7 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
     }
 
     It "終了コードを入れずに止まったら 1 とし、止まった理由を返す" {
-        $fake = newFakeIndexer "throw" 'throw "読み込めませんでした"'
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession 'throw "読み込めませんでした"' (newIndexerChannel)
         try {
             $session.Wait(30000) | Should -Be $true
             $session.GetExitCode() | Should -Be 1
@@ -64,8 +68,7 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
     }
 
     It "インデクサが入れたエラーの内容を返す" {
-        $fake = newFakeIndexer "error" '$Channel.Error = "クロール対象フォルダがありません。"; $Channel.ExitCode = 1'
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession '$Channel.Error = "クロール対象フォルダがありません。"; $Channel.ExitCode = 1' (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
             $session.GetError() | Should -Be "クロール対象フォルダがありません。"
@@ -75,12 +78,12 @@ $Channel.ExitCode = if ($Channel.Stop) { 2 } else { 0 }
     }
 
     It "Close は、動いていれば中止を求めて終わりを待ち、片づける。何度呼んでもよい" {
-        $fake = newFakeIndexer "close" @'
+        $body = @'
 $Channel.Started = $true
 while (!$Channel.Stop) { Start-Sleep -Milliseconds 20 }
 $Channel.ExitCode = 2
 '@
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession $body (newIndexerChannel)
         # インデクサが動き始めてから閉じる（PC が混んでいると、スレッドが動き始めるまでに時間がかかる）
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         while (!$session.Channel.Started -and $watch.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 20 }
@@ -92,8 +95,7 @@ $Channel.ExitCode = 2
     }
 
     It "KillOffice は、記録した PID のうちプロセス名が同じものだけを止める" {
-        $fake = newFakeIndexer "office" '$Channel.ExitCode = 0'
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
         # Office の代わりに、このテストが起動したプロセスを使う
         $target = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
         $other = Start-Process -FilePath "ping.exe" -ArgumentList "-n 30 127.0.0.1" -WindowStyle Hidden -PassThru
@@ -112,8 +114,7 @@ $Channel.ExitCode = 2
     }
 
     It "GetNotice・GetPostponed は受け渡しの口の値を返す。入っていなければ空・0" {
-        $fake = newFakeIndexer "notice" '$Channel.Notice = "PowerPoint が起動していたため、2 件を取り込まずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0'
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession '$Channel.Notice = "PowerPoint が起動していたため、2 件を取り込まずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0' (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
             $session.GetNotice() | Should -Be "PowerPoint が起動していたため、2 件を取り込まずに残しました。"
@@ -122,8 +123,7 @@ $Channel.ExitCode = 2
             $session.Close()
         }
 
-        $emptyFake = newFakeIndexer "noticeempty" '$Channel.ExitCode = 0'
-        $emptySession = newFakeIndexingSession $emptyFake (newIndexerChannel)
+        $emptySession = newFakeIndexingSession '$Channel.ExitCode = 0' (newIndexerChannel)
         try {
             [void]$emptySession.Wait(30000)
             $emptySession.GetNotice() | Should -Be ""
@@ -134,8 +134,7 @@ $Channel.ExitCode = 2
     }
 
     It "インデクサが止まらずにエラーだけを書いて終わったら、その内容を理由として返す" {
-        $fake = newFakeIndexer "writeerror" 'Write-Error "読み込めないファイルがありました"'
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession 'Write-Error "読み込めないファイルがありました"' (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
             $session.GetExitCode() | Should -Be 1
@@ -147,8 +146,7 @@ $Channel.ExitCode = 2
 
     It "Close で中止を求めても終わらなければ、スレッドを止めて片づける" {
         # 中止の要求を見ないインデクサ（Office が応答しないまま、など）
-        $fake = newFakeIndexer "hang" 'Start-Sleep -Seconds 60'
-        $session = newFakeIndexingSession $fake (newIndexerChannel)
+        $session = newFakeIndexingSession 'Start-Sleep -Seconds 60' (newIndexerChannel)
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         $session.Close()
         $watch.Elapsed.TotalSeconds | Should -BeLessThan 30
@@ -157,16 +155,20 @@ $Channel.ExitCode = 2
 }
 
 Describe "インデクサの司令のスクリプト（indexingSessionScript）" -Tag Io {
-    It "スレッドの優先度を下げて、indexer.ps1 に受け渡しの口を渡して動かす" {
-        $fake = newFakeIndexer "direct" '$Channel.Seen = [string][System.Threading.Thread]::CurrentThread.Priority; $Channel.ExitCode = 0'
+    It "スレッドの優先度を下げて、invokeIndexerMain に受け渡しの口を渡して動かす" {
+        Mock invokeIndexerMain {
+            $Channel.Seen = [string][System.Threading.Thread]::CurrentThread.Priority
+            $Channel.ExitCode = 0
+        }
         $channel = newIndexerChannel
         $priority = [System.Threading.Thread]::CurrentThread.Priority
         try {
-            & ${indexingSessionScript} @{ Path = $fake; Args = @{} } $channel
+            & ${indexingSessionScript} $channel
         } finally {
             [System.Threading.Thread]::CurrentThread.Priority = $priority
         }
         $channel.Seen | Should -Be "BelowNormal"
         $channel.ExitCode | Should -Be 0
+        Should -Invoke invokeIndexerMain -Times 1 -Exactly
     }
 }

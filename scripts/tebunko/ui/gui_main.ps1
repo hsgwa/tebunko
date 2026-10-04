@@ -131,9 +131,9 @@ function startGui {
     # （docs/design/structure/threads.md「スレッドの一覧」）。
     # 列を作る式は 1 か所にまとめ、既定の列はここで作り、ネットワークの列は shell.ps1 に式（factory）だけ渡して
     # 初めて使うときに作らせる（届かない共有が無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
-    $backgroundLibLoad = getPartLoad lib
-    $backgroundPrelude = "$(getPartInitScript $backgroundLibLoad); initWorkspace"
-    $newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, $backgroundPrelude, $Host) }
+    $backgroundLoad = getPartLoad lib
+    $backgroundLoad.Prelude = "$($backgroundLoad.Prelude); initWorkspace"
+    $newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, $backgroundLoad, $Host) }
     $script:backgroundQueue = & $newBackgroundQueue
     setNetworkQueueFactory $newBackgroundQueue
     . "$TebunkoDir\..\shared\ui\folder_dialog.ps1"

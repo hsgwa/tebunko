@@ -13,8 +13,7 @@
 ${ingestWorkerScript} = {
     param ($settings, $tasks, $results, $number)
     $ErrorActionPreference = "Stop"
-    $partArgs = $settings.Lib.Args
-    . $settings.Lib.Path @partArgs
+    # indexerLib の部品（Prelude）は addIngestTask が、この param ブロックのあとにつなぐ（joinWorkerScript）
     # 置き場所は司令のスレッドと同じにする（読み込み直すと設定から決め直してしまうため）。一時フォルダはスレッドごとに分ける。
     # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
     $own = [Workspace]::new($settings.WorkDir)
@@ -203,7 +202,7 @@ function addIngestTask {
         for ($i = 0; $i -lt $count; $i++) {
             $settings = $pool.Settings.Clone()
             $settings.Lane = $lane
-            $runspace = [runspacefactory]::CreateRunspace()
+            $runspace = [runspacefactory]::CreateRunspace($settings.Lib.State)
             # Office の COM は、作ったスレッドから呼ぶ（STA）。読み取りのスレッドは COM を使わない（MTA）
             $runspace.ApartmentState = if ($lane -eq ${laneReader}) { [System.Threading.ApartmentState]::MTA } else { [System.Threading.ApartmentState]::STA }
             $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
@@ -211,7 +210,8 @@ function addIngestTask {
             $ps = [powershell]::Create()
             $ps.Runspace = $runspace
             $number = $pool.Workers.Count + 1
-            [void]$ps.AddScript(${ingestWorkerScript}.ToString()).AddArgument($settings).AddArgument($pool.Queues[$lane]).AddArgument($pool.Results).AddArgument($number)
+            $joined = if ($settings.Lib.Prelude) { joinWorkerScript $settings.Lib.Prelude ${ingestWorkerScript}.ToString() } else { ${ingestWorkerScript}.ToString() }
+            [void]$ps.AddScript($joined).AddArgument($settings).AddArgument($pool.Queues[$lane]).AddArgument($pool.Results).AddArgument($number)
             $pool.Workers.Add(@{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false; Lane = $lane })
         }
     }
