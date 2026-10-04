@@ -86,6 +86,12 @@ flowchart TD
 
 前の版が作った `setting.config` を、新しい版がそのまま読めることを、見本（golden）で確かめる（テストは `tests/tebunko/core/settings_compat`。[単体テスト（インデックスと検索）](../testing/unit-index.md) にも一覧がある）。見本は `tests/testdata/compat/settings/<見本の名前>/`（`setting.config`・`expected.json`。作り方は [tests/testdata/README.md](../../../tests/testdata/README.md) の「前の版のファイル（`compat\`）」）に置く。
 
-上の「形式」の表のキーの名前・型を変える、JSON 以外の形式にするなど、`setting.config` の読み方を変える PR は、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。
+**固定するもの**: 上の「形式」の表にあるキーの名前・型・既定値と、`getTargetFolders`・`readIndexSources`・`readSearchExcludes`・`readSearchOption`・`readOpenMode`・`getWorkDir` が返す値の形（`expected.json` の `functions`）。**固定しないもの**: JSON のキーの並び順・空白、画面に出さない内部の実装。
 
-見本は**足すだけ**で、既にある見本を変える・消すのはタイトルに `!` を付けた PR だけができる（`tools/check_compat_golden.ps1`。CI の `pr-title` が確かめる）。
+キーや一覧項目（`targetFolders` など）を足す、上の表の読み方を変える、JSON 以外の形式にするなど、`setting.config` の読み方を変える PR は、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。
+
+見本は**足すだけ**で、既にある見本を変える・消すのはタイトルに `!` を付けた PR だけができる（`tools/check_compat_golden.ps1`。CI の `pr-title` が確かめる）。`!` の PR が見本を消したときは、どれを・どの PR で・なぜ消したかを次の表に 1 行残す。
+
+| 消した見本 | PR | 理由 |
+|---|---|---|
+| （まだ無し） | | |

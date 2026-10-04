@@ -17,5 +17,27 @@
     "includeComments": false,
     "openMode": "readOnly",
     "workspaceFolder": "C:\\tebunko_golden\\ws",
-    "ingestThreads": 2
+    "ingestThreads": 2,
+    "functions": {
+        "getTargetFolders": [
+            { "Name": "資料", "Path": "C:\\tebunko_golden\\source\\資料", "Enabled": true },
+            { "Name": "(株)山田商事", "Path": "C:\\tebunko_golden\\source\\(株)山田商事", "Enabled": false }
+        ],
+        "readIndexSources": [
+            { "Name": "共有資料", "Path": "\\\\golden-server\\共有資料" }
+        ],
+        "readSearchExcludes": [
+            { "Path": "C:\\tebunko_golden\\source\\資料\\除外A", "Subfolders": true },
+            { "Path": "C:\\tebunko_golden\\source\\資料\\除外B", "Subfolders": false }
+        ],
+        "readSearchOption": {
+            "UseRegex": true,
+            "CaseSensitive": true,
+            "FileFilter": "*.xlsx;!~$*",
+            "IncludeShapes": false,
+            "IncludeComments": false
+        },
+        "readOpenMode": "readOnly",
+        "getWorkDir": "C:\\tebunko_golden\\ws"
+    }
 }

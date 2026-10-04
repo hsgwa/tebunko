@@ -38,13 +38,19 @@ if (Test-Path -LiteralPath $settingsPath) {
     Remove-Item -LiteralPath $settingsPath -Force
 }
 
+function escapeSingleQuoted {
+    # PowerShell の単一引用符の文字列に埋め込むため、' を '' にする（パスに ' を含んでも壊れないように）
+    param ([string]$value)
+    return $value.Replace("'", "''")
+}
+
 $runnerPath = Join-Path ([System.IO.Path]::GetTempPath()) "make_settings_golden_$([guid]::NewGuid().ToString("N")).ps1"
 $runner = @"
 `$ErrorActionPreference = "Stop"
-. '$sharedPath'
-. '$settingsScriptPath'
-. '$goldenHelperPath'
-writeGoldenSettings -path '$settingsPath'
+. '$(escapeSingleQuoted $sharedPath)'
+. '$(escapeSingleQuoted $settingsScriptPath)'
+. '$(escapeSingleQuoted $goldenHelperPath)'
+writeGoldenSettings -path '$(escapeSingleQuoted $settingsPath)'
 "@
 [System.IO.File]::WriteAllText($runnerPath, $runner, (New-Object System.Text.UTF8Encoding($true)))
 
