@@ -146,7 +146,9 @@ try {
             }
         }
         foreach ($path in @($listed.Keys)) {
-            $file = if ($path -eq "sbom.cdx.json") { Join-Path $OutDir $path } else { Join-Path $pkgDir $path }
+            # zip の外に置くファイル（sbom.cdx.json・単一 .ps1 版）は OutDir から、それ以外は展開したフォルダから探す。
+            # 単一 .ps1 版の行は、検査の後に追記されることもあるので、載っていなくても失敗にしない（載っていれば一致を確かめる）
+            $file = if ($path -eq "sbom.cdx.json" -or $path -eq "tebunko-$Version.ps1") { Join-Path $OutDir $path } else { Join-Path $pkgDir $path }
             if (!(Test-Path -LiteralPath $file)) {
                 $failures.Add("SHA256SUMS.txt に載っているファイルがありません: $path")
             } elseif ((Get-Sha256Hex ([System.IO.File]::ReadAllBytes($file))) -ne $listed[$path]) {
