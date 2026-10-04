@@ -1961,6 +1961,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#実装版での起動の測り直し" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        実装版での起動の測り直し
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#入れた段階" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4199,6 +4210,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#実装版での起動の測り直し" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        実装版での起動の測り直し
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#入れた段階" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4394,11 +4416,35 @@
 </ul>
 <h2 id="結論">結論<a class="headerlink" href="#結論" title="Permanent link">&para;</a></h2>
 <p>計画で決めた判定の規則は「6 つの関門が全部通れば進める・1 つでも通らなければ進めない」。G1・G2・G4・G5・G6 は合格したが、<strong>G3（速さ）の内訳 (a) 起動が明確に不合格</strong>（zip 版の中央値 2790 ms に対し試作は 18162 ms、およそ 6.51 倍。1.2 倍の上限を大きく超える）。</p>
-<p>この規則どおりなら「進めない」という判断になるところ、2026-10-03 にメンテナが実装を進める判断を下した。G3(a) の不合格はマージの条件にせず、測った倍率と秒数を試験版の説明に書いたうえで、<strong>起動の速さが zip 版の 1.2 倍以内になるまでは「試験版」として、zip 版と並べてリリースに載せる</strong>（一気に置き換えない）。</p>
+<p>この規則どおりなら「進めない」という判断になるところ、2026-10-03 にメンテナが実装を進める判断を下した。G3(a) の不合格はマージの条件にせず、測った倍率と秒数を試験版の説明に書いたうえで、<strong>起動の速さが zip 版の 1.2 倍以内になるまでは「試験版」として、zip 版と並べてリリースに載せる</strong>（一気に置き換えない）。その後、実装版で起動を測り直したところ zip 版の約 0.97 倍に収まった（下の「実装版での起動の測り直し」）。出すかどうかの最終判断は、メンテナの動作確認で行う。</p>
 <ul>
 <li>G3(c)（インデックス作成）は数値上は 1.2 倍以内に収まったが、取り込み件数を確かめる仕組みがこの回の計測でうまく働かず、判定を保留した（上の G3 の内訳を参照）。試験版として出す判断には影響しない。</li>
 <li>自己参照 dot-source の構造的な負担（上の P2）は、下の「入れた段階」の段階 1 で、別スレッドが単一 .ps1 そのものを自己 dot-source しない設計に改めることで解消した。</li>
 </ul>
+<h2 id="実装版での起動の測り直し">実装版での起動の測り直し<a class="headerlink" href="#実装版での起動の測り直し" title="Permanent link">&para;</a></h2>
+<p>実装した結合の道具（<code>tools/new_single_script.ps1</code>）で作った単一 .ps1（約 2.0MB）と、同じコミットの <code>scripts\</code>（zip 版）の画面が開くまでを、同じ機械（試作のときと同じ仮想マシン）で、<code>powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File &lt;入口&gt;</code> から測り直した（2026-10-04）。ウィンドウのタイトル「tebunko」が現れるまでの経過ミリ秒で、zip 版と単一 .ps1 を入れ替えながら 2 巡し、各巡のウォームアップ 1 回を除く 4 回ずつ（合わせて 8 回ずつ）を比べた。測っている間、ほかのプロセスの負荷で CPU 使用率は 57〜74% あり、値は試作のときの測りより大きい。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>値（ms）</th>
+<th>中央値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>zip 版</td>
+<td>4174, 3438, 3185, 3751, 5417, 4167, 4290, 3687</td>
+<td>3959</td>
+</tr>
+<tr>
+<td>単一 .ps1</td>
+<td>3386, 2884, 3169, 4486, 4366, 4333, 4597, 3166</td>
+<td>3860</td>
+</tr>
+</tbody>
+</table>
+<p>比はおよそ 0.97 倍で、1.2 倍以内に収まった。試作のときの約 6.51 倍から変わった理由（自己参照の dot-source をやめ、部品を文字列で持って読む形にしたこと）の切り分けは行っていない。測りは負荷のある機械での 8 回ずつで、ばらつきが大きい（zip 版は 3185〜5417 ms）。(b) 最初の検索と (c) インデックス作成は、実装版では測り直していない（試作のときの値のまま）。</p>
 <h2 id="入れた段階">入れた段階<a class="headerlink" href="#入れた段階" title="Permanent link">&para;</a></h2>
 <p>計画段階で決めた 3 つの段階で実装した。</p>
 <ol>
@@ -4406,7 +4452,7 @@
 <li><strong><code>build</code>: 結合した 1 本の <code>.ps1</code> を作る道具と、その検査を作る。</strong> 試作の結合ツールを、使い捨てではなくリポジトリで保守する道具 <code>tools/new_single_script.ps1</code> に作り直し、連結の順・構文・禁止の語・部品の過不足を機械的に確かめる検査を添えた（読み込みのたどり方と禁止の語の一覧は <code>tools/script_rules.ps1</code> に集め、<code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code>・<code>tools/check_release_package.ps1</code> と共有する）。<code>release.yml</code> で結合後のファイルを作り、zip 版と並べて配布物として公開する（単一 .ps1 そのものはリポジトリにコミットしない）。</li>
 <li><strong><code>docs</code>: README・利用者の手引き・安全性の説明に、1 本の <code>.ps1</code> の形を足す。</strong> README に、ダウンロードから右クリック［PowerShell で実行］までの使い方・実行ポリシーの注意・設定とインデックスの置き場・試験版の扱い・zip 版との間のエクスポート/インポートでの移し方を足した。<a href="../folders/">配布物と開発用のフォルダ構成</a>・<a href="../../../safety/file-access/">ファイルの読み書きの範囲</a>・<a href="../../../safety/disclosure/">開示事項</a>・<a href="../../../safety/scans/">第三者のツールによる検査結果</a> に、単一 .ps1 の扱いを足した。<a href="../source/">ソースの分け方</a>・<a href="../threads/">プロセスとスレッド</a> にも、結合の元が変わらないことと、別スレッドの部品の読み方が zip 版と同じ形になることを足した。</li>
 </ol>
-<p>起動の速さが zip 版の 1.2 倍以内になるまでは「試験版」の扱いとし、<a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a> に相当する形で結合後のファイルの速さを継続的に測れるようにする。</p>
+<p>実装版の起動は zip 版の 1.2 倍以内（上の測り直し）だが、(b)(c) の測り直しと利用者の確かめが済むまでは「試験版」の扱いとし、<a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a> に相当する形で結合後のファイルの速さを継続的に測れるようにする。</p>
 
 
 
