@@ -68,6 +68,10 @@ function newGuiTool {
         [hashtable]$Settings = @{}
     )
 
+    # 環境変数 TEBUNKO_GUI_SINGLE=1 のときは、すべての画面のテストを単一 .ps1 版で流す（通しの確かめ用）
+    if ($env:TEBUNKO_GUI_SINGLE -eq "1") {
+        return newGuiSingleScriptTool $Dir $Settings
+    }
     $tool = Join-Path $Dir "tool"
     if (!(Test-Path -LiteralPath "$tool\scripts")) {
         [void][IO.Directory]::CreateDirectory($tool)
