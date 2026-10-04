@@ -147,9 +147,9 @@ $r = Test-FileCatalog -Path .\scripts -CatalogFilePath <ダウンロードした
 
 ## 単一 .ps1 版（試験版）
 
-zip・インストーラーに加えて、展開せずに 1 本の `.ps1`（`tebunko-<タグ>.ps1`）だけで動く試験版を並べて配る（[単一ファイルのリリース](../design/structure/single-script.md)）。中身のスクリプトは同じ `scripts/` から機械的に結合したものである。
+zip・インストーラーに加えて、展開せずに 1 本の `.ps1`（`tebunko-<タグ>.ps1`）だけで動く試験版を並べて配る（[単一 PowerShell のビルド](../design/structure/single-script.md)）。中身のスクリプトは同じ `scripts/` から機械的に結合したものである。
 
-- **`tebunko.bat` に相当する起動口が無い**: 自分自身の Mark-of-the-Web を解除する動き（`Unblock-File`）は持たない。実行ポリシーも指定せず、右クリック［PowerShell で実行］や、呼び出す側が指定したポリシーのまま動く（[単一ファイルのリリース](../design/structure/single-script.md)「実行時の違い」）。
-- **起動失敗の知らせ方は変えていない**: 画面が開く前の失敗は、今までと同じ `reportStartupFailure`／`writeStartupErrorFile`（`%LOCALAPPDATA%\tebunko\startup_error.txt`、書けなければ `%TEMP%\tebunko_startup_error.txt`）に記録する。`tebunko.bat` の `catch` に相当する外側の受け皿が無いため、単一 .ps1 の起動口（`gui.ps1` の本体）の `try`／`catch` が直接この関数を呼ぶ。
+- **`tebunko.bat` に相当する起動口が無い**: 自分自身の Mark-of-the-Web を解除する動き（`Unblock-File`）は持たない。実行ポリシーも指定せず、右クリック［PowerShell で実行］や、呼び出す側が指定したポリシーのまま動く（[単一 PowerShell のビルド](../design/structure/single-script.md)「実行時の違い」）。
+- **起動失敗の知らせ方**: 画面が開く前の失敗は、zip 版と同じ `reportStartupFailure`／`writeStartupErrorFile`（`%LOCALAPPDATA%\tebunko\startup_error.txt`、書けなければ `%TEMP%\tebunko_startup_error.txt`）に記録する。`tebunko.bat` の `catch` に相当する外側の受け皿が無いため、単一 .ps1 の起動口（`gui.ps1` の本体）の `try`／`catch` が直接この関数を呼ぶ。ただし `lib.ps1` の読み込みは `try` の外にあるため、その失敗は `reportStartupFailure` に届かず、PowerShell の窓に出る。
 - **署名・改ざんの確認**: `tebunko.cat` は対象にしない（1 本のファイルのため、[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)の SHA256SUMS.txt と来歴の署名だけで確かめる）。
-- **試験版という扱い**: 利用者の確かめが済むまでは「試験版」とし、zip 版・インストーラー版と並べて配る。起動の速さは zip 版と比べて測っていない（[単一ファイルのリリース](../design/structure/single-script.md)「速さ」）。
+- **試験版という扱い**: 利用者の確かめが済むまでは「試験版」とし、zip 版・インストーラー版と並べて配る。
