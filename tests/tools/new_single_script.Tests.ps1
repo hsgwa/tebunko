@@ -10,12 +10,13 @@ BeforeAll {
     $docxSource = "${testDataDir}\office\Word\形式\大文字拡張子.DOCX"
     $pptxSource = "${testDataDir}\office\PowerPoint\基本.pptx"
 
-    # 結合した単一 .ps1 の中で、pattern に一致する最初の行の番号を返す（indexer.Tests.ps1 の findLine と同じ考え方）。
-    # 結合した .ps1 は元のソースをそのまま埋め込むため、元のファイルと同じ行の文字列で探せる
+    # 結合した単一 .ps1 の中で、pattern に一致する最後の行の番号を返す（indexer.Tests.ps1 の findLine と同じ考え方）。
+    # 結合した .ps1 は元のソースをそのまま埋め込むため、元のファイルと同じ行の文字列で探せる。
+    # ${bundledParts} の中身（lib・indexerLib の文字列）にも同じ行の文字列が入るため、最後の行（実際に動く本体側）を探す
     function findLine {
         param ([string]$path, [string]$pattern)
         $lines = [System.IO.File]::ReadAllLines($path)
-        for ($i = 0; $i -lt $lines.Count; $i++) {
+        for ($i = $lines.Count - 1; $i -ge 0; $i--) {
             if ($lines[$i] -match $pattern) { return $i + 1 }
         }
         throw "${path} に ${pattern} がありません"
