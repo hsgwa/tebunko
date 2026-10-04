@@ -7,16 +7,13 @@
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
 # ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
-# 取り込みのスレッドが読み込む部品（indexer_lib.ps1）
-${indexerLibPath} = "$PSScriptRoot\indexer_lib.ps1"
-
 # 取り込みのスレッドで動かすスクリプト。自分のレーンの列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
 # Office のレーン（Excel・Word・PowerPoint）は STA で、そのアプリを 1 つ持つ。読み取りのレーンは Office を持たない。
 # 列が閉じられたら（CompleteAdding）、Office を終了して終わる
 ${ingestWorkerScript} = {
     param ($settings, $tasks, $results, $number)
     $ErrorActionPreference = "Stop"
-    . $settings.Lib
+    # indexerLib の部品（Prelude）は addIngestTask が、この param ブロックのあとにつなぐ（joinWorkerScript）
     # 置き場所は司令のスレッドと同じにする（読み込み直すと設定から決め直してしまうため）。一時フォルダはスレッドごとに分ける。
     # 部品を読み込んだのと同じスコープ（取り込みのスレッドでは global）に置く
     $own = [Workspace]::new($settings.WorkDir)
@@ -205,7 +202,7 @@ function addIngestTask {
         for ($i = 0; $i -lt $count; $i++) {
             $settings = $pool.Settings.Clone()
             $settings.Lane = $lane
-            $runspace = [runspacefactory]::CreateRunspace()
+            $runspace = [runspacefactory]::CreateRunspace($settings.Lib.State)
             # Office の COM は、作ったスレッドから呼ぶ（STA）。読み取りのスレッドは COM を使わない（MTA）
             $runspace.ApartmentState = if ($lane -eq ${laneReader}) { [System.Threading.ApartmentState]::MTA } else { [System.Threading.ApartmentState]::STA }
             $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::ReuseThread
@@ -213,7 +210,8 @@ function addIngestTask {
             $ps = [powershell]::Create()
             $ps.Runspace = $runspace
             $number = $pool.Workers.Count + 1
-            [void]$ps.AddScript(${ingestWorkerScript}.ToString()).AddArgument($settings).AddArgument($pool.Queues[$lane]).AddArgument($pool.Results).AddArgument($number)
+            $joined = if ($settings.Lib.Prelude) { joinWorkerScript $settings.Lib.Prelude ${ingestWorkerScript}.ToString() } else { ${ingestWorkerScript}.ToString() }
+            [void]$ps.AddScript($joined).AddArgument($settings).AddArgument($pool.Queues[$lane]).AddArgument($pool.Results).AddArgument($number)
             $pool.Workers.Add(@{ PowerShell = $ps; Runspace = $runspace; Handle = $ps.BeginInvoke(); Ended = $false; Lane = $lane })
         }
     }
@@ -623,7 +621,7 @@ function invokeIndexerBody {
     try {
         if ($readers -gt 0) {
             $pool = newIngestPool $readers @{
-                Lib = ${indexerLibPath}
+                Lib = (getPartLoad indexerLib)
                 WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; TmpDirReason = ${tmpDirReason}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
             }

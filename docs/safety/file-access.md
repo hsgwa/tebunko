@@ -10,9 +10,11 @@
 | `work/tmp/<PC の鍵>/<PID>` 配下（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みをスキップする） | 取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする | `tebunko/indexer/index_migrate.ps1` の `initTmpDir` |
 | `setting.config`（ツールを置いたフォルダの直下） | 画面が保存する設定（クロール対象フォルダ・検索対象インデックス・`work` の置き場所など） | `shared/core/data_dir.ps1:40`、`tebunko/core/settings.ps1:5` |
 | `%LOCALAPPDATA%\tebunko\<鍵>` 配下 | ツールを置いたフォルダに書き込めないとき（Program Files・読み取り専用の共有フォルダ）だけ、`setting.config` をここに置く（ワークスペースの既定は `%USERPROFILE%\Documents\tebunko_ws`）。鍵はツールのフォルダのパスから作る 16 文字（[データの置き場所とパスの決め方](../design/structure/data.md)） | `shared/core/data_dir.ps1:31` |
-| `%LOCALAPPDATA%\tebunko\startup_error.txt`（書き込めなければ `%TEMP%\tebunko_startup_error.txt`） | 起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため固定の場所に置く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)） | `tebunko.bat`、`tebunko/gui.ps1` の `writeStartupErrorFile` |
+| `%LOCALAPPDATA%\tebunko\startup_error.txt`（書き込めなければ `%TEMP%\tebunko_startup_error.txt`） | 起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため固定の場所に置く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)） | `tebunko.bat`、`tebunko/ui/startup_error.ps1` の `writeStartupErrorFile` |
 | 利用者が指定した出力先 | ［結果をファイルに出力］の保存先（既定は `work\search_results.txt`） | 画面のダイアログで利用者が指定 |
 | 利用者が指定したエクスポート先 | インデックスのエクスポート（`exportIndex`）の保存先の zip と、書き終えてから置き換えるまでの間だけ残る `<保存先>.tmp`（強制終了すると残ることがある） | 画面のダイアログで利用者が指定 |
+
+単一 .ps1 版（試験版）は、`tebunko.bat` の代わりに `.ps1` ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は `.ps1` ファイル自身がある場所を指す。`setting.config` は `.ps1` のある場所に置き、書き込めないときは `%LOCALAPPDATA%\tebunko\<鍵>` に置く（`getDataDir`。zip 版と同じ決め方）。ワークスペースの既定の置き場所（`%USERPROFILE%\Documents\tebunko_ws`）は、別のフォルダに置いた zip 版と同じ場所になる（[単一 PowerShell のビルド](../design/structure/single-script.md)「実行時の違い」）。
 
 削除（`Remove-Item`・`[System.IO.File]::Delete` など）の対象はすべてワークスペース配下（取り込みの作業領域 `work/tmp/` を含む）、すなわち**本ツールが自分で作ったファイル**である（前の版（`%TEMP%\tebunko\<PID>` に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。`removeStaleTmpDirs`）。クロール対象フォルダ内のファイルを削除する処理は無い。
 

@@ -12,7 +12,7 @@ $script:filterText = ""
 # 検索で読んだ集約ファイルの内容（画面を閉じるまで残し、次の検索では更新の無い集約ファイルをファイルから読まない）
 $script:tsvCache = newTsvTextCache
 # 検索の司令のスレッド（画面を開いている間 1 つ。閉じるときに gui.ps1 が Close する）
-$script:searchService = newSearchService ${libPath} $script:tsvCache
+$script:searchService = newSearchService $script:tsvCache
 # Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
 $script:fastAvailable = $null
 

@@ -47,4 +47,15 @@ Describe "readVersionFile" -Tag Io {
         $result.Tag | Should -Be "v1.0.0"
         $result.Sha | Should -Be "0123456789abcdef0123456789abcdef01234567"
     }
+
+    It "`${bundledVersion} があれば、ファイルを見ずにその値を返す（単一 .ps1 版）" {
+        try {
+            $global:bundledVersion = @{ Tag = "v9.9.9"; Sha = "9999999999999999999999999999999999999999" }
+            $result = readVersionFile (Join-Path $TestDrive "無い\VERSION.txt")
+            $result.Tag | Should -Be "v9.9.9"
+            $result.Sha | Should -Be "9999999999999999999999999999999999999999"
+        } finally {
+            Remove-Variable -Name bundledVersion -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
 }

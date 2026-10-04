@@ -661,16 +661,17 @@ Describe "indexer.ps1（取り込みのスレッド）" -Tag Io {
         (Get-Content -LiteralPath "$parallel\work\indexing_log.txt" -Raw) | Should -Match "3 個のスレッドで並べて取り込みます"
     }
 
-    It "取り込みのスレッドが始められなければ、続けられないエラーで 1 を返す" {
+    It "取り込みのスレッドが読み込む部品が見つからなければ、続けられないエラーで 1 を返す" {
         $root = newRoot
         writeTestSettings $root @(@{ name = "並列"; path = $source; enabled = $true })
-        # 取り込みのスレッドが読み込む部品の場所を、無い場所にする
+        # getPartLoad indexerLib が部品を見つけられないようにする（単一 .ps1 版の分岐に入れる。
+        # bundledParts はこの breakpoint が止まった関数（invokeIndexerBody）のスコープだけに置き、他のテストに残さない）
         $broken = @{ Script = $runPath; Pattern = '^\s+\$pool = newIngestPool'; Action = {
-                Set-Variable -Name indexerLibPath -Value (Join-Path $TestDrive "無い.ps1") -Scope 1
+                Set-Variable -Name bundledParts -Value @{} -Scope 1
             }
         }
         runIndexer $root @{ Workers = 2 } @($broken) | Should -Be 1
-        readTestError | Should -Match "取り込みのスレッドが止まりました"
+        readTestError | Should -Match "indexerLib の部品が入っていません"
     }
 }
 
@@ -693,10 +694,11 @@ Describe "getIngestWorkerCount" -Tag Unit {
 }
 
 Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）" -Tag Io {
-    # 取り込みのスレッドで動くスクリプトを、このスレッドで直接動かして確かめる（スレッドの中の動きはブレークポイントで止められないため）
+    # 取り込みのスレッドで動くスクリプトを、このスレッドで直接動かして確かめる（スレッドの中の動きはブレークポイントで止められないため）。
+    # 本物は addIngestTask が indexerLib の Prelude をつないでから動かすため（newWorkerTmpDir など indexer_lib.ps1 の関数を使う）、
+    # ここでは直接呼ぶため indexer_lib.ps1 をまとめて読み込んでおく
     BeforeAll {
-        . $runPath
-        . "${scriptsDir}\shared\office\office_app.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
     }
 
     It "取り込み待ちの列のファイルを取り込んで結果の列に入れ、列が閉じられたら Office を片づけて終わる" {
@@ -710,7 +712,7 @@ Describe "取り込みのスレッドのスクリプト（ingestWorkerScript）"
         $tasks.Add(@{ RelPath = "営業\無い.docx"; SourcePath = (Join-Path $TestDrive "無い.docx") })
         $tasks.CompleteAdding()
         $settings = @{
-            Lib = "${scriptsDir}\tebunko\indexer\indexer_lib.ps1"
+            Lib = getPartLoad indexerLib
             WorkDir = $root; TmpDir = "$root\tmp"; PublishDir = "$root\publish"
             FileTimeoutMinutes = 10; RestartInterval = 1
             OfficePids = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'

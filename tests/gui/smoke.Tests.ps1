@@ -72,3 +72,31 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
 }
+
+Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
+    BeforeAll {
+        $script:envBeforeSingle = getGuiEnvSnapshot
+        $script:singleTool = newGuiSingleScriptTool $TestDrive
+        newGuiSampleIndex $script:singleTool $TestDrive "single"
+    }
+
+    It "起動して［2 検索］が選ばれ、検索で当たり、閉じると終了コード 0" {
+        $S = startGui $script:singleTool "S8"
+        invokeGuiScene $S {
+            setGuiStep $S "起動時のタブ"
+            getGuiSelectedTab $S | Should -Be "SearchTab"
+
+            setGuiStep $S "検索ワードを入れて［検索］"
+            setGuiText $S (waitGuiById $S $S.Window "WordBox") "単価"
+            clickGui $S $S.Window "SearchButton" "［検索］"
+            setGuiStep $S "検索の結果（該当 2 件）"
+            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "該当 2 件*" } | Out-Null
+
+            closeGui $S
+        }
+    }
+
+    It "利用者の環境に触っていない" {
+        compareGuiEnvSnapshot $script:envBeforeSingle (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}

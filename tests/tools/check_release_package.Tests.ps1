@@ -105,6 +105,26 @@ Describe "check_release_package.ps1" -Tag Io {
         $result.Text | Should -BeLike "*カタログの検証に失敗しました*"
     }
 
+    It "ハッシュ一覧に単一 .ps1 版の行があっても、無くても通る（行の追記が検査の前でも後でもよい）" {
+        $withOut = Join-Path $TestDrive "withSingle"
+        Copy-Item -LiteralPath $outDir -Destination $withOut -Recurse
+        $single = Join-Path $withOut "tebunko-$version.ps1"
+        [System.IO.File]::WriteAllText($single, "# single", (New-Object System.Text.UTF8Encoding($true)))
+        $hash = (Get-FileHash -LiteralPath $single -Algorithm SHA256).Hash
+        Add-Content -LiteralPath (Join-Path $withOut "SHA256SUMS.txt") -Value "$hash  tebunko-$version.ps1" -Encoding UTF8
+        (invokeCheck $goodZip $withOut).Code | Should -Be 0
+    }
+
+    It "ハッシュ一覧の単一 .ps1 版の行が、ファイルと違うと通らない" {
+        $badOut = Join-Path $TestDrive "badSingle"
+        Copy-Item -LiteralPath $outDir -Destination $badOut -Recurse
+        [System.IO.File]::WriteAllText((Join-Path $badOut "tebunko-$version.ps1"), "# single", (New-Object System.Text.UTF8Encoding($true)))
+        Add-Content -LiteralPath (Join-Path $badOut "SHA256SUMS.txt") -Value ("0" * 64 + "  tebunko-$version.ps1") -Encoding UTF8
+        $result = invokeCheck $goodZip $badOut
+        $result.Code | Should -Be 1
+        $result.Text | Should -BeLike "*SHA256SUMS.txt のハッシュと一致しません: tebunko-$version.ps1*"
+    }
+
     It "ハッシュ一覧が無いと通らない" {
         $emptyOut = Join-Path $TestDrive "noSums"
         Copy-Item -LiteralPath $outDir -Destination $emptyOut -Recurse
