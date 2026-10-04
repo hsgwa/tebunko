@@ -126,7 +126,7 @@
             <TextBlock x:Name="SearchTargetSearchBox" Text="フォルダを探す" Style="{StaticResource Text.12.Muted}" VerticalAlignment="Center" />
           </DockPanel>
         </Border>
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="TargetTreeScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
           <Grid>
             <StackPanel x:Name="TreePanel">
               <!-- 営業部 -->
@@ -368,13 +368,16 @@
           <TextBlock Text="絞り込み" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
           <TextBox x:Name="ResultsFilterBox" Width="220" Height="24" VerticalAlignment="Center" Foreground="{StaticResource Ink.6B737D}" Text="ファイル名・場所・中身で絞り込む" />
         </StackPanel>
-        <!-- 下線と区切りの縦線を付ける（diff_round3.md 10）。隠すときは行全体（区切り線を含む）を隠す（diff_round4.md 7） -->
-        <StackPanel x:Name="ExpandCollapseLinksRow" DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,16,0">
+        <!-- 件数のすぐ右に付ける（x≈598。前は Dock="Right" で絞り込み欄の左に固定していて、件数の文字
+             とくっ付いていなかった。件数を先に Dock="Left" で確保し、ここを最後（fill）にすることで、
+             件数の直後に来るようにする。下線と区切りの縦線を付ける（diff_round3.md 10）。
+             隠すときは行全体（区切り線を含む）を隠す（diff_round4.md 7） -->
+        <TextBlock x:Name="ResultsSummaryText" DockPanel.Dock="Left" Text="14 件（5 ファイル）・0.8 秒・高速検索" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
+        <StackPanel x:Name="ExpandCollapseLinksRow" Orientation="Horizontal" Margin="24,0,0,0" VerticalAlignment="Center">
           <TextBlock x:Name="ExpandAllLink" Text="すべて開く" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" TextDecorations="Underline" VerticalAlignment="Center" />
           <Rectangle Width="1" Height="11" Margin="8,0" Fill="{StaticResource Line.E0E2E5}" />
           <TextBlock x:Name="CollapseAllLink" Text="すべて折りたたむ" Style="{StaticResource Text.11}" Foreground="{StaticResource Accent.0078D4}" TextDecorations="Underline" VerticalAlignment="Center" />
         </StackPanel>
-        <TextBlock x:Name="ResultsSummaryText" Text="14 件（5 ファイル）・0.8 秒・高速検索" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
       </DockPanel>
 
       <!-- 結果の列見出し。一覧の上に 1 本だけ、全幅で出す（ファイルごとには出さない。diff_round2.md 2 回目指摘） -->
@@ -398,7 +401,7 @@
           <TextBlock Grid.Column="3" Text="該当行" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" />
         </Grid>
         <!-- 列の位置は diff_round4.md 2（場所 140→202、種別 60→33。窓 1280 のとき場所 x≈455、種別 x≈488 に合わせる） -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="ResultsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
           <!-- 全幅（diff_round3.md 1）。左右の余白は取り、下だけ 8 残す -->
           <StackPanel x:Name="ResultsPanel" Margin="0,0,0,8">
             <!-- ファイルの行（開いた）。地は Bg.F5F7FA、chevron は下向き（diff_round2.md 2 回目指摘） -->
@@ -561,9 +564,9 @@
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <Path Grid.Column="1" Data="{StaticResource Icon.ChevronRight}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.5F6368}" StrokeThickness="1.3" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              <Path Grid.Column="2" Data="{StaticResource Icon.Presentation}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource PowerPoint.C43E1C}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="3" Text="2025年4月.pptx" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="4" Text="スライド 2 ・ 1 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <Path x:Name="FileListItem2Icon" Grid.Column="2" Data="{StaticResource Icon.Presentation}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource PowerPoint.C43E1C}" StrokeThickness="1.17" Margin="0,0,6,0" VerticalAlignment="Center" />
+              <TextBlock x:Name="FileListItem2Name" Grid.Column="3" Text="2025年4月.pptx" Style="{StaticResource Text.12}" FontWeight="Bold" VerticalAlignment="Center" />
+              <TextBlock x:Name="FileListItem2Count" Grid.Column="4" Text="スライド 2 ・ 1 件" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
             <Rectangle Height="1" Fill="{StaticResource Line.E0E2E5}" />
             <Grid x:Name="FileListRow3" Height="36" Background="{StaticResource Bg.F9FAFA}">
@@ -598,12 +601,13 @@
         <!-- H0（インデックス未作成）のイラスト。lucide/folder-search.svg・色は figma_wpf_map.md の Illust.Line。
              灰色の丸の地は付けない。イラストは H0 だけに出し、H-E・H-E2・E14 では隠す（diff_round2.md 2 回目指摘）。
              ScrollViewer の兄弟として Grid.Row="1" に直接置き、結果欄の上下中央に置く（diff_round4.md 4）。
-             間隔はイラスト→見出し 24・見出し→説明 16・説明の行の高さ 23・説明→ボタン 20 -->
+             間隔はイラスト→見出し 24・見出し→説明 27（前回までの持ち越しで 16 だったのを直した）・
+             説明の行の高さ 23・説明→ボタン 20 -->
         <StackPanel x:Name="ResultsEmptyState" Grid.Row="1" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Path x:Name="ResultsEmptyIcon" Data="{StaticResource Icon.FolderSearch}" Width="48" Height="48" Stretch="Uniform"
                 Stroke="{StaticResource Illust.D1D6DE}" StrokeThickness="1.6" HorizontalAlignment="Center" />
           <TextBlock x:Name="ResultsEmptyTitle" Text="検索できるフォルダがありません" Style="{StaticResource Text.16}" Margin="0,24,0,0" HorizontalAlignment="Center" />
-          <TextBlock x:Name="ResultsEmptyBody" Text="検索対象でフォルダを選んでください" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="380" Margin="0,16,0,0" LineHeight="23" LineStackingStrategy="BlockLineHeight" />
+          <TextBlock x:Name="ResultsEmptyBody" Text="検索対象でフォルダを選んでください" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="380" Margin="0,27,0,0" LineHeight="23" LineStackingStrategy="BlockLineHeight" />
           <TextBlock x:Name="ResultsEmptyNote" Visibility="Collapsed" Text="正規表現で検索しています" Style="{StaticResource Text.11.Muted}" HorizontalAlignment="Center" Margin="0,4,0,0" />
           <Button x:Name="ResultsEmptyCta" Style="{StaticResource Btn.Primary}" Content="フォルダを追加" FontWeight="Bold" Width="120" Height="30" Margin="0,20,0,0" HorizontalAlignment="Center" />
         </StackPanel>
@@ -714,6 +718,46 @@
           <TextBlock x:Name="PreviewParagraphText" Style="{StaticResource Text.13}" TextWrapping="Wrap" />
           <TextBlock x:Name="PreviewParagraphText2" Style="{StaticResource Text.13}" TextWrapping="Wrap" Margin="0,4,0,0" />
         </StackPanel>
+        <!-- H-TX（テキストファイル）の行番号付きの本文（design/ui_spec/search/preview.md）。
+             行の高さ 20、番号の列幅 24（右寄せ、文字色は Text.11.Body）、番号と本文の間 12、
+             左右の余白 16。選んだ行は Select.E1F2FF。30 行目は折り返さず右へはみ出すため、
+             横スクロールを出す（縦は出さない。PreviewSheetScroll と同じ考え方） -->
+        <ScrollViewer x:Name="PreviewLinesScroll" Visibility="Collapsed" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <Grid x:Name="PreviewLinesGrid" Background="{StaticResource Bg.FFFFFF}" HorizontalAlignment="Left">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="16" />
+              <ColumnDefinition Width="24" />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="16" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="20" />
+              <RowDefinition Height="20" />
+              <RowDefinition Height="20" />
+              <RowDefinition Height="20" />
+              <RowDefinition Height="20" />
+            </Grid.RowDefinitions>
+
+            <!-- 選んだ行（2 行目）の地。左右の余白の外（列 0・4）まで広げる -->
+            <Border x:Name="PreviewLineSelectedBg" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Background="{StaticResource Select.E1F2FF}" />
+
+            <TextBlock x:Name="PreviewLine1Num" Grid.Row="0" Grid.Column="1" Text="28" Style="{StaticResource Text.11.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <TextBlock x:Name="PreviewLine1Text" Grid.Row="0" Grid.Column="3" Text="■ 決定事項" Style="{StaticResource Text.13}" TextWrapping="NoWrap" VerticalAlignment="Center" />
+
+            <TextBlock x:Name="PreviewLine2Num" Grid.Row="1" Grid.Column="1" Text="29" Style="{StaticResource Text.11.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <TextBlock x:Name="PreviewLine2Text" Grid.Row="1" Grid.Column="3" Style="{StaticResource Text.13}" TextWrapping="NoWrap" VerticalAlignment="Center" />
+
+            <TextBlock x:Name="PreviewLine3Num" Grid.Row="2" Grid.Column="1" Text="30" Style="{StaticResource Text.11.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <TextBlock x:Name="PreviewLine3Text" Grid.Row="2" Grid.Column="3" Text="・担当：佐藤（見積）、山田（日程の調整）。見積には保守の費用と、導入後 1 年間の問い合わせ窓口の費用を含める（詳しくは別紙の見積の条件を参照）。" Style="{StaticResource Text.13}" TextWrapping="NoWrap" VerticalAlignment="Center" />
+
+            <TextBlock x:Name="PreviewLine4Num" Grid.Row="3" Grid.Column="1" Text="31" Style="{StaticResource Text.11.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <TextBlock x:Name="PreviewLine4Text" Grid.Row="3" Grid.Column="3" Text="■ 次回" Style="{StaticResource Text.13}" TextWrapping="NoWrap" VerticalAlignment="Center" />
+
+            <TextBlock x:Name="PreviewLine5Num" Grid.Row="4" Grid.Column="1" Text="32" Style="{StaticResource Text.11.Body}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <TextBlock x:Name="PreviewLine5Text" Grid.Row="4" Grid.Column="3" Text="2025/5/12（月）10:00〜 第2会議室" Style="{StaticResource Text.13}" TextWrapping="NoWrap" VerticalAlignment="Center" />
+          </Grid>
+        </ScrollViewer>
         <TextBlock x:Name="PreviewEmptyState" Visibility="Collapsed" Text="結果の表で行を選ぶと、ここにその前後の行を表示します。" Style="{StaticResource Text.12.Muted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
       </Grid>
 

@@ -1,0 +1,64 @@
+﻿<!-- Office の終了（office）374:50。scroll.md の P-多 向け見本。
+     見出し・列の見出しは固定、行は OfficeListScroll（ScrollViewer）だけが縦にスクロールする。 -->
+<Grid x:Name="Root" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Width="1280" Height="820" Background="#FFFFFF">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <Grid.RowDefinitions>
+    <RowDefinition Height="Auto" />  <!-- 見出し -->
+    <RowDefinition Height="28" />    <!-- 列の見出し -->
+    <RowDefinition Height="*" />     <!-- 行 -->
+    <RowDefinition Height="24" />    <!-- ステータスバー（固定。文言は office.md 12 章「決めること」で未定のため空のまま） -->
+  </Grid.RowDefinitions>
+
+  <!-- 見出し（header-section） -->
+  <Border Grid.Row="0" Padding="16" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,0,0,1">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,16,0">
+        <TextBlock Text="Office の終了" Style="{StaticResource Text.16}" FontWeight="Bold" />
+        <TextBlock Text="バックグラウンドに残った Excel・Word・PowerPoint を終了します。"
+                   Style="{StaticResource Text.12.Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+      </StackPanel>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button Content="選んだものを終了" Style="{StaticResource Btn.Outline}" Height="32" Padding="14,0" />
+        <Button x:Name="KillAllButton" Content="バックグラウンドを終了（22 件）" Style="{StaticResource Btn.Primary}" Margin="8,0,0,0" Padding="16,7" />
+      </StackPanel>
+    </Grid>
+  </Border>
+
+  <!-- 列の見出し（固定。縦には流れない） -->
+  <Border Grid.Row="1" Background="{StaticResource Bg.F9FAFA}" BorderBrush="{StaticResource Line.E0E2E5}"
+          BorderThickness="0,0,0,1" Padding="12,0">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="37" />
+        <ColumnDefinition Width="120" />
+        <ColumnDefinition Width="*" MinWidth="160" />
+        <ColumnDefinition Width="180" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="1" Text="アプリ" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="2" Text="開いているファイル" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="3" Text="表示" Style="{StaticResource Text.11.Body}" FontWeight="Bold" VerticalAlignment="Center" />
+    </Grid>
+  </Border>
+
+  <!-- 行（ここだけスクロールする） -->
+  <ScrollViewer x:Name="OfficeListScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+    <StackPanel x:Name="OfficeRowsPanel" MinWidth="1047" />
+  </ScrollViewer>
+
+  <!-- ステータスバー（固定。文言は office.md 12 章「決めること」で未定のため空のまま） -->
+  <Border Grid.Row="3" Background="{StaticResource Bg.F9FAFA}" BorderBrush="{StaticResource Line.E0E2E5}" BorderThickness="0,1,0,0">
+    <TextBlock x:Name="OfficeStatusBarText" Text="" Style="{StaticResource Text.11.Muted}" VerticalAlignment="Center" Margin="12,0,0,0" />
+  </Border>
+</Grid>

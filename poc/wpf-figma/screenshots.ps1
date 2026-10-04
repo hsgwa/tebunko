@@ -1,9 +1,11 @@
 ﻿# poc/wpf-figma/screenshots.ps1
 #
 # 確かめ用のスクリーンショットを out\screens\ に書き出す（.gitignore 済み）。
-# - 26 枚のフレームを、それぞれの既定の大きさ（多くは 1280x820）で 1 枚ずつ。
+# - Get-FigmaFrames にあるフレームを、それぞれの既定の大きさ（多くは 1280x820）で 1 枚ずつ。
 # - H・H0・H-row3 の 3 枚だけ、窓の最小 1024x640 と 1600x1000 でも追加で撮る
 #   （figma_wpf_map.md「レイアウトとリサイズ」の見本どおり）。
+# - scroll.md の一覧が多いときの見本（H-多・H-多-上限・X-多・X-多-詳細・T-多・P-多・PV-多）と、
+#   その最小の窓 1024x640 の見本（H-多-1024 ほか。参照 PNG は無い）も撮る。
 #
 # 使い方: pwsh -File .\screenshots.ps1
 
@@ -61,6 +63,21 @@ function Merge-PopupOverlay($visual, $rtb, [int]$Width, [int]$Height) {
     return $finalRtb
 }
 
+# 一覧が多いときの見本（scroll.md）向け。初めのレイアウトのあと、名前の付いた
+# ScrollViewer の Tag（"V=1200" や "V=1200,H=300" の形。dummy.ps1 の各 case が設定）を読み、
+# 縦・横のスクロール位置を動かしてから、もう一度 UpdateLayout してレンダリングする。
+function Set-InitialScroll($visual) {
+    $names = @("ResultsScroll", "TargetTreeScroll", "PreviewSheetScroll", "IndexListScroll", "OfficeListScroll")
+    foreach ($n in $names) {
+        $sv = $visual.FindName($n)
+        if ($null -eq $sv -or [string]::IsNullOrEmpty($sv.Tag)) { continue }
+        foreach ($part in ([string]$sv.Tag -split ",")) {
+            if ($part -match "^V=([0-9.]+)$") { $sv.ScrollToVerticalOffset([double]$Matches[1]) }
+            if ($part -match "^H=([0-9.]+)$") { $sv.ScrollToHorizontalOffset([double]$Matches[1]) }
+        }
+    }
+}
+
 function Save-Shot([string]$XamlPath, [string]$FrameName, [int]$Width, [int]$Height, [string]$OutPath) {
     $reader = [System.Xml.XmlReader]::Create($XamlPath)
     $visual = [System.Windows.Markup.XamlReader]::Load($reader)
@@ -68,11 +85,18 @@ function Save-Shot([string]$XamlPath, [string]$FrameName, [int]$Width, [int]$Hei
 
     if ($XamlPath -like "*xaml\search.xaml") {
         Set-FigmaFrameState $visual $FrameName
+    } elseif ($XamlPath -like "*xaml\index\index_list.xaml") {
+        Set-IndexListFrameState $visual $FrameName
+    } elseif ($XamlPath -like "*xaml\office\office.xaml") {
+        Set-OfficeFrameState $visual $FrameName
     }
     Set-RealFont $visual $realFont
 
     $visual.Measure((New-Object System.Windows.Size($Width, $Height)))
     $visual.Arrange((New-Object System.Windows.Rect(0, 0, $Width, $Height)))
+    $visual.UpdateLayout()
+
+    Set-InitialScroll $visual
     $visual.UpdateLayout()
 
     $rtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap(
@@ -93,7 +117,7 @@ function Save-Shot([string]$XamlPath, [string]$FrameName, [int]$Width, [int]$Hei
     Write-Output "撮った: $OutPath"
 }
 
-# ---- 既定の大きさで 26 枚すべて ----
+# ---- 既定の大きさですべてのフレーム ----
 foreach ($f in Get-FigmaFrames) {
     $xamlPath = Join-Path $root $f.Xaml
     $outPath = Join-Path $outDir "$($f.Name).png"
@@ -114,6 +138,16 @@ foreach ($name in $resizeTargets) {
         $outPath = Join-Path $outDir "$($name)_$($size.Width)x$($size.Height).png"
         Save-Shot $xamlPath $name $size.Width $size.Height $outPath
     }
+}
+
+# ---- scroll.md の最小の窓の見本（H-多-1024・X-多-1024・T-多-1024・P-多-1024・PV-多-1024。画像は無い） ----
+$scrollResizeTargets = @("H-多", "X-多", "T-多", "P-多", "PV-多")
+foreach ($name in $scrollResizeTargets) {
+    $f = Get-FigmaFrame $name
+    if ($null -eq $f) { continue }
+    $xamlPath = Join-Path $root $f.Xaml
+    $outPath = Join-Path $outDir "$($name)-1024.png"
+    Save-Shot $xamlPath $name 1024 640 $outPath
 }
 
 "out\screens\ に書き出した。"
