@@ -2,9 +2,27 @@
 # gui.ps1 の読み込みの一番最初（app_host.ps1 より前）に使うため、ここだけを読み込んで確かめる
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
+    . "$scriptsDir\tebunko\ui\startup_error_view.ps1"
     . "$scriptsDir\tebunko\ui\startup_error.ps1"
 }
 
+Describe "getStartupErrorDetail" -Tag Unit {
+    It "時刻・言語モード・メッセージ・位置を 1 件にまとめ、末尾に空行を入れる" {
+        try { throw "壊れた" } catch { $err = $_ }
+        $detail = getStartupErrorDetail $err "FullLanguage" "2026-01-02 03:04:05"
+        $detail | Should -Match "^==== 2026-01-02 03:04:05 起動・実行中 ====\r\nLanguageMode: FullLanguage\r\n壊れた\r\n"
+        $detail | Should -Match "\r\n\r\n$"
+    }
+}
+
+Describe "getStartupErrorMessage" -Tag Unit {
+    It "<Case>" -ForEach @(
+        @{ Case = "記録できたら、そのファイル名だけを添える"; File = "C:\共有\営業部\startup_error.txt"; Expected = "予期しないエラーが発生しました。`n壊れた`n`n詳しい内容は startup_error.txt に残しています。" }
+        @{ Case = "記録できなかったら、添えない"; File = $null; Expected = "予期しないエラーが発生しました。`n壊れた" }
+    ) {
+        getStartupErrorMessage "壊れた" $File | Should -Be $Expected
+    }
+}
 Describe "getExistingRecordFile" -Tag Unit {
     It "実際に書けたファイルだけを返す" {
         $file = Join-Path $TestDrive "exists.txt"
@@ -95,6 +113,7 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
             $scriptFile = Join-Path $TestDrive "scenario_$([guid]::NewGuid().ToString('N')).ps1"
             $lines = @(
                 "Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase"
+                ". '$scriptsDir\tebunko\ui\startup_error_view.ps1'"
                 ". '$scriptsDir\tebunko\ui\startup_error.ps1'"
             ) + $setupLines + @(
                 "try { throw '$message' } catch { reportStartupFailure `$_ | Out-Null }"

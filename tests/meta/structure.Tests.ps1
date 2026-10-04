@@ -293,15 +293,17 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "gui.ps1 の最上位は、startup_error.ps1 の読み込みと 1 つの try/catch だけ" {
+    It "gui.ps1 の最上位は、起動の失敗の知らせ（startup_error_view.ps1・startup_error.ps1）の読み込みと 1 つの try/catch だけ" {
         $ast = $parsedAsts["$singleScriptsDir\tebunko\gui.ps1"]
         $top = @($ast.EndBlock.Statements)
-        $top.Count | Should -Be 2
-        (commandOf $top[0]) | Should -BeOfType [System.Management.Automation.Language.CommandAst]
-        (isLoaderLine (commandOf $top[0])) | Should -Be $true
-        $top[1] | Should -BeOfType [System.Management.Automation.Language.TryStatementAst]
+        $top.Count | Should -Be 3
+        foreach ($loader in $top[0..1]) {
+            (commandOf $loader) | Should -BeOfType [System.Management.Automation.Language.CommandAst]
+            (isLoaderLine (commandOf $loader)) | Should -Be $true
+        }
+        $top[2] | Should -BeOfType [System.Management.Automation.Language.TryStatementAst]
 
-        $try = $top[1]
+        $try = $top[2]
         $try.CatchClauses.Count | Should -Be 1
         $catchBody = @($try.CatchClauses[0].Body.Statements)
         $catchBody.Count | Should -Be 1

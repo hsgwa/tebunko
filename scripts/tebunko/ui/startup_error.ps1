@@ -1,7 +1,7 @@
 ﻿# 起動そのものに失敗したとき（Add-Type・読み込み・画面の組み立てで例外）の知らせ方。
 # gui.ps1 が try で囲み、失敗したら reportStartupFailure を呼んで終了コードを受け取る。
 # app_host.ps1 を読み込む前（writeErrorLog がまだ使えない）に起きた失敗にも対応するため、
-# gui.ps1 の読み込みの一番最初（Add-Type より前）に、ここだけを読み込む。
+# 文言は startup_error_view.ps1（gui.ps1 が先に読み込む）。gui.ps1 の読み込みの一番最初（Add-Type より前）に、ここだけを読み込む。
 
 ${appTitle} = "tebunko"
 
@@ -69,15 +69,14 @@ function reportStartupFailure {
         $recordFile = getGuiErrorLogFile
         $recordFile = getExistingRecordFile $recordFile
     } else {
-        $detail = "==== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') 起動・実行中 ====`r`nLanguageMode: $($ExecutionContext.SessionState.LanguageMode)`r`n$($err.Exception.Message)`r`n$($err.InvocationInfo.PositionMessage)`r`n`r`n"
+        $detail = getStartupErrorDetail $err ([string]$ExecutionContext.SessionState.LanguageMode) (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         $recordFile = writeStartupErrorFile $detail
     }
     if (Get-Command closeSplash -ErrorAction SilentlyContinue) {
         closeSplash
     }
-    $suffix = if ($recordFile) { "`n`n詳しい内容は $(Split-Path -Leaf $recordFile) に残しています。" } else { "" }
     try {
-        [System.Windows.MessageBox]::Show("予期しないエラーが発生しました。`n$($err.Exception.Message)${suffix}", ${appTitle}, "OK", "Error") | Out-Null
+        [System.Windows.MessageBox]::Show((getStartupErrorMessage $err.Exception.Message $recordFile), ${appTitle}, "OK", "Error") | Out-Null
         return 1
     } catch {
         throw $err

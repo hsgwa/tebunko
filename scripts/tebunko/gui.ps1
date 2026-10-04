@@ -6,6 +6,7 @@
 # このファイルは起動口。画面の中身は ui\gui_main.ps1（startGui）と、そこから読み込む ui\ 配下・..\shared\ui\ 配下に分けてある。
 # 起動そのものに失敗したとき（Add-Type・読み込み・画面の組み立てで例外）は、ui\startup_error.ps1 の reportStartupFailure が知らせる。
 
+. "$PSScriptRoot\ui\startup_error_view.ps1"
 . "$PSScriptRoot\ui\startup_error.ps1"
 
 try {
