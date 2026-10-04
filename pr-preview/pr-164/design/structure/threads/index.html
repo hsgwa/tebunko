@@ -1944,7 +1944,7 @@
   <span class="md-ellipsis">
     
   
-    単一ファイル化の検討
+    単一ファイルのリリース
   
 
     
@@ -4418,7 +4418,7 @@
 <ul>
 <li>アプリの寿命のスレッドは、最初に使うときに作る。ランスペースには、はじめに一度だけ関数を読み込む。検索のたびに lib.ps1 を読み込み直さない。</li>
 <li>検索の司令（<code>SearchService</code>）は、スレッドを始めたときに lib.ps1 を 1 回だけ読み込み、照合のプール（<code>newPackWorkerPool</code>）を 1 回だけ作る。</li>
-<li>バックグラウンド（<code>BackgroundQueue</code>）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（<code>WorkerPool.Prelude</code>）。単一 .ps1 版（試験版）でも、この読み込みは <code>getPartLoad</code> がまとめて作る文字列をそのまま使うため、通常の zip 版と同じ 1 回だけの読み込みのままになる（<a href="../single-script/">単一ファイル化の検討</a>「層とテストへの影響」）。</li>
+<li>バックグラウンド（<code>BackgroundQueue</code>）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（<code>WorkerPool.Prelude</code>）。単一 .ps1 版（試験版）でも、この読み込みは <code>getPartLoad</code> がまとめて作る文字列をそのまま使うため、通常の zip 版と同じ 1 回だけの読み込みのままになる（<a href="../single-script/">単一ファイルのリリース</a>「結合の規則」）。</li>
 <li>そのため、これらのスレッドは読み込んだときのワークスペース（<code>$workspace</code>）を持ち続ける。画面は仕事を頼むときにワークスペースの中の場所を渡す（検索の要求は <code>WorkDir</code> を持つ）。ワークスペースを変えてもスレッドは作り直さない（<a href="../data/#ワークスペースの中の場所workspace">ワークスペースの中の場所（Workspace）</a>）。</li>
 <li>照合のプールでは、ランスペースに加えて PowerShell のインスタンスも使い回す（<code>WorkerPool</code>）。</li>
 <li>検索の要求（<code>newSearchRequest</code>。<code>[hashtable]::Synchronized</code>）は、<code>invokeSearchRequest</code> が実行する。要求の <code>Stop</code> が取り消しの札になる。新しい要求を出すと、前の要求の <code>Stop</code> を立てて取り消す。</li>
