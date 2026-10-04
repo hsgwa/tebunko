@@ -5,6 +5,15 @@
 
 ${appTitle} = "tebunko"
 
+# 画面で起きた予期しないエラーの記録先（app_host.ps1 の writeErrorLog が使う）。今のワークスペースの中に置く。
+# startGui を抜けた後（gui.ps1 の外側の catch）でも使えるよう、スクリプト直下に置く。ワークスペースが決まる前は $null を返す
+function getGuiErrorLogFile {
+    if ($null -eq $script:workspace) {
+        return $null
+    }
+    return $script:workspace.GuiErrorLogFile
+}
+
 # 実際に書けた記録のファイルだけを返す（writeErrorLog は書けなくても例外を出さないため）
 function getExistingRecordFile {
     param (

@@ -150,3 +150,41 @@ function newProbeTypeB { return [ProbeTypeB]::new() }
         }
     }
 }
+
+Describe "getPartLoad（BackgroundQueue の 2 スレッドが 1 つの State を共有しても、部品のクラスの型が食い違わない）" -Tag Io {
+    It "どのジョブでも、部品のクラスの値を作って、同じスレッドの次のジョブで -is の比較が通る" {
+        $global:bundledParts = @{
+            lib = @'
+class ProbeTypeC {
+    [string] Hello() { return "hi" }
+}
+function newProbeTypeC { return [ProbeTypeC]::new() }
+'@
+        }
+        $load = getPartLoad lib
+        $queue = [BackgroundQueue]::new(2, $load, $null)
+        $script:results = New-Object System.Collections.Generic.List[string]
+        try {
+            1..6 | ForEach-Object {
+                $queue.Post('$global:probeKeep = newProbeTypeC; $global:probeKeep.Hello()', @(), {
+                    param ($output, $errorText) $script:results.Add("$($output[0])|$errorText")
+                })
+            }
+            1..6 | ForEach-Object {
+                $queue.Post('($global:probeKeep -is [ProbeTypeC]) -and ((newProbeTypeC) -is [ProbeTypeC])', @(), {
+                    param ($output, $errorText) $script:results.Add("is:$($output[0])|$errorText")
+                })
+            }
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($queue.Poll() -gt 0 -and $watch.Elapsed.TotalSeconds -lt 60) {
+                Start-Sleep -Milliseconds 20
+            }
+            @($script:results | Where-Object { $_ -ne "hi|" -and $_ -ne "is:True|" -and $_ -ne "is:False|" }).Count | Should -Be 0
+            # 2 つのスレッドのうち、最初のジョブを処理したスレッドは、次のジョブでも同じ型として比べられる（-is が True）
+            @($script:results | Where-Object { $_ -eq "is:True|" }).Count | Should -BeGreaterThan 0
+        } finally {
+            $queue.Close()
+            Remove-Variable -Name bundledParts -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+}

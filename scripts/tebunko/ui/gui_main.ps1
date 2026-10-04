@@ -27,12 +27,6 @@ function startGui {
     # ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、
     #   実行時コンパイル（csc.exe）を無くすため廃止した（アイコン自体は Window.Icon で出るため残る）。
     ${themeFile} = "${sharedXamlDir}\theme.xaml"  # 画面の見た目（色・文字・コントロールの形）の共通定義
-    ${theme} = $null                              # 読み込んだ theme.xaml（コードから色を引くときに使う）
-
-    function getGuiErrorLogFile {
-        # 画面で起きた予期しないエラーの記録先（app_host.ps1 の writeErrorLog が使う）。今のワークスペースの中に置く
-        return $workspace.GuiErrorLogFile
-    }
 
     # ---- 多重起動の防止（ツールの配置フォルダごと） ----
     #
