@@ -26,7 +26,7 @@ function joinWorkerScript {
     # 部品の読み込み（Prelude）を、本体のスクリプト（script）につなぐ。呼び出し側の書き換えをせず、
     # 意味を変えない形でつなぐため、挿入する場所は本体の構文解析で決める:
     #   param ブロックがあればその直後、続けて最初の文が `$ErrorActionPreference = "Stop"` ならそのあとにも進める
-    #   （部品が読めないときにスレッドを終える今の動きを保つため。tebunko-pr のテストが確かめる）。
+    #   （部品が読めないときにスレッドを終える今の動きを保つため。tests/shared/core/worker_pool.Tests.ps1 が確かめる）。
     # Prelude は、同じランスペースで仕事のたびに呼ばれても 1 回だけ実行する（$global:workerPreludeDone で守る。
     # ランスペースを使い回さない呼び出し元でも害はない）
     param (
@@ -157,8 +157,8 @@ class BackgroundQueue {
     hidden [System.Collections.Generic.List[hashtable]]$Jobs
 
     BackgroundQueue([int]$size, [hashtable]$load, [System.Management.Automation.Host.PSHost]$hostUi) {
-        # load は getPartLoad の戻り値（@{ State; Prelude }）。呼び出し元が Prelude に続けて
-        # 呼びたい文（initWorkspace など）を足したいときは、渡す前に $load.Prelude を書き換える
+        # load は部品の読み込み口が返す @{ State; Prelude }。呼び出し元が Prelude に続けて
+        # 呼びたい文を足したいときは、渡す前に $load.Prelude を書き換える
         $this.Jobs = New-Object 'System.Collections.Generic.List[hashtable]'
         $this.Pool = [WorkerPool]::new($size, $load.State, $hostUi, "Normal")
         $this.Pool.Prelude = $load.Prelude

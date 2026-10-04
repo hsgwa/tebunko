@@ -1,15 +1,15 @@
 ﻿# 展開せずに動く単一 .ps1 版（試験版）を組み立てる。scripts\ 配下のソース（zip 版と共通）を 1 本の .ps1 に
-# 畳み込み、work\release\ に書き出す（作業ツリーにはコミットしない。tests/meta/structure.Tests.ps1 の M5）。
+# 結合し、work\release\ に書き出す（作業ツリーにはコミットしない。tests/meta/structure.Tests.ps1 の M5）。
 # 設計は docs/design/structure/single-script.md。
 #
 #   .\tools\new_single_script.ps1 -Version v1.0.0
 #
-# 版の文字列（${bundledVersion}）は tools\new_version_text.ps1 と同じしくみ（-Version と git rev-parse HEAD）で決め、
+# 版の文字列（${bundledVersion}）は tools\new_version_text.ps1 と同じ仕組み（-Version と git rev-parse HEAD）で決め、
 # VERSION.txt を介さずコードに埋め込む（scripts\shared\core\version.ps1 の readVersionFile が ${bundledVersion} を見る）。
 #
-# 畳み込みの考え方（どのファイルも同じしくみで扱う）:
-#   読み込み口の ". "$PSScriptRoot\..." "." "$TebunkoDir\..." " の行を、その相手のファイルの中身（同じしくみで
-#   畳み込んだもの）に差し替える。相手が初めて出てきたときだけ中身を入れ、2 回目以降は空行にする
+# 読み込み行の差し替えの考え方（どのファイルも同じ仕組みで扱う）:
+#   読み込み口の ". "$PSScriptRoot\..." "." "$TebunkoDir\..." " の行を、読み込まれるファイルの中身（同じ仕組みで
+#   差し替えたもの）に差し替える。そのファイルが初めて出てきたときだけ中身を入れ、2 回目以降は空行にする
 #   （HashSet で済んだファイルを覚えておく）。関数の中で読み込んでいる行も、その場での文字列の差し替えなので
 #   そのまま働く。起動口（gui.ps1・indexer.ps1）だけは param ブロックが二重にならないよう、AST で本体だけを取り出す。
 param (
@@ -37,13 +37,13 @@ $versionText = [System.Text.Encoding]::UTF8.GetString($versionBytes).TrimStart([
 $versionLines = $versionText -split "`r`n" | Where-Object { $_ -ne "" }
 $sha = $versionLines[1]
 
-# ---- 畳み込み ----
+# ---- 差し替え ----
 
 $scriptsDir = Join-Path $rootDir "scripts"
 $tebunkoDir = Join-Path $scriptsDir "tebunko"
 $script:visited = New-Object 'System.Collections.Generic.HashSet[string]'
 
-# dot-source の読み込み行（PSScriptRoot・TebunkoDir の両方の形）を、相手の中身（再帰的に畳み込んだもの）に差し替える
+# dot-source の読み込み行（PSScriptRoot・TebunkoDir の両方の形）を、読み込まれるファイルの中身（再帰的に差し替えたもの）に差し替える
 function substituteLoaderLines {
     param (
         [string]$text,
@@ -66,7 +66,7 @@ function substituteLoaderLines {
     return ($out -join "`r`n")
 }
 
-# 1 つのファイルを、中身（dot-source の相手を差し替え済み）に展開する。2 回目以降は空文字列
+# 1 つのファイルを、中身（dot-source の行を差し替え済み）に展開する。2 回目以降は空文字列
 function inlineFile {
     param (
         [string]$path
@@ -95,7 +95,7 @@ function readScriptAst {
     return $ast
 }
 
-# 起動口（param ブロックを持つことがあるファイル）の、param を除いた本体だけを取り出して畳み込む。
+# 起動口（param ブロックを持つことがあるファイル）の、param を除いた本体だけを取り出して差し替える。
 # 結合した単一 .ps1 は、統一した 1 つの param ブロック（ヘッダー）しか持てないため（二重になると構文エラーになる）。
 # EndBlock.Extent.Text は param ブロックも含んでしまうため使わず、ParamBlock の終わりから後ろを使う
 function inlineEntryBody {
@@ -166,8 +166,8 @@ addXamlEntries (Join-Path $scriptsDir "shared\xaml") "..\shared\xaml\"
 # 背景のスレッド・別のランスペースは、ここに埋め込んだ文字列を関数（importTebunkoPart）として読み込み、
 # 画面だけのクラス（SearchTarget・IndexNode など）を二重にコンパイルしない（scripts\tebunko\core\parts.ps1）。
 # indexerLib は、取り込みのスレッド・インデクサの司令のスレッドの両方が使うため、indexer_lib.ps1（関数）と
-# indexer_main.ps1（呼び出す口。invokeIndexerMain）の両方を 1 つの部品として畳み込む。
-# 畳み込みは、本体（$script:visited）とは別の・部品ごとに新しい済みファイルの集合で行う
+# indexer_main.ps1（呼び出す口。invokeIndexerMain）の両方を 1 つの部品として差し替える。
+# 読み込み行の差し替えは、本体（$script:visited）とは別の・部品ごとに新しい済みファイルの集合で行う
 # （部品どうし・部品と本体で、同じファイルを二重に数えないようにするため）
 $script:partVisited = @{}
 function inlinePart {
@@ -190,17 +190,19 @@ foreach ($partEntry in $bundledPartEntries) {
 }
 [void]$parts.Add('')
 
-# 本体（画面・起動口）の畳み込みは、部品の済み集合とは別の、まっさらな集合から始める
+# 本体（画面・起動口）の読み込み行の差し替えは、部品の済み集合とは別の、まっさらな集合から始める
 $script:visited = New-Object 'System.Collections.Generic.HashSet[string]'
 
+# 部品の埋め込みの終わり（ここから下が、実行するプロセスの本体）の目印。テストが、ここまでを切り出して部品を取り出す
+$bodyMarker = '# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----'
+
 # ---- 読み込み口の並び（driver の手順。設計どおり）。 ----
-# -Part lib / indexerLib は、ほかのスレッドから dot-source で呼ばれ、必要な関数だけ読み込んで戻る（画面を出さない）。
-# -Part indexer は、画面を出さずにインデックス作成だけ行って終わる。どちらでもなければ（既定）画面を起動する
+# 別スレッドは、この下の本体ではなく、上で埋め込んだ部品（${bundledParts}）を読む。ここから下は、実行するプロセスの本体だけ。
+# -Part indexer は、画面を出さずにインデックス作成だけ行って終わる。そうでなければ（既定）画面を起動する
+[void]$parts.Add($bodyMarker)
 [void]$parts.Add((inlineFile (Join-Path $tebunkoDir "ui\startup_error.ps1")))
 [void]$parts.Add((inlineFile (Join-Path $tebunkoDir "lib.ps1")))
-[void]$parts.Add('if ($Part -eq "lib") { return }')
 [void]$parts.Add((inlineFile (Join-Path $tebunkoDir "indexer\indexer_lib.ps1")))
-[void]$parts.Add('if ($Part -eq "indexerLib") { return }')
 [void]$parts.Add((inlineFile (Join-Path $tebunkoDir "indexer\indexer_main.ps1")))
 [void]$parts.Add('if ($Part -eq "indexer") {')
 [void]$parts.Add((inlineEntryBody $indexerPath))

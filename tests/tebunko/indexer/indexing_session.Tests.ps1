@@ -6,7 +6,7 @@ BeforeAll {
     . "${scriptsDir}\tebunko\indexer\indexer_main.ps1"
 
     # 本物の invokeIndexerMain（indexer_main.ps1）の代わりに、受け渡しの口（$Channel）だけを使う偽の本体を
-    # 関数として State に登録する（indexerLib の部品の読み込み方と同じしくみ。tebunko\core\parts.ps1）。
+    # 関数として State に登録する（indexerLib の部品の読み込み方と同じ仕組み。tebunko\core\parts.ps1）。
     # newIndexingSession は getPartLoad indexerLib（本物の indexerLib）を使うため、
     # 偽のインデクサを使うテストでは IndexingSession を直接作る
     function newFakeIndexerLoad([string]$body) {

@@ -13,6 +13,34 @@ BeforeAll {
     # 結合した単一 .ps1 の中で、pattern に一致する最後の行の番号を返す（indexer.Tests.ps1 の findLine と同じ考え方）。
     # 結合した .ps1 は元のソースをそのまま埋め込むため、元のファイルと同じ行の文字列で探せる。
     # ${bundledParts} の中身（lib・indexerLib の文字列）にも同じ行の文字列が入るため、最後の行（実際に動く本体側）を探す
+    # 結合した単一 .ps1 の部品（lib・indexerLib）を、製品と同じ経路（getPartLoad）で読んだ新しい runspace を返す。
+    # 部品の埋め込み（目印の行より上）だけを実行して ${bundledParts} などを取り出し、getPartLoad に渡す。
+    # 戻り値の Prelude を実行した runspace の中で、部品の関数が使える
+    function newBundledPartRunspace {
+        param ([string]$builtPath, [string]$name)
+        $text = [System.IO.File]::ReadAllText($builtPath)
+        $end = $text.IndexOf("# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----")
+        if ($end -lt 0) { throw "${builtPath} に、部品の埋め込みの終わりの目印がありません" }
+        $headPath = Join-Path (Split-Path $builtPath -Parent) "head-only.ps1"
+        [System.IO.File]::WriteAllText($headPath, $text.Substring(0, $end), (New-Object System.Text.UTF8Encoding($true)))
+        $bundled = & {
+            param ($path)
+            . $path
+            @{ Parts = ${bundledParts}; ScriptPath = ${bundledScriptPath}; Version = ${bundledVersion} }
+        } $headPath
+        $global:bundledParts = $bundled.Parts
+        $global:bundledScriptPath = $bundled.ScriptPath
+        $global:bundledVersion = $bundled.Version
+        try {
+            $load = getPartLoad $name
+        } finally {
+            Remove-Variable -Name bundledParts, bundledScriptPath, bundledVersion -Scope Global -ErrorAction SilentlyContinue
+        }
+        $runspace = [runspacefactory]::CreateRunspace($load.State)
+        $runspace.Open()
+        return @{ Runspace = $runspace; Prelude = $load.Prelude }
+    }
+
     function findLine {
         param ([string]$path, [string]$pattern)
         $lines = [System.IO.File]::ReadAllLines($path)
@@ -128,28 +156,24 @@ $x = 1 # Invoke-WebRequest も行内コメントなら見ない
     }
 }
 
-Describe "新しい runspace での `-Part lib` の読み込み（結合した単一 .ps1）" -Tag Slow {
+Describe "新しい runspace での部品（lib）の読み込み（結合した単一 .ps1。getPartLoad の経路）" -Tag Slow {
     BeforeAll {
         $builtScript = Join-Path $TestDrive "slow-lib\tebunko-v9.9.9-slow.ps1"
         & $tool -Version "v9.9.9" -OutFile $builtScript | Out-Null
     }
 
-    It "新しい runspace で `-Part lib` を読み込むと、30 秒以内に戻り、検索の関数が使える" {
-        $runspace = [runspacefactory]::CreateRunspace()
-        $runspace.Open()
+    It "新しい runspace で lib の部品を読み込むと、30 秒以内に戻り、検索の関数が使える" {
+        $part = newBundledPartRunspace $builtScript "lib"
+        $runspace = $part.Runspace
         $ps = [powershell]::Create()
         $ps.Runspace = $runspace
         try {
-            [void]$ps.AddScript({
-                param($scriptPath)
-                . $scriptPath -Part lib
-                return @(Get-Command searchPackIndex, newSearchRequest -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
-            }).AddArgument($builtScript)
+            [void]$ps.AddScript($part.Prelude + "`r`n" + 'return @(Get-Command searchPackIndex, newSearchRequest -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })')
             $handle = $ps.BeginInvoke()
             $completed = $handle.AsyncWaitHandle.WaitOne(30000)
             if (!$completed) {
                 $ps.Stop()
-                throw "30 秒以内に戻りませんでした（-Part lib が応答しません）。"
+                throw "30 秒以内に戻りませんでした（lib の部品の読み込みが応答しません）。"
             }
             $names = @($ps.EndInvoke($handle))
             $ps.HadErrors | Should -Be $false
@@ -161,17 +185,13 @@ Describe "新しい runspace での `-Part lib` の読み込み（結合した�
         }
     }
 
-    It "`-Part lib` を読み込んだ runspace で例外を投げても、その runspace の中のエラーになるだけで、プロセスは残る（MessageBox・exit に入らない）" {
-        $runspace = [runspacefactory]::CreateRunspace()
-        $runspace.Open()
+    It "lib の部品を読み込んだ runspace で例外を投げても、その runspace の中のエラーになるだけで、プロセスは残る（MessageBox・exit に入らない）" {
+        $part = newBundledPartRunspace $builtScript "lib"
+        $runspace = $part.Runspace
         $ps = [powershell]::Create()
         $ps.Runspace = $runspace
         try {
-            [void]$ps.AddScript({
-                param($scriptPath)
-                . $scriptPath -Part lib
-                throw "テスト用の例外"
-            }).AddArgument($builtScript)
+            [void]$ps.AddScript($part.Prelude + "`r`n" + 'throw "テスト用の例外"')
             $handle = $ps.BeginInvoke()
             $completed = $handle.AsyncWaitHandle.WaitOne(30000)
             $completed | Should -Be $true -Because "応答が無ければ、MessageBox などで止まっている疑いがある"
@@ -197,7 +217,7 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
         New-Item -ItemType Directory -Force -Path $fakeProfile | Out-Null
 
         # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）には利用者のインデックスがあるため、
-        # 結合した .ps1 自身の行（settings.ps1 の getDefaultWorkDir を畳み込んだ箇所）で止めて、テスト用の場所に差し替える
+        # 結合した .ps1 自身の行（settings.ps1 の getDefaultWorkDir を読み込み行を差し替えた箇所）で止めて、テスト用の場所に差し替える
         $global:singleScriptFakeProfile = $fakeProfile
         $point = Set-PSBreakpoint -Script $script -Line (findLine $script 'return Join-Path \$profileDir') -Action {
             Set-Variable -Name profileDir -Value $global:singleScriptFakeProfile -Scope 1
@@ -247,15 +267,13 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
         $state.Failed | Should -Be 0
         $state.Done | Should -Be 2
 
-        # 索引の検索（-Part lib は exit しないため、同じプロセスの runspace で確かめる）
-        $runspace = [runspacefactory]::CreateRunspace()
-        $runspace.Open()
+        # 索引の検索（lib の部品を、同じプロセスの新しい runspace に getPartLoad の経路で読んで確かめる）
+        $part = newBundledPartRunspace $script "lib"
+        $runspace = $part.Runspace
         $ps = [powershell]::Create()
         $ps.Runspace = $runspace
         try {
-            [void]$ps.AddScript({
-                param($scriptPath)
-                . $scriptPath -Part lib
+            [void]$ps.AddScript($part.Prelude + "`r`n" + @'
                 initWorkspace
                 $packs = getPackFiles $workspace.IndexDir
                 $search = newSearchRegex "TC21" $true $false
@@ -263,12 +281,12 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
                 $excludePlace = newPlaceExclude $true $true
                 $hits = searchPackFiles $packs 0 $packs.Count $search.Regex -1 $search.TextRegex $search.ScanMode $null $filter.Include $filter.Exclude $excludePlace
                 return $hits.Count
-            }).AddArgument($script)
+'@)
             $handle = $ps.BeginInvoke()
             $completed = $handle.AsyncWaitHandle.WaitOne(30000)
             if (!$completed) {
                 $ps.Stop()
-                throw "30 秒以内に戻りませんでした（-Part lib の検索が応答しません）。"
+                throw "30 秒以内に戻りませんでした（lib の部品での検索が応答しません）。"
             }
             $hitCount = @($ps.EndInvoke($handle))[0]
             $ps.HadErrors | Should -Be $false
