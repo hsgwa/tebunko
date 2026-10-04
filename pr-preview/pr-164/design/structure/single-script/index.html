@@ -4571,7 +4571,7 @@
 <ul>
 <li>設定は、起動した版のフォルダごとに別になる。zip 版と単一 .ps1 版を別のフォルダに置くと、設定は共有されない。</li>
 <li>作業フォルダ（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）は、設定の <code>workspaceFolder</code> が空なら、別のフォルダに置いた zip 版と単一 .ps1 版で同じ場所を使う。インデックスも共有される。取り込みは作業フォルダごとに 1 つずつしか動かない。</li>
-<li>窓の多重起動の判定の鍵（<code>getFolderKey</code>）は、<code>.ps1</code> のあるフォルダから作る。同じフォルダに zip 版を並べて置くと、後から起動した方が窓を作らずに終わる。別のフォルダなら、両方が起動できる。</li>
+<li>窓の多重起動の判定の鍵（<code>getFolderKey</code>）は、<code>.ps1</code> のあるフォルダから作る。同じフォルダに zip 版を並べて置くと、後から起動した方は画面を作らずに終わる（起動画面は一瞬出る。どちらを先に起動しても同じ）。別のフォルダなら、両方が起動できる。</li>
 <li>単一 .ps1 版は、自分自身の印（Zone.Identifier）を消さない。動き始めたあとに消しても起動には効かず、EDR からは防御の回避に見えるため。</li>
 <li>実行ポリシーも指定しない。右クリック［PowerShell で実行］、または呼び出した側の指定のまま動く。</li>
 <li>zip 版・インストーラー版との間で、設定とインデックスを自動で引き継ぐことはしない。移すには、［エクスポート…］と［インポート…］を使う。</li>
@@ -4579,7 +4579,7 @@
 <h2 id="配布">配布<a class="headerlink" href="#配布" title="Permanent link">&para;</a></h2>
 <p><code>release.yml</code> が、タグの push（または手動の試運転）で次を行う。</p>
 <ol>
-<li>zip・インストーラーを作って検査する（これまでどおり）。</li>
+<li>zip・インストーラーを作って検査する。</li>
 <li>結合の道具で <code>tebunko-&lt;タグ&gt;.ps1</code> を作る。</li>
 <li><code>SHA256SUMS.txt</code> に、単一 .ps1 版の SHA256 を 1 行追記する。<code>tebunko.cat</code> は <code>.ps1</code> を対象にしないため、改ざんの確認は <code>SHA256SUMS.txt</code> と来歴の署名で行う。</li>
 <li>来歴（Sigstore）に署名し、bundle（<code>tebunko-&lt;タグ&gt;.ps1.sigstore.json</code>）を作る（タグの push のときだけ）。</li>
