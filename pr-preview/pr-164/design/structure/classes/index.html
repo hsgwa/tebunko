@@ -1886,6 +1886,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="クラスと関数の使い分け">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#別スレッドが読むコードに画面のクラスを含めない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        別スレッドが読むコードに、画面のクラスを含めない
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4108,6 +4125,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="クラスと関数の使い分け">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#別スレッドが読むコードに画面のクラスを含めない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        別スレッドが読むコードに、画面のクラスを含めない
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4274,6 +4308,13 @@
 <ul>
 <li>読み取り方: 変数・プロパティ・hashtable の読みは、どれも空ループ（0.64μs）と区別できないほど小さく、差は無いものとみる。比べるのは関数とメソッドの呼び出しの差だけで、メソッドは関数の約 10 分の 1。<strong>クラスにしても呼び出しは遅くならない。</strong> ただしメソッドの中から関数を呼べば関数の時間がそのまま足される。取り込みの 1 ファイルごとに通る経路（<code>IngestDispatcher</code>・<code>OfficeWatchdog</code>）では、書き直しで関数の呼び出しの段を増やさない。1 ファイル 1 回増えると 1,000 ファイルで約 40ms で、1 ファイルの取り込み（Office を使えば数百 ms 以上）に比べれば小さいが、段を重ねると積み上がるため。</li>
 <li>性能を落としていないかの判断は、この表ではなく取り込みの計測（<a href="../../testing/perf/">性能とリソースの計測のしかた</a> の「計測の口」）で、同じ日に main と比べて行う。</li>
+</ul>
+<h3 id="別スレッドが読むコードに画面のクラスを含めない">別スレッドが読むコードに、画面のクラスを含めない<a class="headerlink" href="#別スレッドが読むコードに画面のクラスを含めない" title="Permanent link">&para;</a></h3>
+<p>別スレッド（検索・背景の仕事・インデックス作成の取り込み）は、<code>getPartLoad</code>（<code>scripts/tebunko/core/parts.ps1</code>）が返す部品（<code>lib</code>・<code>indexerLib</code>）だけを読み込む。この部品には、画面（<code>ui\</code> 配下）のクラス（<code>SearchTarget</code>・<code>IndexNode</code> など、画面の部品を持つもの）を入れない。</p>
+<ul>
+<li>単一 .ps1 版では、部品の文字列を関数（<code>importTebunkoPart</code>）として別のランスペースに登録し、そこで構文解析する。画面のクラスが混ざると、画面のスレッドのクラスと別の型として定義され、<code>-is</code> の比較や型の指定が食い違う。</li>
+<li>同じ名前のクラスを別のランスペースで使うときの食い違いは、<code>tests/tebunko/core/parts.Tests.ps1</code>（同じランスペースの使い回し・別のランスペースの取り違え・2 スレッドが 1 つの State を共有する場合）が確かめる。</li>
+<li>部品に入れるファイルの範囲は、<code>tests/meta/structure.Tests.ps1</code> と <code>tools/new_single_script.ps1</code> の検査が、読み込み口（<code>lib.ps1</code>・<code>indexer_lib.ps1</code>・<code>indexer_main.ps1</code>）からたどれる範囲と一致するかで確かめる。</li>
 </ul>
 <h2 id="目的ごとのクラス">目的ごとのクラス<a class="headerlink" href="#目的ごとのクラス" title="Permanent link">&para;</a></h2>
 <p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。<code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> は実装ずみ（#147）。残り 5 つは予定のまま。</p>
