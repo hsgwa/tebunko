@@ -142,6 +142,42 @@ addXamlEntries (Join-Path $scriptsDir "shared\xaml") "..\shared\xaml\"
 
 [void]$parts.Add('')
 
+# ---- 部品（${bundledParts}）をここに埋め込む。lib・indexerLib の、画面（ui\ 配下）に触れない範囲だけ。 ----
+# 背景のスレッド・別のランスペースは、ここに埋め込んだ文字列を関数（importTebunkoPart）として読み込み、
+# 画面だけのクラス（SearchTarget・IndexNode など）を二重にコンパイルしない（scripts\tebunko\core\parts.ps1）。
+# indexerLib は、取り込みのスレッド・インデクサの司令のスレッドの両方が使うため、indexer_lib.ps1（関数）と
+# indexer_main.ps1（呼び出す口。invokeIndexerMain）の両方を 1 つの部品として畳み込む。
+# 畳み込みは、本体（$script:visited）とは別の・部品ごとに新しい済みファイルの集合で行う
+# （部品どうし・部品と本体で、同じファイルを二重に数えないようにするため）
+$script:partVisited = @{}
+function inlinePart {
+    param ([string[]]$entryPaths)
+    $script:visited = New-Object 'System.Collections.Generic.HashSet[string]'
+    $text = (($entryPaths | ForEach-Object { inlineFile $_ })) -join "`r`n"
+    return $text
+}
+
+$bundledPartEntries = @(
+    @{ Name = "lib"; Paths = @((Join-Path $tebunkoDir "lib.ps1")) }
+    @{ Name = "indexerLib"; Paths = @((Join-Path $tebunkoDir "indexer\indexer_lib.ps1"), (Join-Path $tebunkoDir "indexer\indexer_main.ps1")) }
+)
+
+[void]$parts.Add('${bundledParts} = @{}')
+foreach ($partEntry in $bundledPartEntries) {
+    $partText = inlinePart $partEntry.Paths
+    $script:partVisited[$partEntry.Name] = [System.Collections.Generic.HashSet[string]]$script:visited
+    if ($partText -match "(?m)^'@") {
+        throw "単一 .ps1 の部品（$($partEntry.Name)）に、単一引用符のヒアストリングを閉じてしまう行があります（行の先頭が '@）。"
+    }
+    [void]$parts.Add("`${bundledParts}['$($partEntry.Name)'] = @'")
+    [void]$parts.Add($partText.TrimEnd("`r", "`n"))
+    [void]$parts.Add("'@")
+}
+[void]$parts.Add('')
+
+# 本体（画面・起動口）の畳み込みは、部品の済み集合とは別の、まっさらな集合から始める
+$script:visited = New-Object 'System.Collections.Generic.HashSet[string]'
+
 # ---- 読み込み口の並び（driver の手順。設計どおり）。 ----
 # -Part lib / indexerLib は、ほかのスレッドから dot-source で呼ばれ、必要な関数だけ読み込んで戻る（画面を出さない）。
 # -Part indexer は、画面を出さずにインデックス作成だけ行って終わる。どちらでもなければ（既定）画面を起動する
@@ -209,6 +245,25 @@ if ($banned) {
 # 6) 版の文字列が引数と同じ
 if ($combined -notmatch [regex]::Escape("Tag = '$Version'; Sha = '$sha'")) {
     throw "版の文字列が埋め込めていません。"
+}
+
+# 7) 部品（${bundledParts}）が、入り口（lib.ps1・indexer_lib.ps1 + indexer_main.ps1）からたどれるファイルと
+#    過不足なく一致し、画面（ui\ 配下）のファイルを含まない
+foreach ($partEntry in $bundledPartEntries) {
+    $partVisitedSet = $script:partVisited[$partEntry.Name]
+    $partReachable = getReachableFiles -entries $partEntry.Paths
+    $missingPart = @($partReachable | Where-Object { -not $partVisitedSet.Contains($_) })
+    if ($missingPart.Count -gt 0) {
+        throw "部品（$($partEntry.Name)）に漏れたファイルがあります: $($missingPart -join ', ')"
+    }
+    $extraPart = @($partVisitedSet | Where-Object { -not $partReachable.Contains($_) })
+    if ($extraPart.Count -gt 0) {
+        throw "部品（$($partEntry.Name)）に、入り口からたどれない余計なファイルが入っています: $($extraPart -join ', ')"
+    }
+    $uiFiles = @($partVisitedSet | Where-Object { $_ -match '\\ui\\' })
+    if ($uiFiles.Count -gt 0) {
+        throw "部品（$($partEntry.Name)）に画面（ui\）のファイルが含まれています: $($uiFiles -join ', ')"
+    }
 }
 
 # ---- 書き出し（BOM 付き UTF-8・CRLF。work\release\ は .gitignore でコミットしない） ----

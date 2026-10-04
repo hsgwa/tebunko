@@ -13,6 +13,8 @@
 # zip とインストーラーの SHA256 はリリースの説明に書く（VirusTotal での照会用。docs\safety\scans.md「複数エンジンでの検査: VirusTotal（外部へファイルを送信する）」）。
 # zip とインストーラーのビルドの来歴（どのコミットから、どのワークフローで作ったか）を Sigstore で署名し、GitHub に登録する。
 # 署名の bundle（tebunko-<タグ>.zip.sigstore.json・tebunko-setup-<タグ>.exe.sigstore.json）もリリースに載せる（docs\safety\scans.md「配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）」。OpenSSF Scorecard の Signed-Releases）。
+# 展開せずに動く試験版（tebunko-<タグ>.ps1。tools\new_single_script.ps1）も zip と並べて載せる（docs\design\structure\single-script.md）。
+# zip・インストーラーの中身は変えない。tebunko.cat は .ps1 を対象にせず、SHA256SUMS.txt と来歴の署名だけで改ざんを確かめる。
 name: release
 
 on:
@@ -86,6 +88,20 @@ jobs:
         shell: powershell
         run: .\tools\check_release_package.ps1 -ZipPath work\release\tebunko-$env:GITHUB_REF_NAME.zip -OutDir work\release -Version $env:GITHUB_REF_NAME
 
+      # 展開せずに動く試験版（1 本の .ps1）を作る。構文エラー・読み込み口からたどれる先・禁止パターンなどの検査は
+      # ツール自身が行い（tools\new_single_script.ps1）、通らなければここで止まる。zip・インストーラーの中身は変えない
+      - name: 単一 .ps1 版（試験版）を作る
+        shell: powershell
+        run: .\tools\new_single_script.ps1 -Version $env:GITHUB_REF_NAME
+
+      # tebunko.cat は .ps1 を対象にしないため、SHA256SUMS.txt に単一 .ps1 版の行を追記する
+      - name: 単一 .ps1 版のハッシュを追記する
+        shell: powershell
+        run: |
+          $path = "work\release\tebunko-$env:GITHUB_REF_NAME.ps1"
+          $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+          Add-Content -LiteralPath "work\release\SHA256SUMS.txt" -Value "$hash  tebunko-$env:GITHUB_REF_NAME.ps1" -Encoding UTF8
+
       # 手動（workflow_dispatch）で試すときは、タグではないので署名・公開までは行わない（下の「試した配布物を artifact に置く」で確かめる）
       - name: 配布物の来歴に署名する
         if: github.event_name == 'push'
@@ -101,6 +117,13 @@ jobs:
         with:
           subject-path: work/release/tebunko-setup-${{ github.ref_name }}.exe
 
+      - name: 単一 .ps1 版の来歴に署名する
+        if: github.event_name == 'push'
+        id: attest-single
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: work/release/tebunko-${{ github.ref_name }}.ps1
+
       # pwsh（PowerShell 7）で動かす。ランナーは run の内容を BOM なしの UTF-8 のファイルにして実行するが、
       # Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため、説明に書く日本語が化ける
       - name: GitHub Release に公開
@@ -110,6 +133,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
           SETUP_BUNDLE_PATH: ${{ steps.attest-setup.outputs.bundle-path }}
+          SINGLE_BUNDLE_PATH: ${{ steps.attest-single.outputs.bundle-path }}
         run: |
           $zip = "work\release\tebunko-$env:GITHUB_REF_NAME.zip"
           $bundle = "$zip.sigstore.json"
@@ -117,14 +141,19 @@ jobs:
           $setup = "work\release\tebunko-setup-$env:GITHUB_REF_NAME.exe"
           $setupBundle = "$setup.sigstore.json"
           Copy-Item -LiteralPath $env:SETUP_BUNDLE_PATH -Destination $setupBundle
+          $single = "work\release\tebunko-$env:GITHUB_REF_NAME.ps1"
+          $singleBundle = "$single.sigstore.json"
+          Copy-Item -LiteralPath $env:SINGLE_BUNDLE_PATH -Destination $singleBundle
           $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
           $setupHash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
+          $singleHash = (Get-FileHash -LiteralPath $single -Algorithm SHA256).Hash
           $repo = "https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_REF_NAME"
           $notes = @(
             "使い方: [README]($repo/README.md)"
             ""
             "- インストールして使う: ``tebunko-setup-$env:GITHUB_REF_NAME.exe``（管理者権限は要りません。署名が無いため、Windows の警告が出たら［詳細情報］→［実行］）"
             "- 展開して使う（実行ファイルを含みません）: ``tebunko-$env:GITHUB_REF_NAME.zip``"
+            "- 展開せずに 1 本のファイルで使う（試験版）: ``tebunko-$env:GITHUB_REF_NAME.ps1``（詳細は README・[設計書]($repo/docs/design/structure/single-script.md)）"
             ""
             "安全性・脆弱性の連絡先: [SECURITY]($repo/.github/SECURITY.ja.md)"
             ""
@@ -132,11 +161,13 @@ jobs:
             ""
             "インストーラーの SHA256: ``$setupHash``"
             ""
-            "来歴の確認: ``gh attestation verify tebunko-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``（インストーラーも同じ）"
+            "単一 .ps1 版の SHA256: ``$singleHash``"
             ""
-            "改ざんの確認（zip を展開したフォルダで、ダウンロードした tebunko.cat を指定する）: ``Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <tebunko.cat> -Detailed``"
+            "来歴の確認: ``gh attestation verify tebunko-$env:GITHUB_REF_NAME.zip -R $env:GITHUB_REPOSITORY``（インストーラー・単一 .ps1 版も同じ）"
+            ""
+            "改ざんの確認（zip を展開したフォルダで、ダウンロードした tebunko.cat を指定する）: ``Test-FileCatalog -Path .\scripts, .\tebunko.bat -CatalogFilePath <tebunko.cat> -Detailed``（単一 .ps1 版は対象外。SHA256SUMS.txt と来歴の署名で確かめる）"
           ) -join "`n"
-          gh release create $env:GITHUB_REF_NAME $zip $bundle $setup $setupBundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
+          gh release create $env:GITHUB_REF_NAME $zip $bundle $setup $setupBundle $single $singleBundle "work\release\tebunko.cat" "work\release\SHA256SUMS.txt" "work\release\sbom.cdx.json" --title $env:GITHUB_REF_NAME --notes $notes --generate-notes
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # 手動（workflow_dispatch）で試したときは、公開の代わりに zip・インストーラー・カタログ・ハッシュ一覧・部品表を artifact に置く
