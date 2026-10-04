@@ -80,6 +80,21 @@ function inlineFile {
     return substituteLoaderLines $text $dir
 }
 
+# ファイルを構文木に読む。構文エラーがあれば止める
+function readScriptAst {
+    param (
+        [string]$path
+    )
+
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+    if ($errors.Count -gt 0) {
+        throw "$path の読み取りに失敗しました: $($errors[0].Message)"
+    }
+    return $ast
+}
+
 # 起動口（param ブロックを持つことがあるファイル）の、param を除いた本体だけを取り出して畳み込む。
 # 結合した単一 .ps1 は、統一した 1 つの param ブロック（ヘッダー）しか持てないため（二重になると構文エラーになる）。
 # EndBlock.Extent.Text は param ブロックも含んでしまうため使わず、ParamBlock の終わりから後ろを使う
@@ -89,12 +104,7 @@ function inlineEntryBody {
     )
 
     [void]$script:visited.Add($path)
-    $tokens = $null
-    $errors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
-    if ($errors.Count -gt 0) {
-        throw "$path の読み取りに失敗しました: $($errors[0].Message)"
-    }
+    $ast = readScriptAst $path
     $text = [System.IO.File]::ReadAllText($path)
     $body = if ($ast.ParamBlock) { $text.Substring($ast.ParamBlock.Extent.EndOffset) } else { $text }
     $dir = Split-Path $path -Parent
@@ -105,6 +115,22 @@ $guiPath = Join-Path $tebunkoDir "gui.ps1"
 $indexerPath = Join-Path $tebunkoDir "indexer.ps1"
 
 $parts = New-Object System.Collections.Generic.List[string]
+
+# 文字列（単一引用符のヒアストリング）として埋め込む。行の先頭が '@ だと文字列が途中で閉じてしまうため止める
+function addHereString {
+    param (
+        [string]$target,
+        [string]$text,
+        [string]$label
+    )
+
+    if ($text -match "(?m)^'@") {
+        throw "$label に、単一引用符のヒアストリングを閉じてしまう行があります（行の先頭が '@）。"
+    }
+    [void]$parts.Add("$target = @'")
+    [void]$parts.Add($text.TrimEnd("`r", "`n"))
+    [void]$parts.Add("'@")
+}
 
 [void]$parts.Add('# 自動で作る単一 .ps1 版（試験版）。tools\new_single_script.ps1 が組み立てる。手で編集しない。')
 [void]$parts.Add('# 元のソースは scripts\ 配下（zip 版と共通）。設計は docs/design/structure/single-script.md')
@@ -126,14 +152,8 @@ function addXamlEntries {
     )
 
     foreach ($file in (Get-ChildItem -LiteralPath $dir -Filter *.xaml | Sort-Object Name)) {
-        $content = [System.IO.File]::ReadAllText($file.FullName)
-        if ($content -match "(?m)^'@") {
-            throw "$($file.FullName) に、単一引用符のヒアストリングを閉じてしまう行があります（行の先頭が '@）。"
-        }
         $keyExpr = '[System.IO.Path]::GetFullPath("$PSScriptRoot\' + $keyPrefix + $file.Name + '")'
-        [void]$parts.Add("`${bundledXaml}[$keyExpr] = @'")
-        [void]$parts.Add($content.TrimEnd("`r", "`n"))
-        [void]$parts.Add("'@")
+        addHereString "`${bundledXaml}[$keyExpr]" ([System.IO.File]::ReadAllText($file.FullName)) $file.FullName
     }
 }
 
@@ -166,12 +186,7 @@ $bundledPartEntries = @(
 foreach ($partEntry in $bundledPartEntries) {
     $partText = inlinePart $partEntry.Paths
     $script:partVisited[$partEntry.Name] = [System.Collections.Generic.HashSet[string]]$script:visited
-    if ($partText -match "(?m)^'@") {
-        throw "単一 .ps1 の部品（$($partEntry.Name)）に、単一引用符のヒアストリングを閉じてしまう行があります（行の先頭が '@）。"
-    }
-    [void]$parts.Add("`${bundledParts}['$($partEntry.Name)'] = @'")
-    [void]$parts.Add($partText.TrimEnd("`r", "`n"))
-    [void]$parts.Add("'@")
+    addHereString "`${bundledParts}['$($partEntry.Name)']" $partText "部品（$($partEntry.Name)）"
 }
 [void]$parts.Add('')
 
@@ -223,9 +238,7 @@ if ($combined -match '(?m)^[ \t]*\.\s+"\$(PSScriptRoot|TebunkoDir)\\[^"]+"[ \t]*
 # 4) 起動口（gui.ps1・indexer.ps1）の param の名前が、結合した頭の param にすべてある
 function getEntryParamNames {
     param ([string]$path)
-    $tokens = $null
-    $errors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+    $ast = readScriptAst $path
     if (!$ast.ParamBlock) { return @() }
     return @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
 }
