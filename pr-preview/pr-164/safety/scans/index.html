@@ -1985,7 +1985,7 @@
   <span class="md-ellipsis">
     
   
-    単一ファイルのリリース
+    単一 PowerShell のビルド
   
 
     
@@ -4336,7 +4336,7 @@
 <div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
 <p>署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（<a href="#複数エンジンでの検査-virustotal外部へファイルを送信する">複数エンジンでの検査: VirusTotal（外部へファイルを送信する）</a> の照会に使える）。インストーラー（<code>tebunko-setup-&lt;タグ&gt;.exe</code>）にも同じく来歴の署名を付け、bundle（<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）と SHA256 をリリースに載せる。確かめ方は zip と同じ（<code>gh attestation verify .\tebunko-setup-&lt;タグ&gt;.exe -R hsgwa/tebunko</code>）。</p>
-<p><strong>単一 .ps1 版（試験版）の確認</strong>: 展開せずに動く <code>tebunko-&lt;タグ&gt;.ps1</code>（<a href="../../design/structure/single-script/">単一ファイルのリリース</a>）は、1 本のファイルのため <code>tebunko.cat</code> の対象にしない。公開前の検査は <code>tools/new_single_script.ps1</code> 自身が行う（連結の順・構文・禁止の語・部品の過不足。通らなければ <code>release.yml</code> がそこで止まる）。改ざんの確認は <code>SHA256SUMS.txt</code> に追記した行と、zip・インストーラーと同じ来歴の署名（bundle は <code>tebunko-&lt;タグ&gt;.ps1.sigstore.json</code>）で行う。</p>
+<p><strong>単一 .ps1 版（試験版）の確認</strong>: 展開せずに動く <code>tebunko-&lt;タグ&gt;.ps1</code>（<a href="../../design/structure/single-script/">単一 PowerShell のビルド</a>）は、1 本のファイルのため <code>tebunko.cat</code> の対象にしない。公開前の検査は <code>tools/new_single_script.ps1</code> 自身が行う（連結の順・構文・禁止の語・部品の過不足。通らなければ <code>release.yml</code> がそこで止まる）。改ざんの確認は <code>SHA256SUMS.txt</code> に追記した行と、zip・インストーラーと同じ来歴の署名（bundle は <code>tebunko-&lt;タグ&gt;.ps1.sigstore.json</code>）で行う。</p>
 <div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
 <h2 id="静的解析-psscriptanalyzermicrosoft">静的解析: PSScriptAnalyzer（Microsoft）<a class="headerlink" href="#静的解析-psscriptanalyzermicrosoft" title="Permanent link">&para;</a></h2>

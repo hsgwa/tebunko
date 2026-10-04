@@ -1969,7 +1969,7 @@
   <span class="md-ellipsis">
     
   
-    単一ファイルのリリース
+    単一 PowerShell のビルド
   
 
     
@@ -4258,7 +4258,7 @@
 </tr>
 </tbody>
 </table>
-<p>単一 .ps1 版（試験版）は、<code>tebunko.bat</code> の代わりに <code>.ps1</code> ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は <code>.ps1</code> ファイル自身がある場所を指す。<code>work/</code>・<code>setting.config</code> の既定の置き場所、書き込めないときに <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code> へ逃げる判断（<code>getDataDir</code>）はいずれも zip 版と同じ作りのまま変えていない（<a href="../../design/structure/single-script/">単一ファイルのリリース</a>「実行時の違い」）。</p>
+<p>単一 .ps1 版（試験版）は、<code>tebunko.bat</code> の代わりに <code>.ps1</code> ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は <code>.ps1</code> ファイル自身がある場所を指す。<code>setting.config</code> は <code>.ps1</code> のある場所に置き、書き込めないときは <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code> に置く（<code>getDataDir</code>。zip 版と同じ決め方）。ワークスペースの既定の置き場所（<code>%USERPROFILE%\Documents\tebunko_ws</code>）は、別のフォルダに置いた zip 版と同じ場所になる（<a href="../../design/structure/single-script/">単一 PowerShell のビルド</a>「実行時の違い」）。</p>
 <p>削除（<code>Remove-Item</code>・<code>[System.IO.File]::Delete</code> など）の対象はすべてワークスペース配下（取り込みの作業領域 <code>work/tmp/</code> を含む）、すなわち<strong>本ツールが自分で作ったファイル</strong>である（前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。<code>removeStaleTmpDirs</code>）。クロール対象フォルダ内のファイルを削除する処理は無い。</p>
 <p>［8 設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（<code>Workspace.Entries</code>：<code>content_index</code>・前の版の <code>index</code>・<code>system_index</code>・取り込み一覧・状態・ログ・<code>publish</code>）だけを新しいワークスペースへ移す（<code>moveWorkspace</code>）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ <code>Workspace.Entries</code>）だけを削除する（<code>removeWorkspaceEntries</code>）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。</p>
 <p>前の版のワークスペース（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま取り込み直しを始めるときは、インデクサが <code>system_index\</code>（本ツールが自分で作ったフォルダ）を削除し、<code>system_index_state.tsv</code>（本ツールが自分で作ったファイル）の中身を空にする（<code>clearLegacySystemIndex</code>）。前の版の <code>index\</code> そのものは読まず、削除しない（利用者が消す）。</p>

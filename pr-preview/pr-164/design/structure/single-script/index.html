@@ -27,7 +27,7 @@
     
     
       
-        <title>単一ファイルのリリース - tebunko</title>
+        <title>単一 PowerShell のビルド - tebunko</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#単一ファイルのリリース" class="md-skip">
+        <a href="#単一-powershell-のビルド" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              単一ファイルのリリース
+              単一 PowerShell のビルド
             
           </span>
         </div>
@@ -1862,7 +1862,7 @@
   <span class="md-ellipsis">
     
   
-    単一ファイルのリリース
+    単一 PowerShell のビルド
   
 
     
@@ -1880,7 +1880,7 @@
   <span class="md-ellipsis">
     
   
-    単一ファイルのリリース
+    単一 PowerShell のビルド
   
 
     
@@ -1917,10 +1917,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#しくみ" class="md-nav__link">
+  <a href="#仕組み全体" class="md-nav__link">
     <span class="md-ellipsis">
       
-        しくみ
+        仕組み（全体）
       
     </span>
   </a>
@@ -1928,22 +1928,44 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#結合の規則" class="md-nav__link">
+  <a href="#ビルドのロジック" class="md-nav__link">
     <span class="md-ellipsis">
       
-        結合の規則
+        ビルドのロジック
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="結合の規則">
+    <nav class="md-nav" aria-label="ビルドのロジック">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#畳み込み" class="md-nav__link">
+  <a href="#読み込み行の差し替え" class="md-nav__link">
     <span class="md-ellipsis">
       
-        畳み込み
+        読み込み行の差し替え
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#起動口の-param" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動口の param
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#単一-ps1-の-2-段の形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 の 2 段の形
       
     </span>
   </a>
@@ -1962,10 +1984,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#読み込み口の並び" class="md-nav__link">
+  <a href="#本体の読み込みの順と--part-の分かれ方" class="md-nav__link">
     <span class="md-ellipsis">
       
-        読み込み口の並び
+        本体の読み込みの順と -Part の分かれ方
       
     </span>
   </a>
@@ -1974,6 +1996,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#検査のロジック" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検査のロジック
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1989,32 +2022,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#検査" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        検査
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#配布" class="md-nav__link">
     <span class="md-ellipsis">
       
         配布
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#速さ" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        速さ
       
     </span>
   </a>
@@ -4216,10 +4227,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#しくみ" class="md-nav__link">
+  <a href="#仕組み全体" class="md-nav__link">
     <span class="md-ellipsis">
       
-        しくみ
+        仕組み（全体）
       
     </span>
   </a>
@@ -4227,22 +4238,44 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#結合の規則" class="md-nav__link">
+  <a href="#ビルドのロジック" class="md-nav__link">
     <span class="md-ellipsis">
       
-        結合の規則
+        ビルドのロジック
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="結合の規則">
+    <nav class="md-nav" aria-label="ビルドのロジック">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#畳み込み" class="md-nav__link">
+  <a href="#読み込み行の差し替え" class="md-nav__link">
     <span class="md-ellipsis">
       
-        畳み込み
+        読み込み行の差し替え
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#起動口の-param" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動口の param
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#単一-ps1-の-2-段の形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 の 2 段の形
       
     </span>
   </a>
@@ -4261,10 +4294,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#読み込み口の並び" class="md-nav__link">
+  <a href="#本体の読み込みの順と--part-の分かれ方" class="md-nav__link">
     <span class="md-ellipsis">
       
-        読み込み口の並び
+        本体の読み込みの順と -Part の分かれ方
       
     </span>
   </a>
@@ -4273,6 +4306,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#検査のロジック" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検査のロジック
+      
+    </span>
+  </a>
   
 </li>
       
@@ -4288,32 +4332,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#検査" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        検査
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#配布" class="md-nav__link">
     <span class="md-ellipsis">
       
         配布
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#速さ" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        速さ
       
     </span>
   </a>
@@ -4351,35 +4373,48 @@
   
 
 
-<h1 id="単一ファイルのリリース">単一ファイルのリリース<a class="headerlink" href="#単一ファイルのリリース" title="Permanent link">&para;</a></h1>
-<p>扱うこと: リリースに、展開せずに動く 1 本の <code>.ps1</code>（<code>tebunko-&lt;タグ&gt;.ps1</code>）を zip・インストーラーと並べて載せる機能の設計（作り方・結合の規則・実行時の違い・検査・配布・速さの扱い）。扱わないこと: zip・インストーラーの作り方（<a href="../folders/">配布物と開発用のフォルダ構成</a>）、利用者向けの使い方（<a href="https://github.com/hsgwa/tebunko/blob/main/README.md">README</a>）。先に読むページ: <a href="../folders/">配布物と開発用のフォルダ構成</a>・<a href="../source/">ソースの分け方</a>。</p>
+<h1 id="単一-powershell-のビルド">単一 PowerShell のビルド<a class="headerlink" href="#単一-powershell-のビルド" title="Permanent link">&para;</a></h1>
+<p>扱うこと: <code>scripts/</code> のソースから、展開せずに動く 1 本の <code>.ps1</code> を作る仕組み。ビルド（まとめる）と検査（まとめた結果を確かめる）の 2 段に分けて説明する。扱わないこと: zip・インストーラーの作り方（<a href="../folders/">配布物と開発用のフォルダ構成</a>）、利用者向けの使い方（<a href="https://github.com/hsgwa/tebunko/blob/main/README.md">README</a>）。先に読むページ: <a href="../folders/">配布物と開発用のフォルダ構成</a>・<a href="../source/">ソースの分け方</a>。</p>
 <h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
-<p>zip は展開が要り、インストーラーは実行ファイル（.exe）を入れる。展開もインストールもせず、1 本のファイルだけを持ち運んで動かしたい利用者のために、同じ <code>scripts/</code> から機械的に作った 1 本の <code>.ps1</code> を配る。</p>
+<p>zip は展開が要り、インストーラーは実行ファイル（.exe）を入れる。展開もインストールもせず、1 本のファイルだけを持ち運んで動かしたい利用者のために、同じ <code>scripts/</code> から機械的に 1 本の <code>.ps1</code>（<code>tebunko-&lt;タグ&gt;.ps1</code>）を作る。</p>
 <ul>
-<li>ソースは増やさない。<code>scripts/</code> が唯一の元で、1 本版は配布のときに作る。</li>
+<li>ソースは増やさない。<code>scripts/</code> が唯一の元で、1 本の <code>.ps1</code> はビルドのたびに作り直す。</li>
 <li>zip・インストーラーの中身と動きは変えない。</li>
-<li>試験版として並べる。利用者の確かめが済むまで、その位置づけは変えない。</li>
+<li>試験版として zip・インストーラーと並べて配る。利用者の確かめが済むまで、その位置づけは変えない。</li>
 </ul>
-<h2 id="しくみ">しくみ<a class="headerlink" href="#しくみ" title="Permanent link">&para;</a></h2>
-<p>ソースはそのまま、リリースの工程で結合の道具が 1 本にまとめて、zip の隣に載せる。</p>
+<h2 id="仕組み全体">仕組み（全体）<a class="headerlink" href="#仕組み全体" title="Permanent link">&para;</a></h2>
+<p>単一 .ps1 の作成は、ビルドと検査の 2 段である。ビルドは <code>scripts/</code> を 1 本にまとめる。検査は、まとめた結果を確かめる。どちらも <code>tools/new_single_script.ps1</code> が行う。検査に通ったものだけを書き出し、1 つでも失敗したら何も書き出さずに止まる。</p>
 <pre class="mermaid"><code>flowchart LR
-    S["scripts/（元のソース）"] --&gt; Z["zip・インストーラー&lt;br&gt;（これまでどおり）"]
-    S --&gt; T["tools/new_single_script.ps1&lt;br&gt;（結合と検査）"]
-    T --&gt; P["work/release/tebunko-#lt;タグ#gt;.ps1"]
-    Z --&gt; R["GitHub Release"]
-    P --&gt; R</code></pre>
+    S["scripts/（元のソース）"] --&gt; B["ビルド&lt;br&gt;（1 本にまとめる）"]
+    B --&gt; C{"検査 7 項目"}
+    C --&gt;|全部通る| W["work/release/tebunko-#lt;タグ#gt;.ps1 を書き出す"]
+    C --&gt;|1 つでも失敗| X["書き出さずに止まる"]
+    W --&gt; R["GitHub Release&lt;br&gt;（zip・インストーラーと並べる）"]</code></pre>
 <ul>
-<li>結合の道具は <code>tools/new_single_script.ps1</code>。<code>release.yml</code> が、zip の検査のあとに <code>-Version &lt;タグ&gt;</code> で呼ぶ。検査に通らなければ、そこで止まる。</li>
+<li><code>release.yml</code> が、zip の検査のあとに <code>-Version &lt;タグ&gt;</code> を付けて呼ぶ。止まったら、リリースの工程もそこで止まる。</li>
 <li>出力は <code>work/release/</code> に書く（BOM 付き UTF-8・CRLF）。作ったファイルはリポジトリにコミットしない（<code>tests/meta/structure.Tests.ps1</code> の M5 が確かめる）。</li>
-<li>読み込みのたどり方と禁止の語の一覧は <code>tools/script_rules.ps1</code> に集め、<code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code>・<code>tools/check_release_package.ps1</code> と共有する。</li>
+<li>ファイルのたどり方と禁止の語の一覧は <code>tools/script_rules.ps1</code> に集め、<code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code>・<code>tools/check_release_package.ps1</code> と共有する。</li>
 </ul>
-<h2 id="結合の規則">結合の規則<a class="headerlink" href="#結合の規則" title="Permanent link">&para;</a></h2>
-<h3 id="畳み込み">畳み込み<a class="headerlink" href="#畳み込み" title="Permanent link">&para;</a></h3>
+<h2 id="ビルドのロジック">ビルドのロジック<a class="headerlink" href="#ビルドのロジック" title="Permanent link">&para;</a></h2>
+<h3 id="読み込み行の差し替え">読み込み行の差し替え<a class="headerlink" href="#読み込み行の差し替え" title="Permanent link">&para;</a></h3>
+<p><code>scripts/</code> のファイルは、ほかのファイルを <code>. "$PSScriptRoot\..."</code> や <code>. "$TebunkoDir\..."</code> の行で読み込む。ビルドは、この行を、読み込まれるファイルの中身に置き換える。置き換えた中身の中にも読み込み行があれば、同じ規則でさらに置き換える。</p>
+<p>例: <code>lib.ps1</code> の次の行は、<code>settings.ps1</code> の中身に置き換わる。</p>
+<div class="highlight"><pre><span></span><code><span class="p">.</span> <span class="s2">"$PSScriptRoot\core\settings.ps1"</span>
+</code></pre></div>
 <ul>
-<li>読み込み口の行（<code>. "$PSScriptRoot\..."</code> と <code>. "$TebunkoDir\..."</code>）を、相手のファイルの中身（同じ規則で畳み込んだもの）に差し替える。関数の中にある読み込み行も、文字列の差し替えなのでそのまま働く。</li>
-<li>相手が初めて出てきたときだけ中身を入れ、2 回目以降は空にする（済んだファイルを集合で覚える）。</li>
-<li>起動口（<code>gui.ps1</code>・<code>indexer.ps1</code>）は、<code>param</code> ブロックが二重にならないよう、構文木で <code>param</code> を除いた本体だけを取り出す。結合したファイルの頭の <code>param</code>（<code>$Part</code>・<code>$RetryFailed</code>・<code>$Channel</code>）が、起動口の <code>param</code> の名前をすべて持つ。</li>
+<li>同じファイルが 2 回以上読み込まれていたら、中身を入れるのは 1 回目だけにする。2 回目以降の行は空にする（入れ終えたファイルを集合で覚えておく）。</li>
+<li>関数の中にある読み込み行も、行の置き換えなので、そのまま働く。</li>
 </ul>
+<h3 id="起動口の-param">起動口の <code>param</code><a class="headerlink" href="#起動口の-param" title="Permanent link">&para;</a></h3>
+<p>起動口（<code>gui.ps1</code>・<code>indexer.ps1</code>）は、<code>param</code> ブロックを持つことがある。そのまま入れると <code>param</code> が二重になるため、構文木で <code>param</code> を除いた本体だけを取り出して入れる。結合したファイルの頭に、<code>param ($Part, $RetryFailed, $Channel)</code> を 1 つだけ置く。</p>
+<h3 id="単一-ps1-の-2-段の形">単一 .ps1 の 2 段の形<a class="headerlink" href="#単一-ps1-の-2-段の形" title="Permanent link">&para;</a></h3>
+<p>結合した <code>.ps1</code> は、先頭と本体の 2 段でできている。</p>
+<ul>
+<li><strong>先頭</strong>: 別スレッドが読む「部品」の文字列を持つ。部品は <code>lib</code>（検索や設定など、画面を使わない処理）と <code>indexerLib</code>（取り込みの処理）の 2 つ。</li>
+<li><strong>本体</strong>: 起動したスレッドが実行するコード。画面のファイルも <code>lib</code> も入る。</li>
+</ul>
+<p>別スレッドは、本体を読み直さず、先頭の部品の文字列だけを読む。部品には画面のファイルを入れない。画面のクラスを別のランスペースでもう一度コンパイルすると、画面のスレッドの型と別物になるためである（<a href="../classes/">クラスと関数の使い分け</a>）。画面のファイルは本体にだけ入る。<code>lib</code> の中身は、本体にも部品にも入る。本体は画面のスレッドで使い、部品は別スレッドで使うためである。</p>
+<p>例: <code>lib.ps1</code> に <code>ui/</code> のファイルを読み込む行を足すと、<code>lib</code> の部品に画面のファイルが入るので、検査 7 で止まる。</p>
 <h3 id="先頭に入れる変数">先頭に入れる変数<a class="headerlink" href="#先頭に入れる変数" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4412,23 +4447,82 @@
 </tr>
 </tbody>
 </table>
-<p>XAML と部品は、単一引用符のヒアストリングとして埋め込む。中に行頭が <code>'@</code> の行があると途中で閉じるため、結合の道具が見つけたら止める。</p>
-<h3 id="読み込み口の並び">読み込み口の並び<a class="headerlink" href="#読み込み口の並び" title="Permanent link">&para;</a></h3>
-<p>別スレッドは結合した 1 本を読み直さず、埋め込んだ部品の文字列を読む。結合したファイルの本体は、<code>-Part</code>（既定 <code>gui</code>）の値で次の順に分かれる。</p>
+<p>XAML と部品は、単一引用符のヒアストリングとして埋め込む。中に行頭が <code>'@</code> の行があると途中で閉じるため、ビルドが見つけたら止める。</p>
+<h3 id="本体の読み込みの順と--part-の分かれ方">本体の読み込みの順と <code>-Part</code> の分かれ方<a class="headerlink" href="#本体の読み込みの順と--part-の分かれ方" title="Permanent link">&para;</a></h3>
+<p>先頭と本体の境には、目印の行（<code># ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----</code>）を置く。テストはこの行までを切り出して部品を取り出し、<code>getPartLoad</code> を通して読む。本体は次の順に並べる。</p>
 <ol>
-<li><code>ui/startup_error.ps1</code>（起動の失敗の知らせ）、<code>lib.ps1</code> を読む。<code>-Part lib</code> はここで戻る。</li>
-<li><code>indexer/indexer_lib.ps1</code>、<code>indexer/indexer_main.ps1</code> を読む。<code>-Part indexerLib</code> はここで戻る。</li>
-<li><code>-Part indexer</code> は、<code>indexer.ps1</code> の本体を実行する（画面を出さずに取り込みだけ行って終わる）。</li>
-<li>それ以外（既定）は、<code>gui.ps1</code> の本体を実行する（画面を起動する）。</li>
+<li><code>ui/startup_error.ps1</code>（起動の失敗の知らせ）と <code>lib.ps1</code> を読む。</li>
+<li><code>indexer/indexer_lib.ps1</code> と <code>indexer/indexer_main.ps1</code> を読む。</li>
+<li><code>-Part indexer</code> のときは、<code>indexer.ps1</code> の本体を実行する。画面を出さずに取り込みだけ行って終わる。</li>
+<li>それ以外（既定は <code>gui</code>）のときは、<code>gui.ps1</code> の本体を実行する。画面を起動する。</li>
 </ol>
-<p><code>lib</code> と <code>indexerLib</code> の部品は、画面（<code>ui/</code> 配下）のファイルを含まない。画面のクラスを別のランスペースで二重にコンパイルすると、画面のスレッドの型と別物になるため（<a href="../classes/">クラスと関数の使い分け</a>）。</p>
+<p>部品だけを読んで戻る <code>-Part lib</code> のような指定は、本体に無い。</p>
+<h2 id="検査のロジック">検査のロジック<a class="headerlink" href="#検査のロジック" title="Permanent link">&para;</a></h2>
+<p>ビルドの結果を、次の 7 つで確かめる。1 つでも失敗したら止まる。</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>確かめること</th>
+<th>防ぐもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>構文エラーが 0 件である</td>
+<td>まとめ方を誤って、起動しないファイルを配ること</td>
+</tr>
+<tr>
+<td>2</td>
+<td>読み込み口からたどれるファイルが、すべて入っている。読み込み口からたどれない余計なファイルは入っていない</td>
+<td>ファイルの入れ忘れと、関係ないファイルの混入</td>
+</tr>
+<tr>
+<td>3</td>
+<td>読み込み行（<code>$PSScriptRoot</code>・<code>$TebunkoDir</code> の dot-source）が残っていない</td>
+<td>差し替え漏れ。実行時に無いファイルを探して落ちる</td>
+</tr>
+<tr>
+<td>4</td>
+<td>起動口の <code>param</code> の名前が、頭の <code>param</code> にすべてある</td>
+<td>起動の引数を渡せなくなること</td>
+</tr>
+<tr>
+<td>5</td>
+<td>禁止の語（<code>tools/script_rules.ps1</code> の一覧。<code>Invoke-Expression</code>・<code>[ScriptBlock]::Create</code>・<code>FromBase64String</code>・<code>EncodedCommand</code>・<code>ExecutionPolicy Bypass</code> など）が無い</td>
+<td>ウイルス対策ソフトが疑う書き方が混ざること</td>
+</tr>
+<tr>
+<td>6</td>
+<td>版の文字列が、指定した <code>-Version</code> と、コミットの SHA に一致する</td>
+<td>版の表示が違うファイルを配ること</td>
+</tr>
+<tr>
+<td>7</td>
+<td>別スレッド用の部品が、入り口からたどれるファイルと過不足なく一致する。部品が読んだファイルのパスに <code>\ui\</code> を含むものが無い</td>
+<td>部品の入れ忘れ・余計なファイルと、画面のコードが別スレッドに混ざること</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>同じファイルが二重に入ることは、検査ではなくビルドの規則（上の「読み込み行の差し替え」）が防ぐ。</li>
+<li>検査 7 が見るのはパスだけで、ファイルの中身は見ない。パスに <code>\ui\</code> を含む（<code>ui\</code> フォルダの下にある）ファイルは、<code>*_view.ps1</code> でも部品に入れると止まる。</li>
+</ul>
+<p>テストは次のとおり。</p>
+<ul>
+<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）。</li>
+<li><code>tests/meta/structure.Tests.ps1</code> … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・<code>${bundledScriptPath}</code> を dot-source や呼び出しに使わない・トップレベルの <code>trap</code>／<code>exit</code> の形・作った 1 本をコミットしない）。</li>
+<li><code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code> … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。</li>
+<li>画面の自動テスト（<code>Gui</code> タグ）… 環境変数 <code>TEBUNKO_GUI_SINGLE=1</code> で、zip 版の代わりに単一 .ps1 版を組み立てて同じ場面を流す。CI の <code>gui-smoke</code> は、S8 で単一 .ps1 版の起動・検索・閉じるを流す。</li>
+</ul>
 <h2 id="実行時の違い">実行時の違い<a class="headerlink" href="#実行時の違い" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>項目</th>
 <th>zip 版</th>
-<th>単一ファイル版</th>
+<th>単一 .ps1 版</th>
 </tr>
 </thead>
 <tbody>
@@ -4438,9 +4532,9 @@
 <td><code>.ps1</code> 自身がある場所</td>
 </tr>
 <tr>
-<td>データ（<code>setting.config</code>・<code>work/</code>）</td>
+<td>設定（<code>setting.config</code>）</td>
 <td>根フォルダ。書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>（<code>getDataDir</code>）</td>
-<td>同じ。根フォルダが <code>.ps1</code> の場所になるだけ</td>
+<td>同じ決め方。根フォルダが <code>.ps1</code> のある場所になる</td>
 </tr>
 <tr>
 <td>版の表示</td>
@@ -4475,47 +4569,29 @@
 </tbody>
 </table>
 <ul>
-<li>多重起動の判定の鍵（<code>getFolderKey</code>）は、<code>.ps1</code> の隣のフォルダから作る。同じフォルダに zip 版を並べて置いても、後から起動した方が窓を作らずに終わる。</li>
-<li>単一ファイル版は、自分自身の印（Zone.Identifier）を消さない。動き始めたあとに消しても起動には効かず、EDR からは防御の回避に見えるため。</li>
+<li>設定は、起動した版のフォルダごとに別になる。zip 版と単一 .ps1 版を別のフォルダに置くと、設定は共有されない。</li>
+<li>作業フォルダ（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）は、設定の <code>workspaceFolder</code> が空なら、別のフォルダに置いた zip 版と単一 .ps1 版で同じ場所を使う。インデックスも共有される。取り込みは作業フォルダごとに 1 つずつしか動かない。</li>
+<li>窓の多重起動の判定の鍵（<code>getFolderKey</code>）は、<code>.ps1</code> のあるフォルダから作る。同じフォルダに zip 版を並べて置くと、後から起動した方が窓を作らずに終わる。別のフォルダなら、両方が起動できる。</li>
+<li>単一 .ps1 版は、自分自身の印（Zone.Identifier）を消さない。動き始めたあとに消しても起動には効かず、EDR からは防御の回避に見えるため。</li>
 <li>実行ポリシーも指定しない。右クリック［PowerShell で実行］、または呼び出した側の指定のまま動く。</li>
 <li>zip 版・インストーラー版との間で、設定とインデックスを自動で引き継ぐことはしない。移すには、［エクスポート…］と［インポート…］を使う。</li>
-</ul>
-<h2 id="検査">検査<a class="headerlink" href="#検査" title="Permanent link">&para;</a></h2>
-<p>結合の道具は、作った結果を次の 7 つで確かめ、1 つでも失敗すれば書き出さずに止まる。</p>
-<ol>
-<li>構文エラーが 0 件。</li>
-<li>読み込み口からたどれるファイルが、もれなく・重複なく 1 回ずつ入っている。</li>
-<li>読み込み行（<code>$PSScriptRoot</code>・<code>$TebunkoDir</code> の dot-source）が残っていない。</li>
-<li>起動口の <code>param</code> の名前が、頭の <code>param</code> にすべてある。</li>
-<li>禁止の語（<code>tools/script_rules.ps1</code> の一覧。<code>Invoke-Expression</code>・<code>[ScriptBlock]::Create</code>・<code>FromBase64String</code>・<code>EncodedCommand</code>・<code>ExecutionPolicy Bypass</code> など）が無い。</li>
-<li>版の文字列が、引数の <code>-Version</code> と SHA に一致する。</li>
-<li>部品が、入り口からたどれるファイルと過不足なく一致し、<code>ui/</code> のファイルを含まない。</li>
-</ol>
-<p>テストは次のとおり。</p>
-<ul>
-<li><code>tests/tools/new_single_script.Tests.ps1</code> … 結合の道具そのもの（連結の順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）。</li>
-<li><code>tests/meta/structure.Tests.ps1</code> … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・<code>${bundledScriptPath}</code> を dot-source や呼び出しに使わない・トップレベルの <code>trap</code>／<code>exit</code> の形・作った 1 本をコミットしない）。</li>
-<li><code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code> … 層の決まりと禁止の語を、結合の元のソースに対して確かめる。</li>
-<li>画面の自動テスト（<code>Gui</code> タグ）… 環境変数 <code>TEBUNKO_GUI_SINGLE=1</code> で、zip 版の代わりに単一ファイル版を組み立てて同じ場面を流す。CI の <code>gui-smoke</code> は、S8 で単一ファイル版の起動・検索・閉じるを流す。</li>
 </ul>
 <h2 id="配布">配布<a class="headerlink" href="#配布" title="Permanent link">&para;</a></h2>
 <p><code>release.yml</code> が、タグの push（または手動の試運転）で次を行う。</p>
 <ol>
 <li>zip・インストーラーを作って検査する（これまでどおり）。</li>
 <li>結合の道具で <code>tebunko-&lt;タグ&gt;.ps1</code> を作る。</li>
-<li><code>SHA256SUMS.txt</code> に、単一ファイル版の SHA256 を 1 行追記する。<code>tebunko.cat</code> は <code>.ps1</code> を対象にしないため、改ざんの確認は <code>SHA256SUMS.txt</code> と来歴の署名で行う。</li>
+<li><code>SHA256SUMS.txt</code> に、単一 .ps1 版の SHA256 を 1 行追記する。<code>tebunko.cat</code> は <code>.ps1</code> を対象にしないため、改ざんの確認は <code>SHA256SUMS.txt</code> と来歴の署名で行う。</li>
 <li>来歴（Sigstore）に署名し、bundle（<code>tebunko-&lt;タグ&gt;.ps1.sigstore.json</code>）を作る（タグの push のときだけ）。</li>
 <li>GitHub Release に、zip・インストーラーと並べて載せ、説明に SHA256 と試験版であることを書く。</li>
 </ol>
 <p>zip・インストーラーの中身は変えない。検査の詳細は<a href="../../../safety/scans/">第三者のツールによる検査結果</a>、開示する内容は<a href="../../../safety/disclosure/">開示事項</a>にある。</p>
-<h2 id="速さ">速さ<a class="headerlink" href="#速さ" title="Permanent link">&para;</a></h2>
-<p>既存の速さの回帰テスト（<a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a>・<a href="../../testing/perf/">性能とリソースの計測</a>）は、zip 版の構成での検索と取り込みを測るもので、単一ファイル版の速さと起動の時間は測っていない。単一ファイル版の速さの計測は、まだ足していない。</p>
 <h2 id="制約">制約<a class="headerlink" href="#制約" title="Permanent link">&para;</a></h2>
+<p>単一 .ps1 版で新しく生じるものだけを書く。</p>
 <ul>
-<li>単一ファイル版は約 2MB の 1 本のファイルで、起動のたびに全体を構文解析する。起動の時間は zip 版と比べて測っていない（上の「速さ」）。</li>
 <li>アイコン（<code>tebunko.ico</code>）を埋め込まない。窓とバージョン情報は既定のアイコンになる。</li>
 <li><code>tebunko.bat</code> が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。</li>
-<li>組み込んだ部品は、画面（<code>ui/</code>）のファイルを含められない。画面のファイルを <code>lib</code>・<code>indexerLib</code> から読み込むと、結合の検査で止まる。</li>
+<li><code>lib.ps1</code> の読み込みの失敗は、起動の失敗の知らせ（<code>reportStartupFailure</code>）に届かず、PowerShell の窓に出る。</li>
 <li><code>tebunko.cat</code>（カタログ）の対象にならない。</li>
 </ul>
 
