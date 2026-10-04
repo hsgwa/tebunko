@@ -22,7 +22,8 @@ function showSplash {
         } else {
             [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($true)))
         }
-        $stream = New-Object System.IO.MemoryStream([System.Text.Encoding]::UTF8.GetBytes($text))
+        # 配列は ,（単項）で 1 つの引数として渡す。付けないと New-Object が要素ごとの引数に展開して失敗し、下の catch で黙って握りつぶされる
+        $stream = New-Object System.IO.MemoryStream -ArgumentList (,[System.Text.Encoding]::UTF8.GetBytes($text))
         try {
             $script:splash = [System.Windows.Markup.XamlReader]::Load($stream)
         } finally {
