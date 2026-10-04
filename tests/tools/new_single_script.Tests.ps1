@@ -90,6 +90,14 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
         $headerNames | Should -Contain "Channel"
     }
 
+    It "本体は、起動の失敗の文言（startup_error_view）、知らせ方（startup_error）、lib の順に並ぶ（gui.ps1 の先頭と同じ順）" {
+        $body = $text.Substring($text.IndexOf('# ---- 本体（ここより上は'))
+        $view = $body.IndexOf('function getStartupErrorMessage')
+        $report = $body.IndexOf('function reportStartupFailure')
+        $view | Should -BeGreaterThan -1
+        $report | Should -BeGreaterThan $view
+    }
+
     It "禁止の語が無い" {
         (findBannedCode $text) | Should -Be ""
     }

@@ -26,10 +26,13 @@ Describe "showSplash" -Tag Gui {
     }
 
     It "単一 .ps1 版のように、xaml が文字列で埋め込まれていても窓を出せる" {
-        $fullPath = [System.IO.Path]::GetFullPath($xamlPath)
-        $text = [System.IO.File]::ReadAllText($fullPath, (New-Object System.Text.UTF8Encoding($true)))
+        # 実在しないパスを鍵にする（ファイルから読む経路では出せない）。埋め込みの表から引けたときだけ窓が出る
+        $fakePath = Join-Path $TestDrive "embedded\..\embedded\splash.xaml"
+        $fullPath = [System.IO.Path]::GetFullPath($fakePath)
+        Test-Path -LiteralPath $fullPath | Should -BeFalse
+        $text = [System.IO.File]::ReadAllText($xamlPath, (New-Object System.Text.UTF8Encoding($true)))
         $bundledXaml = @{ $fullPath = $text }
-        $window = showSplash "$rootDir\scripts\tebunko\xaml\..\xaml\splash.xaml"
+        $window = showSplash $fakePath
         $window | Should -Not -BeNullOrEmpty
         $window.IsVisible | Should -BeTrue
     }

@@ -72,7 +72,7 @@ XAML と部品は、単一引用符のヒアストリングとして埋め込む
 
 先頭と本体の境には、目印の行（`# ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----`）を置く。テストはこの行までを切り出して部品を取り出し、`getPartLoad` を通して読む。本体は次の順に並べる。
 
-1. `ui/startup_error.ps1`（起動の失敗の知らせ）と `lib.ps1` を読む。
+1. `ui/startup_error_view.ps1`（起動の失敗の文言）、`ui/startup_error.ps1`（知らせ方）、`lib.ps1` の順に読む（`gui.ps1` の先頭と同じ順）。
 2. `indexer/indexer_lib.ps1` と `indexer/indexer_main.ps1` を読む。
 3. `-Part indexer` のときは、`indexer.ps1` の本体を実行する。画面を出さずに取り込みだけ行って終わる。
 4. それ以外（既定は `gui`）のときは、`gui.ps1` の本体を実行する。画面を起動する。
@@ -102,6 +102,7 @@ XAML と部品は、単一引用符のヒアストリングとして埋め込む
 - `tests/meta/structure.Tests.ps1` … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・`${bundledScriptPath}` を dot-source や呼び出しに使わない・トップレベルの `trap`／`exit` の形・作った 1 本をコミットしない）。
 - `tests/meta/layers.Tests.ps1`・`tests/meta/safety.Tests.ps1` … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。
 - 画面の自動テスト（`Gui` タグ）… 環境変数 `TEBUNKO_GUI_SINGLE=1` で、zip 版の代わりに単一 .ps1 版を組み立てて同じ場面を流す。CI の `gui-smoke` は、S8 で単一 .ps1 版の起動・検索・閉じるを流す。
+
 ## 実行時の違い
 
 | 項目 | zip 版 | 単一 .ps1 版 |

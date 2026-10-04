@@ -200,6 +200,7 @@ $bodyMarker = '# ---- 本体（ここより上は、別スレッドが読む部�
 # 別スレッドは、この下の本体ではなく、上で埋め込んだ部品（${bundledParts}）を読む。ここから下は、実行するプロセスの本体だけ。
 # -Part indexer は、画面を出さずにインデックス作成だけ行って終わる。そうでなければ（既定）画面を起動する
 [void]$parts.Add($bodyMarker)
+[void]$parts.Add((inlineFile (Join-Path $tebunkoDir "ui\startup_error_view.ps1")))
 [void]$parts.Add((inlineFile (Join-Path $tebunkoDir "ui\startup_error.ps1")))
 [void]$parts.Add((inlineFile (Join-Path $tebunkoDir "lib.ps1")))
 [void]$parts.Add((inlineFile (Join-Path $tebunkoDir "indexer\indexer_lib.ps1")))

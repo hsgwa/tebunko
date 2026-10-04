@@ -1,7 +1,7 @@
 ﻿# 起動そのものに失敗したとき（Add-Type・読み込み・画面の組み立てで例外）の知らせ方。
 # gui.ps1 が try で囲み、失敗したら reportStartupFailure を呼んで終了コードを受け取る。
 # app_host.ps1 を読み込む前（writeErrorLog がまだ使えない）に起きた失敗にも対応するため、
-# 文言は startup_error_view.ps1（gui.ps1 が先に読み込む）。gui.ps1 の読み込みの一番最初（Add-Type より前）に、ここだけを読み込む。
+# 文言は startup_error_view.ps1（gui.ps1 が先に読み込む）。gui.ps1 の読み込みの一番最初（Add-Type より前）に、startup_error_view.ps1 に続けてここを読み込む。
 
 ${appTitle} = "tebunko"
 
