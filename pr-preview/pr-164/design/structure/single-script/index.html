@@ -4451,7 +4451,7 @@
 <h3 id="本体の読み込みの順と--part-の分かれ方">本体の読み込みの順と <code>-Part</code> の分かれ方<a class="headerlink" href="#本体の読み込みの順と--part-の分かれ方" title="Permanent link">&para;</a></h3>
 <p>先頭と本体の境には、目印の行（<code># ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----</code>）を置く。テストはこの行までを切り出して部品を取り出し、<code>getPartLoad</code> を通して読む。本体は次の順に並べる。</p>
 <ol>
-<li><code>ui/startup_error.ps1</code>（起動の失敗の知らせ）と <code>lib.ps1</code> を読む。</li>
+<li><code>ui/startup_error_view.ps1</code>（起動の失敗の文言）、<code>ui/startup_error.ps1</code>（知らせ方）、<code>lib.ps1</code> の順に読む（<code>gui.ps1</code> の先頭と同じ順）。</li>
 <li><code>indexer/indexer_lib.ps1</code> と <code>indexer/indexer_main.ps1</code> を読む。</li>
 <li><code>-Part indexer</code> のときは、<code>indexer.ps1</code> の本体を実行する。画面を出さずに取り込みだけ行って終わる。</li>
 <li>それ以外（既定は <code>gui</code>）のときは、<code>gui.ps1</code> の本体を実行する。画面を起動する。</li>
