@@ -8,6 +8,7 @@
 # ランナーには Office が無いので、Excel・Word・PowerPoint を使う取り込み（.xlsx・.doc・.ppt）は測らない。
 # 入力しながらの検索（入力 typing が 0 でないとき）は、語を typing_min_length 文字目から 1 文字ずつ、決まった間隔で検索の司令のスレッドへ送って測る。
 # ランナーは手元の PC と条件が違う（コア数、Defender の設定。Windows Search も無いので高速検索は使わない）。比べるときは、このワークフローで測った数字どうしで比べる。
+# 起動と終了の速さ（入力 startup が 0 でないとき）は、上の計測の代わりに、zip 版と単一 .ps1 版を同じランナーで交互に測って中央値を比べる（job startup）。
 # run の中は ASCII だけで書く（Windows PowerShell 5.1 は BOM の無いスクリプトを ANSI として読むため。日本語は計測スクリプトの側で出力する）。
 name: perf
 
@@ -41,6 +42,11 @@ on:
         type: choice
         options: ["3", "1"]
         default: "3"
+      startup:
+        description: 起動と終了の速さを zip 版と単一 .ps1 版で測る回数（0 は測らない。0 でないときは、上の計測の代わりにこれだけを測る）
+        type: choice
+        options: ["0", "5"]
+        default: "0"
 
 permissions:
   contents: read
@@ -55,7 +61,48 @@ env:
   PERFDATA_SHA: 2d6c7a60ed9ae9949cc76f8ff00762d45707ee3a
 
 jobs:
+  # 起動と終了の速さ（入力 startup が 0 でないとき）。zip 版と単一 .ps1 版を交互に測って比べる（tools/perf/measure_startup.ps1）
+  startup:
+    if: ${{ inputs.startup != '0' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: 計測対象のコードをチェックアウトする
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          path: target
+          persist-credentials: false
+
+      - name: 起動と終了を測る
+        shell: powershell
+        env:
+          RUNS: ${{ inputs.startup }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "startup"
+          & .\target\tools\perf\measure_startup.ps1 -Work (Join-Path $work "work") -Out (Join-Path $work "result") -Runs ([int]$env:RUNS)
+
+      - name: 結果を Summary に書き出す
+        if: always()
+        shell: powershell
+        run: |
+          $summary = Join-Path $env:RUNNER_TEMP "startup\result\summary.md"
+          if (Test-Path -LiteralPath $summary) {
+            [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, [System.IO.File]::ReadAllText($summary, [System.Text.Encoding]::UTF8), (New-Object System.Text.UTF8Encoding($false)))
+          }
+
+      - name: 結果を artifact にアップロードする
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: startup-${{ github.run_id }}
+          path: ${{ runner.temp }}/startup/result
+          retention-days: 90
+          if-no-files-found: ignore
+
   perf:
+    if: ${{ inputs.startup == '0' }}
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
