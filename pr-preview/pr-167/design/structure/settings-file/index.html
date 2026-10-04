@@ -4340,8 +4340,25 @@
 </table>
 <h2 id="前の版との互換">前の版との互換<a class="headerlink" href="#前の版との互換" title="Permanent link">&para;</a></h2>
 <p>前の版が作った <code>setting.config</code> を、新しい版がそのまま読めることを、見本（golden）で確かめる（テストは <code>tests/tebunko/core/settings_compat</code>。<a href="../../testing/unit-index/">単体テスト（インデックスと検索）</a> にも一覧がある）。見本は <code>tests/testdata/compat/settings/&lt;見本の名前&gt;/</code>（<code>setting.config</code>・<code>expected.json</code>。作り方は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a> の「前の版のファイル（<code>compat\</code>）」）に置く。</p>
-<p>上の「形式」の表のキーの名前・型を変える、JSON 以外の形式にするなど、<code>setting.config</code> の読み方を変える PR は、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。</p>
-<p>見本は<strong>足すだけ</strong>で、既にある見本を変える・消すのはタイトルに <code>!</code> を付けた PR だけができる（<code>tools/check_compat_golden.ps1</code>。CI の <code>pr-title</code> が確かめる）。</p>
+<p><strong>固定するもの</strong>: 上の「形式」の表にあるキーの名前・型・既定値と、<code>getTargetFolders</code>・<code>readIndexSources</code>・<code>readSearchExcludes</code>・<code>readSearchOption</code>・<code>readOpenMode</code>・<code>getWorkDir</code> が返す値の形（<code>expected.json</code> の <code>functions</code>）。<strong>固定しないもの</strong>: JSON のキーの並び順・空白、画面に出さない内部の実装。</p>
+<p>キーや一覧項目（<code>targetFolders</code> など）を足す、上の表の読み方を変える、JSON 以外の形式にするなど、<code>setting.config</code> の読み方を変える PR は、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。</p>
+<p>見本は<strong>足すだけ</strong>で、既にある見本を変える・消すのはタイトルに <code>!</code> を付けた PR だけができる（<code>tools/check_compat_golden.ps1</code>。CI の <code>pr-title</code> が確かめる）。<code>!</code> の PR が見本を消したときは、どれを・どの PR で・なぜ消したかを次の表に 1 行残す。</p>
+<table>
+<thead>
+<tr>
+<th>消した見本</th>
+<th>PR</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>（まだ無し）</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
 
 
 
