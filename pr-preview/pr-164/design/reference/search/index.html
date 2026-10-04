@@ -4037,6 +4037,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        高速検索（Windows Search）の状態（tebunko/search/windows_search.ps1・fast_search.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#スレッドとプールsharedcoreworker_poolps1tebunkosearchsearch_serviceps1tebunkoindexerindexing_sessionps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4141,6 +4152,17 @@
     <span class="md-ellipsis">
       
         検索（tebunko/search/search_query.ps1・pack_search.ps1・search_run.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        高速検索（Windows Search）の状態（tebunko/search/windows_search.ps1・fast_search.ps1）
       
     </span>
   </a>
@@ -4407,6 +4429,42 @@
 <td>1 ワード分の <code>【検索文字列　X】 N 件</code>・見出し行・各行・空行を書き出す</td>
 <td>同上</td>
 <td>検索・画面</td>
+</tr>
+</tbody>
+</table>
+<h2 id="高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1">高速検索（Windows Search）の状態（<code>tebunko/search/windows_search.ps1</code>・<code>fast_search.ps1</code>）<a class="headerlink" href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" title="Permanent link">&para;</a></h2>
+<p>詳細は <a href="../../search/fast-search/">高速検索（Windows Search）</a>。</p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>openWindowsSearch</code></td>
+<td>–</td>
+<td><code>OleDbConnection</code> / <code>$null</code></td>
+<td>Windows Search への接続を開く（開けなければ <code>$null</code>）</td>
+<td>getWindowsSearchState, getSystemIndexProgress, 検索（高速検索）</td>
+</tr>
+<tr>
+<td><code>getWindowsSearchState</code></td>
+<td>systemRoot（既定 <code>$workspace.SystemIndexDir</code>）, workspaceDir, connection</td>
+<td>string（<code>NoFolder</code> / <code>NoConnection</code> / <code>NotInScope</code> / <code>NotYet</code> / <code>Ok</code>）</td>
+<td>高速検索に使えるかと、使えない理由。<code>system_index</code> のフォルダの有無・Windows Search への接続・ワークスペースが索引の対象かを順に確かめる</td>
+<td>画面（一覧の「高速検索」列）、testWindowsSearch</td>
+</tr>
+<tr>
+<td><code>getSystemIndexProgress</code></td>
+<td>query（既定 <code>$null</code> で自分で問い合わせる）, indexRoot, systemRoot, statePath, connection</td>
+<td><code>@{Folders; Waiting; ContentIndexed; ByIndex}</code> / <code>$null</code></td>
+<td>システムインデックスが Windows Search にどこまで反映されたかを数える。<code>ByIndex</code> はインデックス名 → <code>@{Folders; Waiting}</code> の辞書（OrdinalIgnoreCase）。状態ファイルを読めない・問い合わせられないときは <code>$null</code></td>
+<td>画面（一覧の「高速検索」列）</td>
 </tr>
 </tbody>
 </table>

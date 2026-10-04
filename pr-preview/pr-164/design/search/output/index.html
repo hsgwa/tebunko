@@ -4224,6 +4224,11 @@
 <td>コメント</td>
 </tr>
 <tr>
+<td><code>売上[ヘッダー・フッター]</code></td>
+<td><code>[シート]売上</code></td>
+<td>ヘッダー・フッター</td>
+</tr>
+<tr>
 <td><code>ページ003</code>（Word）</td>
 <td><code>3 ページ（目安）</code></td>
 <td>本文</td>
@@ -4267,7 +4272,7 @@
 </table>
 <ul>
 <li>Word のページは、Word が保存したときのページ区切りから数えた目安のため「（目安）」を付ける（<a href="../../indexing/word/">Word</a>・<a href="../../indexing/known-issues/#word-の注意点既知の問題">既知の問題</a>）。</li>
-<li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../../indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。</li>
+<li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../../indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。Excel のヘッダー・フッターは、該当行が文字だけ（セル番地の列は無い。行番号はその場所の中の何行目か）。</li>
 <li>シート名にタブ・改行が入っている場合（Excel は付けられる）は、列・行が分かれないようスペースにする。</li>
 <li><strong>行番号</strong> は場所の中の行番号（<code>searchPackIndex</code> の <code>LineNumber</code>。元の TSV の行番号と同じ）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。</li>
 <li><strong>該当行</strong> は、結果をすべて選択して Excel に貼り付けたとき、5 列目以降に元の列の順（5 列目 = A 列）でセルが並ぶように出力する。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。</li>

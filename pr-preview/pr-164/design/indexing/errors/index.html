@@ -4411,6 +4411,16 @@
 <td>Officeが保存した一時ファイル（変換した <code>.docx</code>・<code>.pptx</code>、<a href="../excel/">Excel</a> のテキスト保存）まで透過暗号化の製品が暗号化した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
 <td>同上</td>
 </tr>
+<tr>
+<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td>ワークスペースのパス（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に <code>[</code> <code>]</code> が含まれ、Excel が保存できない（<code>selectTmpDir</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）</td>
+<td>ワークスペースのフォルダ名・その親フォルダ名から <code>[</code> <code>]</code> を外す</td>
+</tr>
+<tr>
+<td><code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td>ワークスペースのパスが長く、Office が開けない（<code>selectTmpDir</code>）</td>
+<td>ワークスペースをより浅い場所に移す</td>
+</tr>
 </tbody>
 </table>
 <p><strong>(2) 例外から <code>describeIngestError</code> が言い換えるもの</strong>（判定条件は <a href="../office-apps/#失敗の原因describeingesterror">失敗の原因</a>）</p>
@@ -4532,11 +4542,11 @@
 </tr>
 <tr>
 <td><code>図形・コメントを読み取れませんでした: &lt;メッセージ&gt;</code></td>
-<td>新形式（ZIP）のブックの図形・コメントを読めなかった（ZIP・XML が壊れている等。<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。セルの値は取り込む（図形・コメントの文字は検索できない）</td>
+<td>新形式（ZIP）のブックの図形・コメントを読めなかった（ZIP・XML が壊れている等。<a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。セルの値は取り込む（図形・コメント・ヘッダー・フッターの文字は検索できない）</td>
 </tr>
 <tr>
-<td><code>グラフ・SmartArt を読み取れませんでした: &lt;部品名&gt;</code></td>
-<td>図形の中の 1 つのグラフ・SmartArt の部品（<code>xl/charts/chartN.xml</code>・<code>xl/diagrams/dataN.xml</code>）を読めなかった（XML が壊れている、「サイズの上限」を超える等。<a href="../excel/#グラフsmartart-の読み取り">グラフ・SmartArt の読み取り</a>）。そのグラフ・SmartArt だけを空にし、同じ図形の中のほかの文字・ほかの図形・コメント・セルの値は取り込む</td>
+<td><code>一部を読み取れませんでした: &lt;部品名&gt;</code></td>
+<td>1 つの部品を読めなかった（XML が壊れている、「サイズの上限」を超える等）。部品は、図形の中の 1 つのグラフ・SmartArt（<code>xl/charts/chartN.xml</code>・<code>xl/diagrams/dataN.xml</code>。<a href="../excel/#グラフsmartart-の読み取り">グラフ・SmartArt の読み取り</a>）か、シートのヘッダー・フッター（<code>xl/worksheets/sheetN.xml</code>。<a href="../excel/#ヘッダーフッターの読み取り">ヘッダー・フッターの読み取り</a>）。その部品だけを空にし、ほかの文字・図形・コメント・セルの値は取り込む</td>
 </tr>
 <tr>
 <td><code>予備の読み取りに失敗しました: &lt;元のメッセージ&gt;</code></td>
@@ -4560,7 +4570,11 @@
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>
-<td>終了時に <code>%TEMP%\tebunko\&lt;PID&gt;</code> または <code>work/publish/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+<td>終了時に作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）または <code>work/publish/&lt;PID&gt;</code> を削除できなかった。次回のインデックス作成時に削除する</td>
+</tr>
+<tr>
+<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code> / <code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。取り込みをすべてスキップします。</code></td>
+<td>インデックス作成の始め（<code>initTmpDir</code>）に、作業フォルダ（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）を置けないと分かった（<code>selectTmpDir</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めこの回のファイルをすべてスキップし、ファイルごとに上の (1) のメッセージで失敗にする</td>
 </tr>
 <tr>
 <td><code>画面からの返事が 60 分ありませんでした。インデックス作成を取りやめます。</code></td>

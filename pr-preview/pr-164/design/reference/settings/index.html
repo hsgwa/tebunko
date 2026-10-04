@@ -4388,6 +4388,14 @@
 <td>インデックス作成（<code>indexer_run.ps1</code>・<code>index_store.ps1</code>・<code>pack_store.ps1</code>・<code>source_map.ps1</code>）</td>
 </tr>
 <tr>
+<td><code>testNotContentIndexed</code></td>
+<td>path</td>
+<td>bool</td>
+<td>フォルダ（またはファイル）に「内容のインデックスを作成しない」属性が付いているか調べる。無ければ <code>$false</code></td>
+<td>同上</td>
+<td><code>newWorkerTmpDir</code>（親の作業フォルダに付いていれば、スレッドの作業フォルダにも同じ属性を付ける）</td>
+</tr>
+<tr>
 <td><code>getFolderKey</code></td>
 <td>dir</td>
 <td>string（16 進 64 文字）</td>

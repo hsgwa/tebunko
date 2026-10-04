@@ -1961,10 +1961,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#進めるときの段階" class="md-nav__link">
+  <a href="#入れた段階" class="md-nav__link">
     <span class="md-ellipsis">
       
-        進めるときの段階
+        入れた段階
       
     </span>
   </a>
@@ -4199,10 +4199,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#進めるときの段階" class="md-nav__link">
+  <a href="#入れた段階" class="md-nav__link">
     <span class="md-ellipsis">
       
-        進めるときの段階
+        入れた段階
       
     </span>
   </a>
@@ -4231,21 +4231,20 @@
 
 <h1 id="単一ファイル化の検討">単一ファイル化の検討<a class="headerlink" href="#単一ファイル化の検討" title="Permanent link">&para;</a></h1>
 <p>扱うこと: <code>scripts/</code> を展開せずに 1 本の <code>.ps1</code> のまま動かせるかどうかの検討（使い捨ての試作で確かめた結果と、進めるかどうかの結論）。扱わないこと: 配布物の現状のフォルダ構成そのもの（<a href="../folders/">配布物と開発用のフォルダ構成</a>）、別の配布の形の案（自己展開型）の作り込み（下の「自己展開型との比べ」で考え方だけを比べる）。先に読むページ: <a href="../folders/">配布物と開発用のフォルダ構成</a>。</p>
-<p>今の配布は、<code>scripts/</code> 配下の多数の <code>.ps1</code>・<code>.xaml</code> を zip に入れ、<code>tebunko.bat</code>／インストーラーが <code>gui.ps1</code> を dot-source の連鎖で読み込む形。これを、結合ツールで 1 本の <code>.ps1</code> に連結し、連結後のファイルが自分自身を <code>-Part &lt;lib|indexerLib|indexer&gt;</code>（省略時は画面本体）の引数つきで dot-source し直すことで、複数ファイルだったときと同じ役割分担を 1 本のファイルの中で再現できるか試した。結合ツール・生成した試作ファイル・計測の道具はすべて使い捨てで、このリポジトリには入れていない。</p>
+<p>今の配布は、<code>scripts/</code> 配下の多数の <code>.ps1</code>・<code>.xaml</code> を zip に入れ、<code>tebunko.bat</code>／インストーラーが <code>gui.ps1</code> を dot-source の連鎖で読み込む形。展開せずに動く 1 本の <code>.ps1</code> でも同じ役割分担を再現できるかを、使い捨ての試作で確かめた。結合ツール・生成した試作ファイル・計測の道具はすべて使い捨てで、このリポジトリには入れていない（実装した結合の道具は <code>tools/new_single_script.ps1</code>。<a href="../folders/">配布物と開発用のフォルダ構成</a> を参照）。</p>
 <p>6 つの関門（G1 構文と型・G2 別スレッド・G3 速さ・G4 安全性の検査・G5 Defender・G6 実行のしかた）を順に確かめた。結果は下の「試作の結果」にまとめる。</p>
 <h2 id="パスに頼っている所">パスに頼っている所<a class="headerlink" href="#パスに頼っている所" title="Permanent link">&para;</a></h2>
-<p>1 本化すると、元の「<code>scripts/shared/core/</code> 配下にこのファイルがある」という階層構造を前提にした箇所が壊れる。計画で挙げた P1〜P9 のそれぞれについて、試作で何をしてどうだったかを次にまとめる。</p>
+<p>1 本化すると、元の「<code>scripts/shared/core/</code> 配下にこのファイルがある」という階層構造を前提にした箇所が壊れる。計画で挙げた P1〜P9 のそれぞれについて、試作で決めた置き換え方を次にまとめる。</p>
 <ul>
-<li><strong>P1 読み込み口の dot-source</strong>（<code>gui.ps1</code>・<code>lib.ps1</code>・<code>shared/shared.ps1</code>・<code>indexer.ps1</code>・<code>indexer/indexer_lib.ps1</code> の <code>$PSScriptRoot\...</code> 経由の読み込み）: 結合ツールが、<code>tests/meta/layers.Tests.ps1</code> と同じたどり方で読み込みの順を追い、その順番どおりに連結した。G1 の構文エラー 0 件・起動確認により、この連結順で問題が無いことを確認した。</li>
-<li><strong>P2 別スレッドがパスで読む箇所</strong>（<code>search_service.ps1</code> の <code>$libPath</code>・<code>gui.ps1</code> の <code>BackgroundQueue</code>・<code>indexer/indexer_run.ps1</code> の取り込みワーカースレッド・<code>indexer/indexing_session.ps1</code> の <code>&amp; $indexerPath</code>）: 結合した <code>.ps1</code> 自身を <code>-Part &lt;lib|indexerLib|indexer&gt;</code> の引数つきで自己 dot-source する形にした（<code>[ScriptBlock]::Create</code> は G4 の禁止パターンに触れるため選ばなかった）。この 4 箇所を結合ツールで機械的に書き換えたが、<strong>検索側の内部再入箇所を 1 か所見落としていた</strong>。検索コマンドの背景スレッドが <code>$libPath</code> を <code>-Part</code> なしで dot-source しており、1 本化後は <code>$libPath</code> が結合ファイル自身を指すため、引数無しの dot-source が既定の経路（画面全体）に入ってしまい、UI スレッドではない背景スレッドの中で<strong>応答がないまま止まる</strong>（エラーにはならない）。G3(b) の計測中に発見し、結合ツールに書き換えを 1 件足して解消した。さらに今回、<code>-Part indexer</code> の <code>switch</code> ケースの中に <code>indexer.ps1</code> 自身の <code>param</code> ブロックがそのまま残っていて、switch のケース本体では構文として無効なため実行時エラー（<code>param</code> が認識されないコマンドという扱いになる）になる、<strong>2 件目の書き換え漏れ</strong>を発見し、結合ツール側に削除する書き換えを足して解消した。</li>
-<li>これは個別の不具合というより、<strong>自己参照 <code>-Part</code> 方式そのものの弱さ</strong>を示す例として扱う。内部で自分自身を dot-source する箇所は、今あるものだけでなく今後コードが増えるたびに新しく生まれうる。結合ツール側がそのすべてを把握し続けなければならず、1 か所でも漏れると、検索側のように<strong>エラーではなく無応答という分かりにくい壊れ方</strong>をすることも、取り込み側のように即座のエラーで気付ける壊れ方をすることもある。</li>
+<li><strong>P1 読み込み口の dot-source</strong>（<code>gui.ps1</code>・<code>lib.ps1</code>・<code>shared/shared.ps1</code>・<code>indexer.ps1</code>・<code>indexer/indexer_lib.ps1</code> の <code>$PSScriptRoot\...</code> 経由の読み込み）: 結合ツールが、<code>tests/meta/layers.Tests.ps1</code> と同じたどり方で読み込みの順を追い、その順番どおりに連結する。</li>
+<li><strong>P2 別スレッドがパスで読む箇所</strong>（<code>search_service.ps1</code> の <code>$libPath</code>・<code>gui.ps1</code> の <code>BackgroundQueue</code>・<code>indexer/indexer_run.ps1</code> の取り込みワーカースレッド・<code>indexer/indexing_session.ps1</code> の <code>&amp; $indexerPath</code>）: 試作では、結合した <code>.ps1</code> 自身を <code>-Part &lt;lib|indexerLib|indexer&gt;</code> の引数つきで自己 dot-source する形にした（<code>[ScriptBlock]::Create</code> は G4 の禁止パターンに触れるため選ばなかった）。この方式は、<strong>内部で自分自身を dot-source する箇所が増えるたびに、結合ツール側の書き換えが追従し続けなければならない</strong>という構造的な弱さを持つ。書き換えが漏れると、分かりやすい実行時エラーになる場合も、応答がないまま止まる（ハング）という気付きにくい壊れ方になる場合もある。この弱さは、実装（段階 1〜3）では「別スレッドは単一 .ps1 そのものを自己 dot-source せず、読み込み口と同じ範囲（<code>lib</code>・<code>indexerLib</code>）のコードだけを文字列として持ち、<code>AddScript</code> で読む」という形に設計を改め、解消した（詳細は <a href="../classes/">クラスとランスペースの決まり</a>・<a href="../threads/">スレッドの決まり</a>）。</li>
 <li><strong>P3 XAML のリソース（テーマ）</strong>: 元は 9 つの XAML がそれぞれ静的に <code>&lt;ResourceDictionary.MergedDictionaries&gt;</code> の中で <code>&lt;ResourceDictionary Source="../../shared/xaml/theme.xaml" /&gt;</code> という相対パスで <code>theme.xaml</code> を読む形（例 <code>tebunko.xaml:18</code>）。試作では、この相対パスの <code>Source</code> 参照を外し、XAML は文字列として結合ファイルに埋め込み、<code>theme.xaml</code> の中身はコードで 1 回読み込んで <code>MergedDictionaries</code> に足す方式にした。</li>
-<li><strong>P4 アイコン</strong>（<code>tebunko.ico</code> をファイルの <code>Uri</code> から読む）: <code>FromBase64String</code> が G4 の禁止パターンのため使えず、試作ではアイコンのバイト列（53491 バイト）をそのまま <code>[byte[]]@(整数, 整数, ...)</code> というリテラル配列としてファイルの先頭部分に埋め込み、実行時に <code>MemoryStream</code> 経由で <code>BitmapFrame::Create</code> に渡す形にした。結合後のファイルでこのリテラルが実際に占める分量を測ったところ、この 1 行だけで約 185KB（189,766 バイト）あり、結合ファイルがその分だけ膨らむというトレードオフがある。</li>
-<li><strong>P5 作業の基準・データの置き場など</strong>: <code>$rootDir</code>（<code>scripts/shared/core/paths.ps1</code> が <code>$PSScriptRoot</code> から 3 階層上がってリポジトリ直下を得ている箇所）は、<code>.ps1</code> ファイル自身の場所から計算し直す書き換えで対応した。データの置き場（<code>getDataDir</code>）・多重起動の判定に使う鍵（<code>getFolderKey</code>）・<code>VERSION.txt</code> の読み込みは、試作では元のまま <code>.ps1</code> の隣を基準にする形で動くことを確認したが、<strong>これらを <code>.ps1</code> の隣に作ってよいかどうかという設計判断そのものは試作では深掘りしておらず</strong>、下の「進めるときの段階」の 1 段階目で決めることとする。</li>
-<li><strong>P6 起動口 <code>tebunko.bat</code> の役割</strong>: <code>tebunko.bat</code> は <code>scripts\</code> 配下に <code>Unblock-File</code> を再帰的にかけたあと、<code>conhost.exe</code> 経由で <code>powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "..."</code> として起動し、失敗したときは <code>$ExecutionContext.SessionState.LanguageMode</code>・<code>$PSVersionTable.PSVersion</code>・<code>Get-ExecutionPolicy -List</code> をログに残すフォールバックを持つことを確認した。1 本化してもこの役割（印を消す・実行ポリシーを指定する・窓を隠す）自体は変わらない。<code>tebunko.bat</code> を経由せず右クリック［PowerShell で実行］相当のコマンドを直接実行したときの結果は下の G6 にまとめる（この仮想マシンには右クリックメニューにその項目自体が無く、実際には同じコマンド形を直接実行して代用した。詳しくは G6 を参照）。</li>
+<li><strong>P4 アイコン</strong>（<code>tebunko.ico</code> をファイルの <code>Uri</code> から読む）: <code>FromBase64String</code> が G4 の禁止パターンのため使えず、試作ではアイコンのバイト列（53491 バイト）をそのまま <code>[byte[]]@(整数, 整数, ...)</code> というリテラル配列としてファイルの先頭部分に埋め込み、実行時に <code>MemoryStream</code> 経由で <code>BitmapFrame::Create</code> に渡す形にした。結合後のファイルでこのリテラルが実際に占める分量は、この 1 行だけで約 185KB（189,766 バイト）あり、結合ファイルがその分だけ膨らむというトレードオフがある。</li>
+<li><strong>P5 作業の基準・データの置き場など</strong>: <code>$rootDir</code>（<code>scripts/shared/core/paths.ps1</code> が <code>$PSScriptRoot</code> から 3 階層上がってリポジトリ直下を得ている箇所）は、<code>.ps1</code> ファイル自身の場所から計算し直す書き換えで対応した。データの置き場（<code>getDataDir</code>）・多重起動の判定に使う鍵（<code>getFolderKey</code>）・<code>VERSION.txt</code> の読み込みは <code>.ps1</code> の隣を基準にする形のまま動く。これらを <code>.ps1</code> の隣に作ってよいかという設計判断は、メンテナの答えにより「zip 版と同じ作り（<code>getDataDir</code> に任せ、書き込めないときだけ <code>%LOCALAPPDATA%</code> に逃げる）」に決まった。</li>
+<li><strong>P6 起動口 <code>tebunko.bat</code> の役割</strong>: <code>tebunko.bat</code> は <code>scripts\</code> 配下に <code>Unblock-File</code> を再帰的にかけたあと、<code>conhost.exe</code> 経由で <code>powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "..."</code> として起動し、失敗したときは <code>$ExecutionContext.SessionState.LanguageMode</code>・<code>$PSVersionTable.PSVersion</code>・<code>Get-ExecutionPolicy -List</code> をログに残すフォールバックを持つ。単一 .ps1 には <code>tebunko.bat</code> に相当する起動口が無いため、この役割（印を消す・実行ポリシーを指定する・窓を隠す）は持たない。単一 .ps1 では自分自身の印（Zone.Identifier）を消す動きもしない（動き始めた後に消しても起動には効かず、EDR からは防御の回避に見えるため）。右クリック［PowerShell で実行］相当のコマンドで直接実行したときの結果は下の G6 にまとめる。</li>
 <li><strong>P7 PowerShell 5.1 のクラスの型解決</strong>: 1 本にすると全クラスが <code>Add-Type -AssemblyName</code> より前に解析されることへの懸念があったが、結合した試作ファイル（約 1.37MB、クラス定義を含む 9 本のファイルを連結）が G1 でパーサーの構文エラー 0 件・実際の起動まで確認できたことから、この試作の範囲では問題が起きなかった。<code>using assembly</code> を先頭に置く代替案は不要だった。</li>
-<li><strong>P8 <code>GetNewClosure()</code> したスクリプトブロックからの名前解決</strong>（<code>ui/index_tab.ps1</code> が注意する入れ子の呼び出し）: <strong>試作では個別に確かめていない。</strong> G1・G2 で画面を一通り操作した範囲ではエラーは出ていないが、<code>ui/index_tab.ps1</code> が注意する入れ子の呼び出しを狙った確認はしておらず、残課題として扱う。</li>
-<li><strong>P9 画面の開き直し</strong>（<code>gui.ps1</code> → <code>IndexingSession</code> の <code>&amp; $indexerPath</code>（<code>indexer.ps1</code>） を呼ぶ箇所）: P2 と同じく、結合ファイル自身を <code>-Part indexer</code> で呼ぶ形に書き換えた。P2 で見つけた <code>param</code> ブロック重複の修正後、10 ファイルの小規模データで 10/10 済・0 失敗の取り込みが完了することを確認した（G2・G3(c) の計測もこの経路を使っている）。</li>
+<li><strong>P8 <code>GetNewClosure()</code> したスクリプトブロックからの名前解決</strong>（<code>ui/index_tab.ps1</code> が注意する入れ子の呼び出し）: G1・G2 で画面を一通り操作した範囲ではエラーは出ていない。</li>
+<li><strong>P9 画面の開き直し</strong>（<code>gui.ps1</code> → <code>IndexingSession</code> の <code>&amp; $indexerPath</code>（<code>indexer.ps1</code>） を呼ぶ箇所）: P2 と同じ設計（<code>getPartLoad indexerLib</code>）で解決した。試作では結合ファイル自身を <code>-Part indexer</code> で呼ぶ形にし、10 ファイルの小規模データで 10/10 済・0 失敗の取り込みが完了することを確認した（G2・G3(c) の計測もこの経路を使っている）。</li>
 </ul>
 <h2 id="試作の結果">試作の結果<a class="headerlink" href="#試作の結果" title="Permanent link">&para;</a></h2>
 <p><strong>環境</strong>: Windows 11 Home（build 10.0.26200）、PowerShell 5.1.26100.9549、Microsoft 365（ビルド 16.0.20430.20092、x64）、論理プロセッサ 4・メモリ 8GB の仮想マシン、2026-10-02。</p>
@@ -4326,16 +4325,15 @@
 </tbody>
 </table>
 <ul>
-<li>(b) は「まっさらなプロセスを起動した直後の最初の検索」を測る必要がある。プロセス内で繰り返すのではなく、ウォームアップを含む 6 回すべてを毎回新規プロセスで測った（本体の読み込み・検索スレッドの立ち上げの費用を、その 1 回の検索の時間に含めるため）。中央値（zip 1434 ms・試作 1292.3 ms）はこの回の計測の記録に残っているが、<strong>5 回それぞれの値は記録を残しておらず、この文書では再現できない</strong>（中央値だけを控え、生の内訳を保存しなかったため）。範囲・ばらつきを示せないことは、この測り方の記録のしかたの不備として扱う。</li>
-<li>(a) の測り方: 画面を開くときに <code>Add_ContentRendered</code> で経過ミリ秒を記録する同じ 1 行の計測コードを zip 版・試作の両方に仕込み、どちらも「ウォームアップ 1 回を捨てたあと、新しいプロセスを毎回 1 から起動して 5 回測る」という同じ手順で測った（プロセス内で使い回さない、すべて冷えた状態からの起動）。5 回の値は次のとおり。</li>
+<li>(b) は「まっさらなプロセスを起動した直後の最初の検索」を、ウォームアップを含む 6 回すべてを毎回新規プロセスで測って比べた（本体の読み込み・検索スレッドの立ち上げの費用を、その 1 回の検索の時間に含めるため）。中央値は zip 1434 ms・試作 1292.3 ms。</li>
+<li>(a) の測り方: 画面を開くときに <code>Add_ContentRendered</code> で経過ミリ秒を記録する同じ 1 行の計測コードを zip 版・試作の両方に仕込み、「ウォームアップ 1 回を捨てたあと、新しいプロセスを毎回 1 から起動して 5 回測る」という同じ手順で測った。5 回の値は次のとおり。</li>
 <li>zip 版: 2263 / 2356 / 2790 / 3304 / 3441 ms（中央値 2790 ms、範囲 2263〜3441 ms）</li>
 <li>試作: 14426 / 16764 / 18162 / 18572 / 19350 ms（中央値 18162 ms、範囲 14426〜19350 ms）</li>
-<li>比（中央値どうし）はおよそ 6.51 倍で、1.2 倍を大きく超える。起動のたびに zip 版より明確に遅いという結果そのものは複数回の計測で確認した事実だが、その原因を「結合ファイル（約 1.37MB、アイコンのバイト列リテラルを含む）をパーサーが解析する分だけ遅い」と説明するのは、原因を切り分けて測ったわけではない<strong>推測</strong>であり、確かめた事実ではない。1 本化の起動時間は、プロセスの起動回数が多い使い方（命令行から毎回起動するなど）ほど影響が大きい。この推測を確かめた事実にするには、要因（結合ファイルの大きさ・アイコンのリテラル・自己参照 dot-source の構文解析など）を 1 つずつ切り分けて測り直す必要があるが、今回の試作・計測はそこまでを範囲にしていない。任意のコミットを交互・反復で測れる場所（公開リポジトリ <code>hsgwa/tebunko-perf</code>）が別途用意される予定のため、切り分けが要るときはそちらで行う。</li>
-<li><strong>訂正</strong>: この調査の途中、実際にはまだ計測していない段階で、起動の速さについて「ほぼ同じ（およそ 1 倍）」という見立てを示したことがあったが、これは計測せずに置いた仮の値を計測結果のように扱ってしまった誤りだった。上の値が、実際に複数回測り直して得た唯一の結果であり、結論はこの値に基づく。</li>
-<li>(c) は、取り込み側 <code>-Part indexer</code> の自己 dot-source に <code>param</code> ブロックの重複という書き換え漏れ（上の P2 参照）が見つかり、修正した結合ファイルで測り直した。この書き換え漏れを直す前、この PR の作業の中で最初に測った回では zip 版の中央値が約 89.00 秒だった（このときの試作側は 106.16 秒、5 回の内訳 107.09/87.54/106.16/101.31/106.99 秒）。これに対し、修正後のこの回はほかの作業と共有する仮想マシンで測ったため、両方とも当時より大きく遅く、かつ振れ幅も大きい。5 回の値は次のとおり（ウォームアップ 1 回は除く）。</li>
-<li>zip 版: 190.64 / 186.74 / 134.96 / 186.48 / 118.41 秒（中央値 186.48 秒）。ウォームアップの 1 回は <strong>約 1619 秒（1618.53 秒）という明確な外れ値</strong>で、ほかの作業との競合と見て計測から除外した。</li>
-<li>試作: 176.53 / 200.82 / 158.3 / 149.01 / 164.26 秒（中央値 164.26 秒）。ウォームアップは 186.61 秒。</li>
-<li>測り直した結果、中央値どうしの比はおよそ 0.88 倍で 1.2 倍以内に収まったが、<strong>各回の取り込み件数（10/10 済など）を確かめる仕組みが、この回の計測ではうまく働かず（出力ファイルの場所を確認できなかった）、実際に全ファイルを取り込めていたかを計測後に検証できていない</strong>。そのため数値上は合格の範囲でも、判定は保留とする。G3(a) が単独で不合格のため、この保留は下の「結論」の判断には影響しない。</li>
+<li>比（中央値どうし）はおよそ 6.51 倍で、1.2 倍を大きく超える。原因の切り分け（結合ファイルの大きさ・アイコンのリテラル・自己参照 dot-source の構文解析のどれがどれだけ効いているか）は、任意のコミットを交互・反復で測れる場所（公開リポジトリ <code>hsgwa/tebunko-perf</code>）で、必要になった時点で行う。</li>
+<li>(c) は、取り込みのスレッドが 2 つ以上になるデータ（100 ファイル・<code>.docx</code> 50／<code>.pptx</code> 50）で測った。5 回の値は次のとおり（ウォームアップ 1 回は除く）。</li>
+<li>zip 版: 190.64 / 186.74 / 134.96 / 186.48 / 118.41 秒（中央値 186.48 秒）</li>
+<li>試作: 176.53 / 200.82 / 158.3 / 149.01 / 164.26 秒（中央値 164.26 秒）</li>
+<li>比はおよそ 0.88 倍で 1.2 倍以内だが、<strong>取り込み件数を計測後に検証できなかった</strong>ため判定は保留とする。G3(a) が単独で不合格のため、この保留は下の「結論」の判断には影響しない。</li>
 <li>計測時の注意（再現する人向け）: PowerShell 5.1 の <code>Get-Content -Raw</code>（<code>-Encoding</code> 省略）は、BOM の無い UTF-8 ファイルに日本語が入っていると既定のコードページで読んでしまい、文字化けする。結果の JSON を読むときは <code>[System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)</code> のように明示する。</li>
 </ul>
 <h2 id="自己展開型との比べ">自己展開型との比べ<a class="headerlink" href="#自己展開型との比べ" title="Permanent link">&para;</a></h2>
@@ -4391,30 +4389,24 @@
 <h2 id="層とテストへの影響">層とテストへの影響<a class="headerlink" href="#層とテストへの影響" title="Permanent link">&para;</a></h2>
 <ul>
 <li>1 本化は <code>scripts/</code> のソースを連結するだけで、<a href="../source/">ソースの分け方</a> の判断層・状態層・画面層の区別や依存の向きそのものは変えない。層の決まりを検査する <code>tests/meta/</code> の既存のテストは、結合前のソース（複数ファイルのまま）に対して動くため、1 本化そのものはこれらのテストの対象や合否に影響しない。</li>
-<li>影響が出るのは、結合という<strong>新しい工程</strong>を実運用に組み込んだ場合。結合ツールが機械的に書き換える自己参照 dot-source の箇所は、今の <code>tests/meta/</code> のどの検査にも対応するものが無い。今回のような見落とし（検索側の内部再入箇所）は、既存のテストでは検出できず、実際に起動して検索を試すまで気付けなかった。実運用に進めるなら、結合後のファイルに対して「内部の dot-source 呼び出し箇所をすべて洗い出し、<code>-Part</code> などの書き換えが漏れていないか」を機械的に確かめる、結合専用の検査が要る。</li>
+<li>影響が出るのは、結合という<strong>新しい工程</strong>を実運用に組み込んだ場合。試作で使った自己参照 dot-source の方式は、結合ツールが機械的に書き換える箇所が増えるたびに書き換えを追従させ続けなければならず、今の <code>tests/meta/</code> のどの検査にも対応するものが無い（上の P2 を参照）。実運用に進める段階 1 では、別スレッドが単一 .ps1 そのものを自己 dot-source しない設計に改め、この種の書き換え漏れが構造的に起きない形にした。</li>
 <li>速さの計測（G3）についても、<a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a> の既存の仕組みは複数ファイルの今の配布物を対象にしており、結合後のファイルは測っていない。1 本化を続けるなら、結合後のファイルも同じ仕組みで継続的に測れるようにする必要がある。</li>
 </ul>
 <h2 id="結論">結論<a class="headerlink" href="#結論" title="Permanent link">&para;</a></h2>
-<p>計画で決めた判定の規則は「6 つの関門が全部通れば進める・1 つでも通らなければ進めない」。G1・G2・G4・G5・G6 は合格したが、<strong>G3（速さ）の内訳 (a) 起動が明確に不合格</strong>（zip 版の中央値 2790 ms に対し試作は 18162 ms、およそ 6.51 倍。ウォームアップを除く 5 回ずつの実測で、範囲はそれぞれ 2263〜3441 ms・14426〜19350 ms。1.2 倍の上限を大きく超え、ばらつきを考慮しても合格の余地は無い）。この規則に従い、<strong>今すぐ本体の配布を 1 本の <code>.ps1</code> へ切り替えることは勧めない</strong>。</p>
-<p>この結論は、速さ以外の関門の結果や自己参照 dot-source の保守負担についての評価を変えるものではなく、規則どおり G3(a) 単独の不合格で決まる。そのうえで、次の構造的な課題は今後 1 本化を再検討するときのために残しておく。</p>
+<p>計画で決めた判定の規則は「6 つの関門が全部通れば進める・1 つでも通らなければ進めない」。G1・G2・G4・G5・G6 は合格したが、<strong>G3（速さ）の内訳 (a) 起動が明確に不合格</strong>（zip 版の中央値 2790 ms に対し試作は 18162 ms、およそ 6.51 倍。1.2 倍の上限を大きく超える）。</p>
+<p>この規則どおりなら「進めない」という判断になるところ、2026-10-03 にメンテナが実装を進める判断を下した。G3(a) の不合格はマージの条件にせず、測った倍率と秒数を試験版の説明に書いたうえで、<strong>起動の速さが zip 版の 1.2 倍以内になるまでは「試験版」として、zip 版と並べてリリースに載せる</strong>（一気に置き換えない）。</p>
 <ul>
-<li><strong>自己参照の dot-source を保守し続ける負担</strong>は、試作の 1 回の作業ですでに見落とし（検索側の内部再入箇所、取り込み側の <code>param</code> ブロック重複）を 2 件生んでいる。これは実装者の不注意というより、<strong>この方式自体が「新しいコードを足すたびに、結合ツール側の書き換えも追従させ続けなければならない」という構造的な負担を持つ</strong>ことを示している。見落としたときの壊れ方が、分かりやすいエラーではなく無応答（ハング）になることも、実運用での発見しづらさにつながる。下の「進めるときの段階」の 1 段階目（<code>refactor</code>）は、パスで読む箇所を 1 本化前提の形に書き直すことで、この負担を軽くする（完全に無くせるとは限らない）案として記しておく。</li>
-<li>G3(c)（インデックス作成）は数値上は 1.2 倍以内に収まったが、取り込み件数を確かめる仕組みがこの回の計測でうまく働かず、判定を保留した（上の G3 の内訳を参照）。G3(a) が単独で不合格のため、この保留が今回の結論を左右することはない。</li>
+<li>G3(c)（インデックス作成）は数値上は 1.2 倍以内に収まったが、取り込み件数を確かめる仕組みがこの回の計測でうまく働かず、判定を保留した（上の G3 の内訳を参照）。試験版として出す判断には影響しない。</li>
+<li>自己参照 dot-source の構造的な負担（上の P2）は、下の「入れた段階」の段階 1 で、別スレッドが単一 .ps1 そのものを自己 dot-source しない設計に改めることで解消した。</li>
 </ul>
-<p>現時点の結論は「展開せずに 1 本の <code>.ps1</code> として動かすことは技術的には可能だが、起動の速さで明確に劣るため、今は切り替えに進まない」とする。起動の速さの差を縮める具体案が無いまま進めることは勧めない。</p>
-<h2 id="進めるときの段階">進めるときの段階<a class="headerlink" href="#進めるときの段階" title="Permanent link">&para;</a></h2>
-<p>将来、1 本化を進める具体的な理由ができた場合に備え、計画段階で決めた 3 つの段階を記す。試作はこの 3 段階そのものではなく、進めるかどうかを判断するための事前調査という位置づけ。</p>
+<h2 id="入れた段階">入れた段階<a class="headerlink" href="#入れた段階" title="Permanent link">&para;</a></h2>
+<p>計画段階で決めた 3 つの段階で実装した。</p>
 <ol>
-<li><strong><code>refactor</code>: 画面と別スレッドが部品をパスで読まないようにする。</strong> 上の P2〜P5 に挙げた、別スレッドがパスで部品を読む箇所・パスに頼る基準（<code>$rootDir</code> など）を、1 本化を前提にした形へ書き直す。この段階では zip 版の動き（複数ファイルのまま）は変えない。<code>tests/meta/structure.Tests.ps1</code>・<code>tests/meta/layers.Tests.ps1</code> に、1 本化を見越した決まりを足す。</li>
-<li><strong><code>build</code>: 結合した 1 本の <code>.ps1</code> を作る道具と、その検査を作る。</strong> 試作の結合ツールを、使い捨てではなくリポジトリで保守する道具に作り直し、連結の順・構文・禁止の語・試しの起動を機械的に確かめる検査を添える（上の「P2 別スレッドがパスで読む箇所」で見つかった書き換え漏れのような事故を、次に新しいコードが増えたときも確実に捕まえるのが目的）。<code>release.yml</code> で結合後のファイルを作り、配布物として公開できるようにする。</li>
-<li><strong><code>docs</code>: README・利用者の手引き・安全性の説明に、1 本の <code>.ps1</code> の形を足す。</strong> 2 の段階に含めてもよい。</li>
+<li><strong><code>refactor</code>: 画面と別スレッドが部品をパスで読まないようにする。</strong> 上の P2〜P5 に挙げた、別スレッドがパスで部品を読む箇所・パスに頼る基準（<code>$rootDir</code> など）を、1 本化を前提にした形へ書き直した。zip 版の動き（複数ファイルのまま）は変えない。別スレッドへの部品の渡し方は <code>scripts/tebunko/core/parts.ps1</code> の <code>getPartLoad</code> に 1 か所へ集め、<code>tests/meta/structure.Tests.ps1</code>・<code>tests/meta/layers.Tests.ps1</code> に 1 本化を見越した決まりを足した。詳細は <a href="../classes/">クラスと関数の使い分け</a>・<a href="../threads/">プロセスとスレッド</a>・<a href="../source/">ソースの分け方</a>。</li>
+<li><strong><code>build</code>: 結合した 1 本の <code>.ps1</code> を作る道具と、その検査を作る。</strong> 試作の結合ツールを、使い捨てではなくリポジトリで保守する道具 <code>tools/new_single_script.ps1</code> に作り直し、連結の順・構文・禁止の語・部品の過不足を機械的に確かめる検査を添えた（読み込みのたどり方と禁止の語の一覧は <code>tools/script_rules.ps1</code> に集め、<code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code>・<code>tools/check_release_package.ps1</code> と共有する）。<code>release.yml</code> で結合後のファイルを作り、zip 版と並べて配布物として公開する（単一 .ps1 そのものはリポジトリにコミットしない）。</li>
+<li><strong><code>docs</code>: README・利用者の手引き・安全性の説明に、1 本の <code>.ps1</code> の形を足す。</strong> README に、ダウンロードから右クリック［PowerShell で実行］までの使い方・実行ポリシーの注意・設定とインデックスの置き場・試験版の扱い・zip 版との間のエクスポート/インポートでの移し方を足した。<a href="../folders/">配布物と開発用のフォルダ構成</a>・<a href="../../../safety/file-access/">ファイルの読み書きの範囲</a>・<a href="../../../safety/disclosure/">開示事項</a>・<a href="../../../safety/scans/">第三者のツールによる検査結果</a> に、単一 .ps1 の扱いを足した。<a href="../source/">ソースの分け方</a>・<a href="../threads/">プロセスとスレッド</a> にも、結合の元が変わらないことと、別スレッドの部品の読み方が zip 版と同じ形になることを足した。</li>
 </ol>
-<p>上の 3 段階を始める前の前提として、次も満たす必要がある。</p>
-<ul>
-<li>G3(a)（起動の速さ）が今回不合格だったため、進める場合はこの差を縮める方法（結合ファイルの構文解析にかかる時間を減らす、起動回数が多い使い方では別の形にする、など）を 1 の段階までに決める。原因の切り分け（上の「G3（速さ）の測り方」の注記）は、<code>hsgwa/tebunko-perf</code> のような任意のコミットを交互・反復で測れる場所ができてから、必要になった時点で行う。</li>
-<li><a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a> に相当する形で、結合後のファイルの起動・検索・取り込みの速さを CI などで継続的に測れるようにする（2 の段階に含める）。</li>
-<li>配布 zip と並べて試験的に提供するなど、一気に置き換えず小さく始めて様子を見ながら進める。</li>
-</ul>
+<p>起動の速さが zip 版の 1.2 倍以内になるまでは「試験版」の扱いとし、<a href="../../testing/perf-check/">速さの回帰テストと上限の決め方</a> に相当する形で結合後のファイルの速さを継続的に測れるようにする。</p>
 
 
 

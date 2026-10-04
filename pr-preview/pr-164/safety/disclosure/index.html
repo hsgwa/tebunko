@@ -1167,6 +1167,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4277,6 +4288,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4417,11 +4439,11 @@
 </ul>
 <p>本ツール側では、インデックスの場所をワークスペース配下に限定し、アクセス権の変更（<code>Set-Acl</code> 等）を一切行わない。したがって<strong>インデックスの保護はワークスペースのアクセス権で決まる</strong>。</p>
 <h2 id="原本の一時コピーとその回収">原本の一時コピーと、その回収<a class="headerlink" href="#原本の一時コピーとその回収" title="Permanent link">&para;</a></h2>
-<p>インデックス作成中は、原本のコピーを <code>%TEMP%\tebunko\&lt;PID&gt;</code> に作る（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。機密文書のコピーが一時的に <code>%TEMP%</code> に存在することになるため、扱いを明記する。</p>
+<p>インデックス作成中は、原本のコピーを作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に作る（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。作業領域はワークスペース（本文インデックスと同じ置き場所）の下に<strong>限る</strong>。機密文書のコピーがシステムの <code>%TEMP%</code> へ出ることは無い。ワークスペースのパスに <code>[</code> <code>]</code> が含まれる・長すぎるなど、作業フォルダをワークスペースの下に置けないときは、取り込みをすべてスキップする（どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みが対象になる。取り込み一覧に失敗として残る。<a href="../../design/indexing/errors/">エラーメッセージ</a>）。</p>
 <ul>
 <li><strong>通常終了時</strong>: ファイルごとに、読み終えたコピーを削除する。インデックス作成の完了時に作業フォルダごと空にする（<code>removeTmpDir</code>）。</li>
-<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko/indexer/indexer_run.ps1:343</code> でインデックス作成の開始時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
-<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>%TEMP%\tebunko</code> を手で削除してよい（動作に影響しない）。</li>
+<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1</code> の <code>removeStaleTmpDirs</code>。インデックス作成の開始時に <code>initTmpDir</code> が呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残したものがあれば、同時に片付ける。</li>
+<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>work/tmp</code> を手で削除してよい（動作に影響しない）。</li>
 </ul>
 <h2 id="透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い<a class="headerlink" href="#透過暗号化の製品が平文で見せたファイルの扱い" title="Permanent link">&para;</a></h2>
 <p>社内のファイル暗号化製品（透過型。IRM・秘密度ラベルの暗号化とは別の仕組み）が導入されている環境では、その製品が Office を「許可されたアプリ」として登録していることがある。その場合、本ツールが作業領域に作ったコピーを Office が開くと、製品が復号した<strong>平文</strong>を Office に渡す（<a href="../../design/indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の「形式の分からないバイナリ」の予備）。</p>
@@ -4473,6 +4495,14 @@
 <span class="p">@(</span><span class="nv">$r</span><span class="p">.</span><span class="n">CatalogItems</span><span class="p">.</span><span class="n">Keys</span> <span class="p">+</span> <span class="nv">$r</span><span class="p">.</span><span class="n">PathItems</span><span class="p">.</span><span class="n">Keys</span> <span class="p">|</span> <span class="nb">Sort-Object</span> <span class="n">-Unique</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="p">{</span> <span class="nv">$_</span> <span class="o">-ne</span> <span class="s1">'tebunko.bat'</span> <span class="o">-and</span> <span class="nv">$r</span><span class="p">.</span><span class="n">CatalogItems</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span> <span class="o">-ne</span> <span class="nv">$r</span><span class="p">.</span><span class="n">PathItems</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span> <span class="p">})</span>
 </code></pre></div>
 - <strong>第三者の部品</strong>: インストーラーとアンインストーラーの本体は Inno Setup のものである（<a href="https://jrsoftware.org/files/is/license.txt">Inno Setup License</a>）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体の第三者の部品は 0 のまま（<a href="../supply-chain/">供給網（サプライチェーン）とライセンス</a>）。</p>
+<h2 id="単一-ps1-版試験版">単一 .ps1 版（試験版）<a class="headerlink" href="#単一-ps1-版試験版" title="Permanent link">&para;</a></h2>
+<p>zip・インストーラーに加えて、展開せずに 1 本の <code>.ps1</code>（<code>tebunko-&lt;タグ&gt;.ps1</code>）だけで動く試験版を並べて配る（<a href="../../design/structure/single-script/">単一ファイル化の検討</a>）。中身のスクリプトは同じ <code>scripts/</code> から機械的に結合したものである。</p>
+<ul>
+<li><strong><code>tebunko.bat</code> に相当する起動口が無い</strong>: 自分自身の Mark-of-the-Web を解除する動き（<code>Unblock-File</code>）は持たない。実行ポリシーも指定せず、右クリック［PowerShell で実行］や、呼び出す側が指定したポリシーのまま動く（詳細は single-script.md の P6・G6）。</li>
+<li><strong>起動失敗の知らせ方は変えていない</strong>: 画面が開く前の失敗は、今までと同じ <code>reportStartupFailure</code>／<code>writeStartupErrorFile</code>（<code>%LOCALAPPDATA%\tebunko\startup_error.txt</code>、書けなければ <code>%TEMP%\tebunko_startup_error.txt</code>）に記録する。<code>tebunko.bat</code> の <code>catch</code> に相当する外側の受け皿が無いため、単一 .ps1 自身の <code>trap</code> が直接この関数を呼ぶ。</li>
+<li><strong>署名・改ざんの確認</strong>: <code>tebunko.cat</code> は対象にしない（1 本のファイルのため、<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>の SHA256SUMS.txt と来歴の署名だけで確かめる）。</li>
+<li><strong>試験版という扱い</strong>: 起動の速さが zip 版に対して十分に近づくまでは「試験版」とし、zip 版・インストーラー版と並べて配る（single-script.md「結論」）。</li>
+</ul>
 
 
 

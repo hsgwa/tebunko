@@ -4089,6 +4089,10 @@
 <td>表示シートの図形・コメントだけをシートごとの場所にする、図形は左上のセル番地の順、グループ化した図形は 1 つ、互換用の代替表示は読まない、スレッド形式のコメント（返信を含む）、ふりがなは読まない、Excel のブックでない ZIP は何も返さない、グラフ・SmartArt の文字を読む（数値は読まない）、テキストボックスの段落 → グラフ・SmartArt の順に 1 つの図形にする、参照先・リレーションシップ（図形の部品自身のものを含む）が無い・部品が壊れたグラフは空にしてほかの図形・コメントは出す（読めなかった部品を <code>$failures</code> に返す）、表示のグラフシートは <code>A1</code> で読み非表示のグラフシートは読まない</td>
 </tr>
 <tr>
+<td><code>getHeaderFooterLines</code> / <code>readXlsxSheetHeaderFooter</code> / <code>readXlsxHeaderFooterLines</code>（<code>readXlsxObjectUnits</code> 経由）</td>
+<td>ヘッダー・フッターの書式コード（<code>&amp;L</code> <code>&amp;C</code> <code>&amp;R</code>・<code>&amp;&amp;</code>・ページ番号などの差し込み・フォント・大きさ・色・書式の除去。知らない <code>&amp;x</code> は残す）、改行で行に分ける・タブは空白・前後を削る・空行を出さない、<code>"</code> を含む行は囲む、先頭ページ・偶数ページは設定（<code>differentFirst</code> <code>differentOddEven</code>）があるときだけ読む、順（ヘッダー → フッター・先頭 → 奇数 → 偶数・左 → 中央 → 右）、同じ文字の行は 1 つ、グラフシート、接頭辞付きの XML、壊れた XML はそのシートだけ読まず <code>$failures</code> に足す、DTD は拒否、<code>sheetData</code> が大きくても読める</td>
+</tr>
+<tr>
 <td><code>readObjectText</code> / <code>readChartText</code></td>
 <td>参照先が無ければ空、グラフはタイトル・軸ラベル・系列名を読み（セル参照・直値のどちらでも読む）、項目名（多段の <code>multiLvlStrCache</code> を含む）・数値は読まない、項目の点数が多くても速く終わる</td>
 </tr>

@@ -4191,7 +4191,7 @@
 </tr>
 <tr>
 <td>2</td>
-<td>インデクサが強制終了された（PC の停止・タスクマネージャーでの画面の <code>powershell.exe</code> の終了等。インデックス作成は画面のプロセスの中で動く）場合は <code>finally</code> が実行されず、Excel・Word・PowerPoint が残る（画面の［9 プロセス停止］タブで終了する）。取り込み一覧には追記した行が重複して残るが、次回のクロール時に書き直される。作りかけのインデックス（一部のシートだけの TSV）は残らない（<code>publishIndexFiles</code>。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。本文インデックスに入れる前の TSV のフォルダは残るが、次回のインデックス作成開始時に本文インデックスへ入れる（<code>findIndexFoldersWithBooks</code>。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。<code>work/publish/&lt;PID&gt;</code>・<code>%TEMP%\tebunko\&lt;PID&gt;</code> も残るが、次回のインデックス作成開始時に削除する</td>
+<td>インデクサが強制終了された（PC の停止・タスクマネージャーでの画面の <code>powershell.exe</code> の終了等。インデックス作成は画面のプロセスの中で動く）場合は <code>finally</code> が実行されず、Excel・Word・PowerPoint が残る（画面の［9 プロセス停止］タブで終了する）。取り込み一覧には追記した行が重複して残るが、次回のクロール時に書き直される。作りかけのインデックス（一部のシートだけの TSV）は残らない（<code>publishIndexFiles</code>。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。本文インデックスに入れる前の TSV のフォルダは残るが、次回のインデックス作成開始時に本文インデックスへ入れる（<code>findIndexFoldersWithBooks</code>。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。<code>work/publish/&lt;PID&gt;</code>・<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code> も残るが、次回のインデックス作成開始時に削除する</td>
 <td>△</td>
 </tr>
 <tr>
@@ -4301,7 +4301,7 @@
 </tr>
 <tr>
 <td>24</td>
-<td>更新後の最初のインデックス作成では、抽出版が上がった <code>.xlsx</code> <code>.xlsm</code>（グラフ・SmartArt を読むようになった分）と <code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code>（グラフの項目名を読まなくなった分）を取り込み直す。<code>.xlsx</code> <code>.xlsm</code> はすべて Excel で開き直すため、通常よりも時間がかかる（1 回だけ。<a href="../flow/">インデックス作成のメインフロー</a>）</td>
+<td>更新後の最初のインデックス作成では、抽出版が上がった <code>.xlsx</code> <code>.xlsm</code>（グラフ・SmartArt・ヘッダー・フッターを読むようになった分）と <code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code>（グラフの項目名を読まなくなった分）を取り込み直す。<code>.xlsx</code> <code>.xlsm</code> はすべて Excel で開き直すため、通常よりも時間がかかる（1 回だけ。<a href="../flow/">インデックス作成のメインフロー</a>）</td>
 <td>○</td>
 </tr>
 <tr>
