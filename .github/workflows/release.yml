@@ -153,7 +153,7 @@ jobs:
             ""
             "- インストールして使う: ``tebunko-setup-$env:GITHUB_REF_NAME.exe``（管理者権限は要りません。署名が無いため、Windows の警告が出たら［詳細情報］→［実行］）"
             "- 展開して使う（実行ファイルを含みません）: ``tebunko-$env:GITHUB_REF_NAME.zip``"
-            "- 展開せずに 1 本のファイルで使う（試験版）: ``tebunko-$env:GITHUB_REF_NAME.ps1``（詳細は README・[設計書]($repo/docs/design/structure/single-script.md)）"
+            "- 展開せずに 1 本のファイルで使う（試験版）: ``tebunko-$env:GITHUB_REF_NAME.ps1``（画面が開くまでは zip 版とほぼ同じ速さ。測定値は設計書。詳細は README・[設計書]($repo/docs/design/structure/single-script.md)）"
             ""
             "安全性・脆弱性の連絡先: [SECURITY]($repo/.github/SECURITY.ja.md)"
             ""
