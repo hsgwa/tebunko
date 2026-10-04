@@ -59,6 +59,20 @@ Describe "getPartLoad（単一 .ps1 版。`${bundledParts} がある）" -Tag Un
         }
     }
 
+    It "bundledParts も State に渡す（取り込みのスレッドの中でもう一度 getPartLoad を呼んでも、パスの読み込みに落ちない）" {
+        $load = getPartLoad lib
+        $rs = [runspacefactory]::CreateRunspace($load.State)
+        $rs.Open()
+        try {
+            $ps = [powershell]::Create()
+            $ps.Runspace = $rs
+            $result = $ps.AddScript('$bundledParts.Keys | Sort-Object').Invoke()
+            @($result) | Should -Be @("indexerLib", "lib")
+        } finally {
+            $rs.Dispose()
+        }
+    }
+
     It "指定した名前の部品が入っていなければ例外を投げる" {
         $global:bundledParts = @{}
         { getPartLoad lib } | Should -Throw "*lib*"

@@ -36,8 +36,8 @@ function getPartLoad {
         $entry = New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry("importTebunkoPart", $body)
         $state.Commands.Add($entry)
         # 部品の中（version.ps1 の readVersionFile など）が ${bundledScriptPath}・${bundledVersion} を見るため、
-        # 呼び出したスレッドの値をそのまま渡す
-        foreach ($varName in "bundledScriptPath", "bundledVersion") {
+        # 呼び出したスレッドの値をそのまま渡す（bundledParts も渡す。取り込みのスレッドの中でもう一度 getPartLoad を呼ぶため）
+        foreach ($varName in "bundledParts", "bundledScriptPath", "bundledVersion") {
             $v = Get-Variable -Name $varName -ErrorAction SilentlyContinue
             if ($null -ne $v) {
                 $entry2 = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry($varName, $v.Value, "")
