@@ -78,3 +78,5 @@ flowchart TD
 | `scripts/tebunko/xaml/` | 画面定義 | tebunko の画面定義（`tebunko.xaml`・タブ・ダイアログ） |
 | `scripts/tebunko/startup/*.txt` | 文言 | `tebunko.bat` が起動に失敗したときに読む、場面ごとの文言（BOM 付き UTF-8・CRLF）。`tebunko.bat` は ASCII で書く決まりのため、日本語の文言はここに分ける。読み込み口からは読まない（スクリプトではない）（[起動に失敗したときの知らせ](../../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)） |
 | `scripts/tebunko/tebunko.ico` | 画像 | 画面のアイコン（[画面の共通の決まり](../gui/common.md)）。元データは `docs/images/logo.svg`（リポジトリの管理者が作成）で、`tools/new_icon.ps1` で作る。手で編集しない |
+
+リリースでは、上の `scripts/` をそのまま使う zip・インストーラーに加えて、`tools/new_single_script.ps1` が読み込み口をたどって 1 本の `.ps1`（`tebunko-<タグ>.ps1`）に機械的に結合した試験版も作る。結合の元は変えないため、ここで決めたフォルダ・層・読み込み口の決まりはそのまま効く（[単一ファイル化の検討](single-script.md)）。

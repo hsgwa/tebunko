@@ -96,7 +96,7 @@ stateDiagram-v2
 
 - アプリの寿命のスレッドは、最初に使うときに作る。ランスペースには、はじめに一度だけ関数を読み込む。検索のたびに lib.ps1 を読み込み直さない。
   - 検索の司令（`SearchService`）は、スレッドを始めたときに lib.ps1 を 1 回だけ読み込み、照合のプール（`newPackWorkerPool`）を 1 回だけ作る。
-  - バックグラウンド（`BackgroundQueue`）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（`WorkerPool.Prelude`）。
+  - バックグラウンド（`BackgroundQueue`）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（`WorkerPool.Prelude`）。単一 .ps1 版（試験版）でも、この読み込みは `getPartLoad` がまとめて作る文字列をそのまま使うため、通常の zip 版と同じ 1 回だけの読み込みのままになる（[単一ファイル化の検討](single-script.md)「層とテストへの影響」）。
   - そのため、これらのスレッドは読み込んだときのワークスペース（`$workspace`）を持ち続ける。画面は仕事を頼むときにワークスペースの中の場所を渡す（検索の要求は `WorkDir` を持つ）。ワークスペースを変えてもスレッドは作り直さない（[ワークスペースの中の場所（Workspace）](data.md#ワークスペースの中の場所workspace)）。
 - 照合のプールでは、ランスペースに加えて PowerShell のインスタンスも使い回す（`WorkerPool`）。
 - 検索の要求（`newSearchRequest`。`[hashtable]::Synchronized`）は、`invokeSearchRequest` が実行する。要求の `Stop` が取り消しの札になる。新しい要求を出すと、前の要求の `Stop` を立てて取り消す。

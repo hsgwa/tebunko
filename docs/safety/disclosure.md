@@ -144,3 +144,12 @@ $r = Test-FileCatalog -Path .\scripts -CatalogFilePath <ダウンロードした
 @($r.CatalogItems.Keys + $r.PathItems.Keys | Sort-Object -Unique | Where-Object { $_ -ne 'tebunko.bat' -and $r.CatalogItems[$_] -ne $r.PathItems[$_] })
 ```
 - **第三者の部品**: インストーラーとアンインストーラーの本体は Inno Setup のものである（[Inno Setup License](https://jrsoftware.org/files/is/license.txt)）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体の第三者の部品は 0 のまま（[供給網（サプライチェーン）とライセンス](supply-chain.md)）。
+
+## 単一 .ps1 版（試験版）
+
+zip・インストーラーに加えて、展開せずに 1 本の `.ps1`（`tebunko-<タグ>.ps1`）だけで動く試験版を並べて配る（[単一ファイル化の検討](../design/structure/single-script.md)）。中身のスクリプトは同じ `scripts/` から機械的に結合したものである。
+
+- **`tebunko.bat` に相当する起動口が無い**: 自分自身の Mark-of-the-Web を解除する動き（`Unblock-File`）は持たない。実行ポリシーも指定せず、右クリック［PowerShell で実行］や、呼び出す側が指定したポリシーのまま動く（詳細は single-script.md の P6・G6）。
+- **起動失敗の知らせ方は変えていない**: 画面が開く前の失敗は、今までと同じ `reportStartupFailure`／`writeStartupErrorFile`（`%LOCALAPPDATA%\tebunko\startup_error.txt`、書けなければ `%TEMP%\tebunko_startup_error.txt`）に記録する。`tebunko.bat` の `catch` に相当する外側の受け皿が無いため、単一 .ps1 自身の `trap` が直接この関数を呼ぶ。
+- **署名・改ざんの確認**: `tebunko.cat` は対象にしない（1 本のファイルのため、[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)の SHA256SUMS.txt と来歴の署名だけで確かめる）。
+- **試験版という扱い**: 起動の速さが zip 版に対して十分に近づくまでは「試験版」とし、zip 版・インストーラー版と並べて配る（single-script.md「結論」）。
