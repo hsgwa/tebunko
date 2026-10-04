@@ -68,8 +68,8 @@ $script:bannedCodePatterns = [ordered]@{
 }
 
 # 1 行からコメントを取り除く（行全体がコメントなら空文字列）。引用符の中の # は残す
-# （tests/meta/safety.Tests.ps1 の getCodeLines と同じ考え方。「以前は csc.exe で…」のような説明のコメントを
-# 禁止の語の検査に含めないため）
+# （「以前は csc.exe で…」のような説明のコメントを禁止の語の検査に含めないため。
+# tests/meta/safety.Tests.ps1 の getCodeLines も、この関数を使う）
 function stripLineComment {
     param (
         [string]$line

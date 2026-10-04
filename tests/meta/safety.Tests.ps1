@@ -21,22 +21,8 @@ BeforeAll {
             $number = 0
             foreach ($text in [System.IO.File]::ReadAllLines($path)) {
                 $number++
-                $code = $text
-                if ($code.TrimStart().StartsWith("#")) {
-                    continue
-                }
-                # 行の途中のコメントを落とす（引用符の中の # は残す）
-                $sharp = $code.IndexOf("#")
-                while ($sharp -gt 0) {
-                    $before = $code.Substring(0, $sharp)
-                    $quotes = @($before.ToCharArray() | Where-Object { $_ -eq '"' }).Count
-                    $singles = @($before.ToCharArray() | Where-Object { $_ -eq "'" }).Count
-                    if (($quotes % 2) -eq 0 -and ($singles % 2) -eq 0) {
-                        $code = $before
-                        break
-                    }
-                    $sharp = $code.IndexOf("#", $sharp + 1)
-                }
+                # コメントの落とし方は tools\script_rules.ps1 の stripLineComment と共有する
+                $code = stripLineComment $text
                 if ($code.Trim() -eq "") {
                     continue
                 }
