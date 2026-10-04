@@ -17,7 +17,13 @@ Describe "getPartLoad（zip 版。`${bundledParts} が無い）" -Tag Unit {
         }
     }
 
-    It "indexer は ValidateSet に無い（単一 .ps1 版で画面のクラスを二重にコンパイルしないため廃止した）" {
+    It "-then を渡すと、部品を読み込んだあとに続けて呼ぶ文が Prelude の最後に付く" {
+        $load = getPartLoad lib -then "initWorkspace"
+        $load.Prelude | Should -Match '; initWorkspace$'
+        (getPartLoad lib).Prelude | Should -Not -Match 'initWorkspace'
+    }
+
+    It "indexer は ValidateSet に無い（単一 .ps1 版で画面のクラスを二重にコンパイルしないため、部品にしない）" {
         { getPartLoad indexer } | Should -Throw
     }
 }

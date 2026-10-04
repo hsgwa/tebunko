@@ -23,7 +23,9 @@ function getPartLoad {
     #   ランスペースを作ったときに 1 回だけ構文解析される
     param (
         [ValidateSet("lib", "indexerLib")]
-        [string]$name
+        [string]$name,
+        # 部品を読み込んだあとに続けて呼ぶ文（例: initWorkspace）。空なら足さない
+        [string]$then = ""
     )
 
     $state = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
@@ -38,13 +40,15 @@ function getPartLoad {
         # 部品の中（version.ps1 の readVersionFile など）が ${bundledScriptPath}・${bundledVersion} を見るため、
         # 呼び出したスレッドの値をそのまま渡す（bundledParts も渡す。取り込みのスレッドの中でもう一度 getPartLoad を呼ぶため）
         foreach ($varName in "bundledParts", "bundledScriptPath", "bundledVersion") {
-            $v = Get-Variable -Name $varName -ErrorAction SilentlyContinue
-            if ($null -ne $v) {
-                $entry2 = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry($varName, $v.Value, "")
-                $state.Variables.Add($entry2)
+            $variable = Get-Variable -Name $varName -ErrorAction SilentlyContinue
+            if ($null -ne $variable) {
+                $variableEntry = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry($varName, $variable.Value, "")
+                $state.Variables.Add($variableEntry)
             }
         }
-        return @{ State = $state; Prelude = ". importTebunkoPart" }
+        $prelude = ". importTebunkoPart"
+        if ($then) { $prelude = "$prelude; $then" }
+        return @{ State = $state; Prelude = $prelude }
     }
 
     # indexerLib は、取り込みのスレッド・インデクサの司令のスレッドの両方から使うため、
@@ -57,5 +61,6 @@ function getPartLoad {
         $resolved = (Resolve-Path $_).Path.Replace("'", "''")
         ". '$resolved'"
     }) -join "; "
+    if ($then) { $prelude = "$prelude; $then" }
     return @{ State = $state; Prelude = $prelude }
 }

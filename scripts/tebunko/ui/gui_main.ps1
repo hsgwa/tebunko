@@ -125,8 +125,7 @@ function startGui {
     # （docs/design/structure/threads.md「スレッドの一覧」）。
     # 列を作る式は 1 か所にまとめ、既定の列はここで作り、ネットワークの列は shell.ps1 に式（factory）だけ渡して
     # 初めて使うときに作らせる（届かない共有が無い利用者には、スレッドも lib.ps1 の読み込みも増えない）
-    $backgroundLoad = getPartLoad lib
-    $backgroundLoad.Prelude = "$($backgroundLoad.Prelude); initWorkspace"
+    $backgroundLoad = getPartLoad lib -then "initWorkspace"
     $newBackgroundQueue = { [BackgroundQueue]::new(${backgroundWorkers}, $backgroundLoad, $Host) }
     $script:backgroundQueue = & $newBackgroundQueue
     setNetworkQueueFactory $newBackgroundQueue

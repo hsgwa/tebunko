@@ -176,7 +176,7 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "M2(ii) の例: 試作で漏れた形（. `$libPath・. `$x.Path）は読み込み口の行として検出しない" {
+    It "M2(ii) の例: 変数やプロパティを渡す形（. `$libPath・. `$x.Path）は読み込み口の行として検出しない" {
         $badSamples = @('. $libPath', '. $x.Path')
         foreach ($sample in $badSamples) {
             $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
