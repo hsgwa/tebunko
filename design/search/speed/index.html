@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4123,14 +4123,14 @@
 </tr>
 </tbody>
 </table>
-<p><strong>本文インデックスにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。Microsoft Defender は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイルの場所ごとの TSV を読んでいた前の版では、TSV が数万件になると初回の検索に数分〜10 分以上かかった。</p>
+<p><strong>本文インデックスにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。Microsoft Defender は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイルの場所ごとの TSV を読む方式では、TSV が数万件になると初回の検索に数分〜10 分以上かかった。</p>
 <p>実測（Windows PowerShell 5.1、4 コア・物理メモリ 8GB、Microsoft Defender は有効。画面と同じく、列挙から検索の終わりまで）:</p>
 <table>
 <thead>
 <tr>
 <th>インデックス</th>
 <th>検索</th>
-<th>TSV（前の版）</th>
+<th>場所ごとの TSV</th>
 <th>本文インデックス</th>
 </tr>
 </thead>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -3274,6 +3274,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4152,6 +4196,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4244,7 +4332,57 @@
 
 
 <h1 id="本体共通の状態">本体・共通の状態<a class="headerlink" href="#本体共通の状態" title="Permanent link">&para;</a></h1>
-<p>タブに関わらない、本体の窓・起動中の表示・メニュー・確認・メッセージボックス。</p>
+<p>タブに関わらない、本体の窓・起動中の表示・メニュー・確認・メッセージボックス。状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</p>
+<h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
+<p>どのタブにいても出る、窓そのものの状態を残す。起動の途中、［⋯］のメニュー、閉じるときの確認、設定が壊れていたときの知らせがある。</p>
+<h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
+<ul>
+<li>上にタブ（［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］）、右上に［⋯］。</li>
+<li>窓の下端に、操作の結果を 1 行で出す状態の欄がある。</li>
+<li>［⋯］のメニューは「tebunko について」の 1 項目だけ。</li>
+</ul>
+<h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>stateDiagram-v2
+    state "window/startup" as startup
+    state "各タブ" as tabs
+    state "window/menu" as menu
+    state "window/about" as about
+    state "window/close-confirm" as close
+    startup --&gt; tabs: 起動が終わる（1）
+    tabs --&gt; menu: ［⋯］（8）
+    menu --&gt; about: tebunko について（8）
+    about --&gt; tabs: ［閉じる］
+    tabs --&gt; close: 作成中に閉じる（10）
+    close --&gt; tabs: ［閉じない］</code></pre>
+<p>設定ファイルが壊れていたときの知らせ（<code>window/settings-broken</code>）は、起動のときに出るメッセージボックスで、［OK］で本体に進む。</p>
+<h2 id="表示する文言">表示する文言<a class="headerlink" href="#表示する文言" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>状態</th>
+<th>文言</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>メニュー</td>
+<td>「tebunko について」</td>
+</tr>
+<tr>
+<td>「tebunko について」</td>
+<td>「版: 開発版」「ライセンス: MIT」、［閉じる］</td>
+</tr>
+<tr>
+<td>閉じるときの確認</td>
+<td>「まだインデックス作成の途中です。止めてから閉じますか？」、［インデックス作成を止めて閉じる］［閉じない］</td>
+</tr>
+<tr>
+<td>設定が壊れていたとき</td>
+<td>「設定ファイルが壊れていたため、既定の設定で起動しました。…」、［OK］</td>
+</tr>
+</tbody>
+</table>
+<p>「版」は、配布物では版の番号が入る。写真は開発中の版で撮っている。</p>
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="windowstartup起動中の表示遷移-1">window/startup（起動中の表示。遷移 1）<a class="headerlink" href="#windowstartup起動中の表示遷移-1" title="Permanent link">&para;</a></h3>
 <p><img alt="起動中の表示" src="../../../../images/screens/window/startup.png" /></p>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -3358,6 +3358,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4163,6 +4207,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4266,7 +4354,69 @@
 
 
 <h1 id="8-設定タブ">［8 設定］タブ<a class="headerlink" href="#8-設定タブ" title="Permanent link">&para;</a></h1>
-<p>部品と並び・状態と遷移・表示する文言・改善の候補は、写真を載せた後の別のアイテムでまとめる。細かい仕様は <a href="../../settings-tab/">［8 設定］タブ</a> にある。写真の中で利用者のフォルダのパスが出る部分は、塗りつぶして <code>C:\Users\test\...</code> と描き直している（<a href="../#撮り方と撮り直し方">撮り方</a>）。</p>
+<p>細かい仕様は <a href="../../settings-tab/">［8 設定］タブ</a> にある。写真の中で利用者のフォルダのパスが出る部分は、塗りつぶして <code>C:\Users\test\...</code> と描き直している（<a href="../#撮り方と撮り直し方">撮り方</a>）。</p>
+<h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
+<p>インデックス・取り込み一覧・ログを置く場所（ワークスペース）を確かめ、変える。設定ファイルの場所も見られる。</p>
+<h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
+<ul>
+<li>「ワークスペース」のカード。今の場所、既定の場所の説明、［変更…］［既定に戻す］、変え方の注意。</li>
+<li>「設定ファイル」のカード。設定ファイルの場所と、置き場所の説明。</li>
+</ul>
+<h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>stateDiagram-v2
+    state "settings-tab/normal" as normal
+    state "settings-tab/running-warning" as running
+    state "settings-tab/empty-confirm" as empty
+    state "settings-tab/nonempty-confirm" as nonempty
+    state "settings-tab/index-confirm" as index
+    state "settings-tab/invalid-warning" as invalid
+    normal --&gt; running: 作成中に［変更…］（21）
+    running --&gt; normal: ［OK］
+    normal --&gt; empty: 空のフォルダを選ぶ（31）
+    normal --&gt; nonempty: 空でないフォルダを選ぶ（32）
+    normal --&gt; index: インデックスのあるフォルダを選ぶ（33）
+    normal --&gt; invalid: 使えないフォルダを選ぶ（34）
+    empty --&gt; normal: ［ワークスペースを変える］または［キャンセル］
+    nonempty --&gt; normal: 選択またはキャンセル
+    index --&gt; normal: 選択またはキャンセル
+    invalid --&gt; normal: ［OK］</code></pre>
+<p>［既定に戻す］の確認（35）と OS のフォルダ選択（30）は、写真に撮らない（<a href="../#撮らないもの">撮らないもの</a>）。
+状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</p>
+<h2 id="表示する文言">表示する文言<a class="headerlink" href="#表示する文言" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>状態</th>
+<th>文言</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>普通</td>
+<td>「ワークスペース」「インデックス・取り込み一覧・ログを置くフォルダです。…」、［変更…］［既定に戻す］。「設定ファイル」「ツールのフォルダに置いています。」</td>
+</tr>
+<tr>
+<td>作成中の［変更…］</td>
+<td>「インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。」</td>
+</tr>
+<tr>
+<td>空のフォルダ</td>
+<td>「ワークスペースを変えますか？」、［ワークスペースを変える］［キャンセル］。中身は新しいワークスペースへ移す旨を示す</td>
+</tr>
+<tr>
+<td>空でないフォルダ</td>
+<td>「選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください」。選択肢は「中に「workspace」フォルダを作って、ワークスペースにする」「このフォルダをそのまま使う」、［キャンセル］</td>
+</tr>
+<tr>
+<td>インデックスのあるフォルダ</td>
+<td>「あるインデックスを使う」「消して、最初からやり直す」の選択</td>
+</tr>
+<tr>
+<td>使えないフォルダ</td>
+<td>「…は今のインデックスのフォルダの中です。インデックスの外のフォルダを選んでください。」、［OK］</td>
+</tr>
+</tbody>
+</table>
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="settings-tabnormal既定でないワークスペース遷移-7">settings-tab/normal（既定でないワークスペース。遷移 7）<a class="headerlink" href="#settings-tabnormal既定でないワークスペース遷移-7" title="Permanent link">&para;</a></h3>
 <p><img alt="既定でないワークスペース" src="../../../../images/screens/settings-tab/normal.png" /></p>

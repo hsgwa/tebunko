@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -1376,6 +1376,72 @@
     <span class="md-ellipsis">
       
         検索に時間がかかります。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#起動しても画面が表示されません" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動しても画面が表示されません。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#officeアプリexcelwordpowerpointを起動できませんでしたと表示されます" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        「Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした」と表示されます。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデックス作成が遅いまたは止まって見えます" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックス作成が遅い、または止まって見えます。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#共有フォルダのファイルでファイルを読むアクセス権がありませんと表示されます" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        共有フォルダのファイルで「ファイルを読むアクセス権がありません」と表示されます。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#探している言葉が検索結果に表示されません" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        探している言葉が検索結果に表示されません。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#組織で-powershell-の実行が制限されていますallsignedapplocker-など" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        組織で PowerShell の実行が制限されています（AllSigned・AppLocker など）。
       
     </span>
   </a>
@@ -4286,6 +4352,72 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#起動しても画面が表示されません" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動しても画面が表示されません。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#officeアプリexcelwordpowerpointを起動できませんでしたと表示されます" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        「Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした」と表示されます。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#インデックス作成が遅いまたは止まって見えます" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インデックス作成が遅い、または止まって見えます。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#共有フォルダのファイルでファイルを読むアクセス権がありませんと表示されます" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        共有フォルダのファイルで「ファイルを読むアクセス権がありません」と表示されます。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#探している言葉が検索結果に表示されません" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        探している言葉が検索結果に表示されません。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#組織で-powershell-の実行が制限されていますallsignedapplocker-など" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        組織で PowerShell の実行が制限されています（AllSigned・AppLocker など）。
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#組織への導入にあたり安全性を確認したい" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4333,7 +4465,7 @@
 <h2 id="管理者権限は必要ですか">管理者権限は必要ですか。<a class="headerlink" href="#管理者権限は必要ですか" title="Permanent link">&para;</a></h2>
 <p>不要です。一般ユーザーの権限で、zip の展開による配置、単一 .ps1 版（試験版）の実行、インストーラーによるインストールのいずれも行えます。</p>
 <h2 id="元のファイルが変更されることはありますか">元のファイルが変更されることはありますか。<a class="headerlink" href="#元のファイルが変更されることはありますか" title="Permanent link">&para;</a></h2>
-<p>インデックス作成では、元のファイルのコピーを読み取り専用・マクロ無効で開いて文字を抽出するため、元のファイルは変更しません。検索結果から［通常（編集する）］で開いた場合は、通常の Office の操作と同様に、利用者が保存した時点でファイルが更新されます。</p>
+<p>インデックス作成では、Office ファイルはコピーを読み取り専用・マクロ無効で開き、テキストファイルはコピーを作らずに読み取り専用で読んで、文字を抽出するため、元のファイルは変更しません。検索結果から［通常（編集する）］で開いた場合は、通常の Office の操作と同様に、利用者が保存した時点でファイルが更新されます。</p>
 <h2 id="インデックスの保存先と容量を教えてください">インデックスの保存先と容量を教えてください。<a class="headerlink" href="#インデックスの保存先と容量を教えてください" title="Permanent link">&para;</a></h2>
 <p>ワークスペース（既定：<code>%USERPROFILE%\Documents\tebunko_ws</code>）の <code>content_index</code> フォルダと <code>system_index</code> フォルダに保存します。容量（<code>content_index</code> フォルダ）は取り込んだファイルの文字量によります。目安は 100 万行で約 70MB です。</p>
 <h2 id="インデックスの取り扱いで注意すべき点はありますか">インデックスの取り扱いで注意すべき点はありますか。<a class="headerlink" href="#インデックスの取り扱いで注意すべき点はありますか" title="Permanent link">&para;</a></h2>
@@ -4347,6 +4479,18 @@
 <p>［1 インデックス管理］で［インデックス作成を開始］を実行してください。追加・変更されたファイルのみを取り込むため、短時間で完了します。</p>
 <h2 id="検索に時間がかかります">検索に時間がかかります。<a class="headerlink" href="#検索に時間がかかります" title="Permanent link">&para;</a></h2>
 <p>インデックスの規模が大きい場合は、<a href="../fast-search/">高速検索</a> を利用できる状態にしてください。検索対象や対象ファイルの条件で範囲を限定することも有効です。</p>
+<h2 id="起動しても画面が表示されません">起動しても画面が表示されません。<a class="headerlink" href="#起動しても画面が表示されません" title="Permanent link">&para;</a></h2>
+<p>ショートカットや <code>tebunko.bat</code> で起動したときの原因と対処は <a href="../troubleshooting/#起動できない場合">トラブルシューティング</a> にあります。<code>tebunko.bat</code> が使えない場合の起動方法は <a href="../#tebunkobat-を使わずに起動するzip-版">はじめに</a> を参照してください。</p>
+<h2 id="officeアプリexcelwordpowerpointを起動できませんでしたと表示されます">「Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした」と表示されます。<a class="headerlink" href="#officeアプリexcelwordpowerpointを起動できませんでしたと表示されます" title="Permanent link">&para;</a></h2>
+<p>Office のインストールやライセンス認証の状態を確認してください。Excel が使えない PC では、Excel ファイルを取り込めません。必要な Office の条件は <a href="../#動作環境">動作環境</a> に、失敗したファイルの対処は <a href="../troubleshooting/#取り込みに失敗したファイルがある場合">取り込みに失敗したファイルがある場合</a> にあります。</p>
+<h2 id="インデックス作成が遅いまたは止まって見えます">インデックス作成が遅い、または止まって見えます。<a class="headerlink" href="#インデックス作成が遅いまたは止まって見えます" title="Permanent link">&para;</a></h2>
+<p>ファイルの数や大きさによって時間がかかります。進捗が動かない場合の確認は <a href="../troubleshooting/#インデックス作成が完了しない場合">インデックス作成が完了しない場合</a> を参照してください。</p>
+<h2 id="共有フォルダのファイルでファイルを読むアクセス権がありませんと表示されます">共有フォルダのファイルで「ファイルを読むアクセス権がありません」と表示されます。<a class="headerlink" href="#共有フォルダのファイルでファイルを読むアクセス権がありませんと表示されます" title="Permanent link">&para;</a></h2>
+<p>そのファイルを読む権限が、tebunko を使っている利用者にありません。権限を確認してください。対処は <a href="../troubleshooting/#取り込みに失敗したファイルがある場合">取り込みに失敗したファイルがある場合</a> にあります。</p>
+<h2 id="探している言葉が検索結果に表示されません">探している言葉が検索結果に表示されません。<a class="headerlink" href="#探している言葉が検索結果に表示されません" title="Permanent link">&para;</a></h2>
+<p>確認する点は <a href="../troubleshooting/#検索結果に表示されない場合">検索結果に表示されない場合</a> に、対応していない内容は <a href="../limitations/">制限事項</a> にあります。</p>
+<h2 id="組織で-powershell-の実行が制限されていますallsignedapplocker-など">組織で PowerShell の実行が制限されています（AllSigned・AppLocker など）。<a class="headerlink" href="#組織で-powershell-の実行が制限されていますallsignedapplocker-など" title="Permanent link">&para;</a></h2>
+<p>制限の種類ごとの動作は <a href="../#制限された環境での動作">制限された環境での動作</a> にあります。導入を審査する方は <a href="../../safety/">安全性</a> も参照してください。</p>
 <h2 id="組織への導入にあたり安全性を確認したい">組織への導入にあたり、安全性を確認したい。<a class="headerlink" href="#組織への導入にあたり安全性を確認したい" title="Permanent link">&para;</a></h2>
 <p>tebunko が行う処理と行わない処理、その根拠、および確認手順を <a href="../../safety/">安全性</a> にまとめています。</p>
 <h2 id="不具合の報告や機能の要望はどこに送ればよいですか">不具合の報告や機能の要望はどこに送ればよいですか。<a class="headerlink" href="#不具合の報告や機能の要望はどこに送ればよいですか" title="Permanent link">&para;</a></h2>

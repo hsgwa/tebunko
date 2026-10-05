@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4044,6 +4044,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#画面全体の遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画面全体の遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#撮り方と撮り直し方" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4097,7 +4108,7 @@
 
 
 <h1 id="画面設計現行">画面設計（現行）<a class="headerlink" href="#画面設計現行" title="Permanent link">&para;</a></h1>
-<p>GUI を改善する前に、今の画面をすべての状態で写真に撮って残す区分。写真は道具（<code>tools/capture_screens.ps1</code>）で自動で撮り、<code>docs/images/screens/</code> に置く。タブごとの No. の表（<a href="../index-tab/">［1 インデックス管理］タブ</a> など）は仕様として残し、ここには書き写さない。画面ごとのページは、写真・部品と並び・状態と遷移・表示する文言・改善の候補をまとめる（部品と並び以降は、写真を載せた後の別のアイテムでまとめる）。</p>
+<p>GUI を改善する前に、今の画面をすべての状態で写真に撮って残す区分。写真は道具（<code>tools/capture_screens.ps1</code>）で自動で撮り、<code>docs/images/screens/</code> に置く。タブごとの No. の表（<a href="../index-tab/">［1 インデックス管理］タブ</a> など）は仕様として残し、ここには書き写さない。画面ごとのページは、目的・部品と並び・状態と遷移・表示する文言・写真をまとめる。</p>
 <h2 id="この区分のページ">この区分のページ<a class="headerlink" href="#この区分のページ" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="window/">本体・共通の状態</a></li>
@@ -4106,6 +4117,22 @@
 <li><a href="settings-tab/">［8 設定］タブ</a></li>
 <li><a href="process-tab/">［9 プロセス停止］タブ</a></li>
 </ul>
+<h2 id="画面全体の遷移">画面全体の遷移<a class="headerlink" href="#画面全体の遷移" title="Permanent link">&para;</a></h2>
+<p>画面ごとの状態と遷移は各ページにある。ここではタブの間の行き来だけを示す。</p>
+<pre class="mermaid"><code>stateDiagram-v2
+    state "起動（window/startup）" as startup
+    state "［1 インデックス管理］" as t1
+    state "［2 検索］" as t2
+    state "［8 設定］" as t8
+    state "［9 プロセス停止］" as t9
+    startup --&gt; t1: インデックスが無い・中断している（3・4）
+    startup --&gt; t2: インデックスがある（2）
+    startup --&gt; t8: 既定のワークスペースにほかのファイルがある（5）
+    t1 --&gt; t2: タブを選ぶ（7）
+    t2 --&gt; t8: タブを選ぶ（7）
+    t8 --&gt; t9: タブを選ぶ（7）
+    t2 --&gt; t1: インデックスを作成する（26）
+    t1 --&gt; t8: 既定のワークスペースが使えない（22）</code></pre>
 <h2 id="撮り方と撮り直し方">撮り方と撮り直し方<a class="headerlink" href="#撮り方と撮り直し方" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>.\tools\capture_screens.ps1                          すべての状態を撮り直す
 .\tools\capture_screens.ps1 -Only &lt;ID...&gt;            指定した状態だけを撮り直す（例: -Only index-tab/empty search-tab/results）

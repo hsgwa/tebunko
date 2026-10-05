@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4415,6 +4415,10 @@
 <tr>
 <td>アクセス権の非継承</td>
 <td>インデックスは<strong>作成した人の権限で作られる</strong>。元のファイルに設定されたアクセス権は引き継がれない。インデックスを置いた場所を読める人は、元のファイルを読む権限が無くても本文を読める</td>
+</tr>
+<tr>
+<td>システムインデックス</td>
+<td>本文インデックスとは別に、高速検索のために <code>work\system_index\</code> の txt にも、本文から作った隣り合う 2 文字の組が入る。この txt は Windows Search に索引させる。本文インデックス（<code>content_index</code>）は、索引の対象から自動で外す。仕様は <a href="../../design/index-data/system-index/">システムインデックス</a> にある</td>
 </tr>
 <tr>
 <td>検索結果ファイル</td>

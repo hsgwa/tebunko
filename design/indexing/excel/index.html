@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4373,7 +4373,7 @@ work/content_index/営業/見積.xlsx/見積[header_footer].tsv … 社外秘
 <li><strong>場所とセル番地</strong>: 場所は <code>&lt;シート名&gt;[ヘッダー・フッター]</code>、種別は「ヘッダー・フッター」。行にセル番地を持たないため、検索結果の「場所」は <code>[シート]売上</code>（番地なし）で、元のファイルを開くときはそのシートを開くだけでセルは選ばない（グラフシートと同じ）。［図形も検索］［コメントも検索］の選択肢は作らず、いつも検索する。</li>
 <li><strong>読めなかったとき</strong>: そのシートのヘッダー・フッターだけを読まずに続ける（ほかの図形・コメント・セルの値は出す）。読めなかった部品の名前は <code>readXlsxObjectUnits</code> の戻り値（<code>$failures</code>）に足し、ほかの部品と同じく <code>一部を読み取れませんでした: &lt;部品名&gt;</code> をインデックス作成ログに記録する。</li>
 <li><strong>名前の重なり</strong>: Word・PowerPoint の場所の名前 <code>ヘッダー・フッター</code> は、種類ではなく場所の名前（<code>[</code> <code>]</code> で囲まない）で、Excel の種類とは区別できる（<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。</li>
-<li><strong>抽出版</strong>: この読み取りを足したため、<code>.xlsx</code> <code>.xlsm</code> の抽出版を 3 → 4 に上げた（<a href="../ingest-list/">取り込み一覧</a>）。更新後の最初のインデックス作成で、これらのブックが取り込み直しになる。</li>
+<li><strong>抽出版</strong>: この読み取りの分、<code>.xlsx</code> <code>.xlsm</code> の抽出版は 4 である（<a href="../ingest-list/">取り込み一覧</a>）。</li>
 </ul>
 <h3 id="グラフsmartart-の読み取り">グラフ・SmartArt の読み取り<a class="headerlink" href="#グラフsmartart-の読み取り" title="Permanent link">&para;</a></h3>
 <p>図形の部品（<code>xl/drawings/drawingN.xml</code>）の中で、グラフ（<code>xdr:graphicFrame</code> の中の <code>a:graphic</code>/<code>a:graphicData</code> の <code>c:chart</code>）・SmartArt（<code>dgm:relIds</code>）を見つけたら、その <code>r:id</code>（グラフ）・<code>r:dm</code>（SmartArt）を、図形の部品自身のリレーションシップ（<code>xl/drawings/_rels/drawingN.xml.rels</code>）でたどり、<code>xl/charts/chartN.xml</code>・<code>xl/diagrams/dataN.xml</code> の文字を <code>readObjectText</code>・<code>readChartText</code>・<code>readDiagramText</code>（Word・PowerPoint と共通。<a href="../office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint のテキスト読み取り</a>）で読む。</p>

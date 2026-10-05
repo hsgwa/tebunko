@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4286,7 +4286,7 @@
 <h1 id="インデックスの仕組み">インデックスの仕組み<a class="headerlink" href="#インデックスの仕組み" title="Permanent link">&para;</a></h1>
 <p>tebunko の検索は、<strong>インデックス</strong>と呼ぶ索引データを使って行います。本ページでは、インデックスの役割、作成と更新の考え方、取り扱い上の注意を説明します。</p>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>インデックスは、Excel・Word・PowerPoint のファイルから文字を抽出し、検索用に保存した索引データです。tebunko は検索時に元のファイルを開かず、インデックスのみを照合します。</p>
+<p>インデックスは、Excel・Word・PowerPoint のファイルとテキストファイルから文字を抽出し、検索用に保存した索引データです。tebunko は検索時に元のファイルを開かず、インデックスのみを照合します。</p>
 <p>書籍の巻末索引が本文を読まずに該当ページを示すのと同様に、インデックスを参照することで、ファイルを 1 件ずつ開く処理を省きます。</p>
 <table>
 <thead>
@@ -4317,7 +4317,7 @@
 <p>索引データは事前に作成しておく必要があります。作成は［1 インデックス管理］の［インデックス作成を開始］で行います。</p>
 <h2 id="処理の流れ">処理の流れ<a class="headerlink" href="#処理の流れ" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
-    F["元のファイル&lt;br&gt;（Excel・Word・PowerPoint）"] -- "① インデックス作成&lt;br&gt;（文字の抽出）" --&gt; I[("インデックス")]
+    F["元のファイル&lt;br&gt;（Excel・Word・PowerPoint・テキスト）"] -- "① インデックス作成&lt;br&gt;（文字の抽出）" --&gt; I[("インデックス")]
     I -- "② 検索&lt;br&gt;（索引データの照合）" --&gt; R["検索結果&lt;br&gt;ファイル・場所・行"]
     R -- "③ 表示&lt;br&gt;（ダブルクリック）" --&gt; F</code></pre>
 <ol>
@@ -4352,7 +4352,7 @@
 <p>インデックスは、ワークスペース（既定：<code>%USERPROFILE%\Documents\tebunko_ws</code>）の <code>content_index</code> フォルダと <code>system_index</code> フォルダに保存します。元のファイルとは別の場所です。インデックスを削除しても元のファイルには影響せず、再度インデックス作成を実行すれば復元できます。</p>
 <h2 id="取り扱い上の注意">取り扱い上の注意<a class="headerlink" href="#取り扱い上の注意" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>元のファイルは変更しません。</strong> インデックス作成では、元のファイルのコピーを読み取り専用で開き、文字を抽出します。</li>
+<li><strong>元のファイルは変更しません。</strong> インデックス作成では、Office ファイルはコピーを読み取り専用で開き、テキストファイルはコピーを作らずに読み取り専用で読んで、文字を抽出します。</li>
 <li><strong>インデックスには文書の本文がそのまま含まれます。</strong> 元のフォルダのアクセス権はインデックスに引き継がれません。ワークスペースには、検索対象のフォルダと同等以上のアクセス制限を設定してください（<a href="../settings/#ワークスペース">設定</a>）。</li>
 </ul>
 <h2 id="インデックスをほかの-pc-で使う">インデックスをほかの PC で使う<a class="headerlink" href="#インデックスをほかの-pc-で使う" title="Permanent link">&para;</a></h2>

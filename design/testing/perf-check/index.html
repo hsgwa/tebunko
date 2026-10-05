@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4256,7 +4256,7 @@
 <li>PR にラベル <code>perf-check</code> を付けたとき。付けたあとの push・reopen でも流し直す。ラベルが無い PR では、ジョブが「スキップ」になり、失敗にはならない</li>
 <li>main への push のうち、速さに効くファイル（<code>scripts/**</code>・<code>tools/measure_perf.ps1</code>・<code>tools/perf/**</code>・<code>tests/tools/perf_*.Tests.ps1</code>・<code>tests/testdata/office/**</code>・<code>.github/workflows/perf-check.yml</code>）が変わったとき。ラベルを付け忘れた回帰も、マージの後には見つかる</li>
 <li>手動（<code>workflow_dispatch</code>）。main への push と手動は、ラベルを見ずに流す</li>
-<li>ラベル <code>perf-check</code> は、リポジトリに作ってある。付けるのはコンサルタント（メンテナの代わり）。リリースノートの分類（<code>.github/release.yml</code>）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）</li>
+<li>ラベル <code>perf-check</code> は、リポジトリに作ってある。付けるのはメンテナ。リリースノートの分類（<code>.github/release.yml</code>）には入れない（ほかの分類のラベルと一緒に付くので、その分類に入る）</li>
 <li>ジョブは <code>search</code>（検索と本文インデックスの作成）と <code>ingest</code>（取り込み）の 2 つを、別のランナーで並べて流す。取り込みの後に同じジョブで検索すると遅く出る回があるため、分ける。どちらも <code>windows-latest</code>（4 コア）、<code>timeout-minutes: 30</code>。ランナーでかかる時間は <code>search</code> が 3〜4 分、<code>ingest</code> が 4〜5 分</li>
 <li>各ジョブの <code>if</code> は、<code>github.event_name != 'pull_request'</code>（main への push・手動）、または <code>labeled</code> でラベル名が <code>perf-check</code>（付けたとき）、または <code>labeled</code> 以外（<code>synchronize</code>・<code>reopened</code>）で PR に <code>perf-check</code> が付いているとき。ほかのラベルを付けたときは流し直さない</li>
 <li>流れている実行の取り消し（<code>concurrency</code>）は、同じ PR に push を足したときと、<code>perf-check</code> を付け直したときだけ。グループは <code>perf-check-&lt;PR の番号（無ければ ref）&gt;</code> で、<code>perf-check</code> 以外のラベルを付けて起動した実行（ジョブはスキップになる）は、末尾に <code>run_id</code> を付けた別のグループに入れる。自分の PR に必ず付ける分類のラベル（<code>enhancement</code> など）を付けても、流れている <code>search</code>・<code>ingest</code> は取り消されない</li>

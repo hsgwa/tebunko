@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4144,7 +4144,7 @@
 <h1 id="取り込み一覧">取り込み一覧<a class="headerlink" href="#取り込み一覧" title="Permanent link">&para;</a></h1>
 <p>扱うこと: <code>work/ingest_status.tsv</code> の形式と書き込み方、強制終了・時間切れからの再開の仕組み。扱わないこと: インデックス作成全体の流れ（<a href="../flow/">インデックス作成のメインフロー</a>）、取り込み対象をどう決めるか（<a href="../target-decision/">取り込み対象の決定</a>）。先に読むページ: <a href="../">インデックス作成</a>、<a href="../flow/">インデックス作成のメインフロー</a>。</p>
 <h2 id="取り込み一覧-workingest_statustsv">取り込み一覧 <code>work/ingest_status.tsv</code><a class="headerlink" href="#取り込み一覧-workingest_statustsv" title="Permanent link">&para;</a></h2>
-<p>クロール対象フォルダ配下の Office ファイルを 1 ファイル 1 行で記録する。UTF-8（BOM 付き）・タブ区切りで、Excel でそのまま開ける。</p>
+<p>クロール対象フォルダ配下のファイルを 1 ファイル 1 行で記録する。UTF-8（BOM 付き）・タブ区切りで、Excel でそのまま開ける。</p>
 <div class="highlight"><pre><span></span><code>クロール対象フォルダ  C:\data\営業  営業
 クロール対象フォルダ  D:\old\2019年度   2019年度
 相対パス    更新日時    サイズ 状態  TSV数    取り込み日時  エラー 抽出版

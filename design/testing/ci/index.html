@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4143,7 +4143,7 @@
 <p>pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
 <ul>
 <li>Windows PowerShell 5.1 はランナーに最初から入っている（<code>shell: powershell</code> を明示する。<code>pwsh</code>（PowerShell 7）では COM と文字コードの扱いが変わる）</li>
-<li><strong>どのワークフローも、<code>shell: powershell</code> の <code>run</code> は ASCII だけで書く。</strong> Actions は <code>run</code> の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは <code>tools/</code> の BOM 付き UTF-8 のスクリプトに移して呼び出す（<code>shell: pwsh</code> はこの制限を受けない）。<code>tests/meta/encoding.Tests.ps1</code> の「shell: powershell の run は ASCII だけ」が確かめる</li>
+<li><strong>どのワークフローも、<code>shell: powershell</code> の <code>run</code> は ASCII だけで書く。</strong> Actions は <code>run</code> の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる。メッセージなどで日本語が要るときは <code>tools/</code> の BOM 付き UTF-8 のスクリプトに移して呼び出す（<code>shell: pwsh</code> はこの制限を受けない）。<code>tests/meta/encoding.Tests.ps1</code> の「shell: powershell の run は ASCII だけ」が確かめる</li>
 <li>ランナーには Windows に最初から入っている Pester 3.4 もある。<code>tests/run.ps1</code> は <code>Import-Module Pester -RequiredVersion 5.9.0</code> で版を指定し、CI は 5.9.0 が無ければ入れる（版は <code>test.yml</code> の <code>PESTER_VERSION</code> と <code>tests/run.ps1</code> の 2 か所で同じにする）</li>
 <li>スクリプトの改行はランナーの <code>core.autocrlf</code> に左右されないよう、<code>.gitattributes</code> で <code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF に固定している</li>
 <li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（<a href="../#結合テスト手動">結合テスト（手動）</a>）</li>

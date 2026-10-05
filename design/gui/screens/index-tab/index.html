@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -3302,6 +3302,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4240,6 +4284,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4420,7 +4508,102 @@
 
 
 <h1 id="1-インデックス管理タブ">［1 インデックス管理］タブ<a class="headerlink" href="#1-インデックス管理タブ" title="Permanent link">&para;</a></h1>
-<p>部品と並び・状態と遷移・表示する文言・改善の候補は、写真を載せた後の別のアイテムでまとめる。細かい仕様は <a href="../../index-tab/">［1 インデックス管理］タブ</a> にある。</p>
+<p>細かい仕様は <a href="../../index-tab/">［1 インデックス管理］タブ</a> にある。</p>
+<h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
+<p>検索の対象にするフォルダを登録し、インデックスを作る。インデックスの有無・作成中・中断・失敗の状態を、この画面で見分けられる。</p>
+<h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
+<ul>
+<li>上に「インデックス一覧」。チェックを付けた行だけを取り込む。列は 作成・インデックス名・元のフォルダ・フォルダの状態・ファイル・最終取り込み。</li>
+<li>一覧の横に［追加…］［編集…］［削除］。一覧へのドラッグ＆ドロップでも追加できる。</li>
+<li>「インデックスの状態」に、すべてのインデックスの合計を出す。</li>
+<li>下端に進み具合と、［インデックス作成を開始］（作成中は［中止］）。</li>
+<li>失敗があると、タブに ⚠ が付き、失敗したファイルの一覧と「失敗の原因」の列が出る。</li>
+</ul>
+<h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>stateDiagram-v2
+    state "index-tab/empty" as empty
+    state "index-tab/add" as add
+    state "index-tab/normal" as normal
+    state "index-tab/edit" as edit
+    state "index-tab/delete-confirm" as del
+    state "index-tab/start-confirm" as start
+    state "index-tab/running" as running
+    state "index-tab/stop-confirm" as stop
+    state "index-tab/interrupted" as interrupted
+    state "index-tab/done" as done
+    state "index-tab/failed" as failed
+    empty --&gt; add: ［追加…］（11）
+    add --&gt; normal: ［OK］
+    normal --&gt; edit: ［編集…］（14）
+    edit --&gt; normal: ［OK］
+    normal --&gt; del: ［削除］（15）
+    del --&gt; normal: ［削除する］
+    normal --&gt; start: 開始（17）
+    start --&gt; running: インデックス作成を開始
+    running --&gt; stop: ［中止］（19）
+    stop --&gt; running: ［キャンセル］
+    stop --&gt; interrupted: ［中止する］
+    interrupted --&gt; start: 続きから再開
+    running --&gt; done: 失敗なし（18）
+    running --&gt; failed: 失敗あり（18）</code></pre>
+<ul>
+<li>追加のダイアログで入力が足りないと、ダイアログの中に注意が出る（<code>index-tab/add-error</code>。12）。</li>
+<li>一覧の［作成］のチェックを外すと、その行は取り込まない（<code>index-tab/unchecked</code>。16）。</li>
+<li>作成中は［追加…］［編集…］［削除］が押せない（20）。作成が終わると、また押せる。</li>
+<li>前回の作成が中断したまま起動すると、この画面が選ばれて <code>index-tab/interrupted</code> になる（4）。
+状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</li>
+</ul>
+<h2 id="表示する文言">表示する文言<a class="headerlink" href="#表示する文言" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>状態</th>
+<th>文言</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一覧が空</td>
+<td>「インデックスがありません。［追加…］で、Office ファイルのあるフォルダを指定してください。」「まだインデックスがありません。」「まずインデックスを追加して、［作成］にチェックを付けてください。」</td>
+</tr>
+<tr>
+<td>追加</td>
+<td>「インデックスの追加」。欄は「元のフォルダ（Office ファイルのある場所）」「インデックス名」。注意は「元のフォルダを指定してください。」</td>
+</tr>
+<tr>
+<td>編集</td>
+<td>「インデックスの編集」。名前と場所だけを変えられる旨の注記</td>
+</tr>
+<tr>
+<td>削除の確認</td>
+<td>「インデックス「営業」を一覧から削除しますか？」、［削除する］［キャンセル］</td>
+</tr>
+<tr>
+<td>作成の確認</td>
+<td>「インデックス作成の確認」「合計 3 件を取り込みます。」</td>
+</tr>
+<tr>
+<td>作成中</td>
+<td>「インデックス作成中… 18 / 300 件」「残り 1 分未満」、［中止］</td>
+</tr>
+<tr>
+<td>中止の確認</td>
+<td>「インデックス作成を中止しますか？」、［中止する］［キャンセル］</td>
+</tr>
+<tr>
+<td>中断</td>
+<td>「まだ取り込んでいないファイルがあります（残り 265 件）」、［続きから再開（残り 265 件）］</td>
+</tr>
+<tr>
+<td>完了</td>
+<td>「インデックス作成が終わりました（成功 3 件 / 失敗 0 件）」、［ログを開く］</td>
+</tr>
+<tr>
+<td>失敗</td>
+<td>「取り込みに失敗したファイル 1 件」と「失敗の原因」の列</td>
+</tr>
+</tbody>
+</table>
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="index-tabemptyインデックスが無い遷移-3">index-tab/empty（インデックスが無い。遷移 3）<a class="headerlink" href="#index-tabemptyインデックスが無い遷移-3" title="Permanent link">&para;</a></h3>
 <p><img alt="インデックスが無い" src="../../../../images/screens/index-tab/empty.png" /></p>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4319,7 +4319,7 @@
 
 <h1 id="検索">検索<a class="headerlink" href="#検索" title="Permanent link">&para;</a></h1>
 <p>［2 検索］タブで検索を行います。検索はインデックスを照合して行うため、元のファイルを開くことなく結果を表示します。</p>
-<p><img alt="［2 検索］タブ。検索結果がファイルごとの見出しで並び、下にプレビューが出ている" src="../../images/screenshot_search.png" /></p>
+<p><img alt="［2 検索］タブ。検索結果がファイルごとの見出しで並び、下にプレビューが出ている" src="../../images/screens/search-tab/results.png" /></p>
 <h2 id="検索の手順">検索の手順<a class="headerlink" href="#検索の手順" title="Permanent link">&para;</a></h2>
 <ol>
 <li>「検索ワード」に検索する文字列を入力します。</li>
@@ -4405,7 +4405,7 @@
 <h2 id="検索対象の選択">検索対象の選択<a class="headerlink" href="#検索対象の選択" title="Permanent link">&para;</a></h2>
 <p>画面左側の「検索対象」には、インデックスとその配下のフォルダがツリーで表示されます。チェックを付けたインデックス・フォルダのみを検索します。［すべて選択］［すべて解除］で一括して切り替えられます。スペースキーで、選択中の項目のチェックを切り替えることもできます。</p>
 <h2 id="検索結果">検索結果<a class="headerlink" href="#検索結果" title="Permanent link">&para;</a></h2>
-<p>検索結果は元のファイルごとの見出しにまとめて表示します。見出しには、ファイルの種類（Excel・Word・PowerPoint）と該当件数を表示します。</p>
+<p>検索結果は元のファイルごとの見出しにまとめて表示します。見出しには、ファイルの種類（Excel・Word・PowerPoint・テキスト）と該当件数を表示します。</p>
 <ul>
 <li>見出しを選択（または Enter キー）すると、そのファイルの該当行の表示・非表示を切り替えます。</li>
 <li>［すべて展開］ですべてのファイルの該当行を、［すべて折りたたむ］で見出しのみを表示します。</li>
@@ -4437,6 +4437,7 @@
 <p>表示できる検索結果は 10,000 件までです。これを超える場合は、検索ワードまたは対象ファイルの条件で絞り込んでください。</p>
 <h2 id="検索結果の絞り込み">検索結果の絞り込み<a class="headerlink" href="#検索結果の絞り込み" title="Permanent link">&para;</a></h2>
 <p>「結果の中から探す」に文字列を入力すると、現在の検索結果をさらに絞り込みます。表示は「N 件中 K 件を表示」となります。</p>
+<p><img alt="「結果の中から探す」に文字列を入力して絞り込んだ検索結果。「N 件中 K 件を表示」と出ている" src="../../images/screens/search-tab/filtered.png" /></p>
 <h2 id="プレビュー">プレビュー<a class="headerlink" href="#プレビュー" title="Permanent link">&para;</a></h2>
 <p>検索結果の行を選択すると、プレビューに前後の行を表示します。プレビューのセルを選択して Ctrl+C キーを押すと、セルの値をコピーできます（Shift キーを押しながらのクリック、またはドラッグで複数選択）。検索結果とプレビューの境界を上下にドラッグすると、プレビューの高さを変更できます。</p>
 <h2 id="検索結果の出力">検索結果の出力<a class="headerlink" href="#検索結果の出力" title="Permanent link">&para;</a></h2>

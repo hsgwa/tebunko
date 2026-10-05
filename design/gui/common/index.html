@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4289,7 +4289,7 @@
 <ul>
 <li><strong>なぜ Mark-of-the-Web（MOTW）が問題か</strong>：zip をブラウザ・メールでダウンロードして展開すると、展開後の各ファイルに「外部由来」の印（<code>Zone.Identifier</code> という代替データストリーム）が付く。<code>RemoteSigned</code> は、この印の付いた未署名 <code>.ps1</code> の実行をブロックする（<code>.xaml</code>・<code>.ico</code> は実行ポリシーの対象外なので影響しない）。</li>
 <li><strong>対策</strong>：<code>tebunko.bat</code> が起動する PowerShell の <code>-Command</code> の中で、まず自フォルダの <code>scripts</code> 配下の印を <code>Get-ChildItem -Recurse -File \| Unblock-File</code> で消し（<code>work</code> には数万件の TSV があり、起動のたびに全件へかけると TSV 1 万件あたり約 3 秒遅くなるため、実行するスクリプトのある <code>scripts</code> に限る）、続けて <code>&amp; '...\gui.ps1'</code> で画面を開く。インラインの <code>-Command</code> の中身は実行ポリシーの対象外なので、印が付いていても <code>Unblock-File</code> は動く。<code>&amp;</code> で呼ぶ <code>gui.ps1</code> は <code>RemoteSigned</code> で調べられるため、印を消す前に呼ぶとブロックされる（順番に意味がある）。以前は印を消すためだけに PowerShell を別に起動していたが、PowerShell の起動 1 回分（1〜2 秒）画面が出るのが遅れるため、1 つのプロセスにまとめた。念のため <code>tebunko/gui.ps1</code> も起動時に自フォルダの印を消す（利用者が自作したショートカットから起動したときや、あとでファイルを差し替えたときのため）。</li>
-<li><strong>初回のセキュリティ警告</strong>：zip 由来だと <code>tebunko.bat</code> 自体にも印が付くため、初回のダブルクリックで Windows の「開いているファイル - セキュリティの警告」（発行元を確認できません）が 1 回出る。［実行］を押すと bat が動き、以降は印が消えるので警告は出ない。これは Windows の正規の確認であり、隠す対象ではない。</li>
+<li><strong>セキュリティの警告</strong>：zip を解除せずに展開すると <code>tebunko.bat</code> 自体にも印が付くため、ダブルクリックで Windows の「開いているファイル - セキュリティの警告」（発行元を確認できません）が出ることがある。［実行］を押すと bat が動く。展開する前に zip のプロパティで解除しておけば、この警告は出ない（README・手引きの書き方と同じ）。これは Windows の正規の確認であり、隠す対象ではない。</li>
 <li><strong><code>Bypass</code> を使わない代わりの実測挙動</strong>（この PC・<code>RemoteSigned</code> で確認）：印あり＝ブロック（「デジタル署名されていません。実行できません」）／<code>tebunko.bat</code> の <code>Unblock-File</code> で印を消す＝0 件／消した後は <code>RemoteSigned</code> で起動成功。</li>
 <li><strong>コンソールの窓を残さない</strong>：<code>tebunko.bat</code> は <code>start "" conhost.exe powershell ... -WindowStyle Hidden -Command "..."</code> で起動する。Windows 11 で既定のターミナルが Windows Terminal のとき（「Windows に任せる」の場合も含む）、コンソールの窓は Windows Terminal に渡され、Windows Terminal は <code>-WindowStyle Hidden</code> を無視する。そのため <code>conhost.exe</code> を通さないと、画面を閉じるまで PowerShell の窓（Windows Terminal のタブ）が開いたままになる。<code>conhost.exe</code> を通すと従来のコンソールで動き、<code>-WindowStyle Hidden</code> で窓が隠れる（起動の瞬間に一度だけ窓が見えることがある）。インデクサは画面のプロセスの中のスレッドで動くため（<a href="../../structure/threads/">プロセスとスレッド</a>）、別の窓は開かない。</li>
 <li><strong>インストーラー版</strong>：<code>tebunko.exe</code> は <code>powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File &lt;gui.ps1&gt;</code> を、窓を作らずに（<code>CreateNoWindow</code>）起動する。インストーラーで入れたファイルには Mark-of-the-Web が付かないため、<code>tebunko.bat</code> の <code>Unblock-File</code> にあたる処理は要らない（<code>gui.ps1</code> も起動時に同じ解除を行う）。</li>
@@ -4345,7 +4345,7 @@
 <li><strong>既定のボタン</strong>: 消す操作（<code>Danger</code>。ボタンを赤にする）・時間のかかる操作（<code>Careful</code>）・選択肢が 2 つ以上のときは、Enter で進まないよう［キャンセル］を既定にしてフォーカスを置く。そうでなければ主ボタンを既定にする。</li>
 <li><strong>文言の決まり</strong>: 画面に出ない言葉（<code>TSV</code>・<code>work\content_index</code>・<code>取り込み一覧</code>）は書かない。利用者から見て何が消えて何が残るかだけを書く。「〜の場合は〜してください」という手順の説明は、結果ではなく補足に置く。</li>
 <li><strong>使っている場面</strong>: インデックスの［削除］（<a href="../index-tab/">［1 インデックス管理］タブ</a>）、インデックス作成の中止・インデックス作成中に閉じる（<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a>）、元のファイルが見つからないとき（<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）、プロセスの終了（<a href="../process-tab/#終了の確認">終了の確認</a>）。インデックス作成の確認（<a href="../indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）は、インデックスごとの件数を一覧で見せるため専用のダイアログにする。</li>
-<li>伝えるだけのダイアログ（エラー・警告・<code>OK</code> だけのもの）は、これまでどおり <code>showMessage</code>（<code>MessageBox</code>）で出す。</li>
+<li>伝えるだけのダイアログ（エラー・警告・<code>OK</code> だけのもの）は、<code>showMessage</code>（<code>MessageBox</code>）で出す。</li>
 </ul>
 <h2 id="フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）<a class="headerlink" href="#フォルダ選択ダイアログ参照" title="Permanent link">&para;</a></h2>
 <p><strong>Windows 標準のエクスプローラー形式のダイアログ</strong>（COM の <code>IFileOpenDialog</code> を、フォルダを選ぶ設定 <code>FOS_PICKFOLDERS</code> で開いたもの）を使う（<code>shared/ui/folder_dialog.ps1</code> の <code>selectFolder</code>）。利用者が見慣れた画面のため、クイックアクセス・OneDrive・ネットワーク・検索・［新しいフォルダー］がそのまま使える。</p>
@@ -4387,7 +4387,6 @@
 <p><strong>呼び出し方</strong>：<code>IFileOpenDialog</code> を PowerShell から直接呼ぶにはインターフェースの定義が要り、自分で定義すると実行時コンパイル（<code>csc.exe</code>）が要る（<a href="../implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。そのため、WinForms（<code>gui.ps1</code> で読み込み済み）が内部に持つ定義 <code>FileDialogNative+IFileDialog</code> をリフレクションで呼ぶ。<code>csc.exe</code> の起動・一時 DLL の生成・<code>Add-Type</code> の追加は無い（<a href="../../../safety/checks/#検査項目と結果">危険とされる処理の検査結果</a>）。</p>
 <ul>
 <li>内部の型が見つからない・呼べないとき（.NET の変更など）は、エラーのログに記録し、同じエクスプローラー形式の「ファイルを開く」ダイアログ（<code>OpenFileDialog</code>。公開の API だけで開ける）で、選びたいフォルダの中に入って［開く］を押してもらう。ツリー形式の <code>FolderBrowserDialog</code> は、中身が見えず目的のフォルダにたどり着きにくいため使わない。</li>
-<li>以前はフォルダの中身（Office ファイル）も見える自作のダイアログを使っていたが、見慣れた画面で操作できることを優先して Windows 標準にした。</li>
 </ul>
 
 

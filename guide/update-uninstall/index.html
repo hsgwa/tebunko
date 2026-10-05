@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4313,11 +4313,14 @@
 <h3 id="インストーラー版">インストーラー版<a class="headerlink" href="#インストーラー版" title="Permanent link">&para;</a></h3>
 <p>新しいバージョンのインストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を実行します。設定（登録したフォルダなど）とインデックスは引き継がれます。tebunko の起動中は、インストーラーの処理を続行できません。</p>
 <h3 id="zip-版">zip 版<a class="headerlink" href="#zip-版" title="Permanent link">&para;</a></h3>
-<p>新しいバージョンの zip を展開し、現在の <code>tebunko</code> フォルダと置き換えます。</p>
-<ul>
-<li><strong>同じ場所に上書きする場合</strong>：設定ファイル <code>setting.config</code> は zip に含まれないため、そのまま保持されます。</li>
-<li><strong>別の場所に展開する場合</strong>：現在のフォルダの <code>setting.config</code> を新しいフォルダにコピーしてください。コピーしない場合、インデックスの一覧が空の状態で起動します。この状態でインデックス作成を実行すると、一覧に無いインデックスは削除されます。</li>
-</ul>
+<p>新しいバージョンの zip は、現在のフォルダには重ねず、別のフォルダに展開します（重ねて展開すると、前のバージョンにあって新しいバージョンに無いスクリプトが残るためです）。</p>
+<ol>
+<li>新しい zip を、展開する前に解除します（［ブロックの解除］、Windows 11 では［許可する］。<a href="../#zip-による配置">zip による配置</a>）。</li>
+<li>別のフォルダに展開します。</li>
+<li>現在のフォルダの <code>setting.config</code> を新しいフォルダにコピーします。ツールのフォルダに書けなくて設定が <code>%LOCALAPPDATA%\tebunko\</code> にある場合は、コピーは要りません。コピーしない場合、インデックスの一覧が空の状態で起動します。この状態でインデックス作成を実行すると、一覧に無いインデックスは削除されます。</li>
+<li><a href="../#tebunkobat-を使わずに起動するzip-版">ショートカットを作っていた場合</a>は、リンク先と作業フォルダーを新しいフォルダに直します。</li>
+<li>前のフォルダを削除します。</li>
+</ol>
 <h3 id="単一-ps1-版試験版">単一 .ps1 版（試験版）<a class="headerlink" href="#単一-ps1-版試験版" title="Permanent link">&para;</a></h3>
 <p>新しい <code>tebunko-&lt;バージョン&gt;.ps1</code> を、現在の <code>.ps1</code> と同じフォルダに置きます。古い <code>.ps1</code> は削除します。<code>setting.config</code> は <code>.ps1</code> とは別のファイルなので、そのまま保持されます。別のフォルダに置く場合は、<code>setting.config</code> を新しいフォルダにコピーしてください。</p>
 <p>インデックスはワークスペース（既定：<code>Documents\tebunko_ws</code>）に保存されているため、tebunko のフォルダを置き換えても削除されません。</p>
@@ -4348,7 +4351,7 @@
 <tbody>
 <tr>
 <td>ワークスペース（既定：<code>%USERPROFILE%\Documents\tebunko_ws</code>。変更した場合はその場所）</td>
-<td>インデックス・取り込み一覧・ログ</td>
+<td>インデックス・取り込み一覧・ログ・一時ファイル</td>
 </tr>
 <tr>
 <td><code>%LOCALAPPDATA%\tebunko</code></td>
@@ -4356,7 +4359,7 @@
 </tr>
 <tr>
 <td>Windows Search の「インデックスのオプション」</td>
-<td>ワークスペースを索引付けの対象に追加していた場合は、対象から除外します</td>
+<td>本文のインデックス（<code>content_index</code>）は、tebunko が索引付けの対象から自動で外します。ワークスペースを自分で索引付けの対象に追加していた場合だけ、対象から除外します</td>
 </tr>
 </tbody>
 </table>

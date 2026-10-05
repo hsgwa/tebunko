@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4225,6 +4225,7 @@
 <li>［追加…］を選択し、［参照…］で <code>C:\共有\営業部</code> を指定します。パスの入力・貼り付け、またはエクスプローラーからのドラッグ＆ドロップでも指定できます。</li>
 <li>インデックス名はフォルダ名から自動的に設定されます（後から変更できます）。［OK］を選択すると、一覧に追加されます。</li>
 </ol>
+<p><img alt="［インデックスの追加］ダイアログ。元のフォルダとインデックス名を入力する欄がある" src="../../images/screens/index-tab/add.png" /></p>
 <h2 id="2-インデックスの作成">2. インデックスの作成<a class="headerlink" href="#2-インデックスの作成" title="Permanent link">&para;</a></h2>
 <p>登録したフォルダ内のファイルから文字を抽出し、検索用の索引データ（<strong>インデックス</strong>）を作成します（<a href="../about-index/">インデックスの仕組み</a>）。</p>
 <ol>
@@ -4232,7 +4233,7 @@
 <li>［インデックス作成を開始］を選択します。</li>
 <li>「インデックス作成の確認」に取り込み対象のファイル数が表示されます。内容を確認し、［OK］を選択します。</li>
 </ol>
-<p><img alt="［1 インデックス管理］タブ。登録したフォルダの一覧と、取り込んだファイルの数が表示されている" src="../../images/readme_index.png" /></p>
+<p><img alt="インデックス作成が終わった［1 インデックス管理］タブ。一覧に取り込み済みのファイル数が表示され、下部に成功と失敗の件数が出ている" src="../../images/screens/index-tab/done.png" /></p>
 <p>処理中は進捗と残り時間を表示します。所要時間の目安は、Office ファイル 300 件（大半が Excel）で約 3 分です。2 回目以降は追加・変更されたファイルのみを取り込むため、変更が無ければ数秒で完了します。</p>
 <p>インデックスの作成中も検索は可能です。ただし、インデックス作成は tebunko のプロセス内で実行されるため、<strong>画面を閉じると中断されます</strong>。中断した処理は、次回の実行時に続きから再開します。</p>
 <h2 id="3-検索">3. 検索<a class="headerlink" href="#3-検索" title="Permanent link">&para;</a></h2>
@@ -4241,10 +4242,10 @@
 <li>検索ワードに「(株)山田商事」と入力し、Enter キーを押します。</li>
 </ol>
 <p>該当したファイルが、件数と場所とともに見出しとして一覧表示されます。</p>
-<p><img alt="検索直後の結果。該当したファイルが、件数と場所とともに見出しとして並んでいる" src="../../images/readme_results_headings.png" /></p>
+<p><img alt="検索直後の結果。該当したファイルが、件数と場所とともに見出しとして並んでいる" src="../../images/screens/search-tab/collapsed.png" /></p>
 <h2 id="4-検索結果の確認">4. 検索結果の確認<a class="headerlink" href="#4-検索結果の確認" title="Permanent link">&para;</a></h2>
 <p>ファイルの見出しを選択すると、そのファイルの該当行を展開表示します。一致した文字列は強調表示されます。行を選択すると、前後の行がプレビューに表示されます。</p>
-<p><img alt="検索結果。ファイルごとの見出しの下に該当行が強調表示され、下部にプレビューが表示されている" src="../../images/readme_results.png" /></p>
+<p><img alt="検索結果。ファイルごとの見出しの下に該当行が強調表示され、下部にプレビューが表示されている" src="../../images/screens/search-tab/results.png" /></p>
 <h2 id="5-元のファイルの表示">5. 元のファイルの表示<a class="headerlink" href="#5-元のファイルの表示" title="Permanent link">&para;</a></h2>
 <p>行をダブルクリック（または Enter キー）すると、元のファイルを開きます。Excel の場合は、該当するセルを選択した状態で開きます。開いたファイルは、そのまま編集・保存できます。</p>
 <h2 id="関連項目">関連項目<a class="headerlink" href="#関連項目" title="Permanent link">&para;</a></h2>

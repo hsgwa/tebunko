@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -3386,6 +3386,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4152,6 +4196,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4244,7 +4332,58 @@
 
 
 <h1 id="9-プロセス停止タブ">［9 プロセス停止］タブ<a class="headerlink" href="#9-プロセス停止タブ" title="Permanent link">&para;</a></h1>
-<p>部品と並び・状態と遷移・表示する文言・改善の候補は、写真を載せた後の別のアイテムでまとめる。細かい仕様は <a href="../../process-tab/">［9 プロセス停止］タブ</a> にある。写真の中の Excel のプロセスは、<code>PING.EXE</code> を <code>EXCEL.EXE</code> の名前で写した偽のプロセス（<a href="../../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ）。</p>
+<p>細かい仕様は <a href="../../process-tab/">［9 プロセス停止］タブ</a> にある。写真の中の Excel のプロセスは、<code>PING.EXE</code> を <code>EXCEL.EXE</code> の名前で写した偽のプロセス（<a href="../../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ）。</p>
+<h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
+<p>インデックス作成を中断したときなどに残った Excel・Word・PowerPoint のプロセスを見つけて終了する。</p>
+<h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
+<ul>
+<li>「残っている Office のプロセス」の一覧。列は 種類・PID・起動時刻・メモリ・ウィンドウ。</li>
+<li>一覧の下に件数と時刻の行、［更新］。</li>
+<li>下端に［すべて終了］［選択したプロセスを終了］［バックグラウンドのみ終了（N 件）］。説明に、バックグラウンドと、画面に表示中のプロセスを終了すると保存していない内容が失われることを書いている。</li>
+<li>プロセスがあるとタブに ⚠ が付く。</li>
+</ul>
+<h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
+<p><pre class="mermaid"><code>stateDiagram-v2
+    state "process-tab/empty" as empty
+    state "process-tab/list" as list
+    state "process-tab/stop-all-confirm" as all
+    state "process-tab/stop-background-confirm" as bg
+    state "process-tab/stop-selected-confirm" as sel
+    empty --&gt; list: 更新（36）
+    list --&gt; all: ［すべて終了］（37）
+    list --&gt; bg: ［バックグラウンドのみ終了］（37）
+    list --&gt; sel: 行を選んで［選択したプロセスを終了］（38）
+    all --&gt; list: ［キャンセル］
+    bg --&gt; list: ［キャンセル］
+    sel --&gt; list: ［キャンセル］
+    all --&gt; empty: ［終了する］
+    bg --&gt; empty: ［終了する］
+    sel --&gt; empty: ［終了する］</code></pre>
+状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</p>
+<h2 id="表示する文言">表示する文言<a class="headerlink" href="#表示する文言" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>状態</th>
+<th>文言</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>プロセスが無い</td>
+<td>「実行中の Excel・Word・PowerPoint はありません。（12:00:36 時点）」。ボタンは押せない</td>
+</tr>
+<tr>
+<td>一覧あり</td>
+<td>「1 件（バックグラウンド 1 件・画面に表示中 0 件）・12:00:38 時点」、［バックグラウンドのみ終了（1 件）］</td>
+</tr>
+<tr>
+<td>終了の確認</td>
+<td>「バックグラウンドの Office を 1 件終了しますか？」。「画面に出ているファイルはありません」「残ったまま動いていたものを片付けます」「次のインデックス作成で作り直されます」、［終了する］［キャンセル］</td>
+</tr>
+</tbody>
+</table>
+<p>時刻と件数は写真を撮ったときの値。</p>
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="process-tabemptyoffice-のプロセスが無い遷移-36">process-tab/empty（Office のプロセスが無い。遷移 36）<a class="headerlink" href="#process-tabemptyoffice-のプロセスが無い遷移-36" title="Permanent link">&para;</a></h3>
 <p><img alt="Office のプロセスが無い" src="../../../../images/screens/process-tab/empty.png" /></p>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4165,7 +4165,7 @@
 
 <h1 id="ソースの分け方">ソースの分け方<a class="headerlink" href="#ソースの分け方" title="Permanent link">&para;</a></h1>
 <p>扱うこと: <code>scripts/</code> を文脈と層で分ける考え方、フォルダごとの中身、読み込み口とその依存の向き。扱わないこと: 配布物・開発用フォルダの全体（<a href="../folders/">配布物と開発用のフォルダ構成</a>）、クラス設計（<a href="../classes/">クラスと関数の使い分け</a>）。先に読むページ: <a href="../../">設計の概要</a>。</p>
-<p>ソースは<strong>文脈</strong>（どの機能か）と<strong>層</strong>（何をするか）で分ける。今後ツール（<code>tebunko_diff</code> など）を増やしても、共通部分を作り直さずに済むようにするため。処理は<strong>文脈</strong>（どの機能のものか）と<strong>層</strong>（何をするものか）で分けて置く。</p>
+<p>ソースは<strong>文脈</strong>（どの機能か）と<strong>層</strong>（何をするか）で分ける。どのツールにも依らない共通部分（<code>shared/</code>）と、このツール固有の部分（<code>tebunko/</code>）を分け、依存を一方向にするため。処理は<strong>文脈</strong>（どの機能のものか）と<strong>層</strong>（何をするものか）で分けて置く。</p>
 <table>
 <thead>
 <tr>
@@ -4291,10 +4291,16 @@
 <td>上記＋ tebunko の <code>core/</code>・<code>index/</code>・<code>search/</code> と、<code>indexer/</code> のうち <code>indexer_state.ps1</code>・<code>indexer_decide.ps1</code>・<code>indexing_session.ps1</code></td>
 <td>画面・インデクサ・テスト・画面が起こす別スレッド</td>
 </tr>
+<tr>
+<td><code>scripts/tebunko/indexer/indexer_lib.ps1</code></td>
+<td><code>lib.ps1</code> ＋ インデックス作成だけで使う <code>office_reader.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code></td>
+<td><code>indexer.ps1</code>・取り込みのスレッド（画面は読み込まない）</td>
+</tr>
 </tbody>
 </table>
 <p>画面の部品（<code>shared/ui/</code>・<code>tebunko/ui/</code>）は <code>gui.ps1</code> が、インデックス作成だけで使うもの（<code>office_reader.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code>）は <code>indexer/indexer_lib.ps1</code> が読み込む。<code>indexer_lib.ps1</code> は <code>indexer.ps1</code> と取り込みのスレッドが読み込む（画面は読み込まない）。</p>
 <p>各スクリプト・テストからは dot-source（<code>. "$PSScriptRoot\lib.ps1"</code>）して使う。</p>
+<p>別スレッド（検索・背景の仕事・取り込み）の中では <code>$PSScriptRoot</code> が使えない。そのため、スレッドへ読み込ませる部品（<code>lib</code>・<code>indexerLib</code>）の読み込みは、<code>scripts/tebunko/core/parts.ps1</code> の <code>getPartLoad</code> が、呼び出し側で絶対パスに解決した <code>. '&lt;パス&gt;'</code> の文字列にして渡す。</p>
 <h2 id="起動口となるスクリプトscripts">起動口となるスクリプト（<code>scripts/</code>）<a class="headerlink" href="#起動口となるスクリプトscripts" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

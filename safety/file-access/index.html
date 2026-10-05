@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -1047,10 +1047,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#取り込みの作業フォルダに置くもの前の版との対応" class="md-nav__link">
+  <a href="#取り込みの作業フォルダに置くもの" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込みの作業フォルダに置くもの（前の版との対応）
+        取り込みの作業フォルダに置くもの
       
     </span>
   </a>
@@ -4141,10 +4141,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#取り込みの作業フォルダに置くもの前の版との対応" class="md-nav__link">
+  <a href="#取り込みの作業フォルダに置くもの" class="md-nav__link">
     <span class="md-ellipsis">
       
-        取り込みの作業フォルダに置くもの（前の版との対応）
+        取り込みの作業フォルダに置くもの
       
     </span>
   </a>
@@ -4270,13 +4270,12 @@
 <span class="c"># NotContentIndexed 属性を書く箇所（fs.ps1 の setNotContentIndexed だけ）を確かめる</span>
 <span class="n">scan</span> <span class="s1">'NotContentIndexed'</span>
 </code></pre></div>
-<h3 id="取り込みの作業フォルダに置くもの前の版との対応">取り込みの作業フォルダに置くもの（前の版との対応）<a class="headerlink" href="#取り込みの作業フォルダに置くもの前の版との対応" title="Permanent link">&para;</a></h3>
-<p>取り込みの作業フォルダ（既定 <code>work\tmp\&lt;PC の鍵&gt;\&lt;PID&gt;\w&lt;番号&gt;\</code>）には、原本のコピー・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。前の版（<code>%TEMP%\tebunko\&lt;PID&gt;\</code>）から、置き場所だけをワークスペースの下に変えた（中身は変えていない）。</p>
+<h3 id="取り込みの作業フォルダに置くもの">取り込みの作業フォルダに置くもの<a class="headerlink" href="#取り込みの作業フォルダに置くもの" title="Permanent link">&para;</a></h3>
+<p>取り込みの作業フォルダ（既定 <code>work\tmp\&lt;PC の鍵&gt;\&lt;PID&gt;\w&lt;番号&gt;\</code>）には、原本のコピー・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。置き場所はワークスペースの下である。</p>
 <table>
 <thead>
 <tr>
 <th>内容</th>
-<th>前の版の置き場所</th>
 <th>今の置き場所</th>
 <th>定義</th>
 </tr>
@@ -4284,31 +4283,27 @@
 <tbody>
 <tr>
 <td>原本のコピー（Excel・Word・PowerPoint が開く対象）</td>
-<td><code>%TEMP%\tebunko\&lt;PID&gt;\&lt;元のファイル名&gt;</code>（または <code>source&lt;拡張子&gt;</code>）</td>
-<td><code>work\tmp\&lt;PC の鍵&gt;\&lt;PID&gt;\w&lt;番号&gt;\&lt;元のファイル名&gt;</code>（同上）</td>
+<td><code>work\tmp\&lt;PC の鍵&gt;\&lt;PID&gt;\w&lt;番号&gt;\&lt;元のファイル名&gt;</code></td>
 <td><code>extract_office.ps1</code> の <code>copyFileShared</code> 呼び出し</td>
 </tr>
 <tr>
 <td>Excel のシートごとの一時保存（<code>sheet&lt;番号&gt;.tmp</code>）</td>
-<td>同上の下</td>
 <td>同上の下</td>
 <td><code>extract_office.ps1</code> の <code>extractWorkbook</code></td>
 </tr>
 <tr>
 <td>旧形式・不明な形式から変換した一時ファイル（<code>converted.docx</code>・<code>converted.pptx</code>、リネームした <code>source.doc</code>・<code>source.ppt</code>）</td>
 <td>同上の下</td>
-<td>同上の下</td>
 <td><code>extract_office.ps1</code> の <code>extractDocument</code></td>
 </tr>
 <tr>
 <td>公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの <code>doc_body.tsv</code> を含む）</td>
 <td>同上の下</td>
-<td>同上の下</td>
 <td><code>index_migrate.ps1</code> の <code>publishTsv</code>、<code>extract_text.ps1</code> の <code>extractTextFile</code></td>
 </tr>
 </tbody>
 </table>
-<p>ワークスペースのパスに <code>[</code> <code>]</code> を含む・長すぎて置けないときは、前の版は <code>%TEMP%\tebunko\&lt;PID&gt;\</code> に逃がしていたが、今の版は作業フォルダを作らず、取り込みをすべてスキップする（<code>selectTmpDir</code>・<code>initTmpDir</code>。<a href="../../design/structure/data/">データの置き場所とパスの決め方</a>）。</p>
+<p>ワークスペースのパスに <code>[</code> <code>]</code> を含む・長すぎて置けないときは、作業フォルダを作らず、取り込みをすべてスキップする（<code>selectTmpDir</code>・<code>initTmpDir</code>。<a href="../../design/structure/data/">データの置き場所とパスの決め方</a>）。</p>
 <h3 id="ワークスペースの外にまだ書くもの">ワークスペースの外に、まだ書くもの<a class="headerlink" href="#ワークスペースの外にまだ書くもの" title="Permanent link">&para;</a></h3>
 <p>上の作業フォルダをワークスペースの下に寄せた後も、次のものはワークスペースの外（または、そもそもディスクに書かない）のままである。</p>
 <table>

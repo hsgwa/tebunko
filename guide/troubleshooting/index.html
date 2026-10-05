@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4296,11 +4296,15 @@
 <tbody>
 <tr>
 <td>「セキュリティの警告」が表示される（zip 版）</td>
-<td>［実行］を選択します。毎回の表示を避ける場合は、<code>tebunko.bat</code> のプロパティで［ブロックの解除］を有効にします</td>
+<td>zip を解除せずに展開した場合に表示されることがあります。［実行］を選択します。次の更新からは、展開する前に zip のプロパティで［ブロックの解除］（Windows 11 では［許可する］）を有効にしてください（<a href="../#zip-による配置">zip による配置</a>）。<code>tebunko.bat</code> のプロパティで解除しても避けられます</td>
 </tr>
 <tr>
 <td>単一 .ps1 版（試験版）を右クリックしても実行できない・止められる</td>
 <td>組織のポリシーで PowerShell の実行ポリシーが固定されているときは、ファイルのプロパティで［ブロックの解除］を有効にしてから実行します（<a href="../#単一-ps1-版試験版による配置">単一 .ps1 版による配置</a>）</td>
+</tr>
+<tr>
+<td><code>tebunko.bat</code> を使わずにショートカットから起動したが、何も起きない（zip 版）</td>
+<td>zip を解除してから展開したか（印が残っていると起動が止まります。展開し直してください）、ショートカットの作業フォルダーが展開したフォルダか、リンク先の <code>-File</code> のパスが <code>scripts\tebunko\gui.ps1</code> かを確認します（<a href="../#tebunkobat-を使わずに起動するzip-版"><code>tebunko.bat</code> を使わずに起動する</a>）。この方法では理由の表示（メモ帳）が出ません</td>
 </tr>
 <tr>
 <td>「Windows によって PC が保護されました」が表示される（インストーラー版）</td>
@@ -4308,7 +4312,7 @@
 </tr>
 <tr>
 <td>起動操作をしても画面が表示されない</td>
-<td>tebunko が既に起動していないか確認してください（既に起動している場合は、既存のウィンドウが前面に表示されます）。組織のポリシーで PowerShell の実行が制限されている場合や、制限言語モード（AppLocker・WDAC）で許可されていない場合は、メモ帳（Notepad）に理由が表示されます。表示された案内に従い、<a href="../../safety/">安全性</a> の資料を添えて情報システム部門に確認するか、zip の展開し直しなどの対処をしてください。メモ帳が出ない場合（PowerShell 自体が見つからない・AppLocker の実行ファイルの規則で PowerShell の起動自体が止められている場合）は、Windows PowerShell 5.1 が有効か、Windows 自身が出す知らせが無いかを確認してください</td>
+<td>tebunko が既に起動していないか確認してください（既に起動している場合は、既存のウィンドウが前面に表示されます）。組織のポリシーで PowerShell の実行が制限されている場合や、制限言語モード（AppLocker・WDAC）で許可されていない場合は、メモ帳（Notepad）に理由が表示されます。表示された案内に従い、<a href="../#制限された環境での動作">制限された環境での動作</a>を確かめたうえで、<a href="../../safety/">安全性</a> の資料を添えて情報システム部門に確認するか、zip の展開し直しなどの対処をしてください。メモ帳が出ない場合（PowerShell 自体が見つからない・AppLocker の実行ファイルの規則で PowerShell の起動自体が止められている場合）は、Windows PowerShell 5.1 が有効か、Windows 自身が出す知らせが無いかを確認してください</td>
 </tr>
 <tr>
 <td>起動時に［8 設定］が表示される</td>

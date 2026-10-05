@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -4340,7 +4340,7 @@
 <h3 id="分かっている限界">分かっている限界<a class="headerlink" href="#分かっている限界" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>対象の言語は日本語と英語</strong>（主な文字コードは Shift_JIS と UTF-8）。GBK・Big5・EUC-KR は対象外で、誤って取り込まれるのは既知の限界。誤判定を減らすための判定は足さない。</li>
-<li><strong>末尾が NUL で埋まった大きい <code>.log</code> など</strong>: アプリの強制終了などでファイルの途中から NUL（0x00）で埋まったまま残ったファイルは、その NUL が先頭 64KB より後ろにあっても取り込まない（上の「NUL（0x00）を含むか」）。以前の版は先頭 64KB だけを見ていたため、64KB を超えた位置の NUL は見逃され、NUL の手前までの内容で取り込めていた。これからは全体を見るため、同じファイルが「テキストファイルではないため取り込めません。」の失敗になる（<a href="../../../guide/limitations/">分かっている限界（利用の手引き）</a>）。</li>
+<li><strong>末尾が NUL で埋まった大きい <code>.log</code> など</strong>: アプリの強制終了などでファイルの途中から NUL（0x00）で埋まったまま残ったファイルは、その NUL が先頭 64KB より後ろにあっても取り込まない（上の「NUL（0x00）を含むか」）。NUL は全体を見て判定するため、そのようなファイルは「テキストファイルではないため取り込めません。」の失敗になる（<a href="../../../guide/limitations/">分かっている限界（利用の手引き）</a>）。</li>
 <li><strong>取り込まないもの</strong>: UTF-32・GBK・Big5・EUC-KR・かなの無い EUC-JP・NUL の無いバイナリ・NUL が偏らない UTF-16 などは、文字コードを判定できないとして取り込まない（<code>テキストファイルではないため取り込めません。</code>）。UTF-8・Shift_JIS・UTF-16 で保存し直せば取り込める。</li>
 <li><strong>短い Shift_JIS の並び</strong>（半角カナの一部など。例: <code>ﾃｽ</code> = <code>C3 BD</code>）は、UTF-8 としても正しく読めることがあり、その場合は UTF-8 と判定されて化ける。</li>
 <li><strong>BOM の無い UTF-16 で、かなが 20% に届かないもの</strong>（漢字だけの文章など）は、バイナリと見分けが付かないため取り込まない。</li>

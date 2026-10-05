@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -3330,6 +3330,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4218,6 +4262,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#部品と並び" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        部品と並び
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#状態と遷移" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        状態と遷移
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#表示する文言" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        表示する文言
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#写真" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4376,7 +4464,90 @@
 
 
 <h1 id="2-検索タブ">［2 検索］タブ<a class="headerlink" href="#2-検索タブ" title="Permanent link">&para;</a></h1>
-<p>部品と並び・状態と遷移・表示する文言・改善の候補は、写真を載せた後の別のアイテムでまとめる。細かい仕様は <a href="../../search-tab/">［2 検索］タブ</a> にある。</p>
+<p>細かい仕様は <a href="../../search-tab/">［2 検索］タブ</a> にある。</p>
+<h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
+<p>インデックスの中から語を探し、該当するファイル・場所・行を見つけ、元のファイルを開く。</p>
+<h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
+<ul>
+<li>左に「検索対象」のツリー（チェックしたインデックス・フォルダだけを検索する。［すべて選択］［すべて解除］）。</li>
+<li>右上に「検索ワード」の欄と［検索］、その下に「大文字と小文字を区別」「正規表現を使う」「図形も検索」「コメントも検索」と「対象ファイル」。</li>
+<li>その下に、注意・「検索対象」の説明・「高速検索」の状態を出す行。</li>
+<li>結果は、［すべて展開］［すべて折りたたむ］、「絞り込み」の欄、場所・種別・該当行の表。</li>
+<li>表の下に、プレビュー（選んだ行の前後）、開き方の選択、［Excel で開く］［フォルダを開く］、［結果をファイルに出力］。</li>
+</ul>
+<h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>stateDiagram-v2
+    state "search-tab/no-index" as noindex
+    state "search-tab/initial" as initial
+    state "search-tab/results" as results
+    state "search-tab/no-results" as noresults
+    state "search-tab/limit" as limit
+    state "search-tab/regex-error" as regex
+    state "search-tab/tree-none" as tree
+    state "search-tab/collapsed" as collapsed
+    state "search-tab/filtered" as filtered
+    state "search-tab/missing-source" as missing
+    noindex --&gt; initial: インデックスを作る（26）
+    initial --&gt; results: ［検索］（23）
+    initial --&gt; noresults: ［検索］（23）
+    initial --&gt; limit: ［検索］（23）
+    initial --&gt; regex: 不正な正規表現（24）
+    initial --&gt; tree: すべて解除（25）
+    results --&gt; collapsed: すべて折りたたむ（27）
+    results --&gt; filtered: 絞り込み（27）
+    results --&gt; missing: ファイルを開く（29）</code></pre>
+<ul>
+<li>最小の大きさ（760 × 580）でも結果とプレビューが見える（<code>search-tab/min-width</code>）。</li>
+<li>不正な正規表現のときは文字どおり検索にして、［検索］は押せたままになる。
+状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</li>
+</ul>
+<h2 id="表示する文言">表示する文言<a class="headerlink" href="#表示する文言" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>状態</th>
+<th>文言</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>インデックスが無い</td>
+<td>「インデックスがありません。［1 インデックス管理］でインデックスを作成してください。」「検索対象：なし（…）」、［インデックスを作成する］、「高速検索：使用不可」</td>
+</tr>
+<tr>
+<td>起動直後</td>
+<td>「検索対象：すべて（集約ファイル 3 件・最終取り込み 11:59）」</td>
+</tr>
+<tr>
+<td>0 件</td>
+<td>「見つかりませんでした。」、状態の欄は「検索しました（…：0 件）」</td>
+</tr>
+<tr>
+<td>上限</td>
+<td>「該当 10,000 件（1 ファイル）」「10,000 件を超えたため、ここで打ち切りました。…」</td>
+</tr>
+<tr>
+<td>不正な正規表現</td>
+<td>「正規表現として不正なため、文字どおり検索します。」</td>
+</tr>
+<tr>
+<td>すべて解除</td>
+<td>「検索対象：なし（左の一覧で、検索するインデックス・フォルダにチェックを付けてください）」</td>
+</tr>
+<tr>
+<td>折りたたみ・絞り込み</td>
+<td>「該当 2 件（2 ファイル）」「2 件中 1 件を表示」</td>
+</tr>
+<tr>
+<td>元のファイルが無い</td>
+<td>「見積.xlsx が見つかりません」、［フォルダを選ぶ］［キャンセル］。窓の下端には「元のファイルが見つかりません：…」</td>
+</tr>
+<tr>
+<td>開き方</td>
+<td>「通常（編集する）」ほか、［Excel で開く］［フォルダを開く］</td>
+</tr>
+</tbody>
+</table>
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="search-tabno-indexインデックスが無い遷移-26">search-tab/no-index（インデックスが無い。遷移 26）<a class="headerlink" href="#search-tabno-indexインデックスが無い遷移-26" title="Permanent link">&para;</a></h3>
 <p><img alt="インデックスが無い" src="../../../../images/screens/search-tab/no-index.png" /></p>
