@@ -12,7 +12,7 @@
 # 公開は .github/workflows/docs.yml が main の更新ごとに GitHub Pages へ行う。
 site_name: tebunko
 site_url: https://hsgwa.github.io/tebunko/
-site_description: Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計
+site_description: Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計
 repo_url: https://github.com/hsgwa/tebunko
 repo_name: hsgwa/tebunko
 edit_uri: edit/main/docs/
