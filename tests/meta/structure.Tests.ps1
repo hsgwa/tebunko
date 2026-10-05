@@ -237,8 +237,8 @@ Describe "theme のアイコン（Geometry）と図の Style" -Tag Meta {
         ($keys | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name) | Should -BeNullOrEmpty
     }
 
-    It "図の Style（Illust.Path）がある" {
-        $keys | Should -Contain "Illust.Path"
+    It "<_> がある" -ForEach @("Illust.Path", "Radius.Pill", "Chip.Box", "NavBadge.Count", "NavBadge.Dot", "StatusBadge", "Banner") {
+        $keys | Should -Contain $_
     }
 }
 
