@@ -8,6 +8,8 @@ This page collects information about the safety of tebunko and explains how to c
 
 What the tool does and does not do, why it does not use dangerous operations or libraries, and the results of checks by third-party tools are described in [docs/safety/index.md](../docs/safety/index.md) (Japanese). If you are reviewing the tool before introducing it, read this document first.
 
+The index keeps the body text of the documents. For fast search, the tool also writes a system index text file made of two-character pairs taken from the body, and has Windows Search index it. The folder of the body index itself is excluded from Windows Search automatically. See [docs/safety/disclosure.md](../docs/safety/disclosure.md) (Japanese).
+
 The claims can be checked automatically with the following command (the checks are in `tests/meta/safety.Tests.ps1`).
 
 ```powershell
