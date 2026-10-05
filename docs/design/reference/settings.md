@@ -1,6 +1,6 @@
 # 部品ごとの関数（設定・ファイル）
 
-扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）とファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
+扱うこと: 設定ファイル（`tebunko/core/settings.ps1`）、ワークスペース（`tebunko/core/workspace.ps1`）とファイル・フォルダ操作（`shared/core/fs.ps1`・`folder.ps1`・`office_files.ps1`）の関数一覧（入力・出力・概要・使用元）。扱わないこと: 取り込み一覧・インデックスの管理（[部品ごとの関数（インデックス作成）](indexer.md)）。先に読むページ: [部品から関数一覧を引く](index.md)。
 
 ## 設定ファイル（`tebunko/core/settings.ps1`）
 
@@ -27,6 +27,29 @@
 | `getDefaultWorkDir` | profileDir（既定は利用者のプロファイル） | string | 既定のワークスペース `<profileDir>\Documents\tebunko_ws`（OneDrive にリダイレクトされた「ドキュメント」は使わない） | [データの置き場所とパスの決め方](../structure/data.md) | getWorkDir, writeWorkspaceFolder, 画面 |
 | `getWorkDir` | path（既定 `$settingsFile`） | string | `work` の置き場所（`workspaceFolder`。空なら既定。相対パスは設定ファイルのフォルダから、`%変数%` は展開する） | 同上 | `paths.ps1`（`$workspace`） |
 | `writeWorkspaceFolder` | folder, path（既定 `$settingsFile`） | – | `work` の置き場所を保存する。既定の場所なら空で保存する | 同上 | 画面 |
+
+## ワークスペース（`tebunko/core/workspace.ps1`）
+
+`Workspace` クラスは、ワークスペースのフォルダ（Dir）から、中のファイル・フォルダの場所を組み立てるだけで、設定は読まない。どのフォルダを使うかは設定の `workspaceFolder` で決まる（`getWorkDir`）。関数はその場所を使って、取り込みの作業フォルダの置き場所の判断・前の版のワークスペースの扱い・ワークスペースの移動を行う。画面の操作は [データの置き場所とパスの決め方](../structure/data.md)、［8 設定］タブは [［8 設定］タブ](../gui/settings-tab.md) を参照。
+
+| 関数 | 入力 | 出力 | 概要 | 使用元 |
+|---|---|---|---|---|
+| `getMachineKey` | – | string（8 文字） | この PC を識別する短い鍵（`getFolderKey` の先頭 8 文字）。共有フォルダのワークスペースを複数の PC から使うとき、一時フォルダを PC ごとに分ける | getWorkspaceTmpDir |
+| `getWorkspaceTmpDir` | workspace | string | 取り込みの作業フォルダの候補 `<TmpRoot>\<PC の鍵>\<PID>`。副作用は無い | selectTmpDir, index_migrate.ps1 |
+| `selectTmpDir` | workspace | `@{Dir; Reason}` | 作業フォルダの置き場所を決める。候補のパスに `[` `]` があれば（Excel が保存できない）`Dir` を空にして `Reason = Brackets`、候補の長さに取り込みのスレッドが下に作る名前の分を足して `$excelMaxPath` 以上なら `Reason = TooLong`。どちらでもなければ候補のまま（`Reason` は空）。`%TEMP%` には逃がさない | paths.ps1, indexer_run.ps1, extract_office.ps1, index_migrate.ps1 |
+| `getTmpDirUnavailableMessage` | reason | string | 作業フォルダを置けない理由（`Brackets`・`TooLong`・その他）を、利用者向けの 1 文にする | indexer_run.ps1, index_migrate.ps1 |
+| `getLegacyIndexState` | dir | `@{HasLegacyIndex; ContentEmpty; HasLegacySystemIndex}` | 前の版のワークスペースの状態。`index\` の直下のフォルダに元のフォルダ.txt があれば前の版のしるし（`HasLegacyIndex`）。`content_index\` が空か（`ContentEmpty`）。空のときだけ、`system_index\` に前の名前の txt があるかも調べる | gui_main.ps1, indexing_tab.ps1, settings_tab.ps1, index_archive.ps1, indexer_run.ps1, paths.ps1 |
+| `testLegacyCleanupNeeded` | state | bool | 取り込み直しを始めるときに、前の版のシステムインデックスを片付けるか。`content_index\` が空で、前の版のしるしか前の名前の txt があるとき | index_archive.ps1, indexer_run.ps1 |
+| `getLegacyIndexMessage` | dir, hasLegacyIndex | string | 前の版のインデックスが見つかったときの知らせ。しるしが無ければ空 | gui_main.ps1, settings_tab.ps1, indexer_run.ps1 |
+| `clearLegacySystemIndex` | dir | `@{Ok; Reason}` | 前の版のシステムインデックスを片付ける。状態ファイルの中身を排他の中で空にしてから、`system_index\` を消す。どちらかに失敗したら `Ok = $false`（次に呼べば続きから） | indexer_run.ps1, index_archive.ps1 |
+| `getWorkspaceEntries` | dir | string[] | tebunko のファイル・フォルダ（`Workspace.Entries` のうち、あるもの）のフルパス。利用者のほかのファイルは含めない | settings_tab.ps1, settings_view.ps1 |
+| `getWorkspaceMoveConflicts` | from, to | string[] | from の中身を to へ移すとき、to に同じ名前が既にあるものの名前 | moveWorkspace |
+| `moveWorkspaceEntry` | source, dest | – | ファイル・フォルダを 1 つ移す。同じドライブならそのまま移し、別のドライブのフォルダは写してから元を消す。写している途中で失敗したら、写した分を消して例外にする | moveWorkspace |
+| `copyDirectoryTree` | source, dest（`\\?\` 付き） | – | フォルダを中身ごと写す | moveWorkspaceEntry |
+| `removeWorkspaceEntries` | dir | int | tebunko のファイル・フォルダを削除し、削除した数を返す。「消して、最初からやり直す」で使う | settings_tab.ps1 |
+| `useWorkspaceTargets` | dir, path（既定 `$settingsFile`） | int | dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（`targetFolders`）にし、その数を返す。取り込み一覧が無ければ一覧は変えない | settings_tab.ps1 |
+| `moveSearchExcludes` | from, to, path（既定 `$settingsFile`） | int | 検索対象ツリーでチェックを外したフォルダ（`searchExcludes`）のうち、from の `content_index` の下のものを to の下に付け替えて保存し、付け替えた数を返す | settings_tab.ps1 |
+| `moveWorkspace` | from, to | int | from の中身を to へ移し、移した数を返す。to に同じ名前があれば何も移さずに例外にする。途中で移せなければ、移した分を from へ戻してから例外にする | settings_tab.ps1, settings_view.ps1 |
 
 ## ファイルとフォルダ（`shared/core/fs.ps1`・`folder.ps1`・`shared/office/office_files.ps1`）
 

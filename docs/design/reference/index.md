@@ -4,14 +4,14 @@
 
 関数は用途ごとに次の 4 つのページに分けて記載する。
 
-- [部品ごとの関数（設定・ファイル）](settings.md)（設定ファイル・ファイルとフォルダの操作）
+- [部品ごとの関数（設定・ファイル）](settings.md)（設定ファイル・ワークスペース・ファイルとフォルダの操作）
 - [部品ごとの関数（インデックス作成）](indexer.md)（取り込み一覧・状態ファイル・取り込み直すかの判断・インデックス名とインデックスの管理）
 - [部品ごとの関数（TSV と本文インデックス）](tsv.md)（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き、テキストファイルの読み取り。`shared/core/fs.ps1`・`text.ps1`・`text_file.ps1`、`tebunko/index/`）
 - [部品ごとの関数（検索・スレッド・元のファイル・画面）](search.md)（検索、スレッドとプール、検索結果から元のファイルを特定する処理、画面が使う集計・設定・Office プロセスの関数。`tebunko/search/`）
 
 ```mermaid
 flowchart LR
-    settings["core/settings.ps1<br>core/fs.ps1・folder.ps1"] --> P1["settings.md"]
+    settings["core/settings.ps1・workspace.ps1<br>core/fs.ps1・folder.ps1"] --> P1["settings.md"]
     indexer["indexer/indexer_state.ps1<br>indexer_decide.ps1・index/index_name.ps1・index_store.ps1<br>index_archive_rules.ps1・index_archive.ps1"] --> P2["indexer.md"]
     tsv["core/fs.ps1・text.ps1・text_file.ps1<br>index/index_name.ps1・index_store.ps1・pack_format.ps1・pack_store.ps1"] --> P3["tsv.md"]
     search["search/search_query.ps1・pack_search.ps1<br>search_run.ps1・search_service.ps1・source_map.ps1"] --> P4["search.md"]
