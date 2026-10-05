@@ -77,9 +77,10 @@ flowchart LR
 | `convertIndexFolderToPack` / `updateIndexFolderPack` / `findIndexFoldersWithBooks` / `publishIndexFolders` | フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる |
 | `searchPackIndex` / `getIndexPackFiles` / `readPackContext` | 結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行 |
 
-**前の版との互換（`tests/tebunko/indexer/index_compat`・`tests/meta/compat`）**
+**前の版との互換（`tests/tebunko/indexer/index_compat`・`tests/tebunko/core/settings_compat`・`tests/meta/compat`）**
 
 | 対象 | 主な確認内容 |
 |---|---|
 | `tests/tebunko/indexer/index_compat`（`-Tag Io`） | 前の版が作った見本（[前の版との互換](../index-data/format.md#前の版との互換)）の本文インデックス・システムインデックス・取り込み一覧・エクスポート zip を、今のコードで読める・検索できる・取り込み直しが起きない・エクスポートし直しても同じ配置になること |
-| `tests/meta/compat`（`Meta`） | 見本の 5 つの要素（`source`・`ws`・`export.zip`・`file_times.tsv`・`expected.json`）がそろっていること、今のコードの形式の目印（`$packVersion`・`$statusColumns` など）が見本のどれかに残っていること |
+| `tests/tebunko/core/settings_compat`（`-Tag Io`） | 前の版が作った見本（[前の版との互換](../structure/settings-file.md#前の版との互換)）の `setting.config` が壊れたと判定されない、今のコードで同じ値として読める、書き足してもほかの値を保つこと、今の版が書く形がどれかの見本に含まれること |
+| `tests/meta/compat`（`Meta`） | 見本の 5 つの要素（`source`・`ws`・`export.zip`・`file_times.tsv`・`expected.json`）がそろっていること、今のコードの形式の目印（`$packVersion`・`$statusColumns` など）が見本のどれかに残っていること。設定の見本（`compat/settings/`）に `setting.config`・`expected.json` がそろっていること、`newSettings` の全キーがどれか 1 つの見本の `expected.json` にあること |
