@@ -158,7 +158,7 @@ Describe "theme の文字の Style（大きさ・太さ・行の高さは Figma 
             @{ Key = "Meta.Key";     Size = "";   Weight = "SemiBold"; LineHeight = "" }   # 行の高さ 16 は Meta.Tall から継ぐ
             @{ Key = "Note";         Size = "11"; Weight = "";         LineHeight = "17.6" }
             @{ Key = "Chip";         Size = "11"; Weight = "SemiBold"; LineHeight = "" }
-            @{ Key = "Link";         Size = "11"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Link.Text";    Size = "11"; Weight = "SemiBold"; LineHeight = "" }
             @{ Key = "Cell";         Size = "12"; Weight = "";         LineHeight = "" }
             @{ Key = "Cell.Key";     Size = "";   Weight = "SemiBold"; LineHeight = "" }
             @{ Key = "Label";        Size = "12"; Weight = "SemiBold"; LineHeight = "" }
@@ -200,6 +200,45 @@ Describe "theme の文字の Style（大きさ・太さ・行の高さは Figma 
         getSetter $styles[$key] "FontSize" | Should -Be $size
         getSetter $styles[$key] "FontWeight" | Should -Be $weight
         getSetter $styles[$key] "LineHeight" | Should -Be $lineHeight
+    }
+}
+
+Describe "theme のアイコン（Geometry）と図の Style" -Tag Meta {
+    BeforeDiscovery {
+        $iconKeys = @(
+            "Folder", "FolderClosed", "FolderOpen", "ChevronDown", "ChevronRight", "RefreshCw", "TriangleAlert",
+            "File", "FileText", "FileSpreadsheet", "FolderSearch", "Presentation", "ChartColumn", "Save",
+            "StopCircle", "Close", "CircleX", "CircleCheck", "Search", "CircleQuestionMark", "Check", "Zap",
+            "Info", "InfoCircle", "InfoGlyph.S12", "InfoGlyph.S13", "InfoGlyph.S14", "InfoGlyph.S16",
+            "BadgeGlyphInfo", "BadgeGlyphWarn", "BadgeGlyphError", "BadgeGlyphOk", "Dots3"
+        ) | ForEach-Object { @{ Key = "Icon.$_" } }
+    }
+
+    BeforeAll {
+        $xns = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $themeXml = New-Object System.Xml.XmlDocument
+        $themeXml.Load("${scriptsDir}\shared\xaml\theme.xaml")
+        $geometries = @{}
+        $keys = @()
+        foreach ($node in $themeXml.DocumentElement.ChildNodes) {
+            if ($node.NodeType -ne "Element") { continue }
+            $k = $node.GetAttribute("Key", $xns)
+            $keys += $k
+            if ($node.LocalName -eq "Geometry") { $geometries[$k] = $node.InnerText }
+        }
+    }
+
+    It "<key> が Geometry で、空でない" -ForEach $iconKeys {
+        $geometries.ContainsKey($key) | Should -Be $true
+        $geometries[$key].Trim() | Should -Not -BeNullOrEmpty
+    }
+
+    It "x:Key が重ならない（ResourceDictionary は重なると読み込みで失敗する）" {
+        ($keys | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name) | Should -BeNullOrEmpty
+    }
+
+    It "図の Style（Illust.Path）がある" {
+        $keys | Should -Contain "Illust.Path"
     }
 }
 

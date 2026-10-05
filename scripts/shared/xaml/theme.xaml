@@ -187,7 +187,7 @@
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{StaticResource Accent.Hover}" />
   </Style>
-  <Style x:Key="Link" TargetType="TextBlock">
+  <Style x:Key="Link.Text" TargetType="TextBlock">
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{StaticResource Accent}" />
@@ -232,6 +232,59 @@
     <Setter Property="LineHeight" Value="28" />
     <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+
+  <!-- ============ アイコン（Lucide v1.50.0・ISC ライセンスの SVG を Geometry にしたもの。24x24 の座標のまま。
+       使う側で Stretch=Uniform・Stroke・StrokeThickness（表示の大きさ × 2/24）・丸い端を指定する。
+       Icon.Save は Lucide の download の形。ライセンスは scripts/shared/fonts/ にある ============ -->
+  <Geometry x:Key="Icon.Folder">M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z</Geometry>
+  <Geometry x:Key="Icon.FolderClosed">M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z M2 10h20</Geometry>
+  <Geometry x:Key="Icon.FolderOpen">m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2</Geometry>
+  <Geometry x:Key="Icon.ChevronDown">M6 9 L12 15 L18 9</Geometry>
+  <Geometry x:Key="Icon.ChevronRight">M9 18 L15 12 L9 6</Geometry>
+  <Geometry x:Key="Icon.RefreshCw">M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8 M21 3v5h-5 M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16 M8 16H3v5</Geometry>
+  <Geometry x:Key="Icon.TriangleAlert">M21.73 18 L13.73 4a2 2 0 0 0-3.48 0 L2.27 18A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z M12 9v4 M12 17h.01</Geometry>
+  <Geometry x:Key="Icon.File">M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z M14 2v5a1 1 0 0 0 1 1h5</Geometry>
+  <Geometry x:Key="Icon.FileText">M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z M14 2v5a1 1 0 0 0 1 1h5 M10 9H8 M16 13H8 M16 17H8</Geometry>
+  <Geometry x:Key="Icon.FolderSearch">M10.7 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v4.1 M21 21 L19.1 19.1 M17 14a3 3 0 1 0 0.0001 0Z</Geometry>
+  <Geometry x:Key="Icon.FileSpreadsheet">M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z M14 2v5a1 1 0 0 0 1 1h5 M8 13h2 M14 13h2 M8 17h2 M14 17h2</Geometry>
+  <Geometry x:Key="Icon.Presentation">M2 3h20 M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3 M7 21 L12 16 L17 21</Geometry>
+  <Geometry x:Key="Icon.ChartColumn">M3 3v16a2 2 0 0 0 2 2h16 M18 17V9 M13 17V5 M8 17v-3</Geometry>
+  <Geometry x:Key="Icon.Save">M12 15V3 M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10 L12 15 L17 10</Geometry>
+  <Geometry x:Key="Icon.StopCircle">M12 2a10 10 0 1 0 0.0001 0Z M10 9 L14 9 A1 1 0 0 1 15 10 L15 14 A1 1 0 0 1 14 15 L10 15 A1 1 0 0 1 9 14 L9 10 A1 1 0 0 1 10 9 Z</Geometry>
+  <Geometry x:Key="Icon.Close">M18 6 L6 18 M6 6 L18 18</Geometry>
+  <Geometry x:Key="Icon.CircleX">M12 2a10 10 0 1 0 0.0001 0Z M15 9 L9 15 M9 9 L15 15</Geometry>
+  <Geometry x:Key="Icon.Search">M11 3a8 8 0 1 0 0.0001 0Z M21 21 L16.66 16.66</Geometry>
+  <Geometry x:Key="Icon.CircleQuestionMark">M12 2a10 10 0 1 0 0.0001 0Z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01</Geometry>
+  <Geometry x:Key="Icon.Check">M20 6 L9 17 L4 12</Geometry>
+  <Geometry x:Key="Icon.Zap">M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z</Geometry>
+  <Geometry x:Key="Icon.Info">M12 2a10 10 0 1 0 0.0001 0Z M12 16v-4 M12 8h.01</Geometry>
+  <Geometry x:Key="Icon.InfoCircle">M12 2a10 10 0 1 0 0.0001 0Z</Geometry>
+  <Geometry x:Key="Icon.InfoGlyph.S12">M6,5.76 L6,8.4 M6,3.36 L6.01,3.36</Geometry>
+  <Geometry x:Key="Icon.InfoGlyph.S13">M6.5,6.24 L6.5,9.1 M6.5,3.64 L6.51,3.64</Geometry>
+  <Geometry x:Key="Icon.InfoGlyph.S14">M7,6.72 L7,9.8 M7,3.92 L7.01,3.92</Geometry>
+  <Geometry x:Key="Icon.InfoGlyph.S16">M8,7.68 L8,11.2 M8,4.48 L8.01,4.48</Geometry>
+  <Geometry x:Key="Icon.BadgeGlyphInfo">M12 16v-4 M12 8h.01</Geometry>
+  <Geometry x:Key="Icon.BadgeGlyphWarn">M12 8v4 M12 16h.01</Geometry>
+  <Geometry x:Key="Icon.BadgeGlyphError">M15 9 L9 15 M9 9 L15 15</Geometry>
+  <Geometry x:Key="Icon.BadgeGlyphOk">M9 12 L11 14 L15 10</Geometry>
+  <Geometry x:Key="Icon.Dots3">M12 12a1 1 0 1 0 0.0001 0Z M19 12a1 1 0 1 0 0.0001 0Z M5 12a1 1 0 1 0 0.0001 0Z</Geometry>
+  <Geometry x:Key="Icon.CircleCheck">M12 2a10 10 0 1 0 0.0001 0Z M16 9 L10.5 14.5 L8 12</Geometry>
+  <!-- 図（空の状態の絵）。Icon.FolderSearch・Icon.CircleCheck を 24 の座標を 64 の大きさに拡げ、細い線（0.75）で描く Path の既定値 -->
+  <Style x:Key="Illust.Path" TargetType="Path">
+    <Setter Property="Width" Value="24" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Stretch" Value="None" />
+    <Setter Property="LayoutTransform">
+      <Setter.Value>
+        <ScaleTransform ScaleX="2.6666667" ScaleY="2.6666667" />
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Stroke" Value="{StaticResource Illust.Line}" />
+    <Setter Property="StrokeThickness" Value="0.75" />
+    <Setter Property="StrokeStartLineCap" Value="Round" />
+    <Setter Property="StrokeEndLineCap" Value="Round" />
+    <Setter Property="StrokeLineJoin" Value="Round" />
   </Style>
 
   <!-- 注意・エラー。色で区別し、太さは上げない -->
