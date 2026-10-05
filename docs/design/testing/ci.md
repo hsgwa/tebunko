@@ -32,7 +32,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。
 
 - Windows PowerShell 5.1 はランナーに最初から入っている（`shell: powershell` を明示する。`pwsh`（PowerShell 7）では COM と文字コードの扱いが変わる）
-- **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
+- **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
 - ランナーには Windows に最初から入っている Pester 3.4 もある。`tests/run.ps1` は `Import-Module Pester -RequiredVersion 5.9.0` で版を指定し、CI は 5.9.0 が無ければ入れる（版は `test.yml` の `PESTER_VERSION` と `tests/run.ps1` の 2 か所で同じにする）
 - スクリプトの改行はランナーの `core.autocrlf` に左右されないよう、`.gitattributes` で `.ps1`・`.xaml`・`.bat` を CRLF に固定している
 - ランナーに Office は入っていないため、タグ `Office` のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（[結合テスト（手動）](index.md#結合テスト手動)）

@@ -47,11 +47,11 @@ flowchart TB
 | Excel | `.xlsx` / `.xlsm` / `.xls` / `.xlsb` |
 | Word | `.docx` / `.docm` / `.doc` |
 | PowerPoint | `.pptx` / `.pptm` / `.ppt` |
-| テキスト | `.txt` / `.csv` / `.tsv` / `.md` / `.log` / `.json` / `.xml` |
+| テキスト | [対象の拡張子](indexing/text.md#対象の拡張子) |
 
 ## 方式
 
-2 段階方式を採る。Office ファイルから抽出した文字列を索引データ（**インデックス**）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびに Office でファイルを開く処理を省く。インデックスの中身の具体例は [インデックスとは（はじめて読む方へ）](indexing/index.md#インデックスとははじめて読む方へ) にある。
+2 段階方式を採る。Office ファイル・テキストファイルから抽出した文字列を索引データ（**インデックス**）として事前に保存し、検索時はインデックスのみを照合する。これにより、検索のたびにファイルを開く処理を省く。インデックスの中身の具体例は [インデックスとは（はじめて読む方へ）](indexing/index.md#インデックスとははじめて読む方へ) にある。
 
 1. **インデックス作成**（[インデックス作成](indexing/index.md)）
    各ファイルを取り込み、「場所」（Excel のシート、Word のページ、PowerPoint のスライド、テキストは「本文」の 1 つ）ごとの TSV（UTF-8）に書き出し、フォルダの取り込みが終わるとフォルダ・拡張子ごとの本文インデックスにまとめて `work/content_index/` に蓄積する。Excel のセルは COM で操作してテキストを抽出し、Excel の図形・コメントと Word・PowerPoint はファイル（ZIP 内の XML）を直接読む（Word・PowerPoint の旧形式は Word・PowerPoint で新形式に変換してから読む）。テキストファイルは文字コードを判定してから行に分けて読む（[テキストファイルの読み取り](indexing/text.md)）。2 回目以降は、取り込み済みで更新の無いファイルをスキップする（差分取り込み）。
@@ -67,8 +67,8 @@ flowchart TB
 | インデックス作成 | クロールから取り込みまでの一連の処理（開始・中止・中断・再開の単位） | 出す | `indexing`（画面側）、`indexer.ps1`・`indexer/` |
 | インデクサ | インデックス作成を行うプログラム（`indexer.ps1`） | 出す | `indexer` |
 | クロール | クロール対象フォルダをたどって Office・テキストのファイルを列挙し、取り込むファイルを決める | 出す | `createTargetList`・`findTargetFiles` |
-| 取り込み | 1 ファイルをインデックスに入れる（コピー → 抽出 → TSV に書き出す → インデックスに置く） | 出す | `ingest` |
-| 抽出 | Office ファイルからテキストを読み出す | 出さない | `extract` |
+| 取り込み | 1 ファイルをインデックスに入れる（Office はコピー → 抽出、テキストはコピーせずに読む → TSV に書き出す → インデックスに置く） | 出す | `ingest` |
+| 抽出 | 元のファイルからテキストを読み出す | 出さない | `extract` |
 | インデックス | 登録したフォルダ 1 件ぶんの索引。本文インデックスとシステムインデックスを合わせたもの | 出す | `index` |
 | 本文インデックス | 検索が照合する本体。フォルダ 1 つ・元のファイルの拡張子 1 つにつき、大きさで分けて 1 つ以上。`work/content_index/<インデックス名>/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv`。1 つずつを指すときは「本文インデックスのファイル」 | 出さない | `pack` |
 | システムインデックス | 高速検索のために Windows Search に索引させる 2-gram の txt。フォルダ 1 つにつき 1 つ。`work/system_index/<インデックス名>/<相対フォルダ>/system_index.txt`（大きいと `system_index_1.txt` …）。1 つずつを指すときは「システムインデックスの txt」 | 出さない。区別が要るときは「インデックス（高速検索用）」 | `systemIndex` |
@@ -112,7 +112,7 @@ flowchart LR
     end
 
     tmp[("work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;<br>取り込みの作業領域<br>（置けないときはスキップ）")]
-    src[("クロール対象フォルダ<br>Excel・Word・PowerPoint ファイル群")]
+    src[("クロール対象フォルダ<br>Excel・Word・PowerPoint・テキストのファイル群")]
     excel["Microsoft Excel<br>（COM）"]
     office["Microsoft Word / PowerPoint<br>（COM。旧形式の変換のみ）"]
 

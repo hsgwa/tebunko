@@ -48,7 +48,7 @@ flowchart TD
 
 - **なぜ Mark-of-the-Web（MOTW）が問題か**：zip をブラウザ・メールでダウンロードして展開すると、展開後の各ファイルに「外部由来」の印（`Zone.Identifier` という代替データストリーム）が付く。`RemoteSigned` は、この印の付いた未署名 `.ps1` の実行をブロックする（`.xaml`・`.ico` は実行ポリシーの対象外なので影響しない）。
 - **対策**：`tebunko.bat` が起動する PowerShell の `-Command` の中で、まず自フォルダの `scripts` 配下の印を `Get-ChildItem -Recurse -File \| Unblock-File` で消し（`work` には数万件の TSV があり、起動のたびに全件へかけると TSV 1 万件あたり約 3 秒遅くなるため、実行するスクリプトのある `scripts` に限る）、続けて `& '...\gui.ps1'` で画面を開く。インラインの `-Command` の中身は実行ポリシーの対象外なので、印が付いていても `Unblock-File` は動く。`&` で呼ぶ `gui.ps1` は `RemoteSigned` で調べられるため、印を消す前に呼ぶとブロックされる（順番に意味がある）。以前は印を消すためだけに PowerShell を別に起動していたが、PowerShell の起動 1 回分（1〜2 秒）画面が出るのが遅れるため、1 つのプロセスにまとめた。念のため `tebunko/gui.ps1` も起動時に自フォルダの印を消す（利用者が自作したショートカットから起動したときや、あとでファイルを差し替えたときのため）。
-- **初回のセキュリティ警告**：zip 由来だと `tebunko.bat` 自体にも印が付くため、初回のダブルクリックで Windows の「開いているファイル - セキュリティの警告」（発行元を確認できません）が 1 回出る。［実行］を押すと bat が動き、以降は印が消えるので警告は出ない。これは Windows の正規の確認であり、隠す対象ではない。
+- **セキュリティの警告**：zip を解除せずに展開すると `tebunko.bat` 自体にも印が付くため、ダブルクリックで Windows の「開いているファイル - セキュリティの警告」（発行元を確認できません）が出ることがある。［実行］を押すと bat が動く。展開する前に zip のプロパティで解除しておけば、この警告は出ない（README・手引きの書き方と同じ）。これは Windows の正規の確認であり、隠す対象ではない。
 - **`Bypass` を使わない代わりの実測挙動**（この PC・`RemoteSigned` で確認）：印あり＝ブロック（「デジタル署名されていません。実行できません」）／`tebunko.bat` の `Unblock-File` で印を消す＝0 件／消した後は `RemoteSigned` で起動成功。
 - **コンソールの窓を残さない**：`tebunko.bat` は `start "" conhost.exe powershell ... -WindowStyle Hidden -Command "..."` で起動する。Windows 11 で既定のターミナルが Windows Terminal のとき（「Windows に任せる」の場合も含む）、コンソールの窓は Windows Terminal に渡され、Windows Terminal は `-WindowStyle Hidden` を無視する。そのため `conhost.exe` を通さないと、画面を閉じるまで PowerShell の窓（Windows Terminal のタブ）が開いたままになる。`conhost.exe` を通すと従来のコンソールで動き、`-WindowStyle Hidden` で窓が隠れる（起動の瞬間に一度だけ窓が見えることがある）。インデクサは画面のプロセスの中のスレッドで動くため（[プロセスとスレッド](../structure/threads.md)）、別の窓は開かない。
 - **インストーラー版**：`tebunko.exe` は `powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -File <gui.ps1>` を、窓を作らずに（`CreateNoWindow`）起動する。インストーラーで入れたファイルには Mark-of-the-Web が付かないため、`tebunko.bat` の `Unblock-File` にあたる処理は要らない（`gui.ps1` も起動時に同じ解除を行う）。
@@ -84,7 +84,7 @@ sequenceDiagram
 - **既定のボタン**: 消す操作（`Danger`。ボタンを赤にする）・時間のかかる操作（`Careful`）・選択肢が 2 つ以上のときは、Enter で進まないよう［キャンセル］を既定にしてフォーカスを置く。そうでなければ主ボタンを既定にする。
 - **文言の決まり**: 画面に出ない言葉（`TSV`・`work\content_index`・`取り込み一覧`）は書かない。利用者から見て何が消えて何が残るかだけを書く。「〜の場合は〜してください」という手順の説明は、結果ではなく補足に置く。
 - **使っている場面**: インデックスの［削除］（[［1 インデックス管理］タブ](index-tab.md)）、インデックス作成の中止・インデックス作成中に閉じる（[中止・終了・ログ](indexing-run.md#中止終了ログ)）、元のファイルが見つからないとき（[元のファイルが見つからないとき（元のフォルダを設定する）](open-file.md#元のファイルが見つからないとき元のフォルダを設定する)）、プロセスの終了（[終了の確認](process-tab.md#終了の確認)）。インデックス作成の確認（[インデックス作成の確認ダイアログ](indexing-run.md#インデックス作成の確認ダイアログ)）は、インデックスごとの件数を一覧で見せるため専用のダイアログにする。
-- 伝えるだけのダイアログ（エラー・警告・`OK` だけのもの）は、これまでどおり `showMessage`（`MessageBox`）で出す。
+- 伝えるだけのダイアログ（エラー・警告・`OK` だけのもの）は、`showMessage`（`MessageBox`）で出す。
 
 ## フォルダ選択ダイアログ（［参照…］）
 
@@ -104,4 +104,3 @@ sequenceDiagram
 **呼び出し方**：`IFileOpenDialog` を PowerShell から直接呼ぶにはインターフェースの定義が要り、自分で定義すると実行時コンパイル（`csc.exe`）が要る（[実行時コンパイル（csc.exe）を使わない](implementation.md#実行時コンパイルcscexeを使わない)）。そのため、WinForms（`gui.ps1` で読み込み済み）が内部に持つ定義 `FileDialogNative+IFileDialog` をリフレクションで呼ぶ。`csc.exe` の起動・一時 DLL の生成・`Add-Type` の追加は無い（[危険とされる処理の検査結果](../../safety/checks.md#検査項目と結果)）。
 
 - 内部の型が見つからない・呼べないとき（.NET の変更など）は、エラーのログに記録し、同じエクスプローラー形式の「ファイルを開く」ダイアログ（`OpenFileDialog`。公開の API だけで開ける）で、選びたいフォルダの中に入って［開く］を押してもらう。ツリー形式の `FolderBrowserDialog` は、中身が見えず目的のフォルダにたどり着きにくいため使わない。
-- 以前はフォルダの中身（Office ファイル）も見える自作のダイアログを使っていたが、見慣れた画面で操作できることを優先して Windows 標準にした。

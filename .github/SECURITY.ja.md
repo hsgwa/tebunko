@@ -8,6 +8,8 @@ tebunko の安全性に関する情報と、問題を見つけたときの連絡
 
 本ツールが何をするか・何をしないか、危険な処理やライブラリを使っていない根拠、第三者のツールによる検査結果は [docs/safety/index.md](../docs/safety/index.md) にあります。導入を審査する方は、まずこの文書を参照してください。
 
+インデックスには文書の本文が入ります。高速検索のために、本文から作った隣り合う 2 文字の組を入れたシステムインデックスの txt も作り、Windows Search に索引させます。本文インデックスのフォルダ自体は、Windows Search の対象から自動で外します。詳しくは [docs/safety/disclosure.md](../docs/safety/disclosure.md) を参照してください。
+
 主張は次のコマンドで機械的に検査できます（検査内容は `tests/meta/safety.Tests.ps1`）。
 
 ```powershell

@@ -35,18 +35,18 @@ scan 'Remove-Item','WriteAllText','WriteAllLines','StreamWriter','\.SaveAs','::M
 scan 'NotContentIndexed'
 ```
 
-### 取り込みの作業フォルダに置くもの（前の版との対応）
+### 取り込みの作業フォルダに置くもの
 
-取り込みの作業フォルダ（既定 `work\tmp\<PC の鍵>\<PID>\w<番号>\`）には、原本のコピー・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。前の版（`%TEMP%\tebunko\<PID>\`）から、置き場所だけをワークスペースの下に変えた（中身は変えていない）。
+取り込みの作業フォルダ（既定 `work\tmp\<PC の鍵>\<PID>\w<番号>\`）には、原本のコピー・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。置き場所はワークスペースの下である。
 
-| 内容 | 前の版の置き場所 | 今の置き場所 | 定義 |
-|---|---|---|---|
-| 原本のコピー（Excel・Word・PowerPoint が開く対象） | `%TEMP%\tebunko\<PID>\<元のファイル名>`（または `source<拡張子>`） | `work\tmp\<PC の鍵>\<PID>\w<番号>\<元のファイル名>`（同上） | `extract_office.ps1` の `copyFileShared` 呼び出し |
-| Excel のシートごとの一時保存（`sheet<番号>.tmp`） | 同上の下 | 同上の下 | `extract_office.ps1` の `extractWorkbook` |
-| 旧形式・不明な形式から変換した一時ファイル（`converted.docx`・`converted.pptx`、リネームした `source.doc`・`source.ppt`） | 同上の下 | 同上の下 | `extract_office.ps1` の `extractDocument` |
-| 公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの `doc_body.tsv` を含む） | 同上の下 | 同上の下 | `index_migrate.ps1` の `publishTsv`、`extract_text.ps1` の `extractTextFile` |
+| 内容 | 今の置き場所 | 定義 |
+|---|---|---|
+| 原本のコピー（Excel・Word・PowerPoint が開く対象） | `work\tmp\<PC の鍵>\<PID>\w<番号>\<元のファイル名>` | `extract_office.ps1` の `copyFileShared` 呼び出し |
+| Excel のシートごとの一時保存（`sheet<番号>.tmp`） | 同上の下 | `extract_office.ps1` の `extractWorkbook` |
+| 旧形式・不明な形式から変換した一時ファイル（`converted.docx`・`converted.pptx`、リネームした `source.doc`・`source.ppt`） | 同上の下 | `extract_office.ps1` の `extractDocument` |
+| 公開前の中間 TSV（本文・シート・図形などの TSV。テキストファイルの `doc_body.tsv` を含む） | 同上の下 | `index_migrate.ps1` の `publishTsv`、`extract_text.ps1` の `extractTextFile` |
 
-ワークスペースのパスに `[` `]` を含む・長すぎて置けないときは、前の版は `%TEMP%\tebunko\<PID>\` に逃がしていたが、今の版は作業フォルダを作らず、取り込みをすべてスキップする（`selectTmpDir`・`initTmpDir`。[データの置き場所とパスの決め方](../design/structure/data.md)）。
+ワークスペースのパスに `[` `]` を含む・長すぎて置けないときは、作業フォルダを作らず、取り込みをすべてスキップする（`selectTmpDir`・`initTmpDir`。[データの置き場所とパスの決め方](../design/structure/data.md)）。
 
 ### ワークスペースの外に、まだ書くもの
 

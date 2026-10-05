@@ -1,18 +1,54 @@
 ﻿# はじめに
 
-tebunko は、Excel・Word・PowerPoint のファイルを内容の文字列で検索する Windows 用の全文検索ツールです。ファイルから抽出した文字を索引データ（**インデックス**）として保存しておき、検索時はインデックスのみを照合するため、ファイルを開かずに検索できます（[インデックスの仕組み](about-index.md)）。検索結果には、該当するファイル・シート（ページ・スライド）・行を表示し、元のファイルを直接開けます。
+tebunko は、Excel・Word・PowerPoint のファイルとテキストファイルを内容の文字列で検索する Windows 用の全文検索ツールです。ファイルから抽出した文字を索引データ（**インデックス**）として保存しておき、検索時はインデックスのみを照合するため、ファイルを開かずに検索できます（[インデックスの仕組み](about-index.md)）。検索結果には、該当するファイル・シート（ページ・スライド）・行を表示し、元のファイルを直接開けます。
 
 本ページでは、動作環境とインストール手順を説明します。インストール後は [クイックスタート](quickstart.md) を参照してください。
 
 ## 動作環境
 
+### 必要なもの
+
 | 項目 | 要件 |
 |---|---|
-| OS | Windows 10 / 11（標準搭載の Windows PowerShell 5.1 で動作します） |
-| Microsoft Excel | 必須。Excel ファイルからの文字の抽出に使用します |
-| Microsoft Word・PowerPoint | 旧形式（.doc・.ppt）のファイルを取り込む場合のみ必要です |
+| OS | Windows 10 / 11 |
+| PowerShell | Windows PowerShell 5.1（Windows 10 / 11 に標準搭載） |
+| .NET Framework | 4.x の標準アセンブリ（追加の導入は不要） |
+| Microsoft Excel | デスクトップ版が必須です。COM で自動操作し、Excel ファイルの文字の取り出しと、検索結果からセルを選んで開くのに使います |
+| Microsoft Word・PowerPoint | 旧形式（.doc・.ppt）のファイルと、中身が旧形式のファイルを取り込む場合のみ必要です |
+| Windows Search | 任意です。高速検索だけが使います。無くても検索結果は同じです（[高速検索](fast-search.md)） |
 
-管理者権限、追加のソフトウェア、PowerShell の実行ポリシーの変更、ネットワーク接続は不要です。
+管理者権限、追加のソフトウェア、PowerShell の実行ポリシーの変更、ネットワーク接続は不要です。組織が PowerShell の実行を制限している PC は、[制限された環境での動作](#制限された環境での動作)を確認してください。
+
+ディスクの容量の目安は [よくある質問](faq.md#インデックスの保存先と容量を教えてください) に、メモリの使い方は設計書の [既知の問題](../design/indexing/known-issues.md) にあります。
+
+### 対象外
+
+次の環境では動きません。
+
+- Excel が使えない PC（Microsoft Office が入っていない・Web 版の Excel だけ・COM による自動操作が禁止されている）
+- Mac・Linux
+- PowerShell 7 だけで動かすこと（Windows PowerShell 5.1 で動かします）
+- PowerShell の実行そのものが禁止されている PC
+- 対応していないファイル形式（PDF・OpenDocument など。パスワード付きのファイルは [制限事項](limitations.md) を参照）
+
+### 制限された環境での動作
+
+- **実行ポリシー**：`RemoteSigned` を、tebunko を起動する PowerShell のプロセスにだけ指定して起動します。PC の設定は変えません（[`RemoteSigned` で起動する理由](../safety/disclosure.md#remotesigned-で起動する理由)）。実行ポリシーが `AllSigned` の PC では、スクリプトに署名するまで起動できません。
+- **`.bat` が禁止されている PC**：インストーラー版を使うか、[`tebunko.bat` を使わずに起動する](#tebunkobat-を使わずに起動するzip-版)方法を使います。
+- **FIPS モード**：動きます。
+- **読み取り専用の場所に置いた場合**：動きます。設定（`setting.config`）は `%LOCALAPPDATA%\tebunko\` の下に置かれます。
+
+安全性の資料は [安全性](../safety/index.md) にあります。情報システム部門への確認にお使いください。
+
+### 確かめていない環境
+
+次の環境は確かめていません。動くかどうかは分かりません。
+
+- VDI・RDS（仮想デスクトップ・リモートデスクトップサービス）
+- Windows Server
+- Arm 版の Windows
+- 本物の WDAC・AppLocker の規則の下での動作
+- Microsoft Office の特定の版・形態（バージョン、32 ビット・64 ビット、クイック実行版・MSI 版・Microsoft Store 版）
 
 ### 対応するファイル形式
 
@@ -35,6 +71,12 @@ tebunko は、Excel・Word・PowerPoint のファイルを内容の文字列で�
 | zip（`tebunko-<バージョン>.zip`） | 実行ファイル（.exe）を導入できない環境、または共有フォルダに配置して使用する場合 |
 | 単一 .ps1（`tebunko-<バージョン>.ps1`。試験版） | 展開もインストールもせず、1 本のファイルだけで使用する場合 |
 
+起動方法は、次の順に選んでください。
+
+1. **`.exe` を導入できる場合は、インストーラー版。** インストーラーが入れたファイルには、ダウンロードしたことを示す印（Mark-of-the-Web）が付かないため、警告が出ません。ダウンロードした `tebunko-setup-<バージョン>.exe` 自体には印が付きます。
+2. **導入できない場合は、zip 版の `tebunko.bat`。**
+3. **`.bat` が届かない・止められる場合は、ショートカットから起動します**（[`tebunko.bat` を使わずに起動する](#tebunkobat-を使わずに起動するzip-版)）。単一 .ps1 版（試験版）でも、1 本のファイルで起動できます。
+
 ### インストーラーによるインストール
 
 1. `tebunko-setup-<バージョン>.exe` をダウンロードして実行します。
@@ -44,13 +86,33 @@ tebunko は、Excel・Word・PowerPoint のファイルを内容の文字列で�
 
 ### zip による配置
 
-1. `tebunko-<バージョン>.zip` をダウンロードし、任意の場所に展開します。共有フォルダにも配置できます。
-2. 展開した `tebunko` フォルダ内の `tebunko.bat` を実行します。
+1. `tebunko-<バージョン>.zip` をダウンロードします。ダウンロードしたファイルが作者の配布物であることは、展開の前に確かめられます（[配布物の完全性](../safety/scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)）。
+2. **展開する前に**、zip ファイルのプロパティを開き、［ブロックの解除］（Windows 11 では［許可する］）にチェックを入れて［OK］を選択します。zip の中のファイルすべてに、ダウンロードしたことを示す印が引き継がれるのを防ぐためです。この項目が表示されない zip には印が付いていないので、解除は不要です。
+3. 任意の場所に展開します。共有フォルダにも配置できます。
+4. 展開した `tebunko` フォルダ内の `tebunko.bat` を実行します。
 
-初回起動時に「セキュリティの警告」が表示された場合は、［実行］を選択します。この警告を表示させない場合は、事前に `tebunko.bat` のプロパティで［ブロックの解除］を有効にしてください。
+解除せずに展開した場合は、`tebunko.bat` を実行したときに「セキュリティの警告」が表示されることがあります。そのときは［実行］を選択します。`tebunko.bat` のプロパティで［ブロックの解除］を有効にしても、警告を避けられます。
 
 !!! note "zip の内容"
     `tebunko.bat`（起動用）、`scripts`（ツール本体）、`README.md`、`LICENSE`、`VERSION.txt`（版とコミットの記録）を含みます。設定ファイル `setting.config` は、初回の設定保存時に同じフォルダに作成されます。
+
+### `tebunko.bat` を使わずに起動する（zip 版）
+
+組織の設定で `.bat` が届かない・止められる場合は、ショートカットから起動できます。前提は、zip を解除してから展開してあることです（`scripts\tebunko\gui.ps1` 自身に印が残っていると、印を消す処理に届く前に止まります）。
+
+1. 展開した `tebunko` フォルダの中（またはデスクトップ）で右クリックし、［新規作成］→［ショートカット］を選びます。
+2. 項目の場所に、次を 1 行で入力します。
+
+    ```
+    %SystemRoot%\System32\conhost.exe %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File scripts\tebunko\gui.ps1
+    ```
+
+3. 名前を付けて完了したら、ショートカットのプロパティを開き、［作業フォルダー］を展開した `tebunko` フォルダ（例 `C:\Users\test\tebunko`）にします。
+4. アイコンは、［アイコンの変更］で `scripts\tebunko\tebunko.ico` を選べます。
+
+- 実行ポリシーの `RemoteSigned` は、この PowerShell のプロセスだけに効きます。PC の設定は変えません（[`RemoteSigned` で起動する理由](../safety/disclosure.md#remotesigned-で起動する理由)）。
+- この方法では、起動に失敗したときに `tebunko.bat` のような理由の表示（メモ帳）は出ません。何も起きないときは [トラブルシューティング](troubleshooting.md#起動できない場合) を確認してください。
+- 新しい版に更新したときは、ショートカットのリンク先と作業フォルダーを新しいフォルダに直します（[更新とアンインストール](update-uninstall.md)）。
 
 ### 単一 .ps1 版（試験版）による配置
 
