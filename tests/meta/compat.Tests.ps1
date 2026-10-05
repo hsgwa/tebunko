@@ -8,6 +8,7 @@ BeforeAll {
 
     ${compatIndexRoot} = "${testDataDir}\compat\index"
     ${requiredEntries} = @("source", "ws", "export.zip", "file_times.tsv", "expected.json")
+    ${compatSettingsRoot} = "${testDataDir}\compat\settings"
 }
 
 Describe "前の版のファイル（compat\index）" -Tag Meta {
@@ -91,5 +92,37 @@ Describe "前の版のファイル（compat\index）" -Tag Meta {
         $complete = @($problemsBySample.Keys | Where-Object { $problemsBySample[$_].Count -eq 0 })
         $report = ($problemsBySample.Keys | ForEach-Object { "${_}: " + ($problemsBySample[$_] -join " / ") }) -join "`n"
         $complete.Count | Should -BeGreaterThan 0 -Because "目印がすべてそろった見本が無い`n$report"
+    }
+}
+
+Describe "前の版のファイル（compat\settings）" -Tag Meta {
+    It "それぞれの見本に、setting.config と expected.json がそろっている" {
+        $problems = New-Object System.Collections.Generic.List[string]
+        foreach ($dir in @(Get-ChildItem -LiteralPath ${compatSettingsRoot} -Directory)) {
+            foreach ($entry in @("setting.config", "expected.json")) {
+                if (!(Test-Path -LiteralPath "$($dir.FullName)\$entry")) {
+                    $problems.Add("$($dir.Name) に $entry がありません")
+                }
+            }
+        }
+        ($problems -join "`n") | Should -Be ""
+    }
+
+    It "newSettings の全キーが、どれか 1 つの見本の expected.json にある（期待値の書き忘れを止める）" {
+        $samples = @(Get-ChildItem -LiteralPath ${compatSettingsRoot} -Directory)
+        $samples.Count | Should -BeGreaterThan 0 -Because "見本が 1 つも無い"
+
+        $covered = New-Object "System.Collections.Generic.HashSet[string]"
+        foreach ($sample in $samples) {
+            $expectedPath = "$($sample.FullName)\expected.json"
+            if (!(Test-Path -LiteralPath $expectedPath)) { continue }
+            $expected = [System.IO.File]::ReadAllText($expectedPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+            foreach ($name in @($expected.PSObject.Properties.Name)) {
+                [void]$covered.Add($name)
+            }
+        }
+
+        $missing = @((newSettings).Keys | Where-Object { -not $covered.Contains($_) })
+        ($missing -join ", ") | Should -Be "" -Because "見本の expected.json に無い newSettings のキー"
     }
 }
