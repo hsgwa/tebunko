@@ -4282,7 +4282,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>前の版との互換（<code>tests/tebunko/indexer/index_compat</code>・<code>tests/meta/compat</code>）</strong></p>
+<p><strong>前の版との互換（<code>tests/tebunko/indexer/index_compat</code>・<code>tests/tebunko/core/settings_compat</code>・<code>tests/meta/compat</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -4296,8 +4296,12 @@
 <td>前の版が作った見本（<a href="../../index-data/format/#前の版との互換">前の版との互換</a>）の本文インデックス・システムインデックス・取り込み一覧・エクスポート zip を、今のコードで読める・検索できる・取り込み直しが起きない・エクスポートし直しても同じ配置になること</td>
 </tr>
 <tr>
+<td><code>tests/tebunko/core/settings_compat</code>（<code>-Tag Io</code>）</td>
+<td>前の版が作った見本（<a href="../../structure/settings-file/#前の版との互換">前の版との互換</a>）の <code>setting.config</code> が壊れたと判定されない、今のコードで同じ値として読める、書き足してもほかの値を保つこと、今の版が書く形がどれかの見本に含まれること</td>
+</tr>
+<tr>
 <td><code>tests/meta/compat</code>（<code>Meta</code>）</td>
-<td>見本の 5 つの要素（<code>source</code>・<code>ws</code>・<code>export.zip</code>・<code>file_times.tsv</code>・<code>expected.json</code>）がそろっていること、今のコードの形式の目印（<code>$packVersion</code>・<code>$statusColumns</code> など）が見本のどれかに残っていること</td>
+<td>見本の 5 つの要素（<code>source</code>・<code>ws</code>・<code>export.zip</code>・<code>file_times.tsv</code>・<code>expected.json</code>）がそろっていること、今のコードの形式の目印（<code>$packVersion</code>・<code>$statusColumns</code> など）が見本のどれかに残っていること。設定の見本（<code>compat/settings/</code>）に <code>setting.config</code>・<code>expected.json</code> がそろっていること、<code>newSettings</code> の全キーがどれか 1 つの見本の <code>expected.json</code> にあること</td>
 </tr>
 </tbody>
 </table>
