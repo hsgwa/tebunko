@@ -125,6 +125,10 @@ tebunko は、**Windows と Microsoft Excel（デスクトップ版）が入っ�
 
 利用者の確かめが済むまでは「試験版」として、zip 版・インストーラー版と並べて配布します（詳細は[設計書](docs/design/structure/single-script.md)）。
 
+**更新・削除**
+
+新しい版への更新と削除の手順は、手引きの [更新とアンインストール](docs/guide/update-uninstall.md) にあります。zip 版は別のフォルダに展開して `setting.config` をコピーし、前のフォルダを削除します。アンインストールしても、インデックス（ワークスペース）は消えません。
+
 ## 使い方
 
 使い方は 3 ステップです。
