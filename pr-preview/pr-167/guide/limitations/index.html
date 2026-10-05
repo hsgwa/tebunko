@@ -1312,6 +1312,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#検索対象外の内容" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1715,6 +1726,8 @@
       
         
       
+        
+      
     
     
     
@@ -1971,6 +1984,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -4130,6 +4171,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#検索対象外の内容" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4245,6 +4297,14 @@
 
 <h1 id="制限事項">制限事項<a class="headerlink" href="#制限事項" title="Permanent link">&para;</a></h1>
 <p>tebunko の検索対象外となる内容と、機能上の制限をまとめます。既知の問題の詳細は、設計書の <a href="../../design/indexing/known-issues/">既知の問題</a> を参照してください。</p>
+<h2 id="単一-ps1-版試験版">単一 .ps1 版（試験版）<a class="headerlink" href="#単一-ps1-版試験版" title="Permanent link">&para;</a></h2>
+<p>単一 .ps1 版は試験版です。zip 版・インストーラー版と次の点が違います。</p>
+<ul>
+<li>窓とバージョン情報のアイコンは、既定のアイコンになります。</li>
+<li><code>tebunko.bat</code> が行う起動の失敗の記録（言語モードなどの記録）はありません。</li>
+<li>起動の途中の失敗は、zip 版と同じくメッセージボックスで知らせることがあります。ファイルそのものが壊れていて読み込めないとき（ダウンロードが途中で切れたときなど）は、PowerShell の窓がすぐに閉じ、理由を読めません。そのときは <code>SHA256SUMS.txt</code> でハッシュを確かめ、ダウンロードし直してください。</li>
+<li>配布物の改ざんの確認は、zip 版の <code>tebunko.cat</code> ではなく、<code>SHA256SUMS.txt</code> で行います。</li>
+</ul>
 <h2 id="検索対象外の内容">検索対象外の内容<a class="headerlink" href="#検索対象外の内容" title="Permanent link">&para;</a></h2>
 <ul>
 <li>画像内の文字（スキャンした文書の画像など）</li>
