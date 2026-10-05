@@ -6,13 +6,49 @@ tebunko は、Excel・Word・PowerPoint のファイルとテキストファイ�
 
 ## 動作環境
 
+### 必要なもの
+
 | 項目 | 要件 |
 |---|---|
-| OS | Windows 10 / 11（標準搭載の Windows PowerShell 5.1 で動作します） |
-| Microsoft Excel | 必須。Excel ファイルからの文字の抽出に使用します |
-| Microsoft Word・PowerPoint | 旧形式（.doc・.ppt）のファイルを取り込む場合のみ必要です |
+| OS | Windows 10 / 11 |
+| PowerShell | Windows PowerShell 5.1（Windows 10 / 11 に標準搭載） |
+| .NET Framework | 4.x の標準アセンブリ（追加の導入は不要） |
+| Microsoft Excel | デスクトップ版が必須です。COM で自動操作し、Excel ファイルの文字の取り出しと、検索結果からセルを選んで開くのに使います |
+| Microsoft Word・PowerPoint | 旧形式（.doc・.ppt）のファイルと、中身が旧形式のファイルを取り込む場合のみ必要です |
+| Windows Search | 任意です。高速検索だけが使います。無くても検索結果は同じです（[高速検索](fast-search.md)） |
 
-管理者権限、追加のソフトウェア、PowerShell の実行ポリシーの変更、ネットワーク接続は不要です。
+管理者権限、追加のソフトウェア、PowerShell の実行ポリシーの変更、ネットワーク接続は不要です。組織が PowerShell の実行を制限している PC は、[制限された環境での動作](#制限された環境での動作)を確認してください。
+
+ディスクの容量の目安は [よくある質問](faq.md#インデックスの保存先と容量を教えてください) に、メモリの使い方は設計書の [既知の問題](../design/indexing/known-issues.md) にあります。
+
+### 対象外
+
+次の環境では動きません。
+
+- Excel が使えない PC（Microsoft Office が入っていない・Web 版の Excel だけ・COM による自動操作が禁止されている）
+- Mac・Linux
+- PowerShell 7 だけで動かすこと（Windows PowerShell 5.1 で動かします）
+- PowerShell の実行そのものが禁止されている PC
+- 対応していないファイル形式（PDF・OpenDocument など。パスワード付きのファイルは [制限事項](limitations.md) を参照）
+
+### 制限された環境での動作
+
+- **実行ポリシー**：`RemoteSigned` を、tebunko を起動する PowerShell のプロセスにだけ指定して起動します。PC の設定は変えません（[`RemoteSigned` で起動する理由](../safety/disclosure.md#remotesigned-で起動する理由)）。実行ポリシーが `AllSigned` の PC では、スクリプトに署名するまで起動できません。
+- **`.bat` が禁止されている PC**：インストーラー版を使うか、[`tebunko.bat` を使わずに起動する](#tebunkobat-を使わずに起動するzip-版)方法を使います。
+- **FIPS モード**：動きます。
+- **読み取り専用の場所に置いた場合**：動きます。設定（`setting.config`）は `%LOCALAPPDATA%\tebunko\` の下に置かれます。
+
+安全性の資料は [安全性](../safety/index.md) にあります。情報システム部門への確認にお使いください。
+
+### 確かめていない環境
+
+次の環境は確かめていません。動くかどうかは分かりません。
+
+- VDI・RDS（仮想デスクトップ・リモートデスクトップサービス）
+- Windows Server
+- Arm 版の Windows
+- 本物の WDAC・AppLocker の規則の下での動作
+- Microsoft Office の特定の版・形態（バージョン、32 ビット・64 ビット、クイック実行版・MSI 版・Microsoft Store 版）
 
 ### 対応するファイル形式
 

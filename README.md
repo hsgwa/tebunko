@@ -61,12 +61,12 @@ tebunko は、フォルダの中の Office ファイル（Excel・Word・PowerPo
 
 ## 動作環境
 
-tebunko は、**Windows と Microsoft Office が入っている PC なら、どこでも動く**ように作っています。必要なものは次だけです。
+tebunko は、**Windows と Microsoft Excel（デスクトップ版）が入っている PC で動く**ように作っています。必要なものは次だけです。
 
 | 必要なもの | 用途 |
 |---|---|
-| Windows | Windows PowerShell 5.1 で動きます。Windows 10・11 には最初から入っています |
-| Microsoft Excel | Excel ファイルからの文字の取り出し |
+| Windows 10・11 | Windows PowerShell 5.1 で動きます。最初から入っています |
+| Microsoft Excel（デスクトップ版） | Excel ファイルからの文字の取り出しと、検索結果からセルを選んで開くこと |
 | Microsoft Word・PowerPoint | 旧形式（.doc・.ppt）のファイルを読み込むときだけ使います |
 
 これ以外に依存するものはありません。
@@ -77,7 +77,7 @@ tebunko は、**Windows と Microsoft Office が入っている PC なら、ど�
 - **ネットワーク不要** … 通信をしないので、インターネットにつながらない PC でも使えます
 - **追加のライブラリなし** … 他者が作ったライブラリを含みません。zip 版は実行ファイル（.exe・.dll）も含みません
 
-ソフトを自由に入れられない会社の PC でも、そのまま使えます。
+動かない環境は、Excel が使えない PC（Office が無い・Web 版だけ・COM が禁止）、Mac・Linux、PowerShell 7 だけの環境、PowerShell の実行が禁止されている PC です。組織が実行を制限している PC での動き方と、確かめていない環境（VDI・RDS・Windows Server・Arm 版の Windows など）は、[手引きの「動作環境」](https://hsgwa.github.io/tebunko/guide/#動作環境)にあります。
 
 ## インストール
 
