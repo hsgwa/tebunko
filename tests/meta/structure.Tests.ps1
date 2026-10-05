@@ -146,6 +146,63 @@ Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta 
     }
 }
 
+Describe "theme の文字の Style（大きさ・太さ・行の高さは Figma の設計どおり）" -Tag Meta {
+    BeforeDiscovery {
+        # Weight が空は Normal。Figma の Medium は WPF の SemiBold に読み替えてある。LineHeight が空は指定しない
+        $textStyles = @(
+            @{ Key = "Micro";        Size = "10"; Weight = "";         LineHeight = "" }
+            @{ Key = "ColumnHeader"; Size = "10"; Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Meta";         Size = "11"; Weight = "";         LineHeight = "" }
+            @{ Key = "Meta.Tall";    Size = "";   Weight = "";         LineHeight = "16" }
+            @{ Key = "Meta.Strong";  Size = "";   Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Meta.Key";     Size = "";   Weight = "SemiBold"; LineHeight = "" }   # 行の高さ 16 は Meta.Tall から継ぐ
+            @{ Key = "Note";         Size = "11"; Weight = "";         LineHeight = "17.6" }
+            @{ Key = "Chip";         Size = "11"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Link";         Size = "11"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Cell";         Size = "12"; Weight = "";         LineHeight = "" }
+            @{ Key = "Cell.Key";     Size = "";   Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Label";        Size = "12"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Label.Strong"; Size = "";   Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Brand";        Size = "12"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Body";         Size = "13"; Weight = "";         LineHeight = "" }
+            @{ Key = "Body.Strong";  Size = "";   Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Nav";          Size = "13"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Nav.Tall";     Size = "";   Weight = "";         LineHeight = "18" }
+            @{ Key = "Heading";      Size = "13"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Focal";        Size = "14"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "PageTitle";    Size = "16"; Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Title";        Size = "18"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "AppTitle";     Size = "20"; Weight = "SemiBold"; LineHeight = "28" }
+        )
+    }
+
+    BeforeAll {
+        $xns = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $themeXml = New-Object System.Xml.XmlDocument
+        $themeXml.Load("${scriptsDir}\shared\xaml\theme.xaml")
+        $styles = @{}
+        foreach ($node in $themeXml.DocumentElement.ChildNodes) {
+            if ($node.LocalName -eq "Style" -and $node.GetAttribute("TargetType") -eq "TextBlock") {
+                $styles[$node.GetAttribute("Key", $xns)] = $node
+            }
+        }
+        # Style の Setter の値。BasedOn を持つ Style は、継ぐ前の Style の値は見ずに、その Style が書いた分だけを見る
+        function getSetter($style, [string]$property) {
+            foreach ($s in $style.ChildNodes) {
+                if ($s.LocalName -eq "Setter" -and $s.GetAttribute("Property") -eq $property) { return $s.GetAttribute("Value") }
+            }
+            return ""
+        }
+    }
+
+    It "<key> の大きさ <size>・太さ <weight>・行の高さ <lineHeight>" -ForEach $textStyles {
+        $styles.ContainsKey($key) | Should -Be $true
+        getSetter $styles[$key] "FontSize" | Should -Be $size
+        getSetter $styles[$key] "FontWeight" | Should -Be $weight
+        getSetter $styles[$key] "LineHeight" | Should -Be $lineHeight
+    }
+}
+
 Describe "型の読み込み" -Tag Meta {
     # 画面で使う型は shared と tebunko に分かれている。gui.ps1 と同じ順で読み込めば、
     # 継承（NotifyBase を継承する型）が解決できることを確かめる

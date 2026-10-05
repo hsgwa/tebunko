@@ -128,7 +128,7 @@
 
   <!-- 入力欄の見出し -->
   <Style x:Key="Label" TargetType="TextBlock">
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
     <Setter Property="VerticalAlignment" Value="Center" />
@@ -143,7 +143,7 @@
 
   <!-- 補助（説明文・ラベル） -->
   <Style x:Key="Meta" TargetType="TextBlock">
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="11" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
@@ -152,9 +152,86 @@
 
   <!-- 細目（常時は読まない情報） -->
   <Style x:Key="Micro" TargetType="TextBlock">
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontSize" Value="10" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Faint}" />
     <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- Figma の Text styles（フォントはすべて Rethink Sans。Figma の Medium は WPF の SemiBold に読み替える）。
+       色は使う所で決める。下の既定は、その文字が一番よく使われる色。行の高さは書いてあるものだけ指定する
+       （Brand の字間 0.2 は TextBlock に無いので付けない） -->
+  <Style x:Key="ColumnHeader" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+  </Style>
+  <Style x:Key="Meta.Tall" TargetType="TextBlock" BasedOn="{StaticResource Meta}">
+    <Setter Property="LineHeight" Value="16" />
+    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+  </Style>
+  <Style x:Key="Meta.Strong" TargetType="TextBlock" BasedOn="{StaticResource Meta}">
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style x:Key="Meta.Key" TargetType="TextBlock" BasedOn="{StaticResource Meta.Tall}">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style x:Key="Note" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="LineHeight" Value="17.6" />
+    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Note}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style x:Key="Chip" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Accent.Hover}" />
+  </Style>
+  <Style x:Key="Link" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+  </Style>
+  <Style x:Key="Label.Strong" TargetType="TextBlock" BasedOn="{StaticResource Label}">
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style x:Key="Brand" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+  <Style x:Key="Body" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+  <Style x:Key="Body.Strong" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style x:Key="Nav" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+  <Style x:Key="Nav.Tall" TargetType="TextBlock" BasedOn="{StaticResource Nav}">
+    <Setter Property="LineHeight" Value="18" />
+    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+  </Style>
+  <Style x:Key="PageTitle" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+  <Style x:Key="Title" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+  </Style>
+  <Style x:Key="AppTitle" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LineHeight" Value="28" />
+    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
   </Style>
 
   <!-- 注意・エラー。色で区別し、太さは上げない -->
@@ -185,6 +262,7 @@
     <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
   <Style x:Key="Cell.Key" TargetType="TextBlock" BasedOn="{StaticResource Cell}">
+    <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
   </Style>
   <Style x:Key="Cell.Meta" TargetType="TextBlock" BasedOn="{StaticResource Cell}">
