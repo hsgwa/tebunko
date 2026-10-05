@@ -15,30 +15,81 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!-- ============ 色のトークン（色を変えるのはここだけ） ============ -->
-  <SolidColorBrush x:Key="Bg.Window"     Color="#F6F7F9" />
-  <SolidColorBrush x:Key="Bg.Surface"    Color="#FFFFFF" />
-  <SolidColorBrush x:Key="Bg.Subtle"     Color="#FAFBFC" />
-  <SolidColorBrush x:Key="Bg.Hover"      Color="#F3F5F7" />
-  <SolidColorBrush x:Key="Bg.Pressed"    Color="#E8EBEF" />
-  <SolidColorBrush x:Key="Border.Soft"   Color="#E9ECF0" />
-  <SolidColorBrush x:Key="Border.Normal" Color="#D7DBE0" />
+  <!-- 値は Figma の設計（theme の Variables）に合わせる。近い色はキーにまとめてある -->
+  <!-- 背景 -->
+  <SolidColorBrush x:Key="Bg.Window"      Color="#F5F7FA" />
+  <SolidColorBrush x:Key="Bg.Surface"     Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Bg.Subtle"      Color="#F9FAFA" />
+  <SolidColorBrush x:Key="Bg.Stripe"      Color="#FAFBFC" />
+  <SolidColorBrush x:Key="Bg.Hover"       Color="#F3F3F4" />
+  <SolidColorBrush x:Key="Bg.Pressed"     Color="#E8EBEF" />
+  <SolidColorBrush x:Key="Bg.Pane"        Color="#F0F2F4" />
+  <SolidColorBrush x:Key="Bg.Tag"         Color="#F1F3F4" />
+  <SolidColorBrush x:Key="Bg.Button"      Color="#F2F2F5" />
+  <SolidColorBrush x:Key="Bg.Summary"     Color="#F7FAFC" />
+  <SolidColorBrush x:Key="Bg.Section"     Color="#E8EBF0" />
+  <SolidColorBrush x:Key="Bg.TitleBar"    Color="#F0F0F0" />
 
-  <SolidColorBrush x:Key="Ink.Strong"    Color="#1F2937" />
-  <SolidColorBrush x:Key="Ink.Body"      Color="#414B5A" />
-  <SolidColorBrush x:Key="Ink.Muted"     Color="#78828F" />
-  <SolidColorBrush x:Key="Ink.Faint"     Color="#A3ABB5" />
+  <!-- 枠・線 -->
+  <SolidColorBrush x:Key="Border.Soft"      Color="#E0E2E5" />
+  <SolidColorBrush x:Key="Border.Normal"    Color="#D9DEE3" />
+  <SolidColorBrush x:Key="Border.Input"     Color="#D1D1D1" />
+  <SolidColorBrush x:Key="Border.Strong"    Color="#C9CED4" />
+  <SolidColorBrush x:Key="Border.Separator" Color="#D5D9DE" />
+  <SolidColorBrush x:Key="Border.Splitter"  Color="#D0D4D9" />
+  <SolidColorBrush x:Key="Border.Grip"      Color="#A9AFB6" />
+  <SolidColorBrush x:Key="Border.Divider"   Color="#E5E8ED" />
+  <SolidColorBrush x:Key="Border.Row"       Color="#EDF0F2" />
+  <SolidColorBrush x:Key="Border.Dialog"    Color="#D1D6E0" />
+  <SolidColorBrush x:Key="Border.Check"     Color="#9EA3AB" />
+  <SolidColorBrush x:Key="Border.Window"    Color="#999999" />
 
-  <SolidColorBrush x:Key="Accent"        Color="#2563EB" />
-  <SolidColorBrush x:Key="Accent.Hover"  Color="#1D4ED8" />
-  <SolidColorBrush x:Key="Accent.Soft"   Color="#EFF4FF" />
-  <SolidColorBrush x:Key="Accent.Ring"   Color="#BFD3FE" />
-  <SolidColorBrush x:Key="Danger.Text"   Color="#C2410C" />
-  <SolidColorBrush x:Key="Danger.Line"   Color="#E9B8A3" />
-  <SolidColorBrush x:Key="Danger.Soft"   Color="#FEF4EF" />
-  <SolidColorBrush x:Key="Warn"          Color="#A16207" />
-  <SolidColorBrush x:Key="Ok"            Color="#15803D" />
-  <SolidColorBrush x:Key="Hit"           Color="#FDE68A" />
-  <SolidColorBrush x:Key="Select.Soft"   Color="#DBEAFE" />
+  <!-- ダイアログの後ろの暗幕（窓いっぱいに掛ける） -->
+  <SolidColorBrush x:Key="Overlay.Scrim"  Color="#000000" Opacity="0.35" />
+
+  <!-- 文字・アイコン -->
+  <SolidColorBrush x:Key="Ink.Strong"      Color="#202124" />
+  <SolidColorBrush x:Key="Ink.Value"       Color="#212126" />
+  <SolidColorBrush x:Key="Ink.Body"        Color="#5F6368" />
+  <SolidColorBrush x:Key="Ink.Muted"       Color="#6B737D" />
+  <SolidColorBrush x:Key="Ink.Subtle"      Color="#80868B" />
+  <SolidColorBrush x:Key="Ink.Placeholder" Color="#9AA0A6" />
+  <SolidColorBrush x:Key="Ink.Faint"       Color="#99A1AB" />
+  <SolidColorBrush x:Key="Ink.Note"        Color="#8C949E" />
+  <SolidColorBrush x:Key="Ink.OnAccent"    Color="#FFFFFF" />
+  <SolidColorBrush x:Key="Button.Text"     Color="#4D4D4D" />
+  <SolidColorBrush x:Key="Button.Icon"     Color="#666666" />
+
+  <!-- 強調・状態 -->
+  <SolidColorBrush x:Key="Accent"         Color="#0078D4" />
+  <SolidColorBrush x:Key="Accent.Hover"   Color="#0B5CAD" />
+  <SolidColorBrush x:Key="Accent.Soft"    Color="#E5F1FB" />
+  <SolidColorBrush x:Key="Accent.Ring"    Color="#BFD3FE" />
+  <SolidColorBrush x:Key="Select.Soft"    Color="#E1F2FF" />
+  <SolidColorBrush x:Key="Hit"            Color="#FFF176" />
+  <SolidColorBrush x:Key="Hit.Cell"       Color="#FFF3CD" />
+  <SolidColorBrush x:Key="Ok"             Color="#218A21" />
+  <SolidColorBrush x:Key="Ok.Strong"      Color="#1E8E3E" />
+  <SolidColorBrush x:Key="Ok.Soft"        Color="#E0F7E0" />
+  <SolidColorBrush x:Key="Warn"           Color="#BA7D00" />
+  <SolidColorBrush x:Key="Warn.Dot"       Color="#E8A400" />
+  <SolidColorBrush x:Key="Warn.Soft"      Color="#FFF5E0" />
+  <SolidColorBrush x:Key="Warn.Note"      Color="#FFF7E0" />
+  <SolidColorBrush x:Key="Warn.Line"      Color="#F0C36D" />
+  <SolidColorBrush x:Key="Warn.Strong"    Color="#6B4E00" />
+  <SolidColorBrush x:Key="Danger.Text"    Color="#D13438" />
+  <SolidColorBrush x:Key="Danger.Dot"     Color="#D93025" />
+  <SolidColorBrush x:Key="Danger.Line"    Color="#E9B8A3" />
+  <SolidColorBrush x:Key="Danger.Soft"    Color="#FFE6E6" />
+
+  <!-- ファイルの種類のアイコン・フォルダ・進み具合のバー -->
+  <SolidColorBrush x:Key="File.Excel"      Color="#107C41" />
+  <SolidColorBrush x:Key="File.Word"       Color="#185ABD" />
+  <SolidColorBrush x:Key="File.PowerPoint" Color="#C43E1C" />
+  <SolidColorBrush x:Key="File.Folder"     Color="#E8A020" />
+
+  <!-- イラストの線 -->
+  <SolidColorBrush x:Key="Illust.Line"    Color="#D1D6DE" />
 
   <!-- 一覧の状態バッジ（4 段階）の色。背景と文字の組で、どの画面の状態表示にも使えるようにする -->
   <SolidColorBrush x:Key="Badge.Ok.Bg"     Color="#E0F7E0" />

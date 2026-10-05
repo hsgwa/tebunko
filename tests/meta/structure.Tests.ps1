@@ -61,6 +61,91 @@ Describe "画面定義（XAML）" -Tag Meta {
     }
 }
 
+Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta {
+    BeforeDiscovery {
+        # Figma の Variables の値。`/` を `.` に替えたキーで theme.xaml に置く。値を変えるときはこの表も同じ PR で直す
+        $themeColors = @(
+        @{ Key = "Bg.Window"; Color = "#F5F7FA"; Opacity = 1 }
+        @{ Key = "Bg.Surface"; Color = "#FFFFFF"; Opacity = 1 }
+        @{ Key = "Bg.Subtle"; Color = "#F9FAFA"; Opacity = 1 }
+        @{ Key = "Bg.Stripe"; Color = "#FAFBFC"; Opacity = 1 }
+        @{ Key = "Bg.Hover"; Color = "#F3F3F4"; Opacity = 1 }
+        @{ Key = "Bg.Pane"; Color = "#F0F2F4"; Opacity = 1 }
+        @{ Key = "Bg.Tag"; Color = "#F1F3F4"; Opacity = 1 }
+        @{ Key = "Bg.Button"; Color = "#F2F2F5"; Opacity = 1 }
+        @{ Key = "Bg.Summary"; Color = "#F7FAFC"; Opacity = 1 }
+        @{ Key = "Bg.Section"; Color = "#E8EBF0"; Opacity = 1 }
+        @{ Key = "Bg.TitleBar"; Color = "#F0F0F0"; Opacity = 1 }
+        @{ Key = "Border.Soft"; Color = "#E0E2E5"; Opacity = 1 }
+        @{ Key = "Border.Normal"; Color = "#D9DEE3"; Opacity = 1 }
+        @{ Key = "Border.Input"; Color = "#D1D1D1"; Opacity = 1 }
+        @{ Key = "Border.Strong"; Color = "#C9CED4"; Opacity = 1 }
+        @{ Key = "Border.Separator"; Color = "#D5D9DE"; Opacity = 1 }
+        @{ Key = "Border.Splitter"; Color = "#D0D4D9"; Opacity = 1 }
+        @{ Key = "Border.Grip"; Color = "#A9AFB6"; Opacity = 1 }
+        @{ Key = "Border.Divider"; Color = "#E5E8ED"; Opacity = 1 }
+        @{ Key = "Border.Row"; Color = "#EDF0F2"; Opacity = 1 }
+        @{ Key = "Border.Dialog"; Color = "#D1D6E0"; Opacity = 1 }
+        @{ Key = "Border.Check"; Color = "#9EA3AB"; Opacity = 1 }
+        @{ Key = "Border.Window"; Color = "#999999"; Opacity = 1 }
+        @{ Key = "Overlay.Scrim"; Color = "#000000"; Opacity = 0.35 }
+        @{ Key = "Ink.Strong"; Color = "#202124"; Opacity = 1 }
+        @{ Key = "Ink.Value"; Color = "#212126"; Opacity = 1 }
+        @{ Key = "Ink.Body"; Color = "#5F6368"; Opacity = 1 }
+        @{ Key = "Ink.Muted"; Color = "#6B737D"; Opacity = 1 }
+        @{ Key = "Ink.Subtle"; Color = "#80868B"; Opacity = 1 }
+        @{ Key = "Ink.Placeholder"; Color = "#9AA0A6"; Opacity = 1 }
+        @{ Key = "Ink.Faint"; Color = "#99A1AB"; Opacity = 1 }
+        @{ Key = "Ink.Note"; Color = "#8C949E"; Opacity = 1 }
+        @{ Key = "Ink.OnAccent"; Color = "#FFFFFF"; Opacity = 1 }
+        @{ Key = "Button.Text"; Color = "#4D4D4D"; Opacity = 1 }
+        @{ Key = "Button.Icon"; Color = "#666666"; Opacity = 1 }
+        @{ Key = "Accent"; Color = "#0078D4"; Opacity = 1 }
+        @{ Key = "Accent.Hover"; Color = "#0B5CAD"; Opacity = 1 }
+        @{ Key = "Accent.Soft"; Color = "#E5F1FB"; Opacity = 1 }
+        @{ Key = "Select.Soft"; Color = "#E1F2FF"; Opacity = 1 }
+        @{ Key = "Hit"; Color = "#FFF176"; Opacity = 1 }
+        @{ Key = "Hit.Cell"; Color = "#FFF3CD"; Opacity = 1 }
+        @{ Key = "Ok"; Color = "#218A21"; Opacity = 1 }
+        @{ Key = "Ok.Strong"; Color = "#1E8E3E"; Opacity = 1 }
+        @{ Key = "Ok.Soft"; Color = "#E0F7E0"; Opacity = 1 }
+        @{ Key = "Warn"; Color = "#BA7D00"; Opacity = 1 }
+        @{ Key = "Warn.Dot"; Color = "#E8A400"; Opacity = 1 }
+        @{ Key = "Warn.Soft"; Color = "#FFF5E0"; Opacity = 1 }
+        @{ Key = "Warn.Note"; Color = "#FFF7E0"; Opacity = 1 }
+        @{ Key = "Warn.Line"; Color = "#F0C36D"; Opacity = 1 }
+        @{ Key = "Warn.Strong"; Color = "#6B4E00"; Opacity = 1 }
+        @{ Key = "Danger.Text"; Color = "#D13438"; Opacity = 1 }
+        @{ Key = "Danger.Dot"; Color = "#D93025"; Opacity = 1 }
+        @{ Key = "Danger.Soft"; Color = "#FFE6E6"; Opacity = 1 }
+        @{ Key = "File.Excel"; Color = "#107C41"; Opacity = 1 }
+        @{ Key = "File.Word"; Color = "#185ABD"; Opacity = 1 }
+        @{ Key = "File.PowerPoint"; Color = "#C43E1C"; Opacity = 1 }
+        @{ Key = "File.Folder"; Color = "#E8A020"; Opacity = 1 }
+        @{ Key = "Illust.Line"; Color = "#D1D6DE"; Opacity = 1 }
+        )
+    }
+
+    BeforeAll {
+        $themeXml = New-Object System.Xml.XmlDocument
+        $themeXml.Load("${scriptsDir}\shared\xaml\theme.xaml")
+        $xns = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $brushes = @{}
+        foreach ($node in $themeXml.DocumentElement.ChildNodes) {
+            if ($node.LocalName -eq "SolidColorBrush") {
+                $brushes[$node.GetAttribute("Key", $xns)] = $node
+            }
+        }
+    }
+
+    It "<key> が <color>（不透明度 <opacity>）" -ForEach $themeColors {
+        $brushes.ContainsKey($key) | Should -Be $true
+        $brushes[$key].GetAttribute("Color") | Should -Be $color
+        $actualOpacity = if ($brushes[$key].HasAttribute("Opacity")) { [double]$brushes[$key].GetAttribute("Opacity") } else { 1 }
+        $actualOpacity | Should -Be $opacity
+    }
+}
+
 Describe "型の読み込み" -Tag Meta {
     # 画面で使う型は shared と tebunko に分かれている。gui.ps1 と同じ順で読み込めば、
     # 継承（NotifyBase を継承する型）が解決できることを確かめる
