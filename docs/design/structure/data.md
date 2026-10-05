@@ -3,7 +3,7 @@
 扱うこと: `work/` の中身（自動生成）、`setting.config`・ワークスペースの置き場所の決め方、パスの定数、ワークスペースの中の場所（`Workspace` クラス）。扱わないこと: `scripts/` の配置そのもの（[配布物と開発用のフォルダ構成](folders.md)）、どの処理がどのファイルを読み書きするか（[どの処理がどのファイルを読み書きするか](io-files.md)）。先に読むページ: [設計の概要](../index.md)。
 
 !!! note "設計書の `work/` の書き方"
-    設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を `work/` と書く。実際の場所は、既定では `%USERPROFILE%\Documents\tebunko_ws`、［8 設定］で変えたときはその場所である（下の「データの置き場所」）。以前の版はツールのフォルダの `work` に置いていたため、この書き方を残している。開発用のリポジトリ直下の `work/`（`work/test/`・`work/release/`・`work/site/` など、git 管理外）は別のもの。
+    設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を `work/` と書く。実際の場所は、既定では `%USERPROFILE%\Documents\tebunko_ws`、［8 設定］で変えたときはその場所である（下の「データの置き場所」）。開発用のリポジトリ直下の `work/`（`work/test/`・`work/release/`・`work/site/` など、git 管理外）は別のもの。
 
 ## 自動生成（`work/`）
 
@@ -45,7 +45,7 @@ flowchart TD
 
 | 変数 | 決め方 | 定義 |
 |---|---|---|
-| `$dataDir` | ツールのフォルダ（`$rootDir`）にファイルを作れればそこ（以前の版と同じ）。作れなければ `%LOCALAPPDATA%\tebunko\<鍵>`。鍵は `getFolderKey $rootDir` の先頭 16 文字で、ツールのフォルダごとに分かれる | `scripts/shared/core/data_dir.ps1` の `getDataDir`（書き込めるかは `testWritableFolder`。試しに作ったファイルは閉じると消える） |
+| `$dataDir` | ツールのフォルダ（`$rootDir`）にファイルを作れればそこ。作れなければ `%LOCALAPPDATA%\tebunko\<鍵>`。鍵は `getFolderKey $rootDir` の先頭 16 文字で、ツールのフォルダごとに分かれる | `scripts/shared/core/data_dir.ps1` の `getDataDir`（書き込めるかは `testWritableFolder`。試しに作ったファイルは閉じると消える） |
 | `$settingsFile` | `$dataDir\setting.config` | `scripts/tebunko/core/settings.ps1` |
 | `$workspace.Dir` | `setting.config` の `workspaceFolder`（[設定ファイル（setting.config）の形式](settings-file.md#形式)）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents） | `scripts/tebunko/core/settings.ps1`（`getWorkDir`） |
 
