@@ -52,6 +52,12 @@ gh attestation verify .\tebunko-v0.1.0.zip -R hsgwa/tebunko
 
 署名の bundle（`tebunko-<タグ>.zip.sigstore.json`）もリリースに載せている。GitHub に問い合わせずに確かめるときは `--bundle .\tebunko-v0.1.0.zip.sigstore.json` を付ける。zip 自体の SHA256 はリリースの説明に書いてある（[複数エンジンでの検査: VirusTotal（外部へファイルを送信する）](#複数エンジンでの検査-virustotal外部へファイルを送信する) の照会に使える）。インストーラー（`tebunko-setup-<タグ>.exe`）にも同じく来歴の署名を付け、bundle（`tebunko-setup-<タグ>.exe.sigstore.json`）と SHA256 をリリースに載せる。確かめ方は zip と同じ（`gh attestation verify .\tebunko-setup-<タグ>.exe -R hsgwa/tebunko`）。
 
+**単一 .ps1 版（試験版）の確認**: 展開せずに動く `tebunko-<タグ>.ps1`（[単一 PowerShell のビルド](../design/structure/single-script.md)）は、1 本のファイルのため `tebunko.cat` の対象にしない。公開前の検査は `tools/new_single_script.ps1` 自身が行う（連結の順・構文・禁止の語・部品の過不足。通らなければ `release.yml` がそこで止まる）。改ざんの確認は `SHA256SUMS.txt` に追記した行と、zip・インストーラーと同じ来歴の署名（bundle は `tebunko-<タグ>.ps1.sigstore.json`）で行う。
+
+```powershell
+gh attestation verify .\tebunko-v0.1.0.ps1 -R hsgwa/tebunko
+```
+
 ## 静的解析: PSScriptAnalyzer（Microsoft）
 
 PowerShell スクリプトの静的解析ツール。Microsoft が公開しているルールで、コードインジェクション・平文パスワードなどを検出する。

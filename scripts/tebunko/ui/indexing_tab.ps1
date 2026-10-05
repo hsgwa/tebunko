@@ -191,7 +191,7 @@ function startIndexing {
     $script:indexingRate = $null
     $script:indexingConfirmed = $false
     $script:indexingCanceledAtConfirm = $false
-    $script:indexingSession = newIndexingSession ${indexerScriptPath} (newIndexerChannel -confirmTargets $true)
+    $script:indexingSession = newIndexingSession (newIndexerChannel -confirmTargets $true)
 
     showIndexingPanel
     setStatus "クロールしています…"

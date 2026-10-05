@@ -19,8 +19,12 @@ $excelMaxPath = 218
 ${tmpNameReserve} = "\w999\converted.pptx".Length
 
 # ワークスペース（インデックス・取り込み一覧・ログ・取り込みの出力の置き場所。中の場所は workspace.ps1 の Workspace）。
-# setting.config の workspaceFolder で変えられる。空なら既定（settings.ps1 の getWorkDir）
-${workspace} = [Workspace]::new((getWorkDir))
+# setting.config の workspaceFolder で変えられる。空なら既定（settings.ps1 の getWorkDir）。
+# 読み込んだとき（スクリプトの読み込み時）には決めず、起動口（startGui・invokeIndexerMain）が
+# 壊れた設定ファイルの退避の後に呼ぶ（単一 .ps1 版は setting.config を読む前に読み込みだけ先に済ませるため）
+function initWorkspace {
+    ${script:workspace} = [Workspace]::new((getWorkDir))
+}
 
 # インデックスのフォルダに置く、インデックス名とクロール対象フォルダの対応（インデクサが作成する）。
 # インデックスのフォルダごと別の場所・PCへコピーしても、検索結果から元のファイルの場所が分かるようにする。

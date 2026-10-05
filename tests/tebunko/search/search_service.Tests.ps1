@@ -134,11 +134,11 @@ Describe "SearchService" -Tag Io {
         newTsv "$tsvRoot\B社.xlsx\Sheet1.tsv" @("単価`t300")
         $packRoot = Join-Path $TestDrive "service_pack"
         [void](newPackIndex $tsvRoot $packRoot)
-        $libPath = "${scriptsDir}\tebunko\lib.ps1"
+        $libLoad = getPartLoad lib
     }
 
     It "要求を順に実行し、同じスレッドを使い続ける" {
-        $service = newSearchService $libPath (newTsvTextCache) 2
+        $service = newSearchService (newTsvTextCache) 2
         try {
             $first = $service.Request((newSearchRequest "単価" $true @($packRoot) 0))
             waitRequest $first | Should -Be $true
@@ -156,7 +156,7 @@ Describe "SearchService" -Tag Io {
     }
 
     It "次の要求を渡すと、前の要求を取り消す" {
-        $service = newSearchService $libPath $null 1
+        $service = newSearchService $null 1
         try {
             $first = newSearchRequest "単価" $true @($packRoot) 0
             [void]$service.Request($first)
@@ -170,15 +170,19 @@ Describe "SearchService" -Tag Io {
     }
 
     It "閉じるとスレッドを止める。Close は何度呼んでもよい" {
-        $service = newSearchService $libPath $null 1
+        $service = newSearchService $null 1
         $service.IsRunning() | Should -Be $true
         $service.Close()
         $service.Close()
         $service.IsRunning() | Should -Be $false
     }
 
-    It "司令のスレッドが止まっていたら理由を返し、次の要求で作り直す" {
-        $service = newSearchService (Join-Path $TestDrive "無い.ps1") $null 1
+    It "司令のスレッドが止まっていたら理由を返し、次の要求で作り直す（zip 版。読み込む先が無い）" {
+        $brokenLibLoad = @{
+            State   = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+            Prelude = ". '$(Join-Path $TestDrive "無い.ps1")'"
+        }
+        $service = [SearchService]::new(${searchServiceScript}.ToString(), $brokenLibLoad, $null, 1, ${searchServiceCloseMilliseconds})
         try {
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
             while ($service.IsRunning() -and $watch.Elapsed.TotalSeconds -lt 30) {
@@ -186,7 +190,7 @@ Describe "SearchService" -Tag Io {
             }
             $service.IsRunning() | Should -Be $false
             $service.GetFailure() | Should -Not -BeNullOrEmpty
-            $service.LibPath = $libPath
+            $service.LibLoad = $libLoad
             $request = $service.Request((newSearchRequest "単価" $true @($packRoot) 0))
             waitRequest $request | Should -Be $true
             (takeHits $request).Count | Should -Be 3
@@ -195,8 +199,26 @@ Describe "SearchService" -Tag Io {
         }
     }
 
+    It "司令のスレッドが止まっていたら理由を返す（単一 .ps1 版。部品を読み込む関数が失敗する）" {
+        $brokenState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault2()
+        $brokenEntry = New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry("importTebunkoPart", 'throw "部品を読み込めません"')
+        $brokenState.Commands.Add($brokenEntry)
+        $brokenLibLoad = @{ State = $brokenState; Prelude = ". importTebunkoPart" }
+        $service = [SearchService]::new(${searchServiceScript}.ToString(), $brokenLibLoad, $null, 1, ${searchServiceCloseMilliseconds})
+        try {
+            $watch = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($service.IsRunning() -and $watch.Elapsed.TotalSeconds -lt 30) {
+                Start-Sleep -Milliseconds 20
+            }
+            $service.IsRunning() | Should -Be $false
+            $service.GetFailure() | Should -Not -BeNullOrEmpty
+        } finally {
+            $service.Close()
+        }
+    }
+
     It "スレッドの数を省くと、コア数から決める（getWorkerCount）" {
-        $service = newSearchService $libPath
+        $service = newSearchService
         try {
             $service.Workers | Should -Be (getWorkerCount)
         } finally {
@@ -212,7 +234,7 @@ Describe "SearchService" -Tag Io {
 
     It "閉じるときに司令のスレッドが止まらなければ、スレッドを止めて片づける" {
         # 要求の列を見ずに動き続ける司令のスクリプト（照合が長引いている、など）
-        $service = [SearchService]::new('param ($libPath, $requests, $cache, $workers) Start-Sleep -Seconds 60', $libPath, $null, 1, 200)
+        $service = [SearchService]::new('param ($requests, $cache, $workers) Start-Sleep -Seconds 60', $libLoad, $null, 1, 200)
         $watch = [System.Diagnostics.Stopwatch]::StartNew()
         $service.Close()
         $watch.Elapsed.TotalSeconds | Should -BeLessThan 30
@@ -220,7 +242,7 @@ Describe "SearchService" -Tag Io {
     }
 
     It "司令のスレッドが止めずにエラーだけを書いて終わったら、その内容を理由として返す" {
-        $service = [SearchService]::new('param ($libPath, $requests, $cache, $workers) Write-Error "司令のエラー"', $libPath, $null, 1, 5000)
+        $service = [SearchService]::new('param ($requests, $cache, $workers) Write-Error "司令のエラー"', $libLoad, $null, 1, 5000)
         try {
             $watch = [System.Diagnostics.Stopwatch]::StartNew()
             while ($service.IsRunning() -and $watch.Elapsed.TotalSeconds -lt 30) {
@@ -306,7 +328,7 @@ Describe "検索の司令のスクリプト（searchServiceScript）" -Tag Io {
         $requests.CompleteAdding()
         $cache = newTsvTextCache
 
-        & ${searchServiceScript} "${scriptsDir}\tebunko\lib.ps1" $requests $cache 2
+        & ${searchServiceScript} $requests $cache 2
 
         $first.Finished | Should -Be $true
         (takeHits $first).Count | Should -Be 3

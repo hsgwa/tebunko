@@ -151,6 +151,7 @@ nav:
           - プロセスとスレッド: design/structure/threads.md
           - 閉じるときの順番と GC: design/structure/closing.md
           - クラスと関数の使い分け: design/structure/classes.md
+          - 単一 PowerShell のビルド: design/structure/single-script.md
       - インデックス作成:
           - design/indexing/index.md
           - インデックス作成のメインフロー: design/indexing/flow.md

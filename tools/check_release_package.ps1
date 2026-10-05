@@ -31,14 +31,12 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $rootDir = Split-Path $PSScriptRoot -Parent
 $failures = New-Object System.Collections.Generic.List[string]
 
-# ファイルが dot-source している先を返す（. "$PSScriptRoot\..." の形だけを見る）。存在しない先も返す
-# （tests\meta\layers.Tests.ps1 の getSourcedFiles は、存在するものだけを返し、tools から tests を読み込まないため、ここに持つ）
-function Get-DotSourceTargets([string]$Path) {
-    $dir = Split-Path $Path -Parent
-    $text = [System.IO.File]::ReadAllText($Path)
-    foreach ($match in [regex]::Matches($text, '(?m)^\s*\.\s+"\$PSScriptRoot\\([^"]+)"')) {
-        [System.IO.Path]::GetFullPath((Join-Path $dir $match.Groups[1].Value))
-    }
+# 読み込み口からのたどり方は tools\script_rules.ps1 と共有する（tests\meta\layers.Tests.ps1・
+# tests\meta\safety.Tests.ps1・tools\new_single_script.ps1 も同じ場所を読む）
+. "$PSScriptRoot\script_rules.ps1"
+
+function Get-DotSourceTargets([string]$Path, [string]$TebunkoDir) {
+    return getDotSourceTargets $Path $TebunkoDir
 }
 
 function Get-Sha256Hex([byte[]]$Bytes) {
@@ -77,6 +75,7 @@ try {
 
     [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path -LiteralPath $ZipPath).Path, $extractDir)
     $pkgDir = Join-Path $extractDir "tebunko"
+    $tebunkoDir = Join-Path $pkgDir "scripts\tebunko"
 
     # --- 2. dot-source の先 ---
     $seen = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -91,7 +90,7 @@ try {
     }
     while ($queue.Count -gt 0) {
         $file = $queue.Dequeue()
-        foreach ($target in @(Get-DotSourceTargets $file)) {
+        foreach ($target in @(Get-DotSourceTargets $file $tebunkoDir)) {
             if (!(Test-Path -LiteralPath $target)) {
                 $failures.Add("dot-source の先がありません: $($file.Substring($pkgDir.Length + 1)) -> $($target.Substring($pkgDir.Length + 1))")
             } elseif ($seen.Add($target)) {
@@ -147,7 +146,9 @@ try {
             }
         }
         foreach ($path in @($listed.Keys)) {
-            $file = if ($path -eq "sbom.cdx.json") { Join-Path $OutDir $path } else { Join-Path $pkgDir $path }
+            # zip の外に置くファイル（sbom.cdx.json・単一 .ps1 版）は OutDir から、それ以外は展開したフォルダから探す。
+            # 単一 .ps1 版の行は、検査の後に追記されることもあるので、載っていなくても失敗にしない（載っていれば一致を確かめる）
+            $file = if ($path -eq "sbom.cdx.json" -or $path -eq "tebunko-$Version.ps1") { Join-Path $OutDir $path } else { Join-Path $pkgDir $path }
             if (!(Test-Path -LiteralPath $file)) {
                 $failures.Add("SHA256SUMS.txt に載っているファイルがありません: $path")
             } elseif ((Get-Sha256Hex ([System.IO.File]::ReadAllBytes($file))) -ne $listed[$path]) {
