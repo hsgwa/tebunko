@@ -4446,10 +4446,10 @@ work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;
 <p>フォルダ名・ファイル名を <code>content_index</code>・<code>system_index</code> にそろえる前の版が使っていた <code>index\</code> は、そのままでは読めない（フォルダ名・ファイル名が違う）。新しい版はここを読まず、消しもしない。</p>
 <ul>
 <li><strong>前の版のしるし</strong>: <code>index\</code> があり、その直下のどれかのフォルダに <code>元のフォルダ.txt</code> がある（<code>getLegacyIndexState</code> の <code>HasLegacyIndex</code>）。<code>index\</code> があるだけでは、利用者が選んだフォルダにたまたま <code>index</code> があるときと区別できないため、しるしとしない。</li>
-<li><strong>知らせ</strong>: インデクサは <code>content_index\</code> を作る前に前の版のしるしを調べ、見つかれば <code>前の版のインデックス（「&lt;index\ のパス&gt;」）は、この版では使えません。インデックス作成で、元のファイルをすべて取り込み直します。取り込み直した後、「&lt;index\ のパス&gt;」フォルダは削除してかまいません。</code> をログに黄色で出す（<code>getLegacyIndexMessage</code>）。</li>
+<li><strong>知らせ</strong>: インデクサは <code>content_index\</code> を作る前に前の版のしるしを調べ、見つかれば <code>前の版のインデックス（「&lt;index\ のパス&gt;」）は、この版では使えません。［すべて更新］で、元のファイルをすべて更新し直します。更新し直した後、「&lt;index\ のパス&gt;」フォルダは削除してかまいません。</code> をログに黄色で出す（<code>getLegacyIndexMessage</code>）。</li>
 <li><strong>片付けの条件</strong>: <code>content_index\</code> が空（無いか、下のフォルダを含めてファイルが 1 つも無い）で、かつ、前の版のしるしがあるか、<code>system_index\</code> に前の名前の txt（<code>システムインデックス*.txt</code>）が残っている（<code>testLegacyCleanupNeeded</code>）。取り込み直す前に利用者が <code>index\</code> を消していても、前の名前の txt を残さないための条件。</li>
 <li><strong>片付け</strong>: 条件に当たれば、取り込み直しを始める前に前の版のシステムインデックスを片付ける（<code>clearLegacySystemIndex</code>）。順番は (1) 状態ファイル（<code>system_index_state.tsv</code>）の中身を排他の中で空にする（ファイルは消さない） (2) <code>system_index\</code> を <code>removeDirectoryRetry</code> で消す（Windows Search が txt を一時的に開くことがあるため）。どちらかに失敗したら、<code>content_index\</code> を作らず、失敗の理由をログと <code>channel.Error</code> に入れて終了コード 1 で終わる。途中で止まっても、次の開始で同じ条件に当たり、やり直せる。</li>
-<li>画面での確かめ（<a href="../../gui/indexing-run/#取り込み直しの確かめ">取り込み直しの確かめ</a>）とインデックス作成のメインフローでの扱い（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）も参照。</li>
+<li>画面での確かめ（<a href="../../gui/indexing-run/#更新し直しの確かめ">更新し直しの確かめ</a>）とインデックス作成のメインフローでの扱い（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）も参照。</li>
 </ul>
 <h3 id="本文インデックスの形式pack_formatps1">本文インデックスの形式（<code>pack_format.ps1</code>）<a class="headerlink" href="#本文インデックスの形式pack_formatps1" title="Permanent link">&para;</a></h3>
 <p>本文インデックスは、元のファイルごと・場所（シート・ページ・スライドなど）ごとに、<strong>メタ情報の行</strong>と、その場所の TSV の中身（<a href="../../indexing/excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a> など。1 行 = Excel の 1 行・段落 1 つ）を並べたもの。例（<code>␞</code> は RS（U+001E）、<code>→</code> はタブ）:</p>
