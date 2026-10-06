@@ -352,12 +352,12 @@ function captureStarterScene {
             clickGuiByName $S $deleteConfirm "キャンセル"
             waitGuiWindowClosed $S $deleteConfirm "削除の確認"
 
-            setGuiStep $S "［インデックス作成を開始］"
-            clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+            setGuiStep $S "［すべて更新］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $startConfirm = waitGuiWindow $S "取り込みの確認" -Id "StartButton" -Timeout ${guiIndexTimeout}
             captureGuiState -S $S -Id "index-tab/start-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($startConfirm)
-            clickGui $S $startConfirm "StartButton" "確認の［インデックス作成を開始］"
+            clickGui $S $startConfirm "StartButton" "確認の［更新を開始］"
             waitGuiWindowClosed $S $startConfirm "取り込みの確認"
 
             setGuiStep $S "取り込みの完了"
@@ -447,9 +447,9 @@ function captureHeavyScene {
         captureGuiState -S $S -Id "index-tab/stop-confirm" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($stopConfirm)
         clickGuiByName $S $stopConfirm "中止する"
-        waitGui $S "取り込みが止まる" ${guiIndexTimeout} {
+        waitGui $S "更新が止まる" ${guiIndexTimeout} {
             $b = findGui $S.Window -Id "IndexingButton"
-            $b.Current.IsEnabled -and $b.Current.Name -like "続きから再開*"
+            $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新" -and (findGui $S.Window -Id "IndexingResumeButton")
         } | Out-Null
         closeGui $S
     }
@@ -459,9 +459,9 @@ function captureHeavyScene {
         invokeGuiScene $S {
             $tooFastGuard = { if (!(testGuiIndexing $S)) { throw $tooFast } }
             setGuiStep $S "中断した取り込み"
-            selectGuiTab $S "IndexTab" "IndexingStateText"
+            selectGuiTab $S "IndexTab" "IndexingButton"
             waitGui $S "まだ取り込んでいないファイルがある" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*まだ取り込んでいないファイルがあります*"
+                (getGuiIndexingBannerText $S) -like "*更新を中断しました*"
             } | Out-Null
             captureGuiState -S $S -Id "index-tab/interrupted" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes

@@ -941,18 +941,26 @@ function closeGuiWindowAsync {
 }
 
 function startGuiIndexing {
-    # ［1 インデックス管理］の［インデックス作成を開始］を押し、確認のダイアログで［インデックス作成を開始］を押して、取り込みを始める
+    # ［1 インデックス管理］の［すべて更新］を押し、確認のダイアログで［更新を開始］を押して、取り込みを始める
     param ($S)
 
-    clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+    clickGui $S $S.Window "IndexingButton" "［すべて更新］"
     $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
-    clickGui $S $confirm "StartButton" "確認の［インデックス作成を開始］"
+    clickGui $S $confirm "StartButton" "確認の［更新を開始］"
     waitGuiWindowClosed $S $confirm "取り込みの確認"
 }
 
+function getGuiIndexingBannerText {
+    # 更新の帯（IndexingProgressText）の文字。帯が隠れているときは空文字列（隠れた部品は UI Automation に出ない）
+    param ($S)
+    $e = findGui $S.Window -Id "IndexingProgressText"
+    if ($e) { return [string]$e.Current.Name }
+    return ""
+}
+
 function testGuiIndexing {
-    # 取り込みの最中か（［インデックス作成中…］のボタンが出ている）
+    # 取り込みの最中か（［更新中…］のボタンが出ている）
     param ($S)
     $button = findGui $S.Window -Id "IndexingButton"
-    return ($button -and $button.Current.Name -eq "インデックス作成中…")
+    return ($button -and $button.Current.Name -eq "更新中…")
 }

@@ -19,6 +19,45 @@ function setIndexBadge {
     $border.Visibility = if ($text) { "Visible" } else { "Collapsed" }
 }
 
+function setIndexingBanner {
+    # 画面の上の帯の色と種類。level は info（更新中）/ warn（中断・中止）/ ok（終わった）/ ng（できなかった）。
+    # kind は帯の中身の持ち主（running・interrupted・done）。中断の帯だけは、状態が変わったとき自分で消す
+    param ([string]$level, [string]$kind)
+
+    $colors = @{
+        info = @("Accent.Soft", "Accent.Ring"); warn = @("Warn.Note", "Warn.Line")
+        ok = @("Badge.Ok.Bg", "Border.Soft"); ng = @("Badge.Ng.Bg", "Border.Soft")
+    }
+    $pair = $colors[$level]
+    if ($null -eq $pair) { $pair = $colors.info }
+    $ui.IndexingProgressPanel.Background = themeBrush $pair[0]
+    $ui.IndexingProgressPanel.BorderBrush = themeBrush $pair[1]
+    $script:indexingBannerKind = $kind
+}
+
+function updateIndexingResume {
+    # 中断した更新（残りがあり、いま更新していない）の帯。［続きから再開］を出す。
+    # 中断の帯は、残りが無くなったら消す（更新が終わった・中止した直後の帯は消さない）
+    $pending = if ($script:indexingState) { [int]$script:indexingState.Pending } else { 0 }
+    $canResume = ($pending -gt 0) -and !(isIndexing)
+    $ui.IndexingResumeButton.Visibility = if ($canResume) { "Visible" } else { "Collapsed" }
+    if ($canResume -and $ui.IndexingProgressPanel.Visibility -ne "Visible") {
+        setIndexingBanner "warn" "interrupted"
+        $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
+        $ui.IndexingProgressEta.Text = ""
+        $ui.IndexingProgressDetail.Text = ""
+        $ui.IndexingProgress.Visibility = "Collapsed"
+        $ui.IndexingStopButton.Visibility = "Collapsed"
+        $ui.IndexingLogButton.Visibility = "Collapsed"
+        $ui.IndexingProgressPanel.Visibility = "Visible"
+    } elseif ($canResume -and $script:indexingBannerKind -eq "interrupted") {
+        $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
+    } elseif (!$canResume -and $script:indexingBannerKind -eq "interrupted") {
+        $ui.IndexingProgressPanel.Visibility = "Collapsed"
+        $script:indexingBannerKind = ""
+    }
+}
+
 function updateIndexingButton {
     $ready = $false
     foreach ($item in $script:targetItems) {
@@ -35,25 +74,27 @@ function updateIndexingButton {
         $ready = $false
     }
     if (isIndexing) {
-        $ui.IndexingButton.Content = "インデックス作成中…"
+        $ui.IndexingButton.Content = "更新中…"
         $ui.IndexingButton.IsEnabled = $false
     } else {
-        $ui.IndexingButton.Content = if ($state -and $state.Pending -gt 0) { "続きから再開（残り $($state.Pending) 件）" } else { "インデックス作成を開始" }
+        $ui.IndexingButton.Content = "すべて更新"
         $ui.IndexingButton.IsEnabled = $ready
     }
 
-    # ボタンの下の一言。押す前は「押すと何が起きるか」、インデックス作成中は「やめるとどうなるか」を書く
-    $hint = if (isIndexing) {
-        "インデックス作成中も検索できます。やめるときは［中止］を押してください（次に［インデックス作成を開始］を押すと続きから再開します）。"
+    # ボタンの下の一言は、押せないときの理由と、前回の失敗があるときだけ出す。押すと何が起きるかは、ボタンのツールヒントに書く
+    $ui.IndexingButton.ToolTip = if (isIndexing) {
+        "更新中も検索できます。やめるときは［中止］を押してください（次に［すべて更新］を押すと続きから再開します）。"
     } else {
         "押すと、何件更新するかを確認してから、新しいファイル・変わったファイルだけを更新します。"
     }
+    $hint = ""
     if (!$ready -and !(isIndexing)) {
         $hint = if ($script:targetItems.Count -eq 0) { "フォルダを追加すると更新できます" } else { "更新するインデックスにチェックを付けてください。" }
     } elseif ($state -and $state.Failed -gt 0 -and !(isIndexing)) {
-        $hint = "前回うまく更新できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
+        $hint = "前回うまく更新できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。"
     }
     $ui.IndexingHint.Text = $hint
+    $ui.IndexingHint.Visibility = if ($hint) { "Visible" } else { "Collapsed" }
 
     # インデックスの追加・編集・削除・エクスポート・インポートと、［8 設定］のワークスペースの［変更…］は互いに排他
     # （getIndexJobBlocker・getIndexTabButtonsEnabled。settings\settings.ps1 の testWorkspaceChangeable も同じ排他を見る）
@@ -96,6 +137,19 @@ function refreshIndexingState {
     }
 }
 
+function updateIndexTabBadge {
+    # ナビの［インデックス管理］の横の印（更新中の割合・中断・失敗。文言は getIndexNavBadge）
+    $state = $script:indexingState
+    $pending = if ($state) { [int]$state.Pending } else { 0 }
+    $failed = if ($state) { [int]$state.Failed } else { 0 }
+    $ratio = if ((isIndexing) -and !$ui.IndexingProgress.IsIndeterminate) { [double]$ui.IndexingProgress.Value } else { -1.0 }
+    $badge = getIndexNavBadge (isIndexing) $ratio $pending $failed
+    $ui.IndexTabBadge.Text = $badge.Text
+    $ui.IndexTabBadge.ToolTip = $badge.ToolTip
+    $ui.IndexTabBadge.Foreground = if ($badge.Kind -eq "Run") { ${infoBrush} } else { ${warnBrush} }
+    $ui.IndexTabBadge.Visibility = if ($badge.Text) { "Visible" } else { "Collapsed" }
+}
+
 function applyIndexingState {
     # 集計（別スレッド）の結果を画面に反映する
     param (
@@ -105,12 +159,12 @@ function applyIndexingState {
     $script:indexingState = $state
 
     # 失敗したファイルは下の一覧に原因とともに表示する
-    $ui.IndexingStateText.Text = getIndexingStateText $state.Pending (isIndexing)
-    $ui.IndexTabBadge.Visibility = if ($state.Failed -gt 0) { "Visible" } else { "Collapsed" }
     applyIndexStats $state.IndexStats (isIndexing)
     updateFailedList $state
     updateIndexSummaryText
     updateIndexingButton
+    updateIndexingResume
+    updateIndexTabBadge
 }
 
 function updateFailedList {

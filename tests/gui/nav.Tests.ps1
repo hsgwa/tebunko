@@ -28,17 +28,17 @@ Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
             # 起動時の読み込み（取り込み一覧・集約ファイル）が終わるまで待つ。終わる前に取り込み一覧を書くと、
             # 起動時の読み込みがそれを読んでしまい、ナビの切り替えでの読み直しと区別できなくなる
             setGuiStep $S "［インデックス管理］で起動時の読み込みの終わりを待つ"
-            selectGuiTab $S "IndexTab" "IndexingStateText"
+            selectGuiTab $S "IndexTab" "IndexingButton"
             waitGui $S "起動時の読み込みが終わる（集約ファイルが無い）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
-            waitGui $S "起動時の読み込みが終わる（取り込みの状態に残りが無い）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -notlike "*残り*" } | Out-Null
+            waitGui $S "起動時の読み込みが終わる（取り込みの状態に残りが無い）" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -notlike "*残り*" } | Out-Null
 
             setGuiStep $S "［検索］へ移る"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
 
             setGuiStep $S "取り込み一覧を書き、［インデックス管理］へ戻る"
             & $writeStatus 1
-            selectGuiTab $S "IndexTab" "IndexingStateText"
-            waitGui $S "状態が読み直される（残り 1 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*残り 1 件*" } | Out-Null
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            waitGui $S "状態が読み直される（残り 1 件）" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*残り 1 件*" } | Out-Null
 
             setGuiStep $S "取り込み一覧と集約ファイルを書き換えて F5"
             waitGui $S "集約ファイルはまだ無い" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
@@ -49,7 +49,7 @@ Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
             pressGuiKey $S.Window 0x74
             # F5 だけが読み直すもの（集約ファイルの件数）でも待ち、Activated と区別する
             waitGui $S "F5 で読み直される（残り 2 件・集約ファイル）" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*残り 2 件*" -and
+                (getGuiIndexingBannerText $S) -like "*残り 2 件*" -and
                     (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*"
             } | Out-Null
             closeGui $S

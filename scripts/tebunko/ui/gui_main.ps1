@@ -79,16 +79,16 @@ function startGui {
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
         @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText") }
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
-            "IndexListHost", "IndexDetailHost", "IndexDetailRow") }
+            "IndexListHost", "IndexDetailHost", "IndexDetailRow",
+            "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
+            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingLogButton") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
             "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ImportIndexButton", "IndexingButton", "IndexingHint",
             "IndexRowMenu", "EditIndexButton", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
-            "IndexDetailTitle", "IndexSummaryText", "IndexingStateText",
+            "IndexDetailTitle", "IndexSummaryText",
             "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
-            "FailedPanel", "FailedHeading", "FailedGrid",
-            "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
-            "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
+            "FailedPanel", "FailedHeading", "FailedGrid") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
             "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow") }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
@@ -266,8 +266,8 @@ function startGui {
         try { $script:indexingTimer.Stop() } catch { }
         try { $script:indexingSession.Stop() } catch { }
         try { $ui.IndexingStopButton.IsEnabled = $false } catch { }
-        try { $ui.IndexingProgressText.Text = "インデックス作成を止めています…" } catch { }
-        try { $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。" } catch { }
+        try { $ui.IndexingProgressText.Text = "更新を止めています…" } catch { }
+        try { $ui.IndexingProgressDetail.Text = "更新中のファイルが終わると、画面を閉じます。" } catch { }
         try { setStatus "インデックス作成を止めてから閉じます…" } catch { }
         try {
             if ($null -eq $script:closeDeadline) {

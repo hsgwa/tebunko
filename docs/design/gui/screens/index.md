@@ -74,8 +74,8 @@ stateDiagram-v2
 | `index-tab/edit` | 編集のダイアログ | 14 |
 | `index-tab/delete-confirm` | 削除の確認 | 15 |
 | `index-tab/unchecked` | ［作成］のチェックを外した行がある | 16 |
-| `index-tab/start-confirm` | 作成の確認ダイアログ（件数・失敗分の取り込み直し） | 17 |
-| `index-tab/running` | 作成中（進み具合・［追加…］［編集…］［削除］が押せない） | 17・20 |
+| `index-tab/start-confirm` | 更新の確認ダイアログ（件数・失敗分の更新し直し） | 17 |
+| `index-tab/running` | 更新中（更新の帯・［＋ フォルダを追加］［編集…］［削除］が押せない） | 17・20 |
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
 | `index-tab/done` | 作成が終わった（失敗なし） | 18 |
 | `index-tab/failed` | 失敗したファイルの一覧があり、タブに ⚠ | 18 |

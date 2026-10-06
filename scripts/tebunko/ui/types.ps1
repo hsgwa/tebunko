@@ -554,14 +554,14 @@ class DetailRow {
     [string]$Value
 }
 
-# インデックス作成の確認ダイアログに出すインデックス1件（取り込み予定.tsv の1行）
+# インデックス更新の確認ダイアログに出すインデックス 1 件（取り込み予定.tsv の 1 行）
 class PlanRow {
     [string]$Name
     [string]$Path
-    [string]$TargetText   # 取り込み対象の件数（"12 件" / "更新不要" / "取り込みません"）
-    [object]$TargetBrush
-    [string]$DetailText   # 内訳（新規 N 件 / 更新あり N 件 …）
-    [string]$TotalText    # 見つかった Office ファイルの数
+    [string]$TotalText    # 対象ファイル数（"1,243"。数えない行は "－"）
+    [string]$StatusText   # ステータスのバッジの文言（"要更新" / "最新" / "対象外" / "フォルダなし"）
+    [string]$Level        # バッジの色（Wait / Ok / None / Ng）
+    [string]$DetailText   # バッジの ToolTip（更新するファイルの内訳）
 }
 
 # ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。

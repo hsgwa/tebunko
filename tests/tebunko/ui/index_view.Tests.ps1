@@ -41,7 +41,7 @@ Describe "getUsedIndexNames" -Tag Unit {
 
 Describe "getIndexAddedStatus / getFailedFileCheckingStatus / getFailedFileUnreachableStatus / getFailedFileOtherStatus" -Tag Unit {
     It "追加のときの文言は、フォルダの有無によらず同じにする" {
-        getIndexAddedStatus "見積" | Should -Be "インデックス [見積] を追加しました。［インデックス作成を開始］を押すと中身を更新します"
+        getIndexAddedStatus "見積" | Should -Be "インデックス [見積] を追加しました。［すべて更新］を押すと中身を更新します"
     }
 
     It "確かめている間の文言" {
@@ -487,22 +487,19 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Badge.Level | Should -Be "Ok"
         $view.Updated | Should -Be "最終更新 09/30 10:00"
         $view.Count | Should -Be "1,234 ファイル"
-        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新,インデックス作成"
+        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新"
         $view.Rows[0].Value | Should -Be "1,234 ファイル"
-        $view.Rows[2].Value | Should -Be "対象にする"
         $view.Fast.State | Should -Be "可"
         $view.Fast.Checked | Should -Be "最終確認 10:05"
     }
 
     It "<label>: 出せない値は空にするか、言い換える" -TestCases @(
-        @{ label = "更新の対象でない"; args1 = @{ enabled = $false }; field = "target"; expected = "対象にしない（一覧のチェックを外している）" }
         @{ label = "まだ更新していない（件数）"; args1 = @{ fileCount = "－"; last = "" }; field = "count"; expected = "まだ更新していません" }
         @{ label = "まだ更新していない（日時）"; args1 = @{ fileCount = "－"; last = "" }; field = "updated"; expected = "" }
     ) {
         param ($label, $args1, $field, $expected)
         $view = getIndexDetailView @(newDetailItem @args1) $null
         $actual = switch ($field) {
-            "target" { ($view.Rows | Where-Object { $_.Label -eq "インデックス作成" }).Value }
             "count" { $view.Count }
             "updated" { $view.Updated }
         }
@@ -552,5 +549,22 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
 
     It "何も選んでいないときの行の鍵は空" {
         (getIndexDetailView @() $null).RowsKey | Should -Be ""
+    }
+}
+
+Describe "getIndexNavBadge" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "更新中は割合を出す"; indexing = $true; ratio = 0.66; pending = 0; failed = 0; text = "● 66%"; kind = "Run" }
+        @{ label = "割合が 100% を超えても 100% で止める"; indexing = $true; ratio = 1.2; pending = 0; failed = 0; text = "● 100%"; kind = "Run" }
+        @{ label = "割合が分からないうちは丸だけ"; indexing = $true; ratio = -1.0; pending = 0; failed = 0; text = "●"; kind = "Run" }
+        @{ label = "更新中は、残りや失敗より更新中を優先する"; indexing = $true; ratio = 0.0; pending = 3; failed = 2; text = "● 0%"; kind = "Run" }
+        @{ label = "中断中"; indexing = $false; ratio = -1.0; pending = 155; failed = 0; text = "中断"; kind = "Warn" }
+        @{ label = "失敗があるだけなら警告の印"; indexing = $false; ratio = -1.0; pending = 0; failed = 1; text = "⚠"; kind = "Warn" }
+        @{ label = "何も無ければ出さない"; indexing = $false; ratio = -1.0; pending = 0; failed = 0; text = ""; kind = "" }
+    ) {
+        param ($label, $indexing, $ratio, $pending, $failed, $text, $kind)
+        $badge = getIndexNavBadge $indexing $ratio $pending $failed
+        $badge.Text | Should -Be $text
+        $badge.Kind | Should -Be $kind
     }
 }

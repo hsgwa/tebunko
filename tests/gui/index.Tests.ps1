@@ -83,20 +83,18 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 
             waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
 
-            # ［作成］のチェックを切り替えると、設定への保存と［インデックス作成を開始］の可否に反映される（#16）
+            # ［作成］のチェックを切り替えると、設定への保存と［すべて更新］の可否に反映される（#16）
             setGuiStep $S "［作成］のチェックの切り替え"
             $check = findGui $row -Type CheckBox
             getGuiToggleState $check | Should -Be "On"
             toggleGui $check
             waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
-            waitGui $S "詳細の「インデックス作成」が変わる" ${guiDefaultTimeout} { @(& $detailTexts | Where-Object { $_ -like "対象にしない*" }).Count -eq 1 } | Out-Null
             waitGui $S "設定の enabled が false になる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $false } | Out-Null
-            waitGui $S "［インデックス作成を開始］が押せなくなる" ${guiDefaultTimeout} { !(findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
+            waitGui $S "［すべて更新］が押せなくなる" ${guiDefaultTimeout} { !(findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
             toggleGui (findGui $row -Type CheckBox)
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
-            waitGui $S "詳細の「インデックス作成」が戻る" ${guiDefaultTimeout} { @(& $detailTexts | Where-Object { $_ -eq "対象にする" }).Count -eq 1 } | Out-Null
             waitGui $S "設定の enabled が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $true } | Out-Null
-            waitGui $S "［インデックス作成を開始］が押せるようになる" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
+            waitGui $S "［すべて更新］が押せるようになる" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
 
             # 起動時に、チェックの付いた行が表示されるだけでは、保存が重ねて走らないことを確かめる（#16）。
             # loadTargets 自体は保存を呼ばないため、起動し直した後の書き込みは 1 件でもあれば不具合（deliberate な保存と混じらず区別できる）
@@ -112,23 +110,23 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $reloadWriteTime -Because "起動時に、チェックの付いた行が表示されるだけでは設定ファイルを書き直さない（loadTargets は保存を呼ばない）"
 
             # 作成: 確認でキャンセルすると取りやめ、もう一度で取り込む（#17）
-            setGuiStep $S "［インデックス作成を開始］→ 確認で［キャンセル］"
-            clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+            setGuiStep $S "［すべて更新］→ 確認で［キャンセル］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
             clickGui $S $confirm "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
-            waitGui $S "取りやめて［インデックス作成を開始］に戻る" ${guiDefaultTimeout} {
+            waitGui $S "取りやめて［すべて更新］に戻る" ${guiDefaultTimeout} {
                 $b = findGui $S.Window -Id "IndexingButton"
-                $b.Current.IsEnabled -and $b.Current.Name -eq "インデックス作成を開始"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新"
             } | Out-Null
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1
             waitGui $S "「まだインデックスがありません」" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
 
-            setGuiStep $S "［インデックス作成を開始］→ 確認で［インデックス作成を開始］"
+            setGuiStep $S "［すべて更新］→ 確認で［すべて更新］"
             $sw = [Diagnostics.Stopwatch]::StartNew()
-            clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
-            clickGui $S $confirm "StartButton" "確認の［インデックス作成を開始］"
+            clickGui $S $confirm "StartButton" "確認の［更新を開始］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
 
             # 取り込みが終わると、完了の表示と失敗したファイルの一覧が出る（#18）
@@ -191,7 +189,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "取り込みを始める"
             $sw = [Diagnostics.Stopwatch]::StartNew()
             startGuiIndexing $S
-            waitGui $S "取り込み中（［インデックス作成中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
+            waitGui $S "取り込み中（［更新中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
 
             # 取り込み中は［追加…］［編集…］［削除］が押せない（#20）
             setGuiStep $S "取り込み中の［追加…］［編集…］［削除］"
@@ -223,9 +221,9 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "［中止］→ 確認で［中止する］"
             clickGui $S $S.Window "IndexingStopButton" "［中止］"
             answerGuiConfirm $S "中止の確認" "中止しますか" "中止する"
-            waitGui $S "取り込みが止まる（［続きから再開］）" ${guiIndexTimeout} {
+            waitGui $S "更新が止まる（帯に［続きから再開］、［すべて更新］が押せる）" ${guiIndexTimeout} {
                 $b = findGui $S.Window -Id "IndexingButton"
-                $b.Current.IsEnabled -and $b.Current.Name -like "続きから再開*"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新" -and (findGui $S.Window -Id "IndexingResumeButton")
             } | Out-Null
             $S.Timing["中止まで"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
 
@@ -240,19 +238,19 @@ Describe "S3 作成中の操作" -Tag Gui {
         # #4（取り込みが中断していると起動時に［1 インデックス管理］が選ばれる）は、gui.ps1 の起動時の判定
         # （$script:indexingState が非同期に読み込まれる前に決めているため、Pending の判定が効かない）に見つかった
         # 不具合により、1 件でも取り込み済みだと ［2 検索］が選ばれる。別の fix（起票済み。Backlog）で直すまで、ここではタブを
-        # 明示的に選んで続きの確かめ（#10）を行う。IndexingStateText の中断の文言は、選び直した後に出ることを確かめる
+        # 明示的に選んで続きの確かめ（#10）を行う。更新の帯の中断の文言は、選び直した後に出ることを確かめる
         $tooFast = "取り込みが終わってしまい、取り込み中の操作が間に合わなかった。tests\gui\index.Tests.ps1 の s3Copies（ファイルの数）を増やす"
 
         # 2 回目の起動: 続きから再開し、閉じる操作を確かめる
         $S = startGui $script:tool "S3"
         invokeGuiScene $S {
             setGuiStep $S "起動時のタブを［1 インデックス管理］にする（#4 は別の fix で直すまでの回避）"
-            selectGuiTab $S "IndexTab" "IndexingStateText"
-            waitGui $S "「まだ取り込んでいないファイルがあります」" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*まだ取り込んでいないファイルがあります*" } | Out-Null
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            waitGui $S "「更新を中断しました」" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*更新を中断しました*" } | Out-Null
 
             setGuiStep $S "続きから再開"
             startGuiIndexing $S
-            waitGui $S "取り込み中（［インデックス作成中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
+            waitGui $S "取り込み中（［更新中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
 
             # 取り込み中に閉じる。確認で［閉じない］なら続き、［インデックス作成を止めて閉じる］なら止めてから終了する（#10）
             $tooFastGuard = { if (!(testGuiIndexing $S)) { throw $tooFast } }

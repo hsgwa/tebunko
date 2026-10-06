@@ -57,12 +57,11 @@
       <DockPanel Grid.Row="0">
         <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="IndexingButton" Style="{StaticResource Primary}" Content="インデックス作成を開始" MinWidth="120" Height="34" Margin="0,0,8,0" />
+            <Button x:Name="IndexingButton" Style="{StaticResource Primary}" Content="すべて更新" MinWidth="104" Height="34" Margin="0,0,8,0" />
             <Button x:Name="ImportIndexButton" Content="インポート…" Margin="0,0,8,0" ToolTip="エクスポートした zip を読み込み、一覧に加えます" />
             <Button x:Name="NewIndexButton" Content="＋ フォルダを追加" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
           </StackPanel>
-          <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Right"
-                     Text="押すと、何件更新するかを確認してから、新しいファイル・変わったファイルだけを更新します。" />
+          <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Right" />
         </StackPanel>
         <StackPanel>
           <StackPanel Orientation="Horizontal">
@@ -71,7 +70,7 @@
                        ToolTip="チェックを付けたインデックスだけを更新します。一覧にフォルダをドラッグ＆ドロップしても追加できます" />
           </StackPanel>
           <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap"
-                     Text="検索するフォルダとインデックスを管理します。ファイルを変更したら［更新］でインデックスを最新にします。" />
+                     Text="検索するフォルダとインデックスを管理します。ファイルを変更したら［すべて更新］でインデックスを最新にします。" />
         </StackPanel>
       </DockPanel>
 
@@ -189,7 +188,9 @@
           <TextBlock Style="{StaticResource Label.Strong}" Margin="0,10,0,0" HorizontalAlignment="Center" Text="フォルダを追加してください" />
           <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" HorizontalAlignment="Center" TextWrapping="Wrap"
                      Text="検索したいフォルダを追加すると、ここに表示されます。" />
-          <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" HorizontalAlignment="Center" Text="右上の［＋ フォルダを追加］から始めます。" />
+          <!-- 上の［＋ フォルダを追加］と同じ動き（押せるかどうかも上のボタンに合わせる） -->
+          <Button x:Name="IndexEmptyAddButton" Style="{StaticResource Primary}" Content="＋ フォルダを追加" Margin="0,14,0,0" HorizontalAlignment="Center" MinWidth="130" Height="32"
+                  IsEnabled="{Binding IsEnabled, ElementName=NewIndexButton}" />
         </StackPanel>
       </Grid>
 

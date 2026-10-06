@@ -130,10 +130,10 @@ Describe "S6 既定のワークスペース（CI だけ）" -Tag Gui {
             closeGuiMessage $S "空のフォルダではありません" "起動時の警告" | Out-Null
             getGuiSelectedTab $S | Should -Be "SettingsTab"
 
-            # ［インデックス作成を開始］も警告が出て、［8 設定］が選ばれる（#22）
-            setGuiStep $S "［インデックス作成を開始］の警告"
+            # ［すべて更新］も警告が出て、［8 設定］が選ばれる（#22）
+            setGuiStep $S "［すべて更新］の警告"
             selectGuiTab $S "IndexTab" "IndexingButton"
-            clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             closeGuiMessage $S "空のフォルダではありません" "作成の開始の警告" | Out-Null
             waitGui $S "［8 設定］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SettingsTab" } | Out-Null
 

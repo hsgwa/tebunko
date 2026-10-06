@@ -1,4 +1,4 @@
-﻿<!-- インデックス管理の画面の枠。tebunko.xaml の ContentHost に入れる（gui_main.ps1）。上にインデックスの一覧、下に詳細（状態・取り込みの進み具合・失敗の一覧）を差す口を並べる。
+﻿<!-- インデックス管理の画面の枠。tebunko.xaml の ContentHost に入れる（gui_main.ps1）。いちばん上に更新の帯、その下にインデックスの一覧、下に詳細（状態・取り込みの進み具合・失敗の一覧）を差す口を並べる。
      一覧と詳細の高さは、間の GridSplitter のドラッグで変わる（詳細は最大 397・最小 240。窓を低くすると詳細が先に縮む）。 -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -10,16 +10,35 @@
     </ResourceDictionary>
   </Grid.Resources>
   <Grid.RowDefinitions>
+    <RowDefinition Height="Auto" />
     <RowDefinition Height="*" MinHeight="225" />
     <RowDefinition Height="Auto" />
     <RowDefinition x:Name="IndexDetailRow" Height="397" MinHeight="240" MaxHeight="397" />
   </Grid.RowDefinitions>
 
-  <ContentControl x:Name="IndexListHost" Grid.Row="0" Focusable="False" IsTabStop="False"
+  <!-- 画面の上の帯。更新中・中断・終了を 1 行で知らせる（色は index_detail.ps1 の setIndexingBanner が状態で変える）。更新中は細い進みの棒と、いま見ているファイルを添える -->
+  <Border x:Name="IndexingProgressPanel" Grid.Row="0" Visibility="Collapsed" BorderThickness="1" CornerRadius="6"
+          Background="{StaticResource Accent.Soft}" BorderBrush="{StaticResource Accent.Ring}" Padding="14,8" Margin="0,0,0,10">
+    <DockPanel>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+        <TextBlock x:Name="IndexingProgressEta" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
+        <Button x:Name="IndexingLogButton" Style="{StaticResource Link}" Content="ログを開く" VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed" />
+        <Button x:Name="IndexingResumeButton" Content="続きから再開" MinWidth="88" Visibility="Collapsed" />
+        <Button x:Name="IndexingStopButton" Content="中止" MinWidth="72" />
+      </StackPanel>
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock x:Name="IndexingProgressText" Style="{StaticResource Focal}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+        <ProgressBar x:Name="IndexingProgress" Height="4" Margin="0,6,0,0" Maximum="1" />
+        <TextBlock x:Name="IndexingProgressDetail" Style="{StaticResource Micro}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+      </StackPanel>
+    </DockPanel>
+  </Border>
+
+  <ContentControl x:Name="IndexListHost" Grid.Row="1" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <!-- 一覧と詳細の境目。上下にドラッグすると詳細の高さが変わる -->
-  <GridSplitter Grid.Row="1" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+  <GridSplitter Grid.Row="2" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                 ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" Cursor="SizeNS"
                 ToolTip="上下にドラッグすると、詳細の高さを変えられます">
     <GridSplitter.Template>
@@ -41,6 +60,6 @@
     </GridSplitter.Template>
   </GridSplitter>
 
-  <ContentControl x:Name="IndexDetailHost" Grid.Row="2" Focusable="False" IsTabStop="False"
+  <ContentControl x:Name="IndexDetailHost" Grid.Row="3" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 </Grid>

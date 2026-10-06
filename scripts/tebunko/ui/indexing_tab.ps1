@@ -28,11 +28,15 @@ function getIndexingProgress {
 
 
 function showIndexingPanel {
+    setIndexingBanner "info" "running"
     $ui.IndexingProgressPanel.Visibility = "Visible"
+    $ui.IndexingProgress.Visibility = "Visible"
     $ui.IndexingProgress.IsIndeterminate = $true
-    $ui.IndexingProgressText.Text = "インデックス作成の準備をしています…"
+    updateIndexTabBadge
+    $ui.IndexingResumeButton.Visibility = "Collapsed"
+    $ui.IndexingProgressText.Text = "更新の準備をしています…"
     $ui.IndexingProgressEta.Text = ""
-    $ui.IndexingProgressDetail.Text = "取り込み対象のファイルを確認しています。"
+    $ui.IndexingProgressDetail.Text = "更新するファイルを確認しています。"
     $ui.IndexingStopButton.Visibility = "Visible"
     $ui.IndexingStopButton.IsEnabled = $true
     $ui.IndexingLogButton.Visibility = "Collapsed"
@@ -40,12 +44,11 @@ function showIndexingPanel {
 }
 
 function buildPlanRows {
-    # 取り込み予定を確認のダイアログの一覧に変える（文言は indexing_view.ps1 が決め、ここで色を付ける）
+    # 更新の予定を確認のダイアログの一覧に変える（文言と色の種類は indexing_view.ps1 が決める）
     param (
         $plan  # readIngestPlan の結果
     )
 
-    $tones = @{ info = ${infoBrush}; ok = ${okBrush}; warn = ${warnBrush}; ng = ${ngBrush}; gray = ${grayBrush} }
     $rows = New-Object System.Collections.Generic.List[PlanRow]
     # , で包んだ戻り値は、そのまま foreach に渡すと空のときも 1 回まわるため、変数に受けてから回す
     $views = newPlanViewRows $plan
@@ -53,18 +56,23 @@ function buildPlanRows {
         $row = [PlanRow]::new()
         $row.Name = $view.Name
         $row.Path = $view.Path
-        $row.TargetText = $view.TargetText
-        $row.TargetBrush = $tones[$view.Tone]
-        $row.DetailText = $view.DetailText
         $row.TotalText = $view.TotalText
+        $row.StatusText = $view.StatusText
+        $row.Level = $view.Level
+        $row.DetailText = $view.DetailText
         $rows.Add($row)
     }
     return , $rows.ToArray()
 }
 function updateIndexingConfirmTotal {
-    # 「失敗分も再取り込みする」のチェックに合わせて、合計と主ボタンの文言を変える
+    # 「失敗分も更新し直す」のチェックに合わせて、合計と主ボタンの文言を変える
     $d = $script:confirmDialog
-    $view = getIndexingConfirmText $d.Targets $d.Failed ([bool]$d.Ctrl.RetryCheck.IsChecked)
+    $retry = [bool]$d.Ctrl.RetryCheck.IsChecked
+    $folders = 0
+    foreach ($item in @($d.Plan)) {
+        if ($null -ne $item -and $item.区分 -eq ${planKindIngest} -and ($item.取り込み対象 + $(if ($retry) { $item.前回失敗 } else { 0 })) -gt 0) { $folders++ }
+    }
+    $view = getIndexingConfirmText $d.Targets $d.Failed $retry $folders
     $d.Ctrl.TotalText.Text = $view.Text
     $d.Ctrl.StartButton.Content = $view.Button
 }
@@ -90,20 +98,20 @@ function showIndexingConfirmDialog {
     foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "TotalText", "NoteText", "IntroText", "PlanGrid")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
-    $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Targets = $targets; Failed = $failed; Answer = $null }
+    $script:confirmDialog = @{ Window = $dialog; Ctrl = $ctrl; Targets = $targets; Failed = $failed; Plan = $plan; Answer = $null }
 
     $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan
-    $ctrl.IntroText.Text = "元のファイルの更新日時とサイズを、前回取り込んだときの記録と比べました。" +
-        "［インデックス作成を開始］を押すと、取り込み対象のファイルだけを取り込みます。"
+    $ctrl.IntroText.Text = "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。" +
+        "［更新を開始］を押すと、更新するファイルだけを更新します。"
     if ($failed -gt 0) {
         $ctrl.RetryCheck.Visibility = "Visible"
-        $ctrl.RetryCheck.Content = "前回取り込みに失敗し、その後更新されていないファイル {0:#,0} 件も再取り込みする（パスワード付きなど）" -f $failed
+        $ctrl.RetryCheck.Content = "前回更新に失敗し、その後変わっていないファイル {0:#,0} 件も更新し直す（パスワード付きなど）" -f $failed
     }
     if ($targets -eq 0 -and $failed -eq 0) {
         # 取り込むものが無いときは、閉じるだけ（［キャンセル］との違いが無い）
         $ctrl.CancelButton.Visibility = "Collapsed"
         $ctrl.NoteText.Visibility = "Visible"
-        $ctrl.NoteText.Text = "更新日時が変わらないまま中身が変わったファイルは、取り込み対象になりません。" +
+        $ctrl.NoteText.Text = "更新日時が変わらないまま中身が変わったファイルは、更新の対象になりません。" +
             "そのインデックスを一から作り直すときは、［削除］してから追加し直してください。"
     }
     updateIndexingConfirmTotal
@@ -141,23 +149,23 @@ function confirmIndexingTargets {
     $script:indexingConfirmed = $true
 
     $ui.IndexingProgress.IsIndeterminate = $true
-    $ui.IndexingProgressText.Text = "取り込む内容を確認してください"
-    $ui.IndexingProgressDetail.Text = "取り込み対象の一覧を表示しています。"
+    $ui.IndexingProgressText.Text = "更新する内容を確認してください"
+    $ui.IndexingProgressDetail.Text = "更新するインデックスの一覧を表示しています。"
     $answer = showIndexingConfirmDialog $plan
     if ($null -eq $answer) {
         # 取りやめ。インデクサは何も取り込まずに終わる
         $script:indexingCanceledAtConfirm = $true
         $ui.IndexingStopButton.IsEnabled = $false
-        $ui.IndexingProgressText.Text = "インデックス作成を取りやめています…"
+        $ui.IndexingProgressText.Text = "更新を取りやめています…"
         $ui.IndexingProgressDetail.Text = ""
         answerIndexingPlan $channel $null
-        setStatus "インデックス作成を取りやめました"
+        setStatus "更新を取りやめました"
         return
     }
     answerIndexingPlan $channel $answer
     $script:indexingRate = $null  # 残り時間の目安は、確認を待っていた時間を含めずに計る
-    $ui.IndexingProgressText.Text = "インデックス作成を始めています…"
-    setStatus "インデックス作成を開始しました"
+    $ui.IndexingProgressText.Text = "更新を始めています…"
+    setStatus "更新を開始しました"
 }
 
 function startIndexing {
@@ -177,7 +185,7 @@ function startIndexing {
     $legacyState = getLegacyIndexState $workspace.Dir
     $reingestConfirm = getReingestConfirm $legacyState.HasLegacyIndex $legacyState.ContentEmpty
     if ($reingestConfirm) {
-        $answer = showConfirm -heading $reingestConfirm -choices @(@{ Text = "取り込み直す"; Value = "start" })
+        $answer = showConfirm -heading $reingestConfirm -choices @(@{ Text = "更新し直す"; Value = "start" })
         if ($answer -ne "start") {
             return
         }
@@ -194,7 +202,7 @@ function startIndexing {
     $script:indexingSession = newIndexingSession (newIndexerChannel -confirmTargets $true)
 
     showIndexingPanel
-    setStatus "クロールしています…"
+    setStatus "更新するファイルを調べています…"
     updateIndexingButton
     $script:indexingTimer.Start()
 }
@@ -206,15 +214,15 @@ function stopIndexing {
     $answer = showConfirm `
         -title "更新の中止" `
         -heading "インデックスの更新を中止しますか？" `
-        -hint "取り込んだところまでは残ります。あとで続きから再開できます。" `
+        -hint "更新したところまでは残ります。あとで続きから再開できます。" `
         -choices @(@{ Text = "中止する"; Value = "stop"; Careful = $true })
     if ($answer -ne "stop") {
         return
     }
     requestIndexingStop $script:indexingSession.Channel
     $ui.IndexingStopButton.IsEnabled = $false
-    $ui.IndexingProgressDetail.Text = "中止しています…（取り込み中のファイルが終わるまでお待ちください）"
-    setStatus "インデックス作成の中止を要求しました"
+    $ui.IndexingProgressDetail.Text = "中止しています…（更新中のファイルが終わるまでお待ちください）"
+    setStatus "更新の中止を要求しました"
 }
 
 function updateIndexingProgress {
@@ -235,7 +243,7 @@ function updateIndexingProgress {
         # クロールしている間（大きいフォルダ・ネットワーク越しでは数分かかることがある）。
         # 何を見ているかが分かるよう、インデクサが書いた内容をそのまま出す
         $ui.IndexingProgress.IsIndeterminate = $true
-        $ui.IndexingProgressText.Text = "クロールしています…"
+        $ui.IndexingProgressText.Text = "更新するファイルを調べています…"
         if (!$stopping) {
             $ui.IndexingProgressDetail.Text = [string]$progress.Detail
         }
@@ -252,16 +260,16 @@ function updateIndexingProgress {
     if ($progress.Finishing) {
         # 後片付け（Officeアプリの終了・取り込み一覧の書き直し）。止まって見えないよう、何をしているかを出す
         $ui.IndexingProgress.IsIndeterminate = $true
-        $ui.IndexingProgressText.Text = "インデックス作成を終えています…"
+        $ui.IndexingProgressText.Text = "更新を終えています…"
         $ui.IndexingProgressDetail.Text = [string]$progress.Detail
         $taskbar.ProgressState = "Indeterminate"
         return
     }
     if ($progress.Processed -eq 0) {
         $ui.IndexingProgress.IsIndeterminate = $true
-        $ui.IndexingProgressText.Text = if ($progress.Remaining -gt 0) { "$($progress.Remaining) 件のファイルを取り込みます" } else { "取り込みが必要なファイルを確認しています…" }
+        $ui.IndexingProgressText.Text = if ($progress.Remaining -gt 0) { "$($progress.Remaining) 件のファイルを更新します" } else { "更新が必要なファイルを確認しています…" }
         if (!$stopping) {
-            $ui.IndexingProgressDetail.Text = if ($progress.Current) { "取り込み中のファイル：$($progress.Current)" } else { "" }
+            $ui.IndexingProgressDetail.Text = if ($progress.Current) { "更新中のファイル：$($progress.Current)" } else { "" }
         }
         $taskbar.ProgressState = "Indeterminate"
         return
@@ -272,12 +280,13 @@ function updateIndexingProgress {
     $ui.IndexingProgress.Value = $ratio
     $taskbar.ProgressState = if ($progress.Failed -gt 0) { "Paused" } else { "Normal" }
     $taskbar.ProgressValue = $ratio
+    updateIndexTabBadge
 
-    $text = "インデックス作成中… $($progress.Processed.ToString('N0')) / $($total.ToString('N0')) 件"
+    $text = "インデックスを更新しています（$($progress.Processed.ToString('N0')) / $($total.ToString('N0')) 件"
     if ($progress.Failed -gt 0) {
-        $text += "（失敗 $($progress.Failed) 件）"
+        $text += "・失敗 $($progress.Failed) 件"
     }
-    $ui.IndexingProgressText.Text = $text
+    $ui.IndexingProgressText.Text = $text + "）"
 
     # 残り時間の目安（最初の1件が終わってからの速さで計算する）
     $now = Get-Date
@@ -292,7 +301,7 @@ function updateIndexingProgress {
         $ui.IndexingProgressEta.Text = if ($seconds -lt 60) { "残り 1 分未満" } else { "残り約 $([math]::Ceiling($seconds / 60)) 分" }
     }
     if (!$stopping) {
-        $ui.IndexingProgressDetail.Text = if ($progress.Current) { "取り込み中のファイル：$($progress.Current)" } else { "" }
+        $ui.IndexingProgressDetail.Text = if ($progress.Current) { "更新中のファイル：$($progress.Current)" } else { "" }
     }
 }
 
@@ -332,23 +341,27 @@ function finishIndexing {
         if ($message -eq "") {
             $message = "詳しくはログを確認してください。"
         }
-        $ui.IndexingProgressText.Text = "インデックスを作成できませんでした"
+        setIndexingBanner "ng" "done"
+        $ui.IndexingProgressText.Text = "インデックスを更新できませんでした"
         $ui.IndexingProgressDetail.Text = $message
-        setStatus "インデックスを作成できませんでした：$message"
-        showMessage "インデックスを作成できませんでした。`n`n$message" "OK" "Error" | Out-Null
+        setStatus "インデックスを更新できませんでした：$message"
+        showMessage "インデックスを更新できませんでした。`n`n$message" "OK" "Error" | Out-Null
     } elseif ($exitCode -eq 2 -and $script:indexingCanceledAtConfirm) {
         # 確認のダイアログで取りやめた（1件も取り込んでいない）
-        $ui.IndexingProgressText.Text = "インデックス作成を取りやめました"
-        $ui.IndexingProgressDetail.Text = "取り込んだファイルはありません。［インデックス作成を開始］を押すと、もう一度確認できます。"
+        setIndexingBanner "warn" "done"
+        $ui.IndexingProgressText.Text = "更新を取りやめました"
+        $ui.IndexingProgressDetail.Text = "更新したファイルはありません。［すべて更新］を押すと、もう一度確認できます。"
         setStatus $ui.IndexingProgressText.Text
     } elseif ($exitCode -eq 2) {
-        $ui.IndexingProgressText.Text = if ($counts) { "インデックス作成を中止しました（$counts）" } else { "インデックス作成を中止しました" }
+        setIndexingBanner "warn" "done"
+        $ui.IndexingProgressText.Text = if ($counts) { "更新を中止しました（$counts）" } else { "更新を中止しました" }
         $ui.IndexingProgressDetail.Text = "次回は続きから再開できます。"
         setStatus $ui.IndexingProgressText.Text
     } else {
         # 完了（後回し・失敗の件数に応じた見出しと説明は判断層（indexing_view.ps1）が決める）
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
         $failed = if ($progress) { $progress.Failed } else { 0 }
+        setIndexingBanner "ok" "done"
         $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail
@@ -356,6 +369,7 @@ function finishIndexing {
     }
     $ui.IndexingProgressEta.Text = ""
     $ui.IndexingStopButton.Visibility = "Collapsed"
+    $ui.IndexingProgress.Visibility = "Collapsed"
     $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath $workspace.IndexingLogFile) { "Visible" } else { "Collapsed" }
 
     $script:sourceFolderMaps = @{}
@@ -393,6 +407,7 @@ $ui.FailedGrid.Add_MouseDoubleClick({
 })
 $ui.IndexingButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingStopButton.Add_Click({ safe { stopIndexing } })
+$ui.IndexingResumeButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingLogButton.Add_Click({
     safe {
         if (Test-Path -LiteralPath $workspace.IndexingLogFile) {

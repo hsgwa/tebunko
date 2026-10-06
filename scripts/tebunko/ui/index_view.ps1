@@ -19,13 +19,37 @@ function getUsedIndexNames {
     return , $used
 }
 
+function getIndexNavBadge {
+    # ナビの［インデックス管理］の横に出す小さな印。更新中は「● N%」（割合が分からないうちは「●」）、
+    # 中断中は「中断」、更新に失敗したファイルがあるときは「⚠」。どれでもなければ出さない（Text が空）。
+    # Kind は色の種類（Run = 更新中 / Warn = 注意）
+    param (
+        [bool]$indexing,
+        [double]$ratio,     # 更新の進み（0〜1。分からないときは負の値）
+        [int]$pending,      # まだ更新していないファイルの数
+        [int]$failed        # 更新に失敗したファイルの数
+    )
+
+    if ($indexing) {
+        $text = if ($ratio -ge 0) { "● {0}%" -f [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { "●" }
+        return @{ Text = $text; Kind = "Run"; ToolTip = "インデックスを更新しています" }
+    }
+    if ($pending -gt 0) {
+        return @{ Text = "中断"; Kind = "Warn"; ToolTip = "更新が途中で止まっています（残り ${pending} 件）" }
+    }
+    if ($failed -gt 0) {
+        return @{ Text = "⚠"; Kind = "Warn"; ToolTip = "更新に失敗したファイルがあります" }
+    }
+    return @{ Text = ""; Kind = ""; ToolTip = "" }
+}
+
 function getIndexAddedStatus {
     # インデックスを追加したときのステータス。フォルダの有無によらず同じ文言にする（有無は一覧の列で分かる）
     param (
         [string]$name
     )
 
-    return "インデックス [${name}] を追加しました。［インデックス作成を開始］を押すと中身を更新します"
+    return "インデックス [${name}] を追加しました。［すべて更新］を押すと中身を更新します"
 }
 
 function getFailedFileCheckingStatus {
@@ -106,7 +130,7 @@ function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［1 インデックス管理］の各ボタンの可否を返す。
     #   New/Edit/Remove: ［追加…］［編集…］［削除］/ Export/Import: ［エクスポート…］［インポート…］
     # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
-    # （［インデックス作成を開始］は updateIndexingButton が、［8 設定］の［変更…］は押したときに testWorkspaceChangeable が、
+    # （［すべて更新］は updateIndexingButton が、［8 設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
     param (
         [string]$blocker,
@@ -247,10 +271,10 @@ function getIndexRowView {
         return @{ Text = "更新中"; Sub = ""; Level = "Wait"; ToolTip = "インデックスを更新している。終わると状態を表示する" }
     }
     if ($null -eq $stat -or $stat.Total -eq 0) {
-        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していない。チェックを付けて［インデックス作成を開始］を押すと作る" $notice }
+        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していない。チェックを付けて［すべて更新］を押すと作る" $notice }
     }
     if ($stat.Pending -ge 1) {
-        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件。次の［インデックス作成を開始］で続きから更新する" $notice }
+        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件。次の［すべて更新］で続きから更新する" $notice }
     }
     if ($stat.Failed -ge 1) {
         return @{ Text = "エラー"; Sub = ""; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件。原因は下の「更新に失敗したファイル」で見られる。失敗したファイル以外は検索できる" $notice }
@@ -425,10 +449,8 @@ function getIndexDetailView {
     $updated = if ($item.LastIngestedText) { "最終更新 $($item.LastIngestedText)" } else { "" }
 
     $rows = New-Object 'System.Collections.Generic.List[object]'
-    $target = if ($item.Enabled) { "対象にする" } else { "対象にしない（一覧のチェックを外している）" }
     [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
     [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
-    [void]$rows.Add(@{ Label = "インデックス作成"; Value = $target })
 
     $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Checked = [string]$item.FastCheckedText; Note = "" }
     if ($item.FastLevel -eq "Ng" -and $item.FastToolTip) {

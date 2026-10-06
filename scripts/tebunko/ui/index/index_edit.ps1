@@ -19,7 +19,7 @@ function showIndexEditDialog {
         $dialog.Title = "インデックスの追加"
         $ctrl.DialogHeadingText.Text = "インデックスを追加する"
         $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）の入っているフォルダを 1 つ選んでください。" +
-            "ここでは一覧に加えるだけです。中のファイルを読むのは［インデックス作成を開始］を押してからです。"
+            "ここでは一覧に加えるだけです。中のファイルを読むのは［すべて更新］を押してからです。"
     } else {
         $dialog.Title = "インデックスの編集"
         $ctrl.DialogHeadingText.Text = "インデックスを編集する"

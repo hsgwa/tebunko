@@ -1,6 +1,7 @@
 ﻿# インデックス管理の画面のイベントの登録（ボタン・一覧の操作・行のメニュー）。
 
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
+$ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })

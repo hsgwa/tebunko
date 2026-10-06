@@ -1,6 +1,6 @@
 ﻿<!-- インデックスの詳細（選んだインデックスの基本設定・インデックスの情報・高速検索の状態、更新の進み具合、失敗の一覧）。
      index.xaml の IndexDetailHost に入れる（gui_main.ps1）。中身は縦にスクロールできる。
-     更新中の表示（IndexingProgressPanel）は、いちばん上の帯。失敗の一覧（FailedPanel）は、いちばん下に置く。
+     更新中の帯は画面の上（index.xaml）にある。失敗の一覧（FailedPanel）は、いちばん下に置く。
      左右の部品のうち IndexDetail の名前の多くは gui_main.ps1 の名前の一覧に無く、index_detail.ps1 が読み込んだ中身から取る。 -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -33,24 +33,6 @@
   <Border Style="{StaticResource Card}">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel>
-        <!-- インデックスの更新中の帯。件数がこの画面の主役 -->
-        <Border x:Name="IndexingBanner" Background="{StaticResource Accent.Soft}" BorderBrush="{StaticResource Accent.Ring}"
-                BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,12"
-                Visibility="{Binding Visibility, ElementName=IndexingProgressPanel}">
-          <StackPanel x:Name="IndexingProgressPanel" Visibility="Collapsed">
-            <DockPanel>
-              <Button x:Name="IndexingStopButton" DockPanel.Dock="Right" Content="中止" MinWidth="72" Margin="12,0,0,0" />
-              <Button x:Name="IndexingLogButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="ログを開く"
-                      VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed" />
-              <TextBlock x:Name="IndexingProgressEta" DockPanel.Dock="Right" Style="{StaticResource Meta}" VerticalAlignment="Center" />
-              <TextBlock x:Name="IndexingProgressText" Style="{StaticResource Focal}" VerticalAlignment="Center" />
-            </DockPanel>
-            <ProgressBar x:Name="IndexingProgress" Margin="0,9,0,0" Maximum="1" />
-            <TextBlock x:Name="IndexingProgressDetail" Style="{StaticResource Micro}" Margin="0,7,0,0"
-                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-          </StackPanel>
-        </Border>
-
         <TextBlock x:Name="IndexDetailTitle" Style="{StaticResource Label.Strong}" Text="インデックスの状態" />
 
         <!-- 1 つ選んだときの左右 2 列（基本設定・インデックス情報）。何も選んでいないときは出さない -->
@@ -130,7 +112,6 @@
 
         <TextBlock Style="{StaticResource Meta}" Margin="0,14,0,0" Text="すべてのインデックスの合計" />
         <TextBlock x:Name="IndexSummaryText" Text="確認中…" Margin="0,4,0,0" />
-        <TextBlock x:Name="IndexingStateText" Style="{StaticResource WarnText}" Margin="0,6,0,0" />
 
         <StackPanel x:Name="FailedPanel" Visibility="Collapsed" Margin="0,8,0,0">
           <DockPanel>
