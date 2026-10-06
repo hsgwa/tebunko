@@ -35,6 +35,25 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
     }
 }
 
+Describe "カバレッジの計測の対象（画面層を分母に入れない）" -Tag Meta {
+    BeforeAll {
+        . "$PSScriptRoot\..\helpers\coverage_targets.ps1"
+        $script:targets = @(getCoverageTargets "$here\..\scripts")
+        $script:uiSep = [System.IO.Path]::DirectorySeparatorChar + "ui" + [System.IO.Path]::DirectorySeparatorChar
+    }
+
+    It "ui\ の下のファイルは、_view.ps1 で終わるものしか入っていない（画面層のファイルを足しても、条件に名前を足さずに分母から外れる）" {
+        $bad = @($script:targets | Where-Object { $_.Contains($script:uiSep) -and $_ -notmatch '_view\.ps1$' })
+        $bad -join ", " | Should -Be ""
+    }
+
+    It "ui\ の下の判断層（_view.ps1）と、ui\ の外の状態層は入っている。起動口の gui.ps1 は入っていない" {
+        @($script:targets | Where-Object { $_.Contains($script:uiSep) -and $_ -match '_view\.ps1$' }).Count | Should -BeGreaterThan 0
+        @($script:targets | Where-Object { $_.Contains([System.IO.Path]::DirectorySeparatorChar + "core" + [System.IO.Path]::DirectorySeparatorChar) }).Count | Should -BeGreaterThan 0
+        @($script:targets | Where-Object { (Split-Path $_ -Leaf) -eq "gui.ps1" }).Count | Should -Be 0
+    }
+}
+
 Describe "スクリプトの構文" -Tag Meta {
     BeforeDiscovery {
         $scriptFiles = @(Get-ChildItem "$PSScriptRoot\..\..\scripts" -Recurse -Filter "*.ps1" |
