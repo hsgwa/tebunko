@@ -23,6 +23,8 @@ Describe "S9 ナビの切り替えと F5" -Tag Gui {
         }
         $S = startGui $script:tool "S9"
         invokeGuiScene $S {
+            # 窓を先に前面にする（あとで前面になると Activated で状態が読み直され、F5・ナビの確かめと区別できなくなる）
+            activateGuiWindow $S
             setGuiStep $S "［2 検索］へ移る"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
 
@@ -31,11 +33,18 @@ Describe "S9 ナビの切り替えと F5" -Tag Gui {
             selectGuiTab $S "IndexTab" "IndexingStateText"
             waitGui $S "状態が読み直される（残り 1 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*残り 1 件*" } | Out-Null
 
-            setGuiStep $S "取り込み一覧を書き換えて F5"
+            setGuiStep $S "取り込み一覧と集約ファイルを書き換えて F5"
+            waitGui $S "集約ファイルはまだ無い" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
             & $writeStatus 2
-            activateGuiWindow $S
+            $pack = "$($script:tool.Work)\content_index"
+            [IO.Directory]::CreateDirectory($pack) | Out-Null
+            [IO.File]::WriteAllText("$pack\content_index.xlsx.tsv", "x`r`n", (New-Object Text.UTF8Encoding($true)))
             pressGuiKey $S.Window 0x74
-            waitGui $S "F5 で読み直される（残り 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*残り 2 件*" } | Out-Null
+            # F5 だけが読み直すもの（集約ファイルの件数）でも待ち、Activated と区別する
+            waitGui $S "F5 で読み直される（残り 2 件・集約ファイル）" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*残り 2 件*" -and
+                    (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*"
+            } | Out-Null
             closeGui $S
         }
     }
