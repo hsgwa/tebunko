@@ -430,7 +430,7 @@ function captureHeavyScene {
             clickGuiByName $S $closeConfirm "閉じない"
             waitGuiWindowClosed $S $closeConfirm "閉じる確認"
 
-            # 片づけ: もう一度閉じて、今度は「インデックス作成を止めて閉じる」で終える（closeGui は、この確認を扱えない）
+            # 片づけ: もう一度閉じて、今度は「中止して閉じる」で終える（closeGui は、この確認を扱えない）
             setGuiStep $S "取り込みを止めて閉じる"
             closeGuiWindowAsync $S $S.Window
             $confirm2 = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
