@@ -186,7 +186,7 @@ function finishSearch {
     } elseif ($count -eq 0) {
         $text = "見つかりませんでした。"
         if (!$s.UseRegex -and $s.Word -match '[\\()\[\]{}.*+?^$|]') {
-            $text += "（正規表現として探す場合は［正規表現を使う］をオンにしてください）"
+            $text += "（正規表現として探す場合は［正規表現］をオンにしてください）"
         } elseif (describeSearchOption $s.Option) {
             $text += "（検索条件：$(describeSearchOption $s.Option)）"
         }

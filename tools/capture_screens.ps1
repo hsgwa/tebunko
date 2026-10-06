@@ -186,48 +186,6 @@ function captureGuiState {
     }
 }
 
-# ---- 起動中の表示（本体の窓が出る前）を撮る ----
-
-function captureStartupSplash {
-    # 起動中の表示は、出てから本体の窓に変わるまでが一瞬で、UI オートメーションの provider がまだこの窓を
-    # 認識していない（AutomationElement 経由では見つからない・大きさが 0 x 0 のまま）ことがあるため、
-    # captureGuiState は使わず、Win32 の EnumWindows・GetWindowRect だけで窓を探して撮る。
-    # 起動中の表示は固定の文言（「tebunko」「起動中…」）だけで、利用者に関わる中身が無いため、
-    # 塗りつぶし（利用者名などの検出）は行わない
-    param ($S, [string]$Id, [string[]]$Ids, [string]$OutDir, [System.Collections.Generic.List[long]]$Sizes)
-
-    if ($Ids -notcontains $Id) { return }
-
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    $rect = $null
-    $handle = [IntPtr]::Zero
-    while (!$rect) {
-        $windows = @(getGuiNativeProcessWindows $S.Process.Id)
-        if ($windows.Count -gt 0) {
-            # この時点では本体の窓（NavList）はまだ無く、起動中の表示だけが見えているはず
-            $rect = $windows[0].Rect
-            $handle = $windows[0].Handle
-        }
-        if (!$rect) {
-            if ($S.Process.HasExited) { throw "画面が終了した（$Id を撮れなかった）" }
-            if ($sw.Elapsed.TotalSeconds -gt ${guiDefaultTimeout}) { throw "$Id の窓が ${guiDefaultTimeout} 秒以内に見つからなかった" }
-            Start-Sleep -Milliseconds 10
-        }
-    }
-    # ほかの窓（通知・別のツールの窓）が重なって写らないよう、撮る直前に前へ出す（UI オートメーションを使わないぶん速い）
-    [void][TebunkoGuiNative]::SetForegroundWindow($handle)
-
-    $bitmap = New-Object Drawing.Bitmap($rect.Width, $rect.Height)
-    $graphics = [Drawing.Graphics]::FromImage($bitmap)
-    try {
-        $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, (New-Object Drawing.Size($rect.Width, $rect.Height)))
-        saveCaptureBitmap -Bitmap $bitmap -Id $Id -OutDir $OutDir -Sizes $Sizes
-    } finally {
-        $graphics.Dispose()
-        $bitmap.Dispose()
-    }
-}
-
 # ---- 場面: window（起動中・メニュー・about・壊れた設定） ----
 
 function captureBrokenConfigScene {
@@ -281,11 +239,6 @@ function captureStarterScene {
 
     $S = startGui $tool "starter"
     try {
-        if ($Ids -contains "window/startup") {
-            setGuiStep $S "起動中の表示"
-            captureStartupSplash -S $S -Id "window/startup" -Ids $Ids -OutDir $OutDir -Sizes $Sizes
-        }
-
         invokeGuiScene $S {
             setGuiStep $S "起動時のタブ（インデックスが無い）"
             waitGui $S "［1 インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
@@ -298,13 +251,13 @@ function captureStarterScene {
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
             selectGuiTab $S "IndexTab" "NewIndexButton"
 
-            setGuiStep $S "「tebunko について」"
+            setGuiStep $S "「バージョン情報」"
             clickGui $S $S.Window "AboutLink" "バージョン情報"
-            $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
+            $about = waitGuiWindow $S "「バージョン情報」のダイアログ" -Id "VersionText"
             captureGuiState -S $S -Id "window/about" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($about)
             clickGui $S $about "CloseButton" "［閉じる］"
-            waitGuiWindowClosed $S $about "「tebunko について」"
+            waitGuiWindowClosed $S $about "「バージョン情報」"
 
             setGuiStep $S "［追加…］"
             clickGui $S $S.Window "NewIndexButton" "［追加…］"

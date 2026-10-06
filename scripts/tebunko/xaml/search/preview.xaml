@@ -16,7 +16,7 @@
            行を選んでいなくても枠は出したままにする（高さが変わらず、次に選んだときもその場に出る） -->
       <DockPanel x:Name="DetailPanel" Margin="0">
         <!-- 見出しの帯（選んだ行の場所と、元のファイルを開く操作）。行を選ぶまでは押せない（プレビューの枠は行を選んでいなくても出したままにするため） -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,8">
+        <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,8">
           <DockPanel>
             <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="フォルダを開く" Margin="14,0,0,0" IsEnabled="False"
                     VerticalAlignment="Center" />
@@ -67,12 +67,6 @@
                 </Button>
               </StackPanel>
             </Border>
-            <!-- 開き方の選びを持つ（見えない。選んだ開き方の保存と、ダブルクリック・Enter が読む） -->
-            <ComboBox x:Name="OpenModeCombo" Visibility="Collapsed" Width="0" Height="0">
-              <ComboBoxItem Tag="normal" Content="通常（編集する）" />
-              <ComboBoxItem Tag="readOnly" Content="読み取り専用" />
-              <ComboBoxItem Tag="new" Content="新規（元のファイルを占有しない）" />
-            </ComboBox>
             <TextBlock x:Name="DetailTitle" FontSize="11" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" Margin="0,0,12,0"
                        TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
           </DockPanel>
@@ -90,7 +84,7 @@
                   <!-- 列見出し（右端をドラッグすると、その列の幅が変わる。幅は PreviewColumn を各行のセルと共有する） -->
                   <StackPanel Orientation="Horizontal">
                     <!-- 行番号の列の分（幅 44 は gui.ps1 の NumberWidth と合わせる） -->
-                    <Border Width="44" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1" />
+                    <Border Width="44" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1" />
                     <ItemsControl x:Name="PreviewHeader">
                       <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -136,7 +130,7 @@
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <StackPanel x:Name="RowPanel" Orientation="Horizontal">
-                          <Border Width="44" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1">
+                          <Border Width="44" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1">
                             <TextBlock x:Name="Num" Text="{Binding Number}" Padding="4,2,6,2" FontSize="11" TextAlignment="Right"
                                        Foreground="{StaticResource Ink.Faint}" />
                           </Border>
@@ -162,7 +156,7 @@
                                     <Setter TargetName="CellBorder" Property="BorderThickness" Value="1" />
                                   </DataTrigger>
                                   <DataTrigger Binding="{Binding IsHit}" Value="True">
-                                    <Setter TargetName="CellBorder" Property="Background" Value="{StaticResource Hit}" />
+                                    <Setter TargetName="CellBorder" Property="Background" Value="{StaticResource Hit.Cell}" />
                                     <Setter TargetName="CellText" Property="FontWeight" Value="SemiBold" />
                                     <Setter TargetName="CellText" Property="Foreground" Value="{StaticResource Ink.Strong}" />
                                   </DataTrigger>

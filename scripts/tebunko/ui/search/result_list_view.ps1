@@ -11,14 +11,28 @@ function getSearchProgressText {
 }
 
 function getSearchSummaryText {
-    # 検索が終わったときの要約欄（ヒットがあるとき）
+    # 検索が終わったときの要約欄（ヒットがあるとき。秒を渡さなければ時間は付けない）
     param (
         [int]$hits,
         [int]$files,
-        [double]$seconds
+        [double]$seconds = -1
     )
 
-    return "$($hits.ToString('N0')) 件（$($files.ToString('N0')) ファイル） ・ $($seconds.ToString('0.0')) 秒"
+    $text = "$($hits.ToString('N0')) 件（$($files.ToString('N0')) ファイル）"
+    if ($seconds -lt 0) {
+        return $text
+    }
+    return "$text ・ $($seconds.ToString('0.0')) 秒"
+}
+
+function getFilteredSummaryText {
+    # 結果を絞り込んでいるときの要約欄（全部の件数のうち、いくつ見せているか）
+    param (
+        [int]$hits,
+        [int]$shown
+    )
+
+    return "$($hits.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
 }
 
 function getAppKind {

@@ -15,7 +15,7 @@ GUI を改善する前に、今の画面をすべての状態で写真に撮っ�
 
 ```mermaid
 stateDiagram-v2
-    state "起動（window/startup）" as startup
+    state "起動" as startup
     state "［1 インデックス管理］" as t1
     state "［2 検索］" as t2
     state "［8 設定］" as t8
@@ -51,14 +51,13 @@ stateDiagram-v2
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 45 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 39 枚。
 
 **本体・共通（`window`）**
 
 | ID | 状態 | 遷移 |
 |---|---|---|
-| `window/startup` | 起動中の表示（「起動中…」） | 1 |
-| `window/about` | 「tebunko について」 | 8 |
+| `window/about` | 「バージョン情報」 | 8 |
 | `window/close-confirm` | 作成中に閉じるときの確認 | 10 |
 | `window/settings-broken` | 設定が壊れていたときの知らせ（メッセージボックス） | – |
 | `window/leftover` | 起動時の、前回残った Office の確認（基本） | – |

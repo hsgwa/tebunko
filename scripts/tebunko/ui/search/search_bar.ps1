@@ -56,19 +56,15 @@ function updateFastSearchView {
     $view = getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)
     $ui.FastSearchText.Text = $view.Text
     $ui.FastBadge.Tag = if ($view.Usable) { "ok" } else { "off" }
-    $ink = $window.FindResource($(if ($view.Usable) { "Badge.Ok.Text" } else { "Badge.None.Text" }))
-    $ui.FastSearchText.Foreground = $ink
-    $ui.FastBadgeIcon.Stroke = $ink
-    $ui.FastBadgeInfo.Stroke = $ink
     $ui.FastBadgeInfo.Visibility = if ($view.Tip -ne "") { "Visible" } else { "Collapsed" }
     $ui.FastBadge.ToolTip = if ($view.Tip -ne "") { $view.Tip } else { $null }
 }
 
 function updateScopeButton {
     # ［ファイル内の対象］の文言と、既定から変えているときの線の色
-    $text = getScopeButtonText ([bool]$ui.ShapeCheck.IsChecked) ([bool]$ui.CommentCheck.IsChecked)
-    $ui.ScopeButton.Content = $text
-    $ui.ScopeButton.Tag = if ($text -ne "ファイル内の対象") { "changed" } else { $null }
+    $view = getScopeButtonText ([bool]$ui.ShapeCheck.IsChecked) ([bool]$ui.CommentCheck.IsChecked)
+    $ui.ScopeButton.Content = $view.Text
+    $ui.ScopeButton.Tag = if ($view.Changed) { "changed" } else { $null }
 }
 
 function checkFastSearchAvailable {

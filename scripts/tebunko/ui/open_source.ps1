@@ -346,32 +346,21 @@ function openInExcel {
 }
 
 function getOpenMode {
-    # ダブルクリック・Enter・［開く］での開き方（［開き方］の選択。${openModes} のいずれか）
-    $item = $ui.OpenModeCombo.SelectedItem
-    if ($null -ne $item -and (${openModes} -contains $item.Tag)) {
-        return [string]$item.Tag
+    # ダブルクリック・Enter・［開く］での開き方（${openModes} のいずれか。選んでいなければ通常）
+    if ($null -ne $script:openMode -and (${openModes} -contains $script:openMode)) {
+        return [string]$script:openMode
     }
     return ${openModeNormal}
 }
 
 function setOpenMode {
-    # ［開き方］の選択を設定の値に合わせる（起動時。選んだことにはしないため、設定は保存しない）
+    # 既定の開き方を設定の値に合わせる（起動時。選んだことにはしないため、設定は保存しない）
     param (
         [string]$mode
     )
 
-    $script:loadingOpenMode = $true
-    try {
-        foreach ($item in $ui.OpenModeCombo.Items) {
-            if ($item.Tag -eq $mode) {
-                $ui.OpenModeCombo.SelectedItem = $item
-                return
-            }
-        }
-        $ui.OpenModeCombo.SelectedIndex = 0
-    } finally {
-        $script:loadingOpenMode = $false
-    }
+    $script:openMode = if (${openModes} -contains $mode) { $mode } else { ${openModeNormal} }
+    updateOpenMenu
 }
 
 function updateOpenMenu {
@@ -558,15 +547,6 @@ $ui.ResultGrid.Add_PreviewKeyDown({
 $ui.MenuOpen.Add_Click({ safe { openSource ${openModeNormal} } })
 $ui.MenuOpenReadOnly.Add_Click({ safe { openSource ${openModeReadOnly} } })
 $ui.MenuOpenNew.Add_Click({ safe { openSource ${openModeNew} } })
-$ui.OpenModeCombo.Add_SelectionChanged({
-    safe {
-        # 起動時の読み込みでは保存しない（設定していない利用者の setting.config を作らないため）
-        if (-not $script:loadingOpenMode) {
-            writeOpenMode (getOpenMode)
-        }
-        updateOpenMenu
-    }
-})
 $ui.MenuOpenFolder.Add_Click({ safe { openSourceFolder } })
 $ui.OpenButton.Add_Click({ safe { openSource } })
 # ［開く ▾］のメニュー。選んだ開き方は次からの既定（ダブルクリック・Enter・［開く］）にもなり、そのまま開く
@@ -575,11 +555,10 @@ function selectOpenMode {
         [string]$mode
     )
 
-    foreach ($item in $ui.OpenModeCombo.Items) {
-        if ($item.Tag -eq $mode) {
-            $ui.OpenModeCombo.SelectedItem = $item
-            break
-        }
+    if (${openModes} -contains $mode) {
+        $script:openMode = $mode
+        writeOpenMode $mode
+        updateOpenMenu
     }
     openSource $mode
 }

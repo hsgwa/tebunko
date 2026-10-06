@@ -1,4 +1,4 @@
-﻿# ナビ下の「tebunko について」と、そのダイアログ（画面層）。gui.ps1 が読み込む。
+﻿# ナビ下の「バージョン情報」と、そのダイアログ（画面層）。gui.ps1 が読み込む。
 # 版・コミットの文字列は起動時に 1 回だけ組み立てる（gui.ps1 の $script:aboutView。ui/about_view.ps1 の getAboutView）。
 # ダイアログを開くたびに VERSION.txt を読み直さない。
 
@@ -8,7 +8,7 @@ $ui.AboutLink.Add_Click({
 })
 
 function showAboutDialog {
-    # 「tebunko について」ダイアログを開く
+    # 「バージョン情報」ダイアログを開く
     $dialog = loadWindow "${xamlDir}\dialog_about.xaml" ${fontsDir}
     $dialog.Owner = $window
     $ctrl = @{}

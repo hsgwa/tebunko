@@ -12,7 +12,7 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
         newGuiSampleIndex $script:tool $TestDrive
     }
 
-    It "起動して［2 検索］が選ばれ、3 つのタブ・検索・プレビュー・「tebunko について」・多重起動・閉じるが動く" {
+    It "起動して［2 検索］が選ばれ、3 つのタブ・検索・プレビュー・「バージョン情報」・多重起動・閉じるが動く" {
         $S = startGui $script:tool "S1"
         invokeGuiScene $S {
             # 起動・インデックスがあれば［2 検索］が選ばれる（#1・#2）
@@ -44,13 +44,13 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             } | Out-Null
             (getGuiText (findGui $S.Window -Id "DetailTitle")) | Should -BeLike "*見積.xlsx*"
 
-            # 左の欄の「tebunko について」（#8）
-            setGuiStep $S "「tebunko について」を開く"
+            # 左の欄の「バージョン情報」（#8）
+            setGuiStep $S "「バージョン情報」を開く"
             clickGui $S $S.Window "AboutLink" "バージョン情報"
-            $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
+            $about = waitGuiWindow $S "「バージョン情報」のダイアログ" -Id "VersionText"
             (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "バージョン *"
             clickGui $S $about "CloseButton" "［OK］"
-            waitGuiWindowClosed $S $about "「tebunko について」"
+            waitGuiWindowClosed $S $about "「バージョン情報」"
 
             # 同じフォルダのツールをもう一度起動すると、2 つ目はすぐ終わり、1 つ目は残る（#6）
             setGuiStep $S "多重起動"
