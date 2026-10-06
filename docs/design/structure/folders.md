@@ -1,4 +1,4 @@
-# 配布物と開発用のフォルダ構成
+﻿# 配布物と開発用のフォルダ構成
 
 扱うこと: 利用者が使うもの・ドキュメント配布物・開発用（配布しない）フォルダの一覧。扱わないこと: `scripts/` の中の文脈・層による分け方（[ソースの分け方](source.md)）、データの置き場所（[データの置き場所](data.md)）。先に読むページ: [設計の概要](../index.md)。
 
@@ -20,7 +20,7 @@ flowchart LR
 
 | パス | 種別 | 説明 |
 |---|---|---|
-| `tebunko.bat` | 起動用バッチ | 画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。`conhost.exe` 経由で PowerShell（PATH からではなく `%SystemRoot%` からの絶対パス）を `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で 1 回起動し、その中で `scripts` の中のファイルから Mark-of-the-Web を外して（`Unblock-File`。[安全性の要約](../../safety/index.md) の [Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat)）から `gui.ps1` を開く。既定のターミナルが Windows Terminal だと `-WindowStyle Hidden` が効かず、PowerShell の窓が残るため `conhost.exe` を通す。画面が開く前に失敗したときは、記録を残して Notepad で理由を示す（[起動に失敗したときの知らせ](../../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)） |
+| `tebunko.bat` | 起動用バッチ | 画面を開く（インデックス作成・検索）。利用者が起動するのはこれだけ。`conhost.exe` 経由で PowerShell（PATH からではなく `%SystemRoot%` からの絶対パス）を `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で 1 回起動し、その中で `scripts` の中のファイルから Mark-of-the-Web を外して（`Unblock-File`。[安全性の要約](../../safety/index.md) の [Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat)）から `gui.ps1` を開く。既定のターミナルが Windows Terminal だと `-WindowStyle Hidden` が効かず、PowerShell の窓が残るため `conhost.exe` を通す。画面が開く前に失敗したときは、記録を残して Notepad で理由を示す（[起動に失敗したときの知らせ](../../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)） |
 | `setting.config` | 設定 | 画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。[設定ファイル（setting.config）](settings-file.md)）。ツールのフォルダに書き込めないときは利用者ごとの場所に置く（[データの置き場所](data.md)） |
 | `work/` | 自動生成 | インデックス・状態ファイル・ログ（[どの処理がどのファイルを読み書きするか](io-files.md)）。git 管理外。削除すると全件取り込み直しになる。置き場所は画面で変えられる（[データの置き場所](data.md)） |
 

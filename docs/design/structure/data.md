@@ -15,6 +15,7 @@
 | `work/system_index_state.tsv` | システムインデックスの状態（対応済み・反映待ち・対象外。[システムインデックス](../index-data/system-index.md)） |
 | `work/ingest_status.tsv` | 取り込み対象のファイルごとの更新日時・サイズ・状態（未取り込み・済・失敗） |
 | `work/ingesting.txt` | 取り込み中のファイル（取り込みのスレッドごとに 1 行）。取り込み中に強制終了したときだけ残る |
+| `work/office_pids/<PC の鍵>/<PID>.txt` | インデックス作成が起動した Office の記録（起動時の確認で、残ったものだけを終了するため。[前回残った Office の確認](../gui/leftover-office.md#記録)） |
 | `work/publish/<PID>/` | 1 ファイル分の TSV を、インデックスに入れる直前に集めるフォルダ（インデックス作成の終了時に削除する） |
 | `work/tmp/<PC の鍵>/<PID>/` | 取り込みの作業領域（下の説明） |
 | `work/indexing_log.txt` | インデクサの表示内容の記録（実行ごとに上書き） |
@@ -97,6 +98,7 @@ flowchart LR
     W --> PB["PublishDir<br>Dir\publish\<PID>"]
     W --> ST["StatusFile<br>Dir\ingest_status.tsv"]
     W --> IG["IngestingFile<br>Dir\ingesting.txt"]
+    W --> OP["OfficePidRoot<br>Dir\office_pids"]
     W --> RS["ResultFile<br>Dir\search_results.txt"]
     W --> IL["IndexingLogFile<br>Dir\indexing_log.txt"]
     W --> GE["GuiErrorLogFile<br>Dir\gui_error_log.txt"]

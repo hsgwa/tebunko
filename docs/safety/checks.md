@@ -25,7 +25,7 @@ function scan { param([string[]]$Pattern)
 | 9 | 資格情報の入力要求・保存 | 該当 0 件 | `scan 'Get-Credential','ConvertTo-SecureString','PSCredential'` |
 | 10 | リモート実行 | 該当 0 件 | `scan 'Invoke-Command','New-PSSession','Enter-PSSession','WinRM'` |
 | 11 | 外部プロセスの起動 | 4 か所のみ（[外部プロセスの起動（4 か所）](#外部プロセスの起動4-か所)） | `scan 'Start-Process'` |
-| 12 | プロセスの強制終了 | 1 か所のみ（[Office プロセスの強制終了（［9 プロセス停止］タブ）](disclosure.md#office-プロセスの強制終了9-プロセス停止タブ)） | `scan 'Stop-Process'` |
+| 12 | プロセスの強制終了 | 1 か所のみ（[前回残った Office の終了（起動時の確認）](disclosure.md#前回残った-office-の終了起動時の確認)） | `scan 'Stop-Process'` |
 | 13 | 壊れたハッシュ（MD5・SHA-1）、FIPS 準拠でないハッシュの実装 | 該当 0 件 | `scan 'MD5','SHA1','RIPEMD','SHA256Managed','SHA384Managed','SHA512Managed','HashAlgorithm\]::Create'` |
 | 14 | 内部の型（`NonPublic`）のリフレクションでの呼び出し | 1 か所のみ（下） | `scan 'NonPublic','Reflection\.BindingFlags'` |
 

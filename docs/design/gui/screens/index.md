@@ -8,7 +8,6 @@ GUI を改善する前に、今の画面をすべての状態で写真に撮っ�
 - [［1 インデックス管理］タブ](index-tab.md)
 - [［2 検索］タブ](search-tab.md)
 - [［8 設定］タブ](settings-tab.md)
-- [［9 プロセス停止］タブ](process-tab.md)
 
 ## 画面全体の遷移
 
@@ -20,13 +19,11 @@ stateDiagram-v2
     state "［1 インデックス管理］" as t1
     state "［2 検索］" as t2
     state "［8 設定］" as t8
-    state "［9 プロセス停止］" as t9
     startup --> t1: インデックスが無い・中断している（3・4）
     startup --> t2: インデックスがある（2）
     startup --> t8: 既定のワークスペースにほかのファイルがある（5）
     t1 --> t2: タブを選ぶ（7）
     t2 --> t8: タブを選ぶ（7）
-    t8 --> t9: タブを選ぶ（7）
     t2 --> t1: インデックスを作成する（26）
     t1 --> t8: 既定のワークスペースが使えない（22）
 ```
@@ -39,12 +36,12 @@ stateDiagram-v2
 .\tools\capture_screens.ps1 -OutDir <フォルダ>        写真の置き場所（既定 docs\images\screens）
 ```
 
-- **状態の ID**（写真のファイル名）は `<画面>/<状態>` の形。画面は `window`・`index-tab`・`search-tab`・`settings-tab`・`process-tab`（このページの下の一覧のページ名と同じ）。
+- **状態の ID**（写真のファイル名）は `<画面>/<状態>` の形。画面は `window`・`index-tab`・`search-tab`・`settings-tab`（このページの下の一覧のページ名と同じ）。
 - **撮り直しは、見た目が変わった画面だけにする。** 撮り直しても写真のファイル名は変えない（git は同じファイルの差し替えになる）。日付・時刻が写るので、全部を撮り直すと変わらない画面まで差し替わり、リポジトリが重くなる。
 - **道具が撮る前に確かめる、そろえる条件**（合わなければ理由を出して止まる）:
   - 表示の倍率が 100%（`HKCU:\Control Panel\Desktop\WindowMetrics` の `AppliedDPI` が 96）。画面が複数あると `AppliedDPI` が窓のある画面と合わないことがあるため、撮るときは画面を 1 つにする。
   - Windows のテーマがライトモード（`AppsUseLightTheme` が 1）。tebunko の色は `theme.xaml` が決めるため、ほかの設定は問わない。
-  - Excel・Word・PowerPoint が動いていない（［9 プロセス停止］の一覧に、本物の文書の名前が出るため）。
+  - Excel・Word・PowerPoint が動いていない（撮る画面に、本物の文書の名前が出ることがあるため）。
   - Windows の通知を止めている（集中モード・応答不可。撮る途中で通知が重なるのを防ぐ）。
   - 道具と tebunko は、管理者でない同じ利用者の権限で動かす。
 - **架空のデータを使う。** 道具は一時フォルダを、空いているドライブの文字（`Z:` から下へ探す）に `subst` で割り当て、その下でツール・ワークスペース・元のフォルダを動かす。終わったら（失敗しても）`subst /D` で外す。インデックス名・ファイル名・中身は、[個人情報を書かない](../../../../AGENTS.md#個人情報を書かない)の架空の名前を使う。
@@ -109,16 +106,6 @@ stateDiagram-v2
 | `settings-tab/nonempty-confirm` | 空でないフォルダを選んだときの確認 | 32 |
 | `settings-tab/index-confirm` | インデックスのあるフォルダを選んだときの確認 | 33 |
 | `settings-tab/invalid-warning` | 使えないフォルダを選んだときの警告 | 34 |
-
-**［9 プロセス停止］（`process-tab`）**
-
-| ID | 状態 | 遷移 |
-|---|---|---|
-| `process-tab/empty` | Office のプロセスが無い | 36 |
-| `process-tab/list` | 偽のプロセスがある（タブに ⚠） | 36 |
-| `process-tab/stop-all-confirm` | ［すべて終了］の確認 | 37 |
-| `process-tab/stop-background-confirm` | ［バックグラウンドのみ終了］の確認 | 37 |
-| `process-tab/stop-selected-confirm` | 選んで終了するときの確認 | 38 |
 
 ## 撮らないもの
 
