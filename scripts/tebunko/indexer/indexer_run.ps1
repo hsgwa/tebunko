@@ -23,6 +23,7 @@ ${ingestWorkerScript} = {
     Set-Variable -Name tmpDirReason -Value $settings.TmpDirReason
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
+    $script:officeRecordDir = $settings.OfficeRecordDir
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
 
@@ -613,6 +614,8 @@ function invokeIndexerBody {
         $bookFolders[$i] = [System.IO.Path]::GetDirectoryName((getBookDir $targets[$i].相対パス))
         $pending.AddPending($bookFolders[$i])
     }
+    # 起動した Office の PID の記録を置く場所（開始時のワークスペースから決め、取り込みのスレッドへ文字列で渡す。途中でワークスペースが変わっても、書く所と消す所が食い違わない）
+    $officeRecordDir = getOfficePidDir $workspace
     $pool = $null
     $inlineResult = $null
     $currentPath = ""  # 最後に取り込みのスレッドに渡したファイル（画面に「取り込み中のファイル」として出す）
@@ -624,9 +627,11 @@ function invokeIndexerBody {
                 Lib = (getPartLoad indexerLib)
                 WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; TmpDirReason = ${tmpDirReason}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
+                OfficeRecordDir = $officeRecordDir
             }
         } else {
             $script:officePidSink = $channel.OfficePids
+            $script:officeRecordDir = $officeRecordDir
             startWatchdog
         }
 
@@ -801,6 +806,7 @@ function invokeIndexerBody {
             stopAllApps
         }
         $script:officePidSink = $null
+        $script:officeRecordDir = $null
         removeTmpDir
         $ledger.RemoveIngestingFile()
         # 取り込んだ TSV は、中止したときも残さず集約ファイルに入れる（残すとインデックスの容量が倍になる）

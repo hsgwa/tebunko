@@ -13,7 +13,7 @@ BeforeAll {
         "Invoke-Item", "Start-Process",
         "New-Item", "Remove-Item", "Copy-Item", "Move-Item", "Rename-Item", "Set-Content", "Out-File",
         "getSearchIndexes", "testIndexExists", "getSourceFolderMap", "getExistingAncestorFolder", "getDriveTargets",
-        "getPathState", "findSourceFileState"
+        "getPathState", "findSourceFileState", "getOfficeProcesses"
     )
     # 見つける静的メソッドの型（[System.IO.File]::GetAttributes のように、どのメソッドでも見つける）
     ${uiIoStaticTypes} = @("System.IO.File", "System.IO.Directory", "System.IO.DirectoryInfo", "System.IO.FileInfo")

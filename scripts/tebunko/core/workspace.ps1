@@ -26,6 +26,9 @@ class Workspace {
     # 取り込みの作業フォルダの置き場所（下は <PC の鍵>\<PID>\w<番号> と分かれる。selectTmpDir・getWorkspaceTmpDir）。
     # 前の版までの %TEMP%\tebunko\<PID> の代わりに、ワークスペースの中に置く（共有フォルダでも 1 か所にまとまる）
     [string]$TmpRoot
+    # このツールが起動した Office の PID の記録の置き場所（下は <PC の鍵>\<PID>.txt と分かれる。getOfficePidDir・shared/office/office_process.ps1）。
+    # 画面を起動したとき、前回残った Office を確認して止めるために使う。tmp の下には置かない（tmp は片付けで消える場所で、記録は画面ごと落ちた後に読むため）
+    [string]$OfficePidRoot
 
     Workspace([string]$dir) {
         $this.Dir = $dir
@@ -40,6 +43,7 @@ class Workspace {
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
         $this.TmpRoot = "$dir\tmp"
+        $this.OfficePidRoot = "$dir\office_pids"
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
@@ -47,7 +51,7 @@ class Workspace {
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが getWorkspaceEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot)
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }
 
@@ -59,6 +63,16 @@ function getMachineKey {
     # この PC を識別する短い鍵（getFolderKey の先頭 8 文字）。
     # 共有フォルダのワークスペースを複数の PC から使うとき、一時フォルダを PC ごとに分けるために使う（getWorkspaceTmpDir）
     return (getFolderKey ([Environment]::MachineName)).Substring(0, 8)
+}
+
+function getOfficePidDir {
+    # 起動した Office の PID の記録を置くフォルダ（$workspace.OfficePidRoot\<PC の鍵>）を返す。文字列を組み立てるだけで、ファイルには触らない。
+    # 共有のワークスペースで、ほかの PC の PID と混ざらないよう PC ごとに分ける
+    param (
+        [Workspace]$workspace
+    )
+
+    return Join-Path $workspace.OfficePidRoot (getMachineKey)
 }
 
 function getWorkspaceTmpDir {

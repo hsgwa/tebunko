@@ -158,6 +158,7 @@ function startGui {
     . "$TebunkoDir\ui\search\target_tree_view.ps1"
     . "$TebunkoDir\ui\preview_view.ps1"
     . "$TebunkoDir\ui\settings\settings_view.ps1"
+    . "$TebunkoDir\ui\leftover_view.ps1"
     . "$TebunkoDir\ui\about_view.ps1"
     . "$TebunkoDir\ui\shell\nav_view.ps1"
     stepSplash 80
