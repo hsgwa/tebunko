@@ -73,10 +73,40 @@ function loadXaml {
     $xml.Save($stream)
     $stream.Position = 0
     try {
-        return [System.Windows.Markup.XamlReader]::Load($stream)
+        $loaded = [System.Windows.Markup.XamlReader]::Load($stream)
     } finally {
         $stream.Dispose()
     }
+
+    # 画面の既定のフォント（Font.Body）。XAML のルートが FontFamily="{DynamicResource Font.Body}" で使う。
+    # XamlReader.Load は XAML 内の相対パスを解決できないため、同梱のフォントを指す FontFamily はここで作って入れる
+    if ($loaded -is [System.Windows.FrameworkElement]) {
+        # 型を明示する（PowerShell のラッパーのまま入れると、DynamicResource が文字列として解決して失敗する）
+        $loaded.Resources["Font.Body"] = [System.Windows.Media.FontFamily](newAppFontFamily)
+    }
+    return $loaded
+}
+
+# 画面の既定のフォント。同梱のフォント（${fontsDir}）の Rethink Sans を先に、足りない文字（日本語）は Yu Gothic UI・Meiryo UI で表す。
+# フォルダが無いとき（単一 .ps1 版など）は Yu Gothic UI・Meiryo UI だけにする
+function newAppFontFamily {
+    param (
+        [string]$fontsFolder
+    )
+
+    if (-not $fontsFolder) {
+        $variable = Get-Variable -Name fontsDir -ErrorAction SilentlyContinue
+        if ($null -ne $variable) {
+            $fontsFolder = [string]$variable.Value
+        }
+    }
+    $fallback = "Yu Gothic UI, Meiryo UI"
+    if ($fontsFolder -and (Test-Path -LiteralPath $fontsFolder -PathType Container)) {
+        # 末尾が \ のフォルダを指す URI にする（そうしないと、./# の探し先がフォルダの 1 つ上になる）
+        $baseUri = New-Object System.Uri (([System.IO.Path]::GetFullPath($fontsFolder).TrimEnd("\") + "\"))
+        return New-Object System.Windows.Media.FontFamily -ArgumentList $baseUri, "./#Rethink Sans, $fallback"
+    }
+    return New-Object System.Windows.Media.FontFamily -ArgumentList $fallback
 }
 
 function loadWindow {

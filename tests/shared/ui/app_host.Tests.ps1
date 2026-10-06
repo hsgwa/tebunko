@@ -64,3 +64,41 @@ Describe "loadXaml（theme.xaml への参照の差し替え）" -Tag Unit {
         }
     }
 }
+
+Describe "newAppFontFamily（画面の既定のフォント）" -Tag Unit {
+    BeforeAll {
+        $bundledFonts = "${scriptsDir}\shared\fonts"
+    }
+
+    It "フォルダがあれば、そこを指し、Rethink Sans を先に Yu Gothic UI・Meiryo UI を足りない文字の代わりにする" {
+        $family = newAppFontFamily $bundledFonts
+        $family.BaseUri.LocalPath | Should -Be ("$bundledFonts\")
+        $family.Source | Should -Be "./#Rethink Sans, Yu Gothic UI, Meiryo UI"
+        # 同梱のフォルダから Rethink Sans が見つかる
+        @([System.Windows.Media.Fonts]::GetFontFamilies($family.BaseUri) | ForEach-Object { $_.FamilyNames.Values }) | Should -Contain "Rethink Sans"
+    }
+
+    It "<name> は、Yu Gothic UI・Meiryo UI だけにする（単一 .ps1 版など、フォントを同梱しない形）" -ForEach @(
+        @{ name = "フォルダが無い"; folder = "$TestDrive\no_such_fonts" }
+        @{ name = "指定が空" ; folder = "" }
+    ) {
+        $family = newAppFontFamily $folder
+        $family.Source | Should -Be "Yu Gothic UI, Meiryo UI"
+    }
+
+    It "同梱のフォントのファイルとライセンスの文面がある" {
+        foreach ($name in "RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf", "OFL.txt", "LICENSE-Lucide.txt") {
+            Test-Path -LiteralPath "$bundledFonts\$name" | Should -Be $true
+        }
+    }
+}
+
+Describe "loadXaml（Font.Body）" -Tag Unit {
+    It "FrameworkElement には Font.Body を入れ、ルートの DynamicResource で使える" {
+        $path = "$TestDrive\win.xaml"
+        [System.IO.File]::WriteAllText($path, '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TextElement.FontFamily="{DynamicResource Font.Body}" />', (New-Object System.Text.UTF8Encoding($true)))
+        $result = loadXaml $path
+        $result.Resources.Contains("Font.Body") | Should -Be $true
+        $result.Resources["Font.Body"] | Should -BeOfType [System.Windows.Media.FontFamily]
+    }
+}

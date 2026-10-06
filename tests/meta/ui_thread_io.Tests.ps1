@@ -53,6 +53,7 @@ BeforeAll {
         @{ File = "about_dialog.ps1"; Function = "showAboutDialog"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "getXamlText"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "loadWindow"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
+        @{ File = "app_host.ps1"; Function = "newAppFontFamily"; Call = "Test-Path"; Reason = "同梱のフォント（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "New-Item"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "[System.IO.File]"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }

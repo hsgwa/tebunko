@@ -4,7 +4,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="tebunko" Width="1000" Height="720" MinWidth="760" MinHeight="580"
         WindowStartupLocation="CenterScreen"
-        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        FontFamily="{DynamicResource Font.Body}" FontSize="13"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
         Background="#F6F7F9" UseLayoutRounding="True" SnapsToDevicePixels="True">
 

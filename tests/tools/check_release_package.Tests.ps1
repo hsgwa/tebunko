@@ -76,6 +76,7 @@ Describe "check_release_package.ps1" -Tag Io {
 
     It "<Name> のとき、通らず、<Expected> を列挙する" -TestCases @(
         @{ Name = "ファイルが 1 つ無い"; Entry = "tebunko/scripts/tebunko/lib.ps1"; Mutate = { $null }; Expected = "zip に無いファイル: tebunko/scripts/tebunko/lib.ps1" }
+        @{ Name = "同梱のフォントが無い"; Entry = "tebunko/scripts/shared/fonts/RethinkSans-wght.ttf"; Mutate = { $null }; Expected = "同梱のフォント・ライセンスの文面が zip に無い: scripts/shared/fonts/RethinkSans-wght.ttf" }
         @{ Name = "余分なファイルがある"; Entry = "tebunko/scripts/extra.ps1"; Mutate = { [byte[]][char[]]"# extra" }; Expected = "zip に余分なファイル: tebunko/scripts/extra.ps1" }
         @{ Name = "1 バイト書き換わっている"; Entry = "tebunko/tebunko.bat"; Mutate = { param($b) $c = [byte[]]$b.Clone(); $c[$c.Length - 1] = $c[$c.Length - 1] -bxor 1; $c }; Expected = "SHA256SUMS.txt のハッシュと一致しません: tebunko.bat" }
         @{ Name = "1 バイト書き換わっていて、カタログとも合わない"; Entry = "tebunko/scripts/tebunko/lib.ps1"; Mutate = { param($b) $c = [byte[]]$b.Clone(); $c[$c.Length - 1] = $c[$c.Length - 1] -bxor 1; $c }; Expected = "カタログの検証に失敗しました" }

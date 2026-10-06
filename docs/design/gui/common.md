@@ -22,7 +22,7 @@
 
 ## 表示・アクセシビリティ
 
-- フォントは Yu Gothic UI（無ければ Meiryo UI）、13 px とする。結果の表は 12 px とする。
+- フォントは同梱の Rethink Sans を先に使い、日本語など足りない文字は Yu Gothic UI（無ければ Meiryo UI）で表す。13 px とする（`scripts/shared/ui/app_host.ps1` の `newAppFontFamily` が作り、`loadXaml` が各画面の `Font.Body` に入れる。フォントの置き場所は `scripts/shared/fonts/`。単一 .ps1 版はフォントを同梱せず Yu Gothic UI・Meiryo UI だけにする）。結果の表は 12 px とする。
 - WPF は高 DPI に自動で対応するため、表示倍率 125 %・150 % でもぼやけない。
 - 状態は**色だけで表さない**。`✓` `✗` `⚠` `⏸` の記号と文言を併記する。一致箇所の強調は背景色に加えて太字にする。
 - 文言は「Excel」ではなく「Office ファイル」とする（対象は Excel・Word・PowerPoint）。

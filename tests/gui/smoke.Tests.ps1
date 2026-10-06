@@ -100,3 +100,15 @@ Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
         compareGuiEnvSnapshot $script:envBeforeSingle (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
 }
+
+Describe "S1 同梱のフォント" -Tag Gui {
+    It "配布する形（scripts\ の写し）に同梱のフォントがあり、Font.Body がそこから作られる" -Skip:($env:TEBUNKO_GUI_SINGLE -eq "1") {
+        $tool = newGuiTool $TestDrive
+        $fonts = "$($tool.Dir)\scripts\shared\fonts"
+        Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+        . "$($tool.Dir)\scripts\shared\ui\app_host.ps1"
+        $family = newAppFontFamily $fonts
+        $family.BaseUri.LocalPath | Should -Be "$fonts\"
+        @([System.Windows.Media.Fonts]::GetFontFamilies($family.BaseUri) | ForEach-Object { $_.FamilyNames.Values }) | Should -Contain "Rethink Sans"
+    }
+}

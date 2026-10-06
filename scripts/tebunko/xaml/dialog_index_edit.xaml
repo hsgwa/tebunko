@@ -4,7 +4,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="インデックス" Width="620" Height="380" MinWidth="520" MinHeight="340"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize"
-        FontFamily="Yu Gothic UI, Meiryo UI" FontSize="13"
+        FontFamily="{DynamicResource Font.Body}" FontSize="13"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
         Background="White" UseLayoutRounding="True" SnapsToDevicePixels="True">
   <Window.Resources>

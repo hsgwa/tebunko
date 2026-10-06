@@ -22,6 +22,7 @@ function startGui {
     # 画面定義（XAML）とアイコンの置き場所
     ${xamlDir}       = "$TebunkoDir\xaml"
     ${sharedXamlDir} = "$TebunkoDir\..\shared\xaml"
+    ${fontsDir}      = "$TebunkoDir\..\shared\fonts"  # 同梱のフォント（Rethink Sans）。無ければ Yu Gothic UI・Meiryo UI
     ${iconFile}      = "$TebunkoDir\tebunko.ico"  # タイトルバーとタスクバーに出すアイコン
     # アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。
     # ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、

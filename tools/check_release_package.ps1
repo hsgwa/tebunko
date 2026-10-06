@@ -8,6 +8,7 @@
 #
 # 確かめること:
 #   1. zip のエントリーが、git ls-files scripts と固定のファイル（tebunko.bat・README.md・LICENSE・VERSION.txt）に過不足なく一致する
+#      （画面のフォントとライセンスの文面 scripts/shared/fonts/ が入っていることも確かめる）
 #   2. 読み込み口（scripts\tebunko\gui.ps1・indexer.ps1）から dot-source でたどれる先がすべて存在する
 #   3. .ps1 が構文エラーなく解析でき、.xaml が XML として読める
 #   4. Test-FileCatalog -Path .\scripts, .\tebunko.bat が Valid になる
@@ -71,6 +72,10 @@ try {
     }
     foreach ($name in $actual) {
         if ($expected -cnotcontains $name) { $failures.Add("zip に余分なファイル: $name") }
+    }
+    # 画面のフォントとライセンスの文面（SIL OFL・ISC は再配布に文面を添えることが条件）は、git の追跡から外れていても必ず入っている
+    foreach ($name in @("RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf", "OFL.txt", "LICENSE-Lucide.txt")) {
+        if ($actual -cnotcontains "tebunko/scripts/shared/fonts/$name") { $failures.Add("同梱のフォント・ライセンスの文面が zip に無い: scripts/shared/fonts/$name") }
     }
 
     [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path -LiteralPath $ZipPath).Path, $extractDir)
