@@ -113,7 +113,7 @@ function getIndexJobBlockedMessage {
     }
     if ($operation -eq "ワークスペースの変更") {
         if ($blocker -eq "インデックス作成中") {
-            return "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。"
+            return "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。"
         }
         if ($blocker -eq "削除中") {
             return "前のインデックスの削除が終わるまでお待ちください。"
@@ -121,7 +121,7 @@ function getIndexJobBlockedMessage {
         return "エクスポート・インポートが終わるまでお待ちください。"
     }
     if ($blocker -eq "インデックス作成中") {
-        return "インデックス作成中はインデックスを${operation}できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。"
+        return "更新中はインデックスを${operation}できません。更新が終わるまでお待ちください（［中止］で止められます）。"
     }
     return "${blocker}は${operation}できません。終わるまでお待ちください。"
 }
@@ -146,7 +146,7 @@ function getIndexTabButtonsEnabled {
 
 function getImportResultStatus {
     # インポートの結果（importIndex の戻り値）から、ステータスに出す文言を返す。
-    # Warnings（同じ元のフォルダが別の名前で既に登録されている等）と、高速検索が次のインデックス作成の後に効くことを添える
+    # Warnings（同じ元のフォルダが別の名前で既に登録されている等）と、高速検索が次の更新の後に効くことを添える
     param (
         $result
     )
@@ -269,7 +269,7 @@ function getIndexRowView {
         [double]$ratio = -1.0
     )
 
-    $notice = if (!$enabled) { "チェックが外れているため、インデックス作成では更新しない（インデックスは残っている）" } else { "" }
+    $notice = if (!$enabled) { "チェックが外れているため、［すべて更新］では更新しない（インデックスは残っている）" } else { "" }
     if ($indexing -and $enabled) {
         $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
         $text = if ($ratio -ge 0) { "更新中 ${percent}%" } else { "更新中" }
@@ -350,7 +350,7 @@ function getFastSearchRowView {
         return @{ Text = "確認中…"; Level = "None"; ToolTip = "Windows Search の状態を確かめている" }
     }
     if ($reason -eq "NoFolder" -and !$hasContent) {
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。インデックス作成が終わると状態を表示する" $checkedAt) }
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。更新が終わると状態を表示する" $checkedAt) }
     }
     if ($reason -eq "NoConnection") {
         return newFastSearchRowResult "不可" "Ng" @("Windows Search に接続できない。Windows Search のサービスが動いているかを確かめる") $true $checkedAt $progress
@@ -367,12 +367,12 @@ function getFastSearchRowView {
     }
     if ($null -eq $entry -or $entry.Folders -eq 0) {
         if ($hasContent -and $indexing) {
-            return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "インデックス作成中。終わると状態を表示する" $checkedAt) }
+            return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "更新中。終わると状態を表示する" $checkedAt) }
         }
         if ($hasContent) {
             return newFastSearchRowResult "不可" "Ng" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
         }
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。インデックス作成が終わると状態を表示する" $checkedAt) }
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。更新が終わると状態を表示する" $checkedAt) }
     }
     if ($reason -eq "NotYet") {
         return newFastSearchRowResult "反映待ち" "Wait" @("Windows Search がまだ索引していない。対象に入っていれば、待つと使えるようになる（対象外のときは［インデックスのオプション］で加える）") $true $checkedAt $progress

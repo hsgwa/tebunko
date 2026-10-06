@@ -41,7 +41,7 @@ Describe "getLeftoverPrompt" -Tag Unit {
         @($prompt.Targets).Id | Should -Be @(1, 2, 3)
         $prompt.Count | Should -Be 3
         $prompt.Summary | Should -Be "Excel 2 件・Word 1 件"
-        $prompt.Heading | Should -Be "前回のインデックス作成で起動した Office が 3 件、残ったまま動いています。終了しますか？"
+        $prompt.Heading | Should -Be "前回の更新で起動した Office が 3 件、残ったまま動いています。終了しますか？"
     }
 
     It "文言・選択肢が決まっている" {
@@ -53,7 +53,7 @@ Describe "getLeftoverPrompt" -Tag Unit {
         $prompt.Facts[0].Title | Should -Be "編集中のファイルは閉じません"
         $prompt.Facts[0].Detail | Should -Be "終了するのは、tebunko がバックグラウンドで起動した PowerPoint 1 件だけです"
         $prompt.Facts[1].Title | Should -Be "保存していない作業が失われることはありません"
-        $prompt.Facts[1].Detail | Should -Be "残っているのは、インデックス作成のために起動したものです"
+        $prompt.Facts[1].Detail | Should -Be "残っているのは、更新のために起動したものです"
         $prompt.Hint | Should -Be "［今回は終了しない］を選んだときは、次に起動したときにもう一度お聞きします。"
         $prompt.CancelText | Should -Be "今回は終了しない"
         $prompt.Choices.Count | Should -Be 1

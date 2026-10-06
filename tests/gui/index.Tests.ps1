@@ -209,7 +209,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "取り込み中の［8 設定］の［変更…］"
             selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
-            closeGuiMessage $S "作成中はワークスペースを変えられません" "作成中の警告" | Out-Null
+            closeGuiMessage $S "更新中はワークスペースを変えられません" "作成中の警告" | Out-Null
             selectGuiTab $S "IndexTab" "IndexingStopButton"
 
             # ［中止］→ 確認で［キャンセル］なら続き、［中止する］なら止まる（#19）

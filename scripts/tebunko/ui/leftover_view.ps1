@@ -58,10 +58,10 @@ function getLeftoverPrompt {
         Count      = $targets.Count
         Summary    = $summary
         Title      = "Office の終了"
-        Heading    = "前回のインデックス作成で起動した Office が $($targets.Count) 件、残ったまま動いています。終了しますか？"
+        Heading    = "前回の更新で起動した Office が $($targets.Count) 件、残ったまま動いています。終了しますか？"
         Facts      = @(
             @{ Kind = "Kept"; Title = "編集中のファイルは閉じません"; Detail = "終了するのは、tebunko がバックグラウンドで起動した ${summary}だけです" }
-            @{ Kind = "Kept"; Title = "保存していない作業が失われることはありません"; Detail = "残っているのは、インデックス作成のために起動したものです" }
+            @{ Kind = "Kept"; Title = "保存していない作業が失われることはありません"; Detail = "残っているのは、更新のために起動したものです" }
         )
         Hint       = "［今回は終了しない］を選んだときは、次に起動したときにもう一度お聞きします。"
         Choices    = @(@{ Text = "終了する"; Value = "stop" })

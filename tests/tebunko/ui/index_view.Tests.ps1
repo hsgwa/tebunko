@@ -76,11 +76,11 @@ Describe "getIndexJobBlockedMessage" -Tag Unit {
     }
 
     It "<blocker> のとき、<operation> の案内を返す" -TestCases @(
-        @{ blocker = "インデックス作成中"; operation = "エクスポート"; expected = "インデックス作成中はインデックスをエクスポートできません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" }
-        @{ blocker = "インデックス作成中"; operation = "追加"; expected = "インデックス作成中はインデックスを追加できません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" }
+        @{ blocker = "インデックス作成中"; operation = "エクスポート"; expected = "更新中はインデックスをエクスポートできません。更新が終わるまでお待ちください（［中止］で止められます）。" }
+        @{ blocker = "インデックス作成中"; operation = "追加"; expected = "更新中はインデックスを追加できません。更新が終わるまでお待ちください（［中止］で止められます）。" }
         @{ blocker = "削除中"; operation = "インポート"; expected = "削除中はインポートできません。終わるまでお待ちください。" }
         @{ blocker = "エクスポート・インポート中"; operation = "削除"; expected = "エクスポート・インポート中は削除できません。終わるまでお待ちください。" }
-        @{ blocker = "インデックス作成中"; operation = "ワークスペースの変更"; expected = "インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。" }
+        @{ blocker = "インデックス作成中"; operation = "ワークスペースの変更"; expected = "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。" }
         @{ blocker = "削除中"; operation = "ワークスペースの変更"; expected = "前のインデックスの削除が終わるまでお待ちください。" }
         @{ blocker = "エクスポート・インポート中"; operation = "ワークスペースの変更"; expected = "エクスポート・インポートが終わるまでお待ちください。" }
     ) {
@@ -118,7 +118,7 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
 }
 
 Describe "getImportResultStatus" -Tag Unit {
-    It "件数と、高速検索が次のインデックス作成の後に効くことを伝える" {
+    It "件数と、高速検索が次の更新の後に効くことを伝える" {
         $status = getImportResultStatus @{ Name = "営業"; Files = 12; Warnings = @() }
         $status | Should -Be "インデックス [営業] をインポートしました（12 ファイル）。高速検索は次のインデックス作成の後に効きます。"
     }

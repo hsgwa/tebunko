@@ -387,7 +387,7 @@ function captureHeavyScene {
         setGuiStep $S "取り込み中の［8 設定］の［変更…］"
         selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
         clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
-        $warning = waitGuiWindow $S "作成中の警告" -Text "作成中はワークスペースを変えられません"
+        $warning = waitGuiWindow $S "作成中の警告" -Text "更新中はワークスペースを変えられません"
         captureGuiState -S $S -Id "settings-tab/running-warning" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($warning)
         closeGuiNativeMessage $S $warning "作成中の警告"
