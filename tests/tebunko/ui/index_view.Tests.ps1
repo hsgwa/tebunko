@@ -437,6 +437,7 @@ Describe "testIndexImportInput（元のフォルダの重なり）" -Tag Unit {
         testIndexImportInput "C:\data\売上" "売上" $items | Should -Be ""
     }
 }
+
 Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
     BeforeAll {
         function newDetailItem {

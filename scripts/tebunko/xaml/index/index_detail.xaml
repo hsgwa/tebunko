@@ -13,7 +13,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <StackPanel>
         <StackPanel Orientation="Horizontal">
-          <TextBlock x:Name="IndexDetailTitle" Style="{StaticResource Heading}" Text="インデックスの状態" />
+          <TextBlock x:Name="IndexDetailTitle" Style="{StaticResource Label.Strong}" Text="インデックスの状態" />
         </StackPanel>
         <!-- 1 つ選んだときの基本の値（名前 - 詳細）。何も選んでいないときは出さない。値は 1 行で、あふれたら「…」 -->
         <ItemsControl x:Name="IndexDetailRows" Margin="0,8,0,0" Visibility="Collapsed">

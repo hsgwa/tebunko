@@ -233,6 +233,14 @@ function updateIndexDetailPanel {
     $view = getIndexDetailView $selected $entry
 
     $ui.IndexDetailTitle.Text = $view.Title
+    $rowsKey = (@($view.Rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
+    if ($script:detailRowsKey -eq $rowsKey -and $null -ne $ui.IndexDetailRows.ItemsSource) {
+        $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
+        $ui.IndexDetailFastText.Text = $view.Fast.Text
+        $ui.IndexDetailFastBar.Value = $view.Fast.Value
+        return
+    }
+    $script:detailRowsKey = $rowsKey
     $rows = New-Object 'System.Collections.ObjectModel.ObservableCollection[DetailRow]'
     foreach ($row in $view.Rows) {
         $detailRow = New-Object DetailRow

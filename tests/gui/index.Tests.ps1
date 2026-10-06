@@ -54,6 +54,9 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 
             # ［OK］で一覧に加わる（#11）
             setGuiStep $S "［OK］で追加"
+            $detailTitle = { getGuiText (findGui $S.Window -Id "IndexDetailTitle") }
+            $detailTexts = { @(getGuiTexts $S.Window) }
+            & $detailTitle | Should -Be "インデックスの状態"
             clickGui $S $dialog "OkButton" "［OK］"
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
@@ -62,6 +65,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 編集: キャンセル・名前の変更（#14）
             setGuiStep $S "［編集…］→［キャンセル］"
             selectGui $row
+            waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (& $detailTitle) -eq "営業 - 詳細" } | Out-Null
             clickGuiRowMenu $S $row "EditIndexButton" "［編集…］"
             $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "NameBox"
             clickGui $S $dialog "CancelButton" "［キャンセル］"
@@ -77,10 +81,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
                 if ($r -and ((getGuiRowTexts $r) -contains "資料")) { $r }
             }
 
-            # 行を選ぶと、詳細の見出しが「<名前> - 詳細」になる
-            setGuiStep $S "行を選ぶと詳細の見出しが変わる"
-            selectGui $row
-            waitGui $S "詳細の見出し" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) -eq "資料 - 詳細" } | Out-Null
+            waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
 
             # ［作成］のチェックを切り替えると、設定への保存と［インデックス作成を開始］の可否に反映される（#16）
             setGuiStep $S "［作成］のチェックの切り替え"
@@ -88,10 +89,12 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             getGuiToggleState $check | Should -Be "On"
             toggleGui $check
             waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
+            waitGui $S "詳細の「インデックス作成」が変わる" ${guiDefaultTimeout} { @(& $detailTexts | Where-Object { $_ -like "対象にしない*" }).Count -eq 1 } | Out-Null
             waitGui $S "設定の enabled が false になる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $false } | Out-Null
             waitGui $S "［インデックス作成を開始］が押せなくなる" ${guiDefaultTimeout} { !(findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
             toggleGui (findGui $row -Type CheckBox)
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
+            waitGui $S "詳細の「インデックス作成」が戻る" ${guiDefaultTimeout} { @(& $detailTexts | Where-Object { $_ -eq "対象にする" }).Count -eq 1 } | Out-Null
             waitGui $S "設定の enabled が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $true } | Out-Null
             waitGui $S "［インデックス作成を開始］が押せるようになる" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
 
