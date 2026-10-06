@@ -667,6 +667,88 @@ function captureSettingsScene {
     }
 }
 
+function newCaptureLeftoverFile {
+    # 偽の行（TEBUNKO_GUI_LEFTOVER_FILE が指す JSON）を作る。本物の Office は使わない。Kind: basic（3 件）・many（12 件）・partial（3 件。Word の 1 件が確認の後に変わる）
+    param ([string]$Path, [string]$Kind)
+
+    $rows = New-Object System.Collections.ArrayList
+    if ($Kind -eq "many") {
+        $apps = @(1..7 | ForEach-Object { "EXCEL" }) + @(1..3 | ForEach-Object { "WINWORD" }) + @(1..2 | ForEach-Object { "POWERPNT" })
+        for ($i = 0; $i -lt $apps.Count; $i++) {
+            [void]$rows.Add(@{ Id = 12840 + $i * 311; ProcessName = $apps[$i]; StartTime = "2030-10-04T18:{0:00}:00" -f (20 + $i) })
+        }
+    } else {
+        [void]$rows.Add(@{ Id = 12840; ProcessName = "EXCEL"; StartTime = "2030-10-04T18:32:00" })
+        [void]$rows.Add(@{ Id = 15012; ProcessName = "EXCEL"; StartTime = "2030-10-04T18:32:00" })
+        $word = @{ Id = 9316; ProcessName = "WINWORD"; StartTime = "2030-10-04T18:41:00" }
+        if ($Kind -eq "partial") { $word.StopStatus = "Changed" }
+        [void]$rows.Add($word)
+    }
+    [IO.File]::WriteAllText($Path, (ConvertTo-Json -InputObject @($rows.ToArray())), (New-Object Text.UTF8Encoding($false)))
+}
+
+function captureLeftoverScene {
+    # window/leftover 系（起動時の「前回残った Office」の確認と、終了したあとのステータス）。
+    # 偽の行を環境変数で差し込む（本物の Office には触れない。終了も偽の結果を作るだけ）
+    param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
+
+    $needed = @("window/leftover", "window/leftover-open", "window/leftover-many", "window/leftover-search", "window/leftover-killed", "window/leftover-partial")
+    if (@($needed | Where-Object { $Ids -contains $_ }).Count -eq 0) { return }
+
+    $run = {
+        param ([string]$Name, [string]$Kind, [scriptblock]$Scene)
+        $tool = newGuiTool (Join-Path $Root "leftover-$Name")
+        newGuiSampleIndex $tool $Root "営業"
+        $file = Join-Path $Root "leftover-$Name.json"
+        newCaptureLeftoverFile $file $Kind
+        $env:TEBUNKO_GUI_LEFTOVER_FILE = $file
+        try {
+            $S = startGui $tool "leftover-$Name"
+        } finally {
+            Remove-Item Env:\TEBUNKO_GUI_LEFTOVER_FILE -ErrorAction SilentlyContinue
+        }
+        invokeGuiScene $S { & $Scene $S }
+    }
+    $common = @{ Ids = $Ids; OutDir = $OutDir; UserName = $UserName; ComputerName = $ComputerName; UserProfile = $UserProfile; Sizes = $Sizes }
+
+    & $run "basic" "basic" {
+        param ($S)
+        $dialog = waitGuiWindow $S "Office の確認" -Id "HeadingText" -Text "残ったまま動いています"
+        captureGuiState -S $S -Id "window/leftover-search" @common -Extra @($dialog)
+        captureGuiState -S $S -Id "window/leftover" @common -Primary $dialog
+        clickGui $S $dialog "LeftoverDetailToggle" "［詳細を表示］"
+        waitGui $S "詳細が開く" ${guiDefaultTimeout} { (@(getGuiTexts $dialog) -join " ") -like "*12840*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-open" @common -Primary $dialog
+        clickGui $S $dialog "LeftoverCancelButton" "［今回は終了しない］"
+        waitGuiWindowClosed $S $dialog "Office の確認"
+        closeGui $S
+    }
+    & $run "many" "many" {
+        param ($S)
+        $dialog = waitGuiWindow $S "Office の確認" -Id "HeadingText" -Text "残ったまま動いています"
+        clickGui $S $dialog "LeftoverDetailToggle" "［詳細を表示］"
+        waitGui $S "詳細が開く" ${guiDefaultTimeout} { (@(getGuiTexts $dialog) -join " ") -like "*12840*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-many" @common -Primary $dialog
+        clickGui $S $dialog "LeftoverCancelButton" "［今回は終了しない］"
+        waitGuiWindowClosed $S $dialog "Office の確認"
+        closeGui $S
+    }
+    & $run "killed" "basic" {
+        param ($S)
+        answerGuiConfirm $S "Office の確認" "残ったまま動いています" "終了する"
+        waitGui $S "結果がステータスに出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "Office を*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-killed" @common
+        closeGui $S
+    }
+    & $run "partial" "partial" {
+        param ($S)
+        answerGuiConfirm $S "Office の確認" "残ったまま動いています" "終了する"
+        waitGui $S "結果がステータスに出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "Office を*" } | Out-Null
+        captureGuiState -S $S -Id "window/leftover-partial" @common
+        closeGui $S
+    }
+}
+
 # ---- メイン ----
 
 $ids = resolveCaptureIds -Only $Only -Ids ${captureIds}
@@ -689,6 +771,7 @@ try {
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSettingsScene     $ids $root $OutDir $userName $computerName $userProfile $sizes
+    captureLeftoverScene     $ids $root $OutDir $userName $computerName $userProfile $sizes
 
     $total = ($sizes | Measure-Object -Sum).Sum
     Write-Host "撮った写真: $($sizes.Count) 枚・合計 $([Math]::Round($total / 1KB)) KB"

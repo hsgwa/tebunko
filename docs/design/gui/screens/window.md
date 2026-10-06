@@ -55,3 +55,27 @@ stateDiagram-v2
 ### window/settings-broken（設定が壊れていたときの知らせ）
 
 ![設定が壊れていたときの知らせ](../../../images/screens/window/settings-broken.png)
+
+### window/leftover（起動時の、前回残った Office の確認）
+
+![前回残った Office の確認](../../../images/screens/window/leftover.png)
+
+### window/leftover-open（詳細を開いた）
+
+![詳細を開いた確認](../../../images/screens/window/leftover-open.png)
+
+### window/leftover-many（数が多い）
+
+![数が多い確認](../../../images/screens/window/leftover-many.png)
+
+### window/leftover-search（［2 検索］の上に出ている）
+
+![［2 検索］の上の確認](../../../images/screens/window/leftover-search.png)
+
+### window/leftover-killed・window/leftover-partial（終了したあとのステータス）
+
+![すべて終了したあと](../../../images/screens/window/leftover-killed.png)
+
+![一部が変わっていたあと](../../../images/screens/window/leftover-partial.png)
+
+この 6 枚は、本物の Office を使わず、偽の行（[画面の実装](../leftover-office.md#画面の実装)の継ぎ目）を差し込んで撮る。

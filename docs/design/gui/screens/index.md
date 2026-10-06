@@ -51,7 +51,7 @@ stateDiagram-v2
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 39 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 45 枚。
 
 **本体・共通（`window`）**
 
@@ -61,6 +61,12 @@ stateDiagram-v2
 | `window/about` | 「tebunko について」 | 8 |
 | `window/close-confirm` | 作成中に閉じるときの確認 | 10 |
 | `window/settings-broken` | 設定が壊れていたときの知らせ（メッセージボックス） | – |
+| `window/leftover` | 起動時の、前回残った Office の確認（基本） | – |
+| `window/leftover-open` | 同・詳細を開いた | – |
+| `window/leftover-many` | 同・数が多い（詳細の表が縦にスクロールする） | – |
+| `window/leftover-search` | 同・［2 検索］の上に出ている | – |
+| `window/leftover-killed` | ［終了する］のあと、すべて終了したときのステータス | – |
+| `window/leftover-partial` | 同・一部が確認の後に変わっていたときのステータス | – |
 
 **［1 インデックス管理］（`index-tab`）**
 

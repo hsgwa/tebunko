@@ -90,6 +90,21 @@
 |---|---|
 | 記録の書き込み・読み込み・一覧・終了 | `scripts/shared/office/office_process.ps1`（`addOfficeRecord`・`readOfficeRecords`・`getOfficeProcesses`・`stopOfficeProcesses`）。プロセスの強制終了はここの 1 か所だけ |
 | 記録の書き込み・削除の呼び出し | `scripts/shared/office/office_app.ps1`（`getApp`・`stopApp`）。置き場所は `indexer_run.ps1` が `getOfficePidDir` で決めて渡す |
-| 文言・出すかどうか・対象の選び方 | `scripts/tebunko/ui/leftover_view.ps1`（判断層。`getLeftoverPrompt`・`getLeftoverResultText`・`getLeftoverPromptTiming`・`getLeftoverTargets`・`getOfficePidQueue`） |
+| 文言・出すかどうか・対象の選び方 | `scripts/tebunko/ui/leftover_view.ps1`（判断層。`getLeftoverPrompt`・`getLeftoverResultText`・`getLeftoverPromptTiming`・`getLeftoverTargets`・`getOfficePidQueue`。詳細の時刻・開け閉めの文字・偽の行の変換もここ） |
+| ダイアログと起動時の呼び出し | `scripts/tebunko/ui/leftover_dialog.ps1`（画面層）・`scripts/tebunko/xaml/dialog_leftover.xaml` |
+
+## 画面の実装
+
+画面側は `scripts/tebunko/ui/leftover_dialog.ps1`（画面層）と `scripts/tebunko/xaml/dialog_leftover.xaml`。
+
+- 起動時の読み込み（`loadStartupData`）の終わりに `startLeftoverCheck` を呼ぶ。読み取りは `startJob` で行い、結果を `decideLeftoverPrompt` に渡す。
+- 起動時のお知らせ（`Add_Loaded` で出すメッセージ）が開いている間は、お知らせの状態を `getLeftoverPromptTiming` に渡して「待つ」にし、閉じたあとに `resumeLeftoverPrompt` でもう一度決める。
+- ダイアログは `showOwnedDialog` で出す（`.ShowDialog(` は直接呼ばない）。既定の取り消しは［今回は終了しない］で、うっかり Enter で終了しない。
+- ［終了する］のあと、確認に出した PID を読み直して選び（`getLeftoverTargets`）、`stopOfficeProcesses` で終了する。名前で探して終了することはしない。
+- 結果の文は、ステータスの欄に出す（`setStatus`。ステータス欄の枠は変えない）。
+
+### 偽の行の継ぎ目（写真・画面のテスト用）
+
+本物の Office を残さずに確認の画面を出せるよう、環境変数 `TEBUNKO_GUI_LEFTOVER_FILE`（JSON のファイル）を `leftover_dialog.ps1` だけが読む。設定されているときは、記録の代わりにその JSON の行（`Id`・`ProcessName`・`StartTime`・`StopStatus`）を使い、終了も結果の文を作るだけでプロセスには触れない。**設定されていなければ本物の動き**になる（既定は本物）。`tests/meta/leftover_seam.Tests.ps1` が、読むファイルが 1 つだけであること・プロセスを止める呼び出しが無いことを確かめる。
 
 記録は共有のワークスペースにも置かれるため、置き場所がネットワークのときは、読み取りを専用の列（`getOfficePidQueue` が `network` を返す）の仕事で行い、届かない共有で画面を止めない。

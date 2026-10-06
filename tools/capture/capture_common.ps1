@@ -8,6 +8,7 @@
 # 拾うだけだった）ため、「撮らないもの」に回し、この一覧には入れない（docs\design\gui\screens\index.md「撮らないもの」）
 ${captureIds} = @(
     "window/startup", "window/about", "window/close-confirm", "window/settings-broken",
+    "window/leftover", "window/leftover-open", "window/leftover-many", "window/leftover-search", "window/leftover-killed", "window/leftover-partial",
     "index-tab/empty", "index-tab/normal", "index-tab/interrupted", "index-tab/add", "index-tab/add-error",
     "index-tab/edit", "index-tab/delete-confirm", "index-tab/unchecked", "index-tab/start-confirm",
     "index-tab/running", "index-tab/stop-confirm", "index-tab/done", "index-tab/failed",
