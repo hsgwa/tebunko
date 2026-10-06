@@ -455,7 +455,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
         runIndexer $root @{} @($timeout) | Should -Be 0
         $status = readTestStatus $root
         $status.Rows["監査\壊れた.pptx"].状態 | Should -Be ${stateFailed}
-        $status.Rows["監査\壊れた.pptx"].エラー | Should -Match "分以内に取り込みが終わらなかった"
+        $status.Rows["監査\壊れた.pptx"].エラー | Should -Match "分以内に更新が終わらなかった"
         # 取り込めたファイルは、制限時間の印が立っていても成功のまま
         $status.Rows["監査\議事録.docx"].状態 | Should -Be ${stateDone}
     }
@@ -816,7 +816,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Reroute | Should -Be $false
         $result.Postponed | Should -Be $false
-        $result.Message | Should -Be "IRM・秘密度ラベルで暗号化されているため取り込めません。"
+        $result.Message | Should -Be "IRM・秘密度ラベルで暗号化されているため更新できません。"
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 

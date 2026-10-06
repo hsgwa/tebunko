@@ -377,7 +377,7 @@ function extractWithPowerPoint {
 # 読み取りのスレッド（Office を持たない）なら $true。Office が要るファイルは「Office が要る」の例外にする
 $script:officeUnavailable = $false
 # Office が要るときの例外の文言（invokeIngestTask が見分けて、司令に回し直しを頼む）
-${officeRequiredMessage} = "このファイルの取り込みには Word・PowerPoint が要ります。"
+${officeRequiredMessage} = "このファイルの更新には Word・PowerPoint が要ります。"
 
 function extractWithOffice {
     # Word・PowerPointどちらかで新形式に変換する（呼び分けをまとめる）。

@@ -338,7 +338,7 @@ function readTextFile {
     $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
     try {
         if ($stream.Length -gt $maxBytes) {
-            throw "ファイルサイズが大きすぎるため取り込めません。"
+            throw "ファイルサイズが大きすぎるため更新できません。"
         }
         $bytes = New-Object byte[] ([int]$stream.Length)
         $read = 0
@@ -353,7 +353,7 @@ function readTextFile {
 
     $encodingName = detectTextEncoding $bytes
     if ($null -eq $encodingName) {
-        throw "テキストファイルではないため取り込めません。"
+        throw "テキストファイルではないため更新できません。"
     }
     return (splitTextLines (decodeTextBytes $bytes $encodingName))
 }

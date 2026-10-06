@@ -102,12 +102,12 @@ function getTmpDirUnavailableMessage {
     )
 
     if ($reason -eq "Brackets") {
-        return "ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。"
+        return "ワークスペースのパスに [ ]（角かっこ）が含まれるため、更新の作業フォルダを置けません。"
     }
     if ($reason -eq "TooLong") {
-        return "ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。"
+        return "ワークスペースのパスが長すぎるため、更新の作業フォルダを置けません。"
     }
-    return "取り込みの作業フォルダを置けません。"
+    return "更新の作業フォルダを置けません。"
 }
 
 function getLegacyIndexState {

@@ -138,7 +138,7 @@ function exportIndexCore {
         $rel = (fromLongPath $file).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readPackFileName $fileName)) {
-            throw "インデックス作成を最後まで行ってからエクスポートしてください（取り込みの途中のファイルが残っています: ${rel}）。"
+            throw "インデックス作成を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
         }
         $packFiles.Add($rel)
     }
