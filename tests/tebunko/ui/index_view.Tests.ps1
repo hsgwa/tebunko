@@ -162,6 +162,23 @@ Describe "getImportSuggestedName / testImportNameCollision" -Tag Unit {
 }
 
 
+Describe "testIndexExportInput" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "フォルダが空なら、指定するよう伝える"; folder = ""; expected = "書き出し先のフォルダを指定してください。" }
+        @{ label = "空白だけでも同じ"; folder = "  "; expected = "書き出し先のフォルダを指定してください。" }
+        @{ label = "フォルダがあれば問題なし"; folder = "C:\共有\書き出し"; expected = "" }
+    ) {
+        param ($label, $folder, $expected)
+        testIndexExportInput $folder | Should -Be $expected
+    }
+}
+
+Describe "getIndexExportNotice" -Tag Unit {
+    It "インデックスの名前を含める" {
+        getIndexExportNotice "営業" | Should -Match "\[営業\]"
+    }
+}
+
 Describe "testIndexImportInput" -Tag Unit {
     It "フォルダが空なら、指定するよう伝える" {
         testIndexImportInput "" "営業" | Should -Be "元のフォルダを指定してください。"

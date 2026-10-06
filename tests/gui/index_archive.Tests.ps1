@@ -31,7 +31,10 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
             clickGuiRowMenu $S $row "ExportIndexButton" "［エクスポート…］"
-            useGuiFolderPicker $S $script:exportDest
+            $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            setGuiText $S (findGui $dialog -Id "ExportPathBox") $script:exportDest
+            clickGui $S $dialog "ExportButton" "［エクスポート］"
+            waitGuiWindowClosed $S $dialog "エクスポートのダイアログ"
             waitGui $S "書き出しの完了" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*書き出しました*"
             } | Out-Null
@@ -51,7 +54,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
             getGuiValue (findGui $dialog -Id "FolderBox") | Should -Be $script:source
-            clickGui $S $dialog "OkButton" "［OK］"
+            clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
             setGuiStep $S "インポートの完了"
@@ -86,7 +89,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             useGuiFileOpenPicker $S $script:zipPath
             $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
-            clickGui $S $dialog "OkButton" "［OK］"
+            clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 
             waitGui $S "インポートの完了" ${guiDefaultTimeout} {

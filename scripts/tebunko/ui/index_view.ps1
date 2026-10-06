@@ -135,6 +135,28 @@ function getImportResultStatus {
     return $text
 }
 
+function testIndexExportInput {
+    # エクスポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
+    # 書き出し先のフォルダが今あるかは、ここでは調べない（画面のスレッドでネットワークのパスを調べないため。書き出す仕事の中で調べる）
+    param (
+        [string]$folder   # 入力された書き出し先のフォルダ
+    )
+
+    if ((normalizeFolderPath $folder) -eq "") {
+        return "書き出し先のフォルダを指定してください。"
+    }
+    return ""
+}
+
+function getIndexExportNotice {
+    # エクスポートのダイアログの案内文
+    param (
+        [string]$indexName
+    )
+
+    return "インデックス [$indexName] を 1 つの zip に書き出します。別の PC・ワークスペースでインポートして使えます。"
+}
+
 function testIndexImportInput {
     # インポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
     # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）。

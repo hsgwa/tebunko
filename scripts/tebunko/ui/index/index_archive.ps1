@@ -32,13 +32,72 @@ function startIndexArchiveJob {
     }
 }
 
+function showIndexExportDialog {
+    # エクスポートのダイアログ。書き出し先のフォルダを返す（キャンセルは $null）
+    param (
+        [string]$indexName
+    )
+
+    $dialog = loadWindow "${xamlDir}\dialog_export.xaml" ${fontsDir}
+    $dialog.Owner = $window
+    $ctrl = @{}
+    foreach ($name in @("ExportButton", "BrowseButton", "ExportPathBox", "IntroText", "ErrorText")) {
+        $ctrl[$name] = $dialog.FindName($name)
+    }
+    $ctrl.IntroText.Text = getIndexExportNotice $indexName
+    $ctrl.ExportPathBox.Text = $workspace.Dir
+
+    # ボタンの Click からは script スコープの入れ物を参照する（showIndexImportDialog と同じ理由）
+    $script:exportDialog = @{ Window = $dialog; Ctrl = $ctrl }
+
+    $ctrl.BrowseButton.Add_Click({
+        safe {
+            $d = $script:exportDialog
+            $initial = normalizeFolderPath $d.Ctrl.ExportPathBox.Text
+            $path = selectFolder "エクスポート先のフォルダを選んでください" $initial $d.Window $false
+            if ($path) {
+                $d.Ctrl.ExportPathBox.Text = $path
+            }
+        }
+    })
+    $ctrl.ExportPathBox.Add_PreviewDragOver({ onFolderDragOver @args })
+    $ctrl.ExportPathBox.Add_PreviewDrop({
+        param ($sender, $e)
+        safe {
+            $folders = @(getDroppedFolders $e)
+            if ($folders.Count -gt 0) {
+                $script:exportDialog.Ctrl.ExportPathBox.Text = $folders[0]
+            }
+        }
+        $e.Handled = $true
+    })
+    $ctrl.ExportButton.Add_Click({
+        safe {
+            $d = $script:exportDialog
+            $message = testIndexExportInput $d.Ctrl.ExportPathBox.Text
+            if ($message -ne "") {
+                $d.Ctrl.ErrorText.Text = $message
+                $d.Ctrl.ErrorText.Visibility = "Visible"
+                return
+            }
+            $d.Window.DialogResult = $true
+        }
+    })
+
+    $result = $null
+    if ($dialog.ShowDialog()) {
+        $result = normalizeFolderPath $ctrl.ExportPathBox.Text
+    }
+    return $result
+}
+
 function newExportIndex {
     # ［エクスポート…］。選んだインデックスを 1 つの zip に書き出す
     $item = $ui.IndexGrid.SelectedItem
     if ($null -eq $item -or !(testIndexOperable "エクスポート")) {
         return
     }
-    $folder = selectFolder "エクスポート先のフォルダを選んでください" $workspace.Dir
+    $folder = showIndexExportDialog $item.Name
     if ($null -eq $folder) {
         return
     }
@@ -47,6 +106,9 @@ function newExportIndex {
     # 保存先フォルダの中身を数えるのも別スレッドで行う（届かないネットワークのフォルダで画面が止まらないように）
     startIndexArchiveJob "エクスポート" {
         param ($name, $folder, $dir, $statusPath, $settingsPath)
+        if (!(Test-Path -LiteralPath (toLongPath $folder) -PathType Container)) {
+            throw "書き出し先のフォルダが見つかりません：$folder"
+        }
         $used = @(Get-ChildItem -LiteralPath (toLongPath $folder) -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
         $destPath = Join-Path $folder (getExportFileName $name $used)
         $ws = [Workspace]::new($dir)
@@ -58,17 +120,17 @@ function newExportIndex {
 }
 
 function showIndexImportDialog {
-    # インポートのダイアログ（追加・編集と同じ見た目の XAML を使う）。決めた内容 @{ Path; Name } を返す（キャンセルは $null）
+    # インポートのダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）
     param (
         [string]$suggestedName,
         $info   # readIndexArchiveInfo の結果
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_index_edit.xaml" ${fontsDir}
+    $dialog = loadWindow "${xamlDir}\dialog_import.xaml" ${fontsDir}
     $dialog.Owner = $window
     $dialog.Title = "インデックスのインポート"
     $ctrl = @{}
-    foreach ($name in @("OkButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
+    foreach ($name in @("ImportButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $ctrl.IntroText.Text = getIndexImportNotice $info
@@ -94,7 +156,7 @@ function showIndexImportDialog {
             }
         }
     })
-    $ctrl.OkButton.Add_Click({
+    $ctrl.ImportButton.Add_Click({
         safe {
             $d = $script:importDialog
             $message = testIndexImportInput $d.Ctrl.FolderBox.Text $d.Ctrl.NameBox.Text $script:targetItems
