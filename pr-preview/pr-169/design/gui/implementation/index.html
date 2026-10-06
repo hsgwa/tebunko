@@ -4250,7 +4250,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/shell/nav.xaml</code><br><code>shell/status_bar.xaml</code></td>
-<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>/<code>KillTabBadge</code>・下の［tebunko について］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（<code>StatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
+<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>/<code>KillTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（<code>StatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/splash.xaml</code></td>
@@ -4282,7 +4282,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_about.xaml</code></td>
-<td>「tebunko について」ダイアログ（左の欄の下の［tebunko について］。<a href="../#画面構成">画面構成</a>）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。<code>ui/about_dialog.ps1</code> が開く</td>
+<td>「バージョン情報」ダイアログ（左の欄の下の［バージョン情報］。<a href="../#画面構成">画面構成</a>）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。<code>ui/about_dialog.ps1</code> が開く</td>
 </tr>
 <tr>
 <td><code>scripts/shared/xaml/dialog_confirm.xaml</code></td>
@@ -4326,7 +4326,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/about_dialog.ps1</code></td>
-<td>左の欄の下の［tebunko について］（<code>shell/nav.xaml</code> の <code>AboutLink</code>）と「tebunko について」ダイアログ（<code>dialog_about.xaml</code>）。<code>AboutLink</code> の <code>Click</code> でダイアログを開く。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
+<td>左の欄の下の［バージョン情報］（<code>shell/nav.xaml</code> の <code>AboutLink</code>）と「バージョン情報」ダイアログ（<code>dialog_about.xaml</code>）。<code>AboutLink</code> の <code>Click</code> でダイアログを開く。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/shell/nav.ps1</code></td>

@@ -3330,21 +3330,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#windowstartup起動中の表示遷移-1" class="md-nav__link">
+  <a href="#windowaboutバージョン情報遷移-8" class="md-nav__link">
     <span class="md-ellipsis">
       
-        window/startup（起動中の表示。遷移 1）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windowabouttebunko-について遷移-8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        window/about（「tebunko について」。遷移 8）
+        window/about（「バージョン情報」。遷移 8）
       
     </span>
   </a>
@@ -4241,21 +4230,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#windowstartup起動中の表示遷移-1" class="md-nav__link">
+  <a href="#windowaboutバージョン情報遷移-8" class="md-nav__link">
     <span class="md-ellipsis">
       
-        window/startup（起動中の表示。遷移 1）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#windowabouttebunko-について遷移-8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        window/about（「tebunko について」。遷移 8）
+        window/about（「バージョン情報」。遷移 8）
       
     </span>
   </a>
@@ -4315,17 +4293,17 @@
 <p>どのタブにいても出る、窓そのものの状態を残す。起動の途中、閉じるときの確認、設定が壊れていたときの知らせがある。</p>
 <h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
 <ul>
-<li>左に画面の一覧（［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］）と、その下に［tebunko について］。</li>
+<li>左に画面の一覧（［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］）と、その下に［バージョン情報］。</li>
 <li>窓の下端に、操作の結果を 1 行で出す状態の欄がある。</li>
 </ul>
 <h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>stateDiagram-v2
-    state "window/startup" as startup
+    state "起動" as startup
     state "各タブ" as tabs
     state "window/about" as about
     state "window/close-confirm" as close
     startup --&gt; tabs: 起動が終わる（1）
-    tabs --&gt; about: tebunko について（8）
+    tabs --&gt; about: バージョン情報（8）
     about --&gt; tabs: ［閉じる］
     tabs --&gt; close: 作成中に閉じる（10）
     close --&gt; tabs: ［閉じない］</code></pre>
@@ -4340,7 +4318,7 @@
 </thead>
 <tbody>
 <tr>
-<td>「tebunko について」</td>
+<td>「バージョン情報」</td>
 <td>アイコン・名前・説明・「バージョン 開発版」、動作環境の表、「MIT ライセンスで公開しています」、［OK］</td>
 </tr>
 <tr>
@@ -4355,10 +4333,8 @@
 </table>
 <p>「版」は、配布物では版の番号が入る。写真は開発中の版で撮っている。</p>
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
-<h3 id="windowstartup起動中の表示遷移-1">window/startup（起動中の表示。遷移 1）<a class="headerlink" href="#windowstartup起動中の表示遷移-1" title="Permanent link">&para;</a></h3>
-<p><img alt="起動中の表示" src="../../../../images/screens/window/startup.png" /></p>
-<h3 id="windowabouttebunko-について遷移-8">window/about（「tebunko について」。遷移 8）<a class="headerlink" href="#windowabouttebunko-について遷移-8" title="Permanent link">&para;</a></h3>
-<p><img alt="「tebunko について」" src="../../../../images/screens/window/about.png" /></p>
+<h3 id="windowaboutバージョン情報遷移-8">window/about（「バージョン情報」。遷移 8）<a class="headerlink" href="#windowaboutバージョン情報遷移-8" title="Permanent link">&para;</a></h3>
+<p><img alt="「バージョン情報」" src="../../../../images/screens/window/about.png" /></p>
 <h3 id="windowclose-confirm作成中に閉じるときの確認遷移-10">window/close-confirm（作成中に閉じるときの確認。遷移 10）<a class="headerlink" href="#windowclose-confirm作成中に閉じるときの確認遷移-10" title="Permanent link">&para;</a></h3>
 <p><img alt="作成中に閉じるときの確認" src="../../../../images/screens/window/close-confirm.png" /></p>
 <h3 id="windowsettings-broken設定が壊れていたときの知らせ">window/settings-broken（設定が壊れていたときの知らせ）<a class="headerlink" href="#windowsettings-broken設定が壊れていたときの知らせ" title="Permanent link">&para;</a></h3>

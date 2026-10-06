@@ -4120,7 +4120,7 @@
 <h2 id="画面全体の遷移">画面全体の遷移<a class="headerlink" href="#画面全体の遷移" title="Permanent link">&para;</a></h2>
 <p>画面ごとの状態と遷移は各ページにある。ここではタブの間の行き来だけを示す。</p>
 <pre class="mermaid"><code>stateDiagram-v2
-    state "起動（window/startup）" as startup
+    state "起動" as startup
     state "［1 インデックス管理］" as t1
     state "［2 検索］" as t2
     state "［8 設定］" as t8
@@ -4153,7 +4153,7 @@
 <li>撮る間はマウス・キーボードに触らない（<a href="../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ。共通の関数 <code>tests/gui/gui_helpers.ps1</code> を使い回す）。</li>
 </ul>
 <h2 id="撮る状態の一覧">撮る状態の一覧<a class="headerlink" href="#撮る状態の一覧" title="Permanent link">&para;</a></h2>
-<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 39 枚。</p>
+<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 38 枚。</p>
 <p><strong>本体・共通（<code>window</code>）</strong></p>
 <table>
 <thead>
@@ -4164,11 +4164,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><code>window/startup</code></td>
-<td>起動中の表示（「起動中…」）</td>
-<td>1</td>
-</tr>
 <tr>
 <td><code>window/about</code></td>
 <td>「tebunko について」</td>
