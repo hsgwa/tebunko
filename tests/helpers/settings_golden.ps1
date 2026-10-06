@@ -26,7 +26,7 @@ function writeGoldenSettings {
     writeSearchOption @{
         UseRegex        = $true
         CaseSensitive   = $true
-        FileFilter      = "*.xlsx;!~$*"
+        FileFilter      = "*.xlsx;!~$*"   # 前の版にだけある項目（今の版の writeSearchOption は無視する）
         IncludeShapes   = $false
         IncludeComments = $false
     } $path

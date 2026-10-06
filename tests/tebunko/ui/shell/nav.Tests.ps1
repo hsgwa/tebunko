@@ -20,7 +20,7 @@ BeforeAll {
         $content | Add-Member ScriptMethod UpdateLayout { $global:navLog.Add("UpdateLayout") }
         $navList = [pscustomobject]@{ SelectedItem = $null }
         $navList | Add-Member ScriptMethod Add_SelectionChanged { param($handler) }
-        $fake = @{ ContentHost = $content; NavList = $navList; WordBox = (newFakeBox "WordBox"); FilterBox = (newFakeBox "FilterBox") }
+        $fake = @{ NavPaneHost = [pscustomobject]@{ Visibility = "Collapsed" }; ContentHost = $content; NavList = $navList; WordBox = (newFakeBox "WordBox"); FilterBox = (newFakeBox "FilterBox") }
         foreach ($name in "SearchTab", "IndexTab", "SettingsTab", "KillTab") { $fake[$name] = [pscustomobject]@{ Name = $name } }
         return $fake
     }
@@ -53,6 +53,14 @@ AfterAll {
 
 Describe "selectScreen" -Tag Unit {
     BeforeEach { resetNav }
+
+    It "左の欄の検索対象のツリー（NavPaneHost）は、検索の画面のときだけ出す" {
+        selectScreen "SearchTab"
+        $script:ui.NavPaneHost.Visibility | Should -Be "Visible"
+        selectScreen "IndexTab"
+        $script:ui.NavPaneHost.Visibility | Should -Be "Collapsed"
+    }
+
 
     It "選んだ画面の中身を ContentHost に差し、ナビの選択も合わせる" {
         selectScreen "SettingsTab"

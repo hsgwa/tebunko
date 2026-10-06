@@ -2,7 +2,7 @@
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\search\search_bar_view.Tests.ps1）。
 
 function describeSearchOption {
-    # 既定から変えた検索条件を「大文字と小文字を区別・対象ファイル：*.xlsx」のように返す（無ければ空）
+    # 既定から変えた検索条件を「大文字と小文字を区別・種類：Excel・テキスト」のように返す（無ければ空）
     param (
         [hashtable]$option
     )
@@ -11,8 +11,9 @@ function describeSearchOption {
     if ($option.CaseSensitive) {
         $items += "大文字と小文字を区別"
     }
-    if ($option.FileFilter) {
-        $items += "対象ファイル：$($option.FileFilter)"
+    $kindText = describeFileKinds $option.FileKinds
+    if ($kindText -ne "") {
+        $items += "種類：$kindText"
     }
     # 既定はどちらも検索する（項目が無い古い形の条件も、検索するものとみなす）
     if ($option.ContainsKey("IncludeShapes") -and -not $option.IncludeShapes) {
@@ -22,6 +23,71 @@ function describeSearchOption {
         $items += "コメントを除く"
     }
     return ($items -join "・")
+}
+
+function getFileKindLabel {
+    # 種類（excel・word・powerpoint・text）のチップに出す名前。知らない種類は空
+    param (
+        [string]$kind
+    )
+
+    switch ($kind) {
+        "excel" { return "Excel" }
+        "word" { return "Word" }
+        "powerpoint" { return "PowerPoint" }
+        "text" { return "テキスト" }
+    }
+    return ""
+}
+
+function toggleFileKind {
+    # チップを押したあとの、選ばれている種類（${fileKindNames} の順）を返す。
+    # 最後の 1 つは外せない（何も選ばない状態にしない）
+    param (
+        [object[]]$kinds,
+        [string]$kind
+    )
+
+    $current = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($current.Count -eq 0) {
+        $current = @(${fileKindNames})
+    }
+    if (${fileKindNames} -notcontains $kind) {
+        return $current
+    }
+    if ($current -contains $kind) {
+        if ($current.Count -le 1) {
+            return $current
+        }
+        return @($current | Where-Object { $_ -ne $kind })
+    }
+    return @(${fileKindNames} | Where-Object { $current -contains $_ -or $_ -eq $kind })
+}
+
+function describeFileKinds {
+    # 絞り込んでいる種類を「Excel・テキスト」の形で返す。すべて選んでいる（または空）ときは空
+    param (
+        [object[]]$kinds
+    )
+
+    $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($chosen.Count -eq 0 -or $chosen.Count -eq ${fileKindNames}.Count) {
+        return ""
+    }
+    return (@($chosen | ForEach-Object { getFileKindLabel $_ }) -join "・")
+}
+
+function getNoKindMatchText {
+    # 選んだ種類に合うファイルが検索の対象に無いときの文言
+    param (
+        [object[]]$kinds
+    )
+
+    $text = describeFileKinds $kinds
+    if ($text -eq "") {
+        return "検索できるファイルがありません。"
+    }
+    return "種類（$text）に合うファイルがありません。"
 }
 
 function getWordNotice {

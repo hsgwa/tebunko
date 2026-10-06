@@ -20,6 +20,8 @@ function selectScreen {
     }
     $script:currentScreen = $name
     $ui.ContentHost.Content = $script:screenContents[$name]
+    # 左の欄の検索対象のツリーは、検索の画面のときだけ出す
+    $ui.NavPaneHost.Visibility = if ($name -eq "SearchTab") { "Visible" } else { "Collapsed" }
     if ($ui.NavList.SelectedItem -ne $ui[$name]) {
         $ui.NavList.SelectedItem = $ui[$name]
     }

@@ -1,0 +1,50 @@
+﻿<!-- 検索の画面の枠。tebunko.xaml の ContentHost に入れる（gui_main.ps1）。上から検索バー・結果の一覧・プレビューを差す口を並べる。
+     検索対象のツリーは左のナビ（NavPaneHost）に差す（target_tree.xaml）。
+     結果の一覧とプレビューの高さは、間の GridSplitter のドラッグで変わる。 -->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <Grid.RowDefinitions>
+    <RowDefinition Height="Auto" />
+    <RowDefinition Height="*" MinHeight="60" />
+    <RowDefinition Height="Auto" />
+    <!-- 下限は、列見出し＋1 行（一致した行）が見える高さ -->
+    <RowDefinition x:Name="DetailRow" Height="200" MinHeight="100" />
+  </Grid.RowDefinitions>
+
+  <ContentControl x:Name="SearchBarHost" Grid.Row="0" Focusable="False" IsTabStop="False" HorizontalContentAlignment="Stretch" />
+  <ContentControl x:Name="ResultListHost" Grid.Row="1" Focusable="False" IsTabStop="False"
+                  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+
+  <!-- 結果の一覧とプレビューの境目。上下にドラッグするとプレビューの高さが変わる -->
+  <GridSplitter Grid.Row="2" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" Cursor="SizeNS"
+                ToolTip="上下にドラッグすると、プレビューの高さを変えられます">
+    <GridSplitter.Template>
+      <ControlTemplate TargetType="GridSplitter">
+        <!-- 当たり判定は 11px 分とり、見た目は境目の細い線と、つまめることが分かる真ん中のグリップにする -->
+        <Border Background="Transparent">
+          <Grid>
+            <Border Height="1" Background="{StaticResource Border.Soft}" VerticalAlignment="Center" />
+            <Border x:Name="Grip" Width="48" Height="5" CornerRadius="3" Background="{StaticResource Border.Strong}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True">
+            <Setter TargetName="Grip" Property="Background" Value="{StaticResource Ink.Muted}" />
+          </Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate>
+    </GridSplitter.Template>
+  </GridSplitter>
+
+  <ContentControl x:Name="PreviewHost" Grid.Row="3" Focusable="False" IsTabStop="False"
+                  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+</Grid>

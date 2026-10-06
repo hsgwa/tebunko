@@ -733,9 +733,9 @@ Describe "prepareHitRow" -Tag Unit {
     }
 }
 
-Describe "結果の表の定義（tab_search.xaml）" -Tag Unit {
+Describe "結果の表の定義（searchesult_list.xaml）" -Tag Unit {
     BeforeAll {
-        $xaml = [xml](Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\tab_search.xaml" -Raw -Encoding UTF8)
+        $xaml = [xml](Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\search\result_list.xaml" -Raw -Encoding UTF8)
         $ns = New-Object System.Xml.XmlNamespaceManager($xaml.NameTable)
         $ns.AddNamespace("p", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
         $resultGrid = $xaml.SelectSingleNode("//p:DataGrid[@*[local-name()='Name']='ResultGrid']", $ns)

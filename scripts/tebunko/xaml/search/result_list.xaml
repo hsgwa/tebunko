@@ -1,0 +1,178 @@
+﻿<!-- 結果の一覧（件数・進捗・保存・絞り込みの行と、ファイルごとに畳める結果の表）。search.xaml の ResultListHost に入れる（gui_main.ps1）。
+     検索できるインデックスが無いときは、表の上に空の状態（案内と［インデックス管理へ］）を出す。 -->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <Grid.RowDefinitions>
+    <RowDefinition Height="Auto" />
+    <RowDefinition Height="*" />
+  </Grid.RowDefinitions>
+
+  <!-- 件数・進捗・保存・絞り込み -->
+  <DockPanel Grid.Row="0" Margin="0,12,0,6">
+    <Grid DockPanel.Dock="Right" Width="220">
+      <TextBox x:Name="FilterBox" FontSize="12" />
+      <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="12" Text="ファイル名・場所・中身で絞り込む" />
+    </Grid>
+    <TextBlock DockPanel.Dock="Right" Text="絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
+    <Button x:Name="ExportButton" DockPanel.Dock="Left" Margin="0,0,14,0" Padding="10,0" MinWidth="0" Height="28"
+            ToolTip="結果をファイルに出力します">
+      <StackPanel Orientation="Horizontal">
+        <Path Data="{StaticResource Icon.Save}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Body}"
+              StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
+        <TextBlock Text="保存" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
+    <!-- 検索した直後は、ファイルごとの見出しだけを出す（ヒットした行は閉じておく）。ここで全部を開く・閉じる -->
+    <Button x:Name="CollapseAllButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="すべて折りたたむ" VerticalAlignment="Center" Margin="0,0,18,0"
+            ToolTip="すべてのファイルを閉じて、ファイルの見出しだけを表示します" />
+    <Button x:Name="ExpandAllButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="すべて展開" VerticalAlignment="Center" Margin="0,0,12,0"
+            ToolTip="すべてのファイルを開いて、ヒットした行を表示します（ヒットが多いと時間がかかります）" />
+    <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
+    <!-- 検索結果の件数は、この画面の主役 -->
+    <TextBlock x:Name="SummaryText" Style="{StaticResource Focal}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+  </DockPanel>
+
+      <!-- 結果の表。ファイルごとの見出しの行（FileGroup）と、開いているファイルの行（HitRow）を並べる（result_list.ps1）。
+           見出しの行は、行の形（Template）を FileHeaderRow に替えて、列をまたいだ 1 行にする -->
+      <DataGrid Grid.Row="1" x:Name="ResultGrid">
+        <DataGrid.Resources>
+          <ControlTemplate x:Key="FileHeaderRow" TargetType="DataGridRow">
+            <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所と件数（件数は絞り込み後の行の数） -->
+            <Border x:Name="HeaderBg" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}"
+                    BorderThickness="0,0,0,1" Padding="8,0,12,0" MinHeight="30" Cursor="Hand" ToolTip="{Binding FullPath}">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding ShownCount, StringFormat={}{0:N0} 件}" Style="{StaticResource Meta}"
+                           VerticalAlignment="Center" MinWidth="48" TextAlignment="Right" Margin="12,0,0,0" />
+                <TextBlock DockPanel.Dock="Right" Text="{Binding LocationText}" Style="{StaticResource Meta}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="260" />
+                <TextBlock x:Name="Arrow" DockPanel.Dock="Left" Text="▸" Foreground="{StaticResource Ink.Muted}" Width="14"
+                           VerticalAlignment="Center" />
+                <!-- アプリのアイコン（Excel・Word・PowerPoint の色と頭文字） -->
+                <Border x:Name="Badge" DockPanel.Dock="Left" Width="18" Height="18" CornerRadius="3" Margin="0,0,8,0"
+                        Background="{StaticResource Ink.Muted}" VerticalAlignment="Center">
+                  <TextBlock x:Name="BadgeText" Text="?" Foreground="White" FontSize="11" FontWeight="Bold"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock DockPanel.Dock="Left" Text="{Binding Book}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding RelDir}" Style="{StaticResource Meta}" VerticalAlignment="Center"
+                           Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
+              </DockPanel>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Bg.Hover}" />
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Accent.Soft}" />
+              </Trigger>
+              <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                <Setter TargetName="Arrow" Property="Text" Value="▾" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding AppKind}" Value="Excel">
+                <Setter TargetName="Badge" Property="Background" Value="#217346" />
+                <Setter TargetName="BadgeText" Property="Text" Value="X" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding AppKind}" Value="Word">
+                <Setter TargetName="Badge" Property="Background" Value="#2B579A" />
+                <Setter TargetName="BadgeText" Property="Text" Value="W" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding AppKind}" Value="PowerPoint">
+                <Setter TargetName="Badge" Property="Background" Value="#C43E1C" />
+                <Setter TargetName="BadgeText" Property="Text" Value="P" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding AppKind}" Value="テキスト">
+                <Setter TargetName="Badge" Property="Background" Value="{StaticResource Ink.Muted}" />
+                <Setter TargetName="BadgeText" Property="Text" Value="T" />
+              </DataTrigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </DataGrid.Resources>
+        <DataGrid.RowStyle>
+          <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Style.Triggers>
+              <!-- 読み上げに使われるのは行の名前。見出しの行はセルが無いため、ファイル名と、フォルダ・場所・件数を行に付ける -->
+              <DataTrigger Binding="{Binding IsFileHeader}" Value="True">
+                <Setter Property="Template" Value="{StaticResource FileHeaderRow}" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding Book}" />
+                <Setter Property="AutomationProperties.HelpText">
+                  <Setter.Value>
+                    <MultiBinding StringFormat="{}{0}　{1}　{2:N0} 件">
+                      <Binding Path="RelDir" />
+                      <Binding Path="LocationText" />
+                      <Binding Path="ShownCount" />
+                    </MultiBinding>
+                  </Setter.Value>
+                </Setter>
+              </DataTrigger>
+              <DataTrigger Binding="{Binding IsFileHeader}" Value="False">
+                <Setter Property="AutomationProperties.Name" Value="{Binding PlaceDisplay}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </DataGrid.RowStyle>
+        <DataGrid.Columns>
+          <!-- 場所は表示用の文字（[シート]売上!B12・3 ページ（目安） など）。並べ替えは元の名前（ページ003 など、桁をそろえてある）→ 行番号の順。
+               幅より長いときはツールチップで全文を出す -->
+          <DataGridTextColumn Header="場所" Binding="{Binding PlaceDisplay}" SortMemberPath="Location" Width="160">
+            <DataGridTextColumn.ElementStyle>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource Cell.Meta}">
+                <Setter Property="ToolTip" Value="{Binding PlaceDisplay}" />
+              </Style>
+            </DataGridTextColumn.ElementStyle>
+          </DataGridTextColumn>
+          <DataGridTextColumn Header="種別" Binding="{Binding Kind}" Width="64" ElementStyle="{StaticResource Cell.Meta}" />
+          <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="Line">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <ItemsControl ItemsSource="{Binding Segments}" ToolTip="{Binding DisplayLine}" ClipToBounds="True">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock x:Name="Seg" Style="{StaticResource Cell}" TextTrimming="None" Text="{Binding Text}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsHit}" Value="True">
+                          <Setter TargetName="Seg" Property="Background" Value="{StaticResource Hit}" />
+                          <Setter TargetName="Seg" Property="FontWeight" Value="SemiBold" />
+                          <Setter TargetName="Seg" Property="Foreground" Value="{StaticResource Ink.Strong}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+            <MenuItem x:Name="MenuOpen" Header="元のファイルを開く（編集する）" />
+            <MenuItem x:Name="MenuOpenReadOnly" Header="読み取り専用で開く" />
+            <MenuItem x:Name="MenuOpenNew" Header="新規で開く" />
+            <MenuItem x:Name="MenuOpenFolder" Header="フォルダを開く" />
+            <Separator />
+            <MenuItem x:Name="MenuCopy" Header="選択行をコピー" InputGestureText="Ctrl+C" />
+            <MenuItem x:Name="MenuCopyPath" Header="ファイルのパスをコピー" />
+          </ContextMenu>
+        </DataGrid.ContextMenu>
+      </DataGrid>
+
+  <!-- 検索できるインデックスが無いときの空の状態 -->
+  <StackPanel x:Name="ResultEmptyState" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+    <Path Style="{StaticResource Illust.Path}" Data="{StaticResource Icon.FolderSearch}" HorizontalAlignment="Center" />
+    <TextBlock Text="検索できるインデックスがありません" Style="{StaticResource Heading}" HorizontalAlignment="Center" Margin="0,14,0,4" />
+    <TextBlock Text="先にインデックスを作成すると、ここで検索できます。" Style="{StaticResource Meta}" HorizontalAlignment="Center" />
+    <Button x:Name="GoIndexTabButton" Style="{StaticResource Primary}" Content="インデックス管理へ" MinWidth="140" Height="32" Margin="0,16,0,0" />
+  </StackPanel>
+</Grid>

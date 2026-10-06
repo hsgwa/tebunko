@@ -6,16 +6,49 @@ BeforeAll {
 
 Describe "describeSearchOption" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "既定のままなら空"; option = @{ CaseSensitive = $false; FileFilter = "" }; expected = "" }
-        @{ name = "大文字と小文字の区別を出す"; option = @{ CaseSensitive = $true; FileFilter = "" }; expected = "大文字と小文字を区別" }
-        @{ name = "対象ファイルを出す"; option = @{ CaseSensitive = $false; FileFilter = "*.xlsx" }; expected = "対象ファイル：*.xlsx" }
-        @{ name = "両方あれば中黒でつなぐ"; option = @{ CaseSensitive = $true; FileFilter = "*.xlsx" }; expected = "大文字と小文字を区別・対象ファイル：*.xlsx" }
-        @{ name = "図形・コメントを含めるなら出さない"; option = @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true }; expected = "" }
-        @{ name = "図形・コメントを外したら出す"; option = @{ CaseSensitive = $false; FileFilter = ""; IncludeShapes = $false; IncludeComments = $false }; expected = "図形を除く・コメントを除く" }
-        @{ name = "コメントだけ外したらコメントだけ出す"; option = @{ CaseSensitive = $false; FileFilter = ""; IncludeComments = $false }; expected = "コメントを除く" }
+        @{ name = "既定のままなら空"; option = @{ CaseSensitive = $false; FileKinds = @() }; expected = "" }
+        @{ name = "大文字と小文字の区別を出す"; option = @{ CaseSensitive = $true; FileKinds = @() }; expected = "大文字と小文字を区別" }
+        @{ name = "種類を絞っていれば出す"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "text") }; expected = "種類：Excel・テキスト" }
+        @{ name = "すべての種類なら出さない"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "word", "powerpoint", "text") }; expected = "" }
+        @{ name = "両方あれば中黒でつなぐ"; option = @{ CaseSensitive = $true; FileKinds = @("word") }; expected = "大文字と小文字を区別・種類：Word" }
+        @{ name = "図形・コメントを含めるなら出さない"; option = @{ CaseSensitive = $false; IncludeShapes = $true; IncludeComments = $true }; expected = "" }
+        @{ name = "図形・コメントを外したら出す"; option = @{ CaseSensitive = $false; IncludeShapes = $false; IncludeComments = $false }; expected = "図形を除く・コメントを除く" }
+        @{ name = "コメントだけ外したらコメントだけ出す"; option = @{ CaseSensitive = $false; IncludeComments = $false }; expected = "コメントを除く" }
     ) {
         param ($name, $option, $expected)
         describeSearchOption $option | Should -Be $expected
+    }
+}
+
+Describe "種類のチップ" -Tag Unit {
+    It "getFileKindLabel: <kind> は <expected>" -TestCases @(
+        @{ kind = "excel"; expected = "Excel" }
+        @{ kind = "word"; expected = "Word" }
+        @{ kind = "powerpoint"; expected = "PowerPoint" }
+        @{ kind = "text"; expected = "テキスト" }
+        @{ kind = "pdf"; expected = "" }
+    ) {
+        param ($kind, $expected)
+        getFileKindLabel $kind | Should -Be $expected
+    }
+
+    It "toggleFileKind: <name>" -TestCases @(
+        @{ name = "外す"; kinds = @("excel", "word", "powerpoint", "text"); kind = "word"; expected = "excel,powerpoint,text" }
+        @{ name = "足す（決まった順に並ぶ）"; kinds = @("text", "excel"); kind = "word"; expected = "excel,word,text" }
+        @{ name = "最後の 1 つは外せない"; kinds = @("excel"); kind = "excel"; expected = "excel" }
+        @{ name = "空はすべて選んでいるものとして扱う"; kinds = @(); kind = "text"; expected = "excel,word,powerpoint" }
+        @{ name = "知らない種類は変えない"; kinds = @("excel", "text"); kind = "pdf"; expected = "excel,text" }
+    ) {
+        param ($name, $kinds, $kind, $expected)
+        (toggleFileKind $kinds $kind) -join "," | Should -Be $expected
+    }
+
+    It "getNoKindMatchText: <name>" -TestCases @(
+        @{ name = "絞っていれば種類を示す"; kinds = @("word", "text"); expected = "種類（Word・テキスト）に合うファイルがありません。" }
+        @{ name = "絞っていなければ種類を示さない"; kinds = @(); expected = "検索できるファイルがありません。" }
+    ) {
+        param ($name, $kinds, $expected)
+        getNoKindMatchText $kinds | Should -Be $expected
     }
 }
 

@@ -85,15 +85,23 @@ function startGui {
             "FailedPanel", "FailedHeading", "FailedGrid",
             "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
             "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
-        @{ File = "tab_search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
-            "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "FileFilterBox", "FileFilterPlaceholder",
-            "WordNotice", "SearchTargetText", "GoIndexTabButton", "FastSearchText",
-            "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
-            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ResultGrid",
-            "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath",
+        @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
+            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow") }
+        @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
+            "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
+            "FileKindChips", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
+            "WordNotice", "SearchTargetText", "FastSearchText") }
+        @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
+            "IndexTree", "IndexTreePlaceholder", "IndexTreeFilterBox", "IndexTreeFilterPlaceholder",
+            "CheckAllIndexButton", "UncheckAllIndexButton") }
+        @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
+            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton",
+            "ResultGrid", "ResultEmptyState", "GoIndexTabButton",
+            "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath") }
+        @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
             "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
             "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
-            "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
+            "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "tab_settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
         @{ File = "tab_kill.xaml"; Slot = "ContentHost"; Screen = "KillTab"; Names = @(
@@ -146,6 +154,7 @@ function startGui {
     . "$TebunkoDir\ui\search\search_bar_view.ps1"
     . "$TebunkoDir\ui\search\result_list_view.ps1"
     . "$TebunkoDir\ui\search\open_source_view.ps1"
+    . "$TebunkoDir\ui\search\target_tree_view.ps1"
     . "$TebunkoDir\ui\preview_view.ps1"
     . "$TebunkoDir\ui\settings_view.ps1"
     . "$TebunkoDir\ui\about_view.ps1"
@@ -154,7 +163,9 @@ function startGui {
     . "$TebunkoDir\ui\index_tab.ps1"
     . "$TebunkoDir\ui\indexing_tab.ps1"
     . "$TebunkoDir\ui\result_list.ps1"
-    . "$TebunkoDir\ui\search_tab.ps1"
+    . "$TebunkoDir\ui\search\search_bar.ps1"
+    . "$TebunkoDir\ui\search\search_session.ps1"
+    . "$TebunkoDir\ui\search\result_filter.ps1"
     . "$TebunkoDir\ui\preview.ps1"
     . "$TebunkoDir\ui\open_source.ps1"
     . "$TebunkoDir\ui\index_tree.ps1"

@@ -20,10 +20,10 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "起動時のタブ（インデックスが無い）"
             getGuiSelectedTab $S | Should -Be "IndexTab"
 
-            # ［2 検索］の［インデックスを作成する］で［1］へ（#26）
-            setGuiStep $S "［2 検索］の［インデックスを作成する］"
+            # ［2 検索］の［インデックス管理へ］で［1］へ（#26）
+            setGuiStep $S "［2 検索］の［インデックス管理へ］"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
-            clickGui $S $S.Window "GoIndexTabButton" "［インデックスを作成する］"
+            clickGui $S $S.Window "GoIndexTabButton" "［インデックス管理へ］"
             waitGui $S "［1 インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
 
             # 追加: キャンセル（#11）

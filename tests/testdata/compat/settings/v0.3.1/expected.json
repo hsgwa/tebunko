@@ -12,7 +12,6 @@
     ],
     "useRegex": true,
     "caseSensitive": true,
-    "fileFilter": "*.xlsx;!~$*",
     "includeShapes": false,
     "includeComments": false,
     "openMode": "readOnly",
@@ -33,10 +32,10 @@
         "readSearchOption": {
             "UseRegex": true,
             "CaseSensitive": true,
-            "FileFilter": "*.xlsx;!~$*",
             "IncludeShapes": false,
             "IncludeComments": false
         },
+        "readFileKinds": ["excel", "word", "powerpoint", "text"],
         "readOpenMode": "readOnly",
         "getWorkDir": "C:\\tebunko_golden\\ws"
     }

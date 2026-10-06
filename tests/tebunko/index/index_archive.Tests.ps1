@@ -725,7 +725,7 @@ Describe "importIndex" -Tag Io {
             [pscustomobject]@{ Name = "総務"; Path = "C:\総務"; Enabled = $true }
         ) $settingsB
         updateSettings "caseSensitive" $true $settingsB
-        updateSettings "fileFilter" "*.xlsx" $settingsB
+        updateSettings "useRegex" $true $settingsB
         $status = readStatusFile $wsB.StatusFile
         writeStatusFile @(
             [pscustomobject]@{ Path = "C:\経理"; Name = "経理" }
@@ -746,7 +746,7 @@ Describe "importIndex" -Tag Io {
         @($targets | Where-Object { $_.Name -eq "経理" })[0].Path | Should -Be "C:\経理"
         $settings = readSettings $settingsB
         $settings.caseSensitive | Should -Be $true
-        $settings.fileFilter | Should -Be "*.xlsx"
+        $settings.useRegex | Should -Be $true
 
         # インデックス作成の始めと同じ手順: 名前の割り当て・消えたフォルダの整理。今の設定にあるインデックスは消えない
         $folders = @(assignIndexNames $targets (readStatusFile $wsB.StatusFile).Folders)

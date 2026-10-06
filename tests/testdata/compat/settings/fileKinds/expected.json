@@ -13,7 +13,6 @@
     "fileKinds": ["excel", "text"],
     "useRegex": true,
     "caseSensitive": true,
-    "fileFilter": "*.xlsx;!~$*",
     "includeShapes": false,
     "includeComments": false,
     "openMode": "readOnly",
@@ -35,7 +34,6 @@
         "readSearchOption": {
             "UseRegex": true,
             "CaseSensitive": true,
-            "FileFilter": "*.xlsx;!~$*",
             "IncludeShapes": false,
             "IncludeComments": false
         },

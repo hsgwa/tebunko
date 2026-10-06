@@ -1,8 +1,4 @@
-﻿# ［2 検索］タブ（検索条件・検索の実行・結果の一覧と絞り込み）。
-
-# ============================================================================
-# ［2 検索］
-# ============================================================================
+﻿# 検索の実行（開始・中止・結果の取り込み・終わりの文言）の画面層。検索条件の画面は search_bar.ps1、結果の絞り込みは result_filter.ps1。
 
 # 結果（ヒットした行・ファイルごとの見出し）と表の中身は result_list.ps1
 $script:search = $null
@@ -15,95 +11,6 @@ $script:tsvCache = newTsvTextCache
 $script:searchService = newSearchService $script:tsvCache
 # Windows Search が使えるか（高速検索の使用可否に使う。$null はまだ確かめていない）
 $script:fastAvailable = $null
-
-# 検索ワード（前後の空白を除く）
-function getWordText {
-    return $ui.WordBox.Text.Trim()
-}
-
-function getSearchOptionFromUi {
-    # 画面の検索条件を readSearchOption と同じ形で返す
-    return @{
-        UseRegex      = [bool]$ui.RegexCheck.IsChecked
-        CaseSensitive = [bool]$ui.CaseCheck.IsChecked
-        FileFilter    = $ui.FileFilterBox.Text.Trim()
-        IncludeShapes   = [bool]$ui.ShapeCheck.IsChecked
-        IncludeComments = [bool]$ui.CommentCheck.IsChecked
-    }
-}
-
-function setSearchOptionToUi {
-    param (
-        [hashtable]$option
-    )
-
-    $ui.RegexCheck.IsChecked = [bool]$option.UseRegex
-    $ui.CaseCheck.IsChecked = [bool]$option.CaseSensitive
-    $ui.FileFilterBox.Text = [string]$option.FileFilter
-    $ui.ShapeCheck.IsChecked = [bool]$option.IncludeShapes
-    $ui.CommentCheck.IsChecked = [bool]$option.IncludeComments
-}
-
-function updateFastSearchView {
-    # 高速検索の使用可否（ワード・［正規表現を使う］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）
-    $ui.FastSearchText.Text = (getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)).Text
-}
-
-function checkFastSearchAvailable {
-    # Windows Search が使えるか（system_index が索引の対象か）を別スレッドで確かめる（画面を固めないように）
-    startJob {
-        param ($systemRoot)
-        @{ Root = $systemRoot; Available = (testWindowsSearch $systemRoot) }
-    } @($workspace.SystemIndexDir) {
-        param ($output, $errorText)
-        $result = if (!$errorText -and $output.Count -gt 0) { $output[0] } else { $null }
-        if ($result -and $result.Root -ne $workspace.SystemIndexDir) {
-            # 確かめている間にワークスペースを変えた（切り替えたときに確かめ直している）
-            return
-        }
-        $script:fastAvailable = if ($result) { [bool]$result.Available } else { $false }
-        updateFastSearchView
-    }
-}
-
-function updateWordNotice {
-    updateFastSearchView
-    $notice = getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
-    if ($notice -ne "") {
-        $ui.WordNotice.Text = $notice
-        $ui.WordNotice.Visibility = "Visible"
-    } else {
-        $ui.WordNotice.Visibility = "Collapsed"
-    }
-    updateSearchButton
-}
-
-function updateSearchButton {
-    $noIndex = $script:indexSummary -and $script:indexSummary["Count"] -eq 0
-    $state = newSearchButtonState ([bool]$script:search) ([bool]($script:search -and $script:search.Shared.Stop)) `
-        (getWordText) (!$noIndex) @(getSearchTargets).Count
-    $ui.SearchButton.Content = $state.Content
-    $ui.SearchButton.IsEnabled = $state.Enabled
-}
-
-function updateSearchTarget {
-    $targets = @(getSearchTargets)
-    $summary = $script:indexSummary
-    if ($summary -and $summary["Count"] -eq 0) {
-        $ui.SearchTargetText.Text = "検索対象：なし（インデックスがありません。先に［1 インデックス管理］で作成してください）"
-    } elseif ($targets.Count -eq 0) {
-        $ui.SearchTargetText.Text = "検索対象：なし（左の一覧で、検索するインデックス・フォルダにチェックを付けてください）"
-    } elseif (!(isAllIndexChecked)) {
-        $ui.SearchTargetText.Text = "検索対象：$(describeSearchTargets $targets)"
-    } elseif ($null -eq $summary) {
-        $ui.SearchTargetText.Text = "検索対象：すべて（確認中…）"
-    } else {
-        $ui.SearchTargetText.Text = "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])）"
-    }
-    $ui.SearchTargetText.ToolTip = $ui.SearchTargetText.Text
-    $ui.GoIndexTabButton.Visibility = if ($summary -and $summary["Count"] -eq 0) { "Visible" } else { "Collapsed" }
-    updateSearchButton
-}
 
 function startSearch {
     if ($script:search) {
@@ -213,7 +120,8 @@ function pumpSearch {
         }
         [void]$script:dirtyGroups.Add($group)
         $script:hitCount++
-    }    flushResults
+    }
+    flushResults
 
     if ($shared.Total -gt 0) {
         $ratio = $shared.Done / $shared.Total
@@ -272,7 +180,7 @@ function finishSearch {
 
     # 高速検索では、候補の無いフォルダの集約ファイルを集めないため、集めた数が 0 でも「インデックスが無い」とは限らない
     if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
-        $ui.SummaryText.Text = "対象ファイル（$($s.Option.FileFilter)）に一致するファイルがありません。"
+        $ui.SummaryText.Text = getNoKindMatchText $s.Option.FileKinds
     } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "検索対象のインデックスがありません。先にインデックスを作成してください。"
     } elseif ($count -eq 0) {
@@ -293,7 +201,7 @@ function finishSearch {
     }
     if ($shared.Truncated) {
         # パスの順に検索して打ち切るため、この先のファイルのヒットは結果に出ない。そのことが分かる文面にする
-        $status = "$(${searchLimit}.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・対象ファイル・検索対象で絞り込んでください。"
+        $status = "$(${searchLimit}.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。"
     } elseif ($shared.Cancelled) {
         $status = "中止しました（$($count.ToString('N0')) 件まで表示）"
     }
@@ -310,75 +218,3 @@ function finishSearch {
 # 検索結果を表に移す 1 回あたりの時間（ミリ秒）。タイマーの間隔（100 ミリ秒）より短くし、その間も画面が操作できるようにする
 ${searchPumpMilliseconds} = 60
 $script:searchTimer = newTimer 100 { safe { pumpSearch } }
-
-# ---- 絞り込み・選択行の詳細 ----
-
-function applyFilter {
-    $script:filterText = $ui.FilterBox.Text.Trim()
-    applyResultFilter $script:filterText
-    if ($script:lastSearch -and !$script:search -and $script:hitCount -gt 0) {
-        $shown = getShownHitCount
-        if ($script:filterText -eq "") {
-            finishSummaryText
-        } else {
-            $ui.SummaryText.Text = "$($script:hitCount.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
-        }
-    }
-}
-
-function finishSummaryText {
-    $ui.SummaryText.Text = "$($script:hitCount.ToString('N0')) 件（$($script:fileGroups.Count.ToString('N0')) ファイル）"
-}
-
-$script:filterTimer = newTimer 300 {
-    $script:filterTimer.Stop()
-    safe { applyFilter }
-}
-
-# ---- イベント ----
-
-$ui.WordBox.Add_TextChanged({ safe { updateWordNotice } })
-$ui.WordBox.Add_PreviewKeyDown({
-    param ($sender, $e)
-    if ($e.Key -eq "Return") {
-        safe {
-            if (!$script:search) {
-                startSearch
-            }
-        }
-        $e.Handled = $true
-    }
-})
-$ui.SearchButton.Add_Click({ safe { startSearch } })
-$ui.RegexCheck.Add_Click({
-    safe {
-        writeSearchOption @{ UseRegex = [bool]$ui.RegexCheck.IsChecked }
-        updateWordNotice
-    }
-})
-$ui.CaseCheck.Add_Click({ safe { writeSearchOption @{ CaseSensitive = [bool]$ui.CaseCheck.IsChecked } } })
-$ui.ShapeCheck.Add_Click({ safe { writeSearchOption @{ IncludeShapes = [bool]$ui.ShapeCheck.IsChecked } } })
-$ui.CommentCheck.Add_Click({ safe { writeSearchOption @{ IncludeComments = [bool]$ui.CommentCheck.IsChecked } } })
-$ui.FileFilterBox.Add_TextChanged({
-    $ui.FileFilterPlaceholder.Visibility = if ($ui.FileFilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
-})
-# 対象ファイルは入力を終えたとき（フォーカスが外れたとき・検索したとき）に保存する
-$ui.FileFilterBox.Add_LostFocus({ safe { writeSearchOption @{ FileFilter = $ui.FileFilterBox.Text.Trim() } } })
-$ui.FileFilterBox.Add_KeyDown({
-    param ($sender, $e)
-    if ($e.Key -eq "Return") {
-        safe {
-            if (!$script:search) {
-                startSearch
-            }
-        }
-        $e.Handled = $true
-    }
-})
-
-$ui.GoIndexTabButton.Add_Click({ selectScreen "IndexTab" })
-$ui.FilterBox.Add_TextChanged({
-    $ui.FilterPlaceholder.Visibility = if ($ui.FilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
-    $script:filterTimer.Stop()
-    $script:filterTimer.Start()
-})

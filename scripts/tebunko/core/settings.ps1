@@ -26,7 +26,6 @@ function newSettings {
         fileKinds          = @()      # 検索の対象にするファイルの種類（excel・word・powerpoint・text の配列。キーが無い・空ならすべて。readFileKinds）
         useRegex           = $false   # 検索ワードを正規表現として扱う
         caseSensitive      = $false   # 英字の大文字と小文字を区別する
-        fileFilter         = ""       # 対象ファイル（元のファイル名のワイルドカード。; 区切り、! で始まるものは除外。空ならすべて）
         includeShapes      = $true    # 図形（テキストボックス等）の文字も検索する（場所 "<元の場所>[図形]"。index_name.ps1 の objectPlacePattern）
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
@@ -406,14 +405,14 @@ function removeSearchExcludesUnder {
 
 
 ${searchOptionKeys} = [ordered]@{
-    UseRegex = "useRegex"; CaseSensitive = "caseSensitive"; FileFilter = "fileFilter"
+    UseRegex = "useRegex"; CaseSensitive = "caseSensitive"
     IncludeShapes = "includeShapes"; IncludeComments = "includeComments"
 }
 
 
 function readSearchOption {
-    # 画面の検索オプションを @{ UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments } で返す。
-    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて・図形とコメントも検索する
+    # 画面の検索オプションを @{ UseRegex; CaseSensitive; IncludeShapes; IncludeComments } で返す。
+    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・図形とコメントも検索する（検索するファイルの種類は readFileKinds）
     param (
         [string]$path = ${settingsFile}
     )

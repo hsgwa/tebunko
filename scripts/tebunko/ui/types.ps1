@@ -148,7 +148,7 @@ class PreviewTable {
 # 開いたとき・絞り込み・並べ替え・出力のときに初めて作って Rows に入れる。開いているときだけ、見出しの下に表の行として並べる（result_list.ps1）。
 # 文言（AppKind・LocationText）は画面側で判断層（search\result_list_view.ps1）の関数から作って入れる
 class FileGroup : NotifyBase {
-    [bool]$IsFileHeader = $true   # 結果の表で見出しの形にする（tab_search.xaml の FileHeaderRow）
+    [bool]$IsFileHeader = $true   # 結果の表で見出しの形にする（search/result_list.xaml の FileHeaderRow）
     [int]$Order                   # 見つかった順（並べ替えで同じ値のときの順）
     [string]$Book
     [string]$RelDir

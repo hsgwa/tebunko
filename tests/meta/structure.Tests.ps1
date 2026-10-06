@@ -52,6 +52,9 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "tebunko\ui\index_view.ps1" }
         @{ file = "tebunko\ui\shell\nav_view.ps1" }
         @{ file = "tebunko\ui\shell\nav.ps1" }
+        @{ file = "tebunko\ui\search\search_bar_view.ps1" }
+        @{ file = "tebunko\ui\search\result_list_view.ps1" }
+        @{ file = "tebunko\ui\search\open_source_view.ps1" }
     ) {
         $script:targets | Should -Contain $file
     }
@@ -64,6 +67,9 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "shared\ui\app_host.ps1" }
         @{ file = "tebunko\ui\splash.ps1" }
         @{ file = "shared\ui\folder_dialog.ps1" }
+        @{ file = "tebunko\ui\search\search_bar.ps1" }
+        @{ file = "tebunko\ui\search\search_session.ps1" }
+        @{ file = "tebunko\ui\search\result_filter.ps1" }
     ) {
         $script:targets | Should -Not -Contain $file
     }

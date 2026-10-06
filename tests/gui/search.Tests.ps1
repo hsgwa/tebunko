@@ -70,6 +70,20 @@ Describe "S4 検索の遷移" -Tag Gui {
             setGuiText $S (findGui $S.Window -Id "FilterBox") ""
             waitGui $S "絞り込みを消すと 2 件に戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
 
+            # 種類のチップを外すと、その種類のファイルが検索から外れる。戻すと元に戻る（最後の 1 つは外せない）
+            setGuiStep $S "種類のチップ［Word］を外して検索"
+            toggleGui (findGui $S.Window -Id "KindChipWord")
+            waitGui $S "チップ［Word］が外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "KindChipWord")) -eq "Off" } | Out-Null
+            & $search "単価"
+            waitGui $S "Word を除いた該当 1 件" ${guiDefaultTimeout} { (& $summary) -like "該当 1 件*" } | Out-Null
+            setGuiStep $S "チップ［Word］を戻して検索"
+            toggleGui (findGui $S.Window -Id "KindChipWord")
+            waitGui $S "チップ［Word］が付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "KindChipWord")) -eq "On" } | Out-Null
+            & $search "単価"
+            waitGui $S "該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "該当 2 件*" } | Out-Null
+            clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+            waitGui $S "結果の行が 2 件出る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
+
             # 元のファイルが無い行で［… で開く］を押すと、確認が出る。［キャンセル］／［フォルダを選ぶ］→ フォルダ選択［キャンセル］（#29）
             setGuiStep $S "結果の行を選ぶ"
             selectGui (@(& $hitRows) | Select-Object -Last 1)

@@ -4,6 +4,8 @@
 #   ・起動口と画面の枠: gui.ps1・gui_main.ps1・shell.ps1・app_host.ps1・splash.ps1
 #   ・タブ: *_tab.ps1
 #   ・ダイアログ: *_dialog.ps1
+#   ・画面ごとのフォルダ（tebunko\ui\search\）の画面層: 同じ名前のテスト（tests\tebunko\ui\search\<名前>.Tests.ps1）が無いもの。
+#     名前だけで決めず、フォルダとテストの有無で決める（判断層の *_view.ps1 は、テストがあるので分母に入る）
 # 画面層のファイルを足したら、上のどれかの名前にするか、ここに足して、分母から外れていることを確かめる。
 
 function getCoverageTargets {
@@ -11,7 +13,18 @@ function getCoverageTargets {
         [string]$scriptsRoot
     )
 
+    $scriptsRoot = [System.IO.Path]::GetFullPath($scriptsRoot)
+    $testsRoot = Join-Path (Split-Path -Parent $scriptsRoot) "tests"
+    $screenFolders = @("tebunko\ui\search")
     return @(Get-ChildItem -LiteralPath $scriptsRoot -Recurse -Filter "*.ps1" |
+        Where-Object {
+            $relative = $_.FullName.Substring($scriptsRoot.TrimEnd("\").Length + 1)
+            $folder = Split-Path -Parent $relative
+            if ($screenFolders -contains $folder) {
+                return (Test-Path -LiteralPath (Join-Path $testsRoot "$folder\$($_.BaseName).Tests.ps1"))
+            }
+            return $true
+        } |
         Where-Object {
             $_.Name -notmatch "^(gui|gui_main|shell|app_host|splash)\.ps1$" -and
             $_.Name -notmatch "_tab\.ps1$" -and

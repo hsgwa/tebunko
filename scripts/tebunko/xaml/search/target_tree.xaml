@@ -1,0 +1,60 @@
+﻿<!-- 検索対象のツリー。左のナビの NavPaneHost に入れる（gui_main.ps1。検索の画面のときだけ出す）。
+     ［1 インデックス管理］で作ったインデックスを、チェックで検索対象にする。 -->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <DockPanel Margin="12,10,12,10">
+    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="検索対象" Margin="0,0,0,8"
+               ToolTip="［1 インデックス管理］で作ったインデックスの一覧です" />
+    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+      <TextBox x:Name="IndexTreeFilterBox" FontSize="12" />
+      <TextBlock x:Name="IndexTreeFilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="12"
+                 Text="インデックス・フォルダを探す" />
+    </Grid>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+      <Button x:Name="CheckAllIndexButton" Content="すべて選択" MinWidth="0" Height="28" Padding="10,0" />
+      <Button x:Name="UncheckAllIndexButton" Content="すべて解除" MinWidth="0" Height="28" Padding="10,0" Margin="8,0,0,0" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Micro}" Margin="2,8,0,0"
+               Text="チェックしたインデックス・フォルダだけを検索します。" />
+    <Grid>
+      <TreeView x:Name="IndexTree">
+        <TreeView.ItemContainerStyle>
+          <Style TargetType="TreeViewItem" BasedOn="{StaticResource TreeViewItem.Base}">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+          </Style>
+        </TreeView.ItemContainerStyle>
+        <TreeView.ItemTemplate>
+          <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTip}" Margin="0,1">
+              <CheckBox x:Name="Check" IsChecked="{Binding IsChecked, Mode=OneWay}" IsThreeState="True" Focusable="False" VerticalAlignment="Center" Margin="0,0,4,0" />
+              <TextBlock x:Name="Label" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <HierarchicalDataTemplate.Triggers>
+              <DataTrigger Binding="{Binding Exists}" Value="False">
+                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Warn}" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding IsFiles}" Value="True">
+                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Muted}" />
+                <Setter TargetName="Label" Property="FontSize" Value="12" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                <Setter TargetName="Check" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Faint}" />
+              </DataTrigger>
+            </HierarchicalDataTemplate.Triggers>
+          </HierarchicalDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
+      <TextBlock x:Name="IndexTreePlaceholder" Style="{StaticResource Placeholder}" Margin="12,10"
+                 VerticalAlignment="Top" TextWrapping="Wrap" Visibility="Collapsed"
+                 Text="インデックスがありません。［1 インデックス管理］でインデックスを作成してください。" />
+    </Grid>
+  </DockPanel>
+</Grid>
