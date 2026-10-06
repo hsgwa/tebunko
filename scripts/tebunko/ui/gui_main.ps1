@@ -178,6 +178,7 @@ function startGui {
     . "$TebunkoDir\ui\index_tree.ps1"
     . "$TebunkoDir\ui\settings\settings.ps1"
     . "$TebunkoDir\ui\about_dialog.ps1"
+    . "$TebunkoDir\ui\leftover_dialog.ps1"
     stepSplash 90
     # ============================================================================
     # ウィンドウ全体
@@ -340,15 +341,22 @@ function startGui {
             if ((getCurrentScreen) -eq "SearchTab") {
                 $ui.WordBox.Focus() | Out-Null
             }
-            if ($script:settingsRecovery) {
-                closeSplash
-                showMessage (getSettingsRecoveryMessage $script:settingsRecovery) "OK" "Warning" | Out-Null
+            # 起動時のお知らせを開いている間は、前回残った Office の確認を出さず、閉じたあとに出す（leftover_dialog.ps1）
+            $script:leftoverNoticesOpen = $true
+            try {
+                if ($script:settingsRecovery) {
+                    closeSplash
+                    showMessage (getSettingsRecoveryMessage $script:settingsRecovery) "OK" "Warning" | Out-Null
+                }
+                if ($script:workspaceBlock) {
+                    # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
+                    closeSplash
+                    showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
+                }
+            } finally {
+                $script:leftoverNoticesOpen = $false
             }
-            if ($script:workspaceBlock) {
-                # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
-                closeSplash
-                showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
-            }
+            resumeLeftoverPrompt
         }
     })
 
@@ -399,6 +407,8 @@ function startGui {
         }
         # 起動時に出した知らせ（既定のワークスペースが使えない・前の版のインデックスがある）は、読み込みが終わっても消さない
         setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } elseif ($script:legacyIndexMessage) { $script:legacyIndexMessage } else { "" })
+        # 前回のインデックス作成が起動したまま残った Office があれば、終了するか確認する（記録の読み取りは裏で行う）
+        startLeftoverCheck
     }
 
     # ---- 起動 ----

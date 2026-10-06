@@ -39,7 +39,7 @@ function getLeftoverPrompt {
     # 確認の内容を返す。残り物が無ければ $null。
     #   Targets: 残り物（getOfficeProcesses の要素）  Count: 件数  Summary: 「Excel 2 件・Word 1 件」
     #   Title・Heading・Facts（@{ Kind = "Kept"; Title; Detail } の 2 行）・Hint・Choices（@{ Text; Value }）・CancelText
-    #   Details: 一覧の行 @{ AppName; Id; StartTime }（StartTime は読めなければ $null。時刻の書式は画面側）
+    #   Details: 一覧の行 @{ AppName; Id; StartTime; TimeText }（StartTime は読めなければ $null。TimeText は「10/04 18:32」。読めなければ「不明」）
     param (
         [object[]]$processes
     )
@@ -51,7 +51,7 @@ function getLeftoverPrompt {
     $summary = getLeftoverSummary $targets
     $details = New-Object System.Collections.Generic.List[object]
     foreach ($target in $targets) {
-        $details.Add(@{ AppName = $target.AppName; Id = $target.Id; StartTime = $target.StartTime })
+        $details.Add(@{ AppName = $target.AppName; Id = $target.Id; StartTime = $target.StartTime; TimeText = (getLeftoverTimeText $target.StartTime) })
     }
     return @{
         Targets    = $targets
@@ -68,6 +68,31 @@ function getLeftoverPrompt {
         CancelText = "今回は終了しない"
         Details    = $details.ToArray()
     }
+}
+
+function getLeftoverTimeText {
+    # 一覧の「起動した時刻」。「10/04 18:32」。読めなければ「不明」
+    param (
+        $startTime
+    )
+
+    if ($null -eq $startTime) {
+        return "不明"
+    }
+    try {
+        return ([datetime]$startTime).ToString("MM/dd HH:mm")
+    } catch {
+        return "不明"
+    }
+}
+
+function getLeftoverDetailToggleText {
+    # 一覧の開け閉めのボタンの文字
+    param (
+        [bool]$open
+    )
+
+    return $(if ($open) { "詳細を隠す" } else { "詳細を表示" })
 }
 
 function getLeftoverTargets {
@@ -156,4 +181,66 @@ function getOfficePidQueue {
     )
 
     return $(if (testNetworkPath $dir) { "network" } else { "default" })
+}
+
+# ---- 写真・画面のテスト用の偽の行 ----
+# 写真と画面のテストは、本物の Office を残さずに確認の画面を出すため、場面（環境変数 TEBUNKO_GUI_LEFTOVER_FILE が指す JSON）から
+# 偽の行を差し込む。環境変数が無い（ふだんの起動）ときは、必ず本物（getOfficeProcesses・stopOfficeProcesses）を使う。
+# 偽の行のときは、終了の処理も偽（結果を作るだけで、プロセスには触れない）。tests/meta/leftover_seam.Tests.ps1 が、この決まりを確かめる。
+
+function getLeftoverSourceMode {
+    # 偽の行のファイルが指定されていれば "Fake"、なければ "Real"
+    param (
+        [string]$fakeFile
+    )
+
+    return $(if ([string]::IsNullOrEmpty($fakeFile)) { "Real" } else { "Fake" })
+}
+
+function convertLeftoverFakeRows {
+    # 偽の行（@{ Id; ProcessName; StartTime; StopStatus }）を getOfficeProcesses の要素の形にする。残り物として扱う（記録あり・持ち主なし・窓なし）。
+    # StopStatus は、終了の結果に使う（Stopped・Changed・Gone・Failed。省けば Stopped）
+    param (
+        [object[]]$rows
+    )
+
+    $result = New-Object System.Collections.Generic.List[object]
+    foreach ($row in @($rows)) {
+        $name = $(if ($row.ProcessName) { [string]$row.ProcessName } else { "EXCEL" })
+        $start = $null
+        if ($row.StartTime) {
+            try { $start = [datetime]$row.StartTime } catch { $start = $null }
+        }
+        $result.Add([pscustomobject]@{
+            Id          = [int]$row.Id
+            ProcessName = $name
+            AppName     = ${officeProcessNames}[$name]
+            StartTime   = $start
+            HasWindow   = $false
+            Owned       = $true
+            Owner       = "Gone"
+            StopStatus  = $(if ($row.StopStatus) { [string]$row.StopStatus } else { "Stopped" })
+        })
+    }
+    return $result.ToArray()
+}
+
+function getLeftoverFakeStopResults {
+    # 偽の行の「終了」の結果。stopOfficeProcesses と同じ形（@{ Id; Stopped; Status; Reason }）。プロセスには触れない
+    param (
+        [object[]]$targets
+    )
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($target in @($targets)) {
+        $status = $(if ($target.StopStatus) { [string]$target.StopStatus } else { "Stopped" })
+        $reason = ""
+        if ($status -eq "Changed") {
+            $reason = "PID $($target.Id) は確認の後に別のプロセスに変わったため、終了しませんでした。"
+        } elseif ($status -eq "Failed") {
+            $reason = "アクセスが拒否されました"
+        }
+        $results.Add(@{ Id = [int]$target.Id; Stopped = ($status -eq "Stopped"); Status = $status; Reason = $reason })
+    }
+    return $results.ToArray()
 }

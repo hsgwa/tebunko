@@ -135,3 +135,66 @@ Describe "getOfficePidQueue" -Tag Unit {
         getOfficePidQueue $dir | Should -Be $expected
     }
 }
+
+Describe "getLeftoverTimeText・getLeftoverDetailToggleText" -Tag Unit {
+    It "起動した時刻を「月/日 時:分」にし、読めなければ「不明」" -TestCases @(
+        @{ value = [datetime]"2030-10-04T18:32:59"; expected = "10/04 18:32" }
+        @{ value = [datetime]"2030-01-02T03:04:00"; expected = "01/02 03:04" }
+        @{ value = $null; expected = "不明" }
+        @{ value = "読めない"; expected = "不明" }
+    ) {
+        getLeftoverTimeText $value | Should -Be $expected
+    }
+
+    It "詳細の開け閉めの文字" -TestCases @(
+        @{ open = $false; expected = "詳細を表示" }
+        @{ open = $true; expected = "詳細を隠す" }
+    ) {
+        getLeftoverDetailToggleText $open | Should -Be $expected
+    }
+
+    It "確認の一覧の行に、アプリ・PID・時刻の文字が入る" {
+        $prompt = getLeftoverPrompt @(
+            (newOfficeProcess @{ Id = 12840; Name = "EXCEL" })
+            (newOfficeProcess @{ Id = 9316; Name = "WINWORD" })
+        )
+        @($prompt.Details | ForEach-Object { $_.AppName }) | Should -Be @("Excel", "Word")
+        @($prompt.Details | ForEach-Object { $_.Id }) | Should -Be @(12840, 9316)
+        $prompt.Details[0].TimeText | Should -Be "01/01 09:00"
+    }
+}
+
+Describe "偽の行（写真・画面のテスト用）" -Tag Unit {
+    It "ファイルが指定されていなければ本物（Real）、指定されていれば偽（Fake）" -TestCases @(
+        @{ file = $null; expected = "Real" }
+        @{ file = ""; expected = "Real" }
+        @{ file = "C:\temp\rows.json"; expected = "Fake" }
+    ) {
+        getLeftoverSourceMode $file | Should -Be $expected
+    }
+
+    It "偽の行は、残り物として確認に出る（記録あり・持ち主なし・窓なし）" {
+        $rows = @(
+            [pscustomobject]@{ Id = 12840; ProcessName = "EXCEL"; StartTime = "2030-10-04T18:32:00" }
+            [pscustomobject]@{ Id = 9316; ProcessName = "WINWORD"; StartTime = "2030-10-04T18:41:00"; StopStatus = "Changed" }
+        )
+        $processes = @(convertLeftoverFakeRows $rows)
+        $processes.Count | Should -Be 2
+        @($processes | ForEach-Object { $_.AppName }) | Should -Be @("Excel", "Word")
+        @(selectLeftoverProcesses $processes).Count | Should -Be 2
+        (getLeftoverPrompt $processes).Details[1].TimeText | Should -Be "10/04 18:41"
+    }
+
+    It "偽の行の終了の結果は、StopStatus どおりに作る（プロセスには触れない）" {
+        $targets = @(convertLeftoverFakeRows @(
+            [pscustomobject]@{ Id = 1; ProcessName = "EXCEL" }
+            [pscustomobject]@{ Id = 2; ProcessName = "WINWORD"; StopStatus = "Changed" }
+            [pscustomobject]@{ Id = 3; ProcessName = "EXCEL"; StopStatus = "Failed" }
+        ))
+        $results = @(getLeftoverFakeStopResults $targets)
+        @($results | ForEach-Object { $_.Status }) | Should -Be @("Stopped", "Changed", "Failed")
+        $results[0].Stopped | Should -BeTrue
+        $results[1].Reason | Should -Be "PID 2 は確認の後に別のプロセスに変わったため、終了しませんでした。"
+        getLeftoverResultText $results | Should -BeLike "Office を 1 件終了しました。PID 2 は*PID 3 を終了できませんでした：*"
+    }
+}
