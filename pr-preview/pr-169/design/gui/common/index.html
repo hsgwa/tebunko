@@ -4298,6 +4298,7 @@
 <h2 id="確認ダイアログshowconfirm">確認ダイアログ（<code>showConfirm</code>）<a class="headerlink" href="#確認ダイアログshowconfirm" title="Permanent link">&para;</a></h2>
 <p>本体の窓を親にして出すダイアログは、必ず <code>showOwnedDialog</code>（<code>shell.ps1</code>）で出す。開いている間は本体の窓の最上層の暗幕（<code>ScrimOverlay</code>。<code>gui_main.ps1</code> が <code>setDialogScrim</code> で渡す）を見せ、閉じたら（例外のときも）隠す。<code>.ShowDialog(</code> を直接呼ぶのは <code>showOwnedDialog</code> だけで、<code>tests/meta/structure.Tests.ps1</code> が確かめる。</p>
 <p><code>showConfirm</code> は <code>-title</code>（OS の題の帯）と <code>-form</code>（<code>normal</code> / <code>danger</code> / <code>choice</code>。省略すると、選択肢が 2 つ以上なら <code>choice</code>、1 つで危険なら <code>danger</code>、それ以外は <code>normal</code>）を取る。幅は <code>choice</code> が 620、ほかは 520。<code>danger</code> は見出しに赤い「!」の丸を付け、実行のボタンを赤にする。</p>
+<p><code>showErrorDialog</code> は予期しないエラーの知らせで、赤い「!」・見出し・詳細の枠（選べる文字）・［内容をコピー］［ログを開く］［閉じる］を出す。</p>
 <p>取り消せない操作・時間のかかる操作の確認は、<code>MessageBox</code> ではなく <code>scripts/shared/xaml/dialog_confirm.xaml</code> の自前のダイアログで行う（<code>showConfirm</code>）。<strong>説明を読まなくても、押す前に何が起きるか分かる</strong>ようにするため。</p>
 <pre class="mermaid"><code>sequenceDiagram
     actor U as 利用者
@@ -4322,7 +4323,7 @@
 <tr>
 <td>見出し</td>
 <td>これから何をするか</td>
-<td>1 行で読み切れる長さの問いかけ（<code>インデックス「&lt;名前&gt;」を一覧から削除しますか？</code>）</td>
+<td>1 行で読み切れる長さの問いかけ（<code>「&lt;名前&gt;」のインデックスを削除しますか？</code>）</td>
 </tr>
 <tr>
 <td>結果</td>
@@ -4332,7 +4333,7 @@
 <tr>
 <td>選択肢</td>
 <td>押せる操作</td>
-<td>ボタンの文言そのものが操作（［削除する］［作り直す］［中止する］）。2 つ以上あるときは縦に並べ、ボタンの中の 2 行目にその結果を書く</td>
+<td>ボタンの文言そのものが操作（［削除する］［作り直す］［中止する］）。［キャンセル］の右に横に並べ、最後の 1 つを主なボタン（消す操作は赤の塗りつぶし）にする</td>
 </tr>
 <tr>
 <td>補足</td>
@@ -4342,7 +4343,7 @@
 </tbody>
 </table>
 <ul>
-<li><strong>ボタンの並べ方</strong>: 選択肢が 1 つなら右下に［実行］＋［キャンセル］、2 つ以上なら本文に選択肢のボタンを縦に並べ、右下は［キャンセル］だけにする（キャンセルの文言は場面に合わせて変える。例：［閉じない］［インデックス作成を始めない］）。</li>
+<li><strong>ボタンの並べ方</strong>: 右下に［キャンセル］と選択肢のボタンを横に並べる。主なボタンは右端にする（キャンセルの文言は場面に合わせて変える。例：［閉じない］［インデックス作成を始めない］）。</li>
 <li><strong>既定のボタン</strong>: 消す操作（<code>Danger</code>。ボタンを赤にする）・時間のかかる操作（<code>Careful</code>）・選択肢が 2 つ以上のときは、Enter で進まないよう［キャンセル］を既定にしてフォーカスを置く。そうでなければ主ボタンを既定にする。</li>
 <li><strong>文言の決まり</strong>: 画面に出ない言葉（<code>TSV</code>・<code>work\content_index</code>・<code>取り込み一覧</code>）は書かない。利用者から見て何が消えて何が残るかだけを書く。「〜の場合は〜してください」という手順の説明は、結果ではなく補足に置く。</li>
 <li><strong>使っている場面</strong>: インデックスの［削除］（<a href="../index-tab/">［1 インデックス管理］タブ</a>）、インデックス作成の中止・インデックス作成中に閉じる（<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a>）、元のファイルが見つからないとき（<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）、プロセスの終了（<a href="../process-tab/#終了の確認">終了の確認</a>）。インデックス作成の確認（<a href="../indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）は、インデックスごとの件数を一覧で見せるため専用のダイアログにする。</li>
