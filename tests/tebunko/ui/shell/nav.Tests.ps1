@@ -36,15 +36,15 @@ BeforeAll {
     $script:ui = newFakeUi
     . "${scriptsDir}\tebunko\ui\shell\nav.ps1"
 
-function resetNav {
-    $global:navLog = New-Object System.Collections.Generic.List[string]
-    $script:ui = newFakeUi
-    $script:currentScreen = $null
-    $script:startupLoaded = $true
-    $script:search = $null
-    $script:processTimer = newFakeBox "processTimer"
-    $script:screenContents = @{ SearchTab = "search"; IndexTab = "index"; SettingsTab = "settings"; KillTab = "kill" }
-}
+    function resetNav {
+        $global:navLog = New-Object System.Collections.Generic.List[string]
+        $script:ui = newFakeUi
+        $script:currentScreen = $null
+        $script:startupLoaded = $true
+        $script:search = $null
+        $script:processTimer = newFakeBox "processTimer"
+        $script:screenContents = @{ SearchTab = "search"; IndexTab = "index"; SettingsTab = "settings"; KillTab = "kill" }
+    }
 }
 
 AfterAll {

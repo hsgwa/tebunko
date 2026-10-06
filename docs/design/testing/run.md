@@ -82,7 +82,7 @@ Pester 5 は除外（`ExcludeTag`）をタグ（`Tag`）より優先するため
 
 **カバレッジ**
 
-- 対象は `scripts/` の `.ps1` のうち、画面層の `gui.ps1`・`gui_main.ps1`・`shell.ps1`・`app_host.ps1`・`splash.ps1`・`nav.ps1`（左の欄と画面の切り替え）・`*_tab.ps1`・`*_dialog.ps1` を除いたもの。`ui/` の下でも、判断や状態をテストしているファイル（`result_list.ps1`・`preview.ps1`・`*_view.ps1` など）は対象に残す（`tests/helpers/coverage_targets.ps1` の `getCoverageTargets`。`tests/run.ps1` が使う）。除いたものは自動テストの対象外で、手で確かめる。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。
+- 対象は `scripts/` の `.ps1` のうち、画面層の `gui.ps1`・`gui_main.ps1`・`shell.ps1`・`app_host.ps1`・`splash.ps1`・`*_tab.ps1`・`*_dialog.ps1` を除いたもの。`ui/` の下でも、判断や状態をテストしているファイル（`result_list.ps1`・`preview.ps1`・`*_view.ps1`・`ui/shell/nav.ps1` など）は対象に残す（`tests/helpers/coverage_targets.ps1` の `getCoverageTargets`。`tests/run.ps1` が使う）。除いたものは自動テストの対象外で、手で確かめる。画面層のファイルを足したら、この条件から外れているか（分母に入っていないか）を確かめる。
 - 値は Pester のコマンド単位（実行されたコマンドの数 ÷ 全コマンドの数。小数点以下 1 桁）。
 - **下限は `tests/coverage.baseline`（90.0）。** `-Ci` はこれを下回ると失敗し、CI の必須チェック `test` が通らない。下回ったらテストを足して戻し、下限は下げない。実測が上がっても下限は上げない（変えるのはメンテナだけ）。
 - 全体の目標値は決めない。判断層は 95% 以上を保ち、数字を上げるためだけのテスト（結果を確かめないもの）は書かない（AGENTS.md「テストカバレッジの方針」）。
