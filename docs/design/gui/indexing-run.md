@@ -69,7 +69,7 @@ stateDiagram-v2
 
 ## インデックス作成の確認ダイアログ
 
-`tebunko/xaml/dialog_indexing_confirm.xaml`。［インデックス作成を開始］を押すと、インデクサはまず**取り込み対象を数えるだけ**行って止まり（受け渡しの口の `ConfirmTargets`）、インデックスごとの件数を受け渡しの口の `Plan` に入れる（[取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist)）。
+`tebunko/xaml/dialog_indexing_confirm.xaml`。表題（`インデックス作成の確認`）の下に説明・一覧・合計・ボタンを置き、注意書きは枠で囲って出す（注意書きが無いときは枠ごと隠す）。［インデックス作成を開始］を押すと、インデクサはまず**取り込み対象を数えるだけ**行って止まり（受け渡しの口の `ConfirmTargets`）、インデックスごとの件数を受け渡しの口の `Plan` に入れる（[取り込み対象の決定](../indexing/target-decision.md#取り込み対象の決定createtargetlist)）。
 画面は進み具合の段階が `確認` になったらそれを読み、**このダイアログを 1 回だけ開く**。
 何件取り込むかは元のファイルの更新日時・サイズを調べないと分からないため、数えるのはインデクサで行う（画面は数えている間も固まらない）。
 
