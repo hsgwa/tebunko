@@ -117,7 +117,7 @@ function newWorkspaceConfirm {
     }
     $facts = @(@{ Kind = "warn"; Title = "このフォルダは空ではありません（ファイル・フォルダが ${countText}）"; Detail = $sample })
 
-    $facts += @{ Kind = "next"; Title = "今のインデックス・取り込み一覧・ログは、新しい場所へ移します"; Detail = "移す前の場所：${current}" }
+    $facts += @{ Kind = "next"; Title = "今のインデックス・ログは、新しい場所へ移します"; Detail = "移す前の場所：${current}" }
 
     # 最後の選択肢が主なボタン（青）になる。うっかり押しやすい「そのまま使う」を先に置く
     $choices = @(@{ Text = "このフォルダのまま使う"; Value = "asis"; Careful = $true })

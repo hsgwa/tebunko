@@ -128,7 +128,7 @@
                 <DataGridTemplateColumn Header="ステータス" Width="108">
                   <DataGridTemplateColumn.HeaderStyle>
                     <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-                      <Setter Property="ToolTip" Value="検索に使うインデックスの状態（取り込み一覧から）" />
+                      <Setter Property="ToolTip" Value="検索に使うインデックスの状態" />
                     </Style>
                   </DataGridTemplateColumn.HeaderStyle>
                   <DataGridTemplateColumn.CellTemplate>

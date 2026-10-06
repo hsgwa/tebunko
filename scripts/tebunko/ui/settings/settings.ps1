@@ -33,7 +33,7 @@ function chooseWorkspace {
     if (!(testWorkspaceChangeable)) {
         return
     }
-    $folder = selectFolder "ワークスペースにする空のフォルダを選んでください。インデックス・取り込み一覧・ログをここに置きます。" $workspace.Dir
+    $folder = selectFolder "ワークスペースにする空のフォルダを選んでください。インデックス・ログをここに置きます。" $workspace.Dir
     if ($null -eq $folder) {
         return
     }

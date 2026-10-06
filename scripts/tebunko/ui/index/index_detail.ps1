@@ -138,7 +138,7 @@ function openFailedFileFolder {
         return
     }
     if (!$row.SourcePath) {
-        setStatus "元のファイルの場所が分かりません（取り込み一覧にクロール対象フォルダの記録がありません）：$($row.RelPath)"
+        setStatus "元のファイルの場所が分かりません（元のフォルダの記録がありません）：$($row.RelPath)"
         return
     }
     $path = $row.SourcePath
