@@ -14,12 +14,16 @@ ${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上�
 ${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
 ${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})
 
+# 検索の対象にするファイルの種類（検索バーのチップ。設定ファイルの fileKinds の値）
+${fileKindNames} = @("excel", "word", "powerpoint", "text")
+
 function newSettings {
     # 設定の既定値。設定ファイル（JSON）のキーと同じ
     return [ordered]@{
         targetFolders      = @()      # クロール対象フォルダ: @{ name（インデックス名）; path（今フォルダが置かれている場所）; enabled }（記載順。enabled が false は登録のみで取り込まない）
         indexSources       = @()      # 取り込まないインデックスの元のフォルダ: @{ name; path }（別のPC・場所で作ったインデックスを検索するとき）
         searchExcludes     = @()      # 画面の検索対象ツリーでチェックを外したフォルダ: @{ path（フルパス）; subfolders（false はフォルダ直下のファイルだけ） }
+        fileKinds          = @()      # 検索の対象にするファイルの種類（excel・word・powerpoint・text の配列。キーが無い・空ならすべて。readFileKinds）
         useRegex           = $false   # 検索ワードを正規表現として扱う
         caseSensitive      = $false   # 英字の大文字と小文字を区別する
         fileFilter         = ""       # 対象ファイル（元のファイル名のワイルドカード。; 区切り、! で始まるものは除外。空ならすべて）
@@ -438,6 +442,35 @@ function writeSearchOption {
         }
         writeSettings $settings $path
     }
+}
+
+function readFileKinds {
+    # 検索の対象にするファイルの種類（${fileKindNames} の値）を、${fileKindNames} の順の配列で返す。
+    # キーが無い・空・知らない値だけのときは、すべての種類（絞り込まない）
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    $chosen = @(@((readSettings $path).fileKinds) | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() })
+    $kinds = @(${fileKindNames} | Where-Object { $chosen -contains $_ })
+    if ($kinds.Count -eq 0) {
+        return @(${fileKindNames})
+    }
+    return $kinds
+}
+
+function writeFileKinds {
+    # 検索の対象にするファイルの種類を保存する。知らない値は捨てる（すべての種類を選んでいるときは空で保存する）
+    param (
+        [object[]]$kinds,
+        [string]$path = ${settingsFile}
+    )
+
+    $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($chosen.Count -eq ${fileKindNames}.Count) {
+        $chosen = @()
+    }
+    updateSettings "fileKinds" ([object[]]$chosen) $path
 }
 
 function readOpenMode {

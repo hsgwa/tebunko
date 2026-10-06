@@ -404,6 +404,43 @@ Describe "removeSearchExcludesUnder" -Tag Io {
     }
 }
 
+Describe "readFileKinds / writeFileKinds" -Tag Io {
+    # json: 設定ファイルの中身（$null ならファイルを作らない）、expected: readFileKinds の結果
+    It "<name>" -TestCases @(
+        @{ name = "ファイルが無ければすべての種類"; json = $null; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "キーが無ければすべての種類"; json = '{ "useRegex": true }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "空の配列ならすべての種類"; json = '{ "fileKinds": [] }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "excel だけなら Excel だけ"; json = '{ "fileKinds": ["excel"] }'; expected = @("excel") }
+        @{ name = "順番は種類の並びにそろえ、大文字小文字は区別しない"; json = '{ "fileKinds": ["Text", "word"] }'; expected = @("word", "text") }
+        @{ name = "知らない値は捨てる"; json = '{ "fileKinds": ["pdf", "excel"] }'; expected = @("excel") }
+        @{ name = "知らない値だけならすべての種類"; json = '{ "fileKinds": ["pdf"] }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "前の版の fileFilter は種類に読み替えない"; json = '{ "fileFilter": "*.xlsx;!~$*" }'; expected = @("excel", "word", "powerpoint", "text") }
+    ) {
+        param ($name, $json, $expected)
+        $path = Join-Path $TestDrive "kinds_$([guid]::NewGuid()).config"
+        if ($null -ne $json) {
+            [System.IO.File]::WriteAllText($path, $json, ${utf8Bom})
+        }
+        (@(readFileKinds $path) -join ",") | Should -Be ($expected -join ",")
+    }
+
+    It "書いた種類を読み返せ、ほかの設定は変えない" {
+        $path = "$TestDrive\kinds_write.config"
+        writeSearchOption @{ UseRegex = $true } $path
+        writeFileKinds @("text", "excel", "pdf") $path
+        (@(readFileKinds $path) -join ",") | Should -Be "excel,text"
+        (readSearchOption $path).UseRegex | Should -Be $true
+    }
+
+    It "すべての種類を書いたときは、設定ファイルの fileKinds を空にする" {
+        $path = "$TestDrive\kinds_all.config"
+        writeFileKinds @("excel") $path
+        writeFileKinds @("excel", "word", "powerpoint", "text") $path
+        @((readSettings $path).fileKinds).Count | Should -Be 0
+        @(readFileKinds $path).Count | Should -Be 4
+    }
+}
+
 Describe "readSearchOption / writeSearchOption" -Tag Io {
     # writes: 順に保存する項目、expected: 読み込んだときの値
     It "<name>" -TestCases @(
