@@ -1,18 +1,9 @@
-﻿# タブ右端の［⋯］メニューと「tebunko について」ダイアログ（画面層）。gui.ps1 が読み込む。
+﻿# ナビ下の「tebunko について」と、そのダイアログ（画面層）。gui.ps1 が読み込む。
 # 版・コミットの文字列は起動時に 1 回だけ組み立てる（gui.ps1 の $script:aboutView。ui/about_view.ps1 の getAboutView）。
 # ダイアログを開くたびに VERSION.txt を読み直さない。
 
-# ［⋯］は右クリックでしか開かない Button.ContextMenu を、左クリック・キーボード（Enter・Space）の
-# どちらでも開けるようにする（Button の Click は両方で発生する）
-$ui.MoreButton.Add_Click({
-    param ($sender, $e)
-    $menu = $sender.ContextMenu
-    $menu.PlacementTarget = $sender
-    $menu.Placement = "Bottom"
-    $menu.IsOpen = $true
-})
-
-$ui.AboutMenuItem.Add_Click({
+# ナビ下のリンク（Button の Click は、左クリックとキーボード（Enter・Space）の両方で発生する）
+$ui.AboutLink.Add_Click({
     safe { showAboutDialog }
 })
 

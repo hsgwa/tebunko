@@ -44,11 +44,9 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             } | Out-Null
             (getGuiText (findGui $S.Window -Id "DetailTitle")) | Should -BeLike "*見積.xlsx*"
 
-            # ［⋯］→「tebunko について」（#8）
-            setGuiStep $S "［⋯］から「tebunko について」を開く"
-            clickGui $S $S.Window "MoreButton" "［⋯］"
-            $item = waitGui $S "メニューの「tebunko について」" ${guiDefaultTimeout} { findGuiAnywhere $S -Id "AboutMenuItem" }
-            invokeGui $S $item "「tebunko について」"
+            # 左の欄の「tebunko について」（#8）
+            setGuiStep $S "「tebunko について」を開く"
+            clickGui $S $S.Window "AboutLink" "tebunko について"
             $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
             (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "版: *"
             clickGui $S $about "CloseButton" "［閉じる］"

@@ -204,7 +204,7 @@ function captureStartupSplash {
     while (!$rect) {
         $windows = @(getGuiNativeProcessWindows $S.Process.Id)
         if ($windows.Count -gt 0) {
-            # この時点では本体の窓（Tabs）はまだ無く、起動中の表示だけが見えているはず
+            # この時点では本体の窓（NavList）はまだ無く、起動中の表示だけが見えているはず
             $rect = $windows[0].Rect
             $handle = $windows[0].Handle
         }
@@ -298,16 +298,8 @@ function captureStarterScene {
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
             selectGuiTab $S "IndexTab" "NewIndexButton"
 
-            setGuiStep $S "［⋯］のメニュー"
-            $more = waitGuiById $S $S.Window "MoreButton"
-            invokeGui $S $more "［⋯］"
-            $menu = waitGui $S "メニュー" ${guiDefaultTimeout} { (getGuiOtherWindows $S) | Select-Object -First 1 }
-            captureGuiState -S $S -Id "window/menu" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($menu)
-
             setGuiStep $S "「tebunko について」"
-            $item = waitGui $S "メニューの「tebunko について」" ${guiDefaultTimeout} { findGuiAnywhere $S -Id "AboutMenuItem" }
-            invokeGui $S $item "「tebunko について」"
+            clickGui $S $S.Window "AboutLink" "tebunko について"
             $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
             captureGuiState -S $S -Id "window/about" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($about)

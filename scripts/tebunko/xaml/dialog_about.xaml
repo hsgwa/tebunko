@@ -1,4 +1,4 @@
-﻿<!-- 「tebunko について」ダイアログ（タブ右端の［⋯］メニュー）。gui.ps1（ui/about_dialog.ps1）が読み込む。
+﻿<!-- 「tebunko について」ダイアログ（ナビ下の「tebunko について」）。gui.ps1（ui/about_dialog.ps1）が読み込む。
      版・コミットは中身を見るだけの表示で、確認や入力は無い（docs/design/gui/common.md「表示・アクセシビリティ」の例外）。
      色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

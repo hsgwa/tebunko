@@ -133,7 +133,7 @@ function startGuiProcess {
 
 function startGui {
     # 画面を起動する。プロセスを起こしたら、待たずにすぐ $S を返す（以降の操作の「場面」）。
-    # 本体の窓（Tabs を持つ窓）を待つのは invokeGuiScene の中で行う。起動そのものが失敗しても
+    # 本体の窓（NavList を持つ窓）を待つのは invokeGuiScene の中で行う。起動そのものが失敗しても
     # （XAML の読み込み例外など）、そこで失敗の材料を残してからプロセスを止められるようにするため
     param (
         $Tool,
@@ -148,16 +148,16 @@ function startGui {
 }
 
 function waitGuiStarted {
-    # 本体の窓（Tabs を持つ窓）が出るまで待つ。invokeGuiScene が Body の前に呼ぶ
+    # 本体の窓（NavList を持つ窓）が出るまで待つ。invokeGuiScene が Body の前に呼ぶ
     param ($S)
 
     if ($S.Window) {
         return
     }
     $sw = [Diagnostics.Stopwatch]::StartNew()
-    $S.Window = waitGui $S "本体の窓（Tabs）" ${guiStartTimeout} {
+    $S.Window = waitGui $S "本体の窓（NavList）" ${guiStartTimeout} {
         foreach ($w in @(getGuiTopWindows $S)) {
-            if (findGui $w -Id "Tabs") { return $w }
+            if (findGui $w -Id "NavList") { return $w }
         }
     }
     $S.Timing["起動"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)

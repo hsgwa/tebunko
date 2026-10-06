@@ -905,7 +905,7 @@ function applyIndexingState {
 
     # 失敗したファイルは下の一覧に原因とともに表示する
     $ui.IndexingStateText.Text = getIndexingStateText $state.Pending (isIndexing)
-    $ui.IndexTabHeader.Text = if ($state.Failed -gt 0) { "⚠ 1 インデックス管理" } else { "1 インデックス管理" }
+    $ui.IndexTabBadge.Visibility = if ($state.Failed -gt 0) { "Visible" } else { "Collapsed" }
     applyIndexStats $state.IndexStats (isIndexing)
     updateFailedList $state
     updateIndexSummaryText

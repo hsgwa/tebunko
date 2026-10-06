@@ -169,7 +169,7 @@ function startIndexing {
     $workspaceBlock = getWorkspaceBlockMessage
     if ($workspaceBlock) {
         showMessage $workspaceBlock "OK" "Warning" | Out-Null
-        $ui.Tabs.SelectedItem = $ui.SettingsTab
+        selectScreen "SettingsTab"
         return
     }
 

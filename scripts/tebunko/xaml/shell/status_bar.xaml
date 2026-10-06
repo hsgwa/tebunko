@@ -1,0 +1,15 @@
+﻿<!-- ステータスバー（直前の操作の結果）。tebunko.xaml の StatusBarHost に入れる（gui_main.ps1）。
+     常時は読まない情報なので、小さく薄くする -->
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Background="{DynamicResource Bg.Hover}">
+  <Border.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Border.Resources>
+  <TextBlock x:Name="StatusText" Style="{StaticResource Meta}" Margin="12,0,12,0" VerticalAlignment="Center"
+             TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+</Border>

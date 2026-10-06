@@ -62,7 +62,7 @@ if ($Ci) {
     $config.CodeCoverage.Enabled = $true
     $config.CodeCoverage.UseBreakpoints = $false
     $config.CodeCoverage.Path = @(Get-ChildItem "$rootDir\scripts" -Recurse -Filter "*.ps1" |
-        Where-Object { $_.Name -notmatch "^(gui|gui_main|shell|app_host|splash)\.ps1$" -and $_.Name -notmatch "_tab\.ps1$" -and $_.Name -notmatch "_dialog\.ps1$" } |
+        Where-Object { $_.Name -notmatch "^(gui|gui_main|shell|app_host|splash|nav)\.ps1$" -and $_.Name -notmatch "_tab\.ps1$" -and $_.Name -notmatch "_dialog\.ps1$" } |
         ForEach-Object { $_.FullName })
     # Pester が書き出す XML には絶対パスが入るため、work\test（CI の成果物に入る）には置かず、使わない（下の writeCobertura で書く）
     $config.CodeCoverage.OutputPath = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko-coverage-$PID.xml"

@@ -86,7 +86,7 @@ function updateKillBadge {
         return
     }
     # インデックス作成中はバックグラウンドの Excel 等があって当然なので、印を付けない
-    $ui.KillTabHeader.Text = if ($background -gt 0 -and !(isIndexing)) { "⚠ 9 プロセス停止" } else { "9 プロセス停止" }
+    $ui.KillTabBadge.Visibility = if ($background -gt 0 -and !(isIndexing)) { "Visible" } else { "Collapsed" }
 }
 
 function killProcesses {

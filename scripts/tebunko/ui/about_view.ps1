@@ -1,4 +1,4 @@
-﻿# 「tebunko について」ダイアログ（タブ右端の［⋯］メニュー）に出す文字列の組み立て（判断層）。
+﻿# 「tebunko について」ダイアログ（ナビ下の「tebunko について」）に出す文字列の組み立て（判断層）。
 # scripts/shared/core/version.ps1 の readVersionFile の結果から、画面に出す版・コミットの文字列を決める。
 # 画面に触らないため、そのままテストできる（tests/tebunko/ui/about_view.Tests.ps1）。
 

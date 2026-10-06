@@ -305,6 +305,62 @@
     <Setter Property="Width" Value="6" />
     <Setter Property="Height" Value="6" />
   </Style>
+  <!-- ナビ（左の欄）の項目。選んでいる項目は左に Accent の線・Select.Soft の地・Accent の太字にする。
+       中の文字は Style を外した TextBlock にして、この項目の文字色・太さを受け継がせる -->
+  <Style x:Key="Nav.List" TargetType="ListBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="Once" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBox">
+          <ItemsPresenter />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="NavItem" TargetType="ListBoxItem">
+    <Setter Property="Height" Value="37" />
+    <Setter Property="Padding" Value="31,0,12,0" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Focusable" Value="True" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent" BorderThickness="3,0,0,0" SnapsToDevicePixels="True">
+            <Grid>
+              <Border x:Name="FocusRing" BorderBrush="{StaticResource Accent.Ring}" BorderThickness="1" Visibility="Collapsed" />
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Select.Soft}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+              <Setter Property="Foreground" Value="{StaticResource Accent}" />
+              <Setter Property="FontWeight" Value="Bold" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
   <!-- 状態の札（インデックス・高速検索の 3 状態） -->
   <Style x:Key="StatusBadge" TargetType="Border">
     <Setter Property="CornerRadius" Value="8" />

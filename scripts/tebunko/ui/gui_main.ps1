@@ -69,18 +69,23 @@ function startGui {
     $window = loadWindow "${xamlDir}\tebunko.xaml"
     stepSplash 55
 
-    # タブの中身はタブごとのファイルに分けてある。読み込んでタブに入れ、x:Name の対応表（$ui）を作る。
+    # 窓の中身は領域ごとのファイルに分けてある（xaml\<画面>\<領域>.xaml）。読み込んで差す口に入れ、x:Name の対応表（$ui）を作る。
     # 別ファイルから読み込んだ中身は、そのファイルごとに名前を持つため、$window.FindName では見つからない。
-    # タブごとに FindName する（名前の一覧もタブごとに分けておく）
-    $tabs = @(
-        @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
+    # 領域ごとに FindName する（名前の一覧も領域ごとに分けておく）。
+    # 領域の表: File = xaml\ からの相対パス、Slot = 差す口（窓の x:Name）、Screen = 画面の名前（Slot が ContentHost のものだけ。
+    # 画面の中身は $script:screenContents に持ち、selectScreen が選んだものを ContentHost に差す）、Names = 使う x:Name
+    $regions = @(
+        @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
+            "NavList", "SearchTab", "IndexTab", "SettingsTab", "KillTab", "IndexTabBadge", "KillTabBadge", "NavPaneHost", "AboutLink") }
+        @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText") }
+        @{ File = "tab_index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
             "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
             "ExportIndexButton", "ImportIndexButton",
             "IndexSummaryText", "IndexingStateText", "IndexingButton", "IndexingHint",
             "FailedPanel", "FailedHeading", "FailedGrid",
             "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
             "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
-        @{ Tab = "SearchTab"; File = "tab_search.xaml"; Names = @(
+        @{ File = "tab_search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "FileFilterBox", "FileFilterPlaceholder",
             "WordNotice", "SearchTargetText", "GoIndexTabButton", "FastSearchText",
             "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
@@ -89,21 +94,26 @@ function startGui {
             "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
             "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
             "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
-        @{ Tab = "SettingsTab"; File = "tab_settings.xaml"; Names = @(
+        @{ File = "tab_settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
-        @{ Tab = "KillTab"; File = "tab_kill.xaml"; Names = @(
+        @{ File = "tab_kill.xaml"; Slot = "ContentHost"; Screen = "KillTab"; Names = @(
             "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
             "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
     )
 
     $ui = @{}
-    foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "MoreButton", "AboutMenuItem")) {
+    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost")) {
         $ui[$name] = $window.FindName($name)
     }
-    foreach ($tab in $tabs) {
-        $content = loadXaml "${xamlDir}\$($tab.File)"
-        $ui[$tab.Tab].Content = $content
-        foreach ($name in $tab.Names) {
+    $script:screenContents = @{}
+    foreach ($region in $regions) {
+        $content = loadXaml "${xamlDir}\$($region.File)"
+        if ($region.Slot -eq "ContentHost") {
+            $script:screenContents[$region.Screen] = $content
+        } else {
+            $ui[$region.Slot].Content = $content
+        }
+        foreach ($name in $region.Names) {
             $ui[$name] = $content.FindName($name)
         }
         stepSplash 70
@@ -118,7 +128,7 @@ function startGui {
 
     # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
     . "$TebunkoDir\..\shared\ui\shell.ps1"
-    # safe で包んでいない処理（Tabs.SelectionChanged の前半・PreviewKeyDown・Closing・活性化のタイマーなど）が
+    # safe で包んでいない処理（PreviewKeyDown・Closing・活性化のタイマーなど）が
     # 投げた例外や、XAML の描画中に WPF が投げる例外を、画面のスレッドの Dispatcher で受ける
     [void](registerUnhandledErrorHandler $window.Dispatcher)
     # 画面から頼む短い仕事（startJob）のスレッド。長い仕事（件数の数え上げ等）の間もプレビューが待たないよう 2 つにする。
@@ -137,6 +147,7 @@ function startGui {
     . "$TebunkoDir\ui\preview_view.ps1"
     . "$TebunkoDir\ui\settings_view.ps1"
     . "$TebunkoDir\ui\about_view.ps1"
+    . "$TebunkoDir\ui\nav_view.ps1"
     stepSplash 80
     . "$TebunkoDir\ui\index_tab.ps1"
     . "$TebunkoDir\ui\indexing_tab.ps1"
@@ -153,28 +164,12 @@ function startGui {
     # ウィンドウ全体
     # ============================================================================
 
-    # 起動時の読み込み（loadStartupData）が済んだか。済むまでは、タブの切り替え・ウィンドウの前面化で読み直さない
-    # （起動時のタブを選んだとき・ウィンドウを出したときにも呼ばれ、同じ読み込みが重なるため）
+    # 起動時の読み込み（loadStartupData）が済んだか。済むまでは、画面の切り替え・ウィンドウの前面化で読み直さない
+    # （起動時の画面を選んだとき・ウィンドウを出したときにも呼ばれ、同じ読み込みが重なるため）
     $script:startupLoaded = $false
 
-    $ui.Tabs.Add_SelectionChanged({
-        param ($sender, $e)
-        # 中の表・一覧の選択変更も伝わってくるため、タブの切り替えだけを扱う
-        if ($e.OriginalSource -ne $ui.Tabs -or !$script:startupLoaded) {
-            return
-        }
-        safe {
-            if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
-                refreshProcesses
-                $script:processTimer.Start()
-            } else {
-                $script:processTimer.Stop()
-            }
-            if ($ui.Tabs.SelectedItem -eq $ui.IndexTab) {
-                refreshIndexingState
-            }
-        }
-    })
+    # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
+    . "$TebunkoDir\ui\nav.ps1"
 
     $window.Add_Activated({
         if (!$script:startupLoaded) {
@@ -195,7 +190,7 @@ function startGui {
                 }
             }
             updateSearchTarget
-            if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
+            if ((getCurrentScreen) -eq "KillTab") {
                 refreshProcesses
             } else {
                 updateKillBadge
@@ -207,17 +202,21 @@ function startGui {
         param ($sender, $e)
         $modifiers = [System.Windows.Input.Keyboard]::Modifiers
         if ($e.Key -eq "F" -and $modifiers -eq "Control") {
-            $ui.Tabs.SelectedItem = $ui.SearchTab
+            selectScreen "SearchTab"
             $ui.WordBox.Focus() | Out-Null
             $ui.WordBox.SelectAll()
             $e.Handled = $true
         } elseif ($e.Key -eq "F" -and $modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift)) {
-            $ui.Tabs.SelectedItem = $ui.SearchTab
+            selectScreen "SearchTab"
             $ui.FilterBox.Focus() | Out-Null
+            $e.Handled = $true
+        } elseif ($e.Key -eq "Tab" -and ($modifiers -eq "Control" -or $modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift))) {
+            # Ctrl+Tab・Ctrl+Shift+Tab: ナビの項目を順に切り替える（前のタブの動きをそのまま残す）
+            selectScreen (getNextScreen (getCurrentScreen) $(if ($modifiers -eq "Control") { 1 } else { -1 }))
             $e.Handled = $true
         } elseif ($e.Key -eq "F5") {
             safe {
-                if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
+                if ((getCurrentScreen) -eq "KillTab") {
                     refreshProcesses
                 } else {
                     refreshIndexingState
@@ -345,7 +344,7 @@ function startGui {
 
     $window.Add_Loaded({
         safe {
-            if ($ui.Tabs.SelectedItem -eq $ui.SearchTab) {
+            if ((getCurrentScreen) -eq "SearchTab") {
                 $ui.WordBox.Focus() | Out-Null
             }
             if ($script:settingsRecovery) {
@@ -424,9 +423,9 @@ function startGui {
     # 一覧を読み込むまで（loadStartupData）は、「インデックスがありません」の案内を出さない
     $ui.IndexGridPlaceholder.Visibility = "Collapsed"
 
-    # 起動時のタブ：インデックス作成が中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
+    # 起動時の画面：インデックス作成が中断中、またはインデックスが無ければ［インデックス管理］、それ以外は［検索］
     $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
-    $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
+    selectScreen $(if ($openIndexTab) { "IndexTab" } else { "SearchTab" })
     # 前の版のインデックス（index\）が見つかれば、［1 インデックス管理］のステータスに知らせを出す
     $script:legacyIndexMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
     if ($script:legacyIndexMessage) {
@@ -435,7 +434,7 @@ function startGui {
     # 既定のワークスペースにほかのファイルが置いてあれば、［8 設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
     $script:workspaceBlock = getWorkspaceBlockMessage
     if ($script:workspaceBlock) {
-        $ui.Tabs.SelectedItem = $ui.SettingsTab
+        selectScreen "SettingsTab"
         setStatus $script:workspaceBlock
     }
     setStatus "読み込んでいます…"

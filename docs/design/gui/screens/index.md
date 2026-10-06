@@ -54,14 +54,13 @@ stateDiagram-v2
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 40 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 39 枚。
 
 **本体・共通（`window`）**
 
 | ID | 状態 | 遷移 |
 |---|---|---|
 | `window/startup` | 起動中の表示（「起動しています…」） | 1 |
-| `window/menu` | ［⋯］のメニュー | 8 |
 | `window/about` | 「tebunko について」 | 8 |
 | `window/close-confirm` | 作成中に閉じるときの確認 | 10 |
 | `window/settings-broken` | 設定が壊れていたときの知らせ（メッセージボックス） | – |

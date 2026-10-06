@@ -539,28 +539,34 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "ウィンドウの枠の名前がある" {
         $names = getXamlNames "$here\..\scripts\tebunko\xaml\tebunko.xaml"
-        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "MoreButton", "AboutMenuItem")) {
+        foreach ($name in @("NavHost", "ContentHost", "StatusBarHost")) {
             $names -contains $name | Should -Be $true
         }
     }
 
-    It "<file> に、gui.ps1 が使う名前がすべてある" -ForEach @(
-        @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
-        @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
-        @{ File = "tab_settings.xaml"; Marker = 'Tab = "SettingsTab"' }
-        @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' }
-    ) {
-        # gui.ps1 の $tabs から、そのタブの名前の一覧を取り出す
-        $start = $gui.IndexOf($Marker)
-        $start | Should -Not -Be -1
-        $listStart = $gui.IndexOf("Names = @(", $start)
-        $listEnd = $gui.IndexOf(") }", $listStart)
-        $list = $gui.Substring($listStart, $listEnd - $listStart)
-        $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
-        $wanted.Count -gt 0 | Should -Be $true
+    It "ナビ・ステータスバーに、画面の切り替えと他の画面が使う名前がある" {
+        $nav = getXamlNames "$here\..\scripts\tebunko\xaml\shell\nav.xaml"
+        foreach ($name in @("NavList", "SearchTab", "IndexTab", "SettingsTab", "KillTab", "IndexTabBadge", "KillTabBadge", "AboutLink")) {
+            $nav -contains $name | Should -Be $true
+        }
+        (getXamlNames "$here\..\scripts\tebunko\xaml\shell\status_bar.xaml") -contains "StatusText" | Should -Be $true
+    }
 
-        $names = getXamlNames "$here\..\scripts\tebunko\xaml\$File"
-        $missing = @($wanted | Where-Object { $names -notcontains $_ })
-        ($missing -join ", ") | Should -Be ""
+    It "gui_main.ps1 の領域の表の各ファイルに、使う名前がすべてある" {
+        # $regions の `File = "..."; ... Names = @(...)` を全部取り出して、XAML と突き合わせる
+        $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*@\(([^)]*)\)'))
+        $entries.Count -gt 0 | Should -Be $true
+        $problems = New-Object System.Collections.Generic.List[string]
+        foreach ($entry in $entries) {
+            $file = $entry.Groups[1].Value
+            $wanted = @([regex]::Matches($entry.Groups[2].Value, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
+            $path = "$here\..\scripts\tebunko\xaml\$file"
+            if (-not (Test-Path -LiteralPath $path)) { $problems.Add("$file が無い"); continue }
+            $names = getXamlNames $path
+            foreach ($w in $wanted) {
+                if ($names -notcontains $w) { $problems.Add("$file に $w が無い") }
+            }
+        }
+        ($problems -join ", ") | Should -Be ""
     }
 }

@@ -103,13 +103,17 @@ Describe "new_single_script.ps1 の道具の検査" -Tag Io {
     }
 
     It "scripts\ の XAML が、行頭の `'@ を含まない（単一 .ps1 のヒアストリングを閉じてしまわないか）" {
-        $xamlFiles = @(Get-ChildItem -Path "${scriptsDir}\tebunko\xaml", "${scriptsDir}\shared\xaml" -Filter *.xaml)
+        $xamlFiles = @(Get-ChildItem -Path "${scriptsDir}\tebunko\xaml", "${scriptsDir}\shared\xaml" -Filter *.xaml -Recurse)
 
         $xamlFiles.Count | Should -BeGreaterThan 0
         foreach ($file in $xamlFiles) {
             $content = [System.IO.File]::ReadAllText($file.FullName)
             ($content -match "(?m)^'@") | Should -Be $false -Because $file.FullName
         }
+    }
+
+    It "xaml\ の下のフォルダの XAML（shell\nav.xaml）も埋め込む" {
+        $text.Contains('${bundledXaml}[[System.IO.Path]::GetFullPath("$PSScriptRoot\xaml\shell\nav.xaml")]') | Should -Be $true
     }
 
     It "版の文字列が引数（タグ・今のコミットの SHA）と同じ" {
