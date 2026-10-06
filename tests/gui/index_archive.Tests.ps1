@@ -30,7 +30,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             setGuiStep $S "［エクスポート…］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
-            clickGui $S $S.Window "ExportIndexButton" "［エクスポート…］"
+            clickGuiRowMenu $S $row "ExportIndexButton" "［エクスポート…］"
             useGuiFolderPicker $S $script:exportDest
             waitGui $S "書き出しの完了" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*書き出しました*"
@@ -41,7 +41,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             $script:zipPath = $zip[0].FullName
 
             setGuiStep $S "一覧から削除（インポートし直すため）"
-            clickGui $S $S.Window "RemoveIndexButton" "［削除］"
+            clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
             answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
 

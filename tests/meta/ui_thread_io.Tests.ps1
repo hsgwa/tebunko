@@ -72,10 +72,10 @@ BeforeAll {
         @{ File = "types.ps1"; Function = "HasSubfolders"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
         @{ File = "types.ps1"; Function = "HasFiles"; Call = "[System.IO.Directory]"; Reason = "ワークスペースの側（分けた PR）" }
 
-        # ---- tebunko/ui/index_tab.ps1 ----
-        @{ File = "index_tab.ps1"; Function = "updateIndexSourceFile"; Call = "Test-Path"; Reason = "IndexDir の有無（ワークスペースの側。分けた PR）" }
-        @{ File = "index_tab.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
-        @{ File = "index_tab.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
+        # ---- tebunko/ui/index/ ----
+        @{ File = "index_list.ps1"; Function = "updateIndexSourceFile"; Call = "Test-Path"; Reason = "IndexDir の有無（ワークスペースの側。分けた PR）" }
+        @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----
         @{ File = "shell.ps1"; Function = "readTextShared"; Call = "Test-Path"; Reason = "ローカルのパスに限って呼ぶところ（ワークスペース内のファイルを読む）" }
@@ -87,7 +87,7 @@ BeforeAll {
     function getUiIoTargetFiles {
         return @(
             (Resolve-Path "${scriptsDir}\tebunko\gui.ps1").Path
-        ) + @(Get-ChildItem "${scriptsDir}\tebunko\ui" -Filter "*.ps1" | ForEach-Object { $_.FullName }) `
+        ) + @(Get-ChildItem "${scriptsDir}\tebunko\ui" -Filter "*.ps1" -Recurse | ForEach-Object { $_.FullName }) `
           + @(Get-ChildItem "${scriptsDir}\shared\ui" -Filter "*.ps1" | ForEach-Object { $_.FullName })
     }
 

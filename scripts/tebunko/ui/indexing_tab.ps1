@@ -368,7 +368,7 @@ function finishIndexing {
     # updateFastSearchRows が呼ばれ、「不可」が一瞬出てしまう（isIndexing は既に偽になっており、
     # getFastSearchRowView の indexing 引数による作成中ガードが効かないため）。
     # fastSearchResultDir を null にするだけで、updateFastSearchRows 側の「今のワークスペースの結果
-    # でなければ捨てる」ガード（index_tab.ps1）が reason・progress・checkedAt を確認中…に戻してくれる。
+    # でなければ捨てる」ガード（index\index_list.ps1・index_detail.ps1）が reason・progress・checkedAt を確認中…に戻してくれる。
     # 世代番号も進め、作成前から走っていた確かめジョブが後から古い結果を届けても捨てて確かめ直すようにする
     $script:fastSearchGeneration++
     $script:fastSearchResultDir = $null

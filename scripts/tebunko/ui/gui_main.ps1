@@ -78,10 +78,13 @@ function startGui {
         @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "KillTab", "IndexTabBadge", "KillTabBadge", "NavPaneHost", "AboutLink") }
         @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText") }
-        @{ File = "tab_index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
-            "ExportIndexButton", "ImportIndexButton",
-            "IndexSummaryText", "IndexingStateText", "IndexingButton", "IndexingHint",
+        @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
+            "IndexListHost", "IndexDetailHost", "IndexDetailRow") }
+        @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ImportIndexButton", "IndexingButton", "IndexingHint",
+            "IndexRowMenu", "EditIndexButton", "RemoveIndexButton", "ExportIndexButton") }
+        @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
+            "IndexDetailTitle", "IndexSummaryText", "IndexingStateText",
             "FailedPanel", "FailedHeading", "FailedGrid",
             "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
             "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
@@ -160,7 +163,11 @@ function startGui {
     . "$TebunkoDir\ui\about_view.ps1"
     . "$TebunkoDir\ui\shell\nav_view.ps1"
     stepSplash 80
-    . "$TebunkoDir\ui\index_tab.ps1"
+    . "$TebunkoDir\ui\index\index_list.ps1"
+    . "$TebunkoDir\ui\index\index_edit.ps1"
+    . "$TebunkoDir\ui\index\index_archive.ps1"
+    . "$TebunkoDir\ui\index\index_detail.ps1"
+    . "$TebunkoDir\ui\index\index_events.ps1"
     . "$TebunkoDir\ui\indexing_tab.ps1"
     . "$TebunkoDir\ui\result_list.ps1"
     . "$TebunkoDir\ui\search\search_bar.ps1"

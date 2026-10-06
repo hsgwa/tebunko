@@ -15,7 +15,7 @@ function getCoverageTargets {
 
     $scriptsRoot = [System.IO.Path]::GetFullPath($scriptsRoot)
     $testsRoot = Join-Path (Split-Path -Parent $scriptsRoot) "tests"
-    $screenFolders = @("tebunko\ui\search")
+    $screenFolders = @("tebunko\ui\search", "tebunko\ui\index")
     return @(Get-ChildItem -LiteralPath $scriptsRoot -Recurse -Filter "*.ps1" |
         Where-Object {
             $relative = $_.FullName.Substring($scriptsRoot.TrimEnd("\").Length + 1)

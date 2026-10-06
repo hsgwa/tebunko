@@ -62,12 +62,12 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 編集: キャンセル・名前の変更（#14）
             setGuiStep $S "［編集…］→［キャンセル］"
             selectGui $row
-            clickGui $S $S.Window "EditIndexButton" "［編集…］"
+            clickGuiRowMenu $S $row "EditIndexButton" "［編集…］"
             $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "NameBox"
             clickGui $S $dialog "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $dialog "編集のダイアログ"
             setGuiStep $S "［編集…］→ 名前を変えて［OK］"
-            clickGui $S $S.Window "EditIndexButton" "［編集…］"
+            clickGuiRowMenu $S $row "EditIndexButton" "［編集…］"
             $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "NameBox"
             setGuiText $S (findGui $dialog -Id "NameBox") "資料"
             clickGui $S $dialog "OkButton" "［OK］"
@@ -139,11 +139,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "［削除］→［キャンセル］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
-            clickGui $S $S.Window "RemoveIndexButton" "［削除］"
+            clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
             answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "キャンセル"
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1
             setGuiStep $S "［削除］→［削除する］"
-            clickGui $S $S.Window "RemoveIndexButton" "［削除］"
+            clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
             answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
             waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料") } | Out-Null
@@ -188,9 +188,16 @@ Describe "S3 作成中の操作" -Tag Gui {
             # 取り込み中は［追加…］［編集…］［削除］が押せない（#20）
             setGuiStep $S "取り込み中の［追加…］［編集…］［削除］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
-            foreach ($id in "NewIndexButton", "EditIndexButton", "RemoveIndexButton") {
-                (findGui $S.Window -Id $id).Current.IsEnabled | Should -BeFalse -Because "取り込み中は $id が押せない"
+            (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeFalse -Because "取り込み中は NewIndexButton が押せない"
+            # ［編集…］［削除］は行のメニューの中。［⋯］で開いて、押せないことを確かめてから Esc で閉じる
+            $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            invokeGui $S (waitGuiById $S $row "IndexRowMenuButton") "行の［⋯］" -NoWait
+            $menu = waitGuiWindow $S "行のメニュー" -Id "EditIndexButton"
+            foreach ($id in "EditIndexButton", "RemoveIndexButton") {
+                (findGui $menu -Id $id).Current.IsEnabled | Should -BeFalse -Because "取り込み中は $id が押せない"
             }
+            pressGuiKey $menu 0x1B
+            waitGuiWindowClosed $S $menu "行のメニュー"
 
             # ［8 設定］の［変更…］はメッセージボックスで断られる（#21）
             setGuiStep $S "取り込み中の［8 設定］の［変更…］"

@@ -441,6 +441,18 @@ function clickGui {
     invokeGui $S $e $What
 }
 
+function clickGuiRowMenu {
+    # インデックス一覧の、選んである行の［⋯］を押して開く行のメニューから、項目（AutomationId）を押す。
+    # 行のメニュー（編集・エクスポート・削除）は別の窓（ポップアップ）で開くので、本体の外から探す
+    param ($S, $Row, [string]$Id, [string]$What = "")
+    if (!$What) { $What = "［$Id］" }
+    $button = waitGuiById $S $Row "IndexRowMenuButton"
+    invokeGui $S $button "行の［⋯］"
+    $menu = waitGuiWindow $S "行のメニュー" -Id $Id
+    $item = waitGuiById $S $menu $Id
+    invokeGui $S $item $What
+}
+
 function clickGuiByName {
     # 名前の無い部品（確認ダイアログの選択肢・メッセージボックスのボタン）を、表示の文字で探して押す
     param ($S, $Root, [string]$Name, [string]$Type = "Button")

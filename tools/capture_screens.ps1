@@ -327,7 +327,7 @@ function captureStarterScene {
 
             setGuiStep $S "［編集…］"
             selectGui $row
-            clickGui $S $S.Window "EditIndexButton" "［編集…］"
+            clickGuiRowMenu $S $row "EditIndexButton" "［編集…］"
             $editDialog = waitGuiWindow $S "編集のダイアログ" -Id "NameBox"
             captureGuiState -S $S -Id "index-tab/edit" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($editDialog)
@@ -345,7 +345,7 @@ function captureStarterScene {
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
 
             setGuiStep $S "［削除］"
-            clickGui $S $S.Window "RemoveIndexButton" "［削除］"
+            clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
             $deleteConfirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "一覧から削除しますか"
             captureGuiState -S $S -Id "index-tab/delete-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($deleteConfirm)
