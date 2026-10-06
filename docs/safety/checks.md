@@ -75,7 +75,7 @@ Office に加えてテキストファイルも取り込むが、対象の拡張�
 
 | 場所 | 起動するもの | 用途 |
 |---|---|---|
-| `tebunko/ui/index_tab.ps1:688`・`698`、`tebunko/ui/open_source.ps1:460` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
+| `tebunko/ui/index/index_detail.ps1:195`・`205`、`tebunko/ui/open_source.ps1:460` | `explorer.exe` | 一覧・検索結果から元のファイルの場所を開く（利用者の操作時のみ） |
 | `tebunko/ui/open_source.ps1:250`（`openWithNotepad`） | `notepad.exe`（固定のパス `%SystemRoot%\System32\notepad.exe`） | 検索結果から、既定のアプリで開くと実行・登録になる拡張子（`$textNotepadExtensions`）のテキストファイルを開く（利用者の操作時のみ） |
 
 インデックス作成は画面のプロセスの中のスレッドで動かすため、インデックス作成のために `powershell.exe` を起動することはない（[プロセス](../design/structure/threads.md#プロセス)）。
