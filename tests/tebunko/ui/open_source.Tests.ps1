@@ -75,7 +75,9 @@ BeforeAll {
 
     $ui = newFakeUi
     $window = New-Object PSObject -Property @{ Cursor = $null }
-    . "${scriptsDir}\tebunko\ui\search_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
     . "${scriptsDir}\tebunko\ui\open_source.ps1"
 
     function newRow {

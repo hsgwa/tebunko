@@ -7,7 +7,9 @@ BeforeAll {
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\preview_view.ps1"
-    . "${scriptsDir}\tebunko\ui\search_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
 
     # gui.ps1 で決める値
     ${previewRowHeight}     = 22

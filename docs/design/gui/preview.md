@@ -63,5 +63,5 @@ flowchart TD
 - 開閉・絞り込み・並べ替えで多くの行を出し入れするときは、1 件ずつではなく表の中身をまとめて入れ替える（`rebuildResults`）。
 - WPF の DataGrid のグループ化（`GroupStyle`）は使わない。グループ化は 1 件ごとに振り分けるため遅く（実測: 10,000 件・504 ファイルで、行ごとの一覧 約 3 秒 → グループ化 約 8〜9 秒。最初に閉じておいても速くならない）、列の幅が決まらない不具合もあったため。
 - 実測（10,000 件・504 ファイル。検索スレッドが結果を出し終えたあと、画面が取り込み終えるまでの待ちが検索時間の大半を占める）: 検索中に行を作ると 約 4.0 秒（うち待ち 約 2.4 秒）、行を後で作ると 約 2.6〜2.9 秒（うち待ち 約 1.1〜1.3 秒）。代わりに［すべて展開］は、そのとき 10,000 行を作るため 約 1.1〜1.5 秒かかる（1 ファイルを開くときは、そのファイルの分だけ）。
-- 判断（アプリの種類 `getAppKind`・場所の要約 `describeFileLocations`・表に並べる項目 `getResultItems`・絞り込み `selectShownRows`・並べ替え `sortFileGroups`・行を画面に出す準備 `prepareHitRow`）は判断層の `search_view.ps1` に置き、テストする。
+- 判断（アプリの種類 `getAppKind`・場所の要約 `describeFileLocations`・表に並べる項目 `getResultItems`・絞り込み `selectShownRows`・並べ替え `sortFileGroups`・行を画面に出す準備 `prepareHitRow`）は判断層の `search\result_list_view.ps1` に置き、テストする。
 - 見出しのアイコン（`tab_search.xaml` の `Badge`）は `AppKind`（`getAppKind`）で色と頭文字を変える。Excel（緑・`X`）・Word（青・`W`）・PowerPoint（オレンジ・`P`）に加え、テキストファイルは灰色の地に `T`。

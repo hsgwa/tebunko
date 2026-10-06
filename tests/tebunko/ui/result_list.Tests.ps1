@@ -5,7 +5,9 @@ BeforeAll {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
-    . "${scriptsDir}\tebunko\ui\search_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
 
     # ---- 画面の偽物 ----
     # 読み込み時に登録されるイベントの処理は $handlers に取っておき、テストから呼ぶ

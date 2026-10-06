@@ -2,7 +2,7 @@
 # 検索のヒットは生のまま、元のファイルの見出し（FileGroup）の Hits に持つ。表の行（HitRow）は、開いたとき・絞り込み・
 # 並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（ensureRows）。表（ResultGrid）には見出しと、開いているファイルの行だけを入れる。
 # 検索した直後はすべて閉じているので、検索中の処理はヒットをファイルごとに分けるだけで済み、ヒットが多くても速い。
-# 並べる項目・絞り込み・並べ替えの判断は search_view.ps1（getResultItems・selectShownRows・sortFileGroups）。
+# 並べる項目・絞り込み・並べ替えの判断は search\result_list_view.ps1（getResultItems・selectShownRows・sortFileGroups）。
 
 $script:hitCount = 0             # すべてのヒットの数
 $script:fileGroups = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)  # 元のファイルのフルパス → FileGroup
