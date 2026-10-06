@@ -4182,7 +4182,7 @@
 <td><code>newSettings</code></td>
 <td>–</td>
 <td>ordered hashtable</td>
-<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileFilter</code> <code>includeShapes</code> <code>includeComments</code> <code>openMode</code> <code>workspaceFolder</code> <code>ingestThreads</code>）</td>
+<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileKinds</code> <code>includeShapes</code> <code>includeComments</code> <code>openMode</code> <code>workspaceFolder</code> <code>ingestThreads</code>）</td>
 <td><a href="../../structure/settings-file/">設定ファイル（setting.config）</a></td>
 <td>readSettings</td>
 </tr>
@@ -4309,8 +4309,8 @@
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 <td>path / option, path</td>
-<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
-<td>画面の検索条件。<a href="../search/#元のファイルの特定画面">元のファイルの特定・画面</a> を参照</td>
+<td><code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> / –</td>
+<td>画面の検索条件（種類は <code>readFileKinds</code> / <code>writeFileKinds</code>）。<a href="../search/#元のファイルの特定画面">元のファイルの特定・画面</a> を参照</td>
 <td><a href="../search/#元のファイルの特定画面">続き</a></td>
 <td>画面</td>
 </tr>

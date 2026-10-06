@@ -4222,7 +4222,7 @@
 <span class="w">    </span><span class="nt">"searchExcludes"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
 <span class="w">    </span><span class="nt">"useRegex"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"caseSensitive"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">"fileFilter"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"fileKinds"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
 <span class="w">    </span><span class="nt">"includeShapes"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"includeComments"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"openMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span><span class="p">,</span>
@@ -4277,11 +4277,11 @@
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 </tr>
 <tr>
-<td><code>fileFilter</code></td>
-<td>文字列</td>
+<td><code>fileKinds</code></td>
+<td>文字列の配列</td>
 <td>空</td>
-<td>「対象ファイル」の指定（例: <code>*.xlsx;見積;!*old*</code>）。空ならすべて（同上）</td>
-<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
+<td>検索する種類のチップ（<code>excel</code> <code>word</code> <code>powerpoint</code> <code>text</code>）。空・無い・知らない値だけならすべて。前の版の <code>fileFilter</code>（対象ファイルの指定）は読まず、書き直しのときに消える</td>
+<td><code>readFileKinds</code> / <code>writeFileKinds</code></td>
 </tr>
 <tr>
 <td><code>includeShapes</code></td>
@@ -4360,7 +4360,7 @@
 <tbody>
 <tr>
 <td>保存のタイミング</td>
-<td>インデックス一覧：追加・編集・削除・チェックの変更のたび。検索対象のツリー：チェックを変えたとき。検索条件のチェックボックス（正規表現・大文字と小文字・図形・コメント）：クリックしたとき。対象ファイル：欄からフォーカスが外れたときと検索したとき（検索したときは検索条件をまとめて保存する）。［開き方］：選び直したとき（起動時の読み込みでは保存しない）。ワークスペース：［8 設定］で変えたとき（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。インデックスの元のフォルダ：［編集…］で変えたとき・検索結果からフォルダを選んで見つかったとき。インデックス名：インデックスを作成したとき・［編集…］で変えたとき（名前の無い設定を読み込んだときは、読み込み時に割り当てて保存する）</td>
+<td>インデックス一覧：追加・編集・削除・チェックの変更のたび。検索対象のツリー：チェックを変えたとき。検索条件のチェックボックス（正規表現・大文字と小文字・図形・コメント）・種類のチップ：クリックしたとき（検索したときは検索条件をまとめて保存する）。［開き方］：選び直したとき（起動時の読み込みでは保存しない）。ワークスペース：［8 設定］で変えたとき（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。インデックスの元のフォルダ：［編集…］で変えたとき・検索結果からフォルダを選んで見つかったとき。インデックス名：インデックスを作成したとき・［編集…］で変えたとき（名前の無い設定を読み込んだときは、読み込み時に割り当てて保存する）</td>
 </tr>
 <tr>
 <td>外部での編集</td>

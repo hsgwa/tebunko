@@ -4257,8 +4257,12 @@
 <td>起動中の表示（<a href="../#ウィンドウ">ウィンドウ</a>）。早く出すため <code>theme.xaml</code> を読み込まず、色は <code>theme.xaml</code> と同じ値を直接書く</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/xaml/tab_index.xaml</code><br><code>tab_search.xaml</code><br><code>tab_settings.xaml</code><br><code>tab_kill.xaml</code></td>
+<td><code>scripts/tebunko/xaml/tab_index.xaml</code><br><code>tab_settings.xaml</code><br><code>tab_kill.xaml</code></td>
 <td>各画面の中身。イベントは書かず、<code>x:Name</code> だけを付ける。ルート要素には <code>StaticResource</code> を使う属性を置かない（自分の <code>Resources</code> より先に解決されるため）。<code>x:Name</code> が <code>gui.ps1</code> の一覧と食い違っていないことは <code>tests/meta/structure.Tests.ps1</code> で確かめる</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/search/search.xaml</code><br><code>search_bar.xaml</code><br><code>target_tree.xaml</code><br><code>result_list.xaml</code><br><code>preview.xaml</code></td>
+<td>［2 検索］の領域ごとの XAML。<code>search.xaml</code> は枠（検索バー・結果の一覧・プレビューを入れる場所）、<code>target_tree.xaml</code> は左の欄の下（検索対象のツリー）に入る。ルート要素の決まりと <code>x:Name</code> の確かめは、上の各画面の中身と同じ</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_index_edit.xaml</code></td>
@@ -4301,8 +4305,8 @@
 <td>［1 インデックス管理］タブ（<a href="../index-tab/">［1 インデックス管理］タブ</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（<code>IndexingSession</code>）・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/search_tab.ps1</code><br><code>result_list.ps1</code><br><code>preview.ps1</code><br><code>open_source.ps1</code><br><code>index_tree.ps1</code></td>
-<td>［2 検索］タブ（<a href="../search-tab/">検索タブ</a>）。検索の実行（<code>search_tab.ps1</code>）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。<code>result_list.ps1</code>）、選択行のプレビュー（<code>preview.ps1</code>）、元のファイルを開く処理（Excel COM。<a href="../open-file/">元のファイルを開く</a>。<code>open_source.ps1</code>）、検索対象インデックスのツリー（<code>index_tree.ps1</code>）</td>
+<td><code>scripts/tebunko/ui/search/search_bar.ps1</code><br><code>search_session.ps1</code><br><code>result_filter.ps1</code><br><code>result_list.ps1</code><br><code>preview.ps1</code><br><code>open_source.ps1</code><br><code>index_tree.ps1</code></td>
+<td>［2 検索］タブ（<a href="../search-tab/">検索タブ</a>）。検索バーとチップ（<code>search_bar.ps1</code>）、検索の実行（<code>search_session.ps1</code>）、結果の絞り込み（<code>result_filter.ps1</code>）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。<code>result_list.ps1</code>）、選択行のプレビュー（<code>preview.ps1</code>）、元のファイルを開く処理（Excel COM。<a href="../open-file/">元のファイルを開く</a>。<code>open_source.ps1</code>）、検索対象インデックスのツリー（<code>index_tree.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/settings_tab.ps1</code></td>

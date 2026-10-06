@@ -4085,7 +4085,7 @@
 <ul>
 <li><code>^</code> <code>$</code> は全文用の正規表現に <code>Multiline</code> を付けて行の先頭・末尾に一致させる。判定は安全側に倒し、どの照合でも検索結果（行・行番号）は、元の TSV を 1 行ずつ照合したときと同じになる（<code>pack_search.Tests.ps1</code> で改行の種類・照合のしかたごとに突き合わせている）。</li>
 <li>全文への照合が時間切れになった本文インデックスのファイルは、1 行ずつ照合し直す。</li>
-<li>対象ファイル（<code>newFileFilter</code>）・図形とコメント（<code>newPlaceExclude</code>）の条件は、場所ごとに元のファイル名・場所の名前で判定し、当てはまらない場所の一致は結果に入れない（1 行ずつ照合するときは、その場所を照合しない）。</li>
+<li>ファイルの種類（<code>newFileKindFilter</code> から作る <code>newFileFilter</code>）・図形とコメント（<code>newPlaceExclude</code>）の条件は、場所ごとに元のファイル名・場所の名前で判定し、当てはまらない場所の一致は結果に入れない（1 行ずつ照合するときは、その場所を照合しない）。</li>
 </ul>
 <p>さらに、次の 4 つで待ち時間を減らしている。</p>
 <pre class="mermaid"><code>flowchart TD

@@ -4287,6 +4287,14 @@
 <td>newSearchRegex</td>
 </tr>
 <tr>
+<td><code>newFileKindFilter</code></td>
+<td>kinds</td>
+<td>string</td>
+<td>選んだ種類（<code>readFileKinds</code> の値）から、対象ファイルの条件（<code>*.xlsx;*.xls</code> の形）を作る。すべて選んでいる・空なら空</td>
+<td><a href="../../search/">検索</a></td>
+<td>newSearchRequest</td>
+</tr>
+<tr>
 <td><code>newFileFilter</code></td>
 <td>filter</td>
 <td><code>@{Include; Exclude}</code></td>
@@ -4612,8 +4620,8 @@
 <tbody>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
-<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
-<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
+<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
+<td><code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> / –</td>
 <td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える</td>
 <td><a href="../../structure/settings-file/">設定ファイル（setting.config）</a></td>
 <td>画面</td>

@@ -4117,7 +4117,7 @@
 
 
 <h1 id="検索">検索<a class="headerlink" href="#検索" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 検索の仕様（検索対象・対象ファイル・図形とコメント・長いパス など）、検索条件（文字どおり・正規表現・大文字と小文字）、検索対象インデックスの一覧の作り方、既知の問題。扱わないこと: 検索を速くする実装（<a href="speed/">検索を速くする仕組み</a>）、Windows Search を使う高速検索（<a href="fast-search/">高速検索（Windows Search）</a>）、検索結果ファイルの形式（<a href="output/">検索結果ファイル</a>）。先に読むページ: <a href="../">設計の概要</a>、<a href="../index-data/format/">インデックスのファイルの形</a>。</p>
+<p>扱うこと: 検索の仕様（検索対象・ファイルの種類・図形とコメント・長いパス など）、検索条件（文字どおり・正規表現・大文字と小文字）、検索対象インデックスの一覧の作り方、既知の問題。扱わないこと: 検索を速くする実装（<a href="speed/">検索を速くする仕組み</a>）、Windows Search を使う高速検索（<a href="fast-search/">高速検索（Windows Search）</a>）、検索結果ファイルの形式（<a href="output/">検索結果ファイル</a>）。先に読むページ: <a href="../">設計の概要</a>、<a href="../index-data/format/">インデックスのファイルの形</a>。</p>
 <table>
 <thead>
 <tr>
@@ -4200,7 +4200,7 @@
     C --&gt; D{"本文インデックスのファイルが 1 件以上ある？"}
     D -- いいえ --&gt; E1["画面に案内を表示&lt;br&gt;（インデックス作成を促す）"]
     D -- はい --&gt; M["newSearchRegex&lt;br&gt;検索条件（文字どおり／正規表現・大文字と小文字の区別）&lt;br&gt;から照合用の正規表現を作る"]
-    M --&gt; F["newFileFilter / newPlaceExclude&lt;br&gt;対象ファイル・図形とコメントの条件（元のファイル名・場所の名前で判定）"]
+    M --&gt; F["newFileKindFilter / newFileFilter / newPlaceExclude&lt;br&gt;ファイルの種類・図形とコメントの条件（元のファイル名・場所の名前で判定）"]
     F --&gt; SS["searchPackIndex&lt;br&gt;本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合&lt;br&gt;（進捗を画面に通知、上限・中止を確認）"]
     SS --&gt; R["ヒット: Root・RelPath・RelDir・FileName・&lt;br&gt;Book・Location・LineNumber・Line"]
     R --&gt; G["画面の表に表示"]
@@ -4223,8 +4223,8 @@
 <td>各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダの本文インデックス <code>content_index.*.tsv</code>（<a href="#インデックスの一覧getsearchindexes">インデックスの一覧</a>）。フォルダの順、フォルダの中は本文インデックスのファイルの名前（拡張子・番号）の順、本文インデックスのファイルの中は入れた順に検索する</td>
 </tr>
 <tr>
-<td>対象ファイル</td>
-<td>画面の「対象ファイル」（<code>setting.config</code> の <code>fileFilter</code>）を指定すると、<strong>元のファイル名</strong>（<a href="output/#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a> の Book。本文インデックスの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（<a href="#検索条件サクラエディタの-grep-にならう">検索条件（サクラエディタの Grep にならう）</a>）。空ならすべて</td>
+<td>ファイルの種類</td>
+<td>画面の種類のチップ（<code>setting.config</code> の <code>fileKinds</code>。選んだ種類の拡張子の条件を <code>newFileKindFilter</code> が作る）を絞ると、<strong>元のファイル名</strong>（<a href="output/#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a> の Book。本文インデックスの <code>ファイル名=</code> の値）が一致する元のファイルだけを検索する（<a href="#検索条件サクラエディタの-grep-にならう">検索条件（サクラエディタの Grep にならう）</a>）。空ならすべて</td>
 </tr>
 <tr>
 <td>図形・コメント</td>
@@ -4303,8 +4303,8 @@
 <td>オンなら <code>ID</code> は <code>id</code> <code>Id</code> に一致しない</td>
 </tr>
 <tr>
-<td>対象ファイル</td>
-<td><code>;</code>（全角の <code>；</code> も可）で区切ったワイルドカード。<code>!</code>（全角の <code>！</code> も可）で始まるものは除外。<code>*</code> は任意の文字列、<code>?</code> は任意の 1 文字。<code>*</code> も <code>?</code> も無いものは部分一致。大文字と小文字は区別しない</td>
+<td>ファイルの種類</td>
+<td>種類のチップから作った、<code>;</code> 区切りのワイルドカード（<code>newFileKindFilter</code>。例: <code>*.xlsx;*.xlsm;*.xls</code>。すべて選んでいるときは空）。内部では <code>newFileFilter</code> が、<code>;</code>（全角の <code>；</code> も可）で区切ったワイルドカード。<code>!</code>（全角の <code>！</code> も可）で始まるものは除外。<code>*</code> は任意の文字列、<code>?</code> は任意の 1 文字。<code>*</code> も <code>?</code> も無いものは部分一致。大文字と小文字は区別しない</td>
 <td><code>*.xlsx;見積;!*old*</code> は、.xlsx か名前に「見積」を含むファイルのうち、「old」を含まないもの</td>
 </tr>
 </tbody>
