@@ -137,12 +137,20 @@ function refreshIndexingState {
     }
 }
 
+function getIndexingRatio {
+    # 更新全体の進み（0〜1）。更新中でない・割合がまだ分からないときは負の値
+    if ((isIndexing) -and !$ui.IndexingProgress.IsIndeterminate) {
+        return [double]$ui.IndexingProgress.Value
+    }
+    return -1.0
+}
+
 function updateIndexTabBadge {
     # ナビの［インデックス管理］の横の印（更新中の割合・中断・失敗。文言は getIndexNavBadge）
     $state = $script:indexingState
     $pending = if ($state) { [int]$state.Pending } else { 0 }
     $failed = if ($state) { [int]$state.Failed } else { 0 }
-    $ratio = if ((isIndexing) -and !$ui.IndexingProgress.IsIndeterminate) { [double]$ui.IndexingProgress.Value } else { -1.0 }
+    $ratio = getIndexingRatio
     $badge = getIndexNavBadge (isIndexing) $ratio $pending $failed
     $ui.IndexTabBadge.Text = $badge.Text
     $ui.IndexTabBadge.ToolTip = $badge.ToolTip
@@ -197,7 +205,7 @@ function updateFailedList {
     }
 
     $ui.FailedGrid.ItemsSource = $rows
-    $ui.FailedHeading.Text = "⚠ 更新に失敗したファイル $($rows.Count) 件"
+    $ui.FailedHeading.Text = "更新に失敗したファイル $($rows.Count) 件"
     $ui.FailedPanel.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
 }
 

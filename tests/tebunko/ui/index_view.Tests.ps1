@@ -243,7 +243,7 @@ Describe "getIndexRowView" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "更新中・チェックあり: 更新中（Pending があっても優先）"
            stat = @{ Total = 10; Done = 3; Pending = 7; Failed = 0 }; indexing = $true; enabled = $true
-           text = "更新中"; sub = ""; level = "Wait" }
+           text = "更新中"; sub = ""; level = "Run" }
         @{ label = "未集計（null）: 未作成"
            stat = $null; indexing = $false; enabled = $true
            text = "未作成"; sub = ""; level = "None" }
@@ -267,6 +267,24 @@ Describe "getIndexRowView" -Tag Unit {
         $view.Level | Should -Be $level
     }
 
+    It "更新中の行は、進みの割合（0〜1）から「更新中 N%」と棒の長さ（Percent）を出す。割合が分からなければ割合なし" -TestCases @(
+        @{ ratio = 0.456; text = "更新中 45%"; percent = 45 }
+        @{ ratio = 0.0; text = "更新中 0%"; percent = 0 }
+        @{ ratio = 1.0; text = "更新中 100%"; percent = 100 }
+        @{ ratio = 1.7; text = "更新中 100%"; percent = 100 }
+        @{ ratio = -1.0; text = "更新中"; percent = 0 }
+    ) {
+        param ($ratio, $text, $percent)
+        $view = getIndexRowView @{ Total = 10; Done = 3; Pending = 7; Failed = 0 } $true $true $ratio
+        $view.Text | Should -Be $text
+        $view.Percent | Should -Be $percent
+        $view.Level | Should -Be "Run"
+    }
+
+    It "チェックが外れた行は、更新中でも更新中にしない" {
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $false 0.5).Text | Should -Be "最新"
+    }
+
     It "enabled が偽なら、作成中以外のツールヒントにチェックの案内を足す（作成中の行には足さない）" {
         (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $false).ToolTip | Should -Match "チェックが外れている"
         (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "チェックが外れている"
@@ -284,6 +302,24 @@ Describe "getIndexRowView" -Tag Unit {
             $view.Text | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
             $view.ToolTip | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
         }
+    }
+}
+
+Describe "getIndexRowMenu" -Tag Unit {
+    It "項目は 編集…・エクスポート…・（区切り）・削除 の順で、今ある動きだけ" {
+        $items = @(getIndexRowMenu "" $true)
+        @($items | ForEach-Object { $_.Id }) | Should -Be @("Edit", "Export", "Remove")
+        @($items | ForEach-Object { $_.Header }) | Should -Be @("編集…", "エクスポート…", "削除")
+        @($items | Where-Object { $_.SeparatorBefore } | ForEach-Object { $_.Id }) | Should -Be @("Remove")
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "行を選んでいて、止めるものが無い: すべて押せる"; blocker = ""; selected = $true; expected = @($true, $true, $true) }
+        @{ label = "行を選んでいない: すべて押せない"; blocker = ""; selected = $false; expected = @($false, $false, $false) }
+        @{ label = "更新中: すべて押せない"; blocker = "indexing"; selected = $true; expected = @($false, $false, $false) }
+    ) {
+        param ($label, $blocker, $selected, $expected)
+        @(getIndexRowMenu $blocker $selected | ForEach-Object { $_.Enabled }) | Should -Be $expected
     }
 }
 
@@ -559,7 +595,7 @@ Describe "getIndexNavBadge" -Tag Unit {
         @{ label = "割合が分からないうちは丸だけ"; indexing = $true; ratio = -1.0; pending = 0; failed = 0; text = "●"; kind = "Run" }
         @{ label = "更新中は、残りや失敗より更新中を優先する"; indexing = $true; ratio = 0.0; pending = 3; failed = 2; text = "● 0%"; kind = "Run" }
         @{ label = "中断中"; indexing = $false; ratio = -1.0; pending = 155; failed = 0; text = "中断"; kind = "Warn" }
-        @{ label = "失敗があるだけなら警告の印"; indexing = $false; ratio = -1.0; pending = 0; failed = 1; text = "⚠"; kind = "Warn" }
+        @{ label = "失敗があるだけなら警告の印"; indexing = $false; ratio = -1.0; pending = 0; failed = 1; text = "失敗"; kind = "Warn" }
         @{ label = "何も無ければ出さない"; indexing = $false; ratio = -1.0; pending = 0; failed = 0; text = ""; kind = "" }
     ) {
         param ($label, $indexing, $ratio, $pending, $failed, $text, $kind)

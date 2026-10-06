@@ -7,7 +7,7 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
-      <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / None）を入れて、色だけ切り替える -->
+      <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / Run / None）を入れて、色だけ切り替える -->
       <Style x:Key="LevelBadge" TargetType="Border">
         <Setter Property="CornerRadius" Value="10" />
         <Setter Property="Padding" Value="8,2" />
@@ -23,6 +23,10 @@
           </DataTrigger>
           <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
             <Setter Property="Background" Value="{StaticResource Badge.Ng.Bg}" />
+          </DataTrigger>
+          <!-- 更新中（青。Select.Soft の地・Accent の文字） -->
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Run">
+            <Setter Property="Background" Value="{StaticResource Select.Soft}" />
           </DataTrigger>
         </Style.Triggers>
       </Style>
@@ -42,6 +46,17 @@
           <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
             <Setter Property="Foreground" Value="{StaticResource Badge.Ng.Text}" />
           </DataTrigger>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Run">
+            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+      <!-- 選んだ行（詳細欄に出している行）の色 -->
+      <Style x:Key="IndexRow" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+        <Style.Triggers>
+          <Trigger Property="IsSelected" Value="True">
+            <Setter Property="Background" Value="{StaticResource Select.Soft}" />
+          </Trigger>
         </Style.Triggers>
       </Style>
     </ResourceDictionary>
@@ -66,7 +81,9 @@
         <StackPanel>
           <StackPanel Orientation="Horizontal">
             <TextBlock Style="{StaticResource Heading}" Text="インデックス管理" />
-            <TextBlock Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="6,2,0,0" Text="ⓘ"
+            <Path Data="{StaticResource Icon.Info}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
+                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                  VerticalAlignment="Center" Margin="6,2,0,0" Fill="Transparent"
                        ToolTip="チェックを付けたインデックスだけを更新します。一覧にフォルダをドラッグ＆ドロップしても追加できます" />
           </StackPanel>
           <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap"
@@ -75,7 +92,7 @@
       </DockPanel>
 
       <Grid Grid.Row="1" Margin="0,12,0,0">
-        <DataGrid x:Name="IndexGrid" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
+        <DataGrid x:Name="IndexGrid" RowStyle="{StaticResource IndexRow}" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
           <DataGrid.ContextMenu>
             <ContextMenu x:Name="IndexRowMenu">
               <MenuItem x:Name="EditIndexButton" Header="編集…" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスはそのまま使います）" />
@@ -98,8 +115,9 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{StaticResource File.Folder}"
-                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <Path Data="{StaticResource Icon.Folder}" Width="16" Height="16" Stretch="Uniform" Stroke="{StaticResource File.Folder}"
+                          StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          VerticalAlignment="Center" Margin="0,0,8,0" />
                     <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" ToolTip="{Binding Name}" />
                   </StackPanel>
                 </DataTemplate>
@@ -126,7 +144,7 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="ステータス ⓘ" Width="120">
+            <DataGridTemplateColumn Header="ステータス" Width="120">
               <DataGridTemplateColumn.HeaderStyle>
                 <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                   <Setter Property="ToolTip" Value="検索に使うインデックスの状態（最新・要更新・更新中・エラー・未作成）" />
@@ -138,6 +156,20 @@
                     <Border Style="{StaticResource LevelBadge}" Tag="{Binding IndexLevel}">
                       <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding IndexLevel}" Text="{Binding IndexText}" />
                     </Border>
+                    <!-- 更新中の細い進み具合の棒（Percent が負のときは出さない） -->
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding IndexPercent, Mode=OneWay}" Height="3" Margin="2,4,2,0"
+                                 Foreground="{StaticResource File.Folder}" Background="{StaticResource Border.Soft}" BorderThickness="0">
+                      <ProgressBar.Style>
+                        <Style TargetType="ProgressBar">
+                          <Setter Property="Visibility" Value="Collapsed" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IndexLevel}" Value="Run">
+                              <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </ProgressBar.Style>
+                    </ProgressBar>
                     <!-- 途中で止まったときの「残り N 件」。無いときは場所を取らない -->
                     <TextBlock Margin="2,2,0,0" FontSize="11" Foreground="{StaticResource Ink.Muted}" Text="{Binding IndexSub}">
                       <TextBlock.Style>
@@ -173,10 +205,27 @@
             <DataGridTemplateColumn Header="操作" Width="56">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <Button Style="{StaticResource Link}" Content="⋯" FontSize="18" FontWeight="Bold" Tag="IndexRowMenu"
-                          HorizontalAlignment="Center" VerticalAlignment="Center" Padding="8,0"
+                  <Button Tag="IndexRowMenu" Cursor="Hand" Background="Transparent" BorderThickness="0"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" Padding="8,2"
                           AutomationProperties.AutomationId="IndexRowMenuButton" AutomationProperties.Name="操作"
-                          ToolTip="このインデックスの操作（編集・削除・エクスポート）" />
+                          ToolTip="このインデックスの操作（編集・削除・エクスポート）">
+                    <Button.Template>
+                      <ControlTemplate TargetType="Button">
+                        <Border x:Name="Ring" CornerRadius="5" Padding="{TemplateBinding Padding}" Background="Transparent">
+                          <Path Data="{StaticResource Icon.Ellipsis}" Width="16" Height="16" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
+                                StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Ring" Property="Background" Value="{StaticResource Bg.Hover}" />
+                          </Trigger>
+                          <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Button.Template>
+                  </Button>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -184,7 +233,7 @@
         </DataGrid>
         <!-- 1 件も無いときの案内。表の見出しは出したまま、その下に出す -->
         <StackPanel x:Name="IndexGridPlaceholder" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="12,48,12,0">
-          <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="40" Foreground="{StaticResource Ink.Faint}" HorizontalAlignment="Center" />
+          <Path Style="{StaticResource Illust.Path}" Data="{StaticResource Icon.FolderSearch}" HorizontalAlignment="Center" />
           <TextBlock Style="{StaticResource Label.Strong}" Margin="0,10,0,0" HorizontalAlignment="Center" Text="フォルダを追加してください" />
           <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" HorizontalAlignment="Center" TextWrapping="Wrap"
                      Text="検索したいフォルダを追加すると、ここに表示されます。" />

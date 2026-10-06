@@ -117,7 +117,11 @@
           <DockPanel>
             <TextBlock DockPanel.Dock="Right" Style="{StaticResource Micro}" VerticalAlignment="Bottom"
                        Text="ダブルクリックでファイルの場所を開きます" />
-            <TextBlock x:Name="FailedHeading" Style="{StaticResource ErrorText}" />
+            <StackPanel Orientation="Horizontal">
+              <Path Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Badge.Ng.Text}"
+                    StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <TextBlock x:Name="FailedHeading" Style="{StaticResource ErrorText}" />
+            </StackPanel>
           </DockPanel>
           <DataGrid x:Name="FailedGrid" MaxHeight="130" Margin="0,6,0,0" SelectionMode="Single" CanUserSortColumns="False">
             <DataGrid.Columns>

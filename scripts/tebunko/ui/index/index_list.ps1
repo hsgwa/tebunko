@@ -359,8 +359,8 @@ function applyIndexStats {
             }
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled
-        $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub)
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio)
+        $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
     }
     $script:indexFileTotal = 0
     if ($null -ne $stats) {
@@ -375,6 +375,18 @@ function applyIndexStats {
 }
 
 $script:indexFileTotal = 0
+
+function updateIndexRowsProgress {
+    # 更新中の行のバッジ（「更新中 45%」）と棒を、進み具合に合わせて置き直す（進み具合の更新のたびに呼ぶ）
+    $ratio = getIndexingRatio
+    foreach ($item in $script:targetItems) {
+        if ($item.IndexLevel -eq "Run") {
+            $row = getIndexRowView $null $true $item.Enabled $ratio
+            $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
+        }
+    }
+    updateIndexDetailPanel
+}
 
 function updateIndexFooter {
     # 一覧の下の帯。文言は判断層（getIndexFooterView）

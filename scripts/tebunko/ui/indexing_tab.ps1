@@ -281,6 +281,7 @@ function updateIndexingProgress {
     $taskbar.ProgressState = if ($progress.Failed -gt 0) { "Paused" } else { "Normal" }
     $taskbar.ProgressValue = $ratio
     updateIndexTabBadge
+    updateIndexRowsProgress
 
     $text = "インデックスを更新しています（$($progress.Processed.ToString('N0')) / $($total.ToString('N0')) 件"
     if ($progress.Failed -gt 0) {

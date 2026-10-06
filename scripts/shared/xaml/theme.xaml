@@ -270,6 +270,8 @@
   <Geometry x:Key="Icon.BadgeGlyphOk">M9 12 L11 14 L15 10</Geometry>
   <Geometry x:Key="Icon.Dots3">M12 12a1 1 0 1 0 0.0001 0Z M19 12a1 1 0 1 0 0.0001 0Z M5 12a1 1 0 1 0 0.0001 0Z</Geometry>
   <Geometry x:Key="Icon.CircleCheck">M12 2a10 10 0 1 0 0.0001 0Z M16 9 L10.5 14.5 L8 12</Geometry>
+  <!-- Lucide ellipsis（Icon.Dots3 と同じ形。行の［…］で使う） -->
+  <Geometry x:Key="Icon.Ellipsis">M12 12a1 1 0 1 0 0.0001 0Z M19 12a1 1 0 1 0 0.0001 0Z M5 12a1 1 0 1 0 0.0001 0Z</Geometry>
   <!-- 図（空の状態の絵）。Icon.FolderSearch・Icon.CircleCheck を 24 の座標を 64 の大きさに拡げ、細い線（0.75）で描く Path の既定値 -->
   <Style x:Key="Illust.Path" TargetType="Path">
     <Setter Property="Width" Value="24" />

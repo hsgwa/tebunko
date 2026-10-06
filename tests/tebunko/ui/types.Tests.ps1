@@ -645,7 +645,7 @@ Describe "FolderItem" -Tag Unit {
     It "ステータス・高速検索の列をまとめて変えて通知する" {
         $item = [FolderItem]::new()
         $names = watchChanges $item
-        $item.SetIndexState("最新", "更新済み 10 件", "Ok", "")
+        $item.SetIndexState("最新", "更新済み 10 件", "Ok", "", 0)
         $item.SetFast("可", "すぐ検索できます", "Ok")
         $item.IndexText | Should -Be "最新"
         $item.IndexToolTip | Should -Be "更新済み 10 件"
@@ -653,7 +653,7 @@ Describe "FolderItem" -Tag Unit {
         $item.FastText | Should -Be "可"
         $item.FastToolTip | Should -Be "すぐ検索できます"
         $item.FastLevel | Should -Be "Ok"
-        @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "IndexSub", "FastText", "FastToolTip", "FastLevel")
+        @($names) | Should -Be @("IndexText", "IndexToolTip", "IndexLevel", "IndexSub", "IndexPercent", "FastText", "FastToolTip", "FastLevel")
     }
 }
 

@@ -577,10 +577,11 @@ class FolderItem : NotifyBase {
     [string]$LastIngestedText
     [bool]$StatusChecked   # フォルダの有無を調べ終えたか（別スレッドで調べる。refreshFolderStatus）
     [bool]$FolderExists    # 調べた結果、フォルダがあったか
-    # 一覧の「ステータス」列（本文の取り込みの状態。getIndexRowView）。色は XAML で Level から選ぶ（Ok/Wait/Ng/None）
+    # 一覧の「ステータス」列（本文の取り込みの状態。getIndexRowView）。色は XAML で Level から選ぶ（Ok/Wait/Ng/Run/None）
     [string]$IndexText = "－"
     [string]$IndexToolTip
     [string]$IndexLevel = "None"
+    [double]$IndexPercent = 0   # 更新中のバッジの下の棒の長さ（0〜100）
     [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
     # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
     [string]$FastText = "確認中…"
@@ -597,9 +598,9 @@ class FolderItem : NotifyBase {
         $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
         $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
     }
-    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level, [string]$sub) {
-        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level; $this.IndexSub = $sub
-        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub")
+    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level, [string]$sub, [double]$percent) {
+        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level; $this.IndexSub = $sub; $this.IndexPercent = $percent
+        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub"); $this.Raise("IndexPercent")
     }
     [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
         $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level

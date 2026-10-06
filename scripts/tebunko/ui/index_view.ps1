@@ -21,7 +21,7 @@ function getUsedIndexNames {
 
 function getIndexNavBadge {
     # ナビの［インデックス管理］の横に出す小さな印。更新中は「● N%」（割合が分からないうちは「●」）、
-    # 中断中は「中断」、更新に失敗したファイルがあるときは「⚠」。どれでもなければ出さない（Text が空）。
+    # 中断中は「中断」、更新に失敗したファイルがあるときは「失敗」。どれでもなければ出さない（Text が空）。
     # Kind は色の種類（Run = 更新中 / Warn = 注意）
     param (
         [bool]$indexing,
@@ -38,7 +38,7 @@ function getIndexNavBadge {
         return @{ Text = "中断"; Kind = "Warn"; ToolTip = "更新が途中で止まっています（残り ${pending} 件）" }
     }
     if ($failed -gt 0) {
-        return @{ Text = "⚠"; Kind = "Warn"; ToolTip = "更新に失敗したファイルがあります" }
+        return @{ Text = "失敗"; Kind = "Warn"; ToolTip = "更新に失敗したファイルがあります" }
     }
     return @{ Text = ""; Kind = ""; ToolTip = "" }
 }
@@ -260,15 +260,20 @@ function getIndexRowView {
     #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
     #   indexing : インデックス作成中か
     #   enabled  : 一覧でチェックが付いているか（インデックス作成で更新する対象か）
+    #   ratio    : 更新全体の進み（0〜1。分からないときは負の値）。更新中のバッジに「更新中 45%」と出し、棒の長さにする
+    # 返す値の Percent は棒の長さ（0〜100）。更新中でなければ 0
     param (
         $stat,
         [bool]$indexing = $false,
-        [bool]$enabled = $true
+        [bool]$enabled = $true,
+        [double]$ratio = -1.0
     )
 
     $notice = if (!$enabled) { "チェックが外れているため、インデックス作成では更新しない（インデックスは残っている）" } else { "" }
     if ($indexing -and $enabled) {
-        return @{ Text = "更新中"; Sub = ""; Level = "Wait"; ToolTip = "インデックスを更新している。終わると状態を表示する" }
+        $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
+        $text = if ($ratio -ge 0) { "更新中 ${percent}%" } else { "更新中" }
+        return @{ Text = $text; Sub = ""; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新している。終わると状態を表示する" }
     }
     if ($null -eq $stat -or $stat.Total -eq 0) {
         return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していない。チェックを付けて［すべて更新］を押すと作る" $notice }
@@ -280,6 +285,23 @@ function getIndexRowView {
         return @{ Text = "エラー"; Sub = ""; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件。原因は下の「更新に失敗したファイル」で見られる。失敗したファイル以外は検索できる" $notice }
     }
     return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件" $notice }
+}
+
+function getIndexRowMenu {
+    # 行の右の［…］から開くメニューの項目（今ある動きだけ。行ごとの更新・中止・再設定・既定に戻す・ノートは今は無い）。
+    # 並びは 編集…・エクスポート…・（区切り）・削除。Enabled は押せるか（getIndexTabButtonsEnabled と同じ決まり）。
+    # 更新中・書き出し中などの間は、行の種類（更新中の行・エラーの行・ふつうの行）によらず全項目を押せなくする
+    param (
+        [string]$blocker,   # getIndexJobBlocker の結果（空なら止めるものは無い）
+        [bool]$selected     # 一覧で行を選んでいるか
+    )
+
+    $enabled = getIndexTabButtonsEnabled $blocker $selected
+    return @(
+        @{ Id = "Edit"; Header = "編集…"; Enabled = [bool]$enabled.Edit; SeparatorBefore = $false }
+        @{ Id = "Export"; Header = "エクスポート…"; Enabled = [bool]$enabled.Export; SeparatorBefore = $false }
+        @{ Id = "Remove"; Header = "削除"; Enabled = [bool]$enabled.Remove; SeparatorBefore = $true }
+    )
 }
 
 function getIndexFooterView {
