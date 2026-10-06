@@ -126,13 +126,14 @@ Describe "getLeftoverPromptTiming" -Tag Unit {
     }
 }
 
-Describe "getOfficePidQueue" -Tag Unit {
+Describe "getLeftoverFailureText" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "ローカルのフォルダは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
-        @{ name = "UNC は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
-        @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+        @{ name = "確認の失敗（理由なし）"; phase = "Check"; err = ""; expected = "前回残った Office を確認できませんでした。" }
+        @{ name = "確認の失敗（理由は 1 行目だけ）"; phase = "Check"; err = "アクセスが拒否されました`r`n発生場所 …"; expected = "前回残った Office を確認できませんでした（アクセスが拒否されました）。" }
+        @{ name = "終了の失敗"; phase = "Stop"; err = "タイムアウト"; expected = "Office を終了できませんでした（タイムアウト）。残った Office は、次に tebunko を起動したときにもう一度確認できます。" }
+        @{ name = "終了の失敗（理由なし）"; phase = "Stop"; err = $null; expected = "Office を終了できませんでした。残った Office は、次に tebunko を起動したときにもう一度確認できます。" }
     ) {
-        getOfficePidQueue $dir | Should -Be $expected
+        getLeftoverFailureText $phase $err | Should -Be $expected
     }
 }
 

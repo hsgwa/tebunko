@@ -23,6 +23,7 @@ function startLeftoverCheck {
     } @((getOfficePidDir $workspace), $(if ($mode -eq "Fake") { $script:leftoverFakeFile } else { "" })) {
         param ($output, $errorText)
         if ($errorText -or $null -eq $output -or $output.Count -eq 0) {
+            if ($errorText) { setStatus (getLeftoverFailureText "Check" $errorText) }
             return
         }
         safe {
@@ -97,12 +98,14 @@ function showLeftoverDialog {
         $chosen.Value = "stop"
         $dialog.DialogResult = $true
     }.GetNewClosure())
-    $ctrl.DetailToggleButton.Add_Click({
-        $open = ($ctrl.DetailBox.Visibility -ne "Visible")
+    # マウス・キーボードでも UI オートメーションの Toggle でも IsChecked が変わるので、Click ではなく Checked / Unchecked で受ける
+    $applyToggle = {
+        $open = [bool]$ctrl.DetailToggleButton.IsChecked
         $ctrl.DetailBox.Visibility = $(if ($open) { "Visible" } else { "Collapsed" })
         $ctrl.DetailToggleButton.Content = & $getToggleText $open
-        $ctrl.DetailToggleButton.Tag = $(if ($open) { "Open" } else { "" })
-    }.GetNewClosure())
+    }.GetNewClosure()
+    $ctrl.DetailToggleButton.Add_Checked($applyToggle)
+    $ctrl.DetailToggleButton.Add_Unchecked($applyToggle)
     # うっかり Enter で終了しないよう、既定は［今回は終了しない］
     $dialog.Add_ContentRendered({ $ctrl.LeftoverCancelButton.Focus() | Out-Null }.GetNewClosure())
     $null = showOwnedDialog $dialog
@@ -128,6 +131,7 @@ function stopLeftoverProcesses {
     } @((getOfficePidDir $workspace)) {
         param ($output, $errorText)
         if ($errorText -or $null -eq $output -or $output.Count -eq 0) {
+            if ($errorText) { setStatus (getLeftoverFailureText "Stop" $errorText) }
             return
         }
         safe {
@@ -142,6 +146,7 @@ function stopLeftoverProcesses {
             } @($targets, (getOfficePidDir $workspace)) {
                 param ($output, $errorText)
                 if ($errorText -or $null -eq $output -or $output.Count -eq 0) {
+                    if ($errorText) { setStatus (getLeftoverFailureText "Stop" $errorText) }
                     return
                 }
                 safe { finishLeftoverStop @($output[0].Results) }

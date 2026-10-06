@@ -79,7 +79,7 @@ function startGui {
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
         @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText") }
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
-            "IndexListHost", "IndexDetailHost", "IndexDetailRow",
+            "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
             "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
             "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingLogButton") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(

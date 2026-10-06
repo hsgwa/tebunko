@@ -14,6 +14,7 @@ function setIndexBadge {
 
     $kind = if ($level -in @("Ok", "Wait", "Ng")) { $level } else { "None" }
     $border.Background = themeBrush "Badge.${kind}.Bg"
+    $border.BorderBrush = themeBrush "Badge.${kind}.Bg"
     $textBlock.Foreground = themeBrush "Badge.${kind}.Text"
     $textBlock.Text = $text
     $border.Visibility = if ($text) { "Visible" } else { "Collapsed" }

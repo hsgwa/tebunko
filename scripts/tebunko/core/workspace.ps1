@@ -75,6 +75,15 @@ function getOfficePidDir {
     return Join-Path $workspace.OfficePidRoot (getMachineKey)
 }
 
+function getOfficePidQueue {
+    # 記録の置き場所を読む startJob の列。共有に届かないと待たされるため、ネットワークの場所なら専用の列（"network"）
+    param (
+        [string]$dir
+    )
+
+    return $(if (testNetworkPath $dir) { "network" } else { "default" })
+}
+
 function getWorkspaceTmpDir {
     # 取り込みの作業フォルダの候補（$workspace.TmpRoot\<PC の鍵>\<PID>）を返す。副作用は無い（selectTmpDir が使う）
     param (

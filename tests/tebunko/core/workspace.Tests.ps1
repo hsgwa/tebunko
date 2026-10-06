@@ -389,3 +389,13 @@ Describe "clearLegacySystemIndex" -Tag Io {
         Test-Path -LiteralPath $ws.SystemIndexDir | Should -Be $true
     }
 }
+
+Describe "getOfficePidQueue" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ローカルのフォルダは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
+        @{ name = "UNC は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+        @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+    ) {
+        getOfficePidQueue $dir | Should -Be $expected
+    }
+}

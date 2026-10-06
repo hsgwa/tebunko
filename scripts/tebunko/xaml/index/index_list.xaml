@@ -8,12 +8,11 @@
         <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
       <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / Run / None）を入れて、色だけ切り替える -->
-      <Style x:Key="LevelBadge" TargetType="Border">
-        <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="8,2" />
+      <Style x:Key="LevelBadge" TargetType="Border" BasedOn="{StaticResource StatusBadge}">
         <Setter Property="HorizontalAlignment" Value="Left" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Background" Value="{StaticResource Badge.None.Bg}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
         <Style.Triggers>
           <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
             <Setter Property="Background" Value="{StaticResource Badge.Ok.Bg}" />
@@ -61,7 +60,7 @@
       </Style>
     </ResourceDictionary>
   </Grid.Resources>
-  <Border Style="{StaticResource Card}">
+  <Border>
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
@@ -72,15 +71,15 @@
       <DockPanel Grid.Row="0">
         <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="IndexingButton" Style="{StaticResource Primary}" Content="すべて更新" MinWidth="104" Height="34" Margin="0,0,8,0" />
-            <Button x:Name="ImportIndexButton" Content="インポート…" Margin="0,0,8,0" ToolTip="エクスポートした zip を読み込み、一覧に加えます" />
-            <Button x:Name="NewIndexButton" Content="＋ フォルダを追加" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
+            <Button x:Name="IndexingButton" Content="すべて更新" MinWidth="104" Height="34" Margin="0,0,8,0" />
+            <Button x:Name="ImportIndexButton" Content="インポート…" Height="34" Margin="0,0,8,0" ToolTip="エクスポートした zip を読み込み、一覧に加えます" />
+            <Button x:Name="NewIndexButton" Style="{StaticResource Primary}" Height="34" Content="＋ フォルダを追加" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
           </StackPanel>
           <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Right" />
         </StackPanel>
         <StackPanel>
           <StackPanel Orientation="Horizontal">
-            <TextBlock Style="{StaticResource Heading}" Text="インデックス管理" />
+            <TextBlock Style="{StaticResource PageTitle}" Text="インデックス管理" />
             <Path Data="{StaticResource Icon.Info}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
                   StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                   VerticalAlignment="Center" Margin="6,2,0,0" Fill="Transparent"
@@ -171,7 +170,7 @@
                       </ProgressBar.Style>
                     </ProgressBar>
                     <!-- 途中で止まったときの「残り N 件」。無いときは場所を取らない -->
-                    <TextBlock Margin="2,2,0,0" FontSize="11" Foreground="{StaticResource Ink.Muted}" Text="{Binding IndexSub}">
+                    <TextBlock Margin="2,2,0,0" FontSize="11" Foreground="{StaticResource Warn}" Text="{Binding IndexSub}">
                       <TextBlock.Style>
                         <Style TargetType="TextBlock">
                           <Style.Triggers>
@@ -232,7 +231,7 @@
           </DataGrid.Columns>
         </DataGrid>
         <!-- 1 件も無いときの案内。表の見出しは出したまま、その下に出す -->
-        <StackPanel x:Name="IndexGridPlaceholder" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="12,48,12,0">
+        <StackPanel x:Name="IndexGridPlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="12,24,12,24">
           <Path Style="{StaticResource Illust.Path}" Data="{StaticResource Icon.FolderSearch}" HorizontalAlignment="Center" />
           <TextBlock Style="{StaticResource Label.Strong}" Margin="0,10,0,0" HorizontalAlignment="Center" Text="フォルダを追加してください" />
           <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" HorizontalAlignment="Center" TextWrapping="Wrap"

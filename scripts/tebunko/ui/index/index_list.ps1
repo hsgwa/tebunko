@@ -396,7 +396,13 @@ function updateIndexFooter {
 }
 
 function updateIndexListView {
-    $ui.IndexGridPlaceholder.Visibility = if ($script:targetItems.Count -eq 0) { "Visible" } else { "Collapsed" }
+    $empty = ($script:targetItems.Count -eq 0)
+    $ui.IndexGridPlaceholder.Visibility = if ($empty) { "Visible" } else { "Collapsed" }
+    # 1 件も無いときは、詳細と境目を出さず、案内を画面の中央に出す
+    $ui.IndexDetailHost.Visibility = if ($empty) { "Collapsed" } else { "Visible" }
+    $ui.IndexSplitter.Visibility = if ($empty) { "Collapsed" } else { "Visible" }
+    $ui.IndexDetailRow.MinHeight = if ($empty) { 0 } else { 240 }
+    $ui.IndexDetailRow.Height = if ($empty) { [System.Windows.GridLength]::new(0) } else { [System.Windows.GridLength]::new(397) }
     updateIndexFooter
     updateIndexingButton
     updateIndexDetailPanel

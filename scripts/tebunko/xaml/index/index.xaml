@@ -38,7 +38,7 @@
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <!-- 一覧と詳細の境目。上下にドラッグすると詳細の高さが変わる -->
-  <GridSplitter Grid.Row="2" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+  <GridSplitter x:Name="IndexSplitter" Grid.Row="2" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                 ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" Cursor="SizeNS"
                 ToolTip="上下にドラッグすると、詳細の高さを変えられます">
     <GridSplitter.Template>

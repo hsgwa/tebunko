@@ -174,13 +174,20 @@ function getLeftoverPromptTiming {
     return "Show"
 }
 
-function getOfficePidQueue {
-    # 記録の置き場所を読む startJob の列。共有に届かないと待たされるため、ネットワークの場所なら専用の列（"network"）
+function getLeftoverFailureText {
+    # 起動時の確認・［終了する］のあとの裏の仕事が失敗したとき、ステータスバーに出す文。段階は Check（起動時の確認）か Stop（終了）。
+    # 詳しい原因は付けず、利用者が次にすることを示す（残った Office は、次の起動のときにもう一度確認できる）
     param (
-        [string]$dir
+        [string]$phase,
+        [string]$errorText
     )
 
-    return $(if (testNetworkPath $dir) { "network" } else { "default" })
+    $detail = $(if ([string]::IsNullOrWhiteSpace($errorText)) { "" } else { "（$(($errorText.Trim() -split "?
+")[0])）" })
+    if ($phase -eq "Stop") {
+        return "Office を終了できませんでした$detail。残った Office は、次に tebunko を起動したときにもう一度確認できます。"
+    }
+    return "前回残った Office を確認できませんでした$detail。"
 }
 
 # ---- 写真・画面のテスト用の偽の行 ----

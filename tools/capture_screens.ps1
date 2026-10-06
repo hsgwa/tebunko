@@ -666,36 +666,36 @@ function captureLeftoverScene {
 
     & $run "basic" "basic" {
         param ($S)
-        $dialog = waitGuiWindow $S "Office の確認" -Id "HeadingText" -Text "残ったまま動いています"
+        $dialog = waitGuiWindow $S "Office の終了" -Id "HeadingText" -Text "残ったまま動いています"
         captureGuiState -S $S -Id "window/leftover-search" @common -Extra @($dialog)
         captureGuiState -S $S -Id "window/leftover" @common -Primary $dialog
-        clickGui $S $dialog "LeftoverDetailToggle" "［詳細を表示］"
+        toggleGui (findGui $dialog -Id "LeftoverDetailToggle")
         waitGui $S "詳細が開く" ${guiDefaultTimeout} { (@(getGuiTexts $dialog) -join " ") -like "*12840*" } | Out-Null
         captureGuiState -S $S -Id "window/leftover-open" @common -Primary $dialog
         clickGui $S $dialog "LeftoverCancelButton" "［今回は終了しない］"
-        waitGuiWindowClosed $S $dialog "Office の確認"
+        waitGuiWindowClosed $S $dialog "Office の終了"
         closeGui $S
     }
     & $run "many" "many" {
         param ($S)
-        $dialog = waitGuiWindow $S "Office の確認" -Id "HeadingText" -Text "残ったまま動いています"
-        clickGui $S $dialog "LeftoverDetailToggle" "［詳細を表示］"
+        $dialog = waitGuiWindow $S "Office の終了" -Id "HeadingText" -Text "残ったまま動いています"
+        toggleGui (findGui $dialog -Id "LeftoverDetailToggle")
         waitGui $S "詳細が開く" ${guiDefaultTimeout} { (@(getGuiTexts $dialog) -join " ") -like "*12840*" } | Out-Null
         captureGuiState -S $S -Id "window/leftover-many" @common -Primary $dialog
         clickGui $S $dialog "LeftoverCancelButton" "［今回は終了しない］"
-        waitGuiWindowClosed $S $dialog "Office の確認"
+        waitGuiWindowClosed $S $dialog "Office の終了"
         closeGui $S
     }
     & $run "killed" "basic" {
         param ($S)
-        answerGuiConfirm $S "Office の確認" "残ったまま動いています" "終了する"
+        answerGuiConfirm $S "Office の終了" "残ったまま動いています" "終了する"
         waitGui $S "結果がステータスに出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "Office を*" } | Out-Null
         captureGuiState -S $S -Id "window/leftover-killed" @common
         closeGui $S
     }
     & $run "partial" "partial" {
         param ($S)
-        answerGuiConfirm $S "Office の確認" "残ったまま動いています" "終了する"
+        answerGuiConfirm $S "Office の終了" "残ったまま動いています" "終了する"
         waitGui $S "結果がステータスに出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "Office を*" } | Out-Null
         captureGuiState -S $S -Id "window/leftover-partial" @common
         closeGui $S

@@ -68,6 +68,7 @@
 | 1 件も止めず、変わったものがある | 件数の文を出さず、`PID 9316 は確認の後に別のプロセスに変わったため、終了しませんでした。` だけ |
 | 失敗があった | 末尾に `PID <N> を終了できませんでした：<理由>` |
 | 何も止めず、言うことも無い | ステータスは変えない |
+| 裏の仕事そのものが失敗した（起動時の確認・［終了する］のあと） | `getLeftoverFailureText`。`Office を終了できませんでした（<理由の 1 行目>）。残った Office は、次に tebunko を起動したときにもう一度確認できます。`（確認の失敗は `前回残った Office を確認できませんでした（<理由>）。`） |
 
 ## 記録
 
@@ -90,7 +91,7 @@
 |---|---|
 | 記録の書き込み・読み込み・一覧・終了 | `scripts/shared/office/office_process.ps1`（`addOfficeRecord`・`readOfficeRecords`・`getOfficeProcesses`・`stopOfficeProcesses`）。プロセスの強制終了はここの 1 か所だけ |
 | 記録の書き込み・削除の呼び出し | `scripts/shared/office/office_app.ps1`（`getApp`・`stopApp`）。置き場所は `indexer_run.ps1` が `getOfficePidDir` で決めて渡す |
-| 文言・出すかどうか・対象の選び方 | `scripts/tebunko/ui/leftover_view.ps1`（判断層。`getLeftoverPrompt`・`getLeftoverResultText`・`getLeftoverPromptTiming`・`getLeftoverTargets`・`getOfficePidQueue`。詳細の時刻・開け閉めの文字・偽の行の変換もここ） |
+| 文言・出すかどうか・対象の選び方 | `scripts/tebunko/ui/leftover_view.ps1`（判断層。`getLeftoverPrompt`・`getLeftoverResultText`・`getLeftoverPromptTiming`・`getLeftoverTargets`・`getLeftoverFailureText`。詳細の時刻・開け閉めの文字・偽の行の変換もここ） |
 | ダイアログと起動時の呼び出し | `scripts/tebunko/ui/leftover_dialog.ps1`（画面層）・`scripts/tebunko/xaml/dialog_leftover.xaml` |
 
 ## 画面の実装
@@ -107,4 +108,4 @@
 
 本物の Office を残さずに確認の画面を出せるよう、環境変数 `TEBUNKO_GUI_LEFTOVER_FILE`（JSON のファイル）を `leftover_dialog.ps1` だけが読む。設定されているときは、記録の代わりにその JSON の行（`Id`・`ProcessName`・`StartTime`・`StopStatus`）を使い、終了も結果の文を作るだけでプロセスには触れない。**設定されていなければ本物の動き**になる（既定は本物）。`tests/meta/leftover_seam.Tests.ps1` が、読むファイルが 1 つだけであること・プロセスを止める呼び出しが無いことを確かめる。
 
-記録は共有のワークスペースにも置かれるため、置き場所がネットワークのときは、読み取りを専用の列（`getOfficePidQueue` が `network` を返す）の仕事で行い、届かない共有で画面を止めない。
+記録は共有のワークスペースにも置かれるため、置き場所がネットワークのときは、読み取りを専用の列（`tebunko/core/workspace.ps1` の `getOfficePidQueue` が `network` を返す）の仕事で行い、届かない共有で画面を止めない。

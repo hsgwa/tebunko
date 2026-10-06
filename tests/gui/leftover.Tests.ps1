@@ -33,17 +33,18 @@ Describe "起動時の前回残った Office の確認" -Tag Gui {
         $S = startGui $tool "L1"
         invokeGuiScene $S {
             setGuiStep $S "確認ダイアログ"
-            $dialog = waitGuiWindow $S "Office の確認" -Id "HeadingText" -Text "残ったまま動いています"
+            $dialog = waitGuiWindow $S "Office の終了" -Id "HeadingText" -Text "残ったまま動いています"
             (getGuiText (findGui $dialog -Id "HeadingText")) | Should -BeLike "*Office が 3 件*"
             (getGuiTexts $dialog) -join " " | Should -BeLike "*編集中のファイルは閉じません*"
 
             setGuiStep $S "詳細を開く"
-            clickGui $S $dialog "LeftoverDetailToggle" "［詳細を表示］"
+            toggleGui (findGui $dialog -Id "LeftoverDetailToggle")
             waitGui $S "詳細に PID が出る" ${guiDefaultTimeout} { (@(getGuiTexts $dialog) -join " ") -like "*12840*9316*" } | Out-Null
+            getGuiToggleState (findGui $dialog -Id "LeftoverDetailToggle") | Should -Be "On"
 
             setGuiStep $S "［今回は終了しない］"
             clickGui $S $dialog "LeftoverCancelButton" "［今回は終了しない］"
-            waitGuiWindowClosed $S $dialog "Office の確認"
+            waitGuiWindowClosed $S $dialog "Office の終了"
             (getGuiText (findGui $S.Window -Id "StatusText")) | Should -Not -BeLike "*Office を*終了*"
             closeGui $S
         }
@@ -56,7 +57,7 @@ Describe "起動時の前回残った Office の確認" -Tag Gui {
         $env:TEBUNKO_GUI_LEFTOVER_FILE = $file
         $S = startGui $tool "L2"
         invokeGuiScene $S {
-            answerGuiConfirm $S "Office の確認" "残ったまま動いています" "終了する"
+            answerGuiConfirm $S "Office の終了" "残ったまま動いています" "終了する"
             waitGui $S "結果がステータスに出る" ${guiDefaultTimeout} {
                 (getGuiText (findGui $S.Window -Id "StatusText")) -like "*PID 9316 は確認の後に別のプロセスに変わったため*"
             } | Out-Null
