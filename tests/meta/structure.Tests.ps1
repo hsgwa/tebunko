@@ -35,22 +35,42 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
     }
 }
 
-Describe "カバレッジの計測の対象（画面層を分母に入れない）" -Tag Meta {
+Describe "カバレッジの計測の対象（画面層だけを分母から外す）" -Tag Meta {
     BeforeAll {
         . "$PSScriptRoot\..\helpers\coverage_targets.ps1"
-        $script:targets = @(getCoverageTargets "$here\..\scripts")
-        $script:uiSep = [System.IO.Path]::DirectorySeparatorChar + "ui" + [System.IO.Path]::DirectorySeparatorChar
+        $script:targets = @(getCoverageTargets "$here\..\scripts" | ForEach-Object { $_.Substring(([System.IO.Path]::GetFullPath("$here\..\scripts")).Length + 1) })
     }
 
-    It "ui\ の下のファイルは、_view.ps1 で終わるものしか入っていない（画面層のファイルを足しても、条件に名前を足さずに分母から外れる）" {
-        $bad = @($script:targets | Where-Object { $_.Contains($script:uiSep) -and $_ -notmatch '_view\.ps1$' })
-        $bad -join ", " | Should -Be ""
+    It "テストのある ui\ の下のファイル（<file>）は計測の対象に入っている" -ForEach @(
+        @{ file = "tebunko\ui\result_list.ps1" }
+        @{ file = "tebunko\ui\preview.ps1" }
+        @{ file = "tebunko\ui\index_tree.ps1" }
+        @{ file = "tebunko\ui\open_source.ps1" }
+        @{ file = "tebunko\ui\types.ps1" }
+        @{ file = "tebunko\ui\startup_error.ps1" }
+        @{ file = "shared\ui\types.ps1" }
+        @{ file = "tebunko\ui\index_view.ps1" }
+        @{ file = "tebunko\ui\shell\nav_view.ps1" }
+    ) {
+        $script:targets | Should -Contain $file
     }
 
-    It "ui\ の下の判断層（_view.ps1）と、ui\ の外の状態層は入っている。起動口の gui.ps1 は入っていない" {
-        @($script:targets | Where-Object { $_.Contains($script:uiSep) -and $_ -match '_view\.ps1$' }).Count | Should -BeGreaterThan 0
-        @($script:targets | Where-Object { $_.Contains([System.IO.Path]::DirectorySeparatorChar + "core" + [System.IO.Path]::DirectorySeparatorChar) }).Count | Should -BeGreaterThan 0
+    It "画面層（<file>）は計測の対象に入っていない" -ForEach @(
+        @{ file = "tebunko\ui\gui_main.ps1" }
+        @{ file = "tebunko\ui\index_tab.ps1" }
+        @{ file = "tebunko\ui\about_dialog.ps1" }
+        @{ file = "tebunko\ui\shell\nav.ps1" }
+        @{ file = "shared\ui\shell.ps1" }
+        @{ file = "shared\ui\app_host.ps1" }
+        @{ file = "tebunko\ui\splash.ps1" }
+        @{ file = "shared\ui\folder_dialog.ps1" }
+    ) {
+        $script:targets | Should -Not -Contain $file
+    }
+
+    It "起動口 gui.ps1 は入っていない。状態層（core）は入っている" {
         @($script:targets | Where-Object { (Split-Path $_ -Leaf) -eq "gui.ps1" }).Count | Should -Be 0
+        @($script:targets | Where-Object { $_.Contains("\core\") }).Count | Should -BeGreaterThan 0
     }
 }
 
