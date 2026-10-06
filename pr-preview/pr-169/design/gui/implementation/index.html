@@ -4257,7 +4257,7 @@
 <td>起動中の表示（<a href="../#ウィンドウ">ウィンドウ</a>）。早く出すため <code>theme.xaml</code> を読み込まず、色は <code>theme.xaml</code> と同じ値を直接書く</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/xaml/tab_index.xaml</code><br><code>tab_settings.xaml</code><br><code>tab_kill.xaml</code></td>
+<td><code>scripts/tebunko/xaml/tab_settings.xaml</code><br><code>tab_kill.xaml</code></td>
 <td>各画面の中身。イベントは書かず、<code>x:Name</code> だけを付ける。ルート要素には <code>StaticResource</code> を使う属性を置かない（自分の <code>Resources</code> より先に解決されるため）。<code>x:Name</code> が <code>gui.ps1</code> の一覧と食い違っていないことは <code>tests/meta/structure.Tests.ps1</code> で確かめる</td>
 </tr>
 <tr>
@@ -4265,8 +4265,16 @@
 <td>［2 検索］の領域ごとの XAML。<code>search.xaml</code> は枠（検索バー・結果の一覧・プレビューを入れる場所）、<code>target_tree.xaml</code> は左の欄の下（検索対象のツリー）に入る。ルート要素の決まりと <code>x:Name</code> の確かめは、上の各画面の中身と同じ</td>
 </tr>
 <tr>
+<td><code>scripts/tebunko/xaml/index/index.xaml</code><br><code>index_list.xaml</code><br><code>index_detail.xaml</code></td>
+<td>［1 インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［インポート…］［追加…］［インデックス作成を開始］・表。行の［⋯］から開くメニュー <code>IndexRowMenu</code> に［編集…］［エクスポート…］［削除］）、<code>index_detail.xaml</code> は詳細（状態の合計・取り込みの進み具合・取り込みに失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/dialog_export.xaml</code><br><code>dialog_import.xaml</code></td>
+<td>インデックスのエクスポート・インポートのダイアログ（<a href="../index-tab/#エクスポートインポート">エクスポート・インポート</a>）。<code>ui/index/index_archive.ps1</code> が開く</td>
+</tr>
+<tr>
 <td><code>scripts/tebunko/xaml/dialog_index_edit.xaml</code></td>
-<td>インデックスの追加・編集のダイアログ（<a href="../index-tab/#追加編集のダイアログ">追加・編集のダイアログ</a>）。追加と編集で同じ定義を使い、表題・説明・注意書きを <code>ui/index_tab.ps1</code> で変える</td>
+<td>インデックスの追加・編集のダイアログ（<a href="../index-tab/#追加編集のダイアログ">追加・編集のダイアログ</a>）。追加と編集で同じ定義を使い、表題・説明・注意書きを <code>ui/index/index_edit.ps1</code> で変える</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_indexing_confirm.xaml</code></td>
@@ -4301,7 +4309,7 @@
 <td>Windows 標準のフォルダ選択（<code>selectFolder</code>。<a href="../common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>）。WinForms 内部の <code>IFileDialog</code> をリフレクションで呼んで開き、開けなければ <code>OpenFileDialog</code> でフォルダの中に入って選んでもらう（<a href="#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。フォルダのドラッグ＆ドロップの判定（<code>getDroppedFolders</code>・<code>onFolderDragOver</code>）も置く</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/index_tab.ps1</code><br><code>indexing_tab.ps1</code></td>
+<td><code>scripts/tebunko/ui/index/index_list.ps1</code><br><code>index_edit.ps1</code><br><code>index_archive.ps1</code><br><code>index_detail.ps1</code><br><code>index_events.ps1</code><br><code>indexing_tab.ps1</code></td>
 <td>［1 インデックス管理］タブ（<a href="../index-tab/">［1 インデックス管理］タブ</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（<code>IndexingSession</code>）・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）</td>
 </tr>
 <tr>

@@ -4348,7 +4348,7 @@
 <td>画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/index/index_catalog.ps1</code>（<code>lib.ps1</code>）</td>
-<td><code>index_store.ps1</code>、<code>ui/index_tab.ps1</code> の <code>editIndex</code>・<code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code>・<code>removeSearchExcludesUnder</code>（<code>renameIndex</code>・<code>removeIndex</code> から呼ぶ）</td>
+<td><code>index_store.ps1</code>、<code>ui/index/index_edit.ps1</code> の <code>editIndex</code>、<code>ui/index/index_list.ps1</code> の <code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code>・<code>removeSearchExcludesUnder</code>（<code>renameIndex</code>・<code>removeIndex</code> から呼ぶ）</td>
 <td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>、元のフォルダの記録・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
 </tr>
 <tr>
