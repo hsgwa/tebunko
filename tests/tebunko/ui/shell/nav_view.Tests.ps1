@@ -44,7 +44,9 @@ Describe "getShortcutAction" -Tag Unit {
         @{ name = "Ctrl+Shift+Tab は先頭から末尾に回る"; key = "Tab"; ctrl = $true; shift = $true; current = "SearchTab"; action = "SwitchScreen"; screen = "KillTab" }
         @{ name = "F5 は今の画面のまま読み直す"; key = "F5"; ctrl = $false; shift = $false; current = "KillTab"; action = "Refresh"; screen = "KillTab" }
         @{ name = "Escape は検索の取り消し"; key = "Escape"; ctrl = $false; shift = $false; current = "SearchTab"; action = "CancelSearch"; screen = "SearchTab" }
-        @{ name = "Ctrl なしの F・Tab は扱わない"; key = "F"; ctrl = $false; shift = $false; current = "SearchTab"; action = "None"; screen = "SearchTab" }
+        @{ name = "Ctrl なしの F は扱わない"; key = "F"; ctrl = $false; shift = $false; current = "SearchTab"; action = "None"; screen = "SearchTab" }
+        @{ name = "Ctrl 付きの F5 も読み直す（修飾キーは見ない）"; key = "F5"; ctrl = $true; shift = $false; current = "KillTab"; action = "Refresh"; screen = "KillTab" }
+        @{ name = "Shift 付きの Escape も検索の取り消し（修飾キーは見ない）"; key = "Escape"; ctrl = $false; shift = $true; current = "SearchTab"; action = "CancelSearch"; screen = "SearchTab" }
         @{ name = "Ctrl なしの Tab は扱わない"; key = "Tab"; ctrl = $false; shift = $false; current = "SearchTab"; action = "None"; screen = "SearchTab" }
     ) {
         $result = getShortcutAction $key $ctrl $shift $current

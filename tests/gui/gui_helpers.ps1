@@ -695,6 +695,15 @@ function pressGuiEnterKey {
     [void][TebunkoGuiNative]::PostMessage($handle, 0x0101, [IntPtr]13, [IntPtr]::Zero)
 }
 
+function pressGuiKey {
+    # 窓に、修飾キーなしのキー（VK_F5 = 0x74 など）を、WM_KEYDOWN・WM_KEYUP のメッセージだけで送る（SendInput・keybd_event は使わない）。
+    # Ctrl・Shift を押した形は送れない（ハンドラは本物のキーボードの状態を読むため）
+    param ($Window, [int]$VirtualKey)
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
+    [void][TebunkoGuiNative]::PostMessage($handle, 0x0100, [IntPtr]$VirtualKey, [IntPtr]::Zero)
+    [void][TebunkoGuiNative]::PostMessage($handle, 0x0101, [IntPtr]$VirtualKey, [IntPtr]::Zero)
+}
+
 function closeGuiNativeMessage {
     # OK だけの OS 標準のメッセージボックスを、確実に閉じるまで閉じ続ける。
     # ボタンへの BM_CLICK（clickGuiNativeButton）だけでは閉じないことがあるため、Enter キー（pressGuiEnterKey）も

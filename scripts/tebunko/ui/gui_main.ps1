@@ -207,44 +207,8 @@ function startGui {
         $others = $modifiers -band (-bnot ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift))
         if ($others -ne 0) { return }
         $action = getShortcutAction ([string]$e.Key) $ctrl $shift (getCurrentScreen)
-        switch ($action.Action) {
-            "FocusSearchWord" {
-                selectScreen $action.Screen
-                # 切り替えた直後は、検索の画面がまだ表示の木に入っていないことがあるため、配置を済ませてからフォーカスする
-                $ui.ContentHost.UpdateLayout()
-                $ui.WordBox.Focus() | Out-Null
-                $ui.WordBox.SelectAll()
-                $e.Handled = $true
-            }
-            "FocusFilter" {
-                selectScreen $action.Screen
-                $ui.ContentHost.UpdateLayout()
-                $ui.FilterBox.Focus() | Out-Null
-                $e.Handled = $true
-            }
-            "SwitchScreen" {
-                # Ctrl+Tab・Ctrl+Shift+Tab: ナビの項目を順に切り替える
-                selectScreen $action.Screen
-                $e.Handled = $true
-            }
-            "Refresh" {
-                safe {
-                    if ($action.Screen -eq "KillTab") {
-                        refreshProcesses
-                    } else {
-                        refreshIndexingState
-                        refreshIndexSummary
-                        loadIndexTree
-                    }
-                }
-                $e.Handled = $true
-            }
-            "CancelSearch" {
-                if ($script:search) {
-                    cancelSearch
-                    $e.Handled = $true
-                }
-            }
+        if (invokeShortcutAction $action) {
+            $e.Handled = $true
         }
     })
 

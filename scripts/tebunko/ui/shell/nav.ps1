@@ -41,6 +41,56 @@ function selectScreen {
     }
 }
 
+# キー操作の振り分け（getShortcutAction が決めた動作を実行する）。キーを受けたら $true（呼び出し側が Handled にする）、
+# 何もしなければ $false を返す。窓の PreviewKeyDown から呼ぶ
+function invokeShortcutAction {
+    param (
+        $action
+    )
+
+    switch ($action.Action) {
+        "FocusSearchWord" {
+            selectScreen $action.Screen
+            # 切り替えた直後は、検索の画面がまだ表示の木に入っていないことがあるため、配置を済ませてからフォーカスする
+            $ui.ContentHost.UpdateLayout()
+            $ui.WordBox.Focus() | Out-Null
+            $ui.WordBox.SelectAll()
+            return $true
+        }
+        "FocusFilter" {
+            selectScreen $action.Screen
+            $ui.ContentHost.UpdateLayout()
+            $ui.FilterBox.Focus() | Out-Null
+            return $true
+        }
+        "SwitchScreen" {
+            # Ctrl+Tab・Ctrl+Shift+Tab: ナビの項目を順に切り替える
+            selectScreen $action.Screen
+            return $true
+        }
+        "Refresh" {
+            safe {
+                if ($action.Screen -eq "KillTab") {
+                    refreshProcesses
+                } else {
+                    refreshIndexingState
+                    refreshIndexSummary
+                    loadIndexTree
+                }
+            }
+            return $true
+        }
+        "CancelSearch" {
+            # 検索中だけ止める（検索中でなければキーを渡す）
+            if ($script:search) {
+                cancelSearch
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
 $ui.NavList.Add_SelectionChanged({
     param ($sender, $e)
     # 中の項目の選択変更だけを扱う
