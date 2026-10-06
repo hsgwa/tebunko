@@ -323,6 +323,19 @@ Describe "getIndexRowMenu" -Tag Unit {
     }
 }
 
+Describe "getIndexDetailRowPlan" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "初めて・空: 畳む"; was = $null; empty = $true; expected = "Hide" }
+        @{ name = "初めて・空でない: 出す"; was = $null; empty = $false; expected = "Show" }
+        @{ name = "空でないまま（別の行を選んだ）: 動かさない"; was = $false; empty = $false; expected = "Keep" }
+        @{ name = "空のまま: 動かさない"; was = $true; empty = $true; expected = "Keep" }
+        @{ name = "空でなくなった: 出す"; was = $true; empty = $false; expected = "Show" }
+        @{ name = "空になった: 畳む"; was = $false; empty = $true; expected = "Hide" }
+    ) {
+        getIndexDetailRowPlan $was $empty | Should -Be $expected
+    }
+}
+
 Describe "getIndexFooterView" -Tag Unit {
     It "フォルダ数とファイルの合計を、3 桁ごとの区切りで出す" -TestCases @(
         @{ folders = 0; files = 0; f = "登録済み: 0 フォルダ"; t = "合計: 0 ファイル" }

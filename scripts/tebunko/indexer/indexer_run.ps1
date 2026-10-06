@@ -493,7 +493,7 @@ function invokeIndexerBody {
         $answer = $reporter.WaitForApproval(${indexingPhaseConfirm}, $plan.ToArray(), $targets.Count, $failed.Count, $approvalTimeoutMinutes)
         if ($null -eq $answer) {
             # 取りやめ。1件も取り込んでいないため、取り込み対象にした行は前回の記録のまま（一覧に無かったファイルは記録しない）にする。
-            # 「未取り込み」で記録すると、次回［インデックス作成を開始］が［続きから再開］になり、中断したように見えるため。
+            # 「未取り込み」で記録すると、次回［すべて更新］が［続きから再開］になり、中断したように見えるため。
             # 取り込み一覧自体は書き直す（無くなったファイルの削除を反映する必要があるため）
             $targetPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($row in $targets) {

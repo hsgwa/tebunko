@@ -1,6 +1,6 @@
 ﻿# インデックス管理の詳細が、選んだ行の値の変わるたびに書き直されることのテスト。
 # 詳細（updateIndexDetailPanel）は、選んだ行（FolderItem）の値を読んで出す。行の値を変える所が詳細を
-# 書き直さないと、一覧と詳細で値が食い違う（［作成］のチェックを切り替えても詳細が古いままだった不具合）。
+# 書き直さないと、一覧と詳細で値が食い違う（行のチェックを切り替えても詳細が古いままだった不具合）。
 # 画面を開かずに、呼び出しの有無を構文木で確かめる（実際に書き直るかは tests/gui/index.Tests.ps1）。
 # コメントや文字列には一致させない（コマンドの呼び出しだけを数える）。行の値を変える方法は、
 # ui/types.ps1 の FolderItem の Set* メソッドと、プロパティへの直接の代入から集める
@@ -61,7 +61,7 @@ Describe "インデックス管理の詳細を書き直す入口" -Tag Meta {
     }
 
     It "<key> は updateIndexDetailPanel を呼ぶ（<reason>）" -TestCases @(
-        @{ key = "index_list.ps1:onIndexGridToggled"; reason = "［作成］のチェックの切り替え" }
+        @{ key = "index_list.ps1:onIndexGridToggled"; reason = "行のチェックの切り替え" }
         @{ key = "index_list.ps1:applyFolderStatus"; reason = "フォルダの有無の結果が遅れて届く" }
         @{ key = "index_list.ps1:updateFolderItemStatus"; reason = "場所の変更でフォルダの状態が「確認しています」に戻る" }
         @{ key = "index_list.ps1:updateIndexListView"; reason = "選び直し・追加・削除・読み直し" }

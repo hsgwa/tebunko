@@ -17,7 +17,7 @@ foreach ($footerName in @("IndexFooterFolders", "IndexFooterFiles", "IndexEmptyA
 }
 $script:loadingTargets = $false
 $script:indexBusy = $false  # 前のインデックスの削除中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
-# ［作成］チェックの状態が変わったら保存する（Checked・Unchecked。ToggleButton の状態が変わったときに出る、
+# 行のチェックの状態が変わったら保存する（Checked・Unchecked。ToggleButton の状態が変わったときに出る、
 # バブルするイベント）。マウスの Click だけでなく、UI オートメーションの TogglePattern（キーボード操作も同様）でも
 # 状態が変わったときに出るため、どの操作でも保存できる。
 # UI オートメーションの Toggle は IsChecked（表示）を変えるが、TwoWay バインドの先（Enabled。PS class の
@@ -42,6 +42,8 @@ $onIndexGridToggled = {
 }
 $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::CheckedEvent, [System.Windows.RoutedEventHandler]$onIndexGridToggled)
 $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::UncheckedEvent, [System.Windows.RoutedEventHandler]$onIndexGridToggled)
+$script:indexListEmpty = $null  # 前回の updateIndexListView で一覧が空だったか（詳細の行の高さを動かすかの判断に使う）
+$script:indexDetailRowRestore = $null  # 空で畳む前の詳細の行の高さ（境目で変えた高さも含む）
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
 $script:editDialog = $null    # 追加・編集のダイアログ（開いている間だけ）
 $script:indexingSession = $null  # 実行中のインデックス作成（IndexingSession。終わって片づけたら $null）
@@ -95,7 +97,7 @@ function updateFolderItemStatus {
 }
 
 function refreshFolderStatus {
-    # 一覧のすべてのフォルダの有無を別スレッドで調べ、表示と［インデックス作成を開始］の可否に反映する。
+    # 一覧のすべてのフォルダの有無を別スレッドで調べ、表示と［すべて更新］の可否に反映する。
     # 届かないネットワークのフォルダ（VPN の切断・サーバーの停止）では Test-Path が十数秒戻らないため、
     # 画面のスレッドで調べると起動時・画面を前に出すたびに「応答なし」になる（実測 約 17 秒）。
     # 調べている間に呼ばれたら、終わってからもう一度だけ調べる
@@ -278,7 +280,7 @@ function newFolderItem {
     $item.LastIngestedText = ""
     # フォルダの有無は一覧に加えた後にまとめて調べる（refreshFolderStatus）
     $item.SetStatus("… フォルダを確認しています", ${grayBrush})
-    # ［作成］チェックの保存は、一覧のチェックボックスの Checked・Unchecked（IndexGrid.AddHandler）で行う。
+    # 行のチェックの保存は、一覧のチェックボックスの Checked・Unchecked（IndexGrid.AddHandler）で行う。
     # PS class のプレーンなプロパティは TwoWay セットで PropertyChanged を出さないため、購読では拾えない。
     return $item
 }
@@ -401,8 +403,21 @@ function updateIndexListView {
     # 1 件も無いときは、詳細と境目を出さず、案内を画面の中央に出す
     $ui.IndexDetailHost.Visibility = if ($empty) { "Collapsed" } else { "Visible" }
     $ui.IndexSplitter.Visibility = if ($empty) { "Collapsed" } else { "Visible" }
-    $ui.IndexDetailRow.MinHeight = if ($empty) { 0 } else { 240 }
-    $ui.IndexDetailRow.Height = if ($empty) { [System.Windows.GridLength]::new(0) } else { [System.Windows.GridLength]::new(397) }
+    # 詳細の行の高さは、空かどうかが変わったときだけ動かす（選択を変えるたびに入れ直すと、境目で変えた高さが戻る）。
+    # 戻す高さの初めの値は index.xaml の RowDefinition（ここに数を持たない）
+    $plan = getIndexDetailRowPlan $script:indexListEmpty $empty
+    if ($plan -eq "Hide") {
+        $script:indexDetailRowRestore = @{ Height = $ui.IndexDetailRow.Height; MinHeight = $ui.IndexDetailRow.MinHeight }
+        $ui.IndexDetailRow.MinHeight = 0
+        $ui.IndexDetailRow.Height = [System.Windows.GridLength]::new(0)
+    }
+    elseif ($plan -eq "Show") {
+        if ($null -ne $script:indexDetailRowRestore) {
+            $ui.IndexDetailRow.MinHeight = $script:indexDetailRowRestore.MinHeight
+            $ui.IndexDetailRow.Height = $script:indexDetailRowRestore.Height
+        }
+    }
+    $script:indexListEmpty = $empty
     updateIndexFooter
     updateIndexingButton
     updateIndexDetailPanel

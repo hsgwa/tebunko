@@ -565,7 +565,7 @@ class PlanRow {
 }
 
 # ［1 インデックス管理］のインデックス一覧 1 件。プログラムから変えたときに画面へ反映するため通知する。
-# ［作成］チェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
+# 行のチェックの TwoWay バインドは値の往復に使い、保存はチェックボックスの Click で行う（PS class はセッターにロジックを書けないため）
 class FolderItem : NotifyBase {
     [string]$Name          # インデックス名（work\index 直下のフォルダ名）
     [string]$Path

@@ -733,7 +733,7 @@ Describe "prepareHitRow" -Tag Unit {
     }
 }
 
-Describe "結果の表の定義（searchesult_list.xaml）" -Tag Unit {
+Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
     BeforeAll {
         $xaml = [xml](Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\search\result_list.xaml" -Raw -Encoding UTF8)
         $ns = New-Object System.Xml.XmlNamespaceManager($xaml.NameTable)

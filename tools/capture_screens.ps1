@@ -259,13 +259,13 @@ function captureStarterScene {
             clickGui $S $about "CloseButton" "［閉じる］"
             waitGuiWindowClosed $S $about "「バージョン情報」"
 
-            setGuiStep $S "［追加…］"
-            clickGui $S $S.Window "NewIndexButton" "［追加…］"
+            setGuiStep $S "［＋ フォルダを追加］"
+            clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
             $dialog = waitGuiWindow $S "追加のダイアログ" -Id "FolderBox"
             captureGuiState -S $S -Id "index-tab/add" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
 
-            setGuiStep $S "［追加…］入力が足りないまま［OK］"
+            setGuiStep $S "［＋ フォルダを追加］入力が足りないまま［OK］"
             clickGui $S $dialog "OkButton" "［OK］"
             waitGui $S "注意（ErrorText）" ${guiDefaultTimeout} { (getGuiText (findGui $dialog -Id "ErrorText")) -ne "" } | Out-Null
             captureGuiState -S $S -Id "index-tab/add-error" -Ids $Ids -OutDir $OutDir `
@@ -287,7 +287,7 @@ function captureStarterScene {
             clickGui $S $editDialog "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $editDialog "編集のダイアログ"
 
-            setGuiStep $S "［作成］のチェックを外す"
+            setGuiStep $S "行のチェックを外す"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             $check = findGui $row -Type CheckBox
             toggleGui $check

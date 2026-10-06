@@ -13,7 +13,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
         newGuiSourceFolder $script:source -Broken
     }
 
-    It "追加・編集・［作成］の切り替え・作成・削除が動く" {
+    It "追加・編集・行のチェックの切り替え・作成・削除が動く" {
         $S = startGui $script:tool "S2"
         invokeGuiScene $S {
             # インデックスが無いので［1 インデックス管理］が選ばれる（#3）
@@ -27,16 +27,16 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             waitGui $S "［1 インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
 
             # 追加: キャンセル（#11）
-            setGuiStep $S "［追加…］→［キャンセル］"
-            clickGui $S $S.Window "NewIndexButton" "［追加…］"
+            setGuiStep $S "［＋ フォルダを追加］→［キャンセル］"
+            clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
             $dialog = waitGuiWindow $S "インデックスの追加のダイアログ" -Id "FolderBox"
             clickGui $S $dialog "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 0
 
             # 追加: 入力が足りないまま［OK］は、ダイアログの中に注意が出る（#12）
-            setGuiStep $S "［追加…］→ 入力が足りないまま［OK］"
-            clickGui $S $S.Window "NewIndexButton" "［追加…］"
+            setGuiStep $S "［＋ フォルダを追加］→ 入力が足りないまま［OK］"
+            clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
             $dialog = waitGuiWindow $S "インデックスの追加のダイアログ" -Id "FolderBox"
             clickGui $S $dialog "OkButton" "［OK］"
             waitGui $S "注意（ErrorText）" ${guiDefaultTimeout} { (getGuiText (findGui $dialog -Id "ErrorText")) -ne "" } | Out-Null
@@ -83,8 +83,8 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 
             waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
 
-            # ［作成］のチェックを切り替えると、設定への保存と［すべて更新］の可否に反映される（#16）
-            setGuiStep $S "［作成］のチェックの切り替え"
+            # 行のチェックを切り替えると、設定への保存と［すべて更新］の可否に反映される（#16）
+            setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox
             getGuiToggleState $check | Should -Be "On"
             toggleGui $check
@@ -191,8 +191,8 @@ Describe "S3 作成中の操作" -Tag Gui {
             startGuiIndexing $S
             waitGui $S "取り込み中（［更新中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
 
-            # 取り込み中は［追加…］［編集…］［削除］が押せない（#20）
-            setGuiStep $S "取り込み中の［追加…］［編集…］［削除］"
+            # 取り込み中は［＋ フォルダを追加］［編集…］［削除］が押せない（#20）
+            setGuiStep $S "取り込み中の［＋ フォルダを追加］［編集…］［削除］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeFalse -Because "取り込み中は NewIndexButton が押せない"
             # ［編集…］［削除］は行のメニューの中。［⋯］で開いて、押せないことを確かめてから Esc で閉じる
@@ -228,7 +228,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             $S.Timing["中止まで"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
 
             # 取り込みが止まると、また押せる（#20）
-            setGuiStep $S "止まった後の［追加…］［編集…］［削除］"
+            setGuiStep $S "止まった後の［＋ フォルダを追加］［編集…］［削除］"
             (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeTrue
             closeGui $S
         }

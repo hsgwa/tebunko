@@ -78,7 +78,7 @@ stateDiagram-v2
 | `index-tab/add-error` | 追加のダイアログの注意（入力が足りない） | 12 |
 | `index-tab/edit` | 編集のダイアログ | 14 |
 | `index-tab/delete-confirm` | 削除の確認 | 15 |
-| `index-tab/unchecked` | ［作成］のチェックを外した行がある | 16 |
+| `index-tab/unchecked` | チェックを外した行がある | 16 |
 | `index-tab/start-confirm` | 更新の確認ダイアログ（件数・失敗分の更新し直し） | 17 |
 | `index-tab/running` | 更新中（更新の帯・［＋ フォルダを追加］［編集…］［削除］が押せない） | 17・20 |
 | `index-tab/stop-confirm` | 中止の確認 | 19 |

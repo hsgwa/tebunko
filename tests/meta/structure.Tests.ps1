@@ -23,7 +23,7 @@ Describe "パス定義" -Tag Meta {
 Describe "画面の部品でのパスの組み立て" -Tag Meta {
     # ui\ 配下のファイルは gui.ps1 から dot-source する部品。中で $PSScriptRoot を使うと ui\ を指すため、
     # "${PSScriptRoot}\tebunko\indexer.ps1" のように起動口からの相対パスを書くと存在しないパスになる
-    # （［インデックス作成を開始］でインデクサが起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
+    # （［すべて更新］でインデクサが起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
     It "ui 配下のスクリプトで `$PSScriptRoot を使っていない" {
         # コードで使っているかだけを見る（コメントで説明に触れているだけの行は対象外）
         $found = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1" |

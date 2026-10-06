@@ -182,8 +182,7 @@ function getLeftoverFailureText {
         [string]$errorText
     )
 
-    $detail = $(if ([string]::IsNullOrWhiteSpace($errorText)) { "" } else { "（$(($errorText.Trim() -split "?
-")[0])）" })
+    $detail = $(if ([string]::IsNullOrWhiteSpace($errorText)) { "" } else { "（$(($errorText.Trim() -split "`r?`n")[0])）" })
     if ($phase -eq "Stop") {
         return "Office を終了できませんでした$detail。残った Office は、次に tebunko を起動したときにもう一度確認できます。"
     }

@@ -128,7 +128,7 @@ function getIndexJobBlockedMessage {
 
 function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［1 インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove: ［追加…］［編集…］［削除］/ Export/Import: ［エクスポート…］［インポート…］
+    #   New/Edit/Remove: ［＋ フォルダを追加］［編集…］［削除］/ Export/Import: ［エクスポート…］［インポート…］
     # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
     # （［すべて更新］は updateIndexingButton が、［8 設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
@@ -302,6 +302,20 @@ function getIndexRowMenu {
         @{ Id = "Export"; Header = "エクスポート…"; Enabled = [bool]$enabled.Export; SeparatorBefore = $false }
         @{ Id = "Remove"; Header = "削除"; Enabled = [bool]$enabled.Remove; SeparatorBefore = $true }
     )
+}
+
+function getIndexDetailRowPlan {
+    # 詳細の行の高さをどうするか。1 件も無いとき（empty）は詳細と境目を畳み（Hide）、1 件以上になったら戻す（Show）。
+    # 空かどうかが変わっていないとき（別の行を選んだだけ）は何もしない（Keep）。境目をドラッグして変えた高さを、選び直しで戻さないため。
+    # wasEmpty は前回の空かどうか（まだ一度も決めていなければ $null）。
+    param (
+        $wasEmpty,
+        [bool]$empty
+    )
+
+    if ($null -ne $wasEmpty -and [bool]$wasEmpty -eq $empty) { return "Keep" }
+    if ($empty) { return "Hide" }
+    return "Show"
 }
 
 function getIndexFooterView {

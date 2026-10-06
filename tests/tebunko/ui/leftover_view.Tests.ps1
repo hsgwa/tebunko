@@ -130,6 +130,7 @@ Describe "getLeftoverFailureText" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "確認の失敗（理由なし）"; phase = "Check"; err = ""; expected = "前回残った Office を確認できませんでした。" }
         @{ name = "確認の失敗（理由は 1 行目だけ）"; phase = "Check"; err = "アクセスが拒否されました`r`n発生場所 …"; expected = "前回残った Office を確認できませんでした（アクセスが拒否されました）。" }
+        @{ name = "確認の失敗（LF だけの理由も 1 行目だけ）"; phase = "Check"; err = "アクセスが拒否されました`n発生場所 …"; expected = "前回残った Office を確認できませんでした（アクセスが拒否されました）。" }
         @{ name = "終了の失敗"; phase = "Stop"; err = "タイムアウト"; expected = "Office を終了できませんでした（タイムアウト）。残った Office は、次に tebunko を起動したときにもう一度確認できます。" }
         @{ name = "終了の失敗（理由なし）"; phase = "Stop"; err = $null; expected = "Office を終了できませんでした。残った Office は、次に tebunko を起動したときにもう一度確認できます。" }
     ) {

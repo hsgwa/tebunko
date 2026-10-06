@@ -150,7 +150,7 @@ class IndexingSession {
 }
 
 function newIndexingSession {
-    # インデックス作成を始める（画面の［インデックス作成を開始］）。終わったら Close を呼ぶ
+    # インデックス作成を始める（画面の［すべて更新］）。終わったら Close を呼ぶ
     param (
         [hashtable]$channel
     )

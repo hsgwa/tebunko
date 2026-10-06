@@ -20,7 +20,7 @@ function newPlanViewRows {
             $row.TotalText = "－"
             $row.StatusText = "対象外"
             $row.Level = "None"
-            $row.DetailText = "［作成］のチェックが外れているため更新しません（インデックスはそのまま残します）"
+            $row.DetailText = "チェックが外れているため更新しません（インデックスはそのまま残します）"
         } elseif ($item.区分 -eq ${planKindMissing}) {
             $row.TotalText = "－"
             $row.StatusText = "フォルダなし"

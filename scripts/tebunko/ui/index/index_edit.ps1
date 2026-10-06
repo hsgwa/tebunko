@@ -117,7 +117,7 @@ function addIndexItem {
 }
 
 function newIndex {
-    # ［追加…］。フォルダとインデックス名を決めて一覧に加える（インデックス作成はしない）
+    # ［＋ フォルダを追加］。フォルダとインデックス名を決めて一覧に加える（インデックス作成はしない）
     if (!(testIndexOperable "追加")) {
         return
     }
