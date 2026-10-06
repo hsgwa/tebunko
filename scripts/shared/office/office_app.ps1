@@ -23,7 +23,7 @@ $appInfo = @{
 # SingleInstance のアプリが、既に自分のセッションで起動している（利用者が使用中の）ときに投げる例外の文言。
 # 呼ぶ側は "<アプリ名>${officeAppInUseMessage}" の形で使う。Reroute（extract_office.ps1 の officeRequiredMessage・
 # OperationCanceledException）と取り違えないよう、型（InvalidOperationException）でも区別する
-${officeAppInUseMessage} = " が起動しているため、取り込みに使用できません"
+${officeAppInUseMessage} = " が起動しているため、更新に使用できません"
 
 # 起動した Office のプロセスの優先度は下げない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、
 # PowerPoint は 1 つのプロセスしか持てないため、利用者とプロセスを共有しないと確実には言えない。利用者の操作を遅くしないよう、

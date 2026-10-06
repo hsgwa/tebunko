@@ -587,7 +587,7 @@ Describe "extractDocument（読み取りのスレッド）" -Tag Io {
         Mock getApp { throw "Office は使わない" }
         ${officeFallbackEnabled}.Word = $false
         try {
-            { extractDocument $unknown } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため取り込めません*"
+            { extractDocument $unknown } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため更新できません*"
             Should -Invoke getApp -Times 0 -Exactly -Scope It
         } finally {
             ${officeFallbackEnabled}.Word = $true
@@ -610,16 +610,16 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
     It "<name>" -TestCases @(
         @{ name = "新形式の権限保護（IRM・秘密度ラベル）は、Wordを起動せずに失敗にする"
            extension = ".docx"; entries = @(([char]6 + "DataSpaces"), "DRMEncryptedDataSpace", "DRMEncryptedTransform")
-           pattern = "*IRM・秘密度ラベルで暗号化されているため取り込めません*" }
+           pattern = "*IRM・秘密度ラベルで暗号化されているため更新できません*" }
         @{ name = "旧形式の権限保護（IRM）は、PowerPointを起動せずに失敗にする"
            extension = ".ppt"; entries = @(([char]9 + "DRMContent"), ([char]9 + "DRMDataSpace"))
-           pattern = "*IRM・秘密度ラベルで暗号化されているため取り込めません*" }
+           pattern = "*IRM・秘密度ラベルで暗号化されているため更新できません*" }
         @{ name = "パスワード付き（新形式）は、Wordを起動せずに、今と同じ文言で失敗にする"
            extension = ".docx"; entries = @(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo")
-           pattern = "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）*" }
+           pattern = "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）*" }
         @{ name = "パスワード付き（新形式）は、PowerPointでも起動せずに失敗にする"
            extension = ".pptx"; entries = @(([char]6 + "DataSpaces"), "StrongEncryptionDataSpace", "EncryptionInfo")
-           pattern = "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）*" }
+           pattern = "*読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）*" }
     ) {
         param ($name, $extension, $entries, $pattern)
         $source = Join-Path $TestDrive ("protected" + $extension)
@@ -661,7 +661,7 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
         Mock writeIndexerLog {}
 
-        { extractDocument $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため取り込めません*"
+        { extractDocument $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため更新できません*"
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "予備の読み取りに失敗しました" }
     }
 
@@ -675,7 +675,7 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
         } -Force
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
 
-        { extractDocument $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません*"
+        { extractDocument $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません*"
     }
 
     It "旧形式の変換結果がZIPでなければ『一時ファイルを暗号化した』に失敗にする（ふつうのファイルでも確かめる）" {
@@ -688,7 +688,7 @@ Describe "extractDocument（暗号化されたファイル）" -Tag Io {
         } -Force
         Mock getApp { $word } -ParameterFilter { $name -eq "Word" }
 
-        { extractDocument $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません*"
+        { extractDocument $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません*"
     }
 
     It "<name>" -TestCases @(
@@ -764,7 +764,7 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         newCompoundFile $source @(@(([char]6 + "DataSpaces"), "DRMEncryptedDataSpace", "DRMEncryptedTransform"))
         Mock getApp { throw "Excel を起動してはいけない" }
 
-        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*IRM・秘密度ラベルで暗号化されているため取り込めません*"
+        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*IRM・秘密度ラベルで暗号化されているため更新できません*"
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 
@@ -784,7 +784,7 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         Mock getApp { throw "Excel を起動してはいけない" }
         ${officeFallbackEnabled}.Excel = $false
         try {
-            { extractWorkbook $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため取り込めません*"
+            { extractWorkbook $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため更新できません*"
             Should -Invoke getApp -Times 0 -Exactly -Scope It
         } finally {
             ${officeFallbackEnabled}.Excel = $true
@@ -801,7 +801,7 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         $excel = newFake @{ Workbooks = $workbooks } @{}
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため取り込めません*"
+        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため更新できません*"
         $log -join "|" | Should -Be "Open|Close:False"
     }
 
@@ -813,7 +813,7 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
         Mock writeIndexerLog {}
 
-        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため取り込めません*"
+        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*暗号化されているか壊れているため更新できません*"
         Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "予備の読み取りに失敗しました" }
     }
 
@@ -885,6 +885,6 @@ Describe "extractWorkbook（暗号化されたファイル）" -Tag Io {
         $excel = newExcel @($sheet)
         Mock getApp { $excel } -ParameterFilter { $name -eq "Excel" }
 
-        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません*"
+        { extractWorkbook $source } | Should -Throw -ExpectedMessage "*ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません*"
     }
 }
