@@ -120,7 +120,7 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
 Describe "getImportResultStatus" -Tag Unit {
     It "件数と、高速検索が次の更新の後に効くことを伝える" {
         $status = getImportResultStatus @{ Name = "営業"; Files = 12; Warnings = @() }
-        $status | Should -Be "インデックス [営業] をインポートしました（12 ファイル）。高速検索は次のインデックス作成の後に効きます。"
+        $status | Should -Be "インデックス [営業] をインポートしました（12 ファイル）。高速検索は次の更新の後に効きます。"
     }
 
     It "Warnings があれば添える" {

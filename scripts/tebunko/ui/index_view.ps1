@@ -152,7 +152,7 @@ function getImportResultStatus {
     )
 
     $text = "インデックス [$($result.Name)] をインポートしました（$($result.Files) ファイル）。" +
-        "高速検索は次のインデックス作成の後に効きます。"
+        "高速検索は次の更新の後に効きます。"
     foreach ($warning in @($result.Warnings)) {
         $text += " ${warning}"
     }
