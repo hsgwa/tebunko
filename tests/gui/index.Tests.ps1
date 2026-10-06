@@ -172,7 +172,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 Describe "S3 作成中の操作" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
-        $script:s3Copies = 100
+        $script:s3Copies = 300
         $script:tool = newGuiTool $TestDrive @{ ingestThreads = 1 }
         $script:source = Join-Path $TestDrive "元のフォルダ\大量"
         newGuiSourceFolder $script:source -Copies $script:s3Copies
