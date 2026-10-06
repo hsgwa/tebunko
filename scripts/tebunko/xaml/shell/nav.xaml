@@ -27,9 +27,8 @@
     <ListBoxItem x:Name="IndexTab" Style="{StaticResource NavItem}">
       <DockPanel>
         <!-- 取り込みに失敗したファイルがあるときの印 -->
-        <Path x:Name="IndexTabBadge" DockPanel.Dock="Right" Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Visibility="Collapsed"
-              Stroke="{StaticResource Warn.Strong}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-              VerticalAlignment="Center" ToolTip="取り込みに失敗したファイルがあります" />
+        <TextBlock x:Name="IndexTabBadge" DockPanel.Dock="Right" Style="{x:Null}" Text="⚠" Visibility="Collapsed"
+                   Foreground="{StaticResource Warn.Strong}" VerticalAlignment="Center" ToolTip="取り込みに失敗したファイルがあります" />
         <TextBlock Style="{x:Null}" Text="インデックス管理" />
       </DockPanel>
     </ListBoxItem>
