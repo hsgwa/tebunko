@@ -496,7 +496,7 @@ function getGuiToggleState {
 }
 
 function selectGuiTab {
-    # タブを選び、選ばれるまで待つ。Id は TabItem の AutomationId（IndexTab・SearchTab・SettingsTab・KillTab）
+    # タブを選び、選ばれるまで待つ。Id は TabItem の AutomationId（IndexTab・SearchTab・SettingsTab）
     param ($S, [string]$Id, [string]$ContentId = "")
 
     $tab = waitGuiById $S $S.Window $Id
@@ -508,7 +508,7 @@ function selectGuiTab {
 function getGuiSelectedTab {
     # いま選ばれているタブの AutomationId
     param ($S)
-    foreach ($id in "IndexTab", "SearchTab", "SettingsTab", "KillTab") {
+    foreach ($id in "IndexTab", "SearchTab", "SettingsTab") {
         $tab = findGui $S.Window -Id $id
         if ($tab -and (isGuiSelected $tab)) { return $id }
     }

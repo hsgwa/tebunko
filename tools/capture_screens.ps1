@@ -667,72 +667,6 @@ function captureSettingsScene {
     }
 }
 
-function captureProcessScene {
-    # process-tab の状態（偽のプロセスを使う）
-    param ($Ids, $Root, $OutDir, $UserName, $ComputerName, $UserProfile, $Sizes)
-
-    $needed = @("process-tab/empty", "process-tab/list", "process-tab/stop-all-confirm", "process-tab/stop-background-confirm", "process-tab/stop-selected-confirm")
-    if (@($needed | Where-Object { $Ids -contains $_ }).Count -eq 0) { return }
-
-    $dir = Join-Path $Root "process"
-    $tool = newGuiTool $dir
-
-    $S = startGui $tool "process"
-    try {
-        invokeGuiScene $S {
-            setGuiStep $S "［9 プロセス停止］（プロセスが無い）"
-            selectGuiTab $S "KillTab" "ProcessGrid"
-            captureGuiState -S $S -Id "process-tab/empty" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-
-            $fakeDir = Join-Path $Root "process-fake"
-            [void][IO.Directory]::CreateDirectory($fakeDir)
-            Copy-Item -LiteralPath (Join-Path $env:windir "System32\PING.EXE") -Destination "$fakeDir\EXCEL.EXE"
-            $script:fake = Start-Process "$fakeDir\EXCEL.EXE" -ArgumentList "127.0.0.1", "-n", "600" -WindowStyle Hidden -PassThru
-            $null = $script:fake.Handle
-            $S.Extra += $script:fake
-            $pidText = [string]$script:fake.Id
-            $findFakeRow = { @(getGuiGridRows (findGui $S.Window -Id "ProcessGrid")) | Where-Object { (getGuiRowTexts $_) -contains $pidText } | Select-Object -First 1 }
-
-            setGuiStep $S "偽のプロセスが出る"
-            clickGui $S $S.Window "RefreshProcessButton" "［更新］"
-            $row = waitGui $S "一覧に偽のプロセス" ${guiDefaultTimeout} $findFakeRow
-            captureGuiState -S $S -Id "process-tab/list" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-
-            setGuiStep $S "［すべて終了］の確認"
-            clickGui $S $S.Window "KillAllButton" "［すべて終了］"
-            $allConfirm = waitGuiWindow $S "終了の確認（すべて）" -Id "HeadingText" -Text "終了しますか"
-            captureGuiState -S $S -Id "process-tab/stop-all-confirm" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($allConfirm)
-            clickGuiByName $S $allConfirm "キャンセル"
-            waitGuiWindowClosed $S $allConfirm "終了の確認（すべて）"
-
-            setGuiStep $S "［バックグラウンドのみ終了］の確認"
-            clickGui $S $S.Window "KillBackgroundButton" "［バックグラウンドのみ終了］"
-            $backgroundConfirm = waitGuiWindow $S "終了の確認（バックグラウンド）" -Id "HeadingText" -Text "終了しますか"
-            captureGuiState -S $S -Id "process-tab/stop-background-confirm" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($backgroundConfirm)
-            clickGuiByName $S $backgroundConfirm "キャンセル"
-            waitGuiWindowClosed $S $backgroundConfirm "終了の確認（バックグラウンド）"
-
-            setGuiStep $S "選んで終了の確認"
-            $row = waitGui $S "一覧に偽のプロセス" ${guiDefaultTimeout} $findFakeRow
-            selectGui $row
-            clickGui $S $S.Window "KillSelectedButton" "［選択したプロセスを終了］"
-            $selectedConfirm = waitGuiWindow $S "終了の確認（選択）" -Id "HeadingText" -Text "終了しますか"
-            captureGuiState -S $S -Id "process-tab/stop-selected-confirm" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($selectedConfirm)
-            clickGuiByName $S $selectedConfirm "キャンセル"
-            waitGuiWindowClosed $S $selectedConfirm "終了の確認（選択）"
-
-            closeGui $S
-        }
-    } finally {
-        if ($script:fake -and !$script:fake.HasExited) { Stop-Process -Id $script:fake.Id -Force -ErrorAction SilentlyContinue }
-    }
-}
-
 # ---- メイン ----
 
 $ids = resolveCaptureIds -Only $Only -Ids ${captureIds}
@@ -755,7 +689,6 @@ try {
     captureHeavyScene        $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSearchScene       $ids $root $OutDir $userName $computerName $userProfile $sizes
     captureSettingsScene     $ids $root $OutDir $userName $computerName $userProfile $sizes
-    captureProcessScene      $ids $root $OutDir $userName $computerName $userProfile $sizes
 
     $total = ($sizes | Measure-Object -Sum).Sum
     Write-Host "撮った写真: $($sizes.Count) 枚・合計 $([Math]::Round($total / 1KB)) KB"

@@ -21,12 +21,11 @@ BeforeAll {
         $navList = [pscustomobject]@{ SelectedItem = $null }
         $navList | Add-Member ScriptMethod Add_SelectionChanged { param($handler) }
         $fake = @{ NavPaneHost = [pscustomobject]@{ Visibility = "Collapsed" }; ContentHost = $content; NavList = $navList; WordBox = (newFakeBox "WordBox"); FilterBox = (newFakeBox "FilterBox") }
-        foreach ($name in "SearchTab", "IndexTab", "SettingsTab", "KillTab") { $fake[$name] = [pscustomobject]@{ Name = $name } }
+        foreach ($name in "SearchTab", "IndexTab", "SettingsTab") { $fake[$name] = [pscustomobject]@{ Name = $name } }
         return $fake
     }
 
     function safe { param ([scriptblock]$block) & $block }
-    function refreshProcesses { $global:navLog.Add("refreshProcesses") }
     function refreshIndexingState { $global:navLog.Add("refreshIndexingState") }
     function refreshIndexSummary { $global:navLog.Add("refreshIndexSummary") }
     function loadIndexTree { $global:navLog.Add("loadIndexTree") }
@@ -42,8 +41,7 @@ BeforeAll {
         $script:currentScreen = $null
         $script:startupLoaded = $true
         $script:search = $null
-        $script:processTimer = newFakeBox "processTimer"
-        $script:screenContents = @{ SearchTab = "search"; IndexTab = "index"; SettingsTab = "settings"; KillTab = "kill" }
+        $script:screenContents = @{ SearchTab = "search"; IndexTab = "index"; SettingsTab = "settings" }
     }
 }
 
@@ -88,25 +86,20 @@ Describe "selectScreen" -Tag Unit {
 
     It "起動の読み込みが済むまでは、読み直さず、時計にも触らない" {
         $script:startupLoaded = $false
-        selectScreen "KillTab"
-        (getCurrentScreen) | Should -Be "KillTab"
+        selectScreen "SettingsTab"
+        (getCurrentScreen) | Should -Be "SettingsTab"
         $global:navLog.Count | Should -Be 0
     }
 
-    It "Office の停止へ移ると、一覧を読み直して時計を動かす" {
-        selectScreen "KillTab"
-        @($global:navLog) | Should -Be @("refreshProcesses", "processTimer.Start")
-    }
-
-    It "インデックス管理へ移ると、時計を止めて状態を読み直す" {
+    It "インデックス管理へ移ると、状態を読み直す" {
         selectScreen "IndexTab"
-        @($global:navLog) | Should -Be @("processTimer.Stop", "refreshIndexingState")
+        @($global:navLog) | Should -Be @("refreshIndexingState")
     }
 
-    It "検索・設定へ移ると、時計を止めるだけ" {
+    It "検索・設定へ移っても、何も読み直さない" {
         selectScreen "SearchTab"
         selectScreen "SettingsTab"
-        @($global:navLog) | Should -Be @("processTimer.Stop", "processTimer.Stop")
+        $global:navLog.Count | Should -Be 0
     }
 }
 
@@ -132,7 +125,6 @@ Describe "invokeShortcutAction" -Tag Unit {
     }
 
     It "Refresh は、<screen> では <expected> を読み直す" -TestCases @(
-        @{ screen = "KillTab"; expected = @("refreshProcesses") }
         @{ screen = "IndexTab"; expected = @("refreshIndexingState", "refreshIndexSummary", "loadIndexTree") }
         @{ screen = "SettingsTab"; expected = @("refreshIndexingState", "refreshIndexSummary", "loadIndexTree") }
     ) {

@@ -76,7 +76,7 @@ function startGui {
     # 画面の中身は $script:screenContents に持ち、selectScreen が選んだものを ContentHost に差す）、Names = 使う x:Name
     $regions = @(
         @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
-            "NavList", "SearchTab", "IndexTab", "SettingsTab", "KillTab", "IndexTabBadge", "KillTabBadge", "NavPaneHost", "AboutLink") }
+            "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
         @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText") }
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
             "IndexListHost", "IndexDetailHost", "IndexDetailRow") }
@@ -108,9 +108,6 @@ function startGui {
             "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
-        @{ File = "tab_kill.xaml"; Slot = "ContentHost"; Screen = "KillTab"; Names = @(
-            "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
-            "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
     )
 
     $ui = @{}
@@ -177,7 +174,6 @@ function startGui {
     . "$TebunkoDir\ui\preview.ps1"
     . "$TebunkoDir\ui\open_source.ps1"
     . "$TebunkoDir\ui\index_tree.ps1"
-    . "$TebunkoDir\ui\process_tab.ps1"
     . "$TebunkoDir\ui\settings\settings.ps1"
     . "$TebunkoDir\ui\about_dialog.ps1"
     stepSplash 90
@@ -211,11 +207,6 @@ function startGui {
                 }
             }
             updateSearchTarget
-            if ((getCurrentScreen) -eq "KillTab") {
-                refreshProcesses
-            } else {
-                updateKillBadge
-            }
         }
     })
 
@@ -402,7 +393,6 @@ function startGui {
     function loadStartupData {
         try {
             loadWorkspaceViews
-            updateKillBadge
             ensureNetworkDriveCache
         } finally {
             $script:startupLoaded = $true

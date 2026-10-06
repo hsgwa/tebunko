@@ -12,17 +12,17 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
         newGuiSampleIndex $script:tool $TestDrive
     }
 
-    It "起動して［2 検索］が選ばれ、4 つのタブ・検索・プレビュー・「tebunko について」・多重起動・閉じるが動く" {
+    It "起動して［2 検索］が選ばれ、3 つのタブ・検索・プレビュー・「tebunko について」・多重起動・閉じるが動く" {
         $S = startGui $script:tool "S1"
         invokeGuiScene $S {
             # 起動・インデックスがあれば［2 検索］が選ばれる（#1・#2）
             setGuiStep $S "起動時のタブ"
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
-            # 4 つの画面を選ぶ。選んだ画面の中の部品が UI オートメーションに出る（ContentHost の中身）（#7）
+            # 3 つの画面を選ぶ。選んだ画面の中の部品が UI オートメーションに出る（ContentHost の中身）（#7）
             foreach ($tab in @(
                 @{ Id = "IndexTab"; Content = "IndexGrid" }, @{ Id = "SettingsTab"; Content = "ChangeWorkspaceButton" },
-                @{ Id = "KillTab"; Content = "ProcessGrid" }, @{ Id = "SearchTab"; Content = "WordBox" })) {
+                @{ Id = "SearchTab"; Content = "WordBox" })) {
                 setGuiStep $S "タブ $($tab.Id) を選ぶ"
                 selectGuiTab $S $tab.Id $tab.Content
             }

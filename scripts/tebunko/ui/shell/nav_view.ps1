@@ -1,10 +1,9 @@
 ﻿# ナビ（左の欄）の画面の並びと、画面を順に切り替える決まり（判断層）。
 # 画面に触らないため、そのままテストできる（tests/tebunko/ui/shell/nav_view.Tests.ps1）。
-# Office の停止の画面をやめるときは、getScreenOrder の表から 1 行を消すだけで済む。
 
 function getScreenOrder {
     # 画面の名前を、ナビの上から順に並べて返す（Ctrl+Tab で切り替える順でもある）。名前はナビの項目の x:Name
-    return @("SearchTab", "IndexTab", "SettingsTab", "KillTab")
+    return @("SearchTab", "IndexTab", "SettingsTab")
 }
 
 function isScreenName {

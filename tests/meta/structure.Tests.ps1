@@ -638,7 +638,7 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "ナビ・ステータスバーに、画面の切り替えと他の画面が使う名前がある" {
         $nav = getXamlNames "$here\..\scripts\tebunko\xaml\shell\nav.xaml"
-        foreach ($name in @("NavList", "SearchTab", "IndexTab", "SettingsTab", "KillTab", "IndexTabBadge", "KillTabBadge", "AboutLink")) {
+        foreach ($name in @("NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "AboutLink")) {
             $nav -contains $name | Should -Be $true
         }
         (getXamlNames "$here\..\scripts\tebunko\xaml\shell\status_bar.xaml") -contains "StatusText" | Should -Be $true
