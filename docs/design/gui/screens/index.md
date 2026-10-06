@@ -60,7 +60,7 @@ stateDiagram-v2
 
 | ID | 状態 | 遷移 |
 |---|---|---|
-| `window/startup` | 起動中の表示（「起動しています…」） | 1 |
+| `window/startup` | 起動中の表示（「起動中…」） | 1 |
 | `window/about` | 「tebunko について」 | 8 |
 | `window/close-confirm` | 作成中に閉じるときの確認 | 10 |
 | `window/settings-broken` | 設定が壊れていたときの知らせ（メッセージボックス） | – |

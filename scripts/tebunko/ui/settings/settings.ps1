@@ -6,11 +6,13 @@ function updateSettingsView {
     # ワークスペースと設定ファイルの場所を表示する
     $view = getWorkspaceView $workspace.Dir (getDefaultWorkDir)
     $ui.WorkspaceText.Text = $view.Path
+    $ui.WorkspaceText.ToolTip = $view.Path  # 長いパスは省略して出すため、全体はツールチップで見せる
     $ui.WorkspaceNote.Text = $view.Note
     $ui.ResetWorkspaceButton.Visibility = if ($view.CanReset) { "Visible" } else { "Collapsed" }
 
     $file = getSettingsFileView ${settingsFile} ${rootDir}
     $ui.SettingsFileText.Text = $file.Path
+    $ui.SettingsFileText.ToolTip = $file.Path
     $ui.SettingsFileNote.Text = $file.Note
 }
 
@@ -96,7 +98,7 @@ function applyWorkspace {
     $canMakeSub = -not (Test-Path -LiteralPath $sub) -or
         ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)
     $workspaceNames = @(getWorkspaceEntries $folder | ForEach-Object { [System.IO.Path]::GetFileName($_) })
-    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped $workspaceNames $canMakeSub
+    $confirm = newWorkspaceConfirm $folder $workspace.Dir $entries.Count $entries.Names $entries.Capped $workspaceNames $canMakeSub (!$requireEmpty)
     # switch の中の $_ は switch の値になるため、行を変数に受けてから使う
     $facts = @($confirm.Facts | ForEach-Object {
         $fact = $_
@@ -106,7 +108,7 @@ function applyWorkspace {
             default { factNext $fact.Title $fact.Detail }
         }
     })
-    $answer = showConfirm -title "保存先の変更" -heading $confirm.Heading -facts $facts -hint $confirm.Hint -choices $confirm.Choices
+    $answer = showConfirm -title $confirm.Title -heading $confirm.Heading -facts $facts -hint $confirm.Hint -choices $confirm.Choices
     if ($null -eq $answer) {
         return
     }

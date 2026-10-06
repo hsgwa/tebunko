@@ -233,12 +233,8 @@ function deleteIndex {
 
     $answer = showConfirm `
         -title "インデックスの削除" `
-        -heading "インデックス「$($item.Name)」を一覧から削除しますか？" `
-        -facts @(
-            (factGone "tebunko が作ったインデックスが消えます" "このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）"),
-            (factKept "元のフォルダと、その中のファイルはそのままです" $item.Path)
-        ) `
-        -hint "しばらく検索しないだけなら、削除せずに［作成］のチェックを外してください。インデックスは残ったままです。" `
+        -heading "「$($item.Name)」のインデックスを削除しますか？" `
+        -hint "元のファイルは削除されません。" `
         -choices @(@{ Text = "削除する"; Value = "delete"; Danger = $true })
     if ($answer -ne "delete") {
         return

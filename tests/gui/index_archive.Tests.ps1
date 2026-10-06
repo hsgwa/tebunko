@@ -45,7 +45,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
 
             setGuiStep $S "一覧から削除（インポートし直すため）"
             clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
-            answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "削除する"
+            answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
 
             setGuiStep $S "［インポート…］"
@@ -80,7 +80,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
             useGuiFolderPicker $S $workspaceB
-            answerGuiConfirm $S "ワークスペースを変える確認" "ワークスペースを変えますか" "ワークスペースを変える*" -Like
+            answerGuiConfirm $S "ワークスペースを変える確認" "へ移動します" "移動する"
             waitGui $S "ワークスペースが切り替わる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceText")) -eq $workspaceB } | Out-Null
 
             setGuiStep $S "［インポート…］"

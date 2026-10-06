@@ -166,19 +166,16 @@ function promptSourceMissing {
     )
 
     if ($location.Known) {
-        $missing = factGone "記録されていた場所にありません" $path
+        $heading = "元のファイルが見つかりません。フォルダを移動した場合は、移動先のフォルダを選んでください。"
+        $hint = "元の場所: $path"
         $description = "「$($location.Folder)」に当たるフォルダ（または $book のあるフォルダ）を選んでください"
     } else {
-        $missing = factGone "このファイルが今どこにあるか、記録がありません" $relPath
+        $heading = "元のファイルが見つかりません。場所の記録もないため、$book のあるフォルダを選んでください。"
+        $hint = "ファイル: $relPath"
         $description = "$book のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
     }
-    $facts = @(
-        $missing,
-        (factNext "今ある場所のフォルダを選べば開けます" "選んだ場所はインデックス「$($location.Name)」に覚えさせるので、同じインデックスのほかのファイルも次から開けます")
-    )
-
     while ($true) {
-        if ((showConfirm -title "元のファイルが見つかりません" -heading "$book が見つかりません" -facts $facts `
+        if ((showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus (getSourceNotFoundStatus $path)
             return

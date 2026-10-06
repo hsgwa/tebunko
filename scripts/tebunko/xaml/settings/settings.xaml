@@ -1,5 +1,5 @@
 ﻿<!-- 設定の画面（ワークスペース・設定ファイルの場所）。tebunko.xaml の ContentHost に入れる（gui_main.ps1）。
-     見出し（上下 16・左右 24）の下に、節（ワークスペース・設定ファイル）を縦に並べる。節の間は 24、行の間は 12。縦にスクロールできる。 -->
+     見出し・説明の下に、節（インデックス設定）の行（左に名前と説明、右に値と操作）を縦に並べる。縦にスクロールできる。 -->
 <ScrollViewer xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -10,43 +10,47 @@
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </ScrollViewer.Resources>
-  <StackPanel>
-    <TextBlock Style="{StaticResource Title}" Margin="24,16,24,16" Text="設定" />
+  <StackPanel Margin="24,16,24,24">
+    <TextBlock Style="{StaticResource Title}" Text="設定" />
+    <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" Text="インデックスの保存先を設定します。" />
 
-    <StackPanel Margin="24,0,24,24">
-      <!-- ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ。既定は work）。ツールのフォルダの外にも置ける -->
-      <Border Style="{StaticResource Card}">
-        <StackPanel>
-          <TextBlock Style="{StaticResource Heading}" Text="ワークスペース" />
-          <Border Height="1" Margin="0,8,0,0" Background="{StaticResource Bg.Section}" />
-          <TextBlock Style="{StaticResource Meta}" Margin="0,12,0,0" TextWrapping="Wrap"
-                     Text="インデックス・取り込み一覧・ログを置くフォルダです。インデックスには文書の文字がそのまま入るため、アクセス権を絞ったフォルダや容量のあるドライブにできます。" />
-          <DockPanel Margin="0,12,0,0">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Top">
-              <Button x:Name="ChangeWorkspaceButton" Content="変更…" MinWidth="90"
-                      ToolTip="空のフォルダを選んで、ワークスペースにします（今のワークスペースの中身は移しません）" />
-              <Button x:Name="ResetWorkspaceButton" Content="既定に戻す" MinWidth="90" Margin="8,0,0,0" Visibility="Collapsed"
-                      ToolTip="設定ファイルと同じフォルダの work に戻します" />
-            </StackPanel>
-            <StackPanel>
-              <TextBlock x:Name="WorkspaceText" Style="{StaticResource Focal}" TextWrapping="Wrap" />
-              <TextBlock x:Name="WorkspaceNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
-            </StackPanel>
-          </DockPanel>
-          <TextBlock Style="{StaticResource Micro}" Margin="0,12,0,0" TextWrapping="Wrap"
-                     Text="空のフォルダを選んでください。変えるとすぐに切り替わります。今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいフォルダへ移します。インデックス作成中は変えられません。" />
-        </StackPanel>
-      </Border>
+    <!-- インデックス設定（ワークスペース。インデックス・取り込み一覧・ログを置くフォルダ。既定は work）。ツールのフォルダの外にも置ける -->
+    <TextBlock Style="{StaticResource Heading}" FontSize="15" Margin="0,24,0,0" Text="インデックス設定" />
+    <Border Height="1" Margin="0,8,0,0" Background="{StaticResource Bg.Section}" />
 
-      <!-- 設定ファイルの場所（表示だけ） -->
-      <Border Style="{StaticResource Card}" Margin="0,24,0,0">
-        <StackPanel>
-          <TextBlock Style="{StaticResource Heading}" Text="設定ファイル" />
-          <Border Height="1" Margin="0,8,0,0" Background="{StaticResource Bg.Section}" />
-          <TextBlock x:Name="SettingsFileText" Margin="0,12,0,0" TextWrapping="Wrap" />
-          <TextBlock x:Name="SettingsFileNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
-        </StackPanel>
+    <DockPanel Margin="0,14,0,0">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Top">
+        <Border Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Control}" Padding="10,0" Height="32" MaxWidth="360">
+          <TextBlock x:Name="WorkspaceText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                     Foreground="{StaticResource Ink.Strong}" />
+        </Border>
+        <Button x:Name="ChangeWorkspaceButton" Content="変更…" MinWidth="64" Margin="8,0,0,0"
+                ToolTip="空のフォルダを選んで、ワークスペースにします（今のワークスペースの中身は新しいフォルダへ移します）" />
+        <Button x:Name="ResetWorkspaceButton" Content="既定に戻す" MinWidth="80" Margin="8,0,0,0" Visibility="Collapsed"
+                ToolTip="設定ファイルと同じフォルダの work に戻します" />
+      </StackPanel>
+      <StackPanel>
+        <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="保存先" />
+        <TextBlock Style="{StaticResource Meta}" Margin="0,2,0,0" Text="インデックスとログを置くフォルダ" />
+      </StackPanel>
+    </DockPanel>
+    <TextBlock x:Name="WorkspaceNote" Style="{StaticResource Micro}" Margin="0,8,0,0" TextWrapping="Wrap" />
+    <TextBlock Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap"
+               Text="インデックスには文書の文字がそのまま入るため、アクセス権を絞ったフォルダや容量のあるドライブにできます。空のフォルダを選んでください。変えるとすぐに切り替わります。今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいフォルダへ移します。インデックス作成中は変えられません。" />
+
+    <!-- 設定ファイルの場所（表示だけ） -->
+    <DockPanel Margin="0,18,0,0">
+      <Border DockPanel.Dock="Right" Margin="12,0,0,0" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}"
+              BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Padding="10,0" Height="32" MaxWidth="360" VerticalAlignment="Top">
+        <TextBlock x:Name="SettingsFileText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                   Foreground="{StaticResource Ink.Strong}" />
       </Border>
-    </StackPanel>
+      <StackPanel>
+        <TextBlock Style="{StaticResource Body}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}" Text="設定ファイル" />
+        <TextBlock Style="{StaticResource Meta}" Margin="0,2,0,0" Text="設定を保存しているファイル" />
+      </StackPanel>
+    </DockPanel>
+    <TextBlock x:Name="SettingsFileNote" Style="{StaticResource Micro}" Margin="0,8,0,0" TextWrapping="Wrap" />
   </StackPanel>
 </ScrollViewer>

@@ -62,7 +62,7 @@ function testWorkspaceChoice {
 
 function newWorkspaceConfirm {
     # ワークスペースを変える前の確認ダイアログの中身:
-    #   @{ Heading; Facts（@{ Kind = "next" / "kept" / "warn"; Title; Detail } の配列）; Hint; Choices（@{ Text; Detail; Value; Careful } の配列） }
+    #   @{ Title; Heading; Facts（@{ Kind = "next" / "kept" / "warn"; Title; Detail } の配列）; Hint; Choices（@{ Text; Value; Danger; Careful } の配列。最後が主なボタン） }
     # ワークスペースには空のフォルダを選んでもらう。空でなければ警告し、中にワークスペースのフォルダを作るか、そのまま使うかを選ばせる。
     # 今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、いつも新しいワークスペースへ移す（moveWorkspace）。
     # 選んだフォルダに tebunko のファイル（インデックスなど。ほかの人が共有したワークスペースなど）があれば、それを使うか、消して最初からやるかを選ばせる。
@@ -75,30 +75,38 @@ function newWorkspaceConfirm {
         [string[]]$sampleNames = @(),  # 中身の例（先頭の数件の名前）
         [bool]$countCapped = $false,   # entryCount が数えた上限（それ以上あるかもしれない）
         [string[]]$workspaceNames = @(), # 中にある tebunko のファイル・フォルダの名前（getWorkspaceEntries）。あれば、使うか消すかを選ばせる
-        [bool]$canMakeSub = $true      # 中に workspace を作れる（無いか、あっても空）
+        [bool]$canMakeSub = $true,     # 中に workspace を作れる（無いか、あっても空）
+        [bool]$toDefault = $false      # ［既定に戻す］から（空のときだけ、題と文言が変わる）
     )
 
-    $moveCurrent = @{ Kind = "next"; Title = "今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいワークスペースへ移します"; Detail = "移す前の場所：${current}" }
+    $moveHint = "移動中は、検索とインデックスの更新はできません。"
     if (@($workspaceNames).Count -gt 0) {
         return @{
-            Heading = "選んだフォルダには、すでにインデックスがあります。どうしますか？"
-            Facts   = @(
-                @{ Kind = "kept"; Title = "インデックス・取り込み一覧などがあります"; Detail = (@($workspaceNames) -join "、") },
-                @{ Kind = "next"; Title = "使うときは、インデックスの一覧もこのワークスペースのものにします"; Detail = "今のワークスペースの中身は移さず、元の場所に残します：${current}" })
-            Hint    = "ほかの人が共有したインデックスを使うときは［あるインデックスを使う］を選んでください。"
+            Title   = "保存先の変更"
+            Heading = "「${folder}」には、すでにインデックスがあります。"
+            Facts   = @()
+            Hint    = "そのフォルダのインデックスを使うか、今のインデックスを移動するかを選んでください。移動すると、そのフォルダにあるインデックスは削除されます（元に戻せません）。"
             Choices = @(
-                @{ Text = "あるインデックスを使う"; Detail = $folder; Value = "use"; Careful = $false },
-                @{ Text = "消して、最初からやり直す"; Detail = "このフォルダのインデックス・取り込み一覧・ログを削除し、今のワークスペースの中身を移します（元に戻せません）"; Value = "reset"; Danger = $true; Careful = $true })
+                @{ Text = "今のインデックスを移動する"; Value = "reset"; Danger = $true; Careful = $true },
+                @{ Text = "そのフォルダのインデックスを使う"; Value = "use"; Careful = $false })
         }
     }
     if ($entryCount -le 0) {
+        if ($toDefault) {
+            return @{
+                Title   = "既定の場所に戻す"
+                Heading = "インデックスとログを既定の場所「${folder}」へ移動します。"
+                Facts   = @()
+                Hint    = $moveHint
+                Choices = @(@{ Text = "戻す"; Value = "change"; Careful = $false })
+            }
+        }
         return @{
-            Heading = "ワークスペースを変えますか？"
-            Facts   = @(
-                @{ Kind = "next"; Title = "インデックス・取り込み一覧・ログを、このフォルダに置きます"; Detail = $folder },
-                $moveCurrent)
-            Hint    = ""
-            Choices = @(@{ Text = "ワークスペースを変える"; Detail = ""; Value = "change"; Careful = $false })
+            Title   = "保存先の変更"
+            Heading = "インデックスとログを「${folder}」へ移動します。"
+            Facts   = @()
+            Hint    = $moveHint
+            Choices = @(@{ Text = "移動する"; Value = "change"; Careful = $false })
         }
     }
 
@@ -109,15 +117,17 @@ function newWorkspaceConfirm {
     }
     $facts = @(@{ Kind = "warn"; Title = "このフォルダは空ではありません（ファイル・フォルダが ${countText}）"; Detail = $sample })
 
-    $facts += $moveCurrent
+    $facts += @{ Kind = "next"; Title = "今のインデックス・取り込み一覧・ログは、新しい場所へ移します"; Detail = "移す前の場所：${current}" }
 
-    $choices = @()
+    # 最後の選択肢が主なボタン（青）になる。うっかり押しやすい「そのまま使う」を先に置く
+    $choices = @(@{ Text = "このフォルダのまま使う"; Value = "asis"; Careful = $true })
     $sub = Join-Path $folder ${workspaceSubFolderName}
     if ($canMakeSub) {
-        $choices += @{ Text = "中に「${workspaceSubFolderName}」フォルダを作って、ワークスペースにする"; Detail = $sub; Value = "sub"; Careful = $false }
+        $choices += @{ Text = "中に「${workspaceSubFolderName}」を作って使う"; Value = "sub"; Careful = $false }
+        $facts += @{ Kind = "next"; Title = "「中に作って使う」を選ぶと、ワークスペースは次の場所になります"; Detail = $sub }
     }
-    $choices += @{ Text = "このフォルダをそのまま使う"; Detail = "中のファイルは消しません。tebunko のファイルが同じフォルダに混ざります"; Value = "asis"; Careful = $true }
     return @{
+        Title   = "保存先の変更"
         Heading = "選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください。"
         Facts   = $facts
         Hint    = "空のフォルダを選び直すときは［キャンセル］を押してください。"

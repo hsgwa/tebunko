@@ -302,12 +302,9 @@ function startGui {
             if (isIndexing) {
                 $answer = showConfirm `
                     -title "更新中です" `
-                    -heading "まだインデックス作成の途中です。止めてから閉じますか？" `
-                    -facts @(
-                        (factNext "いま取り込んでいるファイルが終わったところで止まり、画面を閉じます"),
-                        (factKept "ここまで取り込んだ分はそのまま残ります" "次に開いて［インデックス作成を開始］を押すと、続きから再開します")
-                    ) `
-                    -choices @(@{ Text = "インデックス作成を止めて閉じる"; Value = "stop"; Careful = $true }) `
+                    -heading "インデックスを更新中です。中止して閉じますか？" `
+                    -hint "取り込んだところまでは残ります。次に起動したときに続きから再開できます。" `
+                    -choices @(@{ Text = "中止して閉じる"; Value = "stop"; Careful = $true }) `
                     -cancelText "閉じない"
                 $e.Cancel = $true
                 if ($answer -ne "stop" -or !(isIndexing)) {

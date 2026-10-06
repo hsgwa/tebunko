@@ -40,33 +40,8 @@ function factNext { param ([string]$title, [string]$detail = "") [ConfirmFact]@{
 
 function factWarn { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "!"; MarkBrush = ${warnBrush}; Title = $title; Detail = $detail } }
 
-function newChoiceContent {
-    # 選択肢ボタンの中身。1 行目に動作、2 行目にその結果を置く
-    param (
-        [string]$text,
-        [string]$detail
-    )
-
-    $panel = New-Object System.Windows.Controls.StackPanel
-    $title = New-Object System.Windows.Controls.TextBlock
-    $title.Text = $text
-    $title.FontWeight = [System.Windows.FontWeights]::SemiBold
-    $title.TextWrapping = "Wrap"
-    $panel.Children.Add($title) | Out-Null
-    if ($detail -ne "") {
-        $line = New-Object System.Windows.Controls.TextBlock
-        $line.Text = $detail
-        $line.FontSize = 12
-        $line.Foreground = ${grayBrush}
-        $line.TextWrapping = "Wrap"
-        $line.Margin = New-Object System.Windows.Thickness -ArgumentList 0, 3, 0, 0
-        $panel.Children.Add($line) | Out-Null
-    }
-    return $panel
-}
-
 # 確認ダイアログの形。呼び出し側が form を指定しなければ、選択肢から決める
-#   choice: 選択肢が 2 つ以上（選択肢のボタンを縦に並べる）、danger: 1 つで Danger、normal: それ以外
+#   choice: 選択肢が 2 つ以上（［キャンセル］の右に選択肢のボタンを横に並べる）、danger: 1 つで Danger、normal: それ以外
 function getConfirmForm {
     param (
         [object[]]$choices,
@@ -131,11 +106,12 @@ function showOwnedDialog {
 function showConfirm {
     # 確認ダイアログ。「見出し（何をするか）」「こうなります（何が消えて何が残るか）」「選択肢のボタン」で、
     # 文章を読まなくても押す前に結果が分かるようにする。選んだ Value を返す（キャンセル・閉じるは $null）。
-    #   choices: @{ Text = "削除する"; Detail = "ボタンの下に出す補足"; Value = "delete"; Danger = $true; Careful = $true } の配列
-    #            1 つなら［実行］＋［キャンセル］、2 つ以上なら選択肢ボタンを縦に並べる
-    #            Danger は赤いボタン、Careful は色はそのままでキャンセルを既定にする
+    #   choices: @{ Text = "削除する"; Value = "delete"; Danger = $true; Careful = $true } の配列
+    #            ［キャンセル］の右に横に並べる。最後の 1 つが主なボタン（Danger は赤）。ほかは枠だけのボタン
+    #            Danger・Careful は、うっかり Enter で進まないようキャンセルを既定にする
     #   facts:   factGone / factKept / factNext で作った行
     #   hint:    読まなくても操作できる補足（別のやり方の案内など。見出しの下に淡く出す）
+    #   detail:  詳しい内容（エラーの文面など）。枠の中に、選べる文字で出す
     #   title:   窓の題（OS のタイトルバー）。既定はアプリ名
     #   form:    normal・danger・choice。省略すると選択肢から決める（getConfirmForm）。幅と、danger の赤い印・赤い実行ボタンが変わる
     param (
@@ -143,6 +119,7 @@ function showConfirm {
         [object[]]$choices,
         [object[]]$facts = @(),
         [string]$hint = "",
+        [string]$detail = "",
         [string]$cancelText = "キャンセル",
         [string]$title = "",
         [string]$form = "",
@@ -155,7 +132,7 @@ function showConfirm {
     $dialog.Width = getConfirmWidth $form
     $dialog.Owner = $owner
     $ctrl = @{}
-    foreach ($name in @("HeadingIcon", "HeadingText", "FactsPanel", "FactsList", "ChoicePanel", "HintText", "ButtonPanel")) {
+    foreach ($name in @("HeadingIcon", "HeadingText", "FactsPanel", "FactsList", "DetailBox", "DetailText", "HintText", "ButtonPanel")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $chosen = @{ Value = $null }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
@@ -167,6 +144,10 @@ function showConfirm {
     if ($facts.Count -gt 0) {
         $ctrl.FactsList.ItemsSource = $facts
         $ctrl.FactsPanel.Visibility = "Visible"
+    }
+    if ($detail -ne "") {
+        $ctrl.DetailText.Text = $detail
+        $ctrl.DetailBox.Visibility = "Visible"
     }
     if ($hint -ne "") {
         $ctrl.HintText.Text = $hint
@@ -183,33 +164,25 @@ function showConfirm {
     $cancel = New-Object System.Windows.Controls.Button
     $cancel.Content = $cancelText
     $cancel.IsCancel = $true
-    if ($choices.Count -eq 1) {
-        $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null  # ［キャンセル］は実行ボタンの左
-    }
-    foreach ($choice in $choices) {
+    $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null  # ［キャンセル］は選択肢のボタンの左
+    for ($i = 0; $i -lt @($choices).Count; $i++) {
+        $choice = @($choices)[$i]
         $button = New-Object System.Windows.Controls.Button
         $button.Tag = $choice.Value
         $button.Add_Click($onChoice)
-        if ($choices.Count -eq 1) {
-            $cautious = [bool]$choice.Danger -or [bool]$choice.Careful
+        $button.Content = $choice.Text
+        $isMain = ($i -eq @($choices).Count - 1)
+        if ($isMain) {
             $button.Style = $dialog.FindResource($(if ($choice.Danger) { "Danger.Filled" } else { "Primary" }))
-            $button.Content = $choice.Text
-            $button.IsDefault = !$cautious
-            $ctrl.ButtonPanel.Children.Add($button) | Out-Null
-        } else {
-            $button.Style = $dialog.FindResource("Choice")
-            $button.Content = newChoiceContent $choice.Text $choice.Detail
-            $ctrl.ChoicePanel.Children.Add($button) | Out-Null
+            $cautious = [bool]$choice.Danger -or [bool]$choice.Careful
+            $button.IsDefault = !$cautious -and @($choices).Count -eq 1
         }
+        $ctrl.ButtonPanel.Children.Add($button) | Out-Null
         if ($null -eq $focusTarget) {
             $focusTarget = $button
         }
     }
-
-    if ($choices.Count -ne 1) {
-        $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null
-    }
-    if ($cautious -or $choices.Count -gt 1) {
+    if ($cautious -or @($choices).Count -gt 1) {
         # 消す操作・選択肢が複数の操作は、うっかり Enter で進まないようキャンセルを既定にする
         $cancel.IsDefault = $true
         $focusTarget = $cancel
@@ -218,6 +191,58 @@ function showConfirm {
     $dialog.Add_ContentRendered({ $focusTarget.Focus() | Out-Null }.GetNewClosure())
     $null = showOwnedDialog $dialog
     return $chosen.Value
+}
+
+function showErrorDialog {
+    # エラーの知らせ。見出し・エラーの文面・［内容をコピー］［ログを開く］［閉じる］。
+    # logFile を渡さないときは［ログを開く］を出さない（開く先が無いため）
+    param (
+        [string]$heading,
+        [string]$detail,
+        [string]$logFile = "",
+        [System.Windows.Window]$owner = $window
+    )
+
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog.Title = "エラー"
+    $dialog.Width = getConfirmWidth "error"
+    if ($null -ne $owner) {
+        $dialog.Owner = $owner
+    }
+    $icon = $dialog.FindName("HeadingIcon")
+    $icon.Visibility = "Visible"
+    $dialog.FindName("HeadingText").Text = $heading
+    $dialog.FindName("DetailText").Text = $detail
+    $dialog.FindName("DetailBox").Visibility = "Visible"
+    $panel = $dialog.FindName("ButtonPanel")
+
+    $copy = New-Object System.Windows.Controls.Button
+    $copy.Content = "内容をコピー"
+    $copy.Add_Click({
+        try {
+            [System.Windows.Clipboard]::SetText($detail)
+        } catch {
+            # クリップボードを他が使っているときは、あきらめる（もう一度押せる）
+        }
+    }.GetNewClosure())
+    $panel.Children.Add($copy) | Out-Null
+    if ($logFile -ne "") {
+        $open = New-Object System.Windows.Controls.Button
+        $open.Content = "ログを開く"
+        $open.Add_Click({
+            if (Test-Path -LiteralPath $logFile) {
+                Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe" -ArgumentList "`"$logFile`""
+            }
+        }.GetNewClosure())
+        $panel.Children.Add($open) | Out-Null
+    }
+    $close = New-Object System.Windows.Controls.Button
+    $close.Content = "閉じる"
+    $close.Style = $dialog.FindResource("Primary")
+    $close.IsDefault = $true
+    $close.IsCancel = $true
+    $panel.Children.Add($close) | Out-Null
+    $null = showOwnedDialog $dialog
 }
 
 # 予期しない例外を繰り返し知らせないための、同じ例外の見分け（型・メッセージ・発生場所）と抑え方の状態。
@@ -276,18 +301,19 @@ function reportUnexpectedError {
     if ($skipDialog) {
         return
     }
-    $dialogText = "エラーが発生しました。`n$message`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。"
+    $heading = "予期しないエラーが起きました。"
+    $logFile = getGuiErrorLogFile
     if ($unhandled) {
         $entry.DialogShown = $true
         $script:unhandledDialogShowing = $true
         try {
-            showMessage $dialogText "OK" "Error" | Out-Null
+            showErrorDialog $heading "$($record.Exception.GetType().FullName): $message" $logFile
         } finally {
             $script:unhandledDialogShowing = $false
         }
         return
     }
-    showMessage $dialogText "OK" "Error" | Out-Null
+    showErrorDialog $heading "$($record.Exception.GetType().FullName): $message" $logFile
 }
 
 function registerUnhandledErrorHandler {

@@ -30,11 +30,11 @@ function showAboutDialog {
         $ctrl.AppIcon.Source = if ($fit.Count -gt 0) { $fit[0] } else { $frames[$frames.Count - 1] }
         [System.Windows.Media.RenderOptions]::SetBitmapScalingMode($ctrl.AppIcon, "HighQuality")
     }
-    $ctrl.VersionText.Text = "版: $($script:aboutView.Version)"
+    $ctrl.VersionText.Text = "バージョン $($script:aboutView.Version)"
     if ($script:aboutView.Commit -eq "") {
         $ctrl.CommitText.Visibility = "Collapsed"
     } else {
-        $ctrl.CommitText.Text = "コミット: $($script:aboutView.Commit)"
+        $ctrl.CommitText.Text = "|　コミット $($script:aboutView.Commit)"
     }
     [void](showOwnedDialog $dialog)
 }

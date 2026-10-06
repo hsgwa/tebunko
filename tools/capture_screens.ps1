@@ -192,7 +192,7 @@ function captureStartupSplash {
     # 起動中の表示は、出てから本体の窓に変わるまでが一瞬で、UI オートメーションの provider がまだこの窓を
     # 認識していない（AutomationElement 経由では見つからない・大きさが 0 x 0 のまま）ことがあるため、
     # captureGuiState は使わず、Win32 の EnumWindows・GetWindowRect だけで窓を探して撮る。
-    # 起動中の表示は固定の文言（「tebunko」「起動しています…」）だけで、利用者に関わる中身が無いため、
+    # 起動中の表示は固定の文言（「tebunko」「起動中…」）だけで、利用者に関わる中身が無いため、
     # 塗りつぶし（利用者名などの検出）は行わない
     param ($S, [string]$Id, [string[]]$Ids, [string]$OutDir, [System.Collections.Generic.List[long]]$Sizes)
 
@@ -346,7 +346,7 @@ function captureStarterScene {
 
             setGuiStep $S "［削除］"
             clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
-            $deleteConfirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "一覧から削除しますか"
+            $deleteConfirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "インデックスを削除しますか"
             captureGuiState -S $S -Id "index-tab/delete-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($deleteConfirm)
             clickGuiByName $S $deleteConfirm "キャンセル"
@@ -471,7 +471,7 @@ function captureHeavyScene {
             waitGui $S "取り込み中" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
             if (!(testGuiIndexing $S)) { throw $tooFast }
             closeGuiWindowAsync $S $S.Window
-            $closeConfirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか" -Guard $tooFastGuard
+            $closeConfirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
             captureGuiState -S $S -Id "window/close-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($closeConfirm)
             clickGuiByName $S $closeConfirm "閉じない"
@@ -480,8 +480,8 @@ function captureHeavyScene {
             # 片づけ: もう一度閉じて、今度は「インデックス作成を止めて閉じる」で終える（closeGui は、この確認を扱えない）
             setGuiStep $S "取り込みを止めて閉じる"
             closeGuiWindowAsync $S $S.Window
-            $confirm2 = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか" -Guard $tooFastGuard
-            clickGuiByName $S $confirm2 "インデックス作成を止めて閉じる"
+            $confirm2 = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
+            clickGuiByName $S $confirm2 "中止して閉じる"
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
         }
     }
@@ -641,7 +641,7 @@ function captureSettingsScene {
 
         setGuiStep $S "空のフォルダの確認"
         & $changeWorkspace $emptyDir
-        $emptyConfirm = waitGuiWindow $S "ワークスペースを変える確認" -Id "HeadingText" -Text "ワークスペースを変えますか"
+        $emptyConfirm = waitGuiWindow $S "ワークスペースを変える確認" -Id "HeadingText" -Text "へ移動します"
         captureGuiState -S $S -Id "settings-tab/empty-confirm" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($emptyConfirm)
         clickGuiByName $S $emptyConfirm "キャンセル"

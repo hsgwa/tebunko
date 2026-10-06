@@ -206,11 +206,8 @@ function stopIndexing {
     }
     $answer = showConfirm `
         -title "更新の中止" `
-        -heading "インデックス作成を中止しますか？" `
-        -facts @(
-            (factNext "いま取り込んでいるファイルが終わったところで止まります"),
-            (factKept "ここまで取り込んだ分はそのまま残ります" "次に［インデックス作成を開始］を押すと、続きから再開します")
-        ) `
+        -heading "インデックスの更新を中止しますか？" `
+        -hint "取り込んだところまでは残ります。あとで続きから再開できます。" `
         -choices @(@{ Text = "中止する"; Value = "stop"; Careful = $true })
     if ($answer -ne "stop") {
         return
