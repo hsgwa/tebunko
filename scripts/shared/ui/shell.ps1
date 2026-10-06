@@ -82,7 +82,7 @@ function showConfirm {
         [System.Windows.Window]$owner = $window
     )
 
-    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
     $dialog.Title = ${appTitle}
     $dialog.Owner = $owner
     $ctrl = @{}

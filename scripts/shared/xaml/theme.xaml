@@ -2,7 +2,7 @@
 
      文字の設計:
        大きさ  16 / 14 / 13 / 12 / 11。ダイアログの見出し 16、主役の値 14、本文 13、補助 12、細目 11。
-       太さ    Normal と SemiBold の 2 段だけ。SemiBold は見出し・主ボタン・その画面の主役の値に限る。
+       太さ    Normal・Medium・SemiBold・Bold。Medium は項目の名前（ナビ・インデックス名・種別の札）、SemiBold は見出し・主ボタン・その画面の主役の値、Bold は件数・一致した文字などの強調に使う。
        濃さ    Ink.Strong（見出し・主キー）＞ Ink.Body（本文）＞ Ink.Muted（補助）＞ Ink.Faint（入力前の案内）。
                すべてを黒にすると重要度が伝わらないため、本文は真っ黒にしない。
 
@@ -157,7 +157,7 @@
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
-  <!-- Figma の Text styles（フォントはすべて Rethink Sans。Figma の Medium は WPF の SemiBold に読み替える）。
+  <!-- Figma の Text styles（フォントはすべて Rethink Sans。太さも Figma の指定どおり。Rethink Sans は可変フォントで、Medium・SemiBold・Bold の実体がそのまま出る）。
        色は使う所で決める。下の既定は、その文字が一番よく使われる色。行の高さは書いてあるものだけ指定する
        （Brand の字間 0.2 は TextBlock に無いので付けない） -->
   <Style x:Key="ColumnHeader" TargetType="TextBlock">
@@ -184,7 +184,7 @@
   </Style>
   <Style x:Key="Chip" TargetType="TextBlock">
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{StaticResource Accent.Hover}" />
   </Style>
   <Style x:Key="Link.Text" TargetType="TextBlock">
@@ -209,7 +209,7 @@
   </Style>
   <Style x:Key="Nav" TargetType="TextBlock">
     <Setter Property="FontSize" Value="13" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
   </Style>
   <Style x:Key="Nav.Tall" TargetType="TextBlock" BasedOn="{StaticResource Nav}">
@@ -402,7 +402,7 @@
     <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
   <Style x:Key="Cell.Key" TargetType="TextBlock" BasedOn="{StaticResource Cell}">
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
   </Style>
   <Style x:Key="Cell.Meta" TargetType="TextBlock" BasedOn="{StaticResource Cell}">

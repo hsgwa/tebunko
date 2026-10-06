@@ -387,7 +387,7 @@ function showIndexEditDialog {
         $item = $null
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_index_edit.xaml"
+    $dialog = loadWindow "${xamlDir}\dialog_index_edit.xaml" ${fontsDir}
     $dialog.Owner = $window
     $ctrl = @{}
     foreach ($name in @("OkButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
@@ -695,7 +695,7 @@ function showIndexImportDialog {
         $info   # readIndexArchiveInfo の結果
     )
 
-    $dialog = loadWindow "${xamlDir}\dialog_index_edit.xaml"
+    $dialog = loadWindow "${xamlDir}\dialog_index_edit.xaml" ${fontsDir}
     $dialog.Owner = $window
     $dialog.Title = "インデックスのインポート"
     $ctrl = @{}

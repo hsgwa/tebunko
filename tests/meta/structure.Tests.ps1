@@ -54,6 +54,36 @@ Describe "カバレッジの計測の対象（画面層を分母に入れない�
     }
 }
 
+Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag Meta {
+    # Font.Body は loadXaml / loadWindow の引数で渡したフォルダから作る。呼び出しが ${fontsDir} を渡していないと、
+    # 起動した窓は同梱のフォント（Rethink Sans）を使わず、Yu Gothic UI・Meiryo UI になる（気づきにくいので、呼び出しで確かめる）
+    It "画面を読み込む呼び出しは、すべて `${fontsDir} を渡している" {
+        $problems = New-Object System.Collections.Generic.List[string]
+        $calls = 0
+        foreach ($file in (Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1")) {
+            if ($file.Name -eq "app_host.ps1") { continue }
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+            $found = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in @("loadWindow", "loadXaml") }, $true)
+            foreach ($call in $found) {
+                $calls++
+                $third = if ($call.CommandElements.Count -ge 3) { $call.CommandElements[2].Extent.Text } else { "" }
+                if ($third -ne '${fontsDir}') { $problems.Add("$($file.Name):$($call.Extent.StartLineNumber)") }
+            }
+        }
+        $calls | Should -BeGreaterThan 5
+        $problems -join ", " | Should -Be ""
+    }
+
+    It "起動口が決める fontsDir は、Rethink Sans を持つ同梱のフォルダを指している" {
+        $main = Get-Content -LiteralPath "$here\..\scripts\tebunko\ui\gui_main.ps1" -Raw -Encoding UTF8
+        $main -match '\$\{fontsDir\}\s*=\s*"\$TebunkoDir\\([^"]+)"' | Should -Be $true
+        $folder = [System.IO.Path]::GetFullPath("$here\..\scripts\tebunko\" + $Matches[1])
+        foreach ($name in "RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf") {
+            Test-Path -LiteralPath "$folder\$name" | Should -Be $true
+        }
+    }
+}
+
 Describe "スクリプトの構文" -Tag Meta {
     BeforeDiscovery {
         $scriptFiles = @(Get-ChildItem "$PSScriptRoot\..\..\scripts" -Recurse -Filter "*.ps1" |
@@ -167,7 +197,7 @@ Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta 
 
 Describe "theme の文字の Style（大きさ・太さ・行の高さは Figma の設計どおり）" -Tag Meta {
     BeforeDiscovery {
-        # Weight が空は Normal。Figma の Medium は WPF の SemiBold に読み替えてある。LineHeight が空は指定しない
+        # Weight が空は Normal。LineHeight が空は指定しない
         $textStyles = @(
             @{ Key = "Micro";        Size = "10"; Weight = "";         LineHeight = "" }
             @{ Key = "ColumnHeader"; Size = "10"; Weight = "Bold";     LineHeight = "" }
@@ -176,16 +206,16 @@ Describe "theme の文字の Style（大きさ・太さ・行の高さは Figma 
             @{ Key = "Meta.Strong";  Size = "";   Weight = "Bold";     LineHeight = "" }
             @{ Key = "Meta.Key";     Size = "";   Weight = "SemiBold"; LineHeight = "" }   # 行の高さ 16 は Meta.Tall から継ぐ
             @{ Key = "Note";         Size = "11"; Weight = "";         LineHeight = "17.6" }
-            @{ Key = "Chip";         Size = "11"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Chip";         Size = "11"; Weight = "Medium";   LineHeight = "" }
             @{ Key = "Link.Text";    Size = "11"; Weight = "SemiBold"; LineHeight = "" }
             @{ Key = "Cell";         Size = "12"; Weight = "";         LineHeight = "" }
-            @{ Key = "Cell.Key";     Size = "";   Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Cell.Key";     Size = "";   Weight = "Medium";   LineHeight = "" }
             @{ Key = "Label";        Size = "12"; Weight = "SemiBold"; LineHeight = "" }
             @{ Key = "Label.Strong"; Size = "";   Weight = "Bold";     LineHeight = "" }
             @{ Key = "Brand";        Size = "12"; Weight = "SemiBold"; LineHeight = "" }
             @{ Key = "Body";         Size = "13"; Weight = "";         LineHeight = "" }
             @{ Key = "Body.Strong";  Size = "";   Weight = "Bold";     LineHeight = "" }
-            @{ Key = "Nav";          Size = "13"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Nav";          Size = "13"; Weight = "Medium";   LineHeight = "" }
             @{ Key = "Nav.Tall";     Size = "";   Weight = "";         LineHeight = "18" }
             @{ Key = "Heading";      Size = "13"; Weight = "SemiBold"; LineHeight = "" }
             @{ Key = "Focal";        Size = "14"; Weight = "SemiBold"; LineHeight = "" }

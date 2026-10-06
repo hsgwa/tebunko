@@ -66,7 +66,7 @@ function startGui {
 
     # ---- ウィンドウと、画面の部品の対応 ----
 
-    $window = loadWindow "${xamlDir}\tebunko.xaml"
+    $window = loadWindow "${xamlDir}\tebunko.xaml" ${fontsDir}
     stepSplash 55
 
     # 窓の中身は領域ごとのファイルに分けてある（xaml\<画面>\<領域>.xaml）。読み込んで差す口に入れ、x:Name の対応表（$ui）を作る。
@@ -107,7 +107,7 @@ function startGui {
     }
     $script:screenContents = @{}
     foreach ($region in $regions) {
-        $content = loadXaml "${xamlDir}\$($region.File)"
+        $content = loadXaml "${xamlDir}\$($region.File)" ${fontsDir}
         if ($region.Slot -eq "ContentHost") {
             $script:screenContents[$region.Screen] = $content
         } else {

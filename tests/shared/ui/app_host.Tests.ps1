@@ -101,4 +101,21 @@ Describe "loadXaml（Font.Body）" -Tag Unit {
         $result.Resources.Contains("Font.Body") | Should -Be $true
         $result.Resources["Font.Body"] | Should -BeOfType [System.Windows.Media.FontFamily]
     }
+
+    It "渡したフォントのフォルダから Font.Body を作る（呼び出し側の変数を暗黙に読まない）" {
+        $path = "$TestDrive\win2.xaml"
+        [System.IO.File]::WriteAllText($path, '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" />', (New-Object System.Text.UTF8Encoding($true)))
+        $fonts = "${scriptsDir}\shared\fonts"
+        # 同じ名前の変数が呼び出し側にあっても、引数のほうを使う
+        $fontsDir = "$TestDrive\no_such_fonts"
+        $result = loadXaml $path $fonts
+        $result.Resources["Font.Body"].BaseUri.LocalPath | Should -Be "$fonts\"
+        # 引数が無いときは、変数があっても Yu Gothic UI・Meiryo UI だけ
+        (loadXaml $path).Resources["Font.Body"].Source | Should -Be "Yu Gothic UI, Meiryo UI"
+    }
+
+    It "loadWindow は、フォントのフォルダを loadXaml に渡す" {
+        $text = Get-Content -LiteralPath "${scriptsDir}\shared\ui\app_host.ps1" -Raw -Encoding UTF8
+        $text | Should -Match 'function loadWindow \{[\s\S]*?\$loaded = loadXaml \$path \$fontsFolder'
+    }
 }

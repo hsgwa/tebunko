@@ -62,7 +62,8 @@ function inlineMergedDictionaries {
 # XAML を読み込む（Window・タブ・ダイアログの中身）。theme.xaml への参照は、読み込む前にテキストで差し替える
 function loadXaml {
     param (
-        [string]$path
+        [string]$path,
+        [string]$fontsFolder = ""   # 同梱のフォントのフォルダ（呼び出す側が ${fontsDir} を渡す）。空なら Yu Gothic UI・Meiryo UI だけ
     )
 
     $xml = New-Object System.Xml.XmlDocument
@@ -82,24 +83,18 @@ function loadXaml {
     # XamlReader.Load は XAML 内の相対パスを解決できないため、同梱のフォントを指す FontFamily はここで作って入れる
     if ($loaded -is [System.Windows.FrameworkElement]) {
         # 型を明示する（PowerShell のラッパーのまま入れると、DynamicResource が文字列として解決して失敗する）
-        $loaded.Resources["Font.Body"] = [System.Windows.Media.FontFamily](newAppFontFamily)
+        $loaded.Resources["Font.Body"] = [System.Windows.Media.FontFamily](newAppFontFamily $fontsFolder)
     }
     return $loaded
 }
 
-# 画面の既定のフォント。同梱のフォント（${fontsDir}）の Rethink Sans を先に、足りない文字（日本語）は Yu Gothic UI・Meiryo UI で表す。
+# 画面の既定のフォント。同梱のフォント（引数のフォルダ。呼び出す側の ${fontsDir}）の Rethink Sans を先に、足りない文字（日本語）は Yu Gothic UI・Meiryo UI で表す。
 # フォルダが無いとき（単一 .ps1 版など）は Yu Gothic UI・Meiryo UI だけにする
 function newAppFontFamily {
     param (
         [string]$fontsFolder
     )
 
-    if (-not $fontsFolder) {
-        $variable = Get-Variable -Name fontsDir -ErrorAction SilentlyContinue
-        if ($null -ne $variable) {
-            $fontsFolder = [string]$variable.Value
-        }
-    }
     $fallback = "Yu Gothic UI, Meiryo UI"
     if ($fontsFolder -and (Test-Path -LiteralPath $fontsFolder -PathType Container)) {
         # 末尾が \ のフォルダを指す URI にする（そうしないと、./# の探し先がフォルダの 1 つ上になる）
@@ -111,10 +106,11 @@ function newAppFontFamily {
 
 function loadWindow {
     param (
-        [string]$path
+        [string]$path,
+        [string]$fontsFolder = ""
     )
 
-    $loaded = loadXaml $path
+    $loaded = loadXaml $path $fontsFolder
 
     # アイコンは XAML に書かず、ここで読み込む（XamlReader.Load は XAML 内の相対パスを解決できないため）。
     # ファイルを掴んだままにしないよう OnLoad で読み切る。アイコンが無くても画面は開けるようにする。

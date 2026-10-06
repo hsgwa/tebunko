@@ -84,7 +84,7 @@ function showIndexingConfirmDialog {
         }
     }
 
-    $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml"
+    $dialog = loadWindow "${xamlDir}\dialog_indexing_confirm.xaml" ${fontsDir}
     $dialog.Owner = $window
     $ctrl = @{}
     foreach ($name in @("StartButton", "CancelButton", "RetryCheck", "TotalText", "NoteText", "IntroText", "PlanGrid")) {

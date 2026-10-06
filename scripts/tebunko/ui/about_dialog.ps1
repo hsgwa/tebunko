@@ -9,7 +9,7 @@ $ui.AboutLink.Add_Click({
 
 function showAboutDialog {
     # 「tebunko について」ダイアログを開く
-    $dialog = loadWindow "${xamlDir}\dialog_about.xaml"
+    $dialog = loadWindow "${xamlDir}\dialog_about.xaml" ${fontsDir}
     $dialog.Owner = $window
     $ctrl = @{}
     foreach ($name in @("AppIcon", "VersionText", "CommitText")) {
