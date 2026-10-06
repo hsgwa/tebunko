@@ -4347,7 +4347,7 @@
 </tr>
 <tr>
 <td>見出し</td>
-<td><code>前回のインデックス作成で起動した Office が N 件、残ったまま動いています。終了しますか？</code>（数え方は「件」）</td>
+<td><code>前回の更新で起動した Office が N 件、残ったまま動いています。終了しますか？</code>（数え方は「件」）</td>
 </tr>
 <tr>
 <td>説明（✓）</td>
@@ -4355,7 +4355,7 @@
 </tr>
 <tr>
 <td>説明（✓）</td>
-<td><code>保存していない作業が失われることはありません</code>（<code>残っているのは、インデックス作成のために起動したものです</code>）</td>
+<td><code>保存していない作業が失われることはありません</code>（<code>残っているのは、更新のために起動したものです</code>）</td>
 </tr>
 <tr>
 <td>一覧</td>
@@ -4429,6 +4429,10 @@
 <td>何も止めず、言うことも無い</td>
 <td>ステータスは変えない</td>
 </tr>
+<tr>
+<td>裏の仕事そのものが失敗した（起動時の確認・［終了する］のあと）</td>
+<td><code>getLeftoverFailureText</code>。<code>Office を終了できませんでした（&lt;理由の 1 行目&gt;）。残った Office は、次に tebunko を起動したときにもう一度確認できます。</code>（確認の失敗は <code>前回残った Office を確認できませんでした（&lt;理由&gt;）。</code>）</td>
+</tr>
 </tbody>
 </table>
 <h2 id="記録">記録<a class="headerlink" href="#記録" title="Permanent link">&para;</a></h2>
@@ -4487,7 +4491,7 @@
 </tr>
 <tr>
 <td>文言・出すかどうか・対象の選び方</td>
-<td><code>scripts/tebunko/ui/leftover_view.ps1</code>（判断層。<code>getLeftoverPrompt</code>・<code>getLeftoverResultText</code>・<code>getLeftoverPromptTiming</code>・<code>getLeftoverTargets</code>・<code>getOfficePidQueue</code>。詳細の時刻・開け閉めの文字・偽の行の変換もここ）</td>
+<td><code>scripts/tebunko/ui/leftover_view.ps1</code>（判断層。<code>getLeftoverPrompt</code>・<code>getLeftoverResultText</code>・<code>getLeftoverPromptTiming</code>・<code>getLeftoverTargets</code>・<code>getLeftoverFailureText</code>。詳細の時刻・開け閉めの文字・偽の行の変換もここ）</td>
 </tr>
 <tr>
 <td>ダイアログと起動時の呼び出し</td>
@@ -4506,7 +4510,7 @@
 </ul>
 <h3 id="偽の行の継ぎ目写真画面のテスト用">偽の行の継ぎ目（写真・画面のテスト用）<a class="headerlink" href="#偽の行の継ぎ目写真画面のテスト用" title="Permanent link">&para;</a></h3>
 <p>本物の Office を残さずに確認の画面を出せるよう、環境変数 <code>TEBUNKO_GUI_LEFTOVER_FILE</code>（JSON のファイル）を <code>leftover_dialog.ps1</code> だけが読む。設定されているときは、記録の代わりにその JSON の行（<code>Id</code>・<code>ProcessName</code>・<code>StartTime</code>・<code>StopStatus</code>）を使い、終了も結果の文を作るだけでプロセスには触れない。<strong>設定されていなければ本物の動き</strong>になる（既定は本物）。<code>tests/meta/leftover_seam.Tests.ps1</code> が、読むファイルが 1 つだけであること・プロセスを止める呼び出しが無いことを確かめる。</p>
-<p>記録は共有のワークスペースにも置かれるため、置き場所がネットワークのときは、読み取りを専用の列（<code>getOfficePidQueue</code> が <code>network</code> を返す）の仕事で行い、届かない共有で画面を止めない。</p>
+<p>記録は共有のワークスペースにも置かれるため、置き場所がネットワークのときは、読み取りを専用の列（<code>tebunko/core/workspace.ps1</code> の <code>getOfficePidQueue</code> が <code>network</code> を返す）の仕事で行い、届かない共有で画面を止めない。</p>
 
 
 
