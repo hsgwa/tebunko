@@ -4266,7 +4266,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_about.xaml</code></td>
-<td>「tebunko について」ダイアログ（タブ右上の［⋯］メニュー。<a href="../#画面構成">画面構成</a>）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。<code>ui/about_dialog.ps1</code> が開く</td>
+<td>「tebunko について」ダイアログ（左の欄の下の［tebunko について］。<a href="../#画面構成">画面構成</a>）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。<code>ui/about_dialog.ps1</code> が開く</td>
 </tr>
 <tr>
 <td><code>scripts/shared/xaml/dialog_confirm.xaml</code></td>
@@ -4310,7 +4310,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/about_dialog.ps1</code></td>
-<td>タブ右上の［⋯］メニューと「tebunko について」ダイアログ（<code>dialog_about.xaml</code>）。［⋯］は <code>Button.ContextMenu</code> を <code>Click</code> で開く（左クリック・キーボードの両方で開けるよう、右クリックでしか開かない既定の動きをコードで補う）。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
+<td>左の欄の下の［tebunko について］（<code>shell/nav.xaml</code> の <code>AboutLink</code>）と「tebunko について」ダイアログ（<code>dialog_about.xaml</code>）。<code>AboutLink</code> の <code>Click</code> でダイアログを開く。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code><br><code>about_view.ps1</code></td>

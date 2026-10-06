@@ -3341,17 +3341,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#windowmenuのメニュー遷移-8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        window/menu（［⋯］のメニュー。遷移 8）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#windowabouttebunko-について遷移-8" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4263,17 +4252,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#windowmenuのメニュー遷移-8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        window/menu（［⋯］のメニュー。遷移 8）
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#windowabouttebunko-について遷移-8" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4332,25 +4310,22 @@
 
 
 <h1 id="本体共通の状態">本体・共通の状態<a class="headerlink" href="#本体共通の状態" title="Permanent link">&para;</a></h1>
-<p>タブに関わらない、本体の窓・起動中の表示・メニュー・確認・メッセージボックス。状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</p>
+<p>タブに関わらない、本体の窓・起動中の表示・確認・メッセージボックス。状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</p>
 <h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
-<p>どのタブにいても出る、窓そのものの状態を残す。起動の途中、［⋯］のメニュー、閉じるときの確認、設定が壊れていたときの知らせがある。</p>
+<p>どのタブにいても出る、窓そのものの状態を残す。起動の途中、閉じるときの確認、設定が壊れていたときの知らせがある。</p>
 <h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
 <ul>
-<li>上にタブ（［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］）、右上に［⋯］。</li>
+<li>左に画面の一覧（［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］）と、その下に［tebunko について］。</li>
 <li>窓の下端に、操作の結果を 1 行で出す状態の欄がある。</li>
-<li>［⋯］のメニューは「tebunko について」の 1 項目だけ。</li>
 </ul>
 <h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>stateDiagram-v2
     state "window/startup" as startup
     state "各タブ" as tabs
-    state "window/menu" as menu
     state "window/about" as about
     state "window/close-confirm" as close
     startup --&gt; tabs: 起動が終わる（1）
-    tabs --&gt; menu: ［⋯］（8）
-    menu --&gt; about: tebunko について（8）
+    tabs --&gt; about: tebunko について（8）
     about --&gt; tabs: ［閉じる］
     tabs --&gt; close: 作成中に閉じる（10）
     close --&gt; tabs: ［閉じない］</code></pre>
@@ -4364,10 +4339,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>メニュー</td>
-<td>「tebunko について」</td>
-</tr>
 <tr>
 <td>「tebunko について」</td>
 <td>「版: 開発版」「ライセンス: MIT」、［閉じる］</td>
@@ -4386,8 +4357,6 @@
 <h2 id="写真">写真<a class="headerlink" href="#写真" title="Permanent link">&para;</a></h2>
 <h3 id="windowstartup起動中の表示遷移-1">window/startup（起動中の表示。遷移 1）<a class="headerlink" href="#windowstartup起動中の表示遷移-1" title="Permanent link">&para;</a></h3>
 <p><img alt="起動中の表示" src="../../../../images/screens/window/startup.png" /></p>
-<h3 id="windowmenuのメニュー遷移-8">window/menu（［⋯］のメニュー。遷移 8）<a class="headerlink" href="#windowmenuのメニュー遷移-8" title="Permanent link">&para;</a></h3>
-<p><img alt="［⋯］のメニュー" src="../../../../images/screens/window/menu.png" /></p>
 <h3 id="windowabouttebunko-について遷移-8">window/about（「tebunko について」。遷移 8）<a class="headerlink" href="#windowabouttebunko-について遷移-8" title="Permanent link">&para;</a></h3>
 <p><img alt="「tebunko について」" src="../../../../images/screens/window/about.png" /></p>
 <h3 id="windowclose-confirm作成中に閉じるときの確認遷移-10">window/close-confirm（作成中に閉じるときの確認。遷移 10）<a class="headerlink" href="#windowclose-confirm作成中に閉じるときの確認遷移-10" title="Permanent link">&para;</a></h3>
