@@ -102,12 +102,14 @@ Describe "getTargetHintText" -Tag Unit {
 
 Describe "getScopeButtonText" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "既定のまま（図形もコメントも検索）なら変更の数を付けない"; shapes = $true; comments = $true; expected = "ファイル内の対象" }
-        @{ name = "どちらかを外したら 1 件"; shapes = $true; comments = $false; expected = "ファイル内の対象・1 件変更" }
-        @{ name = "両方外したら 2 件"; shapes = $false; comments = $false; expected = "ファイル内の対象・2 件変更" }
+        @{ name = "既定のまま（図形もコメントも検索）なら変更の数を付けない"; shapes = $true; comments = $true; expected = "ファイル内の対象"; changed = $false }
+        @{ name = "どちらかを外したら 1 件"; shapes = $true; comments = $false; expected = "ファイル内の対象・1 件変更"; changed = $true }
+        @{ name = "両方外したら 2 件"; shapes = $false; comments = $false; expected = "ファイル内の対象・2 件変更"; changed = $true }
     ) {
-        param ($name, $shapes, $comments, $expected)
-        getScopeButtonText $shapes $comments | Should -Be $expected
+        param ($name, $shapes, $comments, $expected, $changed)
+        $view = getScopeButtonText $shapes $comments
+        $view.Text | Should -Be $expected
+        $view.Changed | Should -Be $changed
     }
 }
 

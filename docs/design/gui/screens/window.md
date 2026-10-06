@@ -8,19 +8,19 @@
 
 ## 部品と並び
 
-- 左に画面の一覧（［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］）と、その下に［tebunko について］。
+- 左に画面の一覧（［1 インデックス管理］［2 検索］［8 設定］［9 プロセス停止］）と、その下に［バージョン情報］。
 - 窓の下端に、操作の結果を 1 行で出す状態の欄がある。
 
 ## 状態と遷移
 
 ```mermaid
 stateDiagram-v2
-    state "window/startup" as startup
+    state "起動" as startup
     state "各タブ" as tabs
     state "window/about" as about
     state "window/close-confirm" as close
     startup --> tabs: 起動が終わる（1）
-    tabs --> about: tebunko について（8）
+    tabs --> about: バージョン情報（8）
     about --> tabs: ［閉じる］
     tabs --> close: 作成中に閉じる（10）
     close --> tabs: ［閉じない］
@@ -32,7 +32,7 @@ stateDiagram-v2
 
 | 状態 | 文言 |
 |---|---|
-| 「tebunko について」 | アイコン・名前・説明・「バージョン 開発版」、動作環境の表、「MIT ライセンスで公開しています」、［OK］ |
+| 「バージョン情報」 | アイコン・名前・説明・「バージョン 開発版」、動作環境の表、「MIT ライセンスで公開しています」、［OK］ |
 | 閉じるときの確認 | 「インデックスを更新中です。中止して閉じますか？」「更新したところまでは残ります。…」、［中止して閉じる］［閉じない］ |
 | 設定が壊れていたとき | 「設定ファイルが壊れていたため、既定の設定で起動しました。…」、［OK］ |
 
@@ -40,13 +40,9 @@ stateDiagram-v2
 
 ## 写真
 
-### window/startup（起動中の表示。遷移 1）
+### window/about（「バージョン情報」。遷移 8）
 
-![起動中の表示](../../../images/screens/window/startup.png)
-
-### window/about（「tebunko について」。遷移 8）
-
-![「tebunko について」](../../../images/screens/window/about.png)
+![「バージョン情報」](../../../images/screens/window/about.png)
 
 ### window/close-confirm（作成中に閉じるときの確認。遷移 10）
 

@@ -15,7 +15,7 @@
     <RowDefinition Height="*" MinHeight="60" />
     <RowDefinition Height="Auto" />
     <!-- 下限は、列見出し＋1 行（一致した行）が見える高さ -->
-    <RowDefinition x:Name="DetailRow" Height="200" MinHeight="100" />
+    <RowDefinition x:Name="DetailRow" Height="180" MinHeight="120" />
   </Grid.RowDefinitions>
 
   <ContentControl x:Name="SearchBarHost" Grid.Row="0" Focusable="False" IsTabStop="False" HorizontalContentAlignment="Stretch" />

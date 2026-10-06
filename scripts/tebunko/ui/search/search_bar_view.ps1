@@ -117,7 +117,8 @@ function getTargetHintText {
 }
 
 function getScopeButtonText {
-    # ［ファイル内の対象］ボタンの文言。既定（図形・コメントも検索）から外したものがあれば「・2 件変更」を付ける
+    # ［ファイル内の対象］ボタンの文言（Text）と、既定から変えているか（Changed）。
+    # 既定（図形・コメントも検索）から外したものがあれば「・2 件変更」を付ける
     param (
         [bool]$includeShapes,
         [bool]$includeComments
@@ -125,9 +126,9 @@ function getScopeButtonText {
 
     $changed = @($includeShapes, $includeComments | Where-Object { !$_ }).Count
     if ($changed -eq 0) {
-        return "ファイル内の対象"
+        return @{ Text = "ファイル内の対象"; Changed = $false }
     }
-    return "ファイル内の対象・$changed 件変更"
+    return @{ Text = "ファイル内の対象・$changed 件変更"; Changed = $true }
 }
 
 function getWordNotice {

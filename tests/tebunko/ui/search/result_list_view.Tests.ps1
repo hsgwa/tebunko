@@ -31,8 +31,18 @@ Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
         getSearchProgressText 1234 | Should -Be "検索中…　該当 1,234 件"
     }
 
-    It "終わったら該当件数・ファイル数・秒数を出す" {
-        getSearchSummaryText 1234 5 1.25 | Should -Match "^1,234 件（5 ファイル） ・ 1\.[23] 秒$"
+    It "<name>" -TestCases @(
+        @{ name = "終わったら該当件数・ファイル数・秒数を出す"; seconds = @(1.25); expected = "^1,234 件（5 ファイル） ・ 1\.[23] 秒$" }
+        @{ name = "秒を渡さなければ時間は付けない"; seconds = @(); expected = "^1,234 件（5 ファイル）$" }
+    ) {
+        param ($name, $seconds, $expected)
+        getSearchSummaryText 1234 5 @seconds | Should -Match $expected
+    }
+}
+
+Describe "getFilteredSummaryText" -Tag Unit {
+    It "全部の件数のうち、見せている件数を出す" {
+        getFilteredSummaryText 1234 56 | Should -Be "1,234 件中 56 件を表示"
     }
 }
 

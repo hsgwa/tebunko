@@ -10,13 +10,13 @@ function applyFilter {
         if ($script:filterText -eq "") {
             finishSummaryText
         } else {
-            $ui.SummaryText.Text = "$($script:hitCount.ToString('N0')) 件中 $($shown.ToString('N0')) 件を表示"
+            $ui.SummaryText.Text = getFilteredSummaryText $script:hitCount $shown
         }
     }
 }
 
 function finishSummaryText {
-    $ui.SummaryText.Text = "$($script:hitCount.ToString('N0')) 件（$($script:fileGroups.Count.ToString('N0')) ファイル）"
+    $ui.SummaryText.Text = getSearchSummaryText $script:hitCount $script:fileGroups.Count
 }
 
 $script:filterTimer = newTimer 300 {

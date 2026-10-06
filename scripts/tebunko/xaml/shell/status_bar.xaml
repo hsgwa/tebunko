@@ -10,6 +10,6 @@
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Border.Resources>
-  <TextBlock x:Name="StatusText" Style="{StaticResource Meta}" Margin="12,0,12,0" VerticalAlignment="Center"
+  <TextBlock x:Name="StatusText" Style="{StaticResource Micro}" Margin="12,0,12,0" VerticalAlignment="Center"
              TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
 </Border>

@@ -76,7 +76,23 @@
           </Setter.Value>
         </Setter>
       </Style>
-      <!-- 高速検索の状態（Tag = ok の緑・off の灰色） -->
+      <!-- 高速検索の状態（Tag = ok の緑・off の灰色）。中の文字・アイコンの色も Tag で切り替える -->
+      <Style x:Key="FastBadgeText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Border}}" Value="ok">
+            <Setter Property="Foreground" Value="{StaticResource Badge.Ok.Text}" />
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="FastBadgeIcon" TargetType="Path">
+        <Setter Property="Stroke" Value="{StaticResource Badge.None.Text}" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=Border}}" Value="ok">
+            <Setter Property="Stroke" Value="{StaticResource Badge.Ok.Text}" />
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
       <Style x:Key="FastBadge" TargetType="Border">
         <Setter Property="CornerRadius" Value="{StaticResource Radius.Pill}" />
         <Setter Property="Padding" Value="9,3" />
@@ -93,7 +109,7 @@
   <StackPanel>
     <DockPanel>
       <TextBlock Text="検索ワード" FontSize="13" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" Margin="0,0,12,0" />
-      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" MinWidth="98" Height="32" Margin="10,0,0,0" />
+      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" MinWidth="100" Height="32" Margin="12,0,0,0" />
       <Grid>
         <TextBox x:Name="WordBox" Height="32" />
         <TextBlock x:Name="WordPlaceholder" Style="{StaticResource Placeholder}" Text="検索ワードを入力" />
@@ -112,11 +128,11 @@
         </CheckBox>
         <Border x:Name="FastBadge" Style="{StaticResource FastBadge}" Tag="off" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal">
-            <Path x:Name="FastBadgeIcon" Data="{StaticResource Icon.Zap}" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0"
-                  Stroke="{StaticResource Badge.None.Text}" StrokeThickness="1.8" StrokeLineJoin="Round" />
-            <TextBlock x:Name="FastSearchText" FontSize="11" Foreground="{StaticResource Badge.None.Text}" VerticalAlignment="Center" />
-            <Path x:Name="FastBadgeInfo" Data="{StaticResource Icon.Info}" Width="11" Height="11" Stretch="Uniform" Margin="5,0,0,0"
-                  Stroke="{StaticResource Badge.None.Text}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+            <Path x:Name="FastBadgeIcon" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Zap}" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0"
+                  StrokeThickness="1.8" StrokeLineJoin="Round" />
+            <TextBlock x:Name="FastSearchText" Style="{StaticResource FastBadgeText}" FontSize="11" VerticalAlignment="Center" />
+            <Path x:Name="FastBadgeInfo" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Info}" Width="11" Height="11" Stretch="Uniform" Margin="5,0,0,0"
+                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                   Visibility="Collapsed" />
           </StackPanel>
         </Border>

@@ -33,7 +33,6 @@ BeforeAll {
             MenuOpen         = & $menu
             MenuOpenReadOnly = & $menu
             MenuOpenNew      = & $menu
-            OpenModeCombo    = newFakeControl @("SelectionChanged") @{ SelectedItem = $null; SelectedIndex = -1; Items = @() }
             MenuOpenFolder   = & $menu
             OpenButton       = newFakeControl @("Click")
             OpenMenuButton   = newFakeControl @("Click")
@@ -439,55 +438,34 @@ Describe "openWithNotepad" -Tag Io {
 }
 
 Describe "getOpenMode / setOpenMode / updateOpenMenu" -Tag Unit {
-    BeforeAll {
-        $items = @(
-            [pscustomobject]@{ Tag = ${openModeNormal} },
-            [pscustomobject]@{ Tag = ${openModeReadOnly} },
-            [pscustomobject]@{ Tag = ${openModeNew} }
-        )
+    It "<name>" -TestCases @(
+        @{ name = "設定した開き方を返す"; set = "readOnly"; expected = "readOnly" }
+        @{ name = "新規も返す"; set = "new"; expected = "new" }
+        @{ name = "知らない値なら通常"; set = "unknown"; expected = "normal" }
+        @{ name = "空なら通常"; set = ""; expected = "normal" }
+    ) {
+        param ($name, $set, $expected)
+        setOpenMode $set
+        getOpenMode | Should -Be $expected
     }
 
-    It "［開き方］で選んだものを返す" {
-        $ui.OpenModeCombo.SelectedItem = $items[1]
-        getOpenMode | Should -Be ${openModeReadOnly}
-    }
-
-    It "選んでいない・知らない値なら通常" {
-        $ui.OpenModeCombo.SelectedItem = $null
+    It "選んでいなければ通常" {
+        $script:openMode = $null
         getOpenMode | Should -Be ${openModeNormal}
-        $ui.OpenModeCombo.SelectedItem = [pscustomobject]@{ Tag = "unknown" }
-        getOpenMode | Should -Be ${openModeNormal}
-    }
-
-    It "設定の値の項目を選ぶ（選んでいる間だけ読み込み中の印を立てる）" {
-        $ui.OpenModeCombo.Items = $items
-        setOpenMode ${openModeNew}
-        $ui.OpenModeCombo.SelectedItem | Should -Be $items[2]
-        $script:loadingOpenMode | Should -Be $false
-    }
-
-    It "知らない値なら先頭を選ぶ" {
-        $ui.OpenModeCombo.Items = $items
-        $ui.OpenModeCombo.SelectedIndex = 2
-        setOpenMode "unknown"
-        $ui.OpenModeCombo.SelectedIndex | Should -Be 0
     }
 
     It "右クリックメニューの、既定の開き方にだけ Enter を出す" {
-        $ui.OpenModeCombo.SelectedItem = $items[1]
-        updateOpenMenu
+        setOpenMode ${openModeReadOnly}
         $ui.MenuOpen.InputGestureText | Should -Be ""
         $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
         $ui.MenuOpenNew.InputGestureText | Should -Be ""
 
-        $ui.OpenModeCombo.SelectedItem = $null  # 選んでいなければ通常
-        updateOpenMenu
+        setOpenMode ${openModeNormal}
         $ui.MenuOpen.InputGestureText | Should -Be "Enter"
         $ui.MenuOpenReadOnly.InputGestureText | Should -Be ""
         $ui.MenuOpenNew.InputGestureText | Should -Be ""
 
-        $ui.OpenModeCombo.SelectedItem = $items[2]
-        updateOpenMenu
+        setOpenMode ${openModeNew}
         $ui.MenuOpen.InputGestureText | Should -Be ""
         $ui.MenuOpenNew.InputGestureText | Should -Be "Enter"
     }
@@ -496,7 +474,7 @@ Describe "getOpenMode / setOpenMode / updateOpenMenu" -Tag Unit {
 Describe "openSource" -Tag Unit {
     BeforeEach {
         $script:statuses = New-Object System.Collections.Generic.List[string]
-        $ui.OpenModeCombo.SelectedItem = $null
+        $script:openMode = $null
     }
 
     It "元のファイルが見つからなければ開かない" {
@@ -543,11 +521,11 @@ Describe "openSource" -Tag Unit {
         lastStatus | Should -Be "読み取り専用で開けなかったため、元のファイルを開きました（該当セルへの移動はできませんでした）：C:\data\見積.xlsx"
     }
 
-    It "Excel 以外は既定のアプリで開く（開き方は［開き方］の選択）" {
+    It "Excel 以外は既定のアプリで開く（開き方は既定の開き方）" {
         Mock getCurrentHitRow { newRow "報告.docx" $false }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docx" }
         Mock openWithShell { $true }
-        $ui.OpenModeCombo.SelectedItem = [pscustomobject]@{ Tag = ${openModeNew} }
+        $script:openMode = ${openModeNew}
 
         openSource
         Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
@@ -777,34 +755,19 @@ Describe "画面の操作" -Tag Unit {
         Should -Invoke exportResults -Times 1 -Exactly
     }
 
-    It "［開き方］を選ぶと設定に保存する（起動時の読み込みでは保存しない）" {
-        Mock writeOpenMode { }
-        $ui.OpenModeCombo.SelectedItem = [pscustomobject]@{ Tag = ${openModeReadOnly} }
-
-        $script:loadingOpenMode = $true
-        & $ui.OpenModeCombo.Handlers["SelectionChanged"]
-        Should -Invoke writeOpenMode -Times 0 -Exactly
-
-        $script:loadingOpenMode = $false
-        & $ui.OpenModeCombo.Handlers["SelectionChanged"]
-        Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
-        $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
-    }
-
-    It "［開く］の［▾］のメニューで選ぶと、その開き方を既定にして開く" {
-        $ui.OpenModeCombo.Items = @(
-            [pscustomobject]@{ Tag = ${openModeNormal} },
-            [pscustomobject]@{ Tag = ${openModeReadOnly} },
-            [pscustomobject]@{ Tag = ${openModeNew} }
-        )
+    It "［開く］の［▾］のメニューで選ぶと、その開き方を既定にして保存し、開く" {
         Mock openSource { }
+        Mock writeOpenMode { }
 
         & $ui.MenuOpenModeReadOnly.Handlers["Click"]
-        $ui.OpenModeCombo.SelectedItem.Tag | Should -Be ${openModeReadOnly}
+        getOpenMode | Should -Be ${openModeReadOnly}
+        $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
+        Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
         Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
 
         & $ui.MenuOpenModeNew.Handlers["Click"]
-        $ui.OpenModeCombo.SelectedItem.Tag | Should -Be ${openModeNew}
+        getOpenMode | Should -Be ${openModeNew}
+        Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
         Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
     }
 

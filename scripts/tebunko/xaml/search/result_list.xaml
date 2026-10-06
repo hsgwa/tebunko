@@ -15,7 +15,7 @@
   </Grid.RowDefinitions>
 
   <!-- 件数・すべて開く／閉じる・進捗・絞り込み・保存 -->
-  <DockPanel Grid.Row="0" Margin="16,8,16,8">
+  <DockPanel Grid.Row="0" Margin="0" Background="{StaticResource Bg.Subtle}">
     <Button x:Name="ExportButton" DockPanel.Dock="Right" Margin="10,0,0,0" Padding="10,0" MinWidth="0" Height="26" FontSize="11"
             ToolTip="結果をファイルに出力します">
       <StackPanel Orientation="Horizontal">
@@ -31,7 +31,7 @@
     <TextBlock DockPanel.Dock="Right" Text="絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
     <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
     <!-- 検索結果の件数は、この画面の主役 -->
-    <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" Style="{StaticResource Meta}" FontSize="12" FontWeight="SemiBold"
+    <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" Style="{StaticResource Meta.Strong}"
                Foreground="{StaticResource Ink.Strong}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,24,0" />
     <!-- 検索した直後は、ファイルごとの見出しだけを出す（ヒットした行は閉じておく）。ここで全部を開く・閉じる -->
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -49,10 +49,10 @@
         <DataGrid.Resources>
           <ControlTemplate x:Key="FileHeaderRow" TargetType="DataGridRow">
             <!-- クリック（・Enter）で閉じる・開く。右端はヒットした場所と件数（件数は絞り込み後の行の数） -->
-            <Border x:Name="HeaderBg" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}"
+            <Border x:Name="HeaderBg" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}"
                     BorderThickness="0,0,0,1" MinHeight="36" Cursor="Hand" ToolTip="{Binding FullPath}">
               <Grid>
-                <!-- 選んでいる見出しの左の青い線 -->
+                <!-- 開いている見出しの左の青い線 -->
                 <Rectangle x:Name="Bar" HorizontalAlignment="Left" Width="3" Margin="0,5" Fill="{StaticResource Accent}" Visibility="Collapsed" />
                 <DockPanel Margin="14,0,16,0">
                   <TextBlock x:Name="Place" DockPanel.Dock="Right" Style="{StaticResource Meta}" FontSize="11" VerticalAlignment="Center"
@@ -72,7 +72,7 @@
                         Stroke="{StaticResource Ink.Subtle}" StrokeThickness="1.6" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
                   <TextBlock DockPanel.Dock="Left" Text="{Binding Book}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
                              VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                  <Border DockPanel.Dock="Left" Background="{StaticResource Bg.Hover}" CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center"
+                  <Border x:Name="RelDirChip" Visibility="Collapsed" DockPanel.Dock="Left" Background="{StaticResource Bg.Hover}" CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center"
                           HorizontalAlignment="Left">
                     <TextBlock Text="{Binding RelDir}" Style="{StaticResource Micro}" TextTrimming="CharacterEllipsis" />
                   </Border>
@@ -86,13 +86,12 @@
               <Trigger Property="IsSelected" Value="True">
                 <Setter TargetName="HeaderBg" Property="Background" Value="{StaticResource Accent.Soft}" />
               </Trigger>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
-                <Setter TargetName="Place" Property="Foreground" Value="{StaticResource Accent.Hover}" />
-                <Setter TargetName="Place" Property="FontWeight" Value="SemiBold" />
-              </Trigger>
               <DataTrigger Binding="{Binding IsExpanded}" Value="True">
                 <Setter TargetName="Arrow" Property="Data" Value="{StaticResource Icon.ChevronDown}" />
+                <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                <Setter TargetName="RelDirChip" Property="Visibility" Value="Visible" />
+                <Setter TargetName="Place" Property="Foreground" Value="{StaticResource Accent.Hover}" />
+                <Setter TargetName="Place" Property="FontWeight" Value="SemiBold" />
               </DataTrigger>
               <DataTrigger Binding="{Binding AppKind}" Value="Excel">
                 <Setter TargetName="KindIcon" Property="Data" Value="{StaticResource Icon.FileSpreadsheet}" />
@@ -135,14 +134,14 @@
         <DataGrid.Columns>
           <!-- 場所は表示用の文字（[シート]売上!B12・3 ページ（目安） など）。並べ替えは元の名前（ページ003 など、桁をそろえてある）→ 行番号の順。
                幅より長いときはツールチップで全文を出す -->
-          <DataGridTextColumn Header="場所" Binding="{Binding PlaceDisplay}" SortMemberPath="Location" Width="160">
+          <DataGridTextColumn Header="場所" Binding="{Binding PlaceDisplay}" SortMemberPath="Location" Width="180">
             <DataGridTextColumn.ElementStyle>
               <Style TargetType="TextBlock" BasedOn="{StaticResource Cell.Meta}">
                 <Setter Property="ToolTip" Value="{Binding PlaceDisplay}" />
               </Style>
             </DataGridTextColumn.ElementStyle>
           </DataGridTextColumn>
-          <DataGridTextColumn Header="種別" Binding="{Binding Kind}" Width="64" ElementStyle="{StaticResource Cell.Meta}" />
+          <DataGridTextColumn Header="種別" Binding="{Binding Kind}" Width="48" ElementStyle="{StaticResource Cell.Meta}" />
           <DataGridTemplateColumn Header="該当行" Width="*" SortMemberPath="Line">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
