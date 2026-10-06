@@ -65,6 +65,69 @@ function newChoiceContent {
     return $panel
 }
 
+# 確認ダイアログの形。呼び出し側が form を指定しなければ、選択肢から決める
+#   choice: 選択肢が 2 つ以上（選択肢のボタンを縦に並べる）、danger: 1 つで Danger、normal: それ以外
+function getConfirmForm {
+    param (
+        [object[]]$choices,
+        [string]$form = ""
+    )
+
+    if ($form -ne "") {
+        return $form
+    }
+    if (@($choices).Count -gt 1) {
+        return "choice"
+    }
+    if (@($choices).Count -eq 1 -and [bool]@($choices)[0].Danger) {
+        return "danger"
+    }
+    return "normal"
+}
+
+# 形ごとの窓の幅。選択肢のボタンを並べる choice は広く、ほかは 520
+function getConfirmWidth {
+    param (
+        [string]$form
+    )
+
+    switch ($form) {
+        "choice" { return 620 }
+        default  { return 520 }
+    }
+}
+
+# 暗幕にする部品（窓いっぱいに掛ける Border）。shared/ はツールの部品の名前を知らないので、起動側が渡す
+$script:dialogScrim = $null
+
+function setDialogScrim {
+    param (
+        $scrim
+    )
+
+    $script:dialogScrim = $scrim
+}
+
+function showOwnedDialog {
+    # 本体の窓を親にするダイアログを出す。出している間は、本体の上に暗幕を掛ける（閉じる・例外のときも外す）。
+    # 戻り値は ShowDialog の戻り値（DialogResult）
+    param (
+        $dialog
+    )
+
+    $scrim = $script:dialogScrim
+    if ($null -ne $scrim) {
+        $scrim.Visibility = "Visible"
+    }
+    try {
+        return $dialog.ShowDialog()
+    } finally {
+        if ($null -ne $scrim) {
+            $scrim.Visibility = "Collapsed"
+        }
+    }
+}
+
 function showConfirm {
     # 確認ダイアログ。「見出し（何をするか）」「こうなります（何が消えて何が残るか）」「選択肢のボタン」で、
     # 文章を読まなくても押す前に結果が分かるようにする。選んだ Value を返す（キャンセル・閉じるは $null）。
@@ -72,26 +135,35 @@ function showConfirm {
     #            1 つなら［実行］＋［キャンセル］、2 つ以上なら選択肢ボタンを縦に並べる
     #            Danger は赤いボタン、Careful は色はそのままでキャンセルを既定にする
     #   facts:   factGone / factKept / factNext で作った行
-    #   hint:    読まなくても操作できる補足（別のやり方の案内など）
+    #   hint:    読まなくても操作できる補足（別のやり方の案内など。見出しの下に淡く出す）
+    #   title:   窓の題（OS のタイトルバー）。既定はアプリ名
+    #   form:    normal・danger・choice。省略すると選択肢から決める（getConfirmForm）。幅と、danger の赤い印・赤い実行ボタンが変わる
     param (
         [string]$heading,
         [object[]]$choices,
         [object[]]$facts = @(),
         [string]$hint = "",
         [string]$cancelText = "キャンセル",
+        [string]$title = "",
+        [string]$form = "",
         [System.Windows.Window]$owner = $window
     )
 
+    $form = getConfirmForm $choices $form
     $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
-    $dialog.Title = ${appTitle}
+    $dialog.Title = if ($title -ne "") { $title } else { ${appTitle} }
+    $dialog.Width = getConfirmWidth $form
     $dialog.Owner = $owner
     $ctrl = @{}
-    foreach ($name in @("HeadingText", "FactsPanel", "FactsList", "ChoicePanel", "HintText", "ButtonPanel")) {
+    foreach ($name in @("HeadingIcon", "HeadingText", "FactsPanel", "FactsList", "ChoicePanel", "HintText", "ButtonPanel")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $chosen = @{ Value = $null }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
 
     $ctrl.HeadingText.Text = $heading
+    if ($form -eq "danger") {
+        $ctrl.HeadingIcon.Visibility = "Visible"
+    }
     if ($facts.Count -gt 0) {
         $ctrl.FactsList.ItemsSource = $facts
         $ctrl.FactsPanel.Visibility = "Visible"
@@ -108,13 +180,19 @@ function showConfirm {
     }.GetNewClosure()
     $focusTarget = $null
     $cautious = $false
+    $cancel = New-Object System.Windows.Controls.Button
+    $cancel.Content = $cancelText
+    $cancel.IsCancel = $true
+    if ($choices.Count -eq 1) {
+        $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null  # ［キャンセル］は実行ボタンの左
+    }
     foreach ($choice in $choices) {
         $button = New-Object System.Windows.Controls.Button
         $button.Tag = $choice.Value
         $button.Add_Click($onChoice)
         if ($choices.Count -eq 1) {
             $cautious = [bool]$choice.Danger -or [bool]$choice.Careful
-            $button.Style = $dialog.FindResource($(if ($choice.Danger) { "Danger" } else { "Primary" }))
+            $button.Style = $dialog.FindResource($(if ($choice.Danger) { "Danger.Filled" } else { "Primary" }))
             $button.Content = $choice.Text
             $button.IsDefault = !$cautious
             $ctrl.ButtonPanel.Children.Add($button) | Out-Null
@@ -128,10 +206,9 @@ function showConfirm {
         }
     }
 
-    $cancel = New-Object System.Windows.Controls.Button
-    $cancel.Content = $cancelText
-    $cancel.IsCancel = $true
-    $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null
+    if ($choices.Count -ne 1) {
+        $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null
+    }
     if ($cautious -or $choices.Count -gt 1) {
         # 消す操作・選択肢が複数の操作は、うっかり Enter で進まないようキャンセルを既定にする
         $cancel.IsDefault = $true
@@ -139,7 +216,7 @@ function showConfirm {
     }
 
     $dialog.Add_ContentRendered({ $focusTarget.Focus() | Out-Null }.GetNewClosure())
-    $null = $dialog.ShowDialog()
+    $null = showOwnedDialog $dialog
     return $chosen.Value
 }
 

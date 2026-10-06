@@ -106,7 +106,7 @@ function applyWorkspace {
             default { factNext $fact.Title $fact.Detail }
         }
     })
-    $answer = showConfirm -heading $confirm.Heading -facts $facts -hint $confirm.Hint -choices $confirm.Choices
+    $answer = showConfirm -title "保存先の変更" -heading $confirm.Heading -facts $facts -hint $confirm.Hint -choices $confirm.Choices
     if ($null -eq $answer) {
         return
     }

@@ -56,6 +56,10 @@ flowchart TD
 
 ## 確認ダイアログ（`showConfirm`）
 
+本体の窓を親にして出すダイアログは、必ず `showOwnedDialog`（`shell.ps1`）で出す。開いている間は本体の窓の最上層の暗幕（`ScrimOverlay`。`gui_main.ps1` が `setDialogScrim` で渡す）を見せ、閉じたら（例外のときも）隠す。`.ShowDialog(` を直接呼ぶのは `showOwnedDialog` だけで、`tests/meta/structure.Tests.ps1` が確かめる。
+
+`showConfirm` は `-title`（OS の題の帯）と `-form`（`normal` / `danger` / `choice`。省略すると、選択肢が 2 つ以上なら `choice`、1 つで危険なら `danger`、それ以外は `normal`）を取る。幅は `choice` が 620、ほかは 520。`danger` は見出しに赤い「!」の丸を付け、実行のボタンを赤にする。
+
 取り消せない操作・時間のかかる操作の確認は、`MessageBox` ではなく `scripts/shared/xaml/dialog_confirm.xaml` の自前のダイアログで行う（`showConfirm`）。**説明を読まなくても、押す前に何が起きるか分かる**ようにするため。
 
 ```mermaid

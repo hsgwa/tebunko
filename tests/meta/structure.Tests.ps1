@@ -631,7 +631,7 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "ウィンドウの枠の名前がある" {
         $names = getXamlNames "$here\..\scripts\tebunko\xaml\tebunko.xaml"
-        foreach ($name in @("NavHost", "ContentHost", "StatusBarHost")) {
+        foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay")) {
             $names -contains $name | Should -Be $true
         }
     }
@@ -660,5 +660,17 @@ Describe "画面の部品の名前" -Tag Meta {
             }
         }
         ($problems -join ", ") | Should -Be ""
+    }
+}
+
+Describe "ダイアログは暗幕付きで出す" -Tag Meta {
+    It "scripts/tebunko の ShowDialog は、本体の窓を開く gui_main.ps1 だけ（ほかは showOwnedDialog で出す）" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $hits = @(Get-ChildItem "$here\..\scripts/tebunko" -Recurse -Filter *.ps1 | ForEach-Object {
+            $file = $_
+            @(Select-String -LiteralPath $file.FullName -Pattern '\.ShowDialog\(' | ForEach-Object { "$($file.Name):$($_.LineNumber)" })
+        })
+        $hits.Count | Should -Be 1
+        $hits[0] | Should -BeLike "gui_main.ps1:*"
     }
 }

@@ -201,4 +201,61 @@ Describe "shell.ps1" -Tag Unit {
             }
         }
     }
+
+    Describe "確認ダイアログの形" {
+        It "form=<form> 選択肢 <count> 件・Danger=<danger> は <expected>" -ForEach @(
+            @{ form = "";       count = 1; danger = $false; expected = "normal" }
+            @{ form = "";       count = 1; danger = $true;  expected = "danger" }
+            @{ form = "";       count = 2; danger = $false; expected = "choice" }
+            @{ form = "";       count = 0; danger = $false; expected = "normal" }
+            @{ form = "danger"; count = 2; danger = $false; expected = "danger" }
+        ) {
+            $choices = @(for ($i = 1; $i -le $count; $i++) { @{ Text = "x"; Value = "v$i"; Danger = $danger } })
+            getConfirmForm $choices $form | Should -Be $expected
+        }
+
+        It "幅は <form> が <width>" -ForEach @(
+            @{ form = "normal";   width = 520 }
+            @{ form = "danger";   width = 520 }
+            @{ form = "progress"; width = 520 }
+            @{ form = "error";    width = 520 }
+            @{ form = "choice";   width = 620 }
+        ) {
+            getConfirmWidth $form | Should -Be $width
+        }
+    }
+
+    Describe "showOwnedDialog（暗幕）" {
+        BeforeEach {
+            # 偽の暗幕（Visibility を持つ）と、閉じるまでの間の暗幕の状態を覚える偽のダイアログ
+            $scrim = [pscustomobject]@{ Visibility = "Collapsed" }
+            setDialogScrim $scrim
+        }
+        AfterAll {
+            setDialogScrim $null
+        }
+
+        It "開いている間は Visible、閉じた後は Collapsed に戻り、結果を返す" {
+            $dialog = [pscustomobject]@{ Seen = $null }
+            $dialog | Add-Member -MemberType ScriptMethod -Name ShowDialog -Value { $this.Seen = $scrim.Visibility; return $true }
+            showOwnedDialog $dialog | Should -BeTrue
+            $dialog.Seen | Should -Be "Visible"
+            $scrim.Visibility | Should -Be "Collapsed"
+        }
+
+        It "ShowDialog が例外を投げても Collapsed に戻る" {
+            $dialog = [pscustomobject]@{}
+            $dialog | Add-Member -MemberType ScriptMethod -Name ShowDialog -Value { throw "開けない" }
+            { showOwnedDialog $dialog } | Should -Throw "*開けない*"
+            $scrim.Visibility | Should -Be "Collapsed"
+        }
+
+        It "暗幕を覚えていなければ、暗幕には触れずにダイアログだけ出す" {
+            setDialogScrim $null
+            $dialog = [pscustomobject]@{}
+            $dialog | Add-Member -MemberType ScriptMethod -Name ShowDialog -Value { return $false }
+            showOwnedDialog $dialog | Should -BeFalse
+            $scrim.Visibility | Should -Be "Collapsed"
+        }
+    }
 }

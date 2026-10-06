@@ -50,5 +50,9 @@
       <ContentControl x:Name="StatusBarHost" Grid.Row="1" Focusable="False" IsTabStop="False"
                       HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
     </Grid>
+
+    <!-- 暗幕。ダイアログを出している間だけ、窓いっぱいに掛ける（shell.ps1 の showOwnedDialog が出し入れする） -->
+    <Border x:Name="ScrimOverlay" Grid.Column="0" Grid.ColumnSpan="3" Panel.ZIndex="100"
+            Background="{DynamicResource Overlay.Scrim}" Visibility="Collapsed" />
   </Grid>
 </Window>
