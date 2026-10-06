@@ -9,7 +9,7 @@
 | 観点 | 本ツールの挙動 | 守らせている仕組み | 詳細 |
 |---|---|---|---|
 | 構成物 | **zip 版**: Windows PowerShell スクリプト（`scripts/**/*.ps1`）、画面定義（`*.xaml`）、起動用 `tebunko.bat`、アイコン `tebunko.ico`、版とコミットの記録 `VERSION.txt` のみ。実行可能バイナリ（`.exe` / `.dll`）を同梱しない。**インストーラー版**: 同じスクリプトに、起動用の `tebunko.exe`（本リポジトリのソースからビルド）と、Inno Setup のインストーラー・アンインストーラーが加わる | zip の中身は `tools/new_release_package.ps1`、インストーラーの中身は `installer/tebunko.iss` が決める（`installer.Tests.ps1`） | [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)・[インストーラー版](disclosure.md#インストーラー版) |
-| 第三者ライブラリ | **使用しない**。実行時の依存は Windows 標準の .NET アセンブリと Microsoft Office のみ | `new_sbom.Tests.ps1`（SBOM に第三者の部品が無いこと） | [供給網（サプライチェーン）とライセンス](supply-chain.md) |
+| 第三者ライブラリ | **使用しない**。実行時の依存は Windows 標準の .NET アセンブリと Microsoft Office のみ。同梱する第三者の部品は、フォント Rethink Sans（OFL-1.1）とアイコンの形 Lucide（ISC）の 2 つだけで、実行されるコードではない | `new_sbom.Tests.ps1`（SBOM の第三者の部品がこの 2 件だけで、`purl` を持つものが無いこと） | [供給網（サプライチェーン）とライセンス](supply-chain.md) |
 | ネットワーク通信 | **行わない**。通信用の API を使っていない | `safety.Tests.ps1`「ネットワーク通信を行わない」 | [検査項目と結果](checks.md#検査項目と結果) |
 | 動的コード実行・難読化 | **行わない**。`Invoke-Expression`、文字列からのスクリプト生成、Base64 のコマンドを使っていない | `safety.Tests.ps1`・PSScriptAnalyzer | [検査項目と結果](checks.md#検査項目と結果) |
 | 実行時コンパイル・P/Invoke | **行わない**。C# の `Add-Type` コンパイル（`csc.exe` の起動）と Windows API の直接呼び出しを使っていない | `safety.Tests.ps1`・`structure.Tests.ps1` | [検査項目と結果](checks.md#検査項目と結果) |
@@ -24,7 +24,7 @@
 | 書き込み先 | `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。利用者が画面で選んだフォルダ（ワークスペース）にも置ける。取り込みの作業領域 `work/tmp/<PC の鍵>/<PID>` を含む。ワークスペースのパスに `[` `]` があるか長すぎるときは作らず、取り込みをすべてスキップする（どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべて対象になる）。`%TEMP%` には逃がさない）、`setting.config`（ツールのフォルダに書き込めなければ `%LOCALAPPDATA%\tebunko\<鍵>`）、利用者が指定した検索結果の出力先、起動に失敗したときの記録（`%LOCALAPPDATA%\tebunko\startup_error.txt`。書き込めなければ `%TEMP%\tebunko_startup_error.txt`）のみ | `safety.Tests.ps1` | [書き込み・削除する場所](file-access.md#書き込み削除する場所) |
 | 配布物の完全性 | 配布 zip と並べて、カタログ（`tebunko.cat`）とハッシュ一覧（`SHA256SUMS.txt`）をリリースに載せ、zip とインストーラーにはビルドの来歴の署名を付ける | `release.yml` | [配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名) |
 | 開発の過程 | main へは PR からだけ入れ、テスト・CodeQL などの必須チェックを通す。コミットには `Signed-off-by`（DCO）を付ける。GitHub Actions は版を固定し、Dependabot が更新する | ブランチ保護・CI | [供給網（サプライチェーン）とライセンス](supply-chain.md) |
-| 規模（監査の目安） | `scripts/` 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）。第三者依存が無いため、監査対象はこの範囲で閉じる | – | [同梱の機械検査と品質の指標](scans.md#同梱の機械検査と品質の指標) |
+| 規模（監査の目安） | `scripts/` 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）。第三者のコードの依存が無いため、監査対象はこの範囲で閉じる | – | [同梱の機械検査と品質の指標](scans.md#同梱の機械検査と品質の指標) |
 
 第三者が作ったツールでの検査結果は [第三者のツールによる検査結果](scans.md)のとおり。PSScriptAnalyzer（Microsoft）の安全性にかかわるルールは**指摘 0 件**、Microsoft Defender のスキャンは**検出 0 件**である。
 

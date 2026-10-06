@@ -172,7 +172,8 @@ try {
         $failures.Add("sbom.cdx.json がありません")
     } else {
         $sbom = [System.IO.File]::ReadAllText($sbomPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
-        $components = @($sbom.components)
+        # 第三者の部品（フォント・アイコンの形。type が data）は、ファイルではないので、ファイルの突き合わせから外す
+        $components = @($sbom.components | Where-Object { $_.type -eq "file" })
         foreach ($component in $components) {
             $file = Join-Path $pkgDir $component.name.Replace("/", "\")
             if (!(Test-Path -LiteralPath $file)) {

@@ -31,7 +31,7 @@ flowchart LR
 | `README.md` | ドキュメント | 使い方の入口。配布 zip に同梱する（相対リンクと画像は、その版の GitHub の URL に書き換える） |
 | `LICENSE` | ドキュメント | ライセンス（MIT）。配布 zip に同梱する |
 | `.github/SECURITY.md`・`.github/SECURITY.ja.md` | ドキュメント | 安全性の説明の入口と、脆弱性の連絡先・対応方針（英語版が正、`.ja.md` が日本語版）。配布 zip には入れず、リリースの説明からリンクする |
-| `sbom.cdx.json` | 配布用 | 部品表（CycloneDX 1.6）の雛形。本体の説明・ライセンス・前提ソフトウェア・注記だけを持つ。ファイルごとの一覧とハッシュは、配布物を作るときに `tools/new_sbom.ps1` が足す。第三者の部品を 1 件も含まないことを示す（[安全性の要約](../../safety/index.md) の [供給網（サプライチェーン）とライセンス](../../safety/supply-chain.md)）。配布 zip と並べてリリースに載せる |
+| `sbom.cdx.json` | 配布用 | 部品表（CycloneDX 1.6）の雛形。本体の説明・ライセンス・前提ソフトウェア・注記だけを持つ。ファイルごとの一覧とハッシュは、配布物を作るときに `tools/new_sbom.ps1` が足す。第三者のコードを含まない（同梱するフォントとアイコンの形の 2 件は `tools/new_sbom.ps1` が足す）ことを示す（[安全性の要約](../../safety/index.md) の [供給網（サプライチェーン）とライセンス](../../safety/supply-chain.md)）。配布 zip と並べてリリースに載せる |
 | `installer/tebunko.iss` | 配布用 | インストーラー（`tebunko-setup-<バージョン>.exe`）を作る Inno Setup 7 のスクリプト。管理者権限なしで `%LOCALAPPDATA%\Programs\tebunko` に入れ、スタートメニューとアンインストールに登録する（[安全性の要約](../../safety/index.md) の [インストーラー版](../../safety/disclosure.md#インストーラー版)）。BOM 付き UTF-8・CRLF |
 | `installer/tebunko.cs` | 配布用 | インストーラー版の起動口 `tebunko.exe` のソース（C# 5）。`tebunko.bat` と同じく `gui.ps1` を `-ExecutionPolicy RemoteSigned` で起動する。窓を作らずに起動し、起動できなかったときは PowerShell のエラーをメッセージで出す。zip 版には入れない |
 | `docs/` | ドキュメント | 利用者向けの使い方・安全性の説明・設計書（MkDocs のサイトの元）。`docs/images/` に図・画面の画像・ロゴ（`logo.svg`）を置く。配布 zip には入れない。リリースに載せる 1 本の `.ps1` の設計は [単一 PowerShell のビルド](single-script.md) |
