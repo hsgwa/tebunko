@@ -9,7 +9,7 @@
 ;
 ; 方針（docs/safety/disclosure.md「インストーラー版」）:
 ;   ・管理者権限なしで、利用者ごとの %LOCALAPPDATA%\Programs\tebunko に入れる。管理者なら Program Files も選べる
-;   ・入れるのは tebunko.exe（installer\tebunko.cs）・scripts\・LICENSE・VERSION.txt（tools\new_version_text.ps1。画面の「tebunko について」）
+;   ・入れるのは tebunko.exe（installer\tebunko.cs）・scripts\・LICENSE・VERSION.txt（tools\new_version_text.ps1。画面の「バージョン情報」）
 ;     だけ。レジストリに書くのは、Windows のインストーラーが
 ;     必ず書くアンインストールの情報だけ（[Registry] は使わない）。サービス・自動起動・PATH・ファイルの関連付けは触らない
 ;   ・更新は、新しい版のインストーラーを実行するだけにする。古い版で消したスクリプトが残らないよう、scripts\ を消してから入れる
