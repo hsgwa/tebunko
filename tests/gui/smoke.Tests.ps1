@@ -19,7 +19,7 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             setGuiStep $S "起動時のタブ"
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
-            # 4 つのタブを選ぶ。タブの中の部品が UI オートメーションに出る（theme.xaml の PART_SelectedContentHost）（#7）
+            # 4 つの画面を選ぶ。選んだ画面の中の部品が UI オートメーションに出る（ContentHost の中身）（#7）
             foreach ($tab in @(
                 @{ Id = "IndexTab"; Content = "IndexGrid" }, @{ Id = "SettingsTab"; Content = "ChangeWorkspaceButton" },
                 @{ Id = "KillTab"; Content = "ProcessGrid" }, @{ Id = "SearchTab"; Content = "WordBox" })) {
