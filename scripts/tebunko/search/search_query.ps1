@@ -166,6 +166,35 @@ function truncateHitLine {
     return $result
 }
 
+function getFileKindExtensions {
+    # 検索バーのチップの種類（excel・word・powerpoint・text）ごとの拡張子（小文字）を返す。知らない種類は空
+    param (
+        [string]$kind
+    )
+
+    switch ($kind) {
+        "excel" { return @(${officeExtensions} | Where-Object { $_ -like ".xl*" }) }
+        "word" { return @(${officeExtensions} | Where-Object { $_ -like ".do*" }) }
+        "powerpoint" { return @(${officeExtensions} | Where-Object { $_ -like ".pp*" }) }
+        "text" { return @(${textExtensions}) }
+    }
+    return @()
+}
+
+function newFileKindFilter {
+    # 選んだ種類（readFileKinds の値）から、対象ファイルの条件（newFileFilter に渡す文字列。"*.xlsx;*.xls" の形）を作る。
+    # すべての種類を選んでいる・空・知らない種類だけのときは空（絞り込まない）
+    param (
+        [object[]]$kinds
+    )
+
+    $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($chosen.Count -eq 0 -or $chosen.Count -eq ${fileKindNames}.Count) {
+        return ""
+    }
+    return (@($chosen | ForEach-Object { getFileKindExtensions $_ } | ForEach-Object { "*$_" }) -join ";")
+}
+
 function newFileFilter {
     # 対象ファイルの指定（例: "*.xlsx;見積*;!*old*"）を、元のファイル名に対する正規表現 @{ Include; Exclude } にする（無い側は $null）。
     #   ; で区切る（全角の ； も可）。! で始まるものは除外。* は任意の文字列、? は任意の1文字。大文字・小文字を区別しない
