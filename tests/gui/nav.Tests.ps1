@@ -1,5 +1,5 @@
-﻿# 画面のスモークテスト S9: ナビで画面を移ったときの読み直しと、修飾キーなしの F5（共通の関数は gui_helpers.ps1）。
-# 計画の「ナビで［1 インデックス管理］へ移ると状態が読み直される」を確かめる。［9 プロセス停止］へ移ると一覧が読まれることは S7（process.Tests.ps1）が確かめる。
+﻿# 画面のスモークテスト S9: ナビで画面を切り替えたときの読み直しと、修飾キーなしの F5（共通の関数は gui_helpers.ps1）。
+# 計画の「ナビで［1 インデックス管理］へ移ると状態が読み直される」を確かめる。［Office の停止］へ移ると一覧が読まれることは S7（process.Tests.ps1）が確かめる。
 # キーは、Ctrl を押した形を送れない（ハンドラが本物のキーボードの状態を読むため）。修飾キーなしの F5 だけ、WM_KEYDOWN のメッセージで送る
 # （Ctrl 付きの振り分けは tests\tebunko\ui\shell\nav.Tests.ps1 で確かめる）。
 BeforeAll {
@@ -7,7 +7,7 @@ BeforeAll {
     . "$PSScriptRoot\gui_helpers.ps1"
 }
 
-Describe "S9 ナビの切り替えと F5" -Tag Gui {
+Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
         $script:tool = newGuiTool $TestDrive
@@ -25,10 +25,17 @@ Describe "S9 ナビの切り替えと F5" -Tag Gui {
         invokeGuiScene $S {
             # 窓を先に前面にする（あとで前面になると Activated で状態が読み直され、F5・ナビの確かめと区別できなくなる）
             activateGuiWindow $S
-            setGuiStep $S "［2 検索］へ移る"
+            # 起動時の読み込み（取り込み一覧・集約ファイル）が終わるまで待つ。終わる前に取り込み一覧を書くと、
+            # 起動時の読み込みがそれを読んでしまい、ナビの切り替えでの読み直しと区別できなくなる
+            setGuiStep $S "［インデックス管理］で起動時の読み込みの終わりを待つ"
+            selectGuiTab $S "IndexTab" "IndexingStateText"
+            waitGui $S "起動時の読み込みが終わる（集約ファイルが無い）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
+            waitGui $S "起動時の読み込みが終わる（取り込みの状態に残りが無い）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -notlike "*残り*" } | Out-Null
+
+            setGuiStep $S "［検索］へ移る"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
 
-            setGuiStep $S "取り込み一覧を書き、［1 インデックス管理］へ移る"
+            setGuiStep $S "取り込み一覧を書き、［インデックス管理］へ戻る"
             & $writeStatus 1
             selectGuiTab $S "IndexTab" "IndexingStateText"
             waitGui $S "状態が読み直される（残り 1 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*残り 1 件*" } | Out-Null
