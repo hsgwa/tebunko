@@ -4296,6 +4296,8 @@
 <li><strong>起動の失敗の知らせ方</strong>：<code>gui.ps1</code> の画面が出る前に起動が失敗したとき（制限言語モード・実行ポリシー・ファイル不足など）、<code>tebunko.bat</code> は <code>&amp; $gui</code> を <code>try</code>/<code>catch</code> で包んで理由を分け、Notepad で示す（WPF・WinForms のメッセージボックスが出せない場面があるため）。詳しくは安全性の<a href="../../../safety/disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>を参照。</li>
 </ul>
 <h2 id="確認ダイアログshowconfirm">確認ダイアログ（<code>showConfirm</code>）<a class="headerlink" href="#確認ダイアログshowconfirm" title="Permanent link">&para;</a></h2>
+<p>本体の窓を親にして出すダイアログは、必ず <code>showOwnedDialog</code>（<code>shell.ps1</code>）で出す。開いている間は本体の窓の最上層の暗幕（<code>ScrimOverlay</code>。<code>gui_main.ps1</code> が <code>setDialogScrim</code> で渡す）を見せ、閉じたら（例外のときも）隠す。<code>.ShowDialog(</code> を直接呼ぶのは <code>showOwnedDialog</code> だけで、<code>tests/meta/structure.Tests.ps1</code> が確かめる。</p>
+<p><code>showConfirm</code> は <code>-title</code>（OS の題の帯）と <code>-form</code>（<code>normal</code> / <code>danger</code> / <code>choice</code>。省略すると、選択肢が 2 つ以上なら <code>choice</code>、1 つで危険なら <code>danger</code>、それ以外は <code>normal</code>）を取る。幅は <code>choice</code> が 620、ほかは 520。<code>danger</code> は見出しに赤い「!」の丸を付け、実行のボタンを赤にする。</p>
 <p>取り消せない操作・時間のかかる操作の確認は、<code>MessageBox</code> ではなく <code>scripts/shared/xaml/dialog_confirm.xaml</code> の自前のダイアログで行う（<code>showConfirm</code>）。<strong>説明を読まなくても、押す前に何が起きるか分かる</strong>ようにするため。</p>
 <pre class="mermaid"><code>sequenceDiagram
     actor U as 利用者
