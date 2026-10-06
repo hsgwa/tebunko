@@ -36,6 +36,10 @@ BeforeAll {
             OpenModeCombo    = newFakeControl @("SelectionChanged") @{ SelectedItem = $null; SelectedIndex = -1; Items = @() }
             MenuOpenFolder   = & $menu
             OpenButton       = newFakeControl @("Click")
+            OpenMenuButton   = newFakeControl @("Click")
+            MenuOpenModeNormal   = newFakeControl @("Click")
+            MenuOpenModeNew      = newFakeControl @("Click")
+            MenuOpenModeReadOnly = newFakeControl @("Click")
             OpenFolderButton = newFakeControl @("Click")
             MenuCopy         = & $menu
             MenuCopyPath     = & $menu
@@ -289,7 +293,7 @@ Describe "findSourceFile" -Tag Io {
 
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         lastStatus | Should -Be "元のファイルを確かめられませんでした：アクセスが拒否されました。"
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
     }
 
     It "裏の仕事が予期せず失敗したときも、その他として知らせる" {
@@ -374,7 +378,7 @@ Describe "findSourceFile" -Tag Io {
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         $script:foundPaths.Count | Should -Be 0
         Should -Invoke showConfirm -Times 2 -Exactly
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
     }
 }
 
@@ -785,6 +789,23 @@ Describe "画面の操作" -Tag Unit {
         & $ui.OpenModeCombo.Handlers["SelectionChanged"]
         Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
         $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
+    }
+
+    It "［開く］の［▾］のメニューで選ぶと、その開き方を既定にして開く" {
+        $ui.OpenModeCombo.Items = @(
+            [pscustomobject]@{ Tag = ${openModeNormal} },
+            [pscustomobject]@{ Tag = ${openModeReadOnly} },
+            [pscustomobject]@{ Tag = ${openModeNew} }
+        )
+        Mock openSource { }
+
+        & $ui.MenuOpenModeReadOnly.Handlers["Click"]
+        $ui.OpenModeCombo.SelectedItem.Tag | Should -Be ${openModeReadOnly}
+        Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
+
+        & $ui.MenuOpenModeNew.Handlers["Click"]
+        $ui.OpenModeCombo.SelectedItem.Tag | Should -Be ${openModeNew}
+        Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
     }
 
     It "Enter は、見出しの行では閉じる・開く、ほかの行では元のファイルを開く" {

@@ -7,10 +7,10 @@ BeforeAll {
 Describe "describeSearchOption" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "既定のままなら空"; option = @{ CaseSensitive = $false; FileKinds = @() }; expected = "" }
-        @{ name = "大文字と小文字の区別を出す"; option = @{ CaseSensitive = $true; FileKinds = @() }; expected = "大文字と小文字を区別" }
+        @{ name = "大文字・小文字の区別を出す"; option = @{ CaseSensitive = $true; FileKinds = @() }; expected = "大文字・小文字を区別" }
         @{ name = "種類を絞っていれば出す"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "text") }; expected = "種類：Excel・テキスト" }
         @{ name = "すべての種類なら出さない"; option = @{ CaseSensitive = $false; FileKinds = @("excel", "word", "powerpoint", "text") }; expected = "" }
-        @{ name = "両方あれば中黒でつなぐ"; option = @{ CaseSensitive = $true; FileKinds = @("word") }; expected = "大文字と小文字を区別・種類：Word" }
+        @{ name = "両方あれば中黒でつなぐ"; option = @{ CaseSensitive = $true; FileKinds = @("word") }; expected = "大文字・小文字を区別・種類：Word" }
         @{ name = "図形・コメントを含めるなら出さない"; option = @{ CaseSensitive = $false; IncludeShapes = $true; IncludeComments = $true }; expected = "" }
         @{ name = "図形・コメントを外したら出す"; option = @{ CaseSensitive = $false; IncludeShapes = $false; IncludeComments = $false }; expected = "図形を除く・コメントを除く" }
         @{ name = "コメントだけ外したらコメントだけ出す"; option = @{ CaseSensitive = $false; IncludeComments = $false }; expected = "コメントを除く" }
@@ -63,13 +63,51 @@ Describe "getFastSearchView" -Tag Unit {
         (getFastSearchView $true $false "見").Usable | Should -Be $false
         (getFastSearchView $false $false "見積").Usable | Should -Be $false
     }
+
+    It "使えない理由は、上から順に最初に当てはまるものをツールチップに出す" {
+        (getFastSearchView $false $true "見積").Tip | Should -Be "検索はできますが時間がかかります　［インデックス管理で確認］"
+        (getFastSearchView $false $false "見積").Tip | Should -Be "検索はできますが時間がかかります　［インデックス管理で確認］"
+        (getFastSearchView $true $true "見積").Tip | Should -Be "正規表現をオフにすると速く検索できます"
+    }
+
+    It "使えるとき・ワードが短いだけのとき・まだ確かめていないときは、理由を出さない" {
+        (getFastSearchView $true $false "見積").Tip | Should -Be ""
+        (getFastSearchView $true $false "見").Tip | Should -Be ""
+        (getFastSearchView $true $false "").Tip | Should -Be ""
+        (getFastSearchView $null $false "見積").Usable | Should -Be $true
+    }
 }
 
-Describe "getNoIndexTargetText" -Tag Unit {
-    It "ナビの名前（［インデックス管理］）で案内し、古い呼び名を使わない" {
-        $text = getNoIndexTargetText
-        $text | Should -Be "検索対象：なし（インデックスがありません。先に［インデックス管理］で作成してください）"
-        $text | Should -Not -Match "［1 "
+Describe "getTargetCountText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "選んだ数 / 全部の数"; checked = 3; total = 4; expected = "検索対象 3 / 4" }
+        @{ name = "1 つも選んでいなくても数を出す"; checked = 0; total = 4; expected = "検索対象 0 / 4" }
+        @{ name = "インデックスが無ければ見出しだけ"; checked = 0; total = 0; expected = "検索対象" }
+    ) {
+        param ($name, $checked, $total, $expected)
+        getTargetCountText $checked $total | Should -Be $expected
+    }
+}
+
+Describe "getTargetHintText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "インデックスがあり、対象が無ければ案内する"; total = 4; targetCount = 0; expected = "検索するフォルダを選んでください" }
+        @{ name = "対象があれば出さない"; total = 4; targetCount = 2; expected = "" }
+        @{ name = "インデックスが無ければ出さない（別の案内が出る）"; total = 0; targetCount = 0; expected = "" }
+    ) {
+        param ($name, $total, $targetCount, $expected)
+        getTargetHintText $total $targetCount | Should -Be $expected
+    }
+}
+
+Describe "getScopeButtonText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "既定のまま（図形もコメントも検索）なら変更の数を付けない"; shapes = $true; comments = $true; expected = "ファイル内の対象" }
+        @{ name = "どちらかを外したら 1 件"; shapes = $true; comments = $false; expected = "ファイル内の対象・1 件変更" }
+        @{ name = "両方外したら 2 件"; shapes = $false; comments = $false; expected = "ファイル内の対象・2 件変更" }
+    ) {
+        param ($name, $shapes, $comments, $expected)
+        getScopeButtonText $shapes $comments | Should -Be $expected
     }
 }
 

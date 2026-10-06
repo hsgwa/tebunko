@@ -105,16 +105,16 @@ function getProtectionFailureText {
     )
 
     switch ($kind) {
-        "Password" { return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）" }
-        "Rights"   { return "IRM・秘密度ラベルで暗号化されているため取り込めません。" }
-        "Unknown"  { return "暗号化されているか壊れているため取り込めません。" }
+        "Password" { return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）" }
+        "Rights"   { return "IRM・秘密度ラベルで暗号化されているため更新できません。" }
+        "Unknown"  { return "暗号化されているか壊れているため更新できません。" }
         default    { return $null }
     }
 }
 
 # Officeが保存した一時ファイル（変換した.docx・.pptx、Excelのテキスト保存）まで、透過暗号化の製品が
 # 暗号化した場合の文言。ふつうのファイルでも起こりうるため、すべてのOfficeの出力でこの確認を行う
-${officeOutputEncryptedMessage} = "ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。"
+${officeOutputEncryptedMessage} = "ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません。"
 
 function testOfficeOutput {
     # Officeが保存した出力の先頭バイト列が、期待する形（Zip・UnicodeText）かどうか

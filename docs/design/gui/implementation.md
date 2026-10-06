@@ -22,7 +22,7 @@ flowchart TD
 | `scripts/tebunko/xaml/splash.xaml` | 起動中の表示（[ウィンドウ](index.md#ウィンドウ)）。早く出すため `theme.xaml` を読み込まず、色は `theme.xaml` と同じ値を直接書く |
 | `scripts/tebunko/xaml/settings/settings.xaml` | 各画面の中身（設定の画面は領域のフォルダ `settings\` に置く）。イベントは書かず、`x:Name` だけを付ける。ルート要素には `StaticResource` を使う属性を置かない（自分の `Resources` より先に解決されるため）。`x:Name` が `gui.ps1` の一覧と食い違っていないことは `tests/meta/structure.Tests.ps1` で確かめる |
 | `scripts/tebunko/xaml/search/search.xaml`<br>`search_bar.xaml`<br>`target_tree.xaml`<br>`result_list.xaml`<br>`preview.xaml` | ［2 検索］の領域ごとの XAML。`search.xaml` は枠（検索バー・結果の一覧・プレビューを入れる場所）、`target_tree.xaml` は左の欄の下（検索対象のツリー）に入る。ルート要素の決まりと `x:Name` の確かめは、上の各画面の中身と同じ |
-| `scripts/tebunko/xaml/index/index.xaml`<br>`index_list.xaml`<br>`index_detail.xaml` | ［1 インデックス管理］の領域ごとの XAML。`index.xaml` は枠（上に一覧、下に詳細を入れる場所と、間の境目）、`index_list.xaml` は一覧（見出し・［インポート…］［追加…］［インデックス作成を開始］・表。行の［⋯］から開くメニュー `IndexRowMenu` に［編集…］［エクスポート…］［削除］）、`index_detail.xaml` は詳細（状態の合計・取り込みの進み具合・取り込みに失敗したファイル）。ルート要素の決まりと `x:Name` の確かめは検索の領域と同じ |
+| `scripts/tebunko/xaml/index/index.xaml`<br>`index_list.xaml`<br>`index_detail.xaml` | ［1 インデックス管理］の領域ごとの XAML。`index.xaml` は枠（上に一覧、下に詳細を入れる場所と、間の境目）、`index_list.xaml` は一覧（見出し・［インポート…］［追加…］［すべて更新］・表。行の［⋯］から開くメニュー `IndexRowMenu` に［編集…］［エクスポート…］［削除］）、`index_detail.xaml` は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと `x:Name` の確かめは検索の領域と同じ |
 | `scripts/tebunko/xaml/dialog_export.xaml`<br>`dialog_import.xaml` | インデックスのエクスポート・インポートのダイアログ（[エクスポート・インポート](index-tab.md#エクスポートインポート)）。`ui/index/index_archive.ps1` が開く |
 | `scripts/tebunko/xaml/dialog_index_edit.xaml` | インデックスの追加・編集のダイアログ（[追加・編集のダイアログ](index-tab.md#追加編集のダイアログ)）。追加と編集で同じ定義を使い、表題・説明・注意書きを `ui/index/index_edit.ps1` で変える |
 | `scripts/tebunko/xaml/dialog_indexing_confirm.xaml` | インデックス作成の確認ダイアログ（[インデックス作成の確認ダイアログ](indexing-run.md#インデックス更新の確認ダイアログ)）。インデックスごとの取り込み対象の件数（受け渡しの口の `Plan`）を一覧にする。`ui/indexing_tab.ps1` が開く |
@@ -88,7 +88,7 @@ flowchart TD
 
 | # | 内容 | 確度 |
 |---|---|---|
-| 1 | 元のファイルのパスは、取り込み時に記録したクロール対象フォルダから組み立てる。取り込み後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。[元のファイルが見つからないとき（元のフォルダを設定する）](open-file.md#元のファイルが見つからないとき元のフォルダを設定する)） | ○ |
+| 1 | 元のファイルのパスは、更新時に記録したクロール対象フォルダから組み立てる。更新後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。[元のファイルが見つからないとき（元のフォルダを設定する）](open-file.md#元のファイルが見つからないとき元のフォルダを設定する)） | ○ |
 | 2 | 元のフォルダの記録（`source_folder.txt`）の無いインデックス（インデックス作成を 1 回実行すると作られる）を別の場所にコピーした場合は、元の場所が分からないため、開くときにフォルダを選ぶ必要がある | ○ |
 | 3 | 窓を持たないかの判定は `MainWindowHandle` による。画面に表示中でも、すべてのウィンドウを閉じた直後などは窓が無いと判定される。ただし記録の無い Office は対象にならない（[止めてよいものの条件](leftover-office.md#止めてよいものの条件)） | △ |
 | 4 | フォルダ選択は Windows 標準のダイアログのため、フォルダの中のファイル（Office ファイルがあるか）は一覧に出ない（[フォルダ選択ダイアログ（［参照…］）](common.md#フォルダ選択ダイアログ参照)）。WinForms の内部の型を使うため、Windows PowerShell 5.1（.NET Framework）が前提。内部の型が使えないときは、`OpenFileDialog` でフォルダの中に入って［開く］を押す形になる | ○ |

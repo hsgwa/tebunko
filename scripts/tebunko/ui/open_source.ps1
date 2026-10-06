@@ -174,8 +174,9 @@ function promptSourceMissing {
         $hint = "ファイル: $relPath"
         $description = "$book のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
     }
+    $facts = @()
     while ($true) {
-        if ((showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint `
+        if ((showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint -facts $facts `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus (getSourceNotFoundStatus $path)
             return
@@ -568,6 +569,29 @@ $ui.OpenModeCombo.Add_SelectionChanged({
 })
 $ui.MenuOpenFolder.Add_Click({ safe { openSourceFolder } })
 $ui.OpenButton.Add_Click({ safe { openSource } })
+# ［開く ▾］のメニュー。選んだ開き方は次からの既定（ダブルクリック・Enter・［開く］）にもなり、そのまま開く
+function selectOpenMode {
+    param (
+        [string]$mode
+    )
+
+    foreach ($item in $ui.OpenModeCombo.Items) {
+        if ($item.Tag -eq $mode) {
+            $ui.OpenModeCombo.SelectedItem = $item
+            break
+        }
+    }
+    openSource $mode
+}
+$ui.OpenMenuButton.Add_Click({
+    $menu = $ui.OpenMenuButton.ContextMenu
+    $menu.PlacementTarget = $ui.OpenMenuButton
+    $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    $menu.IsOpen = $true
+})
+$ui.MenuOpenModeNormal.Add_Click({ safe { selectOpenMode ${openModeNormal} } })
+$ui.MenuOpenModeNew.Add_Click({ safe { selectOpenMode ${openModeNew} } })
+$ui.MenuOpenModeReadOnly.Add_Click({ safe { selectOpenMode ${openModeReadOnly} } })
 $ui.OpenFolderButton.Add_Click({ safe { openSourceFolder } })
 
 $ui.MenuCopy.Add_Click({ safe { copySelectedRows } })

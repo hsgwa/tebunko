@@ -149,7 +149,7 @@ function invokeIngestTask {
         }
         $message = describeIngestError $_.Exception
         if ($script:watchdog.TimedOut) {
-            $message = "${fileTimeoutMinutes} 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）"
+            $message = "${fileTimeoutMinutes} 分以内に更新が終わらなかったため中止しました（Officeアプリを強制終了しました）"
         }
         $result.Message = $message
         # アプリが不安定になっている可能性があるため終了する（次に必要になったときに起動し直す）。
@@ -545,7 +545,7 @@ function invokeIndexerBody {
             $row.状態 = ${stateFailed}
             $row.TSV数 = ""
             $row.取り込み日時 = formatFileTime (Get-Date)
-            $row.エラー = "取り込み中に $($entry.Count) 回続けて強制終了されたため、取り込みを中止しました（Officeアプリが応答しなくなる可能性があります）"
+            $row.エラー = "更新中に $($entry.Count) 回続けて強制終了されたため、更新を中止しました（Officeアプリが応答しなくなる可能性があります）"
             writeIndexerLog ""
             writeIndexerLog "取り込み中に $($entry.Count) 回続けて強制終了したファイルは、失敗としてスキップします: $($row.相対パス)" "Yellow"
         } else {

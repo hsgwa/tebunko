@@ -90,20 +90,20 @@ function startGui {
             "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
             "FailedPanel", "FailedHeading", "FailedGrid") }
         @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
-            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow") }
+            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "ResultEmptyState", "GoIndexTabButton") }
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
             "FileKindChips", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
-            "WordNotice", "SearchTargetText", "FastSearchText") }
+            "WordPlaceholder", "WordNotice", "FastBadge", "FastBadgeIcon", "FastBadgeInfo", "FastSearchText") }
         @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
             "IndexTree", "IndexTreePlaceholder", "IndexTreeFilterBox", "IndexTreeFilterPlaceholder",
-            "CheckAllIndexButton", "UncheckAllIndexButton") }
+            "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText", "TargetHint", "TargetHintText") }
         @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
             "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton",
-            "ResultGrid", "ResultEmptyState", "GoIndexTabButton",
+            "ResultGrid",
             "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath") }
         @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
-            "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
+            "DetailPanel", "DetailTitle", "OpenButton", "OpenMenuButton", "MenuOpenModeNormal", "MenuOpenModeNew", "MenuOpenModeReadOnly", "OpenModeCombo", "OpenFolderButton",
             "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
             "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(

@@ -32,7 +32,7 @@ Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
     }
 
     It "終わったら該当件数・ファイル数・秒数を出す" {
-        getSearchSummaryText 1234 5 1.25 | Should -Match "^該当 1,234 件（5 ファイル） ・ 1\.[23] 秒$"
+        getSearchSummaryText 1234 5 1.25 | Should -Match "^1,234 件（5 ファイル） ・ 1\.[23] 秒$"
     }
 }
 

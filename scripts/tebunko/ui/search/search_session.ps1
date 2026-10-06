@@ -182,7 +182,7 @@ function finishSearch {
     if (!$shared.FastUsed -and $shared.IndexTotal -gt 0 -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = getNoKindMatchText $s.Option.FileKinds
     } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
-        $ui.SummaryText.Text = "検索対象のインデックスがありません。先にインデックスを作成してください。"
+        $ui.SummaryText.Text = "インデックスが未作成です"
     } elseif ($count -eq 0) {
         $text = "見つかりませんでした。"
         if (!$s.UseRegex -and $s.Word -match '[\\()\[\]{}.*+?^$|]') {
@@ -195,9 +195,9 @@ function finishSearch {
         $ui.SummaryText.Text = getSearchSummaryText $count $files.Count $seconds
     }
 
-    $status = "検索しました（$($s.Word)：$($count.ToString('N0')) 件）"
+    $status = "検索しました：$($s.Word) $($count.ToString('N0')) 件"
     if (describeSearchOption $s.Option) {
-        $status = "検索しました（$($s.Word)：$($count.ToString('N0')) 件　条件：$(describeSearchOption $s.Option)）"
+        $status = "検索しました：$($s.Word) $($count.ToString('N0')) 件　条件：$(describeSearchOption $s.Option)"
     }
     if ($shared.Truncated) {
         # パスの順に検索して打ち切るため、この先のファイルのヒットは結果に出ない。そのことが分かる文面にする

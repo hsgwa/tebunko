@@ -56,6 +56,7 @@ BeforeAll {
         PreviewPlaceholder  = newFakePart "PreviewPlaceholder" @{ Visibility = "Visible" }
         DetailTitle         = newFakePart "DetailTitle" @{ Text = ""; ToolTip = $null }
         OpenButton          = newFakePart "OpenButton" @{ IsEnabled = $false; Content = "" }
+        OpenMenuButton      = newFakePart "OpenMenuButton" @{ IsEnabled = $false }
         OpenFolderButton    = newFakePart "OpenFolderButton" @{ IsEnabled = $false }
         MenuPreviewCopy     = newFakePart "MenuPreviewCopy" @{} @("Click")
         MenuPreviewCopyRow  = newFakePart "MenuPreviewCopyRow" @{} @("Click")
@@ -162,6 +163,7 @@ Describe "clearDetail" -Tag Unit {
         $ui.PreviewPlaceholder.Visibility | Should -Be "Visible"
         $ui.PreviewHeaderScroll.Visibility | Should -Be "Collapsed"
         $ui.OpenButton.IsEnabled | Should -Be $false
+        $ui.OpenMenuButton.IsEnabled | Should -Be $false
         $ui.OpenFolderButton.IsEnabled | Should -Be $false
     }
 }
@@ -213,8 +215,8 @@ Describe "showDetail" -Tag Io {
         $ui.PreviewPlaceholder.Visibility | Should -Be "Collapsed"
         $ui.PreviewHeaderScroll.Visibility | Should -Be "Visible"
         $ui.OpenButton.IsEnabled | Should -Be $true
+        $ui.OpenMenuButton.IsEnabled | Should -Be $true
         $ui.OpenFolderButton.IsEnabled | Should -Be $true
-        $ui.OpenButton.Content | Should -Be "Excel で開く"
         $ui.DetailTitle.Text | Should -Be "営業部\見積.xlsx ・ [シート]4月!B3 ・ セル"
         $ui.DetailTitle.ToolTip | Should -Be $ui.DetailTitle.Text
         $ui.PreviewNote.Visibility | Should -Be "Collapsed"
@@ -230,7 +232,6 @@ Describe "showDetail" -Tag Io {
 
         showDetail
 
-        $ui.OpenButton.Content | Should -Be "開く"
         $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
     }
 

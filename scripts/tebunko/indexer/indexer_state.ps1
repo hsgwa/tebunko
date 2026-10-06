@@ -71,22 +71,22 @@ function describeIngestError {
 
     if ($message -match "パスワード|password") {
         # 元のメッセージ（パスワードが間違っています等）は、パスワードを入力していない利用者には誤解を招くため付けない
-        return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
+        return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）"
     }
 
     $cause = $null
     if ($base -is [System.IO.FileNotFoundException] -or $base -is [System.IO.DirectoryNotFoundException]) {
-        $cause = "ファイルが見つかりません（取り込み中に移動・削除・名前変更された可能性があります）"
+        $cause = "ファイルが見つかりません（更新中に移動・削除・名前変更された可能性があります）"
     } elseif ($base -is [System.UnauthorizedAccessException] -or $code -eq "80070005") {
         $cause = "ファイルを読むアクセス権がありません"
     } elseif ($base -is [System.IO.PathTooLongException]) {
         $cause = "パスが長すぎるため読めません"
     } elseif ($base -is [System.OutOfMemoryException]) {
         # 巨大なシート（テキストにして約 1GB 超）は、整形（prettyTsv）で一度に読み込めずメモリ不足になる
-        $cause = "シート・文書が大きすぎて取り込めません（メモリが不足しました）"
+        $cause = "シート・文書が大きすぎて更新できません（メモリが不足しました）"
     } elseif (@("80070020", "80070021") -contains $code) {
         # 共有違反・ロック違反
-        $cause = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）"
+        $cause = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再度更新してください）"
     } elseif (@("80040154", "80080005", "800401F3") -contains $code) {
         # クラス未登録・サーバーの起動失敗・ProgID 不正
         $cause = "Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした（インストール・ライセンス認証の状態を確認してください）"

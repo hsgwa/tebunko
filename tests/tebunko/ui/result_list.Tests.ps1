@@ -140,7 +140,7 @@ Describe "newFileGroup" -Tag Unit {
         $script:fileGroups["c:\共有\MITSUMORI.XLSX"] | Should -Be $group
     }
 
-    It "［すべて展開］のあとに見つかったファイルは開いておく" {
+    It "［すべて開く］のあとに見つかったファイルは開いておく" {
         $script:expandNew = $true
         (newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx").IsExpanded | Should -Be $true
     }
@@ -410,7 +410,7 @@ Describe "setAllFileGroupsExpanded" -Tag Unit {
         (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
     }
 
-    It "［すべて展開］［すべて折りたたむ］のボタンから切り替える" {
+    It "［すべて開く］［すべて折りたたむ］のボタンから切り替える" {
         [void](addHit "見積.xlsx" "4月" "`t見積" 1)
         flushResults
 

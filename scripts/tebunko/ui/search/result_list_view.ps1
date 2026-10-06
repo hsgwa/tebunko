@@ -18,7 +18,7 @@ function getSearchSummaryText {
         [double]$seconds
     )
 
-    return "該当 $($hits.ToString('N0')) 件（$($files.ToString('N0')) ファイル） ・ $($seconds.ToString('0.0')) 秒"
+    return "$($hits.ToString('N0')) 件（$($files.ToString('N0')) ファイル） ・ $($seconds.ToString('0.0')) 秒"
 }
 
 function getAppKind {

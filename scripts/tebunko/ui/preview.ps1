@@ -25,6 +25,7 @@ function clearDetail {
     $ui.PreviewHeaderScroll.Visibility = "Collapsed"
     $ui.PreviewPlaceholder.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $false
+    $ui.OpenMenuButton.IsEnabled = $false
     $ui.OpenFolderButton.IsEnabled = $false
 }
 
@@ -46,11 +47,11 @@ function showDetail {
     $ui.PreviewPlaceholder.Visibility = "Collapsed"
     $ui.PreviewHeaderScroll.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $true
+    $ui.OpenMenuButton.IsEnabled = $true
     $ui.OpenFolderButton.IsEnabled = $true
     # 閉じている見出しを選んだときの先頭の行は、まだ画面に出ていない（LoadingRow で Prepare されていない）ため、
     # セル番地（MatchCell）・「場所」の列の表記（PlaceDisplay）が空のままになる。ここで作っておく（作り済みなら何もしない）
     prepareHitRow $row
-    $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
     # 前後の行を集約ファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
     # 読み込みは画面のスレッドでは行わない（キャッシュに無いと集約ファイル全体を読むため）。読み終わったら applyDetail で表にする。

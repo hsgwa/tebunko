@@ -6,6 +6,19 @@ function getScreenOrder {
     return @("SearchTab", "IndexTab", "SettingsTab")
 }
 
+function getScreenMargin {
+    # 画面の中身（ContentHost）の外側の余白（左,上,右,下）。検索の画面は、白い面を窓いっぱいに敷いて帯の線を端まで引くため 0。
+    # ほかの画面は、周りに余白を取る
+    param (
+        [string]$name
+    )
+
+    if ($name -eq "SearchTab") {
+        return "0,0,0,0"
+    }
+    return "16,12,16,12"
+}
+
 function isScreenName {
     param (
         [string]$name

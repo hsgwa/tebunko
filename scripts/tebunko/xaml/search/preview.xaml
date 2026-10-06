@@ -9,36 +9,77 @@
     </ResourceDictionary>
   </Grid.Resources>
   <DockPanel>
-      <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-        <!-- 横に長い行で、表示した列の範囲を知らせる（ふだんは隠す） -->
-        <TextBlock x:Name="PreviewNote" DockPanel.Dock="Right" Style="{StaticResource WarnText}" Margin="8,0" VerticalAlignment="Center"
-                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
-        <TextBlock Style="{StaticResource Micro}" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                   Text="行を選ぶと前後の行を表示　プレビューのセルをクリック → Ctrl+C でその値をコピー（Shift＋クリック・ドラッグで複数）　ダブルクリック・Enter：元のファイルを開く" />
-      </DockPanel>
+      <!-- 横に長い行で、表示した列の範囲を知らせる（ふだんは隠す） -->
+      <TextBlock x:Name="PreviewNote" DockPanel.Dock="Bottom" Style="{StaticResource WarnText}" Margin="16,4" HorizontalAlignment="Right"
+                 TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Visibility="Collapsed" />
       <!-- 選択行のプレビュー（前後の行をシートのように表示する。行番号の列の幅 44 は gui.ps1 の NumberWidth と合わせる）。
            行を選んでいなくても枠は出したままにする（高さが変わらず、次に選んだときもその場に出る） -->
-      <DockPanel x:Name="DetailPanel" Margin="0,3,0,0">
-        <DockPanel DockPanel.Dock="Top">
-          <!-- 行を選ぶまでは押せない（プレビューの枠は行を選んでいなくても出したままにするため） -->
-          <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Content="フォルダを開く" Margin="8,0,0,0" IsEnabled="False" />
-          <Button x:Name="OpenButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Excel で開く" MinWidth="120" IsEnabled="False" />
-          <!-- 開き方（ダブルクリック・Enter・［開く］の動作。右クリックメニューでは、その時だけ別の開き方も選べる） -->
-          <ComboBox x:Name="OpenModeCombo" DockPanel.Dock="Right" VerticalAlignment="Center" MinWidth="200" Margin="0,0,10,0">
-            <ComboBoxItem Tag="normal" Content="通常（編集する）"
-                          ToolTip="元のファイルをそのまま開きます。編集して上書き保存できます。" />
-            <ComboBoxItem Tag="readOnly" Content="読み取り専用"
-                          ToolTip="元のファイルを読み取り専用で開きます。誤って上書き保存することがありません（編集するときは名前を付けて保存します）。" />
-            <ComboBoxItem Tag="new" Content="新規（元のファイルを占有しない）"
-                          ToolTip="元のファイルを基にした新しい（無題の）ブック・文書として開きます。元のファイルを占有しないため、ほかの人が編集中でも開け、ほかの人の編集も妨げません。保存するときは名前を付けて保存します。" />
-          </ComboBox>
-          <TextBlock DockPanel.Dock="Right" Text="開き方" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <TextBlock x:Name="DetailTitle" Style="{StaticResource Heading}" VerticalAlignment="Center" Margin="0,0,10,0"
-                     TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-        </DockPanel>
-        <!-- 枠は四方に引く（高さを変えられるため、下・右にも枠が無いと切れて見える） -->
-        <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="8"
-                Background="{StaticResource Bg.Surface}" Margin="0,8,0,0" ClipToBounds="True">
+      <DockPanel x:Name="DetailPanel" Margin="0">
+        <!-- 見出しの帯（選んだ行の場所と、元のファイルを開く操作）。行を選ぶまでは押せない（プレビューの枠は行を選んでいなくても出したままにするため） -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,8">
+          <DockPanel>
+            <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="フォルダを開く" Margin="14,0,0,0" IsEnabled="False"
+                    VerticalAlignment="Center" />
+            <!-- ［開く ▾］。［開く］は選んである開き方で開き、▾ から開き方を選ぶ（選んだ開き方は次からも使う。ダブルクリック・Enter も同じ） -->
+            <Border DockPanel.Dock="Right" CornerRadius="6" BorderThickness="1" BorderBrush="{StaticResource Accent}"
+                    Background="{StaticResource Bg.Surface}" VerticalAlignment="Center" Height="26">
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="OpenButton" Content="開く" IsEnabled="False" Cursor="Hand" FontSize="11" Padding="12,0" MinWidth="0"
+                        Foreground="{StaticResource Accent.Hover}" Background="Transparent" BorderThickness="0">
+                  <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                      <Border x:Name="Bg" Background="Transparent" CornerRadius="5,0,0,5" Padding="{TemplateBinding Padding}">
+                        <TextBlock x:Name="Label" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Faint}" /></Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Button.Template>
+                </Button>
+                <Rectangle Width="1" Fill="{StaticResource Accent}" />
+                <Button x:Name="OpenMenuButton" IsEnabled="False" Cursor="Hand" Padding="6,0" MinWidth="0" Background="Transparent" BorderThickness="0"
+                        AutomationProperties.Name="開き方を選ぶ" ToolTip="開き方を選びます">
+                  <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                      <Border x:Name="Bg" Background="Transparent" CornerRadius="0,5,5,0" Padding="{TemplateBinding Padding}">
+                        <Path x:Name="Arrow" Data="{StaticResource Icon.ChevronDown}" Width="11" Height="11" Stretch="Uniform"
+                              Stroke="{StaticResource Accent.Hover}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round" VerticalAlignment="Center" />
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource Ink.Faint}" /></Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Button.Template>
+                  <Button.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem x:Name="MenuOpenModeNormal" Header="開く" ToolTip="元のファイルをそのまま開きます。編集して上書き保存できます。" />
+                      <MenuItem x:Name="MenuOpenModeNew" Header="新規で開く"
+                                ToolTip="元のファイルを基にした新しい（無題の）ブック・文書として開きます。元のファイルを占有しないため、ほかの人が編集中でも開け、ほかの人の編集も妨げません。保存するときは名前を付けて保存します。" />
+                      <MenuItem x:Name="MenuOpenModeReadOnly" Header="読み取り専用で開く"
+                                ToolTip="元のファイルを読み取り専用で開きます。誤って上書き保存することがありません（編集するときは名前を付けて保存します）。" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                </Button>
+              </StackPanel>
+            </Border>
+            <!-- 開き方の選びを持つ（見えない。選んだ開き方の保存と、ダブルクリック・Enter が読む） -->
+            <ComboBox x:Name="OpenModeCombo" Visibility="Collapsed" Width="0" Height="0">
+              <ComboBoxItem Tag="normal" Content="通常（編集する）" />
+              <ComboBoxItem Tag="readOnly" Content="読み取り専用" />
+              <ComboBoxItem Tag="new" Content="新規（元のファイルを占有しない）" />
+            </ComboBox>
+            <TextBlock x:Name="DetailTitle" FontSize="11" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" Margin="0,0,12,0"
+                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+          </DockPanel>
+        </Border>
+        <!-- 枠は引かない（結果の表との境目は、見出しの帯の線と、窓の枠が示す） -->
+        <Border Background="{StaticResource Bg.Surface}" ClipToBounds="True"
+                ToolTip="プレビューのセルをクリック → Ctrl+C でその値をコピー（Shift＋クリック・ドラッグで複数）。ダブルクリック・Enter：元のファイルを開く">
           <Grid>
             <DockPanel>
               <!-- 列見出しは、枠を低くしても隠れないよう、行とは別のスクロールに置く（横位置は gui.ps1 で PreviewScroll に合わせる） -->

@@ -1,15 +1,15 @@
-﻿# 検索バー（検索ワード・種類のチップ・探す範囲・検索ボタン）の判断（判断層）。
+﻿# 検索バー（検索ワード・種類のチップ・ファイル内の対象・検索ボタン）の判断（判断層）。
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\search\search_bar_view.Tests.ps1）。
 
 function describeSearchOption {
-    # 既定から変えた検索条件を「大文字と小文字を区別・種類：Excel・テキスト」のように返す（無ければ空）
+    # 既定から変えた検索条件を「大文字・小文字を区別・種類：Excel・テキスト」のように返す（無ければ空）
     param (
         [hashtable]$option
     )
 
     $items = @()
     if ($option.CaseSensitive) {
-        $items += "大文字と小文字を区別"
+        $items += "大文字・小文字を区別"
     }
     $kindText = describeFileKinds $option.FileKinds
     if ($kindText -ne "") {
@@ -90,9 +90,44 @@ function getNoKindMatchText {
     return "種類（$text）に合うファイルがありません。"
 }
 
-function getNoIndexTargetText {
-    # インデックスがひとつも無いときの、検索対象の欄の文言
-    return "検索対象：なし（インデックスがありません。先に［インデックス管理］で作成してください）"
+function getTargetCountText {
+    # 左の欄の見出し。インデックス（一番上の項目）のうち、すべて選んでいる数 / インデックスの数。無いときは見出しだけ
+    param (
+        [int]$checked,
+        [int]$total
+    )
+
+    if ($total -le 0) {
+        return "検索対象"
+    }
+    return "検索対象 $checked / $total"
+}
+
+function getTargetHintText {
+    # 左の欄の下に出す案内。インデックスはあるが、検索の対象にするフォルダを 1 つも選んでいないときだけ出す（出さないときは空）
+    param (
+        [int]$total,
+        [int]$targetCount
+    )
+
+    if ($total -gt 0 -and $targetCount -le 0) {
+        return "検索するフォルダを選んでください"
+    }
+    return ""
+}
+
+function getScopeButtonText {
+    # ［ファイル内の対象］ボタンの文言。既定（図形・コメントも検索）から外したものがあれば「・2 件変更」を付ける
+    param (
+        [bool]$includeShapes,
+        [bool]$includeComments
+    )
+
+    $changed = @($includeShapes, $includeComments | Where-Object { !$_ }).Count
+    if ($changed -eq 0) {
+        return "ファイル内の対象"
+    }
+    return "ファイル内の対象・$changed 件変更"
 }
 
 function getWordNotice {
@@ -111,6 +146,7 @@ function getWordNotice {
 function getFastSearchView {
     # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否。
     #   available: Windows Search が使えるか（testWindowsSearch）。$null はまだ確かめていない（使えるものとして扱う）
+    # Tip は、使えない理由（ツールチップに出す。分からない・理由が無いときは空）。上から順に、最初に当てはまるもの
     param (
         $available,
         [bool]$useRegex,
@@ -118,7 +154,15 @@ function getFastSearchView {
     )
 
     $usable = testFastSearchUsable ($available -ne $false) $useRegex $word
-    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" } }
+    $tip = ""
+    if (!$usable) {
+        if ($available -eq $false) {
+            $tip = "検索はできますが時間がかかります　［インデックス管理で確認］"
+        } elseif ($useRegex) {
+            $tip = "正規表現をオフにすると速く検索できます"
+        }
+    }
+    return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip }
 }
 
 function newSearchButtonState {

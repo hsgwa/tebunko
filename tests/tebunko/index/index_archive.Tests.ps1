@@ -78,7 +78,7 @@ Describe "exportIndex" -Tag Io {
         Set-Content -LiteralPath (Join-Path $fixture.Workspace.IndexDir "営業\見積\B社.xlsx\Sheet1.tsv") -Value "本文" -Encoding UTF8
 
         $dest = "$TestDrive\export_pending\out.zip"
-        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*取り込みの途中*"
+        { exportIndex "営業" $dest $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新の途中*"
         Test-Path -LiteralPath $dest | Should -Be $false
         Test-Path -LiteralPath "${dest}.tmp" | Should -Be $false
     }

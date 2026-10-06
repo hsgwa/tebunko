@@ -12,7 +12,7 @@ $script:resultItems = New-Object 'System.Collections.ObjectModel.ObservableColle
 $script:places = @{}             # 場所の表示（describePlace）を、種類（Excel か）と場所ごとに覚えておく
 $script:rowWord = ""             # 表の行の強調に使う検索ワードと正規表現（startSearch が setRowPattern で決める）
 $script:rowPattern = $null
-$script:expandNew = $false       # 検索中に新しく見つかったファイルを開いておくか（［すべて展開］を押したら $true）
+$script:expandNew = $false       # 検索中に新しく見つかったファイルを開いておくか（［すべて開く］を押したら $true）
 $script:needsRebuild = $false    # 検索中に、表の途中に見出しを差し込む必要ができた（検索の終わりに作り直す）
 $script:lastInViewOrder = -1     # 表に出ている見出しのうち、いちばん後に見つかったものの Order（新しい見出しを末尾に足せるかの判定）
 $ui.ResultGrid.ItemsSource = $script:resultItems
@@ -250,7 +250,7 @@ function toggleFileGroup {
 }
 
 function setAllFileGroupsExpanded {
-    # ［すべて展開］［すべて折りたたむ］。検索中なら、このあと見つかるファイルも同じにする
+    # ［すべて開く］［すべて折りたたむ］。検索中なら、このあと見つかるファイルも同じにする
     param (
         [bool]$expanded
     )
