@@ -1,4 +1,4 @@
-﻿# 検索バー（検索ワード・種類のチップ・探す範囲・検索条件・検索ボタン・高速検索の状態）の画面層。
+﻿# 検索バー（検索ワード・種類のチップ・ファイル内の対象・検索条件・検索ボタン・高速検索の状態）の画面層。
 # 文言と可否の判断は search_bar_view.ps1（テストあり）。検索の実行は search_session.ps1。
 
 # 種類のチップ（${fileKindNames} の値 → ToggleButton）
@@ -46,12 +46,29 @@ function setSearchOptionToUi {
     $ui.CaseCheck.IsChecked = [bool]$option.CaseSensitive
     $ui.ShapeCheck.IsChecked = [bool]$option.IncludeShapes
     $ui.CommentCheck.IsChecked = [bool]$option.IncludeComments
+    updateScopeButton
     setFileKindsToUi (readFileKinds)
 }
 
 function updateFastSearchView {
-    # 高速検索の使用可否（ワード・［正規表現を使う］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）
-    $ui.FastSearchText.Text = (getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)).Text
+    # 高速検索の使用可否（ワード・［正規表現］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）。
+    # 使えるときは緑、使えないときは灰色。使えない理由があるときだけ ⓘ を出し、ツールチップで知らせる
+    $view = getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)
+    $ui.FastSearchText.Text = $view.Text
+    $ui.FastBadge.Tag = if ($view.Usable) { "ok" } else { "off" }
+    $ink = $window.FindResource($(if ($view.Usable) { "Badge.Ok.Text" } else { "Badge.None.Text" }))
+    $ui.FastSearchText.Foreground = $ink
+    $ui.FastBadgeIcon.Stroke = $ink
+    $ui.FastBadgeInfo.Stroke = $ink
+    $ui.FastBadgeInfo.Visibility = if ($view.Tip -ne "") { "Visible" } else { "Collapsed" }
+    $ui.FastBadge.ToolTip = if ($view.Tip -ne "") { $view.Tip } else { $null }
+}
+
+function updateScopeButton {
+    # ［ファイル内の対象］の文言と、既定から変えているときの線の色
+    $text = getScopeButtonText ([bool]$ui.ShapeCheck.IsChecked) ([bool]$ui.CommentCheck.IsChecked)
+    $ui.ScopeButton.Content = $text
+    $ui.ScopeButton.Tag = if ($text -ne "ファイル内の対象") { "changed" } else { $null }
 }
 
 function checkFastSearchAvailable {
@@ -72,6 +89,7 @@ function checkFastSearchAvailable {
 }
 
 function updateWordNotice {
+    $ui.WordPlaceholder.Visibility = if ($ui.WordBox.Text -eq "") { "Visible" } else { "Collapsed" }
     updateFastSearchView
     $notice = getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
     if ($notice -ne "") {
@@ -92,22 +110,34 @@ function updateSearchButton {
 }
 
 function updateSearchTarget {
+    # 左の欄の見出し（選んだ数 / 全部の数）と案内、インデックスが無いときの結果欄の案内。
+    # 検索対象の詳しい中身（先頭の数件・集約ファイルの数・最終更新）は、見出しのツールチップに出す
     $targets = @(getSearchTargets)
     $summary = $script:indexSummary
-    if ($summary -and $summary["Count"] -eq 0) {
-        $ui.SearchTargetText.Text = (getNoIndexTargetText)
-    } elseif ($targets.Count -eq 0) {
-        $ui.SearchTargetText.Text = "検索対象：なし（左の一覧で、検索するインデックス・フォルダにチェックを付けてください）"
-    } elseif (!(isAllIndexChecked)) {
-        $ui.SearchTargetText.Text = "検索対象：$(describeSearchTargets $targets)"
-    } elseif ($null -eq $summary) {
-        $ui.SearchTargetText.Text = "検索対象：すべて（確認中…）"
-    } else {
-        $ui.SearchTargetText.Text = "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])）"
+    $total = @($script:indexRoots).Count
+    $checked = @($script:indexRoots | Where-Object { $_.IsChecked -eq $true }).Count
+    $ui.TargetCountText.Text = getTargetCountText $checked $total
+    $hint = getTargetHintText $total $targets.Count
+    $ui.TargetHint.Visibility = if ($hint -ne "") { "Visible" } else { "Collapsed" }
+    if ($hint -ne "") {
+        $ui.TargetHintText.Text = $hint
     }
-    $ui.SearchTargetText.ToolTip = $ui.SearchTargetText.Text
-    # インデックスが無いときは、結果の表の代わりに空の状態（［インデックス管理へ］）を出す
-    $ui.ResultEmptyState.Visibility = if ($summary -and $summary["Count"] -eq 0) { "Visible" } else { "Collapsed" }
+    $ui.TargetCountText.ToolTip = if ($total -eq 0) {
+        "［インデックス管理］で作ったインデックスの一覧です"
+    } elseif ($targets.Count -eq 0) {
+        "検索対象：なし"
+    } elseif (!(isAllIndexChecked)) {
+        "検索対象：$(describeSearchTargets $targets)"
+    } elseif ($null -eq $summary) {
+        "検索対象：すべて（確認中…）"
+    } else {
+        "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終更新 $(formatTime $summary['LastWrite'])）"
+    }
+    # インデックスが無いときは、結果の表の代わりに空の状態（［インデックス管理を開く］）を出す
+    $noIndex = [bool]($summary -and $summary["Count"] -eq 0)
+    $ui.ResultEmptyState.Visibility = if ($noIndex) { "Visible" } else { "Collapsed" }
+    # 検索できるインデックスが無いときは、高速検索の状態も出さない
+    $ui.FastBadge.Visibility = if ($noIndex) { "Collapsed" } else { "Visible" }
     updateSearchButton
 }
 
@@ -133,10 +163,10 @@ $ui.RegexCheck.Add_Click({
     }
 })
 $ui.CaseCheck.Add_Click({ safe { writeSearchOption @{ CaseSensitive = [bool]$ui.CaseCheck.IsChecked } } })
-$ui.ShapeCheck.Add_Click({ safe { writeSearchOption @{ IncludeShapes = [bool]$ui.ShapeCheck.IsChecked } } })
-$ui.CommentCheck.Add_Click({ safe { writeSearchOption @{ IncludeComments = [bool]$ui.CommentCheck.IsChecked } } })
+$ui.ShapeCheck.Add_Click({ safe { writeSearchOption @{ IncludeShapes = [bool]$ui.ShapeCheck.IsChecked }; updateScopeButton } })
+$ui.CommentCheck.Add_Click({ safe { writeSearchOption @{ IncludeComments = [bool]$ui.CommentCheck.IsChecked }; updateScopeButton } })
 
-# ［探す範囲 ▾］は、押したらボタンの下にメニューを開く
+# ［ファイル内の対象 ▾］は、押したらボタンの下にメニューを開く
 $ui.ScopeButton.Add_Click({
     $menu = $ui.ScopeButton.ContextMenu
     $menu.PlacementTarget = $ui.ScopeButton

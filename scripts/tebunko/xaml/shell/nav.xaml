@@ -51,6 +51,28 @@
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <Rectangle Grid.Row="3" Fill="{StaticResource Border.Separator}" />
-  <Button x:Name="AboutLink" Grid.Row="4" Style="{StaticResource Link}" HorizontalAlignment="Left" VerticalAlignment="Center"
-          Margin="21,0,12,0" Content="tebunko について" AutomationProperties.Name="tebunko について" />
+  <!-- ⓘ バージョン情報（押すとバージョン情報のダイアログを開く） -->
+  <Button x:Name="AboutLink" Grid.Row="4" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="13,0,12,0"
+          Cursor="Hand" AutomationProperties.Name="バージョン情報">
+    <Button.Template>
+      <ControlTemplate TargetType="Button">
+        <Border Background="Transparent" Padding="8,2">
+          <StackPanel Orientation="Horizontal">
+            <Path Data="{StaticResource Icon.Info}" Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"
+                  Stroke="{StaticResource Ink.Muted}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            <TextBlock x:Name="T" Text="バージョン情報" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center"
+                       Foreground="{StaticResource Ink.Muted}" />
+          </StackPanel>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True">
+            <Setter TargetName="T" Property="Foreground" Value="{StaticResource Ink.Strong}" />
+          </Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True">
+            <Setter TargetName="T" Property="TextDecorations" Value="Underline" />
+          </Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate>
+    </Button.Template>
+  </Button>
 </Grid>

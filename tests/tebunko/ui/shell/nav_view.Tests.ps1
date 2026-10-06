@@ -10,6 +10,17 @@ Describe "getScreenOrder" -Tag Unit {
     }
 }
 
+Describe "getScreenMargin" -Tag Unit {
+    It "<name> の余白は <expected>" -TestCases @(
+        @{ name = "SearchTab"; expected = "0,0,0,0" }
+        @{ name = "IndexTab"; expected = "16,12,16,12" }
+        @{ name = "SettingsTab"; expected = "16,12,16,12" }
+        @{ name = "KillTab"; expected = "16,12,16,12" }
+    ) {
+        (getScreenMargin $name) | Should -Be $expected
+    }
+}
+
 Describe "isScreenName" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "画面の名前は true"; value = "SettingsTab"; expected = $true }

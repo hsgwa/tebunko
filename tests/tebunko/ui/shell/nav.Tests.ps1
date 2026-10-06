@@ -16,7 +16,7 @@ BeforeAll {
     }
 
     function newFakeUi {
-        $content = [pscustomobject]@{ Content = $null }
+        $content = [pscustomobject]@{ Content = $null; Margin = $null }
         $content | Add-Member ScriptMethod UpdateLayout { $global:navLog.Add("UpdateLayout") }
         $navList = [pscustomobject]@{ SelectedItem = $null }
         $navList | Add-Member ScriptMethod Add_SelectionChanged { param($handler) }
@@ -67,6 +67,13 @@ Describe "selectScreen" -Tag Unit {
         $ui.ContentHost.Content | Should -Be "settings"
         $ui.NavList.SelectedItem | Should -Be $ui["SettingsTab"]
         (getCurrentScreen) | Should -Be "SettingsTab"
+    }
+
+    It "画面ごとに ContentHost の余白を合わせる" {
+        selectScreen "SearchTab"
+        $ui.ContentHost.Margin | Should -Be "0,0,0,0"
+        selectScreen "SettingsTab"
+        $ui.ContentHost.Margin | Should -Be "16,12,16,12"
     }
 
     It "知らない名前は何もしない" {

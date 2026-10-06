@@ -46,7 +46,7 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
 
             # 左の欄の「tebunko について」（#8）
             setGuiStep $S "「tebunko について」を開く"
-            clickGui $S $S.Window "AboutLink" "tebunko について"
+            clickGui $S $S.Window "AboutLink" "バージョン情報"
             $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
             (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "バージョン *"
             clickGui $S $about "CloseButton" "［OK］"

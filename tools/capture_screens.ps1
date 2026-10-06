@@ -299,7 +299,7 @@ function captureStarterScene {
             selectGuiTab $S "IndexTab" "NewIndexButton"
 
             setGuiStep $S "「tebunko について」"
-            clickGui $S $S.Window "AboutLink" "tebunko について"
+            clickGui $S $S.Window "AboutLink" "バージョン情報"
             $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
             captureGuiState -S $S -Id "window/about" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($about)
@@ -520,12 +520,12 @@ function captureSearchScene {
         toggleGui (findGui $S.Window -Id "RegexCheck")
 
         setGuiStep $S "検索対象の［すべて解除］"
-        clickGui $S $S.Window "UncheckAllIndexButton" "［すべて解除］"
-        waitGui $S "検索対象が「なし」になる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：なし*" } | Out-Null
+        clickGui $S $S.Window "UncheckAllIndexButton" "［解除］"
+        waitGui $S "検索対象が「なし」になる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "TargetCountText")) -like "検索対象 0 / *" } | Out-Null
         captureGuiState -S $S -Id "search-tab/tree-none" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-        clickGui $S $S.Window "CheckAllIndexButton" "［すべて選択］"
-        waitGui $S "検索対象が戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：すべて*" } | Out-Null
+        clickGui $S $S.Window "CheckAllIndexButton" "［すべて］"
+        waitGui $S "検索対象が戻る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "TargetCountText")) -match "^検索対象 (\d+) / \1$" } | Out-Null
 
         $search = {
             param ($word)

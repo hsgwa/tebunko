@@ -42,14 +42,14 @@ Describe "S4 検索の遷移" -Tag Gui {
 
             # 検索対象のツリーで［すべて解除］すると検索できず、［すべて選択］で戻る（#25）
             setGuiStep $S "検索対象の［すべて解除］"
-            clickGui $S $S.Window "UncheckAllIndexButton" "［すべて解除］"
+            clickGui $S $S.Window "UncheckAllIndexButton" "［解除］"
             waitGui $S "検索対象が「なし」になり［検索］が押せない" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：なし*" -and !(findGui $S.Window -Id "SearchButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "TargetCountText")) -like "検索対象 0 / *" -and !(findGui $S.Window -Id "SearchButton").Current.IsEnabled
             } | Out-Null
             setGuiStep $S "検索対象の［すべて選択］"
-            clickGui $S $S.Window "CheckAllIndexButton" "［すべて選択］"
+            clickGui $S $S.Window "CheckAllIndexButton" "［すべて］"
             waitGui $S "検索対象が戻り［検索］が押せる" ${guiDefaultTimeout} {
-                (getGuiText (findGui $S.Window -Id "SearchTargetText")) -like "検索対象：すべて*" -and (findGui $S.Window -Id "SearchButton").Current.IsEnabled
+                (getGuiText (findGui $S.Window -Id "TargetCountText")) -match "^検索対象 (\d+) / \1$" -and (findGui $S.Window -Id "SearchButton").Current.IsEnabled
             } | Out-Null
 
             # 検索して、［すべて展開］［すべて折りたたむ］・絞り込み（#27）
