@@ -116,7 +116,7 @@ function showIndexingConfirmDialog {
             $d.Window.DialogResult = $true
         }
     })
-    $null = $dialog.ShowDialog()
+    $null = showOwnedDialog $dialog
 
     $answer = $script:confirmDialog.Answer
     if ($null -eq $answer -and $targets -eq 0 -and $failed -eq 0) {
@@ -204,6 +204,7 @@ function stopIndexing {
         return
     }
     $answer = showConfirm `
+        -title "更新の中止" `
         -heading "インデックス作成を中止しますか？" `
         -facts @(
             (factNext "いま取り込んでいるファイルが終わったところで止まります"),

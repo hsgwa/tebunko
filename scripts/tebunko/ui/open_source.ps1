@@ -140,7 +140,7 @@ function promptSourceConnectFailure {
 
     $dialog = getSourceConnectFailureDialog $book $state.State $location.Folder $state.Message
     setStatus (getSourceConnectFailureStatus $state.State $location.Folder $state.Message)
-    $answer = showConfirm -heading $dialog.Heading `
+    $answer = showConfirm -title "元のファイルが見つかりません" -heading $dialog.Heading `
         -facts @((factGone $dialog.Title $dialog.Detail), (factNext $dialog.Hint)) `
         -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })
     if ($answer -eq "pick") {
@@ -178,7 +178,7 @@ function promptSourceMissing {
     )
 
     while ($true) {
-        if ((showConfirm -heading "$book が見つかりません" -facts $facts `
+        if ((showConfirm -title "元のファイルが見つかりません" -heading "$book が見つかりません" -facts $facts `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus (getSourceNotFoundStatus $path)
             return

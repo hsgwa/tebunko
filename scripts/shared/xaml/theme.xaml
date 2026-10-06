@@ -502,6 +502,23 @@
     </Style.Triggers>
   </Style>
 
+  <!-- ダイアログの「削除する」など、取り消せない操作の実行ボタン。確認のダイアログでだけ、赤で塗る -->
+  <SolidColorBrush x:Key="Danger.Hover" Color="#B3262A" />
+  <Style x:Key="Danger.Filled" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Background" Value="{StaticResource Danger.Text}" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="BorderBrush" Value="{StaticResource Danger.Text}" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource Danger.Hover}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Danger.Hover}" />
+        <Setter Property="Foreground" Value="White" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
   <!-- 文字だけのボタン -->
   <Style x:Key="Link" TargetType="Button">
     <Setter Property="Cursor" Value="Hand" />

@@ -32,6 +32,7 @@ $onIndexGridToggled = {
                 saveTargets
             }
             updateIndexingButton
+            updateIndexDetailPanel
         }
     }
 }
@@ -85,6 +86,7 @@ function updateFolderItemStatus {
     if (!$item.StatusChecked) {
         $item.SetStatus("… フォルダを確認しています", ${grayBrush})
     }
+    updateIndexDetailPanel
     refreshFolderStatus
 }
 
@@ -150,6 +152,7 @@ function applyFolderStatus {
         }
     }
     updateIndexingButton
+    updateIndexDetailPanel
 }
 
 function refreshFastSearchStatus {
@@ -324,6 +327,7 @@ function refreshIndexViews {
     refreshIndexSummary
     refreshIndexingState
     refreshFastSearchStatus
+    updateIndexDetailPanel
 }
 
 function applyIndexStats {

@@ -85,7 +85,7 @@ function showIndexExportDialog {
     })
 
     $result = $null
-    if ($dialog.ShowDialog()) {
+    if ((showOwnedDialog $dialog)) {
         $result = normalizeFolderPath $ctrl.ExportPathBox.Text
     }
     return $result
@@ -165,7 +165,7 @@ function showIndexImportDialog {
     })
 
     $result = $null
-    if ($dialog.ShowDialog()) {
+    if ((showOwnedDialog $dialog)) {
         $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim() }
     }
     return $result

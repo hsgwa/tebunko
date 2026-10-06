@@ -36,5 +36,5 @@ function showAboutDialog {
     } else {
         $ctrl.CommitText.Text = "コミット: $($script:aboutView.Commit)"
     }
-    [void]$dialog.ShowDialog()
+    [void](showOwnedDialog $dialog)
 }

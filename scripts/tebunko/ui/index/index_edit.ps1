@@ -81,7 +81,7 @@ function showIndexEditDialog {
     })
 
     $result = $null
-    if ($dialog.ShowDialog()) {
+    if (showOwnedDialog $dialog) {
         $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim() }
     }
     $script:editDialog = $null
@@ -232,6 +232,7 @@ function deleteIndex {
     }
 
     $answer = showConfirm `
+        -title "インデックスの削除" `
         -heading "インデックス「$($item.Name)」を一覧から削除しますか？" `
         -facts @(
             (factGone "tebunko が作ったインデックスが消えます" "このフォルダは検索できなくなります（もう一度［インデックス作成を開始］すれば作り直せます）"),

@@ -111,7 +111,7 @@ function startGui {
     )
 
     $ui = @{}
-    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost")) {
+    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay")) {
         $ui[$name] = $window.FindName($name)
     }
     $script:screenContents = @{}
@@ -137,6 +137,7 @@ function startGui {
 
     # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
     . "$TebunkoDir\..\shared\ui\shell.ps1"
+    setDialogScrim $ui.ScrimOverlay
     # safe で包んでいない処理（PreviewKeyDown・Closing・活性化のタイマーなど）が
     # 投げた例外や、XAML の描画中に WPF が投げる例外を、画面のスレッドの Dispatcher で受ける
     [void](registerUnhandledErrorHandler $window.Dispatcher)
@@ -292,6 +293,7 @@ function startGui {
             # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
             if (isIndexing) {
                 $answer = showConfirm `
+                    -title "更新中です" `
                     -heading "まだインデックス作成の途中です。止めてから閉じますか？" `
                     -facts @(
                         (factNext "いま取り込んでいるファイルが終わったところで止まり、画面を閉じます"),
