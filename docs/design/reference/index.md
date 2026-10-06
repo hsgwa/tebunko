@@ -23,6 +23,8 @@ flowchart LR
 
 | ファイル | 主な関数 | 記載先 |
 |---|---|---|
+| `tebunko/ui/shell/nav_view.ps1`（判断層） | `getScreenOrder` / `isScreenName` / `getNextScreen` / `getShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
+| `tebunko/ui/shell/nav.ps1` | `getCurrentScreen` / `selectScreen` / `invokeShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits`（ヘッダー・フッターは `readXlsxSheetHeaderFooter` / `readXlsxHeaderFooterLines` / `getHeaderFooterLines`） / `writeUnits` | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexing/excel.md)、[Word](../indexing/word.md)、[PowerPoint](../indexing/powerpoint.md) |
 | `shared/office/office_protection_view.ps1`（判断層） | `getOfficeProtectionKind` / `getProtectionFailureText` / `testOfficeOutput` / `testWorkbookFormat` / `getWordOpenFormat` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_protection.ps1` | `readFileHead` / `readCompoundEntryNames` / `getOfficeFileProtection` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
