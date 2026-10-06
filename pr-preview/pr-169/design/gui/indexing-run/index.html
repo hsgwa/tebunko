@@ -4312,7 +4312,7 @@
 <li>前の版のしるしが無い・<code>content_index\</code> が空でない（すでに取り込み直した後など）のときは、この確かめを出さずに通常の流れに進む。</li>
 </ul>
 <h2 id="インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ<a class="headerlink" href="#インデックス作成の確認ダイアログ" title="Permanent link">&para;</a></h2>
-<p><code>tebunko/xaml/dialog_indexing_confirm.xaml</code>。［インデックス作成を開始］を押すと、インデクサはまず<strong>取り込み対象を数えるだけ</strong>行って止まり（受け渡しの口の <code>ConfirmTargets</code>）、インデックスごとの件数を受け渡しの口の <code>Plan</code> に入れる（<a href="../../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>）。
+<p><code>tebunko/xaml/dialog_indexing_confirm.xaml</code>。表題（<code>インデックス作成の確認</code>）の下に説明・一覧・合計・ボタンを置き、注意書きは枠で囲って出す（注意書きが無いときは枠ごと隠す）。［インデックス作成を開始］を押すと、インデクサはまず<strong>取り込み対象を数えるだけ</strong>行って止まり（受け渡しの口の <code>ConfirmTargets</code>）、インデックスごとの件数を受け渡しの口の <code>Plan</code> に入れる（<a href="../../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>）。
 画面は進み具合の段階が <code>確認</code> になったらそれを読み、<strong>このダイアログを 1 回だけ開く</strong>。
 何件取り込むかは元のファイルの更新日時・サイズを調べないと分からないため、数えるのはインデクサで行う（画面は数えている間も固まらない）。</p>
 <table>

@@ -4225,7 +4225,7 @@
 図は「前回取り込みに失敗したファイルがあり、インデックス作成を実行中」の状態。</p>
 <p><img alt="［1 インデックス管理］タブ" src="../../../images/%E7%94%BB%E9%9D%A2_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96.drawio.png" /></p>
 <p>今の画面の写真は<a href="../screens/index-tab/">画面設計（現行）</a>にある。</p>
-<p>画面は上下に分ける。上が<strong>一覧</strong>（見出し・［インポート…］［追加…］［インデックス作成を開始］・表。<code>xaml/index/index_list.xaml</code>）、下が<strong>詳細</strong>（インデックスの状態・取り込みの進み具合・取り込みに失敗したファイル。<code>xaml/index/index_detail.xaml</code>）で、枠は <code>xaml/index/index.xaml</code>。間の境目をドラッグすると詳細の高さが変わる（詳細は最大 397・最小 240。一覧は最小 225）。一覧の行の［編集…］［エクスポート…］［削除］は、行の右端の［⋯］（または一覧の右クリック）から開くメニューの項目にする。</p>
+<p>画面は上下に分ける。上が<strong>一覧</strong>（見出し・［インポート…］［追加…］［インデックス作成を開始］・表。<code>xaml/index/index_list.xaml</code>）、下が<strong>詳細</strong>（インデックスの状態・取り込みの進み具合・取り込みに失敗したファイル。<code>xaml/index/index_detail.xaml</code>。表の行を 1 つ選ぶと、見出しが <code>&lt;名前&gt; - 詳細</code> になり、その行のインデックスの値（1 行 1 項目・長いものは <code>…</code> で省略）と高速検索の反映の進みを出す。選んでいない間は見出しが <code>インデックスの状態</code> で、全インデックスの合計だけを出す。文言は判断層の <code>getIndexDetailView</code>）で、枠は <code>xaml/index/index.xaml</code>。間の境目をドラッグすると詳細の高さが変わる（詳細は最大 397・最小 240。一覧は最小 225）。一覧の行の［編集…］［エクスポート…］［削除］は、行の右端の［⋯］（または一覧の右クリック）から開くメニューの項目にする。</p>
 <table>
 <thead>
 <tr>
@@ -4340,7 +4340,7 @@
 <p>「作成」以外の列見出しにはツールヒントを付け、「ステータス」は <code>検索に使うインデックスの状態（取り込み一覧から）</code>、「高速検索」は <code>インデックス（高速検索用）が Windows Search にどこまで反映されたか</code>。</p>
 <p>「ファイル」「最終取り込み」は取り込み一覧（<code>work/ingest_status.tsv</code>）の集計で、状態を読み直すたび（起動時・ウィンドウがアクティブになったとき・インデックス作成中は 1 秒ごと）に更新する。「高速検索」は、一覧の読み込み時・ウィンドウがアクティブになったとき（前回の確認から 60 秒以上たっていれば）・インデックス作成が終わったとき・追加／編集／削除／インポートの後に確かめ直す。<code>反映待ち</code>・<code>反映中 N%</code> の行が 1 つでもある間は、5 分ごとのタイマーでも確かめ直す（インデックス作成中は確かめない）。</p>
 <h2 id="追加編集のダイアログ">追加・編集のダイアログ<a class="headerlink" href="#追加編集のダイアログ" title="Permanent link">&para;</a></h2>
-<p><code>tebunko/xaml/dialog_index_edit.xaml</code>。追加と編集で同じダイアログを使い、表題と説明を変える。</p>
+<p><code>tebunko/xaml/dialog_index_edit.xaml</code>。追加と編集で同じダイアログを使い、表題と説明を変える。表題（<code>DialogHeadingText</code>）は <code>インデックスを追加する</code>・<code>インデックスを編集する</code>。見た目は共通の部品（表題・ラベル・入力欄・ボタン）だけをそろえ、配置と部品の名前は変えない。</p>
 <pre class="mermaid"><code>stateDiagram-v2
     state "入力中" as Input
     state "OK を確かめる" as Check

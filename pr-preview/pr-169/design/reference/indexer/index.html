@@ -4737,6 +4737,14 @@
 <td>画面（［エクスポート…］）</td>
 </tr>
 <tr>
+<td><code>exportIndexToFolder</code></td>
+<td>name, folder, ws, settingsPath</td>
+<td><code>exportIndex</code> と同じ</td>
+<td>書き出し先のフォルダを確かめ（無ければ <code>書き出し先のフォルダが見つかりません：&lt;フォルダ&gt;</code> の例外）、そのフォルダにある zip の名前から <code>getExportFileName</code> で重ならない名前を決め、<code>exportIndex</code> で書き出す</td>
+<td>同上</td>
+<td>画面（［エクスポート…］の別スレッド）</td>
+</tr>
+<tr>
 <td><code>readIndexArchiveInfo</code></td>
 <td>zipPath</td>
 <td><code>@{IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion}</code></td>
