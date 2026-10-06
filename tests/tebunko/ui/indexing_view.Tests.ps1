@@ -91,6 +91,27 @@ Describe "getIndexingStateText" -Tag Unit {
     }
 }
 
+Describe "getIndexingConfirmFolderCount" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "取り込み対象があるフォルダだけ数える"; retry = $false; expected = 2 }
+        @{ name = "失敗分を含めると、失敗だけのフォルダも数える"; retry = $true; expected = 3 }
+    ) {
+        param ($name, $retry, $expected)
+        $plan = @(
+            (newPlanItem ${planKindIngest} 10 5)
+            (newPlanItem ${planKindIngest} 10 3)
+            (newPlanItem ${planKindIngest} 10 0 0 0 4)
+            (newPlanItem ${planKindIngest} 10 0)
+        )
+        getIndexingConfirmFolderCount $plan $retry | Should -Be $expected
+    }
+
+    It "取り込み対象でない区分（最新・対象外）と空の予定は数えない" {
+        getIndexingConfirmFolderCount @((newPlanItem ${planKindUnchecked} 10 5), $null) $true | Should -Be 0
+        getIndexingConfirmFolderCount @() $false | Should -Be 0
+    }
+}
+
 Describe "getIndexingConfirmText" -Tag Unit {
     It "取り込み対象があれば件数と［更新を開始］" {
         $view = getIndexingConfirmText 12 3 $false 2

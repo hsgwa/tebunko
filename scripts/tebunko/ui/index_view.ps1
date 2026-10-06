@@ -287,23 +287,6 @@ function getIndexRowView {
     return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件" $notice }
 }
 
-function getIndexRowMenu {
-    # 行の右の［…］から開くメニューの項目（今ある動きだけ。行ごとの更新・中止・再設定・既定に戻す・ノートは今は無い）。
-    # 並びは 編集…・エクスポート…・（区切り）・削除。Enabled は押せるか（getIndexTabButtonsEnabled と同じ決まり）。
-    # 更新中・書き出し中などの間は、行の種類（更新中の行・エラーの行・ふつうの行）によらず全項目を押せなくする
-    param (
-        [string]$blocker,   # getIndexJobBlocker の結果（空なら止めるものは無い）
-        [bool]$selected     # 一覧で行を選んでいるか
-    )
-
-    $enabled = getIndexTabButtonsEnabled $blocker $selected
-    return @(
-        @{ Id = "Edit"; Header = "編集…"; Enabled = [bool]$enabled.Edit; SeparatorBefore = $false }
-        @{ Id = "Export"; Header = "エクスポート…"; Enabled = [bool]$enabled.Export; SeparatorBefore = $false }
-        @{ Id = "Remove"; Header = "削除"; Enabled = [bool]$enabled.Remove; SeparatorBefore = $true }
-    )
-}
-
 function getIndexDetailRowPlan {
     # 詳細の行の高さをどうするか。1 件も無いとき（empty）は詳細と境目を畳み（Hide）、1 件以上になったら戻す（Show）。
     # 空かどうかが変わっていないとき（別の行を選んだだけ）は何もしない（Keep）。境目をドラッグして変えた高さを、選び直しで戻さないため。

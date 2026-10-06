@@ -9,10 +9,10 @@ foreach ($detailName in @(
 }
 
 function setIndexBadge {
-    # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Ng / None）
+    # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Ng / Run / None）
     param ($border, $textBlock, [string]$text, [string]$level)
 
-    $kind = if ($level -in @("Ok", "Wait", "Ng")) { $level } else { "None" }
+    $kind = if ($level -in @("Ok", "Wait", "Ng", "Run")) { $level } else { "None" }
     $border.Background = themeBrush "Badge.${kind}.Bg"
     $border.BorderBrush = themeBrush "Badge.${kind}.Bg"
     $textBlock.Foreground = themeBrush "Badge.${kind}.Text"

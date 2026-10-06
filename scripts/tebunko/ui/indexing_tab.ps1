@@ -68,10 +68,7 @@ function updateIndexingConfirmTotal {
     # 「失敗分も更新し直す」のチェックに合わせて、合計と主ボタンの文言を変える
     $d = $script:confirmDialog
     $retry = [bool]$d.Ctrl.RetryCheck.IsChecked
-    $folders = 0
-    foreach ($item in @($d.Plan)) {
-        if ($null -ne $item -and $item.区分 -eq ${planKindIngest} -and ($item.取り込み対象 + $(if ($retry) { $item.前回失敗 } else { 0 })) -gt 0) { $folders++ }
-    }
+    $folders = getIndexingConfirmFolderCount $d.Plan $retry
     $view = getIndexingConfirmText $d.Targets $d.Failed $retry $folders
     $d.Ctrl.TotalText.Text = $view.Text
     $d.Ctrl.StartButton.Content = $view.Button

@@ -7,49 +7,6 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
-      <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / Run / None）を入れて、色だけ切り替える -->
-      <Style x:Key="LevelBadge" TargetType="Border" BasedOn="{StaticResource StatusBadge}">
-        <Setter Property="HorizontalAlignment" Value="Left" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Background" Value="{StaticResource Badge.None.Bg}" />
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
-            <Setter Property="Background" Value="{StaticResource Badge.Ok.Bg}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
-            <Setter Property="Background" Value="{StaticResource Badge.Wait.Bg}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
-            <Setter Property="Background" Value="{StaticResource Badge.Ng.Bg}" />
-          </DataTrigger>
-          <!-- 更新中（青。Select.Soft の地・Accent の文字） -->
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Run">
-            <Setter Property="Background" Value="{StaticResource Select.Soft}" />
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
-      <Style x:Key="LevelBadgeText" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="11" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
-        <Setter Property="TextWrapping" Value="NoWrap" />
-        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
-            <Setter Property="Foreground" Value="{StaticResource Badge.Ok.Text}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
-            <Setter Property="Foreground" Value="{StaticResource Badge.Wait.Text}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
-            <Setter Property="Foreground" Value="{StaticResource Badge.Ng.Text}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Run">
-            <Setter Property="Foreground" Value="{StaticResource Accent}" />
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
       <!-- 選んだ行（詳細欄に出している行）の色 -->
       <Style x:Key="IndexRow" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
         <Style.Triggers>

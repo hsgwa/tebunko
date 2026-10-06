@@ -305,24 +305,6 @@ Describe "getIndexRowView" -Tag Unit {
     }
 }
 
-Describe "getIndexRowMenu" -Tag Unit {
-    It "項目は 編集…・エクスポート…・（区切り）・削除 の順で、今ある動きだけ" {
-        $items = @(getIndexRowMenu "" $true)
-        @($items | ForEach-Object { $_.Id }) | Should -Be @("Edit", "Export", "Remove")
-        @($items | ForEach-Object { $_.Header }) | Should -Be @("編集…", "エクスポート…", "削除")
-        @($items | Where-Object { $_.SeparatorBefore } | ForEach-Object { $_.Id }) | Should -Be @("Remove")
-    }
-
-    It "<label>" -TestCases @(
-        @{ label = "行を選んでいて、止めるものが無い: すべて押せる"; blocker = ""; selected = $true; expected = @($true, $true, $true) }
-        @{ label = "行を選んでいない: すべて押せない"; blocker = ""; selected = $false; expected = @($false, $false, $false) }
-        @{ label = "更新中: すべて押せない"; blocker = "indexing"; selected = $true; expected = @($false, $false, $false) }
-    ) {
-        param ($label, $blocker, $selected, $expected)
-        @(getIndexRowMenu $blocker $selected | ForEach-Object { $_.Enabled }) | Should -Be $expected
-    }
-}
-
 Describe "getIndexDetailRowPlan" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "初めて・空: 畳む"; was = $null; empty = $true; expected = "Hide" }

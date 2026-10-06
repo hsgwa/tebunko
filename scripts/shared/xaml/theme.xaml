@@ -100,6 +100,9 @@
   <SolidColorBrush x:Key="Badge.Ng.Text"   Color="#D13438" />
   <SolidColorBrush x:Key="Badge.None.Bg"   Color="#F1F3F4" />
   <SolidColorBrush x:Key="Badge.None.Text" Color="#5F6368" />
+  <!-- 更新中（青）。Select.Soft の地・Accent の文字と同じ色 -->
+  <SolidColorBrush x:Key="Badge.Run.Bg"      Color="#E1F2FF" />
+  <SolidColorBrush x:Key="Badge.Run.Text"    Color="#0078D4" />
 
   <CornerRadius x:Key="Radius.Control">6</CornerRadius>
   <CornerRadius x:Key="Radius.Card">10</CornerRadius>
@@ -369,6 +372,48 @@
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="8,2,8,2" />
+  </Style>
+  <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / Run / None）を入れて、色だけ切り替える。状態の色の組は Badge.* にだけ置く -->
+  <Style x:Key="LevelBadge" TargetType="Border" BasedOn="{StaticResource StatusBadge}">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{StaticResource Badge.None.Bg}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
+        <Setter Property="Background" Value="{StaticResource Badge.Ok.Bg}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
+        <Setter Property="Background" Value="{StaticResource Badge.Wait.Bg}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
+        <Setter Property="Background" Value="{StaticResource Badge.Ng.Bg}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Run">
+        <Setter Property="Background" Value="{StaticResource Badge.Run.Bg}" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="LevelBadgeText" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
+        <Setter Property="Foreground" Value="{StaticResource Badge.Ok.Text}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
+        <Setter Property="Foreground" Value="{StaticResource Badge.Wait.Text}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
+        <Setter Property="Foreground" Value="{StaticResource Badge.Ng.Text}" />
+      </DataTrigger>
+      <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Run">
+        <Setter Property="Foreground" Value="{StaticResource Badge.Run.Text}" />
+      </DataTrigger>
+    </Style.Triggers>
   </Style>
   <!-- 帯（バナー）。地・枠の色は使う側で指定する -->
   <Style x:Key="Banner" TargetType="Border">

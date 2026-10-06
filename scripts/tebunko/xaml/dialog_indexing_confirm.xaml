@@ -6,47 +6,12 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize"
         FontFamily="{DynamicResource Font.Body}" FontSize="13"
         TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
-        Background="White" UseLayoutRounding="True" SnapsToDevicePixels="True">
+        Background="{DynamicResource Bg.Surface}" UseLayoutRounding="True" SnapsToDevicePixels="True">
   <Window.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
-      <!-- 状態を丸いバッジで出す。Tag に Level（Ok / Wait / Ng / None）を入れて、色だけ切り替える（一覧のバッジと同じ） -->
-      <Style x:Key="LevelBadge" TargetType="Border" BasedOn="{StaticResource StatusBadge}">
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="HorizontalAlignment" Value="Left" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Background" Value="{StaticResource Badge.None.Bg}" />
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
-            <Setter Property="Background" Value="{StaticResource Badge.Ok.Bg}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
-            <Setter Property="Background" Value="{StaticResource Badge.Wait.Bg}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
-            <Setter Property="Background" Value="{StaticResource Badge.Ng.Bg}" />
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
-      <Style x:Key="LevelBadgeText" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="11" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{StaticResource Badge.None.Text}" />
-        <Setter Property="TextWrapping" Value="NoWrap" />
-        <Style.Triggers>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ok">
-            <Setter Property="Foreground" Value="{StaticResource Badge.Ok.Text}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Wait">
-            <Setter Property="Foreground" Value="{StaticResource Badge.Wait.Text}" />
-          </DataTrigger>
-          <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Ng">
-            <Setter Property="Foreground" Value="{StaticResource Badge.Ng.Text}" />
-          </DataTrigger>
-        </Style.Triggers>
-      </Style>
     </ResourceDictionary>
   </Window.Resources>
 
@@ -81,38 +46,38 @@
 
     <!-- 表と、いちばん下の合計の行（更新するフォルダ数・ファイル数。薄い地）を 1 つの枠に入れる -->
     <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
-    <DockPanel>
-    <Border DockPanel.Dock="Bottom" Background="{StaticResource Bg.Summary}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0" Padding="12,8">
-      <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
-    </Border>
-    <DataGrid x:Name="PlanGrid" MinHeight="120" BorderThickness="0" CanUserAddRows="False" SelectionMode="Single" CanUserSortColumns="False">
-      <DataGrid.Columns>
-        <DataGridTemplateColumn Header="フォルダ名" Width="*">
-          <DataGridTemplateColumn.CellTemplate>
-            <DataTemplate>
-              <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" ToolTip="{Binding Path}" />
-            </DataTemplate>
-          </DataGridTemplateColumn.CellTemplate>
-        </DataGridTemplateColumn>
-        <DataGridTemplateColumn Header="対象ファイル数" Width="120">
-          <DataGridTemplateColumn.CellTemplate>
-            <DataTemplate>
-              <TextBlock Style="{StaticResource Cell.Number}" HorizontalAlignment="Stretch" Text="{Binding TotalText}" />
-            </DataTemplate>
-          </DataGridTemplateColumn.CellTemplate>
-        </DataGridTemplateColumn>
-        <DataGridTemplateColumn Header="ステータス" Width="130">
-          <DataGridTemplateColumn.CellTemplate>
-            <DataTemplate>
-              <Border Style="{StaticResource LevelBadge}" Tag="{Binding Level}" ToolTip="{Binding DetailText}">
-                <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding Level}" Text="{Binding StatusText}" />
-              </Border>
-            </DataTemplate>
-          </DataGridTemplateColumn.CellTemplate>
-        </DataGridTemplateColumn>
-      </DataGrid.Columns>
-    </DataGrid>
-    </DockPanel>
+      <DockPanel>
+      <Border DockPanel.Dock="Bottom" Background="{StaticResource Bg.Summary}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0" Padding="12,8">
+        <TextBlock x:Name="TotalText" Style="{StaticResource Label.Strong}" TextWrapping="Wrap" />
+      </Border>
+      <DataGrid x:Name="PlanGrid" MinHeight="120" BorderThickness="0" CanUserAddRows="False" SelectionMode="Single" CanUserSortColumns="False">
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="フォルダ名" Width="*">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" ToolTip="{Binding Path}" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="対象ファイル数" Width="120">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Style="{StaticResource Cell.Number}" HorizontalAlignment="Stretch" Text="{Binding TotalText}" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="ステータス" Width="130">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <Border Style="{StaticResource LevelBadge}" Tag="{Binding Level}" ToolTip="{Binding DetailText}">
+                  <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding Level}" Text="{Binding StatusText}" />
+                </Border>
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+      </DockPanel>
     </Border>
   </DockPanel>
 </Window>

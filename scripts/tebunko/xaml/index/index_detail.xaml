@@ -41,141 +41,141 @@
           <TextBlock x:Name="IndexDetailTitle" Style="{StaticResource Label.Strong}" VerticalAlignment="Center" Text="インデックスの状態" />
         </StackPanel>
       </Border>
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Margin="16,12,16,12">
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="16,12,16,12">
 
-        <!-- 1 つ選んだときの左右 2 列（基本設定・インデックス情報）。何も選んでいないときは出さない -->
-        <Grid x:Name="IndexDetailBody" Visibility="Collapsed">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="1" />
-            <ColumnDefinition Width="*" />
-          </Grid.ColumnDefinitions>
-          <Border Grid.Column="1" Background="{StaticResource Border.Soft}" />
+          <!-- 1 つ選んだときの左右 2 列（基本設定・インデックス情報）。何も選んでいないときは出さない -->
+          <Grid x:Name="IndexDetailBody" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="1" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="1" Background="{StaticResource Border.Soft}" />
 
-          <StackPanel Grid.Column="0" Margin="0,0,16,0">
-            <TextBlock Style="{StaticResource Label.Strong}" Text="基本設定" Margin="0,0,0,8" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="90" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Style="{StaticResource Label}" Text="インデックス名" VerticalAlignment="Center" />
-              <Border Grid.Column="1" Style="{StaticResource FieldBox}">
-                <TextBlock x:Name="IndexDetailName" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-              </Border>
-            </Grid>
-            <Grid Margin="0,8,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="90" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Style="{StaticResource Label}" Text="フォルダパス" VerticalAlignment="Center" />
-              <Border Grid.Column="1" Style="{StaticResource FieldBox}">
-                <TextBlock x:Name="IndexDetailPath" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
-              </Border>
-            </Grid>
-            <TextBlock x:Name="IndexDetailFolderStatus" Style="{StaticResource Meta}" Margin="90,4,0,0" />
-            <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
-              <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Style="{StaticResource Label.Strong}" Text="インデックス" VerticalAlignment="Center" />
-                  <Border x:Name="IndexDetailBadge" Style="{StaticResource StatusBadge}" Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="IndexDetailBadgeText" FontSize="11" FontWeight="SemiBold" />
-                  </Border>
-                  <TextBlock x:Name="IndexDetailBadgeSub" Style="{StaticResource Meta}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
-                <TextBlock x:Name="IndexDetailUpdated" Style="{StaticResource Meta}" Margin="0,6,0,0" />
-                <TextBlock x:Name="IndexDetailCount" Style="{StaticResource Meta}" Margin="0,2,0,0" />
-              </StackPanel>
-            </Border>
-          </StackPanel>
-
-          <StackPanel Grid.Column="2" Margin="16,0,0,0">
-            <TextBlock Style="{StaticResource Label.Strong}" Text="インデックス情報" Margin="0,0,0,8" />
-            <!-- 項目と値の表（見出しの行つき）。値は右に寄せ、1 行で、あふれたら「…」 -->
-            <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
-              <StackPanel>
-                <Border Background="{StaticResource Bg.Summary}" Padding="10,5">
-                  <DockPanel>
-                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource Label.Strong}" Text="値" />
-                    <TextBlock Style="{StaticResource Label.Strong}" Text="項目" />
-                  </DockPanel>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <TextBlock Style="{StaticResource Label.Strong}" Text="基本設定" Margin="0,0,0,8" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="90" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource Label}" Text="インデックス名" VerticalAlignment="Center" />
+                <Border Grid.Column="1" Style="{StaticResource FieldBox}">
+                  <TextBlock x:Name="IndexDetailName" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
                 </Border>
-                <ItemsControl x:Name="IndexDetailRows">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Border BorderBrush="{StaticResource Border.Row}" BorderThickness="0,1,0,0" Padding="10,5">
-                        <DockPanel>
-                          <TextBlock DockPanel.Dock="Left" Style="{StaticResource Label}" Text="{Binding Label}" Width="130" />
-                          <TextBlock Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" TextAlignment="Right"
-                                     Text="{Binding Value}" ToolTip="{Binding Value}" />
-                        </DockPanel>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </Border>
-            <TextBlock Style="{StaticResource Label.Strong}" Text="高速検索" Margin="0,12,0,8" />
-            <Border Style="{StaticResource InfoCard}" Background="White">
-              <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Style="{StaticResource Label}" Text="状態" Width="60" VerticalAlignment="Center" />
-                  <Border x:Name="IndexDetailFastBadge" Style="{StaticResource StatusBadge}" VerticalAlignment="Center">
-                    <TextBlock x:Name="IndexDetailFastBadgeText" FontSize="11" FontWeight="SemiBold" />
-                  </Border>
+              </Grid>
+              <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="90" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource Label}" Text="フォルダパス" VerticalAlignment="Center" />
+                <Border Grid.Column="1" Style="{StaticResource FieldBox}">
+                  <TextBlock x:Name="IndexDetailPath" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                </Border>
+              </Grid>
+              <TextBlock x:Name="IndexDetailFolderStatus" Style="{StaticResource Meta}" Margin="90,4,0,0" />
+              <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Label.Strong}" Text="インデックス" VerticalAlignment="Center" />
+                    <Border x:Name="IndexDetailBadge" Style="{StaticResource StatusBadge}" Margin="10,0,0,0" VerticalAlignment="Center">
+                      <TextBlock x:Name="IndexDetailBadgeText" FontSize="11" FontWeight="SemiBold" />
+                    </Border>
+                    <TextBlock x:Name="IndexDetailBadgeSub" Style="{StaticResource Meta}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBlock x:Name="IndexDetailUpdated" Style="{StaticResource Meta}" Margin="0,6,0,0" />
+                  <TextBlock x:Name="IndexDetailCount" Style="{StaticResource Meta}" Margin="0,2,0,0" />
                 </StackPanel>
-                <TextBlock x:Name="IndexDetailFastReason" Style="{StaticResource WarnText}" Margin="0,6,0,0" TextWrapping="Wrap" />
-                <StackPanel x:Name="IndexDetailFastPanel" Margin="0,6,0,0" Visibility="Collapsed">
-                  <TextBlock x:Name="IndexDetailFastText" Style="{StaticResource Meta}" />
-                  <ProgressBar x:Name="IndexDetailFastBar" Margin="0,4,0,0" Maximum="1" Height="6" />
-                </StackPanel>
-                <TextBlock x:Name="IndexDetailFastChecked" Style="{StaticResource Meta}" Margin="0,6,0,0" />
-                <TextBlock x:Name="IndexDetailFastNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
-          </StackPanel>
-        </Grid>
-
-        <TextBlock Style="{StaticResource Meta}" Margin="0,14,0,0" Text="すべてのインデックスの合計" />
-        <TextBlock x:Name="IndexSummaryText" Text="確認中…" Margin="0,4,0,0" />
-
-        <StackPanel x:Name="FailedPanel" Visibility="Collapsed" Margin="0,8,0,0">
-          <DockPanel>
-            <TextBlock DockPanel.Dock="Right" Style="{StaticResource Micro}" VerticalAlignment="Bottom"
-                       Text="ダブルクリックでファイルの場所を開きます" />
-            <StackPanel Orientation="Horizontal">
-              <Path Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Badge.Ng.Text}"
-                    StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,6,0" />
-              <TextBlock x:Name="FailedHeading" Style="{StaticResource ErrorText}" />
+              </Border>
             </StackPanel>
-          </DockPanel>
-          <DataGrid x:Name="FailedGrid" MaxHeight="130" Margin="0,6,0,0" SelectionMode="Single" CanUserSortColumns="False">
-            <DataGrid.Columns>
-              <DataGridTemplateColumn Header="ファイル" Width="280">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding RelPath}" ToolTip="{Binding RelPath}" />
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="失敗の原因" Width="*">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Style="{StaticResource Cell}" TextTrimming="None" TextWrapping="Wrap"
-                               Text="{Binding Reason}" ToolTip="{Binding Reason}" />
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              <DataGridTextColumn Header="日時" Binding="{Binding IngestedText}" Width="80"
-                                  ElementStyle="{StaticResource Cell.Meta}" />
-            </DataGrid.Columns>
-          </DataGrid>
+
+            <StackPanel Grid.Column="2" Margin="16,0,0,0">
+              <TextBlock Style="{StaticResource Label.Strong}" Text="インデックス情報" Margin="0,0,0,8" />
+              <!-- 項目と値の表（見出しの行つき）。値は右に寄せ、1 行で、あふれたら「…」 -->
+              <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                <StackPanel>
+                  <Border Background="{StaticResource Bg.Summary}" Padding="10,5">
+                    <DockPanel>
+                      <TextBlock DockPanel.Dock="Right" Style="{StaticResource Label.Strong}" Text="値" />
+                      <TextBlock Style="{StaticResource Label.Strong}" Text="項目" />
+                    </DockPanel>
+                  </Border>
+                  <ItemsControl x:Name="IndexDetailRows">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border BorderBrush="{StaticResource Border.Row}" BorderThickness="0,1,0,0" Padding="10,5">
+                          <DockPanel>
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource Label}" Text="{Binding Label}" Width="130" />
+                            <TextBlock Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" TextAlignment="Right"
+                                       Text="{Binding Value}" ToolTip="{Binding Value}" />
+                          </DockPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+              <TextBlock Style="{StaticResource Label.Strong}" Text="高速検索" Margin="0,12,0,8" />
+              <Border Style="{StaticResource InfoCard}" Background="{DynamicResource Bg.Surface}">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Label}" Text="状態" Width="60" VerticalAlignment="Center" />
+                    <Border x:Name="IndexDetailFastBadge" Style="{StaticResource StatusBadge}" VerticalAlignment="Center">
+                      <TextBlock x:Name="IndexDetailFastBadgeText" FontSize="11" FontWeight="SemiBold" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock x:Name="IndexDetailFastReason" Style="{StaticResource WarnText}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                  <StackPanel x:Name="IndexDetailFastPanel" Margin="0,6,0,0" Visibility="Collapsed">
+                    <TextBlock x:Name="IndexDetailFastText" Style="{StaticResource Meta}" />
+                    <ProgressBar x:Name="IndexDetailFastBar" Margin="0,4,0,0" Maximum="1" Height="6" />
+                  </StackPanel>
+                  <TextBlock x:Name="IndexDetailFastChecked" Style="{StaticResource Meta}" Margin="0,6,0,0" />
+                  <TextBlock x:Name="IndexDetailFastNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Grid>
+
+          <TextBlock Style="{StaticResource Meta}" Margin="0,14,0,0" Text="すべてのインデックスの合計" />
+          <TextBlock x:Name="IndexSummaryText" Text="確認中…" Margin="0,4,0,0" />
+
+          <StackPanel x:Name="FailedPanel" Visibility="Collapsed" Margin="0,8,0,0">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Right" Style="{StaticResource Micro}" VerticalAlignment="Bottom"
+                         Text="ダブルクリックでファイルの場所を開きます" />
+              <StackPanel Orientation="Horizontal">
+                <Path Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Badge.Ng.Text}"
+                      StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock x:Name="FailedHeading" Style="{StaticResource ErrorText}" />
+              </StackPanel>
+            </DockPanel>
+            <DataGrid x:Name="FailedGrid" MaxHeight="130" Margin="0,6,0,0" SelectionMode="Single" CanUserSortColumns="False">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="ファイル" Width="280">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding RelPath}" ToolTip="{Binding RelPath}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="失敗の原因" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Style="{StaticResource Cell}" TextTrimming="None" TextWrapping="Wrap"
+                                 Text="{Binding Reason}" ToolTip="{Binding Reason}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="日時" Binding="{Binding IngestedText}" Width="80"
+                                    ElementStyle="{StaticResource Cell.Meta}" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
         </StackPanel>
-      </StackPanel>
-    </ScrollViewer>
+      </ScrollViewer>
     </DockPanel>
   </Border>
 </Grid>

@@ -1,8 +1,7 @@
 ﻿# インデックス更新の確認ダイアログ・進み具合に出す文言の決定。
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\indexing_view.Tests.ps1）。
 #
-# 色は「意味」（Tone）で返し、実際の色は画面側（indexing_tab.ps1）で対応表から引く。
-#   info = これから取り込む / ok = 取り込みの必要なし / warn = 注意 / ng = 取り込めない / gray = 対象外
+# 色は Level（Ok / Wait / Ng / Run / None）で返し、実際の色は theme.xaml の Badge.* から引く（画面側）。
 
 function newPlanViewRows {
     # 更新の予定（取り込み予定.tsv の行）を、確認のダイアログに出す形にする。
@@ -112,6 +111,23 @@ function getReingestConfirm {
         return "前の版のインデックスは使えないため、元のファイルをすべて更新し直します。ファイルが多いと時間がかかります。始めますか？"
     }
     return ""
+}
+
+function getIndexingConfirmFolderCount {
+    # 確認の合計に出す「更新するフォルダの数」。取り込む対象（失敗分を含めるなら前回失敗も）が 1 件以上あるフォルダだけを数える
+    param (
+        [object[]]$plan,    # readIngestPlan の結果
+        [bool]$retryFailed  # 失敗分も更新し直すか
+    )
+
+    $folders = 0
+    foreach ($item in @($plan)) {
+        if ($null -eq $item -or $item.区分 -ne ${planKindIngest}) { continue }
+        $count = [int]$item.取り込み対象
+        if ($retryFailed) { $count += [int]$item.前回失敗 }
+        if ($count -gt 0) { $folders++ }
+    }
+    return $folders
 }
 
 function getIndexingConfirmText {
