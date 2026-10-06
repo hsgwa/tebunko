@@ -213,6 +213,9 @@ function applyFailedFileState {
     setStatus (getFailedFileOtherStatus $state.Message)
 }
 
+# 詳細の値の行を最後に置いたときの getIndexDetailView の RowsKey（同じ中身なら行を置き直さない）
+$script:detailRowsKey = $null
+
 function updateIndexDetailPanel {
     # 選んだインデックスの値の行と、高速検索の反映の進み具合を出す（文言の組み立ては getIndexDetailView）。
     # 選びなおしたとき・取り込みの集計や高速検索の確かめが届いたときに呼ぶ
@@ -233,23 +236,18 @@ function updateIndexDetailPanel {
     $view = getIndexDetailView $selected $entry
 
     $ui.IndexDetailTitle.Text = $view.Title
-    $rowsKey = (@($view.Rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
-    if ($script:detailRowsKey -eq $rowsKey -and $null -ne $ui.IndexDetailRows.ItemsSource) {
-        $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
-        $ui.IndexDetailFastText.Text = $view.Fast.Text
-        $ui.IndexDetailFastBar.Value = $view.Fast.Value
-        return
+    if ($script:detailRowsKey -ne $view.RowsKey -or $null -eq $ui.IndexDetailRows.ItemsSource) {
+        $script:detailRowsKey = $view.RowsKey
+        $rows = New-Object 'System.Collections.ObjectModel.ObservableCollection[DetailRow]'
+        foreach ($row in $view.Rows) {
+            $detailRow = New-Object DetailRow
+            $detailRow.Label = $row.Label
+            $detailRow.Value = $row.Value
+            $rows.Add($detailRow)
+        }
+        $ui.IndexDetailRows.ItemsSource = $rows
+        $ui.IndexDetailRows.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
     }
-    $script:detailRowsKey = $rowsKey
-    $rows = New-Object 'System.Collections.ObjectModel.ObservableCollection[DetailRow]'
-    foreach ($row in $view.Rows) {
-        $detailRow = New-Object DetailRow
-        $detailRow.Label = $row.Label
-        $detailRow.Value = $row.Value
-        $rows.Add($detailRow)
-    }
-    $ui.IndexDetailRows.ItemsSource = $rows
-    $ui.IndexDetailRows.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastText.Text = $view.Fast.Text
     $ui.IndexDetailFastBar.Value = $view.Fast.Value

@@ -496,4 +496,25 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Fast.Value | Should -Be $value
         $view.Fast.Text | Should -Be $text
     }
+
+    It "<label>: 行の鍵（RowsKey）" -TestCases @(
+        @{ label = "値が変わると変わる"; changed = @{ fileCount = "99" } }
+        @{ label = "行が増えると変わる（最終取り込みが付く）"; changed = @{ last = "" } }
+        @{ label = "行が減ると変わる（フォルダの状態が無くなる）"; changed = @{ folderStatus = "" } }
+    ) {
+        param ($label, $changed)
+        $base = (getIndexDetailView @(newDetailItem) $null).RowsKey
+        (getIndexDetailView @(newDetailItem @changed) $null).RowsKey | Should -Not -Be $base
+    }
+
+    It "高速検索の進み具合だけが変わっても、行の鍵は同じ" {
+        $a = getIndexDetailView @(newDetailItem) @{ Folders = 4; Waiting = 3 }
+        $b = getIndexDetailView @(newDetailItem) @{ Folders = 4; Waiting = 1 }
+        $a.RowsKey | Should -Be $b.RowsKey
+        $a.RowsKey | Should -Not -BeNullOrEmpty
+    }
+
+    It "何も選んでいないときの行の鍵は空" {
+        (getIndexDetailView @() $null).RowsKey | Should -Be ""
+    }
 }

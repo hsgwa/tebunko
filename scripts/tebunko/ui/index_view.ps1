@@ -385,13 +385,14 @@ function getIndexDetailView {
     # 1 つ選んでいるときだけ値の行を出す（何も選んでいない・複数のときは、すべてのインデックスの合計だけを出す）。
     #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; IndexText; FileCountText; LastIngestedText; FastText }
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
-    # 戻り値: @{ Title; Rows（@{ Label; Value } の配列）; Fast（@{ Shown; Value（0〜1）; Text }） }
+    # 戻り値: @{ Title; Rows（@{ Label; Value } の配列）; RowsKey; Fast（@{ Shown; Value（0〜1）; Text }） }
+    #   RowsKey は Rows の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
     param (
         [object[]]$items,
         $fastEntry = $null
     )
 
-    $none = @{ Title = "インデックスの状態"; Rows = @(); Fast = @{ Shown = $false; Value = 0.0; Text = "" } }
+    $none = @{ Title = "インデックスの状態"; Rows = @(); RowsKey = ""; Fast = @{ Shown = $false; Value = 0.0; Text = "" } }
     $selected = @($items | Where-Object { $null -ne $_ })
     if ($selected.Count -ne 1) {
         return $none
@@ -422,5 +423,6 @@ function getIndexDetailView {
             Text = "高速検索の反映：反映済み $done / $($fastEntry.Folders) フォルダ"
         }
     }
-    return @{ Title = "$($item.Name) - 詳細"; Rows = $rows.ToArray(); Fast = $fast }
+    $rowsKey = (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
+    return @{ Title = "$($item.Name) - 詳細"; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast }
 }
