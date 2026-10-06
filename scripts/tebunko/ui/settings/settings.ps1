@@ -1,4 +1,4 @@
-﻿# ［8 設定］タブ（ワークスペース・設定ファイルの場所）。文言と可否の判定は settings_view.ps1。
+﻿# 設定の画面（ワークスペース・設定ファイルの場所。xaml\settings\settings.xaml）。文言と可否の判定は settings_view.ps1。
 
 ${workspaceCountLimit} = 1000      # 選んだフォルダの中身を数える上限（大きなフォルダで待たせない）
 
@@ -17,7 +17,7 @@ function updateSettingsView {
 function testWorkspaceChangeable {
     # インデックス作成中（インデクサが今のワークスペースに書いている。画面を使わずに起動したものも含む）・
     # 前のインデックスの削除中・エクスポート・インポート中（別スレッド。今のワークスペースの content_index・取り込み一覧・設定を使っている）は、
-    # ワークスペースを変えない。可否と文言は、［1 インデックス管理］の操作と同じ判断層（getIndexJobBlocker・getIndexJobBlockedMessage）で決める
+    # ワークスペースを変えない。可否と文言は、インデックス管理の操作と同じ判断層（getIndexJobBlocker・getIndexJobBlockedMessage）で決める
     $blocker = getIndexJobBlocker ((isIndexing) -or (testIndexerRunning)) $script:indexBusy $script:archiveBusy
     if ($blocker -ne "") {
         showMessage (getIndexJobBlockedMessage $blocker "ワークスペースの変更") "OK" "Warning" | Out-Null

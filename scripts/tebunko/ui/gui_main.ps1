@@ -106,7 +106,7 @@ function startGui {
             "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
             "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
             "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow") }
-        @{ File = "tab_settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
+        @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
         @{ File = "tab_kill.xaml"; Slot = "ContentHost"; Screen = "KillTab"; Names = @(
             "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
@@ -160,7 +160,7 @@ function startGui {
     . "$TebunkoDir\ui\search\open_source_view.ps1"
     . "$TebunkoDir\ui\search\target_tree_view.ps1"
     . "$TebunkoDir\ui\preview_view.ps1"
-    . "$TebunkoDir\ui\settings_view.ps1"
+    . "$TebunkoDir\ui\settings\settings_view.ps1"
     . "$TebunkoDir\ui\about_view.ps1"
     . "$TebunkoDir\ui\shell\nav_view.ps1"
     stepSplash 80
@@ -178,7 +178,7 @@ function startGui {
     . "$TebunkoDir\ui\open_source.ps1"
     . "$TebunkoDir\ui\index_tree.ps1"
     . "$TebunkoDir\ui\process_tab.ps1"
-    . "$TebunkoDir\ui\settings_tab.ps1"
+    . "$TebunkoDir\ui\settings\settings.ps1"
     . "$TebunkoDir\ui\about_dialog.ps1"
     stepSplash 90
     # ============================================================================
@@ -371,7 +371,7 @@ function startGui {
 
     function loadWorkspaceViews {
         # ワークスペースの中身（インデックスの一覧・取り込みの状態・検索対象のツリー・件数）を画面に読み込む。
-        # 起動したとき（loadStartupData）と、［8 設定］でワークスペースを変えたとき（settings_tab.ps1 の switchWorkspace）に呼ぶ
+        # 起動したとき（loadStartupData）と、設定の画面でワークスペースを変えたとき（settings\settings.ps1 の switchWorkspace）に呼ぶ
         loadTargets
         refreshIndexingState
         loadIndexTree

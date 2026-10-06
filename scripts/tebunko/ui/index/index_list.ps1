@@ -45,7 +45,7 @@ $script:indexingStart = $null
 $script:ingestFailed = 0  # インデックス作成中に一覧へ反映済みの失敗件数
 $script:indexingState = $null
 $script:indexSummary = $null
-$script:archiveBusy = $false  # エクスポート・インポート中（別スレッド）。settings_tab.ps1 の testWorkspaceChangeable も見る
+$script:archiveBusy = $false  # エクスポート・インポート中（別スレッド）。settings\settings.ps1 の testWorkspaceChangeable も見る
 $script:archiveJobOperation = ""
 $script:archiveJobOnSuccess = $null
 
