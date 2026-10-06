@@ -4321,7 +4321,7 @@
 <td>左の欄と画面の切り替え（画面層）。窓の中身は領域の表（<code>ui/gui_main.ps1</code> の <code>$regions</code>。File・Slot・Screen・Names）で読み込み、各領域の <code>x:Name</code> を <code>$ui</code> に集める。画面の中身（<code>Screen</code> の付いた領域）は起動のときに読み込んで <code>$script:screenContents</code> に持ち、<code>selectScreen</code>（画面の名前 → <code>ContentHost</code> に差す）が切り替える。ナビのクリック・Ctrl+Tab・ほかの画面からの切り替えは、すべて <code>selectScreen</code> を通す。起動時の読み込み（<code>loadStartupData</code>）が済むまでは、切り替えても読み直さない</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code><br><code>about_view.ps1</code><br><code>shell/nav_view.ps1</code></td>
+<td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search\search_bar_view.ps1</code><br><code>result_list_view.ps1</code><br><code>open_source_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code><br><code>about_view.ps1</code><br><code>shell/nav_view.ps1</code></td>
 <td>画面の<strong>判断層</strong>。「何を出すか」を決める部分を <code>$ui</code> に触らない関数として切り出したもの（入力は素の値、出力は素の値）。色は意味（<code>info</code> / <code>ok</code> / <code>warn</code> / <code>ng</code> / <code>gray</code>）で返し、実際の色はタブ側で対応表から引く。<code>shell/nav_view.ps1</code> は、ナビの画面の並び（<code>getScreenOrder</code>・<code>isScreenName</code>・<code>getNextScreen</code>）と、キー操作の判定（<code>getShortcutAction</code>。Ctrl+Tab・Ctrl+Shift+Tab・Ctrl+F・F5・Esc をどの操作にするか）を決める。<code>about_view.ps1</code> の <code>getAboutView</code> は、版の記録（<code>scripts/shared/core/version.ps1</code> の <code>readVersionFile</code>）から画面に出す版・コミットの文字列を決める。Pester でテストする（<a href="../../testing/gui-tests/#画面の単体テスト">画面のテストと確認</a>）</td>
 </tr>
 <tr>
