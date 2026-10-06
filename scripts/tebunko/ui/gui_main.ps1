@@ -269,7 +269,7 @@ function startGui {
         try { $ui.IndexingStopButton.IsEnabled = $false } catch { }
         try { $ui.IndexingProgressText.Text = "更新を止めています…" } catch { }
         try { $ui.IndexingProgressDetail.Text = "更新中のファイルが終わると、画面を閉じます。" } catch { }
-        try { setStatus "インデックス作成を止めてから閉じます…" } catch { }
+        try { setStatus "更新を止めてから閉じます…" } catch { }
         try {
             if ($null -eq $script:closeDeadline) {
                 $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
@@ -296,7 +296,7 @@ function startGui {
                 $answer = showConfirm `
                     -title "更新中です" `
                     -heading "インデックスを更新中です。中止して閉じますか？" `
-                    -hint "取り込んだところまでは残ります。次に起動したときに続きから再開できます。" `
+                    -hint "更新したところまでは残ります。次に起動したときに続きから再開できます。" `
                     -choices @(@{ Text = "中止して閉じる"; Value = "stop"; Careful = $true }) `
                     -cancelText "閉じない"
                 $e.Cancel = $true

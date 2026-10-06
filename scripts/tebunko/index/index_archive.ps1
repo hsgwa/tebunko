@@ -83,7 +83,7 @@ function exportIndex {
     $lock = newAppMutex "indexer" $ws.Dir
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
-        throw "インデックス作成中はエクスポートできません。インデックス作成が終わってからやり直してください。"
+        throw "更新中はエクスポートできません。更新が終わってからやり直してください。"
     }
     try {
         return (exportIndexCore $name $destPath $ws $settingsPath)
@@ -138,7 +138,7 @@ function exportIndexCore {
         $rel = (fromLongPath $file).Substring($prefixLength)
         $fileName = [System.IO.Path]::GetFileName($rel)
         if ($null -eq (readPackFileName $fileName)) {
-            throw "インデックス作成を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
+            throw "更新を最後まで行ってからエクスポートしてください（更新の途中のファイルが残っています: ${rel}）。"
         }
         $packFiles.Add($rel)
     }
@@ -405,7 +405,7 @@ function importIndex {
     $lock = newAppMutex "indexer" $ws.Dir
     if (!$lock.Acquired) {
         $lock.Mutex.Dispose()
-        throw "インデックス作成中はインポートできません。インデックス作成が終わってからやり直してください。"
+        throw "更新中はインポートできません。更新が終わってからやり直してください。"
     }
     try {
         return (importIndexCore $zipPath $collisionMode $name $sourceFolder $ws $settingsPath $getFreeSpace)

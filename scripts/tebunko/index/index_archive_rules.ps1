@@ -276,11 +276,11 @@ function getIndexFolderConflict {
         }
         if (testFolderUnder $folder $other.Path) {
             return "「${folder}」は、インデックス [$($other.Name)]（$($other.Path)）の中のフォルダです。" +
-                "同じファイルが二重に取り込まれるため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
+                "同じファイルが二重にインデックスに入るため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。"
         }
         if (testFolderUnder $other.Path $folder) {
             return "「${folder}」の中には、インデックス [$($other.Name)]（$($other.Path)）があります。" +
-                "同じファイルが二重に取り込まれるため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
+                "同じファイルが二重にインデックスに入るため、登録できません。まとめるときは、先に [$($other.Name)] を削除してください。"
         }
     }
     return ""

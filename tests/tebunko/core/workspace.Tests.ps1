@@ -344,7 +344,7 @@ Describe "getLegacyIndexMessage" -Tag Unit {
         getLegacyIndexMessage $dir $false | Should -Be ""
         $message = getLegacyIndexMessage $dir $true
         $message | Should -Match ([regex]::Escape("$dir\index"))
-        $message | Should -Match "取り込み直します"
+        $message | Should -Match "更新し直します"
     }
 }
 

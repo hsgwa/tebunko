@@ -72,7 +72,7 @@ stateDiagram-v2
 | ID | 状態 | 遷移 |
 |---|---|---|
 | `index-tab/empty` | インデックスが無い | 3 |
-| `index-tab/normal` | インデックスがあり、取り込み済み | 7 |
+| `index-tab/normal` | インデックスがあり、更新済み | 7 |
 | `index-tab/interrupted` | 前回の作成が中断している（起動時） | 4 |
 | `index-tab/add` | 追加のダイアログ | 11 |
 | `index-tab/add-error` | 追加のダイアログの注意（入力が足りない） | 12 |

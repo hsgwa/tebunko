@@ -25,7 +25,7 @@ flowchart TD
 | `scripts/tebunko/xaml/index/index.xaml`<br>`index_list.xaml`<br>`index_detail.xaml` | ［1 インデックス管理］の領域ごとの XAML。`index.xaml` は枠（上に一覧、下に詳細を入れる場所と、間の境目）、`index_list.xaml` は一覧（見出し・［インポート…］［追加…］［すべて更新］・表。行の［⋯］から開くメニュー `IndexRowMenu` に［編集…］［エクスポート…］［削除］）、`index_detail.xaml` は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと `x:Name` の確かめは検索の領域と同じ |
 | `scripts/tebunko/xaml/dialog_export.xaml`<br>`dialog_import.xaml` | インデックスのエクスポート・インポートのダイアログ（[エクスポート・インポート](index-tab.md#エクスポートインポート)）。`ui/index/index_archive.ps1` が開く |
 | `scripts/tebunko/xaml/dialog_index_edit.xaml` | インデックスの追加・編集のダイアログ（[追加・編集のダイアログ](index-tab.md#追加編集のダイアログ)）。追加と編集で同じ定義を使い、表題・説明・注意書きを `ui/index/index_edit.ps1` で変える |
-| `scripts/tebunko/xaml/dialog_indexing_confirm.xaml` | インデックス作成の確認ダイアログ（[インデックス作成の確認ダイアログ](indexing-run.md#インデックス更新の確認ダイアログ)）。インデックスごとの取り込み対象の件数（受け渡しの口の `Plan`）を一覧にする。`ui/indexing_tab.ps1` が開く |
+| `scripts/tebunko/xaml/dialog_indexing_confirm.xaml` | インデックス作成の確認ダイアログ（[インデックス作成の確認ダイアログ](indexing-run.md#インデックス更新の確認ダイアログ)）。インデックスごとの更新の対象の件数（受け渡しの口の `Plan`）を一覧にする。`ui/indexing_tab.ps1` が開く |
 | `scripts/tebunko/xaml/dialog_about.xaml` | 「バージョン情報」ダイアログ（左の欄の下の［バージョン情報］。[画面構成](index.md#画面構成)）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。`ui/about_dialog.ps1` が開く |
 | `scripts/shared/xaml/dialog_confirm.xaml` | 確認ダイアログ（[確認ダイアログ](common.md#確認ダイアログshowconfirm)）。見出し・結果の一覧（`ItemsControl` に `ConfirmFact` をバインド）・補足だけを定義し、ボタンは場面ごとに違うため `shared/ui/shell.ps1` の `showConfirm` が組み立てて `ButtonPanel` / `ChoicePanel` に入れる |
 | `scripts/shared/xaml/theme.xaml` | 画面の見た目（色・文字・コントロールの形）の共通定義 |

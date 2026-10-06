@@ -1,5 +1,5 @@
 ﻿<!-- ナビ（左の欄）。tebunko.xaml の NavHost に入れる（gui_main.ps1）。
-     項目の名前（SearchTab・IndexTab・SettingsTab）は、前のタブと同じ。画面の切り替えは ui/shell/nav.ps1 の selectScreen を通す。
+     項目の名前（SearchTab・IndexTab・SettingsTab）は、画面の切り替えと tests/gui が使う。画面の切り替えは ui/shell/nav.ps1 の selectScreen を通す。
      NavPaneHost は、検索の画面のときに検索対象のツリーを差す口（今は空）。 -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -26,8 +26,8 @@
     </ListBoxItem>
     <ListBoxItem x:Name="IndexTab" Style="{StaticResource NavItem}">
       <DockPanel>
-        <!-- 取り込みに失敗したファイルがあるときの印 -->
-        <TextBlock x:Name="IndexTabBadge" DockPanel.Dock="Right" Style="{x:Null}" Text="⚠" Visibility="Collapsed"
+        <!-- 更新中の割合・中断・失敗の印（文言と色は ui/index_view.ps1 の getIndexNavBadge） -->
+        <TextBlock x:Name="IndexTabBadge" DockPanel.Dock="Right" Style="{x:Null}" Text="⚠" Visibility="Collapsed" FontSize="10" Margin="6,0,0,0"
                    Foreground="{StaticResource Warn.Strong}" VerticalAlignment="Center" ToolTip="更新に失敗したファイルがあります" />
         <TextBlock Style="{x:Null}" Text="インデックス管理" />
       </DockPanel>

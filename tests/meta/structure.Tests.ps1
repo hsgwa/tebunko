@@ -303,7 +303,7 @@ Describe "theme のアイコン（Geometry）と図の Style" -Tag Meta {
             "File", "FileText", "FileSpreadsheet", "FolderSearch", "Presentation", "ChartColumn", "Save",
             "StopCircle", "Close", "CircleX", "CircleCheck", "Search", "CircleQuestionMark", "Check", "Zap",
             "Info", "InfoCircle", "InfoGlyph.S12", "InfoGlyph.S13", "InfoGlyph.S14", "InfoGlyph.S16",
-            "BadgeGlyphInfo", "BadgeGlyphWarn", "BadgeGlyphError", "BadgeGlyphOk", "Dots3"
+            "BadgeGlyphInfo", "BadgeGlyphWarn", "BadgeGlyphError", "BadgeGlyphOk", "Ellipsis"
         ) | ForEach-Object { @{ Key = "Icon.$_" } }
     }
 

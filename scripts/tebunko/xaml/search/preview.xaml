@@ -95,7 +95,7 @@
                         <DataTemplate>
                           <Border Width="{Binding Width}" Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,1,1">
                             <Grid>
-                              <TextBlock Text="{Binding Label}" Padding="6,3" FontSize="11" TextAlignment="Center"
+                              <TextBlock Text="{Binding Label}" Padding="6,3" FontSize="11" TextAlignment="Left" FontWeight="SemiBold"
                                          Foreground="{StaticResource Ink.Muted}"
                                          TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
                               <Thumb HorizontalAlignment="Right" Width="6" Cursor="SizeWE"

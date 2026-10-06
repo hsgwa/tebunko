@@ -186,8 +186,8 @@ function getLegacyIndexMessage {
         return ""
     }
     $legacyDir = [Workspace]::new($dir).LegacyIndexDir
-    return "前の版のインデックス（「${legacyDir}」）は、この版では使えません。インデックス作成で、元のファイルをすべて取り込み直します。" +
-        "取り込み直した後、「${legacyDir}」フォルダは削除してかまいません。"
+    return "前の版のインデックス（「${legacyDir}」）は、この版では使えません。［すべて更新］で、元のファイルをすべて更新し直します。" +
+        "更新し直した後、「${legacyDir}」フォルダは削除してかまいません。"
 }
 
 function clearLegacySystemIndex {
