@@ -90,6 +90,11 @@ function getNoKindMatchText {
     return "種類（$text）に合うファイルがありません。"
 }
 
+function getNoIndexTargetText {
+    # インデックスがひとつも無いときの、検索対象の欄の文言
+    return "検索対象：なし（インデックスがありません。先に［インデックス管理］で作成してください）"
+}
+
 function getWordNotice {
     # 検索ワードの下に出す注意書き（出さないときは空文字列）
     param (

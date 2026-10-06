@@ -379,3 +379,48 @@ function testIndexEditInput {
     $usedNames = getUsedIndexNames $items $current
     return (testIndexName $name.Trim() @($usedNames))
 }
+
+function getIndexDetailView {
+    # インデックスの詳細のパネルに出す、選んだインデックスの基本の値の行と高速検索の反映の進み具合を返す。
+    # 1 つ選んでいるときだけ値の行を出す（何も選んでいない・複数のときは、すべてのインデックスの合計だけを出す）。
+    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; IndexText; FileCountText; LastIngestedText; FastText }
+    #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
+    # 戻り値: @{ Title; Rows（@{ Label; Value } の配列）; Fast（@{ Shown; Value（0〜1）; Text }） }
+    param (
+        [object[]]$items,
+        $fastEntry = $null
+    )
+
+    $none = @{ Title = "インデックスの状態"; Rows = @(); Fast = @{ Shown = $false; Value = 0.0; Text = "" } }
+    $selected = @($items | Where-Object { $null -ne $_ })
+    if ($selected.Count -ne 1) {
+        return $none
+    }
+    $item = $selected[0]
+
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    [void]$rows.Add(@{ Label = "元のフォルダ"; Value = [string]$item.Path })
+    if ($item.FolderStatus) {
+        [void]$rows.Add(@{ Label = "フォルダの状態"; Value = [string]$item.FolderStatus })
+    }
+    $target = if ($item.Enabled) { "対象にする" } else { "対象にしない（［作成］のチェックを外している）" }
+    [void]$rows.Add(@{ Label = "インデックス作成"; Value = $target })
+    [void]$rows.Add(@{ Label = "ステータス"; Value = [string]$item.IndexText })
+    $count = if ($item.FileCountText -and $item.FileCountText -ne "－") { "$($item.FileCountText) ファイル" } else { "まだ取り込んでいません" }
+    [void]$rows.Add(@{ Label = "ファイル数"; Value = $count })
+    if ($item.LastIngestedText) {
+        [void]$rows.Add(@{ Label = "最終取り込み"; Value = [string]$item.LastIngestedText })
+    }
+    [void]$rows.Add(@{ Label = "高速検索"; Value = [string]$item.FastText })
+
+    $fast = @{ Shown = $false; Value = 0.0; Text = "" }
+    if ($null -ne $fastEntry -and $fastEntry.Folders -gt 0) {
+        $done = [Math]::Max(0, [Math]::Min([int]$fastEntry.Folders, [int]$fastEntry.Folders - [int]$fastEntry.Waiting))
+        $fast = @{
+            Shown = $true
+            Value = $done / [double]$fastEntry.Folders
+            Text = "高速検索の反映：反映済み $done / $($fastEntry.Folders) フォルダ"
+        }
+    }
+    return @{ Title = "$($item.Name) - 詳細"; Rows = $rows.ToArray(); Fast = $fast }
+}

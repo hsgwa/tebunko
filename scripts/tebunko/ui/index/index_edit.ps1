@@ -10,17 +10,19 @@ function showIndexEditDialog {
     $dialog = loadWindow "${xamlDir}\dialog_index_edit.xaml" ${fontsDir}
     $dialog.Owner = $window
     $ctrl = @{}
-    foreach ($name in @("OkButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
+    foreach ($name in @("OkButton", "DialogHeadingText", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $script:editDialog = @{ Window = $dialog; Ctrl = $ctrl; Item = $item; Suggested = "" }
 
     if ($null -eq $item) {
         $dialog.Title = "インデックスの追加"
+        $ctrl.DialogHeadingText.Text = "インデックスを追加する"
         $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）の入っているフォルダを 1 つ選んでください。" +
             "ここでは一覧に加えるだけです。中のファイルを読むのは［インデックス作成を開始］を押してからです。"
     } else {
         $dialog.Title = "インデックスの編集"
+        $ctrl.DialogHeadingText.Text = "インデックスを編集する"
         $ctrl.IntroText.Text = "名前と、元のフォルダの場所を変えられます。"
         $ctrl.FolderBox.Text = $item.Path
         $ctrl.NameBox.Text = $item.Name

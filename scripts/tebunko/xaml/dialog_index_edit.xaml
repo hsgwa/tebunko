@@ -18,11 +18,12 @@
   <DockPanel Margin="18,16,18,16">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
       <Button x:Name="OkButton" Style="{StaticResource Primary}" Content="OK" IsDefault="True" MinWidth="104" Height="32" />
-      <Button x:Name="CancelButton" Content="キャンセル" IsCancel="True" MinWidth="104" Height="32" Margin="8,0,0,0" />
+      <Button x:Name="CancelButton" Style="{StaticResource DialogButton}" Content="キャンセル" IsCancel="True" Height="32" />
     </StackPanel>
 
     <StackPanel>
-      <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,0,0,6" />
+      <TextBlock x:Name="DialogHeadingText" Style="{StaticResource DialogHeading}" />
+      <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,8,0,6" TextWrapping="Wrap" />
 
       <TextBlock Style="{StaticResource Label}" HorizontalAlignment="Left" Margin="0,12,0,6"
                  Text="元のフォルダ（Office ファイルのある場所）" />

@@ -77,6 +77,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
                 if ($r -and ((getGuiRowTexts $r) -contains "資料")) { $r }
             }
 
+            # 行を選ぶと、詳細の見出しが「<名前> - 詳細」になる
+            setGuiStep $S "行を選ぶと詳細の見出しが変わる"
+            selectGui $row
+            waitGui $S "詳細の見出し" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailTitle")) -eq "資料 - 詳細" } | Out-Null
+
             # ［作成］のチェックを切り替えると、設定への保存と［インデックス作成を開始］の可否に反映される（#16）
             setGuiStep $S "［作成］のチェックの切り替え"
             $check = findGui $row -Type CheckBox

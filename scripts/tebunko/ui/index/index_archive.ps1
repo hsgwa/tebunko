@@ -106,13 +106,8 @@ function newExportIndex {
     # 保存先フォルダの中身を数えるのも別スレッドで行う（届かないネットワークのフォルダで画面が止まらないように）
     startIndexArchiveJob "エクスポート" {
         param ($name, $folder, $dir, $statusPath, $settingsPath)
-        if (!(Test-Path -LiteralPath (toLongPath $folder) -PathType Container)) {
-            throw "書き出し先のフォルダが見つかりません：$folder"
-        }
-        $used = @(Get-ChildItem -LiteralPath (toLongPath $folder) -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
-        $destPath = Join-Path $folder (getExportFileName $name $used)
         $ws = [Workspace]::new($dir)
-        exportIndex $name $destPath $ws $settingsPath
+        exportIndexToFolder $name $folder $ws $settingsPath
     } @($name, $folder, $workspace.Dir, $workspace.StatusFile, ${settingsFile}) {
         param ($result)
         setStatus "インデックス [$($result.Name)] を「$($result.Path)」に書き出しました（$($result.Files) ファイル）"

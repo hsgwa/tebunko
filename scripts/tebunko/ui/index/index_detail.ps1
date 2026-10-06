@@ -213,6 +213,40 @@ function applyFailedFileState {
     setStatus (getFailedFileOtherStatus $state.Message)
 }
 
+function updateIndexDetailPanel {
+    # 選んだインデックスの値の行と、高速検索の反映の進み具合を出す（文言の組み立ては getIndexDetailView）。
+    # 選びなおしたとき・取り込みの集計や高速検索の確かめが届いたときに呼ぶ
+    $selected = @()
+    $entry = $null
+    $item = $ui.IndexGrid.SelectedItem
+    if ($null -ne $item) {
+        $selected = @(@{
+            Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
+            IndexText = $item.IndexText; FileCountText = $item.FileCountText
+            LastIngestedText = $item.LastIngestedText; FastText = $item.FastText
+        })
+        $progress = $script:fastSearchProgress
+        if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($item.Name)) {
+            $entry = $progress.ByIndex[$item.Name]
+        }
+    }
+    $view = getIndexDetailView $selected $entry
+
+    $ui.IndexDetailTitle.Text = $view.Title
+    $rows = New-Object 'System.Collections.ObjectModel.ObservableCollection[DetailRow]'
+    foreach ($row in $view.Rows) {
+        $detailRow = New-Object DetailRow
+        $detailRow.Label = $row.Label
+        $detailRow.Value = $row.Value
+        $rows.Add($detailRow)
+    }
+    $ui.IndexDetailRows.ItemsSource = $rows
+    $ui.IndexDetailRows.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
+    $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
+    $ui.IndexDetailFastText.Text = $view.Fast.Text
+    $ui.IndexDetailFastBar.Value = $view.Fast.Value
+}
+
 function updateIndexSummaryText {
     $summary = $script:indexSummary
     if ($null -eq $summary) {

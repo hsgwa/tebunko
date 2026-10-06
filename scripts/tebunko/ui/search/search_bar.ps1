@@ -95,7 +95,7 @@ function updateSearchTarget {
     $targets = @(getSearchTargets)
     $summary = $script:indexSummary
     if ($summary -and $summary["Count"] -eq 0) {
-        $ui.SearchTargetText.Text = "検索対象：なし（インデックスがありません。先に［1 インデックス管理］で作成してください）"
+        $ui.SearchTargetText.Text = (getNoIndexTargetText)
     } elseif ($targets.Count -eq 0) {
         $ui.SearchTargetText.Text = "検索対象：なし（左の一覧で、検索するインデックス・フォルダにチェックを付けてください）"
     } elseif (!(isAllIndexChecked)) {

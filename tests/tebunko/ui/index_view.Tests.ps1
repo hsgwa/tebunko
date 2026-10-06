@@ -437,3 +437,62 @@ Describe "testIndexImportInput（元のフォルダの重なり）" -Tag Unit {
         testIndexImportInput "C:\data\売上" "売上" $items | Should -Be ""
     }
 }
+Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
+    BeforeAll {
+        function newDetailItem {
+            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります")
+            return @{ Name = $name; Path = "C:\共有\営業部"; Enabled = $enabled; FolderStatus = $folderStatus; IndexText = "取り込み済"; FileCountText = $fileCount; LastIngestedText = $last; FastText = "可" }
+        }
+    }
+
+    It "<label>: 値の行を出さず、合計だけを出す" -TestCases @(
+        @{ label = "何も選んでいない（空）"; items = @() }
+        @{ label = "何も選んでいない（null）"; items = @($null) }
+        @{ label = "複数を選んでいる"; items = @(@{ Name = "営業"; Path = "C:\共有\営業部" }, @{ Name = "経理"; Path = "C:\共有\経理部" }) }
+    ) {
+        param ($label, $items)
+        $view = getIndexDetailView $items $null
+        $view.Title | Should -Be "インデックスの状態"
+        @($view.Rows).Count | Should -Be 0
+        $view.Fast.Shown | Should -BeFalse
+    }
+
+    It "1 つ選ぶと、題に名前を入れ、値の行を並べる" {
+        $view = getIndexDetailView @(newDetailItem) $null
+        $view.Title | Should -Be "営業 - 詳細"
+        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "元のフォルダ,フォルダの状態,インデックス作成,ステータス,ファイル数,最終取り込み,高速検索"
+        $view.Rows[0].Value | Should -Be "C:\共有\営業部"
+        $view.Rows[2].Value | Should -Be "対象にする"
+        $view.Rows[4].Value | Should -Be "1,234 ファイル"
+    }
+
+    It "<label>: 出せない値は行ごと省くか、言い換える" -TestCases @(
+        @{ label = "作成の対象でない"; args1 = @{ enabled = $false }; label2 = "インデックス作成"; expected = "対象にしない（［作成］のチェックを外している）" }
+        @{ label = "まだ取り込んでいない"; args1 = @{ fileCount = "－"; last = "" }; label2 = "ファイル数"; expected = "まだ取り込んでいません" }
+    ) {
+        param ($label, $args1, $label2, $expected)
+        $view = getIndexDetailView @(newDetailItem @args1) $null
+        ($view.Rows | Where-Object { $_.Label -eq $label2 }).Value | Should -Be $expected
+    }
+
+    It "最終取り込みとフォルダの状態が空なら、その行を省く" {
+        $view = getIndexDetailView @(newDetailItem -last "" -folderStatus "") $null
+        ($view.Rows | ForEach-Object { $_.Label }) | Should -Not -Contain "最終取り込み"
+        ($view.Rows | ForEach-Object { $_.Label }) | Should -Not -Contain "フォルダの状態"
+    }
+
+    It "<label>: 高速検索の反映の進み具合" -TestCases @(
+        @{ label = "途中"; entry = @{ Folders = 4; Waiting = 1 }; visible = $true; value = 0.75; text = "高速検索の反映：反映済み 3 / 4 フォルダ" }
+        @{ label = "すべて反映済み"; entry = @{ Folders = 2; Waiting = 0 }; visible = $true; value = 1.0; text = "高速検索の反映：反映済み 2 / 2 フォルダ" }
+        @{ label = "すべて反映待ち"; entry = @{ Folders = 3; Waiting = 3 }; visible = $true; value = 0.0; text = "高速検索の反映：反映済み 0 / 3 フォルダ" }
+        @{ label = "待ちが多すぎる値でも 0 未満にしない"; entry = @{ Folders = 3; Waiting = 5 }; visible = $true; value = 0.0; text = "高速検索の反映：反映済み 0 / 3 フォルダ" }
+        @{ label = "フォルダが無い"; entry = @{ Folders = 0; Waiting = 0 }; visible = $false; value = 0.0; text = "" }
+        @{ label = "値が無い"; entry = $null; visible = $false; value = 0.0; text = "" }
+    ) {
+        param ($label, $entry, $visible, $value, $text)
+        $view = getIndexDetailView @(newDetailItem) $entry
+        $view.Fast.Shown | Should -Be $visible
+        $view.Fast.Value | Should -Be $value
+        $view.Fast.Text | Should -Be $text
+    }
+}

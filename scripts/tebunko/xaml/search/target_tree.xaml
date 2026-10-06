@@ -1,5 +1,5 @@
 ﻿<!-- 検索対象のツリー。左のナビの NavPaneHost に入れる（gui_main.ps1。検索の画面のときだけ出す）。
-     ［1 インデックス管理］で作ったインデックスを、チェックで検索対象にする。 -->
+     ［インデックス管理］で作ったインデックスを、チェックで検索対象にする。 -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Grid.Resources>
@@ -11,7 +11,7 @@
   </Grid.Resources>
   <DockPanel Margin="12,10,12,10">
     <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="検索対象" Margin="0,0,0,8"
-               ToolTip="［1 インデックス管理］で作ったインデックスの一覧です" />
+               ToolTip="［インデックス管理］で作ったインデックスの一覧です" />
     <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
       <TextBox x:Name="IndexTreeFilterBox" FontSize="12" />
       <TextBlock x:Name="IndexTreeFilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="12"
@@ -54,7 +54,7 @@
       </TreeView>
       <TextBlock x:Name="IndexTreePlaceholder" Style="{StaticResource Placeholder}" Margin="12,10"
                  VerticalAlignment="Top" TextWrapping="Wrap" Visibility="Collapsed"
-                 Text="インデックスがありません。［1 インデックス管理］でインデックスを作成してください。" />
+                 Text="インデックスがありません。［インデックス管理］でインデックスを作成してください。" />
     </Grid>
   </DockPanel>
 </Grid>

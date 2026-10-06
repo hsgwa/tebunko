@@ -93,6 +93,25 @@ function exportIndex {
     }
 }
 
+function exportIndexToFolder {
+    # 1 つのインデックスを、書き出し先のフォルダの中の zip に書き出す（ファイル名は getExportFileName で決め、
+    # フォルダに同じ名前があれば番号を付ける）。書き出し先のフォルダが無ければ例外。戻り値は exportIndex と同じ。
+    # 届かないネットワークのフォルダで止まりうるので、画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
+    param (
+        [string]$name,
+        [string]$folder,
+        $ws = $workspace,
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    if (!(Test-Path -LiteralPath (toLongPath $folder) -PathType Container)) {
+        throw "書き出し先のフォルダが見つかりません：$folder"
+    }
+    $used = @(Get-ChildItem -LiteralPath (toLongPath $folder) -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    $destPath = Join-Path $folder (getExportFileName $name $used)
+    return (exportIndex $name $destPath $ws $settingsPath)
+}
+
 function exportIndexCore {
     param (
         [string]$name,

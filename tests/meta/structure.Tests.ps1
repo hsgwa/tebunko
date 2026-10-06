@@ -55,8 +55,20 @@ Describe "カバレッジの計測の対象（画面層だけを分母から外�
         @{ file = "tebunko\ui\search\search_bar_view.ps1" }
         @{ file = "tebunko\ui\search\result_list_view.ps1" }
         @{ file = "tebunko\ui\search\open_source_view.ps1" }
+        @{ file = "tebunko\ui\search\target_tree_view.ps1" }
     ) {
         $script:targets | Should -Contain $file
+    }
+
+    It "ui\ の下の判断層（*_view.ps1）は、すべて計測の対象に入っている" {
+        $root = [System.IO.Path]::GetFullPath("$here\..\scripts")
+        $views = @(Get-ChildItem -LiteralPath $root -Recurse -Filter "*_view.ps1" |
+            Where-Object { $_.FullName -like "*\ui\*" } |
+            ForEach-Object { $_.FullName.Substring($root.Length + 1) })
+        $views.Count | Should -BeGreaterThan 0
+        foreach ($view in $views) {
+            $script:targets | Should -Contain $view
+        }
     }
 
     It "画面層（<file>）は計測の対象に入っていない" -ForEach @(

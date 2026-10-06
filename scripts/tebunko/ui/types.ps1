@@ -558,6 +558,12 @@ class FailRow {
     [string]$SourcePath
 }
 
+# インデックスの詳細のパネルの値の 1 行（getIndexDetailView）
+class DetailRow {
+    [string]$Label
+    [string]$Value
+}
+
 # インデックス作成の確認ダイアログに出すインデックス1件（取り込み予定.tsv の1行）
 class PlanRow {
     [string]$Name

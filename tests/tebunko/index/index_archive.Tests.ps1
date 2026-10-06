@@ -132,6 +132,29 @@ Describe "exportIndex" -Tag Io {
     }
 }
 
+Describe "exportIndexToFolder" -Tag Io {
+    It "止める: 書き出し先のフォルダが無ければ、フォルダ名を添えて例外にする" {
+        $fixture = newIndexFixture "$TestDrive\exportf_nofolder" "営業" "C:\共有\営業部"
+        $missing = "$TestDrive\exportf_nofolder\無い場所"
+
+        { exportIndexToFolder "営業" $missing $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*書き出し先のフォルダが見つかりません*無い場所*"
+    }
+
+    It "フォルダの中に既定のファイル名で書き出し、同じ名前があれば番号を付ける" {
+        $fixture = newIndexFixture "$TestDrive\exportf_ok" "営業" "C:\共有\営業部"
+        $out = "$TestDrive\exportf_ok\out"
+        New-Item -ItemType Directory -Path $out | Out-Null
+
+        $first = exportIndexToFolder "営業" $out $fixture.Workspace $fixture.SettingsPath
+        $second = exportIndexToFolder "営業" $out $fixture.Workspace $fixture.SettingsPath
+
+        (Split-Path $first.Path -Parent) | Should -Be $out
+        (Split-Path $first.Path -Leaf) | Should -Match "^営業_インデックス_\d{8}\.zip$"
+        (Split-Path $second.Path -Leaf) | Should -Match "^営業_インデックス_\d{8}\(2\)\.zip$"
+        @(Get-ChildItem -LiteralPath $out -File).Count | Should -Be 2
+    }
+}
+
 Describe "readIndexArchiveInfo" -Tag Io {
     It "目録を読んで @{ IndexName; SourceFolder; Files; Bytes } を返す（インポートしない）" {
         $fixture = newIndexFixture "$TestDrive\info_ok" "営業" "C:\共有\営業部"

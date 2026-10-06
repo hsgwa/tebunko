@@ -5,7 +5,7 @@
 #   ・タブ: *_tab.ps1
 #   ・ダイアログ: *_dialog.ps1
 #   ・画面ごとのフォルダ（tebunko\ui\search\）の画面層: 同じ名前のテスト（tests\tebunko\ui\search\<名前>.Tests.ps1）が無いもの。
-#     名前だけで決めず、フォルダとテストの有無で決める（判断層の *_view.ps1 は、テストがあるので分母に入る）
+#     名前だけで決めず、フォルダとテストの有無で決める（判断層の *_view.ps1 は、テストの有無にかかわらず必ず分母に入る）
 # 画面層のファイルを足したら、上のどれかの名前にするか、ここに足して、分母から外れていることを確かめる。
 
 function getCoverageTargets {
@@ -21,6 +21,10 @@ function getCoverageTargets {
             $relative = $_.FullName.Substring($scriptsRoot.TrimEnd("\").Length + 1)
             $folder = Split-Path -Parent $relative
             if ($screenFolders -contains $folder) {
+                # 判断層（*_view.ps1）は、同名のテストが無くても必ず分母に入れる（テストが無いまま黙って外れないように）
+                if ($_.Name -match "_view\.ps1$") {
+                    return $true
+                }
                 return (Test-Path -LiteralPath (Join-Path $testsRoot "$folder\$($_.BaseName).Tests.ps1"))
             }
             return $true

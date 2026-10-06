@@ -18,17 +18,25 @@
   <DockPanel Margin="18,16,18,16">
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
       <Button x:Name="StartButton" Style="{StaticResource Primary}" Content="インデックス作成を開始" IsDefault="True" MinWidth="130" Height="34" />
-      <Button x:Name="CancelButton" Content="キャンセル" IsCancel="True" MinWidth="104" Height="34" Margin="8,0,0,0" />
+      <Button x:Name="CancelButton" Style="{StaticResource DialogButton}" Content="キャンセル" IsCancel="True" Height="34" />
     </StackPanel>
 
     <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
       <CheckBox x:Name="RetryCheck" Visibility="Collapsed" Margin="0,0,0,10" />
       <!-- 取り込む合計件数が、この画面の主役 -->
       <TextBlock x:Name="TotalText" Style="{StaticResource Focal}" TextWrapping="Wrap" />
-      <TextBlock x:Name="NoteText" Style="{StaticResource Meta}" Margin="0,6,0,0" Visibility="Collapsed" />
+      <!-- 注意の枠（取り込むものが無いときの案内）。文字は NoteText に入れ、枠は NoteText の表示に合わせて出す -->
+      <Border Margin="0,8,0,0" Padding="12,8" CornerRadius="6" Background="{StaticResource Warn.Note}"
+              BorderBrush="{StaticResource Warn.Line}" BorderThickness="1"
+              Visibility="{Binding Visibility, ElementName=NoteText}">
+        <TextBlock x:Name="NoteText" Foreground="{StaticResource Warn.Strong}" TextWrapping="Wrap" Visibility="Collapsed" />
+      </Border>
     </StackPanel>
 
-    <TextBlock x:Name="IntroText" DockPanel.Dock="Top" Style="{StaticResource Meta}" Margin="0,0,0,12" />
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+      <TextBlock Style="{StaticResource DialogHeading}" Text="インデックス作成の確認" />
+      <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" />
+    </StackPanel>
 
     <DataGrid x:Name="PlanGrid" MinHeight="120" CanUserAddRows="False" SelectionMode="Single" CanUserSortColumns="False">
       <DataGrid.Columns>

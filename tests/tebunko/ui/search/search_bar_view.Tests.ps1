@@ -65,6 +65,14 @@ Describe "getFastSearchView" -Tag Unit {
     }
 }
 
+Describe "getNoIndexTargetText" -Tag Unit {
+    It "ナビの名前（［インデックス管理］）で案内し、古い呼び名を使わない" {
+        $text = getNoIndexTargetText
+        $text | Should -Be "検索対象：なし（インデックスがありません。先に［インデックス管理］で作成してください）"
+        $text | Should -Not -Match "［1 "
+    }
+}
+
 Describe "getWordNotice" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "正規表現でなければ出さない"; word = "("; useRegex = $false; expected = "" }

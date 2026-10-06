@@ -246,6 +246,7 @@ function updateFastSearchRows {
             $waiting = $true
         }
     }
+    updateIndexDetailPanel
     if ($waiting) {
         if (!$script:fastSearchTimer.IsEnabled) {
             $script:fastSearchTimer.Start()
@@ -359,6 +360,7 @@ function applyIndexStats {
 function updateIndexListView {
     $ui.IndexGridPlaceholder.Visibility = if ($script:targetItems.Count -eq 0) { "Visible" } else { "Collapsed" }
     updateIndexingButton
+    updateIndexDetailPanel
 }
 
 function testIndexOperable {
