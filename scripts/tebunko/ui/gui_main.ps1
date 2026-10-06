@@ -147,7 +147,7 @@ function startGui {
     . "$TebunkoDir\ui\preview_view.ps1"
     . "$TebunkoDir\ui\settings_view.ps1"
     . "$TebunkoDir\ui\about_view.ps1"
-    . "$TebunkoDir\ui\nav_view.ps1"
+    . "$TebunkoDir\ui\shell\nav_view.ps1"
     stepSplash 80
     . "$TebunkoDir\ui\index_tab.ps1"
     . "$TebunkoDir\ui\indexing_tab.ps1"
@@ -169,7 +169,7 @@ function startGui {
     $script:startupLoaded = $false
 
     # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
-    . "$TebunkoDir\ui\nav.ps1"
+    . "$TebunkoDir\ui\shell\nav.ps1"
 
     $window.Add_Activated({
         if (!$script:startupLoaded) {
@@ -201,33 +201,50 @@ function startGui {
     $window.Add_PreviewKeyDown({
         param ($sender, $e)
         $modifiers = [System.Windows.Input.Keyboard]::Modifiers
-        if ($e.Key -eq "F" -and $modifiers -eq "Control") {
-            selectScreen "SearchTab"
-            $ui.WordBox.Focus() | Out-Null
-            $ui.WordBox.SelectAll()
-            $e.Handled = $true
-        } elseif ($e.Key -eq "F" -and $modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift)) {
-            selectScreen "SearchTab"
-            $ui.FilterBox.Focus() | Out-Null
-            $e.Handled = $true
-        } elseif ($e.Key -eq "Tab" -and ($modifiers -eq "Control" -or $modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift))) {
-            # Ctrl+Tab・Ctrl+Shift+Tab: ナビの項目を順に切り替える（前のタブの動きをそのまま残す）
-            selectScreen (getNextScreen (getCurrentScreen) $(if ($modifiers -eq "Control") { 1 } else { -1 }))
-            $e.Handled = $true
-        } elseif ($e.Key -eq "F5") {
-            safe {
-                if ((getCurrentScreen) -eq "KillTab") {
-                    refreshProcesses
-                } else {
-                    refreshIndexingState
-                    refreshIndexSummary
-                    loadIndexTree
+        $ctrl = ($modifiers -band [System.Windows.Input.ModifierKeys]::Control) -ne 0
+        $shift = ($modifiers -band [System.Windows.Input.ModifierKeys]::Shift) -ne 0
+        # Alt などが混ざったキーは、これまでどおり扱わない
+        $others = $modifiers -band (-bnot ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift))
+        if ($others -ne 0) { return }
+        $action = getShortcutAction ([string]$e.Key) $ctrl $shift (getCurrentScreen)
+        switch ($action.Action) {
+            "FocusSearchWord" {
+                selectScreen $action.Screen
+                # 切り替えた直後は、検索の画面がまだ表示の木に入っていないことがあるため、配置を済ませてからフォーカスする
+                $ui.ContentHost.UpdateLayout()
+                $ui.WordBox.Focus() | Out-Null
+                $ui.WordBox.SelectAll()
+                $e.Handled = $true
+            }
+            "FocusFilter" {
+                selectScreen $action.Screen
+                $ui.ContentHost.UpdateLayout()
+                $ui.FilterBox.Focus() | Out-Null
+                $e.Handled = $true
+            }
+            "SwitchScreen" {
+                # Ctrl+Tab・Ctrl+Shift+Tab: ナビの項目を順に切り替える
+                selectScreen $action.Screen
+                $e.Handled = $true
+            }
+            "Refresh" {
+                safe {
+                    if ($action.Screen -eq "KillTab") {
+                        refreshProcesses
+                    } else {
+                        refreshIndexingState
+                        refreshIndexSummary
+                        loadIndexTree
+                    }
+                }
+                $e.Handled = $true
+            }
+            "CancelSearch" {
+                if ($script:search) {
+                    cancelSearch
+                    $e.Handled = $true
                 }
             }
-            $e.Handled = $true
-        } elseif ($e.Key -eq "Escape" -and $script:search) {
-            cancelSearch
-            $e.Handled = $true
         }
     })
 
