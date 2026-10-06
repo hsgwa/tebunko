@@ -4073,8 +4073,8 @@
 </tr>
 <tr>
 <td>第三者ライブラリ</td>
-<td><strong>使用しない</strong>。実行時の依存は Windows 標準の .NET アセンブリと Microsoft Office のみ</td>
-<td><code>new_sbom.Tests.ps1</code>（SBOM に第三者の部品が無いこと）</td>
+<td><strong>使用しない</strong>。実行時の依存は Windows 標準の .NET アセンブリと Microsoft Office のみ。同梱する第三者の部品は、フォント Rethink Sans（OFL-1.1）とアイコンの形 Lucide（ISC）の 2 つだけで、実行されるコードではない</td>
+<td><code>new_sbom.Tests.ps1</code>（SBOM の第三者の部品がこの 2 件だけで、<code>purl</code> を持つものが無いこと）</td>
 <td><a href="supply-chain/">供給網（サプライチェーン）とライセンス</a></td>
 </tr>
 <tr>
@@ -4163,7 +4163,7 @@
 </tr>
 <tr>
 <td>規模（監査の目安）</td>
-<td><code>scripts/</code> 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）。第三者依存が無いため、監査対象はこの範囲で閉じる</td>
+<td><code>scripts/</code> 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点）。第三者のコードの依存が無いため、監査対象はこの範囲で閉じる</td>
 <td>–</td>
 <td><a href="scans/#同梱の機械検査と品質の指標">同梱の機械検査と品質の指標</a></td>
 </tr>

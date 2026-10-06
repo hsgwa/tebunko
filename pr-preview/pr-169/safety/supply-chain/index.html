@@ -4058,7 +4058,7 @@
 </tr>
 <tr>
 <td>部品表（SBOM）</td>
-<td>CycloneDX 1.6 形式で、配布 zip と並べてリリースに載せる。構成物は本ツール自身のファイルのみで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>new_sbom.Tests.ps1</code> が確かめる）。同じコミット・同じ版から作ると同じ中身になる（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">再現の条件</a>）</td>
+<td>CycloneDX 1.6 形式で、配布 zip と並べてリリースに載せる。構成物は本ツール自身のファイルと、同梱する第三者の部品 2 件（Rethink Sans・Lucide。<code>tools/new_sbom.ps1</code> が足す）だけで、<code>purl</code>（パッケージ識別子）を持つ部品は 1 件も無い（<code>new_sbom.Tests.ps1</code> が確かめる）。同じコミット・同じ版から作ると同じ中身になる（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">再現の条件</a>）</td>
 </tr>
 <tr>
 <td>前提ソフトウェア</td>
