@@ -4144,7 +4144,7 @@
 <h1 id="元のファイルを開く">元のファイルを開く<a class="headerlink" href="#元のファイルを開く" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 検索結果の行から元のファイルを開く方法（開き方の 3 種類・Excel の該当セルへの移動）、インデックスを別の PC・場所で使うときの元のフォルダの特定、元のファイルが見つからないときの扱い。扱わないこと: 検索結果の表そのもの（<a href="../search-tab/">検索タブ</a>）。先に読むページ: <a href="../search-tab/">検索タブ</a>。</p>
 <p>検索結果の行から元のファイルを開く方法（開き方の 3 種類・Excel の該当セルへの移動）と、インデックスを別の PC・場所で使うときに元のファイルを見つける仕組み（<a href="#元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）</a>・<a href="#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）を定める。</p>
-<p>ダブルクリック、Enter、選択行のプレビューの［Excel で開く］（Word・PowerPoint は［開く］。<a href="../preview/">選択行のプレビュー</a>）、または右クリックメニュー［元のファイルを開く］で開く。</p>
+<p>ダブルクリック、Enter、選択行のプレビューの［開く］（［▾］から開き方も選べる。<a href="../preview/">選択行のプレビュー</a>）、または右クリックメニュー［元のファイルを開く］で開く。</p>
 <table>
 <thead>
 <tr>
@@ -4159,7 +4159,7 @@
 </tr>
 <tr>
 <td>開き方</td>
-<td>選択行のプレビューの［開き方］で選ぶ（既定は「通常」）。選んだ開き方は <code>setting.config</code> の <code>openMode</code> に保存し、次回も引き継ぐ（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）。右クリックメニューでは、その時だけ別の開き方も選べる<br>・<strong>通常</strong>（<code>normal</code>）: 元のファイルをそのまま開く（編集して上書き保存できる）<br>・<strong>読み取り専用</strong>（<code>readOnly</code>）: 元のファイルを読み取り専用で開く（誤って上書き保存しない）<br>・<strong>新規</strong>（<code>new</code>）: 元のファイルを基にした無題のブック・文書として開く（元のファイルを占有しない）</td>
+<td>選択行のプレビューの［開く］の右の［▾］のメニュー（通常・新規・読み取り専用）で選ぶと、その開き方でファイルを開き、既定にもする（既定は「通常」）。選んだ開き方は <code>setting.config</code> の <code>openMode</code> に保存し、次回も引き継ぐ（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）。右クリックメニューでは、その時だけ別の開き方も選べる<br>・<strong>通常</strong>（<code>normal</code>）: 元のファイルをそのまま開く（編集して上書き保存できる）<br>・<strong>読み取り専用</strong>（<code>readOnly</code>）: 元のファイルを読み取り専用で開く（誤って上書き保存しない）<br>・<strong>新規</strong>（<code>new</code>）: 元のファイルを基にした無題のブック・文書として開く（元のファイルを占有しない）</td>
 </tr>
 <tr>
 <td>Excel</td>
@@ -4248,7 +4248,7 @@
 <ul>
 <li>Word・PowerPoint はシェルの動詞で開く。その動詞が登録されていない種類のファイルは、元のファイルをそのまま開き、ステータスに <code>読み取り専用で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> / <code>新規で開けなかったため、元のファイルを開きました：&lt;パス&gt;</code> と表示する。<code>ProcessStartInfo.Verbs</code> は <code>New</code> を一覧に含めないため、事前に確かめず実行して例外（<code>Win32Exception</code>）で判断する（<code>openWithShell</code>）。</li>
 <li><code>Start-Process</code> はパスの <code>[</code> <code>]</code> をワイルドカードとして扱うため、<code>ProcessStartInfo</code> で開く。メモ帳を開く <code>openWithNotepad</code> は、開くパス（固定）とは別に引数（元のファイルのパス）を <code>-ArgumentList</code> で渡すため、この問題は起きない（<code>[</code> <code>]</code> を含むパスでも開ける）。</li>
-<li>［開き方］は、起動時に設定から読み込むときは保存しない（設定していない利用者の <code>setting.config</code> を作らないため。<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）。</li>
+<li>開き方の既定は、起動時に設定から読み込むときは保存しない（設定していない利用者の <code>setting.config</code> を作らないため。<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）。</li>
 </ul>
 <h2 id="元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）<a class="headerlink" href="#元のフォルダの特定インデックスを別の-pc場所で使う場合" title="Permanent link">&para;</a></h2>
 <p>インデクサは元のフォルダの記録（<code>source_folder.txt</code>。インデックス名とクロール対象フォルダの対応。<a href="../../indexing/crawl/">クロール対象フォルダと取り込み対象</a>）を、<strong>各インデックスのフォルダ（<code>work\content_index\&lt;インデックス名&gt;</code>）に 1 件分ずつ</strong>置く。このため、<code>work\content_index</code> ごとコピーしても、<code>&lt;インデックス名&gt;</code> のフォルダだけを別の PC の <code>work\content_index</code> 直下へコピーしても、元のファイルの場所が分かる。</p>
@@ -4289,7 +4289,7 @@
 </table>
 <ul>
 <li>読んだ対応は、検索対象フォルダごとに画面でキャッシュする（インデックス作成が終わったとき・元のフォルダを設定したときに捨てる）。</li>
-<li>元のフォルダの記録の無い古いインデックスは、インデックス作成を 1 回実行すると作られる（取り込みが必要なファイルが無くても作る）。</li>
+<li>元のフォルダの記録の無い古いインデックスは、インデックス作成を 1 回実行すると作られる（更新が必要なファイルが無くても作る）。</li>
 <li>どれにも無い場合は、元のフォルダが分からない（<code>Known</code> = <code>$false</code>）。インデックス名（相対フォルダの先頭）は分かるため、フォルダを選んでもらえば設定に記録できる（<a href="#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）。</li>
 </ul>
 <h2 id="元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）<a class="headerlink" href="#元のファイルが見つからないとき元のフォルダを設定する" title="Permanent link">&para;</a></h2>
@@ -4316,8 +4316,8 @@
 <li>選ぶフォルダは、インデックスの元のフォルダに当たるフォルダでも、その下のどのフォルダ（ファイルのあるフォルダなど）に当たるフォルダでもよい。元の相対フォルダが <code>2024\見積</code> なら、<code>&lt;選んだフォルダ&gt;\2024\見積\&lt;ファイル名&gt;</code>、<code>&lt;選んだフォルダ&gt;\見積\&lt;ファイル名&gt;</code>、<code>&lt;選んだフォルダ&gt;\&lt;ファイル名&gt;</code> の順に探し、最初に見つかったものを使う。</li>
 <li>記録するのは、選んだフォルダから相対フォルダの分だけ上に戻ったフォルダ（<code>findMovedSource</code> の <code>Root</code>）。どのフォルダを選んでも、インデックスの元のフォルダに当たる 1 か所が記録される。上に戻れない場合は記録せず、そのファイルを開くだけにする。</li>
 <li>記録先（<code>setIndexSourceFolder</code>、<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）:</li>
-<li>そのインデックス名がクロール対象フォルダ（<code>targetFolders</code>）にあれば、そのフォルダの <code>path</code> を書き換える（次のインデックス作成では、この新しいフォルダを取り込む）。</li>
-<li>無ければ <code>indexSources</code> に <code>{name, path}</code> として記録する（取り込まない、検索だけのインデックス）。</li>
+<li>そのインデックス名がクロール対象フォルダ（<code>targetFolders</code>）にあれば、そのフォルダの <code>path</code> を書き換える（次のインデックス作成では、この新しいフォルダを更新する）。</li>
+<li>無ければ <code>indexSources</code> に <code>{name, path}</code> として記録する（更新しない、検索だけのインデックス）。</li>
 <li>フォルダ選択の初期位置は、元のパスの上のフォルダのうち存在する最も深いフォルダ。</li>
 <li>記録したら、元のフォルダの対応のキャッシュ（<a href="#元のフォルダの特定インデックスを別の-pc場所で使う場合">元のフォルダの特定（インデックスを別の PC・場所で使う場合）</a>）を捨てて読み直す。</li>
 </ul>

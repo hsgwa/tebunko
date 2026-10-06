@@ -4352,12 +4352,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>10 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）</code></td>
+<td><code>10 分以内に更新が終わらなかったため中止しました（Officeアプリを強制終了しました）</code></td>
 <td>1 ファイルの取り込みが制限時間（<code>$fileTimeoutMinutes</code> = 10 分）を超え、Office アプリを強制終了した</td>
 <td>ファイルを Office で開いて確認する（大きすぎる・ダイアログが出る等）</td>
 </tr>
 <tr>
-<td><code>取り込み中に &lt;N&gt; 回続けて強制終了されたため、取り込みを中止しました（Officeアプリが応答しなくなる可能性があります）</code></td>
+<td><code>更新中に &lt;N&gt; 回続けて強制終了されたため、更新を中止しました（Officeアプリが応答しなくなる可能性があります）</code></td>
 <td>同じファイルの取り込み中に <code>$interruptLimit</code>（2）回続けてインデクサが強制終了した（<a href="../ingest-list/">取り込み一覧</a>）</td>
 <td>同上</td>
 </tr>
@@ -4382,42 +4382,42 @@
 <td>シート名・スライド名を短くする</td>
 </tr>
 <tr>
-<td><code>ファイルサイズが大きすぎるため取り込めません。</code></td>
+<td><code>ファイルサイズが大きすぎるため更新できません。</code></td>
 <td>テキストファイル（<code>.txt</code> 等）が大きさの上限（10MB）を超える（<code>readTextFile</code>。<a href="../text/#大きさの上限">テキストファイルの読み取り</a>）</td>
 <td>ファイルを分割する。取り込めなくてよいなら、そのままにする</td>
 </tr>
 <tr>
-<td><code>テキストファイルではないため取り込めません。</code></td>
+<td><code>テキストファイルではないため更新できません。</code></td>
 <td>テキストの拡張子だが、文字コードを判定できない（バイナリ・UTF-32・GBK など、判定できないもの・あいまいなもの）（<code>detectTextEncoding</code>。<a href="../text/#文字コードの判定detecttextencoding">テキストファイルの読み取り</a>）</td>
 <td>拡張子を確かめる。正しいテキストファイルなら、文字コードを UTF-8・Shift_JIS・UTF-16 のどれかで保存し直す</td>
 </tr>
 <tr>
-<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）</code></td>
+<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）</code></td>
 <td>◎ パスワード付きの <code>.xlsx</code> <code>.docx</code> <code>.doc</code> <code>.pptx</code> <code>.ppt</code>。新形式（<code>.docx</code> <code>.pptx</code>）は Word・PowerPoint を起動せずに判定して記録する（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）。Excel はパスワード付きでも Office に開かせ、下の (2) の言い換えで同じ文言になる</td>
 <td>取り込めない。パスワードを外したコピーを置けば取り込める</td>
 </tr>
 <tr>
-<td><code>IRM・秘密度ラベルで暗号化されているため取り込めません。</code></td>
+<td><code>IRM・秘密度ラベルで暗号化されているため更新できません。</code></td>
 <td>IRM・秘密度ラベルの暗号化（<a href="https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/">[MS-OFFCRYPTO]</a> の IRMDS）を検出し、Officeを起動せずに判定した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>。ライセンス取得・サインイン画面が見えないまま出て止まりうるため開かない）</td>
 <td>取り込めない。保護を外したコピーを置けば取り込める</td>
 </tr>
 <tr>
-<td><code>暗号化されているか壊れているため取り込めません。</code></td>
+<td><code>暗号化されているか壊れているため更新できません。</code></td>
 <td>ZIPでもCFBでもなく、先頭4KBにNULを含む「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）。アプリごとの予備が無効・開けない・出力の確かめに失敗した場合</td>
 <td>透過暗号化の製品でファイルを復号してから取り込む。製品の設定でPowerShellを許可アプリにできれば取り込めることがある</td>
 </tr>
 <tr>
-<td><code>ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。</code></td>
+<td><code>ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません。</code></td>
 <td>Officeが保存した一時ファイル（変換した <code>.docx</code>・<code>.pptx</code>、<a href="../excel/">Excel</a> のテキスト保存）まで透過暗号化の製品が暗号化した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
 <td>同上</td>
 </tr>
 <tr>
-<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、更新の作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
 <td>ワークスペースのパス（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に <code>[</code> <code>]</code> が含まれ、Excel が保存できない（<code>selectTmpDir</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）</td>
 <td>ワークスペースのフォルダ名・その親フォルダ名から <code>[</code> <code>]</code> を外す</td>
 </tr>
 <tr>
-<td><code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td><code>ワークスペースのパスが長すぎるため、更新の作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
 <td>ワークスペースのパスが長く、Office が開けない（<code>selectTmpDir</code>）</td>
 <td>ワークスペースをより浅い場所に移す</td>
 </tr>
@@ -4434,7 +4434,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）</code></td>
+<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）</code></td>
 <td>◎ 読み取りパスワード付きの <code>.xlsx</code> <code>.docx</code> <code>.doc</code> <code>.pptx</code> <code>.ppt</code></td>
 <td>取り込めない。パスワードを外したコピーを置けば取り込める</td>
 </tr>
@@ -4444,7 +4444,7 @@
 <td>正しい拡張子に直すか、正しいファイルに差し替える</td>
 </tr>
 <tr>
-<td><code>ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: &lt;元のメッセージ&gt;）</code></td>
+<td><code>ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再度更新してください）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>ほかのアプリが読み取りも拒否してファイルを開いている（排他で開いている）ためコピーできない。利用者が Office で通常どおり開いて編集しているだけなら、コピーできるため発生しない</td>
 <td>ファイルを閉じてから再取り込みする</td>
 </tr>
@@ -4454,7 +4454,7 @@
 <td>権限を付けてもらう</td>
 </tr>
 <tr>
-<td><code>ファイルが見つかりません（取り込み中に移動・削除・名前変更された可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
+<td><code>ファイルが見つかりません（更新中に移動・削除・名前変更された可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>クロールしてから取り込むまでの間にファイルが移動・削除された</td>
 <td>次のインデックス作成で自動的に一覧から除かれる</td>
 </tr>
@@ -4464,7 +4464,7 @@
 <td>クロール対象フォルダを浅い場所にする</td>
 </tr>
 <tr>
-<td><code>シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: &lt;元のメッセージ&gt;）</code></td>
+<td><code>シート・文書が大きすぎて更新できません（メモリが不足しました）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>◎ 1 枚のシートがテキストにして約 1GB を超える（100 万行 × 30 列など）。整形（<code>prettyTsv</code>）でシート 1 枚分を一度に読み込めない</td>
 <td>シートを分ける。PC のメモリを増やす</td>
 </tr>

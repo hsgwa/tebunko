@@ -4266,7 +4266,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/index/index.xaml</code><br><code>index_list.xaml</code><br><code>index_detail.xaml</code></td>
-<td>［1 インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［インポート…］［追加…］［インデックス作成を開始］・表。行の［⋯］から開くメニュー <code>IndexRowMenu</code> に［編集…］［エクスポート…］［削除］）、<code>index_detail.xaml</code> は詳細（状態の合計・取り込みの進み具合・取り込みに失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
+<td>［1 インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［インポート…］［追加…］［すべて更新］・表。行の［⋯］から開くメニュー <code>IndexRowMenu</code> に［編集…］［エクスポート…］［削除］）、<code>index_detail.xaml</code> は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_export.xaml</code><br><code>dialog_import.xaml</code></td>
@@ -4463,7 +4463,7 @@
 <tbody>
 <tr>
 <td>1</td>
-<td>元のファイルのパスは、取り込み時に記録したクロール対象フォルダから組み立てる。取り込み後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）</td>
+<td>元のファイルのパスは、更新時に記録したクロール対象フォルダから組み立てる。更新後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）</td>
 <td>○</td>
 </tr>
 <tr>

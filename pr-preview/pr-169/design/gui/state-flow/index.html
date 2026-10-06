@@ -4349,7 +4349,7 @@
 <tr>
 <td>失敗あり</td>
 <td><code>work/ingest_status.tsv</code> に状態が <code>失敗</code> の行がある</td>
-<td>「取り込みに失敗したファイル」の一覧（<code>⚠ 取り込みに失敗したファイル N 件</code>。ファイルごとに失敗の原因を表示）</td>
+<td>「更新に失敗したファイル」の一覧（<code>⚠ 更新に失敗したファイル N 件</code>。ファイルごとに失敗の原因を表示）</td>
 <td>2（タブ見出しに ⚠）</td>
 </tr>
 <tr>
@@ -4361,14 +4361,14 @@
 <tr>
 <td>通常</td>
 <td>上のいずれでもない</td>
-<td>No.5 に <code>取り込み済み N ファイル（集約ファイル M 件 ・ 最終取り込み M/d H:mm）</code> のみ</td>
+<td>No.5 に <code>更新済み N ファイル（集約ファイル M 件 ・ 最終更新 M/d H:mm）</code> のみ</td>
 <td>2</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>前の版のインデックス（<code>index\</code>。しるしあり）が見つかったときは、起動時・ワークスペースを切り替えたときにステータスへ知らせを出す（<code>getLegacyIndexMessage</code>）。［インデックス作成を開始］では、<code>content_index\</code> が空のときだけ取り込み直しの確かめを出す（<a href="../indexing-run/#取り込み直しの確かめ">取り込み直しの確かめ</a>）。</li>
-<li>「最終取り込み」は、インデックス配下の本文インデックスのファイルの最新の更新日時とする。</li>
+<li>前の版のインデックス（<code>index\</code>。しるしあり）が見つかったときは、起動時・ワークスペースを切り替えたときにステータスへ知らせを出す（<code>getLegacyIndexMessage</code>）。［すべて更新］では、<code>content_index\</code> が空のときだけ更新し直しの確かめを出す（<a href="../indexing-run/#取り込み直しの確かめ">取り込み直しの確かめ</a>）。</li>
+<li>「最終更新」は、インデックス配下の本文インデックスのファイルの最新の更新日時とする。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが動いているかで判定する。インデックス作成は画面のプロセスの中で動くため、画面を開いたときに動いているものは無い。画面を使わずに起動した <code>indexer.ps1</code> と重なったときは、インデクサがミューテックスで二重に動かないようにする（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）。</li>
 </ul>
 <h3 id="インデックス作成の状態遷移画面から見た状態">インデックス作成の状態遷移（画面から見た状態）<a class="headerlink" href="#インデックス作成の状態遷移画面から見た状態" title="Permanent link">&para;</a></h3>
@@ -4381,14 +4381,14 @@
     state "失敗あり" as HasError
 
     [*] --&gt; None
-    None --&gt; Running : インデックス作成を開始&lt;br&gt;（確認で［インデックス作成を開始］）
-    Ready --&gt; Running : インデックス作成を開始&lt;br&gt;（確認で［インデックス作成を開始］）
+    None --&gt; Running : 更新を開始&lt;br&gt;（確認で［更新を開始］）
+    Ready --&gt; Running : 更新を開始&lt;br&gt;（確認で［更新を開始］）
     Suspended --&gt; Running : 続きから再開
-    HasError --&gt; Running : インデックス作成を開始&lt;br&gt;（確認で失敗分も再取り込みするかを選ぶ）
+    HasError --&gt; Running : 更新を開始&lt;br&gt;（確認で失敗分も再更新するかを選ぶ）
     Running --&gt; Ready : 全件成功
     Running --&gt; HasError : 失敗あり
     Running --&gt; Suspended : ［中止］・止めて閉じる&lt;br&gt;プロセス停止・PC の停止
-    Running --&gt; Ready : 確認で［キャンセル］&lt;br&gt;更新不要（取り込むものが無い）</code></pre>
+    Running --&gt; Ready : 確認で［キャンセル］&lt;br&gt;更新不要（更新するものが無い）</code></pre>
 <h3 id="状態を読み直すタイミング">状態を読み直すタイミング<a class="headerlink" href="#状態を読み直すタイミング" title="Permanent link">&para;</a></h3>
 <ul>
 <li>起動時、タブを切り替えたとき、ウィンドウがアクティブになったとき、始めたインデックス作成が終わったとき。</li>
@@ -4433,24 +4433,24 @@
     participant P as インデクサの司令のスレッド（indexer.ps1 -Channel）
     participant W as work/
 
-    U-&gt;&gt;G: ［インデックス作成を開始］など
+    U-&gt;&gt;G: ［すべて更新］など
     opt 前の版のしるしがあり content_index\ が空
-        G-&gt;&gt;U: 取り込み直しの確かめ（3.1。getReingestConfirm）
+        G-&gt;&gt;U: 更新し直しの確かめ（3.1。getReingestConfirm）
         U-&gt;&gt;G: ［キャンセル］なら始めない
     end
     G-&gt;&gt;C: インデックス一覧を保存
     G-&gt;&gt;P: スレッドで実行（IndexingSession。受け渡しの口の ConfirmTargets）
     G-&gt;&gt;G: 実行ボタンを無効化、「インデックス作成中…」、［中止］を表示
-    P-&gt;&gt;K: 取り込み対象を数えて取り込み予定（Plan）を入れ、返事を待つ
-    G-&gt;&gt;K: 取り込み予定を読む
+    P-&gt;&gt;K: 更新の対象を数えて更新の予定（Plan）を入れ、返事を待つ
+    G-&gt;&gt;K: 更新の予定を読む
     G-&gt;&gt;U: インデックス作成の確認（インデックスごとの件数。3.4）
-    alt ［インデックス作成を開始］
-        U-&gt;&gt;G: （前回失敗分も再取り込みするかを選ぶ）
-        G-&gt;&gt;K: 取り込む返事（answerIndexingPlan）
+    alt ［更新を開始］
+        U-&gt;&gt;G: （前回失敗分も再更新するかを選ぶ）
+        G-&gt;&gt;K: 更新する返事（answerIndexingPlan）
     else ［キャンセル］
         U-&gt;&gt;G: 取りやめ
         G-&gt;&gt;K: 取りやめの返事（answerIndexingPlan $null）
-        P--&gt;&gt;G: 1 件も取り込まずに終了（終了コード 2）
+        P--&gt;&gt;G: 1 件も更新せずに終了（終了コード 2）
     end
     loop 1 秒ごと（スレッドが終わるまで）
         P-&gt;&gt;W: 取り込みのスレッドで TSV を作成し、フォルダごとに本文インデックスに入れ、取り込み一覧を更新
@@ -4461,7 +4461,7 @@
     opt ［中止］
         U-&gt;&gt;G: ［中止］→［中止する］
         G-&gt;&gt;K: 中止（requestIndexingStop）
-        P-&gt;&gt;W: 取り込み中のファイルが終わったら止まる
+        P-&gt;&gt;W: 更新中のファイルが終わったら止まる
     end
     P--&gt;&gt;G: スレッドの終了（受け渡しの口の ExitCode 0 / 1 / 2・Error）
     G-&gt;&gt;G: 終了コードに応じた表示、［ログを開く］
@@ -4504,7 +4504,7 @@
 </tr>
 <tr>
 <td>結果の行</td>
-<td><code>→ いま取り込んでいるファイルが終わったところで止まり、画面を閉じます</code>、<code>✓ ここまで取り込んだ分はそのまま残ります</code>（詳細: <code>次に開いて［インデックス作成を開始］を押すと、続きから再開します</code>）</td>
+<td><code>→ いま更新しているファイルが終わったところで止まり、画面を閉じます</code>、<code>✓ ここまで更新した分はそのまま残ります</code>（詳細: <code>次に開いて［すべて更新］を押すと、続きから再開します</code>）</td>
 </tr>
 <tr>
 <td>選択肢</td>
