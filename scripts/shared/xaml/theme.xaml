@@ -268,9 +268,8 @@
   <Geometry x:Key="Icon.BadgeGlyphWarn">M12 8v4 M12 16h.01</Geometry>
   <Geometry x:Key="Icon.BadgeGlyphError">M15 9 L9 15 M9 9 L15 15</Geometry>
   <Geometry x:Key="Icon.BadgeGlyphOk">M9 12 L11 14 L15 10</Geometry>
-  <Geometry x:Key="Icon.Dots3">M12 12a1 1 0 1 0 0.0001 0Z M19 12a1 1 0 1 0 0.0001 0Z M5 12a1 1 0 1 0 0.0001 0Z</Geometry>
   <Geometry x:Key="Icon.CircleCheck">M12 2a10 10 0 1 0 0.0001 0Z M16 9 L10.5 14.5 L8 12</Geometry>
-  <!-- Lucide ellipsis（Icon.Dots3 と同じ形。行の［…］で使う） -->
+  <!-- Lucide ellipsis（行の［…］で使う） -->
   <Geometry x:Key="Icon.Ellipsis">M12 12a1 1 0 1 0 0.0001 0Z M19 12a1 1 0 1 0 0.0001 0Z M5 12a1 1 0 1 0 0.0001 0Z</Geometry>
   <Geometry x:Key="Icon.CircleAlert">M12 2a10 10 0 1 0 0.0001 0Z M12 8v4 M12 16h.01</Geometry>
   <Geometry x:Key="Icon.ArrowRight">M5 12h14 m12 5 7 7-7 7</Geometry>

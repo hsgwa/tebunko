@@ -446,7 +446,7 @@ function invokeIndexerBody {
     writeIndexerLog "クロールしています..."
     # 取り込み一覧の「済」に対してインデックス（TSV）が残っているかを調べるため、今あるTSVの数を数えておく
     # （利用者が work\content_index を直接削除した場合に、「済」のまま検索できなくなるのを防ぐ）
-    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "取り込み済みのインデックスを確認しています…")
+    $reporter.Progress(${indexingPhaseCrawl}, 0, 0, 0, "更新済みのインデックスを確認しています…")
     $indexCounts = getIndexTsvCounts
     if ($null -eq $indexCounts) {
         writeIndexerLog "  インデックスのフォルダを調べられないため、インデックスが残っているかの確認は行いません。" "Yellow"
@@ -556,7 +556,7 @@ function invokeIndexerBody {
         }
     }
     $ledger.WriteIngestingFiles(@($carried.Keys | ForEach-Object { @{ RelPath = $_; Count = $carried[$_] } }))
-    $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "取り込み一覧を書き出しています…")
+    $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "更新の記録を書き出しています…")
     $ledger.WriteStatus($folders, $rows)
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders
@@ -579,7 +579,7 @@ function invokeIndexerBody {
         } catch {
             writeIndexerLog "システムインデックスを作れませんでした（次のインデックス作成で作り直します）: $($_.Exception.Message)" "Yellow"
         }
-        $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "取り込みが必要なファイルはありませんでした")
+        $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "更新が必要なファイルはありませんでした")
         removeTmpDir
         return 0
     }
@@ -812,7 +812,7 @@ function invokeIndexerBody {
         # 取り込んだ TSV は、中止したときも残さず集約ファイルに入れる（残すとインデックスの容量が倍になる）
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "インデックスをまとめています…")
         flushPending -All
-        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "取り込み一覧を書き直しています…")
+        $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
         $ledger.WriteStatus($folders, @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }))
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
@@ -836,7 +836,7 @@ function invokeIndexerBody {
     if ($folderLost) {
         # クロール対象フォルダが見えなくなった場合は、続けられないエラーとして画面に知らせる（残りは未取り込みのまま）
         $message = "クロール対象フォルダが見つからなくなったため、インデックス作成を中止しました: ${folderLost}" +
-            "（残り ${remaining} 件は未取り込みのまま残しました。フォルダを使えるようにしてから、もう一度取り込んでください）"
+            "（残り ${remaining} 件は更新せずに残しました。フォルダを使えるようにしてから、もう一度更新してください）"
         writeIndexerLog ""
         writeIndexerLog $message "Red"
         $channel.Error = $message
@@ -854,7 +854,7 @@ function invokeIndexerBody {
     }
     if ($postponedCount -gt 0) {
         # 利用者のPowerPointを閉じれば、次のインデックス作成で取り込む（未取り込みのまま残したファイル）
-        $notice = "PowerPoint が起動していたため、${postponedCount} 件を取り込まずに残しました。PowerPoint を閉じてから、もう一度インデックス作成を始めると取り込みます。"
+        $notice = "PowerPoint が起動していたため、${postponedCount} 件を更新せずに残しました。PowerPoint を閉じてから、もう一度更新を始めると更新します。"
         writeIndexerLog $notice "Yellow"
         $channel.Notice = $notice
     }

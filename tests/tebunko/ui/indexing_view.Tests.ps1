@@ -68,9 +68,9 @@ Describe "getIndexingEndText" -Tag Unit {
     }
 
     It "取り込んだのが0件で後回しがあれば、後回しの見出しと終わりの一言" {
-        $view = getIndexingEndText 0 0 5 "PowerPoint が起動していたため、5 件を取り込まずに残しました。"
+        $view = getIndexingEndText 0 0 5 "PowerPoint が起動していたため、5 件を更新せずに残しました。"
         $view.Text | Should -Be "更新が終わりました（更新せずに残したファイル 5 件）"
-        $view.Detail | Should -Be "PowerPoint が起動していたため、5 件を取り込まずに残しました。"
+        $view.Detail | Should -Be "PowerPoint が起動していたため、5 件を更新せずに残しました。"
     }
 
     It "どちらも0件なら「更新が必要なファイルはありませんでした」" {

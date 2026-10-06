@@ -28,7 +28,7 @@ class IndexingReporter {
         [void]$ch.Answered.Reset()
         $ch.Answer = $null
         $ch.Plan = @($plan)
-        writeIndexingProgress $phase 0 $targetCount $failedCount "取り込む内容を画面で確認しています…" $ch
+        writeIndexingProgress $phase 0 $targetCount $failedCount "更新する内容を画面で確認しています…" $ch
         writeIndexerLog ""
         writeIndexerLog "取り込み対象を画面に表示しました。［インデックス作成を開始］が押されるまで待ちます。（${timeoutMinutes} 分待っても返事が無ければ取りやめます）"
 

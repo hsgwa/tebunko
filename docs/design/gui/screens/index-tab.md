@@ -46,7 +46,7 @@ stateDiagram-v2
 ```
 
 - 追加のダイアログで入力が足りないと、ダイアログの中に注意が出る（`index-tab/add-error`。12）。
-- 一覧の［作成］のチェックを外すと、その行は取り込まない（`index-tab/unchecked`。16）。
+- 一覧の［作成］のチェックを外すと、その行は更新しない（`index-tab/unchecked`。16）。
 - 作成中は［＋ フォルダを追加］と行のメニューの［編集…］［削除］が押せない（20）。作成が終わると、また押せる。
 - 前回の作成が中断したまま起動すると、この画面が選ばれて `index-tab/interrupted` になる（4）。
 状態の判定と画面の更新は[状態の判定と操作の流れ](../state-flow.md)、メッセージの一覧は[メッセージ一覧](../messages.md)にあり、ここには書き写さない。
@@ -71,9 +71,9 @@ stateDiagram-v2
 
 ![インデックスが無い](../../../images/screens/index-tab/empty.png)
 
-### index-tab/normal（インデックスがあり、取り込み済み。遷移 7）
+### index-tab/normal（インデックスがあり、更新済み。遷移 7）
 
-![インデックスがあり、取り込み済み](../../../images/screens/index-tab/normal.png)
+![インデックスがあり、更新済み](../../../images/screens/index-tab/normal.png)
 
 ### index-tab/interrupted（前回の作成が中断している。遷移 4）
 

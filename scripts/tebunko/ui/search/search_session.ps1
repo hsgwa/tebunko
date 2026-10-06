@@ -210,7 +210,7 @@ function finishSearch {
         $status += "　見つからない検索対象フォルダ：$($missing -join '、')"
     }
     if (isIndexing) {
-        $status += "　インデックス作成中のため、作成途中のインデックスを検索しています。"
+        $status += "　更新中のため、更新の途中のインデックスを検索しています。"
     }
     setStatus $status
 }

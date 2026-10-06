@@ -183,7 +183,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
 
         runIndexer $root | Should -Be 0
         $progress = readTestProgress
-        $progress.Detail | Should -Be "取り込みが必要なファイルはありませんでした"
+        $progress.Detail | Should -Be "更新が必要なファイルはありませんでした"
         $status = readTestStatus $root
         $status.Rows.Count | Should -Be 3
         $status.Rows["営業\壊れた.pptx"].状態 | Should -Be ${stateFailed}
@@ -306,7 +306,7 @@ Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -T
             $progress.Remaining | Should -Be 1
             readTestError | Should -BeNullOrEmpty
             $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を取り込まずに残しました"
+            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を更新せずに残しました"
             # 利用者のPowerPointは、インデックス作成の間も強制終了されていない（プロセスが残っていることで確かめる）
             $userPptId | Should -Not -BeNullOrEmpty
             (Get-Process -Id $userPptId -ErrorAction SilentlyContinue) | Should -Not -BeNullOrEmpty
@@ -361,7 +361,7 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             $status.Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateNew}
             $status.Rows["後回し2\議事録.docx"].状態 | Should -Be ${stateDone}
             $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "1 件を取り込まずに残しました"
+            $script:lastChannel.Notice | Should -Match "1 件を更新せずに残しました"
             # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると
             # 100 件ごとの起動し直しの判定が早まって途中でも呼ばれるが、ここでは増えない
             # （RestartInterval を差し替えられる runIngestWorker 単体の It で、数えないことを詳しく確かめている）

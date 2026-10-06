@@ -20,7 +20,7 @@
             ToolTip="結果をファイルに出力します">
       <StackPanel Orientation="Horizontal">
         <Path Data="{StaticResource Icon.Save}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Body}"
-              StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
+              StrokeThickness="1.08" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,6,0" />
         <TextBlock Text="保存" VerticalAlignment="Center" />
       </StackPanel>
     </Button>
@@ -32,7 +32,7 @@
     <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
     <!-- 検索結果の件数は、この画面の主役 -->
     <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" Style="{StaticResource Meta.Strong}"
-               Foreground="{StaticResource Ink.Strong}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,24,0" />
+               Foreground="{StaticResource Ink.Strong}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="16,0,24,0" />
     <!-- 検索した直後は、ファイルごとの見出しだけを出す（ヒットした行は閉じておく）。ここで全部を開く・閉じる -->
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
       <Button x:Name="ExpandAllButton" Style="{StaticResource Link}" Content="すべて開く" FontSize="11" VerticalAlignment="Center"
@@ -65,11 +65,11 @@
                     </TextBlock.Text>
                   </TextBlock>
                   <Path x:Name="Arrow" DockPanel.Dock="Left" Data="{StaticResource Icon.ChevronRight}" Width="12" Height="12" Stretch="Uniform"
-                        Stroke="{StaticResource Ink.Muted}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                        Stroke="{StaticResource Ink.Muted}" StrokeThickness="1" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                         StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
                   <!-- ファイルの種類のアイコン（Excel・Word・PowerPoint の色） -->
                   <Path x:Name="KindIcon" DockPanel.Dock="Left" Data="{StaticResource Icon.File}" Width="16" Height="16" Stretch="Uniform"
-                        Stroke="{StaticResource Ink.Subtle}" StrokeThickness="1.6" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        Stroke="{StaticResource Ink.Body}" StrokeThickness="1.33" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
                   <TextBlock DockPanel.Dock="Left" Text="{Binding Book}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
                              VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                   <Border x:Name="RelDirChip" Visibility="Collapsed" DockPanel.Dock="Left" Background="{StaticResource Bg.Hover}" CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center"

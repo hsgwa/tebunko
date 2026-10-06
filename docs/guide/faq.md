@@ -14,7 +14,7 @@
 
 ## インデックスの保存先と容量を教えてください。
 
-ワークスペース（既定：`%USERPROFILE%\Documents\tebunko_ws`）の `content_index` フォルダと `system_index` フォルダに保存します。容量（`content_index` フォルダ）は取り込んだファイルの文字量によります。目安は 100 万行で約 70MB です。
+ワークスペース（既定：`%USERPROFILE%\Documents\tebunko_ws`）の `content_index` フォルダと `system_index` フォルダに保存します。容量（`content_index` フォルダ）は更新したファイルの文字量によります。目安は 100 万行で約 70MB です。
 
 ## インデックスの取り扱いで注意すべき点はありますか。
 
@@ -44,7 +44,7 @@
 
 ## 「Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした」と表示されます。
 
-Office のインストールやライセンス認証の状態を確認してください。Excel が使えない PC では、Excel ファイルを取り込めません。必要な Office の条件は [動作環境](index.md#動作環境) に、失敗したファイルの対処は [更新に失敗したファイルがある場合](troubleshooting.md#更新に失敗したファイルがある場合) にあります。
+Office のインストールやライセンス認証の状態を確認してください。Excel が使えない PC では、Excel ファイルを更新できません。必要な Office の条件は [動作環境](index.md#動作環境) に、失敗したファイルの対処は [更新に失敗したファイルがある場合](troubleshooting.md#更新に失敗したファイルがある場合) にあります。
 
 ## インデックス作成が遅い、または止まって見えます。
 

@@ -121,7 +121,18 @@
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
         <CheckBox x:Name="CaseCheck" Content="大文字・小文字を区別" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,16,0"
                   ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
-        <CheckBox x:Name="RegexCheck" Content="正規表現" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,12,0">
+        <CheckBox x:Name="RegexCheck" Content="正規表現" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0">
+          <CheckBox.Style>
+            <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+              <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+              <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                  <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                  <Setter Property="FontWeight" Value="SemiBold" />
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </CheckBox.Style>
           <CheckBox.ToolTip>
             <TextBlock>正規表現を使う<LineBreak />オンにすると高速検索は使えません</TextBlock>
           </CheckBox.ToolTip>
@@ -137,7 +148,7 @@
           </StackPanel>
         </Border>
       </StackPanel>
-      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+      <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
         <TextBlock Text="種類" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
         <StackPanel x:Name="FileKindChips" Orientation="Horizontal">
           <ToggleButton x:Name="KindChipExcel" Style="{StaticResource KindChip}" Tag="excel" Content="Excel"
@@ -174,7 +185,7 @@
             </ContextMenu>
           </Button.ContextMenu>
         </Button>
-      </StackPanel>
+      </WrapPanel>
     </DockPanel>
 
     <TextBlock x:Name="WordNotice" Style="{StaticResource WarnText}" Margin="2,6,0,0" Visibility="Collapsed" />

@@ -88,7 +88,7 @@ Describe "exportIndex" -Tag Io {
         $lock = newAppMutex "indexer" $fixture.Workspace.Dir
         $lock.Acquired | Should -Be $true
         try {
-            { exportIndex "営業" "$TestDrive\export_locked\out.zip" $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*インデックス作成中*"
+            { exportIndex "営業" "$TestDrive\export_locked\out.zip" $fixture.Workspace $fixture.SettingsPath } | Should -Throw "*更新中は*"
         } finally {
             $lock.Mutex.ReleaseMutex()
             $lock.Mutex.Dispose()
@@ -535,7 +535,7 @@ Describe "importIndex" -Tag Io {
         $settingsB = "$TestDrive\import_locked_b\setting.config"
         $lock = newAppMutex "indexer" $wsB.Dir
         try {
-            { importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*インデックス作成中*"
+            { importIndex $dest ${importCollisionRename} "" "C:\新しい場所" $wsB $settingsB } | Should -Throw "*更新中は*"
         } finally {
             $lock.Mutex.ReleaseMutex()
             $lock.Mutex.Dispose()

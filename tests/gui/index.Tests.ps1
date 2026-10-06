@@ -252,7 +252,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             startGuiIndexing $S
             waitGui $S "取り込み中（［更新中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
 
-            # 取り込み中に閉じる。確認で［閉じない］なら続き、［インデックス作成を止めて閉じる］なら止めてから終了する（#10）
+            # 取り込み中に閉じる。確認で［閉じない］なら続き、［中止して閉じる］なら止めてから終了する（#10）
             $tooFastGuard = { if (!(testGuiIndexing $S)) { throw $tooFast } }
             setGuiStep $S "取り込み中に閉じる → 確認で［閉じない］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
@@ -260,7 +260,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             answerGuiConfirm $S "閉じる確認" "中止して閉じますか" "閉じない" -Guard $tooFastGuard
             $S.Process.HasExited | Should -BeFalse
             if (!(testGuiIndexing $S)) { throw $tooFast }
-            setGuiStep $S "取り込み中に閉じる → 確認で［インデックス作成を止めて閉じる］"
+            setGuiStep $S "取り込み中に閉じる → 確認で［中止して閉じる］"
             closeGuiWindowAsync $S $S.Window
             $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
             clickGuiByName $S $confirm "中止して閉じる"
