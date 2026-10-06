@@ -33,6 +33,7 @@ $thirdParty = @(
         "bom-ref"     = "third-party/rethink-sans"
         "group"       = "Rethink Sans Project"
         "name"        = "Rethink Sans"
+        "version"     = "20d5980cd14ce827e82d7fc58d758f7cc5086c91"   # 上流にタグが無いため、同梱の版と 1 バイトも違わない上流のコミット（2023-10-11）
         "description" = "画面のフォント（scripts/shared/fonts/RethinkSans-wght.ttf・RethinkSans-Italic-wght.ttf）"
         "scope"       = "required"
         "licenses"    = @([ordered]@{ "license" = [ordered]@{ "id" = "OFL-1.1" } })
