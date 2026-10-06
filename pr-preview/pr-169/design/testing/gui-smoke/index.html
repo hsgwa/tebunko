@@ -4147,7 +4147,7 @@
 </tr>
 <tr>
 <td>操作</td>
-<td>パターン（<code>InvokePattern</code>・<code>ValuePattern</code>・<code>SelectionItemPattern</code>・<code>TogglePattern</code>・<code>WindowPattern.Close</code>）で行い、マウス・キーボードの合成は使わない。モーダルを開く操作は別のスレッドから呼ぶ。Win32 のダイアログ（OS のフォルダ選択）のボタンと欄はパターンを持たないため、窓のメッセージ（<code>BM_CLICK</code>・<code>WM_SETTEXT</code>）で操作する</td>
+<td>パターン（<code>InvokePattern</code>・<code>ValuePattern</code>・<code>SelectionItemPattern</code>・<code>TogglePattern</code>・<code>WindowPattern.Close</code>）で行い、マウス・キーボードの合成は使わない（SendInput・keybd_event は使わない）。キーは、修飾キーなしのものだけ <code>WM_KEYDOWN</code>・<code>WM_KEYUP</code> のメッセージで送れる（<code>pressGuiKey</code>）。Ctrl・Shift を押した形は、ハンドラが本物のキーボードの状態を読むため送れない（その振り分けは <code>tests/tebunko/ui/shell/nav.Tests.ps1</code> の単体テストで確かめる）。モーダルを開く操作は別のスレッドから呼ぶ。Win32 のダイアログ（OS のフォルダ選択）のボタンと欄はパターンを持たないため、窓のメッセージ（<code>BM_CLICK</code>・<code>WM_SETTEXT</code>）で操作する</td>
 </tr>
 <tr>
 <td>待つ</td>
@@ -4221,6 +4221,12 @@
 <td><code>process</code></td>
 <td>偽の Office プロセス</td>
 <td>［9］→ 一覧に出る → ［すべて終了］［バックグラウンドのみ終了］でキャンセル → 選んで終了 → 閉じる</td>
+</tr>
+<tr>
+<td>S9 ナビの切り替えと F5</td>
+<td><code>nav</code></td>
+<td>起動のあとに書く取り込み一覧</td>
+<td>［2 検索］→ 取り込み一覧を書く → ［1 インデックス管理］へ移る（状態が読み直される）→ 取り込み一覧を書き換える → F5（読み直される）→ 閉じる</td>
 </tr>
 </tbody>
 </table>
@@ -4577,9 +4583,9 @@
 <td>行き先はボタンから通す。手の確かめ</td>
 </tr>
 <tr>
-<td>キーボードのショートカット（Ctrl+F・Ctrl+Shift+F・F5・Esc・Enter）</td>
-<td>キーの合成はフォーカスに頼り、壊れやすい</td>
-<td>手の確かめ（後で足す候補）</td>
+<td>キーボードのショートカットのうち Ctrl 付きのもの（Ctrl+Tab・Ctrl+Shift+Tab・Ctrl+F・Ctrl+Shift+F）・Esc・Enter</td>
+<td>Ctrl の状態は本物のキーボードからしか作れず、キーの合成はフォーカスに頼り壊れやすい</td>
+<td>キーの判定と振り分けは単体テスト（<code>nav_view.Tests.ps1</code>・<code>nav.Tests.ps1</code>）。本物のキーは手の確かめ。F5 は S9 で確かめる</td>
 </tr>
 <tr>
 <td>右クリックのメニュー［コピー］［パスをコピー］、プレビューのメニュー</td>
