@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1063,10 +1063,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#office-プロセスの強制終了9-プロセス停止タブ" class="md-nav__link">
+  <a href="#前回残った-office-の終了起動時の確認" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Office プロセスの強制終了（［9 プロセス停止］タブ）
+        前回残った Office の終了（起動時の確認）
       
     </span>
   </a>
@@ -3210,14 +3210,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3298,8 +3298,6 @@
       
         
           
-        
-      
         
       
         
@@ -3463,34 +3461,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4184,10 +4154,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#office-プロセスの強制終了9-プロセス停止タブ" class="md-nav__link">
+  <a href="#前回残った-office-の終了起動時の確認" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Office プロセスの強制終了（［9 プロセス停止］タブ）
+        前回残った Office の終了（起動時の確認）
       
     </span>
   </a>
@@ -4320,16 +4290,16 @@
 
 
 <h1 id="開示事項">開示事項<a class="headerlink" href="#開示事項" title="Permanent link">&para;</a></h1>
-<p>次の 7 点は審査で論点になるため、本ツールの側から先に開示する。<a href="#office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）</a>・<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>・<a href="#検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る</a> は利用者の操作に紐づく動作、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>・<a href="#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>・<a href="#透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い</a> はツールの性質上避けられない情報の扱い、<a href="#インストーラー版">インストーラー版</a> はインストーラー版だけに当てはまる動作である。</p>
-<h2 id="office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）<a class="headerlink" href="#office-プロセスの強制終了9-プロセス停止タブ" title="Permanent link">&para;</a></h2>
-<p>インデックス作成が異常終了すると、画面の無い Excel・Word・PowerPoint のプロセスが残り、メモリを占有し続けることがある。これを止めるために、画面の［9 プロセス停止］タブから <code>Stop-Process -Force</code> を実行する（<code>shared/office/office_process.ps1:43</code>。<code>safety.Tests.ps1</code> がこの 1 か所だけであることを確かめる）。</p>
+<p>次の 7 点は審査で論点になるため、本ツールの側から先に開示する。<a href="#前回残った-office-の終了起動時の確認">前回残った Office の終了（起動時の確認）</a>・<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>・<a href="#検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る</a> は利用者の操作に紐づく動作、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>・<a href="#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>・<a href="#透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い</a> はツールの性質上避けられない情報の扱い、<a href="#インストーラー版">インストーラー版</a> はインストーラー版だけに当てはまる動作である。</p>
+<h2 id="前回残った-office-の終了起動時の確認">前回残った Office の終了（起動時の確認）<a class="headerlink" href="#前回残った-office-の終了起動時の確認" title="Permanent link">&para;</a></h2>
+<p>インデックス作成が異常終了すると、画面の無い Excel・Word・PowerPoint のプロセスが残り、メモリを占有し続けることがある。これを止めるために、次に画面を起動したとき、利用者に確認したうえで <code>Stop-Process -Force</code> を実行する（<code>shared/office/office_process.ps1</code> の <code>stopOfficeProcesses</code>。<code>safety.Tests.ps1</code> がこの 1 か所だけであることを確かめる）。</p>
 <ul>
 <li><strong>影響</strong>: 強制終了するため、対象プロセスで<strong>未保存の内容は失われる</strong>。</li>
-<li><strong>制御</strong>: 実行されるのは利用者が一覧で選んだ PID のみである（<code>stopOfficeProcesses</code> は PID の配列を受け取る）。自動では実行されない。監視・常駐もしない。</li>
-<li><strong>判断材料の提示</strong>: 一覧には、ウィンドウを持たないプロセス（インデクサが残したものと判断できる）を区別して表示する（<code>getOfficeProcesses</code> の <code>Background</code> 列）。利用者が自分で開いている Excel を誤って選ばないようにするための表示である。</li>
-<li><strong>対象の限定</strong>: 対象は Excel（<code>EXCEL</code>）・Word（<code>WINWORD</code>）・PowerPoint（<code>POWERPNT</code>）のみ。他のプロセスは一覧に出ないため、選ぶことができない。</li>
+<li><strong>制御</strong>: 確認で利用者が［終了する］を選んだときだけ実行される。確認で出した PID のうち、実行の直前にも同じ条件を満たすものだけを止める。自動では実行されない。監視・常駐もしない。［今回は終了しない］を選べば何も止めず、次の起動でもう一度確認する。</li>
+<li><strong>対象の限定</strong>: 対象は、インデックス作成が起動したときにワークスペースへ記録した PID だけである。記録のある Excel（<code>EXCEL</code>）・Word（<code>WINWORD</code>）・PowerPoint（<code>POWERPNT</code>）で、窓を持たず、起動した側がもう動いていないものに限る。利用者が自分で開いた Office には記録が無いため、確認にも出ず、止めない。</li>
+<li><strong>照らし直し</strong>: 止める直前に、PID のプロセスの名前と起動時刻が記録と同じかをもう一度確かめる。違うとき（PID が別のプロセスに使われたとき）は止めず、そのことを知らせる。</li>
 </ul>
-<p>詳細は <a href="../../design/gui/process-tab/">［9 プロセス停止］タブ</a> を参照。</p>
+<p>詳細は <a href="../../design/gui/leftover-office/">前回残った Office の確認</a> を参照。</p>
 <h2 id="mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除（<code>tebunko.bat</code>）<a class="headerlink" href="#mark-of-the-web-の解除tebunkobat" title="Permanent link">&para;</a></h2>
 <p><code>tebunko.bat</code> は PowerShell を 1 回起動し、その中で配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除してから、画面のスクリプトを実行する。</p>
 <div class="highlight"><pre><span></span><code><span class="k">set</span> <span class="s2">"PS1=</span><span class="nv">%SystemRoot%</span><span class="s2">\System32\WindowsPowerShell\v1.0\powershell.exe"</span>

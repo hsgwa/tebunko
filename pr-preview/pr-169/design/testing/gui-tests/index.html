@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3049,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3137,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3302,34 +3300,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4308,12 +4278,12 @@
 </tr>
 <tr>
 <td>インデックス作成の進み具合（件数・失敗・残り時間・取り込み中のファイル・終了後の表示）</td>
-<td><a href="../../gui/indexing-run/#インデックス作成の進み具合">インデックス作成の進み具合</a>、<a href="../../gui/indexing-run/#中止終了ログ">中止・終了・ログ</a></td>
+<td><a href="../../gui/indexing-run/#更新の進み具合">インデックス作成の進み具合</a>、<a href="../../gui/indexing-run/#中止終了ログ">中止・終了・ログ</a></td>
 <td>◎（取り込み一覧を模擬）</td>
 </tr>
 <tr>
 <td>インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］）</td>
-<td><a href="../../gui/indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a></td>
+<td><a href="../../gui/indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a></td>
 <td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動。開く・［キャンセル］・開始は自動（S2・S3）</td>
 </tr>
 <tr>
@@ -4362,9 +4332,9 @@
 <td>コピーの形式のみ◎</td>
 </tr>
 <tr>
-<td>Office プロセスの一覧・各終了ボタン・確認ダイアログ・インデックス作成中の警告</td>
-<td><a href="../../gui/process-tab/">［9 プロセス停止］タブ</a></td>
-<td>一覧・ボタンの有効／無効のみ◎。偽のプロセスで一覧・確認・選んで終了は自動（S7）</td>
+<td>起動時の残った Office の確認の文言・出すタイミング・対象の選び方</td>
+<td><a href="../../gui/leftover-office/">前回残った Office の確認</a></td>
+<td>判断層の単体テスト（<code>leftover_view.Tests.ps1</code>）で確かめる。確認ダイアログを開いて［今回は終了しない］・［終了する］を押す流れは <code>tests/gui/leftover.Tests.ps1</code>（偽の行を差し込み、本物の Office には触れない）で確かめる</td>
 </tr>
 <tr>
 <td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko）</td>

@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3049,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3137,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3302,34 +3300,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4184,7 +4154,7 @@
 <td>S1 起動・検索・閉じる</td>
 <td><code>smoke</code></td>
 <td>インデックス 1 つ</td>
-<td>起動 → 4 つのタブ → 検索・プレビュー → 「tebunko について」 → 多重起動 → 閉じる</td>
+<td>起動 → 3 つのタブ → 検索・プレビュー → 「バージョン情報」 → 多重起動 → 閉じる</td>
 </tr>
 <tr>
 <td>S2 インデックスの管理と作成</td>
@@ -4217,12 +4187,6 @@
 <td>起動時の警告 → 作成の開始で警告 → ［既定に戻す］→ 閉じる</td>
 </tr>
 <tr>
-<td>S7 プロセス停止</td>
-<td><code>process</code></td>
-<td>偽の Office プロセス</td>
-<td>［9］→ 一覧に出る → ［すべて終了］［バックグラウンドのみ終了］でキャンセル → 選んで終了 → 閉じる</td>
-</tr>
-<tr>
 <td>S9 ナビの切り替えと F5</td>
 <td><code>nav</code></td>
 <td>起動のあとに書く取り込み一覧</td>
@@ -4232,7 +4196,6 @@
 </table>
 <ul>
 <li>取り込むファイルは <code>tests/testdata/office/</code> の .docx・.pptx（Office を使わずに直接読める）を写す。.xlsx は Excel が要るので使わない。失敗させるファイルは、ZIP としては開けるが <code>word/document.xml</code> の XML が壊れている .docx をテストの中で作る（ZIP でない旧形式・パスワード付きは、Word・PowerPoint に回し直されて Office が動くので使わない）</li>
-<li><strong>偽の Office プロセス</strong>（S7）は、<code>%windir%\System32\PING.EXE</code> を <code>EXCEL.EXE</code> の名前で写して動かしたもの（窓が無いのでバックグラウンドの扱い）。本物の Office を止めないよう、［すべて終了］［バックグラウンドのみ終了］は確認で［キャンセル］だけを押し、実際に止めるのは偽のプロセスを選んだ［選択したプロセスを終了］だけにする。手元で偽のほかに Excel・Word・PowerPoint が動いているときは、［すべて終了］［バックグラウンドのみ終了］の段階だけを飛ばして理由をログに出す（確認を出す作りが壊れていると本物の Office が保存されずに止まるため）</li>
 <li>S3 の取り込みは時間に頼る。取り込みが終わってしまったときは「間に合わなかった」という文言で失敗にする（ファイルの数を増やして直す）</li>
 <li>S6 は CI だけで流す（手元では理由を出して飛ばす）。既定のワークスペースは利用者の本物のワークスペースだから</li>
 </ul>
@@ -4301,7 +4264,7 @@
 <tr>
 <td>7</td>
 <td>本体</td>
-<td>4 つのタブを選ぶ</td>
+<td>3 つのタブを選ぶ</td>
 <td>各タブ</td>
 <td>–</td>
 <td>S1</td>
@@ -4309,7 +4272,7 @@
 <tr>
 <td>8</td>
 <td>本体</td>
-<td>［tebunko について］</td>
+<td>［バージョン情報］</td>
 <td>ダイアログ（版）</td>
 <td>［閉じる］</td>
 <td>S1</td>

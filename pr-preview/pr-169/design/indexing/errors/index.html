@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3211,14 +3211,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3299,8 +3299,6 @@
       
         
           
-        
-      
         
       
         
@@ -3464,34 +3462,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4476,7 +4446,7 @@
 <tr>
 <td><code>Officeアプリが異常終了したか、内部でエラーが発生しました（ファイルが壊れている、または大きすぎる可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>取り込み中に Office アプリが落ちた・強制終了された</td>
-<td>ファイルを Office で開いて確認する。［9 プロセス停止］で残ったアプリを終了する</td>
+<td>ファイルを Office で開いて確認する。残ったアプリは、次に画面を起動したときの確認で終了する</td>
 </tr>
 <tr>
 <td><code>Officeアプリが応答しませんでした（Officeアプリでダイアログを表示中などの可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
@@ -4566,7 +4536,7 @@
 </tr>
 <tr>
 <td><code>&lt;アプリ名&gt; の終了に失敗しました: &lt;メッセージ&gt;</code></td>
-<td>Excel・Word・PowerPoint を終了できなかった。［9 プロセス停止］で終了する。<strong>注</strong>: 今の実装（<code>shared/office/office_app.ps1</code> の <code>Write-Host</code>）ではログに残らず、取り込みのスレッドからは表示もされない</td>
+<td>Excel・Word・PowerPoint を終了できなかった。残ったものは、次に画面を起動したときの確認で終了する。<strong>注</strong>: 今の実装（<code>shared/office/office_app.ps1</code> の <code>Write-Host</code>）ではログに残らず、取り込みのスレッドからは表示もされない</td>
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>

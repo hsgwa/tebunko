@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3049,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="gui/process-tab/" class="md-nav__link">
+      <a href="gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3137,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3302,34 +3300,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4106,7 +4076,7 @@
 <h1 id="設計の概要">設計の概要<a class="headerlink" href="#設計の概要" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 設計書全体の目的・方式（用語）・全体構成・動作環境と、読む人ごとの入口。扱わないこと: 各処理の仕様そのもの（各区分のページで扱う）。先に読むページ: なし（ここが設計書の入口）。</p>
 <p>設計書は <code>scripts/*.ps1</code> および起動用 <code>tebunko.bat</code> の実装から仕様を書き起こしたものである。記載内容は<strong>現行実装の挙動</strong>を正とする。</p>
-<p>本ツールは画面（<code>tebunko.bat</code>）から使う。インデックス作成・検索・プロセス停止はすべて画面から行い、コンソールでの操作（<code>.bat</code> の実行・設定ファイルの手編集・キー入力）は前提としない。</p>
+<p>本ツールは画面（<code>tebunko.bat</code>）から使う。インデックス作成・検索はすべて画面から行い、コンソールでの操作（<code>.bat</code> の実行・設定ファイルの手編集・キー入力）は前提としない。</p>
 <h2 id="設計書の構成">設計書の構成<a class="headerlink" href="#設計書の構成" title="Permanent link">&para;</a></h2>
 <p>初めて読む・変更に取りかかるときの入口は <a href="start/onboarding/">はじめに</a>（読む順番・1 周の流れ）と <a href="start/review-map/">変更の種類から見る設計書を引く</a> にある。</p>
 <pre class="mermaid"><code>flowchart TB

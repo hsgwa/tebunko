@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -2887,10 +2887,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#プロセス停止" class="md-nav__link">
+  <a href="#前回残った-office-の終了" class="md-nav__link">
     <span class="md-ellipsis">
       
-        プロセス停止
+        前回残った Office の終了
       
     </span>
   </a>
@@ -3209,14 +3209,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3297,8 +3297,6 @@
       
         
           
-        
-      
         
       
         
@@ -3462,34 +3460,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4273,10 +4243,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#プロセス停止" class="md-nav__link">
+  <a href="#前回残った-office-の終了" class="md-nav__link">
     <span class="md-ellipsis">
       
-        プロセス停止
+        前回残った Office の終了
       
     </span>
   </a>
@@ -4320,9 +4290,9 @@
 
 
 <h1 id="状態と操作の流れ">状態と操作の流れ<a class="headerlink" href="#状態と操作の流れ" title="Permanent link">&para;</a></h1>
-<p>扱うこと: インデックス・インデックス作成の状態の判定と表示、状態を読み直すタイミング、検索・インデックス作成・プロセス停止・閉じるときの操作の流れ。扱わないこと: 各タブの詳しい仕様（<a href="../index-tab/">インデックス一覧の管理</a>・<a href="../search-tab/">検索タブ</a>・<a href="../process-tab/">［9 プロセス停止］タブ</a>）。先に読むページ: <a href="../">画面</a>。</p>
+<p>扱うこと: インデックス・インデックス作成の状態の判定と表示、状態を読み直すタイミング、検索・インデックス作成・前回残った Office の終了・閉じるときの操作の流れ。扱わないこと: 各タブの詳しい仕様（<a href="../index-tab/">インデックス一覧の管理</a>・<a href="../search-tab/">検索タブ</a>）。先に読むページ: <a href="../">画面</a>。</p>
 <h2 id="状態の判定と表示">状態の判定と表示<a class="headerlink" href="#状態の判定と表示" title="Permanent link">&para;</a></h2>
-<p>画面がインデックスとインデックス作成の状態をどう判定して見せるか（<a href="#状態の判定と表示">状態の判定と表示</a>）と、検索・インデックス作成・プロセス停止・終了の操作の流れ（<a href="#操作の流れ">操作の流れ</a>）をまとめる。</p>
+<p>画面がインデックスとインデックス作成の状態をどう判定して見せるか（<a href="#状態の判定と表示">状態の判定と表示</a>）と、検索・インデックス作成・前回残った Office の終了・終了の操作の流れ（<a href="#操作の流れ">操作の流れ</a>）をまとめる。</p>
 <h3 id="インデックスとインデックス作成の状態">インデックスとインデックス作成の状態<a class="headerlink" href="#インデックスとインデックス作成の状態" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4355,7 +4325,7 @@
 <tr>
 <td>インデックス作成中</td>
 <td>この画面で始めたインデックス作成のスレッド（<code>IndexingSession</code>）が動いている（<code>isIndexing</code>。<a href="../indexing-run/#実行ボタンの表示">実行ボタンの表示</a>）</td>
-<td>No.6 のボタンが <code>インデックス作成中…</code>（無効）。進み具合（<a href="../indexing-run/#インデックス作成の進み具合">インデックス作成の進み具合</a>）</td>
+<td>No.6 のボタンが <code>インデックス作成中…</code>（無効）。進み具合（<a href="../indexing-run/#更新の進み具合">インデックス作成の進み具合</a>）</td>
 <td>1</td>
 </tr>
 <tr>
@@ -4387,7 +4357,7 @@
     HasError --&gt; Running : 更新を開始&lt;br&gt;（確認で失敗分も再更新するかを選ぶ）
     Running --&gt; Ready : 全件成功
     Running --&gt; HasError : 失敗あり
-    Running --&gt; Suspended : ［中止］・止めて閉じる&lt;br&gt;プロセス停止・PC の停止
+    Running --&gt; Suspended : ［中止］・止めて閉じる&lt;br&gt;PC の停止
     Running --&gt; Ready : 確認で［キャンセル］&lt;br&gt;更新不要（更新するものが無い）</code></pre>
 <h3 id="状態を読み直すタイミング">状態を読み直すタイミング<a class="headerlink" href="#状態を読み直すタイミング" title="Permanent link">&para;</a></h3>
 <ul>
@@ -4466,22 +4436,20 @@
     P--&gt;&gt;G: スレッドの終了（受け渡しの口の ExitCode 0 / 1 / 2・Error）
     G-&gt;&gt;G: 終了コードに応じた表示、［ログを開く］
     G-&gt;&gt;W: 状態を読み直す</code></pre>
-<h3 id="プロセス停止">プロセス停止<a class="headerlink" href="#プロセス停止" title="Permanent link">&para;</a></h3>
+<h3 id="前回残った-office-の終了">前回残った Office の終了<a class="headerlink" href="#前回残った-office-の終了" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>sequenceDiagram
     autonumber
     actor U as 利用者
     participant G as 画面
     participant O as Office プロセス
 
-    U-&gt;&gt;G: ［9 プロセス停止］タブを開く
-    G-&gt;&gt;O: 一覧を取得（getOfficeProcesses）
-    G-&gt;&gt;G: 表を表示
-    U-&gt;&gt;G: ［バックグラウンドのみ終了］など
-    G-&gt;&gt;U: 確認
+    G-&gt;&gt;O: 起動時に記録のある残り物を取得（getOfficeProcesses）
+    G-&gt;&gt;U: 確認（件数・一覧）
     U-&gt;&gt;G: ［終了する］
-    G-&gt;&gt;O: Stop-Process -Force
-    G-&gt;&gt;O: 一覧を取り直す
-    G-&gt;&gt;G: 「N 個のプロセスを終了しました。」</code></pre>
+    G-&gt;&gt;O: 確認の時点の PID を読み直して選ぶ
+    G-&gt;&gt;O: 止める直前に照らし直して Stop-Process -Force
+    G-&gt;&gt;G: 「Office を N 件終了しました。」</code></pre>
+<p>詳しくは <a href="../leftover-office/">前回残った Office の確認</a> を参照。</p>
 <h3 id="閉じる">閉じる<a class="headerlink" href="#閉じる" title="Permanent link">&para;</a></h3>
 <ul>
 <li>閉じるのはタイトルバーの［×］（または Alt+F4）で行う。画面に［閉じる］ボタンは置かない。</li>

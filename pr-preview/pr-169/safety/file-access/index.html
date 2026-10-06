@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3155,14 +3155,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3243,8 +3243,6 @@
       
         
           
-        
-      
         
       
         
@@ -3408,34 +3406,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4227,6 +4197,11 @@
 <td><code>tebunko/core/paths.ps1</code>（<code>$workspace</code>）、<code>tebunko/core/workspace.ps1</code>（<code>Workspace</code>）</td>
 </tr>
 <tr>
+<td><code>work/office_pids/&lt;PC の鍵&gt;/&lt;PID&gt;.txt</code></td>
+<td>インデックス作成が起動した Office の PID の記録（起動時の確認で、記録のあるものだけを終了するため）。Office を終了したとき・起動時の確認のときに消す</td>
+<td><code>tebunko/core/workspace.ps1</code>（<code>OfficePidRoot</code>）、<code>shared/office/office_process.ps1</code>（<code>addOfficeRecord</code>）</td>
+</tr>
+<tr>
 <td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code> 配下（ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは作らない。どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みをスキップする）</td>
 <td>取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする</td>
 <td><code>tebunko/indexer/index_migrate.ps1</code> の <code>initTmpDir</code></td>
@@ -4330,9 +4305,9 @@
 </tr>
 <tr>
 <td>Office アプリの PID</td>
-<td>ディスクには書かない（プロセス内のメモリ上の <code>OfficePids</code> だけ）</td>
-<td>起動した Office の PID → プロセス名</td>
-<td>画面を閉じるときに、応答の無い Office だけを PID で止めるため。プロセスの生存中だけ要る情報で、ファイルに残す必要が無い</td>
+<td>メモリ上の <code>OfficePids</code>（画面を閉じるとき用）と、ワークスペースの <code>office_pids\&lt;PC の鍵&gt;\&lt;PID&gt;.txt</code>（次の起動時の確認用）</td>
+<td>起動した Office の PID → プロセス名・起動時刻・起動した側の PID</td>
+<td>画面を閉じるときは、応答の無い Office だけを PID で止める。強制終了などで残ったものは、次の起動時に記録のあるものだけを確認して止めるため、ファイルに残す</td>
 </tr>
 <tr>
 <td>書き込み中の一時ファイル（<code>&lt;保存先&gt;.tmp</code>。置き換えたら消える）</td>

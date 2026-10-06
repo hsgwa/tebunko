@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3051,14 +3051,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3141,8 +3141,6 @@
       
         
           
-        
-      
         
       
         
@@ -3306,34 +3304,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4115,7 +4085,6 @@
 <li><a href="index-tab/">［1 インデックス管理］タブ</a></li>
 <li><a href="search-tab/">［2 検索］タブ</a></li>
 <li><a href="settings-tab/">［8 設定］タブ</a></li>
-<li><a href="process-tab/">［9 プロセス停止］タブ</a></li>
 </ul>
 <h2 id="画面全体の遷移">画面全体の遷移<a class="headerlink" href="#画面全体の遷移" title="Permanent link">&para;</a></h2>
 <p>画面ごとの状態と遷移は各ページにある。ここではタブの間の行き来だけを示す。</p>
@@ -4124,13 +4093,11 @@
     state "［1 インデックス管理］" as t1
     state "［2 検索］" as t2
     state "［8 設定］" as t8
-    state "［9 プロセス停止］" as t9
     startup --&gt; t1: インデックスが無い・中断している（3・4）
     startup --&gt; t2: インデックスがある（2）
     startup --&gt; t8: 既定のワークスペースにほかのファイルがある（5）
     t1 --&gt; t2: タブを選ぶ（7）
     t2 --&gt; t8: タブを選ぶ（7）
-    t8 --&gt; t9: タブを選ぶ（7）
     t2 --&gt; t1: インデックスを作成する（26）
     t1 --&gt; t8: 既定のワークスペースが使えない（22）</code></pre>
 <h2 id="撮り方と撮り直し方">撮り方と撮り直し方<a class="headerlink" href="#撮り方と撮り直し方" title="Permanent link">&para;</a></h2>
@@ -4139,12 +4106,12 @@
 .\tools\capture_screens.ps1 -OutDir &lt;フォルダ&gt;        写真の置き場所（既定 docs\images\screens）
 </code></pre></div>
 <ul>
-<li><strong>状態の ID</strong>（写真のファイル名）は <code>&lt;画面&gt;/&lt;状態&gt;</code> の形。画面は <code>window</code>・<code>index-tab</code>・<code>search-tab</code>・<code>settings-tab</code>・<code>process-tab</code>（このページの下の一覧のページ名と同じ）。</li>
+<li><strong>状態の ID</strong>（写真のファイル名）は <code>&lt;画面&gt;/&lt;状態&gt;</code> の形。画面は <code>window</code>・<code>index-tab</code>・<code>search-tab</code>・<code>settings-tab</code>（このページの下の一覧のページ名と同じ）。</li>
 <li><strong>撮り直しは、見た目が変わった画面だけにする。</strong> 撮り直しても写真のファイル名は変えない（git は同じファイルの差し替えになる）。日付・時刻が写るので、全部を撮り直すと変わらない画面まで差し替わり、リポジトリが重くなる。</li>
 <li><strong>道具が撮る前に確かめる、そろえる条件</strong>（合わなければ理由を出して止まる）:</li>
 <li>表示の倍率が 100%（<code>HKCU:\Control Panel\Desktop\WindowMetrics</code> の <code>AppliedDPI</code> が 96）。画面が複数あると <code>AppliedDPI</code> が窓のある画面と合わないことがあるため、撮るときは画面を 1 つにする。</li>
 <li>Windows のテーマがライトモード（<code>AppsUseLightTheme</code> が 1）。tebunko の色は <code>theme.xaml</code> が決めるため、ほかの設定は問わない。</li>
-<li>Excel・Word・PowerPoint が動いていない（［9 プロセス停止］の一覧に、本物の文書の名前が出るため）。</li>
+<li>Excel・Word・PowerPoint が動いていない（撮る画面に、本物の文書の名前が出ることがあるため）。</li>
 <li>Windows の通知を止めている（集中モード・応答不可。撮る途中で通知が重なるのを防ぐ）。</li>
 <li>道具と tebunko は、管理者でない同じ利用者の権限で動かす。</li>
 <li><strong>架空のデータを使う。</strong> 道具は一時フォルダを、空いているドライブの文字（<code>Z:</code> から下へ探す）に <code>subst</code> で割り当て、その下でツール・ワークスペース・元のフォルダを動かす。終わったら（失敗しても）<code>subst /D</code> で外す。インデックス名・ファイル名・中身は、<a href="https://github.com/hsgwa/tebunko/blob/main/AGENTS.md#個人情報を書かない">個人情報を書かない</a>の架空の名前を使う。</li>
@@ -4153,7 +4120,7 @@
 <li>撮る間はマウス・キーボードに触らない（<a href="../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ。共通の関数 <code>tests/gui/gui_helpers.ps1</code> を使い回す）。</li>
 </ul>
 <h2 id="撮る状態の一覧">撮る状態の一覧<a class="headerlink" href="#撮る状態の一覧" title="Permanent link">&para;</a></h2>
-<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 38 枚。</p>
+<p>「遷移」は<a href="../../testing/gui-smoke/#画面のスモークテスト">画面遷移の一覧</a>の番号。計 39 枚。</p>
 <p><strong>本体・共通（<code>window</code>）</strong></p>
 <table>
 <thead>
@@ -4166,7 +4133,7 @@
 <tbody>
 <tr>
 <td><code>window/about</code></td>
-<td>「tebunko について」</td>
+<td>「バージョン情報」</td>
 <td>8</td>
 </tr>
 <tr>
@@ -4177,6 +4144,36 @@
 <tr>
 <td><code>window/settings-broken</code></td>
 <td>設定が壊れていたときの知らせ（メッセージボックス）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>window/leftover</code></td>
+<td>起動時の、前回残った Office の確認（基本）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>window/leftover-open</code></td>
+<td>同・詳細を開いた</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>window/leftover-many</code></td>
+<td>同・数が多い（詳細の表が縦にスクロールする）</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>window/leftover-search</code></td>
+<td>同・［2 検索］の上に出ている</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>window/leftover-killed</code></td>
+<td>［終了する］のあと、すべて終了したときのステータス</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>window/leftover-partial</code></td>
+<td>同・一部が確認の後に変わっていたときのステータス</td>
 <td>–</td>
 </tr>
 </tbody>
@@ -4233,12 +4230,12 @@
 </tr>
 <tr>
 <td><code>index-tab/start-confirm</code></td>
-<td>作成の確認ダイアログ（件数・失敗分の取り込み直し）</td>
+<td>更新の確認ダイアログ（件数・失敗分の更新し直し）</td>
 <td>17</td>
 </tr>
 <tr>
 <td><code>index-tab/running</code></td>
-<td>作成中（進み具合・［追加…］［編集…］［削除］が押せない）</td>
+<td>更新中（更新の帯・［＋ フォルダを追加］［編集…］［削除］が押せない）</td>
 <td>17・20</td>
 </tr>
 <tr>
@@ -4364,43 +4361,6 @@
 <td><code>settings-tab/invalid-warning</code></td>
 <td>使えないフォルダを選んだときの警告</td>
 <td>34</td>
-</tr>
-</tbody>
-</table>
-<p><strong>［9 プロセス停止］（<code>process-tab</code>）</strong></p>
-<table>
-<thead>
-<tr>
-<th>ID</th>
-<th>状態</th>
-<th>遷移</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>process-tab/empty</code></td>
-<td>Office のプロセスが無い</td>
-<td>36</td>
-</tr>
-<tr>
-<td><code>process-tab/list</code></td>
-<td>偽のプロセスがある（タブに ⚠）</td>
-<td>36</td>
-</tr>
-<tr>
-<td><code>process-tab/stop-all-confirm</code></td>
-<td>［すべて終了］の確認</td>
-<td>37</td>
-</tr>
-<tr>
-<td><code>process-tab/stop-background-confirm</code></td>
-<td>［バックグラウンドのみ終了］の確認</td>
-<td>37</td>
-</tr>
-<tr>
-<td><code>process-tab/stop-selected-confirm</code></td>
-<td>選んで終了するときの確認</td>
-<td>38</td>
 </tr>
 </tbody>
 </table>

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/gui/implementation/">
       
       
-        <link rel="prev" href="../process-tab/">
+        <link rel="prev" href="../leftover-office/">
       
       
         <link rel="next" href="../responsiveness/">
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3051,14 +3051,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3257,8 +3257,6 @@
       
         
       
-        
-      
     
     
     
@@ -3412,34 +3410,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4250,14 +4220,14 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/shell/nav.xaml</code><br><code>shell/status_bar.xaml</code></td>
-<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>/<code>KillTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（<code>StatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
+<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（<code>StatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/splash.xaml</code></td>
 <td>起動中の表示（<a href="../#ウィンドウ">ウィンドウ</a>）。早く出すため <code>theme.xaml</code> を読み込まず、色は <code>theme.xaml</code> と同じ値を直接書く</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/xaml/settings/settings.xaml</code><br><code>tab_kill.xaml</code></td>
+<td><code>scripts/tebunko/xaml/settings/settings.xaml</code></td>
 <td>各画面の中身（設定の画面は領域のフォルダ <code>settings\</code> に置く）。イベントは書かず、<code>x:Name</code> だけを付ける。ルート要素には <code>StaticResource</code> を使う属性を置かない（自分の <code>Resources</code> より先に解決されるため）。<code>x:Name</code> が <code>gui.ps1</code> の一覧と食い違っていないことは <code>tests/meta/structure.Tests.ps1</code> で確かめる</td>
 </tr>
 <tr>
@@ -4278,7 +4248,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_indexing_confirm.xaml</code></td>
-<td>インデックス作成の確認ダイアログ（<a href="../indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。インデックスごとの取り込み対象の件数（受け渡しの口の <code>Plan</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
+<td>インデックス作成の確認ダイアログ（<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。インデックスごとの取り込み対象の件数（受け渡しの口の <code>Plan</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_about.xaml</code></td>
@@ -4321,8 +4291,16 @@
 <td>設定の画面（<a href="../settings-tab/">［8 設定］タブ</a>）。ワークスペースを変えたら、その場で切り替える</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/process_tab.ps1</code></td>
-<td>［9 プロセス停止］タブ（<a href="../process-tab/">［9 プロセス停止］タブ</a>）。定期的な一覧の取り直しとタブ見出しの ⚠ の判定は <code>startJob</code> で行う（ボタンでの取り直しは画面のスレッドで行う）</td>
+<td><code>scripts/tebunko/ui/leftover_view.ps1</code></td>
+<td>起動時の残った Office の確認の文言・出すタイミング・対象の選び方（判断層。<a href="../leftover-office/">前回残った Office の確認</a>）</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/dialog_leftover.xaml</code></td>
+<td>前回残った Office の確認ダイアログ（<a href="../leftover-office/#確認ダイアログ">前回残った Office の確認</a>）。見出し・説明（✓）・［詳細を表示］の開け閉め・詳細の表（アプリ・PID・起動した時刻。5 行を超えたら縦にスクロール）・補足・2 つのボタン。<code>ui/leftover_dialog.ps1</code> が開く</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/ui/leftover_dialog.ps1</code></td>
+<td>起動時の「前回残った Office」の確認の画面側（<a href="../leftover-office/#画面の実装">前回残った Office の確認</a>）。記録の読み取りを裏の仕事で行い、出すかどうかは <code>getLeftoverPromptTiming</code> で決め、［終了する］のときだけ確認に出した PID を <code>stopOfficeProcesses</code> で終了して、結果をステータスに出す。ダイアログは <code>showOwnedDialog</code> で開く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/about_dialog.ps1</code></td>
@@ -4473,7 +4451,7 @@
 </tr>
 <tr>
 <td>3</td>
-<td>バックグラウンドの判定は <code>MainWindowHandle</code> による。画面に表示中でも、すべてのウィンドウを閉じた直後などはバックグラウンドと判定される（<a href="../process-tab/#プロセスの表">プロセスの表</a>）</td>
+<td>窓を持たないかの判定は <code>MainWindowHandle</code> による。画面に表示中でも、すべてのウィンドウを閉じた直後などは窓が無いと判定される。ただし記録の無い Office は対象にならない（<a href="../leftover-office/#止めてよいものの条件">止めてよいものの条件</a>）</td>
 <td>△</td>
 </tr>
 <tr>
@@ -4523,7 +4501,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../process-tab/" class="md-footer__link md-footer__link--prev" aria-label="前: ［9 プロセス停止］タブ">
+          <a href="../leftover-office/" class="md-footer__link md-footer__link--prev" aria-label="前: 前回残った Office の確認">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4533,7 +4511,7 @@
                 前
               </span>
               <div class="md-ellipsis">
-                ［9 プロセス停止］タブ
+                前回残った Office の確認
               </div>
             </div>
           </a>

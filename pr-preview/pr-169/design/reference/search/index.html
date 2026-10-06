@@ -763,7 +763,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3047,14 +3047,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3135,8 +3135,6 @@
       
         
           
-        
-      
         
       
         
@@ -3300,34 +3298,6 @@
     
   
     ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
   
 
     
@@ -4636,17 +4606,17 @@
 </tr>
 <tr>
 <td><code>getOfficeProcesses</code></td>
-<td>–</td>
-<td>プロセス情報の配列</td>
-<td>実行中の Excel・Word・PowerPoint（Id・ProcessName・AppName・Background・StartTime・MemoryMB・Title）。<code>MainWindowHandle</code> が 0 ならバックグラウンド</td>
-<td><a href="../../gui/process-tab/">［9 プロセス停止］タブ</a></td>
+<td>recordDir, selfId, selfStartTicks</td>
+<td><code>@{Id; ProcessName; AppName; StartTime; HasWindow; Owned; Owner}</code> の配列</td>
+<td>実行中の Excel・Word・PowerPoint。記録（<code>office_pids</code>）と照らして <code>Owned</code>（記録と同じプロセスか）・<code>Owner</code>（Self／Other／Gone）を付ける。<code>HasWindow</code> は <code>MainWindowHandle</code> が 0 でないこと</td>
+<td><a href="../../gui/leftover-office/">前回残った Office の確認</a></td>
 <td>画面</td>
 </tr>
 <tr>
 <td><code>stopOfficeProcesses</code></td>
-<td>ids</td>
-<td><code>@{Id; Stopped; Message}</code> の配列</td>
-<td><code>Stop-Process -Force</code> で終了し、成否と理由を返す</td>
+<td>targets, recordDir</td>
+<td><code>@{Id; Stopped; Status; Reason}</code> の配列</td>
+<td>止める直前に PID が記録と同じプロセスか照らし直し、同じものだけ <code>Stop-Process -Force</code> で終了する。<code>Status</code> は Stopped／Changed／Gone／Failed</td>
 <td>同上</td>
 <td>画面</td>
 </tr>
