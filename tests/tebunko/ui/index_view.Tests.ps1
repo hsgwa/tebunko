@@ -41,7 +41,7 @@ Describe "getUsedIndexNames" -Tag Unit {
 
 Describe "getIndexAddedStatus / getFailedFileCheckingStatus / getFailedFileUnreachableStatus / getFailedFileOtherStatus" -Tag Unit {
     It "追加のときの文言は、フォルダの有無によらず同じにする" {
-        getIndexAddedStatus "見積" | Should -Be "インデックス [見積] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます"
+        getIndexAddedStatus "見積" | Should -Be "インデックス [見積] を追加しました。［インデックス作成を開始］を押すと中身を更新します"
     }
 
     It "確かめている間の文言" {
@@ -241,28 +241,29 @@ Describe "testIndexEditInput" -Tag Unit {
 
 Describe "getIndexRowView" -Tag Unit {
     It "<label>" -TestCases @(
-        @{ label = "作成中・チェックあり: 作成中（Pending があっても優先）"
+        @{ label = "更新中・チェックあり: 更新中（Pending があっても優先）"
            stat = @{ Total = 10; Done = 3; Pending = 7; Failed = 0 }; indexing = $true; enabled = $true
-           text = "作成中"; level = "Wait" }
+           text = "更新中"; sub = ""; level = "Wait" }
         @{ label = "未集計（null）: 未作成"
            stat = $null; indexing = $false; enabled = $true
-           text = "未作成"; level = "None" }
+           text = "未作成"; sub = ""; level = "None" }
         @{ label = "Total が 0: 未作成"
            stat = @{ Total = 0; Done = 0; Pending = 0; Failed = 0 }; indexing = $false; enabled = $true
-           text = "未作成"; level = "None" }
-        @{ label = "Pending・Failed とも 1 以上: 途中（Pending が優先）"
+           text = "未作成"; sub = ""; level = "None" }
+        @{ label = "Pending・Failed とも 1 以上: 要更新（Pending が優先。残りの件数を添える）"
            stat = @{ Total = 10; Done = 5; Pending = 2; Failed = 3 }; indexing = $false; enabled = $true
-           text = "途中"; level = "Wait" }
-        @{ label = "Failed のみ 1 以上: 一部失敗"
+           text = "要更新"; sub = "残り 2 件"; level = "Wait" }
+        @{ label = "Failed のみ 1 以上: エラー"
            stat = @{ Total = 10; Done = 9; Pending = 0; Failed = 1 }; indexing = $false; enabled = $true
-           text = "一部失敗"; level = "Ng" }
-        @{ label = "それ以外: 取り込み済"
+           text = "エラー"; sub = ""; level = "Ng" }
+        @{ label = "それ以外: 最新"
            stat = @{ Total = 10; Done = 10; Pending = 0; Failed = 0 }; indexing = $false; enabled = $true
-           text = "取り込み済"; level = "Ok" }
+           text = "最新"; sub = ""; level = "Ok" }
     ) {
-        param ($label, $stat, $indexing, $enabled, $text, $level)
+        param ($label, $stat, $indexing, $enabled, $text, $sub, $level)
         $view = getIndexRowView $stat $indexing $enabled
         $view.Text | Should -Be $text
+        $view.Sub | Should -Be $sub
         $view.Level | Should -Be $level
     }
 
@@ -283,6 +284,18 @@ Describe "getIndexRowView" -Tag Unit {
             $view.Text | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
             $view.ToolTip | Should -Not -Match "システムインデックス|集約ファイル|本文インデックス|使用不可|インデックス済|不明"
         }
+    }
+}
+
+Describe "getIndexFooterView" -Tag Unit {
+    It "フォルダ数とファイルの合計を、3 桁ごとの区切りで出す" -TestCases @(
+        @{ folders = 0; files = 0; f = "登録済み: 0 フォルダ"; t = "合計: 0 ファイル" }
+        @{ folders = 3; files = 1234; f = "登録済み: 3 フォルダ"; t = "合計: 1,234 ファイル" }
+    ) {
+        param ($folders, $files, $f, $t)
+        $view = getIndexFooterView $folders $files
+        $view.Folders | Should -Be $f
+        $view.Files | Should -Be $t
     }
 }
 
@@ -441,12 +454,17 @@ Describe "testIndexImportInput（元のフォルダの重なり）" -Tag Unit {
 Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
     BeforeAll {
         function newDetailItem {
-            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります")
-            return @{ Name = $name; Path = "C:\共有\営業部"; Enabled = $enabled; FolderStatus = $folderStatus; IndexText = "取り込み済"; FileCountText = $fileCount; LastIngestedText = $last; FastText = "可" }
+            param ($name = "営業", $enabled = $true, $fileCount = "1,234", $last = "09/30 10:00", $folderStatus = "フォルダがあります",
+                $fastLevel = "Ok", $fastTip = "")
+            return @{
+                Name = $name; Path = "C:\共有\営業部"; Enabled = $enabled; FolderStatus = $folderStatus
+                IndexText = "最新"; IndexLevel = "Ok"; IndexSub = ""; FileCountText = $fileCount; LastIngestedText = $last
+                FastText = "可"; FastLevel = $fastLevel; FastToolTip = $fastTip; FastCheckedText = "最終確認 10:05"
+            }
         }
     }
 
-    It "<label>: 値の行を出さず、合計だけを出す" -TestCases @(
+    It "<label>: 中身を出さず、見出しだけを出す" -TestCases @(
         @{ label = "何も選んでいない（空）"; items = @() }
         @{ label = "何も選んでいない（null）"; items = @($null) }
         @{ label = "複数を選んでいる"; items = @(@{ Name = "営業"; Path = "C:\共有\営業部" }, @{ Name = "経理"; Path = "C:\共有\経理部" }) }
@@ -454,53 +472,71 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         param ($label, $items)
         $view = getIndexDetailView $items $null
         $view.Title | Should -Be "インデックスの状態"
+        $view.Selected | Should -BeFalse
         @($view.Rows).Count | Should -Be 0
         $view.Fast.Shown | Should -BeFalse
     }
 
-    It "1 つ選ぶと、題に名前を入れ、値の行を並べる" {
+    It "1 つ選ぶと、題に名前を入れ、左の基本設定と右の情報の表を作る" {
         $view = getIndexDetailView @(newDetailItem) $null
         $view.Title | Should -Be "営業 - 詳細"
-        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "元のフォルダ,フォルダの状態,インデックス作成,ステータス,ファイル数,最終取り込み,高速検索"
-        $view.Rows[0].Value | Should -Be "C:\共有\営業部"
+        $view.Selected | Should -BeTrue
+        $view.Name | Should -Be "営業"
+        $view.Path | Should -Be "C:\共有\営業部"
+        $view.Badge.Text | Should -Be "最新"
+        $view.Badge.Level | Should -Be "Ok"
+        $view.Updated | Should -Be "最終更新 09/30 10:00"
+        $view.Count | Should -Be "1,234 ファイル"
+        ($view.Rows | ForEach-Object { $_.Label }) -join "," | Should -Be "対象ファイル数,最終更新,インデックス作成"
+        $view.Rows[0].Value | Should -Be "1,234 ファイル"
         $view.Rows[2].Value | Should -Be "対象にする"
-        $view.Rows[4].Value | Should -Be "1,234 ファイル"
+        $view.Fast.State | Should -Be "可"
+        $view.Fast.Checked | Should -Be "最終確認 10:05"
     }
 
-    It "<label>: 出せない値は行ごと省くか、言い換える" -TestCases @(
-        @{ label = "作成の対象でない"; args1 = @{ enabled = $false }; label2 = "インデックス作成"; expected = "対象にしない（［作成］のチェックを外している）" }
-        @{ label = "まだ取り込んでいない"; args1 = @{ fileCount = "－"; last = "" }; label2 = "ファイル数"; expected = "まだ取り込んでいません" }
+    It "<label>: 出せない値は空にするか、言い換える" -TestCases @(
+        @{ label = "更新の対象でない"; args1 = @{ enabled = $false }; field = "target"; expected = "対象にしない（一覧のチェックを外している）" }
+        @{ label = "まだ更新していない（件数）"; args1 = @{ fileCount = "－"; last = "" }; field = "count"; expected = "まだ更新していません" }
+        @{ label = "まだ更新していない（日時）"; args1 = @{ fileCount = "－"; last = "" }; field = "updated"; expected = "" }
     ) {
-        param ($label, $args1, $label2, $expected)
+        param ($label, $args1, $field, $expected)
         $view = getIndexDetailView @(newDetailItem @args1) $null
-        ($view.Rows | Where-Object { $_.Label -eq $label2 }).Value | Should -Be $expected
-    }
-
-    It "最終取り込みとフォルダの状態が空なら、その行を省く" {
-        $view = getIndexDetailView @(newDetailItem -last "" -folderStatus "") $null
-        ($view.Rows | ForEach-Object { $_.Label }) | Should -Not -Contain "最終取り込み"
-        ($view.Rows | ForEach-Object { $_.Label }) | Should -Not -Contain "フォルダの状態"
+        $actual = switch ($field) {
+            "target" { ($view.Rows | Where-Object { $_.Label -eq "インデックス作成" }).Value }
+            "count" { $view.Count }
+            "updated" { $view.Updated }
+        }
+        $actual | Should -Be $expected
     }
 
     It "<label>: 高速検索の反映の進み具合" -TestCases @(
-        @{ label = "途中"; entry = @{ Folders = 4; Waiting = 1 }; visible = $true; value = 0.75; text = "高速検索の反映：反映済み 3 / 4 フォルダ" }
-        @{ label = "すべて反映済み"; entry = @{ Folders = 2; Waiting = 0 }; visible = $true; value = 1.0; text = "高速検索の反映：反映済み 2 / 2 フォルダ" }
-        @{ label = "すべて反映待ち"; entry = @{ Folders = 3; Waiting = 3 }; visible = $true; value = 0.0; text = "高速検索の反映：反映済み 0 / 3 フォルダ" }
-        @{ label = "待ちが多すぎる値でも 0 未満にしない"; entry = @{ Folders = 3; Waiting = 5 }; visible = $true; value = 0.0; text = "高速検索の反映：反映済み 0 / 3 フォルダ" }
-        @{ label = "フォルダが無い"; entry = @{ Folders = 0; Waiting = 0 }; visible = $false; value = 0.0; text = "" }
-        @{ label = "値が無い"; entry = $null; visible = $false; value = 0.0; text = "" }
+        @{ label = "途中"; entry = @{ Folders = 4; Waiting = 1 }; visible = $true; value = 0.75; text = "反映済み 3 / 4 フォルダ"; note = $true }
+        @{ label = "すべて反映済み"; entry = @{ Folders = 2; Waiting = 0 }; visible = $true; value = 1.0; text = "反映済み 2 / 2 フォルダ"; note = $false }
+        @{ label = "すべて反映待ち"; entry = @{ Folders = 3; Waiting = 3 }; visible = $true; value = 0.0; text = "反映済み 0 / 3 フォルダ"; note = $true }
+        @{ label = "待ちが多すぎる値でも 0 未満にしない"; entry = @{ Folders = 3; Waiting = 5 }; visible = $true; value = 0.0; text = "反映済み 0 / 3 フォルダ"; note = $true }
+        @{ label = "フォルダが無い"; entry = @{ Folders = 0; Waiting = 0 }; visible = $false; value = 0.0; text = ""; note = $false }
+        @{ label = "値が無い"; entry = $null; visible = $false; value = 0.0; text = ""; note = $false }
     ) {
-        param ($label, $entry, $visible, $value, $text)
+        param ($label, $entry, $visible, $value, $text, $note)
         $view = getIndexDetailView @(newDetailItem) $entry
         $view.Fast.Shown | Should -Be $visible
         $view.Fast.Value | Should -Be $value
         $view.Fast.Text | Should -Be $text
+        # 反映待ちのフォルダがあるときだけ、通常の検索で調べる旨の注記を出す
+        ($view.Fast.Note -ne "") | Should -Be $note
+    }
+
+    It "高速検索が不可のときは、理由（ツールヒントの 1 行目）を出す" {
+        $view = getIndexDetailView @(newDetailItem -fastLevel "Ng" -fastTip "Windows Search に接続できない。`n最終確認 10:05") $null
+        $view.Fast.Reason | Should -Be "Windows Search に接続できない。"
+        (getIndexDetailView @(newDetailItem) $null).Fast.Reason | Should -Be ""
     }
 
     It "<label>: 行の鍵（RowsKey）" -TestCases @(
         @{ label = "値が変わると変わる"; changed = @{ fileCount = "99" } }
-        @{ label = "行が増えると変わる（最終取り込みが付く）"; changed = @{ last = "" } }
-        @{ label = "行が減ると変わる（フォルダの状態が無くなる）"; changed = @{ folderStatus = "" } }
+        @{ label = "日時が変わると変わる"; changed = @{ last = "" } }
+        @{ label = "フォルダの状態が変わると変わる"; changed = @{ folderStatus = "" } }
+        @{ label = "高速検索の状態が変わると変わる"; changed = @{ fastLevel = "Ng"; fastTip = "理由" } }
     ) {
         param ($label, $changed)
         $base = (getIndexDetailView @(newDetailItem) $null).RowsKey

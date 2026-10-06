@@ -1,5 +1,24 @@
 ﻿# インデックス管理の画面の詳細（インデックス作成の開始ボタン・状態・失敗の一覧・状態の合計）。
 
+# 詳細の左右の部品。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
+foreach ($detailName in @(
+        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailFolderStatus",
+        "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexDetailUpdated", "IndexDetailCount",
+        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote")) {
+    $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
+}
+
+function setIndexBadge {
+    # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Ng / None）
+    param ($border, $textBlock, [string]$text, [string]$level)
+
+    $kind = if ($level -in @("Ok", "Wait", "Ng")) { $level } else { "None" }
+    $border.Background = themeBrush "Badge.${kind}.Bg"
+    $textBlock.Foreground = themeBrush "Badge.${kind}.Text"
+    $textBlock.Text = $text
+    $border.Visibility = if ($text) { "Visible" } else { "Collapsed" }
+}
+
 function updateIndexingButton {
     $ready = $false
     foreach ($item in $script:targetItems) {
@@ -27,12 +46,12 @@ function updateIndexingButton {
     $hint = if (isIndexing) {
         "インデックス作成中も検索できます。やめるときは［中止］を押してください（次に［インデックス作成を開始］を押すと続きから再開します）。"
     } else {
-        "押すと、何件取り込むかを確認してから、新しいファイル・変わったファイルだけを取り込みます。"
+        "押すと、何件更新するかを確認してから、新しいファイル・変わったファイルだけを更新します。"
     }
     if (!$ready -and !(isIndexing)) {
-        $hint = "まずインデックスを追加して、［作成］にチェックを付けてください。"
+        $hint = if ($script:targetItems.Count -eq 0) { "フォルダを追加すると更新できます" } else { "更新するインデックスにチェックを付けてください。" }
     } elseif ($state -and $state.Failed -gt 0 -and !(isIndexing)) {
-        $hint = "前回うまく取り込めなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
+        $hint = "前回うまく更新できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。" + $hint
     }
     $ui.IndexingHint.Text = $hint
 
@@ -124,7 +143,7 @@ function updateFailedList {
     }
 
     $ui.FailedGrid.ItemsSource = $rows
-    $ui.FailedHeading.Text = "⚠ 取り込みに失敗したファイル $($rows.Count) 件"
+    $ui.FailedHeading.Text = "⚠ 更新に失敗したファイル $($rows.Count) 件"
     $ui.FailedPanel.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
 }
 
@@ -223,10 +242,12 @@ function updateIndexDetailPanel {
     $entry = $null
     $item = $ui.IndexGrid.SelectedItem
     if ($null -ne $item) {
+        $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{
             Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
-            IndexText = $item.IndexText; FileCountText = $item.FileCountText
-            LastIngestedText = $item.LastIngestedText; FastText = $item.FastText
+            IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
+            LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
+            FastToolTip = $item.FastToolTip; FastCheckedText = $checkedText
         })
         $progress = $script:fastSearchProgress
         if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($item.Name)) {
@@ -236,6 +257,14 @@ function updateIndexDetailPanel {
     $view = getIndexDetailView $selected $entry
 
     $ui.IndexDetailTitle.Text = $view.Title
+    $ui.IndexDetailBody.Visibility = if ($view.Selected) { "Visible" } else { "Collapsed" }
+    $ui.IndexDetailName.Text = $view.Name
+    $ui.IndexDetailPath.Text = $view.Path
+    $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
+    setIndexBadge $ui.IndexDetailBadge $ui.IndexDetailBadgeText $view.Badge.Text $view.Badge.Level
+    $ui.IndexDetailBadgeSub.Text = if ($view.Selected) { [string]$view.Badge.Sub } else { "" }
+    $ui.IndexDetailUpdated.Text = $view.Updated
+    $ui.IndexDetailCount.Text = $view.Count
     if ($script:detailRowsKey -ne $view.RowsKey -or $null -eq $ui.IndexDetailRows.ItemsSource) {
         $script:detailRowsKey = $view.RowsKey
         $rows = New-Object 'System.Collections.ObjectModel.ObservableCollection[DetailRow]'
@@ -246,11 +275,16 @@ function updateIndexDetailPanel {
             $rows.Add($detailRow)
         }
         $ui.IndexDetailRows.ItemsSource = $rows
-        $ui.IndexDetailRows.Visibility = if ($rows.Count -gt 0) { "Visible" } else { "Collapsed" }
     }
+    setIndexBadge $ui.IndexDetailFastBadge $ui.IndexDetailFastBadgeText $view.Fast.State $view.Fast.Level
+    $ui.IndexDetailFastReason.Text = $view.Fast.Reason
+    $ui.IndexDetailFastReason.Visibility = if ($view.Fast.Reason) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastPanel.Visibility = if ($view.Fast.Shown) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailFastText.Text = $view.Fast.Text
     $ui.IndexDetailFastBar.Value = $view.Fast.Value
+    $ui.IndexDetailFastChecked.Text = $view.Fast.Checked
+    $ui.IndexDetailFastNote.Text = $view.Fast.Note
+    $ui.IndexDetailFastNote.Visibility = if ($view.Fast.Note) { "Visible" } else { "Collapsed" }
 }
 
 function updateIndexSummaryText {
@@ -263,10 +297,10 @@ function updateIndexSummaryText {
         $ui.IndexSummaryText.Text = "まだインデックスがありません。"
         return
     }
-    $text = "集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終取り込み $(formatTime $summary['LastWrite'])"
+    $text = "集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終更新 $(formatTime $summary['LastWrite'])"
     $state = $script:indexingState
     if ($state -and $state.Done -gt 0) {
-        $text = "取り込み済み $($state.Done.ToString('N0')) ファイル（$text）"
+        $text = "更新済み $($state.Done.ToString('N0')) ファイル（$text）"
     }
     $ui.IndexSummaryText.Text = $text
 }

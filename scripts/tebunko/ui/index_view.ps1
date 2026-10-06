@@ -25,7 +25,7 @@ function getIndexAddedStatus {
         [string]$name
     )
 
-    return "インデックス [${name}] を追加しました。［インデックス作成を開始］を押すと中身を取り込みます"
+    return "インデックス [${name}] を追加しました。［インデックス作成を開始］を押すと中身を更新します"
 }
 
 function getFailedFileCheckingStatus {
@@ -231,30 +231,44 @@ function getIndexImportOverwriteConfirmMessage {
 }
 
 function getIndexRowView {
-    # 一覧の「ステータス」列（本文の取り込みの状態）の文言・ツールヒント・色の区分を返す。@{ Text; ToolTip; Level }
+    # 一覧の「ステータス」列（本文の更新の状態）の文言・補足・ツールヒント・色の区分を返す。@{ Text; Sub; ToolTip; Level }
+    #   Sub は、バッジの下に小さく出す補足（途中で止まったときの「残り N 件」。無ければ空文字列）
     #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
     #   indexing : インデックス作成中か
-    #   enabled  : 一覧でチェックが付いているか（インデックス作成で取り込む対象か）
+    #   enabled  : 一覧でチェックが付いているか（インデックス作成で更新する対象か）
     param (
         $stat,
         [bool]$indexing = $false,
         [bool]$enabled = $true
     )
 
-    $notice = if (!$enabled) { "チェックが外れているため、インデックス作成では取り込まない（インデックスは残っている）" } else { "" }
+    $notice = if (!$enabled) { "チェックが外れているため、インデックス作成では更新しない（インデックスは残っている）" } else { "" }
     if ($indexing -and $enabled) {
-        return @{ Text = "作成中"; Level = "Wait"; ToolTip = "インデックス作成中。終わると状態を表示する" }
+        return @{ Text = "更新中"; Sub = ""; Level = "Wait"; ToolTip = "インデックスを更新している。終わると状態を表示する" }
     }
     if ($null -eq $stat -or $stat.Total -eq 0) {
-        return @{ Text = "未作成"; Level = "None"; ToolTip = addIndexRowNotice "まだ取り込んでいない。チェックを付けて［インデックス作成を開始］を押すと作る" $notice }
+        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していない。チェックを付けて［インデックス作成を開始］を押すと作る" $notice }
     }
     if ($stat.Pending -ge 1) {
-        return @{ Text = "途中"; Level = "Wait"; ToolTip = addIndexRowNotice "未取り込み $($stat.Pending) 件。次の［インデックス作成を開始］で続きから取り込む" $notice }
+        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件。次の［インデックス作成を開始］で続きから更新する" $notice }
     }
     if ($stat.Failed -ge 1) {
-        return @{ Text = "一部失敗"; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件。原因は下の「取り込みに失敗したファイル」で見られる。失敗したファイル以外は検索できる" $notice }
+        return @{ Text = "エラー"; Sub = ""; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件。原因は下の「更新に失敗したファイル」で見られる。失敗したファイル以外は検索できる" $notice }
     }
-    return @{ Text = "取り込み済"; Level = "Ok"; ToolTip = addIndexRowNotice "取り込み済み $($stat.Total) 件" $notice }
+    return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件" $notice }
+}
+
+function getIndexFooterView {
+    # 一覧の下の帯の文言。@{ Folders; Files }
+    param (
+        [int]$folderCount,
+        [int]$fileTotal
+    )
+
+    return @{
+        Folders = "登録済み: {0:#,0} フォルダ" -f $folderCount
+        Files = "合計: {0:#,0} ファイル" -f $fileTotal
+    }
 }
 
 function addIndexRowNotice {
@@ -381,48 +395,63 @@ function testIndexEditInput {
 }
 
 function getIndexDetailView {
-    # インデックスの詳細のパネルに出す、選んだインデックスの基本の値の行と高速検索の反映の進み具合を返す。
-    # 1 つ選んでいるときだけ値の行を出す（何も選んでいない・複数のときは、すべてのインデックスの合計だけを出す）。
-    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; IndexText; FileCountText; LastIngestedText; FastText }
+    # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
+    # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
+    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; IndexText; IndexLevel; IndexSub; FileCountText;
+    #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastCheckedText }
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
-    # 戻り値: @{ Title; Rows（@{ Label; Value } の配列）; RowsKey; Fast（@{ Shown; Value（0〜1）; Text }） }
-    #   RowsKey は Rows の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
+    # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; Badge（@{ Text; Level }）; Updated; Count;
+    #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
+    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Checked; Note }） }
+    #   RowsKey は左右の表の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
     param (
         [object[]]$items,
         $fastEntry = $null
     )
 
-    $none = @{ Title = "インデックスの状態"; Rows = @(); RowsKey = ""; Fast = @{ Shown = $false; Value = 0.0; Text = "" } }
+    $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Checked = ""; Note = "" }
+    $none = @{
+        Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""
+        Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
+    }
     $selected = @($items | Where-Object { $null -ne $_ })
     if ($selected.Count -ne 1) {
         return $none
     }
     $item = $selected[0]
 
-    $rows = New-Object 'System.Collections.Generic.List[object]'
-    [void]$rows.Add(@{ Label = "元のフォルダ"; Value = [string]$item.Path })
-    if ($item.FolderStatus) {
-        [void]$rows.Add(@{ Label = "フォルダの状態"; Value = [string]$item.FolderStatus })
-    }
-    $target = if ($item.Enabled) { "対象にする" } else { "対象にしない（［作成］のチェックを外している）" }
-    [void]$rows.Add(@{ Label = "インデックス作成"; Value = $target })
-    [void]$rows.Add(@{ Label = "ステータス"; Value = [string]$item.IndexText })
-    $count = if ($item.FileCountText -and $item.FileCountText -ne "－") { "$($item.FileCountText) ファイル" } else { "まだ取り込んでいません" }
-    [void]$rows.Add(@{ Label = "ファイル数"; Value = $count })
-    if ($item.LastIngestedText) {
-        [void]$rows.Add(@{ Label = "最終取り込み"; Value = [string]$item.LastIngestedText })
-    }
-    [void]$rows.Add(@{ Label = "高速検索"; Value = [string]$item.FastText })
+    $hasCount = $item.FileCountText -and $item.FileCountText -ne "－"
+    $count = if ($hasCount) { "$($item.FileCountText) ファイル" } else { "まだ更新していません" }
+    $updated = if ($item.LastIngestedText) { "最終更新 $($item.LastIngestedText)" } else { "" }
 
-    $fast = @{ Shown = $false; Value = 0.0; Text = "" }
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $target = if ($item.Enabled) { "対象にする" } else { "対象にしない（一覧のチェックを外している）" }
+    [void]$rows.Add(@{ Label = "対象ファイル数"; Value = $(if ($hasCount) { "$($item.FileCountText) ファイル" } else { "－" }) })
+    [void]$rows.Add(@{ Label = "最終更新"; Value = $(if ($item.LastIngestedText) { [string]$item.LastIngestedText } else { "－" }) })
+    [void]$rows.Add(@{ Label = "インデックス作成"; Value = $target })
+
+    $fast = @{ Shown = $false; Value = 0.0; Text = ""; State = [string]$item.FastText; Level = [string]$item.FastLevel; Reason = ""; Checked = [string]$item.FastCheckedText; Note = "" }
+    if ($item.FastLevel -eq "Ng" -and $item.FastToolTip) {
+        $fast.Reason = ([string]$item.FastToolTip -split "`n")[0]
+    }
     if ($null -ne $fastEntry -and $fastEntry.Folders -gt 0) {
         $done = [Math]::Max(0, [Math]::Min([int]$fastEntry.Folders, [int]$fastEntry.Folders - [int]$fastEntry.Waiting))
-        $fast = @{
-            Shown = $true
-            Value = $done / [double]$fastEntry.Folders
-            Text = "高速検索の反映：反映済み $done / $($fastEntry.Folders) フォルダ"
+        $fast.Shown = $true
+        $fast.Value = $done / [double]$fastEntry.Folders
+        $fast.Text = "反映済み $done / $($fastEntry.Folders) フォルダ"
+        if ($done -lt [int]$fastEntry.Folders) {
+            $fast.Note = "反映待ちのフォルダは通常の検索で調べます。検索結果は変わりませんが、時間がかかります。"
         }
     }
-    $rowsKey = (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
-    return @{ Title = "$($item.Name) - 詳細"; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast }
+    $fixed = @(
+        $item.Name, $item.Path, $item.FolderStatus, $item.IndexText, $item.IndexLevel, $item.IndexSub, $updated, $count
+        $fast.State, $fast.Level, $fast.Reason, $fast.Checked
+    ) -join "`t"
+    $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
+    return @{
+        Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
+        FolderStatus = [string]$item.FolderStatus
+        Badge = @{ Text = [string]$item.IndexText; Level = [string]$item.IndexLevel; Sub = [string]$item.IndexSub }
+        Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
+    }
 }

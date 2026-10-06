@@ -11,6 +11,10 @@ function getTargetsKey {
 
 $script:targetItems = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.IndexGrid.ItemsSource = $script:targetItems
+# 一覧の下の件数の帯（登録のフォルダ数・ファイルの合計）。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
+foreach ($footerName in @("IndexFooterFolders", "IndexFooterFiles")) {
+    $ui[$footerName] = $ui.IndexListHost.Content.FindName($footerName)
+}
 $script:loadingTargets = $false
 $script:indexBusy = $false  # 前のインデックスの削除中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
 # ［作成］チェックの状態が変わったら保存する（Checked・Unchecked。ToggleButton の状態が変わったときに出る、
@@ -331,7 +335,7 @@ function refreshIndexViews {
 }
 
 function applyIndexStats {
-    # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終取り込み・「ステータス」列に反映し、
+    # 取り込み一覧の集計（getIndexStats）を一覧の各行のファイル数・最終更新・「ステータス」列に反映し、
     # 「高速検索」列も（getIndexStats の Done を使って）置き直す。
     #   indexing: インデックス作成中か（getIndexRowView にそのまま渡す）
     param (
@@ -345,7 +349,7 @@ function applyIndexStats {
             $stat = $stats[$item.Name]
         }
         if ($null -eq $stat) {
-            $item.SetStats("－", "まだ取り込んでいません", "")
+            $item.SetStats("－", "まだ更新していません", "")
         } else {
             $ingested = [datetime]::MinValue
             $lastText = if ($stat.LastIngested -and [datetime]::TryParseExact($stat.LastIngested, "yyyy/MM/dd HH:mm:ss", [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ingested)) {
@@ -353,16 +357,35 @@ function applyIndexStats {
             } else {
                 ""
             }
-            $item.SetStats(("{0:#,0}" -f $stat.Total), ("済 {0:#,0} 件 ・ 未取り込み {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
+            $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
         $row = getIndexRowView $stat $indexing $item.Enabled
-        $item.SetIndexState($row.Text, $row.ToolTip, $row.Level)
+        $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub)
     }
+    $script:indexFileTotal = 0
+    if ($null -ne $stats) {
+        foreach ($item in $script:targetItems) {
+            if ($item.Name -and $stats.ContainsKey($item.Name)) {
+                $script:indexFileTotal += [int]$stats[$item.Name].Total
+            }
+        }
+    }
+    updateIndexFooter
     updateFastSearchRows
+}
+
+$script:indexFileTotal = 0
+
+function updateIndexFooter {
+    # 一覧の下の帯。文言は判断層（getIndexFooterView）
+    $view = getIndexFooterView $script:targetItems.Count $script:indexFileTotal
+    $ui.IndexFooterFolders.Text = $view.Folders
+    $ui.IndexFooterFiles.Text = $view.Files
 }
 
 function updateIndexListView {
     $ui.IndexGridPlaceholder.Visibility = if ($script:targetItems.Count -eq 0) { "Visible" } else { "Collapsed" }
+    updateIndexFooter
     updateIndexingButton
     updateIndexDetailPanel
 }

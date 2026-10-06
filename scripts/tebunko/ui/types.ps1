@@ -581,6 +581,7 @@ class FolderItem : NotifyBase {
     [string]$IndexText = "－"
     [string]$IndexToolTip
     [string]$IndexLevel = "None"
+    [string]$IndexSub = ""   # ステータスのバッジの下の補足（途中で止まったときの「残り N 件」。無ければ空）
     # 一覧の「高速検索」列（システムインデックスの反映の状態。getFastSearchRowView）
     [string]$FastText = "確認中…"
     [string]$FastToolTip
@@ -596,9 +597,9 @@ class FolderItem : NotifyBase {
         $this.FileCountText = $countText; $this.FileCountToolTip = $toolTip; $this.LastIngestedText = $lastIngested
         $this.Raise("FileCountText"); $this.Raise("FileCountToolTip"); $this.Raise("LastIngestedText")
     }
-    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level) {
-        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level
-        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel")
+    [void] SetIndexState([string]$text, [string]$toolTip, [string]$level, [string]$sub) {
+        $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level; $this.IndexSub = $sub
+        $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub")
     }
     [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
         $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level
