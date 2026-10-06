@@ -33,9 +33,9 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             $sw = [Diagnostics.Stopwatch]::StartNew()
             clickGui $S $S.Window "SearchButton" "［検索］"
             setGuiStep $S "検索の結果（該当 2 件）"
-            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "該当 2 件*" } | Out-Null
+            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "2 件（*" } | Out-Null
             $S.Timing["検索"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
-            clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+            clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             setGuiStep $S "結果の行を選んでプレビュー"
             $row = waitGui $S "結果の行" ${guiDefaultTimeout} { getGuiHitRows (findGui $S.Window -Id "ResultGrid") | Select-Object -Last 1 }
             selectGui $row
@@ -88,7 +88,7 @@ Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
             setGuiText $S (waitGuiById $S $S.Window "WordBox") "単価"
             clickGui $S $S.Window "SearchButton" "［検索］"
             setGuiStep $S "検索の結果（該当 2 件）"
-            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "該当 2 件*" } | Out-Null
+            waitGui $S "件数の表示（該当 2 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "2 件（*" } | Out-Null
 
             closeGui $S
         }

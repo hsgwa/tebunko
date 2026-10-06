@@ -550,8 +550,8 @@ function captureSearchScene {
 
         setGuiStep $S "検索して結果を選ぶ"
         & $search "単価"
-        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "該当 2 件*" } | Out-Null
-        clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "2 件（*" } | Out-Null
+        clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
         $row = waitGui $S "結果の行" ${guiDefaultTimeout} { @(& $hitRows) | Select-Object -Last 1 }
         selectGui $row
         waitGui $S "プレビューが出る" ${guiDefaultTimeout} {
@@ -572,7 +572,7 @@ function captureSearchScene {
         waitGui $S "結果の行が隠れる" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 0 } | Out-Null
         captureGuiState -S $S -Id "search-tab/collapsed" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-        clickGui $S $S.Window "ExpandAllButton" "［すべて展開］"
+        clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
         waitGui $S "結果の行が戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
         setGuiText $S (findGui $S.Window -Id "FilterBox") "議事録"
         waitGui $S "絞り込んだ件数" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 1 } | Out-Null

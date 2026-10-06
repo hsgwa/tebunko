@@ -36,6 +36,10 @@ BeforeAll {
             OpenModeCombo    = newFakeControl @("SelectionChanged") @{ SelectedItem = $null; SelectedIndex = -1; Items = @() }
             MenuOpenFolder   = & $menu
             OpenButton       = newFakeControl @("Click")
+            OpenMenuButton   = newFakeControl @("Click")
+            MenuOpenModeNormal   = newFakeControl @("Click")
+            MenuOpenModeNew      = newFakeControl @("Click")
+            MenuOpenModeReadOnly = newFakeControl @("Click")
             OpenFolderButton = newFakeControl @("Click")
             MenuCopy         = & $menu
             MenuCopyPath     = & $menu
@@ -785,6 +789,23 @@ Describe "画面の操作" -Tag Unit {
         & $ui.OpenModeCombo.Handlers["SelectionChanged"]
         Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
         $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
+    }
+
+    It "［開く］の［▾］のメニューで選ぶと、その開き方を既定にして開く" {
+        $ui.OpenModeCombo.Items = @(
+            [pscustomobject]@{ Tag = ${openModeNormal} },
+            [pscustomobject]@{ Tag = ${openModeReadOnly} },
+            [pscustomobject]@{ Tag = ${openModeNew} }
+        )
+        Mock openSource { }
+
+        & $ui.MenuOpenModeReadOnly.Handlers["Click"]
+        $ui.OpenModeCombo.SelectedItem.Tag | Should -Be ${openModeReadOnly}
+        Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
+
+        & $ui.MenuOpenModeNew.Handlers["Click"]
+        $ui.OpenModeCombo.SelectedItem.Tag | Should -Be ${openModeNew}
+        Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
     }
 
     It "Enter は、見出しの行では閉じる・開く、ほかの行では元のファイルを開く" {

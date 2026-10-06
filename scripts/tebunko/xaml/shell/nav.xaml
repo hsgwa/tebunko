@@ -27,8 +27,9 @@
     <ListBoxItem x:Name="IndexTab" Style="{StaticResource NavItem}">
       <DockPanel>
         <!-- 取り込みに失敗したファイルがあるときの印 -->
-        <TextBlock x:Name="IndexTabBadge" DockPanel.Dock="Right" Style="{x:Null}" Text="⚠" Visibility="Collapsed"
-                   Foreground="{StaticResource Warn.Strong}" VerticalAlignment="Center" ToolTip="取り込みに失敗したファイルがあります" />
+        <Path x:Name="IndexTabBadge" DockPanel.Dock="Right" Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Visibility="Collapsed"
+              Stroke="{StaticResource Warn.Strong}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+              VerticalAlignment="Center" ToolTip="取り込みに失敗したファイルがあります" />
         <TextBlock Style="{x:Null}" Text="インデックス管理" />
       </DockPanel>
     </ListBoxItem>
@@ -38,8 +39,9 @@
     <ListBoxItem x:Name="KillTab" Style="{StaticResource NavItem}">
       <DockPanel>
         <!-- バックグラウンドの Office が残っているときの印 -->
-        <TextBlock x:Name="KillTabBadge" DockPanel.Dock="Right" Style="{x:Null}" Text="⚠" Visibility="Collapsed"
-                   Foreground="{StaticResource Warn.Strong}" VerticalAlignment="Center" ToolTip="バックグラウンドの Office が残っています" />
+        <Path x:Name="KillTabBadge" DockPanel.Dock="Right" Data="{StaticResource Icon.TriangleAlert}" Width="14" Height="14" Stretch="Uniform" Visibility="Collapsed"
+              Stroke="{StaticResource Warn.Strong}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+              VerticalAlignment="Center" ToolTip="バックグラウンドの Office が残っています" />
         <TextBlock Style="{x:Null}" Text="Office の停止" />
       </DockPanel>
     </ListBoxItem>

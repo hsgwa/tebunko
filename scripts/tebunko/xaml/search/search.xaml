@@ -47,4 +47,16 @@
 
   <ContentControl x:Name="PreviewHost" Grid.Row="3" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+
+  <!-- 検索できるインデックスが無いときの空の状態。結果の一覧とプレビューの場所を、まるごと覆う -->
+  <Grid x:Name="ResultEmptyState" Grid.Row="1" Grid.RowSpan="3" Background="{StaticResource Bg.Surface}" Visibility="Collapsed">
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,40">
+      <Path Style="{StaticResource Illust.Path}" Data="{StaticResource Icon.FolderSearch}" HorizontalAlignment="Center" />
+      <TextBlock Text="インデックスが作成されていません" Style="{StaticResource Heading}" HorizontalAlignment="Center" Margin="0,18,0,10" />
+      <TextBlock Style="{StaticResource Meta}" HorizontalAlignment="Center" TextAlignment="Center" LineHeight="22"
+                 Text="検索を行うには、まずインデックス管理からフォルダを登録し、&#10;インデックスを作成してください。" />
+      <Button x:Name="GoIndexTabButton" Style="{StaticResource Primary}" Content="インデックス管理を開く" MinWidth="140" Height="32" Margin="0,18,0,0"
+              HorizontalAlignment="Center" Padding="16,0" />
+    </StackPanel>
+  </Grid>
 </Grid>
