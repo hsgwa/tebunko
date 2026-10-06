@@ -289,7 +289,7 @@ Describe "findSourceFile" -Tag Io {
 
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         lastStatus | Should -Be "元のファイルを確かめられませんでした：アクセスが拒否されました。"
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
     }
 
     It "裏の仕事が予期せず失敗したときも、その他として知らせる" {
@@ -374,7 +374,7 @@ Describe "findSourceFile" -Tag Io {
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         $script:foundPaths.Count | Should -Be 0
         Should -Invoke showConfirm -Times 2 -Exactly
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
     }
 }
 

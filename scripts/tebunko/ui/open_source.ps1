@@ -174,8 +174,9 @@ function promptSourceMissing {
         $hint = "ファイル: $relPath"
         $description = "$book のあるフォルダ（またはインデックス [$($location.Name)] の元のフォルダ）を選んでください"
     }
+    $facts = @()
     while ($true) {
-        if ((showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint `
+        if ((showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint -facts $facts `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
             setStatus (getSourceNotFoundStatus $path)
             return
