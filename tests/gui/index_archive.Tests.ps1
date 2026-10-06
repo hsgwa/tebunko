@@ -1,4 +1,4 @@
-﻿# 画面のスモークテスト: ［1 インデックス管理］のエクスポート・インポート（gui_helpers.ps1 の useGuiFileOpenPicker）。
+﻿# 画面のスモークテスト: ［インデックス管理］のエクスポート・インポート（gui_helpers.ps1 の useGuiFileOpenPicker）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"
@@ -69,14 +69,14 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
         }
     }
 
-    It "別のワークスペース: ［8 設定］で空のフォルダに切り替えてから、書き出した zip をインポートすると、その中にインデックスができる" {
+    It "別のワークスペース: ［設定］で空のフォルダに切り替えてから、書き出した zip をインポートすると、その中にインデックスができる" {
         $tool2 = newGuiTool (Join-Path $TestDrive "別のPC")
         $workspaceB = Join-Path $TestDrive "別のワークスペース"
         [void][IO.Directory]::CreateDirectory($workspaceB)
 
         $S = startGui $tool2 "S2c"
         invokeGuiScene $S {
-            setGuiStep $S "［8 設定］で空のフォルダに切り替える"
+            setGuiStep $S "［設定］で空のフォルダに切り替える"
             selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
             useGuiFolderPicker $S $workspaceB

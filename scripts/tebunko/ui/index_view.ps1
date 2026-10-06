@@ -1,4 +1,4 @@
-﻿# ［1 インデックス管理］タブの判断（入力の検査・名前の重複）。
+﻿# ［インデックス管理］タブの判断（入力の検査・名前の重複）。
 # 画面に触らないため、そのままテストできる（tests\tebunko\ui\index_view.Tests.ps1）。
 
 function getUsedIndexNames {
@@ -127,10 +127,10 @@ function getIndexJobBlockedMessage {
 }
 
 function getIndexTabButtonsEnabled {
-    # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［1 インデックス管理］の各ボタンの可否を返す。
+    # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
     #   New/Edit/Remove: ［＋ フォルダを追加］［編集…］［削除］/ Export/Import: ［エクスポート…］［インポート…］
     # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
-    # （［すべて更新］は updateIndexingButton が、［8 設定］の［変更…］は押したときに testWorkspaceChangeable が、
+    # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
     param (
         [string]$blocker,

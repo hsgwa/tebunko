@@ -30,7 +30,7 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
                 useGuiFolderPicker $S $path
             }
 
-            setGuiStep $S "［8 設定］を開く"
+            setGuiStep $S "［設定］を開く"
             selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
             & $workspaceText | Should -Be $script:tool.Work
 
@@ -125,17 +125,17 @@ Describe "S6 既定のワークスペース（CI だけ）" -Tag Gui {
         }
         $S = startGui $script:tool "S6"
         invokeGuiScene $S {
-            # 既定のワークスペースにほかのファイルがあると、起動時に警告が出て、［8 設定］が選ばれる（#5）
+            # 既定のワークスペースにほかのファイルがあると、起動時に警告が出て、［設定］が選ばれる（#5）
             setGuiStep $S "起動時の警告"
             closeGuiMessage $S "空のフォルダではありません" "起動時の警告" | Out-Null
             getGuiSelectedTab $S | Should -Be "SettingsTab"
 
-            # ［すべて更新］も警告が出て、［8 設定］が選ばれる（#22）
+            # ［すべて更新］も警告が出て、［設定］が選ばれる（#22）
             setGuiStep $S "［すべて更新］の警告"
             selectGuiTab $S "IndexTab" "IndexingButton"
             clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             closeGuiMessage $S "空のフォルダではありません" "作成の開始の警告" | Out-Null
-            waitGui $S "［8 設定］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SettingsTab" } | Out-Null
+            waitGui $S "［設定］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SettingsTab" } | Out-Null
 
             # ほかのフォルダに変えてから、ほかのファイルを消して［既定に戻す］（#35）
             setGuiStep $S "空のフォルダに変える"

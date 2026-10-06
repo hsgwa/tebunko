@@ -3,7 +3,7 @@
 扱うこと: `work/` の中身（自動生成）、`setting.config`・ワークスペースの置き場所の決め方、パスの定数、ワークスペースの中の場所（`Workspace` クラス）。扱わないこと: `scripts/` の配置そのもの（[配布物と開発用のフォルダ構成](folders.md)）、どの処理がどのファイルを読み書きするか（[どの処理がどのファイルを読み書きするか](io-files.md)）。先に読むページ: [設計の概要](../index.md)。
 
 !!! note "設計書の `work/` の書き方"
-    設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を `work/` と書く。実際の場所は、既定では `%USERPROFILE%\Documents\tebunko_ws`、［8 設定］で変えたときはその場所である（下の「データの置き場所」）。開発用のリポジトリ直下の `work/`（`work/test/`・`work/release/`・`work/site/` など、git 管理外）は別のもの。
+    設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を `work/` と書く。実際の場所は、既定では `%USERPROFILE%\Documents\tebunko_ws`、［設定］で変えたときはその場所である（下の「データの置き場所」）。開発用のリポジトリ直下の `work/`（`work/test/`・`work/release/`・`work/site/` など、git 管理外）は別のもの。
 
 ## 自動生成（`work/`）
 
@@ -50,10 +50,10 @@ flowchart TD
 | `$settingsFile` | `$dataDir\setting.config` | `scripts/tebunko/core/settings.ps1` |
 | `$workspace.Dir` | `setting.config` の `workspaceFolder`（[設定ファイル（setting.config）の形式](settings-file.md#形式)）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents） | `scripts/tebunko/core/settings.ps1`（`getWorkDir`） |
 
-- 既定の場所をドキュメントにするのは、高速検索（[検索](../search/index.md)・[高速検索（Windows Search）](../search/fast-search.md)）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（`testDefaultWorkspace`・`getWorkspaceBlockMessage`。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、`「…」は空のフォルダではありません。…` と出す）。無い・空・前から使っているワークスペース（`content_index`・前の版の `index`・`ingest_status.tsv` のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの `work`）からは移さない（使い続けるときは［8 設定］の［変更…］で選ぶ）。
-- `$workspace.Dir` のフォルダを画面では**ワークスペース**と呼ぶ。［8 設定］で表示し、［変更…］で空のフォルダに変えられる（[［8 設定］タブ](../gui/settings-tab.md)）。
+- 既定の場所をドキュメントにするのは、高速検索（[検索](../search/index.md)・[高速検索（Windows Search）](../search/fast-search.md)）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（`testDefaultWorkspace`・`getWorkspaceBlockMessage`。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、`「…」は空のフォルダではありません。…` と出す）。無い・空・前から使っているワークスペース（`content_index`・前の版の `index`・`ingest_status.tsv` のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの `work`）からは移さない（使い続けるときは［設定］の［変更…］で選ぶ）。
+- `$workspace.Dir` のフォルダを画面では**ワークスペース**と呼ぶ。［設定］で表示し、［変更…］で空のフォルダに変えられる（[［設定］タブ](../gui/settings-tab.md)）。
 - `work/` の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（`work/publish/<PID>`）はインデックスとフォルダごと入れ替えるため、インデックスと同じ `work` の中に置く。
-- 置き場所を変えると、今の `work/` の中身（tebunko が作るファイル・フォルダだけ。`Workspace.Entries`）を新しい場所へ移す（`moveWorkspace`）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）も、移した先のインデックスに付け替える（`moveSearchExcludes`）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（[［8 設定］タブ](../gui/settings-tab.md)）。
+- 置き場所を変えると、今の `work/` の中身（tebunko が作るファイル・フォルダだけ。`Workspace.Entries`）を新しい場所へ移す（`moveWorkspace`）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）も、移した先のインデックスに付け替える（`moveSearchExcludes`）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（[［設定］タブ](../gui/settings-tab.md)）。
 - 同じ `work` を複数の PC・利用者から同時に使うことは考えない（取り込み一覧・インデックスが食い違う）。同じ PC の中では、インデックス作成の二重起動の鍵を `$workspace.Dir` から作るため、別のツールのフォルダから同じ `work` を指しても二重には動かない。
 - `$rootDir` が書き込めるかは読み込むたびに調べる。書き込めない場所から書き込める場所に戻すと、設定は `$rootDir` 直下のものに戻る。
 

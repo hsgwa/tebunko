@@ -4,7 +4,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| 画面 | ［2 検索］タブ（[検索タブ](../gui/search-tab.md)） |
+| 画面 | ［検索］タブ（[検索タブ](../gui/search-tab.md)） |
 | スクリプト | `scripts/tebunko/search/search_query.ps1`（検索条件）・`pack_search.ps1`（本文インデックスの列挙と検索）・`search_run.ps1`（結果の組み立て）。`scripts/tebunko/lib.ps1` から読み込み、画面 `scripts/tebunko/gui.ps1` から呼ぶ |
 | 使用する共通関数 | `getFastSearchPackFiles`（高速検索。[高速検索（Windows Search）](fast-search.md)）/ `getIndexPackFiles` / `getSearchIndexes` / `searchPackIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[部品ごとの関数](../reference/search.md)） |
 
@@ -12,7 +12,7 @@
 
 ## 概要
 
-画面の［2 検索］タブで入力したワードで、`work/content_index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/search_results.txt` の形式を定める。
+画面の［検索］タブで入力したワードで、`work/content_index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/search_results.txt` の形式を定める。
 
 ## 入出力
 
@@ -26,7 +26,7 @@
 
 ## インデックスの一覧（`getSearchIndexes`）
 
-検索対象は `work/content_index` に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［1 インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。
+検索対象は `work/content_index` に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。
 
 ```mermaid
 flowchart TD
@@ -34,13 +34,13 @@ flowchart TD
     B -- いいえ --> Z["空（インデックスが無い）"]
     B -- はい --> C["work/content_index 直下のフォルダを列挙<br>（ファイルは対象外）"]
     C --> D["元のフォルダを引く<br>getSourceFolderMap"]
-    D --> E["［1 インデックス管理］の一覧（targetFolders）の順に並べ、<br>一覧に無いものは名前順で後ろに付ける"]
+    D --> E["［インデックス管理］の一覧（targetFolders）の順に並べ、<br>一覧に無いものは名前順で後ろに付ける"]
 ```
 
 - 1 件を `@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }` で返す。
 - 別の場所・PC で作ったインデックスは、そのフォルダを `work/content_index` 直下に置けば一覧に並ぶ（[クロール対象フォルダと取り込み対象](../indexing/crawl.md)）。
 - `work/content_index` が無ければ空を返す。`setting.config` は作成しない。
-- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［2 検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getIndexPackFiles` に `@{ Root（インデックスのフォルダ `work/content_index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
+- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getIndexPackFiles` に `@{ Root（インデックスのフォルダ `work/content_index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
 - チェックを外したフォルダは `searchExcludes`（`@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }` の配列）に保存する（`readSearchExcludes` / `writeSearchExcludes`）。無ければすべてを検索する。
 
 ```mermaid
@@ -57,7 +57,7 @@ flowchart TD
 ```
 
 - 本文インデックスのファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ本文インデックスのファイルを二重に検索しない。
-- 検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。[検索を速くする仕組み](speed.md)）を照合するたびに進捗を通知する。画面の中止ボタン（`shouldStop`）で中止でき、件数の上限（`limit`）に達したら打ち切る（上限・表示は [［2 検索］タブ](../gui/search-tab.md)）。
+- 検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。[検索を速くする仕組み](speed.md)）を照合するたびに進捗を通知する。画面の中止ボタン（`shouldStop`）で中止でき、件数の上限（`limit`）に達したら打ち切る（上限・表示は [［検索］タブ](../gui/search-tab.md)）。
 
 ## 検索仕様
 

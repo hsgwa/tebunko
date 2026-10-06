@@ -428,12 +428,12 @@ function startGui {
     # 起動時の画面：インデックス作成が中断中、またはインデックスが無ければ［インデックス管理］、それ以外は［検索］
     $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
     selectScreen $(if ($openIndexTab) { "IndexTab" } else { "SearchTab" })
-    # 前の版のインデックス（index\）が見つかれば、［1 インデックス管理］のステータスに知らせを出す
+    # 前の版のインデックス（index\）が見つかれば、［インデックス管理］のステータスに知らせを出す
     $script:legacyIndexMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
     if ($script:legacyIndexMessage) {
         setStatus $script:legacyIndexMessage
     }
-    # 既定のワークスペースにほかのファイルが置いてあれば、［8 設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
+    # 既定のワークスペースにほかのファイルが置いてあれば、［設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
     $script:workspaceBlock = getWorkspaceBlockMessage
     if ($script:workspaceBlock) {
         selectScreen "SettingsTab"

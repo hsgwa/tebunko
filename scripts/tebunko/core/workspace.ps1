@@ -7,7 +7,7 @@ class Workspace {
     [string]$Dir
     [string]$IndexDir
     # 前の版（content_index・system_index に名前をそろえる前）が使っていた本文インデックスのフォルダ。
-    # 新しい版はここを読まず、消しもしない（前の版のしるしの調べ・知らせ・［8 設定］で「移す」「消して最初から」の対象にするために持つ）
+    # 新しい版はここを読まず、消しもしない（前の版のしるしの調べ・知らせ・［設定］で「移す」「消して最初から」の対象にするために持つ）
     [string]$LegacyIndexDir
     # システムインデックス（本文インデックスの 2-gram を書いた txt。index と同じ相対パスの構成。Windows Search に索引させる）と、その状態
     [string]$SystemIndexDir

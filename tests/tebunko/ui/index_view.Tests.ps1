@@ -1,4 +1,4 @@
-﻿# ［1 インデックス管理］の判断（tebunko\ui\index_view.ps1）のテスト。
+﻿# ［インデックス管理］の判断（tebunko\ui\index_view.ps1）のテスト。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\index_view.ps1"

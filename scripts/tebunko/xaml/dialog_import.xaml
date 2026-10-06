@@ -1,4 +1,4 @@
-﻿<!-- インデックスのインポートのダイアログ（［1 インデックス管理］タブの［インポート…］）。gui_main.ps1 の側（index_archive.ps1）が読み込む。
+﻿<!-- インデックスのインポートのダイアログ（［インデックス管理］タブの［インポート…］）。gui_main.ps1 の側（index_archive.ps1）が読み込む。
      色・文字・コントロールの形は scripts/shared/xaml/theme.xaml にまとめてある。 -->
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

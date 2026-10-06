@@ -12,10 +12,10 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
         newGuiSampleIndex $script:tool $TestDrive
     }
 
-    It "起動して［2 検索］が選ばれ、3 つのタブ・検索・プレビュー・「バージョン情報」・多重起動・閉じるが動く" {
+    It "起動して［検索］が選ばれ、3 つのタブ・検索・プレビュー・「バージョン情報」・多重起動・閉じるが動く" {
         $S = startGui $script:tool "S1"
         invokeGuiScene $S {
-            # 起動・インデックスがあれば［2 検索］が選ばれる（#1・#2）
+            # 起動・インデックスがあれば［検索］が選ばれる（#1・#2）
             setGuiStep $S "起動時のタブ"
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
@@ -78,7 +78,7 @@ Describe "S8 単一 .ps1 版: 起動・検索・閉じる" -Tag Gui {
         newGuiSampleIndex $script:singleTool $TestDrive "single"
     }
 
-    It "起動して［2 検索］が選ばれ、検索で当たり、閉じると終了コード 0" {
+    It "起動して［検索］が選ばれ、検索で当たり、閉じると終了コード 0" {
         $S = startGui $script:singleTool "S8"
         invokeGuiScene $S {
             setGuiStep $S "起動時のタブ"

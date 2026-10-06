@@ -187,16 +187,16 @@ nav:
           - 元のフォルダ・元のファイルがネットワークにあるとき: design/gui/network.md
           - 選択行のプレビュー: design/gui/preview.md
           - 検索対象のツリー: design/gui/search-tree.md
-          - ［8 設定］タブ: design/gui/settings-tab.md
+          - ［設定］タブ: design/gui/settings-tab.md
           - 前回残った Office の確認: design/gui/leftover-office.md
           - 画面の実装構成: design/gui/implementation.md
           - 画面を固まらせない待たせ方: design/gui/responsiveness.md
           - 画面設計（現行）:
               - design/gui/screens/index.md
               - 本体・共通の状態: design/gui/screens/window.md
-              - ［1 インデックス管理］タブ: design/gui/screens/index-tab.md
-              - ［2 検索］タブ: design/gui/screens/search-tab.md
-              - ［8 設定］タブ: design/gui/screens/settings-tab.md
+              - ［インデックス管理］タブ: design/gui/screens/index-tab.md
+              - ［検索］タブ: design/gui/screens/search-tab.md
+              - ［設定］タブ: design/gui/screens/settings-tab.md
       - 開発の進め方:
           - design/testing/index.md
           - テストの実行: design/testing/run.md

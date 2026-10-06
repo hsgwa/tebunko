@@ -97,7 +97,7 @@ function updateIndexingButton {
     $ui.IndexingHint.Text = $hint
     $ui.IndexingHint.Visibility = if ($hint) { "Visible" } else { "Collapsed" }
 
-    # インデックスの追加・編集・削除・エクスポート・インポートと、［8 設定］のワークスペースの［変更…］は互いに排他
+    # インデックスの追加・編集・削除・エクスポート・インポートと、［設定］のワークスペースの［変更…］は互いに排他
     # （getIndexJobBlocker・getIndexTabButtonsEnabled。settings\settings.ps1 の testWorkspaceChangeable も同じ排他を見る）
     $selected = $null -ne $ui.IndexGrid.SelectedItem
     $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
