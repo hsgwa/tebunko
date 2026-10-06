@@ -1,7 +1,7 @@
-﻿# ［8 設定］の判断（tebunko\ui\settings_view.ps1）のテスト。
+﻿# 設定の画面の判断（tebunko\ui\settings\settings_view.ps1）のテスト。
 BeforeAll {
-    . "$PSScriptRoot\..\..\helpers\load.ps1"
-    . "${scriptsDir}\tebunko\ui\settings_view.ps1"
+    . "$PSScriptRoot\..\..\..\helpers\load.ps1"
+    . "${scriptsDir}\tebunko\ui\settings\settings_view.ps1"
 }
 
 Describe "getWorkspaceView" -Tag Unit {

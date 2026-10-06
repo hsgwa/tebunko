@@ -1,6 +1,6 @@
-﻿# ［8 設定］タブの判断（表示の文言・選んだワークスペースの可否・確認ダイアログの中身）。
+﻿# 設定の画面の判断（表示の文言・選んだワークスペースの可否・確認ダイアログの中身）。
 # ワークスペースは、インデックス・取り込み一覧・ログを置くフォルダ（$workDir。既定は %USERPROFILE%\Documents\tebunko_ws）。
-# 画面に触らないため、そのままテストできる（tests\tebunko\ui\settings_view.Tests.ps1）。
+# 画面に触らないため、そのままテストできる（tests\tebunko\ui\settings\settings_view.Tests.ps1）。
 
 ${workspaceSubFolderName} = "workspace"  # 空でないフォルダを選んだとき、中に作るワークスペースのフォルダ名
 ${workspaceSampleCount}   = 3            # 空でないフォルダの中身の例として出す数
