@@ -67,27 +67,32 @@ Describe "testWorkspaceChoice" -Tag Unit {
 }
 
 Describe "newWorkspaceConfirm" -Tag Unit {
-    It "空のフォルダなら、そこに置くことと、今のワークスペースの中身を移すことを伝え、変えるボタンを 1 つ出す" {
+    It "空のフォルダなら、移す先を見出しに、移動中は使えないことを補足に出し、移動するボタンを 1 つ出す" {
         $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 0
-        $confirm.Heading | Should -Be "ワークスペースを変えますか？"
-        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "next,next"
-        $confirm.Facts[0].Detail | Should -Be "D:\データ"
-        $confirm.Facts[1].Title | Should -Be "今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいワークスペースへ移します"
-        $confirm.Facts[1].Detail | Should -Be "移す前の場所：C:\tool\work"
-        $confirm.Hint | Should -Be ""
+        $confirm.Title | Should -Be "保存先の変更"
+        $confirm.Heading | Should -Be "インデックスとログを「D:\データ」へ移動します。"
+        @($confirm.Facts).Count | Should -Be 0
+        $confirm.Hint | Should -Be "移動中は、検索とインデックスの更新はできません。"
         @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "change"
-        $confirm.Choices[0].Text | Should -Be "ワークスペースを変える"
+        $confirm.Choices[0].Text | Should -Be "移動する"
+    }
+
+    It "既定に戻すときは、題と文言を戻す向けにする" {
+        $confirm = newWorkspaceConfirm "C:\Tools\work" "D:\x" 0 @() $false @() $true $true
+        $confirm.Title | Should -Be "既定の場所に戻す"
+        $confirm.Heading | Should -Be "インデックスとログを既定の場所「C:\Tools\work」へ移動します。"
+        $confirm.Choices[0].Text | Should -Be "戻す"
     }
 
     It "空でなければ警告し、中身の数と例を出し、中に workspace を作るか・そのまま使うかを選ばせる" {
         $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 5 @("見積.xlsx", "報告書", "メモ.txt")
         $confirm.Heading | Should -Be "選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください。"
-        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "warn,next"
+        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "warn,next,next"
         $confirm.Facts[0].Title | Should -Be "このフォルダは空ではありません（ファイル・フォルダが 5 個）"
         $confirm.Facts[0].Detail | Should -Be "見積.xlsx、報告書、メモ.txt など"
-        @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "sub,asis"
-        $confirm.Choices[0].Detail | Should -Be "D:\データ\workspace"
-        $confirm.Choices[1].Careful | Should -Be $true
+        @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "asis,sub"
+        $confirm.Facts[2].Detail | Should -Be "D:\データ\workspace"
+        $confirm.Choices[0].Careful | Should -Be $true
         $confirm.Hint | Should -Be "空のフォルダを選び直すときは［キャンセル］を押してください。"
     }
 
@@ -101,15 +106,13 @@ Describe "newWorkspaceConfirm" -Tag Unit {
         @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "asis"
     }
 
-    It "インデックスなどがあれば、使うか、消して最初からやり直すかを選ばせる（消すほうは赤いボタンで、キャンセルを既定にする）" {
+    It "インデックスなどがあれば、今のを移すか、そのフォルダのを使うかを選ばせる（移すほうは、そのフォルダのインデックスが消えると補足に書く）" {
         $confirm = newWorkspaceConfirm "D:\共有\tebunko_ws" "C:\tool\work" 3 @("index", "ingest_status.tsv", "memo.txt") $false @("index", "ingest_status.tsv")
-        $confirm.Heading | Should -Be "選んだフォルダには、すでにインデックスがあります。どうしますか？"
-        @($confirm.Facts | ForEach-Object { $_.Kind }) -join "," | Should -Be "kept,next"
-        $confirm.Facts[0].Detail | Should -Be "index、ingest_status.tsv"
-        $confirm.Facts[1].Detail | Should -Be "今のワークスペースの中身は移さず、元の場所に残します：C:\tool\work"
-        @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "use,reset"
-        @($confirm.Choices | ForEach-Object { $_.Text }) -join "," | Should -Be "あるインデックスを使う,消して、最初からやり直す"
-        $confirm.Choices[1].Danger | Should -Be $true
-        $confirm.Choices[1].Careful | Should -Be $true
+        $confirm.Heading | Should -Be "「D:\共有\tebunko_ws」には、すでにインデックスがあります。"
+        $confirm.Hint | Should -Match "そのフォルダにあるインデックスは削除されます"
+        @($confirm.Choices | ForEach-Object { $_.Value }) -join "," | Should -Be "reset,use"
+        @($confirm.Choices | ForEach-Object { $_.Text }) -join "," | Should -Be "今のインデックスを移動する,そのフォルダのインデックスを使う"
+        $confirm.Choices[0].Danger | Should -Be $true
+        $confirm.Choices[0].Careful | Should -Be $true
     }
 }

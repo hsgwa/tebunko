@@ -48,8 +48,8 @@ Describe "S1 起動・検索・閉じる" -Tag Gui {
             setGuiStep $S "「tebunko について」を開く"
             clickGui $S $S.Window "AboutLink" "tebunko について"
             $about = waitGuiWindow $S "「tebunko について」のダイアログ" -Id "VersionText"
-            (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "版: *"
-            clickGui $S $about "CloseButton" "［閉じる］"
+            (getGuiText (findGui $about -Id "VersionText")) | Should -BeLike "バージョン *"
+            clickGui $S $about "CloseButton" "［OK］"
             waitGuiWindowClosed $S $about "「tebunko について」"
 
             # 同じフォルダのツールをもう一度起動すると、2 つ目はすぐ終わり、1 つ目は残る（#6）

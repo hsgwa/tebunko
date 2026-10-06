@@ -80,6 +80,8 @@ BeforeAll {
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----
         @{ File = "shell.ps1"; Function = "readTextShared"; Call = "Test-Path"; Reason = "ローカルのパスに限って呼ぶところ（ワークスペース内のファイルを読む）" }
         @{ File = "shell.ps1"; Function = "readTextShared"; Call = "New-Object"; Reason = "ローカルのパスに限って呼ぶところ（ワークスペース内のファイルを読む）" }
+        @{ File = "shell.ps1"; Function = "showErrorDialog"; Call = "Test-Path"; Reason = "ツールのフォルダにあるエラーの記録（ローカル）" }
+        @{ File = "shell.ps1"; Function = "showErrorDialog"; Call = "Start-Process"; Reason = "メモ帳で開く（プロセスの起動は待たない）" }
         @{ File = "folder_dialog.ps1"; Function = "selectFolder"; Call = "getExistingAncestorFolder"; Reason = "フォルダ選択の開始フォルダ（ネットワークのパスは調べない引数を渡す）" }
         @{ File = "folder_dialog.ps1"; Function = "getDroppedFolders"; Call = "Test-Path"; Reason = "ドロップされた直後のフォルダ" }
     )

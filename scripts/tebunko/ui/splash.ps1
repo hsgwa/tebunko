@@ -10,7 +10,8 @@ $script:splash = $null
 # 単一 .ps1 かどうかの見分け方（${bundledXaml}）だけをここでも行う
 function showSplash {
     param (
-        [string]$path
+        [string]$path,
+        [string]$iconPath = ""
     )
 
     try {
@@ -29,11 +30,30 @@ function showSplash {
         } finally {
             $stream.Dispose()
         }
+        setSplashIcon $script:splash $iconPath
         $script:splash.Show()
     } catch {
         $script:splash = $null
     }
     return $script:splash
+}
+
+# アイコンは飾りなので、読めなくても何もしない
+function setSplashIcon {
+    param (
+        $window,
+        [string]$iconPath
+    )
+
+    if (-not $iconPath) {
+        return
+    }
+    try {
+        $window.FindName("SplashIcon").Source = [System.Windows.Media.Imaging.BitmapFrame]::Create(
+            (New-Object Uri $iconPath), "None", "OnLoad")
+    } catch {
+        $null = $_
+    }
 }
 
 function stepSplash {

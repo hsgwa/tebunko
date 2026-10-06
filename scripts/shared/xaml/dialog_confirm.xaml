@@ -23,7 +23,7 @@
   </Window.Resources>
 
   <DockPanel Margin="20,16,20,20">
-    <!-- 下部：選択肢が 1 つのときは［キャンセル］＋［実行］、2 つ以上のときは［キャンセル］だけを置く -->
+    <!-- 下部：［キャンセル］の右に選択肢のボタンを並べる（最後の 1 つが主なボタン） -->
     <StackPanel x:Name="ButtonPanel" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" />
 
     <StackPanel>
@@ -66,8 +66,13 @@
       <!-- 補足：読まなくても操作できる内容だけを書く（見出しの下に淡く出す） -->
       <TextBlock x:Name="HintText" Style="{StaticResource Note}" Visibility="Collapsed" Margin="0,8,0,0" />
 
-      <!-- 選択肢が 2 つ以上のときのボタン（shell.ps1 が組み立てる） -->
-      <StackPanel x:Name="ChoicePanel" Margin="0,14,0,0" />
+      <!-- 詳しい内容（エラーの文面など）。選べる・コピーできるよう TextBox で出す -->
+      <Border x:Name="DetailBox" Visibility="Collapsed" Margin="0,12,0,0"
+              Background="{StaticResource Bg.Subtle}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="1"
+              CornerRadius="{StaticResource Radius.Control}" Padding="10,8">
+        <TextBox x:Name="DetailText" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent"
+                 Foreground="{StaticResource Ink.Muted}" FontSize="12" MaxHeight="160" VerticalScrollBarVisibility="Auto" />
+      </Border>
     </StackPanel>
   </DockPanel>
 </Window>

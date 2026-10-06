@@ -148,11 +148,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
             clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
-            answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "キャンセル"
+            answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "キャンセル"
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1
             setGuiStep $S "［削除］→［削除する］"
             clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
-            answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "削除する"
+            answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
             waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料") } | Out-Null
 
@@ -259,13 +259,13 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "取り込み中に閉じる → 確認で［閉じない］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             closeGuiWindowAsync $S $S.Window
-            answerGuiConfirm $S "閉じる確認" "止めてから閉じますか" "閉じない" -Guard $tooFastGuard
+            answerGuiConfirm $S "閉じる確認" "中止して閉じますか" "閉じない" -Guard $tooFastGuard
             $S.Process.HasExited | Should -BeFalse
             if (!(testGuiIndexing $S)) { throw $tooFast }
             setGuiStep $S "取り込み中に閉じる → 確認で［インデックス作成を止めて閉じる］"
             closeGuiWindowAsync $S $S.Window
-            $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか" -Guard $tooFastGuard
-            clickGuiByName $S $confirm "インデックス作成を止めて閉じる"
+            $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
+            clickGuiByName $S $confirm "中止して閉じる"
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
             $S.Process.ExitCode | Should -Be 0
         }
