@@ -148,7 +148,7 @@
           </StackPanel>
         </Border>
       </StackPanel>
-      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+      <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
         <TextBlock Text="種類" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
         <StackPanel x:Name="FileKindChips" Orientation="Horizontal">
           <ToggleButton x:Name="KindChipExcel" Style="{StaticResource KindChip}" Tag="excel" Content="Excel"
@@ -185,7 +185,7 @@
             </ContextMenu>
           </Button.ContextMenu>
         </Button>
-      </StackPanel>
+      </WrapPanel>
     </DockPanel>
 
     <TextBlock x:Name="WordNotice" Style="{StaticResource WarnText}" Margin="2,6,0,0" Visibility="Collapsed" />
