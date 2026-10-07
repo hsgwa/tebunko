@@ -110,7 +110,7 @@
   <StackPanel>
     <DockPanel>
       <TextBlock Text="検索ワード" FontSize="13" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" Margin="0,0,12,0" />
-      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" Width="58" Height="32" Margin="12,0,0,0" />
+      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" Width="58" MinWidth="58" Height="32" Margin="12,0,0,0" />
       <Grid>
         <TextBox x:Name="WordBox" Height="32" />
         <TextBlock x:Name="WordPlaceholder" Style="{StaticResource Placeholder}" Text="検索ワードを入力" />
@@ -136,7 +136,7 @@
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
         <CheckBox x:Name="CaseCheck" Content="大文字・小文字を区別" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,16,0"
                   ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
-        <CheckBox x:Name="RegexCheck" Content="正規表現" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0">
+        <CheckBox x:Name="RegexCheck" Content="正規表現" ToolTip="正規表現を使う&#10;オンにすると高速検索は使えません" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0">
           <CheckBox.Style>
             <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
               <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
@@ -147,9 +147,6 @@
               </Style.Triggers>
             </Style>
           </CheckBox.Style>
-          <CheckBox.ToolTip>
-            <TextBlock>正規表現を使う<LineBreak />オンにすると高速検索は使えません</TextBlock>
-          </CheckBox.ToolTip>
         </CheckBox>
       </StackPanel>
       <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">

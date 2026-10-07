@@ -15,7 +15,7 @@
     <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" Text="インデックスの保存先を設定します。" />
 
     <!-- インデックス設定（ワークスペース。インデックス・取り込み一覧・ログを置くフォルダ。既定は work）。ツールのフォルダの外にも置ける -->
-    <TextBlock Style="{StaticResource Heading}" FontSize="15" Margin="0,24,0,0" Text="インデックス設定" />
+    <TextBlock Style="{StaticResource Heading}" FontSize="14" Margin="0,24,0,0" Text="インデックス設定" />
     <Border Height="1" Margin="0,8,0,0" Background="{StaticResource Bg.Section}" />
 
     <DockPanel Margin="0,14,0,0">

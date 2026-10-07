@@ -1,12 +1,12 @@
 ﻿<!-- 画面の見た目の定義（色・文字・コントロールの形）。gui.ps1 の loadWindow が各画面に読み込む。
 
      文字の設計:
-       大きさ  16 / 14 / 13 / 12 / 11。ダイアログの見出し 16、主役の値 14、本文 13、補助 12、細目 11。
+       大きさ  16 / 14 / 13 / 12 / 11 / 10。ダイアログの見出し 16、主役の値 14、本文 13、補助 12、補助の小 11、細目 10。
        太さ    Normal・Medium・SemiBold・Bold。Medium は項目の名前（ナビ・インデックス名・種別の札）、SemiBold は見出し・主ボタン・その画面の主役の値、Bold は件数・一致した文字などの強調に使う。
        濃さ    Ink.Strong（見出し・主キー）＞ Ink.Body（本文）＞ Ink.Muted（補助）＞ Ink.Faint（入力前の案内）。
                すべてを黒にすると重要度が伝わらないため、本文は真っ黒にしない。
 
-     Windows 既定のコントロールは立体的で古いため、Button・TextBox・CheckBox・TabItem・DataGrid・
+     Windows 既定のコントロールは立体的で古いため、Button・TextBox・CheckBox・DataGrid・
      TreeViewItem・ScrollBar・ComboBox・MenuItem は独自のテンプレートにする。
      既定テンプレートを置き換えると既定のフォーカス表示も消えるため、キーボードで操作する箇所には
      必ずフォーカスの枠（Accent.Ring）を出す。
@@ -526,13 +526,13 @@
     <Setter Property="FontSize" Value="13" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Background" Value="{StaticResource Accent}" />
-    <Setter Property="Foreground" Value="White" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.OnAccent}" />
     <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
     <Style.Triggers>
       <Trigger Property="IsMouseOver" Value="True">
         <Setter Property="Background" Value="{StaticResource Accent.Hover}" />
         <Setter Property="BorderBrush" Value="{StaticResource Accent.Hover}" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource Ink.OnAccent}" />
       </Trigger>
     </Style.Triggers>
   </Style>
@@ -556,13 +556,13 @@
     <Setter Property="FontSize" Value="13" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Background" Value="{StaticResource Danger.Text}" />
-    <Setter Property="Foreground" Value="White" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.OnAccent}" />
     <Setter Property="BorderBrush" Value="{StaticResource Danger.Text}" />
     <Style.Triggers>
       <Trigger Property="IsMouseOver" Value="True">
         <Setter Property="Background" Value="{StaticResource Danger.Hover}" />
         <Setter Property="BorderBrush" Value="{StaticResource Danger.Hover}" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Foreground" Value="{StaticResource Ink.OnAccent}" />
       </Trigger>
     </Style.Triggers>
   </Style>
@@ -692,12 +692,12 @@
           <StackPanel Orientation="Horizontal" Background="Transparent">
             <Border x:Name="Ring" CornerRadius="6" Padding="1" Background="Transparent" VerticalAlignment="Center">
               <Border x:Name="Box" Width="16" Height="16" CornerRadius="4"
-                      Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Normal}" BorderThickness="1">
+                      Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Check}" BorderThickness="1">
                 <Grid>
                   <Path x:Name="Check" Visibility="Collapsed" Stretch="Uniform" Margin="3"
-                        Stroke="White" StrokeThickness="2" StrokeEndLineCap="Round" StrokeStartLineCap="Round"
+                        Stroke="{StaticResource Ink.OnAccent}" StrokeThickness="2" StrokeEndLineCap="Round" StrokeStartLineCap="Round"
                         Data="M 0,4 L 3.2,7.2 L 9,1" />
-                  <Rectangle x:Name="Mid" Visibility="Collapsed" Width="8" Height="2" RadiusX="1" RadiusY="1" Fill="White"
+                  <Rectangle x:Name="Mid" Visibility="Collapsed" Width="8" Height="2" RadiusX="1" RadiusY="1" Fill="{StaticResource Ink.OnAccent}"
                              HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Grid>
               </Border>
@@ -809,7 +809,7 @@
     </Style.Triggers>
   </Style>
 
-  <!-- ============ タブ（立体をやめ、選択タブは下線で示す） ============ -->
+  <!-- ============ タブ（今の画面は使わない。左のナビで切り替える。立体をやめ、選択タブは下線で示す） ============ -->
   <Style TargetType="TabItem">
     <Setter Property="FontSize" Value="13" />
     <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
