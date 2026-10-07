@@ -8,7 +8,7 @@
 
 ## 部品と並び
 
-- 左に画面の一覧（［1 インデックス管理］［2 検索］［8 設定］）と、その下に［バージョン情報］。
+- 左に画面の一覧（［インデックス管理］［検索］［設定］）と、その下に［バージョン情報］。
 - 窓の下端に、操作の結果を 1 行で出す状態の欄がある。
 
 ## 状態と遷移
@@ -64,9 +64,9 @@ stateDiagram-v2
 
 ![数が多い確認](../../../images/screens/window/leftover-many.png)
 
-### window/leftover-search（［2 検索］の上に出ている）
+### window/leftover-search（［検索］の上に出ている）
 
-![［2 検索］の上の確認](../../../images/screens/window/leftover-search.png)
+![［検索］の上の確認](../../../images/screens/window/leftover-search.png)
 
 ### window/leftover-killed・window/leftover-partial（終了したあとのステータス）
 

@@ -35,7 +35,7 @@ Describe "S5 テキストファイルの検索と表示" -Tag Gui {
             startGuiIndexing $S
             waitGui $S "取り込みが終わる" ${guiIndexTimeout} { !(testGuiIndexing $S) } | Out-Null
 
-            setGuiStep $S "［2 検索］へ"
+            setGuiStep $S "［検索］へ"
             selectGuiTab $S "SearchTab"
 
             setGuiStep $S "検索語で検索"

@@ -510,7 +510,7 @@ function getDefaultWorkspaceError {
         [string]$folder
     )
 
-    return "「${folder}」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+    return "「${folder}」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［設定］の［変更…］）。"
 }
 
 function testDefaultWorkspace {
@@ -536,7 +536,7 @@ function testDefaultWorkspace {
 
 function getWorkspaceBlockMessage {
     # 今のワークスペースが既定の場所で、そこにほかのファイルが置いてあるなら、その文言（使えるなら空）。
-    # インデックスのファイルと混ざるため、インデックス作成を始めず、［8 設定］で別のフォルダを選んでもらう
+    # インデックスのファイルと混ざるため、インデックス作成を始めず、［設定］で別のフォルダを選んでもらう
     param (
         [string]$current = $workspace.Dir,
         [string]$defaultDir = (getDefaultWorkDir)

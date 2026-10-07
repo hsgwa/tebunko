@@ -1,4 +1,4 @@
-﻿# ［2 検索］の検索対象インデックスのツリー（tebunko\ui\index_tree.ps1）のテスト。
+﻿# ［検索］の検索対象インデックスのツリー（tebunko\ui\index_tree.ps1）のテスト。
 # 画面の部品（$ui.IndexTree など）は偽物にし、インデックス・設定ファイルは TestDrive に作って確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
@@ -33,7 +33,7 @@ BeforeAll {
         UncheckAllIndexButton = newFakeButton "UncheckAll"
     }
 
-    # 画面の共通部品（shared\ui\shell.ps1）と［2 検索］の検索条件の画面（ui\search\search_bar.ps1）の代わり
+    # 画面の共通部品（shared\ui\shell.ps1）と［検索］の検索条件の画面（ui\search\search_bar.ps1）の代わり
     function safe {
         param ([scriptblock]$block)
         & $block

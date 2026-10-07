@@ -527,7 +527,7 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
         [System.IO.File]::WriteAllText("$TestDrive\ほか\README.md", "")
         $check = testDefaultWorkspace "$TestDrive\ほか"
         $check.Usable | Should -Be $false
-        $check.Message | Should -Be "「$TestDrive\ほか」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+        $check.Message | Should -Be "「$TestDrive\ほか」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［設定］の［変更…］）。"
     }
 
     It "今のワークスペースが既定の場所で、使えないときだけ文言を返す" {

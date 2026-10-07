@@ -205,7 +205,7 @@ content_index/<相対フォルダ>/content_index.<拡張子>.<番号>.tsv … �
 6. **展開する**（`expandImportArchive`）: `<ワークスペース>\publish\<PID>\import\new\` に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。`source_folder.txt` もここに書く。
 7. **設定に登録する**（`registerImportedIndexInSettings`）: `targetFolders` に `{ name, path, enabled }` を足す（上書きなら既存の項目を書き換え、並びは変えない）。`enabled` は元のフォルダがあれば `true`。同じ名前の `indexSources` は消す。**`targetFolders` に入れる理由**は、取り込み一覧の行を持ち込むので、次のインデックス作成で差分だけを取り込め、`removeDroppedFolders`（[取り込み一覧](../indexing/ingest-list.md)）に消されないため。
 8. **`content_index\<名前>\` を入れ替える**（`swapInImportedIndexDir`。上書きなら今のフォルダを `previous\` へ退避してから）。作ったばかり・書いたばかりのフォルダはウイルス対策ソフトに一時的に掴まれることがあるため、`removeDirectoryRetry` と同じ `moveDirectoryRetry`（`shared/core/fs.ps1`）で少し待って数回試す。
-9. **取り込み一覧を書き直す**（`rewriteStatusForImport`）: `readStatusFile` で読み、そのインデックスの前の `クロール対象フォルダ` の行とデータ行を除いて、新しい `クロール対象フォルダ` の行とデータ行を足し、インデクサと同じ `writeStatusFile` で書く。`クロール対象フォルダ` の行は見出しの行の前、見出しの行は必ずある形になる（`getIndexNameMap` は見出しの行で読むのをやめるため、行が見出しの後ろにあると名前を見つけられず、［8 設定］の［あるインデックスを使う］で一覧から落ちて `removeDroppedFolders` に消される）。空のワークスペースでも、ほかのインデックスがあるワークスペースでも同じ。
+9. **取り込み一覧を書き直す**（`rewriteStatusForImport`）: `readStatusFile` で読み、そのインデックスの前の `クロール対象フォルダ` の行とデータ行を除いて、新しい `クロール対象フォルダ` の行とデータ行を足し、インデクサと同じ `writeStatusFile` で書く。`クロール対象フォルダ` の行は見出しの行の前、見出しの行は必ずある形になる（`getIndexNameMap` は見出しの行で読むのをやめるため、行が見出しの後ろにあると名前を見つけられず、［設定］の［あるインデックスを使う］で一覧から落ちて `removeDroppedFolders` に消される）。空のワークスペースでも、ほかのインデックスがあるワークスペースでも同じ。
 10. 上書きなら、前のシステムインデックスを消す（失敗しても続ける。次のインデックス作成で整理される）。**システムインデックスはインポートでは作らない**（下の「システムインデックスを作る時機」）。
 11. 作業フォルダを消す。
 

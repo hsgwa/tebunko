@@ -241,11 +241,11 @@ function captureStarterScene {
     try {
         invokeGuiScene $S {
             setGuiStep $S "起動時のタブ（インデックスが無い）"
-            waitGui $S "［1 インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
+            waitGui $S "［インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
             captureGuiState -S $S -Id "index-tab/empty" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
-            setGuiStep $S "［2 検索］（インデックスが無い）"
+            setGuiStep $S "［検索］（インデックスが無い）"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
             captureGuiState -S $S -Id "search-tab/no-index" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
@@ -384,7 +384,7 @@ function captureHeavyScene {
         captureGuiState -S $S -Id "index-tab/running" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
-        setGuiStep $S "取り込み中の［8 設定］の［変更…］"
+        setGuiStep $S "取り込み中の［設定］の［変更…］"
         selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
         clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
         $warning = waitGuiWindow $S "作成中の警告" -Text "更新中はワークスペースを変えられません"
@@ -458,8 +458,8 @@ function captureSearchScene {
 
     $S = startGui $tool "search"
     invokeGuiScene $S {
-        setGuiStep $S "起動時の［2 検索］"
-        waitGui $S "［2 検索］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SearchTab" } | Out-Null
+        setGuiStep $S "起動時の［検索］"
+        waitGui $S "［検索］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SearchTab" } | Out-Null
         captureGuiState -S $S -Id "search-tab/initial" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
@@ -580,7 +580,7 @@ function captureSettingsScene {
             useGuiFolderPicker $S $path
         }
 
-        setGuiStep $S "［8 設定］（既定でないワークスペース）"
+        setGuiStep $S "［設定］（既定でないワークスペース）"
         selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
         captureGuiState -S $S -Id "settings-tab/normal" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes

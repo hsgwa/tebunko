@@ -941,7 +941,7 @@ function closeGuiWindowAsync {
 }
 
 function startGuiIndexing {
-    # ［1 インデックス管理］の［すべて更新］を押し、確認のダイアログで［更新を開始］を押して、取り込みを始める
+    # ［インデックス管理］の［すべて更新］を押し、確認のダイアログで［更新を開始］を押して、取り込みを始める
     param ($S)
 
     clickGui $S $S.Window "IndexingButton" "［すべて更新］"

@@ -1,4 +1,4 @@
-﻿# ［1 インデックス管理］タブのうち、インデックス作成の開始・中止と進み具合の表示。
+﻿# ［インデックス管理］タブのうち、インデックス作成の開始・中止と進み具合の表示。
 
 # ---- インデックス作成の起動と進み具合 ----
 
@@ -170,7 +170,7 @@ function startIndexing {
         return
     }
 
-    # 既定のワークスペースにほかのファイルが置いてあれば、始めずに［8 設定］で別のフォルダを選んでもらう
+    # 既定のワークスペースにほかのファイルが置いてあれば、始めずに［設定］で別のフォルダを選んでもらう
     $workspaceBlock = getWorkspaceBlockMessage
     if ($workspaceBlock) {
         showMessage $workspaceBlock "OK" "Warning" | Out-Null

@@ -16,15 +16,15 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
     It "追加・編集・行のチェックの切り替え・作成・削除が動く" {
         $S = startGui $script:tool "S2"
         invokeGuiScene $S {
-            # インデックスが無いので［1 インデックス管理］が選ばれる（#3）
+            # インデックスが無いので［インデックス管理］が選ばれる（#3）
             setGuiStep $S "起動時のタブ（インデックスが無い）"
             getGuiSelectedTab $S | Should -Be "IndexTab"
 
-            # ［2 検索］の［インデックス管理へ］で［1］へ（#26）
-            setGuiStep $S "［2 検索］の［インデックス管理へ］"
+            # ［検索］の［インデックス管理へ］で［インデックス管理］へ（#26）
+            setGuiStep $S "［検索］の［インデックス管理へ］"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
             clickGui $S $S.Window "GoIndexTabButton" "［インデックス管理へ］"
-            waitGui $S "［1 インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
+            waitGui $S "［インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
 
             # 追加: キャンセル（#11）
             setGuiStep $S "［＋ フォルダを追加］→［キャンセル］"
@@ -205,8 +205,8 @@ Describe "S3 作成中の操作" -Tag Gui {
             pressGuiKey $menu 0x1B
             waitGuiWindowClosed $S $menu "行のメニュー"
 
-            # ［8 設定］の［変更…］はメッセージボックスで断られる（#21）
-            setGuiStep $S "取り込み中の［8 設定］の［変更…］"
+            # ［設定］の［変更…］はメッセージボックスで断られる（#21）
+            setGuiStep $S "取り込み中の［設定］の［変更…］"
             selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
             closeGuiMessage $S "更新中はワークスペースを変えられません" "作成中の警告" | Out-Null
@@ -235,16 +235,16 @@ Describe "S3 作成中の操作" -Tag Gui {
     }
 
     It "中断した取り込みから再開でき、取り込み中に閉じる確認が動く" {
-        # #4（取り込みが中断していると起動時に［1 インデックス管理］が選ばれる）は、gui.ps1 の起動時の判定
+        # #4（取り込みが中断していると起動時に［インデックス管理］が選ばれる）は、gui.ps1 の起動時の判定
         # （$script:indexingState が非同期に読み込まれる前に決めているため、Pending の判定が効かない）に見つかった
-        # 不具合により、1 件でも取り込み済みだと ［2 検索］が選ばれる。別の fix（起票済み。Backlog）で直すまで、ここではタブを
+        # 不具合により、1 件でも取り込み済みだと ［検索］が選ばれる。別の fix（起票済み。Backlog）で直すまで、ここではタブを
         # 明示的に選んで続きの確かめ（#10）を行う。更新の帯の中断の文言は、選び直した後に出ることを確かめる
         $tooFast = "取り込みが終わってしまい、取り込み中の操作が間に合わなかった。tests\gui\index.Tests.ps1 の s3Copies（ファイルの数）を増やす"
 
         # 2 回目の起動: 続きから再開し、閉じる操作を確かめる
         $S = startGui $script:tool "S3"
         invokeGuiScene $S {
-            setGuiStep $S "起動時のタブを［1 インデックス管理］にする（#4 は別の fix で直すまでの回避）"
+            setGuiStep $S "起動時のタブを［インデックス管理］にする（#4 は別の fix で直すまでの回避）"
             selectGuiTab $S "IndexTab" "IndexingButton"
             waitGui $S "「更新を中断しました」" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*更新を中断しました*" } | Out-Null
 

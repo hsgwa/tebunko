@@ -4,7 +4,7 @@
 
 ## クロール対象フォルダ（`getTargetFolders`）
 
-クロール対象フォルダは、画面（`tebunko.bat`）の［1 インデックス管理］でチェックボックス付きの一覧として登録し、`setting.config` の `targetFolders` に保存する（`writeTargetFolders`。形式は [設定ファイル（setting.config）](../structure/settings-file.md)）。チェックを外したフォルダ（`enabled` が `false`）は、登録はしておくが取り込まない。インデクサは開始時にこれを読む。
+クロール対象フォルダは、画面（`tebunko.bat`）の［インデックス管理］でチェックボックス付きの一覧として登録し、`setting.config` の `targetFolders` に保存する（`writeTargetFolders`。形式は [設定ファイル（setting.config）](../structure/settings-file.md)）。チェックを外したフォルダ（`enabled` が `false`）は、登録はしておくが取り込まない。インデクサは開始時にこれを読む。
 
 - パスは 1 つの書き方にそろえる（`normalizeFolderPath`）。エクスプローラーの「パスのコピー」をそのまま貼り付けられる。
   - 前後の空白・`"` と末尾の `\` を取り除く（ドライブ直下は `D:\` のまま、UNC の共有直下は `\\server\share`）。
