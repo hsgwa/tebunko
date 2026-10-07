@@ -3099,7 +3099,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3314,7 +3314,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3342,7 +3342,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3370,7 +3370,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -4114,7 +4114,7 @@
 <h1 id="クロール対象フォルダと取り込み対象">クロール対象フォルダと取り込み対象<a class="headerlink" href="#クロール対象フォルダと取り込み対象" title="Permanent link">&para;</a></h1>
 <p>扱うこと: クロール対象フォルダの登録・インデックス名の割り当て・フォルダを移動したときの扱い。扱わないこと: 取り込み対象にするかどうかの判定そのもの（<a href="../target-decision/">取り込み対象の決定</a>）、取り込み一覧の形式そのもの（<a href="../ingest-list/">取り込み一覧</a>）、インデックス作成全体の流れ（<a href="../flow/">インデックス作成のメインフロー</a>）。先に読むページ: <a href="../">インデックス作成</a>。</p>
 <h2 id="クロール対象フォルダgettargetfolders">クロール対象フォルダ（<code>getTargetFolders</code>）<a class="headerlink" href="#クロール対象フォルダgettargetfolders" title="Permanent link">&para;</a></h2>
-<p>クロール対象フォルダは、画面（<code>tebunko.bat</code>）の［1 インデックス管理］でチェックボックス付きの一覧として登録し、<code>setting.config</code> の <code>targetFolders</code> に保存する（<code>writeTargetFolders</code>。形式は <a href="../../structure/settings-file/">設定ファイル（setting.config）</a>）。チェックを外したフォルダ（<code>enabled</code> が <code>false</code>）は、登録はしておくが取り込まない。インデクサは開始時にこれを読む。</p>
+<p>クロール対象フォルダは、画面（<code>tebunko.bat</code>）の［インデックス管理］でチェックボックス付きの一覧として登録し、<code>setting.config</code> の <code>targetFolders</code> に保存する（<code>writeTargetFolders</code>。形式は <a href="../../structure/settings-file/">設定ファイル（setting.config）</a>）。チェックを外したフォルダ（<code>enabled</code> が <code>false</code>）は、登録はしておくが取り込まない。インデクサは開始時にこれを読む。</p>
 <ul>
 <li>パスは 1 つの書き方にそろえる（<code>normalizeFolderPath</code>）。エクスプローラーの「パスのコピー」をそのまま貼り付けられる。</li>
 <li>前後の空白・<code>"</code> と末尾の <code>\</code> を取り除く（ドライブ直下は <code>D:\</code> のまま、UNC の共有直下は <code>\\server\share</code>）。</li>

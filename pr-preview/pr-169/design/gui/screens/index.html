@@ -3030,7 +3030,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3247,7 +3247,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3275,7 +3275,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3303,7 +3303,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -4078,21 +4078,21 @@
 
 
 <h1 id="画面設計現行">画面設計（現行）<a class="headerlink" href="#画面設計現行" title="Permanent link">&para;</a></h1>
-<p>GUI を改善する前に、今の画面をすべての状態で写真に撮って残す区分。写真は道具（<code>tools/capture_screens.ps1</code>）で自動で撮り、<code>docs/images/screens/</code> に置く。タブごとの No. の表（<a href="../index-tab/">［1 インデックス管理］タブ</a> など）は仕様として残し、ここには書き写さない。画面ごとのページは、目的・部品と並び・状態と遷移・表示する文言・写真をまとめる。</p>
+<p>GUI を改善する前に、今の画面をすべての状態で写真に撮って残す区分。写真は道具（<code>tools/capture_screens.ps1</code>）で自動で撮り、<code>docs/images/screens/</code> に置く。タブごとの No. の表（<a href="../index-tab/">［インデックス管理］タブ</a> など）は仕様として残し、ここには書き写さない。画面ごとのページは、目的・部品と並び・状態と遷移・表示する文言・写真をまとめる。</p>
 <h2 id="この区分のページ">この区分のページ<a class="headerlink" href="#この区分のページ" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="window/">本体・共通の状態</a></li>
-<li><a href="index-tab/">［1 インデックス管理］タブ</a></li>
-<li><a href="search-tab/">［2 検索］タブ</a></li>
-<li><a href="settings-tab/">［8 設定］タブ</a></li>
+<li><a href="index-tab/">［インデックス管理］タブ</a></li>
+<li><a href="search-tab/">［検索］タブ</a></li>
+<li><a href="settings-tab/">［設定］タブ</a></li>
 </ul>
 <h2 id="画面全体の遷移">画面全体の遷移<a class="headerlink" href="#画面全体の遷移" title="Permanent link">&para;</a></h2>
 <p>画面ごとの状態と遷移は各ページにある。ここではタブの間の行き来だけを示す。</p>
 <pre class="mermaid"><code>stateDiagram-v2
     state "起動" as startup
-    state "［1 インデックス管理］" as t1
-    state "［2 検索］" as t2
-    state "［8 設定］" as t8
+    state "［インデックス管理］" as t1
+    state "［検索］" as t2
+    state "［設定］" as t8
     startup --&gt; t1: インデックスが無い・中断している（3・4）
     startup --&gt; t2: インデックスがある（2）
     startup --&gt; t8: 既定のワークスペースにほかのファイルがある（5）
@@ -4115,7 +4115,7 @@
 <li>Windows の通知を止めている（集中モード・応答不可。撮る途中で通知が重なるのを防ぐ）。</li>
 <li>道具と tebunko は、管理者でない同じ利用者の権限で動かす。</li>
 <li><strong>架空のデータを使う。</strong> 道具は一時フォルダを、空いているドライブの文字（<code>Z:</code> から下へ探す）に <code>subst</code> で割り当て、その下でツール・ワークスペース・元のフォルダを動かす。終わったら（失敗しても）<code>subst /D</code> で外す。インデックス名・ファイル名・中身は、<a href="https://github.com/hsgwa/tebunko/blob/main/AGENTS.md#個人情報を書かない">個人情報を書かない</a>の架空の名前を使う。</li>
-<li><strong>利用者名が出る部品を塗りつぶす。</strong> ［8 設定］の「既定の場所は「<code>C:\Users\&lt;利用者名&gt;\Documents\tebunko_ws</code>」です。」のように、OS から取る利用者のフォルダの場所は差し替えられない。道具は撮るたびに、窓の中の部品の UI オートメーションの <code>Name</code> と、入力欄（<code>ValuePattern</code>）の <code>Value</code> を調べ、利用者名・コンピューター名・利用者のフォルダのパスを含む部品の範囲を塗りつぶし、その上に置き換えた文字を描き直す。利用者のフォルダのパスは <code>C:\Users\test\...</code>、利用者名は <code>test</code>、コンピューター名は <code>TEST-PC</code> に置き換える。</li>
+<li><strong>利用者名が出る部品を塗りつぶす。</strong> ［設定］の「既定の場所は「<code>C:\Users\&lt;利用者名&gt;\Documents\tebunko_ws</code>」です。」のように、OS から取る利用者のフォルダの場所は差し替えられない。道具は撮るたびに、窓の中の部品の UI オートメーションの <code>Name</code> と、入力欄（<code>ValuePattern</code>）の <code>Value</code> を調べ、利用者名・コンピューター名・利用者のフォルダのパスを含む部品の範囲を塗りつぶし、その上に置き換えた文字を描き直す。利用者のフォルダのパスは <code>C:\Users\test\...</code>、利用者名は <code>test</code>、コンピューター名は <code>TEST-PC</code> に置き換える。</li>
 <li><strong>本体・ダイアログ・メニューの窓の外</strong>（デスクトップ・後ろの窓・通知）は無地の色で塗る（<code>CopyFromScreen</code> は画面に出ているものをそのまま撮るため）。</li>
 <li>撮る間はマウス・キーボードに触らない（<a href="../../testing/gui-smoke/#画面のスモークテスト">画面のスモークテスト</a>と同じ。共通の関数 <code>tests/gui/gui_helpers.ps1</code> を使い回す）。</li>
 </ul>
@@ -4163,7 +4163,7 @@
 </tr>
 <tr>
 <td><code>window/leftover-search</code></td>
-<td>同・［2 検索］の上に出ている</td>
+<td>同・［検索］の上に出ている</td>
 <td>–</td>
 </tr>
 <tr>
@@ -4178,7 +4178,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>［1 インデックス管理］（<code>index-tab</code>）</strong></p>
+<p><strong>［インデックス管理］（<code>index-tab</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -4255,7 +4255,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>［2 検索］（<code>search-tab</code>）</strong></p>
+<p><strong>［検索］（<code>search-tab</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -4322,7 +4322,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>［8 設定］（<code>settings-tab</code>）</strong></p>
+<p><strong>［設定］（<code>settings-tab</code>）</strong></p>
 <table>
 <thead>
 <tr>

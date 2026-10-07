@@ -3138,7 +3138,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3353,7 +3353,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3381,7 +3381,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3409,7 +3409,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -4190,10 +4190,10 @@
 
 
 <h1 id="インデックス一覧の管理">インデックス一覧の管理<a class="headerlink" href="#インデックス一覧の管理" title="Permanent link">&para;</a></h1>
-<p>扱うこと: ［1 インデックス管理］タブでのインデックスの追加・一覧・編集・削除、名前を変えた・削除したときの処理。扱わないこと: インデックス作成の実行そのもの（<a href="../indexing-run/">インデックス作成の実行</a>）。先に読むページ: <a href="../">画面</a>。</p>
+<p>扱うこと: ［インデックス管理］タブでのインデックスの追加・一覧・編集・削除、名前を変えた・削除したときの処理。扱わないこと: インデックス作成の実行そのもの（<a href="../indexing-run/">インデックス作成の実行</a>）。先に読むページ: <a href="../">画面</a>。</p>
 <p>インデックスを <strong>追加・一覧・編集・削除</strong> するタブ。インデックス作成の実行は <a href="../indexing-run/">インデックス作成の実行</a> を参照。
 図は「前回更新に失敗したファイルがあり、インデックス作成を実行中」の状態。</p>
-<p><img alt="［1 インデックス管理］タブ" src="../../../images/%E7%94%BB%E9%9D%A2_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96.drawio.png" /></p>
+<p><img alt="［インデックス管理］タブ" src="../../../images/%E7%94%BB%E9%9D%A2_%E3%82%A4%E3%83%B3%E3%83%87%E3%83%83%E3%82%AF%E3%82%B9%E7%AE%A1%E7%90%86%E3%82%BF%E3%83%96.drawio.png" /></p>
 <p>今の画面の写真は<a href="../screens/index-tab/">画面設計（現行）</a>にある。</p>
 <p>画面は上下に分ける。上が<strong>一覧</strong>（見出し・［インポート…］［＋ フォルダを追加］［すべて更新］・表。<code>xaml/index/index_list.xaml</code>）、下が<strong>詳細</strong>（インデックスの状態・更新の進み具合・更新に失敗したファイル。<code>xaml/index/index_detail.xaml</code>。表の行を 1 つ選ぶと、見出しが <code>&lt;名前&gt; - 詳細</code> になり、その行のインデックスの値（1 行 1 項目・長いものは <code>…</code> で省略）と高速検索の反映の進みを出す。選んでいない間は見出しが <code>インデックスの状態</code> で、全インデックスの合計だけを出す。文言は判断層の <code>getIndexDetailView</code>。選んだ行の値が変わる所（行のチェック・フォルダの有無の結果・名前や場所の編集・更新の集計・高速検索の確かめ・追加・削除）は、どれも <code>updateIndexDetailPanel</code> で詳細を書き直す。<code>tests/meta/index_detail.Tests.ps1</code> が呼び出しを確かめる）で、枠は <code>xaml/index/index.xaml</code>。間の境目をドラッグすると詳細の高さが変わる（詳細は最大 397・最小 240。一覧は最小 225）。一覧の行の［編集…］［エクスポート…］［削除］は、行の右端の［⋯］（または一覧の右クリック）から開くメニューの項目にする。</p>
 <p>見た目は、一覧も詳細も囲み（カード）を使わず平らにする（見出しは <code>PageTitle</code>、詳細の上に細い線 1 本と薄い地の見出しの帯、詳細の左右の間は線 1 本）。主のボタンは［＋ フォルダを追加］（青）で、［すべて更新］［インポート…］は白地。状態の札（一覧の「ステータス」「高速検索」・詳細・更新の確認）は、どれも <code>StatusBadge</code>（角丸 8・枠つき）に色だけを重ねる。途中で止まった行の <code>残り N 件</code> は注意の色（<code>Warn</code>）で出す。インデックスが 1 件も無いときは、詳細と境目を出さず、案内（folder-search の絵・［＋ フォルダを追加］）を一覧の中央に出す（<code>updateIndexListView</code>）。</p>
@@ -4372,7 +4372,7 @@
 </tr>
 <tr>
 <td>ほかのインデックスのフォルダの中（<code>testFolderUnder</code>）</td>
-<td><code>「&lt;パス&gt;」は、インデックス [&lt;名前&gt;]（&lt;そのパス&gt;）の中のフォルダです。同じファイルが二重にインデックスに入るため、登録できません。検索する範囲を絞るときは［2 検索］の検索対象で外してください。</code></td>
+<td><code>「&lt;パス&gt;」は、インデックス [&lt;名前&gt;]（&lt;そのパス&gt;）の中のフォルダです。同じファイルが二重にインデックスに入るため、登録できません。検索する範囲を絞るときは［検索］の検索対象で外してください。</code></td>
 </tr>
 <tr>
 <td>中にほかのインデックスのフォルダがある</td>
@@ -4453,7 +4453,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>排他</strong>: インデックス作成のロックで防げるのはインデクサだけで、一覧の名前の変更・削除・［8 設定］のワークスペースの切り替えは、このロックを取らずに <code>content_index\</code>・取り込み一覧・設定を書き換える。そこでエクスポート・インポートを別スレッドで行っている間と、次のものが動いている間は、互いに操作できないようにする。可否と押せなかったときの文言は、判断層の <code>getIndexJobBlocker</code>（動いているもの）・<code>getIndexJobBlockedMessage</code>（文言）・<code>getIndexTabButtonsEnabled</code>（表のボタン）だけで決め、画面の側（<code>testIndexOperable</code>・<code>testWorkspaceChangeable</code>・<code>updateIndexingButton</code>）は結果を使うだけにする（<code>index_view.Tests.ps1</code> の表のテスト）。</p>
+<p><strong>排他</strong>: インデックス作成のロックで防げるのはインデクサだけで、一覧の名前の変更・削除・［設定］のワークスペースの切り替えは、このロックを取らずに <code>content_index\</code>・取り込み一覧・設定を書き換える。そこでエクスポート・インポートを別スレッドで行っている間と、次のものが動いている間は、互いに操作できないようにする。可否と押せなかったときの文言は、判断層の <code>getIndexJobBlocker</code>（動いているもの）・<code>getIndexJobBlockedMessage</code>（文言）・<code>getIndexTabButtonsEnabled</code>（表のボタン）だけで決め、画面の側（<code>testIndexOperable</code>・<code>testWorkspaceChangeable</code>・<code>updateIndexingButton</code>）は結果を使うだけにする（<code>index_view.Tests.ps1</code> の表のテスト）。</p>
 <table>
 <thead>
 <tr>
@@ -4464,7 +4464,7 @@
 <tbody>
 <tr>
 <td>エクスポート・インポート</td>
-<td>［＋ フォルダを追加］［編集…］［削除］［すべて更新］・もう一方の［エクスポート…］［インポート…］・［8 設定］のワークスペースの［変更…］</td>
+<td>［＋ フォルダを追加］［編集…］［削除］［すべて更新］・もう一方の［エクスポート…］［インポート…］・［設定］のワークスペースの［変更…］</td>
 </tr>
 <tr>
 <td>インデックス作成・削除</td>
@@ -4472,7 +4472,7 @@
 </tr>
 </tbody>
 </table>
-<p>［8 設定］の［変更…］は、押した時点で <code>testWorkspaceChangeable</code> が <code>getIndexJobBlocker</code> でインデックス作成中・削除中・エクスポート・インポート中かどうかを確かめ、動いていれば <code>getIndexJobBlockedMessage</code>（<code>エクスポート・インポートが終わるまでお待ちください。</code> など）を出して何もしない。別のセッション（別のプロセスの画面・将来の CUI）の名前の変更・削除との排他は扱わない。</p>
+<p>［設定］の［変更…］は、押した時点で <code>testWorkspaceChangeable</code> が <code>getIndexJobBlocker</code> でインデックス作成中・削除中・エクスポート・インポート中かどうかを確かめ、動いていれば <code>getIndexJobBlockedMessage</code>（<code>エクスポート・インポートが終わるまでお待ちください。</code> など）を出して何もしない。別のセッション（別のプロセスの画面・将来の CUI）の名前の変更・削除との排他は扱わない。</p>
 
 
 

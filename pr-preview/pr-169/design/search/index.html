@@ -3030,7 +3030,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3245,7 +3245,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3273,7 +3273,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3301,7 +3301,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -4098,7 +4098,7 @@
 <tbody>
 <tr>
 <td>画面</td>
-<td>［2 検索］タブ（<a href="../gui/search-tab/">検索タブ</a>）</td>
+<td>［検索］タブ（<a href="../gui/search-tab/">検索タブ</a>）</td>
 </tr>
 <tr>
 <td>スクリプト</td>
@@ -4112,7 +4112,7 @@
 </table>
 <p>全体構成・動作環境・フォルダ構成は <a href="../">設計の概要</a> を参照。インデックス（本文インデックス）の作り方は <a href="../indexing/">インデックス作成</a> を参照。画面の操作・表示は <a href="../gui/search-tab/">検索タブ</a> を参照。</p>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面の［2 検索］タブで入力したワードで、<code>work/content_index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/search_results.txt</code> の形式を定める。</p>
+<p>画面の［検索］タブで入力したワードで、<code>work/content_index/</code> 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）を検索する処理と、［結果をファイルに出力］で書き出す <code>work/search_results.txt</code> の形式を定める。</p>
 <h2 id="入出力">入出力<a class="headerlink" href="#入出力" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4151,18 +4151,18 @@
 </tbody>
 </table>
 <h2 id="インデックスの一覧getsearchindexes">インデックスの一覧（<code>getSearchIndexes</code>）<a class="headerlink" href="#インデックスの一覧getsearchindexes" title="Permanent link">&para;</a></h2>
-<p>検索対象は <code>work/content_index</code> に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［1 インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。</p>
+<p>検索対象は <code>work/content_index</code> に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。</p>
 <pre class="mermaid"><code>flowchart TD
     A["getSearchIndexes"] --&gt; B{"work/content_index がある？"}
     B -- いいえ --&gt; Z["空（インデックスが無い）"]
     B -- はい --&gt; C["work/content_index 直下のフォルダを列挙&lt;br&gt;（ファイルは対象外）"]
     C --&gt; D["元のフォルダを引く&lt;br&gt;getSourceFolderMap"]
-    D --&gt; E["［1 インデックス管理］の一覧（targetFolders）の順に並べ、&lt;br&gt;一覧に無いものは名前順で後ろに付ける"]</code></pre>
+    D --&gt; E["［インデックス管理］の一覧（targetFolders）の順に並べ、&lt;br&gt;一覧に無いものは名前順で後ろに付ける"]</code></pre>
 <ul>
 <li>1 件を <code>@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }</code> で返す。</li>
 <li>別の場所・PC で作ったインデックスは、そのフォルダを <code>work/content_index</code> 直下に置けば一覧に並ぶ（<a href="../indexing/crawl/">クロール対象フォルダと取り込み対象</a>）。</li>
 <li><code>work/content_index</code> が無ければ空を返す。<code>setting.config</code> は作成しない。</li>
-<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../gui/search-tab/">［2 検索］タブ</a> <a href="../gui/search-tree/">検索対象のツリー</a>）。選んだ範囲は <code>getIndexPackFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/content_index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
+<li>画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（<a href="../gui/search-tab/">［検索］タブ</a> <a href="../gui/search-tree/">検索対象のツリー</a>）。選んだ範囲は <code>getIndexPackFiles</code> に <code>@{ Root（インデックスのフォルダ</code>work/content_index<code>）; RelPath（</code>&lt;インデックス名&gt;<code>またはその下のフォルダ）; Recurse }</code> の配列で渡す。<code>Recurse</code> が <code>$false</code> なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（<code>RelPath</code>・<code>RelDir</code>）は <code>Root</code> から求めるため、フォルダを絞っても結果の形は変わらない。</li>
 <li>チェックを外したフォルダは <code>searchExcludes</code>（<code>@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }</code> の配列）に保存する（<code>readSearchExcludes</code> / <code>writeSearchExcludes</code>）。無ければすべてを検索する。</li>
 </ul>
 <pre class="mermaid"><code>flowchart TD
@@ -4177,7 +4177,7 @@
     G -- "［結果をファイルに出力］" --&gt; W["writeSearchResult&lt;br&gt;work/search_results.txt に書き出して開く"]</code></pre>
 <ul>
 <li>本文インデックスのファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ本文インデックスのファイルを二重に検索しない。</li>
-<li>検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。<a href="speed/">検索を速くする仕組み</a>）を照合するたびに進捗を通知する。画面の中止ボタン（<code>shouldStop</code>）で中止でき、件数の上限（<code>limit</code>）に達したら打ち切る（上限・表示は <a href="../gui/search-tab/">［2 検索］タブ</a>）。</li>
+<li>検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。<a href="speed/">検索を速くする仕組み</a>）を照合するたびに進捗を通知する。画面の中止ボタン（<code>shouldStop</code>）で中止でき、件数の上限（<code>limit</code>）に達したら打ち切る（上限・表示は <a href="../gui/search-tab/">［検索］タブ</a>）。</li>
 </ul>
 <h2 id="検索仕様">検索仕様<a class="headerlink" href="#検索仕様" title="Permanent link">&para;</a></h2>
 <table>

@@ -3030,7 +3030,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3353,7 +3353,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3381,7 +3381,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3409,7 +3409,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -4220,7 +4220,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/shell/nav.xaml</code><br><code>shell/status_bar.xaml</code></td>
-<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（<code>StatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
+<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（いつもの文の <code>StatusText</code>・更新中の 1 行の <code>IndexingStatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/splash.xaml</code></td>
@@ -4232,11 +4232,11 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/search/search.xaml</code><br><code>search_bar.xaml</code><br><code>target_tree.xaml</code><br><code>result_list.xaml</code><br><code>preview.xaml</code></td>
-<td>［2 検索］の領域ごとの XAML。<code>search.xaml</code> は枠（検索バー・結果の一覧・プレビューを入れる場所）、<code>target_tree.xaml</code> は左の欄の下（検索対象のツリー）に入る。ルート要素の決まりと <code>x:Name</code> の確かめは、上の各画面の中身と同じ</td>
+<td>［検索］の領域ごとの XAML。<code>search.xaml</code> は枠（検索バー・結果の一覧・プレビューを入れる場所）、<code>target_tree.xaml</code> は左の欄の下（検索対象のツリー）に入る。ルート要素の決まりと <code>x:Name</code> の確かめは、上の各画面の中身と同じ</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/index/index.xaml</code><br><code>index_list.xaml</code><br><code>index_detail.xaml</code></td>
-<td>［1 インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［インポート…］［＋ フォルダを追加］［すべて更新］・表。行の［⋯］から開くメニュー <code>IndexRowMenu</code> に［編集…］［エクスポート…］［削除］）、<code>index_detail.xaml</code> は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
+<td>［インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［インポート…］［＋ フォルダを追加］［すべて更新］・表。行の［⋯］から開くメニュー <code>IndexRowMenu</code> に［編集…］［エクスポート…］［削除］）、<code>index_detail.xaml</code> は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_export.xaml</code><br><code>dialog_import.xaml</code></td>
@@ -4280,15 +4280,15 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/index/index_list.ps1</code><br><code>index_edit.ps1</code><br><code>index_archive.ps1</code><br><code>index_detail.ps1</code><br><code>index_events.ps1</code><br><code>indexing_tab.ps1</code></td>
-<td>［1 インデックス管理］タブ（<a href="../index-tab/">［1 インデックス管理］タブ</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（<code>IndexingSession</code>）・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）</td>
+<td>［インデックス管理］タブ（<a href="../index-tab/">［インデックス管理］タブ</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（<code>IndexingSession</code>）・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/search/search_bar.ps1</code><br><code>search_session.ps1</code><br><code>result_filter.ps1</code><br><code>result_list.ps1</code><br><code>preview.ps1</code><br><code>open_source.ps1</code><br><code>index_tree.ps1</code></td>
-<td>［2 検索］タブ（<a href="../search-tab/">検索タブ</a>）。検索バーとチップ（<code>search_bar.ps1</code>）、検索の実行（<code>search_session.ps1</code>）、結果の絞り込み（<code>result_filter.ps1</code>）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。<code>result_list.ps1</code>）、選択行のプレビュー（<code>preview.ps1</code>）、元のファイルを開く処理（Excel COM。<a href="../open-file/">元のファイルを開く</a>。<code>open_source.ps1</code>）、検索対象インデックスのツリー（<code>index_tree.ps1</code>）</td>
+<td>［検索］タブ（<a href="../search-tab/">検索タブ</a>）。検索バーとチップ（<code>search_bar.ps1</code>）、検索の実行（<code>search_session.ps1</code>）、結果の絞り込み（<code>result_filter.ps1</code>）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。<code>result_list.ps1</code>）、選択行のプレビュー（<code>preview.ps1</code>）、元のファイルを開く処理（Excel COM。<a href="../open-file/">元のファイルを開く</a>。<code>open_source.ps1</code>）、検索対象インデックスのツリー（<code>index_tree.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/settings/settings.ps1</code></td>
-<td>設定の画面（<a href="../settings-tab/">［8 設定］タブ</a>）。ワークスペースを変えたら、その場で切り替える</td>
+<td>設定の画面（<a href="../settings-tab/">［設定］タブ</a>）。ワークスペースを変えたら、その場で切り替える</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/leftover_view.ps1</code></td>
@@ -4309,6 +4309,10 @@
 <tr>
 <td><code>scripts/tebunko/ui/shell/nav.ps1</code></td>
 <td>左の欄と画面の切り替え（画面層）。窓の中身は領域の表（<code>ui/gui_main.ps1</code> の <code>$regions</code>。File・Slot・Screen・Names）で読み込み、各領域の <code>x:Name</code> を <code>$ui</code> に集める。画面の中身（<code>Screen</code> の付いた領域）は起動のときに読み込んで <code>$script:screenContents</code> に持ち、<code>selectScreen</code>（画面の名前 → <code>ContentHost</code> に差す）が切り替える。ナビのクリック・Ctrl+Tab・ほかの画面からの切り替えは、すべて <code>selectScreen</code> を通す。起動時の読み込み（<code>loadStartupData</code>）が済むまでは、切り替えても読み直さない</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/ui/shell/status_bar.ps1</code><br><code>status_bar_view.ps1</code></td>
+<td>下端のステータスバーの更新中の 1 行。<code>status_bar.ps1</code>（画面層）が 1 秒ごとに <code>updateIndexingStatusLine</code> で、更新中なら <code>IndexingStatusText</code> を出していつもの文（<code>StatusText</code>）を隠す。件数は更新全体の進み（<code>getIndexingProgress</code>）、残り時間は［インデックス管理］の進み表示の文言、名前は更新中の最初の行から取り、文言は判断層の <code>getIndexingStatusLine</code> で決める</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search\search_bar_view.ps1</code><br><code>result_list_view.ps1</code><br><code>open_source_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings\settings_view.ps1</code><br><code>about_view.ps1</code><br><code>shell/nav_view.ps1</code></td>
