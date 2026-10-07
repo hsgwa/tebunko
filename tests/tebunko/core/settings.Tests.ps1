@@ -432,6 +432,13 @@ Describe "readFileKinds / writeFileKinds" -Tag Io {
         (readSearchOption $path).UseRegex | Should -Be $true
     }
 
+    It "1 つも選んでいないときは保存しない（前に保存した種類のまま。保存の形は変えない）" {
+        $path = "$TestDrive\kinds_none.config"
+        writeFileKinds @("word") $path
+        writeFileKinds @() $path
+        (@(readFileKinds $path) -join ",") | Should -Be "word"
+    }
+
     It "すべての種類を書いたときは、設定ファイルの fileKinds を空にする" {
         $path = "$TestDrive\kinds_all.config"
         writeFileKinds @("excel") $path

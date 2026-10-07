@@ -42,26 +42,33 @@ function getFileKindLabel {
 
 function toggleFileKind {
     # チップを押したあとの、選ばれている種類（${fileKindNames} の順）を返す。
-    # 最後の 1 つは外せない（何も選ばない状態にしない）
+    # 全部外してよい（空は「1 つも選んでいない」。検索を始めるときに getSearchKindError が知らせる）
     param (
         [object[]]$kinds,
         [string]$kind
     )
 
     $current = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
-    if ($current.Count -eq 0) {
-        $current = @(${fileKindNames})
-    }
     if (${fileKindNames} -notcontains $kind) {
         return $current
     }
     if ($current -contains $kind) {
-        if ($current.Count -le 1) {
-            return $current
-        }
         return @($current | Where-Object { $_ -ne $kind })
     }
     return @(${fileKindNames} | Where-Object { $current -contains $_ -or $_ -eq $kind })
+}
+
+function getSearchKindError {
+    # 検索を始められない理由（種類のチップを 1 つも選んでいないとき）の文言。始められるときは空
+    param (
+        [object[]]$kinds
+    )
+
+    $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($chosen.Count -eq 0) {
+        return "検索する種類を 1 つ以上選んでください。"
+    }
+    return ""
 }
 
 function describeFileKinds {

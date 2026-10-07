@@ -22,6 +22,11 @@ function startSearch {
         setStatus "検索ワードを入力してください。"
         return
     }
+    $kindError = getSearchKindError (getFileKindsFromUi)
+    if ($kindError -ne "") {
+        setStatus $kindError
+        return
+    }
 
     $option = getSearchOptionFromUi
     writeSearchOption $option

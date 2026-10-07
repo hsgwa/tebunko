@@ -459,13 +459,17 @@ function readFileKinds {
 }
 
 function writeFileKinds {
-    # 検索の対象にするファイルの種類を保存する。知らない値は捨てる（すべての種類を選んでいるときは空で保存する）
+    # 検索の対象にするファイルの種類を保存する。知らない値は捨てる（すべての種類を選んでいるときは空で保存する）。
+    # 1 つも選んでいないときは保存しない（空は「すべて」の意味で保存の形を変えないため、前に保存した種類のまま）
     param (
         [object[]]$kinds,
         [string]$path = ${settingsFile}
     )
 
     $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($chosen.Count -eq 0) {
+        return
+    }
     if ($chosen.Count -eq ${fileKindNames}.Count) {
         $chosen = @()
     }

@@ -35,12 +35,22 @@ Describe "種類のチップ" -Tag Unit {
     It "toggleFileKind: <name>" -TestCases @(
         @{ name = "外す"; kinds = @("excel", "word", "powerpoint", "text"); kind = "word"; expected = "excel,powerpoint,text" }
         @{ name = "足す（決まった順に並ぶ）"; kinds = @("text", "excel"); kind = "word"; expected = "excel,word,text" }
-        @{ name = "最後の 1 つは外せない"; kinds = @("excel"); kind = "excel"; expected = "excel" }
-        @{ name = "空はすべて選んでいるものとして扱う"; kinds = @(); kind = "text"; expected = "excel,word,powerpoint" }
+        @{ name = "最後の 1 つも外せる（1 つも選ばない）"; kinds = @("excel"); kind = "excel"; expected = "" }
+        @{ name = "空（1 つも選んでいない）から 1 つ選べる"; kinds = @(); kind = "text"; expected = "text" }
         @{ name = "知らない種類は変えない"; kinds = @("excel", "text"); kind = "pdf"; expected = "excel,text" }
     ) {
         param ($name, $kinds, $kind, $expected)
         (toggleFileKind $kinds $kind) -join "," | Should -Be $expected
+    }
+
+    It "getSearchKindError: <name>" -TestCases @(
+        @{ name = "1 つも選んでいなければ知らせる"; kinds = @(); expected = "検索する種類を 1 つ以上選んでください。" }
+        @{ name = "知らない種類だけでも 1 つも選んでいない"; kinds = @("pdf"); expected = "検索する種類を 1 つ以上選んでください。" }
+        @{ name = "1 つ選んでいれば空"; kinds = @("word"); expected = "" }
+        @{ name = "すべて選んでいれば空"; kinds = @("excel", "word", "powerpoint", "text"); expected = "" }
+    ) {
+        param ($name, $kinds, $expected)
+        getSearchKindError $kinds | Should -Be $expected
     }
 
     It "getNoKindMatchText: <name>" -TestCases @(

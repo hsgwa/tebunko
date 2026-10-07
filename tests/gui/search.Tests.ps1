@@ -70,7 +70,7 @@ Describe "S4 検索の遷移" -Tag Gui {
             setGuiText $S (findGui $S.Window -Id "FilterBox") ""
             waitGui $S "絞り込みを消すと 2 件に戻る" ${guiDefaultTimeout} { @(& $hitRows).Count -eq 2 } | Out-Null
 
-            # 種類のチップを外すと、その種類のファイルが検索から外れる。戻すと元に戻る（最後の 1 つは外せない）
+            # 種類のチップを外すと、その種類のファイルが検索から外れる。戻すと元に戻る（全部外すこともできるが、そのままでは検索を始めない）
             setGuiStep $S "種類のチップ［Word］を外して検索"
             toggleGui (findGui $S.Window -Id "KindChipWord")
             waitGui $S "チップ［Word］が外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "KindChipWord")) -eq "Off" } | Out-Null
@@ -79,6 +79,25 @@ Describe "S4 検索の遷移" -Tag Gui {
             setGuiStep $S "チップ［Word］を戻して検索"
             toggleGui (findGui $S.Window -Id "KindChipWord")
             waitGui $S "チップ［Word］が付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "KindChipWord")) -eq "On" } | Out-Null
+            & $search "単価"
+            waitGui $S "該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "2 件（*" } | Out-Null
+
+            # 種類のチップを全部外せる。1 つも選んでいないと検索を始めず、ステータスに知らせる。1 つ選べば検索できる
+            $chipIds = @("KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText")
+            setGuiStep $S "種類のチップを全部外す"
+            foreach ($chipId in $chipIds) { toggleGui (findGui $S.Window -Id $chipId) }
+            waitGui $S "チップが全部外れる" ${guiDefaultTimeout} {
+                @($chipIds | Where-Object { (getGuiToggleState (findGui $S.Window -Id $_)) -eq "On" }).Count -eq 0
+            } | Out-Null
+            & $search "単価"
+            waitGui $S "種類を選ぶ知らせ" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "*検索する種類を 1 つ以上選んでください*" } | Out-Null
+            (& $summary) | Should -BeLike "2 件（*" -Because "検索を始めないため、前の結果のまま"
+            setGuiStep $S "チップ［Excel］だけ選んで検索"
+            toggleGui (findGui $S.Window -Id "KindChipExcel")
+            & $search "単価"
+            waitGui $S "Excel だけの該当 1 件" ${guiDefaultTimeout} { (& $summary) -like "1 件（*" } | Out-Null
+            setGuiStep $S "チップを全部戻して検索"
+            foreach ($chipId in @("KindChipWord", "KindChipPowerPoint", "KindChipText")) { toggleGui (findGui $S.Window -Id $chipId) }
             & $search "単価"
             waitGui $S "該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "2 件（*" } | Out-Null
             clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
