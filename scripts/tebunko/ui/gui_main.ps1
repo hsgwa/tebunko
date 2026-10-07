@@ -77,7 +77,7 @@ function startGui {
     $regions = @(
         @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
-        @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText") }
+        @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText", "IndexingStatusText") }
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
             "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
             "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
@@ -162,6 +162,7 @@ function startGui {
     . "$TebunkoDir\ui\leftover_view.ps1"
     . "$TebunkoDir\ui\about_view.ps1"
     . "$TebunkoDir\ui\shell\nav_view.ps1"
+    . "$TebunkoDir\ui\shell\status_bar_view.ps1"
     stepSplash 80
     . "$TebunkoDir\ui\index\index_list.ps1"
     . "$TebunkoDir\ui\index\index_edit.ps1"
@@ -190,6 +191,7 @@ function startGui {
 
     # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
     . "$TebunkoDir\ui\shell\nav.ps1"
+    . "$TebunkoDir\ui\shell\status_bar.ps1"
 
     $window.Add_Activated({
         if (!$script:startupLoaded) {
