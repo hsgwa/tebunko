@@ -9,7 +9,8 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
-      <!-- 種類のチップ。押すたびに入り切りする（最後の 1 つは外せない。判断は ui/search/search_bar_view.ps1） -->
+      <!-- 種類のチップ。押すたびに入り切りする（最後の 1 つは外せない。判断は ui/search/search_bar_view.ps1）。
+           入りでも切りでも幅・太さを変えない（印は Hidden で場所を残し、文字は Regular のまま） -->
       <Style x:Key="KindChip" TargetType="ToggleButton">
         <Setter Property="Margin" Value="0,0,6,0" />
         <Setter Property="Cursor" Value="Hand" />
@@ -22,7 +23,7 @@
                 <StackPanel Orientation="Horizontal">
                   <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Width="11" Height="11" Stretch="Uniform"
                         Stroke="{StaticResource Accent}" StrokeThickness="2" StrokeStartLineCap="Round"
-                        StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,5,0" Visibility="Collapsed" />
+                        StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,5,0" Visibility="Hidden" />
                   <TextBlock x:Name="Label" Text="{TemplateBinding Content}" FontSize="11"
                              Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" />
                 </StackPanel>
@@ -109,15 +110,29 @@
   <StackPanel>
     <DockPanel>
       <TextBlock Text="検索ワード" FontSize="13" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" Margin="0,0,12,0" />
-      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" MinWidth="100" Height="32" Margin="12,0,0,0" />
+      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" Width="58" Height="32" Margin="12,0,0,0" />
       <Grid>
         <TextBox x:Name="WordBox" Height="32" />
         <TextBlock x:Name="WordPlaceholder" Style="{StaticResource Placeholder}" Text="検索ワードを入力" />
       </Grid>
     </DockPanel>
 
-    <!-- 種類のチップ・ファイル内の対象・検索条件・高速検索の状態 -->
+    <!-- 種類のチップ・ファイル内の対象・検索条件・高速検索の状態。
+         右端の高速検索の欄（FastSearchSlot）は幅 170 で固定し、何も出ないときも残す（検索条件の位置が動かないように）。
+         ［ファイル内の対象］の幅が変わっても、左側の余白（DockPanel の残り）が受ける -->
     <DockPanel Margin="0,8,0,0">
+      <Border x:Name="FastSearchSlot" DockPanel.Dock="Right" Width="170" VerticalAlignment="Center">
+        <Border x:Name="FastBadge" Style="{StaticResource FastBadge}" Tag="off" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <Path x:Name="FastBadgeIcon" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Zap}" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0"
+                  StrokeThickness="1.8" StrokeLineJoin="Round" />
+            <TextBlock x:Name="FastSearchText" Style="{StaticResource FastBadgeText}" FontSize="11" VerticalAlignment="Center" />
+            <Path x:Name="FastBadgeInfo" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Info}" Width="11" Height="11" Stretch="Uniform" Margin="5,0,0,0"
+                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  Visibility="Collapsed" />
+          </StackPanel>
+        </Border>
+      </Border>
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
         <CheckBox x:Name="CaseCheck" Content="大文字・小文字を区別" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,16,0"
                   ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
@@ -128,7 +143,6 @@
               <Style.Triggers>
                 <Trigger Property="IsChecked" Value="True">
                   <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                  <Setter Property="FontWeight" Value="SemiBold" />
                 </Trigger>
               </Style.Triggers>
             </Style>
@@ -137,16 +151,6 @@
             <TextBlock>正規表現を使う<LineBreak />オンにすると高速検索は使えません</TextBlock>
           </CheckBox.ToolTip>
         </CheckBox>
-        <Border x:Name="FastBadge" Style="{StaticResource FastBadge}" Tag="off" VerticalAlignment="Center">
-          <StackPanel Orientation="Horizontal">
-            <Path x:Name="FastBadgeIcon" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Zap}" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0"
-                  StrokeThickness="1.8" StrokeLineJoin="Round" />
-            <TextBlock x:Name="FastSearchText" Style="{StaticResource FastBadgeText}" FontSize="11" VerticalAlignment="Center" />
-            <Path x:Name="FastBadgeInfo" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Info}" Width="11" Height="11" Stretch="Uniform" Margin="5,0,0,0"
-                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                  Visibility="Collapsed" />
-          </StackPanel>
-        </Border>
       </StackPanel>
       <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
         <TextBlock Text="種類" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
