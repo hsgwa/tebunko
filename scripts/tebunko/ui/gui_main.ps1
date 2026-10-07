@@ -137,6 +137,7 @@ function startGui {
     ${grayBrush} = themeBrush "Ink.Muted"
 
     # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
+    . "$TebunkoDir\..\shared\ui\message_view.ps1"
     . "$TebunkoDir\..\shared\ui\shell.ps1"
     setDialogScrim $ui.ScrimOverlay
     # safe で包んでいない処理（PreviewKeyDown・Closing・活性化のタイマーなど）が

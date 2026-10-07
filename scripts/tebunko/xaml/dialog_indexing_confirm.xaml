@@ -40,7 +40,13 @@
     </StackPanel>
 
     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-      <TextBlock Style="{StaticResource DialogHeading}" Text="インデックス更新の確認" />
+      <!-- 見出し。左のアイコンは、確認のメッセージ（dialog_confirm.xaml）と同じ「?」 -->
+      <DockPanel>
+        <Path DockPanel.Dock="Left" Data="{StaticResource Icon.CircleQuestionMark}" Width="20" Height="20" Stretch="Uniform" Margin="0,0,10,0"
+              VerticalAlignment="Center" Stroke="{StaticResource Accent}" StrokeThickness="1.8"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+        <TextBlock Style="{StaticResource DialogHeading}" Text="インデックス更新の確認" VerticalAlignment="Center" />
+      </DockPanel>
       <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" />
     </StackPanel>
 

@@ -1,4 +1,5 @@
 ﻿# 画面の共通部品（状態表示・メッセージ・確認ダイアログ・タイマー・別スレッド）。
+# メッセージ（showMessage）・確認（showConfirm）・エラーの知らせ（showErrorDialog）は、同じ窓（dialog_confirm.xaml）で出す。
 
 function setStatus {
     param (
@@ -10,6 +11,10 @@ function setStatus {
 }
 
 function showMessage {
+    # お知らせ・警告・誤り・確認のメッセージ。確認（showConfirm）・エラー（showErrorDialog）と同じ自前の画面で出す
+    # （枠・題・余白・ボタンの形・種類ごとのアイコンと色は同じ。種類とボタンの決め方は message_view.ps1）。
+    #   buttons: OK・OKCancel・YesNo・YesNoCancel ／ icon: Information・Warning・Error・Question・None ／ default: 最初に Enter で押すボタンの戻り値の名前
+    # 戻り値は [System.Windows.MessageBoxResult]（OK・Yes・No・Cancel）。OS 標準の MessageBox.Show と同じ
     param (
         [string]$message,
         [string]$buttons = "OK",
@@ -18,9 +23,13 @@ function showMessage {
         [System.Windows.Window]$owner = $window  # ダイアログを開いているときは、そのダイアログを親にする
     )
 
-    # 親を指定した表示に失敗しても、知らせること自体は止めない。
-    # （親のウィンドウが閉じかけている・別のスレッドから呼ばれた等で失敗することがある。
-    #   ここで例外が出ると、元のエラーが「Show の呼び出しに失敗」という別のエラーに化けて分からなくなる）
+    # 自前の画面を出せないとき（別のスレッドから呼ばれた・親の窓が閉じかけている・画面の定義が読めない等）も、知らせること自体は止めない。
+    # ここで例外が出ると、元のエラーが別のエラーに化けて分からなくなるため、記録だけ残して OS 標準のメッセージボックスで出す
+    try {
+        return showMessageDialog $message $buttons $icon $default $owner
+    } catch {
+        writeErrorLog "メッセージを自前の画面で表示できませんでした" $_
+    }
     if ($null -ne $owner) {
         try {
             return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
@@ -29,6 +38,80 @@ function showMessage {
         }
     }
     return [System.Windows.MessageBox]::Show($message, ${appTitle}, $buttons, $icon, $default)
+}
+
+function setDialogLook {
+    # メッセージの画面の見出しの左のアイコン。種類（getMessageLook）のアイコンと色にする。アイコンが無い種類は隠す
+    param (
+        $dialog,
+        [hashtable]$look
+    )
+
+    $mark = $dialog.FindName("HeadingIcon")
+    $host_ = $dialog.FindName("HeadingIconHost")
+    if ($look.Icon -eq "") {
+        $host_.Visibility = "Collapsed"
+        return
+    }
+    $mark.Data = $dialog.FindResource($look.Icon)
+    [System.Windows.Automation.AutomationProperties]::SetName($host_, $look.Label)  # 読み上げの名前（お知らせ・警告・エラー・確認）
+    $mark.Stroke = $dialog.FindResource($look.Brush)
+    $host_.Visibility = "Visible"
+}
+
+function showMessageDialog {
+    param (
+        [string]$message,
+        [string]$buttons,
+        [string]$icon,
+        [string]$default,
+        [System.Windows.Window]$owner
+    )
+
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog.Title = ${appTitle}
+    $dialog.Width = getConfirmWidth "normal"
+    if ($null -ne $owner) {
+        $dialog.Owner = $owner
+    } else {
+        $dialog.WindowStartupLocation = "CenterScreen"
+    }
+    setDialogLook $dialog (getMessageLook $icon)
+    $parts = getMessageParts $message
+    $dialog.FindName("HeadingText").Text = $parts.Heading
+    if ($parts.Hint -ne "") {
+        $hint = $dialog.FindName("HintText")
+        $hint.Text = $parts.Hint
+        $hint.Visibility = "Visible"
+    }
+    if ($parts.Detail -ne "") {
+        $dialog.FindName("DetailText").Text = $parts.Detail
+        $dialog.FindName("DetailBox").Visibility = "Visible"
+    }
+    $panel = $dialog.FindName("ButtonPanel")
+    $chosen = @{ Value = getMessageCloseResult $buttons }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
+    $onClick = {
+        param ($sender, $e)
+        $chosen.Value = $sender.Tag
+        $dialog.DialogResult = $true
+    }.GetNewClosure()
+    $focusTarget = $null
+    foreach ($spec in (getMessageButtons $buttons $default)) {
+        $button = New-Object System.Windows.Controls.Button
+        $button.Content = $spec.Text
+        $button.Tag = $spec.Result
+        $button.IsDefault = $spec.IsDefault
+        $button.IsCancel = $spec.IsCancel
+        if ($spec.Primary) {
+            $button.Style = $dialog.FindResource("Primary")
+            $focusTarget = $button
+        }
+        $button.Add_Click($onClick)
+        $panel.Children.Add($button) | Out-Null
+    }
+    $dialog.Add_ContentRendered({ if ($null -ne $focusTarget) { $focusTarget.Focus() | Out-Null } }.GetNewClosure())
+    $null = showOwnedDialog $dialog
+    return [System.Windows.MessageBoxResult]$chosen.Value
 }
 
 # 確認ダイアログに並べる「実行するとこうなります」の 1 行を作る
@@ -74,6 +157,7 @@ function getConfirmWidth {
 
 # 暗幕にする部品（窓いっぱいに掛ける Border）。shared/ はツールの部品の名前を知らないので、起動側が渡す
 $script:dialogScrim = $null
+$script:dialogDepth = 0  # いま開いているダイアログ（showOwnedDialog）の数
 
 function setDialogScrim {
     param (
@@ -90,14 +174,17 @@ function showOwnedDialog {
         $dialog
     )
 
+    # ダイアログの上にさらにダイアログ（メッセージなど）を重ねるときは、中のほうが閉じても暗幕は外さない（外側のダイアログがまだ開いている）
     $scrim = $script:dialogScrim
+    $script:dialogDepth++
     if ($null -ne $scrim) {
         $scrim.Visibility = "Visible"
     }
     try {
         return $dialog.ShowDialog()
     } finally {
-        if ($null -ne $scrim) {
+        $script:dialogDepth--
+        if ($null -ne $scrim -and $script:dialogDepth -le 0) {
             $scrim.Visibility = "Collapsed"
         }
     }
@@ -138,9 +225,8 @@ function showConfirm {
     $chosen = @{ Value = $null }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
 
     $ctrl.HeadingText.Text = $heading
-    if ($form -eq "danger") {
-        $ctrl.HeadingIcon.Visibility = "Visible"
-    }
+    # 見出しの左のアイコン。取り消せない操作（danger）は誤りと同じ赤い「!」、ほかの確認は「?」（種類は message_view.ps1）
+    setDialogLook $dialog (getMessageLook $(if ($form -eq "danger") { "Error" } else { "Question" }))
     if ($facts.Count -gt 0) {
         $ctrl.FactsList.ItemsSource = $facts
         $ctrl.FactsPanel.Visibility = "Visible"
@@ -209,8 +295,7 @@ function showErrorDialog {
     if ($null -ne $owner) {
         $dialog.Owner = $owner
     }
-    $icon = $dialog.FindName("HeadingIcon")
-    $icon.Visibility = "Visible"
+    setDialogLook $dialog (getMessageLook "Error")
     $dialog.FindName("HeadingText").Text = $heading
     $dialog.FindName("DetailText").Text = $detail
     $dialog.FindName("DetailBox").Visibility = "Visible"
