@@ -45,19 +45,19 @@
     </DockPanel>
   </Border>
 
-  <!-- 帯の下。ContentHost の余白（16,12,16,12）を帯のために負の余白で打ち消した分を、ここで戻す -->
-  <Grid Grid.Row="1" Margin="16,12,16,12">
+  <!-- 帯の下。ContentHost の余白（16,12,16,12）を帯のために負の余白で打ち消した。一覧は余白を自分で戻し、仕切りと詳細は左右いっぱいに置く -->
+  <Grid Grid.Row="1">
   <Grid.RowDefinitions>
     <RowDefinition Height="*" MinHeight="225" />
     <RowDefinition Height="Auto" />
     <RowDefinition x:Name="IndexDetailRow" Height="397" MinHeight="240" MaxHeight="397" />
   </Grid.RowDefinitions>
 
-  <ContentControl x:Name="IndexListHost" Grid.Row="0" Focusable="False" IsTabStop="False"
+  <ContentControl x:Name="IndexListHost" Grid.Row="0" Margin="16,12,16,0" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
   <!-- 一覧と詳細の境目。上下にドラッグすると詳細の高さが変わる -->
-  <GridSplitter x:Name="IndexSplitter" Grid.Row="1" Height="11" Margin="0,3,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+  <GridSplitter x:Name="IndexSplitter" Grid.Row="1" Height="11" Margin="0,6,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                 ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="Transparent" Cursor="SizeNS"
                 ToolTip="上下にドラッグすると、詳細の高さを変えられます">
     <GridSplitter.Template>
@@ -66,13 +66,13 @@
         <Border Background="Transparent">
           <Grid>
             <Border Height="1" Background="{StaticResource Border.Soft}" VerticalAlignment="Center" />
-            <Border x:Name="Grip" Width="48" Height="5" CornerRadius="3" Background="{StaticResource Border.Strong}"
+            <Border x:Name="Grip" Width="32" Height="3" CornerRadius="2" Background="{StaticResource Ink.Muted}"
                     HorizontalAlignment="Center" VerticalAlignment="Center" />
           </Grid>
         </Border>
         <ControlTemplate.Triggers>
           <Trigger Property="IsMouseOver" Value="True">
-            <Setter TargetName="Grip" Property="Background" Value="{StaticResource Ink.Muted}" />
+            <Setter TargetName="Grip" Property="Background" Value="{StaticResource Ink.Body}" />
           </Trigger>
         </ControlTemplate.Triggers>
       </ControlTemplate>

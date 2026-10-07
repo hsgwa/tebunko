@@ -77,7 +77,7 @@ function startGui {
     $regions = @(
         @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
             "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
-        @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText", "IndexingStatusText") }
+        @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText", "IndexingStatusText", "IndexFooterFolders", "IndexFooterFiles") }
         @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
             "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
             "IndexingProgressPanel", "IndexingBannerIcon", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",

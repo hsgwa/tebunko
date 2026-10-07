@@ -20,7 +20,7 @@ BeforeAll {
         $content | Add-Member ScriptMethod UpdateLayout { $global:navLog.Add("UpdateLayout") }
         $navList = [pscustomobject]@{ SelectedItem = $null }
         $navList | Add-Member ScriptMethod Add_SelectionChanged { param($handler) }
-        $fake = @{ NavPaneHost = [pscustomobject]@{ Visibility = "Collapsed" }; ContentHost = $content; NavList = $navList; WordBox = (newFakeBox "WordBox"); FilterBox = (newFakeBox "FilterBox") }
+        $fake = @{ NavPaneHost = [pscustomobject]@{ Visibility = "Collapsed" }; IndexFooterFolders = [pscustomobject]@{ Visibility = "Collapsed" }; IndexFooterFiles = [pscustomobject]@{ Visibility = "Collapsed" }; ContentHost = $content; NavList = $navList; WordBox = (newFakeBox "WordBox"); FilterBox = (newFakeBox "FilterBox") }
         foreach ($name in "SearchTab", "IndexTab", "SettingsTab") { $fake[$name] = [pscustomobject]@{ Name = $name } }
         return $fake
     }
@@ -57,6 +57,16 @@ Describe "selectScreen" -Tag Unit {
         $script:ui.NavPaneHost.Visibility | Should -Be "Visible"
         selectScreen "IndexTab"
         $script:ui.NavPaneHost.Visibility | Should -Be "Collapsed"
+    }
+
+
+    It "登録の件数（IndexFooterFolders・IndexFooterFiles）は、インデックス管理の画面のときだけステータスバーに出す" {
+        selectScreen "IndexTab"
+        $script:ui.IndexFooterFolders.Visibility | Should -Be "Visible"
+        $script:ui.IndexFooterFiles.Visibility | Should -Be "Visible"
+        selectScreen "SettingsTab"
+        $script:ui.IndexFooterFolders.Visibility | Should -Be "Collapsed"
+        $script:ui.IndexFooterFiles.Visibility | Should -Be "Collapsed"
     }
 
 

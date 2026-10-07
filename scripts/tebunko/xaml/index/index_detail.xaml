@@ -34,7 +34,7 @@
   <!-- 平らな面。上に細い線、見出しの帯（薄い地）、その下に左右 2 列（間は線 1 本） -->
   <Border BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,0,0">
     <DockPanel>
-      <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Summary}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,8">
+      <Border DockPanel.Dock="Top" Background="{StaticResource Bg.Hover}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,0,0,1" Padding="16,11">
         <StackPanel Orientation="Horizontal">
           <Path Data="{StaticResource Icon.Info}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
                 StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />

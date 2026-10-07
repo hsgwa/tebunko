@@ -40,7 +40,6 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" MinHeight="90" />
-        <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
       <DockPanel Grid.Row="0">
@@ -257,12 +256,6 @@
                   IsEnabled="{Binding IsEnabled, ElementName=NewIndexButton}" />
         </StackPanel>
       </Grid>
-
-      <!-- 登録の件数の帯（フォルダ数と、取り込み一覧にあるファイルの合計） -->
-      <DockPanel Grid.Row="2" Margin="0,8,0,0">
-        <TextBlock x:Name="IndexFooterFiles" DockPanel.Dock="Right" Style="{StaticResource Meta}" Text="合計: 0 ファイル" />
-        <TextBlock x:Name="IndexFooterFolders" Style="{StaticResource Meta}" Text="登録済み: 0 フォルダ" />
-      </DockPanel>
     </Grid>
   </Border>
 </Grid>
