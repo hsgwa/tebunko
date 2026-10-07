@@ -30,6 +30,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             setGuiStep $S "［エクスポート…］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
+            checkGuiRow $S $row
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $script:exportDest

@@ -91,7 +91,7 @@ function updateIndexingButton {
     }
     $hint = ""
     if (!$ready -and !(isIndexing)) {
-        $hint = if ($script:targetItems.Count -eq 0) { "フォルダを追加すると更新できます" } else { "更新するインデックスにチェックを付けてください。" }
+        $hint = if ($script:targetItems.Count -eq 0) { "フォルダを追加すると更新できます" } else { "更新できるインデックスがありません（行の［更新］で更新できます）。" }
     } elseif ($state -and $state.Failed -gt 0 -and !(isIndexing)) {
         $hint = "前回うまく更新できなかったファイルがあります（押したあとで、もう一度ためすか選べます）。"
     }
@@ -107,12 +107,16 @@ function updateIndexingButton {
     $ui.EditIndexButton.IsEnabled = $buttons.Edit
     $ui.RemoveIndexButton.IsEnabled = $buttons.Remove
     $ui.ExportIndexButton.IsEnabled = $buttons.Export
-    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count (getIndexUpdateSelectedAvailable)
+    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count
     $ui.ActionsButton.IsEnabled = $true
     $ui.ActionUpdate.IsEnabled = $actions.Update
     $ui.ActionExport.IsEnabled = $actions.Export
     $ui.ActionImport.IsEnabled = $actions.Import
     $ui.ActionDelete.IsEnabled = $actions.Delete
+    # 行の［更新］も同じ排他（更新中はほかの行の［更新］も押せない）。行ごとのボタンを置き直す
+    foreach ($item in $script:targetItems) {
+        setIndexRowActions $item
+    }
 }
 
 function refreshIndexingState {
@@ -311,6 +315,11 @@ function updateIndexDetailPanel {
     $selected = @()
     $entry = $null
     $item = $ui.IndexGrid.SelectedItem
+    $checkedItems = @(getIndexCheckedItems @($script:targetItems))
+    if ($null -eq $item -and $checkedItems.Count -eq 1) {
+        # 押した行が無く、チェックが 1 件だけなら、その行の詳細を出す
+        $item = $checkedItems[0]
+    }
     if ($null -ne $item) {
         $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{
@@ -324,7 +333,7 @@ function updateIndexDetailPanel {
             $entry = $progress.ByIndex[$item.Name]
         }
     }
-    $multiCount = getIndexDetailMultiCount @(getIndexCheckedItems @($script:targetItems)).Count
+    $multiCount = getIndexDetailMultiCount $checkedItems.Count
     $view = getIndexDetailView $selected $entry $multiCount $script:indexingView
 
     $ui.IndexDetailTitle.Text = $view.Title

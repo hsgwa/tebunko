@@ -41,11 +41,11 @@
               </Button.Content>
               <Button.ContextMenu>
                 <ContextMenu x:Name="ActionsMenu">
-                  <MenuItem x:Name="ActionUpdate" Header="更新" ToolTip="選んだインデックスだけを更新します" />
-                  <MenuItem x:Name="ActionExport" Header="エクスポート…" ToolTip="選んだインデックスを 1 つの zip に書き出します（別の PC・ワークスペースで使えます）" />
+                  <MenuItem x:Name="ActionUpdate" Header="更新" ToolTip="チェックを付けたインデックスだけを更新します" />
+                  <MenuItem x:Name="ActionExport" Header="エクスポート…" ToolTip="チェックを付けたインデックスを 1 つの zip に書き出します（別の PC・ワークスペースで使えます）" />
                   <MenuItem x:Name="ActionImport" Header="インポート…" ToolTip="エクスポートした zip を読み込み、一覧に加えます" />
                   <Separator />
-                  <MenuItem x:Name="ActionDelete" Header="削除…" Foreground="{StaticResource Danger.Text}" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
+                  <MenuItem x:Name="ActionDelete" Header="削除…" Foreground="{StaticResource Danger.Text}" ToolTip="チェックを付けたインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
                 </ContextMenu>
               </Button.ContextMenu>
             </Button>
@@ -59,7 +59,7 @@
             <Path Data="{StaticResource Icon.Info}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
                   StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                   VerticalAlignment="Center" Margin="6,2,0,0" Fill="Transparent"
-                       ToolTip="チェックを付けたインデックスだけを更新します。一覧にフォルダをドラッグ＆ドロップしても追加できます" />
+                       ToolTip="一覧にフォルダをドラッグ＆ドロップしても追加できます" />
             <TextBlock x:Name="SelectionCountText" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="10,2,0,0" />
           </StackPanel>
           <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap"
@@ -74,20 +74,20 @@
               <MenuItem x:Name="EditIndexButton" Header="編集…" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスはそのまま使います）" />
               <MenuItem x:Name="ExportIndexButton" Header="エクスポート…" ToolTip="選んだインデックスを 1 つの zip に書き出します（別の PC・ワークスペースで使えます）" />
               <Separator />
-              <MenuItem x:Name="RemoveIndexButton" Header="削除" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
+              <MenuItem x:Name="RemoveIndexButton" Header="削除…" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.Columns>
             <DataGridTemplateColumn Width="44">
               <!-- 見出しの全選択（一部だけ選んでいるときは横棒）。押したときの動きは index_events.ps1 -->
               <DataGridTemplateColumn.Header>
-                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Center" ToolTip="すべてのインデックスのチェックを付ける・外す"
+                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Center" ToolTip="すべてのインデックスを選ぶ・選びを外す"
                           AutomationProperties.Name="すべて選ぶ" />
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" HorizontalAlignment="Center"
-                            ToolTip="チェックを付けたインデックスだけを更新します（外してもインデックスは残ります）" />
+                  <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" HorizontalAlignment="Center"
+                            ToolTip="選ぶ（選んだものは［アクション ▾］でまとめて操作できます）" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

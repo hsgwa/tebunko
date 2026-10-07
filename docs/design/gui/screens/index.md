@@ -58,7 +58,7 @@ stateDiagram-v2
 | ID | 状態 | 遷移 |
 |---|---|---|
 | `window/about` | 「バージョン情報」 | 8 |
-| `window/close-confirm` | 作成中に閉じるときの確認 | 10 |
+| `window/close-confirm` | 更新中に閉じるときの確認 | 10 |
 | `window/settings-broken` | 設定が壊れていたときの知らせ（メッセージボックス） | – |
 | `window/leftover` | 起動時の、前回残った Office の確認（基本） | – |
 | `window/leftover-open` | 同・詳細を開いた | – |
@@ -78,11 +78,11 @@ stateDiagram-v2
 | `index-tab/add-error` | 追加のダイアログの注意（入力が足りない） | 12 |
 | `index-tab/edit` | 編集のダイアログ | 14 |
 | `index-tab/delete-confirm` | 削除の確認 | 15 |
-| `index-tab/unchecked` | チェックを外した行がある | 16 |
+| `index-tab/checked` | 行のチェックを付けた（［アクション ▾］の対象） | 16 |
 | `index-tab/start-confirm` | 更新の確認ダイアログ（件数・失敗分の更新し直し） | 17 |
-| `index-tab/running` | 更新中（更新の帯・［＋ フォルダを追加］［編集…］［削除］が押せない） | 17・20 |
+| `index-tab/running` | 更新中（更新の帯・行の［中止］・全体の進み・ステータスバーの 1 行。［＋ フォルダを追加］と［アクション ▾］の項目が押せない） | 17・20 |
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
-| `index-tab/done` | 作成が終わった（失敗なし） | 18 |
+| `index-tab/done` | 更新が終わった（失敗なし） | 18 |
 | `index-tab/failed` | 失敗したファイルの一覧があり、タブに ⚠ | 18 |
 
 **［検索］（`search-tab`）**
@@ -106,7 +106,7 @@ stateDiagram-v2
 | ID | 状態 | 遷移 |
 |---|---|---|
 | `settings-tab/normal` | 既定でないワークスペース（既定の場所の文は塗る） | 7 |
-| `settings-tab/running-warning` | 作成中に［変更…］（メッセージボックス） | 21 |
+| `settings-tab/running-warning` | 更新中に［変更…］（メッセージボックス） | 21 |
 | `settings-tab/empty-confirm` | 空のフォルダを選んだときの確認 | 31 |
 | `settings-tab/nonempty-confirm` | 空でないフォルダを選んだときの確認 | 32 |
 | `settings-tab/index-confirm` | インデックスのあるフォルダを選んだときの確認 | 33 |

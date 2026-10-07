@@ -54,6 +54,36 @@ Describe "newPlanViewRows" -Tag Unit {
     }
 }
 
+Describe "newPlanViewRows（選んだものだけの回）" -Tag Unit {
+    It "onlyNames に無いインデックスは出さない（空なら全部）" {
+        $plan = @(
+            [pscustomobject]@{ インデックス名 = "売上"; 元のフォルダ = "C:\data\売上"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:\data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+        )
+        (newPlanViewRows $plan @("見積")).Count | Should -Be 1
+        (newPlanViewRows $plan @("見積"))[0].Name | Should -Be "見積"
+        (newPlanViewRows $plan @()).Count | Should -Be 2
+    }
+}
+
+Describe "getIndexingCurrentName・getIndexingSkippedView" -Tag Unit {
+    It "取り込み中のファイル <current> のインデックス名は <expected>" -TestCases @(
+        @{ current = "営業\2025\a.xlsx"; expected = "営業" }
+        @{ current = "a.xlsx"; expected = "" }
+        @{ current = ""; expected = "" }
+    ) {
+        param ($current, $expected)
+        getIndexingCurrentName $current | Should -Be $expected
+    }
+
+    It "更新できなかった名前が無ければ null、あれば件数と名前・理由" {
+        getIndexingSkippedView @() | Should -BeNullOrEmpty
+        $view = getIndexingSkippedView @(@{ Name = "営業"; Reason = "設定にありません" })
+        $view.Heading | Should -Be "1 件のインデックスは更新できませんでした。"
+        $view.Detail | Should -Be "「営業」: 設定にありません"
+    }
+}
+
 Describe "getIndexingEndText" -Tag Unit {
     It "取り込んだ（成功＋失敗）が1件以上なら、成功・失敗（・残り）の見出し" -TestCases @(
         @{ Success = 10; Failed = 0; Postponed = 0; Notice = ""; Text = "更新が終わりました（成功 10 件 / 失敗 0 件）"; Detail = "" }
