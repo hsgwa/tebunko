@@ -441,9 +441,19 @@ function clickGui {
     invokeGui $S $e $What
 }
 
+function checkGuiRow {
+    # 行のチェックを付ける（初めは付いていない。付いていれば何もしない）。［アクション ▾］の項目は、チェックを付けた行に対して動く
+    param ($S, $Row)
+    $check = findGui $Row -Type CheckBox
+    if ((getGuiToggleState $check) -ne "On") {
+        toggleGui $check
+    }
+    waitGui $S "行のチェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $Row -Type CheckBox)) -eq "On" } | Out-Null
+}
+
 function clickGuiAction {
     # インデックス一覧の見出しの［アクション ▾］を押して開くメニューから、項目（AutomationId）を押す。
-    # ［エクスポート…］［削除…］は、チェックを付けた行がちょうど 1 件のときに押せる。
+    # ［更新］［エクスポート…］［削除…］は、チェックを付けた行に対して動く（先に checkGuiRow で付ける）。
     # メニューは別の窓（ポップアップ）で開くので、本体の外から探す
     param ($S, [string]$Id, [string]$What = "")
     if (!$What) { $What = "［$Id］" }

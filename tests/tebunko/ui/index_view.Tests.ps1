@@ -118,8 +118,8 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
 }
 
 Describe "getIndexCheckedItems（チェックを付けている行）" -Tag Unit {
-    It "Enabled の行だけを返す（チェックの意味を変えるときは、この関数だけを差し替える）" {
-        $items = @(@{ Name = "営業"; Enabled = $true }, @{ Name = "経理"; Enabled = $false }, $null, @{ Name = "人事"; Enabled = $true })
+    It "Checked の行だけを返す（チェックは保存しないその場の選び。設定の enabled とは別）" {
+        $items = @(@{ Name = "営業"; Checked = $true; Enabled = $false }, @{ Name = "経理"; Checked = $false; Enabled = $true }, $null, @{ Name = "人事"; Checked = $true })
         @(getIndexCheckedItems $items | ForEach-Object { $_.Name }) | Should -Be @("営業", "人事")
         @(getIndexCheckedItems @()).Count | Should -Be 0
     }
@@ -140,30 +140,25 @@ Describe "getIndexSelectionView（全選択と選択中の件数）" -Tag Unit {
     }
 }
 
-Describe "getIndexUpdateSelectedAvailable・getIndexDetailMultiCount（状態層の口・チェックの意味が決まるまでの仮）" -Tag Unit {
-    It "選んだものだけの更新は、口ができるまで使えない" {
-        getIndexUpdateSelectedAvailable | Should -BeFalse
-    }
-
-    It "詳細欄は、チェックの件数にかかわらず押した行のまま（0）" -TestCases @(
-        @{ checked = 0 }, @{ checked = 1 }, @{ checked = 2 }, @{ checked = 4 }
+Describe "getIndexDetailMultiCount" -Tag Unit {
+    It "2 件以上チェックしているときだけ、その件数（0・1 件は 0 で、詳細欄は押した行のまま）" -TestCases @(
+        @{ checked = 0; expected = 0 }, @{ checked = 1; expected = 0 }, @{ checked = 2; expected = 2 }, @{ checked = 4; expected = 4 }
     ) {
-        param ($checked)
-        getIndexDetailMultiCount $checked | Should -Be 0
+        param ($checked, $expected)
+        getIndexDetailMultiCount $checked | Should -Be $expected
     }
 }
 
 Describe "getIndexActionsEnabled（［アクション ▾］のメニューの可否）" -Tag Unit {
     It "<label>" -TestCases @(
-        @{ label = "1 件も選んでいない: インポートだけ"; blocker = ""; checked = 0; avail = $true; update = $false; export = $false; import = $true; delete = $false }
-        @{ label = "1 件選んだ: すべて（更新は使えるとき）"; blocker = ""; checked = 1; avail = $true; update = $true; export = $true; import = $true; delete = $true }
-        @{ label = "1 件選んだが、更新の口が無い: 更新だけ無効"; blocker = ""; checked = 1; avail = $false; update = $false; export = $true; import = $true; delete = $true }
-        @{ label = "2 件選んだ: エクスポート・削除は無効、更新は使える"; blocker = ""; checked = 2; avail = $true; update = $true; export = $false; import = $true; delete = $false }
-        @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; avail = $true; update = $false; export = $false; import = $false; delete = $false }
-        @{ label = "削除中: すべて無効"; blocker = "削除中"; checked = 1; avail = $true; update = $false; export = $false; import = $false; delete = $false }
+        @{ label = "1 件もチェックしていない: インポートだけ"; blocker = ""; checked = 0; update = $false; export = $false; import = $true; delete = $false }
+        @{ label = "1 件チェックした: すべて"; blocker = ""; checked = 1; update = $true; export = $true; import = $true; delete = $true }
+        @{ label = "2 件チェックした: すべて（エクスポート・削除はまとめて行う）"; blocker = ""; checked = 2; update = $true; export = $true; import = $true; delete = $true }
+        @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; update = $false; export = $false; import = $false; delete = $false }
+        @{ label = "削除中: すべて無効"; blocker = "削除中"; checked = 2; update = $false; export = $false; import = $false; delete = $false }
     ) {
-        param ($label, $blocker, $checked, $avail, $update, $export, $import, $delete)
-        $result = getIndexActionsEnabled $blocker $checked $avail
+        param ($label, $blocker, $checked, $update, $export, $import, $delete)
+        $result = getIndexActionsEnabled $blocker $checked
         $result.Update | Should -Be $update
         $result.Export | Should -Be $export
         $result.Import | Should -Be $import
@@ -172,17 +167,48 @@ Describe "getIndexActionsEnabled（［アクション ▾］のメニューの�
 }
 
 Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
-    It "<level>: <action>" -TestCases @(
-        @{ level = "Ok"; avail = $false; action = "Update"; enabled = $false }
-        @{ level = "Wait"; avail = $true; action = "Update"; enabled = $true }
-        @{ level = "None"; avail = $false; action = "Update"; enabled = $false }
-        @{ level = "Run"; avail = $false; action = "Stop"; enabled = $false }
-        @{ level = "Ng"; avail = $true; action = "None"; enabled = $true }
+    It "<level>・blocker=<blocker>: <action>" -TestCases @(
+        @{ level = "Ok"; blocker = ""; action = "Update"; enabled = $true }
+        @{ level = "Wait"; blocker = ""; action = "Update"; enabled = $true }
+        @{ level = "None"; blocker = ""; action = "Update"; enabled = $true }
+        @{ level = "Ok"; blocker = "インデックス作成中"; action = "Update"; enabled = $false }
+        @{ level = "None"; blocker = "削除中"; action = "Update"; enabled = $false }
+        @{ level = "Run"; blocker = "インデックス作成中"; action = "Stop"; enabled = $false }
+        @{ level = "Ng"; blocker = ""; action = "None"; enabled = $true }
     ) {
-        param ($level, $avail, $action, $enabled)
-        $result = getIndexRowActions $level $avail
+        param ($level, $blocker, $action, $enabled)
+        $result = getIndexRowActions $level $blocker
         $result.Action | Should -Be $action
         $result.UpdateEnabled | Should -Be $enabled
+    }
+}
+
+Describe "getIndexBulkDeleteConfirm" -Tag Unit {
+    It "件数と名前の一覧を出す（空の名前は数えない）" {
+        $view = getIndexBulkDeleteConfirm @("営業", "", "経理")
+        $view.Heading | Should -Be "2 件のインデックスを削除しますか？"
+        $view.Hint | Should -Match "元のファイルは削除されません"
+        $view.Detail | Should -Be "「営業」`n「経理」"
+    }
+}
+
+Describe "getIndexBulkResultView" -Tag Unit {
+    It "全部成功: ステータスの 1 行だけ" -TestCases @(
+        @{ operation = "エクスポート"; expected = "2 件のインデックスをエクスポートしました" }
+        @{ operation = "削除"; expected = "2 件のインデックスを削除しました" }
+    ) {
+        param ($operation, $expected)
+        $view = getIndexBulkResultView $operation @(@{ Name = "営業"; Ok = $true; Reason = "" }, @{ Name = "経理"; Ok = $true; Reason = "" })
+        $view.Status | Should -Be $expected
+        $view.HasFailure | Should -BeFalse
+    }
+
+    It "一部失敗: 成功・失敗の件数と、失敗した名前・理由の一覧" {
+        $view = getIndexBulkResultView "削除" @(@{ Name = "営業"; Ok = $true; Reason = "" }, @{ Name = "経理"; Ok = $false; Reason = "使用中です" })
+        $view.Status | Should -Be "削除: 1 件成功・1 件失敗"
+        $view.HasFailure | Should -BeTrue
+        $view.FailureHeading | Should -Match "1 件のインデックスを削除できませんでした"
+        $view.FailureDetail | Should -Be "「経理」: 使用中です"
     }
 }
 
@@ -350,13 +376,18 @@ Describe "getIndexRowView" -Tag Unit {
         $view.Level | Should -Be "Run"
     }
 
-    It "チェックが外れた行は、更新中でも更新中にしない" {
+    It "enabled が偽の行は、更新中でも更新中にしない（［すべて更新］の対象外）" {
         (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $false 0.5).Text | Should -Be "最新"
     }
 
-    It "enabled が偽なら、作成中以外のツールヒントにチェックの案内を足す（作成中の行には足さない）" {
-        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $false).ToolTip | Should -Match "チェックが外れている"
-        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "チェックが外れている"
+    It "今の回に入っていない行（選んだものだけの回の、選ばなかった行）は、更新中にしない" {
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true 0.5 $false).Text | Should -Be "最新"
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true 0.5 $true).Text | Should -Be "更新中 50%"
+    }
+
+    It "enabled が偽なら、更新中以外のツールヒントに［すべて更新］の対象外の案内を足す" {
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $false).ToolTip | Should -Match "対象から外れている"
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "対象から外れている"
     }
 
     It "ツールヒントに前の版・内部の言葉を含めない" {

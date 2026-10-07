@@ -281,15 +281,11 @@ function captureStarterScene {
             # 編集のダイアログ（index-tab/edit）は、行の右クリックかダブルクリックで開く。UI オートメーションからは開けないので、
             # ここでは撮らない（ダイアログの見た目は変わっていないため、前に撮った写真のままにする）
 
-            setGuiStep $S "行のチェックを外す"
+            setGuiStep $S "行のチェックを付ける"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
-            $check = findGui $row -Type CheckBox
-            toggleGui $check
-            waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
-            captureGuiState -S $S -Id "index-tab/unchecked" -Ids $Ids -OutDir $OutDir `
+            checkGuiRow $S $row
+            captureGuiState -S $S -Id "index-tab/checked" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
-            toggleGui (findGui $row -Type CheckBox)
-            waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
 
             setGuiStep $S "［削除］"
             clickGuiAction $S "ActionDelete" "［削除…］"
@@ -374,6 +370,11 @@ function captureHeavyScene {
         setGuiStep $S "取り込みを始める"
         startGuiIndexing $S
         waitGui $S "取り込み中" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
+        if (!(testGuiIndexing $S)) { throw $tooFast }
+        # 行の［中止］・全体の進み・ステータスバーの 1 行がそろうまで待ってから撮る
+        $runningRow = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+        waitGui $S "行に［中止］が出る" ${guiDefaultTimeout} { findGui $runningRow -Id "IndexRowStopButton" } | Out-Null
+        waitGui $S "進み具合の件数が出る" ${guiIndexTimeout} { (getGuiIndexingBannerText $S) -like "*/*" } | Out-Null
         if (!(testGuiIndexing $S)) { throw $tooFast }
         captureGuiState -S $S -Id "index-tab/running" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes

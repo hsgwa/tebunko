@@ -155,6 +155,36 @@ Describe "exportIndexToFolder" -Tag Io {
     }
 }
 
+Describe "exportIndexes" -Tag Io {
+    It "選んだインデックスを 1 つずつ zip にし、1 つ失敗しても残りを続けて、名前ごとの結果を返す" {
+        $fixture = newIndexFixture "$TestDrive\exports_ok" "営業" "C:\共有\営業部"
+        $out = "$TestDrive\exports_ok\out"
+        New-Item -ItemType Directory -Path $out | Out-Null
+
+        $results = exportIndexes @("無い名前", "営業") $out $fixture.Workspace $fixture.SettingsPath
+
+        @($results).Count | Should -Be 2
+        $results[0].Name | Should -Be "無い名前"
+        $results[0].Ok | Should -Be $false
+        $results[0].Reason | Should -Not -BeNullOrEmpty
+        $results[0].Path | Should -Be ""
+        $results[1].Name | Should -Be "営業"
+        $results[1].Ok | Should -Be $true
+        $results[1].Reason | Should -Be ""
+        (Split-Path $results[1].Path -Leaf) | Should -Match "^営業_インデックス_\d{8}\.zip$"
+        Test-Path -LiteralPath $results[1].Path | Should -Be $true
+    }
+
+    It "書き出し先のフォルダが無ければ、名前ごとに失敗として返す（例外にしない）" {
+        $fixture = newIndexFixture "$TestDrive\exports_nofolder" "営業" "C:\共有\営業部"
+
+        $results = exportIndexes @("営業") "$TestDrive\exports_nofolder\無い場所" $fixture.Workspace $fixture.SettingsPath
+
+        $results[0].Ok | Should -Be $false
+        $results[0].Reason | Should -Match "書き出し先のフォルダが見つかりません"
+    }
+}
+
 Describe "readIndexArchiveInfo" -Tag Io {
     It "目録を読んで @{ IndexName; SourceFolder; Files; Bytes } を返す（インポートしない）" {
         $fixture = newIndexFixture "$TestDrive\info_ok" "営業" "C:\共有\営業部"

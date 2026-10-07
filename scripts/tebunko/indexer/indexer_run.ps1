@@ -451,12 +451,27 @@ function invokeIndexerBody {
     if ($null -eq $indexCounts) {
         writeIndexerLog "  インデックスのフォルダを調べられないため、インデックスが残っているかの確認は行いません。" "Yellow"
     }
+    # 選んだインデックスだけを更新するとき（OnlyNames）。選ばなかったインデックスは、この回では一切触らない
+    # （取り込み一覧の行は前回のまま・確認の表に出さない・失敗の一覧に加えない）
+    $only = $null
+    if (@($channel.OnlyNames).Count -gt 0) {
+        $only = selectOnlyNames $folders @($channel.OnlyNames)
+        foreach ($skip in $only.Skipped) {
+            writeIndexerLog "  [$($skip.Name)] 更新できません（$($skip.Reason)）" "Yellow"
+        }
+        $channel.OnlySkipped = @($only.Skipped)
+        if ($only.Selected.Count -eq 0) {
+            throw "選んだインデックスに、更新できるものがありません。"
+        }
+    }
     $rows = New-Object System.Collections.Generic.List[object]
     $targets = New-Object System.Collections.Generic.List[object]
     $failed = New-Object System.Collections.Generic.List[object]
     $plan = New-Object System.Collections.Generic.List[object]   # 画面の確認に出す、インデックスごとの件数
     foreach ($folder in $folders) {
-        if (-not $folder.Enabled) {
+        if ($null -ne $only -and !$only.Selected.Contains([string]$folder.Name)) {
+            # 選ばなかったインデックス（下で前回の結果をそのまま残す）
+        } elseif (-not $folder.Enabled) {
             writeIndexerLog "  [$($folder.Name)] $($folder.Path) … チェックなしのため取り込みません（インデックスはそのまま残します）"
             $plan.Add((newIngestPlanRow $folder.Name $folder.Path ${planKindUnchecked}))
         } elseif (!(Test-Path -LiteralPath $folder.Path -PathType Container)) {

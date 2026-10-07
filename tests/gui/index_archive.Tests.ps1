@@ -30,6 +30,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             setGuiStep $S "［エクスポート…］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
+            checkGuiRow $S $row
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $script:exportDest
@@ -64,6 +65,50 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             $row = waitGui $S "一覧に戻る" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "営業"
             Test-Path -LiteralPath "$($script:tool.Work)\content_index\営業" | Should -BeTrue
+
+            closeGui $S
+        }
+    }
+
+    It "2 件にチェックを付けると、まとめてエクスポートし、まとめて削除できる" {
+        $tool3 = newGuiTool (Join-Path $TestDrive "まとめて")
+        $sourceA = Join-Path $TestDrive "まとめて元\営業"
+        $sourceB = Join-Path $TestDrive "まとめて元\総務"
+        newGuiSourceFolder $sourceA
+        newGuiSourceFolder $sourceB
+        $config = readGuiConfig $tool3
+        $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(
+            @{ name = "営業"; path = $sourceA; enabled = $true }, @{ name = "総務"; path = $sourceB; enabled = $true }) -Force
+        writeGuiConfig $tool3.Dir $config
+        $dest = Join-Path $TestDrive "まとめて先"
+        [void][IO.Directory]::CreateDirectory($dest)
+
+        $S = startGui $tool3 "S2d"
+        invokeGuiScene $S {
+            setGuiStep $S "取り込み"
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            startGuiIndexing $S
+            waitGui $S "取り込みの完了" ${guiIndexTimeout} {
+                (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "*集約ファイル*"
+            } | Out-Null
+
+            setGuiStep $S "2 件にチェックを付けてまとめて［エクスポート…］"
+            foreach ($row in @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))) { checkGuiRow $S $row }
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
+            $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            setGuiText $S (findGui $dialog -Id "ExportPathBox") $dest
+            clickGui $S $dialog "ExportButton" "［エクスポート］"
+            waitGuiWindowClosed $S $dialog "エクスポートのダイアログ"
+            waitGui $S "書き出しの完了" ${guiDefaultTimeout} {
+                (getGuiText (findGui $S.Window -Id "StatusText")) -like "*2 件のインデックスをエクスポートしました*"
+            } | Out-Null
+            @(Get-ChildItem -LiteralPath $dest -Filter "*.zip").Count | Should -Be 2
+
+            setGuiStep $S "まとめて［削除…］"
+            clickGuiAction $S "ActionDelete" "［削除…］"
+            answerGuiConfirm $S "まとめての削除の確認" "2 件のインデックスを削除しますか" "削除する"
+            waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
+            (getGuiText (findGui $S.Window -Id "StatusText")) | Should -BeLike "*2 件のインデックスを削除しました*"
 
             closeGui $S
         }

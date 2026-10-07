@@ -33,6 +33,30 @@ function testTebunkoOwnFileName {
 # 取り込み対象
 # ----------------------------------------------------------------------------
 
+function selectOnlyNames {
+    # 選んだインデックス名（onlyNames）を、名前を割り当て済みのクロール対象フォルダ（folders）に当てはめる。
+    # 戻り値: @{ Selected（今回更新する名前の集合。大文字・小文字を区別しない）; Skipped（更新できない名前の @{ Name; Reason } の配列） }
+    # 更新できないのは、設定に無い名前と、チェックが付いていない名前（チェックを付けるのは画面側）
+    param (
+        [object[]]$folders,
+        [string[]]$onlyNames
+    )
+
+    $selected = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $skipped = New-Object System.Collections.Generic.List[object]
+    foreach ($name in @($onlyNames | Where-Object { $_ })) {
+        $folder = @($folders | Where-Object { $_.Name -eq $name }) | Select-Object -First 1
+        if (!$folder) {
+            $skipped.Add([pscustomobject]@{ Name = $name; Reason = "設定にありません" })
+        } elseif (!$folder.Enabled) {
+            $skipped.Add([pscustomobject]@{ Name = $name; Reason = "チェックが付いていません" })
+        } else {
+            [void]$selected.Add($name)
+        }
+    }
+    return @{ Selected = $selected; Skipped = $skipped.ToArray() }
+}
+
 function getBookDir {
     # 取り込み対象のファイルの相対パスから、そのファイルのインデックスを入れるフォルダを返す。
     # 相対パスの最後は元のファイル名のため、インデックスフォルダと相対パスをつなぐとフォルダ名になる

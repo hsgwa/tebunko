@@ -17,24 +17,18 @@ foreach ($footerName in @("IndexFooterFolders", "IndexFooterFiles", "IndexEmptyA
 }
 $script:loadingTargets = $false
 $script:indexBusy = $false  # 前のインデックスの削除中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
-# 行のチェックの状態が変わったら保存する（Checked・Unchecked。ToggleButton の状態が変わったときに出る、
-# バブルするイベント）。マウスの Click だけでなく、UI オートメーションの TogglePattern（キーボード操作も同様）でも
-# 状態が変わったときに出るため、どの操作でも保存できる。
-# UI オートメーションの Toggle は IsChecked（表示）を変えるが、TwoWay バインドの先（Enabled。PS class の
+# 行のチェック（一時の選択。保存しない）の状態が変わったら、行の値と画面の表示を合わせる（Checked・Unchecked。
+# ToggleButton の状態が変わったときに出る、バブルするイベント）。マウスの Click だけでなく、UI オートメーションの
+# TogglePattern（キーボード操作も同様）でも状態が変わったときに出るため、どの操作でも拾える。
+# UI オートメーションの Toggle は IsChecked（表示）を変えるが、TwoWay バインドの先（Checked。PS class の
 # プレーンなプロパティで PropertyChanged を出さない）へは反映されないことがあるため、ここで明示的に合わせる。
-# 読み込み時（loadTargets が Enabled をセットする間）は $script:loadingTargets を立てて、保存が走らないようにするが、
-# DataGrid が行の見た目を作る（描画・仮想化）のは loadTargets の完了後で、その時点では $script:loadingTargets は
-# 既に false に戻っている。行の初期化としての Checked・Unchecked（チェックの付いた行が表示される・［OK］で
-# 追加した行がすぐ表示されるなど）でも出るため、一覧の中身が保存済みの内容と同じときは書き直さない
+# 行の初期化としての Checked・Unchecked（DataGrid が行の見た目を作る・仮想化）でも出るが、値を合わせるだけで害は無い
 $onIndexGridToggled = {
     param ($s, $e)
     safe {
         $cb = $e.OriginalSource
         if ($cb -is [System.Windows.Controls.CheckBox] -and $cb.DataContext -is [FolderItem] -and !$script:loadingTargets) {
-            $cb.DataContext.Enabled = [bool]$cb.IsChecked
-            if ((getTargetsKey @($script:targetItems)) -ne $script:savedTargets) {
-                saveTargets
-            }
+            $cb.DataContext.Checked = [bool]$cb.IsChecked
             updateIndexSelectionView
             updateIndexingButton
             updateIndexDetailPanel
@@ -48,6 +42,7 @@ $script:indexDetailRowRestore = $null  # 空で畳む前の詳細の行の高さ
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
 $script:editDialog = $null    # 追加・編集のダイアログ（開いている間だけ）
 $script:indexingSession = $null  # 実行中のインデックス作成（IndexingSession。終わって片づけたら $null）
+$script:indexingOnlyNames = @()  # 今の回が選んだものだけのときの、インデックス名（空なら全部）
 $script:indexingStart = $null
 $script:ingestFailed = 0  # インデックス作成中に一覧へ反映済みの失敗件数
 $script:indexingState = $null
@@ -289,6 +284,8 @@ function newFolderItem {
 function loadTargets {
     $script:loadingTargets = $true
     try {
+        # 読み直しても、チェック（一時の選択）は名前で引き継ぐ
+        $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
         $script:targetItems.Clear()
         $folders = @(getTargetFolders)
         # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
@@ -299,7 +296,9 @@ function loadTargets {
             $folders = @(getTargetFolders)
         }
         foreach ($folder in $folders) {
-            $script:targetItems.Add((newFolderItem $folder.Path $folder.Enabled $folder.Name))
+            $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name
+            $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)
+            $script:targetItems.Add($newItem)
         }
         $script:savedTargets = getTargetsKey @(getTargetFolders)
     } finally {
@@ -362,7 +361,7 @@ function applyIndexStats {
             }
             $item.SetStats(("{0:#,0}" -f $stat.Total), ("更新済み {0:#,0} 件 ・ 未更新 {1:#,0} 件 ・ 失敗 {2:#,0} 件" -f $stat.Done, $stat.Pending, $stat.Failed), $lastText)
         }
-        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio)
+        $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio) (testIndexInRound $item)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
         setIndexRowActions $item
     }
@@ -380,26 +379,35 @@ function applyIndexStats {
 
 $script:indexFileTotal = 0
 
-function setIndexRowActions {
-    # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）に合わせる。判断は getIndexRowActions
+function testIndexInRound {
+    # 今の回で更新する行か（選んだものだけの回では、選んだ名前の行だけ）
     param ($item)
 
-    $actions = getIndexRowActions $item.IndexLevel (getIndexUpdateSelectedAvailable)
+    return (@($script:indexingOnlyNames).Count -eq 0 -or @($script:indexingOnlyNames) -contains $item.Name)
+}
+
+function setIndexRowActions {
+    # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）と動いている処理に合わせる。判断は getIndexRowActions
+    param ($item)
+
+    $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
+    $actions = getIndexRowActions $item.IndexLevel $blocker
     $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
 }
 
 function updateSelectedIndexes {
     # 選んだインデックス（名前の配列）だけを更新する。行の［更新］と［アクション ▾］の［更新］の共通の入口。
-    # 選んだものだけを更新する口が状態層にできるまでは使えない（ボタンも使えなくしてある。getIndexUpdateSelectedAvailable）。
-    # できたら、ここで名前の配列をその口に渡す
+    # 選んだ名前の行を、設定の enabled を true にして取り込み、その回だけの更新を始める（startIndexing）。
+    # 動いている処理があるときは始めない（ボタンも使えなくしてある）
     param (
         [string[]]$names
     )
 
-    if (!(getIndexUpdateSelectedAvailable)) {
-        showMessage "選んだインデックスだけを更新する機能は、まだ使えません。［すべて更新］を使ってください。" "OK" "Information" | Out-Null
+    $names = @($names | Where-Object { $_ })
+    if ($names.Count -eq 0 -or (getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy) -ne "") {
         return
     }
+    startIndexing $names
 }
 
 function updateIndexSelectionView {
@@ -416,7 +424,7 @@ function updateIndexRowsProgress {
     $ratio = getIndexingRatio
     foreach ($item in $script:targetItems) {
         if ($item.IndexLevel -eq "Run") {
-            $row = getIndexRowView $null $true $item.Enabled $ratio
+            $row = getIndexRowView $null $true $item.Enabled $ratio (testIndexInRound $item)
             $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
             setIndexRowActions $item
         }

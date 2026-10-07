@@ -114,6 +114,44 @@ function newExportIndex {
     }
 }
 
+function showBulkIndexResult {
+    # まとめてのエクスポート・削除の終わりに、ステータスバーの 1 行を出し、失敗があれば名前と理由を出す
+    param (
+        [string]$operation,
+        [object[]]$results
+    )
+
+    $view = getIndexBulkResultView $operation $results
+    setStatus $view.Status
+    if ($view.HasFailure) {
+        showMessage "$($view.FailureHeading)`n`n$($view.FailureDetail)" "OK" "Warning" | Out-Null
+    }
+}
+
+function newBulkExportIndexes {
+    # ［エクスポート…］で 2 件以上チェックしているとき。書き出し先は 1 回だけ選び、1 つ失敗しても残りを続ける
+    param (
+        [string[]]$names
+    )
+
+    if (!(testIndexOperable "エクスポート")) {
+        return
+    }
+    $folder = showIndexExportDialog "$($names.Count) 件"
+    if ($null -eq $folder) {
+        return
+    }
+    startIndexArchiveJob "エクスポート" {
+        param ($names, $folder, $dir, $settingsPath)
+        $ws = [Workspace]::new($dir)
+        $results = exportIndexes -names $names -destination $folder -ws $ws -settingsPath $settingsPath
+        , $results
+    } @(,$names + @($folder, $workspace.Dir, ${settingsFile})) {
+        param ($results)
+        showBulkIndexResult "エクスポート" $results
+    }
+}
+
 function showIndexImportDialog {
     # インポートのダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）
     param (

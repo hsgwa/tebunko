@@ -104,7 +104,7 @@ stateDiagram-v2
 
 ## 画面とインデクサの受け渡し
 
-画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（`newIndexerChannel`。`[hashtable]::Synchronized`）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。
+画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（`newIndexerChannel`。`[hashtable]::Synchronized`）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は `RetryFailed`・`ConfirmTargets`・`Workers`・`Stop`・`Answer`・`OnlyNames`（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は `Progress`・`Plan`・`Error`・`ExitCode`・`Notice`・`Postponed`・`OnlySkipped`（`OnlyNames` のうち更新できなかった名前と理由）・`OfficePids` である。
 
 ```mermaid
 sequenceDiagram

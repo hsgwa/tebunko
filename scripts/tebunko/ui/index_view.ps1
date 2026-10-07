@@ -146,13 +146,12 @@ function getIndexTabButtonsEnabled {
 
 function getIndexCheckedItems {
     # 一覧でチェックを付けている行（［アクション ▾］の対象・「N 件を選択中」の数・全選択の状態の元）。
-    # 今のチェックは、設定に保存する「更新する対象」（Enabled）と同じ意味にしてある。
-    # まとめて操作する行を選ぶ別の意味にするときは、この関数だけを差し替える（呼び出し側は、この結果だけを見る）
+    # チェックは一時の選択で、保存しない（初めは全部外れ。設定の enabled とは別のもの）
     param (
         [object[]]$items
     )
 
-    return @($items | Where-Object { $null -ne $_ -and $_.Enabled })
+    return @($items | Where-Object { $null -ne $_ -and $_.Checked })
 }
 
 function getIndexSelectionView {
@@ -168,53 +167,84 @@ function getIndexSelectionView {
     return @{ CountText = $countText; AllChecked = $all }
 }
 
-function getIndexUpdateSelectedAvailable {
-    # 選んだインデックスだけを更新する操作（行の［更新］・［アクション ▾］の［更新］）を使えるか。
-    # 選んだものだけを更新する口が状態層にできるまでは使えない（$false）。できたら、ここを差し替える
-    return $false
-}
-
 function getIndexActionsEnabled {
     # ［アクション ▾］のメニューの項目の可否。@{ Update; Export; Import; Delete }
-    # ［インポート…］は選ばなくても使える。ほかは 1 件も選んでいないと使えない。
-    # ［エクスポート…］［削除…］は 1 件だけ選んでいるときに使える（まとめての処理は、まだ無い）。
+    # ［インポート…］は選ばなくても使える。ほかは 1 件以上選んでいると使える（2 件以上はまとめて行う）。
     # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
     param (
         [string]$blocker,
-        [int]$checked,
-        [bool]$updateAvailable
+        [int]$checked
     )
 
     $free = ($blocker -eq "")
     return @{
-        Update = ($free -and $checked -ge 1 -and $updateAvailable)
-        Export = ($free -and $checked -eq 1)
+        Update = ($free -and $checked -ge 1)
+        Export = ($free -and $checked -ge 1)
         Import = $free
-        Delete = ($free -and $checked -eq 1)
+        Delete = ($free -and $checked -ge 1)
     }
 }
 
 function getIndexRowActions {
     # 一覧の行の右端のボタン。@{ Action（Update / Stop / None）; UpdateEnabled }
-    # 更新中の行には［中止］、エラーの行には何も出さず（場所は空けておく）、ほかの行には［更新］を出す
+    # 更新中の行には［中止］（回ごと止める）、エラーの行には何も出さず（場所は空けておく）、ほかの行には［更新］を出す。
+    # ［更新］は、動いている処理があれば（blocker は getIndexJobBlocker の結果）使えない（更新中はほかの行も押せない）
     param (
         [string]$level,           # getIndexRowView の Level
-        [bool]$updateAvailable    # getIndexUpdateSelectedAvailable
+        [string]$blocker
     )
 
     $action = switch ($level) { "Run" { "Stop" } "Ng" { "None" } default { "Update" } }
-    return @{ Action = $action; UpdateEnabled = $updateAvailable }
+    return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
 }
 
 function getIndexDetailMultiCount {
-    # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。
-    # 今のチェックは「更新する対象」の意味で、初めは全部付いているため、詳細欄は押した行のままにする（0）。
-    # チェックが「まとめて操作する行」の意味になったら、2 件以上のときに checked を返す
+    # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。2 件以上チェックしているときだけ、その件数を返す。
+    # 0 件・1 件のときは 0（詳細欄は押した行のまま）
     param (
         [int]$checked
     )
 
+    if ($checked -ge 2) { return $checked }
     return 0
+}
+
+function getIndexBulkDeleteConfirm {
+    # 2 件以上をまとめて削除するときの確認の文（仮。1 件の削除の確認の文をもとに、件数と名前の一覧だけを足した形）。
+    # @{ Heading; Hint; Detail }（Detail は名前の一覧。showConfirm の detail に出す）
+    param (
+        [string[]]$names
+    )
+
+    $names = @($names | Where-Object { $_ })
+    return @{
+        Heading = "{0:#,0} 件のインデックスを削除しますか？" -f $names.Count
+        Hint = "元のファイルは削除されません。"
+        Detail = ($names | ForEach-Object { "「$_」" }) -join "`n"
+    }
+}
+
+function getIndexBulkResultView {
+    # まとめてのエクスポート・削除の終わりに出す文言（仮）。results は 1 件ごとの @{ Name; Ok; Reason }
+    #   operation: "エクスポート" / "削除"
+    # @{ Status（ステータスバーの 1 行）; HasFailure; FailureHeading; FailureDetail（失敗した名前と理由の一覧）}
+    param (
+        [string]$operation,
+        [object[]]$results
+    )
+
+    $results = @($results | Where-Object { $null -ne $_ })
+    $failed = @($results | Where-Object { !$_.Ok })
+    $okCount = $results.Count - $failed.Count
+    if ($failed.Count -eq 0) {
+        return @{ Status = "${okCount} 件のインデックスを${operation}しました"; HasFailure = $false; FailureHeading = ""; FailureDetail = "" }
+    }
+    return @{
+        Status = "${operation}: ${okCount} 件成功・$($failed.Count) 件失敗"
+        HasFailure = $true
+        FailureHeading = "$($failed.Count) 件のインデックスを${operation}できませんでした（残りは終わっています）。"
+        FailureDetail = ($failed | ForEach-Object { "「$($_.Name)」: $($_.Reason)" }) -join "`n"
+    }
 }
 
 function getImportResultStatus {
@@ -332,27 +362,29 @@ function getIndexRowView {
     #   Sub は、バッジの下に小さく出す補足（途中で止まったときの「残り N 件」。無ければ空文字列）
     #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
     #   indexing : インデックス作成中か
-    #   enabled  : 一覧でチェックが付いているか（インデックス作成で更新する対象か）
+    #   enabled  : 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
     #   ratio    : 更新全体の進み（0〜1。分からないときは負の値）。更新中のバッジに「更新中 45%」と出し、棒の長さにする
+    #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
     # 返す値の Percent は棒の長さ（0〜100）。更新中でなければ 0
     param (
         $stat,
         [bool]$indexing = $false,
         [bool]$enabled = $true,
-        [double]$ratio = -1.0
+        [double]$ratio = -1.0,
+        [bool]$inRound = $true
     )
 
-    $notice = if (!$enabled) { "チェックが外れているため、［すべて更新］では更新しない（インデックスは残っている）" } else { "" }
-    if ($indexing -and $enabled) {
+    $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れている（インデックスは残っている。行の［更新］で更新できる）" } else { "" }
+    if ($indexing -and $enabled -and $inRound) {
         $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
         $text = if ($ratio -ge 0) { "更新中 ${percent}%" } else { "更新中" }
         return @{ Text = $text; Sub = ""; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新している。終わると状態を表示する" }
     }
     if ($null -eq $stat -or $stat.Total -eq 0) {
-        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していない。チェックを付けて［すべて更新］を押すと作る" $notice }
+        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していない。［すべて更新］か、行の［更新］で作る" $notice }
     }
     if ($stat.Pending -ge 1) {
-        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件。次の［すべて更新］で続きから更新する" $notice }
+        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件。次の更新で続きから更新する" $notice }
     }
     if ($stat.Failed -ge 1) {
         return @{ Text = "エラー"; Sub = ""; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件。原因は下の「更新に失敗したファイル」で見られる。失敗したファイル以外は検索できる" $notice }
@@ -388,7 +420,7 @@ function getIndexFooterView {
 }
 
 function addIndexRowNotice {
-    # getIndexRowView のツールヒントに、チェックが外れているときの案内を改行で足す（無ければそのまま）
+    # getIndexRowView のツールヒントに、［すべて更新］の対象から外れているときの案内を改行で足す（無ければそのまま）
     param ([string]$text, [string]$notice)
 
     if ($notice -eq "") {

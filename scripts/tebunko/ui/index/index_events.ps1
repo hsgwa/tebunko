@@ -14,18 +14,30 @@ $ui.ActionsButton.Add_Click({
     }
 })
 $ui.ActionImport.Add_Click({ safe { newImportIndex } })
-# ［エクスポート…］［削除…］は、チェックを付けた 1 件に対して動く（既存の 1 件ずつの処理は、一覧で選んでいる行に効くため、
-# その行を選んでから呼ぶ）。まとめての処理は、まだ無い（getIndexActionsEnabled が 2 件以上では使えなくする）
-function selectSingleCheckedIndex {
-    $checked = @(getIndexCheckedItems @($script:targetItems))
-    if ($checked.Count -ne 1) {
-        return $false
+# ［エクスポート…］［削除…］は、チェックを付けた行に対して動く。1 件なら既存の 1 件ずつの処理（一覧で選んでいる行に効くため、
+# その行を選んでから呼ぶ）、2 件以上ならまとめての処理（書き出し先・削除の確認は 1 回）
+$ui.ActionExport.Add_Click({
+    safe {
+        $checked = @(getIndexCheckedItems @($script:targetItems))
+        if ($checked.Count -eq 1) {
+            $ui.IndexGrid.SelectedItem = $checked[0]
+            newExportIndex
+        } elseif ($checked.Count -ge 2) {
+            newBulkExportIndexes @($checked | ForEach-Object { $_.Name })
+        }
     }
-    $ui.IndexGrid.SelectedItem = $checked[0]
-    return $true
-}
-$ui.ActionExport.Add_Click({ safe { if (selectSingleCheckedIndex) { newExportIndex } } })
-$ui.ActionDelete.Add_Click({ safe { if (selectSingleCheckedIndex) { deleteIndex } } })
+})
+$ui.ActionDelete.Add_Click({
+    safe {
+        $checked = @(getIndexCheckedItems @($script:targetItems))
+        if ($checked.Count -eq 1) {
+            $ui.IndexGrid.SelectedItem = $checked[0]
+            deleteIndex
+        } elseif ($checked.Count -ge 2) {
+            deleteIndexes @($checked | ForEach-Object { $_.Name })
+        }
+    }
+})
 $ui.ActionUpdate.Add_Click({ safe { updateSelectedIndexes @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name }) } })
 # 行の［更新］［中止］は行ごとの部品なので、一覧の Click で受ける
 $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler]{
@@ -45,22 +57,14 @@ $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickE
     }
 })
 # 見出しの全選択: 1 件でも付いていないものがあれば全部付け、全部付いていれば全部外す（一部だけのときは付ける側）。
-# 保存は 1 回だけ（行ごとのチェックの保存を止めて、まとめて書く）
+# チェックはその場だけの選びなので、保存しない
 $ui.SelectAllCheckBox.Add_Click({
     safe {
         $items = @($script:targetItems)
         $checkedCount = @(getIndexCheckedItems $items).Count
         $value = ($checkedCount -lt $items.Count)
-        $script:loadingTargets = $true
-        try {
-            foreach ($item in $items) {
-                $item.SetEnabled($value)
-            }
-        } finally {
-            $script:loadingTargets = $false
-        }
-        if ((getTargetsKey $items) -ne $script:savedTargets) {
-            saveTargets
+        foreach ($item in $items) {
+            $item.SetRowChecked($value)
         }
         updateIndexListView
     }

@@ -70,31 +70,18 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             selectGui $row
             waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
 
-            # 行のチェックを切り替えると、設定への保存と［すべて更新］の可否に反映される（#16）
+            # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
             setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox
-            getGuiToggleState $check | Should -Be "On"
+            getGuiToggleState $check | Should -Be "Off"
+            $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
             toggleGui $check
-            waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
-            waitGui $S "設定の enabled が false になる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $false } | Out-Null
-            waitGui $S "［すべて更新］が押せなくなる" ${guiDefaultTimeout} { !(findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
-            toggleGui (findGui $row -Type CheckBox)
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
-            waitGui $S "設定の enabled が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $true } | Out-Null
-            waitGui $S "［すべて更新］が押せるようになる" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
-
-            # 起動時に、チェックの付いた行が表示されるだけでは、保存が重ねて走らないことを確かめる（#16）。
-            # loadTargets 自体は保存を呼ばないため、起動し直した後の書き込みは 1 件でもあれば不具合（deliberate な保存と混じらず区別できる）
-            setGuiStep $S "閉じて起動し直す"
-            closeGui $S
-            $reloadWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
-            $S.Window = $null
-            $S.Process = startGuiProcess $script:tool
-            waitGuiStarted $S
-            setGuiStep $S "起動時に、チェックの付いた行の表示で余計な保存が走らないこと"
-            waitGui $S "一覧に表示される" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 } | Out-Null
-            Start-Sleep -Milliseconds 1000
-            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $reloadWriteTime -Because "起動時に、チェックの付いた行が表示されるだけでは設定ファイルを書き直さない（loadTargets は保存を呼ばない）"
+            waitGui $S "［アクション ▾］が押せる" ${guiDefaultTimeout} { (findGui $S.Window -Id "ActionsButton").Current.IsEnabled } | Out-Null
+            (findGui $S.Window -Id "IndexingButton").Current.IsEnabled | Should -BeTrue
+            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime -Because "チェックは保存しない"
+            toggleGui (findGui $row -Type CheckBox)
+            waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
 
             # 作成: 確認でキャンセルすると取りやめ、もう一度で取り込む（#17）
             setGuiStep $S "［すべて更新］→ 確認で［キャンセル］"
@@ -132,6 +119,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             setGuiStep $S "［削除］→［キャンセル］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
+            checkGuiRow $S $row
             clickGuiAction $S "ActionDelete" "［削除…］"
             answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "キャンセル"
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1

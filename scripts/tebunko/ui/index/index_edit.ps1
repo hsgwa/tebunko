@@ -224,6 +224,59 @@ function startIndexRemoveJob {
     }
 }
 
+function deleteIndexes {
+    # ［削除…］で 2 件以上チェックしているとき。確認は 1 回だけ。1 つ失敗しても残りを続け、終わりに失敗した名前と理由を出す
+    param (
+        [string[]]$names
+    )
+
+    if (!(testIndexOperable "削除")) {
+        return
+    }
+    $confirm = getIndexBulkDeleteConfirm $names
+    $answer = showConfirm `
+        -title "インデックスの削除" `
+        -heading $confirm.Heading `
+        -hint $confirm.Hint `
+        -detail $confirm.Detail `
+        -choices @(@{ Text = "削除する"; Value = "delete"; Danger = $true })
+    if ($answer -ne "delete") {
+        return
+    }
+
+    $script:indexBusy = $true
+    $script:indexJobName = ""
+    $script:indexJobOnDone = $null
+    updateIndexingButton
+    setStatus "$($names.Count) 件のインデックスを削除しています…（件数によっては少し時間がかかります）"
+    startJob {
+        param ($names, $dir, $statusPath, $settingsPath)
+        $results = removeIndexes -names $names -dir $dir -statusPath $statusPath -settingsPath $settingsPath
+        , $results
+    } @(,$names + @($workspace.IndexDir, $workspace.StatusFile, ${settingsFile})) {
+        param ($output, $errorText)
+        $script:indexBusy = $false
+        updateIndexingButton
+        if ($errorText) {
+            setStatus "削除に失敗しました：${errorText}"
+            loadTargets
+            refreshIndexViews
+            return
+        }
+        # 消せたものを一覧から外す（失敗したものは残す）
+        $results = @($output | ForEach-Object { $_ })
+        foreach ($result in $results | Where-Object { $_.Ok }) {
+            $item = @($script:targetItems | Where-Object { $_.Name -eq $result.Name })[0]
+            if ($item) { $script:targetItems.Remove($item) | Out-Null }
+        }
+        saveTargets
+        updateIndexSourceFile
+        updateIndexListView
+        refreshIndexViews
+        showBulkIndexResult "削除" $results
+    }
+}
+
 function deleteIndex {
     # ［削除］。一覧から削除し、インデックス（work\index\<名前>）と取り込み一覧の記録も削除する
     $item = $ui.IndexGrid.SelectedItem

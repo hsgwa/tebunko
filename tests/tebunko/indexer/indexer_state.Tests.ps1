@@ -245,6 +245,13 @@ Describe "newIndexerChannel / writeIndexingProgress / readIndexingProgress" -Tag
         $channel.OfficePids.Count | Should -Be 0
     }
 
+    It "選んだインデックス名（OnlyNames）は、空の名前を除いて入れる。無ければ空" {
+        (newIndexerChannel).OnlyNames.Count | Should -Be 0
+        $channel = newIndexerChannel $false $false -1 @("営業", "", "技術")
+        @($channel.OnlyNames) | Should -Be @("営業", "技術")
+        $channel.OnlySkipped.Count | Should -Be 0
+    }
+
     It "段階・件数・内容を往復できる。タブ・改行はスペースにする" {
         $channel = newIndexerChannel
         readIndexingProgress $channel | Should -BeNullOrEmpty

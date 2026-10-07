@@ -51,7 +51,7 @@ function buildPlanRows {
 
     $rows = New-Object System.Collections.Generic.List[PlanRow]
     # , で包んだ戻り値は、そのまま foreach に渡すと空のときも 1 回まわるため、変数に受けてから回す
-    $views = newPlanViewRows $plan
+    $views = newPlanViewRows $plan $script:indexingOnlyNames
     foreach ($view in $views) {
         $row = [PlanRow]::new()
         $row.Name = $view.Name
@@ -83,6 +83,9 @@ function showIndexingConfirmDialog {
     $targets = 0
     $failed = 0
     foreach ($item in @($plan)) {
+        if (@($script:indexingOnlyNames).Count -gt 0 -and @($script:indexingOnlyNames) -notcontains [string]$item.インデックス名) {
+            continue  # 選んだものだけの回では、選ばなかった行は数えない
+        }
         if ($item.区分 -eq ${planKindIngest}) {
             $targets += $item.取り込み対象
             $failed += $item.前回失敗
@@ -166,6 +169,12 @@ function confirmIndexingTargets {
 }
 
 function startIndexing {
+    # インデックス作成を始める。onlyNames があれば、その名前のインデックスだけの回にする（行の［更新］・メニューの［更新］）。
+    # 選んだ行は、設定の enabled を true にして取り込む（確認で取りやめても戻さない）。無ければ今までどおり、enabled の行すべて
+    param (
+        [string[]]$onlyNames = @()
+    )
+
     if (isIndexing) {
         return
     }
@@ -188,15 +197,25 @@ function startIndexing {
         }
     }
 
+    $script:indexingOnlyNames = @($onlyNames | Where-Object { $_ })
+    foreach ($item in $script:targetItems) {
+        if ($script:indexingOnlyNames -contains $item.Name) {
+            $item.SetEnabled($true)
+        }
+    }
     saveTargets
+    updateIndexDetailPanel
     # 何件取り込むかは、元のファイルの更新日時とサイズを見ないと分からない。
     # ConfirmTargets にすると、インデクサは数え終えたところで止まって確認の返事（answerIndexingPlan）を待つ。
     # インデクサは画面のプロセスのスレッドで動く（docs/design/structure/threads.md「プロセス」）
     $script:indexingStart = Get-Date
     $script:indexingRate = $null
+    $script:indexingEta = ""
     $script:indexingConfirmed = $false
     $script:indexingCanceledAtConfirm = $false
-    $script:indexingSession = newIndexingSession (newIndexerChannel -confirmTargets $true)
+    # 空なら今までどおり（状態層は enabled かつ onlyNames に入るものだけを取り込む）
+    $channel = newIndexerChannel -confirmTargets $true -onlyNames $script:indexingOnlyNames
+    $script:indexingSession = newIndexingSession $channel
 
     showIndexingPanel
     setStatus "更新するファイルを調べています…"
@@ -293,18 +312,21 @@ function updateIndexingProgress {
     }
     $done = $progress.Processed - $script:indexingRate.Processed
     if ($progress.Remaining -eq 0) {
-        $ui.IndexingProgressEta.Text = ""
+        $script:indexingEta = ""
     } elseif ($done -gt 0) {
         $seconds = ($now - $script:indexingRate.Time).TotalSeconds / $done * $progress.Remaining
-        $ui.IndexingProgressEta.Text = if ($seconds -lt 60) { "残り 1 分未満" } else { "残り約 $([math]::Ceiling($seconds / 60)) 分" }
+        $script:indexingEta = if ($seconds -lt 60) { "残り 1 分未満" } else { "残り約 $([math]::Ceiling($seconds / 60)) 分" }
     }
+    $ui.IndexingProgressEta.Text = $script:indexingEta
     if (!$stopping) {
         $ui.IndexingProgressDetail.Text = if ($progress.Current) { "更新中のファイル：$($progress.Current)" } else { "" }
     }
-    # 詳細の「インデックス」の箱にも、同じ全体の進み具合を出す（インデックスごとの件数は無い）
+    # 更新中の名前・件数・残り時間は、ここに値で 1 か所だけ持つ（帯・詳細の「インデックス」の箱・ステータスバーが読む）。
+    # Name は取り込み中のファイル（<名前>\<相対パス>）のインデックス名。件数は回全体（インデックスごとの件数は無い）
     $script:indexingView = @{
+        Name = (getIndexingCurrentName ([string]$progress.Current))
         Ratio = $ratio; Processed = $progress.Processed; Total = $total; Failed = $progress.Failed
-        Eta = [string]$ui.IndexingProgressEta.Text; Current = [string]$progress.Current
+        Eta = [string]$script:indexingEta; Current = [string]$progress.Current
     }
     updateIndexDetailPanel
 }
@@ -323,9 +345,12 @@ function finishIndexing {
     }
     $exitCode = $session.GetExitCode()
     $errorText = $session.GetError()
+    $onlySkipped = @($session.Channel.OnlySkipped)
     # インデクサのスレッドを片づける（終わっているため待たない）
     $session.Close()
     $script:indexingSession = $null
+    $script:indexingOnlyNames = @()
+    $script:indexingEta = ""
 
     $counts = ""
     if ($progress -and $progress.Processed -gt 0) {
@@ -375,6 +400,10 @@ function finishIndexing {
     $ui.IndexingProgressEta.Text = ""
     $ui.IndexingStopButton.Visibility = "Collapsed"
     $ui.IndexingProgress.Visibility = "Collapsed"
+    $skippedView = getIndexingSkippedView $onlySkipped
+    if ($skippedView -and $exitCode -ne 1) {
+        showMessage "$($skippedView.Heading)`n`n$($skippedView.Detail)" "OK" "Warning" | Out-Null
+    }
     $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath $workspace.IndexingLogFile) { "Visible" } else { "Collapsed" }
 
     $script:sourceFolderMaps = @{}

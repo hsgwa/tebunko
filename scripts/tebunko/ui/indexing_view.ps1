@@ -6,20 +6,23 @@
 function newPlanViewRows {
     # 更新の予定（取り込み予定.tsv の行）を、確認のダイアログに出す形にする。
     # 行は Name・Path・TotalText（対象ファイル数）・StatusText（バッジの文言）・Level（バッジの色。Wait / Ok / None / Ng）・DetailText（バッジの ToolTip）
+    #   onlyNames: 選んだものだけの回のインデックス名（空なら全部）。選ばなかったものは出さない（「対象外」とも出さない）
     param (
-        $plan  # readIngestPlan の結果
+        $plan,  # readIngestPlan の結果
+        [string[]]$onlyNames = @()
     )
 
     $rows = New-Object System.Collections.Generic.List[object]
     foreach ($item in @($plan)) {
         # 空の配列を渡すと @($plan) に $null が 1 つ入るため、ここで外す
         if ($null -eq $item) { continue }
+        if (@($onlyNames).Count -gt 0 -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
         $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ }
         if ($item.区分 -eq ${planKindUnchecked}) {
             $row.TotalText = "－"
             $row.StatusText = "対象外"
             $row.Level = "None"
-            $row.DetailText = "チェックが外れているため更新しません（インデックスはそのまま残します）"
+            $row.DetailText = "設定で［すべて更新］の対象から外れているため更新しません（インデックスはそのまま残します）"
         } elseif ($item.区分 -eq ${planKindMissing}) {
             $row.TotalText = "－"
             $row.StatusText = "フォルダなし"
@@ -52,6 +55,32 @@ function newPlanViewRows {
         $rows.Add($row)
     }
     return , $rows.ToArray()
+}
+
+function getIndexingSkippedView {
+    # 選んだものだけの回で、更新できなかった名前（インデクサの OnlySkipped。@{ Name; Reason } の配列）を知らせる文言。
+    # 無ければ $null。@{ Heading; Detail }
+    param (
+        [object[]]$skipped
+    )
+
+    $skipped = @($skipped | Where-Object { $null -ne $_ })
+    if ($skipped.Count -eq 0) { return $null }
+    return @{
+        Heading = "{0:#,0} 件のインデックスは更新できませんでした。" -f $skipped.Count
+        Detail = ($skipped | ForEach-Object { "「$($_.Name)」: $($_.Reason)" }) -join "`n"
+    }
+}
+
+function getIndexingCurrentName {
+    # 取り込み中のファイル（<インデックス名>\<相対パス>）から、インデックス名を取り出す。取れなければ空文字列
+    param (
+        [string]$current
+    )
+
+    $index = $current.IndexOf("\")
+    if ($index -lt 1) { return "" }
+    return $current.Substring(0, $index)
 }
 
 function getIndexingEndText {
