@@ -151,7 +151,7 @@
                                 <DataTemplate.Triggers>
                                   <!-- コピーのために選んだセル（一致したセルは黄色のまま、枠だけを青にする） -->
                                   <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                    <Setter TargetName="CellBorder" Property="Background" Value="#BFDBFE" />
+                                    <Setter TargetName="CellBorder" Property="Background" Value="{StaticResource Accent.Ring}" />
                                     <Setter TargetName="CellBorder" Property="BorderBrush" Value="{StaticResource Accent.Hover}" />
                                     <Setter TargetName="CellBorder" Property="BorderThickness" Value="1" />
                                   </DataTrigger>

@@ -110,7 +110,7 @@
   <StackPanel>
     <DockPanel>
       <TextBlock Text="検索ワード" FontSize="13" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" Margin="0,0,12,0" />
-      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" Width="58" Height="32" Margin="12,0,0,0" />
+      <Button x:Name="SearchButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="検索" Width="58" MinWidth="58" Height="32" Margin="12,0,0,0" />
       <Grid>
         <TextBox x:Name="WordBox" Height="32" />
         <TextBlock x:Name="WordPlaceholder" Style="{StaticResource Placeholder}" Text="検索ワードを入力" />

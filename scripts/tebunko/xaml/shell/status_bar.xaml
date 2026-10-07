@@ -11,10 +11,10 @@
     </ResourceDictionary>
   </Border.Resources>
   <Grid>
-    <TextBlock x:Name="StatusText" Style="{StaticResource Micro}" Margin="12,0,12,0" VerticalAlignment="Center"
+    <TextBlock x:Name="StatusText" Style="{StaticResource Micro}" Foreground="{StaticResource Ink.Body}" Margin="12,0,12,0" VerticalAlignment="Center"
                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
     <!-- 更新中だけ出す 1 行（ui/shell/status_bar.ps1）。出すときは StatusText を隠す。背景は変えない -->
-    <TextBlock x:Name="IndexingStatusText" Style="{StaticResource Micro}" Margin="12,0,12,0" VerticalAlignment="Center"
+    <TextBlock x:Name="IndexingStatusText" Style="{StaticResource Micro}" Foreground="{StaticResource Ink.Body}" Margin="12,0,12,0" VerticalAlignment="Center"
                TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Visibility="Collapsed" />
   </Grid>
 </Border>
