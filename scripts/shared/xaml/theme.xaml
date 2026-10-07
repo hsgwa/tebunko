@@ -259,6 +259,7 @@
   <Geometry x:Key="Icon.CircleX">M12 2a10 10 0 1 0 0.0001 0Z M15 9 L9 15 M9 9 L15 15</Geometry>
   <Geometry x:Key="Icon.Search">M11 3a8 8 0 1 0 0.0001 0Z M21 21 L16.66 16.66</Geometry>
   <Geometry x:Key="Icon.CircleQuestionMark">M12 2a10 10 0 1 0 0.0001 0Z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01</Geometry>
+  <Geometry x:Key="Icon.Plus">M5 12h14 M12 5v14</Geometry>
   <Geometry x:Key="Icon.Check">M20 6 L9 17 L4 12</Geometry>
   <Geometry x:Key="Icon.Zap">M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z</Geometry>
   <Geometry x:Key="Icon.Info">M12 2a10 10 0 1 0 0.0001 0Z M12 16v-4 M12 8h.01</Geometry>
