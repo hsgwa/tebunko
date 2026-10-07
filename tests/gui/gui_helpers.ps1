@@ -441,14 +441,15 @@ function clickGui {
     invokeGui $S $e $What
 }
 
-function clickGuiRowMenu {
-    # インデックス一覧の、選んである行の［⋯］を押して開く行のメニューから、項目（AutomationId）を押す。
-    # 行のメニュー（編集・エクスポート・削除）は別の窓（ポップアップ）で開くので、本体の外から探す
-    param ($S, $Row, [string]$Id, [string]$What = "")
+function clickGuiAction {
+    # インデックス一覧の見出しの［アクション ▾］を押して開くメニューから、項目（AutomationId）を押す。
+    # ［エクスポート…］［削除…］は、チェックを付けた行がちょうど 1 件のときに押せる。
+    # メニューは別の窓（ポップアップ）で開くので、本体の外から探す
+    param ($S, [string]$Id, [string]$What = "")
     if (!$What) { $What = "［$Id］" }
-    $button = waitGuiById $S $Row "IndexRowMenuButton"
-    invokeGui $S $button "行の［⋯］"
-    $menu = waitGuiWindow $S "行のメニュー" -Id $Id
+    $button = waitGuiById $S $S.Window "ActionsButton"
+    invokeGui $S $button "［アクション ▾］"
+    $menu = waitGuiWindow $S "アクションのメニュー" -Id $Id
     $item = waitGuiById $S $menu $Id
     invokeGui $S $item $What
 }

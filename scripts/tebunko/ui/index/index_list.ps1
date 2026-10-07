@@ -35,6 +35,7 @@ $onIndexGridToggled = {
             if ((getTargetsKey @($script:targetItems)) -ne $script:savedTargets) {
                 saveTargets
             }
+            updateIndexSelectionView
             updateIndexingButton
             updateIndexDetailPanel
         }
@@ -363,6 +364,7 @@ function applyIndexStats {
         }
         $row = getIndexRowView $stat $indexing $item.Enabled (getIndexingRatio)
         $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
+        setIndexRowActions $item
     }
     $script:indexFileTotal = 0
     if ($null -ne $stats) {
@@ -378,6 +380,37 @@ function applyIndexStats {
 
 $script:indexFileTotal = 0
 
+function setIndexRowActions {
+    # 行の右端のボタン（［更新］［中止］・何も出さない）を、行の状態（IndexLevel）に合わせる。判断は getIndexRowActions
+    param ($item)
+
+    $actions = getIndexRowActions $item.IndexLevel (getIndexUpdateSelectedAvailable)
+    $item.SetRowActions($actions.Action, $actions.UpdateEnabled)
+}
+
+function updateSelectedIndexes {
+    # 選んだインデックス（名前の配列）だけを更新する。行の［更新］と［アクション ▾］の［更新］の共通の入口。
+    # 選んだものだけを更新する口が状態層にできるまでは使えない（ボタンも使えなくしてある。getIndexUpdateSelectedAvailable）。
+    # できたら、ここで名前の配列をその口に渡す
+    param (
+        [string[]]$names
+    )
+
+    if (!(getIndexUpdateSelectedAvailable)) {
+        showMessage "選んだインデックスだけを更新する機能は、まだ使えません。［すべて更新］を使ってください。" "OK" "Information" | Out-Null
+        return
+    }
+}
+
+function updateIndexSelectionView {
+    # 見出しの全選択（一部だけなら横棒）と、見出しの横の「N / M 件を選択中」。判断は getIndexSelectionView
+    $view = getIndexSelectionView $script:targetItems.Count @(getIndexCheckedItems @($script:targetItems)).Count
+    $ui.SelectionCountText.Text = $view.CountText
+    $ui.SelectionCountText.Visibility = if ($view.CountText) { "Visible" } else { "Collapsed" }
+    $ui.SelectAllCheckBox.IsChecked = $view.AllChecked
+    $ui.SelectAllCheckBox.IsEnabled = ($script:targetItems.Count -gt 0)
+}
+
 function updateIndexRowsProgress {
     # 更新中の行のバッジ（「更新中 45%」）と棒を、進み具合に合わせて置き直す（進み具合の更新のたびに呼ぶ）
     $ratio = getIndexingRatio
@@ -385,6 +418,7 @@ function updateIndexRowsProgress {
         if ($item.IndexLevel -eq "Run") {
             $row = getIndexRowView $null $true $item.Enabled $ratio
             $item.SetIndexState($row.Text, $row.ToolTip, $row.Level, $row.Sub, [double]$row.Percent)
+            setIndexRowActions $item
         }
     }
     updateIndexDetailPanel
@@ -419,6 +453,7 @@ function updateIndexListView {
     }
     $script:indexListEmpty = $empty
     updateIndexFooter
+    updateIndexSelectionView
     updateIndexingButton
     updateIndexDetailPanel
 }

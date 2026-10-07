@@ -30,7 +30,7 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             setGuiStep $S "［エクスポート…］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
-            clickGuiRowMenu $S $row "ExportIndexButton" "［エクスポート…］"
+            clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $script:exportDest
             clickGui $S $dialog "ExportButton" "［エクスポート］"
@@ -44,12 +44,12 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             $script:zipPath = $zip[0].FullName
 
             setGuiStep $S "一覧から削除（インポートし直すため）"
-            clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
+            clickGuiAction $S "ActionDelete" "［削除…］"
             answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
 
             setGuiStep $S "［インポート…］"
-            clickGui $S $S.Window "ImportIndexButton" "［インポート…］"
+            clickGuiAction $S "ActionImport" "［インポート…］"
             useGuiFileOpenPicker $S $zip[0].FullName
             $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
@@ -84,8 +84,8 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             waitGui $S "ワークスペースが切り替わる" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WorkspaceText")) -eq $workspaceB } | Out-Null
 
             setGuiStep $S "［インポート…］"
-            selectGuiTab $S "IndexTab" "ImportIndexButton"
-            clickGui $S $S.Window "ImportIndexButton" "［インポート…］"
+            selectGuiTab $S "IndexTab" "ActionsButton"
+            clickGuiAction $S "ActionImport" "［インポート…］"
             useGuiFileOpenPicker $S $script:zipPath
             $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"

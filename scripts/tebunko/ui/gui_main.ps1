@@ -83,7 +83,7 @@ function startGui {
             "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
             "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingLogButton") }
         @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ImportIndexButton", "IndexingButton", "IndexingHint",
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint",
             "IndexRowMenu", "EditIndexButton", "RemoveIndexButton", "ExportIndexButton") }
         @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
             "IndexDetailTitle", "IndexSummaryText",

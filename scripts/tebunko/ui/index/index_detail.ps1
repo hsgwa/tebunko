@@ -106,7 +106,12 @@ function updateIndexingButton {
     $ui.EditIndexButton.IsEnabled = $buttons.Edit
     $ui.RemoveIndexButton.IsEnabled = $buttons.Remove
     $ui.ExportIndexButton.IsEnabled = $buttons.Export
-    $ui.ImportIndexButton.IsEnabled = $buttons.Import
+    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count (getIndexUpdateSelectedAvailable)
+    $ui.ActionsButton.IsEnabled = $true
+    $ui.ActionUpdate.IsEnabled = $actions.Update
+    $ui.ActionExport.IsEnabled = $actions.Export
+    $ui.ActionImport.IsEnabled = $actions.Import
+    $ui.ActionDelete.IsEnabled = $actions.Delete
 }
 
 function refreshIndexingState {

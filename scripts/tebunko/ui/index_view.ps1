@@ -144,6 +144,79 @@ function getIndexTabButtonsEnabled {
     }
 }
 
+function getIndexCheckedItems {
+    # 一覧でチェックを付けている行（［アクション ▾］の対象・「N 件を選択中」の数・全選択の状態の元）。
+    # 今のチェックは、設定に保存する「更新する対象」（Enabled）と同じ意味にしてある。
+    # まとめて操作する行を選ぶ別の意味にするときは、この関数だけを差し替える（呼び出し側は、この結果だけを見る）
+    param (
+        [object[]]$items
+    )
+
+    return @($items | Where-Object { $null -ne $_ -and $_.Enabled })
+}
+
+function getIndexSelectionView {
+    # 一覧の見出しの全選択と、見出しの横の「N / M 件を選択中」。@{ CountText; AllChecked }
+    #   AllChecked: すべて選んでいれば $true、1 件も選んでいなければ $false、一部だけなら $null（横棒）
+    param (
+        [int]$total,    # 一覧の件数
+        [int]$checked   # チェックを付けている件数
+    )
+
+    $countText = if ($checked -ge 1) { "{0:#,0} / {1:#,0} 件を選択中" -f $checked, $total } else { "" }
+    $all = if ($total -eq 0 -or $checked -eq 0) { $false } elseif ($checked -ge $total) { $true } else { $null }
+    return @{ CountText = $countText; AllChecked = $all }
+}
+
+function getIndexUpdateSelectedAvailable {
+    # 選んだインデックスだけを更新する操作（行の［更新］・［アクション ▾］の［更新］）を使えるか。
+    # 選んだものだけを更新する口が状態層にできるまでは使えない（$false）。できたら、ここを差し替える
+    return $false
+}
+
+function getIndexActionsEnabled {
+    # ［アクション ▾］のメニューの項目の可否。@{ Update; Export; Import; Delete }
+    # ［インポート…］は選ばなくても使える。ほかは 1 件も選んでいないと使えない。
+    # ［エクスポート…］［削除…］は 1 件だけ選んでいるときに使える（まとめての処理は、まだ無い）。
+    # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
+    param (
+        [string]$blocker,
+        [int]$checked,
+        [bool]$updateAvailable
+    )
+
+    $free = ($blocker -eq "")
+    return @{
+        Update = ($free -and $checked -ge 1 -and $updateAvailable)
+        Export = ($free -and $checked -eq 1)
+        Import = $free
+        Delete = ($free -and $checked -eq 1)
+    }
+}
+
+function getIndexRowActions {
+    # 一覧の行の右端のボタン。@{ Action（Update / Stop / None）; UpdateEnabled }
+    # 更新中の行には［中止］、エラーの行には何も出さず（場所は空けておく）、ほかの行には［更新］を出す
+    param (
+        [string]$level,           # getIndexRowView の Level
+        [bool]$updateAvailable    # getIndexUpdateSelectedAvailable
+    )
+
+    $action = switch ($level) { "Run" { "Stop" } "Ng" { "None" } default { "Update" } }
+    return @{ Action = $action; UpdateEnabled = $updateAvailable }
+}
+
+function getIndexDetailMultiCount {
+    # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。
+    # 今のチェックは「更新する対象」の意味で、初めは全部付いているため、詳細欄は押した行のままにする（0）。
+    # チェックが「まとめて操作する行」の意味になったら、2 件以上のときに checked を返す
+    param (
+        [int]$checked
+    )
+
+    return 0
+}
+
 function getImportResultStatus {
     # インポートの結果（importIndex の戻り値）から、ステータスに出す文言を返す。
     # Warnings（同じ元のフォルダが別の名前で既に登録されている等）と、高速検索が次の更新の後に効くことを添える
@@ -443,19 +516,34 @@ function getIndexDetailView {
     #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; IndexText; IndexLevel; IndexSub; FileCountText;
     #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastCheckedText }
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
+    #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
+    #   running       : 更新の進み具合（@{ Ratio; Processed; Total; Failed; Eta; Current }）。更新中の行の「インデックス」の箱に出す。無ければ $null
     # 戻り値: @{ Title; Selected; Name; Path; FolderStatus; Badge（@{ Text; Level }）; Updated; Count;
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
-    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Checked; Note }） }
+    #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Checked; Note }）;
+    #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
+    #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0〜1）; CountText; FileText }） }
     #   RowsKey は左右の表の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
     param (
         [object[]]$items,
-        $fastEntry = $null
+        $fastEntry = $null,
+        [int]$multiCount = 0,
+        $running = $null
     )
 
+    $noRun = @{ Shown = $false; Value = 0.0; CountText = ""; FileText = "" }
     $emptyFast = @{ Shown = $false; Value = 0.0; Text = ""; State = ""; Level = "None"; Reason = ""; Checked = ""; Note = "" }
     $none = @{
         Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
+        Multi = $false; Hint = ""; Run = $noRun
+    }
+    if ($multiCount -ge 2) {
+        $multi = $none.Clone()
+        $multi.Title = "{0:#,0} 件を選択中" -f $multiCount
+        $multi.Multi = $true
+        $multi.Hint = "1 件だけ選ぶと、ここに詳細を表示します。"
+        return $multi
     }
     $selected = @($items | Where-Object { $null -ne $_ })
     if ($selected.Count -ne 1) {
@@ -484,6 +572,26 @@ function getIndexDetailView {
             $fast.Note = "反映待ちのフォルダは通常の検索で調べます。検索結果は変わりませんが、時間がかかります。"
         }
     }
+    $run = $noRun
+    if ($item.IndexLevel -eq "Run") {
+        $run = @{ Shown = $true; Value = 0.0; CountText = ""; FileText = "" }
+        if ($null -ne $running) {
+            $parts = New-Object 'System.Collections.Generic.List[string]'
+            if ([int]$running.Total -gt 0) {
+                $counts = "{0:#,0} / {1:#,0} 件" -f [int]$running.Processed, [int]$running.Total
+                if ([int]$running.Failed -gt 0) {
+                    $counts += "（失敗 {0:#,0} 件）" -f [int]$running.Failed
+                }
+                [void]$parts.Add($counts)
+            }
+            if ($running.Eta) {
+                [void]$parts.Add([string]$running.Eta)
+            }
+            $run.Value = [Math]::Max(0.0, [Math]::Min(1.0, [double]$running.Ratio))
+            $run.CountText = $parts -join "・"
+            $run.FileText = if ($running.Current) { "更新中のファイル：$($running.Current)" } else { "" }
+        }
+    }
     $fixed = @(
         $item.Name, $item.Path, $item.FolderStatus, $item.IndexText, $item.IndexLevel, $item.IndexSub, $updated, $count
         $fast.State, $fast.Level, $fast.Reason, $fast.Checked
@@ -494,5 +602,6 @@ function getIndexDetailView {
         FolderStatus = [string]$item.FolderStatus
         Badge = @{ Text = [string]$item.IndexText; Level = [string]$item.IndexLevel; Sub = [string]$item.IndexSub }
         Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
+        Multi = $false; Hint = ""; Run = $run
     }
 }

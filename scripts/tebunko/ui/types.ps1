@@ -587,6 +587,9 @@ class FolderItem : NotifyBase {
     [string]$FastText = "確認中…"
     [string]$FastToolTip
     [string]$FastLevel = "None"
+    # 一覧の行の右端のボタン（getIndexRowActions）。RowAction は Update / Stop / None
+    [string]$RowAction = "Update"
+    [bool]$RowUpdateEnabled = $false
 
     FolderItem() {}   # 既定のコンストラクタを明示する（理由は shared\ui\types.ps1 の NotifyBase）
 
@@ -601,6 +604,10 @@ class FolderItem : NotifyBase {
     [void] SetIndexState([string]$text, [string]$toolTip, [string]$level, [string]$sub, [double]$percent) {
         $this.IndexText = $text; $this.IndexToolTip = $toolTip; $this.IndexLevel = $level; $this.IndexSub = $sub; $this.IndexPercent = $percent
         $this.Raise("IndexText"); $this.Raise("IndexToolTip"); $this.Raise("IndexLevel"); $this.Raise("IndexSub"); $this.Raise("IndexPercent")
+    }
+    [void] SetRowActions([string]$action, [bool]$updateEnabled) {
+        $this.RowAction = $action; $this.RowUpdateEnabled = $updateEnabled
+        $this.Raise("RowAction"); $this.Raise("RowUpdateEnabled")
     }
     [void] SetFast([string]$text, [string]$toolTip, [string]$level) {
         $this.FastText = $text; $this.FastToolTip = $toolTip; $this.FastLevel = $level

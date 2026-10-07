@@ -75,11 +75,12 @@ Describe "インデックス管理の詳細を書き直す入口" -Tag Meta {
 
     It "一覧の行の値を書き換える関数は、書き直す入口のどれかを呼ぶ" {
         # newFolderItem は一覧に加える前の行を作るだけなので、加えたあとに呼ぶ側（updateIndexListView）が書き直す。
+        # setIndexRowActions は行の右端のボタン（［更新］［中止］）だけを変え、詳細は読まない。
         # 書き直す入口そのものも、ここでは調べない
         $missing = @($script:units.Keys | Where-Object {
             $name = ($_ -replace '^[^:]*:', '') -replace '#\d+$', ''
             $unit = $script:units[$_]
-            $name -ne "newFolderItem" -and $name -notin $script:refreshers -and $unit.Writes.Count -gt 0 -and
+            $name -notin @("newFolderItem", "setIndexRowActions") -and $name -notin $script:refreshers -and $unit.Writes.Count -gt 0 -and
             @($unit.Commands | Where-Object { $_ -in $script:refreshers }).Count -eq 0
         } | Sort-Object)
         ($missing -join ", ") | Should -Be ""

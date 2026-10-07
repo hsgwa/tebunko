@@ -5,21 +5,64 @@ $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
-$ui.ImportIndexButton.Add_Click({ safe { newImportIndex } })
-# 行の［⋯］を押したら、その行を選んで行のメニュー（編集・エクスポート・削除）を［⋯］の下に開く
-# （［⋯］は行ごとの部品なので、一覧の Click で受ける。メニューの項目の可否は updateIndexingButton が決める）
+# ［アクション ▾］: 押したら、ボタンの下にメニューを開く（項目の可否は updateIndexingButton が決める）
+$ui.ActionsButton.Add_Click({
+    safe {
+        $ui.ActionsMenu.PlacementTarget = $ui.ActionsButton
+        $ui.ActionsMenu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+        $ui.ActionsMenu.IsOpen = $true
+    }
+})
+$ui.ActionImport.Add_Click({ safe { newImportIndex } })
+# ［エクスポート…］［削除…］は、チェックを付けた 1 件に対して動く（既存の 1 件ずつの処理は、一覧で選んでいる行に効くため、
+# その行を選んでから呼ぶ）。まとめての処理は、まだ無い（getIndexActionsEnabled が 2 件以上では使えなくする）
+function selectSingleCheckedIndex {
+    $checked = @(getIndexCheckedItems @($script:targetItems))
+    if ($checked.Count -ne 1) {
+        return $false
+    }
+    $ui.IndexGrid.SelectedItem = $checked[0]
+    return $true
+}
+$ui.ActionExport.Add_Click({ safe { if (selectSingleCheckedIndex) { newExportIndex } } })
+$ui.ActionDelete.Add_Click({ safe { if (selectSingleCheckedIndex) { deleteIndex } } })
+$ui.ActionUpdate.Add_Click({ safe { updateSelectedIndexes @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name }) } })
+# 行の［更新］［中止］は行ごとの部品なので、一覧の Click で受ける
 $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent, [System.Windows.RoutedEventHandler]{
     param ($sender, $e)
     safe {
         $button = $e.OriginalSource
-        if ($button -isnot [System.Windows.Controls.Button] -or $button.Tag -ne "IndexRowMenu") {
+        if ($button -isnot [System.Windows.Controls.Button]) {
             return
         }
-        $ui.IndexGrid.SelectedItem = $button.DataContext
-        $ui.IndexRowMenu.PlacementTarget = $button
-        $ui.IndexRowMenu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
-        $ui.IndexRowMenu.IsOpen = $true
-        $e.Handled = $true
+        if ($button.Tag -eq "RowUpdate" -and $button.DataContext -is [FolderItem]) {
+            updateSelectedIndexes @($button.DataContext.Name)
+            $e.Handled = $true
+        } elseif ($button.Tag -eq "RowStop") {
+            stopIndexing
+            $e.Handled = $true
+        }
+    }
+})
+# 見出しの全選択: 1 件でも付いていないものがあれば全部付け、全部付いていれば全部外す（一部だけのときは付ける側）。
+# 保存は 1 回だけ（行ごとのチェックの保存を止めて、まとめて書く）
+$ui.SelectAllCheckBox.Add_Click({
+    safe {
+        $items = @($script:targetItems)
+        $checkedCount = @(getIndexCheckedItems $items).Count
+        $value = ($checkedCount -lt $items.Count)
+        $script:loadingTargets = $true
+        try {
+            foreach ($item in $items) {
+                $item.SetEnabled($value)
+            }
+        } finally {
+            $script:loadingTargets = $false
+        }
+        if ((getTargetsKey $items) -ne $script:savedTargets) {
+            saveTargets
+        }
+        updateIndexListView
     }
 })
 function getIndexGridRowAt {

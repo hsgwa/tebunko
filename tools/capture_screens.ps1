@@ -278,14 +278,8 @@ function captureStarterScene {
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
 
-            setGuiStep $S "［編集…］"
-            selectGui $row
-            clickGuiRowMenu $S $row "EditIndexButton" "［編集…］"
-            $editDialog = waitGuiWindow $S "編集のダイアログ" -Id "NameBox"
-            captureGuiState -S $S -Id "index-tab/edit" -Ids $Ids -OutDir $OutDir `
-                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($editDialog)
-            clickGui $S $editDialog "CancelButton" "［キャンセル］"
-            waitGuiWindowClosed $S $editDialog "編集のダイアログ"
+            # 編集のダイアログ（index-tab/edit）は、行の右クリックかダブルクリックで開く。UI オートメーションからは開けないので、
+            # ここでは撮らない（ダイアログの見た目は変わっていないため、前に撮った写真のままにする）
 
             setGuiStep $S "行のチェックを外す"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
@@ -298,7 +292,7 @@ function captureStarterScene {
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
 
             setGuiStep $S "［削除］"
-            clickGuiRowMenu $S $row "RemoveIndexButton" "［削除］"
+            clickGuiAction $S "ActionDelete" "［削除…］"
             $deleteConfirm = waitGuiWindow $S "削除の確認" -Id "HeadingText" -Text "インデックスを削除しますか"
             captureGuiState -S $S -Id "index-tab/delete-confirm" -Ids $Ids -OutDir $OutDir `
                 -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($deleteConfirm)

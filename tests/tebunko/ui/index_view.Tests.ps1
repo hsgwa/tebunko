@@ -117,6 +117,75 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
     }
 }
 
+Describe "getIndexCheckedItems（チェックを付けている行）" -Tag Unit {
+    It "Enabled の行だけを返す（チェックの意味を変えるときは、この関数だけを差し替える）" {
+        $items = @(@{ Name = "営業"; Enabled = $true }, @{ Name = "経理"; Enabled = $false }, $null, @{ Name = "人事"; Enabled = $true })
+        @(getIndexCheckedItems $items | ForEach-Object { $_.Name }) | Should -Be @("営業", "人事")
+        @(getIndexCheckedItems @()).Count | Should -Be 0
+    }
+}
+
+Describe "getIndexSelectionView（全選択と選択中の件数）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "1 件も無い"; total = 0; checked = 0; text = ""; all = $false }
+        @{ label = "1 件も選んでいない: 件数は出さない"; total = 4; checked = 0; text = ""; all = $false }
+        @{ label = "一部だけ: 横棒"; total = 4; checked = 2; text = "2 / 4 件を選択中"; all = $null }
+        @{ label = "すべて"; total = 4; checked = 4; text = "4 / 4 件を選択中"; all = $true }
+        @{ label = "千件を超える"; total = 1500; checked = 1200; text = "1,200 / 1,500 件を選択中"; all = $null }
+    ) {
+        param ($label, $total, $checked, $text, $all)
+        $view = getIndexSelectionView $total $checked
+        $view.CountText | Should -Be $text
+        $view.AllChecked | Should -Be $all
+    }
+}
+
+Describe "getIndexUpdateSelectedAvailable・getIndexDetailMultiCount（状態層の口・チェックの意味が決まるまでの仮）" -Tag Unit {
+    It "選んだものだけの更新は、口ができるまで使えない" {
+        getIndexUpdateSelectedAvailable | Should -BeFalse
+    }
+
+    It "詳細欄は、チェックの件数にかかわらず押した行のまま（0）" -TestCases @(
+        @{ checked = 0 }, @{ checked = 1 }, @{ checked = 2 }, @{ checked = 4 }
+    ) {
+        param ($checked)
+        getIndexDetailMultiCount $checked | Should -Be 0
+    }
+}
+
+Describe "getIndexActionsEnabled（［アクション ▾］のメニューの可否）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "1 件も選んでいない: インポートだけ"; blocker = ""; checked = 0; avail = $true; update = $false; export = $false; import = $true; delete = $false }
+        @{ label = "1 件選んだ: すべて（更新は使えるとき）"; blocker = ""; checked = 1; avail = $true; update = $true; export = $true; import = $true; delete = $true }
+        @{ label = "1 件選んだが、更新の口が無い: 更新だけ無効"; blocker = ""; checked = 1; avail = $false; update = $false; export = $true; import = $true; delete = $true }
+        @{ label = "2 件選んだ: エクスポート・削除は無効、更新は使える"; blocker = ""; checked = 2; avail = $true; update = $true; export = $false; import = $true; delete = $false }
+        @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; avail = $true; update = $false; export = $false; import = $false; delete = $false }
+        @{ label = "削除中: すべて無効"; blocker = "削除中"; checked = 1; avail = $true; update = $false; export = $false; import = $false; delete = $false }
+    ) {
+        param ($label, $blocker, $checked, $avail, $update, $export, $import, $delete)
+        $result = getIndexActionsEnabled $blocker $checked $avail
+        $result.Update | Should -Be $update
+        $result.Export | Should -Be $export
+        $result.Import | Should -Be $import
+        $result.Delete | Should -Be $delete
+    }
+}
+
+Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
+    It "<level>: <action>" -TestCases @(
+        @{ level = "Ok"; avail = $false; action = "Update"; enabled = $false }
+        @{ level = "Wait"; avail = $true; action = "Update"; enabled = $true }
+        @{ level = "None"; avail = $false; action = "Update"; enabled = $false }
+        @{ level = "Run"; avail = $false; action = "Stop"; enabled = $false }
+        @{ level = "Ng"; avail = $true; action = "None"; enabled = $true }
+    ) {
+        param ($level, $avail, $action, $enabled)
+        $result = getIndexRowActions $level $avail
+        $result.Action | Should -Be $action
+        $result.UpdateEnabled | Should -Be $enabled
+    }
+}
+
 Describe "getImportResultStatus" -Tag Unit {
     It "件数と、高速検索が次の更新の後に効くことを伝える" {
         $status = getImportResultStatus @{ Name = "営業"; Files = 12; Warnings = @() }
@@ -506,6 +575,46 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Selected | Should -BeFalse
         @($view.Rows).Count | Should -Be 0
         $view.Fast.Shown | Should -BeFalse
+    }
+
+    It "2 件以上を選んでいる（multiCount）と、題に件数を出し、詳細の代わりに案内を出す" {
+        $view = getIndexDetailView @() $null 2
+        $view.Title | Should -Be "2 件を選択中"
+        $view.Multi | Should -BeTrue
+        $view.Selected | Should -BeFalse
+        $view.Hint | Should -Be "1 件だけ選ぶと、ここに詳細を表示します。"
+        (getIndexDetailView @(newDetailItem) $null 1).Multi | Should -BeFalse
+        (getIndexDetailView @(newDetailItem) $null 0).Hint | Should -Be ""
+    }
+
+    It "更新中の行は、棒の長さ・件数と残り時間・更新中のファイルを返す" {
+        $item = newDetailItem
+        $item.IndexLevel = "Run"; $item.IndexText = "更新中 45%"
+        $running = @{ Ratio = 0.45; Processed = 205; Total = 455; Failed = 1; Eta = "残り約 3 分"; Current = "見積もり\A社\A社_見積書_改訂.xlsx" }
+        $view = getIndexDetailView @($item) $null 0 $running
+        $view.Run.Shown | Should -BeTrue
+        $view.Run.Value | Should -Be 0.45
+        $view.Run.CountText | Should -Be "205 / 455 件（失敗 1 件）・残り約 3 分"
+        $view.Run.FileText | Should -Be "更新中のファイル：見積もり\A社\A社_見積書_改訂.xlsx"
+    }
+
+    It "更新中の行の件数は、無いものを出さない（失敗 0 件・残り時間なし・まだ件数が分からない）" -TestCases @(
+        @{ running = @{ Ratio = 0.5; Processed = 10; Total = 20; Failed = 0; Eta = ""; Current = "" }; count = "10 / 20 件"; file = "" }
+        @{ running = @{ Ratio = 1.5; Processed = 0; Total = 0; Failed = 0; Eta = "残り 1 分未満"; Current = "a.xlsx" }; count = "残り 1 分未満"; file = "更新中のファイル：a.xlsx" }
+        @{ running = $null; count = ""; file = "" }
+    ) {
+        param ($running, $count, $file)
+        $item = newDetailItem
+        $item.IndexLevel = "Run"
+        $view = getIndexDetailView @($item) $null 0 $running
+        $view.Run.Shown | Should -BeTrue
+        $view.Run.CountText | Should -Be $count
+        $view.Run.FileText | Should -Be $file
+        $view.Run.Value | Should -BeLessOrEqual 1.0
+    }
+
+    It "更新中でない行には、更新中の表示を出さない" {
+        (getIndexDetailView @(newDetailItem) $null 0 @{ Ratio = 0.5; Processed = 1; Total = 2; Failed = 0; Eta = ""; Current = "" }).Run.Shown | Should -BeFalse
     }
 
     It "1 つ選ぶと、題に名前を入れ、左の基本設定と右の情報の表を作る" {
