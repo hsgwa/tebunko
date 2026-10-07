@@ -19,6 +19,17 @@
         <Setter Property="Height" Value="32" />
         <Setter Property="Margin" Value="8,0,0,0" />
       </Style>
+      <!-- 主なボタン・取り消せない操作のボタンも、ほかのボタンと同じ高さ・最小幅・間隔にそろえる（テーマのままだと高さ 30・最小幅 88 で、並べると 2 画素低く、間隔も無い） -->
+      <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource Primary}">
+        <Setter Property="MinWidth" Value="80" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+      </Style>
+      <Style x:Key="Danger.Filled" TargetType="Button" BasedOn="{StaticResource Danger.Filled}">
+        <Setter Property="MinWidth" Value="80" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Margin" Value="8,0,0,0" />
+      </Style>
     </ResourceDictionary>
   </Window.Resources>
 

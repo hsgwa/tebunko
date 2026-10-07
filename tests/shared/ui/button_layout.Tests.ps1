@@ -103,3 +103,57 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
 
 # 帯の右のボタン（［中止］［続きから再開］［ログを開く］）は、帯が折りたたまれた入れ子の中にあり、単独では描けない。
 # 本物の画面（tools/capture_screens.ps1 の index-tab/running）で、中心のずれが 1 画素以内であることを確かめてある。
+
+# メッセージの画面（dialog_confirm.xaml）。窓は開かず、中身を白い台に移して描く（窓の外の余白が写らないように）。
+Describe "メッセージの画面のボタン・見出しの位置（描いた画素で測る）" -Tag Unit {
+    BeforeAll {
+        function newMessageRoot {
+            $w = loadXaml "${scriptsDir}\shared\xaml\dialog_confirm.xaml" "${scriptsDir}\shared\fonts"
+            $content = $w.Content
+            $w.Content = $null
+            $root = New-Object System.Windows.Controls.Grid
+            $root.Background = $w.Background
+            $res = $w.Resources
+            $w.Resources = New-Object System.Windows.ResourceDictionary
+            $root.Resources = $res
+            $root.Children.Add($content) | Out-Null
+            $w.FindName("HeadingText").Text = "前回の更新で起動した Office が残ったまま動いています。"
+            $w.FindName("HeadingIconHost").Visibility = "Visible"
+            $panel = $w.FindName("ButtonPanel")
+            foreach ($spec in @(@("キャンセル", "Default"), @("いいえ", "Default"), @("OK", "Primary"), @("終了する", "Danger.Filled"))) {
+                $b = New-Object System.Windows.Controls.Button
+                $b.Content = $spec[0]
+                if ($spec[1] -ne "Default") { $b.Style = $root.FindResource($spec[1]) }
+                $panel.Children.Add($b) | Out-Null
+            }
+            return @{ Window = $w; Root = $root; Panel = $panel }
+        }
+    }
+
+    It "<Name>: ボタンの字の中心が枠の中心から 1 画素以内で、高さ・最小幅・間隔がそろう" -TestCases @(
+        @{ Name = "キャンセル（ふつう）"; Index = 0 }
+        @{ Name = "いいえ（ふつう）"; Index = 1 }
+        @{ Name = "OK（主なボタン）"; Index = 2 }
+        @{ Name = "終了する（取り消せない操作）"; Index = 3 }
+    ) {
+        param ($Name, $Index)
+        $m0 = newMessageRoot
+        $b = $m0.Panel.Children[$Index]
+        $m = measureInk $m0.Root $b -Width 520 -Height 300
+        $m.Groups.Count | Should -BeGreaterThan 0
+        [Math]::Abs($m.Dy) | Should -BeLessOrEqual 1
+        [Math]::Abs($m.Dx) | Should -BeLessOrEqual 1
+        $b.ActualHeight | Should -Be 32
+        $b.ActualWidth | Should -BeGreaterOrEqual 80
+        $b.Margin.Left | Should -Be 8
+    }
+
+    It "見出しの左のアイコンと 1 行目の字の縦の中心がそろっている（1 画素以内）" {
+        $m0 = newMessageRoot
+        $icon = $m0.Window.FindName("HeadingIconHost")
+        $m = measureInk $m0.Root $icon $icon.Parent -Width 520 -Height 300
+        $m.Groups.Count | Should -BeGreaterThan 1
+        $textDy = ($m.Groups | Select-Object -Skip 1 | ForEach-Object { $_.Dy } | Measure-Object -Average).Average
+        [Math]::Abs($m.Groups[0].Dy - $textDy) | Should -BeLessOrEqual 1
+    }
+}
