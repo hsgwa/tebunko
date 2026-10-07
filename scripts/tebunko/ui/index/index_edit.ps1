@@ -251,7 +251,8 @@ function deleteIndexes {
     setStatus "$($names.Count) 件のインデックスを削除しています…（件数によっては少し時間がかかります）"
     startJob {
         param ($names, $dir, $statusPath, $settingsPath)
-        ,@(removeIndexes -names $names -dir $dir -statusPath $statusPath -settingsPath $settingsPath)
+        $results = removeIndexes -names $names -dir $dir -statusPath $statusPath -settingsPath $settingsPath
+        , $results
     } @(,$names + @($workspace.IndexDir, $workspace.StatusFile, ${settingsFile})) {
         param ($output, $errorText)
         $script:indexBusy = $false

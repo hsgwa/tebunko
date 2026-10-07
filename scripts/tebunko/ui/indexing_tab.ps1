@@ -213,8 +213,8 @@ function startIndexing {
     $script:indexingEta = ""
     $script:indexingConfirmed = $false
     $script:indexingCanceledAtConfirm = $false
-    $channel = newIndexerChannel -confirmTargets $true
-    $channel.OnlyNames = $script:indexingOnlyNames  # 空なら今までどおり（状態層は enabled かつ OnlyNames に入るものだけを取り込む）
+    # 空なら今までどおり（状態層は enabled かつ onlyNames に入るものだけを取り込む）
+    $channel = newIndexerChannel -confirmTargets $true -onlyNames $script:indexingOnlyNames
     $script:indexingSession = newIndexingSession $channel
 
     showIndexingPanel

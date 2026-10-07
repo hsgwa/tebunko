@@ -144,7 +144,8 @@ function newBulkExportIndexes {
     startIndexArchiveJob "エクスポート" {
         param ($names, $folder, $dir, $settingsPath)
         $ws = [Workspace]::new($dir)
-        ,@(exportIndexes -names $names -destination $folder -ws $ws -settingsPath $settingsPath)
+        $results = exportIndexes -names $names -destination $folder -ws $ws -settingsPath $settingsPath
+        , $results
     } @(,$names + @($folder, $workspace.Dir, ${settingsFile})) {
         param ($results)
         showBulkIndexResult "エクスポート" $results
