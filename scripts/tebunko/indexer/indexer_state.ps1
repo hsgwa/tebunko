@@ -250,18 +250,22 @@ function removeIngestingFile {
 
 function newIndexerChannel {
     # 受け渡しの口を作る。画面とインデクサのスレッドの両方から読み書きするため Synchronized にする。
-    #   画面が書く      : RetryFailed・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer
+    #   画面が書く      : RetryFailed・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer・
+    #                     OnlyNames（更新するインデックス名の配列。空なら、チェックの付いたものすべて）
     #   インデクサが書く: Progress（readIndexingProgress の形）・Plan（取り込み予定）・Error・ExitCode（0 完了 / 1 エラー / 2 中止）・
-    #                     Notice（終わりの一言。無ければ空）・Postponed（利用者のPowerPointが起動していて後回しにした件数）
+    #                     Notice（終わりの一言。無ければ空）・Postponed（利用者のPowerPointが起動していて後回しにした件数）・
+    #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
     #   OfficePids: インデックス作成が起動した Office の PID → プロセス名（閉じるときに止まらなければ、この PID だけを止める）
     param (
         [bool]$retryFailed = $false,
         [bool]$confirmTargets = $false,
-        [int]$workers = -1
+        [int]$workers = -1,
+        [string[]]$onlyNames = @()
     )
 
     return [hashtable]::Synchronized(@{
         RetryFailed = $retryFailed; ConfirmTargets = $confirmTargets; Workers = $workers
+        OnlyNames = @($onlyNames | Where-Object { $_ }); OnlySkipped = @()
         Progress = $null; Stop = $false
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
         Error = ""; ExitCode = $null; Notice = ""; Postponed = 0

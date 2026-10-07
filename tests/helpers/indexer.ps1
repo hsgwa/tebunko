@@ -52,6 +52,9 @@ function runIndexer {
 
     $workers = if ($options.ContainsKey("Workers")) { $options.Workers } else { 0 }
     $channel = newIndexerChannel ([bool]$options.RetryFailed) ([bool]$options.ConfirmTargets) $workers
+    if ($options.ContainsKey("OnlyNames")) {
+        $channel.OnlyNames = @($options.OnlyNames)
+    }
     $script:lastChannel = $channel
     $global:indexerTestRoot = $root
     $global:capturedTmpDir = $null
