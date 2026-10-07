@@ -26,14 +26,27 @@ function setIndexingBanner {
     # kind は帯の中身の持ち主（running・interrupted・done）。中断の帯だけは、状態が変わったとき自分で消す
     param ([string]$level, [string]$kind)
 
-    $colors = @{
-        info = @("Accent.Soft", "Accent.Ring"); warn = @("Warn.Note", "Warn.Line")
-        ok = @("Badge.Ok.Bg", "Border.Soft"); ng = @("Badge.Ng.Bg", "Border.Soft")
+    # 地・左端の線（アイコンと［再開］［中止］の枠と文字も同じ色）・文字・アイコンの形。見本の 3 状態に合わせ、ng は同じ規則で赤にする
+    $looks = @{
+        info = @("Badge.Run.Bg", "Accent", "Banner.Info.Text", "Icon.Info")
+        warn = @("Warn.Soft", "Warn", "Banner.Warn.Text", "Icon.CircleAlert")
+        ok = @("Ok.Soft", "Ok", "Banner.Ok.Text", "Icon.CircleCheck")
+        ng = @("Danger.Soft", "Danger.Text", "Banner.Ng.Text", "Icon.CircleAlert")
     }
-    $pair = $colors[$level]
-    if ($null -eq $pair) { $pair = $colors.info }
-    $ui.IndexingProgressPanel.Background = themeBrush $pair[0]
-    $ui.IndexingProgressPanel.BorderBrush = themeBrush $pair[1]
+    $look = $looks[$level]
+    if ($null -eq $look) { $look = $looks.info }
+    $line = themeBrush $look[1]
+    $text = themeBrush $look[2]
+    $ui.IndexingProgressPanel.Background = themeBrush $look[0]
+    $ui.IndexingProgressPanel.BorderBrush = $line
+    $ui.IndexingProgressText.Foreground = $text
+    $ui.IndexingProgressDetail.Foreground = $text
+    $ui.IndexingBannerIcon.Data = themeBrush $look[3]
+    $ui.IndexingBannerIcon.Stroke = $line
+    foreach ($button in @($ui.IndexingResumeButton, $ui.IndexingStopButton)) {
+        $button.BorderBrush = $line
+        $button.Foreground = $line
+    }
     $script:indexingBannerKind = $kind
 }
 

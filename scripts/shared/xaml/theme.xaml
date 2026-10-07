@@ -415,11 +415,16 @@
       </DataTrigger>
     </Style.Triggers>
   </Style>
-  <!-- 帯（バナー）。地・枠の色は使う側で指定する -->
+  <!-- 帯（バナー）。幅いっぱいの 1 行（高さ 40）。角丸・外枠は無く、左端に太い線を引く。地と線（BorderBrush）の色は使う側で状態ごとに指定する（Badge.Run.Bg / Accent、Warn.Soft / Warn、Ok.Soft / Ok、Danger.Soft / Danger.Text）。文字の色は下の Banner.*.Text -->
+  <SolidColorBrush x:Key="Banner.Info.Text" Color="#0B3D66" />
+  <SolidColorBrush x:Key="Banner.Warn.Text" Color="#5C3D00" />
+  <SolidColorBrush x:Key="Banner.Ok.Text"   Color="#124D12" />
+  <SolidColorBrush x:Key="Banner.Ng.Text"   Color="#7A1C1F" />
   <Style x:Key="Banner" TargetType="Border">
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="12,8,12,8" />
+    <Setter Property="BorderThickness" Value="3,0,0,0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Padding" Value="13,6,12,6" />
   </Style>
 
   <!-- 注意・エラー。色で区別し、太さは上げない -->
