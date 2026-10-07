@@ -36,7 +36,7 @@
                 <StackPanel Orientation="Horizontal">
                   <TextBlock Text="アクション" VerticalAlignment="Center" />
                   <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
-                        StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="6,1,0,0" />
+                        StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="6,0,0,0" />
                 </StackPanel>
               </Button.Content>
               <Button.ContextMenu>

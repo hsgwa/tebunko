@@ -24,7 +24,7 @@
             <Border DockPanel.Dock="Right" CornerRadius="6" BorderThickness="1" BorderBrush="{StaticResource Accent}"
                     Background="{StaticResource Bg.Surface}" VerticalAlignment="Center" Height="26">
               <StackPanel Orientation="Horizontal">
-                <Button x:Name="OpenButton" Content="開く" IsEnabled="False" Cursor="Hand" FontSize="11" Padding="12,0" MinWidth="0"
+                <Button x:Name="OpenButton" Content="開く" IsEnabled="False" Cursor="Hand" FontSize="11" Padding="12,0" MinWidth="0" Height="Auto"
                         Foreground="{StaticResource Accent.Hover}" Background="Transparent" BorderThickness="0">
                   <Button.Template>
                     <ControlTemplate TargetType="Button">
@@ -40,7 +40,7 @@
                   </Button.Template>
                 </Button>
                 <Rectangle Width="1" Fill="{StaticResource Accent}" />
-                <Button x:Name="OpenMenuButton" IsEnabled="False" Cursor="Hand" Padding="6,0" MinWidth="0" Background="Transparent" BorderThickness="0"
+                <Button x:Name="OpenMenuButton" IsEnabled="False" Cursor="Hand" Padding="6,0" MinWidth="0" Height="Auto" Background="Transparent" BorderThickness="0"
                         AutomationProperties.Name="開き方を選ぶ" ToolTip="開き方を選びます">
                   <Button.Template>
                     <ControlTemplate TargetType="Button">
