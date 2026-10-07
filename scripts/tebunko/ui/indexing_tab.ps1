@@ -301,10 +301,17 @@ function updateIndexingProgress {
     if (!$stopping) {
         $ui.IndexingProgressDetail.Text = if ($progress.Current) { "更新中のファイル：$($progress.Current)" } else { "" }
     }
+    # 詳細の「インデックス」の箱にも、同じ全体の進み具合を出す（インデックスごとの件数は無い）
+    $script:indexingView = @{
+        Ratio = $ratio; Processed = $progress.Processed; Total = $total; Failed = $progress.Failed
+        Eta = [string]$ui.IndexingProgressEta.Text; Current = [string]$progress.Current
+    }
+    updateIndexDetailPanel
 }
 
 function finishIndexing {
     $script:indexingTimer.Stop()
+    $script:indexingView = $null
     $taskbar.ProgressState = "None"
     # インデックス作成完了の通知。以前はタスクバーのボタンを光らせていたが（FlashWindowEx）、P/Invoke は
     # 実行時コンパイル（csc.exe）を無くすため廃止した。完了は進捗表示・ステータスで分かる。

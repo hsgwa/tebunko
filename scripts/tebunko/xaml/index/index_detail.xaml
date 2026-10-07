@@ -44,7 +44,10 @@
       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="16,12,16,12">
 
-          <!-- 1 つ選んだときの左右 2 列（基本設定・インデックス情報）。何も選んでいないときは出さない -->
+          <!-- 2 件以上を選んだとき（見出しは「N 件を選択中」）の案内 -->
+          <TextBlock x:Name="MultiSelectHintText" Style="{StaticResource Meta}" Visibility="Collapsed" />
+
+          <!-- 1 つ選んだときの左右 2 列（左は基本設定・インデックスの状態・高速検索、右はインデックス情報の表）。何も選んでいないときは出さない -->
           <Grid x:Name="IndexDetailBody" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
@@ -86,8 +89,33 @@
                     </Border>
                     <TextBlock x:Name="IndexDetailBadgeSub" Style="{StaticResource Meta}" Margin="8,0,0,0" VerticalAlignment="Center" />
                   </StackPanel>
+                  <!-- 更新中の行を選んでいるときの進み具合（全体の進みを出す。インデックスごとの件数は無い） -->
+                  <StackPanel x:Name="IndexingDetailPanel" Margin="0,8,0,0" Visibility="Collapsed">
+                    <ProgressBar x:Name="IndexingProgressBar" Maximum="1" Height="6" />
+                    <TextBlock x:Name="IndexingCountText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                    <TextBlock x:Name="IndexingFileText" Style="{StaticResource Micro}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                               ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                  </StackPanel>
                   <TextBlock x:Name="IndexDetailUpdated" Style="{StaticResource Meta}" Margin="0,6,0,0" />
                   <TextBlock x:Name="IndexDetailCount" Style="{StaticResource Meta}" Margin="0,2,0,0" />
+                </StackPanel>
+              </Border>
+              <TextBlock Style="{StaticResource Label.Strong}" Text="高速検索" Margin="0,12,0,8" />
+              <Border Style="{StaticResource InfoCard}" Background="{DynamicResource Bg.Surface}">
+                <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource Label}" Text="状態" Width="60" VerticalAlignment="Center" />
+                    <Border x:Name="IndexDetailFastBadge" Style="{StaticResource StatusBadge}" VerticalAlignment="Center">
+                      <TextBlock x:Name="IndexDetailFastBadgeText" FontSize="11" FontWeight="SemiBold" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock x:Name="IndexDetailFastReason" Style="{StaticResource WarnText}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                  <StackPanel x:Name="IndexDetailFastPanel" Margin="0,6,0,0" Visibility="Collapsed">
+                    <TextBlock x:Name="IndexDetailFastText" Style="{StaticResource Meta}" />
+                    <ProgressBar x:Name="IndexDetailFastBar" Margin="0,4,0,0" Maximum="1" Height="6" />
+                  </StackPanel>
+                  <TextBlock x:Name="IndexDetailFastChecked" Style="{StaticResource Meta}" Margin="0,6,0,0" />
+                  <TextBlock x:Name="IndexDetailFastNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -116,24 +144,6 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-                </StackPanel>
-              </Border>
-              <TextBlock Style="{StaticResource Label.Strong}" Text="高速検索" Margin="0,12,0,8" />
-              <Border Style="{StaticResource InfoCard}" Background="{DynamicResource Bg.Surface}">
-                <StackPanel>
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock Style="{StaticResource Label}" Text="状態" Width="60" VerticalAlignment="Center" />
-                    <Border x:Name="IndexDetailFastBadge" Style="{StaticResource StatusBadge}" VerticalAlignment="Center">
-                      <TextBlock x:Name="IndexDetailFastBadgeText" FontSize="11" FontWeight="SemiBold" />
-                    </Border>
-                  </StackPanel>
-                  <TextBlock x:Name="IndexDetailFastReason" Style="{StaticResource WarnText}" Margin="0,6,0,0" TextWrapping="Wrap" />
-                  <StackPanel x:Name="IndexDetailFastPanel" Margin="0,6,0,0" Visibility="Collapsed">
-                    <TextBlock x:Name="IndexDetailFastText" Style="{StaticResource Meta}" />
-                    <ProgressBar x:Name="IndexDetailFastBar" Margin="0,4,0,0" Maximum="1" Height="6" />
-                  </StackPanel>
-                  <TextBlock x:Name="IndexDetailFastChecked" Style="{StaticResource Meta}" Margin="0,6,0,0" />
-                  <TextBlock x:Name="IndexDetailFastNote" Style="{StaticResource Micro}" Margin="0,6,0,0" TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
             </StackPanel>

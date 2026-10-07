@@ -182,6 +182,12 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "取り込み中の［＋ フォルダを追加］と［アクション ▾］の項目"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeFalse -Because "取り込み中は NewIndexButton が押せない"
+            # 更新中の行を選ぶと、詳細の「インデックス」の箱に進み具合が出て、行には［中止］が出る
+            $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            selectGui $row
+            waitGui $S "詳細に進み具合の棒が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "IndexingProgressBar" } | Out-Null
+            waitGui $S "行に［中止］が出る" ${guiDefaultTimeout} { findGui $row -Id "IndexRowStopButton" } | Out-Null
+
             # ［エクスポート…］［削除…］［インポート…］は［アクション ▾］のメニューの中。開いて、押せないことを確かめてから Esc で閉じる
             invokeGui $S (waitGuiById $S $S.Window "ActionsButton") "［アクション ▾］" -NoWait
             $menu = waitGuiWindow $S "アクションのメニュー" -Id "ActionDelete"

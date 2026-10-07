@@ -4,7 +4,8 @@
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailFolderStatus",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexDetailUpdated", "IndexDetailCount",
-        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote")) {
+        "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote",
+        "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
 
@@ -302,6 +303,7 @@ function applyFailedFileState {
 
 # 詳細の値の行を最後に置いたときの getIndexDetailView の RowsKey（同じ中身なら行を置き直さない）
 $script:detailRowsKey = $null
+$script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
 function updateIndexDetailPanel {
     # 選んだインデックスの値の行と、高速検索の反映の進み具合を出す（文言の組み立ては getIndexDetailView）。
@@ -322,17 +324,27 @@ function updateIndexDetailPanel {
             $entry = $progress.ByIndex[$item.Name]
         }
     }
-    $view = getIndexDetailView $selected $entry
+    $multiCount = getIndexDetailMultiCount @(getIndexCheckedItems @($script:targetItems)).Count
+    $view = getIndexDetailView $selected $entry $multiCount $script:indexingView
 
     $ui.IndexDetailTitle.Text = $view.Title
     $ui.IndexDetailBody.Visibility = if ($view.Selected) { "Visible" } else { "Collapsed" }
+    $ui.MultiSelectHintText.Text = $view.Hint
+    $ui.MultiSelectHintText.Visibility = if ($view.Multi) { "Visible" } else { "Collapsed" }
+    # 更新中の行では、最終更新・件数の代わりに進み具合（棒・件数と残り時間・ファイル名）を出す
+    $ui.IndexingDetailPanel.Visibility = if ($view.Run.Shown) { "Visible" } else { "Collapsed" }
+    $ui.IndexingProgressBar.Value = $view.Run.Value
+    $ui.IndexingCountText.Text = $view.Run.CountText
+    $ui.IndexingFileText.Text = $view.Run.FileText
     $ui.IndexDetailName.Text = $view.Name
     $ui.IndexDetailPath.Text = $view.Path
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
     setIndexBadge $ui.IndexDetailBadge $ui.IndexDetailBadgeText $view.Badge.Text $view.Badge.Level
     $ui.IndexDetailBadgeSub.Text = if ($view.Selected) { [string]$view.Badge.Sub } else { "" }
-    $ui.IndexDetailUpdated.Text = $view.Updated
-    $ui.IndexDetailCount.Text = $view.Count
+    $ui.IndexDetailUpdated.Text = if ($view.Run.Shown) { "" } else { $view.Updated }
+    $ui.IndexDetailCount.Text = if ($view.Run.Shown) { "" } else { $view.Count }
+    $ui.IndexDetailUpdated.Visibility = if ($ui.IndexDetailUpdated.Text) { "Visible" } else { "Collapsed" }
+    $ui.IndexDetailCount.Visibility = if ($ui.IndexDetailCount.Text) { "Visible" } else { "Collapsed" }
     if ($script:detailRowsKey -ne $view.RowsKey -or $null -eq $ui.IndexDetailRows.ItemsSource) {
         $script:detailRowsKey = $view.RowsKey
         $rows = New-Object 'System.Collections.ObjectModel.ObservableCollection[DetailRow]'
