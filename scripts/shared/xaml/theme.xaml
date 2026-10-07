@@ -259,6 +259,7 @@
   <Geometry x:Key="Icon.CircleX">M12 2a10 10 0 1 0 0.0001 0Z M15 9 L9 15 M9 9 L15 15</Geometry>
   <Geometry x:Key="Icon.Search">M11 3a8 8 0 1 0 0.0001 0Z M21 21 L16.66 16.66</Geometry>
   <Geometry x:Key="Icon.CircleQuestionMark">M12 2a10 10 0 1 0 0.0001 0Z M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3 M12 17h.01</Geometry>
+  <Geometry x:Key="Icon.Plus">M5 12h14 M12 5v14</Geometry>
   <Geometry x:Key="Icon.Check">M20 6 L9 17 L4 12</Geometry>
   <Geometry x:Key="Icon.Zap">M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z</Geometry>
   <Geometry x:Key="Icon.Info">M12 2a10 10 0 1 0 0.0001 0Z M12 16v-4 M12 8h.01</Geometry>
@@ -415,11 +416,16 @@
       </DataTrigger>
     </Style.Triggers>
   </Style>
-  <!-- 帯（バナー）。地・枠の色は使う側で指定する -->
+  <!-- 帯（バナー）。幅いっぱいの 1 行（高さ 40）。角丸・外枠は無く、左端に太い線を引く。地と線（BorderBrush）の色は使う側で状態ごとに指定する（Badge.Run.Bg / Accent、Warn.Soft / Warn、Ok.Soft / Ok、Danger.Soft / Danger.Text）。文字の色は下の Banner.*.Text -->
+  <SolidColorBrush x:Key="Banner.Info.Text" Color="#0B3D66" />
+  <SolidColorBrush x:Key="Banner.Warn.Text" Color="#5C3D00" />
+  <SolidColorBrush x:Key="Banner.Ok.Text"   Color="#124D12" />
+  <SolidColorBrush x:Key="Banner.Ng.Text"   Color="#7A1C1F" />
   <Style x:Key="Banner" TargetType="Border">
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="12,8,12,8" />
+    <Setter Property="BorderThickness" Value="3,0,0,0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Padding" Value="13,6,12,6" />
   </Style>
 
   <!-- 注意・エラー。色で区別し、太さは上げない -->

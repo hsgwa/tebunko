@@ -8,6 +8,23 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
       </ResourceDictionary.MergedDictionaries>
+      <!-- ボタンの文字の左に線のアイコンを置く表示（文字は Content。アイコンの色はボタンの文字の色に合わせるので、無効・押し込み・主ボタンでも文字と同じ色になる） -->
+      <DataTemplate x:Key="ButtonIcon.Refresh">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.RefreshCw}" Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"
+                Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2"
+                StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+          <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+        </StackPanel>
+      </DataTemplate>
+      <DataTemplate x:Key="ButtonIcon.Plus">
+        <StackPanel Orientation="Horizontal">
+          <Path Data="{StaticResource Icon.Plus}" Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"
+                Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2"
+                StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+          <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+        </StackPanel>
+      </DataTemplate>
       <!-- 選んだ行（詳細欄に出している行）の色 -->
       <Style x:Key="IndexRow" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
         <Style.Triggers>
@@ -23,13 +40,12 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" MinHeight="90" />
-        <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
       <DockPanel Grid.Row="0">
         <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="IndexingButton" Content="すべて更新" MinWidth="104" Height="34" Margin="0,0,8,0" />
+            <Button x:Name="IndexingButton" Content="すべて更新" ContentTemplate="{StaticResource ButtonIcon.Refresh}" MinWidth="104" Height="34" Margin="0,0,8,0" />
             <!-- ［アクション ▾］: 押すと下にメニューを開く（index_events.ps1）。メニューの項目の可否は updateIndexingButton が決める -->
             <Button x:Name="ActionsButton" Height="34" Margin="0,0,8,0" ToolTip="選んだインデックスの操作と、インポートのメニューを開きます">
               <Button.Content>
@@ -49,7 +65,7 @@
                 </ContextMenu>
               </Button.ContextMenu>
             </Button>
-            <Button x:Name="NewIndexButton" Style="{StaticResource Primary}" Height="34" Content="＋ フォルダを追加" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
+            <Button x:Name="NewIndexButton" Style="{StaticResource Primary}" Height="34" Content="フォルダを追加" ContentTemplate="{StaticResource ButtonIcon.Plus}" AutomationProperties.Name="＋ フォルダを追加" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
           </StackPanel>
           <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Right" />
         </StackPanel>
@@ -236,16 +252,10 @@
           <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" HorizontalAlignment="Center" TextWrapping="Wrap"
                      Text="検索したいフォルダを追加すると、ここに表示されます。" />
           <!-- 上の［＋ フォルダを追加］と同じ動き（押せるかどうかも上のボタンに合わせる） -->
-          <Button x:Name="IndexEmptyAddButton" Style="{StaticResource Primary}" Content="＋ フォルダを追加" Margin="0,14,0,0" HorizontalAlignment="Center" MinWidth="130" Height="32"
+          <Button x:Name="IndexEmptyAddButton" Style="{StaticResource Primary}" Content="フォルダを追加" ContentTemplate="{StaticResource ButtonIcon.Plus}" AutomationProperties.Name="＋ フォルダを追加" Margin="0,14,0,0" HorizontalAlignment="Center" MinWidth="130" Height="32"
                   IsEnabled="{Binding IsEnabled, ElementName=NewIndexButton}" />
         </StackPanel>
       </Grid>
-
-      <!-- 登録の件数の帯（フォルダ数と、取り込み一覧にあるファイルの合計） -->
-      <DockPanel Grid.Row="2" Margin="0,8,0,0">
-        <TextBlock x:Name="IndexFooterFiles" DockPanel.Dock="Right" Style="{StaticResource Meta}" Text="合計: 0 ファイル" />
-        <TextBlock x:Name="IndexFooterFolders" Style="{StaticResource Meta}" Text="登録済み: 0 フォルダ" />
-      </DockPanel>
     </Grid>
   </Border>
 </Grid>

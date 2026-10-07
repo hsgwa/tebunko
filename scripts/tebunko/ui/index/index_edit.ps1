@@ -163,6 +163,17 @@ function editIndex {
         return
     }
 
+    applyIndexEdit $item $result
+}
+
+function applyIndexEdit {
+    # 編集の結果（@{ Path; Name }）を行に反映して保存する。［編集…］のダイアログと、詳細のフォルダパスの［...］が同じ道で使う。
+    # 変わったところが無ければ何もしない
+    param (
+        $item,
+        $result
+    )
+
     $changes = New-Object System.Collections.Generic.List[string]
     # 大文字・小文字だけの変更も改名する（-ne は大文字・小文字を区別しないため -cne で比べる）
     if ($result.Name -cne $item.Name) {
@@ -185,6 +196,32 @@ function editIndex {
     updateIndexSourceFile
     refreshIndexViews
     setStatus ("インデックスを変更しました（" + ($changes -join " / ") + "）")
+}
+
+function changeIndexFolder {
+    # 詳細のフォルダパスの［...］。フォルダを選ぶ画面を出し、選んだ場所を［編集…］で変えて［OK］したときと同じ検査・同じ反映で変える。
+    # 取り消したとき・同じフォルダを選んだときは何も変えない
+    $item = $ui.IndexGrid.SelectedItem
+    if ($null -eq $item -or !(testIndexOperable "編集")) {
+        return
+    }
+    $initial = normalizeFolderPath $item.Path
+    # 開始フォルダの有無は、直前の refreshFolderStatus の結果がそのまま使えるときだけ調べずに使う（［編集…］と同じ）
+    $knownExisting = $item.StatusChecked -and $item.FolderExists
+    $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" $initial $window $knownExisting
+    if (!$path) {
+        return
+    }
+    $path = normalizeFolderPath $path
+    if ($path -eq $item.Path) {
+        return
+    }
+    $message = testIndexEditInput $path $item.Name $script:targetItems $item
+    if ($message -ne "") {
+        showMessage $message "OK" "Warning" | Out-Null
+        return
+    }
+    applyIndexEdit $item @{ Path = $path; Name = $item.Name }
 }
 
 function startIndexRemoveJob {

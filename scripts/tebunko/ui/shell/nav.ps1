@@ -23,6 +23,9 @@ function selectScreen {
     $ui.ContentHost.Margin = getScreenMargin $name
     # 左の欄の検索対象のツリーは、検索の画面のときだけ出す
     $ui.NavPaneHost.Visibility = if ($name -eq "SearchTab") { "Visible" } else { "Collapsed" }
+    # 登録のフォルダ数・ファイルの合計は、インデックス管理の画面のときだけ、窓の下のステータスバーに出す
+    $ui.IndexFooterFolders.Visibility = if ($name -eq "IndexTab") { "Visible" } else { "Collapsed" }
+    $ui.IndexFooterFiles.Visibility = $ui.IndexFooterFolders.Visibility
     if ($ui.NavList.SelectedItem -ne $ui[$name]) {
         $ui.NavList.SelectedItem = $ui[$name]
     }

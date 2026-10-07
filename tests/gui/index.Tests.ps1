@@ -70,6 +70,25 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             selectGui $row
             waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
 
+            # 詳細のフォルダパスの［...］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（［編集…］で変えて［OK］と同じ道）
+            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（キャンセル）"
+            $pathText = { getGuiText (findGui $S.Window -Id "IndexDetailPath") }
+            (findGui $S.Window -Id "IndexDetailPathButton").Current.IsEnabled | Should -BeTrue
+            & $pathText | Should -Be $script:source
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            useGuiFolderPicker $S
+            & $pathText | Should -Be $script:source
+            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（別のフォルダ）"
+            $moved = Join-Path (Split-Path -Parent $script:source) "移動先"
+            New-Item -ItemType Directory -Path $moved -Force | Out-Null
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            useGuiFolderPicker $S $moved
+            waitGui $S "フォルダパスが変わる" ${guiDefaultTimeout} { (& $pathText) -eq $moved } | Out-Null
+            setGuiStep $S "詳細のフォルダパスの［...］→ 元のフォルダへ戻す"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            useGuiFolderPicker $S $script:source
+            waitGui $S "フォルダパスが元に戻る" ${guiDefaultTimeout} { (& $pathText) -eq $script:source } | Out-Null
+
             # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
             setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox

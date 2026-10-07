@@ -111,6 +111,8 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
         $result = getIndexTabButtonsEnabled $blocker $hasSelection
         $result.New | Should -Be $new
         $result.Edit | Should -Be $edit
+        # 詳細のフォルダパスの［...］は［編集…］と同じ決まり
+        $result.ChangeFolder | Should -Be $edit
         $result.Remove | Should -Be $remove
         $result.Export | Should -Be $export
         $result.Import | Should -Be $import
