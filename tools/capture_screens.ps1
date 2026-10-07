@@ -209,9 +209,7 @@ function captureBrokenConfigScene {
         # （手元では、両方を送ってようやく閉じた）。閉じるまで両方を送り直す
         waitGui $S "壊れた設定ファイルの知らせが閉じる" ${guiDefaultTimeout} {
             try {
-                $okButton = findGui $window -Name "OK"
-                if ($okButton) { clickGuiNativeButton $okButton }
-                pressGuiEnterKey $window
+                pressGuiMessageOk $window
             } catch { }
             Start-Sleep -Milliseconds 300
             !(@(getGuiOtherWindows $S) | Where-Object { (@(getGuiTexts $_) -join " ") -like "*設定ファイルが壊れていた*" })

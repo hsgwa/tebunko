@@ -27,11 +27,15 @@
     <StackPanel x:Name="ButtonPanel" DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0" />
 
     <StackPanel>
-      <!-- 見出し：これから何をするか。取り消せない操作（danger）では、左に赤い「!」を付ける -->
+      <!-- 見出し：これから何をするか・知らせたいこと。左のアイコンは種類で変わる（shell.ps1 の setDialogLook。確認は「?」・取り消せない操作は赤い「!」・お知らせ・警告・誤りもここ） -->
       <DockPanel>
-        <Path x:Name="HeadingIcon" DockPanel.Dock="Left" Data="{StaticResource Icon.CircleAlert}" Width="20" Height="20" Stretch="Uniform"
-              Margin="0,0,10,0" VerticalAlignment="Top" Visibility="Collapsed" Stroke="{StaticResource Danger.Text}" StrokeThickness="1.8"
-              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+        <!-- アイコンは Label で包む（Path は UI オートメーションに出ず、読み上げの名前を付けられないため） -->
+        <Label x:Name="HeadingIconHost" DockPanel.Dock="Left" Padding="0" Margin="0,0,10,0" VerticalAlignment="Top" Focusable="False"
+               Visibility="Collapsed" AutomationProperties.AutomationId="HeadingIcon">
+          <Path x:Name="HeadingIcon" Data="{StaticResource Icon.CircleAlert}" Width="20" Height="20" Stretch="Uniform"
+                Stroke="{StaticResource Danger.Text}" StrokeThickness="1.8"
+                StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+        </Label>
         <TextBlock x:Name="HeadingText" Style="{StaticResource Body}" TextWrapping="Wrap" VerticalAlignment="Center" />
       </DockPanel>
 

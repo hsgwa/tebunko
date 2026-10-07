@@ -676,3 +676,24 @@ Describe "ダイアログは暗幕付きで出す" -Tag Meta {
         $hits[0] | Should -BeLike "gui_main.ps1:*"
     }
 }
+
+Describe "メッセージは自前の画面で出す" -Tag Meta {
+    It "scripts の MessageBox の直接の呼び出しは、決めた所だけ（ほかは showMessage で出す）" {
+        # shell.ps1 の showMessage … 自前の画面を出せないときの予備（別のスレッドから呼ばれた・画面の定義が読めない）
+        # gui_main.ps1 … 二重起動の知らせ。画面の部品（loadWindow・テーマ）を読み込む前で、自前の画面を出せない
+        # startup_error.ps1 … 起動の失敗の知らせ。制限言語モード・WPF が読めない場面でも知らせるため、標準のまま
+        $allowed = @("shell.ps1", "gui_main.ps1", "startup_error.ps1")
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $hits = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter *.ps1 | Where-Object { $allowed -notcontains $_.Name } | ForEach-Object {
+            $file = $_
+            @(Select-String -LiteralPath $file.FullName -Pattern 'MessageBox\]?::Show|Windows\.Forms\.MessageBox' | Where-Object { $_.Line.TrimStart() -notmatch '^#' } | ForEach-Object { "$($file.Name):$($_.LineNumber)" })
+        })
+        ($hits -join ", ") | Should -Be ""
+    }
+
+    It "shell.ps1 の MessageBox は、showMessage の予備の 2 か所だけ" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $hits = @(Select-String -LiteralPath "$here\..\scripts\shared\ui\shell.ps1" -Pattern 'MessageBox\]::Show' | Where-Object { $_.Line.TrimStart() -notmatch '^#' })
+        $hits.Count | Should -Be 2
+    }
+}

@@ -727,17 +727,27 @@ function pressGuiKey {
     [void][TebunkoGuiNative]::PostMessage($handle, 0x0101, [IntPtr]$VirtualKey, [IntPtr]::Zero)
 }
 
+function pressGuiMessageOk {
+    # メッセージの画面（自前の画面。OS 標準のメッセージボックスにも使える）の［OK］を押す。
+    # 自前の画面のボタンは Invoke パターンで押し、パターンを持たない OS 標準のボタンは BM_CLICK で押す。Enter キーも合わせて送る
+    param ($Window)
+    $ok = findGui $Window -Name "OK"
+    if ($ok) {
+        $pattern = $null
+        if ($ok.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) { $pattern.Invoke() } else { clickGuiNativeButton $ok }
+    }
+    pressGuiEnterKey $Window
+}
+
 function closeGuiNativeMessage {
-    # OK だけの OS 標準のメッセージボックスを、確実に閉じるまで閉じ続ける。
+    # OK だけのメッセージの画面を、確実に閉じるまで閉じ続ける（もとは OS 標準のメッセージボックス用）。
     # ボタンへの BM_CLICK（clickGuiNativeButton）だけでは閉じないことがあるため、Enter キー（pressGuiEnterKey）も
     # 合わせて送り、閉じるまで両方を送り直す（写真を撮る道具が、実機で BM_CLICK だけでは閉じなかった場面があったため）
     param ($S, $Window, [string]$What, [int]$Timeout = ${guiDefaultTimeout})
     $key = getGuiKey $Window
     waitGui $S "$What が閉じる" $Timeout {
         try {
-            $ok = findGui $Window -Name "OK"
-            if ($ok) { clickGuiNativeButton $ok }
-            pressGuiEnterKey $Window
+            pressGuiMessageOk $Window
         } catch { }
         Start-Sleep -Milliseconds 300
         !(@(getGuiOtherWindows $S) | Where-Object { (getGuiKey $_) -eq $key })
@@ -929,13 +939,19 @@ function answerGuiConfirm {
 }
 
 function closeGuiMessage {
-    # メッセージボックス（Text に文言が出ている窓）を待って、その文言を返し、［OK］で閉じる。
-    # OS 標準のメッセージボックスの［OK］はパターンを持たないため、OS のフォルダ選択と同じくネイティブのクリックで押す
-    param ($S, [string]$Text, [string]$What)
+    # メッセージの画面（Text に文言が出ている窓）を待って、その文言を返し、［OK］で閉じる。
+    # 自前の画面の［OK］は Invoke パターンで押す（OS 標準のメッセージボックスのときは、パターンが無いのでネイティブのクリックで押す）
+    # Kind は、見出しの左のアイコンの名前（お知らせ・警告・エラー・確認）。ボタンは［OK］だけで、メッセージの画面の枠（見出しの部品）であることも確かめる
+    param ($S, [string]$Text, [string]$What, [string]$Kind = "警告")
     $window = waitGuiWindow $S $What -Text $Text
     $found = @(getGuiTexts $window) -join " "
+    $mark = findGui $window -Id "HeadingIcon"
+    if (!$mark -or $mark.Current.Name -ne $Kind) { throw "${What}: 見出しのアイコンが「$Kind」でない（$(if ($mark) { $mark.Current.Name } else { 'アイコンなし' })）" }
+    $buttonNames = @(findAllGui $window -Type Button | ForEach-Object { $_.Current.Name })
+    if (($buttonNames -join ",") -ne "OK") { throw "${What}: ボタンが［OK］だけでない（$($buttonNames -join ',')）" }
     $button = waitGuiByName $S $window "OK"
-    clickGuiNativeButton $button
+    $pattern = $null
+    if ($button.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) { $pattern.Invoke() } else { clickGuiNativeButton $button }
     waitGuiWindowClosed $S $window $What
     return $found
 }
