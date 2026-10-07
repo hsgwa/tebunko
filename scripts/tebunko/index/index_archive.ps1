@@ -112,6 +112,30 @@ function exportIndexToFolder {
     return (exportIndex $name $destPath $ws $settingsPath)
 }
 
+function exportIndexes {
+    # 選んだインデックスを、書き出し先のフォルダの中の zip にまとめて書き出す（インデックス 1 つにつき zip 1 つ）。
+    # 1 つずつ exportIndexToFolder を呼び、途中で 1 つ失敗しても残りを続ける。
+    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason; Path }）。Reason は失敗したときの理由（成功なら ""）、Path は書き出した zip（失敗なら ""）。
+    # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
+    param (
+        [string[]]$names,
+        [string]$destination,
+        $ws = $workspace,
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($name in @($names)) {
+        try {
+            $exported = exportIndexToFolder $name $destination $ws $settingsPath
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = ""; Path = $exported.Path })
+        } catch {
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message; Path = "" })
+        }
+    }
+    return , $results.ToArray()
+}
+
 function exportIndexCore {
     param (
         [string]$name,

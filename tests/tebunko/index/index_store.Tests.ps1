@@ -175,6 +175,52 @@ Describe "removeIndex" -Tag Io {
     }
 }
 
+Describe "removeIndexes" -Tag Io {
+    It "選んだインデックスをまとめて削除し、1 つ失敗しても残りを続けて、名前ごとの結果を返す" {
+        $dir = "$TestDrive\removes\index"
+        $path = "$TestDrive\removes\ingest_status.tsv"
+        writeListFile "$dir\営業\a.xlsx\Sheet1.tsv" @("本文")
+        writeListFile "$dir\技術\b.xlsx\Sheet1.tsv" @("本文")
+        writeListFile "$dir\総務\c.xlsx\Sheet1.tsv" @("本文")
+        writeStatusFile @(
+            [pscustomobject]@{ Path = "C:\data"; Name = "営業" },
+            [pscustomobject]@{ Path = "D:\tech"; Name = "技術" },
+            [pscustomobject]@{ Path = "E:\gen"; Name = "総務" }
+        ) @(
+            (newStatusRow "営業\a.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00"),
+            (newStatusRow "技術\b.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00"),
+            (newStatusRow "総務\c.xlsx" "2025/01/10 12:34:56" "1" $stateDone "1" "2026/09/18 10:00:00")
+        ) $path
+
+        # 営業の TSV を開いたままにして消せなくする
+        $stream = [System.IO.File]::Open("$dir\営業\a.xlsx\Sheet1.tsv", "Open", "Read", "None")
+        try {
+            $results = & {
+                $ErrorActionPreference = "Continue"
+                removeIndexes @("営業", "技術", "") $dir $path "$TestDrive\settings.json"
+            }
+        } finally {
+            $stream.Dispose()
+        }
+
+        @($results).Count | Should -Be 3
+        $results[0].Name | Should -Be "営業"
+        $results[0].Ok | Should -Be $false
+        $results[0].Reason | Should -Not -BeNullOrEmpty
+        $results[1].Name | Should -Be "技術"
+        $results[1].Ok | Should -Be $true
+        $results[1].Reason | Should -Be ""
+        $results[2].Ok | Should -Be $false
+        $results[2].Reason | Should -Match "空"
+        Test-Path "$dir\技術" | Should -Be $false
+        Test-Path "$dir\総務" | Should -Be $true
+        # 消せなかった営業の記録は残る
+        $status = readStatusFile $path
+        $status.Rows.ContainsKey("営業\a.xlsx") | Should -Be $true
+        $status.Rows.ContainsKey("技術\b.xlsx") | Should -Be $false
+    }
+}
+
 Describe "getSearchIndexes" -Tag Io {
     It "インデックスのフォルダが無ければ空" {
         @(getSearchIndexes "$TestDrive\無いフォルダ\index").Count | Should -Be 0

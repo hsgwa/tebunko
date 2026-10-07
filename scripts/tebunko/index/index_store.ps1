@@ -136,6 +136,33 @@ function removeIndex {
     removeSearchExcludesUnder $target $settingsPath
 }
 
+function removeIndexes {
+    # 選んだインデックスをまとめて削除する（画面の［削除］）。1 つずつ removeIndex を呼び、途中で 1 つ失敗しても残りを続ける。
+    # 戻り値は名前ごとの結果の配列（@{ Name; Ok; Reason }）。Reason は失敗したときの理由（成功なら ""）。
+    # 画面のスレッドでは呼ばず、別スレッドの仕事の中で呼ぶ
+    param (
+        [string[]]$names,
+        [string]$dir = $workspace.IndexDir,
+        [string]$statusPath = $workspace.StatusFile,
+        [string]$settingsPath = ${settingsFile}
+    )
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($name in @($names)) {
+        if ([string]::IsNullOrEmpty($name)) {
+            $results.Add([pscustomobject]@{ Name = [string]$name; Ok = $false; Reason = "インデックス名が空です" })
+            continue
+        }
+        try {
+            removeIndex $name $dir $statusPath $settingsPath
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $true; Reason = "" })
+        } catch {
+            $results.Add([pscustomobject]@{ Name = $name; Ok = $false; Reason = $_.Exception.Message })
+        }
+    }
+    return , $results.ToArray()
+}
+
 function removeSystemIndexOfWorkspace {
     # インデックスのフォルダ（dir = <ワークスペース>\index）と同じワークスペースの system_index から、インデックス name の分を消す。
     # 消せなくても（状態ファイルがほかに開かれている等）インデックスの操作は続ける。次のインデックス作成で整理される
