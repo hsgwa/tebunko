@@ -128,7 +128,7 @@ function getIndexJobBlockedMessage {
 
 function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove: ［＋ フォルダを追加］［編集…］［削除］/ Export/Import: ［エクスポート…］［インポート…］
+    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］［編集…］［削除］・詳細のフォルダパスの［...］（［編集…］と同じ）/ Export/Import: ［エクスポート…］［インポート…］
     # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
     # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
@@ -140,6 +140,7 @@ function getIndexTabButtonsEnabled {
     $free = ($blocker -eq "")
     return @{
         New = $free; Edit = ($free -and $hasSelection); Remove = ($free -and $hasSelection)
+        ChangeFolder = ($free -and $hasSelection)
         Export = ($free -and $hasSelection); Import = $free
     }
 }

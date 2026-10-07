@@ -2,7 +2,7 @@
 
 # 詳細の左右の部品。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
-        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailFolderStatus",
+        "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailFolderStatus",
         "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexDetailUpdated", "IndexDetailCount",
         "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
@@ -118,6 +118,7 @@ function updateIndexingButton {
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
     $ui.EditIndexButton.IsEnabled = $buttons.Edit
+    $ui.IndexDetailPathButton.IsEnabled = $buttons.ChangeFolder
     $ui.RemoveIndexButton.IsEnabled = $buttons.Remove
     $ui.ExportIndexButton.IsEnabled = $buttons.Export
     $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count

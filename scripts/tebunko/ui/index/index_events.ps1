@@ -3,6 +3,7 @@
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })
+$ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
 # ［アクション ▾］: 押したら、ボタンの下にメニューを開く（項目の可否は updateIndexingButton が決める）
