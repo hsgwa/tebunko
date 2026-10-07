@@ -80,9 +80,14 @@
                              ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                 </Border>
                 <!-- フォルダの場所をその場で変える［...］。欄の右にくっつけて置く。押すとフォルダを選ぶ画面を出し、［編集…］のダイアログで場所を変えて［OK］したときと同じ道（changeIndexFolder）を通る -->
-                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Content="..." Width="34" MinWidth="34" Padding="0"
+                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="34" MinWidth="34" Padding="0"
                         AutomationProperties.AutomationId="IndexDetailPathButton" AutomationProperties.Name="フォルダの場所を変える"
                         ToolTip="元のフォルダの場所を変えます（インデックスはそのまま使います）">
+                  <!-- 点 3 つは字ではなく図形で描く（字の「...」は行の下端に点が並び、枠の真ん中に見えない） -->
+                  <Button.Content>
+                    <Path Width="16" Height="16" Stretch="None" Data="M2,8 h.01 M8,8 h.01 M14,8 h.01" StrokeThickness="2.4" StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                  </Button.Content>
                   <Button.Template>
                     <ControlTemplate TargetType="Button">
                       <Border x:Name="Bd" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,1,1"
