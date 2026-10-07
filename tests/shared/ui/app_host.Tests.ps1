@@ -119,3 +119,30 @@ Describe "loadXaml（Font.Body）" -Tag Unit {
         $text | Should -Match 'function loadWindow \{[\s\S]*?\$loaded = loadXaml \$path \$fontsFolder'
     }
 }
+
+Describe "loadAppIcon（画面のアイコン）" -Tag Unit {
+    BeforeEach {
+        ${script:appIcon} = $null
+    }
+
+    It "アイコンの XAML（DrawingImage）を読み、凍結して返す。2 回目は同じものを返す" {
+        ${iconXamlFile} = "${scriptsDir}\tebunko\xaml\app_icon.xaml"
+        $icon = loadAppIcon
+        $icon | Should -BeOfType ([System.Windows.Media.DrawingImage])
+        $icon.IsFrozen | Should -BeTrue
+        [object]::ReferenceEquals((loadAppIcon), $icon) | Should -BeTrue
+    }
+
+    It "読めなければ `$null を返す（アイコンが無くても画面は開ける）" {
+        ${iconXamlFile} = "$TestDrive\none\app_icon.xaml"
+        loadAppIcon | Should -BeNullOrEmpty
+    }
+
+    It "単一 .ps1 版のように、XAML が文字列で埋め込まれていて実在しなくても読める" {
+        $missing = "$TestDrive\bundled\app_icon.xaml"
+        ${iconXamlFile} = $missing
+        $text = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\xaml\app_icon.xaml", (New-Object System.Text.UTF8Encoding($true)))
+        $bundledXaml = @{ ([System.IO.Path]::GetFullPath($missing)) = $text }
+        loadAppIcon | Should -BeOfType ([System.Windows.Media.DrawingImage])
+    }
+}

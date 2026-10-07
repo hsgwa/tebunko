@@ -112,7 +112,7 @@ XAML と部品は、単一引用符のヒアストリングとして埋め込む
 | 版の表示 | `VERSION.txt` | `${bundledVersion}` |
 | 画面定義 | `scripts` 内の XAML ファイル | `${bundledXaml}`。テーマ（`theme.xaml`）も同じ所から引く |
 | 別スレッドの部品 | 実在するファイルを dot-source する | 部品の文字列を関数（`importTebunkoPart`）として登録して呼ぶ |
-| アイコン | `tebunko.ico` | 持たない。窓とバージョン情報は既定のアイコン |
+| アイコン | `xaml/app_icon.xaml`（ベクターの絵） | `${bundledXaml}`。窓・スプラッシュ・バージョン情報に出る |
 | 起動口 | `tebunko.bat`（印の解除・実行ポリシーの指定・窓を隠す） | 無い。ファイルを直接実行する |
 | 起動の失敗の知らせ | `reportStartupFailure` | 同じ。外側の受け皿が無いため、画面が開く前の失敗は PowerShell の窓にも出る |
 
@@ -139,7 +139,7 @@ zip・インストーラーの中身は変えない。検査の詳細は[第三�
 
 単一 .ps1 版で新しく生じるものだけを書く。
 
-- アイコン（`tebunko.ico`）を埋め込まない。窓とバージョン情報は既定のアイコンになる。
+- `tebunko.ico` は埋め込まない。画面のアイコンは XAML（`app_icon.xaml`）なので、ほかの画面定義と同じく埋め込まれる。`.ico` が要るのはインストーラー・ショートカットだけで、単一 .ps1 版は使わない。
 - `tebunko.bat` が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。
 - `lib.ps1` の読み込みの失敗は、起動の失敗の知らせ（`reportStartupFailure`）に届かず、PowerShell の窓に出る。
 - `tebunko.cat`（カタログ）の対象にならない。

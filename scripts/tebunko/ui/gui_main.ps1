@@ -23,8 +23,9 @@ function startGui {
     ${xamlDir}       = "$TebunkoDir\xaml"
     ${sharedXamlDir} = "$TebunkoDir\..\shared\xaml"
     ${fontsDir}      = "$TebunkoDir\..\shared\fonts"  # 同梱のフォント（Rethink Sans）。無ければ Yu Gothic UI・Meiryo UI
-    ${iconFile}      = "$TebunkoDir\tebunko.ico"  # タイトルバーとタスクバーに出すアイコン
-    # アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。
+    ${iconXamlFile}  = "${xamlDir}\app_icon.xaml"  # 窓・バージョン情報に出すアイコン（ベクターの絵）
+    # アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。.ico（tebunko.ico）は画面では使わず、
+    # インストーラー・ショートカットなど Windows が .ico しか受け付けない所だけで使う。
     # ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、
     #   実行時コンパイル（csc.exe）を無くすため廃止した（アイコン自体は Window.Icon で出るため残る）。
     ${themeFile} = "${sharedXamlDir}\theme.xaml"  # 画面の見た目（色・文字・コントロールの形）の共通定義

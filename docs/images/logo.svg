@@ -2,9 +2,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="tebunko">
 <!--
   tebunko のアイコンの元データ。
-  README・設計書サイトのロゴと favicon に使い、画面のアイコン（scripts/tebunko/tebunko.ico）は
-  ここから tools/new_icon.ps1 で作る。図柄を変えたら、tools/new_icon.ps1 で .ico も作り直す。
-  背景は透明。塗りだけで構成（線・グラデーション・クリップなし）。
+  README・設計書サイトのロゴと favicon に使い、画面のアイコン（scripts/tebunko/xaml/app_icon.xaml と
+  scripts/tebunko/tebunko.ico）はここから tools/new_icon.ps1 で作る。図柄を変えたら、tools/new_icon.ps1 で作り直す。
+  背景は透明。塗りだけで構成（線・グラデーション・クリップなし）。path だけ使い、path の属性は d と fill だけ、
+  d は M L H V C Q Z と数字だけ、fill は #RRGGBB だけ（これ以外は new_icon.ps1 が止まる）。
 -->
   <!-- ふた -->
   <path d="M179.1,32.5L219.8,56Q230.2,62 219.8,68L138.4,115Q128,121 117.6,115L36.2,68Q25.8,62 36.2,56L117.6,9Q128,3 138.4,9Z" fill="#7ABDFF"/>

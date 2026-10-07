@@ -1,5 +1,5 @@
 ﻿# 画面の土台（XAML の読み込み・見た目の共通定義・エラーの記録）。
-# 使う側が themeFile・iconFile と、エラーの記録先を返す関数 getGuiErrorLogFile を定義しておくこと。
+# 使う側が themeFile・iconXamlFile と、エラーの記録先を返す関数 getGuiErrorLogFile を定義しておくこと。
 
 # 見た目の共通定義を読み込む（画面自体は XAML の MergedDictionaries で読み込む）
 function loadTheme {
@@ -112,16 +112,29 @@ function loadWindow {
 
     $loaded = loadXaml $path $fontsFolder
 
-    # アイコンは XAML に書かず、ここで読み込む（XamlReader.Load は XAML 内の相対パスを解決できないため）。
-    # ファイルを掴んだままにしないよう OnLoad で読み切る。アイコンが無くても画面は開けるようにする。
-    if (Test-Path ${iconFile}) {
-        $loaded.Icon = [System.Windows.Media.Imaging.BitmapFrame]::Create(
-            (New-Object Uri ${iconFile}),
-            [System.Windows.Media.Imaging.BitmapCreateOptions]::None,
-            [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad)
+    # 窓のアイコン（タイトルバー・タスクバー）は、ベクターの絵（loadAppIcon）を渡す。
+    # WPF が窓のアイコンの大きさ（倍率に応じた大きさ）に描き直す。アイコンが読めなくても画面は開けるようにする。
+    $icon = loadAppIcon
+    if ($null -ne $icon) {
+        $loaded.Icon = $icon
     }
 
     return $loaded
+}
+
+# 画面のアイコン（ベクターの絵。xaml\app_icon.xaml。元データは docs\images\logo.svg）を読み込む。読めなければ $null。
+# 窓（loadWindow）・バージョン情報など、アイコンを出す所が同じ 1 つを使う（凍結して共有する）
+function loadAppIcon {
+    if ($null -eq ${script:appIcon}) {
+        try {
+            $icon = loadXaml ${iconXamlFile}
+            $icon.Freeze()
+            ${script:appIcon} = $icon
+        } catch {
+            return $null
+        }
+    }
+    return ${script:appIcon}
 }
 
 # 表のセルなど、コードから色を付ける箇所。色は theme.xaml のトークンから取り、画面と食い違わないようにする

@@ -16,7 +16,7 @@ try {
     # スクリプトの読み込みに数秒かかるため、先に小さなウィンドウ（xaml\splash.xaml）を出して、起動していることを知らせる。
     # 画面（$window）を描き終わったら閉じる（ContentRendered）。多重起動の判定より前に出すため、2 つ目の起動でも一瞬出る
     . "$PSScriptRoot\ui\splash.ps1"
-    $script:splash = showSplash "$PSScriptRoot\xaml\splash.xaml" "$PSScriptRoot\tebunko.ico"
+    $script:splash = showSplash "$PSScriptRoot\xaml\splash.xaml" "$PSScriptRoot\xaml\app_icon.xaml"
     stepSplash 5
 
     # zip 展開で付く Mark-of-the-Web（外部由来の印）を、scripts 配下から消す。印が残っていると

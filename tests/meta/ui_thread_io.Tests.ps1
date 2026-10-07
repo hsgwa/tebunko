@@ -27,7 +27,7 @@ BeforeAll {
         @{ File = "gui.ps1"; Function = ""; Call = "Get-ChildItem"; Reason = "Mark-of-the-Web を消す（ツールのフォルダの中。Unblock-File）" }
 
         # ---- tebunko/ui/splash.ps1・startup_error.ps1（起動口から読み込む部品） ----
-        @{ File = "splash.ps1"; Function = "showSplash"; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml。ツールのフォルダの中）" }
+        @{ File = "splash.ps1"; Function = "getSplashXamlText"; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml と app_icon.xaml。ツールのフォルダの中）" }
         @{ File = "startup_error.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの trap が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
         @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
         @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "New-Item"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
@@ -50,9 +50,7 @@ BeforeAll {
         @{ File = "open_source.ps1"; Function = "exportResults"; Call = "Invoke-Item"; Reason = "search_results.txt を開く（プロセスの起動は待たない）" }
 
         # ---- tebunko/ui/about_dialog.ps1・shared/ui/app_host.ps1（アイコン・XAML。ツールのフォルダの中） ----
-        @{ File = "about_dialog.ps1"; Function = "showAboutDialog"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "getXamlText"; Call = "[System.IO.File]"; Reason = "画面定義（XAML）の読み込み（ツールのフォルダの中）" }
-        @{ File = "app_host.ps1"; Function = "loadWindow"; Call = "Test-Path"; Reason = "アイコン（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "newAppFontFamily"; Call = "Test-Path"; Reason = "同梱のフォント（ツールのフォルダの中）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "Test-Path"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
         @{ File = "app_host.ps1"; Function = "writeErrorLog"; Call = "New-Item"; Reason = "画面のエラーの記録（ワークスペースの側。分けた PR で扱うかを決める）" }
