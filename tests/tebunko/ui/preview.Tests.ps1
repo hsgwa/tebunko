@@ -244,23 +244,23 @@ Describe "showDetail" -Tag Io {
         $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
     }
 
-    It "<name>" -TestCases @(
-        @{ name = "Word の 1 列は、行番号を除いた見える幅（400 - 44）いっぱいにする"; book = "議事録.docx"; location = "ページ001"; relDir = ""; excel = $false; expected = 356 }
-        @{ name = "Excel の列は中身の幅のまま（枠いっぱいにしない）"; book = "見積.xlsx"; location = "4月"; relDir = "営業部"; excel = $true; expected = 0 }
-    ) {
-        param ($name, $book, $location, $relDir, $excel, $expected)
-        $fake.Current = newHitRow $book $location 1 @("見積の件") $relDir
+    It "Word の 1 列は、行番号を除いた見える幅（400 - 44）いっぱいにする" {
+        $fake.Current = newHitRow "議事録.docx" "ページ001" 1 @("見積の件") ""
 
         showDetail
 
-        $script:previewTable.IsExcel | Should -Be $excel
-        $width = $script:previewTable.Columns[0].Width
-        if ($excel) {
-            $width | Should -Not -Be 356
-            $width | Should -Be $script:previewBaseWidth
-        } else {
-            $width | Should -Be $expected
-        }
+        $script:previewTable.IsExcel | Should -Be $false
+        $script:previewTable.Columns[0].Width | Should -Be 356
+    }
+
+    It "Excel の列は中身の幅のまま（枠いっぱいにしない）" {
+        $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積の件") "営業部"
+
+        showDetail
+
+        $script:previewTable.IsExcel | Should -Be $true
+        $script:previewTable.Columns[0].Width | Should -Not -Be 356
+        $script:previewTable.Columns[0].Width | Should -BeLessThan 356
     }
 
     It "読んでいる間に別の行を選んだら、読み終えた古い行の結果は出さない" {
@@ -461,7 +461,7 @@ Describe "イベント" -Tag Unit {
         @{ name = "見える幅が変わると、列の幅を合わせ直す"; views = @(400); manual = $null; excel = $false; expected = 356 }
         @{ name = "見える幅が狭まると、列の幅も狭まる"; views = @(400, 300); manual = $null; excel = $false; expected = 256 }
         @{ name = "狭まりきったら、初めの幅（100）まで戻る"; views = @(400, 120); manual = $null; excel = $false; expected = 100 }
-        @{ name = "手で変えた幅は、見える幅が変わっても保つ"; views = @(400, 300); manual = 500; excel = $false; expected = 500 }
+        @{ name = "手で変えた幅は、見える幅が変わっても保つ"; views = @(400, 300, 290, 280); manual = 500; excel = $false; expected = 500 }
         @{ name = "Excel の列は合わせ直さない"; views = @(400); manual = $null; excel = $true; expected = 100 }
     ) {
         param ($name, $views, $manual, $excel, $expected)

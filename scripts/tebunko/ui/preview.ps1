@@ -129,8 +129,11 @@ function fitPreviewWidth {
     }
     $column = $script:previewTable.Columns[0]
     $width = getPreviewFillWidth $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) $script:previewBaseWidth $column.Width $script:previewFitWidth ([PreviewColumn]::MinWidth)
-    $column.SetWidth($width)
-    $script:previewFitWidth = $column.Width
+    # 手で変えた幅のときは、今の幅がそのまま返る。そのときは「前に合わせた幅」を変えず、手で変えたことを覚えておく
+    if ($width -ne $column.Width) {
+        $column.SetWidth($width)
+        $script:previewFitWidth = $column.Width
+    }
 }
 
 function getPreviewCell {
