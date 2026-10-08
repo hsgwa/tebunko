@@ -8,6 +8,10 @@ foreach ($detailName in @(
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
 }
+# 詳細の名前・フォルダパス・更新中のファイルは、「…」で切れているときだけ全文をツールチップで見せる
+foreach ($trimmedName in @("IndexDetailName", "IndexDetailPath", "IndexingFileText")) {
+    addTrimmedToolTip $ui[$trimmedName]
+}
 
 function setIndexBadge {
     # 詳細の状態のバッジの文言と色（一覧の LevelBadge と同じ組み合わせ。level は Ok / Wait / Ng / Run / None）
@@ -118,6 +122,7 @@ function updateIndexingButton {
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
     $ui.EditIndexButton.IsEnabled = $buttons.Edit
+    $ui.ActionEdit.IsEnabled = $buttons.Edit
     $ui.IndexDetailPathButton.IsEnabled = $buttons.ChangeFolder
     $ui.RemoveIndexButton.IsEnabled = $buttons.Remove
     $ui.ExportIndexButton.IsEnabled = $buttons.Export

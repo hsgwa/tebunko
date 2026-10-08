@@ -7,6 +7,7 @@ $ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })
+$ui.ActionEdit.Add_Click({ safe { editIndex } })
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
@@ -42,6 +43,26 @@ $ui.ActionDelete.Add_Click({
             deleteIndexes @($checked | ForEach-Object { $_.Name })
         }
     }
+})
+# 一覧の名前・パスは、「…」で切れている行だけ全文をツールチップで見せる（行を作ったとき、行の中の印の付いた TextBlock に付ける）
+$ui.IndexGrid.Add_LoadingRow({
+    param ($sender, $e)
+    $e.Row.Add_Loaded({
+        param ($row, $args2)
+        $stack = New-Object System.Collections.Generic.Stack[System.Windows.DependencyObject]
+        $stack.Push($row)
+        while ($stack.Count -gt 0) {
+            $node = $stack.Pop()
+            for ($i = 0; $i -lt [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($node); $i++) {
+                $child = [System.Windows.Media.VisualTreeHelper]::GetChild($node, $i)
+                if ($child -is [System.Windows.Controls.TextBlock] -and $child.Tag -eq "TrimTip") {
+                    addTrimmedToolTip $child
+                    $child.Tag = "TrimTipSet"
+                }
+                $stack.Push($child)
+            }
+        }
+    })
 })
 $ui.ActionUpdate.Add_Click({ safe { updateSelectedIndexes @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name }) } })
 # 行の［更新］［中止］は行ごとの部品なので、一覧の Click で受ける

@@ -69,11 +69,19 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
             (getGuiRowTexts $row) | Should -Contain "資料"
 
-            # 行を選ぶと、詳細の見出しが変わる（#14）。名前の編集のダイアログは、行を右クリックかダブルクリックで開く
-            # （UI オートメーションからは開けないので、ここでは確かめない）
+            # 行を選ぶと、詳細の見出しが変わる（#14）。名前の編集のダイアログは、［アクション ▾］の［編集…］で開く
+            # （行の右クリックとダブルクリックは UI オートメーションから開けないので、ここでは確かめない）
             setGuiStep $S "行を選ぶ"
             selectGui $row
             waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
+
+            # ［アクション ▾］の［編集…］: 選んでいる行の編集のダイアログが開く（取りやめると変わらない）
+            setGuiStep $S "［アクション ▾］→［編集…］"
+            clickGuiAction $S "ActionEdit" "［編集…］"
+            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "FolderBox"
+            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "資料"
+            clickGui $S $dialog "CancelButton" "［キャンセル］"
+            waitGuiWindowClosed $S $dialog "編集のダイアログ"
 
             # 詳細のフォルダパスの［...］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（［編集…］で変えて［OK］と同じ道）
             setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（キャンセル）"
@@ -211,7 +219,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             # ［エクスポート…］［削除…］［インポート…］は［アクション ▾］のメニューの中。開いて、押せないことを確かめてから Esc で閉じる
             invokeGui $S (waitGuiById $S $S.Window "ActionsButton") "［アクション ▾］" -NoWait
             $menu = waitGuiWindow $S "アクションのメニュー" -Id "ActionDelete"
-            foreach ($id in "ActionExport", "ActionImport", "ActionDelete") {
+            foreach ($id in "ActionEdit", "ActionExport", "ActionImport", "ActionDelete") {
                 (findGui $menu -Id $id).Current.IsEnabled | Should -BeFalse -Because "取り込み中は $id が押せない"
             }
             pressGuiKey $menu 0x1B

@@ -66,6 +66,7 @@
               <Button.ContextMenu>
                 <ContextMenu x:Name="ActionsMenu">
                   <MenuItem x:Name="ActionUpdate" Header="更新" />
+                  <MenuItem x:Name="ActionEdit" Header="編集…" />
                   <MenuItem x:Name="ActionExport" Header="エクスポート…" />
                   <MenuItem x:Name="ActionImport" Header="インポート…" />
                   <Separator />
@@ -106,19 +107,23 @@
             <DataGridTemplateColumn Header="名前" Width="170">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                  <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
                     <Path Data="{StaticResource Icon.Folder}" Width="16" Height="16" Stretch="Uniform" Stroke="{StaticResource File.Folder}"
                           StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                           VerticalAlignment="Center" Margin="0,0,8,0" />
-                    <TextBlock Style="{StaticResource Cell.Key}" Text="{Binding Name}" ToolTip="{Binding Name}" />
-                  </StackPanel>
+                    <TextBlock Style="{StaticResource Cell.Key}" Grid.Column="1" Text="{Binding Name}" Tag="TrimTip" />
+                  </Grid>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
             <DataGridTemplateColumn Header="パス" Width="*">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" ToolTip="{Binding Path}" />
+                  <TextBlock Style="{StaticResource Cell.Meta}" Text="{Binding Path}" Tag="TrimTip" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
