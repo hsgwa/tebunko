@@ -58,9 +58,7 @@ $ui.ActionDelete.Add_Click({
 # 一覧の名前・パスは、「…」で切れている行だけ全文をツールチップで見せる（行ごとに 1 回だけ、行の Loaded で印の付いた TextBlock に付ける）
 $ui.IndexGrid.Add_LoadingRow({
     param ($sender, $e)
-    if ($e.Row.Tag -ne "TrimTip") {
-        addTrimmedToolTipToRows $e.Row "TrimTip"
-    }
+    addTrimmedToolTipToRows $e.Row "TrimTip"
 })
 $ui.ActionUpdate.Add_Click({ safe { updateSelectedIndexes @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name }) } })
 # 行の［更新］［中止］は行ごとの部品なので、一覧の Click で受ける

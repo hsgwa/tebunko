@@ -200,6 +200,7 @@ Describe "getIndexActionsEnabled（［アクション ▾］のメニューの�
         @{ label = "2 件チェック・押した行なし: 編集だけ無効（エクスポート・削除はまとめて行う）"; blocker = ""; checked = 2; pressed = $false; update = $true; edit = $false; export = $true; import = $true; delete = $true }
         @{ label = "2 件チェック・押した行あり: 編集だけ無効（詳細は「N 件を選択中」）"; blocker = ""; checked = 2; pressed = $true; update = $true; edit = $false; export = $true; import = $true; delete = $true }
         @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; pressed = $true; update = $false; edit = $false; export = $false; import = $false; delete = $false }
+        @{ label = "更新中: チェックなし・押した行ありでも編集は無効"; blocker = "インデックス作成中"; checked = 0; pressed = $true; update = $false; edit = $false; export = $false; import = $false; delete = $false }
         @{ label = "削除中: すべて無効"; blocker = "削除中"; checked = 2; pressed = $false; update = $false; edit = $false; export = $false; import = $false; delete = $false }
     ) {
         param ($label, $blocker, $checked, $pressed, $update, $edit, $export, $import, $delete)

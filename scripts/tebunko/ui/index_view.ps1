@@ -225,7 +225,7 @@ function getIndexRowActions {
 }
 
 function getIndexDetailItem {
-    # 詳細欄に出す行（［編集…］［...］［削除］［エクスポート…］の対象も同じ行）。押した行があればそれ、
+    # 詳細欄に出す行（右クリック・二重クリックの［編集…］と［...］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］の可否・対象は getIndexActionsEnabled と、チェックの行）。押した行があればそれ、
     # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
     param (
         [object]$selectedItem,   # 一覧で押した行（無ければ $null）
