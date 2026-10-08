@@ -4275,6 +4275,10 @@
 <td>省略（…）で切れているときだけ全文を出すツールチップ（画面層。<code>addTrimmedToolTip</code> は TextBlock の <code>ToolTipOpening</code> で幅を測り、<code>testTextTrimmed</code>（<code>shared/core/text.ps1</code>）が $false なら開かない。行の中の TextBlock は、<code>addTrimmedToolTipToRows</code>（行の <code>Loaded</code> から、印の <code>Tag</code> が付いた TextBlock に付ける。行ごとに 1 回だけ呼ぶ）で付ける）。<code>gui.ps1</code> から読み込む</td>
 </tr>
 <tr>
+<td><code>scripts/shared/ui/data_grid.ps1</code></td>
+<td>DataGrid の共通の部品（画面層）。<code>getDataGridRowAt</code> は、マウスの下の要素から親をたどって行（<code>DataGridRow</code>）を返す（列見出し・スクロールバー・行の外では <code>$null</code>）。結果の一覧のダブルクリック・右クリックと、［インデックス管理］の一覧の右クリックが使う。</td>
+</tr>
+<tr>
 <td><code>scripts/shared/ui/shell.ps1</code></td>
 <td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>。<code>dialog_confirm.xaml</code> を使う自前の画面）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、予期しないエラーを知らせる <code>reportUnexpectedError</code>（<code>safe</code> の catch と、画面のスレッドの <code>Dispatcher</code> で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを <code>Dispatcher.UnhandledException</code> に登録する <code>registerUnhandledErrorHandler</code>（<code>gui.ps1</code> が起動時に呼ぶ）、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="../responsiveness/">画面を固まらせない待たせ方</a>）</td>
 </tr>
