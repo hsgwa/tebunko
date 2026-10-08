@@ -32,6 +32,7 @@ flowchart TD
 | `newSearchRegex` / `getRegexScanMode` / `newFileFilter` | `tests/tebunko/search/search_query.Tests.ps1` | 文字どおりの記号、不正な正規表現、大文字と小文字の区別。対象ファイルは `;` / `；` の区切り、`!` の除外、部分一致、`?`、ほかの記号は文字どおり、空なら条件なし |
 | `getSourceLocation` / `resolveSourcePath` / `findMovedSource` | `tests/tebunko/search/source_map.Tests.ps1` | 元のファイルのインデックス名・場所・パスの特定、選んだフォルダからの探索（[元のファイルを開く](../gui/open-file.md)） |
 | `splitTsvCells` | `tests/shared/core/text.Tests.ps1` | `"` で囲まれたセル内のタブ、空のセル、先頭のセルが空の行 |
+| `testTextTrimmed` | `tests/shared/core/text.Tests.ps1` | ちょうど・1px 超え・誤差の内・幅 0 |
 | `getExistingAncestorFolder` | `tests/shared/core/folder.Tests.ps1` | フォルダ選択を開く場所（[フォルダ選択ダイアログ（［参照…］）](../gui/common.md#フォルダ選択ダイアログ参照)）。フォルダがあればそのまま、無ければその上の今もあるフォルダ、どこにも無い・空なら空 |
 | `getOfficeProcesses` / `stopOfficeProcesses` | `tests/shared/office/office_process.Tests.ps1` | バックグラウンドの判定、終了の成功・失敗（`Get-Process` / `Stop-Process` をモックする） |
 | `readSearchOption` / `writeSearchOption` ほか設定の読み書き | `tests/tebunko/core/settings.Tests.ps1` | ファイルが無ければオフ・空、保存した値の読み込み、指定した項目だけを変える |

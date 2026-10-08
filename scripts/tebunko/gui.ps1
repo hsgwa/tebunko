@@ -39,6 +39,7 @@ try {
     . "$PSScriptRoot\..\shared\ui\types.ps1"
     . "$PSScriptRoot\ui\types.ps1"
     . "$PSScriptRoot\..\shared\ui\app_host.ps1"
+    . "$PSScriptRoot\..\shared\ui\trimmed_tooltip.ps1"
     stepSplash 50
 
     . "$PSScriptRoot\ui\gui_main.ps1"
