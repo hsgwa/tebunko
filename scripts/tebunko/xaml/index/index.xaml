@@ -22,9 +22,9 @@
     <DockPanel>
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
         <TextBlock x:Name="IndexingProgressEta" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
-        <Button x:Name="IndexingSearchButton" Style="{StaticResource Link}" Content="検索する" VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed" />
-        <Button x:Name="IndexingResumeButton" Content="続きから再開" MinWidth="88" Height="24" FontSize="11" Padding="10,0" Visibility="Collapsed" />
-        <Button x:Name="IndexingStopButton" Content="中止" MinWidth="72" Height="24" FontSize="11" Padding="10,0" />
+        <Button x:Name="IndexingSearchButton" Style="{StaticResource Banner.Button}" Content="検索する" Visibility="Collapsed" />
+        <Button x:Name="IndexingResumeButton" Style="{StaticResource Banner.Button}" Content="続きから再開" MinWidth="88" Visibility="Collapsed" />
+        <Button x:Name="IndexingStopButton" Style="{StaticResource Banner.Button}" Content="中止" MinWidth="72" />
       </StackPanel>
       <Grid VerticalAlignment="Center">
         <Grid.ColumnDefinitions>
@@ -36,7 +36,7 @@
         <Path x:Name="IndexingBannerIcon" Grid.Column="0" Data="{StaticResource Icon.Info}" Width="16" Height="16" Stretch="Uniform"
               Stroke="{StaticResource Accent}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
               Fill="Transparent" VerticalAlignment="Center" Margin="0,0,10,0" />
-        <TextBlock x:Name="IndexingProgressText" Grid.Column="1" Style="{StaticResource Focal}" Foreground="{StaticResource Banner.Info.Text}"
+        <TextBlock x:Name="IndexingProgressText" Grid.Column="1" Style="{StaticResource Focal}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Banner.Info.Text}"
                    VerticalAlignment="Center" MaxWidth="560" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
         <ProgressBar x:Name="IndexingProgress" Grid.Column="2" Width="140" Height="4" Maximum="1" Margin="14,0,0,0" VerticalAlignment="Center" />
         <TextBlock x:Name="IndexingProgressDetail" Grid.Column="3" Style="{StaticResource Micro}" Foreground="{StaticResource Banner.Info.Text}"

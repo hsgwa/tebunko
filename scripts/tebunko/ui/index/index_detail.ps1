@@ -30,7 +30,7 @@ function setIndexingBanner {
     # kind は帯の中身の持ち主（running・interrupted・done）。中断の帯だけは、状態が変わったとき自分で消す
     param ([string]$level, [string]$kind)
 
-    # 地・左端の線（アイコンと［再開］［中止］の枠と文字も同じ色）・文字・アイコンの形。見本の 3 状態に合わせ、ng は同じ規則で赤にする
+    # 地・左端の線（アイコンと［検索する］［続きから再開］［中止］の枠と文字も同じ色）・文字・アイコンの形。見本の 3 状態に合わせ、ng は同じ規則で赤にする
     $looks = @{
         info = @("Badge.Run.Bg", "Accent", "Banner.Info.Text", "Icon.Info")
         warn = @("Warn.Soft", "Warn", "Banner.Warn.Text", "Icon.CircleAlert")
@@ -47,7 +47,7 @@ function setIndexingBanner {
     $ui.IndexingProgressDetail.Foreground = $text
     $ui.IndexingBannerIcon.Data = themeBrush $look[3]
     $ui.IndexingBannerIcon.Stroke = $line
-    foreach ($button in @($ui.IndexingResumeButton, $ui.IndexingStopButton)) {
+    foreach ($button in @($ui.IndexingSearchButton, $ui.IndexingResumeButton, $ui.IndexingStopButton)) {
         $button.BorderBrush = $line
         $button.Foreground = $line
     }
