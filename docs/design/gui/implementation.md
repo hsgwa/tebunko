@@ -53,7 +53,7 @@ flowchart TD
 
 資産管理・EDR は「`powershell.exe` が `csc.exe` を起動して `%TEMP%` の一時 DLL を読み込む」動き（実行時コンパイル。MITRE ATT&CK T1027.004）を、良性でも拾うことがある。tebunko はこれを一切出さない設計にする（`tests/meta/safety.Tests.ps1` の「実行時にコードをコンパイルしない」が確かめる。[危険とされる処理の検査結果](../../safety/checks.md#検査項目と結果)）。
 
-- **画面で使う型は PowerShell class**（`HitRow`・`FileGroup`・`Segment`・`PreviewColumn`／`PreviewCell`／`PreviewRow`／`PreviewTable`・`ProcRow`・`FailRow`・`PlanRow`・`FolderItem`・`SearchTarget`・`SearchExclude`・`IndexNode`・`ConfirmFact`）。PS class はエンジンがメモリ内で用意し、`csc.exe`・一時 DLL を出さない。`INotifyPropertyChanged` は `NotifyBase` を継承して実装する。
+- **画面で使う型は PowerShell class**（`HitRow`・`FileGroup`・`Segment`・`PreviewColumn`／`PreviewCell`／`PreviewRow`／`PreviewTable`・`FailRow`・`PlanRow`・`FolderItem`・`SearchTarget`・`SearchExclude`・`IndexNode`・`ConfirmFact`）。PS class はエンジンがメモリ内で用意し、`csc.exe`・一時 DLL を出さない。`INotifyPropertyChanged` は `NotifyBase` を継承して実装する。
 - **検索・本文インデックスの読み取りは .NET を直接呼ぶ**（`searchPackFiles`／`readPackPlaces`／`readPackContext`。`StreamReader`＋`[regex]`）。
 - **Win32 API（P/Invoke）と、インターフェース定義が要る COM を使わない**。代わりに次を使う。
 
