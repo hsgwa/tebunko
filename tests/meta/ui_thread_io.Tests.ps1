@@ -29,8 +29,6 @@ BeforeAll {
         # ---- tebunko/ui/splash.ps1・startup_error.ps1（起動口から読み込む部品） ----
         @{ File = "splash.ps1"; Function = "getSplashXamlText"; Call = "[System.IO.File]"; Reason = "起動中の表示（起動時に読む splash.xaml と app_icon.xaml。ツールのフォルダの中）" }
         @{ File = "startup_error.ps1"; Function = "getExistingRecordFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの trap が、記録が実際に書けたかを確かめる（窓が無い・応答なしにならない起動の失敗時だけ）" }
-        @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "Test-Path"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
-        @{ File = "startup_error.ps1"; Function = "writeStartupErrorFile"; Call = "New-Item"; Reason = "起動そのものに失敗したときの記録（trap から。窓が無い・応答なしにならない起動の失敗時だけ）" }
 
         # ---- tebunko/ui/gui_main.ps1（startGui） ----
         @{ File = "gui_main.ps1"; Function = "startGui"; Call = "testIndexExists"; Reason = "起動時のタブ選び（ワークスペースの側。分けた PR で直す）" }

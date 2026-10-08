@@ -59,45 +59,34 @@ Describe "getGuiErrorLogFile" -Tag Unit {
 }
 
 Describe "writeStartupErrorFile" -Tag Io {
-    BeforeEach {
-        $script:savedLocalAppData = $env:LOCALAPPDATA
-        $script:savedTemp = $env:TEMP
-    }
-    AfterEach {
-        $env:LOCALAPPDATA = $script:savedLocalAppData
-        $env:TEMP = $script:savedTemp
-    }
+    It "ツールのフォルダの startup_error.txt に追記して、そのパスを返す" {
+        $tool = Join-Path $TestDrive "tool-ok"
+        [System.IO.Directory]::CreateDirectory($tool) | Out-Null
+        $expected = Join-Path $tool "startup_error.txt"
 
-    It "既定の置き場所（LOCALAPPDATA の下）に書ければ、そのパスを返す" {
-        $env:LOCALAPPDATA = Join-Path $TestDrive "ok-local"
-        $env:TEMP = Join-Path $TestDrive "ok-temp"
-        $expected = Join-Path $env:LOCALAPPDATA "tebunko\startup_error.txt"
-
-        writeStartupErrorFile "内容" | Should -Be $expected
-        (Get-Content -LiteralPath $expected -Raw) | Should -Match "内容"
+        writeStartupErrorFile "1 回目" $tool | Should -Be $expected
+        writeStartupErrorFile "2 回目" $tool | Should -Be $expected
+        $content = Get-Content -LiteralPath $expected -Raw
+        $content | Should -Match "1 回目"
+        $content | Should -Match "2 回目"
     }
 
-    It "LOCALAPPDATA の下に書けなければ、TEMP の下に書く" {
-        # LOCALAPPDATA 自体をファイルにして、配下にフォルダを作れなくする
-        $blockedLocal = Join-Path $TestDrive "blocked-local.txt"
-        [System.IO.File]::WriteAllText($blockedLocal, "x")
-        $env:LOCALAPPDATA = $blockedLocal
-        $env:TEMP = Join-Path $TestDrive "fallback-temp"
-        $expected = Join-Path $env:TEMP "tebunko_startup_error.txt"
-
-        writeStartupErrorFile "内容" | Should -Be $expected
-        (Get-Content -LiteralPath $expected -Raw) | Should -Match "内容"
-    }
-
-    It "どちらにも書けなければ `$null を返す" {
-        $blockedLocal = Join-Path $TestDrive "blocked-local2.txt"
-        $blockedTemp = Join-Path $TestDrive "blocked-temp2.txt"
-        [System.IO.File]::WriteAllText($blockedLocal, "x")
-        [System.IO.File]::WriteAllText($blockedTemp, "x")
-        $env:LOCALAPPDATA = $blockedLocal
-        $env:TEMP = $blockedTemp
-
-        writeStartupErrorFile "内容" | Should -Be $null
+    It "ツールのフォルダに書けなければ、記録を残さず `$null を返す（LOCALAPPDATA・TEMP には書かない）" {
+        # startup_error.txt の名前でフォルダを置いて、ファイルを作れなくする（ACL に頼らない）
+        $tool = Join-Path $TestDrive "tool-blocked"
+        [System.IO.Directory]::CreateDirectory((Join-Path $tool "startup_error.txt")) | Out-Null
+        $savedLocal = $env:LOCALAPPDATA
+        $savedTemp = $env:TEMP
+        $env:LOCALAPPDATA = Join-Path $TestDrive "no-local"
+        $env:TEMP = Join-Path $TestDrive "no-temp"
+        try {
+            writeStartupErrorFile "内容" $tool | Should -Be $null
+        } finally {
+            $env:LOCALAPPDATA = $savedLocal
+            $env:TEMP = $savedTemp
+        }
+        Test-Path -LiteralPath (Join-Path $TestDrive "no-local") | Should -Be $false
+        Test-Path -LiteralPath (Join-Path $TestDrive "no-temp") | Should -Be $false
     }
 }
 
@@ -140,12 +129,14 @@ Describe "reportStartupFailure（記録の経路の切り替え）" -Tag Gui {
         }
     }
 
-    It "app_host.ps1 を読み込む前は、固定の場所（LOCALAPPDATA）に記録する" {
-        $localAppData = Join-Path $TestDrive "early-local"
-        $setup = @("`$env:LOCALAPPDATA = '$localAppData'")
+    It "app_host.ps1 を読み込む前は、ツールのフォルダの startup_error.txt に記録する" {
+        $tool = Join-Path $TestDrive "early-tool"
+        [System.IO.Directory]::CreateDirectory($tool) | Out-Null
+        # paths.ps1 が決める ${rootDir} をテスト用のフォルダにする（本物の作業ツリーに記録を作らないため）
+        $setup = @("`$rootDir = '$tool'")
         $script:scenarioProcess = startReportStartupFailureProcess $setup "読み込み前の失敗"
 
-        $recordFile = Join-Path $localAppData "tebunko\startup_error.txt"
+        $recordFile = Join-Path $tool "startup_error.txt"
         (waitForFile $recordFile) | Should -Be $true
         (Get-Content -LiteralPath $recordFile -Raw) | Should -Match "読み込み前の失敗"
     }

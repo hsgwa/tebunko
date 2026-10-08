@@ -1,6 +1,9 @@
 ﻿# ユーザーごとの設定
 setting.config
 
+# 起動に失敗したときの記録（ツールのフォルダに書く）
+startup_error.txt
+
 # golden テストの見本（前の版の setting.config。利用者の設定ではないので追跡する）
 !tests/testdata/compat/settings/**/setting.config
 
