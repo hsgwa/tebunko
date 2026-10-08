@@ -40,6 +40,17 @@ Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
     }
 }
 
+Describe "getSearchStatusText" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "件数を 3 桁区切りで出す"; word = "見積"; hits = 1234; option = ""; expected = "検索しました：見積 1,234 件" }
+        @{ name = "0 件もステータスバーの文にする"; word = "見積"; hits = 0; option = ""; expected = "検索しました：見積 0 件" }
+        @{ name = "条件があれば後ろに付ける"; word = "見積"; hits = 0; option = "大文字・小文字を区別"; expected = "検索しました：見積 0 件　条件：大文字・小文字を区別" }
+    ) {
+        param ($name, $word, $hits, $option, $expected)
+        getSearchStatusText $word $hits $option | Should -Be $expected
+    }
+}
+
 Describe "getFilteredSummaryText" -Tag Unit {
     It "全部の件数のうち、見せている件数を出す" {
         getFilteredSummaryText 1234 56 | Should -Be "1,234 件中 56 件を表示"

@@ -18,7 +18,6 @@ function updateIndexingStatusLine {
     }
     $text = getIndexingStatusLine ([string]$view.Name) $view.Processed $view.Total $view.Failed ([string]$view.Eta)
     $ui.IndexingStatusText.Text = $text
-    $ui.IndexingStatusText.ToolTip = $text
     $ui.IndexingStatusText.Visibility = "Visible"
     $ui.StatusText.Visibility = "Hidden"
 }

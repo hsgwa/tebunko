@@ -46,21 +46,22 @@
           </Setter.Value>
         </Setter>
       </Style>
-      <!-- ［ファイル内の対象 ▾］。白地に灰色の線。触れたとき・既定から変えているとき（Tag = changed）は線を青にする -->
+      <!-- ［ファイル内の対象 ▾］。幅 176 で固定し（「・2 件変更」が付いても変わらない）、文字は左・▾ は右端。白地に灰色の線。触れたとき・既定から変えているとき（Tag = changed）は線を青にする -->
       <Style x:Key="ScopeButton" TargetType="Button">
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="Button">
-              <Border x:Name="Box" CornerRadius="6" Padding="12,0" Height="26" BorderThickness="1"
+              <Border x:Name="Box" CornerRadius="6" Padding="12,0" Height="26" Width="176" BorderThickness="1"
                       Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Input}">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                  <TextBlock Text="{TemplateBinding Content}" FontSize="11" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center" />
-                  <Path Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Margin="6,1,0,0"
+                <DockPanel VerticalAlignment="Center" LastChildFill="True">
+                  <Path DockPanel.Dock="Right" Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Margin="6,1,0,0"
                         Stroke="{StaticResource Ink.Muted}" StrokeThickness="1.6" StrokeStartLineCap="Round"
                         StrokeEndLineCap="Round" StrokeLineJoin="Round" />
-                </StackPanel>
+                  <TextBlock Text="{TemplateBinding Content}" FontSize="11" Foreground="{StaticResource Ink.Body}" VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" HorizontalAlignment="Left" />
+                </DockPanel>
               </Border>
               <ControlTemplate.Triggers>
                 <Trigger Property="Tag" Value="changed">
@@ -152,14 +153,10 @@
       <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
         <TextBlock Text="種類" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
         <StackPanel x:Name="FileKindChips" Orientation="Horizontal">
-          <ToggleButton x:Name="KindChipExcel" Style="{StaticResource KindChip}" Tag="excel" Content="Excel"
-                        ToolTip="Excel のファイルを検索します" />
-          <ToggleButton x:Name="KindChipWord" Style="{StaticResource KindChip}" Tag="word" Content="Word"
-                        ToolTip="Word のファイルを検索します" />
-          <ToggleButton x:Name="KindChipPowerPoint" Style="{StaticResource KindChip}" Tag="powerpoint" Content="PowerPoint"
-                        ToolTip="PowerPoint のファイルを検索します" />
-          <ToggleButton x:Name="KindChipText" Style="{StaticResource KindChip}" Tag="text" Content="テキスト"
-                        ToolTip="テキストファイルを検索します" />
+          <ToggleButton x:Name="KindChipExcel" Style="{StaticResource KindChip}" Tag="excel" Content="Excel" />
+          <ToggleButton x:Name="KindChipWord" Style="{StaticResource KindChip}" Tag="word" Content="Word" />
+          <ToggleButton x:Name="KindChipPowerPoint" Style="{StaticResource KindChip}" Tag="powerpoint" Content="PowerPoint" />
+          <ToggleButton x:Name="KindChipText" Style="{StaticResource KindChip}" Tag="text" Content="テキスト" />
         </StackPanel>
         <Button x:Name="ScopeButton" Style="{StaticResource ScopeButton}" Content="ファイル内の対象" Margin="2,0,0,0"
                 ToolTip="ファイルの中で検索する範囲を選びます" AutomationProperties.Name="ファイル内の対象">

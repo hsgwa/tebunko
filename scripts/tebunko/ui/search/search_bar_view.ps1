@@ -146,7 +146,7 @@ function getWordNotice {
     )
 
     if ($useRegex -and $word -ne "" -and !(isValidRegex $word)) {
-        return "正規表現として不正なため、文字どおり検索します。"
+        return "正規表現が正しくありません"
     }
     return ""
 }

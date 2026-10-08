@@ -189,21 +189,13 @@ function finishSearch {
     } elseif (!$shared.FastUsed -and $shared.Total -eq 0) {
         $ui.SummaryText.Text = "インデックスが未作成です"
     } elseif ($count -eq 0) {
-        $text = "見つかりませんでした。"
-        if (!$s.UseRegex -and $s.Word -match '[\\()\[\]{}.*+?^$|]') {
-            $text += "（正規表現として探す場合は［正規表現］をオンにしてください）"
-        } elseif (describeSearchOption $s.Option) {
-            $text += "（検索条件：$(describeSearchOption $s.Option)）"
-        }
-        $ui.SummaryText.Text = $text
+        # 0 件は結果欄に文を出さず、ステータスバーの「検索しました：… 0 件」で伝える
+        $ui.SummaryText.Text = ""
     } else {
         $ui.SummaryText.Text = getSearchSummaryText $count $files.Count $seconds
     }
 
-    $status = "検索しました：$($s.Word) $($count.ToString('N0')) 件"
-    if (describeSearchOption $s.Option) {
-        $status = "検索しました：$($s.Word) $($count.ToString('N0')) 件　条件：$(describeSearchOption $s.Option)"
-    }
+    $status = getSearchStatusText $s.Word $count (describeSearchOption $s.Option)
     if ($shared.Truncated) {
         # パスの順に検索して打ち切るため、この先のファイルのヒットは結果に出ない。そのことが分かる文面にする
         $status = "$(${searchLimit}.ToString('N0')) 件を超えたため、ここで打ち切りました。この先のファイルは検索していないため、ワード・種類・検索対象で絞り込んでください。"

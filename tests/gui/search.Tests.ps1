@@ -34,7 +34,7 @@ Describe "S4 検索の遷移" -Tag Gui {
             toggleGui $regex
             waitGui $S "「正規表現を使う」が付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "RegexCheck")) -eq "On" } | Out-Null
             setGuiText $S (findGui $S.Window -Id "WordBox") "("
-            waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -like "*文字どおり検索*" } | Out-Null
+            waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -eq "正規表現が正しくありません" } | Out-Null
             setGuiStep $S "式を直す"
             setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
             waitGui $S "注意が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "WordNotice").Current.IsOffscreen } | Out-Null

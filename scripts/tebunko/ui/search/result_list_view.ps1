@@ -25,6 +25,22 @@ function getSearchSummaryText {
     return "$text ・ $($seconds.ToString('0.0')) 秒"
 }
 
+function getSearchStatusText {
+    # 検索が終わったときのステータスバーの文（0 件もこの形。結果欄には 0 件の文を出さない）。
+    # 条件（describeSearchOption の結果。無ければ空）があれば、後ろに付ける
+    param (
+        [string]$word,
+        [int]$hits,
+        [string]$optionText = ""
+    )
+
+    $text = "検索しました：$word $($hits.ToString('N0')) 件"
+    if ($optionText -ne "") {
+        $text += "　条件：$optionText"
+    }
+    return $text
+}
+
 function getFilteredSummaryText {
     # 結果を絞り込んでいるときの要約欄（全部の件数のうち、いくつ見せているか）
     param (

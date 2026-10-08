@@ -60,7 +60,6 @@ Describe "shell.ps1" -Tag Unit {
 
     BeforeEach {
         $ui.StatusText.Text = ""
-        $ui.StatusText.ToolTip = ""
         if (Test-Path (getGuiErrorLogFile)) {
             Remove-Item (getGuiErrorLogFile) -Force
         }

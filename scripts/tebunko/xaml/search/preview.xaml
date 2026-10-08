@@ -72,8 +72,7 @@
           </DockPanel>
         </Border>
         <!-- 枠は引かない（結果の表との境目は、見出しの帯の線と、窓の枠が示す） -->
-        <Border Background="{StaticResource Bg.Surface}" ClipToBounds="True"
-                ToolTip="プレビューのセルをクリック → Ctrl+C でその値をコピー（Shift＋クリック・ドラッグで複数）。ダブルクリック・Enter：元のファイルを開く">
+        <Border Background="{StaticResource Bg.Surface}" ClipToBounds="True">
           <Grid>
             <DockPanel>
               <!-- 列見出しは、枠を低くしても隠れないよう、行とは別のスクロールに置く（横位置は gui.ps1 で PreviewScroll に合わせる） -->
@@ -120,7 +119,7 @@
                             Focusable="True">
                 <ScrollViewer.ContextMenu>
                   <ContextMenu>
-                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" InputGestureText="Ctrl+C" />
+                    <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" />
                     <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
                   </ContextMenu>
                 </ScrollViewer.ContextMenu>

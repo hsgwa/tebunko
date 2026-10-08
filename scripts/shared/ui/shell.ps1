@@ -7,7 +7,6 @@ function setStatus {
     )
 
     $ui.StatusText.Text = $text
-    $ui.StatusText.ToolTip = $text
 }
 
 function showMessage {

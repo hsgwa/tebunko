@@ -128,7 +128,7 @@ Describe "getWordNotice" -Tag Unit {
         @{ name = "正規表現でなければ出さない"; word = "("; useRegex = $false; expected = "" }
         @{ name = "正規表現として正しければ出さない"; word = "見積.*確定"; useRegex = $true; expected = "" }
         @{ name = "空のワードでは出さない"; word = ""; useRegex = $true; expected = "" }
-        @{ name = "正規表現として不正なら、文字どおり検索すると伝える"; word = "("; useRegex = $true; expected = "正規表現として不正なため、文字どおり検索します。" }
+        @{ name = "正規表現として不正なら、理由を書かずに正しくないと伝える"; word = "("; useRegex = $true; expected = "正規表現が正しくありません" }
     ) {
         param ($name, $word, $useRegex, $expected)
         getWordNotice $word $useRegex | Should -Be $expected

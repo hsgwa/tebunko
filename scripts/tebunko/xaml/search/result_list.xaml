@@ -175,7 +175,7 @@
             <MenuItem x:Name="MenuOpenNew" Header="新規で開く" />
             <MenuItem x:Name="MenuOpenFolder" Header="フォルダを開く" />
             <Separator />
-            <MenuItem x:Name="MenuCopy" Header="選択行をコピー" InputGestureText="Ctrl+C" />
+            <MenuItem x:Name="MenuCopy" Header="選択行をコピー" />
             <MenuItem x:Name="MenuCopyPath" Header="ファイルのパスをコピー" />
           </ContextMenu>
         </DataGrid.ContextMenu>
