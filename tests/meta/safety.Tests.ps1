@@ -47,6 +47,64 @@ BeforeAll {
         return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
     }
 
+    function getWritePlaceViolations {
+        # 書き込み先を環境から得る書き方が、許すものの一覧に収まっているかを調べ、外れたものを文字列の一覧で返す（無ければ空）。
+        # $codeLines は getCodeLines の形（コメントを除いた行）、$batText は tebunko.bat の全文。
+        # 違反を入れた文字列で判定が落ちることを確かめるため、ファイルを読まずに文字列だけで動くようにしてある
+        param (
+            [object[]]$codeLines,
+            [string]$batText
+        )
+
+        $problems = New-Object System.Collections.Generic.List[string]
+        # 前の版の置き場所（%LOCALAPPDATA%・%TEMP%）を指す文字そのものを書かない
+        $forbidden = '(?i)APPDATA|%TEMP%|%TMP%|env:TEMP\b|env:TMP\b'
+        foreach ($line in @($codeLines | Where-Object { $_.Text -match $forbidden })) {
+            $problems.Add("禁止の語: $($line.File):$($line.Line)")
+        }
+        if ($batText -match $forbidden) {
+            $problems.Add("禁止の語: tebunko.bat")
+        }
+        # 特別なフォルダを得るのは settings.ps1 の UserProfile（既定のワークスペース）の 1 か所だけ
+        $allowedFolderPath = 'settings.ps1|[string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")'
+        $folderPath = @($codeLines | Where-Object { $_.Text -match '(?i)GetFolderPath\s*\(' } | ForEach-Object { "$($_.File)|$($_.Text.Trim())" })
+        foreach ($entry in @($folderPath | Where-Object { $_ -ne $allowedFolderPath })) {
+            $problems.Add("GetFolderPath: $entry")
+        }
+        # 環境変数は SystemRoot（メモ帳を開く）と、画面のテストが差し込む TEBUNKO_GUI_LEFTOVER_FILE だけ
+        $allowedEnv = @("systemroot", "tebunko_gui_leftover_file")
+        foreach ($line in $codeLines) {
+            foreach ($match in [regex]::Matches($line.Text, '(?i)\$\{?env:(\w+)')) {
+                if ($allowedEnv -notcontains $match.Groups[1].Value.ToLowerInvariant()) {
+                    $problems.Add("環境変数: $($line.File):$($line.Line) $($match.Value)")
+                }
+            }
+        }
+        foreach ($line in @($codeLines | Where-Object { $_.Text -match '(?i)GetEnvironmentVariable' })) {
+            $problems.Add("GetEnvironmentVariable: $($line.File):$($line.Line)")
+        }
+        # %…% を展開するのは、利用者が入れたフォルダの文字列を扱う 2 か所（normalizeFolderPath・getWorkDir）だけ
+        $allowedExpand = @(
+            'folder.ps1|$path = [System.Environment]::ExpandEnvironmentVariables($path).Trim()'
+            'settings.ps1|$folder = [System.Environment]::ExpandEnvironmentVariables($folder)'
+        )
+        $expand = @($codeLines | Where-Object { $_.Text -match '(?i)ExpandEnvironmentVariables' } | ForEach-Object { "$($_.File)|$($_.Text.Trim())" })
+        foreach ($entry in @($expand | Where-Object { $allowedExpand -notcontains $_ })) {
+            $problems.Add("ExpandEnvironmentVariables: $entry")
+        }
+        # tebunko.bat が使う %…% は、起動に使う変数と SystemRoot だけ
+        $allowedBat = @("ps1", "pscmd", "systemroot")
+        foreach ($match in [regex]::Matches($batText, '%(\w+)%')) {
+            if ($allowedBat -notcontains $match.Groups[1].Value.ToLowerInvariant()) {
+                $problems.Add("bat の変数: $($match.Value)")
+            }
+        }
+        if ($batText -match '(?i)\$\{?env:') {
+            $problems.Add("bat の環境変数")
+        }
+        return @($problems)
+    }
+
     $scriptFiles = @(Get-ChildItem -LiteralPath $scriptsDir -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName })
     $code = getCodeLines $scriptFiles
 }
@@ -272,24 +330,45 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         ($bat -match "Join-Path\s+\`$root\s+'startup_error\.txt'") | Should -Be $true
     }
 
-    It "%LOCALAPPDATA%・%TEMP% に書かない（場所を環境から得る書き方を、許すものの一覧だけにする。前の版の片付け先の GetTempPath は別の It で確かめる）" {
-        # 特別なフォルダを得るのは settings.ps1 の UserProfile（既定のワークスペース）の 1 か所だけ
-        $folderPath = @($code | Where-Object { $_.Text -match 'GetFolderPath\(' })
-        (@($folderPath | ForEach-Object { "$($_.File):$($_.Text.Trim())" }) -join ", ") |
-            Should -Be 'settings.ps1:[string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")'
-        (findPattern $code 'LocalApplicationData|ApplicationData|SpecialFolder') | Should -Be ""
-        # 環境変数は SystemRoot（メモ帳を開く）と、画面のテストが差し込む TEBUNKO_GUI_LEFTOVER_FILE だけ
-        $envNames = @($code | ForEach-Object { [regex]::Matches($_.Text, '\$env:(\w+)') } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-        ($envNames -join ",") | Should -Be "SystemRoot,TEBUNKO_GUI_LEFTOVER_FILE"
-        (findPattern $code 'GetEnvironmentVariable') | Should -Be ""
-        # %…% を展開するのは、利用者が入れたフォルダの文字列だけ（書き込み先を環境変数から組み立てない）
-        $expand = @($code | Where-Object { $_.Text -match 'ExpandEnvironmentVariables' } | ForEach-Object { $_.File } | Sort-Object -Unique)
-        ($expand -join ",") | Should -Be "folder.ps1,settings.ps1"
-        # tebunko.bat が使う %…% は、起動に使う変数と SystemRoot だけ
+    It "%LOCALAPPDATA%・%TEMP% に書かない（場所を環境から得る書き方が、許すものの一覧に収まっている。前の版の片付け先の GetTempPath は別の It で確かめる）" {
         $bat = [System.IO.File]::ReadAllText($launcher)
-        $batNames = @([regex]::Matches($bat, '%(\w+)%') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-        ($batNames -join ",") | Should -Be "PS1,PSCMD,SystemRoot"
-        ($bat -match 'LOCALAPPDATA|\$env:') | Should -Be $false
+        (getWritePlaceViolations $code $bat) -join ", " | Should -Be ""
+    }
+
+    It "書き込み先の検査は、違反を 1 つ入れると落ちる: <Case>" -TestCases @(
+        @{ Case = '$env:LOCALAPPDATA'; File = "x.ps1"; Text = '$d = Join-Path $env:LOCALAPPDATA "tebunko"'; Bat = "" }
+        @{ Case = '$Env:LocalAppData（大文字小文字違い）'; File = "x.ps1"; Text = '$d = $Env:LocalAppData'; Bat = "" }
+        @{ Case = '${env:TEMP}'; File = "x.ps1"; Text = '$d = "${env:TEMP}\a"'; Bat = "" }
+        @{ Case = 'LocalApplicationData'; File = "x.ps1"; Text = '$d = [System.Environment]::GetFolderPath("LocalApplicationData")'; Bat = "" }
+        @{ Case = 'ExpandEnvironmentVariables("%LOCALAPPDATA%\tebunko")'; File = "settings.ps1"; Text = '$x = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\tebunko")'; Bat = "" }
+        @{ Case = 'ExpandEnvironmentVariables を別の所で使う'; File = "x.ps1"; Text = '$x = [System.Environment]::ExpandEnvironmentVariables($y)'; Bat = "" }
+        @{ Case = 'GetEnvironmentVariable'; File = "x.ps1"; Text = '$x = [System.Environment]::GetEnvironmentVariable("TEMP")'; Bat = "" }
+        @{ Case = 'GetFolderPath を別の所で使う'; File = "x.ps1"; Text = '$x = [System.Environment]::GetFolderPath("UserProfile")'; Bat = "" }
+        @{ Case = 'GetFolderPath("ApplicationData")'; File = "settings.ps1"; Text = '[string]$profileDir = [System.Environment]::GetFolderPath("ApplicationData")'; Bat = "" }
+        @{ Case = 'env:TEMP'; File = "x.ps1"; Text = '$t = $env:TEMP'; Bat = "" }
+        @{ Case = '環境変数 env:USERPROFILE'; File = "x.ps1"; Text = '$t = $env:USERPROFILE'; Bat = "" }
+        @{ Case = 'bat の %TEMP%'; File = ""; Text = ""; Bat = 'set "OUT=%TEMP%\a.txt"' }
+        @{ Case = 'bat の %LOCALAPPDATA%'; File = ""; Text = ""; Bat = 'set "OUT=%LOCALAPPDATA%\a.txt"' }
+        @{ Case = 'bat の %USERPROFILE%'; File = ""; Text = ""; Bat = 'set "OUT=%USERPROFILE%\a.txt"' }
+        @{ Case = 'bat の $env:TEMP'; File = ""; Text = ""; Bat = 'set "PSCMD=%PSCMD%$p = $env:TEMP"' }
+    ) {
+        $lines = @()
+        if ($Text -ne "") {
+            $lines = @([pscustomobject]@{ File = $File; Line = 1; Text = $Text })
+        }
+        @(getWritePlaceViolations $lines $Bat).Count | Should -BeGreaterThan 0
+    }
+
+    It "書き込み先の検査は、許すものだけなら通る" {
+        $lines = @(
+            [pscustomobject]@{ File = "settings.ps1"; Line = 1; Text = '        [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")' }
+            [pscustomobject]@{ File = "folder.ps1"; Line = 2; Text = '        $path = [System.Environment]::ExpandEnvironmentVariables($path).Trim()' }
+            [pscustomobject]@{ File = "settings.ps1"; Line = 3; Text = '    $folder = [System.Environment]::ExpandEnvironmentVariables($folder)' }
+            [pscustomobject]@{ File = "shell.ps1"; Line = 4; Text = 'Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe"' }
+            [pscustomobject]@{ File = "x.ps1"; Line = 5; Text = '$x = $env:TEBUNKO_GUI_LEFTOVER_FILE' }
+        )
+        @(getWritePlaceViolations $lines 'set "PS1=%SystemRoot%\System32\a.exe"
+set "PSCMD=%PSCMD%x"').Count | Should -Be 0
     }
 
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {

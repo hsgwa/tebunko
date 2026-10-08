@@ -148,7 +148,7 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
         ($record -join "`n") | Should -Match "ConstrainedLanguage"
         ($record -join "`n") | Should -Match "Scope\s+ExecutionPolicy"
         (@($record | Where-Object { $_ -match "^====" })).Count | Should -Be 1
-        # 言語モードだけでなく、gui.ps1 の trap から投げ直された元の例外（最初の読み込みの失敗）が
+        # 言語モードだけでなく、gui.ps1 の最初の読み込み（paths.ps1）で起きた元の例外が
         # 実際に記録されていることも確かめる（別の理由で落ちても言語モードだけでは区別できないため）
         $expectedMessage = getConstrainedLanguageAddTypeMessage $tool
         $expectedMessage | Should -Not -BeNullOrEmpty
@@ -185,7 +185,7 @@ Describe "tebunko.bat の起動失敗の知らせ（scripts\tebunko\startup\）"
 
     It "<name>" -TestCases @(
         @{ name = "正常終了では、記録を作らずメモ帳も開かない"; guiContent = "exit 0" }
-        @{ name = "trap が知らせて exit 1 で終わったときも、記録を作らずメモ帳も開かない（二重に知らせない）"; guiContent = "exit 1" }
+        @{ name = "reportStartupFailure が知らせて exit 1 で終わったときも、記録を作らずメモ帳も開かない（二重に知らせない）"; guiContent = "exit 1" }
     ) {
         param ($name, $guiContent)
         $tool = newLauncherTool
