@@ -104,6 +104,7 @@ begin
       'インデックス・取り込み一覧・ログ（ワークスペース）は削除していません。' +
       '文書の文字がそのまま入っているため、不要なら次のフォルダを削除してください。' + #13#10#13#10 +
       '・ワークスペース（既定は ' + ExpandConstant('{%USERPROFILE}') + '\Documents\tebunko_ws。［設定］で変えた場合はそのフォルダ）' + #13#10 +
-      '  Program Files に入れた場合の設定ファイル（setting.config）も、既定のワークスペースにあります。',
+      '・Program Files に入れた場合の設定ファイル（setting.config）は、既定のワークスペースの直下にあります' + #13#10 +
+      '・' + ExpandConstant('{localappdata}') + '\tebunko（前の版が残したもの。今の版は書き込みません。不要なら削除してください）',
       mbInformation, MB_OK, IDOK);
 end;
