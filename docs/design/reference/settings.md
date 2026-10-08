@@ -64,7 +64,7 @@
 | `testNotContentIndexed` | path | bool | フォルダ（またはファイル）に「内容のインデックスを作成しない」属性が付いているか調べる。無ければ `$false` | 同上 | `newWorkerTmpDir`（親の作業フォルダに付いていれば、スレッドの作業フォルダにも同じ属性を付ける） |
 | `getFolderKey` | dir | string（16 進 64 文字） | フォルダのパスを小文字にした SHA-256。名前付きミューテックス・イベントの名前に使う。FIPS モードの Windows でも動くよう、FIPS 準拠の実装（`SHA256CryptoServiceProvider`）を使う | – | newAppMutex, 画面（多重起動の防止） |
 | `testWritableFolder` | dir | bool | フォルダにファイルを作れるか（試しに作ったファイルは閉じると消える）。無いフォルダは `$false` | [データの置き場所とパスの決め方](../structure/data.md) | getDataDir, 画面（置き場所の変更） |
-| `getDataDir` | root（既定 `$rootDir`）, fallbackDir（必須） | string | 設定ファイルを置くフォルダ。root に書き込めれば root、書き込めなければ fallbackDir（前の版の `%LOCALAPPDATA%\tebunko` には置かない。`shared/core/data_dir.ps1`） | 同上 | `settings.ps1`（`getSettingsFilePath`） |
+| `getDataDir` | root（既定 `$rootDir`）, fallbackDir（必須） | string | 設定ファイルを置くフォルダ。root に書き込めれば root、書き込めなければ fallbackDir（`%LOCALAPPDATA%\tebunko` には置かない。`shared/core/data_dir.ps1`） | 同上 | `settings.ps1`（`getSettingsFilePath`） |
 | `getSettingsFilePath` | root, defaultWorkDir | string | `setting.config` のパス。root に書き込めれば root 直下、書き込めなければ既定のワークスペース直下 | 同上 | `settings.ps1`（`$settingsFile`） |
 | `testSettingsFileName` | name | bool | 設定ファイル（`setting.config`・`.tmp`・`.broken-<日時>[-<番号>]`）の名前か。既定のワークスペースが空かの判断と、中身として数える対象から外すのに使う | [設定ファイル](../structure/settings-file.md) | `testDefaultWorkspace`, 画面（`getCountedEntryPaths`） |
 | `getSettingsFileView` | settingsFile, rootDir | `@{Path; Note}` | 設定タブに出す設定ファイルの場所と、ツールのフォルダに置いているか（書き込めなくて既定のワークスペースに置いているか）の注記。判断層（`settings_view.ps1`） | [設定タブ](../gui/settings-tab.md) | 画面（設定タブ） |

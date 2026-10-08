@@ -59,7 +59,7 @@ BeforeAll {
         )
 
         $problems = New-Object System.Collections.Generic.List[string]
-        # 前の版の置き場所（%LOCALAPPDATA%・%TEMP%）を指す文字そのものを書かない
+        # %LOCALAPPDATA%・%TEMP% を指す文字そのものを書かない
         $forbidden = '(?i)APPDATA|%TEMP%|%TMP%|env:TEMP\b|env:TMP\b'
         foreach ($line in @($codeLines | Where-Object { $_.Text -match $forbidden })) {
             $problems.Add("禁止の語: $($line.File):$($line.Line)")

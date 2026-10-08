@@ -177,7 +177,7 @@ tebunko は、**Windows と Microsoft Excel（デスクトップ版）が入っ�
 2. ［変更］を押し、ワークスペース（既定は `ドキュメント\tebunko_ws`）の下の `content_index` のチェックを外す
 3. `system_index` にはチェックが付いたままにする
 
-インデックス・取り込み一覧・ログを置くフォルダ（**ワークスペース**）は、既定では `%USERPROFILE%\Documents\tebunko_ws` です（Windows Search の対象になる場所）。そこにほかのファイルが置いてあるときは使わず、別の空のフォルダを選んでもらいます。［設定］の［変更…］で、アクセス権を絞ったフォルダや容量のあるドライブの空のフォルダに変えられます。tebunko を書き込めない場所（`C:\Program Files` など）に置いたときは、設定ファイル（`setting.config`）を既定のワークスペースの直下に置きます（設定ファイルは「ほかのファイル」に数えません）。前の版が使っていた `%LOCALAPPDATA%\tebunko` と `%TEMP%` には何も書きません。
+インデックス・取り込み一覧・ログを置くフォルダ（**ワークスペース**）は、既定では `%USERPROFILE%\Documents\tebunko_ws` です（Windows Search の対象になる場所）。そこにほかのファイルが置いてあるときは使わず、別の空のフォルダを選んでもらいます。［設定］の［変更…］で、アクセス権を絞ったフォルダや容量のあるドライブの空のフォルダに変えられます。tebunko を書き込めない場所（`C:\Program Files` など）に置いたときは、設定ファイル（`setting.config`）を既定のワークスペースの直下に置きます（設定ファイルは「ほかのファイル」に数えません）。`%LOCALAPPDATA%\tebunko` と `%TEMP%` には何も書きません。
 
 画面ごとの詳しい使い方は [ドキュメントの「使い方」](https://hsgwa.github.io/tebunko/guide/) をご覧ください。
 
