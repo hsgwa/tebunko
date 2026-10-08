@@ -236,8 +236,8 @@ if ($MyInvocation.InvocationName -ne ".") {
             -getComments $getComments -writeComment $writeComment
         if ($written.Warning) {
             # フォークの PR など、書き込みの権限が無いときもジョブは失敗にしない（結果は上で Summary に書いた）
-            # GitHub Actions の注釈（::warning::）にして、ログを開かなくても気付けるようにする。改行は注釈の中に置けないため %0A にする
-            $warningText = ($written.Warning -replace "`r?`n", "%0A")
+            # GitHub Actions の注釈（::warning::）にして、ログを開かなくても気付けるようにする。注釈の中に置けない % と改行は、決まりの形（%25・%0D・%0A）にする
+            $warningText = ($written.Warning -replace "%", "%25" -replace "`r", "%0D" -replace "`n", "%0A")
             Write-Host "::warning::PR へのコメントの書き込みに失敗しました（権限の無いフォークの PR など）: $warningText"
             # Actions の pwsh は末尾で $LASTEXITCODE を終了コードにする。失敗した gh の 1 が残るとジョブが落ちるため戻す
             $global:LASTEXITCODE = 0

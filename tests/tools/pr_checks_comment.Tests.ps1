@@ -269,6 +269,13 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         $job | Should -Match ([regex]::Escape("workflow-key: $key"))
     }
 
+    It "title.yml は PR・Issue ごとに順に動かす（concurrency。実行中のものは取り消さない）" {
+        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\title.yml")) -replace "`r`n", "`n"
+        $header = ($yml -split "(?m)^jobs:", 2)[0]
+        $header | Should -Match "(?m)^concurrency:\n  group: title-"
+        $header | Should -Match "(?m)^  cancel-in-progress: false$"
+    }
+
     It "release.yml は test.yml を呼ぶジョブに pull-requests: write を許している（足りないと release が起動しない）" {
         $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\release.yml")) -replace "`r`n", "`n"
         $m = [regex]::Match($yml, "(?ms)^  test:\n(.*?)(?=^  [A-Za-z0-9_-]+:[ ]*\n|\z)")
@@ -297,7 +304,9 @@ Describe "書き込みに失敗してもジョブの終了コードは 0（フ�
             param ([string]$name, [string]$body)
             $dir = Join-Path $TestDrive $name
             New-Item -ItemType Directory -Path $dir | Out-Null
-            [System.IO.File]::WriteAllText((Join-Path $dir "gh.cmd"), $body)
+            # 呼ばれるたびに引数を FAKE_GH_LOG に 1 行追記する（呼ばれた回数と引数を確かめるため）
+            $logLine = "@echo off`r`necho %* >> `"%FAKE_GH_LOG%`"`r`n"
+            [System.IO.File]::WriteAllText((Join-Path $dir "gh.cmd"), $logLine + $body)
             return $dir
         }
 
@@ -308,12 +317,14 @@ Describe "書き込みに失敗してもジョブの終了コードは 0（フ�
             $tmp = Join-Path $TestDrive "$name-tmp"
             New-Item -ItemType Directory -Path $tmp | Out-Null
             $saved = @{}
-            foreach ($key in "PATH", "GITHUB_STEP_SUMMARY", "TEMP", "TMP") { $saved[$key] = [Environment]::GetEnvironmentVariable($key, "Process") }
+            $ghLog = Join-Path $TestDrive "$name-gh.log"
+            foreach ($key in "PATH", "GITHUB_STEP_SUMMARY", "TEMP", "TMP", "FAKE_GH_LOG") { $saved[$key] = [Environment]::GetEnvironmentVariable($key, "Process") }
             try {
                 $env:PATH = "$fakeBin;$($saved['PATH'])"
                 $env:GITHUB_STEP_SUMMARY = $summary
                 $env:TEMP = $tmp
                 $env:TMP = $tmp
+                $env:FAKE_GH_LOG = $ghLog
                 $command = "& '$($script:scriptPath)' -Repo 'example/repo' -PrNumber 1 -WorkflowKey 'test' -Result 'success'; " +
                     "if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit `$LASTEXITCODE }"
                 $out = & powershell.exe -NoProfile -NonInteractive -Command $command 3>&1 2>&1 | Out-String
@@ -322,17 +333,18 @@ Describe "書き込みに失敗してもジョブの終了コードは 0（フ�
                 foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key, $saved[$key], "Process") }
             }
             $summaryText = if (Test-Path -LiteralPath $summary) { [System.IO.File]::ReadAllText($summary) } else { "" }
-            return [pscustomobject]@{ Output = $out; Code = $code; Summary = $summaryText; LeftoverTemp = @(Get-ChildItem -LiteralPath $tmp -Force) }
+            $calls = if (Test-Path -LiteralPath $ghLog) { @([System.IO.File]::ReadAllLines($ghLog) | Where-Object { $_ }) } else { @() }
+            return [pscustomobject]@{ Output = $out; Code = $code; Summary = $summaryText; GhCalls = $calls }
         }
     }
 
-    It "<name>: 終了コードが 0 になり、警告の注釈を出し、Summary に結果を残し、一時ファイルを残さない" -TestCases @(
+    It "<name>: 終了コードが 0 になり、警告の注釈を出し、Summary に結果を残し、書き込みまで進んだ場合は一時ファイルを残さない" -TestCases @(
         # 常に失敗（一覧の取得から失敗する）
-        @{ name = "list-fails"; body = "@echo off`r`nexit /b 1`r`n" }
+        @{ name = "list-fails"; body = "exit /b 1`r`n"; calls = 1 }
         # 一覧の取得（--paginate）は成功し、コメントの書き込み（POST）だけが 403 で失敗する
-        @{ name = "post-fails"; body = "@echo off`r`necho %* | findstr /C:`"--paginate`" >nul && exit /b 0`r`nexit /b 1`r`n" }
+        @{ name = "post-fails"; body = "echo %* | findstr /C:`"--paginate`" >nul && exit /b 0`r`nexit /b 1`r`n"; calls = 2 }
     ) {
-        param ($name, $body)
+        param ($name, $body, $calls)
         $fake = newFakeGh $name $body
         $r = invokeToolAsRunner $fake $name
 
@@ -340,6 +352,14 @@ Describe "書き込みに失敗してもジョブの終了コードは 0（フ�
         # 日本語は実行環境の文字コードで化けることがあるため、注釈の印（ASCII）で確かめる
         $r.Output | Should -Match "::warning::"
         $r.Summary | Should -Match "<!-- pr-check:test -->"
-        $r.LeftoverTemp.Count | Should -Be 0
+
+        # 一覧の段で落ちたか、書き込み（POST）まで進んで落ちたかを、gh の呼ばれ方で分ける
+        $r.GhCalls.Count | Should -Be $calls
+        if ($calls -ge 2) {
+            $m = [regex]::Match($r.GhCalls[1], "-F body=@(\S+)")
+            $m.Success | Should -BeTrue
+            # 道具が作った一時ファイルは、失敗しても消えている
+            Test-Path -LiteralPath $m.Groups[1].Value | Should -BeFalse
+        }
     }
 }
