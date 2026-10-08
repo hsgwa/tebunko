@@ -18,19 +18,26 @@ function getPreviewRowCounts {
 
 function getPreviewFillWidth {
     # Excel 以外（Word・PowerPoint・テキスト）のプレビューは列が 1 つ。その幅を、枠の幅いっぱいにする
-    # （行番号の列を除いた残り。今の幅より狭くはしない。枠の幅がまだ分からないとき・列が収まる最小幅に満たないときは今の幅のまま）
+    # （行番号の列を除いた残り。中身から決めた初めの幅より狭くはしない。枠が狭まれば初めの幅まで戻る）。
+    # 枠の幅がまだ分からないとき・列が収まる最小幅に満たないときは初めの幅。
+    # 列見出しのドラッグで手で変えた幅（今の幅が、前に合わせた幅と違う）は変えない
     param (
         [double]$viewportWidth,  # プレビューのスクロールの見える幅
         [double]$numberWidth,    # 行番号の列の幅
+        [double]$baseWidth,      # 中身から決めた初めの列の幅
         [double]$currentWidth,   # 今の列の幅
+        [double]$lastFitWidth,   # 前に合わせた列の幅（初めは初めの幅）
         [double]$minWidth = 24   # これより狭くしない
     )
 
-    $fill = $viewportWidth - $numberWidth
-    if ($viewportWidth -le 0 -or $fill -lt $minWidth) {
+    if ($currentWidth -ne $lastFitWidth) {
         return $currentWidth
     }
-    return [math]::Max($currentWidth, $fill)
+    $fill = $viewportWidth - $numberWidth
+    if ($viewportWidth -le 0 -or $fill -lt $minWidth) {
+        return $baseWidth
+    }
+    return [math]::Max($baseWidth, $fill)
 }
 
 function toStatusText {

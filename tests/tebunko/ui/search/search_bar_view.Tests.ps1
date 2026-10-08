@@ -43,17 +43,16 @@ Describe "種類のチップ" -Tag Unit {
         (toggleFileKind $kinds $kind) -join "," | Should -Be $expected
     }
 
-    It "getSearchKindBanner: <name>" -TestCases @(
+    It "getSearchKindBannerText: <name>" -TestCases @(
         @{ name = "1 つも選んでいなければ warn の帯を出す"; kinds = @(); show = $true }
         @{ name = "知らない種類だけでも 1 つも選んでいない"; kinds = @("pdf"); show = $true }
         @{ name = "1 つ選んでいれば出さない"; kinds = @("word"); show = $false }
         @{ name = "すべて選んでいれば出さない"; kinds = @("excel", "word", "powerpoint", "text"); show = $false }
     ) {
         param ($name, $kinds, $show)
-        $banner = getSearchKindBanner $kinds
+        $banner = getSearchKindBannerText $kinds
         if ($show) {
-            $banner.Level | Should -Be "warn"
-            $banner.Text | Should -Be "検索する種類を 1 つ以上選んでください。"
+            $banner | Should -Be "検索する種類を 1 つ以上選んでください。"
         } else {
             $banner | Should -BeNullOrEmpty
         }
@@ -89,8 +88,10 @@ Describe "getFastSearchView" -Tag Unit {
     It "使えるときは印の意味、ワードが短い（空を含む）ときは使える条件をツールチップに出す" {
         (getFastSearchView $true $false "見積").Tip | Should -Be "インデックスを使って速く検索します"
         (getFastSearchView $null $false "見積").Tip | Should -Be "インデックスを使って速く検索します"
-        (getFastSearchView $true $false "見").Tip | Should -Be "検索ワードが 2 文字以上のときに使えます"
-        (getFastSearchView $true $false "").Tip | Should -Be "検索ワードが 2 文字以上のときに使えます"
+        (getFastSearchView $true $false "見").Tip | Should -Be "空白で区切った語のどれかが 2 文字以上のときに使えます"
+        (getFastSearchView $true $false "").Tip | Should -Be "空白で区切った語のどれかが 2 文字以上のときに使えます"
+        (getFastSearchView $true $false "見 積").Tip | Should -Be "空白で区切った語のどれかが 2 文字以上のときに使えます"
+        (getFastSearchView $true $false "見 積書").Tip | Should -Be "インデックスを使って速く検索します"
     }
 
     It "ツールチップはどの場合も空にしない（available: <available>・正規表現: <regex>・ワード: <word>）" -TestCases @(

@@ -100,13 +100,16 @@ function applyDetail {
         $ui.PreviewNote.Visibility = "Collapsed"
     }
     $script:previewTable = $table
-    fitPreviewWidth
+    $script:previewBaseWidth = if ($table.Columns.Count -eq 1) { $table.Columns[0].Width } else { 0 }
+    $script:previewFitWidth = $script:previewBaseWidth
     $ui.PreviewHeader.ItemsSource = $table.Columns
     $ui.PreviewRows.ItemsSource = $table.Rows
 
     # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）。
-    # 高さを変えただけのときは、見ていた横の位置をそのままにする
+    # 高さを変えただけのときは、見ていた横の位置をそのままにする。
+    # 列の幅は、行を入れて縦のバーが出るかどうかが決まってから（見える幅が定まってから）合わせる
     $ui.PreviewScroll.UpdateLayout()
+    fitPreviewWidth
     if ($script:detailKeepScroll) {
         $script:detailKeepScroll = $false
         return
@@ -119,12 +122,15 @@ function applyDetail {
 }
 
 function fitPreviewWidth {
-    # Excel 以外は列が 1 つなので、その幅を枠の幅いっぱいにする（段落は幅いっぱいに折り返して読めるようにする）
+    # Excel 以外は列が 1 つなので、その幅を枠の幅いっぱいにする（段落は幅いっぱいに折り返して読めるようにする）。
+    # 見える幅が変わるたびに呼ぶ（縦のバーの出入り・窓や欄の幅の変更）。幅の決め方は getPreviewFillWidth
     if ($null -eq $script:previewTable -or $script:previewTable.Columns.Count -ne 1 -or $script:previewTable.IsExcel) {
         return
     }
     $column = $script:previewTable.Columns[0]
-    $column.SetWidth((getPreviewFillWidth $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) $column.Width ([PreviewColumn]::MinWidth)))
+    $width = getPreviewFillWidth $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) $script:previewBaseWidth $column.Width $script:previewFitWidth ([PreviewColumn]::MinWidth)
+    $column.SetWidth($width)
+    $script:previewFitWidth = $column.Width
 }
 
 function getPreviewCell {
@@ -172,15 +178,16 @@ $ui.ResultGrid.Add_SelectionChanged({
 
 # 列見出しは行とは別のスクロールに置いている（縦に隠れないようにするため）ので、横位置を行に合わせる
 $ui.PreviewScroll.Add_ScrollChanged({
+    param ($sender, $e)
     $ui.PreviewHeaderScroll.ScrollToHorizontalOffset($ui.PreviewScroll.HorizontalOffset)
+    if ($e.ViewportWidthChange -ne 0) {
+        fitPreviewWidth
+    }
 })
 # プレビューの高さを変えたら（GridSplitter のドラッグ）、入る行数に合わせて前後の行を読み直す。
 # ドラッグ中は何度も起きるので、ほかと同じタイマーでまとめて 1 回だけ読む
 $ui.PreviewScroll.Add_SizeChanged({
     param ($sender, $e)
-    if ($e.WidthChanged) {
-        fitPreviewWidth
-    }
     if ($e.HeightChanged -and $ui.ResultGrid.SelectedItem) {
         $script:detailKeepScroll = $true
         $script:detailTimer.Stop()
@@ -189,6 +196,8 @@ $ui.PreviewScroll.Add_SizeChanged({
 })
 # プレビューのセルをクリックすると、その値をコピーできるように選ぶ（Shift＋クリック・ドラッグで範囲、Ctrl+C でコピー）
 $script:previewTable = $null
+$script:previewBaseWidth = 0
+$script:previewFitWidth = 0
 $ui.PreviewRows.Add_PreviewMouseLeftButtonDown({
     param ($sender, $e)
     safe {

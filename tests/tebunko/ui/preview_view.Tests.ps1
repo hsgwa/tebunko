@@ -20,13 +20,16 @@ Describe "getPreviewRowCounts" -Tag Unit {
 
 Describe "getPreviewFillWidth" -Tag Unit {
     It "<name>" -TestCases @(
-        @{ name = "枠が広ければ、行番号の列を除いた幅いっぱいにする"; viewport = 900; current = 300; expected = 856 }
-        @{ name = "今の幅のほうが広ければ、狭くしない"; viewport = 500; current = 640; expected = 640 }
-        @{ name = "枠の幅がまだ分からなければ今の幅のまま"; viewport = 0; current = 300; expected = 300 }
-        @{ name = "行番号を除くと最小幅に満たなければ今の幅のまま"; viewport = 50; current = 30; expected = 30 }
+        @{ name = "枠が広ければ、行番号の列を除いた幅いっぱいにする"; viewport = 900; base = 300; current = 300; last = 300; expected = 856 }
+        @{ name = "合わせたあとの幅が、広がった枠にも追いつく"; viewport = 1000; base = 300; current = 856; last = 856; expected = 956 }
+        @{ name = "枠が狭まれば、初めの幅まで戻る"; viewport = 500; base = 300; current = 856; last = 856; expected = 456 }
+        @{ name = "初めの幅のほうが広ければ、それより狭くしない"; viewport = 500; base = 640; current = 640; last = 640; expected = 640 }
+        @{ name = "枠の幅がまだ分からなければ初めの幅"; viewport = 0; base = 300; current = 300; last = 300; expected = 300 }
+        @{ name = "行番号を除くと最小幅に満たなければ初めの幅"; viewport = 50; base = 30; current = 30; last = 30; expected = 30 }
+        @{ name = "手で変えた幅（前に合わせた幅と違う）は変えない"; viewport = 900; base = 300; current = 500; last = 856; expected = 500 }
     ) {
-        param ($name, $viewport, $current, $expected)
-        getPreviewFillWidth $viewport 44 $current | Should -Be $expected
+        param ($name, $viewport, $base, $current, $last, $expected)
+        getPreviewFillWidth $viewport 44 $base $current $last | Should -Be $expected
     }
 }
 

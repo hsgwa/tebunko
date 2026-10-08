@@ -244,6 +244,25 @@ Describe "showDetail" -Tag Io {
         $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
     }
 
+    It "<name>" -TestCases @(
+        @{ name = "Word の 1 列は、行番号を除いた見える幅（400 - 44）いっぱいにする"; book = "議事録.docx"; location = "ページ001"; relDir = ""; excel = $false; expected = 356 }
+        @{ name = "Excel の列は中身の幅のまま（枠いっぱいにしない）"; book = "見積.xlsx"; location = "4月"; relDir = "営業部"; excel = $true; expected = 0 }
+    ) {
+        param ($name, $book, $location, $relDir, $excel, $expected)
+        $fake.Current = newHitRow $book $location 1 @("見積の件") $relDir
+
+        showDetail
+
+        $script:previewTable.IsExcel | Should -Be $excel
+        $width = $script:previewTable.Columns[0].Width
+        if ($excel) {
+            $width | Should -Not -Be 356
+            $width | Should -Be $script:previewBaseWidth
+        } else {
+            $width | Should -Be $expected
+        }
+    }
+
     It "読んでいる間に別の行を選んだら、読み終えた古い行の結果は出さない" {
         $fake.Current = newHitRow "見積.xlsx" "4月" 1 @("`t見積", "`t次")
         $other = newHitRow "請求.xlsx" "5月" 1 @("`t請求")
@@ -438,10 +457,54 @@ Describe "イベント" -Tag Unit {
         $fake.TimerStarts | Should -Be 0
     }
 
+    It "<name>" -TestCases @(
+        @{ name = "見える幅が変わると、列の幅を合わせ直す"; views = @(400); manual = $null; excel = $false; expected = 356 }
+        @{ name = "見える幅が狭まると、列の幅も狭まる"; views = @(400, 300); manual = $null; excel = $false; expected = 256 }
+        @{ name = "狭まりきったら、初めの幅（100）まで戻る"; views = @(400, 120); manual = $null; excel = $false; expected = 100 }
+        @{ name = "手で変えた幅は、見える幅が変わっても保つ"; views = @(400, 300); manual = 500; excel = $false; expected = 500 }
+        @{ name = "Excel の列は合わせ直さない"; views = @(400); manual = $null; excel = $true; expected = 100 }
+    ) {
+        param ($name, $views, $manual, $excel, $expected)
+        $column = [PreviewColumn]::new()
+        $column.Width = 100
+        $table = [PreviewTable]::new()
+        $table.Columns = [System.Collections.Generic.List[PreviewColumn]]::new()
+        $table.Columns.Add($column)
+        $table.IsExcel = $excel
+        $script:previewTable = $table
+        $script:previewBaseWidth = 100
+        $script:previewFitWidth = 100
+
+        foreach ($view in $views) {
+            $ui.PreviewScroll.ViewportWidth = [double]$view
+            & $handlers["PreviewScroll.ScrollChanged"] $ui.PreviewScroll ([pscustomobject]@{ ViewportWidthChange = -17.0 })
+            if ($null -ne $manual -and $view -eq $views[0]) {
+                $column.SetWidth($manual)
+            }
+        }
+
+        $column.Width | Should -Be $expected
+    }
+
+    It "見える幅が変わらないスクロールでは、列の幅を合わせ直さない" {
+        $column = [PreviewColumn]::new()
+        $column.Width = 100
+        $table = [PreviewTable]::new()
+        $table.Columns = [System.Collections.Generic.List[PreviewColumn]]::new()
+        $table.Columns.Add($column)
+        $script:previewTable = $table
+        $script:previewBaseWidth = 100
+        $script:previewFitWidth = 100
+
+        & $handlers["PreviewScroll.ScrollChanged"] $ui.PreviewScroll ([pscustomobject]@{ ViewportWidthChange = 0.0 })
+
+        $column.Width | Should -Be 100
+    }
+
     It "行を横にスクロールしたら、列見出しも同じ位置にする" {
         $ui.PreviewScroll.HorizontalOffset = 150.0
 
-        & $handlers["PreviewScroll.ScrollChanged"]
+        & $handlers["PreviewScroll.ScrollChanged"] $ui.PreviewScroll ([pscustomobject]@{ ViewportWidthChange = 0.0 })
 
         $fake.HeaderScrolls[-1] | Should -Be 150.0
     }

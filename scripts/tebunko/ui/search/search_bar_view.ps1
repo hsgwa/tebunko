@@ -42,7 +42,7 @@ function getFileKindLabel {
 
 function toggleFileKind {
     # チップを押したあとの、選ばれている種類（${fileKindNames} の順）を返す。
-    # 全部外してよい（空は「1 つも選んでいない」。検索を始めるときに getSearchKindBanner が知らせる）
+    # 全部外してよい（空は「1 つも選んでいない」。検索を始めるときに getSearchKindBannerText が知らせる）
     param (
         [object[]]$kinds,
         [string]$kind
@@ -58,8 +58,8 @@ function toggleFileKind {
     return @(${fileKindNames} | Where-Object { $current -contains $_ -or $_ -eq $kind })
 }
 
-function getSearchKindBanner {
-    # 検索を始められない理由（種類のチップを 1 つも選んでいないとき）を知らせる帯の種類（Level）と文（Text）。
+function getSearchKindBannerText {
+    # 検索を始められない理由（種類のチップを 1 つも選んでいないとき）を知らせる帯（warn）の文。
     # 始められるときは $null（帯を出さない）
     param (
         [object[]]$kinds
@@ -67,7 +67,7 @@ function getSearchKindBanner {
 
     $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
     if ($chosen.Count -eq 0) {
-        return @{ Level = "warn"; Text = "検索する種類を 1 つ以上選んでください。" }
+        return "検索する種類を 1 つ以上選んでください。"
     }
     return $null
 }
@@ -158,7 +158,7 @@ function getFastSearchView {
         } elseif ($useRegex) {
             $tip = "正規表現をオフにすると速く検索できます"
         } else {
-            $tip = "検索ワードが 2 文字以上のときに使えます"
+            $tip = "空白で区切った語のどれかが 2 文字以上のときに使えます"
         }
     }
     return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip }
@@ -186,7 +186,7 @@ function getConditionFlow {
     # 「伸びる空き」は spacerIndex 番の項目の前に置き、その行の余りを全部取る（右の組を右端に寄せる）。
     # widths は各項目の幅（右の間を含む。出していない項目は 0）。available は並べられる幅（右の間を含む）。
     # 返すもの: Lines（行ごとの項目の番号）・SpacerWidth（空きの幅）・LineStarts（各項目が行の先頭か）・
-    # OnSpacerLine（各項目が、空きのある行にあるか。右の組に付いている項目は右に寄せ、落ちた項目は左に寄せるのに使う）
+    # OnSpacerLine（各項目が、空きのある行にあるか）
     param (
         [double[]]$widths,
         [int]$spacerIndex,

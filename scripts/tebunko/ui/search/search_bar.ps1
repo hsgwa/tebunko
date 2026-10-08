@@ -61,15 +61,13 @@ function updateFastSearchView {
 }
 
 function setSearchKindBanner {
-    # 種類が 1 つも選ばれていないことを知らせる帯（getSearchKindBanner の結果。$null なら隠す）
+    # 種類が 1 つも選ばれていないことを知らせる帯（getSearchKindBannerText の結果。$null なら隠す）
     param (
-        $banner
+        [string]$text
     )
 
-    $ui.SearchKindBanner.Visibility = if ($null -ne $banner) { "Visible" } else { "Collapsed" }
-    if ($null -ne $banner) {
-        $ui.SearchKindBannerText.Text = $banner.Text
-    }
+    $ui.SearchKindBanner.Visibility = if ($text) { "Visible" } else { "Collapsed" }
+    $ui.SearchKindBannerText.Text = $text
 }
 
 function updateScopeButton {
@@ -147,7 +145,7 @@ function updateSearchTarget {
 }
 
 function updateConditionFlow {
-    # 検索条件の行の折り返し。判断（getConditionFlow）の結果を、「伸びる空き」の幅と高速検索の印の寄せに反映する。
+    # 検索条件の行の折り返し。判断（getConditionFlow）の結果を、「伸びる空き」の幅に反映する。
     # 並びの幅が変わったとき・高速検索の印を出す／隠したときに呼ぶ
     $panel = $ui.ConditionsPanel
     if ($panel.ActualWidth -le 0) { return }
@@ -165,12 +163,6 @@ function updateConditionFlow {
     $flow = getConditionFlow $widths $spacerIndex $panel.ActualWidth
     if ([Math]::Abs($ui.ConditionsSpacer.Width - $flow.SpacerWidth) -gt 0.1) {
         $ui.ConditionsSpacer.Width = $flow.SpacerWidth
-    }
-    # 高速検索の印は、右の組（空きのある行）に付いているときは右に寄せ、落ちたときは左に寄せる
-    $slotIndex = $items.IndexOf($ui.FastSearchSlot)
-    $alignment = if ($flow.OnSpacerLine[$slotIndex]) { "Right" } else { "Left" }
-    if ($ui.FastSearchSlot.Visibility -ne "Collapsed" -and [string]$ui.FastBadge.HorizontalAlignment -ne $alignment) {
-        $ui.FastBadge.HorizontalAlignment = $alignment
     }
 }
 
@@ -222,7 +214,7 @@ foreach ($kind in ${fileKindNames}) {
             writeFileKinds $after
             # 帯を出している間は、選び直したらすぐ消す
             if ($ui.SearchKindBanner.Visibility -eq "Visible") {
-                setSearchKindBanner (getSearchKindBanner $after)
+                setSearchKindBanner (getSearchKindBannerText $after)
             }
         }
     })
