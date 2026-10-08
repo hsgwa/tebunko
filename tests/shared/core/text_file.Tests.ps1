@@ -269,7 +269,7 @@ Describe "readTextFile" -Tag Io {
         @{ name = "UTF-32"; bytes = (toCodePageBytes 12000 "これは日本語のテストです。") }
     ) {
         param ($name, $bytes)
-        { readTextFile (writeBytesFile $bytes) } | Should -Throw "テキストファイルではないため取り込めません。"
+        { readTextFile (writeBytesFile $bytes) } | Should -Throw "テキストファイルではないため更新できません。"
     }
 
     It "Shift_JIS のファイルを行の並びとして読める" {
@@ -284,17 +284,17 @@ Describe "readTextFile" -Tag Io {
 
     It "大きさの上限（差し替えた小さい値）を超えるファイルは、決めた文言で失敗にする" {
         $path = writeBytesFile (toUtf8Bytes "12345678")
-        { readTextFile $path 4 } | Should -Throw "ファイルサイズが大きすぎるため取り込めません。"
+        { readTextFile $path 4 } | Should -Throw "ファイルサイズが大きすぎるため更新できません。"
     }
 
     It "バイナリと判定したファイルは、決めた文言で失敗にする" {
         $path = writeBytesFile (newNulPairBytes 10 5 5)
-        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+        { readTextFile $path } | Should -Throw "テキストファイルではないため更新できません。"
     }
 
     It "先頭 64KB の外にだけ NUL がある大きいファイルも、決めた文言で失敗にする" {
         $path = writeBytesFile (newLargeNulTailBytes)
-        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+        { readTextFile $path } | Should -Throw "テキストファイルではないため更新できません。"
     }
 }
 
@@ -334,7 +334,7 @@ Describe "readTextFile（対象の拡張子ごとの実ファイル。tests\test
     ) {
         param ($Name)
         $path = Join-Path "${textSampleDir}\異常系" $Name
-        { readTextFile $path } | Should -Throw "テキストファイルではないため取り込めません。"
+        { readTextFile $path } | Should -Throw "テキストファイルではないため更新できません。"
     }
 
     It "大きいテキスト.log は 64KB を超えるが、NUL を含まない普通のテキストとして読める" {

@@ -22,8 +22,10 @@ function startGui {
     # 画面定義（XAML）とアイコンの置き場所
     ${xamlDir}       = "$TebunkoDir\xaml"
     ${sharedXamlDir} = "$TebunkoDir\..\shared\xaml"
-    ${iconFile}      = "$TebunkoDir\tebunko.ico"  # タイトルバーとタスクバーに出すアイコン
-    # アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。
+    ${fontsDir}      = "$TebunkoDir\..\shared\fonts"  # 同梱のフォント（Rethink Sans）。無ければ Yu Gothic UI・Meiryo UI
+    ${iconXamlFile}  = "${xamlDir}\app_icon.xaml"  # 窓・バージョン情報に出すアイコン（ベクターの絵）
+    # アイコンは Window.Icon（loadWindow）でタイトルバー・タスクバーに出る。.ico（tebunko.ico）は画面では使わず、
+    # インストーラー・ショートカットなど Windows が .ico しか受け付けない所だけで使う。
     # ※以前は SetAppId（P/Invoke）でタスクバーのボタンを PowerShell と分けていたが、
     #   実行時コンパイル（csc.exe）を無くすため廃止した（アイコン自体は Window.Icon で出るため残る）。
     ${themeFile} = "${sharedXamlDir}\theme.xaml"  # 画面の見た目（色・文字・コントロールの形）の共通定義
@@ -65,44 +67,63 @@ function startGui {
 
     # ---- ウィンドウと、画面の部品の対応 ----
 
-    $window = loadWindow "${xamlDir}\tebunko.xaml"
+    $window = loadWindow "${xamlDir}\tebunko.xaml" ${fontsDir}
     stepSplash 55
 
-    # タブの中身はタブごとのファイルに分けてある。読み込んでタブに入れ、x:Name の対応表（$ui）を作る。
+    # 窓の中身は領域ごとのファイルに分けてある（xaml\<画面>\<領域>.xaml）。読み込んで差す口に入れ、x:Name の対応表（$ui）を作る。
     # 別ファイルから読み込んだ中身は、そのファイルごとに名前を持つため、$window.FindName では見つからない。
-    # タブごとに FindName する（名前の一覧もタブごとに分けておく）
-    $tabs = @(
-        @{ Tab = "IndexTab"; File = "tab_index.xaml"; Names = @(
-            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "EditIndexButton", "RemoveIndexButton",
-            "ExportIndexButton", "ImportIndexButton",
-            "IndexSummaryText", "IndexingStateText", "IndexingButton", "IndexingHint",
-            "FailedPanel", "FailedHeading", "FailedGrid",
-            "IndexingProgressPanel", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
-            "IndexingProgressDetail", "IndexingStopButton", "IndexingLogButton") }
-        @{ Tab = "SearchTab"; File = "tab_search.xaml"; Names = @(
-            "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "FileFilterBox", "FileFilterPlaceholder",
-            "WordNotice", "SearchTargetText", "GoIndexTabButton", "FastSearchText",
-            "IndexTree", "IndexTreePlaceholder", "CheckAllIndexButton", "UncheckAllIndexButton",
-            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ResultGrid",
-            "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath",
-            "DetailPanel", "DetailTitle", "OpenButton", "OpenModeCombo", "OpenFolderButton",
+    # 領域ごとに FindName する（名前の一覧も領域ごとに分けておく）。
+    # 領域の表: File = xaml\ からの相対パス、Slot = 差す口（窓の x:Name）、Screen = 画面の名前（Slot が ContentHost のものだけ。
+    # 画面の中身は $script:screenContents に持ち、selectScreen が選んだものを ContentHost に差す）、Names = 使う x:Name
+    $regions = @(
+        @{ File = "shell\nav.xaml"; Slot = "NavHost"; Names = @(
+            "NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "NavPaneHost", "AboutLink") }
+        @{ File = "shell\status_bar.xaml"; Slot = "StatusBarHost"; Names = @("StatusText", "IndexingStatusText", "IndexFooterFolders", "IndexFooterFiles") }
+        @{ File = "index\index.xaml"; Slot = "ContentHost"; Screen = "IndexTab"; Names = @(
+            "IndexListHost", "IndexDetailHost", "IndexDetailRow", "IndexSplitter",
+            "IndexingProgressPanel", "IndexingBannerIcon", "IndexingProgressText", "IndexingProgressEta", "IndexingProgress",
+            "IndexingProgressDetail", "IndexingStopButton", "IndexingResumeButton", "IndexingSearchButton") }
+        @{ File = "index\index_list.xaml"; Slot = "IndexListHost"; Names = @(
+            "IndexGrid", "IndexGridPlaceholder", "NewIndexButton", "ActionsButton", "ActionsMenu", "ActionUpdate", "ActionEdit", "ActionExport", "ActionImport", "ActionDelete", "SelectionCountText", "SelectAllCheckBox", "IndexingButton", "IndexingHint", "IndexScreenInfo", "StatusColumnHeader",
+            "IndexRowMenu", "RowMenuUpdate", "RowMenuOpenFolder", "EditIndexButton", "RemoveIndexButton", "ExportIndexButton") }
+        @{ File = "index\index_detail.xaml"; Slot = "IndexDetailHost"; Names = @(
+            "IndexDetailTitle", "IndexSummaryText",
+            "IndexDetailRows", "IndexDetailFastPanel", "IndexDetailFastText", "IndexDetailFastBar",
+            "FailedPanel", "FailedHeading", "FailedGrid") }
+        @{ File = "search\search.xaml"; Slot = "ContentHost"; Screen = "SearchTab"; Names = @(
+            "SearchBarHost", "ResultListHost", "PreviewHost", "DetailRow", "ResultEmptyState", "GoIndexTabButton") }
+        @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
+            "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
+            "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
+            "WordPlaceholder", "WordNotice", "FastBadge", "FastBadgeIcon", "FastBadgeInfo", "FastSearchText") }
+        @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
+            "IndexTree", "IndexTreePlaceholder", "IndexTreeFilterBox", "IndexTreeFilterPlaceholder",
+            "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText", "TargetHint", "TargetHintText") }
+        @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
+            "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton",
+            "ResultGrid",
+            "ResultMenu", "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "MenuToggleGroup") }
+        @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
+            "DetailPanel", "DetailTitle", "OpenButton", "OpenMenuButton", "MenuOpenModeNormal", "MenuOpenModeNew", "MenuOpenModeReadOnly", "OpenFolderButton",
             "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
-            "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow", "ExportButton") }
-        @{ Tab = "SettingsTab"; File = "tab_settings.xaml"; Names = @(
+            "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
+        @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
-        @{ Tab = "KillTab"; File = "tab_kill.xaml"; Names = @(
-            "ProcessGrid", "ProcessSummaryText", "RefreshProcessButton",
-            "KillAllButton", "KillSelectedButton", "KillBackgroundButton") }
     )
 
     $ui = @{}
-    foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "MoreButton", "AboutMenuItem")) {
+    foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay")) {
         $ui[$name] = $window.FindName($name)
     }
-    foreach ($tab in $tabs) {
-        $content = loadXaml "${xamlDir}\$($tab.File)"
-        $ui[$tab.Tab].Content = $content
-        foreach ($name in $tab.Names) {
+    $script:screenContents = @{}
+    foreach ($region in $regions) {
+        $content = loadXaml "${xamlDir}\$($region.File)" ${fontsDir}
+        if ($region.Slot -eq "ContentHost") {
+            $script:screenContents[$region.Screen] = $content
+        } else {
+            $ui[$region.Slot].Content = $content
+        }
+        foreach ($name in $region.Names) {
             $ui[$name] = $content.FindName($name)
         }
         stepSplash 70
@@ -116,8 +137,11 @@ function startGui {
     ${grayBrush} = themeBrush "Ink.Muted"
 
     # ---- 画面の中身（それぞれのファイルにイベントの登録まで入っている。$ui を作った後に読み込む） ----
+    . "$TebunkoDir\..\shared\ui\message_view.ps1"
     . "$TebunkoDir\..\shared\ui\shell.ps1"
-    # safe で包んでいない処理（Tabs.SelectionChanged の前半・PreviewKeyDown・Closing・活性化のタイマーなど）が
+    . "$TebunkoDir\..\shared\ui\data_grid.ps1"
+    setDialogScrim $ui.ScrimOverlay
+    # safe で包んでいない処理（PreviewKeyDown・Closing・活性化のタイマーなど）が
     # 投げた例外や、XAML の描画中に WPF が投げる例外を、画面のスレッドの Dispatcher で受ける
     [void](registerUnhandledErrorHandler $window.Dispatcher)
     # 画面から頼む短い仕事（startJob）のスレッド。長い仕事（件数の数え上げ等）の間もプレビューが待たないよう 2 つにする。
@@ -132,48 +156,45 @@ function startGui {
     . "$TebunkoDir\..\shared\ui\folder_dialog.ps1"
     . "$TebunkoDir\ui\index_view.ps1"
     . "$TebunkoDir\ui\indexing_view.ps1"
-    . "$TebunkoDir\ui\search_view.ps1"
+    . "$TebunkoDir\ui\search\search_bar_view.ps1"
+    . "$TebunkoDir\ui\search\result_list_view.ps1"
+    . "$TebunkoDir\ui\search\open_source_view.ps1"
+    . "$TebunkoDir\ui\search\target_tree_view.ps1"
     . "$TebunkoDir\ui\preview_view.ps1"
-    . "$TebunkoDir\ui\settings_view.ps1"
+    . "$TebunkoDir\ui\settings\settings_view.ps1"
+    . "$TebunkoDir\ui\leftover_view.ps1"
     . "$TebunkoDir\ui\about_view.ps1"
+    . "$TebunkoDir\ui\shell\nav_view.ps1"
+    . "$TebunkoDir\ui\shell\status_bar_view.ps1"
     stepSplash 80
-    . "$TebunkoDir\ui\index_tab.ps1"
+    . "$TebunkoDir\ui\index\index_list.ps1"
+    . "$TebunkoDir\ui\index\index_edit.ps1"
+    . "$TebunkoDir\ui\index\index_archive.ps1"
+    . "$TebunkoDir\ui\index\index_detail.ps1"
+    . "$TebunkoDir\ui\index\index_events.ps1"
     . "$TebunkoDir\ui\indexing_tab.ps1"
     . "$TebunkoDir\ui\result_list.ps1"
-    . "$TebunkoDir\ui\search_tab.ps1"
+    . "$TebunkoDir\ui\search\search_bar.ps1"
+    . "$TebunkoDir\ui\search\search_session.ps1"
+    . "$TebunkoDir\ui\search\result_filter.ps1"
     . "$TebunkoDir\ui\preview.ps1"
     . "$TebunkoDir\ui\open_source.ps1"
     . "$TebunkoDir\ui\index_tree.ps1"
-    . "$TebunkoDir\ui\process_tab.ps1"
-    . "$TebunkoDir\ui\settings_tab.ps1"
+    . "$TebunkoDir\ui\settings\settings.ps1"
     . "$TebunkoDir\ui\about_dialog.ps1"
+    . "$TebunkoDir\ui\leftover_dialog.ps1"
     stepSplash 90
     # ============================================================================
     # ウィンドウ全体
     # ============================================================================
 
-    # 起動時の読み込み（loadStartupData）が済んだか。済むまでは、タブの切り替え・ウィンドウの前面化で読み直さない
-    # （起動時のタブを選んだとき・ウィンドウを出したときにも呼ばれ、同じ読み込みが重なるため）
+    # 起動時の読み込み（loadStartupData）が済んだか。済むまでは、画面の切り替え・ウィンドウの前面化で読み直さない
+    # （起動時の画面を選んだとき・ウィンドウを出したときにも呼ばれ、同じ読み込みが重なるため）
     $script:startupLoaded = $false
 
-    $ui.Tabs.Add_SelectionChanged({
-        param ($sender, $e)
-        # 中の表・一覧の選択変更も伝わってくるため、タブの切り替えだけを扱う
-        if ($e.OriginalSource -ne $ui.Tabs -or !$script:startupLoaded) {
-            return
-        }
-        safe {
-            if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
-                refreshProcesses
-                $script:processTimer.Start()
-            } else {
-                $script:processTimer.Stop()
-            }
-            if ($ui.Tabs.SelectedItem -eq $ui.IndexTab) {
-                refreshIndexingState
-            }
-        }
-    })
+    # ナビと画面の切り替え（selectScreen・getCurrentScreen）。$script:startupLoaded を決めた後に読み込む
+    . "$TebunkoDir\ui\shell\nav.ps1"
+    . "$TebunkoDir\ui\shell\status_bar.ps1"
 
     $window.Add_Activated({
         if (!$script:startupLoaded) {
@@ -194,39 +215,19 @@ function startGui {
                 }
             }
             updateSearchTarget
-            if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
-                refreshProcesses
-            } else {
-                updateKillBadge
-            }
         }
     })
 
     $window.Add_PreviewKeyDown({
         param ($sender, $e)
         $modifiers = [System.Windows.Input.Keyboard]::Modifiers
-        if ($e.Key -eq "F" -and $modifiers -eq "Control") {
-            $ui.Tabs.SelectedItem = $ui.SearchTab
-            $ui.WordBox.Focus() | Out-Null
-            $ui.WordBox.SelectAll()
-            $e.Handled = $true
-        } elseif ($e.Key -eq "F" -and $modifiers -eq ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift)) {
-            $ui.Tabs.SelectedItem = $ui.SearchTab
-            $ui.FilterBox.Focus() | Out-Null
-            $e.Handled = $true
-        } elseif ($e.Key -eq "F5") {
-            safe {
-                if ($ui.Tabs.SelectedItem -eq $ui.KillTab) {
-                    refreshProcesses
-                } else {
-                    refreshIndexingState
-                    refreshIndexSummary
-                    loadIndexTree
-                }
-            }
-            $e.Handled = $true
-        } elseif ($e.Key -eq "Escape" -and $script:search) {
-            cancelSearch
+        $ctrl = ($modifiers -band [System.Windows.Input.ModifierKeys]::Control) -ne 0
+        $shift = ($modifiers -band [System.Windows.Input.ModifierKeys]::Shift) -ne 0
+        # Alt などが混ざったキーは、これまでどおり扱わない
+        $others = $modifiers -band (-bnot ([System.Windows.Input.ModifierKeys]::Control -bor [System.Windows.Input.ModifierKeys]::Shift))
+        if ($others -ne 0) { return }
+        $action = getShortcutAction ([string]$e.Key) $ctrl $shift (getCurrentScreen)
+        if (invokeShortcutAction $action) {
             $e.Handled = $true
         }
     })
@@ -271,9 +272,9 @@ function startGui {
         try { $script:indexingTimer.Stop() } catch { }
         try { $script:indexingSession.Stop() } catch { }
         try { $ui.IndexingStopButton.IsEnabled = $false } catch { }
-        try { $ui.IndexingProgressText.Text = "インデックス作成を止めています…" } catch { }
-        try { $ui.IndexingProgressDetail.Text = "取り込み中のファイルが終わると、画面を閉じます。" } catch { }
-        try { setStatus "インデックス作成を止めてから閉じます…" } catch { }
+        try { $ui.IndexingProgressText.Text = "更新を止めています…" } catch { }
+        try { $ui.IndexingProgressDetail.Text = "更新中のファイルが終わると、画面を閉じます。" } catch { }
+        try { setStatus "更新を止めてから閉じます…" } catch { }
         try {
             if ($null -eq $script:closeDeadline) {
                 $script:closeDeadline = (Get-Date).AddSeconds(${closeWaitSeconds})
@@ -298,12 +299,10 @@ function startGui {
             # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
             if (isIndexing) {
                 $answer = showConfirm `
-                    -heading "まだインデックス作成の途中です。止めてから閉じますか？" `
-                    -facts @(
-                        (factNext "いま取り込んでいるファイルが終わったところで止まり、画面を閉じます"),
-                        (factKept "ここまで取り込んだ分はそのまま残ります" "次に開いて［インデックス作成を開始］を押すと、続きから再開します")
-                    ) `
-                    -choices @(@{ Text = "インデックス作成を止めて閉じる"; Value = "stop"; Careful = $true }) `
+                    -title "更新中です" `
+                    -heading "インデックスを更新中です。中止して閉じますか？" `
+                    -hint "更新したところまでは残ります。次に起動したときに続きから再開できます。" `
+                    -choices @(@{ Text = "中止して閉じる"; Value = "stop"; Careful = $true }) `
                     -cancelText "閉じない"
                 $e.Cancel = $true
                 if ($answer -ne "stop" -or !(isIndexing)) {
@@ -344,18 +343,25 @@ function startGui {
 
     $window.Add_Loaded({
         safe {
-            if ($ui.Tabs.SelectedItem -eq $ui.SearchTab) {
+            if ((getCurrentScreen) -eq "SearchTab") {
                 $ui.WordBox.Focus() | Out-Null
             }
-            if ($script:settingsRecovery) {
-                closeSplash
-                showMessage (getSettingsRecoveryMessage $script:settingsRecovery) "OK" "Warning" | Out-Null
+            # 起動時のお知らせを開いている間は、前回残った Office の確認を出さず、閉じたあとに出す（leftover_dialog.ps1）
+            $script:leftoverNoticesOpen = $true
+            try {
+                if ($script:settingsRecovery) {
+                    closeSplash
+                    showMessage (getSettingsRecoveryMessage $script:settingsRecovery) "OK" "Warning" | Out-Null
+                }
+                if ($script:workspaceBlock) {
+                    # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
+                    closeSplash
+                    showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
+                }
+            } finally {
+                $script:leftoverNoticesOpen = $false
             }
-            if ($script:workspaceBlock) {
-                # 知らせを読む間、起動中の表示が裏に残らないように先に閉じる
-                closeSplash
-                showMessage $script:workspaceBlock "OK" "Warning" | Out-Null
-            }
+            resumeLeftoverPrompt
         }
     })
 
@@ -369,7 +375,7 @@ function startGui {
 
     function loadWorkspaceViews {
         # ワークスペースの中身（インデックスの一覧・取り込みの状態・検索対象のツリー・件数）を画面に読み込む。
-        # 起動したとき（loadStartupData）と、［8 設定］でワークスペースを変えたとき（settings_tab.ps1 の switchWorkspace）に呼ぶ
+        # 起動したとき（loadStartupData）と、設定の画面でワークスペースを変えたとき（settings\settings.ps1 の switchWorkspace）に呼ぶ
         loadTargets
         refreshIndexingState
         loadIndexTree
@@ -400,13 +406,14 @@ function startGui {
     function loadStartupData {
         try {
             loadWorkspaceViews
-            updateKillBadge
             ensureNetworkDriveCache
         } finally {
             $script:startupLoaded = $true
         }
         # 起動時に出した知らせ（既定のワークスペースが使えない・前の版のインデックスがある）は、読み込みが終わっても消さない
         setStatus $(if ($script:workspaceBlock) { $script:workspaceBlock } elseif ($script:legacyIndexMessage) { $script:legacyIndexMessage } else { "" })
+        # 前回のインデックス作成が起動したまま残った Office があれば、終了するか確認する（記録の読み取りは裏で行う）
+        startLeftoverCheck
     }
 
     # ---- 起動 ----
@@ -417,25 +424,20 @@ function startGui {
     updateSettingsView
     setSearchOptionToUi (readSearchOption)
     setOpenMode (readOpenMode)
-    updateOpenMenu
     # 検索ワードの注意と［検索］の可否（検索ワードが空なので押せない）。画面を出したときに押せる色で出ないよう、先に決める
     updateWordNotice
     # 一覧を読み込むまで（loadStartupData）は、「インデックスがありません」の案内を出さない
     $ui.IndexGridPlaceholder.Visibility = "Collapsed"
 
-    # 起動時のタブ：インデックス作成が中断中、またはインデックスが無ければ［1 インデックス管理］、それ以外は［2 検索］
+    # 起動時の画面：インデックス作成が中断中、またはインデックスが無ければ［インデックス管理］、それ以外は［検索］
     $openIndexTab = ($script:indexingState -and $script:indexingState.Pending -gt 0) -or !(testIndexExists)
-    $ui.Tabs.SelectedItem = if ($openIndexTab) { $ui.IndexTab } else { $ui.SearchTab }
-    # 前の版のインデックス（index\）が見つかれば、［1 インデックス管理］のステータスに知らせを出す
+    selectScreen $(if ($openIndexTab) { "IndexTab" } else { "SearchTab" })
+    # 前の版のインデックス（index\）が見つかれば、その知らせを覚えておく（ステータスには、一覧を読み込んだあとに出す）
     $script:legacyIndexMessage = getLegacyIndexMessage $workspace.Dir (getLegacyIndexState $workspace.Dir).HasLegacyIndex
-    if ($script:legacyIndexMessage) {
-        setStatus $script:legacyIndexMessage
-    }
-    # 既定のワークスペースにほかのファイルが置いてあれば、［8 設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
+    # 既定のワークスペースにほかのファイルが置いてあれば、［設定］を開いて別のフォルダを選んでもらう（画面を出した後に知らせる）
     $script:workspaceBlock = getWorkspaceBlockMessage
     if ($script:workspaceBlock) {
-        $ui.Tabs.SelectedItem = $ui.SettingsTab
-        setStatus $script:workspaceBlock
+        selectScreen "SettingsTab"
     }
     setStatus "読み込んでいます…"
     stepSplash 95

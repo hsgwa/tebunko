@@ -26,10 +26,15 @@ function writeGoldenSettings {
     writeSearchOption @{
         UseRegex        = $true
         CaseSensitive   = $true
-        FileFilter      = "*.xlsx;!~$*"
+        FileFilter      = "*.xlsx;!~$*"   # 前の版にだけある項目（今の版の writeSearchOption は無視する）
         IncludeShapes   = $false
         IncludeComments = $false
     } $path
+
+    # 検索の対象にするファイルの種類（この版より前の版には無いので、関数があるときだけ書く）
+    if (Get-Command writeFileKinds -ErrorAction SilentlyContinue) {
+        writeFileKinds @("excel", "text") $path
+    }
 
     writeOpenMode "readOnly" $path
     writeWorkspaceFolder "C:\tebunko_golden\ws" $path

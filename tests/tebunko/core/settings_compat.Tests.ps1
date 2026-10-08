@@ -79,6 +79,7 @@ BeforeAll {
         getTargetFolders   = $true
         readIndexSources   = $true
         readSearchExcludes = $true
+        readFileKinds      = $true
         readSearchOption   = $false
         readOpenMode       = $false
         getWorkDir         = $false

@@ -183,7 +183,7 @@ Describe "indexer.ps1（取り込み）" -Tag Io {
 
         runIndexer $root | Should -Be 0
         $progress = readTestProgress
-        $progress.Detail | Should -Be "取り込みが必要なファイルはありませんでした"
+        $progress.Detail | Should -Be "更新が必要なファイルはありませんでした"
         $status = readTestStatus $root
         $status.Rows.Count | Should -Be 3
         $status.Rows["営業\壊れた.pptx"].状態 | Should -Be ${stateFailed}
@@ -306,7 +306,7 @@ Describe "indexer.ps1（利用者のPowerPointが起動している場合）" -T
             $progress.Remaining | Should -Be 1
             readTestError | Should -BeNullOrEmpty
             $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を取り込まずに残しました"
+            $script:lastChannel.Notice | Should -Match "PowerPoint が起動していたため、1 件を更新せずに残しました"
             # 利用者のPowerPointは、インデックス作成の間も強制終了されていない（プロセスが残っていることで確かめる）
             $userPptId | Should -Not -BeNullOrEmpty
             (Get-Process -Id $userPptId -ErrorAction SilentlyContinue) | Should -Not -BeNullOrEmpty
@@ -361,7 +361,7 @@ Describe "indexer.ps1（後回しの司令の流れ。実際のPowerPointは使�
             $status.Rows["後回し2\旧形式.ppt"].状態 | Should -Be ${stateNew}
             $status.Rows["後回し2\議事録.docx"].状態 | Should -Be ${stateDone}
             $script:lastChannel.Postponed | Should -Be 1
-            $script:lastChannel.Notice | Should -Match "1 件を取り込まずに残しました"
+            $script:lastChannel.Notice | Should -Match "1 件を更新せずに残しました"
             # stopAllApps は後片付け（finally）で 1 回だけ呼ばれる。後回しを取り込んだ件数に数えると
             # 100 件ごとの起動し直しの判定が早まって途中でも呼ばれるが、ここでは増えない
             # （RestartInterval を差し替えられる runIngestWorker 単体の It で、数えないことを詳しく確かめている）
@@ -444,6 +444,75 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
     }
 }
 
+Describe "indexer.ps1（選んだインデックスだけを更新する。OnlyNames）" -Tag Io {
+    BeforeAll {
+        $approvalLine = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne' }
+        $global:seenPlan = $null
+    }
+
+    BeforeEach {
+        # 総務・企画の 2 つをチェック付きで取り込んだあと、両方のファイルを更新した状態にする
+        $script:a = newSourceFolder "総務"
+        $script:b = newSourceFolder "企画"
+        $script:c = newSourceFolder "休み"
+        $script:root = newRoot
+        writeTestSettings $script:root @(
+            @{ name = "総務"; path = $script:a; enabled = $true }
+            @{ name = "企画"; path = $script:b; enabled = $true }
+            @{ name = "休み"; path = $script:c; enabled = $false }
+        )
+        runIndexer $script:root | Should -Be 0
+        foreach ($dir in @($script:a, $script:b)) {
+            (Get-Item -LiteralPath "$dir\議事録.docx").LastWriteTime = (Get-Date).AddDays(1)
+        }
+        $script:before = (readTestStatus $script:root).Rows
+    }
+
+    It "選んだインデックスだけを取り込み、選ばなかったインデックスの記録・確認の表には触れない" {
+        $approve = $approvalLine.Clone()
+        $approve.Action = { $global:seenPlan = @($channel.Plan); answerIndexingPlan $channel @{ RetryFailed = $false } }
+
+        runIndexer $script:root @{ ConfirmTargets = $true; OnlyNames = @("企画") } @($approve) | Should -Be 0
+
+        $rows = (readTestStatus $script:root).Rows
+        $rows["企画\議事録.docx"].更新日時 | Should -Not -Be $script:before["企画\議事録.docx"].更新日時
+        # 選ばなかった総務は、更新されたファイルがあっても前回のまま（状態・日時・失敗の記録も含め行ごと同じ）
+        foreach ($key in @($script:before.Keys | Where-Object { $_.StartsWith("総務\") })) {
+            $rows[$key].更新日時 | Should -Be $script:before[$key].更新日時
+            $rows[$key].状態 | Should -Be $script:before[$key].状態
+            $rows[$key].エラー | Should -Be $script:before[$key].エラー
+        }
+        # 確認の表は、選んだインデックスだけ（選ばなかった行を「チェックなし」などと出さない）
+        @($global:seenPlan | ForEach-Object { $_.インデックス名 }) | Should -Be @("企画")
+        $script:lastChannel.OnlySkipped.Count | Should -Be 0
+    }
+
+    It "選んだ名前が設定に無い・チェックが付いていないときは、結果に残し、ほかの選んだものは更新する" {
+        runIndexer $script:root @{ OnlyNames = @("企画", "休み", "無い名前") } | Should -Be 0
+
+        $skipped = @($script:lastChannel.OnlySkipped)
+        @($skipped | ForEach-Object { "$($_.Name):$($_.Reason)" }) | Should -Be @("休み:チェックが付いていません", "無い名前:設定にありません")
+        $rows = (readTestStatus $script:root).Rows
+        $rows["企画\議事録.docx"].更新日時 | Should -Not -Be $script:before["企画\議事録.docx"].更新日時
+        $rows["総務\議事録.docx"].更新日時 | Should -Be $script:before["総務\議事録.docx"].更新日時
+    }
+
+    It "選んだ名前がどれも更新できなければ、エラーにして何も更新しない" {
+        runIndexer $script:root @{ OnlyNames = @("休み") } | Should -Be 1
+
+        readTestError | Should -Match "更新できるものがありません"
+        (readTestStatus $script:root).Rows["総務\議事録.docx"].更新日時 | Should -Be $script:before["総務\議事録.docx"].更新日時
+    }
+
+    It "OnlyNames が空なら、チェックの付いたものすべてを更新する（これまでどおり）" {
+        runIndexer $script:root @{ OnlyNames = @() } | Should -Be 0
+
+        $rows = (readTestStatus $script:root).Rows
+        $rows["企画\議事録.docx"].更新日時 | Should -Not -Be $script:before["企画\議事録.docx"].更新日時
+        $rows["総務\議事録.docx"].更新日時 | Should -Not -Be $script:before["総務\議事録.docx"].更新日時
+    }
+}
+
 Describe "indexer.ps1（制限時間）" -Tag Io {
     It "制限時間を過ぎて失敗したファイルは、制限時間で中止したことをエラーに書く" {
         $source = newSourceFolder "監査"
@@ -455,7 +524,7 @@ Describe "indexer.ps1（制限時間）" -Tag Io {
         runIndexer $root @{} @($timeout) | Should -Be 0
         $status = readTestStatus $root
         $status.Rows["監査\壊れた.pptx"].状態 | Should -Be ${stateFailed}
-        $status.Rows["監査\壊れた.pptx"].エラー | Should -Match "分以内に取り込みが終わらなかった"
+        $status.Rows["監査\壊れた.pptx"].エラー | Should -Match "分以内に更新が終わらなかった"
         # 取り込めたファイルは、制限時間の印が立っていても成功のまま
         $status.Rows["監査\議事録.docx"].状態 | Should -Be ${stateDone}
     }
@@ -816,7 +885,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Reroute | Should -Be $false
         $result.Postponed | Should -Be $false
-        $result.Message | Should -Be "IRM・秘密度ラベルで暗号化されているため取り込めません。"
+        $result.Message | Should -Be "IRM・秘密度ラベルで暗号化されているため更新できません。"
         Should -Invoke getApp -Times 0 -Exactly -Scope It
     }
 

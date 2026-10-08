@@ -17,6 +17,16 @@ Describe "showSplash" -Tag Gui {
         $window.IsVisible | Should -BeTrue
     }
 
+    It "アイコンの XAML（ベクターの絵）を渡すと SplashIcon に入る。読めなくても窓は出る" {
+        $iconXaml = "$rootDir\scripts\tebunko\xaml\app_icon.xaml"
+        $window = showSplash $xamlPath $iconXaml
+        $window.FindName("SplashIcon").Source | Should -BeOfType ([System.Windows.Media.DrawingImage])
+        closeSplash
+        $window = showSplash $xamlPath (Join-Path $TestDrive "none.xaml")
+        $window.IsVisible | Should -BeTrue
+        $window.FindName("SplashIcon").Source | Should -BeNullOrEmpty
+    }
+
     It "stepSplash で進み具合が変わり、closeSplash で閉じる" {
         $window = showSplash $xamlPath
         stepSplash 40

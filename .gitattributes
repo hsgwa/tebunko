@@ -14,3 +14,6 @@ tools/hooks/* text eol=lf
 
 # 前の版のファイル（見本・golden。tests/testdata/compat/）は改行を変換しない（取り出すたびに見本が変わらないように）
 tests/testdata/compat/** -text
+
+# 同梱のフォント（scripts/shared/fonts/）は変換しない
+*.ttf binary

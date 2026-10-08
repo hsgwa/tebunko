@@ -151,8 +151,11 @@ function addXamlEntries {
         [string]$keyPrefix
     )
 
-    foreach ($file in (Get-ChildItem -LiteralPath $dir -Filter *.xaml | Sort-Object Name)) {
-        $keyExpr = '[System.IO.Path]::GetFullPath("$PSScriptRoot\' + $keyPrefix + $file.Name + '")'
+    # xaml\ の下のフォルダ（shell\ など）の XAML も埋め込む。鍵は、keyPrefix に dir からの相対パスをつなげたもの
+    $root = (Get-Item -LiteralPath $dir).FullName.TrimEnd("\")
+    foreach ($file in (Get-ChildItem -LiteralPath $dir -Filter *.xaml -Recurse | Sort-Object FullName)) {
+        $relative = $file.FullName.Substring($root.Length + 1)
+        $keyExpr = '[System.IO.Path]::GetFullPath("$PSScriptRoot\' + $keyPrefix + $relative + '")'
         addHereString "`${bundledXaml}[$keyExpr]" ([System.IO.File]::ReadAllText($file.FullName)) $file.FullName
     }
 }

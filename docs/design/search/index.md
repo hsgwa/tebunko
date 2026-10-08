@@ -1,10 +1,10 @@
 ﻿# 検索
 
-扱うこと: 検索の仕様（検索対象・対象ファイル・図形とコメント・長いパス など）、検索条件（文字どおり・正規表現・大文字と小文字）、検索対象インデックスの一覧の作り方、既知の問題。扱わないこと: 検索を速くする実装（[検索を速くする仕組み](speed.md)）、Windows Search を使う高速検索（[高速検索（Windows Search）](fast-search.md)）、検索結果ファイルの形式（[検索結果ファイル](output.md)）。先に読むページ: [設計の概要](../index.md)、[インデックスのファイルの形](../index-data/format.md)。
+扱うこと: 検索の仕様（検索対象・ファイルの種類・図形とコメント・長いパス など）、検索条件（文字どおり・正規表現・大文字と小文字）、検索対象インデックスの一覧の作り方、既知の問題。扱わないこと: 検索を速くする実装（[検索を速くする仕組み](speed.md)）、Windows Search を使う高速検索（[高速検索（Windows Search）](fast-search.md)）、検索結果ファイルの形式（[検索結果ファイル](output.md)）。先に読むページ: [設計の概要](../index.md)、[インデックスのファイルの形](../index-data/format.md)。
 
 | 項目 | 内容 |
 |---|---|
-| 画面 | ［2 検索］タブ（[検索タブ](../gui/search-tab.md)） |
+| 画面 | ［検索］タブ（[検索タブ](../gui/search-tab.md)） |
 | スクリプト | `scripts/tebunko/search/search_query.ps1`（検索条件）・`pack_search.ps1`（本文インデックスの列挙と検索）・`search_run.ps1`（結果の組み立て）。`scripts/tebunko/lib.ps1` から読み込み、画面 `scripts/tebunko/gui.ps1` から呼ぶ |
 | 使用する共通関数 | `getFastSearchPackFiles`（高速検索。[高速検索（Windows Search）](fast-search.md)）/ `getIndexPackFiles` / `getSearchIndexes` / `searchPackIndex` / `writeSearchResult`（→ `toSearchResultLines` → `toResultLine` / `toResultHeader`）（[部品ごとの関数](../reference/search.md)） |
 
@@ -12,7 +12,7 @@
 
 ## 概要
 
-画面の［2 検索］タブで入力したワードで、`work/content_index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/search_results.txt` の形式を定める。
+画面の［検索］タブで入力したワードで、`work/content_index/` 配下のうち、画面の検索対象のツリーでチェックしたインデックス・フォルダの本文インデックス（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）を検索する処理と、［結果をファイルに出力］で書き出す `work/search_results.txt` の形式を定める。
 
 ## 入出力
 
@@ -26,7 +26,7 @@
 
 ## インデックスの一覧（`getSearchIndexes`）
 
-検索対象は `work/content_index` に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［1 インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。
+検索対象は `work/content_index` に固定し、その直下のフォルダ 1 つをインデックス 1 つとして扱う。設定で場所を指定することはしない（［インデックス管理］で作ったインデックスは、すべてこの一覧に並ぶ）。
 
 ```mermaid
 flowchart TD
@@ -34,13 +34,13 @@ flowchart TD
     B -- いいえ --> Z["空（インデックスが無い）"]
     B -- はい --> C["work/content_index 直下のフォルダを列挙<br>（ファイルは対象外）"]
     C --> D["元のフォルダを引く<br>getSourceFolderMap"]
-    D --> E["［1 インデックス管理］の一覧（targetFolders）の順に並べ、<br>一覧に無いものは名前順で後ろに付ける"]
+    D --> E["［インデックス管理］の一覧（targetFolders）の順に並べ、<br>一覧に無いものは名前順で後ろに付ける"]
 ```
 
 - 1 件を `@{ Name（インデックス名）; Path（インデックスのフォルダ）; SourcePath（元のフォルダ。分からなければ空） }` で返す。
 - 別の場所・PC で作ったインデックスは、そのフォルダを `work/content_index` 直下に置けば一覧に並ぶ（[クロール対象フォルダと取り込み対象](../indexing/crawl.md)）。
 - `work/content_index` が無ければ空を返す。`setting.config` は作成しない。
-- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［2 検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getIndexPackFiles` に `@{ Root（インデックスのフォルダ `work/content_index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
+- 画面では、インデックス 1 件を一番上にしたツリーで、検索するインデックス・フォルダを選ぶ（[［検索］タブ](../gui/search-tab.md) [検索対象のツリー](../gui/search-tree.md)）。選んだ範囲は `getIndexPackFiles` に `@{ Root（インデックスのフォルダ `work/content_index`）; RelPath（`<インデックス名>` またはその下のフォルダ）; Recurse }` の配列で渡す。`Recurse` が `$false` なら、そのフォルダ直下の本文インデックスのファイルだけを列挙する。結果の相対パス（`RelPath`・`RelDir`）は `Root` から求めるため、フォルダを絞っても結果の形は変わらない。
 - チェックを外したフォルダは `searchExcludes`（`@{ path（フルパス）; subfolders（$false は直下のファイルだけ） }` の配列）に保存する（`readSearchExcludes` / `writeSearchExcludes`）。無ければすべてを検索する。
 
 ```mermaid
@@ -49,7 +49,7 @@ flowchart TD
     C --> D{"本文インデックスのファイルが 1 件以上ある？"}
     D -- いいえ --> E1["画面に案内を表示<br>（インデックス作成を促す）"]
     D -- はい --> M["newSearchRegex<br>検索条件（文字どおり／正規表現・大文字と小文字の区別）<br>から照合用の正規表現を作る"]
-    M --> F["newFileFilter / newPlaceExclude<br>対象ファイル・図形とコメントの条件（元のファイル名・場所の名前で判定）"]
+    M --> F["newFileKindFilter / newFileFilter / newPlaceExclude<br>ファイルの種類・図形とコメントの条件（元のファイル名・場所の名前で判定）"]
     F --> SS["searchPackIndex<br>本文インデックスを約 16MB ずつ .NET（StreamReader＋regex）で照合<br>（進捗を画面に通知、上限・中止を確認）"]
     SS --> R["ヒット: Root・RelPath・RelDir・FileName・<br>Book・Location・LineNumber・Line"]
     R --> G["画面の表に表示"]
@@ -57,14 +57,14 @@ flowchart TD
 ```
 
 - 本文インデックスのファイルはフルパスをキーにまとめるため、入れ子のフォルダを指定しても同じ本文インデックスのファイルを二重に検索しない。
-- 検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。[検索を速くする仕組み](speed.md)）を照合するたびに進捗を通知する。画面の中止ボタン（`shouldStop`）で中止でき、件数の上限（`limit`）に達したら打ち切る（上限・表示は [［2 検索］タブ](../gui/search-tab.md)）。
+- 検索は画面の別スレッドで行い、1 つの作業（本文インデックス約 16MB 分。[検索を速くする仕組み](speed.md)）を照合するたびに進捗を通知する。画面の中止ボタン（`shouldStop`）で中止でき、件数の上限（`limit`）に達したら打ち切る（上限・表示は [［検索］タブ](../gui/search-tab.md)）。
 
 ## 検索仕様
 
 | 項目 | 仕様 |
 |---|---|
 | 検索対象 | 各インデックスフォルダ配下（再帰）のうち、画面のツリーでチェックしたフォルダの本文インデックス `content_index.*.tsv`（[インデックスの一覧](#インデックスの一覧getsearchindexes)）。フォルダの順、フォルダの中は本文インデックスのファイルの名前（拡張子・番号）の順、本文インデックスのファイルの中は入れた順に検索する |
-| 対象ファイル | 画面の「対象ファイル」（`setting.config` の `fileFilter`）を指定すると、**元のファイル名**（[ファイル名・場所の求め方](output.md#ファイル名場所の求め方readpackplaces) の Book。本文インデックスの `ファイル名=` の値）が一致する元のファイルだけを検索する（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)）。空ならすべて |
+| ファイルの種類 | 画面の種類のチップ（`setting.config` の `fileKinds`。選んだ種類の拡張子の条件を `newFileKindFilter` が作る）を絞ると、**元のファイル名**（[ファイル名・場所の求め方](output.md#ファイル名場所の求め方readpackplaces) の Book。本文インデックスの `ファイル名=` の値）が一致する元のファイルだけを検索する（[検索条件（サクラエディタの Grep にならう）](#検索条件サクラエディタの-grep-にならう)）。空ならすべて |
 | 図形・コメント | 既定は検索する。画面の［図形も検索］［コメントも検索］（`setting.config` の `includeShapes` / `includeComments`）をオフにすると、場所が `<元の場所>[図形]` / `<元の場所>[コメント]`（本文インデックスのメタ情報 `対象=図形` / `対象=コメント`）の中を検索しない（`newPlaceExclude`。Excel・Word・PowerPoint で共通の決まり。[インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」） |
 | 長いパス | 列挙と検索（.NET の `DirectoryInfo`・`StreamReader`）には `\\?\` を付けたパスを渡す（`toLongPath`）。付けないと、約 248 文字を超えるフォルダの中を列挙できず、260 文字を超える本文インデックスのファイルを読めない。結果の相対パスは `\\?\` の無い形で扱う（[入れ替えと書き出し](../index-data/publish.md#長いパス260-文字超の扱い)） |
 | 読み込み文字コード | UTF-16LE（BOM があれば BOM に従う） |
@@ -87,7 +87,7 @@ flowchart TD
 | 文字どおり（既定） | ワードを `[regex]::Escape` して照合する | `(株)` は「(株)」だけに一致 |
 | 正規表現 | ワードをそのまま正規表現として照合する | `見積.*確定` |
 | 大文字と小文字を区別 | オフのときは `RegexOptions.IgnoreCase` を付ける。`CultureInvariant` も付ける（区別しないときの照合が 2 倍程度速くなる。日本語の照合結果は変わらない） | オンなら `ID` は `id` `Id` に一致しない |
-| 対象ファイル | `;`（全角の `；` も可）で区切ったワイルドカード。`!`（全角の `！` も可）で始まるものは除外。`*` は任意の文字列、`?` は任意の 1 文字。`*` も `?` も無いものは部分一致。大文字と小文字は区別しない | `*.xlsx;見積;!*old*` は、.xlsx か名前に「見積」を含むファイルのうち、「old」を含まないもの |
+| ファイルの種類 | 種類のチップから作った、`;` 区切りのワイルドカード（`newFileKindFilter`。例: `*.xlsx;*.xlsm;*.xls`。すべて選んでいるときは空）。内部では `newFileFilter` が、`;`（全角の `；` も可）で区切ったワイルドカード。`!`（全角の `！` も可）で始まるものは除外。`*` は任意の文字列、`?` は任意の 1 文字。`*` も `?` も無いものは部分一致。大文字と小文字は区別しない | `*.xlsx;見積;!*old*` は、.xlsx か名前に「見積」を含むファイルのうち、「old」を含まないもの |
 
 ## 実装上の注意点・既知の問題
 

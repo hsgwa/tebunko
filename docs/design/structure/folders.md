@@ -1,4 +1,4 @@
-# 配布物と開発用のフォルダ構成
+﻿# 配布物と開発用のフォルダ構成
 
 扱うこと: 利用者が使うもの・ドキュメント配布物・開発用（配布しない）フォルダの一覧。扱わないこと: `scripts/` の中の文脈・層による分け方（[ソースの分け方](source.md)）、データの置き場所（[データの置き場所](data.md)）。先に読むページ: [設計の概要](../index.md)。
 
@@ -20,7 +20,7 @@ flowchart LR
 
 | パス | 種別 | 説明 |
 |---|---|---|
-| `tebunko.bat` | 起動用バッチ | 画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。`conhost.exe` 経由で PowerShell（PATH からではなく `%SystemRoot%` からの絶対パス）を `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で 1 回起動し、その中で `scripts` の中のファイルから Mark-of-the-Web を外して（`Unblock-File`。[安全性の要約](../../safety/index.md) の [Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat)）から `gui.ps1` を開く。既定のターミナルが Windows Terminal だと `-WindowStyle Hidden` が効かず、PowerShell の窓が残るため `conhost.exe` を通す。画面が開く前に失敗したときは、記録を残して Notepad で理由を示す（[起動に失敗したときの知らせ](../../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)） |
+| `tebunko.bat` | 起動用バッチ | 画面を開く（インデックス作成・検索）。利用者が起動するのはこれだけ。`conhost.exe` 経由で PowerShell（PATH からではなく `%SystemRoot%` からの絶対パス）を `-ExecutionPolicy RemoteSigned -WindowStyle Hidden` で 1 回起動し、その中で `scripts` の中のファイルから Mark-of-the-Web を外して（`Unblock-File`。[安全性の要約](../../safety/index.md) の [Mark-of-the-Web の解除](../../safety/disclosure.md#mark-of-the-web-の解除tebunkobat)）から `gui.ps1` を開く。既定のターミナルが Windows Terminal だと `-WindowStyle Hidden` が効かず、PowerShell の窓が残るため `conhost.exe` を通す。画面が開く前に失敗したときは、記録を残して Notepad で理由を示す（[起動に失敗したときの知らせ](../../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)） |
 | `setting.config` | 設定 | 画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。[設定ファイル（setting.config）](settings-file.md)）。ツールのフォルダに書き込めないときは利用者ごとの場所に置く（[データの置き場所](data.md)） |
 | `work/` | 自動生成 | インデックス・状態ファイル・ログ（[どの処理がどのファイルを読み書きするか](io-files.md)）。git 管理外。削除すると全件取り込み直しになる。置き場所は画面で変えられる（[データの置き場所](data.md)） |
 
@@ -31,7 +31,7 @@ flowchart LR
 | `README.md` | ドキュメント | 使い方の入口。配布 zip に同梱する（相対リンクと画像は、その版の GitHub の URL に書き換える） |
 | `LICENSE` | ドキュメント | ライセンス（MIT）。配布 zip に同梱する |
 | `.github/SECURITY.md`・`.github/SECURITY.ja.md` | ドキュメント | 安全性の説明の入口と、脆弱性の連絡先・対応方針（英語版が正、`.ja.md` が日本語版）。配布 zip には入れず、リリースの説明からリンクする |
-| `sbom.cdx.json` | 配布用 | 部品表（CycloneDX 1.6）の雛形。本体の説明・ライセンス・前提ソフトウェア・注記だけを持つ。ファイルごとの一覧とハッシュは、配布物を作るときに `tools/new_sbom.ps1` が足す。第三者の部品を 1 件も含まないことを示す（[安全性の要約](../../safety/index.md) の [供給網（サプライチェーン）とライセンス](../../safety/supply-chain.md)）。配布 zip と並べてリリースに載せる |
+| `sbom.cdx.json` | 配布用 | 部品表（CycloneDX 1.6）の雛形。本体の説明・ライセンス・前提ソフトウェア・注記だけを持つ。ファイルごとの一覧とハッシュは、配布物を作るときに `tools/new_sbom.ps1` が足す。第三者のコードを含まない（同梱するフォントとアイコンの形の 2 件は `tools/new_sbom.ps1` が足す）ことを示す（[安全性の要約](../../safety/index.md) の [供給網（サプライチェーン）とライセンス](../../safety/supply-chain.md)）。配布 zip と並べてリリースに載せる |
 | `installer/tebunko.iss` | 配布用 | インストーラー（`tebunko-setup-<バージョン>.exe`）を作る Inno Setup 7 のスクリプト。管理者権限なしで `%LOCALAPPDATA%\Programs\tebunko` に入れ、スタートメニューとアンインストールに登録する（[安全性の要約](../../safety/index.md) の [インストーラー版](../../safety/disclosure.md#インストーラー版)）。BOM 付き UTF-8・CRLF |
 | `installer/tebunko.cs` | 配布用 | インストーラー版の起動口 `tebunko.exe` のソース（C# 5）。`tebunko.bat` と同じく `gui.ps1` を `-ExecutionPolicy RemoteSigned` で起動する。窓を作らずに起動し、起動できなかったときは PowerShell のエラーをメッセージで出す。zip 版には入れない |
 | `docs/` | ドキュメント | 利用者向けの使い方・安全性の説明・設計書（MkDocs のサイトの元）。`docs/images/` に図・画面の画像・ロゴ（`logo.svg`）を置く。配布 zip には入れない。リリースに載せる 1 本の `.ps1` の設計は [単一 PowerShell のビルド](single-script.md) |
@@ -55,7 +55,7 @@ flowchart LR
 | `tools/new_installer.ps1` | 配布用 | インストーラー（`tebunko-setup-<バージョン>.exe`）を `work/release/` に作る。起動口 `tebunko.exe` を Windows 標準の `csc.exe`（.NET Framework）でビルドし、`scripts/`・`LICENSE`・`VERSION.txt` と並べて Inno Setup 7 の `ISCC.exe` に渡す。`release.yml` が実行する。手元で作るときは Inno Setup 7 を入れておく（`-Iscc` で場所を指定できる） |
 | `tools/install_inno_setup.ps1` | 配布用 | Inno Setup 7 を、版を固定して公式のリリースから取り、SHA256 を確かめてから、持ち運び版（レジストリに書かない）でランナーの一時フォルダに入れる。`release.yml` の `shell: powershell` の `run` は ASCII だけで書く決まりのため、日本語のメッセージが要るこの手順だけを分けている |
 | `tools/new_version_text.ps1` | 配布用 | 配布物に入れる `VERSION.txt` の中身（タグ名とコミットの SHA の2行。BOM 付き UTF-8・CRLF）を作る。`new_release_package.ps1`・`new_installer.ps1` が共通で呼ぶ。`VERSION.txt` は zip のエントリー・インストーラーのステージにだけ作り、リポジトリの作業ツリーには書かない（開発中に git のチェックアウトから起動すると「開発版」と出る） |
-| `tools/new_icon.ps1` | 開発用 | 画面のアイコン（`tebunko.ico`）を元データの `docs/images/logo.svg` から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の `System.Drawing` で 16〜256 px の 8 サイズに縮小して、PNG 形式の `.ico` にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と `.ico` を同じコミットに入れる |
+| `tools/new_icon.ps1` | 開発用 | 画面のアイコンを元データの `docs/images/logo.svg` から作る。1 つ目は画面が読むベクターの絵（`scripts/tebunko/xaml/app_icon.xaml`。SVG の `path` をそのまま写す。変換と受け付ける SVG の形は `tools/icon_xaml.ps1`）。2 つ目は `tebunko.ico`（インストーラー・ショートカット用）で、Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の `System.Drawing` で 16〜256 px の 8 サイズに縮小して、PNG 形式の `.ico` にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG・`app_icon.xaml`・`.ico` を同じコミットに入れる |
 | `tools/make_social_preview.ps1` | 開発用 | GitHub の social preview 用の画像（`docs/images/social_preview.png`）を作る。登録はリポジトリの設定から手で行う |
 | `tools/mkdocs/` | 開発用 | 設計書の Web サイトを作る設定（`mkdocs.yml`）・フック（`hooks.py`）・使うパッケージ（`requirements.txt`）（[CI](../testing/ci.md)） |
 | `.github/workflows/` | 開発用 | CI（`test.yml`・`title.yml`・`docs.yml`・`codeql.yml`・`scorecard.yml`）、性能の計測（`perf.yml`）と配布物の公開（`release.yml`）（[CI](../testing/ci.md)） |

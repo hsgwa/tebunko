@@ -1,11 +1,13 @@
-﻿# ［2 検索］の結果の表（tebunko\ui\result_list.ps1）のテスト。
+﻿# ［検索］の結果の表（tebunko\ui\result_list.ps1）のテスト。
 # 画面の部品（$ui.ResultGrid など）は偽物にして、見出し・行の出し入れと状態の変化を確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
-    . "${scriptsDir}\tebunko\ui\search_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
 
     # ---- 画面の偽物 ----
     # 読み込み時に登録されるイベントの処理は $handlers に取っておき、テストから呼ぶ
@@ -138,7 +140,7 @@ Describe "newFileGroup" -Tag Unit {
         $script:fileGroups["c:\共有\MITSUMORI.XLSX"] | Should -Be $group
     }
 
-    It "［すべて展開］のあとに見つかったファイルは開いておく" {
+    It "［すべて開く］のあとに見つかったファイルは開いておく" {
         $script:expandNew = $true
         (newFileGroup "C:\共有\見積.xlsx" "" "見積.xlsx").IsExpanded | Should -Be $true
     }
@@ -408,7 +410,7 @@ Describe "setAllFileGroupsExpanded" -Tag Unit {
         (getItemNames) -join "," | Should -Be "#見積.xlsx,#議事録.docx"
     }
 
-    It "［すべて展開］［すべて折りたたむ］のボタンから切り替える" {
+    It "［すべて開く］［すべて折りたたむ］のボタンから切り替える" {
         [void](addHit "見積.xlsx" "4月" "`t見積" 1)
         flushResults
 
@@ -731,9 +733,9 @@ Describe "prepareHitRow" -Tag Unit {
     }
 }
 
-Describe "結果の表の定義（tab_search.xaml）" -Tag Unit {
+Describe "結果の表の定義（search\result_list.xaml）" -Tag Unit {
     BeforeAll {
-        $xaml = [xml](Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\tab_search.xaml" -Raw -Encoding UTF8)
+        $xaml = [xml](Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\search\result_list.xaml" -Raw -Encoding UTF8)
         $ns = New-Object System.Xml.XmlNamespaceManager($xaml.NameTable)
         $ns.AddNamespace("p", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
         $resultGrid = $xaml.SelectSingleNode("//p:DataGrid[@*[local-name()='Name']='ResultGrid']", $ns)

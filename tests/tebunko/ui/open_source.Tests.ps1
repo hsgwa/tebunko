@@ -11,6 +11,7 @@ BeforeAll {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
+    . "${scriptsDir}\shared\ui\data_grid.ps1"
 
     function newFakeControl {
         # イベントの登録（Add_<イベント>）を Handlers に記録するだけの偽のコントロール
@@ -27,15 +28,20 @@ BeforeAll {
     }
 
     function newFakeUi {
-        $menu = { newFakeControl @("Click") @{ InputGestureText = "" } }
+        $menu = { newFakeControl @("Click") }
         return @{
-            ResultGrid       = newFakeControl @("MouseDoubleClick", "PreviewKeyDown") @{ SelectedItem = $null }
+            ResultGrid       = newFakeControl @("MouseDoubleClick", "PreviewKeyDown", "PreviewMouseRightButtonDown", "ContextMenuOpening") @{ SelectedItem = $null; SelectedItems = @() }
+            ResultMenu       = newFakeControl @()
+            MenuToggleGroup  = & $menu
             MenuOpen         = & $menu
             MenuOpenReadOnly = & $menu
             MenuOpenNew      = & $menu
-            OpenModeCombo    = newFakeControl @("SelectionChanged") @{ SelectedItem = $null; SelectedIndex = -1; Items = @() }
             MenuOpenFolder   = & $menu
             OpenButton       = newFakeControl @("Click")
+            OpenMenuButton   = newFakeControl @("Click")
+            MenuOpenModeNormal   = newFakeControl @("Click")
+            MenuOpenModeNew      = newFakeControl @("Click")
+            MenuOpenModeReadOnly = newFakeControl @("Click")
             OpenFolderButton = newFakeControl @("Click")
             MenuCopy         = & $menu
             MenuCopyPath     = & $menu
@@ -75,7 +81,9 @@ BeforeAll {
 
     $ui = newFakeUi
     $window = New-Object PSObject -Property @{ Cursor = $null }
-    . "${scriptsDir}\tebunko\ui\search_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
     . "${scriptsDir}\tebunko\ui\open_source.ps1"
 
     function newRow {
@@ -287,7 +295,7 @@ Describe "findSourceFile" -Tag Io {
 
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         lastStatus | Should -Be "元のファイルを確かめられませんでした：アクセスが拒否されました。"
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 元のファイルを確かめられませんでした" }
     }
 
     It "裏の仕事が予期せず失敗したときも、その他として知らせる" {
@@ -372,7 +380,7 @@ Describe "findSourceFile" -Tag Io {
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
         $script:foundPaths.Count | Should -Be 0
         Should -Invoke showConfirm -Times 2 -Exactly
-        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
+        Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
     }
 }
 
@@ -432,65 +440,28 @@ Describe "openWithNotepad" -Tag Io {
     }
 }
 
-Describe "getOpenMode / setOpenMode / updateOpenMenu" -Tag Unit {
-    BeforeAll {
-        $items = @(
-            [pscustomobject]@{ Tag = ${openModeNormal} },
-            [pscustomobject]@{ Tag = ${openModeReadOnly} },
-            [pscustomobject]@{ Tag = ${openModeNew} }
-        )
+Describe "getOpenMode / setOpenMode" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "設定した開き方を返す"; set = "readOnly"; expected = "readOnly" }
+        @{ name = "新規も返す"; set = "new"; expected = "new" }
+        @{ name = "知らない値なら通常"; set = "unknown"; expected = "normal" }
+        @{ name = "空なら通常"; set = ""; expected = "normal" }
+    ) {
+        param ($name, $set, $expected)
+        setOpenMode $set
+        getOpenMode | Should -Be $expected
     }
 
-    It "［開き方］で選んだものを返す" {
-        $ui.OpenModeCombo.SelectedItem = $items[1]
-        getOpenMode | Should -Be ${openModeReadOnly}
-    }
-
-    It "選んでいない・知らない値なら通常" {
-        $ui.OpenModeCombo.SelectedItem = $null
+    It "選んでいなければ通常" {
+        $script:openMode = $null
         getOpenMode | Should -Be ${openModeNormal}
-        $ui.OpenModeCombo.SelectedItem = [pscustomobject]@{ Tag = "unknown" }
-        getOpenMode | Should -Be ${openModeNormal}
-    }
-
-    It "設定の値の項目を選ぶ（選んでいる間だけ読み込み中の印を立てる）" {
-        $ui.OpenModeCombo.Items = $items
-        setOpenMode ${openModeNew}
-        $ui.OpenModeCombo.SelectedItem | Should -Be $items[2]
-        $script:loadingOpenMode | Should -Be $false
-    }
-
-    It "知らない値なら先頭を選ぶ" {
-        $ui.OpenModeCombo.Items = $items
-        $ui.OpenModeCombo.SelectedIndex = 2
-        setOpenMode "unknown"
-        $ui.OpenModeCombo.SelectedIndex | Should -Be 0
-    }
-
-    It "右クリックメニューの、既定の開き方にだけ Enter を出す" {
-        $ui.OpenModeCombo.SelectedItem = $items[1]
-        updateOpenMenu
-        $ui.MenuOpen.InputGestureText | Should -Be ""
-        $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
-        $ui.MenuOpenNew.InputGestureText | Should -Be ""
-
-        $ui.OpenModeCombo.SelectedItem = $null  # 選んでいなければ通常
-        updateOpenMenu
-        $ui.MenuOpen.InputGestureText | Should -Be "Enter"
-        $ui.MenuOpenReadOnly.InputGestureText | Should -Be ""
-        $ui.MenuOpenNew.InputGestureText | Should -Be ""
-
-        $ui.OpenModeCombo.SelectedItem = $items[2]
-        updateOpenMenu
-        $ui.MenuOpen.InputGestureText | Should -Be ""
-        $ui.MenuOpenNew.InputGestureText | Should -Be "Enter"
     }
 }
 
 Describe "openSource" -Tag Unit {
     BeforeEach {
         $script:statuses = New-Object System.Collections.Generic.List[string]
-        $ui.OpenModeCombo.SelectedItem = $null
+        $script:openMode = $null
     }
 
     It "元のファイルが見つからなければ開かない" {
@@ -537,11 +508,11 @@ Describe "openSource" -Tag Unit {
         lastStatus | Should -Be "読み取り専用で開けなかったため、元のファイルを開きました（該当セルへの移動はできませんでした）：C:\data\見積.xlsx"
     }
 
-    It "Excel 以外は既定のアプリで開く（開き方は［開き方］の選択）" {
+    It "Excel 以外は既定のアプリで開く（開き方は既定の開き方）" {
         Mock getCurrentHitRow { newRow "報告.docx" $false }
         Mock findSourceFile { param ($row, $onFound) & $onFound "C:\data\報告.docx" }
         Mock openWithShell { $true }
-        $ui.OpenModeCombo.SelectedItem = [pscustomobject]@{ Tag = ${openModeNew} }
+        $script:openMode = ${openModeNew}
 
         openSource
         Should -Invoke openWithShell -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
@@ -771,18 +742,19 @@ Describe "画面の操作" -Tag Unit {
         Should -Invoke exportResults -Times 1 -Exactly
     }
 
-    It "［開き方］を選ぶと設定に保存する（起動時の読み込みでは保存しない）" {
+    It "［開く］の［▾］のメニューで選ぶと、その開き方を既定にして保存し、開く" {
+        Mock openSource { }
         Mock writeOpenMode { }
-        $ui.OpenModeCombo.SelectedItem = [pscustomobject]@{ Tag = ${openModeReadOnly} }
 
-        $script:loadingOpenMode = $true
-        & $ui.OpenModeCombo.Handlers["SelectionChanged"]
-        Should -Invoke writeOpenMode -Times 0 -Exactly
-
-        $script:loadingOpenMode = $false
-        & $ui.OpenModeCombo.Handlers["SelectionChanged"]
+        & $ui.MenuOpenModeReadOnly.Handlers["Click"]
+        getOpenMode | Should -Be ${openModeReadOnly}
         Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
-        $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
+        Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
+
+        & $ui.MenuOpenModeNew.Handlers["Click"]
+        getOpenMode | Should -Be ${openModeNew}
+        Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
+        Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeNew} }
     }
 
     It "Enter は、見出しの行では閉じる・開く、ほかの行では元のファイルを開く" {
@@ -800,6 +772,19 @@ Describe "画面の操作" -Tag Unit {
         $ui.ResultGrid.SelectedItem = newRow
         & $ui.ResultGrid.Handlers["PreviewKeyDown"] $null ([pscustomobject]@{ Key = "Return"; Handled = $false })
         Should -Invoke openSource -Times 1 -Exactly
+    }
+
+    It "メニューの［この結果を折りたたむ］は、選んでいる見出しだけを閉じる・開く" {
+        Mock toggleFileGroup { }
+
+        $ui.ResultGrid.SelectedItem = newRow
+        & $ui.MenuToggleGroup.Handlers["Click"]
+        Should -Invoke toggleFileGroup -Times 0 -Exactly
+
+        $expectedGroup = [FileGroup]::new()
+        $ui.ResultGrid.SelectedItem = $expectedGroup
+        & $ui.MenuToggleGroup.Handlers["Click"]
+        Should -Invoke toggleFileGroup -Times 1 -Exactly -ParameterFilter { [object]::ReferenceEquals($group, $expectedGroup) }
     }
 
     It "ほかのキーは扱わない" {
@@ -832,5 +817,143 @@ Describe "画面の操作" -Tag Unit {
         & $double (New-Object System.Windows.Controls.Primitives.ScrollBar)
         & $double (New-Object System.Windows.Controls.TextBlock)  # 行の中に無い要素（親をたどっても行に着かない）
         Should -Invoke openSource -Times 1 -Exactly
+    }
+}
+
+Describe "右クリックのメニュー" -Tag Unit {
+    BeforeEach {
+        $script:statuses = New-Object System.Collections.Generic.List[string]
+        $ui.ResultGrid.SelectedItem = $null
+        $ui.ResultGrid.SelectedItems = @()
+    }
+
+    Context "showResultMenu" {
+        BeforeEach {
+            Mock setContextMenuItems { }
+        }
+
+        It "マウスで開いたとき、行の無い所では出さない" {
+            $ui.ResultGrid.SelectedItem = newRow
+            showResultMenu $null 10 | Should -Be $false
+            Should -Invoke setContextMenuItems -Times 0 -Exactly
+        }
+
+        It "選んでいる項目が無ければ出さない" {
+            showResultMenu $null -1 | Should -Be $false
+            Should -Invoke setContextMenuItems -Times 0 -Exactly
+        }
+
+        It "キーボードで開いたとき（CursorLeft が負）は、行の確かめを飛ばして選んでいる行に出す" {
+            $ui.ResultGrid.SelectedItem = newRow
+            showResultMenu $null -1 | Should -Be $true
+            Should -Invoke setContextMenuItems -Times 1 -Exactly -ParameterFilter { @($items | Where-Object { $_.Id -eq "openFolder" }).Count -eq 1 -and @($items | Where-Object { $_.Id -eq "toggleGroup" }).Count -eq 0 }
+        }
+
+        It "見出しでは group のメニューにし、開いているかを渡す（<name>）" -TestCases @(
+            @{ name = "開いている"; expanded = $true }
+            @{ name = "閉じている"; expanded = $false }
+        ) {
+            $group = [FileGroup]::new()
+            $group.IsExpanded = $expanded
+            $ui.ResultGrid.SelectedItem = $group
+            showResultMenu $null -1 | Should -Be $true
+            $expectedJson = getResultMenuItems "group" (getOpenMode) $expanded | ConvertTo-Json -Compress
+            Should -Invoke setContextMenuItems -Times 1 -Exactly -ParameterFilter { ($items | ConvertTo-Json -Compress) -eq $expectedJson }
+        }
+    }
+
+    Context "画面の受け口" {
+        It "行の無い所の右クリックでは、メニューを出さない（Handled）" {
+            $e = [pscustomobject]@{ OriginalSource = $null; CursorLeft = 10; Handled = $false }
+            & $ui.ResultGrid.Handlers["ContextMenuOpening"] $null $e
+            $e.Handled | Should -Be $true
+        }
+
+        It "選んでいる項目が無ければ、キーボードで開いてもメニューを出さない（Handled）" {
+            $e = [pscustomobject]@{ OriginalSource = $null; CursorLeft = -1; Handled = $false }
+            & $ui.ResultGrid.Handlers["ContextMenuOpening"] $null $e
+            $e.Handled | Should -Be $true
+        }
+
+        It "出せるときは Handled にしない" {
+            Mock setContextMenuItems { }
+            $ui.ResultGrid.SelectedItem = newRow
+            $e = [pscustomobject]@{ OriginalSource = $null; CursorLeft = -1; Handled = $false }
+            & $ui.ResultGrid.Handlers["ContextMenuOpening"] $null $e
+            $e.Handled | Should -Be $false
+        }
+
+        It "右クリックで押した所に行が無ければ、選びを変えない" {
+            Mock selectResultRowForMenu { }
+            & $ui.ResultGrid.Handlers["PreviewMouseRightButtonDown"] $null ([pscustomobject]@{ OriginalSource = $null })
+            Should -Invoke selectResultRowForMenu -Times 0 -Exactly
+        }
+
+        It "右クリックで押した所に行があれば、その行を選ぶ" -Skip:(!$sta) {
+            Mock selectResultRowForMenu { }
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = newRow
+            & $ui.ResultGrid.Handlers["PreviewMouseRightButtonDown"] $null ([pscustomobject]@{ OriginalSource = $row })
+            Should -Invoke selectResultRowForMenu -Times 1 -Exactly
+        }
+    }
+
+    Context "selectResultRowForMenu" {
+        It "選ばれていない行を右クリックすると、その行だけを選ぶ" -Skip:(!$sta) {
+            $ui.ResultGrid.SelectedItem = newRow "他.xlsx"
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = newRow
+            selectResultRowForMenu $row
+            [object]::ReferenceEquals($ui.ResultGrid.SelectedItem, $row.Item) | Should -Be $true
+        }
+
+        It "複数選んだ行の中を右クリックしても、選びは変わらない（1 件だけの操作は、先に選んだ行 SelectedItem に効く）" -Skip:(!$sta) {
+            $first = newRow "先.xlsx"
+            $second = newRow "後.xlsx"
+            $ui.ResultGrid.SelectedItem = $first
+            $ui.ResultGrid.SelectedItems = @($first, $second)
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = $second
+            $row.IsSelected = $true
+            selectResultRowForMenu $row
+            [object]::ReferenceEquals($ui.ResultGrid.SelectedItem, $first) | Should -Be $true
+        }
+
+        It "見出しを含む選びの中の行を右クリックすると、その行だけを選ぶ" -Skip:(!$sta) {
+            $item = newRow
+            $heading = [FileGroup]::new()
+            $ui.ResultGrid.SelectedItem = $heading
+            $ui.ResultGrid.SelectedItems = @($heading, $item)
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = $item
+            $row.IsSelected = $true
+            selectResultRowForMenu $row
+            [object]::ReferenceEquals($ui.ResultGrid.SelectedItem, $item) | Should -Be $true
+        }
+    }
+
+    Context "setContextMenuItems" {
+        It "判断層が決めた並びで、区切り・太字・文言を並べる" -Skip:(!$sta) {
+            $menu = New-Object System.Windows.Controls.ContextMenu
+            $parts = @{ a = New-Object System.Windows.Controls.MenuItem; b = New-Object System.Windows.Controls.MenuItem; c = New-Object System.Windows.Controls.MenuItem }
+            $parts.c.Header = "前の文言"
+            $parts.c.FontWeight = [System.Windows.FontWeights]::Bold
+            $menu.Items.Add($parts.a) | Out-Null  # 前の中身は消える
+            $items = @(
+                @{ Id = "b"; Header = "二番目の文言"; Bold = $false }
+                @{ Id = "separator"; Header = ""; Bold = $false }
+                @{ Id = "a"; Header = "先頭の文言"; Bold = $true }
+                @{ Id = "c"; Header = "三番目"; Bold = $false }
+            )
+            setContextMenuItems $menu $items $parts
+
+            $menu.Items.Count | Should -Be 4
+            $menu.Items[0].Header | Should -Be "二番目の文言"
+            $menu.Items[1] | Should -BeOfType [System.Windows.Controls.Separator]
+            $menu.Items[2].Header | Should -Be "先頭の文言"
+            $menu.Items[2].FontWeight | Should -Be ([System.Windows.FontWeights]::Bold)
+            $menu.Items[3].Header | Should -Be "三番目"
+            $menu.Items[3].FontWeight | Should -Be ([System.Windows.FontWeights]::Normal)
+        }
     }
 }

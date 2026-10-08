@@ -104,19 +104,19 @@ function testIndexName {
 
     $name = [string]$name
     if ($name -eq "") {
-        return "インデックス名を入力してください。"
+        return "名前を入力してください。"
     }
     if ($name -ne $name.Trim()) {
-        return "インデックス名の前後に空白は使えません。"
+        return "名前の前後に空白は使えません。"
     }
     if ($name.Length -gt ${maxFileNameLength}) {
-        return "インデックス名が長すぎます（${maxFileNameLength} 文字まで）。"
+        return "名前が長すぎます（${maxFileNameLength} 文字まで）。"
     }
     if (@([System.IO.Path]::GetInvalidFileNameChars() | Where-Object { $name.IndexOf($_) -ge 0 }).Count -gt 0) {
-        return "インデックス名に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
+        return "名前に使えない文字が含まれています（\ / : * ? " + [char]34 + " < > | と制御文字）。"
     }
     if ($name.EndsWith(".")) {
-        return "インデックス名の最後に . は使えません。"
+        return "名前の最後に . は使えません。"
     }
     if (${reservedFileNames} -contains $name.Split(".")[0].ToUpperInvariant()) {
         return "「${name}」は Windows で使えない名前です。"

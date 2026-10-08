@@ -11,7 +11,7 @@ GitHub Release の配布 zip（`tebunko-<タグ>.zip`）は、`v` で始まる�
 | `tebunko.bat`・`scripts/` | zip の中 | ツール本体 |
 | `README.md` | zip の中 | 使い方。相対リンクと画像は、その版の GitHub の URL に書き換えて入れる（`docs/` や画像は zip に入れないため） |
 | `LICENSE` | zip の中 | ライセンス（MIT。写しに許諾表示を含めるため同梱する） |
-| `VERSION.txt` | zip の中 | 版とコミットの記録（タグ名とコミットの SHA の2行。`tools/new_version_text.ps1` が作る。画面の「tebunko について」に出す） |
+| `VERSION.txt` | zip の中 | 版とコミットの記録（タグ名とコミットの SHA の2行。`tools/new_version_text.ps1` が作る。画面の「バージョン情報」に出す） |
 | `tebunko-setup-<タグ>.exe` | リリース（zip の横） | インストーラー版（[インストーラー版](disclosure.md#インストーラー版)。`tools/new_installer.ps1` が作る）。中身のスクリプトは zip と同じ |
 | `tebunko.cat`・`SHA256SUMS.txt` | リリース（zip の横） | 改ざんの確認用（`tools/new_release_files.ps1` が作る） |
 | `sbom.cdx.json` | リリース（zip の横） | 部品表（CycloneDX 1.6）。版・`serialNumber`・`timestamp` と、zip に入る全ファイルのパス・SHA-256 を載せる（`tools/new_sbom.ps1` が、配布物を作るたびに zip の中身から作る。リポジトリの `sbom.cdx.json` は雛形） |
@@ -199,8 +199,8 @@ Get-FileHash .\tebunko-v0.1.0.zip -Algorithm SHA256    # この値を VirusTotal
 | 指標 | 値 |
 |---|---|
 | テスト件数 | 1,189 件（既定のタグ Unit・Io・Meta。失敗 0 件。うち安全性・構成の検査（タグ `Meta`）が 122 件） |
-| コードカバレッジ | 97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（`tests/run.ps1` の `CodeCoverage` の条件）。Office の COM を使うインデクサは、COM の入口（`getApp`）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は `tests/coverage.baseline`（90.0%）で、下回ると CI が失敗する |
+| コードカバレッジ | 97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・枠・タブ・ダイアログを除くスクリプト（`tests/run.ps1` の `CodeCoverage` の条件）。Office の COM を使うインデクサは、COM の入口（`getApp`）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は `tests/coverage.baseline`（90.0%）で、下回ると CI が失敗する |
 | 規模 | `scripts/` 配下 57 ファイル・12,326 行（空行を除く）・419 関数（2026-09-26 時点） |
-| 第三者依存 | 0 件 |
+| 第三者依存 | コードは 0 件（同梱するのはフォント Rethink Sans とアイコンの形 Lucide の 2 つ。どちらも実行されない） |
 
-規模と依存の数を示す意味は、**監査にかかる手間を見積もれる**ことである。第三者依存が無いため、読む範囲はこの 12,326 行で閉じる。
+規模と依存の数を示す意味は、**監査にかかる手間を見積もれる**ことである。第三者のコードの依存が無いため、読む範囲はこの 12,326 行で閉じる。

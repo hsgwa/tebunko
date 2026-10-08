@@ -1,4 +1,5 @@
 ﻿# 画面の共通部品（状態表示・メッセージ・確認ダイアログ・タイマー・別スレッド）。
+# メッセージ（showMessage）・確認（showConfirm）・エラーの知らせ（showErrorDialog）は、同じ窓（dialog_confirm.xaml）で出す。
 
 function setStatus {
     param (
@@ -6,10 +7,13 @@ function setStatus {
     )
 
     $ui.StatusText.Text = $text
-    $ui.StatusText.ToolTip = $text
 }
 
 function showMessage {
+    # お知らせ・警告・誤り・確認のメッセージ。確認（showConfirm）・エラー（showErrorDialog）と同じ自前の画面で出す
+    # （枠・題・余白・ボタンの形・種類ごとのアイコンと色は同じ。種類とボタンの決め方は message_view.ps1）。
+    #   buttons: OK・OKCancel・YesNo・YesNoCancel ／ icon: Information・Warning・Error・Question・None ／ default: 最初に Enter で押すボタンの戻り値の名前
+    # 戻り値は [System.Windows.MessageBoxResult]（OK・Yes・No・Cancel）。OS 標準の MessageBox.Show と同じ
     param (
         [string]$message,
         [string]$buttons = "OK",
@@ -18,9 +22,13 @@ function showMessage {
         [System.Windows.Window]$owner = $window  # ダイアログを開いているときは、そのダイアログを親にする
     )
 
-    # 親を指定した表示に失敗しても、知らせること自体は止めない。
-    # （親のウィンドウが閉じかけている・別のスレッドから呼ばれた等で失敗することがある。
-    #   ここで例外が出ると、元のエラーが「Show の呼び出しに失敗」という別のエラーに化けて分からなくなる）
+    # 自前の画面を出せないとき（別のスレッドから呼ばれた・親の窓が閉じかけている・画面の定義が読めない等）も、知らせること自体は止めない。
+    # ここで例外が出ると、元のエラーが別のエラーに化けて分からなくなるため、記録だけ残して OS 標準のメッセージボックスで出す
+    try {
+        return showMessageDialog $message $buttons $icon $default $owner
+    } catch {
+        writeErrorLog "メッセージを自前の画面で表示できませんでした" $_
+    }
     if ($null -ne $owner) {
         try {
             return [System.Windows.MessageBox]::Show($owner, $message, ${appTitle}, $buttons, $icon, $default)
@@ -29,6 +37,80 @@ function showMessage {
         }
     }
     return [System.Windows.MessageBox]::Show($message, ${appTitle}, $buttons, $icon, $default)
+}
+
+function setDialogLook {
+    # メッセージの画面の見出しの左のアイコン。種類（getMessageLook）のアイコンと色にする。アイコンが無い種類は隠す
+    param (
+        $dialog,
+        [hashtable]$look
+    )
+
+    $mark = $dialog.FindName("HeadingIcon")
+    $host_ = $dialog.FindName("HeadingIconHost")
+    if ($look.Icon -eq "") {
+        $host_.Visibility = "Collapsed"
+        return
+    }
+    $mark.Data = $dialog.FindResource($look.Icon)
+    [System.Windows.Automation.AutomationProperties]::SetName($host_, $look.Label)  # 読み上げの名前（お知らせ・警告・エラー・確認）
+    $mark.Stroke = $dialog.FindResource($look.Brush)
+    $host_.Visibility = "Visible"
+}
+
+function showMessageDialog {
+    param (
+        [string]$message,
+        [string]$buttons,
+        [string]$icon,
+        [string]$default,
+        [System.Windows.Window]$owner
+    )
+
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog.Title = ${appTitle}
+    $dialog.Width = getConfirmWidth "normal"
+    if ($null -ne $owner) {
+        $dialog.Owner = $owner
+    } else {
+        $dialog.WindowStartupLocation = "CenterScreen"
+    }
+    setDialogLook $dialog (getMessageLook $icon)
+    $parts = getMessageParts $message
+    $dialog.FindName("HeadingText").Text = $parts.Heading
+    if ($parts.Hint -ne "") {
+        $hint = $dialog.FindName("HintText")
+        $hint.Text = $parts.Hint
+        $hint.Visibility = "Visible"
+    }
+    if ($parts.Detail -ne "") {
+        $dialog.FindName("DetailText").Text = $parts.Detail
+        $dialog.FindName("DetailBox").Visibility = "Visible"
+    }
+    $panel = $dialog.FindName("ButtonPanel")
+    $chosen = @{ Value = getMessageCloseResult $buttons }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
+    $onClick = {
+        param ($sender, $e)
+        $chosen.Value = $sender.Tag
+        $dialog.DialogResult = $true
+    }.GetNewClosure()
+    $focusTarget = $null
+    foreach ($spec in (getMessageButtons $buttons $default)) {
+        $button = New-Object System.Windows.Controls.Button
+        $button.Content = $spec.Text
+        $button.Tag = $spec.Result
+        $button.IsDefault = $spec.IsDefault
+        $button.IsCancel = $spec.IsCancel
+        if ($spec.Primary) {
+            $button.Style = $dialog.FindResource("Primary")
+            $focusTarget = $button
+        }
+        $button.Add_Click($onClick)
+        $panel.Children.Add($button) | Out-Null
+    }
+    $dialog.Add_ContentRendered({ if ($null -ne $focusTarget) { $focusTarget.Focus() | Out-Null } }.GetNewClosure())
+    $null = showOwnedDialog $dialog
+    return [System.Windows.MessageBoxResult]$chosen.Value
 }
 
 # 確認ダイアログに並べる「実行するとこうなります」の 1 行を作る
@@ -40,61 +122,117 @@ function factNext { param ([string]$title, [string]$detail = "") [ConfirmFact]@{
 
 function factWarn { param ([string]$title, [string]$detail = "") [ConfirmFact]@{ Mark = "!"; MarkBrush = ${warnBrush}; Title = $title; Detail = $detail } }
 
-function newChoiceContent {
-    # 選択肢ボタンの中身。1 行目に動作、2 行目にその結果を置く
+# 確認ダイアログの形。呼び出し側が form を指定しなければ、選択肢から決める
+#   choice: 選択肢が 2 つ以上（［キャンセル］の右に選択肢のボタンを横に並べる）、danger: 1 つで Danger、normal: それ以外
+function getConfirmForm {
     param (
-        [string]$text,
-        [string]$detail
+        [object[]]$choices,
+        [string]$form = ""
     )
 
-    $panel = New-Object System.Windows.Controls.StackPanel
-    $title = New-Object System.Windows.Controls.TextBlock
-    $title.Text = $text
-    $title.FontWeight = [System.Windows.FontWeights]::SemiBold
-    $title.TextWrapping = "Wrap"
-    $panel.Children.Add($title) | Out-Null
-    if ($detail -ne "") {
-        $line = New-Object System.Windows.Controls.TextBlock
-        $line.Text = $detail
-        $line.FontSize = 12
-        $line.Foreground = ${grayBrush}
-        $line.TextWrapping = "Wrap"
-        $line.Margin = New-Object System.Windows.Thickness -ArgumentList 0, 3, 0, 0
-        $panel.Children.Add($line) | Out-Null
+    if ($form -ne "") {
+        return $form
     }
-    return $panel
+    if (@($choices).Count -gt 1) {
+        return "choice"
+    }
+    if (@($choices).Count -eq 1 -and [bool]@($choices)[0].Danger) {
+        return "danger"
+    }
+    return "normal"
+}
+
+# 形ごとの窓の幅。選択肢のボタンを並べる choice は広く、ほかは 520
+function getConfirmWidth {
+    param (
+        [string]$form
+    )
+
+    switch ($form) {
+        "choice" { return 620 }
+        default  { return 520 }
+    }
+}
+
+# 暗幕にする部品（窓いっぱいに掛ける Border）。shared/ はツールの部品の名前を知らないので、起動側が渡す
+$script:dialogScrim = $null
+$script:dialogDepth = 0  # いま開いているダイアログ（showOwnedDialog）の数
+
+function setDialogScrim {
+    param (
+        $scrim
+    )
+
+    $script:dialogScrim = $scrim
+}
+
+function showOwnedDialog {
+    # 本体の窓を親にするダイアログを出す。出している間は、本体の上に暗幕を掛ける（閉じる・例外のときも外す）。
+    # 戻り値は ShowDialog の戻り値（DialogResult）
+    param (
+        $dialog
+    )
+
+    # ダイアログの上にさらにダイアログ（メッセージなど）を重ねるときは、中のほうが閉じても暗幕は外さない（外側のダイアログがまだ開いている）
+    $scrim = $script:dialogScrim
+    $script:dialogDepth++
+    if ($null -ne $scrim) {
+        $scrim.Visibility = "Visible"
+    }
+    try {
+        return $dialog.ShowDialog()
+    } finally {
+        $script:dialogDepth--
+        if ($null -ne $scrim -and $script:dialogDepth -le 0) {
+            $scrim.Visibility = "Collapsed"
+        }
+    }
 }
 
 function showConfirm {
     # 確認ダイアログ。「見出し（何をするか）」「こうなります（何が消えて何が残るか）」「選択肢のボタン」で、
     # 文章を読まなくても押す前に結果が分かるようにする。選んだ Value を返す（キャンセル・閉じるは $null）。
-    #   choices: @{ Text = "削除する"; Detail = "ボタンの下に出す補足"; Value = "delete"; Danger = $true; Careful = $true } の配列
-    #            1 つなら［実行］＋［キャンセル］、2 つ以上なら選択肢ボタンを縦に並べる
-    #            Danger は赤いボタン、Careful は色はそのままでキャンセルを既定にする
+    #   choices: @{ Text = "削除する"; Value = "delete"; Danger = $true; Careful = $true } の配列
+    #            ［キャンセル］の右に横に並べる。最後の 1 つが主なボタン（Danger は赤）。ほかは枠だけのボタン
+    #            Danger・Careful は、うっかり Enter で進まないようキャンセルを既定にする
     #   facts:   factGone / factKept / factNext で作った行
-    #   hint:    読まなくても操作できる補足（別のやり方の案内など）
+    #   hint:    読まなくても操作できる補足（別のやり方の案内など。見出しの下に淡く出す）
+    #   detail:  詳しい内容（エラーの文面など）。枠の中に、選べる文字で出す
+    #   title:   窓の題（OS のタイトルバー）。既定はアプリ名
+    #   form:    normal・danger・choice。省略すると選択肢から決める（getConfirmForm）。幅と、danger の赤い印・赤い実行ボタンが変わる
     param (
         [string]$heading,
         [object[]]$choices,
         [object[]]$facts = @(),
         [string]$hint = "",
+        [string]$detail = "",
         [string]$cancelText = "キャンセル",
+        [string]$title = "",
+        [string]$form = "",
         [System.Windows.Window]$owner = $window
     )
 
-    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml"
-    $dialog.Title = ${appTitle}
+    $form = getConfirmForm $choices $form
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog.Title = if ($title -ne "") { $title } else { ${appTitle} }
+    $dialog.Width = getConfirmWidth $form
     $dialog.Owner = $owner
     $ctrl = @{}
-    foreach ($name in @("HeadingText", "FactsPanel", "FactsList", "ChoicePanel", "HintText", "ButtonPanel")) {
+    foreach ($name in @("HeadingIcon", "HeadingText", "FactsPanel", "FactsList", "DetailBox", "DetailText", "HintText", "ButtonPanel")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
     $chosen = @{ Value = $null }  # ボタンの Click から書き換えるため、入れ物ごとクロージャに渡す
 
     $ctrl.HeadingText.Text = $heading
+    # 見出しの左のアイコン。取り消せない操作（danger）は誤りと同じ赤い「!」、ほかの確認は「?」（種類は message_view.ps1）
+    setDialogLook $dialog (getMessageLook $(if ($form -eq "danger") { "Error" } else { "Question" }))
     if ($facts.Count -gt 0) {
         $ctrl.FactsList.ItemsSource = $facts
         $ctrl.FactsPanel.Visibility = "Visible"
+    }
+    if ($detail -ne "") {
+        $ctrl.DetailText.Text = $detail
+        $ctrl.DetailBox.Visibility = "Visible"
     }
     if ($hint -ne "") {
         $ctrl.HintText.Text = $hint
@@ -108,39 +246,87 @@ function showConfirm {
     }.GetNewClosure()
     $focusTarget = $null
     $cautious = $false
-    foreach ($choice in $choices) {
+    $cancel = New-Object System.Windows.Controls.Button
+    $cancel.Content = $cancelText
+    $cancel.IsCancel = $true
+    $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null  # ［キャンセル］は選択肢のボタンの左
+    for ($i = 0; $i -lt @($choices).Count; $i++) {
+        $choice = @($choices)[$i]
         $button = New-Object System.Windows.Controls.Button
         $button.Tag = $choice.Value
         $button.Add_Click($onChoice)
-        if ($choices.Count -eq 1) {
+        $button.Content = $choice.Text
+        $isMain = ($i -eq @($choices).Count - 1)
+        if ($isMain) {
+            $button.Style = $dialog.FindResource($(if ($choice.Danger) { "Danger.Filled" } else { "Primary" }))
             $cautious = [bool]$choice.Danger -or [bool]$choice.Careful
-            $button.Style = $dialog.FindResource($(if ($choice.Danger) { "Danger" } else { "Primary" }))
-            $button.Content = $choice.Text
-            $button.IsDefault = !$cautious
-            $ctrl.ButtonPanel.Children.Add($button) | Out-Null
-        } else {
-            $button.Style = $dialog.FindResource("Choice")
-            $button.Content = newChoiceContent $choice.Text $choice.Detail
-            $ctrl.ChoicePanel.Children.Add($button) | Out-Null
+            $button.IsDefault = !$cautious -and @($choices).Count -eq 1
         }
+        $ctrl.ButtonPanel.Children.Add($button) | Out-Null
         if ($null -eq $focusTarget) {
             $focusTarget = $button
         }
     }
-
-    $cancel = New-Object System.Windows.Controls.Button
-    $cancel.Content = $cancelText
-    $cancel.IsCancel = $true
-    $ctrl.ButtonPanel.Children.Add($cancel) | Out-Null
-    if ($cautious -or $choices.Count -gt 1) {
+    if ($cautious -or @($choices).Count -gt 1) {
         # 消す操作・選択肢が複数の操作は、うっかり Enter で進まないようキャンセルを既定にする
         $cancel.IsDefault = $true
         $focusTarget = $cancel
     }
 
     $dialog.Add_ContentRendered({ $focusTarget.Focus() | Out-Null }.GetNewClosure())
-    $null = $dialog.ShowDialog()
+    $null = showOwnedDialog $dialog
     return $chosen.Value
+}
+
+function showErrorDialog {
+    # エラーの知らせ。見出し・エラーの文面・［内容をコピー］［ログを開く］［閉じる］。
+    # logFile を渡さないときは［ログを開く］を出さない（開く先が無いため）
+    param (
+        [string]$heading,
+        [string]$detail,
+        [string]$logFile = "",
+        [System.Windows.Window]$owner = $window
+    )
+
+    $dialog = loadWindow "${sharedXamlDir}\dialog_confirm.xaml" ${fontsDir}
+    $dialog.Title = "エラー"
+    $dialog.Width = getConfirmWidth "error"
+    if ($null -ne $owner) {
+        $dialog.Owner = $owner
+    }
+    setDialogLook $dialog (getMessageLook "Error")
+    $dialog.FindName("HeadingText").Text = $heading
+    $dialog.FindName("DetailText").Text = $detail
+    $dialog.FindName("DetailBox").Visibility = "Visible"
+    $panel = $dialog.FindName("ButtonPanel")
+
+    $copy = New-Object System.Windows.Controls.Button
+    $copy.Content = "内容をコピー"
+    $copy.Add_Click({
+        try {
+            [System.Windows.Clipboard]::SetText($detail)
+        } catch {
+            # クリップボードを他が使っているときは、あきらめる（もう一度押せる）
+        }
+    }.GetNewClosure())
+    $panel.Children.Add($copy) | Out-Null
+    if ($logFile -ne "") {
+        $open = New-Object System.Windows.Controls.Button
+        $open.Content = "ログを開く"
+        $open.Add_Click({
+            if (Test-Path -LiteralPath $logFile) {
+                Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe" -ArgumentList "`"$logFile`""
+            }
+        }.GetNewClosure())
+        $panel.Children.Add($open) | Out-Null
+    }
+    $close = New-Object System.Windows.Controls.Button
+    $close.Content = "閉じる"
+    $close.Style = $dialog.FindResource("Primary")
+    $close.IsDefault = $true
+    $close.IsCancel = $true
+    $panel.Children.Add($close) | Out-Null
+    $null = showOwnedDialog $dialog
 }
 
 # 予期しない例外を繰り返し知らせないための、同じ例外の見分け（型・メッセージ・発生場所）と抑え方の状態。
@@ -199,18 +385,19 @@ function reportUnexpectedError {
     if ($skipDialog) {
         return
     }
-    $dialogText = "エラーが発生しました。`n$message`n`n詳しい内容は $(Split-Path -Leaf (getGuiErrorLogFile)) に残しています。"
+    $heading = "予期しないエラーが起きました。"
+    $logFile = getGuiErrorLogFile
     if ($unhandled) {
         $entry.DialogShown = $true
         $script:unhandledDialogShowing = $true
         try {
-            showMessage $dialogText "OK" "Error" | Out-Null
+            showErrorDialog $heading "$($record.Exception.GetType().FullName): $message" $logFile
         } finally {
             $script:unhandledDialogShowing = $false
         }
         return
     }
-    showMessage $dialogText "OK" "Error" | Out-Null
+    showErrorDialog $heading "$($record.Exception.GetType().FullName): $message" $logFile
 }
 
 function registerUnhandledErrorHandler {

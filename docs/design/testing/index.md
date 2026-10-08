@@ -37,7 +37,7 @@ flowchart LR
 | 単体テスト（Unit・Io・Meta） | 関数の動きの誤り、構成の決まりの違反 | `tests/run.ps1`（Pester 5.9.0）。[単体テスト](unit-index.md)・[テストの実行と CI](run.md) | CI の `test` |
 | カバレッジの下限 | テストされない処理が増えること | `tests/coverage.baseline`（90.0%）を下回ると `-Ci` が失敗する。[テストの実行と CI](run.md) | CI の `test` |
 | 構成・安全性のメタテスト | 層の決まり（判断層・状態層が画面に触らないこと、画面以外の読み込み口が `ui/` を読み込まないこと）・文字コード・危険な処理（`Invoke-Expression`・通信・実行時コンパイルなど）の混入 | `tests/meta/`。[テストの実行と CI](ci.md) | CI の `test` |
-| 画面のスモークテスト | 画面の起動・タブ・検索・インデックスの作成・ワークスペースの変更・プロセス停止・閉じるの流れが壊れること（XAML の読み込み・イベントの配線・ダイアログの開閉・後片付けの例外） | `gui.yml`（`gui-smoke`。`tests/gui/`・タグ `Gui`）。手元は `.\tests\run.ps1 -Tag Gui`。[画面のスモークテスト](gui-smoke.md) | –（必須にしない） |
+| 画面のスモークテスト | 画面の起動・タブ・検索・インデックスの作成・ワークスペースの変更・閉じるの流れが壊れること（XAML の読み込み・イベントの配線・ダイアログの開閉・後片付けの例外） | `gui.yml`（`gui-smoke`。`tests/gui/`・タグ `Gui`）。手元は `.\tests\run.ps1 -Tag Gui`。[画面のスモークテスト](gui-smoke.md) | –（必須にしない） |
 | 静的解析 | PSScriptAnalyzer の `Error` と、安全性にかかわる 14 ルールの指摘 | `test.yml`（版は 1.25.0 に固定）と `tests/meta/safety.Tests.ps1` | CI の `test` |
 | 検索とインデックス作成の速さ | 検索・本文インデックスの作成・取り込み（.docx・.pptx）が、ランナーで測った数字から決めた上限より遅くなること | `perf-check.yml`（`search`・`ingest`）。PR にラベル `perf-check` を付けたときと main への push で流す。[`perf-check.yml`](ci.md) | ―（流した PR で落ちていればマージしない） |
 | 個人情報・文字コード | 利用者名入りのパス・メールアドレス・Office ファイルの作成者名、BOM・CRLF でないスクリプト | `tools/check_commit.ps1`。[公開してはいけない内容の検査](pre-commit.md) | フックと CI の `test` |
@@ -51,7 +51,7 @@ flowchart LR
 
 ## 結合テスト（手動）
 
-Excel・Word・PowerPoint の COM を使うインデックス作成と、画面のプロセス停止は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。
+Excel・Word・PowerPoint の COM を使うインデックス作成と、残った Office の終了は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。
 
 | テストデータ | 確認内容 | 関連 |
 |---|---|---|

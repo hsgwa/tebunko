@@ -143,7 +143,7 @@ Describe "危険な処理を使っていないこと（docs/safety/checks.md「�
         ($names -contains "notepad.exe") | Should -Be $true
     }
 
-    It "プロセスの強制終了は office_process.ps1 の 1 か所だけ（画面の［9 プロセス停止］）" {
+    It "プロセスの強制終了は office_process.ps1 の 1 か所だけ（起動時の前回残った Office の確認。止める対象は記録のあるものだけ）" {
         $stops = @($code | Where-Object { $_.Text -match 'Stop-Process' })
         $stops.Count | Should -Be 1
         $stops[0].File | Should -Be "office_process.ps1"
@@ -260,6 +260,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\content_index"') | Should -Not -Be ""
         (findPattern $paths '\$\{legacyTmpParent\}\s*=\s*Join-Path\s*\(\[System\.IO\.Path\]::GetTempPath\(\)\)\s*"tebunko"') | Should -Not -Be ""
         (findPattern $paths '\$this\.TmpRoot\s*=\s*"\$dir\\tmp"') | Should -Not -Be ""
+        (findPattern $paths '\$this\.OfficePidRoot\s*=\s*"\$dir\\office_pids"') | Should -Not -Be ""
         (findPattern $paths '\$this\.PublishDir\s*=\s*"\$dir\\') | Should -Not -Be ""
         (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should -Not -Be ""
     }

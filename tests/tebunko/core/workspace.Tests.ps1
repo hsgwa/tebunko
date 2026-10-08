@@ -33,6 +33,7 @@ Describe "Workspace" -Tag Unit {
         @($target.Entries()) | Should -Contain $target.LegacyIndexDir
         @($target.Entries()) | Should -Contain $target.IndexDir
         @($target.Entries()) | Should -Contain $target.TmpRoot
+        @($target.Entries()) | Should -Contain $target.OfficePidRoot
     }
 
     It "文字列のプロパティ（Dir・Legacy で始まるものを除く）は、Dir より後ろが ASCII（再発防止。後から足したプロパティも捕まえる）" {
@@ -55,6 +56,15 @@ Describe "Workspace" -Tag Unit {
 Describe "getMachineKey" -Tag Unit {
     It "この PC の鍵（getFolderKey の先頭 8 文字）を返す" {
         getMachineKey | Should -Be (getFolderKey ([Environment]::MachineName)).Substring(0, 8)
+    }
+}
+
+Describe "getOfficePidDir" -Tag Unit {
+    It "ワークスペースの office_pids の下に、PC の鍵で組み立てる（文字列だけで、フォルダは作らない）" {
+        $workspace = newTestWorkspace @{} "$TestDrive\getopd"
+
+        getOfficePidDir $workspace | Should -Be "$TestDrive\getopd\office_pids\$(getMachineKey)"
+        Test-Path "$TestDrive\getopd" | Should -Be $false
     }
 }
 
@@ -334,7 +344,7 @@ Describe "getLegacyIndexMessage" -Tag Unit {
         getLegacyIndexMessage $dir $false | Should -Be ""
         $message = getLegacyIndexMessage $dir $true
         $message | Should -Match ([regex]::Escape("$dir\index"))
-        $message | Should -Match "取り込み直します"
+        $message | Should -Match "更新し直します"
     }
 }
 
@@ -377,5 +387,15 @@ Describe "clearLegacySystemIndex" -Tag Io {
             $stream.Dispose()
         }
         Test-Path -LiteralPath $ws.SystemIndexDir | Should -Be $true
+    }
+}
+
+Describe "getOfficePidQueue" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ローカルのフォルダは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
+        @{ name = "UNC は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+        @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+    ) {
+        getOfficePidQueue $dir | Should -Be $expected
     }
 }

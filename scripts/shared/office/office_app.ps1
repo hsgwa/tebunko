@@ -23,7 +23,7 @@ $appInfo = @{
 # SingleInstance のアプリが、既に自分のセッションで起動している（利用者が使用中の）ときに投げる例外の文言。
 # 呼ぶ側は "<アプリ名>${officeAppInUseMessage}" の形で使う。Reroute（extract_office.ps1 の officeRequiredMessage・
 # OperationCanceledException）と取り違えないよう、型（InvalidOperationException）でも区別する
-${officeAppInUseMessage} = " が起動しているため、取り込みに使用できません"
+${officeAppInUseMessage} = " が起動しているため、更新に使用できません"
 
 # 起動した Office のプロセスの優先度は下げない（Normal のまま）。利用者がダブルクリックしたファイルがインデックス作成の Excel・Word で開くことがあり、
 # PowerPoint は 1 つのプロセスしか持てないため、利用者とプロセスを共有しないと確実には言えない。利用者の操作を遅くしないよう、
@@ -31,6 +31,10 @@ ${officeAppInUseMessage} = " が起動しているため、取り込みに使用
 # 起動したアプリの PID を入れる入れ物（ConcurrentDictionary[int,string]。$null なら入れない）。
 # 画面が閉じるときに、インデックス作成が起動した Office を PID で止めるために使う
 $script:officePidSink = $null
+# 起動した Office の PID の記録を置くフォルダ（<ワークスペース>\office_pids\<PC の鍵>。$null なら書かない）。
+# shared はツールを知らないため、使う側（インデックス作成）が場所を決めて入れる（office_process.ps1 の addOfficeRecord・removeOfficeRecord）。
+# 記録は、次に画面を起動したときに、残った Office を確認して止めるために使う（書けなくても取り込みは続ける。その Office は止める対象にならない）
+$script:officeRecordDir = $null
 
 function getOwnSessionProcessIds {
     # 自分のセッションで動いている、指定した名前のプロセスのIDの一覧。
@@ -74,6 +78,14 @@ function getApp {
         }
         if ($newIds.Count -eq 1 -and $script:officePidSink) {
             $script:officePidSink[[int]$newIds[0]] = $info.Process
+        }
+        if ($newIds.Count -eq 1 -and $script:officeRecordDir) {
+            # 起動時刻が読めたときだけ記録する（読めなければ、残っても止める対象にならない）
+            $started = Get-Process -Id ([int]$newIds[0]) -ErrorAction SilentlyContinue
+            $startTicks = $(if ($started -and $started.ProcessName -eq $info.Process) { getOfficeStartTicks $started } else { $null })
+            if ($null -ne $startTicks) {
+                [void](addOfficeRecord $script:officeRecordDir ([int]$newIds[0]) $info.Process $startTicks)
+            }
         }
 
         switch ($name) {
@@ -137,6 +149,7 @@ function stopApp {
 
     # GC::WaitForPendingFinalizers() はCOMの解放待ちで長時間（約60秒）止まることがあるため使わず、
     # 終了しなかったアプリはプロセスIDを指定して強制終了する
+    $exited = $true
     if (-not $inUse -and $app.Pid) {
         $process = Get-Process -Id $app.Pid -ErrorAction SilentlyContinue
         if ($process -and -not $process.WaitForExit($appInfo[$name].ExitWait)) {
@@ -144,8 +157,13 @@ function stopApp {
             try { $process.Kill() } catch {}
             # 強制終了は非同期のため、同じ上限で終わるのを待つ。それでも残った場合は、次の getApp が
             # 利用者のものとみなして後回しにする（安全な側に倒れる）
-            [void]$process.WaitForExit($appInfo[$name].ExitWait)
+            $exited = [bool]$process.WaitForExit($appInfo[$name].ExitWait)
         }
+    }
+    # 記録は、プロセスが終わったと確かめてから消す。終わらなければ残す（次の起動の確認に任せる）。
+    # 利用者がファイルを開いていて止めなかったとき（inUse）は、利用者に渡したものとして消す
+    if ($app.Pid -and $script:officeRecordDir -and ($inUse -or $exited)) {
+        removeOfficeRecord $script:officeRecordDir ([int]$app.Pid)
     }
     if ($app.Pid -and $script:officePidSink) {
         $removed = $null

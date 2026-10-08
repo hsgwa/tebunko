@@ -1,4 +1,4 @@
-﻿# ［2 検索］タブの、検索対象インデックスのツリー。
+﻿# ［検索］タブの、検索対象インデックスのツリー。
 
 
 # ---- 検索対象インデックスのツリー ----
@@ -6,9 +6,17 @@
 $script:indexRoots = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.IndexTree.ItemsSource = $script:indexRoots
 
+# 名前の絞り込み（IndexTreeFilterBox）。一覧（$script:indexRoots）は変えず、ツリーに見せる項目だけを絞る
+$script:indexTreeFilter = ""
+$script:indexRootView = [System.Windows.Data.CollectionViewSource]::GetDefaultView($script:indexRoots)
+$script:indexRootView.Filter = [System.Predicate[object]] {
+    param ($node)
+    return (matchesTreeFilter ([string]$node.Name) $script:indexTreeFilter)
+}
+
 function loadIndexTree {
     # インデックスの一覧（getSearchIndexes）をツリーに読み込む。一番上の項目がインデックス 1 件で、
-    # ［1 インデックス管理］で作ったインデックスがすべて並ぶ。
+    # ［インデックス管理］で作ったインデックスがすべて並ぶ。
     # 保存したチェックなしのフォルダと、読み込み前の展開の状態は戻す
     $expanded = New-Object 'System.Collections.Generic.List[string]'
     foreach ($node in $script:indexRoots) {
@@ -140,3 +148,9 @@ $ui.IndexTree.Add_PreviewKeyDown({
 })
 $ui.CheckAllIndexButton.Add_Click({ safe { setAllIndexChecked $true } })
 $ui.UncheckAllIndexButton.Add_Click({ safe { setAllIndexChecked $false } })
+
+$ui.IndexTreeFilterBox.Add_TextChanged({
+    $ui.IndexTreeFilterPlaceholder.Visibility = if ($ui.IndexTreeFilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
+    $script:indexTreeFilter = $ui.IndexTreeFilterBox.Text.Trim()
+    $script:indexRootView.Refresh()
+})

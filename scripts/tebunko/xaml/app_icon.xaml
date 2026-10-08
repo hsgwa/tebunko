@@ -1,0 +1,16 @@
+﻿<!-- 画面のアイコン（窓・スプラッシュ・バージョン情報で使うベクターの絵）。
+     docs\images\logo.svg から tools\new_icon.ps1 が作る。手で編集しない（図柄を変えるときは SVG を直して作り直す）。 -->
+<DrawingImage xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+  <DrawingImage.Drawing>
+    <DrawingGroup>
+      <GeometryDrawing Brush="Transparent" Geometry="M0,0 L256,0 L256,256 L0,256 Z" />
+      <GeometryDrawing Brush="#7ABDFF" Geometry="M179.1,32.5L219.8,56Q230.2,62 219.8,68L138.4,115Q128,121 117.6,115L36.2,68Q25.8,62 36.2,56L117.6,9Q128,3 138.4,9Z" />
+      <GeometryDrawing Brush="#3FA5FF" Geometry="M128,128L222.4,73.5Q230.2,69 230.2,78L230.2,95.3Q230.2,104.3 222.4,108.8L128,163.3L33.6,108.8Q25.8,104.3 25.8,95.3L25.8,78Q25.8,69 33.6,73.5Z" />
+      <GeometryDrawing Brush="#1F86EC" Geometry="M128,128L222.4,73.5Q230.2,69 230.2,78L230.2,95.3Q230.2,104.3 222.4,108.8L128,163.3Z" />
+      <GeometryDrawing Brush="#6FD08C" Geometry="M128,169.3L222.4,114.8Q230.2,110.3 230.2,119.3L230.2,136.7Q230.2,145.7 222.4,150.2L128,204.7L33.6,150.2Q25.8,145.7 25.8,136.7L25.8,119.3Q25.8,110.3 33.6,114.8Z" />
+      <GeometryDrawing Brush="#48B36B" Geometry="M128,169.3L222.4,114.8Q230.2,110.3 230.2,119.3L230.2,136.7Q230.2,145.7 222.4,150.2L128,204.7Z" />
+      <GeometryDrawing Brush="#FFB45F" Geometry="M128,210.7L222.4,156.2Q230.2,151.7 230.2,160.7L230.2,178Q230.2,187 222.4,191.5L135.8,241.5Q128,246 120.2,241.5L33.6,191.5Q25.8,187 25.8,178L25.8,160.7Q25.8,151.7 33.6,156.2Z" />
+      <GeometryDrawing Brush="#F08F33" Geometry="M128,210.7L222.4,156.2Q230.2,151.7 230.2,160.7L230.2,178Q230.2,187 222.4,191.5L135.8,241.5Q131.9,243.8 128,243.8Z" />
+    </DrawingGroup>
+  </DrawingImage.Drawing>
+</DrawingImage>

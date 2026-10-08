@@ -64,3 +64,85 @@ Describe "loadXaml（theme.xaml への参照の差し替え）" -Tag Unit {
         }
     }
 }
+
+Describe "newAppFontFamily（画面の既定のフォント）" -Tag Unit {
+    BeforeAll {
+        $bundledFonts = "${scriptsDir}\shared\fonts"
+    }
+
+    It "フォルダがあれば、そこを指し、Rethink Sans を先に Yu Gothic UI・Meiryo UI を足りない文字の代わりにする" {
+        $family = newAppFontFamily $bundledFonts
+        $family.BaseUri.LocalPath | Should -Be ("$bundledFonts\")
+        $family.Source | Should -Be "./#Rethink Sans, Yu Gothic UI, Meiryo UI"
+        # 同梱のフォルダから Rethink Sans が見つかる
+        @([System.Windows.Media.Fonts]::GetFontFamilies($family.BaseUri) | ForEach-Object { $_.FamilyNames.Values }) | Should -Contain "Rethink Sans"
+    }
+
+    It "<name> は、Yu Gothic UI・Meiryo UI だけにする（単一 .ps1 版など、フォントを同梱しない形）" -ForEach @(
+        @{ name = "フォルダが無い"; folder = "$TestDrive\no_such_fonts" }
+        @{ name = "指定が空" ; folder = "" }
+    ) {
+        $family = newAppFontFamily $folder
+        $family.Source | Should -Be "Yu Gothic UI, Meiryo UI"
+    }
+
+    It "同梱のフォントのファイルとライセンスの文面がある" {
+        foreach ($name in "RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf", "OFL.txt", "LICENSE-Lucide.txt") {
+            Test-Path -LiteralPath "$bundledFonts\$name" | Should -Be $true
+        }
+    }
+}
+
+Describe "loadXaml（Font.Body）" -Tag Unit {
+    It "FrameworkElement には Font.Body を入れ、ルートの DynamicResource で使える" {
+        $path = "$TestDrive\win.xaml"
+        [System.IO.File]::WriteAllText($path, '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TextElement.FontFamily="{DynamicResource Font.Body}" />', (New-Object System.Text.UTF8Encoding($true)))
+        $result = loadXaml $path
+        $result.Resources.Contains("Font.Body") | Should -Be $true
+        $result.Resources["Font.Body"] | Should -BeOfType [System.Windows.Media.FontFamily]
+    }
+
+    It "渡したフォントのフォルダから Font.Body を作る（呼び出し側の変数を暗黙に読まない）" {
+        $path = "$TestDrive\win2.xaml"
+        [System.IO.File]::WriteAllText($path, '<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" />', (New-Object System.Text.UTF8Encoding($true)))
+        $fonts = "${scriptsDir}\shared\fonts"
+        # 同じ名前の変数が呼び出し側にあっても、引数のほうを使う
+        $fontsDir = "$TestDrive\no_such_fonts"
+        $result = loadXaml $path $fonts
+        $result.Resources["Font.Body"].BaseUri.LocalPath | Should -Be "$fonts\"
+        # 引数が無いときは、変数があっても Yu Gothic UI・Meiryo UI だけ
+        (loadXaml $path).Resources["Font.Body"].Source | Should -Be "Yu Gothic UI, Meiryo UI"
+    }
+
+    It "loadWindow は、フォントのフォルダを loadXaml に渡す" {
+        $text = Get-Content -LiteralPath "${scriptsDir}\shared\ui\app_host.ps1" -Raw -Encoding UTF8
+        $text | Should -Match 'function loadWindow \{[\s\S]*?\$loaded = loadXaml \$path \$fontsFolder'
+    }
+}
+
+Describe "loadAppIcon（画面のアイコン）" -Tag Unit {
+    BeforeEach {
+        ${script:appIcon} = $null
+    }
+
+    It "アイコンの XAML（DrawingImage）を読み、凍結して返す。2 回目は同じものを返す" {
+        ${iconXamlFile} = "${scriptsDir}\tebunko\xaml\app_icon.xaml"
+        $icon = loadAppIcon
+        $icon | Should -BeOfType ([System.Windows.Media.DrawingImage])
+        $icon.IsFrozen | Should -BeTrue
+        [object]::ReferenceEquals((loadAppIcon), $icon) | Should -BeTrue
+    }
+
+    It "読めなければ `$null を返す（アイコンが無くても画面は開ける）" {
+        ${iconXamlFile} = "$TestDrive\none\app_icon.xaml"
+        loadAppIcon | Should -BeNullOrEmpty
+    }
+
+    It "単一 .ps1 版のように、XAML が文字列で埋め込まれていて実在しなくても読める" {
+        $missing = "$TestDrive\bundled\app_icon.xaml"
+        ${iconXamlFile} = $missing
+        $text = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\xaml\app_icon.xaml", (New-Object System.Text.UTF8Encoding($true)))
+        $bundledXaml = @{ ([System.IO.Path]::GetFullPath($missing)) = $text }
+        loadAppIcon | Should -BeOfType ([System.Windows.Media.DrawingImage])
+    }
+}

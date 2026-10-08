@@ -273,7 +273,7 @@ Describe "取り込み直し（index_compat d・e・f・g）" -Tag Io {
 
         if ($outdated.Count -eq 0) {
             runIndexer $compat.Root | Should -Be 0
-            (readTestProgress).Detail | Should -Be "取り込みが必要なファイルはありませんでした"
+            (readTestProgress).Detail | Should -Be "更新が必要なファイルはありませんでした"
         } else {
             # 抽出版を上げた後は、取り込み直しに Office を使うことがある（xlsx など）。Office の無い環境でも流せるよう、
             # 取り込みの計画を確かめて取りやめる（実際に取り込み直す場面は e・g）

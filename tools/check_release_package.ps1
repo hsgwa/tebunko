@@ -8,6 +8,7 @@
 #
 # 確かめること:
 #   1. zip のエントリーが、git ls-files scripts と固定のファイル（tebunko.bat・README.md・LICENSE・VERSION.txt）に過不足なく一致する
+#      （画面のフォントとライセンスの文面 scripts/shared/fonts/ が入っていることも確かめる）
 #   2. 読み込み口（scripts\tebunko\gui.ps1・indexer.ps1）から dot-source でたどれる先がすべて存在する
 #   3. .ps1 が構文エラーなく解析でき、.xaml が XML として読める
 #   4. Test-FileCatalog -Path .\scripts, .\tebunko.bat が Valid になる
@@ -71,6 +72,10 @@ try {
     }
     foreach ($name in $actual) {
         if ($expected -cnotcontains $name) { $failures.Add("zip に余分なファイル: $name") }
+    }
+    # 画面のフォントとライセンスの文面（SIL OFL・ISC は再配布に文面を添えることが条件）は、git の追跡から外れていても必ず入っている
+    foreach ($name in @("RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf", "OFL.txt", "LICENSE-Lucide.txt")) {
+        if ($actual -cnotcontains "tebunko/scripts/shared/fonts/$name") { $failures.Add("同梱のフォント・ライセンスの文面が zip に無い: scripts/shared/fonts/$name") }
     }
 
     [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path -LiteralPath $ZipPath).Path, $extractDir)
@@ -167,7 +172,8 @@ try {
         $failures.Add("sbom.cdx.json がありません")
     } else {
         $sbom = [System.IO.File]::ReadAllText($sbomPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
-        $components = @($sbom.components)
+        # 第三者の部品（フォント・アイコンの形。type が data）は、ファイルではないので、ファイルの突き合わせから外す
+        $components = @($sbom.components | Where-Object { $_.type -eq "file" })
         foreach ($component in $components) {
             $file = Join-Path $pkgDir $component.name.Replace("/", "\")
             if (!(Test-Path -LiteralPath $file)) {

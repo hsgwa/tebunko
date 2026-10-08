@@ -224,3 +224,24 @@ Describe "findTargetFiles（tebunko が作ったものの除外）" -Tag Io {
         @($scan.Files | ForEach-Object { $_.Name }) | Should -Not -Contain '~$locked.txt'
     }
 }
+
+Describe "selectOnlyNames" -Tag Unit {
+    BeforeAll {
+        $folders = @(
+            [pscustomobject]@{ Name = "営業"; Enabled = $true }
+            [pscustomobject]@{ Name = "技術"; Enabled = $false }
+        )
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "チェックの付いた名前は選ばれる"; names = @("営業"); selected = @("営業"); skipped = @() }
+        @{ name = "チェックが付いていない名前は、理由付きで外す"; names = @("営業", "技術"); selected = @("営業"); skipped = @("技術:チェックが付いていません") }
+        @{ name = "設定に無い名前は、理由付きで外す"; names = @("総務"); selected = @(); skipped = @("総務:設定にありません") }
+        @{ name = "空の名前は無いものとして扱う"; names = @("", "営業"); selected = @("営業"); skipped = @() }
+    ) {
+        param ($name, $names, $selected, $skipped)
+        $result = selectOnlyNames $folders $names
+        @($result.Selected | Sort-Object) | Should -Be @($selected)
+        @($result.Skipped | ForEach-Object { "$($_.Name):$($_.Reason)" }) | Should -Be @($skipped)
+    }
+}

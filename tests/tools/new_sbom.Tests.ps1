@@ -50,7 +50,7 @@ Describe "new_sbom.ps1" -Tag Unit {
         $sbom.metadata.component.version | Should -Be "v1.0.0"
         $sbom.metadata.component.licenses[0].license.id | Should -Be "MIT"
         @($sbom.metadata.properties | Where-Object { $_.name -eq "tebunko:prerequisite" }).Count -gt 0 | Should -Be $true
-        @($sbom.components | ForEach-Object { $_."bom-ref" }) | Should -Be @("scripts/a.ps1", "tebunko.bat")
+        @($sbom.components | Where-Object { $_.group -eq "tebunko" } | ForEach-Object { $_."bom-ref" }) | Should -Be @("scripts/a.ps1", "tebunko.bat")
         @($sbom.dependencies).Count | Should -Be 1
         $sbom.dependencies[0].ref | Should -Be $sbom.metadata.component."bom-ref"
         @($sbom.dependencies[0].dependsOn) | Should -Be @($sbom.components | ForEach-Object { $_."bom-ref" })
@@ -73,10 +73,16 @@ Describe "new_sbom.ps1" -Tag Unit {
         }
     }
 
-    It "第三者の部品（purl を持つもの・group が tebunko 以外）を 1 件も含まない" {
+    It "第三者の部品は、同梱するフォント（Rethink Sans・OFL-1.1）とアイコンの形（Lucide 1.50.0・ISC）の 2 件だけで、purl を持つものは無い" {
         $sbom = Get-Sbom "v1.0.0" $sha
         (@($sbom.components).Count -gt 0) | Should -Be $true
-        @($sbom.components | Where-Object { $_.group -ne "tebunko" }).Count | Should -Be 0
+        $third = @($sbom.components | Where-Object { $_.group -ne "tebunko" })
+        $third.Count | Should -Be 2
+        ($third | ForEach-Object { "$($_.name):$($_.licenses[0].license.id)" }) -join "," | Should -Be "Rethink Sans:OFL-1.1,Lucide:ISC"
+        ($third | Where-Object { $_.name -eq "Lucide" }).version | Should -Be "1.50.0"
         @($sbom.components | Where-Object { $_.purl }).Count | Should -Be 0
+        # 本体の依存に、第三者の部品も入っている
+        @($sbom.dependencies[0].dependsOn) | Should -Contain "third-party/rethink-sans"
+        @($sbom.dependencies[0].dependsOn) | Should -Contain "third-party/lucide"
     }
 }

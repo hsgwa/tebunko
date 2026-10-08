@@ -92,9 +92,9 @@ Describe "readSettings / writeSettings" -Tag Io {
 
     It "文字列の項目に数値が書かれていても文字列として読む。一覧に 1 件だけ書かれていても配列にする" {
         $path = "$TestDrive\型違い.json"
-        [System.IO.File]::WriteAllText($path, '{ "fileFilter": 123, "targetFolders": { "path": "C:\\a" }, "indexSources": null }', ${utf8Bom})
+        [System.IO.File]::WriteAllText($path, '{ "workspaceFolder": 123, "targetFolders": { "path": "C:\\a" }, "indexSources": null }', ${utf8Bom})
         $settings = readSettings $path
-        $settings.fileFilter | Should -BeExactly "123"
+        $settings.workspaceFolder | Should -BeExactly "123"
         @($settings.targetFolders).Count | Should -Be 1
         @($settings.indexSources).Count | Should -Be 0
     }
@@ -109,7 +109,7 @@ Describe "readSettings / writeSettings" -Tag Io {
 
     It "ほかのプログラムが開いていて読めないときは、壊れているとはせず IOException のまま" {
         $path = "$TestDrive\ロック中.json"
-        [System.IO.File]::WriteAllText($path, '{ "fileFilter": "a" }', ${utf8Bom})
+        [System.IO.File]::WriteAllText($path, '{ "workspaceFolder": "a" }', ${utf8Bom})
         $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
         try {
             # PowerShell は .NET のメソッドの例外を MethodInvocationException に包むため、中身の型を確かめる
@@ -151,7 +151,7 @@ Describe "repairBrokenSettings / getSettingsRecoveryMessage" -Tag Io {
     }
 
     It "<name> のファイルは何もせず空文字を返す" -TestCases @(
-        @{ name = "壊れていない"; content = '{ "fileFilter": "a" }' }
+        @{ name = "壊れていない"; content = '{ "useRegex": true }' }
         @{ name = "空"; content = "" }
         @{ name = "空白だけ"; content = "  `r`n" }
         @{ name = "null だけ"; content = "null" }
@@ -404,15 +404,59 @@ Describe "removeSearchExcludesUnder" -Tag Io {
     }
 }
 
+Describe "readFileKinds / writeFileKinds" -Tag Io {
+    # json: 設定ファイルの中身（$null ならファイルを作らない）、expected: readFileKinds の結果
+    It "<name>" -TestCases @(
+        @{ name = "ファイルが無ければすべての種類"; json = $null; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "キーが無ければすべての種類"; json = '{ "useRegex": true }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "空の配列ならすべての種類"; json = '{ "fileKinds": [] }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "excel だけなら Excel だけ"; json = '{ "fileKinds": ["excel"] }'; expected = @("excel") }
+        @{ name = "順番は種類の並びにそろえ、大文字小文字は区別しない"; json = '{ "fileKinds": ["Text", "word"] }'; expected = @("word", "text") }
+        @{ name = "知らない値は捨てる"; json = '{ "fileKinds": ["pdf", "excel"] }'; expected = @("excel") }
+        @{ name = "知らない値だけならすべての種類"; json = '{ "fileKinds": ["pdf"] }'; expected = @("excel", "word", "powerpoint", "text") }
+        @{ name = "前の版の fileFilter は種類に読み替えない"; json = '{ "fileFilter": "*.xlsx;!~$*" }'; expected = @("excel", "word", "powerpoint", "text") }
+    ) {
+        param ($name, $json, $expected)
+        $path = Join-Path $TestDrive "kinds_$([guid]::NewGuid()).config"
+        if ($null -ne $json) {
+            [System.IO.File]::WriteAllText($path, $json, ${utf8Bom})
+        }
+        (@(readFileKinds $path) -join ",") | Should -Be ($expected -join ",")
+    }
+
+    It "書いた種類を読み返せ、ほかの設定は変えない" {
+        $path = "$TestDrive\kinds_write.config"
+        writeSearchOption @{ UseRegex = $true } $path
+        writeFileKinds @("text", "excel", "pdf") $path
+        (@(readFileKinds $path) -join ",") | Should -Be "excel,text"
+        (readSearchOption $path).UseRegex | Should -Be $true
+    }
+
+    It "1 つも選んでいないときは保存しない（前に保存した種類のまま。保存の形は変えない）" {
+        $path = "$TestDrive\kinds_none.config"
+        writeFileKinds @("word") $path
+        writeFileKinds @() $path
+        (@(readFileKinds $path) -join ",") | Should -Be "word"
+    }
+
+    It "すべての種類を書いたときは、設定ファイルの fileKinds を空にする" {
+        $path = "$TestDrive\kinds_all.config"
+        writeFileKinds @("excel") $path
+        writeFileKinds @("excel", "word", "powerpoint", "text") $path
+        @((readSettings $path).fileKinds).Count | Should -Be 0
+        @(readFileKinds $path).Count | Should -Be 4
+    }
+}
+
 Describe "readSearchOption / writeSearchOption" -Tag Io {
     # writes: 順に保存する項目、expected: 読み込んだときの値
     It "<name>" -TestCases @(
-        @{ name = "ファイルが無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて"; writes = @()
-           expected = @{ UseRegex = $false; CaseSensitive = $false; FileFilter = ""; IncludeShapes = $true; IncludeComments = $true } }
+        @{ name = "ファイルが無ければ、文字どおり・大文字と小文字を区別しない・図形とコメントも検索する"; writes = @()
+           expected = @{ UseRegex = $false; CaseSensitive = $false; IncludeShapes = $true; IncludeComments = $true } }
         @{ name = "図形・コメントを検索するかを保存・読み込みできる"; writes = @(@{ IncludeShapes = $false })
            expected = @{ IncludeShapes = $false; IncludeComments = $true } }
-        @{ name = "指定した項目だけを変え、ほかの項目は保つ"; writes = @(@{ UseRegex = $true; CaseSensitive = $true; FileFilter = "*.xlsx;!*old*" }, @{ CaseSensitive = $false })
-           expected = @{ UseRegex = $true; CaseSensitive = $false; FileFilter = "*.xlsx;!*old*" } }
+        @{ name = "指定した項目だけを変え、ほかの項目は保つ"; writes = @(@{ UseRegex = $true; CaseSensitive = $true; IncludeShapes = $false }, @{ CaseSensitive = $false })
+           expected = @{ UseRegex = $true; CaseSensitive = $false; IncludeShapes = $false } }
     ) {
         param ($name, $writes, $expected)
         $path = Join-Path $TestDrive "setting_$([guid]::NewGuid()).config"
@@ -423,6 +467,17 @@ Describe "readSearchOption / writeSearchOption" -Tag Io {
         foreach ($key in $expected.Keys) {
             $read.$key | Should -Be $expected[$key]
         }
+    }
+}
+
+Describe "前の版の fileFilter" -Tag Io {
+    It "読み込んだ検索オプションに FileFilter は無く、設定を保存し直しても fileFilter は残らない" {
+        $path = Join-Path $TestDrive "old_$([guid]::NewGuid()).config"
+        [System.IO.File]::WriteAllText($path, '{ "fileFilter": "*.xlsx;!~$*", "useRegex": true }', ${utf8Bom})
+        (readSearchOption $path).ContainsKey("FileFilter") | Should -Be $false
+        (newSettings).Contains("fileFilter") | Should -Be $false
+        writeSearchOption @{ CaseSensitive = $true } $path
+        (Get-Content -LiteralPath $path -Raw -Encoding UTF8) | Should -Not -Match "fileFilter"
     }
 }
 
@@ -479,7 +534,7 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
         [System.IO.File]::WriteAllText("$TestDrive\ほか\README.md", "")
         $check = testDefaultWorkspace "$TestDrive\ほか"
         $check.Usable | Should -Be $false
-        $check.Message | Should -Be "「$TestDrive\ほか」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+        $check.Message | Should -Be "「$TestDrive\ほか」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［設定］の［変更…］）。"
     }
 
     It "今のワークスペースが既定の場所で、使えないときだけ文言を返す" {
@@ -494,12 +549,12 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
 Describe "writeSettings の書き込み（一時ファイルから置き換え）" -Tag Io {
     It "一時ファイルを残さず、BOM なし UTF-8 で書き、読み戻せる" {
         $path = "$TestDrive\原子的\setting.config"
-        writeSettings ([ordered]@{ fileFilter = "*.xlsx"; useRegex = $true }) $path
+        writeSettings ([ordered]@{ workspaceFolder = "C:"; useRegex = $true }) $path
         Test-Path -LiteralPath "${path}.tmp" | Should -Be $false
         $bytes = [System.IO.File]::ReadAllBytes($path)
         ($bytes[0] -eq 239 -and $bytes[1] -eq 187) | Should -Be $false
         $settings = readSettings $path
-        $settings.fileFilter | Should -Be "*.xlsx"
+        $settings.workspaceFolder | Should -Be "C:"
         $settings.useRegex | Should -Be $true
     }
 }
@@ -517,7 +572,7 @@ Describe "設定の同時の書き込み" -Tag Io {
             }
         }
         $jobs = @()
-        foreach ($pair in @(@("fileFilter", "f"), @("workspaceFolder", "w"))) {
+        foreach ($pair in @(@("openMode", "f"), @("workspaceFolder", "w"))) {
             $runspace = [runspacefactory]::CreateRunspace()
             $runspace.ThreadOptions = [System.Management.Automation.Runspaces.PSThreadOptions]::UseNewThread
             $runspace.Open()
@@ -534,7 +589,7 @@ Describe "設定の同時の書き込み" -Tag Io {
         }
         { Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } | Should -Not -Throw
         $settings = readSettings $path
-        $settings.fileFilter | Should -Be "f50"
+        $settings.openMode | Should -Be "f50"
         $settings.workspaceFolder | Should -Be "w50"
     }
 }

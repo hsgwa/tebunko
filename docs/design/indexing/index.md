@@ -42,7 +42,7 @@ flowchart LR
 
 | 項目 | 内容 |
 |---|---|
-| 起動 | 画面の［1 インデックス管理］タブの［インデックス作成を開始］（[インデックス作成の実行](../gui/indexing-run.md)）。画面は自分のプロセスの中のスレッド（インデクサの司令）で `indexer.ps1 -Channel` を実行する（`IndexingSession`。[プロセスとスレッド](../structure/threads.md)）。画面を使わずにコンソールから `indexer.ps1` を実行することもできる |
+| 起動 | 画面の［インデックス管理］タブの［すべて更新］（[インデックス作成の実行](../gui/indexing-run.md)）。画面は自分のプロセスの中のスレッド（インデクサの司令）で `indexer.ps1 -Channel` を実行する（`IndexingSession`。[プロセスとスレッド](../structure/threads.md)）。画面を使わずにコンソールから `indexer.ps1` を実行することもできる |
 | スクリプト | `scripts/tebunko/indexer.ps1`（起動口）、`scripts/tebunko/indexer/indexer_run.ps1`（本体 `invokeIndexer`・取り込みのスレッド）、`scripts/shared/office/office_reader.ps1`（Word・PowerPoint の読み取り） |
 | 引数 | `-RetryFailed`（省略可）: 前回失敗し、その後更新されていないファイルも再取り込みする<br>`-Channel`（省略可。画面から実行するときに渡す）: 受け渡しの口（`newIndexerChannel`）。取り込む前の確認・中止・進み具合・エラーはこれでやり取りする（確認するかは口の `ConfirmTargets`、失敗分の再取り込みは口の `RetryFailed` で決まる）。省略すると自分で口を作り、確認はせず、表示内容をコンソールにも出す |
 | 終了コード | `0` 完了（ファイルごとの失敗は取り込み一覧に記録）/ `1` 続けられないエラー（内容は受け渡しの口の `Error` とログ）/ `2` 中止（確認で取りやめた場合を含む）。受け渡しの口の `ExitCode` にも入れる |

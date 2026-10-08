@@ -23,11 +23,12 @@ BeforeAll {
 
 Describe "newSearchRequest" -Tag Unit {
     It "検索条件を入れ、進み具合を始めの値にする" {
-        $request = newSearchRequest "単価" $true @("x") 100 @{ CaseSensitive = $true; FileFilter = "*.xlsx"; IncludeShapes = $false } $true
+        $request = newSearchRequest "単価" $true @("x") 100 @{ CaseSensitive = $true; FileKinds = @("excel"); IncludeShapes = $false } $true
         $request.Word | Should -Be "単価"
         $request.Limit | Should -Be 100
         $request.CaseSensitive | Should -Be $true
-        $request.FileFilter | Should -Be "*.xlsx"
+        $request.FileFilter | Should -Be (newFileKindFilter @("excel"))
+        $request.FileFilter | Should -Not -Be ""
         $request.IncludeShapes | Should -Be $false
         $request.IncludeComments | Should -Be $true
         $request.UseFast | Should -Be $true

@@ -312,6 +312,15 @@ Describe "testIndexName" -Tag Unit {
         param ($name, $value, $used, $pattern)
         testIndexName $value $used | Should -Match $pattern
     }
+
+    It "画面に出す理由は「インデックス名」でなく「名前」で言う（一覧の見出し・編集の欄と同じ言葉）" -TestCases @(
+        @{ value = "" }, @{ value = " 営業" }, @{ value = "営業\部" }, @{ value = "営業." }, @{ value = ("あ" * 256) }
+    ) {
+        param ($value)
+        $reason = testIndexName $value @()
+        $reason | Should -Match "^名前"
+        $reason | Should -Not -Match "インデックス名"
+    }
 }
 
 Describe "newIndexName（入れ子の集合）" -Tag Unit {

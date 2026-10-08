@@ -1,4 +1,4 @@
-﻿# ［2 検索］の検索対象インデックスのツリー（tebunko\ui\index_tree.ps1）のテスト。
+﻿# ［検索］の検索対象インデックスのツリー（tebunko\ui\index_tree.ps1）のテスト。
 # 画面の部品（$ui.IndexTree など）は偽物にし、インデックス・設定ファイルは TestDrive に作って確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
@@ -21,14 +21,19 @@ BeforeAll {
     $tree | Add-Member ScriptMethod AddHandler { param ($event, $handler) $handlers["IndexTree.$($event.Name)"] = $handler }
     $tree | Add-Member ScriptMethod Add_PreviewKeyDown { param ($block) $handlers["IndexTree.PreviewKeyDown"] = $block }
 
+    $filterBox = [pscustomobject]@{ Text = "" }
+    $filterBox | Add-Member ScriptMethod Add_TextChanged { param ($block) $handlers["IndexTreeFilterBox.TextChanged"] = $block }
+
     $ui = [pscustomobject]@{
         IndexTree             = $tree
+        IndexTreeFilterBox    = $filterBox
+        IndexTreeFilterPlaceholder = [pscustomobject]@{ Visibility = "Visible" }
         IndexTreePlaceholder  = [pscustomobject]@{ Visibility = "Collapsed" }
         CheckAllIndexButton   = newFakeButton "CheckAll"
         UncheckAllIndexButton = newFakeButton "UncheckAll"
     }
 
-    # 画面の共通部品（shared\ui\shell.ps1）と［2 検索］タブ（search_tab.ps1）の代わり
+    # 画面の共通部品（shared\ui\shell.ps1）と［検索］の検索条件の画面（ui\search\search_bar.ps1）の代わり
     function safe {
         param ([scriptblock]$block)
         & $block
@@ -37,6 +42,7 @@ BeforeAll {
         $fake.TargetUpdates++
     }
 
+    . "${scriptsDir}\tebunko\ui\search\target_tree_view.ps1"
     . "${scriptsDir}\tebunko\ui\index_tree.ps1"
 
     # 設定の保存先がリポジトリの setting.config・work\ にならないよう、どこにも無い場所にしておく（各 Describe で TestDrive に向け直す）
@@ -356,5 +362,25 @@ Describe "イベント" -Tag Io {
 
         isAllIndexChecked | Should -Be $true
         $fake.TargetUpdates | Should -Be 0
+    }
+}
+
+Describe "検索対象のツリーの名前の絞り込み" -Tag Unit {
+    It "絞り込みの文字に合うインデックスだけをツリーに見せ、一覧（indexRoots）は変えない" {
+        $script:indexRoots.Clear()
+        foreach ($name in "経理", "営業", "経理（旧）") {
+            $script:indexRoots.Add([IndexNode]::CreateRoot("$TestDrive\none", $name, $name, $null))
+        }
+        $ui.IndexTreeFilterBox.Text = "経理"
+        & $handlers["IndexTreeFilterBox.TextChanged"]
+        @($script:indexRootView | ForEach-Object { $_.Name }) | Should -Be @("経理", "経理（旧）")
+        $script:indexRoots.Count | Should -Be 3
+        $ui.IndexTreeFilterPlaceholder.Visibility | Should -Be "Collapsed"
+
+        $ui.IndexTreeFilterBox.Text = ""
+        & $handlers["IndexTreeFilterBox.TextChanged"]
+        @($script:indexRootView).Count | Should -Be 3
+        $ui.IndexTreeFilterPlaceholder.Visibility | Should -Be "Visible"
+        $script:indexRoots.Clear()
     }
 }

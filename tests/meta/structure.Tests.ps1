@@ -23,7 +23,7 @@ Describe "パス定義" -Tag Meta {
 Describe "画面の部品でのパスの組み立て" -Tag Meta {
     # ui\ 配下のファイルは gui.ps1 から dot-source する部品。中で $PSScriptRoot を使うと ui\ を指すため、
     # "${PSScriptRoot}\tebunko\indexer.ps1" のように起動口からの相対パスを書くと存在しないパスになる
-    # （［インデックス作成を開始］でインデクサが起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
+    # （［すべて更新］でインデクサが起動しなかった不具合）。パスは起動口（gui.ps1）で決めて変数で渡す
     It "ui 配下のスクリプトで `$PSScriptRoot を使っていない" {
         # コードで使っているかだけを見る（コメントで説明に触れているだけの行は対象外）
         $found = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1" |
@@ -32,6 +32,101 @@ Describe "画面の部品でのパスの組み立て" -Tag Meta {
             Where-Object { $_.Line.TrimStart() -notmatch '^#' } |
             ForEach-Object { "$($_.Filename):$($_.LineNumber)" })
         ($found -join ", ") | Should -Be ""
+    }
+}
+
+Describe "カバレッジの計測の対象（画面層だけを分母から外す）" -Tag Meta {
+    BeforeAll {
+        . "$PSScriptRoot\..\helpers\coverage_targets.ps1"
+        $script:targets = @(getCoverageTargets "$here\..\scripts" | ForEach-Object { $_.Substring(([System.IO.Path]::GetFullPath("$here\..\scripts")).Length + 1) })
+    }
+
+    It "テストのある ui\ の下のファイル（<file>）は計測の対象に入っている" -ForEach @(
+        @{ file = "tebunko\ui\result_list.ps1" }
+        @{ file = "tebunko\ui\preview.ps1" }
+        @{ file = "tebunko\ui\index_tree.ps1" }
+        @{ file = "tebunko\ui\open_source.ps1" }
+        @{ file = "tebunko\ui\types.ps1" }
+        @{ file = "tebunko\ui\startup_error.ps1" }
+        @{ file = "shared\ui\types.ps1" }
+        @{ file = "tebunko\ui\index_view.ps1" }
+        @{ file = "tebunko\ui\shell\nav_view.ps1" }
+        @{ file = "tebunko\ui\shell\nav.ps1" }
+        @{ file = "tebunko\ui\shell\status_bar_view.ps1" }
+        @{ file = "tebunko\ui\search\search_bar_view.ps1" }
+        @{ file = "tebunko\ui\search\result_list_view.ps1" }
+        @{ file = "tebunko\ui\search\open_source_view.ps1" }
+        @{ file = "tebunko\ui\search\target_tree_view.ps1" }
+    ) {
+        $script:targets | Should -Contain $file
+    }
+
+    It "ui\ の下の判断層（*_view.ps1）は、すべて計測の対象に入っている" {
+        $root = [System.IO.Path]::GetFullPath("$here\..\scripts")
+        $views = @(Get-ChildItem -LiteralPath $root -Recurse -Filter "*_view.ps1" |
+            Where-Object { $_.FullName -like "*\ui\*" } |
+            ForEach-Object { $_.FullName.Substring($root.Length + 1) })
+        $views.Count | Should -BeGreaterThan 0
+        foreach ($view in $views) {
+            $script:targets | Should -Contain $view
+        }
+    }
+
+    It "画面層（<file>）は計測の対象に入っていない" -ForEach @(
+        @{ file = "tebunko\ui\gui_main.ps1" }
+        @{ file = "tebunko\ui\index\index_list.ps1" }
+        @{ file = "tebunko\ui\index\index_edit.ps1" }
+        @{ file = "tebunko\ui\index\index_archive.ps1" }
+        @{ file = "tebunko\ui\index\index_detail.ps1" }
+        @{ file = "tebunko\ui\index\index_events.ps1" }
+        @{ file = "tebunko\ui\settings\settings.ps1" }
+        @{ file = "tebunko\ui\about_dialog.ps1" }
+        @{ file = "tebunko\ui\leftover_dialog.ps1" }
+        @{ file = "shared\ui\shell.ps1" }
+        @{ file = "shared\ui\app_host.ps1" }
+        @{ file = "shared\ui\trimmed_tooltip.ps1" }
+        @{ file = "tebunko\ui\splash.ps1" }
+        @{ file = "shared\ui\folder_dialog.ps1" }
+        @{ file = "tebunko\ui\search\search_bar.ps1" }
+        @{ file = "tebunko\ui\search\search_session.ps1" }
+        @{ file = "tebunko\ui\search\result_filter.ps1" }
+    ) {
+        $script:targets | Should -Not -Contain $file
+    }
+
+    It "起動口 gui.ps1 は入っていない。状態層（core）は入っている" {
+        @($script:targets | Where-Object { (Split-Path $_ -Leaf) -eq "gui.ps1" }).Count | Should -Be 0
+        @($script:targets | Where-Object { $_.Contains("\core\") }).Count | Should -BeGreaterThan 0
+    }
+}
+
+Describe "画面の既定のフォント（起動した窓の Font.Body）" -Tag Meta {
+    # Font.Body は loadXaml / loadWindow の引数で渡したフォルダから作る。呼び出しが ${fontsDir} を渡していないと、
+    # 起動した窓は同梱のフォント（Rethink Sans）を使わず、Yu Gothic UI・Meiryo UI になる（気づきにくいので、呼び出しで確かめる）
+    It "画面を読み込む呼び出しは、すべて `${fontsDir} を渡している" {
+        $problems = New-Object System.Collections.Generic.List[string]
+        $calls = 0
+        foreach ($file in (Get-ChildItem "$here\..\scripts" -Recurse -Filter "*.ps1")) {
+            if ($file.Name -eq "app_host.ps1") { continue }
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+            $found = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in @("loadWindow", "loadXaml") }, $true)
+            foreach ($call in $found) {
+                $calls++
+                $third = if ($call.CommandElements.Count -ge 3) { $call.CommandElements[2].Extent.Text } else { "" }
+                if ($third -ne '${fontsDir}') { $problems.Add("$($file.Name):$($call.Extent.StartLineNumber)") }
+            }
+        }
+        $calls | Should -BeGreaterThan 5
+        $problems -join ", " | Should -Be ""
+    }
+
+    It "起動口が決める fontsDir は、Rethink Sans を持つ同梱のフォルダを指している" {
+        $main = Get-Content -LiteralPath "$here\..\scripts\tebunko\ui\gui_main.ps1" -Raw -Encoding UTF8
+        $main -match '\$\{fontsDir\}\s*=\s*"\$TebunkoDir\\([^"]+)"' | Should -Be $true
+        $folder = [System.IO.Path]::GetFullPath("$here\..\scripts\tebunko\" + $Matches[1])
+        foreach ($name in "RethinkSans-wght.ttf", "RethinkSans-Italic-wght.ttf") {
+            Test-Path -LiteralPath "$folder\$name" | Should -Be $true
+        }
     }
 }
 
@@ -58,6 +153,187 @@ Describe "画面定義（XAML）" -Tag Meta {
 
     It "<name> が XML として読める" -ForEach $xamlFiles {
         { [xml](Get-Content $FullName -Raw -Encoding UTF8) } | Should -Not -Throw
+    }
+}
+
+Describe "theme のキー（色の値は Figma の設計どおり）" -Tag Meta {
+    BeforeDiscovery {
+        # Figma の Variables の値。`/` を `.` に替えたキーで theme.xaml に置く。値を変えるときはこの表も同じ PR で直す
+        $themeColors = @(
+        @{ Key = "Bg.Window"; Color = "#F5F7FA"; Opacity = 1 }
+        @{ Key = "Bg.Surface"; Color = "#FFFFFF"; Opacity = 1 }
+        @{ Key = "Bg.Subtle"; Color = "#F9FAFA"; Opacity = 1 }
+        @{ Key = "Bg.Stripe"; Color = "#FAFBFC"; Opacity = 1 }
+        @{ Key = "Bg.Hover"; Color = "#F3F3F4"; Opacity = 1 }
+        @{ Key = "Bg.Pane"; Color = "#F0F2F4"; Opacity = 1 }
+        @{ Key = "Bg.Tag"; Color = "#F1F3F4"; Opacity = 1 }
+        @{ Key = "Bg.Button"; Color = "#F2F2F5"; Opacity = 1 }
+        @{ Key = "Bg.Summary"; Color = "#F7FAFC"; Opacity = 1 }
+        @{ Key = "Bg.Section"; Color = "#E8EBF0"; Opacity = 1 }
+        @{ Key = "Bg.TitleBar"; Color = "#F0F0F0"; Opacity = 1 }
+        @{ Key = "Border.Soft"; Color = "#E0E2E5"; Opacity = 1 }
+        @{ Key = "Border.Normal"; Color = "#D9DEE3"; Opacity = 1 }
+        @{ Key = "Border.Input"; Color = "#D1D1D1"; Opacity = 1 }
+        @{ Key = "Border.Strong"; Color = "#C9CED4"; Opacity = 1 }
+        @{ Key = "Border.Separator"; Color = "#D5D9DE"; Opacity = 1 }
+        @{ Key = "Border.Splitter"; Color = "#D0D4D9"; Opacity = 1 }
+        @{ Key = "Border.Grip"; Color = "#A9AFB6"; Opacity = 1 }
+        @{ Key = "Border.Divider"; Color = "#E5E8ED"; Opacity = 1 }
+        @{ Key = "Border.Row"; Color = "#EDF0F2"; Opacity = 1 }
+        @{ Key = "Border.Dialog"; Color = "#D1D6E0"; Opacity = 1 }
+        @{ Key = "Border.Check"; Color = "#9EA3AB"; Opacity = 1 }
+        @{ Key = "Border.Window"; Color = "#999999"; Opacity = 1 }
+        @{ Key = "Overlay.Scrim"; Color = "#000000"; Opacity = 0.35 }
+        @{ Key = "Ink.Strong"; Color = "#202124"; Opacity = 1 }
+        @{ Key = "Ink.Value"; Color = "#212126"; Opacity = 1 }
+        @{ Key = "Ink.Body"; Color = "#5F6368"; Opacity = 1 }
+        @{ Key = "Ink.Muted"; Color = "#6B737D"; Opacity = 1 }
+        @{ Key = "Ink.Subtle"; Color = "#80868B"; Opacity = 1 }
+        @{ Key = "Ink.Placeholder"; Color = "#9AA0A6"; Opacity = 1 }
+        @{ Key = "Ink.Faint"; Color = "#99A1AB"; Opacity = 1 }
+        @{ Key = "Ink.Note"; Color = "#8C949E"; Opacity = 1 }
+        @{ Key = "Ink.OnAccent"; Color = "#FFFFFF"; Opacity = 1 }
+        @{ Key = "Button.Text"; Color = "#4D4D4D"; Opacity = 1 }
+        @{ Key = "Button.Icon"; Color = "#666666"; Opacity = 1 }
+        @{ Key = "Accent"; Color = "#0078D4"; Opacity = 1 }
+        @{ Key = "Accent.Hover"; Color = "#0B5CAD"; Opacity = 1 }
+        @{ Key = "Accent.Soft"; Color = "#E5F1FB"; Opacity = 1 }
+        @{ Key = "Select.Soft"; Color = "#E1F2FF"; Opacity = 1 }
+        @{ Key = "Hit"; Color = "#FFF176"; Opacity = 1 }
+        @{ Key = "Hit.Cell"; Color = "#FFF3CD"; Opacity = 1 }
+        @{ Key = "Ok"; Color = "#218A21"; Opacity = 1 }
+        @{ Key = "Ok.Strong"; Color = "#1E8E3E"; Opacity = 1 }
+        @{ Key = "Ok.Soft"; Color = "#E0F7E0"; Opacity = 1 }
+        @{ Key = "Warn"; Color = "#BA7D00"; Opacity = 1 }
+        @{ Key = "Warn.Dot"; Color = "#E8A400"; Opacity = 1 }
+        @{ Key = "Warn.Soft"; Color = "#FFF5E0"; Opacity = 1 }
+        @{ Key = "Warn.Note"; Color = "#FFF7E0"; Opacity = 1 }
+        @{ Key = "Warn.Line"; Color = "#F0C36D"; Opacity = 1 }
+        @{ Key = "Warn.Strong"; Color = "#6B4E00"; Opacity = 1 }
+        @{ Key = "Danger.Text"; Color = "#D13438"; Opacity = 1 }
+        @{ Key = "Danger.Dot"; Color = "#D93025"; Opacity = 1 }
+        @{ Key = "Danger.Soft"; Color = "#FFE6E6"; Opacity = 1 }
+        @{ Key = "File.Excel"; Color = "#107C41"; Opacity = 1 }
+        @{ Key = "File.Word"; Color = "#185ABD"; Opacity = 1 }
+        @{ Key = "File.PowerPoint"; Color = "#C43E1C"; Opacity = 1 }
+        @{ Key = "File.Folder"; Color = "#E8A020"; Opacity = 1 }
+        @{ Key = "Illust.Line"; Color = "#D1D6DE"; Opacity = 1 }
+        )
+    }
+
+    BeforeAll {
+        $themeXml = New-Object System.Xml.XmlDocument
+        $themeXml.Load("${scriptsDir}\shared\xaml\theme.xaml")
+        $xns = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $brushes = @{}
+        foreach ($node in $themeXml.DocumentElement.ChildNodes) {
+            if ($node.LocalName -eq "SolidColorBrush") {
+                $brushes[$node.GetAttribute("Key", $xns)] = $node
+            }
+        }
+    }
+
+    It "<key> が <color>（不透明度 <opacity>）" -ForEach $themeColors {
+        $brushes.ContainsKey($key) | Should -Be $true
+        $brushes[$key].GetAttribute("Color") | Should -Be $color
+        $actualOpacity = if ($brushes[$key].HasAttribute("Opacity")) { [double]$brushes[$key].GetAttribute("Opacity") } else { 1 }
+        $actualOpacity | Should -Be $opacity
+    }
+}
+
+Describe "theme の文字の Style（大きさ・太さ・行の高さは Figma の設計どおり）" -Tag Meta {
+    BeforeDiscovery {
+        # Weight が空は Normal。LineHeight が空は指定しない
+        $textStyles = @(
+            @{ Key = "Micro";        Size = "10"; Weight = "";         LineHeight = "" }
+            @{ Key = "ColumnHeader"; Size = "10"; Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Meta";         Size = "11"; Weight = "";         LineHeight = "" }
+            @{ Key = "Meta.Tall";    Size = "";   Weight = "";         LineHeight = "16" }
+            @{ Key = "Meta.Strong";  Size = "";   Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Meta.Key";     Size = "";   Weight = "SemiBold"; LineHeight = "" }   # 行の高さ 16 は Meta.Tall から継ぐ
+            @{ Key = "Note";         Size = "11"; Weight = "";         LineHeight = "17.6" }
+            @{ Key = "Chip";         Size = "11"; Weight = "Medium";   LineHeight = "" }
+            @{ Key = "Link.Text";    Size = "11"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Cell";         Size = "12"; Weight = "";         LineHeight = "" }
+            @{ Key = "Cell.Key";     Size = "";   Weight = "Medium";   LineHeight = "" }
+            @{ Key = "Label";        Size = "12"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Label.Strong"; Size = "";   Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Brand";        Size = "12"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Body";         Size = "13"; Weight = "";         LineHeight = "" }
+            @{ Key = "Body.Strong";  Size = "";   Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Nav";          Size = "13"; Weight = "Medium";   LineHeight = "" }
+            @{ Key = "Nav.Tall";     Size = "";   Weight = "";         LineHeight = "18" }
+            @{ Key = "Heading";      Size = "13"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "Focal";        Size = "14"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "PageTitle";    Size = "16"; Weight = "Bold";     LineHeight = "" }
+            @{ Key = "Title";        Size = "18"; Weight = "SemiBold"; LineHeight = "" }
+            @{ Key = "AppTitle";     Size = "20"; Weight = "SemiBold"; LineHeight = "28" }
+        )
+    }
+
+    BeforeAll {
+        $xns = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $themeXml = New-Object System.Xml.XmlDocument
+        $themeXml.Load("${scriptsDir}\shared\xaml\theme.xaml")
+        $styles = @{}
+        foreach ($node in $themeXml.DocumentElement.ChildNodes) {
+            if ($node.LocalName -eq "Style" -and $node.GetAttribute("TargetType") -eq "TextBlock") {
+                $styles[$node.GetAttribute("Key", $xns)] = $node
+            }
+        }
+        # Style の Setter の値。BasedOn を持つ Style は、継ぐ前の Style の値は見ずに、その Style が書いた分だけを見る
+        function getSetter($style, [string]$property) {
+            foreach ($s in $style.ChildNodes) {
+                if ($s.LocalName -eq "Setter" -and $s.GetAttribute("Property") -eq $property) { return $s.GetAttribute("Value") }
+            }
+            return ""
+        }
+    }
+
+    It "<key> の大きさ <size>・太さ <weight>・行の高さ <lineHeight>" -ForEach $textStyles {
+        $styles.ContainsKey($key) | Should -Be $true
+        getSetter $styles[$key] "FontSize" | Should -Be $size
+        getSetter $styles[$key] "FontWeight" | Should -Be $weight
+        getSetter $styles[$key] "LineHeight" | Should -Be $lineHeight
+    }
+}
+
+Describe "theme のアイコン（Geometry）と図の Style" -Tag Meta {
+    BeforeDiscovery {
+        $iconKeys = @(
+            "Folder", "FolderClosed", "FolderOpen", "ChevronDown", "ChevronRight", "RefreshCw", "TriangleAlert",
+            "File", "FileText", "FileSpreadsheet", "FolderSearch", "Presentation", "ChartColumn", "Save",
+            "StopCircle", "Close", "CircleX", "CircleCheck", "Search", "CircleQuestionMark", "Check", "Zap",
+            "Info", "InfoCircle", "InfoGlyph.S12", "InfoGlyph.S13", "InfoGlyph.S14", "InfoGlyph.S16",
+            "BadgeGlyphInfo", "BadgeGlyphWarn", "BadgeGlyphError", "BadgeGlyphOk", "Ellipsis"
+        ) | ForEach-Object { @{ Key = "Icon.$_" } }
+    }
+
+    BeforeAll {
+        $xns = "http://schemas.microsoft.com/winfx/2006/xaml"
+        $themeXml = New-Object System.Xml.XmlDocument
+        $themeXml.Load("${scriptsDir}\shared\xaml\theme.xaml")
+        $geometries = @{}
+        $keys = @()
+        foreach ($node in $themeXml.DocumentElement.ChildNodes) {
+            if ($node.NodeType -ne "Element") { continue }
+            $k = $node.GetAttribute("Key", $xns)
+            $keys += $k
+            if ($node.LocalName -eq "Geometry") { $geometries[$k] = $node.InnerText }
+        }
+    }
+
+    It "<key> が Geometry で、空でない" -ForEach $iconKeys {
+        $geometries.ContainsKey($key) | Should -Be $true
+        $geometries[$key].Trim() | Should -Not -BeNullOrEmpty
+    }
+
+    It "x:Key が重ならない（ResourceDictionary は重なると読み込みで失敗する）" {
+        ($keys | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name) | Should -BeNullOrEmpty
+    }
+
+    It "<_> がある" -ForEach @("Illust.Path", "Radius.Pill", "Chip.Box", "NavBadge.Count", "NavBadge.Dot", "StatusBadge", "Banner") {
+        $keys | Should -Contain $_
     }
 }
 
@@ -358,28 +634,67 @@ Describe "画面の部品の名前" -Tag Meta {
 
     It "ウィンドウの枠の名前がある" {
         $names = getXamlNames "$here\..\scripts\tebunko\xaml\tebunko.xaml"
-        foreach ($name in @("Tabs", "IndexTab", "SearchTab", "SettingsTab", "KillTab", "IndexTabHeader", "KillTabHeader", "StatusText", "MoreButton", "AboutMenuItem")) {
+        foreach ($name in @("NavHost", "ContentHost", "StatusBarHost", "ScrimOverlay")) {
             $names -contains $name | Should -Be $true
         }
     }
 
-    It "<file> に、gui.ps1 が使う名前がすべてある" -ForEach @(
-        @{ File = "tab_index.xaml"; Marker = 'Tab = "IndexTab"' }
-        @{ File = "tab_search.xaml"; Marker = 'Tab = "SearchTab"' }
-        @{ File = "tab_settings.xaml"; Marker = 'Tab = "SettingsTab"' }
-        @{ File = "tab_kill.xaml"; Marker = 'Tab = "KillTab"' }
-    ) {
-        # gui.ps1 の $tabs から、そのタブの名前の一覧を取り出す
-        $start = $gui.IndexOf($Marker)
-        $start | Should -Not -Be -1
-        $listStart = $gui.IndexOf("Names = @(", $start)
-        $listEnd = $gui.IndexOf(") }", $listStart)
-        $list = $gui.Substring($listStart, $listEnd - $listStart)
-        $wanted = @([regex]::Matches($list, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
-        $wanted.Count -gt 0 | Should -Be $true
+    It "ナビ・ステータスバーに、画面の切り替えと他の画面が使う名前がある" {
+        $nav = getXamlNames "$here\..\scripts\tebunko\xaml\shell\nav.xaml"
+        foreach ($name in @("NavList", "SearchTab", "IndexTab", "SettingsTab", "IndexTabBadge", "AboutLink")) {
+            $nav -contains $name | Should -Be $true
+        }
+        (getXamlNames "$here\..\scripts\tebunko\xaml\shell\status_bar.xaml") -contains "StatusText" | Should -Be $true
+    }
 
-        $names = getXamlNames "$here\..\scripts\tebunko\xaml\$File"
-        $missing = @($wanted | Where-Object { $names -notcontains $_ })
-        ($missing -join ", ") | Should -Be ""
+    It "gui_main.ps1 の領域の表の各ファイルに、使う名前がすべてある" {
+        # $regions の `File = "..."; ... Names = @(...)` を全部取り出して、XAML と突き合わせる
+        $entries = @([regex]::Matches($gui, 'File\s*=\s*"([^"]+)".*?Names\s*=\s*@\(([^)]*)\)'))
+        $entries.Count -gt 0 | Should -Be $true
+        $problems = New-Object System.Collections.Generic.List[string]
+        foreach ($entry in $entries) {
+            $file = $entry.Groups[1].Value
+            $wanted = @([regex]::Matches($entry.Groups[2].Value, '"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
+            $path = "$here\..\scripts\tebunko\xaml\$file"
+            if (-not (Test-Path -LiteralPath $path)) { $problems.Add("$file が無い"); continue }
+            $names = getXamlNames $path
+            foreach ($w in $wanted) {
+                if ($names -notcontains $w) { $problems.Add("$file に $w が無い") }
+            }
+        }
+        ($problems -join ", ") | Should -Be ""
+    }
+}
+
+Describe "ダイアログは暗幕付きで出す" -Tag Meta {
+    It "scripts/tebunko の ShowDialog は、本体の窓を開く gui_main.ps1 だけ（ほかは showOwnedDialog で出す）" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $hits = @(Get-ChildItem "$here\..\scripts/tebunko" -Recurse -Filter *.ps1 | ForEach-Object {
+            $file = $_
+            @(Select-String -LiteralPath $file.FullName -Pattern '\.ShowDialog\(' | ForEach-Object { "$($file.Name):$($_.LineNumber)" })
+        })
+        $hits.Count | Should -Be 1
+        $hits[0] | Should -BeLike "gui_main.ps1:*"
+    }
+}
+
+Describe "メッセージは自前の画面で出す" -Tag Meta {
+    It "scripts の MessageBox の直接の呼び出しは、決めた所だけ（ほかは showMessage で出す）" {
+        # shell.ps1 の showMessage … 自前の画面を出せないときの予備（別のスレッドから呼ばれた・画面の定義が読めない）
+        # gui_main.ps1 … 二重起動の知らせ。画面の部品（loadWindow・テーマ）を読み込む前で、自前の画面を出せない
+        # startup_error.ps1 … 起動の失敗の知らせ。制限言語モード・WPF が読めない場面でも知らせるため、標準のまま
+        $allowed = @("shell.ps1", "gui_main.ps1", "startup_error.ps1")
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $hits = @(Get-ChildItem "$here\..\scripts" -Recurse -Filter *.ps1 | Where-Object { $allowed -notcontains $_.Name } | ForEach-Object {
+            $file = $_
+            @(Select-String -LiteralPath $file.FullName -Pattern 'MessageBox\]?::Show|Windows\.Forms\.MessageBox' | Where-Object { $_.Line.TrimStart() -notmatch '^#' } | ForEach-Object { "$($file.Name):$($_.LineNumber)" })
+        })
+        ($hits -join ", ") | Should -Be ""
+    }
+
+    It "shell.ps1 の MessageBox は、showMessage の予備の 2 か所だけ" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $hits = @(Select-String -LiteralPath "$here\..\scripts\shared\ui\shell.ps1" -Pattern 'MessageBox\]::Show' | Where-Object { $_.Line.TrimStart() -notmatch '^#' })
+        $hits.Count | Should -Be 2
     }
 }

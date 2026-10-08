@@ -5,23 +5,33 @@
 
 $script:splash = $null
 
-# 出せなくても起動は続ける（$null を返す）。
+# XAML の中身を文字列で返す。
 # shared/ui/app_host.ps1（getXamlText）はこの時点でまだ読み込んでいない（早く出すため）ので、
 # 単一 .ps1 かどうかの見分け方（${bundledXaml}）だけをここでも行う
-function showSplash {
+function getSplashXamlText {
     param (
         [string]$path
     )
 
+    $bundled = Get-Variable -Name bundledXaml -ErrorAction SilentlyContinue
+    # shared/ui/app_host.ps1 の getXamlText と同じく GetFullPath で正規化してから探す（鍵の決め方をそろえる）
+    $fullPath = [System.IO.Path]::GetFullPath($path)
+    if ($null -ne $bundled -and $bundled.Value -and $bundled.Value.ContainsKey($fullPath)) {
+        return $bundled.Value[$fullPath]
+    }
+    return [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($true)))
+}
+
+# 出せなくても起動は続ける（$null を返す）。
+# iconXamlPath は、アイコン（ベクターの絵。xaml\app_icon.xaml）の XAML
+function showSplash {
+    param (
+        [string]$path,
+        [string]$iconXamlPath = ""
+    )
+
     try {
-        $bundled = Get-Variable -Name bundledXaml -ErrorAction SilentlyContinue
-        # shared/ui/app_host.ps1 の getXamlText と同じく GetFullPath で正規化してから探す（鍵の決め方をそろえる）
-        $fullPath = [System.IO.Path]::GetFullPath($path)
-        $text = if ($null -ne $bundled -and $bundled.Value -and $bundled.Value.ContainsKey($fullPath)) {
-            $bundled.Value[$fullPath]
-        } else {
-            [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($true)))
-        }
+        $text = getSplashXamlText $path
         # 配列は ,（単項）で 1 つの引数として渡す。付けないと New-Object が要素ごとの引数に展開して失敗し、下の catch で黙って握りつぶされる
         $stream = New-Object System.IO.MemoryStream -ArgumentList (,[System.Text.Encoding]::UTF8.GetBytes($text))
         try {
@@ -29,11 +39,35 @@ function showSplash {
         } finally {
             $stream.Dispose()
         }
+        setSplashIcon $script:splash $iconXamlPath
         $script:splash.Show()
     } catch {
         $script:splash = $null
     }
     return $script:splash
+}
+
+# アイコンは飾りなので、読めなくても何もしない
+function setSplashIcon {
+    param (
+        $window,
+        [string]$iconXamlPath
+    )
+
+    if (-not $iconXamlPath) {
+        return
+    }
+    try {
+        $stream = New-Object System.IO.MemoryStream -ArgumentList (,[System.Text.Encoding]::UTF8.GetBytes((getSplashXamlText $iconXamlPath)))
+        try {
+            $icon = [System.Windows.Markup.XamlReader]::Load($stream)
+        } finally {
+            $stream.Dispose()
+        }
+        $window.FindName("SplashIcon").Source = $icon
+    } catch {
+        $null = $_
+    }
 }
 
 function stepSplash {

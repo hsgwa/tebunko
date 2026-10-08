@@ -1,4 +1,4 @@
-﻿# ［2 検索］タブの、選択した行の前後を表で見せるプレビュー。
+﻿# ［検索］タブの、選択した行の前後を表で見せるプレビュー。
 
 # 選択行のプレビューは、↑↓で続けて選択が変わったときは最後の1回だけ読む（巨大なTSVでも操作が重くならないようにする）。
 # プレビューの高さを変えたときも、入る行数に合わせて読み直すためにこのタイマーを使う
@@ -25,6 +25,7 @@ function clearDetail {
     $ui.PreviewHeaderScroll.Visibility = "Collapsed"
     $ui.PreviewPlaceholder.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $false
+    $ui.OpenMenuButton.IsEnabled = $false
     $ui.OpenFolderButton.IsEnabled = $false
 }
 
@@ -46,11 +47,11 @@ function showDetail {
     $ui.PreviewPlaceholder.Visibility = "Collapsed"
     $ui.PreviewHeaderScroll.Visibility = "Visible"
     $ui.OpenButton.IsEnabled = $true
+    $ui.OpenMenuButton.IsEnabled = $true
     $ui.OpenFolderButton.IsEnabled = $true
     # 閉じている見出しを選んだときの先頭の行は、まだ画面に出ていない（LoadingRow で Prepare されていない）ため、
     # セル番地（MatchCell）・「場所」の列の表記（PlaceDisplay）が空のままになる。ここで作っておく（作り済みなら何もしない）
     prepareHitRow $row
-    $ui.OpenButton.Content = if ($row.IsExcel) { "Excel で開く" } else { "開く" }
 
     # 前後の行を集約ファイルから読む。行数はプレビューの高さに合わせる。検索で読んだ内容があれば使う。
     # 読み込みは画面のスレッドでは行わない（キャッシュに無いと集約ファイル全体を読むため）。読み終わったら applyDetail で表にする。
@@ -135,7 +136,7 @@ function getPreviewCell {
 function copyPreviewSelection {
     # プレビューで選んだセルの値をクリップボードに入れる（1 セルならその値のまま、複数ならタブ区切り）
     if ($null -eq $script:previewTable -or !$script:previewTable.HasSelection()) {
-        setStatus "プレビューでコピーするセルをクリックしてください（Shift＋クリック・ドラッグで複数選べます）。"
+        setStatus "プレビューでコピーするセルをクリックしてください。"
         return
     }
     $text = $script:previewTable.GetSelectionText()
@@ -215,6 +216,19 @@ $ui.PreviewScroll.Add_PreviewKeyDown({
         $e.Handled = $true
     }
 })
+# プレビューが無いとき（結果を選んでいない・読めなかったとき）はメニューを出さない
+$ui.PreviewScroll.Add_ContextMenuOpening({
+    param ($sender, $e)
+    safe {
+        if ($null -eq $script:previewTable) {
+            $e.Handled = $true
+            return
+        }
+        $parts = @{ openHere = $ui.MenuPreviewOpen; copyCell = $ui.MenuPreviewCopy; copyRow = $ui.MenuPreviewCopyRow }
+        setContextMenuItems $ui.PreviewMenu (getPreviewMenuItems) $parts
+    }
+})
+$ui.MenuPreviewOpen.Add_Click({ safe { openSource } })
 $ui.MenuPreviewCopy.Add_Click({ safe { copyPreviewSelection } })
 $ui.MenuPreviewCopyRow.Add_Click({
     safe {

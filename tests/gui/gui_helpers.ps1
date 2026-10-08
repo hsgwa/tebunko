@@ -133,7 +133,7 @@ function startGuiProcess {
 
 function startGui {
     # 画面を起動する。プロセスを起こしたら、待たずにすぐ $S を返す（以降の操作の「場面」）。
-    # 本体の窓（Tabs を持つ窓）を待つのは invokeGuiScene の中で行う。起動そのものが失敗しても
+    # 本体の窓（NavList を持つ窓）を待つのは invokeGuiScene の中で行う。起動そのものが失敗しても
     # （XAML の読み込み例外など）、そこで失敗の材料を残してからプロセスを止められるようにするため
     param (
         $Tool,
@@ -148,16 +148,16 @@ function startGui {
 }
 
 function waitGuiStarted {
-    # 本体の窓（Tabs を持つ窓）が出るまで待つ。invokeGuiScene が Body の前に呼ぶ
+    # 本体の窓（NavList を持つ窓）が出るまで待つ。invokeGuiScene が Body の前に呼ぶ
     param ($S)
 
     if ($S.Window) {
         return
     }
     $sw = [Diagnostics.Stopwatch]::StartNew()
-    $S.Window = waitGui $S "本体の窓（Tabs）" ${guiStartTimeout} {
+    $S.Window = waitGui $S "本体の窓（NavList）" ${guiStartTimeout} {
         foreach ($w in @(getGuiTopWindows $S)) {
-            if (findGui $w -Id "Tabs") { return $w }
+            if (findGui $w -Id "NavList") { return $w }
         }
     }
     $S.Timing["起動"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
@@ -441,6 +441,29 @@ function clickGui {
     invokeGui $S $e $What
 }
 
+function checkGuiRow {
+    # 行のチェックを付ける（初めは付いていない。付いていれば何もしない）。［アクション ▾］の項目は、チェックを付けた行に対して動く
+    param ($S, $Row)
+    $check = findGui $Row -Type CheckBox
+    if ((getGuiToggleState $check) -ne "On") {
+        toggleGui $check
+    }
+    waitGui $S "行のチェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $Row -Type CheckBox)) -eq "On" } | Out-Null
+}
+
+function clickGuiAction {
+    # インデックス一覧の見出しの［アクション ▾］を押して開くメニューから、項目（AutomationId）を押す。
+    # ［更新］［エクスポート…］［削除…］は、チェックを付けた行に対して動く（先に checkGuiRow で付ける）。
+    # メニューは別の窓（ポップアップ）で開くので、本体の外から探す
+    param ($S, [string]$Id, [string]$What = "")
+    if (!$What) { $What = "［$Id］" }
+    $button = waitGuiById $S $S.Window "ActionsButton"
+    invokeGui $S $button "［アクション ▾］"
+    $menu = waitGuiWindow $S "アクションのメニュー" -Id $Id
+    $item = waitGuiById $S $menu $Id
+    invokeGui $S $item $What
+}
+
 function clickGuiByName {
     # 名前の無い部品（確認ダイアログの選択肢・メッセージボックスのボタン）を、表示の文字で探して押す
     param ($S, $Root, [string]$Name, [string]$Type = "Button")
@@ -484,7 +507,7 @@ function getGuiToggleState {
 }
 
 function selectGuiTab {
-    # タブを選び、選ばれるまで待つ。Id は TabItem の AutomationId（IndexTab・SearchTab・SettingsTab・KillTab）
+    # タブを選び、選ばれるまで待つ。Id は TabItem の AutomationId（IndexTab・SearchTab・SettingsTab）
     param ($S, [string]$Id, [string]$ContentId = "")
 
     $tab = waitGuiById $S $S.Window $Id
@@ -496,7 +519,7 @@ function selectGuiTab {
 function getGuiSelectedTab {
     # いま選ばれているタブの AutomationId
     param ($S)
-    foreach ($id in "IndexTab", "SearchTab", "SettingsTab", "KillTab") {
+    foreach ($id in "IndexTab", "SearchTab", "SettingsTab") {
         $tab = findGui $S.Window -Id $id
         if ($tab -and (isGuiSelected $tab)) { return $id }
     }
@@ -695,17 +718,36 @@ function pressGuiEnterKey {
     [void][TebunkoGuiNative]::PostMessage($handle, 0x0101, [IntPtr]13, [IntPtr]::Zero)
 }
 
+function pressGuiKey {
+    # 窓に、修飾キーなしのキー（VK_F5 = 0x74 など）を、WM_KEYDOWN・WM_KEYUP のメッセージだけで送る（SendInput・keybd_event は使わない）。
+    # Ctrl・Shift を押した形は送れない（ハンドラは本物のキーボードの状態を読むため）
+    param ($Window, [int]$VirtualKey)
+    $handle = [IntPtr]$Window.Current.NativeWindowHandle
+    [void][TebunkoGuiNative]::PostMessage($handle, 0x0100, [IntPtr]$VirtualKey, [IntPtr]::Zero)
+    [void][TebunkoGuiNative]::PostMessage($handle, 0x0101, [IntPtr]$VirtualKey, [IntPtr]::Zero)
+}
+
+function pressGuiMessageOk {
+    # メッセージの画面（自前の画面。OS 標準のメッセージボックスにも使える）の［OK］を押す。
+    # 自前の画面のボタンは Invoke パターンで押し、パターンを持たない OS 標準のボタンは BM_CLICK で押す。Enter キーも合わせて送る
+    param ($Window)
+    $ok = findGui $Window -Name "OK"
+    if ($ok) {
+        $pattern = $null
+        if ($ok.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) { $pattern.Invoke() } else { clickGuiNativeButton $ok }
+    }
+    pressGuiEnterKey $Window
+}
+
 function closeGuiNativeMessage {
-    # OK だけの OS 標準のメッセージボックスを、確実に閉じるまで閉じ続ける。
+    # OK だけのメッセージの画面を、確実に閉じるまで閉じ続ける（もとは OS 標準のメッセージボックス用）。
     # ボタンへの BM_CLICK（clickGuiNativeButton）だけでは閉じないことがあるため、Enter キー（pressGuiEnterKey）も
     # 合わせて送り、閉じるまで両方を送り直す（写真を撮る道具が、実機で BM_CLICK だけでは閉じなかった場面があったため）
     param ($S, $Window, [string]$What, [int]$Timeout = ${guiDefaultTimeout})
     $key = getGuiKey $Window
     waitGui $S "$What が閉じる" $Timeout {
         try {
-            $ok = findGui $Window -Name "OK"
-            if ($ok) { clickGuiNativeButton $ok }
-            pressGuiEnterKey $Window
+            pressGuiMessageOk $Window
         } catch { }
         Start-Sleep -Milliseconds 300
         !(@(getGuiOtherWindows $S) | Where-Object { (getGuiKey $_) -eq $key })
@@ -897,13 +939,19 @@ function answerGuiConfirm {
 }
 
 function closeGuiMessage {
-    # メッセージボックス（Text に文言が出ている窓）を待って、その文言を返し、［OK］で閉じる。
-    # OS 標準のメッセージボックスの［OK］はパターンを持たないため、OS のフォルダ選択と同じくネイティブのクリックで押す
-    param ($S, [string]$Text, [string]$What)
+    # メッセージの画面（Text に文言が出ている窓）を待って、その文言を返し、［OK］で閉じる。
+    # 自前の画面の［OK］は Invoke パターンで押す（OS 標準のメッセージボックスのときは、パターンが無いのでネイティブのクリックで押す）
+    # Kind は、見出しの左のアイコンの名前（お知らせ・警告・エラー・確認）。ボタンは［OK］だけで、メッセージの画面の枠（見出しの部品）であることも確かめる
+    param ($S, [string]$Text, [string]$What, [string]$Kind = "警告")
     $window = waitGuiWindow $S $What -Text $Text
     $found = @(getGuiTexts $window) -join " "
+    $mark = findGui $window -Id "HeadingIcon"
+    if (!$mark -or $mark.Current.Name -ne $Kind) { throw "${What}: 見出しのアイコンが「$Kind」でない（$(if ($mark) { $mark.Current.Name } else { 'アイコンなし' })）" }
+    $buttonNames = @(findAllGui $window -Type Button | ForEach-Object { $_.Current.Name })
+    if (($buttonNames -join ",") -ne "OK") { throw "${What}: ボタンが［OK］だけでない（$($buttonNames -join ',')）" }
     $button = waitGuiByName $S $window "OK"
-    clickGuiNativeButton $button
+    $pattern = $null
+    if ($button.TryGetCurrentPattern([Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) { $pattern.Invoke() } else { clickGuiNativeButton $button }
     waitGuiWindowClosed $S $window $What
     return $found
 }
@@ -920,18 +968,26 @@ function closeGuiWindowAsync {
 }
 
 function startGuiIndexing {
-    # ［1 インデックス管理］の［インデックス作成を開始］を押し、確認のダイアログで［インデックス作成を開始］を押して、取り込みを始める
+    # ［インデックス管理］の［すべて更新］を押し、確認のダイアログで［更新を開始］を押して、取り込みを始める
     param ($S)
 
-    clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+    clickGui $S $S.Window "IndexingButton" "［すべて更新］"
     $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
-    clickGui $S $confirm "StartButton" "確認の［インデックス作成を開始］"
+    clickGui $S $confirm "StartButton" "確認の［更新を開始］"
     waitGuiWindowClosed $S $confirm "取り込みの確認"
 }
 
+function getGuiIndexingBannerText {
+    # 更新の帯（IndexingProgressText）の文字。帯が隠れているときは空文字列（隠れた部品は UI Automation に出ない）
+    param ($S)
+    $e = findGui $S.Window -Id "IndexingProgressText"
+    if ($e) { return [string]$e.Current.Name }
+    return ""
+}
+
 function testGuiIndexing {
-    # 取り込みの最中か（［インデックス作成中…］のボタンが出ている）
+    # 取り込みの最中か（［更新中…］のボタンが出ている）
     param ($S)
     $button = findGui $S.Window -Id "IndexingButton"
-    return ($button -and $button.Current.Name -eq "インデックス作成中…")
+    return ($button -and $button.Current.Name -eq "更新中…")
 }

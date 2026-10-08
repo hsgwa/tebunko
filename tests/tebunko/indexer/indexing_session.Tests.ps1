@@ -114,10 +114,10 @@ $Channel.ExitCode = 2
     }
 
     It "GetNotice・GetPostponed は受け渡しの口の値を返す。入っていなければ空・0" {
-        $session = newFakeIndexingSession '$Channel.Notice = "PowerPoint が起動していたため、2 件を取り込まずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0' (newIndexerChannel)
+        $session = newFakeIndexingSession '$Channel.Notice = "PowerPoint が起動していたため、2 件を更新せずに残しました。"; $Channel.Postponed = 2; $Channel.ExitCode = 0' (newIndexerChannel)
         try {
             [void]$session.Wait(30000)
-            $session.GetNotice() | Should -Be "PowerPoint が起動していたため、2 件を取り込まずに残しました。"
+            $session.GetNotice() | Should -Be "PowerPoint が起動していたため、2 件を更新せずに残しました。"
             $session.GetPostponed() | Should -Be 2
         } finally {
             $session.Close()
