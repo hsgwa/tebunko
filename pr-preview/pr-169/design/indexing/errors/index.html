@@ -4219,7 +4219,7 @@
 <pre class="mermaid"><code>flowchart LR
     E{"発生したエラー"} -- "インデックス作成を続けられない&lt;br&gt;（4.8.1）" --&gt; F["受け渡しの口の Error&lt;br&gt;終了コード 1"] --&gt; G1["画面: 進み具合欄とエラーのダイアログ"]
     E -- "1 ファイルの取り込みに失敗&lt;br&gt;（4.8.2）" --&gt; S["work/ingest_status.tsv のエラー列&lt;br&gt;状態は『失敗』"] --&gt; G2["画面: 「取り込みに失敗したファイル」の一覧"]
-    E -- "警告・お知らせ&lt;br&gt;（4.8.3）" --&gt; L["work/indexing_log.txt"] --&gt; G3["画面: ［ログを開く］"]</code></pre>
+    E -- "警告・お知らせ&lt;br&gt;（4.8.3）" --&gt; L["work/indexing_log.txt"] --&gt; G3["利用者がログのファイルを開く"]</code></pre>
 <table>
 <thead>
 <tr>
@@ -4245,7 +4245,7 @@
 <tr>
 <td>警告・お知らせ（<a href="#警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）</a>）</td>
 <td><code>work/indexing_log.txt</code></td>
-<td>［ログを開く］で確認する</td>
+<td>ワークスペースの <code>indexing_log.txt</code> を開いて確認する</td>
 <td>続ける</td>
 </tr>
 </tbody>
@@ -4461,7 +4461,7 @@
 <li>エラー列が空の <code>失敗</code> の行は、画面の一覧では <code>（原因は記録されていません）</code> と表示する。</li>
 </ul>
 <h2 id="警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）<a class="headerlink" href="#警告お知らせインデックス作成ログ" title="Permanent link">&para;</a></h2>
-<p>インデックス作成は続けるが、利用者が知っておくべき内容。<code>work/indexing_log.txt</code> に記録する（画面の［ログを開く］で開く）。</p>
+<p>インデックス作成は続けるが、利用者が知っておくべき内容。<code>work/indexing_log.txt</code> に記録する（ワークスペースのフォルダから開く）。</p>
 <table>
 <thead>
 <tr>
