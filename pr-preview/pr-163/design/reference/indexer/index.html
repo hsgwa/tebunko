@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4338,9 +4338,9 @@
 </tr>
 <tr>
 <td><code>newIndexerChannel</code></td>
-<td>retryFailed, confirmTargets, workers（既定 -1）</td>
+<td>retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）</td>
 <td>受け渡しの口（<code>[hashtable]::Synchronized</code>）</td>
-<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
+<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
 <td><a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 <td>画面・indexer.ps1</td>
 </tr>
@@ -4357,7 +4357,7 @@
 <td>channel</td>
 <td><code>@{Phase; Processed; Remaining; Failed; Detail}</code> / <code>$null</code></td>
 <td>インデックス作成の進み具合を受け渡しの口から読む（まだ無ければ <code>$null</code>）。画面が 1 秒ごとに呼ぶ（数万行の取り込み一覧を読み直さない）</td>
-<td><a href="../../gui/indexing-run/#インデックス作成の進み具合">インデックス作成の実行</a></td>
+<td><a href="../../gui/indexing-run/#更新の進み具合">インデックス作成の実行</a></td>
 <td>画面</td>
 </tr>
 <tr>
@@ -4373,7 +4373,7 @@
 <td>channel, answer（<code>@{RetryFailed}</code> / <code>$null</code>）</td>
 <td>–</td>
 <td>確認のダイアログの返事をインデクサに伝える。<code>$null</code> は取りやめ（<code>Stop</code> も立てる）</td>
-<td><a href="../../gui/indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の実行</a></td>
+<td><a href="../../gui/indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の実行</a></td>
 <td>画面</td>
 </tr>
 <tr>
@@ -4382,7 +4382,7 @@
 <td>bool</td>
 <td>この <code>work</code> でインデックス作成が動いているか（インデクサのミューテックスを取れるかで調べ、取れたらすぐ放す）。画面を使わずに起動したものも分かる</td>
 <td><a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
-<td>画面（［8 設定］）</td>
+<td>画面（［設定］）</td>
 </tr>
 <tr>
 <td><code>writeIndexerLog</code></td>
@@ -4559,7 +4559,7 @@
 <td><code>getExtractVersion</code></td>
 <td>path</td>
 <td>int</td>
-<td>ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。<code>.xlsx</code> <code>.xlsm</code> <code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code> はグラフの項目名を読まない・Excel はグラフ・SmartArt も読む 3、旧形式（<code>.doc</code> <code>.ppt</code>）など図形・コメントを読む形式は 2、ほかは 1）</td>
+<td>ファイルの形式（拡張子）の今の抽出版（読み取る内容の版。<code>.xlsx</code> <code>.xlsm</code> はグラフの項目名を読まず、グラフ・SmartArt・ヘッダー・フッターを読む 4、<code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code> はグラフの項目名を読まない 3、旧形式（<code>.doc</code> <code>.ppt</code>）など図形・コメントを読む形式は 2、ほかは 1）</td>
 <td><a href="../../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a></td>
 <td>testExtractOutdated、インデックス作成（取り込み一覧の抽出版の列）</td>
 </tr>
@@ -4675,10 +4675,18 @@
 <td>画面（［削除］）</td>
 </tr>
 <tr>
+<td><code>removeIndexes</code></td>
+<td>names, dir, statusPath, settingsPath（<code>removeIndex</code> と同じ）</td>
+<td><code>@{Name; Ok; Reason}</code> の配列（名前ごと）</td>
+<td>選んだインデックスをまとめて削除する。<code>removeIndex</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ</td>
+<td>同上</td>
+<td>画面（［削除］）</td>
+</tr>
+<tr>
 <td><code>getSearchIndexes</code></td>
 <td>dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath</td>
 <td><code>@{Name; Path; SourcePath}</code> の配列</td>
-<td>インデックスの一覧（<code>work\content_index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［1 インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
+<td>インデックスの一覧（<code>work\content_index</code> 直下のフォルダ 1 つがインデックス 1 つ）。並びは［インデックス管理］の一覧と同じで、一覧に無いもの（コピーしたインデックスなど）は名前順で後ろ。<code>SourcePath</code> は元のフォルダ（分からなければ空）</td>
 <td><a href="../../search/#インデックスの一覧getsearchindexes">インデックスの一覧</a></td>
 <td>画面（検索対象のツリー）</td>
 </tr>
@@ -4705,6 +4713,22 @@
 <td>1 つのインデックスを 1 つの zip に書き出す。インデックス作成のロックを取り、入れる前の TSV が残っていれば例外。<code>&lt;destPath&gt;.tmp</code> に書いてから置き換える</td>
 <td>同上</td>
 <td>画面（［エクスポート…］）</td>
+</tr>
+<tr>
+<td><code>exportIndexToFolder</code></td>
+<td>name, folder, ws, settingsPath</td>
+<td><code>exportIndex</code> と同じ</td>
+<td>書き出し先のフォルダを確かめ（無ければ <code>書き出し先のフォルダが見つかりません：&lt;フォルダ&gt;</code> の例外）、そのフォルダにある zip の名前から <code>getExportFileName</code> で重ならない名前を決め、<code>exportIndex</code> で書き出す</td>
+<td>同上</td>
+<td>画面（［エクスポート…］の別スレッド）</td>
+</tr>
+<tr>
+<td><code>exportIndexes</code></td>
+<td>names, destination（フォルダ）, ws, settingsPath</td>
+<td><code>@{Name; Ok; Reason; Path}</code> の配列（名前ごと）</td>
+<td>選んだインデックスを、書き出し先のフォルダにインデックス 1 つにつき zip 1 つで書き出す。<code>exportIndexToFolder</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由、<code>Path</code> は書き出した zip。失敗なら空）。zip の形・ファイル名は 1 つずつの書き出しと同じ</td>
+<td>同上</td>
+<td>画面（［エクスポート…］の別スレッド）</td>
 </tr>
 <tr>
 <td><code>readIndexArchiveInfo</code></td>

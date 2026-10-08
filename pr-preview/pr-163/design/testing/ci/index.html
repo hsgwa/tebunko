@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4115,7 +4115,7 @@
 <p>pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
 <ul>
 <li>Windows PowerShell 5.1 はランナーに最初から入っている（<code>shell: powershell</code> を明示する。<code>pwsh</code>（PowerShell 7）では COM と文字コードの扱いが変わる）</li>
-<li><strong>どのワークフローも、<code>shell: powershell</code> の <code>run</code> は ASCII だけで書く。</strong> Actions は <code>run</code> の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは <code>tools/</code> の BOM 付き UTF-8 のスクリプトに移して呼び出す（<code>shell: pwsh</code> はこの制限を受けない）。<code>tests/meta/encoding.Tests.ps1</code> の「shell: powershell の run は ASCII だけ」が確かめる</li>
+<li><strong>どのワークフローも、<code>shell: powershell</code> の <code>run</code> は ASCII だけで書く。</strong> Actions は <code>run</code> の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる。メッセージなどで日本語が要るときは <code>tools/</code> の BOM 付き UTF-8 のスクリプトに移して呼び出す（<code>shell: pwsh</code> はこの制限を受けない）。<code>tests/meta/encoding.Tests.ps1</code> の「shell: powershell の run は ASCII だけ」が確かめる</li>
 <li>ランナーには Windows に最初から入っている Pester 3.4 もある。<code>tests/run.ps1</code> は <code>Import-Module Pester -RequiredVersion 5.9.0</code> で版を指定し、CI は 5.9.0 が無ければ入れる（版は <code>test.yml</code> の <code>PESTER_VERSION</code> と <code>tests/run.ps1</code> の 2 か所で同じにする）</li>
 <li>スクリプトの改行はランナーの <code>core.autocrlf</code> に左右されないよう、<code>.gitattributes</code> で <code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF に固定している</li>
 <li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（<a href="../#結合テスト手動">結合テスト（手動）</a>）</li>
@@ -4135,13 +4135,14 @@
 <p>PR と Issue のタイトルを <code>tools/check_commit_message.ps1 -Title</code> で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。</p>
 <ul>
 <li>PR（ジョブ <code>pr-title</code>）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす</li>
+<li><code>pr-title</code> は <code>tools/check_compat_golden.ps1</code> も呼び、前の版との互換の見本（<code>tests/testdata/compat/</code>。<a href="../../index-data/format/#前の版との互換">前の版との互換</a>）を <code>!</code> 無しで変える・消す PR を落とす</li>
 <li>Issue（ジョブ <code>issue-title</code>）… 作成は止められないため、形が違えば <code>.github/title_comment.md</code> の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）</li>
 <li>タイトルは誰でも書ける信頼できない入力のため、式で <code>run</code> に埋め込まず環境変数で渡す</li>
 <li>起動の速い ubuntu のランナーで <code>pwsh</code>（PowerShell 7）を使う。そのため <code>tools/check_commit_message.ps1</code> は 5.1 と 7 の両方で動くように書く</li>
 <li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
 </ul>
 <p><strong><code>gui.yml</code>（画面のスモークテスト）</strong></p>
-<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
+<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
 <ul>
 <li><strong><code>test.yml</code> には入れない。</strong> <code>test.yml</code> は <code>release.yml</code> から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば <code>test</code> と並んで動き、<code>test</code> の時間も延びない</li>
 <li><strong>必須チェックにしない。</strong> 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、<code>paths</code> の絞り込みは付けていない</li>

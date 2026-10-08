@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4101,7 +4101,11 @@
 </tr>
 <tr>
 <td>書き込み先</td>
-<td><code>$workspace</code>（<code>Workspace</code> の <code>IndexDir</code>・<code>PublishDir</code>）・<code>${tmpDir}</code>・<code>${settingsFile}</code> の定義が <code>work</code> 配下・<code>%TEMP%</code> 配下・<code>setting.config</code> だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（<code>removeStaleTmpDirs</code>）</td>
+<td><code>$workspace</code>（<code>Workspace</code> の <code>IndexDir</code>・<code>TmpRoot</code>・<code>PublishDir</code>）・<code>${settingsFile}</code>・<code>${dataDir}</code> の定義が <code>work</code> 配下・<code>setting.config</code>・<code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code> だけ、起動に失敗したときの記録の置き場所が固定の <code>%LOCALAPPDATA%\tebunko</code>・<code>%TEMP%</code> 配下だけ、ドライブ直下やシステムフォルダを直接指す書き込み先が無い、異常終了で残った作業フォルダを次回起動時に回収する（<code>removeStaleTmpDirs</code>）</td>
+</tr>
+<tr>
+<td><code>%TEMP%</code> を指す書き方</td>
+<td>直接指すのは、取り込みの作業フォルダの前の版の置き場所（<code>${legacyTmpParent}</code>。片付けの対象としてだけ使う。<code>paths.ps1</code>）と、起動失敗を記録する <code>writeStartupErrorFile</code>（<code>gui.ps1</code>）の 2 か所だけで、取り込みの作業フォルダ自体はワークスペースの <code>tmp\</code> の下（<code>${tmpDir}</code>）を使う</td>
 </tr>
 <tr>
 <td>静的解析（PSScriptAnalyzer）</td>

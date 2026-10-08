@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3010,7 +3040,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3031,14 +3061,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3119,8 +3149,6 @@
       
         
           
-        
-      
         
       
         
@@ -3227,7 +3255,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3255,7 +3283,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3283,35 +3311,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4035,11 +4035,11 @@
 <tbody>
 <tr>
 <td>一番上の項目</td>
-<td><strong>インデックス 1 件</strong>（<code>getSearchIndexes</code>。<code>work\content_index</code> 直下のフォルダ）。表示名はインデックス名で、並びは［1 インデックス管理］の一覧と同じ（その一覧に無いもの＝別の場所・PC からコピーしたインデックスは名前順で後ろ）。インデックスが 1 つも無ければ、ツリーに <code>インデックスがありません。［1 インデックス管理］でインデックスを作成してください。</code> と表示する。存在しないフォルダは茶色で表示し、ツールチップに <code>（フォルダが見つかりません。検索時はスキップします）</code> を出す</td>
+<td><strong>インデックス 1 件</strong>（<code>getSearchIndexes</code>。<code>work\content_index</code> 直下のフォルダ）。表示名はインデックス名で、並びは［インデックス管理］の一覧と同じ（その一覧に無いもの＝別の場所・PC からコピーしたインデックスは名前順で後ろ）。インデックスが 1 つも無ければ、ツリーに <code>インデックスがありません。［インデックス管理］でインデックスを作成してください。</code> と表示する。存在しないフォルダは茶色で表示し、ツールチップに <code>（フォルダが見つかりません。検索時はスキップします）</code> を出す</td>
 </tr>
 <tr>
 <td>下の項目</td>
-<td>インデックスの中のフォルダ（= クロール対象フォルダの中のフォルダ）。名前順。<strong>元のファイル名のフォルダ</strong>（<code>A社.xlsx</code> など。取り込み中だけ TSV をこの中に置く。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）は、フォルダではなくファイルなのでツリーに出さない（<code>IndexNode.IsBookDir</code>。判定は <code>tebunko/index/index_name.ps1</code> の <code>$indexBookDirPattern</code> と同じ、Office・テキストの拡張子で終わる名前）</td>
+<td>インデックスの中のフォルダ（= クロール対象フォルダの中のフォルダ）。名前順。<strong>元のファイル名のフォルダ</strong>（<code>A社.xlsx</code> など。更新中だけ TSV をこの中に置く。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>）は、フォルダではなくファイルなのでツリーに出さない（<code>IndexNode.IsBookDir</code>。判定は <code>tebunko/index/index_name.ps1</code> の <code>$indexBookDirPattern</code> と同じ、Office・テキストの拡張子で終わる名前）</td>
 </tr>
 <tr>
 <td>読み込み</td>
@@ -4054,8 +4054,12 @@
 <td>サブフォルダと本文インデックスのファイル（<code>content_index.*.tsv</code>）の両方があるフォルダには、先頭に <code>（このフォルダ直下のファイル）</code> の項目を置く（灰色）。サブフォルダの一部だけを選んだとき、そのフォルダ直下のファイルを含めるかをこの項目のチェックで表す（<code>getIndexPackFiles</code> の <code>Recurse</code> が <code>$false</code> のときと同じ）。本文インデックスに入れる前の TSV（元のファイル名のフォルダの中）が残っているフォルダも、直下のファイルがあるものとして扱う（<code>IndexNode.HasFiles</code>）</td>
 </tr>
 <tr>
+<td>名前の絞り込み</td>
+<td>ツリーの上の欄に打った文字で、一番上の項目（インデックス）の名前を絞る。空白（全角も可）で区切った語がすべて名前に含まれるものだけを出す（大文字・小文字は区別しない。判定は <code>matchesTreeFilter</code>）。チェックと展開の状態は変えない</td>
+</tr>
+<tr>
 <td>チェック</td>
-<td>既定はすべてチェックあり。フォルダのチェックを付ける・外すと、その下もすべて同じにする。下の項目の一部だけがチェックありのフォルダは「一部」（▣）の表示になる。スペースキーで選択中の項目のチェックを切り替える。［すべて選択］［すべて解除］は一番上の項目ごと切り替える</td>
+<td>既定はすべてチェックあり。フォルダのチェックを付ける・外すと、その下もすべて同じにする。下の項目の一部だけがチェックありのフォルダは「一部」（▣）の表示になる。スペースキーで選択中の項目のチェックを切り替える。［すべて］［解除］は一番上の項目ごと切り替える</td>
 </tr>
 <tr>
 <td>検索する範囲</td>
@@ -4130,13 +4134,13 @@
         
         
           
-          <a href="../settings-tab/" class="md-footer__link md-footer__link--next" aria-label="次: ［8 設定］タブ">
+          <a href="../settings-tab/" class="md-footer__link md-footer__link--next" aria-label="次: ［設定］タブ">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                ［8 設定］タブ
+                ［設定］タブ
               </div>
             </div>
             <div class="md-footer__button md-icon">

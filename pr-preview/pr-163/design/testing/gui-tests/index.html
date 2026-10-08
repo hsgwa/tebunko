@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4172,6 +4172,11 @@
 <td><code>"</code> で囲まれたセル内のタブ、空のセル、先頭のセルが空の行</td>
 </tr>
 <tr>
+<td><code>testTextTrimmed</code></td>
+<td><code>tests/shared/core/text.Tests.ps1</code></td>
+<td>ちょうど・1px 超え・誤差の内・幅 0</td>
+</tr>
+<tr>
 <td><code>getExistingAncestorFolder</code></td>
 <td><code>tests/shared/core/folder.Tests.ps1</code></td>
 <td>フォルダ選択を開く場所（<a href="../../gui/common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>）。フォルダがあればそのまま、無ければその上の今もあるフォルダ、どこにも無い・空なら空</td>
@@ -4210,7 +4215,7 @@
 </tr>
 <tr>
 <td>判断層</td>
-<td><code>tests/tebunko/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings_view.Tests.ps1</code></td>
+<td><code>tests/tebunko/ui/index_view.Tests.ps1</code><br><code>indexing_view.Tests.ps1</code><br><code>search\search_bar_view.Tests.ps1</code><br><code>result_list_view.Tests.ps1</code><br><code>open_source_view.Tests.ps1</code><br><code>preview_view.Tests.ps1</code><br><code>settings\settings_view.Tests.ps1</code></td>
 <td>画面に出す文言と可否の判定（ワークスペースの表示・選んだフォルダの可否・変える前の確認と空でないフォルダの警告の文言、インデックス名の入力チェック、インデックス作成の確認の文言と終わりの見出し・説明（成功・失敗・後回しの組み合わせ）、ボタンの上の一言（残りの件数とインデックス作成中か）、検索条件の説明・注意・検索ボタンの状態、ファイルごとの見出しの表記と並べ替え、プレビューの行数とステータス）</td>
 </tr>
 <tr>
@@ -4262,14 +4267,14 @@
 <td>一覧・判定は◎。追加・編集・削除・［参照…］は自動（S2）</td>
 </tr>
 <tr>
-<td>インデックス一覧の［作成］チェックの切替が保存されること（Checked・Unchecked で配線）</td>
+<td>インデックス一覧の行のチェックの切替が保存されること（Checked・Unchecked で配線）</td>
 <td><a href="../../gui/index-tab/">インデックス一覧の管理</a></td>
 <td>自動（S2）</td>
 </tr>
 <tr>
 <td>フォルダ選択ダイアログ（Windows 標準のダイアログが開くこと、開始フォルダ、［フォルダーの選択］で元のフォルダに入ること、［キャンセル］で変わらないこと）</td>
 <td><a href="../../gui/common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a></td>
-<td>◎（UI オートメーションで［追加…］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動。自動（S2・S5。ランナーの英語の Windows でも）</td>
+<td>◎（UI オートメーションで［＋ フォルダを追加］→［参照…］→フォルダ名の欄に入力→［フォルダーの選択］まで操作し、インデックス編集への反映を確認）。<code>OpenFileDialog</code> に切り替わる場合は要手動。自動（S2・S5。ランナーの英語の Windows でも）</td>
 </tr>
 <tr>
 <td>状態ごとの実行ボタンの表示、インデックス作成中の二重起動防止</td>
@@ -4278,16 +4283,16 @@
 </tr>
 <tr>
 <td>インデックス作成の進み具合（件数・失敗・残り時間・取り込み中のファイル・終了後の表示）</td>
-<td><a href="../../gui/indexing-run/#インデックス作成の進み具合">インデックス作成の進み具合</a>、<a href="../../gui/indexing-run/#中止終了ログ">中止・終了・ログ</a></td>
+<td><a href="../../gui/indexing-run/#更新の進み具合">インデックス作成の進み具合</a>、<a href="../../gui/indexing-run/#中止終了ログ">中止・終了・ログ</a></td>
 <td>◎（取り込み一覧を模擬）</td>
 </tr>
 <tr>
 <td>インデックス作成の確認ダイアログ（インデックスごとの件数・更新不要・失敗分の再取り込み・［キャンセル］）</td>
-<td><a href="../../gui/indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a></td>
+<td><a href="../../gui/indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a></td>
 <td>取り込み予定・終了コード・取り込み一覧が前回のまま残ることは◎（<code>tests/tebunko/indexer/indexer.Tests.ps1</code> で、受け渡しの口の <code>ConfirmTargets</code> でインデクサを動かし、別のスレッドから返事を渡して確認）。ダイアログの見た目は要手動。開く・［キャンセル］・開始は自動（S2・S3）</td>
 </tr>
 <tr>
-<td>インデックス作成中に画面を閉じる（止めてから閉じる確認・<code>インデックス作成を止めています…</code>・止まってから閉じる。60 秒で Office を止める）</td>
+<td>インデックス作成中に画面を閉じる（止めてから閉じる確認・<code>更新を止めています…</code>・止まってから閉じる。60 秒で Office を止める）</td>
 <td><a href="../../gui/indexing-run/#中止終了ログ">中止・終了・ログ</a>、<a href="../../gui/state-flow/#閉じる">閉じる</a></td>
 <td>要手動。確認・止めてから閉じる・終了コード 0 は自動（S3）。60 秒待って Office を止める段階は手</td>
 </tr>
@@ -4332,9 +4337,9 @@
 <td>コピーの形式のみ◎</td>
 </tr>
 <tr>
-<td>Office プロセスの一覧・各終了ボタン・確認ダイアログ・インデックス作成中の警告</td>
-<td><a href="../../gui/process-tab/">［9 プロセス停止］タブ</a></td>
-<td>一覧・ボタンの有効／無効のみ◎。偽のプロセスで一覧・確認・選んで終了は自動（S7）</td>
+<td>起動時の残った Office の確認の文言・出すタイミング・対象の選び方</td>
+<td><a href="../../gui/leftover-office/">前回残った Office の確認</a></td>
+<td>判断層の単体テスト（<code>leftover_view.Tests.ps1</code>）で確かめる。確認ダイアログを開いて［今回は終了しない］・［終了する］を押す流れは <code>tests/gui/leftover.Tests.ps1</code>（偽の行を差し込み、本物の Office には触れない）で確かめる</td>
 </tr>
 <tr>
 <td>アイコンがタイトルバー・タスクバーに出ること（タスクバーのボタンは PowerShell と同じグループになるが、アイコンは tebunko）</td>

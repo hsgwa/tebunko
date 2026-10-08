@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -763,7 +763,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1561,6 +1561,8 @@
       
         
       
+        
+      
     
     
     
@@ -1820,6 +1822,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2996,7 +3026,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3017,14 +3047,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3105,8 +3135,6 @@
       
         
           
-        
-      
         
       
         
@@ -3213,7 +3241,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3241,7 +3269,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3269,35 +3297,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4007,6 +4007,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        高速検索（Windows Search）の状態（tebunko/search/windows_search.ps1・fast_search.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#スレッドとプールsharedcoreworker_poolps1tebunkosearchsearch_serviceps1tebunkoindexerindexing_sessionps1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4111,6 +4122,17 @@
     <span class="md-ellipsis">
       
         検索（tebunko/search/search_query.ps1・pack_search.ps1・search_run.ps1）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        高速検索（Windows Search）の状態（tebunko/search/windows_search.ps1・fast_search.ps1）
       
     </span>
   </a>
@@ -4233,6 +4255,14 @@
 <td>正規表現を全文にかけて、1 行ずつの照合と同じ結果になるかを判定する。<code>lines</code> は全文での一致の位置から行が分かる、<code>filter</code> は全文で一致しない本文インデックスのファイルを読み飛ばせる、<code>scan</code> は 1 行ずつ照合する。分からない書き方は安全側（<code>filter</code> か <code>scan</code>）に倒す</td>
 <td><a href="../../search/speed/">検索を速くする仕組み</a></td>
 <td>newSearchRegex</td>
+</tr>
+<tr>
+<td><code>newFileKindFilter</code></td>
+<td>kinds</td>
+<td>string</td>
+<td>選んだ種類（<code>readFileKinds</code> の値）から、対象ファイルの条件（<code>*.xlsx;*.xls</code> の形）を作る。すべて選んでいる・空なら空</td>
+<td><a href="../../search/">検索</a></td>
+<td>newSearchRequest</td>
 </tr>
 <tr>
 <td><code>newFileFilter</code></td>
@@ -4380,6 +4410,42 @@
 </tr>
 </tbody>
 </table>
+<h2 id="高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1">高速検索（Windows Search）の状態（<code>tebunko/search/windows_search.ps1</code>・<code>fast_search.ps1</code>）<a class="headerlink" href="#高速検索windows-searchの状態tebunkosearchwindows_searchps1fast_searchps1" title="Permanent link">&para;</a></h2>
+<p>詳細は <a href="../../search/fast-search/">高速検索（Windows Search）</a>。</p>
+<table>
+<thead>
+<tr>
+<th>関数</th>
+<th>入力</th>
+<th>出力</th>
+<th>概要</th>
+<th>使用元</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>openWindowsSearch</code></td>
+<td>–</td>
+<td><code>OleDbConnection</code> / <code>$null</code></td>
+<td>Windows Search への接続を開く（開けなければ <code>$null</code>）</td>
+<td>getWindowsSearchState, getSystemIndexProgress, 検索（高速検索）</td>
+</tr>
+<tr>
+<td><code>getWindowsSearchState</code></td>
+<td>systemRoot（既定 <code>$workspace.SystemIndexDir</code>）, workspaceDir, connection</td>
+<td>string（<code>NoFolder</code> / <code>NoConnection</code> / <code>NotInScope</code> / <code>NotYet</code> / <code>Ok</code>）</td>
+<td>高速検索に使えるかと、使えない理由。<code>system_index</code> のフォルダの有無・Windows Search への接続・ワークスペースが索引の対象かを順に確かめる</td>
+<td>画面（一覧の「高速検索」列）、testWindowsSearch</td>
+</tr>
+<tr>
+<td><code>getSystemIndexProgress</code></td>
+<td>query（既定 <code>$null</code> で自分で問い合わせる）, indexRoot, systemRoot, statePath, connection</td>
+<td><code>@{Folders; Waiting; ContentIndexed; ByIndex}</code> / <code>$null</code></td>
+<td>システムインデックスが Windows Search にどこまで反映されたかを数える。<code>ByIndex</code> はインデックス名 → <code>@{Folders; Waiting}</code> の辞書（OrdinalIgnoreCase）。状態ファイルを読めない・問い合わせられないときは <code>$null</code></td>
+<td>画面（一覧の「高速検索」列）</td>
+</tr>
+</tbody>
+</table>
 <h2 id="スレッドとプールsharedcoreworker_poolps1tebunkosearchsearch_serviceps1tebunkoindexerindexing_sessionps1">スレッドとプール（<code>shared/core/worker_pool.ps1</code>・<code>tebunko/search/search_service.ps1</code>・<code>tebunko/indexer/indexing_session.ps1</code>）<a class="headerlink" href="#スレッドとプールsharedcoreworker_poolps1tebunkosearchsearch_serviceps1tebunkoindexerindexing_sessionps1" title="Permanent link">&para;</a></h2>
 <p>設計は <a href="../../structure/threads/">プロセスとスレッド</a>。クラスは作ったランスペースのスレッドだけから呼ぶ（<code>SearchService</code>・<code>BackgroundQueue</code>・<code>IndexingSession</code> は画面のスレッドで作る。<code>WorkerPool</code> はプールを持つ側のスレッドで作る。<code>Workspace</code> は各スレッドで作り直す）（<a href="../../structure/classes/">クラスと関数の使い分け</a>）。</p>
 <table>
@@ -4524,8 +4590,8 @@
 <tbody>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
-<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
-<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
+<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
+<td><code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> / –</td>
 <td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える</td>
 <td><a href="../../structure/settings-file/">設定ファイル（setting.config）</a></td>
 <td>画面</td>
@@ -4540,17 +4606,17 @@
 </tr>
 <tr>
 <td><code>getOfficeProcesses</code></td>
-<td>–</td>
-<td>プロセス情報の配列</td>
-<td>実行中の Excel・Word・PowerPoint（Id・ProcessName・AppName・Background・StartTime・MemoryMB・Title）。<code>MainWindowHandle</code> が 0 ならバックグラウンド</td>
-<td><a href="../../gui/process-tab/">［9 プロセス停止］タブ</a></td>
+<td>recordDir, selfId, selfStartTicks</td>
+<td><code>@{Id; ProcessName; AppName; StartTime; HasWindow; Owned; Owner}</code> の配列</td>
+<td>実行中の Excel・Word・PowerPoint。記録（<code>office_pids</code>）と照らして <code>Owned</code>（記録と同じプロセスか）・<code>Owner</code>（Self／Other／Gone）を付ける。<code>HasWindow</code> は <code>MainWindowHandle</code> が 0 でないこと</td>
+<td><a href="../../gui/leftover-office/">前回残った Office の確認</a></td>
 <td>画面</td>
 </tr>
 <tr>
 <td><code>stopOfficeProcesses</code></td>
-<td>ids</td>
-<td><code>@{Id; Stopped; Message}</code> の配列</td>
-<td><code>Stop-Process -Force</code> で終了し、成否と理由を返す</td>
+<td>targets, recordDir</td>
+<td><code>@{Id; Stopped; Status; Reason}</code> の配列</td>
+<td>止める直前に PID が記録と同じプロセスか照らし直し、同じものだけ <code>Stop-Process -Force</code> で終了する。<code>Status</code> は Stopped／Changed／Gone／Failed</td>
 <td>同上</td>
 <td>画面</td>
 </tr>

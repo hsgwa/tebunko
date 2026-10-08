@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3069,7 +3099,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3090,14 +3120,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3178,8 +3208,6 @@
       
         
           
-        
-      
         
       
         
@@ -3286,7 +3314,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3314,7 +3342,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3342,35 +3370,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4134,7 +4134,7 @@
 <tbody>
 <tr>
 <td>表示・非表示</td>
-<td><strong>常に表示する</strong>（行を選んでいなくても枠を出したままにする）。行を選ぶたびに表の高さが変わらず、次に選んだ行も同じ場所に出る。行を選んでいないときは、枠の中に <code>結果の表で行を選ぶと、ここにその前後の行を表示します。</code> と出し、［Excel で開く］［フォルダを開く］は押せない</td>
+<td><strong>常に表示する</strong>（行を選んでいなくても枠を出したままにする）。行を選ぶたびに表の高さが変わらず、次に選んだ行も同じ場所に出る。行を選んでいないときは、枠の中に <code>結果の表で行を選ぶと、ここにその前後の行を表示します。</code> と出し、［開く］［フォルダを開く］は押せない</td>
 </tr>
 <tr>
 <td>高さの変更</td>
@@ -4142,7 +4142,7 @@
 </tr>
 <tr>
 <td>見出し</td>
-<td><code>&lt;相対フォルダ\ファイル名&gt; ・ &lt;場所（行ごとの表記）&gt; ・ &lt;種別&gt;</code>（例: <code>営業部\見積.xlsx ・ [シート]4月!B3 ・ セル</code>。Excel はセル番地が場所に含まれる）。右に［開き方］の選択（<a href="../open-file/">元のファイルを開く</a>）、［Excel で開く］（Word・PowerPoint は［開く］）と［フォルダを開く］を置く。動作は <a href="../open-file/">元のファイルを開く</a> の［元のファイルを開く］・［フォルダを開く］と同じ</td>
+<td><code>&lt;相対フォルダ\ファイル名&gt; ・ &lt;場所（行ごとの表記）&gt; ・ &lt;種別&gt;</code>（例: <code>営業部\見積.xlsx ・ [シート]4月!B3 ・ セル</code>。Excel はセル番地が場所に含まれる）。右に［開く］（右の［▾］のメニューで開き方を選ぶ。<a href="../open-file/">元のファイルを開く</a>）と［フォルダを開く］を置く。動作は <a href="../open-file/">元のファイルを開く</a> の［元のファイルを開く］・［フォルダを開く］と同じ</td>
 </tr>
 <tr>
 <td>表示する行</td>
@@ -4174,7 +4174,7 @@
 </tr>
 <tr>
 <td>値のコピー</td>
-<td>セルをクリックするとそのセルを選び（青い枠）、<strong>Ctrl+C でその値をコピーする</strong>。Shift＋クリック、またはドラッグで四角い範囲を選べる。右クリックメニューに［選んだセルをコピー］［この行をコピー］を置く<br>・1 セル：値をそのまま（引用符・エスケープなし）入れるので、ほかのアプリの入力欄にそのまま貼れる<br>・複数セル：タブ区切り・行は改行で入れる。改行・タブ・<code>"</code> を含むセルは <code>"</code> で囲む（Excel に貼り付けると元の位置に並ぶ）<br>・ステータスに <code>セルの値をコピーしました：&lt;値&gt;</code> / <code>N 個のセルをコピーしました（Excel に貼り付けると、元の位置に並びます）</code> と表示する</td>
+<td>セルをクリックするとそのセルを選び（青い枠）、<strong>Ctrl+C でその値をコピーする</strong>。Shift＋クリック、またはドラッグで四角い範囲を選べる。右クリックメニューに、先頭に［元のファイルのこの場所を開く］（太字。ダブルクリックと同じ処理）、区切りのあとに［選んだセルをコピー］［この行をコピー］を置く（並び・文言は判断層の <code>getPreviewMenuItems</code>。プレビューが無いときは出さない）<br>・1 セル：値をそのまま（引用符・エスケープなし）入れるので、ほかのアプリの入力欄にそのまま貼れる<br>・複数セル：タブ区切り・行は改行で入れる。改行・タブ・<code>"</code> を含むセルは <code>"</code> で囲む（Excel に貼り付けると元の位置に並ぶ）<br>・ステータスに <code>セルの値をコピーしました：&lt;値&gt;</code> / <code>N 個のセルをコピーしました（Excel に貼り付けると、元の位置に並びます）</code> と表示する</td>
 </tr>
 <tr>
 <td>縦スクロール</td>
@@ -4219,11 +4219,11 @@
 </tr>
 <tr>
 <td>開く・閉じる</td>
-<td>見出しをクリック（または選んで Enter）すると、そのファイルの行を開く・閉じる。Shift・Ctrl を押しながらのクリックは複数選択なので切り替えない。No.14 の［すべて展開］［すべて折りたたむ］で、すべてのファイルを開く・閉じる。検索中に［すべて展開］を押すと、そのあと見つかったファイルも開いた状態で足す。新しく検索すると、すべて閉じた状態に戻る</td>
+<td>見出しをクリック（または選んで Enter）すると、そのファイルの行を開く・閉じる。Shift・Ctrl を押しながらのクリックは複数選択なので切り替えない。No.14 の［すべて開く］［すべて折りたたむ］で、すべてのファイルを開く・閉じる。検索中に［すべて開く］を押すと、そのあと見つかったファイルも開いた状態で足す。新しく検索すると、すべて閉じた状態に戻る</td>
 </tr>
 <tr>
 <td>見出しを選んだとき</td>
-<td>そのファイルの先頭の行（絞り込みに合うもの）を選んだものとして扱う。選択行のプレビュー（<a href="#選択行のプレビュー">選択行のプレビュー</a>）はその行を出し、［Excel で開く］［フォルダを開く］、右クリックメニューの［元のファイルを開く］などはその行の場所を開く。ダブルクリックでは開かない（クリックで開閉するため）。Ctrl+C（［選択行をコピー］）は、そのファイルの行（絞り込みに合うもの）をすべてコピーする</td>
+<td>そのファイルの先頭の行（絞り込みに合うもの）を選んだものとして扱う。選択行のプレビュー（<a href="#選択行のプレビュー">選択行のプレビュー</a>）はその行を出し、［開く］［フォルダを開く］、右クリックメニューの［元のファイルを開く］などはその行の場所を開く。ダブルクリックでは開かない（クリックで開閉するため）。Ctrl+C（［選択行をコピー］）は、そのファイルの行（絞り込みに合うもの）をすべてコピーする</td>
 </tr>
 <tr>
 <td>並び順</td>
@@ -4244,9 +4244,9 @@
 <li><strong>行は必要になるまで作らない（遅延表示）。</strong> 検索中は、ヒットを見出しの <code>Hits</code> に生のまま足すだけにし、1 回の取り込み（<code>pumpSearch</code>）の最後に、新しいファイルの見出しをまとめて表に入れる（<code>flushResults</code>）。表の行（<code>HitRow</code>。場所の表示・強調の元になる）は、ファイルを開いたとき・見出しを選んだとき・絞り込み・並べ替え・出力・コピーのときに、必要なファイルの分だけ作る（<code>ensureRows</code>）。見出しの件数は、絞り込んでいなければヒットの数（行を作らずに分かる）、絞り込み中は合う行の数にする。一致箇所の強調などは、画面に出た行だけで作る（<code>HitRow.Prepare</code>）。</li>
 <li>開閉・絞り込み・並べ替えで多くの行を出し入れするときは、1 件ずつではなく表の中身をまとめて入れ替える（<code>rebuildResults</code>）。</li>
 <li>WPF の DataGrid のグループ化（<code>GroupStyle</code>）は使わない。グループ化は 1 件ごとに振り分けるため遅く（実測: 10,000 件・504 ファイルで、行ごとの一覧 約 3 秒 → グループ化 約 8〜9 秒。最初に閉じておいても速くならない）、列の幅が決まらない不具合もあったため。</li>
-<li>実測（10,000 件・504 ファイル。検索スレッドが結果を出し終えたあと、画面が取り込み終えるまでの待ちが検索時間の大半を占める）: 検索中に行を作ると 約 4.0 秒（うち待ち 約 2.4 秒）、行を後で作ると 約 2.6〜2.9 秒（うち待ち 約 1.1〜1.3 秒）。代わりに［すべて展開］は、そのとき 10,000 行を作るため 約 1.1〜1.5 秒かかる（1 ファイルを開くときは、そのファイルの分だけ）。</li>
-<li>判断（アプリの種類 <code>getAppKind</code>・場所の要約 <code>describeFileLocations</code>・表に並べる項目 <code>getResultItems</code>・絞り込み <code>selectShownRows</code>・並べ替え <code>sortFileGroups</code>・行を画面に出す準備 <code>prepareHitRow</code>）は判断層の <code>search_view.ps1</code> に置き、テストする。</li>
-<li>見出しのアイコン（<code>tab_search.xaml</code> の <code>Badge</code>）は <code>AppKind</code>（<code>getAppKind</code>）で色と頭文字を変える。Excel（緑・<code>X</code>）・Word（青・<code>W</code>）・PowerPoint（オレンジ・<code>P</code>）に加え、テキストファイルは灰色の地に <code>T</code>。</li>
+<li>実測（10,000 件・504 ファイル。検索スレッドが結果を出し終えたあと、画面が取り込み終えるまでの待ちが検索時間の大半を占める）: 検索中に行を作ると 約 4.0 秒（うち待ち 約 2.4 秒）、行を後で作ると 約 2.6〜2.9 秒（うち待ち 約 1.1〜1.3 秒）。代わりに［すべて開く］は、そのとき 10,000 行を作るため 約 1.1〜1.5 秒かかる（1 ファイルを開くときは、そのファイルの分だけ）。</li>
+<li>判断（アプリの種類 <code>getAppKind</code>・場所の要約 <code>describeFileLocations</code>・表に並べる項目 <code>getResultItems</code>・絞り込み <code>selectShownRows</code>・並べ替え <code>sortFileGroups</code>・行を画面に出す準備 <code>prepareHitRow</code>）は判断層の <code>search\result_list_view.ps1</code> に置き、テストする。</li>
+<li>見出しのアイコン（<code>xaml/search/result_list.xaml</code> の <code>Badge</code>）は <code>AppKind</code>（<code>getAppKind</code>）で色と頭文字を変える。Excel（緑・<code>X</code>）・Word（青・<code>W</code>）・PowerPoint（オレンジ・<code>P</code>）に加え、テキストファイルは灰色の地に <code>T</code>。</li>
 </ul>
 
 

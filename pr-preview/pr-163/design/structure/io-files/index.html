@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1565,6 +1565,8 @@
       
         
       
+        
+      
     
     
     
@@ -1834,6 +1836,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3010,7 +3040,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3031,14 +3061,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3119,8 +3149,6 @@
       
         
           
-        
-      
         
       
         
@@ -3227,7 +3255,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3255,7 +3283,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3283,35 +3311,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4084,12 +4084,12 @@
 <td>1 ファイル分の TSV（<code>&lt;元のファイル名&gt;/&lt;場所&gt;.tsv</code>）。集め終わったら <code>work/content_index</code> の中へフォルダごと移す（<code>publishIndexFiles</code>）</td>
 </tr>
 <tr>
-<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code>（ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは作らない。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みをスキップする）</td>
 <td>作業領域</td>
 <td>インデックス作成</td>
 <td>インデックス作成</td>
 <td>–</td>
-<td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。元のファイルを占有しないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code></td>
+<td>取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば <code>source.&lt;拡張子&gt;</code>。Word・PowerPoint は <code>source.&lt;拡張子&gt;</code>。元のファイルを占有しないため）、抽出途中の <code>sheet&lt;N&gt;.tmp</code>（UTF-16LE）/ <code>*.tsv</code>、旧形式の変換用の <code>source.doc</code> <code>source.ppt</code> / <code>converted.docx</code> <code>converted.pptx</code>（<a href="../data/">データの置き場所とパスの決め方</a>「自動生成（<code>work/</code>）」）</td>
 </tr>
 <tr>
 <td><code>work/indexing_log.txt</code></td>
@@ -4113,7 +4113,7 @@
 <td>インデックス作成</td>
 <td>検索</td>
 <td>本文インデックスは UTF-16LE（BOM 付き）、LF。本文インデックスに入れる前の TSV は UTF-8（BOM 付き）、CRLF</td>
-<td>フォルダ・拡張子ごとの本文インデックス（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメントの TSV（<code>&lt;元の場所&gt;[shape]</code>・<code>&lt;元の場所&gt;[comment]</code>）</td>
+<td>フォルダ・拡張子ごとの本文インデックス（<code>content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv</code>。元のファイルごと・場所（シート・ページ・スライド、図形・コメント・ヘッダー・フッター）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメント・ヘッダー・フッターの TSV（<code>&lt;元の場所&gt;[shape]</code>・<code>&lt;元の場所&gt;[comment]</code>・<code>&lt;元の場所&gt;[header_footer]</code>）</td>
 </tr>
 <tr>
 <td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code></td>

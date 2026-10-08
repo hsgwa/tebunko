@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -16,7 +16,7 @@
         <link rel="prev" href="../closing/">
       
       
-        <link rel="next" href="../../indexing/">
+        <link rel="next" href="../single-script/">
       
       
         
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1565,6 +1565,8 @@
       
         
       
+        
+      
     
     
     
@@ -1884,6 +1886,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="クラスと関数の使い分け">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#別スレッドが読むコードに画面のクラスを含めない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        別スレッドが読むコードに、画面のクラスを含めない
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1901,6 +1920,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3069,7 +3116,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3090,14 +3137,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3178,8 +3225,6 @@
       
         
           
-        
-      
         
       
         
@@ -3286,7 +3331,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3314,7 +3359,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3342,35 +3387,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4078,6 +4095,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="クラスと関数の使い分け">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#別スレッドが読むコードに画面のクラスを含めない" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        別スレッドが読むコードに、画面のクラスを含めない
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4245,6 +4279,13 @@
 <li>読み取り方: 変数・プロパティ・hashtable の読みは、どれも空ループ（0.64μs）と区別できないほど小さく、差は無いものとみる。比べるのは関数とメソッドの呼び出しの差だけで、メソッドは関数の約 10 分の 1。<strong>クラスにしても呼び出しは遅くならない。</strong> ただしメソッドの中から関数を呼べば関数の時間がそのまま足される。取り込みの 1 ファイルごとに通る経路（<code>IngestDispatcher</code>・<code>OfficeWatchdog</code>）では、書き直しで関数の呼び出しの段を増やさない。1 ファイル 1 回増えると 1,000 ファイルで約 40ms で、1 ファイルの取り込み（Office を使えば数百 ms 以上）に比べれば小さいが、段を重ねると積み上がるため。</li>
 <li>性能を落としていないかの判断は、この表ではなく取り込みの計測（<a href="../../testing/perf/">性能とリソースの計測のしかた</a> の「計測の口」）で、同じ日に main と比べて行う。</li>
 </ul>
+<h3 id="別スレッドが読むコードに画面のクラスを含めない">別スレッドが読むコードに、画面のクラスを含めない<a class="headerlink" href="#別スレッドが読むコードに画面のクラスを含めない" title="Permanent link">&para;</a></h3>
+<p>別スレッド（検索・背景の仕事・インデックス作成の取り込み）は、<code>getPartLoad</code>（<code>scripts/tebunko/core/parts.ps1</code>）が返す部品（<code>lib</code>・<code>indexerLib</code>）だけを読み込む。この部品には、画面（<code>ui\</code> 配下）のクラス（<code>SearchTarget</code>・<code>IndexNode</code> など、画面の部品を持つもの）を入れない。</p>
+<ul>
+<li>単一 .ps1 版では、部品の文字列を関数（<code>importTebunkoPart</code>）として別のランスペースに登録し、そこで構文解析する。画面のクラスが混ざると、画面のスレッドのクラスと別の型として定義され、<code>-is</code> の比較や型の指定が食い違う。</li>
+<li>同じ名前のクラスを別のランスペースで使うときの食い違いは、<code>tests/tebunko/core/parts.Tests.ps1</code>（同じランスペースの使い回し・別のランスペースの取り違え・2 スレッドが 1 つの State を共有する場合）が確かめる。</li>
+<li>部品に入れるファイルの範囲は、<code>tests/meta/structure.Tests.ps1</code> と <code>tools/new_single_script.ps1</code> の検査が、読み込み口（<code>lib.ps1</code>・<code>indexer_lib.ps1</code>・<code>indexer_main.ps1</code>）からたどれる範囲と一致するかで確かめる。</li>
+</ul>
 <h2 id="目的ごとのクラス">目的ごとのクラス<a class="headerlink" href="#目的ごとのクラス" title="Permanent link">&para;</a></h2>
 <p>refactor で作る予定の設計。作ったら、この節を実装に合わせて直す。<code>StatusLedger</code>・<code>PendingPublish</code>・<code>IndexingReporter</code> は実装ずみ（#147）。残り 5 つは予定のまま。</p>
 <pre class="mermaid"><code>classDiagram
@@ -4277,7 +4318,7 @@
 <td>画面のスレッド。インデクサが名前を引くときは司令のスレッドで別に作る</td>
 <td>状態層</td>
 <td><code>tebunko/index/index_catalog.ps1</code>（<code>lib.ps1</code>）</td>
-<td><code>index_store.ps1</code>、<code>ui/index_tab.ps1</code> の <code>editIndex</code>・<code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code>・<code>removeSearchExcludesUnder</code>（<code>renameIndex</code>・<code>removeIndex</code> から呼ぶ）</td>
+<td><code>index_store.ps1</code>、<code>ui/index/index_edit.ps1</code> の <code>editIndex</code>、<code>ui/index/index_list.ps1</code> の <code>loadTargets</code>・<code>saveTargets</code>・<code>updateIndexSourceFile</code>、<code>core/settings.ps1</code> の <code>saveAssignedIndexNames</code>・<code>removeSearchExcludesUnder</code>（<code>renameIndex</code>・<code>removeIndex</code> から呼ぶ）</td>
 <td>保存先ごとの読み書きの部品（既存の関数でよい。設定は <code>invokeSettingsLocked</code>・<code>saveAssignedIndexNames</code>、元のフォルダの記録・<code>system_index</code> はその読み書きの関数）、<code>searchExcludes</code> の読み書きの部品（<code>core/settings.ps1</code> の <code>readSearchExcludes</code>・<code>writeSearchExcludes</code>・<code>removeSearchExcludesUnder</code>。<code>WorkspaceMover</code> と同じものを通す）、取り込み一覧は作る側から渡された <code>StatusLedger</code>、<code>index_name.ps1</code>（判断層）、<code>Workspace</code></td>
 </tr>
 <tr>
@@ -4416,13 +4457,13 @@
         
         
           
-          <a href="../../indexing/" class="md-footer__link md-footer__link--next" aria-label="次: インデックス作成">
+          <a href="../single-script/" class="md-footer__link md-footer__link--next" aria-label="次: 単一 PowerShell のビルド">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                インデックス作成
+                単一 PowerShell のビルド
               </div>
             </div>
             <div class="md-footer__button md-icon">

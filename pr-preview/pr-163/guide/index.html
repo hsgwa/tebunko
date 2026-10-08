@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1572,6 +1572,8 @@
       
         
       
+        
+      
     
     
     
@@ -1828,6 +1830,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../design/structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2992,7 +3022,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3013,14 +3043,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../design/gui/process-tab/" class="md-nav__link">
+      <a href="../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3101,8 +3131,6 @@
       
         
           
-        
-      
         
       
         
@@ -3209,7 +3237,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3237,7 +3265,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3265,35 +3293,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -3999,6 +3999,50 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#必要なもの" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        必要なもの
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#対象外" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        対象外
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#制限された環境での動作" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        制限された環境での動作
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#確かめていない環境" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        確かめていない環境
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#対応するファイル形式" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4042,6 +4086,28 @@
     <span class="md-ellipsis">
       
         zip による配置
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tebunkobat-を使わずに起動するzip-版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        tebunko.bat を使わずに起動する（zip 版）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版による配置" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）による配置
       
     </span>
   </a>
@@ -4096,9 +4162,10 @@
 
 
 <h1 id="はじめに">はじめに<a class="headerlink" href="#はじめに" title="Permanent link">&para;</a></h1>
-<p>tebunko は、Excel・Word・PowerPoint のファイルを内容の文字列で検索する Windows 用の全文検索ツールです。ファイルから抽出した文字を索引データ（<strong>インデックス</strong>）として保存しておき、検索時はインデックスのみを照合するため、ファイルを開かずに検索できます（<a href="about-index/">インデックスの仕組み</a>）。検索結果には、該当するファイル・シート（ページ・スライド）・行を表示し、元のファイルを直接開けます。</p>
+<p>tebunko は、Excel・Word・PowerPoint のファイルとテキストファイルを内容の文字列で検索する Windows 用の全文検索ツールです。ファイルから抽出した文字を索引データ（<strong>インデックス</strong>）として保存しておき、検索時はインデックスのみを照合するため、ファイルを開かずに検索できます（<a href="about-index/">インデックスの仕組み</a>）。検索結果には、該当するファイル・シート（ページ・スライド）・行を表示し、元のファイルを直接開けます。</p>
 <p>本ページでは、動作環境とインストール手順を説明します。インストール後は <a href="quickstart/">クイックスタート</a> を参照してください。</p>
 <h2 id="動作環境">動作環境<a class="headerlink" href="#動作環境" title="Permanent link">&para;</a></h2>
+<h3 id="必要なもの">必要なもの<a class="headerlink" href="#必要なもの" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -4109,19 +4176,58 @@
 <tbody>
 <tr>
 <td>OS</td>
-<td>Windows 10 / 11（標準搭載の Windows PowerShell 5.1 で動作します）</td>
+<td>Windows 10 / 11</td>
+</tr>
+<tr>
+<td>PowerShell</td>
+<td>Windows PowerShell 5.1（Windows 10 / 11 に標準搭載）</td>
+</tr>
+<tr>
+<td>.NET Framework</td>
+<td>4.x の標準アセンブリ（追加の導入は不要）</td>
 </tr>
 <tr>
 <td>Microsoft Excel</td>
-<td>必須。Excel ファイルからの文字の抽出に使用します</td>
+<td>デスクトップ版が必須です。COM で自動操作し、Excel ファイルの文字の取り出しと、検索結果からセルを選んで開くのに使います</td>
 </tr>
 <tr>
 <td>Microsoft Word・PowerPoint</td>
-<td>旧形式（.doc・.ppt）のファイルを取り込む場合のみ必要です</td>
+<td>旧形式（.doc・.ppt）のファイルと、中身が旧形式のファイルを更新する場合のみ必要です</td>
+</tr>
+<tr>
+<td>Windows Search</td>
+<td>任意です。高速検索だけが使います。無くても検索結果は同じです（<a href="fast-search/">高速検索</a>）</td>
 </tr>
 </tbody>
 </table>
-<p>管理者権限、追加のソフトウェア、PowerShell の実行ポリシーの変更、ネットワーク接続は不要です。</p>
+<p>管理者権限、追加のソフトウェア、PowerShell の実行ポリシーの変更、ネットワーク接続は不要です。組織が PowerShell の実行を制限している PC は、<a href="#制限された環境での動作">制限された環境での動作</a>を確認してください。</p>
+<p>ディスクの容量の目安は <a href="faq/#インデックスの保存先と容量を教えてください">よくある質問</a> に、メモリの使い方は設計書の <a href="../design/indexing/known-issues/">既知の問題</a> にあります。</p>
+<h3 id="対象外">対象外<a class="headerlink" href="#対象外" title="Permanent link">&para;</a></h3>
+<p>次の環境では動きません。</p>
+<ul>
+<li>Excel が使えない PC（Microsoft Office が入っていない・Web 版の Excel だけ・COM による自動操作が禁止されている）</li>
+<li>Mac・Linux</li>
+<li>PowerShell 7 だけで動かすこと（Windows PowerShell 5.1 で動かします）</li>
+<li>PowerShell の実行そのものが禁止されている PC</li>
+<li>対応していないファイル形式（PDF・OpenDocument など。パスワード付きのファイルは <a href="limitations/">制限事項</a> を参照）</li>
+</ul>
+<h3 id="制限された環境での動作">制限された環境での動作<a class="headerlink" href="#制限された環境での動作" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>実行ポリシー</strong>：<code>RemoteSigned</code> を、tebunko を起動する PowerShell のプロセスにだけ指定して起動します。PC の設定は変えません（<a href="../safety/disclosure/#remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由</a>）。実行ポリシーが <code>AllSigned</code> の PC では、スクリプトに署名するまで起動できません。</li>
+<li><strong><code>.bat</code> が禁止されている PC</strong>：インストーラー版を使うか、<a href="#tebunkobat-を使わずに起動するzip-版"><code>tebunko.bat</code> を使わずに起動する</a>方法を使います。</li>
+<li><strong>FIPS モード</strong>：動きます。</li>
+<li><strong>読み取り専用の場所に置いた場合</strong>：動きます。設定（<code>setting.config</code>）は <code>%LOCALAPPDATA%\tebunko\</code> の下に置かれます。</li>
+</ul>
+<p>安全性の資料は <a href="../safety/">安全性</a> にあります。情報システム部門への確認にお使いください。</p>
+<h3 id="確かめていない環境">確かめていない環境<a class="headerlink" href="#確かめていない環境" title="Permanent link">&para;</a></h3>
+<p>次の環境は確かめていません。動くかどうかは分かりません。</p>
+<ul>
+<li>VDI・RDS（仮想デスクトップ・リモートデスクトップサービス）</li>
+<li>Windows Server</li>
+<li>Arm 版の Windows</li>
+<li>本物の WDAC・AppLocker の規則の下での動作</li>
+<li>Microsoft Office の特定の版・形態（バージョン、32 ビット・64 ビット、クイック実行版・MSI 版・Microsoft Store 版）</li>
+</ul>
 <h3 id="対応するファイル形式">対応するファイル形式<a class="headerlink" href="#対応するファイル形式" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4135,7 +4241,7 @@
 <tr>
 <td>Excel</td>
 <td>.xlsx / .xlsm / .xls / .xlsb</td>
-<td>シート（行・セル）</td>
+<td>シート（行・セル。.xlsx / .xlsm はヘッダー/フッターも）</td>
 </tr>
 <tr>
 <td>Word</td>
@@ -4149,14 +4255,14 @@
 </tr>
 <tr>
 <td>テキスト</td>
-<td>.txt / .csv / .tsv / .md / .log / .json / .xml</td>
+<td>.txt / .csv / .md / .py / .java / .html 等、75 種類の拡張子（<a href="limitations/#対応するテキストの拡張子">対応するテキストの拡張子</a>）</td>
 <td>行番号</td>
 </tr>
 </tbody>
 </table>
 <p>テキストファイルの文字コードの判定・大きさの上限・長い行の扱いなど、詳しい仕様は <a href="limitations/">制限事項</a> を参照してください。</p>
 <h2 id="インストール">インストール<a class="headerlink" href="#インストール" title="Permanent link">&para;</a></h2>
-<p><a href="https://github.com/hsgwa/tebunko/releases/latest">Releases</a> で次の 2 形式を配布しています。ツールの本体は同一です。</p>
+<p><a href="https://github.com/hsgwa/tebunko/releases/latest">Releases</a> で次の 3 形式を配布しています。ツールの本体は同一です。</p>
 <table>
 <thead>
 <tr>
@@ -4173,8 +4279,18 @@
 <td>zip（<code>tebunko-&lt;バージョン&gt;.zip</code>）</td>
 <td>実行ファイル（.exe）を導入できない環境、または共有フォルダに配置して使用する場合</td>
 </tr>
+<tr>
+<td>単一 .ps1（<code>tebunko-&lt;バージョン&gt;.ps1</code>。試験版）</td>
+<td>展開もインストールもせず、1 本のファイルだけで使用する場合</td>
+</tr>
 </tbody>
 </table>
+<p>起動方法は、次の順に選んでください。</p>
+<ol>
+<li><strong><code>.exe</code> を導入できる場合は、インストーラー版。</strong> インストーラーが入れたファイルには、ダウンロードしたことを示す印（Mark-of-the-Web）が付かないため、警告が出ません。ダウンロードした <code>tebunko-setup-&lt;バージョン&gt;.exe</code> 自体には印が付きます。</li>
+<li><strong>導入できない場合は、zip 版の <code>tebunko.bat</code>。</strong></li>
+<li><strong><code>.bat</code> が届かない・止められる場合は、ショートカットから起動します</strong>（<a href="#tebunkobat-を使わずに起動するzip-版"><code>tebunko.bat</code> を使わずに起動する</a>）。単一 .ps1 版（試験版）でも、1 本のファイルで起動できます。</li>
+</ol>
 <h3 id="インストーラーによるインストール">インストーラーによるインストール<a class="headerlink" href="#インストーラーによるインストール" title="Permanent link">&para;</a></h3>
 <ol>
 <li><code>tebunko-setup-&lt;バージョン&gt;.exe</code> をダウンロードして実行します。</li>
@@ -4184,14 +4300,52 @@
 </ol>
 <h3 id="zip-による配置">zip による配置<a class="headerlink" href="#zip-による配置" title="Permanent link">&para;</a></h3>
 <ol>
-<li><code>tebunko-&lt;バージョン&gt;.zip</code> をダウンロードし、任意の場所に展開します。共有フォルダにも配置できます。</li>
+<li><code>tebunko-&lt;バージョン&gt;.zip</code> をダウンロードします。ダウンロードしたファイルが作者の配布物であることは、展開の前に確かめられます（<a href="../safety/scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性</a>）。</li>
+<li><strong>展開する前に</strong>、zip ファイルのプロパティを開き、［ブロックの解除］（Windows 11 では［許可する］）にチェックを入れて［OK］を選択します。zip の中のファイルすべてに、ダウンロードしたことを示す印が引き継がれるのを防ぐためです。この項目が表示されない zip には印が付いていないので、解除は不要です。</li>
+<li>任意の場所に展開します。共有フォルダにも配置できます。</li>
 <li>展開した <code>tebunko</code> フォルダ内の <code>tebunko.bat</code> を実行します。</li>
 </ol>
-<p>初回起動時に「セキュリティの警告」が表示された場合は、［実行］を選択します。この警告を表示させない場合は、事前に <code>tebunko.bat</code> のプロパティで［ブロックの解除］を有効にしてください。</p>
+<p>解除せずに展開した場合は、<code>tebunko.bat</code> を実行したときに「セキュリティの警告」が表示されることがあります。そのときは［実行］を選択します。<code>tebunko.bat</code> のプロパティで［ブロックの解除］を有効にしても、警告を避けられます。</p>
 <div class="admonition note">
 <p class="admonition-title">zip の内容</p>
 <p><code>tebunko.bat</code>（起動用）、<code>scripts</code>（ツール本体）、<code>README.md</code>、<code>LICENSE</code>、<code>VERSION.txt</code>（版とコミットの記録）を含みます。設定ファイル <code>setting.config</code> は、初回の設定保存時に同じフォルダに作成されます。</p>
 </div>
+<h3 id="tebunkobat-を使わずに起動するzip-版"><code>tebunko.bat</code> を使わずに起動する（zip 版）<a class="headerlink" href="#tebunkobat-を使わずに起動するzip-版" title="Permanent link">&para;</a></h3>
+<p>組織の設定で <code>.bat</code> が届かない・止められる場合は、ショートカットから起動できます。前提は、zip を解除してから展開してあることです（<code>scripts\tebunko\gui.ps1</code> 自身に印が残っていると、印を消す処理に届く前に止まります）。</p>
+<ol>
+<li>展開した <code>tebunko</code> フォルダの中（またはデスクトップ）で右クリックし、［新規作成］→［ショートカット］を選びます。</li>
+<li>
+<p>項目の場所に、次を 1 行で入力します。</p>
+<div class="highlight"><pre><span></span><code>%SystemRoot%\System32\conhost.exe %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -File scripts\tebunko\gui.ps1
+</code></pre></div>
+</li>
+<li>
+<p>名前を付けて完了したら、ショートカットのプロパティを開き、［作業フォルダー］を展開した <code>tebunko</code> フォルダ（例 <code>C:\Users\test\tebunko</code>）にします。</p>
+</li>
+<li>
+<p>アイコンは、［アイコンの変更］で <code>scripts\tebunko\tebunko.ico</code> を選べます。</p>
+</li>
+<li>
+<p>実行ポリシーの <code>RemoteSigned</code> は、この PowerShell のプロセスだけに効きます。PC の設定は変えません（<a href="../safety/disclosure/#remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由</a>）。</p>
+</li>
+<li>この方法では、起動に失敗したときに <code>tebunko.bat</code> のような理由の表示（メモ帳）は出ません。何も起きないときは <a href="troubleshooting/#起動できない場合">トラブルシューティング</a> を確認してください。</li>
+<li>新しい版に更新したときは、ショートカットのリンク先と作業フォルダーを新しいフォルダに直します（<a href="update-uninstall/">更新とアンインストール</a>）。</li>
+</ol>
+<h3 id="単一-ps1-版試験版による配置">単一 .ps1 版（試験版）による配置<a class="headerlink" href="#単一-ps1-版試験版による配置" title="Permanent link">&para;</a></h3>
+<p>展開もインストールもせずに、1 本のファイルだけで使用できる試験版です。</p>
+<ol>
+<li><code>tebunko-&lt;バージョン&gt;.ps1</code> をダウンロードします。</li>
+<li>
+<p>ファイルを右クリックし、［PowerShell で実行］を選択します。</p>
+</li>
+<li>
+<p>画面とは別に PowerShell の窓が開き、実行中は残ります。起動の失敗の見え方は<a href="limitations/#単一-ps1-版試験版">制限事項</a>にあります。</p>
+</li>
+<li>組織のポリシーで PowerShell の実行ポリシーが固定されていて起動できないときは、事前にファイルのプロパティで［ブロックの解除］を有効にしてください。</li>
+<li>設定ファイル <code>setting.config</code> は、<code>.ps1</code> と同じフォルダに作成されます（<a href="settings/#設定ファイル">設定</a>）。ほかのファイルと混ざらないよう、専用のフォルダに置くことをお勧めします。</li>
+<li>インデックスを保存するワークスペースの既定の場所は、zip 版と同じです（<a href="settings/#ワークスペース">設定</a>）。</li>
+<li>試験版のため、zip 版・インストーラー版と違う点があります（<a href="limitations/#単一-ps1-版試験版">制限事項</a>）。</li>
+</ol>
 <h2 id="画面構成">画面構成<a class="headerlink" href="#画面構成" title="Permanent link">&para;</a></h2>
 <p>画面は 4 つのタブで構成されます。タブの番号は画面の表示に対応しています。</p>
 <table>
@@ -4204,29 +4358,29 @@
 </thead>
 <tbody>
 <tr>
-<td>［1 インデックス管理］</td>
+<td>［インデックス管理］</td>
 <td>検索対象フォルダの登録とインデックスの作成</td>
 <td><a href="indexing/">インデックスの作成</a></td>
 </tr>
 <tr>
-<td>［2 検索］</td>
+<td>［検索］</td>
 <td>検索と、検索結果からのファイルの表示</td>
 <td><a href="search/">検索</a>・<a href="open-files/">元のファイルを開く</a></td>
 </tr>
 <tr>
-<td>［8 設定］</td>
+<td>［設定］</td>
 <td>インデックスの保存先（ワークスペース）の変更</td>
 <td><a href="settings/">設定</a></td>
 </tr>
 <tr>
-<td>［9 プロセス停止］</td>
-<td>残存した Excel・Word・PowerPoint のプロセスの終了</td>
-<td><a href="process/">Office プロセスの停止</a></td>
+<td>起動時の確認</td>
+<td>前回のインデックス作成で残った Excel・Word・PowerPoint の終了</td>
+<td><a href="process/">残った Office の終了</a></td>
 </tr>
 </tbody>
 </table>
-<p>起動時には、インデックスが未作成の場合、または前回のインデックス作成が中断されている場合は［1 インデックス管理］を、それ以外の場合は［2 検索］を表示します。tebunko の起動中に再度起動すると、既存のウィンドウが前面に表示されます。</p>
-<p>画面右上の［⋯］→［tebunko について］を選ぶと、使用中の版・コミット・ライセンスを確認できるダイアログが開きます。</p>
+<p>起動時には、インデックスが未作成の場合、または前回のインデックス作成が中断されている場合は［インデックス管理］を、それ以外の場合は［検索］を表示します。tebunko の起動中に再度起動すると、既存のウィンドウが前面に表示されます。</p>
+<p>画面左下の［バージョン情報］を押すと、使用中の版・コミット・ライセンスを確認できるダイアログが開きます。</p>
 <h2 id="関連項目">関連項目<a class="headerlink" href="#関連項目" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="about-index/">インデックスの仕組み</a>：インデックスの役割と更新のタイミング</li>

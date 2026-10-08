@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1565,6 +1565,8 @@
       
         
       
+        
+      
     
     
     
@@ -1915,6 +1917,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3091,7 +3121,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3112,14 +3142,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3200,8 +3230,6 @@
       
         
           
-        
-      
         
       
         
@@ -3308,7 +3336,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3336,7 +3364,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3364,35 +3392,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4367,7 +4367,7 @@
 </tr>
 <tr>
 <td>インデックス作成 1 回</td>
-<td>［インデックス作成を開始］</td>
+<td>［すべて更新］</td>
 <td>完了・中止・エラー</td>
 <td>インデクサの司令・取り込み・監視・システムインデックスのプール・Office</td>
 </tr>
@@ -4388,14 +4388,14 @@
 <ul>
 <li>アプリの寿命のスレッドは、最初に使うときに作る。ランスペースには、はじめに一度だけ関数を読み込む。検索のたびに lib.ps1 を読み込み直さない。</li>
 <li>検索の司令（<code>SearchService</code>）は、スレッドを始めたときに lib.ps1 を 1 回だけ読み込み、照合のプール（<code>newPackWorkerPool</code>）を 1 回だけ作る。</li>
-<li>バックグラウンド（<code>BackgroundQueue</code>）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（<code>WorkerPool.Prelude</code>）。</li>
+<li>バックグラウンド（<code>BackgroundQueue</code>）の各スレッドは、最初の仕事の前に lib.ps1 を 1 回だけ読み込む（<code>WorkerPool.Prelude</code>）。単一 .ps1 版（試験版）でも、この読み込みは <code>getPartLoad</code> がまとめて作る文字列をそのまま使うため、通常の zip 版と同じく 1 回だけ読み込む（<a href="../single-script/">単一 PowerShell のビルド</a>「ビルドのロジック」）。</li>
 <li>そのため、これらのスレッドは読み込んだときのワークスペース（<code>$workspace</code>）を持ち続ける。画面は仕事を頼むときにワークスペースの中の場所を渡す（検索の要求は <code>WorkDir</code> を持つ）。ワークスペースを変えてもスレッドは作り直さない（<a href="../data/#ワークスペースの中の場所workspace">ワークスペースの中の場所（Workspace）</a>）。</li>
 <li>照合のプールでは、ランスペースに加えて PowerShell のインスタンスも使い回す（<code>WorkerPool</code>）。</li>
 <li>検索の要求（<code>newSearchRequest</code>。<code>[hashtable]::Synchronized</code>）は、<code>invokeSearchRequest</code> が実行する。要求の <code>Stop</code> が取り消しの札になる。新しい要求を出すと、前の要求の <code>Stop</code> を立てて取り消す。</li>
 <li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。</li>
 </ul>
 <h2 id="画面とインデクサの受け渡し">画面とインデクサの受け渡し<a class="headerlink" href="#画面とインデクサの受け渡し" title="Permanent link">&para;</a></h2>
-<p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。</p>
+<p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は <code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Stop</code>・<code>Answer</code>・<code>OnlyNames</code>（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は <code>Progress</code>・<code>Plan</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>OfficePids</code> である。</p>
 <pre class="mermaid"><code>sequenceDiagram
     participant G as 画面
     participant C as 受け渡しの口
@@ -4475,7 +4475,7 @@
 <li><code>ingesting.txt</code>（強制終了からの再開）</li>
 <li><code>indexing_log.txt</code>（<code>writeIndexerLog</code> で書く。実行ごとに上書き）</li>
 </ul>
-<p>インデクサのミューテックス（<code>newAppMutex "indexer"</code>。画面と <code>indexer.ps1</code> が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［8 設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（<code>testIndexerRunning</code>）。</p>
+<p>インデクサのミューテックス（<code>newAppMutex "indexer"</code>。画面と <code>indexer.ps1</code> が同時に作らないため）は、インデクサの司令のスレッドで取得し、同じスレッドで解放する。ログはミューテックスを取ってから開く。［設定］タブは、ワークスペースを変える前に、画面を使わずに起動したインデックス作成が動いていないかをこのミューテックスで調べる（<code>testIndexerRunning</code>）。</p>
 <p>設定ファイル（<code>setting.config</code>）の「読み直す → 変える → 書く」は、画面（UI のスレッド）とインデクサ（別のプロセスの司令のスレッド）が同時に行うことがあるため、設定ファイルごとの名前付きミューテックス（<code>Local\tebunko_settings_&lt;鍵&gt;</code>。<code>invokeSettingsLocked</code>）の中で行う。時間（5 秒）を過ぎても取れなければ例外にする。前の持ち主が手放さずに終わっていた（abandoned）ときは、取れたものとして続ける。重い読み込み（取り込み一覧など）はミューテックスの外で済ませ、持つ時間を短くする。</p>
 
 

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3069,7 +3099,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3090,14 +3120,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3178,8 +3208,6 @@
       
         
           
-        
-      
         
       
         
@@ -3286,7 +3314,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3314,7 +3342,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3342,35 +3370,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4149,7 +4149,7 @@
 </ul>
 <h2 id="取り込み予定画面の確認に出す件数">取り込み予定（画面の確認に出す件数）<a class="headerlink" href="#取り込み予定画面の確認に出す件数" title="Permanent link">&para;</a></h2>
 <p>受け渡しの口の <code>ConfirmTargets</code>（画面から実行したとき）なら、取り込み対象を決めた後、インデックスごとの件数を 1 行にし（<code>newIngestPlanRow</code>）、受け渡しの口の <code>Plan</code> に入れる（<code>IndexingReporter.WaitForApproval</code>）。
-画面はこれを読んで確認のダイアログを出す（<a href="../../gui/indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。返事を受け取ったら <code>Plan</code> を外す。次の例は、1 行を列の順にタブで区切って並べたものである。</p>
+画面はこれを読んで確認のダイアログを出す（<a href="../../gui/indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。返事を受け取ったら <code>Plan</code> を外す。次の例は、1 行を列の順にタブで区切って並べたものである。</p>
 <div class="highlight"><pre><span></span><code>インデックス名 元のフォルダ  区分  ファイル数   取り込み対象  新規  更新あり    前回未完了   インデックスなし    前回失敗
 営業  C:\data\営業  取り込み    1234    12  5   7   0   0   3
 2019年度  D:\old\2019年度   チェックなし  0   0   0   0   0   0   0
@@ -4176,7 +4176,7 @@
     New --&gt; [*] : 元ファイルが無くなった（取り込みの直前に無くなった場合を含む）</code></pre>
 <p>クロールで列挙するファイルの条件（<code>findTargetFiles</code>）:</p>
 <ul>
-<li>拡張子が <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>（Office）または <code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code>（テキスト。<a href="../text/">テキストファイルの読み取り</a>）（大文字・小文字を区別しない）。テンプレート（<code>.xltx</code> <code>.dotx</code> <code>.potx</code> 等）は対象外</li>
+<li>拡張子が <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>（Office、10 個）または <a href="../text/#対象の拡張子">対象の拡張子</a>（テキスト、75 個）（大文字・小文字を区別しない）。テンプレート（<code>.xltx</code> <code>.dotx</code> <code>.potx</code> 等）は対象外</li>
 <li>ファイル名が <code>~$</code> で始まるもの（Office のロックファイル）は除外</li>
 <li>アクセスできないサブフォルダは無視して続行（元ファイルが無くなったかどうかの確認は行わない）</li>
 <li>相対パスは、実際に列挙したフォルダ（<code>Resolve-Path</code> で解決した <code>Root</code>。<code>findTargetFiles</code> が返す）から求める。列挙したファイルのパスが <code>\\?\</code> 付きの <code>Root</code> で始まれば先頭を切り落とし（ファイルが多いときに速い）、そうでなければ <code>getPathUnderFolder</code> で求める。

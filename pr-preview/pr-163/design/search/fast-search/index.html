@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3010,7 +3040,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3031,14 +3061,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3119,8 +3149,6 @@
       
         
           
-        
-      
         
       
         
@@ -3227,7 +3255,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3255,7 +3283,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3283,35 +3311,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4039,6 +4039,10 @@
 <td>Windows Search を開けて <code>work/system_index</code> が索引の対象であり、［正規表現を使う］がオフで、ワードに 2 文字以上の部分がある（<code>testFastSearchUsable</code>・<code>getFastSearchView</code>）。使えないときは <a href="../speed/">検索を速くする仕組み</a> のとおりすべてを照合する</td>
 </tr>
 <tr>
+<td>インデックスごとの反映の進み具合</td>
+<td>［インデックス管理］の一覧の「高速検索」列で、インデックスごとに Windows Search への反映がどこまで進んだかを確かめられる（<code>確認中…</code> / <code>－</code> / <code>不可</code> / <code>反映待ち</code> / <code>反映中 N%</code> / <code>可</code>。<a href="../../gui/index-tab/#一覧の列">一覧の列</a>）。<code>不可</code> のときは、接続できない・ワークスペースが索引の対象外・そのインデックスに高速検索用のデータが無い、のいずれかで、理由をツールヒントに出す（<code>getFastSearchRowView</code>）</td>
+</tr>
+<tr>
 <td>語の作り方</td>
 <td>ワードを空白で区切り、2 文字以上の部分の隣り合う 2 文字を小文字にし、UTF-16LE の 4 バイトを 16 進にした語（<code>x</code> ＋ 8 桁）にする（<code>getSearchGrams</code>）。最大 16 個（多いときは均等に間引く。間引いても候補が増えるだけ）</td>
 </tr>
@@ -4074,7 +4078,7 @@
     ALL --&gt; R["searchPackIndex（4.3 と同じ）"]
     F --&gt; R</code></pre>
 <p><strong><code>work/content_index</code> を Windows Search の対象から外す（自動）</strong>: 本文インデックス（<code>.tsv</code>）も索引の対象になっていると、Windows Search はその処理に時間を取られ、システムインデックスが索引されるまで（高速検索が効くまで）1 日以上かかることがある。外しても検索の結果は変わらない（本文インデックスは <a href="../speed/">検索を速くする仕組み</a> の方式で読む）。ツールは Windows Search の設定そのものは変えないが、<code>content_index</code> に入れたフォルダ・ファイルに「内容のインデックスを作成しない」属性（<code>NotContentIndexed</code>）を自分で付け、管理者の権限なしに索引の対象から外す（<a href="../../index-data/publish/">入出力先とワークスペース</a>）。管理者の権限が要る方法（検索の設定の API・グループポリシー）は採らない。属性で外れない環境（ワークスペースが FAT のドライブなど）では、利用者が［インデックスのオプション］で手で外す（README の「高速検索」）。</p>
-<p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。本文インデックスにする前の版で、TSV を照合したとき。本文インデックスでは、すべてを照合しても初回 38 秒（<a href="../speed/">検索を速くする仕組み</a>））:</p>
+<p>実測（合成データ: ブック 5.4 万・TSV 16 万・1GB、物理メモリ 8GB の PC。結果はすべて一致。場所ごとの TSV を照合する方式で測ったとき。本文インデックスでは、すべてを照合しても初回 38 秒（<a href="../speed/">検索を速くする仕組み</a>））:</p>
 <table>
 <thead>
 <tr>

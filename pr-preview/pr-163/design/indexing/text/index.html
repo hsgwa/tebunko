@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3130,7 +3160,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3151,14 +3181,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3239,8 +3269,6 @@
       
         
           
-        
-      
         
       
         
@@ -3347,7 +3375,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3375,7 +3403,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3403,35 +3431,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4234,12 +4234,15 @@
 
 
 <h1 id="テキストファイルの読み取り">テキストファイルの読み取り<a class="headerlink" href="#テキストファイルの読み取り" title="Permanent link">&para;</a></h1>
-<p>扱うこと: テキストファイル（<code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code>）の対象の拡張子、文字コードの判定、行への分け方、大きさの上限、tebunko が作ったファイルの除外。扱わないこと: Office ファイルの取り込み（<a href="../crawl/">クロール対象フォルダと取り込み対象</a>・<a href="../excel/">Excel</a>・<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>）、検索時の長い行の扱い（<a href="../../search/output/#長い行を切る">検索結果の出力</a>）。先に読むページ: <a href="../crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../target-decision/">取り込み対象の決定</a>。</p>
+<p>扱うこと: テキストファイル（<code>.txt</code> <code>.py</code> <code>.java</code> など）の対象の拡張子、既定のアプリで開くかメモ帳で開くかの判定、文字コードの判定、行への分け方、大きさの上限、tebunko が作ったファイルの除外。扱わないこと: Office ファイルの取り込み（<a href="../crawl/">クロール対象フォルダと取り込み対象</a>・<a href="../excel/">Excel</a>・<a href="../office-apps/">Word・PowerPoint の共通処理と Office アプリの管理</a>）、検索時の長い行の扱い（<a href="../../search/output/#長い行を切る">検索結果の出力</a>）。先に読むページ: <a href="../crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../target-decision/">取り込み対象の決定</a>。</p>
 <h2 id="対象の拡張子">対象の拡張子<a class="headerlink" href="#対象の拡張子" title="Permanent link">&para;</a></h2>
-<p><code>${textExtensions}</code>（<code>shared/core/text_file.ps1</code>）に固定する 7 つ。大文字・小文字は区別しない。</p>
-<div class="highlight"><pre><span></span><code>.txt  .csv  .tsv  .md  .log  .json  .xml
-</code></pre></div>
-<p><code>setting.config</code> で拡張子を足す仕組みは無い（<code>tests/meta/safety.Tests.ps1</code> が、Office の拡張子と合わせて 1 つの固定の一覧ちょうどであることを確かめる。開くと実行される種類（<code>.bat</code> <code>.js</code> <code>.vbs</code> 等）を対象に入れないための歯止め）。PDF・RTF・HTML など読み方が別に要る形式は対象外。</p>
+<p><code>${textExtensions}</code>（<code>shared/core/text_file.ps1</code>）に固定する 75 個。大文字・小文字は区別しない。ソースコード・設定ファイルなど、文字コードを適切に選べれば読めるものを広く含む。<code>setting.config</code> で拡張子を足す仕組みは無い（<code>tests/meta/safety.Tests.ps1</code> が、Office の拡張子と合わせて 85 個の固定の一覧ちょうどであることを確かめる）。PDF・RTF（表示用の解釈が要る形式）など読み方が別に要る形式、<code>.exe</code> <code>.com</code> <code>.scr</code> <code>.hta</code> <code>.wsf</code> <code>.wsh</code> <code>.jse</code> <code>.vbe</code> <code>.lnk</code> <code>.url</code> <code>.msi</code> <code>.cpl</code> <code>.inf</code>（実行・登録に使われるファイル）・<code>.ts</code> は対象外。<code>.html</code> <code>.htm</code> は対象（下の <code>${textOpenExtensions}</code>。表示用の解釈が要る形式だが、タグを含めたテキストとして検索できるほうが有用なため対象に含めた）。</p>
+<p><code>${textExtensions}</code> は次の 2 つを合わせたもの。</p>
+<ul>
+<li><strong><code>${textOpenExtensions}</code>（68 個。既定のアプリで開く）</strong>: <code>.txt</code> <code>.csv</code> <code>.tsv</code> <code>.md</code> <code>.log</code> <code>.json</code> <code>.xml</code> に加え、<code>.c</code> <code>.h</code> <code>.cpp</code> <code>.cc</code> <code>.cxx</code> <code>.hpp</code> <code>.cs</code> <code>.java</code> <code>.kt</code> <code>.kts</code> <code>.go</code> <code>.rs</code> <code>.swift</code> <code>.scala</code> <code>.dart</code> <code>.vb</code> <code>.bas</code> <code>.pas</code> <code>.asm</code> <code>.m</code> <code>.r</code> <code>.jl</code> <code>.hs</code> <code>.ex</code> <code>.exs</code> <code>.erl</code> <code>.clj</code> <code>.groovy</code> <code>.lua</code> <code>.py</code> <code>.rb</code> <code>.pl</code> <code>.php</code> <code>.psm1</code> <code>.psd1</code> <code>.jsx</code> <code>.tsx</code> <code>.mjs</code> <code>.vue</code> <code>.sql</code> <code>.yaml</code> <code>.yml</code> <code>.toml</code> <code>.ini</code> <code>.cfg</code> <code>.conf</code> <code>.properties</code> <code>.gradle</code> <code>.cmake</code> <code>.proto</code> <code>.graphql</code> <code>.tf</code> <code>.html</code> <code>.htm</code> <code>.css</code> <code>.scss</code> <code>.less</code> <code>.rst</code> <code>.tex</code> <code>.diff</code> <code>.patch</code>。</li>
+<li><strong><code>${textNotepadExtensions}</code>（7 個。メモ帳で開く）</strong>: <code>.bat</code> <code>.cmd</code> <code>.ps1</code> <code>.vbs</code> <code>.js</code> <code>.reg</code> <code>.sh</code>。既定のアプリで開くと実行・登録になるため、検索結果から［開く］で開くときは既定のアプリではなくメモ帳（固定のパス <code>%SystemRoot%\System32\notepad.exe</code>）で開く（<a href="../../gui/open-file/">検索結果からファイルを開く</a>）。取り込み・検索の対象かどうかの判定（<code>testTextExtension</code>）はこの 7 個も含める。</li>
+</ul>
+<p>拡張子だけが対象の判定基準で、拡張子の無いファイル・除外リストの仕組みは無い。</p>
 <h2 id="文字コードの判定detecttextencoding">文字コードの判定（<code>detectTextEncoding</code>）<a class="headerlink" href="#文字コードの判定detecttextencoding" title="Permanent link">&para;</a></h2>
 <p>バイト列だけを見て判定する（画面にもファイルにも触らない判断層の関数）。上から順に、最初に当たったものを使う。<strong>判定できないもの（あいまいなものを含む）は取り込まない</strong>（誤った文字コードで読んで化けたまま検索対象にしない）。</p>
 <pre class="mermaid"><code>flowchart TD
@@ -4254,7 +4257,9 @@
     S --&gt;|"NUL が 20% に届かない"| J
     N -- いいえ --&gt; J{"UTF-16 として読むと日本語の文章になる？&lt;br&gt;（かな 20% 以上・それ以外の文字 5% 以下。LE・BE の片方だけ）"}
     J -- はい --&gt; JU["UTF-16LE / UTF-16BE"]
-    J -- いいえ --&gt; I{"ISO-2022-JP？&lt;br&gt;（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり）"}
+    J -- いいえ --&gt; NUL{"ファイル全体のどこかに NUL（0x00）がある？"}
+    NUL -- はい --&gt; BIN
+    NUL -- いいえ --&gt; I{"ISO-2022-JP？&lt;br&gt;（7 ビットだけ・ESC $ B か ESC $ @ を含む・ESC の並びが規格どおり）"}
     I -- はい --&gt; IJ["ISO-2022-JP"]
     I -- "ESC $ B があるが規格外の並び・8 ビット" --&gt; BIN
     I -- いいえ --&gt; D{"全体が UTF-8 として正しく読める？"}
@@ -4270,6 +4275,7 @@
 <li>それ以外（NUL が 20% に届かない） → 次の「NUL の無い日本語の UTF-16」と同じ判定に回す（日本語の UTF-16 は、改行（CRLF）や全角スペース・「一」など下位バイトが 00 の文字だけが NUL になり、偶数・奇数の両側に NUL が出ることもあるため）</li>
 <li>閾値（20%・1/10）は <code>${textUtf16NulRatioThreshold}</code>・<code>${textUtf16NulSkewDivisor}</code> の定数</li>
 <li><strong>NUL の無い（または改行の分しか無い）日本語の UTF-16</strong>（<code>detectJapaneseUtf16WithoutNul</code>）: ひらがな・カタカナ・漢字は NUL を含まないため、上の判定に掛からない。先頭 64KB（8 バイト以上）を LE・BE それぞれで読み、<strong>ひらがな・カタカナが 20% 以上</strong>で、日本語の文章に出る文字（ASCII・句読点・かな・漢字・全角）<strong>以外が 5% 以下</strong>のとき、その向きの UTF-16 とする。LE・BE の両方が当たるときは判定しない。7 ビットだけ（ASCII の範囲）のバイト列は、ひらがなの UTF-16 と ASCII の文字列（<code>0a0a…</code> など）の見分けが付きにくいため、かなの割合を 90% 以上にする。閾値は <code>${textJpUtf16KanaRatio}</code>・<code>${textJpUtf16AsciiKanaRatio}</code>・<code>${textJpUtf16OtherRatio}</code>・<code>${textJpUtf16MinBytes}</code>。</li>
+<li><strong>NUL（0x00）を含むか</strong>: ここまでで BOM の無い UTF-16 とは判定できなかったもののうち、ファイル全体（先頭 64KB に限らない）のどこかに NUL が 1 つでもあれば、バイナリとして取り込まない（<code>[Array]::IndexOf</code>。1 バイトずつループしない）。UTF-8・Shift_JIS・EUC-JP・ISO-2022-JP はいずれも文字の表現に NUL を使わないため、先頭 64KB より後ろに NUL が現れるファイル（例: 先頭がテキストで途中からバイナリが続くもの）もここで取り込まない。</li>
 <li><strong>ISO-2022-JP</strong>（<code>testIso2022JpBytes</code>）: 7 ビットだけのバイト列で、漢字への切り替え（<code>ESC $ B</code>・<code>ESC $ @</code>）を含み、ESC の並びがすべて規格のもの（<code>ESC $ B</code>・<code>ESC $ @</code>・<code>ESC ( B</code>・<code>ESC ( J</code>・<code>ESC ( I</code>（半角カナ。コードページ 50221 で読む））のとき。<code>ESC $ B</code> があるのに 8 ビットのバイトや規格外の ESC の並びがあるものは、JIS のつもりの壊れたものとして取り込まない（UTF-8 として読むと化ける）。ASCII だけで表せるため UTF-8 として読めてしまう（化ける）ので、UTF-8 より先に確かめる。<code>ESC [</code> などの端末の制御の並び（色つきのログ）や <code>ESC ( B</code> だけのものは対象にせず、UTF-8 になる。</li>
 <li><strong>UTF-8</strong>: 不正なバイト列で例外にするデコーダー（<code>DecoderExceptionFallback</code>）で全体を読めれば UTF-8（ASCII だけのファイルもここに当たる）。</li>
 <li><strong>Shift_JIS・EUC-JP</strong>（<code>detectLegacyJapaneseEncoding</code>）: 上のどれにも当たらなければ、次の条件で決める。決まらなければ取り込まない。</li>
@@ -4304,6 +4310,7 @@
 <h3 id="分かっている限界">分かっている限界<a class="headerlink" href="#分かっている限界" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>対象の言語は日本語と英語</strong>（主な文字コードは Shift_JIS と UTF-8）。GBK・Big5・EUC-KR は対象外で、誤って取り込まれるのは既知の限界。誤判定を減らすための判定は足さない。</li>
+<li><strong>末尾が NUL で埋まった大きい <code>.log</code> など</strong>: アプリの強制終了などでファイルの途中から NUL（0x00）で埋まったまま残ったファイルは、その NUL が先頭 64KB より後ろにあっても取り込まない（上の「NUL（0x00）を含むか」）。NUL は全体を見て判定するため、そのようなファイルは「テキストファイルではないため取り込めません。」の失敗になる（<a href="../../../guide/limitations/">分かっている限界（利用の手引き）</a>）。</li>
 <li><strong>取り込まないもの</strong>: UTF-32・GBK・Big5・EUC-KR・かなの無い EUC-JP・NUL の無いバイナリ・NUL が偏らない UTF-16 などは、文字コードを判定できないとして取り込まない（<code>テキストファイルではないため取り込めません。</code>）。UTF-8・Shift_JIS・UTF-16 で保存し直せば取り込める。</li>
 <li><strong>短い Shift_JIS の並び</strong>（半角カナの一部など。例: <code>ﾃｽ</code> = <code>C3 BD</code>）は、UTF-8 としても正しく読めることがあり、その場合は UTF-8 と判定されて化ける。</li>
 <li><strong>BOM の無い UTF-16 で、かなが 20% に届かないもの</strong>（漢字だけの文章など）は、バイナリと見分けが付かないため取り込まない。</li>

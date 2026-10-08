@@ -6,14 +6,14 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/testing/">
       
       
-        <link rel="prev" href="../gui/screens/process-tab/">
+        <link rel="prev" href="../gui/screens/settings-tab/">
       
       
         <link rel="next" href="run/">
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../gui/process-tab/" class="md-nav__link">
+      <a href="../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4126,7 +4126,7 @@
 </tr>
 <tr>
 <td>画面のスモークテスト</td>
-<td>画面の起動・タブ・検索・インデックスの作成・ワークスペースの変更・プロセス停止・閉じるの流れが壊れること（XAML の読み込み・イベントの配線・ダイアログの開閉・後片付けの例外）</td>
+<td>画面の起動・タブ・検索・インデックスの作成・ワークスペースの変更・閉じるの流れが壊れること（XAML の読み込み・イベントの配線・ダイアログの開閉・後片付けの例外）</td>
 <td><code>gui.yml</code>（<code>gui-smoke</code>。<code>tests/gui/</code>・タグ <code>Gui</code>）。手元は <code>.\tests\run.ps1 -Tag Gui</code>。<a href="gui-smoke/">画面のスモークテスト</a></td>
 <td>–（必須にしない）</td>
 </tr>
@@ -4193,7 +4193,7 @@
 </tbody>
 </table>
 <h2 id="結合テスト手動">結合テスト（手動）<a class="headerlink" href="#結合テスト手動" title="Permanent link">&para;</a></h2>
-<p>Excel・Word・PowerPoint の COM を使うインデックス作成と、画面のプロセス停止は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。</p>
+<p>Excel・Word・PowerPoint の COM を使うインデックス作成と、残った Office の終了は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。</p>
 <table>
 <thead>
 <tr>
@@ -4321,7 +4321,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../gui/screens/process-tab/" class="md-footer__link md-footer__link--prev" aria-label="前: ［9 プロセス停止］タブ">
+          <a href="../gui/screens/settings-tab/" class="md-footer__link md-footer__link--prev" aria-label="前: ［設定］タブ">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4331,7 +4331,7 @@
                 前
               </span>
               <div class="md-ellipsis">
-                ［9 プロセス停止］タブ
+                ［設定］タブ
               </div>
             </div>
           </a>
