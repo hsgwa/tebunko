@@ -56,6 +56,7 @@
   <SolidColorBrush x:Key="Ink.Placeholder" Color="#9AA0A6" />
   <SolidColorBrush x:Key="Ink.Faint"       Color="#99A1AB" />
   <SolidColorBrush x:Key="Ink.Note"        Color="#8C949E" />
+  <SolidColorBrush x:Key="Ink.Disabled"    Color="#B0B6BD" />
   <SolidColorBrush x:Key="Ink.OnAccent"    Color="#FFFFFF" />
   <SolidColorBrush x:Key="Button.Text"     Color="#4D4D4D" />
   <SolidColorBrush x:Key="Button.Icon"     Color="#666666" />
@@ -1100,16 +1101,24 @@
     </Setter>
   </Style>
 
-  <!-- ============ 右クリックメニュー ============ -->
+  <!-- ============ 右クリックメニュー ============
+       キー無し（暗黙）の Style なので、ContextMenu・MenuItem・Separator を素のまま書けば効く。
+       幅 216・角丸 6・内側の余白 4・枠 1・影。入力欄（TextBox など）の標準の右クリックのメニューは別の型なので変わらない。
+       項目の高さ 31・余白 上下 7・左右 12・角丸 4・文字 13。削除のように赤にする項目だけ MenuItemDanger を付ける。
+       先頭の項目を太字にするときは FontWeight を付ける -->
   <Style TargetType="ContextMenu">
     <Setter Property="Background" Value="{StaticResource Bg.Surface}" />
-    <Setter Property="FontSize" Value="12" />
-    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ContextMenu">
-          <Border Background="{TemplateBinding Background}" BorderBrush="{StaticResource Border.Normal}"
-                  BorderThickness="1" CornerRadius="{StaticResource Radius.Control}" Padding="4">
+          <!-- 影が切れないよう、外側に余白を取る（幅 216 は枠の幅） -->
+          <Border Margin="0,0,10,12" Width="216" Background="{TemplateBinding Background}" BorderBrush="{StaticResource Border.Normal}"
+                  BorderThickness="1" CornerRadius="6" Padding="4">
+            <Border.Effect>
+              <DropShadowEffect Color="#000000" Opacity="0.18" BlurRadius="12" ShadowDepth="3" Direction="270" />
+            </Border.Effect>
             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
           </Border>
         </ControlTemplate>
@@ -1117,11 +1126,12 @@
     </Setter>
   </Style>
   <Style TargetType="MenuItem">
-    <Setter Property="Foreground" Value="{StaticResource Ink.Body}" />
+    <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="MenuItem">
-          <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Padding="10,6">
+          <Border x:Name="Bd" Height="31" Background="Transparent" CornerRadius="4" Padding="12,7">
             <DockPanel>
               <TextBlock DockPanel.Dock="Right" Margin="24,0,0,0" VerticalAlignment="Center"
                          FontSize="11" Foreground="{StaticResource Ink.Faint}"
@@ -1132,15 +1142,19 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsHighlighted" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{StaticResource Accent.Soft}" />
-              <Setter Property="Foreground" Value="{StaticResource Ink.Strong}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Opacity" Value="0.45" />
+              <Setter Property="Foreground" Value="{StaticResource Ink.Disabled}" />
+              <Setter TargetName="Bd" Property="Background" Value="Transparent" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+  <!-- 削除のような、取り消せない項目。MenuItem の見た目のまま、文字だけ赤にする -->
+  <Style x:Key="MenuItemDanger" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+    <Setter Property="Foreground" Value="{StaticResource Danger.Text}" />
   </Style>
   <Style TargetType="Separator">
     <Setter Property="Template">
