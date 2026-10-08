@@ -56,7 +56,7 @@ function reportStartupFailure {
     )
 
     $recordFile = $null
-    # 記録できる状態（app_host.ps1 の読み込み後で、writeErrorLog が使える）なら今までどおり gui_error_log.txt に、無ければ固定の場所に記録する
+    # 記録できる状態（app_host.ps1 の読み込み後で、writeErrorLog が使える）なら今までどおり gui_error_log.txt に、無ければツールのフォルダの startup_error.txt に記録する（書き込めなければ記録は残らない）
     if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
         writeErrorLog "起動・実行中" $err
         $recordFile = getGuiErrorLogFile
