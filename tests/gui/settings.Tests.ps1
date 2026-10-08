@@ -34,6 +34,15 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
             selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
             & $workspaceText | Should -Be $script:tool.Work
 
+            # 題と説明は置かず、小見出し「インデックス設定」から始まる。行は「ワークスペース」「設定ファイル」だけ（表示設定・保存先の言葉は出ない）
+            $texts = @(getGuiTexts $S.Window)
+            $texts | Should -Contain "インデックス設定"
+            $texts | Should -Contain "ワークスペース"
+            $texts | Should -Contain "設定ファイル"
+            $texts | Should -Not -Contain "インデックスの保存先を設定します。"
+            @($texts | Where-Object { $_ -eq "設定" }).Count | Should -BeLessOrEqual 1 -Because "題「設定」を置かない（ナビの項目の 1 つだけ）"
+            @($texts | Where-Object { $_ -like "*表示設定*" -or $_ -like "*保存先*" -or $_ -like "*最大並列*" }) | Should -BeNullOrEmpty
+
             # ［変更…］→ OS のフォルダ選択で［キャンセル］すると変わらない（#30）
             setGuiStep $S "［変更…］→ フォルダ選択で［キャンセル］"
             & $changeWorkspace $null
