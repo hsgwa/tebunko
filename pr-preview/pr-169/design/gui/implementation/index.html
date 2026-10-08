@@ -4236,7 +4236,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/index/index.xaml</code><br><code>index_list.xaml</code><br><code>index_detail.xaml</code></td>
-<td>［インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［すべて更新］［アクション ▾］［＋ フォルダを追加］・表。［アクション ▾］のメニュー <code>ActionsMenu</code> に［更新］［エクスポート…］［インポート…］［削除…］、行の右クリックのメニュー <code>IndexRowMenu</code> に［編集…］［エクスポート…］［削除］、行の右端には［更新］［中止］）、<code>index_detail.xaml</code> は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
+<td>［インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［すべて更新］［アクション ▾］［＋ フォルダを追加］・表。［アクション ▾］のメニュー <code>ActionsMenu</code> に［更新］［エクスポート…］［インポート…］［削除…］、行の右クリックのメニュー <code>IndexRowMenu</code> に［更新］［編集…］［元のフォルダを開く］［エクスポート…］［削除…］、行の右端には［更新］［中止］）、<code>index_detail.xaml</code> は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_export.xaml</code><br><code>dialog_import.xaml</code></td>
@@ -4260,7 +4260,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/xaml/theme.xaml</code></td>
-<td>画面の見た目（色・文字・コントロールの形）の共通定義</td>
+<td>画面の見た目（色・文字・コントロールの形）の共通定義。右クリックのメニューは、ContextMenu・MenuItem・Separator のキー無しの Style（幅 216・項目の高さ 31）で効く（素のまま書けばよい。入力欄の標準のメニューは変わらない）。削除のように赤にする項目は <code>Style="{StaticResource MenuItemDanger}"</code> を付ける</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/types.ps1</code><br><code>scripts/tebunko/ui/types.ps1</code></td>
