@@ -35,11 +35,6 @@ BeforeAll {
         # ---- tebunko/ui/gui_main.ps1（startGui） ----
         @{ File = "gui_main.ps1"; Function = "startGui"; Call = "testIndexExists"; Reason = "起動時のタブ選び（ワークスペースの側。分けた PR で直す）" }
 
-        # ---- tebunko/ui/indexing_tab.ps1（ワークスペースの側。分けた PR） ----
-        @{ File = "indexing_tab.ps1"; Function = "finishIndexing"; Call = "Test-Path"; Reason = "取り込みログの有無（ワークスペースの側。分けた PR）" }
-        @{ File = "indexing_tab.ps1"; Function = ""; Call = "Test-Path"; Reason = "［ログを開く］でのログの有無（ワークスペースの側。分けた PR）" }
-        @{ File = "indexing_tab.ps1"; Function = ""; Call = "Invoke-Item"; Reason = "［ログを開く］でログを開く（ワークスペースの側。分けた PR）" }
-
         # ---- tebunko/ui/open_source.ps1 ----
         @{ File = "open_source.ps1"; Function = "findSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }

@@ -22,7 +22,7 @@
     <DockPanel>
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
         <TextBlock x:Name="IndexingProgressEta" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
-        <Button x:Name="IndexingLogButton" Style="{StaticResource Link}" Content="ログを開く" VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed" />
+        <Button x:Name="IndexingSearchButton" Style="{StaticResource Link}" Content="検索する" VerticalAlignment="Center" Margin="0,0,10,0" Visibility="Collapsed" />
         <Button x:Name="IndexingResumeButton" Content="続きから再開" MinWidth="88" Height="24" FontSize="11" Padding="10,0" Visibility="Collapsed" />
         <Button x:Name="IndexingStopButton" Content="中止" MinWidth="72" Height="24" FontSize="11" Padding="10,0" />
       </StackPanel>

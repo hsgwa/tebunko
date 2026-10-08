@@ -1,5 +1,9 @@
 ﻿# インデックス管理の画面のイベントの登録（ボタン・一覧の操作・行のメニュー）。
 
+# 頭の ⓘ と、ステータス列の見出しの説明（文言は index_view.ps1 が決める）
+$ui.IndexScreenInfo.ToolTip = (getIndexScreenInfoText) -join "`n"
+[System.Windows.Automation.AutomationProperties]::SetHelpText($ui.IndexScreenInfo, $ui.IndexScreenInfo.ToolTip)
+$ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })

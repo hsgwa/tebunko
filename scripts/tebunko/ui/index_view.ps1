@@ -145,6 +145,27 @@ function getIndexTabButtonsEnabled {
     }
 }
 
+function getIndexScreenInfoText {
+    # 頭の ⓘ に出す、この画面の説明（3 行。画面は改行でつないでツールヒントにする）
+    return @(
+        "検索したいフォルダを登録する画面です。"
+        "登録したフォルダは、［すべて更新］を押すと検索できるようになります。"
+        "インデックスは、フォルダの中身を読み取って作る検索用のデータです。"
+    )
+}
+
+function getIndexStatusHelpText {
+    # 一覧の「ステータス」列の見出しのツールヒント（状態の名前と意味。行のバッジの名前と同じ言葉を使う）
+    return @(
+        "検索の準備の状態です。"
+        "・最新: 検索できます"
+        "・要更新: 前回の更新のあとにファイルが変わっています"
+        "・更新中: 更新しています"
+        "・エラー: フォルダが見つからないか、読み込めないファイルがあります"
+        "・未作成: まだ更新していません"
+    )
+}
+
 function getIndexCheckedItems {
     # 一覧でチェックを付けている行（［アクション ▾］の対象・「N 件を選択中」の数・全選択の状態の元）。
     # チェックは一時の選択で、保存しない（初めは全部外れ。設定の enabled とは別のもの）
@@ -374,11 +395,11 @@ function getIndexImportOverwriteConfirmMessage {
 
 function getIndexRowView {
     # 一覧の「ステータス」列（本文の更新の状態）の文言・補足・ツールヒント・色の区分を返す。@{ Text; Sub; ToolTip; Level }
-    #   Sub は、バッジの下に小さく出す補足（途中で止まったときの「残り N 件」。無ければ空文字列）
+    #   Text は状態の名前だけ（数字を含めない）。Sub は、バッジの右に小さく出す補足（更新中の「45%」、途中で止まったときの「残り N 件」。無ければ空文字列）
     #   stat     : getIndexStats のそのインデックスの値（Total; Done; Pending; Failed）。無ければ $null
     #   indexing : インデックス作成中か
     #   enabled  : 設定の enabled（［すべて更新］で更新する対象か。画面にチェックは出さない）
-    #   ratio    : 更新全体の進み（0〜1。分からないときは負の値）。更新中のバッジに「更新中 45%」と出し、棒の長さにする
+    #   ratio    : 更新全体の進み（0〜1。分からないときは負の値）。更新中の補足に「45%」と出し、棒の長さにする
     #   inRound  : 今の回で更新するインデックスか（選んだものだけの回では、選ばなかった行は $false）
     # 返す値の Percent は棒の長さ（0〜100）。更新中でなければ 0
     param (
@@ -389,22 +410,22 @@ function getIndexRowView {
         [bool]$inRound = $true
     )
 
-    $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れている（インデックスは残っている。行の［更新］で更新できる）" } else { "" }
+    $notice = if (!$enabled) { "設定で［すべて更新］の対象から外れています（インデックスは残っています。行の［更新］で更新できます）。" } else { "" }
     if ($indexing -and $enabled -and $inRound) {
         $percent = if ($ratio -ge 0) { [int][Math]::Floor([Math]::Min($ratio, 1.0) * 100) } else { 0 }
-        $text = if ($ratio -ge 0) { "更新中 ${percent}%" } else { "更新中" }
-        return @{ Text = $text; Sub = ""; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新している。終わると状態を表示する" }
+        $sub = if ($ratio -ge 0) { "${percent}%" } else { "" }
+        return @{ Text = "更新中"; Sub = $sub; Level = "Run"; Percent = $percent; ToolTip = "インデックスを更新しています。終わると状態を表示します。" }
     }
     if ($null -eq $stat -or $stat.Total -eq 0) {
-        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していない。［すべて更新］か、行の［更新］で作る" $notice }
+        return @{ Text = "未作成"; Sub = ""; Level = "None"; ToolTip = addIndexRowNotice "まだ更新していません。［すべて更新］か、行の［更新］で作ります。" $notice }
     }
     if ($stat.Pending -ge 1) {
-        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件。次の更新で続きから更新する" $notice }
+        return @{ Text = "要更新"; Sub = "残り $($stat.Pending) 件"; Level = "Wait"; ToolTip = addIndexRowNotice "未更新 $($stat.Pending) 件です。次の更新で続きから更新します。" $notice }
     }
     if ($stat.Failed -ge 1) {
-        return @{ Text = "エラー"; Sub = ""; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件。原因は下の「更新に失敗したファイル」で見られる。失敗したファイル以外は検索できる" $notice }
+        return @{ Text = "エラー"; Sub = ""; Level = "Ng"; ToolTip = addIndexRowNotice "失敗 $($stat.Failed) 件です。原因は下の「更新に失敗したファイル」で見られます。失敗したファイル以外は検索できます。" $notice }
     }
-    return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件" $notice }
+    return @{ Text = "最新"; Sub = ""; Level = "Ok"; ToolTip = addIndexRowNotice "更新済み $($stat.Total) 件です。" $notice }
 }
 
 function getIndexDetailRowPlan {
@@ -464,19 +485,19 @@ function getFastSearchRowView {
     )
 
     if ($null -eq $reason) {
-        return @{ Text = "確認中…"; Level = "None"; ToolTip = "Windows Search の状態を確かめている" }
+        return @{ Text = "確認中…"; Level = "None"; ToolTip = "Windows Search の状態を確かめています。" }
     }
     if ($reason -eq "NoFolder" -and !$hasContent) {
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。更新が終わると状態を表示する" $checkedAt) }
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
     }
     if ($reason -eq "NoConnection") {
-        return newFastSearchRowResult "不可" "Ng" @("Windows Search に接続できない。Windows Search のサービスが動いているかを確かめる") $true $checkedAt $progress
+        return newFastSearchRowResult "不可" "Ng" @("Windows Search に接続できません。Windows Search のサービスが動いているかを確かめてください。") $true $checkedAt $progress
     }
     if ($reason -eq "NotInScope") {
-        return newFastSearchRowResult "不可" "Ng" @("ワークスペースが Windows Search の索引の対象外。［インデックスのオプション］でワークスペースの system_index を対象に加える（管理者の権限が要る PC では、PC の管理者に頼む）") $true $checkedAt $progress
+        return newFastSearchRowResult "不可" "Ng" @("ワークスペースが Windows Search の索引の対象外です。［インデックスのオプション］でワークスペースの system_index を対象に加えてください（管理者の権限が要る PC では、PC の管理者に頼んでください）。") $true $checkedAt $progress
     }
     if (($reason -eq "Ok" -or $reason -eq "NotYet") -and $null -eq $progress) {
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "反映の進み具合を確かめられなかった。画面を前に出し直すと、もう一度確かめる" $checkedAt) }
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "反映の進み具合を確かめられませんでした。画面を前に出し直すと、もう一度確かめます。" $checkedAt) }
     }
     $entry = $null
     if ($progress -and $progress.ByIndex -and $progress.ByIndex.ContainsKey($name)) {
@@ -484,28 +505,28 @@ function getFastSearchRowView {
     }
     if ($null -eq $entry -or $entry.Folders -eq 0) {
         if ($hasContent -and $indexing) {
-            return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "更新中。終わると状態を表示する" $checkedAt) }
+            return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "更新中です。終わると状態を表示します。" $checkedAt) }
         }
         if ($hasContent) {
             return newFastSearchRowResult "不可" "Ng" @("このインデックスには高速検索用のデータがありません。") $false $checkedAt $null
         }
-        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていない。更新が終わると状態を表示する" $checkedAt) }
+        return @{ Text = "－"; Level = "None"; ToolTip = (addFastSearchCheckedAt "まだ作っていません。更新が終わると状態を表示します。" $checkedAt) }
     }
     if ($reason -eq "NotYet") {
-        return newFastSearchRowResult "反映待ち" "Wait" @("Windows Search がまだ索引していない。対象に入っていれば、待つと使えるようになる（対象外のときは［インデックスのオプション］で加える）") $true $checkedAt $progress
+        return newFastSearchRowResult "反映待ち" "Wait" @("Windows Search がまだ索引していません。対象に入っていれば、待つと使えるようになります（対象外のときは［インデックスのオプション］で加えてください）。") $true $checkedAt $progress
     }
     # ここから reason は Ok
     if ($entry.Waiting -eq $entry.Folders) {
-        return newFastSearchRowResult "反映待ち" "Wait" @("反映済み 0 / $($entry.Folders) フォルダ。Windows Search が索引すると反映中 N% に進む") $true $checkedAt $progress
+        return newFastSearchRowResult "反映待ち" "Wait" @("反映済み 0 / $($entry.Folders) フォルダです。Windows Search が索引すると反映中 N% に進みます。") $true $checkedAt $progress
     }
     if ($entry.Waiting -ge 1) {
         $percent = [Math]::Floor((($entry.Folders - $entry.Waiting) / [double]$entry.Folders) * 100)
         if ($percent -eq 0) { $percent = 1 }
-        return newFastSearchRowResult "反映中 ${percent}%" "Wait" @("反映済み $($entry.Folders - $entry.Waiting) / $($entry.Folders) フォルダ（反映待ち $($entry.Waiting)）。反映済みのフォルダは高速検索で、反映待ちのフォルダはふつうの検索で調べる") $true $checkedAt $progress
+        return newFastSearchRowResult "反映中 ${percent}%" "Wait" @("反映済み $($entry.Folders - $entry.Waiting) / $($entry.Folders) フォルダです（反映待ち $($entry.Waiting)）。反映済みのフォルダは高速検索で、反映待ちのフォルダはふつうの検索で調べます。") $true $checkedAt $progress
     }
     return @{
         Text = "可"; Level = "Ok"
-        ToolTip = addFastSearchCheckedAt "反映済み $($entry.Folders) / $($entry.Folders) フォルダ。高速検索に使える" $checkedAt
+        ToolTip = addFastSearchCheckedAt "反映済み $($entry.Folders) / $($entry.Folders) フォルダです。高速検索に使えます。" $checkedAt
     }
 }
 
@@ -516,9 +537,9 @@ function newFastSearchRowResult {
     $all = New-Object 'System.Collections.Generic.List[string]'
     foreach ($line in $lines) { [void]$all.Add($line) }
     if ($withUsageNotice) {
-        [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違う")
+        [void]$all.Add("使えなくても検索の結果は同じで、時間だけが違います。")
         if ($progress -and $progress.ContentIndexed) {
-            [void]$all.Add("content_index が Windows Search の対象から自動で外れなかった。対象から外すと反映が早くなる")
+            [void]$all.Add("content_index が Windows Search の対象から自動で外れませんでした。対象から外すと反映が早くなります。")
         }
     }
     $tooltip = addFastSearchCheckedAt ($all -join "`n") $checkedAt

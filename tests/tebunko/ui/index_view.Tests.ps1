@@ -127,6 +127,27 @@ Describe "getIndexCheckedItems（チェックを付けている行）" -Tag Unit
     }
 }
 
+Describe "getIndexScreenInfoText・getIndexStatusHelpText（見出しの説明）" -Tag Unit {
+    It "ⓘ の説明は 3 行で、画面の目的・［すべて更新］・インデックスの意味の順に書く" {
+        $lines = @(getIndexScreenInfoText)
+        $lines.Count | Should -Be 3
+        $lines[0] | Should -Be "検索したいフォルダを登録する画面です。"
+        $lines[1] | Should -Match "［すべて更新］"
+        $lines[2] | Should -Match "^インデックスは"
+    }
+
+    It "ステータス列の説明は、行のバッジと同じ 5 つの状態を です・ます で書く" {
+        $lines = @(getIndexStatusHelpText)
+        $lines.Count | Should -Be 6
+        $lines[0] | Should -Be "検索の準備の状態です。"
+        (($lines | Select-Object -Skip 1) -join "`n") | Should -Match "(?s)最新.*要更新.*更新中.*エラー.*未作成"
+        # 行のバッジの名前（getIndexRowView の Text）と同じ言葉だけを使う
+        foreach ($name in "最新", "要更新", "更新中", "エラー", "未作成") {
+            @($lines | Where-Object { $_ -like "・${name}:*" }).Count | Should -Be 1
+        }
+    }
+}
+
 Describe "getIndexSelectionView（全選択と選択中の件数）" -Tag Unit {
     It "<label>" -TestCases @(
         @{ label = "1 件も無い"; total = 0; checked = 0; text = ""; all = $false }
@@ -383,15 +404,17 @@ Describe "getIndexRowView" -Tag Unit {
     }
 
     It "更新中の行は、進みの割合（0〜1）から「更新中 N%」と棒の長さ（Percent）を出す。割合が分からなければ割合なし" -TestCases @(
-        @{ ratio = 0.456; text = "更新中 45%"; percent = 45 }
-        @{ ratio = 0.0; text = "更新中 0%"; percent = 0 }
-        @{ ratio = 1.0; text = "更新中 100%"; percent = 100 }
-        @{ ratio = 1.7; text = "更新中 100%"; percent = 100 }
-        @{ ratio = -1.0; text = "更新中"; percent = 0 }
+        @{ ratio = 0.456; sub = "45%"; percent = 45 }
+        @{ ratio = 0.0; sub = "0%"; percent = 0 }
+        @{ ratio = 1.0; sub = "100%"; percent = 100 }
+        @{ ratio = 1.7; sub = "100%"; percent = 100 }
+        @{ ratio = -1.0; sub = ""; percent = 0 }
     ) {
-        param ($ratio, $text, $percent)
+        param ($ratio, $sub, $percent)
         $view = getIndexRowView @{ Total = 10; Done = 3; Pending = 7; Failed = 0 } $true $true $ratio
-        $view.Text | Should -Be $text
+        $view.Text | Should -Be "更新中"
+        $view.Text | Should -Not -Match "[0-9]"
+        $view.Sub | Should -Be $sub
         $view.Percent | Should -Be $percent
         $view.Level | Should -Be "Run"
     }
@@ -402,12 +425,12 @@ Describe "getIndexRowView" -Tag Unit {
 
     It "今の回に入っていない行（選んだものだけの回の、選ばなかった行）は、更新中にしない" {
         (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true 0.5 $false).Text | Should -Be "最新"
-        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true 0.5 $true).Text | Should -Be "更新中 50%"
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true 0.5 $true).Text | Should -Be "更新中"
     }
 
     It "enabled が偽なら、更新中以外のツールヒントに［すべて更新］の対象外の案内を足す" {
-        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $false).ToolTip | Should -Match "対象から外れている"
-        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "対象から外れている"
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $false $false).ToolTip | Should -Match "対象から外れています"
+        (getIndexRowView @{ Total = 10; Done = 10; Pending = 0; Failed = 0 } $true $true).ToolTip | Should -Not -Match "対象から外れています"
     }
 
     It "ツールヒントに前の版・内部の言葉を含めない" {
@@ -538,8 +561,8 @@ Describe "getFastSearchRowView" -Tag Unit {
     It "ContentIndexed が真のときだけ「自動で外れなかった」を含む" {
         $progressOn = newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 2 } } $true
         $progressOff = newFastProgress @{ "営業" = @{ Folders = 4; Waiting = 2 } } $false
-        (getFastSearchRowView "Ok" $progressOn "営業" $true $null).ToolTip | Should -Match "自動で外れなかった"
-        (getFastSearchRowView "Ok" $progressOff "営業" $true $null).ToolTip | Should -Not -Match "自動で外れなかった"
+        (getFastSearchRowView "Ok" $progressOn "営業" $true $null).ToolTip | Should -Match "自動で外れませんでした"
+        (getFastSearchRowView "Ok" $progressOff "営業" $true $null).ToolTip | Should -Not -Match "自動で外れませんでした"
     }
 
     It "checkedAt があれば、確認中…以外のツールヒントに最終確認を含む" {
@@ -557,11 +580,11 @@ Describe "getFastSearchRowView" -Tag Unit {
         $toolTip = (getFastSearchRowView "Ok" $progress "営業" $true $null).ToolTip
         $toolTip | Should -Match "このインデックスには高速検索用のデータがありません。"
         # 直し方の案内（［インデックスのオプション］など）や、使っても結果は同じという注記は出さない仕様（理由の文だけを出す）
-        $toolTip | Should -Not -Match "インデックスのオプション|system_index|時間だけが違う"
+        $toolTip | Should -Not -Match "インデックスのオプション|system_index|時間だけが違"
     }
 
     It "進み具合を確かめられないときのツールヒントに「確かめられなかった」を含む" {
-        (getFastSearchRowView "Ok" $null "営業" $true $null).ToolTip | Should -Match "確かめられなかった"
+        (getFastSearchRowView "Ok" $null "営業" $true $null).ToolTip | Should -Match "確かめられませんでした"
     }
 
     It "ツールヒントに前の版・内部の言葉を含めない" {

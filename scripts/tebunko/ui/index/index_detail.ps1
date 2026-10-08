@@ -63,7 +63,7 @@ function updateIndexingResume {
         $ui.IndexingProgressDetail.Text = ""
         $ui.IndexingProgress.Visibility = "Collapsed"
         $ui.IndexingStopButton.Visibility = "Collapsed"
-        $ui.IndexingLogButton.Visibility = "Collapsed"
+        $ui.IndexingSearchButton.Visibility = "Collapsed"
         $ui.IndexingProgressPanel.Visibility = "Visible"
     } elseif ($canResume -and $script:indexingBannerKind -eq "interrupted") {
         $ui.IndexingProgressText.Text = getIndexingStateText $pending $false

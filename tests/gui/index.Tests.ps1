@@ -26,6 +26,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             clickGui $S $S.Window "GoIndexTabButton" "［インデックス管理へ］"
             waitGui $S "［インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
 
+            # 頭: 見出しと説明の文は無く、ⓘ に説明がある（ツールヒントは UI オートメーションの HelpText で読む）
+            setGuiStep $S "頭に見出しと説明が無く、ⓘ に説明がある"
+            @(getGuiTexts $S.Window) | Should -Not -Contain "検索するフォルダとインデックスを管理します。ファイルを変更したら［すべて更新］でインデックスを最新にします。"
+            (findGui $S.Window -Id "IndexScreenInfo").Current.HelpText | Should -BeLike "検索したいフォルダを登録する画面です。*"
+
             # 追加: キャンセル（#11）
             setGuiStep $S "［＋ フォルダを追加］→［キャンセル］"
             clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
@@ -133,6 +138,14 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             @(getGuiGridRows (findGui $S.Window -Id "FailedGrid")).Count | Should -Be 1
             (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "FailedGrid"))[0]) -join " " | Should -BeLike "*壊れた文書.docx*"
             Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料" | Should -BeTrue
+
+            # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
+            setGuiStep $S "帯の［検索する］"
+            $searchButton = findGui $S.Window -Id "IndexingSearchButton"
+            $searchButton.Current.Name | Should -Be "検索する"
+            clickGui $S $S.Window "IndexingSearchButton" "帯の［検索する］"
+            waitGui $S "検索の画面に切り替わる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SearchTab" } | Out-Null
+            selectGuiTab $S "IndexTab" "IndexingButton"
 
             # 削除: キャンセルすると残り、［削除する］で消える（#15）
             setGuiStep $S "［削除］→［キャンセル］"

@@ -39,7 +39,7 @@ function showIndexingPanel {
     $ui.IndexingProgressDetail.Text = "更新するファイルを確認しています。"
     $ui.IndexingStopButton.Visibility = "Visible"
     $ui.IndexingStopButton.IsEnabled = $true
-    $ui.IndexingLogButton.Visibility = "Collapsed"
+    $ui.IndexingSearchButton.Visibility = "Collapsed"
     $taskbar.ProgressState = "Indeterminate"
 }
 
@@ -404,7 +404,7 @@ function finishIndexing {
     if ($skippedView -and $exitCode -ne 1) {
         showMessage "$($skippedView.Heading)`n`n$($skippedView.Detail)" "OK" "Warning" | Out-Null
     }
-    $ui.IndexingLogButton.Visibility = if (Test-Path -LiteralPath $workspace.IndexingLogFile) { "Visible" } else { "Collapsed" }
+    $ui.IndexingSearchButton.Visibility = if ($exitCode -ne 1) { "Visible" } else { "Collapsed" }
 
     $script:sourceFolderMaps = @{}
     # 高速検索の列の前の確かめ結果（古い reason）を捨てて「確認中…」に戻す。ここで捨てずに
@@ -442,10 +442,4 @@ $ui.FailedGrid.Add_MouseDoubleClick({
 $ui.IndexingButton.Add_Click({ safe { startIndexing } })
 $ui.IndexingStopButton.Add_Click({ safe { stopIndexing } })
 $ui.IndexingResumeButton.Add_Click({ safe { startIndexing } })
-$ui.IndexingLogButton.Add_Click({
-    safe {
-        if (Test-Path -LiteralPath $workspace.IndexingLogFile) {
-            Invoke-Item -LiteralPath $workspace.IndexingLogFile
-        }
-    }
-})
+$ui.IndexingSearchButton.Add_Click({ safe { selectScreen "SearchTab" } })

@@ -1,4 +1,4 @@
-﻿<!-- インデックスの一覧（見出しと説明・［すべて更新］・［アクション ▾］・フォルダの追加・一覧の表・件数の帯）。index.xaml の IndexListHost に入れる（gui_main.ps1）。
+﻿<!-- インデックスの一覧（操作の行・［すべて更新］・［アクション ▾］・フォルダの追加・一覧の表・件数の帯）。index.xaml の IndexListHost に入れる（gui_main.ps1）。
      行の右端のボタンは［更新］［中止］だけ。エクスポート・削除・インポートは［アクション ▾］のメニュー（ActionExport・ActionDelete・ActionImport）。
      行の右クリックのメニュー（編集・エクスポート・削除。名前は EditIndexButton・ExportIndexButton・RemoveIndexButton）も残してある。 -->
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -42,12 +42,20 @@
         <RowDefinition Height="*" MinHeight="90" />
       </Grid.RowDefinitions>
 
-      <DockPanel Grid.Row="0">
-        <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="IndexingButton" Content="すべて更新" ContentTemplate="{StaticResource ButtonIcon.Refresh}" MinWidth="104" Height="34" Margin="0,0,8,0" />
+      <!-- 頭は高さ 56 の操作の行（上下 12・ボタン 32）。左に「N / M 件を選択中」、右に ⓘ・［すべて更新］・［アクション ▾］・［＋ フォルダを追加］。
+           ⓘ の説明（IndexScreenInfo の ToolTip）は index_view.ps1 の getIndexScreenInfoText が決める -->
+      <StackPanel Grid.Row="0">
+        <Grid Height="56">
+          <TextBlock x:Name="SelectionCountText" Style="{StaticResource Meta}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <Label x:Name="IndexScreenInfo" Padding="0" Margin="0,0,12,0" VerticalAlignment="Center" ToolTipService.ShowDuration="30000"
+                   AutomationProperties.Name="この画面の説明">
+              <Path Data="{StaticResource Icon.Info}" Width="16" Height="16" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
+                    StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" />
+            </Label>
+            <Button x:Name="IndexingButton" Content="すべて更新" ContentTemplate="{StaticResource ButtonIcon.Refresh}" MinWidth="104" Height="32" Margin="0,0,8,0" />
             <!-- ［アクション ▾］: 押すと下にメニューを開く（index_events.ps1）。メニューの項目の可否は updateIndexingButton が決める -->
-            <Button x:Name="ActionsButton" Height="34" Margin="0,0,8,0" ToolTip="選んだインデックスの操作と、インポートのメニューを開きます">
+            <Button x:Name="ActionsButton" Height="32" Margin="0,0,8,0">
               <Button.Content>
                 <StackPanel Orientation="Horizontal">
                   <TextBlock Text="アクション" VerticalAlignment="Center" />
@@ -57,33 +65,21 @@
               </Button.Content>
               <Button.ContextMenu>
                 <ContextMenu x:Name="ActionsMenu">
-                  <MenuItem x:Name="ActionUpdate" Header="更新" ToolTip="チェックを付けたインデックスだけを更新します" />
-                  <MenuItem x:Name="ActionExport" Header="エクスポート…" ToolTip="チェックを付けたインデックスを、1 つずつ zip に書き出します（別の PC・ワークスペースで使えます）" />
-                  <MenuItem x:Name="ActionImport" Header="インポート…" ToolTip="エクスポートした zip を読み込み、一覧に加えます" />
+                  <MenuItem x:Name="ActionUpdate" Header="更新" />
+                  <MenuItem x:Name="ActionExport" Header="エクスポート…" />
+                  <MenuItem x:Name="ActionImport" Header="インポート…" />
                   <Separator />
-                  <MenuItem x:Name="ActionDelete" Header="削除…" Foreground="{StaticResource Danger.Text}" ToolTip="チェックを付けたインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
+                  <MenuItem x:Name="ActionDelete" Header="削除…" Foreground="{StaticResource Danger.Text}" />
                 </ContextMenu>
               </Button.ContextMenu>
             </Button>
-            <Button x:Name="NewIndexButton" Style="{StaticResource Primary}" Height="34" Content="フォルダを追加" ContentTemplate="{StaticResource ButtonIcon.Plus}" AutomationProperties.Name="＋ フォルダを追加" ToolTip="Office ファイルのあるフォルダを指定して、新しいインデックスを追加します" />
+            <Button x:Name="NewIndexButton" Style="{StaticResource Primary}" Height="32" Content="フォルダを追加" ContentTemplate="{StaticResource ButtonIcon.Plus}" AutomationProperties.Name="＋ フォルダを追加" />
           </StackPanel>
-          <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Right" />
-        </StackPanel>
-        <StackPanel>
-          <StackPanel Orientation="Horizontal">
-            <TextBlock Style="{StaticResource PageTitle}" Text="インデックス管理" />
-            <Path Data="{StaticResource Icon.Info}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
-                  StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                  VerticalAlignment="Center" Margin="6,2,0,0" Fill="Transparent"
-                       ToolTip="一覧にフォルダをドラッグ＆ドロップしても追加できます" />
-            <TextBlock x:Name="SelectionCountText" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="10,2,0,0" />
-          </StackPanel>
-          <TextBlock Style="{StaticResource Meta}" Margin="0,4,0,0" TextWrapping="Wrap"
-                     Text="検索するフォルダとインデックスを管理します。ファイルを変更したら［すべて更新］でインデックスを最新にします。" />
-        </StackPanel>
-      </DockPanel>
+        </Grid>
+        <TextBlock x:Name="IndexingHint" Style="{StaticResource Meta}" Margin="0,0,0,0" TextWrapping="Wrap" TextAlignment="Right" />
+      </StackPanel>
 
-      <Grid Grid.Row="1" Margin="0,12,0,0">
+      <Grid Grid.Row="1" Margin="0,8,0,0">
         <DataGrid x:Name="IndexGrid" RowStyle="{StaticResource IndexRow}" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
           <DataGrid.ContextMenu>
             <ContextMenu x:Name="IndexRowMenu">
@@ -97,13 +93,12 @@
             <DataGridTemplateColumn Width="44">
               <!-- 見出しの全選択（一部だけ選んでいるときは横棒）。押したときの動きは index_events.ps1 -->
               <DataGridTemplateColumn.Header>
-                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Center" ToolTip="すべてのインデックスを選ぶ・選びを外す"
+                <CheckBox x:Name="SelectAllCheckBox" IsThreeState="True" HorizontalAlignment="Center"
                           AutomationProperties.Name="すべて選ぶ" />
               </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
-                  <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" HorizontalAlignment="Center"
-                            ToolTip="選ぶ（選んだものは［アクション ▾］でまとめて操作できます）" />
+                  <CheckBox IsChecked="{Binding Checked, Mode=TwoWay}" HorizontalAlignment="Center" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -141,20 +136,34 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="ステータス" Width="120">
-              <DataGridTemplateColumn.HeaderStyle>
-                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-                  <Setter Property="ToolTip" Value="検索に使うインデックスの状態（最新・要更新・更新中・エラー・未作成）" />
-                </Style>
-              </DataGridTemplateColumn.HeaderStyle>
+            <DataGridTemplateColumn Width="170">
+              <!-- 見出しの説明（StatusColumnHeader の ToolTip）は index_view.ps1 の getIndexStatusHelpText が決める -->
+              <DataGridTemplateColumn.Header>
+                <TextBlock x:Name="StatusColumnHeader" Text="ステータス" />
+              </DataGridTemplateColumn.Header>
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <StackPanel VerticalAlignment="Center" ToolTip="{Binding IndexToolTip}">
-                    <Border Style="{StaticResource LevelBadge}" Tag="{Binding IndexLevel}">
-                      <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding IndexLevel}" Text="{Binding IndexText}" />
-                    </Border>
-                    <!-- 更新中の細い進み具合の棒（Percent が負のときは出さない） -->
-                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding IndexPercent, Mode=OneWay}" Height="3" Margin="2,4,2,0"
+                    <!-- バッジは状態の名前だけ。数字（更新中の「45%」・要更新の「残り N 件」）は右に小さく添える（無いときは場所を取らない） -->
+                    <StackPanel Orientation="Horizontal">
+                      <Border Style="{StaticResource LevelBadge}" Tag="{Binding IndexLevel}">
+                        <TextBlock Style="{StaticResource LevelBadgeText}" Tag="{Binding IndexLevel}" Text="{Binding IndexText}" />
+                      </Border>
+                      <TextBlock AutomationProperties.AutomationId="IndexStatusSubText" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="10" FontWeight="Normal"
+                                 Foreground="{StaticResource Ink.Muted}" Text="{Binding IndexSub}">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding IndexSub}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                    </StackPanel>
+                    <!-- 更新中だけ、下に細い進み具合の棒（幅 120・高さ 4。Percent が負のときは出さない） -->
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding IndexPercent, Mode=OneWay}" Width="120" Height="4" HorizontalAlignment="Left" Margin="0,4,0,0"
                                  Foreground="{StaticResource File.Folder}" Background="{StaticResource Border.Soft}" BorderThickness="0">
                       <ProgressBar.Style>
                         <Style TargetType="ProgressBar">
@@ -167,18 +176,6 @@
                         </Style>
                       </ProgressBar.Style>
                     </ProgressBar>
-                    <!-- 途中で止まったときの「残り N 件」。無いときは場所を取らない -->
-                    <TextBlock Margin="2,2,0,0" FontSize="11" Foreground="{StaticResource Warn}" Text="{Binding IndexSub}">
-                      <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                          <Style.Triggers>
-                            <DataTrigger Binding="{Binding IndexSub}" Value="">
-                              <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                          </Style.Triggers>
-                        </Style>
-                      </TextBlock.Style>
-                    </TextBlock>
                   </StackPanel>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -186,7 +183,7 @@
             <DataGridTemplateColumn Header="高速検索" Width="118">
               <DataGridTemplateColumn.HeaderStyle>
                 <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-                  <Setter Property="ToolTip" Value="インデックス（高速検索用）が Windows Search にどこまで反映されたか" />
+                  <Setter Property="ToolTip" Value="高速検索用のインデックスが、Windows Search にどこまで反映されたかを示します。" />
                 </Style>
               </DataGridTemplateColumn.HeaderStyle>
               <DataGridTemplateColumn.CellTemplate>
@@ -204,7 +201,7 @@
                 <DataTemplate>
                   <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Button Tag="RowUpdate" Height="26" MinWidth="66" Padding="8,0" IsEnabled="{Binding RowUpdateEnabled}"
-                            AutomationProperties.AutomationId="IndexRowUpdateButton" AutomationProperties.Name="更新" ToolTip="このインデックスだけを更新します">
+                            AutomationProperties.AutomationId="IndexRowUpdateButton" AutomationProperties.Name="更新">
                       <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                           <Setter Property="Visibility" Value="Collapsed" />
@@ -222,7 +219,7 @@
                       </StackPanel>
                     </Button>
                     <Button Tag="RowStop" Height="26" MinWidth="66" Padding="8,0"
-                            AutomationProperties.AutomationId="IndexRowStopButton" AutomationProperties.Name="中止" ToolTip="更新を中止します">
+                            AutomationProperties.AutomationId="IndexRowStopButton" AutomationProperties.Name="中止">
                       <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                           <Setter Property="Visibility" Value="Collapsed" />
