@@ -1,4 +1,4 @@
-﻿# 動いたワークフロー自身の結果（success・failure・cancelled・skipped）を、tools/pr_checks_comment.ps1 で
+# 動いたワークフロー自身の結果（success・failure・cancelled・skipped）を、tools/pr_checks_comment.ps1 で
 # PR のコメントに書く・書き換える複合アクション。
 #
 # 呼び出し側のジョブに要るのは pull-requests: write だけ（このアクション自身は permissions を持てないため、
