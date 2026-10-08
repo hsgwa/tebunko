@@ -38,7 +38,7 @@ function addTrimmedToolTip {
 
 function addTrimmedToolTipToRows {
     # 行の Loaded（DataGridRow など）で、その行の中の Tag が tag の TextBlock に addTrimmedToolTip を付ける（付けたら Tag を「<tag>Set」にして、二重に付けない）。
-    # 行の Tag に tag を入れ（Loaded のハンドラはここから読む。GetNewClosure にすると画面の関数が見えなくなる）、
+    # Loaded のハンドラは行の Tag に tag を入れてそこから読む（GetNewClosure にすると画面の関数が見えなくなるため）。
     # 行の Tag を印に使うので、ほかの用途で Tag を使う行には使えない。Tag が tag の行には何もしない（呼び直されても、ハンドラが重ならず、行ごとに 1 回だけ付く）
     param (
         [System.Windows.FrameworkElement]$row,
