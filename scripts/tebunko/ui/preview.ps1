@@ -99,9 +99,10 @@ function applyDetail {
     } else {
         $ui.PreviewNote.Visibility = "Collapsed"
     }
+    $script:previewTable = $table
+    fitPreviewWidth
     $ui.PreviewHeader.ItemsSource = $table.Columns
     $ui.PreviewRows.ItemsSource = $table.Rows
-    $script:previewTable = $table
 
     # 一致したセルが見えるよう横にスクロールする（左端から見えていればそのまま）。
     # 高さを変えただけのときは、見ていた横の位置をそのままにする
@@ -115,6 +116,15 @@ function applyDetail {
         $offset = [math]::Max(0, $table.HitOffset - 120)
     }
     $ui.PreviewScroll.ScrollToHorizontalOffset($offset)
+}
+
+function fitPreviewWidth {
+    # Excel 以外は列が 1 つなので、その幅を枠の幅いっぱいにする（段落は幅いっぱいに折り返して読めるようにする）
+    if ($null -eq $script:previewTable -or $script:previewTable.Columns.Count -ne 1 -or $script:previewTable.IsExcel) {
+        return
+    }
+    $column = $script:previewTable.Columns[0]
+    $column.SetWidth((getPreviewFillWidth $ui.PreviewScroll.ViewportWidth ([HitRow]::NumberWidth) $column.Width ([PreviewColumn]::MinWidth)))
 }
 
 function getPreviewCell {
@@ -168,6 +178,9 @@ $ui.PreviewScroll.Add_ScrollChanged({
 # ドラッグ中は何度も起きるので、ほかと同じタイマーでまとめて 1 回だけ読む
 $ui.PreviewScroll.Add_SizeChanged({
     param ($sender, $e)
+    if ($e.WidthChanged) {
+        fitPreviewWidth
+    }
     if ($e.HeightChanged -and $ui.ResultGrid.SelectedItem) {
         $script:detailKeepScroll = $true
         $script:detailTimer.Stop()

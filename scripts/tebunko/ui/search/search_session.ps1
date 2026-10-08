@@ -22,9 +22,9 @@ function startSearch {
         setStatus "検索ワードを入力してください。"
         return
     }
-    $kindError = getSearchKindError (getFileKindsFromUi)
-    if ($kindError -ne "") {
-        setStatus $kindError
+    $kindBanner = getSearchKindBanner (getFileKindsFromUi)
+    setSearchKindBanner $kindBanner
+    if ($null -ne $kindBanner) {
         return
     }
 

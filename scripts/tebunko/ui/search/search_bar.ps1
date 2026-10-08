@@ -52,12 +52,24 @@ function setSearchOptionToUi {
 
 function updateFastSearchView {
     # 高速検索の使用可否（ワード・［正規表現］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）。
-    # 使えるときは緑、使えないときは灰色。使えない理由があるときだけ ⓘ を出し、ツールチップで知らせる
+    # 使えるときは緑、使えないときは灰色。ⓘ は常に出し、ツールチップで印の意味（使えないときは理由と直し方）を知らせる。
+    # 印の幅は XAML で固定してあり、ここでは変えない
     $view = getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)
     $ui.FastSearchText.Text = $view.Text
     $ui.FastBadge.Tag = if ($view.Usable) { "ok" } else { "off" }
-    $ui.FastBadgeInfo.Visibility = if ($view.Tip -ne "") { "Visible" } else { "Collapsed" }
-    $ui.FastBadge.ToolTip = if ($view.Tip -ne "") { $view.Tip } else { $null }
+    $ui.FastBadge.ToolTip = $view.Tip
+}
+
+function setSearchKindBanner {
+    # 種類が 1 つも選ばれていないことを知らせる帯（getSearchKindBanner の結果。$null なら隠す）
+    param (
+        $banner
+    )
+
+    $ui.SearchKindBanner.Visibility = if ($null -ne $banner) { "Visible" } else { "Collapsed" }
+    if ($null -ne $banner) {
+        $ui.SearchKindBannerText.Text = $banner.Text
+    }
 }
 
 function updateScopeButton {
@@ -106,18 +118,13 @@ function updateSearchButton {
 }
 
 function updateSearchTarget {
-    # 左の欄の見出し（選んだ数 / 全部の数）と案内、インデックスが無いときの結果欄の案内。
+    # 左の欄の見出し（選んだ数 / 全部の数）、インデックスが無いときの結果欄の案内。
     # 検索対象の詳しい中身（先頭の数件・集約ファイルの数・最終更新）は、見出しのツールチップに出す
     $targets = @(getSearchTargets)
     $summary = $script:indexSummary
     $total = @($script:indexRoots).Count
     $checked = @($script:indexRoots | Where-Object { $_.IsChecked -eq $true }).Count
     $ui.TargetCountText.Text = getTargetCountText $checked $total
-    $hint = getTargetHintText $total $targets.Count
-    $ui.TargetHint.Visibility = if ($hint -ne "") { "Visible" } else { "Collapsed" }
-    if ($hint -ne "") {
-        $ui.TargetHintText.Text = $hint
-    }
     $ui.TargetCountText.ToolTip = if ($total -eq 0) {
         "［インデックス管理］で作ったインデックスの一覧です"
     } elseif ($targets.Count -eq 0) {
@@ -213,6 +220,10 @@ foreach ($kind in ${fileKindNames}) {
             $after = @(toggleFileKind $before $clicked)
             setFileKindsToUi $after
             writeFileKinds $after
+            # 帯を出している間は、選び直したらすぐ消す
+            if ($ui.SearchKindBanner.Visibility -eq "Visible") {
+                setSearchKindBanner (getSearchKindBanner $after)
+            }
         }
     })
 }

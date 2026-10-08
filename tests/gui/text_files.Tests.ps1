@@ -40,7 +40,7 @@ Describe "S5 テキストファイルの検索と表示" -Tag Gui {
 
             setGuiStep $S "検索語で検索"
             & $search "検索語のある行"
-            waitGui $S "該当 1 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "1 件（*" } | Out-Null
+            waitGui $S "該当 1 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 1 件（*" } | Out-Null
             clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             $row = waitGui $S "結果の行が出る" ${guiDefaultTimeout} { @(& $hitRows) | Select-Object -First 1 }
 
@@ -80,7 +80,7 @@ Describe "S5 テキストファイルの検索と表示" -Tag Gui {
 
             setGuiStep $S "1 行が長いファイルの語を検索し、選んでも固まらない"
             & $search "ロングヒット"
-            waitGui $S "該当 1 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "1 件（*" } | Out-Null
+            waitGui $S "該当 1 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 1 件（*" } | Out-Null
             clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             $bigRow = waitGui $S "結果の行が出る" ${guiDefaultTimeout} { @(& $hitRows) | Select-Object -First 1 }
             selectGui $bigRow

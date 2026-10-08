@@ -18,11 +18,11 @@ function getSearchSummaryText {
         [double]$seconds = -1
     )
 
-    $text = "$($hits.ToString('N0')) 件（$($files.ToString('N0')) ファイル）"
+    $text = "一致 $($hits.ToString('N0')) 件（$($files.ToString('N0')) ファイル）"
     if ($seconds -lt 0) {
         return $text
     }
-    return "$text ・ $($seconds.ToString('0.0')) 秒"
+    return "$text・$($seconds.ToString('0.0')) 秒"
 }
 
 function getSearchStatusText {

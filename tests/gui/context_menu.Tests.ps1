@@ -40,7 +40,7 @@ Describe "検索結果の右クリックメニュー" -Tag Gui {
             setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
             waitGuiEnabled $S (findGui $S.Window -Id "SearchButton") "［検索］"
             clickGui $S $S.Window "SearchButton" "［検索］"
-            waitGui $S "該当 2 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "2 件（*" } | Out-Null
+            waitGui $S "該当 2 件" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SummaryText")) -like "一致 2 件（*" } | Out-Null
             clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
             waitGui $S "結果の行が出る" ${guiDefaultTimeout} { @(getGuiHitRows (findGui $S.Window -Id "ResultGrid")).Count -eq 2 } | Out-Null
 

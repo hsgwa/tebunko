@@ -18,6 +18,18 @@ Describe "getPreviewRowCounts" -Tag Unit {
     }
 }
 
+Describe "getPreviewFillWidth" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "枠が広ければ、行番号の列を除いた幅いっぱいにする"; viewport = 900; current = 300; expected = 856 }
+        @{ name = "今の幅のほうが広ければ、狭くしない"; viewport = 500; current = 640; expected = 640 }
+        @{ name = "枠の幅がまだ分からなければ今の幅のまま"; viewport = 0; current = 300; expected = 300 }
+        @{ name = "行番号を除くと最小幅に満たなければ今の幅のまま"; viewport = 50; current = 30; expected = 30 }
+    ) {
+        param ($name, $viewport, $current, $expected)
+        getPreviewFillWidth $viewport 44 $current | Should -Be $expected
+    }
+}
+
 Describe "toStatusText" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "短い文字列はそのまま"; text = "見積書"; expected = "見積書" }

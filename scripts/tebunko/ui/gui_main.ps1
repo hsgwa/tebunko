@@ -95,10 +95,10 @@ function startGui {
         @{ File = "search\search_bar.xaml"; Slot = "SearchBarHost"; Names = @(
             "WordBox", "SearchButton", "RegexCheck", "CaseCheck", "ShapeCheck", "CommentCheck", "ScopeButton",
             "ConditionsPanel", "ConditionsSpacer", "FastSearchSlot", "KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText",
-            "WordPlaceholder", "WordNotice", "FastBadge", "FastBadgeIcon", "FastBadgeInfo", "FastSearchText") }
+            "WordPlaceholder", "WordNotice", "FastBadge", "FastBadgeIcon", "FastBadgeInfo", "FastSearchText",
+            "SearchKindBanner", "SearchKindBannerText") }
         @{ File = "search\target_tree.xaml"; Slot = "NavPaneHost"; Names = @(
-            "IndexTree", "IndexTreePlaceholder", "IndexTreeFilterBox", "IndexTreeFilterPlaceholder",
-            "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText", "TargetHint", "TargetHintText") }
+            "IndexTree", "CheckAllIndexButton", "UncheckAllIndexButton", "TargetCountText") }
         @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
             "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton",
             "ResultGrid",
@@ -159,7 +159,6 @@ function startGui {
     . "$TebunkoDir\ui\search\search_bar_view.ps1"
     . "$TebunkoDir\ui\search\result_list_view.ps1"
     . "$TebunkoDir\ui\search\open_source_view.ps1"
-    . "$TebunkoDir\ui\search\target_tree_view.ps1"
     . "$TebunkoDir\ui\preview_view.ps1"
     . "$TebunkoDir\ui\settings\settings_view.ps1"
     . "$TebunkoDir\ui\leftover_view.ps1"

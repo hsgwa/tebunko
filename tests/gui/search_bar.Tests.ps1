@@ -1,5 +1,6 @@
 ﻿# 画面のスモークテスト: 検索条件の行（共通の関数は gui_helpers.ps1）。
 # ［ファイル内の対象 ▾］は、既定から変えて「・N 件変更」が付いても幅が変わらない（176 で固定）。
+# 高速検索の印は、使用可・使用不可、ⓘ の出し入れでも幅が変わらない（170 で固定）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
     . "$PSScriptRoot\gui_helpers.ps1"
@@ -111,5 +112,36 @@ Describe "検索条件の行の折り返し" -Tag Gui {
 
     It "利用者の環境に触っていない" {
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
+    }
+}
+
+Describe "高速検索の印の幅" -Tag Gui {
+    BeforeAll {
+        Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+        . "${scriptsDir}\shared\ui\app_host.ps1"
+        $script:bar = loadXaml "${scriptsDir}\tebunko\xaml\search\search_bar.xaml"
+    }
+
+    # 画面は開かず、XAML を読み込んで配置だけ確かめる（使用可・使用不可の文言は getFastSearchView と同じ）
+    It "<name>でも、幅は同じ 170 になる" -TestCases @(
+        @{ name = "使用可・ⓘ あり"; text = "高速検索：使用可"; tag = "ok"; info = "Visible" }
+        @{ name = "使用不可・ⓘ あり"; text = "高速検索：使用不可"; tag = "off"; info = "Visible" }
+        @{ name = "使用可・ⓘ なし"; text = "高速検索：使用可"; tag = "ok"; info = "Collapsed" }
+        @{ name = "使用不可・ⓘ なし"; text = "高速検索：使用不可"; tag = "off"; info = "Collapsed" }
+    ) {
+        param ($name, $text, $tag, $info)
+        $badge = $script:bar.FindName("FastBadge")
+        $script:bar.FindName("FastSearchText").Text = $text
+        $badge.Tag = $tag
+        $script:bar.FindName("FastBadgeInfo").Visibility = $info
+        $script:bar.Measure([System.Windows.Size]::new(1000, 400))
+        $script:bar.Arrange([System.Windows.Rect]::new(0, 0, 1000, 400))
+        $script:bar.UpdateLayout()
+        $badge.ActualWidth | Should -Be 170
+    }
+
+    It "ⓘ は最初から出している（updateFastSearchView は出し入れしない）" {
+        $fresh = loadXaml "${scriptsDir}\tebunko\xaml\search\search_bar.xaml"
+        $fresh.FindName("FastBadgeInfo").Visibility | Should -Be "Visible"
     }
 }

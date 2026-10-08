@@ -504,7 +504,7 @@ function captureSearchScene {
 
         setGuiStep $S "検索して結果を選ぶ"
         & $search "単価"
-        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "2 件（*" } | Out-Null
+        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
         clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
         $row = waitGui $S "結果の行" ${guiDefaultTimeout} { @(& $hitRows) | Select-Object -Last 1 }
         selectGui $row

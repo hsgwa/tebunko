@@ -43,14 +43,20 @@ Describe "種類のチップ" -Tag Unit {
         (toggleFileKind $kinds $kind) -join "," | Should -Be $expected
     }
 
-    It "getSearchKindError: <name>" -TestCases @(
-        @{ name = "1 つも選んでいなければ知らせる"; kinds = @(); expected = "検索する種類を 1 つ以上選んでください。" }
-        @{ name = "知らない種類だけでも 1 つも選んでいない"; kinds = @("pdf"); expected = "検索する種類を 1 つ以上選んでください。" }
-        @{ name = "1 つ選んでいれば空"; kinds = @("word"); expected = "" }
-        @{ name = "すべて選んでいれば空"; kinds = @("excel", "word", "powerpoint", "text"); expected = "" }
+    It "getSearchKindBanner: <name>" -TestCases @(
+        @{ name = "1 つも選んでいなければ warn の帯を出す"; kinds = @(); show = $true }
+        @{ name = "知らない種類だけでも 1 つも選んでいない"; kinds = @("pdf"); show = $true }
+        @{ name = "1 つ選んでいれば出さない"; kinds = @("word"); show = $false }
+        @{ name = "すべて選んでいれば出さない"; kinds = @("excel", "word", "powerpoint", "text"); show = $false }
     ) {
-        param ($name, $kinds, $expected)
-        getSearchKindError $kinds | Should -Be $expected
+        param ($name, $kinds, $show)
+        $banner = getSearchKindBanner $kinds
+        if ($show) {
+            $banner.Level | Should -Be "warn"
+            $banner.Text | Should -Be "検索する種類を 1 つ以上選んでください。"
+        } else {
+            $banner | Should -BeNullOrEmpty
+        }
     }
 
     It "getNoKindMatchText: <name>" -TestCases @(
@@ -80,11 +86,24 @@ Describe "getFastSearchView" -Tag Unit {
         (getFastSearchView $true $true "見積").Tip | Should -Be "正規表現をオフにすると速く検索できます"
     }
 
-    It "使えるとき・ワードが短いだけのとき・まだ確かめていないときは、理由を出さない" {
-        (getFastSearchView $true $false "見積").Tip | Should -Be ""
-        (getFastSearchView $true $false "見").Tip | Should -Be ""
-        (getFastSearchView $true $false "").Tip | Should -Be ""
-        (getFastSearchView $null $false "見積").Usable | Should -Be $true
+    It "使えるときは印の意味、ワードが短い（空を含む）ときは使える条件をツールチップに出す" {
+        (getFastSearchView $true $false "見積").Tip | Should -Be "インデックスを使って速く検索します"
+        (getFastSearchView $null $false "見積").Tip | Should -Be "インデックスを使って速く検索します"
+        (getFastSearchView $true $false "見").Tip | Should -Be "検索ワードが 2 文字以上のときに使えます"
+        (getFastSearchView $true $false "").Tip | Should -Be "検索ワードが 2 文字以上のときに使えます"
+    }
+
+    It "ツールチップはどの場合も空にしない（available: <available>・正規表現: <regex>・ワード: <word>）" -TestCases @(
+        foreach ($available in @($true, $false, $null)) {
+            foreach ($regex in @($true, $false)) {
+                foreach ($word in @("", "見", "見積")) {
+                    @{ available = $available; regex = $regex; word = $word }
+                }
+            }
+        }
+    ) {
+        param ($available, $regex, $word)
+        (getFastSearchView $available $regex $word).Tip | Should -Not -BeNullOrEmpty
     }
 }
 
@@ -96,17 +115,6 @@ Describe "getTargetCountText" -Tag Unit {
     ) {
         param ($name, $checked, $total, $expected)
         getTargetCountText $checked $total | Should -Be $expected
-    }
-}
-
-Describe "getTargetHintText" -Tag Unit {
-    It "<name>" -TestCases @(
-        @{ name = "インデックスがあり、対象が無ければ案内する"; total = 4; targetCount = 0; expected = "検索するフォルダを選んでください" }
-        @{ name = "対象があれば出さない"; total = 4; targetCount = 2; expected = "" }
-        @{ name = "インデックスが無ければ出さない（別の案内が出る）"; total = 0; targetCount = 0; expected = "" }
-    ) {
-        param ($name, $total, $targetCount, $expected)
-        getTargetHintText $total $targetCount | Should -Be $expected
     }
 }
 
