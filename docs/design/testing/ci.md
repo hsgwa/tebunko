@@ -88,6 +88,7 @@ test・title・docs・codeql・gui・perf-check の 6 つのワークフロー�
 - **書き換えるコメントは、作者が `github-actions[bot]` で、1 行目がそのワークフロー専用の目印（`<!-- pr-check:<id> -->`。`id` は `test`・`title`・`docs`・`codeql`・`gui`・`perf-check`）のものだけ。** 無ければ新しく書く。目印がワークフローごとに違うため、ほかのワークフローが書いたコメントは書き換えない
 - **perf-check は `search`・`ingest` の 2 つのジョブの結果をまとめる。** カンマ区切りで両方の結果を渡し、悪いほうの結果（`failure` > `cancelled` > `skipped` > `success`）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る
 - **perf-check は、perf-check 以外のラベルを付けて起動した実行では書かない。** その実行は `search`・`ingest` がスキップになり、書くと前の結果（失敗など）が「スキップ」に書き換わるため（`concurrency` と同じ条件）
+- **`pr-comment` ジョブの条件は `!cancelled()`。** 取り消された実行はコメントを書き換えない（古い実行が新しい結果を消さないため）。前段のジョブが失敗・スキップのときは書く
 - **コメントには、PR の head のコミットを短い形で添える。** 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため
 - **Dependabot の PR にはコメントしない。** PR の作者（`github.event.pull_request.user.login`）が `dependabot[bot]` の実行は対象から外す
 - `release.yml` は `test.yml` を `workflow_call` で呼ぶ。呼ばれる側の `pr-comment` ジョブが `pull-requests: write` を求めるため、呼ぶ側の `test` ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では `pr-comment` 自体はスキップされる

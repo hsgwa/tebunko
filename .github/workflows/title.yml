@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+# opened と edited が同時に動いても、コメントが 2 件できないよう PR ごとに順に動かす（動いている実行は取り消さない）
+concurrency:
+  group: title-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   pr-title:
     if: github.event_name == 'pull_request'
