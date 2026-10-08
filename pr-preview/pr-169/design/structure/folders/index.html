@@ -4307,7 +4307,7 @@
 <tr>
 <td><code>tools/new_icon.ps1</code></td>
 <td>開発用</td>
-<td>画面のアイコン（<code>tebunko.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
+<td>画面のアイコンを元データの <code>docs/images/logo.svg</code> から作る。1 つ目は画面が読むベクターの絵（<code>scripts/tebunko/xaml/app_icon.xaml</code>。SVG の <code>path</code> をそのまま写す。変換と受け付ける SVG の形は <code>tools/icon_xaml.ps1</code>）。2 つ目は <code>tebunko.ico</code>（インストーラー・ショートカット用）で、Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG・<code>app_icon.xaml</code>・<code>.ico</code> を同じコミットに入れる</td>
 </tr>
 <tr>
 <td><code>tools/make_social_preview.ps1</code></td>

@@ -4395,7 +4395,7 @@
 <li>検索 1 回が終わるたびに、検索の司令が読んだ内容のキャッシュを整理する（<code>trimTsvTextCache</code>。<a href="../closing/#gc-とメモリ">GC とメモリ</a>）。</li>
 </ul>
 <h2 id="画面とインデクサの受け渡し">画面とインデクサの受け渡し<a class="headerlink" href="#画面とインデクサの受け渡し" title="Permanent link">&para;</a></h2>
-<p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。</p>
+<p>画面とインデクサは、同じプロセスのメモリ上の受け渡しの口（<code>newIndexerChannel</code>。<code>[hashtable]::Synchronized</code>）でやり取りする。ファイルでの受け渡しは行わない。画面は進み具合を 1 秒ごとに口から読む。画面が書く欄は <code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Stop</code>・<code>Answer</code>・<code>OnlyNames</code>（更新するインデックス名の配列。空なら、チェックの付いたものすべて）で、インデクサが書く欄は <code>Progress</code>・<code>Plan</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>OfficePids</code> である。</p>
 <pre class="mermaid"><code>sequenceDiagram
     participant G as 画面
     participant C as 受け渡しの口

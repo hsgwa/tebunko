@@ -4272,7 +4272,11 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/shell.ps1</code></td>
-<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、予期しないエラーを知らせる <code>reportUnexpectedError</code>（<code>safe</code> の catch と、画面のスレッドの <code>Dispatcher</code> で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを <code>Dispatcher.UnhandledException</code> に登録する <code>registerUnhandledErrorHandler</code>（<code>gui.ps1</code> が起動時に呼ぶ）、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="../responsiveness/">画面を固まらせない待たせ方</a>）</td>
+<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>。<code>dialog_confirm.xaml</code> を使う自前の画面）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、予期しないエラーを知らせる <code>reportUnexpectedError</code>（<code>safe</code> の catch と、画面のスレッドの <code>Dispatcher</code> で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを <code>Dispatcher.UnhandledException</code> に登録する <code>registerUnhandledErrorHandler</code>（<code>gui.ps1</code> が起動時に呼ぶ）、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="../responsiveness/">画面を固まらせない待たせ方</a>）</td>
+</tr>
+<tr>
+<td><code>scripts/shared/ui/message_view.ps1</code></td>
+<td>メッセージの画面の判断（判断層）。種類ごとのアイコンと色（<code>getMessageLook</code>）、ボタンの組と既定（<code>getMessageButtons</code>）、閉じたときの戻り値（<code>getMessageCloseResult</code>）、見出しと補足の分け方（<code>getMessageParts</code>）。<a href="../common/#メッセージの画面showmessage">メッセージの画面</a></td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/folder_dialog.ps1</code></td>

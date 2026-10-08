@@ -2875,6 +2875,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#メッセージの画面showmessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        メッセージの画面（showMessage）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#フォルダ選択ダイアログ参照" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4147,6 +4158,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#メッセージの画面showmessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        メッセージの画面（showMessage）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#フォルダ選択ダイアログ参照" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4244,8 +4266,10 @@
 <li>入力の誤りや注意は入力欄の下やステータスに表示する。ダイアログは確認が必要な操作（<a href="../index-tab/">［インデックス管理］タブ</a>の［削除］、<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a> のインデックス作成の確認、<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a> のインデックス作成の中止、<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>、<a href="../leftover-office/#確認ダイアログ">前回残った Office の確認</a>）に限り、その形式は <a href="#確認ダイアログshowconfirm">確認ダイアログ</a> のとおりとする（<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a> だけは、インデックスごとの件数を一覧で見せるため専用のダイアログにする）。なお、インデックスの［＋ フォルダを追加］［編集…］は入力が必要なためダイアログにし、入力の誤りはダイアログ内に表示する（<a href="../index-tab/#追加編集のダイアログ">追加・編集のダイアログ</a>）。確認も入力も要らない「バージョン情報」（左の欄の下の［バージョン情報］）だけは例外で、版・コミット・ライセンスを見せるだけの小さなダイアログにする（メンテナの選択。<a href="../#画面構成">画面構成</a>）。</li>
 <li>危険な操作（［すべて終了］）のボタンは赤枠にし、主ボタン（青）と区別する。確認ダイアログの中で消す操作を選ぶボタン（［削除する］など）は、赤で塗りつぶして区別する（<a href="#確認ダイアログshowconfirm">確認ダイアログ</a>）。</li>
 <li><strong>説明を読まないと何が起きるか分からない画面にしない</strong>。確認は「実行するとこうなります」を並べて見せ（<a href="#確認ダイアログshowconfirm">確認ダイアログ</a>）、ボタンの文言は「はい／いいえ」ではなく操作そのもの（［削除する］［中止する］）にする。画面の注意書きには、内部の言葉（<code>TSV</code>・<code>work\content_index</code>・<code>取り込み一覧</code>）や、その場で必要のない手順の説明を書かない。</li>
-<li>アイコンは <code>scripts/tebunko/tebunko.ico</code>（16〜256 px を収めたマルチサイズ）とし、タイトルバー・タスクバー・Alt+Tab に表示する。</li>
-<li>XAML には書かず <code>tebunko/gui.ps1</code> の <code>loadWindow</code> で読み込む（<code>XamlReader.Load</code> は XAML 内の相対パスを解決できないため）。ファイルが無くても画面は開く。</li>
+<li>アイコンは<strong>ベクターの絵</strong>（<code>scripts/tebunko/xaml/app_icon.xaml</code>。<code>DrawingImage</code>）とし、タイトルバー・タスクバー・Alt+Tab・スプラッシュ・バージョン情報に表示する。拡大・縮小や画面の倍率（DPI）が変わっても、ぼやけない。</li>
+<li>元データは <code>docs/images/logo.svg</code> の 1 つだけ。<code>tools/new_icon.ps1</code> が <code>app_icon.xaml</code> と <code>tebunko.ico</code> を同時に作る（手で写さない）。SVG だけ直して作り直し忘れると、テスト（<code>tests/tools/icon_xaml.Tests.ps1</code>）が落ちる。</li>
+<li>読み込みは <code>shared/ui/app_host.ps1</code> の <code>loadAppIcon</code>（凍結して全部の画面で 1 つを共有する）。窓は <code>loadWindow</code> が <code>Window.Icon</code> に渡す（<code>Window.Icon</code> は <code>DrawingImage</code> を直接受け取る）。スプラッシュ・バージョン情報も同じ絵を使う。ファイルが無い・読めなくても画面は開く。</li>
+<li><code>tebunko.ico</code> は画面では読まない。インストーラー（<code>tebunko.exe</code>・セットアップ）とショートカットのアイコンなど、Windows が <code>.ico</code> しか受け付けない所だけで使う。</li>
 <li>タスクバー・タイトルバーのアイコンは <code>Window.Icon</code>（上記）で出る。画面は <code>powershell.exe</code> で動くため、タスクバーのボタンは PowerShell と同じグループにまとめられる（アイコン自体は tebunko のものが出る）。独立したボタンにするには P/Invoke（<code>SetCurrentProcessExplicitAppUserModelID</code>）が要り、実行時コンパイルを使わない方針に反するため行わない（<a href="../implementation/#実行時コンパイルcscexeを使わない">画面の実装</a>）。</li>
 <li><code>tebunko.bat</code> 自体のアイコン（エクスプローラー上の表示）は Windows の仕様で変更できない。デスクトップ等にアイコン付きで置きたい利用者は、自分でショートカットを作る（ツールはショートカットを作らない）。</li>
 </ul>
@@ -4318,7 +4342,55 @@
 <li><strong>用語</strong>: 利用者に見える操作の呼び名は「更新」（インデックスを作る・新しくする操作。［すべて更新］・更新中・最終更新・更新済み・更新に失敗したファイル）にする。データの名前（<code>取り込み一覧</code>）とコード・設計書の <code>indexing/</code> の呼び名は「取り込み」のまま。</li>
 <li><strong>文言の決まり</strong>: 画面に出ない言葉（<code>TSV</code>・<code>work\content_index</code>・<code>取り込み一覧</code>）は書かない。利用者から見て何が消えて何が残るかだけを書く。「〜の場合は〜してください」という手順の説明は、結果ではなく補足に置く。</li>
 <li><strong>使っている場面</strong>: インデックスの［削除］（<a href="../index-tab/">［インデックス管理］タブ</a>）、インデックス作成の中止・インデックス作成中に閉じる（<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a>）、元のファイルが見つからないとき（<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）、前回残った Office の終了（<a href="../leftover-office/#確認ダイアログ">前回残った Office の確認</a>）。インデックス作成の確認（<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a>）は、インデックスごとの件数を一覧で見せるため専用のダイアログにする。</li>
-<li>伝えるだけのダイアログ（エラー・警告・<code>OK</code> だけのもの）は、<code>showMessage</code>（<code>MessageBox</code>）で出す。</li>
+<li>伝えるだけのダイアログ（エラー・警告・<code>OK</code> だけのもの）は、<code>showMessage</code> で出す（次の<a href="#メッセージの画面showmessage">メッセージの画面</a>）。</li>
+</ul>
+<h2 id="メッセージの画面showmessage">メッセージの画面（<code>showMessage</code>）<a class="headerlink" href="#メッセージの画面showmessage" title="Permanent link">&para;</a></h2>
+<p>お知らせ・警告・エラー・確認の画面は、すべて <code>scripts/shared/xaml/dialog_confirm.xaml</code> の 1 つの形で出す。OS 標準の <code>MessageBox</code> は使わない。枠・題（アプリ名）・余白・ボタンの形（<code>DialogButton</code>／主ボタンは <code>Primary</code>）・見出しの左のアイコンと色が、<code>showConfirm</code>・<code>showErrorDialog</code>・<code>showMessage</code>・インデックス更新の確認で同じになる。</p>
+<p><code>showMessage</code> は呼び出しの引数と戻り値（<code>OK</code>／<code>Yes</code>／<code>No</code>／<code>Cancel</code>）を <code>MessageBox.Show</code> と同じにしてある。種類・ボタン・戻り値の決め方は、判断層の <code>scripts/shared/ui/message_view.ps1</code> にまとめ、<code>tests/shared/ui/message_view.Tests.ps1</code> で確かめる。</p>
+<table>
+<thead>
+<tr>
+<th>種類（<code>icon</code>）</th>
+<th>アイコン（<code>theme.xaml</code>）</th>
+<th>色</th>
+<th>使うとき</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>お知らせ（<code>Information</code>）</td>
+<td><code>Icon.Info</code></td>
+<td><code>Accent</code></td>
+<td>結果や状態を知らせるだけ（操作は［OK］だけ）</td>
+</tr>
+<tr>
+<td>警告（<code>Warning</code>）</td>
+<td><code>Icon.TriangleAlert</code></td>
+<td><code>Warn</code></td>
+<td>いまは操作できない・やり直しが要る理由を知らせる（「更新中は〜できません」など）</td>
+</tr>
+<tr>
+<td>エラー（<code>Error</code>）</td>
+<td><code>Icon.CircleAlert</code></td>
+<td><code>Danger.Text</code></td>
+<td>失敗した・続けられない。予期しない例外は <code>showErrorDialog</code>（詳細の枠と［内容をコピー］が付く）</td>
+</tr>
+<tr>
+<td>確認（<code>Question</code>）</td>
+<td><code>Icon.CircleQuestionMark</code></td>
+<td><code>Accent</code></td>
+<td>進めてよいかを聞く。結果の一覧が要るものは <code>showConfirm</code>、取り消せないものは赤い「!」（<code>danger</code>）</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>文の分け方</strong>: メッセージの最初の段落（空行まで）が見出し、続く短い段落が補足になる。240 字を超える・5 行以上の続きは、詳細の枠（選べる文字）に出す。</li>
+<li><strong>ボタン</strong>: <code>OK</code> は［OK］、<code>OKCancel</code> は［OK］［キャンセル］、<code>YesNo</code> は［はい］［いいえ］、<code>YesNoCancel</code> は［はい］［いいえ］［キャンセル］。既定のボタン（Enter で押す・フォーカスを置く）は <code>default</code> の戻り値のボタンで、省略すると先頭。主ボタンの見た目は既定のボタンに付く。</li>
+<li><strong>Esc・閉じる</strong>: ［キャンセル］があれば Esc で［キャンセル］。［OK］だけなら Esc で［OK］。［はい］［いいえ］だけは、OS 標準と同じく Esc では閉じない（窓を閉じたときの戻り値は <code>No</code>）。</li>
+<li><strong>窓の位置</strong>: 親の窓の中央に出す。親が無いときは画面の中央。ダイアログの上に重ねても、暗幕は外側のダイアログを閉じるまで残る。</li>
+<li><strong>OS 標準のまま出すところ</strong>: 画面の部品（テーマ・WPF）がまだ使えない場面だけ。2 つ目の起動の知らせ（<code>gui_main.ps1</code>）と、起動の失敗の知らせ（<code>startup_error.ps1</code>）。ほかのところで直接 <code>MessageBox</code> を呼ばないことは、<code>tests/meta/structure.Tests.ps1</code> が確かめる。</li>
+<li><strong>自前の画面を出せないとき</strong>（別のスレッドから呼ばれた・画面の定義が読めないなど）は、エラーログに残して OS 標準の <code>MessageBox</code> で出す。知らせること自体は止めない（<code>shell.ps1</code> の <code>showMessage</code> だけに置く）。</li>
+<li><strong>テスト</strong>: 種類ごとのアイコン・ボタン・既定・戻り値は <code>tests/gui/message.Tests.ps1</code>（本物の WPF の窓）で確かめる。</li>
 </ul>
 <h2 id="フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）<a class="headerlink" href="#フォルダ選択ダイアログ参照" title="Permanent link">&para;</a></h2>
 <p><strong>Windows 標準のエクスプローラー形式のダイアログ</strong>（COM の <code>IFileOpenDialog</code> を、フォルダを選ぶ設定 <code>FOS_PICKFOLDERS</code> で開いたもの）を使う（<code>shared/ui/folder_dialog.ps1</code> の <code>selectFolder</code>）。利用者が見慣れた画面のため、クイックアクセス・OneDrive・ネットワーク・検索・［新しいフォルダー］がそのまま使える。</p>

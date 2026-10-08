@@ -4282,21 +4282,24 @@
 </tr>
 <tr>
 <td>更新中</td>
-<td>無効。表示は <code>更新中…</code>。更新の帯に進み具合と［中止］を表示する（<a href="#更新の進み具合">更新の進み具合</a>）。［＋ フォルダを追加］と［アクション ▾］の［エクスポート…］［インポート…］［削除…］も無効にする</td>
+<td>無効。表示は <code>更新中…</code>。更新の帯に進み具合と［中止］を表示する（<a href="#更新の進み具合">更新の進み具合</a>）。［＋ フォルダを追加］・［アクション ▾］の項目・行の［更新］も無効にする（［中止］は更新の帯と更新中の行にある。どちらも回全体を止める）</td>
 </tr>
 <tr>
-<td>チェックを付けた、存在するフォルダが無い</td>
-<td>無効。ボタンの下に理由を出す（インデックスが 1 件も無いときは <code>フォルダを追加すると更新できます</code>、チェックが 1 つも無いときは <code>更新するインデックスにチェックを付けてください。</code>）。ふだんの説明（押すと何が起きるか）はボタンの ToolTip に置き、ボタンの下には理由・失敗の知らせのときだけ出す</td>
+<td>更新できるインデックスが無い（1 件も無い・すべて <code>enabled</code> が <code>false</code>・元のフォルダが無い）</td>
+<td>無効。ボタンの下に理由を出す（インデックスが 1 件も無いときは <code>フォルダを追加すると更新できます</code>、そのほかは <code>更新できるインデックスがありません（行の［更新］で更新できます）。</code>）。ふだんの説明（押すと何が起きるか）はボタンの ToolTip に置き、ボタンの下には理由・失敗の知らせのときだけ出す</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>インデックス作成は、画面のプロセスの中のスレッドで実行する（<code>newIndexingSession</code>。インデクサの司令のスレッドが <code>scripts\tebunko\indexer.ps1 -Channel &lt;受け渡しの口&gt;</code> を実行する）。受け渡しの口（<code>newIndexerChannel -confirmTargets $true</code>）の <code>ConfirmTargets</code> で、更新の対象を数えたところでいったん止まって画面の確認（<a href="#インデックス更新の確認ダイアログ">インデックス更新の確認ダイアログ</a>）を待つ。別の <code>powershell.exe</code> は起動しない（<a href="../../structure/threads/">プロセスとスレッド</a>）。</li>
+<li>行の［更新］・メニューの［更新］は、名前の配列を渡して同じ流れで始める（<code>startIndexing</code>）。対象の <code>enabled</code> を <code>true</code> にして保存してから起動し（確認で取りやめても戻さない）、受け渡しの口の <code>OnlyNames</code> に名前を入れる。更新の確認にも、その回のインデックスだけを出す。インデクサが更新できなかった名前（<code>OnlySkipped</code>）は、終わりにメッセージで知らせる。</li>
+<li>更新中の名前・件数・残り時間は <code>$script:indexingView</code>（<code>Name</code>・<code>Processed</code>・<code>Total</code>・<code>Failed</code>・<code>Eta</code>・<code>Ratio</code>・<code>Current</code>）に値で持ち、更新の帯・詳細の「インデックス」の箱が読む。<code>Name</code> は更新中のファイル（<code>&lt;名前&gt;\&lt;相対パス&gt;</code>）のインデックス名。件数は回全体（インデックスごとの件数は無い）。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが終わるまでとする（<code>isIndexing</code>）。インデックス作成の二重起動を防ぐ。</li>
 <li>画面を使わずに起動した <code>indexer.ps1</code> と重なった場合は、インデクサがミューテックスで止め、<code>ほかのインデックス作成が実行中です。…</code> のエラーで終わる（<a href="#中止終了ログ">中止・終了・ログ</a>）。</li>
 </ul>
 <h2 id="更新の帯">更新の帯<a class="headerlink" href="#更新の帯" title="Permanent link">&para;</a></h2>
 <p>画面の上（一覧の上。<code>xaml/index/index.xaml</code> の <code>IndexingProgressPanel</code>）に、更新の状態を 1 枚の帯で出す。帯は更新を始めたとき・中断が残っているときに出て、種類で色を変える（<code>setIndexingBanner</code>。<code>ui/index/index_detail.ps1</code>）。</p>
+<p>形は、右の領域の上端いっぱいに置いた高さ 40 の 1 行（角丸・外枠・外側の余白は無い。<code>Banner</code>）。左端に状態の色の太い線を引き、その右に状態のアイコン（更新中は円に <code>i</code>、中断・失敗は円に <code>!</code>、終わったは円にチェック）と 1 行の文言を置き、右に状態の色の枠と文字の白い小さなボタンを置く。帯の下の一覧・詳細の余白は帯が無いときと同じ（<code>index.xaml</code> の内側の <code>Grid</code>）。更新中だけ、文言の右に細い進みの棒と更新中のファイルを同じ 1 行に並べる。</p>
 <table>
 <thead>
 <tr>
@@ -4310,7 +4313,7 @@
 <tr>
 <td>更新中</td>
 <td>青</td>
-<td><code>インデックスを更新しています（N / M 件）</code>（失敗があれば <code>・失敗 K 件</code>）。下にバーと、更新中のファイル</td>
+<td><code>インデックスを更新しています（N / M 件）</code>（失敗があれば <code>・失敗 K 件</code>）。文言の右にバーと、更新中のファイル</td>
 <td><code>残り約 N 分</code>・［中止］</td>
 </tr>
 <tr>
@@ -4361,7 +4364,7 @@
 </tr>
 <tr>
 <td>「ステータス」の表示</td>
-<td>更新するファイルがあれば <code>要更新</code>（黄）／無ければ <code>最新</code>（緑）／チェックが外れていれば <code>対象外</code>（灰）／元のフォルダが見つからなければ <code>フォルダなし</code>（赤）。チェックなし・フォルダなしのインデックスは数えないため、「対象ファイル数」は <code>－</code></td>
+<td>更新するファイルがあれば <code>要更新</code>（黄）／無ければ <code>最新</code>（緑）／設定の <code>enabled</code> が <code>false</code> のインデックスは［すべて更新］では出さない（選んだものだけの更新の確認には、選んだインデックスだけを出し、<code>対象外</code> の行は出さない）／元のフォルダが見つからなければ <code>フォルダなし</code>（赤）。フォルダなしのインデックスは数えないため、「対象ファイル数」は <code>－</code></td>
 </tr>
 <tr>
 <td>バッジの内訳</td>

@@ -4338,9 +4338,9 @@
 </tr>
 <tr>
 <td><code>newIndexerChannel</code></td>
-<td>retryFailed, confirmTargets, workers（既定 -1）</td>
+<td>retryFailed, confirmTargets, workers（既定 -1）, onlyNames（既定は空）</td>
 <td>受け渡しの口（<code>[hashtable]::Synchronized</code>）</td>
-<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
+<td>画面とインデクサの受け渡しの口を作る（<code>RetryFailed</code>・<code>ConfirmTargets</code>・<code>Workers</code>・<code>OnlyNames</code>（更新するインデックス名。空ならチェックの付いたものすべて）・<code>OnlySkipped</code>（<code>OnlyNames</code> のうち更新できなかった名前と理由）・<code>Progress</code>・<code>Stop</code>・<code>Plan</code>・<code>Answer</code>・<code>Answered</code>・<code>Error</code>・<code>ExitCode</code>・<code>Notice</code>・<code>Postponed</code>・<code>OfficePids</code>）。<code>Workers</code> は -1 で設定・コア数から決める、0 で司令のスレッドで取り込む（テスト）</td>
 <td><a href="../../structure/threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a></td>
 <td>画面・indexer.ps1</td>
 </tr>
@@ -4675,6 +4675,14 @@
 <td>画面（［削除］）</td>
 </tr>
 <tr>
+<td><code>removeIndexes</code></td>
+<td>names, dir, statusPath, settingsPath（<code>removeIndex</code> と同じ）</td>
+<td><code>@{Name; Ok; Reason}</code> の配列（名前ごと）</td>
+<td>選んだインデックスをまとめて削除する。<code>removeIndex</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由。空の名前は失敗にする）。画面は別スレッドの仕事の中で呼ぶ</td>
+<td>同上</td>
+<td>画面（［削除］）</td>
+</tr>
+<tr>
 <td><code>getSearchIndexes</code></td>
 <td>dir（既定 <code>$workspace.IndexDir</code>）, statusPath, settingsPath</td>
 <td><code>@{Name; Path; SourcePath}</code> の配列</td>
@@ -4711,6 +4719,14 @@
 <td>name, folder, ws, settingsPath</td>
 <td><code>exportIndex</code> と同じ</td>
 <td>書き出し先のフォルダを確かめ（無ければ <code>書き出し先のフォルダが見つかりません：&lt;フォルダ&gt;</code> の例外）、そのフォルダにある zip の名前から <code>getExportFileName</code> で重ならない名前を決め、<code>exportIndex</code> で書き出す</td>
+<td>同上</td>
+<td>画面（［エクスポート…］の別スレッド）</td>
+</tr>
+<tr>
+<td><code>exportIndexes</code></td>
+<td>names, destination（フォルダ）, ws, settingsPath</td>
+<td><code>@{Name; Ok; Reason; Path}</code> の配列（名前ごと）</td>
+<td>選んだインデックスを、書き出し先のフォルダにインデックス 1 つにつき zip 1 つで書き出す。<code>exportIndexToFolder</code> を 1 つずつ呼び、1 つ失敗しても残りを続ける（<code>Reason</code> は失敗の理由、<code>Path</code> は書き出した zip。失敗なら空）。zip の形・ファイル名は 1 つずつの書き出しと同じ</td>
 <td>同上</td>
 <td>画面（［エクスポート…］の別スレッド）</td>
 </tr>

@@ -3433,10 +3433,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabuncheckedチェックを外した行がある遷移-16" class="md-nav__link">
+  <a href="#index-tabchecked行のチェックを付けた遷移-16" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/unchecked（チェックを外した行がある。遷移 16）
+        index-tab/checked（行のチェックを付けた。遷移 16）
       
     </span>
   </a>
@@ -3444,10 +3444,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabstart-confirm作成の確認ダイアログ遷移-17" class="md-nav__link">
+  <a href="#index-tabstart-confirm更新の確認ダイアログ遷移-17" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/start-confirm（作成の確認ダイアログ。遷移 17）
+        index-tab/start-confirm（更新の確認ダイアログ。遷移 17）
       
     </span>
   </a>
@@ -3455,10 +3455,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabrunning作成中遷移-1720" class="md-nav__link">
+  <a href="#index-tabrunning更新中遷移-1720" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/running（作成中。遷移 17・20）
+        index-tab/running（更新中。遷移 17・20）
       
     </span>
   </a>
@@ -3477,10 +3477,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabdone作成が終わった遷移-18" class="md-nav__link">
+  <a href="#index-tabdone更新が終わった遷移-18" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/done（作成が終わった。遷移 18）
+        index-tab/done（更新が終わった。遷移 18）
       
     </span>
   </a>
@@ -4387,10 +4387,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabuncheckedチェックを外した行がある遷移-16" class="md-nav__link">
+  <a href="#index-tabchecked行のチェックを付けた遷移-16" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/unchecked（チェックを外した行がある。遷移 16）
+        index-tab/checked（行のチェックを付けた。遷移 16）
       
     </span>
   </a>
@@ -4398,10 +4398,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabstart-confirm作成の確認ダイアログ遷移-17" class="md-nav__link">
+  <a href="#index-tabstart-confirm更新の確認ダイアログ遷移-17" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/start-confirm（作成の確認ダイアログ。遷移 17）
+        index-tab/start-confirm（更新の確認ダイアログ。遷移 17）
       
     </span>
   </a>
@@ -4409,10 +4409,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabrunning作成中遷移-1720" class="md-nav__link">
+  <a href="#index-tabrunning更新中遷移-1720" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/running（作成中。遷移 17・20）
+        index-tab/running（更新中。遷移 17・20）
       
     </span>
   </a>
@@ -4431,10 +4431,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#index-tabdone作成が終わった遷移-18" class="md-nav__link">
+  <a href="#index-tabdone更新が終わった遷移-18" class="md-nav__link">
     <span class="md-ellipsis">
       
-        index-tab/done（作成が終わった。遷移 18）
+        index-tab/done（更新が終わった。遷移 18）
       
     </span>
   </a>
@@ -4480,12 +4480,12 @@
 <h1 id="インデックス管理タブ">［インデックス管理］タブ<a class="headerlink" href="#インデックス管理タブ" title="Permanent link">&para;</a></h1>
 <p>細かい仕様は <a href="../../index-tab/">［インデックス管理］タブ</a> にある。</p>
 <h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
-<p>検索の対象にするフォルダを登録し、インデックスを作る。インデックスの有無・作成中・中断・失敗の状態を、この画面で見分けられる。</p>
+<p>検索の対象にするフォルダを登録し、インデックスを作る。インデックスの有無・更新中・中断・失敗の状態を、この画面で見分けられる。</p>
 <h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
 <ul>
-<li>上に「更新の帯」。更新中（青）・中断（黄）・終わった（緑）を 1 枚で出す。更新中は進み具合と［中止］、中断は［続きから再開］を右に置く。帯が無いときは場所を取らない。</li>
-<li>その下に「インデックス一覧」。チェックを付けた行だけを更新する。列は チェック・インデックス名・パス・ファイル数・最終更新・ステータス・高速検索・操作。表の下に <code>登録済み: N フォルダ</code> と <code>合計: N ファイル</code>。</li>
-<li>一覧の右上に［すべて更新］［アクション ▾］［＋ フォルダを追加］。［アクション ▾］のメニューは［更新］［エクスポート…］［インポート…］と、区切りの下に［削除…］。見出しの横に <code>N / M 件を選択中</code>、見出し行の左端に全選択のチェック。インデックスが 1 件も無いときは、表の中の案内にも同じ動きの［＋ フォルダを追加］を置く。行の右端のボタンは［更新］［中止］だけ。行の右クリックのメニューに［編集…］［エクスポート…］［削除］。一覧へのドラッグ＆ドロップでも追加できる。</li>
+<li>上に「更新の帯」。右の領域の上端いっぱいの高さ 40 の 1 行で、左端に状態の色の太い線とアイコンを置く。更新中（青）・中断（黄）・終わった（緑）を 1 枚で出す。更新中は進み具合と［中止］、中断は［続きから再開］を右に置く。帯が無いときは場所を取らない。</li>
+<li>その下に「インデックス一覧」。行のチェックは［アクション ▾］で操作する行を選ぶ一時の選び（保存しない。初めは全部外れている）。列は チェック・インデックス名・パス・ファイル数・最終更新・ステータス・高速検索・操作。表の下に <code>登録済み: N フォルダ</code> と <code>合計: N ファイル</code>。</li>
+<li>一覧の右上に［すべて更新］［アクション ▾］［＋ フォルダを追加］。［アクション ▾］のメニューは［更新］［エクスポート…］［インポート…］と、区切りの下に［削除…］。見出しの横に <code>N / M 件を選択中</code>、見出し行の左端に全選択のチェック。［更新］［エクスポート…］［削除…］はチェックを付けた行に対して動く。インデックスが 1 件も無いときは、表の中の案内にも同じ動きの［＋ フォルダを追加］を置く。行の右端のボタンは［更新］［中止］だけ。行の右クリックのメニューに［編集…］［エクスポート…］［削除…］。一覧へのドラッグ＆ドロップでも追加できる。</li>
 <li>下に「インデックスの状態」（選んだ行の詳細。選んでいなければ、すべてのインデックスの合計）。</li>
 <li>ナビの［インデックス管理］の横に、更新中は <code>● 66%</code>、中断中は <code>中断</code>、失敗があるだけなら <code>失敗</code>。失敗があると、失敗したファイルの一覧と「失敗の原因」の列が出る。</li>
 </ul>
@@ -4518,8 +4518,8 @@
     running --&gt; failed: 失敗あり（18）</code></pre>
 <ul>
 <li>追加のダイアログで入力が足りないと、ダイアログの中に注意が出る（<code>index-tab/add-error</code>。12）。</li>
-<li>一覧の行のチェックを外すと、その行は更新しない（<code>index-tab/unchecked</code>。16）。</li>
-<li>作成中は［＋ フォルダを追加］と［アクション ▾］のメニューの［エクスポート…］［インポート…］［削除…］が押せない（20）。作成が終わると、また押せる。</li>
+<li>行のチェックを付けると、［アクション ▾］の［更新］［エクスポート…］［削除…］がその行に動く（<code>index-tab/checked</code>。16）。［すべて更新］はチェックと関係なく全部を更新する。</li>
+<li>更新中は［＋ フォルダを追加］と［アクション ▾］のメニューの項目、ほかの行の［更新］、［すべて更新］が押せない（20）。更新中の行には［中止］が出て、押すと回全体を止める。更新が終わると、また押せる。</li>
 <li>前回の作成が中断したまま起動すると、この画面が選ばれて <code>index-tab/interrupted</code> になる（4）。
 状態の判定と画面の更新は<a href="../../state-flow/">状態の判定と操作の流れ</a>、メッセージの一覧は<a href="../../messages/">メッセージ一覧</a>にあり、ここには書き写さない。</li>
 </ul>
@@ -4589,16 +4589,16 @@
 <p><img alt="編集のダイアログ" src="../../../../images/screens/index-tab/edit.png" /></p>
 <h3 id="index-tabdelete-confirm削除の確認遷移-15">index-tab/delete-confirm（削除の確認。遷移 15）<a class="headerlink" href="#index-tabdelete-confirm削除の確認遷移-15" title="Permanent link">&para;</a></h3>
 <p><img alt="削除の確認" src="../../../../images/screens/index-tab/delete-confirm.png" /></p>
-<h3 id="index-tabuncheckedチェックを外した行がある遷移-16">index-tab/unchecked（チェックを外した行がある。遷移 16）<a class="headerlink" href="#index-tabuncheckedチェックを外した行がある遷移-16" title="Permanent link">&para;</a></h3>
-<p><img alt="チェックを外した行がある" src="../../../../images/screens/index-tab/unchecked.png" /></p>
-<h3 id="index-tabstart-confirm作成の確認ダイアログ遷移-17">index-tab/start-confirm（作成の確認ダイアログ。遷移 17）<a class="headerlink" href="#index-tabstart-confirm作成の確認ダイアログ遷移-17" title="Permanent link">&para;</a></h3>
-<p><img alt="作成の確認ダイアログ" src="../../../../images/screens/index-tab/start-confirm.png" /></p>
-<h3 id="index-tabrunning作成中遷移-1720">index-tab/running（作成中。遷移 17・20）<a class="headerlink" href="#index-tabrunning作成中遷移-1720" title="Permanent link">&para;</a></h3>
-<p><img alt="作成中" src="../../../../images/screens/index-tab/running.png" /></p>
+<h3 id="index-tabchecked行のチェックを付けた遷移-16">index-tab/checked（行のチェックを付けた。遷移 16）<a class="headerlink" href="#index-tabchecked行のチェックを付けた遷移-16" title="Permanent link">&para;</a></h3>
+<p><img alt="行のチェックを付けた" src="../../../../images/screens/index-tab/checked.png" /></p>
+<h3 id="index-tabstart-confirm更新の確認ダイアログ遷移-17">index-tab/start-confirm（更新の確認ダイアログ。遷移 17）<a class="headerlink" href="#index-tabstart-confirm更新の確認ダイアログ遷移-17" title="Permanent link">&para;</a></h3>
+<p><img alt="更新の確認ダイアログ" src="../../../../images/screens/index-tab/start-confirm.png" /></p>
+<h3 id="index-tabrunning更新中遷移-1720">index-tab/running（更新中。遷移 17・20）<a class="headerlink" href="#index-tabrunning更新中遷移-1720" title="Permanent link">&para;</a></h3>
+<p><img alt="更新中" src="../../../../images/screens/index-tab/running.png" /></p>
 <h3 id="index-tabstop-confirm中止の確認遷移-19">index-tab/stop-confirm（中止の確認。遷移 19）<a class="headerlink" href="#index-tabstop-confirm中止の確認遷移-19" title="Permanent link">&para;</a></h3>
 <p><img alt="中止の確認" src="../../../../images/screens/index-tab/stop-confirm.png" /></p>
-<h3 id="index-tabdone作成が終わった遷移-18">index-tab/done（作成が終わった。遷移 18）<a class="headerlink" href="#index-tabdone作成が終わった遷移-18" title="Permanent link">&para;</a></h3>
-<p><img alt="作成が終わった" src="../../../../images/screens/index-tab/done.png" /></p>
+<h3 id="index-tabdone更新が終わった遷移-18">index-tab/done（更新が終わった。遷移 18）<a class="headerlink" href="#index-tabdone更新が終わった遷移-18" title="Permanent link">&para;</a></h3>
+<p><img alt="更新が終わった" src="../../../../images/screens/index-tab/done.png" /></p>
 <h3 id="index-tabfailed失敗したファイルの一覧がある遷移-18">index-tab/failed（失敗したファイルの一覧がある。遷移 18）<a class="headerlink" href="#index-tabfailed失敗したファイルの一覧がある遷移-18" title="Permanent link">&para;</a></h3>
 <p><img alt="失敗したファイルの一覧がある" src="../../../../images/screens/index-tab/failed.png" /></p>
 
