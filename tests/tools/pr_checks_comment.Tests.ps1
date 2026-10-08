@@ -279,3 +279,34 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         $yml | Should -Match ([regex]::Escape("(github.event.action != 'labeled' || github.event.label.name == 'perf-check')"))
     }
 }
+
+# GitHub Actions の pwsh の run は、末尾で $LASTEXITCODE を終了コードにする。
+# gh が失敗で終わったあとに $LASTEXITCODE が残ると、警告だけのはずのジョブが失敗になる
+Describe "書き込みに失敗してもジョブの終了コードは 0（フォークの PR など）" -Tag Unit {
+    BeforeAll {
+        $script:scriptPath = (Resolve-Path "$PSScriptRoot\..\..\tools\pr_checks_comment.ps1").Path
+        $script:fakeBin = Join-Path $TestDrive "fakebin"
+        New-Item -ItemType Directory -Path $script:fakeBin | Out-Null
+        # 本物の gh は呼ばない。常に失敗で終わる偽の gh
+        [System.IO.File]::WriteAllText((Join-Path $script:fakeBin "gh.cmd"), "@echo off`r`nexit /b 1`r`n")
+        $script:savedPath = $env:PATH
+    }
+
+    AfterAll {
+        $env:PATH = $script:savedPath
+    }
+
+    It "gh が失敗しても、ランナーと同じ終わり方で終了コードが 0 になり、警告を出す" {
+        $env:PATH = "$($script:fakeBin);$($script:savedPath)"
+        try {
+            $command = "& '$($script:scriptPath)' -Repo 'example/repo' -PrNumber 1 -WorkflowKey 'test' -Result 'success'; " +
+                "if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit `$LASTEXITCODE }"
+            $out = & powershell.exe -NoProfile -NonInteractive -Command $command 3>&1 2>&1 | Out-String
+            $code = $LASTEXITCODE
+        } finally {
+            $env:PATH = $script:savedPath
+        }
+        $out | Should -Match "書き込みに失敗しました"
+        $code | Should -Be 0
+    }
+}

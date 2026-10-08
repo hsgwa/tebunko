@@ -236,6 +236,8 @@ if ($MyInvocation.InvocationName -ne ".") {
         if ($written.Warning) {
             # フォークの PR など、書き込みの権限が無いときもジョブは失敗にしない（結果は上で Summary に書いた）
             Write-Warning "PR へのコメントの書き込みに失敗しました（権限の無いフォークの PR など）: $($written.Warning)"
+            # Actions の pwsh は末尾で $LASTEXITCODE を終了コードにする。失敗した gh の 1 が残るとジョブが落ちるため戻す
+            $global:LASTEXITCODE = 0
         } else {
             Write-Host "PR #$PrNumber へ $($written.Action) しました。"
         }
