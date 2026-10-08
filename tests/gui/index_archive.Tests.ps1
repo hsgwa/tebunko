@@ -33,6 +33,9 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             checkGuiRow $S $row
             clickGuiAction $S "ActionExport" "［エクスポート…］"
             $dialog = waitGuiWindow $S "エクスポートのダイアログ" -Id "ExportPathBox"
+            getGuiText (findGui $dialog -Id "ExportTitleText") | Should -Be "営業" -Because "見出しの代わりに対象の名前を枠に出す"
+            getGuiText (findGui $dialog -Id "ExportFileText") | Should -BeLike "営業_インデックス_*.zip として保存します"
+            getGuiText (findGui $dialog -Id "CautionText") | Should -BeLike "このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。*"
             setGuiText $S (findGui $dialog -Id "ExportPathBox") $script:exportDest
             clickGui $S $dialog "ExportButton" "［エクスポート］"
             waitGuiWindowClosed $S $dialog "エクスポートのダイアログ"
@@ -55,6 +58,9 @@ Describe "S2b エクスポート・インポート" -Tag Gui {
             $dialog = waitGuiWindow $S "インポートのダイアログ" -Id "NameBox"
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
             getGuiValue (findGui $dialog -Id "FolderBox") | Should -Be $script:source
+            getGuiText (findGui $dialog -Id "ImportTitleText") | Should -Be "営業" -Because "見出しの代わりに zip の中身を枠に出す"
+            getGuiText (findGui $dialog -Id "ImportSizeText") | Should -Match "^\d+ ファイル・\d+\.\d MB"
+            waitGui $S "元のフォルダが見つかった表示" ${guiDefaultTimeout} { (getGuiText (findGui $dialog -Id "SourceCheckText")) -eq "見つかりました" } | Out-Null
             clickGui $S $dialog "ImportButton" "［インポート］"
             waitGuiWindowClosed $S $dialog "インポートのダイアログ"
 

@@ -35,16 +35,22 @@ function startIndexArchiveJob {
 function showIndexExportDialog {
     # エクスポートのダイアログ。書き出し先のフォルダを返す（キャンセルは $null）
     param (
-        [string]$indexName
+        [object[]]$items   # 書き出すインデックス（Name・FileCountText を持つ行）
     )
 
     $dialog = loadWindow "${xamlDir}\dialog_export.xaml" ${fontsDir}
     $dialog.Owner = $window
     $ctrl = @{}
-    foreach ($name in @("ExportButton", "BrowseButton", "ExportPathBox", "IntroText", "ErrorText")) {
+    foreach ($name in @("ExportButton", "BrowseButton", "ExportPathBox", "IntroText", "ErrorText", "ExportTitleText", "ExportSizeText", "ExportFileText", "CautionText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
-    $ctrl.IntroText.Text = getIndexExportNotice $indexName
+    $header = getIndexExportHeader $items
+    $ctrl.ExportTitleText.Text = $header.Title
+    $ctrl.ExportSizeText.Text = $header.Size
+    $ctrl.ExportSizeText.Visibility = if ($header.Size) { "Visible" } else { "Collapsed" }
+    $ctrl.ExportFileText.Text = $header.FileText
+    $ctrl.CautionText.Text = $header.Caution
+    $ctrl.IntroText.Text = getIndexExportNotice
     $ctrl.ExportPathBox.Text = $workspace.Dir
 
     # ボタンの Click からは script スコープの入れ物を参照する（showIndexImportDialog と同じ理由）
@@ -97,7 +103,7 @@ function newExportIndex {
     if ($null -eq $item -or !(testIndexOperable "エクスポート")) {
         return
     }
-    $folder = showIndexExportDialog $item.Name
+    $folder = showIndexExportDialog @($item)
     if ($null -eq $folder) {
         return
     }
@@ -137,7 +143,7 @@ function newBulkExportIndexes {
     if (!(testIndexOperable "エクスポート")) {
         return
     }
-    $folder = showIndexExportDialog "$($names.Count) 件"
+    $folder = showIndexExportDialog @($script:targetItems | Where-Object { $names -contains $_.Name })
     if ($null -eq $folder) {
         return
     }
@@ -163,10 +169,16 @@ function showIndexImportDialog {
     $dialog.Owner = $window
     $dialog.Title = "インデックスのインポート"
     $ctrl = @{}
-    foreach ($name in @("ImportButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
+    foreach ($name in @("ImportButton", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText",
+            "ImportTitleText", "ImportExportedText", "ImportSizeText", "SourceCheckText")) {
         $ctrl[$name] = $dialog.FindName($name)
     }
-    $ctrl.IntroText.Text = getIndexImportNotice $info
+    $header = getIndexImportHeader $info
+    $ctrl.ImportTitleText.Text = $header.Name
+    $ctrl.ImportExportedText.Text = $header.Exported
+    $ctrl.ImportExportedText.Visibility = if ($header.Exported) { "Visible" } else { "Collapsed" }
+    $ctrl.ImportSizeText.Text = $header.Size
+    $ctrl.IntroText.Text = getIndexImportNotice
     $ctrl.FolderBox.Text = $info.SourceFolder
     $ctrl.NameBox.Text = $suggestedName
     $ctrl.NoticeText.Visibility = "Collapsed"
@@ -177,14 +189,23 @@ function showIndexImportDialog {
     # 入れ子になっている実機では、閉じ込めたスクリプトブロックから名前で関数を解決できなくなるため
     # （continueImportIndex で見つかった不具合と同じ原因。docs\design\gui\responsiveness.md の
     # 「画面を固まらせない待たせ方」の注意（PowerShell 5.1）を参照）、ここでは使わない
-    $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl }
+    # Exists は、フォルダの有無が分かっているパス（正規化して小文字にしたもの → 有無）。画面のスレッドでは調べないので、
+    # zip の元のフォルダ（目録を読む別スレッドで調べた info.SourceExists）と、［参照…］で選んだフォルダだけが入る
+    $exists = @{}
+    if ($null -ne $info.SourceExists) {
+        $exists[(normalizeFolderPath $info.SourceFolder).ToLowerInvariant()] = [bool]$info.SourceExists
+    }
+    $script:importDialog = @{ Window = $dialog; Ctrl = $ctrl; Exists = $exists }
 
+    $ctrl.FolderBox.Add_TextChanged({ safe { updateImportDialogChecks } })
+    $ctrl.NameBox.Add_TextChanged({ safe { updateImportDialogChecks } })
     $ctrl.BrowseButton.Add_Click({
         safe {
             $d = $script:importDialog
             $initial = normalizeFolderPath $d.Ctrl.FolderBox.Text
             $path = selectFolder "インポートしたインデックスの、今の元のフォルダを選んでください" $initial $d.Window $false
             if ($path) {
+                $d.Exists[(normalizeFolderPath $path).ToLowerInvariant()] = $true
                 $d.Ctrl.FolderBox.Text = $path
             }
         }
@@ -202,11 +223,32 @@ function showIndexImportDialog {
         }
     })
 
+    updateImportDialogChecks
+
     $result = $null
     if ((showOwnedDialog $dialog)) {
         $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim() }
     }
     return $result
+}
+
+function updateImportDialogChecks {
+    # インポートのダイアログの、元のフォルダの下の 1 行（見つかったか・ほかのインデックスと重なるか）と、名前が重なるときの案内を、
+    # 今の入力で出し直す。文言と色の区分は getImportSourceCheckText・getImportNameNoticeText
+    $d = $script:importDialog
+    $ctrl = $d.Ctrl
+    $name = $ctrl.NameBox.Text.Trim()
+    $key = (normalizeFolderPath $ctrl.FolderBox.Text).ToLowerInvariant()
+    $known = if ($d.Exists.ContainsKey($key)) { $d.Exists[$key] } else { $null }
+    $check = getImportSourceCheckText $ctrl.FolderBox.Text $known @($script:targetItems | Where-Object { $_.Name -ine $name })
+    $brush = switch ($check.Kind) { "Ok" { "Badge.Ok.Text" } "Warn" { "Banner.Warn.Text" } "Ng" { "Badge.Ng.Text" } default { "Ink.Muted" } }
+    $ctrl.SourceCheckText.Text = $check.Text
+    $ctrl.SourceCheckText.Foreground = themeBrush $brush
+    $ctrl.SourceCheckText.Visibility = if ($check.Text) { "Visible" } else { "Collapsed" }
+    $usedNames = getUsedIndexNames $script:targetItems
+    $notice = getImportNameNoticeText $ctrl.NameBox.Text $usedNames
+    $ctrl.NoticeText.Text = $notice
+    $ctrl.NoticeText.Visibility = if ($notice) { "Visible" } else { "Collapsed" }
 }
 
 function newImportIndex {
@@ -228,7 +270,15 @@ function newImportIndex {
     $continueImport = ${function:continueImportIndex}
     startIndexArchiveJob "インポート" {
         param ($zipPath)
-        readIndexArchiveInfo $zipPath
+        $info = readIndexArchiveInfo $zipPath
+        # 元のフォルダがこの PC にあるか（画面のスレッドで調べないよう、ここで調べる）
+        $info.SourceExists = $false
+        try {
+            $info.SourceExists = [bool]($info.SourceFolder -and (Test-Path -LiteralPath $info.SourceFolder -PathType Container))
+        } catch {
+            # 使えない文字を含むなど。無いものとして扱う
+        }
+        $info
     } @($zipPath) {
         param ($info)
         & $continueImport $zipPath $info

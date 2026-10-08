@@ -297,7 +297,7 @@ function openIndexArchive {
 
 function readIndexArchiveInfo {
     # 目録だけを読んで確かめる（インポートせずに、画面が既定の名前・元のフォルダ・合計の大きさを出すために使う）。
-    # 返すもの: @{ IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion }
+    # 返すもの: @{ IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion; ExportedAt（目録の exportedAt のまま。無ければ空） }
     param (
         [string]$zipPath
     )
@@ -316,6 +316,7 @@ function readIndexArchiveInfo {
             Bytes         = $bytes
             FormatVersion = [int]$manifest.formatVersion
             AppVersion    = [string]$manifest.appVersion
+            ExportedAt    = [string]$manifest.exportedAt
         }
     } finally {
         $opened.Archive.Dispose()

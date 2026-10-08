@@ -319,9 +319,28 @@ Describe "testIndexExportInput" -Tag Unit {
     }
 }
 
+Describe "getIndexExportHeader（エクスポートのダイアログの枠）" -Tag Unit {
+    BeforeAll {
+        $script:now = [datetime]"2026-09-27 10:00:00"
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "1 件: 名前・ファイル数・zip の名前"; items = @(@{ Name = "営業部"; FileCountText = "2,530" }); title = "営業部"; size = "2,530 ファイル"; file = "営業部_インデックス_20260927.zip として保存します" }
+        @{ label = "2 件: 件数と合計のファイル数、名前の形"; items = @(@{ Name = "営業"; FileCountText = "1,000" }, @{ Name = "総務"; FileCountText = "20" }); title = "2 件のインデックス"; size = "1,020 ファイル"; file = "インデックスごとに <名前>_インデックス_20260927.zip として保存します" }
+        @{ label = "ファイル数が分からない（未作成）: 大きさの行は空"; items = @(@{ Name = "営業"; FileCountText = "－" }); title = "営業"; size = ""; file = "営業_インデックス_20260927.zip として保存します" }
+    ) {
+        param ($label, $items, $title, $size, $file)
+        $header = getIndexExportHeader $items $script:now
+        $header.Title | Should -Be $title
+        $header.Size | Should -Be $size
+        $header.FileText | Should -Be $file
+        $header.Caution | Should -Be "このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。元のファイルと同じように取り扱ってください。"
+    }
+}
+
 Describe "getIndexExportNotice" -Tag Unit {
-    It "インデックスの名前を含める" {
-        getIndexExportNotice "営業" | Should -Match "\[営業\]"
+    It "別の PC・ワークスペースで使えることを伝える" {
+        getIndexExportNotice | Should -Match "インポートして使えます"
     }
 }
 
@@ -340,8 +359,60 @@ Describe "testIndexImportInput" -Tag Unit {
 }
 
 Describe "getIndexImportNotice" -Tag Unit {
-    It "ファイル数と大きさを含める" {
-        getIndexImportNotice @{ Files = 12; Bytes = 5MB } | Should -Match "12 ファイル・約 5 MB"
+    It "名前と元のフォルダを変えられることと、同じ名前のときの扱いを伝える" {
+        getIndexImportNotice | Should -Match "名前と、元のフォルダの場所を変えられます"
+    }
+}
+
+Describe "getIndexImportHeader（インポートのダイアログの枠）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "日時・ファイル数・大きさ・版"; info = @{ IndexName = "営業部"; Files = 2530; Bytes = [long](56.6 * 1MB); AppVersion = "0.3.0"; ExportedAt = "2026-09-27T10:00:00+09:00" }
+            exported = "エクスポートした日時 2026/09/27 10:00"; size = "2,530 ファイル・56.6 MB・v0.3.0" }
+        @{ label = "版に v が付いていても重ねない・日時が無ければ空"; info = @{ IndexName = "営業"; Files = 3; Bytes = 10KB; AppVersion = "v0.4.0"; ExportedAt = "" }
+            exported = ""; size = "3 ファイル・0.1 MB・v0.4.0" }
+        @{ label = "版が無ければ版を省く"; info = @{ IndexName = "営業"; Files = 1; Bytes = 2MB; AppVersion = ""; ExportedAt = "壊れた値" }
+            exported = ""; size = "1 ファイル・2.0 MB" }
+    ) {
+        param ($label, $info, $exported, $size)
+        $header = getIndexImportHeader $info
+        $header.Name | Should -Be $info.IndexName
+        $header.Size | Should -Be $size
+        if ($info.ExportedAt -like "2026-*") {
+            # 時差で日付が変わる環境でも崩れないよう、時刻は環境の時差に直した値と比べる
+            $header.Exported | Should -Be ("エクスポートした日時 " + ([datetimeoffset]$info.ExportedAt).LocalDateTime.ToString("yyyy/MM/dd HH:mm"))
+        } else {
+            $header.Exported | Should -Be $exported
+        }
+    }
+}
+
+Describe "getImportSourceCheckText（元のフォルダの下の 1 行）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "空なら何も出さない"; folder = ""; exists = $true; text = ""; kind = "None" }
+        @{ label = "あれば「見つかりました」"; folder = "C:\共有\営業部"; exists = $true; text = "見つかりました"; kind = "Ok" }
+        @{ label = "無ければ、検索はできるが更新できないと伝える"; folder = "C:\共有\営業部"; exists = $false
+            text = "元のフォルダがこの PC に見つかりません。検索はできますが、元のフォルダを設定するまで更新できません。"; kind = "Warn" }
+        @{ label = "有無を調べていなければ何も出さない"; folder = "C:\共有\営業部"; exists = $null; text = ""; kind = "None" }
+        @{ label = "ほかのインデックスと同じ"; folder = "C:\共有\顧客"; exists = $true; text = "「顧客」の元のフォルダと重なっています"; kind = "Ng" }
+        @{ label = "ほかのインデックスの中"; folder = "C:\共有\顧客\東"; exists = $true; text = "「顧客」の元のフォルダと重なっています"; kind = "Ng" }
+        @{ label = "ほかのインデックスを含む"; folder = "C:\共有"; exists = $null; text = "「顧客」の元のフォルダと重なっています"; kind = "Ng" }
+    ) {
+        param ($label, $folder, $exists, $text, $kind)
+        $result = getImportSourceCheckText $folder $exists @(@{ Name = "顧客"; Path = "C:\共有\顧客" })
+        $result.Text | Should -Be $text
+        $result.Kind | Should -Be $kind
+    }
+}
+
+Describe "getImportNameNoticeText" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "今の一覧にある名前（大文字・小文字は区別しない）"; name = " 営業 "; notice = $true }
+        @{ label = "ない名前"; name = "経理"; notice = $false }
+        @{ label = "空"; name = " "; notice = $false }
+    ) {
+        param ($label, $name, $notice)
+        $text = getImportNameNoticeText $name @("営業", "総務")
+        if ($notice) { $text | Should -Match "^同じ名前のインデックスがあります" } else { $text | Should -Be "" }
     }
 }
 

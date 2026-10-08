@@ -321,12 +321,114 @@ function testIndexExportInput {
 }
 
 function getIndexExportNotice {
-    # エクスポートのダイアログの案内文
+    # エクスポートのダイアログの案内文（対象の名前・大きさは getIndexExportHeader の枠に出す）
+    return "別の PC・ワークスペースでインポートして使えます。"
+}
+
+function formatArchiveSize {
+    # 大きさを "94.0 MB" の形にする（0.1 MB に満たなくても 0.1 MB。区切りの記号は環境によらず "."）
+    param ([long]$bytes)
+
+    $mb = [Math]::Max(0.1, [Math]::Round($bytes / 1MB, 1))
+    return ($mb.ToString("0.0", [System.Globalization.CultureInfo]::InvariantCulture) + " MB")
+}
+
+function getIndexExportHeader {
+    # エクスポートのダイアログの上の枠（対象・大きさ・zip の名前）と注意。
+    #   items: 書き出すインデックス（Name と FileCountText（"2,530"。無ければ "－" か空）を持つ行）。1 件でも 2 件以上でもよい
+    # 戻り値: @{ Title（1 件は名前、2 件以上は「N 件のインデックス」）; Size（「2,530 ファイル」。数が分からなければ空。大きさは数えていないので出さない）;
+    #            FileText（書き出し先の下の「<名前>_インデックス_<yyyyMMdd>.zip として保存します」）; Caution }
     param (
-        [string]$indexName
+        [object[]]$items,
+        [datetime]$now = (Get-Date)
     )
 
-    return "インデックス [$indexName] を 1 つの zip に書き出します。別の PC・ワークスペースでインポートして使えます。"
+    $items = @($items | Where-Object { $null -ne $_ })
+    $total = 0
+    $known = $false
+    foreach ($item in $items) {
+        $parsed = 0
+        if ([int]::TryParse((([string]$item.FileCountText) -replace ",", ""), [ref]$parsed)) {
+            $total += $parsed
+            $known = $true
+        }
+    }
+    $size = if ($known) { "{0:#,0} ファイル" -f $total } else { "" }
+    if ($items.Count -eq 1) {
+        $title = [string]$items[0].Name
+        $fileText = "$(getExportFileName $title @() $now) として保存します"
+    } else {
+        $title = "{0:#,0} 件のインデックス" -f $items.Count
+        $fileText = "インデックスごとに <名前>_インデックス_$($now.ToString('yyyyMMdd')).zip として保存します"
+    }
+    return @{
+        Title = $title; Size = $size; FileText = $fileText
+        Caution = "このファイルには、元のファイルの本文と元のフォルダの場所が含まれます。元のファイルと同じように取り扱ってください。"
+    }
+}
+
+function getIndexImportHeader {
+    # インポートのダイアログの上の枠（zip の中身）。
+    # 戻り値: @{ Name; Exported（「エクスポートした日時 2026/09/27 10:00」。分からなければ空）; Size（「2,530 ファイル・56.6 MB・v0.3.0」。版が無ければ版は省く） }
+    param (
+        $info   # readIndexArchiveInfo の結果
+    )
+
+    $exported = ""
+    $at = [datetimeoffset]::MinValue
+    if ($info.ExportedAt -and [datetimeoffset]::TryParse([string]$info.ExportedAt, [ref]$at)) {
+        $exported = "エクスポートした日時 " + $at.LocalDateTime.ToString("yyyy/MM/dd HH:mm", [System.Globalization.CultureInfo]::InvariantCulture)
+    }
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    [void]$parts.Add(("{0:#,0} ファイル" -f [int]$info.Files))
+    [void]$parts.Add((formatArchiveSize ([long]$info.Bytes)))
+    $version = ([string]$info.AppVersion).Trim().TrimStart("v", "V")
+    if ($version) {
+        [void]$parts.Add("v${version}")
+    }
+    return @{ Name = [string]$info.IndexName; Exported = $exported; Size = ($parts -join "・") }
+}
+
+function getImportSourceCheckText {
+    # インポートの「元のフォルダ」の下に出す 1 行（文言と色の区分）。@{ Text; Kind }。Kind は Ok / Warn / Ng / None（None は何も出さない）。
+    #   folder : 入力された元のフォルダ
+    #   exists : フォルダがあるか（$true / $false。調べていない・分からないときは $null）。画面のスレッドでは調べない
+    #   others : 重なりを比べる相手（Name・Path を持つ行。取り込む名前と同じ名前の行は呼び出し側で外す）
+    param (
+        [string]$folder,
+        $exists = $null,
+        $others = @()
+    )
+
+    $normalized = normalizeFolderPath $folder
+    if ($normalized -eq "") {
+        return @{ Text = ""; Kind = "None" }
+    }
+    foreach ($other in @($others)) {
+        if ((testSameFolder $other.Path $normalized) -or (testFolderUnder $normalized $other.Path) -or (testFolderUnder $other.Path $normalized)) {
+            return @{ Text = "「$($other.Name)」の元のフォルダと重なっています"; Kind = "Ng" }
+        }
+    }
+    if ($exists -eq $true) {
+        return @{ Text = "見つかりました"; Kind = "Ok" }
+    }
+    if ($exists -eq $false) {
+        return @{ Text = "元のフォルダがこの PC に見つかりません。検索はできますが、元のフォルダを設定するまで更新できません。"; Kind = "Warn" }
+    }
+    return @{ Text = ""; Kind = "None" }
+}
+
+function getImportNameNoticeText {
+    # インポートの名前の欄に、今の一覧にある名前を入れたときの案内（無ければ空）。確認は［インポート］を押したあと（getIndexImportOverwriteConfirmMessage）
+    param (
+        [string]$name,
+        $usedNames = $null
+    )
+
+    if ($name.Trim() -ne "" -and (testImportNameCollision $name.Trim() $usedNames)) {
+        return "同じ名前のインデックスがあります。［インポート］を押すと、上書きするか別の名前にするかを選べます。"
+    }
+    return ""
 }
 
 function testIndexImportInput {
@@ -383,14 +485,9 @@ function testImportNameCollision {
 }
 
 function getIndexImportNotice {
-    # インポートのダイアログの説明（目録から読んだ合計の大きさ・ファイル数を添える）
-    param (
-        $info   # readIndexArchiveInfo の結果
-    )
-
-    $mb = [Math]::Max(0.1, [Math]::Round($info.Bytes / 1MB, 1))
-    return "エクスポートされたインデックスを読み込みます（$($info.Files) ファイル・約 ${mb} MB）。" +
-        "名前と、元のフォルダの場所を変えられます。同じ名前のインデックスが既にあるときは、後で上書き・別名・取りやめを選べます。"
+    # インポートのダイアログの説明
+    # 中身（名前・日時・ファイル数・大きさ・版）は getIndexImportHeader の枠に出す
+    return "名前と、元のフォルダの場所を変えられます。同じ名前のインデックスが既にあるときは、後で上書き・別名・取りやめを選べます。"
 }
 
 function getIndexImportOverwriteConfirmMessage {
