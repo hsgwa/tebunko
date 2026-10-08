@@ -103,7 +103,7 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
 
 # 帯のボタンの見える枠（Bd）の高さ。Height（24）はボタン全体で、フォーカスの輪が内側から取ると見える枠が 22 に縮む（Margin=-1 で外へ出してある）。
 Describe "帯のボタンの見える枠の大きさ" -Tag Unit {
-    It "<Name>: 見える枠の高さが 24（" -TestCases @(
+    It "<Name>: 見える枠の高さが 24" -TestCases @(
         @{ Name = "IndexingSearchButton" }
         @{ Name = "IndexingResumeButton" }
         @{ Name = "IndexingStopButton" }

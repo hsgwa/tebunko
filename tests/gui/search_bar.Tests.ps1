@@ -70,7 +70,7 @@ Describe "検索条件の行の折り返し" -Tag Gui {
         # ファイル内の対象・検索条件は 1 行目に残る
         $script:narrow.Regex.Top | Should -BeLessThan ($script:narrow.Scope.Bottom)
         # 高速検索の印は 2 行目の左端。印の字は欄（幅 170）の左に寄り、1 行目の左端の「種類」から 40 以内にある
-        # （右寄せのままなら、字は欄の右の端に寄って 40 を超える。字の幅・フォントで揺れない大きな差で比べる）
+        # （左寄せは 25 前後。右寄せのままなら、字は欄の右の端に寄って 46〜62 になる。しきい 40 は、その間（左寄せに 15、右寄せに 6 の余裕）に置いた）
         $diff = $script:narrow.Fast.Left - $script:narrow.Label.Left
         $diff | Should -BeGreaterThan 0
         $diff | Should -BeLessThan 40
@@ -97,7 +97,7 @@ Describe "検索条件の行の折り返し" -Tag Gui {
         invokeGuiScene $S {
             resizeGuiWindow $S $wideWidth $wideHeight
             $actual = $S.Window.Current.BoundingRectangle
-            if ($actual.Width -lt $wideWidth - 20) { throw "窓を $wideWidth 幅にできなかった（実際は $($actual.Width)）。画面の作業領域が足りない" }
+            if ($actual.Width -lt $wideWidth - 20) { throw "窓を頼んだ幅（$wideWidth）にできなかった（実際は $($actual.Width)。作業領域は $($area.Width)×$($area.Height)）" }
             $script:wide = waitGui $S "広い幅の並び" ${guiDefaultTimeout} {
                 $fast = & $script:rect $S "FastSearchText"
                 $regex = & $script:rect $S "RegexCheck"

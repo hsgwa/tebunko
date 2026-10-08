@@ -250,11 +250,11 @@ Describe "S3 作成中の操作" -Tag Gui {
             # 帯のボタンが 2 つ並ぶ（残りがあれば［検索する］と［続きから再開］）ときは、見える枠の間が 10
             $search = findGui $S.Window -Id "IndexingSearchButton"
             $resume = findGui $S.Window -Id "IndexingResumeButton"
-            if ($search -and -not $search.Current.IsOffscreen) {
-                $gap = $resume.Current.BoundingRectangle.Left - $search.Current.BoundingRectangle.Right
-                $gap | Should -BeGreaterThan 9.5
-                $gap | Should -BeLessThan 10.5
-            }
+            $search | Should -Not -BeNullOrEmpty
+            $search.Current.IsOffscreen | Should -BeFalse
+            $gap = $resume.Current.BoundingRectangle.Left - $search.Current.BoundingRectangle.Right
+            $gap | Should -BeGreaterThan 9.5
+            $gap | Should -BeLessThan 10.5
 
             # 取り込みが止まると、また押せる（#20）
             setGuiStep $S "止まった後の［＋ フォルダを追加］［編集…］［削除］"
