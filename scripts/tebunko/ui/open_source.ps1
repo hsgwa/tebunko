@@ -384,22 +384,6 @@ function setContextMenuItems {
     }
 }
 
-function getResultRowAt {
-    # マウスの下（またはイベントの発生元）の結果の行（DataGridRow）。列見出し・スクロールバー・余白では $null
-    param (
-        $source
-    )
-
-    $element = $source
-    while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
-        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
-            return $null
-        }
-        $element = if ($element -is [System.Windows.Media.Visual]) { [System.Windows.Media.VisualTreeHelper]::GetParent($element) } else { $null }
-    }
-    return $element
-}
-
 function selectResultRowForMenu {
     # 右クリックした行を選んでからメニューを出す（選んでいる別の行にメニューが効かないようにする）。
     # 行（ヒットした行）を複数選んでいて、その中の行を右クリックしたときだけ、選びを変えない（［選んだ行をコピー］のため）。
@@ -408,11 +392,8 @@ function selectResultRowForMenu {
         $row
     )
 
-    $item = $row.Item
-    $selected = @($ui.ResultGrid.SelectedItems)
-    $keep = $row.IsSelected -and !($item -is [FileGroup]) -and @($selected | Where-Object { $_ -is [FileGroup] }).Count -eq 0
-    if (!$keep) {
-        $ui.ResultGrid.SelectedItem = $item
+    if (!(testResultMenuKeepSelection $row.IsSelected $row.Item @($ui.ResultGrid.SelectedItems))) {
+        $ui.ResultGrid.SelectedItem = $row.Item
     }
 }
 
@@ -424,7 +405,7 @@ function showResultMenu {
         [double]$cursorLeft
     )
 
-    if ($cursorLeft -ge 0 -and $null -eq (getResultRowAt $source)) {
+    if ($cursorLeft -ge 0 -and $null -eq (getDataGridRowAt $source)) {
         return $false
     }
     $item = $ui.ResultGrid.SelectedItem
@@ -432,13 +413,12 @@ function showResultMenu {
         return $false
     }
 
-    $target = $(if ($item -is [FileGroup]) { "group" } else { "row" })
-    $expanded = $(if ($item -is [FileGroup]) { [bool]$item.IsExpanded } else { $false })
+    $context = getResultMenuContext $item
     $parts = @{
         openNormal = $ui.MenuOpen; openNew = $ui.MenuOpenNew; openReadOnly = $ui.MenuOpenReadOnly; openFolder = $ui.MenuOpenFolder
         copyRows = $ui.MenuCopy; copyPath = $ui.MenuCopyPath; toggleGroup = $ui.MenuToggleGroup
     }
-    setContextMenuItems $ui.ResultMenu (getResultMenuItems $target (getOpenMode) $expanded) $parts
+    setContextMenuItems $ui.ResultMenu (getResultMenuItems $context.Target (getOpenMode) $context.Expanded) $parts
     return $true
 }
 
@@ -585,16 +565,10 @@ function exportResults {
 
 $ui.ResultGrid.Add_MouseDoubleClick({
     param ($sender, $e)
-    # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）
-    $element = $e.OriginalSource
-    while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
-        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
-            return
-        }
-        $element = [System.Windows.Media.VisualTreeHelper]::GetParent($element)
-    }
+    # 行の上でのダブルクリックだけを対象にする（列見出し・スクロールバーは除く）。
     # 見出しの行は、クリックで閉じる・開く（result_list.ps1）ので、ダブルクリックでは開かない
-    if ($element -and !($element.Item -is [FileGroup])) {
+    $row = getDataGridRowAt $e.OriginalSource
+    if ($row -and !($row.Item -is [FileGroup])) {
         safe { openSource }
     }
 })
@@ -619,7 +593,7 @@ $ui.ResultGrid.Add_PreviewKeyDown({
 $ui.ResultGrid.Add_PreviewMouseRightButtonDown({
     param ($sender, $e)
     safe {
-        $row = getResultRowAt $e.OriginalSource
+        $row = getDataGridRowAt $e.OriginalSource
         if ($row) {
             selectResultRowForMenu $row
         }

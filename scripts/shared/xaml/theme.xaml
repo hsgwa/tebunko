@@ -1133,9 +1133,6 @@
         <ControlTemplate TargetType="MenuItem">
           <Border x:Name="Bd" Height="31" Background="Transparent" CornerRadius="4" Padding="12,7">
             <DockPanel>
-              <TextBlock DockPanel.Dock="Right" Margin="24,0,0,0" VerticalAlignment="Center"
-                         FontSize="11" Foreground="{StaticResource Ink.Faint}"
-                         Text="{TemplateBinding InputGestureText}" />
               <ContentPresenter ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True" />
             </DockPanel>
           </Border>

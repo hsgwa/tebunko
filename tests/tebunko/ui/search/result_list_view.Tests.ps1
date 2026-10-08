@@ -1,6 +1,9 @@
 ﻿# 結果の一覧の判断（tebunko\ui\search\result_list_view.ps1）のテスト。
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
+    Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+    . "${scriptsDir}\shared\ui\types.ps1"
+    . "${scriptsDir}\tebunko\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
 
     # 結果の表の項目のテストに使う、HitRow・FileGroup と同じ項目を持つもの
@@ -204,5 +207,34 @@ Describe "getResultMenuItems" -Tag Unit {
                 $item.Header | Should -Not -Match "…|Ctrl|Enter|（既定）"
             }
         }
+    }
+}
+
+Describe "testResultMenuKeepSelection" -Tag Unit {
+    # 右クリックした行が選ばれていて、見出しでなく、選びに見出しを含まないときだけ、選びを変えない
+    It "<name>" -TestCases @(
+        @{ name = "選ばれていない行は、その行だけを選ぶ"; rowSelected = $false; item = "row"; selected = @("row"); expected = $false }
+        @{ name = "選ばれている行を複数選んでいるなら、選びを変えない"; rowSelected = $true; item = "row"; selected = @("row", "row2"); expected = $true }
+        @{ name = "選ばれている行 1 つなら、選びを変えない"; rowSelected = $true; item = "row"; selected = @("row"); expected = $true }
+        @{ name = "見出しは、見出しだけを選ぶ"; rowSelected = $true; item = "group"; selected = @("group"); expected = $false }
+        @{ name = "選びに見出しを含むなら、右クリックした行だけを選ぶ"; rowSelected = $true; item = "row"; selected = @("row", "group"); expected = $false }
+        @{ name = "選びが空でも、選ばれている行なら変えない"; rowSelected = $true; item = "row"; selected = @(); expected = $true }
+    ) {
+        $items = @{ row = "行"; row2 = "行 2"; group = [FileGroup]::new() }
+        $selectedItems = @($selected | ForEach-Object { $items[$_] })
+        testResultMenuKeepSelection $rowSelected $items[$item] $selectedItems | Should -Be $expected
+    }
+}
+
+Describe "getResultMenuContext" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "行は row・開いていない扱い"; kind = "row"; expanded = $false; target = "row"; expect = $false }
+        @{ name = "開いている見出しは group・開いている"; kind = "group"; expanded = $true; target = "group"; expect = $true }
+        @{ name = "閉じている見出しは group・閉じている"; kind = "group"; expanded = $false; target = "group"; expect = $false }
+    ) {
+        $item = $(if ($kind -eq "group") { $g = [FileGroup]::new(); $g.IsExpanded = $expanded; $g } else { "行" })
+        $context = getResultMenuContext $item
+        $context.Target | Should -Be $target
+        $context.Expanded | Should -Be $expect
     }
 }

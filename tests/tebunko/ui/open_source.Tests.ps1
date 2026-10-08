@@ -11,6 +11,7 @@ BeforeAll {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
+    . "${scriptsDir}\shared\ui\data_grid.ps1"
 
     function newFakeControl {
         # イベントの登録（Add_<イベント>）を Handlers に記録するだけの偽のコントロール
@@ -29,7 +30,8 @@ BeforeAll {
     function newFakeUi {
         $menu = { newFakeControl @("Click") }
         return @{
-            ResultGrid       = newFakeControl @("MouseDoubleClick", "PreviewKeyDown", "PreviewMouseRightButtonDown", "ContextMenuOpening") @{ SelectedItem = $null }
+            ResultGrid       = newFakeControl @("MouseDoubleClick", "PreviewKeyDown", "PreviewMouseRightButtonDown", "ContextMenuOpening") @{ SelectedItem = $null; SelectedItems = @() }
+            ResultMenu       = newFakeControl @()
             MenuToggleGroup  = & $menu
             MenuOpen         = & $menu
             MenuOpenReadOnly = & $menu
@@ -779,10 +781,10 @@ Describe "画面の操作" -Tag Unit {
         & $ui.MenuToggleGroup.Handlers["Click"]
         Should -Invoke toggleFileGroup -Times 0 -Exactly
 
-        $group = [FileGroup]::new()
-        $ui.ResultGrid.SelectedItem = $group
+        $expectedGroup = [FileGroup]::new()
+        $ui.ResultGrid.SelectedItem = $expectedGroup
         & $ui.MenuToggleGroup.Handlers["Click"]
-        Should -Invoke toggleFileGroup -Times 1 -Exactly -ParameterFilter { $group -eq $group }
+        Should -Invoke toggleFileGroup -Times 1 -Exactly -ParameterFilter { [object]::ReferenceEquals($group, $expectedGroup) }
     }
 
     It "ほかのキーは扱わない" {
@@ -815,5 +817,143 @@ Describe "画面の操作" -Tag Unit {
         & $double (New-Object System.Windows.Controls.Primitives.ScrollBar)
         & $double (New-Object System.Windows.Controls.TextBlock)  # 行の中に無い要素（親をたどっても行に着かない）
         Should -Invoke openSource -Times 1 -Exactly
+    }
+}
+
+Describe "右クリックのメニュー" -Tag Unit {
+    BeforeEach {
+        $script:statuses = New-Object System.Collections.Generic.List[string]
+        $ui.ResultGrid.SelectedItem = $null
+        $ui.ResultGrid.SelectedItems = @()
+    }
+
+    Context "showResultMenu" {
+        BeforeEach {
+            Mock setContextMenuItems { }
+        }
+
+        It "マウスで開いたとき、行の無い所では出さない" {
+            $ui.ResultGrid.SelectedItem = newRow
+            showResultMenu $null 10 | Should -Be $false
+            Should -Invoke setContextMenuItems -Times 0 -Exactly
+        }
+
+        It "選んでいる項目が無ければ出さない" {
+            showResultMenu $null -1 | Should -Be $false
+            Should -Invoke setContextMenuItems -Times 0 -Exactly
+        }
+
+        It "キーボードで開いたとき（CursorLeft が負）は、行の確かめを飛ばして選んでいる行に出す" {
+            $ui.ResultGrid.SelectedItem = newRow
+            showResultMenu $null -1 | Should -Be $true
+            Should -Invoke setContextMenuItems -Times 1 -Exactly -ParameterFilter { @($items | Where-Object { $_.Id -eq "openFolder" }).Count -eq 1 -and @($items | Where-Object { $_.Id -eq "toggleGroup" }).Count -eq 0 }
+        }
+
+        It "見出しでは group のメニューにし、開いているかを渡す（<name>）" -TestCases @(
+            @{ name = "開いている"; expanded = $true }
+            @{ name = "閉じている"; expanded = $false }
+        ) {
+            $group = [FileGroup]::new()
+            $group.IsExpanded = $expanded
+            $ui.ResultGrid.SelectedItem = $group
+            showResultMenu $null -1 | Should -Be $true
+            $expectedJson = getResultMenuItems "group" (getOpenMode) $expanded | ConvertTo-Json -Compress
+            Should -Invoke setContextMenuItems -Times 1 -Exactly -ParameterFilter { ($items | ConvertTo-Json -Compress) -eq $expectedJson }
+        }
+    }
+
+    Context "画面の受け口" {
+        It "行の無い所の右クリックでは、メニューを出さない（Handled）" {
+            $e = [pscustomobject]@{ OriginalSource = $null; CursorLeft = 10; Handled = $false }
+            & $ui.ResultGrid.Handlers["ContextMenuOpening"] $null $e
+            $e.Handled | Should -Be $true
+        }
+
+        It "選んでいる項目が無ければ、キーボードで開いてもメニューを出さない（Handled）" {
+            $e = [pscustomobject]@{ OriginalSource = $null; CursorLeft = -1; Handled = $false }
+            & $ui.ResultGrid.Handlers["ContextMenuOpening"] $null $e
+            $e.Handled | Should -Be $true
+        }
+
+        It "出せるときは Handled にしない" {
+            Mock setContextMenuItems { }
+            $ui.ResultGrid.SelectedItem = newRow
+            $e = [pscustomobject]@{ OriginalSource = $null; CursorLeft = -1; Handled = $false }
+            & $ui.ResultGrid.Handlers["ContextMenuOpening"] $null $e
+            $e.Handled | Should -Be $false
+        }
+
+        It "右クリックで押した所に行が無ければ、選びを変えない" {
+            Mock selectResultRowForMenu { }
+            & $ui.ResultGrid.Handlers["PreviewMouseRightButtonDown"] $null ([pscustomobject]@{ OriginalSource = $null })
+            Should -Invoke selectResultRowForMenu -Times 0 -Exactly
+        }
+
+        It "右クリックで押した所に行があれば、その行を選ぶ" -Skip:(!$sta) {
+            Mock selectResultRowForMenu { }
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = newRow
+            & $ui.ResultGrid.Handlers["PreviewMouseRightButtonDown"] $null ([pscustomobject]@{ OriginalSource = $row })
+            Should -Invoke selectResultRowForMenu -Times 1 -Exactly
+        }
+    }
+
+    Context "selectResultRowForMenu" {
+        It "選ばれていない行を右クリックすると、その行だけを選ぶ" -Skip:(!$sta) {
+            $ui.ResultGrid.SelectedItem = newRow "他.xlsx"
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = newRow
+            selectResultRowForMenu $row
+            [object]::ReferenceEquals($ui.ResultGrid.SelectedItem, $row.Item) | Should -Be $true
+        }
+
+        It "複数選んだ行の中を右クリックしても、選びは変わらない（1 件だけの操作は、先に選んだ行 SelectedItem に効く）" -Skip:(!$sta) {
+            $first = newRow "先.xlsx"
+            $second = newRow "後.xlsx"
+            $ui.ResultGrid.SelectedItem = $first
+            $ui.ResultGrid.SelectedItems = @($first, $second)
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = $second
+            $row.IsSelected = $true
+            selectResultRowForMenu $row
+            [object]::ReferenceEquals($ui.ResultGrid.SelectedItem, $first) | Should -Be $true
+        }
+
+        It "見出しを含む選びの中の行を右クリックすると、その行だけを選ぶ" -Skip:(!$sta) {
+            $item = newRow
+            $heading = [FileGroup]::new()
+            $ui.ResultGrid.SelectedItem = $heading
+            $ui.ResultGrid.SelectedItems = @($heading, $item)
+            $row = New-Object System.Windows.Controls.DataGridRow
+            $row.Item = $item
+            $row.IsSelected = $true
+            selectResultRowForMenu $row
+            [object]::ReferenceEquals($ui.ResultGrid.SelectedItem, $item) | Should -Be $true
+        }
+    }
+
+    Context "setContextMenuItems" {
+        It "判断層が決めた並びで、区切り・太字・文言を並べる" -Skip:(!$sta) {
+            $menu = New-Object System.Windows.Controls.ContextMenu
+            $parts = @{ a = New-Object System.Windows.Controls.MenuItem; b = New-Object System.Windows.Controls.MenuItem; c = New-Object System.Windows.Controls.MenuItem }
+            $parts.c.Header = "前の文言"
+            $parts.c.FontWeight = [System.Windows.FontWeights]::Bold
+            $menu.Items.Add($parts.a) | Out-Null  # 前の中身は消える
+            $items = @(
+                @{ Id = "b"; Header = "二番目の文言"; Bold = $false }
+                @{ Id = "separator"; Header = ""; Bold = $false }
+                @{ Id = "a"; Header = "先頭の文言"; Bold = $true }
+                @{ Id = "c"; Header = "三番目"; Bold = $false }
+            )
+            setContextMenuItems $menu $items $parts
+
+            $menu.Items.Count | Should -Be 4
+            $menu.Items[0].Header | Should -Be "二番目の文言"
+            $menu.Items[1] | Should -BeOfType [System.Windows.Controls.Separator]
+            $menu.Items[2].Header | Should -Be "先頭の文言"
+            $menu.Items[2].FontWeight | Should -Be ([System.Windows.FontWeights]::Bold)
+            $menu.Items[3].Header | Should -Be "三番目"
+            $menu.Items[3].FontWeight | Should -Be ([System.Windows.FontWeights]::Normal)
+        }
     }
 }

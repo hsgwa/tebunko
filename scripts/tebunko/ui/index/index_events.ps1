@@ -99,25 +99,12 @@ $ui.SelectAllCheckBox.Add_Click({
         updateIndexListView
     }
 })
-function getIndexGridRowAt {
-    # 一覧の中の、クリックした場所の行（DataGridRow）。行の外（列見出し・余白・スクロールバー）なら $null
-    param ($source)
-
-    $element = $source
-    while ($element -and $element -isnot [System.Windows.Controls.DataGridRow]) {
-        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
-            return $null
-        }
-        $element = if ($element -is [System.Windows.Media.Visual]) { [System.Windows.Media.VisualTreeHelper]::GetParent($element) } else { $null }
-    }
-    return $element
-}
 # 行を右クリックしたら、その行を選んでからメニューを開く（選んでいる別の行にメニューが効かないようにする）。
 # 行の外（列見出し・余白）では開かない
 $ui.IndexGrid.Add_PreviewMouseRightButtonDown({
     param ($sender, $e)
     safe {
-        $row = getIndexGridRowAt $e.OriginalSource
+        $row = getDataGridRowAt $e.OriginalSource
         if ($row) {
             $ui.IndexGrid.SelectedItem = $row.Item
         }
@@ -126,7 +113,7 @@ $ui.IndexGrid.Add_PreviewMouseRightButtonDown({
 $ui.IndexGrid.Add_ContextMenuOpening({
     param ($sender, $e)
     safe {
-        if (!(getIndexGridRowAt $e.OriginalSource)) {
+        if (!(getDataGridRowAt $e.OriginalSource)) {
             $e.Handled = $true
         }
     }

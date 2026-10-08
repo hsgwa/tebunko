@@ -182,6 +182,35 @@ function sortFileGroups {
     return , $sortedGroups
 }
 
+function testResultMenuKeepSelection {
+    # 結果の行を右クリックしたとき、今の選びを変えずにメニューを出すか。
+    # ヒットした行を複数選んでいて、その中の行を右クリックしたときだけ $true（［選んだ行をコピー］のため）。
+    # 右クリックした行が選ばれていないとき・見出しのとき・選びに見出しを含むときは $false（右クリックした行だけを選ぶ）。
+    #   rowSelected: 右クリックした行が今選ばれているか ／ item: その行の項目 ／ selectedItems: 今の選び
+    param (
+        [bool]$rowSelected,
+        $item,
+        $selectedItems
+    )
+
+    if (!$rowSelected -or $item -is [FileGroup]) {
+        return $false
+    }
+    return @($selectedItems | Where-Object { $_ -is [FileGroup] }).Count -eq 0
+}
+
+function getResultMenuContext {
+    # メニューを出す項目（選んでいる項目）から、メニューの種類（"row"・"group"）と、見出しを開いているかを決める
+    param (
+        $item
+    )
+
+    if ($item -is [FileGroup]) {
+        return @{ Target = "group"; Expanded = [bool]$item.IsExpanded }
+    }
+    return @{ Target = "row"; Expanded = $false }
+}
+
 function getResultMenuItems {
     # 検索結果の右クリックメニューの並び。
     #   target: "row"（ヒットした行）・"group"（ファイルの見出し）

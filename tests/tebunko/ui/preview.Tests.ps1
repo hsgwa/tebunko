@@ -59,8 +59,8 @@ BeforeAll {
         OpenMenuButton      = newFakePart "OpenMenuButton" @{ IsEnabled = $false }
         OpenFolderButton    = newFakePart "OpenFolderButton" @{ IsEnabled = $false }
         PreviewMenu         = newFakePart "PreviewMenu"
-MenuPreviewOpen     = newFakePart "MenuPreviewOpen" @{} @("Click")
-MenuPreviewCopy     = newFakePart "MenuPreviewCopy" @{} @("Click")
+        MenuPreviewOpen     = newFakePart "MenuPreviewOpen" @{} @("Click")
+        MenuPreviewCopy     = newFakePart "MenuPreviewCopy" @{} @("Click")
         MenuPreviewCopyRow  = newFakePart "MenuPreviewCopyRow" @{} @("Click")
     }
 
