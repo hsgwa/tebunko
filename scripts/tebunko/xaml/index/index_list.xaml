@@ -103,7 +103,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
             <!-- 目で追う列を 1 本に絞るため、インデックス名だけ濃くする -->
-            <DataGridTemplateColumn Header="インデックス名" Width="170">
+            <DataGridTemplateColumn Header="名前" Width="170">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

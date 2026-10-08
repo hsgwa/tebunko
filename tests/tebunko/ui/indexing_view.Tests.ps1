@@ -84,6 +84,18 @@ Describe "getIndexingCurrentName・getIndexingSkippedView" -Tag Unit {
     }
 }
 
+Describe "getIndexingBannerLevel（更新が終わった帯の色の種類）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "失敗なく完了: ok（緑）"; exitCode = 0; failed = 0; expected = "ok" }
+        @{ label = "失敗したファイルがある完了: warn（橙）"; exitCode = 0; failed = 3; expected = "warn" }
+        @{ label = "更新そのものができなかった: warn（橙。赤にしない）"; exitCode = 1; failed = 0; expected = "warn" }
+        @{ label = "中止・取りやめ: warn（橙）"; exitCode = 2; failed = 0; expected = "warn" }
+    ) {
+        param ($label, $exitCode, $failed, $expected)
+        getIndexingBannerLevel $exitCode $failed | Should -Be $expected
+    }
+}
+
 Describe "getIndexingEndText" -Tag Unit {
     It "取り込んだ（成功＋失敗）が1件以上なら、成功・失敗（・残り）の見出し" -TestCases @(
         @{ Success = 10; Failed = 0; Postponed = 0; Notice = ""; Text = "更新が終わりました（成功 10 件 / 失敗 0 件）"; Detail = "" }

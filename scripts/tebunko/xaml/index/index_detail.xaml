@@ -63,7 +63,7 @@
                   <ColumnDefinition Width="90" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Style="{StaticResource Label}" Text="インデックス名" VerticalAlignment="Center" />
+                <TextBlock Style="{StaticResource Label}" Text="名前" VerticalAlignment="Center" />
                 <Border Grid.Column="1" Style="{StaticResource FieldBox}">
                   <TextBlock x:Name="IndexDetailName" Foreground="{StaticResource Ink.Value}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
                 </Border>

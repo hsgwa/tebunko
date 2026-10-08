@@ -371,7 +371,7 @@ function finishIndexing {
         if ($message -eq "") {
             $message = "詳しくはログを確認してください。"
         }
-        setIndexingBanner "ng" "done"
+        setIndexingBanner (getIndexingBannerLevel $exitCode 0) "done"
         $ui.IndexingProgressText.Text = "インデックスを更新できませんでした"
         $ui.IndexingProgressDetail.Text = $message
         setStatus "インデックスを更新できませんでした：$message"
@@ -391,7 +391,7 @@ function finishIndexing {
         # 完了（後回し・失敗の件数に応じた見出しと説明は判断層（indexing_view.ps1）が決める）
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
         $failed = if ($progress) { $progress.Failed } else { 0 }
-        setIndexingBanner "ok" "done"
+        setIndexingBanner (getIndexingBannerLevel $exitCode $failed) "done"
         $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail

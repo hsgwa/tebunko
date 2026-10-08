@@ -83,6 +83,20 @@ function getIndexingCurrentName {
     return $current.Substring(0, $index)
 }
 
+function getIndexingBannerLevel {
+    # 更新が終わった帯の色の種類（info/warn/ok/ng のうち、ここでは warn か ok）。
+    # 注意が要る終わり方（更新そのものができなかった・中止・取りやめ・失敗したファイルがある）は橙の warn、
+    # 失敗なく終わったときだけ緑の ok。赤（ng）は、使えない状態（ワークスペースが使えないなど）にだけ使う
+    param (
+        [int]$exitCode,  # インデクサの終了コード（0 完了、1 続けられないエラー、2 中止・取りやめ）
+        [int]$failed     # 失敗したファイルの件数
+    )
+
+    if ($exitCode -ne 0) { return "warn" }
+    if ($failed -gt 0) { return "warn" }
+    return "ok"
+}
+
 function getIndexingEndText {
     # インデックス作成が完了した（終了コード 0）ときの、進み具合の見出しと説明（@{ Text; Detail }）を返す。
     # 後回し（利用者のPowerPointが起動していて取り込まなかったファイル）がある場合の文言もここで決める

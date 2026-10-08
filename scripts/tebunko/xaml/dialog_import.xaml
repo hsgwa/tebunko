@@ -34,7 +34,7 @@
       <TextBlock x:Name="FolderHint" Style="{StaticResource Micro}" Margin="2,6,0,0"
                  Text="パスの入力・貼り付け・フォルダのドラッグ＆ドロップで指定できます。" />
 
-      <TextBlock Style="{StaticResource Label}" HorizontalAlignment="Left" Margin="0,14,0,6" Text="インデックス名" />
+      <TextBlock Style="{StaticResource Label}" HorizontalAlignment="Left" Margin="0,14,0,6" Text="名前" />
       <TextBox x:Name="NameBox" />
       <TextBlock x:Name="NameHint" Style="{StaticResource Micro}" Margin="2,6,0,0"
                  Text="検索対象の一覧と検索結果に、この名前が出ます。\ / : * ? &quot; &lt; &gt; | は使えません。" />
