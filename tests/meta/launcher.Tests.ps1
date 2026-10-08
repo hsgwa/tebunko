@@ -105,7 +105,7 @@ BeforeAll {
     }
 
     function getConstrainedLanguageAddTypeMessage {
-        # 制限言語モードで gui.ps1 の最初の読み込み（paths.ps1。New-Object が使えず失敗する）が失敗したときの、このマシン・ロケールでの
+        # 制限言語モードで gui.ps1 の try の外にある最初の読み込み（paths.ps1。New-Object が使えず失敗し、bat の catch が受ける）が失敗したときの、このマシン・ロケールでの
         # 実際のメッセージ（英語・日本語などで文言が変わるため、決め打ちにせずその場で再現して得る）。
         # 記録を作る側と同じ起動のしかた（invokeLauncher）で動かし、結果はファイルに書かせて読む
         # （コンソールを引き継ぐ起動では、UI の言語が変わってメッセージの文言が食い違うことがある）

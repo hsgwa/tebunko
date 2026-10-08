@@ -523,6 +523,25 @@ Describe "getSettingsFilePath" -Tag Io {
         $expected = if ($Writable) { "$root\setting.config" } else { "$TestDrive\既定のワークスペース\setting.config" }
         getSettingsFilePath $root "$TestDrive\既定のワークスペース" | Should -Be $expected
     }
+
+    It "ツールのフォルダに書けず、既定のワークスペースがまだ無いとき、保存でフォルダができ、同じ場所から読める" {
+        # 書く先は $TestDrive の下だけ（既定のワークスペースは $TestDrive に向ける。本物の Documents には書かない）
+        $toolDir = "$TestDrive\無いツールのフォルダ"
+        $defaultWork = "$TestDrive\まだ無い既定のワークスペース"
+        $path = getSettingsFilePath $toolDir $defaultWork
+        $path.StartsWith($TestDrive, [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        Test-Path -LiteralPath $defaultWork | Should -Be $false
+
+        writeSettings @{ ingestThreads = 3 } $path
+
+        Test-Path -LiteralPath $defaultWork -PathType Container | Should -Be $true
+        $path | Should -Be "$defaultWork\setting.config"
+        Test-Path -LiteralPath $path -PathType Leaf | Should -Be $true
+        Test-Path -LiteralPath $toolDir | Should -Be $false
+        (readSettings $path).ingestThreads | Should -Be 3
+        # 同じ場所を、もう一度求めても同じ（保存したあとは書き込めるワークスペースになるが、ツールのフォルダは無いまま）
+        getSettingsFilePath $toolDir $defaultWork | Should -Be $path
+    }
 }
 
 Describe "testSettingsFileName / testDefaultWorkspace（設定ファイルとそれに付いてできるファイル）" -Tag Io {

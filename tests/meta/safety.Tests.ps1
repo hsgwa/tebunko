@@ -272,10 +272,24 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         ($bat -match "Join-Path\s+\`$root\s+'startup_error\.txt'") | Should -Be $true
     }
 
-    It "%LOCALAPPDATA%・%TEMP% に書かない（scripts と tebunko.bat に、それを指す書き方が無い。前の版の片付け先の GetTempPath は別の It で確かめる）" {
-        (findPattern $code 'LOCALAPPDATA|LocalApplicationData|env:TEMP\b|env:TMP\b') | Should -Be ""
+    It "%LOCALAPPDATA%・%TEMP% に書かない（場所を環境から得る書き方を、許すものの一覧だけにする。前の版の片付け先の GetTempPath は別の It で確かめる）" {
+        # 特別なフォルダを得るのは settings.ps1 の UserProfile（既定のワークスペース）の 1 か所だけ
+        $folderPath = @($code | Where-Object { $_.Text -match 'GetFolderPath\(' })
+        (@($folderPath | ForEach-Object { "$($_.File):$($_.Text.Trim())" }) -join ", ") |
+            Should -Be 'settings.ps1:[string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")'
+        (findPattern $code 'LocalApplicationData|ApplicationData|SpecialFolder') | Should -Be ""
+        # 環境変数は SystemRoot（メモ帳を開く）と、画面のテストが差し込む TEBUNKO_GUI_LEFTOVER_FILE だけ
+        $envNames = @($code | ForEach-Object { [regex]::Matches($_.Text, '\$env:(\w+)') } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+        ($envNames -join ",") | Should -Be "SystemRoot,TEBUNKO_GUI_LEFTOVER_FILE"
+        (findPattern $code 'GetEnvironmentVariable') | Should -Be ""
+        # %…% を展開するのは、利用者が入れたフォルダの文字列だけ（書き込み先を環境変数から組み立てない）
+        $expand = @($code | Where-Object { $_.Text -match 'ExpandEnvironmentVariables' } | ForEach-Object { $_.File } | Sort-Object -Unique)
+        ($expand -join ",") | Should -Be "folder.ps1,settings.ps1"
+        # tebunko.bat が使う %…% は、起動に使う変数と SystemRoot だけ
         $bat = [System.IO.File]::ReadAllText($launcher)
-        ($bat -match "LOCALAPPDATA|env:TEMP|env:TMP|%TEMP%|%TMP%") | Should -Be $false
+        $batNames = @([regex]::Matches($bat, '%(\w+)%') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+        ($batNames -join ",") | Should -Be "PS1,PSCMD,SystemRoot"
+        ($bat -match 'LOCALAPPDATA|\$env:') | Should -Be $false
     }
 
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {
