@@ -136,7 +136,7 @@ function getPreviewCell {
 function copyPreviewSelection {
     # プレビューで選んだセルの値をクリップボードに入れる（1 セルならその値のまま、複数ならタブ区切り）
     if ($null -eq $script:previewTable -or !$script:previewTable.HasSelection()) {
-        setStatus "プレビューでコピーするセルをクリックしてください（Shift＋クリック・ドラッグで複数選べます）。"
+        setStatus "プレビューでコピーするセルをクリックしてください。"
         return
     }
     $text = $script:previewTable.GetSelectionText()

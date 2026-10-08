@@ -334,7 +334,7 @@ Describe "copyPreviewSelection" -Tag Unit {
 
     It "プレビューが無いときは、セルを選ぶよう案内する" {
         copyPreviewSelection
-        $fake.Status | Should -Match "^プレビューでコピーするセルをクリックしてください"
+        $fake.Status | Should -BeExactly "プレビューでコピーするセルをクリックしてください。"
     }
 
     It "<name>" -TestCases @(
@@ -346,7 +346,7 @@ Describe "copyPreviewSelection" -Tag Unit {
 
         & $handlers[$menu]
 
-        $fake.Status | Should -Match "^プレビューでコピーするセルをクリックしてください"
+        $fake.Status | Should -BeExactly "プレビューでコピーするセルをクリックしてください。"
     }
 }
 
