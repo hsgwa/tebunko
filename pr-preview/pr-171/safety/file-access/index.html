@@ -4290,7 +4290,7 @@
 <td>利用者ごとの設定データ</td>
 <td><code>setting.config</code>（ツールのフォルダに書き込めるときはその直下。書き込めないときだけ、既定のワークスペース <code>%USERPROFILE%\Documents\tebunko_ws</code> の直下）</td>
 <td>画面が保存する設定</td>
-<td>ツールを置いたフォルダ（<code>Program Files</code>・読み取り専用の共有フォルダ）に書けないときの代わりの場所。<code>%LOCALAPPDATA%</code> には置かない。ワークスペースより先に（設定を読む前に）決まる必要があるため、ワークスペースの既定の場所に固定する</td>
+<td>ツールを置いたフォルダ（<code>Program Files</code>・読み取り専用の共有フォルダ）に書けないときの代わりの場所。前の版の <code>%LOCALAPPDATA%\tebunko</code> には置かない（ツールのフォルダ自体が <code>%LOCALAPPDATA%\Programs\tebunko</code> にあるインストーラー版では、書き込めるのでその直下に置く）。ワークスペースより先に（設定を読む前に）決まる必要があるため、ワークスペースの既定の場所に固定する</td>
 </tr>
 <tr>
 <td>起動失敗の記録</td>

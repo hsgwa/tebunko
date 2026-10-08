@@ -4360,7 +4360,7 @@
 </tbody>
 </table>
 <h2 id="前の版からの移行設定の置き場所の変更">前の版からの移行（設定の置き場所の変更）<a class="headerlink" href="#前の版からの移行設定の置き場所の変更" title="Permanent link">&para;</a></h2>
-<p>今の版の tebunko は、<code>%LOCALAPPDATA%</code> と <code>%TEMP%</code> に何も書きません。設定ファイル（<code>setting.config</code>）は、tebunko のフォルダに書き込めればそこに、書き込めなければ既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）の直下に置きます。起動に失敗したときの記録（<code>startup_error.txt</code>）は、tebunko のフォルダにだけ書き、書き込めないときは記録を残さずに理由だけを示します。<code>%LOCALAPPDATA%\tebunko\&lt;英数字 16 文字のフォルダ&gt;\setting.config</code> に置いていた前の版の設定は、今の版では読まれません。<code>C:\Program Files</code> などの書き込めない場所に入れていた方は、次のとおり移してください。</p>
+<p>今の版の tebunko は、前の版が使っていた <code>%LOCALAPPDATA%\tebunko</code> と <code>%TEMP%</code> に何も書きません（インストーラー版の既定の入れ先 <code>%LOCALAPPDATA%\Programs\tebunko</code> は tebunko のフォルダなので、書き込めるときはその中に設定ファイルを置きます）。設定ファイル（<code>setting.config</code>）は、tebunko のフォルダに書き込めればそこに、書き込めなければ既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）の直下に置きます。起動に失敗したときの記録（<code>startup_error.txt</code>）は、tebunko のフォルダにだけ書き、書き込めないときは記録を残さずに理由だけを示します。<code>%LOCALAPPDATA%\tebunko\&lt;英数字 16 文字のフォルダ&gt;\setting.config</code> に置いていた前の版の設定は、今の版では読まれません。<code>C:\Program Files</code> などの書き込めない場所に入れていた方は、次のとおり移してください。</p>
 <ol>
 <li>tebunko を終了します。<strong>移し終えるまで、インデックス作成を実行しないでください。</strong></li>
 <li>既定のワークスペースのフォルダ（<code>%USERPROFILE%\Documents\tebunko_ws</code>）が無ければ作ります。</li>

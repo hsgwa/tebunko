@@ -4521,7 +4521,7 @@
 <tbody>
 <tr>
 <td>Process Monitor（Sysinternals）または Sysmon</td>
-<td>ファイル・レジストリ・ネットワーク・プロセス生成の<strong>全アクセス</strong>。「<code>work</code> 配下以外に書いていない（前の版が残した作業フォルダの片付けだけ <code>%TEMP%</code> に触れる。<code>%LOCALAPPDATA%</code> には書かない）」「通信していない」を実測で示せる</td>
+<td>ファイル・レジストリ・ネットワーク・プロセス生成の<strong>全アクセス</strong>。「<code>work</code> 配下以外に書いていない（前の版が残した作業フォルダの片付けだけ <code>%TEMP%</code> に触れる。<code>%LOCALAPPDATA%\tebunko</code> には書かない。インストーラー版の入れ先 <code>%LOCALAPPDATA%\Programs\tebunko</code> の中は、ツールのフォルダとして書く）」「通信していない」を実測で示せる</td>
 <td>Procmon でプロセス名 <code>powershell.exe</code> / <code>EXCEL.EXE</code> を絞り込み、インデックス作成を 1 回実行して保存する</td>
 </tr>
 <tr>
