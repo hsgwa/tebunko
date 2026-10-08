@@ -6,7 +6,7 @@
 
 本物の画面（`scripts/tebunko/gui.ps1`）を別のプロセスとして開き、UI オートメーションで操作して、**画面遷移が壊れていないこと**を毎回機械で確かめる。XAML の読み込みの例外・読み込む順の誤り・イベントの配線の誤り・ダイアログの開閉と戻り方の誤り・閉じるときの後片付けの例外は、[画面の単体テスト](gui-tests.md#画面の単体テスト)（`$ui` を偽物にして WPF を動かさない）では見つからず、手で動かすまで分からなかった。画面を足すたびに手で確かめる代わりに、このテストが通ることを見る。
 
-- 置き場所は `tests/gui/`、タグは `Gui`。共通の関数は `gui_helpers.ps1`、場面ごとのテストは `smoke`・`index`・`search`・`settings`・`process` の `*.Tests.ps1`
+- 置き場所は `tests/gui/`、タグは `Gui`。共通の関数は `gui_helpers.ps1`、場面ごとのテストは `smoke`・`index`・`search`・`settings`・`leftover`・`leftover_real` の `*.Tests.ps1`
 - 流し方は、CI が `gui.yml`（ジョブ `gui-smoke`。[`gui.yml`](ci.md#ci)）、手元が `.\tests\run.ps1 -Tag Gui`。既定の実行（`.\tests\run.ps1`）とコミット前のフックでは流さない。手元で流している間（約 4 分）は、マウス・キーボードに触らない
 - 起動・検索・取り込みの秒数は出力に出すだけで、合否には使わない（性能は [`perf-check.yml`](ci.md#ci) の回帰テストが見る）
 

@@ -22,6 +22,9 @@ BeforeAll {
 Describe "起動時の前回残った Office の確認（本物の道筋）" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
+        # 偽の行の差し込み口が残っていると本物の枝を通らないので、控えて消す（AfterAll で戻す）
+        $script:leftoverEnvBefore = $env:TEBUNKO_GUI_LEFTOVER_FILE
+        Remove-Item Env:\TEBUNKO_GUI_LEFTOVER_FILE -ErrorAction SilentlyContinue
         $script:tool = newGuiTool $TestDrive
         $script:recordDir = Join-Path $script:tool.Work "office_pids\$(getMachineKey)"
         [void][IO.Directory]::CreateDirectory($script:recordDir)
@@ -34,6 +37,9 @@ Describe "起動時の前回残った Office の確認（本物の道筋）" -Ta
         $null = $owner.Handle
         $ownerTicks = getOfficeStartTicks $owner
         $owner.WaitForExit()
+        $ownerTicks | Should -BeGreaterThan 0
+        $script:deadId = $owner.Id
+        $script:deadTicks = $ownerTicks
         $script:recordFile = Join-Path $script:recordDir "$($script:recorded.Id).txt"
         $ok = addOfficeRecord $script:recordDir $script:recorded.Id "EXCEL" (getOfficeStartTicks $script:recorded) $owner.Id $ownerTicks
         $ok | Should -BeTrue
@@ -41,8 +47,12 @@ Describe "起動時の前回残った Office の確認（本物の道筋）" -Ta
 
     AfterAll {
         foreach ($p in @($script:recorded, $script:unrecorded)) {
-            if ($p -and !$p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+            if ($p -and !$p.HasExited) {
+                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                [void]$p.WaitForExit(5000)
+            }
         }
+        if ($null -ne $script:leftoverEnvBefore) { $env:TEBUNKO_GUI_LEFTOVER_FILE = $script:leftoverEnvBefore }
     }
 
     It "記録のある残り物だけが確認に出る。［今回は終了しない］では止まらず、［終了する］で止まって記録が消える" {
@@ -76,10 +86,18 @@ Describe "起動時の前回残った Office の確認（本物の道筋）" -Ta
     }
 
     It "記録の無い偽のプロセスだけが動いているとき、確認は出ない" {
+        Test-Path -LiteralPath $script:recordFile | Should -BeFalse -Because "前の It で記録は消えている"
+        # 起動時の調べが済んだ印にする記録: もう無いプロセスの記録は、調べる（記録を読む）ときに消える。
+        # 消えたのを待てば、調べが済んだ後に確認が出ないことを見られる
+        $marker = Join-Path $script:recordDir "$($script:deadId).txt"
+        addOfficeRecord $script:recordDir $script:deadId "EXCEL" $script:deadTicks $script:deadId $script:deadTicks | Should -BeTrue
         $S = startGui $script:tool "R3"
         invokeGuiScene $S {
+            setGuiStep $S "起動時の調べが済むのを待つ"
+            waitGui $S "調べが済んで印の記録が消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath $marker) } | Out-Null
             setGuiStep $S "確認が出ないこと"
-            $deadline = [datetime]::UtcNow.AddSeconds(8)
+            # 調べの結果は画面のスレッドで受けて、すぐに確認を出す。受けるまでの短い間だけ余分に見る
+            $deadline = [datetime]::UtcNow.AddSeconds(3)
             $shown = $false
             while ([datetime]::UtcNow -lt $deadline) {
                 if (@(getGuiOtherWindows $S).Count -gt 0) { $shown = $true; break }
@@ -94,7 +112,10 @@ Describe "起動時の前回残った Office の確認（本物の道筋）" -Ta
 
     It "利用者の環境に触っていない（Office のプロセスの数も変わらない）" {
         foreach ($p in @($script:recorded, $script:unrecorded)) {
-            if (!$p.HasExited) { Stop-Process -Id $p.Id -Force }
+            if (!$p.HasExited) {
+                Stop-Process -Id $p.Id -Force
+                [void]$p.WaitForExit(5000)
+            }
         }
         compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
