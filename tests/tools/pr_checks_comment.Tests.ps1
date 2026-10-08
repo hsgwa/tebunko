@@ -100,14 +100,13 @@ Describe "formatCheckComment" -Tag Unit {
     }
 
     It "headSha があれば、短い形で添える（形が違えば添えない）" -TestCases @(
-        @{ sha = "0123456789abcdef0123456789abcdef01234567"; expected = '対象のコミット: `0123456`' }
-        @{ sha = ""; expected = $null }
-        @{ sha = "zzzz"; expected = $null }
+        @{ sha = "0123456789abcdef0123456789abcdef01234567"; pattern = ([regex]::Escape('対象のコミット: `0123456`')); expectMatch = $true }
+        @{ sha = ""; pattern = "対象のコミット"; expectMatch = $false }
+        @{ sha = "zzzz"; pattern = "対象のコミット"; expectMatch = $false }
     ) {
-        param ($sha, $expected)
+        param ($sha, $pattern, $expectMatch)
         $body = formatCheckComment "test" "test" "success" "" "hsgwa/tebunko" "" $sha
-        if ($expected) { $body | Should -Match ([regex]::Escape($expected)) }
-        else { $body | Should -Not -Match "対象のコミット" }
+        ($body -match $pattern) | Should -Be $expectMatch
     }
 
     It "実行へのリンクが無ければ、その旨を書く" {
@@ -118,10 +117,12 @@ Describe "formatCheckComment" -Tag Unit {
 
 Describe "getCommentWriteArgs" -Tag Unit {
     It "<action> なら <note>" -TestCases @(
-        @{ action = "post"; prNumber = 42; commentId = $null; note = "issues/<PR番号>/comments に POST する" }
-        @{ action = "patch"; prNumber = 42; commentId = 999; note = "issues/comments/<ID> に PATCH する" }
+        @{ action = "post"; prNumber = 42; commentId = $null; note = "issues/<PR番号>/comments に POST する"
+           method = $null; path = "repos/hsgwa/tebunko/issues/42/comments" }
+        @{ action = "patch"; prNumber = 42; commentId = 999; note = "issues/comments/<ID> に PATCH する"
+           method = "PATCH"; path = "repos/hsgwa/tebunko/issues/comments/999" }
     ) {
-        param ($action, $prNumber, $commentId, $note)
+        param ($action, $prNumber, $commentId, $note, $method, $path)
         $ghArgs = getCommentWriteArgs "hsgwa/tebunko" $action $prNumber $commentId "C:\temp\abc.txt"
 
         # 本文は -F（--field）で渡す。-f（--raw-field）は @ をファイル読み込みと解釈しないため、
@@ -131,14 +132,9 @@ Describe "getCommentWriteArgs" -Tag Unit {
         @($ghArgs -ceq "-f").Count | Should -Be 0
         $ghArgs | Should -Contain "body=@C:\temp\abc.txt"
 
-        if ($action -eq "patch") {
-            $ghArgs | Should -Contain "-X"
-            $ghArgs | Should -Contain "PATCH"
-            $ghArgs | Should -Contain "repos/hsgwa/tebunko/issues/comments/999"
-        } else {
-            $ghArgs | Should -Not -Contain "-X"
-            $ghArgs | Should -Contain "repos/hsgwa/tebunko/issues/42/comments"
-        }
+        $ghArgs | Should -Contain $path
+        ($ghArgs -contains "-X") | Should -Be ([bool]$method)
+        if ($method) { $ghArgs | Should -Contain $method }
     }
 }
 
@@ -257,8 +253,12 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         $m.Success | Should -BeTrue
         $job = $m.Groups[1].Value
 
-        # 書き込みの権限は、このジョブだけが持つ
-        $job | Should -Match "(?m)^      pull-requests: write$"
+        # 書き込みの権限は、このジョブだけが持つ（permissions: の節の中にある）
+        $job | Should -Match "(?m)^    permissions:\n(?:      [^\n]+\n)*?      pull-requests: write\n"
+
+        # 取り消された古い実行はコメントを書き換えず、失敗のときは書く
+        $job | Should -Match ([regex]::Escape('${{ !cancelled() && '))
+        $job | Should -Not -Match "always\(\)"
 
         # 複合アクションを呼ぶ前に、既定のブランチの内容を checkout している（PR のコードを書き込み権限で動かさない）
         $usesIndex = $job.IndexOf("uses: ./.github/actions/pr-comment")
@@ -271,7 +271,11 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
 
     It "release.yml は test.yml を呼ぶジョブに pull-requests: write を許している（足りないと release が起動しない）" {
         $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\release.yml")) -replace "`r`n", "`n"
-        $yml | Should -Match "(?ms)^  test:\n.*?uses: \./\.github/workflows/test\.yml\n.*?^      pull-requests: write$"
+        $m = [regex]::Match($yml, "(?ms)^  test:\n(.*?)(?=^  [A-Za-z0-9_-]+:[ ]*\n|\z)")
+        $m.Success | Should -BeTrue
+        $job = $m.Groups[1].Value
+        $job | Should -Match "uses: \./\.github/workflows/test\.yml"
+        $job | Should -Match "(?m)^      pull-requests: write$"
     }
 
     It "perf-check.yml の pr-comment は、perf-check 以外のラベルを付けたときには書かない" {

@@ -103,7 +103,7 @@ jobs:
   # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
   pr-comment:
     needs: [test]
-    if: ${{ always() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
