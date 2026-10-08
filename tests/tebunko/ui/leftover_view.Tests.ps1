@@ -200,3 +200,22 @@ Describe "偽の行（写真・画面のテスト用）" -Tag Unit {
         getLeftoverResultText $results | Should -BeLike "Office を 1 件終了しました。PID 2 は*PID 3 を終了できませんでした：*"
     }
 }
+
+Describe "確認ダイアログの既定のボタン（dialog_leftover.xaml）" -Tag Unit {
+    BeforeAll {
+        $script:leftoverXaml = [xml](Get-Content -LiteralPath "${scriptsDir}\tebunko\xaml\dialog_leftover.xaml" -Raw -Encoding UTF8)
+        $script:findButton = {
+            param ($name)
+            @($script:leftoverXaml.SelectNodes("//*[local-name()='Button']") | Where-Object { $_.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -eq $name })[0]
+        }
+    }
+
+    It "Enter でうっかり終了しない: 既定（Enter）と取り消し（Esc）は［今回は終了しない］で、［終了する］は既定にならない" {
+        $cancel = & $script:findButton "LeftoverCancelButton"
+        $stop = & $script:findButton "LeftoverStopButton"
+        $cancel.GetAttribute("IsDefault") | Should -Be "True"
+        $cancel.GetAttribute("IsCancel") | Should -Be "True"
+        $stop.GetAttribute("IsDefault") | Should -Not -Be "True"
+        $stop.GetAttribute("IsCancel") | Should -Not -Be "True"
+    }
+}
