@@ -410,6 +410,72 @@ function updateSelectedIndexes {
     startIndexing $names
 }
 
+$script:indexSourceRequest = [ref]0  # ［元のフォルダを開く］の確かめの依頼の番号（openFailedFileFolder と同じ理由で [ref] のまま閉じ込める）
+
+function applyIndexSourceFolderState {
+    # openIndexSourceFolder の続き（getPathState の結果を画面に反映する）。フォルダが見つかれば、エクスプローラーで開く
+    param (
+        $state,
+        [string]$path
+    )
+
+    if ($state.State -eq ${pathStateFound} -and $state.IsDirectory) {
+        Start-Process -FilePath "explorer.exe" -ArgumentList "`"${path}`""
+        return
+    }
+    $kind = switch ($state.State) {
+        ${pathStateUnreachable} { "Unreachable" }
+        ${pathStateOther} { "Other" }
+        default { "Missing" }
+    }
+    setStatus (getIndexSourceFolderStatus $kind $path $state.Message)
+}
+
+function openIndexSourceFolder {
+    # 行の右クリックの［元のフォルダを開く］。押した行の元のフォルダをエクスプローラーで開く。
+    # フォルダが無い・つながらないときは、押したときにステータスバーで知らせる（検索結果の［フォルダを開く］と同じ。無効にはしない）。
+    # ネットワークにあれば裏のスレッドで確かめ、画面のスレッドは待たない
+    $item = getIndexTargetItem
+    if ($null -eq $item) {
+        return
+    }
+    $path = [string]$item.Path
+    if (!$path) {
+        setStatus (getIndexSourceFolderStatus "Empty" "")
+        return
+    }
+    $requestBox = $script:indexSourceRequest
+    $requestBox.Value++
+    $requestId = $requestBox.Value
+    $applyState = ${function:applyIndexSourceFolderState}
+    $apply = {
+        param ($state)
+        if ($requestId -ne $requestBox.Value) {
+            # 待っている間に別の行を開いた。前の依頼は捨てる
+            return
+        }
+        & $applyState $state $path
+    }.GetNewClosure()
+
+    if (!(testNetworkPath $path)) {
+        & $apply (getPathState $path)
+        return
+    }
+    setStatus (getIndexSourceFolderStatus "Checking" $path)
+    $otherState = ${pathStateOther}
+    startJob {
+        param ($path)
+        getPathState $path
+    } @($path) {
+        param ($output, $errorText)
+        if ($errorText) {
+            & $apply @{ State = $otherState; IsDirectory = $false; Message = $errorText }
+        } else {
+            & $apply $output[0]
+        }
+    }.GetNewClosure() "network"
+}
+
 function updateIndexSelectionView {
     # 見出しの全選択（一部だけなら横棒）と、見出しの横の「N / M 件を選択中」。判断は getIndexSelectionView
     $view = getIndexSelectionView $script:targetItems.Count @(getIndexCheckedItems @($script:targetItems)).Count

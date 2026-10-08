@@ -7,6 +7,14 @@ $ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })
+# 行の右クリックの［更新］は、行の右端の［更新］と同じ処理（押した行だけを更新する）
+$ui.RowMenuUpdate.Add_Click({
+    safe {
+        $item = getIndexTargetItem
+        if ($item) { updateSelectedIndexes @($item.Name) }
+    }
+})
+$ui.RowMenuOpenFolder.Add_Click({ safe { openIndexSourceFolder } })
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })

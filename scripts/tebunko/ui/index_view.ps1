@@ -211,6 +211,48 @@ function getIndexActionsEnabled {
     }
 }
 
+function getIndexRowMenuEnabled {
+    # 行の右クリックのメニューの項目の可否。@{ Update; Edit; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
+    #   Edit: ［アクション ▾］の［編集…］と同じ判断（getIndexActionsEnabled。チェックが無く押した行がある場合）
+    #   Update: 行の右端の［更新］と同じ判断（getIndexRowActions）。更新中の行・エラーの行・動いている処理があるときは使えない
+    #   Export/Delete: 1 件に効く判断（getIndexTabButtonsEnabled）。OpenFolder: 動いている処理があっても使える（元のフォルダの場所があれば）
+    # 行が無いとき（hasRow が false）は、すべて使えない
+    param (
+        [string]$blocker,
+        [bool]$hasRow,
+        [string]$level,       # 押した行の getIndexRowView の Level
+        [bool]$hasPath        # 押した行の元のフォルダの場所があるか
+    )
+
+    $rowAction = getIndexRowActions $level $blocker
+    $actions = getIndexActionsEnabled $blocker 0 $hasRow
+    $buttons = getIndexTabButtonsEnabled $blocker $hasRow
+    return @{
+        Update = ($hasRow -and $rowAction.Action -eq "Update" -and $rowAction.UpdateEnabled)
+        Edit = $actions.Edit
+        OpenFolder = ($hasRow -and $hasPath)
+        Export = $buttons.Export
+        Delete = $buttons.Remove
+    }
+}
+
+function getIndexSourceFolderStatus {
+    # ［元のフォルダを開く］で、フォルダの場所を確かめた結果のステータス。kind は Empty（記録が無い）/ Checking / Missing / Unreachable / Other
+    param (
+        [string]$kind,
+        [string]$path,
+        [string]$message = ""
+    )
+
+    switch ($kind) {
+        "Empty" { return "元のフォルダの場所が分かりません（元のフォルダの記録がありません）" }
+        "Checking" { return "元のフォルダを確かめています…：${path}" }
+        "Missing" { return "元のフォルダが見つかりません（移動・削除された可能性があります）：${path}" }
+        "Unreachable" { return getFailedFileUnreachableStatus $path }
+        default { return "元のフォルダを確かめられませんでした：${message}" }
+    }
+}
+
 function getIndexRowActions {
     # 一覧の行の右端のボタン。@{ Action（Update / Stop / None）; UpdateEnabled }
     # 更新中の行には［中止］（回ごと止める）、エラーの行には何も出さず（場所は空けておく）、ほかの行には［更新］を出す。

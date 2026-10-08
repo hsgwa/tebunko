@@ -213,6 +213,47 @@ Describe "getIndexActionsEnabled（［アクション ▾］のメニューの�
     }
 }
 
+Describe "getIndexRowMenuEnabled（行の右クリックのメニューの可否）" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "ふだんの行: すべて使える"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $true; update = $true; edit = $true; open = $true; export = $true; delete = $true }
+        @{ label = "まだ取り込んでいない行（待ち）: すべて使える"; blocker = ""; hasRow = $true; level = "Wait"; hasPath = $true; update = $true; edit = $true; open = $true; export = $true; delete = $true }
+        @{ label = "エラーの行: 更新だけ使えない（行の右端に［更新］が出ない行と同じ）"; blocker = ""; hasRow = $true; level = "Ng"; hasPath = $true; update = $false; edit = $true; open = $true; export = $true; delete = $true }
+        @{ label = "元のフォルダの記録が無い行: 元のフォルダを開くだけ使えない"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $false; update = $true; edit = $true; open = $false; export = $true; delete = $true }
+        @{ label = "更新中の行: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Run"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
+        @{ label = "ほかの行の更新中: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
+        @{ label = "削除・エクスポート・インポート中: 元のフォルダを開く以外は使えない"; blocker = "削除中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
+        @{ label = "行が無い: すべて使えない"; blocker = ""; hasRow = $false; level = "None"; hasPath = $false; update = $false; edit = $false; open = $false; export = $false; delete = $false }
+    ) {
+        param ($label, $blocker, $hasRow, $level, $hasPath, $update, $edit, $open, $export, $delete)
+        $result = getIndexRowMenuEnabled $blocker $hasRow $level $hasPath
+        $result.Update | Should -Be $update
+        $result.Edit | Should -Be $edit
+        $result.OpenFolder | Should -Be $open
+        $result.Export | Should -Be $export
+        $result.Delete | Should -Be $delete
+    }
+
+    It "［編集…］の可否は、［アクション ▾］の［編集…］（チェックなし・押した行あり）と同じ関数の結果" -TestCases @(
+        @{ blocker = "" }, @{ blocker = "インデックス作成中" }, @{ blocker = "削除中" }
+    ) {
+        param ($blocker)
+        (getIndexRowMenuEnabled $blocker $true "Ok" $true).Edit | Should -Be (getIndexActionsEnabled $blocker 0 $true).Edit
+    }
+}
+
+Describe "getIndexSourceFolderStatus" -Tag Unit {
+    It "<kind>" -TestCases @(
+        @{ kind = "Empty"; expected = "元のフォルダの場所が分かりません（元のフォルダの記録がありません）" }
+        @{ kind = "Checking"; expected = "元のフォルダを確かめています…：C:\共有\営業部" }
+        @{ kind = "Missing"; expected = "元のフォルダが見つかりません（移動・削除された可能性があります）：C:\共有\営業部" }
+        @{ kind = "Unreachable"; expected = "元のフォルダに接続できません：C:\共有\営業部" }
+        @{ kind = "Other"; expected = "元のフォルダを確かめられませんでした：アクセスが拒否されました" }
+    ) {
+        param ($kind, $expected)
+        getIndexSourceFolderStatus $kind "C:\共有\営業部" "アクセスが拒否されました" | Should -Be $expected
+    }
+}
+
 Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
     It "<level>・blocker=<blocker>: <action>" -TestCases @(
         @{ level = "Ok"; blocker = ""; action = "Update"; enabled = $true }

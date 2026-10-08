@@ -69,6 +69,8 @@ BeforeAll {
         @{ File = "index_list.ps1"; Function = "updateIndexSourceFile"; Call = "Test-Path"; Reason = "IndexDir の有無（ワークスペースの側。分けた PR）" }
         @{ File = "index_detail.ps1"; Function = "openFailedFileFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "index_detail.ps1"; Function = "applyFailedFileState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
+        @{ File = "index_list.ps1"; Function = "openIndexSourceFolder"; Call = "getPathState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "index_list.ps1"; Function = "applyIndexSourceFolderState"; Call = "Start-Process"; Reason = "エクスプローラーで開く（プロセスの起動は待たない）" }
 
         # ---- shared/ui/shell.ps1・folder_dialog.ps1 ----
         @{ File = "shell.ps1"; Function = "readTextShared"; Call = "Test-Path"; Reason = "ローカルのパスに限って呼ぶところ（ワークスペース内のファイルを読む）" }

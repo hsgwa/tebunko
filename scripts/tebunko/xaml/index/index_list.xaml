@@ -70,7 +70,7 @@
                   <MenuItem x:Name="ActionExport" Header="エクスポート…" />
                   <MenuItem x:Name="ActionImport" Header="インポート…" />
                   <Separator />
-                  <MenuItem x:Name="ActionDelete" Header="削除…" Foreground="{StaticResource Danger.Text}" />
+                  <MenuItem x:Name="ActionDelete" Header="削除…" Style="{StaticResource MenuItemDanger}" />
                 </ContextMenu>
               </Button.ContextMenu>
             </Button>
@@ -84,10 +84,12 @@
         <DataGrid x:Name="IndexGrid" RowStyle="{StaticResource IndexRow}" SelectionMode="Single" CanUserSortColumns="False" AllowDrop="True" MinHeight="90">
           <DataGrid.ContextMenu>
             <ContextMenu x:Name="IndexRowMenu">
+              <MenuItem x:Name="RowMenuUpdate" Header="更新" ToolTip="押したインデックスだけを更新します（行の［更新］と同じです）" />
               <MenuItem x:Name="EditIndexButton" Header="編集…" ToolTip="選んだインデックスの名前と、元のフォルダの場所を変えます（インデックスはそのまま使います）" />
+              <MenuItem x:Name="RowMenuOpenFolder" Header="元のフォルダを開く" ToolTip="インデックスの元のフォルダを、エクスプローラーで開きます" />
               <MenuItem x:Name="ExportIndexButton" Header="エクスポート…" ToolTip="選んだインデックスを 1 つの zip に書き出します（別の PC・ワークスペースで使えます）" />
               <Separator />
-              <MenuItem x:Name="RemoveIndexButton" Header="削除…" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
+              <MenuItem x:Name="RemoveIndexButton" Header="削除…" Style="{StaticResource MenuItemDanger}" ToolTip="選んだインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.Columns>

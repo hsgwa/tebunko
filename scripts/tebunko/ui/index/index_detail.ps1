@@ -121,10 +121,15 @@ function updateIndexingButton {
     $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
-    $ui.EditIndexButton.IsEnabled = $buttons.Edit
     $ui.IndexDetailPathButton.IsEnabled = $buttons.ChangeFolder
-    $ui.RemoveIndexButton.IsEnabled = $buttons.Remove
-    $ui.ExportIndexButton.IsEnabled = $buttons.Export
+    # 行の右クリックのメニュー（対象は押した行。可否は getIndexRowMenuEnabled）
+    $pressed = $ui.IndexGrid.SelectedItem
+    $menu = getIndexRowMenuEnabled $blocker ($null -ne $pressed) $(if ($pressed) { $pressed.IndexLevel } else { "None" }) ($null -ne $pressed -and [bool]$pressed.Path)
+    $ui.RowMenuUpdate.IsEnabled = $menu.Update
+    $ui.EditIndexButton.IsEnabled = $menu.Edit
+    $ui.RowMenuOpenFolder.IsEnabled = $menu.OpenFolder
+    $ui.ExportIndexButton.IsEnabled = $menu.Export
+    $ui.RemoveIndexButton.IsEnabled = $menu.Delete
     $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count ($null -ne $ui.IndexGrid.SelectedItem)
     $ui.ActionEdit.IsEnabled = $actions.Edit
     $ui.ActionsButton.IsEnabled = $true
