@@ -276,8 +276,16 @@ function captureStarterScene {
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
 
-            # 編集のダイアログ（index-tab/edit）は、行の右クリックかダブルクリックで開く。UI オートメーションからは開けないので、
-            # ここでは撮らない（ダイアログの見た目は変わっていないため、前に撮った写真のままにする）
+            # 編集のダイアログ（index-tab/edit）は、［アクション ▾］の［編集…］で開く（行の右クリックとダブルクリックは
+            # UI オートメーションからは開けない）
+            setGuiStep $S "［アクション ▾］→［編集…］"
+            selectGui $row
+            clickGuiAction $S "ActionEdit" "［編集…］"
+            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "FolderBox"
+            captureGuiState -S $S -Id "index-tab/edit" -Ids $Ids -OutDir $OutDir `
+                -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes -Extra @($dialog)
+            clickGui $S $dialog "CancelButton" "［キャンセル］"
+            waitGuiWindowClosed $S $dialog "編集のダイアログ"
 
             setGuiStep $S "行のチェックを付ける"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
@@ -459,7 +467,7 @@ function captureSearchScene {
         setGuiStep $S "正規表現で不正な式"
         toggleGui (findGui $S.Window -Id "RegexCheck")
         setGuiText $S (findGui $S.Window -Id "WordBox") "("
-        waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -like "*文字どおり検索*" } | Out-Null
+        waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -eq "正規表現が正しくありません" } | Out-Null
         captureGuiState -S $S -Id "search-tab/regex-error" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
         setGuiText $S (findGui $S.Window -Id "WordBox") ""
@@ -484,7 +492,7 @@ function captureSearchScene {
 
         setGuiStep $S "見つからない検索"
         & $search "存在しないはずのことば"
-        waitGui $S "見つからない" ${guiDefaultTimeout} { (& $summary) -like "見つかりませんでした*" } | Out-Null
+        waitGui $S "見つからない（ステータスバーに 0 件）" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "StatusText")) -like "検索しました：* 0 件" } | Out-Null
         captureGuiState -S $S -Id "search-tab/no-results" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
 
