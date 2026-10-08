@@ -4362,11 +4362,13 @@
 <h2 id="前の版からの移行設定の置き場所の変更">前の版からの移行（設定の置き場所の変更）<a class="headerlink" href="#前の版からの移行設定の置き場所の変更" title="Permanent link">&para;</a></h2>
 <p>今の版の tebunko は、<code>%LOCALAPPDATA%</code> と <code>%TEMP%</code> に何も書きません。設定ファイル（<code>setting.config</code>）は、tebunko のフォルダに書き込めればそこに、書き込めなければ既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）の直下に置きます。起動に失敗したときの記録（<code>startup_error.txt</code>）は、tebunko のフォルダにだけ書き、書き込めないときは記録を残さずに理由だけを示します。<code>%LOCALAPPDATA%\tebunko\&lt;英数字 16 文字のフォルダ&gt;\setting.config</code> に置いていた前の版の設定は、今の版では読まれません。<code>C:\Program Files</code> などの書き込めない場所に入れていた方は、次のとおり移してください。</p>
 <ol>
-<li>tebunko を終了します。</li>
-<li><code>%LOCALAPPDATA%\tebunko\&lt;英数字 16 文字のフォルダ&gt;\setting.config</code> を、既定のワークスペースの直下（<code>%USERPROFILE%\Documents\tebunko_ws\setting.config</code>）にコピーします。</li>
+<li>tebunko を終了します。<strong>移し終えるまで、インデックス作成を実行しないでください。</strong></li>
+<li>既定のワークスペースのフォルダ（<code>%USERPROFILE%\Documents\tebunko_ws</code>）が無ければ作ります。</li>
+<li><code>%LOCALAPPDATA%\tebunko\&lt;英数字 16 文字のフォルダ&gt;\setting.config</code> を、2 のフォルダの直下（<code>%USERPROFILE%\Documents\tebunko_ws\setting.config</code>）にコピーします。</li>
 <li>tebunko を起動し、［設定］の「設定ファイル」の場所が、コピーした先になっていることを確かめます。</li>
 <li>問題がなければ、<code>%LOCALAPPDATA%\tebunko</code> を削除します。</li>
 </ol>
+<p>設定を移さずに起動したときは、クロール対象フォルダの一覧が空の状態で始まります。一覧が空のままならインデックス作成は始まらず、インデックスは消えません。ところが、フォルダを 1 つでも登録してインデックス作成を実行すると、前回の一覧にあって今の一覧に無いフォルダのインデックスは削除されます。コピーしなかったときは、［設定］でワークスペースを選び直し、クロール対象フォルダを前の版と同じ内容で登録し直してから実行してください。</p>
 <p>ワークスペースを別のフォルダにしていた方も、設定ファイルの置き場所は既定のワークスペースの直下です。設定ファイルは、ワークスペースの中身としては数えません。ワークスペースの移動・［消して最初から］・エクスポートでも、移動も削除もされません。</p>
 
 

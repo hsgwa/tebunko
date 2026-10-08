@@ -4555,6 +4555,22 @@
 <td><code>testDefaultWorkspace</code>, 画面（<code>getCountedEntryPaths</code>）</td>
 </tr>
 <tr>
+<td><code>getSettingsFileView</code></td>
+<td>settingsFile, rootDir</td>
+<td><code>@{Path; Note}</code></td>
+<td>設定タブに出す設定ファイルの場所と、ツールのフォルダに置いているか（書き込めなくて既定のワークスペースに置いているか）の注記。判断層（<code>settings_view.ps1</code>）</td>
+<td><a href="../../gui/settings-tab/">設定タブ</a></td>
+<td>画面（設定タブ）</td>
+</tr>
+<tr>
+<td><code>getCountedEntryPaths</code></td>
+<td>entryPaths, isDefaultWorkspace</td>
+<td>string[]</td>
+<td>ワークスペースに選んだフォルダの中身のうち「空でない」の数に入れるもの。選んだフォルダが既定のワークスペースなら、設定ファイルとその付属ファイル（<code>testSettingsFileName</code>）を外す。判断層（<code>settings_view.ps1</code>。カバレッジの分母に入る）</td>
+<td><a href="../../gui/settings-tab/">設定タブ</a></td>
+<td>画面（設定タブ）</td>
+</tr>
+<tr>
 <td><code>newAppMutex</code></td>
 <td>name（<code>gui</code> / <code>indexer</code>）, dir（既定 <code>$rootDir</code>）</td>
 <td><code>@{Mutex; Acquired}</code></td>
