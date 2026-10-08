@@ -69,7 +69,7 @@ Describe "testWorkspaceChoice" -Tag Unit {
 Describe "newWorkspaceConfirm" -Tag Unit {
     It "空のフォルダなら、移す先を見出しに、移動中は使えないことを補足に出し、移動するボタンを 1 つ出す" {
         $confirm = newWorkspaceConfirm "D:\データ" "C:\tool\work" 0
-        $confirm.Title | Should -Be "保存先の変更"
+        $confirm.Title | Should -Be "ワークスペースの変更"
         $confirm.Heading | Should -Be "インデックスとログを「D:\データ」へ移動します。"
         @($confirm.Facts).Count | Should -Be 0
         $confirm.Hint | Should -Be "移動中は、検索とインデックスの更新はできません。"

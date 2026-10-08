@@ -33,6 +33,7 @@
 | `countTsvFields` | line | int | Excel に貼り付けたときのセル数（`"` で始まるセルは閉じる `"` までを 1 セルとする。先頭のセルが空でも数え落とさない） | [1 行の組み立て](../search/output.md#1-行の組み立て) | 検索 |
 | `toColumnName` | number | string | 列番号を列名に変換（1 → `A`、27 → `AA`） | 同上 | toResultHeader |
 | `splitTsvCells` | line | string[] | TSV の 1 行をセルに分ける（`"` で囲まれたセルは 1 セルとし、囲みを外す。`countTsvFields` と同じ区切り方。画面のプレビューは同じ区切り方を型 `HitRow`（`types.ps1`）の中に持つ） | – | テストだけ |
+| `testTextTrimmed` | actualWidth, requiredWidth, tolerance | bool | 文字が枠に入りきらず省略（…）で切れているか（要る幅が実際の幅より誤差を超えて大きいときだけ $true。幅 0 以下は $false） | 同上 | addTrimmedToolTip（`shared/ui/trimmed_tooltip.ps1`） |
 
 ## テキストファイルの読み取り（`shared/core/text_file.ps1`）
 

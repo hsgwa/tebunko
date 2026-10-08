@@ -82,7 +82,7 @@ function newWorkspaceConfirm {
     $moveHint = "移動中は、検索とインデックスの更新はできません。"
     if (@($workspaceNames).Count -gt 0) {
         return @{
-            Title   = "保存先の変更"
+            Title   = "ワークスペースの変更"
             Heading = "「${folder}」には、すでにインデックスがあります。"
             Facts   = @()
             Hint    = "そのフォルダのインデックスを使うか、今のインデックスを移動するかを選んでください。移動すると、そのフォルダにあるインデックスは削除されます（元に戻せません）。"
@@ -102,7 +102,7 @@ function newWorkspaceConfirm {
             }
         }
         return @{
-            Title   = "保存先の変更"
+            Title   = "ワークスペースの変更"
             Heading = "インデックスとログを「${folder}」へ移動します。"
             Facts   = @()
             Hint    = $moveHint
@@ -127,7 +127,7 @@ function newWorkspaceConfirm {
         $facts += @{ Kind = "next"; Title = "「中に作って使う」を選ぶと、ワークスペースは次の場所になります"; Detail = $sub }
     }
     return @{
-        Title   = "保存先の変更"
+        Title   = "ワークスペースの変更"
         Heading = "選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください。"
         Facts   = $facts
         Hint    = "空のフォルダを選び直すときは［キャンセル］を押してください。"
