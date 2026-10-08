@@ -93,7 +93,7 @@ function showIndexExportDialog {
 
 function newExportIndex {
     # ［エクスポート…］。選んだインデックスを 1 つの zip に書き出す
-    $item = $ui.IndexGrid.SelectedItem
+    $item = getIndexTargetItem
     if ($null -eq $item -or !(testIndexOperable "エクスポート")) {
         return
     }

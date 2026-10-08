@@ -142,6 +142,24 @@ Describe "getIndexSelectionView（全選択と選択中の件数）" -Tag Unit {
     }
 }
 
+Describe "getIndexDetailItem（詳細に出す行・［編集…］などの対象）" -Tag Unit {
+    BeforeAll {
+        $script:a = [pscustomobject]@{ Name = "A" }
+        $script:b = [pscustomobject]@{ Name = "B" }
+    }
+    It "<label>" -TestCases @(
+        @{ label = "押した行があればそれ（チェックより先）"; sel = "a"; checked = @("b"); expected = "a" }
+        @{ label = "押した行が無く、チェックが 1 件だけならその行"; sel = ""; checked = @("b"); expected = "b" }
+        @{ label = "押した行もチェックも無ければ無し"; sel = ""; checked = @(); expected = "" }
+        @{ label = "押した行が無く、チェックが 2 件なら無し（詳細は件数の表示）"; sel = ""; checked = @("a", "b"); expected = "" }
+    ) {
+        param ($label, $sel, $checked, $expected)
+        $pick = { param ($k) if ($k -eq "") { $null } else { Get-Variable -Scope Script -Name $k -ValueOnly } }
+        $item = getIndexDetailItem (& $pick $sel) @($checked | ForEach-Object { & $pick $_ })
+        if ($expected -eq "") { $item | Should -BeNullOrEmpty } else { $item.Name | Should -Be (& $pick $expected).Name }
+    }
+}
+
 Describe "getIndexDetailMultiCount" -Tag Unit {
     It "2 件以上チェックしているときだけ、その件数（0・1 件は 0 で、詳細欄は押した行のまま）" -TestCases @(
         @{ checked = 0; expected = 0 }, @{ checked = 1; expected = 0 }, @{ checked = 2; expected = 2 }, @{ checked = 4; expected = 4 }

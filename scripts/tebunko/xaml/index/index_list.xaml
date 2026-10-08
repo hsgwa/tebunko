@@ -58,7 +58,7 @@
               <Button.ContextMenu>
                 <ContextMenu x:Name="ActionsMenu">
                   <MenuItem x:Name="ActionUpdate" Header="更新" ToolTip="チェックを付けたインデックスだけを更新します" />
-                  <MenuItem x:Name="ActionExport" Header="エクスポート…" ToolTip="チェックを付けたインデックスを 1 つの zip に書き出します（別の PC・ワークスペースで使えます）" />
+                  <MenuItem x:Name="ActionExport" Header="エクスポート…" ToolTip="チェックを付けたインデックスを、1 つずつ zip に書き出します（別の PC・ワークスペースで使えます）" />
                   <MenuItem x:Name="ActionImport" Header="インポート…" ToolTip="エクスポートした zip を読み込み、一覧に加えます" />
                   <Separator />
                   <MenuItem x:Name="ActionDelete" Header="削除…" Foreground="{StaticResource Danger.Text}" ToolTip="チェックを付けたインデックスを一覧から消します（元のフォルダとファイルはそのまま残ります）" />

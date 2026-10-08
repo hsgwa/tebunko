@@ -113,7 +113,7 @@ function updateIndexingButton {
 
     # インデックスの追加・編集・削除・エクスポート・インポートと、［設定］のワークスペースの［変更…］は互いに排他
     # （getIndexJobBlocker・getIndexTabButtonsEnabled。settings\settings.ps1 の testWorkspaceChangeable も同じ排他を見る）
-    $selected = $null -ne $ui.IndexGrid.SelectedItem
+    $selected = $null -ne (getIndexTargetItem)
     $blocker = getIndexJobBlocker (isIndexing) $script:indexBusy $script:archiveBusy
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
@@ -323,17 +323,18 @@ function applyFailedFileState {
 $script:detailRowsKey = $null
 $script:indexingView = $null  # 詳細の「インデックス」の箱に出す、全体の進み具合（updateIndexingProgress が置く。更新中でなければ $null）
 
+function getIndexTargetItem {
+    # 詳細に出している行（［編集…］［...］［削除］［エクスポート…］の対象・可否もこの行。判定は getIndexDetailItem）
+    return getIndexDetailItem $ui.IndexGrid.SelectedItem @(getIndexCheckedItems @($script:targetItems))
+}
+
 function updateIndexDetailPanel {
     # 選んだインデックスの値の行と、高速検索の反映の進み具合を出す（文言の組み立ては getIndexDetailView）。
     # 選びなおしたとき・取り込みの集計や高速検索の確かめが届いたときに呼ぶ
     $selected = @()
     $entry = $null
-    $item = $ui.IndexGrid.SelectedItem
     $checkedItems = @(getIndexCheckedItems @($script:targetItems))
-    if ($null -eq $item -and $checkedItems.Count -eq 1) {
-        # 押した行が無く、チェックが 1 件だけなら、その行の詳細を出す
-        $item = $checkedItems[0]
-    }
+    $item = getIndexDetailItem $ui.IndexGrid.SelectedItem $checkedItems
     if ($null -ne $item) {
         $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{

@@ -154,7 +154,7 @@ function addIndexForFolder {
 
 function editIndex {
     # ［編集…］。インデックス名と元のフォルダの場所を変える。インデックスは作り直さない
-    $item = $ui.IndexGrid.SelectedItem
+    $item = getIndexTargetItem
     if ($null -eq $item -or !(testIndexOperable "編集")) {
         return
     }
@@ -201,7 +201,7 @@ function applyIndexEdit {
 function changeIndexFolder {
     # 詳細のフォルダパスの［...］。フォルダを選ぶ画面を出し、選んだ場所を［編集…］で変えて［OK］したときと同じ検査・同じ反映で変える。
     # 取り消したとき・同じフォルダを選んだときは何も変えない
-    $item = $ui.IndexGrid.SelectedItem
+    $item = getIndexTargetItem
     if ($null -eq $item -or !(testIndexOperable "編集")) {
         return
     }
@@ -316,7 +316,7 @@ function deleteIndexes {
 
 function deleteIndex {
     # ［削除］。一覧から削除し、インデックス（work\index\<名前>）と取り込み一覧の記録も削除する
-    $item = $ui.IndexGrid.SelectedItem
+    $item = getIndexTargetItem
     if ($null -eq $item -or !(testIndexOperable "削除")) {
         return
     }

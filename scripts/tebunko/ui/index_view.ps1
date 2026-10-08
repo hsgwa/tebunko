@@ -199,6 +199,20 @@ function getIndexRowActions {
     return @{ Action = $action; UpdateEnabled = ($blocker -eq "") }
 }
 
+function getIndexDetailItem {
+    # 詳細欄に出す行（［編集…］［...］［削除］［エクスポート…］の対象も同じ行）。押した行があればそれ、
+    # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
+    param (
+        [object]$selectedItem,   # 一覧で押した行（無ければ $null）
+        [object[]]$checkedItems  # getIndexCheckedItems の結果
+    )
+
+    if ($null -ne $selectedItem) { return $selectedItem }
+    $checked = @($checkedItems | Where-Object { $null -ne $_ })
+    if ($checked.Count -eq 1) { return $checked[0] }
+    return $null
+}
+
 function getIndexDetailMultiCount {
     # 詳細欄を「N 件を選択中」にするときの N（そうしないときは 0）。2 件以上チェックしているときだけ、その件数を返す。
     # 0 件・1 件のときは 0（詳細欄は押した行のまま）
