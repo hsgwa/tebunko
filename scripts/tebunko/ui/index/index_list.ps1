@@ -420,7 +420,7 @@ function updateIndexSelectionView {
 }
 
 function updateIndexRowsProgress {
-    # 更新中の行のバッジ（「更新中 45%」）と棒を、進み具合に合わせて置き直す（進み具合の更新のたびに呼ぶ）
+    # 更新中の行のバッジ（「更新中」と、右の補足「45%」）と棒を、進み具合に合わせて置き直す（進み具合の更新のたびに呼ぶ）
     $ratio = getIndexingRatio
     foreach ($item in $script:targetItems) {
         if ($item.IndexLevel -eq "Run") {

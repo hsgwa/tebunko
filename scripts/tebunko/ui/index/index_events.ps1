@@ -7,7 +7,6 @@ $ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 $ui.EditIndexButton.Add_Click({ safe { editIndex } })
-$ui.ActionEdit.Add_Click({ safe { editIndex } })
 $ui.IndexDetailPathButton.Add_Click({ safe { changeIndexFolder } })
 $ui.RemoveIndexButton.Add_Click({ safe { deleteIndex } })
 $ui.ExportIndexButton.Add_Click({ safe { newExportIndex } })
@@ -33,6 +32,18 @@ $ui.ActionExport.Add_Click({
         }
     }
 })
+# ［編集…］も同じ（1 件にだけ効く）。チェックが 1 件ならその行を選んでから、チェックが無ければ押した行に対して動く。2 件以上は使えない
+$ui.ActionEdit.Add_Click({
+    safe {
+        $checked = @(getIndexCheckedItems @($script:targetItems))
+        if ($checked.Count -eq 1) {
+            $ui.IndexGrid.SelectedItem = $checked[0]
+            editIndex
+        } elseif ($checked.Count -eq 0) {
+            editIndex
+        }
+    }
+})
 $ui.ActionDelete.Add_Click({
     safe {
         $checked = @(getIndexCheckedItems @($script:targetItems))
@@ -44,25 +55,12 @@ $ui.ActionDelete.Add_Click({
         }
     }
 })
-# 一覧の名前・パスは、「…」で切れている行だけ全文をツールチップで見せる（行を作ったとき、行の中の印の付いた TextBlock に付ける）
+# 一覧の名前・パスは、「…」で切れている行だけ全文をツールチップで見せる（行ごとに 1 回だけ、行の Loaded で印の付いた TextBlock に付ける）
 $ui.IndexGrid.Add_LoadingRow({
     param ($sender, $e)
-    $e.Row.Add_Loaded({
-        param ($row, $args2)
-        $stack = New-Object System.Collections.Generic.Stack[System.Windows.DependencyObject]
-        $stack.Push($row)
-        while ($stack.Count -gt 0) {
-            $node = $stack.Pop()
-            for ($i = 0; $i -lt [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($node); $i++) {
-                $child = [System.Windows.Media.VisualTreeHelper]::GetChild($node, $i)
-                if ($child -is [System.Windows.Controls.TextBlock] -and $child.Tag -eq "TrimTip") {
-                    addTrimmedToolTip $child
-                    $child.Tag = "TrimTipSet"
-                }
-                $stack.Push($child)
-            }
-        }
-    })
+    if ($e.Row.Tag -ne "TrimTip") {
+        addTrimmedToolTipToRows $e.Row "TrimTip"
+    }
 })
 $ui.ActionUpdate.Add_Click({ safe { updateSelectedIndexes @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name }) } })
 # 行の［更新］［中止］は行ごとの部品なので、一覧の Click で受ける

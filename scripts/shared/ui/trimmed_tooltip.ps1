@@ -37,23 +37,31 @@ function addTrimmedToolTip {
 }
 
 function addTrimmedToolTipToRows {
-    # 行の Loaded（DataGridRow など）で、その行の中のすべての TextBlock に addTrimmedToolTip を付ける
+    # 行の Loaded（DataGridRow など）で、その行の中の Tag が tag の TextBlock に addTrimmedToolTip を付ける（付けたら Tag を「<tag>Set」にして、二重に付けない）。
+    # 行の Tag に tag を入れ（Loaded のハンドラはここから読む。GetNewClosure にすると画面の関数が見えなくなる）、
+    # 同じ行に 2 回呼ぶとハンドラが重なるので、呼ぶ側が行の Tag が tag かで見て、行ごとに 1 回だけにする
     param (
-        [System.Windows.FrameworkElement]$row
+        [System.Windows.FrameworkElement]$row,
+        [string]$tag
     )
 
+    $row.Tag = $tag
     $row.Add_Loaded({
         param ($sender, $e)
-        $stack = New-Object System.Collections.Generic.Stack[System.Windows.DependencyObject]
-        $stack.Push($sender)
-        while ($stack.Count -gt 0) {
-            $node = $stack.Pop()
-            for ($i = 0; $i -lt [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($node); $i++) {
-                $child = [System.Windows.Media.VisualTreeHelper]::GetChild($node, $i)
-                if ($child -is [System.Windows.Controls.TextBlock] -and $child.TextTrimming -ne [System.Windows.TextTrimming]::None) {
-                    addTrimmedToolTip $child
+        $tag = [string]$sender.Tag
+        safe {
+            $stack = New-Object System.Collections.Generic.Stack[System.Windows.DependencyObject]
+            $stack.Push($sender)
+            while ($stack.Count -gt 0) {
+                $node = $stack.Pop()
+                for ($i = 0; $i -lt [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($node); $i++) {
+                    $child = [System.Windows.Media.VisualTreeHelper]::GetChild($node, $i)
+                    if ($child -is [System.Windows.Controls.TextBlock] -and $child.Tag -eq $tag) {
+                        addTrimmedToolTip $child
+                        $child.Tag = "${tag}Set"
+                    }
+                    $stack.Push($child)
                 }
-                $stack.Push($child)
             }
         }
     })

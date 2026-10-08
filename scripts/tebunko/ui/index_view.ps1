@@ -190,17 +190,21 @@ function getIndexSelectionView {
 }
 
 function getIndexActionsEnabled {
-    # ［アクション ▾］のメニューの項目の可否。@{ Update; Export; Import; Delete }
-    # ［インポート…］は選ばなくても使える。ほかは 1 件以上選んでいると使える（2 件以上はまとめて行う）。
+    # ［アクション ▾］のメニューの項目の可否。@{ Update; Edit; Export; Import; Delete }
+    # ［インポート…］は選ばなくても使える。［更新］［エクスポート…］［削除…］は 1 件以上チェックしていると使える（2 件以上はまとめて行う）。
+    # ［編集…］は 1 件にしか効かないので、チェックが 1 件ならその行、チェックが無ければ押した行（hasPressedRow）があるときだけ使える。
+    # チェックが 2 件以上のときは使えない（詳細も「N 件を選択中」になり、どの行か決まらないため）。
     # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
     param (
         [string]$blocker,
-        [int]$checked
+        [int]$checked,
+        [bool]$hasPressedRow = $false   # 一覧で押した行があるか
     )
 
     $free = ($blocker -eq "")
     return @{
         Update = ($free -and $checked -ge 1)
+        Edit = ($free -and ($checked -eq 1 -or ($checked -eq 0 -and $hasPressedRow)))
         Export = ($free -and $checked -ge 1)
         Import = $free
         Delete = ($free -and $checked -ge 1)

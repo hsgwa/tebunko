@@ -122,11 +122,11 @@ function updateIndexingButton {
     $buttons = getIndexTabButtonsEnabled $blocker $selected
     $ui.NewIndexButton.IsEnabled = $buttons.New
     $ui.EditIndexButton.IsEnabled = $buttons.Edit
-    $ui.ActionEdit.IsEnabled = $buttons.Edit
     $ui.IndexDetailPathButton.IsEnabled = $buttons.ChangeFolder
     $ui.RemoveIndexButton.IsEnabled = $buttons.Remove
     $ui.ExportIndexButton.IsEnabled = $buttons.Export
-    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count
+    $actions = getIndexActionsEnabled $blocker @(getIndexCheckedItems @($script:targetItems)).Count ($null -ne $ui.IndexGrid.SelectedItem)
+    $ui.ActionEdit.IsEnabled = $actions.Edit
     $ui.ActionsButton.IsEnabled = $true
     $ui.ActionUpdate.IsEnabled = $actions.Update
     $ui.ActionExport.IsEnabled = $actions.Export

@@ -173,6 +173,7 @@ Describe "getIndexDetailItem（詳細に出す行・［編集…］などの対�
         @{ label = "押した行が無く、チェックが 1 件だけならその行"; sel = ""; checked = @("b"); expected = "b" }
         @{ label = "押した行もチェックも無ければ無し"; sel = ""; checked = @(); expected = "" }
         @{ label = "押した行が無く、チェックが 2 件なら無し（詳細は件数の表示）"; sel = ""; checked = @("a", "b"); expected = "" }
+        @{ label = "押した行があり、チェックが 2 件でも押した行（右クリック・二重クリックの［編集…］はこの行に効く。［アクション ▾］の可否は getIndexActionsEnabled が別に決める）"; sel = "a"; checked = @("a", "b"); expected = "a" }
     ) {
         param ($label, $sel, $checked, $expected)
         $pick = { param ($k) if ($k -eq "") { $null } else { Get-Variable -Scope Script -Name $k -ValueOnly } }
@@ -192,15 +193,19 @@ Describe "getIndexDetailMultiCount" -Tag Unit {
 
 Describe "getIndexActionsEnabled（［アクション ▾］のメニューの可否）" -Tag Unit {
     It "<label>" -TestCases @(
-        @{ label = "1 件もチェックしていない: インポートだけ"; blocker = ""; checked = 0; update = $false; export = $false; import = $true; delete = $false }
-        @{ label = "1 件チェックした: すべて"; blocker = ""; checked = 1; update = $true; export = $true; import = $true; delete = $true }
-        @{ label = "2 件チェックした: すべて（エクスポート・削除はまとめて行う）"; blocker = ""; checked = 2; update = $true; export = $true; import = $true; delete = $true }
-        @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; update = $false; export = $false; import = $false; delete = $false }
-        @{ label = "削除中: すべて無効"; blocker = "削除中"; checked = 2; update = $false; export = $false; import = $false; delete = $false }
+        @{ label = "チェックなし・押した行なし: インポートだけ"; blocker = ""; checked = 0; pressed = $false; update = $false; edit = $false; export = $false; import = $true; delete = $false }
+        @{ label = "チェックなし・押した行あり: 編集とインポートだけ（編集は押した行に効く）"; blocker = ""; checked = 0; pressed = $true; update = $false; edit = $true; export = $false; import = $true; delete = $false }
+        @{ label = "1 件チェック・押した行なし: すべて"; blocker = ""; checked = 1; pressed = $false; update = $true; edit = $true; export = $true; import = $true; delete = $true }
+        @{ label = "1 件チェック・押した行は別の行: すべて（編集はチェックの行に効く。エクスポート・削除と同じ行）"; blocker = ""; checked = 1; pressed = $true; update = $true; edit = $true; export = $true; import = $true; delete = $true }
+        @{ label = "2 件チェック・押した行なし: 編集だけ無効（エクスポート・削除はまとめて行う）"; blocker = ""; checked = 2; pressed = $false; update = $true; edit = $false; export = $true; import = $true; delete = $true }
+        @{ label = "2 件チェック・押した行あり: 編集だけ無効（詳細は「N 件を選択中」）"; blocker = ""; checked = 2; pressed = $true; update = $true; edit = $false; export = $true; import = $true; delete = $true }
+        @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; pressed = $true; update = $false; edit = $false; export = $false; import = $false; delete = $false }
+        @{ label = "削除中: すべて無効"; blocker = "削除中"; checked = 2; pressed = $false; update = $false; edit = $false; export = $false; import = $false; delete = $false }
     ) {
-        param ($label, $blocker, $checked, $update, $export, $import, $delete)
-        $result = getIndexActionsEnabled $blocker $checked
+        param ($label, $blocker, $checked, $pressed, $update, $edit, $export, $import, $delete)
+        $result = getIndexActionsEnabled $blocker $checked $pressed
         $result.Update | Should -Be $update
+        $result.Edit | Should -Be $edit
         $result.Export | Should -Be $export
         $result.Import | Should -Be $import
         $result.Delete | Should -Be $delete
@@ -764,7 +769,7 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
 
     It "更新中の行は、棒の長さ・件数と残り時間・更新中のファイルを返す" {
         $item = newDetailItem
-        $item.IndexLevel = "Run"; $item.IndexText = "更新中 45%"
+        $item.IndexLevel = "Run"; $item.IndexText = "更新中"
         $running = @{ Ratio = 0.45; Processed = 205; Total = 455; Failed = 1; Eta = "残り約 3 分"; Current = "見積もり\A社\A社_見積書_改訂.xlsx" }
         $view = getIndexDetailView @($item) $null 0 $running
         $view.Run.Shown | Should -BeTrue
