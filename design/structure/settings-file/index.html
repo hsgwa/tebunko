@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3132,7 +3132,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3153,14 +3153,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3241,8 +3241,6 @@
       
         
           
-        
-      
         
       
         
@@ -3349,7 +3347,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3377,7 +3375,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3405,35 +3403,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4222,7 +4192,7 @@
 <span class="w">    </span><span class="nt">"searchExcludes"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
 <span class="w">    </span><span class="nt">"useRegex"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"caseSensitive"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">"fileFilter"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"fileKinds"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
 <span class="w">    </span><span class="nt">"includeShapes"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"includeComments"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"openMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span><span class="p">,</span>
@@ -4277,11 +4247,11 @@
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 </tr>
 <tr>
-<td><code>fileFilter</code></td>
-<td>文字列</td>
+<td><code>fileKinds</code></td>
+<td>文字列の配列</td>
 <td>空</td>
-<td>「対象ファイル」の指定（例: <code>*.xlsx;見積;!*old*</code>）。空ならすべて（同上）</td>
-<td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
+<td>検索する種類のチップ（<code>excel</code> <code>word</code> <code>powerpoint</code> <code>text</code>）。空・無い・知らない値だけならすべて。前の版の <code>fileFilter</code>（対象ファイルの指定）は読まず、書き直しのときに消える</td>
+<td><code>readFileKinds</code> / <code>writeFileKinds</code></td>
 </tr>
 <tr>
 <td><code>includeShapes</code></td>
@@ -4349,7 +4319,7 @@
 <li>退避したファイルは、tebunko を閉じてから直し、<code>setting.config</code> に置き換えて開き直すと戻せる。</li>
 </ul>
 <h2 id="画面での読み書き">画面での読み書き<a class="headerlink" href="#画面での読み書き" title="Permanent link">&para;</a></h2>
-<p>画面は設定を変えたその場で保存する。［8 設定］タブの画面の仕様は <a href="../../gui/settings-tab/">［8 設定］タブ</a> にある。</p>
+<p>画面は設定を変えたその場で保存する。［設定］タブの画面の仕様は <a href="../../gui/settings-tab/">［設定］タブ</a> にある。</p>
 <table>
 <thead>
 <tr>
@@ -4360,7 +4330,7 @@
 <tbody>
 <tr>
 <td>保存のタイミング</td>
-<td>インデックス一覧：追加・編集・削除・チェックの変更のたび。検索対象のツリー：チェックを変えたとき。検索条件のチェックボックス（正規表現・大文字と小文字・図形・コメント）：クリックしたとき。対象ファイル：欄からフォーカスが外れたときと検索したとき（検索したときは検索条件をまとめて保存する）。［開き方］：選び直したとき（起動時の読み込みでは保存しない）。ワークスペース：［8 設定］で変えたとき（<a href="../../gui/settings-tab/">［8 設定］タブ</a>）。インデックスの元のフォルダ：［編集…］で変えたとき・検索結果からフォルダを選んで見つかったとき。インデックス名：インデックスを作成したとき・［編集…］で変えたとき（名前の無い設定を読み込んだときは、読み込み時に割り当てて保存する）</td>
+<td>インデックス一覧：追加・編集・削除・チェックの変更のたび。検索対象のツリー：チェックを変えたとき。検索条件のチェックボックス（正規表現・大文字と小文字・図形・コメント）・種類のチップ：クリックしたとき（検索したときは検索条件をまとめて保存する）。［開き方］：選び直したとき（起動時の読み込みでは保存しない）。ワークスペース：［設定］で変えたとき（<a href="../../gui/settings-tab/">［設定］タブ</a>）。インデックスの元のフォルダ：［編集…］で変えたとき・検索結果からフォルダを選んで見つかったとき。インデックス名：インデックスを作成したとき・［編集…］で変えたとき（名前の無い設定を読み込んだときは、読み込み時に割り当てて保存する）</td>
 </tr>
 <tr>
 <td>外部での編集</td>

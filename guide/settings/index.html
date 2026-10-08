@@ -875,7 +875,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3121,7 +3121,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3142,14 +3142,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3230,8 +3230,6 @@
       
         
           
-        
-      
         
       
         
@@ -3338,7 +3336,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3366,7 +3364,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3394,35 +3392,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4186,11 +4156,11 @@
 
 
 <h1 id="設定">設定<a class="headerlink" href="#設定" title="Permanent link">&para;</a></h1>
-<p>［8 設定］タブでは、インデックスの保存先（<strong>ワークスペース</strong>）を変更できます。設定ファイルの場所もこのタブで確認できます。</p>
-<p>検索オプションと元のファイルの開き方は、［2 検索］タブで指定します（<a href="../search/#検索オプション">検索</a>・<a href="../open-files/#開き方の指定">元のファイルを開く</a>）。これらの設定は自動的に保存され、次回起動時にも引き継がれます。</p>
+<p>設定の画面では、インデックスの保存先（<strong>ワークスペース</strong>）を変更できます。設定ファイルの場所もこの画面で確認できます。</p>
+<p>検索オプションと元のファイルの開き方は、［検索］タブで指定します（<a href="../search/#検索オプション">検索</a>・<a href="../open-files/#開き方の指定">元のファイルを開く</a>）。これらの設定は自動的に保存され、次回起動時にも引き継がれます。</p>
 <h2 id="ワークスペース">ワークスペース<a class="headerlink" href="#ワークスペース" title="Permanent link">&para;</a></h2>
-<p><img alt="［8 設定］タブ。ワークスペースの場所と、設定ファイルの場所が表示されている" src="../../images/screens/settings-tab/normal.png" /></p>
-<p>ワークスペースは、インデックス・取り込み一覧・ログを保存するフォルダです。既定の場所は <code>%USERPROFILE%\Documents\tebunko_ws</code> です。</p>
+<p><img alt="設定の画面。ワークスペースの場所と、設定ファイルの場所が表示されている" src="../../images/screens/settings-tab/normal.png" /></p>
+<p>ワークスペースは、インデックス・ログを保存するフォルダです。既定の場所は <code>%USERPROFILE%\Documents\tebunko_ws</code> です。</p>
 <table>
 <thead>
 <tr>
@@ -4225,9 +4195,9 @@
 <p>アクセス制限を設定したフォルダや、空き容量の大きいドライブに保存先を変更する場合に使用します。</p>
 <ol>
 <li>［変更…］を選択し、<strong>空のフォルダ</strong>を指定します。</li>
-<li>「ワークスペースを変えますか？」の確認で内容を確認し、実行します。</li>
+<li>「へ移動します」の確認で内容を確認し、実行します。</li>
 </ol>
-<p>現在のワークスペースの内容（インデックス・取り込み一覧・ログ）は、新しいフォルダへ移動します。変更は即時に反映されるため、インデックスを再作成する必要はありません。インデックス作成中は変更できません。</p>
+<p>現在のワークスペースの内容（インデックス・ログ）は、新しいフォルダへ移動します。変更は即時に反映されるため、インデックスを再作成する必要はありません。更新中は変更できません。</p>
 <p>空でないフォルダを指定した場合は、次の選択肢を表示します。</p>
 <table>
 <thead>
@@ -4239,7 +4209,7 @@
 <tbody>
 <tr>
 <td>tebunko 以外のファイルがある</td>
-<td>［中に「workspace」フォルダを作って、ワークスペースにする］、または指定し直す</td>
+<td>［中に「workspace」を作って使う］、または指定し直す</td>
 </tr>
 <tr>
 <td>tebunko のインデックスがある</td>
@@ -4251,11 +4221,11 @@
 <p><img alt="空でないフォルダを指定したときの確認。［あるインデックスを使う］と［消して、最初からやり直す］を選べる" src="../../images/screens/settings-tab/index-confirm.png" /></p>
 <p>［既定に戻す］は、ワークスペースが既定以外の場所にある場合に表示されます。</p>
 <div class="admonition note">
-<p class="admonition-title">起動時に［8 設定］が表示される場合</p>
-<p>既定のワークスペース（<code>Documents\tebunko_ws</code>）に tebunko 以外のファイルがある場合、起動時に［8 設定］を表示し、別の空のフォルダを指定するよう案内します。</p>
+<p class="admonition-title">起動時に［設定］が表示される場合</p>
+<p>既定のワークスペース（<code>Documents\tebunko_ws</code>）に tebunko 以外のファイルがある場合、起動時に［設定］を表示し、別の空のフォルダを指定するよう案内します。</p>
 </div>
 <h2 id="設定ファイル">設定ファイル<a class="headerlink" href="#設定ファイル" title="Permanent link">&para;</a></h2>
-<p>設定（登録したフォルダ・検索オプション・開き方・ワークスペースの場所）は <code>setting.config</code> に保存します。保存場所は［8 設定］の「設定ファイル」に表示されます。</p>
+<p>設定（登録したフォルダ・検索オプション・開き方・ワークスペースの場所）は <code>setting.config</code> に保存します。保存場所は［設定］の「設定ファイル」に表示されます。</p>
 <table>
 <thead>
 <tr>
@@ -4295,7 +4265,7 @@
 </table>
 <p>設定ファイルを直接編集する場合は、tebunko を終了してから行ってください。JSON として読み込めない状態になると、インデックス作成が「setting.config を読み込めません」というエラーで停止します。キーの一覧は設計書の <a href="../../design/structure/settings-file/">設定ファイル</a> を参照してください。</p>
 <h2 id="関連する設計書">関連する設計書<a class="headerlink" href="#関連する設計書" title="Permanent link">&para;</a></h2>
-<p>画面の仕様は <a href="../../design/gui/settings-tab/">［8 設定］タブ</a>、ワークスペースの構成は <a href="../../design/structure/data/">データの置き場所とパスの決め方</a> を参照してください。</p>
+<p>画面の仕様は <a href="../../design/gui/settings-tab/">設定の画面</a>、ワークスペースの構成は <a href="../../design/structure/data/">データの置き場所とパスの決め方</a> を参照してください。</p>
 
 
 
@@ -4348,13 +4318,13 @@
         
         
           
-          <a href="../process/" class="md-footer__link md-footer__link--next" aria-label="次: Office プロセスの停止">
+          <a href="../process/" class="md-footer__link md-footer__link--next" aria-label="次: 残った Office の終了">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                Office プロセスの停止
+                残った Office の終了
               </div>
             </div>
             <div class="md-footer__button md-icon">

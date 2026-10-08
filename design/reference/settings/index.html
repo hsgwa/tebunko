@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3028,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3049,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3137,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3245,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3273,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3301,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4182,7 +4152,7 @@
 <td><code>newSettings</code></td>
 <td>–</td>
 <td>ordered hashtable</td>
-<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileFilter</code> <code>includeShapes</code> <code>includeComments</code> <code>openMode</code> <code>workspaceFolder</code> <code>ingestThreads</code>）</td>
+<td>設定の既定値（<code>targetFolders</code> <code>indexSources</code> <code>searchExcludes</code> <code>useRegex</code> <code>caseSensitive</code> <code>fileKinds</code> <code>includeShapes</code> <code>includeComments</code> <code>openMode</code> <code>workspaceFolder</code> <code>ingestThreads</code>）</td>
 <td><a href="../../structure/settings-file/">設定ファイル（setting.config）</a></td>
 <td>readSettings</td>
 </tr>
@@ -4309,8 +4279,8 @@
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
 <td>path / option, path</td>
-<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
-<td>画面の検索条件。<a href="../search/#元のファイルの特定画面">元のファイルの特定・画面</a> を参照</td>
+<td><code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> / –</td>
+<td>画面の検索条件（種類は <code>readFileKinds</code> / <code>writeFileKinds</code>）。<a href="../search/#元のファイルの特定画面">元のファイルの特定・画面</a> を参照</td>
 <td><a href="../search/#元のファイルの特定画面">続き</a></td>
 <td>画面</td>
 </tr>
@@ -4349,7 +4319,7 @@
 </tbody>
 </table>
 <h2 id="ワークスペースtebunkocoreworkspaceps1">ワークスペース（<code>tebunko/core/workspace.ps1</code>）<a class="headerlink" href="#ワークスペースtebunkocoreworkspaceps1" title="Permanent link">&para;</a></h2>
-<p><code>Workspace</code> クラスは、ワークスペースのフォルダ（Dir）から、中のファイル・フォルダの場所を組み立てるだけで、設定は読まない。どのフォルダを使うかは設定の <code>workspaceFolder</code> で決まる（<code>getWorkDir</code>）。関数はその場所を使って、取り込みの作業フォルダの置き場所の判断・前の版のワークスペースの扱い・ワークスペースの移動を行う。画面の操作は <a href="../../structure/data/">データの置き場所とパスの決め方</a>、［8 設定］タブは <a href="../../gui/settings-tab/">［8 設定］タブ</a> を参照。</p>
+<p><code>Workspace</code> クラスは、ワークスペースのフォルダ（Dir）から、中のファイル・フォルダの場所を組み立てるだけで、設定は読まない。どのフォルダを使うかは設定の <code>workspaceFolder</code> で決まる（<code>getWorkDir</code>）。関数はその場所を使って、取り込みの作業フォルダの置き場所の判断・前の版のワークスペースの扱い・ワークスペースの移動を行う。画面の操作は <a href="../../structure/data/">データの置き場所とパスの決め方</a>、［設定］タブは <a href="../../gui/settings-tab/">［設定］タブ</a> を参照。</p>
 <table>
 <thead>
 <tr>

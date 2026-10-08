@@ -16,7 +16,7 @@
         <link rel="prev" href="../search-tree/">
       
       
-        <link rel="next" href="../process-tab/">
+        <link rel="next" href="../leftover-office/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>［8 設定］タブ - tebunko</title>
+        <title>［設定］タブ - tebunko</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#8-設定タブ" class="md-skip">
+        <a href="#設定タブ" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ［8 設定］タブ
+              ［設定］タブ
             
           </span>
         </div>
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3039,7 +3039,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3061,14 +3061,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3149,8 +3149,6 @@
       
         
           
-        
-      
         
       
         
@@ -3257,7 +3255,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3285,7 +3283,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3313,35 +3311,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4052,9 +4022,9 @@
   
 
 
-<h1 id="8-設定タブ">［8 設定］タブ<a class="headerlink" href="#8-設定タブ" title="Permanent link">&para;</a></h1>
+<h1 id="設定タブ">［設定］タブ<a class="headerlink" href="#設定タブ" title="Permanent link">&para;</a></h1>
 <p>扱うこと: ワークスペース（インデックス・取り込み一覧・ログの置き場所）の表示・変更、設定ファイルの場所の表示。扱わないこと: 設定ファイルの中身そのもの（<a href="../../structure/settings-file/">設定ファイル（setting.config）</a>）。先に読むページ: <a href="../">画面</a>、<a href="../../structure/data/">データの置き場所とパスの決め方</a>。</p>
-<p>［8 設定］タブ（<code>tab_settings.xaml</code>・<code>settings_tab.ps1</code>）には、「ワークスペース」と「設定ファイル」の 2 つの枠を置く。［9 プロセス停止］の前に置き、プロセス停止を最後のタブのままにする。</p>
+<p>設定の画面（<code>xaml\settings\settings.xaml</code>・<code>ui\settings\settings.ps1</code>）は、題と説明は置かず、小見出し「インデックス設定」（上の余白 16）から始め、その下に「ワークスペース」と「設定ファイル」の 2 つの行を縦に並べる。表示件数や最大並列処理数の行は置かない。節の間は 24、節の中の行の間は 12。節の見出しの下に細い線（<code>Bg.Section</code>）を引く。中身が窓の高さを超えるときは、画面全体が縦にスクロールする。左の欄の最後の画面にする。</p>
 <p>今の画面の写真は<a href="../screens/settings-tab/">画面設計（現行）</a>にある。</p>
 <p><strong>ワークスペース</strong>は、インデックス・取り込み一覧・ログ（<code>work</code> の中身。<a href="../../structure/folders/">配布物と開発用のフォルダ構成</a>）を置くフォルダ。既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>（高速検索のため、Windows Search の索引の対象になる場所。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。</p>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -4070,7 +4040,7 @@
 <li>［変更…］: フォルダ選択ダイアログ（<a href="../common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>。説明は <code>ワークスペースにする空のフォルダを選んでください。…</code>）で<strong>空のフォルダ</strong>を選んでもらい、ワークスペースにする。空でなければ警告する（下）。</li>
 <li>［既定に戻す］: 既定の場所に戻す（無ければ作る）。ほかのファイルが置いてあれば <code>「…」は空のフォルダではありません。…</code> と出して戻さない（前から使っているワークスペースなら戻す）。既定でない場所のときだけ表示する。</li>
 </ul>
-<p>どちらも、インデックス作成中（画面を使わずに起動したものも含む）と、前のインデックスの削除中は変えられない（<code>インデックス作成中はワークスペースを変えられません。…</code>）。選んだフォルダは <code>testWorkspaceChoice</code> が調べる。</p>
+<p>どちらも、更新中（画面を使わずに起動したものも含む）と、前のインデックスの削除中は変えられない（<code>更新中はワークスペースを変えられません。…</code>）。選んだフォルダは <code>testWorkspaceChoice</code> が調べる。</p>
 <table>
 <thead>
 <tr>
@@ -4102,10 +4072,10 @@
 </tbody>
 </table>
 <p>どちらのダイアログも <a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a> の形で、中身は <code>newWorkspaceConfirm</code> が決める。</p>
-<p><strong>確認ダイアログ（空のフォルダ）</strong> の見出しは <code>ワークスペースを変えますか？</code>、ボタンは［ワークスペースを変える］。</p>
+<p><strong>確認ダイアログ（空のフォルダ）</strong> の見出しは <code>インデックスとログを「&lt;フォルダ&gt;」へ移動します。</code>、ボタンは［移動する］（［既定に戻す］からは［戻す］）。</p>
 <ul>
-<li><code>→ インデックス・取り込み一覧・ログを、このフォルダに置きます</code>（選んだフォルダ）</li>
-<li><code>→ 今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいワークスペースへ移します</code>（<code>移す前の場所：&lt;今のワークスペース&gt;</code>）</li>
+<li><code>→ インデックス・ログを、このフォルダに置きます</code>（選んだフォルダ）</li>
+<li><code>→ 今のワークスペースの中身（インデックス・ログ）は、新しいワークスペースへ移します</code>（<code>移す前の場所：&lt;今のワークスペース&gt;</code>）</li>
 </ul>
 <p><strong>警告のダイアログ（空でないフォルダ）</strong> の見出しは <code>選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください。</code>。選び直さなくても済むよう、選んだフォルダの中にワークスペースのフォルダを作る選択肢も出す。既定のボタンは［キャンセル］（何もしない。空のフォルダを選び直す）。</p>
 <ul>
@@ -4113,20 +4083,20 @@
 <p><code>! このフォルダは空ではありません（ファイル・フォルダが N 個）</code>（中身の名前を先頭の 3 つまで。ほかにもあれば <code>など</code>。数えるのは 1,000 個までで、それ以上は <code>1,000 個以上</code>）</p>
 </li>
 <li>
-<p><code>→ 今のワークスペースの中身（インデックス・取り込み一覧・ログ）は、新しいワークスペースへ移します</code></p>
+<p><code>→ 今のワークスペースの中身（インデックス・ログ）は、新しいワークスペースへ移します</code></p>
 </li>
-<li>選択肢［中に「workspace」フォルダを作って、ワークスペースにする］（<code>&lt;選んだフォルダ&gt;\workspace</code>）: <code>workspace</code> が無いか、あっても空のときだけ出す。作ってから、そこをワークスペースにする。</li>
+<li>選択肢［中に「workspace」を作って使う］（<code>&lt;選んだフォルダ&gt;\workspace</code>）: <code>workspace</code> が無いか、あっても空のときだけ出す。作ってから、そこをワークスペースにする。</li>
 <li>選択肢［このフォルダをそのまま使う］（<code>中のファイルは消しません。tebunko のファイルが同じフォルダに混ざります</code>）。</li>
 </ul>
-<p><strong>インデックスがあるフォルダ</strong>（中に tebunko のファイル・フォルダ（<code>getWorkspaceEntries</code>）があるとき。ほかの人が共有したワークスペースなど）の見出しは <code>選んだフォルダには、すでにインデックスがあります。どうしますか？</code>。インデックスを共有し、ほかの人が取り込めるようにするための選択肢を出す。既定のボタンは［キャンセル］。</p>
+<p><strong>インデックスがあるフォルダ</strong>（中に tebunko のファイル・フォルダ（<code>getWorkspaceEntries</code>）があるとき。ほかの人が共有したワークスペースなど）の見出しは <code>選んだフォルダには、すでにインデックスがあります。どうしますか？</code>。インデックスを共有し、ほかの人が使えるようにするための選択肢を出す。既定のボタンは［キャンセル］。</p>
 <ul>
 <li><code>✓ インデックス・取り込み一覧などがあります</code>（中にある名前）</li>
 <li><code>→ 使うときは、インデックスの一覧もこのワークスペースのものにします</code>（<code>今のワークスペースの中身は移さず、元の場所に残します：&lt;今のワークスペース&gt;</code>）</li>
 <li>補足: <code>ほかの人が共有したインデックスを使うときは［あるインデックスを使う］を選んでください。</code></li>
 <li>選択肢［あるインデックスを使う］: 今のワークスペースの中身は移さない。インデックスの一覧（<code>targetFolders</code>）を、そのワークスペースの取り込み一覧にあるクロール対象フォルダにする（<code>useWorkspaceTargets</code>。取り込み一覧が無ければ一覧は変えない）。一覧を合わせないままインデックス作成をすると、一覧に無いインデックスが削除されたフォルダのものとして消えるため。</li>
-<li>選択肢［消して、最初からやり直す］（赤いボタン。<code>このフォルダのインデックス・取り込み一覧・ログを削除し、今のワークスペースの中身を移します（元に戻せません）</code>）: そのフォルダの tebunko のファイル・フォルダだけを削除し（<code>removeWorkspaceEntries</code>。ほかのファイルは消さない）、今のワークスペースの中身を移す。</li>
+<li>選択肢［消して、最初からやり直す］（赤いボタン。<code>このフォルダのインデックス・ログを削除し、今のワークスペースの中身を移します（元に戻せません）</code>）: そのフォルダの tebunko のファイル・フォルダだけを削除し（<code>removeWorkspaceEntries</code>。ほかのファイルは消さない）、今のワークスペースの中身を移す。</li>
 </ul>
-<p>決めると、実行中の検索を止めてから、今のワークスペースの中身（tebunko が作るファイル・フォルダだけ。利用者のほかのファイルは移さない）を新しいワークスペースへ移す（<code>moveWorkspace</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。移し先に同じ名前があるときや、ファイルが開かれていて移せないときは、移した分を戻し、理由を知らせてワークスペースを変えない。移せたら <code>setting.config</code> の <code>workspaceFolder</code> に保存し（既定の場所なら空）、画面は開き直さず、その場で新しいワークスペースに切り替える（<code>settings_tab.ps1</code> の <code>switchWorkspace</code>）。実行中の検索は止め、検索結果・プレビューを空にし、インデックス一覧・取り込みの状態・検索対象のツリー・件数を新しいワークスペースから読み直す。切り替える前に始めた裏の仕事（取り込みの状態の集計・件数の数え上げ・高速検索が使えるかの確認）の結果は、画面に出さない。インデックス一覧（クロール対象フォルダ）は変わらず、中身を移したので、インデックス・取り込みの状態もそのまま使える。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）は <code>&lt;ワークスペース&gt;\content_index</code> の下のフルパスで持つため、移した先のインデックスの下に付け替える（<code>moveSearchExcludes</code>）。</p>
+<p>決めると、実行中の検索を止めてから、今のワークスペースの中身（tebunko が作るファイル・フォルダだけ。利用者のほかのファイルは移さない）を新しいワークスペースへ移す（<code>moveWorkspace</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）。移し先に同じ名前があるときや、ファイルが開かれていて移せないときは、移した分を戻し、理由を知らせてワークスペースを変えない。移せたら <code>setting.config</code> の <code>workspaceFolder</code> に保存し（既定の場所なら空）、画面は開き直さず、その場で新しいワークスペースに切り替える（<code>settings_tab.ps1</code> の <code>switchWorkspace</code>）。実行中の検索は止め、検索結果・プレビューを空にし、インデックス一覧・更新の状態・検索対象のツリー・件数を新しいワークスペースから読み直す。切り替える前に始めた裏の仕事（更新の状態の集計・件数の数え上げ・高速検索が使えるかの確認）の結果は、画面に出さない。インデックス一覧（クロール対象フォルダ）は変わらず、中身を移したので、インデックス・更新の状態もそのまま使える。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）は <code>&lt;ワークスペース&gt;\content_index</code> の下のフルパスで持つため、移した先のインデックスの下に付け替える（<code>moveSearchExcludes</code>）。</p>
 
 
 
@@ -4179,13 +4149,13 @@
         
         
           
-          <a href="../process-tab/" class="md-footer__link md-footer__link--next" aria-label="次: ［9 プロセス停止］タブ">
+          <a href="../leftover-office/" class="md-footer__link md-footer__link--next" aria-label="次: 前回残った Office の確認">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                ［9 プロセス停止］タブ
+                前回残った Office の確認
               </div>
             </div>
             <div class="md-footer__button md-icon">

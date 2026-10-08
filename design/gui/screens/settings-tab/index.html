@@ -16,7 +16,7 @@
         <link rel="prev" href="../search-tab/">
       
       
-        <link rel="next" href="../process-tab/">
+        <link rel="next" href="../../../testing/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>［8 設定］タブ - tebunko</title>
+        <title>［設定］タブ - tebunko</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#8-設定タブ" class="md-skip">
+        <a href="#設定タブ" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ［8 設定］タブ
+              ［設定］タブ
             
           </span>
         </div>
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3030,7 +3030,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3051,14 +3051,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../process-tab/" class="md-nav__link">
+      <a href="../../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3141,8 +3141,6 @@
       
         
           
-        
-      
         
       
         
@@ -3249,7 +3247,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3277,7 +3275,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3314,7 +3312,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3332,7 +3330,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3488,34 +3486,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -4353,14 +4323,15 @@
   
 
 
-<h1 id="8-設定タブ">［8 設定］タブ<a class="headerlink" href="#8-設定タブ" title="Permanent link">&para;</a></h1>
-<p>細かい仕様は <a href="../../settings-tab/">［8 設定］タブ</a> にある。写真の中で利用者のフォルダのパスが出る部分は、塗りつぶして <code>C:\Users\test\...</code> と描き直している（<a href="../#撮り方と撮り直し方">撮り方</a>）。</p>
+<h1 id="設定タブ">［設定］タブ<a class="headerlink" href="#設定タブ" title="Permanent link">&para;</a></h1>
+<p>細かい仕様は <a href="../../settings-tab/">［設定］タブ</a> にある。写真の中で利用者のフォルダのパスが出る部分は、塗りつぶして <code>C:\Users\test\...</code> と描き直している（<a href="../#撮り方と撮り直し方">撮り方</a>）。</p>
 <h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
 <p>インデックス・取り込み一覧・ログを置く場所（ワークスペース）を確かめ、変える。設定ファイルの場所も見られる。</p>
 <h2 id="部品と並び">部品と並び<a class="headerlink" href="#部品と並び" title="Permanent link">&para;</a></h2>
 <ul>
-<li>「ワークスペース」のカード。今の場所、既定の場所の説明、［変更…］［既定に戻す］、変え方の注意。</li>
-<li>「設定ファイル」のカード。設定ファイルの場所と、置き場所の説明。</li>
+<li>小見出し「インデックス設定」から始める（題「設定」と説明は置かない）。</li>
+<li>「ワークスペース」のカード（節の見出しの下に線）。今の場所、既定の場所の説明、［変更…］［既定に戻す］、変え方の注意。</li>
+<li>「設定ファイル」のカード（節の見出しの下に線）。設定ファイルの場所と、置き場所の説明。</li>
 </ul>
 <h2 id="状態と遷移">状態と遷移<a class="headerlink" href="#状態と遷移" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>stateDiagram-v2
@@ -4393,19 +4364,19 @@
 <tbody>
 <tr>
 <td>普通</td>
-<td>「ワークスペース」「インデックス・取り込み一覧・ログを置くフォルダです。…」、［変更…］［既定に戻す］。「設定ファイル」「ツールのフォルダに置いています。」</td>
+<td>「ワークスペース」「インデックス・ログを置くフォルダです。…」、［変更…］［既定に戻す］。「設定ファイル」「ツールのフォルダに置いています。」</td>
 </tr>
 <tr>
 <td>作成中の［変更…］</td>
-<td>「インデックス作成中はワークスペースを変えられません。インデックス作成が終わるまでお待ちください（［中止］で止められます）。」</td>
+<td>「更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。」</td>
 </tr>
 <tr>
 <td>空のフォルダ</td>
-<td>「ワークスペースを変えますか？」、［ワークスペースを変える］［キャンセル］。中身は新しいワークスペースへ移す旨を示す</td>
+<td>「インデックスとログを「&lt;フォルダ&gt;」へ移動します。」「移動中は、検索とインデックスの更新はできません。」、［移動する］［キャンセル］（［既定に戻す］からは［戻す］）</td>
 </tr>
 <tr>
 <td>空でないフォルダ</td>
-<td>「選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください」。選択肢は「中に「workspace」フォルダを作って、ワークスペースにする」「このフォルダをそのまま使う」、［キャンセル］</td>
+<td>「選んだフォルダは空ではありません。ワークスペースには空のフォルダを選んでください」。選択肢は「中に「workspace」を作って使う」「このフォルダのまま使う」、［キャンセル］</td>
 </tr>
 <tr>
 <td>インデックスのあるフォルダ</td>
@@ -4465,7 +4436,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../search-tab/" class="md-footer__link md-footer__link--prev" aria-label="前: ［2 検索］タブ">
+          <a href="../search-tab/" class="md-footer__link md-footer__link--prev" aria-label="前: ［検索］タブ">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4475,20 +4446,20 @@
                 前
               </span>
               <div class="md-ellipsis">
-                ［2 検索］タブ
+                ［検索］タブ
               </div>
             </div>
           </a>
         
         
           
-          <a href="../process-tab/" class="md-footer__link md-footer__link--next" aria-label="次: ［9 プロセス停止］タブ">
+          <a href="../../../testing/" class="md-footer__link md-footer__link--next" aria-label="次: テスト">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                ［9 プロセス停止］タブ
+                テスト
               </div>
             </div>
             <div class="md-footer__button md-icon">

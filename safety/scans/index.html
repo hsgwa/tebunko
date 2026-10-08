@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3150,7 +3150,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3171,14 +3171,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3259,8 +3259,6 @@
       
         
           
-        
-      
         
       
         
@@ -3367,7 +3365,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3395,7 +3393,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3423,35 +3421,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4272,7 +4242,7 @@
 <tr>
 <td><code>VERSION.txt</code></td>
 <td>zip の中</td>
-<td>版とコミットの記録（タグ名とコミットの SHA の2行。<code>tools/new_version_text.ps1</code> が作る。画面の「tebunko について」に出す）</td>
+<td>版とコミットの記録（タグ名とコミットの SHA の2行。<code>tools/new_version_text.ps1</code> が作る。画面の「バージョン情報」に出す）</td>
 </tr>
 <tr>
 <td><code>tebunko-setup-&lt;タグ&gt;.exe</code></td>
@@ -4616,7 +4586,7 @@
 </tr>
 <tr>
 <td>コードカバレッジ</td>
-<td>97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（90.0%）で、下回ると CI が失敗する</td>
+<td>97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・枠・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（90.0%）で、下回ると CI が失敗する</td>
 </tr>
 <tr>
 <td>規模</td>
@@ -4624,11 +4594,11 @@
 </tr>
 <tr>
 <td>第三者依存</td>
-<td>0 件</td>
+<td>コードは 0 件（同梱するのはフォント Rethink Sans とアイコンの形 Lucide の 2 つ。どちらも実行されない）</td>
 </tr>
 </tbody>
 </table>
-<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 12,326 行で閉じる。</p>
+<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者のコードの依存が無いため、読む範囲はこの 12,326 行で閉じる。</p>
 
 
 

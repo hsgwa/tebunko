@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3028,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3049,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../gui/process-tab/" class="md-nav__link">
+      <a href="../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3137,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3245,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3273,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3301,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4098,6 +4068,21 @@
 </thead>
 <tbody>
 <tr>
+<td><code>tebunko/ui/shell/nav_view.ps1</code>（判断層）</td>
+<td><code>getScreenOrder</code> / <code>isScreenName</code> / <code>getNextScreen</code> / <code>getShortcutAction</code></td>
+<td><a href="../gui/implementation/#実装構成">画面の実装構成</a></td>
+</tr>
+<tr>
+<td><code>tebunko/ui/shell/status_bar_view.ps1</code>（判断層）</td>
+<td><code>getIndexingStatusLine</code></td>
+<td><a href="../gui/implementation/#実装構成">画面の実装構成</a></td>
+</tr>
+<tr>
+<td><code>tebunko/ui/shell/nav.ps1</code></td>
+<td><code>getCurrentScreen</code> / <code>selectScreen</code> / <code>invokeShortcutAction</code></td>
+<td><a href="../gui/implementation/#実装構成">画面の実装構成</a></td>
+</tr>
+<tr>
 <td><code>shared/office/office_reader.ps1</code></td>
 <td><code>isZipFile</code> / <code>isCompoundFile</code> / <code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code>（ヘッダー・フッターは <code>readXlsxSheetHeaderFooter</code> / <code>readXlsxHeaderFooterLines</code> / <code>getHeaderFooterLines</code>） / <code>writeUnits</code></td>
 <td><a href="../indexing/office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint の共通処理と Office アプリの管理</a>、<a href="../indexing/excel/">Excel</a>、<a href="../indexing/word/">Word</a>、<a href="../indexing/powerpoint/">PowerPoint</a></td>
@@ -4119,7 +4104,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_plan.ps1</code></td>
-<td><code>findTargetFiles</code> / <code>createTargetList</code></td>
+<td><code>findTargetFiles</code> / <code>createTargetList</code> / <code>selectOnlyNames</code>（選んだインデックス名を、更新できるものとできないものに分ける）</td>
 <td><a href="../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>、<a href="../indexing/flow/">インデックス作成のメインフロー</a></td>
 </tr>
 <tr>

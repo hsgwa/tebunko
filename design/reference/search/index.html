@@ -763,7 +763,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3026,7 +3026,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3047,14 +3047,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3135,8 +3135,6 @@
       
         
           
-        
-      
         
       
         
@@ -3243,7 +3241,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3271,7 +3269,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3299,35 +3297,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4287,6 +4257,14 @@
 <td>newSearchRegex</td>
 </tr>
 <tr>
+<td><code>newFileKindFilter</code></td>
+<td>kinds</td>
+<td>string</td>
+<td>選んだ種類（<code>readFileKinds</code> の値）から、対象ファイルの条件（<code>*.xlsx;*.xls</code> の形）を作る。すべて選んでいる・空なら空</td>
+<td><a href="../../search/">検索</a></td>
+<td>newSearchRequest</td>
+</tr>
+<tr>
 <td><code>newFileFilter</code></td>
 <td>filter</td>
 <td><code>@{Include; Exclude}</code></td>
@@ -4612,8 +4590,8 @@
 <tbody>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code></td>
-<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
-<td><code>@{UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments}</code> / –</td>
+<td>path（既定 <code>$settingsFile</code>） / option（<code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> のうち変える項目）, path</td>
+<td><code>@{UseRegex; CaseSensitive; IncludeShapes; IncludeComments}</code> / –</td>
 <td>画面の検索条件（<code>setting.config</code> の <code>useRegex</code> / <code>caseSensitive</code> / <code>fileFilter</code> / <code>includeShapes</code> / <code>includeComments</code>。無ければオフ・空、図形とコメントはオン）。保存は option にある項目だけを変える</td>
 <td><a href="../../structure/settings-file/">設定ファイル（setting.config）</a></td>
 <td>画面</td>
@@ -4628,17 +4606,17 @@
 </tr>
 <tr>
 <td><code>getOfficeProcesses</code></td>
-<td>–</td>
-<td>プロセス情報の配列</td>
-<td>実行中の Excel・Word・PowerPoint（Id・ProcessName・AppName・Background・StartTime・MemoryMB・Title）。<code>MainWindowHandle</code> が 0 ならバックグラウンド</td>
-<td><a href="../../gui/process-tab/">［9 プロセス停止］タブ</a></td>
+<td>recordDir, selfId, selfStartTicks</td>
+<td><code>@{Id; ProcessName; AppName; StartTime; HasWindow; Owned; Owner}</code> の配列</td>
+<td>実行中の Excel・Word・PowerPoint。記録（<code>office_pids</code>）と照らして <code>Owned</code>（記録と同じプロセスか）・<code>Owner</code>（Self／Other／Gone）を付ける。<code>HasWindow</code> は <code>MainWindowHandle</code> が 0 でないこと</td>
+<td><a href="../../gui/leftover-office/">前回残った Office の確認</a></td>
 <td>画面</td>
 </tr>
 <tr>
 <td><code>stopOfficeProcesses</code></td>
-<td>ids</td>
-<td><code>@{Id; Stopped; Message}</code> の配列</td>
-<td><code>Stop-Process -Force</code> で終了し、成否と理由を返す</td>
+<td>targets, recordDir</td>
+<td><code>@{Id; Stopped; Status; Reason}</code> の配列</td>
+<td>止める直前に PID が記録と同じプロセスか照らし直し、同じものだけ <code>Stop-Process -Force</code> で終了する。<code>Status</code> は Stopped／Changed／Gone／Failed</td>
 <td>同上</td>
 <td>画面</td>
 </tr>

@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3215,7 +3215,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3236,14 +3236,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3324,8 +3324,6 @@
       
         
           
-        
-      
         
       
         
@@ -3432,7 +3430,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3460,7 +3458,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3488,35 +3486,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4553,8 +4523,8 @@
 </tr>
 <tr>
 <td>アイコン</td>
-<td><code>tebunko.ico</code></td>
-<td>持たない。窓とバージョン情報は既定のアイコン</td>
+<td><code>xaml/app_icon.xaml</code>（ベクターの絵）</td>
+<td><code>${bundledXaml}</code>。窓・スプラッシュ・バージョン情報に出る</td>
 </tr>
 <tr>
 <td>起動口</td>
@@ -4589,7 +4559,7 @@
 <h2 id="制約">制約<a class="headerlink" href="#制約" title="Permanent link">&para;</a></h2>
 <p>単一 .ps1 版で新しく生じるものだけを書く。</p>
 <ul>
-<li>アイコン（<code>tebunko.ico</code>）を埋め込まない。窓とバージョン情報は既定のアイコンになる。</li>
+<li><code>tebunko.ico</code> は埋め込まない。画面のアイコンは XAML（<code>app_icon.xaml</code>）なので、ほかの画面定義と同じく埋め込まれる。<code>.ico</code> が要るのはインストーラー・ショートカットだけで、単一 .ps1 版は使わない。</li>
 <li><code>tebunko.bat</code> が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。</li>
 <li><code>lib.ps1</code> の読み込みの失敗は、起動の失敗の知らせ（<code>reportStartupFailure</code>）に届かず、PowerShell の窓に出る。</li>
 <li><code>tebunko.cat</code>（カタログ）の対象にならない。</li>

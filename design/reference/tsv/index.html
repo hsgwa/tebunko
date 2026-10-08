@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3028,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3049,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3137,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3245,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3273,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3301,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4435,6 +4405,14 @@
 <td>–</td>
 <td>テストだけ</td>
 </tr>
+<tr>
+<td><code>testTextTrimmed</code></td>
+<td>actualWidth, requiredWidth, tolerance</td>
+<td>bool</td>
+<td>文字が枠に入りきらず省略（…）で切れているか（要る幅が実際の幅より誤差を超えて大きいときだけ $true。幅 0 以下は $false）</td>
+<td>同上</td>
+<td>addTrimmedToolTip（<code>shared/ui/trimmed_tooltip.ps1</code>）</td>
+</tr>
 </tbody>
 </table>
 <h2 id="テキストファイルの読み取りsharedcoretext_fileps1">テキストファイルの読み取り（<code>shared/core/text_file.ps1</code>）<a class="headerlink" href="#テキストファイルの読み取りsharedcoretext_fileps1" title="Permanent link">&para;</a></h2>
@@ -4741,7 +4719,7 @@
 <td>path, book, location, lineNumber, before（既定 3）, after（既定 3）, cache</td>
 <td><code>@{LineNumber; Line}</code> の配列</td>
 <td>本文インデックスのファイルの中の元のファイル book・場所 location の lineNumber 行目と前後の行を返す（行の数え方は検索と同じ）。cache（<code>newTsvTextCache</code>）に同じ本文インデックスのファイルの内容があれば読み直さない。読めない・見つからなければ空</td>
-<td><a href="../../gui/search-tab/">［2 検索］タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a></td>
+<td><a href="../../gui/search-tab/">［検索］タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a></td>
 <td>画面</td>
 </tr>
 </tbody>

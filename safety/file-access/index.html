@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3134,7 +3134,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3155,14 +3155,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3243,8 +3243,6 @@
       
         
           
-        
-      
         
       
         
@@ -3351,7 +3349,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3379,7 +3377,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3407,35 +3405,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4227,6 +4197,11 @@
 <td><code>tebunko/core/paths.ps1</code>（<code>$workspace</code>）、<code>tebunko/core/workspace.ps1</code>（<code>Workspace</code>）</td>
 </tr>
 <tr>
+<td><code>work/office_pids/&lt;PC の鍵&gt;/&lt;PID&gt;.txt</code></td>
+<td>インデックス作成が起動した Office の PID の記録（起動時の確認で、記録のあるものだけを終了するため）。Office を終了したとき・起動時の確認のときに消す</td>
+<td><code>tebunko/core/workspace.ps1</code>（<code>OfficePidRoot</code>）、<code>shared/office/office_process.ps1</code>（<code>addOfficeRecord</code>）</td>
+</tr>
+<tr>
 <td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code> 配下（ワークスペースのパスに <code>[</code> <code>]</code> があるか長すぎるときは作らない。どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みをスキップする）</td>
 <td>取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする</td>
 <td><code>tebunko/indexer/index_migrate.ps1</code> の <code>initTmpDir</code></td>
@@ -4260,7 +4235,7 @@
 </table>
 <p>単一 .ps1 版（試験版）は、<code>tebunko.bat</code> の代わりに <code>.ps1</code> ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は <code>.ps1</code> ファイル自身がある場所を指す。<code>setting.config</code> は <code>.ps1</code> のある場所に置き、書き込めないときは <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code> に置く（<code>getDataDir</code>。zip 版と同じ決め方）。ワークスペースの既定の置き場所（<code>%USERPROFILE%\Documents\tebunko_ws</code>）は、別のフォルダに置いた zip 版と同じ場所になる（<a href="../../design/structure/single-script/">単一 PowerShell のビルド</a>「実行時の違い」）。</p>
 <p>削除（<code>Remove-Item</code>・<code>[System.IO.File]::Delete</code> など）の対象はすべてワークスペース配下（取り込みの作業領域 <code>work/tmp/</code> を含む）、すなわち<strong>本ツールが自分で作ったファイル</strong>である（前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。<code>removeStaleTmpDirs</code>）。クロール対象フォルダ内のファイルを削除する処理は無い。</p>
-<p>［8 設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（<code>Workspace.Entries</code>：<code>content_index</code>・前の版の <code>index</code>・<code>system_index</code>・取り込み一覧・状態・ログ・<code>publish</code>）だけを新しいワークスペースへ移す（<code>moveWorkspace</code>）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ <code>Workspace.Entries</code>）だけを削除する（<code>removeWorkspaceEntries</code>）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。</p>
+<p>［設定］でワークスペースを変えるときは、前のワークスペースの中の本ツールが作ったファイル・フォルダ（<code>Workspace.Entries</code>：<code>content_index</code>・前の版の <code>index</code>・<code>system_index</code>・取り込み一覧・状態・ログ・<code>publish</code>）だけを新しいワークスペースへ移す（<code>moveWorkspace</code>）。別のドライブへは写してから元を削除する。選んだフォルダにすでにインデックスなどがあり、利用者が［消して、最初からやり直す］を選んだときは、そのフォルダの本ツールのファイル・フォルダ（同じ <code>Workspace.Entries</code>）だけを削除する（<code>removeWorkspaceEntries</code>）。利用者がワークスペースに置いたほかのファイルは移さず、削除しない。</p>
 <p>前の版のワークスペース（<code>index\</code>。しるしあり）が見つかり、<code>content_index\</code> が空のまま取り込み直しを始めるときは、インデクサが <code>system_index\</code>（本ツールが自分で作ったフォルダ）を削除し、<code>system_index_state.tsv</code>（本ツールが自分で作ったファイル）の中身を空にする（<code>clearLegacySystemIndex</code>）。前の版の <code>index\</code> そのものは読まず、削除しない（利用者が消す）。</p>
 <p>インデックスのインポート（<code>importIndex</code>）の書き込みは、ワークスペースの中（<code>publish\&lt;PID&gt;\import\</code>・<code>content_index\&lt;名前&gt;\</code>・取り込み一覧・<code>setting.config</code>）だけである。zip から展開したファイルは、確かめた目録のパスからだけファイル名を組み立てる（zip のエントリー名は使わない）。インポートを始めるときは、エクスポートと同じくインデックス作成のロック（<code>newAppMutex "indexer"</code>）を取り、ほかの操作と同時に走らせない。</p>
 <p><code>content_index\</code> の下のフォルダ・ファイルには、Windows Search の索引の対象から外すため「内容のインデックスを作成しない」属性（<code>NotContentIndexed</code>）を付ける（<code>setNotContentIndexed</code>。<a href="../../design/index-data/publish/#windows-search-の対象から外すnotcontentindexed">入れ替えと書き出し</a>）。インデックス作成のとき（<code>content_index</code> を作った直後・入れた直後）と、インデックスをインポートした直後（入れたフォルダ全体）と、画面がインデックス一覧を保存したとき（<code>source_folder.txt</code> 1 件）に付ける。ほかの属性（読み取り専用など）は変えず、内容も書き換えない。</p>
@@ -4330,9 +4305,9 @@
 </tr>
 <tr>
 <td>Office アプリの PID</td>
-<td>ディスクには書かない（プロセス内のメモリ上の <code>OfficePids</code> だけ）</td>
-<td>起動した Office の PID → プロセス名</td>
-<td>画面を閉じるときに、応答の無い Office だけを PID で止めるため。プロセスの生存中だけ要る情報で、ファイルに残す必要が無い</td>
+<td>メモリ上の <code>OfficePids</code>（画面を閉じるとき用）と、ワークスペースの <code>office_pids\&lt;PC の鍵&gt;\&lt;PID&gt;.txt</code>（次の起動時の確認用）</td>
+<td>起動した Office の PID → プロセス名・起動時刻・起動した側の PID</td>
+<td>画面を閉じるときは、応答の無い Office だけを PID で止める。強制終了などで残ったものは、次の起動時に記録のあるものだけを確認して止めるため、ファイルに残す</td>
 </tr>
 <tr>
 <td>書き込み中の一時ファイル（<code>&lt;保存先&gt;.tmp</code>。置き換えたら消える）</td>

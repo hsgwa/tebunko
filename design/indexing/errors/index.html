@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3190,7 +3190,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3211,14 +3211,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3299,8 +3299,6 @@
       
         
           
-        
-      
         
       
         
@@ -3407,7 +3405,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3435,7 +3433,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3463,35 +3461,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4249,7 +4219,7 @@
 <pre class="mermaid"><code>flowchart LR
     E{"発生したエラー"} -- "インデックス作成を続けられない&lt;br&gt;（4.8.1）" --&gt; F["受け渡しの口の Error&lt;br&gt;終了コード 1"] --&gt; G1["画面: 進み具合欄とエラーのダイアログ"]
     E -- "1 ファイルの取り込みに失敗&lt;br&gt;（4.8.2）" --&gt; S["work/ingest_status.tsv のエラー列&lt;br&gt;状態は『失敗』"] --&gt; G2["画面: 「取り込みに失敗したファイル」の一覧"]
-    E -- "警告・お知らせ&lt;br&gt;（4.8.3）" --&gt; L["work/indexing_log.txt"] --&gt; G3["画面: ［ログを開く］"]</code></pre>
+    E -- "警告・お知らせ&lt;br&gt;（4.8.3）" --&gt; L["work/indexing_log.txt"] --&gt; G3["利用者がログのファイルを開く"]</code></pre>
 <table>
 <thead>
 <tr>
@@ -4269,13 +4239,13 @@
 <tr>
 <td>ファイルごとの失敗（<a href="#ファイルごとの失敗取り込み一覧のエラー列">ファイルごとの失敗（取り込み一覧のエラー列）</a>）</td>
 <td><code>work/ingest_status.tsv</code> のエラー列（状態は <code>失敗</code>）</td>
-<td>［1 インデックス管理］タブの「取り込みに失敗したファイル」の一覧（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）</td>
+<td>［インデックス管理］タブの「取り込みに失敗したファイル」の一覧（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）</td>
 <td>次のファイルへ進む</td>
 </tr>
 <tr>
 <td>警告・お知らせ（<a href="#警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）</a>）</td>
 <td><code>work/indexing_log.txt</code></td>
-<td>［ログを開く］で確認する</td>
+<td>ワークスペースの <code>indexing_log.txt</code> を開いて確認する</td>
 <td>続ける</td>
 </tr>
 </tbody>
@@ -4319,19 +4289,19 @@
 <td>実行中のインデックス作成が終わるのを待つ。進み具合は画面で確認できる</td>
 </tr>
 <tr>
-<td><code>クロール対象フォルダが見つからなくなったため、インデックス作成を中止しました: &lt;パス&gt;（残り &lt;N&gt; 件は未取り込みのまま残しました。フォルダを使えるようにしてから、もう一度取り込んでください）</code></td>
+<td><code>クロール対象フォルダが見つからなくなったため、インデックス作成を中止しました: &lt;パス&gt;（残り &lt;N&gt; 件は更新せずに残しました。フォルダを使えるようにしてから、もう一度更新してください）</code></td>
 <td>インデックス作成中にクロール対象フォルダにアクセスできなくなった（ネットワークの切断・USB メモリの取り外し等）。残りのファイルをすべて失敗にしないよう中止する（<a href="../flow/">インデックス作成のメインフロー</a>）</td>
 <td>フォルダを使えるようにしてから、もう一度インデックス作成を始める（続きから取り込む）</td>
 </tr>
 <tr>
 <td><code>取り込みのスレッドが止まりました：&lt;理由&gt;</code></td>
 <td>取り込みのスレッドが途中で止まった（部品を読み込めない等。<a href="../parallel/">取り込みの並列化</a>）。理由が分からなければ <code>取り込みのスレッドが止まりました。</code></td>
-<td>メッセージと［ログを開く］の内容から原因を取り除き、もう一度インデックス作成を始める</td>
+<td>メッセージと、<code>work/indexing_log.txt</code>（<a href="#警告お知らせインデックス作成ログ">警告・お知らせ</a>）の内容から原因を取り除き、もう一度インデックス作成を始める</td>
 </tr>
 <tr>
 <td>（例外のメッセージそのまま）</td>
 <td>上記以外の予期しない例外。例: <code>work/ingest_status.tsv</code> をほかのアプリが開いていて書き込めない</td>
-<td>メッセージと［ログを開く］の内容から原因を取り除き、もう一度インデックス作成を始める</td>
+<td>メッセージと、<code>work/indexing_log.txt</code>（<a href="#警告お知らせインデックス作成ログ">警告・お知らせ</a>）の内容から原因を取り除き、もう一度インデックス作成を始める</td>
 </tr>
 </tbody>
 </table>
@@ -4352,12 +4322,12 @@
 </thead>
 <tbody>
 <tr>
-<td><code>10 分以内に取り込みが終わらなかったため中止しました（Officeアプリを強制終了しました）</code></td>
+<td><code>10 分以内に更新が終わらなかったため中止しました（Officeアプリを強制終了しました）</code></td>
 <td>1 ファイルの取り込みが制限時間（<code>$fileTimeoutMinutes</code> = 10 分）を超え、Office アプリを強制終了した</td>
 <td>ファイルを Office で開いて確認する（大きすぎる・ダイアログが出る等）</td>
 </tr>
 <tr>
-<td><code>取り込み中に &lt;N&gt; 回続けて強制終了されたため、取り込みを中止しました（Officeアプリが応答しなくなる可能性があります）</code></td>
+<td><code>更新中に &lt;N&gt; 回続けて強制終了されたため、更新を中止しました（Officeアプリが応答しなくなる可能性があります）</code></td>
 <td>同じファイルの取り込み中に <code>$interruptLimit</code>（2）回続けてインデクサが強制終了した（<a href="../ingest-list/">取り込み一覧</a>）</td>
 <td>同上</td>
 </tr>
@@ -4382,42 +4352,42 @@
 <td>シート名・スライド名を短くする</td>
 </tr>
 <tr>
-<td><code>ファイルサイズが大きすぎるため取り込めません。</code></td>
+<td><code>ファイルサイズが大きすぎるため更新できません。</code></td>
 <td>テキストファイル（<code>.txt</code> 等）が大きさの上限（10MB）を超える（<code>readTextFile</code>。<a href="../text/#大きさの上限">テキストファイルの読み取り</a>）</td>
 <td>ファイルを分割する。取り込めなくてよいなら、そのままにする</td>
 </tr>
 <tr>
-<td><code>テキストファイルではないため取り込めません。</code></td>
+<td><code>テキストファイルではないため更新できません。</code></td>
 <td>テキストの拡張子だが、文字コードを判定できない（バイナリ・UTF-32・GBK など、判定できないもの・あいまいなもの）（<code>detectTextEncoding</code>。<a href="../text/#文字コードの判定detecttextencoding">テキストファイルの読み取り</a>）</td>
 <td>拡張子を確かめる。正しいテキストファイルなら、文字コードを UTF-8・Shift_JIS・UTF-16 のどれかで保存し直す</td>
 </tr>
 <tr>
-<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）</code></td>
+<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）</code></td>
 <td>◎ パスワード付きの <code>.xlsx</code> <code>.docx</code> <code>.doc</code> <code>.pptx</code> <code>.ppt</code>。新形式（<code>.docx</code> <code>.pptx</code>）は Word・PowerPoint を起動せずに判定して記録する（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>）。Excel はパスワード付きでも Office に開かせ、下の (2) の言い換えで同じ文言になる</td>
 <td>取り込めない。パスワードを外したコピーを置けば取り込める</td>
 </tr>
 <tr>
-<td><code>IRM・秘密度ラベルで暗号化されているため取り込めません。</code></td>
+<td><code>IRM・秘密度ラベルで暗号化されているため更新できません。</code></td>
 <td>IRM・秘密度ラベルの暗号化（<a href="https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/">[MS-OFFCRYPTO]</a> の IRMDS）を検出し、Officeを起動せずに判定した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>。ライセンス取得・サインイン画面が見えないまま出て止まりうるため開かない）</td>
 <td>取り込めない。保護を外したコピーを置けば取り込める</td>
 </tr>
 <tr>
-<td><code>暗号化されているか壊れているため取り込めません。</code></td>
+<td><code>暗号化されているか壊れているため更新できません。</code></td>
 <td>ZIPでもCFBでもなく、先頭4KBにNULを含む「形式の分からないバイナリ」（透過暗号化の製品の暗号文の見込み）。アプリごとの予備が無効・開けない・出力の確かめに失敗した場合</td>
 <td>透過暗号化の製品でファイルを復号してから取り込む。製品の設定でPowerShellを許可アプリにできれば取り込めることがある</td>
 </tr>
 <tr>
-<td><code>ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。</code></td>
+<td><code>ファイルを暗号化する製品が一時ファイルを暗号化したため更新できません。</code></td>
 <td>Officeが保存した一時ファイル（変換した <code>.docx</code>・<code>.pptx</code>、<a href="../excel/">Excel</a> のテキスト保存）まで透過暗号化の製品が暗号化した（<a href="../office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の <code>testOfficeOutput</code>）</td>
 <td>同上</td>
 </tr>
 <tr>
-<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td><code>ワークスペースのパスに [ ]（角かっこ）が含まれるため、更新の作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
 <td>ワークスペースのパス（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に <code>[</code> <code>]</code> が含まれ、Excel が保存できない（<code>selectTmpDir</code>。<a href="../../structure/data/">データの置き場所とパスの決め方</a>）</td>
 <td>ワークスペースのフォルダ名・その親フォルダ名から <code>[</code> <code>]</code> を外す</td>
 </tr>
 <tr>
-<td><code>ワークスペースのパスが長すぎるため、取り込みの作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
+<td><code>ワークスペースのパスが長すぎるため、更新の作業フォルダを置けません。このファイルの取り込みをスキップしました。</code></td>
 <td>ワークスペースのパスが長く、Office が開けない（<code>selectTmpDir</code>）</td>
 <td>ワークスペースをより浅い場所に移す</td>
 </tr>
@@ -4434,7 +4404,7 @@
 </thead>
 <tbody>
 <tr>
-<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）</code></td>
+<td><code>読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）</code></td>
 <td>◎ 読み取りパスワード付きの <code>.xlsx</code> <code>.docx</code> <code>.doc</code> <code>.pptx</code> <code>.ppt</code></td>
 <td>取り込めない。パスワードを外したコピーを置けば取り込める</td>
 </tr>
@@ -4444,7 +4414,7 @@
 <td>正しい拡張子に直すか、正しいファイルに差し替える</td>
 </tr>
 <tr>
-<td><code>ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: &lt;元のメッセージ&gt;）</code></td>
+<td><code>ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再度更新してください）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>ほかのアプリが読み取りも拒否してファイルを開いている（排他で開いている）ためコピーできない。利用者が Office で通常どおり開いて編集しているだけなら、コピーできるため発生しない</td>
 <td>ファイルを閉じてから再取り込みする</td>
 </tr>
@@ -4454,7 +4424,7 @@
 <td>権限を付けてもらう</td>
 </tr>
 <tr>
-<td><code>ファイルが見つかりません（取り込み中に移動・削除・名前変更された可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
+<td><code>ファイルが見つかりません（更新中に移動・削除・名前変更された可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>クロールしてから取り込むまでの間にファイルが移動・削除された</td>
 <td>次のインデックス作成で自動的に一覧から除かれる</td>
 </tr>
@@ -4464,7 +4434,7 @@
 <td>クロール対象フォルダを浅い場所にする</td>
 </tr>
 <tr>
-<td><code>シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: &lt;元のメッセージ&gt;）</code></td>
+<td><code>シート・文書が大きすぎて更新できません（メモリが不足しました）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>◎ 1 枚のシートがテキストにして約 1GB を超える（100 万行 × 30 列など）。整形（<code>prettyTsv</code>）でシート 1 枚分を一度に読み込めない</td>
 <td>シートを分ける。PC のメモリを増やす</td>
 </tr>
@@ -4476,7 +4446,7 @@
 <tr>
 <td><code>Officeアプリが異常終了したか、内部でエラーが発生しました（ファイルが壊れている、または大きすぎる可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
 <td>取り込み中に Office アプリが落ちた・強制終了された</td>
-<td>ファイルを Office で開いて確認する。［9 プロセス停止］で残ったアプリを終了する</td>
+<td>ファイルを Office で開いて確認する。残ったアプリは、次に画面を起動したときの確認で終了する</td>
 </tr>
 <tr>
 <td><code>Officeアプリが応答しませんでした（Officeアプリでダイアログを表示中などの可能性があります）（詳細: &lt;元のメッセージ&gt;）</code></td>
@@ -4491,7 +4461,7 @@
 <li>エラー列が空の <code>失敗</code> の行は、画面の一覧では <code>（原因は記録されていません）</code> と表示する。</li>
 </ul>
 <h2 id="警告お知らせインデックス作成ログ">警告・お知らせ（インデックス作成ログ）<a class="headerlink" href="#警告お知らせインデックス作成ログ" title="Permanent link">&para;</a></h2>
-<p>インデックス作成は続けるが、利用者が知っておくべき内容。<code>work/indexing_log.txt</code> に記録する（画面の［ログを開く］で開く）。</p>
+<p>インデックス作成は続けるが、利用者が知っておくべき内容。<code>work/indexing_log.txt</code> に記録する（ワークスペースのフォルダから開く）。</p>
 <table>
 <thead>
 <tr>
@@ -4566,7 +4536,7 @@
 </tr>
 <tr>
 <td><code>&lt;アプリ名&gt; の終了に失敗しました: &lt;メッセージ&gt;</code></td>
-<td>Excel・Word・PowerPoint を終了できなかった。［9 プロセス停止］で終了する。<strong>注</strong>: 今の実装（<code>shared/office/office_app.ps1</code> の <code>Write-Host</code>）ではログに残らず、取り込みのスレッドからは表示もされない</td>
+<td>Excel・Word・PowerPoint を終了できなかった。残ったものは、次に画面を起動したときの確認で終了する。<strong>注</strong>: 今の実装（<code>shared/office/office_app.ps1</code> の <code>Write-Host</code>）ではログに残らず、取り込みのスレッドからは表示もされない</td>
 </tr>
 <tr>
 <td><code>作業フォルダを削除できませんでした: &lt;パス&gt;</code></td>

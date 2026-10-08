@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -3099,7 +3099,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3120,14 +3120,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3208,8 +3208,6 @@
       
         
           
-        
-      
         
       
         
@@ -3316,7 +3314,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3344,7 +3342,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3372,35 +3370,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4170,15 +4140,15 @@
     participant CV as インデクサ（tebunko/indexer.ps1）
     participant W as work/content_index/
 
-    U-&gt;&gt;G: ［1 インデックス管理］の［追加…］でインデックスを追加
-    U-&gt;&gt;G: ［インデックス作成を開始］
+    U-&gt;&gt;G: ［インデックス管理］の［＋ フォルダを追加］でインデックスを追加
+    U-&gt;&gt;G: ［すべて更新］
     G-&gt;&gt;CV: 画面のプロセスのスレッドで実行（受け渡しの口 -Channel）
     CV-&gt;&gt;CV: 取り込み対象を数える（更新日時・サイズを前回と比べる）
     G-&gt;&gt;U: インデックスごとの取り込み対象の件数を確認（更新が無ければ「更新不要」）
-    U-&gt;&gt;G: ［インデックス作成を開始］（前回失敗分も再取り込みするかを選べる）／［キャンセル］
+    U-&gt;&gt;G: ［更新を開始］（前回失敗分も再取り込みするかを選べる）／［キャンセル］
     CV-&gt;&gt;W: シート・ページ・スライドごとの TSV を作成し、フォルダごとの本文インデックスに入れる（取り込み済み・更新なしはスキップ）
     G-&gt;&gt;U: 進み具合・失敗したファイルを表示（［中止］で止められる）
-    U-&gt;&gt;G: ［2 検索］でワードを入力
+    U-&gt;&gt;G: ［検索］でワードを入力
     G-&gt;&gt;W: 本文インデックスを検索
     G-&gt;&gt;U: 結果をファイルごとの見出しにまとめて表示（見出しを開くと該当行。行のダブルクリックで元のファイルを開く）</code></pre>
 <ul>
