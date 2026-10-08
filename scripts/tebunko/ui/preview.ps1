@@ -216,6 +216,19 @@ $ui.PreviewScroll.Add_PreviewKeyDown({
         $e.Handled = $true
     }
 })
+# プレビューが無いとき（結果を選んでいない・読めなかったとき）はメニューを出さない
+$ui.PreviewScroll.Add_ContextMenuOpening({
+    param ($sender, $e)
+    safe {
+        if ($null -eq $script:previewTable) {
+            $e.Handled = $true
+            return
+        }
+        $parts = @{ openHere = $ui.MenuPreviewOpen; copyCell = $ui.MenuPreviewCopy; copyRow = $ui.MenuPreviewCopyRow }
+        setContextMenuItems $ui.PreviewMenu (getPreviewMenuItems) $parts
+    }
+})
+$ui.MenuPreviewOpen.Add_Click({ safe { openSource } })
 $ui.MenuPreviewCopy.Add_Click({ safe { copyPreviewSelection } })
 $ui.MenuPreviewCopyRow.Add_Click({
     safe {

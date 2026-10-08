@@ -27,9 +27,10 @@ BeforeAll {
     }
 
     function newFakeUi {
-        $menu = { newFakeControl @("Click") @{ InputGestureText = "" } }
+        $menu = { newFakeControl @("Click") }
         return @{
-            ResultGrid       = newFakeControl @("MouseDoubleClick", "PreviewKeyDown") @{ SelectedItem = $null }
+            ResultGrid       = newFakeControl @("MouseDoubleClick", "PreviewKeyDown", "PreviewMouseRightButtonDown", "ContextMenuOpening") @{ SelectedItem = $null }
+            MenuToggleGroup  = & $menu
             MenuOpen         = & $menu
             MenuOpenReadOnly = & $menu
             MenuOpenNew      = & $menu
@@ -437,7 +438,7 @@ Describe "openWithNotepad" -Tag Io {
     }
 }
 
-Describe "getOpenMode / setOpenMode / updateOpenMenu" -Tag Unit {
+Describe "getOpenMode / setOpenMode" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "設定した開き方を返す"; set = "readOnly"; expected = "readOnly" }
         @{ name = "新規も返す"; set = "new"; expected = "new" }
@@ -452,22 +453,6 @@ Describe "getOpenMode / setOpenMode / updateOpenMenu" -Tag Unit {
     It "選んでいなければ通常" {
         $script:openMode = $null
         getOpenMode | Should -Be ${openModeNormal}
-    }
-
-    It "右クリックメニューの、既定の開き方にだけ Enter を出す" {
-        setOpenMode ${openModeReadOnly}
-        $ui.MenuOpen.InputGestureText | Should -Be ""
-        $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
-        $ui.MenuOpenNew.InputGestureText | Should -Be ""
-
-        setOpenMode ${openModeNormal}
-        $ui.MenuOpen.InputGestureText | Should -Be "Enter"
-        $ui.MenuOpenReadOnly.InputGestureText | Should -Be ""
-        $ui.MenuOpenNew.InputGestureText | Should -Be ""
-
-        setOpenMode ${openModeNew}
-        $ui.MenuOpen.InputGestureText | Should -Be ""
-        $ui.MenuOpenNew.InputGestureText | Should -Be "Enter"
     }
 }
 
@@ -761,7 +746,6 @@ Describe "画面の操作" -Tag Unit {
 
         & $ui.MenuOpenModeReadOnly.Handlers["Click"]
         getOpenMode | Should -Be ${openModeReadOnly}
-        $ui.MenuOpenReadOnly.InputGestureText | Should -Be "Enter"
         Should -Invoke writeOpenMode -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
         Should -Invoke openSource -Times 1 -Exactly -ParameterFilter { $mode -eq ${openModeReadOnly} }
 
@@ -786,6 +770,19 @@ Describe "画面の操作" -Tag Unit {
         $ui.ResultGrid.SelectedItem = newRow
         & $ui.ResultGrid.Handlers["PreviewKeyDown"] $null ([pscustomobject]@{ Key = "Return"; Handled = $false })
         Should -Invoke openSource -Times 1 -Exactly
+    }
+
+    It "メニューの［この結果を折りたたむ］は、選んでいる見出しだけを閉じる・開く" {
+        Mock toggleFileGroup { }
+
+        $ui.ResultGrid.SelectedItem = newRow
+        & $ui.MenuToggleGroup.Handlers["Click"]
+        Should -Invoke toggleFileGroup -Times 0 -Exactly
+
+        $group = [FileGroup]::new()
+        $ui.ResultGrid.SelectedItem = $group
+        & $ui.MenuToggleGroup.Handlers["Click"]
+        Should -Invoke toggleFileGroup -Times 1 -Exactly -ParameterFilter { $group -eq $group }
     }
 
     It "ほかのキーは扱わない" {

@@ -181,3 +181,48 @@ function sortFileGroups {
     $sortedGroups.AddRange([object[]]@($groups | Sort-Object $byFirst, $byOrder))
     return , $sortedGroups
 }
+
+function getResultMenuItems {
+    # 検索結果の右クリックメニューの並び。
+    #   target: "row"（ヒットした行）・"group"（ファイルの見出し）
+    #   openMode: 設定の既定の開き方（行のメニューの先頭に太字で出す）
+    #   expanded: 見出しの下の行を開いているか（見出しのメニューの開閉の項目の文言を決める）
+    # 返すもの: @{ Id; Header; Bold } の並び。区切りは Id が "separator"。
+    # 画面層は、この結果をそのままメニューに並べる（可否や並びを画面層で決めない）
+    param (
+        [string]$target,
+        [string]$openMode = ${openModeNormal},
+        [bool]$expanded = $false
+    )
+
+    $labels = [ordered]@{
+        ${openModeNormal}   = @{ Id = "openNormal";   Header = "開く" }
+        ${openModeNew}      = @{ Id = "openNew";      Header = "新規で開く" }
+        ${openModeReadOnly} = @{ Id = "openReadOnly"; Header = "読み取り専用で開く" }
+    }
+    $separator = @{ Id = "separator"; Header = ""; Bold = $false }
+
+    if ($target -eq "group") {
+        return @(
+            @{ Id = "openReadOnly"; Header = $labels[${openModeReadOnly}].Header; Bold = $true }
+            @{ Id = "openFolder"; Header = "フォルダを開く"; Bold = $false }
+            $separator
+            @{ Id = "copyPath"; Header = "ファイルのパスをコピー"; Bold = $false }
+            @{ Id = "toggleGroup"; Header = $(if ($expanded) { "この結果を折りたたむ" } else { "この結果を開く" }); Bold = $false }
+        )
+    }
+
+    # 先頭は既定の開き方。下には、ほかの開き方を［開く ▾］と同じ順（開く・新規で開く・読み取り専用で開く）で並べる
+    $default = if ($labels.Contains($openMode)) { $openMode } else { ${openModeNormal} }
+    $items = @(@{ Id = $labels[$default].Id; Header = $labels[$default].Header; Bold = $true })
+    foreach ($mode in $labels.Keys) {
+        if ($mode -ne $default) {
+            $items += @{ Id = $labels[$mode].Id; Header = $labels[$mode].Header; Bold = $false }
+        }
+    }
+    $items += @{ Id = "openFolder"; Header = "フォルダを開く"; Bold = $false }
+    $items += $separator
+    $items += @{ Id = "copyRows"; Header = "選んだ行をコピー"; Bold = $false }
+    $items += @{ Id = "copyPath"; Header = "ファイルのパスをコピー"; Bold = $false }
+    return $items
+}

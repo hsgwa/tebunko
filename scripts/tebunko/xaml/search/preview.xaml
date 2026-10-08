@@ -118,7 +118,9 @@
               <ScrollViewer x:Name="PreviewScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                             Focusable="True">
                 <ScrollViewer.ContextMenu>
-                  <ContextMenu>
+                  <!-- 項目の並び・文言・太字は、メニューを開くたびに判断層（getPreviewMenuItems）の結果で組み直す -->
+                  <ContextMenu x:Name="PreviewMenu">
+                    <MenuItem x:Name="MenuPreviewOpen" Header="元のファイルのこの場所を開く" />
                     <MenuItem x:Name="MenuPreviewCopy" Header="選んだセルをコピー" />
                     <MenuItem x:Name="MenuPreviewCopyRow" Header="この行をコピー" />
                   </ContextMenu>

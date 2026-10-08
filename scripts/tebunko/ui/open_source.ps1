@@ -360,15 +360,86 @@ function setOpenMode {
     )
 
     $script:openMode = if (${openModes} -contains $mode) { $mode } else { ${openModeNormal} }
-    updateOpenMenu
 }
 
-function updateOpenMenu {
-    # 右クリックメニューは3つの開き方をすべて出し、既定の開き方（ダブルクリック・Enter と同じ）に Enter を表示する
-    $mode = getOpenMode
-    $ui.MenuOpen.InputGestureText         = $(if ($mode -eq ${openModeNormal})   { "Enter" } else { "" })
-    $ui.MenuOpenReadOnly.InputGestureText = $(if ($mode -eq ${openModeReadOnly}) { "Enter" } else { "" })
-    $ui.MenuOpenNew.InputGestureText      = $(if ($mode -eq ${openModeNew})      { "Enter" } else { "" })
+function setContextMenuItems {
+    # 右クリックメニューを、判断層が決めた並び（@{ Id; Header; Bold } の並び）で組み直す。
+    # parts は Id → 項目（MenuItem）の表。区切りは Id が "separator"。ここでは並べるだけで、並び・文言・太字は決めない
+    param (
+        $menu,
+        $items,
+        $parts
+    )
+
+    $menu.Items.Clear()
+    foreach ($item in $items) {
+        if ($item.Id -eq "separator") {
+            [void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
+            continue
+        }
+        $menuItem = $parts[$item.Id]
+        $menuItem.Header = $item.Header
+        $menuItem.FontWeight = $(if ($item.Bold) { [System.Windows.FontWeights]::Bold } else { [System.Windows.FontWeights]::Normal })
+        [void]$menu.Items.Add($menuItem)
+    }
+}
+
+function getResultRowAt {
+    # マウスの下（またはイベントの発生元）の結果の行（DataGridRow）。列見出し・スクロールバー・余白では $null
+    param (
+        $source
+    )
+
+    $element = $source
+    while ($element -and !($element -is [System.Windows.Controls.DataGridRow])) {
+        if ($element -is [System.Windows.Controls.Primitives.DataGridColumnHeader] -or $element -is [System.Windows.Controls.Primitives.ScrollBar]) {
+            return $null
+        }
+        $element = if ($element -is [System.Windows.Media.Visual]) { [System.Windows.Media.VisualTreeHelper]::GetParent($element) } else { $null }
+    }
+    return $element
+}
+
+function selectResultRowForMenu {
+    # 右クリックした行を選んでからメニューを出す（選んでいる別の行にメニューが効かないようにする）。
+    # 行（ヒットした行）を複数選んでいて、その中の行を右クリックしたときだけ、選びを変えない（［選んだ行をコピー］のため）。
+    # 見出しや、見出しを含む選びのときは、右クリックした行だけを選ぶ。メニューの種類も押したときの対象も、この選びで決まる
+    param (
+        $row
+    )
+
+    $item = $row.Item
+    $selected = @($ui.ResultGrid.SelectedItems)
+    $keep = $row.IsSelected -and !($item -is [FileGroup]) -and @($selected | Where-Object { $_ -is [FileGroup] }).Count -eq 0
+    if (!$keep) {
+        $ui.ResultGrid.SelectedItem = $item
+    }
+}
+
+function showResultMenu {
+    # 結果の右クリックメニューを組み直す。出してよければ $true（行の無い所では $false）。
+    # cursorLeft が負のときはキーボードで開いたとき（選んでいる行に出す）
+    param (
+        $source,
+        [double]$cursorLeft
+    )
+
+    if ($cursorLeft -ge 0 -and $null -eq (getResultRowAt $source)) {
+        return $false
+    }
+    $item = $ui.ResultGrid.SelectedItem
+    if ($null -eq $item) {
+        return $false
+    }
+
+    $target = $(if ($item -is [FileGroup]) { "group" } else { "row" })
+    $expanded = $(if ($item -is [FileGroup]) { [bool]$item.IsExpanded } else { $false })
+    $parts = @{
+        openNormal = $ui.MenuOpen; openNew = $ui.MenuOpenNew; openReadOnly = $ui.MenuOpenReadOnly; openFolder = $ui.MenuOpenFolder
+        copyRows = $ui.MenuCopy; copyPath = $ui.MenuCopyPath; toggleGroup = $ui.MenuToggleGroup
+    }
+    setContextMenuItems $ui.ResultMenu (getResultMenuItems $target (getOpenMode) $expanded) $parts
+    return $true
 }
 
 function openSource {
@@ -544,6 +615,24 @@ $ui.ResultGrid.Add_PreviewKeyDown({
         $e.Handled = $true
     }
 })
+# 右クリックした行を選び、行の無い所ではメニューを出さない（インデックスの一覧の右クリックと同じ）
+$ui.ResultGrid.Add_PreviewMouseRightButtonDown({
+    param ($sender, $e)
+    safe {
+        $row = getResultRowAt $e.OriginalSource
+        if ($row) {
+            selectResultRowForMenu $row
+        }
+    }
+})
+$ui.ResultGrid.Add_ContextMenuOpening({
+    param ($sender, $e)
+    safe {
+        if (!(showResultMenu $e.OriginalSource $e.CursorLeft)) {
+            $e.Handled = $true
+        }
+    }
+})
 $ui.MenuOpen.Add_Click({ safe { openSource ${openModeNormal} } })
 $ui.MenuOpenReadOnly.Add_Click({ safe { openSource ${openModeReadOnly} } })
 $ui.MenuOpenNew.Add_Click({ safe { openSource ${openModeNew} } })
@@ -558,7 +647,6 @@ function selectOpenMode {
     if (${openModes} -contains $mode) {
         $script:openMode = $mode
         writeOpenMode $mode
-        updateOpenMenu
     }
     openSource $mode
 }
@@ -573,6 +661,13 @@ $ui.MenuOpenModeNew.Add_Click({ safe { selectOpenMode ${openModeNew} } })
 $ui.MenuOpenModeReadOnly.Add_Click({ safe { selectOpenMode ${openModeReadOnly} } })
 $ui.OpenFolderButton.Add_Click({ safe { openSourceFolder } })
 
+$ui.MenuToggleGroup.Add_Click({
+    safe {
+        if ($ui.ResultGrid.SelectedItem -is [FileGroup]) {
+            toggleFileGroup $ui.ResultGrid.SelectedItem
+        }
+    }
+})
 $ui.MenuCopy.Add_Click({ safe { copySelectedRows } })
 $ui.MenuCopyPath.Add_Click({ safe { copySourcePath } })
 $ui.ExportButton.Add_Click({ safe { exportResults } })

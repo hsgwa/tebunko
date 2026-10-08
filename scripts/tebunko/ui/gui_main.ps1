@@ -102,11 +102,11 @@ function startGui {
         @{ File = "search\result_list.xaml"; Slot = "ResultListHost"; Names = @(
             "SummaryText", "SearchProgress", "FilterBox", "FilterPlaceholder", "ExpandAllButton", "CollapseAllButton", "ExportButton",
             "ResultGrid",
-            "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath") }
+            "ResultMenu", "MenuOpen", "MenuOpenReadOnly", "MenuOpenNew", "MenuOpenFolder", "MenuCopy", "MenuCopyPath", "MenuToggleGroup") }
         @{ File = "search\preview.xaml"; Slot = "PreviewHost"; Names = @(
             "DetailPanel", "DetailTitle", "OpenButton", "OpenMenuButton", "MenuOpenModeNormal", "MenuOpenModeNew", "MenuOpenModeReadOnly", "OpenFolderButton",
             "PreviewScroll", "PreviewHeaderScroll", "PreviewHeader", "PreviewRows", "PreviewNote",
-            "PreviewPlaceholder", "MenuPreviewCopy", "MenuPreviewCopyRow") }
+            "PreviewPlaceholder", "PreviewMenu", "MenuPreviewOpen", "MenuPreviewCopy", "MenuPreviewCopyRow") }
         @{ File = "settings\settings.xaml"; Slot = "ContentHost"; Screen = "SettingsTab"; Names = @(
             "WorkspaceText", "WorkspaceNote", "ChangeWorkspaceButton", "ResetWorkspaceButton", "SettingsFileText", "SettingsFileNote") }
     )
@@ -423,7 +423,6 @@ function startGui {
     updateSettingsView
     setSearchOptionToUi (readSearchOption)
     setOpenMode (readOpenMode)
-    updateOpenMenu
     # 検索ワードの注意と［検索］の可否（検索ワードが空なので押せない）。画面を出したときに押せる色で出ないよう、先に決める
     updateWordNotice
     # 一覧を読み込むまで（loadStartupData）は、「インデックスがありません」の案内を出さない

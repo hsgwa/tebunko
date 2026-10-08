@@ -37,7 +37,7 @@ BeforeAll {
         return $part
     }
 
-    $previewScroll = newFakePart "PreviewScroll" @{ ViewportHeight = 220.0; ActualHeight = 0.0; ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "SizeChanged", "PreviewKeyDown")
+    $previewScroll = newFakePart "PreviewScroll" @{ ViewportHeight = 220.0; ActualHeight = 0.0; ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "SizeChanged", "PreviewKeyDown", "ContextMenuOpening")
     $previewScroll | Add-Member ScriptMethod UpdateLayout { }
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
@@ -58,7 +58,9 @@ BeforeAll {
         OpenButton          = newFakePart "OpenButton" @{ IsEnabled = $false; Content = "" }
         OpenMenuButton      = newFakePart "OpenMenuButton" @{ IsEnabled = $false }
         OpenFolderButton    = newFakePart "OpenFolderButton" @{ IsEnabled = $false }
-        MenuPreviewCopy     = newFakePart "MenuPreviewCopy" @{} @("Click")
+        PreviewMenu         = newFakePart "PreviewMenu"
+MenuPreviewOpen     = newFakePart "MenuPreviewOpen" @{} @("Click")
+MenuPreviewCopy     = newFakePart "MenuPreviewCopy" @{} @("Click")
         MenuPreviewCopyRow  = newFakePart "MenuPreviewCopyRow" @{} @("Click")
     }
 
@@ -81,6 +83,13 @@ BeforeAll {
     }
     function getCurrentHitRow {
         return $fake.Current
+    }
+    function openSource { $fake.Opened++ }
+    function setContextMenuItems {
+        # 判断層が決めた並びを、メニューに組むところの代わり（受け取った並びを取っておく）
+        param ($menu, $items, $parts)
+        $fake.MenuItems = $items
+        $fake.MenuParts = $parts
     }
     function startJob {
         # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
@@ -326,6 +335,43 @@ Describe "showDetail" -Tag Io {
 
         $script:previewTable.Rows.Count | Should -Be 1
         $script:previewTable.Rows[0].Number | Should -Be "2"
+    }
+}
+
+Describe "プレビューの右クリックメニュー" -Tag Unit {
+    BeforeEach {
+        resetPreview
+        $fake.Opened = 0
+        $fake.MenuItems = $null
+    }
+
+    It "プレビューが無いときは、メニューを出さない" {
+        $script:previewTable = $null
+        $e = [pscustomobject]@{ Handled = $false }
+
+        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+
+        $e.Handled | Should -Be $true
+        $fake.MenuItems | Should -BeNullOrEmpty
+    }
+
+    It "プレビューがあるときは、判断層の並びでメニューを組む" {
+        $script:previewTable = [PreviewTable]::new()
+        $e = [pscustomobject]@{ Handled = $false }
+
+        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+
+        $e.Handled | Should -Be $false
+        ($fake.MenuItems | ForEach-Object { $_.Id }) -join "/" | Should -Be "openHere/separator/copyCell/copyRow"
+        $fake.MenuParts["openHere"].PartName | Should -Be "MenuPreviewOpen"
+        $fake.MenuParts["copyCell"].PartName | Should -Be "MenuPreviewCopy"
+        $fake.MenuParts["copyRow"].PartName | Should -Be "MenuPreviewCopyRow"
+    }
+
+    It "［元のファイルのこの場所を開く］は、選んでいる結果の行を開く処理を呼ぶ" {
+        & $handlers["MenuPreviewOpen.Click"]
+
+        $fake.Opened | Should -Be 1
     }
 }
 
