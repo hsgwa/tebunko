@@ -4248,7 +4248,7 @@
 <tbody>
 <tr>
 <td>設定の置き場</td>
-<td>ツールのフォルダ（<code>$rootDir</code>）にファイルを作れればそこ。作れなければ、呼び出し側が渡す代わりのフォルダ（tebunko では既定のワークスペース <code>getDefaultWorkDir</code>）の直下。前の版の <code>%LOCALAPPDATA%\tebunko</code> と <code>%TEMP%</code> には置かない（ツールのフォルダ自体が <code>%LOCALAPPDATA%\Programs\tebunko</code> にあるインストーラー版では、書き込めるのでその直下に置く）</td>
+<td>ツールのフォルダ（<code>$rootDir</code>）にファイルを作れればそこ。作れなければ、呼び出し側が渡す代わりのフォルダ（tebunko では既定のワークスペース <code>getDefaultWorkDir</code>）の直下。<code>%LOCALAPPDATA%\tebunko</code> と <code>%TEMP%</code> には置かない（ツールのフォルダ自体が <code>%LOCALAPPDATA%\Programs\tebunko</code> にあるインストーラー版では、書き込めるのでその直下に置く）</td>
 <td><code>scripts/shared/core/data_dir.ps1</code> の <code>getDataDir</code>（書き込めるかは <code>testWritableFolder</code>。試しに作ったファイルは閉じると消える）、<code>scripts/tebunko/core/settings.ps1</code> の <code>getSettingsFilePath</code></td>
 </tr>
 <tr>
