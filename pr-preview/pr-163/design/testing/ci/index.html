@@ -4165,6 +4165,7 @@
 <li><strong>書き換えるコメントは、作者が <code>github-actions[bot]</code> で、1 行目がそのワークフロー専用の目印（<code>&lt;!-- pr-check:&lt;id&gt; --&gt;</code>。<code>id</code> は <code>test</code>・<code>title</code>・<code>docs</code>・<code>codeql</code>・<code>gui</code>・<code>perf-check</code>）のものだけ。</strong> 無ければ新しく書く。目印がワークフローごとに違うため、ほかのワークフローが書いたコメントは書き換えない</li>
 <li><strong>perf-check は <code>search</code>・<code>ingest</code> の 2 つのジョブの結果をまとめる。</strong> カンマ区切りで両方の結果を渡し、悪いほうの結果（<code>failure</code> &gt; <code>cancelled</code> &gt; <code>skipped</code> &gt; <code>success</code>）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る</li>
 <li><strong>perf-check は、perf-check 以外のラベルを付けて起動した実行では書かない。</strong> その実行は <code>search</code>・<code>ingest</code> がスキップになり、書くと前の結果（失敗など）が「スキップ」に書き換わるため（<code>concurrency</code> と同じ条件）</li>
+<li><strong><code>pr-comment</code> ジョブの条件は <code>!cancelled()</code>。</strong> 取り消された実行はコメントを書き換えない（古い実行が新しい結果を消さないため）。前段のジョブが失敗・スキップのときは書く</li>
 <li><strong>コメントには、PR の head のコミットを短い形で添える。</strong> 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため</li>
 <li><strong>Dependabot の PR にはコメントしない。</strong> PR の作者（<code>github.event.pull_request.user.login</code>）が <code>dependabot[bot]</code> の実行は対象から外す</li>
 <li><code>release.yml</code> は <code>test.yml</code> を <code>workflow_call</code> で呼ぶ。呼ばれる側の <code>pr-comment</code> ジョブが <code>pull-requests: write</code> を求めるため、呼ぶ側の <code>test</code> ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では <code>pr-comment</code> 自体はスキップされる</li>
