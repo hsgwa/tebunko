@@ -71,22 +71,22 @@ function describeIngestError {
 
     if ($message -match "パスワード|password") {
         # 元のメッセージ（パスワードが間違っています等）は、パスワードを入力していない利用者には誤解を招くため付けない
-        return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
+        return "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）"
     }
 
     $cause = $null
     if ($base -is [System.IO.FileNotFoundException] -or $base -is [System.IO.DirectoryNotFoundException]) {
-        $cause = "ファイルが見つかりません（取り込み中に移動・削除・名前変更された可能性があります）"
+        $cause = "ファイルが見つかりません（更新中に移動・削除・名前変更された可能性があります）"
     } elseif ($base -is [System.UnauthorizedAccessException] -or $code -eq "80070005") {
         $cause = "ファイルを読むアクセス権がありません"
     } elseif ($base -is [System.IO.PathTooLongException]) {
         $cause = "パスが長すぎるため読めません"
     } elseif ($base -is [System.OutOfMemoryException]) {
         # 巨大なシート（テキストにして約 1GB 超）は、整形（prettyTsv）で一度に読み込めずメモリ不足になる
-        $cause = "シート・文書が大きすぎて取り込めません（メモリが不足しました）"
+        $cause = "シート・文書が大きすぎて更新できません（メモリが不足しました）"
     } elseif (@("80070020", "80070021") -contains $code) {
         # 共有違反・ロック違反
-        $cause = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）"
+        $cause = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再度更新してください）"
     } elseif (@("80040154", "80080005", "800401F3") -contains $code) {
         # クラス未登録・サーバーの起動失敗・ProgID 不正
         $cause = "Officeアプリ（Excel・Word・PowerPoint）を起動できませんでした（インストール・ライセンス認証の状態を確認してください）"
@@ -250,18 +250,22 @@ function removeIngestingFile {
 
 function newIndexerChannel {
     # 受け渡しの口を作る。画面とインデクサのスレッドの両方から読み書きするため Synchronized にする。
-    #   画面が書く      : RetryFailed・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer
+    #   画面が書く      : RetryFailed・ConfirmTargets・Workers（取り込みのスレッドの数。0 は司令のスレッドで取り込む、-1 は設定・コア数から決める）・Stop・Answer・
+    #                     OnlyNames（更新するインデックス名の配列。空なら、チェックの付いたものすべて）
     #   インデクサが書く: Progress（readIndexingProgress の形）・Plan（取り込み予定）・Error・ExitCode（0 完了 / 1 エラー / 2 中止）・
-    #                     Notice（終わりの一言。無ければ空）・Postponed（利用者のPowerPointが起動していて後回しにした件数）
+    #                     Notice（終わりの一言。無ければ空）・Postponed（利用者のPowerPointが起動していて後回しにした件数）・
+    #                     OnlySkipped（OnlyNames のうち、更新できなかった名前の @{ Name; Reason } の配列）
     #   OfficePids: インデックス作成が起動した Office の PID → プロセス名（閉じるときに止まらなければ、この PID だけを止める）
     param (
         [bool]$retryFailed = $false,
         [bool]$confirmTargets = $false,
-        [int]$workers = -1
+        [int]$workers = -1,
+        [string[]]$onlyNames = @()
     )
 
     return [hashtable]::Synchronized(@{
         RetryFailed = $retryFailed; ConfirmTargets = $confirmTargets; Workers = $workers
+        OnlyNames = @($onlyNames | Where-Object { $_ }); OnlySkipped = @()
         Progress = $null; Stop = $false
         Plan = $null; Answer = $null; Answered = New-Object System.Threading.ManualResetEvent($false)
         Error = ""; ExitCode = $null; Notice = ""; Postponed = 0

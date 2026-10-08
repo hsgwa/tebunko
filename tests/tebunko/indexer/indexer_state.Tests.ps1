@@ -151,7 +151,7 @@ Describe "describeIngestError" -Tag Io {
             return New-Object System.Runtime.InteropServices.COMException($message, [Convert]::ToInt32($code, 16))
         }
 
-        $password = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは取り込めません）"
+        $password = "読み取りパスワードが設定されているため開けません（パスワード付きのファイルは更新できません）"
     }
 
     # expected は返す文言そのもの、pattern は返す文言の形（元のメッセージの前に付ける原因など）
@@ -172,7 +172,7 @@ Describe "describeIngestError" -Tag Io {
            expected = "ファイルが壊れているか、PowerPointのファイルではありません。" }
         @{ name = "使用中は原因を付けて元のメッセージを詳細にする"
            exception = (New-Object System.IO.IOException("別のプロセスで使用されているため、アクセスできません。", [Convert]::ToInt32("80070020", 16)))
-           expected = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再取り込みしてください）（詳細: 別のプロセスで使用されているため、アクセスできません。）" }
+           expected = "ほかのアプリ・利用者がファイルを使用中のため読めません（ファイルを閉じてから再度更新してください）（詳細: 別のプロセスで使用されているため、アクセスできません。）" }
         @{ name = "アクセス権なしは原因を付けて元のメッセージを詳細にする"
            exception = (New-Object System.UnauthorizedAccessException("アクセスが拒否されました。"))
            expected = "ファイルを読むアクセス権がありません（詳細: アクセスが拒否されました。）" }
@@ -189,7 +189,7 @@ Describe "describeIngestError" -Tag Io {
         @{ name = "メモリ不足（巨大なシート）は原因を付けて元のメッセージを詳細にする"
            exception = (New-Object System.Management.Automation.MethodInvocationException('"1" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました',
                (New-Object System.OutOfMemoryException("Exception of type 'System.OutOfMemoryException' was thrown."))))
-           pattern = "^シート・文書が大きすぎて取り込めません（メモリが不足しました）（詳細: " }
+           pattern = "^シート・文書が大きすぎて更新できません（メモリが不足しました）（詳細: " }
         @{ name = "原因が分からないものは元のメッセージ（改行は詰める）"
            exception = (newComError "予期しない`r`nエラーです。" "800A03EC"); expected = "予期しない エラーです。" }
         @{ name = "メッセージが無ければエラーコードを返す"
@@ -243,6 +243,13 @@ Describe "newIndexerChannel / writeIndexingProgress / readIndexingProgress" -Tag
         $channel.Notice | Should -Be ""
         $channel.Postponed | Should -Be 0
         $channel.OfficePids.Count | Should -Be 0
+    }
+
+    It "選んだインデックス名（OnlyNames）は、空の名前を除いて入れる。無ければ空" {
+        (newIndexerChannel).OnlyNames.Count | Should -Be 0
+        $channel = newIndexerChannel $false $false -1 @("営業", "", "技術")
+        @($channel.OnlyNames) | Should -Be @("営業", "技術")
+        $channel.OnlySkipped.Count | Should -Be 0
     }
 
     It "段階・件数・内容を往復できる。タブ・改行はスペースにする" {

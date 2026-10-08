@@ -1,14 +1,32 @@
 ﻿# 画面設計（現行）
 
-GUI を改善する前に、今の画面をすべての状態で写真に撮って残す区分。写真は道具（`tools/capture_screens.ps1`）で自動で撮り、`docs/images/screens/` に置く。タブごとの No. の表（[［1 インデックス管理］タブ](../index-tab.md) など）は仕様として残し、ここには書き写さない。画面ごとのページは、写真・部品と並び・状態と遷移・表示する文言・改善の候補をまとめる（部品と並び以降は、写真を載せた後の別のアイテムでまとめる）。
+GUI を改善する前に、今の画面をすべての状態で写真に撮って残す区分。写真は道具（`tools/capture_screens.ps1`）で自動で撮り、`docs/images/screens/` に置く。タブごとの No. の表（[［インデックス管理］タブ](../index-tab.md) など）は仕様として残し、ここには書き写さない。画面ごとのページは、目的・部品と並び・状態と遷移・表示する文言・写真をまとめる。
 
 ## この区分のページ
 
 - [本体・共通の状態](window.md)
-- [［1 インデックス管理］タブ](index-tab.md)
-- [［2 検索］タブ](search-tab.md)
-- [［8 設定］タブ](settings-tab.md)
-- [［9 プロセス停止］タブ](process-tab.md)
+- [［インデックス管理］タブ](index-tab.md)
+- [［検索］タブ](search-tab.md)
+- [［設定］タブ](settings-tab.md)
+
+## 画面全体の遷移
+
+画面ごとの状態と遷移は各ページにある。ここではタブの間の行き来だけを示す。
+
+```mermaid
+stateDiagram-v2
+    state "起動" as startup
+    state "［インデックス管理］" as t1
+    state "［検索］" as t2
+    state "［設定］" as t8
+    startup --> t1: インデックスが無い・中断している（3・4）
+    startup --> t2: インデックスがある（2）
+    startup --> t8: 既定のワークスペースにほかのファイルがある（5）
+    t1 --> t2: タブを選ぶ（7）
+    t2 --> t8: タブを選ぶ（7）
+    t2 --> t1: インデックスを作成する（26）
+    t1 --> t8: 既定のワークスペースが使えない（22）
+```
 
 ## 撮り方と撮り直し方
 
@@ -18,52 +36,56 @@ GUI を改善する前に、今の画面をすべての状態で写真に撮っ�
 .\tools\capture_screens.ps1 -OutDir <フォルダ>        写真の置き場所（既定 docs\images\screens）
 ```
 
-- **状態の ID**（写真のファイル名）は `<画面>/<状態>` の形。画面は `window`・`index-tab`・`search-tab`・`settings-tab`・`process-tab`（このページの下の一覧のページ名と同じ）。
+- **状態の ID**（写真のファイル名）は `<画面>/<状態>` の形。画面は `window`・`index-tab`・`search-tab`・`settings-tab`（このページの下の一覧のページ名と同じ）。
 - **撮り直しは、見た目が変わった画面だけにする。** 撮り直しても写真のファイル名は変えない（git は同じファイルの差し替えになる）。日付・時刻が写るので、全部を撮り直すと変わらない画面まで差し替わり、リポジトリが重くなる。
 - **道具が撮る前に確かめる、そろえる条件**（合わなければ理由を出して止まる）:
   - 表示の倍率が 100%（`HKCU:\Control Panel\Desktop\WindowMetrics` の `AppliedDPI` が 96）。画面が複数あると `AppliedDPI` が窓のある画面と合わないことがあるため、撮るときは画面を 1 つにする。
   - Windows のテーマがライトモード（`AppsUseLightTheme` が 1）。tebunko の色は `theme.xaml` が決めるため、ほかの設定は問わない。
-  - Excel・Word・PowerPoint が動いていない（［9 プロセス停止］の一覧に、本物の文書の名前が出るため）。
+  - Excel・Word・PowerPoint が動いていない（撮る画面に、本物の文書の名前が出ることがあるため）。
   - Windows の通知を止めている（集中モード・応答不可。撮る途中で通知が重なるのを防ぐ）。
   - 道具と tebunko は、管理者でない同じ利用者の権限で動かす。
 - **架空のデータを使う。** 道具は一時フォルダを、空いているドライブの文字（`Z:` から下へ探す）に `subst` で割り当て、その下でツール・ワークスペース・元のフォルダを動かす。終わったら（失敗しても）`subst /D` で外す。インデックス名・ファイル名・中身は、[個人情報を書かない](../../../../AGENTS.md#個人情報を書かない)の架空の名前を使う。
-- **利用者名が出る部品を塗りつぶす。** ［8 設定］の「既定の場所は「`C:\Users\<利用者名>\Documents\tebunko_ws`」です。」のように、OS から取る利用者のフォルダの場所は差し替えられない。道具は撮るたびに、窓の中の部品の UI オートメーションの `Name` と、入力欄（`ValuePattern`）の `Value` を調べ、利用者名・コンピューター名・利用者のフォルダのパスを含む部品の範囲を塗りつぶし、その上に置き換えた文字を描き直す。利用者のフォルダのパスは `C:\Users\test\...`、利用者名は `test`、コンピューター名は `TEST-PC` に置き換える。
+- **利用者名が出る部品を塗りつぶす。** ［設定］の「既定の場所は「`C:\Users\<利用者名>\Documents\tebunko_ws`」です。」のように、OS から取る利用者のフォルダの場所は差し替えられない。道具は撮るたびに、窓の中の部品の UI オートメーションの `Name` と、入力欄（`ValuePattern`）の `Value` を調べ、利用者名・コンピューター名・利用者のフォルダのパスを含む部品の範囲を塗りつぶし、その上に置き換えた文字を描き直す。利用者のフォルダのパスは `C:\Users\test\...`、利用者名は `test`、コンピューター名は `TEST-PC` に置き換える。
 - **本体・ダイアログ・メニューの窓の外**（デスクトップ・後ろの窓・通知）は無地の色で塗る（`CopyFromScreen` は画面に出ているものをそのまま撮るため）。
 - 撮る間はマウス・キーボードに触らない（[画面のスモークテスト](../../testing/gui-smoke.md#画面のスモークテスト)と同じ。共通の関数 `tests/gui/gui_helpers.ps1` を使い回す）。
 
 ## 撮る状態の一覧
 
-「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 40 枚。
+「遷移」は[画面遷移の一覧](../../testing/gui-smoke.md#画面のスモークテスト)の番号。計 39 枚。
 
 **本体・共通（`window`）**
 
 | ID | 状態 | 遷移 |
 |---|---|---|
-| `window/startup` | 起動中の表示（「起動しています…」） | 1 |
-| `window/menu` | ［⋯］のメニュー | 8 |
-| `window/about` | 「tebunko について」 | 8 |
-| `window/close-confirm` | 作成中に閉じるときの確認 | 10 |
+| `window/about` | 「バージョン情報」 | 8 |
+| `window/close-confirm` | 更新中に閉じるときの確認 | 10 |
 | `window/settings-broken` | 設定が壊れていたときの知らせ（メッセージボックス） | – |
+| `window/leftover` | 起動時の、前回残った Office の確認（基本） | – |
+| `window/leftover-open` | 同・詳細を開いた | – |
+| `window/leftover-many` | 同・数が多い（詳細の表が縦にスクロールする） | – |
+| `window/leftover-search` | 同・［検索］の上に出ている | – |
+| `window/leftover-killed` | ［終了する］のあと、すべて終了したときのステータス | – |
+| `window/leftover-partial` | 同・一部が確認の後に変わっていたときのステータス | – |
 
-**［1 インデックス管理］（`index-tab`）**
+**［インデックス管理］（`index-tab`）**
 
 | ID | 状態 | 遷移 |
 |---|---|---|
 | `index-tab/empty` | インデックスが無い | 3 |
-| `index-tab/normal` | インデックスがあり、取り込み済み | 7 |
+| `index-tab/normal` | インデックスがあり、更新済み | 7 |
 | `index-tab/interrupted` | 前回の作成が中断している（起動時） | 4 |
 | `index-tab/add` | 追加のダイアログ | 11 |
 | `index-tab/add-error` | 追加のダイアログの注意（入力が足りない） | 12 |
 | `index-tab/edit` | 編集のダイアログ | 14 |
 | `index-tab/delete-confirm` | 削除の確認 | 15 |
-| `index-tab/unchecked` | ［作成］のチェックを外した行がある | 16 |
-| `index-tab/start-confirm` | 作成の確認ダイアログ（件数・失敗分の取り込み直し） | 17 |
-| `index-tab/running` | 作成中（進み具合・［追加…］［編集…］［削除］が押せない） | 17・20 |
+| `index-tab/checked` | 行のチェックを付けた（［アクション ▾］の対象） | 16 |
+| `index-tab/start-confirm` | 更新の確認ダイアログ（件数・失敗分の更新し直し） | 17 |
+| `index-tab/running` | 更新中（更新の帯・行の［中止］・全体の進み・ステータスバーの 1 行。［＋ フォルダを追加］と［アクション ▾］の項目が押せない） | 17・20 |
 | `index-tab/stop-confirm` | 中止の確認 | 19 |
-| `index-tab/done` | 作成が終わった（失敗なし） | 18 |
+| `index-tab/done` | 更新が終わった（失敗なし） | 18 |
 | `index-tab/failed` | 失敗したファイルの一覧があり、タブに ⚠ | 18 |
 
-**［2 検索］（`search-tab`）**
+**［検索］（`search-tab`）**
 
 | ID | 状態 | 遷移 |
 |---|---|---|
@@ -77,28 +99,18 @@ GUI を改善する前に、今の画面をすべての状態で写真に撮っ�
 | `search-tab/collapsed` | 結果をすべて折りたたんだ | 27 |
 | `search-tab/filtered` | 結果を絞り込んだ | 27 |
 | `search-tab/missing-source` | 元のファイルが見つからないときの確認 | 29 |
-| `search-tab/min-width` | 最小の大きさ（760 × 580）で結果あり | – |
+| `search-tab/min-width` | 最小の大きさ（1024 × 640）で結果あり | – |
 
-**［8 設定］（`settings-tab`）**
+**［設定］（`settings-tab`）**
 
 | ID | 状態 | 遷移 |
 |---|---|---|
 | `settings-tab/normal` | 既定でないワークスペース（既定の場所の文は塗る） | 7 |
-| `settings-tab/running-warning` | 作成中に［変更…］（メッセージボックス） | 21 |
+| `settings-tab/running-warning` | 更新中に［変更…］（メッセージボックス） | 21 |
 | `settings-tab/empty-confirm` | 空のフォルダを選んだときの確認 | 31 |
 | `settings-tab/nonempty-confirm` | 空でないフォルダを選んだときの確認 | 32 |
 | `settings-tab/index-confirm` | インデックスのあるフォルダを選んだときの確認 | 33 |
 | `settings-tab/invalid-warning` | 使えないフォルダを選んだときの警告 | 34 |
-
-**［9 プロセス停止］（`process-tab`）**
-
-| ID | 状態 | 遷移 |
-|---|---|---|
-| `process-tab/empty` | Office のプロセスが無い | 36 |
-| `process-tab/list` | 偽のプロセスがある（タブに ⚠） | 36 |
-| `process-tab/stop-all-confirm` | ［すべて終了］の確認 | 37 |
-| `process-tab/stop-background-confirm` | ［バックグラウンドのみ終了］の確認 | 37 |
-| `process-tab/stop-selected-confirm` | 選んで終了するときの確認 | 38 |
 
 ## 撮らないもの
 

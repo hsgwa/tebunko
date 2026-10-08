@@ -7,7 +7,7 @@
 #   README.md                                         使い方。相対リンクと画像は、その版の GitHub の URL に書き換える
 #                                                     （docs\ や画像は zip に入れないため。ページ内のリンク #… はそのまま）
 #   LICENSE                                           ライセンス（MIT。写しに許諾表示を含めるため同梱する）
-#   VERSION.txt                                       版とコミットの SHA（tools\new_version_text.ps1 が作る。画面の「tebunko について」）
+#   VERSION.txt                                       版とコミットの SHA（tools\new_version_text.ps1 が作る。画面の「バージョン情報」）
 #
 # zip の横に並べて、GitHub Release に載せるもの（release.yml）:
 #   tebunko-<版>.zip

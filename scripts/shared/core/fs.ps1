@@ -260,6 +260,21 @@ function setNotContentIndexed {
     return @{ Ok = $ok; Changed = $changed; Reason = $reason }
 }
 
+function testNotContentIndexed {
+    # path に「内容のインデックスを作成しない」属性（NotContentIndexed）が付いているかを返す。
+    # 属性を確かめられなければ（パスが無い・アクセスできないなど）例外にせず $false を返す
+    param (
+        [string]$path
+    )
+
+    try {
+        $attrs = [System.IO.File]::GetAttributes((toLongPath $path))
+        return [bool]($attrs -band [System.IO.FileAttributes]::NotContentIndexed)
+    } catch {
+        return $false
+    }
+}
+
 function removeDirectoryRetry {
     # フォルダを中身ごと削除する。ウイルス対策ソフト・エクスプローラーが一時的に掴んでいることがあるため、少し待って数回試す
     param (

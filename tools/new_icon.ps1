@@ -1,8 +1,11 @@
-﻿# 画面のアイコン（scripts\tebunko\tebunko.ico）を、元データの SVG（docs\images\logo.svg）から作る。
+﻿# 画面のアイコンを、元データの SVG（docs\images\logo.svg）から作る。作るものは 2 つ。
+#   - scripts\tebunko\xaml\app_icon.xaml … 画面（窓・スプラッシュ・バージョン情報）が読むベクターの絵（DrawingImage）
+#   - scripts\tebunko\tebunko.ico … Windows が .ico しか受け付けない所（インストーラー・ショートカットなど）で使う
 #
-#   .\tools\new_icon.ps1                     docs\images\logo.svg から scripts\tebunko\tebunko.ico を作る
+#   .\tools\new_icon.ps1                     docs\images\logo.svg から app_icon.xaml と tebunko.ico を作る
 #
-# 手順:
+# 手順（XAML は SVG の path をそのまま写す。受け付ける SVG の形は tools\icon_xaml.ps1）:
+#   0. SVG から app_icon.xaml を作る
 #   1. SVG を Microsoft Edge（Windows に入っているもの）のヘッドレスモードで、背景を透明にして 1024 px の PNG に描く
 #   2. .NET Framework の System.Drawing で各サイズ（16〜256 px）に縮小する
 #   3. 各サイズの PNG をまとめて .ico にする（Windows Vista 以降の PNG 形式のアイコン。WPF の Window.Icon も読める）
@@ -10,11 +13,13 @@
 # 第三者のツール（ImageMagick・Inkscape など）は使わない。途中のファイルは work\icon\ に置く。
 param (
     [string]$Svg,
-    [string]$OutFile
+    [string]$OutFile,
+    [string]$XamlFile
 )
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
+. "$PSScriptRoot\icon_xaml.ps1"
 
 $rootDir = Split-Path $PSScriptRoot -Parent
 if (!$Svg) {
@@ -23,7 +28,15 @@ if (!$Svg) {
 if (!$OutFile) {
     $OutFile = Join-Path $rootDir "scripts\tebunko\tebunko.ico"
 }
+if (!$XamlFile) {
+    $XamlFile = Join-Path $rootDir "scripts\tebunko\xaml\app_icon.xaml"
+}
 $Svg = (Resolve-Path -LiteralPath $Svg).Path
+
+# 0. 画面が読むベクターの絵（BOM 付き UTF-8・CRLF）
+$xamlText = convertSvgToIconXaml ([System.IO.File]::ReadAllText($Svg, (New-Object System.Text.UTF8Encoding $false)))
+[System.IO.File]::WriteAllText($XamlFile, $xamlText, (New-Object System.Text.UTF8Encoding $true))
+Write-Host "ベクターの絵: $XamlFile"
 
 # .ico に入れるサイズ（タイトルバー・タスクバー・Alt+Tab・エクスプローラーの各表示と高 DPI で使われるもの）
 $sizes = @(16, 20, 24, 32, 48, 64, 128, 256)

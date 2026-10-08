@@ -2,13 +2,30 @@
 # 文字コードの判定（バイト列 → 文字コードまたはバイナリ）は、画面にもファイルにも触らない判断層の関数にする。
 # ファイルを開いて読む関数（readTextFile）だけが状態層（ファイルに触る）。
 
-# 取り込み対象にするテキストファイルの拡張子（小文字）。足す・減らすと tests\meta\safety.Tests.ps1 が固定の一覧で確かめる
-${textExtensions} = @(".txt", ".csv", ".tsv", ".md", ".log", ".json", ".xml")
+# 既定のアプリで開く、取り込み対象のテキストファイルの拡張子（小文字）。
+# 足す・減らすと tests\meta\safety.Tests.ps1 が固定の一覧で確かめる
+${textOpenExtensions} = @(
+    ".txt", ".csv", ".tsv", ".md", ".log", ".json", ".xml",
+    ".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cs", ".java", ".kt", ".kts",
+    ".go", ".rs", ".swift", ".scala", ".dart", ".vb", ".bas", ".pas", ".asm",
+    ".m", ".r", ".jl", ".hs", ".ex", ".exs", ".erl", ".clj", ".groovy", ".lua",
+    ".py", ".rb", ".pl", ".php", ".psm1", ".psd1", ".jsx", ".tsx", ".mjs", ".vue",
+    ".sql", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties",
+    ".gradle", ".cmake", ".proto", ".graphql", ".tf",
+    ".html", ".htm", ".css", ".scss", ".less", ".rst", ".tex", ".diff", ".patch"
+)
+
+# 実行・登録が既定の動作になるため、既定のアプリではなくメモ帳で開く、取り込み対象のテキストファイルの拡張子（小文字）。
+# ${textOpenExtensions} と合わせて ${textExtensions} になる。足す・減らすと tests\meta\safety.Tests.ps1 が固定の一覧で確かめる
+${textNotepadExtensions} = @(".bat", ".cmd", ".ps1", ".vbs", ".js", ".reg", ".sh")
+
+# 取り込み対象にするテキストファイルの拡張子（小文字。上の 2 つを合わせたもの）
+${textExtensions} = @(${textOpenExtensions}) + @(${textNotepadExtensions})
 
 # 元のファイルがこの大きさ（バイト）を超えたら、読まずに失敗にする
 ${textFileMaxBytes} = 10MB
 
-# BOM の無い UTF-16 の判定に使う閾値（docs/design/indexer/text.md）。
+# BOM の無い UTF-16 の判定に使う閾値（docs/design/indexing/text.md）。
 #   先頭 ${textUtf16SampleBytes} バイト（偶数バイトに切り詰める）を 2 バイトずつの組として数え、
 #   偶数の位置・奇数の位置のどちらかの NUL の割合が ${textUtf16NulRatioThreshold} 以上で、
 #   もう片方が「多い側 ÷ ${textUtf16NulSkewDivisor}」以下なら UTF-16 と判定する
@@ -43,6 +60,17 @@ function testTextExtension {
 
     $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
     return (${textExtensions} -contains $extension)
+}
+
+function testTextOpenWithNotepad {
+    # ファイル名（またはパス）の拡張子が、既定のアプリではなくメモ帳で開くテキストの拡張子か（大文字・小文字を区別しない）。
+    # .bat・.ps1・.js など、既定のアプリで開くと実行・登録になる拡張子がこちら
+    param (
+        [string]$path
+    )
+
+    $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
+    return (${textNotepadExtensions} -contains $extension)
 }
 
 function getStrictUtf8Encoding {
@@ -176,8 +204,8 @@ function detectLegacyJapaneseEncoding {
 
 function detectTextEncoding {
     # バイト列だけから文字コードを判定する（ファイルに触らない）。
-    # 順に確かめる: BOM → NUL の偏り（BOM の無い UTF-16）→ NUL の無い日本語の UTF-16 → ISO-2022-JP →
-    #   UTF-8 として正しく読めるか → Shift_JIS・EUC-JP。判定できないもの（バイナリ・UTF-32・GBK など）は $null を返す
+    # 順に確かめる: BOM → NUL の偏り（BOM の無い UTF-16）→ NUL の無い日本語の UTF-16 → NUL を含むか（バイナリ） →
+    #   ISO-2022-JP → UTF-8 として正しく読めるか → Shift_JIS・EUC-JP。判定できないもの（バイナリ・UTF-32・GBK など）は $null を返す
     #   戻り値: "UTF8" / "UTF16LE" / "UTF16BE" / "ShiftJIS" / "EUCJP" / "ISO2022JP" / $null（取り込まない）
     param (
         [byte[]]$bytes
@@ -225,6 +253,9 @@ function detectTextEncoding {
 
     $utf16 = detectJapaneseUtf16WithoutNul $bytes
     if ($null -ne $utf16) { return $utf16 }
+
+    # ここまでで BOM の無い UTF-16 とは判定できなかった。NUL（0x00）をファイル全体のどこかに含むものはバイナリとみなす
+    if ([Array]::IndexOf($bytes, [byte]0) -ge 0) { return $null }
 
     $iso = getIso2022JpVerdict $bytes
     if ($iso -eq "yes") { return "ISO2022JP" }
@@ -307,7 +338,7 @@ function readTextFile {
     $stream = [System.IO.FileStream]::new((toLongPath $path), [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
     try {
         if ($stream.Length -gt $maxBytes) {
-            throw "ファイルサイズが大きすぎるため取り込めません。"
+            throw "ファイルサイズが大きすぎるため更新できません。"
         }
         $bytes = New-Object byte[] ([int]$stream.Length)
         $read = 0
@@ -322,7 +353,7 @@ function readTextFile {
 
     $encodingName = detectTextEncoding $bytes
     if ($null -eq $encodingName) {
-        throw "テキストファイルではないため取り込めません。"
+        throw "テキストファイルではないため更新できません。"
     }
     return (splitTextLines (decodeTextBytes $bytes $encodingName))
 }

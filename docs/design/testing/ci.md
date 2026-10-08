@@ -35,7 +35,7 @@ GitHub Actions のワークフローは次のとおり。使うアクション�
 pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。
 
 - Windows PowerShell 5.1 はランナーに最初から入っている（`shell: powershell` を明示する。`pwsh`（PowerShell 7）では COM と文字コードの扱いが変わる）
-- **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
+- **どのワークフローも、`shell: powershell` の `run` は ASCII だけで書く。** Actions は `run` の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる。メッセージなどで日本語が要るときは `tools/` の BOM 付き UTF-8 のスクリプトに移して呼び出す（`shell: pwsh` はこの制限を受けない）。`tests/meta/encoding.Tests.ps1` の「shell: powershell の run は ASCII だけ」が確かめる
 - ランナーには Windows に最初から入っている Pester 3.4 もある。`tests/run.ps1` は `Import-Module Pester -RequiredVersion 5.9.0` で版を指定し、CI は 5.9.0 が無ければ入れる（版は `test.yml` の `PESTER_VERSION` と `tests/run.ps1` の 2 か所で同じにする）
 - スクリプトの改行はランナーの `core.autocrlf` に左右されないよう、`.gitattributes` で `.ps1`・`.xaml`・`.bat` を CRLF に固定している
 - ランナーに Office は入っていないため、タグ `Office` のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（[結合テスト（手動）](index.md#結合テスト手動)）
@@ -56,6 +56,7 @@ pull request と main への push のたびに windows ランナーで実行す�
 PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。
 
 - PR（ジョブ `pr-title`）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす
+- `pr-title` は `tools/check_compat_golden.ps1` も呼び、前の版との互換の見本（`tests/testdata/compat/`。[前の版との互換](../index-data/format.md#前の版との互換)）を `!` 無しで変える・消す PR を落とす
 - Issue（ジョブ `issue-title`）… 作成は止められないため、形が違えば `.github/title_comment.md` の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）
 - タイトルは誰でも書ける信頼できない入力のため、式で `run` に埋め込まず環境変数で渡す
 - 起動の速い ubuntu のランナーで `pwsh`（PowerShell 7）を使う。そのため `tools/check_commit_message.ps1` は 5.1 と 7 の両方で動くように書く
@@ -63,7 +64,7 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 
 **`gui.yml`（画面のスモークテスト）**
 
-本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（`tests/gui/*.Tests.ps1`、タグ `Gui`。何を動かすかは [画面のスモークテスト](gui-smoke.md)）。ジョブは `gui-smoke` 1 つで、`.\tests\run.ps1 -Tag Gui` を流す。
+本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・閉じるまでを動かす（`tests/gui/*.Tests.ps1`、タグ `Gui`。何を動かすかは [画面のスモークテスト](gui-smoke.md)）。ジョブは `gui-smoke` 1 つで、`.\tests\run.ps1 -Tag Gui` を流す。
 
 - **`test.yml` には入れない。** `test.yml` は `release.yml` から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば `test` と並んで動き、`test` の時間も延びない
 - **必須チェックにしない。** 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、`paths` の絞り込みは付けていない

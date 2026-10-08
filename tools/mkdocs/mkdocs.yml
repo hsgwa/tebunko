@@ -1,4 +1,4 @@
-# ドキュメント（docs/）を MkDocs で HTML のサイトにする設定。
+﻿# ドキュメント（docs/）を MkDocs で HTML のサイトにする設定。
 #
 # リポジトリの直下で実行する（privacy プラグインの cache_dir は実行した場所から数えるため）。
 #
@@ -12,7 +12,7 @@
 # 公開は .github/workflows/docs.yml が main の更新ごとに GitHub Pages へ行う。
 site_name: tebunko
 site_url: https://hsgwa.github.io/tebunko/
-site_description: Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計
+site_description: Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計
 repo_url: https://github.com/hsgwa/tebunko
 repo_name: hsgwa/tebunko
 edit_uri: edit/main/docs/
@@ -119,7 +119,7 @@ nav:
           - 元のファイルを開く: guide/open-files.md
           - 高速検索: guide/fast-search.md
           - 設定: guide/settings.md
-          - Office プロセスの停止: guide/process.md
+          - 残った Office の終了: guide/process.md
       # 安全性は、導入を審査する人（情報システム部門など）向け。ファイルは docs/safety/ に置く
       - 運用管理:
           - 安全性:
@@ -151,6 +151,7 @@ nav:
           - プロセスとスレッド: design/structure/threads.md
           - 閉じるときの順番と GC: design/structure/closing.md
           - クラスと関数の使い分け: design/structure/classes.md
+          - 単一 PowerShell のビルド: design/structure/single-script.md
       - インデックス作成:
           - design/indexing/index.md
           - インデックス作成のメインフロー: design/indexing/flow.md
@@ -186,17 +187,16 @@ nav:
           - 元のフォルダ・元のファイルがネットワークにあるとき: design/gui/network.md
           - 選択行のプレビュー: design/gui/preview.md
           - 検索対象のツリー: design/gui/search-tree.md
-          - ［8 設定］タブ: design/gui/settings-tab.md
-          - ［9 プロセス停止］タブ: design/gui/process-tab.md
+          - ［設定］タブ: design/gui/settings-tab.md
+          - 前回残った Office の確認: design/gui/leftover-office.md
           - 画面の実装構成: design/gui/implementation.md
           - 画面を固まらせない待たせ方: design/gui/responsiveness.md
           - 画面設計（現行）:
               - design/gui/screens/index.md
               - 本体・共通の状態: design/gui/screens/window.md
-              - ［1 インデックス管理］タブ: design/gui/screens/index-tab.md
-              - ［2 検索］タブ: design/gui/screens/search-tab.md
-              - ［8 設定］タブ: design/gui/screens/settings-tab.md
-              - ［9 プロセス停止］タブ: design/gui/screens/process-tab.md
+              - ［インデックス管理］タブ: design/gui/screens/index-tab.md
+              - ［検索］タブ: design/gui/screens/search-tab.md
+              - ［設定］タブ: design/gui/screens/settings-tab.md
       - 開発の進め方:
           - design/testing/index.md
           - テストの実行: design/testing/run.md

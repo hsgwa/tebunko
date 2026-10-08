@@ -1,0 +1,100 @@
+﻿<!-- 検索対象のツリー。左のナビの NavPaneHost に入れる（gui_main.ps1。検索の画面のときだけ出す）。
+     ［インデックス管理］で作ったインデックスを、チェックで検索対象にする。
+     一番上の行は「検索対象 選んだ数 / 全部の数」と、［すべて］［解除］。インデックスが無いときは、全体を IndexTreePlaceholder で覆う。 -->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{DynamicResource Bg.Pane}">
+  <Grid.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../../../shared/xaml/theme.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Grid.Resources>
+  <DockPanel Margin="12,12,8,10">
+    <DockPanel DockPanel.Dock="Top" Margin="2,0,4,8">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="CheckAllIndexButton" Style="{StaticResource Link}" Content="すべて" FontSize="11"
+                ToolTip="すべてのフォルダを検索の対象にします" />
+        <Button x:Name="UncheckAllIndexButton" Style="{StaticResource Link}" Content="解除" FontSize="11" Margin="8,0,0,0"
+                ToolTip="すべてのフォルダを検索の対象から外します" />
+      </StackPanel>
+      <TextBlock x:Name="TargetCountText" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
+                 VerticalAlignment="Center" Text="検索対象" ToolTip="［インデックス管理］で作ったインデックスの一覧です" />
+    </DockPanel>
+    <Grid DockPanel.Dock="Top" Margin="0,0,4,8">
+      <TextBox x:Name="IndexTreeFilterBox" FontSize="12" Height="28" Padding="30,0,8,0" VerticalContentAlignment="Center" />
+      <Path Data="{StaticResource Icon.Search}" Width="13" Height="13" Stretch="Uniform" Margin="10,0,0,0"
+            HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False"
+            Stroke="{StaticResource Ink.Subtle}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+      <TextBlock x:Name="IndexTreeFilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="12" Margin="30,0,0,0"
+                 Text="フォルダを探す" />
+    </Grid>
+    <!-- 何も選んでいないときの案内 -->
+    <StackPanel x:Name="TargetHint" DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="4,8,0,0" Visibility="Collapsed">
+      <Path Data="{StaticResource Icon.Info}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+            Stroke="{StaticResource Ink.Subtle}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+      <TextBlock x:Name="TargetHintText" Style="{StaticResource Micro}" Margin="6,0,0,0" VerticalAlignment="Center"
+                 TextWrapping="Wrap" Text="検索するフォルダを選んでください" />
+    </StackPanel>
+    <TreeView x:Name="IndexTree" BorderThickness="0" Background="Transparent" Padding="0"
+              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+      <TreeView.ItemContainerStyle>
+        <Style TargetType="TreeViewItem" BasedOn="{StaticResource TreeViewItem.Base}">
+          <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+        </Style>
+      </TreeView.ItemContainerStyle>
+      <TreeView.ItemTemplate>
+        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+          <Grid ToolTip="{Binding ToolTip}" Margin="0,1">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <CheckBox x:Name="Check" Grid.Column="0" IsChecked="{Binding IsChecked, Mode=OneWay}" IsThreeState="True" Focusable="False" VerticalAlignment="Center" Margin="0,0,4,0" />
+            <Path x:Name="FolderIcon" Grid.Column="1" Data="{StaticResource Icon.Folder}" Width="14" Height="14" Stretch="Uniform"
+                  VerticalAlignment="Center" Margin="0,0,6,0" Stroke="{StaticResource File.Folder}" StrokeThickness="1.6"
+                  StrokeLineJoin="Round" />
+            <Path x:Name="FileIcon" Grid.Column="1" Data="{StaticResource Icon.File}" Width="13" Height="13" Stretch="Uniform"
+                  VerticalAlignment="Center" Margin="0,0,6,0" Stroke="{StaticResource Ink.Subtle}" StrokeThickness="1.5"
+                  StrokeLineJoin="Round" Visibility="Collapsed" />
+            <TextBlock x:Name="Label" Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <!-- 元のフォルダが見つからないインデックスの印（理由はツールチップ） -->
+            <Ellipse x:Name="StatusDot" Grid.Column="3" Style="{StaticResource NavBadge.Dot}" Fill="{StaticResource Danger.Dot}"
+                     Margin="6,0,4,0" VerticalAlignment="Center" Visibility="Collapsed" />
+          </Grid>
+          <HierarchicalDataTemplate.Triggers>
+            <DataTrigger Binding="{Binding Exists}" Value="False">
+              <Setter TargetName="StatusDot" Property="Visibility" Value="Visible" />
+              <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Muted}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsFiles}" Value="True">
+              <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Muted}" />
+              <Setter TargetName="Label" Property="FontSize" Value="12" />
+              <Setter TargetName="FolderIcon" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="FileIcon" Property="Visibility" Value="Visible" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+              <Setter TargetName="Check" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="FolderIcon" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Faint}" />
+            </DataTrigger>
+          </HierarchicalDataTemplate.Triggers>
+        </HierarchicalDataTemplate>
+      </TreeView.ItemTemplate>
+    </TreeView>
+  </DockPanel>
+  <!-- インデックスが 1 つも無いとき、全体を覆う（見出し「検索対象」と、案内） -->
+  <Grid x:Name="IndexTreePlaceholder" Background="{DynamicResource Bg.Subtle}" Visibility="Collapsed">
+    <TextBlock Text="検索対象" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
+               VerticalAlignment="Top" Margin="14,14,0,0" />
+    <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="12,56,12,0">
+      <Path Data="{StaticResource Icon.Folder}" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Center"
+            Stroke="{StaticResource File.Folder}" StrokeThickness="1.6" StrokeLineJoin="Round" />
+      <TextBlock Style="{StaticResource Micro}" Margin="0,8,0,0" TextAlignment="Center" TextWrapping="Wrap"
+                 Text="検索できるフォルダがありません" />
+    </StackPanel>
+  </Grid>
+</Grid>

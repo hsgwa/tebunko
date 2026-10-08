@@ -113,8 +113,9 @@ Describe "new_release_package.ps1" -Tag Io {
         $sbom.metadata.component.version | Should -Be "v9.9.9"
         ($sbom.serialNumber -cmatch '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$') | Should -Be $true
         $sbom.metadata.timestamp | Should -Be $commitTime.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ", [System.Globalization.CultureInfo]::InvariantCulture)
-        @($sbom.components | ForEach-Object { "tebunko/" + $_.name }) | Should -Be @($zipEntries | ForEach-Object { $_.FullName })
-        foreach ($component in $sbom.components) {
+        $fileComponents = @($sbom.components | Where-Object { $_.type -eq "file" })
+        @($fileComponents | ForEach-Object { "tebunko/" + $_.name }) | Should -Be @($zipEntries | ForEach-Object { $_.FullName })
+        foreach ($component in $fileComponents) {
             $path = Join-Path $extractDir ("tebunko\" + $component.name.Replace("/", "\"))
             $component.hashes[0].alg | Should -Be "SHA-256"
             $component.hashes[0].content | Should -Be (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower()

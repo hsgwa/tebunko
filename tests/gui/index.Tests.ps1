@@ -13,30 +13,35 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
         newGuiSourceFolder $script:source -Broken
     }
 
-    It "追加・編集・［作成］の切り替え・作成・削除が動く" {
+    It "追加・編集・行のチェックの切り替え・作成・削除が動く" {
         $S = startGui $script:tool "S2"
         invokeGuiScene $S {
-            # インデックスが無いので［1 インデックス管理］が選ばれる（#3）
+            # インデックスが無いので［インデックス管理］が選ばれる（#3）
             setGuiStep $S "起動時のタブ（インデックスが無い）"
             getGuiSelectedTab $S | Should -Be "IndexTab"
 
-            # ［2 検索］の［インデックスを作成する］で［1］へ（#26）
-            setGuiStep $S "［2 検索］の［インデックスを作成する］"
+            # ［検索］の［インデックス管理へ］で［インデックス管理］へ（#26）
+            setGuiStep $S "［検索］の［インデックス管理へ］"
             selectGuiTab $S "SearchTab" "GoIndexTabButton"
-            clickGui $S $S.Window "GoIndexTabButton" "［インデックスを作成する］"
-            waitGui $S "［1 インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
+            clickGui $S $S.Window "GoIndexTabButton" "［インデックス管理へ］"
+            waitGui $S "［インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
+
+            # 頭: 見出しと説明の文は無く、ⓘ に説明がある（ツールヒントは UI オートメーションの HelpText で読む）
+            setGuiStep $S "頭に見出しと説明が無く、ⓘ に説明がある"
+            @(getGuiTexts $S.Window) | Should -Not -Contain "検索するフォルダとインデックスを管理します。ファイルを変更したら［すべて更新］でインデックスを最新にします。"
+            (findGui $S.Window -Id "IndexScreenInfo").Current.HelpText | Should -BeLike "検索したいフォルダを登録する画面です。*"
 
             # 追加: キャンセル（#11）
-            setGuiStep $S "［追加…］→［キャンセル］"
-            clickGui $S $S.Window "NewIndexButton" "［追加…］"
+            setGuiStep $S "［＋ フォルダを追加］→［キャンセル］"
+            clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
             $dialog = waitGuiWindow $S "インデックスの追加のダイアログ" -Id "FolderBox"
             clickGui $S $dialog "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 0
 
             # 追加: 入力が足りないまま［OK］は、ダイアログの中に注意が出る（#12）
-            setGuiStep $S "［追加…］→ 入力が足りないまま［OK］"
-            clickGui $S $S.Window "NewIndexButton" "［追加…］"
+            setGuiStep $S "［＋ フォルダを追加］→ 入力が足りないまま［OK］"
+            clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
             $dialog = waitGuiWindow $S "インデックスの追加のダイアログ" -Id "FolderBox"
             clickGui $S $dialog "OkButton" "［OK］"
             waitGui $S "注意（ErrorText）" ${guiDefaultTimeout} { (getGuiText (findGui $dialog -Id "ErrorText")) -ne "" } | Out-Null
@@ -51,76 +56,83 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             useGuiFolderPicker $S $script:source
             waitGui $S "フォルダの欄に入る" ${guiDefaultTimeout} { (getGuiValue (findGui $dialog -Id "FolderBox")) -eq $script:source } | Out-Null
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
+            # 名前は、追加のダイアログの欄で決める（編集のダイアログは UI オートメーションから開けないため）
+            setGuiText $S (findGui $dialog -Id "NameBox") "資料"
 
             # ［OK］で一覧に加わる（#11）
             setGuiStep $S "［OK］で追加"
+            $detailTitle = { getGuiText (findGui $S.Window -Id "IndexDetailTitle") }
+            $detailTexts = { @(getGuiTexts $S.Window) }
+            & $detailTitle | Should -Be "インデックスの状態"
             clickGui $S $dialog "OkButton" "［OK］"
             waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
-            (getGuiRowTexts $row) | Should -Contain "営業"
+            (getGuiRowTexts $row) | Should -Contain "資料"
 
-            # 編集: キャンセル・名前の変更（#14）
-            setGuiStep $S "［編集…］→［キャンセル］"
+            # 行を選ぶと、詳細の見出しが変わる（#14）。名前の編集のダイアログは、［アクション ▾］の［編集…］で開く
+            # （行の右クリックとダブルクリックは UI オートメーションから開けないので、ここでは確かめない）
+            setGuiStep $S "行を選ぶ"
             selectGui $row
-            clickGui $S $S.Window "EditIndexButton" "［編集…］"
-            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "NameBox"
+            waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
+
+            # ［アクション ▾］の［編集…］: 選んでいる行の編集のダイアログが開く（取りやめると変わらない）
+            setGuiStep $S "［アクション ▾］→［編集…］"
+            clickGuiAction $S "ActionEdit" "［編集…］"
+            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "FolderBox"
+            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "資料"
             clickGui $S $dialog "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $dialog "編集のダイアログ"
-            setGuiStep $S "［編集…］→ 名前を変えて［OK］"
-            clickGui $S $S.Window "EditIndexButton" "［編集…］"
-            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "NameBox"
-            setGuiText $S (findGui $dialog -Id "NameBox") "資料"
-            clickGui $S $dialog "OkButton" "［OK］"
-            waitGuiWindowClosed $S $dialog "編集のダイアログ"
-            $row = waitGui $S "一覧の名前が変わる" ${guiDefaultTimeout} {
-                $r = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1
-                if ($r -and ((getGuiRowTexts $r) -contains "資料")) { $r }
-            }
 
-            # ［作成］のチェックを切り替えると、設定への保存と［インデックス作成を開始］の可否に反映される（#16）
-            setGuiStep $S "［作成］のチェックの切り替え"
+            # 詳細のフォルダパスの［...］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（［編集…］で変えて［OK］と同じ道）
+            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（キャンセル）"
+            $pathText = { getGuiText (findGui $S.Window -Id "IndexDetailPath") }
+            (findGui $S.Window -Id "IndexDetailPathButton").Current.IsEnabled | Should -BeTrue
+            & $pathText | Should -Be $script:source
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            useGuiFolderPicker $S
+            & $pathText | Should -Be $script:source
+            setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（別のフォルダ）"
+            $moved = Join-Path (Split-Path -Parent $script:source) "移動先"
+            New-Item -ItemType Directory -Path $moved -Force | Out-Null
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            useGuiFolderPicker $S $moved
+            waitGui $S "フォルダパスが変わる" ${guiDefaultTimeout} { (& $pathText) -eq $moved } | Out-Null
+            setGuiStep $S "詳細のフォルダパスの［...］→ 元のフォルダへ戻す"
+            clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
+            useGuiFolderPicker $S $script:source
+            waitGui $S "フォルダパスが元に戻る" ${guiDefaultTimeout} { (& $pathText) -eq $script:source } | Out-Null
+
+            # チェックは、保存しないその場の選び。初めは付いておらず、付けても設定は書き換わず、［すべて更新］の可否も変わらない（#16）
+            setGuiStep $S "行のチェックの切り替え"
             $check = findGui $row -Type CheckBox
-            getGuiToggleState $check | Should -Be "On"
+            getGuiToggleState $check | Should -Be "Off"
+            $configWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
             toggleGui $check
-            waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
-            waitGui $S "設定の enabled が false になる" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $false } | Out-Null
-            waitGui $S "［インデックス作成を開始］が押せなくなる" ${guiDefaultTimeout} { !(findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
-            toggleGui (findGui $row -Type CheckBox)
             waitGui $S "チェックが付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "On" } | Out-Null
-            waitGui $S "設定の enabled が true に戻る" ${guiDefaultTimeout} { (readGuiConfig $script:tool).targetFolders[0].enabled -eq $true } | Out-Null
-            waitGui $S "［インデックス作成を開始］が押せるようになる" ${guiDefaultTimeout} { (findGui $S.Window -Id "IndexingButton").Current.IsEnabled } | Out-Null
-
-            # 起動時に、チェックの付いた行が表示されるだけでは、保存が重ねて走らないことを確かめる（#16）。
-            # loadTargets 自体は保存を呼ばないため、起動し直した後の書き込みは 1 件でもあれば不具合（deliberate な保存と混じらず区別できる）
-            setGuiStep $S "閉じて起動し直す"
-            closeGui $S
-            $reloadWriteTime = (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc
-            $S.Window = $null
-            $S.Process = startGuiProcess $script:tool
-            waitGuiStarted $S
-            setGuiStep $S "起動時に、チェックの付いた行の表示で余計な保存が走らないこと"
-            waitGui $S "一覧に表示される" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 } | Out-Null
-            Start-Sleep -Milliseconds 1000
-            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $reloadWriteTime -Because "起動時に、チェックの付いた行が表示されるだけでは設定ファイルを書き直さない（loadTargets は保存を呼ばない）"
+            waitGui $S "［アクション ▾］が押せる" ${guiDefaultTimeout} { (findGui $S.Window -Id "ActionsButton").Current.IsEnabled } | Out-Null
+            (findGui $S.Window -Id "IndexingButton").Current.IsEnabled | Should -BeTrue
+            (Get-Item -LiteralPath $script:tool.Config).LastWriteTimeUtc | Should -Be $configWriteTime -Because "チェックは保存しない"
+            toggleGui (findGui $row -Type CheckBox)
+            waitGui $S "チェックが外れる" ${guiDefaultTimeout} { (getGuiToggleState (findGui $row -Type CheckBox)) -eq "Off" } | Out-Null
 
             # 作成: 確認でキャンセルすると取りやめ、もう一度で取り込む（#17）
-            setGuiStep $S "［インデックス作成を開始］→ 確認で［キャンセル］"
-            clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+            setGuiStep $S "［すべて更新］→ 確認で［キャンセル］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
             clickGui $S $confirm "CancelButton" "［キャンセル］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
-            waitGui $S "取りやめて［インデックス作成を開始］に戻る" ${guiDefaultTimeout} {
+            waitGui $S "取りやめて［すべて更新］に戻る" ${guiDefaultTimeout} {
                 $b = findGui $S.Window -Id "IndexingButton"
-                $b.Current.IsEnabled -and $b.Current.Name -eq "インデックス作成を開始"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新"
             } | Out-Null
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1
             waitGui $S "「まだインデックスがありません」" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
 
-            setGuiStep $S "［インデックス作成を開始］→ 確認で［インデックス作成を開始］"
+            setGuiStep $S "［すべて更新］→ 確認で［すべて更新］"
             $sw = [Diagnostics.Stopwatch]::StartNew()
-            clickGui $S $S.Window "IndexingButton" "［インデックス作成を開始］"
+            clickGui $S $S.Window "IndexingButton" "［すべて更新］"
             $confirm = waitGuiWindow $S "取り込みの確認のダイアログ" -Id "StartButton" -Timeout ${guiIndexTimeout}
-            clickGui $S $confirm "StartButton" "確認の［インデックス作成を開始］"
+            clickGui $S $confirm "StartButton" "確認の［更新を開始］"
             waitGuiWindowClosed $S $confirm "取り込みの確認"
 
             # 取り込みが終わると、完了の表示と失敗したファイルの一覧が出る（#18）
@@ -135,16 +147,25 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "FailedGrid"))[0]) -join " " | Should -BeLike "*壊れた文書.docx*"
             Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料" | Should -BeTrue
 
+            # 更新が終わった帯には［検索する］が出る。押すと検索の画面に切り替わる
+            setGuiStep $S "帯の［検索する］"
+            $searchButton = findGui $S.Window -Id "IndexingSearchButton"
+            $searchButton.Current.Name | Should -Be "検索する"
+            clickGui $S $S.Window "IndexingSearchButton" "帯の［検索する］"
+            waitGui $S "検索の画面に切り替わる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SearchTab" } | Out-Null
+            selectGuiTab $S "IndexTab" "IndexingButton"
+
             # 削除: キャンセルすると残り、［削除する］で消える（#15）
             setGuiStep $S "［削除］→［キャンセル］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
             selectGui $row
-            clickGui $S $S.Window "RemoveIndexButton" "［削除］"
-            answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "キャンセル"
+            checkGuiRow $S $row
+            clickGuiAction $S "ActionDelete" "［削除…］"
+            answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "キャンセル"
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 1
             setGuiStep $S "［削除］→［削除する］"
-            clickGui $S $S.Window "RemoveIndexButton" "［削除］"
-            answerGuiConfirm $S "削除の確認" "一覧から削除しますか" "削除する"
+            clickGuiAction $S "ActionDelete" "［削除…］"
+            answerGuiConfirm $S "削除の確認" "インデックスを削除しますか" "削除する"
             waitGui $S "一覧から消える" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count -eq 0 } | Out-Null
             waitGui $S "インデックスのフォルダが消える" ${guiDefaultTimeout} { !(Test-Path -LiteralPath "$($script:tool.Work)\content_index\資料") } | Out-Null
 
@@ -164,7 +185,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
 Describe "S3 作成中の操作" -Tag Gui {
     BeforeAll {
         $script:envBefore = getGuiEnvSnapshot
-        $script:s3Copies = 100
+        $script:s3Copies = 300
         $script:tool = newGuiTool $TestDrive @{ ingestThreads = 1 }
         $script:source = Join-Path $TestDrive "元のフォルダ\大量"
         newGuiSourceFolder $script:source -Copies $script:s3Copies
@@ -183,20 +204,32 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "取り込みを始める"
             $sw = [Diagnostics.Stopwatch]::StartNew()
             startGuiIndexing $S
-            waitGui $S "取り込み中（［インデックス作成中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
+            waitGui $S "取り込み中（［更新中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
 
-            # 取り込み中は［追加…］［編集…］［削除］が押せない（#20）
-            setGuiStep $S "取り込み中の［追加…］［編集…］［削除］"
+            # 取り込み中は［＋ フォルダを追加］と［アクション ▾］の項目が押せない（#20）
+            setGuiStep $S "取り込み中の［＋ フォルダを追加］と［アクション ▾］の項目"
             if (!(testGuiIndexing $S)) { throw $tooFast }
-            foreach ($id in "NewIndexButton", "EditIndexButton", "RemoveIndexButton") {
-                (findGui $S.Window -Id $id).Current.IsEnabled | Should -BeFalse -Because "取り込み中は $id が押せない"
-            }
+            (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeFalse -Because "取り込み中は NewIndexButton が押せない"
+            # 更新中の行を選ぶと、詳細の「インデックス」の箱に進み具合が出て、行には［中止］が出る
+            $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            selectGui $row
+            waitGui $S "詳細に進み具合の棒が出る" ${guiDefaultTimeout} { findGui $S.Window -Id "IndexingProgressBar" } | Out-Null
+            waitGui $S "行に［中止］が出る" ${guiDefaultTimeout} { findGui $row -Id "IndexRowStopButton" } | Out-Null
 
-            # ［8 設定］の［変更…］はメッセージボックスで断られる（#21）
-            setGuiStep $S "取り込み中の［8 設定］の［変更…］"
+            # ［エクスポート…］［削除…］［インポート…］は［アクション ▾］のメニューの中。開いて、押せないことを確かめてから Esc で閉じる
+            invokeGui $S (waitGuiById $S $S.Window "ActionsButton") "［アクション ▾］" -NoWait
+            $menu = waitGuiWindow $S "アクションのメニュー" -Id "ActionDelete"
+            foreach ($id in "ActionEdit", "ActionExport", "ActionImport", "ActionDelete") {
+                (findGui $menu -Id $id).Current.IsEnabled | Should -BeFalse -Because "取り込み中は $id が押せない"
+            }
+            pressGuiKey $menu 0x1B
+            waitGuiWindowClosed $S $menu "アクションのメニュー"
+
+            # ［設定］の［変更…］はメッセージボックスで断られる（#21）
+            setGuiStep $S "取り込み中の［設定］の［変更…］"
             selectGuiTab $S "SettingsTab" "ChangeWorkspaceButton"
             clickGui $S $S.Window "ChangeWorkspaceButton" "［変更…］"
-            closeGuiMessage $S "作成中はワークスペースを変えられません" "作成中の警告" | Out-Null
+            closeGuiMessage $S "更新中はワークスペースを変えられません" "作成中の警告" | Out-Null
             selectGuiTab $S "IndexTab" "IndexingStopButton"
 
             # ［中止］→ 確認で［キャンセル］なら続き、［中止する］なら止まる（#19）
@@ -208,49 +241,58 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "［中止］→ 確認で［中止する］"
             clickGui $S $S.Window "IndexingStopButton" "［中止］"
             answerGuiConfirm $S "中止の確認" "中止しますか" "中止する"
-            waitGui $S "取り込みが止まる（［続きから再開］）" ${guiIndexTimeout} {
+            waitGui $S "更新が止まる（帯に［続きから再開］、［すべて更新］が押せる）" ${guiIndexTimeout} {
                 $b = findGui $S.Window -Id "IndexingButton"
-                $b.Current.IsEnabled -and $b.Current.Name -like "続きから再開*"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新" -and (findGui $S.Window -Id "IndexingResumeButton")
             } | Out-Null
             $S.Timing["中止まで"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
 
+            # 帯のボタンが 2 つ並ぶ（残りがあれば［検索する］と［続きから再開］）ときは、見える枠の間が 10
+            $search = findGui $S.Window -Id "IndexingSearchButton"
+            $resume = findGui $S.Window -Id "IndexingResumeButton"
+            $search | Should -Not -BeNullOrEmpty
+            $search.Current.IsOffscreen | Should -BeFalse
+            $gap = $resume.Current.BoundingRectangle.Left - $search.Current.BoundingRectangle.Right
+            $gap | Should -BeGreaterThan 9.5
+            $gap | Should -BeLessThan 10.5
+
             # 取り込みが止まると、また押せる（#20）
-            setGuiStep $S "止まった後の［追加…］［編集…］［削除］"
+            setGuiStep $S "止まった後の［＋ フォルダを追加］［編集…］［削除］"
             (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeTrue
             closeGui $S
         }
     }
 
     It "中断した取り込みから再開でき、取り込み中に閉じる確認が動く" {
-        # #4（取り込みが中断していると起動時に［1 インデックス管理］が選ばれる）は、gui.ps1 の起動時の判定
+        # #4（取り込みが中断していると起動時に［インデックス管理］が選ばれる）は、gui.ps1 の起動時の判定
         # （$script:indexingState が非同期に読み込まれる前に決めているため、Pending の判定が効かない）に見つかった
-        # 不具合により、1 件でも取り込み済みだと ［2 検索］が選ばれる。別の fix（起票済み。Backlog）で直すまで、ここではタブを
-        # 明示的に選んで続きの確かめ（#10）を行う。IndexingStateText の中断の文言は、選び直した後に出ることを確かめる
+        # 不具合により、1 件でも取り込み済みだと ［検索］が選ばれる。別の fix（起票済み。Backlog）で直すまで、ここではタブを
+        # 明示的に選んで続きの確かめ（#10）を行う。更新の帯の中断の文言は、選び直した後に出ることを確かめる
         $tooFast = "取り込みが終わってしまい、取り込み中の操作が間に合わなかった。tests\gui\index.Tests.ps1 の s3Copies（ファイルの数）を増やす"
 
         # 2 回目の起動: 続きから再開し、閉じる操作を確かめる
         $S = startGui $script:tool "S3"
         invokeGuiScene $S {
-            setGuiStep $S "起動時のタブを［1 インデックス管理］にする（#4 は別の fix で直すまでの回避）"
-            selectGuiTab $S "IndexTab" "IndexingStateText"
-            waitGui $S "「まだ取り込んでいないファイルがあります」" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexingStateText")) -like "*まだ取り込んでいないファイルがあります*" } | Out-Null
+            setGuiStep $S "起動時のタブを［インデックス管理］にする（#4 は別の fix で直すまでの回避）"
+            selectGuiTab $S "IndexTab" "IndexingButton"
+            waitGui $S "「更新を中断しました」" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*更新を中断しました*" } | Out-Null
 
             setGuiStep $S "続きから再開"
             startGuiIndexing $S
-            waitGui $S "取り込み中（［インデックス作成中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
+            waitGui $S "取り込み中（［更新中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
 
-            # 取り込み中に閉じる。確認で［閉じない］なら続き、［インデックス作成を止めて閉じる］なら止めてから終了する（#10）
+            # 取り込み中に閉じる。確認で［閉じない］なら続き、［中止して閉じる］なら止めてから終了する（#10）
             $tooFastGuard = { if (!(testGuiIndexing $S)) { throw $tooFast } }
             setGuiStep $S "取り込み中に閉じる → 確認で［閉じない］"
             if (!(testGuiIndexing $S)) { throw $tooFast }
             closeGuiWindowAsync $S $S.Window
-            answerGuiConfirm $S "閉じる確認" "止めてから閉じますか" "閉じない" -Guard $tooFastGuard
+            answerGuiConfirm $S "閉じる確認" "中止して閉じますか" "閉じない" -Guard $tooFastGuard
             $S.Process.HasExited | Should -BeFalse
             if (!(testGuiIndexing $S)) { throw $tooFast }
-            setGuiStep $S "取り込み中に閉じる → 確認で［インデックス作成を止めて閉じる］"
+            setGuiStep $S "取り込み中に閉じる → 確認で［中止して閉じる］"
             closeGuiWindowAsync $S $S.Window
-            $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "止めてから閉じますか" -Guard $tooFastGuard
-            clickGuiByName $S $confirm "インデックス作成を止めて閉じる"
+            $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
+            clickGuiByName $S $confirm "中止して閉じる"
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
             $S.Process.ExitCode | Should -Be 0
         }

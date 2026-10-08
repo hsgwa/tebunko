@@ -1,4 +1,4 @@
-﻿# ［2 検索］の選択行のプレビュー（tebunko\ui\preview.ps1）のテスト。
+﻿# ［検索］の選択行のプレビュー（tebunko\ui\preview.ps1）のテスト。
 # 画面の部品（$ui.PreviewRows など）は偽物にして、表示する中身と状態の変化を確かめる。
 # クリップボードは利用者の PC のものを書き換えるため、コピーは「選んでいないとき」だけを確かめる。
 BeforeAll {
@@ -7,7 +7,9 @@ BeforeAll {
     . "${scriptsDir}\shared\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\types.ps1"
     . "${scriptsDir}\tebunko\ui\preview_view.ps1"
-    . "${scriptsDir}\tebunko\ui\search_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\search_bar_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\result_list_view.ps1"
+    . "${scriptsDir}\tebunko\ui\search\open_source_view.ps1"
 
     # gui.ps1 で決める値
     ${previewRowHeight}     = 22
@@ -35,7 +37,7 @@ BeforeAll {
         return $part
     }
 
-    $previewScroll = newFakePart "PreviewScroll" @{ ViewportHeight = 220.0; ActualHeight = 0.0; ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "SizeChanged", "PreviewKeyDown")
+    $previewScroll = newFakePart "PreviewScroll" @{ ViewportHeight = 220.0; ActualHeight = 0.0; ViewportWidth = 400.0; HorizontalOffset = 0.0 } @("ScrollChanged", "SizeChanged", "PreviewKeyDown", "ContextMenuOpening")
     $previewScroll | Add-Member ScriptMethod UpdateLayout { }
     $previewScroll | Add-Member ScriptMethod Focus { $true }
     $previewScroll | Add-Member ScriptMethod ScrollToHorizontalOffset { param ($offset) $fake.Scrolls += $offset }
@@ -54,7 +56,10 @@ BeforeAll {
         PreviewPlaceholder  = newFakePart "PreviewPlaceholder" @{ Visibility = "Visible" }
         DetailTitle         = newFakePart "DetailTitle" @{ Text = ""; ToolTip = $null }
         OpenButton          = newFakePart "OpenButton" @{ IsEnabled = $false; Content = "" }
+        OpenMenuButton      = newFakePart "OpenMenuButton" @{ IsEnabled = $false }
         OpenFolderButton    = newFakePart "OpenFolderButton" @{ IsEnabled = $false }
+        PreviewMenu         = newFakePart "PreviewMenu"
+        MenuPreviewOpen     = newFakePart "MenuPreviewOpen" @{} @("Click")
         MenuPreviewCopy     = newFakePart "MenuPreviewCopy" @{} @("Click")
         MenuPreviewCopyRow  = newFakePart "MenuPreviewCopyRow" @{} @("Click")
     }
@@ -78,6 +83,13 @@ BeforeAll {
     }
     function getCurrentHitRow {
         return $fake.Current
+    }
+    function openSource { $fake.Opened++ }
+    function setContextMenuItems {
+        # 判断層が決めた並びを、メニューに組むところの代わり（受け取った並びを取っておく）
+        param ($menu, $items, $parts)
+        $fake.MenuItems = $items
+        $fake.MenuParts = $parts
     }
     function startJob {
         # 画面の裏の仕事（BackgroundQueue）の代わりに、その場で実行して結果を渡す。
@@ -160,6 +172,7 @@ Describe "clearDetail" -Tag Unit {
         $ui.PreviewPlaceholder.Visibility | Should -Be "Visible"
         $ui.PreviewHeaderScroll.Visibility | Should -Be "Collapsed"
         $ui.OpenButton.IsEnabled | Should -Be $false
+        $ui.OpenMenuButton.IsEnabled | Should -Be $false
         $ui.OpenFolderButton.IsEnabled | Should -Be $false
     }
 }
@@ -211,8 +224,8 @@ Describe "showDetail" -Tag Io {
         $ui.PreviewPlaceholder.Visibility | Should -Be "Collapsed"
         $ui.PreviewHeaderScroll.Visibility | Should -Be "Visible"
         $ui.OpenButton.IsEnabled | Should -Be $true
+        $ui.OpenMenuButton.IsEnabled | Should -Be $true
         $ui.OpenFolderButton.IsEnabled | Should -Be $true
-        $ui.OpenButton.Content | Should -Be "Excel で開く"
         $ui.DetailTitle.Text | Should -Be "営業部\見積.xlsx ・ [シート]4月!B3 ・ セル"
         $ui.DetailTitle.ToolTip | Should -Be $ui.DetailTitle.Text
         $ui.PreviewNote.Visibility | Should -Be "Collapsed"
@@ -228,7 +241,6 @@ Describe "showDetail" -Tag Io {
 
         showDetail
 
-        $ui.OpenButton.Content | Should -Be "開く"
         $ui.DetailTitle.Text | Should -Be "議事録.docx ・ 1 ページ（目安） ・ 本文"
     }
 
@@ -326,12 +338,49 @@ Describe "showDetail" -Tag Io {
     }
 }
 
+Describe "プレビューの右クリックメニュー" -Tag Unit {
+    BeforeEach {
+        resetPreview
+        $fake.Opened = 0
+        $fake.MenuItems = $null
+    }
+
+    It "プレビューが無いときは、メニューを出さない" {
+        $script:previewTable = $null
+        $e = [pscustomobject]@{ Handled = $false }
+
+        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+
+        $e.Handled | Should -Be $true
+        $fake.MenuItems | Should -BeNullOrEmpty
+    }
+
+    It "プレビューがあるときは、判断層の並びでメニューを組む" {
+        $script:previewTable = [PreviewTable]::new()
+        $e = [pscustomobject]@{ Handled = $false }
+
+        & $handlers["PreviewScroll.ContextMenuOpening"] $null $e
+
+        $e.Handled | Should -Be $false
+        ($fake.MenuItems | ForEach-Object { $_.Id }) -join "/" | Should -Be "openHere/separator/copyCell/copyRow"
+        $fake.MenuParts["openHere"].PartName | Should -Be "MenuPreviewOpen"
+        $fake.MenuParts["copyCell"].PartName | Should -Be "MenuPreviewCopy"
+        $fake.MenuParts["copyRow"].PartName | Should -Be "MenuPreviewCopyRow"
+    }
+
+    It "［元のファイルのこの場所を開く］は、選んでいる結果の行を開く処理を呼ぶ" {
+        & $handlers["MenuPreviewOpen.Click"]
+
+        $fake.Opened | Should -Be 1
+    }
+}
+
 Describe "copyPreviewSelection" -Tag Unit {
     BeforeEach { resetPreview }
 
     It "プレビューが無いときは、セルを選ぶよう案内する" {
         copyPreviewSelection
-        $fake.Status | Should -Match "^プレビューでコピーするセルをクリックしてください"
+        $fake.Status | Should -BeExactly "プレビューでコピーするセルをクリックしてください。"
     }
 
     It "<name>" -TestCases @(
@@ -343,7 +392,7 @@ Describe "copyPreviewSelection" -Tag Unit {
 
         & $handlers[$menu]
 
-        $fake.Status | Should -Match "^プレビューでコピーするセルをクリックしてください"
+        $fake.Status | Should -BeExactly "プレビューでコピーするセルをクリックしてください。"
     }
 }
 

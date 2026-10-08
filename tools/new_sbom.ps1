@@ -7,8 +7,8 @@
 #   serialNumber        版とコミットの SHA から決まる UUID（同じコミット・同じ版なら同じ値。CycloneDX 1.6 の形に合わせる）
 #   metadata.timestamp  コミットの時刻（UTC）
 #   metadata.component.version  版
-#   components          zip に入る全ファイル（zip 内のパス・SHA-256）
-#   dependencies        本体 → 全ファイル
+#   components          zip に入る全ファイル（zip 内のパス・SHA-256）と、同梱する第三者の部品（フォント・アイコンの形。下の $thirdParty）
+#   dependencies        本体 → 全ファイル・第三者の部品
 # -Entries は zip 内のパス（tebunko\ を除き / 区切り）→ zip に入れるバイト列（順序付き）。並びはそのまま components の順になる。
 # 返すのは BOM 無し UTF-8 の JSON。字下げ・エスケープは Windows PowerShell 5.1 の ConvertTo-Json のもので、
 # バイト列が一致するのは 5.1 で作ったとき（既定の -Depth 2 では深いところが切れるため 10 を指定する）。
@@ -24,6 +24,33 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+
+# 同梱する第三者の部品（実行されるコードではなく、purl（パッケージ識別子）は持たない）。
+# 版・ライセンスを変えたら、ここと scripts/shared/fonts/ のライセンス文・docs/safety/supply-chain.md をそろえる
+$thirdParty = @(
+    [ordered]@{
+        "type"        = "data"
+        "bom-ref"     = "third-party/rethink-sans"
+        "group"       = "Rethink Sans Project"
+        "name"        = "Rethink Sans"
+        "version"     = "20d5980cd14ce827e82d7fc58d758f7cc5086c91"   # 上流にタグが無いため、同梱の版と 1 バイトも違わない上流のコミット（2023-10-11）
+        "description" = "画面のフォント（scripts/shared/fonts/RethinkSans-wght.ttf・RethinkSans-Italic-wght.ttf）"
+        "scope"       = "required"
+        "licenses"    = @([ordered]@{ "license" = [ordered]@{ "id" = "OFL-1.1" } })
+        "externalReferences" = @([ordered]@{ "type" = "website"; "url" = "https://github.com/hans-thiessen/Rethink-Sans" })
+    }
+    [ordered]@{
+        "type"        = "data"
+        "bom-ref"     = "third-party/lucide"
+        "group"       = "Lucide Icons and Contributors"
+        "name"        = "Lucide"
+        "version"     = "1.50.0"
+        "description" = "アイコンの形（scripts/shared/xaml/theme.xaml の Icon.* に図形のデータとして写している）"
+        "scope"       = "required"
+        "licenses"    = @([ordered]@{ "license" = [ordered]@{ "id" = "ISC" } })
+        "externalReferences" = @([ordered]@{ "type" = "website"; "url" = "https://github.com/lucide-icons/lucide" })
+    }
+)
 
 $rootDir = Split-Path $PSScriptRoot -Parent
 $template = [System.IO.File]::ReadAllText((Join-Path $rootDir "sbom.cdx.json"), [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -51,6 +78,10 @@ try {
             "hashes"  = @([ordered]@{ "alg" = "SHA-256"; "content" = $fileHash })
         })
         $refs.Add($path)
+    }
+    foreach ($part in $thirdParty) {
+        $components.Add($part)
+        $refs.Add($part["bom-ref"])
     }
 } finally {
     $sha256.Dispose()

@@ -7,7 +7,7 @@ class Workspace {
     [string]$Dir
     [string]$IndexDir
     # 前の版（content_index・system_index に名前をそろえる前）が使っていた本文インデックスのフォルダ。
-    # 新しい版はここを読まず、消しもしない（前の版のしるしの調べ・知らせ・［8 設定］で「移す」「消して最初から」の対象にするために持つ）
+    # 新しい版はここを読まず、消しもしない（前の版のしるしの調べ・知らせ・［設定］で「移す」「消して最初から」の対象にするために持つ）
     [string]$LegacyIndexDir
     # システムインデックス（本文インデックスの 2-gram を書いた txt。index と同じ相対パスの構成。Windows Search に索引させる）と、その状態
     [string]$SystemIndexDir
@@ -23,6 +23,12 @@ class Workspace {
     # インデックス作成の記録。画面とインデクサの受け渡しはメモリ上で行う（indexer_state.ps1 の newIndexerChannel）
     [string]$IndexingLogFile  # インデクサの表示内容の記録（実行ごとに上書き）
     [string]$GuiErrorLogFile  # 画面で起きた予期しないエラーの記録（追記。原因を後から追えるようにする）
+    # 取り込みの作業フォルダの置き場所（下は <PC の鍵>\<PID>\w<番号> と分かれる。selectTmpDir・getWorkspaceTmpDir）。
+    # 前の版までの %TEMP%\tebunko\<PID> の代わりに、ワークスペースの中に置く（共有フォルダでも 1 か所にまとまる）
+    [string]$TmpRoot
+    # このツールが起動した Office の PID の記録の置き場所（下は <PC の鍵>\<PID>.txt と分かれる。getOfficePidDir・shared/office/office_process.ps1）。
+    # 画面を起動したとき、前回残った Office を確認して止めるために使う。tmp の下には置かない（tmp は片付けで消える場所で、記録は画面ごと落ちた後に読むため）
+    [string]$OfficePidRoot
 
     Workspace([string]$dir) {
         $this.Dir = $dir
@@ -36,6 +42,8 @@ class Workspace {
         $this.ResultFile = "$dir\search_results.txt"
         $this.IndexingLogFile = "$dir\indexing_log.txt"
         $this.GuiErrorLogFile = "$dir\gui_error_log.txt"
+        $this.TmpRoot = "$dir\tmp"
+        $this.OfficePidRoot = "$dir\office_pids"
     }
 
     # ワークスペースを移すときに移すもの（tebunko が作るファイル・フォルダ）。利用者のほかのファイルは含めない。
@@ -43,13 +51,87 @@ class Workspace {
     # LegacyIndexDir は、あれば前の版のワークスペースとして tebunko のものと扱う（あるものだけが getWorkspaceEntries で拾われる）
     [string[]] Entries() {
         return @($this.IndexDir, $this.LegacyIndexDir, $this.SystemIndexDir, $this.SystemIndexStateFile, $this.StatusFile, $this.IngestingFile,
-            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir))
+            $this.ResultFile, $this.IndexingLogFile, $this.GuiErrorLogFile, [System.IO.Path]::GetDirectoryName($this.PublishDir), $this.TmpRoot, $this.OfficePidRoot)
     }
 }
 
 # 前の版（content_index・system_index に名前をそろえる前）が system_index に置いていた txt の名前の型。
 # 新しい版は system_index.txt を使うため、前の版の txt を見つける・片付けるためだけに使う（読み書きの形式は変えない）
 ${legacySystemIndexPattern} = "システムインデックス*.txt"
+
+function getMachineKey {
+    # この PC を識別する短い鍵（getFolderKey の先頭 8 文字）。
+    # 共有フォルダのワークスペースを複数の PC から使うとき、一時フォルダを PC ごとに分けるために使う（getWorkspaceTmpDir）
+    return (getFolderKey ([Environment]::MachineName)).Substring(0, 8)
+}
+
+function getOfficePidDir {
+    # 起動した Office の PID の記録を置くフォルダ（$workspace.OfficePidRoot\<PC の鍵>）を返す。文字列を組み立てるだけで、ファイルには触らない。
+    # 共有のワークスペースで、ほかの PC の PID と混ざらないよう PC ごとに分ける
+    param (
+        [Workspace]$workspace
+    )
+
+    return Join-Path $workspace.OfficePidRoot (getMachineKey)
+}
+
+function getOfficePidQueue {
+    # 記録の置き場所を読む startJob の列。共有に届かないと待たされるため、ネットワークの場所なら専用の列（"network"）
+    param (
+        [string]$dir
+    )
+
+    return $(if (testNetworkPath $dir) { "network" } else { "default" })
+}
+
+function getWorkspaceTmpDir {
+    # 取り込みの作業フォルダの候補（$workspace.TmpRoot\<PC の鍵>\<PID>）を返す。副作用は無い（selectTmpDir が使う）
+    param (
+        [Workspace]$workspace
+    )
+
+    return Join-Path $workspace.TmpRoot (Join-Path (getMachineKey) $PID)
+}
+
+function selectTmpDir {
+    # 取り込みの作業フォルダの置き場所を決める: @{ Dir; Reason（置けないときだけ） }
+    #   候補: getWorkspaceTmpDir（ワークスペースの tmp\ の下）
+    #   候補のパスに [ ] があれば、置けない（Dir = ""、Reason = Brackets）。Excel は [ ] を含むパスに保存できないため
+    #   候補の長さ + 取り込みのスレッドが下に作る最も長い名前の分（${tmpNameReserve}）が $excelMaxPath 以上でも、
+    #     置けない（Dir = ""、Reason = TooLong）。Office は長すぎるパスを開けないため
+    #   一時ファイルもワークスペースの下にしか置かない（%TEMP% には逃がさない）。
+    #   置けないときは、呼び出し側（initTmpDir）が取り込みをすべてスキップする
+    #   （どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みが対象になる）
+    #   どちらでもなければ候補のまま（Reason = ""）
+    param (
+        [Workspace]$workspace
+    )
+
+    $candidate = getWorkspaceTmpDir $workspace
+    if ($candidate.IndexOfAny([char[]]@("[", "]")) -ge 0) {
+        return @{ Dir = ""; Reason = "Brackets" }
+    }
+    if (($candidate.Length + ${tmpNameReserve}) -ge $excelMaxPath) {
+        return @{ Dir = ""; Reason = "TooLong" }
+    }
+    return @{ Dir = $candidate; Reason = "" }
+}
+
+function getTmpDirUnavailableMessage {
+    # 取り込みの作業フォルダを置けない理由（selectTmpDir の Reason）を、利用者向けの1文にする。
+    # initTmpDir のログと、invokeIngestTask が1ファイルごとに書くエラーの両方で使う
+    param (
+        [string]$reason
+    )
+
+    if ($reason -eq "Brackets") {
+        return "ワークスペースのパスに [ ]（角かっこ）が含まれるため、更新の作業フォルダを置けません。"
+    }
+    if ($reason -eq "TooLong") {
+        return "ワークスペースのパスが長すぎるため、更新の作業フォルダを置けません。"
+    }
+    return "更新の作業フォルダを置けません。"
+}
 
 function getLegacyIndexState {
     # 前の版のワークスペース（dir）の状態を返す: @{ HasLegacyIndex; ContentEmpty; HasLegacySystemIndex }
@@ -113,8 +195,8 @@ function getLegacyIndexMessage {
         return ""
     }
     $legacyDir = [Workspace]::new($dir).LegacyIndexDir
-    return "前の版のインデックス（「${legacyDir}」）は、この版では使えません。インデックス作成で、元のファイルをすべて取り込み直します。" +
-        "取り込み直した後、「${legacyDir}」フォルダは削除してかまいません。"
+    return "前の版のインデックス（「${legacyDir}」）は、この版では使えません。［すべて更新］で、元のファイルをすべて更新し直します。" +
+        "更新し直した後、「${legacyDir}」フォルダは削除してかまいません。"
 }
 
 function clearLegacySystemIndex {

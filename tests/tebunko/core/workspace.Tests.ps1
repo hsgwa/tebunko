@@ -18,6 +18,7 @@ Describe "Workspace" -Tag Unit {
         $target.ResultFile | Should -Be "C:\Users\test\Documents\tebunko_ws\search_results.txt"
         $target.IndexingLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\indexing_log.txt"
         $target.GuiErrorLogFile | Should -Be "C:\Users\test\Documents\tebunko_ws\gui_error_log.txt"
+        $target.TmpRoot | Should -Be "C:\Users\test\Documents\tebunko_ws\tmp"
     }
 
     It "関数は呼んだときの `$workspace の場所を使う（差し替えれば、読み込み直さずに別のワークスペースを使う）" {
@@ -26,11 +27,13 @@ Describe "Workspace" -Tag Unit {
         @((getIndexSummary).Missing) | Should -Be @("$TestDrive\別\content_index")
     }
 
-    It "Entries() が前の版の index（LegacyIndexDir）を含む" {
+    It "Entries() が前の版の index（LegacyIndexDir）と一時フォルダ（TmpRoot）を含む" {
         $target = [Workspace]::new("$TestDrive\entries")
 
         @($target.Entries()) | Should -Contain $target.LegacyIndexDir
         @($target.Entries()) | Should -Contain $target.IndexDir
+        @($target.Entries()) | Should -Contain $target.TmpRoot
+        @($target.Entries()) | Should -Contain $target.OfficePidRoot
     }
 
     It "文字列のプロパティ（Dir・Legacy で始まるものを除く）は、Dir より後ろが ASCII（再発防止。後から足したプロパティも捕まえる）" {
@@ -47,6 +50,82 @@ Describe "Workspace" -Tag Unit {
         }
 
         ${sourceFolderFileName} | Should -Match "^[\x20-\x7E]+$"
+    }
+}
+
+Describe "getMachineKey" -Tag Unit {
+    It "この PC の鍵（getFolderKey の先頭 8 文字）を返す" {
+        getMachineKey | Should -Be (getFolderKey ([Environment]::MachineName)).Substring(0, 8)
+    }
+}
+
+Describe "getOfficePidDir" -Tag Unit {
+    It "ワークスペースの office_pids の下に、PC の鍵で組み立てる（文字列だけで、フォルダは作らない）" {
+        $workspace = newTestWorkspace @{} "$TestDrive\getopd"
+
+        getOfficePidDir $workspace | Should -Be "$TestDrive\getopd\office_pids\$(getMachineKey)"
+        Test-Path "$TestDrive\getopd" | Should -Be $false
+    }
+}
+
+Describe "getWorkspaceTmpDir" -Tag Unit {
+    It "ワークスペースの tmp の下に、PC の鍵とプロセスIDで組み立てる" {
+        $workspace = newTestWorkspace @{} "$TestDrive\getwtd"
+
+        getWorkspaceTmpDir $workspace | Should -Be "$TestDrive\getwtd\tmp\$(getMachineKey)\$PID"
+    }
+}
+
+Describe "selectTmpDir" -Tag Unit {
+    BeforeAll {
+        # 候補（ワークスペースの tmp の下）の長さと、取り込みのスレッドが下に作る最も長い名前の分（tmpNameReserve）から、
+        # ちょうど境目の長さのワークスペースを組み立てるための下ごしらえ
+        $suffix = "\tmp\$(getMachineKey)\$PID"
+        $thresholdLen = $excelMaxPath - ${tmpNameReserve}
+
+        function newWorkspaceOfCandidateLength([int]$candidateLen) {
+            $dirLen = $candidateLen - $suffix.Length
+            $dir = "C:\" + ("あ" * ($dirLen - 3))
+            return (newTestWorkspace @{} $dir)
+        }
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "[ ] を含まず、長さも十分短ければ、そのまま使う"; kind = "path"; dir = "C:\Users\test\ws"; expectedReason = "" }
+        @{ name = "候補のパスに [ と ] の両方があれば、置けない（Dir は空）"; kind = "path"; dir = "C:\Users\test\[共有]フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補のパスに [ だけあっても、置けない"; kind = "path"; dir = "C:\Users\test\[共有フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補のパスに ] だけあっても、置けない"; kind = "path"; dir = "C:\Users\test\共有]フォルダ"; expectedReason = "Brackets" }
+        @{ name = "候補の長さが境目より短ければ、そのまま使う"; kind = "length"; offset = -1; expectedReason = "" }
+        @{ name = "候補の長さが境目以上なら、置けない（Dir は空）"; kind = "length"; offset = 0; expectedReason = "TooLong" }
+    ) {
+        param ($name, $kind, $dir, $offset, $expectedReason)
+        $workspace = if ($kind -eq "length") {
+            newWorkspaceOfCandidateLength ($thresholdLen + $offset)
+        } else {
+            newTestWorkspace @{} $dir
+        }
+
+        $result = selectTmpDir $workspace
+        if ($expectedReason) {
+            $result.Dir | Should -BeNullOrEmpty
+        } else {
+            $result.Dir | Should -Be (getWorkspaceTmpDir $workspace)
+        }
+        $result.Reason | Should -Be $expectedReason
+    }
+}
+
+Describe "getTmpDirUnavailableMessage" -Tag Unit {
+    It "<reason> なら [ ]・長さに触れた文にする" -TestCases @(
+        @{ reason = "Brackets"; expected = "\[ \]" }
+        @{ reason = "TooLong"; expected = "長すぎる" }
+    ) {
+        param ($reason, $expected)
+        getTmpDirUnavailableMessage $reason | Should -Match $expected
+    }
+
+    It "置けない理由を書く" {
+        getTmpDirUnavailableMessage "Brackets" | Should -Match "置けません"
     }
 }
 
@@ -265,7 +344,7 @@ Describe "getLegacyIndexMessage" -Tag Unit {
         getLegacyIndexMessage $dir $false | Should -Be ""
         $message = getLegacyIndexMessage $dir $true
         $message | Should -Match ([regex]::Escape("$dir\index"))
-        $message | Should -Match "取り込み直します"
+        $message | Should -Match "更新し直します"
     }
 }
 
@@ -308,5 +387,15 @@ Describe "clearLegacySystemIndex" -Tag Io {
             $stream.Dispose()
         }
         Test-Path -LiteralPath $ws.SystemIndexDir | Should -Be $true
+    }
+}
+
+Describe "getOfficePidQueue" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "ローカルのフォルダは既定の列"; dir = "C:\Users\test\Documents\tebunko_ws\office_pids\ab12cd34"; expected = "default" }
+        @{ name = "UNC は専用の列"; dir = "\\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+        @{ name = "\\?\UNC\ も専用の列"; dir = "\\?\UNC\server\share\ws\office_pids\ab12cd34"; expected = "network" }
+    ) {
+        getOfficePidQueue $dir | Should -Be $expected
     }
 }

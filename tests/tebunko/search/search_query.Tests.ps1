@@ -58,6 +58,40 @@ Describe "newPlaceExclude" -Tag Unit {
     }
 }
 
+Describe "newFileKindFilter" -Tag Unit {
+    # kinds: 選んだ種類、matches / misses: 作った条件に当たる・当たらない名前
+    It "<name>" -TestCases @(
+        @{ name = "すべての種類なら絞り込まない"; kinds = @("excel", "word", "powerpoint", "text"); matches = @(); misses = @(); empty = $true }
+        @{ name = "空なら絞り込まない"; kinds = @(); matches = @(); misses = @(); empty = $true }
+        @{ name = "知らない種類だけなら絞り込まない"; kinds = @("pdf"); matches = @(); misses = @(); empty = $true }
+        @{ name = "excel は Excel の拡張子だけ"; kinds = @("excel"); empty = $false
+           matches = @("a.xlsx", "a.XLSM", "a.xls", "a.xlsb"); misses = @("a.docx", "a.pptx", "a.txt", "a.xlsx.bak") }
+        @{ name = "word は Word の拡張子だけ"; kinds = @("word"); empty = $false
+           matches = @("a.docx", "a.docm", "a.doc"); misses = @("a.xlsx", "a.ppt", "a.md") }
+        @{ name = "powerpoint は PowerPoint の拡張子だけ"; kinds = @("powerpoint"); empty = $false
+           matches = @("a.pptx", "a.pptm", "a.ppt"); misses = @("a.docx", "a.xls", "a.csv") }
+        @{ name = "text は拡張子の一覧のもの"; kinds = @("text"); empty = $false
+           matches = @("a.txt", "a.CSV", "a.ps1"); misses = @("a.xlsx", "a.docx", "a.pptx", "a.pdf") }
+        @{ name = "複数の種類は和集合"; kinds = @("excel", "text"); empty = $false
+           matches = @("a.xlsx", "a.txt"); misses = @("a.docx", "a.ppt") }
+    ) {
+        param ($name, $kinds, $matches, $misses, $empty)
+        $text = newFileKindFilter $kinds
+        if ($empty) {
+            $text | Should -Be ""
+            return
+        }
+        $filter = newFileFilter $text
+        $filter.Exclude | Should -Be $null
+        foreach ($file in $matches) {
+            $filter.Include.IsMatch($file) | Should -Be $true -Because $file
+        }
+        foreach ($file in $misses) {
+            $filter.Include.IsMatch($file) | Should -Be $false -Because $file
+        }
+    }
+}
+
 Describe "newFileFilter" -Tag Unit {
     It "; で区切ったワイルドカードで含め、! で始まるもので除く" {
         $filter = newFileFilter "*.xlsx；見積 ; !*old*"

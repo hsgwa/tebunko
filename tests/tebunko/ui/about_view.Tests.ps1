@@ -1,4 +1,4 @@
-﻿# 「tebunko について」の表示（tebunko\ui\about_view.ps1）のテスト
+﻿# 「バージョン情報」の表示（tebunko\ui\about_view.ps1）のテスト
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\tebunko\ui\about_view.ps1"

@@ -14,15 +14,18 @@ ${openModeReadOnly} = "readOnly"  # 読み取り専用で開く（誤って上�
 ${openModeNew}      = "new"       # 新規（元のファイルを基にした無題の文書）で開く。元のファイルを占有しない
 ${openModes}        = @(${openModeNormal}, ${openModeReadOnly}, ${openModeNew})
 
+# 検索の対象にするファイルの種類（検索バーのチップ。設定ファイルの fileKinds の値）
+${fileKindNames} = @("excel", "word", "powerpoint", "text")
+
 function newSettings {
     # 設定の既定値。設定ファイル（JSON）のキーと同じ
     return [ordered]@{
         targetFolders      = @()      # クロール対象フォルダ: @{ name（インデックス名）; path（今フォルダが置かれている場所）; enabled }（記載順。enabled が false は登録のみで取り込まない）
         indexSources       = @()      # 取り込まないインデックスの元のフォルダ: @{ name; path }（別のPC・場所で作ったインデックスを検索するとき）
         searchExcludes     = @()      # 画面の検索対象ツリーでチェックを外したフォルダ: @{ path（フルパス）; subfolders（false はフォルダ直下のファイルだけ） }
+        fileKinds          = @()      # 検索の対象にするファイルの種類（excel・word・powerpoint・text の配列。キーが無い・空ならすべて。readFileKinds）
         useRegex           = $false   # 検索ワードを正規表現として扱う
         caseSensitive      = $false   # 英字の大文字と小文字を区別する
-        fileFilter         = ""       # 対象ファイル（元のファイル名のワイルドカード。; 区切り、! で始まるものは除外。空ならすべて）
         includeShapes      = $true    # 図形（テキストボックス等）の文字も検索する（場所 "<元の場所>[図形]"。index_name.ps1 の objectPlacePattern）
         includeComments    = $true    # コメントも検索する（場所 "<元の場所>[コメント]"）
         openMode           = ${openModeNormal}  # 検索結果の元のファイルの開き方: 通常（編集する）/ 読み取り専用 / 新規（元のファイルを基にした無題の文書。占有しない）
@@ -402,14 +405,14 @@ function removeSearchExcludesUnder {
 
 
 ${searchOptionKeys} = [ordered]@{
-    UseRegex = "useRegex"; CaseSensitive = "caseSensitive"; FileFilter = "fileFilter"
+    UseRegex = "useRegex"; CaseSensitive = "caseSensitive"
     IncludeShapes = "includeShapes"; IncludeComments = "includeComments"
 }
 
 
 function readSearchOption {
-    # 画面の検索オプションを @{ UseRegex; CaseSensitive; FileFilter; IncludeShapes; IncludeComments } で返す。
-    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・対象ファイルはすべて・図形とコメントも検索する
+    # 画面の検索オプションを @{ UseRegex; CaseSensitive; IncludeShapes; IncludeComments } で返す。
+    # 設定が無ければ、文字どおり・大文字と小文字を区別しない・図形とコメントも検索する（検索するファイルの種類は readFileKinds）
     param (
         [string]$path = ${settingsFile}
     )
@@ -438,6 +441,39 @@ function writeSearchOption {
         }
         writeSettings $settings $path
     }
+}
+
+function readFileKinds {
+    # 検索の対象にするファイルの種類（${fileKindNames} の値）を、${fileKindNames} の順の配列で返す。
+    # キーが無い・空・知らない値だけのときは、すべての種類（絞り込まない）
+    param (
+        [string]$path = ${settingsFile}
+    )
+
+    $chosen = @(@((readSettings $path).fileKinds) | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() })
+    $kinds = @(${fileKindNames} | Where-Object { $chosen -contains $_ })
+    if ($kinds.Count -eq 0) {
+        return @(${fileKindNames})
+    }
+    return $kinds
+}
+
+function writeFileKinds {
+    # 検索の対象にするファイルの種類を保存する。知らない値は捨てる（すべての種類を選んでいるときは空で保存する）。
+    # 1 つも選んでいないときは保存しない（空は「すべて」の意味で保存の形を変えないため、前に保存した種類のまま）
+    param (
+        [object[]]$kinds,
+        [string]$path = ${settingsFile}
+    )
+
+    $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
+    if ($chosen.Count -eq 0) {
+        return
+    }
+    if ($chosen.Count -eq ${fileKindNames}.Count) {
+        $chosen = @()
+    }
+    updateSettings "fileKinds" ([object[]]$chosen) $path
 }
 
 function readOpenMode {
@@ -478,7 +514,7 @@ function getDefaultWorkspaceError {
         [string]$folder
     )
 
-    return "「${folder}」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［8 設定］の［変更…］）。"
+    return "「${folder}」は空のフォルダではありません。ワークスペースには別の空のフォルダを選んでください（［設定］の［変更…］）。"
 }
 
 function testDefaultWorkspace {
@@ -504,7 +540,7 @@ function testDefaultWorkspace {
 
 function getWorkspaceBlockMessage {
     # 今のワークスペースが既定の場所で、そこにほかのファイルが置いてあるなら、その文言（使えるなら空）。
-    # インデックスのファイルと混ざるため、インデックス作成を始めず、［8 設定］で別のフォルダを選んでもらう
+    # インデックスのファイルと混ざるため、インデックス作成を始めず、［設定］で別のフォルダを選んでもらう
     param (
         [string]$current = $workspace.Dir,
         [string]$defaultDir = (getDefaultWorkDir)

@@ -1,8 +1,8 @@
 ﻿# Excel
 
-扱うこと: Excel ブックのセルの表示値の抽出（COM）、TSV への整形仕様、図形・コメントの文字の読み取り（ファイルを直接読む）。扱わないこと: Word・PowerPoint の抽出（[Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)・[Word](word.md)・[PowerPoint](powerpoint.md)）。先に読むページ: [インデックス作成](index.md)。
+扱うこと: Excel ブックのセルの表示値の抽出（COM）、TSV への整形仕様、図形・コメント・ヘッダー・フッターの文字の読み取り（ファイルを直接読む）。扱わないこと: Word・PowerPoint の抽出（[Word・PowerPoint の共通処理と Office アプリの管理](office-apps.md)・[Word](word.md)・[PowerPoint](powerpoint.md)）。先に読むページ: [インデックス作成](index.md)。
 
-Excel ブックから、セルの表示値（Excel の COM で書き出す）と図形・コメントの文字（ファイルを直接読む）を抽出して TSV にする処理（[Excel の抽出処理](#excel-の抽出処理extractworkbook)・[Excel の図形・コメントの読み取り](#excel-の図形コメントの読み取りreadxlsxobjectunits)）と、Excel が書き出したテキストの整形仕様（[TSV 整形仕様](#tsv-整形仕様prettytsv--formattsv)）を扱う。
+Excel ブックから、セルの表示値（Excel の COM で書き出す）と図形・コメント・ヘッダー・フッターの文字（ファイルを直接読む）を抽出して TSV にする処理（[Excel の抽出処理](#excel-の抽出処理extractworkbook)・[Excel の図形・コメントの読み取り](#excel-の図形コメントの読み取りreadxlsxobjectunits)）と、Excel が書き出したテキストの整形仕様（[TSV 整形仕様](#tsv-整形仕様prettytsv--formattsv)）を扱う。
 
 ## Excel の抽出処理（`extractWorkbook`）
 
@@ -12,14 +12,14 @@ sequenceDiagram
     participant S as tebunko/indexer.ps1
     participant X as Excel.Application
     participant WB as ブック（作業領域のコピー。読み取り専用）
-    participant T as 作業領域 %TEMP%\tebunko\#lt;PID#gt;
+    participant T as 作業領域（work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;）
     participant I as work/content_index
     participant L as 取り込み一覧（work/ingest_status.tsv）
 
     S->>T: 作業領域を空にする
     S->>T: 元ブックを同じファイル名（長すぎれば source.#lt;拡張子#gt;）でコピー<br>（copyFileShared。ほかのアプリの読み書きを妨げない共有モードで読む）
     opt コピーが新形式（ZIP）
-        S->>T: 図形・コメントの文字を ZIP から直接読む（readXlsxObjectUnits）
+        S->>T: 図形・コメント・ヘッダー・フッターの文字を ZIP から直接読む（readXlsxObjectUnits）
     end
     opt コピーが新形式（ZIP）でない
         S->>S: 暗号化の種類を判定する（getOfficeFileProtection）
@@ -48,7 +48,7 @@ sequenceDiagram
     loop 保存した各シート
         S->>T: prettyTsv(UsedRange の行・列) → #lt;場所#gt;.tsv（内容が空なら出力しない）
     end
-    S->>T: 図形・コメント → #lt;シート名#gt;[shape].tsv・#lt;シート名#gt;[comment].tsv
+    S->>T: 図形・コメント・ヘッダー・フッター → #lt;シート名#gt;[shape].tsv・#lt;シート名#gt;[comment].tsv・#lt;シート名#gt;[header_footer].tsv
     S->>I: 作業領域の *.tsv を work/publish/#lt;PID#gt; に集め、<br>インデックスのフォルダ（#lt;ファイル名#gt;）ごと入れ替える（publishTsv）<br>本文インデックスへは、フォルダの取り込みが終わってから入れる（publishIndexFolders）
     S->>L: 当該ファイルの行（状態 = 済、TSV数、抽出版）を追記
     alt 途中で例外が発生
@@ -78,7 +78,7 @@ sequenceDiagram
 - Excel のテキスト保存は A1 からではなく **使用範囲（`UsedRange`）の左上のセルから** 出力する（例: 使用範囲が C3 から始まるシートは、1 行目の 1 列目が C3 になる）。TSV の行・列をシートの行・列と一致させるため、保存前に `UsedRange.Row` / `UsedRange.Column` を控えて `prettyTsv` に渡す（[TSV 整形仕様](#tsv-整形仕様prettytsv--formattsv)）。
 - **保存した一時ファイルの先頭（UTF-16LEのBOM `FF FE`）も確かめる**（`testOfficeOutput`。[暗号化されたファイルの判定](office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1)）。透過暗号化の製品が、この一時ファイルまで暗号化することがあるため、シートの種類によらずすべての保存で確かめる。合わなければ `ファイルを暗号化する製品が一時ファイルを暗号化したため取り込めません。` にする。**この確かめはブックを閉じた後（`prettyTsv` の直前）に行う**。保存した一時ファイルはブックを閉じるまで Excel がロックしており、閉じる前に読もうとすると（開いているだけの正常なファイルでも）読めずに失敗するため（◎ 実機で確認済み）。
 - インデックスはファイルごとのフォルダを丸ごと入れ替えるため、シートの削除・名前変更がインデックスに反映される（Word・PowerPoint も同じ）。
-- テキスト保存はセルの値しか出さないため、**図形・コメントの文字は、コピーを ZIP として直接読む**（[Excel の図形・コメントの読み取り](#excel-の図形コメントの読み取りreadxlsxobjectunits)）。Excel で開く前に読む。旧形式（`.xls`）・パスワード付き・`.xlsb` は読まない（セルの値だけになる）。読み取りに失敗しても（ZIP が壊れている等）セルの値は取り込み、`    図形・コメントを読み取れませんでした: <メッセージ>` をインデックス作成ログに記録する。
+- テキスト保存はセルの値しか出さないため、**図形・コメント・ヘッダー・フッターの文字は、コピーを ZIP として直接読む**（[Excel の図形・コメントの読み取り](#excel-の図形コメントの読み取りreadxlsxobjectunits)）。Excel で開く前に読む。旧形式（`.xls`）・パスワード付き・`.xlsb` は読まない（セルの値だけになる）。読み取りに失敗しても（ZIP が壊れている等）セルの値は取り込み、`    図形・コメントを読み取れませんでした: <メッセージ>` をインデックス作成ログに記録する（このときはヘッダー・フッターも読めない）。
 
 ## TSV 整形仕様（`prettyTsv` / `formatTsv`）
 
@@ -108,13 +108,14 @@ flowchart LR
 
 ## Excel の図形・コメントの読み取り（`readXlsxObjectUnits`）
 
-`.xlsx` `.xlsm` を ZIP として開き（`scripts/shared/office/office_reader.ps1`）、表示シート・表示のグラフシートの図形とコメントの文字を、シートとは別の場所（TSV）にする。Excel は使わない。
+`.xlsx` `.xlsm` を ZIP として開き（`scripts/shared/office/office_reader.ps1`）、表示シート・表示のグラフシートの図形・コメント・ヘッダー・フッターの文字を、シートとは別の場所（TSV）にする。Excel は使わない。
 
 | 場所 | 読み取り元 | 1 行 |
 |---|---|---|
 | `<シート名>[図形]` | シートのリレーションシップ（種類 `drawing`）が指す `xl/drawings/drawingN.xml` の図形（`xdr:twoCellAnchor` `oneCellAnchor` `absoluteAnchor`）ごとのテキスト（`a:p`。[Word・PowerPoint のテキスト読み取り](office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)の `readXmlLines`）と、グラフ（`xdr:graphicFrame` の中の `c:chart`）・SmartArt（`dgm:relIds`）の参照先の文字（`readObjectText`。下の「グラフ・SmartArt の読み取り」） | 図形 1 つ。`<左上のセル番地><TAB><文字>` |
 | `<グラフシート名>[図形]` | ブックのリレーションシップの型が `*/chartsheet` の表示シート自身の `drawing` が指す図形の部品（グラフを `absoluteAnchor` で置いたもの） | 図形 1 つ。`A1<TAB><文字>`（位置をセルで持たないため） |
 | `<シート名>[コメント]` | 種類 `comments` の `xl/commentsN.xml`（メモ）と、種類 `threadedComment` の `xl/threadedComments/*.xml`（スレッド形式のコメント） | セル 1 つ。`<セル番地><TAB><文字>` |
+| `<シート名>[ヘッダー・フッター]`（グラフシートも同じ） | シート（ワークシート・グラフシート）の XML の `headerFooter`（下の「ヘッダー・フッターの読み取り」） | 文字の 1 行。`<文字>`（セル番地は付けない） |
 
 - **場所の名前**: シート名には `[` `]` を使えないため、`売上[図形]` は実在のシートと必ず区別できる（[インデックスのファイルの形](../index-data/format.md#配置命名規則)「図形・コメントの場所」）。
 - **文字の形**: 段落・改行はセル内改行（U+2028）にし、改行・`"`・タブを含むときは `"` で囲む（中の `"` は `""`）。Excel のテキスト保存のセルと同じ形なので、検索結果の出力・画面のセルの分け方はセルと同じ処理で扱える。
@@ -124,7 +125,7 @@ flowchart LR
 - スレッド形式のコメントがあるセルは、その文字（返信を含む）を使い、同じセルのメモは読まない（古い版の Excel 向けの案内文とコメントが重複して入っているため）。
 - コメントのふりがな（`rPh`）と作成者名（`authors`）は読まない（メモに Excel が付けた「作成者名:」は本文の一部として読む）。
 - 非表示・完全に非表示のシート（`state` が `hidden` `veryHidden`）は、グラフシートも含めてセルと同じく読まない。
-- 読まないもの: グラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。`cx:chart`）、グラフの中のテキストボックス（`c:userShapes`）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッター、ハイパーリンクの URL、入力規則のメッセージ。
+- 読まないもの: グラフの項目名（横軸に並ぶ文字。セルの値としては検索できる）・数値、新しい種類のグラフ（じょうご・ツリーマップ・滝など。`cx:chart`）、グラフの中のテキストボックス（`c:userShapes`）、フォームコントロール・ActiveX コントロールの文字、ヘッダー・フッターの画像（`&G`）、ハイパーリンクの URL、入力規則のメッセージ。
 
 TSV の例（シート `見積` の F2 に左上があるテキストボックスと、C2 のコメント）:
 
@@ -132,7 +133,21 @@ TSV の例（シート `見積` の F2 に左上があるテキストボック�
 work/content_index/営業/見積.xlsx/見積.tsv            … セルの値
 work/content_index/営業/見積.xlsx/見積[shape].tsv     … F2<TAB>納期は別途ご相談
 work/content_index/営業/見積.xlsx/見積[comment].tsv   … C2<TAB>"test:<U+2028>税抜の金額"
+work/content_index/営業/見積.xlsx/見積[header_footer].tsv … 社外秘
 ```
+
+### ヘッダー・フッターの読み取り
+
+`readXlsxSheetHeaderFooter` が、シート（ワークシート・グラフシート）の XML にある `headerFooter` の文字を読む（`readXlsxHeaderFooterLines`・`getHeaderFooterLines`。`scripts/shared/office/office_reader.ps1`）。
+
+- **読み方**: `XmlReader`（DTD は禁止）でシートの XML を先頭から読み、`sheetData`（セルの値。大きい）は `Skip()` で飛ばし、`headerFooter` を読んだところで止める（`sheetData` を文字列にも DOM にも読み込まない）。グラフシートは、すでに読み込んだ文字列から読む。要素は名前とスプレッドシートの名前空間で見るため、接頭辞付き（`x:headerFooter`）でも読める。
+- **読む要素と順**: ヘッダー → フッターの順に、それぞれ 先頭ページ（`firstHeader` / `firstFooter`。`differentFirst` が `1`・`true` のときだけ）→ 奇数ページ（`oddHeader` / `oddFooter`）→ 偶数ページ（`evenHeader` / `evenFooter`。`differentOddEven` が `1`・`true` のときだけ）。使われない設定の文字（`differentFirst` が無いのに書かれた `firstHeader` など）は、画面にも印刷にも出ないため読まない。それぞれの中は 左 → 中央 → 右。
+- **書式コード**: `&L` `&C` `&R` は左・中央・右の切り替え、`&&` は `&` 1 文字。`&P`（`+`・`-` と数字が続くもの）・`&N` `&D` `&T` `&Z` `&F` `&A` `&G`（ページ番号・日付・ファイル名・シート名・画像などの差し込み。文字ではない）、`&"フォント,スタイル"`、`&` + 1〜3 桁の数字（文字の大きさ）、`&K` + 16 進 6 桁・`&K` + 2 桁 + `+`/`-` + 3 桁（色）、`&B` `&I` `&U` `&E` `&S` `&X` `&Y` `&O` `&H`（太字などの書式）は取り除く。ほかの `&` + 文字は、そのまま残す。
+- **1 行の作り方**: 部分（左・中央・右）ごとに改行で分け、タブは空白 1 つにし、前後の空白を削り、空の行は出さない。同じシートで同じ文字の行は 1 つにする（先頭ページと奇数ページで同じ文字を出す設定が多いため）。文字は「文字の形」（`toObjectCellText`。改行・`"`・タブを含むときは `"` で囲む）で 1 行にする。
+- **場所とセル番地**: 場所は `<シート名>[ヘッダー・フッター]`、種別は「ヘッダー・フッター」。行にセル番地を持たないため、検索結果の「場所」は `[シート]売上`（番地なし）で、元のファイルを開くときはそのシートを開くだけでセルは選ばない（グラフシートと同じ）。［図形も検索］［コメントも検索］の選択肢は作らず、いつも検索する。
+- **読めなかったとき**: そのシートのヘッダー・フッターだけを読まずに続ける（ほかの図形・コメント・セルの値は出す）。読めなかった部品の名前は `readXlsxObjectUnits` の戻り値（`$failures`）に足し、ほかの部品と同じく `    一部を読み取れませんでした: <部品名>` をインデックス作成ログに記録する。
+- **名前の重なり**: Word・PowerPoint の場所の名前 `ヘッダー・フッター` は、種類ではなく場所の名前（`[` `]` で囲まない）で、Excel の種類とは区別できる（[インデックスのファイルの形](../index-data/format.md#配置命名規則)）。
+- **抽出版**: この読み取りの分、`.xlsx` `.xlsm` の抽出版は 4 である（[取り込み一覧](ingest-list.md)）。
 
 ### グラフ・SmartArt の読み取り
 
@@ -140,5 +155,5 @@ work/content_index/営業/見積.xlsx/見積[comment].tsv   … C2<TAB>"test:<U+
 
 - **グラフはタイトル・軸ラベル・系列名だけを読む**（Word・PowerPoint と共通の決まり。2026-09-28 にメンテナが見直した）。項目名（横軸に並ぶ文字。点の数だけある）と数値は読まない。項目名はセルの値としては検索できるが、グラフだけにある項目名（グラフの元データが無い・非表示シートにある等）は検索できない。系列名はふつう同じブックのセルを参照するため、セルの行と重なって出ることがある（重なりが邪魔なら［図形も検索］を外せば消える）。
 - **リレーションシップは、参照が 1 つ以上あるときだけ読む**（グラフ・SmartArt の無い図形の部品では読まない）。
-- **1 つのグラフ・SmartArt が読めなくても、ほかは捨てない**: 参照の先・リレーションシップが無い、部品が読めない（XML が壊れている、「サイズの上限」を超えるなど）ときは、そのグラフ・SmartArt だけを空にして続ける（同じ図形の中のほかの文字、同じシートのほかの図形・コメント・セルの値は出す）。`shared/` はツールを知らないため、読めなかった部品の名前は `readXlsxObjectUnits` の戻り値（`$failures`）で呼び出し元（`extract_office.ps1`）に返し、そこでインデックス作成ログに黄色で記録する（`    グラフ・SmartArt を読み取れませんでした: <部品名>`）。
+- **1 つのグラフ・SmartArt が読めなくても、ほかは捨てない**: 参照の先・リレーションシップが無い、部品が読めない（XML が壊れている、「サイズの上限」を超えるなど）ときは、そのグラフ・SmartArt だけを空にして続ける（同じ図形の中のほかの文字、同じシートのほかの図形・コメント・セルの値は出す）。`shared/` はツールを知らないため、読めなかった部品の名前は `readXlsxObjectUnits` の戻り値（`$failures`）で呼び出し元（`extract_office.ps1`）に返し、そこでインデックス作成ログに黄色で記録する（`    一部を読み取れませんでした: <部品名>`）。
 - **グラフシート**: グラフ自体を `absoluteAnchor` で置いた図形の部品を、通常のシートと同じ形で読む。検索結果から開くときは、`Worksheets` にグラフシートが無いため `Charts` から同じ名前のものを探して表示する（セルは選ばない。[元のファイルを開く](../gui/open-file.md)）。

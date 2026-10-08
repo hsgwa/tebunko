@@ -1,12 +1,30 @@
 ﻿# tebunko が使うファイルの場所と、そこに書く値の定義。
 
-# Excelは [ ] を含むパスに保存できないため TEMP を使う。
-# インデックス作成を同時に複数実行しても互いのTSVを削除・移動しないよう、プロセスごとに分ける
-${tmpDir}    = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko\${PID}"
+# 取り込みの作業フォルダ（本体はワークスペースの tmp\ の下。index_migrate.ps1 の initTmpDir が
+# インデックス作成の始めに selectTmpDir で決めて入れる）。決めるまでの既定値は空。
+# 置けなかったとき（パスに [ ] がある・長すぎる）も空のまま（どのファイルも中間 TSV などをこのフォルダに作るため、
+# テキストファイルを含めすべての取り込みをスキップする。%TEMP% には逃がさない）
+${tmpDir} = ""
+# ${tmpDir} を置けなかった理由（selectTmpDir の Reason）。置けたときは空
+${tmpDirReason} = ""
+
+# 前の版（%TEMP%\tebunko\<PID> に一時ファイルを置いていた版）が残した作業フォルダの片付け専用。
+# 今の版はここには書き込まない（removeStaleTmpDirs が、強制終了などで残った前の版のフォルダを消すためだけに使う）
+${legacyTmpParent} = Join-Path ([System.IO.Path]::GetTempPath()) "tebunko"
+
+# Excelで開けるパスの長さの目安（古い版の上限）。作業フォルダの候補がこれ以上ならワークスペースの tmp\ を諦める
+$excelMaxPath = 218
+# 取り込みのスレッドが作業フォルダの下に作る、最も長いファイル名の分（"\w999\converted.pptx"）。
+# selectTmpDir で、この分を足しても $excelMaxPath を超えないかを見る
+${tmpNameReserve} = "\w999\converted.pptx".Length
 
 # ワークスペース（インデックス・取り込み一覧・ログ・取り込みの出力の置き場所。中の場所は workspace.ps1 の Workspace）。
-# setting.config の workspaceFolder で変えられる。空なら既定（settings.ps1 の getWorkDir）
-${workspace} = [Workspace]::new((getWorkDir))
+# setting.config の workspaceFolder で変えられる。空なら既定（settings.ps1 の getWorkDir）。
+# 読み込んだとき（スクリプトの読み込み時）には決めず、起動口（startGui・invokeIndexerMain）が
+# 壊れた設定ファイルの退避の後に呼ぶ（単一 .ps1 版は setting.config を読む前に読み込みだけ先に済ませるため）
+function initWorkspace {
+    ${script:workspace} = [Workspace]::new((getWorkDir))
+}
 
 # インデックスのフォルダに置く、インデックス名とクロール対象フォルダの対応（インデクサが作成する）。
 # インデックスのフォルダごと別の場所・PCへコピーしても、検索結果から元のファイルの場所が分かるようにする。
@@ -26,7 +44,7 @@ ${indexingPhaseFinish}  = "仕上げ"    # 後片付け（Officeアプリの終�
 # 取り込み予定（newIngestPlanRow）の列と、インデックスごとの区分
 ${ingestPlanColumns} = @("インデックス名", "元のフォルダ", "区分", "ファイル数", "取り込み対象", "新規", "更新あり", "前回未完了", "インデックスなし", "前回失敗")
 ${planKindIngest}    = "取り込み"      # チェックが付いていて元のフォルダも見つかった（数えた結果を出す）
-${planKindUnchecked} = "チェックなし"  # ［作成］のチェックが外れているため数えていない
+${planKindUnchecked} = "チェックなし"  # チェックが外れているため数えていない
 ${planKindMissing}   = "フォルダなし"  # 元のフォルダが見つからないため数えていない
 
 # 取り込み一覧の列と状態

@@ -346,3 +346,114 @@ Describe "getApp（起動したプロセスの優先度）" -Tag Unit {
         foreach ($name in @("Excel", "PowerPoint")) { $script:apps.Remove($name) }
     }
 }
+
+Describe "起動した Office の PID の記録（getApp・stopApp）" -Tag Io {
+    BeforeAll {
+        Mock Get-Process { return $script:processSequence.Dequeue() } -ParameterFilter { $Name }
+        # PID から引くプロセス。$script:byId に入れたものだけが「いる」。WaitForExit は $script:waitResult を返す
+        Mock Get-Process { $script:byId[[int]$Id[0]] } -ParameterFilter { $Id }
+
+        function newRecordProcess([int]$id, [string]$name, $start) {
+            $p = [pscustomobject]@{ Id = $id; ProcessName = $name; StartTime = $start }
+            $p | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { return $script:waitResult }
+            $p | Add-Member -MemberType ScriptMethod -Name Kill -Value {}
+            return $p
+        }
+    }
+
+    BeforeEach {
+        $script:officeRecordDir = $null
+        foreach ($appName in @("Excel", "Word", "PowerPoint")) { stopApp $appName }
+        $log.Clear()
+        $script:byId = @{}
+        $script:waitResult = $true
+        $script:dir = Join-Path $TestDrive "office_pids\$([guid]::NewGuid())"
+        $script:officeRecordDir = $dir
+    }
+
+    AfterEach {
+        $script:officeRecordDir = $null
+    }
+
+    It "新しいプロセスがちょうど 1 つ増えたら、PID・名前・起動時刻・持ち主（このプロセス）の記録を書く" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        $start = [datetime]"2030-01-01T00:00:00Z"
+        $script:byId[200] = newRecordProcess 200 "EXCEL" $start
+        setProcesses @(100) @(100, 200)
+        [void](getApp "Excel")
+
+        $fields = ([System.IO.File]::ReadAllText("$dir\200.txt") -split "`t")
+        $fields[0] | Should -Be "EXCEL"
+        [long]$fields[1] | Should -Be $start.ToUniversalTime().Ticks
+        [int]$fields[2] | Should -Be $PID
+    }
+
+    It "<name>ときは、記録を書かない" -TestCases @(
+        @{ name = "起動時刻が読めない"; kind = "unreadable" }
+        @{ name = "利用者のアプリに接続した（新しいプロセスが増えない）"; kind = "shared" }
+        @{ name = "プロセスが複数増えた（どれか分からない）"; kind = "many" }
+        @{ name = "記録の場所が決まっていない"; kind = "nodir" }
+    ) {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        $script:byId[200] = newRecordProcess 200 "EXCEL" ([datetime]"2030-01-01T00:00:00Z")
+        if ($kind -eq "unreadable") {
+            $script:byId[200] | Add-Member -MemberType ScriptProperty -Name StartTime -Value { throw "アクセスが拒否されました" } -Force
+        }
+        if ($kind -eq "nodir") { $script:officeRecordDir = $null }
+        $after = switch ($kind) { "shared" { @(100) } "many" { @(100, 200, 300) } default { @(100, 200) } }
+        setProcesses @(100) $after
+        [void](getApp "Excel")
+
+        Test-Path $dir | Should -Be $false
+    }
+
+    It "終了を確かめたら記録を消す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        $script:byId[200] = newRecordProcess 200 "EXCEL" ([datetime]"2030-01-01T00:00:00Z")
+        setProcesses @(100) @(100, 200)
+        [void](getApp "Excel")
+        Test-Path "$dir\200.txt" | Should -Be $true
+
+        stopApp "Excel"
+        Test-Path "$dir\200.txt" | Should -Be $false
+    }
+
+    It "強制終了しても終わらなかったら、記録を残す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        $script:byId[200] = newRecordProcess 200 "EXCEL" ([datetime]"2030-01-01T00:00:00Z")
+        setProcesses @(100) @(100, 200)
+        [void](getApp "Excel")
+        $script:waitResult = $false
+
+        stopApp "Excel"
+        Test-Path "$dir\200.txt" | Should -Be $true
+    }
+
+    It "もうプロセスが無ければ、記録を消す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
+        $script:byId[200] = newRecordProcess 200 "EXCEL" ([datetime]"2030-01-01T00:00:00Z")
+        setProcesses @(100) @(100, 200)
+        [void](getApp "Excel")
+        $script:byId.Remove(200)
+
+        stopApp "Excel"
+        Test-Path "$dir\200.txt" | Should -Be $false
+    }
+
+    It "利用者が文書を開いて止めなかったときは、利用者に渡したものとして記録を消す" {
+        $fake = newFakeApp
+        Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Word.Application" }
+        $script:byId[300] = newRecordProcess 300 "WINWORD" ([datetime]"2030-01-01T00:00:00Z")
+        setProcesses @(100) @(100, 300)
+        [void](getApp "Word")
+        $fake.Documents = @{ Count = 1 }
+
+        stopApp "Word"
+        Test-Path "$dir\300.txt" | Should -Be $false
+    }
+}

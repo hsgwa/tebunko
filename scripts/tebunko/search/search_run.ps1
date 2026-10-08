@@ -119,7 +119,7 @@ function newSearchRequest {
 
     return [hashtable]::Synchronized(@{
         Word = $word; SimpleMatch = $simpleMatch; Folders = $folders; Limit = $limit; WorkDir = $workDir
-        CaseSensitive = [bool]$option.CaseSensitive; FileFilter = [string]$option.FileFilter
+        CaseSensitive = [bool]$option.CaseSensitive; FileFilter = (newFileKindFilter $option.FileKinds)
         IncludeShapes = ($option.IncludeShapes -ne $false); IncludeComments = ($option.IncludeComments -ne $false)
         UseFast = $useFast; FastUsed = $false; FastAvailable = $null
         Queue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'

@@ -19,7 +19,7 @@ class IndexingReporter {
     }
 
     [object] WaitForApproval([string]$phase, $plan, [int]$targetCount, [int]$failedCount, [int]$timeoutMinutes) {
-        # 取り込み対象の件数を画面に渡し、［インデックス作成を開始］か［キャンセル］の返事を待つ。
+        # 取り込み対象の件数を画面に渡し、［更新を開始］か［キャンセル］の返事を待つ。
         #   取り込む → @{ RetryFailed } / 取りやめ（中止を求められた場合を含む） → $null
         # 画面が返事をしないまま待ち続けないよう、timeoutMinutes で打ち切って取りやめる。
         # ローカル変数はプロパティ名 Channel と大文字・小文字だけの違いにしない（$ch にする。PowerShell のクラスは
@@ -28,9 +28,9 @@ class IndexingReporter {
         [void]$ch.Answered.Reset()
         $ch.Answer = $null
         $ch.Plan = @($plan)
-        writeIndexingProgress $phase 0 $targetCount $failedCount "取り込む内容を画面で確認しています…" $ch
+        writeIndexingProgress $phase 0 $targetCount $failedCount "更新する内容を画面で確認しています…" $ch
         writeIndexerLog ""
-        writeIndexerLog "取り込み対象を画面に表示しました。［インデックス作成を開始］が押されるまで待ちます。（${timeoutMinutes} 分待っても返事が無ければ取りやめます）"
+        writeIndexerLog "取り込み対象を画面に表示しました。［更新を開始］が押されるまで待ちます。（${timeoutMinutes} 分待っても返事が無ければ取りやめます）"
 
         try {
             if (!$ch.Answered.WaitOne([TimeSpan]::FromMinutes($timeoutMinutes))) {

@@ -1,0 +1,54 @@
+{
+    "indexName": "資料",
+    "ingestList": [
+        { "relativePath": "TXT01.txt", "status": "済", "extractVersion": 1 },
+        { "relativePath": "TXT04.md", "status": "済", "extractVersion": 1 },
+        { "relativePath": "基本.docx", "status": "済", "extractVersion": 3 },
+        { "relativePath": "基本.pptx", "status": "済", "extractVersion": 3 },
+        { "relativePath": "進捗.xlsx", "status": "済", "extractVersion": 4 },
+        { "relativePath": "2024/(株)山田商事[確定]表.docx", "status": "済", "extractVersion": 3 }
+    ],
+    "searches": [
+        {
+            "word": "山田 太郎",
+            "hits": [
+                { "relativePath": "基本.docx", "location": "ページ001", "line": "TC20-02 本文の段落です。担当は山田 太郎（営業部、03-1234-5678）です。" },
+                { "relativePath": "TXT04.md", "location": "本文", "line": "山田 太郎" },
+                { "relativePath": "基本.pptx", "location": "スライド001", "line": "TC21-02 サブタイトル 山田 太郎" },
+                { "relativePath": "TXT01.txt", "location": "本文", "line": "山田 太郎" },
+                { "relativePath": "進捗.xlsx", "location": "進捗_50%", "line": "担当 山田 太郎" },
+                { "relativePath": "2024/(株)山田商事[確定]表.docx", "location": "ページ001", "line": "TC20-T02\t山田 太郎\tセル内の段落1 セル内の段落2" }
+            ]
+        },
+        {
+            "word": "TC-GOLDEN",
+            "hits": [
+                { "relativePath": "進捗.xlsx", "location": "進捗_50%", "line": "TC-GOLDEN-01 進捗シートの見出し" },
+                { "relativePath": "進捗.xlsx", "location": "進捗_50%[コメント]", "line": "A5\tTC-GOLDEN-03 コメントの本文" },
+                { "relativePath": "進捗.xlsx", "location": "進捗_50%[ヘッダー・フッター]", "line": "TC-GOLDEN-04 ヘッダー" },
+                { "relativePath": "進捗.xlsx", "location": "進捗_50%[ヘッダー・フッター]", "line": "TC-GOLDEN-05 フッター" },
+                { "relativePath": "進捗.xlsx", "location": "進捗_50%[図形]", "line": "D2\tTC-GOLDEN-02 図形の文字" },
+                { "relativePath": "進捗.xlsx", "location": "備考", "line": "TC-GOLDEN-06 備考シートの本文" }
+            ]
+        },
+        {
+            "word": "TC21",
+            "hits": [
+                { "relativePath": "基本.pptx", "location": "スライド001", "line": "TC21-01 タイトルスライド" },
+                { "relativePath": "基本.pptx", "location": "スライド001", "line": "TC21-02 サブタイトル 山田 太郎" },
+                { "relativePath": "基本.pptx", "location": "スライド002", "line": "TC21-13 最後に作って2枚目に移動したスライド" },
+                { "relativePath": "基本.pptx", "location": "スライド003_ノート", "line": "TC21 ノートのテキスト" },
+                { "relativePath": "基本.pptx", "location": "スライド003", "line": "TC21-03 箇条書きのスライド" },
+                { "relativePath": "基本.pptx", "location": "スライド003", "line": "TC21-04 項目1" },
+                { "relativePath": "基本.pptx", "location": "スライド003", "line": "TC21-05 項目2" },
+                { "relativePath": "基本.pptx", "location": "スライド003", "line": "TC21-06 インデントした項目" },
+                { "relativePath": "基本.pptx", "location": "スライド004", "line": "TC21-07 特殊な文字" },
+                { "relativePath": "基本.pptx", "location": "スライド004", "line": "TC21-08 段落内改行の前 段落内改行の後" },
+                { "relativePath": "基本.pptx", "location": "スライド004", "line": "TC21-09 コロン URL: https://example.com:8080/path 時刻 12:34:56" },
+                { "relativePath": "基本.pptx", "location": "スライド004", "line": "TC21-10 記号 \"引用\" a.b(c)[d]{e}*f+g?h^i$j|k\\l" },
+                { "relativePath": "基本.pptx", "location": "スライド004", "line": "TC21-11 CP932外の文字 𠮷野家 🍣 한국어" },
+                { "relativePath": "基本.pptx", "location": "スライド004", "line": "TC21-12 全角　スペース ﾊﾝｶｸｶﾅ ①②㈱ タブの左 タブの右" }
+            ]
+        }
+    ]
+}

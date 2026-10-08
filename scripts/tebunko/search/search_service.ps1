@@ -5,12 +5,13 @@
 # SearchService は画面のスレッドだけから呼ぶ（PowerShell 5.1 のクラスのメソッドは、定義したランスペースで動くため）。
 # スレッドをまたいで使う要求は、Synchronized の hashtable（newSearchRequest）にする。
 
-# 司令のスレッドで動かすスクリプト。要求の列が閉じられる（Close）まで、要求を 1 つずつ実行する
+# 司令のスレッドで動かすスクリプト。要求の列が閉じられる（Close）まで、要求を 1 つずつ実行する。
+# lib の部品（Prelude）は SearchService.Start が、この param ブロックのあとにつなぐ（joinWorkerScript）
 ${searchServiceScript} = {
-    param ($libPath, $requests, $cache, $workers)
+    param ($requests, $cache, $workers)
     # 読み込めなければスレッドを終える（画面は IsRunning・GetFailure で知り、次の要求で作り直す）
     $ErrorActionPreference = "Stop"
-    . $libPath
+    initWorkspace
     $ErrorActionPreference = "Continue"
     $pool = if ($workers -gt 1) { newPackWorkerPool $workers } else { $null }
     try {
@@ -34,18 +35,19 @@ class SearchService {
     # 照合のプールのスレッドの数
     [int]$Workers
     hidden [string]$Script
-    hidden [string]$LibPath
+    hidden [hashtable]$LibLoad
     hidden $Cache
     hidden [int]$CloseMilliseconds
     hidden [System.Collections.Concurrent.BlockingCollection[hashtable]]$Requests
+    hidden [System.Management.Automation.Runspaces.Runspace]$Runspace
     hidden [powershell]$PowerShell
     hidden [System.IAsyncResult]$Handle
     # いま実行している（最後に渡した）要求
     hidden [hashtable]$Current
 
-    SearchService([string]$script, [string]$libPath, $cache, [int]$workers, [int]$closeMilliseconds) {
+    SearchService([string]$script, [hashtable]$libLoad, $cache, [int]$workers, [int]$closeMilliseconds) {
         $this.Script = $script
-        $this.LibPath = $libPath
+        $this.LibLoad = $libLoad
         $this.Cache = $cache
         $this.Workers = [Math]::Max(1, $workers)
         $this.CloseMilliseconds = $closeMilliseconds
@@ -54,8 +56,13 @@ class SearchService {
 
     hidden [void] Start() {
         $this.Requests = New-Object 'System.Collections.Concurrent.BlockingCollection[hashtable]'
+        $rs = [runspacefactory]::CreateRunspace($this.LibLoad.State)
+        $rs.Open()
         $ps = [powershell]::Create()
-        [void]$ps.AddScript($this.Script).AddArgument($this.LibPath).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers)
+        $ps.Runspace = $rs
+        $joined = if ($this.LibLoad.Prelude) { joinWorkerScript $this.LibLoad.Prelude $this.Script } else { $this.Script }
+        [void]$ps.AddScript($joined).AddArgument($this.Requests).AddArgument($this.Cache).AddArgument($this.Workers)
+        $this.Runspace = $rs
         $this.PowerShell = $ps
         $this.Handle = $ps.BeginInvoke()
     }
@@ -116,6 +123,10 @@ class SearchService {
             $this.PowerShell.Dispose()
             $this.PowerShell = $null
         }
+        if ($this.Runspace) {
+            $this.Runspace.Dispose()
+            $this.Runspace = $null
+        }
         if ($this.Requests) {
             $this.Requests.Dispose()
             $this.Requests = $null
@@ -126,10 +137,10 @@ class SearchService {
 function newSearchService {
     # 検索の司令のスレッドを始める（画面を開いたときに 1 回）。閉じるときは Close を呼ぶ
     param (
-        [string]$libPath,
         $cache = $null,
         [int]$workers = (getWorkerCount)
     )
 
-    return [SearchService]::new(${searchServiceScript}.ToString(), $libPath, $cache, $workers, ${searchServiceCloseMilliseconds})
+    $libLoad = getPartLoad lib
+    return [SearchService]::new(${searchServiceScript}.ToString(), $libLoad, $cache, $workers, ${searchServiceCloseMilliseconds})
 }
