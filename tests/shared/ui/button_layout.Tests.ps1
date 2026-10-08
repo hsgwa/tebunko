@@ -101,6 +101,25 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
     }
 }
 
+# 帯のボタンの見える枠（Bd）の高さ。Height（24）はボタン全体で、フォーカスの輪が内側から取ると見える枠が 22 に縮む（Margin=-1 で外へ出してある）。
+Describe "帯のボタンの見える枠の大きさ" -Tag Unit {
+    It "<Name>: 見える枠の高さが 24（上下の余白を除いた中身が文字の行より高い）" -TestCases @(
+        @{ Name = "IndexingSearchButton" }
+        @{ Name = "IndexingResumeButton" }
+        @{ Name = "IndexingStopButton" }
+    ) {
+        param ($Name)
+        $f = findButton (getRoot "index\index.xaml") $Name
+        $f.Root.Measure([System.Windows.Size]::new(1000, 600))
+        $f.Root.Arrange([System.Windows.Rect]::new(0, 0, 1000, 600))
+        $f.Root.UpdateLayout()
+        $bd = $f.Button.Template.FindName("Bd", $f.Button)
+        $bd.ActualHeight | Should -Be 24
+        $f.Button.ActualHeight | Should -Be 24
+        ($bd.ActualHeight - 10) | Should -BeGreaterThan 12
+    }
+}
+
 # 帯の右のボタン（［中止］［続きから再開］［検索する］）は、帯が折りたたまれた入れ子の中にあり、単独では描けない。
 # 本物の画面（tools/capture_screens.ps1 の index-tab/running）で、中心のずれが 1 画素以内であることを確かめてある。
 

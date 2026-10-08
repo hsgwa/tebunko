@@ -194,7 +194,8 @@ function getConditionFlow {
     # 項目は左から順に並べ、入りきらなくなったら次の行の左端へ落ちる（後ろの項目から落ちる）。
     # 「伸びる空き」は spacerIndex 番の項目の前に置き、その行の余りを全部取る（右の組を右端に寄せる）。
     # widths は各項目の幅（右の間を含む。出していない項目は 0）。available は並べられる幅（右の間を含む）。
-    # 返すもの: Lines（行ごとの項目の番号）・SpacerWidth（空きの幅）・LineStarts（各項目が行の先頭か）
+    # 返すもの: Lines（行ごとの項目の番号）・SpacerWidth（空きの幅）・LineStarts（各項目が行の先頭か）・
+    # OnSpacerLine（各項目が、空きのある行にあるか。右の組に付いている項目は右に寄せ、落ちた項目は左に寄せるのに使う）
     param (
         [double[]]$widths,
         [int]$spacerIndex,
@@ -233,5 +234,9 @@ function getConditionFlow {
     if ($null -ne $spacerLine) {
         $spacer = [Math]::Max(0.0, $available - $sums[$spacerLine] - 0.5)
     }
-    return @{ Lines = @($lines.ToArray()); SpacerWidth = $spacer; LineStarts = $starts }
+    $onSpacerLine = New-Object bool[] $widths.Count
+    if ($null -ne $spacerLine) {
+        foreach ($member in $lines[$spacerLine]) { $onSpacerLine[$member] = $true }
+    }
+    return @{ Lines = @($lines.ToArray()); SpacerWidth = $spacer; LineStarts = $starts; OnSpacerLine = $onSpacerLine }
 }

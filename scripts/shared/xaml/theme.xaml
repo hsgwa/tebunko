@@ -600,8 +600,9 @@
     </Setter>
   </Style>
 
-  <!-- 帯の中のボタン（［検索する］［続きから再開］［中止］）。白地に帯の状態色の枠と文字、小さい角丸、半太字。
-       枠と文字の色は帯の状態で変わるので、index_detail.ps1 の setIndexingBanner が付ける -->
+  <!-- 帯の中のボタン。白地に帯の状態色の枠と文字、小さい角丸、半太字。
+       枠と文字の色は帯の状態で変わるので、使う側が状態ごとに付ける。
+       見える枠（Bd）の高さが Height（24）になるよう、フォーカスの輪（Ring）を Margin=-1 で外へ出す -->
   <Style x:Key="Banner.Button" TargetType="Button">
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="MinWidth" Value="64" />
@@ -615,7 +616,7 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
-          <Border x:Name="Ring" CornerRadius="5" Padding="1" Background="Transparent">
+          <Border x:Name="Ring" CornerRadius="5" Padding="1" Margin="-1" Background="Transparent">
             <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />

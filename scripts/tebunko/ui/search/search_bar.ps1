@@ -139,15 +139,19 @@ function updateSearchTarget {
     updateSearchButton
 }
 
-# ---- イベント ----
 function updateConditionFlow {
     # 検索条件の行の折り返し。判断（getConditionFlow）の結果を、「伸びる空き」の幅と高速検索の印の寄せに反映する。
     # 並びの幅が変わったとき・高速検索の印を出す／隠したときに呼ぶ
     $panel = $ui.ConditionsPanel
     if ($panel.ActualWidth -le 0) { return }
     $items = @($panel.Children | Where-Object { $_ -ne $ui.ConditionsSpacer })
+    # 幅が決まっている項目（Width 指定）は指定の値で数える。出した直後で ActualWidth がまだ 0 でも、正しい幅で計算できる
     $widths = @($items | ForEach-Object {
-        if ($_.Visibility -eq "Collapsed") { 0.0 } else { [double]($_.ActualWidth + $_.Margin.Left + $_.Margin.Right) }
+        if ($_.Visibility -eq "Collapsed") { 0.0 }
+        else {
+            $width = if ([double]::IsNaN($_.Width)) { $_.ActualWidth } else { $_.Width }
+            [double]($width + $_.Margin.Left + $_.Margin.Right)
+        }
     })
     # 空きは、［ファイル内の対象］の次（検索条件の前）に置く
     $spacerIndex = $items.IndexOf($ui.CaseCheck)
@@ -155,13 +159,15 @@ function updateConditionFlow {
     if ([Math]::Abs($ui.ConditionsSpacer.Width - $flow.SpacerWidth) -gt 0.1) {
         $ui.ConditionsSpacer.Width = $flow.SpacerWidth
     }
-    # 高速検索の印は、行の左端に落ちたときだけ左に寄せ、右の組に付いているときは右に寄せる
+    # 高速検索の印は、右の組（空きのある行）に付いているときは右に寄せ、落ちたときは左に寄せる
     $slotIndex = $items.IndexOf($ui.FastSearchSlot)
-    $alignment = if ($flow.LineStarts[$slotIndex] -and $slotIndex -gt 0) { "Left" } else { "Right" }
+    $alignment = if ($flow.OnSpacerLine[$slotIndex]) { "Right" } else { "Left" }
     if ([string]$ui.FastBadge.HorizontalAlignment -ne $alignment) {
         $ui.FastBadge.HorizontalAlignment = $alignment
     }
 }
+
+# ---- イベント ----
 $ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow } })
 
 
