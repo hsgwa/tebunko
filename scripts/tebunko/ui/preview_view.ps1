@@ -28,3 +28,14 @@ function toStatusText {
     }
     return $text
 }
+
+function getPreviewMenuItems {
+    # プレビューの右クリックメニューの並び。@{ Id; Header; Bold } の並び（区切りは Id が "separator"）。
+    # 先頭は、選んでいる結果の行の場所で元のファイルを開く（ダブルクリックと同じ処理）
+    return @(
+        @{ Id = "openHere"; Header = "元のファイルのこの場所を開く"; Bold = $true }
+        @{ Id = "separator"; Header = ""; Bold = $false }
+        @{ Id = "copyCell"; Header = "選んだセルをコピー"; Bold = $false }
+        @{ Id = "copyRow"; Header = "この行をコピー"; Bold = $false }
+    )
+}

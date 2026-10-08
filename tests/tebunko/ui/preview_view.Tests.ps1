@@ -29,3 +29,15 @@ Describe "toStatusText" -Tag Unit {
         toStatusText $text | Should -Be $expected
     }
 }
+
+Describe "getPreviewMenuItems" -Tag Unit {
+    It "元のファイルのこの場所を開くを太字で先頭に出し、区切りのあとにコピーを並べる" {
+        $items = @(getPreviewMenuItems)
+        ($items | ForEach-Object { $_.Id }) -join "/" | Should -Be "openHere/separator/copyCell/copyRow"
+        ($items | ForEach-Object { $_.Header }) -join "/" | Should -Be "元のファイルのこの場所を開く//選んだセルをコピー/この行をコピー"
+        @($items | Where-Object { $_.Bold } | ForEach-Object { $_.Id }) | Should -Be @("openHere")
+        foreach ($item in $items) {
+            $item.Header | Should -Not -Match "Ctrl"
+        }
+    }
+}

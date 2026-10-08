@@ -165,3 +165,44 @@ Describe "sortFileGroups" -Tag Unit {
         @($a.Rows | ForEach-Object { $_.Order }) -join "," | Should -Be "1,2"
     }
 }
+
+Describe "getResultMenuItems" -Tag Unit {
+    BeforeAll {
+        function menuText {
+            param ($items)
+            (@($items | ForEach-Object { $(if ($_.Bold) { "*" } else { "" }) + $(if ($_.Id -eq "separator") { "-" } else { $_.Header }) }) -join "/")
+        }
+    }
+
+    It "行のメニューは、先頭に既定の開き方を太字で出し、下にほかの開き方を［開く ▾］の順で並べる（既定: <mode>）" -TestCases @(
+        @{ mode = "normal";   expected = "*開く/新規で開く/読み取り専用で開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+        @{ mode = "readOnly"; expected = "*読み取り専用で開く/開く/新規で開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+        @{ mode = "new";      expected = "*新規で開く/開く/読み取り専用で開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+        @{ mode = "";         expected = "*開く/新規で開く/読み取り専用で開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+        @{ mode = "unknown";  expected = "*開く/新規で開く/読み取り専用で開く/フォルダを開く/-/選んだ行をコピー/ファイルのパスをコピー" }
+    ) {
+        param ($mode, $expected)
+        menuText (getResultMenuItems "row" $mode) | Should -Be $expected
+    }
+
+    It "見出しのメニューは、読み取り専用で開くを太字で先頭に出し、開閉の項目は開き具合で文言を変える（expanded: <expanded>）" -TestCases @(
+        @{ expanded = $true;  expected = "*読み取り専用で開く/フォルダを開く/-/ファイルのパスをコピー/この結果を折りたたむ" }
+        @{ expanded = $false; expected = "*読み取り専用で開く/フォルダを開く/-/ファイルのパスをコピー/この結果を開く" }
+    ) {
+        param ($expanded, $expected)
+        # 既定の開き方が別でも、見出しのメニューは変わらない
+        menuText (getResultMenuItems "group" "new" $expanded) | Should -Be $expected
+    }
+
+    It "太字は 1 つだけで、Id は項目ごとに決まり、「…」・キー操作・（既定）は付けない" {
+        foreach ($target in "row", "group") {
+            $items = @(getResultMenuItems $target "readOnly" $true)
+            @($items | Where-Object { $_.Bold }).Count | Should -Be 1
+            $ids = @($items | Where-Object { $_.Id -ne "separator" } | ForEach-Object { $_.Id })
+            $ids.Count | Should -Be @($ids | Select-Object -Unique).Count
+            foreach ($item in $items) {
+                $item.Header | Should -Not -Match "…|Ctrl|Enter|（既定）"
+            }
+        }
+    }
+}
