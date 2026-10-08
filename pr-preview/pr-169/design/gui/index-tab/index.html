@@ -4253,7 +4253,7 @@
 <tr>
 <td>3</td>
 <td>［編集…］</td>
-<td>［アクション ▾］のメニューの項目（［更新］の次）と、行の右クリックのメニューの項目（行のダブルクリックでも開く）。押したときの動きは同じ（<code>editIndex</code>）。対象は詳細に出している 1 件の行（押した行。無ければチェックが 1 件のその行。<code>getIndexTargetItem</code>）で、1 件に決まるときだけ使える（可否は判断層の <code>getIndexTabButtonsEnabled</code> の <code>Edit</code>）。選択中のインデックスの<strong>名前</strong>と<strong>元のフォルダの場所</strong>を変える（<a href="#追加編集のダイアログ">追加・編集のダイアログ</a>）。変えても<strong>インデックスは作り直さない</strong>。変更したらステータスに <code>インデックスを変更しました（名前 [&lt;旧&gt;] → [&lt;新&gt;] / 場所 &lt;旧&gt; → &lt;新&gt;）</code> と表示する</td>
+<td>［アクション ▾］のメニューの項目（［更新］の次）と、行の右クリックのメニューの項目（行のダブルクリックでも開く）。押したときの動きは同じ（<code>editIndex</code>）。［アクション ▾］の［編集…］の対象は、チェックが 1 件ならその行、チェックが無ければ押した行で、2 件以上チェックしているときは使えない（可否は判断層の <code>getIndexActionsEnabled</code> の <code>Edit</code>。［エクスポート…］［削除…］と同じくチェックの行を選んでから動く）。右クリック・二重クリックの［編集…］は、押した行に対して動く（<code>getIndexTargetItem</code>）。選択中のインデックスの<strong>名前</strong>と<strong>元のフォルダの場所</strong>を変える（<a href="#追加編集のダイアログ">追加・編集のダイアログ</a>）。変えても<strong>インデックスは作り直さない</strong>。変更したらステータスに <code>インデックスを変更しました（名前 [&lt;旧&gt;] → [&lt;新&gt;] / 場所 &lt;旧&gt; → &lt;新&gt;）</code> と表示する</td>
 </tr>
 <tr>
 <td>4</td>

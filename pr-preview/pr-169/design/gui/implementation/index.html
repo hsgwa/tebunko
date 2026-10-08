@@ -4272,7 +4272,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/ui/trimmed_tooltip.ps1</code></td>
-<td>省略（…）で切れているときだけ全文を出すツールチップ（画面層。<code>addTrimmedToolTip</code> は TextBlock の <code>ToolTipOpening</code> で幅を測り、<code>testTextTrimmed</code>（<code>shared/core/text.ps1</code>）が $false なら開かない。行の中の TextBlock は <code>addTrimmedToolTipToRows</code> で行の <code>Loaded</code> から付ける）。<code>gui.ps1</code> から読み込む</td>
+<td>省略（…）で切れているときだけ全文を出すツールチップ（画面層。<code>addTrimmedToolTip</code> は TextBlock の <code>ToolTipOpening</code> で幅を測り、<code>testTextTrimmed</code>（<code>shared/core/text.ps1</code>）が $false なら開かない。行の中の TextBlock は、<code>addTrimmedToolTipToRows</code>（行の <code>Loaded</code> から、印の <code>Tag</code> が付いた TextBlock に付ける。行ごとに 1 回だけ呼ぶ）で付ける）。<code>gui.ps1</code> から読み込む</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/shell.ps1</code></td>
