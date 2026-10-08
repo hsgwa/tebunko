@@ -162,7 +162,7 @@ function updateConditionFlow {
     # 高速検索の印は、右の組（空きのある行）に付いているときは右に寄せ、落ちたときは左に寄せる
     $slotIndex = $items.IndexOf($ui.FastSearchSlot)
     $alignment = if ($flow.OnSpacerLine[$slotIndex]) { "Right" } else { "Left" }
-    if ([string]$ui.FastBadge.HorizontalAlignment -ne $alignment) {
+    if ($ui.FastSearchSlot.Visibility -ne "Collapsed" -and [string]$ui.FastBadge.HorizontalAlignment -ne $alignment) {
         $ui.FastBadge.HorizontalAlignment = $alignment
     }
 }

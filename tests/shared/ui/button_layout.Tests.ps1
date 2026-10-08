@@ -103,7 +103,7 @@ Describe "ボタンの中身の位置（描いた画素で測る）" -Tag Unit {
 
 # 帯のボタンの見える枠（Bd）の高さ。Height（24）はボタン全体で、フォーカスの輪が内側から取ると見える枠が 22 に縮む（Margin=-1 で外へ出してある）。
 Describe "帯のボタンの見える枠の大きさ" -Tag Unit {
-    It "<Name>: 見える枠の高さが 24（上下の余白を除いた中身が文字の行より高い）" -TestCases @(
+    It "<Name>: 見える枠の高さが 24（" -TestCases @(
         @{ Name = "IndexingSearchButton" }
         @{ Name = "IndexingResumeButton" }
         @{ Name = "IndexingStopButton" }
@@ -116,7 +116,22 @@ Describe "帯のボタンの見える枠の大きさ" -Tag Unit {
         $bd = $f.Button.Template.FindName("Bd", $f.Button)
         $bd.ActualHeight | Should -Be 24
         $f.Button.ActualHeight | Should -Be 24
-        ($bd.ActualHeight - 10) | Should -BeGreaterThan 12
+    }
+
+    # 帯の右に 2 つ以上並ぶ（中止のあとで［検索する］と［続きから再開］、更新中は見積もり時間と［中止］）とき、間は 10
+    It "並んだボタンの間は 10（見える枠どうし）" {
+        $root = getRoot "index\index.xaml"
+        $names = "IndexingSearchButton", "IndexingResumeButton", "IndexingStopButton"
+        $buttons = @($names | ForEach-Object { (findButton $root $_).Button })
+        $root.Measure([System.Windows.Size]::new(1000, 600))
+        $root.Arrange([System.Windows.Rect]::new(0, 0, 1000, 600))
+        $root.UpdateLayout()
+        $frames = @($buttons | ForEach-Object {
+            $bd = $_.Template.FindName("Bd", $_)
+            $bd.TransformToAncestor($root).TransformBounds([System.Windows.Rect]::new(0, 0, $bd.ActualWidth, $bd.ActualHeight))
+        })
+        ($frames[1].Left - $frames[0].Right) | Should -Be 10
+        ($frames[2].Left - $frames[1].Right) | Should -Be 10
     }
 }
 

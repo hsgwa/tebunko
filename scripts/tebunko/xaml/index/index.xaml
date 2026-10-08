@@ -20,11 +20,12 @@
   <Border x:Name="IndexingProgressPanel" Grid.Row="0" Visibility="Collapsed" Style="{StaticResource Banner}"
           Background="{StaticResource Badge.Run.Bg}" BorderBrush="{StaticResource Accent}">
     <DockPanel>
+      <!-- 帯の右の組。ボタンの間・見積もり時間とボタンの間は 10（ボタンの左の余白で取る。右の空き 12 は帯の余白） -->
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-        <TextBlock x:Name="IndexingProgressEta" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
-        <Button x:Name="IndexingSearchButton" Style="{StaticResource Banner.Button}" Content="検索する" Visibility="Collapsed" />
-        <Button x:Name="IndexingResumeButton" Style="{StaticResource Banner.Button}" Content="続きから再開" MinWidth="88" Visibility="Collapsed" />
-        <Button x:Name="IndexingStopButton" Style="{StaticResource Banner.Button}" Content="中止" MinWidth="72" />
+        <TextBlock x:Name="IndexingProgressEta" Style="{StaticResource Meta}" VerticalAlignment="Center" />
+        <Button x:Name="IndexingSearchButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Content="検索する" Visibility="Collapsed" />
+        <Button x:Name="IndexingResumeButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Content="続きから再開" MinWidth="88" Visibility="Collapsed" />
+        <Button x:Name="IndexingStopButton" Style="{StaticResource Banner.Button}" Margin="10,0,0,0" Content="中止" MinWidth="72" />
       </StackPanel>
       <Grid VerticalAlignment="Center">
         <Grid.ColumnDefinitions>

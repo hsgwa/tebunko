@@ -63,14 +63,17 @@ Describe "検索条件の行の折り返し" -Tag Gui {
             $script:narrow = waitGui $S "最小の幅の並び" ${guiDefaultTimeout} {
                 $fast = & $script:rect $S "FastSearchText"
                 $scope = & $script:rect $S "ScopeButton"
-                if ($fast.Width -gt 0 -and $fast.Top -gt $scope.Bottom) { @{ Fast = $fast; Scope = $scope; Excel = (& $script:rect $S "KindChipExcel"); Word = (& $script:rect $S "KindChipWord"); Regex = (& $script:rect $S "RegexCheck") } }
+                if ($fast.Width -gt 0 -and $fast.Top -gt $scope.Bottom) { @{ Fast = $fast; Scope = $scope; Label = (findGui $S.Window -Name "種類").Current.BoundingRectangle; Excel = (& $script:rect $S "KindChipExcel"); Word = (& $script:rect $S "KindChipWord"); Regex = (& $script:rect $S "RegexCheck") } }
             }
             closeGui $S
         }
         # ファイル内の対象・検索条件は 1 行目に残る
         $script:narrow.Regex.Top | Should -BeLessThan ($script:narrow.Scope.Bottom)
-        # 高速検索の印は 2 行目の左端（1 行目の右にある［ファイル内の対象］より、ずっと左）
-        $script:narrow.Fast.Left | Should -BeLessThan $script:narrow.Scope.Left
+        # 高速検索の印は 2 行目の左端。印の字は欄（幅 170）の左に寄り、1 行目の左端の「種類」から 40 以内にある
+        # （右寄せのままなら、字は欄の右の端に寄って 40 を超える。字の幅・フォントで揺れない大きな差で比べる）
+        $diff = $script:narrow.Fast.Left - $script:narrow.Label.Left
+        $diff | Should -BeGreaterThan 0
+        $diff | Should -BeLessThan 40
         # 行の間は 8（1 行目の下端から 2 行目の印の上端までは、印の上下の余白を含めて 8 以上）
         ($script:narrow.Fast.Top - $script:narrow.Scope.Bottom) | Should -BeGreaterThan 7
         # 項目の間は 8（チップの間）
@@ -78,19 +81,23 @@ Describe "検索条件の行の折り返し" -Tag Gui {
         ($script:narrow.Word.Left - $script:narrow.Excel.Right) | Should -BeLessThan 8.5
     }
 
-    # 1 行に収まる幅（1100 以上）は、画面の作業領域がそれより広いときだけ作れる（小さい画面では窓が作業領域に切られる）。
+    # 1 行に収まる幅（1100 以上）を作るため、窓を 1280×700 にする。画面の作業領域がそれより小さいと窓が切られて作れないので、その画面では飛ばす。
     # 収まる・収まらないの境目は、getConditionFlow の単体テストで確かめてある
     It "広い幅では 1 行になり、高速検索の印は右端に付く" {
+        $wideWidth = 1280
+        $wideHeight = 700
         Add-Type -AssemblyName System.Windows.Forms
         $area = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-        if ($area.Width -lt 1300 -or $area.Height -lt 740) {
+        if ($area.Width -lt $wideWidth -or $area.Height -lt $wideHeight) {
             Set-ItResult -Skipped -Because "画面の作業領域が $($area.Width)×$($area.Height) で、広い幅の窓を作れない"
             return
         }
         $S = startGui $script:tool "SearchFlowWide"
         $script:wide = $null
         invokeGuiScene $S {
-            resizeGuiWindow $S 1280 700
+            resizeGuiWindow $S $wideWidth $wideHeight
+            $actual = $S.Window.Current.BoundingRectangle
+            if ($actual.Width -lt $wideWidth - 20) { throw "窓を $wideWidth 幅にできなかった（実際は $($actual.Width)）。画面の作業領域が足りない" }
             $script:wide = waitGui $S "広い幅の並び" ${guiDefaultTimeout} {
                 $fast = & $script:rect $S "FastSearchText"
                 $regex = & $script:rect $S "RegexCheck"
