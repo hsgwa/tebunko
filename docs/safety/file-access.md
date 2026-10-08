@@ -9,13 +9,12 @@
 | `work/` 配下（既定は `%USERPROFILE%\Documents\tebunko_ws`。利用者が画面で選んだフォルダ（ワークスペース）にも置ける） | 本文インデックス（`work/content_index/`）、取り込み一覧・インデックス作成ログ・制御用ファイル、検索結果 | `tebunko/core/paths.ps1`（`$workspace`）、`tebunko/core/workspace.ps1`（`Workspace`） |
 | `work/office_pids/<PC の鍵>/<PID>.txt` | インデックス作成が起動した Office の PID の記録（起動時の確認で、記録のあるものだけを終了するため）。Office を終了したとき・起動時の確認のときに消す | `tebunko/core/workspace.ps1`（`OfficePidRoot`）、`shared/office/office_process.ps1`（`addOfficeRecord`） |
 | `work/tmp/<PC の鍵>/<PID>` 配下（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みをスキップする） | 取り込みの作業領域（原本のコピー・中間 TSV）。インデックス作成の完了時・開始時に空にする | `tebunko/indexer/index_migrate.ps1` の `initTmpDir` |
-| `setting.config`（ツールを置いたフォルダの直下） | 画面が保存する設定（クロール対象フォルダ・検索対象インデックス・`work` の置き場所など） | `shared/core/data_dir.ps1:40`、`tebunko/core/settings.ps1:5` |
-| `%LOCALAPPDATA%\tebunko\<鍵>` 配下 | ツールを置いたフォルダに書き込めないとき（Program Files・読み取り専用の共有フォルダ）だけ、`setting.config` をここに置く（ワークスペースの既定は `%USERPROFILE%\Documents\tebunko_ws`）。鍵はツールのフォルダのパスから作る 16 文字（[データの置き場所とパスの決め方](../design/structure/data.md)） | `shared/core/data_dir.ps1:31` |
-| `%LOCALAPPDATA%\tebunko\startup_error.txt`（書き込めなければ `%TEMP%\tebunko_startup_error.txt`） | 起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため固定の場所に置く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)） | `tebunko.bat`、`tebunko/ui/startup_error.ps1` の `writeStartupErrorFile` |
+| `setting.config`（ツールを置いたフォルダの直下。書き込めないときは既定のワークスペース `%USERPROFILE%\Documents\tebunko_ws` の直下） | 画面が保存する設定（クロール対象フォルダ・検索対象インデックス・`work` の置き場所など）。書き込めない場所（Program Files・読み取り専用の共有フォルダ）に置いたときだけ、ワークスペースの既定の場所に置く（[データの置き場所とパスの決め方](../design/structure/data.md)）。保存のときの一時ファイル `setting.config.tmp` と、壊れた設定の退避 `setting.config.broken-<日時>` も同じフォルダに置く | `shared/core/data_dir.ps1`、`tebunko/core/settings.ps1` の `getSettingsFilePath` |
+| `startup_error.txt`（ツールを置いたフォルダの直下。書き込めなければ作らない） | 起動そのものに失敗したとき（画面が開く前）の記録。起動の前はワークスペースが決まらないため、ツールのフォルダに置く（[起動に失敗したときの知らせ](disclosure.md#起動に失敗したときの知らせtebunkobat)） | `tebunko.bat`、`tebunko/ui/startup_error.ps1` の `writeStartupErrorFile` |
 | 利用者が指定した出力先 | ［結果をファイルに出力］の保存先（既定は `work\search_results.txt`） | 画面のダイアログで利用者が指定 |
 | 利用者が指定したエクスポート先 | インデックスのエクスポート（`exportIndex`）の保存先の zip と、書き終えてから置き換えるまでの間だけ残る `<保存先>.tmp`（強制終了すると残ることがある） | 画面のダイアログで利用者が指定 |
 
-単一 .ps1 版（試験版）は、`tebunko.bat` の代わりに `.ps1` ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は `.ps1` ファイル自身がある場所を指す。`setting.config` は `.ps1` のある場所に置き、書き込めないときは `%LOCALAPPDATA%\tebunko\<鍵>` に置く（`getDataDir`。zip 版と同じ決め方）。ワークスペースの既定の置き場所（`%USERPROFILE%\Documents\tebunko_ws`）は、別のフォルダに置いた zip 版と同じ場所になる（[単一 PowerShell のビルド](../design/structure/single-script.md)「実行時の違い」）。
+単一 .ps1 版（試験版）は、`tebunko.bat` の代わりに `.ps1` ファイル自身を実行する形のため、上の表の「ツールを置いたフォルダ」は `.ps1` ファイル自身がある場所を指す。`setting.config` は `.ps1` のある場所に置き、書き込めないときは既定のワークスペースの直下に置く（`getSettingsFilePath`。zip 版と同じ決め方）。ワークスペースの既定の置き場所（`%USERPROFILE%\Documents\tebunko_ws`）は、別のフォルダに置いた zip 版と同じ場所になる（[単一 PowerShell のビルド](../design/structure/single-script.md)「実行時の違い」）。
 
 削除（`Remove-Item`・`[System.IO.File]::Delete` など）の対象はすべてワークスペース配下（取り込みの作業領域 `work/tmp/` を含む）、すなわち**本ツールが自分で作ったファイル**である（前の版（`%TEMP%\tebunko\<PID>` に一時ファイルを置いていた版）が残した作業フォルダの片付けだけ例外。`removeStaleTmpDirs`）。クロール対象フォルダ内のファイルを削除する処理は無い。
 
@@ -55,8 +54,8 @@ scan 'NotContentIndexed'
 
 | 種類 | 置く場所 | 中身 | 外に置く理由 |
 |---|---|---|---|
-| 利用者ごとの設定データ | `%LOCALAPPDATA%\tebunko\<鍵>\`（ツールのフォルダに書き込めないときだけ） | `setting.config` | ツールを置いたフォルダ（`Program Files`・読み取り専用の共有フォルダ）に書けないときの代わりの場所。ワークスペースより先に（設定を読む前に）決まる必要がある |
-| 起動失敗の記録 | `%LOCALAPPDATA%\tebunko\startup_error.txt`（書けなければ `%TEMP%\tebunko_startup_error.txt`） | 起動に失敗した理由・日時・実行環境の情報 | 画面が開く前（ワークスペースも設定も読めないことがある）に書くため、固定の場所にする |
+| 利用者ごとの設定データ | `setting.config`（ツールのフォルダに書き込めるときはその直下。書き込めないときだけ、既定のワークスペース `%USERPROFILE%\Documents\tebunko_ws` の直下） | 画面が保存する設定 | ツールを置いたフォルダ（`Program Files`・読み取り専用の共有フォルダ）に書けないときの代わりの場所。`%LOCALAPPDATA%` には置かない。ワークスペースより先に（設定を読む前に）決まる必要があるため、ワークスペースの既定の場所に固定する |
+| 起動失敗の記録 | ツールのフォルダの `startup_error.txt`（書けなければ作らない） | 起動に失敗した理由・日時・実行環境の情報 | 画面が開く前（ワークスペースも設定も読めないことがある）に書くため、ツールのフォルダにする |
 | Office アプリの PID | メモリ上の `OfficePids`（画面を閉じるとき用）と、ワークスペースの `office_pids\<PC の鍵>\<PID>.txt`（次の起動時の確認用） | 起動した Office の PID → プロセス名・起動時刻・起動した側の PID | 画面を閉じるときは、応答の無い Office だけを PID で止める。強制終了などで残ったものは、次の起動時に記録のあるものだけを確認して止めるため、ファイルに残す |
 | 書き込み中の一時ファイル（`<保存先>.tmp`。置き換えたら消える） | 書く先のすぐ隣（`setting.config.tmp`・`ingest_status.tsv.tmp` などの TSV の隣・利用者が指定したエクスポート/インポート先の隣 など） | 書き込み中の内容 | 途中で強制終了してもファイルが壊れないよう、一時ファイルに書いてから置き換える（`writeTextLinesAtomic` など）。置き換え（`File.Replace`）は同じフォルダ内でしか使えない |
 | 書き込みテストの確認用 | ツールのフォルダ直下 `.tebunko_write_test_<GUID>.tmp` | 空（`DeleteOnClose` でファイルを閉じた瞬間に消える） | 起動のたびに、ツールのフォルダに書き込めるかを確かめるため（`testWritableFolder`） |

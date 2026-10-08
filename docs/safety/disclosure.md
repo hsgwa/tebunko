@@ -36,8 +36,8 @@ set "PSCMD=%PSCMD%if (-not (Test-Path -LiteralPath $gui)) { $reason = Join-Path 
 rem Step 5: build the record's detail lines (date, tool path, language mode,
 rem PowerShell version, execution policy, and the error message).
 set "PSCMD=%PSCMD%$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f $root), ('LanguageMode: {0}' -f $ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f $PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f $err.Exception.Message)); $allLines = $reasonLines + '' + $detailLines; "
-rem Step 6: write the record (LOCALAPPDATA, falling back to TEMP), then show it.
-set "PSCMD=%PSCMD%$openTarget = $reason; foreach ($candidate in @((Join-Path $env:LOCALAPPDATA 'tebunko\startup_error.txt'), (Join-Path $env:TEMP 'tebunko_startup_error.txt'))) { try { $dir = Split-Path -Parent $candidate; if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null }; Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate; break } catch { } }; & $opener $openTarget }"
+rem Step 6: write the record in the tool folder (no record if it cannot be written; then the reason is shown), then show it.
+set "PSCMD=%PSCMD%$openTarget = $reason; $candidate = Join-Path $root 'startup_error.txt'; try { Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate } catch { }; & $opener $openTarget }"
 start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "%PSCMD%"
 ```
 
@@ -54,9 +54,9 @@ start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -Wind
 制限の強い環境（実行ポリシー・制限言語モード）ほど、`gui.ps1` の画面が開く前に起動が止まり、利用者から見て「ダブルクリックしても何も起きない」ことになりやすい。`tebunko.bat` は、`& $gui`（画面の起動）を `try`/`catch` で包み、失敗したときは理由と記録のファイルの名前を Notepad で示す。インラインの `-Command` は実行ポリシーの対象外で、制限言語モードでも動くため、この知らせの処理自体は止まらない。
 
 - **PowerShell が無い**: `%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`（PATH からは探さない。`installer\tebunko.cs` と同じ）が無ければ、PowerShell を起動せずに Notepad で理由を示す。この場面だけは記録が残らない（PowerShell 自体が使えないため）。
-- **理由の見分け方**: `catch` は、`gui.ps1` が無ければファイル不足、その場の言語モード（`$ExecutionContext.SessionState.LanguageMode`）が `FullLanguage` でなければ制限言語モード、`FullyQualifiedErrorId` が `UnauthorizedAccess` なら実行ポリシー、それ以外は起動できなかったと分ける。`gui.ps1` の有無を先に見るのは、無いのに「フォルダの許可を情報システム部門に相談」と案内しないため。許可されていない制限言語モードでは `gui.ps1` の 1 行目（`Add-Type`）で失敗し、ツールのフォルダを AppLocker・WDAC で許可している PC では `gui.ps1` は `FullLanguage` で動くため、この `catch` には来ない（画面が開く）。
+- **理由の見分け方**: `catch` は、`gui.ps1` が無ければファイル不足、その場の言語モード（`$ExecutionContext.SessionState.LanguageMode`）が `FullLanguage` でなければ制限言語モード、`FullyQualifiedErrorId` が `UnauthorizedAccess` なら実行ポリシー、それ以外は起動できなかったと分ける。`gui.ps1` の有無を先に見るのは、無いのに「フォルダの許可を情報システム部門に相談」と案内しないため。許可されていない制限言語モードでは `gui.ps1` の最初の読み込み（`paths.ps1` の `New-Object`）で失敗し、ツールのフォルダを AppLocker・WDAC で許可している PC では `gui.ps1` は `FullLanguage` で動くため、この `catch` には来ない（画面が開く）。
 - **理由の文言**: 日本語の文言は ASCII で書く決まりの `tebunko.bat` に書けないため、`scripts\tebunko\startup\*.txt`（BOM 付き UTF-8・CRLF）に分けて置き、`Get-Content -Encoding UTF8` で読む。
-- **記録**: 理由の文言と、詳しい情報（日時・エラーの内容・言語モード・`Get-ExecutionPolicy -List`・PowerShell の版・ツールの場所）を、`%LOCALAPPDATA%\tebunko\startup_error.txt`（書き込めなければ `%TEMP%\tebunko_startup_error.txt`）に上書きする。起動の前はワークスペースを決められない（設定を読むには `RemoteSigned` で止まる場面がある）ため、固定の場所にする。ツールの場所（利用者名を含むパス）が記録に入るため、公開の Issue に貼る前に確かめるよう[トラブルシューティング](../guide/troubleshooting.md)に書いている。
+- **記録**: 理由の文言と、詳しい情報（日時・エラーの内容・言語モード・`Get-ExecutionPolicy -List`・PowerShell の版・ツールの場所）を、ツールのフォルダの `startup_error.txt` に書く（`%LOCALAPPDATA%` や `%TEMP%` には書かない）。起動の前はワークスペースを決められない（設定を読むには `RemoteSigned` で止まる場面がある）ため、ツールのフォルダにする。ツールのフォルダに書けないとき（`C:\Program Files` に入れた場合など）は記録を残さず、理由の文言のファイルを Notepad で示すだけにする。ツールの場所（利用者名を含むパス）が記録に入るため、公開の Issue に貼る前に確かめるよう[トラブルシューティング](../guide/troubleshooting.md)に書いている。
 - **`gui.ps1` の `trap` との関係**: `gui.ps1` の `trap` は、`writeErrorLog` がまだ使えない（`app_host.ps1` を読み込む前）ときに起きた失敗を、同じ場所に記録してからメッセージボックスを出そうとする。制限言語モード・WPF が読めない場面ではメッセージボックスも出せないため、`trap` は元の例外を投げ直し、上の `catch` が受けて記録のファイルを上書きする（1 か所に記録が 1 件残る）。メッセージボックスを出せたとき（`trap` が `exit 1` で終わったとき）は、`catch` には来ない（二重に知らせない）。インストーラー版 `tebunko.exe` から起動したときは、`trap` の記録に加えて、`tebunko.exe` がエラー出力（元の例外の内容）をメッセージで出す。
 - **AppLocker の実行ファイルの規則で `powershell.exe` 自体が止められた場合**: `start` は起動の失敗を待たないため、`tebunko.bat` は気づけず、何も知らせない（Windows 自身の知らせと、イベントログ（AppLocker）だけが残る）。`start` を起動の失敗を待つ形にすると、画面を閉じるまで `tebunko.bat` の窓が残ってしまうため、この場面は扱わない。
 
@@ -151,6 +151,6 @@ $r = Test-FileCatalog -Path .\scripts -CatalogFilePath <ダウンロードした
 zip・インストーラーに加えて、展開せずに 1 本の `.ps1`（`tebunko-<タグ>.ps1`）だけで動く試験版を並べて配る（[単一 PowerShell のビルド](../design/structure/single-script.md)）。中身のスクリプトは同じ `scripts/` から機械的に結合したものである。
 
 - **`tebunko.bat` に相当する起動口が無い**: 自分自身の Mark-of-the-Web を解除する動き（`Unblock-File`）は持たない。実行ポリシーも指定せず、右クリック［PowerShell で実行］や、呼び出す側が指定したポリシーのまま動く（[単一 PowerShell のビルド](../design/structure/single-script.md)「実行時の違い」）。
-- **起動失敗の知らせ方**: 画面が開く前の失敗は、zip 版と同じ `reportStartupFailure`／`writeStartupErrorFile`（`%LOCALAPPDATA%\tebunko\startup_error.txt`、書けなければ `%TEMP%\tebunko_startup_error.txt`）に記録する。`tebunko.bat` の `catch` に相当する外側の受け皿が無いため、単一 .ps1 の起動口（`gui.ps1` の本体）の `try`／`catch` が直接この関数を呼ぶ。ただし `lib.ps1` の読み込みは `try` の外にあるため、その失敗は `reportStartupFailure` に届かず、PowerShell の窓に出る。
+- **起動失敗の知らせ方**: 画面が開く前の失敗は、zip 版と同じ `reportStartupFailure`／`writeStartupErrorFile`（ツールのフォルダの `startup_error.txt`。書けなければ記録を残さない）に記録する。`tebunko.bat` の `catch` に相当する外側の受け皿が無いため、単一 .ps1 の起動口（`gui.ps1` の本体）の `try`／`catch` が直接この関数を呼ぶ。ただし `lib.ps1` の読み込みは `try` の外にあるため、その失敗は `reportStartupFailure` に届かず、PowerShell の窓に出る。
 - **署名・改ざんの確認**: `tebunko.cat` は対象にしない（1 本のファイルのため、[配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）](scans.md#配布物の完全性カタログハッシュ一覧来歴の署名)の SHA256SUMS.txt と来歴の署名だけで確かめる）。
 - **試験版という扱い**: 利用者の確かめが済むまでは「試験版」とし、zip 版・インストーラー版と並べて配る。

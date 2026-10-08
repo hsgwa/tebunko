@@ -36,7 +36,7 @@ tebunko は、Excel・Word・PowerPoint のファイルとテキストファイ�
 - **実行ポリシー**：`RemoteSigned` を、tebunko を起動する PowerShell のプロセスにだけ指定して起動します。PC の設定は変えません（[`RemoteSigned` で起動する理由](../safety/disclosure.md#remotesigned-で起動する理由)）。実行ポリシーが `AllSigned` の PC では、スクリプトに署名するまで起動できません。
 - **`.bat` が禁止されている PC**：インストーラー版を使うか、[`tebunko.bat` を使わずに起動する](#tebunkobat-を使わずに起動するzip-版)方法を使います。
 - **FIPS モード**：動きます。
-- **読み取り専用の場所に置いた場合**：動きます。設定（`setting.config`）は `%LOCALAPPDATA%\tebunko\` の下に置かれます。
+- **読み取り専用の場所に置いた場合**：動きます。設定（`setting.config`）は既定のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）の直下に置かれます。
 
 安全性の資料は [安全性](../safety/index.md) にあります。情報システム部門への確認にお使いください。
 
