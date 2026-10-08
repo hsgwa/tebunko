@@ -3,7 +3,7 @@
 # 詳細の左右の部品。名前の一覧（gui_main.ps1）に足さず、読み込んだ中身から取る
 foreach ($detailName in @(
         "IndexDetailBody", "IndexDetailName", "IndexDetailPath", "IndexDetailPathButton", "IndexDetailFolderStatus",
-        "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexDetailUpdated", "IndexDetailCount",
+        "IndexDetailBadge", "IndexDetailBadgeText", "IndexDetailBadgeSub", "IndexErrorText", "IndexErrorHintText", "IndexDetailUpdated", "IndexDetailCount",
         "IndexDetailFastBadge", "IndexDetailFastBadgeText", "IndexDetailFastReason", "IndexDetailFastChecked", "IndexDetailFastNote",
         "IndexingDetailPanel", "IndexingProgressBar", "IndexingCountText", "IndexingFileText", "MultiSelectHintText")) {
     $ui[$detailName] = $ui.IndexDetailHost.Content.FindName($detailName)
@@ -339,6 +339,7 @@ function updateIndexDetailPanel {
         $checkedText = if ($null -ne $script:fastSearchCheckedAt) { "最終確認 $($script:fastSearchCheckedAt.ToString('HH:mm'))" } else { "" }
         $selected = @(@{
             Name = $item.Name; Path = $item.Path; Enabled = $item.Enabled; FolderStatus = $item.StatusText
+            FolderMissing = ($item.StatusChecked -and !$item.FolderExists)
             IndexText = $item.IndexText; IndexLevel = $item.IndexLevel; IndexSub = $item.IndexSub; FileCountText = $item.FileCountText
             LastIngestedText = $item.LastIngestedText; FastText = $item.FastText; FastLevel = $item.FastLevel
             FastToolTip = $item.FastToolTip; FastCheckedText = $checkedText
@@ -365,6 +366,10 @@ function updateIndexDetailPanel {
     $ui.IndexDetailFolderStatus.Text = $view.FolderStatus
     setIndexBadge $ui.IndexDetailBadge $ui.IndexDetailBadgeText $view.Badge.Text $view.Badge.Level
     $ui.IndexDetailBadgeSub.Text = if ($view.Selected) { [string]$view.Badge.Sub } else { "" }
+    $ui.IndexErrorText.Text = $view.Error
+    $ui.IndexErrorText.Visibility = if ($view.Error) { "Visible" } else { "Collapsed" }
+    $ui.IndexErrorHintText.Text = $view.ErrorHint
+    $ui.IndexErrorHintText.Visibility = if ($view.ErrorHint) { "Visible" } else { "Collapsed" }
     $ui.IndexDetailUpdated.Text = if ($view.Run.Shown) { "" } else { $view.Updated }
     $ui.IndexDetailCount.Text = if ($view.Run.Shown) { "" } else { $view.Count }
     $ui.IndexDetailUpdated.Visibility = if ($ui.IndexDetailUpdated.Text) { "Visible" } else { "Collapsed" }

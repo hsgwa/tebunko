@@ -26,7 +26,7 @@
         <Setter Property="BorderBrush" Value="{StaticResource Border.Soft}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="6" />
-        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="Padding" Value="10,8" />
         <Setter Property="Background" Value="{StaticResource Bg.Summary}" />
       </Style>
     </ResourceDictionary>
@@ -114,11 +114,14 @@
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Style="{StaticResource Label.Strong}" Text="インデックス" VerticalAlignment="Center" />
-                    <Border x:Name="IndexDetailBadge" Style="{StaticResource StatusBadge}" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <Border x:Name="IndexDetailBadge" Style="{StaticResource StatusBadge}" Margin="8,0,0,0" VerticalAlignment="Center">
                       <TextBlock x:Name="IndexDetailBadgeText" FontSize="11" FontWeight="SemiBold" />
                     </Border>
                     <TextBlock x:Name="IndexDetailBadgeSub" Style="{StaticResource Meta}" Margin="8,0,0,0" VerticalAlignment="Center" />
                   </StackPanel>
+                  <!-- 元のフォルダが見つからないときの理由と直し方（バッジは「エラー」） -->
+                  <TextBlock x:Name="IndexErrorText" Style="{StaticResource ErrorText}" Margin="0,8,0,0" Visibility="Collapsed" />
+                  <TextBlock x:Name="IndexErrorHintText" Style="{StaticResource Meta}" Margin="0,2,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
                   <!-- 更新中の行を選んでいるときの進み具合（全体の進みを出す。インデックスごとの件数は無い） -->
                   <StackPanel x:Name="IndexingDetailPanel" Margin="0,8,0,0" Visibility="Collapsed">
                     <ProgressBar x:Name="IndexingProgressBar" Maximum="1" Height="6" />
@@ -130,12 +133,11 @@
                   <TextBlock x:Name="IndexDetailCount" Style="{StaticResource Meta}" Margin="0,2,0,0" />
                 </StackPanel>
               </Border>
-              <TextBlock Style="{StaticResource Label.Strong}" Text="高速検索" Margin="0,12,0,8" />
-              <Border Style="{StaticResource InfoCard}" Background="{DynamicResource Bg.Surface}">
+              <Border Style="{StaticResource InfoCard}" Background="{DynamicResource Bg.Surface}" Margin="0,10,0,0">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">
-                    <TextBlock Style="{StaticResource Label}" Text="状態" Width="60" VerticalAlignment="Center" />
-                    <Border x:Name="IndexDetailFastBadge" Style="{StaticResource StatusBadge}" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource Label.Strong}" Text="高速検索" VerticalAlignment="Center" />
+                    <Border x:Name="IndexDetailFastBadge" Style="{StaticResource StatusBadge}" Margin="10,0,0,0" VerticalAlignment="Center">
                       <TextBlock x:Name="IndexDetailFastBadgeText" FontSize="11" FontWeight="SemiBold" />
                     </Border>
                   </StackPanel>

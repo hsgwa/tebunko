@@ -224,12 +224,22 @@ Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
     }
 }
 
-Describe "getIndexBulkDeleteConfirm" -Tag Unit {
-    It "件数と名前の一覧を出す（空の名前は数えない）" {
-        $view = getIndexBulkDeleteConfirm @("営業", "", "経理")
-        $view.Heading | Should -Be "2 件のインデックスを削除しますか？"
-        $view.Hint | Should -Match "元のファイルは削除されません"
-        $view.Detail | Should -Be "「営業」`n「経理」"
+Describe "getIndexDeleteConfirmMessage" -Tag Unit {
+    It "<count> 件: <heading>" -TestCases @(
+        @{ count = 1; names = @("A"); heading = "「A」のインデックスを削除しますか？"; body = "元のファイルは削除されません。" }
+        @{ count = 2; names = @("A", "B"); heading = "選んだ 2 件のインデックスを削除しますか？"; body = "「A」「B」を削除します。元のファイルは削除されません。" }
+        @{ count = 3; names = @("A", "B", "C"); heading = "選んだ 3 件のインデックスを削除しますか？"; body = "「A」「B」「C」を削除します。元のファイルは削除されません。" }
+        @{ count = 4; names = @("A", "B", "C", "D"); heading = "選んだ 4 件のインデックスを削除しますか？"; body = "「A」「B」「C」ほか 1 件を削除します。元のファイルは削除されません。" }
+        @{ count = 10; names = @("A", "B", "C", "D", "E", "F", "G", "H", "I", "J"); heading = "選んだ 10 件のインデックスを削除しますか？"; body = "「A」「B」「C」ほか 7 件を削除します。元のファイルは削除されません。" }
+    ) {
+        param ($count, $names, $heading, $body)
+        $view = getIndexDeleteConfirmMessage $names
+        $view.Heading | Should -Be $heading
+        $view.Body | Should -Be $body
+    }
+
+    It "空の名前は数えない" {
+        (getIndexDeleteConfirmMessage @("営業", "", "経理")).Heading | Should -Be "選んだ 2 件のインデックスを削除しますか？"
     }
 }
 
@@ -649,6 +659,26 @@ Describe "getIndexDetailView（インデックスの詳細）" -Tag Unit {
         $view.Selected | Should -BeFalse
         @($view.Rows).Count | Should -Be 0
         $view.Fast.Shown | Should -BeFalse
+    }
+
+    It "元のフォルダが無いとき（FolderMissing）は、バッジを「エラー」にして理由と直し方を出す。更新中は出さない" -TestCases @(
+        @{ missing = $true; level = "Ok"; badge = "エラー"; badgeLevel = "Ng"; error = "フォルダが見つかりません。" }
+        @{ missing = $false; level = "Ok"; badge = "最新"; badgeLevel = "Ok"; error = "" }
+        @{ missing = $true; level = "Run"; badge = "最新"; badgeLevel = "Run"; error = "" }
+    ) {
+        param ($missing, $level, $badge, $badgeLevel, $error)
+        $item = newDetailItem
+        $item.FolderMissing = $missing
+        $item.IndexLevel = $level
+        $view = getIndexDetailView @($item) $null
+        $view.Badge.Text | Should -Be $badge
+        $view.Badge.Level | Should -Be $badgeLevel
+        $view.Error | Should -Be $error
+        if ($error) {
+            $view.ErrorHint | Should -Be "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［...］でフォルダを選び直してください。"
+        } else {
+            $view.ErrorHint | Should -Be ""
+        }
     }
 
     It "2 件以上を選んでいる（multiCount）と、題に件数を出し、詳細の代わりに案内を出す" {

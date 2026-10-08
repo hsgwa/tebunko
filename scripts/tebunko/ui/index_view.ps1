@@ -245,18 +245,27 @@ function getIndexDetailMultiCount {
     return 0
 }
 
-function getIndexBulkDeleteConfirm {
-    # 2 件以上をまとめて削除するときの確認の文（仮。1 件の削除の確認の文をもとに、件数と名前の一覧だけを足した形）。
-    # @{ Heading; Hint; Detail }（Detail は名前の一覧。showConfirm の detail に出す）
+function getIndexDeleteConfirmMessage {
+    # インデックスを削除する確認の文。@{ Heading; Body }（showConfirm の heading と hint に渡す）
+    #   1 件: 「営業」のインデックスを削除しますか？
+    #   2 件以上: 選んだ N 件のインデックスを削除しますか？ ／ 名前を 3 つまで並べ、4 つ目からは「ほか N 件」にまとめる
+    # 空の名前は数えない
     param (
         [string[]]$names
     )
 
     $names = @($names | Where-Object { $_ })
+    $note = "元のファイルは削除されません。"
+    if ($names.Count -le 1) {
+        $name = if ($names.Count -eq 1) { $names[0] } else { "" }
+        return @{ Heading = "「${name}」のインデックスを削除しますか？"; Body = $note }
+    }
+    $shown = @($names | Select-Object -First 3 | ForEach-Object { "「$_」" }) -join ""
+    $others = $names.Count - 3
+    $list = if ($others -ge 1) { "${shown}ほか {0:#,0} 件" -f $others } else { $shown }
     return @{
-        Heading = "{0:#,0} 件のインデックスを削除しますか？" -f $names.Count
-        Hint = "元のファイルは削除されません。"
-        Detail = ($names | ForEach-Object { "「$_」" }) -join "`n"
+        Heading = "選んだ {0:#,0} 件のインデックスを削除しますか？" -f $names.Count
+        Body = "${list}を削除します。${note}"
     }
 }
 
@@ -581,7 +590,7 @@ function testIndexEditInput {
 function getIndexDetailView {
     # インデックスの詳細のパネルに出す内容を返す。1 つ選んでいるときだけ中身を出す
     # （何も選んでいない・複数のときは見出しだけ。一覧の下の合計は別の部品）。
-    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; IndexText; IndexLevel; IndexSub; FileCountText;
+    #   items         : 選んでいる行。@{ Name; Path; Enabled; FolderStatus; FolderMissing（元のフォルダが無いと分かったか）; IndexText; IndexLevel; IndexSub; FileCountText;
     #                   LastIngestedText; FastText; FastLevel; FastToolTip; FastCheckedText }
     #   fastEntry     : getSystemIndexProgress の ByIndex のそのインデックスの値（@{ Folders; Waiting }）。無ければ $null
     #   multiCount    : 2 以上なら、詳細は出さず「N 件を選択中」と案内だけにする（getIndexDetailMultiCount）
@@ -590,7 +599,8 @@ function getIndexDetailView {
     #            Rows（右の「インデックス情報」の @{ Label; Value } の配列）; RowsKey;
     #            Fast（@{ Shown（反映の進みの棒を出すか）; Value（0〜1）; Text; State; Level; Reason; Checked; Note }）;
     #            Multi（複数を選んでいるか）; Hint（Multi のときの案内）;
-    #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0〜1）; CountText; FileText }） }
+    #            Run（@{ Shown（更新中の棒・件数・ファイル名を出すか）; Value（0〜1）; CountText; FileText }）;
+    #            Error・ErrorHint（元のフォルダが無いときの理由と直し方。無ければ空。バッジは「エラー」の Ng になる） }
     #   RowsKey は左右の表の中身から作る文字列。同じなら画面は行を置き直さない（高速検索の進みだけが変わったとき）
     param (
         [object[]]$items,
@@ -604,7 +614,7 @@ function getIndexDetailView {
     $none = @{
         Title = "インデックスの状態"; Selected = $false; Name = ""; Path = ""; FolderStatus = ""
         Badge = @{ Text = ""; Level = "None" }; Updated = ""; Count = ""; Rows = @(); RowsKey = ""; Fast = $emptyFast
-        Multi = $false; Hint = ""; Run = $noRun
+        Multi = $false; Hint = ""; Run = $noRun; Error = ""; ErrorHint = ""
     }
     if ($multiCount -ge 2) {
         $multi = $none.Clone()
@@ -660,16 +670,25 @@ function getIndexDetailView {
             $run.FileText = if ($running.Current) { "更新中のファイル：$($running.Current)" } else { "" }
         }
     }
+    # 元のフォルダが見つからないとき（更新中は更新の表示を優先する）は、バッジを「エラー」にして、理由と直し方を出す
+    $badge = @{ Text = [string]$item.IndexText; Level = [string]$item.IndexLevel; Sub = [string]$item.IndexSub }
+    $errorText = ""
+    $errorHint = ""
+    if ($item.FolderMissing -and $item.IndexLevel -ne "Run") {
+        $badge = @{ Text = "エラー"; Level = "Ng"; Sub = "" }
+        $errorText = "フォルダが見つかりません。"
+        $errorHint = "フォルダが移動・削除されたか、ネットワークにつながっていない可能性があります。`nフォルダパスの［...］でフォルダを選び直してください。"
+    }
     $fixed = @(
-        $item.Name, $item.Path, $item.FolderStatus, $item.IndexText, $item.IndexLevel, $item.IndexSub, $updated, $count
+        $item.Name, $item.Path, $item.FolderStatus, $badge.Text, $badge.Level, $badge.Sub, $updated, $count
         $fast.State, $fast.Level, $fast.Reason, $fast.Checked
     ) -join "`t"
     $rowsKey = $fixed + "`n" + (@($rows | ForEach-Object { "$($_.Label)`t$($_.Value)" }) -join "`n")
     return @{
         Title = "$($item.Name) - 詳細"; Selected = $true; Name = [string]$item.Name; Path = [string]$item.Path
         FolderStatus = [string]$item.FolderStatus
-        Badge = @{ Text = [string]$item.IndexText; Level = [string]$item.IndexLevel; Sub = [string]$item.IndexSub }
+        Badge = $badge
         Updated = $updated; Count = $count; Rows = $rows.ToArray(); RowsKey = $rowsKey; Fast = $fast
-        Multi = $false; Hint = ""; Run = $run
+        Multi = $false; Hint = ""; Run = $run; Error = $errorText; ErrorHint = $errorHint
     }
 }

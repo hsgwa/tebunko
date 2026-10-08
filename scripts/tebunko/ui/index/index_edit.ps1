@@ -270,12 +270,11 @@ function deleteIndexes {
     if (!(testIndexOperable "削除")) {
         return
     }
-    $confirm = getIndexBulkDeleteConfirm $names
+    $confirm = getIndexDeleteConfirmMessage $names
     $answer = showConfirm `
         -title "インデックスの削除" `
         -heading $confirm.Heading `
-        -hint $confirm.Hint `
-        -detail $confirm.Detail `
+        -hint $confirm.Body `
         -choices @(@{ Text = "削除する"; Value = "delete"; Danger = $true })
     if ($answer -ne "delete") {
         return
@@ -321,10 +320,11 @@ function deleteIndex {
         return
     }
 
+    $confirm = getIndexDeleteConfirmMessage @($item.Name)
     $answer = showConfirm `
         -title "インデックスの削除" `
-        -heading "「$($item.Name)」のインデックスを削除しますか？" `
-        -hint "元のファイルは削除されません。" `
+        -heading $confirm.Heading `
+        -hint $confirm.Body `
         -choices @(@{ Text = "削除する"; Value = "delete"; Danger = $true })
     if ($answer -ne "delete") {
         return
