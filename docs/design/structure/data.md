@@ -46,7 +46,7 @@ flowchart TD
 
 | 変数 | 決め方 | 定義 |
 |---|---|---|
-| 設定の置き場 | ツールのフォルダ（`$rootDir`）にファイルを作れればそこ。作れなければ、呼び出し側が渡す代わりのフォルダ（tebunko では既定のワークスペース `getDefaultWorkDir`）の直下。`%LOCALAPPDATA%` と `%TEMP%` には置かない | `scripts/shared/core/data_dir.ps1` の `getDataDir`（書き込めるかは `testWritableFolder`。試しに作ったファイルは閉じると消える）、`scripts/tebunko/core/settings.ps1` の `getSettingsFilePath` |
+| 設定の置き場 | ツールのフォルダ（`$rootDir`）にファイルを作れればそこ。作れなければ、呼び出し側が渡す代わりのフォルダ（tebunko では既定のワークスペース `getDefaultWorkDir`）の直下。前の版の `%LOCALAPPDATA%\tebunko` と `%TEMP%` には置かない（ツールのフォルダ自体が `%LOCALAPPDATA%\Programs\tebunko` にあるインストーラー版では、書き込めるのでその直下に置く） | `scripts/shared/core/data_dir.ps1` の `getDataDir`（書き込めるかは `testWritableFolder`。試しに作ったファイルは閉じると消える）、`scripts/tebunko/core/settings.ps1` の `getSettingsFilePath` |
 | `$settingsFile` | 設定の置き場の `setting.config` | `scripts/tebunko/core/settings.ps1` |
 | `$workspace.Dir` | `setting.config` の `workspaceFolder`（[設定ファイル（setting.config）の形式](settings-file.md#形式)）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents） | `scripts/tebunko/core/settings.ps1`（`getWorkDir`） |
 

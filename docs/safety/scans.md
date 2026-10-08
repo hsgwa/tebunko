@@ -153,7 +153,7 @@ Get-MpComputerStatus | Select-Object AMProductVersion, AntivirusSignatureVersion
 
 | 手段 | 何が分かるか | 手順 |
 |---|---|---|
-| Process Monitor（Sysinternals）または Sysmon | ファイル・レジストリ・ネットワーク・プロセス生成の**全アクセス**。「`work` 配下以外に書いていない（前の版が残した作業フォルダの片付けだけ `%TEMP%` に触れる。`%LOCALAPPDATA%` には書かない）」「通信していない」を実測で示せる | Procmon でプロセス名 `powershell.exe` / `EXCEL.EXE` を絞り込み、インデックス作成を 1 回実行して保存する |
+| Process Monitor（Sysinternals）または Sysmon | ファイル・レジストリ・ネットワーク・プロセス生成の**全アクセス**。「`work` 配下以外に書いていない（前の版が残した作業フォルダの片付けだけ `%TEMP%` に触れる。`%LOCALAPPDATA%\tebunko` には書かない。インストーラー版の入れ先 `%LOCALAPPDATA%\Programs\tebunko` の中は、ツールのフォルダとして書く）」「通信していない」を実測で示せる | Procmon でプロセス名 `powershell.exe` / `EXCEL.EXE` を絞り込み、インデックス作成を 1 回実行して保存する |
 | 送信の全遮断で完走 | 通信が不要であること | Windows ファイアウォールで送信を全ブロック、または Windows Sandbox（ネットワーク無効）でインデックス作成を完走させる |
 | PowerShell のログ | 実行された全コマンド | グループポリシーでスクリプトブロックログ（イベント ID 4104）・モジュールログ・トランスクリプションを有効にして 1 回実行し、記録を提出する |
 | 標準ユーザーで完走 | 管理者権限が不要であること | 管理者権限のないアカウントで起動して一通り操作する |

@@ -57,7 +57,7 @@ tebunko を終了し、`.ps1` を削除します。同じフォルダの `settin
 
 ## 前の版からの移行（設定の置き場所の変更）
 
-今の版の tebunko は、`%LOCALAPPDATA%` と `%TEMP%` に何も書きません。設定ファイル（`setting.config`）は、tebunko のフォルダに書き込めればそこに、書き込めなければ既定のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）の直下に置きます。起動に失敗したときの記録（`startup_error.txt`）は、tebunko のフォルダにだけ書き、書き込めないときは記録を残さずに理由だけを示します。`%LOCALAPPDATA%\tebunko\<英数字 16 文字のフォルダ>\setting.config` に置いていた前の版の設定は、今の版では読まれません。`C:\Program Files` などの書き込めない場所に入れていた方は、次のとおり移してください。
+今の版の tebunko は、前の版が使っていた `%LOCALAPPDATA%\tebunko` と `%TEMP%` に何も書きません（インストーラー版の既定の入れ先 `%LOCALAPPDATA%\Programs\tebunko` は tebunko のフォルダなので、書き込めるときはその中に設定ファイルを置きます）。設定ファイル（`setting.config`）は、tebunko のフォルダに書き込めればそこに、書き込めなければ既定のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）の直下に置きます。起動に失敗したときの記録（`startup_error.txt`）は、tebunko のフォルダにだけ書き、書き込めないときは記録を残さずに理由だけを示します。`%LOCALAPPDATA%\tebunko\<英数字 16 文字のフォルダ>\setting.config` に置いていた前の版の設定は、今の版では読まれません。`C:\Program Files` などの書き込めない場所に入れていた方は、次のとおり移してください。
 
 1. tebunko を終了します。**移し終えるまで、インデックス作成を実行しないでください。**
 2. 既定のワークスペースのフォルダ（`%USERPROFILE%\Documents\tebunko_ws`）が無ければ作ります。
