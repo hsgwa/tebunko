@@ -2853,6 +2853,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#右クリックのメニュー" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        右クリックのメニュー
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#配布と実行ポリシーmark-of-the-web" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4136,6 +4147,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#右クリックのメニュー" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        右クリックのメニュー
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#配布と実行ポリシーmark-of-the-web" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4274,6 +4296,17 @@
 <li>タスクバー・タイトルバーのアイコンは <code>Window.Icon</code>（上記）で出る。画面は <code>powershell.exe</code> で動くため、タスクバーのボタンは PowerShell と同じグループにまとめられる（アイコン自体は tebunko のものが出る）。独立したボタンにするには P/Invoke（<code>SetCurrentProcessExplicitAppUserModelID</code>）が要り、実行時コンパイルを使わない方針に反するため行わない（<a href="../implementation/#実行時コンパイルcscexeを使わない">画面の実装</a>）。</li>
 <li><code>tebunko.bat</code> 自体のアイコン（エクスプローラー上の表示）は Windows の仕様で変更できない。デスクトップ等にアイコン付きで置きたい利用者は、自分でショートカットを作る（ツールはショートカットを作らない）。</li>
 </ul>
+<h2 id="右クリックのメニュー">右クリックのメニュー<a class="headerlink" href="#右クリックのメニュー" title="Permanent link">&para;</a></h2>
+<p>どの画面の右クリックのメニューも、同じ見た目と決まりにする。</p>
+<ul>
+<li><strong>見た目</strong>: 共通の Style（<code>scripts/shared/xaml/theme.xaml</code>。幅 216・項目の高さ 31・丸い角と影・ホバーの色・区切り線）。メニューや項目を XAML や PowerShell の中で作るときも、Style を指定せずに作れば自動で効く（キー無しの Style は型が同じものに効く）。赤にする項目（削除）は <code>MenuItemDanger</code> を付ける。</li>
+<li><strong>並び</strong>: 先頭の項目は太字（一番よく使う動き）。区切り線のあとに、使う頻度が低いものや取り返しのつかないものを置く。</li>
+<li><strong>文言</strong>: 「…」は、ダイアログが開く項目にだけ付ける。キー操作（ショートカット）は項目に書かない。</li>
+<li><strong>開き方</strong>: 右クリックした行を先に選んでから出す。行の無い所（列見出し・余白・スクロールバー）では出さない。表の行には、選んでいる別の行に効かないよう、押した行を対象にする。</li>
+<li><strong>変えないもの</strong>: 入力欄（検索ワード・絞り込み・設定の欄）の右クリックは、Windows 標準のメニューのままにする（Style を当てない）。</li>
+<li><strong>判断と画面の分け方</strong>: 並び・文言・太字・使えるかどうかは判断層（<code>getResultMenuItems</code>・<code>getPreviewMenuItems</code>・<code>getIndexRowMenuEnabled</code>）が決め、画面層はその結果を並べるだけにする。</li>
+</ul>
+<p>各画面のメニューは、検索結果の行・ファイルの見出しが <a href="../open-file/">ファイルを開く</a>、プレビューが <a href="../preview/">選択行のプレビュー</a>、インデックスの行が <a href="../index-tab/">インデックス一覧の管理</a> にある。</p>
 <h2 id="配布と実行ポリシーmark-of-the-web">配布と実行ポリシー（Mark-of-the-Web）<a class="headerlink" href="#配布と実行ポリシーmark-of-the-web" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
     B(["tebunko.bat を起動"]) --&gt; U["scripts 配下の Mark-of-the-Web を Unblock-File で消す&lt;br&gt;（-Command の中身は実行ポリシーの対象外）"]
