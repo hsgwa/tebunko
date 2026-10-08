@@ -12,13 +12,13 @@
       <!-- 種類のチップ。押すたびに入り切りする（最後の 1 つは外せない。判断は ui/search/search_bar_view.ps1）。
            入りでも切りでも幅・太さを変えない（印は Hidden で場所を残し、文字は Regular のまま） -->
       <Style x:Key="KindChip" TargetType="ToggleButton">
-        <Setter Property="Margin" Value="0,0,6,0" />
+        <Setter Property="Margin" Value="0,0,8,8" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Focusable" Value="True" />
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="ToggleButton">
-              <Border x:Name="Box" Style="{StaticResource Chip.Box}" Padding="9,3"
+              <Border x:Name="Box" Style="{StaticResource Chip.Box}" Padding="9,4"
                       Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Input}">
                 <StackPanel Orientation="Horizontal">
                   <Path x:Name="Mark" Data="{StaticResource Icon.Check}" Width="11" Height="11" Stretch="Uniform"
@@ -53,7 +53,7 @@
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="Button">
-              <Border x:Name="Box" CornerRadius="6" Padding="12,0" Height="26" Width="176" BorderThickness="1"
+              <Border x:Name="Box" CornerRadius="6" Padding="12,0" Height="24" Width="176" BorderThickness="1"
                       Background="{StaticResource Bg.Surface}" BorderBrush="{StaticResource Border.Input}">
                 <DockPanel VerticalAlignment="Center" LastChildFill="True">
                   <Path DockPanel.Dock="Right" Data="{StaticResource Icon.ChevronDown}" Width="10" Height="10" Stretch="Uniform" Margin="6,1,0,0"
@@ -118,11 +118,59 @@
       </Grid>
     </DockPanel>
 
-    <!-- 種類のチップ・ファイル内の対象・検索条件・高速検索の状態。
-         右端の高速検索の欄（FastSearchSlot）は幅 170 で固定し、何も出ないときも残す（検索条件の位置が動かないように）。
-         ［ファイル内の対象］の幅が変わっても、左側の余白（DockPanel の残り）が受ける -->
-    <DockPanel Margin="0,8,0,0">
-      <Border x:Name="FastSearchSlot" DockPanel.Dock="Right" Width="170" VerticalAlignment="Center">
+    <!-- 種類のチップ・ファイル内の対象・検索条件・高速検索の状態。1 本の折り返す並び（項目の間 8・折り返した行の間 8）。
+         入りきらないときは後ろの項目（高速検索の印から）が次の行の左端へ落ちる。
+         ConditionsSpacer は［ファイル内の対象］と検索条件の間の「伸びる空き」で、広い幅では右の組（検索条件・高速検索の印）を右端に寄せる。
+         幅は ui/search/search_bar.ps1 の updateConditionFlow が、折り返しの判断（search_bar_view.ps1 の getConditionFlow）で決める。
+         各項目は右と下に間 8 を持ち、並びの右・下の余白を -8 にして間を外へはみ出させる -->
+    <WrapPanel x:Name="ConditionsPanel" Orientation="Horizontal" Margin="0,8,-8,-8">
+      <TextBlock Text="種類" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,8" />
+      <ToggleButton x:Name="KindChipExcel" Style="{StaticResource KindChip}" Tag="excel" Content="Excel" VerticalAlignment="Center" />
+      <ToggleButton x:Name="KindChipWord" Style="{StaticResource KindChip}" Tag="word" Content="Word" VerticalAlignment="Center" />
+      <ToggleButton x:Name="KindChipPowerPoint" Style="{StaticResource KindChip}" Tag="powerpoint" Content="PowerPoint" VerticalAlignment="Center" />
+      <ToggleButton x:Name="KindChipText" Style="{StaticResource KindChip}" Tag="text" Content="テキスト" VerticalAlignment="Center" />
+      <Button x:Name="ScopeButton" Style="{StaticResource ScopeButton}" Content="ファイル内の対象" Margin="0,0,8,8" VerticalAlignment="Center"
+              ToolTip="ファイルの中で検索する範囲を選びます" AutomationProperties.Name="ファイル内の対象">
+        <Button.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="共通" IsEnabled="False" FontSize="11" />
+            <MenuItem StaysOpenOnClick="True">
+              <MenuItem.Header>
+                <CheckBox Content="本文　（常に対象）" IsChecked="True" IsEnabled="False" Focusable="False" />
+              </MenuItem.Header>
+            </MenuItem>
+            <MenuItem StaysOpenOnClick="True">
+              <MenuItem.Header>
+                <CheckBox x:Name="ShapeCheck" Content="図形"
+                          ToolTip="オンにすると、図形・テキストボックス・SmartArt・グラフの文字も検索します（種別が「図形」の結果。PowerPoint のテキストボックスはスライドの本文）" />
+              </MenuItem.Header>
+            </MenuItem>
+            <MenuItem StaysOpenOnClick="True">
+              <MenuItem.Header>
+                <CheckBox x:Name="CommentCheck" Content="コメント"
+                          ToolTip="オンにすると、Excel・Word・PowerPoint のコメント（返信を含む）も検索します（種別が「コメント」の結果）" />
+              </MenuItem.Header>
+            </MenuItem>
+          </ContextMenu>
+        </Button.ContextMenu>
+      </Button>
+      <Border x:Name="ConditionsSpacer" Width="0" Height="1" />
+      <CheckBox x:Name="CaseCheck" Content="大文字・小文字を区別" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,8"
+                ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
+      <CheckBox x:Name="RegexCheck" Content="正規表現" ToolTip="正規表現を使う&#10;オンにすると高速検索は使えません" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,8">
+        <CheckBox.Style>
+          <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+            <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
+            <Style.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </CheckBox.Style>
+      </CheckBox>
+      <!-- 高速検索の印。幅 170 で固定する。広い幅では右端（印を右寄せ）、次の行に落ちたときは左端（印を左寄せ）に置く（updateConditionFlow） -->
+      <Border x:Name="FastSearchSlot" Width="170" Margin="0,0,8,8" VerticalAlignment="Center">
         <Border x:Name="FastBadge" Style="{StaticResource FastBadge}" Tag="off" HorizontalAlignment="Right" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal">
             <Path x:Name="FastBadgeIcon" Style="{StaticResource FastBadgeIcon}" Data="{StaticResource Icon.Zap}" Width="11" Height="11" Stretch="Uniform" Margin="0,0,5,0"
@@ -134,57 +182,7 @@
           </StackPanel>
         </Border>
       </Border>
-      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-        <CheckBox x:Name="CaseCheck" Content="大文字・小文字を区別" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,16,0"
-                  ToolTip="オンにすると、英字の大文字と小文字を区別します（例: ID は id・Id に一致しない）" />
-        <CheckBox x:Name="RegexCheck" Content="正規表現" ToolTip="正規表現を使う&#10;オンにすると高速検索は使えません" FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0">
-          <CheckBox.Style>
-            <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
-              <Setter Property="Foreground" Value="{StaticResource Ink.Muted}" />
-              <Style.Triggers>
-                <Trigger Property="IsChecked" Value="True">
-                  <Setter Property="Foreground" Value="{StaticResource Accent}" />
-                </Trigger>
-              </Style.Triggers>
-            </Style>
-          </CheckBox.Style>
-        </CheckBox>
-      </StackPanel>
-      <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <TextBlock Text="種類" FontSize="11" Foreground="{StaticResource Ink.Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
-        <StackPanel x:Name="FileKindChips" Orientation="Horizontal">
-          <ToggleButton x:Name="KindChipExcel" Style="{StaticResource KindChip}" Tag="excel" Content="Excel" />
-          <ToggleButton x:Name="KindChipWord" Style="{StaticResource KindChip}" Tag="word" Content="Word" />
-          <ToggleButton x:Name="KindChipPowerPoint" Style="{StaticResource KindChip}" Tag="powerpoint" Content="PowerPoint" />
-          <ToggleButton x:Name="KindChipText" Style="{StaticResource KindChip}" Tag="text" Content="テキスト" />
-        </StackPanel>
-        <Button x:Name="ScopeButton" Style="{StaticResource ScopeButton}" Content="ファイル内の対象" Margin="2,0,0,0"
-                ToolTip="ファイルの中で検索する範囲を選びます" AutomationProperties.Name="ファイル内の対象">
-          <Button.ContextMenu>
-            <ContextMenu>
-              <MenuItem Header="共通" IsEnabled="False" FontSize="11" />
-              <MenuItem StaysOpenOnClick="True">
-                <MenuItem.Header>
-                  <CheckBox Content="本文　（常に対象）" IsChecked="True" IsEnabled="False" Focusable="False" />
-                </MenuItem.Header>
-              </MenuItem>
-              <MenuItem StaysOpenOnClick="True">
-                <MenuItem.Header>
-                  <CheckBox x:Name="ShapeCheck" Content="図形"
-                            ToolTip="オンにすると、図形・テキストボックス・SmartArt・グラフの文字も検索します（種別が「図形」の結果。PowerPoint のテキストボックスはスライドの本文）" />
-                </MenuItem.Header>
-              </MenuItem>
-              <MenuItem StaysOpenOnClick="True">
-                <MenuItem.Header>
-                  <CheckBox x:Name="CommentCheck" Content="コメント"
-                            ToolTip="オンにすると、Excel・Word・PowerPoint のコメント（返信を含む）も検索します（種別が「コメント」の結果）" />
-                </MenuItem.Header>
-              </MenuItem>
-            </ContextMenu>
-          </Button.ContextMenu>
-        </Button>
-      </WrapPanel>
-    </DockPanel>
+    </WrapPanel>
 
     <TextBlock x:Name="WordNotice" Style="{StaticResource WarnText}" Margin="2,6,0,0" Visibility="Collapsed" />
   </StackPanel>

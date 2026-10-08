@@ -150,3 +150,47 @@ Describe "newSearchButtonState" -Tag Unit {
         $state.Enabled | Should -Be $enabled
     }
 }
+
+Describe "getConditionFlow（検索条件の行の折り返し）" -Tag Unit {
+    # 項目は 0 種類・1〜4 チップ・5 ファイル内の対象・（空き）・6 大文字小文字・7 正規表現・8 高速検索の印。幅は右の間 8 を含む
+    BeforeAll {
+        $script:widths = @(38, 70, 62, 100, 84, 184, 150, 70, 178)
+    }
+
+    It "広い幅では 1 行になり、空きが余りをすべて取る（右の組が右端に寄る）" {
+        $flow = getConditionFlow $widths 6 1100
+        $flow.Lines.Count | Should -Be 1
+        $flow.SpacerWidth | Should -Be (1100 - 936 - 0.5)
+    }
+
+    It "狭くなると、高速検索の印だけが次の行の左端に落ち、ファイル内の対象は 1 行目に残る" {
+        $flow = getConditionFlow $widths 6 780
+        $flow.Lines.Count | Should -Be 2
+        @($flow.Lines[0]) | Should -Be @(0, 1, 2, 3, 4, 5, 6, 7)
+        @($flow.Lines[1]) | Should -Be @(8)
+        $flow.LineStarts[8] | Should -BeTrue
+        $flow.LineStarts[5] | Should -BeFalse
+        # 空きは 1 行目の余りを取る
+        $flow.SpacerWidth | Should -Be (780 - 758 - 0.5)
+    }
+
+    It "もっと狭くなると、後ろの項目から順に落ちる（高速検索の印・正規表現・大文字小文字の順）" {
+        $flow = getConditionFlow $widths 6 600
+        @($flow.Lines[0]) | Should -Be @(0, 1, 2, 3, 4, 5)
+        @($flow.Lines[1]) | Should -Be @(6, 7, 8)
+        $flow.LineStarts[6] | Should -BeTrue
+        # 空きの前の最後の項目（ファイル内の対象）は 1 行目にあるので、空きは 1 行目の余りを取る
+        $flow.SpacerWidth | Should -Be (600 - 538 - 0.5)
+    }
+
+    It "出していない項目（幅 0）は数えず、行の先頭にもならない" {
+        $flow = getConditionFlow @(38, 70, 62, 100, 84, 184, 150, 70, 0) 6 780
+        $flow.Lines.Count | Should -Be 1
+        $flow.LineStarts[8] | Should -BeFalse
+    }
+
+    It "余りが 0.5 に満たないときの空きは 0" {
+        $flow = getConditionFlow $widths 6 758.2
+        $flow.SpacerWidth | Should -Be 0
+    }
+}

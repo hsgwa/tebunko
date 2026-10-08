@@ -134,10 +134,36 @@ function updateSearchTarget {
     $ui.ResultEmptyState.Visibility = if ($noIndex) { "Visible" } else { "Collapsed" }
     # 検索できるインデックスが無いときは、高速検索の状態も出さない
     $ui.FastBadge.Visibility = if ($noIndex) { "Collapsed" } else { "Visible" }
+    $ui.FastSearchSlot.Visibility = $ui.FastBadge.Visibility
+    updateConditionFlow
     updateSearchButton
 }
 
 # ---- イベント ----
+function updateConditionFlow {
+    # 検索条件の行の折り返し。判断（getConditionFlow）の結果を、「伸びる空き」の幅と高速検索の印の寄せに反映する。
+    # 並びの幅が変わったとき・高速検索の印を出す／隠したときに呼ぶ
+    $panel = $ui.ConditionsPanel
+    if ($panel.ActualWidth -le 0) { return }
+    $items = @($panel.Children | Where-Object { $_ -ne $ui.ConditionsSpacer })
+    $widths = @($items | ForEach-Object {
+        if ($_.Visibility -eq "Collapsed") { 0.0 } else { [double]($_.ActualWidth + $_.Margin.Left + $_.Margin.Right) }
+    })
+    # 空きは、［ファイル内の対象］の次（検索条件の前）に置く
+    $spacerIndex = $items.IndexOf($ui.CaseCheck)
+    $flow = getConditionFlow $widths $spacerIndex $panel.ActualWidth
+    if ([Math]::Abs($ui.ConditionsSpacer.Width - $flow.SpacerWidth) -gt 0.1) {
+        $ui.ConditionsSpacer.Width = $flow.SpacerWidth
+    }
+    # 高速検索の印は、行の左端に落ちたときだけ左に寄せ、右の組に付いているときは右に寄せる
+    $slotIndex = $items.IndexOf($ui.FastSearchSlot)
+    $alignment = if ($flow.LineStarts[$slotIndex] -and $slotIndex -gt 0) { "Left" } else { "Right" }
+    if ([string]$ui.FastBadge.HorizontalAlignment -ne $alignment) {
+        $ui.FastBadge.HorizontalAlignment = $alignment
+    }
+}
+$ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow } })
+
 
 $ui.WordBox.Add_TextChanged({ safe { updateWordNotice } })
 $ui.WordBox.Add_PreviewKeyDown({

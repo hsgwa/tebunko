@@ -188,3 +188,50 @@ function newSearchButtonState {
     }
     return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0) }
 }
+
+function getConditionFlow {
+    # 検索条件の行（種類・チップ・ファイル内の対象・検索条件・高速検索の印）の折り返しを決める。
+    # 項目は左から順に並べ、入りきらなくなったら次の行の左端へ落ちる（後ろの項目から落ちる）。
+    # 「伸びる空き」は spacerIndex 番の項目の前に置き、その行の余りを全部取る（右の組を右端に寄せる）。
+    # widths は各項目の幅（右の間を含む。出していない項目は 0）。available は並べられる幅（右の間を含む）。
+    # 返すもの: Lines（行ごとの項目の番号）・SpacerWidth（空きの幅）・LineStarts（各項目が行の先頭か）
+    param (
+        [double[]]$widths,
+        [int]$spacerIndex,
+        [double]$available
+    )
+
+    $lines = New-Object System.Collections.Generic.List[object]
+    $current = New-Object System.Collections.Generic.List[int]
+    $sums = New-Object System.Collections.Generic.List[double]
+    $sum = 0.0
+    $starts = New-Object bool[] $widths.Count
+    for ($i = 0; $i -lt $widths.Count; $i++) {
+        if ($widths[$i] -le 0) { continue }
+        if ($current.Count -gt 0 -and ($sum + $widths[$i]) -gt $available) {
+            $lines.Add($current.ToArray())
+            $sums.Add($sum)
+            $current = New-Object System.Collections.Generic.List[int]
+            $sum = 0.0
+        }
+        if ($current.Count -eq 0) { $starts[$i] = $true }
+        $current.Add($i)
+        $sum += $widths[$i]
+    }
+    if ($current.Count -gt 0) {
+        $lines.Add($current.ToArray())
+        $sums.Add($sum)
+    }
+
+    # 空きは、空きの前の最後の項目がある行に置く。その行の余りを取る（取りすぎて折り返さないよう 0.5 だけ残す）
+    $spacer = 0.0
+    $spacerLine = $null
+    for ($line = 0; $line -lt $lines.Count; $line++) {
+        $members = @($lines[$line] | Where-Object { $_ -lt $spacerIndex })
+        if ($members.Count -gt 0) { $spacerLine = $line }
+    }
+    if ($null -ne $spacerLine) {
+        $spacer = [Math]::Max(0.0, $available - $sums[$spacerLine] - 0.5)
+    }
+    return @{ Lines = @($lines.ToArray()); SpacerWidth = $spacer; LineStarts = $starts }
+}

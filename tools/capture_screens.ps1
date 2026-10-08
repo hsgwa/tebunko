@@ -546,7 +546,7 @@ function captureSearchScene {
         waitGuiWindowClosed $S $missing "見つからない確認"
 
         setGuiStep $S "最小の大きさ"
-        resizeGuiWindow $S 760 580
+        resizeGuiWindow $S 1024 640
         Start-Sleep -Milliseconds 300
         captureGuiState -S $S -Id "search-tab/min-width" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes

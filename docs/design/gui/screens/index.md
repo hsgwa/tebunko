@@ -99,7 +99,7 @@ stateDiagram-v2
 | `search-tab/collapsed` | 結果をすべて折りたたんだ | 27 |
 | `search-tab/filtered` | 結果を絞り込んだ | 27 |
 | `search-tab/missing-source` | 元のファイルが見つからないときの確認 | 29 |
-| `search-tab/min-width` | 最小の大きさ（760 × 580）で結果あり | – |
+| `search-tab/min-width` | 最小の大きさ（1024 × 640）で結果あり | – |
 
 **［設定］（`settings-tab`）**
 
