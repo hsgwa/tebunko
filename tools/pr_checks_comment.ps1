@@ -170,6 +170,7 @@ function invokePrCheckComment {
 
 # invokePrCheckComment を呼び、書き込みで例外が出ても（権限の無いフォークの PR で 403 になるときなど）
 # 外に投げず、Warning に理由を入れて返す（呼び出し元のジョブを失敗にしないため）。書けたときは Warning が $null
+# 握る範囲は一覧の読み込みも含める（権限の無いフォークの PR では読み込みも同じ 403 になるため、書き込みだけに絞ると失敗にしたい場面が無い）
 function tryInvokePrCheckComment {
     param (
         [string]$repo,
@@ -235,7 +236,9 @@ if ($MyInvocation.InvocationName -ne ".") {
             -getComments $getComments -writeComment $writeComment
         if ($written.Warning) {
             # フォークの PR など、書き込みの権限が無いときもジョブは失敗にしない（結果は上で Summary に書いた）
-            Write-Warning "PR へのコメントの書き込みに失敗しました（権限の無いフォークの PR など）: $($written.Warning)"
+            # GitHub Actions の注釈（::warning::）にして、ログを開かなくても気付けるようにする。改行は注釈の中に置けないため %0A にする
+            $warningText = ($written.Warning -replace "`r?`n", "%0A")
+            Write-Host "::warning::PR へのコメントの書き込みに失敗しました（権限の無いフォークの PR など）: $warningText"
             # Actions の pwsh は末尾で $LASTEXITCODE を終了コードにする。失敗した gh の 1 が残るとジョブが落ちるため戻す
             $global:LASTEXITCODE = 0
         } else {

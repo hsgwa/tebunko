@@ -285,32 +285,61 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
 }
 
 # GitHub Actions の pwsh の run は、末尾で $LASTEXITCODE を終了コードにする。
-# gh が失敗で終わったあとに $LASTEXITCODE が残ると、警告だけのはずのジョブが失敗になる
+# gh が失敗で終わったあとに $LASTEXITCODE が残ると、警告だけのはずのジョブが失敗になる。
+# 本物の gh は呼ばない（偽の gh を $TestDrive に置いて PATH の先頭に入れる）。
+# 道具が書く先（GITHUB_STEP_SUMMARY）と一時ファイルの場所（TEMP・TMP）は $TestDrive に向け、本物の Summary を汚さない
 Describe "書き込みに失敗してもジョブの終了コードは 0（フォークの PR など）" -Tag Unit {
     BeforeAll {
         $script:scriptPath = (Resolve-Path "$PSScriptRoot\..\..\tools\pr_checks_comment.ps1").Path
-        $script:fakeBin = Join-Path $TestDrive "fakebin"
-        New-Item -ItemType Directory -Path $script:fakeBin | Out-Null
-        # 本物の gh は呼ばない。常に失敗で終わる偽の gh
-        [System.IO.File]::WriteAllText((Join-Path $script:fakeBin "gh.cmd"), "@echo off`r`nexit /b 1`r`n")
-        $script:savedPath = $env:PATH
-    }
 
-    AfterAll {
-        $env:PATH = $script:savedPath
-    }
-
-    It "gh が失敗しても、ランナーと同じ終わり方で終了コードが 0 になり、警告を出す" {
-        $env:PATH = "$($script:fakeBin);$($script:savedPath)"
-        try {
-            $command = "& '$($script:scriptPath)' -Repo 'example/repo' -PrNumber 1 -WorkflowKey 'test' -Result 'success'; " +
-                "if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit `$LASTEXITCODE }"
-            $out = & powershell.exe -NoProfile -NonInteractive -Command $command 3>&1 2>&1 | Out-String
-            $code = $LASTEXITCODE
-        } finally {
-            $env:PATH = $script:savedPath
+        # 偽の gh を置いたフォルダを作って返す。$body は gh.cmd の中身
+        function newFakeGh {
+            param ([string]$name, [string]$body)
+            $dir = Join-Path $TestDrive $name
+            New-Item -ItemType Directory -Path $dir | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $dir "gh.cmd"), $body)
+            return $dir
         }
-        $out | Should -Match "書き込みに失敗しました"
-        $code | Should -Be 0
+
+        # 道具を、GitHub Actions の pwsh と同じ終わり方で子プロセスとして動かす。PATH・環境変数は必ず戻す
+        function invokeToolAsRunner {
+            param ([string]$fakeBin, [string]$name)
+            $summary = Join-Path $TestDrive "$name-summary.md"
+            $tmp = Join-Path $TestDrive "$name-tmp"
+            New-Item -ItemType Directory -Path $tmp | Out-Null
+            $saved = @{}
+            foreach ($key in "PATH", "GITHUB_STEP_SUMMARY", "TEMP", "TMP") { $saved[$key] = [Environment]::GetEnvironmentVariable($key, "Process") }
+            try {
+                $env:PATH = "$fakeBin;$($saved['PATH'])"
+                $env:GITHUB_STEP_SUMMARY = $summary
+                $env:TEMP = $tmp
+                $env:TMP = $tmp
+                $command = "& '$($script:scriptPath)' -Repo 'example/repo' -PrNumber 1 -WorkflowKey 'test' -Result 'success'; " +
+                    "if ((Test-Path -LiteralPath variable:\LASTEXITCODE)) { exit `$LASTEXITCODE }"
+                $out = & powershell.exe -NoProfile -NonInteractive -Command $command 3>&1 2>&1 | Out-String
+                $code = $LASTEXITCODE
+            } finally {
+                foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key, $saved[$key], "Process") }
+            }
+            $summaryText = if (Test-Path -LiteralPath $summary) { [System.IO.File]::ReadAllText($summary) } else { "" }
+            return [pscustomobject]@{ Output = $out; Code = $code; Summary = $summaryText; LeftoverTemp = @(Get-ChildItem -LiteralPath $tmp -Force) }
+        }
+    }
+
+    It "<name>: 終了コードが 0 になり、警告の注釈を出し、Summary に結果を残し、一時ファイルを残さない" -TestCases @(
+        # 常に失敗（一覧の取得から失敗する）
+        @{ name = "list-fails"; body = "@echo off`r`nexit /b 1`r`n" }
+        # 一覧の取得（--paginate）は成功し、コメントの書き込み（POST）だけが 403 で失敗する
+        @{ name = "post-fails"; body = "@echo off`r`necho %* | findstr /C:`"--paginate`" >nul && exit /b 0`r`nexit /b 1`r`n" }
+    ) {
+        param ($name, $body)
+        $fake = newFakeGh $name $body
+        $r = invokeToolAsRunner $fake $name
+
+        $r.Code | Should -Be 0
+        # 日本語は実行環境の文字コードで化けることがあるため、注釈の印（ASCII）で確かめる
+        $r.Output | Should -Match "::warning::"
+        $r.Summary | Should -Match "<!-- pr-check:test -->"
+        $r.LeftoverTemp.Count | Should -Be 0
     }
 }
