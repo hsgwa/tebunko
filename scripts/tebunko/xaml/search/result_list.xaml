@@ -169,14 +169,15 @@
           </DataGridTemplateColumn>
         </DataGrid.Columns>
         <DataGrid.ContextMenu>
-          <ContextMenu>
-            <MenuItem x:Name="MenuOpen" Header="元のファイルを開く（編集する）" />
-            <MenuItem x:Name="MenuOpenReadOnly" Header="読み取り専用で開く" />
+          <!-- 項目の並び・文言・太字は、メニューを開くたびに判断層（getResultMenuItems）の結果で組み直す -->
+          <ContextMenu x:Name="ResultMenu">
+            <MenuItem x:Name="MenuOpen" Header="開く" />
             <MenuItem x:Name="MenuOpenNew" Header="新規で開く" />
+            <MenuItem x:Name="MenuOpenReadOnly" Header="読み取り専用で開く" />
             <MenuItem x:Name="MenuOpenFolder" Header="フォルダを開く" />
-            <Separator />
-            <MenuItem x:Name="MenuCopy" Header="選択行をコピー" />
+            <MenuItem x:Name="MenuCopy" Header="選んだ行をコピー" />
             <MenuItem x:Name="MenuCopyPath" Header="ファイルのパスをコピー" />
+            <MenuItem x:Name="MenuToggleGroup" Header="この結果を折りたたむ" />
           </ContextMenu>
         </DataGrid.ContextMenu>
       </DataGrid>
