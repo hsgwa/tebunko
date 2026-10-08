@@ -254,6 +254,19 @@ Describe "getIndexSourceFolderStatus" -Tag Unit {
     }
 }
 
+Describe "getIndexSourceFolderKind" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "フォルダが見つかった"; state = @{ State = "Found"; IsDirectory = $true; Message = "" }; expected = "Open" }
+        @{ name = "ファイルだった"; state = @{ State = "Found"; IsDirectory = $false; Message = "" }; expected = "Missing" }
+        @{ name = "見つからない"; state = @{ State = "Missing"; IsDirectory = $false; Message = "" }; expected = "Missing" }
+        @{ name = "つながらない"; state = @{ State = "Unreachable"; IsDirectory = $false; Message = "" }; expected = "Unreachable" }
+        @{ name = "ほかの失敗"; state = @{ State = "Other"; IsDirectory = $false; Message = "拒否" }; expected = "Other" }
+    ) {
+        param ($state, $expected)
+        getIndexSourceFolderKind $state | Should -Be $expected
+    }
+}
+
 Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
     It "<level>・blocker=<blocker>: <action>" -TestCases @(
         @{ level = "Ok"; blocker = ""; action = "Update"; enabled = $true }

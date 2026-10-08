@@ -419,14 +419,10 @@ function applyIndexSourceFolderState {
         [string]$path
     )
 
-    if ($state.State -eq ${pathStateFound} -and $state.IsDirectory) {
+    $kind = getIndexSourceFolderKind $state
+    if ($kind -eq "Open") {
         Start-Process -FilePath "explorer.exe" -ArgumentList "`"${path}`""
         return
-    }
-    $kind = switch ($state.State) {
-        ${pathStateUnreachable} { "Unreachable" }
-        ${pathStateOther} { "Other" }
-        default { "Missing" }
     }
     setStatus (getIndexSourceFolderStatus $kind $path $state.Message)
 }

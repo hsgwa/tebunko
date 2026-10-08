@@ -253,6 +253,24 @@ function getIndexSourceFolderStatus {
     }
 }
 
+function getIndexSourceFolderKind {
+    # ［元のフォルダを開く］で getPathState が返した結果を、次にすることに分ける。
+    # Open（フォルダが見つかった。エクスプローラーで開く）/ Unreachable / Other / Missing（見つからない。ファイルだったときも）。
+    # Open 以外は、そのまま getIndexSourceFolderStatus の kind に渡す
+    param (
+        $state
+    )
+
+    if ($state.State -eq ${pathStateFound}) {
+        return $(if ($state.IsDirectory) { "Open" } else { "Missing" })
+    }
+    switch ($state.State) {
+        ${pathStateUnreachable} { return "Unreachable" }
+        ${pathStateOther} { return "Other" }
+        default { return "Missing" }
+    }
+}
+
 function getIndexRowActions {
     # 一覧の行の右端のボタン。@{ Action（Update / Stop / None）; UpdateEnabled }
     # 更新中の行には［中止］（回ごと止める）、エラーの行には何も出さず（場所は空けておく）、ほかの行には［更新］を出す。
