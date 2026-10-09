@@ -289,6 +289,11 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\perf-check.yml")) -replace "`r`n", "`n"
         $yml | Should -Match ([regex]::Escape("(github.event.action != 'labeled' || github.event.label.name == 'perf-check')"))
     }
+
+    It "perf-check.yml の pr-comment は、search・ingest の両方がスキップのときには書かない" {
+        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\perf-check.yml")) -replace "`r`n", "`n"
+        $yml | Should -Match ([regex]::Escape("(needs.search.result != 'skipped' || needs.ingest.result != 'skipped')"))
+    }
 }
 
 # GitHub Actions の pwsh の run は、末尾で $LASTEXITCODE を終了コードにする。
