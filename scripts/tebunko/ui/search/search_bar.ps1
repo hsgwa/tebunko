@@ -158,16 +158,11 @@ function updateWordNotice {
     $notice = getCurrentWordNotice
     $ui.WordErrorRing.Visibility = if ($notice -ne "") { "Visible" } else { "Collapsed" }
     setSearchBalloon $ui.RegexBalloon $ui.RegexBalloonText $notice
-    updateSearchButton $notice
+    updateSearchButton
 }
 
 function updateSearchButton {
-    # notice: 正規表現の注意。呼ぶ側が持っているときに渡す（省略すると調べ直す）
-    param (
-        [string]$notice = $null
-    )
-
-    if ($null -eq $PSBoundParameters["notice"]) { $notice = getCurrentWordNotice }
+    $notice = getCurrentWordNotice
     $noIndex = $script:indexSummary -and $script:indexSummary["Count"] -eq 0
     $state = newSearchButtonState ([bool]$script:search) ([bool]($script:search -and $script:search.Shared.Stop)) `
         (getWordText) (!$noIndex) @(getSearchTargets).Count ($notice -ne "")
@@ -224,10 +219,12 @@ function updateConditionFlow {
     if ([Math]::Abs($ui.ConditionsSpacer.Width - $flow.SpacerWidth) -gt 0.1) {
         $ui.ConditionsSpacer.Width = $flow.SpacerWidth
     }
+    # 空きの幅が変わると、並びの大きさが同じでも［正規表現］などが横に動く（高速検索の印の出し入れ）。吹き出しもここで置き直す
+    placeSearchBalloons
 }
 
 # ---- イベント ----
-$ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow; placeSearchBalloons } })
+$ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow } })
 
 
 $ui.WordBox.Add_TextChanged({ safe { updateWordNotice } })

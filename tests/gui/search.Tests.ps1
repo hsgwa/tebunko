@@ -39,6 +39,9 @@ Describe "S4 検索の遷移" -Tag Gui {
                 !$text.Current.IsOffscreen -and (getGuiText $text) -eq "正規表現が正しくありません"
             } | Out-Null
             $regexRect = (findGui $S.Window -Id "RegexBalloonText").Current.BoundingRectangle
+            $regexCheckRect = (findGui $S.Window -Id "RegexCheck").Current.BoundingRectangle
+            ($regexRect.Top - $regexCheckRect.Bottom) | Should -BeGreaterThan 0 -Because "吹き出しは［正規表現］の下に出す"
+            ($regexRect.Top - $regexCheckRect.Bottom) | Should -BeLessThan 15 -Because "吹き出しは［正規表現］のすぐ下に出す"
             $regexRect.Right | Should -BeLessOrEqual $S.Window.Current.BoundingRectangle.Right -Because "吹き出しは窓の右端からはみ出さない"
             (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeFalse -Because "正規表現が正しくないと検索を始めない"
             $resultTop = (findGui $S.Window -Id "FilterBox").Current.BoundingRectangle.Top
@@ -93,7 +96,7 @@ Describe "S4 検索の遷移" -Tag Gui {
             & $search "単価"
             waitGui $S "該当 2 件に戻る" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
 
-            # 種類のチップを全部外せる。1 つも選んでいないと検索を始めず、検索バーの下の帯で知らせる。1 つ選べば検索できる
+            # 種類のチップを全部外せる。1 つも選んでいないと検索を始めず、種類のチップの下の吹き出しで知らせる。1 つ選べば検索できる
             $chipIds = @("KindChipExcel", "KindChipWord", "KindChipPowerPoint", "KindChipText")
             setGuiStep $S "種類のチップを全部外す"
             foreach ($chipId in $chipIds) { toggleGui (findGui $S.Window -Id $chipId) }
