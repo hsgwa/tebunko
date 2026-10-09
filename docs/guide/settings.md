@@ -53,7 +53,7 @@
 |---|---|
 | 書き込み可能なフォルダ（zip の展開先など） | tebunko のフォルダ内の `setting.config` |
 | 書き込み可能なフォルダ（単一 .ps1 版を置いたフォルダ） | `.ps1` と同じフォルダの `setting.config` |
-| 書き込み不可のフォルダ（`C:\Program Files` など） | `%LOCALAPPDATA%\tebunko\` 配下 |
+| 書き込み不可のフォルダ（`C:\Program Files` など） | 既定のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）の直下の `setting.config` |
 
 設定は画面から変更するため、通常は設定ファイルを直接編集する必要はありません。画面から変更できない設定は次の 1 項目のみです。
 

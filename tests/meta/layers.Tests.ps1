@@ -15,7 +15,7 @@ BeforeAll {
 
 Describe "依存の向き" -Tag Meta {
     # shared はどのツールからも使う部品。ツール（scripts\tebunko など）のフォルダを知っていてはいけない。
-    # 製品の名前 tebunko は shared でも使う（%LOCALAPPDATA%\tebunko など）ため、ツールのフォルダを指す書き方だけを探す
+    # 製品の名前 tebunko は shared でも使う（前の版の一時フォルダ %TEMP%\tebunko の片付けなど）ため、ツールのフォルダを指す書き方だけを探す
     It "shared 配下にツールのフォルダが出てこない" {
         $toolNames = @(Get-ChildItem "${scriptsDir}" -Directory | Where-Object { $_.Name -ne "shared" } | ForEach-Object { [regex]::Escape($_.Name) })
         $pattern = "\.\.\\(" + ($toolNames -join "|") + ")\\|scripts[\\/](" + ($toolNames -join "|") + ")\b"

@@ -26,32 +26,25 @@ function getExistingRecordFile {
     return $null
 }
 
-# writeErrorLog がまだ使えない（app_host.ps1 を読み込む前）ときに起きた失敗を、固定の場所に追記する
+# writeErrorLog がまだ使えない（app_host.ps1 を読み込む前）ときに起きた失敗を、ツールのフォルダの startup_error.txt に追記する
 # （置き場所は tebunko.bat と同じ。docs/safety/disclosure.md「起動に失敗したときの知らせ（tebunko.bat）」）。
 # 制限言語モードでも動くよう、コマンドレットだけで書く（.NET のメソッドを呼ばない）。
-# 書けなければ次の候補へ。すべて書けなければ $null を返す（そのときはメッセージボックスにファイル名を添えない）
+# 置き場所はツールのフォルダの直下だけ。書けなければ記録を残さず $null を返す（そのときはメッセージボックスにファイル名を添えない）
 function writeStartupErrorFile {
     param (
-        [string]$text
+        [string]$text,
+        [string]$toolDir = ${rootDir}   # ツールのフォルダ（gui.ps1 が先に paths.ps1 を読み込む）。テストで差し替える
     )
 
-    $candidates = @(
-        (Join-Path $env:LOCALAPPDATA "tebunko\startup_error.txt"),
-        (Join-Path $env:TEMP "tebunko_startup_error.txt")
-    )
-    foreach ($candidate in $candidates) {
-        try {
-            $dir = Split-Path -Parent $candidate
-            if (-not (Test-Path -LiteralPath $dir)) {
-                New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null
-            }
-            Add-Content -LiteralPath $candidate -Value $text -Encoding UTF8 -ErrorAction Stop
-            return $candidate
-        } catch {
-            continue
-        }
+
+    $candidate = $null
+    try {
+        $candidate = Join-Path $toolDir "startup_error.txt"
+        Add-Content -LiteralPath $candidate -Value $text -Encoding UTF8 -ErrorAction Stop
+        return $candidate
+    } catch {
+        return $null
     }
-    return $null
 }
 
 # 起動そのものに失敗したときの知らせ。画面を閉じ（起動中の表示が残っていれば）、記録してメッセージボックスで知らせる。
@@ -63,7 +56,7 @@ function reportStartupFailure {
     )
 
     $recordFile = $null
-    # 記録できる状態（app_host.ps1 の読み込み後で、writeErrorLog が使える）なら今までどおり gui_error_log.txt に、無ければ固定の場所に記録する
+    # 記録できる状態（app_host.ps1 の読み込み後で、writeErrorLog が使える）なら今までどおり gui_error_log.txt に、無ければツールのフォルダの startup_error.txt に記録する（書き込めなければ記録は残らない）
     if (Get-Command writeErrorLog -ErrorAction SilentlyContinue) {
         writeErrorLog "起動・実行中" $err
         $recordFile = getGuiErrorLogFile
