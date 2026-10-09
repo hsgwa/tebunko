@@ -47,27 +47,27 @@ Describe "testWritableFolder" -Tag Io {
 }
 
 Describe "getDataDir" -Tag Io {
-    It "ツールのフォルダに書き込めれば、そのフォルダ（以前の版と同じ）" {
-        $root = "$TestDrive\ツール"
-        [System.IO.Directory]::CreateDirectory($root) | Out-Null
-        getDataDir $root "$TestDrive\利用者" | Should -Be $root
+    It "<Case>" -TestCases @(
+        @{ Case = "ツールのフォルダに書き込めれば、そのフォルダ"; Writable = $true }
+        @{ Case = "書き込めない（存在しない）フォルダなら、渡した逃げ先"; Writable = $false }
+    ) {
+        $fallback = "$TestDrive\逃げ先"
+        $root = "$TestDrive\ツール-$Writable"
+        if ($Writable) {
+            [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        }
+        getDataDir $root $fallback | Should -Be $(if ($Writable) { $root } else { $fallback })
     }
 
-    It "書き込めなければ、利用者ごとの場所の tebunko\<ツールのフォルダの鍵>" {
+    It "読み取り専用のフォルダなら、渡した逃げ先" {
         $root = "$TestDrive\読み取り専用のツール"
         [System.IO.Directory]::CreateDirectory($root) | Out-Null
         $rule = denyCreateFiles $root
         try {
-            $dir = getDataDir $root "$TestDrive\利用者"
+            $dir = getDataDir $root "$TestDrive\逃げ先"
         } finally {
             restoreAccess $root $rule
         }
-        $dir | Should -Be ("$TestDrive\利用者\tebunko\" + (getFolderKey $root).Substring(0, 16))
-    }
-
-    It "鍵はツールのフォルダごとに違い、大文字と小文字の違いでは変わらない" {
-        $a = getDataDir "$TestDrive\無い\ToolA" "$TestDrive\利用者"
-        $a | Should -Be (getDataDir "$TestDrive\無い\toola" "$TestDrive\利用者")
-        $a | Should -Not -Be (getDataDir "$TestDrive\無い\ToolB" "$TestDrive\利用者")
+        $dir | Should -Be "$TestDrive\逃げ先"
     }
 }

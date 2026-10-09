@@ -185,6 +185,37 @@ Describe "moveWorkspace" -Tag Io {
     }
 }
 
+Describe "ワークスペースを移しても消しても、既定のワークスペースの設定ファイルは動かない" -Tag Io {
+    BeforeEach {
+        # 書き込めない場所に置いた tebunko の設定は、既定のワークスペースの直下にある（getSettingsFilePath）
+        $script:ws = "$TestDrive\settings_ws-" + [guid]::NewGuid().ToString("N")
+        newTsv "$script:ws\content_index\営業\見積\content_index.xlsx.001.tsv" @("a")
+        newTsv "$script:ws\ingest_status.tsv" @("b")
+        newTsv "$script:ws\setting.config" @("{}")
+        newTsv "$script:ws\setting.config.broken-20261003-120000" @("{")
+    }
+
+    It "setting.config とそれに付いてできるファイルは、ワークスペースの中身（Entries）に入らない" {
+        $names = @([Workspace]::new($script:ws).Entries() | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+        $names | Where-Object { testSettingsFileName $_ } | Should -BeNullOrEmpty
+        @(getWorkspaceEntries $script:ws | ForEach-Object { [System.IO.Path]::GetFileName($_) }) | Should -Not -Contain "setting.config"
+    }
+
+    It "別のフォルダへ移しても、元の場所に残り、移した先には行かない" {
+        moveWorkspace $script:ws "$TestDrive\settings_to" | Should -Be 2
+
+        Test-Path -LiteralPath "$script:ws\setting.config" | Should -Be $true
+        Test-Path -LiteralPath "$script:ws\setting.config.broken-20261003-120000" | Should -Be $true
+        Test-Path -LiteralPath "$TestDrive\settings_to\setting.config" | Should -Be $false
+    }
+
+    It "「消して最初から」（removeWorkspaceEntries）でも消えない" {
+        removeWorkspaceEntries $script:ws | Should -Be 2
+
+        Test-Path -LiteralPath "$script:ws\setting.config" | Should -Be $true
+        Test-Path -LiteralPath "$script:ws\setting.config.broken-20261003-120000" | Should -Be $true
+    }
+}
 Describe "copyDirectoryTree" -Tag Io {
     It "フォルダを中身ごと写す（別のドライブへ移すとき）" {
         newTsv "$TestDrive\copy\from\a\b.tsv" @("b")

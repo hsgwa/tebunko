@@ -13,7 +13,7 @@
 ;     だけ。レジストリに書くのは、Windows のインストーラーが
 ;     必ず書くアンインストールの情報だけ（[Registry] は使わない）。サービス・自動起動・PATH・ファイルの関連付けは触らない
 ;   ・更新は、新しい版のインストーラーを実行するだけにする。古い版で消したスクリプトが残らないよう、scripts\ を消してから入れる
-;   ・アンインストールでは、入れたファイルと setting.config を消す。インデックス（ワークスペース）は利用者が選んだ場所にあり得るため
+;   ・アンインストールでは、入れたファイルと setting.config・startup_error.txt を消す。インデックス（ワークスペース）は利用者が選んだ場所にあり得るため
 ;     消さずに、残っている場所を知らせる
 
 #ifndef AppVersion
@@ -90,8 +90,9 @@ Name: "{autodesktop}\tebunko"; Filename: "{app}\tebunko.exe"; Tasks: desktopicon
 Filename: "{app}\tebunko.exe"; Description: "tebunko を起動する"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; 利用者ごとの設定（ツールのフォルダに書き込めるときはここに作る。scripts\shared\core\data_dir.ps1）
+; 利用者ごとの設定（ツールのフォルダに書き込めるときはここに作る。scripts\shared\core\data_dir.ps1）と、起動に失敗したときの記録
 Type: files; Name: "{app}\setting.config"
+Type: files; Name: "{app}\startup_error.txt"
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -103,6 +104,6 @@ begin
       'インデックス・取り込み一覧・ログ（ワークスペース）は削除していません。' +
       '文書の文字がそのまま入っているため、不要なら次のフォルダを削除してください。' + #13#10#13#10 +
       '・ワークスペース（既定は ' + ExpandConstant('{%USERPROFILE}') + '\Documents\tebunko_ws。［設定］で変えた場合はそのフォルダ）' + #13#10 +
-      '・' + ExpandConstant('{localappdata}') + '\tebunko（Program Files に入れた場合の設定など）',
+      '・Program Files に入れた場合の設定ファイル（setting.config）は、既定のワークスペースの直下にあります',
       mbInformation, MB_OK, IDOK);
 end;

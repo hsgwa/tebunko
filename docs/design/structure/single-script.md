@@ -108,7 +108,7 @@ XAML と部品は、単一引用符のヒアストリングとして埋め込む
 | 項目 | zip 版 | 単一 .ps1 版 |
 |---|---|---|
 | 根フォルダ | `scripts/shared/core/paths.ps1` から 3 階層上 | `.ps1` 自身がある場所 |
-| 設定（`setting.config`） | 根フォルダ。書き込めなければ `%LOCALAPPDATA%\tebunko\<鍵>`（`getDataDir`） | 同じ決め方。根フォルダが `.ps1` のある場所になる |
+| 設定（`setting.config`） | 根フォルダ。書き込めなければ既定のワークスペースの直下（`getSettingsFilePath`） | 同じ決め方。根フォルダが `.ps1` のある場所になる |
 | 版の表示 | `VERSION.txt` | `${bundledVersion}` |
 | 画面定義 | `scripts` 内の XAML ファイル | `${bundledXaml}`。テーマ（`theme.xaml`）も同じ所から引く |
 | 別スレッドの部品 | 実在するファイルを dot-source する | 部品の文字列を関数（`importTebunkoPart`）として登録して呼ぶ |
