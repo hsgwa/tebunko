@@ -41,13 +41,14 @@ Describe "S4 検索の遷移" -Tag Gui {
             $regexRect = (findGui $S.Window -Id "RegexBalloonText").Current.BoundingRectangle
             $regexRect.Right | Should -BeLessOrEqual $S.Window.Current.BoundingRectangle.Right -Because "吹き出しは窓の右端からはみ出さない"
             (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeFalse -Because "正規表現が正しくないと検索を始めない"
-            $resultTop = (findGui $S.Window -Id "SummaryText").Current.BoundingRectangle.Top
+            $resultTop = (findGui $S.Window -Id "FilterBox").Current.BoundingRectangle.Top
+            $resultTop | Should -BeLessThan 100000 -Because "絞り込みの欄が見えている（高さの比べの基準）"
             setGuiStep $S "式を直す"
             setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
             waitGui $S "吹き出しが消え［検索］が押せる" ${guiDefaultTimeout} {
                 (findGui $S.Window -Id "RegexBalloonText").Current.IsOffscreen -and (findGui $S.Window -Id "SearchButton").Current.IsEnabled
             } | Out-Null
-            (findGui $S.Window -Id "SummaryText").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
+            (findGui $S.Window -Id "FilterBox").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
             toggleGui (findGui $S.Window -Id "RegexCheck")
 
             # 検索対象のツリーで［すべて解除］すると検索できず、［すべて選択］で戻る（#25）
@@ -111,7 +112,7 @@ Describe "S4 検索の遷移" -Tag Gui {
             ($balloonRect.Left - $chipRect.Left) | Should -BeLessThan 40 -Because "左端はチップの左端にそろう"
             ($balloonRect.Top - $chipRect.Bottom) | Should -BeGreaterThan 0 -Because "吹き出しは種類のチップの下に出す"
             ($balloonRect.Top - $chipRect.Bottom) | Should -BeLessThan 15 -Because "吹き出しはチップのすぐ下に出す"
-            (findGui $S.Window -Id "SummaryText").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
+            (findGui $S.Window -Id "FilterBox").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
             (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeTrue -Because "種類が無くても［検索］は押せる"
             (& $summary) | Should -BeLike "一致 2 件（*" -Because "検索を始めないため、前の結果のまま"
             setGuiStep $S "チップ［Excel］だけ選んで検索"
