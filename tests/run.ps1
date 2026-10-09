@@ -68,8 +68,8 @@ if ($Ci) {
 }
 
 # テストは、使い捨ての既定のワークスペースで流す（環境変数 TEBUNKO_DEFAULT_WORKSPACE。同じプロセスのテストにも、そこから起動した画面・
-# indexer.ps1・単一 .ps1 版にも引き継がれる）。入れた場所が本物の既定のワークスペースを指していれば、流さずに止まる。
-# 流す前後で、本物の既定のワークスペースの名前・大きさ・更新時刻を比べ、違えば失敗にする（どのタグでも行う）
+# indexer.ps1・単一 .ps1 版にも引き継がれる）。入れた場所が利用者の既定のワークスペースを指していれば、流さずに止まる。
+# 流す前後で、既定のワークスペースの名前・大きさ・更新時刻を比べ、違えば失敗にする（どのタグでも行う）
 . "$rootDir\tools\isolation\isolation_common.ps1"
 $workspaceGuard = startWorkspaceGuard
 
@@ -83,7 +83,7 @@ try {
     $result = Invoke-Pester -Configuration $config
 } finally {
     if ($Ci) { Remove-PSBreakpoint -Breakpoint $keepDebugger }
-    # Invoke-Pester が例外で抜けたときも、本物の前後の比べを表示する
+    # Invoke-Pester が例外で抜けたときも、既定のワークスペースの前後の比べを表示する
     $guardReport = finishWorkspaceGuard $workspaceGuard
     $guardReport.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
 }

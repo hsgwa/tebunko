@@ -99,9 +99,10 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
 }
 
 # S6 は、既定のワークスペースを使う場面。既定は環境変数 TEBUNKO_DEFAULT_WORKSPACE で $TestDrive の中に差し替えて起動する
-# （利用者の本物の既定のワークスペースには触れない。手元でも CI でも流す）
+# （利用者の既定のワークスペースには触れない。手元でも CI でも流す）
 Describe "S6 既定のワークスペース" -Tag Gui {
     BeforeAll {
+        $script:envBefore = getGuiEnvSnapshot
         $script:tool = newGuiTool $TestDrive @{ workspaceFolder = "" }
         $script:defaultWork = $script:tool.DefaultWorkspace
         $script:source = Join-Path $TestDrive "元のフォルダ\営業"
@@ -152,5 +153,9 @@ Describe "S6 既定のワークスペース" -Tag Gui {
 
             closeGui $S
         }
+    }
+
+    It "利用者の環境（利用者の既定のワークスペースを含む）に触っていない" {
+        compareGuiEnvSnapshot $script:envBefore (getGuiEnvSnapshot) | Should -BeNullOrEmpty
     }
 }

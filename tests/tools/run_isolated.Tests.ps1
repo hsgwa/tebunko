@@ -1,5 +1,5 @@
-﻿# tools\isolation\isolation_common.ps1（本物の既定のワークスペースを守る関数）と tools\run_isolated.ps1 のテスト。
-# 本物の場所には触れない。本物の代わりに、$TestDrive の下の場所を渡して確かめる。
+﻿# tools\isolation\isolation_common.ps1（既定のワークスペースを守る関数）と tools\run_isolated.ps1 のテスト。
+# 既定のワークスペースの場所には触れない。既定のワークスペースの代わりに、$TestDrive の下の場所を渡して確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\..\tools\isolation\isolation_common.ps1"
     $script:runIsolated = (Resolve-Path "$PSScriptRoot\..\..\tools\run_isolated.ps1").Path
@@ -8,10 +8,10 @@ BeforeAll {
 Describe "assertNotRealWorkspace" -Tag Unit {
     It "<Case>" -TestCases @(
         @{ Case = "別の場所は通る"; Path = "C:\temp\a"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $false }
-        @{ Case = "本物と同じなら止める"; Path = "C:\Users\test\Documents\tebunko_ws"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
+        @{ Case = "既定のワークスペースと同じなら止める"; Path = "C:\Users\test\Documents\tebunko_ws"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
         @{ Case = "大文字小文字違いも止める"; Path = "c:\users\TEST\documents\TEBUNKO_WS\"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
-        @{ Case = "本物の下も止める"; Path = "C:\Users\test\Documents\tebunko_ws\sub"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
-        @{ Case = "本物を含む上の場所も止める"; Path = "C:\Users\test\Documents"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
+        @{ Case = "既定のワークスペースの下も止める"; Path = "C:\Users\test\Documents\tebunko_ws\sub"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
+        @{ Case = "既定のワークスペースを含む上の場所も止める"; Path = "C:\Users\test\Documents"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
         @{ Case = "名前が似ているだけなら通る"; Path = "C:\Users\test\Documents\tebunko_ws2"; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $false }
         @{ Case = "空なら止める"; Path = ""; Real = "C:\Users\test\Documents\tebunko_ws"; Throws = $true }
     ) {
@@ -66,7 +66,7 @@ Describe "startWorkspaceGuard と stopWorkspaceGuard" -Tag Io {
         $env:TEBUNKO_DEFAULT_WORKSPACE = $script:savedEnv
     }
 
-    It "使い捨ての場所を環境変数に入れ、終わると元に戻して消し、本物（の代わり）に違いが無ければ空を返す" {
+    It "使い捨ての場所を環境変数に入れ、終わると元に戻して消し、既定のワークスペース（の代わり）に違いが無ければ空を返す" {
         $real = Join-Path $TestDrive "real1"
         New-Item -ItemType Directory -Path $real | Out-Null
         $guard = startWorkspaceGuard $real
@@ -78,7 +78,7 @@ Describe "startWorkspaceGuard と stopWorkspaceGuard" -Tag Io {
         Test-Path -LiteralPath $guard.Isolated | Should -BeFalse
     }
 
-    It "本物（の代わり）に書かれると、違いの一覧を返す" {
+    It "既定のワークスペース（の代わり）に書かれると、違いの一覧を返す" {
         $real = Join-Path $TestDrive "real2"
         New-Item -ItemType Directory -Path $real | Out-Null
         $guard = startWorkspaceGuard $real
@@ -88,9 +88,9 @@ Describe "startWorkspaceGuard と stopWorkspaceGuard" -Tag Io {
         $diffs[0] | Should -BeLike "*増えた: \ingesting.txt*"
     }
 
-    It "使い捨ての場所が本物の下になる設定のときは、環境変数を変えずに止める" {
+    It "使い捨ての場所が既定のワークスペースの下になる設定のときは、環境変数を変えずに止める" {
         $env:TEBUNKO_DEFAULT_WORKSPACE = "C:\keep"
-        # 本物を一時フォルダの上の場所にすると、使い捨ての場所はその下になる
+        # 利用者の既定のワークスペースを一時フォルダの上の場所にすると、使い捨ての場所はその下になる
         { startWorkspaceGuard ([System.IO.Path]::GetTempPath()) } | Should -Throw
         $env:TEBUNKO_DEFAULT_WORKSPACE | Should -Be "C:\keep"
     }
@@ -146,7 +146,7 @@ Describe "newIsolationWatch・getIsolationWatchDiffs・finishWorkspaceGuard" -Ta
         $diffs[0] | Should -BeLike "場所B 増えた: \x.txt*"
     }
 
-    It "finishWorkspaceGuard は、違いが無ければ 0、本物（の代わり）に書かれていれば 1 を返す" -TestCases @(
+    It "finishWorkspaceGuard は、違いが無ければ 0、既定のワークスペース（の代わり）に書かれていれば 1 を返す" -TestCases @(
         @{ Write = $false; Code = 0 }
         @{ Write = $true; Code = 1 }
     ) {
@@ -183,6 +183,19 @@ Describe "waitIsolationProcess" -Tag Io {
     }
 }
 
+Describe "getIsolationLaunchVerdict" -Tag Unit {
+    It "<Name>" -TestCases @(
+        @{ Name = "待ち時間まで生きていた（止めた）なら 0"; Waited = @{ TimedOut = $true; ExitCode = $null }; Wait = 10; Code = 0; Match = "10 秒たったので、PID 42 とその子を止めます" }
+        @{ Name = "待ち秒数があり、0 以外で先に終わったら 1"; Waited = @{ TimedOut = $false; ExitCode = 3 }; Wait = 10; Code = 1; Match = "終了コード 3 で終わりました" }
+        @{ Name = "待ち秒数があり、0 で先に終わったら 0"; Waited = @{ TimedOut = $false; ExitCode = 0 }; Wait = 10; Code = 0; Match = "" }
+        @{ Name = "待ち秒数が 0（閉じるまで待つ）なら、0 以外で終わっても 0"; Waited = @{ TimedOut = $false; ExitCode = 3 }; Wait = 0; Code = 0; Match = "" }
+    ) {
+        $v = getIsolationLaunchVerdict $Waited $Wait 42
+        $v.ExitCode | Should -Be $Code
+        if ($Match) { $v.Line | Should -Match $Match } else { $v.Line | Should -BeNullOrEmpty }
+    }
+}
+
 Describe "run_isolated.ps1" -Tag Io {
     BeforeAll {
         function invokeRunIsolated([hashtable]$arguments) {
@@ -198,10 +211,10 @@ Describe "run_isolated.ps1" -Tag Io {
         New-Item -ItemType Directory -Path $real | Out-Null
         $text = invokeRunIsolated @{ RealWorkspace = $real; Command = { param ($ToolDir, $Workspace) [System.IO.File]::WriteAllText("$Workspace\a.txt", "x") } }
         $script:exitCode | Should -Be 0
-        $text | Should -Match "本物のフォルダに違いなし"
+        $text | Should -Match "既定のワークスペースなどに違いなし"
     }
 
-    It "本物（の代わり）に書く確かめは、違いの一覧を出して終了コード 1" {
+    It "既定のワークスペース（の代わり）に書く確かめは、違いの一覧を出して終了コード 1" {
         $real = Join-Path $TestDrive "real4"
         New-Item -ItemType Directory -Path $real | Out-Null
         $cmd = [scriptblock]::Create("param (`$ToolDir, `$Workspace) [System.IO.File]::WriteAllText('$real\ingesting.txt', 'x')")
@@ -212,7 +225,7 @@ Describe "run_isolated.ps1" -Tag Io {
 
     It "設定でワークスペースが使い捨ての外を指すなら、確かめを流さずに終了コード 1" {
         $real = Join-Path $TestDrive "real5"
-        $outside = Join-Path $TestDrive "outside"   # 架空の場所（本物のフォルダではない）
+        $outside = Join-Path $TestDrive "outside"   # 架空の場所（既定のワークスペースではない）
         New-Item -ItemType Directory -Path $real | Out-Null
         $marker = Join-Path $TestDrive "ran.txt"
         $cmd = [scriptblock]::Create("param (`$ToolDir, `$Workspace) [System.IO.File]::WriteAllText('$marker', 'x')")
@@ -223,7 +236,7 @@ Describe "run_isolated.ps1" -Tag Io {
         $text | Should -Match "起動しません"
     }
 
-    It "確かめが例外で終わっても、本物（の代わり）の違いを比べて出す" {
+    It "確かめが例外で終わっても、既定のワークスペース（の代わり）の違いを比べて出す" {
         $real = Join-Path $TestDrive "real6"
         New-Item -ItemType Directory -Path $real | Out-Null
         $cmd = [scriptblock]::Create("param (`$ToolDir, `$Workspace) [System.IO.File]::WriteAllText('$real\late.txt', 'x'); throw 'boom'")
@@ -254,7 +267,7 @@ Describe "run_isolated.ps1 の既定の経路（画面を開く）" -Tag Gui {
         $text | Should -Match "起動したプロセスの PID: \d+"
         # 待ち時間のあとも画面が生きていた（開かずにすぐ終わったなら、この文は出ない）
         $text | Should -Match "10 秒たったので、PID \d+ とその子を止めます"
-        $text | Should -Match "本物のフォルダに違いなし"
+        $text | Should -Match "既定のワークスペースなどに違いなし"
         $tmp = [regex]::Escape([System.IO.Path]::GetTempPath().TrimEnd([char]92))
         $text | Should -Match "設定ファイルの場所: $tmp"
         $text | Should -Match "work の場所: $tmp"
@@ -267,6 +280,6 @@ Describe "run_isolated.ps1 の既定の経路（画面を開く）" -Tag Gui {
         $script:exitCode | Should -Be 0
         $text | Should -Match "起動したプロセスの PID: \d+"
         $text | Should -Match "10 秒たったので、PID \d+ とその子を止めます"
-        $text | Should -Match "本物のフォルダに違いなし"
+        $text | Should -Match "既定のワークスペースなどに違いなし"
     }
 }

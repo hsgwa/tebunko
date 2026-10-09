@@ -12,7 +12,7 @@ Describe "assertIndexerWorkspaceIsolated（indexer.ps1 を動かす前の確か�
         @{ Case = "テスト用の置き場所の中の work は通る"; Folder = "work"; Throws = $false }
         @{ Case = "空（既定のワークスペース）は、差し替えた場所なら通る"; Folder = ""; Throws = $false }
         @{ Case = "置き場所の外は止める"; Folder = "..\other"; Throws = $true }
-        @{ Case = "本物の場所は止める"; Folder = "REAL"; Throws = $true }
+        @{ Case = "既定のワークスペースの場所は止める"; Folder = "REAL"; Throws = $true }
     ) {
         $root = Join-Path $TestDrive "iso-$([guid]::NewGuid().ToString('N').Substring(0, 6))"
         New-Item -ItemType Directory -Path $root | Out-Null
@@ -29,7 +29,7 @@ Describe "assertIndexerWorkspaceIsolated（indexer.ps1 を動かす前の確か�
         }
     }
 
-    It "空で、既定のワークスペースが本物を指しているときは止める" {
+    It "空で、差し替えた既定の場所が利用者の既定のワークスペースを指しているときは止める" {
         $root = Join-Path $TestDrive "iso-real"
         New-Item -ItemType Directory -Path $root | Out-Null
         $real = Join-Path $TestDrive "real-ws2"
@@ -47,12 +47,12 @@ Describe "runIndexer は、動かす前に書き込み先を確かめる" -Tag I
 
     It "setting.config の workspaceFolder が置き場所の外を指していれば、例外にして出力先を作らない" {
         $root = Join-Path $TestDrive "run-root"
-        $outside = Join-Path $TestDrive "run-outside"   # 架空の場所（本物のフォルダではない）
+        $outside = Join-Path $TestDrive "run-outside"   # 架空の場所（既定のワークスペースではない）
         New-Item -ItemType Directory -Path $root | Out-Null
         $settings = newSettings
         $settings.workspaceFolder = $outside
         writeSettings $settings "$root\setting.config"
-        { runIndexer $root } | Should -Throw
+        { runIndexer $root } | Should -Throw -ExpectedMessage "*置き場所の外*"
         Test-Path -LiteralPath $outside | Should -BeFalse
         Test-Path -LiteralPath "$root\work" | Should -BeFalse
     }

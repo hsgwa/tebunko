@@ -1,10 +1,10 @@
-﻿# 実機の確かめ・テストが、利用者の本物の既定のワークスペースに触れないようにするための共通の関数。
+﻿# 実機の確かめ・テストが、利用者の既定のワークスペースに触れないようにするための共通の関数。
 # tools\run_isolated.ps1・tests\run.ps1・tests\gui\gui_helpers.ps1・tools\capture_screens.ps1 が読み込む。
 # 既定のワークスペースは、環境変数 TEBUNKO_DEFAULT_WORKSPACE で差し替える（scripts\tebunko\core\settings.ps1 の getDefaultWorkDir）。
-# このファイルは、環境変数を通さずに本物の場所を求める（本物かどうかを調べるため）。
+# このファイルは、環境変数を通さずに既定のワークスペースの場所を求める（利用者の既定のワークスペースかどうかを調べるため）。
 
 function getRealDefaultWorkspace {
-    # 利用者の本物の既定のワークスペース。環境変数 TEBUNKO_DEFAULT_WORKSPACE を通さずに求める
+    # 利用者の既定のワークスペース。環境変数 TEBUNKO_DEFAULT_WORKSPACE を通さずに求める
     return Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws"
 }
 
@@ -19,14 +19,14 @@ function testIsolationPathInside {
 }
 
 function assertNotRealWorkspace {
-    # 差し替えた既定のワークスペースが、本物と同じか、その下を指していれば例外にする（本物に書く前に止める）
+    # 差し替えた既定の場所が、利用者の既定のワークスペースと同じか、その下を指していれば例外にする（既定のワークスペースに書く前に止める）
     param ([string]$Path, [string]$Real = (getRealDefaultWorkspace))
 
     if ([string]::IsNullOrWhiteSpace($Path)) {
         throw "既定のワークスペースが決まっていません"
     }
     if ((testIsolationPathInside $Path $Real) -or (testIsolationPathInside $Real $Path)) {
-        throw "既定のワークスペースが利用者の本物の場所を指しています: $Path"
+        throw "既定のワークスペースが利用者の既定のワークスペースの場所を指しています: $Path"
     }
 }
 
@@ -122,7 +122,7 @@ function getIsolationWatchDiffs {
 function getIsolationReport {
     # 違いの一覧から、終了コードと表示する行を作る（違いが無ければ 0 と空）。run.ps1・capture_screens.ps1（finishWorkspaceGuard 経由）・run_isolated.ps1 が使う。
     # 前後の比べは、このプロセスの外（利用者自身・別の作業ツリーのテスト）が書いた場合も落ちる。落ちたら、まず何が書いたかを疑う
-    param ([string[]]$Diffs, [string]$Title = "前後で、利用者の本物のフォルダに違いがありました")
+    param ([string[]]$Diffs, [string]$Title = "前後で、利用者の既定のワークスペースなどに違いがありました")
 
     $diffs = @($Diffs | Where-Object { $_ })
     if ($diffs.Count -eq 0) {
@@ -135,8 +135,8 @@ function getIsolationReport {
 
 function startWorkspaceGuard {
     # 使い捨ての既定のワークスペースを作って TEBUNKO_DEFAULT_WORKSPACE に入れ（子のプロセスにも引き継がれる）、
-    # 本物の既定のワークスペース（Real。テストでは本物の代わりの場所）の写しを控える。
-    # 入れた場所が本物の場所と同じか、その下なら、何も入れずに例外にする。終わったら stopWorkspaceGuard を呼ぶ
+    # 既定のワークスペース（Real。テストでは既定のワークスペースの代わりの場所）の写しを控える。
+    # 入れた場所が既定のワークスペースの場所と同じか、その下なら、何も入れずに例外にする。終わったら stopWorkspaceGuard を呼ぶ
     param ([string]$Real = (getRealDefaultWorkspace), [string]$Prefix = "tebunko-test-ws")
 
     $isolated = newIsolatedFolder $Prefix
@@ -150,14 +150,14 @@ function startWorkspaceGuard {
         Real     = $Real
         Isolated = $isolated
         Previous = $env:TEBUNKO_DEFAULT_WORKSPACE
-        Watch    = (newIsolationWatch ([ordered]@{ "本物の既定のワークスペース" = $Real }))
+        Watch    = (newIsolationWatch ([ordered]@{ "既定のワークスペース" = $Real }))
     }
     $env:TEBUNKO_DEFAULT_WORKSPACE = $isolated
     return $guard
 }
 
 function stopWorkspaceGuard {
-    # 環境変数を元に戻し、使い捨てのフォルダを消して、本物の前後の違いの一覧（無ければ空）を返す
+    # 環境変数を元に戻し、使い捨てのフォルダを消して、既定のワークスペースの前後の違いの一覧（無ければ空）を返す
     param ($Guard)
 
     $env:TEBUNKO_DEFAULT_WORKSPACE = $Guard.Previous
@@ -169,7 +169,7 @@ function finishWorkspaceGuard {
     # stopWorkspaceGuard の結果を、終了コードと表示する行（getIsolationReport）にする
     param ($Guard)
 
-    return getIsolationReport @(stopWorkspaceGuard $Guard) "前後で、利用者の本物の既定のワークスペースに違いがありました"
+    return getIsolationReport @(stopWorkspaceGuard $Guard) "前後で、利用者の既定のワークスペースに違いがありました"
 }
 
 function waitIsolationProcess {
@@ -187,4 +187,18 @@ function waitIsolationProcess {
     & taskkill.exe /PID $Process.Id /T /F | Out-Null
     [void]$Process.WaitForExit(5000)
     return @{ TimedOut = $true; ExitCode = $null }
+}
+
+function getIsolationLaunchVerdict {
+    # waitIsolationProcess の結果と待ち秒数から、画面の起動の判定を返す（ExitCode: 0 か 1、Line: 出す文。無ければ空）。
+    # 待ち時間のあとも生きていた（TimedOut）なら 0。待ち秒数があり、その前に 0 以外で終わったなら、画面が開かなかったとみなして 1
+    param ($Waited, [int]$Wait, [int]$ProcessId)
+
+    if ($Waited.TimedOut) {
+        return @{ ExitCode = 0; Line = "$Wait 秒たったので、PID $ProcessId とその子を止めます" }
+    }
+    if ($Wait -gt 0 -and $Waited.ExitCode -ne 0) {
+        return @{ ExitCode = 1; Line = "待ち時間の前に、画面のプロセス (PID $ProcessId) が終了コード $($Waited.ExitCode) で終わりました" }
+    }
+    return @{ ExitCode = 0; Line = "" }
 }

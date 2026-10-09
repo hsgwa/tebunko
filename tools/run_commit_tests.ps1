@@ -10,7 +10,7 @@
 #   - tests/gui/（本物の画面を開くテスト。タグ Gui）は選ばない。CI（gui.yml）と手元の -Tag Gui で流す
 #   - tests/ の *.Tests.ps1 はそのテスト自身
 #   - tools/<名前>.ps1 は tests/tools/<名前>.Tests.ps1（無ければ流さない）。check_markdown_links.ps1 は links も
-#   - tools/isolation/*.ps1（本物のワークスペースを守る共通の関数）は tests/tools/run_isolated.Tests.ps1
+#   - tools/isolation/*.ps1（既定のワークスペースを守る共通の関数）は tests/tools/run_isolated.Tests.ps1
 #   - tests/testdata/scrub_personal.ps1 は tests/testdata/scrub_personal.Tests.ps1
 #   - .md と docs/ の中は links（リンク先のファイル・見出し）
 #   - 次のものは、どのテストに効くか分からないため速いテスト（Unit・Meta）を全部流す

@@ -1,4 +1,4 @@
-﻿# テストと実機の確かめが、利用者の本物の既定のワークスペース（Documents\tebunko_ws）に書かない仕組みが崩れていないかを調べる。
+﻿# テストと実機の確かめが、利用者の既定のワークスペース（Documents\tebunko_ws）に書かない仕組みが崩れていないかを調べる。
 # 事故の再発防止: 既定のワークスペースを差し替えずに initWorkspace を呼ぶ・既定のワークスペースを使う画面を開く、を機械的に止める。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
@@ -8,7 +8,7 @@ BeforeAll {
         # 既定のワークスペースを差し替えずに使う書き方の行を "ファイル:行" の一覧で返す。
         # $files は @{ Name; Lines } の配列（Name はリポジトリからの相対パス。/ 区切り）、$allowed は書いてよい相対パス。
         # 限界: この検査は書き方の見かけを見るだけ。workspaceFolder = '' （単一引用符）・JSON の "workspaceFolder": ""・
-        # 変数を経由した空の指定は見つけられない。見つからなかった分は、run.ps1 の前後の比べ（本物の既定のワークスペース）が最後に止める
+        # 変数を経由した空の指定は見つけられない。見つからなかった分は、run.ps1 の前後の比べ（既定のワークスペース）が最後に止める
         param ([object[]]$files, [string[]]$allowed)
 
         $result = New-Object System.Collections.Generic.List[string]
@@ -34,7 +34,7 @@ Describe "テストの既定のワークスペース" -Tag Meta {
         { assertNotRealWorkspace $workspace.Dir } | Should -Not -Throw
     }
 
-    It "load.ps1 は、lib.ps1 を読む前に差し替え、initWorkspace のあとに本物でないことを確かめる" {
+    It "load.ps1 は、lib.ps1 を読む前に差し替え、initWorkspace のあとに利用者の既定のワークスペースでないことを確かめる" {
         $text = [System.IO.File]::ReadAllText("$here\helpers\load.ps1")
         $set = $text.IndexOf('$env:TEBUNKO_DEFAULT_WORKSPACE =')
         $lib = $text.IndexOf('lib.ps1"')
@@ -70,12 +70,12 @@ Describe "テストの既定のワークスペース" -Tag Meta {
         $text.IndexOf("useCaptureDrive `$tempBase") | Should -BeGreaterThan $start
     }
 
-    It "画面のテストの起動は、起動の前に本物でないことを確かめ、環境変数を渡す" {
+    It "画面のテストの起動は、起動の前に利用者の既定のワークスペースでないことを確かめ、環境変数を渡す" {
         $text = [System.IO.File]::ReadAllText("$here\gui\gui_helpers.ps1")
         $text | Should -Match 'assertNotRealWorkspace \$Tool\.DefaultWorkspace'
         $text | Should -Match '\$env:TEBUNKO_DEFAULT_WORKSPACE\s*=\s*\$Tool\.DefaultWorkspace'
         $code = @($text -split "\r?\n" | Where-Object { $_ -notmatch '^\s*#' })
-        ($code -match 'getRealDefaultWorkspace').Count | Should -BeGreaterThan 0   # コメントではなく、コードで本物を控えている
+        ($code -match 'getRealDefaultWorkspace').Count | Should -BeGreaterThan 0   # コメントではなく、コードで利用者の既定のワークスペースを控えている
     }
 
     It "既定のワークスペースを差し替えずに使う書き方が、決まったファイルの外に無い" {

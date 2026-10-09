@@ -65,7 +65,7 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
     It "画面なしで壊れた setting.config のまま起動すると、退避して既定の設定で動き、ログに知らせを残して 1 で終わる" {
         $root = newRoot
         [System.IO.File]::WriteAllText("$root\setting.config", '{ "targetFolders": [', ${utf8Bom})
-        # 退避すると既定のワークスペースになるため、利用者の本物の tebunko_ws に書かないよう、既定の場所もテスト用に差し替える
+        # 退避すると既定のワークスペースになるため、利用者の既定のワークスペース（tebunko_ws） に書かないよう、既定の場所もテスト用に差し替える
         # （環境変数 TEBUNKO_DEFAULT_WORKSPACE。テストの間だけ入れ替え、終わったら元に戻す）
         $global:indexerTestRoot = $root
         $points = @(

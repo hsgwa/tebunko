@@ -40,7 +40,7 @@ function writeTestSettings {
 function assertIndexerWorkspaceIsolated {
     # indexer.ps1 を動かす前に、取り込みの出力先（setting.config の workspaceFolder。空なら既定のワークスペース）が、
     # テスト用の置き場所（root）の中か、差し替えた既定のワークスペースの中であることを確かめる。外なら例外にする
-    # （利用者の本物の既定のワークスペースに取り込みの跡を付けないため）。Real・DefaultDir は、本物の代わりを渡して確かめるときに使う
+    # （利用者の既定のワークスペースに取り込みの跡を付けないため）。Real・DefaultDir は、既定のワークスペースの代わりを渡して確かめるときに使う
     param (
         [string]$root,
         [string]$real = (getRealDefaultWorkspace),

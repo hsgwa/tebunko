@@ -577,7 +577,7 @@ Describe "testSettingsFileName / testDefaultWorkspace（設定ファイルとそ
     }
 }
 Describe "getDefaultWorkDir の差し替え（環境変数 TEBUNKO_DEFAULT_WORKSPACE）" -Tag Io {
-    # 場所を求めるだけで、そこに書かない。環境変数は必ず元に戻す（外したまま後のテストが書くと、本物の既定のワークスペースに書く）
+    # 場所を求めるだけで、そこに書かない。環境変数は必ず元に戻す（外したまま後のテストが書くと、既定のワークスペースに書く）
     BeforeEach {
         $script:savedWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
     }
@@ -598,7 +598,7 @@ Describe "getDefaultWorkDir の差し替え（環境変数 TEBUNKO_DEFAULT_WORKS
         getDefaultWorkDir | Should -Be $Expected
     }
 
-    It "絶対パスでない値は例外にする（黙って本物に戻らない）: <Value>" -TestCases @(
+    It "絶対パスでない値は例外にする（黙って既定のワークスペースに戻らない）: <Value>" -TestCases @(
         @{ Value = "ws" }
         @{ Value = "..\ws" }
         @{ Value = "\ws" }

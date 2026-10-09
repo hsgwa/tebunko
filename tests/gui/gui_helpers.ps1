@@ -10,7 +10,7 @@
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 
-# 本物の既定のワークスペースを求める・前後を比べる関数（tools\run_isolated.ps1・tests\run.ps1 と同じもの）
+# 既定のワークスペースを求める・前後を比べる関数（tools\run_isolated.ps1・tests\run.ps1 と同じもの）
 . "$PSScriptRoot\..\..\tools\isolation\isolation_common.ps1"
 
 # ---- 待ちの上限（秒） ----
@@ -29,7 +29,7 @@ function getGuiRepoRoot {
 
 function getGuiEnvSnapshot {
     # 流す前後で比べる。作業ツリーの setting.config・work\content_index、%LOCALAPPDATA%\tebunko、利用者の既定のワークスペース、Office のプロセスの数。
-    # 既定のワークスペースは、いつも調べる（S6 も差し替えた既定で流すので、本物には触れない）
+    # 既定のワークスペースは、いつも調べる（S6 も差し替えた既定で流すので、既定のワークスペースには触れない）
     $root = getGuiRepoRoot
     $list = {
         param ([string]$path)
@@ -109,7 +109,7 @@ function newGuiSingleScriptTool {
 }
 
 function newGuiDefaultWorkspace {
-    # 起動する画面の既定のワークスペース（環境変数 TEBUNKO_DEFAULT_WORKSPACE に渡す）。$Dir の中に作る（利用者の本物の既定のワークスペースにしない）
+    # 起動する画面の既定のワークスペース（環境変数 TEBUNKO_DEFAULT_WORKSPACE に渡す）。$Dir の中に作る（利用者の既定のワークスペースにしない）
     param ([string]$Dir)
     $path = Join-Path $Dir "default_workspace"
     [void][IO.Directory]::CreateDirectory($path)

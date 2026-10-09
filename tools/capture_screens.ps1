@@ -716,7 +716,7 @@ $tempBase = Join-Path ([IO.Path]::GetTempPath()) ("tebunko-capture-" + [Guid]::N
 $drive = $null
 $sizes = New-Object System.Collections.Generic.List[long]
 # 撮る間は、使い捨ての既定のワークスペースに差し替える（環境変数 TEBUNKO_DEFAULT_WORKSPACE。起動する画面にも引き継がれる）。
-# 設定が既定に戻る場面（captureBrokenConfigScene）も、利用者の本物の既定のワークスペースには触れない。終わったら元に戻し、本物の前後を比べる
+# 設定が既定に戻る場面（captureBrokenConfigScene）も、利用者の既定のワークスペースには触れない。終わったら元に戻し、既定のワークスペースの前後を比べる
 $workspaceGuard = startWorkspaceGuard -Prefix "tebunko-capture-ws"
 try {
     $drive = useCaptureDrive $tempBase

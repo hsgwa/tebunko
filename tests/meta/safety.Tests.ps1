@@ -75,7 +75,7 @@ BeforeAll {
         }
         # 環境変数は SystemRoot（メモ帳を開く）と、画面のテストが差し込む TEBUNKO_GUI_LEFTOVER_FILE だけ
         $allowedEnv = @("systemroot", "tebunko_gui_leftover_file")
-        # 加えて、既定のワークスペースを差し替える TEBUNKO_DEFAULT_WORKSPACE は、settings.ps1 が 1 回だけ読む（テストや実機の確かめが本物のワークスペースに書かないための口）
+        # 加えて、既定のワークスペースを差し替える TEBUNKO_DEFAULT_WORKSPACE は、settings.ps1 が 1 回だけ読む（テストや実機の確かめが既定のワークスペースに書かないための口）
         $workspaceEnvCount = 0
         foreach ($line in $codeLines) {
             foreach ($match in [regex]::Matches($line.Text, '(?i)\$\{?env:(\w+)')) {

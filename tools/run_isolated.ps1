@@ -1,7 +1,8 @@
-﻿# 実機の確かめを、利用者の本物のワークスペースに触れない形で行う。
+﻿# 実機の確かめを、利用者の既定のワークスペースに触れない形で行う。
 #
 #   .\tools\run_isolated.ps1                       使い捨てのフォルダにツールの写しを作り、画面を開く（閉じるまで待つ）
 #   .\tools\run_isolated.ps1 -Single               展開せずに動く単一 .ps1 版で開く
+#   .\tools\run_isolated.ps1 -WaitSeconds 30     画面を 30 秒だけ開き、過ぎたら起動した PID とその子だけを止める
 #   .\tools\run_isolated.ps1 -Settings @{ ... }    写しの setting.config に書く項目（targetFolders など）
 #   .\tools\run_isolated.ps1 -Command { param ($ToolDir, $Workspace) ... }   画面を開かず、写しの場所と使い捨てのワークスペースを受け取って任意の確かめを流す
 #
@@ -9,7 +10,7 @@
 #   1. %TEMP% の下の新しいフォルダに、ツールの写し（scripts\ と tebunko.bat。-Single なら単一 .ps1）と、使い捨てのワークスペースを作る。
 #   2. 子プロセスの環境変数 TEBUNKO_DEFAULT_WORKSPACE に、使い捨てのワークスペースを入れる（既定のワークスペースがそこになる）。
 #   3. 起動の前に、その環境で設定ファイルの場所と work の場所を求め、どちらも使い捨てのフォルダの中でなければ、起動せずに終了コード 1 で止まる。
-#   4. 起動の前後で、本物の既定のワークスペースと、写し元のリポジトリの setting.config・work\ の名前・大きさ・更新時刻を比べる
+#   4. 起動の前後で、既定のワークスペースと、写し元のリポジトリの setting.config・work\ の名前・大きさ・更新時刻を比べる
 #      （中身は読まない）。違いがあれば一覧を出して終了コード 1。
 #   5. 使い捨てのフォルダは終わったら消す。起動したプロセスは PID を出す（止めるときは PID で止める）。
 param (
@@ -17,7 +18,7 @@ param (
     [hashtable]$Settings = @{},
     [scriptblock]$Command,
     [int]$WaitSeconds = 0,     # 画面を待つ秒数（0 は閉じるまで待つ）。過ぎたら、起動した PID とその子だけを止める
-    [string]$RealWorkspace     # 本物の代わりに比べる場所（テスト用。既定は利用者の本物の既定のワークスペース）
+    [string]$RealWorkspace     # 既定のワークスペースの代わりに比べる場所（テスト用。既定は利用者の既定のワークスペース）
 )
 
 $ErrorActionPreference = "Stop"
@@ -59,12 +60,12 @@ function invokeIsolated {
     $tool = Join-Path $base "tool"
     $WorkspaceDir = Join-Path $base "workspace"
     $exitCode = 0
-    $watch = newIsolationWatch ([ordered]@{
-        "本物の既定のワークスペース" = $RealDir
-        "リポジトリの setting.config" = "$repoRoot\setting.config"
-        "リポジトリの work" = "$repoRoot\work"
-    })
     try {
+        $watch = newIsolationWatch ([ordered]@{
+            "既定のワークスペース" = $RealDir
+            "リポジトリの setting.config" = "$repoRoot\setting.config"
+            "リポジトリの work" = "$repoRoot\work"
+        })
         Write-Host "使い捨てのフォルダ: $base"
         [void][System.IO.Directory]::CreateDirectory($tool)
         Copy-Item -LiteralPath "$repoRoot\scripts" -Destination "$tool\scripts" -Recurse
@@ -96,29 +97,30 @@ function invokeIsolated {
                     }
                     $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
                         "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$($gui.Replace("'", "''"))'")
+                    $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
                     Write-Host "起動したプロセスの PID: $($p.Id)（画面を閉じるまで待ちます）"
                     $waited = waitIsolationProcess $p $Wait
-                    if ($waited.TimedOut) {
-                        Write-Host "$Wait 秒たったので、PID $($p.Id) とその子を止めます"
-                    } elseif ($Wait -gt 0 -and $waited.ExitCode -ne 0) {
-                        Write-Host "待ち時間の前に、画面のプロセス (PID $($p.Id)) が終了コード $($waited.ExitCode) で終わりました" -ForegroundColor Red
-                        $exitCode = 1
-                    }
+                    $verdict = getIsolationLaunchVerdict $waited $Wait $p.Id
+                    if ($verdict.Line) { Write-Host $verdict.Line -ForegroundColor $(if ($verdict.ExitCode -ne 0) { "Red" } else { "Gray" }) }
+                    if ($verdict.ExitCode -ne 0) { $exitCode = 1 }
                 }
             } finally {
                 $env:TEBUNKO_DEFAULT_WORKSPACE = $previous
             }
         }
     } finally {
-        # 写しの作成・事前の確かめ・確かめの途中の例外のどの道でも、本物のフォルダを比べてから消す
-        $report = getIsolationReport @(getIsolationWatchDiffs $watch) "起動の前後で、本物のフォルダに違いがありました"
-        if ($report.ExitCode -ne 0) {
-            $report.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
-            $exitCode = 1
-        } else {
-            Write-Host "本物のフォルダに違いなし"
+        # 写しの作成・事前の確かめ・確かめの途中の例外のどの道でも、既定のワークスペースを比べてから消す
+        try {
+            $report = getIsolationReport @(getIsolationWatchDiffs $watch) "起動の前後で、既定のワークスペースなどに違いがありました"
+            if ($report.ExitCode -ne 0) {
+                $report.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+                $exitCode = 1
+            } else {
+                Write-Host "既定のワークスペースなどに違いなし"
+            }
+        } finally {
+            Remove-Item -LiteralPath $base -Recurse -Force -ErrorAction SilentlyContinue
         }
-        Remove-Item -LiteralPath $base -Recurse -Force -ErrorAction SilentlyContinue
     }
     return $exitCode
 }

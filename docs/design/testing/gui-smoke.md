@@ -14,7 +14,7 @@
 
 | 決まり | 内容 |
 |---|---|
-| 隔離 | ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイル（`setting.config`）とワークスペースも写した先に置く（`workspaceFolder` を写した先の `work` にする。空にして既定のワークスペースを使う場面は、環境変数 `TEBUNKO_DEFAULT_WORKSPACE` で `$TestDrive` の中に差し替えて起動する）。起動の前に差し替えた場所が本物でないことを確かめ、流す前後で、作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、利用者の本物の `Documents\tebunko_ws`、Office のプロセスの数が変わらないことも確かめる。多重起動の防止は配置フォルダごとなので、手元で開いている tebunko と重ならない |
+| 隔離 | ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイル（`setting.config`）とワークスペースも写した先に置く（`workspaceFolder` を写した先の `work` にする。空にして既定のワークスペースを使う場面は、環境変数 `TEBUNKO_DEFAULT_WORKSPACE` で `$TestDrive` の中に差し替えて起動する）。起動の前に差し替えた既定の場所が利用者の既定のワークスペースでないことを確かめ、流す前後で、作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、利用者の既定のワークスペース（`Documents\tebunko_ws`）、Office のプロセスの数が変わらないことも確かめる。多重起動の防止は配置フォルダごとなので、手元で開いている tebunko と重ならない |
 | 探す | 部品は `AutomationId`（`x:Name`）で探す。名前の無い部品（確認ダイアログの選択肢・メッセージボックスのボタン）は表示の文字で探す。ダイアログ・確認・メッセージボックス・メニューは、UI オートメーションの木では本体の窓の子の窓として出る |
 | 操作 | パターン（`InvokePattern`・`ValuePattern`・`SelectionItemPattern`・`TogglePattern`・`WindowPattern.Close`）で行い、マウス・キーボードの合成は使わない（SendInput・keybd_event は使わない）。キーは、修飾キーなしのものだけ `WM_KEYDOWN`・`WM_KEYUP` のメッセージで送れる（`pressGuiKey`）。Ctrl・Shift を押した形は、ハンドラが本物のキーボードの状態を読むため送れない（その振り分けは `tests/tebunko/ui/shell/nav.Tests.ps1` の単体テストで確かめる）。モーダルを開く操作は別のスレッドから呼ぶ。Win32 のダイアログ（OS のフォルダ選択）のボタンと欄はパターンを持たないため、窓のメッセージ（`BM_CLICK`・`WM_SETTEXT`）で操作する |
 | 待つ | 100 ms ごとに状態を調べる（時間では待たない）。上限は起動 90 秒・取り込みの完了 120 秒・ほかは 30 秒。待つ間に、予定していないエラーの窓（`予期しないエラー`・`エラーが発生しました` など）が出たら、その文言で失敗にする |
@@ -45,7 +45,7 @@ flowchart TD
 
 - 取り込むファイルは `tests/testdata/office/` の .docx・.pptx（Office を使わずに直接読める）を写す。.xlsx は Excel が要るので使わない。失敗させるファイルは、ZIP としては開けるが `word/document.xml` の XML が壊れている .docx をテストの中で作る（ZIP でない旧形式・パスワード付きは、Word・PowerPoint に回し直されて Office が動くので使わない）
 - S3 の取り込みは時間に頼る。取り込みが終わってしまったときは「間に合わなかった」という文言で失敗にする（ファイルの数を増やして直す）
-- S6 は手元でも流す。既定のワークスペースは `TEBUNKO_DEFAULT_WORKSPACE` で `$TestDrive` の中に差し替わり、利用者の本物のワークスペースには触れない
+- S6 は手元でも流す。既定のワークスペースは `TEBUNKO_DEFAULT_WORKSPACE` で `$TestDrive` の中に差し替わり、利用者の既定のワークスペースには触れない
 
 **画面遷移の一覧**
 
