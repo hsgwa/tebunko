@@ -4160,7 +4160,7 @@
 <p>tebunko が読み書きするファイルとフォルダの一覧（置き場ごと・配布形ごと）は、<a href="../io-files/">どの処理がどのファイルを読み書きするか</a> にある。</p>
 <div class="admonition note">
 <p class="admonition-title">設計書の <code>work/</code> の書き方</p>
-<p>設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を <code>work/</code> と書く。実際の場所は、既定では <code>%USERPROFILE%\Documents\tebunko_ws</code>、［設定］で変えたときはその場所である（下の「データの置き場所」）。開発用のリポジトリ直下の <code>work/</code>（<code>work/test/</code>・<code>work/release/</code>・<code>work/site/</code> など、git 管理外）は別のもの。</p>
+<p>設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を <code>work/</code> と書く。実際の場所は、既定では <code>%USERPROFILE%\Documents\tebunko_ws</code>（テストと実機の確かめでは、環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で使い捨ての場所に差し替える。<a href="../../testing/run/#既定のワークスペースを守る">テストの実行</a>）、［設定］で変えたときはその場所である（下の「データの置き場所」）。開発用のリポジトリ直下の <code>work/</code>（<code>work/test/</code>・<code>work/release/</code>・<code>work/site/</code> など、git 管理外）は別のもの。</p>
 </div>
 <h2 id="自動生成work">自動生成（<code>work/</code>）<a class="headerlink" href="#自動生成work" title="Permanent link">&para;</a></h2>
 <table>

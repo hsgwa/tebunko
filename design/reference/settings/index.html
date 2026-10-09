@@ -4296,7 +4296,7 @@
 <td><code>getDefaultWorkDir</code></td>
 <td>profileDir（既定は利用者のプロファイル）</td>
 <td>string</td>
-<td>既定のワークスペース <code>&lt;profileDir&gt;\Documents\tebunko_ws</code>（OneDrive にリダイレクトされた「ドキュメント」は使わない）</td>
+<td>既定のワークスペース <code>&lt;profileDir&gt;\Documents\tebunko_ws</code>（OneDrive にリダイレクトされた「ドキュメント」は使わない）。<code>profileDir</code> を渡さず、環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code>（絶対パス）があるときは、その場所（テスト・実機の確かめ用。絶対パスでなければ例外）</td>
 <td><a href="../../structure/data/">データの置き場所とパスの決め方</a></td>
 <td>getWorkDir, writeWorkspaceFolder, 画面</td>
 </tr>
