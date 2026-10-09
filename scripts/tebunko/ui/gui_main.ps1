@@ -11,7 +11,7 @@ function writeCloseTrace {
     if ($env:TEBUNKO_CLOSE_TRACE -eq "1") {
         try {
             $threads = [System.Diagnostics.Process]::GetCurrentProcess().Threads.Count
-            $line = "$((Get-Date).ToString('HH:mm:ss.fff'))`t$Point`tスレッド $threads`r`n"
+            $line = "$((Get-Date).ToString('HH:mm:ss.fff'))`tPID $PID`t$Point`tスレッド $threads`r`n"
             [System.IO.File]::AppendAllText($script:workspace.CloseTraceFile, $line, (New-Object System.Text.UTF8Encoding($false)))
         } catch { }
     }

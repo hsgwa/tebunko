@@ -48,6 +48,11 @@ Describe "selectGuiCrashEvents" -Tag Unit {
     }
 }
 
+BeforeDiscovery {
+    # -TestCases は Discovery のときに評価されるので、表の中で使う本文はここで用意する（BeforeAll より前）
+    $script:runtimeBody = "Application: powershell.exe`nFramework Version: v4.0.30319`nException Info: System.InvalidOperationException"
+}
+
 Describe "selectGuiCrashEventsWithoutPid・getGuiCrashInfo" -Tag Unit {
     BeforeAll {
         $script:since = [datetime]"2026-10-10 10:00:00"
@@ -60,6 +65,7 @@ Describe "selectGuiCrashEventsWithoutPid・getGuiCrashInfo" -Tag Unit {
         @{ Name = "種類の外は拾わない"; Provider = "MsiInstaller"; Offset = 1; Message = "x"; Expected = 0 }
         @{ Name = "起動の前の記録は拾わない"; Provider = ".NET Runtime"; Offset = -1; Message = "x"; Expected = 0 }
     ) {
+        $Message | Should -Not -BeNullOrEmpty   # 表の本文が Discovery で空にならないこと
         $fake = newFakeEvent $Provider $script:since.AddMinutes($Offset) $Message 1026
         @(selectGuiCrashEventsWithoutPid @($fake) 4242 $script:since).Count | Should -Be $Expected
     }
@@ -93,6 +99,21 @@ Describe "selectGuiCrashEventsWithoutPid・getGuiCrashInfo" -Tag Unit {
         $text | Should -Match "PID で当たった記録: 該当なし"
         $text | Should -Match "PID を問わず時間で拾った記録: 1 件"
         $text | Should -Not -Match "InvalidOperationException"
+    }
+
+    It "「該当が無い」の例外（NoMatchingEventsFound）は 0 件として、該当なしと書く" {
+        Mock Get-WinEvent { Write-Error "No events were found" -ErrorId NoMatchingEventsFound -Category ObjectNotFound }
+        $text = (getGuiCrashInfo 4242 ([datetime]::Now.AddMinutes(-5))) -join "`n"
+        $text | Should -Match "PID で当たった記録: 該当なし"
+        $text | Should -Not -Match "読めなかった"
+    }
+
+    It "読めなかったとき（ほかの例外）は、該当なしと書かずに、読めなかったと書く" {
+        Mock Get-WinEvent { throw "アクセスが拒否された" }
+        $text = (getGuiCrashInfo 4242 ([datetime]::Now.AddMinutes(-5))) -join "`n"
+        $text | Should -Match "イベントログを読めなかった"
+        $text | Should -Match "アクセスが拒否された"
+        $text | Should -Not -Match "該当なし"
     }
 
     It "どちらも無ければ、探した範囲つきで該当なしと書く" {
@@ -141,7 +162,7 @@ Describe "getGuiExitRecord" -Tag Unit {
         $work = Join-Path $dir "work"
         [void][IO.Directory]::CreateDirectory($work)
         [IO.File]::WriteAllText("$dir\gui_returned_4242.txt", "returned=2026-10-10T10:00:00 ok=True LASTEXITCODE= Error=")
-        [IO.File]::WriteAllText("$work\close_trace.txt", "10:00:00.100`tClosing に入った`tスレッド 30`r`n10:00:00.200`tShowDialog から戻った`tスレッド 28`r`n")
+        [IO.File]::WriteAllText("$work\close_trace.txt", "09:00:00.100`tPID 777`tClosing に入った`tスレッド 30`r`n10:00:00.100`tPID 4242`tClosing に入った`tスレッド 30`r`n10:00:00.200`tPID 4242`tShowDialog から戻った`tスレッド 28`r`n")
         $exited = Get-Date
         $S = @{
             Scene = "S1"; Step = "閉じる"; Tool = @{ Dir = $dir; Work = $work }
@@ -156,6 +177,7 @@ Describe "getGuiExitRecord" -Tag Unit {
         $text | Should -Match "閉じる直前の スレッドの数: 31"
         $text | Should -Match "returned=2026-10-10T10:00:00 ok=True"
         $text | Should -Match "ShowDialog から戻った"
+        $text | Should -Not -Match "PID 777"
     }
 
     It "記録のファイルが無くても、無いと書いて最後まで作る" {
@@ -171,16 +193,20 @@ Describe "getGuiExitRecord" -Tag Unit {
     }
 
     It "ワークスペースを切り替える場面のように、作業フォルダの外にある閉じる順番の記録も、場所を付けて写す" {
-        $dir = Join-Path $TestDrive "tool3"
+        # 実際の配置: 切り替え先（別のワークスペース）は、ツールのフォルダ（tool）の隣にある
+        $root = Join-Path $TestDrive "tool3root"
+        $dir = Join-Path $root "tool"
         [void][IO.Directory]::CreateDirectory("$dir\work")
-        [void][IO.Directory]::CreateDirectory("$dir\ws2")
-        [IO.File]::WriteAllText("$dir\ws2\close_trace.txt", "10:00:00.100`t別のワークスペースの節目`tスレッド 30`r`n")
-        $S = @{ Scene = "S2c"; Step = "閉じる"; Tool = @{ Dir = $dir; Work = "$dir\work" }; Process = [pscustomobject]@{ Id = 1; ExitCode = 5; ExitTime = Get-Date } }
+        [void][IO.Directory]::CreateDirectory("$root\別のワークスペース")
+        [IO.File]::WriteAllText("$root\別のワークスペース\close_trace.txt", "10:00:00.100`tPID 1`t別のワークスペースの節目`tスレッド 30`r`n10:00:00.100`tPID 2`t前の起動の節目`tスレッド 30`r`n")
+        [IO.File]::WriteAllText("$dir\setting.config", ("{""workspaceFolder"": " + (ConvertTo-Json "$root\別のワークスペース") + "}"))
+        $S = @{ Scene = "S2c"; Step = "閉じる"; Tool = @{ Dir = $dir; Work = "$dir\work"; Config = "$dir\setting.config"; DefaultWorkspace = "$root\default_workspace" }; Process = [pscustomobject]@{ Id = 1; ExitCode = 5; ExitTime = Get-Date } }
 
         $text = (getGuiExitRecord $S) -join "`n"
 
-        $text | Should -Match "場所: ws2\\close_trace\.txt"
+        $text | Should -Match "場所: 別のワークスペース"
         $text | Should -Match "別のワークスペースの節目"
+        $text | Should -Not -Match "前の起動の節目"
     }
 }
 

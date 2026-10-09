@@ -74,7 +74,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | `work/office_pids/<PC の鍵>/<PID>.tmp`→`<PID>.txt` | 読む・書く | このツールが起動した Office の記録（`office_process.ps1`。`.tmp` に書いてから `.txt` に改名）。起動時の確認で読む |
 | `work/indexing_log.txt` | 書く | インデクサの表示内容（実行ごとに上書き。`writeIndexerLog`）。［ログを開く］で Notepad が開く |
 | `work/gui_error_log.txt` | 書く | 画面の予期しないエラー（追記。`writeErrorLog`）。起動に失敗したときも、ここに書けるならここに書く |
-| `work/close_trace.txt` | 書く | 画面を閉じる順番の記録（追記。`TEBUNKO_CLOSE_TRACE=1` のときだけ。ワークスペースの下の決まった名前の 1 ファイルだけ） |
+| `work/close_trace.txt` | 書く | 画面を閉じる順番の記録（追記。1 行は 時刻・PID・節目・スレッドの数。`TEBUNKO_CLOSE_TRACE=1` のときだけ。ワークスペースの下の決まった名前の 1 ファイルだけ） |
 | `work/search_results.txt` | 書く | 検索結果の出力 |
 | `work/index/`（過去の版が置いた本文インデックス）・`work/system_index/` の古い名前の txt | 読む・消す | 残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない |
 | `work/release/`・`work/test/`・`work/site/`・`work/cache/` | – | 開発用（`tools/` が書く。配布物には入らない）。tebunko 本体は触らない |
@@ -126,7 +126,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | カレントドライブ | 読む | `\server\share` のように `\` ひとつで始まる、ドライブ名の無いパス（今のドライブのパスには直さず、書かれたとおりに扱う）。ドライブ名だけ（`D:`）はドライブ直下とする |
 | `TEBUNKO_GUI_LEFTOVER_FILE`（環境変数） | 読む | 画面のテスト用。残った Office の確認の行に偽の行を差し込むファイルの場所（利用者は使わない） |
 | `TEBUNKO_DEFAULT_WORKSPACE`（環境変数） | 読む | 開発・確かめ用。既定のワークスペースの場所を差し替える（絶対パスだけ。利用者は使わない） |
-| `TEBUNKO_CLOSE_TRACE`（環境変数） | 読む | テストの診断用。`1` のときだけ、閉じる順番を `work/close_trace.txt` に追記する（`gui_main.ps1` の `writeCloseTrace`。1 かどうかを比べるだけで、パスとしては読まない。利用者は使わない） |
+| `TEBUNKO_CLOSE_TRACE`（環境変数） | 読む | テストの診断用。`1` のときだけ、閉じる順番を `work/close_trace.txt` に、PID を付けて追記する（`gui_main.ps1` の `writeCloseTrace`。1 かどうかを比べるだけで、パスとしては読まない。利用者は使わない） |
 
 ### 過去の版が残したものを消すときだけ触る場所
 

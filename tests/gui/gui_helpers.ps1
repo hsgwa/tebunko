@@ -286,6 +286,19 @@ function selectGuiCrashEvents {
     })
 }
 
+function readGuiApplicationEvents {
+    # Application ログの、起動の時刻以降の記録。「該当が無い」（NoMatchingEventsFound）だけを 0 件として扱い、読めなかった（権限・ログの不具合）ときは例外にする
+    # （読めなかったのに「該当なし」と書くと、探したが無かったのか、読めなかったのかが区別できない）
+    param ([datetime]$Since)
+
+    try {
+        return @(Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $Since } -ErrorAction Stop)
+    } catch {
+        if ($_.FullyQualifiedErrorId -like "NoMatchingEventsFound*") { return @() }
+        throw
+    }
+}
+
 function selectGuiCrashEventsWithoutPid {
     # 種類（guiCrashProviders）と時刻（起動以降）は合うが、本文にそのプロセス ID が無いイベントを返す。
     # .NET Runtime（1026）・Windows Error Reporting（1001）・Application Hang（1002）は、本文にプロセス ID を書かないことがあるため、
@@ -309,7 +322,7 @@ function getGuiCrashInfo {
 
     $range = "Application ログ、$($Since.ToString('yyyy-MM-dd HH:mm:ss')) 以降、種類: $(${guiCrashProviders} -join '・')"
     try {
-        $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $Since } -ErrorAction SilentlyContinue
+        $events = readGuiApplicationEvents $Since
         $result = New-Object System.Collections.ArrayList
         $byPid = @(selectGuiCrashEvents $events $ProcessId $Since)
         if ($byPid.Count -eq 0) {
@@ -332,6 +345,31 @@ function getGuiCrashInfo {
         return @("イベントログを読めなかった（探す範囲: $range）: $($_.Exception.Message)")
     }
 }
+function getGuiCloseTraceFiles {
+    # 閉じる順番の記録（close_trace.txt）がある、その場面のワークスペースを探す。探す先は、設定（setting.config）に書かれたワークスペース・
+    # 作業フォルダ（Work）・既定のワークスペースの 3 つだけ（切り替えた先は、ツールのフォルダの外の $TestDrive の中にある）。
+    # 利用者の実機の既定のワークスペースの中は探さない（assertNotRealWorkspace を通らないものは外す）。Path と Place（フォルダ名）を返す
+    param ($S)
+
+    $dirs = New-Object System.Collections.ArrayList
+    try {
+        $folder = ([string](readGuiConfig $S.Tool).workspaceFolder).Trim()
+        if ($folder -ne "") { [void]$dirs.Add([IO.Path]::GetFullPath([IO.Path]::Combine($S.Tool.Dir, [Environment]::ExpandEnvironmentVariables($folder)))) }
+    } catch { }
+    foreach ($d in @($S.Tool.Work, $S.Tool.DefaultWorkspace)) { if ($d) { [void]$dirs.Add([IO.Path]::GetFullPath($d)) } }
+    $result = New-Object System.Collections.ArrayList
+    $seen = @{}
+    foreach ($dir in $dirs) {
+        $key = $dir.TrimEnd('\').ToLowerInvariant()
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+        try { assertNotRealWorkspace $dir } catch { continue }
+        $file = Join-Path $dir "close_trace.txt"
+        if (Test-Path -LiteralPath $file) { [void]$result.Add(@{ Path = $file; Place = (Split-Path -Leaf $dir) }) }
+    }
+    return @($result)
+}
+
 function getGuiExitRecord {
     # 終了の様子の記録（終了の記録.txt の中身）。閉じる前の様子・終わった時刻・閉じる操作から終わるまでの秒数・子がまだ動いているか・
     # 呼び出し元に戻った印（gui_returned_<PID>.txt）・閉じる順番の記録（ツールのフォルダの下の close_trace.txt）
@@ -369,13 +407,14 @@ function getGuiExitRecord {
         if (Test-Path -LiteralPath $file) { [void]$lines.Add([IO.File]::ReadAllText($file)) } else { [void]$lines.Add("無い") }
     }
     & $part "close_trace.txt" {
-        # ワークスペースを切り替える場面では、記録が作業フォルダ（Work）の外のワークスペースに書かれる。ツールのフォルダの下を全部探し、場所を付けて写す
-        $files = @(Get-ChildItem -LiteralPath $S.Tool.Dir -Filter "close_trace.txt" -Recurse -File -ErrorAction SilentlyContinue)
-        [void]$lines.Add("---- close_trace.txt（閉じる順番の記録。最後の行が、止まる前に着いた節目） ----")
+        # 同じワークスペースを何度も起こすと前の起動の行が残るので、この PID の行だけを写す。ワークスペースを切り替える場面もあるため、場所（ワークスペースのフォルダ名）を付ける
+        [void]$lines.Add("---- close_trace.txt（閉じる順番の記録。この PID の行だけ。最後の行が、止まる前に着いた節目） ----")
+        $files = @(getGuiCloseTraceFiles $S)
         if ($files.Count -eq 0) { [void]$lines.Add("無い") }
         foreach ($f in $files) {
-            [void]$lines.Add("場所: $($f.FullName.Substring($S.Tool.Dir.TrimEnd('\').Length).TrimStart('\'))")
-            [void]$lines.AddRange(@([IO.File]::ReadAllLines($f.FullName)))
+            $mine = @([IO.File]::ReadAllLines($f.Path) | Where-Object { $_ -like "*`tPID $($S.Process.Id)`t*" })
+            [void]$lines.Add("場所: $($f.Place)")
+            if ($mine.Count -eq 0) { [void]$lines.Add("この PID の行は無い") } else { [void]$lines.AddRange($mine) }
         }
     }
     return @($lines)
@@ -760,17 +799,19 @@ function saveGuiEvidence {
             $file = Join-Path $S.Tool.Work $name
             if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
         }
-        # 閉じる順番の記録は、ワークスペースを切り替える場面でも拾えるよう、ツールのフォルダの下を全部探す（場所は名前に入れる）
-        $toolRoot = $S.Tool.Dir.TrimEnd('\')
-        foreach ($f in @(Get-ChildItem -LiteralPath $S.Tool.Dir -Filter "close_trace.txt" -Recurse -File -ErrorAction SilentlyContinue)) {
-            $place = $f.DirectoryName.Substring($toolRoot.Length).Trim('\').Replace('\', '_')
-            $copyName = if ($place) { "close_trace（$place）.txt" } else { "close_trace.txt" }
-            Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $dest $copyName) -Force
+        # 閉じる順番の記録は、ワークスペースを切り替える場面でも拾えるよう、その場面のワークスペースを探す（場所はワークスペースのフォルダ名。全部の PID の行を写す）
+        foreach ($f in @(getGuiCloseTraceFiles $S)) {
+            Copy-Item -LiteralPath $f.Path -Destination (Join-Path $dest "close_trace（$($f.Place)）.txt") -Force
         }
     }
     & $save "クラッシュ情報" {
         # 終了コードの確認まで進まなかった失敗でも、必ず書く（「探したが無かった」と「探していない」を区別できるように）
         $info = if ($S.CrashInfo) { $S.CrashInfo } else { @("探していない（終了コードの確認まで進まなかった失敗）") }
+        # Windows Error Reporting などは遅れて書かれることがあるため、終了直後に読んだものに加えて、保存の時点でもう一度読む
+        if ($S.CrashInfo -and $S.Process) {
+            $since = if ($S.StartedAt) { [datetime]$S.StartedAt } else { (Get-Date).AddMinutes(-5) }
+            $info = @("---- 終了の直後に読んだ ----") + @($info) + @("---- 保存の時点で読み直した ----") + @(getGuiCrashInfo $S.Process.Id $since)
+        }
         $info | Set-Content -LiteralPath "$dest\クラッシュ情報.txt" -Encoding UTF8
     }
     & $save "終了の記録" {
