@@ -4230,9 +4230,9 @@
 <h2 id="データの置き場所settingconfigwork">データの置き場所（<code>setting.config</code>・<code>work/</code>）<a class="headerlink" href="#データの置き場所settingconfigwork" title="Permanent link">&para;</a></h2>
 <p>ツールを書き込めない場所（<code>C:\Program Files</code>、読み取り専用の共有フォルダ）に置いても動くよう、また、インデックス（元の文書の本文を持つ。<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）をアクセス権を絞ったフォルダや容量のあるドライブに置けるよう、データの置き場所をツールのフォルダと分けられるようにしている。</p>
 <pre class="mermaid"><code>flowchart TD
-    A["$rootDir に書き込める？"] -- はい --&gt; B["$dataDir = $rootDir"]
-    A -- いいえ --&gt; C["$dataDir = %LOCALAPPDATA%\tebunko\&lt;鍵&gt;"]
-    B &amp; C --&gt; D["$settingsFile = $dataDir\setting.config"]
+    A["$rootDir に書き込める？"] -- はい --&gt; B["設定の置き場 = $rootDir"]
+    A -- いいえ --&gt; C["設定の置き場 = 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）の直下"]
+    B &amp; C --&gt; D["$settingsFile = 設定の置き場\setting.config"]
     D --&gt; E{"setting.config の workspaceFolder は空？"}
     E -- はい --&gt; F["既定: %USERPROFILE%\Documents\tebunko_ws"]
     E -- いいえ --&gt; G["workspaceFolder の場所"]
@@ -4247,13 +4247,13 @@
 </thead>
 <tbody>
 <tr>
-<td><code>$dataDir</code></td>
-<td>ツールのフォルダ（<code>$rootDir</code>）にファイルを作れればそこ。作れなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>。鍵は <code>getFolderKey $rootDir</code> の先頭 16 文字で、ツールのフォルダごとに分かれる</td>
-<td><code>scripts/shared/core/data_dir.ps1</code> の <code>getDataDir</code>（書き込めるかは <code>testWritableFolder</code>。試しに作ったファイルは閉じると消える）</td>
+<td>設定の置き場</td>
+<td>ツールのフォルダ（<code>$rootDir</code>）にファイルを作れればそこ。作れなければ、呼び出し側が渡す代わりのフォルダ（tebunko では既定のワークスペース <code>getDefaultWorkDir</code>）の直下。<code>%LOCALAPPDATA%\tebunko</code> と <code>%TEMP%</code> には置かない（ツールのフォルダ自体が <code>%LOCALAPPDATA%\Programs\tebunko</code> にあるインストーラー版では、書き込めるのでその直下に置く）</td>
+<td><code>scripts/shared/core/data_dir.ps1</code> の <code>getDataDir</code>（書き込めるかは <code>testWritableFolder</code>。試しに作ったファイルは閉じると消える）、<code>scripts/tebunko/core/settings.ps1</code> の <code>getSettingsFilePath</code></td>
 </tr>
 <tr>
 <td><code>$settingsFile</code></td>
-<td><code>$dataDir\setting.config</code></td>
+<td>設定の置き場の <code>setting.config</code></td>
 <td><code>scripts/tebunko/core/settings.ps1</code></td>
 </tr>
 <tr>
@@ -4264,7 +4264,7 @@
 </tbody>
 </table>
 <ul>
-<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a>・<a href="../../search/fast-search/">高速検索（Windows Search）</a>）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>content_index</code>・前の版の <code>index</code>・<code>ingest_status.tsv</code> のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［設定］の［変更…］で選ぶ）。</li>
+<li>既定の場所をドキュメントにするのは、高速検索（<a href="../../search/">検索</a>・<a href="../../search/fast-search/">高速検索（Windows Search）</a>）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない。ただし設定ファイル（<code>setting.config</code>・保存途中の <code>setting.config.tmp</code>・壊れた設定の退避 <code>setting.config.broken-&lt;日時&gt;[-&lt;番号&gt;]</code>。<code>testSettingsFileName</code>）は、ツールのフォルダに書けないときにここへ置くので、ワークスペースの中身として数えない（移す・消す対象にもならない。<code>Workspace.Entries</code> に入らない）（<code>testDefaultWorkspace</code>・<code>getWorkspaceBlockMessage</code>。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、<code>「…」は空のフォルダではありません。…</code> と出す）。無い・空・前から使っているワークスペース（<code>content_index</code>・前の版の <code>index</code>・<code>ingest_status.tsv</code> のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの <code>work</code>）からは移さない（使い続けるときは［設定］の［変更…］で選ぶ）。</li>
 <li><code>$workspace.Dir</code> のフォルダを画面では<strong>ワークスペース</strong>と呼ぶ。［設定］で表示し、［変更…］で空のフォルダに変えられる（<a href="../../gui/settings-tab/">［設定］タブ</a>）。</li>
 <li><code>work/</code> の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（<code>work/publish/&lt;PID&gt;</code>）はインデックスとフォルダごと入れ替えるため、インデックスと同じ <code>work</code> の中に置く。</li>
 <li>置き場所を変えると、今の <code>work/</code> の中身（tebunko が作るファイル・フォルダだけ。<code>Workspace.Entries</code>）を新しい場所へ移す（<code>moveWorkspace</code>）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（<code>searchExcludes</code>）も、移した先のインデックスに付け替える（<code>moveSearchExcludes</code>）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（<a href="../../gui/settings-tab/">［設定］タブ</a>）。</li>
@@ -4286,11 +4286,6 @@
 <td><code>$rootDir</code></td>
 <td>リポジトリ直下</td>
 <td><code>shared/core/paths.ps1</code></td>
-</tr>
-<tr>
-<td><code>$dataDir</code></td>
-<td>設定ファイルを置くフォルダ（ワークスペースの既定の場所とは関係しない）。<code>$rootDir</code> に書き込めればそこ、書き込めなければ <code>%LOCALAPPDATA%\tebunko\&lt;鍵&gt;</code>（上の「データの置き場所」）</td>
-<td><code>shared/core/data_dir.ps1</code></td>
 </tr>
 <tr>
 <td><code>$utf8Bom</code></td>
@@ -4379,7 +4374,7 @@
 </tr>
 <tr>
 <td><code>$settingsFile</code></td>
-<td><code>$dataDir\setting.config</code>（画面が保存する設定。内容は JSON。<a href="../settings-file/">設定ファイル（setting.config）</a>）</td>
+<td>設定の置き場の <code>setting.config</code>（上の「データの置き場所」。画面が保存する設定。内容は JSON。<a href="../settings-file/">設定ファイル（setting.config）</a>）</td>
 <td><code>tebunko/core/settings.ps1</code></td>
 </tr>
 <tr>

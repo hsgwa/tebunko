@@ -4135,7 +4135,7 @@
 
 <h1 id="配布物と開発用のフォルダ構成">配布物と開発用のフォルダ構成<a class="headerlink" href="#配布物と開発用のフォルダ構成" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 利用者が使うもの・ドキュメント配布物・開発用（配布しない）フォルダの一覧。扱わないこと: <code>scripts/</code> の中の文脈・層による分け方（<a href="../source/">ソースの分け方</a>）、データの置き場所（<a href="../data/">データの置き場所</a>）。先に読むページ: <a href="../../">設計の概要</a>。</p>
-<p>スクリプトの場所は <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<code>setting.config</code> は、ふつうは <code>$rootDir</code> の直下に置く（ツールのフォルダに書き込めないときは利用者ごとの場所）。インデックス・取り込み一覧・ログ（ワークスペース）は、既定で <code>%USERPROFILE%\Documents\tebunko_ws</code> に置き、利用者が画面で置き場所を変えられる（<a href="../data/">データの置き場所</a>）。<strong>カレントディレクトリには依存しない。</strong>
+<p>スクリプトの場所は <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<code>setting.config</code> は、ふつうは <code>$rootDir</code> の直下に置く（ツールのフォルダに書き込めないときは既定のワークスペースの直下）。インデックス・取り込み一覧・ログ（ワークスペース）は、既定で <code>%USERPROFILE%\Documents\tebunko_ws</code> に置き、利用者が画面で置き場所を変えられる（<a href="../data/">データの置き場所</a>）。<strong>カレントディレクトリには依存しない。</strong>
 ファイル操作は <code>-LiteralPath</code> または .NET の <code>System.IO</code> を使い、<code>[</code> <code>]</code> を含むファイル名・フォルダ名を扱える。</p>
 <pre class="mermaid"><code>flowchart LR
     root(["リポジトリ直下"])
@@ -4163,7 +4163,7 @@
 <tr>
 <td><code>setting.config</code></td>
 <td>設定</td>
-<td>画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。<a href="../settings-file/">設定ファイル（setting.config）</a>）。ツールのフォルダに書き込めないときは利用者ごとの場所に置く（<a href="../data/">データの置き場所</a>）</td>
+<td>画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。<a href="../settings-file/">設定ファイル（setting.config）</a>）。ツールのフォルダに書き込めないときは既定のワークスペースの直下に置く（<a href="../data/">データの置き場所</a>）。起動に失敗したときの記録 <code>startup_error.txt</code> も、ツールのフォルダの直下にだけ書く（git 管理外）</td>
 </tr>
 <tr>
 <td><code>work/</code></td>
