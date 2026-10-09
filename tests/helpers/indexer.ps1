@@ -52,7 +52,7 @@ function assertIndexerWorkspaceIsolated {
         [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($root, [System.Environment]::ExpandEnvironmentVariables($folder)))
     }
     assertNotRealWorkspace $dir $real
-    if (!(testPathInside $dir $root) -and !(testPathInside $dir $defaultDir)) {
+    if (!(testIsolationPathInside $dir $root) -and !(testIsolationPathInside $dir $defaultDir)) {
         throw "取り込みの出力先がテスト用の置き場所の外です: $dir"
     }
 }

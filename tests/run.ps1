@@ -83,12 +83,11 @@ try {
     $result = Invoke-Pester -Configuration $config
 } finally {
     if ($Ci) { Remove-PSBreakpoint -Breakpoint $keepDebugger }
-    $realWorkspaceDiffs = @(stopWorkspaceGuard $workspaceGuard)
+    $guardReport = finishWorkspaceGuard $workspaceGuard
 }
-if ($realWorkspaceDiffs.Count -gt 0) {
-    Write-Host "テストの前後で、利用者の本物の既定のワークスペースに違いがありました:" -ForegroundColor Red
-    $realWorkspaceDiffs | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-    exit 1
+if ($guardReport.ExitCode -ne 0) {
+    $guardReport.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+    exit $guardReport.ExitCode
 }
 if (!$result) {
     Write-Host "テストを実行できませんでした（-Path $($Path -join ',')）。" -ForegroundColor Red

@@ -604,6 +604,10 @@ Describe "getDefaultWorkDir の差し替え（環境変数 TEBUNKO_DEFAULT_WORKS
         @{ Value = "\ws" }
         @{ Value = "C:ws" }
         @{ Value = "\\server" }
+        @{ Value = "C:\" }
+        @{ Value = "C:\\" }
+        @{ Value = "\\server\" }
+        @{ Value = "\\server\\" }
     ) {
         $env:TEBUNKO_DEFAULT_WORKSPACE = $Value
         { getDefaultWorkDir } | Should -Throw "*絶対パス*"

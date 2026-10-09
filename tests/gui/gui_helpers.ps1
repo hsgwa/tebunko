@@ -33,10 +33,8 @@ function getGuiEnvSnapshot {
     $root = getGuiRepoRoot
     $list = {
         param ([string]$path)
-        if (!(Test-Path -LiteralPath $path)) { return "(無い)" }
-        $item = Get-Item -LiteralPath $path
-        if (!$item.PSIsContainer) { return "$($item.Length):$($item.LastWriteTimeUtc.Ticks)" }
-        return (@(Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { "$($_.FullName.Substring($path.Length)):$($_.Length):$($_.LastWriteTimeUtc.Ticks)" }) -join "`n")
+        $map = getIsolationSnapshot $path
+        return (@($map.Keys | Sort-Object | ForEach-Object { "${_}:$($map[$_])" }) -join "`n")
     }
     $snapshot = [ordered]@{
         "作業ツリーの setting.config" = (& $list "$root\setting.config")
@@ -44,8 +42,7 @@ function getGuiEnvSnapshot {
         "LOCALAPPDATA\tebunko"       = (& $list (Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "tebunko"))
         "Office のプロセスの数"       = @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue).Count
     }
-    $real = getFolderSnapshot (getRealDefaultWorkspace)
-    $snapshot["既定のワークスペース"] = (@($real.Keys | Sort-Object | ForEach-Object { "${_}:$($real[$_])" }) -join "`n")
+    $snapshot["既定のワークスペース"] = (& $list (getRealDefaultWorkspace))
     return $snapshot
 }
 

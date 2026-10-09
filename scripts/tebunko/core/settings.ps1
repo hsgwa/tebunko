@@ -17,8 +17,9 @@ function getDefaultWorkDir {
     $override = $env:TEBUNKO_DEFAULT_WORKSPACE
     if (!$PSBoundParameters.ContainsKey("profileDir") -and ![string]::IsNullOrWhiteSpace($override)) {
         $override = $override.Trim()
-        if ($override -notmatch '^([A-Za-z]:[\\/]|\\\\[^\\/]+[\\/])') {
-            throw "TEBUNKO_DEFAULT_WORKSPACE は絶対パスで指定してください: $override"
+        # ドライブ直下だけ（C:\）やサーバー名だけ（\\server\）は、末尾の区切りを削ると別の意味になるため受け付けない
+        if ($override -notmatch '^([A-Za-z]:[\\/]+[^\\/]|\\\\[^\\/]+[\\/]+[^\\/])') {
+            throw "TEBUNKO_DEFAULT_WORKSPACE はフォルダまで含めた絶対パスで指定してください: $override"
         }
         return $override.TrimEnd("\", "/")
     }

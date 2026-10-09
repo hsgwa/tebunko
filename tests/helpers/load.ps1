@@ -13,6 +13,11 @@ ${testDataDir} = "$here\testdata"
 . "$here\..\tools\isolation\isolation_common.ps1"
 if ([string]::IsNullOrWhiteSpace($env:TEBUNKO_DEFAULT_WORKSPACE)) {
     $env:TEBUNKO_DEFAULT_WORKSPACE = newIsolatedFolder "tebunko-test-ws"
+    # 使い捨てのフォルダは、このプロセスが終わるときに消す（run.ps1 を通したときは run.ps1 が消す）
+    $global:tebunkoTestIsolatedFolder = $env:TEBUNKO_DEFAULT_WORKSPACE
+    [void](Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+        Remove-Item -LiteralPath $global:tebunkoTestIsolatedFolder -Recurse -Force -ErrorAction SilentlyContinue
+    })
 }
 
 . "${scriptsDir}\tebunko\lib.ps1"

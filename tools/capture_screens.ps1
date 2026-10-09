@@ -713,12 +713,13 @@ $computerName = $env:COMPUTERNAME
 $userProfile = [System.Environment]::GetFolderPath("UserProfile")
 
 $tempBase = Join-Path ([IO.Path]::GetTempPath()) ("tebunko-capture-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
-$drive = useCaptureDrive $tempBase
+$drive = $null
 $sizes = New-Object System.Collections.Generic.List[long]
 # 撮る間は、使い捨ての既定のワークスペースに差し替える（環境変数 TEBUNKO_DEFAULT_WORKSPACE。起動する画面にも引き継がれる）。
 # 設定が既定に戻る場面（captureBrokenConfigScene）も、利用者の本物の既定のワークスペースには触れない。終わったら元に戻し、本物の前後を比べる
 $workspaceGuard = startWorkspaceGuard -Prefix "tebunko-capture-ws"
 try {
+    $drive = useCaptureDrive $tempBase
     $root = "$drive\"
     Write-Host "撮る状態: $($ids.Count) 件（$($drive) を写す先にする）"
 
@@ -736,10 +737,10 @@ try {
         throw "写真の合計が 5 MB を超えました（$([Math]::Round($total / 1MB, 1)) MB）。範囲・形式を見直してください。"
     }
 } finally {
-    removeCaptureDrive $drive
+    if ($drive) { removeCaptureDrive $drive }
     Remove-Item -LiteralPath $tempBase -Recurse -Force -ErrorAction SilentlyContinue
-    $realWorkspaceDiffs = @(stopWorkspaceGuard $workspaceGuard)
+    $guardReport = finishWorkspaceGuard $workspaceGuard
 }
-if ($realWorkspaceDiffs.Count -gt 0) {
-    throw "撮る前後で、利用者の本物の既定のワークスペースに違いがありました:`n- " + ($realWorkspaceDiffs -join "`n- ")
+if ($guardReport.ExitCode -ne 0) {
+    throw ($guardReport.Lines -join "`n")
 }

@@ -16,7 +16,7 @@ param (
     [switch]$Single,
     [hashtable]$Settings = @{},
     [scriptblock]$Command,
-    [string]$Workspace,        # 使い捨てのワークスペースの場所（既定は使い捨てのフォルダの中）。外を指すと起動せずに止まる（テスト用）
+    [int]$WaitSeconds = 0,     # 画面を待つ秒数（0 は閉じるまで待つ）。過ぎたら、起動した PID とその子だけを止める
     [string]$RealWorkspace     # 本物の代わりに比べる場所（テスト用。既定は利用者の本物の既定のワークスペース）
 )
 
@@ -52,15 +52,18 @@ param([string]$Lib)
 }
 
 function invokeIsolated {
-    param ([bool]$SingleScript, [hashtable]$Config, [scriptblock]$Action, [string]$WorkspaceDir, [string]$RealDir)
+    param ([bool]$SingleScript, [hashtable]$Config, [scriptblock]$Action, [int]$Wait, [string]$RealDir)
 
     if (!$RealDir) { $RealDir = getRealDefaultWorkspace }
     $base = newIsolatedFolder
     $tool = Join-Path $base "tool"
-    if (!$WorkspaceDir) { $WorkspaceDir = Join-Path $base "workspace" }
-    $realBefore = getFolderSnapshot $RealDir
-    $configBefore = getFolderSnapshot "$repoRoot\setting.config"
-    $workBefore = getFolderSnapshot "$repoRoot\work"
+    $WorkspaceDir = Join-Path $base "workspace"
+    $exitCode = 0
+    $watch = newIsolationWatch ([ordered]@{
+        "本物の既定のワークスペース" = $RealDir
+        "リポジトリの setting.config" = "$repoRoot\setting.config"
+        "リポジトリの work" = "$repoRoot\work"
+    })
     try {
         Write-Host "使い捨てのフォルダ: $base"
         [void][System.IO.Directory]::CreateDirectory($tool)
@@ -74,7 +77,7 @@ function invokeIsolated {
         $probe = getIsolatedProbeResult "$tool\scripts" $base $WorkspaceDir
         Write-Host "設定ファイルの場所: $($probe.settingsFile)"
         Write-Host "work の場所: $($probe.workDir)"
-        $outside = @(@($probe.settingsFile, $probe.workDir) | Where-Object { !(testPathInside $_ $base) })
+        $outside = @(@($probe.settingsFile, $probe.workDir) | Where-Object { !(testIsolationPathInside $_ $base) })
         if ($probe.Count -ne 2 -or $outside.Count -gt 0) {
             Write-Host "書き込み先が使い捨てのフォルダの外を指しているため、起動しません: $($outside -join ', ')" -ForegroundColor Red
             return 1
@@ -95,25 +98,31 @@ function invokeIsolated {
                 $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
                     "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$($gui.Replace("'", "''"))'")
                 Write-Host "起動したプロセスの PID: $($p.Id)（画面を閉じるまで待ちます）"
-                $p.WaitForExit()
+                if ($Wait -gt 0) {
+                    if (!$p.WaitForExit($Wait * 1000)) {
+                        Write-Host "$Wait 秒たったので、PID $($p.Id) とその子を止めます"
+                        & taskkill.exe /PID $p.Id /T /F | Out-Null
+                    }
+                } else {
+                    $p.WaitForExit()
+                }
             }
         } finally {
             $env:TEBUNKO_DEFAULT_WORKSPACE = $previous
+            # 確かめが例外で終わったときも、本物のフォルダを比べる
+            $diffs = @(getIsolationWatchDiffs $watch)
+            if ($diffs.Count -gt 0) {
+                Write-Host "本物のフォルダに違いがあります:" -ForegroundColor Red
+                $diffs | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                $exitCode = 1
+            } else {
+                Write-Host "本物のフォルダに違いなし"
+            }
         }
-
-        $diffs = @(compareFolderSnapshot $realBefore (getFolderSnapshot $RealDir) "本物の既定のワークスペース") +
-            @(compareFolderSnapshot $configBefore (getFolderSnapshot "$repoRoot\setting.config") "リポジトリの setting.config") +
-            @(compareFolderSnapshot $workBefore (getFolderSnapshot "$repoRoot\work") "リポジトリの work")
-        if ($diffs.Count -gt 0) {
-            Write-Host "本物のフォルダに違いがあります:" -ForegroundColor Red
-            $diffs | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-            return 1
-        }
-        Write-Host "本物のフォルダに違いなし"
-        return 0
+        return $exitCode
     } finally {
         Remove-Item -LiteralPath $base -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
-exit (invokeIsolated $Single.IsPresent $Settings $Command $Workspace $RealWorkspace)
+exit (invokeIsolated $Single.IsPresent $Settings $Command $WaitSeconds $RealWorkspace)
