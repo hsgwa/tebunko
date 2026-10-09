@@ -29,7 +29,7 @@ function getGuiRepoRoot {
 
 function getGuiEnvSnapshot {
     # 流す前後で比べる。作業ツリーの setting.config・work\content_index、%LOCALAPPDATA%\tebunko、利用者の既定のワークスペース、Office のプロセスの数。
-    # 既定のワークスペースは、いつも調べる（S6 も差し替えた既定で流すので、既定のワークスペースには触れない）
+    # 既定のワークスペースは、いつも調べる（S6 も差し替えた既定で流すので、利用者の既定のワークスペースには触れない）
     $root = getGuiRepoRoot
     $list = {
         param ([string]$path)

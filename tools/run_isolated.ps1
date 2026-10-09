@@ -98,7 +98,7 @@ function invokeIsolated {
                     $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
                         "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$($gui.Replace("'", "''"))'")
                     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
-                    Write-Host "起動したプロセスの PID: $($p.Id)（画面を閉じるまで待ちます）"
+                    Write-Host "起動したプロセスの PID: $($p.Id)$(if ($Wait -gt 0) { "（$Wait 秒たったら止めます。それまでに画面を閉じれば、そこで終わります）" } else { "（画面を閉じるまで待ちます）" })"
                     $waited = waitIsolationProcess $p $Wait
                     $verdict = getIsolationLaunchVerdict $waited $Wait $p.Id
                     if ($verdict.Line) { Write-Host $verdict.Line -ForegroundColor $(if ($verdict.ExitCode -ne 0) { "Red" } else { "Gray" }) }
@@ -111,12 +111,17 @@ function invokeIsolated {
     } finally {
         # 写しの作成・事前の確かめ・確かめの途中の例外のどの道でも、既定のワークスペースを比べてから消す
         try {
-            $report = getIsolationReport @(getIsolationWatchDiffs $watch) "起動の前後で、既定のワークスペースなどに違いがありました"
-            if ($report.ExitCode -ne 0) {
-                $report.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+            if (!$watch) {
+                Write-Host "前後の比べを用意できなかったため、比べていません" -ForegroundColor Red
                 $exitCode = 1
             } else {
-                Write-Host "既定のワークスペースなどに違いなし"
+                $report = getIsolationReport @(getIsolationWatchDiffs $watch) "起動の前後で、既定のワークスペースなどに違いがありました"
+                if ($report.ExitCode -ne 0) {
+                    $report.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+                    $exitCode = 1
+                } else {
+                    Write-Host "既定のワークスペースなどに違いなし"
+                }
             }
         } finally {
             Remove-Item -LiteralPath $base -Recurse -Force -ErrorAction SilentlyContinue

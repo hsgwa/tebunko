@@ -26,7 +26,7 @@ function assertNotRealWorkspace {
         throw "既定のワークスペースが決まっていません"
     }
     if ((testIsolationPathInside $Path $Real) -or (testIsolationPathInside $Real $Path)) {
-        throw "既定のワークスペースが利用者の既定のワークスペースの場所を指しています: $Path"
+        throw "差し替えた既定の場所が、利用者の既定のワークスペースを指しています: $Path"
     }
 }
 

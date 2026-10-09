@@ -263,7 +263,7 @@ Describe "run_isolated.ps1 の既定の経路（画面を開く）" -Tag Gui {
         $real = Join-Path $TestDrive "realg1"
         New-Item -ItemType Directory -Path $real | Out-Null
         $text = invokeRunIsolatedGui @{ RealWorkspace = $real; Settings = @{ targetFolders = @(@{ name = "資料"; path = $script:source; enabled = $true }) } }
-        $script:exitCode | Should -Be 0
+        $script:exitCode | Should -Be 0 -Because $text
         $text | Should -Match "起動したプロセスの PID: \d+"
         # 待ち時間のあとも画面が生きていた（開かずにすぐ終わったなら、この文は出ない）
         $text | Should -Match "10 秒たったので、PID \d+ とその子を止めます"
@@ -277,7 +277,7 @@ Describe "run_isolated.ps1 の既定の経路（画面を開く）" -Tag Gui {
         $real = Join-Path $TestDrive "realg2"
         New-Item -ItemType Directory -Path $real | Out-Null
         $text = invokeRunIsolatedGui @{ RealWorkspace = $real; Single = $true }
-        $script:exitCode | Should -Be 0
+        $script:exitCode | Should -Be 0 -Because $text
         $text | Should -Match "起動したプロセスの PID: \d+"
         $text | Should -Match "10 秒たったので、PID \d+ とその子を止めます"
         $text | Should -Match "既定のワークスペースなどに違いなし"
