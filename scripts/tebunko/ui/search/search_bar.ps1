@@ -52,12 +52,74 @@ function setSearchOptionToUi {
 
 function updateFastSearchView {
     # 高速検索の使用可否（ワード・［正規表現］を変えたらすぐ、Windows Search が使えるかは確かめたときに変わる）。
-    # 使えるときは緑、使えないときは灰色。使えない理由があるときだけ ⓘ を出し、ツールチップで知らせる
+    # 使えるときは緑、使えないときは灰色。ⓘ は常に出し、ツールチップで印の意味（使えないときは理由と直し方）を知らせる。
+    # 印の幅は XAML で固定してあり、ここでは変えない
     $view = getFastSearchView $script:fastAvailable ([bool]$ui.RegexCheck.IsChecked) (getWordText)
     $ui.FastSearchText.Text = $view.Text
     $ui.FastBadge.Tag = if ($view.Usable) { "ok" } else { "off" }
-    $ui.FastBadgeInfo.Visibility = if ($view.Tip -ne "") { "Visible" } else { "Collapsed" }
-    $ui.FastBadge.ToolTip = if ($view.Tip -ne "") { $view.Tip } else { $null }
+    $ui.FastBadge.ToolTip = $view.Tip
+}
+
+function placeSearchBalloon {
+    # 吹き出しを、基準の項目の下（5 下）に、左端をそろえて置く。右端がはみ出すときは左へ寄せる（判断は getBalloonLeft）。
+    # 吹き出しは高さ 0 の BalloonLayer（Canvas）に置いてあり、検索バーの高さは変わらない
+    param (
+        $balloon,
+        $anchor
+    )
+
+    if ($balloon.Visibility -ne "Visible") { return }
+    $layer = $ui.BalloonLayer
+    try {
+        $ui.ConditionsPanel.UpdateLayout()
+        $balloon.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        $origin = $anchor.TransformToVisual($layer).Transform([System.Windows.Point]::new(0, 0))
+    } catch {
+        return
+    }
+    $left = getBalloonLeft $origin.X $balloon.DesiredSize.Width $layer.ActualWidth
+    [System.Windows.Controls.Canvas]::SetLeft($balloon, $left)
+    [System.Windows.Controls.Canvas]::SetTop($balloon, $origin.Y + $anchor.ActualHeight + 5)
+}
+
+function placeSearchBalloons {
+    placeSearchBalloon $ui.SearchKindBalloon $ui.KindChipExcel
+    placeSearchBalloon $ui.RegexBalloon $ui.RegexCheck
+}
+
+function setSearchBalloon {
+    # 吹き出しを出す（text が空なら隠す）。新しく出したとき、画面の読み上げに知らせる
+    param (
+        $balloon,
+        $textBlock,
+        [string]$text
+    )
+
+    if (!$text) {
+        $balloon.Visibility = "Collapsed"
+        return
+    }
+    $wasVisible = ($balloon.Visibility -eq "Visible") -and ($textBlock.Text -eq $text)
+    # 画面の読み上げに、出たときに読み上げるよう頼む（.NET 4.7.1 以降。無い環境では何もしない）
+    try { [System.Windows.Automation.AutomationProperties]::SetLiveSetting($textBlock, [System.Windows.Automation.AutomationLiveSetting]::Assertive) } catch { }
+    $textBlock.Text = $text
+    $balloon.Visibility = "Visible"
+    placeSearchBalloons
+    if (!$wasVisible) {
+        try {
+            $peer = [System.Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($textBlock)
+            if ($peer) { $peer.RaiseAutomationEvent([System.Windows.Automation.Peers.AutomationEvents]::LiveRegionChanged) }
+        } catch { }
+    }
+}
+
+function setSearchKindBalloon {
+    # 種類が 1 つも選ばれていないことを知らせる吹き出し（getSearchKindBalloonText の結果。$null なら隠す）
+    param (
+        [string]$text
+    )
+
+    setSearchBalloon $ui.SearchKindBalloon $ui.SearchKindBalloonText $text
 }
 
 function updateScopeButton {
@@ -84,40 +146,38 @@ function checkFastSearchAvailable {
     }
 }
 
+function getCurrentWordNotice {
+    # いまの検索ワード・［正規表現］の状態での、正規表現の注意（正しくなければ文言、正しければ ""）
+    getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
+}
+
 function updateWordNotice {
     $ui.WordPlaceholder.Visibility = if ($ui.WordBox.Text -eq "") { "Visible" } else { "Collapsed" }
     updateFastSearchView
-    $notice = getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
-    if ($notice -ne "") {
-        $ui.WordNotice.Text = $notice
-        $ui.WordNotice.Visibility = "Visible"
-    } else {
-        $ui.WordNotice.Visibility = "Collapsed"
-    }
+    # 正規表現が正しくないときは、入力欄の枠を赤くし、［正規表現］の下に吹き出しを出す
+    $notice = getCurrentWordNotice
+    $ui.WordErrorRing.Visibility = if ($notice -ne "") { "Visible" } else { "Collapsed" }
+    setSearchBalloon $ui.RegexBalloon $ui.RegexBalloonText $notice
     updateSearchButton
 }
 
 function updateSearchButton {
+    $notice = getCurrentWordNotice
     $noIndex = $script:indexSummary -and $script:indexSummary["Count"] -eq 0
     $state = newSearchButtonState ([bool]$script:search) ([bool]($script:search -and $script:search.Shared.Stop)) `
-        (getWordText) (!$noIndex) @(getSearchTargets).Count
+        (getWordText) (!$noIndex) @(getSearchTargets).Count ($notice -ne "")
     $ui.SearchButton.Content = $state.Content
     $ui.SearchButton.IsEnabled = $state.Enabled
 }
 
 function updateSearchTarget {
-    # 左の欄の見出し（選んだ数 / 全部の数）と案内、インデックスが無いときの結果欄の案内。
+    # 左の欄の見出し（選んだ数 / 全部の数）、インデックスが無いときの結果欄の案内。
     # 検索対象の詳しい中身（先頭の数件・集約ファイルの数・最終更新）は、見出しのツールチップに出す
     $targets = @(getSearchTargets)
     $summary = $script:indexSummary
     $total = @($script:indexRoots).Count
     $checked = @($script:indexRoots | Where-Object { $_.IsChecked -eq $true }).Count
     $ui.TargetCountText.Text = getTargetCountText $checked $total
-    $hint = getTargetHintText $total $targets.Count
-    $ui.TargetHint.Visibility = if ($hint -ne "") { "Visible" } else { "Collapsed" }
-    if ($hint -ne "") {
-        $ui.TargetHintText.Text = $hint
-    }
     $ui.TargetCountText.ToolTip = if ($total -eq 0) {
         "［インデックス管理］で作ったインデックスの一覧です"
     } elseif ($targets.Count -eq 0) {
@@ -140,7 +200,7 @@ function updateSearchTarget {
 }
 
 function updateConditionFlow {
-    # 検索条件の行の折り返し。判断（getConditionFlow）の結果を、「伸びる空き」の幅と高速検索の印の寄せに反映する。
+    # 検索条件の行の折り返し。判断（getConditionFlow）の結果を、「伸びる空き」の幅に反映する。
     # 並びの幅が変わったとき・高速検索の印を出す／隠したときに呼ぶ
     $panel = $ui.ConditionsPanel
     if ($panel.ActualWidth -le 0) { return }
@@ -159,12 +219,8 @@ function updateConditionFlow {
     if ([Math]::Abs($ui.ConditionsSpacer.Width - $flow.SpacerWidth) -gt 0.1) {
         $ui.ConditionsSpacer.Width = $flow.SpacerWidth
     }
-    # 高速検索の印は、右の組（空きのある行）に付いているときは右に寄せ、落ちたときは左に寄せる
-    $slotIndex = $items.IndexOf($ui.FastSearchSlot)
-    $alignment = if ($flow.OnSpacerLine[$slotIndex]) { "Right" } else { "Left" }
-    if ($ui.FastSearchSlot.Visibility -ne "Collapsed" -and [string]$ui.FastBadge.HorizontalAlignment -ne $alignment) {
-        $ui.FastBadge.HorizontalAlignment = $alignment
-    }
+    # 空きの幅が変わると、並びの大きさが同じでも［正規表現］などが横に動く（高速検索の印の出し入れ）。吹き出しもここで置き直す
+    placeSearchBalloons
 }
 
 # ---- イベント ----
@@ -213,6 +269,10 @@ foreach ($kind in ${fileKindNames}) {
             $after = @(toggleFileKind $before $clicked)
             setFileKindsToUi $after
             writeFileKinds $after
+            # 吹き出しを出している間は、選び直したらすぐ消す
+            if ($ui.SearchKindBalloon.Visibility -eq "Visible") {
+                setSearchKindBalloon (getSearchKindBalloonText $after)
+            }
         }
     })
 }

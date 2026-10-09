@@ -6,14 +6,6 @@
 $script:indexRoots = New-Object 'System.Collections.ObjectModel.ObservableCollection[object]'
 $ui.IndexTree.ItemsSource = $script:indexRoots
 
-# 名前の絞り込み（IndexTreeFilterBox）。一覧（$script:indexRoots）は変えず、ツリーに見せる項目だけを絞る
-$script:indexTreeFilter = ""
-$script:indexRootView = [System.Windows.Data.CollectionViewSource]::GetDefaultView($script:indexRoots)
-$script:indexRootView.Filter = [System.Predicate[object]] {
-    param ($node)
-    return (matchesTreeFilter ([string]$node.Name) $script:indexTreeFilter)
-}
-
 function loadIndexTree {
     # インデックスの一覧（getSearchIndexes）をツリーに読み込む。一番上の項目がインデックス 1 件で、
     # ［インデックス管理］で作ったインデックスがすべて並ぶ。
@@ -32,7 +24,6 @@ function loadIndexTree {
         $sourcePath = if ($index.SourcePath) { $index.SourcePath } else { $null }
         $script:indexRoots.Add([IndexNode]::CreateRoot($root, $index.Name, $index.Name, $sourcePath))
     }
-    $ui.IndexTreePlaceholder.Visibility = if ($script:indexRoots.Count -eq 0) { "Visible" } else { "Collapsed" }
 
     foreach ($exclude in @(readSearchExcludes)) {
         foreach ($node in $script:indexRoots) {
@@ -148,9 +139,3 @@ $ui.IndexTree.Add_PreviewKeyDown({
 })
 $ui.CheckAllIndexButton.Add_Click({ safe { setAllIndexChecked $true } })
 $ui.UncheckAllIndexButton.Add_Click({ safe { setAllIndexChecked $false } })
-
-$ui.IndexTreeFilterBox.Add_TextChanged({
-    $ui.IndexTreeFilterPlaceholder.Visibility = if ($ui.IndexTreeFilterBox.Text -eq "") { "Visible" } else { "Collapsed" }
-    $script:indexTreeFilter = $ui.IndexTreeFilterBox.Text.Trim()
-    $script:indexRootView.Refresh()
-})

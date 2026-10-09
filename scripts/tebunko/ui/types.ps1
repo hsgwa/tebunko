@@ -63,6 +63,7 @@ class PreviewTable {
     [int]$TotalColumns
     [int]$ShownColumns
     [string]$RangeLabel
+    [bool]$IsExcel   # Excel の表か（Excel 以外は列が 1 つで、幅を枠いっぱいにする。preview.ps1 の fitPreviewWidth）
 
     hidden [int]$anchorRow = -1
     hidden [int]$anchorColumn = -1
@@ -451,6 +452,7 @@ class HitRow : NotifyBase {
         $table.HitWidth = 0
         $table.TotalColumns = $columnCount
         $table.ShownColumns = $shownColumns
+        $table.IsExcel = $this.IsExcel
         $table.RangeLabel = $(if ($shownColumns -gt 0) { $this.ColumnLabel($firstColumn + 1) + "〜" + $this.ColumnLabel($firstColumn + $shownColumns) } else { "" })
         for ($i = 0; $i -lt $shownColumns; $i++) {
             $c = $firstColumn + $i

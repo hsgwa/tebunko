@@ -191,3 +191,33 @@ Describe "メッセージの画面のボタン・見出しの位置（描いた�
         [Math]::Abs($m.Groups[0].Dy - $textDy) | Should -BeLessOrEqual 1
     }
 }
+
+Describe "高速検索の印の幅" -Tag Unit {
+    BeforeAll {
+        $script:bar = getRoot "search\search_bar.xaml"
+    }
+
+    # 画面は開かず、XAML を読み込んで配置だけ確かめる（使用可・使用不可の文言は getFastSearchView と同じ）。
+    # 印の幅が文言や ⓘ で動いて検索条件の行がずれた不具合の再発防止
+    It "<name>でも、幅は同じ 170 になる" -TestCases @(
+        @{ name = "使用可・ⓘ あり"; text = "高速検索：使用可"; tag = "ok"; info = "Visible" }
+        @{ name = "使用不可・ⓘ あり"; text = "高速検索：使用不可"; tag = "off"; info = "Visible" }
+        @{ name = "使用可・ⓘ なし"; text = "高速検索：使用可"; tag = "ok"; info = "Collapsed" }
+        @{ name = "使用不可・ⓘ なし"; text = "高速検索：使用不可"; tag = "off"; info = "Collapsed" }
+    ) {
+        param ($name, $text, $tag, $info)
+        $badge = $script:bar.FindName("FastBadge")
+        $script:bar.FindName("FastSearchText").Text = $text
+        $badge.Tag = $tag
+        $script:bar.FindName("FastBadgeInfo").Visibility = $info
+        $script:bar.Measure([System.Windows.Size]::new(1000, 400))
+        $script:bar.Arrange([System.Windows.Rect]::new(0, 0, 1000, 400))
+        $script:bar.UpdateLayout()
+        $badge.ActualWidth | Should -Be 170
+    }
+
+    It "ⓘ は最初から出している（updateFastSearchView は出し入れしない）" {
+        $fresh = loadXaml "${scriptsDir}\tebunko\xaml\search\search_bar.xaml" $script:fonts
+        $fresh.FindName("FastBadgeInfo").Visibility | Should -Be "Visible"
+    }
+}

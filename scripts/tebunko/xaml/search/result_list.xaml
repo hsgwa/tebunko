@@ -28,7 +28,7 @@
       <TextBox x:Name="FilterBox" FontSize="11" Height="26" />
       <TextBlock x:Name="FilterPlaceholder" Style="{StaticResource Placeholder}" FontSize="11" Text="ファイル名・場所・中身で絞り込む" />
     </Grid>
-    <TextBlock DockPanel.Dock="Right" Text="絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
+    <TextBlock DockPanel.Dock="Right" Text="結果を絞り込み" Style="{StaticResource Meta}" VerticalAlignment="Center" Margin="0,0,10,0" />
     <ProgressBar x:Name="SearchProgress" DockPanel.Dock="Right" Width="60" Margin="0,0,12,0" Maximum="1" Visibility="Collapsed" VerticalAlignment="Center" />
     <!-- 検索結果の件数は、この画面の主役 -->
     <TextBlock x:Name="SummaryText" DockPanel.Dock="Left" Style="{StaticResource Meta.Strong}"
@@ -72,7 +72,7 @@
                         Stroke="{StaticResource Ink.Body}" StrokeThickness="1.33" StrokeLineJoin="Round" VerticalAlignment="Center" Margin="0,0,8,0" />
                   <TextBlock DockPanel.Dock="Left" Text="{Binding Book}" FontWeight="SemiBold" Foreground="{StaticResource Ink.Strong}"
                              VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                  <Border x:Name="RelDirChip" Visibility="Collapsed" DockPanel.Dock="Left" Background="{StaticResource Bg.Hover}" CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center"
+                  <Border x:Name="RelDirChip" DockPanel.Dock="Left" Background="{StaticResource Bg.Hover}" CornerRadius="4" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center"
                           HorizontalAlignment="Left">
                     <TextBlock Text="{Binding RelDir}" Style="{StaticResource Micro}" TextTrimming="CharacterEllipsis" />
                   </Border>
@@ -89,9 +89,12 @@
               <DataTrigger Binding="{Binding IsExpanded}" Value="True">
                 <Setter TargetName="Arrow" Property="Data" Value="{StaticResource Icon.ChevronDown}" />
                 <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
-                <Setter TargetName="RelDirChip" Property="Visibility" Value="Visible" />
                 <Setter TargetName="Place" Property="Foreground" Value="{StaticResource Accent.Hover}" />
                 <Setter TargetName="Place" Property="FontWeight" Value="SemiBold" />
+              </DataTrigger>
+              <!-- フォルダの印は、閉じた見出しにも出す。ルート直下のファイル（RelDir が空）には出さない -->
+              <DataTrigger Binding="{Binding RelDir}" Value="">
+                <Setter TargetName="RelDirChip" Property="Visibility" Value="Collapsed" />
               </DataTrigger>
               <DataTrigger Binding="{Binding AppKind}" Value="Excel">
                 <Setter TargetName="KindIcon" Property="Data" Value="{StaticResource Icon.FileSpreadsheet}" />

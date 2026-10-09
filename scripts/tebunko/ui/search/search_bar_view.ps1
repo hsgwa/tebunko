@@ -42,7 +42,7 @@ function getFileKindLabel {
 
 function toggleFileKind {
     # チップを押したあとの、選ばれている種類（${fileKindNames} の順）を返す。
-    # 全部外してよい（空は「1 つも選んでいない」。検索を始めるときに getSearchKindError が知らせる）
+    # 全部外してよい（空は「1 つも選んでいない」。検索を始めるときに getSearchKindBalloonText が知らせる）
     param (
         [object[]]$kinds,
         [string]$kind
@@ -58,17 +58,18 @@ function toggleFileKind {
     return @(${fileKindNames} | Where-Object { $current -contains $_ -or $_ -eq $kind })
 }
 
-function getSearchKindError {
-    # 検索を始められない理由（種類のチップを 1 つも選んでいないとき）の文言。始められるときは空
+function getSearchKindBalloonText {
+    # 検索を始められない理由（種類のチップを 1 つも選んでいないとき）を知らせる吹き出しの文。
+    # 始められるときは $null（吹き出しを出さない）
     param (
         [object[]]$kinds
     )
 
     $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
     if ($chosen.Count -eq 0) {
-        return "検索する種類を 1 つ以上選んでください。"
+        return "種類を 1 つ以上選んでください"
     }
-    return ""
+    return $null
 }
 
 function describeFileKinds {
@@ -110,19 +111,6 @@ function getTargetCountText {
     return "検索対象 $checked / $total"
 }
 
-function getTargetHintText {
-    # 左の欄の下に出す案内。インデックスはあるが、検索の対象にするフォルダを 1 つも選んでいないときだけ出す（出さないときは空）
-    param (
-        [int]$total,
-        [int]$targetCount
-    )
-
-    if ($total -gt 0 -and $targetCount -le 0) {
-        return "検索するフォルダを選んでください"
-    }
-    return ""
-}
-
 function getScopeButtonText {
     # ［ファイル内の対象］ボタンの文言（Text）と、既定から変えているか（Changed）。
     # 既定（図形・コメントも検索）から外したものがあれば「・2 件変更」を付ける
@@ -139,7 +127,7 @@ function getScopeButtonText {
 }
 
 function getWordNotice {
-    # 検索ワードの下に出す注意書き（出さないときは空文字列）
+    # 正規表現が正しくないときの吹き出しの文（［正規表現］の下に出す。正しいとき・使わないときは空文字列）
     param (
         [string]$word,
         [bool]$useRegex
@@ -154,7 +142,8 @@ function getWordNotice {
 function getFastSearchView {
     # 検索ワードの下に出す、高速検索（Windows Search で先に絞る）の使用可否。
     #   available: Windows Search が使えるか（testWindowsSearch）。$null はまだ確かめていない（使えるものとして扱う）
-    # Tip は、使えない理由（ツールチップに出す。分からない・理由が無いときは空）。上から順に、最初に当てはまるもの
+    # Tip は、印にマウスを置いたときのツールチップ。使えるときは印の意味、使えないときは理由と直し方（どの場合も空にしない）。
+    # 使えない理由は、上から順に最初に当てはまるもの
     param (
         $available,
         [bool]$useRegex,
@@ -162,12 +151,14 @@ function getFastSearchView {
     )
 
     $usable = testFastSearchUsable ($available -ne $false) $useRegex $word
-    $tip = ""
+    $tip = "インデックスを使って速く検索します"
     if (!$usable) {
         if ($available -eq $false) {
             $tip = "検索はできますが時間がかかります　［インデックス管理で確認］"
         } elseif ($useRegex) {
             $tip = "正規表現をオフにすると速く検索できます"
+        } else {
+            $tip = "空白で区切った語のどれかが 2 文字以上のときに使えます"
         }
     }
     return @{ Usable = $usable; Text = if ($usable) { "高速検索：使用可" } else { "高速検索：使用不可" }; Tip = $tip }
@@ -180,13 +171,28 @@ function newSearchButtonState {
         [bool]$stopping,     # 中止を頼んだ後か
         [string]$word,       # 検索ワード
         [bool]$hasIndex,     # 検索できるインデックスがあるか
-        [int]$targetCount    # 検索対象に選ばれている数
+        [int]$targetCount,   # 検索対象に選ばれている数
+        [bool]$wordInvalid   # 正規表現が正しくないか（getWordNotice が空でないとき）
     )
 
     if ($searching) {
         return @{ Content = "中止"; Enabled = !$stopping }
     }
-    return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0) }
+    return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0 -and !$wordInvalid) }
+}
+
+function getBalloonLeft {
+    # 吹き出しの左端。基準の左端にそろえ、右端がはみ出すときは右端に収まるまで左へ寄せる（左は 0 より左へ出さない）。
+    #   anchorLeft: 基準の項目の左端、width: 吹き出しの幅、available: 置ける幅、margin: 右端に残す間
+    param (
+        [double]$anchorLeft,
+        [double]$width,
+        [double]$available,
+        [double]$margin = 8
+    )
+
+    $left = [Math]::Min($anchorLeft, $available - $margin - $width)
+    return [Math]::Max(0.0, $left)
 }
 
 function getConditionFlow {
@@ -195,7 +201,7 @@ function getConditionFlow {
     # 「伸びる空き」は spacerIndex 番の項目の前に置き、その行の余りを全部取る（右の組を右端に寄せる）。
     # widths は各項目の幅（右の間を含む。出していない項目は 0）。available は並べられる幅（右の間を含む）。
     # 返すもの: Lines（行ごとの項目の番号）・SpacerWidth（空きの幅）・LineStarts（各項目が行の先頭か）・
-    # OnSpacerLine（各項目が、空きのある行にあるか。右の組に付いている項目は右に寄せ、落ちた項目は左に寄せるのに使う）
+    # OnSpacerLine（各項目が、空きのある行にあるか）
     param (
         [double[]]$widths,
         [int]$spacerIndex,

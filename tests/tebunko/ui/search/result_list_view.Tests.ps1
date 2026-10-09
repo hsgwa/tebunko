@@ -35,8 +35,8 @@ Describe "getSearchProgressText / getSearchSummaryText" -Tag Unit {
     }
 
     It "<name>" -TestCases @(
-        @{ name = "終わったら該当件数・ファイル数・秒数を出す"; seconds = @(1.25); expected = "^1,234 件（5 ファイル） ・ 1\.[23] 秒$" }
-        @{ name = "秒を渡さなければ時間は付けない"; seconds = @(); expected = "^1,234 件（5 ファイル）$" }
+        @{ name = "終わったら該当件数・ファイル数・秒数を出す"; seconds = @(1.25); expected = "^一致 1,234 件（5 ファイル）・1\.[23] 秒$" }
+        @{ name = "秒を渡さなければ時間は付けない"; seconds = @(); expected = "^一致 1,234 件（5 ファイル）$" }
     ) {
         param ($name, $seconds, $expected)
         getSearchSummaryText 1234 5 @seconds | Should -Match $expected
