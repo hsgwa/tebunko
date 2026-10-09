@@ -4023,13 +4023,14 @@
 
 
 <h1 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h1>
-<p>扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（<a href="../perf/">性能とリソースの計測のしかた</a>）、速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）、コミット前のフック（<a href="../pre-commit/">コミット前に動く検査</a>）。先に読むページ: <a href="../run/">テストの実行</a>。</p>
+<p>扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・perf-check・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（<a href="../perf/">性能とリソースの計測のしかた</a>）、速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）、コミット前のフック（<a href="../pre-commit/">コミット前に動く検査</a>）。先に読むページ: <a href="../run/">テストの実行</a>。</p>
 <pre class="mermaid"><code>flowchart TD
-    C["コミット・PR"] --&gt; T["test.yml&lt;br&gt;test"]
-    C --&gt; TI["title.yml&lt;br&gt;pr-title・issue-title"]
-    C --&gt; D["docs.yml&lt;br&gt;docs（ほか changes・publish）"]
-    C --&gt; CQ["codeql.yml&lt;br&gt;analyze"]
-    C --&gt; G["gui.yml&lt;br&gt;gui-smoke"]
+    C["コミット・PR"] --&gt; T["test.yml&lt;br&gt;test → pr-comment"]
+    C --&gt; TI["title.yml&lt;br&gt;pr-title・issue-title → pr-comment"]
+    C --&gt; D["docs.yml&lt;br&gt;changes・build → pr-comment（ほか publish）"]
+    C --&gt; CQ["codeql.yml&lt;br&gt;analyze → pr-comment"]
+    C --&gt; G["gui.yml&lt;br&gt;gui-smoke → pr-comment"]
+    C --&gt; PCK["perf-check.yml&lt;br&gt;search・ingest → pr-comment"]
     M["main への push"] --&gt; SC["scorecard.yml&lt;br&gt;analysis"]
     TAG["v* タグの push"] --&gt; R["release.yml&lt;br&gt;guard → test → release"]</code></pre>
 <p>GitHub Actions のワークフローは次のとおり。使うアクションは、どのワークフローでもコミットのハッシュで固定する（版はハッシュの後ろのコメントに書き、Dependabot が更新する）。</p>
@@ -4046,28 +4047,28 @@
 <tbody>
 <tr>
 <td><code>test.yml</code></td>
-<td><code>test</code></td>
+<td><code>test</code>（ほか <code>pr-comment</code>）</td>
 <td>PR、main への push、<code>release.yml</code> からの呼び出し</td>
 <td>個人情報・文字コードの検査、<code>Signed-off-by</code> の検査（PR のみ）、テスト（<code>run.ps1 -Ci</code>）、Codecov への送信、PSScriptAnalyzer</td>
 <td>○</td>
 </tr>
 <tr>
 <td><code>title.yml</code></td>
-<td><code>pr-title</code>・<code>issue-title</code></td>
+<td><code>pr-title</code>・<code>issue-title</code>（ほか <code>pr-comment</code>）</td>
 <td>PR・Issue の作成と編集（PR は push でも）</td>
 <td>タイトルが Conventional Commits の形か</td>
 <td>○（<code>pr-title</code>）</td>
 </tr>
 <tr>
 <td><code>docs.yml</code></td>
-<td><code>docs</code>（ほかに <code>changes</code>・<code>publish</code>）</td>
+<td><code>docs</code>（ほかに <code>changes</code>・<code>publish</code>・<code>pr-comment</code>）</td>
 <td>PR、main で設計書が変わったとき</td>
 <td>設計書のサイトを作り、GitHub Pages に公開する</td>
 <td>○</td>
 </tr>
 <tr>
 <td><code>codeql.yml</code></td>
-<td><code>analyze</code></td>
+<td><code>analyze</code>（ほか <code>pr-comment</code>）</td>
 <td>PR、main への push、毎週 1 回</td>
 <td>ワークフローの静的解析</td>
 <td>○</td>
@@ -4088,7 +4089,7 @@
 </tr>
 <tr>
 <td><code>gui.yml</code></td>
-<td><code>gui-smoke</code></td>
+<td><code>gui-smoke</code>（ほか <code>pr-comment</code>）</td>
 <td>PR、main への push</td>
 <td>本物の画面を windows ランナーで開き、画面遷移（<a href="../gui-smoke/">画面のスモークテスト</a>）を UI オートメーションで確かめる</td>
 <td>–（必須にしない。しばらく安定して通ることを見てから、持ち主が決める）</td>
@@ -4102,13 +4103,14 @@
 </tr>
 <tr>
 <td><code>perf-check.yml</code></td>
-<td><code>search</code>・<code>ingest</code></td>
+<td><code>search</code>・<code>ingest</code>（ほか <code>pr-comment</code>）</td>
 <td>PR にラベル <code>perf-check</code> を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動</td>
 <td>検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト）</td>
 <td>–（流した PR で落ちていればマージしない）</td>
 </tr>
 </tbody>
 </table>
+<p><code>pr-comment</code> は 6 つのワークフロー（test・title・docs・codeql・gui・perf-check）それぞれが持つ、自分の結果を PR のコメントに書くジョブ（下の「結果を PR のコメントに書く（<code>pr-comment</code> ジョブ）」）。これらの結果を 1 つにまとめる集約ワークフローは無い。</p>
 <p><strong><code>test.yml</code></strong></p>
 <p>pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
 <ul>
@@ -4157,6 +4159,24 @@
 <li><strong>S6 も手元で流す。</strong> 既定のワークスペースは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない</li>
 <li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
 <li><strong>繰り返して流す。</strong> 閉じるときの終了コードで落ちるなどの、たまにしか出ない失敗の率を測るため、Actions から <code>gui</code> を手で動かせる（<code>workflow_dispatch</code>）。入力は <code>repeat</code>（並べるジョブの数。既定 10、上限 20）と <code>path</code>（流すテストのファイル。空なら全部）。ジョブ <code>gui-smoke-repeat</code> を <code>repeat</code> 本並べ、成果物は <code>gui-smoke-results-&lt;番号&gt;</code> になる。<code>gui-smoke</code> の名前と動く時は変えない</li>
+</ul>
+<p><strong>結果を PR のコメントに書く（<code>pr-comment</code> ジョブ）</strong></p>
+<p>test・title・docs・codeql・gui・perf-check の 6 つのワークフローは、どれも自分の確認のジョブに続けて <code>pr-comment</code> ジョブを持つ。共有の複合アクション <code>.github/actions/pr-comment</code>（中身は <code>tools/pr_checks_comment.ps1</code> を呼ぶだけ）を使い、<strong>そのワークフロー自身の結果</strong>（成功・失敗・取り消し・スキップ）と実行へのリンクを PR のコメントに書く・書き換える。結果を 1 つのコメントにまとめる集約ワークフローは無い。個別のワークフローをやり直しても、そのワークフロー自身のコメントだけが書き換わる。</p>
+<ul>
+<li><strong><code>pull_request_target</code> は使わない。</strong> <code>pr-comment</code> ジョブは、ほかのジョブと同じ <code>pull_request</code> のワークフロー実行の中にある。PR のコードを動かすジョブ（<code>test</code>・<code>build</code> など）とは分け、複合アクションを呼ぶ前に、既定のブランチ（<code>github.event.repository.default_branch</code>）の内容で <code>tools/pr_checks_comment.ps1</code> と <code>.github/actions/pr-comment/</code> だけを改めて checkout する。ローカルの複合アクションは、呼ぶ時点で作業ツリーに置かれている内容で動くため、PR のブランチの内容のままにしておくと、PR で書き換えた道具・アクションが <code>pull-requests: write</code> の権限で動いてしまう。これを避けるための守りで、効く範囲は限られる（フォークの PR のトークンはそもそも読み取りだけで、同じリポジトリのブランチからの PR はワークフローの YAML 自体を書き換えられるため）。権限をジョブ単位に絞ることなどと重ねた多重の守りの 1 つ</li>
+<li><strong>この道具・複合アクションを変える PR では、その PR の CI で動くのは既定のブランチ（main）の版になる。</strong> 新しく作った PR では main にまだ無いため <code>pr-comment</code> ジョブが「Can't find 'action.yml'」で失敗する（必須チェックではないのでマージは止まらない）。入力を足したときも、main に入るまでその PR の CI では効かない</li>
+<li><strong><code>pull-requests: write</code> は <code>pr-comment</code> ジョブだけに付ける。</strong> ワークフロー全体には広げず、ほかのジョブ・ステップは今までどおり読み取りだけにする</li>
+<li><strong>フォークの PR では書けないことがある。</strong> <code>pull_request</code> イベントはフォークからの PR では読み取り専用のトークンになり、コメントの作成・書き換えが 403 になる。<code>tools/pr_checks_comment.ps1</code> はこれを例外にせず、警告を出すだけでジョブを失敗にしない。結果は常に（書けたかどうかに関わらず）Actions の Summary に書くため、フォークの PR でも結果は見える</li>
+<li><strong>PR の番号は <code>github.event.pull_request.number</code> からそのまま取る。</strong> <code>pull_request</code> イベントの中で動くため、<code>workflow_run</code> のときのように head の SHA から開いている PR を探し直す必要が無い</li>
+<li><strong>書き換えるコメントは、作者が <code>github-actions[bot]</code> で、1 行目がそのワークフロー専用の目印（<code>&lt;!-- pr-check:&lt;id&gt; --&gt;</code>。<code>id</code> は <code>test</code>・<code>title</code>・<code>docs</code>・<code>codeql</code>・<code>gui</code>・<code>perf-check</code>）のものだけ。</strong> 無ければ新しく書く。目印がワークフローごとに違うため、ほかのワークフローが書いたコメントは書き換えない</li>
+<li><strong>perf-check は <code>search</code>・<code>ingest</code> の 2 つのジョブの結果をまとめる。</strong> カンマ区切りで両方の結果を渡し、悪いほうの結果（<code>failure</code> &gt; <code>cancelled</code> &gt; <code>skipped</code> &gt; <code>success</code>）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る</li>
+<li><strong>perf-check は、<code>search</code>・<code>ingest</code> の両方がスキップのとき（<code>perf-check</code> のラベルが無いとき・<code>perf-check</code> 以外のラベルを付けて起動した実行）は書かない。</strong> 書くのは、どちらかが動いたときだけ。書くと前の結果（失敗など）が「スキップ」に書き換わるため。ラベルを外したあとは、前の結果のコメントが残る（対象のコミットで見分ける）</li>
+<li><strong><code>pr-comment</code> ジョブの条件は <code>!cancelled()</code>。</strong> 取り消された実行はコメントを書き換えない（古い実行が新しい結果を消さないため）。前段のジョブが失敗・スキップのときは書く（perf-check の両方スキップを除く）</li>
+<li><strong><code>title.yml</code> は PR・Issue ごとに順に動かす（<code>concurrency</code>。グループは <code>title-&lt;番号&gt;</code>、<code>cancel-in-progress: false</code>）。</strong> <code>opened</code> と <code>edited</code> が同時に動いて Issue のコメントが 2 件できるのを防ぐ。実行中のものは取り消さないが、待ちに入れるのは 1 本だけなので、続けて編集・push すると、待っていた古い実行は取り消される（最新の実行は必ず動く。head に「取り消し」の <code>pr-title</code> が一時的に見えることがある）</li>
+<li><strong>コメントには、PR の head のコミットを短い形で添える。</strong> 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため</li>
+<li><strong>Dependabot の PR にはコメントしない。</strong> PR の作者（<code>github.event.pull_request.user.login</code>）が <code>dependabot[bot]</code> の実行は対象から外す</li>
+<li><code>release.yml</code> は <code>test.yml</code> を <code>workflow_call</code> で呼ぶ。呼ばれる側の <code>pr-comment</code> ジョブが <code>pull-requests: write</code> を求めるため、呼ぶ側の <code>test</code> ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では <code>pr-comment</code> 自体はスキップされる</li>
+<li>手元・CI 上からの確かめ方は <code>-DryRun</code>（<code>gh</code> を呼ばず、組み立てたコメントの本文だけを標準出力に出す）</li>
 </ul>
 <p><strong><code>codeql.yml</code>・<code>scorecard.yml</code>（サプライチェーンの安全性）</strong></p>
 <p>CodeQL（<code>analyze</code>）は main の必須チェックで、指摘があるとマージできない。Scorecard は採点するだけで、マージは止めない。</p>
