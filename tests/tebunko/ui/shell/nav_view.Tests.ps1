@@ -15,7 +15,6 @@ Describe "getScreenMargin" -Tag Unit {
         @{ name = "SearchTab"; expected = "0,0,0,0" }
         @{ name = "IndexTab"; expected = "16,12,16,12" }
         @{ name = "SettingsTab"; expected = "16,12,16,12" }
-        @{ name = "KillTab"; expected = "16,12,16,12" }
     ) {
         (getScreenMargin $name) | Should -Be $expected
     }

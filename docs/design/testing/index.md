@@ -51,7 +51,7 @@ flowchart LR
 
 ## 結合テスト（手動）
 
-Excel・Word・PowerPoint の COM を使うインデックス作成と、残った Office の終了は、実機の Office を要するため自動テストの対象外。以下のテストデータで手動の結合テストを行い、動作を確認済み。
+Excel・Word・PowerPoint の COM を使うインデックス作成は、実機の Office を要するため自動テストの対象外。残った Office の終了は、記録を読んで止めるまでの流れを、偽のプロセス（`EXCEL.EXE` の名前にした別の実行ファイル）で自動に確かめる（`tests/gui/leftover_real.Tests.ps1`）。実機の Excel・Word・PowerPoint を止めることだけが手動に残る。以下のテストデータで手動の結合テストを行い、動作を確認済み。
 
 | テストデータ | 確認内容 | 関連 |
 |---|---|---|
