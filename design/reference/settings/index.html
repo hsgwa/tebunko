@@ -4532,11 +4532,43 @@
 </tr>
 <tr>
 <td><code>getDataDir</code></td>
-<td>root（既定 <code>$rootDir</code>）, fallbackBase（既定 <code>%LOCALAPPDATA%</code>）</td>
+<td>root（既定 <code>$rootDir</code>）, fallbackDir（必須）</td>
 <td>string</td>
-<td>設定ファイルを置くフォルダ。root に書き込めれば root、書き込めなければ <code>&lt;fallbackBase&gt;\tebunko\&lt;getFolderKey の先頭 16 文字&gt;</code>（<code>shared/core/data_dir.ps1</code>）</td>
+<td>設定ファイルを置くフォルダ。root に書き込めれば root、書き込めなければ fallbackDir（<code>%LOCALAPPDATA%\tebunko</code> には置かない。<code>shared/core/data_dir.ps1</code>）</td>
 <td>同上</td>
-<td><code>data_dir.ps1</code>（<code>$dataDir</code>）</td>
+<td><code>settings.ps1</code>（<code>getSettingsFilePath</code>）</td>
+</tr>
+<tr>
+<td><code>getSettingsFilePath</code></td>
+<td>root, defaultWorkDir</td>
+<td>string</td>
+<td><code>setting.config</code> のパス。root に書き込めれば root 直下、書き込めなければ既定のワークスペース直下</td>
+<td>同上</td>
+<td><code>settings.ps1</code>（<code>$settingsFile</code>）</td>
+</tr>
+<tr>
+<td><code>testSettingsFileName</code></td>
+<td>name</td>
+<td>bool</td>
+<td>設定ファイル（<code>setting.config</code>・<code>.tmp</code>・<code>.broken-&lt;日時&gt;[-&lt;番号&gt;]</code>）の名前か。既定のワークスペースが空かの判断と、中身として数える対象から外すのに使う</td>
+<td><a href="../../structure/settings-file/">設定ファイル</a></td>
+<td><code>testDefaultWorkspace</code>, 画面（<code>getCountedEntryPaths</code>）</td>
+</tr>
+<tr>
+<td><code>getSettingsFileView</code></td>
+<td>settingsFile, rootDir</td>
+<td><code>@{Path; Note}</code></td>
+<td>設定タブに出す設定ファイルの場所と、ツールのフォルダに置いているか（書き込めなくて既定のワークスペースに置いているか）の注記。判断層（<code>settings_view.ps1</code>）</td>
+<td><a href="../../gui/settings-tab/">設定タブ</a></td>
+<td>画面（設定タブ）</td>
+</tr>
+<tr>
+<td><code>getCountedEntryPaths</code></td>
+<td>entryPaths, isDefaultWorkspace</td>
+<td>string[]</td>
+<td>ワークスペースに選んだフォルダの中身のうち「空でない」の数に入れるもの。選んだフォルダが既定のワークスペースなら、設定ファイルとその付属ファイル（<code>testSettingsFileName</code>）を外す。判断層（<code>settings_view.ps1</code>。カバレッジの分母に入る）</td>
+<td><a href="../../gui/settings-tab/">設定タブ</a></td>
+<td>画面（設定タブ）</td>
 </tr>
 <tr>
 <td><code>newAppMutex</code></td>
