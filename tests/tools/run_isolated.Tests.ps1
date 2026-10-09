@@ -42,6 +42,31 @@ Describe "getIsolationSnapshot と compareIsolationSnapshot" -Tag Io {
         ($diffs -join "`n") | Should -BeLike "*増えた: \c.txt*"
     }
 
+    It "中が同じフォルダは、フォルダの更新時刻だけが変わっても違いにしない" {
+        $dir = Join-Path $TestDrive "snapdir"
+        New-Item -ItemType Directory -Path "$dir\sub" | Out-Null
+        [System.IO.File]::WriteAllText("$dir\sub\a.txt", "a")
+        $before = getIsolationSnapshot $dir
+        [System.IO.Directory]::SetLastWriteTimeUtc("$dir\sub", [DateTime]::UtcNow.AddMinutes(-30))
+        [System.IO.Directory]::SetLastWriteTimeUtc($dir, [DateTime]::UtcNow.AddMinutes(-20))
+        @(compareIsolationSnapshot $before (getIsolationSnapshot $dir) "x").Count | Should -Be 0
+    }
+
+    It "ファイルの更新時刻が秒より細かく変わったときは、違いに出て、細かい値まで読める" {
+        $dir = Join-Path $TestDrive "snapfine"
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        [System.IO.File]::WriteAllText("$dir\a.txt", "a")
+        $t = [DateTime]::UtcNow.AddMinutes(-5)
+        [System.IO.File]::SetLastWriteTimeUtc("$dir\a.txt", $t)
+        $before = getIsolationSnapshot $dir
+        [System.IO.File]::SetLastWriteTimeUtc("$dir\a.txt", $t.AddTicks(30000))
+        $diffs = @(compareIsolationSnapshot $before (getIsolationSnapshot $dir) "x")
+        $diffs.Count | Should -Be 1
+        $diffs[0] -match '更新 (\S+ \S+) -> 大きさ \d+ 更新 (\S+ \S+)' | Should -BeTrue
+        $Matches[1] | Should -Match '\.\d{7}$'
+        $Matches[1] | Should -Not -Be $Matches[2]
+    }
+
     It "無いフォルダは「無い」と控え、後から作られると違いに出る" {
         $dir = Join-Path $TestDrive "nothing"
         $before = getIsolationSnapshot $dir

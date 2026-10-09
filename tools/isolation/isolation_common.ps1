@@ -40,7 +40,7 @@ function newIsolatedFolder {
 }
 
 function getIsolationSnapshot {
-    # フォルダ（またはファイル）の中身の写し。名前・大きさ・更新時刻だけを控える（中身は読まない）。
+    # フォルダ（またはファイル）の中身の写し。名前・大きさ・更新時刻（ファイルだけ。フォルダは名前だけ）を控える（中身は読まない）。
     # 返すのは「相対パス → 大きさ:更新時刻」の連想配列。無ければキー "" に "(無い)" を入れる
     param ([string]$Path)
 
@@ -57,8 +57,9 @@ function getIsolationSnapshot {
     $map[""] = "(フォルダ)"
     $prefix = $item.FullName.TrimEnd("\")
     foreach ($child in @(Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue)) {
-        $size = if ($child.PSIsContainer) { "" } else { [string]$child.Length }
-        $map[$child.FullName.Substring($prefix.Length)] = "${size}:$($child.LastWriteTimeUtc.Ticks)"
+        # フォルダの更新時刻は控えない。NTFS は、一覧に出すフォルダの時刻を遅れて更新するため、
+        # 中身が同じでも前後で値が違って見える（誤検知になる）。中の増減は、中の名前の違いに出る
+        $map[$child.FullName.Substring($prefix.Length)] = if ($child.PSIsContainer) { "(フォルダ)" } else { "$($child.Length):$($child.LastWriteTimeUtc.Ticks)" }
     }
     return $map
 }
@@ -69,7 +70,7 @@ function formatIsolationValue {
 
     $text = [string]$Value
     if ($text -match '^(\d*):(\d+)$') {
-        $time = (New-Object DateTime ([int64]$Matches[2]), ([DateTimeKind]::Utc)).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+        $time = (New-Object DateTime ([int64]$Matches[2]), ([DateTimeKind]::Utc)).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fffffff")
         return "大きさ $($Matches[1]) 更新 $time"
     }
     return $text
