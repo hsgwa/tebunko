@@ -372,7 +372,7 @@ function getGuiCloseTraceFiles {
 
 function getGuiExitRecord {
     # 終了の様子の記録（終了の記録.txt の中身）。閉じる前の様子・終わった時刻・閉じる操作から終わるまでの秒数・子がまだ動いているか・
-    # 呼び出し元に戻った印（gui_returned_<PID>.txt）・閉じる順番の記録（ツールのフォルダの下の close_trace.txt）
+    # 呼び出し元に戻った印（gui_returned_<PID>.txt）・閉じる順番の記録（設定のワークスペース・作業フォルダ・既定のワークスペースの close_trace.txt のうち、この PID の行）
     param ($S)
 
     $lines = New-Object System.Collections.ArrayList

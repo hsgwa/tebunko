@@ -5,7 +5,7 @@
 
 function writeCloseTrace {
     # 画面を閉じる順番の記録（テストの診断用）。環境変数 TEBUNKO_CLOSE_TRACE が 1 のときだけ、ワークスペースの close_trace.txt に
-    # 1 行（時刻・節目の名前・スレッドの数）を足す。環境変数はスイッチとしてだけ使い、パスとしては読まない。書けなくても例外は外に出さない
+    # 1 行（時刻・PID・節目の名前・スレッドの数）を足す。環境変数はスイッチとしてだけ使い、パスとしては読まない。書けなくても例外は外に出さない
     param ([string]$Point)
 
     if ($env:TEBUNKO_CLOSE_TRACE -eq "1") {

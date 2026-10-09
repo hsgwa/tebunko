@@ -210,6 +210,32 @@ Describe "getGuiExitRecord" -Tag Unit {
     }
 }
 
+Describe "getGuiCloseTraceFiles" -Tag Unit {
+    # 探す先の決め。どの先にも close_trace.txt を置き、どれが選ばれるかを場所（フォルダ名）で見る。
+    # 実機の既定のワークスペースは、パスの文字列を渡すだけ（作らない・読まない・書かない）。assertNotRealWorkspace を例外にして、外れることだけを見る
+    It "<Name>" -TestCases @(
+        @{ Name = "設定の場所が作業フォルダと同じなら、1 回だけ"; Folder = "{WORK}"; Expected = @("work", "default_workspace") }
+        @{ Name = "workspaceFolder が空なら、既定のワークスペースを探す"; Folder = ""; Expected = @("work", "default_workspace") }
+        @{ Name = "相対パスは、ツールのフォルダ基準"; Folder = "..\ws"; Expected = @("ws", "work", "default_workspace") }
+        @{ Name = "実機の既定のワークスペースを指す設定は外して、残りを続ける"; Folder = "Z:\実機の既定\tebunko_ws"; Expected = @("work", "default_workspace") }
+    ) {
+        $root = Join-Path $TestDrive ("gc" + [guid]::NewGuid().ToString("N"))
+        $tool = "$root\tool"
+        foreach ($d in "$tool\work", "$root\default_workspace", "$root\ws") {
+            [void][IO.Directory]::CreateDirectory($d)
+            [IO.File]::WriteAllText("$d\close_trace.txt", "10:00:00.100`tPID 1`tx`tスレッド 1`r`n")
+        }
+        $folderValue = $Folder.Replace("{WORK}", "$tool\work")
+        [IO.File]::WriteAllText("$tool\setting.config", (ConvertTo-Json @{ workspaceFolder = $folderValue }))
+        Mock assertNotRealWorkspace { if ($Path -like "Z:\実機の既定*") { throw "実機の既定のワークスペース" } }
+        $S = @{ Tool = @{ Dir = $tool; Work = "$tool\work"; Config = "$tool\setting.config"; DefaultWorkspace = "$root\default_workspace" } }
+
+        $places = @(getGuiCloseTraceFiles $S | ForEach-Object { $_.Place })
+
+        ($places -join ",") | Should -Be ($Expected -join ",")
+    }
+}
+
 Describe "getGuiProcessCommand" -Tag Io {
     BeforeAll {
         function newStubTool {
