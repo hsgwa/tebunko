@@ -4055,7 +4055,7 @@
 </tr>
 <tr>
 <td><code>pr_checks_comment.ps1</code></td>
-<td>結果（<code>success</code>・<code>failure</code>・<code>cancelled</code>・<code>skipped</code> など）から表示文字への読み替え、複数のジョブの結果（カンマ区切り）から悪いほうを選ぶ（<code>combineJobResults</code>）、実行へのリンクが自分のリポジトリの形のときだけ通る、書き換える対象のコメントを作者（<code>github-actions[bot]</code>）と 1 行目のワークフローごとの目印（<code>&lt;!-- pr-check:&lt;id&gt; --&gt;</code>）で選ぶ（ほかのワークフローの目印のコメントは選ばない）。書き込みで例外が出ても投げずに警告として返すこと（<code>tryInvokePrCheckComment</code>）、コメントに head のコミットを添えること。各ワークフローの <code>pr-comment</code> ジョブが複合アクション（<code>.github/actions/pr-comment</code>）を <code>workflow-key</code> 付きで呼び、<code>pull-requests: write</code> をそのジョブだけに付け、呼ぶ前に既定のブランチを checkout していること、<code>release.yml</code> の許可、perf-check のラベルの条件は <code>Meta</code> で確かめる</td>
+<td>結果（<code>success</code>・<code>failure</code>・<code>cancelled</code>・<code>skipped</code> など）から表示文字への読み替え、複数のジョブの結果（カンマ区切り）から悪いほうを選ぶ（<code>combineJobResults</code>）、実行へのリンクが自分のリポジトリの形のときだけ通る、書き換える対象のコメントを作者（<code>github-actions[bot]</code>）と 1 行目のワークフローごとの目印（<code>&lt;!-- pr-check:&lt;id&gt; --&gt;</code>）で選ぶ（ほかのワークフローの目印のコメントは選ばない）。書き込みで例外が出ても投げずに警告として返すこと（<code>tryInvokePrCheckComment</code>）、コメントに head のコミットを添えること。各ワークフローの <code>pr-comment</code> ジョブが複合アクション（<code>.github/actions/pr-comment</code>）を <code>workflow-key</code> 付きで呼び、<code>pull-requests: write</code> をそのジョブだけに付け、呼ぶ前に既定のブランチを checkout していること、<code>release.yml</code> の許可、perf-check の、両方スキップのときに書かない条件は <code>Meta</code> で確かめる</td>
 </tr>
 <tr>
 <td><code>measure_perf.ps1</code></td>
