@@ -14,7 +14,7 @@ rem    show the reason with Notepad (a message box may not be available in those
 rem    cases, and this inline command is not affected by the execution policy or
 rem    the language mode). The reason texts are under scripts\tebunko\startup\
 rem    (Japanese text does not belong in this ASCII batch file). The record is
-rem    saved to a fixed folder (the workspace is not known before startup).
+rem    saved in the tool folder (the workspace is not known before startup).
 rem    Written only with cmdlets, so it still works in Constrained Language Mode.
 rem    The -Command text is built below in PSCMD, piece by piece (one set per
 rem    step), so no single line is too long to read. No %% in any piece other
@@ -45,6 +45,6 @@ set "PSCMD=%PSCMD%if (-not (Test-Path -LiteralPath $gui)) { $reason = Join-Path 
 rem Step 5: build the record's detail lines (date, tool path, language mode,
 rem PowerShell version, execution policy, and the error message).
 set "PSCMD=%PSCMD%$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f $root), ('LanguageMode: {0}' -f $ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f $PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f $err.Exception.Message)); $allLines = $reasonLines + '' + $detailLines; "
-rem Step 6: write the record (LOCALAPPDATA, falling back to TEMP), then show it.
-set "PSCMD=%PSCMD%$openTarget = $reason; foreach ($candidate in @((Join-Path $env:LOCALAPPDATA 'tebunko\startup_error.txt'), (Join-Path $env:TEMP 'tebunko_startup_error.txt'))) { try { $dir = Split-Path -Parent $candidate; if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null }; Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate; break } catch { } }; & $opener $openTarget }"
+rem Step 6: write the record in the tool folder (no record if it cannot be written; then the reason is shown), then show it.
+set "PSCMD=%PSCMD%$openTarget = $reason; $candidate = Join-Path $root 'startup_error.txt'; try { Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate } catch { }; & $opener $openTarget }"
 start "" conhost.exe "%PS1%" -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command "%PSCMD%"

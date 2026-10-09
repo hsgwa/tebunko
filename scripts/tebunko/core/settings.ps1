@@ -4,9 +4,43 @@
 # 起動口（gui.ps1・indexer.ps1）が lib.ps1 より先に、このファイルだけを読み込んで設定を確かめる（repairBrokenSettings）ため、ここで決める
 ${appId} = "tebunko"
 
+function getDefaultWorkDir {
+    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。高速検索のため、Windows Search の索引の対象になる場所に置く。
+    # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
+    param (
+        [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")
+    )
+
+    return Join-Path $profileDir "Documents\tebunko_ws"
+}
+
+function getSettingsFilePath {
+    # 設定ファイルのパス。ツールのフォルダに書き込めればそこ、書き込めないとき（Program Files・読み取り専用の共有フォルダ）は
+    # 既定のワークスペースの直下に置く（shared\core\data_dir.ps1 の getDataDir）。設定はワークスペースの場所を読む前に見つかる必要があるため、
+    # ワークスペースを別の場所に移しても、設定は既定のワークスペースに残る
+    param (
+        [string]$root,
+        [string]$defaultWorkDir
+    )
+
+    return Join-Path (getDataDir $root $defaultWorkDir) "setting.config"
+}
+
 # 設定ファイル（画面が読み書きする。インデクサはクロール対象フォルダと work の置き場所を読む）。内容は JSON。
-# ツールのフォルダに書き込めないときは、利用者ごとの場所に置く（shared\core\data_dir.ps1 の getDataDir）
-${settingsFile} = "${dataDir}\setting.config"
+# ツールのフォルダに書き込めないときは、既定のワークスペースの直下に置く
+${settingsFile} = getSettingsFilePath ${rootDir} (getDefaultWorkDir)
+
+function testSettingsFileName {
+    # 設定ファイルと、それに付いてできるファイルの名前か（setting.config・保存の途中で止まると残る setting.config.tmp・
+    # 壊れた設定の退避 setting.config.broken-<日時>（同じ名前があれば -2・-3… が付く））。
+    # 既定のワークスペースの空の判定では、これらを tebunko のファイルとして数えない
+    param (
+        [string]$name
+    )
+
+    $base = [regex]::Escape([System.IO.Path]::GetFileName(${settingsFile}))
+    return [bool]($name -imatch "^${base}(\.tmp|\.broken-\d{8}-\d{6}(-\d+)?)?$")
+}
 
 # 検索結果から元のファイルを開くときの開き方（設定 openMode の値）
 ${openModeNormal}   = "normal"    # そのまま開く（編集する）
@@ -498,16 +532,6 @@ function writeOpenMode {
     updateSettings "openMode" $mode $path
 }
 
-function getDefaultWorkDir {
-    # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。高速検索のため、Windows Search の索引の対象になる場所に置く。
-    # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
-    param (
-        [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")
-    )
-
-    return Join-Path $profileDir "Documents\tebunko_ws"
-}
-
 # 既定のワークスペースが空でないときの文言（画面の［既定に戻す］・起動時、インデクサで共通）
 function getDefaultWorkspaceError {
     param (
@@ -519,7 +543,7 @@ function getDefaultWorkspaceError {
 
 function testDefaultWorkspace {
     # 既定のワークスペースを使えるか: @{ Usable; Folder; Message }。
-    # 使える: 無い（使うときに作る）・空・前から使っているワークスペース（content_index・前の版の index・ingest_status.tsv がある）。
+    # 使える: 無い（使うときに作る）・空（設定ファイルと、それに付いてできるファイルだけの場合を含む）・前から使っているワークスペース（content_index・前の版の index・ingest_status.tsv がある）。
     # それ以外（ほかのファイルが置いてある）は、インデックスのファイルと混ざるため使わせない
     param (
         [string]$folder = (getDefaultWorkDir)
@@ -529,7 +553,11 @@ function testDefaultWorkspace {
     if (![System.IO.Directory]::Exists($folder)) {
         return $result
     }
-    $names = @(foreach ($entry in (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries($folder)) 1000)) { [System.IO.Path]::GetFileName($entry) })
+    # 設定ファイルと、それに付いてできるファイルは数えない（既定のワークスペースは、書き込めないときの設定ファイルの置き場所でもある）
+    $names = @(foreach ($entry in (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries($folder)) 1000)) {
+        $name = [System.IO.Path]::GetFileName($entry)
+        if (-not (testSettingsFileName $name)) { $name }
+    })
     if ($names.Count -eq 0 -or ($names -contains "content_index") -or ($names -contains "index") -or ($names -contains [System.IO.Path]::GetFileName($workspace.StatusFile))) {
         return $result
     }

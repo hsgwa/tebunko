@@ -84,6 +84,12 @@ Describe "インストーラー（installer\tebunko.iss）" -Tag Meta {
         @(getIssSection "InstallDelete") -contains 'Type: filesandordirs; Name: "{app}\scripts"' | Should -Be $true
     }
 
+    It "アンインストールのときは、ツールのフォルダに作られる設定と起動失敗の記録も消す" {
+        $lines = @(getIssSection "UninstallDelete")
+        $lines -contains 'Type: files; Name: "{app}\setting.config"' | Should -Be $true
+        $lines -contains 'Type: files; Name: "{app}\startup_error.txt"' | Should -Be $true
+    }
+
     It "起動するのは、入れた tebunko.exe だけ" {
         @(getIssSection "Run" | Where-Object { $_ -notmatch '^Filename: "\{app\}\\tebunko\.exe";' }).Count | Should -Be 0
     }

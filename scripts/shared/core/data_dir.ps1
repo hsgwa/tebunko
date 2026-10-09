@@ -1,6 +1,6 @@
-﻿# データ（設定ファイル・work）の置き場所の既定（どのツールからも使う）。
-# ツールのフォルダに書き込めればそこに置く（以前の版と同じ）。書き込めないとき（Program Files・読み取り専用の共有フォルダに
-# 置いたとき）だけ、利用者ごとの場所（%LOCALAPPDATA%\tebunko\<ツールのフォルダの鍵>）に置く。
+﻿# データ（設定ファイル）の置き場所の既定（どのツールからも使う）。
+# ツールのフォルダに書き込めればそこに置く。書き込めないとき（Program Files・読み取り専用の共有フォルダに置いたとき）は、
+# ツールが渡した逃げ先に置く（逃げ先はツールが決める。tebunko は既定のワークスペース）。
 # work の置き場所は、ツールの側で決める（tebunko は設定の workspaceFolder）。
 
 function testWritableFolder {
@@ -24,17 +24,16 @@ function testWritableFolder {
 }
 
 function getDataDir {
-    # 設定ファイルと既定の work を置くフォルダを返す。
-    # 利用者ごとの場所の鍵は getFolderKey の先頭 16 文字（フォルダの名前にするため短くする。インデックスの TSV のパスが長くなりすぎないように）
+    # 設定ファイルを置くフォルダを返す。ツールのフォルダに書き込めればそれ、書き込めなければ渡された逃げ先。
+    # 逃げ先の既定値は持たない（shared はツールの既定の置き場所を知らない）
     param (
         [string]$root = ${rootDir},
-        [string]$fallbackBase = [System.Environment]::GetFolderPath("LocalApplicationData")
+        [Parameter(Mandatory = $true)]
+        [string]$fallbackDir
     )
 
     if (testWritableFolder $root) {
         return $root
     }
-    return Join-Path $fallbackBase ("tebunko\" + (getFolderKey $root).Substring(0, 16))
+    return $fallbackDir
 }
-
-${dataDir} = getDataDir

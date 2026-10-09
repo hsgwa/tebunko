@@ -28,7 +28,22 @@ function getSettingsFileView {
     if ($dir.TrimEnd("\").Equals($rootDir.TrimEnd("\"), [System.StringComparison]::OrdinalIgnoreCase)) {
         return @{ Path = $settingsFile; Note = "ツールのフォルダに置いています。" }
     }
-    return @{ Path = $settingsFile; Note = "ツールのフォルダ（${rootDir}）に書き込めないため、利用者ごとの場所に置いています。" }
+    return @{ Path = $settingsFile; Note = "ツールのフォルダ（${rootDir}）に書き込めないため、既定のワークスペースに置いています。" }
+}
+
+function getCountedEntryPaths {
+    # ワークスペースに選んだフォルダの中身のうち、「空でない」の数に入れるものを返す。
+    # 選んだフォルダが既定のワークスペースのときは、設定ファイルと、それに付いてできるファイル（testSettingsFileName）を数えない
+    # （書き込めない場所に置いた tebunko の設定ファイルが、既定のワークスペースの直下にあるため）
+    param (
+        [string[]]$entryPaths,
+        [bool]$isDefaultWorkspace
+    )
+
+    if (-not $isDefaultWorkspace) {
+        return @($entryPaths)
+    }
+    return @($entryPaths | Where-Object { -not (testSettingsFileName ([System.IO.Path]::GetFileName($_))) })
 }
 
 function testWorkspaceChoice {

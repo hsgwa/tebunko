@@ -192,14 +192,14 @@ function closeGui {
     $pattern.Close()
     waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
     if ($S.Process.ExitCode -ne 0) {
-        # trap（gui.ps1）を通らない終了（native の障害など）は原因が分からないため、Windows のイベントログを材料に残す
+        # reportStartupFailure（gui.ps1）を通らない終了（native の障害など）は原因が分からないため、Windows のイベントログを材料に残す
         $S.CrashInfo = getGuiCrashInfo $processId
         throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）"
     }
 }
 
 function getGuiCrashInfo {
-    # 終了コードが 0 でないとき（1 の trap の exit も含む）、Windows のイベントログ（Application）からその
+    # 終了コードが 0 でないとき（reportStartupFailure が返す 1 の exit も含む）、Windows のイベントログ（Application）からその
     # プロセス ID に関する直近の記録を探す。原因不明の終了（アクセス違反・COM の例外など）を追う材料にする
     param ([int]$ProcessId)
 
@@ -251,7 +251,7 @@ function waitGui {
 function getGuiErrorWindowText {
     # 本体以外の窓に、異常の文言（guiErrorPatterns）があれば、その文字を返す。
     # 本体の窓がまだ見つかっていない（起動を待っている間）は、そのプロセスのすべての窓（起動中の表示は除く）を調べる。
-    # そうしないと、起動時の XAML の読み込み例外などで trap が出すメッセージボックスに気づけず、90 秒待ってから
+    # そうしないと、起動時の XAML の読み込み例外などで reportStartupFailure が出すメッセージボックスに気づけず、90 秒待ってから
     # 「本体の窓が見つからない」というだけの失敗になり、材料も残らない
     param ($S)
 
