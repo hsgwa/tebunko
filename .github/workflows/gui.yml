@@ -120,3 +120,29 @@ jobs:
           name: gui-smoke-results-${{ matrix.number }}
           path: work/test/gui/
           if-no-files-found: ignore
+
+  # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
+  # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
+  pr-comment:
+    needs: [gui-smoke]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: 既定のブランチの内容を取り出す（PR のコードは使わない）
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            tools/pr_checks_comment.ps1
+            .github/actions/pr-comment/
+          sparse-checkout-cone-mode: false
+
+      - name: 結果を書く
+        uses: ./.github/actions/pr-comment
+        with:
+          workflow-key: gui
+          result: ${{ needs['gui-smoke'].result }}
