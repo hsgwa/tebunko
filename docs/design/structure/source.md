@@ -64,7 +64,7 @@ flowchart TD
 
 各スクリプト・テストからは dot-source（`. "$PSScriptRoot\lib.ps1"`）して使う。`ui/` の部品は `$PSScriptRoot` ではなく、`gui.ps1` から渡された `$TebunkoDir`（`tebunko/` 直下のパス）を基準に読み込む。
 
-別スレッド（検索・背景の仕事・取り込み）の中では `$PSScriptRoot` が使えない。そのため、スレッドへ読み込ませる部品（`lib`・`indexerLib`）の読み込みは、`scripts/tebunko/core/parts.ps1` の `getPartLoad` が、呼び出し側で絶対パスに解決した `. '<パス>'` の文字列にして渡す。この文字列は、検索（`search_service.ps1`）・インデックス作成（`indexer_run.ps1`・`indexing_session.ps1`）が、別スレッドへ渡す前に `joinWorkerScript`（`shared/core/worker_pool.ps1`）でスレッドの本体の前につなぐ。スレッドの中には読み込みの行を書かないので、検査がたどる対象にならない（部品は `lib.ps1`・`indexer_lib.ps1` を通して読み込み漏れが見つかる）。
+別スレッド（検索・背景の仕事・取り込み）の中では `$PSScriptRoot` が使えない。そのため、スレッドへ読み込ませる部品（`lib`・`indexerLib`）の読み込みは、`scripts/tebunko/core/parts.ps1` の `getPartLoad` が、呼び出し側で絶対パスに解決した `. '<パス>'` の文字列にして渡す。この文字列は、検索（`search_service.ps1`）・インデックス作成（`indexer_run.ps1`・`indexing_session.ps1`）が、別スレッドへ渡す前に `joinWorkerScript`（`shared/core/worker_pool.ps1`）でスレッドの本体の前につなぐ（背景の仕事の `WorkerPool` も、`worker_pool.ps1` の中で同じようにつなぐ）。スレッドの中には読み込みの行を書かないので、検査がたどる対象にならない（部品は `lib.ps1`・`indexer_lib.ps1` を通して読み込み漏れが見つかる）。
 
 ## 起動口となるスクリプト（`scripts/`）
 
