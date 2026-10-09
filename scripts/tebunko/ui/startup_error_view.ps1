@@ -2,7 +2,7 @@
 # 記録に書く内容と、メッセージボックスに出す文を決める。出す・書くのは startup_error.ps1。
 # 制限言語モードでも読み込めるよう、.NET のメソッドを呼ばない。
 
-# 固定の場所に書く記録の 1 件分（app_host.ps1 を読み込む前の失敗用）
+# ツールのフォルダの startup_error.txt に書く記録の 1 件分（app_host.ps1 を読み込む前の失敗用）
 function getStartupErrorDetail {
     param (
         $err,

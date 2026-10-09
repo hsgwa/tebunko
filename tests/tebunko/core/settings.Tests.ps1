@@ -511,6 +511,69 @@ Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
     }
 }
 
+Describe "getSettingsFilePath" -Tag Io {
+    It "<Case>" -TestCases @(
+        @{ Case = "書き込めるツールのフォルダなら、そこの setting.config"; Writable = $true }
+        @{ Case = "書き込めない（存在しない）ツールのフォルダなら、既定のワークスペースの setting.config"; Writable = $false }
+    ) {
+        $root = "$TestDrive\ツール-$Writable"
+        if ($Writable) {
+            [System.IO.Directory]::CreateDirectory($root) | Out-Null
+        }
+        $expected = if ($Writable) { "$root\setting.config" } else { "$TestDrive\既定のワークスペース\setting.config" }
+        getSettingsFilePath $root "$TestDrive\既定のワークスペース" | Should -Be $expected
+    }
+
+    It "ツールのフォルダに書けず、既定のワークスペースがまだ無いとき、保存でフォルダができ、同じ場所から読める" {
+        # 書く先は $TestDrive の下だけ（既定のワークスペースは $TestDrive に向ける。本物の Documents には書かない）
+        $toolDir = "$TestDrive\無いツールのフォルダ"
+        $defaultWork = "$TestDrive\まだ無い既定のワークスペース"
+        $path = getSettingsFilePath $toolDir $defaultWork
+        $path.StartsWith($TestDrive, [System.StringComparison]::OrdinalIgnoreCase) | Should -Be $true
+        Test-Path -LiteralPath $defaultWork | Should -Be $false
+
+        writeSettings @{ ingestThreads = 3 } $path
+
+        Test-Path -LiteralPath $defaultWork -PathType Container | Should -Be $true
+        $path | Should -Be "$defaultWork\setting.config"
+        Test-Path -LiteralPath $path -PathType Leaf | Should -Be $true
+        Test-Path -LiteralPath $toolDir | Should -Be $false
+        (readSettings $path).ingestThreads | Should -Be 3
+        # 同じ場所を、もう一度求めても同じ（保存したあとは書き込めるワークスペースになるが、ツールのフォルダは無いまま）
+        getSettingsFilePath $toolDir $defaultWork | Should -Be $path
+    }
+}
+
+Describe "testSettingsFileName / testDefaultWorkspace（設定ファイルとそれに付いてできるファイル）" -Tag Io {
+    It "名前の判定: <Name> は <Expected>" -TestCases @(
+        @{ Name = "setting.config"; Expected = $true }
+        @{ Name = "SETTING.CONFIG"; Expected = $true }
+        @{ Name = "setting.config.tmp"; Expected = $true }
+        @{ Name = "setting.config.broken-20261003-120000"; Expected = $true }
+        @{ Name = "setting.config.broken-20261003-120000-2"; Expected = $true }
+        @{ Name = "setting.config.bak"; Expected = $false }
+        @{ Name = "my_setting.config"; Expected = $false }
+        @{ Name = "setting.config.broken-"; Expected = $false }
+        @{ Name = "setting.config.tmp.old"; Expected = $false }
+    ) {
+        testSettingsFileName $Name | Should -Be $Expected
+    }
+
+    It "<Case>" -TestCases @(
+        @{ Case = "setting.config だけなら使える"; Names = @("setting.config"); Usable = $true }
+        @{ Case = ".tmp と .broken-<日時>（連番付きを含む）が付いていても使える"; Names = @("setting.config", "setting.config.tmp", "setting.config.broken-20261003-120000", "setting.config.broken-20261003-120000-2"); Usable = $true }
+        @{ Case = "似た名前（.bak）があれば使えない"; Names = @("setting.config", "setting.config.bak"); Usable = $false }
+        @{ Case = "似た名前（my_setting.config）があれば使えない"; Names = @("my_setting.config"); Usable = $false }
+        @{ Case = "ほかのファイルが 1 つでもあれば使えない"; Names = @("setting.config", "README.md"); Usable = $false }
+    ) {
+        $dir = "$TestDrive\既定-" + [guid]::NewGuid().ToString("N")
+        [System.IO.Directory]::CreateDirectory($dir) | Out-Null
+        foreach ($name in $Names) {
+            [System.IO.File]::WriteAllText("$dir\$name", "")
+        }
+        (testDefaultWorkspace $dir).Usable | Should -Be $Usable
+    }
+}
 Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -Tag Io {
     It "既定はプロファイルの Documents\tebunko_ws（OneDrive のドキュメントではない）" {
         getDefaultWorkDir "C:\Users\test" | Should -Be "C:\Users\test\Documents\tebunko_ws"

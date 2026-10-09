@@ -47,6 +47,77 @@ BeforeAll {
         return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
     }
 
+    function getWritePlaceViolations {
+        # 書き込み先を環境から得る書き方が、許すものの一覧に収まっているかを調べ、外れたものを文字列の一覧で返す（無ければ空）。
+        # $codeLines は getCodeLines の形（コメントを除いた行）、$batText は tebunko.bat の全文。
+        # 違反を入れた文字列で判定が落ちることを確かめるため、ファイルを読まずに文字列だけで動くようにしてある。
+        # 返す文字列の先頭（最初の ":" まで）は決まりの名前。違反のテストはこの名前で、どの決まりで落ちたかを確かめる。
+        # 許す一覧（下の $allowed*）に足すときは、足す理由を行のコメントに書き、docs/safety/file-access.md の書き込む場所も合わせて直す
+        param (
+            [object[]]$codeLines,
+            [string]$batText
+        )
+
+        $problems = New-Object System.Collections.Generic.List[string]
+        # %LOCALAPPDATA%・%TEMP% を指す文字そのものを書かない
+        $forbidden = '(?i)APPDATA|%TEMP%|%TMP%|env:TEMP\b|env:TMP\b'
+        foreach ($line in @($codeLines | Where-Object { $_.Text -match $forbidden })) {
+            $problems.Add("禁止の語: $($line.File):$($line.Line)")
+        }
+        if ($batText -match $forbidden) {
+            $problems.Add("禁止の語: tebunko.bat")
+        }
+        # 特別なフォルダを得るのは settings.ps1 の UserProfile（既定のワークスペース）の 1 か所だけ
+        $allowedFolderPath = 'settings.ps1|[string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")'
+        $folderPath = @($codeLines | Where-Object { $_.Text -match '(?i)GetFolderPath\s*\(' } | ForEach-Object { "$($_.File)|$($_.Text.Trim())" })
+        foreach ($entry in @($folderPath | Where-Object { $_ -ne $allowedFolderPath })) {
+            $problems.Add("GetFolderPath: $entry")
+        }
+        # 環境変数は SystemRoot（メモ帳を開く）と、画面のテストが差し込む TEBUNKO_GUI_LEFTOVER_FILE だけ
+        $allowedEnv = @("systemroot", "tebunko_gui_leftover_file")
+        foreach ($line in $codeLines) {
+            foreach ($match in [regex]::Matches($line.Text, '(?i)\$\{?env:(\w+)')) {
+                if ($allowedEnv -notcontains $match.Groups[1].Value.ToLowerInvariant()) {
+                    $problems.Add("環境変数: $($line.File):$($line.Line) $($match.Value)")
+                }
+            }
+        }
+        foreach ($line in @($codeLines | Where-Object { $_.Text -match '(?i)GetEnvironmentVariable' })) {
+            $problems.Add("GetEnvironmentVariable: $($line.File):$($line.Line)")
+        }
+        # %…% を展開するのは、利用者が入れたフォルダの文字列を扱う 2 か所（normalizeFolderPath・getWorkDir）で、各 1 回だけ
+        $allowedExpand = @(
+            'folder.ps1|$path = [System.Environment]::ExpandEnvironmentVariables($path).Trim()'
+            'settings.ps1|$folder = [System.Environment]::ExpandEnvironmentVariables($folder)'
+        )
+        $expand = @($codeLines | Where-Object { $_.Text -match '(?i)ExpandEnvironmentVariables' } | ForEach-Object { "$($_.File)|$($_.Text.Trim())" })
+        foreach ($entry in @($expand | Where-Object { $allowedExpand -notcontains $_ })) {
+            $problems.Add("ExpandEnvironmentVariables: $entry")
+        }
+        # 許す行も、各 1 回だけ（同じ行が増えても通さない）
+        foreach ($entry in $allowedExpand) {
+            $count = @($expand | Where-Object { $_ -eq $entry }).Count
+            if ($count -gt 1) {
+                $problems.Add("ExpandEnvironmentVariables: 許した行が $count 回: $entry")
+            }
+        }
+        # tebunko.bat が使う %…% は、起動に使う変数と SystemRoot だけ
+        $allowedBat = @("ps1", "pscmd", "systemroot")
+        foreach ($match in [regex]::Matches($batText, '%(\w+)%')) {
+            if ($allowedBat -notcontains $match.Groups[1].Value.ToLowerInvariant()) {
+                $problems.Add("bat の変数: $($match.Value)")
+            }
+        }
+        if ($batText -match '(?i)\$\{?env:') {
+            $problems.Add("bat の環境変数")
+        }
+        # tebunko.bat の中の PowerShell も、特別なフォルダ・環境変数・一時フォルダを得る API を使わない（許す数は 0）
+        foreach ($match in [regex]::Matches($batText, '(?i)GetFolderPath|GetEnvironmentVariable|ExpandEnvironmentVariables|GetTempPath|GetTempFileName|New-TemporaryFile')) {
+            $problems.Add("bat の API: $($match.Value)")
+        }
+        return @($problems)
+    }
+
     $scriptFiles = @(Get-ChildItem -LiteralPath $scriptsDir -Recurse -Filter *.ps1 | ForEach-Object { $_.FullName })
     $code = getCodeLines $scriptFiles
 }
@@ -250,11 +321,12 @@ Describe "取り込み対象の拡張子が固定であること（docs/safety/c
 }
 
 Describe "書き込み先が限られていること（docs/safety/file-access.md「書き込み・削除する場所」）" -Tag Meta {
-    It "書き込みに使うフォルダの定義は、データの置き場所（設定ファイル・work）と前の版の片付け先（TEMP）だけ" {
+    It "書き込みに使うフォルダの定義は、設定ファイルの置き場所（ツールのフォルダか既定のワークスペース）と前の版の片付け先（TEMP）だけ" {
         $paths = @($code | Where-Object { $_.File -in @("paths.ps1", "workspace.ps1", "data_dir.ps1", "settings.ps1") })
-        # データの置き場所は、ツールのフォルダか、書き込めないときの %LOCALAPPDATA%\tebunko\<鍵>
-        (findPattern $paths '\$\{dataDir\}\s*=\s*getDataDir') | Should -Not -Be ""
-        (findPattern $paths 'GetFolderPath\("LocalApplicationData"\)') | Should -Not -Be ""
+        # 設定ファイルの置き場所は、ツールのフォルダか、書き込めないときの既定のワークスペースだけ
+        (findPattern $paths 'return Join-Path \(getDataDir \$root \$defaultWorkDir\) "setting\.config"') | Should -Not -Be ""
+        (findPattern $paths '\$\{settingsFile\}\s*=\s*getSettingsFilePath\s+\$\{rootDir\}\s+\(getDefaultWorkDir\)') | Should -Not -Be ""
+        (findPattern $paths 'return \$fallbackDir') | Should -Not -Be ""
         # ワークスペースは設定から決め、中の場所はワークスペースのフォルダから組み立てる
         (findPattern $paths '\$\{script:workspace\}\s*=\s*\[Workspace\]::new\(\(getWorkDir\)\)') | Should -Not -Be ""
         (findPattern $paths '\$this\.IndexDir\s*=\s*"\$dir\\content_index"') | Should -Not -Be ""
@@ -262,16 +334,73 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         (findPattern $paths '\$this\.TmpRoot\s*=\s*"\$dir\\tmp"') | Should -Not -Be ""
         (findPattern $paths '\$this\.OfficePidRoot\s*=\s*"\$dir\\office_pids"') | Should -Not -Be ""
         (findPattern $paths '\$this\.PublishDir\s*=\s*"\$dir\\') | Should -Not -Be ""
-        (findPattern $paths '\$\{settingsFile\}\s*=\s*"\$\{dataDir\}\\setting\.config"') | Should -Not -Be ""
     }
 
-    It "起動に失敗したときの記録の置き場所は、固定の %LOCALAPPDATA%\tebunko・%TEMP% 配下だけ（startup_error.ps1・tebunko.bat）" {
+    It "起動に失敗したときの記録の置き場所は、ツールのフォルダだけ（startup_error.ps1・tebunko.bat）" {
         $guiCode = @($code | Where-Object { $_.File -eq "startup_error.ps1" })
-        (findPattern $guiCode 'Join-Path\s+\$env:LOCALAPPDATA\s+"tebunko\\startup_error\.txt"') | Should -Not -Be ""
-        (findPattern $guiCode 'Join-Path\s+\$env:TEMP\s+"tebunko_startup_error\.txt"') | Should -Not -Be ""
+        (findPattern $guiCode 'Join-Path\s+\$toolDir\s+"startup_error\.txt"') | Should -Not -Be ""
         $bat = [System.IO.File]::ReadAllText($launcher)
-        ($bat -match "Join-Path\s+\`$env:LOCALAPPDATA\s+'tebunko\\startup_error\.txt'") | Should -Be $true
-        ($bat -match "Join-Path\s+\`$env:TEMP\s+'tebunko_startup_error\.txt'") | Should -Be $true
+        ($bat -match "Join-Path\s+\`$root\s+'startup_error\.txt'") | Should -Be $true
+    }
+
+    It "%LOCALAPPDATA%・%TEMP% に書かない（場所を環境から得る書き方が、許すものの一覧に収まっている。前の版の片付け先の GetTempPath は別の It で確かめる）" {
+        $bat = [System.IO.File]::ReadAllText($launcher)
+        (getWritePlaceViolations $code $bat) -join ", " | Should -Be ""
+    }
+
+    It "書き込み先の検査は、違反を 1 つ入れると期待する決まりで落ちる: <Case>" -TestCases @(
+        # Rules = 落ちる決まりの名前（getWritePlaceViolations が返す文字列の先頭）。ちょうどこの集まりで落ちること
+        @{ Case = '$env:LOCALAPPDATA'; File = "x.ps1"; Text = '$d = Join-Path $env:LOCALAPPDATA "tebunko"'; Bat = ""; Rules = @("環境変数", "禁止の語") }
+        @{ Case = '$Env:LocalAppData（大文字小文字違い）'; File = "x.ps1"; Text = '$d = $Env:LocalAppData'; Bat = ""; Rules = @("環境変数", "禁止の語") }
+        @{ Case = '${env:TEMP}'; File = "x.ps1"; Text = '$d = "${env:TEMP}\a"'; Bat = ""; Rules = @("環境変数", "禁止の語") }
+        @{ Case = 'env:TEMP'; File = "x.ps1"; Text = '$t = $env:TEMP'; Bat = ""; Rules = @("環境変数", "禁止の語") }
+        @{ Case = '環境変数 env:USERPROFILE'; File = "x.ps1"; Text = '$t = $env:USERPROFILE'; Bat = ""; Rules = @("環境変数") }
+        @{ Case = '禁止の語だけ: パスの AppData'; File = "x.ps1"; Text = '$d = "$base\AppData\Local\tebunko"'; Bat = ""; Rules = @("禁止の語") }
+        @{ Case = '禁止の語だけ: コードの中の %TEMP%'; File = "x.ps1"; Text = 'cmd /c "echo %TEMP%"'; Bat = ""; Rules = @("禁止の語") }
+        @{ Case = 'LocalApplicationData'; File = "x.ps1"; Text = '$d = [System.Environment]::GetFolderPath("LocalApplicationData")'; Bat = ""; Rules = @("GetFolderPath") }
+        @{ Case = 'GetFolderPath を別の所で使う'; File = "x.ps1"; Text = '$x = [System.Environment]::GetFolderPath("UserProfile")'; Bat = ""; Rules = @("GetFolderPath") }
+        @{ Case = 'GetFolderPath("ApplicationData")'; File = "settings.ps1"; Text = '[string]$profileDir = [System.Environment]::GetFolderPath("ApplicationData")'; Bat = ""; Rules = @("GetFolderPath") }
+        @{ Case = 'ExpandEnvironmentVariables("%LOCALAPPDATA%\tebunko")'; File = "settings.ps1"; Text = '$x = [System.Environment]::ExpandEnvironmentVariables("%LOCALAPPDATA%\tebunko")'; Bat = ""; Rules = @("ExpandEnvironmentVariables", "禁止の語") }
+        @{ Case = 'ExpandEnvironmentVariables を別の所で使う'; File = "x.ps1"; Text = '$x = [System.Environment]::ExpandEnvironmentVariables($y)'; Bat = ""; Rules = @("ExpandEnvironmentVariables") }
+        @{ Case = 'GetEnvironmentVariable'; File = "x.ps1"; Text = '$x = [System.Environment]::GetEnvironmentVariable("TEMP")'; Bat = ""; Rules = @("GetEnvironmentVariable") }
+        @{ Case = 'bat の %TEMP%'; File = ""; Text = ""; Bat = 'set "OUT=%TEMP%\a.txt"'; Rules = @("bat の変数", "禁止の語") }
+        @{ Case = 'bat の %LOCALAPPDATA%'; File = ""; Text = ""; Bat = 'set "OUT=%LOCALAPPDATA%\a.txt"'; Rules = @("bat の変数", "禁止の語") }
+        @{ Case = 'bat の %USERPROFILE%'; File = ""; Text = ""; Bat = 'set "OUT=%USERPROFILE%\a.txt"'; Rules = @("bat の変数") }
+        @{ Case = 'bat の $env:TEMP'; File = ""; Text = ""; Bat = 'set "PSCMD=%PSCMD%$p = $env:TEMP"'; Rules = @("bat の環境変数", "禁止の語") }
+        @{ Case = 'bat の GetTempPath'; File = ""; Text = ""; Bat = 'set "PSCMD=%PSCMD%$p = [System.IO.Path]::GetTempPath()"'; Rules = @("bat の API") }
+        @{ Case = 'bat の GetFolderPath'; File = ""; Text = ""; Bat = 'set "PSCMD=%PSCMD%$p = [Environment]::GetFolderPath(''LocalApplicationData'')"'; Rules = @("bat の API") }
+        @{ Case = 'bat の New-TemporaryFile'; File = ""; Text = ""; Bat = 'set "PSCMD=%PSCMD%$p = New-TemporaryFile"'; Rules = @("bat の API") }
+        @{ Case = 'bat の GetEnvironmentVariable'; File = ""; Text = ""; Bat = 'set "PSCMD=%PSCMD%$p = [Environment]::GetEnvironmentVariable(''TEMP'')"'; Rules = @("bat の API") }
+        @{ Case = 'bat の ExpandEnvironmentVariables'; File = ""; Text = ""; Bat = 'set "PSCMD=%PSCMD%$p = [Environment]::ExpandEnvironmentVariables(''x'')"'; Rules = @("bat の API") }
+    ) {
+        $lines = @()
+        if ($Text -ne "") {
+            $lines = @([pscustomobject]@{ File = $File; Line = 1; Text = $Text })
+        }
+        $found = @(getWritePlaceViolations $lines $Bat | ForEach-Object { ($_ -split ':')[0] } | Sort-Object -Unique)
+        ($found -join ",") | Should -Be ((@($Rules) | Sort-Object) -join ",")
+    }
+
+    It "書き込み先の検査は、許した ExpandEnvironmentVariables の行が 2 回あると落ちる" {
+        $line = '        $path = [System.Environment]::ExpandEnvironmentVariables($path).Trim()'
+        $lines = @(
+            [pscustomobject]@{ File = "folder.ps1"; Line = 1; Text = $line }
+            [pscustomobject]@{ File = "folder.ps1"; Line = 2; Text = $line }
+        )
+        $found = @(getWritePlaceViolations $lines "" | ForEach-Object { ($_ -split ':')[0] } | Sort-Object -Unique)
+        ($found -join ",") | Should -Be "ExpandEnvironmentVariables"
+    }
+
+    It "書き込み先の検査は、許すものだけなら通る" {
+        $lines = @(
+            [pscustomobject]@{ File = "settings.ps1"; Line = 1; Text = '        [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")' }
+            [pscustomobject]@{ File = "folder.ps1"; Line = 2; Text = '        $path = [System.Environment]::ExpandEnvironmentVariables($path).Trim()' }
+            [pscustomobject]@{ File = "settings.ps1"; Line = 3; Text = '    $folder = [System.Environment]::ExpandEnvironmentVariables($folder)' }
+            [pscustomobject]@{ File = "shell.ps1"; Line = 4; Text = 'Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe"' }
+            [pscustomobject]@{ File = "x.ps1"; Line = 5; Text = '$x = $env:TEBUNKO_GUI_LEFTOVER_FILE' }
+        )
+        @(getWritePlaceViolations $lines 'set "PS1=%SystemRoot%\System32\a.exe"
+set "PSCMD=%PSCMD%x"').Count | Should -Be 0
     }
 
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {
@@ -316,13 +445,11 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
     }
 
     It "%TEMP% を指す書き方は決めた所だけ（取り込みの作業フォルダはワークスペースの tmp\\の下を使う）" {
-        # %TEMP% を直接指すのは、前の版の片付けだけに使う場所（${legacyTmpParent}。paths.ps1）と、
-        # まだ書き込み口が整う前の起動失敗を記録する writeStartupErrorFile（startup_error.ps1）だけ
+        # %TEMP% を直接指すのは、前の版の片付けだけに使う場所（${legacyTmpParent}。paths.ps1）だけ
         $tempRefs = @($code | Where-Object { $_.Text -match 'GetTempPath|env:TEMP\b|env:TMP\b|New-TemporaryFile|GetTempFileName' })
         $tempFiles = @($tempRefs | ForEach-Object { $_.File } | Sort-Object -Unique)
-        ($tempFiles -join ", ") | Should -Be "paths.ps1, startup_error.ps1"
+        ($tempFiles -join ", ") | Should -Be "paths.ps1"
         (@($tempRefs | Where-Object { $_.File -eq "paths.ps1" }).Count) | Should -Be 1
-        (@($tempRefs | Where-Object { $_.File -eq "startup_error.ps1" }).Count) | Should -Be 1
     }
 
     It "異常終了で残った作業フォルダを次回起動時に回収する" {

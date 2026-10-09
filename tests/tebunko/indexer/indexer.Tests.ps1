@@ -1,6 +1,6 @@
 ﻿# インデクサの起動口（tebunko\indexer.ps1）と本体（indexer\indexer_run.ps1 の invokeIndexer）のテスト。
 # indexer.ps1 は indexer_lib.ps1（lib.ps1 を含む）を読み込み、置き場所（リポジトリ直下の setting.config・work\）を決める。
-# リポジトリの設定・インデックスを書き換えないよう、data_dir.ps1 で ${dataDir} を決める直前に止めて、
+# リポジトリの設定・インデックスを書き換えないよう、settings.ps1 で ${settingsFile} を決める直前に止めて、
 # ツールのフォルダ（${rootDir}）をテスト用のフォルダ（TestDrive）に差し替えてから続けさせる（Set-PSBreakpoint の -Action）。
 # 同じやり方で、取り込みの途中に中止・画面の返事・元のファイルの削除を起こす。
 # 画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。途中に割り込むテストは、取り込みのスレッドを使わない
@@ -48,7 +48,7 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         $root = newRoot
         writeTestSettings $root @()
         $global:indexerTestRoot = $root
-        $point = Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
+        $point = Set-PSBreakpoint -Script $settingsScriptPath -Line (findLine $settingsScriptPath '^\$\{settingsFile\}\s*=') -Action {
             Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
         }
         try {
@@ -68,10 +68,10 @@ Describe "indexer.ps1（続けられないエラー）" -Tag Io {
         # 退避すると既定のワークスペースになるため、利用者の本物の tebunko_ws に書かないよう、既定の場所（プロファイルの位置）もテスト用に差し替える
         $global:indexerTestRoot = $root
         $points = @(
-            (Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
+            (Set-PSBreakpoint -Script $settingsScriptPath -Line (findLine $settingsScriptPath '^\$\{settingsFile\}\s*=') -Action {
                 Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
             })
-            (Set-PSBreakpoint -Script "${scriptsDir}\tebunko\core\settings.ps1" -Line (findLine "${scriptsDir}\tebunko\core\settings.ps1" 'return Join-Path \$profileDir') -Action {
+            (Set-PSBreakpoint -Script $settingsScriptPath -Line (findLine $settingsScriptPath 'return Join-Path \$profileDir') -Action {
                 Set-Variable -Name profileDir -Value "$($global:indexerTestRoot)\profile" -Scope 1
             })
         )

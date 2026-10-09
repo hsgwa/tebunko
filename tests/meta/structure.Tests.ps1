@@ -6,7 +6,6 @@ BeforeAll {
 Describe "パス定義" -Tag Meta {
     It "リポジトリ直下を基準にする（書き込めるため、設定ファイルもリポジトリ直下に置く）" {
         $rootDir | Should -Be (Resolve-Path "$here\..").Path
-        $dataDir | Should -Be $rootDir
         $settingsFile | Should -Be "$rootDir\setting.config"
     }
 
@@ -569,17 +568,17 @@ Describe "単一 .ps1 化の決まり（AST。docs/design/structure/single-scrip
         ($bad -join ", ") | Should -Be ""
     }
 
-    It "gui.ps1 の最上位は、起動の失敗の知らせ（startup_error_view.ps1・startup_error.ps1）の読み込みと 1 つの try/catch だけ" {
+    It "gui.ps1 の最上位は、起動の失敗の知らせ（paths.ps1・startup_error_view.ps1・startup_error.ps1）の読み込みと 1 つの try/catch だけ" {
         $ast = $parsedAsts["$singleScriptsDir\tebunko\gui.ps1"]
         $top = @($ast.EndBlock.Statements)
-        $top.Count | Should -Be 3
-        foreach ($loader in $top[0..1]) {
+        $top.Count | Should -Be 4
+        foreach ($loader in $top[0..2]) {
             (commandOf $loader) | Should -BeOfType [System.Management.Automation.Language.CommandAst]
             (isLoaderLine (commandOf $loader)) | Should -Be $true
         }
-        $top[2] | Should -BeOfType [System.Management.Automation.Language.TryStatementAst]
+        $top[3] | Should -BeOfType [System.Management.Automation.Language.TryStatementAst]
 
-        $try = $top[2]
+        $try = $top[3]
         $try.CatchClauses.Count | Should -Be 1
         $catchBody = @($try.CatchClauses[0].Body.Statements)
         $catchBody.Count | Should -Be 1
