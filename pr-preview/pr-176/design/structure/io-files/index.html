@@ -4436,7 +4436,7 @@
 </tbody>
 </table>
 <h3 id="既定のワークスペースの直下">既定のワークスペースの直下<a class="headerlink" href="#既定のワークスペースの直下" title="Permanent link">&para;</a></h3>
-<p><code>%USERPROFILE%\Documents\tebunko_ws</code>（<code>getDefaultWorkDir</code>）。ツールのフォルダに書けないときだけ、設定の置き場になる。</p>
+<p><code>%USERPROFILE%\Documents\tebunko_ws</code>（<code>getDefaultWorkDir</code>。環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> があればその絶対パス）。ツールのフォルダに書けないときだけ、設定の置き場になる。</p>
 <table>
 <thead>
 <tr>
@@ -4684,6 +4684,11 @@
 <td><code>TEBUNKO_GUI_LEFTOVER_FILE</code>（環境変数）</td>
 <td>読む</td>
 <td>画面のテスト用。残った Office の確認の行に偽の行を差し込むファイルの場所（利用者は使わない）</td>
+</tr>
+<tr>
+<td><code>TEBUNKO_DEFAULT_WORKSPACE</code>（環境変数）</td>
+<td>読む</td>
+<td>開発・確かめ用。既定のワークスペースの場所を差し替える（絶対パスだけ。利用者は使わない）</td>
 </tr>
 </tbody>
 </table>

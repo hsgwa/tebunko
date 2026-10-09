@@ -3492,10 +3492,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#本物のワークスペースを守る" class="md-nav__link">
+  <a href="#既定のワークスペースを守る" class="md-nav__link">
     <span class="md-ellipsis">
       
-        本物のワークスペースを守る
+        既定のワークスペースを守る
       
     </span>
   </a>
@@ -4070,10 +4070,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#本物のワークスペースを守る" class="md-nav__link">
+  <a href="#既定のワークスペースを守る" class="md-nav__link">
     <span class="md-ellipsis">
       
-        本物のワークスペースを守る
+        既定のワークスペースを守る
       
     </span>
   </a>
@@ -4180,8 +4180,8 @@
 </tr>
 </tbody>
 </table>
-<h2 id="本物のワークスペースを守る">本物のワークスペースを守る<a class="headerlink" href="#本物のワークスペースを守る" title="Permanent link">&para;</a></h2>
-<p>テストと実機の確かめは、利用者の本物の既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）に書かない。既定のワークスペースは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で差し替えられる（<code>getDefaultWorkDir</code>。絶対パスだけ。引数の <code>profileDir</code> を明示したときは使わない）。この変数は子のプロセス（画面・<code>indexer.ps1</code>・単一 .ps1 版）にも引き継がれる。</p>
+<h2 id="既定のワークスペースを守る">既定のワークスペースを守る<a class="headerlink" href="#既定のワークスペースを守る" title="Permanent link">&para;</a></h2>
+<p>テストと実機の確かめは、利用者の既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）に書かない。既定のワークスペースは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で差し替えられる（<code>getDefaultWorkDir</code>。絶対パスだけ。引数の <code>profileDir</code> を明示したときは使わない）。この変数は子のプロセス（画面・<code>indexer.ps1</code>・単一 .ps1 版）にも引き継がれる。</p>
 <table>
 <thead>
 <tr>
@@ -4192,15 +4192,15 @@
 <tbody>
 <tr>
 <td><code>tests/run.ps1</code></td>
-<td>Pester の前に使い捨てのフォルダを作って変数に入れる。入れた場所が本物の場所と同じかその下なら、流さずに止まる。流す前後で本物の名前・大きさ・更新時刻（中身は読まない）を比べ、違えば失敗にする（どのタグでも）</td>
+<td>Pester の前に使い捨てのフォルダを作って変数に入れる。入れた場所が既定のワークスペースの場所と同じかその下なら、流さずに止まる。流す前後で既定のワークスペースの名前・大きさ・更新時刻（中身は読まない）を比べ、違えば失敗にする（どのタグでも）</td>
 </tr>
 <tr>
 <td><code>tests/helpers/load.ps1</code></td>
-<td><code>lib.ps1</code> を読む前に、変数が空なら使い捨てを入れる（<code>Invoke-Pester</code> を直接流したとき）。<code>initWorkspace</code> のあとで、決まったワークスペースが本物でないことを確かめる</td>
+<td><code>lib.ps1</code> を読む前に、変数が空なら使い捨てを入れる（<code>Invoke-Pester</code> を直接流したとき）。<code>initWorkspace</code> のあとで、決まったワークスペースが利用者の既定のワークスペースでないことを確かめる</td>
 </tr>
 <tr>
 <td><code>tests/gui/gui_helpers.ps1</code></td>
-<td>画面の起動の前に、既定のワークスペースが本物でないことを確かめ、画面のプロセスにだけ変数を渡す。前後の写しに本物の既定のワークスペースを含める</td>
+<td>画面の起動の前に、差し替えた既定の場所が利用者の既定のワークスペースでないことを確かめ、画面のプロセスにだけ変数を渡す。前後の写しに既定のワークスペースを含める</td>
 </tr>
 <tr>
 <td><code>runIndexer</code>（<code>tests/helpers/indexer.ps1</code>）</td>
@@ -4208,7 +4208,7 @@
 </tr>
 <tr>
 <td><code>tools/capture_screens.ps1</code></td>
-<td>撮る前に使い捨てを入れ、撮り終えたあとで本物の前後を比べる</td>
+<td>撮る前に使い捨てを入れ、撮り終えたあとで既定のワークスペースの前後を比べる</td>
 </tr>
 <tr>
 <td><code>tests/meta/test_isolation.Tests.ps1</code></td>
@@ -4216,9 +4216,9 @@
 </tr>
 </tbody>
 </table>
-<p>実機で画面や取り込みを確かめるときは <code>tools/run_isolated.ps1</code> を通す。<code>%TEMP%</code> の下の新しいフォルダに <code>scripts\</code> と <code>tebunko.bat</code> の写し・<code>setting.config</code>（<code>-Settings</code> で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と <code>work</code> の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。画面を自動で確かめるときは <code>-WaitSeconds &lt;秒&gt;</code> で待つ秒数を指定する（過ぎても生きていれば、起動した PID とその子だけを止める。待つ前に 0 以外で終わると終了コード 1）。終わったら、本物の既定のワークスペースと、リポジトリの <code>setting.config</code>・<code>work\</code> の前後を比べ、違いがあれば一覧を出して終了コード 1 にする。共通の関数は <code>tools/isolation/isolation_common.ps1</code>。</p>
-<p>前後の比べは、このプロセスの外が本物に書いた場合（利用者自身の操作・別の作業ツリーのテスト）も失敗にする。失敗したときは、一覧（名前・大きさ・更新時刻）の更新時刻を手がかりに、何が書いたかを確かめる。</p>
-<p>守りの限界: 本物の場所との同じ・下かどうかは、パスの文字で比べる。8.3 形式の短い名前・ジャンクション・<code>subst</code> で本物を指す場所は、事前の確かめでは見つけられない（流したあとの前後の比べが、書かれたことを見つける）。また <code>tools/perf/</code> など <code>run.ps1</code> や <code>run_isolated.ps1</code> を通らない道具は、この守りの外にある。</p>
+<p>実機で画面や取り込みを確かめるときは <code>tools/run_isolated.ps1</code> を通す。<code>%TEMP%</code> の下の新しいフォルダに <code>scripts\</code> と <code>tebunko.bat</code> の写し・<code>setting.config</code>（<code>-Settings</code> で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と <code>work</code> の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。画面を自動で確かめるときは <code>-WaitSeconds &lt;秒&gt;</code> で待つ秒数を指定する（過ぎても生きていれば、起動した PID とその子だけを止める。待つ前に 0 以外で終わると終了コード 1）。終わったら、既定のワークスペースと、リポジトリの <code>setting.config</code>・<code>work\</code> の前後を比べ、違いがあれば一覧を出して終了コード 1 にする。共通の関数は <code>tools/isolation/isolation_common.ps1</code>。</p>
+<p>前後の比べは、このプロセスの外が既定のワークスペースに書いた場合（利用者自身の操作・別の作業ツリーのテスト）も失敗にする。失敗したときは、一覧（名前・大きさ・更新時刻）の更新時刻を手がかりに、何が書いたかを確かめる。</p>
+<p>守りの限界: 既定のワークスペースの場所との同じ・下かどうかは、パスの文字で比べる。8.3 形式の短い名前・ジャンクション・<code>subst</code> で既定のワークスペースを指す場所は、事前の確かめでは見つけられない（流したあとの前後の比べが、書かれたことを見つける）。また <code>tools/perf/</code> など <code>run.ps1</code> や <code>run_isolated.ps1</code> を通らない道具は、この守りの外にある。</p>
 <p>入力と期待値だけが違うテストは、<code>-TestCases</code> の 1 つの <code>It</code> にまとめる（例: <code>tests/tebunko/ui/types.Tests.ps1</code> の <code>HitRow.Contains</code>）。表は <code>It</code> の中にそのまま書き、計算で作らない。キーには <code>input</code>・<code>args</code>・<code>_</code>・<code>Matches</code> など PowerShell の自動変数の名前を使わない。各行に <code>name</code> を持たせ、<code>It "&lt;name&gt;"</code> で失敗した行が分かるようにする。表の中で変数（<code>$stateDone</code> など）を使うときは、<code>BeforeDiscovery</code> で用意する（表はテストを探す段階で作られ、<code>BeforeAll</code> より先に評価されるため）。</p>
 <p>Pester 5 はテストを「探す段階」と「流す段階」に分けて動かす。探す段階では <code>Describe</code> の中身がそのまま実行され、<code>BeforeAll</code> の中身は流す段階まで実行されない。そのため次のように書く。</p>
 <ul>

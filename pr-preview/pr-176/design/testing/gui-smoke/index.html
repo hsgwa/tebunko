@@ -4109,7 +4109,7 @@
 <tbody>
 <tr>
 <td>隔離</td>
-<td>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイル（<code>setting.config</code>）とワークスペースも写した先に置く（<code>workspaceFolder</code> を写した先の <code>work</code> にする。空にして既定のワークスペースを使う場面は、環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で <code>$TestDrive</code> の中に差し替えて起動する）。起動の前に差し替えた場所が本物でないことを確かめ、流す前後で、作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、利用者の本物の <code>Documents\tebunko_ws</code>、Office のプロセスの数が変わらないことも確かめる。多重起動の防止は配置フォルダごとなので、手元で開いている tebunko と重ならない</td>
+<td>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイル（<code>setting.config</code>）とワークスペースも写した先に置く（<code>workspaceFolder</code> を写した先の <code>work</code> にする。空にして既定のワークスペースを使う場面は、環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で <code>$TestDrive</code> の中に差し替えて起動する）。起動の前に差し替えた既定の場所が利用者の既定のワークスペースでないことを確かめ、流す前後で、作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、利用者の既定のワークスペース（<code>Documents\tebunko_ws</code>）、Office のプロセスの数が変わらないことも確かめる。多重起動の防止は配置フォルダごとなので、手元で開いている tebunko と重ならない</td>
 </tr>
 <tr>
 <td>探す</td>
@@ -4203,7 +4203,7 @@
 <ul>
 <li>取り込むファイルは <code>tests/testdata/office/</code> の .docx・.pptx（Office を使わずに直接読める）を写す。.xlsx は Excel が要るので使わない。失敗させるファイルは、ZIP としては開けるが <code>word/document.xml</code> の XML が壊れている .docx をテストの中で作る（ZIP でない旧形式・パスワード付きは、Word・PowerPoint に回し直されて Office が動くので使わない）</li>
 <li>S3 の取り込みは時間に頼る。取り込みが終わってしまったときは「間に合わなかった」という文言で失敗にする（ファイルの数を増やして直す）</li>
-<li>S6 は手元でも流す。既定のワークスペースは <code>TEBUNKO_DEFAULT_WORKSPACE</code> で <code>$TestDrive</code> の中に差し替わり、利用者の本物のワークスペースには触れない</li>
+<li>S6 は手元でも流す。既定のワークスペースは <code>TEBUNKO_DEFAULT_WORKSPACE</code> で <code>$TestDrive</code> の中に差し替わり、利用者の既定のワークスペースには触れない</li>
 </ul>
 <p><strong>画面遷移の一覧</strong></p>
 <p>「扱い」は、上の場面か、対象外（下の表）。</p>
