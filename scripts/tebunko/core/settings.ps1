@@ -7,9 +7,22 @@ ${appId} = "tebunko"
 function getDefaultWorkDir {
     # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）。高速検索のため、Windows Search の索引の対象になる場所に置く。
     # OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents を使う（インデックスが同期でクラウドに上がらないように）
+    # 環境変数 TEBUNKO_DEFAULT_WORKSPACE に絶対パスが入っていれば、それを既定のワークスペースにする（開発・確かめ用。
+    # テストや実機の確かめが、利用者の既定のワークスペースに触れないようにするための差し替えの口）。入っているのに絶対パスでなければ、
+    # 黙って既定のワークスペースに戻らないよう例外にする。引数 profileDir を渡したときは、環境変数を見ない
     param (
         [string]$profileDir = [System.Environment]::GetFolderPath("UserProfile")
     )
+
+    $override = $env:TEBUNKO_DEFAULT_WORKSPACE
+    if (!$PSBoundParameters.ContainsKey("profileDir") -and ![string]::IsNullOrWhiteSpace($override)) {
+        $override = $override.Trim()
+        # ドライブ直下だけ（C:\）やサーバー名だけ（\\server\）は、末尾の区切りを削ると別の意味になるため受け付けない
+        if ($override -notmatch '^([A-Za-z]:[\\/]+[^\\/]|\\\\[^\\/]+[\\/]+[^\\/])') {
+            throw "TEBUNKO_DEFAULT_WORKSPACE はフォルダまで含めた絶対パスで指定してください: $override"
+        }
+        return $override.TrimEnd("\", "/")
+    }
 
     return Join-Path $profileDir "Documents\tebunko_ws"
 }

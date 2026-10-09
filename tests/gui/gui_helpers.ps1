@@ -10,6 +10,9 @@
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing, System.Windows.Forms
 
+# 既定のワークスペースを求める・前後を比べる関数（tools\run_isolated.ps1・tests\run.ps1 と同じもの）
+. "$PSScriptRoot\..\..\tools\isolation\isolation_common.ps1"
+
 # ---- 待ちの上限（秒） ----
 ${guiStartTimeout}  = 90    # 起動して本体の窓が出るまで
 ${guiIndexTimeout}  = 120   # インデックスの取り込みが終わるまで
@@ -26,14 +29,12 @@ function getGuiRepoRoot {
 
 function getGuiEnvSnapshot {
     # 流す前後で比べる。作業ツリーの setting.config・work\content_index、%LOCALAPPDATA%\tebunko、利用者の既定のワークスペース、Office のプロセスの数。
-    # 既定のワークスペースは、CI（GITHUB_ACTIONS）では S6 が使うので調べない
+    # 既定のワークスペースは、いつも調べる（S6 も差し替えた既定で流すので、利用者の既定のワークスペースには触れない）
     $root = getGuiRepoRoot
     $list = {
         param ([string]$path)
-        if (!(Test-Path -LiteralPath $path)) { return "(無い)" }
-        $item = Get-Item -LiteralPath $path
-        if (!$item.PSIsContainer) { return "$($item.Length):$($item.LastWriteTimeUtc.Ticks)" }
-        return (@(Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { "$($_.FullName.Substring($path.Length)):$($_.Length):$($_.LastWriteTimeUtc.Ticks)" }) -join "`n")
+        $map = getIsolationSnapshot $path
+        return (@($map.Keys | Sort-Object | ForEach-Object { "${_}:$($map[$_])" }) -join "`n")
     }
     $snapshot = [ordered]@{
         "作業ツリーの setting.config" = (& $list "$root\setting.config")
@@ -41,9 +42,7 @@ function getGuiEnvSnapshot {
         "LOCALAPPDATA\tebunko"       = (& $list (Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "tebunko"))
         "Office のプロセスの数"       = @(Get-Process -Name EXCEL, WINWORD, POWERPNT -ErrorAction SilentlyContinue).Count
     }
-    if ($env:GITHUB_ACTIONS -ne "true") {
-        $snapshot["既定のワークスペース"] = (& $list (Join-Path ([Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws"))
-    }
+    $snapshot["既定のワークスペース"] = (& $list (getRealDefaultWorkspace))
     return $snapshot
 }
 
@@ -82,7 +81,7 @@ function newGuiTool {
     $config = [ordered]@{ workspaceFolder = $work }
     foreach ($key in $Settings.Keys) { $config[$key] = $Settings[$key] }
     writeGuiConfig $tool $config
-    return @{ Dir = $tool; Work = $work; Config = "$tool\setting.config"; Gui = "$tool\scripts\tebunko\gui.ps1" }
+    return @{ Dir = $tool; Work = $work; Config = "$tool\setting.config"; Gui = "$tool\scripts\tebunko\gui.ps1"; DefaultWorkspace = (newGuiDefaultWorkspace $Dir) }
 }
 
 function newGuiSingleScriptTool {
@@ -106,7 +105,15 @@ function newGuiSingleScriptTool {
     $config = [ordered]@{ workspaceFolder = $work }
     foreach ($key in $Settings.Keys) { $config[$key] = $Settings[$key] }
     writeGuiConfig $tool $config
-    return @{ Dir = $tool; Work = $work; Config = "$tool\setting.config"; Gui = $scriptPath }
+    return @{ Dir = $tool; Work = $work; Config = "$tool\setting.config"; Gui = $scriptPath; DefaultWorkspace = (newGuiDefaultWorkspace $Dir) }
+}
+
+function newGuiDefaultWorkspace {
+    # 起動する画面の既定のワークスペース（環境変数 TEBUNKO_DEFAULT_WORKSPACE に渡す）。$Dir の中に作る（利用者の既定のワークスペースにしない）
+    param ([string]$Dir)
+    $path = Join-Path $Dir "default_workspace"
+    [void][IO.Directory]::CreateDirectory($path)
+    return $path
 }
 
 function writeGuiConfig {
@@ -126,7 +133,15 @@ function startGuiProcess {
     # このテストがすり抜けてしまうため）
     param ($Tool)
     $command = "& '$($Tool.Gui.Replace("'", "''"))'"
-    $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", $command) -PassThru -WindowStyle Hidden
+    # 既定のワークスペースを、$TestDrive の中に差し替えて起動する（起動した子のプロセスに引き継がれる。外れた値は例外にして起動しない）
+    assertNotRealWorkspace $Tool.DefaultWorkspace
+    $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
+    $env:TEBUNKO_DEFAULT_WORKSPACE = $Tool.DefaultWorkspace
+    try {
+        $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", $command) -PassThru -WindowStyle Hidden
+    } finally {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
+    }
     $null = $p.Handle   # ExitCode を取るため、起動の直後にハンドルを持つ
     return $p
 }

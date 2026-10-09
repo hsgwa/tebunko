@@ -37,6 +37,26 @@ function writeTestSettings {
     writeSettings $settings "$root\setting.config"
 }
 
+function assertIndexerWorkspaceIsolated {
+    # indexer.ps1 を動かす前に、取り込みの出力先（setting.config の workspaceFolder。空なら既定のワークスペース）が、
+    # テスト用の置き場所（root）の中か、差し替えた既定のワークスペースの中であることを確かめる。外なら例外にする
+    # （利用者の既定のワークスペースに取り込みの跡を付けないため）。Real・DefaultDir は、既定のワークスペースの代わりを渡して確かめるときに使う
+    param (
+        [string]$root,
+        [string]$real = (getRealDefaultWorkspace),
+        [string]$defaultDir = (getDefaultWorkDir)
+    )
+
+    $folder = ([string](readSettings "$root\setting.config").workspaceFolder).Trim()
+    $dir = if ($folder -eq "") { $defaultDir } else {
+        [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($root, [System.Environment]::ExpandEnvironmentVariables($folder)))
+    }
+    assertNotRealWorkspace $dir $real
+    if (!(testIsolationPathInside $dir $root) -and !(testIsolationPathInside $dir $defaultDir)) {
+        throw "取り込みの出力先がテスト用の置き場所の外です: $dir"
+    }
+}
+
 # 最後に動かしたインデックス作成の受け渡しの口（進み具合・エラーを確かめる）
 $script:lastChannel = $null
 
@@ -50,6 +70,7 @@ function runIndexer {
         [object[]]$breaks = @()
     )
 
+    assertIndexerWorkspaceIsolated $root
     $workers = if ($options.ContainsKey("Workers")) { $options.Workers } else { 0 }
     $channel = newIndexerChannel ([bool]$options.RetryFailed) ([bool]$options.ConfirmTargets) $workers
     if ($options.ContainsKey("OnlyNames")) {

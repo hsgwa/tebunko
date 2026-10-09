@@ -50,7 +50,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 
 ### 既定のワークスペースの直下
 
-`%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`）。ツールのフォルダに書けないときだけ、設定の置き場になる。
+`%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`。環境変数 `TEBUNKO_DEFAULT_WORKSPACE` があればその絶対パス）。ツールのフォルダに書けないときだけ、設定の置き場になる。
 
 | パス | 読む／書く | 内容 |
 |---|---|---|
@@ -124,6 +124,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | 設定値の `%…%`（`ExpandEnvironmentVariables`） | 読む | クロール対象フォルダ・ワークスペースに環境変数があれば展開する（`folder.ps1`・`settings.ps1`） |
 | カレントドライブ | 読む | `\server\share` のように `\` ひとつで始まる、ドライブ名の無いパス（今のドライブのパスには直さず、書かれたとおりに扱う）。ドライブ名だけ（`D:`）はドライブ直下とする |
 | `TEBUNKO_GUI_LEFTOVER_FILE`（環境変数） | 読む | 画面のテスト用。残った Office の確認の行に偽の行を差し込むファイルの場所（利用者は使わない） |
+| `TEBUNKO_DEFAULT_WORKSPACE`（環境変数） | 読む | 開発・確かめ用。既定のワークスペースの場所を差し替える（絶対パスだけ。利用者は使わない） |
 
 ### 過去の版が残したものを消すときだけ触る場所
 

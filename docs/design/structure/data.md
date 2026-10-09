@@ -5,7 +5,7 @@
 tebunko が読み書きするファイルとフォルダの一覧（置き場ごと・配布形ごと）は、[どの処理がどのファイルを読み書きするか](io-files.md) にある。
 
 !!! note "設計書の `work/` の書き方"
-    設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を `work/` と書く。実際の場所は、既定では `%USERPROFILE%\Documents\tebunko_ws`、［設定］で変えたときはその場所である（下の「データの置き場所」）。開発用のリポジトリ直下の `work/`（`work/test/`・`work/release/`・`work/site/` など、git 管理外）は別のもの。
+    設計書では、ワークスペース（インデックス・取り込み一覧・ログを置くフォルダ）を `work/` と書く。実際の場所は、既定では `%USERPROFILE%\Documents\tebunko_ws`（テストと実機の確かめでは、環境変数 `TEBUNKO_DEFAULT_WORKSPACE` で使い捨ての場所に差し替える。[テストの実行](../testing/run.md#既定のワークスペースを守る)）、［設定］で変えたときはその場所である（下の「データの置き場所」）。開発用のリポジトリ直下の `work/`（`work/test/`・`work/release/`・`work/site/` など、git 管理外）は別のもの。
 
 ## 自動生成（`work/`）
 
