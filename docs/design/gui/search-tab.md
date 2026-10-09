@@ -91,8 +91,8 @@ flowchart TD
 
 - 形は、白地・赤い線 1・角丸 4・影（黒 16%・下に 2・ぼかし 8）で、中は赤いアイコンと赤い文字。マウスの操作は受けない（`IsHitTestVisible=False`）。出したとき、画面の読み上げにも知らせる（`LiveRegionChanged`）。
 - 正規表現が正しくないとき、検索ワードの欄の枠も赤くする（`WordErrorRing`）。
-- 広い幅では、正規表現の吹き出しは右側の「結果を絞り込み」の欄に重なる（操作は通る。吹き出しはマウスを受けない）。最小の幅では、種類の吹き出しは 2 行目に落ちた高速検索の印に重なる。どちらも位置は変えていない。
-- 作りは、検索バーの中の高さ 0 の `Canvas`（`BalloonLayer`）に置き、`search.xaml` で検索バーを結果の一覧より前に出して重ねる（`Popup` は別のウィンドウで、画面の読み上げ・自動操作から外れやすく、`Adorner` は置き場の層が増えるため使わない）。位置は `placeSearchBalloon`（`search_bar.ps1`）が決め、右端からはみ出すときは `getBalloonLeft`（`search_bar_view.ps1`）で左へ寄せる。文言と可否の判断は `getSearchKindBalloonText`・`getWordNotice`・`newSearchButtonState`（`search_bar_view.ps1`）。
+- 広い幅では、正規表現の吹き出しは右側の「結果を絞り込み」の欄に重なる（操作は通る。吹き出しはマウスを受けない）。最小の幅では、種類の吹き出しは 2 行目に落ちた高速検索の印に重なる。重なっても、吹き出しの位置はずらさない。
+- 作りは、検索バーの中の高さ 0 の `Canvas`（`BalloonLayer`）に置き、`search.xaml` で検索バーを結果の一覧より前に出して重ねる（`Popup` は別のウィンドウで、画面の読み上げ・自動操作から外れやすく、`Adorner` は置き場の層が増えるため使わない）。位置は `placeSearchBalloon`（`search_bar.ps1`）が決める。置き直すのは、吹き出しを出したときと、検索条件の並びを決め直したとき（`updateConditionFlow`）。右端からはみ出すときは `getBalloonLeft`（`search_bar_view.ps1`）で左へ寄せる。文言と可否の判断は `getSearchKindBalloonText`・`getWordNotice`・`newSearchButtonState`（`search_bar_view.ps1`）。
 
 ## 結果の表
 
