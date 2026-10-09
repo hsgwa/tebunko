@@ -50,6 +50,11 @@ jobs:
   test:
     needs: guard
     uses: ./.github/workflows/test.yml
+    # test.yml の pr-comment ジョブが pull-requests: write を求めるため、呼ぶ側でも許可する
+    # （足りないと、ワークフローが不正として起動しない）。タグの push では pr-comment 自体はスキップされる
+    permissions:
+      contents: read
+      pull-requests: write
 
   release:
     needs: [guard, test]
