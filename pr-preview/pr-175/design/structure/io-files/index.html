@@ -1855,10 +1855,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#前の版の片付けだけで触る場所" class="md-nav__link">
+  <a href="#過去の版が残したものを消すときだけ触る場所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        前の版の片付けだけで触る場所
+        過去の版が残したものを消すときだけ触る場所
       
     </span>
   </a>
@@ -4275,10 +4275,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#前の版の片付けだけで触る場所" class="md-nav__link">
+  <a href="#過去の版が残したものを消すときだけ触る場所" class="md-nav__link">
     <span class="md-ellipsis">
       
-        前の版の片付けだけで触る場所
+        過去の版が残したものを消すときだけ触る場所
       
     </span>
   </a>
@@ -4356,7 +4356,7 @@
     USER["利用者が選んだ場所"]
     INST["インストーラーが書く場所"]
     OS["OS・ほかのアプリの場所"]
-    OLD["前の版の片付けだけで触る場所"]
+    OLD["過去の版が残したものを消すときだけ触る場所"]
     APP["tebunko"]
     APP -- "読む・書く" --&gt; TOOL
     APP -- "書けないときだけ書く" --&gt; DEF
@@ -4530,9 +4530,9 @@
 <td>検索結果の出力</td>
 </tr>
 <tr>
-<td><code>work/index/</code>（前の版の本文インデックス）・<code>work/system_index/</code> の前の版の txt</td>
+<td><code>work/index/</code>（過去の版が置いた本文インデックス）・<code>work/system_index/</code> の古い名前の txt</td>
 <td>読む・消す</td>
-<td>前の版のしるしの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。新しい版は書かない</td>
+<td>残っているかの調べ・知らせ・［設定］の「移す」「消して最初から」のときだけ。ここには書かない</td>
 </tr>
 <tr>
 <td><code>work/release/</code>・<code>work/test/</code>・<code>work/site/</code>・<code>work/cache/</code></td>
@@ -4687,7 +4687,7 @@
 </tr>
 </tbody>
 </table>
-<h3 id="前の版の片付けだけで触る場所">前の版の片付けだけで触る場所<a class="headerlink" href="#前の版の片付けだけで触る場所" title="Permanent link">&para;</a></h3>
+<h3 id="過去の版が残したものを消すときだけ触る場所">過去の版が残したものを消すときだけ触る場所<a class="headerlink" href="#過去の版が残したものを消すときだけ触る場所" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -4700,10 +4700,10 @@
 <tr>
 <td><code>%TEMP%\tebunko\&lt;PID&gt;</code>（<code>legacyTmpParent</code>）</td>
 <td>消すだけ</td>
-<td>前の版が一時ファイルを置いていた場所。インデックス作成の始めに、終わったプロセスの分を消す。今の版は書かない</td>
+<td>過去の版が一時ファイルを置いていた場所。インデックス作成の始めに、終わったプロセスの分を消す。この場所には書かない</td>
 </tr>
 <tr>
-<td><code>&lt;ワークスペース&gt;\index\</code>（前の版の本文インデックス）と、前の名前の <code>system_index\</code> の txt</td>
+<td><code>&lt;ワークスペース&gt;\index\</code>（過去の版が置いた本文インデックス）と、古い名前の <code>system_index\</code> の txt</td>
 <td>読む・消す</td>
 <td>上の「ワークスペース」の最後から 2 行目のとおり</td>
 </tr>
@@ -4753,10 +4753,10 @@
 </table>
 <p>どの配布形も、インデックス・取り込み一覧・ログ（ワークスペース）は、既定または［設定］で選んだ場所に置く。設定の置き場は <code>$rootDir</code> に書けるかを起動のたびに調べて決まる（<a href="../data/">データの置き場所とパスの決め方</a>）。<code>startup_error.txt</code> は、どの配布形でもツールのフォルダの直下にだけ書く。</p>
 <h2 id="読まない書かない場所">読まない・書かない場所<a class="headerlink" href="#読まない書かない場所" title="Permanent link">&para;</a></h2>
-<p>次の場所には、今の版は書かない。</p>
+<p>次の場所には書かない。</p>
 <ul>
 <li><code>%LOCALAPPDATA%\tebunko</code>: 設定の逃げ先と起動失敗の記録に使っていたが、やめた。読みも書きもしない（インストーラー版の <code>%LOCALAPPDATA%\Programs\tebunko</code> は別で、ツールのフォルダ）。</li>
-<li><code>%TEMP%</code>: 一時ファイルはワークスペースの <code>tmp\</code> の下にだけ置く。前の版の <code>%TEMP%\tebunko\</code> の片付けのほかは触らない。</li>
+<li><code>%TEMP%</code>: 一時ファイルはワークスペースの <code>tmp\</code> の下にだけ置く。過去の版が残した <code>%TEMP%\tebunko\</code> を消すときのほかは触らない。</li>
 <li>レジストリ: インストーラーが書くアンインストールの情報を除き、読みも書きもしない。</li>
 <li>クロール対象フォルダ・元のファイル: 書かない（読むだけ）。</li>
 </ul>
