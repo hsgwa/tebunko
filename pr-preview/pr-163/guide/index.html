@@ -4216,7 +4216,7 @@
 <li><strong>実行ポリシー</strong>：<code>RemoteSigned</code> を、tebunko を起動する PowerShell のプロセスにだけ指定して起動します。PC の設定は変えません（<a href="../safety/disclosure/#remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由</a>）。実行ポリシーが <code>AllSigned</code> の PC では、スクリプトに署名するまで起動できません。</li>
 <li><strong><code>.bat</code> が禁止されている PC</strong>：インストーラー版を使うか、<a href="#tebunkobat-を使わずに起動するzip-版"><code>tebunko.bat</code> を使わずに起動する</a>方法を使います。</li>
 <li><strong>FIPS モード</strong>：動きます。</li>
-<li><strong>読み取り専用の場所に置いた場合</strong>：動きます。設定（<code>setting.config</code>）は <code>%LOCALAPPDATA%\tebunko\</code> の下に置かれます。</li>
+<li><strong>読み取り専用の場所に置いた場合</strong>：動きます。設定（<code>setting.config</code>）は既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）の直下に置かれます。</li>
 </ul>
 <p>安全性の資料は <a href="../safety/">安全性</a> にあります。情報システム部門への確認にお使いください。</p>
 <h3 id="確かめていない環境">確かめていない環境<a class="headerlink" href="#確かめていない環境" title="Permanent link">&para;</a></h3>

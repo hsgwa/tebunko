@@ -4094,7 +4094,7 @@
 <h2 id="画面のスモークテスト_1">画面のスモークテスト<a class="headerlink" href="#画面のスモークテスト_1" title="Permanent link">&para;</a></h2>
 <p>本物の画面（<code>scripts/tebunko/gui.ps1</code>）を別のプロセスとして開き、UI オートメーションで操作して、<strong>画面遷移が壊れていないこと</strong>を毎回機械で確かめる。XAML の読み込みの例外・読み込む順の誤り・イベントの配線の誤り・ダイアログの開閉と戻り方の誤り・閉じるときの後片付けの例外は、<a href="../gui-tests/#画面の単体テスト">画面の単体テスト</a>（<code>$ui</code> を偽物にして WPF を動かさない）では見つからず、手で動かすまで分からなかった。画面を足すたびに手で確かめる代わりに、このテストが通ることを見る。</p>
 <ul>
-<li>置き場所は <code>tests/gui/</code>、タグは <code>Gui</code>。共通の関数は <code>gui_helpers.ps1</code>、場面ごとのテストは <code>smoke</code>・<code>index</code>・<code>search</code>・<code>settings</code>・<code>process</code> の <code>*.Tests.ps1</code></li>
+<li>置き場所は <code>tests/gui/</code>、タグは <code>Gui</code>。共通の関数は <code>gui_helpers.ps1</code>、場面ごとのテストは <code>smoke</code>・<code>index</code>・<code>search</code>・<code>settings</code>・<code>leftover</code>・<code>leftover_real</code> の <code>*.Tests.ps1</code></li>
 <li>流し方は、CI が <code>gui.yml</code>（ジョブ <code>gui-smoke</code>。<a href="../ci/#ci"><code>gui.yml</code></a>）、手元が <code>.\tests\run.ps1 -Tag Gui</code>。既定の実行（<code>.\tests\run.ps1</code>）とコミット前のフックでは流さない。手元で流している間（約 4 分）は、マウス・キーボードに触らない</li>
 <li>起動・検索・取り込みの秒数は出力に出すだけで、合否には使わない（性能は <a href="../ci/#ci"><code>perf-check.yml</code></a> の回帰テストが見る）</li>
 </ul>
@@ -4185,6 +4185,12 @@
 <td><code>settings</code></td>
 <td><code>workspaceFolder</code> を空にし、既定のワークスペースにほかのファイルを置く</td>
 <td>起動時の警告 → 作成の開始で警告 → ［既定に戻す］→ 閉じる</td>
+</tr>
+<tr>
+<td>S7 起動時の確認</td>
+<td><code>leftover</code>・<code>leftover_real</code></td>
+<td><code>leftover</code>: 偽の行（環境変数で指す JSON）。<code>leftover_real</code>: 記録のある偽の Excel（PING.EXE を EXCEL.EXE の名前で写したもの）と、記録の無い偽の Excel。記録は画面のコピーの work の下</td>
+<td>起動 → 確認（件数・詳細の開け閉め）→ ［今回は終了しない］→ 起動し直す → ［終了する］（記録を読む → 取り直す → 照らし合わせる → 止める → 記録が消える）→ 記録の無いものだけのときは確認が出ない。止めるのは、テストが起動して PID を控えた偽のプロセスだけ（本物の Office は相手にしない）</td>
 </tr>
 <tr>
 <td>S9 ナビの切り替えと F5</td>
@@ -4495,26 +4501,26 @@
 </tr>
 <tr>
 <td>36</td>
-<td>［9］</td>
-<td>［更新］</td>
-<td>一覧（偽の Office プロセスが出る）</td>
-<td>–</td>
+<td>起動時</td>
+<td>記録のある残り物（持ち主がもういない・窓が無い）が 1 件ある</td>
+<td>確認「前回のインデックス作成で起動した Office が 1 件、残ったまま動いています」。記録の無い Office は数えない</td>
+<td>［今回は終了しない］で止まらない。詳細を開くと PID が並ぶ</td>
 <td>S7</td>
 </tr>
 <tr>
 <td>37</td>
-<td>［9］</td>
-<td>［すべて終了］［バックグラウンドのみ終了］</td>
-<td>確認「… 件終了しますか」</td>
-<td>［キャンセル］だけ。手元で偽のほかに Office が動いていれば飛ばす</td>
+<td>起動時</td>
+<td>起動し直す</td>
+<td>また確認が出る</td>
+<td>［終了する］で記録のあるプロセスだけが終わり、記録のファイルが消え、ステータスに「Office を 1 件終了しました。」が出る</td>
 <td>S7</td>
 </tr>
 <tr>
 <td>38</td>
-<td>［9］</td>
-<td>偽のプロセスを選んで［選択したプロセスを終了］</td>
-<td>確認 → ［終了する］で一覧から消える</td>
-<td>［キャンセル］／［終了する］</td>
+<td>起動時</td>
+<td>記録の無い Office だけが動いている</td>
+<td>確認が出ない</td>
+<td>–</td>
 <td>S7</td>
 </tr>
 </tbody>
@@ -4561,7 +4567,7 @@
 <td><code>tests/tebunko/ui/open_source.Tests.ps1</code>（コピーの内容の単体テスト）。リリース前の手の確かめ</td>
 </tr>
 <tr>
-<td>予期しない例外のメッセージボックス（<code>safe</code>・<code>trap</code>）、インデクサが続けられないエラー（終了コード 1）、閉じるときに 60 秒待って Office を止める</td>
+<td>予期しない例外のメッセージボックス（<code>safe</code>・<code>reportStartupFailure</code>）、インデクサが続けられないエラー（終了コード 1）、閉じるときに 60 秒待って Office を止める</td>
 <td>異常を起こすには本体に仕掛けが要る</td>
 <td><code>indexer.Tests.ps1</code>・<code>indexing_session.Tests.ps1</code>。スモークテストでは、これらの窓が出たらその文言で失敗にする</td>
 </tr>
