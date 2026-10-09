@@ -482,8 +482,10 @@ Describe "前の版の fileFilter" -Tag Io {
 }
 
 Describe "getWorkDir / writeWorkspaceFolder" -Tag Io {
-    It "設定が無ければ、既定の場所（%USERPROFILE%\Documents\tebunko_ws）" {
-        getWorkDir "$TestDrive\既定\setting.config" | Should -Be (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws")
+    It "設定が無ければ、既定の場所（%USERPROFILE%\Documents\tebunko_ws。テストでは環境変数で差し替わる）" {
+        getWorkDir "$TestDrive\既定\setting.config" | Should -Be (getDefaultWorkDir)
+        getWorkDir "$TestDrive\既定\setting.config" | Should -Be $env:TEBUNKO_DEFAULT_WORKSPACE.TrimEnd("\", "/")
+        getDefaultWorkDir ([System.Environment]::GetFolderPath("UserProfile")) | Should -Be (getRealDefaultWorkspace)
     }
 
     It "保存したフォルダを返し、ほかの設定は保つ" {
@@ -574,6 +576,52 @@ Describe "testSettingsFileName / testDefaultWorkspace（設定ファイルとそ
         (testDefaultWorkspace $dir).Usable | Should -Be $Usable
     }
 }
+Describe "getDefaultWorkDir の差し替え（環境変数 TEBUNKO_DEFAULT_WORKSPACE）" -Tag Io {
+    # 場所を求めるだけで、そこに書かない。環境変数は必ず元に戻す（外したまま後のテストが書くと、本物の既定のワークスペースに書く）
+    BeforeEach {
+        $script:savedWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
+    }
+    AfterEach {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = $script:savedWorkspace
+    }
+
+    It "<Case>" -TestCases @(
+        @{ Case = "未設定なら、プロファイルの Documents\tebunko_ws"; Value = $null; Expected = (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws") }
+        @{ Case = "空なら、プロファイルの Documents\tebunko_ws"; Value = ""; Expected = (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws") }
+        @{ Case = "空白だけなら、プロファイルの Documents\tebunko_ws"; Value = "  "; Expected = (Join-Path ([System.Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws") }
+        @{ Case = "絶対パスならそれ"; Value = "C:\Users\test\ws"; Expected = "C:\Users\test\ws" }
+        @{ Case = "末尾の区切りは除く"; Value = "C:\Users\test\ws\"; Expected = "C:\Users\test\ws" }
+        @{ Case = "ドライブ直下の区切りが / でもよい"; Value = "D:/work/ws"; Expected = "D:/work/ws" }
+        @{ Case = "UNC のパスもよい"; Value = "\\server\share\ws"; Expected = "\\server\share\ws" }
+    ) {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = $Value
+        getDefaultWorkDir | Should -Be $Expected
+    }
+
+    It "絶対パスでない値は例外にする（黙って本物に戻らない）: <Value>" -TestCases @(
+        @{ Value = "ws" }
+        @{ Value = "..\ws" }
+        @{ Value = "\ws" }
+        @{ Value = "C:ws" }
+        @{ Value = "\\server" }
+    ) {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = $Value
+        { getDefaultWorkDir } | Should -Throw "*絶対パス*"
+    }
+
+    It "引数でプロファイルを渡したときは、環境変数を見ない" {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = "C:\Users\test\ws"
+        getDefaultWorkDir "C:\Users\test" | Should -Be "C:\Users\test\Documents\tebunko_ws"
+    }
+
+    It "getWorkDir（workspaceFolder が空）と、設定ファイルの逃げ先も、差し替えた場所になる" {
+        $env:TEBUNKO_DEFAULT_WORKSPACE = "$TestDrive\差し替えた既定"
+        getWorkDir "$TestDrive\無い設定\setting.config" | Should -Be "$TestDrive\差し替えた既定"
+        # ツールのフォルダに書けない（存在しない）とき、設定ファイルは既定のワークスペースの直下
+        getSettingsFilePath "$TestDrive\無いツール" (getDefaultWorkDir) | Should -Be "$TestDrive\差し替えた既定\setting.config"
+    }
+}
+
 Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -Tag Io {
     It "既定はプロファイルの Documents\tebunko_ws（OneDrive のドキュメントではない）" {
         getDefaultWorkDir "C:\Users\test" | Should -Be "C:\Users\test\Documents\tebunko_ws"

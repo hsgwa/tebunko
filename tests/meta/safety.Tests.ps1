@@ -75,12 +75,20 @@ BeforeAll {
         }
         # 環境変数は SystemRoot（メモ帳を開く）と、画面のテストが差し込む TEBUNKO_GUI_LEFTOVER_FILE だけ
         $allowedEnv = @("systemroot", "tebunko_gui_leftover_file")
+        # 加えて、既定のワークスペースを差し替える TEBUNKO_DEFAULT_WORKSPACE は、settings.ps1 が 1 回だけ読む（テストや実機の確かめが本物のワークスペースに書かないための口）
+        $workspaceEnvCount = 0
         foreach ($line in $codeLines) {
             foreach ($match in [regex]::Matches($line.Text, '(?i)\$\{?env:(\w+)')) {
-                if ($allowedEnv -notcontains $match.Groups[1].Value.ToLowerInvariant()) {
+                $name = $match.Groups[1].Value.ToLowerInvariant()
+                if ($name -eq "tebunko_default_workspace" -and $line.File -eq "settings.ps1") {
+                    $workspaceEnvCount++
+                } elseif ($allowedEnv -notcontains $name) {
                     $problems.Add("環境変数: $($line.File):$($line.Line) $($match.Value)")
                 }
             }
+        }
+        if ($workspaceEnvCount -gt 1) {
+            $problems.Add("環境変数: TEBUNKO_DEFAULT_WORKSPACE を読む行が $workspaceEnvCount 回")
         }
         foreach ($line in @($codeLines | Where-Object { $_.Text -match '(?i)GetEnvironmentVariable' })) {
             $problems.Add("GetEnvironmentVariable: $($line.File):$($line.Line)")
@@ -355,6 +363,7 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         @{ Case = '${env:TEMP}'; File = "x.ps1"; Text = '$d = "${env:TEMP}\a"'; Bat = ""; Rules = @("環境変数", "禁止の語") }
         @{ Case = 'env:TEMP'; File = "x.ps1"; Text = '$t = $env:TEMP'; Bat = ""; Rules = @("環境変数", "禁止の語") }
         @{ Case = '環境変数 env:USERPROFILE'; File = "x.ps1"; Text = '$t = $env:USERPROFILE'; Bat = ""; Rules = @("環境変数") }
+        @{ Case = 'TEBUNKO_DEFAULT_WORKSPACE を別のファイルで読む'; File = "x.ps1"; Text = '$d = $env:TEBUNKO_DEFAULT_WORKSPACE'; Bat = ""; Rules = @("環境変数") }
         @{ Case = '禁止の語だけ: パスの AppData'; File = "x.ps1"; Text = '$d = "$base\AppData\Local\tebunko"'; Bat = ""; Rules = @("禁止の語") }
         @{ Case = '禁止の語だけ: コードの中の %TEMP%'; File = "x.ps1"; Text = 'cmd /c "echo %TEMP%"'; Bat = ""; Rules = @("禁止の語") }
         @{ Case = 'LocalApplicationData'; File = "x.ps1"; Text = '$d = [System.Environment]::GetFolderPath("LocalApplicationData")'; Bat = ""; Rules = @("GetFolderPath") }
@@ -398,9 +407,19 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
             [pscustomobject]@{ File = "settings.ps1"; Line = 3; Text = '    $folder = [System.Environment]::ExpandEnvironmentVariables($folder)' }
             [pscustomobject]@{ File = "shell.ps1"; Line = 4; Text = 'Start-Process -FilePath "$env:SystemRoot\System32\notepad.exe"' }
             [pscustomobject]@{ File = "x.ps1"; Line = 5; Text = '$x = $env:TEBUNKO_GUI_LEFTOVER_FILE' }
+            [pscustomobject]@{ File = "settings.ps1"; Line = 6; Text = '    $override = $env:TEBUNKO_DEFAULT_WORKSPACE' }
         )
         @(getWritePlaceViolations $lines 'set "PS1=%SystemRoot%\System32\a.exe"
 set "PSCMD=%PSCMD%x"').Count | Should -Be 0
+    }
+
+    It "書き込み先の検査は、TEBUNKO_DEFAULT_WORKSPACE を settings.ps1 が 2 回読むと落ちる" {
+        $lines = @(
+            [pscustomobject]@{ File = "settings.ps1"; Line = 1; Text = '$a = $env:TEBUNKO_DEFAULT_WORKSPACE' }
+            [pscustomobject]@{ File = "settings.ps1"; Line = 2; Text = '$b = $env:TEBUNKO_DEFAULT_WORKSPACE' }
+        )
+        $found = @(getWritePlaceViolations $lines "" | ForEach-Object { ($_ -split ':')[0] } | Sort-Object -Unique)
+        ($found -join ",") | Should -Be "環境変数"
     }
 
     It "ドライブ直下・システムフォルダを直接指す書き込み先が無い" {

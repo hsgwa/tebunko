@@ -23,9 +23,24 @@ flowchart LR
 | `tests/tebunko/search/` | `search_query`・`search_run`・`pack_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
 | `tests/tebunko/ui/` | 画面の判断層（`index_view`・`indexing_view`・`search\*_view`・`preview_view`・`settings\settings_view`）と、`$ui` を偽物にした画面の部品（`result_list`・`open_source`・`preview`・`index_tree`）・型（`types`） |
 | `tests/gui/` | 画面のスモークテスト（`gui_helpers`＝共通の関数、`smoke`・`index`・`search`・`settings`・`leftover`・`leftover_real`＝場面。タグ `Gui`。[画面のスモークテスト](gui-smoke.md)） |
-| `tests/tools/` | 開発用の道具（`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`） |
-| `tests/meta/` | 構成を守るテスト（`structure`・`encoding`・`layers`・`links`・`runner`・`classes`）と安全性の検査（`safety`・`installer`） |
+| `tests/tools/` | 開発用の道具（`run_isolated`・`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`） |
+| `tests/meta/` | 構成を守るテスト（`structure`・`encoding`・`layers`・`links`・`runner`・`classes`・`test_isolation`）と安全性の検査（`safety`・`installer`） |
 | `tests/testdata/` | 手動の結合テスト用のデータ（[結合テスト（手動）](index.md#結合テスト手動)）と、その生成（`make_testdata.ps1`）・個人情報の除去（`scrub_personal`） |
+
+## 本物のワークスペースを守る
+
+テストと実機の確かめは、利用者の本物の既定のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）に書かない。既定のワークスペースは環境変数 `TEBUNKO_DEFAULT_WORKSPACE` で差し替えられる（`getDefaultWorkDir`。絶対パスだけ。引数の `profileDir` を明示したときは使わない）。この変数は子のプロセス（画面・`indexer.ps1`・単一 .ps1 版）にも引き継がれる。
+
+| 守り | 内容 |
+|---|---|
+| `tests/run.ps1` | Pester の前に使い捨てのフォルダを作って変数に入れる。入れた場所が本物の場所と同じかその下なら、流さずに止まる。流す前後で本物の名前・大きさ・更新時刻（中身は読まない）を比べ、違えば失敗にする（どのタグでも） |
+| `tests/helpers/load.ps1` | `lib.ps1` を読む前に、変数が空なら使い捨てを入れる（`Invoke-Pester` を直接流したとき）。`initWorkspace` のあとで、決まったワークスペースが本物でないことを確かめる |
+| `tests/gui/gui_helpers.ps1` | 画面の起動の前に、既定のワークスペースが本物でないことを確かめ、画面のプロセスにだけ変数を渡す。前後の写しに本物の既定のワークスペースを含める |
+| `runIndexer`（`tests/helpers/indexer.ps1`） | `indexer.ps1` を動かす前に、取り込みの出力先が使い捨ての中であることを確かめる |
+| `tools/capture_screens.ps1` | 撮る前に使い捨てを入れ、撮り終えたあとで本物の前後を比べる |
+| `tests/meta/test_isolation.Tests.ps1` | 上の仕組みが残っていること、`initWorkspace` や `workspaceFolder = ""` を差し替えずに使う書き方が決まったファイルの外に無いことを確かめる |
+
+実機で画面や取り込みを確かめるときは `tools/run_isolated.ps1` を通す。`%TEMP%` の下の新しいフォルダに `scripts\` と `tebunko.bat` の写し・`setting.config`（`-Settings` で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と `work` の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。終わったら、本物の既定のワークスペースと、リポジトリの `setting.config`・`work\` の前後を比べ、違いがあれば一覧を出して終了コード 1 にする。共通の関数は `tools/isolation/isolation_common.ps1`。
 
 入力と期待値だけが違うテストは、`-TestCases` の 1 つの `It` にまとめる（例: `tests/tebunko/ui/types.Tests.ps1` の `HitRow.Contains`）。表は `It` の中にそのまま書き、計算で作らない。キーには `input`・`args`・`_`・`Matches` など PowerShell の自動変数の名前を使わない。各行に `name` を持たせ、`It "<name>"` で失敗した行が分かるようにする。表の中で変数（`$stateDone` など）を使うときは、`BeforeDiscovery` で用意する（表はテストを探す段階で作られ、`BeforeAll` より先に評価されるため）。
 

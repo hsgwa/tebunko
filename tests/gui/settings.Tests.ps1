@@ -1,4 +1,4 @@
-﻿# 画面のスモークテスト S5: ワークスペースの変更、S6: 既定のワークスペース（CI だけ）（共通の関数は gui_helpers.ps1）。
+﻿# 画面のスモークテスト S5: ワークスペースの変更、S6: 既定のワークスペース（共通の関数は gui_helpers.ps1）。
 # 画面遷移の一覧（docs\design\testing\gui-smoke.md「画面のスモークテスト」）の #30〜#34 を S5 で、#5・#22・#35 を S6 で確かめる。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
@@ -98,40 +98,25 @@ Describe "S5 ワークスペースの変更" -Tag Gui {
     }
 }
 
-# S6 は、既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws。利用者の本物のワークスペース）を使う。手元で流すと利用者のワークスペースに
-# 触るため、CI（GITHUB_ACTIONS）だけで流す。手元では、理由を出して飛ばす
-Describe "S6 既定のワークスペース（CI だけ）" -Tag Gui {
+# S6 は、既定のワークスペースを使う場面。既定は環境変数 TEBUNKO_DEFAULT_WORKSPACE で $TestDrive の中に差し替えて起動する
+# （利用者の本物の既定のワークスペースには触れない。手元でも CI でも流す）
+Describe "S6 既定のワークスペース" -Tag Gui {
     BeforeAll {
-        $script:runS6 = ($env:GITHUB_ACTIONS -eq "true")
-        if ($script:runS6) {
-            $script:defaultWork = Join-Path ([Environment]::GetFolderPath("UserProfile")) "Documents\tebunko_ws"
-            $script:defaultWorkExisted = Test-Path -LiteralPath $script:defaultWork
-            $script:tool = newGuiTool $TestDrive @{ workspaceFolder = "" }
-            $script:source = Join-Path $TestDrive "元のフォルダ\営業"
-            newGuiSourceFolder $script:source
-            $config = readGuiConfig $script:tool
-            $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $script:source; enabled = $true }) -Force
-            writeGuiConfig $script:tool.Dir $config
-            # 既定のワークスペースに、tebunko のものではないファイルを置く
-            [void][IO.Directory]::CreateDirectory($script:defaultWork)
-            Set-Content -LiteralPath "$script:defaultWork\ほかのファイル.txt" -Value "ほかのファイル" -Encoding UTF8
-            $script:emptyDir = Join-Path $TestDrive "空のフォルダ"
-            [void][IO.Directory]::CreateDirectory($script:emptyDir)
-        }
-    }
-
-    AfterAll {
-        # 流したのは CI のランナーだけ。作ったものを消す
-        if ($script:runS6 -and !$script:defaultWorkExisted -and (Test-Path -LiteralPath $script:defaultWork)) {
-            Remove-Item -LiteralPath $script:defaultWork -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        $script:tool = newGuiTool $TestDrive @{ workspaceFolder = "" }
+        $script:defaultWork = $script:tool.DefaultWorkspace
+        $script:source = Join-Path $TestDrive "元のフォルダ\営業"
+        newGuiSourceFolder $script:source
+        $config = readGuiConfig $script:tool
+        $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "営業"; path = $script:source; enabled = $true }) -Force
+        writeGuiConfig $script:tool.Dir $config
+        # 既定のワークスペースに、tebunko のものではないファイルを置く
+        [void][IO.Directory]::CreateDirectory($script:defaultWork)
+        Set-Content -LiteralPath "$script:defaultWork\ほかのファイル.txt" -Value "ほかのファイル" -Encoding UTF8
+        $script:emptyDir = Join-Path $TestDrive "空のフォルダ"
+        [void][IO.Directory]::CreateDirectory($script:emptyDir)
     }
 
     It "起動時の警告・作成の開始の警告・［既定に戻す］が動く" {
-        if (!$script:runS6) {
-            Set-ItResult -Skipped -Because "既定のワークスペース（利用者の本物のワークスペース）を使うため、CI（GITHUB_ACTIONS）だけで流す"
-            return
-        }
         $S = startGui $script:tool "S6"
         invokeGuiScene $S {
             # 既定のワークスペースにほかのファイルがあると、起動時に警告が出て、［設定］が選ばれる（#5）
