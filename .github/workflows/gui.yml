@@ -27,7 +27,7 @@ on:
 
 # 同じブランチに続けて push したときは、古い実行を取り消す
 concurrency:
-  group: gui-${{ github.workflow }}-${{ github.ref }}
+  group: gui-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

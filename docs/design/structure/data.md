@@ -103,6 +103,7 @@ flowchart LR
     W --> RS["ResultFile<br>Dir\search_results.txt"]
     W --> IL["IndexingLogFile<br>Dir\indexing_log.txt"]
     W --> GE["GuiErrorLogFile<br>Dir\gui_error_log.txt"]
+    W --> CT["CloseTraceFile<br>Dir\close_trace.txt"]
 ```
 
 - 関数は、ワークスペースの中の場所を既定値で `$workspace` から取る（例 `[string]$path = $workspace.StatusFile`）。既定値は呼んだときに決まるため、`$workspace` を差し替えれば、読み込み直さずに別のワークスペースを使う。
@@ -124,3 +125,4 @@ flowchart LR
 | `ResultFile` | `<Dir>\search_results.txt` |
 | `IndexingLogFile` | `<Dir>\indexing_log.txt`（インデクサの表示内容の記録。実行ごとに上書き） |
 | `GuiErrorLogFile` | `<Dir>\gui_error_log.txt`（画面で起きた予期しないエラーの記録。追記。共通基盤の `writeErrorLog` は、画面が定義する `getGuiErrorLogFile` からこの場所を得る） |
+| `CloseTraceFile` | `<Dir>\close_trace.txt`（閉じる順番の記録。環境変数 `TEBUNKO_CLOSE_TRACE=1` のときだけ、閉じる途中に 1 行ずつ追記する。画面のテストの診断用） |

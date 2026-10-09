@@ -286,28 +286,55 @@ function selectGuiCrashEvents {
     })
 }
 
+function selectGuiCrashEventsWithoutPid {
+    # 種類（guiCrashProviders）と時刻（起動以降）は合うが、本文にそのプロセス ID が無いイベントを返す。
+    # .NET Runtime（1026）・Windows Error Reporting（1001）・Application Hang（1002）は、本文にプロセス ID を書かないことがあるため、
+    # PID だけで当てると全部「該当なし」になる。PID で当たったものとは分けて扱う
+    param ($Events, [int]$ProcessId, [datetime]$Since)
+
+    return @(@($Events) | Where-Object {
+        $_ -and $_.ProviderName -in ${guiCrashProviders} -and $_.TimeCreated -ge $Since -and -not (matchGuiEventProcessId ([string]$_.Message) $ProcessId)
+    })
+}
+
 function getGuiCrashInfo {
     # 終了コードが 0 でないとき（reportStartupFailure が返す 1 の exit も含む）、Windows のイベントログ（Application）から、
-    # そのプロセスが動いていた間（起動の時刻から今まで）の記録のうち、障害の種類のもので、本文にそのプロセス ID があるものを探す。
+    # そのプロセスが動いていた間（起動の時刻から今まで）の記録のうち、障害の種類のものを探す。2 段に分けて書く。
+    #   1. 本文にそのプロセス ID があるもの（確実に当たる）
+    #   2. PID を書かない種類のために、同じ時間の範囲・同じ種類で、PID が本文に無いもの
+    # 2 は、GitHub Actions のランナー（GITHUB_ACTIONS が立つ。使い捨ての機械）では先頭 3 件の本文まで書く。
+    # 手元の実行では、メンテナの実機のほかのアプリの記録の本文をファイルに残さないよう、件数だけにする。
     # 見つからなくても「該当なし」と探した範囲を返す（探したが無かったのか、探していないのかを区別できるように）
     param ([int]$ProcessId, [datetime]$Since)
 
-    $range = "Application ログ、$($Since.ToString('yyyy-MM-dd HH:mm:ss')) 以降、種類: $(${guiCrashProviders} -join '・')、本文の PID $ProcessId（10 進数・0x 付きの 16 進数）"
+    $range = "Application ログ、$($Since.ToString('yyyy-MM-dd HH:mm:ss')) 以降、種類: $(${guiCrashProviders} -join '・')"
     try {
         $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $Since } -ErrorAction SilentlyContinue
-        $found = @(selectGuiCrashEvents $events $ProcessId $Since | Select-Object -First 5)
-        if ($found.Count -eq 0) {
-            return @("該当なし（探した範囲: $range）")
+        $result = New-Object System.Collections.ArrayList
+        $byPid = @(selectGuiCrashEvents $events $ProcessId $Since)
+        if ($byPid.Count -eq 0) {
+            [void]$result.Add("PID で当たった記録: 該当なし（探した範囲: $range、本文の PID $ProcessId（10 進数・0x 付きの 16 進数））")
+        } else {
+            [void]$result.Add("PID で当たった記録: $($byPid.Count) 件（先頭 5 件）")
+            foreach ($e in @($byPid | Select-Object -First 5)) { [void]$result.Add("[$($e.TimeCreated)] $($e.ProviderName)（ID $($e.Id)）: $($e.Message)") }
         }
-        return @($found | ForEach-Object { "[$($_.TimeCreated)] $($_.ProviderName)（ID $($_.Id)）: $($_.Message)" })
+        $byTime = @(selectGuiCrashEventsWithoutPid $events $ProcessId $Since)
+        if ($byTime.Count -eq 0) {
+            [void]$result.Add("PID を問わず時間で拾った記録: 該当なし（探した範囲: $range）")
+        } elseif ($env:GITHUB_ACTIONS) {
+            [void]$result.Add("PID を問わず時間で拾った記録（本文に PID が無い。別のプロセスの記録を含み得る）: $($byTime.Count) 件（先頭 3 件）")
+            foreach ($e in @($byTime | Select-Object -First 3)) { [void]$result.Add("[$($e.TimeCreated)] $($e.ProviderName)（ID $($e.Id)）: $($e.Message)") }
+        } else {
+            [void]$result.Add("PID を問わず時間で拾った記録: $($byTime.Count) 件（手元の実行では、ほかのアプリの記録の本文を残さないため、件数だけ。本文は GitHub Actions の実行でだけ書く）")
+        }
+        return @($result)
     } catch {
         return @("イベントログを読めなかった（探す範囲: $range）: $($_.Exception.Message)")
     }
 }
-
 function getGuiExitRecord {
     # 終了の様子の記録（終了の記録.txt の中身）。閉じる前の様子・終わった時刻・閉じる操作から終わるまでの秒数・子がまだ動いているか・
-    # 呼び出し元に戻った印（gui_returned_<PID>.txt）・閉じる順番の記録（ワークスペースの close_trace.txt）
+    # 呼び出し元に戻った印（gui_returned_<PID>.txt）・閉じる順番の記録（ツールのフォルダの下の close_trace.txt）
     param ($S)
 
     $lines = New-Object System.Collections.ArrayList
@@ -336,15 +363,20 @@ function getGuiExitRecord {
             [void]$lines.Add("終わったあとの子 $($child.Name)（PID $($child.Id)）: $(if ($alive) { 'まだ動いている' } else { '終わっている' })")
         }
     }
-    & $part "gui_returned.txt" {
+    & $part "gui_returned_<PID>.txt" {
         $file = Join-Path $S.Tool.Dir "gui_returned_$($S.Process.Id).txt"
-        [void]$lines.Add("---- gui_returned.txt（呼び出し元に戻った印。無ければ戻る前にプロセスが終わった） ----")
+        [void]$lines.Add("---- gui_returned_$($S.Process.Id).txt（呼び出し元に戻った印。無ければ戻る前にプロセスが終わった） ----")
         if (Test-Path -LiteralPath $file) { [void]$lines.Add([IO.File]::ReadAllText($file)) } else { [void]$lines.Add("無い") }
     }
     & $part "close_trace.txt" {
-        $file = Join-Path $S.Tool.Work "close_trace.txt"
+        # ワークスペースを切り替える場面では、記録が作業フォルダ（Work）の外のワークスペースに書かれる。ツールのフォルダの下を全部探し、場所を付けて写す
+        $files = @(Get-ChildItem -LiteralPath $S.Tool.Dir -Filter "close_trace.txt" -Recurse -File -ErrorAction SilentlyContinue)
         [void]$lines.Add("---- close_trace.txt（閉じる順番の記録。最後の行が、止まる前に着いた節目） ----")
-        if (Test-Path -LiteralPath $file) { [void]$lines.AddRange(@([IO.File]::ReadAllLines($file))) } else { [void]$lines.Add("無い") }
+        if ($files.Count -eq 0) { [void]$lines.Add("無い") }
+        foreach ($f in $files) {
+            [void]$lines.Add("場所: $($f.FullName.Substring($S.Tool.Dir.TrimEnd('\').Length).TrimStart('\'))")
+            [void]$lines.AddRange(@([IO.File]::ReadAllLines($f.FullName)))
+        }
     }
     return @($lines)
 }
@@ -724,9 +756,16 @@ function saveGuiEvidence {
         }
     }
     & $save "ログの写し" {
-        foreach ($name in "gui_error_log.txt", "indexing_log.txt", "close_trace.txt") {
+        foreach ($name in "gui_error_log.txt", "indexing_log.txt") {
             $file = Join-Path $S.Tool.Work $name
             if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
+        }
+        # 閉じる順番の記録は、ワークスペースを切り替える場面でも拾えるよう、ツールのフォルダの下を全部探す（場所は名前に入れる）
+        $toolRoot = $S.Tool.Dir.TrimEnd('\')
+        foreach ($f in @(Get-ChildItem -LiteralPath $S.Tool.Dir -Filter "close_trace.txt" -Recurse -File -ErrorAction SilentlyContinue)) {
+            $place = $f.DirectoryName.Substring($toolRoot.Length).Trim('\').Replace('\', '_')
+            $copyName = if ($place) { "close_trace（$place）.txt" } else { "close_trace.txt" }
+            Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $dest $copyName) -Force
         }
     }
     & $save "クラッシュ情報" {

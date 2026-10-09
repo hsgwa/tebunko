@@ -39,12 +39,67 @@ Describe "selectGuiCrashEvents" -Tag Unit {
         @{ Name = "起動の前の記録は拾わない"; Provider = "Application Error"; Offset = -1; Message = "pid 4242"; Expected = 0 }
         @{ Name = "別の PID の記録は拾わない"; Provider = "Application Error"; Offset = 1; Message = "pid 1234"; Expected = 0 }
     ) {
-        $event = newFakeEvent $Provider $script:since.AddMinutes($Offset) $Message
-        @(selectGuiCrashEvents @($event) 4242 $script:since).Count | Should -Be $Expected
+        $fake = newFakeEvent $Provider $script:since.AddMinutes($Offset) $Message
+        @(selectGuiCrashEvents @($fake) 4242 $script:since).Count | Should -Be $Expected
     }
 
     It "イベントが 0 件（null）でも例外にならない" {
         @(selectGuiCrashEvents $null 4242 $script:since).Count | Should -Be 0
+    }
+}
+
+Describe "selectGuiCrashEventsWithoutPid・getGuiCrashInfo" -Tag Unit {
+    BeforeAll {
+        $script:since = [datetime]"2026-10-10 10:00:00"
+        $script:runtimeBody = "Application: powershell.exe`nFramework Version: v4.0.30319`nException Info: System.InvalidOperationException"
+    }
+
+    It "<Name>" -TestCases @(
+        @{ Name = "PID を書かない .NET Runtime は、PID を問わない拾い方で拾う"; Provider = ".NET Runtime"; Offset = 1; Message = $script:runtimeBody; Expected = 1 }
+        @{ Name = "PID が入っているものは、こちらには入れない（PID で当たる側に出る）"; Provider = "Application Error"; Offset = 1; Message = "pid 0x1092"; Expected = 0 }
+        @{ Name = "種類の外は拾わない"; Provider = "MsiInstaller"; Offset = 1; Message = "x"; Expected = 0 }
+        @{ Name = "起動の前の記録は拾わない"; Provider = ".NET Runtime"; Offset = -1; Message = "x"; Expected = 0 }
+    ) {
+        $fake = newFakeEvent $Provider $script:since.AddMinutes($Offset) $Message 1026
+        @(selectGuiCrashEventsWithoutPid @($fake) 4242 $script:since).Count | Should -Be $Expected
+    }
+
+    It "GitHub Actions のランナーでは、PID を書かない記録の本文まで書く（PID で当たったものとは分ける）" {
+        $savedCi = $env:GITHUB_ACTIONS
+        try {
+            $env:GITHUB_ACTIONS = "true"
+            Mock Get-WinEvent { @(
+                (newFakeEvent ".NET Runtime" ([datetime]::Now.AddMinutes(1)) $script:runtimeBody 1026),
+                (newFakeEvent "Application Error" ([datetime]::Now.AddMinutes(1)) "pid 0x1092" 1000)
+            ) }
+            $text = (getGuiCrashInfo 4242 ([datetime]::Now.AddMinutes(-5))) -join "`n"
+        } finally {
+            $env:GITHUB_ACTIONS = $savedCi
+        }
+        $text | Should -Match "PID で当たった記録: 1 件"
+        $text | Should -Match "PID を問わず時間で拾った記録.*: 1 件"
+        $text | Should -Match "InvalidOperationException"
+    }
+
+    It "手元の実行では、PID を書かない記録は件数だけで、本文を残さない" {
+        $savedCi = $env:GITHUB_ACTIONS
+        try {
+            $env:GITHUB_ACTIONS = $null
+            Mock Get-WinEvent { @((newFakeEvent ".NET Runtime" ([datetime]::Now.AddMinutes(1)) $script:runtimeBody 1026)) }
+            $text = (getGuiCrashInfo 4242 ([datetime]::Now.AddMinutes(-5))) -join "`n"
+        } finally {
+            $env:GITHUB_ACTIONS = $savedCi
+        }
+        $text | Should -Match "PID で当たった記録: 該当なし"
+        $text | Should -Match "PID を問わず時間で拾った記録: 1 件"
+        $text | Should -Not -Match "InvalidOperationException"
+    }
+
+    It "どちらも無ければ、探した範囲つきで該当なしと書く" {
+        Mock Get-WinEvent { @() }
+        $text = (getGuiCrashInfo 4242 ([datetime]::Now.AddMinutes(-5))) -join "`n"
+        $text | Should -Match "PID で当たった記録: 該当なし（探した範囲"
+        $text | Should -Match "PID を問わず時間で拾った記録: 該当なし（探した範囲"
     }
 }
 
@@ -110,8 +165,22 @@ Describe "getGuiExitRecord" -Tag Unit {
 
         $text = (getGuiExitRecord $S) -join "`n"
 
-        $text | Should -Match "gui_returned\.txt"
+        $text | Should -Match "gui_returned_1\.txt（呼び出し元に戻った印.*\n無い"
+        $text | Should -Match "close_trace\.txt（閉じる順番の記録.*\n無い"
         $text | Should -Match "控えていない"
+    }
+
+    It "ワークスペースを切り替える場面のように、作業フォルダの外にある閉じる順番の記録も、場所を付けて写す" {
+        $dir = Join-Path $TestDrive "tool3"
+        [void][IO.Directory]::CreateDirectory("$dir\work")
+        [void][IO.Directory]::CreateDirectory("$dir\ws2")
+        [IO.File]::WriteAllText("$dir\ws2\close_trace.txt", "10:00:00.100`t別のワークスペースの節目`tスレッド 30`r`n")
+        $S = @{ Scene = "S2c"; Step = "閉じる"; Tool = @{ Dir = $dir; Work = "$dir\work" }; Process = [pscustomobject]@{ Id = 1; ExitCode = 5; ExitTime = Get-Date } }
+
+        $text = (getGuiExitRecord $S) -join "`n"
+
+        $text | Should -Match "場所: ws2\\close_trace\.txt"
+        $text | Should -Match "別のワークスペースの節目"
     }
 }
 
@@ -129,8 +198,13 @@ Describe "getGuiProcessCommand" -Tag Io {
             param ($Tool)
             $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-Command", (getGuiProcessCommand $Tool)) -PassThru -WindowStyle Hidden
             $null = $p.Handle
-            [void]$p.WaitForExit(60000)
-            return $p.ExitCode
+            try {
+                if (-not $p.WaitForExit(60000)) { throw "起動した powershell.exe が 60 秒で終わらなかった" }
+                return $p.ExitCode
+            } finally {
+                # 終わらなかったときは、起動した PID だけを止める
+                if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+            }
         }
     }
 
