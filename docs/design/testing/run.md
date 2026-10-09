@@ -40,7 +40,7 @@ flowchart LR
 | `tools/capture_screens.ps1` | 撮る前に使い捨てを入れ、撮り終えたあとで本物の前後を比べる |
 | `tests/meta/test_isolation.Tests.ps1` | 上の仕組みが残っていること、`initWorkspace` や `workspaceFolder = ""` を差し替えずに使う書き方が決まったファイルの外に無いことを確かめる |
 
-実機で画面や取り込みを確かめるときは `tools/run_isolated.ps1` を通す。`%TEMP%` の下の新しいフォルダに `scripts\` と `tebunko.bat` の写し・`setting.config`（`-Settings` で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と `work` の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。終わったら、本物の既定のワークスペースと、リポジトリの `setting.config`・`work\` の前後を比べ、違いがあれば一覧を出して終了コード 1 にする。共通の関数は `tools/isolation/isolation_common.ps1`。
+実機で画面や取り込みを確かめるときは `tools/run_isolated.ps1` を通す。`%TEMP%` の下の新しいフォルダに `scripts\` と `tebunko.bat` の写し・`setting.config`（`-Settings` で指定）・使い捨てのワークスペースを作り、起動の前に設定ファイルの場所と `work` の場所が使い捨ての中であることを確かめてから起動する（外を指していれば起動しない）。画面を自動で確かめるときは `-WaitSeconds <秒>` で待つ秒数を指定する（過ぎても生きていれば、起動した PID とその子だけを止める。待つ前に 0 以外で終わると終了コード 1）。終わったら、本物の既定のワークスペースと、リポジトリの `setting.config`・`work\` の前後を比べ、違いがあれば一覧を出して終了コード 1 にする。共通の関数は `tools/isolation/isolation_common.ps1`。
 
 前後の比べは、このプロセスの外が本物に書いた場合（利用者自身の操作・別の作業ツリーのテスト）も失敗にする。失敗したときは、一覧（名前・大きさ・更新時刻）の更新時刻を手がかりに、何が書いたかを確かめる。
 

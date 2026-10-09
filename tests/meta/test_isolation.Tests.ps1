@@ -73,14 +73,9 @@ Describe "テストの既定のワークスペース" -Tag Meta {
     It "画面のテストの起動は、起動の前に本物でないことを確かめ、環境変数を渡す" {
         $text = [System.IO.File]::ReadAllText("$here\gui\gui_helpers.ps1")
         $text | Should -Match 'assertNotRealWorkspace \$Tool\.DefaultWorkspace'
-        $text | Should -Match '\$env:TEBUNKO_DEFAULT_WORKSPACE\s*='
+        $text | Should -Match '\$env:TEBUNKO_DEFAULT_WORKSPACE\s*=\s*\$Tool\.DefaultWorkspace'
         $code = @($text -split "\r?\n" | Where-Object { $_ -notmatch '^\s*#' })
         ($code -match 'getRealDefaultWorkspace').Count | Should -BeGreaterThan 0   # コメントではなく、コードで本物を控えている
-    }
-
-    It "取り込みの起動の前に、書き込み先が使い捨ての中であることを確かめる（runIndexer）" {
-        $text = [System.IO.File]::ReadAllText("$here\helpers\indexer.ps1")
-        $text | Should -Match 'assertIndexerWorkspaceIsolated'
     }
 
     It "既定のワークスペースを差し替えずに使う書き方が、決まったファイルの外に無い" {

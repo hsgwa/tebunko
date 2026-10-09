@@ -160,6 +160,29 @@ Describe "newIsolationWatch・getIsolationWatchDiffs・finishWorkspaceGuard" -Ta
     }
 }
 
+Describe "waitIsolationProcess" -Tag Io {
+    It "待ち時間の前に終わったら、その終了コードを返す（止めない）" -TestCases @(
+        @{ Code = 0 }
+        @{ Code = 3 }
+    ) {
+        $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @("-NoProfile", "-Command", "exit $Code")
+        $r = waitIsolationProcess $p 30
+        $r.TimedOut | Should -BeFalse
+        $r.ExitCode | Should -Be $Code
+    }
+
+    It "待ち時間のあとも生きていたら、その PID だけを止めて TimedOut を返す" {
+        $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @("-NoProfile", "-Command", "Start-Sleep -Seconds 120")
+        try {
+            $r = waitIsolationProcess $p 1
+            $r.TimedOut | Should -BeTrue
+            $p.HasExited | Should -BeTrue
+        } finally {
+            if (!$p.HasExited) { & taskkill.exe /PID $p.Id /T /F | Out-Null }
+        }
+    }
+}
+
 Describe "run_isolated.ps1" -Tag Io {
     BeforeAll {
         function invokeRunIsolated([hashtable]$arguments) {
@@ -229,6 +252,8 @@ Describe "run_isolated.ps1 の既定の経路（画面を開く）" -Tag Gui {
         $text = invokeRunIsolatedGui @{ RealWorkspace = $real; Settings = @{ targetFolders = @(@{ name = "資料"; path = $script:source; enabled = $true }) } }
         $script:exitCode | Should -Be 0
         $text | Should -Match "起動したプロセスの PID: \d+"
+        # 待ち時間のあとも画面が生きていた（開かずにすぐ終わったなら、この文は出ない）
+        $text | Should -Match "10 秒たったので、PID \d+ とその子を止めます"
         $text | Should -Match "本物のフォルダに違いなし"
         $tmp = [regex]::Escape([System.IO.Path]::GetTempPath().TrimEnd([char]92))
         $text | Should -Match "設定ファイルの場所: $tmp"
@@ -241,6 +266,7 @@ Describe "run_isolated.ps1 の既定の経路（画面を開く）" -Tag Gui {
         $text = invokeRunIsolatedGui @{ RealWorkspace = $real; Single = $true }
         $script:exitCode | Should -Be 0
         $text | Should -Match "起動したプロセスの PID: \d+"
+        $text | Should -Match "10 秒たったので、PID \d+ とその子を止めます"
         $text | Should -Match "本物のフォルダに違いなし"
     }
 }

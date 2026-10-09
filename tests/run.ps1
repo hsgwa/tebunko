@@ -83,10 +83,11 @@ try {
     $result = Invoke-Pester -Configuration $config
 } finally {
     if ($Ci) { Remove-PSBreakpoint -Breakpoint $keepDebugger }
+    # Invoke-Pester が例外で抜けたときも、本物の前後の比べを表示する
     $guardReport = finishWorkspaceGuard $workspaceGuard
+    $guardReport.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
 }
 if ($guardReport.ExitCode -ne 0) {
-    $guardReport.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
     exit $guardReport.ExitCode
 }
 if (!$result) {

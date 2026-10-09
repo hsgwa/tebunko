@@ -80,49 +80,47 @@ function invokeIsolated {
         $outside = @(@($probe.settingsFile, $probe.workDir) | Where-Object { !(testIsolationPathInside $_ $base) })
         if ($probe.Count -ne 2 -or $outside.Count -gt 0) {
             Write-Host "書き込み先が使い捨てのフォルダの外を指しているため、起動しません: $($outside -join ', ')" -ForegroundColor Red
-            return 1
-        }
-
-        [void][System.IO.Directory]::CreateDirectory($WorkspaceDir)
-        $previous = $env:TEBUNKO_DEFAULT_WORKSPACE
-        $env:TEBUNKO_DEFAULT_WORKSPACE = $WorkspaceDir
-        try {
-            if ($Action) {
-                & $Action $tool $WorkspaceDir | Out-Host
-            } else {
-                $gui = "$tool\scripts\tebunko\gui.ps1"
-                if ($SingleScript) {
-                    $gui = Join-Path $tool "tebunko-isolated.ps1"
-                    & "$repoRoot\tools\new_single_script.ps1" -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
-                }
-                $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
-                    "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$($gui.Replace("'", "''"))'")
-                Write-Host "起動したプロセスの PID: $($p.Id)（画面を閉じるまで待ちます）"
-                if ($Wait -gt 0) {
-                    if (!$p.WaitForExit($Wait * 1000)) {
-                        Write-Host "$Wait 秒たったので、PID $($p.Id) とその子を止めます"
-                        & taskkill.exe /PID $p.Id /T /F | Out-Null
-                    }
+            $exitCode = 1
+        } else {
+            [void][System.IO.Directory]::CreateDirectory($WorkspaceDir)
+            $previous = $env:TEBUNKO_DEFAULT_WORKSPACE
+            $env:TEBUNKO_DEFAULT_WORKSPACE = $WorkspaceDir
+            try {
+                if ($Action) {
+                    & $Action $tool $WorkspaceDir | Out-Host
                 } else {
-                    $p.WaitForExit()
+                    $gui = "$tool\scripts\tebunko\gui.ps1"
+                    if ($SingleScript) {
+                        $gui = Join-Path $tool "tebunko-isolated.ps1"
+                        & "$repoRoot\tools\new_single_script.ps1" -Version "v0.0.0-isolated" -OutFile $gui | Out-Null
+                    }
+                    $p = Start-Process powershell.exe -PassThru -WindowStyle Hidden -ArgumentList @(
+                        "-NoProfile", "-STA", "-ExecutionPolicy", "RemoteSigned", "-Command", "& '$($gui.Replace("'", "''"))'")
+                    Write-Host "起動したプロセスの PID: $($p.Id)（画面を閉じるまで待ちます）"
+                    $waited = waitIsolationProcess $p $Wait
+                    if ($waited.TimedOut) {
+                        Write-Host "$Wait 秒たったので、PID $($p.Id) とその子を止めます"
+                    } elseif ($Wait -gt 0 -and $waited.ExitCode -ne 0) {
+                        Write-Host "待ち時間の前に、画面のプロセス (PID $($p.Id)) が終了コード $($waited.ExitCode) で終わりました" -ForegroundColor Red
+                        $exitCode = 1
+                    }
                 }
-            }
-        } finally {
-            $env:TEBUNKO_DEFAULT_WORKSPACE = $previous
-            # 確かめが例外で終わったときも、本物のフォルダを比べる
-            $diffs = @(getIsolationWatchDiffs $watch)
-            if ($diffs.Count -gt 0) {
-                Write-Host "本物のフォルダに違いがあります:" -ForegroundColor Red
-                $diffs | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-                $exitCode = 1
-            } else {
-                Write-Host "本物のフォルダに違いなし"
+            } finally {
+                $env:TEBUNKO_DEFAULT_WORKSPACE = $previous
             }
         }
-        return $exitCode
     } finally {
+        # 写しの作成・事前の確かめ・確かめの途中の例外のどの道でも、本物のフォルダを比べてから消す
+        $report = getIsolationReport @(getIsolationWatchDiffs $watch) "起動の前後で、本物のフォルダに違いがありました"
+        if ($report.ExitCode -ne 0) {
+            $report.Lines | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+            $exitCode = 1
+        } else {
+            Write-Host "本物のフォルダに違いなし"
+        }
         Remove-Item -LiteralPath $base -Recurse -Force -ErrorAction SilentlyContinue
     }
+    return $exitCode
 }
 
 exit (invokeIsolated $Single.IsPresent $Settings $Command $WaitSeconds $RealWorkspace)

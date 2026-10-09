@@ -120,7 +120,7 @@ function getIsolationWatchDiffs {
 }
 
 function getIsolationReport {
-    # 違いの一覧から、終了コードと表示する行を作る（違いが無ければ 0 と空）。run.ps1・capture_screens.ps1・run_isolated.ps1 が使う。
+    # 違いの一覧から、終了コードと表示する行を作る（違いが無ければ 0 と空）。run.ps1・capture_screens.ps1（finishWorkspaceGuard 経由）・run_isolated.ps1 が使う。
     # 前後の比べは、このプロセスの外（利用者自身・別の作業ツリーのテスト）が書いた場合も落ちる。落ちたら、まず何が書いたかを疑う
     param ([string[]]$Diffs, [string]$Title = "前後で、利用者の本物のフォルダに違いがありました")
 
@@ -170,4 +170,21 @@ function finishWorkspaceGuard {
     param ($Guard)
 
     return getIsolationReport @(stopWorkspaceGuard $Guard) "前後で、利用者の本物の既定のワークスペースに違いがありました"
+}
+
+function waitIsolationProcess {
+    # 起動した画面のプロセスを待つ。Wait 秒（0 は終わるまで）たっても生きていれば、その PID とその子だけを止める（名前では探さない）。
+    # TimedOut は、待ち時間のあとも生きていた（止めた）こと。ExitCode は、待ち時間の前に終わったときの終了コード
+    param ($Process, [int]$Wait = 0)
+
+    if ($Wait -le 0) {
+        $Process.WaitForExit()
+        return @{ TimedOut = $false; ExitCode = $Process.ExitCode }
+    }
+    if ($Process.WaitForExit($Wait * 1000)) {
+        return @{ TimedOut = $false; ExitCode = $Process.ExitCode }
+    }
+    & taskkill.exe /PID $Process.Id /T /F | Out-Null
+    [void]$Process.WaitForExit(5000)
+    return @{ TimedOut = $true; ExitCode = $null }
 }

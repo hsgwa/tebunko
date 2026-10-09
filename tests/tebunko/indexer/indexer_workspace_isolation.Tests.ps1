@@ -39,3 +39,21 @@ Describe "assertIndexerWorkspaceIsolated（indexer.ps1 を動かす前の確か�
         { assertIndexerWorkspaceIsolated $root $real $real } | Should -Throw
     }
 }
+
+Describe "runIndexer は、動かす前に書き込み先を確かめる" -Tag Io {
+    BeforeAll {
+        . "$PSScriptRoot\..\..\helpers\indexer.ps1"
+    }
+
+    It "setting.config の workspaceFolder が置き場所の外を指していれば、例外にして出力先を作らない" {
+        $root = Join-Path $TestDrive "run-root"
+        $outside = Join-Path $TestDrive "run-outside"   # 架空の場所（本物のフォルダではない）
+        New-Item -ItemType Directory -Path $root | Out-Null
+        $settings = newSettings
+        $settings.workspaceFolder = $outside
+        writeSettings $settings "$root\setting.config"
+        { runIndexer $root } | Should -Throw
+        Test-Path -LiteralPath $outside | Should -BeFalse
+        Test-Path -LiteralPath "$root\work" | Should -BeFalse
+    }
+}
