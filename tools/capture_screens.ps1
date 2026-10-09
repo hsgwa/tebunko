@@ -200,7 +200,7 @@ function captureBrokenConfigScene {
     invokeGuiScene $S {
         setGuiStep $S "壊れた設定ファイルの知らせ"
         $window = waitGuiWindow $S "壊れた設定ファイルの知らせ" -Text "設定ファイルが壊れていた"
-        # 設定が既定に戻るため、本体の窓は既定のワークスペース（Documents\tebunko_ws）の中身で変わる
+        # 設定が既定に戻るため、本体の窓は既定のワークスペース（使い捨てに差し替えたもの）の中身で変わる
         # （利用者名を含まないため塗りつぶしでも消えない。計画で 5・22・35 を撮らないものにした理由と同じ）。
         # メッセージボックスの窓だけを撮り、本体は重ねない
         captureGuiState -S $S -Id "window/settings-broken" -Ids $Ids -OutDir $OutDir `
@@ -215,8 +215,8 @@ function captureBrokenConfigScene {
             !(@(getGuiOtherWindows $S) | Where-Object { (@(getGuiTexts $_) -join " ") -like "*設定ファイルが壊れていた*" })
         } | Out-Null
 
-        # 既定に戻った設定で、この機械の既定のワークスペース（Documents\tebunko_ws）が空でなければ、続けて
-        # 「空のフォルダではありません」の警告も出る。利用者の環境には触れない（読むだけ）ので、それが出ていれば閉じるだけにする
+        # 既定に戻った設定で、既定のワークスペース（使い捨てに差し替えたもの）が空でなければ、続けて
+        # 「空のフォルダではありません」の警告も出る。それが出ていれば閉じるだけにする
         $extraWarning = @(getGuiOtherWindows $S) | Select-Object -First 1
         if ($extraWarning) {
             closeGuiNativeMessage $S $extraWarning "既定のワークスペースの警告"
@@ -713,9 +713,13 @@ $computerName = $env:COMPUTERNAME
 $userProfile = [System.Environment]::GetFolderPath("UserProfile")
 
 $tempBase = Join-Path ([IO.Path]::GetTempPath()) ("tebunko-capture-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
-$drive = useCaptureDrive $tempBase
+$drive = $null
 $sizes = New-Object System.Collections.Generic.List[long]
+# 撮る間は、使い捨ての既定のワークスペースに差し替える（環境変数 TEBUNKO_DEFAULT_WORKSPACE。起動する画面にも引き継がれる）。
+# 設定が既定に戻る場面（captureBrokenConfigScene）も、利用者の既定のワークスペースには触れない。終わったら元に戻し、既定のワークスペースの前後を比べる
+$workspaceGuard = startWorkspaceGuard -Prefix "tebunko-capture-ws"
 try {
+    $drive = useCaptureDrive $tempBase
     $root = "$drive\"
     Write-Host "撮る状態: $($ids.Count) 件（$($drive) を写す先にする）"
 
@@ -733,6 +737,10 @@ try {
         throw "写真の合計が 5 MB を超えました（$([Math]::Round($total / 1MB, 1)) MB）。範囲・形式を見直してください。"
     }
 } finally {
-    removeCaptureDrive $drive
+    if ($drive) { removeCaptureDrive $drive }
     Remove-Item -LiteralPath $tempBase -Recurse -Force -ErrorAction SilentlyContinue
+    $guardReport = finishWorkspaceGuard $workspaceGuard
+}
+if ($guardReport.ExitCode -ne 0) {
+    throw ($guardReport.Lines -join "`n")
 }

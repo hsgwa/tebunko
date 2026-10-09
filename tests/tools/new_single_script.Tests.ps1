@@ -229,17 +229,14 @@ Describe "`-Part indexer`（結合した単一 .ps1）" -Tag Slow {
         New-Item -ItemType Directory -Force -Path $fakeProfile | Out-Null
 
         # 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）には利用者のインデックスがあるため、
-        # 結合した .ps1 自身の行（settings.ps1 の getDefaultWorkDir を読み込み行を差し替えた箇所）で止めて、テスト用の場所に差し替える
-        $global:singleScriptFakeProfile = $fakeProfile
-        $point = Set-PSBreakpoint -Script $script -Line (findLine $script 'return Join-Path \$profileDir') -Action {
-            Set-Variable -Name profileDir -Value $global:singleScriptFakeProfile -Scope 1
-        }
+        # 環境変数 TEBUNKO_DEFAULT_WORKSPACE（getDefaultWorkDir の差し替えの口）で、テスト用の場所に差し替える
+        $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
+        $env:TEBUNKO_DEFAULT_WORKSPACE = "$fakeProfile\Documents\tebunko_ws"
         try {
             & $script -Part indexer *> $null
             $exitCode = $LASTEXITCODE
         } finally {
-            Remove-PSBreakpoint -Breakpoint $point
-            Remove-Variable -Name singleScriptFakeProfile -Scope Global -ErrorAction SilentlyContinue
+            $env:TEBUNKO_DEFAULT_WORKSPACE = $previousWorkspace
         }
 
         $exitCode | Should -Be 1
