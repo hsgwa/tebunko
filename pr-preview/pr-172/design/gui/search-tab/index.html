@@ -4418,6 +4418,7 @@
 <ul>
 <li>形は、白地・赤い線 1・角丸 4・影（黒 16%・下に 2・ぼかし 8）で、中は赤いアイコンと赤い文字。マウスの操作は受けない（<code>IsHitTestVisible=False</code>）。出したとき、画面の読み上げにも知らせる（<code>LiveRegionChanged</code>）。</li>
 <li>正規表現が正しくないとき、検索ワードの欄の枠も赤くする（<code>WordErrorRing</code>）。</li>
+<li>広い幅では、正規表現の吹き出しは右側の「結果を絞り込み」の欄に重なる（操作は通る。吹き出しはマウスを受けない）。最小の幅では、種類の吹き出しは 2 行目に落ちた高速検索の印に重なる。どちらも位置は変えていない。</li>
 <li>作りは、検索バーの中の高さ 0 の <code>Canvas</code>（<code>BalloonLayer</code>）に置き、<code>search.xaml</code> で検索バーを結果の一覧より前に出して重ねる（<code>Popup</code> は別のウィンドウで、画面の読み上げ・自動操作から外れやすく、<code>Adorner</code> は置き場の層が増えるため使わない）。位置は <code>placeSearchBalloon</code>（<code>search_bar.ps1</code>）が決め、右端からはみ出すときは <code>getBalloonLeft</code>（<code>search_bar_view.ps1</code>）で左へ寄せる。文言と可否の判断は <code>getSearchKindBalloonText</code>・<code>getWordNotice</code>・<code>newSearchButtonState</code>（<code>search_bar_view.ps1</code>）。</li>
 </ul>
 <h2 id="結果の表">結果の表<a class="headerlink" href="#結果の表" title="Permanent link">&para;</a></h2>
