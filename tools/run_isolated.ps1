@@ -60,6 +60,7 @@ function invokeIsolated {
     $tool = Join-Path $base "tool"
     $WorkspaceDir = Join-Path $base "workspace"
     $exitCode = 0
+    $watch = $null
     try {
         $watch = newIsolationWatch ([ordered]@{
             "既定のワークスペース" = $RealDir
