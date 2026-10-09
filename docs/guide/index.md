@@ -34,7 +34,8 @@ tebunko は、Excel・Word・PowerPoint のファイルとテキストファイ�
 ### 制限された環境での動作
 
 - **実行ポリシー**：`RemoteSigned` を、tebunko を起動する PowerShell のプロセスにだけ指定して起動します。PC の設定は変えません（[`RemoteSigned` で起動する理由](../safety/disclosure.md#remotesigned-で起動する理由)）。実行ポリシーが `AllSigned` の PC では、スクリプトに署名するまで起動できません。
-- **`.bat` が禁止されている PC**：インストーラー版を使うか、[`tebunko.bat` を使わずに起動する](#tebunkobat-を使わずに起動するzip-版)方法を使います。
+- **`.bat` が禁止されている PC**：`.exe` の実行が許可されていれば、インストーラー版を使うか、[`tebunko.bat` を使わずに起動する](#tebunkobat-を使わずに起動するzip-版)方法を使います。AppLocker の実行ファイルの規則によって、インストーラーや `tebunko.exe` が止められることもあります。その場合は情報システム部門に相談してください。
+- **制限言語モード**（AppLocker・WDAC が強制する場合）：tebunko のフォルダが許可の規則（パス・ハッシュ・発行元）で許可されていないと、起動しません（Excel などの COM と画面の部品が使えないためです。理由はメモ帳に表示されます。[起動に失敗したときの知らせ](../safety/disclosure.md#起動に失敗したときの知らせtebunkobat)）。情報システム部門が tebunko のフォルダを許可の規則で許可すれば、動きます。許可されているかどうかは、tebunko と同じ条件の PowerShell で `$ExecutionContext.SessionState.LanguageMode` が `FullLanguage` になるかで確かめられます。相談には、[安全性](../safety/index.md)の資料を添えてください。
 - **FIPS モード**：動きます。
 - **読み取り専用の場所に置いた場合**：動きます。設定（`setting.config`）は既定のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）の直下に置かれます。
 

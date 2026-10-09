@@ -17,7 +17,7 @@ Office があれば、すぐに使えます。インストール不要・管理�
 
 [**ダウンロード**](https://github.com/hsgwa/tebunko/releases/latest) ・ [使い方](#使い方) ・ [ドキュメント](https://hsgwa.github.io/tebunko/) ・ [サポート](.github/SUPPORT.ja.md)
 
-<img src="docs/images/screenshot_search.png" alt="tebunko の検索画面。「(株)山田商事」で検索し、一致した Excel・Word・PowerPoint のファイルが見出しごとに並び、選んだ行の前後がプレビューに出ている" width="880">
+<img src="docs/images/screens/search-tab/results.png" alt="tebunko の検索画面。「単価」で検索し、一致した Word と Excel のファイルが見出しごとに並び、選んだ行の前後が下のプレビューに出ている" width="880">
 
 </div>
 
@@ -137,7 +137,7 @@ tebunko は、**Windows と Microsoft Excel（デスクトップ版）が入っ�
 
 ［インデックス管理］タブで［＋ フォルダを追加］を押し、検索したいファイルのあるフォルダを選びます。行にチェックを入れて［すべて更新］を押し、確認のダイアログで［更新を開始］を押すと、フォルダの中のファイルを読み込み始めます。進み具合と残り時間は画面に表示されます。
 
-<img src="docs/images/readme_index.png" alt="［インデックス管理］タブ。登録したフォルダの一覧と、更新したファイルの数が表示されている" width="880">
+<img src="docs/images/screens/index-tab/normal.png" alt="［インデックス管理］タブ。登録したフォルダの一覧と、更新が終わったことを知らせる表示が出ている" width="880">
 
 かかる時間の目安は、Office ファイル 300 件（ほとんどが Excel）で約 3 分です。2 回目からは変更・追加されたファイルだけを読み込むので、変更が無ければ数秒で終わります。大きなファイルが多いと、そのぶん時間がかかります。インデックスの作成中も検索できます。
 
@@ -145,11 +145,11 @@ tebunko は、**Windows と Microsoft Excel（デスクトップ版）が入っ�
 
 ［検索］タブで検索ワードを入れ、Enter を押します。300 件のファイルでも 1〜2 秒で、ヒットしたファイルが見出しとして並びます。
 
-<img src="docs/images/readme_results_headings.png" alt="検索した直後の結果。ヒットした 5 つのファイルが、件数と場所とともに見出しとして並んでいる" width="880">
+<img src="docs/images/screens/search-tab/collapsed.png" alt="検索した直後の結果。ヒットした 2 つのファイルが、件数とともに見出しだけ折りたたまれて並んでいる" width="880">
 
 ファイル名をクリックすると、そのファイルの一致した行が開きます。行を選ぶと、その前後が下のプレビューに表示されます。
 
-<img src="docs/images/readme_results.png" alt="検索結果。ファイルごとの見出しが並び、開いたファイルの一致した行が黄色で強調され、下にプレビューが出ている" width="880">
+<img src="docs/images/screens/search-tab/results.png" alt="検索結果。ファイルごとの見出しの下に一致した行が黄色で強調されて並び、選んだ行の前後が下のプレビューに出ている" width="880">
 
 ### 3. ファイルを開いて編集する
 
