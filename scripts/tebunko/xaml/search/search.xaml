@@ -18,7 +18,8 @@
     <RowDefinition x:Name="DetailRow" Height="180" MinHeight="120" />
   </Grid.RowDefinitions>
 
-  <ContentControl x:Name="SearchBarHost" Grid.Row="0" Focusable="False" IsTabStop="False" HorizontalContentAlignment="Stretch" />
+  <!-- 検索バーは結果の一覧より前に出す（エラーの吹き出しが、検索バーの下へはみ出して結果の一覧に重なるため） -->
+  <ContentControl x:Name="SearchBarHost" Grid.Row="0" Panel.ZIndex="1" Focusable="False" IsTabStop="False" HorizontalContentAlignment="Stretch" />
   <ContentControl x:Name="ResultListHost" Grid.Row="1" Focusable="False" IsTabStop="False"
                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 

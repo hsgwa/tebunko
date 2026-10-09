@@ -43,18 +43,18 @@ Describe "種類のチップ" -Tag Unit {
         (toggleFileKind $kinds $kind) -join "," | Should -Be $expected
     }
 
-    It "getSearchKindBannerText: <name>" -TestCases @(
-        @{ name = "1 つも選んでいなければ warn の帯を出す"; kinds = @(); show = $true }
+    It "getSearchKindBalloonText: <name>" -TestCases @(
+        @{ name = "1 つも選んでいなければ吹き出しを出す"; kinds = @(); show = $true }
         @{ name = "知らない種類だけでも 1 つも選んでいない"; kinds = @("pdf"); show = $true }
         @{ name = "1 つ選んでいれば出さない"; kinds = @("word"); show = $false }
         @{ name = "すべて選んでいれば出さない"; kinds = @("excel", "word", "powerpoint", "text"); show = $false }
     ) {
         param ($name, $kinds, $show)
-        $banner = getSearchKindBannerText $kinds
+        $balloon = getSearchKindBalloonText $kinds
         if ($show) {
-            $banner | Should -Be "検索する種類を 1 つ以上選んでください。"
+            $balloon | Should -Be "種類を 1 つ以上選んでください"
         } else {
-            $banner | Should -BeNullOrEmpty
+            $balloon | Should -BeNullOrEmpty
         }
     }
 
@@ -144,6 +144,19 @@ Describe "getWordNotice" -Tag Unit {
     }
 }
 
+Describe "getBalloonLeft" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "収まるときは基準の左端にそろえる"; anchor = 100; width = 200; available = 800; expected = 100 }
+        @{ name = "右端に収まる限界の位置はそのまま"; anchor = 592; width = 200; available = 800; expected = 592 }
+        @{ name = "右端からはみ出すときは右に間 8 を残して左へ寄せる"; anchor = 700; width = 200; available = 800; expected = 592 }
+        @{ name = "幅より広くても左は 0 より左へ出さない"; anchor = 50; width = 900; available = 800; expected = 0 }
+        @{ name = "間を変えられる"; anchor = 700; width = 200; available = 800; margin = 0; expected = 600 }
+    ) {
+        param ($name, $anchor, $width, $available, $expected, $margin = 8)
+        getBalloonLeft $anchor $width $available $margin | Should -Be $expected
+    }
+}
+
 Describe "newSearchButtonState" -Tag Unit {
     It "<name>" -TestCases @(
         @{ name = "検索中は［中止］にする"; searching = $true; stopping = $false; word = "見積"; hasIndex = $true; targetCount = 1; content = "中止"; enabled = $true }
@@ -152,9 +165,11 @@ Describe "newSearchButtonState" -Tag Unit {
         @{ name = "ワードが空なら押せない"; searching = $false; stopping = $false; word = ""; hasIndex = $true; targetCount = 2; content = "検索"; enabled = $false }
         @{ name = "インデックスが無ければ押せない"; searching = $false; stopping = $false; word = "見積"; hasIndex = $false; targetCount = 2; content = "検索"; enabled = $false }
         @{ name = "検索対象が選ばれていなければ押せない"; searching = $false; stopping = $false; word = "見積"; hasIndex = $true; targetCount = 0; content = "検索"; enabled = $false }
+        @{ name = "正規表現が正しくなければ押せない"; searching = $false; stopping = $false; word = "("; hasIndex = $true; targetCount = 2; content = "検索"; enabled = $false; invalid = $true }
+        @{ name = "検索中は正規表現の誤りに関わらず［中止］を押せる"; searching = $true; stopping = $false; word = "("; hasIndex = $true; targetCount = 2; content = "中止"; enabled = $true; invalid = $true }
     ) {
-        param ($name, $searching, $stopping, $word, $hasIndex, $targetCount, $content, $enabled)
-        $state = newSearchButtonState $searching $stopping $word $hasIndex $targetCount
+        param ($name, $searching, $stopping, $word, $hasIndex, $targetCount, $content, $enabled, $invalid = $false)
+        $state = newSearchButtonState $searching $stopping $word $hasIndex $targetCount $invalid
         $state.Content | Should -Be $content
         $state.Enabled | Should -Be $enabled
     }

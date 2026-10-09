@@ -42,7 +42,7 @@ function getFileKindLabel {
 
 function toggleFileKind {
     # チップを押したあとの、選ばれている種類（${fileKindNames} の順）を返す。
-    # 全部外してよい（空は「1 つも選んでいない」。検索を始めるときに getSearchKindBannerText が知らせる）
+    # 全部外してよい（空は「1 つも選んでいない」。検索を始めるときに getSearchKindBalloonText が知らせる）
     param (
         [object[]]$kinds,
         [string]$kind
@@ -58,16 +58,16 @@ function toggleFileKind {
     return @(${fileKindNames} | Where-Object { $current -contains $_ -or $_ -eq $kind })
 }
 
-function getSearchKindBannerText {
-    # 検索を始められない理由（種類のチップを 1 つも選んでいないとき）を知らせる帯（warn）の文。
-    # 始められるときは $null（帯を出さない）
+function getSearchKindBalloonText {
+    # 検索を始められない理由（種類のチップを 1 つも選んでいないとき）を知らせる吹き出しの文。
+    # 始められるときは $null（吹き出しを出さない）
     param (
         [object[]]$kinds
     )
 
     $chosen = @(${fileKindNames} | Where-Object { @($kinds) -contains $_ })
     if ($chosen.Count -eq 0) {
-        return "検索する種類を 1 つ以上選んでください。"
+        return "種類を 1 つ以上選んでください"
     }
     return $null
 }
@@ -127,7 +127,7 @@ function getScopeButtonText {
 }
 
 function getWordNotice {
-    # 検索ワードの下に出す注意書き（出さないときは空文字列）
+    # 正規表現が正しくないときの吹き出しの文（［正規表現］の下に出す。正しいとき・使わないときは空文字列）
     param (
         [string]$word,
         [bool]$useRegex
@@ -171,13 +171,28 @@ function newSearchButtonState {
         [bool]$stopping,     # 中止を頼んだ後か
         [string]$word,       # 検索ワード
         [bool]$hasIndex,     # 検索できるインデックスがあるか
-        [int]$targetCount    # 検索対象に選ばれている数
+        [int]$targetCount,   # 検索対象に選ばれている数
+        [bool]$wordInvalid   # 正規表現が正しくないか（getWordNotice が空でないとき）
     )
 
     if ($searching) {
         return @{ Content = "中止"; Enabled = !$stopping }
     }
-    return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0) }
+    return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0 -and !$wordInvalid) }
+}
+
+function getBalloonLeft {
+    # 吹き出しの左端。基準の左端にそろえ、右端がはみ出すときは右端に収まるまで左へ寄せる（左は 0 より左へ出さない）。
+    #   anchorLeft: 基準の項目の左端、width: 吹き出しの幅、available: 置ける幅、margin: 右端に残す間
+    param (
+        [double]$anchorLeft,
+        [double]$width,
+        [double]$available,
+        [double]$margin = 8
+    )
+
+    $left = [Math]::Min($anchorLeft, $available - $margin - $width)
+    return [Math]::Max(0.0, $left)
 }
 
 function getConditionFlow {

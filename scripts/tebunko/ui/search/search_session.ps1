@@ -22,9 +22,13 @@ function startSearch {
         setStatus "検索ワードを入力してください。"
         return
     }
-    $kindBanner = getSearchKindBannerText (getFileKindsFromUi)
-    setSearchKindBanner $kindBanner
-    if ($kindBanner) {
+    if (getWordNotice $word ([bool]$ui.RegexCheck.IsChecked)) {
+        # 正規表現が正しくない（吹き出しを出している。始めない）
+        return
+    }
+    $kindBalloon = getSearchKindBalloonText (getFileKindsFromUi)
+    setSearchKindBalloon $kindBalloon
+    if ($kindBalloon) {
         return
     }
 

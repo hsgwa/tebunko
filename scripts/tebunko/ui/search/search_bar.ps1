@@ -60,14 +60,64 @@ function updateFastSearchView {
     $ui.FastBadge.ToolTip = $view.Tip
 }
 
-function setSearchKindBanner {
-    # 種類が 1 つも選ばれていないことを知らせる帯（getSearchKindBannerText の結果。$null なら隠す）
+function placeSearchBalloon {
+    # 吹き出しを、基準の項目の下（5 下）に、左端をそろえて置く。右端がはみ出すときは左へ寄せる（判断は getBalloonLeft）。
+    # 吹き出しは高さ 0 の BalloonLayer（Canvas）に置いてあり、検索バーの高さは変わらない
+    param (
+        $balloon,
+        $anchor
+    )
+
+    if ($balloon.Visibility -ne "Visible") { return }
+    $layer = $ui.BalloonLayer
+    try {
+        $ui.ConditionsPanel.UpdateLayout()
+        $balloon.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        $origin = $anchor.TransformToVisual($layer).Transform([System.Windows.Point]::new(0, 0))
+    } catch {
+        return
+    }
+    $left = getBalloonLeft $origin.X $balloon.DesiredSize.Width $layer.ActualWidth
+    [System.Windows.Controls.Canvas]::SetLeft($balloon, $left)
+    [System.Windows.Controls.Canvas]::SetTop($balloon, $origin.Y + $anchor.ActualHeight + 5)
+}
+
+function placeSearchBalloons {
+    placeSearchBalloon $ui.SearchKindBalloon $ui.KindChipExcel
+    placeSearchBalloon $ui.RegexBalloon $ui.RegexCheck
+}
+
+function setSearchBalloon {
+    # 吹き出しを出す（text が空なら隠す）。新しく出したとき、画面の読み上げに知らせる
+    param (
+        $balloon,
+        $textBlock,
+        [string]$text
+    )
+
+    if (!$text) {
+        $balloon.Visibility = "Collapsed"
+        return
+    }
+    $wasVisible = ($balloon.Visibility -eq "Visible") -and ($textBlock.Text -eq $text)
+    $textBlock.Text = $text
+    $balloon.Visibility = "Visible"
+    placeSearchBalloons
+    if (!$wasVisible) {
+        try {
+            $peer = [System.Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($textBlock)
+            if ($peer) { $peer.RaiseAutomationEvent([System.Windows.Automation.Peers.AutomationEvents]::LiveRegionChanged) }
+        } catch { }
+    }
+}
+
+function setSearchKindBalloon {
+    # 種類が 1 つも選ばれていないことを知らせる吹き出し（getSearchKindBalloonText の結果。$null なら隠す）
     param (
         [string]$text
     )
 
-    $ui.SearchKindBanner.Visibility = if ($text) { "Visible" } else { "Collapsed" }
-    $ui.SearchKindBannerText.Text = $text
+    setSearchBalloon $ui.SearchKindBalloon $ui.SearchKindBalloonText $text
 }
 
 function updateScopeButton {
@@ -97,20 +147,17 @@ function checkFastSearchAvailable {
 function updateWordNotice {
     $ui.WordPlaceholder.Visibility = if ($ui.WordBox.Text -eq "") { "Visible" } else { "Collapsed" }
     updateFastSearchView
+    # 正規表現が正しくないときは、入力欄の枠を赤くし、［正規表現］の下に吹き出しを出す
     $notice = getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
-    if ($notice -ne "") {
-        $ui.WordNotice.Text = $notice
-        $ui.WordNotice.Visibility = "Visible"
-    } else {
-        $ui.WordNotice.Visibility = "Collapsed"
-    }
+    $ui.WordErrorRing.Visibility = if ($notice -ne "") { "Visible" } else { "Collapsed" }
+    setSearchBalloon $ui.RegexBalloon $ui.RegexBalloonText $notice
     updateSearchButton
 }
 
 function updateSearchButton {
     $noIndex = $script:indexSummary -and $script:indexSummary["Count"] -eq 0
     $state = newSearchButtonState ([bool]$script:search) ([bool]($script:search -and $script:search.Shared.Stop)) `
-        (getWordText) (!$noIndex) @(getSearchTargets).Count
+        (getWordText) (!$noIndex) @(getSearchTargets).Count ((getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)) -ne "")
     $ui.SearchButton.Content = $state.Content
     $ui.SearchButton.IsEnabled = $state.Enabled
 }
@@ -167,7 +214,7 @@ function updateConditionFlow {
 }
 
 # ---- イベント ----
-$ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow } })
+$ui.ConditionsPanel.Add_SizeChanged({ safe { updateConditionFlow; placeSearchBalloons } })
 
 
 $ui.WordBox.Add_TextChanged({ safe { updateWordNotice } })
@@ -212,9 +259,9 @@ foreach ($kind in ${fileKindNames}) {
             $after = @(toggleFileKind $before $clicked)
             setFileKindsToUi $after
             writeFileKinds $after
-            # 帯を出している間は、選び直したらすぐ消す
-            if ($ui.SearchKindBanner.Visibility -eq "Visible") {
-                setSearchKindBanner (getSearchKindBannerText $after)
+            # 吹き出しを出している間は、選び直したらすぐ消す
+            if ($ui.SearchKindBalloon.Visibility -eq "Visible") {
+                setSearchKindBalloon (getSearchKindBalloonText $after)
             }
         }
     })

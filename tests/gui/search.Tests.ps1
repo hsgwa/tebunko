@@ -28,16 +28,21 @@ Describe "S4 検索の遷移" -Tag Gui {
 
             getGuiSelectedTab $S | Should -Be "SearchTab"
 
-            # 正規表現で不正な式を入れると、注意が出る（文字どおり検索にする案内。［検索］は押せたまま）。式を直すと消える（#24）
+            # 正規表現で不正な式を入れると、［正規表現］の下に吹き出しが出て、入力欄の枠が赤くなり、［検索］は押せなくなる（検索バーの高さは変わらない）。式を直すと消える（#24）
             setGuiStep $S "正規表現で不正な式"
             $regex = waitGuiById $S $S.Window "RegexCheck"
             toggleGui $regex
             waitGui $S "「正規表現を使う」が付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "RegexCheck")) -eq "On" } | Out-Null
             setGuiText $S (findGui $S.Window -Id "WordBox") "("
-            waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -eq "正規表現が正しくありません" } | Out-Null
+            waitGui $S "吹き出し（RegexBalloon）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "RegexBalloonText")) -eq "正規表現が正しくありません" } | Out-Null
+            (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeFalse -Because "正規表現が正しくないと検索を始めない"
+            $resultTop = (findGui $S.Window -Id "SummaryText").Current.BoundingRectangle.Top
             setGuiStep $S "式を直す"
             setGuiText $S (findGui $S.Window -Id "WordBox") "単価"
-            waitGui $S "注意が消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "WordNotice").Current.IsOffscreen } | Out-Null
+            waitGui $S "吹き出しが消え［検索］が押せる" ${guiDefaultTimeout} {
+                (findGui $S.Window -Id "RegexBalloonText").Current.IsOffscreen -and (findGui $S.Window -Id "SearchButton").Current.IsEnabled
+            } | Out-Null
+            (findGui $S.Window -Id "SummaryText").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
             toggleGui (findGui $S.Window -Id "RegexCheck")
 
             # 検索対象のツリーで［すべて解除］すると検索できず、［すべて選択］で戻る（#25）
@@ -90,11 +95,17 @@ Describe "S4 検索の遷移" -Tag Gui {
                 @($chipIds | Where-Object { (getGuiToggleState (findGui $S.Window -Id $_)) -eq "On" }).Count -eq 0
             } | Out-Null
             & $search "単価"
-            waitGui $S "種類を選ぶ知らせ" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchKindBannerText")) -like "*検索する種類を 1 つ以上選んでください*" } | Out-Null
+            waitGui $S "種類を選ぶ吹き出し" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchKindBalloonText")) -eq "種類を 1 つ以上選んでください" } | Out-Null
+            $balloonRect = (findGui $S.Window -Id "SearchKindBalloonText").Current.BoundingRectangle
+            $chipRect = (findGui $S.Window -Id "KindChipExcel").Current.BoundingRectangle
+            $balloonRect.Top | Should -BeGreaterThan $chipRect.Bottom -Because "吹き出しは種類のチップの下に出す"
+            $balloonRect.Left | Should -BeGreaterThan ($chipRect.Left - 1) -Because "左端はチップの左端にそろう"
+            (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeTrue -Because "種類が無くても［検索］は押せる"
             (& $summary) | Should -BeLike "一致 2 件（*" -Because "検索を始めないため、前の結果のまま"
             setGuiStep $S "チップ［Excel］だけ選んで検索"
             toggleGui (findGui $S.Window -Id "KindChipExcel")
             & $search "単価"
+            waitGui $S "種類を選んだので吹き出しが消える" ${guiDefaultTimeout} { (findGui $S.Window -Id "SearchKindBalloonText").Current.IsOffscreen } | Out-Null
             waitGui $S "Excel だけの該当 1 件" ${guiDefaultTimeout} { (& $summary) -like "一致 1 件（*" } | Out-Null
             setGuiStep $S "チップを全部戻して検索"
             foreach ($chipId in @("KindChipWord", "KindChipPowerPoint", "KindChipText")) { toggleGui (findGui $S.Window -Id $chipId) }

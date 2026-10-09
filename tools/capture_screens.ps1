@@ -467,7 +467,7 @@ function captureSearchScene {
         setGuiStep $S "正規表現で不正な式"
         toggleGui (findGui $S.Window -Id "RegexCheck")
         setGuiText $S (findGui $S.Window -Id "WordBox") "("
-        waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -eq "正規表現が正しくありません" } | Out-Null
+        waitGui $S "吹き出し（RegexBalloon）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "RegexBalloonText")) -eq "正規表現が正しくありません" } | Out-Null
         captureGuiState -S $S -Id "search-tab/regex-error" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
         setGuiText $S (findGui $S.Window -Id "WordBox") ""
