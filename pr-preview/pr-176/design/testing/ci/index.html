@@ -4148,7 +4148,7 @@
 <li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
 <li>落ちたときの材料（画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
 <li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
-<li><strong>CI だけで流す場面がある。</strong> S6（既定のワークスペース）は、利用者の本物のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）を使うため、<code>GITHUB_ACTIONS</code> が <code>true</code> のときだけ流す。手元では理由を出して飛ばす</li>
+<li><strong>S6 も手元で流す。</strong> 既定のワークスペースは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない</li>
 <li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、（手元では）<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
 </ul>
 <p><strong><code>codeql.yml</code>・<code>scorecard.yml</code>（サプライチェーンの安全性）</strong></p>
