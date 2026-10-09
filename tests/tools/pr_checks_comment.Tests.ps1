@@ -95,7 +95,7 @@ Describe "formatCheckComment" -Tag Unit {
     }
 
     It "補足（note）があれば添える" {
-        $body = formatCheckComment "perf-check" "perf-check" "skipped" "" "hsgwa/tebunko" "数字はジョブの Summary で見る。"
+        $body = formatCheckComment "perf-check" "perf-check" "success" "" "hsgwa/tebunko" "数字はジョブの Summary で見る。"
         $body | Should -Match "数字はジョブの Summary で見る。"
     }
 
@@ -285,14 +285,11 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         $job | Should -Match "(?m)^      pull-requests: write$"
     }
 
-    It "perf-check.yml の pr-comment は、perf-check 以外のラベルを付けたときには書かない" {
+    It "perf-check.yml の pr-comment は、search・ingest の両方がスキップのときには書かない（perf-check 以外のラベルの実行もこれで止まる）" {
         $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\perf-check.yml")) -replace "`r`n", "`n"
-        $yml | Should -Match ([regex]::Escape("(github.event.action != 'labeled' || github.event.label.name == 'perf-check')"))
-    }
-
-    It "perf-check.yml の pr-comment は、search・ingest の両方がスキップのときには書かない" {
-        $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\perf-check.yml")) -replace "`r`n", "`n"
-        $yml | Should -Match ([regex]::Escape("(needs.search.result != 'skipped' || needs.ingest.result != 'skipped')"))
+        $m = [regex]::Match($yml, "(?ms)^  pr-comment:\n(.*?)(?=^  [A-Za-z0-9_-]+:[ ]*\n|\z)")
+        $m.Success | Should -BeTrue
+        $m.Groups[1].Value | Should -Match ([regex]::Escape("(needs.search.result != 'skipped' || needs.ingest.result != 'skipped')"))
     }
 }
 

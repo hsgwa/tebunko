@@ -138,12 +138,11 @@ jobs:
 
   # 結果を PR のコメントに書く（docs/design/testing/ci.md「結果を PR のコメントに書く」）。
   # search・ingest の 2 つの結果を合わせて 1 件のコメントにする（悪いほうを採用する）。
-  # search・ingest の両方がスキップのとき（perf-check のラベルが無いとき）は書かない。
-  # ただし perf-check 以外のラベルを付けて起動した実行では書かない（前の結果を「スキップ」で消さないため。concurrency と同じ条件）。
+  # search・ingest の両方がスキップのとき（perf-check のラベルが無いとき・perf-check 以外のラベルを付けて起動した実行）は書かない（前の結果を「スキップ」で消さないため）。
   # フォークの PR では書けないことがあるが、ジョブは失敗にしない（結果は Summary に残る）
   pr-comment:
     needs: [search, ingest]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && (needs.search.result != 'skipped' || needs.ingest.result != 'skipped') && (github.event.action != 'labeled' || github.event.label.name == 'perf-check') }}
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && (needs.search.result != 'skipped' || needs.ingest.result != 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
