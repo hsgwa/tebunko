@@ -35,9 +35,9 @@
 
 ```mermaid
 flowchart TD
-    A["$rootDir に書き込める？"] -- はい --> B["$dataDir = $rootDir"]
-    A -- いいえ --> C["$dataDir = %LOCALAPPDATA%\tebunko\<鍵>"]
-    B & C --> D["$settingsFile = $dataDir\setting.config"]
+    A["$rootDir に書き込める？"] -- はい --> B["設定の置き場 = $rootDir"]
+    A -- いいえ --> C["設定の置き場 = 既定のワークスペース（%USERPROFILE%\Documents\tebunko_ws）の直下"]
+    B & C --> D["$settingsFile = 設定の置き場\setting.config"]
     D --> E{"setting.config の workspaceFolder は空？"}
     E -- はい --> F["既定: %USERPROFILE%\Documents\tebunko_ws"]
     E -- いいえ --> G["workspaceFolder の場所"]
@@ -46,11 +46,11 @@ flowchart TD
 
 | 変数 | 決め方 | 定義 |
 |---|---|---|
-| `$dataDir` | ツールのフォルダ（`$rootDir`）にファイルを作れればそこ。作れなければ `%LOCALAPPDATA%\tebunko\<鍵>`。鍵は `getFolderKey $rootDir` の先頭 16 文字で、ツールのフォルダごとに分かれる | `scripts/shared/core/data_dir.ps1` の `getDataDir`（書き込めるかは `testWritableFolder`。試しに作ったファイルは閉じると消える） |
-| `$settingsFile` | `$dataDir\setting.config` | `scripts/tebunko/core/settings.ps1` |
+| 設定の置き場 | ツールのフォルダ（`$rootDir`）にファイルを作れればそこ。作れなければ、呼び出し側が渡す代わりのフォルダ（tebunko では既定のワークスペース `getDefaultWorkDir`）の直下。`%LOCALAPPDATA%\tebunko` と `%TEMP%` には置かない（ツールのフォルダ自体が `%LOCALAPPDATA%\Programs\tebunko` にあるインストーラー版では、書き込めるのでその直下に置く） | `scripts/shared/core/data_dir.ps1` の `getDataDir`（書き込めるかは `testWritableFolder`。試しに作ったファイルは閉じると消える）、`scripts/tebunko/core/settings.ps1` の `getSettingsFilePath` |
+| `$settingsFile` | 設定の置き場の `setting.config` | `scripts/tebunko/core/settings.ps1` |
 | `$workspace.Dir` | `setting.config` の `workspaceFolder`（[設定ファイル（setting.config）の形式](settings-file.md#形式)）。空なら既定の `%USERPROFILE%\Documents\tebunko_ws`（`getDefaultWorkDir`。OneDrive にリダイレクトされた「ドキュメント」ではなく、プロファイルの直下の Documents） | `scripts/tebunko/core/settings.ps1`（`getWorkDir`） |
 
-- 既定の場所をドキュメントにするのは、高速検索（[検索](../search/index.md)・[高速検索（Windows Search）](../search/fast-search.md)）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない（`testDefaultWorkspace`・`getWorkspaceBlockMessage`。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、`「…」は空のフォルダではありません。…` と出す）。無い・空・前から使っているワークスペース（`content_index`・前の版の `index`・`ingest_status.tsv` のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの `work`）からは移さない（使い続けるときは［設定］の［変更…］で選ぶ）。
+- 既定の場所をドキュメントにするのは、高速検索（[検索](../search/index.md)・[高速検索（Windows Search）](../search/fast-search.md)）で Windows Search に システムインデックスを索引させるため（ドキュメントは既定で索引の対象）。既定の場所にほかのファイルが置いてあると、インデックスのファイルと混ざるため使わせない。ただし設定ファイル（`setting.config`・保存途中の `setting.config.tmp`・壊れた設定の退避 `setting.config.broken-<日時>[-<番号>]`。`testSettingsFileName`）は、ツールのフォルダに書けないときにここへ置くので、ワークスペースの中身として数えない（移す・消す対象にもならない。`Workspace.Entries` に入らない）（`testDefaultWorkspace`・`getWorkspaceBlockMessage`。起動時・インデックス作成の開始・［既定に戻す］・インデクサで確かめ、`「…」は空のフォルダではありません。…` と出す）。無い・空・前から使っているワークスペース（`content_index`・前の版の `index`・`ingest_status.tsv` のどれかがある）なら使える。以前の既定（設定ファイルと同じフォルダの `work`）からは移さない（使い続けるときは［設定］の［変更…］で選ぶ）。
 - `$workspace.Dir` のフォルダを画面では**ワークスペース**と呼ぶ。［設定］で表示し、［変更…］で空のフォルダに変えられる（[［設定］タブ](../gui/settings-tab.md)）。
 - `work/` の中身（インデックス・取り込み一覧・ログ・取り込みの出力）はまとめて動く。取り込みの出力（`work/publish/<PID>`）はインデックスとフォルダごと入れ替えるため、インデックスと同じ `work` の中に置く。
 - 置き場所を変えると、今の `work/` の中身（tebunko が作るファイル・フォルダだけ。`Workspace.Entries`）を新しい場所へ移す（`moveWorkspace`）。新しい場所に同じ名前があれば移さずに止め、途中で移せなければ移した分を戻す。検索対象のツリーでチェックを外したフォルダ（`searchExcludes`）も、移した先のインデックスに付け替える（`moveSearchExcludes`）。ただし新しい場所にすでにインデックスなどがあるとき（ほかの人が共有したワークスペースなど）は、それを使う（今の中身は移さず、インデックスの一覧をそのワークスペースの取り込み一覧に合わせる）か、消して最初からやり直す（消してから今の中身を移す）かを利用者が選ぶ（[［設定］タブ](../gui/settings-tab.md)）。
@@ -64,7 +64,6 @@ flowchart TD
 | 変数 | 値 | 定義 |
 |---|---|---|
 | `$rootDir` | リポジトリ直下 | `shared/core/paths.ps1` |
-| `$dataDir` | 設定ファイルを置くフォルダ（ワークスペースの既定の場所とは関係しない）。`$rootDir` に書き込めればそこ、書き込めなければ `%LOCALAPPDATA%\tebunko\<鍵>`（上の「データの置き場所」） | `shared/core/data_dir.ps1` |
 | `$utf8Bom` | BOM 付き UTF-8 の `System.Text.Encoding` | `shared/core/paths.ps1` |
 | `$cellNewLine` | インデックス TSV でセル内改行の代わりに使う文字（U+2028 LINE SEPARATOR） | `shared/core/text.ps1` |
 | `$maxFileNameLength` | ファイル名 1 つの長さの上限（255） | `shared/core/fs.ps1` |
@@ -82,7 +81,7 @@ flowchart TD
 | `$statusFolderKey` | 取り込み一覧の先頭のクロール対象フォルダの行の見出し（`クロール対象フォルダ`） | 同上 |
 | `$stateNew` / `$stateDone` / `$stateFailed` | 取り込み一覧の状態（`未取り込み` / `済` / `失敗`） | 同上 |
 | `$appId` | ツールの ID（`tebunko`。ミューテックスの名前に使う） | `tebunko/core/settings.ps1`（起動口が `lib.ps1` より先に `settings.ps1` だけを読み込んで設定を確かめるため、ここで決める） |
-| `$settingsFile` | `$dataDir\setting.config`（画面が保存する設定。内容は JSON。[設定ファイル（setting.config）](settings-file.md)） | `tebunko/core/settings.ps1` |
+| `$settingsFile` | 設定の置き場の `setting.config`（上の「データの置き場所」。画面が保存する設定。内容は JSON。[設定ファイル（setting.config）](settings-file.md)） | `tebunko/core/settings.ps1` |
 | `$openModeNormal` / `$openModeReadOnly` / `$openModeNew`・`$openModes` | 元のファイルの開き方（設定 `openMode` の値 `normal` / `readOnly` / `new`）と、その一覧 | 同上 |
 
 ## ワークスペースの中の場所（Workspace）

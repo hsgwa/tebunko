@@ -62,10 +62,11 @@ function resetWorkspace {
 function getFolderEntrySample {
     # フォルダの中のファイル・フォルダを上限まで数え、先頭の名前を返す: @{ Count; Names; Capped }
     param (
-        [string]$folder
+        [string]$folder,
+        [bool]$isDefaultWorkspace = $false   # 既定のワークスペースなら、設定ファイルと付いてできるファイルを数えない（getCountedEntryPaths）
     )
 
-    $entries = selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries((toLongPath $folder))) ${workspaceCountLimit}
+    $entries = getCountedEntryPaths (selectFirstEntries ([System.IO.Directory]::EnumerateFileSystemEntries((toLongPath $folder))) ${workspaceCountLimit}) $isDefaultWorkspace
     $count = $entries.Count
     $names = New-Object System.Collections.Generic.List[string]
     for ($i = 0; $i -lt [Math]::Min($count, ${workspaceSampleCount}); $i++) {
@@ -93,7 +94,7 @@ function applyWorkspace {
     }
 
     $folder = normalizeFolderPath $folder
-    $entries = if ($requireEmpty) { getFolderEntrySample $folder } else { @{ Count = 0; Names = @(); Capped = $false } }
+    $entries = if ($requireEmpty) { getFolderEntrySample $folder (testSameFolder $folder (getDefaultWorkDir)) } else { @{ Count = 0; Names = @(); Capped = $false } }
     $sub = Join-Path $folder ${workspaceSubFolderName}
     $canMakeSub = -not (Test-Path -LiteralPath $sub) -or
         ((Test-Path -LiteralPath $sub -PathType Container) -and (getFolderEntrySample $sub).Count -eq 0)

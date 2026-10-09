@@ -5,7 +5,7 @@
 
 $indexerPath  = "${scriptsDir}\tebunko\indexer.ps1"
 $runPath      = "${scriptsDir}\tebunko\indexer\indexer_run.ps1"
-$dataDirPath  = "${scriptsDir}\shared\core\data_dir.ps1"
+$settingsScriptPath = "${scriptsDir}\tebunko\core\settings.ps1"
 $pathsPath    = "${scriptsDir}\tebunko\core\paths.ps1"
 
 function findLine {
@@ -61,9 +61,9 @@ function runIndexer {
     $global:capturedLegacyTmpParent = $null
     $points = New-Object System.Collections.Generic.List[object]
     try {
-        # ${dataDir} を決める行で、その前に ${rootDir} を差し替える（テスト用のフォルダには書き込めるため、setting.config・work もそこになる）。
+        # ${settingsFile} を決める行（settings.ps1）で、その前に ${rootDir} を差し替える（テスト用のフォルダには書き込めるため、setting.config・work もそこになる）。
         # Action は止まった場所の子のスコープで動く
-        $points.Add((Set-PSBreakpoint -Script $dataDirPath -Line (findLine $dataDirPath '^\$\{dataDir\}\s*=') -Action {
+        $points.Add((Set-PSBreakpoint -Script $settingsScriptPath -Line (findLine $settingsScriptPath '^\$\{settingsFile\}\s*=') -Action {
             Set-Variable -Name rootDir -Value $global:indexerTestRoot -Scope 1
         }))
         # ${legacyTmpParent}（前の版の片付けだけに使う場所 %TEMP%\tebunko）の既定値を決めた直後の行で差し替え、

@@ -27,9 +27,38 @@ Describe "getSettingsFileView" -Tag Unit {
         $view.Note | Should -Be "ツールのフォルダに置いています。"
     }
 
-    It "利用者ごとの場所にあれば、ツールのフォルダに書き込めないためだと伝える" {
-        $view = getSettingsFileView "C:\Users\test\AppData\Local\tebunko\0123456789ABCDEF\setting.config" "C:\Program Files\tebunko"
-        $view.Note | Should -Be "ツールのフォルダ（C:\Program Files\tebunko）に書き込めないため、利用者ごとの場所に置いています。"
+    It "既定のワークスペースにあれば、ツールのフォルダに書き込めないためだと伝える" {
+        $view = getSettingsFileView "C:\Users\test\Documents\tebunko_ws\setting.config" "C:\Program Files\tebunko"
+        $view.Note | Should -Be "ツールのフォルダ（C:\Program Files\tebunko）に書き込めないため、既定のワークスペースに置いています。"
+    }
+}
+
+Describe "getCountedEntryPaths（既定のワークスペースの設定ファイルを数えない）" -Tag Unit {
+    It "<Case>" -TestCases @(
+        @{ Case = "既定のワークスペースなら、設定ファイルと付いてできるファイルを数えない"; IsDefault = $true
+           Paths = @("C:\ws\setting.config", "C:\ws\setting.config.tmp", "C:\ws\setting.config.broken-20261003-120000", "C:\ws\setting.config.broken-20261003-120000-2")
+           Expected = @() }
+        @{ Case = "既定のワークスペースでも、似た名前とほかのファイルは数える"; IsDefault = $true
+           Paths = @("C:\ws\setting.config", "C:\ws\setting.config.bak", "C:\ws\README.md")
+           Expected = @("C:\ws\setting.config.bak", "C:\ws\README.md") }
+        @{ Case = "既定のワークスペースでないフォルダでは、設定ファイルも数える"; IsDefault = $false
+           Paths = @("C:\other\setting.config", "C:\other\a.txt")
+           Expected = @("C:\other\setting.config", "C:\other\a.txt") }
+    ) {
+        @(getCountedEntryPaths $Paths $IsDefault) | Should -Be @($Expected)
+    }
+
+    It "既定のワークスペースに設定ファイルだけなら、数えた結果は 0 個で「空でない」の警告を出さない" {
+        $counted = @(getCountedEntryPaths @("C:\ws\setting.config", "C:\ws\setting.config.tmp") $true)
+        $confirm = newWorkspaceConfirm "C:\ws" "C:\old" $counted.Count @() $false @() $true $false
+        @($confirm.Facts).Count | Should -Be 0
+        $confirm.Choices[0].Value | Should -Be "change"
+    }
+
+    It "既定のワークスペースでないフォルダでは、設定ファイルが 1 つあれば「空でない」の警告を出す" {
+        $counted = @(getCountedEntryPaths @("C:\other\setting.config") $false)
+        $confirm = newWorkspaceConfirm "C:\other" "C:\old" $counted.Count @("setting.config") $false @() $true $false
+        @($confirm.Facts | Where-Object { $_.Kind -eq "warn" }).Count | Should -Be 1
     }
 }
 

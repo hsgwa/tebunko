@@ -22,7 +22,7 @@ flowchart LR
 | `tests/tebunko/indexer/` | `indexer_state`・`indexer_decide`・`indexer_plan`・`extract_office`・`index_migrate`・`indexing_session`、起動口の通しのテスト（`indexer`） |
 | `tests/tebunko/search/` | `search_query`・`search_run`・`pack_search`・`search_service`・`source_map`・高速検索（`search_gram`・`fast_search`・`windows_search`） |
 | `tests/tebunko/ui/` | 画面の判断層（`index_view`・`indexing_view`・`search\*_view`・`preview_view`・`settings\settings_view`）と、`$ui` を偽物にした画面の部品（`result_list`・`open_source`・`preview`・`index_tree`）・型（`types`） |
-| `tests/gui/` | 画面のスモークテスト（`gui_helpers`＝共通の関数、`smoke`・`index`・`search`・`settings`・`process`＝場面。タグ `Gui`。[画面のスモークテスト](gui-smoke.md)） |
+| `tests/gui/` | 画面のスモークテスト（`gui_helpers`＝共通の関数、`smoke`・`index`・`search`・`settings`・`leftover`・`leftover_real`＝場面。タグ `Gui`。[画面のスモークテスト](gui-smoke.md)） |
 | `tests/tools/` | 開発用の道具（`check_commit_message`・`check_signoff`・`check_release_tag`・`check_markdown_links`・`measure_perf`・`run_commit_tests`・`pr_checks_comment`） |
 | `tests/meta/` | 構成を守るテスト（`structure`・`encoding`・`layers`・`links`・`runner`・`classes`）と安全性の検査（`safety`・`installer`） |
 | `tests/testdata/` | 手動の結合テスト用のデータ（[結合テスト（手動）](index.md#結合テスト手動)）と、その生成（`make_testdata.ps1`）・個人情報の除去（`scrub_personal`） |
@@ -44,7 +44,7 @@ Pester 5 はテストを「探す段階」と「流す段階」に分けて動�
 | `layers` | `shared/` にツールの名前が出てこない、ツール同士が互いを読み込まない、起動口からたどれない `.ps1` が無い、判断層（`text.ps1`・`index_name.ps1`・`search_query.ps1`・`indexer_decide.ps1`・`*_view.ps1`）に画面への依存が無い |
 | `links` | git で管理している全 `.md` の相対リンク（画像・参照リンクの定義・HTML の `href`/`src` を含む）の先のファイルがあり（大文字・小文字も区別する）、`.md` のアンカーの見出しがある（`tools/check_markdown_links.ps1`。外部の URL は調べない） |
 | `runner` | `tests/run.ps1` が、実行したテストが 0 件なら失敗にすること、`powershell.exe -File` で渡したカンマ区切りのタグを分けて受け取ること、`Gui` を既定では流さず `-Tag Gui` と `-All` では流すこと |
-| `safety` | 危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が `work` 配下だけ（`%TEMP%` は前の版が残した作業フォルダの片付けと起動失敗の記録だけ）、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（[単体テスト（検査と道具）](unit-checks.md)、[安全性の要約](../../safety/index.md)） |
+| `safety` | 危険な処理を使っていない、Office をマクロ無効・読み取り専用で開く、原本を書き換えない、書き込み先が `work` 配下だけ（`%TEMP%` は前の版が残した作業フォルダの片付けだけ。`%LOCALAPPDATA%\tebunko` には書かない）、PSScriptAnalyzer の指摘が 0 件、審査用の資料がそろっている（[単体テスト（検査と道具）](unit-checks.md)、[安全性の要約](../../safety/index.md)） |
 
 ## タグと実行
 
