@@ -126,13 +126,26 @@ function readGuiConfig {
     return (Get-Content -LiteralPath $Tool.Config -Raw -Encoding UTF8 | ConvertFrom-Json)
 }
 
-function startGuiProcess {
-    # tebunko.bat と同じ、呼び出し演算子 & での起動にする（-File で直接起動すると、実物の tebunko.bat
-    # （powershell -Command "...; & 'gui.ps1'"）より入れ子が 1 段浅くなり、その 1 段の違いで
-    # .GetNewClosure() したスクリプトブロックが関数を名前で解決できなくなる不具合（#149 で見つかった）を
-    # このテストがすり抜けてしまうため）
+function getGuiProcessCommand {
+    # 画面を起動する powershell.exe の -Command の文字列。tebunko.bat と同じ、呼び出し演算子 & での起動にする
+    # （-File で直接起動すると、実物の tebunko.bat（powershell -Command "...; & 'gui.ps1'"）より入れ子が 1 段浅くなり、
+    # その 1 段の違いで .GetNewClosure() したスクリプトブロックが関数を名前で解決できなくなる不具合（#149 で見つかった）を
+    # このテストがすり抜けてしまうため。入れ子の深さは変えない）。
+    # 起動したスクリプトから戻ったら、その時刻・$?・$LASTEXITCODE・$Error の先頭 3 件を、ツールのフォルダの gui_returned_<PID>.txt に書く（多重起動の 2 つ目のプロセスが 1 つ目の印を上書きしないよう、プロセスごとのファイルにする）
+    # （終了コードが 0 でないとき、スクリプトの外で決まったのかを見分ける材料。終了コードの決まり方は変えない: $? が偽なら exit 1、真なら何もしない）。
+    # 閉じる順番の記録（本体の TEBUNKO_CLOSE_TRACE）は、画面のプロセスの中でだけ立てる（テストのプロセスには立てない）。
+    # 引用符は単一引用符だけにする（Start-Process の引数として渡すため）
     param ($Tool)
-    $command = "& '$($Tool.Gui.Replace("'", "''"))'"
+    $gui = $Tool.Gui.Replace("'", "''")
+    $returned = (Join-Path $Tool.Dir "gui_returned_").Replace("'", "''")
+    $write = "try { `$e = (@(`$Error | Select-Object -First 3 | ForEach-Object { [string]`$_ }) -join ' / '); " +
+        "[IO.File]::WriteAllText('$returned' + `$PID + '.txt', ('returned=' + (Get-Date).ToString('o') + ' ok=' + `$r + ' LASTEXITCODE=' + `$c + ' Error=' + `$e)) } catch { }"
+    return "`$env:TEBUNKO_CLOSE_TRACE = '1'; & '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }"
+}
+
+function startGuiProcess {
+    param ($Tool)
+    $command = getGuiProcessCommand $Tool
     # 既定のワークスペースを、$TestDrive の中に差し替えて起動する（起動した子のプロセスに引き継がれる。外れた値は例外にして起動しない）
     assertNotRealWorkspace $Tool.DefaultWorkspace
     $previousWorkspace = $env:TEBUNKO_DEFAULT_WORKSPACE
@@ -157,7 +170,7 @@ function startGui {
 
     $pool = [runspacefactory]::CreateRunspacePool(1, 4)
     $pool.Open()
-    $S = @{ Tool = $Tool; Scene = $Scene; Step = "起動"; Async = New-Object System.Collections.ArrayList; Pool = $pool; Window = $null; Timing = [ordered]@{}; Extra = @() }
+    $S = @{ Tool = $Tool; Scene = $Scene; Step = "起動"; Async = New-Object System.Collections.ArrayList; Pool = $pool; Window = $null; Timing = [ordered]@{}; Extra = @(); StartedAt = (Get-Date) }
     $S.Process = startGuiProcess $Tool
     return $S
 }
@@ -202,29 +215,163 @@ function closeGui {
     param ($S, [int]$Timeout = ${guiDefaultTimeout})
 
     setGuiStep $S "閉じる"
-    $processId = $S.Process.Id
+    markGuiClosing $S
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
     $pattern.Close()
     waitGui $S "画面が終了する" $Timeout -AllowExited { $S.Process.HasExited } | Out-Null
-    if ($S.Process.ExitCode -ne 0) {
-        # reportStartupFailure（gui.ps1）を通らない終了（native の障害など）は原因が分からないため、Windows のイベントログを材料に残す
-        $S.CrashInfo = getGuiCrashInfo $processId
-        throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）"
+    assertGuiExited $S
+}
+
+function markGuiClosing {
+    # 閉じる操作の直前に、画面のプロセスの様子（スレッドの数・子のプロセス）と時刻を控える（assertGuiExited が終了の記録に使う）。
+    # 閉じる操作を closeGui の外で行う場面（取り込みを止めて閉じる など）は、その操作の直前に呼ぶ
+    param ($S)
+
+    $S.ClosingAt = Get-Date
+    $S.ClosingState = @()
+    $S.Children = @()
+    try {
+        $S.Process.Refresh()
+        $S.ClosingState += "スレッドの数: $($S.Process.Threads.Count)"
+        $children = @(Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId = $($S.Process.Id)" -ErrorAction Stop)
+        $S.Children = @($children | ForEach-Object { @{ Id = [int]$_.ProcessId; Name = [string]$_.Name } })
+        $names = if ($S.Children.Count -eq 0) { "なし" } else { (@($S.Children | ForEach-Object { "$($_.Name)（PID $($_.Id)）" })) -join ", " }
+        $S.ClosingState += "子のプロセス: $names"
+    } catch {
+        $S.ClosingState += "様子を取れなかった: $($_.Exception.Message)"
     }
 }
 
-function getGuiCrashInfo {
-    # 終了コードが 0 でないとき（reportStartupFailure が返す 1 の exit も含む）、Windows のイベントログ（Application）からその
-    # プロセス ID に関する直近の記録を探す。原因不明の終了（アクセス違反・COM の例外など）を追う材料にする
-    param ([int]$ProcessId)
+function assertGuiExited {
+    # 画面のプロセスが終わったあとの判定を 1 つにまとめる。終了コードが 0 でなければ、原因を追う材料
+    # （クラッシュ情報・終了の記録）を集めてから失敗にする。閉じ方の違う場面（closeGui・取り込みを止めて閉じる）が、どれもここを通る
+    param ($S)
 
-    try {
-        $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
-            Where-Object { $_.Message -like "*$ProcessId*" } | Select-Object -First 5
-        return @($events | ForEach-Object { "[$($_.TimeCreated)] $($_.ProviderName)（ID $($_.Id)）: $($_.Message)" })
-    } catch {
-        return @("イベントログを読めなかった: $($_.Exception.Message)")
+    if ($S.Process.ExitCode -eq 0) {
+        return
     }
+    collectGuiExitMaterial $S
+    throw "画面の終了コードが 0 ではない（$($S.Process.ExitCode)）"
+}
+
+function collectGuiExitMaterial {
+    # 終了コードが 0 でない（または予定外に終わった）ときの材料を $S に集める。reportStartupFailure（gui.ps1）を通らない終了
+    # （native の障害など）は原因が分からないため、Windows のイベントログと、終了の様子を残す
+    param ($S)
+
+    $since = if ($S.StartedAt) { [datetime]$S.StartedAt } else { (Get-Date).AddMinutes(-5) }
+    $S.CrashInfo = getGuiCrashInfo $S.Process.Id $since
+    $S.ExitRecord = getGuiExitRecord $S
+}
+
+function matchGuiEventProcessId {
+    # イベントの本文に、そのプロセス ID が 10 進数でも 16 進数（0x 付き。大文字・小文字は問わない）でも入っているか。
+    # 別の数字・英数字の一部（PID 123 に対する 1234、0x1A2B3）には当たらない
+    param ([string]$Message, [int]$ProcessId)
+
+    if ([string]::IsNullOrEmpty($Message)) { return $false }
+    $decimal = [string]$ProcessId
+    $hex = $ProcessId.ToString("x")
+    return ($Message -match "(?<![0-9A-Za-z])$decimal(?![0-9A-Za-z])") -or ($Message -match "(?i)(?<![0-9A-Za-z])0x0*$hex(?![0-9A-Za-z])")
+}
+
+${guiCrashProviders} = @("Application Error", ".NET Runtime", "Windows Error Reporting", "Application Hang")
+
+function selectGuiCrashEvents {
+    # イベントのうち、記録の種類（guiCrashProviders）が合い、起動の時刻以降で、本文にそのプロセス ID があるものだけを返す
+    param ($Events, [int]$ProcessId, [datetime]$Since)
+
+    return @(@($Events) | Where-Object {
+        $_ -and $_.ProviderName -in ${guiCrashProviders} -and $_.TimeCreated -ge $Since -and (matchGuiEventProcessId ([string]$_.Message) $ProcessId)
+    })
+}
+
+function getGuiCrashInfo {
+    # 終了コードが 0 でないとき（reportStartupFailure が返す 1 の exit も含む）、Windows のイベントログ（Application）から、
+    # そのプロセスが動いていた間（起動の時刻から今まで）の記録のうち、障害の種類のもので、本文にそのプロセス ID があるものを探す。
+    # 見つからなくても「該当なし」と探した範囲を返す（探したが無かったのか、探していないのかを区別できるように）
+    param ([int]$ProcessId, [datetime]$Since)
+
+    $range = "Application ログ、$($Since.ToString('yyyy-MM-dd HH:mm:ss')) 以降、種類: $(${guiCrashProviders} -join '・')、本文の PID $ProcessId（10 進数・0x 付きの 16 進数）"
+    try {
+        $events = Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $Since } -ErrorAction SilentlyContinue
+        $found = @(selectGuiCrashEvents $events $ProcessId $Since | Select-Object -First 5)
+        if ($found.Count -eq 0) {
+            return @("該当なし（探した範囲: $range）")
+        }
+        return @($found | ForEach-Object { "[$($_.TimeCreated)] $($_.ProviderName)（ID $($_.Id)）: $($_.Message)" })
+    } catch {
+        return @("イベントログを読めなかった（探す範囲: $range）: $($_.Exception.Message)")
+    }
+}
+
+function getGuiExitRecord {
+    # 終了の様子の記録（終了の記録.txt の中身）。閉じる前の様子・終わった時刻・閉じる操作から終わるまでの秒数・子がまだ動いているか・
+    # 呼び出し元に戻った印（gui_returned_<PID>.txt）・閉じる順番の記録（ワークスペースの close_trace.txt）
+    param ($S)
+
+    $lines = New-Object System.Collections.ArrayList
+    [void]$lines.Add("場面: $($S.Scene)　手順: $($S.Step)")
+    $part = {
+        param ([string]$Name, [scriptblock]$Body)
+        try { & $Body } catch { [void]$lines.Add("$Name を取れなかった: $($_.Exception.Message)") }
+    }
+    & $part "プロセスの終わり" {
+        [void]$lines.Add("PID: $($S.Process.Id)　終了コード: $($S.Process.ExitCode)")
+        $exitTime = $S.Process.ExitTime
+        [void]$lines.Add("終わった時刻: $($exitTime.ToString('HH:mm:ss.fff'))")
+        if ($S.ClosingAt) {
+            [void]$lines.Add("閉じる操作から終わるまで: $([Math]::Round(($exitTime - $S.ClosingAt).TotalSeconds, 2)) 秒")
+        } else {
+            [void]$lines.Add("閉じる操作から終わるまで: 閉じる操作の前に終わった（または控えていない）")
+        }
+    }
+    & $part "閉じる直前の様子" {
+        foreach ($line in @($S.ClosingState)) { [void]$lines.Add("閉じる直前の $line") }
+        if (@($S.ClosingState).Count -eq 0) { [void]$lines.Add("閉じる直前の様子: 控えていない") }
+    }
+    & $part "子のプロセス" {
+        foreach ($child in @($S.Children)) {
+            $alive = [bool](Get-Process -Id $child.Id -ErrorAction SilentlyContinue)
+            [void]$lines.Add("終わったあとの子 $($child.Name)（PID $($child.Id)）: $(if ($alive) { 'まだ動いている' } else { '終わっている' })")
+        }
+    }
+    & $part "gui_returned.txt" {
+        $file = Join-Path $S.Tool.Dir "gui_returned_$($S.Process.Id).txt"
+        [void]$lines.Add("---- gui_returned.txt（呼び出し元に戻った印。無ければ戻る前にプロセスが終わった） ----")
+        if (Test-Path -LiteralPath $file) { [void]$lines.Add([IO.File]::ReadAllText($file)) } else { [void]$lines.Add("無い") }
+    }
+    & $part "close_trace.txt" {
+        $file = Join-Path $S.Tool.Work "close_trace.txt"
+        [void]$lines.Add("---- close_trace.txt（閉じる順番の記録。最後の行が、止まる前に着いた節目） ----")
+        if (Test-Path -LiteralPath $file) { [void]$lines.AddRange(@([IO.File]::ReadAllLines($file))) } else { [void]$lines.Add("無い") }
+    }
+    return @($lines)
+}
+
+function formatGuiSummaryRow {
+    # GitHub Actions の Summary（Markdown の表）に足す 1 行。文言の | はエスケープし、改行は空白にする
+    param ([string]$Scene, [string]$Step, [string]$Message)
+
+    $cell = { param ([string]$Text) return ($Text -replace "\r?\n", " ").Replace("|", "\|") }
+    return "| $(& $cell $Scene) | $(& $cell $Step) | $(& $cell $Message) |"
+}
+
+function addGuiSummaryRow {
+    # 場面が失敗したとき、環境変数 GITHUB_STEP_SUMMARY があるときだけ、場面・手順・失敗の文言を表の 1 行として足す
+    # （受け入れのときに、ログを開かなくても「閉じるときの終了コード 5」だと分かるようにする）
+    param ([string]$Scene, [string]$Step, [string]$Message)
+
+    $path = $env:GITHUB_STEP_SUMMARY
+    if (!$path) { return }
+    try {
+        $text = ""
+        if (!(Test-Path -LiteralPath $path) -or (Get-Item -LiteralPath $path).Length -eq 0) {
+            $text = "### 画面のスモークテストで失敗した場面`r`n`r`n| 場面 | 手順 | 失敗の文言 |`r`n|---|---|---|`r`n"
+        }
+        $text += (formatGuiSummaryRow $Scene $Step $Message) + "`r`n"
+        [IO.File]::AppendAllText($path, $text, (New-Object Text.UTF8Encoding($false)))
+    } catch { }
 }
 
 # ---- 待つ ----
@@ -250,6 +397,7 @@ function waitGui {
         $result = & $Condition
         if ($result) { return $result }
         if (!$AllowExited -and $S.Process.HasExited) {
+            collectGuiExitMaterial $S
             throw "画面が終了した（終了コード $($S.Process.ExitCode)）。待っていたもの: $What"
         }
         if (!$AllowExited) {
@@ -550,12 +698,20 @@ function getGuiText {
 # ---- 失敗の材料 ----
 
 function saveGuiEvidence {
-    # 失敗したときの画面の画像と、写した先のログを、作業ツリーの work\test\gui\<場面>\ に置く
+    # 失敗したときの画面の画像と、写した先のログ、終了の記録を、作業ツリーの work\test\gui\<場面>\ に置く。
+    # 部分ごとに別の try にして、1 つが失敗しても残りを書く（失敗した部分は 証拠の保存の失敗.txt に理由を 1 行ずつ残す）
     param ($S)
 
     try {
         $dest = Join-Path (getGuiRepoRoot) "work\test\gui\$($S.Scene)"
         [void][IO.Directory]::CreateDirectory($dest)
+    } catch { return }
+    $failed = New-Object System.Collections.ArrayList
+    $save = {
+        param ([string]$Name, [scriptblock]$Body)
+        try { & $Body } catch { [void]$failed.Add("${Name}: $($_.Exception.Message)") }
+    }
+    & $save "画面の画像" {
         try {
             $bounds = [Windows.Forms.Screen]::PrimaryScreen.Bounds
             $bitmap = New-Object Drawing.Bitmap($bounds.Width, $bounds.Height)
@@ -566,20 +722,33 @@ function saveGuiEvidence {
         } catch {
             "画像を撮れなかった: $($_.Exception.Message)" | Set-Content -LiteralPath "$dest\画像なし.txt" -Encoding UTF8
         }
-        foreach ($name in "gui_error_log.txt", "indexing_log.txt") {
+    }
+    & $save "ログの写し" {
+        foreach ($name in "gui_error_log.txt", "indexing_log.txt", "close_trace.txt") {
             $file = Join-Path $S.Tool.Work $name
             if (Test-Path -LiteralPath $file) { Copy-Item -LiteralPath $file -Destination $dest -Force }
         }
-        if ($S.CrashInfo) {
-            $S.CrashInfo | Set-Content -LiteralPath "$dest\クラッシュ情報.txt" -Encoding UTF8
-        }
+    }
+    & $save "クラッシュ情報" {
+        # 終了コードの確認まで進まなかった失敗でも、必ず書く（「探したが無かった」と「探していない」を区別できるように）
+        $info = if ($S.CrashInfo) { $S.CrashInfo } else { @("探していない（終了コードの確認まで進まなかった失敗）") }
+        $info | Set-Content -LiteralPath "$dest\クラッシュ情報.txt" -Encoding UTF8
+    }
+    & $save "終了の記録" {
+        if ($S.ExitRecord) { $S.ExitRecord | Set-Content -LiteralPath "$dest\終了の記録.txt" -Encoding UTF8 }
+    }
+    & $save "窓の一覧" {
         $tree = New-Object System.Collections.ArrayList
         foreach ($w in @(getGuiTopWindows $S)) {
             [void]$tree.Add("[窓] $($w.Current.Name) | class=$($w.Current.ClassName) | type=$($w.Current.ControlType.ProgrammaticName) | offscreen=$($w.Current.IsOffscreen)")
             foreach ($t in @(getGuiTexts $w)) { [void]$tree.Add("    $t") }
         }
+        if ($tree.Count -eq 0) { [void]$tree.Add("窓は無い（画面の窓も、ほかの窓も見つからなかった）") }
         $tree | Set-Content -LiteralPath "$dest\窓の一覧.txt" -Encoding UTF8
-    } catch { }
+    }
+    if ($failed.Count -gt 0) {
+        try { $failed | Set-Content -LiteralPath "$dest\証拠の保存の失敗.txt" -Encoding UTF8 } catch { }
+    }
 }
 
 function invokeGuiScene {
@@ -594,6 +763,7 @@ function invokeGuiScene {
     } catch {
         $message = "[$($S.Scene)・手順: $($S.Step)] $($_.Exception.Message)"
         saveGuiEvidence $S
+        addGuiSummaryRow $S.Scene $S.Step $_.Exception.Message
         throw $message
     } finally {
         stopGui $S

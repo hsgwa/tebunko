@@ -1,0 +1,164 @@
+﻿# 画面のスモークテストの道具（gui_helpers.ps1）のうち、画面を起動せずに確かめられる部分。
+# 失敗の材料を集める関数（イベントの当て方・Summary の 1 行・終了の記録・起動のコマンド）が、材料を取りこぼさないことを止める。
+BeforeAll {
+    . "$PSScriptRoot\..\helpers\load.ps1"
+    . "$PSScriptRoot\gui_helpers.ps1"
+
+    function newFakeEvent {
+        param ([string]$Provider, [datetime]$Time, [string]$Message, [int]$Id = 1000)
+        return [pscustomobject]@{ ProviderName = $Provider; TimeCreated = $Time; Message = $Message; Id = $Id }
+    }
+}
+
+Describe "matchGuiEventProcessId" -Tag Unit {
+    It "<Name>" -TestCases @(
+        @{ Name = "10 進数の PID に当たる"; Message = "Faulting process id: 4242"; ProcessId = 4242; Expected = $true }
+        @{ Name = "16 進数（小文字）に当たる"; Message = "Faulting process id: 0x1092"; ProcessId = 4242; Expected = $true }
+        @{ Name = "16 進数（大文字）に当たる"; Message = "Faulting process id: 0X1A2B"; ProcessId = 6699; Expected = $true }
+        @{ Name = "16 進数の頭の 0 があっても当たる"; Message = "process id: 0x00001092"; ProcessId = 4242; Expected = $true }
+        @{ Name = "別の数字の一部（PID 123 に対する 1234）には当たらない"; Message = "id: 1234"; ProcessId = 123; Expected = $false }
+        @{ Name = "別の数字の一部（前に数字が続く 51234）には当たらない"; Message = "id: 51234"; ProcessId = 1234; Expected = $false }
+        @{ Name = "16 進数の一部（0x1A2B3 に対する 6699）には当たらない"; Message = "id: 0x1A2B3"; ProcessId = 6699; Expected = $false }
+        @{ Name = "本文が空なら当たらない"; Message = ""; ProcessId = 4242; Expected = $false }
+    ) {
+        (matchGuiEventProcessId $Message $ProcessId) | Should -Be $Expected
+    }
+}
+
+Describe "selectGuiCrashEvents" -Tag Unit {
+    BeforeAll {
+        $script:since = [datetime]"2026-10-10 10:00:00"
+    }
+
+    It "<Name>" -TestCases @(
+        @{ Name = "Application Error で、PID が 16 進数で入っているものを拾う"; Provider = "Application Error"; Offset = 1; Message = "pid 0x1092"; Expected = 1 }
+        @{ Name = ".NET Runtime を拾う"; Provider = ".NET Runtime"; Offset = 1; Message = "pid 4242"; Expected = 1 }
+        @{ Name = "Windows Error Reporting を拾う"; Provider = "Windows Error Reporting"; Offset = 1; Message = "pid 4242"; Expected = 1 }
+        @{ Name = "Application Hang を拾う"; Provider = "Application Hang"; Offset = 1; Message = "pid 4242"; Expected = 1 }
+        @{ Name = "種類の外（MsiInstaller）は拾わない"; Provider = "MsiInstaller"; Offset = 1; Message = "pid 4242"; Expected = 0 }
+        @{ Name = "起動の前の記録は拾わない"; Provider = "Application Error"; Offset = -1; Message = "pid 4242"; Expected = 0 }
+        @{ Name = "別の PID の記録は拾わない"; Provider = "Application Error"; Offset = 1; Message = "pid 1234"; Expected = 0 }
+    ) {
+        $event = newFakeEvent $Provider $script:since.AddMinutes($Offset) $Message
+        @(selectGuiCrashEvents @($event) 4242 $script:since).Count | Should -Be $Expected
+    }
+
+    It "イベントが 0 件（null）でも例外にならない" {
+        @(selectGuiCrashEvents $null 4242 $script:since).Count | Should -Be 0
+    }
+}
+
+Describe "formatGuiSummaryRow・addGuiSummaryRow" -Tag Unit {
+    It "場面・手順・文言を表の 1 行にする（| はエスケープし、改行は空白にする）" {
+        formatGuiSummaryRow "S3" "閉じる" "終了コード (5)`r`n続き | あり" | Should -Be '| S3 | 閉じる | 終了コード (5) 続き \| あり |'
+    }
+
+    It "GITHUB_STEP_SUMMARY が無ければ何もしない" {
+        $saved = $env:GITHUB_STEP_SUMMARY
+        try {
+            $env:GITHUB_STEP_SUMMARY = $null
+            { addGuiSummaryRow "S1" "閉じる" "x" } | Should -Not -Throw
+        } finally {
+            $env:GITHUB_STEP_SUMMARY = $saved
+        }
+    }
+
+    It "GITHUB_STEP_SUMMARY があれば、見出しの行を 1 回だけ書いて、失敗のたびに 1 行足す" {
+        $saved = $env:GITHUB_STEP_SUMMARY
+        $file = Join-Path $TestDrive "summary.md"
+        try {
+            $env:GITHUB_STEP_SUMMARY = $file
+            addGuiSummaryRow "S1" "閉じる" "画面の終了コードが 0 ではない（5）"
+            addGuiSummaryRow "S2b" "閉じる" "画面の終了コードが 0 ではない（5）"
+        } finally {
+            $env:GITHUB_STEP_SUMMARY = $saved
+        }
+        $lines = @(Get-Content -LiteralPath $file -Encoding UTF8)
+        @($lines | Where-Object { $_ -like "| 場面 | 手順 |*" }).Count | Should -Be 1
+        $lines | Should -Contain "| S1 | 閉じる | 画面の終了コードが 0 ではない（5） |"
+        $lines | Should -Contain "| S2b | 閉じる | 画面の終了コードが 0 ではない（5） |"
+    }
+}
+
+Describe "getGuiExitRecord" -Tag Unit {
+    It "終わった様子・呼び出し元に戻った印・閉じる順番の記録を 1 つにまとめる" {
+        $dir = Join-Path $TestDrive "tool"
+        $work = Join-Path $dir "work"
+        [void][IO.Directory]::CreateDirectory($work)
+        [IO.File]::WriteAllText("$dir\gui_returned_4242.txt", "returned=2026-10-10T10:00:00 ok=True LASTEXITCODE= Error=")
+        [IO.File]::WriteAllText("$work\close_trace.txt", "10:00:00.100`tClosing に入った`tスレッド 30`r`n10:00:00.200`tShowDialog から戻った`tスレッド 28`r`n")
+        $exited = Get-Date
+        $S = @{
+            Scene = "S1"; Step = "閉じる"; Tool = @{ Dir = $dir; Work = $work }
+            Process = [pscustomobject]@{ Id = 4242; ExitCode = 5; ExitTime = $exited }
+            ClosingAt = $exited.AddSeconds(-1.5); ClosingState = @("スレッドの数: 31", "子のプロセス: なし"); Children = @()
+        }
+
+        $text = (getGuiExitRecord $S) -join "`n"
+
+        $text | Should -Match "PID: 4242　終了コード: 5"
+        $text | Should -Match "閉じる操作から終わるまで: 1\.5 秒"
+        $text | Should -Match "閉じる直前の スレッドの数: 31"
+        $text | Should -Match "returned=2026-10-10T10:00:00 ok=True"
+        $text | Should -Match "ShowDialog から戻った"
+    }
+
+    It "記録のファイルが無くても、無いと書いて最後まで作る" {
+        $dir = Join-Path $TestDrive "tool2"
+        [void][IO.Directory]::CreateDirectory("$dir\work")
+        $S = @{ Scene = "S1"; Step = "閉じる"; Tool = @{ Dir = $dir; Work = "$dir\work" }; Process = [pscustomobject]@{ Id = 1; ExitCode = 5; ExitTime = Get-Date } }
+
+        $text = (getGuiExitRecord $S) -join "`n"
+
+        $text | Should -Match "gui_returned\.txt"
+        $text | Should -Match "控えていない"
+    }
+}
+
+Describe "getGuiProcessCommand" -Tag Io {
+    BeforeAll {
+        function newStubTool {
+            param ([string]$Name, [string]$Body)
+            $dir = Join-Path $TestDrive $Name
+            [void][IO.Directory]::CreateDirectory($dir)
+            $gui = Join-Path $dir "it's gui.ps1"   # 単一引用符を含む名前でも起動できる
+            [IO.File]::WriteAllText($gui, $Body, (New-Object System.Text.UTF8Encoding($true)))
+            return @{ Dir = $dir; Gui = $gui }
+        }
+        function runCommand {
+            param ($Tool)
+            $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-Command", (getGuiProcessCommand $Tool)) -PassThru -WindowStyle Hidden
+            $null = $p.Handle
+            [void]$p.WaitForExit(60000)
+            return $p.ExitCode
+        }
+    }
+
+    It "起動したスクリプトが正常に戻ると、終了コードは 0 で、戻った印を書く。閉じる順番の記録の印は、起動したプロセスの中にだけ立つ" {
+        $tool = newStubTool "ok" '[IO.File]::WriteAllText("$PSScriptRoot\trace_env.txt", "$env:TEBUNKO_CLOSE_TRACE")'
+
+        (runCommand $tool) | Should -Be 0
+
+        (Get-Content -LiteralPath (Get-ChildItem "$($tool.Dir)\gui_returned_*.txt").FullName -Raw) | Should -Match "returned=.* ok=True"
+        (Get-Content -LiteralPath "$($tool.Dir)\trace_env.txt" -Raw) | Should -Be "1"
+        $env:TEBUNKO_CLOSE_TRACE | Should -BeNullOrEmpty
+    }
+
+    It "起動したスクリプトが失敗して戻ると、終了コードは 1 で、失敗した印（ok=False と LASTEXITCODE）を書く" {
+        $tool = newStubTool "ng" 'exit 3'
+
+        (runCommand $tool) | Should -Be 1
+
+        $returned = Get-Content -LiteralPath (Get-ChildItem "$($tool.Dir)\gui_returned_*.txt").FullName -Raw
+        $returned | Should -Match "ok=False"
+        $returned | Should -Match "LASTEXITCODE=3"
+    }
+
+    It "起動したスクリプトが戻らずに例外で止まると、終了コードは 1 で、戻った印は残らない" {
+        $tool = newStubTool "throw" 'throw "わざと止める"'
+
+        (runCommand $tool) | Should -Be 1
+
+        @(Get-ChildItem "$($tool.Dir)\gui_returned_*.txt" -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+}

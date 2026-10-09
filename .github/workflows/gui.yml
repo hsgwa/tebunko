@@ -13,6 +13,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  # 手で動かしたときだけ、gui-smoke-repeat が同じテストを repeat 本並べて流す（たまにしか出ない失敗の率を測る）
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: 並べるジョブの数（既定 10、上限 20）
+        type: number
+        default: 10
+      path:
+        description: 流すテストのファイル（tests/gui/index.Tests.ps1 など。空なら全部）
+        type: string
+        default: ""
 
 # 同じブランチに続けて push したときは、古い実行を取り消す
 concurrency:
@@ -52,5 +63,60 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: gui-smoke-results
+          path: work/test/gui/
+          if-no-files-found: ignore
+
+  # 繰り返して流す口の準備: 並べる番号の一覧（1..repeat。上限 20）を作る
+  repeat-plan:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      numbers: ${{ steps.plan.outputs.numbers }}
+    steps:
+      - id: plan
+        env:
+          REPEAT: ${{ inputs.repeat }}
+        run: |
+          n="${REPEAT%%.*}"
+          case "$n" in ''|*[!0-9]*) n=10 ;; esac
+          if [ "$n" -lt 1 ]; then n=1; fi
+          if [ "$n" -gt 20 ]; then n=20; fi
+          echo "numbers=$(seq -s, 1 "$n" | sed 's/^/[/; s/$/]/')" >> "$GITHUB_OUTPUT"
+
+  gui-smoke-repeat:
+    needs: repeat-plan
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        number: ${{ fromJSON(needs.repeat-plan.outputs.numbers) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pester の用意
+        shell: powershell
+        env:
+          PESTER_VERSION: 5.9.0
+        run: |
+          if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
+            Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+
+      - name: 画面のスモークテスト（繰り返しの 1 本）
+        shell: powershell
+        env:
+          TEST_PATH: ${{ inputs.path }}
+        run: |
+          if ($env:TEST_PATH) { .\tests\run.ps1 -Tag Gui -Path $env:TEST_PATH } else { .\tests\run.ps1 -Tag Gui }
+
+      - name: 失敗の材料の保存
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gui-smoke-results-${{ matrix.number }}
           path: work/test/gui/
           if-no-files-found: ignore

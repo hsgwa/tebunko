@@ -75,6 +75,8 @@ BeforeAll {
         }
         # 環境変数は SystemRoot（メモ帳を開く）と、画面のテストが差し込む TEBUNKO_GUI_LEFTOVER_FILE だけ
         $allowedEnv = @("systemroot", "tebunko_gui_leftover_file")
+        # 加えて、閉じる順番の記録の印 TEBUNKO_CLOSE_TRACE は、gui_main.ps1 の writeCloseTrace の 1 か所で、1 かどうかを比べるだけ（パスとしては読まない）
+        $closeTraceEnvCount = 0
         # 加えて、既定のワークスペースを差し替える TEBUNKO_DEFAULT_WORKSPACE は、settings.ps1 が 1 回だけ読む（テストや実機の確かめが既定のワークスペースに書かないための口）
         $workspaceEnvCount = 0
         foreach ($line in $codeLines) {
@@ -82,6 +84,8 @@ BeforeAll {
                 $name = $match.Groups[1].Value.ToLowerInvariant()
                 if ($name -eq "tebunko_default_workspace" -and $line.File -eq "settings.ps1") {
                     $workspaceEnvCount++
+                } elseif ($name -eq "tebunko_close_trace" -and $line.File -eq "gui_main.ps1" -and $line.Text -match '\$env:TEBUNKO_CLOSE_TRACE\s+-eq\s+"1"') {
+                    $closeTraceEnvCount++
                 } elseif ($allowedEnv -notcontains $name) {
                     $problems.Add("環境変数: $($line.File):$($line.Line) $($match.Value)")
                 }
@@ -89,6 +93,9 @@ BeforeAll {
         }
         if ($workspaceEnvCount -gt 1) {
             $problems.Add("環境変数: TEBUNKO_DEFAULT_WORKSPACE を読む行が $workspaceEnvCount 回")
+        }
+        if ($closeTraceEnvCount -gt 1) {
+            $problems.Add("環境変数: TEBUNKO_CLOSE_TRACE を読む行が $closeTraceEnvCount 回")
         }
         foreach ($line in @($codeLines | Where-Object { $_.Text -match '(?i)GetEnvironmentVariable' })) {
             $problems.Add("GetEnvironmentVariable: $($line.File):$($line.Line)")
@@ -364,6 +371,8 @@ Describe "書き込み先が限られていること（docs/safety/file-access.m
         @{ Case = 'env:TEMP'; File = "x.ps1"; Text = '$t = $env:TEMP'; Bat = ""; Rules = @("環境変数", "禁止の語") }
         @{ Case = '環境変数 env:USERPROFILE'; File = "x.ps1"; Text = '$t = $env:USERPROFILE'; Bat = ""; Rules = @("環境変数") }
         @{ Case = 'TEBUNKO_DEFAULT_WORKSPACE を別のファイルで読む'; File = "x.ps1"; Text = '$d = $env:TEBUNKO_DEFAULT_WORKSPACE'; Bat = ""; Rules = @("環境変数") }
+        @{ Case = 'TEBUNKO_CLOSE_TRACE を別のファイルで読む'; File = "x.ps1"; Text = 'if ($env:TEBUNKO_CLOSE_TRACE -eq "1") { }'; Bat = ""; Rules = @("環境変数") }
+        @{ Case = 'TEBUNKO_CLOSE_TRACE をパスとして使う'; File = "gui_main.ps1"; Text = '$d = $env:TEBUNKO_CLOSE_TRACE'; Bat = ""; Rules = @("環境変数") }
         @{ Case = '禁止の語だけ: パスの AppData'; File = "x.ps1"; Text = '$d = "$base\AppData\Local\tebunko"'; Bat = ""; Rules = @("禁止の語") }
         @{ Case = '禁止の語だけ: コードの中の %TEMP%'; File = "x.ps1"; Text = 'cmd /c "echo %TEMP%"'; Bat = ""; Rules = @("禁止の語") }
         @{ Case = 'LocalApplicationData'; File = "x.ps1"; Text = '$d = [System.Environment]::GetFolderPath("LocalApplicationData")'; Bat = ""; Rules = @("GetFolderPath") }

@@ -3,6 +3,20 @@
 # ui\ 配下のファイルは $PSScriptRoot を使わない（ここは tebunko\ui\ に置くため、$PSScriptRoot は ui\ を指してしまう）。
 # tebunko\ のパスが要るときは、呼び出し元（gui.ps1）から渡された $TebunkoDir を使う。
 
+function writeCloseTrace {
+    # 画面を閉じる順番の記録（テストの診断用）。環境変数 TEBUNKO_CLOSE_TRACE が 1 のときだけ、ワークスペースの close_trace.txt に
+    # 1 行（時刻・節目の名前・スレッドの数）を足す。環境変数はスイッチとしてだけ使い、パスとしては読まない。書けなくても例外は外に出さない
+    param ([string]$Point)
+
+    if ($env:TEBUNKO_CLOSE_TRACE -eq "1") {
+        try {
+            $threads = [System.Diagnostics.Process]::GetCurrentProcess().Threads.Count
+            $line = "$((Get-Date).ToString('HH:mm:ss.fff'))`t$Point`tスレッド $threads`r`n"
+            [System.IO.File]::AppendAllText($script:workspace.CloseTraceFile, $line, (New-Object System.Text.UTF8Encoding($false)))
+        } catch { }
+    }
+}
+
 function startGui {
     param (
         [string]$TebunkoDir
@@ -287,6 +301,7 @@ function startGui {
 
     $window.Add_Closing({
         param ($sender, $e)
+        writeCloseTrace "Closing に入った"
         if ($script:closeReady) {
             return
         }
@@ -463,25 +478,38 @@ function startGui {
 
     try {
         [void]$window.ShowDialog()
+        writeCloseTrace "ShowDialog から戻った"
     } finally {
         # インデックス作成のスレッド、検索の司令のスレッドと照合のプール、画面の裏の仕事のスレッドを片づける
         # （docs/design/structure/closing.md「閉じるときの順番」）。片づける順番はそのまま変えない。
         # 画面の裏の仕事（$script:backgroundQueue・$script:networkQueue）だけ、止まった仕事（届かない共有の
         # Test-Path など、OS の呼び出しで戻らないもの）を待たずに戻る Abandon（前は Close）を使う
+        writeCloseTrace "finally: closeTimer.Stop の前"
         $script:closeTimer.Stop()
+        writeCloseTrace "finally: indexingTimer.Stop の前"
         $script:indexingTimer.Stop()
+        writeCloseTrace "finally: indexingSession.Close の前"
         if ($script:indexingSession) {
             $script:indexingSession.Close()
         }
+        writeCloseTrace "finally: searchService.Close の前"
         $script:searchService.Close()
+        writeCloseTrace "finally: jobTimer.Stop の前"
         $script:jobTimer.Stop()
+        writeCloseTrace "finally: backgroundQueue.Abandon の前"
         $script:backgroundQueue.Abandon()
+        writeCloseTrace "finally: networkQueue.Abandon の前"
         if ($script:networkQueue) {
             $script:networkQueue.Abandon()
         }
+        writeCloseTrace "finally: activateTimer.Stop の前"
         $activateTimer.Stop()
+        writeCloseTrace "finally: activateEvent.Close の前"
         $activateEvent.Close()
+        writeCloseTrace "finally: mutex.ReleaseMutex の前"
         $mutex.ReleaseMutex()
+        writeCloseTrace "finally: mutex.Dispose の前"
         $mutex.Dispose()
     }
+    writeCloseTrace "startGui の最後"
 }

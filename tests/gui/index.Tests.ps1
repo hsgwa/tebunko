@@ -292,9 +292,10 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "取り込み中に閉じる → 確認で［中止して閉じる］"
             closeGuiWindowAsync $S $S.Window
             $confirm = waitGuiWindow $S "閉じる確認" -Id "HeadingText" -Text "中止して閉じますか" -Guard $tooFastGuard
+            markGuiClosing $S
             clickGuiByName $S $confirm "中止して閉じる"
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
-            $S.Process.ExitCode | Should -Be 0
+            assertGuiExited $S
         }
     }
 
