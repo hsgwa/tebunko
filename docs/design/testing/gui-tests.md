@@ -34,7 +34,7 @@ flowchart TD
 | `splitTsvCells` | `tests/shared/core/text.Tests.ps1` | `"` で囲まれたセル内のタブ、空のセル、先頭のセルが空の行 |
 | `testTextTrimmed` | `tests/shared/core/text.Tests.ps1` | ちょうど・1px 超え・誤差の内・幅 0 |
 | `getExistingAncestorFolder` | `tests/shared/core/folder.Tests.ps1` | フォルダ選択を開く場所（[フォルダ選択ダイアログ（［参照…］）](../gui/common.md#フォルダ選択ダイアログ参照)）。フォルダがあればそのまま、無ければその上の今もあるフォルダ、どこにも無い・空なら空 |
-| `getOfficeProcesses` / `stopOfficeProcesses` | `tests/shared/office/office_process.Tests.ps1` | バックグラウンドの判定、終了の成功・失敗（`Get-Process` / `Stop-Process` をモックする） |
+| `getOfficeProcesses` / `stopOfficeProcesses` | `tests/shared/office/office_process.Tests.ps1` | 記録の読み書き、記録と今のプロセスの照らし合わせ（PID・名前・起動時刻・持ち主）、止める直前の照らし直し（`Get-Process` / `Stop-Process` をモックする）。画面を通した確かめは S7（`tests/gui/leftover_real.Tests.ps1`） |
 | `readSearchOption` / `writeSearchOption` ほか設定の読み書き | `tests/tebunko/core/settings.Tests.ps1` | ファイルが無ければオフ・空、保存した値の読み込み、指定した項目だけを変える |
 | `newIndexName` | `tests/tebunko/index/index_name.Tests.ps1` | 使用済みの名前が無い・1 個だけの場合も正しく判定すること（PowerShell は集合を返すと中身を展開するため、`$null`・文字列で渡ることがある） |
 

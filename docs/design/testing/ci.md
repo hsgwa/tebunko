@@ -70,7 +70,6 @@ PR と Issue のタイトルを `tools/check_commit_message.ps1 -Title` で確�
 - 落ちたときの材料（画面の画像・写した先の `gui_error_log.txt`・`indexing_log.txt`・窓の一覧）は、成否にかかわらず成果物 `gui-smoke-results`（`work/test/gui/<場面>/`）として保存する
 - **落ちたときの再実行は 1 回まで。** 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）
 - **CI だけで流す場面がある。** S6（既定のワークスペース）は、利用者の本物のワークスペース（`%USERPROFILE%\Documents\tebunko_ws`）を使うため、`GITHUB_ACTIONS` が `true` のときだけ流す。手元では理由を出して飛ばす
-- **手元で飛ばす段階がある。** S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（`GITHUB_ACTIONS` が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す
 - ツールは `scripts/` を `$TestDrive` に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの `setting.config`・`work\index`、`%LOCALAPPDATA%\tebunko`、（手元では）`Documents\tebunko_ws` が、流す前後で変わらないことも各場面で確かめる
 
 **`codeql.yml`・`scorecard.yml`（サプライチェーンの安全性）**
