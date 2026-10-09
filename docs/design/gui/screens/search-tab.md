@@ -80,7 +80,7 @@ stateDiagram-v2
 
 ### search-tab/regex-error（不正な正規表現の吹き出し。遷移 24）
 
-![不正な正規表現の注意](../../../images/screens/search-tab/regex-error.png)
+![正規表現が正しくないときの吹き出し](../../../images/screens/search-tab/regex-error.png)
 
 ### search-tab/tree-none（検索対象のツリーですべて解除した注意。遷移 25）
 

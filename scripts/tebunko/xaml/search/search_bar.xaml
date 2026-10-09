@@ -224,8 +224,7 @@
       <Path Data="{StaticResource Icon.CircleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Danger.Text}"
             StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
             VerticalAlignment="Center" Margin="0,0,6,0" />
-      <TextBlock x:Name="SearchKindBalloonText" Style="{StaticResource ErrorText}" TextWrapping="NoWrap" VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Assertive" />
+      <TextBlock x:Name="SearchKindBalloonText" Style="{StaticResource ErrorText}" TextWrapping="NoWrap" VerticalAlignment="Center" />
     </StackPanel>
   </Border>
   <Border x:Name="RegexBalloon" Style="{StaticResource Balloon}">
@@ -233,8 +232,7 @@
       <Path Data="{StaticResource Icon.CircleAlert}" Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource Danger.Text}"
             StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"
             VerticalAlignment="Center" Margin="0,0,6,0" />
-      <TextBlock x:Name="RegexBalloonText" Style="{StaticResource ErrorText}" TextWrapping="NoWrap" VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Assertive" />
+      <TextBlock x:Name="RegexBalloonText" Style="{StaticResource ErrorText}" TextWrapping="NoWrap" VerticalAlignment="Center" />
     </StackPanel>
   </Border>
 </Canvas>

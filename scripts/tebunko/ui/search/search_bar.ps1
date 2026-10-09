@@ -100,6 +100,8 @@ function setSearchBalloon {
         return
     }
     $wasVisible = ($balloon.Visibility -eq "Visible") -and ($textBlock.Text -eq $text)
+    # 画面の読み上げに、出たときに読み上げるよう頼む（.NET 4.7.1 以降。無い環境では何もしない）
+    try { [System.Windows.Automation.AutomationProperties]::SetLiveSetting($textBlock, [System.Windows.Automation.AutomationLiveSetting]::Assertive) } catch { }
     $textBlock.Text = $text
     $balloon.Visibility = "Visible"
     placeSearchBalloons
@@ -144,20 +146,31 @@ function checkFastSearchAvailable {
     }
 }
 
+function getCurrentWordNotice {
+    # いまの検索ワード・［正規表現］の状態での、正規表現の注意（正しくなければ文言、正しければ ""）
+    getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
+}
+
 function updateWordNotice {
     $ui.WordPlaceholder.Visibility = if ($ui.WordBox.Text -eq "") { "Visible" } else { "Collapsed" }
     updateFastSearchView
     # 正規表現が正しくないときは、入力欄の枠を赤くし、［正規表現］の下に吹き出しを出す
-    $notice = getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)
+    $notice = getCurrentWordNotice
     $ui.WordErrorRing.Visibility = if ($notice -ne "") { "Visible" } else { "Collapsed" }
     setSearchBalloon $ui.RegexBalloon $ui.RegexBalloonText $notice
-    updateSearchButton
+    updateSearchButton $notice
 }
 
 function updateSearchButton {
+    # notice: 正規表現の注意。呼ぶ側が持っているときに渡す（省略すると調べ直す）
+    param (
+        [string]$notice = $null
+    )
+
+    if ($null -eq $PSBoundParameters["notice"]) { $notice = getCurrentWordNotice }
     $noIndex = $script:indexSummary -and $script:indexSummary["Count"] -eq 0
     $state = newSearchButtonState ([bool]$script:search) ([bool]($script:search -and $script:search.Shared.Stop)) `
-        (getWordText) (!$noIndex) @(getSearchTargets).Count ((getWordNotice (getWordText) ([bool]$ui.RegexCheck.IsChecked)) -ne "")
+        (getWordText) (!$noIndex) @(getSearchTargets).Count ($notice -ne "")
     $ui.SearchButton.Content = $state.Content
     $ui.SearchButton.IsEnabled = $state.Enabled
 }

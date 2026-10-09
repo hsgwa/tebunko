@@ -22,7 +22,7 @@ function startSearch {
         setStatus "検索ワードを入力してください。"
         return
     }
-    if (getWordNotice $word ([bool]$ui.RegexCheck.IsChecked)) {
+    if (getCurrentWordNotice) {
         # 正規表現が正しくない（吹き出しを出している。始めない）
         return
     }

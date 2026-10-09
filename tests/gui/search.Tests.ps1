@@ -34,7 +34,12 @@ Describe "S4 検索の遷移" -Tag Gui {
             toggleGui $regex
             waitGui $S "「正規表現を使う」が付く" ${guiDefaultTimeout} { (getGuiToggleState (findGui $S.Window -Id "RegexCheck")) -eq "On" } | Out-Null
             setGuiText $S (findGui $S.Window -Id "WordBox") "("
-            waitGui $S "吹き出し（RegexBalloon）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "RegexBalloonText")) -eq "正規表現が正しくありません" } | Out-Null
+            waitGui $S "吹き出し（RegexBalloon）が出る" ${guiDefaultTimeout} {
+                $text = findGui $S.Window -Id "RegexBalloonText"
+                !$text.Current.IsOffscreen -and (getGuiText $text) -eq "正規表現が正しくありません"
+            } | Out-Null
+            $regexRect = (findGui $S.Window -Id "RegexBalloonText").Current.BoundingRectangle
+            $regexRect.Right | Should -BeLessOrEqual $S.Window.Current.BoundingRectangle.Right -Because "吹き出しは窓の右端からはみ出さない"
             (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeFalse -Because "正規表現が正しくないと検索を始めない"
             $resultTop = (findGui $S.Window -Id "SummaryText").Current.BoundingRectangle.Top
             setGuiStep $S "式を直す"
@@ -95,11 +100,18 @@ Describe "S4 検索の遷移" -Tag Gui {
                 @($chipIds | Where-Object { (getGuiToggleState (findGui $S.Window -Id $_)) -eq "On" }).Count -eq 0
             } | Out-Null
             & $search "単価"
-            waitGui $S "種類を選ぶ吹き出し" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "SearchKindBalloonText")) -eq "種類を 1 つ以上選んでください" } | Out-Null
+            waitGui $S "種類を選ぶ吹き出し" ${guiDefaultTimeout} {
+                $text = findGui $S.Window -Id "SearchKindBalloonText"
+                !$text.Current.IsOffscreen -and (getGuiText $text) -eq "種類を 1 つ以上選んでください"
+            } | Out-Null
             $balloonRect = (findGui $S.Window -Id "SearchKindBalloonText").Current.BoundingRectangle
             $chipRect = (findGui $S.Window -Id "KindChipExcel").Current.BoundingRectangle
-            $balloonRect.Top | Should -BeGreaterThan $chipRect.Bottom -Because "吹き出しは種類のチップの下に出す"
-            $balloonRect.Left | Should -BeGreaterThan ($chipRect.Left - 1) -Because "左端はチップの左端にそろう"
+            # 吹き出しの文字は、チップの左端から枠・余白・アイコンの分（20〜40）だけ右、チップの下端から 0〜15 下
+            ($balloonRect.Left - $chipRect.Left) | Should -BeGreaterThan 20 -Because "左端はチップの左端にそろう"
+            ($balloonRect.Left - $chipRect.Left) | Should -BeLessThan 40 -Because "左端はチップの左端にそろう"
+            ($balloonRect.Top - $chipRect.Bottom) | Should -BeGreaterThan 0 -Because "吹き出しは種類のチップの下に出す"
+            ($balloonRect.Top - $chipRect.Bottom) | Should -BeLessThan 15 -Because "吹き出しはチップのすぐ下に出す"
+            (findGui $S.Window -Id "SummaryText").Current.BoundingRectangle.Top | Should -Be $resultTop -Because "吹き出しを出しても検索バーの高さは変わらない"
             (findGui $S.Window -Id "SearchButton").Current.IsEnabled | Should -BeTrue -Because "種類が無くても［検索］は押せる"
             (& $summary) | Should -BeLike "一致 2 件（*" -Because "検索を始めないため、前の結果のまま"
             setGuiStep $S "チップ［Excel］だけ選んで検索"
