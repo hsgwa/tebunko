@@ -4184,7 +4184,7 @@
 <tr>
 <td><code>getOfficeProcesses</code> / <code>stopOfficeProcesses</code></td>
 <td><code>tests/shared/office/office_process.Tests.ps1</code></td>
-<td>バックグラウンドの判定、終了の成功・失敗（<code>Get-Process</code> / <code>Stop-Process</code> をモックする）</td>
+<td>記録の読み書き、記録と今のプロセスの照らし合わせ（PID・名前・起動時刻・持ち主）、止める直前の照らし直し（<code>Get-Process</code> / <code>Stop-Process</code> をモックする）。画面を通した確かめは S7（<code>tests/gui/leftover_real.Tests.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>readSearchOption</code> / <code>writeSearchOption</code> ほか設定の読み書き</td>
