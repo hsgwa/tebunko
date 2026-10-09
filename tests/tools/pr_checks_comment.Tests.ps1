@@ -285,7 +285,7 @@ Describe "各ワークフローが、自分の結果を pr-comment の複合ア�
         $job | Should -Match "(?m)^      pull-requests: write$"
     }
 
-    It "perf-check.yml の pr-comment は、search・ingest の両方がスキップのときには書かない（perf-check 以外のラベルの実行もこれで止まる）" {
+    It "perf-check.yml の pr-comment は、search・ingest の両方がスキップのときには書かない" {
         $yml = [System.IO.File]::ReadAllText((Join-Path $root ".github\workflows\perf-check.yml")) -replace "`r`n", "`n"
         $m = [regex]::Match($yml, "(?ms)^  pr-comment:\n(.*?)(?=^  [A-Za-z0-9_-]+:[ ]*\n|\z)")
         $m.Success | Should -BeTrue
