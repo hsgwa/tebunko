@@ -52,7 +52,7 @@ flowchart TD
     SH --> SC["shared/core/*・office/office_files.ps1・office_process.ps1<br>office_protection_view.ps1・office_protection.ps1"]
 ```
 
-読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは `tests/meta/layers.Tests.ps1` が起動口からたどって検出する）。読み込みは `. "$PSScriptRoot\..."` の形で書く（この形の行だけを検査がたどる）。
+読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは `tests/meta/layers.Tests.ps1` が起動口からたどって検出する）。読み込みは、起動口と読み込み口（`lib.ps1` など）では `. "$PSScriptRoot\..."` の形、画面の部品（`tebunko/ui/` の `gui_main.ps1` など）では `. "$TebunkoDir\..."` の形で書く（検査はこの 2 つの形の行をたどる）。
 
 | 読み込み口 | 読み込むもの | 使う側 |
 |---|---|---|
@@ -62,9 +62,9 @@ flowchart TD
 
 画面の部品（`shared/ui/`・`tebunko/ui/`）は `gui.ps1` が、インデックス作成だけで使うもの（`office_reader.ps1`・`office_app.ps1`・`indexer_plan.ps1`・`extract_office.ps1`・`index_migrate.ps1`・`indexer_run.ps1`）は `indexer/indexer_lib.ps1` が読み込む。`indexer_lib.ps1` は `indexer.ps1` と取り込みのスレッドが読み込む（画面は読み込まない）。
 
-各スクリプト・テストからは dot-source（`. "$PSScriptRoot\lib.ps1"`）して使う。
+各スクリプト・テストからは dot-source（`. "$PSScriptRoot\lib.ps1"`）して使う。`ui/` の部品は `$PSScriptRoot` ではなく、`gui.ps1` から渡された `$TebunkoDir`（`tebunko/` 直下のパス）を基準に読み込む。
 
-別スレッド（検索・背景の仕事・取り込み）の中では `$PSScriptRoot` が使えない。そのため、スレッドへ読み込ませる部品（`lib`・`indexerLib`）の読み込みは、`scripts/tebunko/core/parts.ps1` の `getPartLoad` が、呼び出し側で絶対パスに解決した `. '<パス>'` の文字列にして渡す。
+別スレッド（検索・背景の仕事・取り込み）の中では `$PSScriptRoot` が使えない。そのため、スレッドへ読み込ませる部品（`lib`・`indexerLib`）の読み込みは、`scripts/tebunko/core/parts.ps1` の `getPartLoad` が、呼び出し側で絶対パスに解決した `. '<パス>'` の文字列にして渡す。この文字列は、検索（`search_service.ps1`）・インデックス作成（`indexer_run.ps1`・`indexing_session.ps1`）が、別スレッドへ渡す前に `joinWorkerScript`（`shared/core/worker_pool.ps1`）でスレッドの本体の前につなぐ（背景の仕事の `WorkerPool` も、`worker_pool.ps1` の中で同じようにつなぐ）。スレッドの中には読み込みの行を書かないので、検査がたどる対象にならない（部品は `lib.ps1`・`indexer_lib.ps1` を通して読み込み漏れが見つかる）。
 
 ## 起動口となるスクリプト（`scripts/`）
 
