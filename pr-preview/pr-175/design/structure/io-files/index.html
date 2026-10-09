@@ -4755,13 +4755,13 @@
 <h2 id="読まない書かない場所">読まない・書かない場所<a class="headerlink" href="#読まない書かない場所" title="Permanent link">&para;</a></h2>
 <p>次の場所には書かない。</p>
 <ul>
-<li><code>%LOCALAPPDATA%\tebunko</code>: 設定の逃げ先と起動失敗の記録に使っていたが、やめた。読みも書きもしない（インストーラー版の <code>%LOCALAPPDATA%\Programs\tebunko</code> は別で、ツールのフォルダ）。</li>
+<li><code>%LOCALAPPDATA%\tebunko</code>: 設定の逃げ先にも起動失敗の記録にも使わない。読みも書きもしない（インストーラー版の <code>%LOCALAPPDATA%\Programs\tebunko</code> は別で、ツールのフォルダ）。</li>
 <li><code>%TEMP%</code>: 一時ファイルはワークスペースの <code>tmp\</code> の下にだけ置く。過去の版が残した <code>%TEMP%\tebunko\</code> を消すときのほかは触らない。</li>
 <li>レジストリ: インストーラーが書くアンインストールの情報を除き、読みも書きもしない。</li>
 <li>クロール対象フォルダ・元のファイル: 書かない（読むだけ）。</li>
 </ul>
 <h2 id="処理ごとのファイルの表">処理ごとのファイルの表<a class="headerlink" href="#処理ごとのファイルの表" title="Permanent link">&para;</a></h2>
-<p>画面（<code>gui.ps1</code>）とインデクサ（<code>indexer.ps1</code>）は同じプロセスの別のスレッドで動き、進み具合・取り込み予定・確認の返事・中止・エラーはメモリ上の受け渡しの口（<code>newIndexerChannel</code>）で受け渡す（<a href="../threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a>）。ファイルに残すのは、このページの表のとおりである（ここまでの一覧の「処理ごとのファイルの表」は、画面とインデクサが使うファイルに絞った表）。</p>
+<p>画面（<code>gui.ps1</code>）とインデクサ（<code>indexer.ps1</code>）は同じプロセスの別のスレッドで動き、進み具合・取り込み予定・確認の返事・中止・エラーはメモリ上の受け渡しの口（<code>newIndexerChannel</code>）で受け渡す（<a href="../threads/#画面とインデクサの受け渡し">画面とインデクサの受け渡し</a>）。この節の表は、上の一覧のうち画面とインデクサが使うファイルに絞って、作成・使用・文字コード・内容を足した表である。</p>
 <pre class="mermaid"><code>flowchart LR
     CFG[("setting.config")]
     GUI["画面&lt;br&gt;gui.ps1"]
