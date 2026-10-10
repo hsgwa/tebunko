@@ -4339,10 +4339,10 @@
     C -- このフォルダを使う --&gt; U["setIndexSourceFolder で記録&lt;br&gt;（次からこのインデックスは聞かない）"] --&gt; Z
     C -- フォルダを選ぶ --&gt; P["フォルダ選択から始める&lt;br&gt;（「見つかりません」の確認は挟まない）"]</code></pre>
 <ul>
-<li>確かめるかどうかは<strong>インデックス名</strong>を単位にする。設定（<code>targetFolders</code> / <code>indexSources</code>）にある名前（この PC で作ったインデックス・確かめ済みのインデックス）は聞かない。設定は開くたびに読み直す（<code>getConfirmedSourceNames</code>。キャッシュしない）。</li>
+<li>確かめるかどうかは<strong>インデックス名</strong>を単位にする。設定（<code>targetFolders</code> / <code>indexSources</code>）にある名前（この PC で作ったインデックス・確かめ済みのインデックス）は聞かない。設定は開くたびに読み直す（<code>getConfirmedSourceNames</code>。キャッシュしない）。名前は大文字・小文字だけを区別せず、文字の並びそのもので比べる（<code>testNameInList</code>。OrdinalIgnoreCase。ソフトハイフンなどの見えない文字が混じった名前は別の名前になり、確認を避けられない）。</li>
 <li>元のフォルダがローカルでも確かめる。共有フォルダ（UNC・ネットワークドライブ）のときは、確認の説明に「開くと、このフォルダに接続し、Windows のサインイン情報が送られることがあります」と添える（<code>getSourceConfirmDialog</code>。tebunko 自身は通信せず、接続するのは Windows）。</li>
-<li>キャンセルしたとき、その行を開く依頼は取り下げる。待っていた別の行の結果も捨てる（依頼の番号を進めるため。<a href="../network/">元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき</a>）。</li>
-<li>zip からのインポートは、確認ダイアログで利用者が元のフォルダを確かめて登録する。このため、その確認ダイアログは、目録の元のフォルダが共有フォルダなら有無を調べず（<code>SourceExists</code> は <code>$null</code>。接続を待たない。<code>getImportArchiveInfo</code>）、文言は変えない。</li>
+<li>キャンセルしたときは、確認の間に変えていたカーソルを戻す。その行を開く依頼は取り下げる。待っていた別の行の結果も捨てる（依頼の番号を進めるため。<a href="../network/">元のフォルダ・元のファイル・ワークスペースがネットワークにあるとき</a>）。</li>
+<li>zip からのインポートは、確認ダイアログで利用者が元のフォルダを確かめて登録する。このため、その確認ダイアログは、目録の元のフォルダがローカルのドライブ（<code>C:\</code> の形）でなければ（共有フォルダ・<code>\\.\UNC\</code> や <code>\\.\GLOBALROOT\</code> のようなデバイス名の形）有無を調べず（<code>SourceExists</code> は <code>$null</code>。接続を待たない。<code>getImportArchiveInfo</code>）、文言は変えない。</li>
 </ul>
 <p>確認は確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）で行う。</p>
 <table>
@@ -4382,8 +4382,10 @@
 <h2 id="もらったインデックスのマクロを持てる形式">もらったインデックスのマクロを持てる形式<a class="headerlink" href="#もらったインデックスのマクロを持てる形式" title="Permanent link">&para;</a></h2>
 <p>設定の <code>targetFolders</code> に名前が無いインデックス（もらったインデックス）の元のファイルのうち、マクロ（ファイルの中のプログラム）を持てる形式は、開き方が「通常」「新規」でも<strong>読み取り専用で開く</strong>（<code>getSourceOpenMode</code>）。対象の拡張子は <code>.xlsm</code> <code>.xlsb</code> <code>.xls</code> <code>.docm</code> <code>.doc</code> <code>.pptm</code> <code>.ppt</code>（大文字・小文字を区別しない）。</p>
 <ul>
+<li>もらったインデックスかどうかは、元のファイルを見つけたインデックスの名前を <code>findSourceFile</code> の続きに渡して判定する（<code>openFoundSource</code> が、場所の対応のキャッシュから引き直さない）。名前が渡されないときは、もらったインデックスとして扱う（<code>testSourceReceived</code>）。</li>
 <li>読み取り専用に替えたときは、ステータスの終わりに <code>（もらったインデックスのため、マクロを持てる形式は読み取り専用で開きます）</code> を添える。もう読み取り専用を選んでいるときは添えない。</li>
 <li>読み取り専用で開けないとき（動詞 <code>OpenAsReadOnly</code> が登録されていない・Excel の COM が使えず動詞でも開けない）は、<strong>通常の開き方には落とさず、開かない</strong>（<code>openWithShell</code> の <code>-noFallback</code>）。ステータスに <code>もらったインデックスのファイルは読み取り専用で開けなかったため、開きませんでした。［ファイルのパスをコピー］で場所を調べ、確かめてから開いてください：&lt;パス&gt;</code> と出す。</li>
+<li>読み取り専用で開くために Excel の <code>AutomationSecurity</code> を <code>2</code> にできなかったときは、Excel では開かず（マクロが動く設定のまま開かないため）、上の「読み取り専用で開けないとき」と同じ扱いにする（<code>setExcelAutomationSecurity</code> が例外を出す）。</li>
 <li>自分で作ったインデックス（<code>targetFolders</code> にある名前）と、マクロを持てない形式（<code>.xlsx</code> <code>.docx</code> <code>.pptx</code> など）は、選んだ開き方のまま開く。</li>
 <li>読み取り専用は、ファイルを上書きしないための開き方であって、それだけでマクロの実行を止めるものではない。マクロを実行するかは Office の設定（セキュリティセンター）に従う。</li>
 </ul>
