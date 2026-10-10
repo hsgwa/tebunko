@@ -4537,7 +4537,7 @@
 <p>Excel（<code>Workbooks</code>）・Word（<code>Documents</code>）・PowerPoint（<code>Presentations</code>）で同じ流れを使う。アプリごとの違い（ファイルの一覧・自分のファイルの閉じ方・戻す設定）は、<code>office_app.ps1</code> の <code>$appInfo</code> の表にある。</p>
 <ul>
 <li><strong>確かめ</strong>: ファイルの一覧（<code>Workbooks</code>・<code>Documents</code>・<code>Presentations</code>）の中に、作業用フォルダの外のファイルがあるかを調べる。比較は <code>GetFullPath</code> で正規化した作業用フォルダの前方一致（大文字小文字を区別せず、末尾に <code>\</code> を付けて <code>tmp</code> と <code>tmp2</code> を取り違えない）で行い、<code>~</code> を含む短い名前は <code>Get-Item</code> で長い名前にしてから比べる。読めない名前と、<code>FullName</code> を正規化できないもの（URL・保存前の <code>Book1</code> など）は利用者のファイルと数える（データを失わない側に倒す）。確かめに使う一覧の参照は、数えたあとに放す。</li>
-<li><strong>一覧を読めないとき</strong>（COM が呼び出しを拒んだ。利用者が操作中のことがある）: Excel・PowerPoint は、起動で控えた PID のプロセスに見える窓があれば、利用者が使っているとみなして渡す。無ければ従来どおり終了させる（窓を中身で探すことはしない）。Word は自分で窓を隠していて窓では分からないため、渡しも終了もさせず、持ち続けて後で一覧を読み直す（<code>keepUndecidedApp</code>。空の窓を出さず、利用者のファイルも閉じない）。持ち続けた Word は、<code>retryKeptApps</code> が一覧を読み直し、利用者のファイルがあれば渡し、自分のファイルだけなら終了させ、まだ読めなければそのまま持ち続ける。</li>
+<li><strong>一覧を読めないとき</strong>（COM が呼び出しを拒んだ。利用者が操作中のことがある）: Excel・PowerPoint は、起動で控えた PID のプロセスに見える窓があれば、利用者が使っているとみなして渡す。無ければ従来どおり終了させる（窓を中身で探すことはしない）。Word は自分で窓を隠していて窓では分からないため、渡しも終了もさせず、持ち続けて後で一覧を読み直す（<code>keepUndecidedApp</code>。空の窓を出さず、利用者のファイルも閉じない。持ち続けたことはログに 1 行書く）。持ち続けた Word は、<code>retryKeptApps</code> が一覧を読み直し、利用者のファイルがあれば渡し、自分のファイルだけなら終了させ、まだ読めなければそのまま持ち続ける。</li>
 <li>
 <p><strong>渡す処理</strong>（<code>restoreHandedOverApp</code>。<code>handOverApp</code> と <code>retryKeptApps</code> が呼ぶ）: <code>handOverApp</code> が、監視の PID・受け渡しの口・起動の記録から外す（<code>retryKeptApps</code> からの呼び出しでは外さない。外し済みのため）。そのうえで、次を順に行う。</p>
 <ol>
@@ -4601,7 +4601,7 @@
 <td></td>
 </tr>
 <tr>
-<td>- <strong>渡したあと</strong>: 次のファイルからは新しいアプリを起動する（PowerPoint は、渡した PowerPoint が残っているため起動せず、残りの PowerPoint のファイルを後回しにする。上の「PowerPoint」）。渡したことは、1 ファイルの取り込みの中で渡したときはインデックス作成のログに 1 行残す（取り込みのスレッドが終わるときと起動し直しの一括終了で渡した分は、ログに出る場所が無いため残らない）。</td>
+<td>- <strong>渡したあと</strong>: 次のファイルからは新しいアプリを起動する（PowerPoint は、渡した PowerPoint が残っているため起動せず、残りの PowerPoint のファイルを後回しにする。上の「PowerPoint」）。渡したこと（と、一覧を読めずに持ち続けたこと）は、1 ファイルの取り込みの中で起きたときはインデックス作成のログに 1 行残す（取り込みのスレッドが終わるときと起動し直しの一括終了で渡した分は、ログに出る場所が無いため残らない）。</td>
 <td></td>
 <td></td>
 </tr>
