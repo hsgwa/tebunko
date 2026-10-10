@@ -37,13 +37,21 @@ BeforeAll {
             if ($filter.Include -and !$filter.Include.IsMatch($book)) { continue }
             if ($filter.Exclude -and $filter.Exclude.IsMatch($book)) { continue }
             if ($exclude -and $exclude.IsMatch($place)) { continue }
+            $cellPrefixed = $book -match '\.xls[a-z]?$' -and $place -match '\[(図形|コメント)\]$'
             $relDir = [System.IO.Path]::GetDirectoryName($bookDir).Substring($tsvRoot.Length).Trim("\")
             $reader = [System.IO.StreamReader]::new($path, [System.Text.Encoding]::UTF8, $true)
             try {
                 $number = 0
                 while ($null -ne ($line = $reader.ReadLine())) {
                     $number++
-                    if ($search.Regex.IsMatch($line)) { $keys.Add("$relDir|$book|$place|$number|$line") }
+                    # Excel の図形・コメントの行は「セル番地 + タブ + 文字」のため、最初のタブより後から始まる一致だけをヒットにする（元のファイル名と場所の名前だけで判定する）
+                    if ($cellPrefixed) {
+                        $tab = $line.IndexOf("`t")
+                        $hit = $tab -ge 0 -and $search.Regex.IsMatch($line, $tab + 1)
+                    } else {
+                        $hit = $search.Regex.IsMatch($line)
+                    }
+                    if ($hit) { $keys.Add("$relDir|$book|$place|$number|$line") }
                 }
             } finally {
                 $reader.Dispose()
@@ -373,7 +381,8 @@ Describe "searchPackIndex（改行の種類・照合のしかたによらず、T
             @("abc", $true), @("見積", $true), @("(株)", $true), @("存在しない", $true), @("`t", $true),
             @("^abc", $false), @("abc$", $false), @("^$", $false), @("x*", $false), @("見積.*確定", $false),
             @("見積\s確定", $false), @("\s", $false), @("[^a]", $false), @("abc(?=\s)", $false),
-            @("abc(?!\s)", $false), @("\Aabc", $false), @("abc\z", $false), @("(?i)ABC", $false)
+            @("abc(?!\s)", $false), @("\Aabc", $false), @("abc\z", $false), @("(?i)ABC", $false),
+            @("A1", $true), @("\d", $false), @("(?i)a1", $false), @("^A1", $false), @("A1\tabc", $false), @("(?<=\t)abc", $false)
         ) | ForEach-Object { @{ Word = $_[0]; Simple = $_[1] } }
     }
 
@@ -386,6 +395,9 @@ Describe "searchPackIndex（改行の種類・照合のしかたによらず、T
         [System.IO.File]::WriteAllText("$dir\b.docx\ページ001.tsv", "りんご`nみかん abc`n`n見積 確定`nabc", ${utf8Bom})
         [System.IO.File]::WriteAllText("$dir\c.pptx\スライド001.tsv", "abc`rりんご`r`r見積`r", (New-Object System.Text.UTF8Encoding $false))
         [System.IO.File]::WriteAllText("$dir\d.xlsx\空.tsv", "", ${utf8Bom})
+        # Excel の図形・コメント（セル番地 + タブ + 文字の行）
+        newTsv "$dir\e.xlsx\$(toIndexFileName "S[図形]")" @("A1`tabc 見積", "A1`t確定")
+        newTsv "$dir\e.xlsx\$(toIndexFileName "S[コメント]")" @("B3`tA1 の件")
         $packs = newPackIndex $tsvRoot (Join-Path $TestDrive "modes_pack")
     }
 
@@ -395,7 +407,96 @@ Describe "searchPackIndex（改行の種類・照合のしかたによらず、T
 
     It "行番号は 1 行ずつ読んだときと同じ（CR だけの改行・空行も数える）" {
         sortedKeys (searchPackIndex "見積" $packs $true).Hits |
-            Should -BeExactly ((@("idx|a.xlsx|S|1|見積`t(株)山田商事", "idx|a.xlsx|S|3|abc 見積", "idx|b.docx|ページ001|4|見積 確定", "idx|c.pptx|スライド001|4|見積") | Sort-Object) -join "`n")
+            Should -BeExactly ((@("idx|a.xlsx|S|1|見積`t(株)山田商事", "idx|a.xlsx|S|3|abc 見積", "idx|b.docx|ページ001|4|見積 確定", "idx|e.xlsx|S[図形]|1|A1`tabc 見積", "idx|c.pptx|スライド001|4|見積") | Sort-Object) -join "`n")
+    }
+}
+
+Describe "searchPackIndex（Excel の図形・コメントは、セル番地だけに一致した行をヒットにしない）" -Tag Io {
+    BeforeAll {
+        $tsvRoot = Join-Path $TestDrive "cell_tsv"
+        $dir = "$tsvRoot\idx"
+        newTsv "$dir\見積.xlsx\$(toIndexFileName "見積")" @("品名", "C2 番の部品")
+        # 4 行目は文字の中にタブがある（本物の書き出しでは " で囲まれる。最初のタブより後は、文字の中のタブも検索の対象）
+        newTsv "$dir\見積.xlsx\$(toIndexFileName "見積[図形]")" @("C2`t納期", "C2`tC2 の部品", "B10`t2個", "C3`t`"品名`t納期`"")
+        newTsv "$dir\見積.xlsx\$(toIndexFileName "見積[コメント]")" @("C2`t確認済み")
+        newTsv "$dir\報告.docx\$(toIndexFileName "ページ001[図形]")" @("C2 と書いた図形")
+        newTsv "$dir\見積2.xlsx\$(toIndexFileName "見積2[図形]")" @("D4`tあ", "D4`tい", "E5`tD4 の件")
+        $packs = newPackIndex $tsvRoot (Join-Path $TestDrive "cell_pack")
+    }
+
+    It "「<Word>」は、文字に一致する行だけがヒットになる（文字の中のタブも対象）" -ForEach @(
+        @{ Word = "C2"; Simple = $true; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|見積.xlsx|見積[図形]|2|C2`tC2 の部品", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
+        @{ Word = "2"; Simple = $true; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|見積.xlsx|見積[図形]|2|C2`tC2 の部品", "idx|見積.xlsx|見積[図形]|3|B10`t2個", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
+        @{ Word = "C"; Simple = $true; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|見積.xlsx|見積[図形]|2|C2`tC2 の部品", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
+        @{ Word = "納期"; Simple = $true; Expected = @("idx|見積.xlsx|見積[図形]|1|C2`t納期", "idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
+        @{ Word = "品名\t納期"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
+        @{ Word = "\t"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
+        @{ Word = "(?<=\t)納期"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|1|C2`t納期", "idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
+        @{ Word = "C2\t納期"; Simple = $false; Expected = @() }
+        @{ Word = "^C2"; Simple = $false; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
+        @{ Word = "確認済み"; Simple = $true; Expected = @("idx|見積.xlsx|見積[コメント]|1|C2`t確認済み") }
+    ) {
+        sortedKeys (searchPackIndex $Word $packs $Simple).Hits | Should -BeExactly (($Expected | Sort-Object) -join "`n")
+    }
+
+    It "除いた行があっても、後の行の行番号がずれない（<Word>）" -ForEach @(
+        @{ Word = "D4"; Simple = $true }
+        @{ Word = "(?i)D4"; Simple = $false }
+    ) {
+        toKeys (searchPackIndex $Word $packs $Simple).Hits | Should -Be @("idx|見積2.xlsx|見積2[図形]|3|E5`tD4 の件")
+    }
+
+    Context "複数行・囲みのある文字" {
+        BeforeAll {
+            # 本物の書き出し（toObjectCellText）と同じ形: 改行はセル内改行（U+2028）、改行・"・タブを含む文字は " で囲み、中の " は "" にする
+            $lsep = [string][char]0x2028
+            $multiRoot = Join-Path $TestDrive "multi_tsv"
+            newTsv "$multiRoot\idx\複数.xlsx\$(toIndexFileName "S[図形]")" @("C2`t`"納期${lsep}C2 の部品`"", "D5`t`"彼は`"`"はい`"`"と言った`"")
+            $multiPacks = newPackIndex $multiRoot (Join-Path $TestDrive "multi_pack")
+            $line1 = "idx|複数.xlsx|S[図形]|1|C2`t`"納期${lsep}C2 の部品`""
+            $line2 = "idx|複数.xlsx|S[図形]|2|D5`t`"彼は`"`"はい`"`"と言った`""
+        }
+
+        It "「<Word>」の結果が、手で書いた期待値と同じ" -ForEach @(
+            @{ Word = "C2"; Simple = $true; Which = @(1) }
+            @{ Word = "納期"; Simple = $true; Which = @(1) }
+            @{ Word = "の部品"; Simple = $true; Which = @(1) }
+            @{ Word = "D5"; Simple = $true; Which = @() }
+            @{ Word = "彼は"; Simple = $true; Which = @(2) }
+            @{ Word = "`"`""; Simple = $true; Which = @(2) }
+            @{ Word = "`""; Simple = $true; Which = @(1, 2) }
+            @{ Word = "`"納期"; Simple = $true; Which = @(1) }
+        ) {
+            $all = @{ 1 = $line1; 2 = $line2 }
+            $expected = @($Which | ForEach-Object { $all[$_] })
+            sortedKeys (searchPackIndex $Word $multiPacks $Simple).Hits | Should -BeExactly (($expected | Sort-Object) -join "`n")
+        }
+    }
+
+    Context "件数と上限" {
+        BeforeAll {
+            # 各フォルダに、セル番地だけに一致する行が 3 行、その後に文字に一致する行が 2 行
+            $limitRoot = Join-Path $TestDrive "limit_tsv"
+            foreach ($folder in "a", "b", "c") {
+                newTsv "$limitRoot\$folder\上限.xlsx\$(toIndexFileName "S[図形]")" @("F1`tx", "F1`ty", "F1`tz", "G1`tF1 あ", "G1`tF1 い")
+            }
+            $limitPacks = newPackIndex $limitRoot (Join-Path $TestDrive "limit_pack")
+        }
+
+        It "上限 <Limit>・スレッド <Workers> で、件数 <Count>・Truncated=<Truncated>" -ForEach @(
+            @{ Limit = 1; Workers = 1; Count = 1; Truncated = $true }
+            @{ Limit = 1; Workers = 3; Count = 1; Truncated = $true }
+            @{ Limit = 6; Workers = 1; Count = 6; Truncated = $false }
+            @{ Limit = 6; Workers = 3; Count = 6; Truncated = $false }
+            @{ Limit = 0; Workers = 1; Count = 6; Truncated = $false }
+            @{ Limit = 0; Workers = 3; Count = 6; Truncated = $false }
+        ) {
+            $result = searchPackIndex "F1" $limitPacks $true $Limit -workerCount $Workers -taskBytes 1
+            $result.Hits.Count | Should -Be $Count
+            $result.Truncated | Should -Be $Truncated
+            # 返った行は、文字に一致した行（セル番地だけの F1 x・y・z ではない）
+            foreach ($hit in $result.Hits) { $hit.Line | Should -Match "^G1`tF1 " }
+        }
     }
 }
 
@@ -656,3 +757,19 @@ Describe "readPackContext" -Tag Io {
     }
 }
 
+Describe "testCellPrefixedHit（セル番地 + 区切りのタブ + 文字の行で、最初のタブより後の一致だけを数える）" -Tag Unit {
+    It "<Name>" -ForEach @(
+        @{ Name = "タブが無い行は一致なし"; Pattern = "C2"; Line = "C2 納期"; Expected = $false }
+        @{ Name = "文字が空（タブの後ろに何も無い）なら、番地に一致する語は一致なし"; Pattern = "C2"; Line = "C2`t"; Expected = $false }
+        @{ Name = "文字が空でも、タブに当たる語は区切りのタブなので一致なし"; Pattern = "`t"; Line = "C2`t"; Expected = $false }
+        @{ Name = "番地だけに一致する語は一致なし"; Pattern = "C2"; Line = "C2`t納期"; Expected = $false }
+        @{ Name = "文字に一致する語は一致"; Pattern = "納期"; Line = "C2`t納期"; Expected = $true }
+        @{ Name = "文字の中にも同じ語があれば一致"; Pattern = "C2"; Line = "C2`tC2 の部品"; Expected = $true }
+        @{ Name = "行頭の ^ は、文字の先頭に一致しない（既知の制限）"; Pattern = "^C2"; Line = "C2`tC2 の部品"; Expected = $false }
+        @{ Name = "区切りのタブを見る後読みは、文字の先頭に一致する"; Pattern = "(?<=	)納期"; Line = "C2`t納期"; Expected = $true }
+        @{ Name = "文字の中のタブも検索の対象"; Pattern = "品名`t納期"; Line = "C3`t`"品名`t納期`""; Expected = $true }
+        @{ Name = "文字の中のタブだけに当たる語も一致"; Pattern = "`t"; Line = "C3`t`"品名`t納期`""; Expected = $true }
+    ) {
+        testCellPrefixedHit ([regex]::new($Pattern)) $Line | Should -Be $Expected
+    }
+}
