@@ -48,6 +48,54 @@ BeforeAll {
         return (@($lines | Where-Object { $_.Text -match $pattern } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ")
     }
 
+    function getSourcePathViolations {
+        # 取り込みの入口の関数の中で、元のパス（変数 sourcePath）の渡し先が許した処理だけかを調べる。
+        # 返す: Found = 見つけた入口の名前、Violations = 許さない渡し先の行（"関数名:行"）。コードを文字列で渡せるので、通ってはいけない形で落ちることをテストで確かめられる。
+        # 許す: copyFileShared（コピー）・getAppName・testTextExtension（拡張子の判定）・入口どうしの受け渡し・
+        #       [System.IO.Path]::GetExtension / GetFileName・[System.IO.FileInfo]::new(toLongPath ...)（大きさをメタデータで見る。元は開かない）
+        param (
+            [string]$code,
+            [string[]]$entries
+        )
+
+        $allowedCommands = @("copyFileShared", "getAppName", "testTextExtension", "extractTextFile", "extractWorkbook", "extractDocument")
+        $tree = [System.Management.Automation.Language.Parser]::ParseInput($code, [ref]$null, [ref]$null)
+        $functions = @($tree.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Where-Object { $entries -contains $_.Name })
+        $violations = New-Object System.Collections.Generic.List[string]
+        foreach ($function in $functions) {
+            $uses = $function.Body.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] -and $n.VariablePath.UserPath -eq "sourcePath" }, $true)
+            foreach ($use in $uses) {
+                if ($use.Parent -is [System.Management.Automation.Language.ParameterAst]) {
+                    continue
+                }
+                $parent = $use.Parent
+                while ($null -ne $parent -and $parent -isnot [System.Management.Automation.Language.CommandAst] -and $parent -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                    $parent = $parent.Parent
+                }
+                $ok = $false
+                if ($parent -is [System.Management.Automation.Language.CommandAst]) {
+                    $commandName = $parent.GetCommandName()
+                    if ($allowedCommands -contains $commandName) {
+                        $ok = $true
+                    } elseif ($commandName -eq "toLongPath") {
+                        # 外側が FileInfo の new のときだけ（OpenRead・ReadAllBytes などに渡すのは不可）
+                        $outer = $parent.Parent
+                        while ($null -ne $outer -and $outer -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $outer -isnot [System.Management.Automation.Language.CommandAst]) {
+                            $outer = $outer.Parent
+                        }
+                        $ok = ($outer -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $outer.Static -and $outer.Expression.Extent.Text -eq "[System.IO.FileInfo]" -and $outer.Member.Extent.Text -eq "new")
+                    }
+                } elseif ($parent -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                    $ok = ($parent.Static -and $parent.Expression.Extent.Text -eq "[System.IO.Path]" -and @("GetExtension", "GetFileName") -contains $parent.Member.Extent.Text)
+                }
+                if (!$ok) {
+                    $violations.Add("$($function.Name):$($use.Extent.StartLineNumber)")
+                }
+            }
+        }
+        return [pscustomobject]@{ Found = @($functions | ForEach-Object { $_.Name }); Violations = $violations.ToArray() }
+    }
+
     function getWritePlaceViolations {
         # 書き込み先を環境から得る書き方が、許すものの一覧に収まっているかを調べ、外れたものを文字列の一覧で返す（無ければ空）。
         # $codeLines は getCodeLines の形（コメントを除いた行）、$batText は tebunko.bat の全文。
@@ -406,41 +454,31 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
         (findPattern $fs '\[System\.IO\.FileAccess\]::Read') | Should -Not -Be ""
     }
 
-    It "取り込みの入口（extractTextFile・extractWorkbook・extractDocument）が元のパス（sourcePath 変数）を渡してよいのは、許した処理だけ" {
-        # 元を直接読む処理（readTextFile・isZipFile・Open など）に $sourcePath を渡すと落ちる。読むのは、作業領域のコピー（copyFileShared の先）だけ。
-        # 許す: copyFileShared（コピー）・getAppName（拡張子の判定）・toLongPath（大きさをメタデータで見る）・[System.IO.Path]::Get*（名前・拡張子）
-        $allowedCommands = @("copyFileShared", "getAppName", "toLongPath")
-        $entries = @("extractTextFile", "extractWorkbook", "extractDocument")
+    It "取り込みの入口（ingestFile・extractTextFile・extractWorkbook・extractDocument）が元のパス（sourcePath 変数）を渡してよいのは、許した処理だけ" {
+        # 元を直接読む処理に sourcePath を渡すと落ちる。読むのは、作業領域のコピー（copyFileShared の先）だけ。許す処理は getSourcePathViolations のコメントにある
+        $entries = @("ingestFile", "extractTextFile", "extractWorkbook", "extractDocument")
         $found = New-Object System.Collections.Generic.List[string]
         $bad = New-Object System.Collections.Generic.List[string]
         foreach ($file in @("extract_text.ps1", "extract_office.ps1")) {
-            $ast = [System.Management.Automation.Language.Parser]::ParseFile("$scriptsDir\tebunko\indexer\$file", [ref]$null, [ref]$null)
-            $functions = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Where-Object { $entries -contains $_.Name })
-            foreach ($function in $functions) {
-                $found.Add($function.Name)
-                $uses = $function.Body.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] -and $n.VariablePath.UserPath -eq "sourcePath" }, $true)
-                foreach ($use in $uses) {
-                    if ($use.Parent -is [System.Management.Automation.Language.ParameterAst]) {
-                        continue
-                    }
-                    $parent = $use.Parent
-                    while ($null -ne $parent -and $parent -isnot [System.Management.Automation.Language.CommandAst] -and $parent -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
-                        $parent = $parent.Parent
-                    }
-                    $ok = $false
-                    if ($parent -is [System.Management.Automation.Language.CommandAst]) {
-                        $ok = ($allowedCommands -contains $parent.GetCommandName())
-                    } elseif ($parent -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
-                        $ok = ($parent.Static -and $parent.Expression.Extent.Text -eq "[System.IO.Path]" -and $parent.Member.Extent.Text -like "Get*")
-                    }
-                    if (!$ok) {
-                        $bad.Add("$($function.Name):$($use.Extent.StartLineNumber)")
-                    }
-                }
-            }
+            $result = getSourcePathViolations ([System.IO.File]::ReadAllText("$scriptsDir\tebunko\indexer\$file")) $entries
+            foreach ($name in $result.Found) { $found.Add($name) }
+            foreach ($violation in $result.Violations) { $bad.Add("${file}:$violation") }
         }
         (($found | Sort-Object) -join ",") | Should -Be (($entries | Sort-Object) -join ",")
         ($bad -join ", ") | Should -Be ""
+    }
+
+    It "元のパスの検査は、<name> を見逃さない" -TestCases @(
+        @{ name = "toLongPath 越しの OpenRead"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.File]::OpenRead((toLongPath $sourcePath)) }'; ok = $false }
+        @{ name = "toLongPath 越しの ReadAllBytes"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.File]::ReadAllBytes((toLongPath $sourcePath)) }'; ok = $false }
+        @{ name = "readTextFile への直接の引数"; code = 'function ingestFile { param([string]$sourcePath) readTextFile $sourcePath 10 }'; ok = $false }
+        @{ name = "GetFullPath"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.Path]::GetFullPath($sourcePath) }'; ok = $false }
+        @{ name = "FileInfo の大きさ（許す）"; code = 'function ingestFile { param([string]$sourcePath) [System.IO.FileInfo]::new((toLongPath $sourcePath)).Length }'; ok = $true }
+        @{ name = "copyFileShared と GetExtension（許す）"; code = 'function ingestFile { param([string]$sourcePath) copyFileShared $sourcePath "x"; [System.IO.Path]::GetExtension($sourcePath) }'; ok = $true }
+    ) {
+        $result = getSourcePathViolations $code @("ingestFile")
+        $result.Found.Count | Should -Be 1
+        ($result.Violations.Count -eq 0) | Should -Be $ok
     }
 
     It "Office の SaveAs の保存先は作業フォルダのパスだけ" {

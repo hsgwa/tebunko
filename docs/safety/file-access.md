@@ -66,25 +66,28 @@ scan 'NotContentIndexed'
 
 本ツールは、クロール対象フォルダのファイルを**直接開かない**。作業フォルダへコピーし、そのコピーだけを開く（`tebunko/indexer/extract_office.ps1:103`・`261` の `copyFileShared`）。コピー元は読み取り専用で開く（`shared/core/fs.ps1:121`。`FileAccess::Read` で開き、ほかのアプリの読み書き・削除を妨げない）。
 
-この設計は、インデックス作成中も利用者が原本を上書き保存・移動できるように（ファイルロックを避けるために）入れたものだが、結果として原本への書き込み経路そのものが存在しない。
+この設計は、原本に絶対に影響を出さないために入れたもので（効果として、インデックス作成中も利用者が原本を上書き保存・移動できる）、結果として原本への書き込み経路そのものが存在しない。
 
 ```mermaid
 flowchart LR
     src[("クロール対象フォルダ<br>原本")]
     copy["work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;<br>コピー"]
     office["Excel / Word / PowerPoint<br>読み取り専用・マクロ無効"]
+    text["テキストファイル<br>コピーを読む"]
     tsv["work/tmp/#lt;PC の鍵#gt;/#lt;PID#gt;<br>中間 TSV"]
     idx[("work/content_index/<br>本文インデックス")]
 
     src -- "コピー（読み取りのみ）" --> copy
     copy --> office
+    copy --> text
     office -- "SaveAs（保存先はコピー側）" --> tsv
+    text --> tsv
     tsv --> idx
 ```
 
 Office の `SaveAs` は 3 か所あるが、保存先は常に作業フォルダ内のパス（`$tmpPath` / `$destPath`）である（`extract_office.ps1:156`・`210`・`234`）。原本のパスを `SaveAs` に渡す経路は無い。
 
-テキストファイル（`.txt` 等）は Office を使わないため、コピーも作らない。原本を読み取り専用の共有（`copyFileShared` と同じ `FileShare.ReadWrite | Delete`）で直接開いて読み、閉じるだけである（`shared/core/text_file.ps1` の `readTextFile`）。書き込みの API には渡さない。
+テキストファイル（`.txt` 等）も、Office と同じく作業フォルダの `source.copy` へコピーし（`copyFileShared`）、そのコピーを読み（`shared/core/text_file.ps1` の `readTextFile`）、読み終えたら消す。原本は開かず、書き込みの API には渡さない。
 
 `tests/meta/safety.Tests.ps1` の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは `copyFileShared` の読み取りだけであること、`SaveAs` の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。
 
