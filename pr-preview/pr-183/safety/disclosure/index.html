@@ -4428,7 +4428,7 @@
 <li><strong>運用での対策</strong>: 透過暗号化を導入している環境では、対象フォルダを取り込み対象にするかどうかを、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>の対策と合わせて判断する。</li>
 </ul>
 <h2 id="検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る<a class="headerlink" href="#検索結果から開くと-excel-が前面に出る" title="Permanent link">&para;</a></h2>
-<p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は不可視で動作する。ただし、画面の無い Excel に利用者が開いたブックが入ったときは、そのブックを閉じないよう終了させずに窓を出して利用者に渡す（<a href="../checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> と、渡す処理（<code>office_app.ps1</code> の <code>handOverApp</code>）にしか無いことを確かめる）。</p>
+<p>検索結果から元の Excel ファイルを開くときは、Excel を可視化して前面に出す（<code>tebunko/ui/open_source.ps1:162</code>・<code>213</code>）。利用者が開くよう操作したときの動作である。インデクサ側の Office は不可視で動作する。ただし、画面の無い Excel に利用者が開いたブックが入ったときは、そのブックを閉じないよう終了させずに窓を出して利用者に渡す（<a href="../checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>。<code>safety.Tests.ps1</code> が、<code>Visible = $true</code> は <code>open_source.ps1</code> と、渡す処理（<code>office_app.ps1</code> の <code>restoreHandedOverApp</code>。<code>handOverApp</code> と <code>retryKeptApps</code> が呼ぶ）にしか無いことを確かめる）。</p>
 <h2 id="インストーラー版">インストーラー版<a class="headerlink" href="#インストーラー版" title="Permanent link">&para;</a></h2>
 <p>配布物は 2 つある。中身のスクリプト（<code>scripts/</code>）は同じで、入れ方と起動口だけが違う。</p>
 <table>
