@@ -4241,7 +4241,7 @@
 <span class="n">scan</span> <span class="s1">'NotContentIndexed'</span>
 </code></pre></div>
 <h3 id="取り込みの作業フォルダに置くもの">取り込みの作業フォルダに置くもの<a class="headerlink" href="#取り込みの作業フォルダに置くもの" title="Permanent link">&para;</a></h3>
-<p>取り込みの作業フォルダ（既定 <code>work\tmp\&lt;PC の鍵&gt;\&lt;PID&gt;\w&lt;番号&gt;\</code>）には、原本のコピー・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。置き場所はワークスペースの下である。</p>
+<p>取り込みの作業フォルダ（既定 <code>work\tmp\&lt;PC の鍵&gt;\&lt;PID&gt;\w&lt;番号&gt;\</code>）には、原本のコピー（テキストを含む）・Excel のシートごとの一時保存・旧形式から変換した一時ファイル・公開前の中間 TSV を置く。置き場所はワークスペースの下である。</p>
 <table>
 <thead>
 <tr>
@@ -4255,6 +4255,11 @@
 <td>原本のコピー（Excel・Word・PowerPoint が開く対象）</td>
 <td><code>work\tmp\&lt;PC の鍵&gt;\&lt;PID&gt;\w&lt;番号&gt;\&lt;元のファイル名&gt;</code></td>
 <td><code>extract_office.ps1</code> の <code>copyFileShared</code> 呼び出し</td>
+</tr>
+<tr>
+<td>テキストファイルのコピー（読み終えたら消す）</td>
+<td>同上の下の <code>source.copy</code></td>
+<td><code>extract_text.ps1</code> の <code>extractTextFile</code></td>
 </tr>
 <tr>
 <td>Excel のシートごとの一時保存（<code>sheet&lt;番号&gt;.tmp</code>）</td>
@@ -4331,7 +4336,7 @@
 </tbody>
 </table>
 <h2 id="取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない<a class="headerlink" href="#取り込み対象のファイルは書き換えない" title="Permanent link">&para;</a></h2>
-<p>本ツールは、クロール対象フォルダのファイルを<strong>直接開かない</strong>。作業フォルダへコピーし、そのコピーだけを開く（<code>tebunko/indexer/extract_office.ps1:103</code>・<code>261</code> の <code>copyFileShared</code>）。コピー元は読み取り専用で開く（<code>shared/core/fs.ps1:121</code>。<code>FileAccess::Read</code> で開き、ほかのアプリの読み書き・削除を妨げない）。</p>
+<p>本ツールは、クロール対象フォルダのファイルを<strong>直接開かない</strong>。作業フォルダへコピーし、そのコピーだけを開く（<code>tebunko/indexer/extract_office.ps1:192</code>・<code>434</code> と <code>tebunko/indexer/extract_text.ps1:23</code>（<code>extractTextFile</code>）の <code>copyFileShared</code>）。コピー元は読み取り専用で開く（<code>shared/core/fs.ps1:140</code>。<code>FileAccess::Read</code> で開き、ほかのアプリの読み書き・削除を妨げない）。</p>
 <p>この設計は、原本に絶対に影響を出さないために入れたもので（効果として、インデックス作成中も利用者が原本を上書き保存・移動できる）、結果として原本への書き込み経路そのものが存在しない。</p>
 <pre class="mermaid"><code>flowchart LR
     src[("クロール対象フォルダ&lt;br&gt;原本")]
@@ -4348,7 +4353,7 @@
     text --&gt; tsv
     tsv --&gt; idx</code></pre>
 <p>Office の <code>SaveAs</code> は 3 か所あるが、保存先は常に作業フォルダ内のパス（<code>$tmpPath</code> / <code>$destPath</code>）である（<code>extract_office.ps1:156</code>・<code>210</code>・<code>234</code>）。原本のパスを <code>SaveAs</code> に渡す経路は無い。</p>
-<p>テキストファイル（<code>.txt</code> 等）も、Office と同じく作業フォルダの <code>source.copy</code> へコピーし（<code>copyFileShared</code>）、そのコピーを読み（<code>shared/core/text_file.ps1</code> の <code>readTextFile</code>）、読み終えたら消す。原本は開かず、書き込みの API には渡さない。</p>
+<p>テキストファイル（<code>.txt</code> 等）も、Office と同じく作業フォルダの <code>source.copy</code> へコピーし（<code>copyFileShared</code>）、そのコピーを読み（<code>shared/core/text_file.ps1</code> の <code>readTextFile</code>）、読み終えたら消す。原本は直接読まず、書き込みの API には渡さない。</p>
 <p><code>tests/meta/safety.Tests.ps1</code> の「取り込み対象のファイルを書き換えないこと」が、原本のパスを書き込み・削除の API に渡さないこと、原本を読むのは <code>copyFileShared</code> の読み取りだけであること、<code>SaveAs</code> の保存先が作業フォルダだけであること、Word・PowerPoint を読み取り専用で開くことを確かめる（Excel を読み取り専用で開くことは「Office ファイルを安全に開くこと」が確かめる）。</p>
 <h2 id="読み取りのみであることの実証">読み取りのみであることの実証<a class="headerlink" href="#読み取りのみであることの実証" title="Permanent link">&para;</a></h2>
 <p>静的な確認に加えて、実際に動かして確認できる。第三者が再現できる手順は次の 2 つ。</p>
