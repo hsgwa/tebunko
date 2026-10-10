@@ -110,7 +110,7 @@ jobs:
       - name: 画面のスモークテスト（繰り返しの 1 本）
         shell: powershell
         env:
-          TEST_PATH: ${{ inputs.path }}
+          TEST_PATH: ${{ inputs.path || 'tests/gui/zz_bisect.Tests.ps1' }}
         run: |
           if ($env:TEST_PATH) { .\tests\run.ps1 -Tag Gui -Path $env:TEST_PATH } else { .\tests\run.ps1 -Tag Gui }
 

@@ -143,7 +143,17 @@ function getGuiProcessCommand {
         "`$rs = (@(Get-Runspace | ForEach-Object { [string]`$_.Id + '/' + [string]`$_.Name + '/' + [string]`$_.RunspaceStateInfo.State + '/' + [string]`$_.RunspaceAvailability }) -join ','); " +
         "`$pr = Get-Process -Id `$PID; `$ev = (@(`$pr.Threads | Where-Object { [string]`$_.WaitReason -eq 'EventPairLow' } | ForEach-Object { [string][int](`$_.StartTime - `$pr.StartTime).TotalSeconds }) -join ','); " +
         "[IO.File]::WriteAllText('$returned' + `$PID + '.txt', ('returned=' + (Get-Date).ToString('o') + ' ok=' + `$r + ' LASTEXITCODE=' + `$c + ' Error=' + `$e + ' THREADS=' + `$t + ' RUNSPACES(' + @(Get-Runspace).Count + ')=' + `$rs + ' EVENTPAIR_START_SEC=' + `$ev)) } catch { }"
-    return "`$env:TEBUNKO_CLOSE_TRACE = '1'; & '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }"
+    # 【一時】終わり方の比べ（環境変数 TEBUNKO_TEST_EXIT_VARIANT が立っているときだけ。立っていなければ変わらない）
+    #   envexit: 戻ったあと [Environment]::Exit(0) で終わる / exiting: PowerShell.Exiting の時刻を gui_exiting_<PID>.txt に書く
+    $variant = $env:TEBUNKO_TEST_EXIT_VARIANT
+    $head = ""
+    $tail = ""
+    if ($variant -eq 'envexit') { $tail = "; [Environment]::Exit(0)" }
+    if ($variant -eq 'exiting') {
+        $exiting = (Join-Path $Tool.Dir "gui_exiting_").Replace("'", "''")
+        $head = "[void](Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action { [IO.File]::WriteAllText('$exiting' + `$PID + '.txt', (Get-Date).ToString('o')) }); "
+    }
+    return "`$env:TEBUNKO_CLOSE_TRACE = '1'; $head& '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }$tail"
 }
 
 function startGuiProcess {
@@ -256,7 +266,7 @@ function assertGuiExited {
             $diagText = if (Test-Path -LiteralPath $diagFile) { [IO.File]::ReadAllText($diagFile) } else { "returned 無し" }
             $diagThreads = ([regex]::Match($diagText, 'THREADS=([^ ]*)').Groups[1].Value -split ',').Count
             $diagText = ($diagText -replace ' Error=.*?(?= THREADS=)', '') -replace 'THREADS=[^ ]*', "THREADS_COUNT=$diagThreads"
-            Write-Host ("GUI-DIAG exit=0 " + $diagText)
+            Write-Host ("GUI-DIAG exit=0 場面=" + $S.Scene + " " + $diagText)
         } catch { Write-Host ("GUI-DIAG 失敗 " + $_.Exception.Message) }
         return
     }
@@ -415,6 +425,10 @@ function getGuiExitRecord {
         $file = Join-Path $S.Tool.Dir "gui_returned_$($S.Process.Id).txt"
         [void]$lines.Add("---- gui_returned_$($S.Process.Id).txt（呼び出し元に戻った印。無ければ戻る前にプロセスが終わった） ----")
         if (Test-Path -LiteralPath $file) { [void]$lines.Add([IO.File]::ReadAllText($file)) } else { [void]$lines.Add("無い") }
+    }
+    & $part "gui_exiting_<PID>.txt" {
+        $file = Join-Path $S.Tool.Dir "gui_exiting_$($S.Process.Id).txt"
+        if (Test-Path -LiteralPath $file) { [void]$lines.Add("PowerShell.Exiting の時刻（gui_exiting_$($S.Process.Id).txt）: " + [IO.File]::ReadAllText($file)) }
     }
     & $part "close_trace.txt" {
         # 同じワークスペースを何度も起こすと前の起動の行が残るので、この PID の行だけを写す。ワークスペースを切り替える場面もあるため、場所（ワークスペースのフォルダ名）を付ける
