@@ -244,6 +244,10 @@ function restoreHandedOverApp {
     if (-not $state.BooksClosed) {
         try {
             $books = getWorkbookSplit $com
+            # 前の回の一覧の参照は、取り直した一覧に置き換える前に放す
+            if ($state.Books) {
+                foreach ($book in @($state.Books.Own) + @($state.Books.Foreign)) { try { releaseComObject $book } catch {} }
+            }
             $closeFailed = $false
             foreach ($book in $books.Own) {
                 try { $book.Close($false) } catch { $closeFailed = $true }
@@ -351,7 +355,7 @@ function retryKeptApps {
 
 function waitKeptApps {
     # 取り込みのスレッドの終わりに限り、持ち続けている Excel を、間を置いて上限まで仕上げ直す。持ち続けが無ければ待たない。
-    # shouldStop が真を返したら（中止・画面を閉じる）すぐ抜ける。上限に届かなかったものは、そのまま持ち続け（スレッドが終わると参照が切れる）
+    # shouldStop が真を返したら（中止・画面を閉じる）次の刻みで抜ける。上限に届かなかったものは、そのまま持ち続け（スレッドが終わると参照が切れる）
     param ([scriptblock]$shouldStop = { $false })
 
     $started = getMonotonicMilliseconds

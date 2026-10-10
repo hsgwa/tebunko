@@ -651,7 +651,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @($log).Count | Should -Be 0
     }
 
-    It "handOverApp: 窓や設定を戻せたら `$true を返し、通知に窓を出せたことを伝える" {
+    It "handOverApp: 窓や設定を戻せたら `$true を返し、通知に渡し切れたことを伝える" {
         $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
         $script:apps["Excel"] = @{ Com = (newHandOverApp); Pid = 4242; Shared = $false }
 
@@ -660,7 +660,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @($log) | Should -Be @("通知:Excel:True")
     }
 
-    It "handOverApp: 窓を出せなかったら `$false を返し、COM を放さずに持ち続け（止めも強制終了もしない）、通知に伝える" {
+    It "handOverApp: 戻しきれなかったら `$false を返し、COM を放さずに持ち続け（止めも強制終了もしない）、通知に伝える" {
         Mock releaseComObject {}
         Mock Stop-Process {}
         $script:officeKeptApps = @()
@@ -683,7 +683,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:officeKeptApps = @()
     }
 
-    It "handOverApp: 一度失敗しても、やり直して窓を出せたら `$true" {
+    It "handOverApp: 一度失敗しても、やり直して戻しきれたら `$true" {
         $script:attempts = 0
         $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
         $com.PSObject.Properties.Remove("UserControl")
@@ -815,6 +815,31 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @($log) | Should -Be @("Close:C:\work\tmp\w1\壊れた.xlsx|False")
         @($script:officeKeptApps).Count | Should -Be 0
         Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $book) } -Times 1 -Exactly -Scope It
+    }
+
+    It "restoreHandedOverApp: 閉じ損ねて一覧を取り直すとき、前の回の一覧のブックを放してから置き換える" {
+        Mock releaseComObject {}
+        $first = newBook "C:\work\tmp\w1\壊れた.xlsx"
+        $first.PSObject.Methods.Remove("Close")
+        $first | Add-Member -MemberType ScriptMethod -Name Close -Value { throw "閉じられません" }
+        $foreign = newBook "C:\docs\x\山田.xlsx"
+        $second = newBook "C:\work\tmp\w1\壊れた.xlsx"
+        $com = newHandOverApp
+        $state = newKeptState $com
+        $global:splitRounds = @(@{ Own = @($first); Foreign = @($foreign) }, @{ Own = @($second); Foreign = @() })
+        $global:splitCall = 0
+        Mock getWorkbookSplit { $r = $global:splitRounds[$global:splitCall]; $global:splitCall++; $r }
+
+        (restoreHandedOverApp $state 1) | Should -Be $false
+        $state.BooksClosed | Should -Be $false
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $first) } -Times 0 -Exactly -Scope It
+
+        (restoreHandedOverApp $state 1) | Should -Be $true
+        $state.BooksClosed | Should -Be $true
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $first) } -Times 1 -Exactly -Scope It
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $foreign) } -Times 1 -Exactly -Scope It
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $second) } -Times 0 -Exactly -Scope It
+        Remove-Variable splitRounds, splitCall -Scope Global
     }
 
     It "retryKeptApps: 自分のブックの Close が拒まれたら「渡した」としない。次回に一覧を取り直して閉じる" {
