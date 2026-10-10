@@ -6,14 +6,14 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/gui/implementation/">
       
       
-        <link rel="prev" href="../process-tab/">
+        <link rel="prev" href="../leftover-office/">
       
       
         <link rel="next" href="../responsiveness/">
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3000,7 +3030,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3021,14 +3051,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3227,8 +3257,6 @@
       
         
       
-        
-      
     
     
     
@@ -3325,7 +3353,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3353,7 +3381,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3381,35 +3409,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4216,27 +4216,43 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/tebunko.xaml</code></td>
-<td>画面の枠（ウィンドウとタブ）。タブの中身は別ファイルにし、<code>gui.ps1</code> が読み込んで入れる</td>
+<td>画面の枠（ウィンドウ）。左の欄（<code>NavHost</code>。幅を変えられる）・中身（<code>ContentHost</code>）・下端のステータスバー（<code>StatusBarHost</code>）の 3 つの口だけを持つ。口に入れる中身は別ファイルにし、<code>ui/gui_main.ps1</code> が読み込んで入れる</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/shell/nav.xaml</code><br><code>shell/status_bar.xaml</code></td>
+<td>窓の枠の部品。<code>nav.xaml</code> は左の欄（画面の一覧の <code>NavList</code>・注意の印 <code>IndexTabBadge</code>・下の［バージョン情報］<code>AboutLink</code>）、<code>status_bar.xaml</code> は下端のステータスバー（いつもの文の <code>StatusText</code>・更新中の 1 行の <code>IndexingStatusText</code>）。<code>xaml/</code> の下のフォルダの XAML も、単一 .ps1 の作成（<code>tools/new_single_script.ps1</code>）が埋め込む</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/splash.xaml</code></td>
 <td>起動中の表示（<a href="../#ウィンドウ">ウィンドウ</a>）。早く出すため <code>theme.xaml</code> を読み込まず、色は <code>theme.xaml</code> と同じ値を直接書く</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/xaml/tab_index.xaml</code><br><code>tab_search.xaml</code><br><code>tab_settings.xaml</code><br><code>tab_kill.xaml</code></td>
-<td>各タブの中身。イベントは書かず、<code>x:Name</code> だけを付ける。ルート要素には <code>StaticResource</code> を使う属性を置かない（自分の <code>Resources</code> より先に解決されるため）。<code>x:Name</code> が <code>gui.ps1</code> の一覧と食い違っていないことは <code>tests/meta/structure.Tests.ps1</code> で確かめる</td>
+<td><code>scripts/tebunko/xaml/settings/settings.xaml</code></td>
+<td>各画面の中身（設定の画面は領域のフォルダ <code>settings\</code> に置く）。イベントは書かず、<code>x:Name</code> だけを付ける。ルート要素には <code>StaticResource</code> を使う属性を置かない（自分の <code>Resources</code> より先に解決されるため）。<code>x:Name</code> が <code>gui.ps1</code> の一覧と食い違っていないことは <code>tests/meta/structure.Tests.ps1</code> で確かめる</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/search/search.xaml</code><br><code>search_bar.xaml</code><br><code>target_tree.xaml</code><br><code>result_list.xaml</code><br><code>preview.xaml</code></td>
+<td>［検索］の領域ごとの XAML。<code>search.xaml</code> は枠（検索バー・結果の一覧・プレビューを入れる場所）、<code>target_tree.xaml</code> は左の欄の下（検索対象のツリー）に入る。ルート要素の決まりと <code>x:Name</code> の確かめは、上の各画面の中身と同じ</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/index/index.xaml</code><br><code>index_list.xaml</code><br><code>index_detail.xaml</code></td>
+<td>［インデックス管理］の領域ごとの XAML。<code>index.xaml</code> は枠（上に一覧、下に詳細を入れる場所と、間の境目）、<code>index_list.xaml</code> は一覧（見出し・［すべて更新］［アクション ▾］［＋ フォルダを追加］・表。［アクション ▾］のメニュー <code>ActionsMenu</code> に［更新］［エクスポート…］［インポート…］［削除…］、行の右クリックのメニュー <code>IndexRowMenu</code> に［更新］［編集…］［元のフォルダを開く］［エクスポート…］［削除…］、行の右端には［更新］［中止］）、<code>index_detail.xaml</code> は詳細（状態の合計・更新の進み具合・更新に失敗したファイル）。ルート要素の決まりと <code>x:Name</code> の確かめは検索の領域と同じ</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/dialog_export.xaml</code><br><code>dialog_import.xaml</code></td>
+<td>インデックスのエクスポート・インポートのダイアログ（<a href="../index-tab/#エクスポートインポート">エクスポート・インポート</a>）。<code>ui/index/index_archive.ps1</code> が開く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_index_edit.xaml</code></td>
-<td>インデックスの追加・編集のダイアログ（<a href="../index-tab/#追加編集のダイアログ">追加・編集のダイアログ</a>）。追加と編集で同じ定義を使い、表題・説明・注意書きを <code>ui/index_tab.ps1</code> で変える</td>
+<td>インデックスの追加・編集のダイアログ（<a href="../index-tab/#追加編集のダイアログ">追加・編集のダイアログ</a>）。追加と編集で同じ定義を使い、表題・説明・注意書きを <code>ui/index/index_edit.ps1</code> で変える</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_indexing_confirm.xaml</code></td>
-<td>インデックス作成の確認ダイアログ（<a href="../indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。インデックスごとの取り込み対象の件数（受け渡しの口の <code>Plan</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
+<td>インデックス作成の確認ダイアログ（<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。インデックスごとの更新の対象の件数（受け渡しの口の <code>Plan</code>）を一覧にする。<code>ui/indexing_tab.ps1</code> が開く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/xaml/dialog_about.xaml</code></td>
-<td>「tebunko について」ダイアログ（タブ右上の［⋯］メニュー。<a href="../#画面構成">画面構成</a>）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。<code>ui/about_dialog.ps1</code> が開く</td>
+<td>「バージョン情報」ダイアログ（左の欄の下の［バージョン情報］。<a href="../#画面構成">画面構成</a>）。アプリのアイコン・版・コミット・ライセンスを表示するだけで、入力も確認も無い。<code>ui/about_dialog.ps1</code> が開く</td>
 </tr>
 <tr>
 <td><code>scripts/shared/xaml/dialog_confirm.xaml</code></td>
@@ -4244,7 +4260,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/xaml/theme.xaml</code></td>
-<td>画面の見た目（色・文字・コントロールの形）の共通定義</td>
+<td>画面の見た目（色・文字・コントロールの形）の共通定義。右クリックのメニューは、ContextMenu・MenuItem・Separator のキー無しの Style（幅 216・項目の高さ 31）で効く（素のまま書けばよい。入力欄の標準のメニューは変わらない）。削除のように赤にする項目は <code>Style="{StaticResource MenuItemDanger}"</code> を付ける</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/types.ps1</code><br><code>scripts/tebunko/ui/types.ps1</code></td>
@@ -4255,36 +4271,64 @@
 <td>画面の土台。XAML の読み込み（<code>loadXaml</code>。<code>ParserContext.BaseUri</code> にそのファイルの場所を渡し、<code>theme.xaml</code> への相対参照を解決する）、ウィンドウの読み込みとアイコン（<code>loadWindow</code>）、色の取得（<code>themeBrush</code>）、予期しないエラーの記録（<code>writeErrorLog</code>）</td>
 </tr>
 <tr>
+<td><code>scripts/shared/ui/trimmed_tooltip.ps1</code></td>
+<td>省略（…）で切れているときだけ全文を出すツールチップ（画面層。<code>addTrimmedToolTip</code> は TextBlock の <code>ToolTipOpening</code> で幅を測り、<code>testTextTrimmed</code>（<code>shared/core/text.ps1</code>）が $false なら開かない。行の中の TextBlock は、<code>addTrimmedToolTipToRows</code>（行の <code>Loaded</code> から、印の <code>Tag</code> が付いた TextBlock に付ける。行ごとに 1 回だけ呼ぶ）で付ける）。<code>gui.ps1</code> から読み込む</td>
+</tr>
+<tr>
+<td><code>scripts/shared/ui/data_grid.ps1</code></td>
+<td>DataGrid の共通の部品（画面層）。<code>getDataGridRowAt</code> は、マウスの下の要素から親をたどって行（<code>DataGridRow</code>）を返す（列見出し・スクロールバー・行の外では <code>$null</code>）。結果の一覧のダブルクリック・右クリックと、［インデックス管理］の一覧の右クリックが使う。</td>
+</tr>
+<tr>
 <td><code>scripts/shared/ui/shell.ps1</code></td>
-<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、予期しないエラーを知らせる <code>reportUnexpectedError</code>（<code>safe</code> の catch と、画面のスレッドの <code>Dispatcher</code> で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを <code>Dispatcher.UnhandledException</code> に登録する <code>registerUnhandledErrorHandler</code>（<code>gui.ps1</code> が起動時に呼ぶ）、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="../responsiveness/">画面を固まらせない待たせ方</a>）</td>
+<td>画面の共通部品。ステータス表示（<code>setStatus</code>）、メッセージ（<code>showMessage</code>。<code>dialog_confirm.xaml</code> を使う自前の画面）、確認ダイアログ（<code>showConfirm</code>。結果の行は <code>factGone</code> / <code>factKept</code> / <code>factNext</code> で <code>ConfirmFact</code> を作り、選択肢のボタンは <code>newChoiceContent</code> で 2 行のボタンにする。ボタンの <code>Click</code> と <code>ContentRendered</code> は <code>GetNewClosure()</code> で値を取り込んだスクリプトブロックにし、スクリプトスコープの変数に置かない）、例外を拾う <code>safe</code>、予期しないエラーを知らせる <code>reportUnexpectedError</code>（<code>safe</code> の catch と、画面のスレッドの <code>Dispatcher</code> で捕まえていない例外の両方から呼ぶ。後者からの呼び出しだけ、同じ例外（型・メッセージ・発生場所）の繰り返しを抑える）と、それを <code>Dispatcher.UnhandledException</code> に登録する <code>registerUnhandledErrorHandler</code>（<code>gui.ps1</code> が起動時に呼ぶ）、タイマー（<code>newTimer</code>）、画面の裏の仕事（<code>startJob</code>。<code>gui.ps1</code> が用意する <code>BackgroundQueue</code> に渡す。<a href="../responsiveness/">画面を固まらせない待たせ方</a>）</td>
+</tr>
+<tr>
+<td><code>scripts/shared/ui/message_view.ps1</code></td>
+<td>メッセージの画面の判断（判断層）。種類ごとのアイコンと色（<code>getMessageLook</code>）、ボタンの組と既定（<code>getMessageButtons</code>）、閉じたときの戻り値（<code>getMessageCloseResult</code>）、見出しと補足の分け方（<code>getMessageParts</code>）。<a href="../common/#メッセージの画面showmessage">メッセージの画面</a></td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/folder_dialog.ps1</code></td>
 <td>Windows 標準のフォルダ選択（<code>selectFolder</code>。<a href="../common/#フォルダ選択ダイアログ参照">フォルダ選択ダイアログ（［参照…］）</a>）。WinForms 内部の <code>IFileDialog</code> をリフレクションで呼んで開き、開けなければ <code>OpenFileDialog</code> でフォルダの中に入って選んでもらう（<a href="#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。フォルダのドラッグ＆ドロップの判定（<code>getDroppedFolders</code>・<code>onFolderDragOver</code>）も置く</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/index_tab.ps1</code><br><code>indexing_tab.ps1</code></td>
-<td>［1 インデックス管理］タブ（<a href="../index-tab/">［1 インデックス管理］タブ</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（<code>IndexingSession</code>）・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）</td>
+<td><code>scripts/tebunko/ui/index/index_list.ps1</code><br><code>index_edit.ps1</code><br><code>index_archive.ps1</code><br><code>index_detail.ps1</code><br><code>index_events.ps1</code><br><code>indexing_tab.ps1</code></td>
+<td>［インデックス管理］タブ（<a href="../index-tab/">［インデックス管理］タブ</a>）。インデックスの一覧・追加・編集・削除と、インデックス作成の開始（<code>IndexingSession</code>）・中止・進み具合の表示。インデックス一覧のほかでの変更は、<code>getTargetsKey</code>（保存されている一覧を比べるための文字列）をウィンドウがアクティブになったときに比べて検出する（<a href="../../structure/settings-file/#画面での読み書き">画面での読み書き</a>）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/search_tab.ps1</code><br><code>result_list.ps1</code><br><code>preview.ps1</code><br><code>open_source.ps1</code><br><code>index_tree.ps1</code></td>
-<td>［2 検索］タブ（<a href="../search-tab/">検索タブ</a>）。検索の実行（<code>search_tab.ps1</code>）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。<code>result_list.ps1</code>）、選択行のプレビュー（<code>preview.ps1</code>）、元のファイルを開く処理（Excel COM。<a href="../open-file/">元のファイルを開く</a>。<code>open_source.ps1</code>）、検索対象インデックスのツリー（<code>index_tree.ps1</code>）</td>
+<td><code>scripts/tebunko/ui/search/search_bar.ps1</code><br><code>search_session.ps1</code><br><code>result_filter.ps1</code><br><code>result_list.ps1</code><br><code>preview.ps1</code><br><code>open_source.ps1</code><br><code>index_tree.ps1</code></td>
+<td>［検索］タブ（<a href="../search-tab/">検索タブ</a>）。検索バーとチップ（<code>search_bar.ps1</code>）、検索の実行（<code>search_session.ps1</code>）、結果の絞り込み（<code>result_filter.ps1</code>）、結果の表（ファイルごとの見出しと行・絞り込み・並べ替え。<code>result_list.ps1</code>）、選択行のプレビュー（<code>preview.ps1</code>）、元のファイルを開く処理（Excel COM。<a href="../open-file/">元のファイルを開く</a>。<code>open_source.ps1</code>）、検索対象インデックスのツリー（<code>index_tree.ps1</code>）</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/settings_tab.ps1</code></td>
-<td>［8 設定］タブ（<a href="../settings-tab/">［8 設定］タブ</a>）。ワークスペースを変えたら、その場で切り替える</td>
+<td><code>scripts/tebunko/ui/settings/settings.ps1</code></td>
+<td>設定の画面（<a href="../settings-tab/">［設定］タブ</a>）。ワークスペースを変えたら、その場で切り替える</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/process_tab.ps1</code></td>
-<td>［9 プロセス停止］タブ（<a href="../process-tab/">［9 プロセス停止］タブ</a>）。定期的な一覧の取り直しとタブ見出しの ⚠ の判定は <code>startJob</code> で行う（ボタンでの取り直しは画面のスレッドで行う）</td>
+<td><code>scripts/tebunko/ui/leftover_view.ps1</code></td>
+<td>起動時の残った Office の確認の文言・出すタイミング・対象の選び方（判断層。<a href="../leftover-office/">前回残った Office の確認</a>）</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/xaml/dialog_leftover.xaml</code></td>
+<td>前回残った Office の確認ダイアログ（<a href="../leftover-office/#確認ダイアログ">前回残った Office の確認</a>）。見出し・説明（✓）・［詳細を表示］の開け閉め・詳細の表（アプリ・PID・起動した時刻。5 行を超えたら縦にスクロール）・補足・2 つのボタン。<code>ui/leftover_dialog.ps1</code> が開く</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/ui/leftover_dialog.ps1</code></td>
+<td>起動時の「前回残った Office」の確認の画面側（<a href="../leftover-office/#画面の実装">前回残った Office の確認</a>）。記録の読み取りを裏の仕事で行い、出すかどうかは <code>getLeftoverPromptTiming</code> で決め、［終了する］のときだけ確認に出した PID を <code>stopOfficeProcesses</code> で終了して、結果をステータスに出す。ダイアログは <code>showOwnedDialog</code> で開く</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/about_dialog.ps1</code></td>
-<td>タブ右上の［⋯］メニューと「tebunko について」ダイアログ（<code>dialog_about.xaml</code>）。［⋯］は <code>Button.ContextMenu</code> を <code>Click</code> で開く（左クリック・キーボードの両方で開けるよう、右クリックでしか開かない既定の動きをコードで補う）。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
+<td>左の欄の下の［バージョン情報］（<code>shell/nav.xaml</code> の <code>AboutLink</code>）と「バージョン情報」ダイアログ（<code>dialog_about.xaml</code>）。<code>AboutLink</code> の <code>Click</code> でダイアログを開く。版・コミットの文字列（<code>about_view.ps1</code> の <code>getAboutView</code>）は <code>gui.ps1</code> が起動時に 1 回だけ組み立て、ダイアログを開くたびには読み直さない</td>
 </tr>
 <tr>
-<td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings_view.ps1</code><br><code>about_view.ps1</code></td>
-<td>画面の<strong>判断層</strong>。「何を出すか」を決める部分を <code>$ui</code> に触らない関数として切り出したもの（入力は素の値、出力は素の値）。色は意味（<code>info</code> / <code>ok</code> / <code>warn</code> / <code>ng</code> / <code>gray</code>）で返し、実際の色はタブ側で対応表から引く。<code>about_view.ps1</code> の <code>getAboutView</code> は、版の記録（<code>scripts/shared/core/version.ps1</code> の <code>readVersionFile</code>）から画面に出す版・コミットの文字列を決める。Pester でテストする（<a href="../../testing/gui-tests/#画面の単体テスト">画面のテストと確認</a>）</td>
+<td><code>scripts/tebunko/ui/shell/nav.ps1</code></td>
+<td>左の欄と画面の切り替え（画面層）。窓の中身は領域の表（<code>ui/gui_main.ps1</code> の <code>$regions</code>。File・Slot・Screen・Names）で読み込み、各領域の <code>x:Name</code> を <code>$ui</code> に集める。画面の中身（<code>Screen</code> の付いた領域）は起動のときに読み込んで <code>$script:screenContents</code> に持ち、<code>selectScreen</code>（画面の名前 → <code>ContentHost</code> に差す）が切り替える。ナビのクリック・Ctrl+Tab・ほかの画面からの切り替えは、すべて <code>selectScreen</code> を通す。起動時の読み込み（<code>loadStartupData</code>）が済むまでは、切り替えても読み直さない</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/ui/shell/status_bar.ps1</code><br><code>status_bar_view.ps1</code></td>
+<td>下端のステータスバーの更新中の 1 行。<code>status_bar.ps1</code>（画面層）が 1 秒ごとに <code>updateIndexingStatusLine</code> で、更新中なら <code>IndexingStatusText</code> を出していつもの文（<code>StatusText</code>）を隠す。件数は更新全体の進み（<code>getIndexingProgress</code>）、残り時間は［インデックス管理］の進み表示の文言、名前は更新中の最初の行から取り、文言は判断層の <code>getIndexingStatusLine</code> で決める</td>
+</tr>
+<tr>
+<td><code>scripts/tebunko/ui/index_view.ps1</code><br><code>indexing_view.ps1</code><br><code>search\search_bar_view.ps1</code><br><code>result_list_view.ps1</code><br><code>open_source_view.ps1</code><br><code>preview_view.ps1</code><br><code>settings\settings_view.ps1</code><br><code>about_view.ps1</code><br><code>shell/nav_view.ps1</code></td>
+<td>画面の<strong>判断層</strong>。「何を出すか」を決める部分を <code>$ui</code> に触らない関数として切り出したもの（入力は素の値、出力は素の値）。色は意味（<code>info</code> / <code>ok</code> / <code>warn</code> / <code>ng</code> / <code>gray</code>）で返し、実際の色はタブ側で対応表から引く。<code>shell/nav_view.ps1</code> は、ナビの画面の並び（<code>getScreenOrder</code>・<code>isScreenName</code>・<code>getNextScreen</code>）と、キー操作の判定（<code>getShortcutAction</code>。Ctrl+Tab・Ctrl+Shift+Tab・Ctrl+F・F5・Esc をどの操作にするか）を決める。<code>about_view.ps1</code> の <code>getAboutView</code> は、版の記録（<code>scripts/shared/core/version.ps1</code> の <code>readVersionFile</code>）から画面に出す版・コミットの文字列を決める。Pester でテストする（<a href="../../testing/gui-tests/#画面の単体テスト">画面のテストと確認</a>）</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/lib.ps1</code></td>
@@ -4296,7 +4340,7 @@
 <h3 id="実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない<a class="headerlink" href="#実行時コンパイルcscexeを使わない" title="Permanent link">&para;</a></h3>
 <p>資産管理・EDR は「<code>powershell.exe</code> が <code>csc.exe</code> を起動して <code>%TEMP%</code> の一時 DLL を読み込む」動き（実行時コンパイル。MITRE ATT&amp;CK T1027.004）を、良性でも拾うことがある。tebunko はこれを一切出さない設計にする（<code>tests/meta/safety.Tests.ps1</code> の「実行時にコードをコンパイルしない」が確かめる。<a href="../../../safety/checks/#検査項目と結果">危険とされる処理の検査結果</a>）。</p>
 <ul>
-<li><strong>画面で使う型は PowerShell class</strong>（<code>HitRow</code>・<code>FileGroup</code>・<code>Segment</code>・<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewRow</code>／<code>PreviewTable</code>・<code>ProcRow</code>・<code>FailRow</code>・<code>PlanRow</code>・<code>FolderItem</code>・<code>SearchTarget</code>・<code>SearchExclude</code>・<code>IndexNode</code>・<code>ConfirmFact</code>）。PS class はエンジンがメモリ内で用意し、<code>csc.exe</code>・一時 DLL を出さない。<code>INotifyPropertyChanged</code> は <code>NotifyBase</code> を継承して実装する。</li>
+<li><strong>画面で使う型は PowerShell class</strong>（<code>HitRow</code>・<code>FileGroup</code>・<code>Segment</code>・<code>PreviewColumn</code>／<code>PreviewCell</code>／<code>PreviewRow</code>／<code>PreviewTable</code>・<code>FailRow</code>・<code>PlanRow</code>・<code>FolderItem</code>・<code>SearchTarget</code>・<code>SearchExclude</code>・<code>IndexNode</code>・<code>ConfirmFact</code>）。PS class はエンジンがメモリ内で用意し、<code>csc.exe</code>・一時 DLL を出さない。<code>INotifyPropertyChanged</code> は <code>NotifyBase</code> を継承して実装する。</li>
 <li><strong>検索・本文インデックスの読み取りは .NET を直接呼ぶ</strong>（<code>searchPackFiles</code>／<code>readPackPlaces</code>／<code>readPackContext</code>。<code>StreamReader</code>＋<code>[regex]</code>）。</li>
 <li><strong>Win32 API（P/Invoke）と、インターフェース定義が要る COM を使わない</strong>。代わりに次を使う。</li>
 </ul>
@@ -4413,17 +4457,17 @@
 <tbody>
 <tr>
 <td>1</td>
-<td>元のファイルのパスは、取り込み時に記録したクロール対象フォルダから組み立てる。取り込み後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）</td>
+<td>元のファイルのパスは、更新時に記録したクロール対象フォルダから組み立てる。更新後に元のフォルダを移動・名前変更した場合は、開くときにフォルダを選び直す必要がある（選んだフォルダは置き換えとして記録し、同じフォルダの下は次から聞かない。<a href="../open-file/#元のファイルが見つからないとき元のフォルダを設定する">元のファイルが見つからないとき（元のフォルダを設定する）</a>）</td>
 <td>○</td>
 </tr>
 <tr>
 <td>2</td>
-<td>元のフォルダの記録（<code>元のフォルダ.txt</code>）の無いインデックス（インデックス作成を 1 回実行すると作られる）を別の場所にコピーした場合は、元の場所が分からないため、開くときにフォルダを選ぶ必要がある</td>
+<td>元のフォルダの記録（<code>source_folder.txt</code>）の無いインデックス（インデックス作成を 1 回実行すると作られる）を別の場所にコピーした場合は、元の場所が分からないため、開くときにフォルダを選ぶ必要がある</td>
 <td>○</td>
 </tr>
 <tr>
 <td>3</td>
-<td>バックグラウンドの判定は <code>MainWindowHandle</code> による。画面に表示中でも、すべてのウィンドウを閉じた直後などはバックグラウンドと判定される（<a href="../process-tab/#プロセスの表">プロセスの表</a>）</td>
+<td>窓を持たないかの判定は <code>MainWindowHandle</code> による。画面に表示中でも、すべてのウィンドウを閉じた直後などは窓が無いと判定される。ただし記録の無い Office は対象にならない（<a href="../leftover-office/#止めてよいものの条件">止めてよいものの条件</a>）</td>
 <td>△</td>
 </tr>
 <tr>
@@ -4473,7 +4517,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../process-tab/" class="md-footer__link md-footer__link--prev" aria-label="前: ［9 プロセス停止］タブ">
+          <a href="../leftover-office/" class="md-footer__link md-footer__link--prev" aria-label="前: 前回残った Office の確認">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4483,7 +4527,7 @@
                 前
               </span>
               <div class="md-ellipsis">
-                ［9 プロセス停止］タブ
+                前回残った Office の確認
               </div>
             </div>
           </a>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1063,10 +1063,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#office-プロセスの強制終了9-プロセス停止タブ" class="md-nav__link">
+  <a href="#前回残った-office-の終了起動時の確認" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Office プロセスの強制終了（［9 プロセス停止］タブ）
+        前回残った Office の終了（起動時の確認）
       
     </span>
   </a>
@@ -1161,6 +1161,17 @@
     <span class="md-ellipsis">
       
         インストーラー版
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
       
     </span>
   </a>
@@ -1728,6 +1739,8 @@
       
         
       
+        
+      
     
     
     
@@ -1984,6 +1997,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3148,7 +3189,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3169,14 +3210,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3257,8 +3298,6 @@
       
         
           
-        
-      
         
       
         
@@ -3365,7 +3404,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3393,7 +3432,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3421,35 +3460,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4143,10 +4154,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#office-プロセスの強制終了9-プロセス停止タブ" class="md-nav__link">
+  <a href="#前回残った-office-の終了起動時の確認" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Office プロセスの強制終了（［9 プロセス停止］タブ）
+        前回残った Office の終了（起動時の確認）
       
     </span>
   </a>
@@ -4247,6 +4258,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4268,16 +4290,16 @@
 
 
 <h1 id="開示事項">開示事項<a class="headerlink" href="#開示事項" title="Permanent link">&para;</a></h1>
-<p>次の 7 点は審査で論点になるため、本ツールの側から先に開示する。<a href="#office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）</a>・<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>・<a href="#検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る</a> は利用者の操作に紐づく動作、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>・<a href="#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>・<a href="#透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い</a> はツールの性質上避けられない情報の扱い、<a href="#インストーラー版">インストーラー版</a> はインストーラー版だけに当てはまる動作である。</p>
-<h2 id="office-プロセスの強制終了9-プロセス停止タブ">Office プロセスの強制終了（［9 プロセス停止］タブ）<a class="headerlink" href="#office-プロセスの強制終了9-プロセス停止タブ" title="Permanent link">&para;</a></h2>
-<p>インデックス作成が異常終了すると、画面の無い Excel・Word・PowerPoint のプロセスが残り、メモリを占有し続けることがある。これを止めるために、画面の［9 プロセス停止］タブから <code>Stop-Process -Force</code> を実行する（<code>shared/office/office_process.ps1:43</code>。<code>safety.Tests.ps1</code> がこの 1 か所だけであることを確かめる）。</p>
+<p>次の 7 点は審査で論点になるため、本ツールの側から先に開示する。<a href="#前回残った-office-の終了起動時の確認">前回残った Office の終了（起動時の確認）</a>・<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>・<a href="#検索結果から開くと-excel-が前面に出る">検索結果から開くと Excel が前面に出る</a> は利用者の操作に紐づく動作、<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>・<a href="#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>・<a href="#透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い</a> はツールの性質上避けられない情報の扱い、<a href="#インストーラー版">インストーラー版</a> はインストーラー版だけに当てはまる動作である。</p>
+<h2 id="前回残った-office-の終了起動時の確認">前回残った Office の終了（起動時の確認）<a class="headerlink" href="#前回残った-office-の終了起動時の確認" title="Permanent link">&para;</a></h2>
+<p>インデックス作成が異常終了すると、画面の無い Excel・Word・PowerPoint のプロセスが残り、メモリを占有し続けることがある。これを止めるために、次に画面を起動したとき、利用者に確認したうえで <code>Stop-Process -Force</code> を実行する（<code>shared/office/office_process.ps1</code> の <code>stopOfficeProcesses</code>。<code>safety.Tests.ps1</code> がこの 1 か所だけであることを確かめる）。</p>
 <ul>
 <li><strong>影響</strong>: 強制終了するため、対象プロセスで<strong>未保存の内容は失われる</strong>。</li>
-<li><strong>制御</strong>: 実行されるのは利用者が一覧で選んだ PID のみである（<code>stopOfficeProcesses</code> は PID の配列を受け取る）。自動では実行されない。監視・常駐もしない。</li>
-<li><strong>判断材料の提示</strong>: 一覧には、ウィンドウを持たないプロセス（インデクサが残したものと判断できる）を区別して表示する（<code>getOfficeProcesses</code> の <code>Background</code> 列）。利用者が自分で開いている Excel を誤って選ばないようにするための表示である。</li>
-<li><strong>対象の限定</strong>: 対象は Excel（<code>EXCEL</code>）・Word（<code>WINWORD</code>）・PowerPoint（<code>POWERPNT</code>）のみ。他のプロセスは一覧に出ないため、選ぶことができない。</li>
+<li><strong>制御</strong>: 確認で利用者が［終了する］を選んだときだけ実行される。確認で出した PID のうち、実行の直前にも同じ条件を満たすものだけを止める。自動では実行されない。監視・常駐もしない。［今回は終了しない］を選べば何も止めず、次の起動でもう一度確認する。</li>
+<li><strong>対象の限定</strong>: 対象は、インデックス作成が起動したときにワークスペースへ記録した PID だけである。記録のある Excel（<code>EXCEL</code>）・Word（<code>WINWORD</code>）・PowerPoint（<code>POWERPNT</code>）で、窓を持たず、起動した側がもう動いていないものに限る。利用者が自分で開いた Office には記録が無いため、確認にも出ず、止めない。</li>
+<li><strong>照らし直し</strong>: 止める直前に、PID のプロセスの名前と起動時刻が記録と同じかをもう一度確かめる。違うとき（PID が別のプロセスに使われたとき）は止めず、そのことを知らせる。</li>
 </ul>
-<p>詳細は <a href="../../design/gui/process-tab/">［9 プロセス停止］タブ</a> を参照。</p>
+<p>詳細は <a href="../../design/gui/leftover-office/">前回残った Office の確認</a> を参照。</p>
 <h2 id="mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除（<code>tebunko.bat</code>）<a class="headerlink" href="#mark-of-the-web-の解除tebunkobat" title="Permanent link">&para;</a></h2>
 <p><code>tebunko.bat</code> は PowerShell を 1 回起動し、その中で配布フォルダの <code>scripts</code> 配下の Mark-of-the-Web を解除してから、画面のスクリプトを実行する。</p>
 <div class="highlight"><pre><span></span><code><span class="k">set</span> <span class="s2">"PS1=</span><span class="nv">%SystemRoot%</span><span class="s2">\System32\WindowsPowerShell\v1.0\powershell.exe"</span>
@@ -4298,8 +4320,8 @@
 <span class="c1">rem Step 5: build the record's detail lines (date, tool path, language mode,</span>
 <span class="c1">rem PowerShell version, execution policy, and the error message).</span>
 <span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">$detailLines = @(('==== {0} startup ====' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), ('Tool: {0}' -f $root), ('LanguageMode: {0}' -f $ExecutionContext.SessionState.LanguageMode), ('PSVersion: {0}' -f $PSVersionTable.PSVersion), (Get-ExecutionPolicy -List | Out-String), ('{0}' -f $err.Exception.Message)); $allLines = $reasonLines + '' + $detailLines; "</span>
-<span class="c1">rem Step 6: write the record (LOCALAPPDATA, falling back to TEMP), then show it.</span>
-<span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">$openTarget = $reason; foreach ($candidate in @((Join-Path $env:LOCALAPPDATA 'tebunko\startup_error.txt'), (Join-Path $env:TEMP 'tebunko_startup_error.txt'))) { try { $dir = Split-Path -Parent $candidate; if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null }; Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate; break } catch { } }; &amp; $opener $openTarget }"</span>
+<span class="c1">rem Step 6: write the record in the tool folder (no record if it cannot be written; then the reason is shown), then show it.</span>
+<span class="k">set</span> <span class="s2">"PSCMD=</span><span class="nv">%PSCMD%</span><span class="s2">$openTarget = $reason; $candidate = Join-Path $root 'startup_error.txt'; try { Set-Content -LiteralPath $candidate -Value $allLines -Encoding UTF8 -ErrorAction Stop; $openTarget = $candidate } catch { }; &amp; $opener $openTarget }"</span>
 <span class="k">start</span> <span class="s2">""</span> conhost.exe <span class="s2">"</span><span class="nv">%PS1%</span><span class="s2">"</span> -NoProfile -STA -ExecutionPolicy RemoteSigned -WindowStyle Hidden -Command <span class="s2">"</span><span class="nv">%PSCMD%</span><span class="s2">"</span>
 </code></pre></div>
 <p><code>-Command</code> の中身は 1 行に書かず、意味のまとまりごとに <code>set "PSCMD=..."</code> を積み重ねて組み立てる（<code>tebunko.bat</code> が長い 1 行になって読みにくくならないようにするため）。<code>delayed expansion</code> は使わず、各 <code>set</code> は前の行までの <code>%PSCMD%</code> を展開してから文字列を足すだけなので、素直な変数展開で足りる。<code>tests/meta/launcher.Tests.ps1</code> が、組み立てた結果が想定した文字列とちょうど一致することを確かめる。（<code>try</code>/<code>catch</code> の中身は、次の「起動に失敗したときの知らせ」で説明する。）</p>
@@ -4314,10 +4336,10 @@
 <p>制限の強い環境（実行ポリシー・制限言語モード）ほど、<code>gui.ps1</code> の画面が開く前に起動が止まり、利用者から見て「ダブルクリックしても何も起きない」ことになりやすい。<code>tebunko.bat</code> は、<code>&amp; $gui</code>（画面の起動）を <code>try</code>/<code>catch</code> で包み、失敗したときは理由と記録のファイルの名前を Notepad で示す。インラインの <code>-Command</code> は実行ポリシーの対象外で、制限言語モードでも動くため、この知らせの処理自体は止まらない。</p>
 <ul>
 <li><strong>PowerShell が無い</strong>: <code>%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe</code>（PATH からは探さない。<code>installer\tebunko.cs</code> と同じ）が無ければ、PowerShell を起動せずに Notepad で理由を示す。この場面だけは記録が残らない（PowerShell 自体が使えないため）。</li>
-<li><strong>理由の見分け方</strong>: <code>catch</code> は、<code>gui.ps1</code> が無ければファイル不足、その場の言語モード（<code>$ExecutionContext.SessionState.LanguageMode</code>）が <code>FullLanguage</code> でなければ制限言語モード、<code>FullyQualifiedErrorId</code> が <code>UnauthorizedAccess</code> なら実行ポリシー、それ以外は起動できなかったと分ける。<code>gui.ps1</code> の有無を先に見るのは、無いのに「フォルダの許可を情報システム部門に相談」と案内しないため。許可されていない制限言語モードでは <code>gui.ps1</code> の 1 行目（<code>Add-Type</code>）で失敗し、ツールのフォルダを AppLocker・WDAC で許可している PC では <code>gui.ps1</code> は <code>FullLanguage</code> で動くため、この <code>catch</code> には来ない（画面が開く）。</li>
+<li><strong>理由の見分け方</strong>: <code>catch</code> は、<code>gui.ps1</code> が無ければファイル不足、その場の言語モード（<code>$ExecutionContext.SessionState.LanguageMode</code>）が <code>FullLanguage</code> でなければ制限言語モード、<code>FullyQualifiedErrorId</code> が <code>UnauthorizedAccess</code> なら実行ポリシー、それ以外は起動できなかったと分ける。<code>gui.ps1</code> の有無を先に見るのは、無いのに「フォルダの許可を情報システム部門に相談」と案内しないため。許可されていない制限言語モードでは <code>gui.ps1</code> の最初の読み込み（<code>paths.ps1</code> の <code>New-Object</code>）で失敗し、ツールのフォルダを AppLocker・WDAC で許可している PC では <code>gui.ps1</code> は <code>FullLanguage</code> で動くため、この <code>catch</code> には来ない（画面が開く）。</li>
 <li><strong>理由の文言</strong>: 日本語の文言は ASCII で書く決まりの <code>tebunko.bat</code> に書けないため、<code>scripts\tebunko\startup\*.txt</code>（BOM 付き UTF-8・CRLF）に分けて置き、<code>Get-Content -Encoding UTF8</code> で読む。</li>
-<li><strong>記録</strong>: 理由の文言と、詳しい情報（日時・エラーの内容・言語モード・<code>Get-ExecutionPolicy -List</code>・PowerShell の版・ツールの場所）を、<code>%LOCALAPPDATA%\tebunko\startup_error.txt</code>（書き込めなければ <code>%TEMP%\tebunko_startup_error.txt</code>）に上書きする。起動の前はワークスペースを決められない（設定を読むには <code>RemoteSigned</code> で止まる場面がある）ため、固定の場所にする。ツールの場所（利用者名を含むパス）が記録に入るため、公開の Issue に貼る前に確かめるよう<a href="../../guide/troubleshooting/">トラブルシューティング</a>に書いている。</li>
-<li><strong><code>gui.ps1</code> の <code>trap</code> との関係</strong>: <code>gui.ps1</code> の <code>trap</code> は、<code>writeErrorLog</code> がまだ使えない（<code>app_host.ps1</code> を読み込む前）ときに起きた失敗を、同じ場所に記録してからメッセージボックスを出そうとする。制限言語モード・WPF が読めない場面ではメッセージボックスも出せないため、<code>trap</code> は元の例外を投げ直し、上の <code>catch</code> が受けて記録のファイルを上書きする（1 か所に記録が 1 件残る）。メッセージボックスを出せたとき（<code>trap</code> が <code>exit 1</code> で終わったとき）は、<code>catch</code> には来ない（二重に知らせない）。インストーラー版 <code>tebunko.exe</code> から起動したときは、<code>trap</code> の記録に加えて、<code>tebunko.exe</code> がエラー出力（元の例外の内容）をメッセージで出す。</li>
+<li><strong>記録</strong>: 理由の文言と、詳しい情報（日時・エラーの内容・言語モード・<code>Get-ExecutionPolicy -List</code>・PowerShell の版・ツールの場所）を、ツールのフォルダの <code>startup_error.txt</code> に書く（<code>%TEMP%</code> や <code>%LOCALAPPDATA%\tebunko</code> には書かない。ツールのフォルダ自体が <code>%LOCALAPPDATA%\Programs\tebunko</code> にあるインストーラー版では、その中に書く）。起動の前はワークスペースを決められない（設定を読むには <code>RemoteSigned</code> で止まる場面がある）ため、ツールのフォルダにする。ツールのフォルダに書けないとき（<code>C:\Program Files</code> に入れた場合など）は記録を残さず、理由の文言のファイルを Notepad で示すだけにする。ツールの場所（利用者名を含むパス）が記録に入るため、公開の Issue に貼る前に確かめるよう<a href="../../guide/troubleshooting/">トラブルシューティング</a>に書いている。</li>
+<li><strong><code>gui.ps1</code> の失敗の受け方との関係</strong>: <code>gui.ps1</code> は、パスの定義（<code>paths.ps1</code>）と記録の部品（<code>startup_error.ps1</code>）を <code>try</code> の外で先に読み込み、そのあとの読み込み・画面の組み立てを <code>try</code> の中で行う。<code>try</code> の中で失敗すると、<code>reportStartupFailure</code> が、<code>writeErrorLog</code> がまだ使えない（<code>app_host.ps1</code> を読み込む前）ときはツールのフォルダの <code>startup_error.txt</code> に記録し（書き込めなければ記録は残さない）、メッセージボックスを出す。制限言語モード・WPF が読めない場面ではメッセージボックスも出せないため、元の例外を投げ直し、上の <code>catch</code> が受けて記録のファイルを上書きする（1 か所に記録が 1 件残る）。メッセージボックスを出せたときは、<code>catch</code> には来ない（二重に知らせない）。<code>try</code> の外にある最初の読み込み（<code>paths.ps1</code>）で失敗したときは、<code>reportStartupFailure</code> を通らず、<code>catch</code> が受ける。インストーラー版 <code>tebunko.exe</code> から起動したときは、記録に加えて、<code>tebunko.exe</code> がエラー出力（元の例外の内容）をメッセージで出す。</li>
 <li><strong>AppLocker の実行ファイルの規則で <code>powershell.exe</code> 自体が止められた場合</strong>: <code>start</code> は起動の失敗を待たないため、<code>tebunko.bat</code> は気づけず、何も知らせない（Windows 自身の知らせと、イベントログ（AppLocker）だけが残る）。<code>start</code> を起動の失敗を待つ形にすると、画面を閉じるまで <code>tebunko.bat</code> の窓が残ってしまうため、この場面は扱わない。</li>
 </ul>
 <h3 id="remotesigned-で起動する理由"><code>RemoteSigned</code> で起動する理由<a class="headerlink" href="#remotesigned-で起動する理由" title="Permanent link">&para;</a></h3>
@@ -4365,12 +4387,16 @@
 <td>インデックスは<strong>作成した人の権限で作られる</strong>。元のファイルに設定されたアクセス権は引き継がれない。インデックスを置いた場所を読める人は、元のファイルを読む権限が無くても本文を読める</td>
 </tr>
 <tr>
+<td>システムインデックス</td>
+<td>本文インデックスとは別に、高速検索のために <code>work\system_index\</code> の txt にも、本文から作った隣り合う 2 文字の組が入る。この txt は Windows Search に索引させる。本文インデックス（<code>content_index</code>）は、索引の対象から自動で外す。仕様は <a href="../../design/index-data/system-index/">システムインデックス</a> にある</td>
+</tr>
+<tr>
 <td>検索結果ファイル</td>
-<td>［結果をファイルに出力］で書き出す <code>work\検索結果.txt</code> にも本文（該当行）が入る</td>
+<td>［結果をファイルに出力］で書き出す <code>work\search_results.txt</code> にも本文（該当行）が入る</td>
 </tr>
 <tr>
 <td>持ち出し経路</td>
-<td>インデックスのフォルダはコピーして別の PC でも使えるほか、［1 インデックス管理］の［エクスポート…］で 1 つの zip に書き出し、別の PC・ワークスペースで［インポート…］して使える（<a href="../../design/index-data/format/#インデックスのエクスポートインポート">インデックスのエクスポート・インポート</a>）。利用者の明示操作だが、設計上の持ち出し経路である。エクスポートした zip には、元のファイルの本文の文字・ファイル名・フォルダの構成・元のフォルダのパスが入るため、<strong>元のファイルと同じ扱いで渡す・置く</strong>（メールに添付する・共有フォルダに置くときは、元のファイルを渡すときと同じ判断をする）</td>
+<td>インデックスのフォルダはコピーして別の PC でも使えるほか、［インデックス管理］の［エクスポート…］で 1 つの zip に書き出し、別の PC・ワークスペースで［インポート…］して使える（<a href="../../design/index-data/format/#インデックスのエクスポートインポート">インデックスのエクスポート・インポート</a>）。利用者の明示操作だが、設計上の持ち出し経路である。エクスポートした zip には、元のファイルの本文の文字・ファイル名・フォルダの構成・元のフォルダのパスが入るため、<strong>元のファイルと同じ扱いで渡す・置く</strong>（メールに添付する・共有フォルダに置くときは、元のファイルを渡すときと同じ判断をする）</td>
 </tr>
 <tr>
 <td>残留</td>
@@ -4380,18 +4406,18 @@
 </table>
 <p>運用での対策（導入時に決めることを推奨）:</p>
 <ul>
-<li>ワークスペース（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。［8 設定］で変えられる）のアクセス権を、<strong>クロール対象フォルダと同等以上に制限する</strong>。</li>
+<li>ワークスペース（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>。［設定］で変えられる）のアクセス権を、<strong>クロール対象フォルダと同等以上に制限する</strong>。</li>
 <li>権限の異なる利用者が読める共有フォルダに、インデックスをそのまま置かない（ワークスペースを各利用者のローカルに置く）。</li>
 <li>持ち出し（別 PC へのコピー）の可否を運用ルールで決める。</li>
 <li>ディスク暗号化（BitLocker）を前提にする。</li>
 </ul>
 <p>本ツール側では、インデックスの場所をワークスペース配下に限定し、アクセス権の変更（<code>Set-Acl</code> 等）を一切行わない。したがって<strong>インデックスの保護はワークスペースのアクセス権で決まる</strong>。</p>
 <h2 id="原本の一時コピーとその回収">原本の一時コピーと、その回収<a class="headerlink" href="#原本の一時コピーとその回収" title="Permanent link">&para;</a></h2>
-<p>インデックス作成中は、原本のコピーを <code>%TEMP%\tebunko\&lt;PID&gt;</code> に作る（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。機密文書のコピーが一時的に <code>%TEMP%</code> に存在することになるため、扱いを明記する。</p>
+<p>インデックス作成中は、原本のコピーを作業領域（<code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>）に作る（<a href="../file-access/#取り込み対象のファイルは書き換えない">取り込み対象のファイルは書き換えない</a>）。作業領域はワークスペース（本文インデックスと同じ置き場所）の下に<strong>限る</strong>。機密文書のコピーがシステムの <code>%TEMP%</code> へ出ることは無い。ワークスペースのパスに <code>[</code> <code>]</code> が含まれる・長すぎるなど、作業フォルダをワークスペースの下に置けないときは、取り込みをすべてスキップする（どのファイルも中間 TSV などをこの作業領域に作るため、テキストファイルを含めすべての取り込みが対象になる。取り込み一覧に失敗として残る。<a href="../../design/indexing/errors/">エラーメッセージ</a>）。</p>
 <ul>
 <li><strong>通常終了時</strong>: ファイルごとに、読み終えたコピーを削除する。インデックス作成の完了時に作業フォルダごと空にする（<code>removeTmpDir</code>）。</li>
-<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1:29</code> の <code>removeStaleTmpDirs</code>。<code>tebunko/indexer/indexer_run.ps1:343</code> でインデックス作成の開始時に呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。</li>
-<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>%TEMP%\tebunko</code> を手で削除してよい（動作に影響しない）。</li>
+<li><strong>異常終了時</strong>: 強制終了・停電などでコピーが残ることがある。この場合、<strong>次回のインデックス作成開始時に、終了済みのプロセスの作業フォルダをまとめて削除する</strong>（<code>tebunko/indexer/index_migrate.ps1</code> の <code>removeStaleTmpDirs</code>。インデックス作成の開始時に <code>initTmpDir</code> が呼ぶ。<code>safety.Tests.ps1</code> の「異常終了で残った作業フォルダを次回起動時に回収する」が確かめる）。前の版（<code>%TEMP%\tebunko\&lt;PID&gt;</code> に一時ファイルを置いていた版）が残したものがあれば、同時に片付ける。</li>
+<li><strong>残る期間</strong>: 異常終了から次回のインデックス作成開始までの間は残る。気になる場合は <code>work/tmp</code> を手で削除してよい（動作に影響しない）。</li>
 </ul>
 <h2 id="透過暗号化の製品が平文で見せたファイルの扱い">透過暗号化の製品が平文で見せたファイルの扱い<a class="headerlink" href="#透過暗号化の製品が平文で見せたファイルの扱い" title="Permanent link">&para;</a></h2>
 <p>社内のファイル暗号化製品（透過型。IRM・秘密度ラベルの暗号化とは別の仕組み）が導入されている環境では、その製品が Office を「許可されたアプリ」として登録していることがある。その場合、本ツールが作業領域に作ったコピーを Office が開くと、製品が復号した<strong>平文</strong>を Office に渡す（<a href="../../design/indexing/office-apps/#暗号化されたファイルの判定office_protectionps1office_protection_viewps1">暗号化されたファイルの判定</a>の「形式の分からないバイナリ」の予備）。</p>
@@ -4429,12 +4455,12 @@
 <p>インストーラーは <a href="https://jrsoftware.org/isinfo.php">Inno Setup</a> 7 で作る（<code>installer/tebunko.iss</code>・<code>tools/new_installer.ps1</code>）。</p>
 <ul>
 <li><strong>入れる場所と権限</strong>: 既定は管理者権限なしで <code>%LOCALAPPDATA%\Programs\tebunko</code> に入れる。管理者は、最初の画面で「すべてのユーザー」を選ぶと <code>C:\Program Files\tebunko</code> に入れられる。</li>
-<li><strong>入れるもの</strong>: <code>tebunko.exe</code>・<code>scripts\</code>・<code>LICENSE</code>・<code>VERSION.txt</code>（版とコミットの記録。画面の「tebunko について」に出す）と、Inno Setup のアンインストーラー（<code>uninstall\unins000.exe</code>・<code>uninstall\unins000.dat</code>。名前は Inno Setup が決め、変える設定が無いため、tebunko のものと分かるよう <code>uninstall</code> フォルダに置く）だけ。スタートメニューにショートカットを作る（デスクトップは選んだときだけ）。</li>
+<li><strong>入れるもの</strong>: <code>tebunko.exe</code>・<code>scripts\</code>・<code>LICENSE</code>・<code>VERSION.txt</code>（版とコミットの記録。画面の「バージョン情報」に出す）と、Inno Setup のアンインストーラー（<code>uninstall\unins000.exe</code>・<code>uninstall\unins000.dat</code>。名前は Inno Setup が決め、変える設定が無いため、tebunko のものと分かるよう <code>uninstall</code> フォルダに置く）だけ。スタートメニューにショートカットを作る（デスクトップは選んだときだけ）。</li>
 <li><strong>レジストリ</strong>: インストーラーが、Windows の「インストールされているアプリ」に出すためのアンインストールの情報（利用者ごとなら <code>HKCU</code>、すべてのユーザーなら <code>HKLM</code> の <code>Software\Microsoft\Windows\CurrentVersion\Uninstall\{E2FA5AC9-5A36-41AF-B5E2-B989E2878D3C}_is1</code>）を書く。これ以外のレジストリ、PATH、ファイルの関連付け、サービス、自動起動には触らない（<code>installer.Tests.ps1</code> が <code>[Registry]</code> の節が無いことなどを確かめる）。ツール本体（スクリプト）はレジストリを読み書きしない（<a href="../checks/#検査項目と結果">検査項目と結果</a>）。</li>
 <li><strong>起動口 <code>tebunko.exe</code></strong>: 本リポジトリの <code>installer/tebunko.cs</code>（約 100 行）を、リリースのときに Windows 標準の <code>csc.exe</code>（.NET Framework）でビルドする。していることは <code>tebunko.bat</code> と同じで、Windows の PowerShell 5.1 で <code>gui.ps1</code> を <code>-ExecutionPolicy RemoteSigned</code> で起動するだけである（<a href="#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a> の「<code>RemoteSigned</code> で起動する理由」）。インストーラーが書いたファイルには Mark-of-the-Web が付かないため、<code>Unblock-File</code> はしない。窓のアプリとしてビルドし、PowerShell も窓を作らずに起動する（<code>conhost.exe</code> は要らない）。PowerShell が 0 以外で終わりエラー出力があれば、その内容をメッセージで出す（実行ポリシーや制限言語モードで <code>gui.ps1</code> を読み込めないときに、何も出ずに終わらないようにするため）。エラー出力を受け取るため、画面を閉じるまで <code>tebunko.exe</code> のプロセスも残る（窓は無い）。</li>
 <li><strong>更新</strong>: 新しい版のインストーラーを実行する。前の版の <code>scripts\</code> を消してから入れるため、前の版にだけあったスクリプトは残らない。<code>setting.config</code> は残る。</li>
 <li><strong>起動中の更新・削除</strong>: <code>tebunko.exe</code> が起動中はミューテックス <code>tebunko-installed-app</code> を持ち、インストーラーとアンインストーラーはこれを見て、tebunko を閉じるよう求める（Inno Setup の <code>AppMutex</code>）。</li>
-<li><strong>アンインストール</strong>: 「設定」→「アプリ」から行う。入れたファイル・ショートカット・アンインストールの情報と、ツールのフォルダの <code>setting.config</code> を消す。<strong>インデックス（ワークスペース）は消さない。</strong> ワークスペースは利用者が選んだフォルダのこともあり、中身を確かめずに消すのは危ないためである。インデックスには文書の文字がそのまま入っているため（<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）、アンインストールの最後に、残っている場所（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）を知らせる。</li>
+<li><strong>アンインストール</strong>: 「設定」→「アプリ」から行う。入れたファイル・ショートカット・アンインストールの情報と、ツールのフォルダの <code>setting.config</code>・<code>startup_error.txt</code> を消す。<strong>インデックス（ワークスペース）は消さない。</strong> ワークスペースは利用者が選んだフォルダのこともあり、中身を確かめずに消すのは危ないためである。インデックスには文書の文字がそのまま入っているため（<a href="#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>）、アンインストールの最後に、残っている場所（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）を知らせる。</li>
 <li><strong>無人のインストール</strong>: <code>/VERYSILENT /CURRENTUSER</code>（アンインストールは <code>uninstall\unins000.exe /VERYSILENT</code>）で、画面を出さずに入れる・消すことができる。</li>
 <li><strong>署名</strong>: インストーラーと <code>tebunko.exe</code> にはまだコード署名が無い。そのため、ダウンロードしたインストーラーを実行すると SmartScreen の「Windows によって PC が保護されました」が出る（［詳細情報］→［実行］で進める）。改ざんの確認には、ビルドの来歴の署名と SHA256 を使う（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）。</li>
 <li><strong>再現性</strong>: <code>csc.exe</code>（.NET Framework）と Inno Setup はビルドの日時を埋め込むため、同じソースからビルドしてもハッシュは一致しない。zip の中身と同じスクリプトが入っていることは、インストールしたフォルダでカタログ（<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>）と比べれば分かる。カタログにある <code>tebunko.bat</code> はインストーラー版に無いため、<code>Status</code> は <code>ValidationFailed</code> になる。<code>tebunko.bat</code> を除いて違うファイルが無い（次の結果が空になる）ことを確かめる。</li>
@@ -4443,6 +4469,14 @@
 <span class="p">@(</span><span class="nv">$r</span><span class="p">.</span><span class="n">CatalogItems</span><span class="p">.</span><span class="n">Keys</span> <span class="p">+</span> <span class="nv">$r</span><span class="p">.</span><span class="n">PathItems</span><span class="p">.</span><span class="n">Keys</span> <span class="p">|</span> <span class="nb">Sort-Object</span> <span class="n">-Unique</span> <span class="p">|</span> <span class="nb">Where-Object</span> <span class="p">{</span> <span class="nv">$_</span> <span class="o">-ne</span> <span class="s1">'tebunko.bat'</span> <span class="o">-and</span> <span class="nv">$r</span><span class="p">.</span><span class="n">CatalogItems</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span> <span class="o">-ne</span> <span class="nv">$r</span><span class="p">.</span><span class="n">PathItems</span><span class="p">[</span><span class="nv">$_</span><span class="p">]</span> <span class="p">})</span>
 </code></pre></div>
 - <strong>第三者の部品</strong>: インストーラーとアンインストーラーの本体は Inno Setup のものである（<a href="https://jrsoftware.org/files/is/license.txt">Inno Setup License</a>）。インストールとアンインストールのときだけ動き、tebunko の実行中には使わない。ツール本体の第三者の部品は 0 のまま（<a href="../supply-chain/">供給網（サプライチェーン）とライセンス</a>）。</p>
+<h2 id="単一-ps1-版試験版">単一 .ps1 版（試験版）<a class="headerlink" href="#単一-ps1-版試験版" title="Permanent link">&para;</a></h2>
+<p>zip・インストーラーに加えて、展開せずに 1 本の <code>.ps1</code>（<code>tebunko-&lt;タグ&gt;.ps1</code>）だけで動く試験版を並べて配る（<a href="../../design/structure/single-script/">単一 PowerShell のビルド</a>）。中身のスクリプトは同じ <code>scripts/</code> から機械的に結合したものである。</p>
+<ul>
+<li><strong><code>tebunko.bat</code> に相当する起動口が無い</strong>: 自分自身の Mark-of-the-Web を解除する動き（<code>Unblock-File</code>）は持たない。実行ポリシーも指定せず、右クリック［PowerShell で実行］や、呼び出す側が指定したポリシーのまま動く（<a href="../../design/structure/single-script/">単一 PowerShell のビルド</a>「実行時の違い」）。</li>
+<li><strong>起動失敗の知らせ方</strong>: 画面が開く前の失敗は、zip 版と同じ <code>reportStartupFailure</code>／<code>writeStartupErrorFile</code>（ツールのフォルダの <code>startup_error.txt</code>。書けなければ記録を残さない）に記録する。<code>tebunko.bat</code> の <code>catch</code> に相当する外側の受け皿が無いため、単一 .ps1 の起動口（<code>gui.ps1</code> の本体）の <code>try</code>／<code>catch</code> が直接この関数を呼ぶ。ただし <code>lib.ps1</code> の読み込みは <code>try</code> の外にあるため、その失敗は <code>reportStartupFailure</code> に届かず、PowerShell の窓に出る。</li>
+<li><strong>署名・改ざんの確認</strong>: <code>tebunko.cat</code> は対象にしない（1 本のファイルのため、<a href="../scans/#配布物の完全性カタログハッシュ一覧来歴の署名">配布物の完全性（カタログ・ハッシュ一覧・来歴の署名）</a>の SHA256SUMS.txt と来歴の署名だけで確かめる）。</li>
+<li><strong>試験版という扱い</strong>: 利用者の確かめが済むまでは「試験版」とし、zip 版・インストーラー版と並べて配る。</li>
+</ul>
 
 
 

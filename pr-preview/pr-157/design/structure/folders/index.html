@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1565,6 +1565,8 @@
       
         
       
+        
+      
     
     
     
@@ -1904,6 +1906,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3080,7 +3110,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3101,14 +3131,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3189,8 +3219,6 @@
       
         
           
-        
-      
         
       
         
@@ -3297,7 +3325,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3325,7 +3353,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3353,35 +3381,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4135,7 +4135,8 @@
 
 <h1 id="配布物と開発用のフォルダ構成">配布物と開発用のフォルダ構成<a class="headerlink" href="#配布物と開発用のフォルダ構成" title="Permanent link">&para;</a></h1>
 <p>扱うこと: 利用者が使うもの・ドキュメント配布物・開発用（配布しない）フォルダの一覧。扱わないこと: <code>scripts/</code> の中の文脈・層による分け方（<a href="../source/">ソースの分け方</a>）、データの置き場所（<a href="../data/">データの置き場所</a>）。先に読むページ: <a href="../../">設計の概要</a>。</p>
-<p>スクリプトの場所は <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<code>setting.config</code> は、ふつうは <code>$rootDir</code> の直下に置く（ツールのフォルダに書き込めないときは利用者ごとの場所）。インデックス・取り込み一覧・ログ（ワークスペース）は、既定で <code>%USERPROFILE%\Documents\tebunko_ws</code> に置き、利用者が画面で置き場所を変えられる（<a href="../data/">データの置き場所</a>）。<strong>カレントディレクトリには依存しない。</strong>
+<p>tebunko が読み書きするファイルとフォルダの一覧（置き場ごと・配布形ごと）は、<a href="../io-files/">どの処理がどのファイルを読み書きするか</a> にある。</p>
+<p>スクリプトの場所は <code>scripts/shared/core/paths.ps1</code> の <code>$rootDir</code>（= リポジトリ直下。このファイルから 3 つ上）を基準に決まる。<code>setting.config</code> は、ふつうは <code>$rootDir</code> の直下に置く（ツールのフォルダに書き込めないときは既定のワークスペースの直下）。インデックス・取り込み一覧・ログ（ワークスペース）は、既定で <code>%USERPROFILE%\Documents\tebunko_ws</code> に置き、利用者が画面で置き場所を変えられる（<a href="../data/">データの置き場所</a>）。<strong>カレントディレクトリには依存しない。</strong>
 ファイル操作は <code>-LiteralPath</code> または .NET の <code>System.IO</code> を使い、<code>[</code> <code>]</code> を含むファイル名・フォルダ名を扱える。</p>
 <pre class="mermaid"><code>flowchart LR
     root(["リポジトリ直下"])
@@ -4158,12 +4159,12 @@
 <tr>
 <td><code>tebunko.bat</code></td>
 <td>起動用バッチ</td>
-<td>画面を開く（インデックス作成・検索・プロセス停止）。利用者が起動するのはこれだけ。<code>conhost.exe</code> 経由で PowerShell（PATH からではなく <code>%SystemRoot%</code> からの絶対パス）を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で 1 回起動し、その中で <code>scripts</code> の中のファイルから Mark-of-the-Web を外して（<code>Unblock-File</code>。<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>）から <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す。画面が開く前に失敗したときは、記録を残して Notepad で理由を示す（<a href="../../../safety/disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）</td>
+<td>画面を開く（インデックス作成・検索）。利用者が起動するのはこれだけ。<code>conhost.exe</code> 経由で PowerShell（PATH からではなく <code>%SystemRoot%</code> からの絶対パス）を <code>-ExecutionPolicy RemoteSigned -WindowStyle Hidden</code> で 1 回起動し、その中で <code>scripts</code> の中のファイルから Mark-of-the-Web を外して（<code>Unblock-File</code>。<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/disclosure/#mark-of-the-web-の解除tebunkobat">Mark-of-the-Web の解除</a>）から <code>gui.ps1</code> を開く。既定のターミナルが Windows Terminal だと <code>-WindowStyle Hidden</code> が効かず、PowerShell の窓が残るため <code>conhost.exe</code> を通す。画面が開く前に失敗したときは、記録を残して Notepad で理由を示す（<a href="../../../safety/disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）</td>
 </tr>
 <tr>
 <td><code>setting.config</code></td>
 <td>設定</td>
-<td>画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。<a href="../settings-file/">設定ファイル（setting.config）</a>）。ツールのフォルダに書き込めないときは利用者ごとの場所に置く（<a href="../data/">データの置き場所</a>）</td>
+<td>画面が保存する設定（JSON。無ければ既定値で動き、画面で設定を保存したときに作成する。git 管理外。<a href="../settings-file/">設定ファイル（setting.config）</a>）。ツールのフォルダに書き込めないときは既定のワークスペースの直下に置く（<a href="../data/">データの置き場所</a>）。起動に失敗したときの記録 <code>startup_error.txt</code> も、ツールのフォルダの直下にだけ書く（git 管理外）</td>
 </tr>
 <tr>
 <td><code>work/</code></td>
@@ -4200,7 +4201,7 @@
 <tr>
 <td><code>sbom.cdx.json</code></td>
 <td>配布用</td>
-<td>部品表（CycloneDX 1.6）の雛形。本体の説明・ライセンス・前提ソフトウェア・注記だけを持つ。ファイルごとの一覧とハッシュは、配布物を作るときに <code>tools/new_sbom.ps1</code> が足す。第三者の部品を 1 件も含まないことを示す（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/supply-chain/">供給網（サプライチェーン）とライセンス</a>）。配布 zip と並べてリリースに載せる</td>
+<td>部品表（CycloneDX 1.6）の雛形。本体の説明・ライセンス・前提ソフトウェア・注記だけを持つ。ファイルごとの一覧とハッシュは、配布物を作るときに <code>tools/new_sbom.ps1</code> が足す。第三者のコードを含まない（同梱するフォントとアイコンの形の 2 件は <code>tools/new_sbom.ps1</code> が足す）ことを示す（<a href="../../../safety/">安全性の要約</a> の <a href="../../../safety/supply-chain/">供給網（サプライチェーン）とライセンス</a>）。配布 zip と並べてリリースに載せる</td>
 </tr>
 <tr>
 <td><code>installer/tebunko.iss</code></td>
@@ -4215,7 +4216,7 @@
 <tr>
 <td><code>docs/</code></td>
 <td>ドキュメント</td>
-<td>利用者向けの使い方・安全性の説明・設計書（MkDocs のサイトの元）。<code>docs/images/</code> に図・画面の画像・ロゴ（<code>logo.svg</code>）を置く。配布 zip には入れない</td>
+<td>利用者向けの使い方・安全性の説明・設計書（MkDocs のサイトの元）。<code>docs/images/</code> に図・画面の画像・ロゴ（<code>logo.svg</code>）を置く。配布 zip には入れない。リリースに載せる 1 本の <code>.ps1</code> の設計は <a href="../single-script/">単一 PowerShell のビルド</a></td>
 </tr>
 <tr>
 <td><code>.github/CONTRIBUTING.md</code>・<code>.github/SUPPORT.md</code>・<code>.github/CODE_OF_CONDUCT.md</code>（と、それぞれの <code>.ja.md</code>）</td>
@@ -4307,7 +4308,7 @@
 <tr>
 <td><code>tools/new_icon.ps1</code></td>
 <td>開発用</td>
-<td>画面のアイコン（<code>tebunko.ico</code>）を元データの <code>docs/images/logo.svg</code> から作る。Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG と <code>.ico</code> を同じコミットに入れる</td>
+<td>画面のアイコンを元データの <code>docs/images/logo.svg</code> から作る。1 つ目は画面が読むベクターの絵（<code>scripts/tebunko/xaml/app_icon.xaml</code>。SVG の <code>path</code> をそのまま写す。変換と受け付ける SVG の形は <code>tools/icon_xaml.ps1</code>）。2 つ目は <code>tebunko.ico</code>（インストーラー・ショートカット用）で、Windows に入っている Microsoft Edge（ヘッドレス）で SVG を描き、.NET の <code>System.Drawing</code> で 16〜256 px の 8 サイズに縮小して、PNG 形式の <code>.ico</code> にまとめる。第三者のツールは使わない。図柄を変えたら実行し、SVG・<code>app_icon.xaml</code>・<code>.ico</code> を同じコミットに入れる</td>
 </tr>
 <tr>
 <td><code>tools/make_social_preview.ps1</code></td>
@@ -4320,9 +4321,19 @@
 <td>設計書の Web サイトを作る設定（<code>mkdocs.yml</code>）・フック（<code>hooks.py</code>）・使うパッケージ（<code>requirements.txt</code>）（<a href="../../testing/ci/">CI</a>）</td>
 </tr>
 <tr>
+<td><code>tools/pr_checks_comment.ps1</code></td>
+<td>開発用</td>
+<td>動いたワークフロー自身の結果（成功・失敗など）と実行へのリンクを、そのワークフローの PR コメント（ワークフローごとに 1 件）に書く・書き換える。<code>.github/actions/pr-comment</code>（複合アクション）から、test・title・docs・codeql・gui・perf-check の各ワークフローの <code>pr-comment</code> ジョブが呼ぶ（<a href="../../testing/ci/">CI</a>）</td>
+</tr>
+<tr>
+<td><code>.github/actions/pr-comment/</code></td>
+<td>開発用</td>
+<td>上の <code>tools/pr_checks_comment.ps1</code> を呼ぶ共有の複合アクション。呼び出し側のジョブ（<code>pr-comment</code>）だけに <code>pull-requests: write</code> を持たせる（<a href="../../testing/ci/">CI</a>）</td>
+</tr>
+<tr>
 <td><code>.github/workflows/</code></td>
 <td>開発用</td>
-<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>）、性能の計測（<code>perf.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../../testing/ci/">CI</a>）</td>
+<td>CI（<code>test.yml</code>・<code>title.yml</code>・<code>docs.yml</code>・<code>codeql.yml</code>・<code>scorecard.yml</code>）、画面のスモークテスト（<code>gui.yml</code>）、性能の計測（<code>perf.yml</code>）・速さの回帰テスト（<code>perf-check.yml</code>）と配布物の公開（<code>release.yml</code>）（<a href="../../testing/ci/">CI</a>）</td>
 </tr>
 <tr>
 <td><code>.github/codecov.yml</code></td>

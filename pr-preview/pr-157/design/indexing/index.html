@@ -6,14 +6,14 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
         <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/indexing/">
       
       
-        <link rel="prev" href="../structure/classes/">
+        <link rel="prev" href="../structure/single-script/">
       
       
         <link rel="next" href="flow/">
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3000,7 +3030,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3021,14 +3051,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../gui/process-tab/" class="md-nav__link">
+      <a href="../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3109,8 +3139,6 @@
       
         
           
-        
-      
         
       
         
@@ -3217,7 +3245,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3245,7 +3273,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3273,35 +3301,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4067,14 +4067,14 @@
 <h1 id="インデックス作成">インデックス作成<a class="headerlink" href="#インデックス作成" title="Permanent link">&para;</a></h1>
 <p>扱うこと: インデックス作成（インデクサ）の概要・起動方法・入出力・ファイルの種類ごとの抽出方法の一覧。扱わないこと: メインフローの詳細（<a href="flow/">インデックス作成のメインフロー</a>）、クロール対象フォルダと取り込み対象の決定（<a href="crawl/">クロール対象フォルダと取り込み対象</a>・<a href="target-decision/">取り込み対象の決定</a>）、インデックスのファイルの形（<a href="../index-data/format/">インデックスのファイルの形</a>）。先に読むページ: <a href="../">設計の概要</a>。</p>
 <h2 id="インデックスとははじめて読む方へ">インデックスとは（はじめて読む方へ）<a class="headerlink" href="#インデックスとははじめて読む方へ" title="Permanent link">&para;</a></h2>
-<p><strong>インデックス</strong>は、Office ファイルから抽出した文字列を、検索用に前もって保存した索引データである。書籍の巻末索引と同様に、検索のたびに元のファイルを開く処理を省くために用いる。利用者向けの説明は <a href="../../guide/about-index/">インデックスの仕組み</a> にある。本節では、インデックスの内容を具体例で示す。</p>
+<p><strong>インデックス</strong>は、元のファイル（Office ファイル・テキストファイル）から抽出した文字列を、検索用に前もって保存した索引データである。書籍の巻末索引と同様に、検索のたびに元のファイルを開く処理を省くために用いる。利用者向けの説明は <a href="../../guide/about-index/">インデックスの仕組み</a> にある。本節では、インデックスの内容を具体例で示す。</p>
 <p><strong>例</strong>: <code>C:\共有\営業部\見積\(株)山田商事_見積書.xlsx</code> に「見積」シートがあり、1 行目に <code>品名 数量 単価</code>、2 行目に <code>りんご 10 100</code> と書いてあるとする。</p>
 <pre class="mermaid"><code>flowchart LR
     X["(株)山田商事_見積書.xlsx&lt;br&gt;シート「見積」"] -- "① 取り込み&lt;br&gt;Excel でシートを&lt;br&gt;テキストに書き出す" --&gt; T["場所ごとの TSV&lt;br&gt;（1 行 = Excel の 1 行）"]
     T -- "② フォルダの取り込みが&lt;br&gt;終わったら本文インデックスに入れる" --&gt; P[("本文インデックス&lt;br&gt;content_index/営業部/見積/&lt;br&gt;content_index.xlsx.001.tsv")]
     P -- "③ 検索は&lt;br&gt;本文インデックスだけを読む" --&gt; R["結果: (株)山田商事_見積書.xlsx&lt;br&gt;見積・2 行目「りんご…」"]</code></pre>
 <ol>
-<li><strong>取り込み</strong>：元のファイルのコピーを開き、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
+<li><strong>取り込み</strong>：元のファイルを読み（Office ファイルはコピーを開き、テキストファイルはコピーを作らずに読む）、シート・ページ・スライドなどの<strong>場所</strong>ごとに、文字を TSV（タブ区切りのテキスト）に書き出す。1 行が Excel の 1 行（Word・PowerPoint では段落 1 つ）にあたるので、検索結果に「何行目か」を出せる。</li>
 <li>
 <p><strong>本文インデックスに入れる</strong>：フォルダの取り込みが終わると、そのフォルダの TSV を、フォルダ・拡張子ごとの<strong>本文インデックス</strong>にまとめる。本文インデックスには、どのファイルのどの場所かを示す行（メタ情報の行）と、TSV の中身が並ぶ。</p>
 <div class="highlight"><pre><span></span><code>␞ ファイル名=(株)山田商事_見積書.xlsx
@@ -4105,7 +4105,7 @@
 </tr>
 <tr>
 <td>取り込み一覧</td>
-<td><code>work/取り込み一覧.tsv</code></td>
+<td><code>work/ingest_status.tsv</code></td>
 <td>どのファイルを、いつ、どの版で取り込んだか。2 回目からは、ここと比べて新しいファイル・変わったファイルだけを取り込む（差分取り込み）</td>
 </tr>
 <tr>
@@ -4126,7 +4126,7 @@
 <tbody>
 <tr>
 <td>起動</td>
-<td>画面の［1 インデックス管理］タブの［インデックス作成を開始］（<a href="../gui/indexing-run/">インデックス作成の実行</a>）。画面は自分のプロセスの中のスレッド（インデクサの司令）で <code>indexer.ps1 -Channel</code> を実行する（<code>IndexingSession</code>。<a href="../structure/threads/">プロセスとスレッド</a>）。画面を使わずにコンソールから <code>indexer.ps1</code> を実行することもできる</td>
+<td>画面の［インデックス管理］タブの［すべて更新］（<a href="../gui/indexing-run/">インデックス作成の実行</a>）。画面は自分のプロセスの中のスレッド（インデクサの司令）で <code>indexer.ps1 -Channel</code> を実行する（<code>IndexingSession</code>。<a href="../structure/threads/">プロセスとスレッド</a>）。画面を使わずにコンソールから <code>indexer.ps1</code> を実行することもできる</td>
 </tr>
 <tr>
 <td>スクリプト</td>
@@ -4162,7 +4162,7 @@
 <li><a href="known-issues/">既知の問題</a></li>
 </ul>
 <h2 id="概要">概要<a class="headerlink" href="#概要" title="Permanent link">&para;</a></h2>
-<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下の Office ファイル（Excel・Word・PowerPoint）を、シート・ページ・スライドごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/&lt;インデックス名&gt;/</code> に保存する（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。</p>
+<p>画面で登録したクロール対象フォルダ（<code>setting.config</code>。複数可。チェックを付けたフォルダだけ）配下のファイル（Office ファイルとテキストファイル）を、シート・ページ・スライドなどの場所ごとにテキストを抽出して TSV に書き出し、フォルダ・拡張子ごとの本文インデックスにまとめて <code>work/content_index/&lt;インデックス名&gt;/</code> に保存する（<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a>）。</p>
 <table>
 <thead>
 <tr>
@@ -4203,12 +4203,18 @@
 <td>PowerPoint で <code>.pptx</code> に変換してから、上と同じ方法で読む</td>
 <td>同上</td>
 </tr>
+<tr>
+<td>テキスト</td>
+<td><a href="text/#対象の拡張子">対象の拡張子</a></td>
+<td>ファイルを直接読む。Office は使わない</td>
+<td>行のまとまり（<a href="text/">テキストファイル</a>）</td>
+</tr>
 </tbody>
 </table>
-<p>いずれも元のファイルは直接開かず、作業領域（<code>%TEMP%\tebunko\&lt;PID&gt;</code>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。インデックス作成中も、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
+<p>Office ファイルは元のファイルを直接開かず、作業領域（既定は <code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;</code>。<a href="../structure/data/">データの置き場所とパスの決め方</a>）にコピーしてからコピーを開く・読む（元のファイルを占有しない。<code>copyFileShared</code>）。テキストファイルはコピーを作らず、読み取り専用の共有で直接読んで閉じる（<code>readTextFile</code>。<a href="text/">テキストファイル</a>）。どちらもインデックス作成中に、ほかの利用者が元のファイルを開いて編集・上書き保存できる。</p>
 <ul>
 <li>クロール対象フォルダは複数登録でき、チェックを付けたフォルダだけを取り込む。チェックを外したフォルダは取り込まないが、インデックスは残す。</li>
-<li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/取り込み一覧.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
+<li>クロール対象フォルダ配下の全ファイルの更新日時・サイズ・状態を <code>work/ingest_status.tsv</code> に記録し、前回から更新されたファイル・未取り込みのファイルだけを取り込む（差分取り込み）。</li>
 <li>利用者に入力を求めない（コンソールで確認・キー入力を待たない）。画面から実行した場合（受け渡しの口の <code>ConfirmTargets</code>）は、<strong>取り込み対象を数えたところでいったん止まり、インデックスごとの件数を画面に出して取り込むかどうかの返事を待つ</strong>（<a href="target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>）。前回失敗したファイルを再取り込みするかも、この確認で受け取る（コンソールから直接実行する場合は <code>-RetryFailed</code> で渡す）。</li>
 <li>画面の［中止］で中止した場合、次回は未処理のファイルから再開する。インデクサが強制終了された（PC が停止した等）場合も同様で、強制終了したときに取り込んでいたファイルは最後に回す（<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。</li>
 <li>1 ファイルの取り込みが制限時間（10 分）を超えたら、Office アプリを強制終了してそのファイルを「失敗」とし、次のファイルへ進む（応答しなくなったファイルで止まり続けないため。<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）。</li>
@@ -4234,17 +4240,17 @@
 </tr>
 <tr>
 <td>入力</td>
-<td>クロール対象フォルダ配下の Office ファイル</td>
-<td><code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code></td>
+<td>クロール対象フォルダ配下の Office ファイル・テキストファイル</td>
+<td>Office: <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code> <code>.xlsb</code> <code>.docx</code> <code>.docm</code> <code>.doc</code> <code>.pptx</code> <code>.pptm</code> <code>.ppt</code>。テキスト: <a href="text/#対象の拡張子">対象の拡張子</a></td>
 </tr>
 <tr>
 <td>入出力</td>
-<td><code>work/取り込み一覧.tsv</code></td>
+<td><code>work/ingest_status.tsv</code></td>
 <td>全ファイルの更新日時・サイズ・状態（<a href="ingest-list/">取り込み一覧</a>）</td>
 </tr>
 <tr>
 <td>入出力</td>
-<td><code>work/取り込み中.txt</code></td>
+<td><code>work/ingesting.txt</code></td>
 <td>取り込み中のファイル（1 行に 1 ファイル。レーンに渡したものすべて）。インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（<a href="ingest-list/#強制終了時間切れからの再開">取り込み一覧</a>）</td>
 </tr>
 <tr>
@@ -4254,17 +4260,17 @@
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/インデックス作成ログ.txt</code></td>
+<td><code>work/indexing_log.txt</code></td>
 <td>表示内容の記録（<code>writeIndexerLog</code>。実行ごとに上書き）</td>
 </tr>
 <tr>
 <td>作業領域</td>
-<td><code>%TEMP%\tebunko\&lt;PID&gt;\</code></td>
+<td><code>work/tmp/&lt;PC の鍵&gt;/&lt;PID&gt;/</code>（パスに <code>[</code> <code>]</code> を含む・長すぎて置けないときは、取り込みをすべてスキップする。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべて対象になる）</td>
 <td>取り込み途中のファイル（元のファイルのコピー・変換したファイル・TSV）。取り込みのスレッドごとに <code>w&lt;番号&gt;</code> に分ける。終了時に削除する</td>
 </tr>
 <tr>
 <td>作業領域</td>
-<td><code>work/取り込み出力/&lt;PID&gt;/</code></td>
+<td><code>work/publish/&lt;PID&gt;/</code></td>
 <td>1 ファイル分の TSV を集めてからインデックスのフォルダと入れ替えるための場所（<a href="../index-data/publish/">入れ替えと書き出し</a>）。終了時に削除する</td>
 </tr>
 <tr>
@@ -4274,7 +4280,7 @@
 </tr>
 <tr>
 <td>出力</td>
-<td><code>work/content_index/&lt;インデックス名&gt;/元のフォルダ.txt</code></td>
+<td><code>work/content_index/&lt;インデックス名&gt;/source_folder.txt</code></td>
 <td>インデックス名とクロール対象フォルダの対応（<a href="crawl/">クロール対象フォルダと取り込み対象</a>）。インデックスを別の PC・場所へコピーしても、検索結果から元のファイルを開けるようにする</td>
 </tr>
 </tbody>
@@ -4314,7 +4320,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../structure/classes/" class="md-footer__link md-footer__link--prev" aria-label="前: クラスと関数の使い分け">
+          <a href="../structure/single-script/" class="md-footer__link md-footer__link--prev" aria-label="前: 単一 PowerShell のビルド">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4324,7 +4330,7 @@
                 前
               </span>
               <div class="md-ellipsis">
-                クラスと関数の使い分け
+                単一 PowerShell のビルド
               </div>
             </div>
           </a>

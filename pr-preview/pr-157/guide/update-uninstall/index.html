@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1186,6 +1186,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1226,6 +1237,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#残存するデータの削除" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1238,6 +1260,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#設定ファイルの置き場所" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        設定ファイルの置き場所
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1710,6 +1743,8 @@
       
         
       
+        
+      
     
     
     
@@ -1966,6 +2001,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3130,7 +3193,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3151,14 +3214,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3239,8 +3302,6 @@
       
         
           
-        
-      
         
       
         
@@ -3347,7 +3408,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3375,7 +3436,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3403,35 +3464,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4158,6 +4191,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4198,6 +4242,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#単一-ps1-版試験版_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 版（試験版）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#残存するデータの削除" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4210,6 +4265,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#設定ファイルの置き場所" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        設定ファイルの置き場所
+      
+    </span>
+  </a>
   
 </li>
       
@@ -4239,11 +4305,16 @@
 <h3 id="インストーラー版">インストーラー版<a class="headerlink" href="#インストーラー版" title="Permanent link">&para;</a></h3>
 <p>新しいバージョンのインストーラー（<code>tebunko-setup-&lt;バージョン&gt;.exe</code>）を実行します。設定（登録したフォルダなど）とインデックスは引き継がれます。tebunko の起動中は、インストーラーの処理を続行できません。</p>
 <h3 id="zip-版">zip 版<a class="headerlink" href="#zip-版" title="Permanent link">&para;</a></h3>
-<p>新しいバージョンの zip を展開し、現在の <code>tebunko</code> フォルダと置き換えます。</p>
-<ul>
-<li><strong>同じ場所に上書きする場合</strong>：設定ファイル <code>setting.config</code> は zip に含まれないため、そのまま保持されます。</li>
-<li><strong>別の場所に展開する場合</strong>：現在のフォルダの <code>setting.config</code> を新しいフォルダにコピーしてください。コピーしない場合、インデックスの一覧が空の状態で起動します。この状態でインデックス作成を実行すると、一覧に無いインデックスは削除されます。</li>
-</ul>
+<p>新しいバージョンの zip は、現在のフォルダには重ねず、別のフォルダに展開します（重ねて展開すると、前のバージョンにあって新しいバージョンに無いスクリプトが残るためです）。</p>
+<ol>
+<li>新しい zip を、展開する前に解除します（［ブロックの解除］、Windows 11 では［許可する］。<a href="../#zip-による配置">zip による配置</a>）。</li>
+<li>別のフォルダに展開します。</li>
+<li>現在のフォルダの <code>setting.config</code> を新しいフォルダにコピーします。ツールのフォルダに書けなくて設定が既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）の直下にある場合は、コピーは要りません。コピーしない場合、インデックスの一覧が空の状態で起動します。この状態でインデックス作成を実行すると、一覧に無いインデックスは削除されます。</li>
+<li><a href="../#tebunkobat-を使わずに起動するzip-版">ショートカットを作っていた場合</a>は、リンク先と作業フォルダーを新しいフォルダに直します。</li>
+<li>前のフォルダを削除します。</li>
+</ol>
+<h3 id="単一-ps1-版試験版">単一 .ps1 版（試験版）<a class="headerlink" href="#単一-ps1-版試験版" title="Permanent link">&para;</a></h3>
+<p>新しい <code>tebunko-&lt;バージョン&gt;.ps1</code> を、現在の <code>.ps1</code> と同じフォルダに置きます。古い <code>.ps1</code> は削除します。<code>setting.config</code> は <code>.ps1</code> とは別のファイルなので、そのまま保持されます。別のフォルダに置く場合は、<code>setting.config</code> を新しいフォルダにコピーしてください。</p>
 <p>インデックスはワークスペース（既定：<code>Documents\tebunko_ws</code>）に保存されているため、tebunko のフォルダを置き換えても削除されません。</p>
 <div class="admonition warning">
 <p class="admonition-title">互換性の無い変更を含むバージョン</p>
@@ -4256,9 +4327,11 @@
 <li>tebunko を終了します。</li>
 <li>Windows の［設定］→［アプリ］で「tebunko」を選択し、アンインストールします。</li>
 </ol>
-<p>tebunko の本体と設定ファイルが削除されます。ワークスペースの場所は、アンインストールの完了時に表示されます。</p>
+<p>tebunko の本体と、ツールのフォルダの設定ファイル（<code>setting.config</code>）・起動に失敗したときの記録（<code>startup_error.txt</code>）が削除されます。ワークスペースの場所は、アンインストールの完了時に表示されます。</p>
 <h3 id="zip-版_1">zip 版<a class="headerlink" href="#zip-版_1" title="Permanent link">&para;</a></h3>
 <p>tebunko を終了し、<code>tebunko</code> フォルダを削除します。レジストリへの書き込みは行っていないため、他に削除するものはありません。</p>
+<h3 id="単一-ps1-版試験版_1">単一 .ps1 版（試験版）<a class="headerlink" href="#単一-ps1-版試験版_1" title="Permanent link">&para;</a></h3>
+<p>tebunko を終了し、<code>.ps1</code> を削除します。同じフォルダの <code>setting.config</code> も、不要なら削除します。レジストリへの書き込みは行っていません。</p>
 <h3 id="残存するデータの削除">残存するデータの削除<a class="headerlink" href="#残存するデータの削除" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -4270,18 +4343,21 @@
 <tbody>
 <tr>
 <td>ワークスペース（既定：<code>%USERPROFILE%\Documents\tebunko_ws</code>。変更した場合はその場所）</td>
-<td>インデックス・取り込み一覧・ログ</td>
+<td>インデックス・取り込み一覧・ログ・一時ファイル</td>
 </tr>
 <tr>
-<td><code>%LOCALAPPDATA%\tebunko</code></td>
-<td>tebunko を書き込み不可の場所に配置した場合の設定ファイルと、起動が失敗したときの記録 <code>startup_error.txt</code>（存在しない場合は未使用です）</td>
+<td>tebunko のフォルダ内の <code>setting.config</code>・<code>startup_error.txt</code></td>
+<td>設定ファイルと、起動が失敗したときの記録（書き込めない場所に配置した場合、設定ファイルは上のワークスペースの直下に置かれ、起動の記録は作られません）。アンインストーラーは、この 2 つも消します</td>
 </tr>
 <tr>
 <td>Windows Search の「インデックスのオプション」</td>
-<td>ワークスペースを索引付けの対象に追加していた場合は、対象から除外します</td>
+<td>本文のインデックス（<code>content_index</code>）は、tebunko が索引付けの対象から自動で外します。ワークスペースを自分で索引付けの対象に追加していた場合だけ、対象から除外します</td>
 </tr>
 </tbody>
 </table>
+<h2 id="設定ファイルの置き場所">設定ファイルの置き場所<a class="headerlink" href="#設定ファイルの置き場所" title="Permanent link">&para;</a></h2>
+<p>設定ファイル（<code>setting.config</code>）は、tebunko のフォルダに書き込めればそこに、書き込めなければ既定のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）の直下に置きます。起動に失敗したときの記録（<code>startup_error.txt</code>）は、tebunko のフォルダにだけ書き、書き込めないときは記録を残さずに理由だけを示します。</p>
+<p>ワークスペースを別のフォルダにしていても、書き込めない場所に置いたときの設定ファイルの置き場所は既定のワークスペースの直下です。設定ファイルは、ワークスペースの中身としては数えません。ワークスペースの移動・［消して最初から］・エクスポートでも、移動も削除もされません。</p>
 
 
 

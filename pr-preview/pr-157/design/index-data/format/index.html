@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2545,6 +2575,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#前の版との互換" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        前の版との互換
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3180,7 +3221,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3201,14 +3242,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3289,8 +3330,6 @@
       
         
           
-        
-      
         
       
         
@@ -3397,7 +3436,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3425,7 +3464,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3453,35 +3492,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4313,6 +4324,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#前の版との互換" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        前の版との互換
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4339,7 +4361,7 @@
 <pre class="mermaid"><code>erDiagram
     INDEX ||--o{ CONTENT_INDEX : "拡張子ごとに 1 つ以上"
     INDEX ||--o| SYSTEM_INDEX : "フォルダごとに 1 つ"
-    INDEX ||--o| SOURCE_FOLDER_RECORD : "元のフォルダ.txt"
+    INDEX ||--o| SOURCE_FOLDER_RECORD : "source_folder.txt"
     INDEX ||--o{ TEMP_TSV : "取り込み中だけ残る"
     CONTENT_INDEX {
         string path "content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv"
@@ -4354,12 +4376,12 @@
         string lifetime "取り込み〜書き出しまで"
     }
     SOURCE_FOLDER_RECORD {
-        string path "元のフォルダ.txt"
+        string path "source_folder.txt"
     }</code></pre>
 <h2 id="配置命名規則">配置・命名規則<a class="headerlink" href="#配置命名規則" title="Permanent link">&para;</a></h2>
 <p>インデックスは、クロール対象フォルダの中のフォルダ 1 つ・元のファイルの拡張子 1 つにつき 1 つの<strong>本文インデックス</strong>にする。検索は本文インデックスだけを読む（<a href="../../search/speed/">検索を速くする仕組み</a>）。</p>
 <div class="highlight"><pre><span></span><code>work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/content_index.&lt;拡張子（小文字）&gt;.&lt;番号&gt;.tsv                        … 本文インデックス（検索に使う）
-work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名（拡張子あり）&gt;/&lt;encodeIndexPlace(場所)&gt;.tsv … 取り込み中だけの TSV
+work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;ファイル名（拡張子あり）&gt;/&lt;toIndexFileName(場所)&gt;     … 取り込み中だけの TSV
 </code></pre></div>
 <ul>
 <li><strong>本文インデックス</strong>（<code>content_index.xlsx.001.tsv</code> <code>content_index.docx.001.tsv</code> など）には、そのフォルダ<strong>直下</strong>にある、その拡張子の元のファイルすべての中身を入れる。サブフォルダのファイルは、サブフォルダの本文インデックスに入る。形式は下の「本文インデックスの形式」。</li>
@@ -4403,7 +4425,7 @@ work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;
 <tr>
 <td><code>報告書.DOCX</code></td>
 <td><code>ページ001</code></td>
-<td><code>work/content_index/営業/報告書.DOCX/ページ001.tsv</code></td>
+<td><code>work/content_index/営業/報告書.DOCX/page_001.tsv</code></td>
 <td><code>work/content_index/営業/content_index.docx.001.tsv</code></td>
 </tr>
 </tbody>
@@ -4411,8 +4433,9 @@ work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;
 <ul>
 <li>クロール対象フォルダのフォルダ構成が <code>work/content_index/&lt;インデックス名&gt;/</code> 配下にそのまま再現され、各フォルダに<strong>拡張子ごとの本文インデックス</strong>ができる。検索結果の先頭の相対フォルダにもインデックス名が付くため、どのクロール対象フォルダのファイルかが分かる。</li>
 <li>本文インデックスの拡張子は小文字にそろえる（<code>報告書.DOCX</code> は <code>content_index.docx.001.tsv</code> に入る）。</li>
-<li>「場所」は Excel ではシート名と、図形・コメントの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code>（下の「図形・コメントの場所」、<a href="../../indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）、Word ではページ・ヘッダー/フッター・脚注（<a href="../../indexing/word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>）、PowerPoint ではスライド・ノート（<a href="../../indexing/powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>）。</li>
+<li>「場所」は Excel ではシート名と、図形・コメント・ヘッダー・フッターの <code>&lt;シート名&gt;[図形]</code> <code>&lt;シート名&gt;[コメント]</code> <code>&lt;シート名&gt;[ヘッダー・フッター]</code>（下の「図形・コメントの場所」、<a href="../../indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）、Word ではページ・ヘッダー/フッター・脚注（<a href="../../indexing/word/#word-のテキスト読み取りと-tsv-の場所readdocxunits">Word のテキスト読み取りと TSV の場所</a>）、PowerPoint ではスライド・ノート（<a href="../../indexing/powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>）。</li>
 <li>TSV のファイル名は場所だけ（<code>toIndexFileName</code>）。場所は Excel のシート名で最長 31 文字のため、Windows のファイル名の上限（255 文字）は超えない。元のファイル名は Windows 上のファイル名そのものなので、フォルダ名にしても上限を超えない。</li>
+<li><strong>ファイル名は英字にそろえる。</strong> ページ・スライド・ヘッダー/フッター・脚注・文書・本文といった、あらかじめ決まっている場所は、固定の英語のファイル名（<code>page_&lt;番号&gt;</code> <code>slide_&lt;番号&gt;</code> <code>slide_&lt;番号&gt;_hidden</code> <code>slide_&lt;番号&gt;_notes</code> <code>header_footer</code> <code>doc_footnotes</code> <code>doc_whole</code> <code>doc_body</code> など。<code>convertPlaceBaseToFixedFileName</code>）にする。Excel のシート名のように利用者が付けた任意の文字列は、下の「場所の符号化」で符号化する。符号化は <code>_</code> を必ず <code>%5F</code> にするため、ファイル名の本体に英字と <code>_</code> だけの固定名（<code>page_1</code> など）は符号化した名前と衝突せず、<code>convertIndexFileNameToPlace</code> で元の場所へ一意に戻せる。</li>
 <li><strong>TSV でファイル名をフォルダ名にする理由</strong>（<code>&lt;ファイル名&gt;_&lt;場所&gt;.tsv</code> のように 1 つの名前にしない理由）:</li>
 <li>ファイル名と場所の区切りが <code>\</code> になり、名前の中の文字と衝突しない（<code>_</code> の符号化に頼らずに分けられる）。</li>
 <li>取り込み直すときは<strong>フォルダごと入れ替え</strong>ればよく、別のファイルの TSV を巻き込まない（<code>&lt;ファイル名&gt;_*.tsv</code> で消すと、<code>a.xls</code> の取り込みで <code>a.xls_b.xlsx</code> の TSV まで消える）。</li>
@@ -4423,10 +4446,10 @@ work/content_index/&lt;インデックス名&gt;/&lt;相対フォルダ&gt;/&lt;
 <p>フォルダ名・ファイル名を <code>content_index</code>・<code>system_index</code> にそろえる前の版が使っていた <code>index\</code> は、そのままでは読めない（フォルダ名・ファイル名が違う）。新しい版はここを読まず、消しもしない。</p>
 <ul>
 <li><strong>前の版のしるし</strong>: <code>index\</code> があり、その直下のどれかのフォルダに <code>元のフォルダ.txt</code> がある（<code>getLegacyIndexState</code> の <code>HasLegacyIndex</code>）。<code>index\</code> があるだけでは、利用者が選んだフォルダにたまたま <code>index</code> があるときと区別できないため、しるしとしない。</li>
-<li><strong>知らせ</strong>: インデクサは <code>content_index\</code> を作る前に前の版のしるしを調べ、見つかれば <code>前の版のインデックス（「&lt;index\ のパス&gt;」）は、この版では使えません。インデックス作成で、元のファイルをすべて取り込み直します。取り込み直した後、「&lt;index\ のパス&gt;」フォルダは削除してかまいません。</code> をログに黄色で出す（<code>getLegacyIndexMessage</code>）。</li>
+<li><strong>知らせ</strong>: インデクサは <code>content_index\</code> を作る前に前の版のしるしを調べ、見つかれば <code>前の版のインデックス（「&lt;index\ のパス&gt;」）は、この版では使えません。［すべて更新］で、元のファイルをすべて更新し直します。更新し直した後、「&lt;index\ のパス&gt;」フォルダは削除してかまいません。</code> をログに黄色で出す（<code>getLegacyIndexMessage</code>）。</li>
 <li><strong>片付けの条件</strong>: <code>content_index\</code> が空（無いか、下のフォルダを含めてファイルが 1 つも無い）で、かつ、前の版のしるしがあるか、<code>system_index\</code> に前の名前の txt（<code>システムインデックス*.txt</code>）が残っている（<code>testLegacyCleanupNeeded</code>）。取り込み直す前に利用者が <code>index\</code> を消していても、前の名前の txt を残さないための条件。</li>
-<li><strong>片付け</strong>: 条件に当たれば、取り込み直しを始める前に前の版のシステムインデックスを片付ける（<code>clearLegacySystemIndex</code>）。順番は (1) 状態ファイル（<code>システムインデックスの状態.tsv</code>）の中身を排他の中で空にする（ファイルは消さない） (2) <code>system_index\</code> を <code>removeDirectoryRetry</code> で消す（Windows Search が txt を一時的に開くことがあるため）。どちらかに失敗したら、<code>content_index\</code> を作らず、失敗の理由をログと <code>channel.Error</code> に入れて終了コード 1 で終わる。途中で止まっても、次の開始で同じ条件に当たり、やり直せる。</li>
-<li>画面での確かめ（<a href="../../gui/indexing-run/#取り込み直しの確かめ">取り込み直しの確かめ</a>）とインデックス作成のメインフローでの扱い（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）も参照。</li>
+<li><strong>片付け</strong>: 条件に当たれば、取り込み直しを始める前に前の版のシステムインデックスを片付ける（<code>clearLegacySystemIndex</code>）。順番は (1) 状態ファイル（<code>system_index_state.tsv</code>）の中身を排他の中で空にする（ファイルは消さない） (2) <code>system_index\</code> を <code>removeDirectoryRetry</code> で消す（Windows Search が txt を一時的に開くことがあるため）。どちらかに失敗したら、<code>content_index\</code> を作らず、失敗の理由をログと <code>channel.Error</code> に入れて終了コード 1 で終わる。途中で止まっても、次の開始で同じ条件に当たり、やり直せる。</li>
+<li>画面での確かめ（<a href="../../gui/indexing-run/#更新し直しの確かめ">更新し直しの確かめ</a>）とインデックス作成のメインフローでの扱い（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）も参照。</li>
 </ul>
 <h3 id="本文インデックスの形式pack_formatps1">本文インデックスの形式（<code>pack_format.ps1</code>）<a class="headerlink" href="#本文インデックスの形式pack_formatps1" title="Permanent link">&para;</a></h3>
 <p>本文インデックスは、元のファイルごと・場所（シート・ページ・スライドなど）ごとに、<strong>メタ情報の行</strong>と、その場所の TSV の中身（<a href="../../indexing/excel/#tsv-整形仕様prettytsv--formattsv">TSV 整形仕様</a> など。1 行 = Excel の 1 行・段落 1 つ）を並べたもの。例（<code>␞</code> は RS（U+001E）、<code>→</code> はタブ）:</p>
@@ -4555,18 +4578,24 @@ B2→確定版
 <td>コメントと返信（<code>ページ003[コメント]</code>。本文に参照の無いものは <code>文書[コメント]</code>）</td>
 <td>旧形式・新形式のコメントと返信（<code>スライド002[コメント]</code>）</td>
 </tr>
+<tr>
+<td><code>ヘッダー・フッター</code></td>
+<td>印刷のヘッダー・フッター（<code>売上[ヘッダー・フッター]</code>。表示のグラフシートも含む。検索の選択肢は無く、いつも検索する）</td>
+<td>種類ではない（場所の名前 <code>ヘッダー・フッター</code>）</td>
+<td>種類ではない（場所の名前 <code>ヘッダー・フッター</code>）</td>
+</tr>
 </tbody>
 </table>
 <ul>
 <li>PowerPoint のテキストボックス・図形を本文のままにする理由は <a href="../../indexing/powerpoint/#powerpoint-のテキスト読み取りと-tsv-の場所readpptxunits">PowerPoint のテキスト読み取りと TSV の場所</a>。Word の本文のテキストボックスは Excel とそろえて図形にするため、［図形も検索］をオフにすると検索されない。</li>
 <li>Excel の新しい種類のグラフ（じょうご・ツリーマップ・滝など。<code>cx:chart</code>）とグラフの中のテキストボックス（<code>c:userShapes</code>）、埋め込みオブジェクト、スライドマスター・レイアウトは読まない（<a href="../../indexing/excel/">Excel の図形・コメントの読み取り</a>）。</li>
-<li><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメントの場所は必ず見分けられる。</li>
-<li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
-<li><strong>1 行の形</strong>: Excel は <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「場所」に出すセル番地と、開くときに選ぶセルに使う）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。</li>
-<li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../../indexing/ingest-list/">取り込み一覧</a>）。今は <code>.xlsx</code> <code>.xlsm</code> <code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code> が 3、<code>.doc</code> <code>.ppt</code> が 2。</li>
+<li><strong>重ならない理由</strong>: Excel のシート名には <code>[</code> <code>]</code> を使えない。Word・PowerPoint の場所（<code>ページNNN</code> <code>スライドNNN</code> <code>ヘッダー・フッター</code> 等）には <code>[</code> が付かない。このため、ふつうの場所と図形・コメント・ヘッダー・フッターの場所は必ず見分けられる（Word・PowerPoint の <code>ヘッダー・フッター</code> は <code>[</code> <code>]</code> で囲まない場所の名前で、Excel の種類 <code>[ヘッダー・フッター]</code> とは別。集約ファイルでは Excel が <code>シート=売上</code> <code>対象=ヘッダー・フッター</code>、Word・PowerPoint が <code>部分=ヘッダー・フッター</code> <code>対象=本文</code>）。</li>
+<li><strong>定義の場所</strong>: 種類の名前は <code>index_name.ps1</code> の <code>$placeKindShape</code> / <code>$placeKindComment</code> / <code>$placeKindHeaderFooter</code> と <code>objectPlacePattern</code>（分けるのは <code>splitObjectPlace</code>）。書き出す側（<code>office_reader.ps1</code>）と画面（<code>types.ps1</code> の <code>HitRow</code>）は変数を使えないため同じ名前を直接書いており、そろっていることをテスト（<code>index_name.Tests.ps1</code>）で確かめる。種類を足すときは 3 か所と画面のチェックをそろえる。</li>
+<li><strong>1 行の形</strong>: Excel の図形・コメントは <code>&lt;セル番地&gt;&lt;TAB&gt;&lt;文字&gt;</code>（検索結果の「場所」に出すセル番地と、開くときに選ぶセルに使う）。Excel のヘッダー・フッターは文字だけ（セル番地が無いため、検索結果の「場所」はシート名だけで、開くときもセルは選ばない。画面は <code>HitRow.IsCelllessPlace</code> で判定する。正規表現の種類の名前は <code>index_name.ps1</code> の <code>$placeKindHeaderFooter</code> と同じで、テストでそろっていることを確かめる）。Word・PowerPoint は図形・コメント 1 つを 1 行（文字だけ。段落はスペースでつなぐ）にする。元の場所（ページ・スライド）は場所の名前で分かる。</li>
+<li><strong>読み取る内容を増やしたとき</strong>: <code>indexer_decide.ps1</code> の <code>$extractVersions</code> で、その形式（拡張子）の抽出版を上げる。前の抽出版で取り込んだファイルは、更新が無くても次のインデックス作成で取り込み直す（<a href="../../indexing/ingest-list/">取り込み一覧</a>）。今は <code>.xlsx</code> <code>.xlsm</code> が 4、<code>.docx</code> <code>.docm</code> <code>.pptx</code> <code>.pptm</code> が 3、<code>.doc</code> <code>.ppt</code> が 2。</li>
 </ul>
 <h2 id="場所の符号化encodeindexplace--decodeindexplace">場所の符号化（<code>encodeIndexPlace</code> / <code>decodeIndexPlace</code>）<a class="headerlink" href="#場所の符号化encodeindexplace--decodeindexplace" title="Permanent link">&para;</a></h2>
-<p>TSV のファイル名に入れる場所（シート名など）は、次の文字を <code>%</code> と 16 進数 2 桁にする。本文インデックスに入れるとき（<code>getIndexFolderBooks</code>）に <code>decodeIndexPlace</code> で元に戻す。本文インデックスのメタ情報には元のシート名を書き（値の符号化は上の「本文インデックスの形式」）、検索結果の「場所」には元のシート名を表示する。</p>
+<p>TSV のファイル名に入れる場所（シート名など、固定名（上の「配置・命名規則」）に当てはまらないもの）は、次の文字を <code>%</code> と 16 進数 2 桁にする。本文インデックスに入れるとき（<code>getIndexFolderBooks</code>）に <code>convertIndexFileNameToPlace</code>（固定名なら表から戻し、それ以外は <code>decodeIndexPlace</code> で元に戻す）で元に戻す。本文インデックスのメタ情報には元のシート名を書き（値の符号化は上の「本文インデックスの形式」）、検索結果の「場所」には元のシート名を表示する。</p>
 <table>
 <thead>
 <tr>
@@ -4606,7 +4635,7 @@ B2→確定版
 <ul>
 <li>全角に置き換える方式にしないのは、<code>衝突"</code> と <code>衝突”</code> のように別のシートが同じ TSV 名になり、後のシートで上書きされるため。元に戻せる形にすれば、シート名が違えば TSV 名も必ず違う。</li>
 <li>ファイル名は符号化しない（元ファイルの名前がそのまま TSV のフォルダ名になる。Windows のファイル名なので使えない文字は含まない）。</li>
-<li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../../search/output/#出力フォーマットwork検索結果txt">検索結果ファイル</a>）。</li>
+<li>Excel のシート名はタブ・改行を含められる（VBA などで付けた場合）。制御文字も符号化するため、そのようなシートも保存できる（検索結果に出すときは、列・行が分かれないようスペースにする。<a href="../../search/output/#出力フォーマットworksearch_resultstxt">検索結果ファイル</a>）。</li>
 <li>インデックス名（<code>work/content_index</code> 直下のフォルダ名）は符号化せず、<code>toSafeFileName</code>（ファイル名に使えない文字を全角に置き換える）で作る。</li>
 </ul>
 <table>
@@ -4644,13 +4673,13 @@ B2→確定版
 <p>1 つのインデックスを 1 つの zip に書き出し（<code>exportIndex</code>）、別の PC・ワークスペースで読み込む（<code>importIndex</code>。<code>tebunko/index/index_archive.ps1</code> が状態層、<code>tebunko/index/index_archive_rules.ps1</code> が安全性の確かめと名前の決め方）。取り込み直さずに検索でき、元のフォルダが同じなら次のインデックス作成でも取り込み直しが起きないようにする。画面には触れず、<code>lib.ps1</code> を読み込めば呼べる。</p>
 <h3 id="zip-の中身と目録tebunko-indexjson">zip の中身と目録（<code>tebunko-index.json</code>）<a class="headerlink" href="#zip-の中身と目録tebunko-indexjson" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>tebunko-index.json                                             … 目録（下）。UTF-8・BOM なし
-取り込み一覧.tsv                                               … そのインデックスの行だけ（相対パスは &lt;インデックス名&gt;\ を外した形）
+ingest_status.tsv                                               … そのインデックスの行だけ（相対パスは &lt;インデックス名&gt;\ を外した形）
 content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番号&gt;.tsv … 本文インデックスのファイル
 </code></pre></div>
 <ul>
 <li>zip の中のパスは <code>/</code> 区切り・インデックス名を含めない相対パスにする（受け取る側で名前を変えられるように）。エントリー名は UTF-8 で書き、読むときも <code>ZipArchive</code> の <code>entryNameEncoding</code> に UTF-8 を渡す。</li>
 <li><strong>システムインデックスは持ち出さない。</strong> 本文インデックスから作り直せる（<code>updateSystemIndexes</code>）うえ、効くのは受け取る側の Windows Search が索引してからで、持ち出しても待ち時間は変わらないため。作り終えるまでは、そのインデックスは高速検索でもすべてを照合する。</li>
-<li><strong>元のフォルダ.txt はそのまま持ち出さず</strong>、目録の <code>sourceFolder</code> に書く（受け取る側で書き直す）。</li>
+<li><strong>source_folder.txt はそのまま持ち出さず</strong>、目録の <code>sourceFolder</code> に書く（受け取る側で書き直す）。</li>
 </ul>
 <p>目録（例）:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
@@ -4661,7 +4690,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <span class="w">  </span><span class="nt">"indexName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"営業"</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"sourceFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C:\\共有\\営業部"</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">"files"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"取り込み一覧.tsv"</span><span class="p">,</span><span class="w"> </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1234</span><span class="p">,</span><span class="w"> </span><span class="nt">"sha256"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ingest_status.tsv"</span><span class="p">,</span><span class="w"> </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1234</span><span class="p">,</span><span class="w"> </span><span class="nt">"sha256"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="w"> </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"content_index/2024/content_index.xlsx.001.tsv"</span><span class="p">,</span><span class="w"> </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">56789</span><span class="p">,</span><span class="w"> </span><span class="nt">"sha256"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="w"> </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
@@ -4678,17 +4707,17 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <li><strong>名前を決める</strong>（<code>getImportIndexName</code>）。同じ名前のインデックスがあるときの扱い（<code>Rename</code>・<code>Overwrite</code>・<code>Cancel</code>）を呼ぶ側が指定する。<code>Rename</code> は <code>名前(2)</code>・<code>名前(3)</code> …（<code>newIndexName</code> と同じ決まり）、<code>Overwrite</code> は置き換え、<code>Cancel</code> は何もしない。</li>
 <li><strong>元のフォルダを決める</strong>（呼ぶ側の指定、無ければ目録の <code>sourceFolder</code>）。空なら止める。同じフォルダが別の名前のクロール対象フォルダにあれば止める（<code>getTargetFolders</code> は同じフォルダの 2 つ目以降を読まないため、登録しても次のインデックス作成で <code>removeDroppedFolders</code> に消される。画面の追加・編集と同じ決まり）。検索だけのインデックスと同じフォルダなら、止めずに <code>Warnings</code> で知らせる。</li>
 <li><strong>空き容量</strong>（ワークスペースのドライブ。<code>getWorkspaceFreeSpace</code>）が「目録の合計 + 1GB」より少なければ止める（zip bomb 対策。<code>testImportFreeSpace</code>）。UNC（<code>\\server\share\…</code>）のワークスペースなど、ドライブとして空き容量を調べられないときは確かめずに進める（調べられないことでインポートを止めない。展開の途中で足りなくなれば、書き込みの失敗として 6 以降の戻しに入る）。</li>
-<li><strong>展開する</strong>（<code>expandImportArchive</code>）: <code>&lt;ワークスペース&gt;\取り込み出力\&lt;PID&gt;\import\new\</code> に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。<code>元のフォルダ.txt</code> もここに書く。</li>
+<li><strong>展開する</strong>（<code>expandImportArchive</code>）: <code>&lt;ワークスペース&gt;\publish\&lt;PID&gt;\import\new\</code> に、確かめた目録のパスからだけファイル名を組み立てて 1 つずつ展開する（エントリーの名前からは組み立てない）。目録の大きさを超えて書こうとしたら止め、書き終えたら大きさと SHA-256 を比べる。<code>source_folder.txt</code> もここに書く。</li>
 <li><strong>設定に登録する</strong>（<code>registerImportedIndexInSettings</code>）: <code>targetFolders</code> に <code>{ name, path, enabled }</code> を足す（上書きなら既存の項目を書き換え、並びは変えない）。<code>enabled</code> は元のフォルダがあれば <code>true</code>。同じ名前の <code>indexSources</code> は消す。<strong><code>targetFolders</code> に入れる理由</strong>は、取り込み一覧の行を持ち込むので、次のインデックス作成で差分だけを取り込め、<code>removeDroppedFolders</code>（<a href="../../indexing/ingest-list/">取り込み一覧</a>）に消されないため。</li>
 <li><strong><code>content_index\&lt;名前&gt;\</code> を入れ替える</strong>（<code>swapInImportedIndexDir</code>。上書きなら今のフォルダを <code>previous\</code> へ退避してから）。作ったばかり・書いたばかりのフォルダはウイルス対策ソフトに一時的に掴まれることがあるため、<code>removeDirectoryRetry</code> と同じ <code>moveDirectoryRetry</code>（<code>shared/core/fs.ps1</code>）で少し待って数回試す。</li>
-<li><strong>取り込み一覧を書き直す</strong>（<code>rewriteStatusForImport</code>）: <code>readStatusFile</code> で読み、そのインデックスの前の <code>クロール対象フォルダ</code> の行とデータ行を除いて、新しい <code>クロール対象フォルダ</code> の行とデータ行を足し、インデクサと同じ <code>writeStatusFile</code> で書く。<code>クロール対象フォルダ</code> の行は見出しの行の前、見出しの行は必ずある形になる（<code>getIndexNameMap</code> は見出しの行で読むのをやめるため、行が見出しの後ろにあると名前を見つけられず、［8 設定］の［あるインデックスを使う］で一覧から落ちて <code>removeDroppedFolders</code> に消される）。空のワークスペースでも、ほかのインデックスがあるワークスペースでも同じ。</li>
+<li><strong>取り込み一覧を書き直す</strong>（<code>rewriteStatusForImport</code>）: <code>readStatusFile</code> で読み、そのインデックスの前の <code>クロール対象フォルダ</code> の行とデータ行を除いて、新しい <code>クロール対象フォルダ</code> の行とデータ行を足し、インデクサと同じ <code>writeStatusFile</code> で書く。<code>クロール対象フォルダ</code> の行は見出しの行の前、見出しの行は必ずある形になる（<code>getIndexNameMap</code> は見出しの行で読むのをやめるため、行が見出しの後ろにあると名前を見つけられず、［設定］の［あるインデックスを使う］で一覧から落ちて <code>removeDroppedFolders</code> に消される）。空のワークスペースでも、ほかのインデックスがあるワークスペースでも同じ。</li>
 <li>上書きなら、前のシステムインデックスを消す（失敗しても続ける。次のインデックス作成で整理される）。<strong>システムインデックスはインポートでは作らない</strong>（下の「システムインデックスを作る時機」）。</li>
 <li>作業フォルダを消す。</li>
 </ol>
 <p><strong>戻し方</strong>: 7〜9 のどこかで失敗したら、逆の操作で戻して例外にする（戻しは対になる関数 <code>restoreImportedSettings</code>・<code>restoreSwappedIndexDir</code> が行い、<code>importIndexCore</code> は入れ子の <code>try</code> の順に呼ぶ）。設定は、変える 3 つの項目（<code>targetFolders</code>・<code>indexSources</code>・<code>searchExcludes</code>）を、登録の前に読んだ値にそのまま書き戻す（並びも元のまま。ほかの項目には触れない）。<code>content_index\&lt;名前&gt;\</code> は退避した <code>previous\</code> を戻す（新しく足したときは消す）。取り込み一覧は一時ファイルからの置き換えなので、失敗すれば前のまま。どの段階で失敗しても、作業フォルダ（<code>import\</code>）は消す。<code>tests/tebunko/index/index_archive.Tests.ps1</code> の「戻す」で、設定に書けない・入れ替えられない・取り込み一覧を書けない、のそれぞれを確かめている。</p>
 <p><strong>強制終了したとき</strong>:</p>
 <ul>
-<li>6 の途中: 作業フォルダだけが残り、次のインデックス作成の <code>removeStaleTmpDirs</code>（終了済みのプロセスの <code>取り込み出力\&lt;PID&gt;</code>）で消える。ワークスペースは変わらない。</li>
+<li>6 の途中: 作業フォルダだけが残り、次のインデックス作成の <code>removeStaleTmpDirs</code>（終了済みのプロセスの <code>publish\&lt;PID&gt;</code>）で消える。ワークスペースは変わらない。</li>
 <li>7 と 8 の間: 設定にだけ名前があり、<code>content_index\&lt;名前&gt;\</code> が無い（上書きなら前のもののまま）。インデックスの一覧に「元のフォルダ」として出るだけで、次のインデックス作成で取り込む。</li>
 <li>8 と 9 の間: 設定と本文インデックスはあるが、取り込み一覧に行が無い。次のインデックス作成でそのインデックスを全部取り込み直す（時間はかかるが、消えない）。設定を取り込み一覧より先に書くのはこのため（先に取り込み一覧を書くと、設定に名前が無いまま <code>removeDroppedFolders</code> に消される）。</li>
 <li>上書きの 8 の後: 前のインデックスは <code>previous\</code> に残り、次のインデックス作成の <code>removeStaleTmpDirs</code> で消える。</li>
@@ -4698,7 +4727,7 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <p>判断層（<code>testIndexArchiveEntryPath</code>・<code>testIndexArchiveEntryLocation</code>・<code>testIndexArchiveManifest</code>・<code>testImportedStatusRow</code> / <code>testImportedStatusLines</code>）で、次のものを 1 つでも受け付けなければインポート全体を止める（途中まで取り込まない）。</p>
 <ul>
 <li><strong>zip slip</strong>: 絶対パス（<code>/</code>・ドライブ文字・UNC）、<code>..</code>・<code>.</code>・空の区切り、<code>:</code>（代替データストリーム）、ファイル名に使えない文字、予約名（拡張子付きも含む。<code>index_name.ps1</code> の <code>$reservedFileNames</code> と同じ決まり）、末尾の空白・<code>.</code>、1 つの区切りが 255 文字を超えるもの。区切りは <code>/</code> だけを認め、<code>\</code> を含む名前は受け付けない。</li>
-<li><strong>置き場所</strong>: <code>tebunko-index.json</code>・<code>取り込み一覧.tsv</code>・<code>content_index/…/&lt;本文インデックスのファイル名の型&gt;</code> 以外は受け付けない（本文インデックスのファイル名の型は <code>pack_format.ps1</code> の型を使う）。</li>
+<li><strong>置き場所</strong>: <code>tebunko-index.json</code>・<code>ingest_status.tsv</code>・<code>content_index/…/&lt;本文インデックスのファイル名の型&gt;</code> 以外は受け付けない（本文インデックスのファイル名の型は <code>pack_format.ps1</code> の型を使う）。</li>
 <li><strong>重なり</strong>: 目録の <code>files</code> に同じパスが 2 つ（大文字・小文字を区別しない）、zip の中に同じ名前のエントリーが 2 つ（<code>ZipArchive</code> は許すため数えて確かめる）、目録に無いエントリー、目録にあるのに zip に無いエントリー。</li>
 <li><strong>大きさ</strong>: 目録（<code>tebunko-index.json</code>）自体が 64MB 超、エントリーの展開後の大きさ・SHA-256 が目録と違う。書き込みは目録の大きさで打ち切る。空き容量に「合計 + 1GB」の余裕を求める（上の「インポート」の 5。調べられないときは確かめない）。</li>
 <li><strong>目録の値</strong>: <code>indexName</code> が <code>testIndexName</code> を通らない、<code>sourceFolder</code> が絶対パス・UNC でない・制御文字を含む（そのときは空とみなし、呼ぶ側に指定させる）。</li>
@@ -4707,6 +4736,28 @@ content_index/&lt;相対フォルダ&gt;/content_index.&lt;拡張子&gt;.&lt;番
 <li>本文インデックスのファイルの行の形は確かめない（大きさと SHA-256 で、作ったときのままであることだけを見る）。検索は今の本文インデックスと同じく読むだけで、中身を実行しない。</li>
 </ul>
 <p><strong>元のフォルダ・開示・書き込み先</strong>: 受け取った <code>sourceFolder</code> は検索結果から元のファイルを開くときの場所になる（UNC の初めての確認・マクロ付きのファイルの開き方は別アイテムで扱う）。開示は <a href="../../../safety/disclosure/#インデックスが元文書の本文を保持する情報の集約">インデックスが元文書の本文を保持する（情報の集約）</a>、書き込み先は <a href="../../../safety/file-access/#書き込み削除する場所">書き込み・削除する場所</a> を参照。</p>
+<h2 id="前の版との互換">前の版との互換<a class="headerlink" href="#前の版との互換" title="Permanent link">&para;</a></h2>
+<p>前の版が作った本文インデックス・システムインデックス・取り込み一覧・エクスポートの zip を、新しい版がそのまま読めることを、見本（golden）で確かめる（<a href="../../testing/unit-index/">テストの進め方</a>）。見本は <code>tests/testdata/compat/index/&lt;見本の名前&gt;/</code>（<code>source/</code>・<code>ws/</code>・<code>export.zip</code>・<code>file_times.tsv</code>・<code>expected.json</code>。作り方は <a href="https://github.com/hsgwa/tebunko/blob/main/tests/testdata/README.md">tests/testdata/README.md</a>）に置く。</p>
+<p><strong>何を変えると見本が要るか</strong>: 上に書いた形式（本文インデックスの行・メタ情報、システムインデックスの作り方、取り込み一覧の列、エクスポート zip の目録・配置）のどれかを変える PR。変えたら、新しい見本を 1 つ足す（上書きではなく追加。古い見本も読めることを確かめ続けるため）。</p>
+<p><strong>見本は足すだけ</strong>で、既にある見本を変える・消すのはタイトルに <code>!</code> を付けた PR だけができる（CI の <code>pr-title</code> が確かめる。<a href="../../testing/ci/">CI</a>）。<code>!</code> の PR が見本を消したときは、どれを・どの PR で・なぜ消したかを次の表に 1 行残す。</p>
+<table>
+<thead>
+<tr>
+<th>消した見本</th>
+<th>PR</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>（まだ無し）</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>抽出版を上げたときの扱い</strong>（<a href="../../indexing/ingest-list/">取り込み一覧</a> の <code>$extractVersions</code>）: 見本の取り込み一覧（<code>ingest_status.tsv</code>）の <code>抽出版</code> の列は、見本を作った時点のコードの <code>$extractVersions</code> を表す。今のコードの <code>$extractVersions</code> を上げると、見本の行は「前の抽出版で取り込んだ」ことになり、更新が無くても取り込み直しになる（これは仕様どおりの動き）。互換テスト（<code>index_compat.Tests.ps1</code>）は、見本の <code>expected.json</code> に書いた抽出版と今のコードの <code>getExtractVersion</code> を比べて、取り込み直しになるはずのファイルを求めて確かめる。そのため、抽出版を上げても見本を作り直す必要はなく、テストが落ちることもない。<strong>抽出版を上げるときに <code>!</code> を付けるか、見本にそのときの値を記録するかは、まだ決めていない。</strong> 今は、見本に抽出版の記録の仕組みを足さず、上のとおりテストが今のコードの値から期待を求める形にしておく。</p>
+<p><strong>取り込み一覧の列を足すときも <code>!</code> が要る</strong>: <code>readStatusFile</code> は列の数が見出しと違う行を読み捨てる（<a href="../../indexing/ingest-list/">取り込み一覧</a>）。列を足すと、前の版が書いた行（列数が足りない）を新しい版が読めなくなるため、列を足す変更も「見本を変える」と同じ扱いにし、<code>!</code> を付ける。</p>
 
 
 

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2637,10 +2667,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#出力フォーマットwork検索結果txt" class="md-nav__link">
+  <a href="#出力フォーマットworksearch_resultstxt" class="md-nav__link">
     <span class="md-ellipsis">
       
-        出力フォーマット（work/検索結果.txt）
+        出力フォーマット（work/search_results.txt）
       
     </span>
   </a>
@@ -3091,7 +3121,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3112,14 +3142,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3200,8 +3230,6 @@
       
         
           
-        
-      
         
       
         
@@ -3308,7 +3336,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3336,7 +3364,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3364,35 +3392,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4092,10 +4092,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#出力フォーマットwork検索結果txt" class="md-nav__link">
+  <a href="#出力フォーマットworksearch_resultstxt" class="md-nav__link">
     <span class="md-ellipsis">
       
-        出力フォーマット（work/検索結果.txt）
+        出力フォーマット（work/search_results.txt）
       
     </span>
   </a>
@@ -4156,8 +4156,8 @@
 
 
 <h1 id="検索結果ファイル">検索結果ファイル<a class="headerlink" href="#検索結果ファイル" title="Permanent link">&para;</a></h1>
-<p>扱うこと: <code>work/検索結果.txt</code> の出力フォーマット、ヒット 1 行の組み立て、ヒットから元のファイル名・場所・行番号を求める方法。扱わないこと: 検索の仕様そのもの（<a href="../">検索</a>）。先に読むページ: <a href="../">検索</a>、<a href="../../index-data/format/">インデックスのファイルの形</a>。</p>
-<h2 id="出力フォーマットwork検索結果txt">出力フォーマット（<code>work/検索結果.txt</code>）<a class="headerlink" href="#出力フォーマットwork検索結果txt" title="Permanent link">&para;</a></h2>
+<p>扱うこと: <code>work/search_results.txt</code> の出力フォーマット、ヒット 1 行の組み立て、ヒットから元のファイル名・場所・行番号を求める方法。扱わないこと: 検索の仕様そのもの（<a href="../">検索</a>）。先に読むページ: <a href="../">検索</a>、<a href="../../index-data/format/">インデックスのファイルの形</a>。</p>
+<h2 id="出力フォーマットworksearch_resultstxt">出力フォーマット（<code>work/search_results.txt</code>）<a class="headerlink" href="#出力フォーマットworksearch_resultstxt" title="Permanent link">&para;</a></h2>
 <p>画面の［結果をファイルに出力］で、表示中の結果（絞り込み後）を書き出す。UTF-8（BOM 付き）、改行は CRLF。</p>
 <div class="highlight"><pre><span></span><code>【検索文字列　&lt;ワード&gt;】 &lt;件数&gt; 件
 ファイル名&lt;TAB&gt;場所&lt;TAB&gt;種別&lt;TAB&gt;行&lt;TAB&gt;A&lt;TAB&gt;B&lt;TAB&gt;…（該当行の最大セル数分の列名）
@@ -4192,6 +4192,11 @@
 <td><code>売上[コメント]</code></td>
 <td><code>[シート]売上</code></td>
 <td>コメント</td>
+</tr>
+<tr>
+<td><code>売上[ヘッダー・フッター]</code></td>
+<td><code>[シート]売上</code></td>
+<td>ヘッダー・フッター</td>
 </tr>
 <tr>
 <td><code>ページ003</code>（Word）</td>
@@ -4237,7 +4242,7 @@
 </table>
 <ul>
 <li>Word のページは、Word が保存したときのページ区切りから数えた目安のため「（目安）」を付ける（<a href="../../indexing/word/">Word</a>・<a href="../../indexing/known-issues/#word-の注意点既知の問題">既知の問題</a>）。</li>
-<li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../../indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。</li>
+<li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../../indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。Excel のヘッダー・フッターは、該当行が文字だけ（セル番地の列は無い。行番号はその場所の中の何行目か）。</li>
 <li>シート名にタブ・改行が入っている場合（Excel は付けられる）は、列・行が分かれないようスペースにする。</li>
 <li><strong>行番号</strong> は場所の中の行番号（<code>searchPackIndex</code> の <code>LineNumber</code>。元の TSV の行番号と同じ）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。</li>
 <li><strong>該当行</strong> は、結果をすべて選択して Excel に貼り付けたとき、5 列目以降に元の列の順（5 列目 = A 列）でセルが並ぶように出力する。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。</li>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1565,6 +1565,8 @@
       
         
       
+        
+      
     
     
     
@@ -1904,6 +1906,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3080,7 +3110,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3101,14 +3131,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3189,8 +3219,6 @@
       
         
           
-        
-      
         
       
         
@@ -3297,7 +3325,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3325,7 +3353,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3353,35 +3381,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4135,7 +4135,7 @@
 
 <h1 id="ソースの分け方">ソースの分け方<a class="headerlink" href="#ソースの分け方" title="Permanent link">&para;</a></h1>
 <p>扱うこと: <code>scripts/</code> を文脈と層で分ける考え方、フォルダごとの中身、読み込み口とその依存の向き。扱わないこと: 配布物・開発用フォルダの全体（<a href="../folders/">配布物と開発用のフォルダ構成</a>）、クラス設計（<a href="../classes/">クラスと関数の使い分け</a>）。先に読むページ: <a href="../../">設計の概要</a>。</p>
-<p>ソースは<strong>文脈</strong>（どの機能か）と<strong>層</strong>（何をするか）で分ける。今後ツール（<code>tebunko_diff</code> など）を増やしても、共通部分を作り直さずに済むようにするため。処理は<strong>文脈</strong>（どの機能のものか）と<strong>層</strong>（何をするものか）で分けて置く。</p>
+<p>ソースは<strong>文脈</strong>（どの機能か）と<strong>層</strong>（何をするか）で分ける。どのツールにも依らない共通部分（<code>shared/</code>）と、このツール固有の部分（<code>tebunko/</code>）を分け、依存を一方向にするため。処理は<strong>文脈</strong>（どの機能のものか）と<strong>層</strong>（何をするものか）で分けて置く。</p>
 <table>
 <thead>
 <tr>
@@ -4199,7 +4199,7 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/ui/</code></td>
-<td>タブごとの画面（<code>*_tab.ps1</code> ほか）と、その判断層（<code>*_view.ps1</code>）。タブに属さないもの（タブ右上の［⋯］メニューと「tebunko について」ダイアログ：<code>about_dialog.ps1</code>・判断層の <code>about_view.ps1</code> の <code>getAboutView</code>）も置く</td>
+<td>タブごとの画面（<code>*_tab.ps1</code> ほか）と、その判断層（<code>*_view.ps1</code>）。画面の枠（左の欄と画面の切り替え: <code>ui/shell/</code> の <code>nav.ps1</code>・判断層の <code>nav_view.ps1</code>）と、タブに属さないもの（左の欄の［バージョン情報］と「バージョン情報」ダイアログ：<code>about_dialog.ps1</code>・判断層の <code>about_view.ps1</code> の <code>getAboutView</code>）も置く</td>
 </tr>
 </tbody>
 </table>
@@ -4241,7 +4241,7 @@
     LIB["tebunko/lib.ps1"] --&gt; SH["shared/shared.ps1"]
     LIB --&gt; TG["tebunko の core/・index/・search/&lt;br&gt;indexer/indexer_state.ps1・indexer_decide.ps1・indexing_session.ps1"]
     SH --&gt; SC["shared/core/*・office/office_files.ps1・office_process.ps1&lt;br&gt;office_protection_view.ps1・office_protection.ps1"]</code></pre>
-<p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。読み込みは <code>. "$PSScriptRoot\..."</code> の形で書く（この形の行だけを検査がたどる）。</p>
+<p>読み込み口は次の 2 つ。ファイルを足したら、読み込み口か起動口のどれかから読み込む（読み込み漏れは <code>tests/meta/layers.Tests.ps1</code> が起動口からたどって検出する）。読み込みは、起動口と読み込み口（<code>lib.ps1</code> など）では <code>. "$PSScriptRoot\..."</code> の形、画面の部品（<code>tebunko/ui/</code> の <code>gui_main.ps1</code> など）では <code>. "$TebunkoDir\..."</code> の形で書く（検査はこの 2 つの形の行をたどる）。</p>
 <table>
 <thead>
 <tr>
@@ -4261,10 +4261,16 @@
 <td>上記＋ tebunko の <code>core/</code>・<code>index/</code>・<code>search/</code> と、<code>indexer/</code> のうち <code>indexer_state.ps1</code>・<code>indexer_decide.ps1</code>・<code>indexing_session.ps1</code></td>
 <td>画面・インデクサ・テスト・画面が起こす別スレッド</td>
 </tr>
+<tr>
+<td><code>scripts/tebunko/indexer/indexer_lib.ps1</code></td>
+<td><code>lib.ps1</code> ＋ インデックス作成だけで使う <code>office_reader.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code></td>
+<td><code>indexer.ps1</code>・取り込みのスレッド（画面は読み込まない）</td>
+</tr>
 </tbody>
 </table>
 <p>画面の部品（<code>shared/ui/</code>・<code>tebunko/ui/</code>）は <code>gui.ps1</code> が、インデックス作成だけで使うもの（<code>office_reader.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code>）は <code>indexer/indexer_lib.ps1</code> が読み込む。<code>indexer_lib.ps1</code> は <code>indexer.ps1</code> と取り込みのスレッドが読み込む（画面は読み込まない）。</p>
-<p>各スクリプト・テストからは dot-source（<code>. "$PSScriptRoot\lib.ps1"</code>）して使う。</p>
+<p>各スクリプト・テストからは dot-source（<code>. "$PSScriptRoot\lib.ps1"</code>）して使う。<code>ui/</code> の部品は <code>$PSScriptRoot</code> ではなく、<code>gui.ps1</code> から渡された <code>$TebunkoDir</code>（<code>tebunko/</code> 直下のパス）を基準に読み込む。</p>
+<p>別スレッド（検索・背景の仕事・取り込み）の中では <code>$PSScriptRoot</code> が使えない。そのため、スレッドへ読み込ませる部品（<code>lib</code>・<code>indexerLib</code>）の読み込みは、<code>scripts/tebunko/core/parts.ps1</code> の <code>getPartLoad</code> が、呼び出し側で絶対パスに解決した <code>. '&lt;パス&gt;'</code> の文字列にして渡す。この文字列は、検索（<code>search_service.ps1</code>）・インデックス作成（<code>indexer_run.ps1</code>・<code>indexing_session.ps1</code>）が、別スレッドへ渡す前に <code>joinWorkerScript</code>（<code>shared/core/worker_pool.ps1</code>）でスレッドの本体の前につなぐ（背景の仕事の <code>WorkerPool</code> も、<code>worker_pool.ps1</code> の中で同じようにつなぐ）。スレッドの中には読み込みの行を書かないので、検査がたどる対象にならない（部品は <code>lib.ps1</code>・<code>indexer_lib.ps1</code> を通して読み込み漏れが見つかる）。</p>
 <h2 id="起動口となるスクリプトscripts">起動口となるスクリプト（<code>scripts/</code>）<a class="headerlink" href="#起動口となるスクリプトscripts" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4303,7 +4309,7 @@
 <tr>
 <td><code>scripts/tebunko/gui.ps1</code></td>
 <td>スクリプト</td>
-<td>画面の起動口（<a href="../../gui/">画面</a>）。検索・プロセス停止は画面の中で行う</td>
+<td>画面の起動口（<a href="../../gui/">画面</a>）。検索・残った Office の終了は画面の中で行う</td>
 </tr>
 <tr>
 <td><code>scripts/tebunko/indexer.ps1</code></td>
@@ -4326,12 +4332,18 @@
 <td><code>tebunko.bat</code> が起動に失敗したときに読む、場面ごとの文言（BOM 付き UTF-8・CRLF）。<code>tebunko.bat</code> は ASCII で書く決まりのため、日本語の文言はここに分ける。読み込み口からは読まない（スクリプトではない）（<a href="../../../safety/disclosure/#起動に失敗したときの知らせtebunkobat">起動に失敗したときの知らせ</a>）</td>
 </tr>
 <tr>
+<td><code>scripts/tebunko/xaml/app_icon.xaml</code></td>
+<td>画面定義</td>
+<td>画面のアイコン（ベクターの絵。<a href="../../gui/common/">画面の共通の決まり</a>）。元データは <code>docs/images/logo.svg</code>（リポジトリの管理者が作成）で、<code>tools/new_icon.ps1</code> で作る。手で編集しない</td>
+</tr>
+<tr>
 <td><code>scripts/tebunko/tebunko.ico</code></td>
 <td>画像</td>
-<td>画面のアイコン（<a href="../../gui/common/">画面の共通の決まり</a>）。元データは <code>docs/images/logo.svg</code>（リポジトリの管理者が作成）で、<code>tools/new_icon.ps1</code> で作る。手で編集しない</td>
+<td>インストーラー・ショートカットなど、Windows が <code>.ico</code> しか受け付けない所のアイコン。<code>app_icon.xaml</code> と同じ <code>docs/images/logo.svg</code> から <code>tools/new_icon.ps1</code> で作る。画面は読まない。手で編集しない</td>
 </tr>
 </tbody>
 </table>
+<p>リリースでは、上の <code>scripts/</code> をそのまま使う zip・インストーラーに加えて、<code>tools/new_single_script.ps1</code> が読み込み口をたどって 1 本の <code>.ps1</code>（<code>tebunko-&lt;タグ&gt;.ps1</code>）に機械的に結合した試験版も作る。結合の元は変えないため、ここで決めたフォルダ・層・読み込み口の決まりはそのまま効く（<a href="../single-script/">単一 PowerShell のビルド</a>）。</p>
 
 
 

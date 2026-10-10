@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2857,10 +2887,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#プロセス停止" class="md-nav__link">
+  <a href="#前回残った-office-の終了" class="md-nav__link">
     <span class="md-ellipsis">
       
-        プロセス停止
+        前回残った Office の終了
       
     </span>
   </a>
@@ -3158,7 +3188,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3179,14 +3209,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3267,8 +3297,6 @@
       
         
           
-        
-      
         
       
         
@@ -3375,7 +3403,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3403,7 +3431,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3431,35 +3459,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4243,10 +4243,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#プロセス停止" class="md-nav__link">
+  <a href="#前回残った-office-の終了" class="md-nav__link">
     <span class="md-ellipsis">
       
-        プロセス停止
+        前回残った Office の終了
       
     </span>
   </a>
@@ -4290,16 +4290,16 @@
 
 
 <h1 id="状態と操作の流れ">状態と操作の流れ<a class="headerlink" href="#状態と操作の流れ" title="Permanent link">&para;</a></h1>
-<p>扱うこと: インデックス・インデックス作成の状態の判定と表示、状態を読み直すタイミング、検索・インデックス作成・プロセス停止・閉じるときの操作の流れ。扱わないこと: 各タブの詳しい仕様（<a href="../index-tab/">インデックス一覧の管理</a>・<a href="../search-tab/">検索タブ</a>・<a href="../process-tab/">［9 プロセス停止］タブ</a>）。先に読むページ: <a href="../">画面</a>。</p>
+<p>扱うこと: インデックス・インデックス作成の状態の判定と表示、状態を読み直すタイミング、検索・インデックス作成・前回残った Office の終了・閉じるときの操作の流れ。扱わないこと: 各タブの詳しい仕様（<a href="../index-tab/">インデックス一覧の管理</a>・<a href="../search-tab/">検索タブ</a>）。先に読むページ: <a href="../">画面</a>。</p>
 <h2 id="状態の判定と表示">状態の判定と表示<a class="headerlink" href="#状態の判定と表示" title="Permanent link">&para;</a></h2>
-<p>画面がインデックスとインデックス作成の状態をどう判定して見せるか（<a href="#状態の判定と表示">状態の判定と表示</a>）と、検索・インデックス作成・プロセス停止・終了の操作の流れ（<a href="#操作の流れ">操作の流れ</a>）をまとめる。</p>
+<p>画面がインデックスとインデックス作成の状態をどう判定して見せるか（<a href="#状態の判定と表示">状態の判定と表示</a>）と、検索・インデックス作成・前回残った Office の終了・終了の操作の流れ（<a href="#操作の流れ">操作の流れ</a>）をまとめる。</p>
 <h3 id="インデックスとインデックス作成の状態">インデックスとインデックス作成の状態<a class="headerlink" href="#インデックスとインデックス作成の状態" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
 <th>状態</th>
 <th>判定方法</th>
-<th>［1 インデックス管理］の表示</th>
+<th>［インデックス管理］の表示</th>
 <th>起動時のタブ</th>
 </tr>
 </thead>
@@ -4312,33 +4312,33 @@
 </tr>
 <tr>
 <td>中断中</td>
-<td><code>work/取り込み一覧.tsv</code> に状態が <code>未取り込み</code> の行がある（中止した場合だけでなく、利用者の PowerPoint が起動していて後回しにした場合も同じ状態になる。両者は見分けない）</td>
-<td>No.5 の次の行に <code>⏸ まだ取り込んでいないファイルがあります（残り N 件）</code>（<code>getIndexingStateText</code>。<code>indexing_view.ps1</code>）、No.6 のボタンは［続きから再開（残り N 件）］</td>
+<td><code>work/ingest_status.tsv</code> に状態が <code>未取り込み</code> の行がある（中止した場合だけでなく、利用者の PowerPoint が起動していて後回しにした場合も同じ状態になる。両者は見分けない）</td>
+<td>No.5 の次の行に <code>更新を中断しました（残り N 件）</code>（<code>getIndexingStateText</code>。<code>indexing_view.ps1</code>）、No.6 のボタンは［続きから再開（残り N 件）］</td>
 <td>1</td>
 </tr>
 <tr>
 <td>失敗あり</td>
-<td><code>work/取り込み一覧.tsv</code> に状態が <code>失敗</code> の行がある</td>
-<td>「取り込みに失敗したファイル」の一覧（<code>⚠ 取り込みに失敗したファイル N 件</code>。ファイルごとに失敗の原因を表示）</td>
+<td><code>work/ingest_status.tsv</code> に状態が <code>失敗</code> の行がある</td>
+<td>「更新に失敗したファイル」の一覧（<code>⚠ 更新に失敗したファイル N 件</code>。ファイルごとに失敗の原因を表示）</td>
 <td>2（タブ見出しに ⚠）</td>
 </tr>
 <tr>
 <td>インデックス作成中</td>
 <td>この画面で始めたインデックス作成のスレッド（<code>IndexingSession</code>）が動いている（<code>isIndexing</code>。<a href="../indexing-run/#実行ボタンの表示">実行ボタンの表示</a>）</td>
-<td>No.6 のボタンが <code>インデックス作成中…</code>（無効）。進み具合（<a href="../indexing-run/#インデックス作成の進み具合">インデックス作成の進み具合</a>）</td>
+<td>No.6 のボタンが <code>更新中…</code>（無効）。進み具合（<a href="../indexing-run/#更新の進み具合">インデックス作成の進み具合</a>）</td>
 <td>1</td>
 </tr>
 <tr>
 <td>通常</td>
 <td>上のいずれでもない</td>
-<td>No.5 に <code>取り込み済み N ファイル（集約ファイル M 件 ・ 最終取り込み M/d H:mm）</code> のみ</td>
+<td>No.5 に <code>更新済み N ファイル（集約ファイル M 件 ・ 最終更新 M/d H:mm）</code> のみ</td>
 <td>2</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>前の版のインデックス（<code>index\</code>。しるしあり）が見つかったときは、起動時・ワークスペースを切り替えたときにステータスへ知らせを出す（<code>getLegacyIndexMessage</code>）。［インデックス作成を開始］では、<code>content_index\</code> が空のときだけ取り込み直しの確かめを出す（<a href="../indexing-run/#取り込み直しの確かめ">取り込み直しの確かめ</a>）。</li>
-<li>「最終取り込み」は、インデックス配下の本文インデックスのファイルの最新の更新日時とする。</li>
+<li>前の版のインデックス（<code>index\</code>。しるしあり）が見つかったときは、起動時・ワークスペースを切り替えたときにステータスへ知らせを出す（<code>getLegacyIndexMessage</code>）。［すべて更新］では、<code>content_index\</code> が空のときだけ更新し直しの確かめを出す（<a href="../indexing-run/#更新し直しの確かめ">更新し直しの確かめ</a>）。</li>
+<li>「最終更新」は、インデックス配下の本文インデックスのファイルの最新の更新日時とする。</li>
 <li>「インデックス作成中」は、この画面で始めたインデックス作成のスレッドが動いているかで判定する。インデックス作成は画面のプロセスの中で動くため、画面を開いたときに動いているものは無い。画面を使わずに起動した <code>indexer.ps1</code> と重なったときは、インデクサがミューテックスで二重に動かないようにする（<a href="../../indexing/flow/">インデックス作成のメインフロー</a>）。</li>
 </ul>
 <h3 id="インデックス作成の状態遷移画面から見た状態">インデックス作成の状態遷移（画面から見た状態）<a class="headerlink" href="#インデックス作成の状態遷移画面から見た状態" title="Permanent link">&para;</a></h3>
@@ -4351,14 +4351,14 @@
     state "失敗あり" as HasError
 
     [*] --&gt; None
-    None --&gt; Running : インデックス作成を開始&lt;br&gt;（確認で［インデックス作成を開始］）
-    Ready --&gt; Running : インデックス作成を開始&lt;br&gt;（確認で［インデックス作成を開始］）
+    None --&gt; Running : 更新を開始&lt;br&gt;（確認で［更新を開始］）
+    Ready --&gt; Running : 更新を開始&lt;br&gt;（確認で［更新を開始］）
     Suspended --&gt; Running : 続きから再開
-    HasError --&gt; Running : インデックス作成を開始&lt;br&gt;（確認で失敗分も再取り込みするかを選ぶ）
+    HasError --&gt; Running : 更新を開始&lt;br&gt;（確認で失敗分も再更新するかを選ぶ）
     Running --&gt; Ready : 全件成功
     Running --&gt; HasError : 失敗あり
-    Running --&gt; Suspended : ［中止］・止めて閉じる&lt;br&gt;プロセス停止・PC の停止
-    Running --&gt; Ready : 確認で［キャンセル］&lt;br&gt;更新不要（取り込むものが無い）</code></pre>
+    Running --&gt; Suspended : ［中止］・止めて閉じる&lt;br&gt;PC の停止
+    Running --&gt; Ready : 確認で［キャンセル］&lt;br&gt;更新不要（更新するものが無い）</code></pre>
 <h3 id="状態を読み直すタイミング">状態を読み直すタイミング<a class="headerlink" href="#状態を読み直すタイミング" title="Permanent link">&para;</a></h3>
 <ul>
 <li>起動時、タブを切り替えたとき、ウィンドウがアクティブになったとき、始めたインデックス作成が終わったとき。</li>
@@ -4387,7 +4387,7 @@
     end
     S--&gt;&gt;G: 完了（Finished）
     S-&gt;&gt;S: 読んだ内容のキャッシュを整理（trimTsvTextCache）
-    G-&gt;&gt;G: 「N 件（M ファイル） ・ X 秒」、［中止］→［検索］
+    G-&gt;&gt;G: 「一致 N 件（M ファイル）・X 秒」、［中止］→［検索］
     U-&gt;&gt;G: 見出しをクリックして行を開き、行をダブルクリック
     G-&gt;&gt;G: 元のファイルの該当箇所を開く</code></pre>
 <ul>
@@ -4403,24 +4403,24 @@
     participant P as インデクサの司令のスレッド（indexer.ps1 -Channel）
     participant W as work/
 
-    U-&gt;&gt;G: ［インデックス作成を開始］など
+    U-&gt;&gt;G: ［すべて更新］など
     opt 前の版のしるしがあり content_index\ が空
-        G-&gt;&gt;U: 取り込み直しの確かめ（3.1。getReingestConfirm）
+        G-&gt;&gt;U: 更新し直しの確かめ（3.1。getReingestConfirm）
         U-&gt;&gt;G: ［キャンセル］なら始めない
     end
     G-&gt;&gt;C: インデックス一覧を保存
     G-&gt;&gt;P: スレッドで実行（IndexingSession。受け渡しの口の ConfirmTargets）
-    G-&gt;&gt;G: 実行ボタンを無効化、「インデックス作成中…」、［中止］を表示
-    P-&gt;&gt;K: 取り込み対象を数えて取り込み予定（Plan）を入れ、返事を待つ
-    G-&gt;&gt;K: 取り込み予定を読む
+    G-&gt;&gt;G: 実行ボタンを無効化、「更新中…」、［中止］を表示
+    P-&gt;&gt;K: 更新の対象を数えて更新の予定（Plan）を入れ、返事を待つ
+    G-&gt;&gt;K: 更新の予定を読む
     G-&gt;&gt;U: インデックス作成の確認（インデックスごとの件数。3.4）
-    alt ［インデックス作成を開始］
-        U-&gt;&gt;G: （前回失敗分も再取り込みするかを選ぶ）
-        G-&gt;&gt;K: 取り込む返事（answerIndexingPlan）
+    alt ［更新を開始］
+        U-&gt;&gt;G: （前回失敗分も再更新するかを選ぶ）
+        G-&gt;&gt;K: 更新する返事（answerIndexingPlan）
     else ［キャンセル］
         U-&gt;&gt;G: 取りやめ
         G-&gt;&gt;K: 取りやめの返事（answerIndexingPlan $null）
-        P--&gt;&gt;G: 1 件も取り込まずに終了（終了コード 2）
+        P--&gt;&gt;G: 1 件も更新せずに終了（終了コード 2）
     end
     loop 1 秒ごと（スレッドが終わるまで）
         P-&gt;&gt;W: 取り込みのスレッドで TSV を作成し、フォルダごとに本文インデックスに入れ、取り込み一覧を更新
@@ -4431,27 +4431,25 @@
     opt ［中止］
         U-&gt;&gt;G: ［中止］→［中止する］
         G-&gt;&gt;K: 中止（requestIndexingStop）
-        P-&gt;&gt;W: 取り込み中のファイルが終わったら止まる
+        P-&gt;&gt;W: 更新中のファイルが終わったら止まる
     end
     P--&gt;&gt;G: スレッドの終了（受け渡しの口の ExitCode 0 / 1 / 2・Error）
-    G-&gt;&gt;G: 終了コードに応じた表示、［ログを開く］
+    G-&gt;&gt;G: 終了コードに応じた表示、［検索する］
     G-&gt;&gt;W: 状態を読み直す</code></pre>
-<h3 id="プロセス停止">プロセス停止<a class="headerlink" href="#プロセス停止" title="Permanent link">&para;</a></h3>
+<h3 id="前回残った-office-の終了">前回残った Office の終了<a class="headerlink" href="#前回残った-office-の終了" title="Permanent link">&para;</a></h3>
 <pre class="mermaid"><code>sequenceDiagram
     autonumber
     actor U as 利用者
     participant G as 画面
     participant O as Office プロセス
 
-    U-&gt;&gt;G: ［9 プロセス停止］タブを開く
-    G-&gt;&gt;O: 一覧を取得（getOfficeProcesses）
-    G-&gt;&gt;G: 表を表示
-    U-&gt;&gt;G: ［バックグラウンドのみ終了］など
-    G-&gt;&gt;U: 確認
+    G-&gt;&gt;O: 起動時に記録のある残り物を取得（getOfficeProcesses）
+    G-&gt;&gt;U: 確認（件数・一覧）
     U-&gt;&gt;G: ［終了する］
-    G-&gt;&gt;O: Stop-Process -Force
-    G-&gt;&gt;O: 一覧を取り直す
-    G-&gt;&gt;G: 「N 個のプロセスを終了しました。」</code></pre>
+    G-&gt;&gt;O: 確認の時点の PID を読み直して選ぶ
+    G-&gt;&gt;O: 止める直前に照らし直して Stop-Process -Force
+    G-&gt;&gt;G: 「Office を N 件終了しました。」</code></pre>
+<p>詳しくは <a href="../leftover-office/">前回残った Office の確認</a> を参照。</p>
 <h3 id="閉じる">閉じる<a class="headerlink" href="#閉じる" title="Permanent link">&para;</a></h3>
 <ul>
 <li>閉じるのはタイトルバーの［×］（または Alt+F4）で行う。画面に［閉じる］ボタンは置かない。</li>
@@ -4470,15 +4468,15 @@
 <tbody>
 <tr>
 <td>見出し</td>
-<td><code>まだインデックス作成の途中です。止めてから閉じますか？</code></td>
+<td><code>インデックスを更新中です。中止して閉じますか？</code></td>
 </tr>
 <tr>
 <td>結果の行</td>
-<td><code>→ いま取り込んでいるファイルが終わったところで止まり、画面を閉じます</code>、<code>✓ ここまで取り込んだ分はそのまま残ります</code>（詳細: <code>次に開いて［インデックス作成を開始］を押すと、続きから再開します</code>）</td>
+<td><code>→ いま更新しているファイルが終わったところで止まり、画面を閉じます</code>、<code>✓ ここまで更新した分はそのまま残ります</code>（詳細: <code>次に開いて［すべて更新］を押すと、続きから再開します</code>）</td>
 </tr>
 <tr>
 <td>選択肢</td>
-<td>［インデックス作成を止めて閉じる］／［閉じない］</td>
+<td>［中止して閉じる］／［閉じない］</td>
 </tr>
 </tbody>
 </table>
@@ -4492,8 +4490,8 @@
     U-&gt;&gt;G: ［×］
     alt インデックス作成中
         G-&gt;&gt;U: 止めてから閉じるか確認（［閉じない］なら閉じずに終わる）
-        U-&gt;&gt;G: ［インデックス作成を止めて閉じる］
-        G-&gt;&gt;G: 閉じるのを保留。進み具合欄に「インデックス作成を止めています…」
+        U-&gt;&gt;G: ［中止して閉じる］
+        G-&gt;&gt;G: 閉じるのを保留。進み具合欄に「更新を止めています…」
         G-&gt;&gt;P: 中止（Stop）
         loop 0.5 秒ごと（closeTimer）
             G-&gt;&gt;P: 終わったか（IsRunning）
@@ -4514,7 +4512,7 @@
     G-&gt;&gt;G: 多重起動のミューテックスを解放
     G-&gt;&gt;U: 閉じる</code></pre>
 <ul>
-<li>確認している間にインデックス作成が終わっていれば、［インデックス作成を止めて閉じる］でそのまま閉じる。</li>
+<li>確認している間にインデックス作成が終わっていれば、［中止して閉じる］でそのまま閉じる。</li>
 <li>止めるのを待っている間にもう一度［×］を押しても、何もしない。</li>
 <li>60 秒待っても終わらないのは、Office が応答しないときである。止めるのは、インデックス作成が起動して PID を記録した Office だけで、利用者が開いていた Office は止めない（<a href="../../structure/closing/">閉じるときの順番</a>）。</li>
 </ul>

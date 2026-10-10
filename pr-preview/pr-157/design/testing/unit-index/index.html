@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4135,7 +4135,7 @@
 </tr>
 <tr>
 <td><code>readIndexSources</code> / <code>setIndexSourceFolder</code></td>
-<td>インデックス名に対する元のフォルダの記録（<code>元のフォルダ.txt</code>）と読み込み、同じ名前は 1 か所（上書き）、クロール対象フォルダにある名前ならその <code>path</code> を書き換える（<code>indexSources</code> には入れない）、名前・フォルダが空なら何もしない</td>
+<td>インデックス名に対する元のフォルダの記録（<code>source_folder.txt</code>）と読み込み、同じ名前は 1 か所（上書き）、クロール対象フォルダにある名前ならその <code>path</code> を書き換える（<code>indexSources</code> には入れない）、名前・フォルダが空なら何もしない</td>
 </tr>
 <tr>
 <td><code>readSearchExcludes</code> / <code>writeSearchExcludes</code></td>
@@ -4158,11 +4158,15 @@
 </tr>
 <tr>
 <td><code>splitObjectPlace</code> / <code>describePlace</code> / <code>describeHitPlace</code></td>
-<td>図形・コメントの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号）</td>
+<td>図形・コメント・ヘッダー・フッターの場所の分解、場所ごとの表記（見出しの要約・検索結果ファイル）と種別の文字、行ごとの表記（表の「場所」列。セル番地・ほかの数・行番号）</td>
 </tr>
 <tr>
-<td><code>toIndexFileName</code></td>
-<td>場所の符号化、255 文字の上限</td>
+<td><code>toIndexFileName</code> / <code>convertIndexFileNameToPlace</code></td>
+<td>決まった種類の場所は英語の固定名（ページ・スライド・見出し等）との往復、図形・コメント・ヘッダー・フッターの <code>[shape]</code> <code>[comment]</code> <code>[header_footer]</code>、決まった種類でない場所（Excel の任意のシート名）は符号化との往復、固定名と符号化がぶつからないこと、255 文字の上限</td>
+</tr>
+<tr>
+<td><code>placeKindFileNames</code></td>
+<td>図形・コメント・ヘッダー・フッターの種類と <code>objectPlacePattern</code> がそろっていること</td>
 </tr>
 <tr>
 <td><code>newIndexName</code> / <code>assignIndexNames</code></td>
@@ -4201,7 +4205,7 @@
 </tr>
 <tr>
 <td><code>getSearchIndexes</code></td>
-<td><code>work\content_index</code> 直下のフォルダをインデックス 1 件として返す。［1 インデックス管理］の一覧と同じ並びで、一覧に無いものは名前順で後ろ。元のフォルダも返す（一覧にも取り込み一覧にも無ければ、そのフォルダの元のフォルダの記録から読む。分からなければ空）。フォルダが無ければ空</td>
+<td><code>work\content_index</code> 直下のフォルダをインデックス 1 件として返す。［インデックス管理］の一覧と同じ並びで、一覧に無いものは名前順で後ろ。元のフォルダも返す（一覧にも取り込み一覧にも無ければ、そのフォルダの元のフォルダの記録から読む。分からなければ空）。フォルダが無ければ空</td>
 </tr>
 <tr>
 <td><code>getIndexNameMap</code></td>
@@ -4228,7 +4232,7 @@
 <tbody>
 <tr>
 <td><code>convertPlaceToPackMeta</code> / <code>convertPackMetaToPlace</code></td>
-<td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
+<td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
 </tr>
 <tr>
 <td><code>getPackFileName</code> / <code>readPackFileName</code> / <code>planPackParts</code> / <code>splitPackBooksByExtension</code> / <code>encodePackValue</code> / <code>decodePackValue</code> / <code>convertToPackBody</code></td>
@@ -4245,6 +4249,29 @@
 <tr>
 <td><code>searchPackIndex</code> / <code>getIndexPackFiles</code> / <code>readPackContext</code></td>
 <td>結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行</td>
+</tr>
+</tbody>
+</table>
+<p><strong>前の版との互換（<code>tests/tebunko/indexer/index_compat</code>・<code>tests/tebunko/core/settings_compat</code>・<code>tests/meta/compat</code>）</strong></p>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>主な確認内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/tebunko/indexer/index_compat</code>（<code>-Tag Io</code>）</td>
+<td>前の版が作った見本（<a href="../../index-data/format/#前の版との互換">前の版との互換</a>）の本文インデックス・システムインデックス・取り込み一覧・エクスポート zip を、今のコードで読める・検索できる・取り込み直しが起きない・エクスポートし直しても同じ配置になること</td>
+</tr>
+<tr>
+<td><code>tests/tebunko/core/settings_compat</code>（<code>-Tag Io</code>）</td>
+<td>前の版が作った見本（<a href="../../structure/settings-file/#前の版との互換">前の版との互換</a>）の <code>setting.config</code> が壊れたと判定されない、今のコードで同じ値として読める、書き足してもほかの値を保つこと、今の版が書く形がどれかの見本に含まれること</td>
+</tr>
+<tr>
+<td><code>tests/meta/compat</code>（<code>Meta</code>）</td>
+<td>見本の 5 つの要素（<code>source</code>・<code>ws</code>・<code>export.zip</code>・<code>file_times.tsv</code>・<code>expected.json</code>）がそろっていること、今のコードの形式の目印（<code>$packVersion</code>・<code>$statusColumns</code> など）が見本のどれかに残っていること。設定の見本（<code>compat/settings/</code>）に <code>setting.config</code>・<code>expected.json</code> がそろっていること、<code>newSettings</code> の全キーがどれか 1 つの見本の <code>expected.json</code> にあること</td>
 </tr>
 </tbody>
 </table>

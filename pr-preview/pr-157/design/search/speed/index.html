@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3010,7 +3040,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3031,14 +3061,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3119,8 +3149,6 @@
       
         
           
-        
-      
         
       
         
@@ -3227,7 +3255,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3255,7 +3283,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3283,35 +3311,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4055,7 +4055,7 @@
 <ul>
 <li><code>^</code> <code>$</code> は全文用の正規表現に <code>Multiline</code> を付けて行の先頭・末尾に一致させる。判定は安全側に倒し、どの照合でも検索結果（行・行番号）は、元の TSV を 1 行ずつ照合したときと同じになる（<code>pack_search.Tests.ps1</code> で改行の種類・照合のしかたごとに突き合わせている）。</li>
 <li>全文への照合が時間切れになった本文インデックスのファイルは、1 行ずつ照合し直す。</li>
-<li>対象ファイル（<code>newFileFilter</code>）・図形とコメント（<code>newPlaceExclude</code>）の条件は、場所ごとに元のファイル名・場所の名前で判定し、当てはまらない場所の一致は結果に入れない（1 行ずつ照合するときは、その場所を照合しない）。</li>
+<li>ファイルの種類（<code>newFileKindFilter</code> から作る <code>newFileFilter</code>）・図形とコメント（<code>newPlaceExclude</code>）の条件は、場所ごとに元のファイル名・場所の名前で判定し、当てはまらない場所の一致は結果に入れない（1 行ずつ照合するときは、その場所を照合しない）。</li>
 </ul>
 <p>さらに、次の 4 つで待ち時間を減らしている。</p>
 <pre class="mermaid"><code>flowchart TD
@@ -4093,14 +4093,14 @@
 </tr>
 </tbody>
 </table>
-<p><strong>本文インデックスにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。Microsoft Defender は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイルの場所ごとの TSV を読んでいた前の版では、TSV が数万件になると初回の検索に数分〜10 分以上かかった。</p>
+<p><strong>本文インデックスにする理由</strong>: 検索の時間は、読むファイルの数でほぼ決まる。Microsoft Defender は、ファイルを初めて開くたびに検査し（実測で 1 ファイル約 11 ミリ秒）、検査済みとして覚えておけるのはおよそ 2 万ファイルまで。元のファイルの場所ごとの TSV を読む方式では、TSV が数万件になると初回の検索に数分〜10 分以上かかった。</p>
 <p>実測（Windows PowerShell 5.1、4 コア・物理メモリ 8GB、Microsoft Defender は有効。画面と同じく、列挙から検索の終わりまで）:</p>
 <table>
 <thead>
 <tr>
 <th>インデックス</th>
 <th>検索</th>
-<th>TSV（前の版）</th>
+<th>場所ごとの TSV</th>
 <th>本文インデックス</th>
 </tr>
 </thead>

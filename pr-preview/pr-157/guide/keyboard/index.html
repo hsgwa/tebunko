@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1584,6 +1584,8 @@
       
         
       
+        
+      
     
     
     
@@ -1840,6 +1842,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3004,7 +3034,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3025,14 +3055,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3113,8 +3143,6 @@
       
         
           
-        
-      
         
       
         
@@ -3221,7 +3249,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3249,7 +3277,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3277,35 +3305,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4022,7 +4022,7 @@
 <tbody>
 <tr>
 <td>Enter</td>
-<td>検索ワード・対象ファイルの入力欄</td>
+<td>検索ワードの入力欄</td>
 <td>検索を実行する</td>
 </tr>
 <tr>
@@ -4033,11 +4033,11 @@
 <tr>
 <td>Ctrl+F</td>
 <td>全体</td>
-<td>［2 検索］に切り替え、検索ワードの入力欄を選択する</td>
+<td>［検索］に切り替え、検索ワードの入力欄を選択する</td>
 </tr>
 <tr>
 <td>Ctrl+Shift+F</td>
-<td>［2 検索］</td>
+<td>［検索］</td>
 <td>「結果の中から探す」の入力欄に移動する</td>
 </tr>
 <tr>
@@ -4063,12 +4063,12 @@
 <tr>
 <td>F5</td>
 <td>全体</td>
-<td>［9 プロセス停止］ではプロセスの一覧を、その他のタブではインデックスの状態と検索対象のツリーを再読み込みする</td>
+<td>インデックスの状態と検索対象のツリーを再読み込みする</td>
 </tr>
 <tr>
 <td>Ctrl+Tab / Ctrl+Shift+Tab</td>
 <td>全体</td>
-<td>タブを切り替える</td>
+<td>左の欄の画面を順に切り替える（端から先は反対の端に回る）</td>
 </tr>
 <tr>
 <td>Delete</td>

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4023,13 +4023,14 @@
 
 
 <h1 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h1>
-<p>扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（<a href="../perf/">性能とリソースの計測のしかた</a>）、速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）、コミット前のフック（<a href="../pre-commit/">コミット前に動く検査</a>）。先に読むページ: <a href="../run/">テストの実行</a>。</p>
+<p>扱うこと: GitHub Actions のワークフロー一覧（test・title・docs・codeql・scorecard・gui・perf-check・release）と、それぞれの必須チェックの内容。扱わないこと: 性能の計測（<a href="../perf/">性能とリソースの計測のしかた</a>）、速さの回帰テスト（<a href="../perf-check/">速さの回帰テストと上限の決め方</a>）、コミット前のフック（<a href="../pre-commit/">コミット前に動く検査</a>）。先に読むページ: <a href="../run/">テストの実行</a>。</p>
 <pre class="mermaid"><code>flowchart TD
-    C["コミット・PR"] --&gt; T["test.yml&lt;br&gt;test"]
-    C --&gt; TI["title.yml&lt;br&gt;pr-title・issue-title"]
-    C --&gt; D["docs.yml&lt;br&gt;docs（ほか changes・publish）"]
-    C --&gt; CQ["codeql.yml&lt;br&gt;analyze"]
-    C --&gt; G["gui.yml&lt;br&gt;gui-smoke"]
+    C["コミット・PR"] --&gt; T["test.yml&lt;br&gt;test → pr-comment"]
+    C --&gt; TI["title.yml&lt;br&gt;pr-title・issue-title → pr-comment"]
+    C --&gt; D["docs.yml&lt;br&gt;changes・build → pr-comment（ほか publish）"]
+    C --&gt; CQ["codeql.yml&lt;br&gt;analyze → pr-comment"]
+    C --&gt; G["gui.yml&lt;br&gt;gui-smoke → pr-comment"]
+    C --&gt; PCK["perf-check.yml&lt;br&gt;search・ingest → pr-comment"]
     M["main への push"] --&gt; SC["scorecard.yml&lt;br&gt;analysis"]
     TAG["v* タグの push"] --&gt; R["release.yml&lt;br&gt;guard → test → release"]</code></pre>
 <p>GitHub Actions のワークフローは次のとおり。使うアクションは、どのワークフローでもコミットのハッシュで固定する（版はハッシュの後ろのコメントに書き、Dependabot が更新する）。</p>
@@ -4046,28 +4047,28 @@
 <tbody>
 <tr>
 <td><code>test.yml</code></td>
-<td><code>test</code></td>
+<td><code>test</code>（ほか <code>pr-comment</code>）</td>
 <td>PR、main への push、<code>release.yml</code> からの呼び出し</td>
 <td>個人情報・文字コードの検査、<code>Signed-off-by</code> の検査（PR のみ）、テスト（<code>run.ps1 -Ci</code>）、Codecov への送信、PSScriptAnalyzer</td>
 <td>○</td>
 </tr>
 <tr>
 <td><code>title.yml</code></td>
-<td><code>pr-title</code>・<code>issue-title</code></td>
+<td><code>pr-title</code>・<code>issue-title</code>（ほか <code>pr-comment</code>）</td>
 <td>PR・Issue の作成と編集（PR は push でも）</td>
 <td>タイトルが Conventional Commits の形か</td>
 <td>○（<code>pr-title</code>）</td>
 </tr>
 <tr>
 <td><code>docs.yml</code></td>
-<td><code>docs</code>（ほかに <code>changes</code>・<code>publish</code>）</td>
+<td><code>docs</code>（ほかに <code>changes</code>・<code>publish</code>・<code>pr-comment</code>）</td>
 <td>PR、main で設計書が変わったとき</td>
 <td>設計書のサイトを作り、GitHub Pages に公開する</td>
 <td>○</td>
 </tr>
 <tr>
 <td><code>codeql.yml</code></td>
-<td><code>analyze</code></td>
+<td><code>analyze</code>（ほか <code>pr-comment</code>）</td>
 <td>PR、main への push、毎週 1 回</td>
 <td>ワークフローの静的解析</td>
 <td>○</td>
@@ -4088,7 +4089,7 @@
 </tr>
 <tr>
 <td><code>gui.yml</code></td>
-<td><code>gui-smoke</code></td>
+<td><code>gui-smoke</code>（ほか <code>pr-comment</code>）</td>
 <td>PR、main への push</td>
 <td>本物の画面を windows ランナーで開き、画面遷移（<a href="../gui-smoke/">画面のスモークテスト</a>）を UI オートメーションで確かめる</td>
 <td>–（必須にしない。しばらく安定して通ることを見てから、持ち主が決める）</td>
@@ -4102,18 +4103,19 @@
 </tr>
 <tr>
 <td><code>perf-check.yml</code></td>
-<td><code>search</code>・<code>ingest</code></td>
+<td><code>search</code>・<code>ingest</code>（ほか <code>pr-comment</code>）</td>
 <td>PR にラベル <code>perf-check</code> を付けたとき（付けたあとの push でも）、main への push（速さに効くファイルが変わったとき）、手動</td>
 <td>検索・本文インデックスの作成・取り込み（.docx・.pptx）の速さを上限と比べる（回帰テスト）</td>
 <td>–（流した PR で落ちていればマージしない）</td>
 </tr>
 </tbody>
 </table>
+<p><code>pr-comment</code> は 6 つのワークフロー（test・title・docs・codeql・gui・perf-check）それぞれが持つ、自分の結果を PR のコメントに書くジョブ（下の「結果を PR のコメントに書く（<code>pr-comment</code> ジョブ）」）。これらの結果を 1 つにまとめる集約ワークフローは無い。</p>
 <p><strong><code>test.yml</code></strong></p>
 <p>pull request と main への push のたびに windows ランナーで実行する。作業ブランチへの push だけでは動かない（PR のブランチで同じテストが 2 回走らないようにするため）。PR を出す前に CI で確かめたいときは、下書き（draft）の PR を出す。</p>
 <ul>
 <li>Windows PowerShell 5.1 はランナーに最初から入っている（<code>shell: powershell</code> を明示する。<code>pwsh</code>（PowerShell 7）では COM と文字コードの扱いが変わる）</li>
-<li><strong>どのワークフローも、<code>shell: powershell</code> の <code>run</code> は ASCII だけで書く。</strong> Actions は <code>run</code> の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる（v0.3.0 のタグの release で実際に起きた）。メッセージなどで日本語が要るときは <code>tools/</code> の BOM 付き UTF-8 のスクリプトに移して呼び出す（<code>shell: pwsh</code> はこの制限を受けない）。<code>tests/meta/encoding.Tests.ps1</code> の「shell: powershell の run は ASCII だけ」が確かめる</li>
+<li><strong>どのワークフローも、<code>shell: powershell</code> の <code>run</code> は ASCII だけで書く。</strong> Actions は <code>run</code> の内容を BOM の無い UTF-8 の一時スクリプトにして渡すが、Windows PowerShell 5.1 はこれを ANSI として読むため、日本語などの ASCII 以外の文字があると文字化けして構文エラーになる。メッセージなどで日本語が要るときは <code>tools/</code> の BOM 付き UTF-8 のスクリプトに移して呼び出す（<code>shell: pwsh</code> はこの制限を受けない）。<code>tests/meta/encoding.Tests.ps1</code> の「shell: powershell の run は ASCII だけ」が確かめる</li>
 <li>ランナーには Windows に最初から入っている Pester 3.4 もある。<code>tests/run.ps1</code> は <code>Import-Module Pester -RequiredVersion 5.9.0</code> で版を指定し、CI は 5.9.0 が無ければ入れる（版は <code>test.yml</code> の <code>PESTER_VERSION</code> と <code>tests/run.ps1</code> の 2 か所で同じにする）</li>
 <li>スクリプトの改行はランナーの <code>core.autocrlf</code> に左右されないよう、<code>.gitattributes</code> で <code>.ps1</code>・<code>.xaml</code>・<code>.bat</code> を CRLF に固定している</li>
 <li>ランナーに Office は入っていないため、タグ <code>Office</code> のテストは既定で外れる。COM を使うインデックス作成の確認は手元で行う（<a href="../#結合テスト手動">結合テスト（手動）</a>）</li>
@@ -4133,23 +4135,41 @@
 <p>PR と Issue のタイトルを <code>tools/check_commit_message.ps1 -Title</code> で確かめる。squash merge では PR のタイトルが main のコミットのタイトルになるため、main の履歴の形はここで決まる。</p>
 <ul>
 <li>PR（ジョブ <code>pr-title</code>）… 形が違えば失敗にする。ブランチ保護の必須のチェックにしてあり、失敗するとマージできない。必須のチェックは head のコミットごとに要るため、タイトルの編集だけでなく push でも動かす</li>
+<li><code>pr-title</code> は <code>tools/check_compat_golden.ps1</code> も呼び、前の版との互換の見本（<code>tests/testdata/compat/</code>。<a href="../../index-data/format/#前の版との互換">前の版との互換</a>）を <code>!</code> 無しで変える・消す PR を落とす</li>
 <li>Issue（ジョブ <code>issue-title</code>）… 作成は止められないため、形が違えば <code>.github/title_comment.md</code> の直し方を 1 回だけコメントする（1 行目の目印が付いたコメントが既にあれば書かない）</li>
 <li>タイトルは誰でも書ける信頼できない入力のため、式で <code>run</code> に埋め込まず環境変数で渡す</li>
 <li>起動の速い ubuntu のランナーで <code>pwsh</code>（PowerShell 7）を使う。そのため <code>tools/check_commit_message.ps1</code> は 5.1 と 7 の両方で動くように書く</li>
 <li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
 </ul>
 <p><strong><code>gui.yml</code>（画面のスモークテスト）</strong></p>
-<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・プロセス停止・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
+<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
 <ul>
 <li><strong><code>test.yml</code> には入れない。</strong> <code>test.yml</code> は <code>release.yml</code> から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば <code>test</code> と並んで動き、<code>test</code> の時間も延びない</li>
 <li><strong>必須チェックにしない。</strong> 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、<code>paths</code> の絞り込みは付けていない</li>
 <li><code>tests\run.ps1 -Ci</code> は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、<code>Gui</code> だけを流すと下限を割るため</li>
 <li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
-<li>落ちたときの材料（画面の画像・写した先の <code>画面エラー.txt</code>・<code>インデックス作成ログ.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
+<li>落ちたときの材料（画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
 <li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
-<li><strong>CI だけで流す場面がある。</strong> S6（既定のワークスペース）は、利用者の本物のワークスペース（<code>%USERPROFILE%\Documents\tebunko_ws</code>）を使うため、<code>GITHUB_ACTIONS</code> が <code>true</code> のときだけ流す。手元では理由を出して飛ばす</li>
-<li><strong>手元で飛ばす段階がある。</strong> S7 の［すべて終了］［バックグラウンドのみ終了］は、確認を出す作りが壊れていると本物の Office を止めるため、手元（<code>GITHUB_ACTIONS</code> が無いとき）で偽のプロセスのほかに Excel・Word・PowerPoint が動いていれば、その段階だけを飛ばして理由をログに出す</li>
-<li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、（手元では）<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
+<li><strong>S6 も手元で流す。</strong> 既定のワークスペースは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない</li>
+<li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
+</ul>
+<p><strong>結果を PR のコメントに書く（<code>pr-comment</code> ジョブ）</strong></p>
+<p>test・title・docs・codeql・gui・perf-check の 6 つのワークフローは、どれも自分の確認のジョブに続けて <code>pr-comment</code> ジョブを持つ。共有の複合アクション <code>.github/actions/pr-comment</code>（中身は <code>tools/pr_checks_comment.ps1</code> を呼ぶだけ）を使い、<strong>そのワークフロー自身の結果</strong>（成功・失敗・取り消し・スキップ）と実行へのリンクを PR のコメントに書く・書き換える。結果を 1 つのコメントにまとめる集約ワークフローは無い。個別のワークフローをやり直しても、そのワークフロー自身のコメントだけが書き換わる。</p>
+<ul>
+<li><strong><code>pull_request_target</code> は使わない。</strong> <code>pr-comment</code> ジョブは、ほかのジョブと同じ <code>pull_request</code> のワークフロー実行の中にある。PR のコードを動かすジョブ（<code>test</code>・<code>build</code> など）とは分け、複合アクションを呼ぶ前に、既定のブランチ（<code>github.event.repository.default_branch</code>）の内容で <code>tools/pr_checks_comment.ps1</code> と <code>.github/actions/pr-comment/</code> だけを改めて checkout する。ローカルの複合アクションは、呼ぶ時点で作業ツリーに置かれている内容で動くため、PR のブランチの内容のままにしておくと、PR で書き換えた道具・アクションが <code>pull-requests: write</code> の権限で動いてしまう。これを避けるための守りで、効く範囲は限られる（フォークの PR のトークンはそもそも読み取りだけで、同じリポジトリのブランチからの PR はワークフローの YAML 自体を書き換えられるため）。権限をジョブ単位に絞ることなどと重ねた多重の守りの 1 つ</li>
+<li><strong>この道具・複合アクションを変える PR では、その PR の CI で動くのは既定のブランチ（main）の版になる。</strong> 新しく作った PR では main にまだ無いため <code>pr-comment</code> ジョブが「Can't find 'action.yml'」で失敗する（必須チェックではないのでマージは止まらない）。入力を足したときも、main に入るまでその PR の CI では効かない</li>
+<li><strong><code>pull-requests: write</code> は <code>pr-comment</code> ジョブだけに付ける。</strong> ワークフロー全体には広げず、ほかのジョブ・ステップは今までどおり読み取りだけにする</li>
+<li><strong>フォークの PR では書けないことがある。</strong> <code>pull_request</code> イベントはフォークからの PR では読み取り専用のトークンになり、コメントの作成・書き換えが 403 になる。<code>tools/pr_checks_comment.ps1</code> はこれを例外にせず、警告を出すだけでジョブを失敗にしない。結果は常に（書けたかどうかに関わらず）Actions の Summary に書くため、フォークの PR でも結果は見える</li>
+<li><strong>PR の番号は <code>github.event.pull_request.number</code> からそのまま取る。</strong> <code>pull_request</code> イベントの中で動くため、<code>workflow_run</code> のときのように head の SHA から開いている PR を探し直す必要が無い</li>
+<li><strong>書き換えるコメントは、作者が <code>github-actions[bot]</code> で、1 行目がそのワークフロー専用の目印（<code>&lt;!-- pr-check:&lt;id&gt; --&gt;</code>。<code>id</code> は <code>test</code>・<code>title</code>・<code>docs</code>・<code>codeql</code>・<code>gui</code>・<code>perf-check</code>）のものだけ。</strong> 無ければ新しく書く。目印がワークフローごとに違うため、ほかのワークフローが書いたコメントは書き換えない</li>
+<li><strong>perf-check は <code>search</code>・<code>ingest</code> の 2 つのジョブの結果をまとめる。</strong> カンマ区切りで両方の結果を渡し、悪いほうの結果（<code>failure</code> &gt; <code>cancelled</code> &gt; <code>skipped</code> &gt; <code>success</code>）を 1 件のコメントにする。数字（検索・pack の作成・取り込みの速さ）はここに書き写さず、ジョブの Summary で見る</li>
+<li><strong>perf-check は、<code>search</code>・<code>ingest</code> の両方がスキップのとき（<code>perf-check</code> のラベルが無いとき・<code>perf-check</code> 以外のラベルを付けて起動した実行）は書かない。</strong> 書くのは、どちらかが動いたときだけ。書くと前の結果（失敗など）が「スキップ」に書き換わるため。ラベルを外したあとは、前の結果のコメントが残る（対象のコミットで見分ける）</li>
+<li><strong><code>pr-comment</code> ジョブの条件は <code>!cancelled()</code>。</strong> 取り消された実行はコメントを書き換えない（古い実行が新しい結果を消さないため）。前段のジョブが失敗・スキップのときは書く（perf-check の両方スキップを除く）</li>
+<li><strong><code>title.yml</code> は PR・Issue ごとに順に動かす（<code>concurrency</code>。グループは <code>title-&lt;番号&gt;</code>、<code>cancel-in-progress: false</code>）。</strong> <code>opened</code> と <code>edited</code> が同時に動いて Issue のコメントが 2 件できるのを防ぐ。実行中のものは取り消さないが、待ちに入れるのは 1 本だけなので、続けて編集・push すると、待っていた古い実行は取り消される（最新の実行は必ず動く。head に「取り消し」の <code>pr-title</code> が一時的に見えることがある）</li>
+<li><strong>コメントには、PR の head のコミットを短い形で添える。</strong> 遅れて終わった古い実行が新しい結果を上書きしたときに見分けるため</li>
+<li><strong>Dependabot の PR にはコメントしない。</strong> PR の作者（<code>github.event.pull_request.user.login</code>）が <code>dependabot[bot]</code> の実行は対象から外す</li>
+<li><code>release.yml</code> は <code>test.yml</code> を <code>workflow_call</code> で呼ぶ。呼ばれる側の <code>pr-comment</code> ジョブが <code>pull-requests: write</code> を求めるため、呼ぶ側の <code>test</code> ジョブにも同じ許可を付けてある（足りないと、ワークフローが不正として起動せず、タグを打っても release が動かない）。タグの push では <code>pr-comment</code> 自体はスキップされる</li>
+<li>手元・CI 上からの確かめ方は <code>-DryRun</code>（<code>gh</code> を呼ばず、組み立てたコメントの本文だけを標準出力に出す）</li>
 </ul>
 <p><strong><code>codeql.yml</code>・<code>scorecard.yml</code>（サプライチェーンの安全性）</strong></p>
 <p>CodeQL（<code>analyze</code>）は main の必須チェックで、指摘があるとマージできない。Scorecard は採点するだけで、マージは止めない。</p>

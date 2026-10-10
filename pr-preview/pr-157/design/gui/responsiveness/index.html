@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3000,7 +3030,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3021,14 +3051,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../process-tab/" class="md-nav__link">
+      <a href="../leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3119,8 +3149,6 @@
       
         
           
-        
-      
         
       
         
@@ -3227,7 +3255,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3255,7 +3283,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3283,35 +3311,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4117,15 +4117,15 @@
 <ul>
 <li>スレッドの分け方・寿命・閉じる順番は <a href="../../structure/threads/">プロセスとスレッド</a> にまとめる。画面のプロセスの中で、画面・検索・画面の裏の仕事・インデックス作成が別々のスレッドで動く。</li>
 <li>検索は検索の司令のスレッド（<code>SearchService</code>。画面を開いている間 1 つ）が、要求（<code>newSearchRequest</code>）を 1 つずつ実行する。lib.ps1 の読み込みと照合のプールの用意は、スレッドを始めたときに 1 回だけ行う。結果は要求の中のキュー（<code>ConcurrentQueue</code>）に入れ、画面の <code>DispatcherTimer</code>（0.1 秒間隔）で取り出して表に加える（<code>pumpSearch</code>）。1 回に取り出す量は件数ではなく時間で区切る（件数で区切ると、ヒットが多いときに画面が止まる）。中止は要求の <code>Stop</code> で伝える。新しい要求を渡すと、前の要求の <code>Stop</code> を立てる。</li>
-<li>本文インデックスのファイルの件数取得・取り込み一覧の集計・インデックスの削除・選択行のプレビューの読み込み・［9 プロセス停止］の定期的な一覧の取り直しとタブ見出しの ⚠ の判定は <code>startJob</code>（<code>shell.ps1</code>）で実行する。<code>startJob</code> は画面の裏の仕事のスレッド（<code>BackgroundQueue</code>。2 つ。長い仕事の間もプレビューが待たないため）に渡す。各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む。終わったかは <code>DispatcherTimer</code>（<code>jobTimer</code>。仕事がある間だけ 0.05 秒間隔）で確かめ、画面のスレッドで <code>onDone</code> を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。</li>
+<li>本文インデックスのファイルの件数取得・取り込み一覧の集計・インデックスの削除・選択行のプレビューの読み込み・起動時の残った Office の記録の読み取りは <code>startJob</code>（<code>shell.ps1</code>）で実行する。<code>startJob</code> は画面の裏の仕事のスレッド（<code>BackgroundQueue</code>。2 つ。長い仕事の間もプレビューが待たないため）に渡す。各スレッドは最初の仕事の前に lib.ps1 を 1 回だけ読み込む。終わったかは <code>DispatcherTimer</code>（<code>jobTimer</code>。仕事がある間だけ 0.05 秒間隔）で確かめ、画面のスレッドで <code>onDone</code> を呼ぶ。同じ集計が重ならないよう、実行中なら「もう一度」の印だけを立てて、終わってからやり直す。</li>
 <li><strong><code>startJob</code> の 4 つ目の引数 <code>queue</code> で列を選ぶ</strong>（既定は <code>"default"</code>。上の <code>BackgroundQueue</code>）。届かないネットワークのフォルダ（元のフォルダ・元のファイル。<a href="../open-file/">元のファイルを開く</a>）に触る仕事は <code>"network"</code> を渡す。ネットワークを調べる専用の列は <code>ensureNetworkQueue</code> が初めて使うときに作り（<code>BackgroundQueue</code> をもう 1 つ）、両方のスレッドを空の仕事で温める。ネットワークのパスの無い利用者には、この列も lib.ps1 の追加の読み込みも増えない（<a href="../../structure/threads/#スレッドの一覧">スレッドの一覧</a>）。</li>
 <li><strong>ネットワークのパス（UNC・ネットワークドライブ）は <code>testNetworkPath</code>（<code>shared/core/folder.ps1</code>）で、共有に接続せずに見分ける。</strong> <code>\\server\share\…</code>・<code>\\?\UNC\…</code> は UNC。<code>\\?\C:\…</code>（<code>toLongPath</code> の形）・<code>\\.\…</code> はドライブ文字として扱い、<code>[System.IO.DriveInfo]</code> の <code>DriveType</code> を見る（<code>GetDriveType</code> は共有に接続しない）。ローカルとするのは <code>Fixed</code>・<code>Removable</code>・<code>CDRom</code>・<code>Ram</code> だけで、<code>Network</code> と、切断したドライブがそう見えることのある <code>NoRootDirectory</code>・<code>Unknown</code> は安全な側に倒してネットワークとする。ローカルのパスは今までどおり画面のスレッドでその場で確かめ、ネットワークのパスだけを <code>"network"</code> の列に出す。「見つからない」と「接続できない」は <code>Test-Path</code> では区別できない（届かない共有でも例外を出さず <code>$false</code> を返すことがある）ため、例外を投げる呼び出し（<code>[System.IO.File]::GetAttributes</code>）で調べる <code>getPathState</code>（<code>shared/core/fs.ps1</code>）を使う。</li>
-<li>インデックス作成は <code>newIndexingSession</code> で画面のプロセスの中のスレッド（MTA・BelowNormal）で実行し、<code>DispatcherTimer</code>（1 秒間隔）で <code>IsRunning</code> と受け渡しの口の進み具合（<code>readIndexingProgress</code>）を確認する（<a href="../indexing-run/#インデックス作成の進み具合">インデックス作成の進み具合</a>）。終わったら受け渡しの口の終了コード（<code>GetExitCode</code>）で表示を分け（<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a>）、<code>Close</code> でスレッドを片づける。</li>
-<li>進み具合の段階が <code>確認</code> になったら、インデックス作成の確認ダイアログを開く（<a href="../indexing-run/#インデックス作成の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。<strong>ダイアログを開いている間も <code>DispatcherTimer</code> は動く</strong>（<code>ShowDialog</code> は入れ子のメッセージループのため）。開く前に「開いた」ことにして、二重に開かないようにする。</li>
+<li>インデックス作成は <code>newIndexingSession</code> で画面のプロセスの中のスレッド（MTA・BelowNormal）で実行し、<code>DispatcherTimer</code>（1 秒間隔）で <code>IsRunning</code> と受け渡しの口の進み具合（<code>readIndexingProgress</code>）を確認する（<a href="../indexing-run/#更新の進み具合">インデックス作成の進み具合</a>）。終わったら受け渡しの口の終了コード（<code>GetExitCode</code>）で表示を分け（<a href="../indexing-run/#中止終了ログ">中止・終了・ログ</a>）、<code>Close</code> でスレッドを片づける。</li>
+<li>進み具合の段階が <code>確認</code> になったら、インデックス作成の確認ダイアログを開く（<a href="../indexing-run/#インデックス更新の確認ダイアログ">インデックス作成の確認ダイアログ</a>）。<strong>ダイアログを開いている間も <code>DispatcherTimer</code> は動く</strong>（<code>ShowDialog</code> は入れ子のメッセージループのため）。開く前に「開いた」ことにして、二重に開かないようにする。</li>
 <li>多重起動は、ツールの配置フォルダごとの名前付き Mutex で防ぐ。2 つ目のプロセスは、同じくフォルダごとの名前付きイベント（<code>Local\tebunko_gui_activate_&lt;フォルダのハッシュ&gt;</code>）を合図して終了し、すでに開いている画面が <code>DispatcherTimer</code>（0.3 秒間隔）でそれを確認して <code>Window.Activate()</code>（＋最小化なら復帰）で前面に出す。別アプリが前面のときはフォーカスを奪えないことがある（OS の制限。P/Invoke の <code>SetForegroundWindow</code> は使わない。<a href="../implementation/#実行時コンパイルcscexeを使わない">実行時コンパイル（csc.exe）を使わない</a>）。</li>
 </ul>
 <p>注意（PowerShell 5.1）：<code>[System.IO.Directory]::EnumerateFiles</code> などの列挙を <code>foreach</code> で回し、<code>break</code>・<code>return</code>・<code>throw</code> で途中で抜けると、列挙子が Dispose されず、GC されるまで調べていたフォルダを掴んだまま残る。その間、そのフォルダと上のフォルダを移動・削除できない（<code>Directory.Move</code> がアクセス拒否になる）。途中でやめる列挙は <code>testAnyEntry</code>・<code>selectFirstEntries</code>（<code>shared/core/fs.ps1</code>）を通すか、配列で受ける <code>GetFiles</code>・<code>GetDirectories</code> にする。<code>tests/meta/enumeration.Tests.ps1</code> が機械的に確かめる。</p>
-<p>注意（PowerShell 5.1）：<code>System.Collections.Generic.List[object]</code> を <code>@()</code> で配列にする・<code>[object[]]</code> 引数に渡すと例外（Argument types do not match）になる。結果のリストは <code>List[psobject]</code> にするか <code>.ToArray()</code> で返す。また PS class のメソッド内では、クラスのプロパティと同じ名前（大文字小文字を区別しない）のローカル変数は使えない（<code>$this.</code> の付け忘れとみなされる）ため、別名にする。<strong><code>GetNewClosure()</code> したスクリプトブロックの中では関数を名前で呼ばない</strong>（<code>${function:関数名}</code> で先に関数の実体を変数に取り込み、<code>&amp; $その変数</code> で呼ぶ）。<code>tebunko.bat</code> の起動（<code>powershell -Command "...; &amp; gui.ps1"</code>）のように呼び出しが入れ子になっている実機では、閉じ込めたスクリプトブロックから名前で関数を解決できないため（<code>continueImportIndex</code> で見つかった不具合が一例。<code>scripts\tebunko\ui\open_source.ps1</code>・<code>scripts\tebunko\ui\index_tab.ps1</code> に例がある）。</p>
+<p>注意（PowerShell 5.1）：<code>System.Collections.Generic.List[object]</code> を <code>@()</code> で配列にする・<code>[object[]]</code> 引数に渡すと例外（Argument types do not match）になる。結果のリストは <code>List[psobject]</code> にするか <code>.ToArray()</code> で返す。また PS class のメソッド内では、クラスのプロパティと同じ名前（大文字小文字を区別しない）のローカル変数は使えない（<code>$this.</code> の付け忘れとみなされる）ため、別名にする。<strong><code>GetNewClosure()</code> したスクリプトブロックの中では関数を名前で呼ばない</strong>（<code>${function:関数名}</code> で先に関数の実体を変数に取り込み、<code>&amp; $その変数</code> で呼ぶ）。<code>tebunko.bat</code> の起動（<code>powershell -Command "...; &amp; gui.ps1"</code>）のように呼び出しが入れ子になっている実機では、閉じ込めたスクリプトブロックから名前で関数を解決できないため（<code>continueImportIndex</code> で見つかった不具合が一例。<code>scripts\tebunko\ui\open_source.ps1</code>・<code>scripts\tebunko\ui\index\index_archive.ps1</code> に例がある）。</p>
 
 
 

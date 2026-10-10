@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -776,7 +776,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1700,6 +1700,8 @@
       
         
       
+        
+      
     
     
     
@@ -1956,6 +1958,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3120,7 +3150,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3141,14 +3171,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../design/gui/process-tab/" class="md-nav__link">
+      <a href="../../design/gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3229,8 +3259,6 @@
       
         
           
-        
-      
         
       
         
@@ -3337,7 +3365,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3365,7 +3393,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3393,35 +3421,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../design/gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4242,7 +4242,7 @@
 <tr>
 <td><code>VERSION.txt</code></td>
 <td>zip の中</td>
-<td>版とコミットの記録（タグ名とコミットの SHA の2行。<code>tools/new_version_text.ps1</code> が作る。画面の「tebunko について」に出す）</td>
+<td>版とコミットの記録（タグ名とコミットの SHA の2行。<code>tools/new_version_text.ps1</code> が作る。画面の「バージョン情報」に出す）</td>
 </tr>
 <tr>
 <td><code>tebunko-setup-&lt;タグ&gt;.exe</code></td>
@@ -4306,6 +4306,9 @@
 <div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">zip</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
 </code></pre></div>
 <p>署名の bundle（<code>tebunko-&lt;タグ&gt;.zip.sigstore.json</code>）もリリースに載せている。GitHub に問い合わせずに確かめるときは <code>--bundle .\tebunko-v0.1.0.zip.sigstore.json</code> を付ける。zip 自体の SHA256 はリリースの説明に書いてある（<a href="#複数エンジンでの検査-virustotal外部へファイルを送信する">複数エンジンでの検査: VirusTotal（外部へファイルを送信する）</a> の照会に使える）。インストーラー（<code>tebunko-setup-&lt;タグ&gt;.exe</code>）にも同じく来歴の署名を付け、bundle（<code>tebunko-setup-&lt;タグ&gt;.exe.sigstore.json</code>）と SHA256 をリリースに載せる。確かめ方は zip と同じ（<code>gh attestation verify .\tebunko-setup-&lt;タグ&gt;.exe -R hsgwa/tebunko</code>）。</p>
+<p><strong>単一 .ps1 版（試験版）の確認</strong>: 展開せずに動く <code>tebunko-&lt;タグ&gt;.ps1</code>（<a href="../../design/structure/single-script/">単一 PowerShell のビルド</a>）は、1 本のファイルのため <code>tebunko.cat</code> の対象にしない。公開前の検査は <code>tools/new_single_script.ps1</code> 自身が行う（連結の順・構文・禁止の語・部品の過不足。通らなければ <code>release.yml</code> がそこで止まる）。改ざんの確認は <code>SHA256SUMS.txt</code> に追記した行と、zip・インストーラーと同じ来歴の署名（bundle は <code>tebunko-&lt;タグ&gt;.ps1.sigstore.json</code>）で行う。</p>
+<div class="highlight"><pre><span></span><code><span class="n">gh</span> <span class="n">attestation</span> <span class="n">verify</span> <span class="p">.\</span><span class="n">tebunko-v0</span><span class="p">.</span><span class="n">1</span><span class="p">.</span><span class="n">0</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-R</span> <span class="n">hsgwa</span><span class="p">/</span><span class="n">tebunko</span>
+</code></pre></div>
 <h2 id="静的解析-psscriptanalyzermicrosoft">静的解析: PSScriptAnalyzer（Microsoft）<a class="headerlink" href="#静的解析-psscriptanalyzermicrosoft" title="Permanent link">&para;</a></h2>
 <p>PowerShell スクリプトの静的解析ツール。Microsoft が公開しているルールで、コードインジェクション・平文パスワードなどを検出する。</p>
 <div class="highlight"><pre><span></span><code><span class="nb">Install-Module</span> <span class="n">PSScriptAnalyzer</span> <span class="n">-RequiredVersion</span> <span class="n">1</span><span class="p">.</span><span class="n">25</span><span class="p">.</span><span class="n">0</span> <span class="n">-Scope</span> <span class="n">CurrentUser</span>   <span class="c"># 未導入の場合</span>
@@ -4518,7 +4521,7 @@
 <tbody>
 <tr>
 <td>Process Monitor（Sysinternals）または Sysmon</td>
-<td>ファイル・レジストリ・ネットワーク・プロセス生成の<strong>全アクセス</strong>。「<code>work</code> と <code>%TEMP%</code> 以外に書いていない」「通信していない」を実測で示せる</td>
+<td>ファイル・レジストリ・ネットワーク・プロセス生成の<strong>全アクセス</strong>。「<code>work</code> 配下以外に書いていない（前の版が残した作業フォルダの片付けだけ <code>%TEMP%</code> に触れる。<code>%LOCALAPPDATA%\tebunko</code> には書かない。インストーラー版の入れ先 <code>%LOCALAPPDATA%\Programs\tebunko</code> の中は、ツールのフォルダとして書く）」「通信していない」を実測で示せる</td>
 <td>Procmon でプロセス名 <code>powershell.exe</code> / <code>EXCEL.EXE</code> を絞り込み、インデックス作成を 1 回実行して保存する</td>
 </tr>
 <tr>
@@ -4564,7 +4567,7 @@
 <li><a href="../checks/">危険とされる処理の検査結果</a>の禁止する処理が 0 件であること、許す処理（<code>Add-Type</code>・<code>Start-Process</code>・<code>Stop-Process</code>）が限定されていること</li>
 <li>Office をマクロ無効・イベント無効・外部リンク更新なし・不可視・読み取り専用で開くこと</li>
 <li>原本のパスを書き込み・削除の API に渡さないこと、<code>SaveAs</code> の保存先が作業フォルダだけであること、原本を読むのは <code>copyFileShared</code> の読み取りだけであること</li>
-<li>書き込み先が <code>work</code> 配下と <code>%TEMP%</code> 配下に限られること、異常終了で残った作業フォルダを次回起動時に回収すること（<a href="../disclosure/#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>）</li>
+<li>書き込み先が <code>work</code> 配下に限られること（前の版が残した作業フォルダの片付けだけ <code>%TEMP%</code> 配下に触れる）、異常終了で残った作業フォルダを次回起動時に回収すること（<a href="../disclosure/#原本の一時コピーとその回収">原本の一時コピーと、その回収</a>）</li>
 <li>PSScriptAnalyzer の安全性ルール・<code>Error</code> 重大度・制限言語モードの指摘が 0 件であること（未導入の環境では飛ばす）</li>
 <li>安全性の説明（<code>docs/safety/</code>）・<a href="https://github.com/hsgwa/tebunko/blob/main/.github/SECURITY.ja.md">SECURITY.md</a>・<code>tools\new_release_files.ps1</code>・<a href="https://github.com/hsgwa/tebunko/blob/main/sbom.cdx.json">sbom.cdx.json</a>・<a href="https://github.com/hsgwa/tebunko/blob/main/LICENSE">LICENSE</a> がそろっており、SBOM の雛形が本体の説明・ライセンス・前提ソフトウェアを持ち、作った SBOM が第三者の部品を含まず zip の中身と一致すること、LICENSE が MIT の条文と著作権表示を含み SBOM の記載と一致すること</li>
 </ul>
@@ -4583,7 +4586,7 @@
 </tr>
 <tr>
 <td>コードカバレッジ</td>
-<td>97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（90.0%）で、下回ると CI が失敗する</td>
+<td>97.0%（6,473/6,671 コマンド。手元の実測。CI では本物の Windows Search を使うテストが保留になるため少し低くなる）。対象は画面の起動口・枠・タブ・ダイアログを除くスクリプト（<code>tests/run.ps1</code> の <code>CodeCoverage</code> の条件）。Office の COM を使うインデクサは、COM の入口（<code>getApp</code>）を偽のオブジェクトに差し替えて検証している。検索結果の一覧・プレビューなど計測の対象に入る画面の部品は、画面のコントロールを偽のオブジェクトに差し替えて検証している。下限は <code>tests/coverage.baseline</code>（90.0%）で、下回ると CI が失敗する</td>
 </tr>
 <tr>
 <td>規模</td>
@@ -4591,11 +4594,11 @@
 </tr>
 <tr>
 <td>第三者依存</td>
-<td>0 件</td>
+<td>コードは 0 件（同梱するのはフォント Rethink Sans とアイコンの形 Lucide の 2 つ。どちらも実行されない）</td>
 </tr>
 </tbody>
 </table>
-<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者依存が無いため、読む範囲はこの 12,326 行で閉じる。</p>
+<p>規模と依存の数を示す意味は、<strong>監査にかかる手間を見積もれる</strong>ことである。第三者のコードの依存が無いため、読む範囲はこの 12,326 行で閉じる。</p>
 
 
 

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -2998,7 +3028,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3019,14 +3049,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../gui/process-tab/" class="md-nav__link">
+      <a href="../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3107,8 +3137,6 @@
       
         
           
-        
-      
         
       
         
@@ -3215,7 +3243,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3243,7 +3271,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3271,35 +3299,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4046,13 +4046,13 @@
 <p>扱うこと: どの部品（ファイル）の関数がどのページに載っているかの索引、インデクサ・画面の本体がどの関数を使うかの全体図。扱わないこと: 関数それぞれの入力・出力・概要そのもの（<a href="settings/">設定・ファイル</a>・<a href="indexer/">インデックス作成</a>・<a href="tsv/">TSV と本文インデックス</a>・<a href="search/">検索・スレッド・元のファイル・画面</a>）。先に読むページ: <a href="../">設計の概要</a>。</p>
 <p>関数は用途ごとに次の 4 つのページに分けて記載する。</p>
 <ul>
-<li><a href="settings/">部品ごとの関数（設定・ファイル）</a>（設定ファイル・ファイルとフォルダの操作）</li>
+<li><a href="settings/">部品ごとの関数（設定・ファイル）</a>（設定ファイル・ワークスペース・ファイルとフォルダの操作）</li>
 <li><a href="indexer/">部品ごとの関数（インデックス作成）</a>（取り込み一覧・状態ファイル・取り込み直すかの判断・インデックス名とインデックスの管理）</li>
 <li><a href="tsv/">部品ごとの関数（TSV と本文インデックス）</a>（インデックスの TSV の名前・作成・配置、本文インデックスの形式・読み書き、テキストファイルの読み取り。<code>shared/core/fs.ps1</code>・<code>text.ps1</code>・<code>text_file.ps1</code>、<code>tebunko/index/</code>）</li>
 <li><a href="search/">部品ごとの関数（検索・スレッド・元のファイル・画面）</a>（検索、スレッドとプール、検索結果から元のファイルを特定する処理、画面が使う集計・設定・Office プロセスの関数。<code>tebunko/search/</code>）</li>
 </ul>
 <pre class="mermaid"><code>flowchart LR
-    settings["core/settings.ps1&lt;br&gt;core/fs.ps1・folder.ps1"] --&gt; P1["settings.md"]
+    settings["core/settings.ps1・workspace.ps1&lt;br&gt;core/fs.ps1・folder.ps1"] --&gt; P1["settings.md"]
     indexer["indexer/indexer_state.ps1&lt;br&gt;indexer_decide.ps1・index/index_name.ps1・index_store.ps1&lt;br&gt;index_archive_rules.ps1・index_archive.ps1"] --&gt; P2["indexer.md"]
     tsv["core/fs.ps1・text.ps1・text_file.ps1&lt;br&gt;index/index_name.ps1・index_store.ps1・pack_format.ps1・pack_store.ps1"] --&gt; P3["tsv.md"]
     search["search/search_query.ps1・pack_search.ps1&lt;br&gt;search_run.ps1・search_service.ps1・source_map.ps1"] --&gt; P4["search.md"]</code></pre>
@@ -4068,8 +4068,23 @@
 </thead>
 <tbody>
 <tr>
+<td><code>tebunko/ui/shell/nav_view.ps1</code>（判断層）</td>
+<td><code>getScreenOrder</code> / <code>isScreenName</code> / <code>getNextScreen</code> / <code>getShortcutAction</code></td>
+<td><a href="../gui/implementation/#実装構成">画面の実装構成</a></td>
+</tr>
+<tr>
+<td><code>tebunko/ui/shell/status_bar_view.ps1</code>（判断層）</td>
+<td><code>getIndexingStatusLine</code></td>
+<td><a href="../gui/implementation/#実装構成">画面の実装構成</a></td>
+</tr>
+<tr>
+<td><code>tebunko/ui/shell/nav.ps1</code></td>
+<td><code>getCurrentScreen</code> / <code>selectScreen</code> / <code>invokeShortcutAction</code></td>
+<td><a href="../gui/implementation/#実装構成">画面の実装構成</a></td>
+</tr>
+<tr>
 <td><code>shared/office/office_reader.ps1</code></td>
-<td><code>isZipFile</code> / <code>isCompoundFile</code> / <code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code> / <code>writeUnits</code></td>
+<td><code>isZipFile</code> / <code>isCompoundFile</code> / <code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code>（ヘッダー・フッターは <code>readXlsxSheetHeaderFooter</code> / <code>readXlsxHeaderFooterLines</code> / <code>getHeaderFooterLines</code>） / <code>writeUnits</code></td>
 <td><a href="../indexing/office-apps/#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1">Word・PowerPoint の共通処理と Office アプリの管理</a>、<a href="../indexing/excel/">Excel</a>、<a href="../indexing/word/">Word</a>、<a href="../indexing/powerpoint/">PowerPoint</a></td>
 </tr>
 <tr>
@@ -4089,7 +4104,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/indexer_plan.ps1</code></td>
-<td><code>findTargetFiles</code> / <code>createTargetList</code></td>
+<td><code>findTargetFiles</code> / <code>createTargetList</code> / <code>selectOnlyNames</code>（選んだインデックス名を、更新できるものとできないものに分ける）</td>
 <td><a href="../indexing/target-decision/#取り込み対象の決定createtargetlist">取り込み対象の決定</a>、<a href="../indexing/flow/">インデックス作成のメインフロー</a></td>
 </tr>
 <tr>
@@ -4104,7 +4119,7 @@
 </tr>
 <tr>
 <td><code>tebunko/indexer/index_migrate.ps1</code></td>
-<td><code>publishTsv</code> / <code>removeStaleTmpDirs</code> / <code>removeDroppedFolders</code></td>
+<td><code>publishTsv</code> / <code>initTmpDir</code> / <code>newWorkerTmpDir</code> / <code>removeStaleTmpDirs</code> / <code>removeDroppedFolders</code></td>
 <td><a href="../indexing/crawl/">クロール対象フォルダと取り込み対象</a>、<a href="../index-data/format/#配置命名規則">インデックスのファイルの形</a></td>
 </tr>
 <tr>

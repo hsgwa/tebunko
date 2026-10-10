@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3010,7 +3040,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3031,14 +3061,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3119,8 +3149,6 @@
       
         
           
-        
-      
         
       
         
@@ -3227,7 +3255,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3255,7 +3283,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3283,35 +3311,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4104,17 +4104,17 @@
 <li><strong>並びの先を見て、空いているレーンに渡す。</strong> 司令は、まだ渡していない最初のファイルから <code>${ingestLookAhead}</code>（200 件）先までを見て、レーンに空きがあるファイルを渡す。レーンに渡しておける数（<code>getIngestLaneCapacity</code>）は、Office のレーンが 2（取り込み中の 1 件と次の 1 件）、読み取りのレーンが読み取りのスレッドの数 × 2 である。Excel のファイルが続いても、読み取りのスレッドを遊ばせない。取り込む順は取り込み一覧の順と変わることがあるが、結果（取り込み一覧・本文インデックス）は同じになる。</li>
 <li><strong>監視は Office のスレッドごとに持つ。</strong> Office のレーンのスレッドは、始めるときに自分の監視のスレッドを作る（<code>startWatchdog</code>）。監視は、そのスレッドの制限時間だけを見て、そのスレッドが起動した Office だけを PID で止める。</li>
 <li><strong>Office の起動し直しと制限時間は、Office のスレッドごとに数える。</strong> スレッドごとに 100 ファイルで起動し直す。1 ファイルの制限時間は 10 分。</li>
-<li><strong>一時フォルダはスレッドごとに分ける。</strong> <code>%TEMP%\tebunko\&lt;PID&gt;\w&lt;番号&gt;</code> と、取り込み出力の <code>w&lt;番号&gt;</code> を使う。</li>
+<li><strong>一時フォルダはスレッドごとに分ける。</strong> 作業領域の <code>&lt;PID&gt;\w&lt;番号&gt;</code>（<code>newWorkerTmpDir</code>）と、<code>publish</code> の <code>w&lt;番号&gt;</code> を使う。</li>
 <li><strong>本文インデックスはフォルダが揃ってから書く。</strong> 司令は、はじめにフォルダごとのファイルの数を <code>PendingPublish.AddPending</code> で数えておき、ファイルを渡すたびに <code>Dispatch</code>、結果を受け取るたびに <code>Complete</code>（または渡さずに済ませるとき <code>Skip</code>）を呼ぶ。結果を受け取るたびに、取り込み中の数・まだ渡していない数がどちらも 0 になったフォルダの本文インデックスとシステムインデックスを書き出す（<code>indexer_run.ps1</code> の <code>flushPending</code> が <code>PendingPublish.TakeFlushable</code> を呼ぶ）。</li>
 <li><strong>取り込み一覧と進み具合は司令だけが書く。</strong> 取り込みスレッドは結果を結果の列（<code>BlockingCollection</code>）に入れるだけで、取り込み一覧（<code>addStatusRow</code>）・進み具合・システムインデックスの変更の印（<code>markSystemIndexChanged</code>）は司令が書く。ログも、取り込みスレッドが 1 ファイル分を貯めて結果と一緒に返し、司令が書く。</li>
-<li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>取り込み中.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
+<li><strong>取り込み中のファイルは、取り込み中のものをすべて記録する</strong>（<code>ingesting.txt</code>。1 行に 1 ファイル）。強制終了の後は、記録にあるファイルすべてを「前回止まったファイル」として扱う。</li>
 <li><strong>中止。</strong> 司令は振り分けをやめ、取り込み中のファイル（回し直したものを含む）が終わるのを待ってから、書き出しと Office の片づけを行う。各レーンのスレッドは、列が閉じられたら自分の Office を終了して終わる（<code>stopIngestWorkers</code>）。</li>
 <li><strong>取り込みスレッドが止まったら。</strong> 取り込みスレッドが途中で止まった（読み込めない等）ときは、インデックス作成を続けられないエラー <code>取り込みのスレッドが止まりました：&lt;理由&gt;</code> にする。</li>
 </ul>
 <p><code>setting.config</code> の <code>ingestThreads</code> で変えられるのは、読み取りのスレッドの数だけである。Excel・Word・PowerPoint のレーンは、いつもスレッド 1 つ・Office 1 つにする。</p>
 <p>取り込みのスレッドを使うときは、はじめにログに <code>N 件のファイルを取り込みます。（Excel・Word・PowerPoint はそれぞれ 1 つずつ、Office を使わずに読むファイルは R 個のスレッドで並べて取り込みます。…）</code> と出す。</p>
 <p>テストでは受け渡しの口の <code>Workers</code> を 0 にし、すべてのファイルの取り込みを司令のスレッドで行う（途中に割り込むため）。テストデータ（300 ファイル）で、スレッド 1 つと 4 つの結果（本文インデックスと取り込み一覧）が同じになることを確かめた。</p>
-<p>速さは、空いている CPU の量で決まる。1 ファイルの取り込みには、Excel と PowerShell で約 1 コアを使う。スレッドと Office の両方の優先度を下げていたときは、ほかのアプリが約 2 コアを使っている PC で、変更前より 1〜2 割遅くなった（性能データ 1,080 ファイル。変更前 414 秒、取り込みのスレッド 1 つ 518 秒、3 つ 456 秒。両方 Normal では 398 秒）。PowerPoint を変換のたびに起動し直していたときは、旧形式 1 件に約 7 秒かかった（使い回すと約 0.25 秒）。</p>
+<p>速さは、空いている CPU の量で決まる。1 ファイルの取り込みには、Excel と PowerShell で約 1 コアを使う。スレッドと Office の両方の優先度を下げると、ほかのアプリが約 2 コアを使っている PC で、両方 Normal より 1〜2 割遅くなる（性能データ 1,080 ファイル。取り込みのスレッド 1 つ 518 秒、3 つ 456 秒。両方 Normal では 398 秒）。PowerPoint を変換のたびに起動し直すと旧形式 1 件に約 7 秒かかり、使い回すと約 0.25 秒である。</p>
 
 
 

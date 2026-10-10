@@ -6,17 +6,17 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
-        <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/gui/process-tab/">
+        <link rel="canonical" href="https://hsgwa.github.io/tebunko/design/structure/single-script/">
       
       
-        <link rel="prev" href="../settings-tab/">
+        <link rel="prev" href="../classes/">
       
       
-        <link rel="next" href="../implementation/">
+        <link rel="next" href="../../indexing/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>［9 プロセス停止］タブ - tebunko</title>
+        <title>単一 PowerShell のビルド - tebunko</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#9-プロセス停止タブ" class="md-skip">
+        <a href="#単一-powershell-のビルド" class="md-skip">
           コンテンツにスキップ
         </a>
       
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ［9 プロセス停止］タブ
+              単一 PowerShell のビルド
             
           </span>
         </div>
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1542,10 +1542,14 @@
                 
   
   
+    
+  
   
   
     
     
+      
+        
       
         
       
@@ -1575,11 +1579,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
@@ -1600,7 +1604,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1618,7 +1622,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/source/" class="md-nav__link">
+      <a href="../source/" class="md-nav__link">
         
   
   
@@ -1646,7 +1650,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/folders/" class="md-nav__link">
+      <a href="../folders/" class="md-nav__link">
         
   
   
@@ -1674,7 +1678,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/data/" class="md-nav__link">
+      <a href="../data/" class="md-nav__link">
         
   
   
@@ -1702,7 +1706,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/io-files/" class="md-nav__link">
+      <a href="../io-files/" class="md-nav__link">
         
   
   
@@ -1730,7 +1734,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/settings-file/" class="md-nav__link">
+      <a href="../settings-file/" class="md-nav__link">
         
   
   
@@ -1758,7 +1762,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/threads/" class="md-nav__link">
+      <a href="../threads/" class="md-nav__link">
         
   
   
@@ -1786,7 +1790,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/closing/" class="md-nav__link">
+      <a href="../closing/" class="md-nav__link">
         
   
   
@@ -1814,7 +1818,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../structure/classes/" class="md-nav__link">
+      <a href="../classes/" class="md-nav__link">
         
   
   
@@ -1830,6 +1834,219 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#目的" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        目的
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#仕組み全体" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        仕組み（全体）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ビルドのロジック" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ビルドのロジック
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ビルドのロジック">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#読み込み行の差し替え" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        読み込み行の差し替え
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#起動口の-param" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動口の param
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#単一-ps1-の-2-段の形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 の 2 段の形
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#先頭に入れる変数" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        先頭に入れる変数
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#本体の読み込みの順と--part-の分かれ方" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        本体の読み込みの順と -Part の分かれ方
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#検査のロジック" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検査のロジック
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#実行時の違い" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        実行時の違い
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#配布" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        配布
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#制約" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        制約
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2608,8 +2825,6 @@
                 
   
   
-    
-  
   
   
     
@@ -2661,15 +2876,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../gui/" class="md-nav__link ">
               
   
   
@@ -2693,7 +2908,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2713,7 +2928,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../state-flow/" class="md-nav__link">
+      <a href="../../gui/state-flow/" class="md-nav__link">
         
   
   
@@ -2741,7 +2956,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../common/" class="md-nav__link">
+      <a href="../../gui/common/" class="md-nav__link">
         
   
   
@@ -2769,7 +2984,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../messages/" class="md-nav__link">
+      <a href="../../gui/messages/" class="md-nav__link">
         
   
   
@@ -2797,7 +3012,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../index-tab/" class="md-nav__link">
+      <a href="../../gui/index-tab/" class="md-nav__link">
         
   
   
@@ -2825,7 +3040,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../indexing-run/" class="md-nav__link">
+      <a href="../../gui/indexing-run/" class="md-nav__link">
         
   
   
@@ -2853,7 +3068,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../search-tab/" class="md-nav__link">
+      <a href="../../gui/search-tab/" class="md-nav__link">
         
   
   
@@ -2881,7 +3096,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../open-file/" class="md-nav__link">
+      <a href="../../gui/open-file/" class="md-nav__link">
         
   
   
@@ -2909,7 +3124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../network/" class="md-nav__link">
+      <a href="../../gui/network/" class="md-nav__link">
         
   
   
@@ -2937,7 +3152,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../preview/" class="md-nav__link">
+      <a href="../../gui/preview/" class="md-nav__link">
         
   
   
@@ -2965,7 +3180,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../search-tree/" class="md-nav__link">
+      <a href="../../gui/search-tree/" class="md-nav__link">
         
   
   
@@ -2993,14 +3208,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../settings-tab/" class="md-nav__link">
+      <a href="../../gui/settings-tab/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3009,114 +3224,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="目次">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      目次
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#プロセスの表" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        プロセスの表
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#終了の確認" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        終了の確認
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#タブ見出しの-" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        タブ見出しの ⚠
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3129,7 +3236,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../implementation/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    前回残った Office の確認
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gui/implementation/" class="md-nav__link">
         
   
   
@@ -3157,7 +3292,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../responsiveness/" class="md-nav__link">
+      <a href="../../gui/responsiveness/" class="md-nav__link">
         
   
   
@@ -3199,8 +3334,6 @@
       
         
       
-        
-      
     
     
     
@@ -3218,7 +3351,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../screens/" class="md-nav__link ">
+            <a href="../../gui/screens/" class="md-nav__link ">
               
   
   
@@ -3262,7 +3395,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../screens/window/" class="md-nav__link">
+      <a href="../../gui/screens/window/" class="md-nav__link">
         
   
   
@@ -3290,14 +3423,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../screens/index-tab/" class="md-nav__link">
+      <a href="../../gui/screens/index-tab/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3318,14 +3451,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../screens/search-tab/" class="md-nav__link">
+      <a href="../../gui/screens/search-tab/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3346,42 +3479,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../screens/settings-tab/" class="md-nav__link">
+      <a href="../../gui/screens/settings-tab/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4081,10 +4186,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#プロセスの表" class="md-nav__link">
+  <a href="#目的" class="md-nav__link">
     <span class="md-ellipsis">
       
-        プロセスの表
+        目的
       
     </span>
   </a>
@@ -4092,10 +4197,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#終了の確認" class="md-nav__link">
+  <a href="#仕組み全体" class="md-nav__link">
     <span class="md-ellipsis">
       
-        終了の確認
+        仕組み（全体）
       
     </span>
   </a>
@@ -4103,10 +4208,115 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#タブ見出しの-" class="md-nav__link">
+  <a href="#ビルドのロジック" class="md-nav__link">
     <span class="md-ellipsis">
       
-        タブ見出しの ⚠
+        ビルドのロジック
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ビルドのロジック">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#読み込み行の差し替え" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        読み込み行の差し替え
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#起動口の-param" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        起動口の param
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#単一-ps1-の-2-段の形" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        単一 .ps1 の 2 段の形
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#先頭に入れる変数" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        先頭に入れる変数
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#本体の読み込みの順と--part-の分かれ方" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        本体の読み込みの順と -Part の分かれ方
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#検査のロジック" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        検査のロジック
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#実行時の違い" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        実行時の違い
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#配布" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        配布
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#制約" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        制約
       
     </span>
   </a>
@@ -4133,134 +4343,226 @@
   
 
 
-<h1 id="9-プロセス停止タブ">［9 プロセス停止］タブ<a class="headerlink" href="#9-プロセス停止タブ" title="Permanent link">&para;</a></h1>
-<p>扱うこと: 残った Office プロセスの一覧・終了・確認ダイアログ・タブ見出しの警告。扱わないこと: インデックス作成の実行そのもの（<a href="../indexing-run/">インデックス作成の実行</a>）。先に読むページ: <a href="../">画面</a>。</p>
-<p>インデックス作成を中断したときなどに残った Excel・Word・PowerPoint のプロセスを一覧し、終了するタブ。</p>
-<p><img alt="［9 プロセス停止］タブ" src="../../../images/%E7%94%BB%E9%9D%A2_%E3%83%97%E3%83%AD%E3%82%BB%E3%82%B9%E5%81%9C%E6%AD%A2%E3%82%BF%E3%83%96.drawio.png" /></p>
-<p>今の画面の写真は<a href="../screens/process-tab/">画面設計（現行）</a>にある。</p>
+<h1 id="単一-powershell-のビルド">単一 PowerShell のビルド<a class="headerlink" href="#単一-powershell-のビルド" title="Permanent link">&para;</a></h1>
+<p>扱うこと: <code>scripts/</code> のソースから、展開せずに動く 1 本の <code>.ps1</code> を作る仕組み。ビルド（まとめる）と検査（まとめた結果を確かめる）の 2 段に分けて説明する。扱わないこと: zip・インストーラーの作り方（<a href="../folders/">配布物と開発用のフォルダ構成</a>）、利用者向けの使い方（<a href="https://github.com/hsgwa/tebunko/blob/main/README.md">README</a>）。先に読むページ: <a href="../folders/">配布物と開発用のフォルダ構成</a>・<a href="../source/">ソースの分け方</a>。</p>
+<h2 id="目的">目的<a class="headerlink" href="#目的" title="Permanent link">&para;</a></h2>
+<p>zip は展開が要り、インストーラーは実行ファイル（.exe）を入れる。展開もインストールもせず、1 本のファイルだけを持ち運んで動かしたい利用者のために、同じ <code>scripts/</code> から機械的に 1 本の <code>.ps1</code>（<code>tebunko-&lt;タグ&gt;.ps1</code>）を作る。</p>
+<ul>
+<li>ソースは増やさない。<code>scripts/</code> が唯一の元で、1 本の <code>.ps1</code> はビルドのたびに作り直す。</li>
+<li>zip・インストーラーの中身と動きは変えない。</li>
+<li>試験版として zip・インストーラーと並べて配る。利用者の確かめが済むまで、その位置づけは変えない。</li>
+</ul>
+<h2 id="仕組み全体">仕組み（全体）<a class="headerlink" href="#仕組み全体" title="Permanent link">&para;</a></h2>
+<p>単一 .ps1 の作成は、ビルドと検査の 2 段である。ビルドは <code>scripts/</code> を 1 本にまとめる。検査は、まとめた結果を確かめる。どちらも <code>tools/new_single_script.ps1</code> が行う。検査に通ったものだけを書き出し、1 つでも失敗したら何も書き出さずに止まる。</p>
+<pre class="mermaid"><code>flowchart LR
+    S["scripts/（元のソース）"] --&gt; B["ビルド&lt;br&gt;（1 本にまとめる）"]
+    B --&gt; C{"検査 7 項目"}
+    C --&gt;|全部通る| W["work/release/tebunko-#lt;タグ#gt;.ps1 を書き出す"]
+    C --&gt;|1 つでも失敗| X["書き出さずに止まる"]
+    W --&gt; R["GitHub Release&lt;br&gt;（zip・インストーラーと並べる）"]</code></pre>
+<ul>
+<li><code>release.yml</code> が、zip の検査のあとに <code>-Version &lt;タグ&gt;</code> を付けて呼ぶ。止まったら、リリースの工程もそこで止まる。</li>
+<li>出力は <code>work/release/</code> に書く（BOM 付き UTF-8・CRLF）。作ったファイルはリポジトリにコミットしない（<code>tests/meta/structure.Tests.ps1</code> の M5 が確かめる）。</li>
+<li>ファイルのたどり方と禁止の語の一覧は <code>tools/script_rules.ps1</code> に集め、<code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code>・<code>tools/check_release_package.ps1</code> と共有する。</li>
+</ul>
+<h2 id="ビルドのロジック">ビルドのロジック<a class="headerlink" href="#ビルドのロジック" title="Permanent link">&para;</a></h2>
+<h3 id="読み込み行の差し替え">読み込み行の差し替え<a class="headerlink" href="#読み込み行の差し替え" title="Permanent link">&para;</a></h3>
+<p><code>scripts/</code> のファイルは、ほかのファイルを <code>. "$PSScriptRoot\..."</code> や <code>. "$TebunkoDir\..."</code> の行で読み込む。ビルドは、この行を、読み込まれるファイルの中身に置き換える。置き換えた中身の中にも読み込み行があれば、同じ規則でさらに置き換える。</p>
+<p>例: <code>lib.ps1</code> の次の行は、<code>settings.ps1</code> の中身に置き換わる。</p>
+<div class="highlight"><pre><span></span><code><span class="p">.</span> <span class="s2">"$PSScriptRoot\core\settings.ps1"</span>
+</code></pre></div>
+<ul>
+<li>同じファイルが 2 回以上読み込まれていたら、中身を入れるのは 1 回目だけにする。2 回目以降の行は空にする（入れ終えたファイルを集合で覚えておく）。</li>
+<li>関数の中にある読み込み行も、行の置き換えなので、そのまま働く。</li>
+</ul>
+<h3 id="起動口の-param">起動口の <code>param</code><a class="headerlink" href="#起動口の-param" title="Permanent link">&para;</a></h3>
+<p>起動口（<code>gui.ps1</code>・<code>indexer.ps1</code>）は、<code>param</code> ブロックを持つことがある。そのまま入れると <code>param</code> が二重になるため、構文木で <code>param</code> を除いた本体だけを取り出して入れる。結合したファイルの頭に、<code>param ($Part, $RetryFailed, $Channel)</code> を 1 つだけ置く。</p>
+<h3 id="単一-ps1-の-2-段の形">単一 .ps1 の 2 段の形<a class="headerlink" href="#単一-ps1-の-2-段の形" title="Permanent link">&para;</a></h3>
+<p>結合した <code>.ps1</code> は、先頭と本体の 2 段でできている。</p>
+<ul>
+<li><strong>先頭</strong>: 別スレッドが読む「部品」の文字列を持つ。部品は <code>lib</code>（検索や設定など、画面を使わない処理）と <code>indexerLib</code>（取り込みの処理）の 2 つ。</li>
+<li><strong>本体</strong>: 起動したスレッドが実行するコード。画面のファイルも <code>lib</code> も入る。</li>
+</ul>
+<p>別スレッドは、本体を読み直さず、先頭の部品の文字列だけを読む。部品には画面のファイルを入れない。画面のクラスを別のランスペースでもう一度コンパイルすると、画面のスレッドの型と別物になるためである（<a href="../classes/">クラスと関数の使い分け</a>）。画面のファイルは本体にだけ入る。<code>lib</code> の中身は、本体にも部品にも入る。本体は画面のスレッドで使い、部品は別スレッドで使うためである。</p>
+<p>例: <code>lib.ps1</code> に <code>ui/</code> のファイルを読み込む行を足すと、<code>lib</code> の部品に画面のファイルが入るので、検査 7 で止まる。</p>
+<h3 id="先頭に入れる変数">先頭に入れる変数<a class="headerlink" href="#先頭に入れる変数" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>No.</th>
-<th>部品</th>
-<th>仕様</th>
+<th>変数</th>
+<th>中身</th>
+<th>使う所</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>${bundledScriptPath}</code></td>
+<td>実行中の <code>.ps1</code> 自身のパス（<code>$PSCommandPath</code>）</td>
+<td><code>shared/core/paths.ps1</code>（根フォルダ）、<code>tebunko/gui.ps1</code>（単一 .ps1 かどうかの見分け）</td>
+</tr>
+<tr>
+<td><code>${bundledVersion}</code></td>
+<td><code>@{ Tag; Sha }</code>。<code>-Version</code> と <code>git rev-parse HEAD</code> から、<code>VERSION.txt</code> と同じ決め方で作る</td>
+<td><code>shared/core/version.ps1</code> の <code>readVersionFile</code></td>
+</tr>
+<tr>
+<td><code>${bundledXaml}</code></td>
+<td>画面定義（XAML）の文字列。キーは <code>scripts</code> 内の元のパス</td>
+<td><code>shared/ui/app_host.ps1</code>、<code>tebunko/ui/splash.ps1</code></td>
+</tr>
+<tr>
+<td><code>${bundledParts}</code></td>
+<td>別スレッドが読む部品（<code>lib</code>・<code>indexerLib</code>）の文字列</td>
+<td><code>tebunko/core/parts.ps1</code> の <code>getPartLoad</code></td>
+</tr>
+</tbody>
+</table>
+<p>XAML と部品は、単一引用符のヒアストリングとして埋め込む。中に行頭が <code>'@</code> の行があると途中で閉じるため、ビルドが見つけたら止める。</p>
+<h3 id="本体の読み込みの順と--part-の分かれ方">本体の読み込みの順と <code>-Part</code> の分かれ方<a class="headerlink" href="#本体の読み込みの順と--part-の分かれ方" title="Permanent link">&para;</a></h3>
+<p>先頭と本体の境には、目印の行（<code># ---- 本体（ここより上は、別スレッドが読む部品の埋め込み） ----</code>）を置く。テストはこの行までを切り出して部品を取り出し、<code>getPartLoad</code> を通して読む。本体は次の順に並べる。</p>
+<ol>
+<li><code>ui/startup_error_view.ps1</code>（起動の失敗の文言）、<code>ui/startup_error.ps1</code>（知らせ方）、<code>lib.ps1</code> の順に読む（<code>gui.ps1</code> の先頭と同じ順）。</li>
+<li><code>indexer/indexer_lib.ps1</code> と <code>indexer/indexer_main.ps1</code> を読む。</li>
+<li><code>-Part indexer</code> のときは、<code>indexer.ps1</code> の本体を実行する。画面を出さずに取り込みだけ行って終わる。</li>
+<li>それ以外（既定は <code>gui</code>）のときは、<code>gui.ps1</code> の本体を実行する。画面を起動する。</li>
+</ol>
+<p>部品だけを読んで戻る <code>-Part lib</code> のような指定は、本体に無い。</p>
+<h2 id="検査のロジック">検査のロジック<a class="headerlink" href="#検査のロジック" title="Permanent link">&para;</a></h2>
+<p>ビルドの結果を、次の 7 つで確かめる。1 つでも失敗したら止まる。</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>確かめること</th>
+<th>防ぐもの</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>1</td>
-<td>プロセスの表</td>
-<td>見出しは <code>残っている Office のプロセス</code>、その下に <code>インデックス作成を中断したときなどに残った Excel・Word・PowerPoint のプロセスを終了します。</code>。実行中の Excel・Word・PowerPoint を一覧する（<a href="#プロセスの表">プロセスの表</a>）。複数選択できる</td>
+<td>構文エラーが 0 件である</td>
+<td>まとめ方を誤って、起動しないファイルを配ること</td>
 </tr>
 <tr>
 <td>2</td>
-<td>［更新］</td>
-<td>一覧を取り直す。F5 でも同じ。表の下に <code>N 件（バックグラウンド X 件・画面に表示中 Y 件） ・ H:mm:ss 時点</code> を表示する（0 件なら <code>実行中の Excel・Word・PowerPoint はありません。（H:mm:ss 時点）</code>）</td>
+<td>読み込み口からたどれるファイルが、すべて入っている。読み込み口からたどれない余計なファイルは入っていない</td>
+<td>ファイルの入れ忘れと、関係ないファイルの混入</td>
 </tr>
 <tr>
 <td>3</td>
-<td>説明</td>
-<td><code>バックグラウンド：画面にウィンドウが無いプロセス（取り込みで起動したものなど）。</code> <code>画面に表示中のプロセスを終了すると、保存していない内容は失われます。</code></td>
+<td>読み込み行（<code>$PSScriptRoot</code>・<code>$TebunkoDir</code> の dot-source）が残っていない</td>
+<td>差し替え漏れ。実行時に無いファイルを探して落ちる</td>
 </tr>
 <tr>
 <td>4</td>
-<td>［バックグラウンドのみ終了（N 件）］</td>
-<td>主ボタン。バックグラウンドのプロセスをすべて終了する。0 件なら無効</td>
+<td>起動口の <code>param</code> の名前が、頭の <code>param</code> にすべてある</td>
+<td>起動の引数を渡せなくなること</td>
 </tr>
 <tr>
 <td>5</td>
-<td>［選択したプロセスを終了］</td>
-<td>表で選択したプロセスを終了する。未選択なら無効</td>
+<td>禁止の語（<code>tools/script_rules.ps1</code> の一覧。<code>Invoke-Expression</code>・<code>[ScriptBlock]::Create</code>・<code>FromBase64String</code>・<code>EncodedCommand</code>・<code>ExecutionPolicy Bypass</code> など）が無い</td>
+<td>ウイルス対策ソフトが疑う書き方が混ざること</td>
 </tr>
 <tr>
 <td>6</td>
-<td>［すべて終了］</td>
-<td>一覧のすべてを終了する。0 件なら無効。赤枠で表示し、誤操作に注意を促す</td>
+<td>版の文字列が、指定した <code>-Version</code> と、コミットの SHA に一致する</td>
+<td>版の表示が違うファイルを配ること</td>
 </tr>
 <tr>
 <td>7</td>
-<td>タブ見出し</td>
-<td>バックグラウンドのプロセスがあるとき <code>⚠</code> を付ける（<a href="#タブ見出しの-">タブ見出しの ⚠</a>）</td>
+<td>別スレッド用の部品が、入り口からたどれるファイルと過不足なく一致する。部品が読んだファイルのパスに <code>\ui\</code> を含むものが無い</td>
+<td>部品の入れ忘れ・余計なファイルと、画面のコードが別スレッドに混ざること</td>
 </tr>
 </tbody>
 </table>
-<h2 id="プロセスの表">プロセスの表<a class="headerlink" href="#プロセスの表" title="Permanent link">&para;</a></h2>
+<ul>
+<li>同じファイルが二重に入ることは、検査ではなくビルドの規則（上の「読み込み行の差し替え」）が防ぐ。</li>
+<li>検査 7 が見るのはパスだけで、ファイルの中身は見ない。パスに <code>\ui\</code> を含む（<code>ui\</code> フォルダの下にある）ファイルは、<code>*_view.ps1</code> でも部品に入れると止まる。</li>
+</ul>
+<p>テストは次のとおり。</p>
+<ul>
+<li><code>tests/tools/new_single_script.Tests.ps1</code> … ビルドと検査そのもの（まとめる順・部品・新しい別スレッドでの読み込み・<code>-Part indexer</code>）。</li>
+<li><code>tests/meta/structure.Tests.ps1</code> … ソースを 1 本にしても壊れない決まり（別スレッドがパスで部品を読まない・<code>${bundledScriptPath}</code> を dot-source や呼び出しに使わない・トップレベルの <code>trap</code>／<code>exit</code> の形・作った 1 本をコミットしない）。</li>
+<li><code>tests/meta/layers.Tests.ps1</code>・<code>tests/meta/safety.Tests.ps1</code> … 層の決まりと禁止の語を、まとめる元のソースに対して確かめる。</li>
+<li>画面の自動テスト（<code>Gui</code> タグ）… 環境変数 <code>TEBUNKO_GUI_SINGLE=1</code> で、zip 版の代わりに単一 .ps1 版を組み立てて同じ場面を流す。CI の <code>gui-smoke</code> は、S8 で単一 .ps1 版の起動・検索・閉じるを流す。</li>
+</ul>
+<h2 id="実行時の違い">実行時の違い<a class="headerlink" href="#実行時の違い" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>列</th>
-<th>内容</th>
+<th>項目</th>
+<th>zip 版</th>
+<th>単一 .ps1 版</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>種類</td>
-<td><code>Excel</code> / <code>Word</code> / <code>PowerPoint</code>（プロセス名 <code>EXCEL</code> / <code>WINWORD</code> / <code>POWERPNT</code>）</td>
+<td>根フォルダ</td>
+<td><code>scripts/shared/core/paths.ps1</code> から 3 階層上</td>
+<td><code>.ps1</code> 自身がある場所</td>
 </tr>
 <tr>
-<td>PID</td>
-<td>プロセス ID</td>
+<td>設定（<code>setting.config</code>）</td>
+<td>根フォルダ。書き込めなければ既定のワークスペースの直下（<code>getSettingsFilePath</code>）</td>
+<td>同じ決め方。根フォルダが <code>.ps1</code> のある場所になる</td>
 </tr>
 <tr>
-<td>起動時刻</td>
-<td>当日なら <code>H:mm</code>、それ以前は <code>M/d H:mm</code>。取得できなければ空欄</td>
+<td>版の表示</td>
+<td><code>VERSION.txt</code></td>
+<td><code>${bundledVersion}</code></td>
 </tr>
 <tr>
-<td>メモリ</td>
-<td>ワーキングセット（MB）</td>
+<td>画面定義</td>
+<td><code>scripts</code> 内の XAML ファイル</td>
+<td><code>${bundledXaml}</code>。テーマ（<code>theme.xaml</code>）も同じ所から引く</td>
 </tr>
 <tr>
-<td>ウィンドウ</td>
-<td>ウィンドウのタイトル。無ければ <code>（なし）</code></td>
+<td>別スレッドの部品</td>
+<td>実在するファイルを dot-source する</td>
+<td>部品の文字列を関数（<code>importTebunkoPart</code>）として登録して呼ぶ</td>
+</tr>
+<tr>
+<td>アイコン</td>
+<td><code>xaml/app_icon.xaml</code>（ベクターの絵）</td>
+<td><code>${bundledXaml}</code>。窓・スプラッシュ・バージョン情報に出る</td>
+</tr>
+<tr>
+<td>起動口</td>
+<td><code>tebunko.bat</code>（印の解除・実行ポリシーの指定・窓を隠す）</td>
+<td>無い。ファイルを直接実行する</td>
+</tr>
+<tr>
+<td>起動の失敗の知らせ</td>
+<td><code>reportStartupFailure</code></td>
+<td>同じ。外側の受け皿が無いため、画面が開く前の失敗は PowerShell の窓にも出る</td>
 </tr>
 </tbody>
 </table>
 <ul>
-<li>一覧とバックグラウンドの判定は <code>shared/office/office_process.ps1</code> の <code>getOfficeProcesses</code>、終了は <code>stopOfficeProcesses</code> で行う（<a href="../implementation/#実装構成">実装構成</a>）。「バックグラウンド」は <code>MainWindowHandle</code> が 0 のものをさす。列としては表示せず、並び順・［バックグラウンドのみ終了］・タブ見出しの <code>⚠</code> に使う（画面上では「ウィンドウ」列が <code>（なし）</code> かどうかで分かる）。</li>
-<li>並び順はバックグラウンドを先に、次に起動時刻の古い順とする。</li>
-<li>タブを開いたとき・［更新］・終了操作の前後に取り直す。タブを表示している間は 5 秒ごとに自動で取り直す。自動の取り直しは画面の裏の仕事のスレッド（<code>startJob</code>）で行い、画面のスレッドでプロセスを調べない（前の取り直しが終わっていなければ重ねない）。［更新］などの操作での取り直しは、すぐ一覧が要るため画面のスレッドで行う。</li>
+<li>設定は、起動した版のフォルダごとに別になる。zip 版と単一 .ps1 版を別のフォルダに置くと、設定は共有されない。</li>
+<li>作業フォルダ（既定は <code>%USERPROFILE%\Documents\tebunko_ws</code>）は、設定の <code>workspaceFolder</code> が空なら、別のフォルダに置いた zip 版と単一 .ps1 版で同じ場所を使う。インデックスも共有される。取り込みは作業フォルダごとに 1 つずつしか動かない。</li>
+<li>窓の多重起動の判定の鍵（<code>getFolderKey</code>）は、<code>.ps1</code> のあるフォルダから作る。同じフォルダに zip 版を並べて置くと、後から起動した方は画面を作らずに終わる（起動画面は一瞬出る。どちらを先に起動しても同じ）。別のフォルダなら、両方が起動できる。</li>
+<li>単一 .ps1 版は、自分自身の印（Zone.Identifier）を消さない。動き始めたあとに消しても起動には効かず、EDR からは防御の回避に見えるため。</li>
+<li>実行ポリシーも指定しない。右クリック［PowerShell で実行］、または呼び出した側の指定のまま動く。</li>
+<li>zip 版・インストーラー版との間で、設定とインデックスを自動で引き継ぐことはしない。移すには、［エクスポート…］と［インポート…］を使う。</li>
 </ul>
-<h2 id="終了の確認">終了の確認<a class="headerlink" href="#終了の確認" title="Permanent link">&para;</a></h2>
-<p>終了は <code>Stop-Process -Force</code>（保存確認なし）で行うため、必ず確認ダイアログ（<a href="../common/#確認ダイアログshowconfirm">確認ダイアログ</a>）を出す。ボタンは［終了する］。</p>
-<table>
-<thead>
-<tr>
-<th>操作</th>
-<th>見出しと結果</th>
-<th>ボタン</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>バックグラウンドのみ</td>
-<td><code>バックグラウンドの Office を N 件終了しますか？</code> ＋ <code>✓ 画面に出ているファイルはありません</code>（<code>Excel 2 件・Word 1 件</code>）／ <code>→ 残ったまま動いていたものを片付けます</code>（<code>次のインデックス作成で作り直されます</code>）</td>
-<td>［終了する］が既定</td>
-</tr>
-<tr>
-<td>選択・すべて（画面に表示中を含まない）</td>
-<td>同上</td>
-<td>［終了する］が既定</td>
-</tr>
-<tr>
-<td>選択・すべて（画面に表示中を含む）</td>
-<td><code>開いたままの Office を N 件、強制的に終了しますか？</code> ＋ <code>✗ 保存していない内容は失われます</code>（<code>画面に出ているもの：Excel 1 件・PowerPoint 1 件</code>）／ <code>✓ ファイル自体は消えません</code>（<code>保存し忘れがないか、先に画面で確かめてください</code>）</td>
-<td>赤い［終了する］。<strong>［キャンセル］が既定</strong></td>
-</tr>
-<tr>
-<td>インデックス作成が実行中（<a href="../indexing-run/#実行ボタンの表示">実行ボタンの表示</a> の「インデックス作成中」）</td>
-<td>上の結果に <code>✗ いま取り込み中のファイルは失敗あつかいになります</code>（<code>インデックス作成が終わってから終了するのが安全です</code>）を足す</td>
-<td>赤い［終了する］。［キャンセル］が既定</td>
-</tr>
-</tbody>
-</table>
+<h2 id="配布">配布<a class="headerlink" href="#配布" title="Permanent link">&para;</a></h2>
+<p><code>release.yml</code> が、タグの push（または手動の試運転）で次を行う。</p>
+<ol>
+<li>zip・インストーラーを作って検査する。</li>
+<li>結合の道具で <code>tebunko-&lt;タグ&gt;.ps1</code> を作る。</li>
+<li><code>SHA256SUMS.txt</code> に、単一 .ps1 版の SHA256 を 1 行追記する。<code>tebunko.cat</code> は <code>.ps1</code> を対象にしないため、改ざんの確認は <code>SHA256SUMS.txt</code> と来歴の署名で行う。</li>
+<li>来歴（Sigstore）に署名し、bundle（<code>tebunko-&lt;タグ&gt;.ps1.sigstore.json</code>）を作る（タグの push のときだけ）。</li>
+<li>GitHub Release に、zip・インストーラーと並べて載せ、説明に SHA256 と試験版であることを書く。</li>
+</ol>
+<p>zip・インストーラーの中身は変えない。検査の詳細は<a href="../../../safety/scans/">第三者のツールによる検査結果</a>、開示する内容は<a href="../../../safety/disclosure/">開示事項</a>にある。</p>
+<h2 id="制約">制約<a class="headerlink" href="#制約" title="Permanent link">&para;</a></h2>
+<p>単一 .ps1 版で新しく生じるものだけを書く。</p>
 <ul>
-<li>終了後はステータスに <code>N 個のプロセスを終了しました。</code> と表示し、一覧を取り直す。</li>
-<li>終了できなかったプロセス（権限不足など）があれば、<code>PID &lt;N&gt; を終了できませんでした：&lt;理由&gt;</code> と表示する。</li>
-</ul>
-<h2 id="タブ見出しの-">タブ見出しの ⚠<a class="headerlink" href="#タブ見出しの-" title="Permanent link">&para;</a></h2>
-<ul>
-<li>バックグラウンドのプロセスが 1 件以上あり、かつインデックス作成が実行中（<a href="../indexing-run/#実行ボタンの表示">実行ボタンの表示</a> の「インデックス作成中」）でないとき、<code>⚠ 9 プロセス停止</code> と表示する。</li>
-<li>判定は起動時と、ウィンドウがアクティブになったときに行う。アクティブになったときの数え上げは、画面の裏の仕事のスレッド（<code>startJob</code>）で行い、数が分かったら印を付け直す。</li>
+<li><code>tebunko.ico</code> は埋め込まない。画面のアイコンは XAML（<code>app_icon.xaml</code>）なので、ほかの画面定義と同じく埋め込まれる。<code>.ico</code> が要るのはインストーラー・ショートカットだけで、単一 .ps1 版は使わない。</li>
+<li><code>tebunko.bat</code> が持つ、起動の失敗のフォールバック（言語モードなどの記録）は持たない。</li>
+<li><code>lib.ps1</code> の読み込みの失敗は、起動の失敗の知らせ（<code>reportStartupFailure</code>）に届かず、PowerShell の窓に出る。</li>
+<li><code>tebunko.cat</code>（カタログ）の対象にならない。</li>
 </ul>
 
 
@@ -4297,7 +4599,7 @@
       <nav class="md-footer__inner md-grid" aria-label="フッター" >
         
           
-          <a href="../settings-tab/" class="md-footer__link md-footer__link--prev" aria-label="前: ［8 設定］タブ">
+          <a href="../classes/" class="md-footer__link md-footer__link--prev" aria-label="前: クラスと関数の使い分け">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4307,20 +4609,20 @@
                 前
               </span>
               <div class="md-ellipsis">
-                ［8 設定］タブ
+                クラスと関数の使い分け
               </div>
             </div>
           </a>
         
         
           
-          <a href="../implementation/" class="md-footer__link md-footer__link--next" aria-label="次: 画面の実装構成">
+          <a href="../../indexing/" class="md-footer__link md-footer__link--next" aria-label="次: インデックス作成">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 次
               </span>
               <div class="md-ellipsis">
-                画面の実装構成
+                インデックス作成
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -6,7 +6,7 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Office ファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
+        <meta name="description" content="Office ファイルとテキストファイルを中身の文字で一括検索する Windows 用ツール tebunko の使い方・安全性・設計">
       
       
       
@@ -765,7 +765,7 @@
   <span class="md-ellipsis">
     
   
-    Office プロセスの停止
+    残った Office の終了
   
 
     
@@ -1563,6 +1563,8 @@
       
         
       
+        
+      
     
     
     
@@ -1822,6 +1824,34 @@
     
   
     クラスと関数の使い分け
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../structure/single-script/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    単一 PowerShell のビルド
   
 
     
@@ -3119,7 +3149,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
+    ［設定］タブ
   
 
     
@@ -3140,14 +3170,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gui/process-tab/" class="md-nav__link">
+      <a href="../../gui/leftover-office/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    ［9 プロセス停止］タブ
+    前回残った Office の確認
   
 
     
@@ -3228,8 +3258,6 @@
       
         
           
-        
-      
         
       
         
@@ -3336,7 +3364,7 @@
   <span class="md-ellipsis">
     
   
-    ［1 インデックス管理］タブ
+    ［インデックス管理］タブ
   
 
     
@@ -3364,7 +3392,7 @@
   <span class="md-ellipsis">
     
   
-    ［2 検索］タブ
+    ［検索］タブ
   
 
     
@@ -3392,35 +3420,7 @@
   <span class="md-ellipsis">
     
   
-    ［8 設定］タブ
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../gui/screens/process-tab/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ［9 プロセス停止］タブ
+    ［設定］タブ
   
 
     
@@ -4382,7 +4382,7 @@
 <p><strong><a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a> Excel の図形・コメントの読み取り（<code>readXlsxObjectUnits</code>）</strong> → <a href="../excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a></p>
 </blockquote>
 <h2 id="失敗の原因describeingesterror">失敗の原因（<code>describeIngestError</code>）<a class="headerlink" href="#失敗の原因describeingesterror" title="Permanent link">&para;</a></h2>
-<p>取り込みに失敗したファイルは、取り込み一覧のエラー列に<strong>失敗の原因</strong>を記録する。画面の［1 インデックス管理］タブには、失敗したファイルと原因を一覧で表示する（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）。</p>
+<p>取り込みに失敗したファイルは、取り込み一覧のエラー列に<strong>失敗の原因</strong>を記録する。画面の［インデックス管理］タブには、失敗したファイルと原因を一覧で表示する（<a href="../../gui/index-tab/">インデックス一覧の管理</a>）。</p>
 <p>Office アプリの例外メッセージはそのままでは分かりにくい（パスワード付きのファイルでも「入力したパスワードが間違っています」と出る、作業領域のコピーのパスが出る、等）。そのため <code>describeIngestError</code> で、よくある原因を言い換えて <code>原因（詳細: 元のメッセージ）</code> の形にする。</p>
 <ul>
 <li>メソッド呼び出しの例外（<code>"7" 個の引数を指定して "Open" を呼び出し中に例外が発生しました</code> 等）は、中の例外（<code>GetBaseException()</code>）のメッセージを使う。</li>
