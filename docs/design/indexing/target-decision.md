@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart TD
-    A["取り込み一覧を読む（readStatusFile）"] --> N["インデックス名の割り当て（assignIndexNames）<br>設定から削除したフォルダのインデックスを削除（removeDroppedFolders）<br>本文インデックスに入れていない TSV を本文インデックスに書き出す"]
+    A["取り込み一覧を読む（readStatusFile）"] --> N["インデックス名の割り当て（assignIndexNames）<br>設定から外れたインデックスを見つける（findDroppedIndexes。削除は確認で［更新を開始］が押された後）<br>本文インデックスに入れていない TSV を本文インデックスに書き出す"]
     N --> C["インデックスにある本文インデックスのファイル・TSV の数を数える（getIndexTsvCounts）"]
     C --> FOLDER{"クロール対象フォルダごと（設定の順）"}
     FOLDER -- "チェックなし・フォルダが見つからない" --> KEEP["取り込まない<br>前回の行をそのまま残す"]

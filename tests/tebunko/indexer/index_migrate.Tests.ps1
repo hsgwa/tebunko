@@ -333,6 +333,36 @@ Describe "newWorkerTmpDir" -Tag Io {
     }
 }
 
+Describe "findDroppedIndexes" -Tag Unit {
+    It "<name>" -TestCases @(
+        @{ name = "今回の設定に無い名前だけを返す"; current = @("営業"); previous = @("営業", "技術", "経理"); expected = @("技術", "経理") }
+        @{ name = "大文字・小文字だけ違う名前は、同じインデックスとして返さない"; current = @("sales"); previous = @("Sales"); expected = @() }
+        @{ name = "前回が null なら空"; current = @("営業"); previous = $null; expected = @() }
+    ) {
+        param ($name, $current, $previous, $expected)
+        $folders = @($current | ForEach-Object { [pscustomobject]@{ Path = "C:\data\$_"; Name = $_ } })
+        $prev = if ($null -eq $previous) { $null } else { @($previous | ForEach-Object { [pscustomobject]@{ Path = "C:\data\$_"; Name = $_ } }) }
+        $result = @(findDroppedIndexes $folders $prev)
+        @($result | ForEach-Object { $_.Name }) -join "," | Should -Be ($expected -join ",")
+    }
+}
+
+Describe "getDroppedStatusRows" -Tag Unit {
+    It "外れたインデックスの前回の行だけを返す（名前の先頭が同じだけの別のインデックスは返さない）" {
+        $rows = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::OrdinalIgnoreCase)
+        $rows["技術\a.docx"] = [pscustomobject]@{ 相対パス = "技術\a.docx" }
+        $rows["技術2\b.docx"] = [pscustomobject]@{ 相対パス = "技術2\b.docx" }
+        $rows["営業\c.docx"] = [pscustomobject]@{ 相対パス = "営業\c.docx" }
+        $result = @(getDroppedStatusRows @([pscustomobject]@{ Path = "C:\data\技術"; Name = "技術" }) $rows)
+        @($result | ForEach-Object { $_.相対パス }) -join "," | Should -Be "技術\a.docx"
+    }
+
+    It "外れたものが無い・前回の行が無いなら空" {
+        @(getDroppedStatusRows @() @{}).Count | Should -Be 0
+        @(getDroppedStatusRows @([pscustomobject]@{ Path = "C:\x"; Name = "x" }) $null).Count | Should -Be 0
+    }
+}
+
 Describe "removeDroppedFolders" -Tag Io {
     It "クロール対象から削除されたフォルダのインデックスだけを削除する" {
         $indexDir = "$TestDrive\dropped\index"
@@ -346,7 +376,7 @@ Describe "removeDroppedFolders" -Tag Io {
             [pscustomobject]@{ Path = "C:\data\消えた"; Name = "消えた" }  # インデックスのフォルダが無い
         )
 
-        removeDroppedFolders $folders $previous
+        removeDroppedFolders @(findDroppedIndexes $folders $previous)
 
         Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
         Test-Path -LiteralPath "$indexDir\技術" | Should -Be $false
@@ -359,10 +389,10 @@ Describe "removeDroppedFolders" -Tag Io {
         newTsv (toLongPath "$deep\見積.xlsx\Sheet1.tsv") @("a")
         newTsv "$indexDir\[旧]営業2\見積.xlsx\Sheet1.tsv" @("b")  # 名前の先頭が同じだけの別のインデックスは残す
 
-        removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\営業2"; Name = "[旧]営業2" }) @(
+        removeDroppedFolders @(findDroppedIndexes @([pscustomobject]@{ Path = "C:\data\営業2"; Name = "[旧]営業2" }) @(
             [pscustomobject]@{ Path = "C:\data\旧営業"; Name = "[旧]営業" },
             [pscustomobject]@{ Path = "C:\data\営業2"; Name = "[旧]営業2" }
-        )
+        ))
 
         [System.IO.Directory]::Exists((toLongPath "$indexDir\[旧]営業")) | Should -Be $false
         Test-Path -LiteralPath "$indexDir\[旧]営業2\見積.xlsx\Sheet1.tsv" | Should -Be $true
@@ -373,7 +403,7 @@ Describe "removeDroppedFolders" -Tag Io {
         $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\営業\見積.xlsx\Sheet1.tsv" @("a")
 
-        removeDroppedFolders @() $null
+        removeDroppedFolders @(findDroppedIndexes @() $null)
 
         Test-Path -LiteralPath "$indexDir\営業\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }
@@ -383,7 +413,7 @@ Describe "removeDroppedFolders" -Tag Io {
         $workspace = newTestWorkspace @{ IndexDir = $indexDir }
         newTsv "$indexDir\Sales\見積.xlsx\Sheet1.tsv" @("a")
 
-        removeDroppedFolders @([pscustomobject]@{ Path = "C:\data\sales"; Name = "sales" }) @([pscustomobject]@{ Path = "C:\data\Sales"; Name = "Sales" })
+        removeDroppedFolders @(findDroppedIndexes @([pscustomobject]@{ Path = "C:\data\sales"; Name = "sales" }) @([pscustomobject]@{ Path = "C:\data\Sales"; Name = "Sales" }))
 
         Test-Path -LiteralPath "$indexDir\Sales\見積.xlsx\Sheet1.tsv" | Should -Be $true
     }

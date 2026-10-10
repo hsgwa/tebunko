@@ -16,9 +16,15 @@ function newPlanViewRows {
     foreach ($item in @($plan)) {
         # 空の配列を渡すと @($plan) に $null が 1 つ入るため、ここで外す
         if ($null -eq $item) { continue }
-        if (@($onlyNames).Count -gt 0 -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
+        if (@($onlyNames).Count -gt 0 -and $item.区分 -ne ${planKindDropped} -and @($onlyNames) -notcontains [string]$item.インデックス名) { continue }
         $row = @{ Name = $item.インデックス名; Path = $item.元のフォルダ }
-        if ($item.区分 -eq ${planKindUnchecked}) {
+        if ($item.区分 -eq ${planKindDropped}) {
+            # 選んだものだけの回でも出す（［更新を開始］で消えるため、利用者に見せずに消さない）
+            $row.TotalText = "－"
+            $row.StatusText = "削除予定"
+            $row.Level = "Ng"
+            $row.DetailText = "設定に無いため、［更新を開始］でこのインデックスを削除します"
+        } elseif ($item.区分 -eq ${planKindUnchecked}) {
             $row.TotalText = "－"
             $row.StatusText = "対象外"
             $row.Level = "None"
@@ -173,21 +179,35 @@ function getIndexingConfirmFolderCount {
     return $folders
 }
 
+function getIndexingDroppedCount {
+    # 確認に出す「削除予定」（設定から外れたインデックス）の数。選んだものだけの回でも数える
+    param (
+        [object[]]$plan  # readIngestPlan の結果
+    )
+
+    return @(@($plan) | Where-Object { $null -ne $_ -and $_.区分 -eq ${planKindDropped} }).Count
+}
+
 function getIndexingConfirmText {
     # 「失敗分も更新し直す」のチェックに合わせた、合計の文言と主ボタンの文言
     param (
         [int]$targets,      # 更新対象のファイル数
         [int]$failed,       # 前回失敗したファイル数
         [bool]$retryFailed, # 失敗分も更新し直すか
-        [int]$folders = 0   # 更新するフォルダの数（失敗分を含めるかは呼び出し側で数える）
+        [int]$folders = 0,  # 更新するフォルダの数（失敗分を含めるかは呼び出し側で数える）
+        [int]$dropped = 0   # 削除予定のインデックスの数（getIndexingDroppedCount）
     )
 
     $total = $targets
     if ($retryFailed) {
         $total += $failed
     }
+    $droppedText = if ($dropped -gt 0) { "設定に無いインデックス {0:#,0} 件を削除します。" -f $dropped } else { "" }
     if ($total -gt 0) {
-        return @{ Total = $total; Text = "更新対象: {0:#,0} フォルダ / {1:#,0} ファイル（最新のフォルダは更新しません）" -f $folders, $total; Button = "更新を開始" }
+        return @{ Total = $total; Text = ("更新対象: {0:#,0} フォルダ / {1:#,0} ファイル（最新のフォルダは更新しません）" -f $folders, $total) + $(if ($dropped -gt 0) { " " + $droppedText } else { "" }); Button = "更新を開始" }
+    }
+    if ($dropped -gt 0) {
+        return @{ Total = 0; Text = "更新が必要なファイルはありません。" + $droppedText; Button = "更新を開始" }
     }
     return @{ Total = 0; Text = "更新が必要なファイルはありません（すべて最新です）。"; Button = "閉じる" }
 }

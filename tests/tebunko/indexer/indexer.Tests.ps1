@@ -445,6 +445,75 @@ Describe "indexer.ps1（画面の確認・中止）" -Tag Io {
     }
 }
 
+Describe "indexer.ps1（設定から外れたインデックス）" -Tag Io {
+    BeforeAll {
+        $approvalLine = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne' }
+        function newDroppedRoot {
+            # 「総務」「企画」を取り込んだあと、設定から「企画」を外した状態にする。Before には「企画」の中身（更新日時・TSV）を控える
+            $a = newSourceFolder "総務"
+            $b = newSourceFolder "企画"
+            $root = newRoot
+            writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true }, @{ name = "企画"; path = $b; enabled = $true })
+            runIndexer $root | Should -Be 0
+            $pack = @(Get-ChildItem -LiteralPath "$root\work\content_index\企画" -Filter "*.tsv" -File)[0]
+            writeTestSettings $root @(@{ name = "総務"; path = $a; enabled = $true })
+            return @{ Root = $root; Pack = $pack.FullName; Time = $pack.LastWriteTimeUtc; Hash = (Get-FileHash -LiteralPath $pack.FullName).Hash }
+        }
+        function assertDroppedKept {
+            param ($state)
+            $dir = "$($state.Root)\work\content_index\企画"
+            Test-Path -LiteralPath $state.Pack | Should -Be $true
+            (Get-Item -LiteralPath $state.Pack).LastWriteTimeUtc | Should -Be $state.Time
+            (Get-FileHash -LiteralPath $state.Pack).Hash | Should -Be $state.Hash
+            $status = readTestStatus $state.Root
+            @($status.Folders | ForEach-Object { $_.Name }) | Should -Contain "企画"
+            @($status.Rows.Keys | Where-Object { $_ -like "企画\*" }).Count | Should -BeGreaterThan 0
+            # 検索の経路（pack_search.ps1）で、残したインデックスの中の語が今までどおり当たる
+            $found = getIndexPackFiles @("$($state.Root)\work\content_index")
+            $regex = New-Object regex ([regex]::Escape("大文字拡張子"))
+            @(searchPackFiles $found.Packs 0 $found.Packs.Count $regex -1 $regex "lines").Count | Should -BeGreaterThan 0
+        }
+    }
+
+    It "確認なし（画面なしの実行）では、設定から外れたインデックスを消さず、黄色のログで知らせる" {
+        $state = newDroppedRoot
+        runIndexer $state.Root | Should -Be 0
+        assertDroppedKept $state
+        [System.IO.File]::ReadAllText("$($state.Root)\work\indexing_log.txt") | Should -Match "設定に無いインデックス（企画: .*）は削除せずに残しました"
+    }
+
+    It "確認で取りやめたら、設定から外れたインデックスを消さず、次の回にまた見つける" {
+        $state = newDroppedRoot
+        $cancel = $approvalLine.Clone()
+        $cancel.Action = { answerIndexingPlan $channel $null }
+        runIndexer $state.Root @{ ConfirmTargets = $true } @($cancel) | Should -Be 2
+        assertDroppedKept $state
+        $seen = New-Object System.Collections.Generic.List[string]
+        $global:droppedSeenKinds = $seen
+        $approve = $approvalLine.Clone()
+        $approve.Action = { $global:droppedSeenKinds.Add((@($channel.Plan | Where-Object { $_.区分 -eq ${planKindDropped} } | ForEach-Object { $_.インデックス名 }) -join ",")); answerIndexingPlan $channel $null }
+        runIndexer $state.Root @{ ConfirmTargets = $true } @($approve) | Should -Be 2
+        Remove-Variable -Name droppedSeenKinds -Scope Global -ErrorAction SilentlyContinue
+        $seen[0] | Should -Be "企画"
+    }
+
+    It "確認で［更新を開始］を押したら、設定から外れたインデックスを消し、取り込み一覧からも外す。確認に出す予定には「削除予定」の行がある" {
+        $state = newDroppedRoot
+        $global:droppedPlanKinds = $null
+        $approve = $approvalLine.Clone()
+        $approve.Action = { $global:droppedPlanKinds = @($channel.Plan | ForEach-Object { "$($_.インデックス名):$($_.区分)" }); answerIndexingPlan $channel @{ RetryFailed = $false } }
+        runIndexer $state.Root @{ ConfirmTargets = $true } @($approve) | Should -Be 0
+        $kinds = $global:droppedPlanKinds
+        Remove-Variable -Name droppedPlanKinds -Scope Global -ErrorAction SilentlyContinue
+        $kinds | Should -Contain "企画:${planKindDropped}"
+        Test-Path -LiteralPath "$($state.Root)\work\content_index\企画" | Should -Be $false
+        $status = readTestStatus $state.Root
+        @($status.Folders | ForEach-Object { $_.Name }) | Should -Not -Contain "企画"
+        @($status.Rows.Keys | Where-Object { $_ -like "企画\*" }).Count | Should -Be 0
+        Test-Path -LiteralPath "$($state.Root)\work\content_index\総務" | Should -Be $true
+    }
+}
+
 Describe "indexer.ps1（選んだインデックスだけを更新する。OnlyNames）" -Tag Io {
     BeforeAll {
         $approvalLine = @{ Script = $reporterPath; Pattern = '^\s+if \(!\$ch\.Answered\.WaitOne' }

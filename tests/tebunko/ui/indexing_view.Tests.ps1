@@ -6,7 +6,7 @@ BeforeAll {
     function newPlanItem {
         param ([string]$kind, [int]$files = 0, [int]$targets = 0, [int]$new = 0, [int]$updated = 0, [int]$failed = 0)
         return [pscustomobject]@{
-            インデックス名 = "売上"; 元のフォルダ = "C:\data\売上"; 区分 = $kind
+            インデックス名 = "売上"; 元のフォルダ = "C:data\売上"; 区分 = $kind
             ファイル数 = $files; 取り込み対象 = $targets; 新規 = $new; 更新あり = $updated
             前回未完了 = 0; インデックスなし = 0; 前回失敗 = $failed
         }
@@ -57,12 +57,49 @@ Describe "newPlanViewRows" -Tag Unit {
 Describe "newPlanViewRows（選んだものだけの回）" -Tag Unit {
     It "onlyNames に無いインデックスは出さない（空なら全部）" {
         $plan = @(
-            [pscustomobject]@{ インデックス名 = "売上"; 元のフォルダ = "C:\data\売上"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
-            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:\data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            [pscustomobject]@{ インデックス名 = "売上"; 元のフォルダ = "C:data\売上"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
         )
         (newPlanViewRows $plan @("見積")).Count | Should -Be 1
         (newPlanViewRows $plan @("見積"))[0].Name | Should -Be "見積"
         (newPlanViewRows $plan @()).Count | Should -Be 2
+    }
+}
+
+Describe "newPlanViewRows（削除予定）" -Tag Unit {
+    It "設定から外れたインデックスは「削除予定」（赤）で、削除されることを ToolTip に出す" {
+        $row = (newPlanViewRows (newPlanItem ${planKindDropped}))[0]
+        $row.StatusText | Should -Be "削除予定"
+        $row.Level | Should -Be "Ng"
+        $row.TotalText | Should -Be "－"
+        $row.DetailText | Should -Be "設定に無いため、［更新を開始］でこのインデックスを削除します"
+    }
+
+    It "選んだものだけの回でも、onlyNames に無い名前の削除予定は必ず出す" {
+        $plan = @(
+            [pscustomobject]@{ インデックス名 = "見積"; 元のフォルダ = "C:data\見積"; 区分 = ${planKindUnchecked}; ファイル数 = 0; 取り込み対象 = 0; 新規 = 0; 更新あり = 0; 前回未完了 = 0; インデックスなし = 0; 前回失敗 = 0 }
+            (newPlanItem ${planKindDropped})
+        )
+        $rows = newPlanViewRows $plan @("見積")
+        $rows.Count | Should -Be 2
+        @($rows | Where-Object { $_.StatusText -eq "削除予定" }).Count | Should -Be 1
+    }
+}
+
+Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag Unit {
+    It "削除予定の行だけを数える" {
+        getIndexingDroppedCount @((newPlanItem ${planKindDropped}), (newPlanItem ${planKindIngest} 10 2), $null) | Should -Be 1
+        getIndexingDroppedCount @() | Should -Be 0
+    }
+
+    It "更新するファイルが無くても、削除予定があれば［更新を開始］にして件数を出す（閉じるだけにしない）" {
+        $view = getIndexingConfirmText 0 0 $false 0 2
+        $view.Button | Should -Be "更新を開始"
+        $view.Text | Should -Match "設定に無いインデックス 2 件を削除します"
+    }
+
+    It "更新するファイルがあるときは、削除する件数も足す" {
+        (getIndexingConfirmText 12 0 $false 2 1).Text | Should -Match "12 ファイル.*設定に無いインデックス 1 件を削除します"
     }
 }
 

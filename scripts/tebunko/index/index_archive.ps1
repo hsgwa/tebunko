@@ -722,7 +722,7 @@ function importIndexCore {
         }
 
         # 同じ元のフォルダが、別の名前のクロール対象フォルダに既にある・入れ子になっていれば止める（getTargetFolders は同じフォルダの 2 つ目以降を読まないため、
-        # 登録しても設定に残らず、次のインデックス作成で removeDroppedFolders がこのインデックスを消す。画面の追加・編集と同じ getIndexFolderConflict の決まり）。
+        # 登録しても設定に残らず、次のインデックス作成の確認に、このインデックスが「削除予定」として出る。画面の追加・編集と同じ getIndexFolderConflict の決まり）。
         # 検索だけのインデックス（indexSources）の元のフォルダと同じなら、止めずに知らせる
         $conflict = getIndexFolderConflict $folder @(getTargetFolders $settingsPath | Where-Object { $_.Name -ine $finalName })
         if ($conflict -ne "") {

@@ -319,7 +319,7 @@ function removeWorkspaceEntries {
 function useWorkspaceTargets {
     # ワークスペース dir の取り込み一覧にあるクロール対象フォルダを、インデックスの一覧（設定の targetFolders）にし、その数を返す。
     # ほかの人が作ったワークスペースを使うとき、一覧をそのワークスペースに合わせる（合わせないままインデックス作成をすると、
-    # 一覧に無いインデックスは削除されたフォルダのものとして消える。removeDroppedFolders）。取り込み一覧が無ければ一覧は変えない
+    # 一覧に無いインデックスは、インデックス更新の確認に「削除予定」として出る。findDroppedIndexes）。取り込み一覧が無ければ一覧は変えない
     param (
         [string]$dir,
         [string]$path = ${settingsFile}
