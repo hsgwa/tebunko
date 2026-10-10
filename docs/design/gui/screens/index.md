@@ -94,7 +94,7 @@ stateDiagram-v2
 | `search-tab/results` | 結果あり（ファイルごとの見出し・行を選んだプレビュー） | 23 |
 | `search-tab/no-results` | 結果が 0 件 | 23 |
 | `search-tab/limit` | 件数の上限で打ち切った | 23 |
-| `search-tab/regex-error` | 不正な正規表現の注意 | 24 |
+| `search-tab/regex-error` | 不正な正規表現の吹き出し | 24 |
 | `search-tab/tree-none` | 検索対象のツリーですべて解除した注意 | 25 |
 | `search-tab/collapsed` | 結果をすべて折りたたんだ | 27 |
 | `search-tab/filtered` | 結果を絞り込んだ | 27 |

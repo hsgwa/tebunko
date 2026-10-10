@@ -467,7 +467,7 @@ function captureSearchScene {
         setGuiStep $S "正規表現で不正な式"
         toggleGui (findGui $S.Window -Id "RegexCheck")
         setGuiText $S (findGui $S.Window -Id "WordBox") "("
-        waitGui $S "注意（WordNotice）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "WordNotice")) -eq "正規表現が正しくありません" } | Out-Null
+        waitGui $S "吹き出し（RegexBalloon）が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "RegexBalloonText")) -eq "正規表現が正しくありません" } | Out-Null
         captureGuiState -S $S -Id "search-tab/regex-error" -Ids $Ids -OutDir $OutDir `
             -UserName $UserName -ComputerName $ComputerName -UserProfile $UserProfile -Sizes $Sizes
         setGuiText $S (findGui $S.Window -Id "WordBox") ""
@@ -504,7 +504,7 @@ function captureSearchScene {
 
         setGuiStep $S "検索して結果を選ぶ"
         & $search "単価"
-        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "2 件（*" } | Out-Null
+        waitGui $S "該当 2 件" ${guiDefaultTimeout} { (& $summary) -like "一致 2 件（*" } | Out-Null
         clickGui $S $S.Window "ExpandAllButton" "［すべて開く］"
         $row = waitGui $S "結果の行" ${guiDefaultTimeout} { @(& $hitRows) | Select-Object -Last 1 }
         selectGui $row

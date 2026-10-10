@@ -21,8 +21,19 @@
             <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Style="{StaticResource Link}" Content="フォルダを開く" Margin="14,0,0,0" IsEnabled="False"
                     VerticalAlignment="Center" />
             <!-- ［開く ▾］。［開く］は選んである開き方で開き、▾ から開き方を選ぶ（選んだ開き方は次からも使う。ダブルクリック・Enter も同じ） -->
-            <Border DockPanel.Dock="Right" CornerRadius="6" BorderThickness="1" BorderBrush="{StaticResource Accent}"
+            <Border DockPanel.Dock="Right" CornerRadius="6" BorderThickness="1"
                     Background="{StaticResource Bg.Surface}" VerticalAlignment="Center" Height="26">
+              <!-- 使えないときは、枠・仕切り・文字・▾ をそろえて Ink.Disabled にする（枠だけ Accent のまま残さない） -->
+              <Border.Style>
+                <Style TargetType="Border">
+                  <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding ElementName=OpenButton, Path=IsEnabled}" Value="False">
+                      <Setter Property="BorderBrush" Value="{StaticResource Ink.Disabled}" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Border.Style>
               <StackPanel Orientation="Horizontal">
                 <Button x:Name="OpenButton" Content="開く" IsEnabled="False" Cursor="Hand" FontSize="11" Padding="12,0" MinWidth="0" Height="Auto"
                         Foreground="{StaticResource Accent.Hover}" Background="Transparent" BorderThickness="0">
@@ -34,12 +45,23 @@
                       </Border>
                       <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
-                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Faint}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Label" Property="Foreground" Value="{StaticResource Ink.Disabled}" /></Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
                   </Button.Template>
                 </Button>
-                <Rectangle Width="1" Fill="{StaticResource Accent}" />
+                <Rectangle Width="1">
+                  <Rectangle.Style>
+                    <Style TargetType="Rectangle">
+                      <Setter Property="Fill" Value="{StaticResource Accent}" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding ElementName=OpenButton, Path=IsEnabled}" Value="False">
+                          <Setter Property="Fill" Value="{StaticResource Ink.Disabled}" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Rectangle.Style>
+                </Rectangle>
                 <Button x:Name="OpenMenuButton" IsEnabled="False" Cursor="Hand" Padding="6,0" MinWidth="0" Height="Auto" Background="Transparent" BorderThickness="0"
                         AutomationProperties.Name="開き方を選ぶ" ToolTip="開き方を選びます">
                   <Button.Template>
@@ -51,7 +73,7 @@
                       </Border>
                       <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{StaticResource Select.Soft}" /></Trigger>
-                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource Ink.Faint}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource Ink.Disabled}" /></Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
                   </Button.Template>
@@ -191,7 +213,7 @@
             <!-- 行を選んでいないときの案内（プレビューの枠は出したままにする） -->
             <TextBlock x:Name="PreviewPlaceholder" Style="{StaticResource Placeholder}" Margin="12,10"
                        VerticalAlignment="Top" TextWrapping="Wrap"
-                       Text="結果の表で行を選ぶと、ここにその前後の行を表示します。" />
+                       Text="行を選ぶと、その前後を表示します。" />
           </Grid>
         </Border>
       </DockPanel>

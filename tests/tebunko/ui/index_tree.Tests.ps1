@@ -21,14 +21,8 @@ BeforeAll {
     $tree | Add-Member ScriptMethod AddHandler { param ($event, $handler) $handlers["IndexTree.$($event.Name)"] = $handler }
     $tree | Add-Member ScriptMethod Add_PreviewKeyDown { param ($block) $handlers["IndexTree.PreviewKeyDown"] = $block }
 
-    $filterBox = [pscustomobject]@{ Text = "" }
-    $filterBox | Add-Member ScriptMethod Add_TextChanged { param ($block) $handlers["IndexTreeFilterBox.TextChanged"] = $block }
-
     $ui = [pscustomobject]@{
         IndexTree             = $tree
-        IndexTreeFilterBox    = $filterBox
-        IndexTreeFilterPlaceholder = [pscustomobject]@{ Visibility = "Visible" }
-        IndexTreePlaceholder  = [pscustomobject]@{ Visibility = "Collapsed" }
         CheckAllIndexButton   = newFakeButton "CheckAll"
         UncheckAllIndexButton = newFakeButton "UncheckAll"
     }
@@ -42,7 +36,6 @@ BeforeAll {
         $fake.TargetUpdates++
     }
 
-    . "${scriptsDir}\tebunko\ui\search\target_tree_view.ps1"
     . "${scriptsDir}\tebunko\ui\index_tree.ps1"
 
     # 設定の保存先がリポジトリの setting.config・work\ にならないよう、どこにも無い場所にしておく（各 Describe で TestDrive に向け直す）
@@ -121,11 +114,10 @@ Describe "loadIndexTree" -Tag Io {
         $fake.TargetUpdates = 0
     }
 
-    It "インデックスが無ければ案内を出す" {
+    It "インデックスが無ければ空のまま対象を更新する" {
         loadIndexTree
 
         $script:indexRoots.Count | Should -Be 0
-        $ui.IndexTreePlaceholder.Visibility | Should -Be "Visible"
         $fake.TargetUpdates | Should -Be 1
         @(getSearchTargets).Count | Should -Be 0
     }
@@ -137,7 +129,6 @@ Describe "loadIndexTree" -Tag Io {
         loadIndexTree
 
         (@($script:indexRoots | ForEach-Object { $_.Name }) -join ",") | Should -Be "総務部,営業部"
-        $ui.IndexTreePlaceholder.Visibility | Should -Be "Collapsed"
         (getRoot "営業部").SourcePath | Should -Be "C:\共有\営業部"
         (getRoot "営業部").ToolTip | Should -Match "^元のフォルダ：C:\\共有\\営業部"
         isAllIndexChecked | Should -Be $true
@@ -362,25 +353,5 @@ Describe "イベント" -Tag Io {
 
         isAllIndexChecked | Should -Be $true
         $fake.TargetUpdates | Should -Be 0
-    }
-}
-
-Describe "検索対象のツリーの名前の絞り込み" -Tag Unit {
-    It "絞り込みの文字に合うインデックスだけをツリーに見せ、一覧（indexRoots）は変えない" {
-        $script:indexRoots.Clear()
-        foreach ($name in "経理", "営業", "経理（旧）") {
-            $script:indexRoots.Add([IndexNode]::CreateRoot("$TestDrive\none", $name, $name, $null))
-        }
-        $ui.IndexTreeFilterBox.Text = "経理"
-        & $handlers["IndexTreeFilterBox.TextChanged"]
-        @($script:indexRootView | ForEach-Object { $_.Name }) | Should -Be @("経理", "経理（旧）")
-        $script:indexRoots.Count | Should -Be 3
-        $ui.IndexTreeFilterPlaceholder.Visibility | Should -Be "Collapsed"
-
-        $ui.IndexTreeFilterBox.Text = ""
-        & $handlers["IndexTreeFilterBox.TextChanged"]
-        @($script:indexRootView).Count | Should -Be 3
-        $ui.IndexTreeFilterPlaceholder.Visibility | Should -Be "Visible"
-        $script:indexRoots.Clear()
     }
 }
