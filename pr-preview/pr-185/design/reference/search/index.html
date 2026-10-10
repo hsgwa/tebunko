@@ -4291,8 +4291,8 @@
 <tr>
 <td><code>getContentIndexFiles</code></td>
 <td>folders（既定 <code>$workspace.IndexDir</code>。フォルダの文字列、または <code>@{Root; RelPath; Recurse}</code>（画面のツリーで選んだ範囲。<code>Recurse</code> が <code>$false</code> なら直下だけ）の配列）, onProgress（フォルダを 1 つ数えるたびに <code>{ param($count) }</code> を呼ぶ）</td>
-<td><code>@{Folders; Packs}</code></td>
-<td>検索対象の本文インデックスのファイルを列挙する（<code>findContentIndexFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、Packs は <code>findContentIndexFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
+<td><code>@{Folders; ContentIndexFiles}</code></td>
+<td>検索対象の本文インデックスのファイルを列挙する（<code>findContentIndexFiles</code>）。結果の相対パスは <code>Root</code> から求める。Folders はフォルダごとの <code>@{Path; Root; Exists; Count}</code>、ContentIndexFiles は <code>findContentIndexFiles</code> の要素をつないだもの（フォルダの順・名前の順、重複なし）</td>
 <td><a href="../../search/speed/">検索を速くする仕組み</a></td>
 <td>検索・画面、getFastSearchContentIndexFiles</td>
 </tr>
