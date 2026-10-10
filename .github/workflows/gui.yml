@@ -88,7 +88,7 @@ jobs:
   gui-smoke-repeat:
     needs: repeat-plan
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -105,6 +105,25 @@ jobs:
         run: |
           if (!(Get-Module Pester -ListAvailable | Where-Object { $_.Version -eq [version]$env:PESTER_VERSION })) {
             Install-Module Pester -RequiredVersion $env:PESTER_VERSION -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+
+      - name: cdb の用意（一時。ランナーの上でだけ。止まったプロセスのスタックを文字で取る）
+        shell: powershell
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          $c = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (!$c) {
+            $setup = Join-Path $env:RUNNER_TEMP "winsdksetup.exe"
+            Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?linkid=2196241" -OutFile $setup -UseBasicParsing
+            Start-Process -FilePath $setup -ArgumentList "/features", "OptionId.WindowsDesktopDebuggers", "/quiet", "/norestart" -Wait
+            $c = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if ($c) {
+            Write-Host "cdb: $($c.FullName)"
+            [IO.File]::AppendAllText($env:GITHUB_ENV, "TEBUNKO_CDB=$($c.FullName)`n")
+          } else {
+            Write-Host "cdb を用意できなかった"
           }
 
       - name: 画面のスモークテスト（繰り返しの 1 本）

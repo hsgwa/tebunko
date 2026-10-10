@@ -152,6 +152,7 @@ function getGuiProcessCommand {
     if ($variants -contains 'envexit') { $tail = "; [Environment]::Exit(0)" }
     if ($variants -contains 'exit0') { $tail = "; exit 0" }
     if ($variants -contains 'dispatcher') { $tail = "; [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()" }
+    if ($variants -contains 'rsdispose') { $tail = "; Get-Runspace | Where-Object { `$_.Id -ne [runspace]::DefaultRunspace.Id } | ForEach-Object { try { `$_.Dispose() } catch { } }" }
     if ($variants -contains 'gc') { $tail = "; [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()" }
     if ($variants -contains 'exiting') {
         $exiting = (Join-Path $Tool.Dir "gui_exiting_").Replace("'", "''")
@@ -243,6 +244,7 @@ function closeGui {
         waitGui $S "画面が終了する" $Timeout -AllowExited {
             if ($S.Process.HasExited) { return $true }
             sampleGuiThreadsIfDue $S
+            if (!$S.HangCaptured -and ((Get-Date) - $S.ClosingAt).TotalSeconds -ge 20) { $S.HangCaptured = $true; captureGuiHangMaterial $S }
             return $false
         } | Out-Null
     } finally {
@@ -250,6 +252,41 @@ function closeGui {
         foreach ($line in @($S.Samples)) { Write-Host ("GUI-HANG 場面=" + $S.Scene + " " + $line) }
     }
     assertGuiExited $S
+}
+
+function captureGuiHangMaterial {
+    # 【一時】閉じて 20 秒たっても終わらないとき、PID で止める前に、戻った印・Exiting の印と、ランナーの上の cdb（環境変数 TEBUNKO_CDB）で
+    # スレッドごとの呼び出し元（スタックの文字だけ。ダンプのファイルは作らない・メモリの中身は出さない）を取る
+    param ($S)
+
+    $out = New-Object System.Collections.ArrayList
+    $procId = $S.Process.Id
+    foreach ($n in "gui_returned_", "gui_exiting_") {
+        $f = Join-Path $S.Tool.Dir "$n$procId.txt"
+        [void]$out.Add("---- $n$procId.txt ----")
+        [void]$out.Add($(if (Test-Path -LiteralPath $f) { [IO.File]::ReadAllText($f) } else { "無い" }))
+    }
+    $cdb = $env:TEBUNKO_CDB
+    if (!$cdb -or !(Test-Path -LiteralPath $cdb)) {
+        [void]$out.Add("---- cdb ---- 使えない（TEBUNKO_CDB が無い）")
+    } else {
+        try {
+            $sym = Join-Path $(if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { $S.Tool.Dir }) "sym"
+            $outFile = Join-Path $S.Tool.Dir "cdb_out_$procId.txt"
+            $errFile = Join-Path $S.Tool.Dir "cdb_err_$procId.txt"
+            $cmds = ".symfix+ $sym; ~*kn 40; .loadby sos clr; ~*e !clrstack; q"
+            $argText = "-pv -p $procId -y `"srv*$sym*https://msdl.microsoft.com/download/symbols`" -c `"$cmds`""
+            $proc = Start-Process -FilePath $cdb -ArgumentList $argText -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
+            if (!$proc.WaitForExit(120000)) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue; [void]$out.Add("---- cdb ---- 120 秒で止めた") }
+            [void]$out.Add("---- cdb のスタック（フレームの行だけ） ----")
+            $keep = @([IO.File]::ReadAllLines($outFile) | Where-Object { $_ -match '!|Id:|OS Thread Id|Child|Unable|Failed|^\s*[0-9a-f]{2}\s' } | Select-Object -First 700)
+            foreach ($l in $keep) { [void]$out.Add($l) }
+        } catch {
+            [void]$out.Add("---- cdb ---- 失敗: " + $_.Exception.Message)
+        }
+    }
+    $S.HangMaterial = $out
+    foreach ($l in $out) { Write-Host ("GUI-HANGMAT 場面=" + $S.Scene + " " + $l) }
 }
 
 function sampleGuiThreadsIfDue {
@@ -892,6 +929,9 @@ function saveGuiEvidence {
     }
     & $save "終了の記録" {
         if ($S.ExitRecord) { $S.ExitRecord | Set-Content -LiteralPath "$dest\終了の記録.txt" -Encoding UTF8 }
+    }
+    & $save "ハングの材料" {
+        if ($S.HangMaterial) { $S.HangMaterial | Set-Content -LiteralPath "$dest\ハングの材料.txt" -Encoding UTF8 }
     }
     & $save "窓の一覧" {
         $tree = New-Object System.Collections.ArrayList
