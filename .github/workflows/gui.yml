@@ -68,7 +68,8 @@ jobs:
 
   # 繰り返して流す口の準備: 並べる番号の一覧（1..repeat。上限 20）を作る
   repeat-plan:
-    if: github.event_name == 'workflow_dispatch'
+    # 一時的な変更（調査が終わったら戻す）: pull_request でも 20 本並べる
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -76,7 +77,7 @@ jobs:
     steps:
       - id: plan
         env:
-          REPEAT: ${{ inputs.repeat }}
+          REPEAT: ${{ inputs.repeat || 20 }}
         run: |
           n="${REPEAT%%.*}"
           case "$n" in ''|*[!0-9]*) n=10 ;; esac
