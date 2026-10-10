@@ -29,10 +29,14 @@ ${skipPlaceholderTypes} = @("sldNum", "dt", "hdr", "ftr", "sldImg")
 # readXlsxObjectUnitsがファイルを開くたびに0から数える）の上限。どちらもバイト（entry.Lengthと同じ単位）。
 # ZIP爆弾（小さく圧縮した巨大な部品）・部品を大量に並べたファイルでメモリを使い切るのを防ぐ（readZipEntry）。
 # setting.config には出さない定数（値を変えたい場合は docs/design/indexing/known-issues.md を参照）。
-# $script: に置くのは、readZipEntry からスレッド（runspace）をまたいで一貫して読めるようにするため
-# （テストから一時的に値を変えるときも、この $script: を直接上書きする）
+# $script: の変数は読み取りのスレッド（runspace）ごとに別になる。ファイルの合計はスレッドごとに独立して
+# 数えたいので都合がよい（テストから一時的に値を変えるときは、この $script: を直接上書きする）
 $script:zipPartMaxBytes = 100MB
 $script:zipTotalMaxBytes = 300MB
+# シートの部品を流れで読む（readXlsxSheetHeaderFooter）ときの文字数の上限。流れ読みは文字列にしないのでメモリを
+# 使わず、かかるのは時間だけ。シートは sheetData が大きく、実在のブックでも部品の上限（100MB）を超えうるため、
+# 部品の上限より大きい別の値にする（超えたシートは、そのシートのヘッダー・フッターだけ読めなかった扱い）
+$script:zipSheetStreamMaxChars = 1000MB
 # 1ファイルの合計（バイト）。readZipEntry が確保する大きさ（entry.Length）を足していく
 $script:zipTotalReadBytes = 0
 
@@ -98,7 +102,7 @@ function isCompoundFile {
     }
 }
 
-#  読み取りのスレッド（runspace）ごとに使い回す、部品の読み取り用の入れ物。大きな部品を読むときに、
+# 読み取りのスレッド（runspace）ごとに使い回す、部品の読み取り用の入れ物。大きな部品を読むときに、
 # 部品の大きさぶんの配列を毎回確保しない（ラージオブジェクトヒープに乗らない大きさ（85,000 バイト
 # 未満。既定 32768 バイト）にとどめ、GC の負担を減らす）
 $script:zipReadBufferSize = 32768
@@ -141,12 +145,13 @@ function readZipEntry {
     }
 
     if ($null -eq $script:zipReadBuffer) {
-        $script:zipReadBuffer = New-Object byte[] $script:zipReadBufferSize
+        # BOM の見分けに先頭 3 バイトが要るため、3 より小さくしない
+        $script:zipReadBuffer = New-Object byte[] ([Math]::Max(3, $script:zipReadBufferSize))
     }
     $buffer = $script:zipReadBuffer
     $budget = $length + 1  # 偽りのヘッダーを見つけるため、読む量はこれより増やさない
     $totalRead = 0L
-    $sb = New-Object System.Text.StringBuilder([int][Math]::Min($length, [int]::MaxValue))
+    $sb = New-Object System.Text.StringBuilder  # 容量は渡さない（申告の大きさぶんを先に確保しないため）
     $decoder = $null
     $charBuffer = $null
     $first = $true
@@ -1193,7 +1198,7 @@ function readXlsxSheetHeaderFooter {
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
     # シートの部品は sheetData が大きいため、文字列にせず流れで読む（readZipEntry は使わない）。
     # 代わりに読む文字数に部品の上限を設け、細工した大きな部品でも上限で打ち切る（XmlException → 読めなかった扱い）
-    $settings.MaxCharactersInDocument = $script:zipPartMaxBytes
+    $settings.MaxCharactersInDocument = $script:zipSheetStreamMaxChars
     $stream = $null
     $reader = $null
     try {
@@ -1204,13 +1209,24 @@ function readXlsxSheetHeaderFooter {
             if ($null -eq $entry) {
                 return @()
             }
+            if ($entry.Length -gt $script:zipSheetStreamMaxChars) {
+                # 申告の大きさが部品の上限を超える（開かずに読めなかった扱いにし、理由をログに出せるようにする）
+                if ($null -ne $failures) {
+                    $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxChars / 1MB))M文字を超えています）")
+                }
+                return @()
+            }
             $stream = $entry.Open()
             $reader = [System.Xml.XmlReader]::Create($stream, $settings)
         }
         return @(readXlsxHeaderFooterLines $reader)
     } catch {
         if ($null -ne $failures) {
-            $failures.Add($entryName)
+            if ($_.Exception.Message -like "*MaxCharactersInDocument*") {
+                $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxChars / 1MB))M文字を超えています）")
+            } else {
+                $failures.Add($entryName)
+            }
         }
         return @()
     } finally {
@@ -1292,6 +1308,10 @@ function readXlsxObjectUnits {
             $commentsXml = $null
             $threadedXmls = New-Object System.Collections.Generic.List[string]
             foreach ($sheetRel in (readRelationships $zip $rel.Target).Values) {
+                # 要る 3 種類だけ読む（埋め込み・背景の画像など、関係のない大きな部品でサイズの上限に当たらないように）
+                if ($sheetRel.Type -notlike "*/drawing" -and $sheetRel.Type -notlike "*/comments" -and $sheetRel.Type -notlike "*/threadedComment") {
+                    continue
+                }
                 $xml = readZipEntry $zip $sheetRel.Target
                 if ($null -eq $xml) {
                     continue

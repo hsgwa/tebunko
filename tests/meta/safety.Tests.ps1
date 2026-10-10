@@ -28,6 +28,7 @@ BeforeAll {
                 }
                 $result.Add([pscustomobject]@{
                     File = [System.IO.Path]::GetFileName($path)
+                    Path = $path
                     Line = $number
                     Text = $code
                 })
@@ -259,13 +260,13 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
 
 Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を守ること（docs/safety/checks.md「Office ファイルを開くときの設定」）" -Tag Meta {
     It "XmlDocument への読み込みは newXmlDocument 関数だけで行う（LoadXml を直接呼ばない）" {
-        # app_host.ps1 は、このツール自身の XAML（利用者の Office ファイルではない）を読むので対象外
-        (findPattern @($code | Where-Object { $_.File -ne "app_host.ps1" }) '\.LoadXml\(') | Should -Be ""
+        # shared/ui/ は、このツール自身の XAML（利用者の Office ファイルではない）を読むので対象外
+        (findPattern @($code | Where-Object { $_.Path -notlike "*\shared\ui\*" }) '\.LoadXml\(') | Should -Be ""
     }
 
     It "XmlDocument は newXmlDocument 経由でだけ作る（New-Object System.Xml.XmlDocument は office_reader.ps1 の中だけ）" {
         $news = @($code | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlDocument' })
-        (@($news | Where-Object { $_.File -ne "office_reader.ps1" -and $_.File -ne "app_host.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        (@($news | Where-Object { $_.File -ne "office_reader.ps1" -and $_.Path -notlike "*\shared\ui\*" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 
     It "[xml] への型変換で XML を読み込まない（DTD 無効化を回避できてしまうため）" {
@@ -273,12 +274,11 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
     }
 
     It "XmlReaderSettings を作るところは、すべて DTD の処理を禁止する（DtdProcessing = Prohibit）" {
-        $settingsFiles = @($code | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlReaderSettings' } | ForEach-Object { $_.File } | Sort-Object -Unique)
-        foreach ($file in $settingsFiles) {
-            $fileLines = @($code | Where-Object { $_.File -eq $file })
-            (findPattern $fileLines 'DtdProcessing\s*=\s*\[System\.Xml\.DtdProcessing\]::Prohibit') | Should -Not -Be ""
-        }
-        ($settingsFiles.Count -gt 0) | Should -Be $true
+        # 作る数と、Prohibit を入れる数を比べる（ファイルに 1 か所あれば足りる、という見逃しを防ぐ）
+        $creations = @($code | Where-Object { $_.Text -match 'New-Object\s+System\.Xml\.XmlReaderSettings' })
+        $prohibits = @($code | Where-Object { $_.Text -match 'DtdProcessing\s*=\s*\[System\.Xml\.DtdProcessing\]::Prohibit' })
+        ($creations.Count -gt 0) | Should -Be $true
+        $prohibits.Count | Should -Be $creations.Count -Because "XmlReaderSettings を作った数だけ Prohibit が要る（作った場所: $(findPattern $creations '.')）"
     }
 
     It "ZIP の部品・1ファイルの合計のサイズに上限があり、読むのは readZipEntry だけ" {
@@ -294,7 +294,7 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
         $officeReaderLines = @($code | Where-Object { $_.File -eq "office_reader.ps1" })
         $funcStarts = @($officeReaderLines | Where-Object { $_.Text -match '^\s*function\s+\w+' } | Sort-Object Line)
         # readZipEntry のほかに、シートのヘッダー・フッターを流れで読む readXlsxSheetHeaderFooter だけは、
-        # 文字数の上限（MaxCharactersInDocument = zipPartMaxBytes）を付けて entry.Open() してよい
+        # 文字数の上限（MaxCharactersInDocument = zipSheetStreamMaxChars）を付けて entry.Open() してよい
         $ranges = @()
         foreach ($fn in @("readZipEntry", "readXlsxSheetHeaderFooter")) {
             $start = ($funcStarts | Where-Object { $_.Text -match "function\s+$fn\b" }).Line
@@ -304,10 +304,17 @@ Describe "細工したOfficeファイル（.docx・.pptx・.xlsx）から身を�
             $ranges += , @($start, $end)
         }
         $streamed = @($officeReaderLines | Where-Object { $_.Line -ge $ranges[1][0] -and $_.Line -lt $ranges[1][1] })
-        (findPattern $streamed 'MaxCharactersInDocument\s*=\s*\$script:zipPartMaxBytes') | Should -Not -Be ""
+        (findPattern $streamed 'MaxCharactersInDocument\s*=\s*\$script:zipSheetStreamMaxChars') | Should -Not -Be ""
 
-        $targets = @($officeReaderLines | Where-Object { $_.Text -match '\.Open\(\)|ReadToEnd\(\)' })
-        $outside = @($targets | Where-Object { $line = $_.Line; @($ranges | Where-Object { $line -ge $_[0] -and $line -lt $_[1] }).Count -eq 0 })
+        # 対象は Office の読み取りと取り込みの全ファイル。ExtractToFile・CopyTo も同じく上限を迂回して中身を出せる
+        $readerFiles = @($code | Where-Object { $_.Path -like "*\scripts\shared\office\*" -or $_.Path -like "*\scripts\tebunko\indexer\*" })
+        # ZIP と関係のない既存の使い方（runspace を開く・状態ファイルを読む）は対象から外す
+        $notZip = '^\s*(\$runspace|\$this\.Runspace)\.Open\(\)\s*$|^\s*\$(lines|text)\s*=\s*\$reader\.ReadToEnd\(\)'
+        $targets = @($readerFiles | Where-Object { $_.Text -match '\.Open\(\)|ReadToEnd\(\)|ExtractToFile|\.CopyTo\(' -and $_.Text -notmatch $notZip })
+        $outside = @($targets | Where-Object {
+            $t = $_
+            $t.File -ne "office_reader.ps1" -or @($ranges | Where-Object { $t.Line -ge $_[0] -and $t.Line -lt $_[1] }).Count -eq 0
+        })
         (@($outside | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
         ($targets.Count -gt 0) | Should -Be $true  # 検査の取りこぼし（対象0件で通る）を防ぐ
     }

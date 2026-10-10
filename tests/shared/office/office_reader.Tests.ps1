@@ -37,7 +37,9 @@ BeforeAll {
         $stream = [System.IO.File]::Create($path)
         $zip = New-Object System.IO.Compression.ZipArchive($stream, [System.IO.Compression.ZipArchiveMode]::Create)
         foreach ($name in $entries.Keys) {
-            $entry = $zip.CreateEntry($name, [System.IO.Compression.CompressionLevel]::NoCompression)
+            # compress = $true の部品は Deflate で圧縮する（既定は無圧縮）
+            $level = if ($entries[$name].ContainsKey("compress") -and $entries[$name].compress) { [System.IO.Compression.CompressionLevel]::Optimal } else { [System.IO.Compression.CompressionLevel]::NoCompression }
+            $entry = $zip.CreateEntry($name, $level)
             $entryStream = $entry.Open()
             $bytes = $entries[$name].bytes
             $entryStream.Write($bytes, 0, $bytes.Length)
@@ -728,14 +730,73 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
             "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C大きいシート')</worksheet>"
             "xl/worksheets/sheet2.xml" = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C小さいシート')</worksheet>"
         }
-        $orig = $script:zipPartMaxBytes
-        $script:zipPartMaxBytes = 2000
+        $orig = $script:zipSheetStreamMaxChars
+        $script:zipSheetStreamMaxChars = 2000
         try {
             $script:zipTotalReadBytes = 0
             $fails = New-Object System.Collections.Generic.List[string]
             $result = readXlsxObjectUnits $big $fails
             @($result.Keys) -join "|" | Should -Be "小[ヘッダー・フッター]"
-            @($fails) | Should -Be @("xl/worksheets/sheet1.xml")
+            @($fails).Count | Should -Be 1
+            @($fails)[0] | Should -BeLike "xl/worksheets/sheet1.xml*流れ読みの上限*"
+        } finally {
+            $script:zipSheetStreamMaxChars = $orig
+        }
+    }
+
+    It "流れ読みの上限は部品ごとの上限とは別で、部品の上限を超えるシートでもヘッダー・フッターを読める。申告より実際が大きいシートも上限で打ち切る" {
+        $path = "$TestDrive"+[char]92+"stream_limit.xlsx"
+        $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('あ' * 3000)</t></is></c></row>"
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"大`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C大きいシート')</worksheet>"
+        }
+        $origPart = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 2000
+        try {
+            $script:zipTotalReadBytes = 0
+            $fails = New-Object System.Collections.Generic.List[string]
+            $result = readXlsxObjectUnits $path $fails
+            @($result["大[ヘッダー・フッター]"]) -join "|" | Should -Be "大きいシート"
+            @($fails).Count | Should -Be 0
+        } finally {
+            $script:zipPartMaxBytes = $origPart
+        }
+        # 申告（entry.Length）は上限内でも、読んだ文字数が上限を超えたら打ち切る
+        $origChars = $script:zipSheetStreamMaxChars
+        $script:zipSheetStreamMaxChars = 5000
+        try {
+            $script:zipTotalReadBytes = 0
+            $fails = New-Object System.Collections.Generic.List[string]
+            $null = readXlsxObjectUnits $path $fails
+            @($fails).Count | Should -Be 1
+        } finally {
+            $script:zipSheetStreamMaxChars = $origChars
+        }
+    }
+
+    It "シートに関係のない大きな部品（背景の画像など）がつながっていても、図形・コメントは読める" {
+        $path = "$TestDrive\big_unrelated.xlsx"
+        newZip $path @{
+            "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"売上`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
+            "xl/_rels/workbook.xml.rels" = "<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/></Relationships>"
+            "xl/worksheets/sheet1.xml" = "<worksheet $xNs/>"
+            "xl/worksheets/_rels/sheet1.xml.rels" = "<Relationships $relNs>" +
+                "<Relationship Id=`"rId1`" Type=`"$officeRel/image`" Target=`"../media/bg.bin`"/>" +
+                "<Relationship Id=`"rId2`" Type=`"$officeRel/drawing`" Target=`"../drawings/drawing1.xml`"/>" +
+                "<Relationship Id=`"rId3`" Type=`"$officeRel/comments`" Target=`"../comments1.xml`"/></Relationships>"
+            "xl/media/bg.bin" = ('x' * 5000)
+            "xl/drawings/drawing1.xml" = "<xdr:wsDr $xdrNs>$(xAnchor 0 0 (xSp @('図形あり')))</xdr:wsDr>"
+            "xl/comments1.xml" = "<comments $xNs><authors><author>test</author></authors><commentList><comment ref=`"A2`" authorId=`"0`"><text><t>メモあり</t></text></comment></commentList></comments>"
+        }
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 2000
+        try {
+            $script:zipTotalReadBytes = 0
+            $result = readXlsxObjectUnits $path
+            @($result["売上[図形]"]) -join "|" | Should -Be "A1`t図形あり"
+            @($result["売上[コメント]"]) -join "|" | Should -Be "A2`tメモあり"
         } finally {
             $script:zipPartMaxBytes = $orig
         }
@@ -1071,6 +1132,77 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
             { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため更新できません*"
         } finally {
             $zip.Dispose()
+        }
+    }
+
+    It "<kind> の上限ちょうどは読め、1 バイト超えると ZipSizeLimitException にする" -TestCases @(
+        @{ kind = "Part" }
+        @{ kind = "Total" }
+    ) {
+        param ($kind)
+        $origPart = $script:zipPartMaxBytes
+        $origTotal = $script:zipTotalMaxBytes
+        try {
+            if ($kind -eq "Part") { $script:zipPartMaxBytes = 5 } else { $script:zipTotalMaxBytes = 5 }
+            $path = "$TestDrive\edge_$kind.zip"
+            newRawZip $path @{ "ok.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("12345") }; "ng.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("123456") } }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                readZipEntry $zip "ok.xml" | Should -Be "12345"
+                $script:zipTotalReadBytes = 0
+                $caught = $null
+                try { readZipEntry $zip "ng.xml" } catch { $caught = $_.Exception }
+                $caught.GetType().Name | Should -Be "ZipSizeLimitException"
+                $caught.LimitKind | Should -Be $kind
+            } finally {
+                $zip.Dispose()
+            }
+        } finally {
+            $script:zipPartMaxBytes = $origPart
+            $script:zipTotalMaxBytes = $origTotal
+        }
+    }
+
+    It "中身が空の部品は、空の文字列で読める" {
+        $path = "$TestDrive\empty_part.zip"
+        newRawZip $path @{ "a.xml" = @{ bytes = [byte[]]@() } }
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            readZipEntry $zip "a.xml" | Should -Be ""
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "圧縮（Deflate）した部品でも、偽りのヘッダー（実際より小さい申告）を見つける" {
+        $path = "$TestDrive\deflate_fake.zip"
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes("0123456789" * 20)
+        newRawZip $path @{ "a.xml" = @{ bytes = $bytes; compress = $true; fakeSize = 10 } }
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            $caught = $null
+            try { readZipEntry $zip "a.xml" } catch { $caught = $_.Exception }
+            $caught.GetType().Name | Should -Be "ZipSizeLimitException"
+            $caught.LimitKind | Should -Be "Part"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "申告の大きさが大きくても、実際の中身が小さければその中身を返す（申告の大きさぶんを先に確保しない）" {
+        $orig = $script:zipPartMaxBytes
+        $script:zipPartMaxBytes = 1000000
+        try {
+            $path = "$TestDrive\declared_big.zip"
+            newRawZip $path @{ "a.xml" = @{ bytes = [System.Text.Encoding]::UTF8.GetBytes("a"); fakeSize = 900000 } }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                readZipEntry $zip "a.xml" | Should -Be "a"
+            } finally {
+                $zip.Dispose()
+            }
+        } finally {
+            $script:zipPartMaxBytes = $orig
         }
     }
 
