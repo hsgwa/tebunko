@@ -114,7 +114,7 @@ function getApp {
             Pid    = $(if ($newIds.Count -eq 1) { $newIds[0] } else { 0 })
             Shared = ($newIds.Count -eq 0)
         }
-        updateWatchedPids
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
     }
     return $script:apps[$name].Com
 }
@@ -129,7 +129,7 @@ function stopApp {
         return
     }
     $script:apps.Remove($name)
-    updateWatchedPids
+    $script:officeWatchdog.UpdateWatchedPids($script:apps)
 
     # インデックス作成中に利用者が同じアプリでファイルを開いた場合は、終了させない
     $inUse = $app.Shared
@@ -208,48 +208,68 @@ function releaseComObject($object) {
 
 # 取り込み中のCOM呼び出しは応答が無いと戻らず、Ctrl+C も効かないため、別スレッドで制限時間を監視する。
 # 制限時間を過ぎたら、自分で起動したOfficeアプリを強制終了する（COM呼び出しが例外で戻り、そのファイルは失敗になる）。
-#   Deadline: 取り込み中のファイルの制限時刻（取り込み中でなければ MaxValue）
-#   Pids    : 強制終了してよいプロセスID（自分で起動したOfficeアプリ）
-#   TimedOut: 制限時間を過ぎて強制終了した
-$script:watchdog = [hashtable]::Synchronized(@{ Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false })
-$script:watchdogThread = $null
+# スレッド（ランスペース）ごとに 1 つ持つ（下の $script:officeWatchdog）。見張りのスレッド（[PowerShell]::Create() の別のランスペース）へは、
+# クラスではなく State（[hashtable]::Synchronized）を渡す。
+class OfficeWatchdog {
+    # 見張りのスレッドと共有する値。
+    #   Deadline: 取り込み中のファイルの制限時刻（取り込み中でなければ MaxValue）
+    #   Pids    : 強制終了してよいプロセスID（自分で起動したOfficeアプリ）
+    #   TimedOut: 制限時間を過ぎて強制終了した
+    #   Stop    : 見張りのスレッドに終わりを伝える
+    [hashtable]$State
+    # 強制終了してよいプロセスの名前（Officeアプリ）
+    [string[]]$ProcessNames
+    hidden $Thread
 
-function updateWatchedPids {
-    # 強制終了してよいプロセスIDを、起動中のアプリのうち自分で起動したものにする（利用者のアプリは終了させない）
-    $script:watchdog.Pids = @($script:apps.Values | Where-Object { -not $_.Shared -and $_.Pid } | ForEach-Object { $_.Pid })
-}
-
-function startWatchdog {
-    $ps = [PowerShell]::Create()
-    [void]$ps.AddScript({
-        param($watch, [string[]]$processNames)
-        while (-not $watch.Stop) {
-            Start-Sleep -Milliseconds 500
-            if ([datetime]::Now -lt $watch.Deadline) {
-                continue
-            }
-            $watch.Deadline = [datetime]::MaxValue
-            $watch.TimedOut = $true
-            foreach ($id in @($watch.Pids)) {
-                try {
-                    # 終了済みでIDが別のプロセスに再利用されている場合に備え、Officeアプリであることを確かめる
-                    $process = [System.Diagnostics.Process]::GetProcessById($id)
-                    if ($processNames -contains $process.ProcessName) {
-                        $process.Kill()
-                    }
-                } catch {}
-            }
-        }
-    }).AddArgument($script:watchdog).AddArgument([string[]]@($appInfo.Values | ForEach-Object { $_.Process }))
-    $script:watchdogThread = @{ PowerShell = $ps; Handle = $ps.BeginInvoke() }
-}
-
-function stopWatchdog {
-    if ($null -eq $script:watchdogThread) {
-        return
+    OfficeWatchdog([string[]]$processNames) {
+        $this.State = [hashtable]::Synchronized(@{ Deadline = [datetime]::MaxValue; Pids = @(); TimedOut = $false; Stop = $false })
+        $this.ProcessNames = $processNames
+        $this.Thread = $null
     }
-    $script:watchdog.Stop = $true
-    try { [void]$script:watchdogThread.PowerShell.EndInvoke($script:watchdogThread.Handle) } catch {}
-    $script:watchdogThread.PowerShell.Dispose()
-    $script:watchdogThread = $null
+
+    [void] UpdateWatchedPids([hashtable]$apps) {
+        # 強制終了してよいプロセスIDを、起動中のアプリのうち自分で起動したものにする（利用者のアプリは終了させない）
+        $this.State.Pids = @($apps.Values | Where-Object { -not $_.Shared -and $_.Pid } | ForEach-Object { $_.Pid })
+    }
+
+    [void] Start() {
+        $ps = [PowerShell]::Create()
+        [void]$ps.AddScript({
+            param($watch, [string[]]$processNames)
+            while (-not $watch.Stop) {
+                Start-Sleep -Milliseconds 500
+                if ([datetime]::Now -lt $watch.Deadline) {
+                    continue
+                }
+                $watch.Deadline = [datetime]::MaxValue
+                $watch.TimedOut = $true
+                foreach ($id in @($watch.Pids)) {
+                    try {
+                        # 終了済みでIDが別のプロセスに再利用されている場合に備え、Officeアプリであることを確かめる
+                        $process = [System.Diagnostics.Process]::GetProcessById($id)
+                        if ($processNames -contains $process.ProcessName) {
+                            $process.Kill()
+                        }
+                    } catch {}
+                }
+            }
+        }).AddArgument($this.State).AddArgument($this.ProcessNames)
+        $this.Thread = @{ PowerShell = $ps; Handle = $ps.BeginInvoke() }
+    }
+
+    [void] Stop() {
+        if ($null -eq $this.Thread) {
+            return
+        }
+        $this.State.Stop = $true
+        try { [void]$this.Thread.PowerShell.EndInvoke($this.Thread.Handle) } catch {}
+        $this.Thread.PowerShell.Dispose()
+        $this.Thread = $null
+    }
+
+    [bool] IsRunning() {
+        return ($null -ne $this.Thread)
+    }
 }
+
+$script:officeWatchdog = [OfficeWatchdog]::new([string[]]@($appInfo.Values | ForEach-Object { $_.Process }))
