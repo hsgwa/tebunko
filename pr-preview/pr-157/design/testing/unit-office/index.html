@@ -4072,7 +4072,7 @@
 </tr>
 <tr>
 <td><code>readZipEntry</code>（サイズの上限） / <code>newXmlDocument</code>（DTD）</td>
-<td>部品 1 つの展開後の大きさ・1 ファイルで読む合計が、それぞれの上限を超えると簡潔なメッセージ（<code>ZipSizeLimitException</code>。<code>PartName</code>・<code>MeasuredBytes</code>・<code>LimitKind</code>（<code>Part</code> / <code>Total</code>）を持つ）で例外にする、ヘッダーの大きさを偽って小さく見せた部品も検知する（型・部品名・大きさを <code>-is</code> とプロパティで確かめる）、<code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code> が呼ぶたびに合計を数え直す、DTD（<code>&lt;!DOCTYPE&gt;</code>）宣言を含む XML は例外にする（実体参照を入れ子にして膨張させる攻撃を防ぐ）、既存の BOM 判定・文字コードの扱いは変わらない</td>
+<td>部品 1 つの展開後の大きさ・1 ファイルで読む合計が、それぞれの上限を超えると簡潔なメッセージ（<code>ZipSizeLimitException</code>。<code>PartName</code>・<code>MeasuredBytes</code>・<code>LimitKind</code>（<code>Part</code> / <code>Total</code>）を持つ）で例外にする、ヘッダーの大きさを偽って小さく見せた部品も検知する（型は <code>GetType().Name</code> が <code>ZipSizeLimitException</code> であること、部品名・大きさ・種類はプロパティで確かめる。上限ちょうどは読め、1 バイト超えると例外になる境界、空の部品、Deflate 圧縮の部品の偽りのヘッダー、申告が大きくても中身が小さければ中身を返すことも確かめる）、<code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code> が呼ぶたびに合計を数え直す、DTD（<code>&lt;!DOCTYPE&gt;</code>）宣言を含む XML は例外にする（実体参照を入れ子にして膨張させる攻撃を防ぐ）、既存の BOM 判定・文字コードの扱いは変わらない</td>
 </tr>
 <tr>
 <td><code>writeUnits</code></td>
