@@ -519,7 +519,7 @@ Describe "extractWorkbook（偽の Excel）" -Tag Io {
         try {
             extractWorkbook $zipSource | Should -Be 1
             listTmp | Should -Be @("売上.tsv")
-            Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "グラフ・SmartArt を読み取れませんでした.*xl/charts/chart1\.xml" }
+            Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "一部を読み取れませんでした.*xl/charts/chart1\.xml" }
             # 原因を調べられるよう、部品名・大きさ・部品ごとか合計かをインデックス作成のログに書く（画面には出さない）
             Should -Invoke writeIndexerLog -Times 1 -Exactly -Scope It -ParameterFilter { "$text" -match "サイズの上限（部品ごと）を超えました.*xl/charts/chart1\.xml" }
         } finally {
