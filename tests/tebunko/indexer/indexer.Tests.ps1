@@ -1246,6 +1246,41 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
             Remove-Variable -Name handoverFake -Scope Global
         }
     }
+
+    It "Word のファイルの一覧を読めなければ、ログは「一覧を読めなかったため、終了させずに残しています」の文言になり、Word は終了させず残す" {
+        ${tmpDir} = Join-Path $TestDrive "handover_keep_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $script:officeKeptApps = @()
+        $global:handoverFake = New-Object psobject -Property @{ Visible = $false; DisplayAlerts = 0; AutomationSecurity = 3 }
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        # 一覧を読めない（COM が呼び出しを拒んだ）ことにする
+        Mock getWorkbookSplit { throw "呼び出しを拒まれました" }
+        Mock ingestFile {
+            $script:apps["Word"] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
+            return 1
+        }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        Mock Stop-Process { }
+        try {
+            $result = invokeIngestTask @{ RelPath = "資料\a.docx"; SourcePath = "C:\data\a.docx" } 10
+            $result.Ok | Should -Be $true
+            $result.Log | Should -Match "Word のファイルの一覧を読めなかったため、終了させずに残しています"
+            $result.Log | Should -Not -Match "利用者に渡しました"
+            $script:apps.ContainsKey("Word") | Should -Be $false
+            @($script:officeKeptApps).Count | Should -Be 1
+            Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        } finally {
+            $script:apps.Remove("Word")
+            $script:officeKeptApps = @()
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake -Scope Global
+        }
+    }
 }
 
 Describe "getIngestLaneCapacity" -Tag Unit {

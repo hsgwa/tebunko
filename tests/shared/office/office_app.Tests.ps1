@@ -573,8 +573,8 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $process | Add-Member -MemberType ScriptMethod -Name WaitForExit -Value { $true }
         Mock Get-Process { $process } -ParameterFilter { $Id -eq 4242 }
         Mock getWorkbookSplit { throw "呼び出しが拒否されました" }
-        $com = newHandOverApp @()
-        $script:apps[$app] = @{ Com = $com; Pid = 4242; Shared = $false }
+        $com = newHandOverApp @() $app
+        $script:apps[$app] =@{ Com = $com; Pid = 4242; Shared = $false }
 
         stopApp $app
 
@@ -594,7 +594,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         Mock Get-Process { $process } -ParameterFilter { $Id -eq 4242 }
         Mock Stop-Process {}
         Mock getWorkbookSplit { throw "呼び出しが拒否されました" }
-        $com = newHandOverApp @()
+        $com = newHandOverApp @() "Word"
         $script:apps["Word"] = @{ Com = $com; Pid = 4242; Shared = $false }
 
         stopApp "Word"
@@ -875,7 +875,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         @($log) | Should -Be $expectedLog
     }
 
-    It "quitApp: PID を控えていない（0）・プロセスがもう無いときは、Quit して待たない" -TestCases @(
+    It "quitApp: PID を控えていない（0）・プロセスがもう無いときは、Quit して待たない（<title>）" -TestCases @(
         @{ title = "PID を控えていない"; processId = 0 }
         @{ title = "プロセスがもう無い"; processId = 4242 }
     ) {
