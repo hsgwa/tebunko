@@ -190,6 +190,8 @@ Describe "convertToPackText / readPackPlaces" -Tag Unit {
 
     It "<Book> の <Target> の場所は、行の先頭がセル番地か（CellPrefixed）= <Expected>" -ForEach @(
         @{ Book = "a.xlsx"; Target = "図形"; Expected = $true }
+        @{ Book = "a.xlsm"; Target = "図形"; Expected = $true }
+        @{ Book = "A.XLSX"; Target = "コメント"; Expected = $true }
         @{ Book = "a.xlsx"; Target = "コメント"; Expected = $true }
         @{ Book = "a.xlsx"; Target = "本文"; Expected = $false }
         @{ Book = "a.xlsx"; Target = "ヘッダー・フッター"; Expected = $false }
@@ -200,7 +202,7 @@ Describe "convertToPackText / readPackPlaces" -Tag Unit {
         @{ Book = "a.pptx"; Target = "ノート"; Expected = $false }
     ) {
         $mark = [string][char]0x1E
-        $unit = if ($Book -like "*.xlsx") { "シート" } elseif ($Book -like "*.docx") { "ページ" } else { "スライド" }
+        $unit = if ($Book -match '\.xls') { "シート" } elseif ($Book -match '\.doc') { "ページ" } else { "スライド" }
         $value = if ($unit -eq "シート") { "S" } else { "1" }
         $places = readPackPlaces "$mark 版=1`n$mark ファイル名=$Book`n$mark $unit=$value`n$mark 対象=$Target`nC2`t文字`n"
         $places.Count | Should -Be 1

@@ -416,8 +416,8 @@ Describe "searchPackIndex（Excel の図形・コメントは、セル番地だ�
         $tsvRoot = Join-Path $TestDrive "cell_tsv"
         $dir = "$tsvRoot\idx"
         newTsv "$dir\見積.xlsx\$(toIndexFileName "見積")" @("品名", "C2 番の部品")
-        # 4 行目は文字の中にもタブがある（最初のタブより後は、文字の中のタブも検索の対象）
-        newTsv "$dir\見積.xlsx\$(toIndexFileName "見積[図形]")" @("C2`t納期", "C2`tC2 の部品", "B10`t2個", "C3`t品名`t納期")
+        # 4 行目は文字の中にタブがある（本物の書き出しでは " で囲まれる。最初のタブより後は、文字の中のタブも検索の対象）
+        newTsv "$dir\見積.xlsx\$(toIndexFileName "見積[図形]")" @("C2`t納期", "C2`tC2 の部品", "B10`t2個", "C3`t`"品名`t納期`"")
         newTsv "$dir\見積.xlsx\$(toIndexFileName "見積[コメント]")" @("C2`t確認済み")
         newTsv "$dir\報告.docx\$(toIndexFileName "ページ001[図形]")" @("C2 と書いた図形")
         newTsv "$dir\見積2.xlsx\$(toIndexFileName "見積2[図形]")" @("D4`tあ", "D4`tい", "E5`tD4 の件")
@@ -428,10 +428,10 @@ Describe "searchPackIndex（Excel の図形・コメントは、セル番地だ�
         @{ Word = "C2"; Simple = $true; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|見積.xlsx|見積[図形]|2|C2`tC2 の部品", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
         @{ Word = "2"; Simple = $true; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|見積.xlsx|見積[図形]|2|C2`tC2 の部品", "idx|見積.xlsx|見積[図形]|3|B10`t2個", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
         @{ Word = "C"; Simple = $true; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|見積.xlsx|見積[図形]|2|C2`tC2 の部品", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
-        @{ Word = "納期"; Simple = $true; Expected = @("idx|見積.xlsx|見積[図形]|1|C2`t納期", "idx|見積.xlsx|見積[図形]|4|C3`t品名`t納期") }
-        @{ Word = "品名\t納期"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|4|C3`t品名`t納期") }
-        @{ Word = "\t"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|4|C3`t品名`t納期") }
-        @{ Word = "(?<=\t)納期"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|1|C2`t納期", "idx|見積.xlsx|見積[図形]|4|C3`t品名`t納期") }
+        @{ Word = "納期"; Simple = $true; Expected = @("idx|見積.xlsx|見積[図形]|1|C2`t納期", "idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
+        @{ Word = "品名\t納期"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
+        @{ Word = "\t"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
+        @{ Word = "(?<=\t)納期"; Simple = $false; Expected = @("idx|見積.xlsx|見積[図形]|1|C2`t納期", "idx|見積.xlsx|見積[図形]|4|C3`t`"品名`t納期`"") }
         @{ Word = "C2\t納期"; Simple = $false; Expected = @() }
         @{ Word = "^C2"; Simple = $false; Expected = @("idx|見積.xlsx|見積|2|C2 番の部品", "idx|報告.docx|ページ001[図形]|1|C2 と書いた図形") }
         @{ Word = "確認済み"; Simple = $true; Expected = @("idx|見積.xlsx|見積[コメント]|1|C2`t確認済み") }
@@ -444,6 +444,33 @@ Describe "searchPackIndex（Excel の図形・コメントは、セル番地だ�
         @{ Word = "(?i)D4"; Simple = $false }
     ) {
         toKeys (searchPackIndex $Word $packs $Simple).Hits | Should -Be @("idx|見積2.xlsx|見積2[図形]|3|E5`tD4 の件")
+    }
+
+    Context "複数行・囲みのある文字" {
+        BeforeAll {
+            # 本物の書き出し（toObjectCellText）と同じ形: 改行はセル内改行（U+2028）、改行・"・タブを含む文字は " で囲み、中の " は "" にする
+            $lsep = [string][char]0x2028
+            $multiRoot = Join-Path $TestDrive "multi_tsv"
+            newTsv "$multiRoot\idx\複数.xlsx\$(toIndexFileName "S[図形]")" @("C2`t`"納期${lsep}C2 の部品`"", "D5`t`"彼は`"`"はい`"`"と言った`"")
+            $multiPacks = newPackIndex $multiRoot (Join-Path $TestDrive "multi_pack")
+            $line1 = "idx|複数.xlsx|S[図形]|1|C2`t`"納期${lsep}C2 の部品`""
+            $line2 = "idx|複数.xlsx|S[図形]|2|D5`t`"彼は`"`"はい`"`"と言った`""
+        }
+
+        It "「<Word>」の結果が、手で書いた期待値と同じ" -ForEach @(
+            @{ Word = "C2"; Simple = $true; Which = @(1) }
+            @{ Word = "納期"; Simple = $true; Which = @(1) }
+            @{ Word = "の部品"; Simple = $true; Which = @(1) }
+            @{ Word = "D5"; Simple = $true; Which = @() }
+            @{ Word = "彼は"; Simple = $true; Which = @(2) }
+            @{ Word = "`"`""; Simple = $true; Which = @(2) }
+            @{ Word = "`""; Simple = $true; Which = @(1, 2) }
+            @{ Word = "`"納期"; Simple = $true; Which = @(1) }
+        ) {
+            $all = @{ 1 = $line1; 2 = $line2 }
+            $expected = @($Which | ForEach-Object { $all[$_] })
+            sortedKeys (searchPackIndex $Word $multiPacks $Simple).Hits | Should -BeExactly (($expected | Sort-Object) -join "`n")
+        }
     }
 
     Context "件数と上限" {
@@ -467,6 +494,8 @@ Describe "searchPackIndex（Excel の図形・コメントは、セル番地だ�
             $result = searchPackIndex "F1" $limitPacks $true $Limit -workerCount $Workers -taskBytes 1
             $result.Hits.Count | Should -Be $Count
             $result.Truncated | Should -Be $Truncated
+            # 返った行は、文字に一致した行（セル番地だけの F1 x・y・z ではない）
+            foreach ($hit in $result.Hits) { $hit.Line | Should -Match "^G1`tF1 " }
         }
     }
 }
