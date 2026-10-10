@@ -4525,11 +4525,6 @@
 <td>画面の予期しないエラー（追記。<code>writeErrorLog</code>）。起動に失敗したときも、ここに書けるならここに書く</td>
 </tr>
 <tr>
-<td><code>work/close_trace.txt</code></td>
-<td>書く</td>
-<td>画面を閉じる順番の記録（追記。1 行は 時刻・PID・節目・スレッドの数。<code>TEBUNKO_CLOSE_TRACE=1</code> のときだけ。ワークスペースの下の決まった名前の 1 ファイルだけ）</td>
-</tr>
-<tr>
 <td><code>work/search_results.txt</code></td>
 <td>書く</td>
 <td>検索結果の出力</td>
@@ -4694,11 +4689,6 @@
 <td><code>TEBUNKO_DEFAULT_WORKSPACE</code>（環境変数）</td>
 <td>読む</td>
 <td>開発・確かめ用。既定のワークスペースの場所を差し替える（絶対パスだけ。利用者は使わない）</td>
-</tr>
-<tr>
-<td><code>TEBUNKO_CLOSE_TRACE</code>（環境変数）</td>
-<td>読む</td>
-<td>テストの診断用。<code>1</code> のときだけ、閉じる順番を <code>work/close_trace.txt</code> に、PID を付けて追記する（<code>gui_main.ps1</code> の <code>writeCloseTrace</code>。1 かどうかを比べるだけで、パスとしては読まない。利用者は使わない）</td>
 </tr>
 </tbody>
 </table>

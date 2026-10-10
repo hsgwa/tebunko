@@ -4142,23 +4142,16 @@
 <li>Dependabot の PR も同じ形にする（<code>.github/dependabot.yml</code> の <code>commit-message</code>。<code>ci(deps): bump ...</code> <code>build(deps): bump ...</code>）</li>
 </ul>
 <p><strong><code>gui.yml</code>（画面のスモークテスト）</strong></p>
-<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> で、<code>.\tests\run.ps1 -Tag Gui</code> を流す（手で動かしたときだけ、繰り返して率を測る <code>gui-smoke-repeat</code> も動く。下の「繰り返して流す」）。</p>
+<p>本物の画面（WPF）を windows ランナーで別のプロセスとして開き、UI オートメーションで、起動・タブ・検索・インデックスの追加から作成・ワークスペースの変更・閉じるまでを動かす（<code>tests/gui/*.Tests.ps1</code>、タグ <code>Gui</code>。何を動かすかは <a href="../gui-smoke/">画面のスモークテスト</a>）。ジョブは <code>gui-smoke</code> 1 つで、<code>.\tests\run.ps1 -Tag Gui</code> を流す。</p>
 <ul>
 <li><strong><code>test.yml</code> には入れない。</strong> <code>test.yml</code> は <code>release.yml</code> から呼ばれ、release は test を待つため、画面のテストが不安定なときにリリースまで止まる。別のワークフローにすれば <code>test</code> と並んで動き、<code>test</code> の時間も延びない</li>
 <li><strong>必須チェックにしない。</strong> 必須チェックを変えるのは持ち主で、しばらく安定して通ることを見てから諮る。必須にするときに、文書だけの PR で pending のまま残らないよう、<code>paths</code> の絞り込みは付けていない</li>
 <li><code>tests\run.ps1 -Ci</code> は使わない。カバレッジの下限を確かめるが、画面は別のプロセスで動くので計測できず、<code>Gui</code> だけを流すと下限を割るため</li>
 <li>1 回に 8〜9 分ほどかかる（場面ごとの秒数は各場面の出力に出る）。<code>timeout-minutes</code> は 20。同じブランチに続けて push したときは、古い実行を取り消す（<code>concurrency</code>）</li>
-<li>落ちたときの材料は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する。中身は、画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧のほか、次の 3 つ<ul>
-<li><code>終了の記録.txt</code> … 閉じる直前のスレッドの数と子のプロセス、終わった時刻、閉じる操作から終わるまでの秒数、呼び出し元に戻った印（<code>gui_returned_&lt;PID&gt;.txt</code>）、閉じる順番の記録（<code>close_trace.txt</code>。各行は 時刻・PID・節目・スレッドの数 の順で、終了の記録には、その PID の行だけを写す。ワークスペースを切り替える場面のために、設定に書かれたワークスペース・作業フォルダ・既定のワークスペースを探し、場所（ワークスペースのフォルダ名）を付けて写す）</li>
-<li><code>クラッシュ情報.txt</code> … 画面のプロセスが動いていた間の Application ログのうち、障害の種類の記録を、2 段に分けて書く。本文にそのプロセス ID（10 進数・16 進数）があるものと、PID を書かない種類（<code>.NET Runtime</code>・<code>Windows Error Reporting</code>・<code>Application Hang</code>）のために時間と種類だけで拾ったもの。後者は GitHub Actions の実行では先頭 3 件の本文まで書き、手元の実行では実機のほかのアプリの記録を残さないよう件数だけにする。無ければ「該当なし」と探した範囲を書く。イベントログを読めなかったときは、そう書く（「該当なし」とは区別する）。証拠を保存する時点でもう一度読み、終了の直後に読んだものと並べて書く。遅れて書かれる記録は、これでも拾えないことがある</li>
-<li><code>証拠の保存の失敗.txt</code> … 材料の保存が部分的に失敗したときの理由</li>
-</ul>
-</li>
-<li>場面が落ちたら、場面・手順・失敗の文言（終了コードを含む）を、ジョブの Summary の表に 1 行足す。ログを開かなくても、閉じるときの終了コードで落ちたのかが分かる</li>
+<li>落ちたときの材料（画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧）は、成否にかかわらず成果物 <code>gui-smoke-results</code>（<code>work/test/gui/&lt;場面&gt;/</code>）として保存する</li>
 <li><strong>落ちたときの再実行は 1 回まで。</strong> 2 回続けて同じ段階で落ちたら、偶然ではなく直すものとして扱う（画面の文言を変えたときは、探している文言のテストを直す）</li>
 <li><strong>S6 も手元で流す。</strong> 既定のワークスペースは環境変数 <code>TEBUNKO_DEFAULT_WORKSPACE</code> で差し替えた場所で画面を起動するため、利用者の既定のワークスペースには触れない</li>
 <li>ツールは <code>scripts/</code> を <code>$TestDrive</code> に写して起動し、設定ファイルもワークスペースも写した先に置く。作業ツリーの <code>setting.config</code>・<code>work\index</code>、<code>%LOCALAPPDATA%\tebunko</code>、<code>Documents\tebunko_ws</code> が、流す前後で変わらないことも各場面で確かめる</li>
-<li><strong>繰り返して流す。</strong> 閉じるときの終了コードで落ちるなどの、たまにしか出ない失敗の率を測るため、Actions から <code>gui</code> を手で動かせる（<code>workflow_dispatch</code>）。入力は <code>repeat</code>（並べるジョブの数。既定 10、上限 20）と <code>path</code>（流すテストのファイル。空なら全部）。ジョブ <code>gui-smoke-repeat</code> を <code>repeat</code> 本並べ、成果物は <code>gui-smoke-results-&lt;番号&gt;</code> になる。<code>gui-smoke</code> の名前と動く時は変えない</li>
 </ul>
 <p><strong>結果を PR のコメントに書く（<code>pr-comment</code> ジョブ）</strong></p>
 <p>test・title・docs・codeql・gui・perf-check の 6 つのワークフローは、どれも自分の確認のジョブに続けて <code>pr-comment</code> ジョブを持つ。共有の複合アクション <code>.github/actions/pr-comment</code>（中身は <code>tools/pr_checks_comment.ps1</code> を呼ぶだけ）を使い、<strong>そのワークフロー自身の結果</strong>（成功・失敗・取り消し・スキップ）と実行へのリンクを PR のコメントに書く・書き換える。結果を 1 つのコメントにまとめる集約ワークフローは無い。個別のワークフローをやり直しても、そのワークフロー自身のコメントだけが書き換わる。</p>

@@ -4128,12 +4128,8 @@
 <td>差し替えずに、開いて閉じるまで本物で動かす（<code>selectFolder</code> のリフレクションで開く部分を確かめるため）。ボタンと欄は言語に依らない ID（［フォルダーの選択］は <code>1</code>、［キャンセル］は <code>2</code>、フォルダ名の欄は <code>1152</code>）で探す（ランナーは英語、手元は日本語）</td>
 </tr>
 <tr>
-<td>閉じたあとの判定</td>
-<td>どの閉じ方（<code>closeGui</code>・取り込みを止めて閉じる）も、閉じたあとの終了コードを 1 つの関数（<code>assertGuiExited</code>）で確かめる。0 でなければ、材料を集めてから失敗にする。待っている間に画面が終わったとき（<code>waitGui</code>）も、同じ材料を集める</td>
-</tr>
-<tr>
 <td>失敗したとき</td>
-<td>失敗した手順の名前を文言に入れ、画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧に加えて、<code>終了の記録.txt</code>（閉じる直前の様子・終わった時刻・呼び出し元に戻った印・閉じる順番の記録）・<code>クラッシュ情報.txt</code>（イベントログ。PID で当たったものと、時間と種類で拾ったものを分けて書く。無くても「該当なし」と書く）を <code>work\test\gui\&lt;場面&gt;\</code> に置く（CI は成果物 <code>gui-smoke-results</code> に上げる）。材料は部分ごとに別に保存し、1 つが失敗しても残りを書く。場面・手順・失敗の文言は、CI の Summary にも 1 行出す</td>
+<td>失敗した手順の名前を文言に入れ、画面の画像・写した先の <code>gui_error_log.txt</code>・<code>indexing_log.txt</code>・窓の一覧を <code>work\test\gui\&lt;場面&gt;\</code> に置く（CI は成果物 <code>gui-smoke-results</code> に上げる）</td>
 </tr>
 </tbody>
 </table>
@@ -4142,7 +4138,7 @@
     L --&gt; A["UI オートメーションで操作&lt;br&gt;AutomationId・パターンで探す・押す"]
     A --&gt; W["100 ms ごとに状態を調べて待つ&lt;br&gt;予定外のエラーの窓が出たら即失敗"]
     W --&gt; C["閉じる・後片付けを確認"]
-    C -- 失敗 --&gt; F["画像・ログ・窓の一覧・終了の記録・クラッシュ情報を保存&lt;br&gt;Summary に 1 行"]</code></pre>
+    C -- 失敗 --&gt; F["画像・ログ・窓の一覧を保存"]</code></pre>
 <p><strong>場面</strong>（1 場面 = 1 回の起動。1 つのプロセスを長く操作すると、途中で失敗したときに後ろが続けて落ち、原因も追いにくいため。場面ごとに別の <code>Describe</code> にして、前の場面の失敗が後ろに響かないようにする）</p>
 <table>
 <thead>
