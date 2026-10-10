@@ -151,7 +151,9 @@ function getGuiProcessCommand {
     if ($variant -eq 'envexit') { $tail = "; [Environment]::Exit(0)" }
     if ($variant -eq 'exiting') {
         $exiting = (Join-Path $Tool.Dir "gui_exiting_").Replace("'", "''")
-        $head = "[void](Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action { [IO.File]::WriteAllText('$exiting' + `$PID + '.txt', (Get-Date).ToString('o')) }); "
+        # Exiting の中では待たない・重い処理をしない（結果を変えないため）。スレッド数と、WPF の窓・Dispatcher の終わりの様子を書くだけ
+        $action = '{ $o = ''thr='' + @((Get-Process -Id $PID).Threads).Count; try { $a = [System.Windows.Application]::Current; $o += '' App='' + ($null -ne $a); if ($a) { $d = $a.Dispatcher; $o += '' DispStart='' + $d.HasShutdownStarted + '' DispFin='' + $d.HasShutdownFinished; try { $o += '' Wins='' + $a.Windows.Count } catch { $o += '' Wins=例外'' } } } catch { $o += '' 例外'' }; [IO.File]::WriteAllText(''EXITINGPATH'' + $PID + ''.txt'', (Get-Date).ToString(''o'') + '' '' + $o) }'.Replace('EXITINGPATH', $exiting)
+        $head = "[void](Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action $action); "
     }
     return "`$env:TEBUNKO_CLOSE_TRACE = '1'; $head& '$gui'; `$r = `$?; `$c = `$LASTEXITCODE; $write; if (!`$r) { exit 1 }$tail"
 }
@@ -266,7 +268,9 @@ function assertGuiExited {
             $diagText = if (Test-Path -LiteralPath $diagFile) { [IO.File]::ReadAllText($diagFile) } else { "returned 無し" }
             $diagThreads = ([regex]::Match($diagText, 'THREADS=([^ ]*)').Groups[1].Value -split ',').Count
             $diagText = ($diagText -replace ' Error=.*?(?= THREADS=)', '') -replace 'THREADS=[^ ]*', "THREADS_COUNT=$diagThreads"
-            Write-Host ("GUI-DIAG exit=0 場面=" + $S.Scene + " " + $diagText)
+            $exitingFile = Join-Path $S.Tool.Dir "gui_exiting_$($S.Process.Id).txt"
+            $exitingText = if (Test-Path -LiteralPath $exitingFile) { [IO.File]::ReadAllText($exitingFile) } else { "無し" }
+            Write-Host ("GUI-DIAG exit=0 場面=" + $S.Scene + " EXITING=" + $exitingText + " " + $diagText)
         } catch { Write-Host ("GUI-DIAG 失敗 " + $_.Exception.Message) }
         return
     }

@@ -111,6 +111,7 @@ jobs:
         shell: powershell
         env:
           TEST_PATH: ${{ inputs.path || 'tests/gui/zz_bisect.Tests.ps1' }}
+          TEBUNKO_BISECT: '1'
         run: |
           if ($env:TEST_PATH) { .\tests\run.ps1 -Tag Gui -Path $env:TEST_PATH } else { .\tests\run.ps1 -Tag Gui }
 
