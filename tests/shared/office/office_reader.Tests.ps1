@@ -719,7 +719,7 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
         @($fails) | Should -Be @("xl/worksheets/sheet1.xml")
     }
 
-    It "部品の上限を超えて大きいシートは、流れで読んでも上限で打ち切り、そのシートのヘッダー・フッターだけ読めなかったことにする" {
+    It "展開後の大きさ（申告）が流れ読みの上限を超えるシートは、開かずに、そのシートのヘッダー・フッターだけ読めなかったことにする" {
         $big = "$TestDrive\big_hf.xlsx"
         $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('あ' * 3000)</t></is></c></row>"
         newZip $big @{
@@ -730,8 +730,8 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
             "xl/worksheets/sheet1.xml" = "<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C大きいシート')</worksheet>"
             "xl/worksheets/sheet2.xml" = "<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C小さいシート')</worksheet>"
         }
-        $orig = $script:zipSheetStreamMaxChars
-        $script:zipSheetStreamMaxChars = 2000
+        $orig = $script:zipSheetStreamMaxBytes
+        $script:zipSheetStreamMaxBytes = 2000
         try {
             $script:zipTotalReadBytes = 0
             $fails = New-Object System.Collections.Generic.List[string]
@@ -740,12 +740,12 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
             @($fails).Count | Should -Be 1
             @($fails)[0] | Should -BeLike "xl/worksheets/sheet1.xml*流れ読みの上限*"
         } finally {
-            $script:zipSheetStreamMaxChars = $orig
+            $script:zipSheetStreamMaxBytes = $orig
         }
     }
 
-    It "流れ読みの上限は部品ごとの上限とは別で、部品の上限を超えるシートでもヘッダー・フッターを読める。申告より実際が大きいシートも上限で打ち切る" {
-        $path = "$TestDrive"+[char]92+"stream_limit.xlsx"
+    It "流れ読みの上限は部品ごとの上限とは別で、部品の上限（100MB）を超えるシートでもヘッダー・フッターを読める" {
+        $path = "$TestDrive\stream_limit.xlsx"
         $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('あ' * 3000)</t></is></c></row>"
         newZip $path @{
             "xl/workbook.xml" = "<workbook $xNs><sheets><sheet name=`"大`" sheetId=`"1`" r:id=`"rId1`"/></sheets></workbook>"
@@ -763,16 +763,41 @@ Describe "readXlsxObjectUnits（ヘッダー・フッター）" -Tag Io {
         } finally {
             $script:zipPartMaxBytes = $origPart
         }
-        # 申告（entry.Length）は上限内でも、読んだ文字数が上限を超えたら打ち切る
-        $origChars = $script:zipSheetStreamMaxChars
-        $script:zipSheetStreamMaxChars = 5000
+    }
+
+    It "<name>: 申告を小さく偽ったシートは、読んだ量が流れ読みの上限を超えたところで止まり、そのシートだけ読めなかったことにする（ほかのシートは読める）" -TestCases @(
+        @{ name = "無圧縮"; compress = $false }
+        @{ name = "Deflate"; compress = $true }
+    ) {
+        param ($name, $compress)
+        $rows = "<row r=`"1`"><c r=`"A1`" t=`"inlineStr`"><is><t>$('a' * 6000)</t></is></c></row>"
+        $utf8 = [System.Text.Encoding]::UTF8
+        $path = Join-Path $TestDrive "fake_sheet_$compress.xlsx"
+        # sheet1 は実際は 6KB 以上だが、中央ディレクトリには 100 バイトと申告する（申告だけを見ると上限内に見える）
+        newRawZip $path @{
+            "xl/workbook.xml" = @{ bytes = $utf8.GetBytes("<workbook $xNs><sheets><sheet name=`"偽`" sheetId=`"1`" r:id=`"rId1`"/><sheet name=`"小`" sheetId=`"2`" r:id=`"rId2`"/></sheets></workbook>") }
+            "xl/_rels/workbook.xml.rels" = @{ bytes = $utf8.GetBytes("<Relationships $relNs><Relationship Id=`"rId1`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet1.xml`"/><Relationship Id=`"rId2`" Type=`"$officeRel/worksheet`" Target=`"worksheets/sheet2.xml`"/></Relationships>") }
+            "xl/worksheets/sheet1.xml" = @{ bytes = $utf8.GetBytes("<worksheet $xNs><sheetData>$rows</sheetData>$(hf 'oddHeader=&C偽のシート')</worksheet>"); compress = $compress; fakeSize = 100 }
+            "xl/worksheets/sheet2.xml" = @{ bytes = $utf8.GetBytes("<worksheet $xNs><sheetData/>$(hf 'oddHeader=&C小さいシート')</worksheet>") }
+        }
+        # 上限が十分大きければ、同じファイルが最後まで読める（止まる原因が上限であることの対照）
+        $script:zipTotalReadBytes = 0
+        $fails = New-Object System.Collections.Generic.List[string]
+        $result = readXlsxObjectUnits $path $fails
+        @($fails).Count | Should -Be 0
+        @($result.Keys) -join "|" | Should -Be "偽[ヘッダー・フッター]|小[ヘッダー・フッター]"
+
+        $orig = $script:zipSheetStreamMaxBytes
+        $script:zipSheetStreamMaxBytes = 2000
         try {
             $script:zipTotalReadBytes = 0
             $fails = New-Object System.Collections.Generic.List[string]
-            $null = readXlsxObjectUnits $path $fails
+            $result = readXlsxObjectUnits $path $fails
+            @($result.Keys) -join "|" | Should -Be "小[ヘッダー・フッター]"
             @($fails).Count | Should -Be 1
+            @($fails)[0] | Should -BeLike "xl/worksheets/sheet1.xml*流れ読みの上限*"
         } finally {
-            $script:zipSheetStreamMaxChars = $origChars
+            $script:zipSheetStreamMaxBytes = $orig
         }
     }
 
@@ -1189,7 +1214,7 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
         }
     }
 
-    It "申告の大きさが大きくても、実際の中身が小さければその中身を返す（申告の大きさぶんを先に確保しない）" {
+    It "申告の大きさが大きくても、実際の中身が小さければその中身を返す" {
         $orig = $script:zipPartMaxBytes
         $script:zipPartMaxBytes = 1000000
         try {

@@ -33,10 +33,11 @@ ${skipPlaceholderTypes} = @("sldNum", "dt", "hdr", "ftr", "sldImg")
 # 数えたいので都合がよい（テストから一時的に値を変えるときは、この $script: を直接上書きする）
 $script:zipPartMaxBytes = 100MB
 $script:zipTotalMaxBytes = 300MB
-# シートの部品を流れで読む（readXlsxSheetHeaderFooter）ときの文字数の上限。流れ読みは文字列にしないのでメモリを
-# 使わず、かかるのは時間だけ。シートは sheetData が大きく、実在のブックでも部品の上限（100MB）を超えうるため、
-# 部品の上限より大きい別の値にする（超えたシートは、そのシートのヘッダー・フッターだけ読めなかった扱い）
-$script:zipSheetStreamMaxChars = 1000MB
+# シートの部品を流れで読む（readXlsxSheetHeaderFooter）ときの、展開後の大きさ（バイト）の上限。流れ読みは文字列にしない
+# のでメモリを使わず、かかるのは時間だけ。シートは sheetData が大きく、実在のブックでも部品の上限（100MB）を超えうる
+# ため、部品の上限より大きい別の値にする（超えたシートは、そのシートのヘッダー・フッターだけ読めなかった扱い）。
+# 1ファイルの合計（zipTotalMaxBytes）には数えないので、シートごとに最大この大きさまで読む
+$script:zipSheetStreamMaxBytes = 1000MB
 # 1ファイルの合計（バイト）。readZipEntry が確保する大きさ（entry.Length）を足していく
 $script:zipTotalReadBytes = 0
 
@@ -1197,8 +1198,9 @@ function readXlsxSheetHeaderFooter {
     $settings = New-Object System.Xml.XmlReaderSettings
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
     # シートの部品は sheetData が大きいため、文字列にせず流れで読む（readZipEntry は使わない）。
-    # 代わりに読む文字数に部品の上限を設け、細工した大きな部品でも上限で打ち切る（XmlException → 読めなかった扱い）
-    $settings.MaxCharactersInDocument = $script:zipSheetStreamMaxChars
+    # 代わりに、申告の大きさ（entry.Length）が上限（zipSheetStreamMaxBytes）を超える部品は開かずに読めなかった扱いにする。
+    # MaxCharactersInDocument は、申告を偽った部品（実際は大きいのに小さく申告）を打ち切る守り（XmlException → 読めなかった扱い）
+    $settings.MaxCharactersInDocument = $script:zipSheetStreamMaxBytes
     $stream = $null
     $reader = $null
     try {
@@ -1209,10 +1211,10 @@ function readXlsxSheetHeaderFooter {
             if ($null -eq $entry) {
                 return @()
             }
-            if ($entry.Length -gt $script:zipSheetStreamMaxChars) {
-                # 申告の大きさが部品の上限を超える（開かずに読めなかった扱いにし、理由をログに出せるようにする）
+            if ($entry.Length -gt $script:zipSheetStreamMaxBytes) {
+                # 申告の大きさが流れ読みの上限を超える（開かずに読めなかった扱いにし、理由をログに出せるようにする）
                 if ($null -ne $failures) {
-                    $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxChars / 1MB))M文字を超えています）")
+                    $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxBytes / 1MB))MB を超えています）")
                 }
                 return @()
             }
@@ -1223,7 +1225,7 @@ function readXlsxSheetHeaderFooter {
     } catch {
         if ($null -ne $failures) {
             if ($_.Exception.Message -like "*MaxCharactersInDocument*") {
-                $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxChars / 1MB))M文字を超えています）")
+                $failures.Add("$entryName（流れ読みの上限 $([long]($script:zipSheetStreamMaxBytes / 1MB))MB を超えています）")
             } else {
                 $failures.Add($entryName)
             }
