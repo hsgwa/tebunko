@@ -135,7 +135,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         }
 
         [void](getApp $Name)
-        $script:watchdog.Pids | Should -Be @(300)
+        $script:officeWatchdog.State.Pids | Should -Be @(300)
     }
 
     It "PowerPoint はウィンドウを隠さず（Visible を変えない）、警告なし・マクロ無効で起動する" {
@@ -182,7 +182,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
         stopApp "Excel"
         $log -join "|" | Should -Be "Quit|WaitForExit:1000|Kill:200|WaitForExit:1000"
-        @($script:watchdog.Pids).Count | Should -Be 0
+        @($script:officeWatchdog.State.Pids).Count | Should -Be 0
 
         $log.Clear()
         $fakeWord = newFakeApp -appName "Word"
@@ -200,7 +200,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @(500) @(500)
         [void](getApp "Excel")
-        @($script:watchdog.Pids).Count | Should -Be 0
+        @($script:officeWatchdog.State.Pids).Count | Should -Be 0
 
         stopApp "Excel"
         @($log).Count | Should -Be 0
@@ -211,7 +211,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
         Mock New-Object { $fake } -ParameterFilter { $ComObject -eq "Excel.Application" }
         setProcesses @(100) @(100, 700, 800)
         [void](getApp "Excel")
-        @($script:watchdog.Pids).Count | Should -Be 0
+        @($script:officeWatchdog.State.Pids).Count | Should -Be 0
 
         # 自分で起動したことにはなるため Quit はするが、プロセスを指定した強制終了はしない
         stopApp "Excel"
@@ -226,7 +226,7 @@ Describe "getApp・stopApp（偽の Office アプリ）" -Tag Unit {
 
         $script:apps["Word"].Pid | Should -Be 0
         $script:apps["Word"].Shared | Should -Be $true
-        @($script:watchdog.Pids) | Should -Not -Contain 999
+        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 999
     }
 
     It "PowerPoint は自分のセッションに既に起動していれば、New-Object を呼ばずに例外を投げる（利用者が開いている・強制終了で終わらずに残った場合を含む）" {
@@ -293,36 +293,75 @@ Describe "releaseComObject" -Tag Unit {
     }
 }
 
-Describe "startWatchdog / stopWatchdog（1 ファイルの制限時間の監視）" -Tag Unit {
-    AfterEach {
-        stopWatchdog
-        $script:watchdog.Stop = $false
-        $script:watchdog.TimedOut = $false
-        $script:watchdog.Deadline = [datetime]::MaxValue
-        $script:watchdog.Pids = @()
-    }
-
-    It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。Office 以外のプロセスは終了させない" {
-        # Office アプリではない自分自身のプロセス（ID が再利用された場合に当たる）
-        $script:watchdog.Pids = @($PID)
-        startWatchdog
-        $script:watchdog.Deadline = [datetime]::Now.AddSeconds(-1)
-        $deadline = [datetime]::Now.AddSeconds(10)
-        while (-not $script:watchdog.TimedOut -and [datetime]::Now -lt $deadline) {
-            Start-Sleep -Milliseconds 100
-        }
-        $script:watchdog.TimedOut | Should -Be $true
-        $script:watchdog.Deadline | Should -Be ([datetime]::MaxValue)
-        (Get-Process -Id $PID).HasExited | Should -Be $false
+Describe "OfficeWatchdog（1 ファイルの制限時間の監視）" -Tag Unit {
+    It "本物のインスタンスは、Office アプリ 3 つのプロセス名を見張る" {
+        @($script:officeWatchdog.ProcessNames | Sort-Object) | Should -Be @("EXCEL", "POWERPNT", "WINWORD")
     }
 
     It "制限時間内なら TimedOut を立てない。止めると監視のスレッドを片付ける" {
-        startWatchdog
-        $script:watchdog.Deadline = [datetime]::Now.AddMinutes(10)
-        Start-Sleep -Milliseconds 700
-        $script:watchdog.TimedOut | Should -Be $false
-        stopWatchdog
-        $script:watchdogThread | Should -Be $null
+        $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
+        $watchdog.Start()
+        try {
+            $watchdog.State.Deadline = [datetime]::Now.AddMinutes(10)
+            Start-Sleep -Milliseconds 700
+            $watchdog.State.TimedOut | Should -Be $false
+        } finally {
+            $watchdog.Stop()
+        }
+        $watchdog.IsRunning() | Should -Be $false
+    }
+}
+
+# 実際に子プロセスを起動して、制限時間を過ぎたときに止めるプロセスを確かめる
+Describe "OfficeWatchdog（実際のプロセスを止める）" -Tag Io {
+    BeforeAll {
+        # 制限時間を過ぎるまで待つ（見張りは 500 ミリ秒ごとに見る）
+        function waitTimedOut($watchdog) {
+            $limit = [datetime]::Now.AddSeconds(10)
+            while (-not $watchdog.State.TimedOut -and [datetime]::Now -lt $limit) {
+                Start-Sleep -Milliseconds 100
+            }
+        }
+        # 何もしない子プロセスを 1 つ起動する（Office・メモ帳は使わない）。止めるのは起動した ID だけ
+        function startHarmlessChild {
+            return Start-Process -FilePath "$env:SystemRoot\System32\ping.exe" -ArgumentList "-n", "120", "127.0.0.1" -WindowStyle Hidden -PassThru
+        }
+    }
+
+    It "制限時間を過ぎたら TimedOut を立て、制限時刻を戻す。名前が合わないプロセスは終了させない" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@("NoSuchOfficeApp"))
+            $watchdog.State.Pids = @($child.Id)
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitTimedOut $watchdog
+            $watchdog.State.TimedOut | Should -Be $true
+            $watchdog.State.Deadline | Should -Be ([datetime]::MaxValue)
+            # 見張りが動いた後、少し待っても終わらない
+            $child.WaitForExit(1500) | Should -Be $false
+        } finally {
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
+    }
+
+    It "制限時間を過ぎたら、見張る名前に合うプロセスだけ終了させる" {
+        $child = startHarmlessChild
+        $watchdog = $null
+        try {
+            $watchdog = [OfficeWatchdog]::new([string[]]@($child.ProcessName))
+            $watchdog.State.Pids = @($child.Id)
+            $watchdog.Start()
+            $watchdog.State.Deadline = [datetime]::Now.AddSeconds(-1)
+            waitTimedOut $watchdog
+            $watchdog.State.TimedOut | Should -Be $true
+            $child.WaitForExit(10000) | Should -Be $true
+        } finally {
+            if ($watchdog) { $watchdog.Stop() }
+            if (-not $child.HasExited) { $child.Kill() }
+        }
     }
 }
 
@@ -512,7 +551,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:officeRecordDir = $null
         $script:onOfficeHandOver = $null
         $script:officeKeptApps = @()
-        updateWatchedPids
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
         Mock Get-Process { $null }
     }
 
@@ -522,7 +561,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:officeRecordDir = $null
         $script:onOfficeHandOver = $null
         foreach ($name in @("Excel", "Word", "PowerPoint")) { $script:apps.Remove($name) }
-        updateWatchedPids
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
     }
 
     It "isUnderDir: <name>" -TestCases @(
@@ -691,8 +730,8 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
     It "handOverApp: 見張り・一括終了・記録から外し、設定を戻して窓を出し、Quit も強制終了もしない" {
         $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
         $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
-        updateWatchedPids
-        $script:watchdog.Pids | Should -Contain 4242
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
+        $script:officeWatchdog.State.Pids | Should -Contain 4242
         $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
         $script:officePidSink[4242] = "EXCEL"
         $script:officeRecordDir = Join-Path $TestDrive "hand_over_records"
@@ -703,7 +742,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         handOverApp "Excel"
 
         $script:apps.ContainsKey("Excel") | Should -Be $false
-        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
         $script:officePidSink.ContainsKey(4242) | Should -Be $false
         Test-Path "$($script:officeRecordDir)\4242.txt" | Should -Be $false
         $com.Visible | Should -Be $true
@@ -746,13 +785,13 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $com.PSObject.Properties.Remove("Visible")
         $com | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue { throw "設定できません" }
         $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
-        updateWatchedPids
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
 
         (handOverApp "Excel") | Should -Be $false
 
         @($log) | Should -Be @("通知:Excel:False")
         $script:apps.ContainsKey("Excel") | Should -Be $false
-        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
         @($script:officeKeptApps).Count | Should -Be 1
         [object]::ReferenceEquals($script:officeKeptApps[0].Com, $com) | Should -Be $true
         Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 0 -Exactly -Scope It
@@ -784,12 +823,12 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
         $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
         $script:officePidSink[4242] = "EXCEL"
-        updateWatchedPids
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
 
         { handOverApp "Excel" } | Should -Not -Throw
 
         $script:apps.ContainsKey("Excel") | Should -Be $false
-        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
         $script:officePidSink.ContainsKey(4242) | Should -Be $false
     }
 
@@ -897,7 +936,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         param ($app, $ownFile, $foreign, $closed, $alerts)
         $com = newHandOverApp @((newBook $ownFile), (newBook $foreign)) $app
         $script:apps[$app] = @{ Com = $com; Pid = 4242; Shared = $false }
-        updateWatchedPids
+        $script:officeWatchdog.UpdateWatchedPids($script:apps)
         Mock Stop-Process {}
 
         (handOverApp $app) | Should -Be $true
@@ -905,7 +944,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         # 自分のファイルだけを保存せずに閉じる。Quit も強制終了もしない
         @($log) | Should -Be @($closed)
         $script:apps.ContainsKey($app) | Should -Be $false
-        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        @($script:officeWatchdog.State.Pids) | Should -Not -Contain 4242
         Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
         # 警告の設定と窓（PowerPoint の窓は触らない）とマクロの設定が、表どおりに戻る
         $com.DisplayAlerts | Should -Be $alerts
