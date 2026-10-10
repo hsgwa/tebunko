@@ -212,7 +212,7 @@ class HitRow : NotifyBase {
     static [regex] $ExcelRegex = [regex]::new("\.xls[a-z]?`$", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
     # 図形・コメントの場所 "<元の場所>[<種類>]"（index_name.ps1 の objectPlacePattern と同じ形。クラスからはスクリプトの変数が見えないため、ここにも書く）。
     # Excel の図形・コメントの 1 行は "<セル番地><TAB><文字>"。ヘッダー・フッターの 1 行は文字だけ（セル番地が無い）
-    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント|ヘッダー・フッター)\]`$")
+    static [regex] $ObjectPlaceRegex = [regex]::new("\[(?:図形|コメント|ヘッダー・フッター|埋め込み[1-9][0-9]{0,8})\]`$")
     static [regex] $CelllessPlaceRegex = [regex]::new("\[ヘッダー・フッター\]`$")
     static [char] $CellNewLine = [char]0x2028   # TSV のセル内改行（shared\core\text.ps1 の cellNewLine）
     static [int] $LeadLength = 40

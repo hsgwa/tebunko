@@ -11,10 +11,13 @@
 #      （.xlsx / .xlsm はグラフ・SmartArt を読むようになった分で 3。.docx / .docm / .pptx / .pptm は
 #      項目名を読まなくなった分だけ上げる。.doc / .ppt はこのアイテムでは上げない）
 #   4: Excel（.xlsx / .xlsm）のヘッダー・フッター（表示のワークシート・グラフシート）を読む。
+#   4（.docx / .docm / .doc / .pptx / .pptm）: Word・PowerPoint に埋め込んだ Office のファイル（Word 文書・Excel ブック・
+#      PowerPoint）の中の文字を、"ページNNN[埋め込みN]"・"スライドNNN[埋め込みN]" として読む
+#      （.doc は Word が新形式に変換した後も埋め込みが残るため上げる。.ppt は変換後に埋め込みが残らないため上げない）。
 ${extractVersions} = @{
     ".xlsx" = 4; ".xlsm" = 4
-    ".docx" = 3; ".docm" = 3; ".doc" = 2
-    ".pptx" = 3; ".pptm" = 3; ".ppt" = 2
+    ".docx" = 4; ".docm" = 4; ".doc" = 4
+    ".pptx" = 4; ".pptm" = 4; ".ppt" = 2
 }
 
 function getExtractVersion {
