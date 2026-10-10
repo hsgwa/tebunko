@@ -34,7 +34,7 @@ BeforeAll {
         @{ File = "workspace_jobs.ps1"; Function = "testStartupIndexExists"; Call = "testIndexExists"; Reason = "ローカルの場所だけ（ネットワークの場所は先に真を返し、呼ばない）" }
 
         # ---- tebunko/ui/open_source.ps1 ----
-        @{ File = "open_source.ps1"; Function = "findSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
+        @{ File = "open_source.ps1"; Function = "continueFindSourceFile"; Call = "findSourceFileState"; Reason = "ローカルのパスに限って呼ぶところ（testNetworkPath で確かめ済み。ネットワークなら裏の仕事で呼ぶ）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "[System.Diagnostics.Process]"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openWithShell"; Call = "Invoke-Item"; Reason = "既定のアプリで開く（元のファイルは確かめ済み。プロセスの起動は待たない）" }
         @{ File = "open_source.ps1"; Function = "openSourceFolder"; Call = "Start-Process"; Reason = "エクスプローラーで選ぶ（元のファイルは確かめ済み。プロセスの起動は待たない）" }
