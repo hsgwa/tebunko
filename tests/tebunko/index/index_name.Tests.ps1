@@ -46,7 +46,8 @@ Describe "splitObjectPlace" -Tag Unit {
         foreach ($kind in @(${placeKindShape}, ${placeKindComment}, ${placeKindHeaderFooter})) {
             $reader.Contains("[$kind]") | Should -Be $true
         }
-        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter})\]") | Should -Be $true
+        $reader.Contains("[${placeKindEmbed}") | Should -Be $true
+        $hitRow.Contains("\[(?:${placeKindShape}|${placeKindComment}|${placeKindHeaderFooter}|${placeKindEmbed}[1-9][0-9]*)\]") | Should -Be $true
         # セル番地が無い場所（ヘッダー・フッター）の判定（IsCelllessPlace）も、同じ種類の名前で書く
         $hitRow.Contains("CelllessPlaceRegex = [regex]::new(`"\[${placeKindHeaderFooter}\]") | Should -Be $true
     }
@@ -169,17 +170,41 @@ Describe "placeKindFileNames" -Tag Unit {
     It "objectPlacePattern の種類の選択肢が、表（placeKindFileNames）のキーと集合として同じ（足し忘れを防ぐ）" {
         $marker = "(?<kind>"
         $start = ${objectPlacePattern}.IndexOf($marker) + $marker.Length
-        $end = ${objectPlacePattern}.IndexOf(")\]`$")
+        $end = ${objectPlacePattern}.IndexOf(")|(?<numberedKind>")
         $alt = ${objectPlacePattern}.Substring($start, $end - $start)
         $patternKinds = $alt -split '\|' | ForEach-Object { [regex]::Unescape($_) }
-        ($patternKinds | Sort-Object) | Should -Be (${placeKindFileNames}.Keys | Sort-Object)
+        # 番号の付く種類（埋め込み）は選択肢の外に、番号つきで別に書く
+        $numbered = [regex]::Match(${objectPlacePattern}, '\(\?<numberedKind>([^)]*)\)').Groups[1].Value
+        (@($patternKinds) + [regex]::Unescape($numbered) | Sort-Object) | Should -Be (${placeKindFileNames}.Keys | Sort-Object)
     }
 
     It "表のキーだけが objectPlacePattern に一致し、知らない種類は一致しない" {
         foreach ($kind in ${placeKindFileNames}.Keys) {
+            if ($kind -eq ${placeKindEmbed}) { continue }
             "売上[$kind]" | Should -Match ${objectPlacePattern}
         }
         "売上[未知の種類]" | Should -Not -Match ${objectPlacePattern}
+    }
+
+    It "埋め込みは番号つきだけが一致し、番号なし・0 始まりはふつうの場所" {
+        "ページ001[埋め込み1]" | Should -Match ${objectPlacePattern}
+        "ページ001[埋め込み12]" | Should -Match ${objectPlacePattern}
+        "ページ001[埋め込み]" | Should -Not -Match ${objectPlacePattern}
+        "ページ001[埋め込み01]" | Should -Not -Match ${objectPlacePattern}
+        "ページ001[埋め込み0]" | Should -Not -Match ${objectPlacePattern}
+    }
+
+    It "埋め込みの場所は分割・ファイル名・表示で番号が往復する" {
+        $s = splitObjectPlace "ページ003[埋め込み2]"
+        $s.Base | Should -Be "ページ003"
+        $s.Kind | Should -Be "埋め込み"
+        $s.Number | Should -Be 2
+        toIndexFileName "ページ003[埋め込み2]" | Should -Be "page_003[embed2].tsv"
+        convertIndexFileNameToPlace "page_003[embed2]" | Should -Be "ページ003[埋め込み2]"
+        (describePlace "a.docx" "ページ003[埋め込み2]").Kind | Should -Be "埋め込み 2"
+        # 番号の付き方が違うファイル名は、種類として戻さない
+        convertIndexFileNameToPlace "ページ003[embed]" | Should -Not -Match "埋め込み"
+        convertIndexFileNameToPlace "売上[shape1]" | Should -Not -Match "図形"
     }
 }
 

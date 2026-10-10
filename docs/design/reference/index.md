@@ -1,4 +1,4 @@
-# 部品から関数一覧を引く
+﻿# 部品から関数一覧を引く
 
 扱うこと: どの部品（ファイル）の関数がどのページに載っているかの索引、インデクサ・画面の本体がどの関数を使うかの全体図。扱わないこと: 関数それぞれの入力・出力・概要そのもの（[設定・ファイル](settings.md)・[インデックス作成](indexer.md)・[TSV と本文インデックス](tsv.md)・[検索・スレッド・元のファイル・画面](search.md)）。先に読むページ: [設計の概要](../index.md)。
 
@@ -26,7 +26,8 @@ flowchart LR
 | `tebunko/ui/shell/nav_view.ps1`（判断層） | `getScreenOrder` / `isScreenName` / `getNextScreen` / `getShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `tebunko/ui/shell/status_bar_view.ps1`（判断層） | `getIndexingStatusLine` | [画面の実装構成](../gui/implementation.md#実装構成) |
 | `tebunko/ui/shell/nav.ps1` | `getCurrentScreen` / `selectScreen` / `invokeShortcutAction` | [画面の実装構成](../gui/implementation.md#実装構成) |
-| `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits`（ヘッダー・フッターは `readXlsxSheetHeaderFooter` / `readXlsxHeaderFooterLines` / `getHeaderFooterLines`） / `writeUnits` | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexing/excel.md)、[Word](../indexing/word.md)、[PowerPoint](../indexing/powerpoint.md) |
+| `shared/office/office_embedded.ps1` | `readEmbeddedObjectLines`（埋め込んだ Office のファイルの文字）/ `readEmbeddedPackageLines` / `readXlsxCellLines` / `readXlsxSheetCellLines` / `readXlsxSharedStrings` / `newEmbeddedState` | [Word の埋め込みの読み取り](../indexing/word.md#埋め込みの読み取りreadembeddedobjectlines)、[PowerPoint](../indexing/powerpoint.md) |
+| `shared/office/office_reader.ps1` | `isZipFile` / `isCompoundFile` / `readZipEntryBytes` / `readDocxUnits` / `readPptxUnits` / `readXlsxObjectUnits`（ヘッダー・フッターは `readXlsxSheetHeaderFooter` / `readXlsxHeaderFooterLines` / `getHeaderFooterLines`） / `writeUnits` | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#wordpowerpoint-のテキスト読み取りscriptssharedofficeoffice_readerps1)、[Excel](../indexing/excel.md)、[Word](../indexing/word.md)、[PowerPoint](../indexing/powerpoint.md) |
 | `shared/office/office_protection_view.ps1`（判断層） | `getOfficeProtectionKind` / `getProtectionFailureText` / `testOfficeOutput` / `testWorkbookFormat` / `getWordOpenFormat` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_protection.ps1` | `readFileHead` / `readCompoundEntryNames` / `getOfficeFileProtection` | [暗号化されたファイルの判定](../indexing/office-apps.md#暗号化されたファイルの判定office_protectionps1office_protection_viewps1) |
 | `shared/office/office_app.ps1` | `getApp` / `getOwnSessionProcessIds` / `stopApp` / `stopAllApps` / `startWatchdog` / `stopWatchdog` | [Word・PowerPoint の共通処理と Office アプリの管理](../indexing/office-apps.md#office-アプリexcelwordpowerpointの管理) |

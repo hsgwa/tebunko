@@ -25,7 +25,7 @@
 | TSV数 | 作成した TSV の数（= 場所の数。`済` のとき）。内容が空のファイルは `0`。本文インデックスに入れた後も値はそのまま（本文インデックスに入れる前の TSV が残っているときの確認に使う。[取り込み対象の決定](target-decision.md#取り込み対象の決定createtargetlist)） |
 | 取り込み日時 | 取り込んだ（または失敗した）日時 |
 | エラー | 失敗の原因（`describeIngestError` で例外から作る。[失敗の原因](office-apps.md#失敗の原因describeingesterror)。タブ・改行はスペースにする） |
-| 抽出版 | 取り込んだ（`済`）ときの、その形式の読み取る内容の版（`getExtractVersion`。`indexer_decide.ps1` の `$extractVersions`）。今は `.xlsx` `.xlsm` が 4（グラフ・SmartArt・ヘッダー・フッターを読む・グラフの項目名を読まない）、`.docx` `.docm` `.pptx` `.pptm` が 3（グラフの項目名を読まない）、`.doc` `.ppt` が 2（図形・コメント等を読む）、`.xls` `.xlsb` は 1。今の版より小さければ、更新が無くても取り込み直す（[インデックス作成のメインフロー](flow.md)）。空は 1 とみなす |
+| 抽出版 | 取り込んだ（`済`）ときの、その形式の読み取る内容の版（`getExtractVersion`。`indexer_decide.ps1` の `$extractVersions`）。今は `.xlsx` `.xlsm` が 4（グラフ・SmartArt・ヘッダー・フッターを読む・グラフの項目名を読まない）、`.docx` `.docm` `.doc` `.pptx` `.pptm` が 4（埋め込んだ Office のファイルの中の文字を読む・グラフの項目名を読まない）、`.ppt` が 2（図形・コメント等を読む）、`.xls` `.xlsb` は 1。今の版より小さければ、更新が無くても取り込み直す（[インデックス作成のメインフロー](flow.md)）。空は 1 とみなす |
 
 書き込み方（`writeStatusFile` / `addStatusRow` / `readStatusFile`）:
 

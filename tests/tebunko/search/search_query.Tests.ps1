@@ -56,6 +56,13 @@ Describe "newPlaceExclude" -Tag Unit {
         $both.IsMatch("売上[コメント]") | Should -Be $true
         $both.IsMatch("ページ001") | Should -Be $false
     }
+
+    It "埋め込みの場所は、図形を外すときに外れ、コメントだけを外すときは外れない" {
+        $noShape = newPlaceExclude $false $true
+        $noShape.IsMatch("ページ001[埋め込み1]") | Should -Be $true
+        $noShape.IsMatch("ページ001[埋め込み]") | Should -Be $false
+        (newPlaceExclude $true $false).IsMatch("ページ001[埋め込み1]") | Should -Be $false
+    }
 }
 
 Describe "newFileKindFilter" -Tag Unit {

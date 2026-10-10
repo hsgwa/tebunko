@@ -162,6 +162,10 @@ function convertPlaceToPackMeta {
             $meta["対象"] = $target
         }
     }
+    if ($split.Number -gt 0) {
+        # 埋め込みの番号（"ページ003[埋め込み2]" → 対象=埋め込み・埋め込み=2。場所を始めるキーではない）
+        $meta["埋め込み"] = [string]$split.Number
+    }
     if ((convertPackMetaToPlace $meta) -cne $place) {
         # 番号の桁が違う（"ページ1"）など、組み立て直すと同じ名前にならないものは、名前をそのまま持つ
         $meta = [ordered]@{ "部分" = $place; "対象" = "本文" }
@@ -178,6 +182,9 @@ function convertPackMetaToPlace {
 
     $target = [string]$meta["対象"]
     $suffix = if ($target -eq ${placeKindShape} -or $target -eq ${placeKindComment} -or $target -eq ${placeKindHeaderFooter}) { "[$target]" } else { "" }
+    if ($target -eq ${placeKindEmbed} -and $meta.Contains("埋め込み")) {
+        $suffix = "[$target$([string]$meta["埋め込み"])]"
+    }
     if ($meta.Contains("シート")) {
         return [string]$meta["シート"] + $suffix
     }
