@@ -38,8 +38,10 @@ $script:officeRecordDir = $null
 # 自分が開くブックの置き場（インデックス作成の作業領域の一時フォルダ。$null なら、開いているブックをすべて利用者のものとみなす）。
 # 使う側が入れる。置き場の外のブックが Excel に開かれたら、利用者が開いたブックとして扱う（getForeignWorkbookCount・handOverApp）
 $script:officeOwnDir = $null
-# Excel を利用者に渡したときに呼ぶ処理（スクリプトブロック。引数はアプリ名。$null なら何もしない）。ログを書く使う側が入れる
+# Excel を利用者に渡したときに呼ぶ処理（スクリプトブロック。引数はアプリ名と、窓を出せたか。$null なら何もしない）。ログを書く使う側が入れる
 $script:onOfficeHandOver = $null
+# 渡そうとして窓を出せなかった Excel（COM の参照を放さずに持ち続ける）
+$script:officeKeptApps = @()
 
 function resolveLongName {
     # 8.3 の短い名前（TEST~1 など）を含むパスを長い名前にする。読めなければ $null
@@ -50,6 +52,18 @@ function resolveLongName {
     } catch {
         return $null
     }
+}
+
+function resolveOwnDir {
+    # 自分が開くブックの置き場（一時フォルダ）を、比べる形にする。短い名前を長くできなければ、そのまま使う。
+    # 置き場が決まっていなければ $null（そのときは開いたブックをすべて利用者のものと数える）
+    param ([string]$dir)
+
+    if (-not $dir) {
+        return $null
+    }
+    $long = resolveLongName $dir
+    return $(if ($long) { $long } else { $dir })
 }
 
 function isUnderDir {
@@ -69,33 +83,34 @@ function isUnderDir {
 function getWorkbookSplit {
     # Excel で開いているブックを、自分が開いたもの（置き場の下）と利用者が開いたもの（外）に分ける。@{ Own; Foreign }
     # 開いたブックの FullName を控えて照合する方法は、失敗の途中で Open が戻らなかったブックを控えられないため採らない。
-    # 短い名前（~ を含む）は長い名前にしてから比べ、読めなければ利用者のものと数えない（毎ファイルで渡さないため）
+    # 短い名前（~ を含む）は長い名前にしてから比べる。読めなければ、置き場の下と確かめられないので利用者のものと数える
+    # （データを失わない側。自分のものは置き場の下にあり、読める）
     param ($com)
 
     $own = New-Object System.Collections.ArrayList
     $foreign = New-Object System.Collections.ArrayList
-    foreach ($book in @($com.Workbooks)) {
-        if ($null -eq $book) { continue }
-        $full = [string]$book.FullName
-        if ($full.Contains('~')) {
-            $long = resolveLongName $full
-            if ($null -eq $long) {
-                [void]$own.Add($book)
-                continue
+    $workbooks = $com.Workbooks
+    try {
+        foreach ($book in @($workbooks)) {
+            if ($null -eq $book) { continue }
+            $full = [string]$book.FullName
+            if ($full.Contains('~')) {
+                $full = resolveLongName $full
             }
-            $full = $long
+            if ($full -and $script:officeOwnDir -and (isUnderDir $full $script:officeOwnDir)) {
+                [void]$own.Add($book)
+            } else {
+                [void]$foreign.Add($book)
+            }
         }
-        if ($script:officeOwnDir -and (isUnderDir $full $script:officeOwnDir)) {
-            [void]$own.Add($book)
-        } else {
-            [void]$foreign.Add($book)
-        }
+    } finally {
+        try { releaseComObject $workbooks } catch {}
     }
     return @{ Own = $own; Foreign = $foreign }
 }
 
 function getForeignWorkbookCount {
-    # Excel で利用者が開いたブック（置き場の外）の数。読めない（COM の例外）ときは 0（今までどおり止める側）
+    # Excel で利用者が開いたブック（置き場の外）の数。読めない（COM の例外）ときは -1（分からない。handOverForeignApp が窓で判断する）
     param ($com)
 
     try {
@@ -105,8 +120,19 @@ function getForeignWorkbookCount {
         foreach ($book in @($split.Own) + @($split.Foreign)) { try { releaseComObject $book } catch {} }
         return $count
     } catch {
-        return 0
+        return -1
     }
+}
+
+function testProcessHasWindow {
+    # 起動で控えた PID のプロセスに、見える窓があるか。PID だけを見る（窓を中身で探さない）。控えていなければ（0）偽
+    param ([int]$processId, [string]$processName)
+
+    if ($processId -le 0) {
+        return $false
+    }
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    return [bool]($process -and $process.ProcessName -eq $processName -and $process.MainWindowHandle -ne 0)
 }
 
 function getOwnSessionProcessIds {
@@ -217,34 +243,50 @@ function handOverApp {
 
     $com = $app.Com
     $books = $null
-    # (0) 自分が開いたブック（失敗して開いたままの一時コピー）は、利用者に見せず、一時フォルダの掃除をロックで失敗させないよう閉じる
+    # (0) 自分が開いたブック（失敗して開いたままの一時コピー）は、利用者に見せず、一時フォルダの掃除をロックで失敗させないよう閉じる。
+    # 閉じるのは置き場の下と確かめられたものだけ（利用者のブックは閉じない）
     try {
         $books = getWorkbookSplit $com
         foreach ($book in $books.Own) {
             try { $book.Close($false) } catch {}
         }
     } catch {}
-    # (d) 起動時に変えた設定を、利用者が起動したときの状態に戻す
-    foreach ($setting in @(
-            @("DisplayAlerts", $true), @("EnableEvents", $true), @("ScreenUpdating", $true),
-            @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))) {
+    # (d) 起動時に変えた設定を、利用者が起動したときの状態に戻す。(e) 窓を出し、COM の参照を放しても利用者が閉じるまで残るようにする。
+    # 窓・UserControl・DisplayAlerts が戻らないまま参照を放すと、Excel が保存の確認なしに終わりうるため、成功を確かめ、数回やり直す
+    $required = @(@("DisplayAlerts", $true), @("Visible", $true), @("UserControl", $true))
+    $optional = @(@("EnableEvents", $true), @("ScreenUpdating", $true), @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))
+    $pending = @($required)
+    for ($try = 0; $try -lt 3 -and $pending.Count -gt 0; $try++) {
+        if ($try -gt 0) { Start-Sleep -Milliseconds 200 }
+        $failed = @()
+        foreach ($setting in $pending) {
+            try { $com.($setting[0]) = $setting[1] } catch { $failed += , $setting }
+        }
+        $pending = $failed
+    }
+    foreach ($setting in $optional) {
         try { $com.($setting[0]) = $setting[1] } catch {}
     }
-    # (e) 窓を出し、COM の参照を放しても利用者が閉じるまで残るようにする
-    try { $com.Visible = $true } catch {}
-    try { $com.UserControl = $true } catch {}
-    # (f) このスレッドが持つ COM を解放しきる。WaitForPendingFinalizers は長く止まることがあるため使わない
-    try {
-        if ($books) {
-            foreach ($book in @($books.Own) + @($books.Foreign)) { try { releaseComObject $book } catch {} }
-        }
-        releaseComObject $com
-        [GC]::Collect()
-    } catch {}
+    $ok = ($pending.Count -eq 0)
+
+    if ($ok) {
+        # (f) このスレッドが持つ COM を解放しきる。WaitForPendingFinalizers は長く止まることがあるため使わない
+        try {
+            if ($books) {
+                foreach ($book in @($books.Own) + @($books.Foreign)) { try { releaseComObject $book } catch {} }
+            }
+            releaseComObject $com
+            [GC]::Collect()
+        } catch {}
+    } else {
+        # 窓を出せなかった Excel は、参照を放すと終わるおそれがあるため、放さずに持ち続ける（止めも強制終了もしない）
+        $script:officeKeptApps += , $com
+    }
 
     if ($script:onOfficeHandOver) {
-        try { & $script:onOfficeHandOver $name } catch {}
+        try { & $script:onOfficeHandOver $name $ok } catch {}
     }
+    return $ok
 }
 
 function handOverForeignApp {
@@ -255,10 +297,15 @@ function handOverForeignApp {
     if ($name -ne "Excel" -or $null -eq $app -or $app.Shared) {
         return $false
     }
-    if ((getForeignWorkbookCount $app.Com) -le 0) {
+    $count = getForeignWorkbookCount $app.Com
+    if ($count -eq 0) {
         return $false
     }
-    handOverApp $name
+    # ブックの一覧を読めない（COM が呼び出しを拒んだ。利用者が操作中のことがある）ときは、見える窓があれば利用者が使っているとみなし、止めない
+    if ($count -lt 0 -and -not (testProcessHasWindow ([int]$app.Pid) $appInfo["Excel"].Process)) {
+        return $false
+    }
+    [void](handOverApp $name)
     return $true
 }
 

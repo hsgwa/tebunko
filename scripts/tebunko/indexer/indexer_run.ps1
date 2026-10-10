@@ -8,7 +8,14 @@
 # ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
 # Excel を利用者に渡したときのログ（indexing_log.txt）への 1 行。office_app.ps1 の handOverApp が呼ぶ
-${officeHandOverNotice} = { param ($name) writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しました" }
+${officeHandOverNotice} = {
+    param ($name, $shown)
+    if ($shown) {
+        writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しました"
+    } else {
+        writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しましたが、窓を出せませんでした（終了させずに残しています）" "Yellow"
+    }
+}
 
 # 取り込みのスレッドで動かすスクリプト。自分のレーンの列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
 # Office のレーン（Excel・Word・PowerPoint）は STA で、そのアプリを 1 つ持つ。読み取りのレーンは Office を持たない。
@@ -27,7 +34,7 @@ ${ingestWorkerScript} = {
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
     $script:officeRecordDir = $settings.OfficeRecordDir
-    $script:officeOwnDir = $(if ($tmpDir) { resolveLongName $tmpDir } else { $null })
+    $script:officeOwnDir = resolveOwnDir $tmpDir
     $script:onOfficeHandOver = ${officeHandOverNotice}
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
@@ -660,7 +667,7 @@ function invokeIndexerBody {
         } else {
             $script:officePidSink = $channel.OfficePids
             $script:officeRecordDir = $officeRecordDir
-            $script:officeOwnDir = $(if (${tmpDir}) { resolveLongName ${tmpDir} } else { $null })
+            $script:officeOwnDir = resolveOwnDir ${tmpDir}
             $script:onOfficeHandOver = ${officeHandOverNotice}
             startWatchdog
         }
