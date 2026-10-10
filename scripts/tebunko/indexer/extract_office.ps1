@@ -180,7 +180,7 @@ function extractWorkbook {
 
     $bookName = [System.IO.Path]::GetFileName($sourcePath)
 
-    # 元のファイルを占有しないよう、作業フォルダにコピーしてからコピーを開く
+    # 元のファイルに影響を出さないよう、作業フォルダにコピーしてからコピーを開く
     # （Excelで開いている間、元のファイルを利用者が上書き保存・移動できなくなるのを防ぐ。長いパスのファイルも開ける）。
     # ファイル名を参照する数式（CELL("filename") 等）の表示値が変わらないよう、コピーは元と同じファイル名にする。
     # 作業フォルダ＋ファイル名が長すぎてExcelで開けない場合だけ、短い名前にする。
@@ -424,7 +424,7 @@ function extractDocument {
     $isWord = ((getAppName $sourcePath) -eq "Word")
     $appName = $(if ($isWord) { "Word" } else { "PowerPoint" })
 
-    # 元のファイルを占有しないよう、作業フォルダにコピーしてからコピーを読む（読んでいる間も、利用者が上書き保存・移動できる）。
+    # 元のファイルに影響を出さないよう、作業フォルダにコピーしてからコピーを読む（読んでいる間も、利用者が上書き保存・移動できる）。
     # 新形式（ZIP）はコピーをそのまま読む。
     # 旧形式・パスワード付き・拡張子と中身が異なるファイルは、Word・PowerPointで新形式に変換してから読む
     $copyPath = Join-Path $tmpDir ("source" + [System.IO.Path]::GetExtension($sourcePath))

@@ -406,6 +406,43 @@ Describe "取り込み対象のファイルを書き換えないこと（docs/sa
         (findPattern $fs '\[System\.IO\.FileAccess\]::Read') | Should -Not -Be ""
     }
 
+    It "取り込みの入口（extractTextFile・extractWorkbook・extractDocument）が元のパス（sourcePath 変数）を渡してよいのは、許した処理だけ" {
+        # 元を直接読む処理（readTextFile・isZipFile・Open など）に $sourcePath を渡すと落ちる。読むのは、作業領域のコピー（copyFileShared の先）だけ。
+        # 許す: copyFileShared（コピー）・getAppName（拡張子の判定）・toLongPath（大きさをメタデータで見る）・[System.IO.Path]::Get*（名前・拡張子）
+        $allowedCommands = @("copyFileShared", "getAppName", "toLongPath")
+        $entries = @("extractTextFile", "extractWorkbook", "extractDocument")
+        $found = New-Object System.Collections.Generic.List[string]
+        $bad = New-Object System.Collections.Generic.List[string]
+        foreach ($file in @("extract_text.ps1", "extract_office.ps1")) {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile("$scriptsDir\tebunko\indexer\$file", [ref]$null, [ref]$null)
+            $functions = @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Where-Object { $entries -contains $_.Name })
+            foreach ($function in $functions) {
+                $found.Add($function.Name)
+                $uses = $function.Body.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] -and $n.VariablePath.UserPath -eq "sourcePath" }, $true)
+                foreach ($use in $uses) {
+                    if ($use.Parent -is [System.Management.Automation.Language.ParameterAst]) {
+                        continue
+                    }
+                    $parent = $use.Parent
+                    while ($null -ne $parent -and $parent -isnot [System.Management.Automation.Language.CommandAst] -and $parent -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                        $parent = $parent.Parent
+                    }
+                    $ok = $false
+                    if ($parent -is [System.Management.Automation.Language.CommandAst]) {
+                        $ok = ($allowedCommands -contains $parent.GetCommandName())
+                    } elseif ($parent -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                        $ok = ($parent.Static -and $parent.Expression.Extent.Text -eq "[System.IO.Path]" -and $parent.Member.Extent.Text -like "Get*")
+                    }
+                    if (!$ok) {
+                        $bad.Add("$($function.Name):$($use.Extent.StartLineNumber)")
+                    }
+                }
+            }
+        }
+        (($found | Sort-Object) -join ",") | Should -Be (($entries | Sort-Object) -join ",")
+        ($bad -join ", ") | Should -Be ""
+    }
+
     It "Office の SaveAs の保存先は作業フォルダのパスだけ" {
         $saves = @($code | Where-Object { $_.Text -match '\.SaveAs' })
         $saves.Count | Should -Be 3
