@@ -143,7 +143,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             # 残りが無い終わりの帯（注意）は閉じるボタン（×）で閉じられる
             setGuiStep $S "帯の×で閉じる"
             clickGui $S $S.Window "IndexingBannerClose" "帯の×"
-            waitGui $S "帯が消える" ${guiDefaultTimeout} { $e = findGui $S.Window -Id "IndexingProgressText"; !$e -or $e.Current.IsOffscreen } | Out-Null
+            waitGui $S "帯が消える" ${guiDefaultTimeout} { !(testGuiVisible (findGui $S.Window -Id "IndexingProgressText")) } | Out-Null
 
             # 削除: キャンセルすると残り、［削除する］で消える（#15）
             setGuiStep $S "［削除］→［キャンセル］"
@@ -233,12 +233,12 @@ Describe "S3 作成中の操作" -Tag Gui {
             answerGuiConfirm $S "中止の確認" "中止しますか" "中止する"
             waitGui $S "更新が止まる（帯に［続きから再開］、［すべて更新］が押せる）" ${guiIndexTimeout} {
                 $b = findGui $S.Window -Id "IndexingButton"
-                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新" -and (findGui $S.Window -Id "IndexingResumeButton")
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新" -and (testGuiVisible (findGui $S.Window -Id "IndexingResumeButton"))
             } | Out-Null
             $S.Timing["中止まで"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
 
             # 中止のあとは残りがあるので、帯に閉じるボタンは出ず、［続きから再開］が残る
-            (& { $e = findGui $S.Window -Id "IndexingBannerClose"; $e -and !$e.Current.IsOffscreen }) | Should -BeFalse -Because "残りがあるあいだは帯を閉じられない"
+            testGuiVisible (findGui $S.Window -Id "IndexingBannerClose") | Should -BeFalse -Because "残りがあるあいだは帯を閉じられない"
 
             # 帯のボタンが 2 つ並ぶ（残りがあれば［検索する］と［続きから再開］）ときは、見える枠の間が 10
             $search = findGui $S.Window -Id "IndexingSearchButton"
@@ -269,7 +269,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "起動時のタブを［インデックス管理］にする（#4 は別の fix で直すまでの回避）"
             selectGuiTab $S "IndexTab" "IndexingButton"
             waitGui $S "「更新を中断しました」" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*更新を中断しました*" } | Out-Null
-            (& { $e = findGui $S.Window -Id "IndexingBannerClose"; $e -and !$e.Current.IsOffscreen }) | Should -BeFalse -Because "中断の帯は閉じられない"
+            testGuiVisible (findGui $S.Window -Id "IndexingBannerClose") | Should -BeFalse -Because "中断の帯は閉じられない"
 
             setGuiStep $S "続きから再開"
             startGuiIndexing $S
@@ -289,6 +289,41 @@ Describe "S3 作成中の操作" -Tag Gui {
             clickGuiByName $S $confirm "中止して閉じる"
             waitGui $S "取り込みを止めて画面が終了する" ${guiIndexTimeout} -AllowExited { $S.Process.HasExited } | Out-Null
             $S.Process.ExitCode | Should -Be 0
+        }
+    }
+
+
+    It "中断した取り込みを再開して最後まで終えると、帯に閉じるボタンが出る" {
+        # 中断の帯（残りあり）では閉じられないが、残りが無くなった完了の帯は閉じられる（8 秒は待たない）。
+        # 最後まで終えられるよう、ファイルの数を減らした別の作業場所で行う
+        $tooFast = "取り込みが終わってしまい、中止が間に合わなかった。tests\gui\index.Tests.ps1 の smallCopies（ファイルの数）を増やす"
+        $smallDir = Join-Path $TestDrive "少量"
+        $tool = newGuiTool $smallDir @{ ingestThreads = 1 }
+        $source = Join-Path $smallDir "元のフォルダ\少量"
+        newGuiSourceFolder $source -Copies 60
+        $config = readGuiConfig $tool
+        $config | Add-Member -NotePropertyName targetFolders -NotePropertyValue @(@{ name = "少量"; path = $source; enabled = $true }) -Force
+        writeGuiConfig $tool.Dir $config
+
+        $S = startGui $tool "S3"
+        invokeGuiScene $S {
+            setGuiStep $S "取り込みを始めて中止する"
+            startGuiIndexing $S
+            waitGui $S "取り込み中（［更新中…］）" ${guiDefaultTimeout} { testGuiIndexing $S } | Out-Null
+            if (!(testGuiIndexing $S)) { throw $tooFast }
+            clickGui $S $S.Window "IndexingStopButton" "［中止］"
+            answerGuiConfirm $S "中止の確認" "中止しますか" "中止する"
+            waitGui $S "更新が止まる（帯に［続きから再開］）" ${guiIndexTimeout} {
+                $b = findGui $S.Window -Id "IndexingButton"
+                $b.Current.IsEnabled -and $b.Current.Name -eq "すべて更新" -and (testGuiVisible (findGui $S.Window -Id "IndexingResumeButton"))
+            } | Out-Null
+            setGuiStep $S "続きから再開して最後まで終える"
+            startGuiIndexing $S
+            waitGui $S "完了の帯に閉じるボタンが出る" ${guiIndexTimeout} {
+                !(testGuiIndexing $S) -and (getGuiIndexingBannerText $S) -like "*更新が終わりました*" -and
+                    (testGuiVisible (findGui $S.Window -Id "IndexingBannerClose"))
+            } | Out-Null
+            closeGui $S
         }
     }
 

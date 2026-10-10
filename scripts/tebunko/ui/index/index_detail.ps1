@@ -60,6 +60,7 @@ function setIndexingBannerBehavior {
     $pending = if ($script:indexingState -and !(isIndexing)) { [int]$script:indexingState.Pending } else { 0 }
     $behavior = getIndexingBannerBehavior $script:indexingBannerLevel $pending
     $ui.IndexingBannerClose.Visibility = if ($behavior.Closable) { "Visible" } else { "Collapsed" }
+    $script:indexingBannerClosable = [bool]$behavior.Closable
     $script:indexingBannerTimer.Stop()
     if ($behavior.AutoCloseSeconds -gt 0) {
         $script:indexingBannerTimer.Interval = [TimeSpan]::FromSeconds($behavior.AutoCloseSeconds)
@@ -92,9 +93,13 @@ function updateIndexingResume {
         $ui.IndexingProgressPanel.Visibility = "Visible"
     } elseif ($canResume -and $script:indexingBannerKind -eq "interrupted") {
         $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
-    } elseif ($canResume -and $ui.IndexingProgressPanel.Visibility -eq "Visible") {
-        # 終わりの帯（完了・中止）に残りがあるときは、×と自動で消える時計を外して、［続きから再開］を隠さない
-        setIndexingBannerBehavior
+    } elseif ($script:indexingBannerKind -eq "done" -and $ui.IndexingProgressPanel.Visibility -eq "Visible") {
+        # 終わりの帯（完了・中止）は、出した時点の古い集計で閉じる可否を決めている。新しい集計で残りの有無が変わったときだけ決め直す
+        # （残りがあれば×と時計を外して［続きから再開］を隠さず、残りが無くなれば×と時計を戻す。集計のたびに時計を掛け直さない）
+        $pendingNow = if ($canResume) { $pending } else { 0 }
+        if ((getIndexingBannerBehavior $script:indexingBannerLevel $pendingNow).Closable -ne $script:indexingBannerClosable) {
+            setIndexingBannerBehavior
+        }
     } elseif (!$canResume -and $script:indexingBannerKind -eq "interrupted") {
         $ui.IndexingProgressPanel.Visibility = "Collapsed"
         $script:indexingBannerKind = ""
