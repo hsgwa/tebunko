@@ -465,6 +465,9 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
             $book | Add-Member -MemberType ScriptMethod -Name Close -Value { [void]$log.Add("Close:$($this.FullName)|$($args[0])") }
             return $book
         }
+        function newKeptState($com, [string]$name = "Excel") {
+            return @{ Name = $name; Com = $com; BooksClosed = $false; Books = $null; Done = @{} }
+        }
         function newHandOverApp([object[]]$books = @(), [int]$documents = 0) {
             $app = New-Object psobject -Property @{
                 Visible = $false; UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
@@ -486,6 +489,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         $script:officePidSink = $null
         $script:officeRecordDir = $null
         $script:onOfficeHandOver = $null
+        $script:officeKeptApps = @()
         updateWatchedPids
         Mock Get-Process { $null }
     }
@@ -755,29 +759,123 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         Should -Invoke Get-Process -Times 0 -Exactly -Scope It
     }
 
-    It "retryKeptApps: 設定が通れば参照を放して「渡した」と知らせ、通らなければ持ち続ける（待たない・止めない）" {
+    It "retryKeptApps: 全部通って初めて参照を放して「渡した」と知らせる。任意の設定も戻し、自分のブックだけ閉じ、通らなければ持ち続ける（待たない・止めない）" {
         Mock releaseComObject {}
         Mock Stop-Process {}
         $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
-        $good = newHandOverApp
+        $good = newHandOverApp @((newBook "C:\work\tmp\w1\壊れた.xlsx"), (newBook "C:\docs\x\山田.xlsx"))
         $bad = newHandOverApp
         $bad.PSObject.Properties.Remove("Visible")
         $bad | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue { throw "設定できません" }
-        $pending = @(@("DisplayAlerts", $true), @("Visible", $true), @("UserControl", $true))
-        $script:officeKeptApps = @(@{ Name = "Excel"; Com = $good; Pending = $pending }, @{ Name = "Excel"; Com = $bad; Pending = $pending })
+        $script:officeKeptApps = @((newKeptState $good), (newKeptState $bad))
 
         retryKeptApps
 
         $good.Visible | Should -Be $true
         $good.UserControl | Should -Be $true
         $good.DisplayAlerts | Should -Be $true
-        @($log) | Should -Be @("通知:Excel:True")
+        $good.EnableEvents | Should -Be $true
+        $good.ScreenUpdating | Should -Be $true
+        $good.AutomationSecurity | Should -Be 1
+        # 自分のブックだけ Close($false)。利用者のブックは閉じない
+        @($log) | Should -Be @("Close:C:\work\tmp\w1\壊れた.xlsx|False", "通知:Excel:True")
         Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $good) } -Times 1 -Exactly -Scope It
         Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $bad) } -Times 0 -Exactly -Scope It
         Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
         @($script:officeKeptApps).Count | Should -Be 1
         [object]::ReferenceEquals($script:officeKeptApps[0].Com, $bad) | Should -Be $true
-        $script:officeKeptApps = @()
+    }
+
+    It "retryKeptApps: 任意の設定が通らないうちは「渡した」としない（必須が通っていても持ち続ける）" {
+        Mock releaseComObject {}
+        $com = newHandOverApp
+        $com.PSObject.Properties.Remove("ScreenUpdating")
+        $com | Add-Member -MemberType ScriptProperty -Name ScreenUpdating -Value { $false } -SecondValue { throw "設定できません" }
+        $script:officeKeptApps = @((newKeptState $com))
+
+        retryKeptApps
+
+        @($script:officeKeptApps).Count | Should -Be 1
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $com) } -Times 0 -Exactly -Scope It
+    }
+
+    It "retryKeptApps: 最初にブックの一覧を読めなくて閉じられなかった自分のブックも、後で閉じる" {
+        Mock releaseComObject {}
+        $script:splitCalls = 0
+        $book = newBook "C:\work\tmp\w1\壊れた.xlsx"
+        $com = newHandOverApp @($book)
+        $state = newKeptState $com
+        Mock getWorkbookSplit { $script:splitCalls++; if ($script:splitCalls -eq 1) { throw "呼び出しが拒否されました" }; @{ Own = @($book); Foreign = @() } }
+
+        (restoreHandedOverApp $state 1) | Should -Be $false
+        @($log).Count | Should -Be 0
+        $script:officeKeptApps = @($state)
+        retryKeptApps
+
+        @($log) | Should -Be @("Close:C:\work\tmp\w1\壊れた.xlsx|False")
+        @($script:officeKeptApps).Count | Should -Be 0
+        Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $book) } -Times 1 -Exactly -Scope It
+    }
+
+    Context "waitKeptApps（取り込みのスレッドの終わりの待ち。時計は Start-Sleep の差し替えで進める）" {
+        BeforeAll {
+            # Visible を、指定した回数だけ拒んでから通す偽の Excel
+            function newSlowApp([int]$failures) {
+                $script:failsLeft = $failures
+                $app = newHandOverApp
+                $app.PSObject.Properties.Remove("Visible")
+                $app | Add-Member -MemberType ScriptProperty -Name Visible -Value { $false } -SecondValue {
+                    if ($script:failsLeft -gt 0) { $script:failsLeft--; throw "設定できません" }
+                }
+                return $app
+            }
+        }
+        BeforeEach {
+            Mock Start-Sleep { $script:slept += $Milliseconds }
+            Mock releaseComObject {}
+            Mock Stop-Process {}
+            $script:slept = 0
+            $script:onOfficeHandOver = { param ($name, $shown) [void]$log.Add("通知:${name}:${shown}") }
+        }
+        It "待つうちに通れば、そこで渡して抜ける" {
+            $script:officeKeptApps = @((newKeptState (newSlowApp 2)))
+
+            waitKeptApps
+
+            @($script:officeKeptApps).Count | Should -Be 0
+            @($log) | Should -Be @("通知:Excel:True")
+            $script:slept | Should -Be (2 * $script:officeKeptWaitStep)
+        }
+
+        It "上限まで通らなければ諦める（上限の秒数だけ待ち、Quit・強制終了・参照の解放はしない）" {
+            $script:officeKeptApps = @((newKeptState (newSlowApp 100000)))
+
+            waitKeptApps
+
+            $script:slept | Should -Be ($script:officeKeptWaitSeconds * 1000)
+            @($script:officeKeptApps).Count | Should -Be 1
+            @($log).Count | Should -Be 0
+            Should -Invoke releaseComObject -ParameterFilter { [object]::ReferenceEquals($object, $script:officeKeptApps[0].Com) } -Times 0 -Exactly -Scope It
+            Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+        }
+
+        It "持ち続けが無ければ待たない" {
+            $script:officeKeptApps = @()
+
+            waitKeptApps
+
+            $script:slept | Should -Be 0
+            Should -Invoke Start-Sleep -Times 0 -Exactly -Scope It
+        }
+
+        It "中止の合図が来ていれば、待たずに抜ける" {
+            $script:officeKeptApps = @((newKeptState (newSlowApp 100000)))
+
+            waitKeptApps { $true }
+
+            $script:slept | Should -Be 0
+            @($script:officeKeptApps).Count | Should -Be 1
+        }
     }
 
     It "持ち続けている Excel は、<when>に設定し直される" -TestCases @(
@@ -787,7 +885,7 @@ Describe "利用者が開いたブックの見分けと、利用者への引き�
         param ($when, $run)
         Mock releaseComObject {}
         $kept = newHandOverApp
-        $script:officeKeptApps = @(@{ Name = "Excel"; Com = $kept; Pending = @(,@("Visible", $true)) })
+        $script:officeKeptApps = @((newKeptState $kept))
 
         & $run
 

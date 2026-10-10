@@ -252,14 +252,14 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
 
     It "インデクサの Office は画面に出さない（Visible = false）" {
         (findPattern $app 'Visible\s*=\s*\$false') | Should -Not -Be ""
-        # 可視にするのは、画面から元のファイルを開くとき（ui/open_source.ps1）と、利用者のブックが入った Excel を利用者に渡すとき（office_app.ps1 の handOverApp）だけ
+        # 可視にするのは、画面から元のファイルを開くとき（ui/open_source.ps1）と、利用者のブックが入った Excel を利用者に渡すとき（office_app.ps1 の restoreHandedOverApp。handOverApp と retryKeptApps が呼ぶ）だけ
         $visible = @($code | Where-Object { $_.Text -match 'Visible["'']?\s*[=,]\s*\$true' })
         (@($visible | Where-Object { $_.File -ne "open_source.ps1" -and $_.File -ne "office_app.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
-        # office_app.ps1 では、handOverApp の定義の中に 1 か所だけ（Visible を真にする設定は、表の行 `@("Visible", $true)` の形）
+        # office_app.ps1 では、restoreHandedOverApp の定義の中に 1 か所だけ（Visible を真にする設定は、表の行 `@("Visible", $true)` の形）
         $inApp = @($visible | Where-Object { $_.File -eq "office_app.ps1" })
         $inApp.Count | Should -Be 1
         $lines = [System.IO.File]::ReadAllLines($inApp[0].Path)
-        $start = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match '^function handOverApp\b' })[0]
+        $start = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match '^function restoreHandedOverApp\b' })[0]
         $end = @(($start + 1)..($lines.Count - 1) | Where-Object { $lines[$_] -match '^function ' })[0]
         ($inApp[0].Line - 1) | Should -BeGreaterThan $start
         ($inApp[0].Line - 1) | Should -BeLessThan $end

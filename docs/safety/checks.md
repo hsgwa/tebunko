@@ -51,7 +51,7 @@ function scan { param([string[]]$Pattern)
 | `AutomationSecurity` | `3`（`msoAutomationSecurityForceDisable`） | **マクロを強制的に無効にする**。マクロ有効ファイル（`.xlsm` / `.docm` / `.pptm`）でもマクロは実行されない（Excel・Word・PowerPoint とも） |
 | `EnableEvents` | `$false` | `Workbook_Open` などのイベントマクロを発火させない（Excel） |
 | `AskToUpdateLinks` | `$false`、`Workbooks.Open` の `UpdateLinks` = `0` | **外部リンクを更新しない**。他ブックや外部データソースへのアクセスが発生しない（Excel） |
-| `Visible` | `$false` | 画面に出さずに処理する（Excel・Word。PowerPoint はアプリを隠せないため、`Open` の `WithWindow` = False でウィンドウ無しで開く）。例外は、利用者のブックが入った Excel を利用者に渡すときだけ `$true` にする（`handOverApp`） |
+| `Visible` | `$false` | 画面に出さずに処理する（Excel・Word。PowerPoint はアプリを隠せないため、`Open` の `WithWindow` = False でウィンドウ無しで開く）。例外は、利用者のブックが入った Excel を利用者に渡すときだけ `$true` にする（`restoreHandedOverApp`。`handOverApp` と `retryKeptApps` が呼ぶ） |
 | `DisplayAlerts` | 無効 | ダイアログで処理が止まらないようにする |
 | `Open` の `ReadOnly` | 真 | 読み取り専用で開く（`tebunko/indexer/extract_office.ps1:122`（Excel）・`202`（Word）・`228`（PowerPoint）） |
 

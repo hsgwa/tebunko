@@ -42,6 +42,9 @@ $script:officeOwnDir = $null
 $script:onOfficeHandOver = $null
 # 渡そうとして窓を出せなかった Excel（COM の参照を放さずに持ち続ける）
 $script:officeKeptApps = @()
+# 渡し切れずに持ち続けた Excel を仕上げ直して待つ、取り込みのスレッドの終わりの上限（秒）と間隔（ミリ秒）
+$script:officeKeptWaitSeconds = 30
+$script:officeKeptWaitStep = 500
 
 function resolveLongName {
     # 8.3 の短い名前（TEST~1 など）を含むパスを長い名前にする。読めなければ $null
@@ -218,6 +221,53 @@ function getApp {
     return $script:apps[$name].Com
 }
 
+function restoreHandedOverApp {
+    # 渡す Excel に対して、(0) 自分が開いたブック（置き場の下と確かめられたもの）を保存せずに閉じる (1) 必須の設定（DisplayAlerts・Visible・UserControl）
+    # (2) 任意の設定を戻す。state に済んだものを控えるので、何度呼んでも済んだものはやり直さない。全部済んだら $true
+    # tries: 必須の設定をやり直す回数（失敗したときだけ間を置く）。利用者のブックは閉じない
+    param ($state, [int]$tries = 1)
+
+    $com = $state.Com
+    if (-not $state.BooksClosed) {
+        try {
+            $books = getWorkbookSplit $com
+            foreach ($book in $books.Own) {
+                try { $book.Close($false) } catch {}
+            }
+            $state.Books = $books
+            $state.BooksClosed = $true
+        } catch {}
+    }
+    # 窓・UserControl・DisplayAlerts が戻らないまま参照を放すと、Excel が保存の確認なしに終わりうるため、成功を確かめる
+    $required = @(@("DisplayAlerts", $true), @("Visible", $true), @("UserControl", $true))
+    $optional = @(@("EnableEvents", $true), @("ScreenUpdating", $true), @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))
+    for ($try = 0; $try -lt $tries; $try++) {
+        $left = @($required | Where-Object { -not $state.Done[$_[0]] })
+        if ($left.Count -eq 0) { break }
+        if ($try -gt 0) { Start-Sleep -Milliseconds 200 }
+        foreach ($setting in $left) {
+            try { $com.($setting[0]) = $setting[1]; $state.Done[$setting[0]] = $true } catch {}
+        }
+    }
+    foreach ($setting in @($optional | Where-Object { -not $state.Done[$_[0]] })) {
+        try { $com.($setting[0]) = $setting[1]; $state.Done[$setting[0]] = $true } catch {}
+    }
+    return [bool]($state.BooksClosed -and (@($required + $optional | Where-Object { -not $state.Done[$_[0]] }).Count -eq 0))
+}
+
+function releaseHandedOverApp {
+    # このスレッドが持つ COM を解放しきる。WaitForPendingFinalizers は長く止まることがあるため使わない
+    param ($state)
+
+    try {
+        if ($state.Books) {
+            foreach ($book in @($state.Books.Own) + @($state.Books.Foreign)) { try { releaseComObject $book } catch {} }
+        }
+        releaseComObject $state.Com
+        [GC]::Collect()
+    } catch {}
+}
+
 function handOverApp {
     # 起動した Excel を、利用者に渡す。Quit も強制終了もしない（利用者のブックを閉じない）。渡した Excel はもう使わない。
     # 見張り・終了時の一括終了・次の起動の残り物の確認のどれからも外すので、誰も止めない。
@@ -243,47 +293,15 @@ function handOverApp {
         }
     } catch {}
 
-    $com = $app.Com
-    $books = $null
-    # (0) 自分が開いたブック（失敗して開いたままの一時コピー）は、利用者に見せず、一時フォルダの掃除をロックで失敗させないよう閉じる。
-    # 閉じるのは置き場の下と確かめられたものだけ（利用者のブックは閉じない）
-    try {
-        $books = getWorkbookSplit $com
-        foreach ($book in $books.Own) {
-            try { $book.Close($false) } catch {}
-        }
-    } catch {}
-    # (d) 起動時に変えた設定を、利用者が起動したときの状態に戻す。(e) 窓を出し、COM の参照を放しても利用者が閉じるまで残るようにする。
-    # 窓・UserControl・DisplayAlerts が戻らないまま参照を放すと、Excel が保存の確認なしに終わりうるため、成功を確かめ、数回やり直す
-    $required = @(@("DisplayAlerts", $true), @("Visible", $true), @("UserControl", $true))
-    $optional = @(@("EnableEvents", $true), @("ScreenUpdating", $true), @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))
-    $pending = @($required)
-    for ($try = 0; $try -lt 3 -and $pending.Count -gt 0; $try++) {
-        if ($try -gt 0) { Start-Sleep -Milliseconds 200 }
-        $failed = @()
-        foreach ($setting in $pending) {
-            try { $com.($setting[0]) = $setting[1] } catch { $failed += , $setting }
-        }
-        $pending = $failed
-    }
-    foreach ($setting in $optional) {
-        try { $com.($setting[0]) = $setting[1] } catch {}
-    }
-    $ok = ($pending.Count -eq 0)
-
+    # 自分のブックを閉じる・設定を戻す・窓を出す、を全部通して初めて「渡した」。通らなければ、持ち続けて後で設定し直す
+    $state = @{ Name = $name; Com = $app.Com; BooksClosed = $false; Books = $null; Done = @{} }
+    $ok = restoreHandedOverApp $state 3
     if ($ok) {
-        # (f) このスレッドが持つ COM を解放しきる。WaitForPendingFinalizers は長く止まることがあるため使わない
-        try {
-            if ($books) {
-                foreach ($book in @($books.Own) + @($books.Foreign)) { try { releaseComObject $book } catch {} }
-            }
-            releaseComObject $com
-            [GC]::Collect()
-        } catch {}
+        releaseHandedOverApp $state
     } else {
-        # 窓を出せなかった Excel は、参照を放すと終わるおそれがあるため、放さずに持ち続ける（止めも強制終了もしない）。
-        # 次の確かめの時機に retryKeptApps が設定し直す。インデックス作成が終わると取り込みのスレッドごと参照が切れる
-        $script:officeKeptApps += , @{ Name = $name; Com = $com; Pending = $pending }
+        # 戻しきれなかった Excel は、参照を放すと終わるおそれがあるため、放さずに持ち続ける（止めも強制終了もしない）。
+        # retryKeptApps と waitKeptApps が設定し直す。取り込みのスレッドが終わるまでに通らなければ、参照が切れる
+        $script:officeKeptApps += , $state
     }
 
     if ($script:onOfficeHandOver) {
@@ -293,18 +311,14 @@ function handOverApp {
 }
 
 function retryKeptApps {
-    # 窓を出せずに持ち続けている Excel の設定をもう一度戻し、通ったら参照を放して「渡した」ログを書く。待たない（通らなければ次の時機に回す）
+    # 渡し切れずに持ち続けている Excel をもう一度仕上げる（済んでいないものだけ）。全部通れば参照を放して「渡した」ログを書く。待たない
     if (@($script:officeKeptApps).Count -eq 0) {
         return
     }
     $remaining = @()
     foreach ($kept in @($script:officeKeptApps)) {
-        $ok = $true
-        foreach ($setting in @($kept.Pending)) {
-            try { $kept.Com.($setting[0]) = $setting[1] } catch { $ok = $false }
-        }
-        if ($ok) {
-            try { releaseComObject $kept.Com; [GC]::Collect() } catch {}
+        if (restoreHandedOverApp $kept 1) {
+            releaseHandedOverApp $kept
             if ($script:onOfficeHandOver) {
                 try { & $script:onOfficeHandOver $kept.Name $true } catch {}
             }
@@ -313,6 +327,22 @@ function retryKeptApps {
         }
     }
     $script:officeKeptApps = $remaining
+}
+
+function waitKeptApps {
+    # 取り込みのスレッドの終わりに限り、持ち続けている Excel を、間を置いて上限まで仕上げ直す。持ち続けが無ければ待たない。
+    # shouldStop が真を返したら（中止・画面を閉じる）すぐ抜ける。上限に届かなかったものは、そのまま持ち続け（スレッドが終わると参照が切れる）
+    param ([scriptblock]$shouldStop = { $false })
+
+    $waited = 0
+    while (@($script:officeKeptApps).Count -gt 0) {
+        retryKeptApps
+        if (@($script:officeKeptApps).Count -eq 0 -or $waited -ge ($script:officeKeptWaitSeconds * 1000) -or (& $shouldStop)) {
+            break
+        }
+        Start-Sleep -Milliseconds $script:officeKeptWaitStep
+        $waited += $script:officeKeptWaitStep
+    }
 }
 
 function handOverForeignApp {

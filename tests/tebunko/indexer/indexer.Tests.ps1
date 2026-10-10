@@ -1024,7 +1024,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         }
     }
 
-    It "渡すときに窓を出せなければ、ログは「窓を出せませんでした」の文言になり、Excel は終了させず残す" {
+    It "渡すときに窓を出せなければ、ログは「窓や設定を戻しきれませんでした」の文言になり、Excel は終了させず残す" {
         ${tmpDir} = Join-Path $TestDrive "handover_fail_tmp"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
         $script:officeOwnDir = ${tmpDir}
@@ -1048,8 +1048,8 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         try {
             $result = invokeIngestTask @{ RelPath = "資料\a.xlsx"; SourcePath = "C:\data\a.xlsx" } 10
             $result.Ok | Should -Be $true
-            $result.Log | Should -Match "窓を出せませんでした"
-            $result.Log | Should -Not -Match "利用者に渡しました$"
+            $result.Log | Should -Match "窓や設定を戻しきれませんでした"
+            $result.Log | Should -Not -Match "(?m)利用者に渡しました$"
             $script:apps.ContainsKey("Excel") | Should -Be $false
             @($script:officeKeptApps).Count | Should -Be 1
             Should -Invoke Stop-Process -Times 0 -Exactly -Scope It

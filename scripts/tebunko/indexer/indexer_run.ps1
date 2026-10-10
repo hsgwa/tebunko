@@ -13,7 +13,7 @@ ${officeHandOverNotice} = {
     if ($shown) {
         writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しました"
     } else {
-        writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しましたが、窓を出せませんでした（終了させずに残しています）" "Yellow"
+        writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しましたが、窓や設定を戻しきれませんでした（終了させずに残しています）" "Yellow"
     }
 }
 
@@ -48,6 +48,8 @@ ${ingestWorkerScript} = {
         if (!$script:officeUnavailable) {
             stopWatchdog
             stopAllApps
+            # 渡し切れずに持ち続けている Excel は、ここで上限まで仕上げ直す（中止・画面を閉じるときは待たない）
+            waitKeptApps { [bool]$settings.Channel.Stop }
         }
     }
 }
@@ -662,7 +664,7 @@ function invokeIndexerBody {
                 Lib = (getPartLoad indexerLib)
                 WorkDir = $workspace.Dir; TmpDir = ${tmpDir}; TmpDirReason = ${tmpDirReason}; PublishDir = $workspace.PublishDir
                 FileTimeoutMinutes = $fileTimeoutMinutes; RestartInterval = $restartInterval; OfficePids = $channel.OfficePids
-                OfficeRecordDir = $officeRecordDir
+                OfficeRecordDir = $officeRecordDir; Channel = $channel
             }
         } else {
             $script:officePidSink = $channel.OfficePids
@@ -841,6 +843,7 @@ function invokeIndexerBody {
         } else {
             stopWatchdog
             stopAllApps
+            waitKeptApps { [bool]$channel.Stop }
         }
         $script:officePidSink = $null
         $script:officeRecordDir = $null
