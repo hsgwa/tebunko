@@ -259,6 +259,19 @@ function testNetworkPath {
     return $type -notin @([System.IO.DriveType]::Fixed, [System.IO.DriveType]::Removable, [System.IO.DriveType]::CDRom, [System.IO.DriveType]::Ram)
 }
 
+function testLocalDrivePath {
+    # パス（normalizeFolderPath 済み）が「ドライブ文字で始まり、ネットワークでない」= ローカルのドライブと分かるかを返す。
+    # 共有に接続せずに見分ける。UNC・デバイス名の形（\.\UNC\… など）・相対パス・空は偽（testNetworkPath は
+    # \.\ をドライブ文字の形として見るため、それだけではデバイス名の形を見分けられない）
+    #   driveType: testNetworkPath と同じ（テストで差し替える）
+    param (
+        [string]$path,
+        [scriptblock]$driveType = { param ($drive) ([System.IO.DriveInfo]$drive).DriveType }
+    )
+
+    return ($path -match '^[A-Za-z]:\\') -and !(testNetworkPath $path $driveType)
+}
+
 
 # ---- フォルダ選択の開始フォルダ ----
 

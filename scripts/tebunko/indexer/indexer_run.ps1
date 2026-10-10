@@ -421,7 +421,8 @@ function invokeIndexerBody {
     $status = $ledger.ReadStatus()
     $folders = @(assignIndexNames $targetFolders $status.Folders)
     $previous = $status.Rows
-    removeDroppedFolders $folders $status.Folders
+    # 設定から外れたインデックスは、ここでは消さない。確認ダイアログに「削除予定」として出し、［更新を開始］が押されたときだけ消す
+    $dropped = @(findDroppedIndexes $folders $status.Folders)
     # 前回のインデックス作成が途中で止まり、本文インデックスのファイルに入れていない TSV（元のファイルごとのフォルダ）が残っていれば、先に入れる
     $leftover = findIndexFoldersWithBooks $workspace.IndexDir
     if ($leftover.Count -gt 0) {
@@ -505,6 +506,12 @@ function invokeIndexerBody {
         }
     }
 
+    foreach ($item in $dropped) {
+        $plan.Add((newIngestPlanRow $item.Name $item.Path ${planKindDropped}))
+    }
+    # 消さなかったインデックス（取りやめ・画面なしの実行）は、取り込み一覧に前回のまま残す（次の回にまた見つけて確認に出すため）
+    $keptDropped = $dropped
+
     # 画面から始めた場合は、数えた件数を画面に出して、取り込むかどうかの返事を待つ。
     # 「更新不要」かどうかも、この件数を見て画面が知らせる（取り込み対象が 0 件でも、前回失敗の再取り込みを選べる）
     $retryTargets = [bool]$channel.RetryFailed
@@ -531,13 +538,19 @@ function invokeIndexerBody {
             }
             writeIndexerLog ""
             writeIndexerLog "画面で取りやめたため、取り込みません。（取り込み一覧は前回のままです）" "Yellow"
-            $ledger.WriteStatus($folders, $keep)
+            writeStatusKeepingDropped $ledger $folders $keep.ToArray() $keptDropped $previous
             writeSourceFolderFile $folders
             $reporter.Progress(${indexingPhaseFinish}, 0, 0, 0, "インデックス作成を取りやめました")
             removeTmpDir
             return 2
         }
         $retryTargets = $answer.RetryFailed
+        removeDroppedFolders $dropped
+        $keptDropped = @()
+    } else {
+        foreach ($item in $dropped) {
+            writeIndexerLog "設定に無いインデックス（$($item.Name): $($item.Path)）は削除せずに残しました。画面の［すべて更新］で確認して削除できます。" "Yellow"
+        }
     }
 
     if ($failed.Count -gt 0) {
@@ -576,7 +589,7 @@ function invokeIndexerBody {
     }
     $ledger.WriteIngestingFiles(@($carried.Keys | ForEach-Object { @{ RelPath = $_; Count = $carried[$_] } }))
     $reporter.Progress(${indexingPhaseCrawl}, 0, $targets.Count, 0, "更新の記録を書き出しています…")
-    $ledger.WriteStatus($folders, $rows)
+    writeStatusKeepingDropped $ledger $folders $rows.ToArray() $keptDropped $previous
     # インデックスのフォルダごと別の場所・PCへコピーしても元のファイルの場所が分かるよう、インデックス名とクロール対象フォルダの対応を置く
     writeSourceFolderFile $folders
 
@@ -833,7 +846,7 @@ function invokeIndexerBody {
         flushPending -All
         $reporter.Progress(${indexingPhaseFinish}, $processed, 0, $ledger.Failures.Count, "更新の記録を書き直しています…")
         # 取り込みの直前に無くなっていたファイルの行は除く（次回の検索でも見つからず、インデックスも削除済み）
-        $ledger.WriteStatus($folders, @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }))
+        writeStatusKeepingDropped $ledger $folders @($rows | Where-Object { $_ -and !$ledger.DroppedRows.Contains([string]$_.相対パス) }) $keptDropped $previous
         # 初めて取り込んだインデックスは、最初に書き出した時点ではまだフォルダが無いため、ここでもう一度書く
         # （work\content_index\<インデックス名>\source_folder.txt。インデックス 1 個だけをコピーしても元のファイルの場所が分かる）
         writeSourceFolderFile $folders

@@ -81,6 +81,7 @@
 | `newIndexName` | folderPath, usedNames（HashSet・配列・文字列・`$null`） | string | インデックス名（フォルダ名・ドライブ名・共有名。重複すれば `名前(2)`…） | [取り込み一覧](../indexing/ingest-list.md) | assignIndexNames |
 | `assignIndexNames` | targetFolders, previousFolders（readStatusFile の Folders） | `@{Path; Enabled; Name}` の配列 | 設定の名前（getTargetFolders の Name）をそのまま使う。名前が無ければ、前回の取り込み一覧の同じフォルダの名前、それも無ければフォルダ名から重複しない名前を作る | 同上 | インデックス作成 |
 | `splitIndexRelPath` | relPath | `@{Name; Rest}` | `work\content_index` からの相対パスを、先頭のインデックス名と残りに分ける | 同上 | インデックス作成, resolveSourcePath |
+| `testSourceNameRecordable` | name | bool | 元のフォルダを設定に記録できる名前か（空・前後に空白があれば偽。`setIndexSourceFolder` の入口と、確認ダイアログの文言で使う） | [元のファイルを開く](../gui/open-file.md) | 判断 |
 | `testIndexName` | name, usedNames | string（使えれば空） | インデックス名として使えるか調べ、使えない理由を返す（空・前後の空白・255 文字超・使えない文字・末尾の `.`・Windows の予約語・ほかと重複） | [追加・編集のダイアログ](../gui/index-tab.md#追加編集のダイアログ) | 画面 |
 | `getIndexNameMap` | path（既定 `$workspace.StatusFile`） | Dictionary（インデックス名 → フォルダパス） | 取り込み一覧のインデックス名からクロール対象フォルダを引く表。クロール対象フォルダの行は先頭にあるため、見出し行まで読んで打ち切る | 同上 | resolveSourcePath, 画面 |
 | `getIndexStats` | rows（readStatusFile の Rows） | 名前 → `@{Total; Done; Pending; Failed; LastIngested}` | 取り込み一覧の行をインデックス名ごとに集計する（一覧の「ファイル」「最終取り込み」） | [一覧の列](../gui/index-tab.md#一覧の列) | 画面（getIndexingState 経由） |
@@ -101,6 +102,7 @@
 | `exportIndexToFolder` | name, folder, ws, settingsPath | `exportIndex` と同じ | 書き出し先のフォルダを確かめ（無ければ `書き出し先のフォルダが見つかりません：<フォルダ>` の例外）、そのフォルダにある zip の名前から `getExportFileName` で重ならない名前を決め、`exportIndex` で書き出す | 同上 | 画面（［エクスポート…］の別スレッド） |
 | `exportIndexes` | names, destination（フォルダ）, ws, settingsPath | `@{Name; Ok; Reason; Path}` の配列（名前ごと） | 選んだインデックスを、書き出し先のフォルダにインデックス 1 つにつき zip 1 つで書き出す。`exportIndexToFolder` を 1 つずつ呼び、1 つ失敗しても残りを続ける（`Reason` は失敗の理由、`Path` は書き出した zip。失敗なら空）。zip の形・ファイル名は 1 つずつの書き出しと同じ | 同上 | 画面（［エクスポート…］の別スレッド） |
 | `readIndexArchiveInfo` | zipPath | `@{IndexName; SourceFolder; Files; Bytes; FormatVersion; AppVersion}` | zip の目録を読んで確かめる（インポートはしない）。インポートの確認ダイアログの既定値に使う | 同上 | 画面（［インポート…］） |
+| `getImportArchiveInfo` | zipPath | `readIndexArchiveInfo` の結果に `SourceExists`（元のフォルダがあるか。ローカルのドライブでなければ有無を調べず `$null`）を足したもの | インポートの確認ダイアログ用。目録の元のフォルダが共有フォルダでも、接続を待たない | 同上 | 画面（［インポート…］の別スレッド） |
 | `importIndex` | zipPath, collisionMode（`Rename`/`Overwrite`/`Cancel`）, name, sourceFolder, ws, settingsPath | `@{Name; SourcePath; Enabled; Files; Bytes; Warnings}`（`Cancel` は `$null`） | zip から 1 つのインデックスをインポートする。前の版のワークスペースの片付け・目録の確かめ・設定への登録・`content_index\<名前>\` の入れ替え・取り込み一覧の書き直しを行う。途中で失敗したら逆の操作で戻す | 同上 | 画面（［インポート…］） |
 | `getWorkspaceFreeSpace` | root | long（調べられなければ `$null`） | ドライブのルートの空き容量。UNC など `DriveInfo` にできないパスは例外にせず `$null` | 同上 | importIndex |
 | `testImportFreeSpace` | totalBytes, root, getFreeSpace | string（足りていれば空） | 空き容量が「合計 + 1GB」に足りなければ理由を返す。調べられない（`$null`・例外）ときは確かめない | 同上 | importIndexCore |

@@ -804,7 +804,7 @@ Describe "importIndex" -Tag Io {
         # インデックス作成の始めと同じ手順: 名前の割り当て・消えたフォルダの整理。今の設定にあるインデックスは消えない
         $folders = @(assignIndexNames $targets (readStatusFile $wsB.StatusFile).Folders)
         function writeIndexerLog { param ($m, $c) }
-        removeDroppedFolders $folders (readStatusFile $wsB.StatusFile).Folders $wsB
+        removeDroppedFolders @(findDroppedIndexes $folders (readStatusFile $wsB.StatusFile).Folders) $wsB
         foreach ($name in $expected) {
             $folders.Name | Should -Contain $name
             # 名前の割り当てだけでなく、removeDroppedFolders が実際に何も消していないこと
@@ -964,5 +964,49 @@ Describe "testImportFreeSpace" -Tag Unit {
         $reason = testImportFreeSpace ([long]$total) "C:\" $block
 
         if ($expectEmpty) { $reason | Should -Be "" } else { $reason | Should -BeLike "*空き容量*" }
+    }
+}
+
+Describe "getImportArchiveInfo" -Tag Io {
+    It "目録の元のフォルダが <label> のとき、Test-Path を呼ばず SourceExists は `$null" -TestCases @(
+        @{ label = "UNC"; folder = "\\server\share" }
+        @{ label = "\\?\UNC\ の書き方"; folder = "\\?\UNC\server\share" }
+        @{ label = "末尾に \ が付いた UNC"; folder = "\\server\share\営業\" }
+        @{ label = "\\.\UNC\ のデバイス名の書き方"; folder = "\\.\UNC\server\share" }
+        @{ label = "\\.\GLOBALROOT\ のデバイス名の書き方"; folder = "\\.\GLOBALROOT\Device\Mup\server\share" }
+    ) {
+        param ($folder)
+        $sourceFolder = $folder
+        Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = $sourceFolder } }.GetNewClosure()
+        Mock Test-Path { $true }
+
+        $info = getImportArchiveInfo "$TestDrive\dummy.zip"
+
+        $info.SourceExists | Should -Be $null
+        $info.IndexName | Should -Be "営業"
+        Should -Invoke Test-Path -Times 0 -Exactly
+    }
+
+    It "ローカルの元のフォルダは、有る・無いが真偽で入る" -TestCases @(
+        @{ label = "有る"; exists = $true }
+        @{ label = "無い"; exists = $false }
+    ) {
+        param ($exists)
+        $folder = "$TestDrive\local_$exists"
+        if ($exists) {
+            [System.IO.Directory]::CreateDirectory($folder) | Out-Null
+        }
+        $sourceFolder = $folder
+        Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = $sourceFolder } }.GetNewClosure()
+
+        $info = getImportArchiveInfo "$TestDrive\dummy.zip"
+
+        $info.SourceExists | Should -Be $exists
+    }
+
+    It "元のフォルダが空なら false" {
+        Mock readIndexArchiveInfo { @{ IndexName = "営業"; SourceFolder = "" } }
+
+        (getImportArchiveInfo "$TestDrive\dummy.zip").SourceExists | Should -Be $false
     }
 }

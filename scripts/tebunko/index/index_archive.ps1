@@ -323,6 +323,32 @@ function readIndexArchiveInfo {
     }
 }
 
+function getImportArchiveInfo {
+    # readIndexArchiveInfo の結果に、元のフォルダがこの PC にあるか（SourceExists）を足して返す（インポートの裏の仕事で使う）。
+    # 目録の元のフォルダは zip の送り手が自由に書けるため、ネットワークの場所なら接続せず（Test-Path を呼ばず）$null（分からない）にする。
+    # 利用者が元のフォルダを見て確かめる前に、サインイン情報が相手のサーバーへ送られないようにするため
+    param (
+        [string]$zipPath
+    )
+
+    $info = readIndexArchiveInfo $zipPath
+    $exists = $false
+    try {
+        $folder = normalizeFolderPath ([string]$info.SourceFolder)
+        if (testLocalDrivePath $folder) {
+            $exists = [bool](Test-Path -LiteralPath $folder -PathType Container)
+        } elseif ($folder) {
+            # ローカルのドライブと分かるときだけ調べる。ネットワークの場所や、デバイス名の形（\\.\UNC\・\\.\GLOBALROOT\ など）は
+            # 調べず「分からない」にする
+            $exists = $null
+        }
+    } catch {
+        # 使えない文字を含むなど。無いものとして扱う
+    }
+    $info.SourceExists = $exists
+    return $info
+}
+
 function getImportUsedIndexNames {
     # 今使われているインデックス名（設定の targetFolders・indexSources、content_index\ 直下のフォルダ、
     # 取り込み一覧のクロール対象フォルダの行）を集めて返す（大文字・小文字を区別しない集合）
@@ -722,7 +748,7 @@ function importIndexCore {
         }
 
         # 同じ元のフォルダが、別の名前のクロール対象フォルダに既にある・入れ子になっていれば止める（getTargetFolders は同じフォルダの 2 つ目以降を読まないため、
-        # 登録しても設定に残らず、次のインデックス作成で removeDroppedFolders がこのインデックスを消す。画面の追加・編集と同じ getIndexFolderConflict の決まり）。
+        # 登録しても設定に残らず、次のインデックス作成の確認に、このインデックスが「削除予定」として出る。画面の追加・編集と同じ getIndexFolderConflict の決まり）。
         # 検索だけのインデックス（indexSources）の元のフォルダと同じなら、止めずに知らせる
         $conflict = getIndexFolderConflict $folder @(getTargetFolders $settingsPath | Where-Object { $_.Name -ine $finalName })
         if ($conflict -ne "") {

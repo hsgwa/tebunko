@@ -58,3 +58,124 @@ Describe "getSourceLookingStatus / getSourceLookupFailedStatus" -Tag Unit {
         getSourceLookupFailedStatus $message | Should -Be $expected
     }
 }
+
+Describe "testSourceNeedsConfirm" -Tag Unit {
+    It "<label>" -TestCases @(
+        @{ label = "設定に無い名前は確かめる"; name = "受領"; known = $true; confirmed = @("見積"); expected = $true }
+        @{ label = "確かめ済みの名前は確かめない"; name = "見積"; known = $true; confirmed = @("見積"); expected = $false }
+        @{ label = "大文字・小文字は区別しない"; name = "ABC"; known = $true; confirmed = @("abc"); expected = $false }
+        @{ label = "元のフォルダが分からなければ確かめない"; name = "受領"; known = $false; confirmed = @(); expected = $false }
+        @{ label = "名前が空なら確かめ済みと言えないので毎回確かめる"; name = ""; known = $true; confirmed = @(); expected = $true }
+        @{ label = "名前が空でも元のフォルダが分からなければ確かめない"; name = ""; known = $false; confirmed = @(); expected = $false }
+        @{ label = "確かめ済みが無ければ確かめる"; name = "受領"; known = $true; confirmed = @(); expected = $true }
+        @{ label = "見えない文字（ソフトハイフン）が混じった名前は別の名前として確かめる"; name = ("見" + [string][char]0xAD + "積"); known = $true; confirmed = @("見積"); expected = $true }
+        @{ label = "幅ゼロの文字が混じった名前は別の名前として確かめる"; name = ("見" + [string][char]0x200B + "積"); known = $true; confirmed = @("見積"); expected = $true }
+        @{ label = "全角の英字は半角の英字と別の名前として確かめる"; name = "ＡＢＣ"; known = $true; confirmed = @("abc"); expected = $true }
+    ) {
+        param ($name, $known, $confirmed, $expected)
+        testSourceNeedsConfirm $name $known $confirmed | Should -Be $expected
+    }
+}
+
+Describe "testNameInList / testSourceReceived" -Tag Unit {
+    It "testNameInList: <label>" -TestCases @(
+        @{ label = "同じ名前"; name = "営業"; list = @("見積", "営業"); expected = $true }
+        @{ label = "大文字・小文字は区別しない"; name = "ABC"; list = @("abc"); expected = $true }
+        @{ label = "見えない文字が混じれば別の名前"; name = ("営" + [string][char]0xAD + "業"); list = @("営業"); expected = $false }
+        @{ label = "一覧が空"; name = "営業"; list = @(); expected = $false }
+    ) {
+        param ($name, $list, $expected)
+        testNameInList $name $list | Should -Be $expected
+    }
+
+    It "testSourceReceived: <label>" -TestCases @(
+        @{ label = "自分で作った名前はもらったものではない"; name = "営業"; crawled = @("営業"); expected = $false }
+        @{ label = "一覧に無い名前はもらったもの"; name = "受取"; crawled = @("営業"); expected = $true }
+        @{ label = "見えない文字が混じった名前はもらったもの"; name = ("営" + [string][char]0xAD + "業"); crawled = @("営業"); expected = $true }
+        @{ label = "名前が分からないときはもらったもの"; name = ""; crawled = @("営業"); expected = $true }
+    ) {
+        param ($name, $crawled, $expected)
+        testSourceReceived $name $crawled | Should -Be $expected
+    }
+}
+
+Describe "getSourceConfirmDialog / getSourceConfirmCanceledStatus" -Tag Unit {
+    It "名前と元のフォルダを入れる" {
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\共有\営業部" $false $true
+        $dialog.Heading | Should -BeLike "a.xlsx *"
+        $dialog.Title | Should -BeLike "*[[]受領]*"
+        $dialog.Detail | Should -Be "C:\共有\営業部"
+        $dialog.UseText | Should -Be "このフォルダを使う"
+        $dialog.PickText | Should -Be "フォルダを選ぶ"
+    }
+
+    It "ローカルのドライブと分からないときだけ、サインイン情報の注意を足す" -TestCases @(
+        @{ mayConnect = $true; expected = $true }
+        @{ mayConnect = $false; expected = $false }
+    ) {
+        param ($mayConnect, $expected)
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "\\server\share" $mayConnect $true
+        ($dialog.Hint -like "*サインイン情報*") | Should -Be $expected
+    }
+
+    It "記録できる名前は「次からは聞きません」、記録できない名前は「開くたびに確かめます」と伝える" -TestCases @(
+        @{ recordable = $true; ask = "*次からはこのインデックスについて聞きません"; notAsk = "*開くたびに確かめます" }
+        @{ recordable = $false; ask = "*開くたびに確かめます"; notAsk = "*次からはこのインデックスについて聞きません" }
+        @{ recordable = $false; ask = "*開くたびに確かめます"; notAsk = "*次からはこのインデックスについて聞きません"; mayConnect = $true }
+    ) {
+        param ($recordable, $ask, $notAsk, $mayConnect = $false)
+        $dialog = getSourceConfirmDialog "a.xlsx" "受領" "C:\x" $mayConnect $recordable
+        $dialog.Hint | Should -BeLike $ask
+        $dialog.Hint | Should -Not -BeLike $notAsk
+    }
+
+    It "キャンセルの文言" {
+        getSourceConfirmCanceledStatus | Should -Be "開くのをやめました"
+    }
+}
+
+Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
+    It "もらったインデックスのマクロを持てる形式 <book> は、<mode> でも読み取り専用にする" -TestCases @(
+        @{ book = "a.xlsm"; mode = "normal" }
+        @{ book = "a.XLSM"; mode = "normal" }
+        @{ book = "a.xlsb"; mode = "new" }
+        @{ book = "a.xls"; mode = "normal" }
+        @{ book = "a.docm"; mode = "normal" }
+        @{ book = "a.doc"; mode = "new" }
+        @{ book = "a.pptm"; mode = "normal" }
+        @{ book = "a.ppt"; mode = "normal" }
+        @{ book = "evil.xlsm."; mode = "normal" }
+        @{ book = "evil.xlsm "; mode = "normal" }
+        @{ book = "evil.docm. ."; mode = "normal" }
+    ) {
+        param ($book, $mode)
+        $result = getSourceOpenMode $book $mode $true
+        $result.Mode | Should -Be "readOnly"
+        $result.Strict | Should -Be $true
+        $result.Notice | Should -Not -BeNullOrEmpty
+    }
+
+    It "もう読み取り専用なら知らせは空" {
+        $result = getSourceOpenMode "a.xlsm" "readOnly" $true
+        $result.Mode | Should -Be "readOnly"
+        $result.Strict | Should -Be $true
+        $result.Notice | Should -Be ""
+    }
+
+    It "<label> はそのまま開く" -TestCases @(
+        @{ label = "もらった .xlsx"; book = "a.xlsx"; received = $true }
+        @{ label = "もらった .docx"; book = "a.docx"; received = $true }
+        @{ label = "もらった .pptx"; book = "a.pptx"; received = $true }
+        @{ label = "自分で取り込んだ .xlsm"; book = "a.xlsm"; received = $false }
+    ) {
+        param ($book, $received)
+        $result = getSourceOpenMode $book "normal" $received
+        $result.Mode | Should -Be "normal"
+        $result.Strict | Should -Be $false
+        $result.Notice | Should -Be ""
+    }
+
+    It "開けなかったときの文言にパスを入れる" {
+        getSourceReadOnlyFailedStatus "C:\x\a.docm" | Should -BeLike "*C:\x\a.docm"
+    }
+}

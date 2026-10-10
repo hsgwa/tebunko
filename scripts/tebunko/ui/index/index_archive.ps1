@@ -271,15 +271,8 @@ function newImportIndex {
     $continueImport = ${function:continueImportIndex}
     startIndexArchiveJob "インポート" {
         param ($zipPath)
-        $info = readIndexArchiveInfo $zipPath
-        # 元のフォルダがこの PC にあるか（画面のスレッドで調べないよう、ここで調べる）
-        $info.SourceExists = $false
-        try {
-            $info.SourceExists = [bool]($info.SourceFolder -and (Test-Path -LiteralPath $info.SourceFolder -PathType Container))
-        } catch {
-            # 使えない文字を含むなど。無いものとして扱う
-        }
-        $info
+        # 元のフォルダがこの PC にあるか（画面のスレッドで調べないよう、ここで調べる。ネットワークの場所へは接続しない）
+        getImportArchiveInfo $zipPath
     } @($zipPath) {
         param ($info)
         & $continueImport $zipPath $info

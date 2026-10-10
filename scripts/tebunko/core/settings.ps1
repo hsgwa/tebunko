@@ -369,22 +369,26 @@ function setIndexSourceFolder {
         [string]$path = ${settingsFile}
     )
 
-    $name = ([string]$name).Trim()
+    # 名前は文字の並びそのもの（大文字・小文字だけ区別しない）で比べる。-eq はカルチャに従い、ソフトハイフンなどを無視して
+    # 別の名前（利用者自身の対象フォルダ）に一致してしまう。前後の空白（全角空白を含む）がある名前は、読み込み（readIndexSources）で
+    # 前後を削るため同じ名前として読み戻せない。記録しない（確認の判定と食い違わせない）
+    $name = [string]$name
     $folder = normalizeFolderPath $folder
-    if ($name -eq "" -or $folder -eq "") {
+    if (!(testSourceNameRecordable $name) -or $folder -eq "") {
         return
     }
 
     invokeSettingsLocked -path $path -action {
+        $same = { param ($other) [string]::Equals([string]$other, $name, [System.StringComparison]::OrdinalIgnoreCase) }
         $targets = @(getTargetFolders $path)
-        if (@($targets | Where-Object { $_.Name -eq $name }).Count -gt 0) {
+        if (@($targets | Where-Object { & $same $_.Name }).Count -gt 0) {
             writeTargetFolders @($targets | ForEach-Object {
-                if ($_.Name -eq $name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
+                if (& $same $_.Name) { [pscustomobject]@{ Name = $_.Name; Path = $folder; Enabled = $_.Enabled } } else { $_ }
             }) $path
             return
         }
 
-        $sources = @(@(readIndexSources $path | Where-Object { $_.Name -ne $name }) + @([pscustomobject]@{ Name = $name; Path = $folder }))
+        $sources = @(@(readIndexSources $path | Where-Object { !(& $same $_.Name) }) + @([pscustomobject]@{ Name = $name; Path = $folder }))
         writeIndexSources $sources $path
     }
 }
