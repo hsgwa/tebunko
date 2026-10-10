@@ -108,13 +108,14 @@ function getIndexingBannerBehavior {
     #   Closable: 閉じるボタン（×）を出すか
     #   AutoCloseSeconds: 出してから自動で消すまでの秒数（0 なら自動では消えない）
     # 更新中（run）は終わるまで残し、閉じるボタンも出さない（［中止］がある）。
-    # 成功（ok）は数秒で消える。注意が要る終わり方（warn）は、閉じるまで残る。
-    # 中断（resume。残りがあって［続きから再開］を載せている帯）は、再開の入口を隠さないよう、閉じられない。
-    # 注意が要る終わり方（warn）・info・使えない状態（ng）も、閉じるまで残り、閉じてもよい
+    # 残りがあって更新していないとき（resume。pending が 1 以上）は、［続きから再開］を載せているので、種類にかかわらず閉じられない。
+    # 成功（ok）は数秒で消える。それ以外（warn・info・ng）は、閉じるまで残り、閉じてもよい
     param (
-        [string]$level  # run / resume / ok / info / warn / ng
+        [string]$level,  # run / resume / ok / info / warn / ng
+        [int]$pending = 0  # 取り込みの残りの件数
     )
 
+    if ($level -ne "run" -and $pending -gt 0) { $level = "resume" }
     switch ($level) {
         { $_ -in @("run", "resume") } { return @{ Closable = $false; AutoCloseSeconds = 0 } }
         "ok" { return @{ Closable = $true; AutoCloseSeconds = 8 } }

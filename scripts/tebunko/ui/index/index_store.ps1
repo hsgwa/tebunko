@@ -163,6 +163,11 @@ function commitIndexDetailEdit {
     if ($null -eq $item -or !$ui.IndexDetailName.IsEnabled) {
         return
     }
+    # 更新・削除などが動いている間は反映しない（入力の途中の欄から出たときに割り込まないよう、メッセージは出さず行の値に戻す）
+    if ((getCurrentIndexJobBlocker) -ne "") {
+        restoreIndexDetailEdit
+        return
+    }
     $decision = getIndexDetailEditDecision $ui.IndexDetailName.Text $ui.IndexDetailPath.Text $item $script:targetItems
     if ($decision.Action -eq "None") {
         setIndexDetailEditError ""

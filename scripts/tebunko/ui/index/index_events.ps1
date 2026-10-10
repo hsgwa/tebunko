@@ -2,6 +2,9 @@
 
 # ステータス列の見出しの説明（文言は index_view.ps1 が決める）
 $ui.StatusColumnHeader.ToolTip = (getIndexStatusHelpText) -join "`n"
+# 帯の閉じるボタンと、帯が自動で消えるときの時計（時間は setIndexingBannerBehavior が決めて動かす）
+$script:indexingBannerTimer = newTimer 8000 { safe { closeIndexingBanner } }
+$ui.IndexingBannerClose.Add_Click({ safe { closeIndexingBanner } })
 $ui.NewIndexButton.Add_Click({ safe { newIndex } })
 $ui.IndexEmptyAddButton.Add_Click({ safe { newIndex } })
 # 詳細の名前・フォルダパスの欄: Enter か欄から出たときに確定、Esc で取り消す（確かめと反映は commitIndexDetailEdit）
@@ -17,6 +20,15 @@ foreach ($editBox in @($ui.IndexDetailName, $ui.IndexDetailPath)) {
         }
     })
     $editBox.Add_LostFocus({ safe { commitIndexDetailEdit $false } })
+    # 欄の中身が行の値に戻ったら、前のエラーの文言を消す
+    $editBox.Add_TextChanged({
+        safe {
+            $edited = $script:detailEditItem
+            if ($null -ne $edited -and $ui.IndexDetailName.Text -ceq $edited.Name -and $ui.IndexDetailPath.Text -eq $edited.Path) {
+                setIndexDetailEditError ""
+            }
+        }
+    })
 }
 # 行の右クリックの［更新］は、行の右端の［更新］と同じ処理（押した行だけを更新する）
 $ui.RowMenuUpdate.Add_Click({

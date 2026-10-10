@@ -140,6 +140,11 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             waitGui $S "検索の画面に切り替わる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "SearchTab" } | Out-Null
             selectGuiTab $S "IndexTab" "IndexingButton"
 
+            # 残りが無い終わりの帯（注意）は閉じるボタン（×）で閉じられる
+            setGuiStep $S "帯の×で閉じる"
+            clickGui $S $S.Window "IndexingBannerClose" "帯の×"
+            waitGui $S "帯が消える" ${guiDefaultTimeout} { $e = findGui $S.Window -Id "IndexingProgressText"; !$e -or $e.Current.IsOffscreen } | Out-Null
+
             # 削除: キャンセルすると残り、［削除する］で消える（#15）
             setGuiStep $S "［削除］→［キャンセル］"
             $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
@@ -232,6 +237,9 @@ Describe "S3 作成中の操作" -Tag Gui {
             } | Out-Null
             $S.Timing["中止まで"] = [Math]::Round($sw.Elapsed.TotalSeconds, 1)
 
+            # 中止のあとは残りがあるので、帯に閉じるボタンは出ず、［続きから再開］が残る
+            (& { $e = findGui $S.Window -Id "IndexingBannerClose"; $e -and !$e.Current.IsOffscreen }) | Should -BeFalse -Because "残りがあるあいだは帯を閉じられない"
+
             # 帯のボタンが 2 つ並ぶ（残りがあれば［検索する］と［続きから再開］）ときは、見える枠の間が 10
             $search = findGui $S.Window -Id "IndexingSearchButton"
             $resume = findGui $S.Window -Id "IndexingResumeButton"
@@ -242,7 +250,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             $gap | Should -BeLessThan 10.5
 
             # 取り込みが止まると、また押せる（#20）
-            setGuiStep $S "止まった後の［＋ フォルダを追加］［編集…］［削除］"
+            setGuiStep $S "止まった後の［＋ フォルダを追加］・詳細の名前とフォルダパスの欄・［削除］"
             (findGui $S.Window -Id "NewIndexButton").Current.IsEnabled | Should -BeTrue
             closeGui $S
         }
@@ -261,6 +269,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             setGuiStep $S "起動時のタブを［インデックス管理］にする（#4 は別の fix で直すまでの回避）"
             selectGuiTab $S "IndexTab" "IndexingButton"
             waitGui $S "「更新を中断しました」" ${guiDefaultTimeout} { (getGuiIndexingBannerText $S) -like "*更新を中断しました*" } | Out-Null
+            (& { $e = findGui $S.Window -Id "IndexingBannerClose"; $e -and !$e.Current.IsOffscreen }) | Should -BeFalse -Because "中断の帯は閉じられない"
 
             setGuiStep $S "続きから再開"
             startGuiIndexing $S

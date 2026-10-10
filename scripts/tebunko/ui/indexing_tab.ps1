@@ -424,19 +424,16 @@ function finishIndexing {
         setIndexingBanner (getIndexingBannerLevel $exitCode 0) "done"
         $ui.IndexingProgressText.Text = "インデックスを更新できませんでした"
         $ui.IndexingProgressDetail.Text = $message
-        setStatus "インデックスを更新できませんでした：$message"
         showMessage "インデックスを更新できませんでした。`n`n$message" "OK" "Error" | Out-Null
     } elseif ($exitCode -eq 2 -and $script:indexingCanceledAtConfirm) {
         # 確認のダイアログで取りやめた（1件も取り込んでいない）
         setIndexingBanner "warn" "done"
         $ui.IndexingProgressText.Text = "更新を取りやめました"
         $ui.IndexingProgressDetail.Text = "更新したファイルはありません。［すべて更新］を押すと、もう一度確認できます。"
-        setStatus $ui.IndexingProgressText.Text
     } elseif ($exitCode -eq 2) {
         setIndexingBanner "warn" "done"
         $ui.IndexingProgressText.Text = if ($counts) { "更新を中止しました（$counts）" } else { "更新を中止しました" }
         $ui.IndexingProgressDetail.Text = "次回は続きから再開できます。"
-        setStatus $ui.IndexingProgressText.Text
     } else {
         # 完了（後回し・失敗の件数に応じた見出しと説明は判断層（indexing_view.ps1）が決める）
         $success = if ($progress) { $progress.Processed - $progress.Failed } else { 0 }
@@ -445,7 +442,6 @@ function finishIndexing {
         $endText = getIndexingEndText $success $failed $session.GetPostponed() $session.GetNotice()
         $ui.IndexingProgressText.Text = $endText.Text
         $ui.IndexingProgressDetail.Text = $endText.Detail
-        setStatus $ui.IndexingProgressText.Text
     }
     $ui.IndexingProgressEta.Text = ""
     $ui.IndexingStopButton.Visibility = "Collapsed"

@@ -51,9 +51,14 @@ function setIndexingBanner {
     }
     $ui.IndexingBannerClose.Foreground = $text
     $script:indexingBannerKind = $kind
+    $script:indexingBannerLevel = if ($kind -eq "running") { "run" } else { $level }
+    setIndexingBannerBehavior
+}
 
-    # 閉じるボタンと自動で消える時機（getIndexingBannerBehavior。更新中は閉じられない）
-    $behavior = getIndexingBannerBehavior $(if ($kind -eq "running") { "run" } elseif ($kind -eq "interrupted") { "resume" } else { $level })
+function setIndexingBannerBehavior {
+    # 閉じるボタンと自動で消える時機（getIndexingBannerBehavior）。残りがあって更新していないときは、閉じられず消えない
+    $pending = if ($script:indexingState -and !(isIndexing)) { [int]$script:indexingState.Pending } else { 0 }
+    $behavior = getIndexingBannerBehavior $script:indexingBannerLevel $pending
     $ui.IndexingBannerClose.Visibility = if ($behavior.Closable) { "Visible" } else { "Collapsed" }
     $script:indexingBannerTimer.Stop()
     if ($behavior.AutoCloseSeconds -gt 0) {
@@ -63,15 +68,12 @@ function setIndexingBanner {
 }
 
 function closeIndexingBanner {
-    # 帯を閉じる（×と、自動で消える時機）
+    # 帯を閉じる（×と、自動で消える時機）。残りがあれば、すぐ［続きから再開］の帯に戻す
     $script:indexingBannerTimer.Stop()
     $ui.IndexingProgressPanel.Visibility = "Collapsed"
     $script:indexingBannerKind = ""
+    updateIndexingResume
 }
-
-# 帯が自動で消えるときの時計。setIndexingBanner が時間を決めて動かす
-$script:indexingBannerTimer = newTimer 8000 { safe { closeIndexingBanner } }
-$ui.IndexingBannerClose.Add_Click({ safe { closeIndexingBanner } })
 
 function updateIndexingResume {
     # 中断した更新（残りがあり、いま更新していない）の帯。［続きから再開］を出す。
@@ -90,6 +92,9 @@ function updateIndexingResume {
         $ui.IndexingProgressPanel.Visibility = "Visible"
     } elseif ($canResume -and $script:indexingBannerKind -eq "interrupted") {
         $ui.IndexingProgressText.Text = getIndexingStateText $pending $false
+    } elseif ($canResume -and $ui.IndexingProgressPanel.Visibility -eq "Visible") {
+        # 終わりの帯（完了・中止）に残りがあるときは、×と自動で消える時計を外して、［続きから再開］を隠さない
+        setIndexingBannerBehavior
     } elseif (!$canResume -and $script:indexingBannerKind -eq "interrupted") {
         $ui.IndexingProgressPanel.Visibility = "Collapsed"
         $script:indexingBannerKind = ""
@@ -393,7 +398,7 @@ function updateIndexDetailPanel {
     $ui.IndexingFileText.Text = $view.Run.FileText
     # 名前・フォルダパスの欄は、直している最中（同じ行で、欄に入力の途中）なら、定期の更新で入力を消さない
     $editing = ($null -ne $item -and [object]::ReferenceEquals($item, $script:detailEditItem) -and
-        ($ui.IndexDetailName.IsKeyboardFocused -or $ui.IndexDetailPath.IsKeyboardFocused))
+        ($ui.IndexDetailName.IsFocused -or $ui.IndexDetailPath.IsFocused))
     if (!$editing) {
         if (![object]::ReferenceEquals($item, $script:detailEditItem)) {
             setIndexDetailEditError ""

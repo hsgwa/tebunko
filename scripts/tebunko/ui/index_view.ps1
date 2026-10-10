@@ -398,7 +398,7 @@ function getIndexRowActions {
 }
 
 function getIndexDetailItem {
-    # 詳細欄に出す行（右クリック・二重クリックの［編集…］と［...］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［編集…］はチェックが 1 件ならその行・無ければ押した行が対象で、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
+    # 詳細欄に出す行（詳細の名前・フォルダパスの欄と［...］、右クリックの［削除］［エクスポート…］の対象も同じ行。［アクション ▾］は別で、［更新］［エクスポート…］［削除…］はチェックの行、［インポート…］はチェックが要らない。可否は getIndexActionsEnabled が決める）。押した行があればそれ、
     # 無くてチェックが 1 件だけならその行、それ以外は $null。詳細を出す所と可否・対象を決める所で、この 1 つを使う
     param (
         [object]$selectedItem,   # 一覧で押した行（無ければ $null）
@@ -611,7 +611,7 @@ function getImportNameNoticeText {
 function testIndexImportInput {
     # インポートのダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）。
     # 名前が既にあるインデックスと重なることは断らない（上書き・別名・取りやめの確認に回す。getImportIndexName）。
-    # 元のフォルダは、追加・編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
+    # 元のフォルダは、追加と詳細欄の編集と同じ決まり（getIndexFolderConflict）で調べる。同じ名前の行は上書きで置き換わる
     # （別名なら残る）ため、ここでは比べる相手から外す（別名で入れて重なったときは、インポートの側で止める）
     param (
         [string]$folder,   # 入力された元のフォルダ
@@ -840,7 +840,7 @@ function addFastSearchCheckedAt {
 }
 
 function testIndexEditInput {
-    # 追加・編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
+    # 追加と詳細欄の編集の入力を調べ、直してほしい内容を返す（問題なければ空文字列）
     param (
         [string]$path,   # 入力された元のフォルダ
         [string]$name,   # 入力されたインデックス名

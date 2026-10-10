@@ -132,9 +132,14 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
         @{ level = "warn"; closable = $true; seconds = 0 }
         @{ level = "ng"; closable = $true; seconds = 0 }
         @{ level = ""; closable = $true; seconds = 0 }
+        @{ level = "ok"; pending = 3; closable = $false; seconds = 0 }
+        @{ level = "warn"; pending = 1; closable = $false; seconds = 0 }
+        @{ level = "ng"; pending = 2; closable = $false; seconds = 0 }
+        @{ level = "run"; pending = 5; closable = $false; seconds = 0 }
+        @{ level = "ok"; pending = 0; closable = $true; seconds = 8 }
     ) {
-        param ($level, $closable, $seconds)
-        $behavior = getIndexingBannerBehavior $level
+        param ($level, $closable, $seconds, $pending = 0)
+        $behavior = getIndexingBannerBehavior $level $pending
         $behavior.Closable | Should -Be $closable
         $behavior.AutoCloseSeconds | Should -Be $seconds
     }
