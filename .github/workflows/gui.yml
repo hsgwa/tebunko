@@ -123,7 +123,7 @@ jobs:
             Write-Host "cdb: $($c.FullName)"
             [IO.File]::AppendAllText($env:GITHUB_ENV, "TEBUNKO_CDB=$($c.FullName)`n")
           } else {
-            Write-Host "cdb を用意できなかった"
+            Write-Host "cdb: not available"
           }
 
       - name: 画面のスモークテスト（繰り返しの 1 本）

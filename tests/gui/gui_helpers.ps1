@@ -237,7 +237,17 @@ function closeGui {
     setGuiStep $S "閉じる"
     markGuiClosing $S
     $pattern = $S.Window.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern)
-    $pattern.Close()
+    $S.ClosePath = New-Object System.Collections.ArrayList
+    $pre = ""
+    try {
+        $pre = "WindowInteractionState=" + $pattern.Current.WindowInteractionState + " IsModal=" + $pattern.Current.IsModal + " IsEnabled=" + $S.Window.Current.IsEnabled + " IsOffscreen=" + $S.Window.Current.IsOffscreen
+    } catch { $pre = "直前の状態を取れなかった: " + $_.Exception.Message }
+    $callAt = (Get-Date).ToString('HH:mm:ss.fff')
+    $caught = $null
+    try { $pattern.Close() } catch { $caught = $_ }
+    $doneAt = (Get-Date).ToString('HH:mm:ss.fff')
+    [void]$S.ClosePath.Add("test 手段=WindowPattern.Close 呼んだ=" + $callAt + " 戻った=" + $doneAt + " 結果=" + $(if ($caught) { "例外" } else { "戻った（値なし）" }) + " 例外=" + $(if ($caught) { $caught.Exception.GetType().Name + ": " + $caught.Exception.Message } else { "なし" }) + " 直前=" + $pre)
+    if ($caught) { writeGuiClosePathMaterial $S "例外"; throw $caught }
     $S.Samples = New-Object System.Collections.ArrayList
     $S.NextSampleAt = $S.ClosingAt.AddSeconds(1)
     try {
@@ -266,6 +276,10 @@ function captureGuiHangMaterial {
         [void]$out.Add("---- $n$procId.txt ----")
         [void]$out.Add($(if (Test-Path -LiteralPath $f) { [IO.File]::ReadAllText($f) } else { "無い" }))
     }
+    [void]$out.Add("---- 20 秒の時点の窓 ----")
+    foreach ($l in @(getGuiWindowStates $S)) { [void]$out.Add($l) }
+    [void]$out.Add("---- 閉じる道の跡 ----")
+    foreach ($l in @(getGuiClosePathLines $S)) { [void]$out.Add($l) }
     $cdb = $env:TEBUNKO_CDB
     if (!$cdb -or !(Test-Path -LiteralPath $cdb)) {
         [void]$out.Add("---- cdb ---- 使えない（TEBUNKO_CDB が無い）")
@@ -274,12 +288,14 @@ function captureGuiHangMaterial {
             $sym = Join-Path $(if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { $S.Tool.Dir }) "sym"
             $outFile = Join-Path $S.Tool.Dir "cdb_out_$procId.txt"
             $errFile = Join-Path $S.Tool.Dir "cdb_err_$procId.txt"
-            $cmds = ".symfix+ $sym; ~*kn 40; .loadby sos clr; ~*e !clrstack; q"
+            # ~*e !clrstack は、スレッド 0 で GetContextState が失敗した（0x8007001F）ところで止まったため、スレッドを 1 本ずつ選んで取る（0 は最後）
+            $perThread = (@(1..27 | ForEach-Object { "~${_}s; !clrstack" }) -join "; ")
+            $cmds = ".symfix+ $sym; ~*kn 40; .loadby sos clr; .cordll -ve -u -l; !threads; !eestack -short; $perThread; ~0s; !clrstack; q"
             $argText = "-pv -p $procId -y `"srv*$sym*https://msdl.microsoft.com/download/symbols`" -c `"$cmds`""
             $proc = Start-Process -FilePath $cdb -ArgumentList $argText -RedirectStandardOutput $outFile -RedirectStandardError $errFile -NoNewWindow -PassThru
             if (!$proc.WaitForExit(120000)) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue; [void]$out.Add("---- cdb ---- 120 秒で止めた") }
             [void]$out.Add("---- cdb のスタック（フレームの行だけ） ----")
-            $keep = @([IO.File]::ReadAllLines($outFile) | Where-Object { $_ -match '!|Id:|OS Thread Id|Child|Unable|Failed|^\s*[0-9a-f]{2}\s' } | Select-Object -First 700)
+            $keep = @([IO.File]::ReadAllLines($outFile) | Where-Object { $_ -match '!|Id:|OS Thread Id|Child|Unable|Failed|failed|^\s*[0-9a-f]{2}\s|^[0-9a-f]{16}\s+[0-9a-f]{16}\s|^\s*\d+\s+\d+\s+[0-9a-f]+\s' } | Select-Object -First 1500)
             foreach ($l in $keep) { [void]$out.Add($l) }
         } catch {
             [void]$out.Add("---- cdb ---- 失敗: " + $_.Exception.Message)
@@ -287,6 +303,51 @@ function captureGuiHangMaterial {
     }
     $S.HangMaterial = $out
     foreach ($l in $out) { Write-Host ("GUI-HANGMAT 場面=" + $S.Scene + " " + $l) }
+}
+
+function getGuiClosePathLines {
+    # 【一時】閉じる道の跡（テスト側の記録と、本体が PID 入りのファイルに書いた記録）
+    param ($S)
+
+    $lines = New-Object System.Collections.ArrayList
+    foreach ($l in @($S.ClosePath)) { [void]$lines.Add([string]$l) }
+    $f = Join-Path $S.Tool.Dir "gui_closepath_$($S.Process.Id).txt"
+    if (Test-Path -LiteralPath $f) {
+        foreach ($l in @([IO.File]::ReadAllLines($f))) { [void]$lines.Add("本体 " + $l) }
+    } else {
+        [void]$lines.Add("本体 gui_closepath_$($S.Process.Id).txt が無い（本体は閉じる道のどこにも入っていない）")
+    }
+    return @($lines.ToArray())
+}
+
+function writeGuiClosePathMaterial {
+    # 【一時】閉じる道の跡を CI のログに出す（失敗した回と、成功の見本）
+    param ($S, [string]$Label)
+
+    foreach ($l in @(getGuiClosePathLines $S)) { Write-Host ("GUI-CLOSEPATH " + $Label + " 場面=" + $S.Scene + " PID=" + $S.Process.Id + " " + $l) }
+}
+
+function getGuiWindowStates {
+    # 【一時】画面のプロセスの上位の窓すべて（題・クラス名・表示か・有効か・モーダルか・持ち主の窓があるか）。
+    # 持ち主のある窓は UI オートメーションの木では持ち主の窓の子として出るので、「持ち主あり」は子として見つかったものを指す
+    param ($S)
+
+    $rows = New-Object System.Collections.ArrayList
+    $describe = {
+        param ($w, $kind)
+        $c = $w.Current
+        $modal = "?"; $state = "?"
+        try { $wp = $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern); $modal = $wp.Current.IsModal; $state = $wp.Current.WindowInteractionState } catch { }
+        "窓 " + $kind + " 題=" + $c.Name + " クラス=" + $c.ClassName + " 表示=" + (!$c.IsOffscreen) + " 有効=" + $c.IsEnabled + " モーダル=" + $modal + " 状態=" + $state
+    }
+    try {
+        foreach ($w in @(getGuiTopWindows $S)) { [void]$rows.Add((& $describe $w "上位")) }
+        foreach ($w in @(getGuiOtherWindows $S)) { [void]$rows.Add((& $describe $w "本体以外（持ち主あり、または別の上位）")) }
+        [void]$rows.Add("本体の有効=" + $S.Window.Current.IsEnabled)
+    } catch {
+        [void]$rows.Add("窓の状態を取れなかった: " + $_.Exception.Message)
+    }
+    return @($rows.ToArray())
 }
 
 function sampleGuiThreadsIfDue {
@@ -356,6 +417,7 @@ function assertGuiExited {
                 }
             } catch { }
             Write-Host ("GUI-DIAG exit=0 場面=" + $S.Scene + " EXITING=" + $exitingText + $traceTail + " " + $diagText)
+            if (!$script:guiClosePathSampled) { $script:guiClosePathSampled = $true; writeGuiClosePathMaterial $S "成功の見本" }
         } catch { Write-Host ("GUI-DIAG 失敗 " + $_.Exception.Message) }
         return
     }

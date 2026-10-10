@@ -1,5 +1,5 @@
 ﻿# 【一時】Dispatcher を止める直しで、終了コード 5 が出なくなるかを確かめる（確かめが済んだら消す）。
-# 条件ごとに画面を 25 回ずつ起動して閉じる。落ちた条件は、場面の名前（条件の名前-回）と終了の記録で分かる。
+# 条件ごとに画面を 50 回ずつ起動して閉じる。落ちた条件は、場面の名前（条件の名前-回）と終了の記録で分かる。
 # 環境変数 TEBUNKO_BISECT が立っているときだけ条件を作る（ふだんの Gui の実行では何もしない）。
 BeforeAll {
     . "$PSScriptRoot\..\helpers\load.ps1"
@@ -14,10 +14,8 @@ Describe "終了コードの切り分け" -Tag Gui {
 
     It "<Name>" -ForEach (@(
         if ($env:TEBUNKO_BISECT) {
-            foreach ($n in 1..25) {
+            foreach ($n in 1..50) {
                 @{ Name = "V1開閉とバージョン情報-$n"; Op = "about"; Variant = "exiting" }
-                @{ Name = "V3フォルダ追加の取り消し-$n"; Op = "folder"; Variant = "exiting" }
-                @{ Name = "C1実行空間を片づける-$n"; Op = "about"; Variant = "exiting,rsdispose" }
                 @{ Name = "C2Exit-$n"; Op = "about"; Variant = "exiting,envexit" }
             }
         }

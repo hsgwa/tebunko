@@ -12,6 +12,10 @@ function writeCloseTrace {
         try {
             $threads = [System.Diagnostics.Process]::GetCurrentProcess().Threads.Count
             $line = "$((Get-Date).ToString('HH:mm:ss.fff'))`tPID $PID`t$Point`tスレッド $threads`r`n"
+            # 【一時】同じ行を、ツールのフォルダの gui_closepath_<PID>.txt にも足す（作業場所の取り違えが起きない所）
+            if ($script:closePathDir) {
+                [System.IO.File]::AppendAllText((Join-Path $script:closePathDir "gui_closepath_$PID.txt"), $line, (New-Object System.Text.UTF8Encoding($false)))
+            }
             [System.IO.File]::AppendAllText($script:workspace.CloseTraceFile, $line, (New-Object System.Text.UTF8Encoding($false)))
         } catch { }
     }
@@ -21,6 +25,9 @@ function startGui {
     param (
         [string]$TebunkoDir
     )
+
+    # 【一時】閉じる道の跡を置くフォルダ（TebunkoDir は <ツール>の scripts 配下の tebunko）
+    $script:closePathDir = Split-Path -Parent (Split-Path -Parent $TebunkoDir)
 
     # 検索・画面の裏の仕事も同じプロセスのスレッドで動くため、画面を止める重い GC（全体の GC）をなるべく後回しにする
     # （docs/design/structure/closing.md「GC とメモリ」）
@@ -301,6 +308,7 @@ function startGui {
     $window.Add_Closing({
         param ($sender, $e)
         writeCloseTrace "Closing に入った"
+        writeCloseTrace ("Closing 入口 Cancel=" + $e.Cancel + " closeReady=" + $script:closeReady + " closeWaiting=" + $script:closeWaiting)
         if ($script:closeReady) {
             return
         }
@@ -353,6 +361,16 @@ function startGui {
             $e.Cancel = $true
             enterIndexingStopFlow
         }
+    })
+
+    # 【一時】閉じる道の跡（出口と Closed）
+    $window.Add_Closing({
+        param ($sender, $e)
+        $branch = if (!$e.Cancel) { "取り消さない" } elseif ($script:closeWaiting) { "止まるのを待つ流れで取り消し" } else { "確認・止める流れで取り消し" }
+        writeCloseTrace ("Closing 出口 Cancel=" + $e.Cancel + " 分岐=" + $branch + " closeReady=" + $script:closeReady + " closeWaiting=" + $script:closeWaiting)
+    })
+    $window.Add_Closed({
+        writeCloseTrace "Closed"
     })
 
     $window.Add_Loaded({
