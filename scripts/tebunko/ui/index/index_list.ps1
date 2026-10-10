@@ -16,7 +16,8 @@ foreach ($footerName in @("IndexEmptyAddButton")) {
     $ui[$footerName] = $ui.IndexListHost.Content.FindName($footerName)
 }
 $script:loadingTargets = $false
-$script:indexBusy = $false  # 前のインデックスの削除中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
+$script:targetsLoadRequest = @{ Value = 0 }  # 一覧の読み込みの依頼番号（新しい依頼が出たら、前の依頼の結果は捨てる）
+$script:indexBusy = $false  # 前のインデックスの削除・名前の変更中（別スレッド）。getIndexJobBlocker に [bool] で渡すため、$null のままにしない
 # 行のチェック（一時の選択。保存しない）の状態が変わったら、行の値と画面の表示を合わせる（Checked・Unchecked。
 # ToggleButton の状態が変わったときに出る、バブルするイベント）。マウスの Click だけでなく、UI オートメーションの
 # TogglePattern（キーボード操作も同様）でも状態が変わったときに出るため、どの操作でも拾える。
@@ -282,19 +283,66 @@ function newFolderItem {
 }
 
 function loadTargets {
+    # 設定のインデックス一覧を画面の一覧に読み込む。
+    # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
+    # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）。
+    # 名前を決めるには取り込み一覧（ワークスペースの中）を読む。ワークスペースがネットワークの場所なら裏の列で読み、
+    # 終わるまで一覧は空のまま（届かない場所で画面のスレッドが止まらないように）
+    $requestBox = $script:targetsLoadRequest
+    $requestBox.Value++
+    # 読み直しても、チェック（一時の選択）は名前で引き継ぐ
+    $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
+    $folders = @(getTargetFolders)
+    if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
+        if ((getWorkspaceJobQueue $workspace.Dir) -eq "network") {
+            $script:targetItems.Clear()
+            updateIndexListView
+            setStatus (getIndexNamingStatus)
+            $requestId = $requestBox.Value
+            $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
+            startJob {
+                param ($folders, $statusPath)
+                # 取り込み一覧の読み込みは排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
+                [void](saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile $statusPath).Folders))
+            } @(,$folders + @($workspace.StatusFile)) {
+                param ($output, $errorText)
+                if ($requestId -ne $requestBox.Value) {
+                    # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
+                    return
+                }
+                & $finish $errorText $checkedNames
+            }.GetNewClosure() "network"
+            return
+        }
+        saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)
+        $folders = @(getTargetFolders)
+    }
+    fillTargetItems $folders $checkedNames
+}
+
+function finishTargetsNaming {
+    # ネットワークのワークスペースで、裏の名前の割り当てが終わったときの処理。保存し直された一覧を読み込む（失敗したら理由を出し、設定のまま）
+    param (
+        [string]$errorText,
+        [string[]]$checkedNames
+    )
+
+    if ($errorText) {
+        setStatus (getIndexNamingFailedStatus $errorText)
+    }
+    fillTargetItems @(getTargetFolders) $checkedNames
+}
+
+function fillTargetItems {
+    # 画面の一覧を folders（@{ Name; Path; Enabled }）の内容に置き換える。checkedNames の名前の行はチェックを付ける
+    param (
+        [object[]]$folders,
+        [string[]]$checkedNames
+    )
+
     $script:loadingTargets = $true
     try {
-        # 読み直しても、チェック（一時の選択）は名前で引き継ぐ
-        $checkedNames = @(getIndexCheckedItems @($script:targetItems) | ForEach-Object { $_.Name })
         $script:targetItems.Clear()
-        $folders = @(getTargetFolders)
-        # 名前の決まっていないインデックス（設定ファイルを直接書き換えた場合など）には、ここで名前を割り当てて確定する。
-        # 一覧・編集・削除はインデックス名で扱うため、画面に出す時点で名前があるようにする（インデクサと同じ assignIndexNames を使う）。
-        # 取り込み一覧の読み込み（ネットワーク上のこともある）は排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
-        if (@($folders | Where-Object { $_ -and !$_.Name }).Count -gt 0) {
-            saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)
-            $folders = @(getTargetFolders)
-        }
         foreach ($folder in $folders) {
             $newItem = newFolderItem $folder.Path $folder.Enabled $folder.Name
             $newItem.Checked = ($folder.Name -and $checkedNames -contains $folder.Name)

@@ -80,6 +80,20 @@ function getFailedFileOtherStatus {
     return "元のファイルを確かめられませんでした：${message}"
 }
 
+function getIndexNamingStatus {
+    # 名前の決まっていないインデックスに名前を付けている間（ネットワークのワークスペースでは裏で行う）のステータス
+    return "インデックス名を決めています…（共有フォルダに接続できないときは、しばらくかかります）"
+}
+
+function getIndexNamingFailedStatus {
+    # インデックス名を決められなかったときのステータス
+    param (
+        [string]$errorText
+    )
+
+    return "インデックス名を決められませんでした：${errorText}"
+}
+
 function getIndexStoreJobStatus {
     # インデックスの削除・名前の変更を別スレッドで始めたときのステータス
     param (
