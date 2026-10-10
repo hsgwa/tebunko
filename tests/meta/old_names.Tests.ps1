@@ -41,11 +41,14 @@ BeforeDiscovery {
     @{ Kind = 'ファイル名'; Pattern = 'pack_store'; New = 'content_index_store'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'pack_search'; New = 'content_index_search'; Docs = $true }
     @{ Kind = 'ファイル名'; Pattern = 'convert_to_pack'; New = 'convert_to_content_index'; Docs = $true }
-    @{ Kind = '変数（$pack・$packs）'; Pattern = '\$packs?(?![A-Za-z0-9_])'; New = '$contentIndexFile・$contentIndexFiles'; Docs = $false }
+    @{ Kind = '変数（$pack・$packs）'; Pattern = '\$(\{|script:)?packs?(?![A-Za-z0-9_])'; New = '$contentIndexFile・$contentIndexFiles'; Docs = $false }
     @{ Kind = 'pack で始まる名前（packX）'; Pattern = '(?<![A-Za-z0-9_])pack[A-Z][A-Za-z0-9_]*'; New = 'contentIndexX'; Docs = $false }
     @{ Kind = '語の末尾の Pack（xxxPack・xxxPacks）'; Pattern = '(?<=[a-z])Packs?(?![A-Za-z0-9_])'; New = 'xxxContentIndex・xxxContentIndexFiles'; Docs = $false }
     @{ Kind = '名前の末尾の _pack'; Pattern = '[A-Za-z0-9]_pack(?![A-Za-z0-9_])'; New = 'xxx_content_index'; Docs = $false }
     @{ Kind = '項目 PackPath'; Pattern = 'PackPath(?![A-Za-z0-9_])'; New = 'ContentIndexPath'; Docs = $false }
+    @{ Kind = '項目・メンバー .Pack・.Packs'; Pattern = '\.Packs?(?![A-Za-z0-9_])'; New = '.ContentIndexFile・.ContentIndexFiles'; Docs = $false }
+    @{ Kind = '項目・キー Pack・Packs（Pack = …）'; Pattern = '(?<![A-Za-z0-9_.])Packs?\s*='; New = 'ContentIndexFile・ContentIndexFiles'; Docs = $false }
+    @{ Kind = '文書の項目 Packs'; Pattern = '(?<![A-Za-z0-9_.])Packs(?![A-Za-z0-9_])'; New = 'ContentIndexFiles'; Docs = $true }
     )
 }
 
@@ -63,12 +66,13 @@ BeforeAll {
         @{ Path = "docs\design\testing\perf.md"; Reason = "計測の道具が、名前を改める前の版の関数名も受け付けることの説明" }
         @{ Path = "docs\design\testing\perf-check.md"; Reason = "性能テストの上限の名前（packLimitSeconds）。性能テストは名前を改めていない" }
     )
+    # 名前を改める前の語は、どれも pack を含む（大文字小文字は問わず）。含む行だけを残して、表の型ごとの照合を軽くする
     $script:targets = New-Object System.Collections.Generic.List[object]
     foreach ($dir in "scripts", "tests", "tools", "docs") {
         foreach ($file in Get-ChildItem -LiteralPath "$repo\$dir" -Recurse -File -Include "*.ps1", "*.psm1", "*.xaml", "*.md", "*.yml") {
             $rel = $file.FullName.Substring($repo.Length + 1)
-            if (@($script:skip | Where-Object { $rel.StartsWith($_.Path) }).Count -gt 0) { continue }
-            $script:targets.Add(@{ Rel = $rel; Docs = ($dir -eq "docs"); Lines = @(Get-Content -LiteralPath $file.FullName -Encoding UTF8) })
+            if (@($script:skip | Where-Object { $rel.StartsWith($_.Path, [System.StringComparison]::OrdinalIgnoreCase) }).Count -gt 0) { continue }
+            $script:targets.Add(@{ Rel = $rel; Docs = ($dir -eq "docs"); Lines = @(Get-Content -LiteralPath $file.FullName -Encoding UTF8 | ForEach-Object -Begin { $n = 0 } -Process { $n++; if ($_ -match 'pack') { @{ No = $n; Text = $_ } } }) })
         }
     }
 }
@@ -79,8 +83,8 @@ Describe "本文インデックスのコードの名前に、古い名前（pack
         foreach ($target in $script:targets) {
             # 文書は、関数名とファイル名だけを見る（画面の言い回しや計測の項目の説明を拾わないため）
             if ($target.Docs -and !$Docs) { continue }
-            for ($i = 0; $i -lt $target.Lines.Count; $i++) {
-                if ($target.Lines[$i] -cmatch $Pattern) { $hits.Add("$($target.Rel):$($i + 1)") }
+            foreach ($line in $target.Lines) {
+                if ($line.Text -cmatch $Pattern) { $hits.Add("$($target.Rel):$($line.No)") }
             }
         }
         if ($hits.Count) {

@@ -7,7 +7,7 @@ flowchart LR
     core["tests/shared/core/<br>共通基盤"] --> settings["tests/tebunko/core/<br>設定ファイル"]
     settings --> name["tests/tebunko/index/index_name<br>インデックス名"]
     name --> store["tests/tebunko/index/index_store<br>インデックスの管理"]
-    store --> pack["tests/tebunko/index/content_index_format<br>tests/tebunko/search/content_index_search<br>本文インデックス"]
+    store --> contentIndex["tests/tebunko/index/content_index_format<br>tests/tebunko/search/content_index_search<br>本文インデックス"]
 ```
 
 **共通基盤（`tests/shared/core/`）**
