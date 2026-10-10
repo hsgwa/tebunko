@@ -168,17 +168,48 @@ function editIndex {
 
 function applyIndexEdit {
     # 編集の結果（@{ Path; Name }）を行に反映して保存する。［編集…］のダイアログと、詳細のフォルダパスの［...］が同じ道で使う。
-    # 変わったところが無ければ何もしない
+    # 変わったところが無ければ何もしない。
+    # 名前を変えるときは、インデックスのフォルダ（work\index\<名前>）と取り込み一覧の記録の改名を別スレッドで行い、
+    # 終わってから行に反映する（ワークスペースが共有フォルダにあると改名に時間がかかる・届かないことがあるため）
+    param (
+        $item,
+        $result
+    )
+
+    # 大文字・小文字だけの変更も改名する（-ne は大文字・小文字を区別しないため -cne で比べる）
+    $renamed = $result.Name -cne $item.Name
+    if (!$renamed -and $result.Path -eq $item.Path) {
+        return
+    }
+    if (!$renamed) {
+        completeIndexEdit $item $result
+        return
+    }
+
+    # 改名と同じ仕事の中で、元のフォルダの記録（source_folder.txt）も新しい名前・場所で書き直す
+    $folders = @($script:targetItems | Where-Object { $_.Name } | ForEach-Object {
+        if ($_ -eq $item) {
+            [pscustomobject]@{ Name = $result.Name; Path = $result.Path }
+        } else {
+            [pscustomobject]@{ Name = $_.Name; Path = $_.Path }
+        }
+    })
+    $complete = ${function:completeIndexEdit}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
+    startIndexStoreJob "rename" $item.Name $result.Name $folders {
+        & $complete $item $result
+    }.GetNewClosure()
+}
+
+function completeIndexEdit {
+    # 編集の結果を行に反映して保存する（名前の変更は、インデックスのフォルダの改名が終わってから呼ぶ）
     param (
         $item,
         $result
     )
 
     $changes = New-Object System.Collections.Generic.List[string]
-    # 大文字・小文字だけの変更も改名する（-ne は大文字・小文字を区別しないため -cne で比べる）
-    if ($result.Name -cne $item.Name) {
-        # インデックスのフォルダ（work\index\<名前>）と取り込み一覧の記録も名前を変える（中身は作り直さない）
-        renameIndex $item.Name $result.Name
+    $renamed = $result.Name -cne $item.Name
+    if ($renamed) {
         $changes.Add("名前 [$($item.Name)] → [$($result.Name)]")
         $item.SetName($result.Name)
     }
@@ -188,12 +219,12 @@ function applyIndexEdit {
         $item.StatusChecked = $false
         updateFolderItemStatus $item
     }
-    if ($changes.Count -eq 0) {
-        return
-    }
 
     saveTargets
-    updateIndexSourceFile
+    if (!$renamed) {
+        # 名前を変えたときは、改名の仕事の中で書き直し済み
+        updateIndexSourceFile
+    }
     refreshIndexViews
     setStatus ("インデックスを変更しました（" + ($changes -join " / ") + "）")
 }
@@ -224,41 +255,56 @@ function changeIndexFolder {
     applyIndexEdit $item @{ Path = $path; Name = $item.Name }
 }
 
-function startIndexRemoveJob {
-    # インデックス（work\index\<名前>）と取り込み一覧の記録の削除を別スレッドで行う。
-    # 数万フォルダの削除は数十秒かかることがあり、画面のスレッドで行うと「応答なし」になるため。
-    # 終わるまでインデックスの操作・インデックス作成の開始はできないようにし、何をしているかをステータスに出す
+function startIndexStoreJob {
+    # インデックス（work\index\<名前>）と取り込み一覧の記録の削除・名前の変更を別スレッドで行う。
+    # 数万フォルダの削除は数十秒かかることがあり、共有フォルダでは改名にも時間がかかる・届かないことがある。
+    # 画面のスレッドで行うと「応答なし」になるため。
+    # 終わるまでインデックスの操作・インデックス作成の開始・ワークスペースの変更はできないようにし、何をしているかをステータスに出す
     param (
+        [string]$kind,        # "delete"（削除）か "rename"（名前の変更。元のフォルダの記録の書き直しまで行う）
         [string]$name,
-        [string]$operation,   # "削除"（表示に使う）
-        [scriptblock]$onDone  # 削除が終わった後に画面のスレッドで行うこと（$script:indexJobName で名前を参照できる）
+        [string]$newName,     # 名前の変更のときの新しい名前
+        [object[]]$folders,   # 名前の変更のときに書き直す元のフォルダの記録（@{ Name; Path }）
+        [scriptblock]$onDone  # 終わった後に画面のスレッドで行うこと（$script:indexJobName で名前を参照できる）
     )
 
     $script:indexBusy = $true
     $script:indexJobName = $name
     $script:indexJobOnDone = $onDone
-    $script:indexJobOperation = $operation
+    $script:indexJobKind = $kind
     updateIndexingButton
-    setStatus "インデックス [${name}] を削除しています…（件数によっては少し時間がかかります）"
-    # 裏のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、場所は渡す
+    setStatus (getIndexStoreJobStatus $kind $name $newName)
+    # 裏のスレッドは lib.ps1 を読み込んだときのワークスペースを覚えているため、場所は渡す。
+    # 届かない共有フォルダで他の仕事を巻き込んで待たせないよう、ワークスペースの場所で裏の列を選ぶ
     startJob {
-        param ($name, $dir, $statusPath, $settingsPath)
-        removeIndex $name $dir $statusPath $settingsPath
-    } @($name, $workspace.IndexDir, $workspace.StatusFile, ${settingsFile}) {
+        param ($kind, $name, $newName, $folders, $dir, $statusPath, $settingsPath)
+        if ($kind -eq "rename") {
+            renameIndex $name $newName $dir $statusPath $settingsPath
+            writeSourceFolderFile $folders $dir
+        } else {
+            removeIndex $name $dir $statusPath $settingsPath
+        }
+    } (@($kind, $name, $newName) + @(,@($folders)) + @($workspace.IndexDir, $workspace.StatusFile, ${settingsFile})) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateIndexingButton
         $name = $script:indexJobName
         if ($errorText) {
-            setStatus "インデックス [${name}] の $($script:indexJobOperation)に失敗しました：${errorText}"
+            setStatus (getIndexStoreJobFailedStatus $script:indexJobKind $name $errorText)
+            if ($script:indexJobKind -eq "rename") {
+                # 行にはまだ反映していない。一覧を保存済みの内容に戻す
+                loadTargets
+            }
             refreshIndexViews
             return
         }
-        refreshIndexViews
+        if ($script:indexJobKind -ne "rename") {
+            refreshIndexViews
+        }
         if ($script:indexJobOnDone) {
             & $script:indexJobOnDone
         }
-    }
+    } (getWorkspaceJobQueue $workspace.IndexDir)
 }
 
 function deleteIndexes {
@@ -335,7 +381,7 @@ function deleteIndex {
     saveTargets
     updateIndexSourceFile
     updateIndexListView
-    startIndexRemoveJob $item.Name "削除" {
+    startIndexStoreJob "delete" $item.Name "" @() {
         setStatus "インデックス [$($script:indexJobName)] を削除しました"
     }
 }

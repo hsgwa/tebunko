@@ -317,11 +317,20 @@ function saveTargets {
 
 function updateIndexSourceFile {
     # インデックスのフォルダの source_folder.txt を今の一覧に合わせて書き直す。
-    # 次のインデックス作成を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無ければ何もしない）
-    if (!(Test-Path -LiteralPath $workspace.IndexDir -PathType Container)) {
-        return
-    }
-    writeSourceFolderFile @($script:targetItems | Where-Object { $_.Name } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path } })
+    # 次のインデックス作成を待たずに、検索結果から元のファイルを開けるようにする（インデックスが無いフォルダには書かない）。
+    # 書くのは別スレッドで行う（ワークスペースが届かない共有フォルダにあっても、画面のスレッドが止まらないように）。
+    # 書けなかったときはステータスに知らせる
+    $folders = @($script:targetItems | Where-Object { $_.Name } | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Path = $_.Path } })
+    $dir = [string]$workspace.IndexDir
+    startJob {
+        param ($folders, $dir)
+        writeSourceFolderFile $folders $dir
+    } @(,$folders + @($dir)) {
+        param ($output, $errorText)
+        if ($errorText) {
+            setStatus (getSourceFolderFileFailedStatus $errorText)
+        }
+    } (getWorkspaceJobQueue $dir)
 }
 
 function refreshIndexViews {

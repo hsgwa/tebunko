@@ -80,12 +80,47 @@ function getFailedFileOtherStatus {
     return "元のファイルを確かめられませんでした：${message}"
 }
 
+function getIndexStoreJobStatus {
+    # インデックスの削除・名前の変更を別スレッドで始めたときのステータス
+    param (
+        [string]$kind,      # "delete"（削除）か "rename"（名前の変更）
+        [string]$name,
+        [string]$newName
+    )
+
+    if ($kind -eq "rename") {
+        return "インデックス [${name}] の名前を [${newName}] に変えています…（共有フォルダでは少し時間がかかります）"
+    }
+    return "インデックス [${name}] を削除しています…（件数によっては少し時間がかかります）"
+}
+
+function getIndexStoreJobFailedStatus {
+    # 削除・名前の変更が失敗したときのステータス
+    param (
+        [string]$kind,
+        [string]$name,
+        [string]$errorText
+    )
+
+    $operation = if ($kind -eq "rename") { "名前の変更" } else { "削除" }
+    return "インデックス [${name}] の${operation}に失敗しました：${errorText}"
+}
+
+function getSourceFolderFileFailedStatus {
+    # 元のフォルダの記録（source_folder.txt）を書き直せなかったときのステータス
+    param (
+        [string]$errorText
+    )
+
+    return "元のフォルダの記録を書き直せませんでした：${errorText}"
+}
+
 function getIndexJobBlocker {
     # インデックス作成・削除・エクスポート・インポート・ワークスペースの変更は互いに排他（画面の可否の表）。
     # 動いているものがあれば、その名前を返す（無ければ空文字列。空なら操作してよい）
     param (
         [bool]$isIndexing,   # インデックス作成中
-        [bool]$indexBusy,    # 前のインデックスの削除中
+        [bool]$indexBusy,    # 前のインデックスの削除・名前の変更中
         [bool]$archiveBusy   # エクスポート・インポート中
     )
 
@@ -93,7 +128,7 @@ function getIndexJobBlocker {
         return "インデックス作成中"
     }
     if ($indexBusy) {
-        return "削除中"
+        return "削除・名前の変更中"
     }
     if ($archiveBusy) {
         return "エクスポート・インポート中"
@@ -115,8 +150,8 @@ function getIndexJobBlockedMessage {
         if ($blocker -eq "インデックス作成中") {
             return "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。"
         }
-        if ($blocker -eq "削除中") {
-            return "前のインデックスの削除が終わるまでお待ちください。"
+        if ($blocker -eq "削除・名前の変更中") {
+            return "前のインデックスの削除・名前の変更が終わるまでお待ちください。"
         }
         return "エクスポート・インポートが終わるまでお待ちください。"
     }

@@ -61,7 +61,7 @@ Describe "getIndexJobBlocker" -Tag Unit {
     It "動いているものの名前を返す（優先順位は インデックス作成 > 削除 > エクスポート・インポート）" -TestCases @(
         @{ isIndexing = $false; indexBusy = $false; archiveBusy = $false; expected = "" }
         @{ isIndexing = $true;  indexBusy = $false; archiveBusy = $false; expected = "インデックス作成中" }
-        @{ isIndexing = $false; indexBusy = $true;  archiveBusy = $false; expected = "削除中" }
+        @{ isIndexing = $false; indexBusy = $true;  archiveBusy = $false; expected = "削除・名前の変更中" }
         @{ isIndexing = $false; indexBusy = $false; archiveBusy = $true;  expected = "エクスポート・インポート中" }
         @{ isIndexing = $true;  indexBusy = $true;  archiveBusy = $true;  expected = "インデックス作成中" }
     ) {
@@ -78,10 +78,10 @@ Describe "getIndexJobBlockedMessage" -Tag Unit {
     It "<blocker> のとき、<operation> の案内を返す" -TestCases @(
         @{ blocker = "インデックス作成中"; operation = "エクスポート"; expected = "更新中はインデックスをエクスポートできません。更新が終わるまでお待ちください（［中止］で止められます）。" }
         @{ blocker = "インデックス作成中"; operation = "追加"; expected = "更新中はインデックスを追加できません。更新が終わるまでお待ちください（［中止］で止められます）。" }
-        @{ blocker = "削除中"; operation = "インポート"; expected = "削除中はインポートできません。終わるまでお待ちください。" }
+        @{ blocker = "削除・名前の変更中"; operation = "インポート"; expected = "削除・名前の変更中はインポートできません。終わるまでお待ちください。" }
         @{ blocker = "エクスポート・インポート中"; operation = "削除"; expected = "エクスポート・インポート中は削除できません。終わるまでお待ちください。" }
         @{ blocker = "インデックス作成中"; operation = "ワークスペースの変更"; expected = "更新中はワークスペースを変えられません。更新が終わるまでお待ちください（［中止］で止められます）。" }
-        @{ blocker = "削除中"; operation = "ワークスペースの変更"; expected = "前のインデックスの削除が終わるまでお待ちください。" }
+        @{ blocker = "削除・名前の変更中"; operation = "ワークスペースの変更"; expected = "前のインデックスの削除・名前の変更が終わるまでお待ちください。" }
         @{ blocker = "エクスポート・インポート中"; operation = "ワークスペースの変更"; expected = "エクスポート・インポートが終わるまでお待ちください。" }
     ) {
         param ($blocker, $operation, $expected)
@@ -100,8 +100,8 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
         @{ label = "インデックス作成中: すべて無効（エクスポート・インポートを含む）"
            blocker = "インデックス作成中"; hasSelection = $true
            new = $false; edit = $false; remove = $false; export = $false; import = $false }
-        @{ label = "削除中: すべて無効（エクスポート・インポートを含む）"
-           blocker = "削除中"; hasSelection = $true
+        @{ label = "削除・名前の変更中: すべて無効（エクスポート・インポートを含む）"
+           blocker = "削除・名前の変更中"; hasSelection = $true
            new = $false; edit = $false; remove = $false; export = $false; import = $false }
         @{ label = "エクスポート・インポート中: すべて無効（追加・編集・削除を含む）"
            blocker = "エクスポート・インポート中"; hasSelection = $true
@@ -201,7 +201,7 @@ Describe "getIndexActionsEnabled（［アクション ▾］のメニューの�
         @{ label = "2 件チェック・押した行あり: 編集だけ無効（詳細は「N 件を選択中」）"; blocker = ""; checked = 2; pressed = $true; update = $true; edit = $false; export = $true; import = $true; delete = $true }
         @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; pressed = $true; update = $false; edit = $false; export = $false; import = $false; delete = $false }
         @{ label = "更新中: チェックなし・押した行ありでも編集は無効"; blocker = "インデックス作成中"; checked = 0; pressed = $true; update = $false; edit = $false; export = $false; import = $false; delete = $false }
-        @{ label = "削除中: すべて無効"; blocker = "削除中"; checked = 2; pressed = $false; update = $false; edit = $false; export = $false; import = $false; delete = $false }
+        @{ label = "削除・名前の変更中: すべて無効"; blocker = "削除・名前の変更中"; checked = 2; pressed = $false; update = $false; edit = $false; export = $false; import = $false; delete = $false }
     ) {
         param ($label, $blocker, $checked, $pressed, $update, $edit, $export, $import, $delete)
         $result = getIndexActionsEnabled $blocker $checked $pressed
@@ -221,7 +221,7 @@ Describe "getIndexRowMenuEnabled（行の右クリックのメニューの可否
         @{ label = "元のフォルダの記録が無い行: 元のフォルダを開くだけ使えない"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $false; update = $true; edit = $true; open = $false; export = $true; delete = $true }
         @{ label = "更新中の行: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Run"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
         @{ label = "ほかの行の更新中: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
-        @{ label = "削除・エクスポート・インポート中: 元のフォルダを開く以外は使えない"; blocker = "削除中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
+        @{ label = "削除・エクスポート・インポート中: 元のフォルダを開く以外は使えない"; blocker = "削除・名前の変更中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
         @{ label = "行が無い: すべて使えない"; blocker = ""; hasRow = $false; level = "None"; hasPath = $false; update = $false; edit = $false; open = $false; export = $false; delete = $false }
     ) {
         param ($label, $blocker, $hasRow, $level, $hasPath, $update, $edit, $open, $export, $delete)
@@ -234,7 +234,7 @@ Describe "getIndexRowMenuEnabled（行の右クリックのメニューの可否
     }
 
     It "［編集…］の可否は、［アクション ▾］の［編集…］（チェックなし・押した行あり）と同じ関数の結果" -TestCases @(
-        @{ blocker = "" }, @{ blocker = "インデックス作成中" }, @{ blocker = "削除中" }
+        @{ blocker = "" }, @{ blocker = "インデックス作成中" }, @{ blocker = "削除・名前の変更中" }
     ) {
         param ($blocker)
         (getIndexRowMenuEnabled $blocker $true "Ok" $true).Edit | Should -Be (getIndexActionsEnabled $blocker 0 $true).Edit
@@ -273,7 +273,7 @@ Describe "getIndexRowActions（行の右端のボタン）" -Tag Unit {
         @{ level = "Wait"; blocker = ""; action = "Update"; enabled = $true }
         @{ level = "None"; blocker = ""; action = "Update"; enabled = $true }
         @{ level = "Ok"; blocker = "インデックス作成中"; action = "Update"; enabled = $false }
-        @{ level = "None"; blocker = "削除中"; action = "Update"; enabled = $false }
+        @{ level = "None"; blocker = "削除・名前の変更中"; action = "Update"; enabled = $false }
         @{ level = "Run"; blocker = "インデックス作成中"; action = "Stop"; enabled = $false }
         @{ level = "Ng"; blocker = ""; action = "None"; enabled = $true }
     ) {
