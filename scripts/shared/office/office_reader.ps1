@@ -98,6 +98,12 @@ function isCompoundFile {
     }
 }
 
+#  読み取りのスレッド（runspace）ごとに使い回す、部品の読み取り用の入れ物。大きな部品を読むときに、
+# 部品の大きさぶんの配列を毎回確保しない（ラージオブジェクトヒープに乗らない大きさ（85,000 バイト
+# 未満。既定 32768 バイト）にとどめ、GC の負担を減らす）
+$script:zipReadBufferSize = 32768
+$script:zipReadBuffer = $null
+
 function readZipEntry {
     # ZIP内のファイルを文字列で返す。無ければ $null。
     #
@@ -107,12 +113,14 @@ function readZipEntry {
     # （ヘッダーの大きさを偽って中身を小さくした部品を並べても、合計の上限で打ち切るため）。
     #
     # entry.Length の値は、細工して実際より小さく書き換えられる（偽りのヘッダー）。これを見つけるため、
-    # Length + 1 バイトの入れ物を作り、Stream.Read を繰り返して埋める（1回のReadで全部返るとは限らない
-    # ため）。入れ物がLength + 1バイト目まで埋まったら、中身がヘッダーより長いと分かるので、そこで止めて
-    # 例外にする。展開はここで必ず止まり、上限のバイト数を超えて進まない。
+    # 実際に読む量を Length + 1 バイトまでに絞る（入れ物は小さく使い回し、1回ごとの Stream.Read の
+    # 要求バイト数を「残り（Length + 1 - 既読量）」で頭打ちにする）。既読量が Length + 1 バイトに届いたら、
+    # 中身がヘッダーより長いと分かるので、そこで止めて例外にする。展開はここで必ず止まり、
+    # 上限のバイト数を超えて進まない（部品の大きさぶんの配列は作らない）。
     #
     # 読んだバイト列は、今までの StreamReader（UTF-8を指定し、BOMを見て文字コードを決める）と同じ規則で
-    # 文字列にする（BOM付きUTF-8・UTF-16 LE/BEを見分け、無ければUTF-8）
+    # 文字列にする（BOM付きUTF-8・UTF-16 LE/BEを見分け、無ければUTF-8）。入れ物（$script:zipReadBuffer）に
+    # 入った分だけ Decoder で文字に直し、StringBuilder に積む（文字の境界がまたがっても Decoder が覚える）
     param (
         [System.IO.Compression.ZipArchive]$zip,
         [string]$entryName
@@ -132,36 +140,76 @@ function readZipEntry {
         throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $script:zipTotalReadBytes, "Total")
     }
 
-    $buffer = New-Object byte[] ($length + 1)
-    $filled = 0
+    if ($null -eq $script:zipReadBuffer) {
+        $script:zipReadBuffer = New-Object byte[] $script:zipReadBufferSize
+    }
+    $buffer = $script:zipReadBuffer
+    $budget = $length + 1  # 偽りのヘッダーを見つけるため、読む量はこれより増やさない
+    $totalRead = 0L
+    $sb = New-Object System.Text.StringBuilder([int][Math]::Min($length, [int]::MaxValue))
+    $decoder = $null
+    $charBuffer = $null
+    $first = $true
+
     $stream = $entry.Open()
     try {
-        while ($filled -lt $buffer.Length) {
-            $read = $stream.Read($buffer, $filled, $buffer.Length - $filled)
-            if ($read -le 0) {
+        while ($totalRead -lt $budget) {
+            $want = [Math]::Min($buffer.Length, [long]($budget - $totalRead))
+            $filled = 0
+            $endOfStream = $false
+            while ($filled -lt $want) {
+                $read = $stream.Read($buffer, $filled, [int]($want - $filled))
+                if ($read -le 0) {
+                    $endOfStream = $true
+                    break
+                }
+                $filled += $read
+            }
+            $totalRead += $filled
+            if ($totalRead -gt $length) {
+                # 中身がヘッダーの値より長い（偽りのヘッダー）。実際の大きさは分からないため、検出できた時点の値を記録する
+                throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $totalRead, "Part")
+            }
+
+            $byteOffset = 0
+            if ($first) {
+                $first = $false
+                $encoding = [System.Text.Encoding]::UTF8
+                if ($filled -ge 3 -and $buffer[0] -eq 0xEF -and $buffer[1] -eq 0xBB -and $buffer[2] -eq 0xBF) {
+                    $byteOffset = 3
+                } elseif ($filled -ge 2 -and $buffer[0] -eq 0xFF -and $buffer[1] -eq 0xFE) {
+                    $encoding = [System.Text.Encoding]::Unicode
+                    $byteOffset = 2
+                } elseif ($filled -ge 2 -and $buffer[0] -eq 0xFE -and $buffer[1] -eq 0xFF) {
+                    $encoding = [System.Text.Encoding]::BigEndianUnicode
+                    $byteOffset = 2
+                }
+                $decoder = $encoding.GetDecoder()
+                $charBuffer = New-Object char[] ($encoding.GetMaxCharCount($buffer.Length))
+            }
+            $byteCount = $filled - $byteOffset
+            if ($byteCount -gt 0) {
+                $charCount = $decoder.GetChars($buffer, $byteOffset, $byteCount, $charBuffer, 0, $false)
+                if ($charCount -gt 0) {
+                    [void]$sb.Append($charBuffer, 0, $charCount)
+                }
+            }
+            if ($endOfStream) {
                 break
             }
-            $filled += $read
+        }
+        if ($null -ne $decoder) {
+            # 最後にDecoderの中に残っている分（サロゲートペアの前半など）を吐き出させる
+            $charCount = $decoder.GetChars([byte[]]@(), 0, 0, $charBuffer, 0, $true)
+            if ($charCount -gt 0) {
+                [void]$sb.Append($charBuffer, 0, $charCount)
+            }
         }
     } finally {
         $stream.Dispose()
     }
-    if ($filled -gt $length) {
-        # 中身がヘッダーの値より長い（偽りのヘッダー）。実際の大きさは分からないため、検出できた時点の $filled を記録する
-        throw [ZipSizeLimitException]::new($script:zipTooLargeMessage, $entryName, $filled, "Part")
-    }
 
-    $memory = New-Object System.IO.MemoryStream($buffer, 0, $filled)
-    try {
-        $reader = New-Object System.IO.StreamReader($memory, [System.Text.Encoding]::UTF8)
-        try {
-            return $reader.ReadToEnd()
-        } finally {
-            $reader.Dispose()
-        }
-    } finally {
-        $memory.Dispose()
-    }
+    return $sb.ToString()
 }
 
 function resolveZipPath {

@@ -889,6 +889,45 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
             $zip.Dispose()
         }
     }
+
+    It "<name>: 入れ物の境目を BOM・多バイト文字がまたいでも、同じ文字列に戻る。偽りのヘッダーも見つかる" -TestCases @(
+        @{ name = "BOM付きUTF-8"; size = 3; encoding = [System.Text.UTF8Encoding]::new($true) }
+        @{ name = "BOM付きUTF-8（入れ物 5 バイト）"; size = 5; encoding = [System.Text.UTF8Encoding]::new($true) }
+        @{ name = "UTF-16 LE（BOM付き）"; size = 3; encoding = [System.Text.UnicodeEncoding]::new($false, $true) }
+        @{ name = "UTF-16 BE（BOM付き）"; size = 3; encoding = [System.Text.UnicodeEncoding]::new($true, $true) }
+        @{ name = "BOM無し（UTF-8）"; size = 4; encoding = [System.Text.UTF8Encoding]::new($false) }
+    ) {
+        param ($name, $size, $encoding)
+        $text = "a" + "あ" + "😀" + "bcd"
+        $bytes = $encoding.GetPreamble() + $encoding.GetBytes($text)
+        $origBuffer = $script:zipReadBuffer
+        $origSize = $script:zipReadBufferSize
+        $script:zipReadBufferSize = $size
+        $script:zipReadBuffer = $null
+        try {
+            $path = "$TestDrive\boundary_$([guid]::NewGuid()).zip"
+            newRawZip $path @{ "a.xml" = @{ bytes = $bytes } }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                readZipEntry $zip "a.xml" | Should -Be $text
+            } finally {
+                $zip.Dispose()
+            }
+
+            $script:zipTotalReadBytes = 0
+            $path = "$TestDrive\boundary_fake_$([guid]::NewGuid()).zip"
+            newRawZip $path @{ "a.xml" = @{ bytes = $bytes; fakeSize = ($bytes.Length - 1) } }
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+            try {
+                { readZipEntry $zip "a.xml" } | Should -Throw -ExpectedMessage "*大きすぎるため取り込めません*"
+            } finally {
+                $zip.Dispose()
+            }
+        } finally {
+            $script:zipReadBufferSize = $origSize
+            $script:zipReadBuffer = $origBuffer
+        }
+    }
 }
 
 Describe "newXmlDocument" -Tag Unit {
