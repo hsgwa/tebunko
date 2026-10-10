@@ -4120,7 +4120,7 @@
     participant B as 画面の裏の仕事（startJob）
 
     U-&gt;&gt;G: 行を選ぶ
-    G-&gt;&gt;B: readPackContext を頼む
+    G-&gt;&gt;B: readContentIndexContext を頼む
     B--&gt;&gt;G: 前後の行（キャッシュがあれば使い回す）
     G-&gt;&gt;U: シートのような表で表示</code></pre>
 <p>結果の表で行を選ぶと、表の下に<strong>選択行とその前後の行</strong>を表示する。元のファイルを開かなくても、一致した場所の周り（見出しの行・隣のセルなど）が分かる。</p>
@@ -4146,11 +4146,11 @@
 </tr>
 <tr>
 <td>表示する行</td>
-<td><strong>プレビューの高さに収まるだけ</strong>（<code>getPreviewContextLines</code>）。表示できる行数を「行の表示領域の高さ ÷ 1 行の高さの目安 22px（<code>previewRowHeight</code>）」で求め、選択行の前後に同数ずつ割り当てる（余りの 1 行は後ろに付ける）。下限の高さでは<strong>選択行の 1 行だけ</strong>、高くするとその分だけ前後の行が見える。上限は 101 行（<code>maxPreviewRows</code>）。<br>高さを変えると（<code>PreviewScroll</code> の <code>SizeChanged</code>）読み直すが、ドラッグ中は何度も起きるため、選択の変更と同じ 120 ms のタイマーでまとめて 1 回だけ読む。このとき横スクロールの位置は変えない（ドラッグのたびに左へ戻らないようにするため）<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readPackContext</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する</td>
+<td><strong>プレビューの高さに収まるだけ</strong>（<code>getPreviewContextLines</code>）。表示できる行数を「行の表示領域の高さ ÷ 1 行の高さの目安 22px（<code>previewRowHeight</code>）」で求め、選択行の前後に同数ずつ割り当てる（余りの 1 行は後ろに付ける）。下限の高さでは<strong>選択行の 1 行だけ</strong>、高くするとその分だけ前後の行が見える。上限は 101 行（<code>maxPreviewRows</code>）。<br>高さを変えると（<code>PreviewScroll</code> の <code>SizeChanged</code>）読み直すが、ドラッグ中は何度も起きるため、選択の変更と同じ 120 ms のタイマーでまとめて 1 回だけ読む。このとき横スクロールの位置は変えない（ドラッグのたびに左へ戻らないようにするため）<br>本文インデックスのファイルから、ヒットの元のファイル・場所（<code>Book</code>・<code>Location</code>）の中の該当の行だけを取り出す（<code>readContentIndexContext</code>、<a href="../implementation/#実装構成">実装構成</a>）。Excel は場所の N 行目がシートの N 行目なので、元のシートの前後の行になる。場所の先頭・末尾では、ある行だけを表示する</td>
 </tr>
 <tr>
 <td>読み込みの速さ</td>
-<td>大きな本文インデックスのファイルでも画面が固まらないよう、次の 3 つを行う。<br>・読み込み（<code>readPackContext</code>）は画面のスレッドでは行わず、画面の裏の仕事のスレッド（<code>startJob</code>。<code>BackgroundQueue</code>）で行う。読み終わったら表を作る。読んでいる間に別の行を選んだら、古い行の結果（頼んだ番号が古いもの・今選んでいない行のもの）は捨てる<br>・検索で読んだ本文インデックスのファイルの内容と場所の一覧（<code>newTsvTextCache</code>。<a href="../../search/speed/">検索を速くする仕組み</a>）があれば、ファイルを読み直さずに使う。本文インデックスのファイルが書き換わったら（大きさ・更新日時が変わったら）読み直す。キャッシュに無い（上限を超えた等）ときは、選ぶたびに本文インデックスのファイルを読む<br>・↑↓で続けて選択が変わったときは、最後の選択の 120 ms 後に 1 回だけ読む</td>
+<td>大きな本文インデックスのファイルでも画面が固まらないよう、次の 3 つを行う。<br>・読み込み（<code>readContentIndexContext</code>）は画面のスレッドでは行わず、画面の裏の仕事のスレッド（<code>startJob</code>。<code>BackgroundQueue</code>）で行う。読み終わったら表を作る。読んでいる間に別の行を選んだら、古い行の結果（頼んだ番号が古いもの・今選んでいない行のもの）は捨てる<br>・検索で読んだ本文インデックスのファイルの内容と場所の一覧（<code>newTsvTextCache</code>。<a href="../../search/speed/">検索を速くする仕組み</a>）があれば、ファイルを読み直さずに使う。本文インデックスのファイルが書き換わったら（大きさ・更新日時が変わったら）読み直す。キャッシュに無い（上限を超えた等）ときは、選ぶたびに本文インデックスのファイルを読む<br>・↑↓で続けて選択が変わったときは、最後の選択の 120 ms 後に 1 回だけ読む</td>
 </tr>
 <tr>
 <td>表示する列</td>

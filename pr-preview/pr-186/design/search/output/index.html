@@ -2689,10 +2689,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ファイル名場所の求め方readpackplaces" class="md-nav__link">
+  <a href="#ファイル名場所の求め方readcontentindexplaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ファイル名・場所の求め方（readPackPlaces）
+        ファイル名・場所の求め方（readContentIndexPlaces）
       
     </span>
   </a>
@@ -4114,10 +4114,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ファイル名場所の求め方readpackplaces" class="md-nav__link">
+  <a href="#ファイル名場所の求め方readcontentindexplaces" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ファイル名・場所の求め方（readPackPlaces）
+        ファイル名・場所の求め方（readContentIndexPlaces）
       
     </span>
   </a>
@@ -4167,7 +4167,7 @@
 <ul>
 <li><code>【検索文字列　…】</code> の空白は全角スペース。ブロックの後に空行を 1 行出力する。</li>
 <li>ファイル名は、インデックスフォルダからの相対フォルダ（= クロール対象フォルダからの相対フォルダ）付き。直下のファイルはフォルダ部分なし。</li>
-<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。本文インデックスのメタ情報から組み立てる。<a href="#ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方</a>）を場所ごとの表記にしたもの（<code>describePlace</code>。画面の見出しの要約と同じ）。結果の表の「場所」列は、Excel ではこれにセル番地を足した行ごとの表記（<code>describeHitPlace</code>。<code>[シート]売上!B12</code>）を出すが、この出力にはセル番地を付けない。</li>
+<li><strong>場所・種別</strong> は、ヒットの <code>Location</code>（場所の名前。本文インデックスのメタ情報から組み立てる。<a href="#ファイル名場所の求め方readcontentindexplaces">ファイル名・場所の求め方</a>）を場所ごとの表記にしたもの（<code>describePlace</code>。画面の見出しの要約と同じ）。結果の表の「場所」列は、Excel ではこれにセル番地を足した行ごとの表記（<code>describeHitPlace</code>。<code>[シート]売上!B12</code>）を出すが、この出力にはセル番地を付けない。</li>
 </ul>
 <table>
 <thead>
@@ -4244,7 +4244,7 @@
 <li>Word のページは、Word が保存したときのページ区切りから数えた目安のため「（目安）」を付ける（<a href="../../indexing/word/">Word</a>・<a href="../../indexing/known-issues/#word-の注意点既知の問題">既知の問題</a>）。</li>
 <li>Excel の図形・コメントは、該当行の 1 列目が図形の左上・コメントのセル番地、2 列目が文字（<a href="../../indexing/excel/#excel-の図形コメントの読み取りreadxlsxobjectunits">Excel の図形・コメントの読み取り</a>）。Excel のヘッダー・フッターは、該当行が文字だけ（セル番地の列は無い。行番号はその場所の中の何行目か）。</li>
 <li>シート名にタブ・改行が入っている場合（Excel は付けられる）は、列・行が分かれないようスペースにする。</li>
-<li><strong>行番号</strong> は場所の中の行番号（<code>searchPackIndex</code> の <code>LineNumber</code>。元の TSV の行番号と同じ）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。</li>
+<li><strong>行番号</strong> は場所の中の行番号（<code>searchContentIndex</code> の <code>LineNumber</code>。元の TSV の行番号と同じ）。Excel ではシートの行番号、Word・PowerPoint では場所（ページ・スライド等）の中で何行目か。</li>
 <li><strong>該当行</strong> は、結果をすべて選択して Excel に貼り付けたとき、5 列目以降に元の列の順（5 列目 = A 列）でセルが並ぶように出力する。見出しの列名（A, B, C…）と行番号で、元のセル位置が分かる。</li>
 <li>Excel: TSV の行をそのまま出力し、セル内改行（U+2028）だけを LF に戻す。改行を含むセルは Excel の出力時点で <code>"</code> で囲まれているため、貼り付けても 1 セル内の改行となり、右隣のセル・後続の行はずれない。このため結果ファイルをテキストエディタで開くと、改行を含むセルは複数行に見える。</li>
 <li>Word・PowerPoint: 行（段落、または表の 1 行をタブ区切りにしたもの）は <code>"</code> で囲まれていない。Excel は <code>"</code> で始まるセルを囲みの <code>"</code> と解釈して後続がずれるため、<code>"</code> で始まるセルだけを <code>"</code> で囲み、中の <code>"</code> を <code>""</code> にする。途中に <code>"</code> を含むセルはそのままで、貼り付けても文字どおりになる。</li>
@@ -4260,7 +4260,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 </code></pre></div>
 <h2 id="1-行の組み立て">1 行の組み立て<a class="headerlink" href="#1-行の組み立て" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
-    H["searchPackIndex のヒット&lt;br&gt;（RelDir, Book, Location, LineNumber, Line）"] --&gt; T["toResultLine&lt;br&gt;ヒットのファイル名（Book）・場所（Location）"]
+    H["searchContentIndex のヒット&lt;br&gt;（RelDir, Book, Location, LineNumber, Line）"] --&gt; T["toResultLine&lt;br&gt;ヒットのファイル名（Book）・場所（Location）"]
     T --&gt; X{"Excel のインデックス？&lt;br&gt;（.xls? のファイル）"}
     X -- はい --&gt; XL["U+2028 → LF"]
     X -- いいえ --&gt; WD["#quot; で始まるセルを #quot; で囲む"]
@@ -4268,7 +4268,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
     WD --&gt; J
     J -- はい --&gt; O1["フォルダ\ファイル名 TAB 場所 TAB 種別 TAB 行番号 TAB 該当行"]
     J -- いいえ --&gt; O2["ファイル名 TAB 場所 TAB 種別 TAB 行番号 TAB 該当行"]</code></pre>
-<h2 id="ファイル名場所の求め方readpackplaces">ファイル名・場所の求め方（<code>readPackPlaces</code>）<a class="headerlink" href="#ファイル名場所の求め方readpackplaces" title="Permanent link">&para;</a></h2>
+<h2 id="ファイル名場所の求め方readcontentindexplaces">ファイル名・場所の求め方（<code>readContentIndexPlaces</code>）<a class="headerlink" href="#ファイル名場所の求め方readcontentindexplaces" title="Permanent link">&para;</a></h2>
 <p>ヒット 1 件の元のファイル名（Book）・場所（Location: シート名・ページ・スライド）・元のファイルのあるフォルダ（RelDir）は、次のように求める。</p>
 <table>
 <thead>
@@ -4280,7 +4280,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 <tbody>
 <tr>
 <td>RelDir</td>
-<td>本文インデックスのファイルのあるフォルダの、インデックスのフォルダ（<code>Root</code>）からの相対パス（<code>getPackFiles</code>）</td>
+<td>本文インデックスのファイルのあるフォルダの、インデックスのフォルダ（<code>Root</code>）からの相対パス（<code>findContentIndexFiles</code>）</td>
 </tr>
 <tr>
 <td>Book</td>
@@ -4288,7 +4288,7 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 </tr>
 <tr>
 <td>Location</td>
-<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertPackMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>「本文インデックスの形式」）</td>
+<td>一致した位置を含む場所のメタ情報（<code>シート</code> / <code>ページ</code> / <code>スライド</code> / <code>部分</code>・<code>対象</code>・<code>非表示</code>）から組み立てた場所の名前（<code>convertContentIndexMetaToPlace</code>。<code>見積[図形]</code>・<code>ページ001</code>・<code>スライド002（非表示）</code>・<code>スライド001_ノート</code> など。<a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>「本文インデックスの形式」）</td>
 </tr>
 <tr>
 <td>LineNumber</td>
@@ -4297,13 +4297,13 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 </tbody>
 </table>
 <pre class="mermaid"><code>flowchart TD
-    A["本文インデックスの全文"] --&gt; B["readPackPlaces&lt;br&gt;先頭が RS の行（メタ情報）を順に読む"]
+    A["本文インデックスの全文"] --&gt; B["readContentIndexPlaces&lt;br&gt;先頭が RS の行（メタ情報）を順に読む"]
     B --&gt; C["ファイル名= で元のファイルが変わる&lt;br&gt;シート= / ページ= / スライド= / 部分= で場所が変わる"]
     C --&gt; D["場所ごとの一覧&lt;br&gt;（Book, Location, 中身の先頭の位置, 終わりの位置）"]
     D --&gt; E["一致の位置を含む場所を探し、&lt;br&gt;場所の先頭から改行を数えて行番号にする"]</code></pre>
 <ul>
 <li>場所の一覧は、全文で一致したとき（と、読んだ内容を使い回すために残すとき）だけ作る。一致しない本文インデックスのファイルでは作らない（<a href="../speed/">検索を速くする仕組み</a>）。</li>
-<li>画面の選択行のプレビュー（<code>readPackContext</code>）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（<a href="../../gui/search-tab/">検索タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a>）。</li>
+<li>画面の選択行のプレビュー（<code>readContentIndexContext</code>）も同じ一覧で、Book・Location が一致する場所の中から前後の行を取り出す（<a href="../../gui/search-tab/">検索タブ</a> <a href="../../gui/preview/">選択行のプレビュー</a>）。</li>
 <li>検索では TSV の相対パスを分解しない。TSV の名前（フォルダ名 = 元のファイル名、ファイル名 = 場所）は、本文インデックスに入れるとき（<code>getIndexFolderBooks</code>）だけに使う。</li>
 </ul>
 <p>場所の付け方は <a href="../../indexing/">インデックス作成</a> の <a href="../../index-data/format/#配置命名規則">インデックスのファイルの形</a>・<a href="../../index-data/format/#場所の符号化encodeindexplace--decodeindexplace">場所の符号化</a> を参照。</p>
@@ -4311,9 +4311,9 @@ sub dir\old.xls [シート]Sheet1 セル  3   古い形式 りんご
 <p>テキストファイル（<code>.txt</code> 等）は、1 行に数 MB の内容が入ることがある（<code>.json</code> <code>.xml</code> <code>.log</code> など）。取り込み・検索の一致そのものは行を切らずに行う（行番号と検索の一致がずれないため）が、結果の表・プレビュー・この検索結果ファイル・画面の［コピー］に出す行は、<code>search_query.ps1</code> の <code>truncateHitLine</code> で <code>${hitLineMaxChars}</code>（1,000 文字）に切る。</p>
 <ul>
 <li>一致した行（結果の表・検索結果ファイル）は、一致の位置の <code>${hitLineBeforeMatchChars}</code>（200）文字前から 1,000 文字を取る（一致の位置が分からない図形・コメント等では先頭から）。</li>
-<li>選択行のプレビューの前後の行（<code>readPackContext</code>）は、一致していないため常に先頭から 1,000 文字を取る。</li>
+<li>選択行のプレビューの前後の行（<code>readContentIndexContext</code>）は、一致していないため常に先頭から 1,000 文字を取る。</li>
 <li>切った側に <code>…</code> を付ける（先頭・末尾のどちらか、または両方）。</li>
-<li>Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は <a href="../../indexing/text/">テキストファイルの読み取り</a>）。<code>pack_search.ps1</code> の <code>searchPackFiles</code> は、元のファイル名の拡張子（<code>getPackFileKind</code>）がテキストのときだけ切る。</li>
+<li>Excel・Word・PowerPoint の行は切らない（Excel は列の位置がずれるため。詳細は <a href="../../indexing/text/">テキストファイルの読み取り</a>）。<code>content_index_search.ps1</code> の <code>searchContentIndexFiles</code> は、元のファイル名の拡張子（<code>getContentIndexFileKind</code>）がテキストのときだけ切る。</li>
 </ul>
 
 
