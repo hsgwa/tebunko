@@ -42,7 +42,7 @@ $ui.IndexGrid.AddHandler([System.Windows.Controls.Primitives.ToggleButton]::Unch
 $script:indexListEmpty = $null  # 前回の updateIndexListView で一覧が空だったか（詳細の行の高さを動かすかの判断に使う）
 $script:indexDetailRowRestore = $null  # 空で畳む前の詳細の行の高さ（境目で変えた高さも含む）
 $script:savedTargets = $null  # 最後に読み込み・保存したインデックス一覧（getTargetsKey）。ほかでの変更の検出に使う
-$script:editDialog = $null    # 追加・編集のダイアログ（開いている間だけ）
+$script:detailEditItem = $null   # 詳細の名前・フォルダパスの欄で直している行（updateIndexDetailPanel が置く）
 $script:indexingSession = $null  # 実行中のインデックス作成（IndexingSession。終わって片づけたら $null）
 $script:indexingOnlyNames = @()  # 今の回が選んだものだけのときの、インデックス名（空なら全部）
 $script:indexingStart = $null

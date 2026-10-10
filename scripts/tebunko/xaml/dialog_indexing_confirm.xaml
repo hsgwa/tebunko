@@ -23,14 +23,6 @@
 
     <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
       <CheckBox x:Name="RetryCheck" Visibility="Collapsed" Margin="0,0,0,10" />
-      <TextBlock Style="{StaticResource Meta}" Margin="0,0,0,0" TextWrapping="Wrap"
-                 Text="※ 更新には時間がかかることがあります。途中で中止しても、次回は続きから再開できます。" />
-      <DockPanel Margin="0,4,0,0">
-        <Path DockPanel.Dock="Left" Data="{StaticResource Icon.Info}" Width="13" Height="13" Stretch="Uniform" Stroke="{StaticResource Ink.Muted}"
-              StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" VerticalAlignment="Top" Margin="0,2,6,0" />
-        <TextBlock Style="{StaticResource Meta}" TextWrapping="Wrap"
-                 Text="更新のとき、Office のファイルはいったんこの PC にコピーしてから読み込み、読み終えたらコピーを削除します。元のファイルは開いたままにしないため、更新中も編集・保存できます。" />
-      </DockPanel>
       <!-- 注意の枠（取り込むものが無いときの案内）。文字は NoteText に入れ、枠は NoteText の表示に合わせて出す -->
       <Border Margin="0,8,0,0" Padding="12,8" CornerRadius="6" Background="{StaticResource Warn.Note}"
               BorderBrush="{StaticResource Warn.Line}" BorderThickness="1"
@@ -47,7 +39,8 @@
               StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
         <TextBlock Style="{StaticResource DialogHeading}" Text="インデックス更新の確認" VerticalAlignment="Center" />
       </DockPanel>
-      <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" />
+      <!-- 削除予定のインデックスがあるときだけ出す一文（getIndexingConfirmIntro） -->
+      <TextBlock x:Name="IntroText" Style="{StaticResource Meta}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
     </StackPanel>
 
     <!-- 表と、いちばん下の合計の行（更新するフォルダ数・ファイル数。薄い地）を 1 つの枠に入れる -->

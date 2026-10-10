@@ -176,7 +176,7 @@ Describe "getIndexTabButtonsEnabled" -Tag Unit {
         $result = getIndexTabButtonsEnabled $blocker $hasSelection
         $result.New | Should -Be $new
         $result.Edit | Should -Be $edit
-        # 詳細のフォルダパスの［...］は［編集…］と同じ決まり
+        # 詳細のフォルダパスの［...］は、詳細の名前・フォルダパスの欄と同じ決まり
         $result.ChangeFolder | Should -Be $edit
         $result.Remove | Should -Be $remove
         $result.Export | Should -Be $export
@@ -192,15 +192,7 @@ Describe "getIndexCheckedItems（チェックを付けている行）" -Tag Unit
     }
 }
 
-Describe "getIndexScreenInfoText・getIndexStatusHelpText（見出しの説明）" -Tag Unit {
-    It "ⓘ の説明は 3 行で、画面の目的・［すべて更新］・インデックスの意味の順に書く" {
-        $lines = @(getIndexScreenInfoText)
-        $lines.Count | Should -Be 3
-        $lines[0] | Should -Be "検索したいフォルダを登録する画面です。"
-        $lines[1] | Should -Match "［すべて更新］"
-        $lines[2] | Should -Match "^インデックスは"
-    }
-
+Describe "getIndexStatusHelpText（見出しの説明）" -Tag Unit {
     It "ステータス列の説明は、行のバッジと同じ 5 つの状態を です・ます で書く" {
         $lines = @(getIndexStatusHelpText)
         $lines.Count | Should -Be 6
@@ -228,7 +220,7 @@ Describe "getIndexSelectionView（全選択と選択中の件数）" -Tag Unit {
     }
 }
 
-Describe "getIndexDetailItem（詳細に出す行・［編集…］などの対象）" -Tag Unit {
+Describe "getIndexDetailItem（詳細に出す行・右クリックのメニューなどの対象）" -Tag Unit {
     BeforeAll {
         $script:a = [pscustomobject]@{ Name = "A" }
         $script:b = [pscustomobject]@{ Name = "B" }
@@ -238,7 +230,7 @@ Describe "getIndexDetailItem（詳細に出す行・［編集…］などの対�
         @{ label = "押した行が無く、チェックが 1 件だけならその行"; sel = ""; checked = @("b"); expected = "b" }
         @{ label = "押した行もチェックも無ければ無し"; sel = ""; checked = @(); expected = "" }
         @{ label = "押した行が無く、チェックが 2 件なら無し（詳細は件数の表示）"; sel = ""; checked = @("a", "b"); expected = "" }
-        @{ label = "押した行があり、チェックが 2 件でも押した行（右クリック・二重クリックの［編集…］はこの行に効く。［アクション ▾］の可否は getIndexActionsEnabled が別に決める）"; sel = "a"; checked = @("a", "b"); expected = "a" }
+        @{ label = "押した行があり、チェックが 2 件でも押した行（［アクション ▾］の可否は getIndexActionsEnabled が別に決める）"; sel = "a"; checked = @("a", "b"); expected = "a" }
     ) {
         param ($label, $sel, $checked, $expected)
         $pick = { param ($k) if ($k -eq "") { $null } else { Get-Variable -Scope Script -Name $k -ValueOnly } }
@@ -258,51 +250,40 @@ Describe "getIndexDetailMultiCount" -Tag Unit {
 
 Describe "getIndexActionsEnabled（［アクション ▾］のメニューの可否）" -Tag Unit {
     It "<label>" -TestCases @(
-        @{ label = "チェックなし・押した行なし: インポートだけ"; blocker = ""; checked = 0; pressed = $false; update = $false; edit = $false; export = $false; import = $true; delete = $false }
-        @{ label = "チェックなし・押した行あり: 編集とインポートだけ（編集は押した行に効く）"; blocker = ""; checked = 0; pressed = $true; update = $false; edit = $true; export = $false; import = $true; delete = $false }
-        @{ label = "1 件チェック・押した行なし: すべて"; blocker = ""; checked = 1; pressed = $false; update = $true; edit = $true; export = $true; import = $true; delete = $true }
-        @{ label = "1 件チェック・押した行は別の行: すべて（編集はチェックの行に効く。エクスポート・削除と同じ行）"; blocker = ""; checked = 1; pressed = $true; update = $true; edit = $true; export = $true; import = $true; delete = $true }
-        @{ label = "2 件チェック・押した行なし: 編集だけ無効（エクスポート・削除はまとめて行う）"; blocker = ""; checked = 2; pressed = $false; update = $true; edit = $false; export = $true; import = $true; delete = $true }
-        @{ label = "2 件チェック・押した行あり: 編集だけ無効（詳細は「N 件を選択中」）"; blocker = ""; checked = 2; pressed = $true; update = $true; edit = $false; export = $true; import = $true; delete = $true }
-        @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; pressed = $true; update = $false; edit = $false; export = $false; import = $false; delete = $false }
-        @{ label = "更新中: チェックなし・押した行ありでも編集は無効"; blocker = "インデックス作成中"; checked = 0; pressed = $true; update = $false; edit = $false; export = $false; import = $false; delete = $false }
-        @{ label = "削除・名前の変更中: すべて無効"; blocker = "削除・名前の変更中"; checked = 2; pressed = $false; update = $false; edit = $false; export = $false; import = $false; delete = $false }
+        @{ label = "チェックなし: インポートだけ"; blocker = ""; checked = 0; update = $false; export = $false; import = $true; delete = $false }
+        @{ label = "1 件チェック: すべて"; blocker = ""; checked = 1; update = $true; export = $true; import = $true; delete = $true }
+        @{ label = "2 件チェック: すべて（エクスポート・削除はまとめて行う）"; blocker = ""; checked = 2; update = $true; export = $true; import = $true; delete = $true }
+        @{ label = "更新中: すべて無効"; blocker = "インデックス作成中"; checked = 1; update = $false; export = $false; import = $false; delete = $false }
+        @{ label = "削除・名前の変更中: すべて無効"; blocker = "削除・名前の変更中"; checked = 2; update = $false; export = $false; import = $false; delete = $false }
     ) {
-        param ($label, $blocker, $checked, $pressed, $update, $edit, $export, $import, $delete)
-        $result = getIndexActionsEnabled $blocker $checked $pressed
+        param ($label, $blocker, $checked, $update, $export, $import, $delete)
+        $result = getIndexActionsEnabled $blocker $checked
         $result.Update | Should -Be $update
-        $result.Edit | Should -Be $edit
         $result.Export | Should -Be $export
         $result.Import | Should -Be $import
         $result.Delete | Should -Be $delete
+        $result.ContainsKey("Edit") | Should -BeFalse -Because "編集のダイアログは無い（名前とフォルダパスは詳細の欄で直す）"
     }
 }
 
 Describe "getIndexRowMenuEnabled（行の右クリックのメニューの可否）" -Tag Unit {
     It "<label>" -TestCases @(
-        @{ label = "ふだんの行: すべて使える"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $true; update = $true; edit = $true; open = $true; export = $true; delete = $true }
-        @{ label = "まだ取り込んでいない行（待ち）: すべて使える"; blocker = ""; hasRow = $true; level = "Wait"; hasPath = $true; update = $true; edit = $true; open = $true; export = $true; delete = $true }
-        @{ label = "エラーの行: 更新だけ使えない（行の右端に［更新］が出ない行と同じ）"; blocker = ""; hasRow = $true; level = "Ng"; hasPath = $true; update = $false; edit = $true; open = $true; export = $true; delete = $true }
-        @{ label = "元のフォルダの記録が無い行: 元のフォルダを開くだけ使えない"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $false; update = $true; edit = $true; open = $false; export = $true; delete = $true }
-        @{ label = "更新中の行: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Run"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
-        @{ label = "ほかの行の更新中: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
-        @{ label = "削除・エクスポート・インポート中: 元のフォルダを開く以外は使えない"; blocker = "削除・名前の変更中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; edit = $false; open = $true; export = $false; delete = $false }
-        @{ label = "行が無い: すべて使えない"; blocker = ""; hasRow = $false; level = "None"; hasPath = $false; update = $false; edit = $false; open = $false; export = $false; delete = $false }
+        @{ label = "ふだんの行: すべて使える"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $true; update = $true; open = $true; export = $true; delete = $true }
+        @{ label = "まだ取り込んでいない行（待ち）: すべて使える"; blocker = ""; hasRow = $true; level = "Wait"; hasPath = $true; update = $true; open = $true; export = $true; delete = $true }
+        @{ label = "エラーの行: 更新だけ使えない（行の右端に［更新］が出ない行と同じ）"; blocker = ""; hasRow = $true; level = "Ng"; hasPath = $true; update = $false; open = $true; export = $true; delete = $true }
+        @{ label = "元のフォルダの記録が無い行: 元のフォルダを開くだけ使えない"; blocker = ""; hasRow = $true; level = "Ok"; hasPath = $false; update = $true; open = $false; export = $true; delete = $true }
+        @{ label = "更新中の行: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Run"; hasPath = $true; update = $false; open = $true; export = $false; delete = $false }
+        @{ label = "ほかの行の更新中: 元のフォルダを開く以外は使えない"; blocker = "インデックス作成中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; open = $true; export = $false; delete = $false }
+        @{ label = "削除・エクスポート・インポート中: 元のフォルダを開く以外は使えない"; blocker = "削除・名前の変更中"; hasRow = $true; level = "Ok"; hasPath = $true; update = $false; open = $true; export = $false; delete = $false }
+        @{ label = "行が無い: すべて使えない"; blocker = ""; hasRow = $false; level = "None"; hasPath = $false; update = $false; open = $false; export = $false; delete = $false }
     ) {
-        param ($label, $blocker, $hasRow, $level, $hasPath, $update, $edit, $open, $export, $delete)
+        param ($label, $blocker, $hasRow, $level, $hasPath, $update, $open, $export, $delete)
         $result = getIndexRowMenuEnabled $blocker $hasRow $level $hasPath
         $result.Update | Should -Be $update
-        $result.Edit | Should -Be $edit
         $result.OpenFolder | Should -Be $open
         $result.Export | Should -Be $export
         $result.Delete | Should -Be $delete
-    }
-
-    It "［編集…］の可否は、［アクション ▾］の［編集…］（チェックなし・押した行あり）と同じ関数の結果" -TestCases @(
-        @{ blocker = "" }, @{ blocker = "インデックス作成中" }, @{ blocker = "削除・名前の変更中" }
-    ) {
-        param ($blocker)
-        (getIndexRowMenuEnabled $blocker $true "Ok" $true).Edit | Should -Be (getIndexActionsEnabled $blocker 0 $true).Edit
+        $result.ContainsKey("Edit") | Should -BeFalse
     }
 }
 
@@ -1006,5 +987,38 @@ Describe "getIndexNavBadge" -Tag Unit {
         $badge = getIndexNavBadge $indexing $ratio $pending $failed
         $badge.Text | Should -Be $text
         $badge.Kind | Should -Be $kind
+    }
+}
+
+Describe "getIndexDetailEditDecision（詳細の名前・フォルダパスの欄の確定）" -Tag Unit {
+    BeforeAll {
+        $script:items = @((newItem "売上" "C:\data\売上"), (newItem "見積" "C:\data\見積"))
+        $script:item = $script:items[0]
+    }
+
+    It "<label>" -TestCases @(
+        @{ label = "変わっていなければ何もしない"; name = "売上"; path = "C:\data\売上"; action = "None"; newName = "売上"; newPath = "C:\data\売上"; message = "" }
+        @{ label = "前後の空白と末尾の \ だけの違いは変わっていない扱い"; name = " 売上 "; path = "C:\data\売上\"; action = "None"; newName = "売上"; newPath = "C:\data\売上"; message = "" }
+        @{ label = "名前を変えると反映する"; name = "資料"; path = "C:\data\売上"; action = "Apply"; newName = "資料"; newPath = "C:\data\売上"; message = "" }
+        @{ label = "大文字・小文字だけの名前の違いも反映する"; name = "ABC"; path = "C:\data\売上"; action = "Apply"; newName = "ABC"; newPath = "C:\data\売上"; message = ""; item = "abc" }
+        @{ label = "フォルダを変えると反映する"; name = "売上"; path = "C:\data\新規"; action = "Apply"; newName = "売上"; newPath = "C:\data\新規"; message = "" }
+        @{ label = "名前が空なら断る"; name = "  "; path = "C:\data\売上"; action = "Invalid"; newName = "売上"; newPath = "C:\data\売上"; message = "?*" }
+        @{ label = "使えない文字の名前は断る"; name = "a\b"; path = "C:\data\売上"; action = "Invalid"; newName = "売上"; newPath = "C:\data\売上"; message = "?*" }
+        @{ label = "ほかのインデックスと同じ名前は断る"; name = "見積"; path = "C:\data\売上"; action = "Invalid"; newName = "売上"; newPath = "C:\data\売上"; message = "「見積」は、ほかのインデックスが使っています。*" }
+        @{ label = "フォルダが空なら断る"; name = "売上"; path = ""; action = "Invalid"; newName = "売上"; newPath = "C:\data\売上"; message = "元のフォルダを指定してください。" }
+        @{ label = "ほかのインデックスのフォルダの中は断る"; name = "売上"; path = "C:\data\見積\2024"; action = "Invalid"; newName = "売上"; newPath = "C:\data\売上"; message = "*の中のフォルダです*" }
+    ) {
+        param ($label, $name, $path, $action, $newName, $newPath, $message, $item = $null)
+        $target = $script:item
+        $list = $script:items
+        if ($item) {
+            $target = newItem $item "C:\data\売上"
+            $list = @($target, $script:items[1])
+        }
+        $result = getIndexDetailEditDecision $name $path $target $list
+        $result.Action | Should -Be $action
+        $result.Name | Should -Be $newName
+        $result.Path | Should -Be $newPath
+        $result.Message | Should -BeLike $message
     }
 }

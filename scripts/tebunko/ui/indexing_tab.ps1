@@ -102,6 +102,7 @@ function showIndexingConfirmDialog {
 
     $ctrl.PlanGrid.ItemsSource = buildPlanRows $plan
     $ctrl.IntroText.Text = getIndexingConfirmIntro (getIndexingDroppedCount $plan)
+    $ctrl.IntroText.Visibility = if ($ctrl.IntroText.Text) { "Visible" } else { "Collapsed" }
     if ($failed -gt 0) {
         $ctrl.RetryCheck.Visibility = "Visible"
         $ctrl.RetryCheck.Content = "前回更新に失敗し、その後変わっていないファイル {0:#,0} 件も更新し直す（パスワード付きなど）" -f $failed

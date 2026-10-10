@@ -116,14 +116,27 @@ Describe "getIndexingDroppedCount・削除予定のある確認の文言" -Tag U
     }
 
     It "確認の説明文: 削除予定 <dropped> 件のとき <expected>" -TestCases @(
-        @{ dropped = 0; expected = "［更新を開始］を押すと、更新するファイルだけを更新します。" }
-        @{ dropped = 1; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
-        @{ dropped = 3; expected = "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。" }
+        @{ dropped = 0; expected = "" }
+        @{ dropped = 1; expected = "［更新を開始］を押すと、設定に無いインデックスも削除します。" }
+        @{ dropped = 3; expected = "［更新を開始］を押すと、設定に無いインデックスも削除します。" }
     ) {
         param ($dropped, $expected)
-        $text = getIndexingConfirmIntro $dropped
-        $text | Should -BeLike "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。*"
-        $text | Should -BeLike "*$expected"
+        getIndexingConfirmIntro $dropped | Should -Be $expected
+    }
+
+    It "帯の消え方: <level> のとき 閉じるボタン <closable>・自動で消えるまで <seconds> 秒" -TestCases @(
+        @{ level = "run"; closable = $false; seconds = 0 }
+        @{ level = "resume"; closable = $false; seconds = 0 }
+        @{ level = "ok"; closable = $true; seconds = 8 }
+        @{ level = "info"; closable = $true; seconds = 0 }
+        @{ level = "warn"; closable = $true; seconds = 0 }
+        @{ level = "ng"; closable = $true; seconds = 0 }
+        @{ level = ""; closable = $true; seconds = 0 }
+    ) {
+        param ($level, $closable, $seconds)
+        $behavior = getIndexingBannerBehavior $level
+        $behavior.Closable | Should -Be $closable
+        $behavior.AutoCloseSeconds | Should -Be $seconds
     }
 }
 

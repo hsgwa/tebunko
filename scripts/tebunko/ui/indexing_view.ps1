@@ -33,7 +33,7 @@ function newPlanViewRows {
             $row.TotalText = "－"
             $row.StatusText = "フォルダなし"
             $row.Level = "Ng"
-            $row.DetailText = "元のフォルダが見つかりません（［編集…］で場所を変えられます）"
+            $row.DetailText = "元のフォルダが見つかりません（詳細のフォルダパスで場所を変えられます）"
         } else {
             $row.TotalText = "{0:#,0}" -f $item.ファイル数
             # 0 件の内訳は出さない（ふだんは「新規」「更新あり」だけになる）
@@ -101,6 +101,25 @@ function getIndexingBannerLevel {
     if ($exitCode -ne 0) { return "warn" }
     if ($failed -gt 0) { return "warn" }
     return "ok"
+}
+
+function getIndexingBannerBehavior {
+    # 帯がいつ消えるか。@{ Closable; AutoCloseSeconds }
+    #   Closable: 閉じるボタン（×）を出すか
+    #   AutoCloseSeconds: 出してから自動で消すまでの秒数（0 なら自動では消えない）
+    # 更新中（run）は終わるまで残し、閉じるボタンも出さない（［中止］がある）。
+    # 成功（ok）は数秒で消える。注意が要る終わり方（warn）は、閉じるまで残る。
+    # 中断（resume。残りがあって［続きから再開］を載せている帯）は、再開の入口を隠さないよう、閉じられない。
+    # 注意が要る終わり方（warn）・info・使えない状態（ng）も、閉じるまで残り、閉じてもよい
+    param (
+        [string]$level  # run / resume / ok / info / warn / ng
+    )
+
+    switch ($level) {
+        { $_ -in @("run", "resume") } { return @{ Closable = $false; AutoCloseSeconds = 0 } }
+        "ok" { return @{ Closable = $true; AutoCloseSeconds = 8 } }
+        default { return @{ Closable = $true; AutoCloseSeconds = 0 } }
+    }
 }
 
 function getIndexingEndText {
@@ -215,16 +234,15 @@ function isIndexingConfirmNothing {
 }
 
 function getIndexingConfirmIntro {
-    # 確認の説明文。削除予定があるときは、消すことが分かる文にする
+    # 確認の説明文。削除予定があるときだけ、消すことが分かる一文を返す（無ければ空文字列。ふだんは何も出さない）
     param (
         [int]$dropped = 0  # 削除予定のインデックスの数（getIndexingDroppedCount）
     )
 
-    $base = "元のファイルの更新日時とサイズを、前回更新したときの記録と比べました。"
     if ($dropped -gt 0) {
-        return $base + "［更新を開始］を押すと、更新するファイルを更新し、設定に無いインデックスを削除します。"
+        return "［更新を開始］を押すと、設定に無いインデックスも削除します。"
     }
-    return $base + "［更新を開始］を押すと、更新するファイルだけを更新します。"
+    return ""
 }
 
 function getIndexingConfirmText {

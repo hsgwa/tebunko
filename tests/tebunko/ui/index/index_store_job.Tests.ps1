@@ -1,4 +1,4 @@
-﻿# インデックスの追加・編集・削除（tebunko\ui\index\index_edit.ps1 と index_list.ps1 の updateIndexSourceFile）のテスト。
+﻿# インデックスの追加・名前と場所の変更・削除（tebunko\ui\index\index_store.ps1 と index_list.ps1 の updateIndexSourceFile）のテスト。
 # 画面と裏の列は偽物にする。ワークスペースが共有フォルダにある場面は、実在しない UNC のパスで表す。
 BeforeAll {
     . "$PSScriptRoot\..\..\..\helpers\load.ps1"
@@ -20,7 +20,7 @@ BeforeAll {
     function updateFolderItemStatus { param($item) $script:calls.Add("updateFolderItemStatus") }
 
     . "${scriptsDir}\tebunko\ui\index_view.ps1"
-    . "${scriptsDir}\tebunko\ui\index\index_edit.ps1"
+    . "${scriptsDir}\tebunko\ui\index\index_store.ps1"
 
     # index_list.ps1・index_tree.ps1・search_bar_view.ps1 は画面の型を使うものを含むため、読み込まずに必要な関数だけを取り出す
     $imports = @(

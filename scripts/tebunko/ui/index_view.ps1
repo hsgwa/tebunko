@@ -257,8 +257,8 @@ function getIndexJobBlockedMessage {
 
 function getIndexTabButtonsEnabled {
     # 排他（getIndexJobBlocker の結果）と、一覧で選んでいる行の有無から、［インデックス管理］の各ボタンの可否を返す。
-    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］［編集…］［削除］・詳細のフォルダパスの［...］（［編集…］と同じ）/ Export/Import: ［エクスポート…］［インポート…］
-    # ［編集…］［削除］［エクスポート…］は、1 件選んでいるときだけ有効
+    #   New/Edit/Remove/ChangeFolder: ［＋ フォルダを追加］・詳細の名前とフォルダパスの欄（Edit。欄で直接直す）・［削除］・フォルダパスの［...］（Edit と同じ）/ Export/Import: ［エクスポート…］［インポート…］
+    # 名前とフォルダパスの欄・［削除］［エクスポート…］は、1 件選んでいるときだけ有効
     # （［すべて更新］は updateIndexingButton が、［設定］の［変更…］は押したときに testWorkspaceChangeable が、
     # 同じ getIndexJobBlocker の結果で止める）
     param (
@@ -272,15 +272,6 @@ function getIndexTabButtonsEnabled {
         ChangeFolder = ($free -and $hasSelection)
         Export = ($free -and $hasSelection); Import = $free
     }
-}
-
-function getIndexScreenInfoText {
-    # 頭の ⓘ に出す、この画面の説明（3 行。画面は改行でつないでツールヒントにする）
-    return @(
-        "検索したいフォルダを登録する画面です。"
-        "登録したフォルダは、［すべて更新］を押すと検索できるようになります。"
-        "インデックスは、フォルダの中身を読み取って作る検索用のデータです。"
-    )
 }
 
 function getIndexStatusHelpText {
@@ -319,21 +310,17 @@ function getIndexSelectionView {
 }
 
 function getIndexActionsEnabled {
-    # ［アクション ▾］のメニューの項目の可否。@{ Update; Edit; Export; Import; Delete }
+    # ［アクション ▾］のメニューの項目の可否。@{ Update; Export; Import; Delete }
     # ［インポート…］は選ばなくても使える。［更新］［エクスポート…］［削除…］は 1 件以上チェックしていると使える（2 件以上はまとめて行う）。
-    # ［編集…］は 1 件にしか効かないので、チェックが 1 件ならその行、チェックが無ければ押した行（hasPressedRow）があるときだけ使える。
-    # チェックが 2 件以上のときは使えない（詳細も「N 件を選択中」になり、どの行か決まらないため）。
     # 動いている処理があれば（blocker は getIndexJobBlocker の結果）、すべて使えない
     param (
         [string]$blocker,
-        [int]$checked,
-        [bool]$hasPressedRow = $false   # 一覧で押した行があるか
+        [int]$checked
     )
 
     $free = ($blocker -eq "")
     return @{
         Update = ($free -and $checked -ge 1)
-        Edit = ($free -and ($checked -eq 1 -or ($checked -eq 0 -and $hasPressedRow)))
         Export = ($free -and $checked -ge 1)
         Import = $free
         Delete = ($free -and $checked -ge 1)
@@ -341,8 +328,7 @@ function getIndexActionsEnabled {
 }
 
 function getIndexRowMenuEnabled {
-    # 行の右クリックのメニューの項目の可否。@{ Update; Edit; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
-    #   Edit: ［アクション ▾］の［編集…］と同じ判断（getIndexActionsEnabled。チェックが無く押した行がある場合）
+    # 行の右クリックのメニューの項目の可否。@{ Update; OpenFolder; Export; Delete }。対象は押した行（右クリックした行を選んでから開く）
     #   Update: 行の右端の［更新］と同じ判断（getIndexRowActions）。更新中の行・エラーの行・動いている処理があるときは使えない
     #   Export/Delete: 1 件に効く判断（getIndexTabButtonsEnabled）。OpenFolder: 動いている処理があっても使える（元のフォルダの場所があれば）
     # 行が無いとき（hasRow が false）は、すべて使えない
@@ -354,11 +340,9 @@ function getIndexRowMenuEnabled {
     )
 
     $rowAction = getIndexRowActions $level $blocker
-    $actions = getIndexActionsEnabled $blocker 0 $hasRow
     $buttons = getIndexTabButtonsEnabled $blocker $hasRow
     return @{
         Update = ($hasRow -and $rowAction.Action -eq "Update" -and $rowAction.UpdateEnabled)
-        Edit = $actions.Edit
         OpenFolder = ($hasRow -and $hasPath)
         Export = $buttons.Export
         Delete = $buttons.Remove
@@ -875,6 +859,29 @@ function testIndexEditInput {
     # @(getUsedIndexNames ...) と直接書くと集合が 1 要素の配列に入るだけなので、変数に受けてから配列にする
     $usedNames = getUsedIndexNames $items $current
     return (testIndexName $name.Trim() @($usedNames))
+}
+
+function getIndexDetailEditDecision {
+    # 詳細の「基本設定」の名前・フォルダパスの欄を確定するときの判断。@{ Action; Message; Name; Path }
+    #   Action: None（変わっていない）/ Invalid（直してほしい。Message に理由）/ Apply（Name・Path で反映する）
+    # 名前は前後の空白を除き、フォルダパスは normalizeFolderPath で整えてから比べる（大文字・小文字だけの違いは名前の変更として扱う）
+    param (
+        [string]$name,
+        [string]$path,
+        $item,            # 直している行（Name・Path を持つ）
+        $items            # 今の一覧
+    )
+
+    $newName = $name.Trim()
+    $newPath = normalizeFolderPath $path
+    if ($newName -ceq $item.Name -and $newPath -eq $item.Path) {
+        return @{ Action = "None"; Message = ""; Name = $item.Name; Path = $item.Path }
+    }
+    $message = testIndexEditInput $path $newName $items $item
+    if ($message -ne "") {
+        return @{ Action = "Invalid"; Message = $message; Name = $item.Name; Path = $item.Path }
+    }
+    return @{ Action = "Apply"; Message = ""; Name = $newName; Path = $newPath }
 }
 
 function getIndexDetailView {

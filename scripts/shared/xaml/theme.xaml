@@ -641,6 +641,34 @@
     </Setter>
   </Style>
 
+  <!-- 帯の閉じるボタン（×）。枠なしの 24 角。×の色（Foreground）は帯の状態で変わるので、使う側が状態ごとに付ける。
+       中身は付けず、Foreground の色で×を描く -->
+  <Style x:Key="Banner.Close" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Width" Value="24" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Foreground" Value="{StaticResource Banner.Info.Text}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Ring" CornerRadius="5" Background="Transparent">
+            <Path Data="{StaticResource Icon.Close}" Width="10" Height="10" Stretch="Uniform"
+                  Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Ring" Property="Background" Value="#14000000" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- 選択肢のボタン。1 行目に動作、2 行目にその結果 -->
   <Style x:Key="Choice" TargetType="Button">
     <Setter Property="Cursor" Value="Hand" />

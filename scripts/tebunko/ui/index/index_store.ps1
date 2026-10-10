@@ -1,98 +1,5 @@
-﻿# インデックス管理の画面の、インデックスの追加・編集・削除。
-
-function showIndexEditDialog {
-    # インデックスの追加・編集のダイアログ。決めた内容 @{ Path; Name } を返す（キャンセルは $null）。
-    #   item: 編集するインデックス（$null なら追加）
-    param (
-        $item = $null
-    )
-
-    $dialog = loadWindow "${xamlDir}\dialog_index_edit.xaml" ${fontsDir}
-    $dialog.Owner = $window
-    $ctrl = @{}
-    foreach ($name in @("OkButton", "DialogHeadingText", "BrowseButton", "FolderBox", "NameBox", "IntroText", "NoticeText", "ErrorText")) {
-        $ctrl[$name] = $dialog.FindName($name)
-    }
-    $script:editDialog = @{ Window = $dialog; Ctrl = $ctrl; Item = $item; Suggested = "" }
-
-    if ($null -eq $item) {
-        $dialog.Title = "インデックスの追加"
-        $ctrl.DialogHeadingText.Text = "インデックスを追加する"
-        $ctrl.IntroText.Text = "Office ファイル（Excel・Word・PowerPoint）の入っているフォルダを 1 つ選んでください。" +
-            "ここでは一覧に加えるだけです。中のファイルを読むのは［すべて更新］を押してからです。"
-    } else {
-        $dialog.Title = "インデックスの編集"
-        $ctrl.DialogHeadingText.Text = "インデックスを編集する"
-        $ctrl.IntroText.Text = "名前と、元のフォルダの場所を変えられます。"
-        $ctrl.FolderBox.Text = $item.Path
-        $ctrl.NameBox.Text = $item.Name
-        $ctrl.NoticeText.Visibility = "Visible"
-        $ctrl.NoticeText.Text = "変えるのは名前と場所だけです。インデックスはそのまま使います（作り直しません）。" +
-            "フォルダを別のドライブや共有フォルダへ移したときは、ここで新しい場所を指定してください。"
-    }
-
-    $ctrl.FolderBox.Add_TextChanged({
-        safe {
-            # 追加のときは、フォルダ名からインデックス名を自動で入れる（利用者が名前を変えた後は触らない）
-            $d = $script:editDialog
-            if ($null -ne $d.Item -or ($d.Ctrl.NameBox.Text -ne "" -and $d.Ctrl.NameBox.Text -ne $d.Suggested)) {
-                return
-            }
-            $path = normalizeFolderPath $d.Ctrl.FolderBox.Text
-            $d.Suggested = if ($path -eq "") { "" } else { newIndexName $path (getUsedIndexNames $script:targetItems) }
-            $d.Ctrl.NameBox.Text = $d.Suggested
-        }
-    })
-    $ctrl.BrowseButton.Add_Click({
-        safe {
-            $d = $script:editDialog
-            $initial = normalizeFolderPath $d.Ctrl.FolderBox.Text
-            # ネットワークのパスは画面のスレッドで有無を調べない。編集中のインデックスの元のフォルダで、
-            # 場所を書き換えていない（直前の refreshFolderStatus の結果がそのまま使える）ときだけ、調べずに開始フォルダにする
-            $knownExisting = ($null -ne $d.Item) -and ($d.Item.Path -eq $initial) -and $d.Item.StatusChecked -and $d.Item.FolderExists
-            $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" $initial $d.Window $knownExisting
-            if ($path) {
-                $d.Ctrl.FolderBox.Text = $path
-            }
-        }
-    })
-    $ctrl.FolderBox.Add_PreviewDragOver({ onFolderDragOver @args })
-    $ctrl.FolderBox.Add_PreviewDrop({
-        param ($sender, $e)
-        safe {
-            $folders = @(getDroppedFolders $e)
-            if ($folders.Count -gt 0) {
-                $script:editDialog.Ctrl.FolderBox.Text = $folders[0]
-            }
-        }
-        $e.Handled = $true
-    })
-    $ctrl.OkButton.Add_Click({
-        safe {
-            $d = $script:editDialog
-            $message = checkIndexEditInput
-            if ($message -ne "") {
-                $d.Ctrl.ErrorText.Text = $message
-                $d.Ctrl.ErrorText.Visibility = "Visible"
-                return
-            }
-            $d.Window.DialogResult = $true
-        }
-    })
-
-    $result = $null
-    if (showOwnedDialog $dialog) {
-        $result = @{ Path = (normalizeFolderPath $ctrl.FolderBox.Text); Name = $ctrl.NameBox.Text.Trim() }
-    }
-    $script:editDialog = $null
-    return $result
-}
-
-function checkIndexEditInput {
-    # 追加・編集のダイアログの入力を調べ、直してほしい内容を返す（問題なければ空文字列）
-    $d = $script:editDialog
-    return (testIndexEditInput $d.Ctrl.FolderBox.Text $d.Ctrl.NameBox.Text $script:targetItems $d.Item)
-}
+﻿# インデックス管理の画面の、インデックスの追加・名前と場所の変更・削除。
+# 名前と場所は、詳細欄の「基本設定」の欄で直接直す（commitIndexDetailEdit）。
 
 function addIndexItem {
     # インデックスを一覧に加えて保存する
@@ -117,15 +24,23 @@ function addIndexItem {
 }
 
 function newIndex {
-    # ［＋ フォルダを追加］。フォルダとインデックス名を決めて一覧に加える（インデックス作成はしない）
+    # ［＋ フォルダを追加］。フォルダを選び、フォルダ名からインデックス名を決めて一覧に加える（インデックス作成はしない）。
+    # 名前は、加えたあとに詳細欄で直せる
     if (!(testIndexOperable "追加")) {
         return
     }
-    $result = showIndexEditDialog $null
-    if ($null -eq $result) {
+    $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" "" $window $false
+    if (!$path) {
         return
     }
-    addIndexItem $result.Path $result.Name
+    $path = normalizeFolderPath $path
+    $name = newIndexName $path (getUsedIndexNames $script:targetItems)
+    $message = testIndexEditInput $path $name $script:targetItems
+    if ($message -ne "") {
+        showMessage $message "OK" "Warning" | Out-Null
+        return
+    }
+    addIndexItem $path $name
 }
 
 function addIndexForFolder {
@@ -152,22 +67,8 @@ function addIndexForFolder {
     addIndexItem $path (newIndexName $path (getUsedIndexNames $script:targetItems))
 }
 
-function editIndex {
-    # ［編集…］。インデックス名と元のフォルダの場所を変える。インデックスは作り直さない
-    $item = getIndexTargetItem
-    if ($null -eq $item -or !(testIndexOperable "編集")) {
-        return
-    }
-    $result = showIndexEditDialog $item
-    if ($null -eq $result) {
-        return
-    }
-
-    applyIndexEdit $item $result
-}
-
 function applyIndexEdit {
-    # 編集の結果（@{ Path; Name }）を行に反映して保存する。［編集…］のダイアログと、詳細のフォルダパスの［...］が同じ道で使う。
+    # 編集の結果（@{ Path; Name }）を行に反映して保存する。詳細欄の名前・フォルダパスの確定（commitIndexDetailEdit）が使う。
     # 変わったところが無ければ何もしない。
     # 名前を変えるときは、インデックスのフォルダ（work\index\<名前>）と取り込み一覧の記録の改名を別スレッドで行い、
     # 終わってから行に反映する（ワークスペースが共有フォルダにあると改名に時間がかかる・届かないことがあるため）
@@ -229,30 +130,73 @@ function completeIndexEdit {
     setStatus ("インデックスを変更しました（" + ($changes -join " / ") + "）")
 }
 
+function setIndexDetailEditError {
+    # 詳細欄の名前・フォルダパスの欄の下に、直してほしい内容を出す（空なら隠す）
+    param (
+        [string]$message
+    )
+
+    $ui.IndexDetailEditError.Text = $message
+    $ui.IndexDetailEditError.Visibility = if ($message) { "Visible" } else { "Collapsed" }
+}
+
+function restoreIndexDetailEdit {
+    # 詳細欄の名前・フォルダパスの欄を、行の今の値に戻す（Esc）
+    $item = $script:detailEditItem
+    if ($null -eq $item) {
+        return
+    }
+    $ui.IndexDetailName.Text = $item.Name
+    $ui.IndexDetailPath.Text = $item.Path
+    setIndexDetailEditError ""
+}
+
+function commitIndexDetailEdit {
+    # 詳細欄の名前・フォルダパスの欄の確定（Enter か、欄から出たとき）。変わっていなければ何もしない。
+    # 確かめ（getIndexDetailEditDecision）に通れば、改名・元のフォルダの変更の道（applyIndexEdit）で反映する。
+    # 通らないときは、欄の下に理由を出す。欄に残った文字は、Enter のときだけそのままにして直せるようにし、欄から出たときは行の値に戻す
+    param (
+        [bool]$keepText = $false
+    )
+
+    $item = $script:detailEditItem
+    if ($null -eq $item -or !$ui.IndexDetailName.IsEnabled) {
+        return
+    }
+    $decision = getIndexDetailEditDecision $ui.IndexDetailName.Text $ui.IndexDetailPath.Text $item $script:targetItems
+    if ($decision.Action -eq "None") {
+        setIndexDetailEditError ""
+        return
+    }
+    if ($decision.Action -eq "Invalid") {
+        if (!$keepText) {
+            restoreIndexDetailEdit
+        }
+        setIndexDetailEditError $decision.Message
+        return
+    }
+    setIndexDetailEditError ""
+    $ui.IndexDetailName.Text = $decision.Name
+    $ui.IndexDetailPath.Text = $decision.Path
+    applyIndexEdit $item @{ Path = $decision.Path; Name = $decision.Name }
+}
+
 function changeIndexFolder {
-    # 詳細のフォルダパスの［...］。フォルダを選ぶ画面を出し、選んだ場所を［編集…］で変えて［OK］したときと同じ検査・同じ反映で変える。
+    # 詳細のフォルダパスの［...］。フォルダを選ぶ画面を出し、選んだ場所をフォルダパスの欄に入れて、欄に直接入力したときと同じ確かめ・同じ反映で変える。
     # 取り消したとき・同じフォルダを選んだときは何も変えない
     $item = getIndexTargetItem
     if ($null -eq $item -or !(testIndexOperable "編集")) {
         return
     }
     $initial = normalizeFolderPath $item.Path
-    # 開始フォルダの有無は、直前の refreshFolderStatus の結果がそのまま使えるときだけ調べずに使う（［編集…］と同じ）
+    # 開始フォルダの有無は、直前の refreshFolderStatus の結果がそのまま使えるときだけ調べずに使う
     $knownExisting = $item.StatusChecked -and $item.FolderExists
     $path = selectFolder "インデックスにする、Office ファイルのあるフォルダを選んでください" $initial $window $knownExisting
     if (!$path) {
         return
     }
-    $path = normalizeFolderPath $path
-    if ($path -eq $item.Path) {
-        return
-    }
-    $message = testIndexEditInput $path $item.Name $script:targetItems $item
-    if ($message -ne "") {
-        showMessage $message "OK" "Warning" | Out-Null
-        return
-    }
-    applyIndexEdit $item @{ Path = $path; Name = $item.Name }
+    $ui.IndexDetailPath.Text = normalizeFolderPath $path
+    commitIndexDetailEdit $true
 }
 
 function startIndexStoreJob {

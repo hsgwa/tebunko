@@ -26,66 +26,51 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             clickGui $S $S.Window "GoIndexTabButton" "［インデックス管理へ］"
             waitGui $S "［インデックス管理］が選ばれる" ${guiDefaultTimeout} { (getGuiSelectedTab $S) -eq "IndexTab" } | Out-Null
 
-            # 頭: 見出しと説明の文は無く、ⓘ に説明がある（ツールヒントは UI オートメーションの HelpText で読む）
-            setGuiStep $S "頭に見出しと説明が無く、ⓘ に説明がある"
+            # 頭: 見出しと説明の文は無く、ⓘ も無い
+            setGuiStep $S "頭に見出し・説明・ⓘ が無い"
             @(getGuiTexts $S.Window) | Should -Not -Contain "検索するフォルダとインデックスを管理します。ファイルを変更したら［すべて更新］でインデックスを最新にします。"
-            (findGui $S.Window -Id "IndexScreenInfo").Current.HelpText | Should -BeLike "検索したいフォルダを登録する画面です。*"
+            findGui $S.Window -Id "IndexScreenInfo" | Should -BeNullOrEmpty
 
-            # 追加: キャンセル（#11）
-            setGuiStep $S "［＋ フォルダを追加］→［キャンセル］"
+            # 追加: フォルダ選びをキャンセルすると何も加わらない（#11）
+            setGuiStep $S "［＋ フォルダを追加］→ OS のフォルダ選択（キャンセル）"
             clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
-            $dialog = waitGuiWindow $S "インデックスの追加のダイアログ" -Id "FolderBox"
-            clickGui $S $dialog "CancelButton" "［キャンセル］"
-            waitGuiWindowClosed $S $dialog "追加のダイアログ"
+            useGuiFolderPicker $S
             @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")).Count | Should -Be 0
 
-            # 追加: 入力が足りないまま［OK］は、ダイアログの中に注意が出る（#12）
-            setGuiStep $S "［＋ フォルダを追加］→ 入力が足りないまま［OK］"
+            # 追加: フォルダを選ぶと、フォルダ名のインデックスが一覧に加わる（追加のダイアログは無い）
+            setGuiStep $S "［＋ フォルダを追加］→ OS のフォルダ選択（フォルダを選ぶ）"
             clickGui $S $S.Window "NewIndexButton" "［＋ フォルダを追加］"
-            $dialog = waitGuiWindow $S "インデックスの追加のダイアログ" -Id "FolderBox"
-            clickGui $S $dialog "OkButton" "［OK］"
-            waitGui $S "注意（ErrorText）" ${guiDefaultTimeout} { (getGuiText (findGui $dialog -Id "ErrorText")) -ne "" } | Out-Null
-
-            # ［参照…］: キャンセルすると変わらない、フォルダを選ぶと欄に入る（#13）
-            setGuiStep $S "［参照…］→ OS のフォルダ選択（キャンセル）"
-            clickGui $S $dialog "BrowseButton" "［参照…］"
-            useGuiFolderPicker $S
-            getGuiValue (findGui $dialog -Id "FolderBox") | Should -Be ""
-            setGuiStep $S "［参照…］→ OS のフォルダ選択（フォルダを選ぶ）"
-            clickGui $S $dialog "BrowseButton" "［参照…］"
             useGuiFolderPicker $S $script:source
-            waitGui $S "フォルダの欄に入る" ${guiDefaultTimeout} { (getGuiValue (findGui $dialog -Id "FolderBox")) -eq $script:source } | Out-Null
-            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
-            # 名前は、追加のダイアログの欄で決める（編集のダイアログは、この後の［アクション ▾］→［編集…］で確かめる）
-            setGuiText $S (findGui $dialog -Id "NameBox") "資料"
-
-            # ［OK］で一覧に加わる（#11）
-            setGuiStep $S "［OK］で追加"
             $detailTitle = { getGuiText (findGui $S.Window -Id "IndexDetailTitle") }
-            $detailTexts = { @(getGuiTexts $S.Window) }
-            & $detailTitle | Should -Be "インデックスの状態"
-            clickGui $S $dialog "OkButton" "［OK］"
-            waitGuiWindowClosed $S $dialog "追加のダイアログ"
             $row = waitGui $S "一覧に加わる" ${guiDefaultTimeout} { @(getGuiGridRows (findGui $S.Window -Id "IndexGrid")) | Select-Object -First 1 }
-            (getGuiRowTexts $row) | Should -Contain "資料"
+            (getGuiRowTexts $row) | Should -Contain "営業"
 
-            # 行を選ぶと、詳細の見出しが変わる（#14）。名前の編集のダイアログは、［アクション ▾］の［編集…］で開く
-            # （行の右クリックとダブルクリックは UI オートメーションから開けないので、ここでは確かめない）
+            # 行を選ぶと、詳細の見出しが変わる（#14）
             setGuiStep $S "行を選ぶ"
             selectGui $row
+            waitGui $S "詳細の見出し（営業）" ${guiDefaultTimeout} { (& $detailTitle) -eq "営業 - 詳細" } | Out-Null
+
+            # 詳細の名前の欄で直接直す。使えない名前は欄の下に理由が出て名前は変わらず、正しい名前は確定で一覧に反映される（Enter か欄から出る）
+            setGuiStep $S "詳細の名前の欄で名前を直す"
+            $nameBox = findGui $S.Window -Id "IndexDetailName"
+            $nameBox.Current.IsEnabled | Should -BeTrue
+            $nameBox.SetFocus()
+            setGuiText $S $nameBox "a\b"
+            (findGui $S.Window -Id "IndexGrid").SetFocus()
+            waitGui $S "名前の注意が出る" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexDetailEditError")) -ne "" } | Out-Null
+            getGuiValue (findGui $S.Window -Id "IndexDetailName") | Should -Be "営業" -Because "使えない名前は欄から出ると元に戻る"
+            $nameBox = findGui $S.Window -Id "IndexDetailName"
+            $nameBox.SetFocus()
+            setGuiText $S $nameBox "資料"
+            (findGui $S.Window -Id "IndexGrid").SetFocus()
+            waitGui $S "一覧の名前が変わる" ${guiDefaultTimeout} { (getGuiRowTexts @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]) -contains "資料" } | Out-Null
             waitGui $S "詳細の見出し（資料）" ${guiDefaultTimeout} { (& $detailTitle) -eq "資料 - 詳細" } | Out-Null
+            $row = @(getGuiGridRows (findGui $S.Window -Id "IndexGrid"))[0]
+            selectGui $row
 
-            # ［アクション ▾］の［編集…］: 選んでいる行の編集のダイアログが開く（取りやめると変わらない）
-            setGuiStep $S "［アクション ▾］→［編集…］"
-            clickGuiAction $S "ActionEdit" "［編集…］"
-            $dialog = waitGuiWindow $S "インデックスの編集のダイアログ" -Id "FolderBox"
-            getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "資料"
-            clickGui $S $dialog "CancelButton" "［キャンセル］"
-            waitGuiWindowClosed $S $dialog "編集のダイアログ"
-
-            # 詳細のフォルダパスの［...］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（［編集…］で変えて［OK］と同じ道）
+            # 詳細のフォルダパスの［...］: キャンセルすると変わらず、別のフォルダを選ぶとその場で変わる（欄に入力して確定したときと同じ道）
             setGuiStep $S "詳細のフォルダパスの［...］→ OS のフォルダ選択（キャンセル）"
-            $pathText = { getGuiText (findGui $S.Window -Id "IndexDetailPath") }
+            $pathText = { getGuiValue (findGui $S.Window -Id "IndexDetailPath") }
             (findGui $S.Window -Id "IndexDetailPathButton").Current.IsEnabled | Should -BeTrue
             & $pathText | Should -Be $script:source
             clickGui $S $S.Window "IndexDetailPathButton" "詳細の［...］"
@@ -219,7 +204,7 @@ Describe "S3 作成中の操作" -Tag Gui {
             # ［エクスポート…］［削除…］［インポート…］は［アクション ▾］のメニューの中。開いて、押せないことを確かめてから Esc で閉じる
             invokeGui $S (waitGuiById $S $S.Window "ActionsButton") "［アクション ▾］" -NoWait
             $menu = waitGuiWindow $S "アクションのメニュー" -Id "ActionDelete"
-            foreach ($id in "ActionEdit", "ActionExport", "ActionImport", "ActionDelete") {
+            foreach ($id in "ActionUpdate", "ActionExport", "ActionImport", "ActionDelete") {
                 (findGui $menu -Id $id).Current.IsEnabled | Should -BeFalse -Because "取り込み中は $id が押せない"
             }
             pressGuiKey $menu 0x1B
