@@ -3,6 +3,7 @@
 BeforeAll {
     . "$PSScriptRoot\..\..\helpers\load.ps1"
     . "${scriptsDir}\shared\office\office_reader.ps1"
+    . "${scriptsDir}\shared\office\office_embedded.ps1"
 
     function newZip {
         # ZIP内のパス → 内容 の辞書からZIPファイルを作成する
@@ -1141,6 +1142,35 @@ Describe "readZipEntry（部品・合計のサイズの上限、偽りのヘッ�
             # 実際の大きさまでは分からないため、検出できた時点（申告の3バイト + 1）の値になる
             $caught.MeasuredBytes | Should -Be 4
             $caught.LimitKind | Should -Be "Part"
+        } finally {
+            $zip.Dispose()
+        }
+    }
+
+    It "readZipEntryBytes: 中身をバイト列で返し、上限を超える部品・偽りのヘッダーは ZipSizeLimitException（Part）にする" {
+        $path = "$TestDrive\bytes.zip"
+        newRawZip $path @{
+            "ok.bin" = @{ bytes = [byte[]](1, 2, 3, 4) }
+            "fake.bin" = @{ bytes = [byte[]](0..9); fakeSize = 3 }
+        }
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($path)
+        try {
+            ((readZipEntryBytes $zip "ok.bin") -join ",") | Should -Be "1,2,3,4"
+            $caught = $null
+            try { readZipEntryBytes $zip "fake.bin" } catch { $caught = $_.Exception }
+            $caught.GetType().Name | Should -Be "ZipSizeLimitException"
+            $caught.LimitKind | Should -Be "Part"
+            $caught.PartName | Should -Be "fake.bin"
+            $orig = $script:zipPartMaxBytes
+            $script:zipPartMaxBytes = 3
+            try {
+                $caught = $null
+                try { readZipEntryBytes $zip "ok.bin" } catch { $caught = $_.Exception }
+                $caught.GetType().Name | Should -Be "ZipSizeLimitException"
+                $caught.MeasuredBytes | Should -Be 4
+            } finally {
+                $script:zipPartMaxBytes = $orig
+            }
         } finally {
             $zip.Dispose()
         }

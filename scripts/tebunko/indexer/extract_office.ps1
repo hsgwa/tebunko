@@ -503,10 +503,20 @@ function extractDocument {
             }
         }
 
+        # 埋め込んだファイルが読めなくても、その埋め込みだけを読まずに続ける（readDocxUnits・readPptxUnits）。
+        # shared/ はツールを知らないため、読めなかった部品の名前・サイズの上限の詳細をここでログに書く
+        $embedFailures = New-Object System.Collections.Generic.List[string]
+        $embedSizeFailures = New-Object System.Collections.Generic.List[object]
         if ($isWord) {
-            $units = readDocxUnits $readPath
+            $units = readDocxUnits $readPath $embedFailures $embedSizeFailures
         } else {
-            $units = readPptxUnits $readPath
+            $units = readPptxUnits $readPath $embedFailures $embedSizeFailures
+        }
+        foreach ($sizeFailure in $embedSizeFailures) {
+            writeZipSizeLimitLog $sizeFailure
+        }
+        foreach ($failure in $embedFailures) {
+            writeIndexerLog "    埋め込みを読み取れませんでした: $failure" "Yellow"
         }
     } finally {
         foreach ($path in $workFiles) {

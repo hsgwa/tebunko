@@ -865,6 +865,7 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
     # invokeIngestTask そのものを確かめるため、invokeIngestTask を Mock する上の Describe と分ける
     BeforeAll {
         . "${scriptsDir}\shared\office\office_reader.ps1"
+        . "${scriptsDir}\shared\office\office_embedded.ps1"
         . "${scriptsDir}\shared\office\office_app.ps1"
         . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
         . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
