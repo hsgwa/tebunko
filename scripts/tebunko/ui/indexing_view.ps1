@@ -148,6 +148,20 @@ function getIndexingStateText {
     return ""
 }
 
+function getWorkspaceCheckingStatus {
+    # インデックス作成を始める前に、ネットワークのワークスペースを確かめている間のステータス
+    return "ワークスペースを確かめています…（共有フォルダに接続できないときは、しばらくかかります）"
+}
+
+function getWorkspaceUnreachableStatus {
+    # ネットワークのワークスペースに接続できず、インデックス作成を始めなかったときのステータス
+    param (
+        [string]$dir
+    )
+
+    return "ワークスペースに接続できません：${dir}"
+}
+
 function getReingestConfirm {
     # ［すべて更新］の確かめ。前の版のしるしがあり content_index\ が空のときだけ確かめの文言を返し、
     # ほかの 3 通り（しるしが無い・空でない）では確かめを出さない（空を返す）

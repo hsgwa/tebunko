@@ -45,3 +45,16 @@ Describe "getSourceConnectFailureDialog" -Tag Unit {
         $dialog.Hint | Should -Be "アクセスの権限・サインインを確かめてください"
     }
 }
+
+Describe "getSourceLookingStatus / getSourceLookupFailedStatus" -Tag Unit {
+    It "調べている間は、接続できないときに時間がかかることを知らせる" {
+        getSourceLookingStatus | Should -Be "パスを調べています…（共有フォルダに接続できないときは、しばらくかかります）"
+    }
+
+    It "<name>" -TestCases @(
+        @{ name = "調べられなかったときは、例外の文面を添える"; message = "届きません"; expected = "元のファイルの場所を調べられませんでした：届きません" }
+        @{ name = "文面が無ければ、知らせだけ"; message = ""; expected = "元のファイルの場所を調べられませんでした" }
+    ) {
+        getSourceLookupFailedStatus $message | Should -Be $expected
+    }
+}

@@ -108,4 +108,4 @@
 
 本物の Office を残さずに確認の画面を出せるよう、環境変数 `TEBUNKO_GUI_LEFTOVER_FILE`（JSON のファイル）を `leftover_dialog.ps1` だけが読む。設定されているときは、記録の代わりにその JSON の行（`Id`・`ProcessName`・`StartTime`・`StopStatus`）を使い、終了も結果の文を作るだけでプロセスには触れない。**設定されていなければ本物の動き**になる（既定は本物）。`tests/meta/leftover_seam.Tests.ps1` が、読むファイルが 1 つだけであること・プロセスを止める呼び出しが無いことを確かめる。
 
-記録は共有のワークスペースにも置かれるため、置き場所がネットワークのときは、読み取りを専用の列（`tebunko/core/workspace.ps1` の `getOfficePidQueue` が `network` を返す）の仕事で行い、届かない共有で画面を止めない。
+記録は共有のワークスペースにも置かれるため、置き場所がネットワークのときは、読み取りを専用の列（`tebunko/core/workspace.ps1` の `getWorkspaceJobQueue` が `network` を返す）の仕事で行い、届かない共有で画面を止めない。

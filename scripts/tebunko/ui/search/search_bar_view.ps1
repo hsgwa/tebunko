@@ -111,6 +111,64 @@ function getTargetCountText {
     return "検索対象 $checked / $total"
 }
 
+function getWorkspaceUnreachableText {
+    # ワークスペースに接続できないときの知らせ（ステータスと、検索対象の欄の文言に使う）
+    param (
+        [string]$workspaceDir
+    )
+
+    return "ワークスペースに接続できません：$workspaceDir"
+}
+
+function getWorkspaceCheckingText {
+    # ワークスペースが届くかを裏で確かめている間のステータス
+    return "ワークスペースを確かめています…"
+}
+
+function getTreeFolderFailedText {
+    # ツリーのフォルダの子を読み込めなかったときのステータス
+    param (
+        [string]$folder,
+        [string]$reason
+    )
+
+    return "フォルダを読み込めませんでした：$folder（$reason）"
+}
+
+function getSearchTargetText {
+    # 左の欄の見出しのツールチップ（検索対象の詳しい中身）。
+    # 優先の順: 読み込み中、接続できない、インデックスが無い、チェックなし、一部、確認中、すべて
+    param (
+        [bool]$loading,            # 検索対象のツリーを裏で読んでいる最中か
+        [string]$connectErrorDir,  # ワークスペースに接続できなかったときのワークスペース（できたなら空）
+        [int]$total,               # インデックスの数
+        [int]$targetCount,         # 検索対象に選ばれている数
+        [bool]$allChecked,         # インデックスがすべてチェックされているか
+        [string]$targetsText,      # 選ばれた検索対象の表示（describeSearchTargets）
+        $summary                   # 集約ファイルの集計（Count・LastWrite。まだ数えていなければ $null）
+    )
+
+    if ($loading) {
+        return "検索対象：読み込んでいます…"
+    }
+    if ($connectErrorDir) {
+        return "検索対象：なし（$(getWorkspaceUnreachableText $connectErrorDir)）"
+    }
+    if ($total -eq 0) {
+        return "［インデックス管理］で作ったインデックスの一覧です"
+    }
+    if ($targetCount -eq 0) {
+        return "検索対象：なし"
+    }
+    if (!$allChecked) {
+        return "検索対象：$targetsText"
+    }
+    if ($null -eq $summary) {
+        return "検索対象：すべて（確認中…）"
+    }
+    return "検索対象：すべて（集約ファイル $($summary['Count'].ToString('N0')) 件 ・ 最終更新 $(formatTime $summary['LastWrite'])）"
+}
+
 function getScopeButtonText {
     # ［ファイル内の対象］ボタンの文言（Text）と、既定から変えているか（Changed）。
     # 既定（図形・コメントも検索）から外したものがあれば「・2 件変更」を付ける
@@ -172,13 +230,14 @@ function newSearchButtonState {
         [string]$word,       # 検索ワード
         [bool]$hasIndex,     # 検索できるインデックスがあるか
         [int]$targetCount,   # 検索対象に選ばれている数
-        [bool]$wordInvalid   # 正規表現が正しくないか（getWordNotice が空でないとき）
+        [bool]$wordInvalid,  # 正規表現が正しくないか（getWordNotice が空でないとき）
+        [bool]$loading = $false  # 検索対象のツリーを読み込み中か（読み込み中は検索できない）
     )
 
     if ($searching) {
         return @{ Content = "中止"; Enabled = !$stopping }
     }
-    return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0 -and !$wordInvalid) }
+    return @{ Content = "検索"; Enabled = ($word -ne "" -and $hasIndex -and $targetCount -gt 0 -and !$wordInvalid -and !$loading) }
 }
 
 function getBalloonLeft {

@@ -658,76 +658,6 @@ Describe "FolderItem" -Tag Unit {
     }
 }
 
-Describe "IndexNode（静的な関数）" -Tag Unit {
-    It "LongPath は長いパスの形にする" {
-        [IndexNode]::LongPath("C:\index") | Should -Be "\\?\C:\index"
-        [IndexNode]::LongPath("C:") | Should -Be "\\?\C:\"
-        [IndexNode]::LongPath("\\server\share") | Should -Be "\\?\UNC\server\share"
-        [IndexNode]::LongPath("\\?\C:\index") | Should -Be "\\?\C:\index"
-    }
-
-    It "IsBookDir は Office・テキストのファイルのインデックスのフォルダ名を見分ける" -TestCases @(
-        @{ name = "見積.xlsx"; expected = $true }
-        @{ name = "見積.XLS"; expected = $true }
-        @{ name = "議事録.docx"; expected = $true }
-        @{ name = "資料.pptm"; expected = $true }
-        @{ name = "営業部"; expected = $false }
-        @{ name = "memo.txt"; expected = $true }
-        @{ name = "memo.MD"; expected = $true }
-        @{ name = "memo.json"; expected = $true }
-        @{ name = "chart.js"; expected = $true }
-        @{ name = "app.py"; expected = $true }
-        @{ name = "a.xlsxx"; expected = $false }
-        @{ name = "a.xl"; expected = $false }
-        @{ name = "a.pdf"; expected = $false }
-        @{ name = "a.exe"; expected = $false }
-    ) {
-        param ($name, $expected)
-        [IndexNode]::IsBookDir($name) | Should -Be $expected
-    }
-
-    It "IsBookDirPath は、名前が .xlsx などで終わる本物のフォルダ（集約ファイル・サブフォルダがある）を見分ける" {
-        $dir = "$TestDrive\bookdir_path"
-        newTsv "$dir\資料.xlsx\content_index.docx.001.tsv" @("x")
-        [void][System.IO.Directory]::CreateDirectory("$dir\親.xlsx\子")
-        [void][System.IO.Directory]::CreateDirectory("$dir\空.xlsx")
-        newTsv "$dir\B.xlsx\S.tsv" @("x")
-        [IndexNode]::IsBookDirPath("$dir\資料.xlsx") | Should -Be $false
-        [IndexNode]::IsBookDirPath("$dir\親.xlsx") | Should -Be $false
-        [IndexNode]::IsBookDirPath("$dir\空.xlsx") | Should -Be $true
-        [IndexNode]::IsBookDirPath("$dir\B.xlsx") | Should -Be $true
-        [IndexNode]::IsBookDirPath("$dir\営業部") | Should -Be $false
-        # 本物のフォルダはツリーに出し、元のファイルごとのフォルダは出さない
-        [IndexNode]::HasSubfolders($dir) | Should -Be $true
-    }
-
-    It "IsBookDirPath は、chart.js のような名前の本物のフォルダ（.js が対象の拡張子に加わっても）を誤判定しない" {
-        # .js は取り込み対象のテキストの拡張子だが、中にファイル・サブフォルダがある本物のフォルダは元のファイルごとのフォルダではない
-        $dir = "$TestDrive\bookdir_path_js"
-        [void][System.IO.Directory]::CreateDirectory("$dir\chart.js\lib")
-        [System.IO.File]::WriteAllText("$dir\chart.js\index.js", "dummy")
-        [IndexNode]::IsBookDir("chart.js") | Should -Be $true
-        [IndexNode]::IsBookDirPath("$dir\chart.js") | Should -Be $false
-    }
-
-    It "IsBookDirPath・HasSubfolders・HasFiles で調べた直後に、そのフォルダを移動できる（ツリーを開いた後の上書きのインポート）" {
-        # 見つけたところで戻っても、調べたフォルダを掴んだまま残さないこと
-        $dir = "$TestDrive\node_handle\営業"
-        newTsv "$dir\content_index.xlsx.001.tsv" @("x")
-        newTsv "$dir\見積\content_index.xlsx.001.tsv" @("x")
-        newTsv "$dir\見積\B.xlsx\S.tsv" @("x")
-        newTsv "$dir\見積\C.xlsx\S.tsv" @("x")
-        [void][System.IO.Directory]::CreateDirectory("$dir\見積\親.xlsx\子")
-
-        [IndexNode]::IsBookDirPath("$dir\見積\親.xlsx") | Should -Be $false
-        [IndexNode]::HasSubfolders($dir) | Should -Be $true
-        [IndexNode]::HasFiles($dir) | Should -Be $true
-        [IndexNode]::HasFiles("$dir\見積") | Should -Be $true
-
-        { [System.IO.Directory]::Move($dir, "$TestDrive\node_handle\moved") } | Should -Not -Throw
-    }
-}
-
 Describe "IndexNode（チェック）" -Tag Unit {
     BeforeAll {
         # 根 ─ 営業部 ─ 東京・大阪、総務部（フォルダは読まない。子を手で足す）
@@ -857,51 +787,74 @@ Describe "IndexNode（チェック）" -Tag Unit {
     }
 }
 
-Describe "IndexNode（フォルダの読み込み）" -Tag Io {
-    # インデックスのフォルダ:
-    #   営業\直下.xlsx\Sheet1.tsv          （根の直下のファイル）
-    #   営業\営業部\見積.xlsx\4月.tsv
-    #   営業\営業部\東京\
+Describe "IndexNode（子の受け取り）" -Tag Unit {
+    # ファイルには触らない。子の材料（getIndexFolderChildren の結果の形）は、ここで手で作る。
+    #   営業\直下のファイル
+    #   営業\営業部\東京\（営業部の下にサブフォルダがある）
     #   営業\総務部\
-    BeforeEach {
-        $script:indexRoot = "$TestDrive\index\営業"
-        Remove-Item -LiteralPath "$TestDrive\index" -Recurse -Force -ErrorAction SilentlyContinue
-        newTsv "$script:indexRoot\直下.xlsx\Sheet1.tsv" @("1`ta")
-        newTsv "$script:indexRoot\営業部\見積.xlsx\4月.tsv" @("1`ta")
-        [System.IO.Directory]::CreateDirectory("$script:indexRoot\営業部\東京") | Out-Null
-        [System.IO.Directory]::CreateDirectory("$script:indexRoot\総務部") | Out-Null
+    BeforeAll {
+        function newChildrenData([bool]$hasFiles, [object[]]$folders) {
+            return @{ HasFiles = $hasFiles; Folders = @($folders); Error = "" }
+        }
+        function newFolderData([string]$name, [bool]$hasSubfolders) {
+            return @{ Name = $name; HasSubfolders = $hasSubfolders }
+        }
+        function newSalesRoot([string]$sourcePath = "C:\共有\営業") {
+            return [IndexNode]::CreateRoot("C:\index\営業", "営業", "", $sourcePath, $true, $true)
+        }
+        function newLoadedRoot([string]$sourcePath = $null) {
+            # 直下のファイルあり・営業部（東京あり）・総務部を読み込み済みの根
+            $root = newSalesRoot $sourcePath
+            $root.ApplyChildren((newChildrenData $true @((newFolderData "営業部" $true), (newFolderData "総務部" $false))))
+            return $root
+        }
     }
 
     It "根を作ると、サブフォルダがあれば読み込み中の子を置く" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", "C:\共有\営業")
+        $root = newSalesRoot
         $root.Exists | Should -Be $true
         $root.SourcePath | Should -Be "C:\共有\営業"
-        $root.ToolTip | Should -Be "元のフォルダ：C:\共有\営業`nインデックス：$script:indexRoot"
+        $root.ToolTip | Should -Be "元のフォルダ：C:\共有\営業`nインデックス：C:\index\営業"
         $root.Children.Count | Should -Be 1
         $root.Children[0].IsPlaceholder | Should -Be $true
+        $root.NeedsLoad() | Should -Be $true
+    }
+
+    It "サブフォルダが無ければ、子を置かず読み込み済みにする" {
+        $root = [IndexNode]::CreateRoot("C:\index\営業", "営業", "", $null, $true, $false)
+        $root.Children.Count | Should -Be 0
+        $root.NeedsLoad() | Should -Be $false
     }
 
     # 引数 [string]$sourcePath は $null を "" にするため、$null だけを見ると「元のフォルダ：」が空のまま出ていた
     It "元のフォルダが分からなければ、ツールチップはインデックスの場所" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.ToolTip | Should -Be $script:indexRoot
+        $root = [IndexNode]::CreateRoot("C:\index\営業", "営業", "", $null, $true, $true)
+        $root.ToolTip | Should -Be "C:\index\営業"
     }
 
     It "フォルダが無ければ、その旨をツールチップに出し、子を読まない" {
-        $root = [IndexNode]::CreateRoot("$TestDrive\index\無い", "無い", "", $null)
+        $root = [IndexNode]::CreateRoot("C:\index\無い", "無い", "", $null, $false, $true)
         $root.Exists | Should -Be $false
         $root.ToolTip | Should -Match "フォルダが見つかりません"
         $root.Children.Count | Should -Be 0
-        $root.LoadChildren()
+        $root.NeedsLoad() | Should -Be $false
+        $root.ApplyChildren((newChildrenData $true @((newFolderData "営業部" $false))))
         $root.Children.Count | Should -Be 0
     }
 
-    It "展開すると、直下のファイルの項目とサブフォルダを名前順に読む（Office のフォルダは除く）" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", "C:\共有\営業")
+    It "展開の状態を変えても、子は読み込まない（呼ぶ側が ApplyChildren で入れる）" {
+        $root = newSalesRoot
         $names = watchChanges $root
         $root.SetExpanded($true)
         $root.IsExpanded | Should -Be $true
         @($names) | Should -Be @("IsExpanded")
+        $root.Children.Count | Should -Be 1
+        $root.Children[0].IsPlaceholder | Should -Be $true
+    }
+
+    It "子を受け取ると、直下のファイルの項目とサブフォルダを入れる" {
+        $root = newLoadedRoot "C:\共有\営業"
+        $root.NeedsLoad() | Should -Be $false
         @($root.Children | ForEach-Object { $_.Name }) | Should -Be @("（このフォルダ直下のファイル）", "営業部", "総務部")
         $root.Children[0].IsFiles | Should -Be $true
         $root.Children[0].ToolTip | Should -Be "サブフォルダを除く、C:\共有\営業 の直下のファイル"
@@ -909,83 +862,73 @@ Describe "IndexNode（フォルダの読み込み）" -Tag Io {
         $sales.RelPath | Should -Be "営業部"
         $sales.SourcePath | Should -Be "C:\共有\営業\営業部"
         $sales.ToolTip | Should -Be "元のフォルダ：C:\共有\営業\営業部"
-        # 営業部には東京があるので読み込み中の子を置く。総務部には置かない
+        # 営業部にはサブフォルダがあるので読み込み中の子を置く。総務部には置かない
         $sales.Children.Count | Should -Be 1
         $sales.Children[0].IsPlaceholder | Should -Be $true
+        $sales.NeedsLoad() | Should -Be $true
         $root.Children[2].Children.Count | Should -Be 0
+        $root.Children[2].NeedsLoad() | Should -Be $false
     }
 
-    It "2 回目は読み直さない" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.LoadChildren()
-        [System.IO.Directory]::CreateDirectory("$script:indexRoot\経理部") | Out-Null
-        $root.SetExpanded($false)
-        $root.SetExpanded($true)
+    It "2 回目に受け取った子は入れない" {
+        $root = newLoadedRoot
+        $root.ApplyChildren((newChildrenData $false @((newFolderData "経理部" $false))))
         @($root.Children | ForEach-Object { $_.Name }) -contains "経理部" | Should -Be $false
     }
 
     It "元のフォルダが分からなければ、子のツールチップはインデックスの場所" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.LoadChildren()
+        $root = newLoadedRoot
         $root.Children[1].SourcePath | Should -BeNullOrEmpty
-        $root.Children[0].ToolTip | Should -Be "サブフォルダを除く、$script:indexRoot の直下のファイル"
-        $root.Children[1].ToolTip | Should -Be "$script:indexRoot\営業部"
+        $root.Children[0].ToolTip | Should -Be "サブフォルダを除く、C:\index\営業 の直下のファイル"
+        $root.Children[1].ToolTip | Should -Be "C:\index\営業\営業部"
     }
 
     It "サブフォルダがあっても直下にファイルが無ければ、直下のファイルの項目を作らない" {
-        Remove-Item -LiteralPath "$script:indexRoot\直下.xlsx" -Recurse -Force
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.LoadChildren()
+        $root = newSalesRoot
+        $root.ApplyChildren((newChildrenData $false @((newFolderData "営業部" $true), (newFolderData "総務部" $false))))
         @($root.Children | ForEach-Object { $_.Name }) | Should -Be @("営業部", "総務部")
     }
 
-    It "IsBookDir・HasFiles が探す集約ファイルの型は packFilePattern と同じ（ui/types.ps1 のソースを読んで確かめる）" {
-        $source = [System.IO.File]::ReadAllText("${scriptsDir}\tebunko\ui\types.ps1")
-        # クラスの中からスクリプトの変数（packFilePattern）が見えないため文字列で書いている箇所を、ソースから抜き出して比べる
-        # （直下のブックのフォルダの中を探す "*.tsv" は対象外）
-        $literals = @([regex]::Matches($source, 'GetFiles\([^,]+,\s*"([^"]*\.tsv)"\)') |
-            ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne "*.tsv" })
-        $literals.Count | Should -Be 2
-        foreach ($literal in $literals) {
-            $literal | Should -Be ${packFilePattern}
-        }
+    It "読み込み中の印が付いている間も、まだ読み込んでいない" {
+        $root = newSalesRoot
+        $root.IsLoading = $true
+        $root.NeedsLoad() | Should -Be $true
+        $root.ApplyChildren((newChildrenData $false @((newFolderData "総務部" $false))))
+        $root.IsLoading | Should -Be $false
+        $root.NeedsLoad() | Should -Be $false
     }
 
-    It "直下の集約ファイルもファイルとして数える（ほかの .tsv は数えない）" {
-        newTsv "$script:indexRoot\人事部\a.tsv" @("x")
-        [IndexNode]::HasFiles("$script:indexRoot\人事部") | Should -Be $false
-        newTsv "$script:indexRoot\総務部\content_index.xlsx.001.tsv" @("x")
-        [IndexNode]::HasFiles("$script:indexRoot\総務部") | Should -Be $true
-        [IndexNode]::HasFiles("$script:indexRoot\営業部\東京") | Should -Be $false
-        [IndexNode]::HasFiles("$TestDrive\無い") | Should -Be $false
-        [IndexNode]::HasSubfolders("$TestDrive\無い") | Should -Be $false
-    }
-
-    It "直下のファイルの項目・読み込み中の子は読み込まない" {
-        $files = [IndexNode]::new($null, "直下", $script:indexRoot, "", $true)
-        $files.LoadChildren()
+    It "直下のファイルの項目・読み込み中の子は、子を受け取らない" {
+        $files = [IndexNode]::new($null, "直下", "C:\index\営業", "", $true)
+        $files.ApplyChildren((newChildrenData $true @((newFolderData "営業部" $false))))
         $files.Children.Count | Should -Be 0
+        $files.NeedsLoad() | Should -Be $false
+        $placeholder = [IndexNode]::NewPlaceholder((newSalesRoot))
+        $placeholder.NeedsLoad() | Should -Be $false
     }
 
-    It "Find はパスでたどり、必要なところだけ読み込む" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $found = $root.Find("$script:indexRoot\営業部\東京\")
-        $found.RelPath | Should -Be "営業部\東京"
-        $root.Find($script:indexRoot) | Should -Be $root
-        $root.Find("$script:indexRoot\無い") | Should -Be $null
-        $root.Find("$TestDrive\ほか") | Should -Be $null
+    It "Find はパスでたどる（読み込み前の子はたどらない）" {
+        $root = newLoadedRoot
+        $root.Find("C:\index\営業\営業部").RelPath | Should -Be "営業部"
+        $root.Find("C:\index\営業") | Should -Be $root
+        # 営業部の下はまだ読み込んでいないので、東京は見つからない
+        $root.Find("C:\index\営業\営業部\東京") | Should -Be $null
+        $root.Find("C:\index\営業\無い") | Should -Be $null
+        $root.Find("C:\ほか") | Should -Be $null
+        $root.Find("C:\index\営業\営業部").ApplyChildren((newChildrenData $false @((newFolderData "東京" $false))))
+        $root.Find("C:\index\営業\営業部\東京\").RelPath | Should -Be "営業部\東京"
     }
 
     It "ApplyExclude でサブフォルダごと外す" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.ApplyExclude("$script:indexRoot\営業部", $true)
-        $root.Find("$script:indexRoot\営業部").IsChecked | Should -Be $false
+        $root = newLoadedRoot
+        $root.ApplyExclude("C:\index\営業\営業部", $true)
+        $root.Find("C:\index\営業\営業部").IsChecked | Should -Be $false
         $root.IsChecked | Should -Be $null
     }
 
     It "ApplyExclude でサブフォルダを除く（直下のファイルだけ外す）" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.ApplyExclude($script:indexRoot, $false)
+        $root = newLoadedRoot
+        $root.ApplyExclude("C:\index\営業", $false)
         $root.Children[0].IsFiles | Should -Be $true
         $root.Children[0].IsChecked | Should -Be $false
         $root.Children[1].IsChecked | Should -Be $true
@@ -993,31 +936,32 @@ Describe "IndexNode（フォルダの読み込み）" -Tag Io {
     }
 
     It "ApplyExclude でサブフォルダを除くとき、子が無いフォルダはそのものを外す" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.ApplyExclude("$script:indexRoot\総務部", $false)
-        $root.Find("$script:indexRoot\総務部").IsChecked | Should -Be $false
+        $root = newLoadedRoot
+        $root.ApplyExclude("C:\index\営業\総務部", $false)
+        $root.Find("C:\index\営業\総務部").IsChecked | Should -Be $false
     }
 
     It "ApplyExclude でサブフォルダを除くとき、直下のファイルの項目が無くサブフォルダがあれば何もしない" {
-        [System.IO.Directory]::CreateDirectory("$script:indexRoot\総務部\人事") | Out-Null
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.ApplyExclude("$script:indexRoot\総務部", $false)
-        $root.Find("$script:indexRoot\総務部").IsChecked | Should -Be $true
+        $root = newLoadedRoot
+        $root.Children[2].Children.Add([IndexNode]::new($root.Children[2], "人事", "C:\index\営業", "総務部\人事", $false))
+        $root.ApplyExclude("C:\index\営業\総務部", $false)
+        $root.Find("C:\index\営業\総務部").IsChecked | Should -Be $true
         $root.IsChecked | Should -Be $true
     }
 
     It "ApplyExclude でサブフォルダを除くとき、直下のファイルの項目があればそれだけ外す" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.ApplyExclude("$script:indexRoot\営業部", $false)
-        $sales = $root.Find("$script:indexRoot\営業部")
+        $root = newLoadedRoot
+        $sales = $root.Find("C:\index\営業\営業部")
+        $sales.ApplyChildren((newChildrenData $true @((newFolderData "東京" $false))))
+        $root.ApplyExclude("C:\index\営業\営業部", $false)
         $sales.Children[0].IsFiles | Should -Be $true
         $sales.Children[0].IsChecked | Should -Be $false
         $sales.IsChecked | Should -Be $null
     }
 
     It "ApplyExclude で見つからないパスは無視する" {
-        $root = [IndexNode]::CreateRoot($script:indexRoot, "営業", "", $null)
-        $root.ApplyExclude("$TestDrive\ほか", $true)
+        $root = newLoadedRoot
+        $root.ApplyExclude("C:\ほか", $true)
         $root.IsChecked | Should -Be $true
     }
 }
