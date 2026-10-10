@@ -13,26 +13,33 @@
       <Style x:Key="FieldName" TargetType="TextBlock" BasedOn="{StaticResource Label}">
         <Setter Property="Margin" Value="0,0,0,4" />
       </Style>
-      <!-- ボタンと並べる入力欄（フォルダパス）。右の角を丸めず、焦点の輪も右に出さない（右の辺をボタンとの境の線にして、ボタンに重ならない） -->
+      <!-- ボタンと並べる入力欄（フォルダパス）。高さ 28・角は左だけ 4。右の辺をボタンとの境の線にする。
+           焦点の青い枠は欄の内側に 2px で重ねて描き（欄の大きさ・位置は変えない）、外へはみ出さないので親の切り抜きで欠けない -->
       <Style x:Key="TextBox.Joined" TargetType="TextBox" BasedOn="{StaticResource TextBox.Base}">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource Ink.Value}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Border.Normal}" />
         <Setter Property="Template">
           <Setter.Value>
             <ControlTemplate TargetType="TextBox">
-              <Border x:Name="Ring" CornerRadius="7,0,0,7" Padding="1,1,0,1" Background="Transparent">
+              <Grid SnapsToDevicePixels="True">
                 <Border x:Name="Bd" Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1"
-                        CornerRadius="6,0,0,6">
+                        CornerRadius="4,0,0,4">
                   <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
                                 VerticalAlignment="Center" Focusable="False" HorizontalScrollBarVisibility="Hidden" />
                 </Border>
-              </Border>
+                <Border x:Name="FocusFrame" BorderBrush="{StaticResource Accent}" BorderThickness="2"
+                        CornerRadius="4,0,0,4" IsHitTestVisible="False" Visibility="Collapsed" />
+              </Grid>
               <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                   <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Ink.Faint}" />
                 </Trigger>
                 <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                  <Setter TargetName="Ring" Property="Background" Value="{StaticResource Accent.Ring}" />
-                  <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                  <Setter TargetName="FocusFrame" Property="Visibility" Value="Visible" />
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
                   <Setter TargetName="Bd" Property="Background" Value="{StaticResource Bg.Hover}" />
@@ -90,23 +97,23 @@
               <TextBlock Style="{StaticResource Label.Strong}" Text="基本設定" Margin="0,0,0,8" />
               <Grid>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="90" />
+                  <ColumnDefinition Width="98" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="名前" VerticalAlignment="Center" />
                 <!-- 名前はその場で直す。Enter か欄から出たときに確定、Esc で取り消す（index_events.ps1・commitIndexDetailEdit） -->
                 <TextBox x:Name="IndexDetailName" Grid.Column="1" AutomationProperties.AutomationId="IndexDetailName" AutomationProperties.Name="インデックスの名前" />
               </Grid>
-              <Grid Margin="0,8,0,0">
+              <Grid Margin="0,10,0,0" UseLayoutRounding="True">
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="90" />
+                  <ColumnDefinition Width="98" />
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="36" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Style="{StaticResource Label}" Text="フォルダパス" VerticalAlignment="Center" />
                 <TextBox x:Name="IndexDetailPath" Grid.Column="1" Style="{StaticResource TextBox.Joined}" AutomationProperties.AutomationId="IndexDetailPath" AutomationProperties.Name="元のフォルダのパス" />
                 <!-- フォルダの場所をその場で変える［...］。欄の右に置く。押すとフォルダを選ぶ画面を出し、選んだ場所を欄に入れて、欄に入力したときと同じ道（changeIndexFolder → commitIndexDetailEdit）で変える -->
-                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="34" MinWidth="34" Padding="0"
+                <Button x:Name="IndexDetailPathButton" Grid.Column="2" Width="36" MinWidth="36" Height="28" Padding="0" Foreground="{StaticResource Button.Text}"
                         AutomationProperties.AutomationId="IndexDetailPathButton" AutomationProperties.Name="フォルダの場所を変える"
                         ToolTip="元のフォルダの場所を変えます（インデックスはそのまま使います）">
                   <!-- 点 3 つは字ではなく図形で描く（字の「...」は行の下端に点が並び、枠の真ん中に見えない） -->
@@ -116,8 +123,8 @@
                   </Button.Content>
                   <Button.Template>
                     <ControlTemplate TargetType="Button">
-                      <Border x:Name="Bd" Background="{StaticResource Bg.Window}" BorderBrush="{StaticResource Border.Soft}" BorderThickness="0,1,1,1"
-                              CornerRadius="0,6,6,0" SnapsToDevicePixels="True">
+                      <Border x:Name="Bd" Background="{StaticResource Bg.Button}" BorderBrush="{StaticResource Border.Normal}" BorderThickness="0,1,1,1"
+                              CornerRadius="0,4,4,0" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                       </Border>
                       <ControlTemplate.Triggers>
@@ -136,8 +143,8 @@
                 </Button>
               </Grid>
               <!-- 名前・フォルダパスを確定できなかったときの理由（commitIndexDetailEdit） -->
-              <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="90,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
-              <TextBlock x:Name="IndexDetailFolderStatus" Style="{StaticResource Meta}" Margin="90,4,0,0" />
+              <TextBlock x:Name="IndexDetailEditError" Style="{StaticResource ErrorText}" Margin="98,4,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+              <TextBlock x:Name="IndexDetailFolderStatus" Style="{StaticResource Meta}" Margin="98,4,0,0" />
               <Border Style="{StaticResource InfoCard}" Margin="0,10,0,0">
                 <StackPanel>
                   <StackPanel Orientation="Horizontal">
