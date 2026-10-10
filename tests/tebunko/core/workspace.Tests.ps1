@@ -68,6 +68,37 @@ Describe "getOfficePidDir" -Tag Unit {
     }
 }
 
+Describe "assertWorkspaceReachable" -Tag Unit {
+    It "<label>ときの判定" -TestCases @(
+        @{ label = "見つかった"; state = "Found"; throws = $false }
+        @{ label = "まだ無い（インデックスを作っていない）"; state = "Missing"; throws = $false }
+        @{ label = "届かない"; state = "Unreachable"; throws = $true }
+        @{ label = "確かめられない（アクセス拒否など）"; state = "Other"; throws = $true }
+    ) {
+        param ($label, $state, $throws)
+        $script:fakeState = switch ($state) {
+            "Found" { ${pathStateFound} }
+            "Missing" { ${pathStateMissing} }
+            "Unreachable" { ${pathStateUnreachable} }
+            default { ${pathStateOther} }
+        }
+        Mock getPathState { @{ State = $script:fakeState; IsDirectory = $true; Message = "理由" } }
+
+        if ($throws) {
+            { assertWorkspaceReachable "\\fileserver\共有\ws" } | Should -Throw "*ワークスペース*"
+        } else {
+            { assertWorkspaceReachable "\\fileserver\共有\ws" } | Should -Not -Throw
+        }
+    }
+
+    It "届かないときの文面に、場所を入れる" {
+        $script:fakeState = ${pathStateUnreachable}
+        Mock getPathState { @{ State = $script:fakeState; IsDirectory = $false; Message = "理由" } }
+
+        { assertWorkspaceReachable "\\fileserver\共有\ws" } | Should -Throw "ワークスペースに接続できません：\\fileserver\共有\ws"
+    }
+}
+
 Describe "getWorkspaceTmpDir" -Tag Unit {
     It "ワークスペースの tmp の下に、PC の鍵とプロセスIDで組み立てる" {
         $workspace = newTestWorkspace @{} "$TestDrive\getwtd"

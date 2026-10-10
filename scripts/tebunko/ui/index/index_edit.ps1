@@ -278,6 +278,8 @@ function startIndexStoreJob {
     # 届かない共有フォルダで他の仕事を巻き込んで待たせないよう、ワークスペースの場所で裏の列を選ぶ
     startJob {
         param ($kind, $name, $newName, $folders, $dir, $statusPath, $settingsPath)
+        # 届かない場所では、何もせずに成功にしない（設定だけが変わってしまう）。失敗として返す
+        assertWorkspaceReachable $dir
         if ($kind -eq "rename") {
             renameIndex $name $newName $dir $statusPath $settingsPath
             # 元のフォルダの記録の書き直しに失敗しても、改名は済んでいる。改名の失敗にはせず、書けなかった理由を別に返す
@@ -297,37 +299,47 @@ function startIndexStoreJob {
         updateIndexingButton
         $name = $script:indexJobName
         if ($errorText) {
-            setStatus (getIndexStoreJobFailedStatus $script:indexJobKind $name $errorText)
-            if ($script:indexJobKind -eq "rename") {
-                # 行にはまだ反映していない。一覧を保存済みの内容に戻す
-                loadTargets
+            try {
+                setStatus (getIndexStoreJobFailedStatus $script:indexJobKind $name $errorText)
+                if ($script:indexJobKind -eq "rename") {
+                    # 行にはまだ反映していない。一覧を保存済みの内容に戻す
+                    loadTargets
+                }
+                refreshIndexViews
+            } finally {
+                finishIndexJobClose
             }
-            refreshIndexViews
-            finishIndexJobClose
             return
         }
-        if ($script:indexJobKind -ne "rename") {
-            refreshIndexViews
-        }
-        if ($script:indexJobOnDone) {
-            & $script:indexJobOnDone
-        }
-        if ($script:indexJobKind -eq "rename") {
-            # 改名は済んでいるので、行への反映（上の onDone）は行い、元のフォルダの記録だけ書けなかったことを知らせる
-            $sourceFolderError = getIndexStoreSourceFolderError $output
-            if ($sourceFolderError -ne "") {
-                setStatus (getSourceFolderFileFailedStatus $sourceFolderError)
+        try {
+            if ($script:indexJobOnDone) {
+                & $script:indexJobOnDone
             }
+            if ($script:indexJobKind -ne "rename") {
+                # 削除: 一覧からの除去と保存は onDone で済ませてから、画面を読み直す
+                refreshIndexViews
+            }
+            if ($script:indexJobKind -eq "rename") {
+                # 改名は済んでいるので、行への反映（上の onDone）は行い、元のフォルダの記録だけ書けなかったことを知らせる
+                $sourceFolderError = getIndexStoreSourceFolderError $output
+                if ($sourceFolderError -ne "") {
+                    setStatus (getSourceFolderFileFailedStatus $sourceFolderError)
+                }
+            }
+        } finally {
+            # 後始末が例外になっても、待っていた閉じる操作は必ず進める
+            finishIndexJobClose
         }
-        finishIndexJobClose
     } (getWorkspaceJobQueue $workspace.IndexDir)
 }
 
 function finishIndexJobClose {
-    # 改名・削除の途中で閉じようとして待っていたなら、終わったので閉じる（設定への反映は済んでいる）
+    # 改名・削除の途中で閉じようとして待っていたなら、終わったので閉じる（設定への反映は済んでいる）。
+    # 同じ周期で動く残りの仕事の結果が、閉じた窓に届かないよう、閉じるのは画面のスレッドの次の順番にする
+    $script:closeAskedDuringIndexJob = $false
     if ($script:closeAfterIndexJob) {
         $script:closeAfterIndexJob = $false
-        $window.Close()
+        $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
     }
 }
 
@@ -357,31 +369,43 @@ function deleteIndexes {
     setStatus "$($names.Count) 件のインデックスを削除しています…（件数によっては少し時間がかかります）"
     startJob {
         param ($names, $dir, $statusPath, $settingsPath)
+        # 届かない場所では、何もせずに成功にしない（設定だけが変わってしまう）。失敗として返す
+        assertWorkspaceReachable $dir
         $results = removeIndexes -names $names -dir $dir -statusPath $statusPath -settingsPath $settingsPath
         , $results
     } @(,$names + @($workspace.IndexDir, $workspace.StatusFile, ${settingsFile})) {
         param ($output, $errorText)
         $script:indexBusy = $false
         updateIndexingButton
-        if ($errorText) {
-            setStatus "削除に失敗しました：${errorText}"
-            loadTargets
+        try {
+            if ($errorText) {
+                setStatus "削除に失敗しました：${errorText}"
+                loadTargets
+                refreshIndexViews
+                return
+            }
+            # 消せたものを一覧から外す（失敗したものは残す）
+            $results = @($output | ForEach-Object { $_ })
+            foreach ($result in $results | Where-Object { $_.Ok }) {
+                $item = @($script:targetItems | Where-Object { $_.Name -eq $result.Name })[0]
+                if ($item) { $script:targetItems.Remove($item) | Out-Null }
+            }
+            saveTargets
+            updateIndexSourceFile
+            updateIndexListView
             refreshIndexViews
+            if ($script:closeAfterIndexJob) {
+                # 閉じるのを待っているときは、結果のダイアログ（閉じるまで進めない）を出さずに、失敗があればステータスに残して閉じる
+                $failed = @($results | Where-Object { !$_.Ok })
+                if ($failed.Count -gt 0) {
+                    setStatus "$($failed.Count) 件のインデックスは削除できませんでした"
+                }
+            } else {
+                showBulkIndexResult "削除" $results
+            }
+        } finally {
             finishIndexJobClose
-            return
         }
-        # 消せたものを一覧から外す（失敗したものは残す）
-        $results = @($output | ForEach-Object { $_ })
-        foreach ($result in $results | Where-Object { $_.Ok }) {
-            $item = @($script:targetItems | Where-Object { $_.Name -eq $result.Name })[0]
-            if ($item) { $script:targetItems.Remove($item) | Out-Null }
-        }
-        saveTargets
-        updateIndexSourceFile
-        updateIndexListView
-        refreshIndexViews
-        showBulkIndexResult "削除" $results
-        finishIndexJobClose
     } (getWorkspaceJobQueue $workspace.IndexDir)
 }
 
@@ -402,12 +426,14 @@ function deleteIndex {
         return
     }
 
-    # 一覧からはすぐ消し、インデックスの削除（時間がかかることがある）は別スレッドで行う
-    $script:targetItems.Remove($item)
-    saveTargets
-    updateIndexSourceFile
-    updateIndexListView
+    # インデックスの削除（時間がかかることがある）は別スレッドで行う。一覧からの除去と設定の保存は、削除できてから行う
+    # （ワークスペースに届かないときは、一覧も設定も変えずに失敗を知らせる）
+    $script:indexJobItem = $item
     startIndexStoreJob "delete" $item.Name "" @() {
+        $script:targetItems.Remove($script:indexJobItem) | Out-Null
+        saveTargets
+        updateIndexSourceFile
+        updateIndexListView
         setStatus "インデックス [$($script:indexJobName)] を削除しました"
     }
 }

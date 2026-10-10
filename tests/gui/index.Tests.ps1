@@ -56,7 +56,7 @@ Describe "S2 インデックスの管理と作成" -Tag Gui {
             useGuiFolderPicker $S $script:source
             waitGui $S "フォルダの欄に入る" ${guiDefaultTimeout} { (getGuiValue (findGui $dialog -Id "FolderBox")) -eq $script:source } | Out-Null
             getGuiValue (findGui $dialog -Id "NameBox") | Should -Be "営業"
-            # 名前は、追加のダイアログの欄で決める（編集のダイアログは UI オートメーションから開けないため）
+            # 名前は、追加のダイアログの欄で決める（編集のダイアログは、この後の［アクション ▾］→［編集…］で確かめる）
             setGuiText $S (findGui $dialog -Id "NameBox") "資料"
 
             # ［OK］で一覧に加わる（#11）

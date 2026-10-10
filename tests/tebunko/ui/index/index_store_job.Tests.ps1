@@ -35,6 +35,16 @@ BeforeAll {
         & $block @jobArguments
     }
 
+    $script:unreachableState = ${pathStateUnreachable}
+
+    function newWindowStub {
+        # 閉じる操作は画面のスレッドの次の順番に回す（Dispatcher.BeginInvoke）ので、それを偽物で受けて、すぐ実行する
+        $stub = [pscustomobject]@{ Dispatcher = [pscustomobject]@{} }
+        $stub | Add-Member ScriptMethod Close { $script:closed++ }
+        $stub.Dispatcher | Add-Member ScriptMethod BeginInvoke { param($action) $action.Invoke() }
+        return $stub
+    }
+
     function newItem {
         param ([string]$name, [string]$path)
         $item = [pscustomobject]@{ Name = $name; Path = $path; StatusChecked = $true }
@@ -88,6 +98,7 @@ Describe "applyIndexEdit" -Tag Unit {
     }
 
     It "裏の仕事は、改名のあと、新しい名前と場所で元のフォルダの記録を書き直す" {
+        Mock assertWorkspaceReachable { }
         Mock renameIndex { $script:calls.Add("renameIndex") }
         Mock writeSourceFolderFile { $script:calls.Add("writeSourceFolderFile:" + (($folders | ForEach-Object { "$($_.Name)=$($_.Path)" }) -join ",")) }
 
@@ -114,6 +125,7 @@ Describe "applyIndexEdit" -Tag Unit {
     }
 
     It "裏の仕事は、元のフォルダの記録だけが書けなくても失敗にせず、書けなかった理由を別に返す" {
+        Mock assertWorkspaceReachable { }
         Mock renameIndex { }
         Mock writeSourceFolderFile { throw "届きません" }
 
@@ -122,6 +134,24 @@ Describe "applyIndexEdit" -Tag Unit {
 
         Should -Invoke renameIndex -Times 1 -Exactly
         $result[0].SourceFolderError | Should -Be "届きません"
+    }
+
+    It "届かないワークスペースでは、裏の仕事は何もせず失敗にし、結果が届いても設定を変えない（名前の変更）" {
+        Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
+        Mock renameIndex { }
+        Mock writeSourceFolderFile { }
+
+        applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
+        { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
+        $script:calls.Clear()
+        & $script:jobs[0].OnDone @() "ワークスペースに接続できません"
+
+        Should -Invoke renameIndex -Times 0
+        Should -Invoke writeSourceFolderFile -Times 0
+        $item.Name | Should -Be "営業"
+        $script:calls | Should -Not -Contain "saveTargets"
+        $script:calls | Should -Contain "loadTargets"
+        $script:statuses[$script:statuses.Count - 1] | Should -BeLike "*名前の変更に失敗しました*ワークスペースに接続できません*"
     }
 
     It "記録だけが書けなかったときも、改名は反映して保存し、書けなかったことだけを知らせる（改名の失敗にはしない）" {
@@ -139,8 +169,7 @@ Describe "applyIndexEdit" -Tag Unit {
 
     It "名前を変えている途中で閉じようとして待っていたなら、反映が終わってから閉じる" {
         $script:closed = 0
-        $script:window = [pscustomobject]@{}
-        $script:window | Add-Member ScriptMethod Close { $script:closed++ }
+        $script:window = newWindowStub
         $script:closeAfterIndexJob = $true
         applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
         $script:calls.Clear()
@@ -152,10 +181,34 @@ Describe "applyIndexEdit" -Tag Unit {
         $script:closeAfterIndexJob | Should -Be $false
     }
 
+    It "後始末が例外になっても、待っていた閉じる操作は進める" {
+        $script:closed = 0
+        $script:window = newWindowStub
+        $script:closeAfterIndexJob = $true
+        startIndexStoreJob "delete" "営業" "" @() { throw "後始末の失敗" }
+
+        { & $script:jobs[0].OnDone @() "" } | Should -Throw "*後始末の失敗*"
+
+        $script:closed | Should -Be 1
+        $script:indexBusy | Should -Be $false
+    }
+
+    It "失敗の結果でも、待っていた閉じる操作は進め、閉じる確認の印は戻す" {
+        $script:closed = 0
+        $script:window = newWindowStub
+        $script:closeAfterIndexJob = $true
+        $script:closeAskedDuringIndexJob = $true
+        startIndexStoreJob "delete" "営業" "" @() { }
+
+        & $script:jobs[0].OnDone @() "届きません"
+
+        $script:closed | Should -Be 1
+        $script:closeAskedDuringIndexJob | Should -Be $false
+    }
+
     It "待っていなければ閉じない" {
         $script:closed = 0
-        $script:window = [pscustomobject]@{}
-        $script:window | Add-Member ScriptMethod Close { $script:closed++ }
+        $script:window = newWindowStub
         $script:closeAfterIndexJob = $false
         applyIndexEdit $item @{ Path = $item.Path; Name = "営業部" }
 
@@ -225,12 +278,83 @@ Describe "startIndexStoreJob（削除）" -Tag Unit {
     }
 
     It "裏の仕事は removeIndex を呼ぶ" {
+        Mock assertWorkspaceReachable { }
         Mock removeIndex { }
         startIndexStoreJob "delete" "営業" "" @() { }
 
         runJob $script:jobs[0]
 
         Should -Invoke removeIndex -Times 1 -Exactly -ParameterFilter { $name -eq "営業" }
+    }
+
+    It "届かないワークスペースでは、裏の仕事は何もせず失敗にする" {
+        Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
+        Mock removeIndex { }
+        startIndexStoreJob "delete" "営業" "" @() { }
+
+        { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
+
+        Should -Invoke removeIndex -Times 0
+    }
+}
+
+Describe "deleteIndex（1 件の削除）" -Tag Unit {
+    BeforeEach {
+        $script:calls.Clear()
+        $script:statuses.Clear()
+        $script:jobs.Clear()
+        $script:indexBusy = $false
+        $script:closeAfterIndexJob = $false
+        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index"; StatusFile = "\\fileserver\共有\ws\work\ingest_status.tsv" }
+        $script:item = newItem "営業" "\\fileserver\共有\営業"
+        $script:other = newItem "技術" "\\fileserver\共有\技術"
+        $script:targetItems = New-Object System.Collections.Generic.List[object]
+        $script:targetItems.Add($script:item)
+        $script:targetItems.Add($script:other)
+        function getIndexTargetItem { $script:item }
+        function testIndexOperable { param($operation) $true }
+        function showConfirm { param($title, $heading, $hint, $choices) "delete" }
+        function updateIndexListView { $script:calls.Add("updateIndexListView") }
+        function updateIndexSourceFile { $script:calls.Add("updateIndexSourceFile") }
+    }
+
+    It "裏の仕事が終わるまでは、一覧からも設定からも消さない" {
+        deleteIndex
+
+        $script:jobs.Count | Should -Be 1
+        $script:targetItems.Count | Should -Be 2
+        $script:calls | Should -Not -Contain "saveTargets"
+    }
+
+    It "削除できたら、一覧から外して設定を保存する" {
+        deleteIndex
+        $script:calls.Clear()
+
+        & $script:jobs[0].OnDone @() ""
+
+        $script:targetItems.Count | Should -Be 1
+        $script:targetItems[0].Name | Should -Be "技術"
+        $script:calls | Should -Contain "saveTargets"
+        $script:calls | Should -Contain "updateIndexSourceFile"
+        $script:calls | Should -Contain "refreshIndexViews"
+        $script:statuses[$script:statuses.Count - 1] | Should -Be "インデックス [営業] を削除しました"
+    }
+
+    It "届かないとき、設定を変えず失敗を知らせる（一覧にも残す）" {
+        Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
+        Mock removeIndex { }
+        deleteIndex
+        { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
+        $script:calls.Clear()
+
+        & $script:jobs[0].OnDone @() "ワークスペースに接続できません"
+
+        Should -Invoke removeIndex -Times 0
+        $script:targetItems.Count | Should -Be 2
+        $script:calls | Should -Not -Contain "saveTargets"
+        $script:calls | Should -Not -Contain "updateIndexSourceFile"
+        $script:statuses[$script:statuses.Count - 1] | Should -Be "インデックス [営業] の削除に失敗しました：ワークスペースに接続できません"
+        $script:indexBusy | Should -Be $false
     }
 }
 
@@ -244,7 +368,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
         $script:targetItems = New-Object System.Collections.Generic.List[object]
         function testIndexOperable { param($operation) $true }
         function showConfirm { param($title, $heading, $hint, $choices) "delete" }
-        function showBulkIndexResult { param($operation, $results) }
+        function showBulkIndexResult { param($operation, $results) $script:calls.Add("showBulkIndexResult") }
         function updateIndexListView { }
         function updateIndexSourceFile { }
     }
@@ -266,8 +390,7 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
     It "削除の途中で閉じようとして待っていたなら、終わってから閉じる" {
         $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
         $script:closed = 0
-        $script:window = [pscustomobject]@{}
-        $script:window | Add-Member ScriptMethod Close { $script:closed++ }
+        $script:window = newWindowStub
         deleteIndexes @("営業", "技術")
         $script:closeAfterIndexJob = $true
 
@@ -275,6 +398,52 @@ Describe "deleteIndexes（複数削除）" -Tag Unit {
 
         $script:closed | Should -Be 1
         $script:indexBusy | Should -Be $false
+    }
+
+    It "閉じるのを待っているときは、結果のダイアログを出さずに閉じ、失敗があればステータスに残す" {
+        $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
+        $script:closed = 0
+        $script:window = newWindowStub
+        $script:targetItems.Add((newItem "営業" "C:\営業"))
+        $script:targetItems.Add((newItem "技術" "C:\技術"))
+        deleteIndexes @("営業", "技術")
+        $script:closeAfterIndexJob = $true
+        $script:calls.Clear()
+
+        & $script:jobs[0].OnDone @(@{ Name = "営業"; Ok = $true }, @{ Name = "技術"; Ok = $false }) ""
+
+        $script:calls | Should -Not -Contain "showBulkIndexResult"
+        $script:closed | Should -Be 1
+        $script:targetItems.Count | Should -Be 1
+        $script:statuses[$script:statuses.Count - 1] | Should -Be "1 件のインデックスは削除できませんでした"
+    }
+
+    It "待っていなければ、結果のダイアログを出す" {
+        $script:workspace = newTestWorkspace @{ IndexDir = "C:\Users\test\tebunko_ws\work\index" }
+        deleteIndexes @("営業", "技術")
+        $script:calls.Clear()
+
+        & $script:jobs[0].OnDone @(@{ Name = "営業"; Ok = $true }, @{ Name = "技術"; Ok = $true }) ""
+
+        $script:calls | Should -Contain "showBulkIndexResult"
+    }
+
+    It "届かないとき、設定を変えず失敗を知らせる" {
+        Mock getPathState { @{ State = $script:unreachableState; IsDirectory = $false; Message = "ネットワークに届きません" } }
+        Mock removeIndexes { }
+        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index" }
+        $script:targetItems.Add((newItem "営業" "\\fileserver\共有\営業"))
+        deleteIndexes @("営業", "技術")
+        { runJob $script:jobs[0] } | Should -Throw "*ワークスペースに接続できません*"
+        $script:calls.Clear()
+
+        & $script:jobs[0].OnDone @() "ワークスペースに接続できません"
+
+        Should -Invoke removeIndexes -Times 0
+        $script:targetItems.Count | Should -Be 1
+        $script:calls | Should -Not -Contain "saveTargets"
+        $script:calls | Should -Not -Contain "showBulkIndexResult"
+        $script:statuses[$script:statuses.Count - 1] | Should -Be "削除に失敗しました：ワークスペースに接続できません"
     }
 }
 

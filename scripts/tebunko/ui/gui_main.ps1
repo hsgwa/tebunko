@@ -306,6 +306,22 @@ function startGui {
                 setStatus (getIndexJobClosingStatus)
                 return
             }
+            if ([bool]$script:indexBusy -and [bool]$script:closeAskedDuringIndexJob) {
+                # 待っている間にもう一度閉じようとした。ステータスの 1 行は他の表示で消えて見落とされるため、確かめてから閉じる
+                $e.Cancel = $true
+                $answer = showConfirm `
+                    -title "変更の途中です" `
+                    -heading "インデックスの変更の途中です。閉じますか？" `
+                    -hint "いま閉じると、設定とインデックスのフォルダの名前が食い違うことがあります。終わるまで待てば、自動で閉じます。" `
+                    -choices @(@{ Text = "待たずに閉じる"; Value = "close"; Danger = $true }) `
+                    -cancelText "終わるまで待つ"
+                if ($answer -eq "close") {
+                    $script:closeAfterIndexJob = $false
+                    $script:closeReady = $true
+                    $window.Dispatcher.BeginInvoke([action]{ $window.Close() }) | Out-Null
+                }
+                return
+            }
             $script:closeAfterIndexJob = $false
             # インデックス作成は画面のプロセスで動いているため、画面を閉じるときは止める
             if (isIndexing) {

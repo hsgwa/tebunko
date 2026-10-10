@@ -317,23 +317,29 @@ function loadTargets {
             $script:targetItems.Clear()
             # 名前が決まって一覧を読み込み直すまで、ほかの操作を止める（空の一覧に保存して、設定のほかのインデックスを消さないため）
             $script:targetsNaming = $true
-            updateIndexListView
-            updateIndexingButton
-            setStatus (getIndexNamingStatus)
-            $requestId = $requestBox.Value
-            $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
-            startJob {
-                param ($folders, $statusPath)
-                # 取り込み一覧の読み込みは排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
-                [void](saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile $statusPath).Folders))
-            } @(,$folders + @($workspace.StatusFile)) {
-                param ($output, $errorText)
-                if ($requestId -ne $requestBox.Value) {
-                    # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
-                    return
-                }
-                & $finish $errorText $checkedNames
-            }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
+            try {
+                updateIndexListView
+                updateIndexingButton
+                setStatus (getIndexNamingStatus)
+                $requestId = $requestBox.Value
+                $finish = ${function:finishTargetsNaming}   # 終わったときの処理は、関数を変数に取って呼ぶ（クロージャからは関数の名前を引けないため）
+                startJob {
+                    param ($folders, $statusPath)
+                    # 取り込み一覧の読み込みは排他の外で済ませ、設定の読み直しと書き込みだけを saveAssignedIndexNames が排他の中で行う
+                    [void](saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile $statusPath).Folders))
+                } @(,$folders + @($workspace.StatusFile)) {
+                    param ($output, $errorText)
+                    if ($requestId -ne $requestBox.Value) {
+                        # 待っている間にもう一度読み込んだ・ワークスペースを切り替えた。この結果は捨てる
+                        return
+                    }
+                    & $finish $errorText $checkedNames
+                }.GetNewClosure() (getWorkspaceJobQueue $workspace.Dir)
+            } catch {
+                # 裏の仕事を出せなかったときは、印を戻す（残ると、ほかの操作が止まったままになる）
+                $script:targetsNaming = $false
+                throw
+            }
             return
         }
         saveAssignedIndexNames @(assignIndexNames $folders (readStatusFile).Folders)

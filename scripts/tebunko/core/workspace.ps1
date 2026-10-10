@@ -86,6 +86,22 @@ function getWorkspaceJobQueue {
     return $(if (testAnyNetworkPath $paths) { "network" } else { "default" })
 }
 
+function assertWorkspaceReachable {
+    # インデックスの削除・名前の変更の裏の仕事の先頭で呼ぶ。ワークスペース（のインデックスのフォルダ）に届かないとき、
+    # 例外にする（届かないのに「何もせず成功」にして、設定だけ変えてしまわないため）。無いこと（まだインデックスを作っていない）は例外にしない
+    param (
+        [string]$dir
+    )
+
+    $state = getPathState $dir
+    if ($state.State -eq ${pathStateUnreachable}) {
+        throw "ワークスペースに接続できません：${dir}"
+    }
+    if ($state.State -eq ${pathStateOther}) {
+        throw "ワークスペースを確かめられません：$($state.Message)"
+    }
+}
+
 function getWorkspaceTmpDir {
     # 取り込みの作業フォルダの候補（$workspace.TmpRoot\<PC の鍵>\<PID>）を返す。副作用は無い（selectTmpDir が使う）
     param (

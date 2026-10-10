@@ -102,7 +102,9 @@ Describe "testCloseWaitsForIndexJob" -Tag Unit {
     }
 
     It "待つときの文言を返す" {
-        getIndexJobClosingStatus | Should -Not -Be ""
+        $status = getIndexJobClosingStatus
+        $status | Should -BeLike "*終わってから閉じます*"
+        $status | Should -BeLike "*もう一度閉じる操作*"
     }
 }
 

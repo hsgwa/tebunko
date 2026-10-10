@@ -175,6 +175,30 @@ BeforeAll {
         return $ranges
     }
 
+    function findLiteralNetworkQueues {
+        # startJob（と startIndexArchiveJob）の引数に、列の名前 "network" を文字列で直接書いている呼び出しを返す。
+        # 列は getWorkspaceJobQueue で場所から決める（場所を渡さずに "network" と書くと、ローカルの仕事まで共有フォルダの列に並ぶ）
+        param ($fileAst)
+
+        $found = New-Object System.Collections.Generic.List[object]
+        $commands = $fileAst.FindAll({ param ($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)
+        foreach ($command in $commands) {
+            if (@("startJob", "startIndexArchiveJob") -notcontains $command.GetCommandName()) {
+                continue
+            }
+            foreach ($element in $command.CommandElements | Select-Object -Skip 1) {
+                $target = $element
+                if ($element -is [System.Management.Automation.Language.CommandParameterAst]) {
+                    $target = $element.Argument
+                }
+                if ($target -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $target.Value -ieq "network") {
+                    $found.Add($command)
+                }
+            }
+        }
+        return $found.ToArray()
+    }
+
     function testInExcludedRange {
         param ($ast, $ranges)
 
@@ -431,8 +455,9 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
         ($lines -join ", ") | Should -Be ""
     }
 
-    It "同じ関数の同じ呼び出しが、許可した数より増えていない（Count が無い項目は 1 回）" {
-        # 許可の単位は (File, Function, Call)。同じ関数に 2 つ目の呼び出しを足しても通らないよう、数も見る
+    It "同じ関数の同じ呼び出しの数が、許可した数と同じ（Count が無い項目は 1 回）" {
+        # 許可の単位は (File, Function, Call)。同じ関数に 2 つ目の呼び出しを足しても通らないよう、数も見る。
+        # 減ったのに一覧の数を直し忘れると、次に増やしたときに気づけないため、少ない場合も落とす
         $files = getUiIoTargetFiles
         $allCalls = @($files | ForEach-Object { findUiIoCalls $_ })
         $over = @($allCalls | Group-Object { "$($_.File)|$($_.Function)|$($_.Call)" } | ForEach-Object {
@@ -443,11 +468,18 @@ Describe "画面のスレッドのファイル・フォルダ操作" -Tag Meta {
             if ($allow.Count -gt 0 -and $allow[0].ContainsKey("Count")) {
                 $limit = $allow[0].Count
             }
-            if ($allow.Count -gt 0 -and $group.Count -gt $limit) {
+            if ($allow.Count -gt 0 -and $group.Count -ne $limit) {
                 "$($first.File):$($first.Function):$($first.Call)=$($group.Count)"
             }
         })
         ($over -join ", ") | Should -Be ""
+    }
+
+    It "<Name> が、startJob の列を文字列の `"network`" で直接書いていない（getWorkspaceJobQueue で決める）" -TestCases $cases {
+        param ($Name, $Path)
+
+        $literal = @(findLiteralNetworkQueues (parseScriptFile $Path) | ForEach-Object { $_.Extent.StartLineNumber })
+        ($literal -join ", ") | Should -Be ""
     }
 
     It "許可の一覧に、今のコードに無い項目が残っていない" {
@@ -577,6 +609,23 @@ function sample {
             $found = @(findIoNodes $ast @() $functions (newNameSet) | ForEach-Object { $_.Call })
 
             $found | Should -Be @("New-Object", "[System.IO.FileStream]", "[System.IO.StreamReader]", "[System.IO.Compression.ZipFile]", "[System.IO.DriveInfo]", "[System.IO.File]", "readSomething")
+        }
+
+        It "startJob の引数に文字列の network を直接書いた呼び出しを見つけ、getWorkspaceJobQueue で決めた呼び出しは見つけない" {
+            $sample = @'
+function sample {
+    startJob { 1 } @() { } "network"
+    startJob { 1 } @() { } -queue 'Network'
+    startJob { 1 } @() { } (getWorkspaceJobQueue $dir)
+    startIndexArchiveJob "x" { 1 } "network"
+    other "network"
+}
+'@
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($sample, [ref]$null, [ref]$null)
+
+            $found = @(findLiteralNetworkQueues $ast | ForEach-Object { $_.Extent.StartLineNumber })
+
+            $found | Should -Be @(2, 3, 5)
         }
 
         It "理由が置き場所の文字列や短すぎる文字列のとき、置き場所とみなす" -TestCases @(
