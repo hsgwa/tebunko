@@ -4028,7 +4028,7 @@
     core["tests/shared/core/&lt;br&gt;共通基盤"] --&gt; settings["tests/tebunko/core/&lt;br&gt;設定ファイル"]
     settings --&gt; name["tests/tebunko/index/index_name&lt;br&gt;インデックス名"]
     name --&gt; store["tests/tebunko/index/index_store&lt;br&gt;インデックスの管理"]
-    store --&gt; pack["tests/tebunko/index/pack_format&lt;br&gt;tests/tebunko/search/pack_search&lt;br&gt;本文インデックス"]</code></pre>
+    store --&gt; contentIndex["tests/tebunko/index/content_index_format&lt;br&gt;tests/tebunko/search/content_index_search&lt;br&gt;本文インデックス"]</code></pre>
 <p><strong>共通基盤（<code>tests/shared/core/</code>）</strong></p>
 <table>
 <thead>
@@ -4221,7 +4221,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>本文インデックス（<code>tests/tebunko/index/pack_format</code>・<code>tests/tebunko/search/pack_search</code>）</strong></p>
+<p><strong>本文インデックス（<code>tests/tebunko/index/content_index_format</code>・<code>tests/tebunko/search/content_index_search</code>）</strong></p>
 <table>
 <thead>
 <tr>
@@ -4231,23 +4231,23 @@
 </thead>
 <tbody>
 <tr>
-<td><code>convertPlaceToPackMeta</code> / <code>convertPackMetaToPlace</code></td>
+<td><code>convertPlaceToContentIndexMeta</code> / <code>convertContentIndexMetaToPlace</code></td>
 <td>場所の名前（シート・ページ・スライド・非表示・ノート・図形・コメント・Excel のヘッダー・フッター・それ以外の部分）とメタ情報の往復、組み立て直して同じにならない名前はそのまま持つ</td>
 </tr>
 <tr>
-<td><code>getPackFileName</code> / <code>readPackFileName</code> / <code>planPackParts</code> / <code>splitPackBooksByExtension</code> / <code>encodePackValue</code> / <code>decodePackValue</code> / <code>convertToPackBody</code></td>
+<td><code>getContentIndexFileName</code> / <code>readContentIndexFileName</code> / <code>planContentIndexParts</code> / <code>splitContentIndexBooksByExtension</code> / <code>encodeContentIndexValue</code> / <code>decodeContentIndexValue</code> / <code>convertToContentIndexBody</code></td>
 <td>本文インデックスのファイルの名前、拡張子ごとの分け方、値の <code>%XX</code> の往復、中身の改行を LF にそろえ U+001C〜U+001F を除く</td>
 </tr>
 <tr>
-<td><code>convertToPackText</code> / <code>readPackPlaces</code></td>
+<td><code>convertToContentIndexText</code> / <code>readContentIndexPlaces</code></td>
 <td>文字列にしてから読み戻すと、元のファイル・場所・中身の範囲が同じになる、Excel の図形・コメントだけ <code>CellPrefixed</code> が <code>$true</code>（Word・PowerPoint・Excel のセル・ヘッダー・フッターは <code>$false</code>）、版の無い・違う本文インデックスのファイルは例外</td>
 </tr>
 <tr>
-<td><code>convertIndexFolderToPack</code> / <code>updateIndexFolderPack</code> / <code>findIndexFoldersWithBooks</code> / <code>publishIndexFolders</code></td>
+<td><code>convertFolderToContentIndex</code> / <code>updateFolderContentIndex</code> / <code>findIndexFoldersWithBooks</code> / <code>publishIndexFolders</code></td>
 <td>フォルダごと・拡張子ごとに作る、元のファイルが無くなった拡張子の本文インデックスのファイルは消す、UTF-16LE（BOM 付き）で一時ファイルを残さない、置かれた TSV を入れて TSV を消し変わらない元のファイルは写す、TSV の残ったフォルダを見つけて本文インデックスとシステムインデックスに入れる</td>
 </tr>
 <tr>
-<td><code>searchPackIndex</code> / <code>getIndexPackFiles</code> / <code>readPackContext</code></td>
+<td><code>searchContentIndex</code> / <code>getContentIndexFiles</code> / <code>readContentIndexContext</code></td>
 <td>結果が TSV を 1 行ずつ照合したときと同じ（改行の種類・照合のしかた・検索語ごと）、大文字・小文字・図形とコメントの除外・対象ファイル、上限・中止・並列・キャッシュ（書き直したら読み直す）、全文への照合の時間切れは 1 行ずつに切り替える、列挙（フォルダの一部・直下だけ・無いフォルダ）、プレビューの前後の行。Excel の図形・コメントの行は、セル番地だけに一致する語（<code>C2</code>・<code>2</code>・<code>C</code>）ではヒットにならず、文字（文字の中のタブを含む）に一致すればヒットになる、除いた行があっても行番号がずれない、除いた行は件数・上限に数えない（1 スレッドと並列で同じ）、複数行（セル内改行）の文字は 2 行目以降の語でも一致し番地だけでは一致しない、<code>"</code> を含む文字は囲み・<code>""</code> の形のまま照合する</td>
 </tr>
 </tbody>
@@ -4271,7 +4271,7 @@
 </tr>
 <tr>
 <td><code>tests/meta/compat</code>（<code>Meta</code>）</td>
-<td>見本の 5 つの要素（<code>source</code>・<code>ws</code>・<code>export.zip</code>・<code>file_times.tsv</code>・<code>expected.json</code>）がそろっていること、今のコードの形式の目印（<code>$packVersion</code>・<code>$statusColumns</code> など）が見本のどれかに残っていること。設定の見本（<code>compat/settings/</code>）に <code>setting.config</code>・<code>expected.json</code> がそろっていること、<code>newSettings</code> の全キーがどれか 1 つの見本の <code>expected.json</code> にあること</td>
+<td>見本の 5 つの要素（<code>source</code>・<code>ws</code>・<code>export.zip</code>・<code>file_times.tsv</code>・<code>expected.json</code>）がそろっていること、今のコードの形式の目印（<code>$contentIndexVersion</code>・<code>$statusColumns</code> など）が見本のどれかに残っていること。設定の見本（<code>compat/settings/</code>）に <code>setting.config</code>・<code>expected.json</code> がそろっていること、<code>newSettings</code> の全キーがどれか 1 つの見本の <code>expected.json</code> にあること</td>
 </tr>
 </tbody>
 </table>

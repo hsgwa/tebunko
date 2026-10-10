@@ -4140,8 +4140,8 @@
 <pre class="mermaid"><code>flowchart LR
     A["クロール&lt;br&gt;normalizeFolderPath・testSameFolder"] --&gt; B["取り込み対象の決定&lt;br&gt;createTargetList・getIndexTsvCounts"]
     B --&gt; C["抽出&lt;br&gt;extractWorkbook・prettyTsv"]
-    C --&gt; D["本文インデックス&lt;br&gt;updateIndexFolderPack"]
-    D --&gt; E["検索&lt;br&gt;searchPackIndex"]
+    C --&gt; D["本文インデックス&lt;br&gt;updateFolderContentIndex"]
+    D --&gt; E["検索&lt;br&gt;searchContentIndex"]
     E --&gt; F["元のファイルを開く&lt;br&gt;openInExcel"]</code></pre>
 <p>既知の問題が主に起きる場所を、処理の流れに沿って示す（詳細は各項目の本文）。</p>
 <h2 id="共通">共通<a class="headerlink" href="#共通" title="Permanent link">&para;</a></h2>
