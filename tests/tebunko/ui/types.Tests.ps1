@@ -286,6 +286,7 @@ Describe "HitRow.Prepare" -Tag Unit {
         $row.MatchCell | Should -Be "B3"
         $row.MatchCount | Should -Be 1
         $row.DisplayLine | Should -Be "納期は$([char]0x21b5)別途"
+        describeSegments $row.Segments | Should -Be "[納期]は$([char]0x21b5)別途"
     }
 
     It "図形の行で一致しなければセル番地を出さない" {
