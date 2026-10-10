@@ -43,9 +43,9 @@ Describe "S9 ナビの画面の切り替えと F5" -Tag Gui {
             setGuiStep $S "取り込み一覧と集約ファイルを書き換えて F5"
             waitGui $S "集約ファイルはまだ無い" ${guiDefaultTimeout} { (getGuiText (findGui $S.Window -Id "IndexSummaryText")) -like "まだインデックスがありません*" } | Out-Null
             & $writeStatus 2
-            $contentIndexFile = "$($script:tool.Work)\content_index"
-            [IO.Directory]::CreateDirectory($contentIndexFile) | Out-Null
-            [IO.File]::WriteAllText("$contentIndexFile\content_index.xlsx.tsv", "x`r`n", (New-Object Text.UTF8Encoding($true)))
+            $contentIndexDir = "$($script:tool.Work)\content_index"
+            [IO.Directory]::CreateDirectory($contentIndexDir) | Out-Null
+            [IO.File]::WriteAllText("$contentIndexDir\content_index.xlsx.tsv", "x`r`n", (New-Object Text.UTF8Encoding($true)))
             pressGuiKey $S.Window 0x74
             # F5 だけが読み直すもの（本文インデックスのファイルの件数）でも待ち、Activated と区別する
             waitGui $S "F5 で読み直される（残り 2 件・集約ファイル）" ${guiDefaultTimeout} {

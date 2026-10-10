@@ -142,13 +142,20 @@ Describe "スクリプトの構文" -Tag Meta {
         @($errors | Where-Object { $_.ErrorId -ne "TypeNotFound" }).Count | Should -Be 0
     }
 
-    It "関数・変数・ハッシュテーブルのキー・呼ぶ名前・並列の照合に渡す名前に pack を使わない（本文インデックスのコードの名前は contentIndex）" {
+    It "ファイル名・関数・変数・ハッシュテーブルのキー・メンバーの名前・呼ぶ名前・並列の照合に渡す名前に pack を使わない（本文インデックスのコードの名前は contentIndex）" {
         # コメントや package の URL を拾わないよう、正規表現で本文を探さずに AST から名前を拾う
         $found = New-Object System.Collections.Generic.List[string]
         foreach ($file in Get-ChildItem "$PSScriptRoot\..\..\scripts" -Recurse -Filter "*.ps1") {
             $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
             $names = New-Object System.Collections.Generic.List[object]
             foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
+                $names.Add(@($node.Name, $node.Extent.StartLineNumber))
+            }
+            $names.Add(@($file.Name, 1))
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.MemberExpressionAst] -and $n.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true)) {
+                $names.Add(@($node.Member.Value, $node.Extent.StartLineNumber))
+            }
+            foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.PropertyMemberAst] -or $n -is [System.Management.Automation.Language.FunctionMemberAst] }, $true)) {
                 $names.Add(@($node.Name, $node.Extent.StartLineNumber))
             }
             foreach ($node in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {

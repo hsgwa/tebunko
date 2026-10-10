@@ -56,9 +56,10 @@ $runspaceScript = {
     . $lib
     $load = $step.Elapsed.TotalMilliseconds; $step.Restart()
     $found = & $getFiles @($index)
-    $filesName = $filesNames | Where-Object { $found.ContainsKey($_) } | Select-Object -First 1
-    $files = $found[$filesName]
     $list = $step.Elapsed.TotalMilliseconds; $step.Restart()
+    $filesName = $filesNames | Where-Object { $found.ContainsKey($_) } | Select-Object -First 1
+    if (!$filesName) { throw "取得した本文インデックスの一覧に項目がありません" }
+    $files = $found[$filesName]
     $r = & $searchIndex $word $files $simple 10000 -cache $cache
     @{ LoadMs = $load; ListMs = $list; MatchMs = $step.Elapsed.TotalMilliseconds; TotalMs = $total.Elapsed.TotalMilliseconds; Packs = $files.Count; Hits = $r.Hits.Count; Truncated = [bool]$r.Truncated }
 }

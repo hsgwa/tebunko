@@ -28,9 +28,17 @@ function assertTebunkoFunctions {
 
     foreach ($name in $names) {
         if (!(Get-Command $name -CommandType Function -ErrorAction SilentlyContinue)) {
-            throw "測る tebunko に $name がありません。pack 形式より前の版は測れません（関数の引数が変わった場合は、この計測スクリプトを直してください）。"
+            throw (getMissingTebunkoFunctionMessage $name)
         }
     }
+}
+
+function getMissingTebunkoFunctionMessage {
+    param (
+        [string]$name
+    )
+
+    return "測る tebunko に $name がありません。pack 形式より前の版は測れません（関数の引数が変わった場合は、この計測スクリプトを直してください）。"
 }
 
 function resolveTebunkoFunction {
@@ -43,7 +51,7 @@ function resolveTebunkoFunction {
     foreach ($name in $names) {
         if (Get-Command $name -CommandType Function -ErrorAction SilentlyContinue) { return $name }
     }
-    throw "測る tebunko に $($names[0]) がありません。pack 形式より前の版は測れません（関数の引数が変わった場合は、この計測スクリプトを直してください）。"
+    throw (getMissingTebunkoFunctionMessage $names[0])
 }
 
 function getTebunkoProperty {
