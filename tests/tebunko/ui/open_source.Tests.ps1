@@ -147,6 +147,7 @@ Describe "findSourceFile" -Tag Io {
         newTsv "$TestDrive\alias2\sub\見積.xlsx" @("x")
         Mock getSourceLocation { @{ Name = ""; Folder = "Z:\営業"; Rest = "sub"; Known = $true } }
         Mock testNetworkPath { $false }
+        Mock showConfirm { "use" }  # 名前が空だと確かめ済みと言えないので毎回確かめる。使うと答えても名前が無いので記録しない
         Mock findSourceFileState { @{ State = "Found"; Path = "$TestDrive\alias2\sub\見積.xlsx"; Alias = "$TestDrive\alias2" } }
         Mock setIndexSourceFolder { }
 
@@ -817,6 +818,8 @@ Describe "findSourceFile（もらったインデックスの元のフォルダ�
         Should -Invoke findSourceFileState -Times 0 -Exactly
         Should -Invoke setIndexSourceFolder -Times 0 -Exactly
         $script:foundPaths.Count | Should -Be 0
+        # フォルダ選択をやめたのは「開くのをやめた」。「元のファイルが見つかりません」とは出さない
+        lastStatus | Should -Be (getSourceConfirmCanceledStatus)
     }
 
     It "設定にある名前（自分で作ったインデックス・確認済み）は、確認しない" {

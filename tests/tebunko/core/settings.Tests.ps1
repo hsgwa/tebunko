@@ -319,6 +319,27 @@ Describe "indexSources / setIndexSourceFolder" -Tag Io {
         @(readIndexSources $path).Count | Should -Be 0
     }
 
+    It "見た目が似ているだけの名前は、利用者自身のクロール対象フォルダを書き換えない（<Label>）" -TestCases @(
+        @{ Label = "ソフトハイフン付き"; Other = ("営業" + [char]0x00AD); Recorded = 1 }
+        @{ Label = "前に全角空白"; Other = ([char]0x3000 + "営業"); Recorded = 0 }
+        @{ Label = "後ろに半角空白"; Other = "営業 "; Recorded = 0 }
+    ) {
+        param ($Label, $Other, $Recorded)
+        $path = "$TestDrive\sources_lookalike_$Recorded$([int][char]$Other[0]).config"
+        writeTargetFolders @([pscustomobject]@{ Name = "営業"; Path = "C:\data\mine"; Enabled = $true }) $path
+        setIndexSourceFolder $Other "\\evil\share\x" $path
+
+        @(getTargetFolders $path)[0].Path | Should -Be "C:\data\mine"
+        @(readIndexSources $path).Count | Should -Be $Recorded
+    }
+
+    It "大文字・小文字だけ違う名前は同じ名前として、そのクロール対象フォルダを書き換える" {
+        $path = "$TestDrive\sources_case.config"
+        writeTargetFolders @([pscustomobject]@{ Name = "Sales"; Path = "C:\data\mine"; Enabled = $true }) $path
+        setIndexSourceFolder "SALES" "D:\moved" $path
+        @(getTargetFolders $path)[0].Path | Should -Be "D:\moved"
+    }
+
     It "名前・フォルダが空の記録と、同じ名前（大文字・小文字の違いも）の 2 つ目以降は読まない" {
         $path = "$TestDrive\sources_hand.config"
         [System.IO.File]::WriteAllText($path, @'

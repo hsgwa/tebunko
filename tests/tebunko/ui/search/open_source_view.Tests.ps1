@@ -65,7 +65,8 @@ Describe "testSourceNeedsConfirm" -Tag Unit {
         @{ label = "確かめ済みの名前は確かめない"; name = "見積"; known = $true; confirmed = @("見積"); expected = $false }
         @{ label = "大文字・小文字は区別しない"; name = "ABC"; known = $true; confirmed = @("abc"); expected = $false }
         @{ label = "元のフォルダが分からなければ確かめない"; name = "受領"; known = $false; confirmed = @(); expected = $false }
-        @{ label = "名前が空なら確かめない"; name = ""; known = $true; confirmed = @(); expected = $false }
+        @{ label = "名前が空なら確かめ済みと言えないので毎回確かめる"; name = ""; known = $true; confirmed = @(); expected = $true }
+        @{ label = "名前が空でも元のフォルダが分からなければ確かめない"; name = ""; known = $false; confirmed = @(); expected = $false }
         @{ label = "確かめ済みが無ければ確かめる"; name = "受領"; known = $true; confirmed = @(); expected = $true }
         @{ label = "見えない文字（ソフトハイフン）が混じった名前は別の名前として確かめる"; name = ("見" + [string][char]0xAD + "積"); known = $true; confirmed = @("見積"); expected = $true }
         @{ label = "幅ゼロの文字が混じった名前は別の名前として確かめる"; name = ("見" + [string][char]0x200B + "積"); known = $true; confirmed = @("見積"); expected = $true }
@@ -132,6 +133,9 @@ Describe "getSourceOpenMode / getSourceReadOnlyFailedStatus" -Tag Unit {
         @{ book = "a.doc"; mode = "new" }
         @{ book = "a.pptm"; mode = "normal" }
         @{ book = "a.ppt"; mode = "normal" }
+        @{ book = "evil.xlsm."; mode = "normal" }
+        @{ book = "evil.xlsm "; mode = "normal" }
+        @{ book = "evil.docm. ."; mode = "normal" }
     ) {
         param ($book, $mode)
         $result = getSourceOpenMode $book $mode $true

@@ -335,7 +335,7 @@ function getImportArchiveInfo {
     $exists = $false
     try {
         $folder = normalizeFolderPath ([string]$info.SourceFolder)
-        if ($folder -match '^[A-Za-z]:\\' -and !(testNetworkPath $folder)) {
+        if (testLocalDrivePath $folder) {
             $exists = [bool](Test-Path -LiteralPath $folder -PathType Container)
         } elseif ($folder) {
             # ローカルのドライブと分かるときだけ調べる。ネットワークの場所や、デバイス名の形（\\.\UNC\・\\.\GLOBALROOT\ など）は

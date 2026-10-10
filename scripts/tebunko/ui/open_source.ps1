@@ -186,10 +186,12 @@ function continueFindSourceFile {
             setStatus (getSourceConfirmCanceledStatus)
             return
         }
-        setIndexSourceFolder $location.Name $location.Folder
+        if ($location.Name) {
+            setIndexSourceFolder $location.Name $location.Folder
+        }
         $script:sourceFolderMaps = @{}
     }
-    if (!(testNetworkPath $location.Folder)) {
+    if (!(testNetworkPath (normalizeFolderPath ([string]$location.Folder)))) {
         & $apply (findSourceFileState $location $book)
         return
     }
@@ -272,7 +274,7 @@ function promptSourceConfirm {
         [string]$book
     )
 
-    $dialog = getSourceConfirmDialog $book $location.Name $location.Folder (testNetworkPath (normalizeFolderPath ([string]$location.Folder)))
+    $dialog = getSourceConfirmDialog $book $location.Name $location.Folder (!(testLocalDrivePath (normalizeFolderPath ([string]$location.Folder))))
     return (showConfirm -title "元のフォルダを確かめてください" -heading $dialog.Heading -hint $dialog.Hint `
         -facts @((factWarn $dialog.Title $dialog.Detail)) `
         -choices @(@{ Text = $dialog.PickText; Value = "pick" }, @{ Text = $dialog.UseText; Value = "use" }))
@@ -305,6 +307,7 @@ function promptSourceMissing {
     }
     $facts = @()
     $skipConfirm = [bool]$pickFirst
+    $fromConfirm = [bool]$pickFirst   # 確認で「フォルダを選ぶ」を選んだ直後の選択か（その選択をやめたときは、見つからないのではなく開くのをやめた）
     while ($true) {
         if (!$skipConfirm -and (showConfirm -title "元のファイルが見つかりません" -heading $heading -hint $hint -facts $facts `
                 -choices @(@{ Text = "フォルダを選ぶ"; Value = "pick" })) -ne "pick") {
@@ -314,9 +317,14 @@ function promptSourceMissing {
         $skipConfirm = $false
         $picked = selectFolder $description $initial
         if (!$picked) {
-            setStatus (getSourceNotFoundStatus $path)
+            if ($fromConfirm) {
+                setStatus (getSourceConfirmCanceledStatus)
+            } else {
+                setStatus (getSourceNotFoundStatus $path)
+            }
             return
         }
+        $fromConfirm = $false
 
         $found = findMovedSource $picked $location.Rest $book
         if ($found) {

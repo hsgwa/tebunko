@@ -127,15 +127,18 @@ function testSourceReceived {
 function testSourceNeedsConfirm {
     # 元のフォルダに触れる前に、利用者に確かめるかを返す。
     # 元のフォルダが分かっていて（known）、そのインデックス名が確かめ済みの名前（設定の targetFolders・indexSources）に無いとき真。
-    # 名前が空・元のフォルダが分からないときは偽（フォルダを選んでもらう流れに進む）
+    # 元のフォルダが分からないときは偽（フォルダを選んでもらう流れに進む）。名前が空のときは、確かめ済みと言えないので毎回確かめる
     param (
         [string]$name,
         [bool]$known,
         [string[]]$confirmedNames = @()
     )
 
-    if (!$known -or $name -eq "") {
+    if (!$known) {
         return $false
+    }
+    if ($name -eq "") {
+        return $true
     }
     return !(testNameInList $name $confirmedNames)
 }
@@ -182,7 +185,8 @@ function getSourceOpenMode {
         [bool]$received
     )
 
-    $extension = [System.IO.Path]::GetExtension($book).ToLowerInvariant()
+    # Windows は名前の終わりの . と空白を落として開く（evil.xlsm. は evil.xlsm として開く）ので、落としてから拡張子を見る
+    $extension = [System.IO.Path]::GetExtension(([string]$book).TrimEnd('.', ' ')).ToLowerInvariant()
     if (!$received -or !(testNameInList $extension ${macroCapableExtensions})) {
         return @{ Mode = $mode; Notice = ""; Strict = $false }
     }
