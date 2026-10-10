@@ -4329,6 +4329,14 @@
 <td>searchPackIndex（並列検索のスレッドでも動く）</td>
 </tr>
 <tr>
+<td><code>testCellPrefixedHit</code></td>
+<td>regex, line</td>
+<td>bool</td>
+<td>セル番地 + 区切りのタブ + 文字の行（Excel の図形・コメント）で、最初のタブより後から始まる一致があるか（開始位置つきの <code>IsMatch</code>。タブが無い行は <code>$false</code>）</td>
+<td>同上</td>
+<td>searchPackFiles（並列検索のスレッドでも動く）</td>
+</tr>
+<tr>
 <td><code>searchPackIndex</code></td>
 <td>word, packs, simpleMatch, limit, shouldStop, caseSensitive, fileFilter, workerCount（並列のスレッド数。0 は自動で最大 4）, cache（<code>newTsvTextCache</code>）, includeShapes, includeComments（図形・コメントの場所も検索するか。<code>newPlaceExclude</code>）, taskBytes, onProgress（<code>{ param($done, $total, $newHits) }</code>。done・total は本文インデックスのファイルの数）, pool（照合のプール <code>newPackWorkerPool</code>。<code>$null</code> なら並列にするときだけ作って最後に閉じる）</td>
 <td><code>@{Hits; SimpleMatch; Total; Truncated; Cancelled}</code></td>
@@ -4348,7 +4356,7 @@
 <td><code>newPackWorkerPool</code></td>
 <td>workers（既定 <code>getWorkerCount</code>）</td>
 <td><code>WorkerPool</code></td>
-<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchPackFiles</code>・<code>readPackPlaces</code>・<code>convertPackMetaToPlace</code>・<code>decodePackValue</code>・<code>getPackFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
+<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchPackFiles</code>・<code>testCellPrefixedHit</code>・<code>readPackPlaces</code>・<code>testPackCellPrefixed</code>・<code>convertPackMetaToPlace</code>・<code>decodePackValue</code>・<code>getPackFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
 <td><a href="../../structure/threads/#寿命">プロセスとスレッド</a></td>
 <td>検索の司令（<code>SearchService</code>）、searchPackIndex</td>
 </tr>
