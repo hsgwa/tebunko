@@ -4069,7 +4069,7 @@
 <p>取り込みのスレッドの中では、自分のレーンの列から 1 ファイルずつ次を行う（<code>runIngestWorker</code>）。Excel・Word・PowerPoint のレーンはスレッド 1 つ（STA）が自分の Office を 1 つ持つ。読み取りのレーンはスレッドを <code>ingestThreads</code> の数だけ持ち（MTA）、Office と監視を使わない。</p>
 <pre class="mermaid"><code>flowchart TD
     A(["レーンのスレッドを始める&lt;br&gt;（Office のレーンは STA、読み取りは MTA。BelowNormal）"]) --&gt; OW{"Office のレーン？"}
-    OW -- はい --&gt; W["自分の監視を始める（startWatchdog）"] --&gt; Q
+    OW -- はい --&gt; W["自分の監視を始める（OfficeWatchdog の Start）"] --&gt; Q
     OW -- いいえ --&gt; Q{"自分のレーンの列にファイルがある？&lt;br&gt;（列が閉じられるまで待つ）"}
     Q -- はい --&gt; F["1 ファイルを取り込む（invokeIngestTask。制限時間 10 分）&lt;br&gt;TSV を元のファイル名のフォルダに置く&lt;br&gt;Office はこの時点で起動"]
     F --&gt; RES["結果（成功・失敗・回し直し・TSV の数・ログ）を結果の列に入れる&lt;br&gt;読み取りのスレッドで Office が要ると分かったら Reroute"]
