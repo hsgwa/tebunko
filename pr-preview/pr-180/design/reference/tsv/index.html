@@ -4625,9 +4625,16 @@
 <tr>
 <td><code>readPackPlaces</code></td>
 <td>text</td>
-<td><code>@{Book; Location; Start; End}</code> の並び</td>
-<td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・中身の範囲を先頭から順に返す。版が違えば例外</td>
+<td><code>@{Book; Location; CellPrefixed; Start; End}</code> の並び</td>
+<td>本文インデックスの文字列から、場所ごとの元のファイル名・場所の名前・行の先頭がセル番地か（<code>CellPrefixed</code>。Excel の図形・コメントが <code>$true</code>。<code>testPackCellPrefixed</code>）・中身の範囲を先頭から順に返す。版が違えば例外</td>
 <td>検索（searchPackFiles）、readPackContext</td>
+</tr>
+<tr>
+<td><code>testPackCellPrefixed</code></td>
+<td>book, meta</td>
+<td>bool</td>
+<td>場所の行が「セル番地 + タブ + 文字」の形か（元のファイルが Excel で、対象が図形・コメント）</td>
+<td>readPackPlaces</td>
 </tr>
 <tr>
 <td><code>splitPackTextByBook</code></td>

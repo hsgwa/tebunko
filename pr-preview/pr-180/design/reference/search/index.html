@@ -4324,9 +4324,17 @@
 <td><code>searchPackFiles</code></td>
 <td>packs, start, count, regex, max, textRegex, scanMode, cache, include, exclude, excludePlace</td>
 <td>ヒットの一覧</td>
-<td>packs の start から count 件を読み、regex に一致する行を返す（1 行に複数一致しても 1 件）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。一致の位置から場所・行を求める（<code>readPackPlaces</code>）。元のファイルがテキストの拡張子（<code>getPackFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
+<td>packs の start から count 件を読み、regex に一致する行を返す（1 行に複数一致しても 1 件）。<code>ScanMode</code> に応じて全文に 1 回照合し、一致しない本文インデックスのファイルは飛ばす。一致の位置から場所・行を求める（<code>readPackPlaces</code>）。Excel の図形・コメントの行（<code>CellPrefixed</code>）は、区切りのタブより後から始まる一致だけをヒットにする（<code>testCellPrefixedHit</code>。セル番地だけの一致は件数・上限に数えない）。元のファイルがテキストの拡張子（<code>getPackFileKind</code>）なら、ヒットの行を <code>truncateHitLine</code> で切る（Excel・Word・PowerPoint は切らない）。インデックス作成中の本文インデックスのファイルも読めるよう共有して開き、読めないものは飛ばす</td>
 <td>同上</td>
 <td>searchPackIndex（並列検索のスレッドでも動く）</td>
+</tr>
+<tr>
+<td><code>testCellPrefixedHit</code></td>
+<td>regex, line</td>
+<td>bool</td>
+<td>セル番地 + 区切りのタブ + 文字の行（Excel の図形・コメント）で、最初のタブより後から始まる一致があるか（開始位置つきの <code>IsMatch</code>。タブが無い行は <code>$false</code>）</td>
+<td>同上</td>
+<td>searchPackFiles（並列検索のスレッドでも動く）</td>
 </tr>
 <tr>
 <td><code>searchPackIndex</code></td>
@@ -4348,7 +4356,7 @@
 <td><code>newPackWorkerPool</code></td>
 <td>workers（既定 <code>getWorkerCount</code>）</td>
 <td><code>WorkerPool</code></td>
-<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchPackFiles</code>・<code>readPackPlaces</code>・<code>convertPackMetaToPlace</code>・<code>decodePackValue</code>・<code>getPackFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
+<td>本文インデックスの照合のプールを作る（各スレッドには照合に要る関数と値だけを読み込む。<code>searchPackFiles</code>・<code>testCellPrefixedHit</code>・<code>readPackPlaces</code>・<code>testPackCellPrefixed</code>・<code>convertPackMetaToPlace</code>・<code>decodePackValue</code>・<code>getPackFileKind</code>・<code>testTextExtension</code>・<code>truncateHitLine</code> と、<code>textExtensions</code>・<code>hitLineMaxChars</code>・<code>hitLineBeforeMatchChars</code> などの定数。優先度は Normal）</td>
 <td><a href="../../structure/threads/#寿命">プロセスとスレッド</a></td>
 <td>検索の司令（<code>SearchService</code>）、searchPackIndex</td>
 </tr>
