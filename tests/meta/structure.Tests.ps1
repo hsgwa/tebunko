@@ -674,6 +674,12 @@ Describe "ダイアログは暗幕付きで出す" -Tag Meta {
         $hits.Count | Should -Be 1
         $hits[0] | Should -BeLike "gui_main.ps1:*"
     }
+
+    It "gui_main.ps1 は、ShowDialog() の finally のあとで画面のスレッドの Dispatcher を止める（止めないと、閉じたあとの PowerShell の終了で、まれに終了コード 5 になる。closing.md）" {
+        $here = (Resolve-Path "$PSScriptRoot\..").Path
+        $text = [System.IO.File]::ReadAllText("$here\..\scripts\tebunko\ui\gui_main.ps1")
+        $text | Should -Match '\$window\.ShowDialog\(\)\r?\n    \} finally \{[\s\S]*?\r?\n    \}\r?\n(\s*#[^\r\n]*\r?\n)*\s*\[System\.Windows\.Threading\.Dispatcher\]::CurrentDispatcher\.InvokeShutdown\(\)'
+    }
 }
 
 Describe "メッセージは自前の画面で出す" -Tag Meta {
