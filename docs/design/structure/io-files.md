@@ -87,7 +87,7 @@ zip 版は展開したフォルダ、インストーラー版は `{app}`（既�
 | 読むもの | いつ |
 |---|---|
 | フォルダの中身の一覧（再帰） | インデックス作成の取り込み予定を作るとき（`Get-ChildItem`）。フォルダ・設定画面のツリーを開くとき |
-| 取り込み対象のファイル（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt` とテキストファイル） | 取り込むとき。元のファイルを占有しないよう、作業領域へコピーしてから読む（`copyFileShared`）。保護の判定のため先頭を読む（`office_protection.ps1`） |
+| 取り込み対象のファイル（`.xlsx` `.xlsm` `.xls` `.xlsb` `.docx` `.docm` `.doc` `.pptx` `.pptm` `.ppt` とテキストファイル） | 取り込むとき。元のファイルに影響を出さないよう、作業領域へコピーしてから読む（`copyFileShared`）。保護の判定のため先頭を読む（`office_protection.ps1`） |
 | 元のファイル | 検索結果から開くとき（Office・既定のアプリ・Notepad・エクスプローラー）。tebunko は書かない |
 
 ### 利用者が選んだ場所
@@ -180,7 +180,7 @@ flowchart LR
 | `work/ingest_status.tsv` | インデックス作成の状態 | インデックス作成 | インデックス作成・画面 | UTF-8（BOM 付き）、タブ区切り | 先頭にクロール対象フォルダの行、以降 1 ファイル 1 行で相対パス・更新日時・サイズ・状態・TSV 数・取り込み日時・エラー・抽出版（[取り込み一覧](../indexing/ingest-list.md)） |
 | `work/ingesting.txt` | インデックス作成の状態 | インデックス作成 | インデックス作成 | UTF-8（BOM 付き） | 取り込み中のファイルごとに `<回数><TAB><相対パス>` の 1 行（取り込みを複数のスレッドで行うため、取り込み中のものすべて。`readIngestingFiles` / `writeIngestingFiles` / `removeIngestingFile`）。取り込みが終わったファイルの行は消し、インデックス作成が終われば削除する。残っていれば、書かれたファイルの取り込み中に強制終了した（[取り込み一覧](../indexing/ingest-list.md#強制終了時間切れからの再開)） |
 | `work/publish/<PID>/` | 作業領域 | インデックス作成 | インデックス作成 | – | 1 ファイル分の TSV（`<元のファイル名>/<場所>.tsv`）。集め終わったら `work/content_index` の中へフォルダごと移す（`publishIndexFiles`） |
-| `work/tmp/<PC の鍵>/<PID>/`（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みをスキップする） | 作業領域 | インデックス作成 | インデックス作成 | – | 取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば `source.<拡張子>`。Word・PowerPoint は `source.<拡張子>`。元のファイルを占有しないため）、抽出途中の `sheet<N>.tmp`（UTF-16LE）/ `*.tsv`、旧形式の変換用の `source.doc` `source.ppt` / `converted.docx` `converted.pptx`（[データの置き場所とパスの決め方](data.md)「自動生成（`work/`）」） |
+| `work/tmp/<PC の鍵>/<PID>/`（ワークスペースのパスに `[` `]` があるか長すぎるときは作らない。どのファイルも中間 TSV などをこのフォルダに作るため、テキストファイルを含めすべての取り込みをスキップする） | 作業領域 | インデックス作成 | インデックス作成 | – | 取り込み中の元ファイルのコピー（Excel は元と同じファイル名、長すぎれば `source.<拡張子>`。Word・PowerPoint は `source.<拡張子>`。テキストは `source.copy`。元のファイルに影響を出さないため）、抽出途中の `sheet<N>.tmp`（UTF-16LE）/ `*.tsv`、旧形式の変換用の `source.doc` `source.ppt` / `converted.docx` `converted.pptx`（[データの置き場所とパスの決め方](data.md)「自動生成（`work/`）」） |
 | `work/indexing_log.txt` | 記録 | インデックス作成 | 利用者 | UTF-8（BOM 付き） | インデクサの表示内容（`writeIndexerLog`。実行ごとに上書き） |
 | `work/gui_error_log.txt` | 記録 | 画面 | 利用者 | UTF-8（BOM 付き） | 画面で起きた予期しないエラーの内容（`writeErrorLog`。追記） |
 | `work/content_index/` | インデックス | インデックス作成 | 検索 | 本文インデックスは UTF-16LE（BOM 付き）、LF。本文インデックスに入れる前の TSV は UTF-8（BOM 付き）、CRLF | フォルダ・拡張子ごとの本文インデックス（`content_index.<拡張子>.<番号>.tsv`。元のファイルごと・場所（シート・ページ・スライド、図形・コメント・ヘッダー・フッター）ごとに、メタ情報の行と TSV の中身を並べる）。取り込み中だけ、シート・ページ・スライドごとの TSV と図形・コメント・ヘッダー・フッターの TSV（`<元の場所>[shape]`・`<元の場所>[comment]`・`<元の場所>[header_footer]`） |

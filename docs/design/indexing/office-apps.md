@@ -10,7 +10,7 @@ Word・PowerPoint で共通の処理。旧形式などをアプリで変換す�
 
 ```mermaid
 flowchart TD
-    A["extractDocument(パス)"] --> CP["作業領域に source.#lt;拡張子#gt; としてコピー<br>（copyFileShared。元のファイルを占有しない）"]
+    A["extractDocument(パス)"] --> CP["作業領域に source.#lt;拡張子#gt; としてコピー<br>（copyFileShared。元のファイルに影響を出さない）"]
     CP --> Z{"コピーの先頭が<br>ZIP のシグネチャ（PK）？"}
     Z -- はい --> R["コピーをそのまま読む（6.4〜6.6）<br>readDocxUnits / readPptxUnits"]
     Z -- いいえ --> K{"暗号化の種類<br>（下の「暗号化されたファイルの判定」）"}
@@ -34,7 +34,7 @@ flowchart TD
     W --> D["作業領域のコピー・変換したファイルを削除（finally）"]
 ```
 
-- 元のファイルは直接読まず、先に作業領域へコピーする（Excel と同じく `copyFileShared`。[Excel](excel.md) の補足）。ZIP を直接開くと、読んでいる間ほかのアプリの書き込みを拒否するうえ、利用者が編集中（書き込みで開いている）のファイルは共有違反で読めないため。
+- 元のファイルは直接読まず、先に作業領域へコピーする（Excel・テキストと同じく `copyFileShared`。[Excel](excel.md) の補足）。元のファイルに絶対に影響を出さない方針のため。効果として、読んでいる間も利用者が上書き保存でき、利用者が編集中（書き込みで開いている）のファイルも読める。
 - ZIP でないコピーは、開く前に**暗号化の種類**を判定する（下の「暗号化されたファイルの判定」）。パスワード付き（新形式）・IRM は Word・PowerPoint を起動せずに失敗にする。旧形式・テキストらしい内容は今までどおり開く。
 - コピーに旧形式の拡張子を付けてから開くのは、Word・PowerPoint が拡張子と中身が異なるファイル（中身が `.doc` の `.docx` 等）を開けないため。「形式の分からないバイナリ」（下記）は拡張子を変えない。
 - パスワード付きの `.docx` `.pptx` は、Word・PowerPointを起動せずに失敗にする（下記）。Excel はパスワード付きでもそのまま `Workbooks.Open` に任せる（[Excel](excel.md) の判定）。
