@@ -644,6 +644,12 @@ Describe "getDefaultWorkDir / testDefaultWorkspace / getWorkspaceBlockMessage" -
         (testDefaultWorkspace "$TestDrive\一覧だけ").Usable | Should -Be $true
     }
 
+    It "ネットワークの場所は、中身を数えずに使えるものとして返す（届かない共有で止まらない）" {
+        $check = testDefaultWorkspace "\\unreachable.invalid\share\tebunko_ws"
+        $check.Usable | Should -Be $true
+        $check.Message | Should -Be ""
+    }
+
     It "ほかのファイルが置いてあれば使えず、空のフォルダではないと伝える" {
         [System.IO.Directory]::CreateDirectory("$TestDrive\ほか") | Out-Null
         [System.IO.File]::WriteAllText("$TestDrive\ほか\README.md", "")

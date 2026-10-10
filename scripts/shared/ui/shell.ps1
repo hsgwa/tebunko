@@ -473,25 +473,6 @@ function formatTime {
     return $time.ToString("M/d H:mm")
 }
 
-function readTextShared {
-    # インデクサが書き込み中でも妨げないよう、共有を許して読む
-    param (
-        [string]$path
-    )
-
-    if (!(Test-Path -LiteralPath $path)) {
-        return ""
-    }
-    $share = [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete
-    $stream = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)
-    $reader = New-Object System.IO.StreamReader($stream, ${utf8Bom})
-    try {
-        return $reader.ReadToEnd()
-    } finally {
-        $reader.Dispose()
-    }
-}
-
 # ---- 別スレッドの処理（インデックスの件数など） ----
 
 # 仕事を受けるスレッド（BackgroundQueue）は、読み込み口（gui.ps1）が $script:backgroundQueue に用意する。

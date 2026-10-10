@@ -52,12 +52,13 @@ function getSourceFolderMap {
     param (
         [string]$dir,
         [string]$statusPath = $workspace.StatusFile,
-        [string]$settingsPath = ${settingsFile}
+        [string]$settingsPath = ${settingsFile},
+        [string]$indexDir = $workspace.IndexDir
     )
 
     $map = readSourceFolderFile $dir
-    if ((Test-Path -LiteralPath $workspace.IndexDir -PathType Container) -and
-        (testSameFolder $dir (Resolve-Path -LiteralPath $workspace.IndexDir).ProviderPath)) {
+    if ((Test-Path -LiteralPath $indexDir -PathType Container) -and
+        (testSameFolder $dir (Resolve-Path -LiteralPath $indexDir).ProviderPath)) {
         foreach ($entry in (getIndexNameMap $statusPath).GetEnumerator()) {
             $map[$entry.Key] = $entry.Value
         }
@@ -88,12 +89,14 @@ function joinSourcePath {
     return $path
 }
 
-function getSourceLocation {
-    # 検索結果の元のファイルの場所を @{ Name（インデックス名）; Folder（元のフォルダ）; Rest（その下の相対フォルダ）; Known } で返す。
-    # インデックスのフォルダ（Root）の下は "インデックス名\相対フォルダ" のため、インデックス名から元のフォルダを引く（getSourceFolderMap）。
+function findSourceLocationInMaps {
+    # 検索結果の元のファイルの場所を、キャッシュ（maps）だけで求める。ファイルは読まない。
+    # 返すもの: @{ Resolved; Location; Pending }
+    #   Resolved: 場所が決まったか。$false なら、Pending のフォルダの対応（getSourceFolderMap）を maps に足してから、もう一度呼ぶ
+    #   Location: @{ Name（インデックス名）; Folder（元のフォルダ）; Rest（その下の相対フォルダ）; Known }。元のフォルダが分からなければ Known = $false・Folder = ""
+    #             （Name は返すため、フォルダを選んでもらえば設定に記録できる）
+    # インデックスのフォルダ（Root）の下は "インデックス名\相対フォルダ" のため、インデックス名から元のフォルダを引く。
     # 検索対象にインデックス名のフォルダ（…\index\<インデックス名>）を直接指定した場合は、親フォルダの記録を使う。
-    # 元のフォルダが分からなければ Known = $false・Folder = "" とする（Name は返すため、フォルダを選んでもらえば設定に記録できる）
-    #   maps: フォルダ → getSourceFolderMap の結果 のキャッシュ（読んだ結果を追加する）
     param (
         $hit,
         [hashtable]$maps = @{}
@@ -119,19 +122,60 @@ function getSourceLocation {
 
     foreach ($candidate in $candidates) {
         if (!$maps.ContainsKey($candidate.Dir)) {
-            $maps[$candidate.Dir] = getSourceFolderMap $candidate.Dir
+            return @{ Resolved = $false; Location = $null; Pending = $candidate.Dir }
         }
         $map = $maps[$candidate.Dir]
         if ($map.ContainsKey($candidate.Name)) {
-            return @{ Name = $candidate.Name; Folder = $map[$candidate.Name]; Rest = $candidate.Rest; Known = $true }
+            return @{ Resolved = $true; Location = @{ Name = $candidate.Name; Folder = $map[$candidate.Name]; Rest = $candidate.Rest; Known = $true }; Pending = "" }
         }
     }
 
     # 分からない場合も、インデックス名と、その下の相対フォルダは分かる（検索対象にインデックス名のフォルダを直接指定した場合は Rest がすべて）
     if ($candidates.Count -gt 0) {
-        return @{ Name = $candidates[0].Name; Folder = ""; Rest = $candidates[0].Rest; Known = $false }
+        $unknown = @{ Name = $candidates[0].Name; Folder = ""; Rest = $candidates[0].Rest; Known = $false }
+    } else {
+        $unknown = @{ Name = (Split-Path $root -Leaf); Folder = ""; Rest = ""; Known = $false }
     }
-    return @{ Name = (Split-Path $root -Leaf); Folder = ""; Rest = ""; Known = $false }
+    return @{ Resolved = $true; Location = $unknown; Pending = "" }
+}
+
+function getSourceLocation {
+    # 検索結果の元のファイルの場所を @{ Name; Folder; Rest; Known } で返す（findSourceLocationInMaps と同じ）。
+    # キャッシュに無いフォルダの対応は、読んで maps に足す
+    #   maps: フォルダ → getSourceFolderMap の結果 のキャッシュ（読んだ結果を追加する）
+    param (
+        $hit,
+        [hashtable]$maps = @{}
+    )
+
+    while ($true) {
+        $found = findSourceLocationInMaps $hit $maps
+        if ($found.Resolved) {
+            return $found.Location
+        }
+        $maps[$found.Pending] = getSourceFolderMap $found.Pending
+    }
+}
+
+function readSourceLocation {
+    # getSourceLocation の、裏のスレッドから呼ぶ版。$workspace・設定の場所に頼らず、場所を引数で受ける。
+    # maps は書き換えず、複製に足して返す: @{ Location; Maps }（呼んだ側が Maps をキャッシュに足す）
+    param (
+        $hit,
+        [hashtable]$maps,
+        [string]$statusPath,
+        [string]$settingsPath,
+        [string]$indexDir
+    )
+
+    $copy = $maps.Clone()
+    while ($true) {
+        $found = findSourceLocationInMaps $hit $copy
+        if ($found.Resolved) {
+            return @{ Location = $found.Location; Maps = $copy }
+        }
+        $copy[$found.Pending] = getSourceFolderMap $found.Pending $statusPath $settingsPath $indexDir
+    }
 }
 
 function findMovedSource {

@@ -648,6 +648,7 @@ class IndexNode : NotifyBase {
 
     [Nullable[bool]]$IsChecked = $true   # チェックボックスは OneWay バインド。変更は Toggle/SetChecked で行う
     [bool]$IsExpanded                    # TreeViewItem.IsExpanded は OneWay。展開は Expanded イベント/SetExpanded で読み込む
+    [bool]$IsLoading                     # 裏で子を読み込んでいる間（ネットワークのとき）
     hidden [bool]$loaded
 
     IndexNode([IndexNode]$parent, [string]$name, [string]$root, [string]$relPath, [bool]$isFiles) {
@@ -661,15 +662,16 @@ class IndexNode : NotifyBase {
         if ($null -ne $parent) { $this.IsChecked = ($parent.IsChecked -ne $false) }
     }
 
-    static [IndexNode] CreateRoot([string]$root, [string]$name, [string]$relPath, [string]$sourcePath) {
+    # 根（インデックス 1 件）を作る。フォルダの有無・サブフォルダの有無は呼ぶ側が集めて渡す（ここではファイルに触らない）
+    static [IndexNode] CreateRoot([string]$root, [string]$name, [string]$relPath, [string]$sourcePath, [bool]$exists, [bool]$hasSubfolders) {
         $node = [IndexNode]::new($null, $name, $root, $relPath, $false)
         $node.SourcePath = $sourcePath
         $dir = $node.FullPath()
-        $node.Exists = [System.IO.Directory]::Exists([IndexNode]::LongPath($dir))
+        $node.Exists = $exists
         # [string] の引数・プロパティは $null を "" にするため、元のフォルダが分からないことは空で判定する
         $node.ToolTip = $(if (-not [string]::IsNullOrEmpty($sourcePath)) { "元のフォルダ：" + $sourcePath + "`nインデックス：" + $dir } else { $dir })
         if (-not $node.Exists) { $node.ToolTip += "`n（フォルダが見つかりません。検索時はスキップします）" }
-        if ($node.Exists -and [IndexNode]::HasSubfolders($dir)) { $node.Children.Add([IndexNode]::NewPlaceholder($node)) }
+        if ($node.Exists -and $hasSubfolders) { $node.Children.Add([IndexNode]::NewPlaceholder($node)) } else { $node.loaded = $true }
         return $node
     }
 
@@ -677,9 +679,8 @@ class IndexNode : NotifyBase {
         return $(if ($this.RelPath -eq "") { $this.Root } else { $this.Root.TrimEnd('\') + "\" + $this.RelPath })
     }
 
-    # 展開する（プログラムから・Expanded イベントから）。子を1回だけ読み込む
+    # 展開の状態を変える（プログラムから）。子の読み込みは呼ぶ側が行う（NeedsLoad・ApplyChildren）
     [void] SetExpanded([bool]$value) {
-        if ($value) { $this.LoadChildren() }
         if ($this.IsExpanded -eq $value) { return }
         $this.IsExpanded = $value
         $this.Raise("IsExpanded")
@@ -716,33 +717,32 @@ class IndexNode : NotifyBase {
         if ($null -ne $this.Parent) { $this.Parent.UpdateFromChildren() }
     }
 
-    [void] LoadChildren() {
+    # 子をまだ読み込んでいないか（読み込み前の子はプレースホルダーだけ）。読み込み中（IsLoading）の間も読み込み前
+    [bool] NeedsLoad() {
+        return (-not $this.loaded -and -not $this.IsFiles -and -not $this.IsPlaceholder -and $this.Exists)
+    }
+
+    # 読み込んだ子（getIndexFolderChildren の結果）を入れる。1 回だけ入れる（ここではファイルに触らない）
+    [void] ApplyChildren($data) {
         if ($this.loaded -or $this.IsFiles -or $this.IsPlaceholder) { return }
         $this.loaded = $true
+        $this.IsLoading = $false
         $this.Children.Clear()
         if (-not $this.Exists) { return }
         $dir = $this.FullPath()
-        $names = New-Object System.Collections.Generic.List[string]
-        try {
-            foreach ($sub in [System.IO.Directory]::GetDirectories([IndexNode]::LongPath($dir))) {
-                $n = [System.IO.Path]::GetFileName($sub)
-                if ([IndexNode]::IsBookDirPath($sub)) { continue }
-                $names.Add($n)
-            }
-        } catch {
-        }
-        $names.Sort([System.StringComparer]::CurrentCultureIgnoreCase)
-        if ($names.Count -gt 0 -and [IndexNode]::HasFiles($dir)) {
+        $names = @($data.Folders)
+        if ($names.Count -gt 0 -and $data.HasFiles) {
             $files = [IndexNode]::new($this, "（このフォルダ直下のファイル）", $this.Root, $this.RelPath, $true)
             $files.ToolTip = "サブフォルダを除く、" + $(if (-not [string]::IsNullOrEmpty($this.SourcePath)) { $this.SourcePath } else { $dir }) + " の直下のファイル"
             $this.Children.Add($files)
         }
-        foreach ($n in $names) {
+        foreach ($folder in $names) {
+            $n = [string]$folder.Name
             $childRel = $(if ($this.RelPath -eq "") { $n } else { $this.RelPath + "\" + $n })
             $child = [IndexNode]::new($this, $n, $this.Root, $childRel, $false)
             if (-not [string]::IsNullOrEmpty($this.SourcePath)) { $child.SourcePath = $this.SourcePath.TrimEnd('\') + "\" + $n }
             $child.ToolTip = $(if (-not [string]::IsNullOrEmpty($child.SourcePath)) { "元のフォルダ：" + $child.SourcePath } else { $child.FullPath() })
-            if ([IndexNode]::HasSubfolders($child.FullPath())) { $child.Children.Add([IndexNode]::NewPlaceholder($child)) }
+            if ($folder.HasSubfolders) { $child.Children.Add([IndexNode]::NewPlaceholder($child)) } else { $child.loaded = $true }
             $this.Children.Add($child)
         }
     }
@@ -753,7 +753,7 @@ class IndexNode : NotifyBase {
         $path = $path.TrimEnd('\')
         if ([string]::Equals($path, $full, [System.StringComparison]::OrdinalIgnoreCase)) { return $this }
         if (-not $path.StartsWith($full + "\", [System.StringComparison]::OrdinalIgnoreCase)) { return $null }
-        $this.LoadChildren()
+        # 読み込み前の子はたどらない（ファイルに触らない。読み込みは呼ぶ側が先に済ませる）
         foreach ($child in $this.Children) {
             $found = $child.Find($path)
             if ($null -ne $found) { return $found }
@@ -765,7 +765,6 @@ class IndexNode : NotifyBase {
         $node = $this.Find($path)
         if ($null -eq $node) { return }
         if (-not $subfolders) {
-            $node.LoadChildren()
             foreach ($child in $node.Children) {
                 if ($child.IsFiles) { $child.SetChecked($false); return }
             }
@@ -802,58 +801,5 @@ class IndexNode : NotifyBase {
         $node = [IndexNode]::new($parent, "読み込み中…", $parent.Root, $parent.RelPath, $false)
         $node.IsPlaceholder = $true
         return $node
-    }
-
-    static [string] LongPath([string]$path) {
-        if ($path.StartsWith("\\?\")) { return $path }
-        if ($path.EndsWith(":")) { $path += "\" }
-        if ($path.StartsWith("\\")) { return "\\?\UNC\" + $path.Substring(2) }
-        return "\\?\" + $path
-    }
-
-    static [bool] IsBookDir([string]$name) {
-        # 元のファイルごとのフォルダと分かる拡張子か。Office は拡張子の形（.xls・.doc・.ppt で始まり 4〜5 文字）で見分け、
-        # テキストは対象の拡張子の一覧（shared\core\text_file.ps1 の testTextExtension。一覧はそこにだけある）で見分ける
-        $ext = [System.IO.Path]::GetExtension($name).ToLowerInvariant()
-        if ($ext.Length -ge 4 -and $ext.Length -le 5 -and
-            ($ext.StartsWith(".xls") -or $ext.StartsWith(".doc") -or $ext.StartsWith(".ppt"))) {
-            return $true
-        }
-        return (testTextExtension $name)
-    }
-
-    static [bool] IsBookDirPath([string]$dir) {
-        # 元のファイルごとのフォルダ（集約する前の TSV・中身が空のファイルのフォルダ）か。名前が .xlsx などで終わる本物のフォルダと
-        # 区別するため、サブフォルダも集約ファイル（content_index.*.tsv）も無いことも見る（pack_store.ps1 の testIndexBookDir と同じ判定）
-        if (-not [IndexNode]::IsBookDir([System.IO.Path]::GetFileName($dir.TrimEnd('\')))) { return $false }
-        try {
-            # 列挙子（Enumerate*）を途中で抜けると、GC まで調べたフォルダを掴んだまま残り、インポートの上書きで
-            # content_index\<名前> を移動できなくなる。直下だけなので配列（Get*）で受ける（HasSubfolders・HasFiles・LoadChildren も同じ）
-            $long = [IndexNode]::LongPath($dir)
-            if ([System.IO.Directory]::GetDirectories($long).Length -gt 0) { return $false }
-            if ([System.IO.Directory]::GetFiles($long, "content_index.*.tsv").Length -gt 0) { return $false }
-            return $true
-        } catch { return $false }
-    }
-
-    static [bool] HasSubfolders([string]$dir) {
-        try {
-            foreach ($sub in [System.IO.Directory]::GetDirectories([IndexNode]::LongPath($dir))) {
-                if (-not [IndexNode]::IsBookDirPath($sub)) { return $true }
-            }
-            return $false
-        } catch { return $false }
-    }
-
-    static [bool] HasFiles([string]$dir) {
-        try {
-            # 集約ファイル（content_index.<拡張子>.tsv。pack_format.ps1 の packFilePattern）か、集約する前の TSV があれば、フォルダ直下にファイルがある
-            if ([System.IO.Directory]::GetFiles([IndexNode]::LongPath($dir), "content_index.*.tsv").Length -gt 0) { return $true }
-            foreach ($sub in [System.IO.Directory]::GetDirectories([IndexNode]::LongPath($dir))) {
-                if (-not [IndexNode]::IsBookDirPath($sub)) { continue }
-                if ([System.IO.Directory]::GetFiles($sub, "*.tsv").Length -gt 0) { return $true }
-            }
-            return $false
-        } catch { return $false }
     }
 }

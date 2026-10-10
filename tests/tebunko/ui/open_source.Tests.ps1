@@ -154,7 +154,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "ネットワークのパスでは、画面のスレッドから直接 getPathState・Test-Path を呼ばない（呼んだら失敗にする）" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
         Mock getPathState { throw "画面のスレッドから getPathState を呼んでいる" }
         Mock Test-Path { throw "画面のスレッドから Test-Path を呼んでいる" }
@@ -165,7 +165,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "待っている間に同じ行をもう一度開いても、新しい依頼は出さない" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         # 応答が来ない仕事を真似る（onDone を呼ばないため、依頼は待ったままになる）
         Mock startJob { $script:startJobCalls++ }
 
@@ -179,7 +179,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "cancelPendingSourceLookup を呼ぶと、待っていた行をもう一度開いたときに新しい依頼を出す" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock startJob { $script:startJobCalls++ }
 
         $row = newRow
@@ -205,7 +205,7 @@ Describe "findSourceFile" -Tag Io {
     It "結果が届いた後、同じ行をもう一度開くと新しい依頼を出す" {
         # GetNewClosure() の中で待っている行の記録を戻すため、結果が届いた後に片づいていることを確かめる
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
 
         $row = newRow
@@ -240,7 +240,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "ネットワークのパスは裏の仕事（'network' の列）で確かめ、届くまで確かめている間のステータスを出す" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
 
         findSourceFile (newRow) { param ($path) $script:foundPaths.Add($path) }
@@ -252,7 +252,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "待っている間に別の行を開く等をすると、前の依頼の結果は捨てる" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { @{ State = "Found"; Path = "\\server\share\営業\sub\見積.xlsx" } }
         # 結果が届く前に、別の依頼（openSourceRequest が進む）が出たことを真似る
         $fake.BeforeDone = { $script:openSourceRequest.Value++ }
@@ -263,7 +263,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "接続できないときは確認のダイアログを出し、ステータスに知らせる" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { @{ State = "Unreachable"; Message = "" } }
         Mock showConfirm { $null }
 
@@ -276,7 +276,7 @@ Describe "findSourceFile" -Tag Io {
     It "接続できないダイアログで［フォルダを選ぶ］を選ぶと、見つからないときと同じ流れに進む" {
         newTsv "$TestDrive\moved\sub\見積.xlsx" @("x")
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { @{ State = "Unreachable"; Message = "" } }
         Mock showConfirm { "pick" }
         Mock selectFolder { "$TestDrive\moved" }
@@ -289,7 +289,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "その他の失敗のときは、例外の文面を出す" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { @{ State = "Other"; Message = "アクセスが拒否されました。" } }
         Mock showConfirm { $null }
 
@@ -300,7 +300,7 @@ Describe "findSourceFile" -Tag Io {
 
     It "裏の仕事が予期せず失敗したときも、その他として知らせる" {
         Mock getSourceLocation { @{ Name = "営業"; Folder = "\\server\share\営業"; Rest = "sub"; Known = $true } }
-        Mock testNetworkPath { $true }
+        Mock testNetworkPath { param ($path) ([string]$path).StartsWith("\\") }
         Mock findSourceFileState { throw "バグ" }
         Mock showConfirm { $null }
 
@@ -381,6 +381,156 @@ Describe "findSourceFile" -Tag Io {
         $script:foundPaths.Count | Should -Be 0
         Should -Invoke showConfirm -Times 2 -Exactly
         Should -Invoke showConfirm -Times 1 -Exactly -ParameterFilter { $facts -and $facts[0] -eq "✗ 選んだフォルダの中にありませんでした" }
+    }
+}
+
+Describe "元の場所の対応の読み込み（ネットワークのワークスペース）" -Tag Unit {
+    BeforeAll {
+        $script:workspace = newTestWorkspace @{ IndexDir = "\\fileserver\共有\ws\work\index"; StatusFile = "\\fileserver\共有\ws\work\ingest_status.tsv" }
+        function newNetworkRow {
+            [pscustomobject]@{ Root = "\\fileserver\共有\ws\work\index"; RelDir = "営業\sub"; RelPath = "営業\sub\見積.xlsx"; Book = "見積.xlsx" }
+        }
+        function newSourceMap {
+            $map = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::OrdinalIgnoreCase)
+            $map["営業"] = "\\fileserver\共有\営業"
+            return , $map
+        }
+    }
+
+    BeforeEach {
+        $script:statuses = New-Object System.Collections.Generic.List[string]
+        $script:sourceFolderMaps = @{}
+        $script:startJobCalls = 0
+        $script:foundPaths = New-Object System.Collections.Generic.List[string]
+        $script:openSourcePendingRow.Value = $null
+        $script:openSourcePendingPath.Value = ""
+        $fake.BeforeDone = $null
+        Mock testNetworkPath { ([string]$path).StartsWith("\\") }
+        Mock getSourceLocation { throw "画面のスレッドで対応を読んだ" }
+    }
+
+    It "開く: 対応が未読なら、画面のスレッドで読まず、裏の仕事で読んでから元のファイルを確かめる" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\fileserver\共有\営業\sub\見積.xlsx" } }
+
+        findSourceFile (newNetworkRow) { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 2
+        $script:statuses[0] | Should -Be (getSourceLookingStatus)
+        $script:foundPaths -join "," | Should -Be "\\fileserver\共有\営業\sub\見積.xlsx"
+        $script:sourceFolderMaps.ContainsKey("\\fileserver\共有\ws\work\index") | Should -Be $true
+        $window.Cursor | Should -Be $null
+        Should -Invoke getSourceLocation -Times 0
+    }
+
+    It "開く: 対応がキャッシュにあれば、対応を読む裏の仕事を出さない" {
+        $script:sourceFolderMaps = @{ "\\fileserver\共有\ws\work\index" = (newSourceMap) }
+        Mock findSourceFileState { @{ State = "Found"; Path = "\\fileserver\共有\営業\sub\見積.xlsx" } }
+
+        findSourceFile (newNetworkRow) { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 1
+        $script:statuses[0] | Should -BeLike "元のファイルを確かめています…*"
+    }
+
+    It "開く: 読めなかったときは、ステータスに知らせて開かない" {
+        Mock getSourceFolderMap { throw "届きません" }
+
+        findSourceFile (newNetworkRow) { param ($path) $script:foundPaths.Add($path) }
+
+        $script:foundPaths.Count | Should -Be 0
+        $script:statuses[$script:statuses.Count - 1] | Should -Be (getSourceLookupFailedStatus "届きません")
+        $window.Cursor | Should -Be $null
+    }
+
+    It "開く: 待っている間に同じ行をもう一度開いても、新しい依頼は出さず、調べている最中であることを出し直す" {
+        Mock startJob { $script:startJobCalls++ }
+
+        $row = newNetworkRow
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+        findSourceFile $row { param ($path) $script:foundPaths.Add($path) }
+
+        $script:startJobCalls | Should -Be 1
+        $script:statuses | Should -Be @((getSourceLookingStatus), (getSourceLookingStatus))
+    }
+
+    It "開く: 待っている間に別の依頼が出たら、読んだ結果は捨てる" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock findSourceFileState { @{ State = "Found"; Path = "x" } }
+        $fake.BeforeDone = { $script:openSourceRequest.Value++ }
+
+        findSourceFile (newNetworkRow) { param ($path) $script:foundPaths.Add($path) }
+
+        $script:foundPaths.Count | Should -Be 0
+        $script:sourceFolderMaps.Count | Should -Be 0
+    }
+
+    It "パスをコピー: 対応が未読なら、裏の仕事で読んでから写す" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+
+        copySourcePath
+
+        $script:startJobCalls | Should -Be 1
+        $script:statuses[0] | Should -Be (getSourceLookingStatus)
+        Should -Invoke setClipboardText -Times 1 -Exactly -ParameterFilter { $text -eq "\\fileserver\共有\営業\sub\見積.xlsx" }
+        Should -Invoke getSourceLocation -Times 0
+    }
+
+    It "パスをコピー: 対応がキャッシュにあれば、その場で写す（裏の仕事は出さない）" {
+        $script:sourceFolderMaps = @{ "\\fileserver\共有\ws\work\index" = (newSourceMap) }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+
+        copySourcePath
+
+        $script:startJobCalls | Should -Be 0
+        Should -Invoke setClipboardText -Times 1 -Exactly
+    }
+
+    It "パスをコピー: 待っている間に別のコピーの依頼が出たら、写さない" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+        $fake.BeforeDone = { $script:copySourceRequest.Value++ }
+
+        copySourcePath
+
+        Should -Invoke setClipboardText -Times 0 -Exactly
+    }
+
+    It "パスをコピー: [開く] の依頼が出ても、コピーの結果は捨てない（番号を分けている）" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+        $fake.BeforeDone = { $script:openSourceRequest.Value++ }
+
+        copySourcePath
+
+        Should -Invoke setClipboardText -Times 1 -Exactly
+    }
+
+    It "パスをコピー: 検索し直し・ワークスペースの変更（cancelPendingSourceLookup）では、コピーの結果も捨てる" {
+        Mock getSourceFolderMap { newSourceMap }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+        $fake.BeforeDone = { cancelPendingSourceLookup }
+
+        copySourcePath
+
+        Should -Invoke setClipboardText -Times 0 -Exactly
+    }
+
+    It "パスをコピー: 読めなかったときは、ステータスに知らせて写さない" {
+        Mock getSourceFolderMap { throw "届きません" }
+        Mock getCurrentHitRow { newNetworkRow }
+        Mock setClipboardText { }
+
+        copySourcePath
+
+        Should -Invoke setClipboardText -Times 0 -Exactly
+        $script:statuses[$script:statuses.Count - 1] | Should -Be (getSourceLookupFailedStatus "届きません")
     }
 }
 
