@@ -4175,7 +4175,7 @@
 </tr>
 <tr>
 <td><code>scripts/shared/office/</code></td>
-<td>Office ファイルの判定（<code>office_files.ps1</code>）・プロセスの一覧と強制終了（<code>office_process.ps1</code>）・Office ファイルを ZIP として読む処理（<code>office_reader.ps1</code>）・Office アプリ（COM）の起動と終了（<code>office_app.ps1</code>）・暗号化されたファイルの種類の判定（判断層 <code>office_protection_view.ps1</code>）とその読み取り（<code>office_protection.ps1</code>）</td>
+<td>Office ファイルの判定（<code>office_files.ps1</code>）・プロセスの一覧と強制終了（<code>office_process.ps1</code>）・Office ファイルを ZIP として読む処理（<code>office_reader.ps1</code>）とその中の埋め込みファイルを読む処理（<code>office_embedded.ps1</code>）・Office アプリ（COM）の起動と終了（<code>office_app.ps1</code>）・暗号化されたファイルの種類の判定（判断層 <code>office_protection_view.ps1</code>）とその読み取り（<code>office_protection.ps1</code>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/ui/</code></td>
@@ -4236,7 +4236,7 @@
     GUI["tebunko/gui.ps1&lt;br&gt;（画面の起動口）"] --&gt; LIB
     IDX["tebunko/indexer.ps1&lt;br&gt;（インデックス作成の起動口）"]
     GUI --&gt; UI["shared/ui/*・tebunko/ui/*"]
-    IDX --&gt; IXL["tebunko/indexer/indexer_lib.ps1"] --&gt; IXO["shared/office/office_reader.ps1・office_app.ps1&lt;br&gt;tebunko/indexer/indexer_plan.ps1・extract_office.ps1・index_migrate.ps1・indexer_run.ps1"]
+    IDX --&gt; IXL["tebunko/indexer/indexer_lib.ps1"] --&gt; IXO["shared/office/office_reader.ps1・office_embedded.ps1・office_app.ps1&lt;br&gt;tebunko/indexer/indexer_plan.ps1・extract_office.ps1・index_migrate.ps1・indexer_run.ps1"]
     IXL --&gt; LIB
     LIB["tebunko/lib.ps1"] --&gt; SH["shared/shared.ps1"]
     LIB --&gt; TG["tebunko の core/・index/・search/&lt;br&gt;indexer/indexer_state.ps1・indexer_decide.ps1・indexing_session.ps1"]
@@ -4263,12 +4263,12 @@
 </tr>
 <tr>
 <td><code>scripts/tebunko/indexer/indexer_lib.ps1</code></td>
-<td><code>lib.ps1</code> ＋ インデックス作成だけで使う <code>office_reader.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code></td>
+<td><code>lib.ps1</code> ＋ インデックス作成だけで使う <code>office_reader.ps1</code>・<code>office_embedded.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code></td>
 <td><code>indexer.ps1</code>・取り込みのスレッド（画面は読み込まない）</td>
 </tr>
 </tbody>
 </table>
-<p>画面の部品（<code>shared/ui/</code>・<code>tebunko/ui/</code>）は <code>gui.ps1</code> が、インデックス作成だけで使うもの（<code>office_reader.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code>）は <code>indexer/indexer_lib.ps1</code> が読み込む。<code>indexer_lib.ps1</code> は <code>indexer.ps1</code> と取り込みのスレッドが読み込む（画面は読み込まない）。</p>
+<p>画面の部品（<code>shared/ui/</code>・<code>tebunko/ui/</code>）は <code>gui.ps1</code> が、インデックス作成だけで使うもの（<code>office_reader.ps1</code>・<code>office_embedded.ps1</code>・<code>office_app.ps1</code>・<code>indexer_plan.ps1</code>・<code>extract_office.ps1</code>・<code>index_migrate.ps1</code>・<code>indexer_run.ps1</code>）は <code>indexer/indexer_lib.ps1</code> が読み込む。<code>indexer_lib.ps1</code> は <code>indexer.ps1</code> と取り込みのスレッドが読み込む（画面は読み込まない）。</p>
 <p>各スクリプト・テストからは dot-source（<code>. "$PSScriptRoot\lib.ps1"</code>）して使う。<code>ui/</code> の部品は <code>$PSScriptRoot</code> ではなく、<code>gui.ps1</code> から渡された <code>$TebunkoDir</code>（<code>tebunko/</code> 直下のパス）を基準に読み込む。</p>
 <p>別スレッド（検索・背景の仕事・取り込み）の中では <code>$PSScriptRoot</code> が使えない。そのため、スレッドへ読み込ませる部品（<code>lib</code>・<code>indexerLib</code>）の読み込みは、<code>scripts/tebunko/core/parts.ps1</code> の <code>getPartLoad</code> が、呼び出し側で絶対パスに解決した <code>. '&lt;パス&gt;'</code> の文字列にして渡す。この文字列は、検索（<code>search_service.ps1</code>）・インデックス作成（<code>indexer_run.ps1</code>・<code>indexing_session.ps1</code>）が、別スレッドへ渡す前に <code>joinWorkerScript</code>（<code>shared/core/worker_pool.ps1</code>）でスレッドの本体の前につなぐ（背景の仕事の <code>WorkerPool</code> も、<code>worker_pool.ps1</code> の中で同じようにつなぐ）。スレッドの中には読み込みの行を書かないので、検査がたどる対象にならない（部品は <code>lib.ps1</code>・<code>indexer_lib.ps1</code> を通して読み込み漏れが見つかる）。</p>
 <h2 id="起動口となるスクリプトscripts">起動口となるスクリプト（<code>scripts/</code>）<a class="headerlink" href="#起動口となるスクリプトscripts" title="Permanent link">&para;</a></h2>
@@ -4290,6 +4290,11 @@
 <td><code>scripts/shared/shared.ps1</code></td>
 <td>スクリプト</td>
 <td>共通基盤の読み込み口</td>
+</tr>
+<tr>
+<td><code>scripts/shared/office/office_embedded.ps1</code></td>
+<td>スクリプト</td>
+<td>Word・PowerPoint に埋め込んだ Office のファイル（.xlsx・.docx・.pptx）を、メモリの上で ZIP として読み、中の文字を取り出す。<code>office_reader.ps1</code> の後に読み込む（読み方は <a href="../../indexing/word/#埋め込みの読み取りreadembeddedobjectlines">Word の埋め込みの読み取り</a>）</td>
 </tr>
 <tr>
 <td><code>scripts/shared/office/office_reader.ps1</code></td>
