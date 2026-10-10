@@ -4102,6 +4102,12 @@
 <td><a href="checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a></td>
 </tr>
 <tr>
+<td>細工した Office ファイル</td>
+<td>ZIP（<code>.xlsx</code> / <code>.docx</code> / <code>.pptx</code>）を直接読む処理は、部品 1 つ 100MB・1 ファイル合計 300MB のサイズの上限（ヘッダーを偽ったものも検知）と、DTD（<code>&lt;!DOCTYPE&gt;</code>）の処理の禁止で、時間・メモリを使い切らせる細工から身を守る</td>
+<td><code>safety.Tests.ps1</code></td>
+<td><a href="checks/#細工した-office-ファイルから身を守ること">細工した Office ファイルから身を守ること</a></td>
+</tr>
+<tr>
 <td>資格情報</td>
 <td>保存・送信・入力要求のいずれも行わない。パスワード付きファイルは解除を試みず、失敗として記録する。IRM・秘密度ラベルで暗号化されたファイルは、ライセンス取得・サインイン画面が出る前に、開かずに失敗として記録する（ファイルを開く前に暗号化の種類を判定する）</td>
 <td><code>safety.Tests.ps1</code>・PSScriptAnalyzer</td>

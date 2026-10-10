@@ -4353,7 +4353,7 @@
 </tr>
 <tr>
 <td><code>ファイルサイズが大きすぎるため更新できません。</code></td>
-<td>テキストファイル（<code>.txt</code> 等）が大きさの上限（10MB）を超える（<code>readTextFile</code>。<a href="../text/#大きさの上限">テキストファイルの読み取り</a>）</td>
+<td>テキストファイル（<code>.txt</code> 等）が大きさの上限（10MB）を超える（<code>readTextFile</code>。<a href="../text/#大きさの上限">テキストファイルの読み取り</a>）。または <code>.docx</code> <code>.pptx</code> <code>.xlsx</code> を直接読むとき（Office を使わない）、ZIP の部品 1 つ（展開後）が上限（100MB）、または 1 ファイルで読む合計が上限（300MB）を超える（<code>readZipEntry</code>。<a href="../../../safety/checks/#office-ファイルを開くときの設定">Office ファイルを開くときの設定</a>）。画面・取り込み一覧の文言はこの短いものだけで、部品ごとか合計か・部品名・大きさは出さない（悪用のヒントになるため）が、原因を調べられるよう <code>work/indexing_log.txt</code> にはその詳細を書く（<code>writeZipSizeLimitLog</code>）</td>
 <td>ファイルを分割する。取り込めなくてよいなら、そのままにする</td>
 </tr>
 <tr>

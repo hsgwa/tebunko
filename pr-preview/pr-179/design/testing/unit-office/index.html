@@ -4056,7 +4056,7 @@
 </tr>
 <tr>
 <td><code>readXlsxObjectUnits</code> / <code>getCellPosition</code></td>
-<td>表示シートの図形・コメントだけをシートごとの場所にする、図形は左上のセル番地の順、グループ化した図形は 1 つ、互換用の代替表示は読まない、スレッド形式のコメント（返信を含む）、ふりがなは読まない、Excel のブックでない ZIP は何も返さない、グラフ・SmartArt の文字を読む（数値は読まない）、テキストボックスの段落 → グラフ・SmartArt の順に 1 つの図形にする、参照先・リレーションシップ（図形の部品自身のものを含む）が無い・部品が壊れたグラフは空にしてほかの図形・コメントは出す（読めなかった部品を <code>$failures</code> に返す）、表示のグラフシートは <code>A1</code> で読み非表示のグラフシートは読まない</td>
+<td>表示シートの図形・コメントだけをシートごとの場所にする、図形は左上のセル番地の順、グループ化した図形は 1 つ、互換用の代替表示は読まない、スレッド形式のコメント（返信を含む）、ふりがなは読まない、Excel のブックでない ZIP は何も返さない、グラフ・SmartArt の文字を読む（数値は読まない）、テキストボックスの段落 → グラフ・SmartArt の順に 1 つの図形にする、参照先・リレーションシップ（図形の部品自身のものを含む）が無い・部品が壊れたグラフは空にしてほかの図形・コメントは出す（読めなかった部品を <code>$failures</code> に返す）、グラフ・SmartArt の部品がサイズの上限を超えたときは、その <code>ZipSizeLimitException</code> を <code>$sizeFailures</code> に返す（部品名・大きさ・部品ごとか合計かを呼び出し元がログに書けるように）、表示のグラフシートは <code>A1</code> で読み非表示のグラフシートは読まない</td>
 </tr>
 <tr>
 <td><code>getHeaderFooterLines</code> / <code>readXlsxSheetHeaderFooter</code> / <code>readXlsxHeaderFooterLines</code>（<code>readXlsxObjectUnits</code> 経由）</td>
@@ -4069,6 +4069,10 @@
 <tr>
 <td><code>readDocxUnits</code> / <code>readPptxUnits</code>（壊れた ZIP）</td>
 <td>本文・プレゼンテーション情報が無ければ、分かるメッセージで例外にする</td>
+</tr>
+<tr>
+<td><code>readZipEntry</code>（サイズの上限） / <code>newXmlDocument</code>（DTD）</td>
+<td>部品 1 つの展開後の大きさ・1 ファイルで読む合計が、それぞれの上限を超えると簡潔なメッセージ（<code>ZipSizeLimitException</code>。<code>PartName</code>・<code>MeasuredBytes</code>・<code>LimitKind</code>（<code>Part</code> / <code>Total</code>）を持つ）で例外にする、ヘッダーの大きさを偽って小さく見せた部品も検知する（型は <code>GetType().Name</code> が <code>ZipSizeLimitException</code> であること、部品名・大きさ・種類はプロパティで確かめる。上限ちょうどは読め、1 バイト超えると例外になる境界、空の部品、Deflate 圧縮の部品の偽りのヘッダー、申告が大きくても中身が小さければ中身を返すことも確かめる）。Excel のヘッダー・フッターの流れ読みの上限（<code>zipSheetStreamMaxBytes</code>）は、申告が上限を超えるシートを開かないこと、部品の上限（100MB）を超えるシートは読めること、申告を小さく偽ったシート（無圧縮・Deflate）を読む途中で止めることを確かめる（上限を小さい値に差し替える）、<code>readDocxUnits</code> / <code>readPptxUnits</code> / <code>readXlsxObjectUnits</code> が呼ぶたびに合計を数え直す、DTD（<code>&lt;!DOCTYPE&gt;</code>）宣言を含む XML は例外にする（実体参照を入れ子にして膨張させる攻撃を防ぐ）、既存の BOM 判定・文字コードの扱いは変わらない</td>
 </tr>
 <tr>
 <td><code>writeUnits</code></td>

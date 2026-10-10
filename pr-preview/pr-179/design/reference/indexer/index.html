@@ -4393,6 +4393,14 @@
 <td>インデックス作成</td>
 </tr>
 <tr>
+<td><code>writeZipSizeLimitLog</code></td>
+<td>exception</td>
+<td>–</td>
+<td>.docx・.pptx・.xlsx を直接読んでサイズの上限を超えたときの詳細（部品名・大きさ・部品ごとか合計か）をインデックス作成のログにだけ書く（画面・取り込み一覧には出さない）。渡した例外が <code>ZipSizeLimitException</code>（<code>shared/office/office_reader.ps1</code>）でなければ何もしない</td>
+<td><a href="../../indexing/office-apps/#失敗の原因describeingesterror">失敗の原因</a></td>
+<td>インデックス作成（extract_office.ps1, indexer_run.ps1）</td>
+</tr>
+<tr>
 <td><code>newIngestPlanRow</code></td>
 <td>name, path, kind, total, targets, new, updated, pending, lost, failed</td>
 <td>取り込み予定の 1 行（<code>[pscustomobject]</code>）</td>
