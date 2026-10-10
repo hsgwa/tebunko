@@ -1119,43 +1119,49 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Log | Should -Not -Match "サイズの上限"
     }
 
-    It "Excel の取り込みのあとに利用者が開いたブックがあれば、閉じずに渡し、次の Excel の取り込みは新しく起動する" {
-        ${tmpDir} = Join-Path $TestDrive "handover_tmp"
+    It "<app> の取り込みのあとに利用者が開いたファイルがあれば、閉じずに渡し、次の取り込みは新しく起動する" -TestCases @(
+        @{ app = "Excel"; ext = "xlsx"; items = "Workbooks"; shown = $true }
+        @{ app = "Word"; ext = "docx"; items = "Documents"; shown = $true }
+        @{ app = "PowerPoint"; ext = "pptx"; items = "Presentations"; shown = $false }
+    ) {
+        param ($app, $ext, $items, $shown)
+        ${tmpDir} = Join-Path $TestDrive "handover_tmp_$app"
         [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
         $script:officeOwnDir = ${tmpDir}
         $script:onOfficeHandOver = ${officeHandOverNotice}
+        $global:handoverApp = $app
         $global:handoverFake = New-Object psobject -Property @{
             Visible = $false; UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
             AskToUpdateLinks = $false; AutomationSecurity = 3
-            Workbooks = @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.xlsx" })
         }
+        $global:handoverFake | Add-Member -MemberType NoteProperty -Name $items -Value @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.$ext" })
         $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
         $global:handoverStarts = New-Object System.Collections.ArrayList
         Mock ingestFile {
-            [void]$global:handoverStarts.Add(-not $script:apps.ContainsKey("Excel"))
-            $script:apps["Excel"] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
+            [void]$global:handoverStarts.Add(-not $script:apps.ContainsKey($global:handoverApp))
+            $script:apps[$global:handoverApp] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
             return 1
         }
         Mock publishTsv { }
         Mock getBookDir { "x" }
         Mock getExtractVersion { "1" }
         try {
-            $first = invokeIngestTask @{ RelPath = "資料\a.xlsx"; SourcePath = "C:\data\a.xlsx" } 10
+            $first = invokeIngestTask @{ RelPath = "資料\a.$ext"; SourcePath = "C:\data\a.$ext" } 10
             $first.Ok | Should -Be $true
-            $first.Log | Should -Match "開かれたブックがあるため Excel を利用者に渡しました"
-            $script:apps.ContainsKey("Excel") | Should -Be $false
-            $global:handoverFake.Visible | Should -Be $true
+            $first.Log | Should -Match "開かれたファイルがあるため $app を利用者に渡しました"
+            $script:apps.ContainsKey($app) | Should -Be $false
+            $global:handoverFake.Visible | Should -Be $shown
             $global:handoverFake.AutomationSecurity | Should -Be 1
 
-            # 渡したあとの次のファイルは、新しい Excel を起動する（渡した Excel を使い続けない）
-            $global:handoverFake.Workbooks = @()
-            [void](invokeIngestTask @{ RelPath = "資料\b.xlsx"; SourcePath = "C:\data\b.xlsx" } 10)
+            # 渡したあとの次のファイルは、新しいアプリを起動する（渡したアプリを使い続けない）
+            $global:handoverFake.$items = @()
+            [void](invokeIngestTask @{ RelPath = "資料\b.$ext"; SourcePath = "C:\data\b.$ext" } 10)
             @($global:handoverStarts) | Should -Be @($true, $true)
         } finally {
-            $script:apps.Remove("Excel")
+            $script:apps.Remove($app)
             $script:officeOwnDir = $null
             $script:onOfficeHandOver = $null
-            Remove-Variable -Name handoverFake, handoverStarts -Scope Global
+            Remove-Variable -Name handoverFake, handoverStarts, handoverApp -Scope Global
         }
     }
 

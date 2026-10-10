@@ -12,12 +12,43 @@ $script:apps = @{}
 #   Excel は抽出で取り出したCOMオブジェクトが解放されきらないため、インデクサが動いている間は Quit しても終わらず、
 #   待ちの上限まで待ってから強制終了していた（実測: 毎回 5 秒待って強制終了）。待つだけ無駄なため短くする。
 #   GC で解放を促して自分で終わらせる方法は、インデクサの終了が COM の解放待ちで約 60 秒止まることがあった（実測 25 回中 1〜2 回）ため採らない
+# 利用者に渡すときの、アプリごとの違い（handOverForeignApp・restoreHandedOverApp）:
+#   Items      : 開いているファイルの一覧を持つ、アプリのプロパティの名前（Workbooks・Documents・Presentations）
+#   Close      : 自分のファイルを保存せずに閉じる処理（引数は 1 つのファイル）
+#   Restore    : 渡すときに戻す設定。getApp が変える設定は、ここに全部ある（テストで確かめる）。Required は戻らないと渡し切れない設定、
+#                Optional は戻ればよい設定、ShowWindow は窓を出すか（Visible を真にする行は restoreHandedOverApp の中の 1 か所だけ）。
+#                WindowCheck は、ファイルの一覧を読めないとき、見える窓があるかで利用者のものかを判断するか
+#                （Word は自分で窓を隠しているため窓では判断できない。読めなければ渡しも終了もせず、持ち続けて後で読み直す）
 $appInfo = @{
-    Excel      = @{ ProgId = "Excel.Application";      Process = "EXCEL";    ExitWait = 1000 }
-    Word       = @{ ProgId = "Word.Application";       Process = "WINWORD";  ExitWait = 5000 }
+    Excel      = @{
+        ProgId = "Excel.Application"; Process = "EXCEL"; ExitWait = 1000
+        Items = "Workbooks"; Close = { param ($item) $item.Close($false) }
+        Restore = @{
+            Required = @(@("DisplayAlerts", $true), @("UserControl", $true))
+            Optional = @(@("EnableEvents", $true), @("ScreenUpdating", $true), @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))
+            ShowWindow = $true; WindowCheck = $true
+        }
+    }
+    Word       = @{
+        ProgId = "Word.Application"; Process = "WINWORD"; ExitWait = 5000
+        Items = "Documents"; Close = { param ($item) $item.Close(0) }  # wdDoNotSaveChanges
+        Restore = @{
+            Required = @(,@("DisplayAlerts", -1))  # wdAlertsAll
+            Optional = @(,@("AutomationSecurity", 1))
+            ShowWindow = $true; WindowCheck = $false
+        }
+    }
     # SingleInstance: 1つのセッションに1つのプロセスしか持てないアプリ（PowerPointだけ）。
     # 既に起動している（利用者が開いている）ときは、接続せずに使わない（下の getApp）
-    PowerPoint = @{ ProgId = "PowerPoint.Application"; Process = "POWERPNT"; ExitWait = 5000; SingleInstance = $true }
+    PowerPoint = @{
+        ProgId = "PowerPoint.Application"; Process = "POWERPNT"; ExitWait = 5000; SingleInstance = $true
+        Items = "Presentations"; Close = { param ($item) $item.Close() }
+        Restore = @{
+            Required = @(,@("DisplayAlerts", 2))  # ppAlertsAll
+            Optional = @(,@("AutomationSecurity", 1))
+            ShowWindow = $false; WindowCheck = $true
+        }
+    }
 }
 
 # SingleInstance のアプリが、既に自分のセッションで起動している（利用者が使用中の）ときに投げる例外の文言。
@@ -35,14 +66,14 @@ $script:officePidSink = $null
 # shared はツールを知らないため、使う側（インデックス作成）が場所を決めて入れる（office_process.ps1 の addOfficeRecord・removeOfficeRecord）。
 # 記録は、次に画面を起動したときに、残った Office を確認して止めるために使う（書けなくても取り込みは続ける。その Office は止める対象にならない）
 $script:officeRecordDir = $null
-# 自分が開くブックの置き場（インデックス作成の作業領域の一時フォルダ。$null なら、開いているブックをすべて利用者のものとみなす）。
-# 使う側が入れる。置き場の外のブックが Excel に開かれたら、利用者が開いたブックとして扱う（getForeignWorkbookCount・handOverApp）
+# 自分が開くファイルの置き場（インデックス作成の作業領域の一時フォルダ。$null なら、開いているファイルをすべて利用者のものとみなす）。
+# 使う側が入れる。置き場の外のファイルが Excel・Word・PowerPoint に開かれたら、利用者が開いたファイルとして扱う（getForeignWorkbookCount・handOverApp）
 $script:officeOwnDir = $null
-# Excel を利用者に渡そうとしたときに呼ぶ処理（スクリプトブロック。引数はアプリ名と、渡し切れたか（戻しきれたか）。$null なら何もしない）。ログを書く使う側が入れる
+# Excel・Word・PowerPoint を利用者に渡そうとしたときに呼ぶ処理（スクリプトブロック。引数はアプリ名と、渡し切れたか（戻しきれたか）。$null なら何もしない）。ログを書く使う側が入れる
 $script:onOfficeHandOver = $null
-# 渡そうとして戻しきれなかった Excel（COM の参照を放さずに持ち続ける）
+# 渡そうとして戻しきれなかったアプリ（COM の参照を放さずに持ち続ける）
 $script:officeKeptApps = @()
-# 渡し切れずに持ち続けた Excel を仕上げ直して待つ、取り込みのスレッドの終わりの上限（秒）と間隔（ミリ秒）
+# 渡し切れずに持ち続けたアプリを仕上げ直して待つ、取り込みのスレッドの終わりの上限（秒）と間隔（ミリ秒）
 $script:officeKeptWaitSeconds = 30
 $script:officeKeptWaitStep = 500
 
@@ -84,15 +115,16 @@ function isUnderDir {
 }
 
 function getWorkbookSplit {
-    # Excel で開いているブックを、自分が開いたもの（置き場の下）と利用者が開いたもの（外）に分ける。@{ Own; Foreign }
-    # 開いたブックの FullName を控えて照合する方法は、失敗の途中で Open が戻らなかったブックを控えられないため採らない。
+    # アプリで開いているファイル（Excel のブック・Word の文書・PowerPoint のプレゼンテーション）を、自分が開いたもの（置き場の下）と
+    # 利用者が開いたもの（外）に分ける。@{ Own; Foreign }
+    # 開いたファイルの FullName を控えて照合する方法は、失敗の途中で Open が戻らなかったファイルを控えられないため採らない。
     # 短い名前（~ を含む）は長い名前にしてから比べる。読めなければ、置き場の下と確かめられないので利用者のものと数える
     # （データを失わない側。自分のものは置き場の下にあり、読める）
-    param ($com)
+    param ($com, [string]$name = "Excel")
 
     $own = New-Object System.Collections.ArrayList
     $foreign = New-Object System.Collections.ArrayList
-    $workbooks = $com.Workbooks
+    $workbooks = $com.($appInfo[$name].Items)
     try {
         foreach ($book in @($workbooks)) {
             if ($null -eq $book) { continue }
@@ -113,13 +145,13 @@ function getWorkbookSplit {
 }
 
 function getForeignWorkbookCount {
-    # Excel で利用者が開いたブック（置き場の外）の数。読めない（COM の例外）ときは -1（分からない。handOverForeignApp が窓で判断する）
-    param ($com)
+    # アプリで利用者が開いたファイル（置き場の外）の数。読めない（COM の例外）ときは -1（分からない。handOverForeignApp が判断する）
+    param ($com, [string]$name = "Excel")
 
     try {
-        $split = getWorkbookSplit $com
+        $split = getWorkbookSplit $com $name
         $count = @($split.Foreign).Count
-        # 取り出したブックの参照を残すと Excel が終わらなくなるため、数えたら放す
+        # 取り出したファイルの参照を残すとアプリが終わらなくなるため、数えたら放す
         foreach ($book in @($split.Own) + @($split.Foreign)) { try { releaseComObject $book } catch {} }
         return $count
     } catch {
@@ -235,22 +267,23 @@ function getApp {
 }
 
 function restoreHandedOverApp {
-    # 渡す Excel に対して、(0) 自分が開いたブック（置き場の下と確かめられたもの）を保存せずに閉じる (1) 必須の設定（DisplayAlerts・Visible・UserControl）
+    # 渡すアプリに対して、(0) 自分が開いたファイル（置き場の下と確かめられたもの）を保存せずに閉じる (1) 必須の設定（$appInfo の Restore.Required と、窓を出すアプリは Visible）
     # (2) 任意の設定を戻す。state に済んだものを控えるので、何度呼んでも済んだものはやり直さない。全部済んだら $true
-    # tries: 必須の設定をやり直す回数（失敗したときだけ間を置く）。利用者のブックは閉じない
+    # tries: 必須の設定をやり直す回数（失敗したときだけ間を置く）。利用者のファイルは閉じない
     param ($state, [int]$tries = 1)
 
     $com = $state.Com
+    $info = $appInfo[$state.Name]
     if (-not $state.BooksClosed) {
         try {
-            $books = getWorkbookSplit $com
+            $books = getWorkbookSplit $com $state.Name
             # 前の回の一覧の参照は、取り直した一覧に置き換える前に放す
             if ($state.Books) {
                 foreach ($book in @($state.Books.Own) + @($state.Books.Foreign)) { try { releaseComObject $book } catch {} }
             }
             $closeFailed = $false
             foreach ($book in $books.Own) {
-                try { $book.Close($false) } catch { $closeFailed = $true }
+                try { & $info.Close $book } catch { $closeFailed = $true }
             }
             $state.Books = $books
             # 閉じられなかったものが 1 つでもあれば、立てない（次回に一覧を取り直す。閉じたものは一覧から消えるので二重には閉じない）
@@ -258,8 +291,9 @@ function restoreHandedOverApp {
         } catch {}
     }
     # 窓・UserControl・DisplayAlerts が戻らないまま参照を放すと、Excel が保存の確認なしに終わりうるため、成功を確かめる
-    $required = @(@("DisplayAlerts", $true), @("Visible", $true), @("UserControl", $true))
-    $optional = @(@("EnableEvents", $true), @("ScreenUpdating", $true), @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))
+    $required = @($info.Restore.Required)
+    if ($info.Restore.ShowWindow) { $required += , @("Visible", $true) }
+    $optional = @($info.Restore.Optional)
     for ($try = 0; $try -lt $tries; $try++) {
         $left = @($required | Where-Object { -not $state.Done[$_[0]] })
         if ($left.Count -eq 0) { break }
@@ -287,17 +321,10 @@ function releaseHandedOverApp {
     } catch {}
 }
 
-function handOverApp {
-    # 起動した Excel を、利用者に渡す。Quit も強制終了もしない（利用者のブックを閉じない）。渡した Excel はもう使わない。
-    # 見張り・終了時の一括終了・次の起動の残り物の確認のどれからも外すので、誰も止めない。
-    # Shared の Excel（利用者の Excel に接続したもの）には当てない（止めず、設定も変えない）
-    param ([string]$name)
+function untrackApp {
+    # アプリを (a) 見張りの対象から外す (b) 一括終了の対象から外す (c) 残り物の確認の記録から消す。誰も止めなくなる。それぞれ、ほかが失敗しても行う
+    param ([string]$name, $app)
 
-    $app = $script:apps[$name]
-    if ($null -eq $app -or $app.Shared) {
-        return $false
-    }
-    # (a) 見張りの対象から外す (b) 一括終了の対象から外す (c) 残り物の確認の記録を消す。それぞれ、ほかが失敗しても行う
     try { $script:apps.Remove($name) } catch {}
     try { updateWatchedPids } catch {}
     try {
@@ -311,14 +338,52 @@ function handOverApp {
             removeOfficeRecord $script:officeRecordDir ([int]$app.Pid)
         }
     } catch {}
+}
 
-    # 自分のブックを閉じる・設定を戻す・窓を出す、を全部通して初めて「渡した」。通らなければ、持ち続けて後で設定し直す
+function keepUndecidedApp {
+    # ファイルの一覧が読めず、利用者のファイルがあるか分からないアプリ（窓で判断できない Word）を、終了させず・渡さず、持ち続ける。
+    # 利用者のファイルがあるかもしれないので、誰も止めない（untrackApp）。retryKeptApps が一覧を読み直し、利用者のファイルがあれば渡し、
+    # 自分のファイルだけなら終了させる
+    param ([string]$name)
+
+    $app = $script:apps[$name]
+    untrackApp $name $app
+    $script:officeKeptApps += , @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; BooksClosed = $false; Books = $null; Done = @{}; Undecided = $true }
+}
+
+function quitKeptApp {
+    # 自分のファイルだけだと分かった、持ち続けたアプリを終了させる（stopApp と同じ。待ち時間を過ぎたら PID で強制終了する）
+    param ($state)
+
+    try { $state.Com.Quit() } catch {}
+    releaseHandedOverApp $state
+    if ($state.Pid -gt 0) {
+        $process = Get-Process -Id $state.Pid -ErrorAction SilentlyContinue
+        if ($process -and $process.ProcessName -eq $appInfo[$state.Name].Process -and -not $process.WaitForExit($appInfo[$state.Name].ExitWait)) {
+            try { $process.Kill() } catch {}
+        }
+    }
+}
+
+function handOverApp {
+    # 起動したアプリ（Excel・Word・PowerPoint）を、利用者に渡す。Quit も強制終了もしない（利用者のファイルを閉じない）。渡したアプリはもう使わない。
+    # 見張り・終了時の一括終了・次の起動の残り物の確認のどれからも外すので、誰も止めない。
+    # Shared のアプリ（利用者のアプリに接続したもの）には当てない（止めず、設定も変えない）
+    param ([string]$name)
+
+    $app = $script:apps[$name]
+    if ($null -eq $app -or $app.Shared) {
+        return $false
+    }
+    untrackApp $name $app
+
+    # 自分のファイルを閉じる・設定を戻す・窓を出す、を全部通して初めて「渡した」。通らなければ、持ち続けて後で設定し直す
     $state = @{ Name = $name; Com = $app.Com; Pid = [int]$app.Pid; BooksClosed = $false; Books = $null; Done = @{} }
     $ok = restoreHandedOverApp $state 3
     if ($ok) {
         releaseHandedOverApp $state
     } else {
-        # 戻しきれなかった Excel は、参照を放すと終わるおそれがあるため、放さずに持ち続ける（止めも強制終了もしない）。
+        # 戻しきれなかったアプリは、参照を放すと終わるおそれがあるため、放さずに持ち続ける（止めも強制終了もしない）。
         # retryKeptApps と waitKeptApps が設定し直す。取り込みのスレッドが終わるまでに通らなければ、参照が切れる
         $script:officeKeptApps += , $state
     }
@@ -330,7 +395,7 @@ function handOverApp {
 }
 
 function retryKeptApps {
-    # 渡し切れずに持ち続けている Excel をもう一度仕上げる（済んでいないものだけ）。全部通れば参照を放して「渡した」ログを書く。待たない。
+    # 渡し切れずに持ち続けているアプリをもう一度仕上げる（済んでいないものだけ）。全部通れば参照を放して「渡した」ログを書く。待たない。
     # 控えた PID のプロセスが（その名前で）もう無ければ、利用者が先に終えたので、参照だけ放して一覧から外す（PID と名前だけを見る。窓は探さない。止めない）
     if (@($script:officeKeptApps).Count -eq 0) {
         return
@@ -340,6 +405,17 @@ function retryKeptApps {
         if ($kept.Pid -gt 0 -and -not (testProcessExists ([int]$kept.Pid) $appInfo[$kept.Name].Process)) {
             releaseHandedOverApp $kept
             continue
+        }
+        if ($kept.Undecided) {
+            # 利用者のファイルがあるか、一覧を読み直す。まだ読めなければ、そのまま持ち続ける
+            try { $probe = getWorkbookSplit $kept.Com $kept.Name } catch { $remaining += , $kept; continue }
+            $foreignCount = @($probe.Foreign).Count
+            foreach ($book in @($probe.Own) + @($probe.Foreign)) { try { releaseComObject $book } catch {} }
+            if ($foreignCount -eq 0) {
+                quitKeptApp $kept
+                continue
+            }
+            $kept.Undecided = $false
         }
         if (restoreHandedOverApp $kept 1) {
             releaseHandedOverApp $kept
@@ -354,7 +430,7 @@ function retryKeptApps {
 }
 
 function waitKeptApps {
-    # 取り込みのスレッドの終わりに限り、持ち続けている Excel を、間を置いて上限まで仕上げ直す。持ち続けが無ければ待たない。
+    # 取り込みのスレッドの終わりに限り、持ち続けているアプリを、間を置いて上限まで仕上げ直す。持ち続けが無ければ待たない。
     # shouldStop が真を返したら（中止・画面を閉じる）次の刻みで抜ける。上限に届かなかったものは、そのまま持ち続け（スレッドが終わると参照が切れる）
     param ([scriptblock]$shouldStop = { $false })
 
@@ -369,22 +445,29 @@ function waitKeptApps {
 }
 
 function handOverForeignApp {
-    # 起動した Excel に利用者が開いたブックがあれば、利用者に渡して $true を返す。無ければ何もせず $false
+    # 起動したアプリ（Excel・Word・PowerPoint）に利用者が開いたファイルがあれば、利用者に渡して $true を返す。無ければ何もせず $false
     param ([string]$name)
 
-    # 前に戻しきれなかった Excel があれば、ここで仕上げ直す
+    # 前に戻しきれなかったアプリがあれば、ここで仕上げ直す
     retryKeptApps
     $app = $script:apps[$name]
-    if ($name -ne "Excel" -or $null -eq $app -or $app.Shared) {
+    if ($null -eq $app -or $app.Shared) {
         return $false
     }
-    $count = getForeignWorkbookCount $app.Com
+    $count = getForeignWorkbookCount $app.Com $name
     if ($count -eq 0) {
         return $false
     }
-    # ブックの一覧を読めない（COM が呼び出しを拒んだ。利用者が操作中のことがある）ときは、見える窓があれば利用者が使っているとみなし、止めない
-    if ($count -lt 0 -and -not (testProcessHasWindow ([int]$app.Pid) $appInfo["Excel"].Process)) {
-        return $false
+    # ファイルの一覧を読めない（COM が呼び出しを拒んだ。利用者が操作中のことがある）ときは、
+    #   窓で判断できるアプリ（Excel・PowerPoint）: 見える窓があれば利用者が使っているとみなして渡し、無ければ何もしない（今までどおり終了させる）
+    #   窓で判断できないアプリ（Word。自分で窓を隠している）: 渡しも終了もさせず、持ち続けて後で一覧を読み直す（空の窓を出さず、データも失わない）
+    if ($count -lt 0) {
+        if ($appInfo[$name].Restore.WindowCheck) {
+            if (-not (testProcessHasWindow ([int]$app.Pid) $appInfo[$name].Process)) { return $false }
+        } else {
+            keepUndecidedApp $name
+            return $true
+        }
     }
     [void](handOverApp $name)
     return $true
@@ -399,23 +482,15 @@ function stopApp {
     if ($null -eq $app) {
         return
     }
-    # インデックス作成中に利用者が Excel でブックを開いた場合は、閉じずに利用者に渡す
+    # インデックス作成中に利用者が同じアプリでファイルを開いた場合は、閉じずに利用者に渡す（自分のファイルだけなら、下で終了させる）
     if (handOverForeignApp $name) {
         return
     }
     $script:apps.Remove($name)
     updateWatchedPids
 
-    # インデックス作成中に利用者が同じアプリでファイルを開いた場合は、終了させない
+    # 利用者のアプリに接続したもの（Shared）は、終了させない
     $inUse = $app.Shared
-    if (-not $inUse) {
-        try {
-            switch ($name) {
-                "Word"       { $inUse = ($app.Com.Documents.Count -gt 0) }
-                "PowerPoint" { $inUse = ($app.Com.Presentations.Count -gt 0) }
-            }
-        } catch {}
-    }
 
     if (-not $inUse) {
         try { $app.Com.Quit() } catch {}

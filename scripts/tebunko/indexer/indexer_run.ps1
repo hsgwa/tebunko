@@ -7,13 +7,13 @@
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
 # ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
-# Excel を利用者に渡したときのログ（indexing_log.txt）への 1 行。office_app.ps1 の handOverApp が呼ぶ
+# Excel・Word・PowerPoint を利用者に渡したときのログ（indexing_log.txt）への 1 行。office_app.ps1 の handOverApp が呼ぶ
 ${officeHandOverNotice} = {
     param ($name, $shown)
     if ($shown) {
-        writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しました"
+        writeIndexerLog "開かれたファイルがあるため ${name} を利用者に渡しました"
     } else {
-        writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しましたが、窓や設定を戻しきれませんでした（終了させずに残しています）" "Yellow"
+        writeIndexerLog "開かれたファイルがあるため ${name} を利用者に渡しましたが、窓や設定を戻しきれませんでした（終了させずに残しています）" "Yellow"
     }
 }
 
@@ -48,7 +48,7 @@ ${ingestWorkerScript} = {
         if (!$script:officeUnavailable) {
             stopWatchdog
             stopAllApps
-            # 渡し切れずに持ち続けている Excel は、ここで上限まで仕上げ直す（中止・画面を閉じるときは待たない）
+            # 渡し切れずに持ち続けているアプリは、ここで上限まで仕上げ直す（中止・画面を閉じるときは待たない）
             waitKeptApps ({ [bool]$settings.Channel.Stop }.GetNewClosure())
         }
     }
@@ -177,9 +177,10 @@ function invokeIngestTask {
             try { stopApp (getAppName $task.RelPath) } catch {}
         }
     } finally {
-        # Excel で利用者が開いたブックがあれば、閉じずに利用者に渡す（次のファイルは新しい Excel で取り込む）
-        if (!$script:officeUnavailable -and (getAppName $task.RelPath) -eq "Excel") {
-            try { [void](handOverForeignApp "Excel") } catch {}
+        # Excel・Word・PowerPoint で利用者が開いたファイルがあれば、閉じずに利用者に渡す（次のファイルは新しいアプリで取り込む。PowerPoint は後回しになる）
+        $appName = getAppName $task.RelPath
+        if (!$script:officeUnavailable -and $appName) {
+            try { [void](handOverForeignApp $appName) } catch {}
         }
         $result.TimedOut = [bool]$script:watchdog.TimedOut
         $script:indexerLog = $previousLog
