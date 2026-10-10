@@ -252,9 +252,9 @@ Describe "Office ファイルを安全に開くこと（docs/safety/checks.md「
 
     It "インデクサの Office は画面に出さない（Visible = false）" {
         (findPattern $app 'Visible\s*=\s*\$false') | Should -Not -Be ""
-        # 可視にするのは画面から元のファイルを開くときだけ（ui/open_source.ps1）
+        # 可視にするのは、画面から元のファイルを開くとき（ui/open_source.ps1）と、利用者のブックが入った Excel を利用者に渡すとき（office_app.ps1 の handOverApp）だけ
         $visible = @($code | Where-Object { $_.Text -match 'Visible\s*=\s*\$true' })
-        (@($visible | Where-Object { $_.File -ne "open_source.ps1" } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
+        (@($visible | Where-Object { $_.File -ne "open_source.ps1" -and -not ($_.File -eq "office_app.ps1" -and $_.Text -match '\$com\.Visible') } | ForEach-Object { "$($_.File):$($_.Line)" }) -join ", ") | Should -Be ""
     }
 }
 

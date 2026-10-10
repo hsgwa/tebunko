@@ -868,6 +868,8 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         . "${scriptsDir}\shared\office\office_app.ps1"
         . "${scriptsDir}\tebunko\indexer\extract_office.ps1"
         . "${scriptsDir}\tebunko\indexer\index_migrate.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_plan.ps1"
+        . "${scriptsDir}\tebunko\indexer\indexer_decide.ps1"
         . $runPath
         . "$PSScriptRoot\..\..\helpers\cfb.ps1"
     }
@@ -979,6 +981,46 @@ Describe "invokeIngestTask（Office が要る）" -Tag Io {
         $result.Ok | Should -Be $false
         $result.Message | Should -Be "ふつうの失敗です。"
         $result.Log | Should -Not -Match "サイズの上限"
+    }
+
+    It "Excel の取り込みのあとに利用者が開いたブックがあれば、閉じずに渡し、次の Excel の取り込みは新しく起動する" {
+        ${tmpDir} = Join-Path $TestDrive "handover_tmp"
+        [System.IO.Directory]::CreateDirectory(${tmpDir}) | Out-Null
+        $script:officeOwnDir = ${tmpDir}
+        $script:onOfficeHandOver = ${officeHandOverNotice}
+        $global:handoverFake = New-Object psobject -Property @{
+            Visible = $false; UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
+            AskToUpdateLinks = $false; AutomationSecurity = 3
+            Workbooks = @([pscustomobject]@{ FullName = "C:\利用者\山田の資料.xlsx" })
+        }
+        $global:handoverFake | Add-Member -MemberType ScriptMethod -Name Quit -Value { throw "Quit は呼ばない" }
+        $global:handoverStarts = New-Object System.Collections.ArrayList
+        Mock ingestFile {
+            [void]$global:handoverStarts.Add(-not $script:apps.ContainsKey("Excel"))
+            $script:apps["Excel"] = @{ Com = $global:handoverFake; Pid = 4242; Shared = $false }
+            return 1
+        }
+        Mock publishTsv { }
+        Mock getBookDir { "x" }
+        Mock getExtractVersion { "1" }
+        try {
+            $first = invokeIngestTask @{ RelPath = "資料\a.xlsx"; SourcePath = "C:\data\a.xlsx" } 10
+            $first.Ok | Should -Be $true
+            $first.Log | Should -Match "開かれたブックがあるため Excel を利用者に渡しました"
+            $script:apps.ContainsKey("Excel") | Should -Be $false
+            $global:handoverFake.Visible | Should -Be $true
+            $global:handoverFake.AutomationSecurity | Should -Be 1
+
+            # 渡したあとの次のファイルは、新しい Excel を起動する（渡した Excel を使い続けない）
+            $global:handoverFake.Workbooks = @()
+            [void](invokeIngestTask @{ RelPath = "資料\b.xlsx"; SourcePath = "C:\data\b.xlsx" } 10)
+            @($global:handoverStarts) | Should -Be @($true, $true)
+        } finally {
+            $script:apps.Remove("Excel")
+            $script:officeOwnDir = $null
+            $script:onOfficeHandOver = $null
+            Remove-Variable -Name handoverFake, handoverStarts -Scope Global
+        }
     }
 }
 

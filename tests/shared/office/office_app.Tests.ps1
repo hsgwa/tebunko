@@ -457,3 +457,185 @@ Describe "起動した Office の PID の記録（getApp・stopApp）" -Tag Io {
         Test-Path "$dir\300.txt" | Should -Be $false
     }
 }
+
+Describe "利用者が開いたブックの見分けと、利用者への引き渡し（isUnderDir・getForeignWorkbookCount・handOverApp・stopApp）" -Tag Unit {
+    BeforeAll {
+        function newBook([string]$fullName) {
+            $book = [pscustomobject]@{ FullName = $fullName }
+            $book | Add-Member -MemberType ScriptMethod -Name Close -Value { [void]$log.Add("Close:$($this.FullName)|$($args[0])") }
+            return $book
+        }
+        function newHandOverApp([object[]]$books = @(), [int]$documents = 0) {
+            $app = New-Object psobject -Property @{
+                Visible = $false; UserControl = $false; DisplayAlerts = $false; EnableEvents = $false; ScreenUpdating = $false
+                AskToUpdateLinks = $false; AutomationSecurity = 3
+                Workbooks = $books; Documents = @{ Count = $documents }; Presentations = @{ Count = $documents }
+            }
+            $app | Add-Member -MemberType ScriptMethod -Name Quit -Value { [void]$log.Add("Quit") }
+            return $app
+        }
+        $own = "C:\work\tmp\w1"
+    }
+
+    BeforeEach {
+        foreach ($name in @("Excel", "Word", "PowerPoint")) { $script:apps.Remove($name) }
+        $log.Clear()
+        $script:officeOwnDir = $own
+        $script:officePidSink = $null
+        $script:officeRecordDir = $null
+        $script:onOfficeHandOver = $null
+        updateWatchedPids
+        Mock Get-Process { $null }
+    }
+
+    AfterEach {
+        $script:officeOwnDir = $null
+        $script:officePidSink = $null
+        $script:officeRecordDir = $null
+        $script:onOfficeHandOver = $null
+        foreach ($name in @("Excel", "Word", "PowerPoint")) { $script:apps.Remove($name) }
+        updateWatchedPids
+    }
+
+    It "isUnderDir: <name>" -TestCases @(
+        @{ name = "置き場の下"; path = "C:\work\tmp\w1\a.xlsx"; dir = "C:\work\tmp\w1"; expected = $true }
+        @{ name = "大文字小文字だけが違う"; path = "c:\WORK\TMP\W1\A.xlsx"; dir = "C:\work\tmp\w1"; expected = $true }
+        @{ name = "置き場の末尾に区切りがある"; path = "C:\work\tmp\w1\a.xlsx"; dir = "C:\work\tmp\w1\"; expected = $true }
+        @{ name = "置き場の名前を前置に持つ別フォルダ"; path = "C:\work\tmp\w10\a.xlsx"; dir = "C:\work\tmp\w1"; expected = $false }
+        @{ name = "置き場の外"; path = "C:\docs\x\a.xlsx"; dir = "C:\work\tmp\w1"; expected = $false }
+        @{ name = "URL（正規化できない）"; path = "https://example.com/a.xlsx"; dir = "C:\work\tmp\w1"; expected = $false }
+    ) {
+        param ($name, $path, $dir, $expected)
+        isUnderDir $path $dir | Should -Be $expected
+    }
+
+    It "getForeignWorkbookCount: <name>" -TestCases @(
+        @{ name = "ブックが無ければ 0"; books = @(); ownDir = "C:\work\tmp\w1"; expected = 0 }
+        @{ name = "置き場の下だけなら 0"; books = @("C:\work\tmp\w1\a.xlsx"); ownDir = "C:\work\tmp\w1"; expected = 0 }
+        @{ name = "外のブックがあれば数える"; books = @("C:\work\tmp\w1\a.xlsx", "C:\docs\x\山田.xlsx"); ownDir = "C:\work\tmp\w1"; expected = 1 }
+        @{ name = "置き場が決まっていなければ全部数える"; books = @("C:\work\tmp\w1\a.xlsx", "C:\docs\x\山田.xlsx"); ownDir = $null; expected = 2 }
+        @{ name = "tmp と tmp2 を取り違えない"; books = @("C:\work\tmp2\a.xlsx"); ownDir = "C:\work\tmp"; expected = 1 }
+    ) {
+        param ($name, $books, $ownDir, $expected)
+        $script:officeOwnDir = $ownDir
+        $com = newHandOverApp @($books | ForEach-Object { newBook $_ })
+        getForeignWorkbookCount $com | Should -Be $expected
+    }
+
+    It "getForeignWorkbookCount: Workbooks が例外なら 0（今までどおり止める側）" {
+        $com = New-Object psobject
+        $com | Add-Member -MemberType ScriptProperty -Name Workbooks -Value { throw "呼び出しが拒否されました" }
+        getForeignWorkbookCount $com | Should -Be 0
+    }
+
+    It "getForeignWorkbookCount: 短い名前（~ を含む）は長い名前にしてから比べる。長い名前にできなければ利用者のものと数えない" {
+        Mock Get-Item { [pscustomobject]@{ FullName = "C:\work\tmp\w1\長い名前.xlsx" } } -ParameterFilter { $LiteralPath -eq "C:\work\tmp\w1\LONGNA~1.xlsx" }
+        Mock Get-Item { throw "読めません" } -ParameterFilter { $LiteralPath -eq "C:\other\SHORT~1.xlsx" }
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\LONGNA~1.xlsx"), (newBook "C:\other\SHORT~1.xlsx"))
+        getForeignWorkbookCount $com | Should -Be 0
+    }
+
+    It "handOverApp: 見張り・一括終了・記録から外し、設定を戻して窓を出し、Quit も強制終了もしない" {
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+        updateWatchedPids
+        $script:watchdog.Pids | Should -Contain 4242
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        $script:officePidSink[4242] = "EXCEL"
+        $script:officeRecordDir = Join-Path $TestDrive "hand_over_records"
+        [System.IO.Directory]::CreateDirectory($script:officeRecordDir) | Out-Null
+        [System.IO.File]::WriteAllText("$($script:officeRecordDir)\4242.txt", "EXCEL`t1`t1")
+        Mock Stop-Process {}
+
+        handOverApp "Excel"
+
+        $script:apps.ContainsKey("Excel") | Should -Be $false
+        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        $script:officePidSink.ContainsKey(4242) | Should -Be $false
+        Test-Path "$($script:officeRecordDir)\4242.txt" | Should -Be $false
+        $com.Visible | Should -Be $true
+        $com.UserControl | Should -Be $true
+        $com.DisplayAlerts | Should -Be $true
+        $com.EnableEvents | Should -Be $true
+        $com.ScreenUpdating | Should -Be $true
+        $com.AskToUpdateLinks | Should -Be $true
+        $com.AutomationSecurity | Should -Be 1
+        @($log).Count | Should -Be 0
+        Should -Invoke Get-Process -Times 0 -Exactly -Scope It
+        Should -Invoke Stop-Process -Times 0 -Exactly -Scope It
+    }
+
+    It "handOverApp: 自分が開いたブック（置き場の下）は Close(`$false) し、利用者のブックは閉じない" {
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\壊れた.xlsx"), (newBook "C:\docs\x\山田.xlsx"))
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+
+        handOverApp "Excel"
+
+        @($log) | Should -Be @("Close:C:\work\tmp\w1\壊れた.xlsx|False")
+    }
+
+    It "handOverApp: 設定を戻すところで例外が出ても、見張り・一括終了・記録からは外れている" {
+        $com = New-Object psobject -Property @{ Workbooks = @() }
+        foreach ($property in "Visible", "UserControl", "DisplayAlerts", "EnableEvents", "ScreenUpdating", "AskToUpdateLinks", "AutomationSecurity") {
+            $com | Add-Member -MemberType ScriptProperty -Name $property -Value { 0 } -SecondValue { throw "設定できません" }
+        }
+        $script:apps["Excel"] = @{ Com = $com; Pid = 4242; Shared = $false }
+        $script:officePidSink = New-Object 'System.Collections.Concurrent.ConcurrentDictionary[int,string]'
+        $script:officePidSink[4242] = "EXCEL"
+        updateWatchedPids
+
+        { handOverApp "Excel" } | Should -Not -Throw
+
+        $script:apps.ContainsKey("Excel") | Should -Be $false
+        @($script:watchdog.Pids) | Should -Not -Contain 4242
+        $script:officePidSink.ContainsKey(4242) | Should -Be $false
+    }
+
+    It "handOverApp: 渡したことを知らせる処理があれば呼ぶ" {
+        $script:onOfficeHandOver = { param ($name) [void]$log.Add("通知:$name") }
+        $script:apps["Excel"] = @{ Com = (newHandOverApp); Pid = 4242; Shared = $false }
+
+        handOverApp "Excel"
+
+        @($log) | Should -Be @("通知:Excel")
+    }
+
+    It "handOverApp: 利用者の Excel に接続したもの（Shared）には当てない（設定も変えない）" {
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx"))
+        $script:apps["Excel"] = @{ Com = $com; Pid = 0; Shared = $true }
+
+        handOverApp "Excel"
+
+        $script:apps.ContainsKey("Excel") | Should -Be $true
+        $com.Visible | Should -Be $false
+        $com.DisplayAlerts | Should -Be $false
+        $com.AutomationSecurity | Should -Be 3
+    }
+
+    It "stopApp: 利用者が開いたブック・文書があるとき、<name>" -TestCases @(
+        @{ name = "Excel は渡す（Quit も強制終了もしない）"; app = "Excel"; handed = $true }
+        @{ name = "Word は止めない"; app = "Word"; handed = $false }
+        @{ name = "PowerPoint は止めない"; app = "PowerPoint"; handed = $false }
+    ) {
+        param ($name, $app, $handed)
+        $com = newHandOverApp @((newBook "C:\docs\x\山田.xlsx")) 1
+        $script:apps[$app] = @{ Com = $com; Pid = 4242; Shared = $false }
+
+        stopApp $app
+
+        $script:apps.ContainsKey($app) | Should -Be $false
+        @($log) -contains "Quit" | Should -Be $false
+        Should -Invoke Get-Process -Times 0 -Exactly -Scope It
+        $com.Visible | Should -Be $handed
+    }
+
+    It "stopApp: Excel に利用者が開いたブックが無ければ、今までどおり Quit する" {
+        $com = newHandOverApp @((newBook "C:\work\tmp\w1\a.xlsx"))
+        $script:apps["Excel"] = @{ Com = $com; Pid = 0; Shared = $false }
+
+        stopApp "Excel"
+
+        @($log) | Should -Be @("Quit")
+        $com.Visible | Should -Be $false
+    }
+}

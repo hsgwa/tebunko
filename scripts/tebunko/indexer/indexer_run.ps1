@@ -7,6 +7,9 @@
 #   スレッドの数が 0 のときは、司令のスレッドで取り込む（テストで、途中に割り込むため）
 # ・画面とのやり取りは受け渡しの口（newIndexerChannel）で行う。表示内容は indexing_log.txt に書く
 
+# Excel を利用者に渡したときのログ（indexing_log.txt）への 1 行。office_app.ps1 の handOverApp が呼ぶ
+${officeHandOverNotice} = { param ($name) writeIndexerLog "開かれたブックがあるため ${name} を利用者に渡しました" }
+
 # 取り込みのスレッドで動かすスクリプト。自分のレーンの列（tasks）から 1 ファイルずつ取り出して取り込み、結果を results に入れる。
 # Office のレーン（Excel・Word・PowerPoint）は STA で、そのアプリを 1 つ持つ。読み取りのレーンは Office を持たない。
 # 列が閉じられたら（CompleteAdding）、Office を終了して終わる
@@ -24,6 +27,8 @@ ${ingestWorkerScript} = {
     [System.IO.Directory]::CreateDirectory($workspace.PublishDir) | Out-Null
     $script:officePidSink = $settings.OfficePids
     $script:officeRecordDir = $settings.OfficeRecordDir
+    $script:officeOwnDir = $(if ($tmpDir) { resolveLongName $tmpDir } else { $null })
+    $script:onOfficeHandOver = ${officeHandOverNotice}
     $script:officeUnavailable = ($settings.Lane -eq ${laneReader})
     [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::BelowNormal
 
@@ -163,6 +168,10 @@ function invokeIngestTask {
             try { stopApp (getAppName $task.RelPath) } catch {}
         }
     } finally {
+        # Excel で利用者が開いたブックがあれば、閉じずに利用者に渡す（次のファイルは新しい Excel で取り込む）
+        if (!$script:officeUnavailable -and (getAppName $task.RelPath) -eq "Excel") {
+            try { [void](handOverForeignApp "Excel") } catch {}
+        }
         $result.TimedOut = [bool]$script:watchdog.TimedOut
         $script:indexerLog = $previousLog
         $result.Log = $log.ToString()
@@ -651,6 +660,8 @@ function invokeIndexerBody {
         } else {
             $script:officePidSink = $channel.OfficePids
             $script:officeRecordDir = $officeRecordDir
+            $script:officeOwnDir = $(if (${tmpDir}) { resolveLongName ${tmpDir} } else { $null })
+            $script:onOfficeHandOver = ${officeHandOverNotice}
             startWatchdog
         }
 
@@ -826,6 +837,8 @@ function invokeIndexerBody {
         }
         $script:officePidSink = $null
         $script:officeRecordDir = $null
+        $script:officeOwnDir = $null
+        $script:onOfficeHandOver = $null
         removeTmpDir
         $ledger.RemoveIngestingFile()
         # 取り込んだ TSV は、中止したときも残さず集約ファイルに入れる（残すとインデックスの容量が倍になる）

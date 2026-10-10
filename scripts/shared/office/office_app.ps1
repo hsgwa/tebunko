@@ -35,6 +35,79 @@ $script:officePidSink = $null
 # shared はツールを知らないため、使う側（インデックス作成）が場所を決めて入れる（office_process.ps1 の addOfficeRecord・removeOfficeRecord）。
 # 記録は、次に画面を起動したときに、残った Office を確認して止めるために使う（書けなくても取り込みは続ける。その Office は止める対象にならない）
 $script:officeRecordDir = $null
+# 自分が開くブックの置き場（インデックス作成の作業領域の一時フォルダ。$null なら、開いているブックをすべて利用者のものとみなす）。
+# 使う側が入れる。置き場の外のブックが Excel に開かれたら、利用者が開いたブックとして扱う（getForeignWorkbookCount・handOverApp）
+$script:officeOwnDir = $null
+# Excel を利用者に渡したときに呼ぶ処理（スクリプトブロック。引数はアプリ名。$null なら何もしない）。ログを書く使う側が入れる
+$script:onOfficeHandOver = $null
+
+function resolveLongName {
+    # 8.3 の短い名前（TEST~1 など）を含むパスを長い名前にする。読めなければ $null
+    param ([string]$path)
+
+    try {
+        return (Get-Item -LiteralPath $path -ErrorAction Stop).FullName
+    } catch {
+        return $null
+    }
+}
+
+function isUnderDir {
+    # path が dir の下にあるか。両方を正規化し、dir は区切りで終わる形にして、大文字小文字を区別せずに前置で比べる
+    # （tmp と tmp2 を取り違えない）。正規化できない（URL など）ときは、下に無いものとする
+    param ([string]$path, [string]$dir)
+
+    try {
+        $full = [System.IO.Path]::GetFullPath($path)
+        $base = [System.IO.Path]::GetFullPath($dir).TrimEnd('\') + '\'
+        return $full.StartsWith($base, [System.StringComparison]::OrdinalIgnoreCase)
+    } catch {
+        return $false
+    }
+}
+
+function getWorkbookSplit {
+    # Excel で開いているブックを、自分が開いたもの（置き場の下）と利用者が開いたもの（外）に分ける。@{ Own; Foreign }
+    # 開いたブックの FullName を控えて照合する方法は、失敗の途中で Open が戻らなかったブックを控えられないため採らない。
+    # 短い名前（~ を含む）は長い名前にしてから比べ、読めなければ利用者のものと数えない（毎ファイルで渡さないため）
+    param ($com)
+
+    $own = New-Object System.Collections.ArrayList
+    $foreign = New-Object System.Collections.ArrayList
+    foreach ($book in @($com.Workbooks)) {
+        if ($null -eq $book) { continue }
+        $full = [string]$book.FullName
+        if ($full.Contains('~')) {
+            $long = resolveLongName $full
+            if ($null -eq $long) {
+                [void]$own.Add($book)
+                continue
+            }
+            $full = $long
+        }
+        if ($script:officeOwnDir -and (isUnderDir $full $script:officeOwnDir)) {
+            [void]$own.Add($book)
+        } else {
+            [void]$foreign.Add($book)
+        }
+    }
+    return @{ Own = $own; Foreign = $foreign }
+}
+
+function getForeignWorkbookCount {
+    # Excel で利用者が開いたブック（置き場の外）の数。読めない（COM の例外）ときは 0（今までどおり止める側）
+    param ($com)
+
+    try {
+        $split = getWorkbookSplit $com
+        $count = @($split.Foreign).Count
+        # 取り出したブックの参照を残すと Excel が終わらなくなるため、数えたら放す
+        foreach ($book in @($split.Own) + @($split.Foreign)) { try { releaseComObject $book } catch {} }
+        return $count
+    } catch {
+        return 0
+    }
+}
 
 function getOwnSessionProcessIds {
     # 自分のセッションで動いている、指定した名前のプロセスのIDの一覧。
@@ -119,6 +192,76 @@ function getApp {
     return $script:apps[$name].Com
 }
 
+function handOverApp {
+    # 起動した Excel を、利用者に渡す。Quit も強制終了もしない（利用者のブックを閉じない）。渡した Excel はもう使わない。
+    # 見張り・終了時の一括終了・次の起動の残り物の確認のどれからも外すので、誰も止めない。
+    # Shared の Excel（利用者の Excel に接続したもの）には当てない（止めず、設定も変えない）
+    param ([string]$name)
+
+    $app = $script:apps[$name]
+    if ($null -eq $app -or $app.Shared) {
+        return
+    }
+    try {
+        # (a) 見張りの対象から外す (b) 一括終了の対象から外す (c) 残り物の確認の記録を消す
+        $script:apps.Remove($name)
+        updateWatchedPids
+        if ($app.Pid -and $script:officePidSink) {
+            $removed = $null
+            [void]$script:officePidSink.TryRemove([int]$app.Pid, [ref]$removed)
+        }
+        if ($app.Pid -and $script:officeRecordDir) {
+            removeOfficeRecord $script:officeRecordDir ([int]$app.Pid)
+        }
+    } catch {}
+
+    $com = $app.Com
+    $books = $null
+    # (0) 自分が開いたブック（失敗して開いたままの一時コピー）は、利用者に見せず、一時フォルダの掃除をロックで失敗させないよう閉じる
+    try {
+        $books = getWorkbookSplit $com
+        foreach ($book in $books.Own) {
+            try { $book.Close($false) } catch {}
+        }
+    } catch {}
+    # (d) 起動時に変えた設定を、利用者が起動したときの状態に戻す
+    foreach ($setting in @(
+            @("DisplayAlerts", $true), @("EnableEvents", $true), @("ScreenUpdating", $true),
+            @("AskToUpdateLinks", $true), @("AutomationSecurity", 1))) {
+        try { $com.($setting[0]) = $setting[1] } catch {}
+    }
+    # (e) 窓を出し、COM の参照を放しても利用者が閉じるまで残るようにする
+    try { $com.Visible = $true } catch {}
+    try { $com.UserControl = $true } catch {}
+    # (f) このスレッドが持つ COM を解放しきる。WaitForPendingFinalizers は長く止まることがあるため使わない
+    try {
+        if ($books) {
+            foreach ($book in @($books.Own) + @($books.Foreign)) { try { releaseComObject $book } catch {} }
+        }
+        releaseComObject $com
+        [GC]::Collect()
+    } catch {}
+
+    if ($script:onOfficeHandOver) {
+        try { & $script:onOfficeHandOver $name } catch {}
+    }
+}
+
+function handOverForeignApp {
+    # 起動した Excel に利用者が開いたブックがあれば、利用者に渡して $true を返す。無ければ何もせず $false
+    param ([string]$name)
+
+    $app = $script:apps[$name]
+    if ($name -ne "Excel" -or $null -eq $app -or $app.Shared) {
+        return $false
+    }
+    if ((getForeignWorkbookCount $app.Com) -le 0) {
+        return $false
+    }
+    handOverApp $name
+    return $true
+}
+
 function stopApp {
     param (
         [string]$name
@@ -126,6 +269,10 @@ function stopApp {
 
     $app = $script:apps[$name]
     if ($null -eq $app) {
+        return
+    }
+    # インデックス作成中に利用者が Excel でブックを開いた場合は、閉じずに利用者に渡す
+    if (handOverForeignApp $name) {
         return
     }
     $script:apps.Remove($name)
