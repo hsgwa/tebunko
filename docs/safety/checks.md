@@ -52,7 +52,7 @@ function scan { param([string[]]$Pattern)
 | `AutomationSecurity`（検索結果から元の Excel ファイルを開くとき） | `2`（`msoAutomationSecurityByUI`） | 利用者の Excel のマクロの設定（セキュリティセンター）に従う。設定を緩める値（`1`）にはしない。開いた後は元の値に戻す（`tebunko/ui/open_source.ps1` の `openInExcel`）。上の `3` はインデクサ（取り込み）の設定で、利用者が編集する用途の「開く」とは分けている |
 | `EnableEvents` | `$false` | `Workbook_Open` などのイベントマクロを発火させない（Excel） |
 | `AskToUpdateLinks` | `$false`、`Workbooks.Open` の `UpdateLinks` = `0` | **外部リンクを更新しない**。他ブックや外部データソースへのアクセスが発生しない（Excel） |
-| `Visible` | `$false` | 画面に出さずに処理する（Excel・Word。PowerPoint はアプリを隠せないため、`Open` の `WithWindow` = False でウィンドウ無しで開く） |
+| `Visible` | `$false` | 画面に出さずに処理する（Excel・Word。PowerPoint はアプリを隠せないため、`Open` の `WithWindow` = False でウィンドウ無しで開く）。例外は、利用者のファイルが入った Excel・Word を利用者に渡すときだけ `$true` にする（`restoreHandedOverApp`。`handOverApp` と `retryKeptApps` が呼ぶ） |
 | `DisplayAlerts` | 無効 | ダイアログで処理が止まらないようにする |
 | `Open` の `ReadOnly` | 真 | 読み取り専用で開く（`tebunko/indexer/extract_office.ps1:122`（Excel）・`202`（Word）・`228`（PowerPoint）） |
 
